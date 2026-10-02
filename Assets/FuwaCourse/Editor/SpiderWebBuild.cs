@@ -488,6 +488,24 @@ public static class SpiderWebBuild
         return m;
     }
 
+    // 浮島の下の▼（土の帯→岩のとんがり）。top＝ふたの高さ（上の円盤の厚みの中）、radius＝上の円盤より少し小さく
+    public static GameObject AddIslandUnder(Transform parent, Vector3 localTop, float radius, float depth, int seed)
+    {
+        var old = parent.Find("IslandUnder");
+        if (old != null) Object.DestroyImmediate(old.gameObject);
+        var u = new GameObject("IslandUnder", typeof(MeshFilter), typeof(MeshRenderer));
+        u.transform.SetParent(parent, false);
+        u.transform.localPosition = localTop;
+        u.transform.localRotation = Quaternion.Euler(0, (seed * 47) % 360, 0);
+        u.transform.localScale = new Vector3(radius, depth, radius);
+        u.GetComponent<MeshFilter>().sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FarIslands/IslandUnder_" + (Mathf.Abs(seed) % 3) + ".asset");
+        var mr = u.GetComponent<MeshRenderer>();
+        mr.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/IslandUnder.mat");
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        u.layer = parent.gameObject.layer;
+        return u;
+    }
+
     static void BuildTree(Transform parent, SpiderWebBuilder b, string assetName, Tree tree, float sgn, float crownR, bool island, float tipX, int seed)
     {
         seed += Mathf.RoundToInt(b.seed * 13);
@@ -550,17 +568,10 @@ public static class SpiderWebBuild
         if (island)
         {
             // 地面がない所は、小さい浮島（緑の地面＋下が岩）の上に立てる
-            float ir = r0 * 4.2f; int m = 6; var ic = new Vector3[m]; var ir2 = new float[m];
-            for (int i = 0; i < m; i++)
-            {
-                float t = (float)i / (m - 1);
-                // 一番上の輪は緑の円盤（上面 -0.04、下面 -0.10）の裏にぴったり隠れる高さ・大きさにして、でこぼこも付けない
-                // （はみ出すと岩の角が緑の地面の上に突き出て見える）
-                ic[i] = basePos + new Vector3(0, -0.095f - t * ir * 1.3f, 0);
-                ir2[i] = ir * (i == 0 ? 0.97f : (1 - Mathf.Pow(t, 0.8f) * 0.93f));
-            }
-            subs.Add(new CombineInstance { mesh = Tube(ic, ir2, 11, 0.14f, seed + 3, true), transform = Matrix4x4.identity });
-            mats.Add(FindMat("Rock"));
+            float ir = r0 * 4.2f;
+            // 下の▼は、ほかの浮島（スタート/ゴール・遠景）と同じ見た目の IslandUnder を別オブジェクトで置く。
+            // ふたは緑の円盤（上面 -0.04、下面 -0.10）の厚みの中、半径は円盤(ir*1.025)より小さく＝はみ出さない
+            AddIslandUnder(root, basePos + new Vector3(0, -0.07f, 0), ir, ir * 1.3f, seed);
             var tmpC = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             var cyl = tmpC.GetComponent<MeshFilter>().sharedMesh;
             Object.DestroyImmediate(tmpC);
