@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-// コース2「いわやま」全部盛り版の道を生成する。
+// コース2「いわのみち」（旧いわやま）全部盛り版の道を生成する。
 // 中心線はスタート(Start)のローカル座標で定義：z=1 から +z 向きに出発、s=道に沿った距離。
 // 道は3つのかたまり：ふもと〜崖下 / 崖の上〜崖ダイブの縁 / 下の台地。崖とすき間は岩(Blender)で埋める。
 public static class FuwaCourse2Builder
