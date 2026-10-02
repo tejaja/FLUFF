@@ -6,14 +6,12 @@ col = bpy.data.collections.get('FarIslands')
 SOIL = (0.56, 0.42, 0.32); SOIL2 = (0.48, 0.36, 0.30); ROCK = (0.66, 0.58, 0.70); ROCK2 = (0.46, 0.40, 0.54)
 def lerp3(a, b, t): return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 out = {}
-for vi, seed in enumerate((11, 12, 13)):
+for (vi, seed, SEG, n, suffix) in [(0, 11, 56, 10, ''), (1, 12, 56, 10, ''), (2, 13, 56, 10, ''), (0, 11, 22, 5, 'Low'), (1, 12, 22, 5, 'Low'), (2, 13, 22, 5, 'Low')]:
     random.seed(seed); off = Vector((seed * 2.3, seed * 0.7, 0))
-    SEG = 56
     V = []; C = []; F = []; rings = []
     def rim(a): return 1.0 + 0.04 * noise.noise(off + Vector((math.cos(a) * 1.5, math.sin(a) * 1.5, 0)))
     # 上は床の真下（ふちは床より少し内側＝はみ出さない）、土の帯→岩→とがった先
     prof = [(0.97, 0.0, SOIL), (0.97, -0.05, SOIL), (0.93, -0.12, SOIL2), (0.86, -0.18, ROCK)]
-    n = 10
     for i in range(1, n + 1):
         t = i / n
         prof.append((0.86 * (1 - t) ** 0.8, -0.18 - 0.82 * t, lerp3(ROCK, ROCK2, t)))
@@ -33,13 +31,13 @@ for vi, seed in enumerate((11, 12, 13)):
         for s in range(SEG): F.append((A[s], B[s], B[(s + 1) % SEG], A[(s + 1) % SEG]))
     last = rings[-1]
     for s in range(SEG): F.append((last[(s + 1) % SEG], last[s], tip))
-    name = 'IslandUnder_%d' % vi
+    name = 'IslandUnder%s_%d' % (suffix, vi)
     me = bpy.data.meshes.get(name) or bpy.data.meshes.new(name)
     me.clear_geometry(); me.from_pydata(V, [], F); me.update()
     for p in me.polygons: p.use_smooth = True
     o = bpy.data.objects.get(name) or bpy.data.objects.new(name, me)
     if o.name not in col.objects: col.objects.link(o)
-    o.location = (vi * 3, -16, 2)
+    o.location = (vi * 3, -16 - (3 if suffix else 0), 2)
     me.calc_loop_triangles()
     out[name] = {'v': [(v.co.x, v.co.z, v.co.y) for v in me.vertices], 'n': [(v.normal.x, v.normal.z, v.normal.y) for v in me.vertices],
                  'c': [(c[0], c[1], c[2], 1.0) for c in C], 'u': [(-1, -1)] * len(V),

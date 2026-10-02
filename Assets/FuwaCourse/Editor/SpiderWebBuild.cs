@@ -498,7 +498,7 @@ public static class SpiderWebBuild
         u.transform.localPosition = localTop;
         u.transform.localRotation = Quaternion.Euler(0, (seed * 47) % 360, 0);
         u.transform.localScale = new Vector3(radius, depth, radius);
-        u.GetComponent<MeshFilter>().sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FarIslands/IslandUnder_" + (Mathf.Abs(seed) % 3) + ".asset");
+        u.GetComponent<MeshFilter>().sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FarIslands/IslandUnder" + (radius < 5f ? "Low" : "") + "_" + (Mathf.Abs(seed) % 3) + ".asset");
         var mr = u.GetComponent<MeshRenderer>();
         mr.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/IslandUnder.mat");
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;

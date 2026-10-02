@@ -25,6 +25,7 @@ Shader "FuwaCourse/CloudPuff"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_instancing
             #include "UnityCG.cginc"
 
             fixed4 _Color, _Shade, _LightColor0, _Haze;

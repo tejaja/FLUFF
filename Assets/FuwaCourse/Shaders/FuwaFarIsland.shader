@@ -25,6 +25,7 @@ Shader "FuwaCourse/FarIsland"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_instancing
             #include "UnityCG.cginc"
 
             fixed4 _Haze, _LightColor0;
