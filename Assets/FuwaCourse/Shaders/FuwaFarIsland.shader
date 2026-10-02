@@ -9,12 +9,15 @@ Shader "FuwaCourse/FarIsland"
         _HazeEnd ("Haze End (m)", Float) = 900
         _HazeMax ("Haze Max", Range(0, 1)) = 0.75
         _Shade ("Shade Strength", Range(0, 1)) = 0.35
+        _Bob ("Bob Height (m, 0=off)", Float) = 0
+        _BobSpeed ("Bob Speed", Float) = 0.25
         _FallSpeed ("Water Flow Speed", Float) = 0.9
         _FallLen ("Waterfall Length (uv)", Float) = 1
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
+        // 島ごとの原点でゆらすので、まとめ描き（バッチング）は禁止
+        Tags { "RenderType"="Opaque" "DisableBatching"="True" }
         Cull Off
         Pass
         {
@@ -27,7 +30,7 @@ Shader "FuwaCourse/FarIsland"
             fixed4 _Haze, _LightColor0;
             float _HazeStart, _HazeEnd, _HazeMax, _Shade;
 
-            float _FallSpeed, _FallLen;
+            float _FallSpeed, _FallLen, _Bob, _BobSpeed;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; fixed4 color : COLOR; float3 wn : TEXCOORD0; float3 wp : TEXCOORD1; float2 uv : TEXCOORD2; UNITY_VERTEX_OUTPUT_STEREO };
@@ -37,11 +40,17 @@ Shader "FuwaCourse/FarIsland"
                 v2f o;
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-                o.pos = UnityObjectToClipPos(v.vertex);
+                float3 wp = mul(unity_ObjectToWorld, v.vertex).xyz;
+                // ほんのりふわふわ：島ごとにずれた周期で上下＋少し横に
+                float3 origin = float3(unity_ObjectToWorld._m03, unity_ObjectToWorld._m13, unity_ObjectToWorld._m23);
+                float ph = dot(origin, float3(0.071, 0.0, 0.113));
+                float t = _Time.y * _BobSpeed;
+                wp += float3(sin(t * 0.6 + ph * 1.7) * 0.4, sin(t + ph), cos(t * 0.5 + ph * 2.3) * 0.4) * _Bob;
+                o.pos = mul(UNITY_MATRIX_VP, float4(wp, 1));
                 o.color = v.color;
                 o.uv = v.uv;
                 o.wn = UnityObjectToWorldNormal(v.normal);
-                o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
+                o.wp = wp;
                 return o;
             }
 
