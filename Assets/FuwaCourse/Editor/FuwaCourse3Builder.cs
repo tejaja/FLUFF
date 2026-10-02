@@ -179,7 +179,7 @@ public static class FuwaCourse3Builder
 
 
 
-    // ---- ギミック（Gimmicks_Yami の下に毎回作り直す。元は Old_Mix の巣・重い霧、コース1のつむじ風） ----
+    // ---- ギミック（Gimmicks_Yami の下に毎回作り直す。元は BuildTemplates（旧ミックスから残したお手本）の巣・重い霧、コース1のつむじ風） ----
     public static readonly float[] DodgeS = { 5f, 8.5f, 12f, 15.5f };
     public const float FogA = 18f, FogB = 24.5f, BigWebS = 37f, WhirlS = 51.4f;
     public static readonly float[] CorridorS = { 62f, 65f, 68f, 71f };
@@ -268,9 +268,9 @@ public static class FuwaCourse3Builder
         Undo.RegisterCreatedObjectUndo(holder.gameObject, "yami");
         Vector3 P(int pc, float s, float lat, float dy) => m.MultiplyPoint3x4(Point(pc, s, lat, dy));
         Quaternion R(float s) => Quaternion.Euler(0, Yaw(root, s), 0);
-        var tplWeb = root.Find("Old_Mix/Gimmick3_LaunchWall/SpikeBush");
-        var tplHeavy = root.Find("Old_Mix/Gimmick4_Heavy");
-        var tplWindow = root.Find("Old_Mix/Gimmick6_Window");
+        var tplWeb = root.Find("BuildTemplates/SpikeBush");
+        var tplHeavy = root.Find("BuildTemplates/Gimmick4_Heavy");
+        var tplWindow = root.Find("BuildTemplates/Gimmick6_Window");
         var webs = new List<SpiderWebBuilder>();
         string log = "";
 

@@ -336,9 +336,9 @@ public static class FuwaCourse1Builder
 
         var tplTailZone = FindIn("FuwaCourse2", "Gimmick_Tailwind/TailwindZone");
         var tplTailPs = FindIn("FuwaCourse2", "Gimmick_Tailwind/TailwindParticles");
-        var tplCross = root.Find("Old_Kihon/Gimmick1_CrossWind");
+        var tplCross = root.Find("BuildTemplates/Gimmick1_CrossWind");
         var tplUpdraft = FindIn("FuwaCourse2", "Gimmick_Updrafts/Updraft1");
-        var tplPad = root.Find("Old_Kihon/Gimmick2_LaunchWall");
+        var tplPad = root.Find("BuildTemplates/Gimmick2_LaunchWall");
 
         // 1. 追い風のカーブ：短い箱を道に沿って並べる（それぞれ道の向きに吹く）
         {
