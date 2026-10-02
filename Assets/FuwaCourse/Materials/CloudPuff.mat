@@ -28,8 +28,12 @@ Material:
     - _Bob: 3.5
     - _Drift: 22
     - _DriftSpeed: 0.045
+    - _HazeEnd: 1000
+    - _HazeMax: 0.55
+    - _HazeStart: 300
     - _Rim: 0.35
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _Haze: {r: 0.6, g: 0.83, b: 1, a: 1}
     - _Shade: {r: 0.72, g: 0.83, b: 0.96999997, a: 1}
   m_BuildTextureStacks: []

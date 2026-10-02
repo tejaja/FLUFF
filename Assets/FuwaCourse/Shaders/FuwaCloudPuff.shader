@@ -10,6 +10,10 @@ Shader "FuwaCourse/CloudPuff"
         _Drift ("Drift Distance (m)", Float) = 3
         _DriftSpeed ("Drift Speed", Float) = 0.04
         _Bob ("Bob Height (m)", Float) = 0.4
+        _Haze ("Haze Color", Color) = (0.6, 0.83, 1, 1)
+        _HazeStart ("Haze Start (m)", Float) = 300
+        _HazeEnd ("Haze End (m)", Float) = 1000
+        _HazeMax ("Haze Max", Range(0, 1)) = 0.55
     }
     SubShader
     {
@@ -23,8 +27,8 @@ Shader "FuwaCourse/CloudPuff"
             #pragma fragment frag
             #include "UnityCG.cginc"
 
-            fixed4 _Color, _Shade, _LightColor0;
-            float _Rim, _Drift, _DriftSpeed, _Bob;
+            fixed4 _Color, _Shade, _LightColor0, _Haze;
+            float _Rim, _Drift, _DriftSpeed, _Bob, _HazeStart, _HazeEnd, _HazeMax;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float3 wn : TEXCOORD0; float3 wv : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
@@ -53,7 +57,11 @@ Shader "FuwaCourse/CloudPuff"
                 float3 col = lerp(_Shade.rgb, _Color.rgb, d);
                 float rim = pow(1 - saturate(dot(n, normalize(i.wv))), 3) * _Rim;
                 col += rim;
-                col *= saturate(_LightColor0.rgb * 0.85 + 0.15);   // 太陽の色・明るさについてくる（やみのもりでは暗い紫に）
+                float3 tint = saturate(_LightColor0.rgb * 0.85 + 0.15);
+                col *= tint;   // 太陽の色・明るさについてくる（やみのもりでは暗い紫に）
+                // 遠い雲ほど空の色にかすむ（地平線の遠い雲用。近くの雲は変わらない）
+                float h = saturate((length(i.wv) - _HazeStart) / max(1, _HazeEnd - _HazeStart)) * _HazeMax;
+                col = lerp(col, _Haze.rgb * tint, h);
                 return fixed4(col, 1);
             }
             ENDCG
