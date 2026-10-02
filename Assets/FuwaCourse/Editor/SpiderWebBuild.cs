@@ -546,10 +546,8 @@ public static class SpiderWebBuild
         var barkMesh = new Mesh();
         barkMesh.CombineMeshes(parts.ToArray(), true, true);
 
-        // 葉っぱ（球をいくつか重ねる）
-        var tmp = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        var sph = tmp.GetComponent<MeshFilter>().sharedMesh;
-        Object.DestroyImmediate(tmp);
+        // 葉っぱ（球をいくつか重ねる）。Unity標準の球(768ポリ)は重いので、軽い球（正二十面体2分割＝320ポリ、直径1）を使う
+        var sph = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/LeafBlob_Ico2.asset");
         Vector3 top = cs[n - 1];
         Vector3[] offs = { new Vector3(0, 0.35f, 0), new Vector3(0.75f, 0, 0.2f), new Vector3(-0.75f, 0.05f, -0.15f), new Vector3(0.1f, 0.1f, 0.7f), new Vector3(-0.15f, 0, -0.7f), new Vector3(0.2f, 0.75f, -0.1f) };
         float[] szs = { 1f, 0.72f, 0.72f, 0.68f, 0.68f, 0.6f };
