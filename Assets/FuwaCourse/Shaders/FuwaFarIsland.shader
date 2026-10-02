@@ -11,7 +11,7 @@ Shader "FuwaCourse/FarIsland"
         _Shade ("Shade Strength", Range(0, 1)) = 0.35
         _Bob ("Bob Height (m, 0=off)", Float) = 0
         _BobSpeed ("Bob Speed", Float) = 0.25
-        _FallSpeed ("Water Flow Speed", Float) = 0.9
+        _FallSpeed ("Water Flow Speed", Float) = 1.6
         _FallLen ("Waterfall Length (uv)", Float) = 1
     }
     SubShader
@@ -68,24 +68,28 @@ Shader "FuwaCourse/FarIsland"
                 float3 l = normalize(_WorldSpaceLightPos0.xyz);
                 float d = saturate(dot(n, l) * 0.5 + 0.5);
                 float3 col = i.color.rgb * lerp(1 - _Shade, 1, d);
-                // 水（頂点アルファ 0＝滝 / 0.5＝上の川）：すじ模様が流れる。滝の下はちぎれて消える
+                // 水（頂点アルファ 0）：川→ふち→滝の1本の帯。すじ模様が加速しながら流れ、下は白い霧になってちぎれて消える
                 if (i.color.a < 0.75)
                 {
-                    bool fall = i.color.a < 0.25;
                     float2 uv = i.uv;
-                    float speed = fall ? _FallSpeed : _FallSpeed * 0.35;
-                    float streak = vnoise(float2(uv.x * 6, uv.y * 2.4 - _Time.y * speed));
-                    streak = streak * 0.6 + vnoise(float2(uv.x * 13 + 7, uv.y * 5 - _Time.y * speed * 1.3)) * 0.4;
-                    col = lerp(i.color.rgb * 0.82, float3(1, 1, 1), smoothstep(0.45, 0.8, streak));
-                    // 両わきを少し白く（しぶき）
-                    col = lerp(col, float3(1, 1, 1), smoothstep(0.3, 0.5, abs(uv.x - 0.5)) * 0.35);
-                    if (fall)
-                    {
-                        float t = uv.y / _FallLen;   // 0＝ふち 1＝いちばん下
-                        float fray = vnoise(float2(uv.x * 8, uv.y * 6 - _Time.y * speed * 1.1));
-                        clip(fray - smoothstep(0.45, 1.0, t) * 1.05);
-                        col = lerp(col, float3(1, 1, 1), smoothstep(0.5, 1.0, t) * 0.5);
-                    }
+                    float t = saturate(uv.y / _FallLen);   // 0＝ふち（川はマイナス→0） 1＝いちばん下
+                    // 落ちるほど速くなる：流れの座標を下へ行くほど引きのばす（すじが縦に伸びて加速して見える）
+                    float fy = uv.y < 0 ? uv.y : uv.y + uv.y * uv.y * 1.6;
+                    float tm = _Time.y * _FallSpeed;
+                    float streak = vnoise(float2(uv.x * 7, fy * 3.0 - tm));
+                    streak = streak * 0.55 + vnoise(float2(uv.x * 16 + 7, fy * 6.5 - tm * 1.35)) * 0.45;
+                    // 白いすじと青い地のコントラストを強めに
+                    float3 deep = i.color.rgb * float3(0.62, 0.78, 0.92);
+                    col = lerp(deep, float3(1, 1, 1), smoothstep(0.42, 0.7, streak));
+                    // 横切る白い泡の帯が流れ落ちる
+                    float band = vnoise(float2(uv.x * 2.5 + 3, fy * 1.6 - tm * 0.9));
+                    col = lerp(col, float3(1, 1, 1), smoothstep(0.62, 0.8, band) * 0.6);
+                    // 両わきは白いしぶき
+                    col = lerp(col, float3(1, 1, 1), smoothstep(0.32, 0.5, abs(uv.x - 0.5)) * 0.45);
+                    // 下の方：だんだん白い霧になって、ちぎれて消える
+                    float fray = vnoise(float2(uv.x * 5 + 11, fy * 4 - tm * 1.2)) * 0.6 + vnoise(float2(uv.x * 11, fy * 9 - tm * 1.5)) * 0.4;
+                    clip(fray - smoothstep(0.3, 1.0, t) * 1.0 - 0.001);
+                    col = lerp(col, float3(1, 1, 1), smoothstep(0.25, 0.85, t) * 0.75);
                 }
                 float3 tint = saturate(_LightColor0.rgb * 0.85 + 0.15);
                 col *= tint;
