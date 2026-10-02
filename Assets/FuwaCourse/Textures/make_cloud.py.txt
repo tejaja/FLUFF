@@ -1,0 +1,28 @@
+from PIL import Image, ImageDraw, ImageFilter
+import math
+W,H=2048,612; SS=2
+w,h=W*SS,H*SS
+img=Image.new('L',(w,h),0); d=ImageDraw.Draw(img)
+m=int(0.17*h)  # margin for bumps
+# core
+d.rounded_rectangle([m,m,w-m,h-m],radius=int(0.28*h),fill=255)
+def circ(cx,cy,r): d.ellipse([cx-r,cy-r,cx+r,cy+r],fill=255)
+# top bumps (big, uneven)
+n=4
+for i in range(n):
+    t=(i+0.5)/n; cx=m+t*(w-2*m); r=(0.33+0.04*math.sin(i*2.3))*h
+    circ(cx, m+r*0.5, r)
+# bottom bumps (smaller)
+n=5
+for i in range(n):
+    t=(i+0.5)/n; cx=m+t*(w-2*m); r=(0.24+0.03*math.cos(i*1.7))*h
+    circ(cx, h-m-r*0.45, r)
+# sides
+for s in (0,1):
+    for j,(ty,rr) in enumerate([(0.5,0.34)]):
+        cx = m+rr*h*0.55 if s==0 else w-m-rr*h*0.55
+        circ(cx, ty*h, rr*h)
+img=img.filter(ImageFilter.GaussianBlur(1.2*SS)).resize((W,H),Image.LANCZOS)
+out=Image.new('RGBA',(W,H),(255,255,255,0)); out.putalpha(img)
+out.save('D:/UnityProject/GameWorld test/Assets/FuwaCourse/Textures/CloudPanel.png')
+print(img.getbbox())

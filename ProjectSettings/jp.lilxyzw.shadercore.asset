@@ -1,0 +1,41 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &1
+MonoBehaviour:
+  m_ObjectHideFlags: 53
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ddde6b87320970478fca1b50e8a3e5d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  shaderSettings:
+  - shadername: NonToon
+    modules:
+    - jp.lilxyzw.nontoon.details
+    - jp.lilxyzw.nontoon.distancefade
+    - jp.lilxyzw.nontoon.hairspecular
+    - jp.lilxyzw.nontoon.lighten
+    - jp.lilxyzw.nontoon.matcaps
+    - jp.lilxyzw.nontoon.nearer
+    - jp.lilxyzw.nontoon.rimlight
+    - jp.lilxyzw.nontoon.rimshade
+    - jp.lilxyzw.nontoon.shade
+    - jp.lilxyzw.nontoon.specular
+    multiModules: []
+  - shadername: NonToonFur
+    modules:
+    - jp.lilxyzw.nontoon.details
+    - jp.lilxyzw.nontoon.distancefade
+    - jp.lilxyzw.nontoon.hairspecular
+    - jp.lilxyzw.nontoon.lighten
+    - jp.lilxyzw.nontoon.matcaps
+    - jp.lilxyzw.nontoon.nearer
+    - jp.lilxyzw.nontoon.rimlight
+    - jp.lilxyzw.nontoon.rimshade
+    - jp.lilxyzw.nontoon.shade
+    - jp.lilxyzw.nontoon.specular
+    multiModules: []
