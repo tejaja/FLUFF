@@ -27,8 +27,16 @@ public class FuwaMama : UdonSharpBehaviour
     public float pupilDepth = 0.04f;
 
     [Header("追いかける")]
-    [Tooltip("追いかける速さ(m/s)。めっちゃ遅い")]
+    [Tooltip("追いかける速さ(m/s)。めっちゃ遅い（ジャンプしない時）")]
     public float chaseSpeed = 0.55f;
+    [Tooltip("ゆったりジャンプで近づく（OFFなら這う）")]
+    public bool hop = true;
+    public float hopDistance = 1.3f;
+    public float hopHeight = 0.7f;
+    [Tooltip("ジャンプしている秒数")]
+    public float hopTime = 0.9f;
+    [Tooltip("着地してから次のジャンプまでの秒数")]
+    public float hopRest = 1.4f;
     [Tooltip("巣の中心（ここから moveRadius の中だけ動く）。なければ最初の位置")]
     public Transform nestCenter;
     public float moveRadius = 3.4f;
@@ -83,6 +91,10 @@ public class FuwaMama : UdonSharpBehaviour
     private Vector3 _push;
     private float _bumpUntil;
     private float _squashUntil;
+    private float _hopClock;
+    private Vector3 _hopDir;
+    private bool _inHop;
+    private float _crouch;
 
     private void Start()
     {
@@ -160,6 +172,7 @@ public class FuwaMama : UdonSharpBehaviour
         if (_state != 0) Move(local, dt);
         float sq = Time.time < _squashUntil ? Mathf.Sin((_squashUntil - Time.time) / 0.3f * Mathf.PI) * 0.12f : 0f;
         swell -= sq;
+        swell -= _crouch * 0.1f;
 
         // 見た目：呼吸＋ため
         float br = Mathf.Sin(Time.time * (_state == 0 ? 1.2f : 2f)) * 0.03f;
@@ -257,12 +270,37 @@ public class FuwaMama : UdonSharpBehaviour
         Vector3 pos = transform.position;
         Vector3 to = local.GetPosition() - pos; to.y = 0f;
         Vector3 step = Vector3.zero;
-        if (_state != 2 && to.magnitude > bodyRadius * 0.9f) step = to.normalized * chaseSpeed * dt;
+        float lift = 0f;
+        _crouch = 0f;
+        if (hop)
+        {
+            // ゆったりジャンプ：休む→ちょっとかがむ→ぴょーん→着地でむにっ
+            _hopClock += dt;
+            if (!_inHop)
+            {
+                float rest = hopRest;
+                if (_hopClock > rest - 0.35f) _crouch = Mathf.Clamp01((_hopClock - (rest - 0.35f)) / 0.35f);
+                if (_hopClock > rest && to.magnitude > bodyRadius * 0.9f)
+                {
+                    _inHop = true; _hopClock = 0f;
+                    _hopDir = to.normalized;
+                }
+            }
+            else
+            {
+                float x = Mathf.Clamp01(_hopClock / hopTime);
+                step = _hopDir * (hopDistance / hopTime) * dt;
+                lift = hopHeight * 4f * x * (1f - x);
+                if (x >= 1f) { _inHop = false; _hopClock = 0f; _squashUntil = Time.time + 0.35f; }
+            }
+        }
+        else if (to.magnitude > bodyRadius * 0.9f) step = to.normalized * chaseSpeed * dt;
         step += _push * dt;
         _push *= Mathf.Exp(-pushDamping * dt);
         pos += step;
         Vector3 off = pos - _home; off.y = 0f;
-        if (off.magnitude > moveRadius) pos = _home + off.normalized * moveRadius + Vector3.up * (pos.y - _home.y);
+        if (off.magnitude > moveRadius) pos = _home + off.normalized * moveRadius;
+        pos.y = _home.y + lift;
         transform.position = pos;
         if (to.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to.normalized), 1f - Mathf.Exp(-3f * dt));
