@@ -236,6 +236,8 @@ public class FuwaMama : UdonSharpBehaviour
     private Vector3 _pupilBaseL, _pupilBaseR;
     private Vector2 _look, _lookGoal;
     private float _nextGlance;
+    private bool _glancing;
+    private Vector2 _glanceGoal;
 
     private void InitPupils()
     {
@@ -248,18 +250,22 @@ public class FuwaMama : UdonSharpBehaviour
     {
         if (pupilL == null || pupilR == null) return;
         Transform basis = pupilL.parent;
-        if (watch && basis != null)
+        // 体ごとこっちを向くので、見つめるだけだと黒目がほぼ真ん中で止まって見える。
+        // 見ている時も、ときどき目をそらして（きょろっ）すぐ戻す。上下の差は大きめに出す
+        if (Time.time > _nextGlance)
+        {
+            _glancing = !watch || Random.value < 0.45f;
+            _glanceGoal = Random.insideUnitCircle.normalized * Random.Range(0.6f, 1f);
+            _nextGlance = Time.time + (_glancing ? Random.Range(0.35f, 0.8f) : Random.Range(0.8f, 2.0f));
+        }
+        if (watch && !_glancing && basis != null)
         {
             Vector3 d = basis.InverseTransformDirection(target - pupilL.position);
             Vector2 g = new Vector2(d.x, d.y) / Mathf.Max(0.05f, Mathf.Abs(d.z) + 0.3f);
-            _lookGoal = Vector2.ClampMagnitude(g * 1.6f, 1f);
+            _lookGoal = Vector2.ClampMagnitude(g * 2.5f, 1f);
         }
-        else if (Time.time > _nextGlance)
-        {
-            _lookGoal = Random.insideUnitCircle * 0.9f;
-            _nextGlance = Time.time + Random.Range(0.7f, 2.0f);
-        }
-        _look = Vector2.Lerp(_look, _lookGoal, 1f - Mathf.Exp(-12f * dt));
+        else _lookGoal = _glanceGoal;
+        _look = Vector2.Lerp(_look, _lookGoal, 1f - Mathf.Exp(-18f * dt));
         SetPupil(pupilL, _pupilBaseL);
         SetPupil(pupilR, _pupilBaseR);
     }
