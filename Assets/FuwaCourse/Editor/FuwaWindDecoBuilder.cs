@@ -17,7 +17,14 @@ public static class FuwaWindDecoBuilder
         string p = MeshDir + "/" + name + ".asset";
         var old = AssetDatabase.LoadAssetAtPath<Mesh>(p);
         m.name = name;
-        if (old != null) { EditorUtility.CopySerialized(m, old); EditorUtility.SetDirty(old); return old; }
+        if (old != null)
+        {
+            // CopySerialized だと描画用のデータが更新されないことがあるので、中身を入れ直す
+            old.Clear(); old.indexFormat = m.indexFormat; old.SetVertices(m.vertices); old.SetNormals(m.normals);
+            if (m.uv.Length == m.vertexCount) old.SetUVs(0, m.uv);
+            old.subMeshCount = m.subMeshCount; for (int i = 0; i < m.subMeshCount; i++) old.SetTriangles(m.GetTriangles(i), i);
+            old.RecalculateBounds(); old.name = name; EditorUtility.SetDirty(old); return old;
+        }
         AssetDatabase.CreateAsset(m, p); return m;
     }
 
@@ -104,6 +111,7 @@ public static class FuwaWindDecoBuilder
 
     // 吹き流しの柱：同じ太さの1本の棒で、地面から上へ SockPoleH 立ち上がって、角を丸く曲がって +X へ SockArm。先端に玉
     public const float SockPoleH = 2.45f, SockArm = 0.42f, SockPoleR = 0.032f, SockBallR = 0.055f, SockBend = 0.1f;
+    public const float BraceDown = 0.26f, BraceOut = 0.26f, BraceR = 0.019f;   // 角の斜めの支え
     public static Mesh SockPoleMesh()
     {
         // 中心線（下→上→曲がり→横）
@@ -127,6 +135,15 @@ public static class FuwaWindDecoBuilder
         int bb = V.Count; int la = 6, lo = 10; var bc = path[path.Count - 1];
         for (int i = 0; i <= la; i++) for (int j = 0; j < lo; j++) { float th = Mathf.PI * i / la, ph = Mathf.PI * 2 * j / lo; V.Add(bc + new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph)) * SockBallR); }
         for (int i = 0; i < la; i++) for (int j = 0; j < lo; j++) { int a = bb + i * lo + j, c = bb + i * lo + (j + 1) % lo, d = a + lo, e = c + lo; T.AddRange(new[] { a, c, e, a, e, d }); }
+        // 角の斜めの支え（柱の BraceDown 下 → 腕の BraceOut 先）。両端は柱・腕の中に少し埋める
+        int braceStart = V.Count;
+        var ba = new Vector3(0, SockPoleH - BraceDown, 0); var bt = new Vector3(BraceOut, SockPoleH, 0);
+        var bd = (bt - ba).normalized; ba -= bd * 0.02f; bt += bd * 0.01f;
+        {
+            var u = Vector3.Cross(bd, Vector3.forward).normalized; var w = Vector3.Cross(bd, u); const int bs = 8;
+            for (int j = 0; j < bs; j++) { float an = j * Mathf.PI * 2 / bs; var o = (u * Mathf.Cos(an) + w * Mathf.Sin(an)) * BraceR; V.Add(ba + o); V.Add(bt + o); }
+            for (int j = 0; j < bs; j++) { int j2 = (j + 1) % bs; int a0 = braceStart + j * 2, a1 = a0 + 1, b0 = braceStart + j2 * 2, b1 = b0 + 1; T.AddRange(new[] { a0, b0, b1, a0, b1, a1 }); }
+        }
         var m = new Mesh(); m.SetVertices(V); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
         // 面の向きを外向きにそろえる（中心線からの向き／玉の中心からの向き）
         var t = m.triangles; var v = m.vertices;
@@ -134,7 +151,8 @@ public static class FuwaWindDecoBuilder
         {
             var ce = (v[t[k]] + v[t[k + 1]] + v[t[k + 2]]) / 3f; var nn = Vector3.Cross(v[t[k + 1]] - v[t[k]], v[t[k + 2]] - v[t[k]]);
             Vector3 o;
-            if (t[k] >= bb) o = ce - bc;
+            if (t[k] >= braceStart) { var ab = bt - ba; float tt = Mathf.Clamp01(Vector3.Dot(ce - ba, ab) / ab.sqrMagnitude); o = ce - (ba + ab * tt); }
+            else if (t[k] >= bb) o = ce - bc;
             else if (t[k] >= c0) o = Vector3.down;
             else { float best = 1e9f; o = Vector3.up; for (int i = 0; i < path.Count - 1; i++) { var ab = path[i + 1] - path[i]; float tt = Mathf.Clamp01(Vector3.Dot(ce - path[i], ab) / ab.sqrMagnitude); var q = path[i] + ab * tt; float dd = (ce - q).sqrMagnitude; if (dd < best) { best = dd; o = ce - q; } } }
             if (Vector3.Dot(nn, o) < 0) { int sw = t[k + 1]; t[k + 1] = t[k + 2]; t[k + 2] = sw; }
