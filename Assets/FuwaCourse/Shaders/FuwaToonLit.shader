@@ -12,6 +12,7 @@ Shader "FuwaCourse/ToonLit"
     Properties
     {
         _Color ("Color", Color) = (1,1,1,1)
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
         _MainTex ("Albedo (optional)", 2D) = "white" {}
         [HDR] _EmissionColor ("Emission", Color) = (0,0,0,1)
         [Header(Light)]
@@ -51,6 +52,7 @@ Shader "FuwaCourse/ToonLit"
         {
             Name "FORWARD"
             Tags { "LightMode"="ForwardBase" }
+            Cull [_Cull]
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -127,12 +129,12 @@ Shader "FuwaCourse/ToonLit"
                 return o;
             }
 
-            fixed4 frag (v2f i) : SV_Target
+            fixed4 frag (v2f i, fixed facing : VFACE) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(i);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
-                float3 n = normalize(i.wn);
+                float3 n = normalize(i.wn) * (facing > 0 ? 1 : -1);   // 両面描画の裏側は法線を反転
                 // 面ごとのカクカク：画面上の位置の変化から面の向きを出して混ぜる
                 if (_Facet > 0)
                 {
@@ -193,6 +195,7 @@ Shader "FuwaCourse/ToonLit"
         {
             Name "FORWARD_ADD"
             Tags { "LightMode"="ForwardAdd" }
+            Cull [_Cull]
             Blend One One
             ZWrite Off
             CGPROGRAM
@@ -242,6 +245,7 @@ Shader "FuwaCourse/ToonLit"
         {
             Name "ShadowCaster"
             Tags { "LightMode"="ShadowCaster" }
+            Cull [_Cull]
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag

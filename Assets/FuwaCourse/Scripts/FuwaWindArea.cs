@@ -77,6 +77,14 @@ public class FuwaWindArea : UdonSharpBehaviour
         }
     }
 
+    // 飾り（吹き流し・かざぐるま）用：いまの風の強さ（0〜1、吹いていない時は0）と、ワールドでの風の向き（逆向きの時は反転）
+    public float GetGustLevel() { return _blowing ? Mathf.Clamp01(_gust) : 0f; }
+    public Vector3 GetWorldDirection()
+    {
+        Vector3 d = transform.TransformDirection(localDirection).normalized;
+        return _reversed ? -d : d;
+    }
+
     private void Update()
     {
         if (offSeconds <= 0f)
