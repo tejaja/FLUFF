@@ -31,7 +31,6 @@ Shader "FuwaCourse/SpiderWeb"
         _CoreColor ("糸の色（中心）", Color) = (0.93, 0.91, 1.0, 1)
         _OutlineColor ("糸の縁取り", Color) = (0.12, 0.09, 0.18, 0.85)
         _OutlineWidth ("縁取りの太さ (x 糸の太さ)", Float) = 0.7
-        _MinPixels ("糸の最低の太さ (画面ピクセル)", Float) = 1.4
         _DewChance ("夜露のつぶの割合", Range(0, 1)) = 0.3
         _DewSize ("夜露のつぶの半径 (m)", Float) = 0.012
         _DewColor ("夜露の色", Color) = (1, 0.97, 1, 1)
@@ -63,7 +62,7 @@ Shader "FuwaCourse/SpiderWeb"
             fixed4 _RimColor;
             float _RimWidth, _RimGlow, _RimGlowAlpha;
             fixed4 _CoreColor, _OutlineColor, _DewColor;
-            float _OutlineWidth, _MinPixels, _DewChance, _DewSize, _TwinkleSpeed;
+            float _OutlineWidth, _DewChance, _DewSize, _TwinkleSpeed;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 m : TEXCOORD0; float3 wpos : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
@@ -172,7 +171,7 @@ Shader "FuwaCourse/SpiderWeb"
                 float2 p = i.m - _HoleCenter.xy;
                 float r = length(p);
                 float px = max(fwidth(r), 1e-5);
-                float hw = max(_LineWidth * 0.5, px * _MinPixels * 0.5);   // 遠くても線が消えない太さ
+                float hw = _LineWidth * 0.5;
                 float dIn = 1e3;    // lines that only exist inside the outline
                 float dEdge = 1e3;  // the outline thread itself
                 float dRing = 1e3;  // rings (外周のそばの輪は描かない)
@@ -260,7 +259,7 @@ Shader "FuwaCourse/SpiderWeb"
                 float d = inside ? min(min(dIn, dEdge), dRing) : dEdge;
                 float lw = px * 1.2;
                 // 白っぽい糸＋暗い縁取り（空の上でも道の上でも見える）
-                float ow = max(hw * _OutlineWidth, px * 0.8);
+                float ow = hw * _OutlineWidth;
                 float coreA = 1 - smoothstep(hw - lw * 0.5, hw + lw * 0.5, d);
                 float lineA = 1 - smoothstep(hw + ow - lw * 0.5, hw + ow + lw * 0.5, d);
                 if (r < _HoleRadius - hw - ow - lw) { coreA = 0; lineA = 0; }
