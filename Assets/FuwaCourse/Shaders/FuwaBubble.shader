@@ -8,6 +8,7 @@ Shader "FuwaCourse/Bubble"
         _RimAlpha ("Rim Alpha", Range(0, 1)) = 0.75
         _FillAlpha ("Fill Alpha", Range(0, 0.3)) = 0.05
         _Iris ("Iridescence", Range(0, 1)) = 0.8
+        _Tint ("Tint（虹をやめて色をつける時。_Iris を0に）", Color) = (1, 1, 1, 1)
         _Highlight ("Highlight", Range(0, 2)) = 1.1
     }
     SubShader
@@ -24,6 +25,7 @@ Shader "FuwaCourse/Bubble"
             #pragma multi_compile_fog
             #include "UnityCG.cginc"
             half _RimWidth, _RimAlpha, _FillAlpha, _Iris, _Highlight;
+            half4 _Tint;
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; float4 rnd : TEXCOORD1; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; float seed : TEXCOORD1; UNITY_FOG_COORDS(2) };
             v2f vert (appdata v)
@@ -49,7 +51,7 @@ Shader "FuwaCourse/Bubble"
                 // 本物っぽく：ふちからの距離（膜の厚み）＋上下（膜が下に流れて上ほど薄い）で、なめらかな帯にする。ゆっくり上下に流れる
                 float film = rim * 0.9 + bottom * 0.35 + _Time.y * 0.05 + i.seed * 0.7;
                 half3 iris = lerp(Hue(film), half3(1, 1, 1), lerp(0.45, 0.15, bottom));   // 上は白っぽく淡く、下は色が濃い
-                half3 col = lerp(half3(1, 1, 1), iris, _Iris) * (0.85 + 0.25 * rim);
+                half3 col = lerp(half3(1, 1, 1), iris, _Iris) * _Tint.rgb * (0.85 + 0.25 * rim);
                 float a = _FillAlpha + rim * _RimAlpha * lerp(0.7, 1.1, bottom);
                 // 白いハイライト（左上に小さい窓のような光）
                 float2 hp = p - float2(-0.38, 0.42);
