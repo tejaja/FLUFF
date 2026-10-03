@@ -10,6 +10,7 @@ Shader "FuwaCourse/Bubble"
         _Iris ("Iridescence", Range(0, 1)) = 0.8
         _Tint ("Tint（虹をやめて色をつける時。_Iris を0に）", Color) = (1, 1, 1, 1)
         _Highlight ("Highlight", Range(0, 2)) = 1.1
+        [Toggle] _Upright ("模様をいつも上向きに（VRで首をかしげても回らない。パーティクル用）", Float) = 1
     }
     SubShader
     {
@@ -26,11 +27,20 @@ Shader "FuwaCourse/Bubble"
             #include "UnityCG.cginc"
             half _RimWidth, _RimAlpha, _FillAlpha, _Iris, _Highlight;
             half4 _Tint;
+            half _Upright;
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; float4 rnd : TEXCOORD1; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; float seed : TEXCOORD1; UNITY_FOG_COORDS(2) };
             v2f vert (appdata v)
             {
                 v2f o; o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.uv; o.color = v.color;
+                if (_Upright > 0.5)
+                {
+                    // ビルボードは画面に合わせて回るので（VRで首をかしげると一緒に回る）、模様の向きを世界の上向きにそろえる
+                    float3 upV = mul((float3x3)UNITY_MATRIX_V, float3(0, 1, 0));
+                    float2 u = normalize(upV.xy + float2(0, 1e-4));
+                    float2 d = v.uv - 0.5;
+                    o.uv = 0.5 + float2(d.x * u.y - d.y * u.x, d.x * u.x + d.y * u.y);
+                }
                 o.seed = v.rnd.x;
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
