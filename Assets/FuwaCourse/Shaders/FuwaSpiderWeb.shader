@@ -32,6 +32,9 @@ Shader "FuwaCourse/SpiderWeb"
         _OutlineColor ("糸の縁取り", Color) = (0.12, 0.09, 0.18, 0.85)
         _OutlineWidth ("縁取りの太さ (x 糸の太さ)", Float) = 0.7
         _EdgeWidth ("いちばん外側の糸の太さ (x 糸の太さ)", Float) = 1.7
+        _EdgeGlow ("外側の糸の明滅の色 (aが強さ)", Color) = (1, 0.75, 0.95, 0.6)
+        _EdgeHalo ("外側の糸のまわりのにじみ (m)", Float) = 0.03
+        _EdgePulseSpeed ("明滅の速さ", Float) = 2.2
         _DewChance ("夜露のつぶの割合", Range(0, 1)) = 0.3
         _DewSize ("夜露のつぶの半径 (m)", Float) = 0.012
         _DewColor ("夜露の色", Color) = (1, 0.97, 1, 1)
@@ -63,6 +66,8 @@ Shader "FuwaCourse/SpiderWeb"
             fixed4 _RimColor;
             float _RimWidth, _RimGlow, _RimGlowAlpha;
             fixed4 _CoreColor, _OutlineColor, _DewColor;
+            fixed4 _EdgeGlow;
+            float _EdgeHalo, _EdgePulseSpeed;
             float _OutlineWidth, _EdgeWidth, _DewChance, _DewSize, _TwinkleSpeed;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -265,8 +270,15 @@ Shader "FuwaCourse/SpiderWeb"
                 float coreA = max(1 - smoothstep(hw - lw * 0.5, hw + lw * 0.5, d), 1 - smoothstep(hwE - lw * 0.5, hwE + lw * 0.5, dEdge));
                 float lineA = max(1 - smoothstep(hw + ow - lw * 0.5, hw + ow + lw * 0.5, d), 1 - smoothstep(hwE + owE - lw * 0.5, hwE + owE + lw * 0.5, dEdge));
                 if (r < _HoleRadius - hw - ow - lw) { coreA = 0; lineA = 0; }
-                fixed3 col = lerp(_OutlineColor.rgb, _CoreColor.rgb, coreA);
+                // 巣の糸がうっすら明滅（色が少しだけ光る）。いちばん外側の枠はまわりにもにじむ
+                float pulse = 0.5 + 0.5 * sin(_Time.y * _EdgePulseSpeed);
+                float edgeCore = 1 - smoothstep(hwE - lw * 0.5, hwE + lw * 0.5, dEdge);
+                fixed3 core = lerp(_CoreColor.rgb, _EdgeGlow.rgb, pulse * _EdgeGlow.a * lerp(0.75, 1.0, edgeCore));   // 巣の糸ぜんぶ（外側の枠は少し強め）
+                fixed3 col = lerp(_OutlineColor.rgb, core, coreA);
                 float a = max(coreA * _CoreColor.a, lineA * _OutlineColor.a);
+                float halo = (1 - smoothstep(hwE + owE, hwE + owE + max(_EdgeHalo, px), dEdge)) * pulse * _EdgeGlow.a * 0.35;
+                col = lerp(col, _EdgeGlow.rgb, saturate(halo * (1 - a) / max(max(a, halo), 1e-4)));
+                a = max(a, halo);
                 // 夜露のつぶ：交点にごく小さい光るしずく、ときどきキラッ（遠くでは糸より少し太いくらい）
                 if (inside)
                 {

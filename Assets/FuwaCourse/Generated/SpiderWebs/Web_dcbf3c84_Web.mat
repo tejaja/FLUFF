@@ -27,6 +27,8 @@ Material:
     m_Floats:
     - _DewChance: 0.3
     - _DewSize: 0.012
+    - _EdgeHalo: 0.03
+    - _EdgePulseSpeed: 2.2
     - _EdgeWidth: 1.7
     - _FadeFar: 1
     - _FadeNear: 0.45
@@ -51,6 +53,7 @@ Material:
     - _Color: {r: 0.41999996, g: 0.39999998, b: 0.52, a: 0.94}
     - _CoreColor: {r: 0.93, g: 0.91, b: 1, a: 1}
     - _DewColor: {r: 1, g: 0.96999997, b: 1, a: 1}
+    - _EdgeGlow: {r: 1, g: 0.75, b: 0.95, a: 0.6}
     - _F01: {r: -0.48377728, g: 0.5264099, b: -0.48491856, a: -0.56055874}
     - _F23: {r: 0.4312774, g: -1.1808379, b: 0.44076064, a: -0.059857424}
     - _F45: {r: 0.03393278, g: 1.2120218, b: 0, a: 0}

@@ -425,7 +425,7 @@ public static class SpiderWebBuild
         float floorY = FloorAt(sup, new Vector3(0, -hs.y + 0.3f, 0));
         if (float.IsNaN(floorY)) floorY = -hs.y;
 
-        var th = new ThreadMesh { width = 0.012f + 0.01f * s0 };
+        var th = new ThreadMesh { width = (0.012f + 0.01f * s0) * 0.65f };   // 判定のない支えの糸は巣の糸より細め
         var sides = new[] { (b.left, -1f, "L"), (b.right, 1f, "R") };
         int treeCount = 0;
         foreach (var sd in sides) if (sd.Item1.anchor == SpiderWebBuilder.AnchorType.Tree) treeCount++;
