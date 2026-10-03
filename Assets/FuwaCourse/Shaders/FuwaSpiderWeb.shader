@@ -28,6 +28,14 @@ Shader "FuwaCourse/SpiderWeb"
         _F67 ("Frame Corner 6,7", Vector) = (0, 0, 0, 0)
         _FadeNear ("Camera Fade: invisible within (m)", Float) = 0.45
         _FadeFar ("Camera Fade: fully visible beyond (m)", Float) = 1.0
+        _CoreColor ("糸の色（中心）", Color) = (0.93, 0.91, 1.0, 1)
+        _OutlineColor ("糸の縁取り", Color) = (0.12, 0.09, 0.18, 0.85)
+        _OutlineWidth ("縁取りの太さ (x 糸の太さ)", Float) = 0.7
+        _MinPixels ("糸の最低の太さ (画面ピクセル)", Float) = 1.4
+        _DewChance ("夜露のつぶの割合", Range(0, 1)) = 0.3
+        _DewSize ("夜露のつぶの半径 (m)", Float) = 0.012
+        _DewColor ("夜露の色", Color) = (1, 0.97, 1, 1)
+        _TwinkleSpeed ("キラッとする速さ", Float) = 1.3
         _RimColor ("Hole Rim Color", Color) = (0.95, 0.95, 1.0, 1.0)
         _RimWidth ("Hole Rim Width (x Line Width)", Float) = 2.6
         _RimGlow ("Hole Rim Glow Width (m)", Float) = 0.05
@@ -54,6 +62,8 @@ Shader "FuwaCourse/SpiderWeb"
             float4 _F01, _F23, _F45, _F67;
             fixed4 _RimColor;
             float _RimWidth, _RimGlow, _RimGlowAlpha;
+            fixed4 _CoreColor, _OutlineColor, _DewColor;
+            float _OutlineWidth, _MinPixels, _DewChance, _DewSize, _TwinkleSpeed;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 m : TEXCOORD0; float3 wpos : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
@@ -162,10 +172,11 @@ Shader "FuwaCourse/SpiderWeb"
                 float2 p = i.m - _HoleCenter.xy;
                 float r = length(p);
                 float px = max(fwidth(r), 1e-5);
-                float hw = _LineWidth * 0.5;
+                float hw = max(_LineWidth * 0.5, px * _MinPixels * 0.5);   // 遠くても線が消えない太さ
                 float dIn = 1e3;    // lines that only exist inside the outline
                 float dEdge = 1e3;  // the outline thread itself
-                float ringA = 0;    // rings (drawn separately so they can fade near the outline)
+                float dRing = 1e3;  // rings (外周のそばの輪は描かない)
+                float dDew = 1e3, dewH = 0;   // 夜露のつぶ（放射の糸と輪の交点の一部）
 
                 // rim around the hole
                 dIn = min(dIn, abs(r - _HoleRadius));
@@ -235,24 +246,46 @@ Shader "FuwaCourse/SpiderWeb"
                         float room = min(R0 - ringRadiusAt(k, s0, hm), R1 - ringRadiusAt(k, s1, hm));
                         float fade = room > gap * 0.6 ? 1 : 0;
                         float dr = segDist(p, d0 * ra, d1 * rb);
-                        ringA = max(ringA, (1 - smoothstep(hw - px * 0.6, hw + px * 0.6, dr)) * fade);
+                        if (fade > 0.5)
+                        {
+                            dRing = min(dRing, dr);
+                            float h0 = hash(float2(spokeIndex(s0) + 0.5, k)), h1 = hash(float2(spokeIndex(s1) + 0.5, k));
+                            float q0 = length(p - d0 * ra), q1 = length(p - d1 * rb);
+                            if (h0 < _DewChance && q0 < dDew) { dDew = q0; dewH = h0; }
+                            if (h1 < _DewChance && q1 < dDew) { dDew = q1; dewH = h1; }
+                        }
                     }
                 }
 
-                float d = inside ? min(dIn, dEdge) : dEdge;
+                float d = inside ? min(min(dIn, dEdge), dRing) : dEdge;
                 float lw = px * 1.2;
-                float a = 1 - smoothstep(hw - lw * 0.5, hw + lw * 0.5, d);
-                if (inside) a = max(a, ringA);
-                if (r < _HoleRadius - hw - lw) a = 0;
+                // 白っぽい糸＋暗い縁取り（空の上でも道の上でも見える）
+                float ow = max(hw * _OutlineWidth, px * 0.8);
+                float coreA = 1 - smoothstep(hw - lw * 0.5, hw + lw * 0.5, d);
+                float lineA = 1 - smoothstep(hw + ow - lw * 0.5, hw + ow + lw * 0.5, d);
+                if (r < _HoleRadius - hw - ow - lw) { coreA = 0; lineA = 0; }
+                fixed3 col = lerp(_OutlineColor.rgb, _CoreColor.rgb, coreA);
+                float a = max(coreA * _CoreColor.a, lineA * _OutlineColor.a);
+                // 夜露のつぶ：交点にごく小さい光るしずく、ときどきキラッ（遠くでは糸より少し太いくらい）
+                if (inside)
+                {
+                    float dewR = max(_DewSize, hw * 1.7);   // 糸よりひとまわり太い玉
+                    float tw = pow(saturate(sin(_Time.y * _TwinkleSpeed + dewH * 97.0)), 16);
+                    float dewA = 1 - smoothstep(dewR - lw * 0.5, dewR + lw * 0.5, dDew);
+                    float haloA = (1 - smoothstep(dewR, dewR * (1.8 + 1.5 * tw), dDew)) * 0.35 * tw;
+                    col = lerp(col, _DewColor.rgb * (0.9 + 0.4 * tw), saturate(max(dewA, haloA)));
+                    a = max(a, max(dewA * _DewColor.a, haloA));
+                }
+                a *= _Color.a;
                 // 穴のふち：太く明るい糸＋まわりにうっすら光（穴の場所と開き具合が分かる目印）
                 float dRim = abs(r - _HoleRadius);
                 float hwR = hw * _RimWidth;
                 float rimA = 1 - smoothstep(hwR - lw * 0.5, hwR + lw * 0.5, dRim);
                 float glowA = (1 - smoothstep(hwR, hwR + max(_RimGlow, 1e-4), dRim)) * _RimGlowAlpha;
-                float baseA = _Color.a * a;
+                if (_HoleRadius < 0.01) { rimA = 0; glowA = 0; }
                 float rimTotal = max(rimA * _RimColor.a, glowA);
-                float outA = max(baseA, rimTotal);
-                fixed3 col = lerp(_Color.rgb, _RimColor.rgb, saturate(rimTotal / max(outA, 1e-4)));
+                float outA = max(a, rimTotal);
+                col = lerp(col, _RimColor.rgb, saturate(rimTotal / max(outA, 1e-4)));
                 // 通り抜ける時に見づらくないよう、カメラのすぐ近くの部分はスゥっと消す
                 float camD = distance(i.wpos, _WorldSpaceCameraPos);
                 outA *= smoothstep(_FadeNear, max(_FadeFar, _FadeNear + 0.01), camD);
