@@ -15,7 +15,8 @@ public static class FuwaDecoTools
         { "Grass", new Color(0.62f, 0.86f, 0.55f) }, { "GrassDark", new Color(0.47f, 0.74f, 0.47f) }, { "Stem", new Color(0.5f, 0.75f, 0.45f) },
         { "PetalWhite", new Color(0.98f, 0.97f, 0.94f) }, { "PetalYellow", new Color(1f, 0.9f, 0.5f) }, { "PetalPink", new Color(1f, 0.74f, 0.84f) },
         { "FlowerCenter", new Color(1f, 0.82f, 0.35f) }, { "Pebble", new Color(0.78f, 0.76f, 0.8f) }, { "Moss", new Color(0.56f, 0.78f, 0.5f) },
-        { "Vine", new Color(0.55f, 0.78f, 0.5f) }, { "Leaf", new Color(0.62f, 0.88f, 0.55f) },
+        { "Vine", new Color(0.55f, 0.78f, 0.5f) }, { "Leaf", new Color(0.62f, 0.88f, 0.55f) }, { "MossDeep", new Color(0.36f, 0.54f, 0.4f) },
+        { "Stone", new Color(0.68f, 0.62f, 0.71f) }, { "StoneDark", new Color(0.55f, 0.5f, 0.6f) },
     };
 
     static void EnsureDir(string path)
@@ -110,7 +111,8 @@ public static class FuwaDecoTools
 
     // コースの道のふちに飾りを置く（root の下の Deco を作り直す）。
     // spacingMin〜Max(m) おきに 2〜4個のかたまり。スタート・ゴール・チェックポイントのまわりは空ける
-    public static string Decorate(Transform root, int seed = 3, float spacingMin = 2f, float spacingMax = 4.5f, float sizeMul = 1.6f)
+    // style: "meadow"＝草・花・小石・ツタ（今まで）、"forest"＝草と苔（花なし）、"rock"＝小石だけ
+    public static string Decorate(Transform root, int seed = 3, float spacingMin = 2f, float spacingMax = 4.5f, float sizeMul = 1.6f, string style = "meadow")
     {
         var old = root.Find("Deco"); if (old != null) Object.DestroyImmediate(old.gameObject);
         var holder = new GameObject("Deco").transform; holder.SetParent(root, false);
@@ -171,13 +173,32 @@ public static class FuwaDecoTools
             {
                 float pick = (float)rnd.NextDouble();
                 string name;
-                if (pick < 0.32f) name = "GrassSmall";
-                else if (pick < 0.55f) name = "GrassLarge";
-                else if (pick < 0.75f) name = new[] { "FlowersWhite", "FlowersYellow", "FlowersPink" }[rnd.Next(3)];
-                else if (pick < 0.87f) name = "Pebbles";
-                else name = vineDone ? "GrassSmall" : "Vines";
+                if (style == "forest")
+                {
+                    if (pick < 0.3f) name = "GrassSmall";
+                    else if (pick < 0.5f) name = "GrassLarge";
+                    else if (pick < 0.72f) name = "MossSmall";
+                    else if (pick < 0.88f) name = "MossLarge";
+                    else name = vineDone ? "MossSmall" : "Vines";
+                }
+                else if (style == "rock")
+                {
+                    if (pick < 0.5f) name = "StonesSmall";
+                    else if (pick < 0.85f) name = "StonesMid";
+                    else name = "StoneLarge";
+                }
+                else
+                {
+                    if (pick < 0.32f) name = "GrassSmall";
+                    else if (pick < 0.55f) name = "GrassLarge";
+                    else if (pick < 0.75f) name = new[] { "FlowersWhite", "FlowersYellow", "FlowersPink" }[rnd.Next(3)];
+                    else if (pick < 0.87f) name = "Pebbles";
+                    else name = vineDone ? "GrassSmall" : "Vines";
+                }
                 var pf = Prefab(name); if (pf == null) continue;
                 var inst = (GameObject)PrefabUtility.InstantiatePrefab(pf, g);
+                // 森（やみのもり）の苔は、暗い道になじむ深い緑に
+                if (style == "forest" && name.StartsWith("Moss")) foreach (var mr in inst.GetComponentsInChildren<MeshRenderer>()) { var mm = mr.sharedMaterials; for (int q2 = 0; q2 < mm.Length; q2++) mm[q2] = Mat("MossDeep"); mr.sharedMaterials = mm; }
                 if (name == "Vines")
                 {
                     vineDone = true;
@@ -193,9 +214,11 @@ public static class FuwaDecoTools
                     // ふちの内側ギリギリ（道の上0〜20cm内側）。少し沈めて浮いて見えないように
                     float sc = R(0.8f, 1.25f) * sizeMul;
                     // 足元の広がり（この半径の中が全部道の上になるようにする＝空中に生えない）
-                    float foot = (name == "GrassSmall" ? 0.08f : name == "GrassLarge" ? 0.12f : name == "Pebbles" ? 0.26f : 0.1f) * sc;
+                    float foot = (name == "GrassSmall" ? 0.08f : name == "GrassLarge" ? 0.12f : name == "Pebbles" ? 0.26f
+                        : name == "MossSmall" ? 0.16f : name == "MossLarge" ? 0.36f : name == "StonesSmall" ? 0.2f : name == "StonesMid" ? 0.32f : name == "StoneLarge" ? 0.26f : 0.1f) * sc;
                     // となりと重ならない半径（葉や花の広がりまで含めた実寸から）
-                    float clear = (name == "GrassSmall" ? 0.11f : name == "GrassLarge" ? 0.26f : name == "Pebbles" ? 0.25f : 0.16f) * sc;
+                    float clear = (name == "GrassSmall" ? 0.11f : name == "GrassLarge" ? 0.26f : name == "Pebbles" ? 0.25f
+                        : name == "MossSmall" ? 0.16f : name == "MossLarge" ? 0.36f : name == "StonesSmall" ? 0.22f : name == "StonesMid" ? 0.34f : name == "StoneLarge" ? 0.28f : 0.16f) * sc;
                     var q = p + along * R(-0.6f, 0.6f) * sizeMul - outDir * (foot + R(0.02f, 0.12f));
                     bool placed = false;
                     for (int tries = 0; tries < 12 && !placed; tries++)
@@ -222,7 +245,36 @@ public static class FuwaDecoTools
                 items++;
             }
         }
+        int removed = RemoveOverlaps(holder, style == "rock");
         EditorUtility.SetDirty(root.gameObject);
-        return "edges " + edges.Count + " clusters " + clusters + " items " + items;
+        return "edges " + edges.Count + " clusters " + clusters + " items " + items + " removed(overlap) " + removed;
+    }
+
+    // 置いた飾りのうち、ギミック・木・巣・キノコ・橋・スタート/ゴールなどの当たり判定にめり込むものを消す。
+    // 大きい見えない判定（風・重力・落下判定など）と道そのものは無視。rockOk なら岩・山・トンネルに触れるのはOK（岩のきわの小石は自然）
+    public static int RemoveOverlaps(Transform holder, bool rockOk)
+    {
+        Physics.SyncTransforms();
+        int removed = 0;
+        var items = new List<Transform>();
+        foreach (Transform c in holder) foreach (Transform it in c) items.Add(it);
+        foreach (var it in items)
+        {
+            var rs = it.GetComponentsInChildren<Renderer>(); if (rs.Length == 0) continue;
+            var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+            bool hit = false;
+            foreach (var c in Physics.OverlapBox(b.center, b.extents * 0.85f, Quaternion.identity, ~0, QueryTriggerInteraction.Collide))
+            {
+                if (c == null || c.transform.IsChildOf(holder)) continue;
+                string n = c.name;
+                if (n == "PathMesh" || n == "FallCatcher") continue;
+                if (c.isTrigger && c.bounds.size.magnitude > 6f) continue;   // 風・重力・すき間判定など大きい見えない判定
+                if (n.Contains("Zone") || n.Contains("Wind") || n.Contains("Gust") || n.Contains("Whirl") || n.Contains("Updraft") || n.Contains("Heavy")) continue;
+                if (rockOk && (n == "Mountain" || n == "Tunnel" || n == "CaveMouth" || n == "Rubble" || n == "ClimbSteps" || n == "Pillars" || n == "VentRims")) continue;
+                hit = true; break;
+            }
+            if (hit) { Object.DestroyImmediate(it.gameObject); removed++; }
+        }
+        return removed;
     }
 }
