@@ -574,13 +574,13 @@ public static class SpiderWebBuild
         float hs = b.size.y * 0.5f, w = b.floorShadowWidth * 0.5f;
         var V = new List<Vector3>(); var U = new List<Vector2>(); var T = new List<int>();
         int n = Mathf.Max(2, Mathf.CeilToInt((maxX - minX) / 0.1f));
-        var xs = new List<float>(); var ys = new List<float>();
+        var xs = new List<float>(); var ys = new List<float>(); var idx = new List<int>();
         for (int i = 0; i <= n; i++)
         {
             float x = Mathf.Lerp(minX, maxX, i / (float)n);
             float y = FloorAt(sup, new Vector3(x, -hs + 0.3f, 0));
             if (float.IsNaN(y)) continue;
-            xs.Add(x); ys.Add(y);
+            xs.Add(x); ys.Add(y); idx.Add(i);
         }
         if (xs.Count < 2) return;
         float x0 = xs[0], x1 = xs[xs.Count - 1];
@@ -589,7 +589,8 @@ public static class SpiderWebBuild
             float u = (xs[i] - x0) / Mathf.Max(1e-4f, x1 - x0);
             V.Add(new Vector3(xs[i], ys[i] + 0.012f, -w)); U.Add(new Vector2(u, 0));
             V.Add(new Vector3(xs[i], ys[i] + 0.012f, w)); U.Add(new Vector2(u, 1));
-            if (i > 0) { int k = V.Count - 4; T.AddRange(new[] { k, k + 1, k + 3, k, k + 3, k + 2 }); }
+            // 床がとぎれている所（道と木の島の間の空中など）や段差はつながない
+            if (i > 0 && idx[i] == idx[i - 1] + 1 && Mathf.Abs(ys[i] - ys[i - 1]) < 0.25f) { int k = V.Count - 4; T.AddRange(new[] { k, k + 1, k + 3, k, k + 3, k + 2 }); }
         }
         var m = new Mesh(); m.SetVertices(V); m.SetUVs(0, U); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var saved = SaveMesh(Folder + "/" + id + "_FloorShadow.asset", m);
