@@ -20,7 +20,8 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7, lean=0.0, ca
     Rt = Matrix.Rotation(math.radians(cap_tilt), 3, 'Y')
     random.seed(seed); off = Vector((seed * 4.3, seed * 2.1, 0))
     V = []; C = []; F = []
-    def add(p, c): V.append(tuple(p)); C.append(c); return len(V) - 1
+    U = []   # しずくの揺れ用：x=付け根0〜先1、y=しずくごとの位相（しずく以外は0）
+    def add(p, c, uv=(0.0, 0.0)): V.append(tuple(p)); C.append(c); U.append(uv); return len(V) - 1
     SEG = 40
 
     # ---- 軸：ゆるいS字、根元が少しふくらむ。傘の中（ヒダのてっぺん）まで続けて、傘とのすき間をなくす ----
@@ -150,6 +151,7 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7, lean=0.0, ca
         base = cap_xf(bead_c[s]); br = bead_r[s]
         L = random.uniform(0.25, 0.8) + br
         rad = random.uniform(0.07, 0.12)
+        dph = (a * 7.31 + seed * 1.7) % math.tau   # 乱数を消費しない（形を変えないため）
         DS = 16; NP = 16
         r0 = 0.7 * br   # 付け根は玉ぶちより細い＝管の中に収まる
         rr = []
@@ -160,14 +162,14 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7, lean=0.0, ca
             ring = []
             for j in range(DS):
                 b = j / DS * math.tau
-                ring.append(add(base + Vector((r * math.cos(b), r * math.sin(b), -L * u)), INKHI if u > 0.7 and j in (2, 3, 4) else INK))
+                ring.append(add(base + Vector((r * math.cos(b), r * math.sin(b), -L * u)), INKHI if u > 0.7 and j in (2, 3, 4) else INK, (u, dph)))
             rr.append(ring)
         cap_top = add(base + Vector((0, 0, br * 0.3)), INK)   # 上のふた（玉ぶちの中）
         for j in range(DS): F.append((rr[0][(j + 1) % DS], rr[0][j], cap_top))
         for k in range(len(rr) - 1):
             A, B = rr[k], rr[k + 1]
             for j in range(DS): F.append((A[j], A[(j + 1) % DS], B[(j + 1) % DS], B[j]))
-        tip = add(base + Vector((0, 0, -L * 1.03)), INK)
+        tip = add(base + Vector((0, 0, -L * 1.03)), INK, (1.0, dph))
         for j in range(DS): F.append((rr[-1][j], rr[-1][(j + 1) % DS], tip))
         drips.append((a, (base.x, base.z, base.y), L))
 
@@ -179,7 +181,7 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7, lean=0.0, ca
     for p in me.polygons: p.use_smooth = True
     o = bpy.data.objects.get(name)
     if o is None: o = bpy.data.objects.new(name, me); col.objects.link(o)
-    return o, C, drips
+    return o, C, drips, U
 
 # (名前, seed, 軸の高さ, 傘の高さ, 傘の半径)
 specs = [('InkCap_A', 1, 4.6, 3.0, 2.2), ('InkCap_B', 2, 4.4, 2.7, 2.0), ('InkCap_Tall', 3, 7.6, 3.4, 2.5),
@@ -188,13 +190,14 @@ specs = [('InkCap_A', 1, 4.6, 3.0, 2.2), ('InkCap_B', 2, 4.4, 2.7, 2.0), ('InkCa
          ('InkCap_BLean', 2, 4.4, 2.7, 2.0, 0.16, 7, 1.0, 7.0)]   # 回廊：同じく道の左端から道側へ
 out = {}
 for i, sp in enumerate(specs):
-    o, C, drips = inkcap(*sp)
+    o, C, drips, U = inkcap(*sp)
     o.location = (i * 7.0, 30, 0)
     me = o.data; me.calc_loop_triangles()
     out[sp[0]] = {'v': [(v.co.x, v.co.z, v.co.y) for v in me.vertices],
                   'n': [(v.normal.x, v.normal.z, v.normal.y) for v in me.vertices],
                   'c': [tuple(c) for c in C],
                   't': [(t.vertices[0], t.vertices[2], t.vertices[1]) for t in me.loop_triangles],
+                  'uv': U,
                   'drips': drips}
 json.dump(out, open(OUT, 'w'))
 print({k: (len(v['v']), len(v['t'])) for k, v in out.items()})

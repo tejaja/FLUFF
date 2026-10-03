@@ -9,6 +9,8 @@ Shader "FuwaCourse/InkCap"
         _Ambient ("Ambient", Range(0, 1)) = 0.35
         _InkGloss ("インクのツヤ", Range(0, 2)) = 0.9
         _InkTint ("インクのツヤの色", Color) = (0.75, 0.6, 1, 1)
+        _DripAmp ("しずくの伸び縮み (m)", Float) = 0.09
+        _DripSpeed ("しずくの揺れの速さ", Float) = 1.7
     }
     SubShader
     {
@@ -29,9 +31,10 @@ Shader "FuwaCourse/InkCap"
             #include "AutoLight.cginc"
 
             half _Wrap, _Ambient, _InkGloss;
+            float _DripAmp, _DripSpeed;
             fixed4 _InkTint;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f
             {
                 float4 pos : SV_POSITION;
@@ -48,6 +51,13 @@ Shader "FuwaCourse/InkCap"
                 v2f o;
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                // しずく（uv.x＝付け根0〜先1、uv.y＝位相）：先ほど大きく、たらーんと伸びたり縮んだり
+                if (v.uv.x > 0.001)
+                {
+                    float w = v.uv.x * v.uv.x;
+                    float s = sin(_Time.y * _DripSpeed + v.uv.y) * 0.6 + sin(_Time.y * _DripSpeed * 2.3 + v.uv.y * 1.7) * 0.4;
+                    v.vertex.y -= _DripAmp * w * (0.5 + 0.5 * s);
+                }
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.wn = UnityObjectToWorldNormal(v.normal);
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
