@@ -29,6 +29,7 @@ Shader "FuwaCourse/FarIsland"
             #include "UnityCG.cginc"
 
             fixed4 _Haze, _LightColor0;
+            float _UdonSkyDim;   // グローバル：やみのもりにいる間、空と一緒に暗くする（FuwaAreaFog）
             float _HazeStart, _HazeEnd, _HazeMax, _Shade;
 
             float _FallSpeed, _FallLen, _Bob, _BobSpeed;
@@ -97,6 +98,7 @@ Shader "FuwaCourse/FarIsland"
                 float dist = distance(i.wp, _WorldSpaceCameraPos);
                 float h = saturate((dist - _HazeStart) / max(1, _HazeEnd - _HazeStart)) * _HazeMax;
                 col = lerp(col, _Haze.rgb * tint, h);
+                col = lerp(col, saturate(col) * float3(0.11, 0.11, 0.2), saturate(_UdonSkyDim));
                 return fixed4(col, 1);
             }
             ENDCG

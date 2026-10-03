@@ -29,6 +29,7 @@ Shader "FuwaCourse/CloudPuff"
             #include "UnityCG.cginc"
 
             fixed4 _Color, _Shade, _LightColor0, _Haze;
+            float _UdonSkyDim;   // グローバル：やみのもりにいる間、空と一緒に暗くする（FuwaAreaFog）
             float _Rim, _Drift, _DriftSpeed, _Bob, _HazeStart, _HazeEnd, _HazeMax;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -63,6 +64,7 @@ Shader "FuwaCourse/CloudPuff"
                 // 遠い雲ほど空の色にかすむ（地平線の遠い雲用。近くの雲は変わらない）
                 float h = saturate((length(i.wv) - _HazeStart) / max(1, _HazeEnd - _HazeStart)) * _HazeMax;
                 col = lerp(col, _Haze.rgb * tint, h);
+                col = lerp(col, saturate(col) * float3(0.11, 0.11, 0.2), saturate(_UdonSkyDim));
                 return fixed4(col, 1);
             }
             ENDCG

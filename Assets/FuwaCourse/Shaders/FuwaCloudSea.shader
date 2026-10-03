@@ -28,6 +28,7 @@ Shader "FuwaCourse/CloudSea"
             #include "UnityCG.cginc"
 
             fixed4 _CloudColor, _CloudShade;
+            float _UdonSkyDim;   // グローバル：やみのもりにいる間、空と一緒に暗くする（FuwaAreaFog）
             float _Scale, _Cover, _Soft, _Alpha, _FadeStart, _FadeEnd;
             float4 _Speed;
 
@@ -71,6 +72,7 @@ Shader "FuwaCourse/CloudSea"
                 float3 col = lerp(_CloudShade.rgb, _CloudColor.rgb, lit);
                 float dist = distance(i.wp.xz, _WorldSpaceCameraPos.xz);
                 float fade = 1 - smoothstep(_FadeStart, _FadeEnd, dist);
+                col = lerp(col, saturate(col) * float3(0.11, 0.11, 0.2), saturate(_UdonSkyDim));
                 return fixed4(col, dens * _Alpha * fade);
             }
             ENDCG
