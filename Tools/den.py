@@ -9,7 +9,7 @@ OUT = globals().get('OUT', r'D:\UnityProject\FLUFF\Tools\den.json')
 
 FLOOR_Y = 5.5
 # ---- レイアウト ----
-START = dict(c=(31.22, -3.15), r=4.2)          # 既存のスタートの島（作らない、橋の端だけ合わせる）
+START = dict(c=(31.22, -3.15), r=3.2)          # 既存のスタートの島（作らない、橋の端だけ合わせる）
 GOAL = dict(c=(71.02, 23.37), r=3.1)           # 既存のゴールの島
 NESTS = [
     dict(name='Nest1', c=(40.8, 2.2), r=3.0, rim=0.5, seed=1),
