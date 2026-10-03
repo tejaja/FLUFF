@@ -76,7 +76,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     public float sneakSpeed = 2.4f;
     [Tooltip("エアガンを撃つ音が聞こえる距離(m)")]
     public float hearRange = 6f;
-    [Tooltip("寝てる間に出す「Zzz」")]
+    [Tooltip("寝てる間に鼻から出す泡（息に合わせてふくらむ）")]
     public Transform sleepFx;
     [Tooltip("起きた時に出す「！」")]
     public Transform alertFx;
@@ -128,13 +128,14 @@ public class FuwaEnemy : UdonSharpBehaviour
         }
         if (eyes != null) _eyesScale = eyes.localScale;
         InitPupils();
-        if (sleepFx != null) _sleepFxBase = sleepFx.localPosition;
+        if (sleepFx != null) { _sleepFxBase = sleepFx.localPosition; _sleepFxScale = sleepFx.localScale; }
         if (alertFx != null) alertFx.gameObject.SetActive(false);
         EnterIdleMode();
     }
 
     private Vector3 _eyesScale = Vector3.one;
     private Vector3 _sleepFxBase;
+    private Vector3 _sleepFxScale = Vector3.one;
     private float _farSince = -1f;
 
     // ふだんの状態（かくれてる／寝てる／うろうろ）に戻す
@@ -230,12 +231,13 @@ public class FuwaEnemy : UdonSharpBehaviour
                 visual.localPosition = _visualBase;
                 visual.localScale = new Vector3(_visualScale.x * (1.08f + 0.04f * br), _visualScale.y * (0.84f - 0.04f * br), _visualScale.z * (1.08f + 0.04f * br));
             }
-            if (eyes != null) eyes.localScale = new Vector3(_eyesScale.x, _eyesScale.y * 0.12f, _eyesScale.z);
+            if (eyes != null) eyes.localScale = new Vector3(_eyesScale.x, _eyesScale.y * 0.03f, _eyesScale.z);
             if (sleepFx != null)
             {
-                float u = (Time.time * 0.5f + _phase) % 1f;
-                sleepFx.localPosition = _sleepFxBase + new Vector3(0.08f * Mathf.Sin(u * 6.28f), 0.25f * u, 0f);
-                sleepFx.localScale = Vector3.one * (0.6f + 0.6f * u) * (u < 0.85f ? 1f : (1f - u) / 0.15f);
+                // 鼻ちょうちん：息を吐くとふくらんで、吸うとしぼむ
+                float k = 0.5f + 0.5f * br;
+                sleepFx.localScale = _sleepFxScale * Mathf.Lerp(0.2f, 1f, k * k);
+                sleepFx.localPosition = _sleepFxBase + Vector3.forward * 0.5f * _sleepFxScale.z * Mathf.Lerp(0.2f, 1f, k * k);
             }
             return;
         }

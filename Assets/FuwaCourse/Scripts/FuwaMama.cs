@@ -87,6 +87,9 @@ public class FuwaMama : UdonSharpBehaviour
     private Vector3 _visualBase;
     private Vector3 _eyesScale = Vector3.one;
     private Vector3 _zzzBase;
+    private Vector3 _zzzScale = Vector3.one;
+    private Vector3 _startPos;
+    private Quaternion _startRot;
     private Vector3 _home;
     private Vector3 _push;
     private float _bumpUntil;
@@ -101,7 +104,8 @@ public class FuwaMama : UdonSharpBehaviour
         if (visual != null) { _visualScale = visual.localScale; _visualBase = visual.localPosition; }
         if (eyes != null) _eyesScale = eyes.localScale;
         InitPupils();
-        if (zzz != null) _zzzBase = zzz.localPosition;
+        if (zzz != null) { _zzzBase = zzz.localPosition; _zzzScale = zzz.localScale; }
+        _startPos = transform.position; _startRot = transform.rotation;
         if (warnText != null) warnText.gameObject.SetActive(false);
         if (sneezeText != null) sneezeText.gameObject.SetActive(false);
         _wait = interval;
@@ -133,12 +137,12 @@ public class FuwaMama : UdonSharpBehaviour
         float swell = 0f, squint = 1f, shake = 0f;
         if (_state == 0)
         {
-            squint = 0.12f;
+            squint = 0.03f;
             if (near) { _wait = interval * 0.6f; SetState(1); }
         }
         else if (_state == 1)
         {
-            squint = 0.55f;
+            squint = 1f;   // 起きたら目をぱっちり
             if (!near && _t > 2f) SetState(0);
             else if (useSneeze && _t > _wait)
             {
@@ -185,10 +189,12 @@ public class FuwaMama : UdonSharpBehaviour
         if (eyes != null) eyes.localScale = new Vector3(_eyesScale.x, _eyesScale.y * squint, _eyesScale.z);
         if (zzz != null)
         {
+            // 鼻ちょうちん：息を吐くとふくらんで、吸うとしぼむ
             zzz.gameObject.SetActive(_state == 0);
-            float u = (Time.time * 0.4f) % 1f;
-            zzz.localPosition = _zzzBase + new Vector3(0.15f * Mathf.Sin(u * 6.28f), 0.5f * u, 0f);
-            zzz.localScale = Vector3.one * (0.7f + 0.6f * u) * (u < 0.85f ? 1f : (1f - u) / 0.15f);
+            float k = 0.5f + 0.5f * Mathf.Sin(Time.time * 1.2f);
+            float g = Mathf.Lerp(0.2f, 1f, k * k);
+            zzz.localScale = _zzzScale * g;
+            zzz.localPosition = _zzzBase + Vector3.forward * 0.5f * _zzzScale.z * g;
         }
     }
 
@@ -328,5 +334,17 @@ public class FuwaMama : UdonSharpBehaviour
                 ball.Blow(bf * ballBump * dt * 8f + Vector3.up * 0.5f * dt * 8f);
             }
         }
+    }
+
+    // アウト・リスポーン・コース開始の時（FuwaBall から）：最初の場所で寝ている状態に戻す
+    public void ResetBoss()
+    {
+        transform.position = _startPos;
+        transform.rotation = _startRot;
+        _push = Vector3.zero;
+        _inHop = false; _hopClock = 0f;
+        if (warnText != null) warnText.gameObject.SetActive(false);
+        if (sneezeText != null) sneezeText.gameObject.SetActive(false);
+        SetState(0);
     }
 }

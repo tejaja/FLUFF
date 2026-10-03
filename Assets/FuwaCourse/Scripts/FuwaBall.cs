@@ -66,6 +66,8 @@ public class FuwaBall : UdonSharpBehaviour
 
     [Tooltip("プレイヤーがやられた・リスポーンした時に復活させるモンスター")]
     public FuwaEnemy[] enemies;
+    [Tooltip("アウト・リスポーンの時に元に戻すボス（ママけだま）")]
+    public FuwaMama[] bosses;
 
     [Tooltip("最速タイムの看板（なくてもOK）")]
     public FuwaRecords records;
@@ -907,6 +909,7 @@ public class FuwaBall : UdonSharpBehaviour
     {
         if (enemies == null) return;
         foreach (FuwaEnemy e in enemies) if (e != null) e.Revive();
+        if (bosses != null) foreach (FuwaMama m in bosses) if (m != null) m.ResetBoss();
     }
 
     private void SetHidden(bool hidden)
