@@ -18,6 +18,8 @@ public class FuwaWindDeco : UdonSharpBehaviour
     public Transform sock;
     [Tooltip("垂れた時の、風下への傾き（0=真下、1=水平）")]
     public float droopLean = 0.2f;
+    [Tooltip("垂れた時に柱から離れる向き（ワールド、腕の向き）。風下への傾きのうち、柱へ向かう分は消す")]
+    public Vector3 droopAway = Vector3.zero;
     public float flutterAmount = 6f;
     public float flutterSpeed = 11f;
 
@@ -73,7 +75,15 @@ public class FuwaWindDeco : UdonSharpBehaviour
 
         if (sock != null)
         {
-            Vector3 droop = (Vector3.down + h * droopLean).normalized;
+            Vector3 lean = h * droopLean;
+            if (droopAway.sqrMagnitude > 0.001f)
+            {
+                Vector3 aw = droopAway.normalized;
+                float toward = Vector3.Dot(lean, aw);
+                if (toward < 0f) lean -= aw * toward;   // 柱の方へは傾けない
+                lean += aw * 0.08f;
+            }
+            Vector3 droop = (Vector3.down + lean).normalized;
             Vector3 blow = (h + Vector3.up * Mathf.Clamp(_lastDir.y, -0.3f, 0.6f) * 0.5f).normalized;
             Vector3 dir = Vector3.Slerp(droop, blow, _level);
             Quaternion q = Quaternion.LookRotation(dir, Vector3.up);

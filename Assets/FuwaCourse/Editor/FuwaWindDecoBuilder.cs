@@ -102,6 +102,24 @@ public static class FuwaWindDecoBuilder
         return Finish(V, new List<List<int>> { T }, false);
     }
 
+    // 吹き流しの腕：原点（柱のてっぺん）から上へ BracketUp、そこから +X へ BracketOut の L字の細い棒
+    public const float BracketUp = 0.42f, BracketOut = 0.34f;
+    public static Mesh BracketMesh()
+    {
+        var V = new List<Vector3>(); var T = new List<int>();
+        void Bar(Vector3 a, Vector3 b, float r)
+        {
+            var d = (b - a).normalized; var u = Vector3.Cross(d, Mathf.Abs(d.y) < 0.9f ? Vector3.up : Vector3.right).normalized; var w = Vector3.Cross(d, u);
+            int bs = V.Count; const int seg = 8;
+            for (int i = 0; i < seg; i++) { float an = i * Mathf.PI * 2 / seg; var o = (u * Mathf.Cos(an) + w * Mathf.Sin(an)) * r; V.Add(a + o); V.Add(b + o); }
+            for (int i = 0; i < seg; i++) { int j = (i + 1) % seg; int a0 = bs + i * 2, a1 = a0 + 1, b0 = bs + j * 2, b1 = b0 + 1; T.AddRange(new[] { a0, b0, b1, a0, b1, a1 }); }
+        }
+        Bar(new Vector3(0, -0.05f, 0), new Vector3(0, BracketUp + 0.02f, 0), 0.022f);
+        Bar(new Vector3(-0.02f, BracketUp, 0), new Vector3(BracketOut, BracketUp, 0), 0.018f);
+        Bar(new Vector3(BracketOut, BracketUp + 0.02f, 0), new Vector3(BracketOut, BracketUp - 0.06f, 0), 0.016f);
+        return Finish(V, new List<List<int>> { T }, false);
+    }
+
     // かざぐるま：中心から4枚の羽（角が手前へ反る）。羽ごとにサブメッシュ（色違い）＋中心の玉
     public static Mesh PinwheelMesh(float R)
     {
@@ -150,6 +168,7 @@ public static class FuwaWindDecoBuilder
         var polePin = Save(PoleMesh(1.55f), "PinwheelPole");
         var sock = Save(SockMesh(), "Windsock");
         var tether = Save(TetherMesh(), "WindsockTether");
+        var bracket = Save(BracketMesh(), "WindsockBracket");
         var pin = Save(PinwheelMesh(0.42f), "Pinwheel");
         var mPole = Mat("WindDeco_Pole", new Color(0.93f, 0.91f, 0.88f), false);
         var mRed = Mat("WindDeco_SockRed", new Color(0.95f, 0.35f, 0.38f), true);
@@ -219,10 +238,15 @@ public static class FuwaWindDecoBuilder
             if (sp.sock)
             {
                 var pole = Child(go.transform, "Pole", poleSock, new[] { mPole }, Vector3.zero);
-                float top = 2.1f - 0.12f;
-                var pivot = new GameObject("SockPivot").transform; pivot.SetParent(go.transform, false); pivot.localPosition = new Vector3(0, top, 0);
-                // 柱の横の金具を支点に、吊りひも（TetherLen）の先に吹き流し
-                pivot.localPosition = new Vector3(0, top, 0);
+                // 柱のてっぺんから、道と反対側へ L字の腕（上へ BracketUp → 外へ BracketOut）。その先の金具を支点に吊りひも＋吹き流し
+                // 腕の先は柱より高く・柱から離れているので、垂れても横に吹かれても柱を貫通しない
+                var right = (W(pc, sp.s, 1, 0) - W(pc, sp.s, 0, 0)); right.y = 0; right.Normalize();
+                var outDir = right * sp.side;
+                var br = Child(go.transform, "Bracket", bracket, new[] { mPole }, new Vector3(0, 2.1f, 0));
+                br.rotation = Quaternion.LookRotation(Vector3.Cross(outDir, Vector3.up), Vector3.up);   // ブラケットの +X を外向きに
+                var pivot = new GameObject("SockPivot").transform; pivot.SetParent(go.transform, false);
+                pivot.position = go.transform.TransformPoint(new Vector3(0, 2.1f + BracketUp, 0)) + outDir * BracketOut;
+                deco.droopAway = outDir;
                 Child(pivot, "Tether", tether, new[] { mRing }, new Vector3(0, 0, 0.07f));
                 var so = Child(pivot, "Sock", sock, new[] { mRed, mWhite, mRing }, new Vector3(0, 0, 0.07f + TetherLen));
                 deco.sock = pivot;
