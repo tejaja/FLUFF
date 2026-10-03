@@ -1,15 +1,15 @@
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
-using VRC.SDK3.Components;
 using VRC.SDK3.UdonNetworkCalling;
 using VRC.Udon.Common.Interfaces;
 
 // 「みんなで」ロビーの、全員で同じものを吹いて遊ぶふわふわ。
-// 吹いた人がその場で持ち主になって物理を動かし、位置・回転は VRCObjectSync で全員に届く。
+// 吹いた人がその場で持ち主になり、撃った瞬間の「位置・速さ・時刻」を全員に送る。
+// あとはそれぞれの画面で同じ決まりで動かし（なめらか）、持ち主がときどき送る位置へそっと寄せる。
 // 最初は真ん中のキノコの上で浮いて待っていて、誰かが吹くと飛び出す。床に落ちたら弾けて、キノコの上に戻る。
-// （VRCObjectSync と同じ物に付けるので、同期モードは Continuous）
-[UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
+// （VRCObjectSync は使わない。同期モードは Manual）
+[UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class FuwaSharedBall : UdonSharpBehaviour
 {
     [Header("ふわふわの動き（FuwaBall と同じ考え方）")]
@@ -52,7 +52,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public float boingPitchStrong = 0.8f;
     public float boingVolumeWeak = 0.35f;
     public float boingVolumeStrong = 1f;
-    [Tooltip("持ち主以外の画面で、この速さ以上に急に向きが変わったら「ぶつかった」とみなしてポヨン")]
+    [Tooltip("この速さ以上に急に向きが変わったら「ぶつかった」とみなしてポヨン（それぞれの画面で）")]
     public float bumpDetect = 2.2f;
     private float _squashStart = -10f;
     private float _squashPower;
@@ -60,26 +60,41 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private Vector3 _prevVel;
     private float _bumpCooldown;
 
+    [Header("同期（全員の画面でそれぞれ同じ計算をして、持ち主の位置にそっと寄せる）")]
+    [Tooltip("飛んでいる間、持ち主が今の位置と速さを送る間隔(秒)")]
+    public float correctionInterval = 0.35f;
+    [Tooltip("ズレを寄せる速さ（大きいほど早く寄る）")]
+    public float correctionRate = 5f;
+    [Tooltip("ズレがこれ以上なら寄せずにその場へ移す(m)")]
+    public float snapDistance = 2.5f;
+
     [UdonSynced] private bool _waiting = true;
     [UdonSynced] private bool _popped;
+    [UdonSynced] private Vector3 _sPos;
+    [UdonSynced] private Vector3 _sVel;
+    [UdonSynced] private Vector3 _sAng;
+    [UdonSynced] private double _sTime;
+    [UdonSynced] private int _sShot;
 
     private Rigidbody _rb;
-    private VRCObjectSync _sync;
     private Vector3 _homePos;
     private Quaternion _homeRot;
     private float _respawnAt = -1f;
-    private Vector3 _lastPos;
-    private Vector3 _estVel;      // 持ち主でない時、届いた位置から見積もった速度（持ち主を引き継いだ瞬間に使う）
     private Material _furMat;
     private Vector3 _furDrag;
     private bool _shownPopped;
+    private bool _shownWaiting = true;
     private Renderer _selfRenderer;
     private TrailRenderer _trail;
+    private int _seenShot;
+    private Vector3 _posErr;        // 持ち主の位置とのズレ。少しずつ寄せていく
+    private Vector3 _predVel;
+    private float _nextSend;
+    private bool _sendSoon;
 
     private void Start()
     {
         _rb = GetComponent<Rigidbody>();
-        _sync = (VRCObjectSync)GetComponent(typeof(VRCObjectSync));
         _selfRenderer = GetComponent<Renderer>();
         _trail = GetComponent<TrailRenderer>();
         if (furRenderer != null) _furMat = furRenderer.material;
@@ -87,9 +102,10 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _rb.drag = airDrag;
         _rb.angularDrag = spinDamping;
         _rb.maxAngularVelocity = 12f;
+        _rb.interpolation = RigidbodyInterpolation.Interpolate;
         _homePos = transform.position;
         _homeRot = transform.rotation;
-        _lastPos = transform.position;
+        _rb.isKinematic = true;
         if (Networking.IsOwner(gameObject)) SetWaiting();
     }
 
@@ -99,28 +115,34 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _waiting = true;
         _popped = false;
         _respawnAt = -1f;
-        if (_sync != null) { _sync.FlagDiscontinuity(); _sync.SetKinematic(true); }
-        _rb.isKinematic = true;
-        transform.SetPositionAndRotation(_homePos, _homeRot);
-        _rb.velocity = Vector3.zero;
-        _rb.angularVelocity = Vector3.zero;
+        GoHome();
         RequestSerialization();
         ApplyPoppedVisual();
     }
 
-    // エアガンから呼ばれる（吹いた人の画面で）。その人が持ち主になって、すぐ動かす
+    private void GoHome()
+    {
+        _rb.isKinematic = true;
+        _rb.position = _homePos;
+        _rb.rotation = _homeRot;
+        transform.SetPositionAndRotation(_homePos, _homeRot);
+        _posErr = Vector3.zero;
+        _shownWaiting = true;
+        if (_trail != null) _trail.Clear();
+    }
+
+    // エアガンから呼ばれる（吹いた人の画面で）。その人が持ち主になって、自分の画面ではすぐ動かす
     public void BlowShared(Vector3 velocityChange)
     {
         if (_popped) return;
-        Vector3 v = _estVel;
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
-        else v = _rb.isKinematic ? Vector3.zero : _rb.velocity;
+        Vector3 v = _rb.isKinematic ? Vector3.zero : _rb.velocity;
         if (_waiting)
         {
             _waiting = false;
             v = Vector3.zero;
         }
-        if (_sync != null) _sync.SetKinematic(false);
+        _shownWaiting = false;
         _rb.isKinematic = false;
         // 落ちてる最中に下から吹かれたら、いったん落下を止めてから持ち上げる（FuwaBall と同じ）
         if (v.y < 0f && velocityChange.y > 0f) v.y = 0f;
@@ -128,8 +150,83 @@ public class FuwaSharedBall : UdonSharpBehaviour
         Vector3 flat = new Vector3(velocityChange.x, 0f, velocityChange.z);
         Vector3 axis = flat.sqrMagnitude > 0.0001f ? Vector3.Cross(Vector3.up, flat.normalized) : Vector3.zero;
         _rb.angularVelocity = axis * spinPerPuff + Random.insideUnitSphere * spinRandom;
-        RequestSerialization();
+        _posErr = Vector3.zero;   // 自分が撃った玉は、自分の見ている位置が正解
+        _sShot++;
+        _seenShot = _sShot;
+        SendState();
         SendCustomNetworkEvent(NetworkEventTarget.All, nameof(PlayPuff), Mathf.Clamp01(velocityChange.magnitude / Mathf.Max(0.01f, squashFullAt)));
+    }
+
+    // 持ち主：今の位置・速さ・時刻を送る（中身は OnPreSerialization で詰める）
+    private void SendState()
+    {
+        _nextSend = Time.time + correctionInterval;
+        _sendSoon = false;
+        RequestSerialization();
+    }
+
+    public override void OnPreSerialization()
+    {
+        _sPos = _rb.position;
+        _sVel = _rb.isKinematic ? Vector3.zero : _rb.velocity;
+        _sAng = _rb.isKinematic ? Vector3.zero : _rb.angularVelocity;
+        _sTime = Networking.GetServerTimeInSeconds();
+    }
+
+    // 送られた時刻から今までの動きを、ふわふわの決まり（落ちる速さ・空気抵抗・上限）で先回りして計算する
+    private Vector3 Predict(Vector3 pos, Vector3 vel, float t)
+    {
+        t = Mathf.Clamp(t, 0f, 1.5f);
+        while (t > 0f)
+        {
+            float dt = Mathf.Min(0.02f, t);
+            vel += Vector3.down * fallAcceleration * dt;
+            vel *= Mathf.Clamp01(1f - airDrag * dt);
+            if (vel.y < -maxFallSpeed) vel.y = -maxFallSpeed;
+            if (vel.magnitude > maxSpeed) vel = vel.normalized * maxSpeed;
+            pos += vel * dt;
+            t -= dt;
+        }
+        _predVel = vel;
+        return pos;
+    }
+
+    public override void OnDeserialization()
+    {
+        if (Networking.IsOwner(gameObject)) return;
+        if (_popped)
+        {
+            _rb.isKinematic = true;
+        }
+        else if (_waiting)
+        {
+            if (!_shownWaiting) GoHome();
+        }
+        else
+        {
+            float late = (float)(Networking.GetServerTimeInSeconds() - _sTime);
+            Vector3 target = Predict(_sPos, _sVel, late);
+            bool newShot = _sShot != _seenShot;
+            _seenShot = _sShot;
+            if (_shownWaiting || _rb.isKinematic)
+            {
+                // 待っていた玉が飛び出した：その場へ置いて動かし始める
+                _shownWaiting = false;
+                _rb.isKinematic = false;
+                _rb.position = target;
+                transform.position = target;
+                _posErr = Vector3.zero;
+            }
+            else
+            {
+                Vector3 err = target - _rb.position;
+                if (err.magnitude > snapDistance) { _rb.position = target; transform.position = target; _posErr = Vector3.zero; }
+                else _posErr = err;
+            }
+            _rb.velocity = _predVel;
+            if (newShot) _rb.angularVelocity = _sAng;
+        }
+        if (_shownPopped != _popped) ApplyPoppedVisual();
     }
 
     // 撃たれた時（全員）：強さ k(0〜1) に合わせて、綿毛を散らして、ボヨンと鳴らして、ポヨンとつぶれる
@@ -178,27 +275,34 @@ public class FuwaSharedBall : UdonSharpBehaviour
 
     private void FixedUpdate()
     {
-        if (!Networking.IsOwner(gameObject) || _waiting || _popped || _rb.isKinematic) return;
+        if (_waiting || _popped || _rb.isKinematic) return;
+        // 全員の画面で同じ決まりで動かす（持ち主でなくても）
         _rb.AddForce(Vector3.down * fallAcceleration, ForceMode.Acceleration);
         Vector3 v = _rb.velocity;
         if (v.y < -maxFallSpeed) v.y = -maxFallSpeed;
         if (v.magnitude > maxSpeed) v = v.normalized * maxSpeed;
         _rb.velocity = v;
+        // 持ち主とのズレを少しずつ寄せる
+        if (_posErr.sqrMagnitude > 0.000001f)
+        {
+            Vector3 d = _posErr * (1f - Mathf.Exp(-correctionRate * Time.fixedDeltaTime));
+            _rb.position += d;
+            _posErr -= d;
+        }
     }
 
     private void Update()
     {
         bool owner = Networking.IsOwner(gameObject);
-        float dt = Mathf.Max(Time.deltaTime, 0.0001f);
-        if (!owner) _estVel = Vector3.Lerp(_estVel, (transform.position - _lastPos) / dt, 1f - Mathf.Exp(-10f * dt));
-        Vector3 vel = owner && !_rb.isKinematic ? _rb.velocity : _estVel;
-        _lastPos = transform.position;
+        Vector3 vel = _rb.isKinematic ? Vector3.zero : _rb.velocity;
 
+        if (_waiting && _shownWaiting) transform.Rotate(new Vector3(0.3f, 1f, 0.15f), idleSpin * Time.deltaTime, Space.World);
         if (owner)
         {
-            if (_waiting) transform.Rotate(new Vector3(0.3f, 1f, 0.15f), idleSpin * Time.deltaTime, Space.World);
             if (!_waiting && !_popped && transform.position.y < _homePos.y - fallLimit) SetWaiting();
             if (_popped && _respawnAt > 0f && Time.time >= _respawnAt) SetWaiting();
+            // 飛んでいる間はときどき今の位置を送る（壁にぶつかった後はすぐ送る）
+            if (!_waiting && !_popped && (_sendSoon || Time.time >= _nextSend)) SendState();
         }
         if (_shownPopped != _popped) ApplyPoppedVisual();
         if (_trail != null) _trail.emitting = !_popped && !_waiting;
@@ -223,10 +327,14 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         if (!Networking.IsOwner(gameObject) || _waiting || _popped || collision == null || collision.collider == null) return;
-        if ((popLayers.value & (1 << collision.collider.gameObject.layer)) == 0) return;
+        if ((popLayers.value & (1 << collision.collider.gameObject.layer)) == 0)
+        {
+            _sendSoon = true;   // 壁や柵で跳ね返った：みんなの画面のズレを早めに直す
+            return;
+        }
+        // 床に落ちたかどうかは持ち主の画面で決める
         _popped = true;
         _respawnAt = Time.time + respawnDelay;
-        if (_sync != null) _sync.SetKinematic(true);
         _rb.isKinematic = true;
         RequestSerialization();
         ApplyPoppedVisual();
@@ -239,10 +347,5 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _shownPopped = _popped;
         if (_selfRenderer != null) _selfRenderer.enabled = !_popped;
         if (_trail != null) _trail.Clear();
-    }
-
-    public override void OnDeserialization()
-    {
-        if (_shownPopped != _popped) ApplyPoppedVisual();
     }
 }
