@@ -17,9 +17,9 @@ NESTS = [
     dict(name='MamaNest', c=(64.2, 17.4), r=4.6, rim=0.7, seed=3),
 ]
 PODS = [   # 寝てるけだまの小さい巣（橋のわき、入口なし）
-    dict(name='Pod1', c=(54.4, 11.6), r=1.25, rim=0.45, seed=11),
-    dict(name='Pod2', c=(57.6, 9.2), r=1.25, rim=0.45, seed=12),
-    dict(name='Pod3', c=(60.4, 14.6), r=1.25, rim=0.45, seed=13),
+    dict(name='Pod1', c=(54.04, 12.45), r=1.25, rim=0.45, seed=11),
+    dict(name='Pod2', c=(59.16, 8.45), r=1.25, rim=0.45, seed=12),
+    dict(name='Pod3', c=(57.6, 15.1), r=1.25, rim=0.45, seed=13),
 ]
 BRIDGE_W = 2.4
 # 橋：端の島（名前）と、途中の通り道。端は島のふちの少し内側まで入れる

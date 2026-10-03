@@ -684,6 +684,10 @@ public class FuwaBlower : UdonSharpBehaviour
         // フルチャージの時だけ、モンスターを少し遠くまで押し飛ばす
         if (charge >= 0.99f) enemyPower *= fullChargeEnemyBoost;
         PushEnemies(origin, aim, reach, enemyPower, charge >= enemyStunCharge);
+        // 撃った音で、寝ているモンスターが起きる
+        if (targetBall != null && targetBall.enemies != null)
+            for (int i = 0; i < targetBall.enemies.Length; i++)
+                if (targetBall.enemies[i] != null) targetBall.enemies[i].Hear(origin);
         if (targetBall != null && targetBall.gameObject.activeInHierarchy)
         {
             Vector3 vb = ShotVelocity(origin, aim, reach, ballPower, targetBall.transform.position);

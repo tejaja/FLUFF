@@ -51,6 +51,28 @@ public class FuwaEnemy : UdonSharpBehaviour
     public float pushDamping = 3f;
     public float stunTime = 0.7f;
 
+    [Header("巣の中にかくれる（まもののす）")]
+    [Tooltip("ONなら、ふだんは巣の床の下にかくれていて、近づくとぴょこっと出てくる")]
+    public bool hideInNest = false;
+    [Tooltip("この距離まで近づくと出てくる(m)")]
+    public float popRange = 4.5f;
+    public float hideDepth = 0.6f;
+
+    [Header("寝てる（まもののす）")]
+    [Tooltip("ONなら、ふだんは寝ている。走って近づく・エアガンの音・さわると起きる")]
+    public bool sleeping = false;
+    [Tooltip("この距離の中を走ると起きる(m)")]
+    public float wakeRange = 3.5f;
+    [Tooltip("この速さより速く動くと「走ってる」(m/s)")]
+    public float sneakSpeed = 2.4f;
+    [Tooltip("エアガンを撃つ音が聞こえる距離(m)")]
+    public float hearRange = 6f;
+    [Tooltip("寝てる間に出す「Zzz」")]
+    public Transform sleepFx;
+    [Tooltip("起きた時に出す「！」")]
+    public Transform alertFx;
+    public AudioSource wakeSound;
+
     [Header("落下・復活")]
     public float gravity = 12f;
     public float fallDepth = 8f;
@@ -71,7 +93,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     [Tooltip("道から落ちる時の「ヒューン」")]
     public AudioSource fallSound;
 
-    // 0=うろうろ 1=溜め 2=突進 3=戻る 4=ひるみ 5=落下中 6=消えてる
+    // 0=うろうろ 1=溜め 2=突進 3=戻る 4=ひるみ 5=落下中 6=消えてる 7=かくれてる 8=出てくる 9=もぐる 10=寝てる 11=起きた（！）
     private int _state;
     private float _stateTime;
     private float _cooldownUntil;
@@ -95,6 +117,48 @@ public class FuwaEnemy : UdonSharpBehaviour
             _visualBase = visual.localPosition;
             _visualScale = visual.localScale;
         }
+        if (eyes != null) _eyesScale = eyes.localScale;
+        if (sleepFx != null) _sleepFxBase = sleepFx.localPosition;
+        if (alertFx != null) alertFx.gameObject.SetActive(false);
+        EnterIdleMode();
+    }
+
+    private Vector3 _eyesScale = Vector3.one;
+    private Vector3 _sleepFxBase;
+    private float _farSince = -1f;
+
+    // ふだんの状態（かくれてる／寝てる／うろうろ）に戻す
+    private void EnterIdleMode()
+    {
+        if (hideInNest)
+        {
+            transform.position = _home + Vector3.down * hideDepth;
+            SetVisible(false);
+            SetState(7);
+        }
+        else if (sleeping)
+        {
+            transform.position = _home;
+            SetState(10);
+        }
+        if (sleepFx != null) sleepFx.gameObject.SetActive(sleeping && !hideInNest);
+        if (eyes != null) eyes.localScale = _eyesScale;
+    }
+
+    // エアガンを撃った音（FuwaBlower から）。寝てたら起きる
+    public void Hear(Vector3 pos)
+    {
+        if (_state == 10 && (pos - transform.position).magnitude < hearRange) Wake();
+    }
+
+    private void Wake()
+    {
+        if (_state != 10) return;
+        if (sleepFx != null) sleepFx.gameObject.SetActive(false);
+        if (alertFx != null) alertFx.gameObject.SetActive(true);
+        if (eyes != null) eyes.localScale = _eyesScale;
+        if (wakeSound != null) wakeSound.Play();
+        SetState(11);
     }
 
     private void SetState(int s)
@@ -118,12 +182,83 @@ public class FuwaEnemy : UdonSharpBehaviour
         // 倒されたら、プレイヤーがやられる／リスポーンするまで復活しない（Revive()で戻る）
         if (_state == 6) return;
 
+        if (_state == 7) // かくれてる：近づいたら出てくる
+        {
+            if (toPlayer.magnitude < popRange) { SetVisible(true); SetState(8); }
+            return;
+        }
+        if (_state == 8) // 出てくる：床の下からぴょこっ（少し跳ねて着地）
+        {
+            float x = Mathf.Clamp01(_stateTime / 0.45f);
+            transform.position = _home + Vector3.up * (-hideDepth * (1f - x) * (1f - x) + 0.45f * Mathf.Sin(x * Mathf.PI));
+            if (visual != null)
+            {
+                float w = Mathf.Sin(x * Mathf.PI) * 0.3f;
+                visual.localPosition = _visualBase;
+                visual.localScale = new Vector3(_visualScale.x * (1f - w * 0.5f), _visualScale.y * (1f + w), _visualScale.z * (1f - w * 0.5f));
+            }
+            if (x >= 1f) { _cooldownUntil = Time.time + 0.35f; _farSince = -1f; SetState(0); }
+            return;
+        }
+        if (_state == 9) // もぐる
+        {
+            float x = Mathf.Clamp01(_stateTime / 0.4f);
+            transform.position = _home + Vector3.down * hideDepth * x * x;
+            if (x >= 1f) { SetVisible(false); SetState(7); }
+            return;
+        }
+        if (_state == 10) // 寝てる：すーすー。走って近づく・さわると起きる
+        {
+            transform.position = _home;
+            Vector3 v = local.GetVelocity(); v.y = 0f;
+            if (toPlayer.magnitude < wakeRange && v.magnitude > sneakSpeed) Wake();
+            float br = Mathf.Sin(Time.time * 1.6f + _phase);
+            if (visual != null)
+            {
+                visual.localPosition = _visualBase;
+                visual.localScale = new Vector3(_visualScale.x * (1.08f + 0.04f * br), _visualScale.y * (0.84f - 0.04f * br), _visualScale.z * (1.08f + 0.04f * br));
+            }
+            if (eyes != null) eyes.localScale = new Vector3(_eyesScale.x, _eyesScale.y * 0.12f, _eyesScale.z);
+            if (sleepFx != null)
+            {
+                float u = (Time.time * 0.5f + _phase) % 1f;
+                sleepFx.localPosition = _sleepFxBase + new Vector3(0.08f * Mathf.Sin(u * 6.28f), 0.25f * u, 0f);
+                sleepFx.localScale = Vector3.one * (0.6f + 0.6f * u) * (u < 0.85f ? 1f : (1f - u) / 0.15f);
+            }
+            return;
+        }
+        if (_state == 11) // 起きた：「！」でぴょんと跳ねてから溜めへ
+        {
+            float x = Mathf.Clamp01(_stateTime / 0.5f);
+            transform.position = _home + Vector3.up * 0.35f * Mathf.Sin(x * Mathf.PI);
+            if (alertFx != null) alertFx.localScale = Vector3.one * (1f + 0.3f * Mathf.Sin(x * Mathf.PI));
+            if (x >= 1f)
+            {
+                if (alertFx != null) alertFx.gameObject.SetActive(false);
+                _cooldownUntil = 0f;
+                SetState(1);
+            }
+            return;
+        }
+
         if (_state == 0) // うろうろ（地面を這う）
         {
             float t = Time.time * 0.6f + _phase;
             Vector3 target = _home + new Vector3(Mathf.Sin(t) * wanderRadius, 0f, Mathf.Cos(t * 0.8f) * wanderRadius * 0.5f);
             transform.position = Vector3.Lerp(transform.position, target, 1f - Mathf.Exp(-3f * dt));
             if (toPlayer.magnitude < detectRange && Time.time > _cooldownUntil && HasGroundBelow()) SetState(1);
+            // かくれる・寝る敵は、プレイヤーが離れてしばらくしたら元に戻る
+            else if ((hideInNest || sleeping) && toPlayer.magnitude > Mathf.Max(popRange, wakeRange) * 1.6f)
+            {
+                if (_farSince < 0f) _farSince = Time.time;
+                else if (Time.time - _farSince > 2.5f)
+                {
+                    _farSince = -1f;
+                    if (hideInNest) SetState(9);
+                    else EnterIdleMode();
+                }
+            }
+            else _farSince = -1f;
         }
         else if (_state == 1) // 溜め
         {
@@ -262,7 +397,8 @@ public class FuwaEnemy : UdonSharpBehaviour
 
     private void OnPlayerTouch(VRCPlayerApi player)
     {
-        if (player == null || !player.isLocal || _state == 5 || _state == 6) return;
+        if (player == null || !player.isLocal || _state == 5 || _state == 6 || _state == 7) return;
+        if (_state == 10) { Wake(); return; }
         if (_state == 2) DashHit(player);
         else Bump(player);
     }
@@ -325,6 +461,8 @@ public class FuwaEnemy : UdonSharpBehaviour
         _cooldownUntil = Time.time + cooldown;
         SetVisible(true);
         SetState(0);
+        if (alertFx != null) alertFx.gameObject.SetActive(false);
+        EnterIdleMode();
     }
 
     private void SetVisible(bool on)
@@ -333,5 +471,5 @@ public class FuwaEnemy : UdonSharpBehaviour
         if (eyes != null) eyes.gameObject.SetActive(on);
     }
 
-    public bool IsActive() { return _state != 5 && _state != 6; }
+    public bool IsActive() { return _state != 5 && _state != 6 && _state != 7; }
 }
