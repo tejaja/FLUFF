@@ -818,13 +818,10 @@ public static class SpiderWebBuild
             // 下の▼は、ほかの浮島（スタート/ゴール・遠景）と同じ見た目の IslandUnder を別オブジェクトで置く。
             // ふたは緑の円盤（上面 -0.04、下面 -0.10）の厚みの中、半径は円盤(ir*1.025)より小さく＝はみ出さない
             AddIslandUnder(root, basePos + new Vector3(0, -0.07f, 0), ir, ir * 1.3f, seed);
-            var tmpC = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            var cyl = tmpC.GetComponent<MeshFilter>().sharedMesh;
-            Object.DestroyImmediate(tmpC);
+            var cyl = FuwaIslandDisc.Get(ir * 1.025f);   // 上のふちを丸めた円盤（厚み6cm）
             var disc = new GameObject("IslandTop");
             disc.transform.SetParent(root, false);
             disc.transform.localPosition = basePos + new Vector3(0, -0.07f, 0);
-            disc.transform.localScale = new Vector3(ir * 2.05f, 0.03f, ir * 2.05f);
             disc.AddComponent<MeshFilter>().sharedMesh = cyl;
             disc.AddComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>(MatDir + "Goal_Ground.mat");
             // 浮島の上に乗れるように（緑の地面＝道と同じ扱い：ふわふわが触るとアウト）
