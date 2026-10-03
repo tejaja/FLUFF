@@ -45,6 +45,11 @@ Shader "FuwaCourse/SpiderWeb"
         _DewSize ("夜露のつぶの半径 (m)", Float) = 0.012
         _DewColor ("夜露の色", Color) = (1, 0.97, 1, 1)
         _TwinkleSpeed ("キラッとする速さ", Float) = 1.3
+        _Spiral ("輪をらせんにする (0/1)", Float) = 1
+        _Sag ("横糸のたるみ（中心側へ弓なり、糸の長さの何割）", Range(0, 0.2)) = 0.07
+        _GapChance ("らせんの糸が切れている割合", Range(0, 0.3)) = 0.05
+        _SplitChance ("途中から生える放射の糸の割合", Range(0, 0.6)) = 0.3
+        _SplitStart ("途中から生える糸の始まり（外周までの何割）", Range(0, 0.9)) = 0.4
         _RimColor ("Hole Rim Color", Color) = (0.95, 0.95, 1.0, 1.0)
         _RimWidth ("Hole Rim Width (x Line Width)", Float) = 2.6
         _RimGlow ("Hole Rim Glow Width (m)", Float) = 0.05
@@ -78,6 +83,7 @@ Shader "FuwaCourse/SpiderWeb"
             fixed4 _DepthTint;
             float _DepthNear, _DepthFar, _DepthFade;
             float _OutlineWidth, _EdgeWidth, _DewChance, _DewSize, _TwinkleSpeed;
+            float _Spiral, _GapChance, _SplitChance, _SplitStart, _Sag;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 m : TEXCOORD0; float3 wpos : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
@@ -163,11 +169,13 @@ Shader "FuwaCourse/SpiderWeb"
             }
 
             // ring k radius on strand i (with ±5% wobble)
+            // らせんの時は、糸 i を1本進むごとに 1/本数 だけ外へずれる（1周で輪1つ分。本物の巣の「横糸」）
             float ringRadiusAt(float k, float i, float holeR)
             {
                 float a = _RingStart, b = _RingGrow;
-                float s = (a / b) * (pow(1 + b, k) - 1);
-                return (holeR + s) * lerp(0.95, 1.05, hash(float2(spokeIndex(i), k)));
+                float kc = k + (_Spiral > 0.5 ? i / _Spokes : 0);
+                float s = (a / b) * (pow(1 + b, kc) - 1);
+                return (holeR + s) * lerp(0.95, 1.05, hash(float2(spokeIndex(i), floor(kc + 1e-3))));
             }
             float ringRadius(float k, float i) { return ringRadiusAt(k, i, _HoleRadius); }
 
@@ -242,13 +250,17 @@ Shader "FuwaCourse/SpiderWeb"
                         float a = spokeAngle(fi + o);
                         float2 dir = float2(cos(a), sin(a));
                         float along = dot(p, dir);
-                        if (along > _HoleRadius * 0.9 && along < outerRadius(fi + o))
+                        float Ro = outerRadius(fi + o);
+                        // 一部の糸は途中から生える（本物の巣は外側で縦糸が枝分かれして増える）
+                        float st = hash(float2(spokeIndex(fi + o) + 0.75, 3.3)) < _SplitChance
+                            ? lerp(_HoleRadius, Ro, _SplitStart * lerp(0.7, 1.2, hash(float2(spokeIndex(fi + o), 7.7)))) : _HoleRadius * 0.9;
+                        if (along > st && along < Ro)
                             dIn = min(dIn, abs(cross2(p, dir)));
                     }
                     // rings between the two spokes of this sector
                     float sd = r - _HoleRadius;
                     float kf = log(1 + sd * _RingGrow / _RingStart) / log(1 + _RingGrow);
-                    float k0 = floor(kf);
+                    float k0 = floor(kf - (_Spiral > 0.5 ? s0 / _Spokes : 0));
                     [unroll] for (int kk = -1; kk <= 2; kk++)   // 輪は糸ごとに±5%ずれるので、1つ内側の輪も見る
                     {
                         float k = max(1, k0 + kk);
@@ -259,7 +271,14 @@ Shader "FuwaCourse/SpiderWeb"
                         float gap = _RingStart * pow(1 + _RingGrow, k);
                         float room = min(R0 - ringRadiusAt(k, s0, hm), R1 - ringRadiusAt(k, s1, hm));
                         float fade = room > gap * 0.6 ? 1 : 0;
-                        float dr = segDist(p, d0 * ra, d1 * rb);
+                        // 横糸は少したるんで中心側へ弓なりに（まっすぐな多角形だと作り物っぽいので）
+                        float2 A = d0 * ra, B = d1 * rb, AB = B - A;
+                        float tt = saturate(dot(p - A, AB) / max(dot(AB, AB), 1e-6));
+                        float2 outN = normalize(A + B);
+                        float dr = segDist(p + outN * (_Sag * length(AB) * 4 * tt * (1 - tt)), A, B);
+                        // ところどころ切れている横糸
+                        float kc0 = k + (_Spiral > 0.5 ? s0 / _Spokes : 0);
+                        if (hash(float2(spokeIndex(s0) + 0.25, floor(kc0 + 1e-3) * 1.7)) < _GapChance) fade = 0;
                         if (fade > 0.5)
                         {
                             dRing = min(dRing, dr);
