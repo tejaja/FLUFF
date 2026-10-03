@@ -26,36 +26,66 @@ public class FuwaHazard : UdonSharpBehaviour
     public float playerSlowLinger = 0.6f;
 
     private bool _slowed;
+    private bool _inside;
+    private int _insideCount;   // 判定のコライダーが複数ある時用
+    private float _restoreAt;
     private float _walk, _run, _strafe;
-    private int _exitCount;
 
     public override void OnPlayerTriggerEnter(VRCPlayerApi player)
     {
         if (playerSlow >= 0.999f || player == null || !player.isLocal) return;
-        _exitCount++;   // 抜ける途中でまた入った時、前の「元に戻す」予約を無効にする
-        if (_slowed) return;
-        _walk = player.GetWalkSpeed(); _run = player.GetRunSpeed(); _strafe = player.GetStrafeSpeed();
-        player.SetWalkSpeed(_walk * playerSlow);
-        player.SetRunSpeed(_run * playerSlow);
-        player.SetStrafeSpeed(_strafe * playerSlow);
-        _slowed = true;
+        _insideCount++;
+        _inside = true;
+        if (!_slowed)
+        {
+            _walk = player.GetWalkSpeed(); _run = player.GetRunSpeed(); _strafe = player.GetStrafeSpeed();
+            player.SetWalkSpeed(_walk * playerSlow);
+            player.SetRunSpeed(_run * playerSlow);
+            player.SetStrafeSpeed(_strafe * playerSlow);
+            _slowed = true;
+        }
+        // ジャンプ中は歩く速さを変えても勢いがそのまま残るので、入った瞬間に勢いもからめ取る
+        Vector3 v = player.GetVelocity();
+        player.SetVelocity(new Vector3(v.x * playerSlow, v.y > 0f ? v.y * playerSlow : v.y, v.z * playerSlow));
     }
 
     public override void OnPlayerTriggerExit(VRCPlayerApi player)
     {
-        if (!_slowed || player == null || !player.isLocal) return;
-        _exitCount++;
-        int mine = _exitCount;
-        _pendingExit = mine;
-        SendCustomEventDelayedSeconds(nameof(RestoreSpeed), playerSlowLinger);
+        if (player == null || !player.isLocal) return;
+        _insideCount = Mathf.Max(0, _insideCount - 1);
+        if (_insideCount > 0) return;
+        _inside = false;
+        _restoreAt = Time.time + playerSlowLinger;
     }
 
-    private int _pendingExit;
+    // 戻すのは遅延イベントではなく毎フレーム見張る（遅延イベント＋時刻チェックはまれに戻らなくなるので）
+    private void Update()
+    {
+        if (!_slowed) return;
+        VRCPlayerApi p = Networking.LocalPlayer;
+        if (p == null) return;
+        if (_inside)
+        {
+            // 中にいる間、空中でも横の速さは遅い速さまでに抑える
+            if (!p.IsPlayerGrounded())
+            {
+                Vector3 v = p.GetVelocity();
+                Vector3 h = new Vector3(v.x, 0f, v.z);
+                float lim = Mathf.Max(_run, _walk) * playerSlow;
+                if (h.magnitude > lim)
+                {
+                    h = h.normalized * lim;
+                    p.SetVelocity(new Vector3(h.x, v.y, h.z));
+                }
+            }
+            return;
+        }
+        if (Time.time >= _restoreAt) RestoreSpeed();
+    }
 
     public void RestoreSpeed()
     {
-        // 予約のあとにまた入っていたら戻さない
-        if (!_slowed || _pendingExit != _exitCount) return;
+        if (!_slowed) return;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p != null)
         {
@@ -69,8 +99,7 @@ public class FuwaHazard : UdonSharpBehaviour
     private void OnDisable()
     {
         // モード切り替えなどで消えた時に、遅いまま残らないように
-        if (!_slowed) return;
-        _pendingExit = _exitCount;
+        _inside = false; _insideCount = 0;
         RestoreSpeed();
     }
 

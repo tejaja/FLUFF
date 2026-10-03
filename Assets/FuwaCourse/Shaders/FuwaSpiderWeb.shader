@@ -56,7 +56,8 @@ Shader "FuwaCourse/SpiderWeb"
         Pass
         {
             Blend SrcAlpha OneMinusSrcAlpha
-            ZWrite Off
+            // 糸の所だけ奥行きを書く（あとから描く半透明のエフェクト＝重力エリアなどが、手前の糸の上に出ないように）
+            ZWrite On
             Cull Off
             CGPROGRAM
             #pragma vertex vert
@@ -315,6 +316,7 @@ Shader "FuwaCourse/SpiderWeb"
                 outA *= lerp(1, _DepthFade, far);
                 // 通り抜ける時に見づらくないよう、カメラのすぐ近くの部分はスゥっと消す
                 outA *= smoothstep(_FadeNear, max(_FadeFar, _FadeNear + 0.01), camD);
+                clip(outA - 0.03);   // 糸のない所は奥行きも書かない
                 return fixed4(col, outA);
             }
             ENDCG
