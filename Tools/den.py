@@ -250,6 +250,15 @@ def bridge_points(bd):
     return pts
 
 def build_bridge(bd, vis, col):
+    ends = [island(bd['a']), island(bd['b'])]
+    def sink_at(p, margin=0.0):
+        # 島（巣）の中に入った分だけ、小枝をなだらかに床の下へもぐらせる（床と同じ高さで横に切れて見えないように）
+        best = 0.0
+        for isl in ends:
+            d = math.hypot(p.x - isl['c'][0], p.z - isl['c'][1])
+            inside = isl['r'] + margin - d
+            if inside > 0: best = max(best, inside * 0.45)
+        return best
     rnd = random.Random(sum(ord(ch) for ch in bd['name']))
     pts = bridge_points(bd)
     L = sum((pts[i + 1] - pts[i]).length for i in range(len(pts) - 1))
@@ -277,12 +286,14 @@ def build_bridge(bd, vis, col):
             if s < trim0 * 0.0 or s > total - trim1 * 0.0: continue
             t, side = frame(k)
             p = res[k] + side * (off + amp * math.sin(s * 1.3 + ph)) + Vector((0, FLOOR_Y - rad * 0.85 + amp * math.sin(s * 2.1 + ph), 0))
+            p.y -= sink_at(p)
             tp.append(tuple(p))
         tube(vis, tp, rad * rnd.uniform(0.95, 1.05), twig_color(rnd), sides=6)
     # しばってあるツル（橋を横切る輪）
     nl = max(2, int(total / 1.4))
     for i in range(nl):
         s = total * (i + 0.5) / nl; k = min(N, int(round(s / total * N)))
+        if sink_at(res[k]) > 0 or sink_at(res[k], 0.5) > 0: continue   # 巣の床のふちにかかるツルは描かない
         t, side = frame(k); c = res[k] + Vector((0, FLOOR_Y - rad * 0.85, 0))
         loop = []
         for a in range(13):
