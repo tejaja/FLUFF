@@ -27,6 +27,12 @@ public class FuwaWindDeco : UdonSharpBehaviour
     public float spinMax = 540f;
     public float spinIdle = 25f;
 
+    [Header("強風でぷるぷる")]
+    [Tooltip("風が強い時の震え（0=なし、1=強風）")]
+    public float shake = 0f;
+    public float shakeAngle = 3.5f;
+    public float shakeSpeed = 23f;
+
     [Tooltip("粒が消えきってから、さらにたなびき続ける秒数")]
     public float holdExtra = 0.15f;
 
@@ -35,9 +41,11 @@ public class FuwaWindDeco : UdonSharpBehaviour
     private float _spin;
     private float _seed;
     private Vector3 _lastDir = Vector3.forward;
+    private Quaternion _baseRot;
 
     private void Start()
     {
+        _baseRot = transform.localRotation;
         _seed = (transform.position.x * 3.7f + transform.position.z * 1.3f) % 10f;
         _lastDir = fixedDirection.sqrMagnitude > 0.001f ? fixedDirection.normalized : Vector3.forward;
     }
@@ -73,6 +81,12 @@ public class FuwaWindDeco : UdonSharpBehaviour
             float f = flutterAmount * (0.3f + 0.7f * _level);
             q = q * Quaternion.Euler(Mathf.Sin(t * flutterSpeed) * f, Mathf.Sin(t * flutterSpeed * 0.73f + 1.3f) * f, 0f);
             sock.rotation = Quaternion.Slerp(sock.rotation, q, 1f - Mathf.Exp(-8f * Time.deltaTime));
+        }
+        if (shake > 0f)
+        {
+            // 柱ごと小刻みに震える（根元を支点に）。かざぐるまの頭は下で風上へ向け直す
+            float a = shakeAngle * shake * _level;
+            transform.localRotation = _baseRot * Quaternion.Euler(Mathf.Sin(t * shakeSpeed) * a + Mathf.Sin(t * shakeSpeed * 1.73f) * a * 0.5f, 0f, Mathf.Sin(t * shakeSpeed * 1.31f + 0.7f) * a);
         }
         if (head != null)
         {

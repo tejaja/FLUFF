@@ -118,7 +118,7 @@ public static class FuwaWindDecoBuilder
     }
 
     // ---- 並べる ----
-    struct Spot { public float s; public float side; public bool sock; public string windPath; public Vector3 fixedDir; }
+    struct Spot { public float s; public float side; public bool sock; public string windPath; public Vector3 fixedDir; public int bridge; }   // bridge>0：人用の橋（かたまり3/4）の谷側のふちから、谷の上へ斜めに突き出す
 
     public static string Build()
     {
@@ -167,19 +167,33 @@ public static class FuwaWindDecoBuilder
             spots.Add(new Spot { s = s + 1.6f, side = -upwind, sock = false, windPath = z });
         }
         // 突風（谷の手前）：かざぐるま
-        foreach (var (z, s) in new[] { ("G3_Gust1/GustZone", FuwaCourse1Builder.GapA1 - 1.2f), ("G4_Gust2/GustZone", FuwaCourse1Builder.GapA2 - 1.2f) })
-            spots.Add(new Spot { s = s, side = 1, sock = false, windPath = z });
+        // 突風（谷）：人用の橋の谷側のふちから、谷の上へ斜めに突き出して、強風でぷるぷる
+        spots.Add(new Spot { s = (FuwaCourse1Builder.GapA1 + FuwaCourse1Builder.GapB1) * 0.5f - 0.6f, sock = false, windPath = "G3_Gust1/GustZone", bridge = 3 });
+        spots.Add(new Spot { s = (FuwaCourse1Builder.GapA2 + FuwaCourse1Builder.GapB2) * 0.5f - 0.6f, sock = false, windPath = "G4_Gust2/GustZone", bridge = 4 });
 
         string log = "";
         int n = 0;
         foreach (var sp in spots)
         {
-            int pc = Piece(sp.s);
+            int pc = sp.bridge > 0 ? sp.bridge : Piece(sp.s);
             float hw = FuwaCourse1Builder.Width(pc, sp.s) * 0.5f;
-            // 柱は道の横の面にくっつける（道のふちのすぐ外、下端は道の底）
-            var basePos = W(pc, sp.s, sp.side * (hw + 0.05f), -FuwaCourse1Builder.Thick);
+            Vector3 basePos; Quaternion baseRot = Quaternion.identity; float poleScale = 1f;
+            if (sp.bridge > 0)
+            {
+                // 橋の谷側（右）のふちの下から、谷の中ほどへ斜めに
+                basePos = W(pc, sp.s, hw - 0.05f, -0.12f);
+                var headPos = W(pc, sp.s + 0.3f, hw + 1.25f, 1.15f);
+                var d = headPos - basePos;
+                baseRot = Quaternion.FromToRotation(Vector3.up, d.normalized);
+                poleScale = d.magnitude / 1.48f;
+            }
+            else
+            {
+                // 柱は道の横の面にくっつける（道のふちのすぐ外、下端は道の底）
+                basePos = W(pc, sp.s, sp.side * (hw + 0.05f), -FuwaCourse1Builder.Thick);
+            }
             var go = new GameObject((sp.sock ? "Windsock" : "Pinwheel") + n++);
-            go.transform.SetParent(holder, true); go.transform.position = basePos;
+            go.transform.SetParent(holder, true); go.transform.position = basePos; go.transform.rotation = baseRot;
             var deco = UdonSharpUndo.AddComponent<FuwaWindDeco>(go);
             var wa = gk.Find(sp.windPath); deco.wind = wa != null ? wa.GetComponent<FuwaWindArea>() : null;
             if (sp.sock)
@@ -192,8 +206,9 @@ public static class FuwaWindDecoBuilder
             }
             else
             {
-                Child(go.transform, "Pole", polePin, new[] { mWood }, Vector3.zero);
-                var head = new GameObject("Head").transform; head.SetParent(go.transform, false); head.localPosition = new Vector3(0, 1.48f, 0);
+                var pole = Child(go.transform, "Pole", polePin, new[] { mWood }, Vector3.zero); pole.localScale = new Vector3(1, poleScale, 1);
+                var head = new GameObject("Head").transform; head.SetParent(go.transform, false); head.localPosition = new Vector3(0, 1.48f * poleScale, 0);
+                if (sp.bridge > 0) deco.shake = 1f;
                 var rotor = new GameObject("Rotor").transform; rotor.SetParent(head, false); rotor.localPosition = new Vector3(0, 0, -0.06f);
                 Child(rotor, "Blades", pin, new[] { mP[n % 4], mP[(n + 1) % 4], mP[(n + 2) % 4], mP[(n + 3) % 4], mPole }, Vector3.zero);
                 deco.head = head; deco.rotor = rotor;
