@@ -440,6 +440,10 @@ public static class SpiderWebBuild
             float fy = FloorAt(sup, new Vector3(tree.x, floorY + 0.3f, tree.z));
             bool island = float.IsNaN(fy) && b.autoIsland;
             tree.fy = float.IsNaN(fy) ? floorY : fy;
+            // 浮島が道にかぶらないよう、かぶっている間は木を外側へずらす（緑の円盤＋少しの余白）
+            if (island)
+                for (int i = 0; i < 40 && IslandHitsGround(b, sup, new Vector3(tree.x, tree.fy, tree.z), tree.r0 * 4.2f * 1.025f + 0.08f); i++)
+                    tree.x += sgn * 0.1f;
             tree.height = (hs.y - tree.fy) + hs.y * 0.5f + side.treeExtraHeight;
             // 木が片側だけなら、枝を巣の真上まで伸ばして、てっぺんからまっすぐ吊る
             float tipX = (b.topThread && treeCount == 1) ? top.x : float.NaN;
@@ -552,6 +556,24 @@ public static class SpiderWebBuild
             th.Hang(p, target, 0.015f);
         }
         return th.count;
+    }
+
+    // 円盤（中心 c、半径 r、sup の座標）の範囲に、道など自分以外の地面が同じくらいの高さであるか
+    static bool IslandHitsGround(SpiderWebBuilder b, Transform sup, Vector3 c, float r)
+    {
+        Physics.SyncTransforms();
+        for (int k = 0; k < 32; k++)
+        {
+            float a = k / 32f * Mathf.PI * 2f;
+            for (float f = 0.25f; f <= 1.001f; f += 0.25f)
+            {
+                var lp = c + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * r * f;
+                var from = sup.TransformPoint(lp + Vector3.up * 1.5f);
+                foreach (var h in Physics.RaycastAll(from, -sup.up, 3f, ~0, QueryTriggerInteraction.Ignore))
+                    if (!h.collider.transform.IsChildOf(b.transform)) return true;
+            }
+        }
+        return false;
     }
 
     static bool GroundBelow(SpiderWebBuilder b, Transform sup, Vector3 p, float dx, out Vector3 ground)
