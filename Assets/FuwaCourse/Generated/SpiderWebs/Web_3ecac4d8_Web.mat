@@ -27,6 +27,7 @@ Material:
     m_Floats:
     - _FadeFar: 1
     - _FadeNear: 0.45
+    - _FrameN: 6
     - _HoleRadius: 0.62
     - _HoleRadiusMax: 0.62
     - _LineWidth: 0.0165
@@ -42,6 +43,10 @@ Material:
     - _Spokes: 28
     m_Colors:
     - _Color: {r: 0.41999996, g: 0.39999998, b: 0.52, a: 0.94}
+    - _F01: {r: -1.3339182, g: -0.7438772, b: 3.380704, a: -0.69986963}
+    - _F23: {r: 3.7958875, g: 2.658859, b: 2.745203, a: 5.025379}
+    - _F45: {r: -0.8961177, g: 4.5405235, b: -2.01902, a: 2.7077723}
+    - _F67: {r: 0, g: 0, b: 0, a: 0}
     - _HoleCenter: {r: -0.9, g: -2.08, b: 0, a: 0}
     - _RimColor: {r: 0.95, g: 0.95, b: 1, a: 1}
     - _Size: {r: 6, g: 6, b: 0, a: 0}

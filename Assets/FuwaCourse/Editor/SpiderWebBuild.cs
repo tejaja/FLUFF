@@ -239,6 +239,26 @@ public static class SpiderWebBuild
         Vector2 hs = b.size * 0.5f, c = b.holeCenter;
         int n = Mathf.Clamp(b.frameCorners, 3, 8);
         var pts = new List<Vector2>();
+        if (b.left.anchor == SpiderWebBuilder.AnchorType.Tree && b.right.anchor == SpiderWebBuilder.AnchorType.Tree)
+        {
+            // 両側に木がある大きい巣：木と木の間をふさぐ役目があるので、板いっぱいの6角形（四隅＋左右の幹の高さ）にする。
+            // 上辺・下辺はまっすぐな橋糸、左右の角は幹へ。少しずつずらして四角すぎないように
+            float s = b.seed;
+            Vector2 J(float k, float amp) => new Vector2(Mathf.Sin(k * 1.7f + s * 0.9f), Mathf.Sin(k * 2.9f + s * 1.3f)) * amp;
+            var raw = new List<Vector2>
+            {
+                // 上の2つは内側へ寄せて高さも変える（上辺が斜めの橋糸に）、左右は幹ぎわで高さ違い、下は道のふち
+                new Vector2(hs.x * 0.62f, hs.y * 0.97f) + J(1, 0.05f * hs.x),
+                new Vector2(-hs.x * 0.55f, hs.y * 0.82f) + J(2, 0.05f * hs.x),
+                new Vector2(-hs.x * 0.98f, hs.y * (0.32f + 0.12f * Mathf.Sin(s))) + J(3, 0.02f * hs.x),
+                new Vector2(-hs.x * 0.78f, -hs.y * 0.96f) + J(4, 0.04f * hs.x),
+                new Vector2(hs.x * 0.85f, -hs.y * 0.9f) + J(5, 0.04f * hs.x),
+                new Vector2(hs.x * 0.98f, hs.y * (0.12f + 0.12f * Mathf.Cos(s))) + J(6, 0.02f * hs.x),
+            };
+            foreach (var q in raw) pts.Add(new Vector2(Mathf.Clamp(q.x, -hs.x * 0.99f, hs.x * 0.99f), Mathf.Clamp(q.y, -hs.y * 0.99f, hs.y * 0.99f)));
+            pts.Sort((p, q) => Mathf.Atan2(p.y - c.y, p.x - c.x).CompareTo(Mathf.Atan2(q.y - c.y, q.x - c.x)));
+            return pts;
+        }
         float a0 = 90f + 360f / n * 0.5f + 25f * Mathf.Sin(b.seed * 1.7f);
         for (int k = 0; k < n; k++)
         {
@@ -506,7 +526,13 @@ public static class SpiderWebBuild
             float sgn = v.x - b.holeCenter.x >= 0 ? 1f : -1f;
             bool upper = v.y > b.holeCenter.y;
             Vector3 target;
-            if (trees.TryGetValue(sgn, out var tree))
+            bool centerLow = !upper && trees.Count == 2 && Mathf.Abs(v.x) < b.size.x * 0.25f;
+            if (centerLow && GroundBelow(b, sup, p, 0f, out var gp))
+            {
+                // 両側に木がある巣の、真ん中あたりの下の角は真下の地面へ
+                target = gp;
+            }
+            else if (trees.TryGetValue(sgn, out var tree))
             {
                 if (upper && v.y > tree.branch[0].y - 0.35f * b.size.y) target = NearestOnBranch(tree, p + Vector3.up * 0.25f * b.size.y);
                 else target = tree.TrunkPoint(Mathf.Min(v.y + 0.12f * b.size.y, tree.branch[0].y - 0.1f), sgn, 0.5f);
@@ -518,9 +544,7 @@ public static class SpiderWebBuild
                 else
                 {
                     // 真下（少し外側）の地面を探す
-                    var from = sup.TransformPoint(p + new Vector3(sgn * 0.2f * b.size.x, 0, 0));
-                    if (Physics.Raycast(from, -sup.up, out RaycastHit hit, b.groundSearch, ~0, QueryTriggerInteraction.Ignore) && !hit.collider.transform.IsChildOf(b.transform))
-                        target = sup.InverseTransformPoint(hit.point) + Vector3.down * 0.02f;
+                    if (GroundBelow(b, sup, p, sgn * 0.2f * b.size.x, out var g2)) target = g2;
                     else if (any != null) target = any.TrunkPoint(any.fy + 0.12f * b.size.y, -sgn, 0.6f);
                     else continue;
                 }
@@ -528,6 +552,19 @@ public static class SpiderWebBuild
             th.Hang(p, target, 0.015f);
         }
         return th.count;
+    }
+
+    static bool GroundBelow(SpiderWebBuilder b, Transform sup, Vector3 p, float dx, out Vector3 ground)
+    {
+        Physics.SyncTransforms();
+        var from = sup.TransformPoint(p + new Vector3(dx, 0, 0));
+        if (Physics.Raycast(from, -sup.up, out RaycastHit hit, b.groundSearch, ~0, QueryTriggerInteraction.Ignore) && !hit.collider.transform.IsChildOf(b.transform))
+        {
+            ground = sup.InverseTransformPoint(hit.point) + Vector3.down * 0.02f;
+            return true;
+        }
+        ground = Vector3.zero;
+        return false;
     }
 
     static Vector3 NearestOnBranch(Tree tree, Vector3 q)
