@@ -15,6 +15,7 @@ NESTS = [
     dict(name='Nest1', c=(40.8, 2.2), r=3.0, rim=0.5, seed=1),
     dict(name='Nest2', c=(50.5, 6.5), r=3.2, rim=0.5, seed=2),
     dict(name='MamaNest', c=(64.2, 17.4), r=4.6, rim=0.7, seed=3),
+    dict(name='SideNest', c=(58.7, -0.9), r=3.0, rim=0.5, seed=4),   # 大回りルートの巣（けだま1匹＋倒しやすいイバラ）
 ]
 PODS = [   # 寝てるけだまの小さい巣（橋のわき、入口なし）
     dict(name='Pod1', c=(54.04, 12.45), r=1.25, rim=0.45, seed=11),
@@ -28,6 +29,9 @@ BRIDGES = [
     dict(name='BridgeB', a='Nest1', b='Nest2', via=[]),
     dict(name='BridgeC', a='Nest2', b='MamaNest', via=[(55.8, 9.9), (59.0, 12.1)]),
     dict(name='BridgeD', a='MamaNest', b='Goal', via=[]),
+    # 大回りルート：巣2 → 横の巣 → ママの巣（南側から入る）
+    dict(name='BridgeE', a='Nest2', b='SideNest', via=[]),
+    dict(name='BridgeF', a='SideNest', b='MamaNest', via=[(65.8, 7.0)]),
 ]
 
 TWIG = [(0.55, 0.41, 0.29), (0.47, 0.34, 0.24), (0.63, 0.49, 0.35), (0.41, 0.3, 0.22)]
@@ -303,6 +307,17 @@ for bd in BRIDGES:
         if nb in gaps:
             n = island(nb); nxt = pts[1] if end is pts[0] else pts[-2]
             gaps[nb].append(gap_for(n['c'], (nxt.x, nxt.z), n['r'], BRIDGE_W))
+# 近すぎる切れ目どうしはまとめる（間に細い壁の切れ端が残らないように）
+def merge_gaps(gs, min_wall=18.0):
+    iv = sorted([(g0, g0 + (g1 - g0) % 360) for g0, g1 in gs])
+    out = []
+    for a, b in iv:
+        if out and a - out[-1][1] < min_wall: out[-1] = (out[-1][0], max(out[-1][1], b))
+        else: out.append((a, b))
+    if len(out) > 1 and out[0][0] + 360 - out[-1][1] < min_wall:
+        out[0] = (out[-1][0], out[0][1] + 360); out.pop()
+    return [(a % 360, b % 360) for a, b in out]
+gaps = {k: merge_gaps(v) for k, v in gaps.items()}
 for nd in NESTS + PODS:
     vis = Mesh(); col = Mesh()
     build_nest(nd, gaps.get(nd['name'], []), vis, col)
