@@ -2,6 +2,7 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.SDK3.Components;
+using VRC.SDK3.UdonNetworkCalling;
 using VRC.Udon.Common.Interfaces;
 
 // 「みんなで」ロビーの、全員で同じものを吹いて遊ぶふわふわ。
@@ -38,6 +39,26 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public Renderer furRenderer;
     public float furDragAmount = 0.025f;
     public float furDragMax = 0.12f;
+
+    [Header("撃たれた時のポヨンと綿毛（全員の画面で、FuwaBall と同じ）")]
+    public float squashAmount = 0.4f;
+    [Tooltip("この速度変化で最大の潰れ・綿毛の数になる")]
+    public float squashFullAt = 6f;
+    public float squashFrequency = 2.6f;
+    public float squashDamping = 2.6f;
+    public int shotPuffMin = 5;
+    public int shotPuffMax = 16;
+    public float boingPitchWeak = 1.35f;
+    public float boingPitchStrong = 0.8f;
+    public float boingVolumeWeak = 0.35f;
+    public float boingVolumeStrong = 1f;
+    [Tooltip("持ち主以外の画面で、この速さ以上に急に向きが変わったら「ぶつかった」とみなしてポヨン")]
+    public float bumpDetect = 2.2f;
+    private float _squashStart = -10f;
+    private float _squashPower;
+    private bool _squashActive;
+    private Vector3 _prevVel;
+    private float _bumpCooldown;
 
     [UdonSynced] private bool _waiting = true;
     [UdonSynced] private bool _popped;
@@ -108,13 +129,45 @@ public class FuwaSharedBall : UdonSharpBehaviour
         Vector3 axis = flat.sqrMagnitude > 0.0001f ? Vector3.Cross(Vector3.up, flat.normalized) : Vector3.zero;
         _rb.angularVelocity = axis * spinPerPuff + Random.insideUnitSphere * spinRandom;
         RequestSerialization();
-        SendCustomNetworkEvent(NetworkEventTarget.All, nameof(PlayPuff));
+        SendCustomNetworkEvent(NetworkEventTarget.All, nameof(PlayPuff), Mathf.Clamp01(velocityChange.magnitude / Mathf.Max(0.01f, squashFullAt)));
     }
 
-    public void PlayPuff()
+    // 撃たれた時（全員）：強さ k(0〜1) に合わせて、綿毛を散らして、ボヨンと鳴らして、ポヨンとつぶれる
+    [NetworkCallable]
+    public void PlayPuff(float k)
     {
-        if (shotPuff != null) shotPuff.Play();
-        if (sfxBoing != null) sfxBoing.Play();
+        if (shotPuff != null) shotPuff.Emit(Mathf.RoundToInt(Mathf.Lerp(shotPuffMin, shotPuffMax, k)));
+        if (sfxBoing != null && sfxBoing.clip != null)
+        {
+            sfxBoing.pitch = Mathf.Lerp(boingPitchWeak, boingPitchStrong, k) * Random.Range(0.96f, 1.04f);
+            sfxBoing.PlayOneShot(sfxBoing.clip, Mathf.Lerp(boingVolumeWeak, boingVolumeStrong, k));
+        }
+        StartSquash(k);
+    }
+
+    private void StartSquash(float k)
+    {
+        float p = squashAmount * (0.5f + 0.5f * Mathf.Clamp01(k));
+        float left = _squashActive ? _squashPower * Mathf.Exp(-squashDamping * (Time.time - _squashStart)) : 0f;
+        if (p < left) return;
+        _squashPower = p;
+        _squashStart = Time.time;
+        _squashActive = true;
+    }
+
+    private void UpdateSquash()
+    {
+        if (!_squashActive || _furMat == null) return;
+        float t = Time.time - _squashStart;
+        float env = Mathf.Exp(-squashDamping * t);
+        if (env < 0.01f)
+        {
+            _squashActive = false;
+            _furMat.SetVector("_Squash", Vector4.zero);
+            return;
+        }
+        float w = _squashPower * env * Mathf.Cos(t * squashFrequency * 2f * Mathf.PI);
+        _furMat.SetVector("_Squash", new Vector4(0f, 1f, 0f, w));
     }
 
     public void PlayPop()
@@ -149,6 +202,15 @@ public class FuwaSharedBall : UdonSharpBehaviour
         }
         if (_shownPopped != _popped) ApplyPoppedVisual();
         if (_trail != null) _trail.emitting = !_popped && !_waiting;
+
+        // 壁や柵にぶつかった時のポヨン：急に速さが変わったのを、それぞれの画面で見て鳴らさずにつぶすだけ
+        if (!_waiting && !_popped && Time.time > _bumpCooldown && (vel - _prevVel).magnitude > bumpDetect && _prevVel.magnitude > 1f)
+        {
+            StartSquash(Mathf.Clamp01((vel - _prevVel).magnitude / Mathf.Max(0.01f, squashFullAt)) * 0.7f);
+            _bumpCooldown = Time.time + 0.25f;
+        }
+        _prevVel = vel;
+        UpdateSquash();
 
         if (_furMat != null)
         {
