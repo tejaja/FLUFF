@@ -9,7 +9,7 @@ if col.name not in bpy.context.scene.collection.children: bpy.context.scene.coll
 
 CREAM = (0.95, 0.93, 0.88); TIPBROWN = (0.70, 0.58, 0.47); SCALE = (0.80, 0.74, 0.66)
 GRAY = (0.55, 0.52, 0.58); INK = (0.10, 0.07, 0.14); INKHI = (0.22, 0.16, 0.30)
-GILL = (0.16, 0.13, 0.19); STEM = (0.93, 0.92, 0.89); STEMB = (0.80, 0.78, 0.76)
+GILL = (0.16, 0.13, 0.19); STEM = (0.93, 0.92, 0.89); STEMB = (0.80, 0.78, 0.76); STEMDARK = (0.30, 0.26, 0.34)
 
 def lerp3(a, b, t): t = max(0.0, min(1.0, t)); return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 def ss(a, b, x): t = max(0.0, min(1.0, (x - a) / (b - a))); return t * t * (3 - 2 * t)
@@ -47,7 +47,9 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7, lean=0.0, ca
             rr = r * (1 + 0.06 * noise.noise(off + Vector((math.cos(a), math.sin(a), z * 0.8))))
             d = Vector((rr * math.cos(a), rr * math.sin(a), 0))
             if z > stem_h: d = Rt @ d
-            ring.append(add(c0 + d, lerp3(STEMB, STEM, ss(0, 0.25, u))))
+            col = lerp3(STEMB, STEM, ss(0, 0.25, u))
+            col = lerp3(col, STEMDARK, ss(stem_h * 0.55, stem_h + 0.1, z))   # 傘に近いほど暗く（インクがしみてる感じ）
+            ring.append(add(c0 + d, col))
         rings.append(ring)
     for k in range(NZ):
         A, B = rings[k], rings[k + 1]
@@ -136,14 +138,16 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7, lean=0.0, ca
     cap_in = add((top.x, top.y, z0 + cap_h * 0.58), GILL)
     for s in range(SEG): F.append((inner[-1][s], cap_in, inner[-1][(s + 1) % SEG]))
 
-    # ---- しずく：玉ぶちの中から生えて、細くなって→先がぷっくり ----
+    # ---- しずく：玉ぶちの中から生えて、細くなって→先がぷっくり。傘が傾いていても真下へ垂れる ----
+    for i in range(cap_start, len(V)): V[i] = tuple(cap_xf(V[i]))   # ここまでの傘を先に付け替える
+    cap_done = len(V)
     drips = []
     ph = random.uniform(0, math.tau)
     angs = [ph + (i + random.uniform(-0.3, 0.3)) / ndrips * math.tau for i in range(ndrips)]   # 重ならないように散らす
     for a in angs:
         a = a % math.tau
         s = int(round(a / math.tau * SEG)) % SEG
-        base = bead_c[s]; br = bead_r[s]
+        base = cap_xf(bead_c[s]); br = bead_r[s]
         L = random.uniform(0.25, 0.8) + br
         rad = random.uniform(0.07, 0.12)
         DS = 16; NP = 16
@@ -167,8 +171,6 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7, lean=0.0, ca
         for j in range(DS): F.append((rr[-1][j], rr[-1][(j + 1) % DS], tip))
         drips.append((a, (base.x, base.z, base.y), L))
 
-    for i in range(cap_start, len(V)): V[i] = tuple(cap_xf(V[i]))
-    drips = [(a, tuple(cap_xf((b[0], b[2], b[1])).xzy), L) for (a, b, L) in drips]
 
     me = bpy.data.meshes.get(name) or bpy.data.meshes.new(name)
     me.clear_geometry(); me.from_pydata(V, [], F); me.update()
