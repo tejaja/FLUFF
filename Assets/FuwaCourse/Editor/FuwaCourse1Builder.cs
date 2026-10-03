@@ -19,7 +19,7 @@ public static class FuwaCourse1Builder
 
     // かたまり：0 下の道 / 1 谷の向こうの着地点 / 2 上の段 / 3 ゴールの島 / 4 人用の細道（谷の横→そのまま坂で上の段へ）/ 5 ゴールへの細い橋
     // かたまり：0 下の道 / 1 谷1の向こう岸 / 2 上の段（ゴールまで）/ 3 人用の細道（谷1の横）/ 4 人用の坂（谷2の横）
-    public const float GapA1 = 55f, GapB1 = 61f, GapA2 = 69f, GapB2 = 75f, PathEnd = 106.4f;   // 道はゴールの広場（半径3m）のふちまで
+    public const float GapA1 = 55f, GapB1 = 61f, GapA2 = 69f, GapB2 = 75f, PathEnd = 108.9f;   // 道はゴールの広場（半径3m）のふちまで。最後の螺旋風のあと2.5m直線（ゴール後に落ちた時の戻り地点用、2026-10-03）
     public static readonly Vector2[] Pieces =
     {
         new Vector2(0f, GapA1), new Vector2(GapB1, GapA2), new Vector2(GapB2, PathEnd),
@@ -167,7 +167,7 @@ public static class FuwaCourse1Builder
         return "Course1 path rebuilt: verts " + vis.vertexCount;
     }
 
-    public const float CP1 = 46f, CP2 = 79f, GoalS = 109f;
+    public const float CP1 = 46f, CP2 = 79f, GoalS = 111.5f;
 
     public static string PlaceObjects()
     {
