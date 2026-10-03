@@ -219,7 +219,9 @@ public static class FuwaDecoTools
                     // となりと重ならない半径（葉や花の広がりまで含めた実寸から）
                     float clear = (name == "GrassSmall" ? 0.11f : name == "GrassLarge" ? 0.26f : name == "Pebbles" ? 0.25f
                         : name == "MossSmall" ? 0.16f : name == "MossLarge" ? 0.36f : name == "StonesSmall" ? 0.22f : name == "StonesMid" ? 0.34f : name == "StoneLarge" ? 0.28f : 0.16f) * sc;
-                    var q = p + along * R(-0.6f, 0.6f) * sizeMul - outDir * (foot + R(0.02f, 0.12f));
+                    // 苔と石は内側への入り方もばらつかせて、ふちに沿って一列に並ばないように
+                    float inward = (name.StartsWith("Moss") || name.StartsWith("Stone")) ? R(0.02f, 0.55f) : R(0.02f, 0.12f);
+                    var q = p + along * R(-0.6f, 0.6f) * sizeMul - outDir * (foot + inward);
                     bool placed = false;
                     for (int tries = 0; tries < 12 && !placed; tries++)
                     {
@@ -246,8 +248,27 @@ public static class FuwaDecoTools
             }
         }
         int removed = RemoveOverlaps(holder, style == "rock");
+        // 苔・石は間引いてまばらに（近くに同じ種類があれば消す＋ランダムに少し減らす）
+        removed += Sparsify(holder, new[] { "Deco_Moss", "Deco_Stone" }, 2.6f, 0.75f, seed + 101);
         EditorUtility.SetDirty(root.gameObject);
         return "edges " + edges.Count + " clusters " + clusters + " items " + items + " removed(overlap) " + removed;
+    }
+
+    public static int Sparsify(Transform holder, string[] prefixes, float minDist, float keepProb, int seed)
+    {
+        var rnd = new System.Random(seed);
+        var items = new List<Transform>();
+        foreach (Transform c in holder) foreach (Transform it in c) foreach (var pf in prefixes) if (it.name.StartsWith(pf)) { items.Add(it); break; }
+        for (int i = items.Count - 1; i > 0; i--) { int j = rnd.Next(i + 1); var t = items[i]; items[i] = items[j]; items[j] = t; }
+        var kept = new List<Vector3>(); int removed = 0;
+        foreach (var it in items)
+        {
+            var p = it.position; bool near = false;
+            foreach (var k in kept) if (new Vector2(k.x - p.x, k.z - p.z).magnitude < minDist) { near = true; break; }
+            if (near || rnd.NextDouble() > keepProb) { Object.DestroyImmediate(it.gameObject); removed++; }
+            else kept.Add(p);
+        }
+        return removed;
     }
 
     // 置いた飾りのうち、ギミック・木・巣・キノコ・橋・スタート/ゴールなどの当たり判定にめり込むものを消す。
