@@ -60,10 +60,10 @@ wob = lambda a, y: 0.012 * math.sin(a * 5 + 0.7) + 0.008 * math.sin(a * 9 + 2.1)
 rings = lathe(cap, 0, prof, wob=wob)
 cap_fan(cap, 0, rings[0], (0, prof[0][1], 0), flip=True)   # てっぺんのふた（上向き）
 # ヒダ：ふちの内側から軸へ、少し上がっていく下面。放射状のすじ（凸凹）をつける
-gprof = [(CAP_R * 0.95, 0.02), (CAP_R * 0.75, 0.035), (CAP_R * 0.5, 0.05), (0.09, 0.07), (0.065, 0.075)]
-gw = lambda a, y: 0.025 * abs(math.sin(a * 24)) * (1 if y < 0.06 else 0.4)
+gprof = [(CAP_R * 0.95, 0.02), (CAP_R * 0.75, 0.035), (CAP_R * 0.5, 0.05), (0.09, 0.07), (0.05, 0.078)]
+gw = lambda a, y: wob(a, y) + (0.025 * abs(math.sin(a * 24)) if 0.025 < y < 0.06 else 0.0)   # いちばん外の輪は傘のふちと同じゆがみ（すき間ができないように）
 grings = lathe(cap, 1, gprof, wob=gw, flip=False)
-# ヒダの内側は軸に隠れるので、穴のまま（軸のてっぺんが入る）
+cap_fan(cap, 1, grings[-1], (0, 0.085, 0), flip=False)   # ヒダの真ん中もふさぐ（ポヨンで傘が横に広がっても、軸のまわりにすき間が見えないように）
 
 # ---- 軸：根元のふくらみ → まっすぐ少し細く → つば（スカート）→ てっぺん ----
 stem = M(1)
