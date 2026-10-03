@@ -274,5 +274,70 @@ def tower_g():
         if bar % 8 == 0: s.add(crash(0.6), bar * 4, rev=0.3)
     save(s.render(1.2), "bgm_tower_g.wav")
 
+def tower_h():
+    # H：時計じかけの塔・はれ（Bの明るい版）。D長調 120BPM。チクタクのウッドブロック、16分で脈打つ低音はそのまま、
+    # オルゴール＋マリンバの明るいメロディ、手拍子っぽいスネア。8小節ごとにきらっと上がる
+    s = Song(120, 16)
+    prog = ['D', 'Bm', 'G', 'A', 'D', 'Bm', 'G', 'A', 'G', 'A', 'F#m', 'Bm', 'G', 'A', 'D', 'D']
+    kp = NOTE['D']
+    rA = [[(0, 0.5), (0.5, 0.5), (1, 1), (2, 0.5), (2.5, 0.5), (3, 1)], [(0, 1.5), (1.5, 0.5), (2, 2)],
+          [(0, 0.5), (0.5, 0.5), (1, 0.5), (1.5, 0.5), (2, 1), (3, 1)], [(0, 2), (2, 1), (3, 1)]]
+    a = make_melody(np.random.default_rng(131), prog[:4], kp, MAJOR, rA, 69, 86, 74)
+    a2 = make_melody(np.random.default_rng(132), prog[4:8], kp, MAJOR, rA, 69, 86, a[-1][2])
+    b = make_melody(np.random.default_rng(133), prog[8:12], kp, MAJOR, rA, 69, 88, 78)
+    c = make_melody(np.random.default_rng(134), prog[12:16], kp, MAJOR, rA[:3] + [[(0, 4)]], 69, 86, 76)
+    mel = end_on_root(a + transpose_rest(a2, 4) + transpose_rest(b, 8) + transpose_rest(c, 12), kp, 69, 86)
+    for pos, d, m in mel:
+        s.add(music_box(midi_hz(m), d * s.beat, 1.0), pos, pan=0.15, rev=0.3)
+        s.add(marimba(midi_hz(m - 12), d * s.beat, 0.45), pos, pan=-0.2, rev=0.2)
+    for bar, cn in enumerate(prog):
+        r, cps = chord(cn)
+        root = nearest(38, [r], 33, 44)
+        for k in range(16):
+            s.add(bass(midi_hz(root + (12 if k % 4 == 3 else 0)), 0.2 * s.beat, 0.85 if k % 4 == 0 else 0.5, tone=0.5), bar * 4 + k * 0.25, rev=0.03)
+        for m in voicing(cps, 62, 57, 69):
+            s.add(pad(midi_hz(m), 4 * s.beat, 0.6, bright=5), bar * 4, pan=-0.2, rev=0.4)
+        for k in range(8):
+            s.add(woodblock(0.75 if k % 2 == 0 else 0.55, hi=(k % 2 == 0)), bar * 4 + k * 0.5, pan=-0.5 if k % 2 else 0.5, rev=0.12)
+        s.add(kick(0.8), bar * 4, rev=0.05); s.add(kick(0.55), bar * 4 + 2.5, rev=0.05)
+        for beat in (1, 3): s.add(snare(0.6), bar * 4 + beat, pan=0.15, rev=0.3)
+        for k in range(8): s.add(shaker(0.5 if k % 2 else 0.3), bar * 4 + k * 0.5, pan=0.4, rev=0.05)
+        if bar % 8 == 7:
+            arp = voicing(cps, 74, 69, 86)
+            for k, m in enumerate(arp + [x + 12 for x in arp]): s.add(celesta(midi_hz(m), 0.3 * s.beat, 0.5), bar * 4 + 2 + k * 0.25, pan=0.3, rev=0.4)
+        if bar % 8 == 0: s.add(crash(0.5), bar * 4, rev=0.3)
+    save(s.render(1.4), "bgm_tower_h.wav")
+
+def tower_i():
+    # I：きのこのたにのおさんぽ（ほがらか）。F長調 116BPM。はずむファゴットっぽい低いブラスとピチカート、
+    # 口笛＋鉄琴のメロディ、ぽこぽこ（ボンゴ）と手拍子。のんびりだけど足どりは軽い
+    s = Song(116, 16)
+    prog = ['F', 'Dm', 'Bb', 'C', 'F', 'Dm', 'Gm', 'C', 'Bb', 'C', 'Am', 'Dm', 'Bb', 'C', 'F', 'F']
+    kp = NOTE['F']
+    rA = [[(0, 1), (1, 0.5), (1.5, 0.5), (2, 1), (3, 1)], [(0, 0.5), (0.5, 0.5), (1, 1), (2, 2)],
+          [(0, 1), (1, 1), (2, 0.5), (2.5, 0.5), (3, 1)], [(0, 1.5), (1.5, 0.5), (2, 2)]]
+    a = make_melody(np.random.default_rng(141), prog[:4], kp, MAJOR, rA, 65, 82, 69)
+    a2 = make_melody(np.random.default_rng(142), prog[4:8], kp, MAJOR, rA, 65, 82, a[-1][2])
+    b = make_melody(np.random.default_rng(143), prog[8:12], kp, MAJOR, rA, 65, 84, 72)
+    c = make_melody(np.random.default_rng(144), prog[12:16], kp, MAJOR, rA[:3] + [[(0, 4)]], 65, 82, 74)
+    mel = end_on_root(a + transpose_rest(a2, 4) + transpose_rest(b, 8) + transpose_rest(c, 12), kp, 65, 82)
+    for pos, d, m in mel:
+        s.add(whistle(midi_hz(m), d * s.beat * 0.9, 0.9), pos, pan=0.1, rev=0.25)
+        s.add(celesta(midi_hz(m + 12), d * s.beat, 0.3), pos, pan=-0.3, rev=0.3)
+    for bar, cn in enumerate(prog):
+        r, cps = chord(cn)
+        root = nearest(41, [r], 36, 47)
+        vo = voicing(cps, 62, 57, 69)
+        for beat in range(4):
+            s.add(brass(midi_hz(root + (7 if beat % 2 else 0)), 0.35 * s.beat, 0.55), bar * 4 + beat, pan=-0.15, rev=0.15)
+            s.add(bass(midi_hz(root + (7 if beat % 2 else 0)), 0.35 * s.beat, 0.6, tone=0.4), bar * 4 + beat, rev=0.05)
+        for off in (0.5, 1.5, 2.5, 3.5):
+            for m in vo: s.add(pluck(midi_hz(m), 0.25 * s.beat, 0.25, bright=1.3), bar * 4 + off, pan=0.3, rev=0.2)
+        for off, f in ((0.5, 300), (1.25, 420), (2.5, 300), (3.0, 420), (3.5, 420)): s.add(tom(f, 0.35), bar * 4 + off, pan=-0.4, rev=0.12)
+        s.add(kick(0.6), bar * 4, rev=0.05); s.add(kick(0.45), bar * 4 + 2, rev=0.05)
+        for beat in (1, 3): s.add(snare(0.45), bar * 4 + beat, pan=0.2, rev=0.3)
+        for k in range(8): s.add(shaker(0.45 if k % 2 else 0.3), bar * 4 + k * 0.5, pan=0.45, rev=0.05)
+    save(s.render(1.2), "bgm_tower_i.wav")
+
 if __name__ == '__main__':
     for w in (sys.argv[1:] or ['tower_a', 'tower_b', 'tower_c']): globals()[w]()
