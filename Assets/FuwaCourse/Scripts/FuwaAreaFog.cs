@@ -2,25 +2,29 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
-// 範囲（このオブジェクトのトリガー）の中に自分がいる間だけ、うっすら霧をかける（自分の画面だけ）。
-// 出入りでふわっと濃さを変える。霧に対応したシェーダー（ToonLit など）にかかる
+// 範囲（このオブジェクトのトリガー）の中に自分がいる間だけ、霧をかけて空も暗くする（自分の画面だけ）。
+// 出入りでふわっと切り替える。霧に対応したシェーダー（ToonLit など）にかかる。
+// 空は FuwaCourse/GradientSky のグローバル _UdonSkyDim（0〜1）で暗い空色に寄せる
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaAreaFog : UdonSharpBehaviour
 {
-    public Color fogColor = new Color(0.84f, 0.83f, 0.9f, 1f);
-    [Tooltip("霧の濃さ（Exponential）。0.008 で 50m 先が 3割くらいかすむ")]
-    public float density = 0.008f;
+    public Color fogColor = new Color(0.2f, 0.19f, 0.29f, 1f);
+    [Tooltip("霧の濃さ（Exponential）。0.05 で 20m 先が 6割くらいかすむ")]
+    public float density = 0.05f;
+    [Tooltip("空の暗さ（0=いつもの空、1=暗い空色）")]
+    [Range(0f, 1f)] public float skyDim = 1f;
     public float fadeSeconds = 1.2f;
 
     private int _count;   // 複数の箱（BoxCollider）でできた範囲：入っている箱の数
-    private float _level;
+    private float _level = -1f;
+    private int _skyDimId;
 
     private void Start()
     {
+        _skyDimId = VRCShader.PropertyToID("_UdonSkyDim");
         RenderSettings.fogMode = FogMode.Exponential;
         RenderSettings.fogColor = fogColor;
-        RenderSettings.fogDensity = 0f;
-        RenderSettings.fog = false;
+        Apply(0f);
     }
 
     public override void OnPlayerTriggerEnter(VRCPlayerApi player)
@@ -37,15 +41,21 @@ public class FuwaAreaFog : UdonSharpBehaviour
     {
         float target = _count > 0 ? 1f : 0f;
         if (Mathf.Approximately(_level, target)) return;
-        _level = Mathf.MoveTowards(_level, target, Time.deltaTime / Mathf.Max(0.01f, fadeSeconds));
+        Apply(Mathf.MoveTowards(Mathf.Max(0f, _level), target, Time.deltaTime / Mathf.Max(0.01f, fadeSeconds)));
+    }
+
+    private void Apply(float level)
+    {
+        _level = level;
         RenderSettings.fogColor = fogColor;
-        RenderSettings.fogDensity = density * _level;
-        RenderSettings.fog = _level > 0.001f;
+        RenderSettings.fogDensity = density * level;
+        RenderSettings.fog = level > 0.001f;
+        VRCShader.SetGlobalFloat(_skyDimId, skyDim * Mathf.SmoothStep(0f, 1f, level));
     }
 
     private void OnDisable()
     {
-        _count = 0; _level = 0f;
-        RenderSettings.fog = false;
+        _count = 0;
+        Apply(0f);
     }
 }

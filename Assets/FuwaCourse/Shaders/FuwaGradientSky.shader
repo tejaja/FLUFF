@@ -6,6 +6,9 @@ Shader "FuwaCourse/GradientSky"
         _TopColor ("Top Color", Color) = (0.36, 0.62, 0.98, 1)
         _HorizonColor ("Horizon Color", Color) = (0.86, 0.94, 1.0, 1)
         _BottomColor ("Bottom Color", Color) = (0.98, 0.86, 0.92, 1)
+        _DimTopColor ("Dim Top Color (_UdonSkyDim=1)", Color) = (0.13, 0.13, 0.26, 1)
+        _DimHorizonColor ("Dim Horizon Color", Color) = (0.34, 0.32, 0.46, 1)
+        _DimBottomColor ("Dim Bottom Color", Color) = (0.24, 0.23, 0.36, 1)
         _TopExponent ("Top Exponent", Range(0.1, 5)) = 0.8
         _BottomExponent ("Bottom Exponent", Range(0.1, 5)) = 0.6
         _SunColor ("Sun Color", Color) = (1, 0.97, 0.88, 1)
@@ -49,6 +52,8 @@ Shader "FuwaCourse/GradientSky"
             #include "UnityCG.cginc"
 
             fixed4 _TopColor, _HorizonColor, _BottomColor, _SunColor, _CloudColor, _CloudShade;
+            fixed4 _DimTopColor, _DimHorizonColor, _DimBottomColor;
+            float _UdonSkyDim;   // グローバル（Udon の VRCShader.SetGlobalFloat）：0=いつもの空、1=くもった暗い空
             half _TopExponent, _BottomExponent, _SunSize, _SunGlow;
             float _CloudAlpha, _CloudScale, _CloudCover, _CloudSoft, _CloudHorizonFade;
             float4 _CloudSpeed;
@@ -90,6 +95,14 @@ Shader "FuwaCourse/GradientSky"
                 float3 col = y >= 0
                     ? lerp(_HorizonColor.rgb, _TopColor.rgb, pow(saturate(y), _TopExponent))
                     : lerp(_HorizonColor.rgb, _BottomColor.rgb, pow(saturate(-y), _BottomExponent));
+                float dim = saturate(_UdonSkyDim);
+                if (dim > 0)
+                {
+                    float3 dcol = y >= 0
+                        ? lerp(_DimHorizonColor.rgb, _DimTopColor.rgb, pow(saturate(y), _TopExponent))
+                        : lerp(_DimHorizonColor.rgb, _DimBottomColor.rgb, pow(saturate(-y), _BottomExponent));
+                    col = lerp(col, dcol, dim);
+                }
                 float3 sunDir = normalize(_WorldSpaceLightPos0.xyz);
 
                 // 下の雲：見下ろした向きを、下にある平らな雲の層に投影して、ゆっくり流す
