@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine;
 
 // コース3「やみのもり」の道を生成する（FuwaCourse1Builder と同じ作り）。
-// 流れ：小さなクモの巣をよける道 → 重い霧×2 → CP1 → 呼吸する巨大クモの巣 → 重力の谷（人は左の細道）
+// 流れ：小さなクモの巣をよける道 → 重い霧×2 → CP1 → 呼吸する巨大クモの巣 → 重力の穴（道がふくらんで真ん中に丸い穴、左右の細道で回る）
 //      → つむじ風で上の段へ（細道は坂で上へ）→ CP2 → クモの巣の回廊（途中に重い霧）→ 穴の位置がずれた巨大な巣×2 → ゴール
 public static class FuwaCourse3Builder
 {
@@ -16,11 +16,13 @@ public static class FuwaCourse3Builder
     static readonly float[] SegEnd = { 10f, 30f, 56f, 76f, 1e9f };
     static readonly float[] SegCurv = { 0f, 1f / 25f, 0f, -1f / 25f, 0f };
 
-    // かたまり：0 下の道 / 1 谷の向こうの着地点 / 2 上の段 / 3 人用の細道（谷の横→坂で上の段へ）
+    // かたまり：0 下の道 / 1 穴の向こうの着地点 / 2 上の段 / 3 人用の細道（着地点の横→坂で上の段へ）
+    // 0 と 1 の間（RegionA〜RegionB）は、道がふくらんで真ん中に丸い穴があいた板を別に作る（AddHoleRegion）
     public const float ValleyA = 43f, ValleyB = 49f, LandB = 53.6f, UpperA = 54f, UpperEnd = 86.4f;   // 道はゴールの広場（半径3m）のふちまで
+    public const float RegionA = 42.5f, RegionB = 49.5f, HoleC = 46f, HoleR = 2.6f, OuterR = 3.5f;   // 穴の半径2.6m、外側の半径3.5m（細道の幅0.9m）
     public static readonly Vector2[] Pieces =
     {
-        new Vector2(0f, ValleyA), new Vector2(ValleyB, LandB), new Vector2(UpperA, UpperEnd), new Vector2(41f, 56.5f),
+        new Vector2(0f, RegionA), new Vector2(RegionB, LandB), new Vector2(UpperA, UpperEnd), new Vector2(RegionB, 56.5f),
     };
     static readonly Vector2[][] HeightKeys =
     {
@@ -34,8 +36,19 @@ public static class FuwaCourse3Builder
     {
         if (piece == 3) return 1.0f;
         if (piece == 0 && s > 30f && s < 41f) return 3.6f;   // 巨大な巣の前後は少し広め
+        if ((piece == 0 || piece == 1) && s >= RegionA && s <= RegionB) return 2f * RegionHalfWidth(s);
         return 3f;
     }
+
+    // 穴のまわりの道の半幅：外側の円（半径 OuterR）と元の半幅1.5mを、なめらかにつないだもの
+    public static float RegionHalfWidth(float s)
+    {
+        float d = s - HoleC, c = Mathf.Sqrt(Mathf.Max(0f, OuterR * OuterR - d * d));
+        const float k = 0.6f;
+        float h = Mathf.Clamp01(0.5f + 0.5f * (c - 1.5f) / k);
+        return Mathf.Lerp(1.5f, c, h) + k * h * (1f - h);
+    }
+    static float RegionHalfWidthSlope(float s) { return (RegionHalfWidth(s + 0.01f) - RegionHalfWidth(s - 0.01f)) / 0.02f; }
 
     public static float Offset(int piece, float s)
     {
@@ -355,13 +368,12 @@ public static class FuwaCourse3Builder
         // 4. 重力の谷：谷の上に重い霧。谷の上ではコースアウト判定をしない
         {
             var g = new GameObject("G4_GravityValley").transform; g.SetParent(holder, false);
-            float sc = (ValleyA + ValleyB) * 0.5f;
-            var vf = Fog(g, "ValleyFog", 0, sc, 6.5f);
-            var vhl = vf.transform.Find("GroundHighlight"); if (vhl) vhl.gameObject.SetActive(false);   // 谷なので地面がない
+            var vf = Fog(g, "ValleyFog", 0, HoleC, 5.6f);   // 穴とほぼ同じ大きさ。細道の外側寄りなら入らない
+            var vhl = vf.transform.Find("GroundHighlight"); if (vhl) vhl.gameObject.SetActive(false);   // 球が道を切る円は穴の中なので地面がない
             var gz = new GameObject("GapZone", typeof(BoxCollider)); gz.transform.SetParent(g, false); gz.layer = 2;
             var bc = gz.GetComponent<BoxCollider>(); bc.isTrigger = true;
-            gz.transform.localPosition = P(0, sc, 0, 1f); gz.transform.localRotation = R(sc);
-            bc.size = new Vector3(4f, 12f, ValleyB - ValleyA + 1f);
+            gz.transform.localPosition = P(0, HoleC, 0, 1f); gz.transform.localRotation = R(HoleC);
+            bc.size = new Vector3(HoleR * 2f, 12f, HoleR * 2f);
             var ball = Object.FindObjectOfType<FuwaBall>(true);
             var list = new List<Collider>();
             if (ball.gapZones != null) foreach (var c in ball.gapZones) if (c != null && !c.transform.IsChildOf(root)) list.Add(c);
@@ -400,6 +412,151 @@ public static class FuwaCourse3Builder
         return log + " webs " + webs.Count;
     }
 
+    // ---- 穴の板（RegionA〜RegionB）：ふくらんだ道の真ん中に丸い穴。上面・底面は s 方向の帯、穴のふちはベベル＋壁 ----
+    const float RegionStep = 0.125f;
+    static List<float> RegionGrid() { var g = new List<float>(); int n = Mathf.RoundToInt((RegionB - RegionA) / RegionStep); for (int k = 0; k <= n; k++) g.Add(RegionA + k * RegionStep); return g; }
+    // 穴のふちの角度（0＝奥側、π＝手前側、0〜πが右側）。等間隔＋上面の帯の区切り（縞の境目）に当たる角度
+    static List<float> HolePhis()
+    {
+        var ph = new List<float>(); const int K = 96;
+        for (int k = 0; k <= K; k++) ph.Add(Mathf.PI * k / K);
+        float rt = HoleR + Bevel;
+        foreach (var g in RegionGrid()) { float c = (g - HoleC) / rt; if (c > -1f && c < 1f) ph.Add(Mathf.Acos(c)); }
+        ph.Sort();
+        var o = new List<float>(); foreach (var p in ph) if (o.Count == 0 || p - o[o.Count - 1] > 1e-4f) o.Add(p);
+        return o;
+    }
+    static List<float> Uniq(List<float> S) { S.Sort(); var o = new List<float>(); foreach (var x in S) if (o.Count == 0 || x - o[o.Count - 1] > 1e-4f) o.Add(x); return o; }
+    // (進む方向, 横) の2Dの向きをコースの3Dの向きに
+    static Vector3 RFwd(float s, Vector2 u)
+    {
+        Center(s, out _, out var d);
+        return (new Vector3(d.x, 0, d.y) * u.x + new Vector3(d.y, 0, -d.x) * u.y).normalized;
+    }
+    static void AddTriOut(List<Vector3> V, List<Vector3> N, List<int> T, int a, int b, int c)
+    {
+        var n = Vector3.Cross(V[b] - V[a], V[c] - V[a]);
+        if (Vector3.Dot(n, N[a] + N[b] + N[c]) >= 0) T.AddRange(new[] { a, b, c }); else T.AddRange(new[] { a, c, b });
+    }
+
+    static void AddHoleRegion(List<Vector3> V, List<Vector3> N, List<Vector2> UV, List<int> A, List<int> Bt, Matrix4x4 m)
+    {
+        var phis = HolePhis();
+        // ---- 上面（穴は半径 HoleR+Bevel、外はベベルの内側まで）・底面（穴は半径 HoleR、外は側面のふちまで）
+        for (int pass = 0; pass < 2; pass++)
+        {
+            bool top = pass == 0;
+            float rho = top ? HoleR + Bevel : HoleR, inset = top ? Bevel : 0f, dy = top ? 0f : -Thick;
+            var S = RegionGrid(); foreach (var p in phis) S.Add(HoleC + rho * Mathf.Cos(p));
+            S = Uniq(S);
+            float Hh(float s) { float d = s - HoleC; return Mathf.Sqrt(Mathf.Max(0f, rho * rho - d * d)); }
+            bool In(float s) { return s >= HoleC - rho - 1e-4f && s <= HoleC + rho + 1e-4f; }
+            Vector3 want = m.MultiplyVector(top ? Vector3.up : Vector3.down);
+            for (int k = 0; k < S.Count - 1; k++)
+            {
+                float s0 = S[k], s1 = S[k + 1];
+                var list = !top ? A : ((Mathf.FloorToInt((0.5f * (s0 + s1)) / Stripe) % 2 == 0) ? A : Bt);
+                float w0 = RegionHalfWidth(s0) - inset, w1 = RegionHalfWidth(s1) - inset;
+                var parts = (In(s0) && In(s1))
+                    ? new[] { new Vector4(-w0, -Hh(s0), -w1, -Hh(s1)), new Vector4(Hh(s0), w0, Hh(s1), w1) }
+                    : new[] { new Vector4(-w0, w0, -w1, w1) };
+                foreach (var pt in parts)
+                {
+                    int b = V.Count;
+                    foreach (var q in new[] { new Vector2(s0, pt.x), new Vector2(s0, pt.y), new Vector2(s1, pt.w), new Vector2(s1, pt.z) })
+                    { V.Add(m.MultiplyPoint3x4(Point(0, q.x, q.y, dy))); N.Add(want); UV.Add(new Vector2(q.y, q.x)); }
+                    AddTriDir(V, list, b, b + 1, b + 2, want); AddTriDir(V, list, b, b + 2, b + 3, want);
+                }
+            }
+        }
+
+        // ---- 穴のふち（ぐるっと一周の鎖）：上のベベル → 壁 → 底
+        var chain = new List<float>(phis);
+        for (int i = phis.Count - 2; i >= 1; i--) chain.Add(2f * Mathf.PI - phis[i]);
+        int[] Column(float ph0)
+        {
+            var u = new Vector2(Mathf.Cos(ph0), Mathf.Sin(ph0));
+            var q = new Vector2(HoleC, 0) + u * HoleR;
+            var u3 = RFwd(q.x, u);
+            var col = new int[BevelSteps + 2];
+            for (int k = 0; k <= BevelSteps + 1; k++)
+            {
+                Vector2 p; float dyy; Vector3 nn;
+                if (k <= BevelSteps) { float a = (Mathf.PI / 2) * k / BevelSteps; p = q + u * (Bevel - Bevel * Mathf.Sin(a)); dyy = -Bevel + Bevel * Mathf.Cos(a); nn = Vector3.up * Mathf.Cos(a) - u3 * Mathf.Sin(a); }
+                else { p = q; dyy = -Thick; nn = -u3; }
+                col[k] = V.Count; V.Add(m.MultiplyPoint3x4(Point(0, p.x, p.y, dyy))); N.Add(m.MultiplyVector(nn.normalized)); UV.Add(new Vector2(p.y, p.x));
+            }
+            return col;
+        }
+        var cols = new List<int[]>(); foreach (var p in chain) cols.Add(Column(p));
+        for (int i = 0; i < chain.Count; i++)
+        {
+            int j = (i + 1) % chain.Count;
+            var c0 = cols[i]; var c1 = cols[j];
+            float sMid = HoleC + (HoleR + Bevel) * Mathf.Cos(0.5f * (chain[i] + (j == 0 ? 2f * Mathf.PI : chain[j])));
+            var listB = (Mathf.FloorToInt(sMid / Stripe) % 2 == 0) ? A : Bt;
+            for (int k = 0; k <= BevelSteps; k++)
+            {
+                var lst = k < BevelSteps ? listB : A;
+                AddTriOut(V, N, lst, c0[k], c1[k], c1[k + 1]); AddTriOut(V, N, lst, c0[k], c1[k + 1], c0[k + 1]);
+            }
+        }
+
+        // ---- 外側の側面（ベベルつき）。ふくらみに合わせて法線を傾ける
+        var grid = RegionGrid();
+        foreach (var side in new[] { -1f, 1f })
+        {
+            for (int k = 0; k < grid.Count - 1; k++)
+            {
+                float s = grid[k], s1 = grid[k + 1];
+                var p0 = Profile(Width(0, s)); var p1 = Profile(Width(0, s1));
+                int half = p0.Count / 2;
+                int from = side < 0 ? 0 : half, to = side < 0 ? half - 1 : p0.Count - 1;
+                var lst = (Mathf.FloorToInt((s + 0.001f) / Stripe) % 2 == 0) ? A : Bt;
+                for (int i = from; i < to; i++)
+                {
+                    int b = V.Count;
+                    foreach (var (pr, sv) in new[] { (p0, s), (p1, s1) })
+                        for (int e = i; e <= i + 1; e++)
+                        {
+                            var q = pr[e];
+                            var hz = new Vector2(-RegionHalfWidthSlope(sv), side).normalized;   // (進む方向, 横) の外向き
+                            var nn = RFwd(sv, hz) * Mathf.Abs(q.z) + Vector3.up * q.w;
+                            V.Add(m.MultiplyPoint3x4(Point(0, sv, q.x, q.y))); N.Add(m.MultiplyVector(nn.normalized)); UV.Add(new Vector2(q.x, sv));
+                        }
+                    AddTriOut(V, N, lst, b, b + 2, b + 1); AddTriOut(V, N, lst, b + 1, b + 2, b + 3);
+                }
+            }
+        }
+    }
+
+    // 当たり判定：穴のまわりを s 方向の帯ごとの箱（上面＝道の高さ、穴の壁は半径 HoleR）
+    static void AddHoleRegionCollider(List<Vector3> V, List<int> T, Matrix4x4 m)
+    {
+        var S = RegionGrid(); foreach (var p in HolePhis()) S.Add(HoleC + HoleR * Mathf.Cos(p));
+        S = Uniq(S);
+        float Hh(float s) { float d = s - HoleC; return Mathf.Sqrt(Mathf.Max(0f, HoleR * HoleR - d * d)); }
+        bool In(float s) { return s >= HoleC - HoleR - 1e-4f && s <= HoleC + HoleR + 1e-4f; }
+        for (int k = 0; k < S.Count - 1; k++)
+        {
+            float s0 = S[k], s1 = S[k + 1];
+            float w0 = RegionHalfWidth(s0), w1 = RegionHalfWidth(s1);
+            var parts = (In(s0) && In(s1))
+                ? new[] { new Vector4(-w0, -Hh(s0), -w1, -Hh(s1)), new Vector4(Hh(s0), w0, Hh(s1), w1) }
+                : new[] { new Vector4(-w0, w0, -w1, w1) };
+            foreach (var pt in parts)
+            {
+                int b = V.Count;
+                var q = new[] { new Vector2(s0, pt.x), new Vector2(s0, pt.y), new Vector2(s1, pt.w), new Vector2(s1, pt.z) };
+                foreach (var dy in new[] { 0f, -Thick }) foreach (var c in q) V.Add(m.MultiplyPoint3x4(Point(0, c.x, c.y, dy)));
+                var ctr = Vector3.zero; for (int i = 0; i < 8; i++) ctr += V[b + i]; ctr /= 8f;
+                void Quad(int a, int bb, int c, int d) { var fc = (V[a] + V[bb] + V[c] + V[d]) * 0.25f - ctr; AddTriDir(V, T, a, bb, c, fc); AddTriDir(V, T, a, c, d, fc); }
+                Quad(b, b + 1, b + 2, b + 3); Quad(b + 4, b + 5, b + 6, b + 7);
+                for (int f = 0; f < 4; f++) { int f1 = (f + 1) % 4; Quad(b + f, b + f1, b + 4 + f1, b + 4 + f); }
+            }
+        }
+    }
+
     // ---- メッシュ（コース2と同じ作り：断面を並べて、端は丸め、縞は0.75mごと） ----
     static List<Vector4> Profile(float w)
     {
@@ -431,7 +588,9 @@ public static class FuwaCourse3Builder
     // つながっている端（細道・坂・橋が本道にくっつく所）は丸めない
     static bool FreeEnd(int pc, float s)
     {
-        if (pc == 3) return false;   // 細道：始まりは下の道の横、終わりは上の段の横
+        if (pc == 3) return s < RegionB + 0.01f;   // 細道：始まりは丸める（着地点の横から生える）、終わりは上の段の横
+        if (pc == 0 && s >= RegionA - 0.01f) return false;   // 穴の板とつながる所
+        if (pc == 1 && s <= RegionB + 0.01f) return false;
         return true;
     }
 
@@ -488,6 +647,7 @@ public static class FuwaCourse3Builder
                 for (int i = 1; i < P - 1; i++) AddTriDir(V, A, cb, cb + i, cb + i + 1, nrm);
             }
         }
+        AddHoleRegion(V, N, UV, A, Bt, m);
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(V); mesh.SetNormals(N); mesh.SetUVs(0, UV);
         mesh.subMeshCount = 2; mesh.SetTriangles(A, 0); mesh.SetTriangles(Bt, 1);
@@ -518,6 +678,7 @@ public static class FuwaCourse3Builder
             T.AddRange(new[] { first, first + 1, first + 2, first, first + 2, first + 3 });
             T.AddRange(new[] { e, e + 2, e + 1, e, e + 3, e + 2 });
         }
+        AddHoleRegionCollider(V, T, m);
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(V); mesh.SetTriangles(T, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
     }
