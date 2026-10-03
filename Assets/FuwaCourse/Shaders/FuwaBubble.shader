@@ -44,7 +44,7 @@ Shader "FuwaCourse/Bubble"
                 float rim = pow(1 - z, 1.0 / max(_RimWidth, 0.01) * 0.35);
                 // 虹色：ふちからの距離＋角度＋時間でゆらめく
                 float ang = atan2(p.y, p.x);
-                half3 iris = Hue(rim * 1.3 + ang * 0.12 + _Time.y * 0.15 + i.seed * 3.1 + sin(ang * 3 + _Time.y * 0.8) * 0.08);
+                half3 iris = Hue(rim * 1.3 + (p.x * 0.18 + p.y * 0.12) + _Time.y * 0.15 + i.seed * 3.1 + sin(ang * 3 + _Time.y * 0.8) * 0.08);
                 half3 col = lerp(half3(1, 1, 1), iris * 1.15 + 0.1, _Iris) * (0.8 + 0.35 * rim);
                 float a = _FillAlpha + rim * _RimAlpha;
                 // 白いハイライト（左上に小さい窓のような光）
