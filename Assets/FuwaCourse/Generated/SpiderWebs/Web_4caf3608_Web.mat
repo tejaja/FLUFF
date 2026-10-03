@@ -25,6 +25,9 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
+    - _DepthFade: 0.45
+    - _DepthFar: 20
+    - _DepthNear: 4
     - _DewChance: 0.35
     - _DewSize: 0.012
     - _EdgeHalo: 0.03
@@ -40,6 +43,8 @@ Material:
     - _OuterMax: 0.97
     - _OuterMin: 0.78
     - _OutlineWidth: 0.7
+    - _PulseFar: 7
+    - _PulseNear: 3
     - _RimGlow: 0.05
     - _RimGlowAlpha: 0.3
     - _RimWidth: 2.6
@@ -52,8 +57,9 @@ Material:
     m_Colors:
     - _Color: {r: 0.41999996, g: 0.39999998, b: 0.52, a: 0.94}
     - _CoreColor: {r: 0.93, g: 0.91, b: 1, a: 1}
+    - _DepthTint: {r: 0.65999997, g: 0.8, b: 0.97999996, a: 1}
     - _DewColor: {r: 1, g: 0.96999997, b: 1, a: 1}
-    - _EdgeGlow: {r: 1, g: 0.75, b: 0.95, a: 0.6}
+    - _EdgeGlow: {r: 1, g: 0.86, b: 0.25, a: 0.75}
     - _F01: {r: -0.30041915, g: 1.2224677, b: -0.4420671, a: 0.13241856}
     - _F23: {r: -0.20088193, g: -1.1717471, b: 0.48221734, a: -0.5448489}
     - _F45: {r: 0.4861962, g: 0.23954512, b: 0, a: 0}

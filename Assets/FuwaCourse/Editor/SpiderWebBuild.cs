@@ -454,6 +454,7 @@ public static class SpiderWebBuild
         if (b.polygonFrame)
         {
             int nThreads = FrameAnchors(b, sup, th, trees);
+            BuildFloorShadow(b, sup, id);
             return FinishThreads(sup, th, id, nThreads);
         }
 
@@ -560,6 +561,44 @@ public static class SpiderWebBuild
             }
         }
         return th.count;
+    }
+
+    // 巣の真下の床に、ぼんやりした影の帯（奥行きの目印）。床の起伏に沿うよう、横に並べた点ごとに床の高さを測る
+    static void BuildFloorShadow(SpiderWebBuilder b, Transform sup, string id)
+    {
+        if (!b.floorShadow) return;
+        var fc = FrameCorners(b);
+        float minX = 1e9f, maxX = -1e9f;
+        foreach (var v in fc) { minX = Mathf.Min(minX, v.x); maxX = Mathf.Max(maxX, v.x); }
+        float hs = b.size.y * 0.5f, w = b.floorShadowWidth * 0.5f;
+        var V = new List<Vector3>(); var U = new List<Vector2>(); var T = new List<int>();
+        int n = Mathf.Max(2, Mathf.CeilToInt((maxX - minX) / 0.1f));
+        var xs = new List<float>(); var ys = new List<float>();
+        for (int i = 0; i <= n; i++)
+        {
+            float x = Mathf.Lerp(minX, maxX, i / (float)n);
+            float y = FloorAt(sup, new Vector3(x, -hs + 0.3f, 0));
+            if (float.IsNaN(y)) continue;
+            xs.Add(x); ys.Add(y);
+        }
+        if (xs.Count < 2) return;
+        float x0 = xs[0], x1 = xs[xs.Count - 1];
+        for (int i = 0; i < xs.Count; i++)
+        {
+            float u = (xs[i] - x0) / Mathf.Max(1e-4f, x1 - x0);
+            V.Add(new Vector3(xs[i], ys[i] + 0.012f, -w)); U.Add(new Vector2(u, 0));
+            V.Add(new Vector3(xs[i], ys[i] + 0.012f, w)); U.Add(new Vector2(u, 1));
+            if (i > 0) { int k = V.Count - 4; T.AddRange(new[] { k, k + 1, k + 3, k, k + 3, k + 2 }); }
+        }
+        var m = new Mesh(); m.SetVertices(V); m.SetUVs(0, U); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        var saved = SaveMesh(Folder + "/" + id + "_FloorShadow.asset", m);
+        var go = new GameObject("FloorShadow");
+        go.transform.SetParent(sup, false);
+        go.AddComponent<MeshFilter>().sharedMesh = saved;
+        var mr = go.AddComponent<MeshRenderer>();
+        mr.sharedMaterial = LoadOrCreate<Material>(MatDir + "WebFloorShadow.mat", () => new Material(Shader.Find("FuwaCourse/WebFloorShadow")) { enableInstancing = true });
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        mr.receiveShadows = false;
     }
 
     // 角 k から点 q への糸が、角 k に接していない枠の辺と交わる（＝巣の上を横切る）か。巣の面に投影して判定

@@ -60,6 +60,10 @@ public class SpiderWebBuilder : MonoBehaviour, VRC.SDKBase.IEditorOnly
     public bool polygonFrame = false;
     [Tooltip("枠の角の数")]
     [Range(3, 8)] public int frameCorners = 5;
+    [Tooltip("巣の真下の床に、ぼんやりした影の帯を落とす（奥行きの目印）。多角形の枠の時だけ")]
+    public bool floorShadow = true;
+    [Tooltip("床の影の帯の幅 m")]
+    public float floorShadowWidth = 0.5f;
     [Tooltip("木のない側の下の角を地面へつなぐ時、地面を探す深さ m")]
     public float groundSearch = 6f;
     [Tooltip("最初の輪までの間隔 m")]

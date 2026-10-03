@@ -32,9 +32,15 @@ Shader "FuwaCourse/SpiderWeb"
         _OutlineColor ("糸の縁取り", Color) = (0.12, 0.09, 0.18, 0.85)
         _OutlineWidth ("縁取りの太さ (x 糸の太さ)", Float) = 0.7
         _EdgeWidth ("いちばん外側の糸の太さ (x 糸の太さ)", Float) = 1.7
-        _EdgeGlow ("外側の糸の明滅の色 (aが強さ)", Color) = (1, 0.75, 0.95, 0.6)
+        _EdgeGlow ("近づいた時の明滅の色 (aが強さ)", Color) = (1, 0.86, 0.25, 0.75)
         _EdgeHalo ("外側の糸のまわりのにじみ (m)", Float) = 0.03
         _EdgePulseSpeed ("明滅の速さ", Float) = 2.2
+        _PulseNear ("この距離より近いと明滅がいちばん強い (m)", Float) = 3
+        _PulseFar ("この距離より遠いと明滅しない (m)", Float) = 7
+        _DepthTint ("遠い巣の色（空に寄せる）", Color) = (0.66, 0.80, 0.98, 1)
+        _DepthNear ("ここまではくっきり (m)", Float) = 4
+        _DepthFar ("ここでいちばんかすむ (m)", Float) = 20
+        _DepthFade ("いちばん遠い時の濃さ", Range(0, 1)) = 0.45
         _DewChance ("夜露のつぶの割合", Range(0, 1)) = 0.3
         _DewSize ("夜露のつぶの半径 (m)", Float) = 0.012
         _DewColor ("夜露の色", Color) = (1, 0.97, 1, 1)
@@ -67,7 +73,9 @@ Shader "FuwaCourse/SpiderWeb"
             float _RimWidth, _RimGlow, _RimGlowAlpha;
             fixed4 _CoreColor, _OutlineColor, _DewColor;
             fixed4 _EdgeGlow;
-            float _EdgeHalo, _EdgePulseSpeed;
+            float _EdgeHalo, _EdgePulseSpeed, _PulseNear, _PulseFar;
+            fixed4 _DepthTint;
+            float _DepthNear, _DepthFar, _DepthFade;
             float _OutlineWidth, _EdgeWidth, _DewChance, _DewSize, _TwinkleSpeed;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -271,7 +279,9 @@ Shader "FuwaCourse/SpiderWeb"
                 float lineA = max(1 - smoothstep(hw + ow - lw * 0.5, hw + ow + lw * 0.5, d), 1 - smoothstep(hwE + owE - lw * 0.5, hwE + owE + lw * 0.5, dEdge));
                 if (r < _HoleRadius - hw - ow - lw) { coreA = 0; lineA = 0; }
                 // 巣の糸がうっすら明滅（色が少しだけ光る）。いちばん外側の枠はまわりにもにじむ
-                float pulse = 0.5 + 0.5 * sin(_Time.y * _EdgePulseSpeed);
+                float camD = distance(i.wpos, _WorldSpaceCameraPos);
+                // 近づいた巣だけ明滅する（遠くの巣は光らない）
+                float pulse = (0.5 + 0.5 * sin(_Time.y * _EdgePulseSpeed)) * (1 - smoothstep(_PulseNear, max(_PulseFar, _PulseNear + 0.01), camD));
                 float edgeCore = 1 - smoothstep(hwE - lw * 0.5, hwE + lw * 0.5, dEdge);
                 fixed3 core = lerp(_CoreColor.rgb, _EdgeGlow.rgb, pulse * _EdgeGlow.a * lerp(0.75, 1.0, edgeCore));   // 巣の糸ぜんぶ（外側の枠は少し強め）
                 fixed3 col = lerp(_OutlineColor.rgb, core, coreA);
@@ -299,8 +309,11 @@ Shader "FuwaCourse/SpiderWeb"
                 float rimTotal = max(rimA * _RimColor.a, glowA);
                 float outA = max(a, rimTotal);
                 col = lerp(col, _RimColor.rgb, saturate(rimTotal / max(outA, 1e-4)));
+                // 奥行きの目印：遠い巣ほど空の色に寄って薄くなる（手前の巣がくっきり）
+                float far = smoothstep(_DepthNear, max(_DepthFar, _DepthNear + 0.01), camD);
+                col = lerp(col, _DepthTint.rgb, far * 0.65);
+                outA *= lerp(1, _DepthFade, far);
                 // 通り抜ける時に見づらくないよう、カメラのすぐ近くの部分はスゥっと消す
-                float camD = distance(i.wpos, _WorldSpaceCameraPos);
                 outA *= smoothstep(_FadeNear, max(_FadeFar, _FadeNear + 0.01), camD);
                 return fixed4(col, outA);
             }
