@@ -116,6 +116,12 @@ Shader "FuwaCourse/ToonLit"
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 o.pp = _PatternFromBase > 0.5 ? mul(unity_ObjectToWorld, float4(v.vertex.x, 0, v.vertex.z, 1)).xyz : o.wp;
                 o.amb = ShadeSH9(float4(o.wn, 1));
+                #ifdef VERTEXLIGHT_ON
+                // 重要でない点光源（頂点ライト）も、まわりの明るさとして足す
+                o.amb += Shade4PointLights(unity_4LightPosX0, unity_4LightPosY0, unity_4LightPosZ0,
+                    unity_LightColor[0].rgb, unity_LightColor[1].rgb, unity_LightColor[2].rgb, unity_LightColor[3].rgb,
+                    unity_4LightAtten0, o.wp, o.wn) / max(_AmbientStrength, 0.01);
+                #endif
                 TRANSFER_SHADOW(o);
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
@@ -177,6 +183,56 @@ Shader "FuwaCourse/ToonLit"
 
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
+                return o;
+            }
+            ENDCG
+        }
+
+        // 点光源（洞窟の光るキノコなど）：ふんわり（ハーフランバート）で色を足す
+        Pass
+        {
+            Name "FORWARD_ADD"
+            Tags { "LightMode"="ForwardAdd" }
+            Blend One One
+            ZWrite Off
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_fwdadd_fullshadows
+            #pragma multi_compile_fog
+            #pragma multi_compile_instancing
+            #include "UnityCG.cginc"
+            #include "Lighting.cginc"
+            #include "AutoLight.cginc"
+            sampler2D _MainTex; float4 _MainTex_ST;
+            half _Wrap; fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal;
+            UNITY_INSTANCING_BUFFER_START(Props)
+                UNITY_DEFINE_INSTANCED_PROP(fixed4, _Color)
+            UNITY_INSTANCING_BUFFER_END(Props)
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; half fade : TEXCOORD3; SHADOW_COORDS(4) UNITY_FOG_COORDS(5) UNITY_VERTEX_INPUT_INSTANCE_ID };
+            v2f vert (appdata v)
+            {
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_TRANSFER_INSTANCE_ID(v, o);
+                o.pos = UnityObjectToClipPos(v.vertex); o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+                o.wn = UnityObjectToWorldNormal(v.normal);
+                o.fade = _BaseFadeLength > 0 ? smoothstep(-_BaseFadeLength, 0, v.vertex.y) : 0;
+                o.wn = lerp(o.wn, float3(0, -1, 0), o.fade * _BaseFadeNormal);
+                o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
+                TRANSFER_SHADOW(o); UNITY_TRANSFER_FOG(o, o.pos);
+                return o;
+            }
+            fixed4 frag (v2f i) : SV_Target
+            {
+                UNITY_SETUP_INSTANCE_ID(i);
+                fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
+                col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
+                float3 n = normalize(i.wn);
+                float3 l = normalize(UnityWorldSpaceLightDir(i.wp));
+                half wrap = saturate((dot(n, l) + _Wrap) / (1 + _Wrap));
+                UNITY_LIGHT_ATTENUATION(atten, i, i.wp);
+                fixed4 o = fixed4(col.rgb * _LightColor0.rgb * wrap * atten, 0);
+                UNITY_APPLY_FOG_COLOR(i.fogCoord, o, fixed4(0,0,0,0));
                 return o;
             }
             ENDCG
