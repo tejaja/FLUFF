@@ -24,6 +24,9 @@ Shader "FuwaCourse/GradientSky"
         _SunRayLen ("Ray Length (x radius)", Range(1.2, 3)) = 1.75
         _SunRayWidth ("Ray Base Half Width (x radius)", Range(0.05, 0.6)) = 0.3
         _SunRaySpin ("Ray Spin Speed", Float) = 0.08
+        _SunPopEvery ("トゲがピョンと広がる間隔(秒)", Float) = 5.5
+        _SunPopTime ("ピョンの長さ(秒)", Float) = 0.9
+        _SunPopAmount ("ピョンで外へ出る量(太陽の半径の何倍)", Float) = 0.45
         _SunHalo ("Halo", Range(0, 2)) = 0.6
         [ToggleUI] _SunFace ("Face", Float) = 1
         _SunEyeColor ("Eye Color", Color) = (0.38, 0.22, 0.12, 1)
@@ -58,6 +61,7 @@ Shader "FuwaCourse/GradientSky"
             float _CloudAlpha, _CloudScale, _CloudCover, _CloudSoft, _CloudHorizonFade;
             float4 _CloudSpeed;
             fixed4 _SunDiscColor, _SunRayColor, _SunEyeColor, _SunCheekColor;
+            float _SunPopEvery, _SunPopTime, _SunPopAmount;
             float _SunFace, _SunStyle, _SunRadius, _SunRayCount, _SunRayLen, _SunRayWidth, _SunRaySpin, _SunHalo;
 
             struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -141,7 +145,12 @@ Shader "FuwaCourse/GradientSky"
                 // ほんのり後光
                 col += _SunColor.rgb * _SunHalo * exp(-rho / (R * 1.6)) * 0.35;
                 // トゲ：円のすぐ外から R*_SunRayLen まで、根元が太く先が丸い三角
-                float r0 = R * 1.18, r1 = R * _SunRayLen;
+                // ときどきトゲが外へピョンと広がって、ぷるんと戻る（たまに1回休み・2連続もあり）
+                float popI = floor(_Time.y / _SunPopEvery);
+                float popX = (_Time.y - popI * _SunPopEvery) / max(_SunPopTime, 0.05);
+                float popOn = frac(sin(popI * 12.9898) * 43758.5453) < 0.8 ? 1 : 0;
+                float pop = popX < 1 ? popOn * (1 - popX) * (1 - popX) * sin(popX * 9.4) : 0;
+                float r0 = R * (1.18 + _SunPopAmount * pop), r1 = R * (_SunRayLen + _SunPopAmount * pop * 1.15);
                 float sector = 6.2831853 / _SunRayCount;
                 float a = (frac(phi / sector) - 0.5) * sector;      // トゲの中心線からの角度
                 float arc = abs(a) * rho;                           // 横方向の距離(度)
