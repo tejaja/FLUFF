@@ -14,34 +14,50 @@ GILL = (0.16, 0.13, 0.19); STEM = (0.93, 0.92, 0.89); STEMB = (0.80, 0.78, 0.76)
 def lerp3(a, b, t): t = max(0.0, min(1.0, t)); return tuple(a[i] + (b[i] - a[i]) * t for i in range(3))
 def ss(a, b, x): t = max(0.0, min(1.0, (x - a) / (b - a))); return t * t * (3 - 2 * t)
 
-def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7):
+def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7, lean=0.0, cap_tilt=0.0):
+    # lean: 軸の先を +x へずらす量(m)。cap_tilt: 傘を +x 側へ傾ける角度(度)。軸の傾きより小さくすると傘が水平寄りになる
+    from mathutils import Matrix
+    Rt = Matrix.Rotation(math.radians(cap_tilt), 3, 'Y')
     random.seed(seed); off = Vector((seed * 4.3, seed * 2.1, 0))
     V = []; C = []; F = []
     def add(p, c): V.append(tuple(p)); C.append(c); return len(V) - 1
     SEG = 40
 
-    # ---- 軸：ゆるいS字、根元が少しふくらむ ----
+    # ---- 軸：ゆるいS字、根元が少しふくらむ。傘の中（ヒダのてっぺん）まで続けて、傘とのすき間をなくす ----
+    P0 = Vector((0, 0, stem_h))
+    def curve_center(z):
+        u = min(1.0, z / stem_h)
+        return Vector((0.18 * math.sin(u * 2.6 + seed) * u + lean * u ** 1.8, 0.12 * math.sin(u * 1.9 + seed * 2) * u, min(z, stem_h)))
+    Ptop = curve_center(stem_h)
+    def cap_xf(p):   # 傘の部品（まっすぐ立てて作る）を、軸の先に傾けて付ける
+        return Rt @ (Vector(p) - P0) + Ptop
     def stem_center(z):
-        u = z / stem_h
-        return Vector((0.18 * math.sin(u * 2.6 + seed) * u, 0.12 * math.sin(u * 1.9 + seed * 2) * u, z))
-    SS = 10; NZ = 22
+        if z <= stem_h: return curve_center(z)
+        return cap_xf((0, 0, z))
+    z_in = stem_h - 0.15 + cap_h * 0.6   # ヒダのてっぺん（cap_in）より少し上まで
+    SS = 10; NZ = 28
     rings = []
     for k in range(NZ + 1):
-        z = stem_h * k / NZ; u = k / NZ
+        z = z_in * k / NZ; u = min(1.0, z / stem_h)
         r = stem_r * (1.0 + 0.55 * (1 - ss(0.0, 0.12, u)) - 0.15 * u)
         c0 = stem_center(z)
         ring = []
         for s in range(SS):
             a = s / SS * math.tau
             rr = r * (1 + 0.06 * noise.noise(off + Vector((math.cos(a), math.sin(a), z * 0.8))))
-            ring.append(add(c0 + Vector((rr * math.cos(a), rr * math.sin(a), 0)), lerp3(STEMB, STEM, ss(0, 0.25, u))))
+            d = Vector((rr * math.cos(a), rr * math.sin(a), 0))
+            if z > stem_h: d = Rt @ d
+            ring.append(add(c0 + d, lerp3(STEMB, STEM, ss(0, 0.25, u))))
         rings.append(ring)
     for k in range(NZ):
         A, B = rings[k], rings[k + 1]
         for s in range(SS): F.append((A[s], A[(s + 1) % SS], B[(s + 1) % SS], B[s]))
     bot = add(stem_center(0) - Vector((0, 0, 0.05)), STEMB)
     for s in range(SS): F.append((rings[0][(s + 1) % SS], rings[0][s], bot))
-    top = stem_center(stem_h)
+    stem_end = add(stem_center(z_in) + Rt @ Vector((0, 0, 0.03)), STEM)   # 軸の先のふた（傘の中）
+    for s in range(SS): F.append((rings[-1][s], rings[-1][(s + 1) % SS], stem_end))
+    top = Vector((0, 0, stem_h))   # 傘はまっすぐな軸の上で作って、あとで cap_xf で付け替える
+    cap_start = len(V)
 
     # ---- 傘：とんがった釣鐘。外側→ふち（めくれて溶ける）→内側のヒダ ----
     z0 = stem_h - 0.15   # ふちの基準高さ（軸の先は傘の中に隠れる）
@@ -109,9 +125,9 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7):
         for s in range(SEG):
             a = s / SEG * math.tau
             n = Vector((math.cos(a), math.sin(a), 0))
-            P0 = Vector(V[outer[-1][s]]) - n * 0.02 - Vector((0, 0, 0.02))   # 玉ぶちの中
-            P1 = Vector((top.x, top.y, z0 + cap_h * 0.55)) + n * stem_r * 1.2
-            p = P0.lerp(P1, t) + n * (0.025 if s % 2 else -0.025) * ss(0.0, 0.3, t) * (1 - t) * cap_r
+            Q0 = Vector(V[outer[-1][s]]) - n * 0.02 - Vector((0, 0, 0.02))   # 玉ぶちの中
+            Q1 = Vector((top.x, top.y, z0 + cap_h * 0.55)) + n * stem_r * 1.2
+            p = Q0.lerp(Q1, t) + n * (0.025 if s % 2 else -0.025) * ss(0.0, 0.3, t) * (1 - t) * cap_r
             ring.append(add(p, lerp3(INK, GILL, ss(0, 0.4, t))))
         inner.append(ring)
     for k in range(NI):
@@ -151,6 +167,9 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7):
         for j in range(DS): F.append((rr[-1][j], rr[-1][(j + 1) % DS], tip))
         drips.append((a, (base.x, base.z, base.y), L))
 
+    for i in range(cap_start, len(V)): V[i] = tuple(cap_xf(V[i]))
+    drips = [(a, tuple(cap_xf((b[0], b[2], b[1])).xzy), L) for (a, b, L) in drips]
+
     me = bpy.data.meshes.get(name) or bpy.data.meshes.new(name)
     me.clear_geometry(); me.from_pydata(V, [], F); me.update()
     ca = me.color_attributes.get('Col') or me.color_attributes.new('Col', 'FLOAT_COLOR', 'POINT')
@@ -162,7 +181,8 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7):
 
 # (名前, seed, 軸の高さ, 傘の高さ, 傘の半径)
 specs = [('InkCap_A', 1, 4.6, 3.0, 2.2), ('InkCap_B', 2, 4.4, 2.7, 2.0), ('InkCap_Tall', 3, 7.6, 3.4, 2.5),
-         ('InkCap_Corr', 4, 6.9, 2.8, 2.1)]   # 回廊用：木の葉っぱより上に傘を出す
+         ('InkCap_Corr', 4, 6.9, 2.8, 2.1),   # 回廊用（今は未使用）
+         ('InkCap_ALean', 1, 4.6, 3.0, 2.2, 0.16, 7, 1.0, 7.0)]   # 1本目：道の端から道側へ傾いて生える（傘は軸より水平寄り）
 out = {}
 for i, sp in enumerate(specs):
     o, C, drips = inkcap(*sp)
