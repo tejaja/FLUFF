@@ -47,6 +47,7 @@ Shader "FuwaCourse/SpiderWeb"
         _TwinkleSpeed ("キラッとする速さ", Float) = 1.3
         _Spiral ("輪をらせんにする (0/1)", Float) = 1
         _Sag ("横糸のたるみ（中心側へ弓なり、糸の長さの何割）", Range(0, 0.2)) = 0.07
+        _SpacingRef ("横糸の間隔を縮め始める糸の長さ m（0=しない）", Float) = 0
         _GapChance ("らせんの糸が切れている割合", Range(0, 0.3)) = 0.05
         _SplitChance ("途中から生える放射の糸の割合", Range(0, 0.6)) = 0.3
         _SplitStart ("途中から生える糸の始まり（外周までの何割）", Range(0, 0.9)) = 0.4
@@ -83,7 +84,7 @@ Shader "FuwaCourse/SpiderWeb"
             fixed4 _DepthTint;
             float _DepthNear, _DepthFar, _DepthFade;
             float _OutlineWidth, _EdgeWidth, _DewChance, _DewSize, _TwinkleSpeed;
-            float _Spiral, _GapChance, _SplitChance, _SplitStart, _Sag;
+            float _Spiral, _GapChance, _SplitChance, _SplitStart, _Sag, _SpacingRef;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 m : TEXCOORD0; float3 wpos : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
@@ -170,14 +171,19 @@ Shader "FuwaCourse/SpiderWeb"
 
             // ring k radius on strand i (with ±5% wobble)
             // らせんの時は、糸 i を1本進むごとに 1/本数 だけ外へずれる（1周で輪1つ分。本物の巣の「横糸」）
-            float ringRadiusAt(float k, float i, float holeR)
+            // sc：横糸の間隔の倍率。穴から枠まで近い縦糸（穴の下側など）ほど間隔をつめて、短い所にも横糸が入るように
+            float spacingScale(float R)
+            {
+                return _SpacingRef > 0 ? clamp((R - max(_HoleRadiusMax, _HoleRadius)) / _SpacingRef, 0.3, 1) : 1;
+            }
+            float ringRadiusAt(float k, float i, float holeR, float sc)
             {
                 float a = _RingStart, b = _RingGrow;
                 float kc = k + (_Spiral > 0.5 ? i / _Spokes : 0);
-                float s = (a / b) * (pow(1 + b, kc) - 1);
+                float s = (a / b) * (pow(1 + b, kc) - 1) * sc;
                 return (holeR + s) * lerp(0.95, 1.05, hash(float2(spokeIndex(i), floor(kc + 1e-3))));
             }
-            float ringRadius(float k, float i) { return ringRadiusAt(k, i, _HoleRadius); }
+            float ringRadius(float k, float i, float sc) { return ringRadiusAt(k, i, _HoleRadius, sc); }
 
             float segDist(float2 p, float2 a, float2 b)
             {
@@ -258,18 +264,20 @@ Shader "FuwaCourse/SpiderWeb"
                             dIn = min(dIn, abs(cross2(p, dir)));
                     }
                     // rings between the two spokes of this sector
-                    float sd = r - _HoleRadius;
+                    float sc0 = spacingScale(R0), sc1 = spacingScale(R1);
+                    float wA = saturate(acos(clamp(dot(normalize(p), d0), -1, 1)) / max(acos(clamp(dot(d0, d1), -1, 1)), 1e-4));
+                    float sd = (r - _HoleRadius) / lerp(sc0, sc1, wA);
                     float kf = log(1 + sd * _RingGrow / _RingStart) / log(1 + _RingGrow);
                     float k0 = floor(kf - (_Spiral > 0.5 ? s0 / _Spokes : 0));
                     [unroll] for (int kk = -1; kk <= 2; kk++)   // 輪は糸ごとに±5%ずれるので、1つ内側の輪も見る
                     {
                         float k = max(1, k0 + kk);
-                        float ra = ringRadius(k, s0), rb = ringRadius(k, s1);
+                        float ra = ringRadius(k, s0, sc0), rb = ringRadius(k, s1, sc1);
                         // 外周の糸のすぐそばの輪は描かない（外周との間に細かい切れ端ができるので）。
                         // 判定は「穴がいちばん大きい時の輪の位置」で決めるので、穴が呼吸しても輪が出たり消えたりしない。
                         float hm = max(_HoleRadiusMax, _HoleRadius);
-                        float gap = _RingStart * pow(1 + _RingGrow, k);
-                        float room = min(R0 - ringRadiusAt(k, s0, hm), R1 - ringRadiusAt(k, s1, hm));
+                        float gap = _RingStart * pow(1 + _RingGrow, k) * min(sc0, sc1);
+                        float room = min(R0 - ringRadiusAt(k, s0, hm, sc0), R1 - ringRadiusAt(k, s1, hm, sc1));
                         float fade = room > gap * 0.6 ? 1 : 0;
                         // 横糸は少したるんで中心側へ弓なりに（まっすぐな多角形だと作り物っぽいので）
                         float2 A = d0 * ra, B = d1 * rb, AB = B - A;

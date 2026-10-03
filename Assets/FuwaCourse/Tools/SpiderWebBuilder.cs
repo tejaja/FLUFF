@@ -70,6 +70,8 @@ public class SpiderWebBuilder : MonoBehaviour, VRC.SDKBase.IEditorOnly
     public float ringStart = 0.12f;
     [Tooltip("輪の間隔の広がり方")]
     public float ringGrow = 0.17f;
+    [Tooltip("穴から枠までがこれより短い縦糸では、横糸の間隔をつめる m（0=しない）。穴が端に寄った巣で、短い側にも横糸を入れる")]
+    public float spacingRef = 0f;
     [Tooltip("糸の太さ m")]
     public float lineWidth = 0.0165f;
     public Color color = new Color(0.42f, 0.40f, 0.52f, 0.94f);

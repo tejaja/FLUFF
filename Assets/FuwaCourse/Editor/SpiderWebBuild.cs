@@ -121,6 +121,7 @@ public static class SpiderWebBuild
         mat.SetFloat("_Spokes", b.spokes);
         mat.SetFloat("_RingStart", b.ringStart);
         mat.SetFloat("_RingGrow", b.ringGrow);
+        mat.SetFloat("_SpacingRef", b.spacingRef);
         mat.SetFloat("_Seed", b.seed);
         mat.SetFloat("_OuterMin", b.outerMin);
         mat.SetFloat("_OuterMax", Mathf.Max(b.outerMin, b.outerMax));
