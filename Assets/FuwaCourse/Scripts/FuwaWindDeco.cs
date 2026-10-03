@@ -26,6 +26,8 @@ public class FuwaWindDeco : UdonSharpBehaviour
     [Header("かざぐるま")]
     public Transform head;
     public Transform rotor;
+    [Tooltip("かざぐるまの頭を風上でなく風下に向ける（置き場所によって、羽の正面を人の来る方へ向けたい時）")]
+    public bool faceDownwind = false;
     public float spinMax = 540f;
     public float spinIdle = 25f;
 
@@ -100,7 +102,7 @@ public class FuwaWindDeco : UdonSharpBehaviour
         if (head != null)
         {
             // 風上を向く（羽の正面＝ローカル -Z 側が風上）
-            Quaternion hq = Quaternion.LookRotation(h, Vector3.up);
+            Quaternion hq = Quaternion.LookRotation(faceDownwind ? -h : h, Vector3.up);
             head.rotation = Quaternion.Slerp(head.rotation, hq, 1f - Mathf.Exp(-2f * Time.deltaTime));
         }
         if (rotor != null)
