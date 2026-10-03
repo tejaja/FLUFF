@@ -43,6 +43,44 @@ public class FuwaGunSummon : UdonSharpBehaviour
     [Tooltip("（今は使っていない）見た目だけの銃")]
     public GameObject decoy;
 
+    [Header("VRで呼び出す時の、手元の丸いゲージ（なくてもOK）")]
+    [Tooltip("FuwaCourse/ProgressRing の Quad。スティックを倒している間だけ右手の上に出て、たまったら呼び出し")]
+    public Renderer gauge;
+    [Tooltip("ゲージの大きさ(m)")]
+    public float gaugeSize = 0.11f;
+    [Tooltip("手の甲からどれだけ浮かせるか(m)")]
+    public float gaugeLift = 0.09f;
+    private Material _gaugeMat;
+    private float _gaugeShown = -1f;
+    private float _gaugeFlashUntil;
+
+    private void Start()
+    {
+        if (gauge != null) { _gaugeMat = gauge.material; gauge.enabled = false; }
+    }
+
+    // ゲージを出す（f=0〜1、負なら消す）。右手の上に、顔の方を向けて置く
+    private void ShowGauge(VRCPlayerApi p, float f)
+    {
+        if (gauge == null) return;
+        if (f < 0f)
+        {
+            if (gauge.enabled) gauge.enabled = false;
+            _gaugeShown = -1f;
+            return;
+        }
+        VRCPlayerApi.TrackingData hand = p.GetTrackingData(VRCPlayerApi.TrackingDataType.RightHand);
+        VRCPlayerApi.TrackingData head = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
+        Vector3 pos = hand.position + Vector3.up * gaugeLift;
+        Vector3 toHead = head.position - pos;
+        if (toHead.sqrMagnitude < 0.0001f) toHead = Vector3.back;
+        // Quad の表（-Z 側から見える面）を顔へ向ける
+        gauge.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(-toHead.normalized, Vector3.up));
+        gauge.transform.localScale = Vector3.one * gaugeSize;
+        if (!gauge.enabled) gauge.enabled = true;
+        if (Mathf.Abs(f - _gaugeShown) > 0.002f) { _gaugeShown = f; _gaugeMat.SetFloat("_Fill", f); }
+    }
+
     private float _nextFollow;
     private bool _summoning;
     private float _summonUntil;
@@ -67,12 +105,14 @@ public class FuwaGunSummon : UdonSharpBehaviour
         if (gun.IsHeld())
         {
             _summoning = false;
+            ShowGauge(p, -1f);   // 銃を持っている時は出さない
             return;
         }
 
         VRCPlayerApi.TrackingData head = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
         if (!p.IsUserInVR())
         {
+            ShowGauge(p, -1f);
             if (!Input.GetKeyDown(desktopKey)) return;
             Vector3 fwd = head.rotation * Vector3.forward;
             fwd.y = 0f;
@@ -87,8 +127,13 @@ public class FuwaGunSummon : UdonSharpBehaviour
         bool down = _stickY <= stickThreshold;
         if (!down) { _downSince = -1f; _waitRelease = false; }
         else if (_downSince < 0f) _downSince = Time.time;
+        // 手元の丸いゲージ：倒している間たまっていく。呼び出した瞬間は満タンで少しだけ残す
+        if (down && !_waitRelease && !_summoning && _downSince >= 0f) ShowGauge(p, Mathf.Clamp01((Time.time - _downSince) / Mathf.Max(0.01f, stickHoldSeconds)));
+        else if (Time.time < _gaugeFlashUntil) ShowGauge(p, 1f);
+        else ShowGauge(p, -1f);
         if (down && !_waitRelease && !_summoning && Time.time - _downSince >= stickHoldSeconds)
         {
+            _gaugeFlashUntil = Time.time + 0.25f;
             _waitRelease = true;
             _summoning = true;
             _summonUntil = Time.time + waitSeconds;
