@@ -49,7 +49,7 @@ Shader "FuwaCourse/SpiderWeb"
         _Sag ("横糸のたるみ（中心側へ弓なり、糸の長さの何割）", Range(0, 0.2)) = 0.07
         _SpacingRef ("横糸の間隔を縮め始める糸の長さ m（0=しない）", Float) = 0
         _GapChance ("らせんの糸が切れている割合", Range(0, 0.3)) = 0
-        _SplitChance ("途中から生える放射の糸の割合", Range(0, 0.6)) = 0.3
+        _SplitChance ("途中から生える放射の糸の割合（横糸が折れて途切れて見えるので0推奨）", Range(0, 0.6)) = 0
         _SplitStart ("途中から生える糸の始まり（外周までの何割）", Range(0, 0.9)) = 0.4
         _RimColor ("Hole Rim Color", Color) = (0.95, 0.95, 1.0, 1.0)
         _RimWidth ("Hole Rim Width (x Line Width)", Float) = 2.6
