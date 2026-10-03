@@ -41,14 +41,16 @@ Shader "FuwaCourse/Bubble"
                 if (r > 1) discard;
                 // 球っぽさ：ふちほど厚い（フレネル風）
                 float z = sqrt(saturate(1 - r * r));
-                float rim = pow(1 - z, 1.0 / max(_RimWidth, 0.01) * 0.35);
+                // 本物と同じく膜は下ほど厚い：下のふちほど太く・濃く、上は細く・淡く
+                float bottom = saturate(0.5 - p.y * 0.5);
+                float rim = pow(1 - z, 1.0 / max(_RimWidth, 0.01) * 0.35 / lerp(0.7, 1.45, bottom));
                 // 虹色：ふちからの距離＋角度＋時間でゆらめく
                 float ang = atan2(p.y, p.x);
                 // 本物っぽく：ふちからの距離（膜の厚み）＋上下（膜が下に流れて上ほど薄い）で、なめらかな帯にする。ゆっくり上下に流れる
-                float film = rim * 0.9 + (p.y * 0.5 + 0.5) * 0.35 + _Time.y * 0.05 + i.seed * 0.7;
-                half3 iris = lerp(Hue(film), half3(1, 1, 1), 0.25);
+                float film = rim * 0.9 + bottom * 0.35 + _Time.y * 0.05 + i.seed * 0.7;
+                half3 iris = lerp(Hue(film), half3(1, 1, 1), lerp(0.45, 0.15, bottom));   // 上は白っぽく淡く、下は色が濃い
                 half3 col = lerp(half3(1, 1, 1), iris, _Iris) * (0.85 + 0.25 * rim);
-                float a = _FillAlpha + rim * _RimAlpha;
+                float a = _FillAlpha + rim * _RimAlpha * lerp(0.7, 1.1, bottom);
                 // 白いハイライト（左上に小さい窓のような光）
                 float2 hp = p - float2(-0.38, 0.42);
                 float hl = smoothstep(0.24, 0.12, length(hp * float2(1.0, 1.4)));
