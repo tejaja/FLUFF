@@ -100,7 +100,7 @@ public static class FuwaWindDecoBuilder
         }
         var hub = new List<int>(); int hb = V.Count; int la = 5, lo = 8; float r = 0.045f;
         for (int i = 0; i <= la; i++) for (int j = 0; j < lo; j++) { float th = Mathf.PI * i / la, ph = Mathf.PI * 2 * j / lo; V.Add(new Vector3(Mathf.Sin(th) * Mathf.Cos(ph) * r, Mathf.Sin(th) * Mathf.Sin(ph) * r, -0.02f + Mathf.Cos(th) * r)); }
-        for (int i = 0; i < la; i++) for (int j = 0; j < lo; j++) { int a = hb + i * lo + j, cc = hb + i * lo + (j + 1) % lo, d = a + lo, e = cc + lo; hub.AddRange(new[] { a, cc, e, a, e, d }); }
+        for (int i = 0; i < la; i++) for (int j = 0; j < lo; j++) { int a = hb + i * lo + j, cc = hb + i * lo + (j + 1) % lo, d = a + lo, e = cc + lo; hub.AddRange(new[] { a, e, cc, a, d, e }); }   // 軸の取り方が柱の玉と違うので、外向きになるよう逆回り
         subs.Add(hub);
         return Finish(V, subs, true);
     }
