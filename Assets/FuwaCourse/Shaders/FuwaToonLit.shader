@@ -15,6 +15,8 @@ Shader "FuwaCourse/ToonLit"
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
         _MainTex ("Albedo (optional)", 2D) = "white" {}
         [HDR] _EmissionColor ("Emission", Color) = (0,0,0,1)
+        [Toggle] _EmissionGradient ("Emission: グラデーションで光る（足し算で白飛びしない）", Float) = 0
+        _EmissionFull ("Emission: いちばん光った時の強さ（この明るさで色が全部光の色になる）", Float) = 1.6
         [Header(Light)]
         _ShadowTint ("Shadow Tint", Color) = (0.62, 0.55, 0.78, 1)
         _ShadowStrength ("Shadow Strength", Range(0,1)) = 0.55
@@ -69,6 +71,7 @@ Shader "FuwaCourse/ToonLit"
             fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal;
             half _NoiseStrength, _StrataStrength, _Facet, _TopStrength, _TopMin; float _NoiseScale, _StrataScale; fixed4 _TopColor;
             half4 _StrataA, _StrataB, _StrataC; half _PatternFromBase;
+            half _EmissionGradient, _EmissionFull;
             float Hash1(float x) { return frac(sin(x * 127.1 + 311.7) * 43758.5453); }
             // 層ごとの色味：層の番号からA/B/C（と元の色）を選ぶ。となりと同じ色になることもあるので、層の厚みがバラバラに見える
             half3 LayerTint(float id)
@@ -181,7 +184,20 @@ Shader "FuwaCourse/ToonLit"
                 half rim = pow(1 - saturate(dot(n, v)), _RimPower) * _RimStrength * (0.5 + 0.5 * lit);
                 rim *= 1 - i.fade;   // 根元のなじませ部分はふちを光らせない（境目が浮かないように）
                 c += _RimColor.rgb * rim;
-                c += UNITY_ACCESS_INSTANCED_PROP(Props, _EmissionColor).rgb;
+                half3 em = UNITY_ACCESS_INSTANCED_PROP(Props, _EmissionColor).rgb;
+                if (_EmissionGradient > 0.5)
+                {
+                    // 光の色へ「塗り替える」光り方：下向き・ふちほど強く、てっぺんは控えめ（グラデーション）。
+                    // 足し算だと元の色が明るい所で真っ白に飛ぶので、明るさは光の色の明るさまでにおさえる
+                    half s = max(em.r, max(em.g, em.b));
+                    half3 hue = em / max(s, 1e-4);
+                    half k = saturate(s / max(_EmissionFull, 1e-3));
+                    half g = lerp(0.3, 1.0, saturate(0.5 - 0.5 * n.y));
+                    g = saturate(g + pow(1 - saturate(dot(n, v)), 2) * 0.5);
+                    half3 glow = hue * lerp(0.5, 1.2, g);
+                    c = lerp(c, glow, k * lerp(0.2, 1.0, g * g));
+                }
+                else c += em;
 
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
