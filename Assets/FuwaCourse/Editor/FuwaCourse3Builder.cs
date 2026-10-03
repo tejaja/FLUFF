@@ -41,7 +41,7 @@ public static class FuwaCourse3Builder
     public static float Width(int piece, float s)
     {
         if (piece == 3 || IsBridge(piece)) return 1.0f;
-        if (piece == 0 && s > 30f && s < 41f) return 3.6f;   // 巨大な巣の前後は少し広め
+        // （巨大な巣の前後を3.6mに広げていたのは、そこだけ太く見えるのでやめた）
         return 3f;
     }
 
