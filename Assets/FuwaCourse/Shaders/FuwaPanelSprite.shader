@@ -8,11 +8,12 @@ Shader "Fuwa/PanelSprite"
         [PerRendererData] _MainTex ("Sprite", 2D) = "white" {}
         _Color ("Tint", Color) = (1,1,1,1)
         _Cutoff ("Alpha Cutoff (これ以下は奥行きも書かない)", Range(0,1)) = 0.3
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull（Backで裏から見えない看板に）", Float) = 0
     }
     SubShader
     {
         Tags { "Queue"="Transparent-10" "RenderType"="Transparent" "IgnoreProjector"="True" "PreviewType"="Plane" "CanUseSpriteAtlas"="True" }
-        Cull Off
+        Cull [_Cull]
         ZWrite On
         Blend SrcAlpha OneMinusSrcAlpha
 
