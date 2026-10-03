@@ -804,7 +804,9 @@ public static class SpiderWebBuild
         leafMesh.CombineMeshes(blobs.ToArray(), true, true);
 
         var subs = new List<CombineInstance> { new CombineInstance { mesh = barkMesh, transform = Matrix4x4.identity }, new CombineInstance { mesh = leafMesh, transform = Matrix4x4.identity } };
-        var mats = new List<Material> { LoadMat("WebTree_Bark", new Color(0.52f, 0.38f, 0.28f)), LoadMat("WebTree_Leaves", new Color(0.55f, 0.78f, 0.47f)) };
+        // やみのもり（FuwaCourse3）の木は、闇っぽい暗い葉と幹
+        bool yami = b.transform.root.name == "FuwaCourse3";
+        var mats = new List<Material> { LoadMat(yami ? "WebTree_BarkYami" : "WebTree_Bark", new Color(0.52f, 0.38f, 0.28f)), LoadMat(yami ? "WebTree_LeavesYami" : "WebTree_Leaves", new Color(0.55f, 0.78f, 0.47f)) };
         if (b.bareTree)
         {
             subs.RemoveAt(1);
