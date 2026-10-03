@@ -16,6 +16,15 @@ public class FuwaEnemy : UdonSharpBehaviour
     [Tooltip("目（プレイヤーの方を向く）")]
     public Transform eyes;
 
+    [Header("黒目（動く）")]
+    [Tooltip("左右の黒目（白目の前の面に沿って動く）")]
+    public Transform pupilL;
+    public Transform pupilR;
+    [Tooltip("黒目が中心から動ける距離（目のローカル）")]
+    public float pupilReach = 0.036f;
+    [Tooltip("白目の前の面のふくらみ（黒目を白目の面に沿わせる）")]
+    public float pupilDepth = 0.04f;
+
     [Header("うろうろ")]
     public float wanderRadius = 1.2f;
     public float bobHeight = 0.15f;
@@ -118,6 +127,7 @@ public class FuwaEnemy : UdonSharpBehaviour
             _visualScale = visual.localScale;
         }
         if (eyes != null) _eyesScale = eyes.localScale;
+        InitPupils();
         if (sleepFx != null) _sleepFxBase = sleepFx.localPosition;
         if (alertFx != null) alertFx.gameObject.SetActive(false);
         EnterIdleMode();
@@ -179,6 +189,8 @@ public class FuwaEnemy : UdonSharpBehaviour
         Vector3 chest = local.GetPosition() + Vector3.up * 1.0f;
         Vector3 toPlayer = chest - transform.position;
 
+        // 黒目：近くにいれば自分（プレイヤーの頭）を見る
+        UpdatePupils(_state != 10 && toPlayer.magnitude < detectRange * 1.3f, local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, dt);
         // 倒されたら、プレイヤーがやられる／リスポーンするまで復活しない（Revive()で戻る）
         if (_state == 6) return;
 
@@ -472,4 +484,41 @@ public class FuwaEnemy : UdonSharpBehaviour
     }
 
     public bool IsActive() { return _state != 5 && _state != 6 && _state != 7; }
+
+    private Vector3 _pupilBaseL, _pupilBaseR;
+    private Vector2 _look, _lookGoal;
+    private float _nextGlance;
+
+    private void InitPupils()
+    {
+        if (pupilL != null) _pupilBaseL = pupilL.localPosition;
+        if (pupilR != null) _pupilBaseR = pupilR.localPosition;
+    }
+
+    // 黒目：見る相手がいればそっち、いなければときどき、きょろきょろ
+    private void UpdatePupils(bool watch, Vector3 target, float dt)
+    {
+        if (pupilL == null || pupilR == null) return;
+        Transform basis = pupilL.parent;
+        if (watch && basis != null)
+        {
+            Vector3 d = basis.InverseTransformDirection(target - pupilL.position);
+            Vector2 g = new Vector2(d.x, d.y) / Mathf.Max(0.05f, Mathf.Abs(d.z) + 0.3f);
+            _lookGoal = Vector2.ClampMagnitude(g * 1.6f, 1f);
+        }
+        else if (Time.time > _nextGlance)
+        {
+            _lookGoal = Random.insideUnitCircle * 0.9f;
+            _nextGlance = Time.time + Random.Range(0.7f, 2.0f);
+        }
+        _look = Vector2.Lerp(_look, _lookGoal, 1f - Mathf.Exp(-12f * dt));
+        SetPupil(pupilL, _pupilBaseL);
+        SetPupil(pupilR, _pupilBaseR);
+    }
+
+    private void SetPupil(Transform p, Vector3 b)
+    {
+        float r = Mathf.Clamp01(_look.magnitude);
+        p.localPosition = b + new Vector3(_look.x * pupilReach, _look.y * pupilReach, -pupilDepth * (1f - Mathf.Sqrt(Mathf.Max(0f, 1f - r * r * 0.8f))));
+    }
 }

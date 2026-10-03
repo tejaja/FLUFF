@@ -16,6 +16,15 @@ public class FuwaMama : UdonSharpBehaviour
     [Tooltip("くしゃみの風が出る所（口）。なければこのオブジェクト")]
     public Transform mouth;
 
+    [Header("黒目（動く）")]
+    [Tooltip("左右の黒目（白目の前の面に沿って動く）")]
+    public Transform pupilL;
+    public Transform pupilR;
+    [Tooltip("黒目が中心から動ける距離（目のローカル）")]
+    public float pupilReach = 0.036f;
+    [Tooltip("白目の前の面のふくらみ（黒目を白目の面に沿わせる）")]
+    public float pupilDepth = 0.04f;
+
     [Header("くしゃみのリズム")]
     [Tooltip("くしゃみの間の秒数（ため時間は含まない）")]
     public float interval = 3.2f;
@@ -55,6 +64,7 @@ public class FuwaMama : UdonSharpBehaviour
     {
         if (visual != null) { _visualScale = visual.localScale; _visualBase = visual.localPosition; }
         if (eyes != null) _eyesScale = eyes.localScale;
+        InitPupils();
         if (zzz != null) _zzzBase = zzz.localPosition;
         if (warnText != null) warnText.gameObject.SetActive(false);
         if (sneezeText != null) sneezeText.gameObject.SetActive(false);
@@ -72,6 +82,7 @@ public class FuwaMama : UdonSharpBehaviour
         bool near = (local.GetPosition() - transform.position).magnitude < activeRange
                  || (ball != null && ball.gameObject.activeInHierarchy && (ball.transform.position - transform.position).magnitude < activeRange);
 
+        UpdatePupils(_state != 0, local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, dt);
         float swell = 0f, squint = 1f, shake = 0f;
         if (_state == 0)
         {
@@ -162,5 +173,42 @@ public class FuwaMama : UdonSharpBehaviour
         if (Mathf.Abs(to.y) > 2.5f) return 0f;
         if (Vector3.Angle(fwd, flat) > coneAngle) return 0f;
         return Mathf.Lerp(1f, 0.45f, d / range);
+    }
+
+    private Vector3 _pupilBaseL, _pupilBaseR;
+    private Vector2 _look, _lookGoal;
+    private float _nextGlance;
+
+    private void InitPupils()
+    {
+        if (pupilL != null) _pupilBaseL = pupilL.localPosition;
+        if (pupilR != null) _pupilBaseR = pupilR.localPosition;
+    }
+
+    // 黒目：見る相手がいればそっち、いなければときどき、きょろきょろ
+    private void UpdatePupils(bool watch, Vector3 target, float dt)
+    {
+        if (pupilL == null || pupilR == null) return;
+        Transform basis = pupilL.parent;
+        if (watch && basis != null)
+        {
+            Vector3 d = basis.InverseTransformDirection(target - pupilL.position);
+            Vector2 g = new Vector2(d.x, d.y) / Mathf.Max(0.05f, Mathf.Abs(d.z) + 0.3f);
+            _lookGoal = Vector2.ClampMagnitude(g * 1.6f, 1f);
+        }
+        else if (Time.time > _nextGlance)
+        {
+            _lookGoal = Random.insideUnitCircle * 0.9f;
+            _nextGlance = Time.time + Random.Range(0.7f, 2.0f);
+        }
+        _look = Vector2.Lerp(_look, _lookGoal, 1f - Mathf.Exp(-12f * dt));
+        SetPupil(pupilL, _pupilBaseL);
+        SetPupil(pupilR, _pupilBaseR);
+    }
+
+    private void SetPupil(Transform p, Vector3 b)
+    {
+        float r = Mathf.Clamp01(_look.magnitude);
+        p.localPosition = b + new Vector3(_look.x * pupilReach, _look.y * pupilReach, -pupilDepth * (1f - Mathf.Sqrt(Mathf.Max(0f, 1f - r * r * 0.8f))));
     }
 }
