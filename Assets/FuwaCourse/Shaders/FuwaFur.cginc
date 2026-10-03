@@ -16,6 +16,8 @@ float _Alpha;       // ゴースト用（不透明版では無視される）
 float4 _GlowColor;  // 風などの影響を受けている間の光（rgb=色、a=強さ0〜1、スクリプトから入れる）
 float4 _GlowDir;    // 光る向き（ワールド空間。この向きの側ほど明るく、光の帯もこの向きに流れる）
 float4 _Squash;     // 撃たれた時のポヨン（xyz=ワールドの向き、w=量。+で向きに潰れて横にふくらむ、-で伸びる）
+float4 _EyeDirL, _EyeDirR;   // 目のある向き（オブジェクト空間）。この向きのまわりは毛を生やさない（目を毛が貫通しないように）
+float4 _EyeMask;    // x=これより内側(cos)は毛なし、y=ここまでで元の長さ。x<=0 なら使わない
 
 struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
 struct v2f
@@ -72,6 +74,12 @@ fixed4 frag (v2f i) : SV_Target
     // 3Dのマス目ごとに毛の長さを決める（毛が短いマスは途中の層で消える）
     float3 cell = floor(i.objPos * _Density);
     float hairLen = hash3(cell);
+    if (_EyeMask.x > 0)
+    {
+        float3 od = normalize(i.objPos);
+        float k = max(dot(od, normalize(_EyeDirL.xyz)), dot(od, normalize(_EyeDirR.xyz)));
+        hairLen *= 1.0 - smoothstep(_EyeMask.y, _EyeMask.x, k);
+    }
     float3 local = frac(i.objPos * _Density) - 0.5;
     float radial = length(local);
     // 先に行くほど細く、長さを超えたら消す

@@ -6,6 +6,9 @@ Shader "FuwaCourse/Fur"
         _Color ("Root Color", Color) = (1, 0.97, 0.94, 1)
         _TipColor ("Tip Color", Color) = (1, 1, 1, 1)
         _FurLength ("Fur Length", Range(0, 0.5)) = 0.14
+        _EyeDirL ("Eye Dir L (object)", Vector) = (0, 0, 1, 0)
+        _EyeDirR ("Eye Dir R (object)", Vector) = (0, 0, 1, 0)
+        _EyeMask ("Eye Mask (x=inner cos, y=outer cos, 0=off)", Vector) = (0, 0, 0, 0)
         _Density ("Density", Range(5, 200)) = 60
         _Thinness ("Thinness", Range(0.1, 1)) = 0.55
         _Shadow ("Root Shadow", Range(0, 1)) = 0.35
