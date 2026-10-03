@@ -184,7 +184,8 @@ def inkcap(name, seed, stem_h, cap_h, cap_r, stem_r=0.16, ndrips=7, lean=0.0, ca
 # (名前, seed, 軸の高さ, 傘の高さ, 傘の半径)
 specs = [('InkCap_A', 1, 4.6, 3.0, 2.2), ('InkCap_B', 2, 4.4, 2.7, 2.0), ('InkCap_Tall', 3, 7.6, 3.4, 2.5),
          ('InkCap_Corr', 4, 6.9, 2.8, 2.1),   # 回廊用（今は未使用）
-         ('InkCap_ALean', 1, 4.6, 3.0, 2.2, 0.16, 7, 1.0, 7.0)]   # 1本目：道の端から道側へ傾いて生える（傘は軸より水平寄り）
+         ('InkCap_ALean', 1, 4.6, 3.0, 2.2, 0.16, 7, 1.0, 7.0),   # 1本目：道の端から道側へ傾いて生える（傘は軸より水平寄り）
+         ('InkCap_BLean', 2, 4.4, 2.7, 2.0, 0.16, 7, 1.0, 7.0)]   # 回廊：同じく道の左端から道側へ
 out = {}
 for i, sp in enumerate(specs):
     o, C, drips = inkcap(*sp)
