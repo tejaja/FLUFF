@@ -79,6 +79,19 @@ public class FuwaWindArea : UdonSharpBehaviour
 
     // 飾り（吹き流し・かざぐるま）用：いまの風の強さ（0〜1、吹いていない時は0）と、ワールドでの風の向き（逆向きの時は反転）
     public float GetGustLevel() { return _blowing ? Mathf.Clamp01(_gust) : 0f; }
+    // 風の粒（見た目）の出ている量 0〜1（予告の間から出始めて、止むとフェード）。粒がない時は吹いているかどうか
+    public float GetVisualLevel()
+    {
+        if (_ps == null && _psRev == null) return _visualState != 0 ? 1f : 0f;
+        return Mathf.Max(_level, _levelRev);
+    }
+    // 粒の寿命（止んでから粒が消えきるまでの目安）
+    public float GetParticleLife()
+    {
+        ParticleSystem p = _ps != null ? _ps : _psRev;
+        if (p == null) return 0f;
+        return p.main.startLifetime.constantMax;
+    }
     public Vector3 GetWorldDirection()
     {
         Vector3 d = transform.TransformDirection(localDirection).normalized;

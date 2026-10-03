@@ -27,7 +27,11 @@ public class FuwaWindDeco : UdonSharpBehaviour
     public float spinMax = 540f;
     public float spinIdle = 25f;
 
+    [Tooltip("粒が消えきってから、さらにたなびき続ける秒数")]
+    public float holdExtra = 0.15f;
+
     private float _level;
+    private float _lastSeen = -100f;
     private float _spin;
     private float _seed;
     private Vector3 _lastDir = Vector3.forward;
@@ -40,12 +44,21 @@ public class FuwaWindDeco : UdonSharpBehaviour
 
     private void Update()
     {
-        float target = wind != null ? wind.GetGustLevel() : 1f;
+        // 風の粒が見えている間（予告〜止んで粒が消えきるまで）はたなびかせる
+        float target = 1f;
+        bool blowing = true;
+        if (wind != null)
+        {
+            float vis = wind.GetVisualLevel();
+            if (vis > 0.05f || wind.GetGustLevel() > 0.01f) _lastSeen = Time.time;
+            blowing = Time.time - _lastSeen < wind.GetParticleLife() + holdExtra;
+            target = blowing ? 1f : 0f;
+        }
         target = Mathf.Max(target, idleLevel);
         // 吹き始めは速く、止む時はゆっくり
         float rate = target > _level ? 6f : 1.5f;
         _level = Mathf.MoveTowards(_level, target, rate * Time.deltaTime);
-        if (wind != null && wind.GetGustLevel() > 0.01f) _lastDir = wind.GetWorldDirection();
+        if (wind != null && blowing) _lastDir = wind.GetWorldDirection();
         else if (wind == null) _lastDir = fixedDirection.normalized;
         Vector3 h = new Vector3(_lastDir.x, 0f, _lastDir.z);
         h = h.sqrMagnitude > 0.0001f ? h.normalized : Vector3.forward;
