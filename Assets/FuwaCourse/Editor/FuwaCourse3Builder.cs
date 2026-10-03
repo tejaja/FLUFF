@@ -4,7 +4,7 @@ using UnityEngine;
 
 // コース3「やみのもり」の道を生成する（FuwaCourse1Builder と同じ作り）。
 // 流れ：小さなクモの巣をよける道 → 重い霧×2 → CP1 → 呼吸する巨大クモの巣 → 重力の穴（道が途切れて、左右の木の橋で穴を回る）
-//      → つむじ風で上の段へ（細道は坂で上へ）→ CP2 → クモの巣の回廊（途中に重い霧）→ 穴の位置がずれた巨大な巣×2 → ゴール
+//      → 坂で上の段へ（坂の途中に片寄せの重い霧、反対側にごく細いすき間）→ CP2 → クモの巣の回廊（途中に重い霧）→ 穴の位置がずれた巨大な巣×2 → ゴール
 public static class FuwaCourse3Builder
 {
     public const float Top = 3f, Thick = 0.3f, Bevel = 0.08f;
@@ -16,20 +16,23 @@ public static class FuwaCourse3Builder
     static readonly float[] SegEnd = { 10f, 30f, 56f, 76f, 1e9f };
     static readonly float[] SegCurv = { 0f, 1f / 25f, 0f, -1f / 25f, 0f };
 
-    // かたまり：0 下の道 / 1 穴の向こうの着地点 / 2 上の段 / 3 人用の細道（着地点の横→坂で上の段へ）/ 4・5 穴の左右の木の橋
+    // かたまり：0 下の道 / 1 穴の向こう（坂で上の段へ→ゴールまで）/ 2 上の段（今は1に統合、ギミックの置き場の高さ用に残す）/ 3 （旧）人用の細道・今は無し / 4・5 穴の左右の木の橋
     // 0 と 1 の間（RegionA〜RegionB）は道がなく、左右の橋（幅1m）が穴のまわりをふくらんで回る
+    // 穴の向こうは道幅いっぱいの坂（RampA〜RampB で高さ0→Upper、±0.8mでならす）。人もふわふわも同じ坂を上がる
     public const float ValleyA = 43f, ValleyB = 49f, LandB = 53.6f, UpperA = 54f, UpperEnd = 86.4f;   // 道はゴールの広場（半径3m）のふちまで
     public const float RegionA = 42.5f, RegionB = 49.5f, HoleC = 46f, HoleR = 2.6f, BridgeOut = 3.1f;   // 橋の中心は穴のまん中で横3.1m（内側のふち2.6m＝重力の球の端くらい）
+    public const float RampA = 50.4f, RampB = 56.0f, SlopeFogS = 53.2f;
     public static readonly Vector2[] Pieces =
     {
-        new Vector2(0f, RegionA), new Vector2(RegionB, LandB), new Vector2(UpperA, UpperEnd), new Vector2(RegionB, 56.5f),
+        new Vector2(0f, RegionA), new Vector2(RegionB, UpperEnd), new Vector2(UpperEnd, UpperEnd), new Vector2(RegionB, RegionB),
         new Vector2(RegionA, RegionB), new Vector2(RegionA, RegionB),
     };
+    static bool Unused(int pc) { return Pieces[pc].y <= Pieces[pc].x; }   // 長さ0のかたまり（2・3）は作らない
     static readonly Vector2[][] HeightKeys =
     {
         new[] { new Vector2(0, 0), new Vector2(100, 0) },
-        new[] { new Vector2(0, 0), new Vector2(100, 0) },
-        new[] { new Vector2(0, Upper), new Vector2(100, Upper) },
+        new[] { new Vector2(RampA, 0), new Vector2(RampB, Upper) },
+        new[] { new Vector2(RampA, 0), new Vector2(RampB, Upper) },
         new[] { new Vector2(49.5f, 0), new Vector2(55.8f, Upper) },
         new[] { new Vector2(0, 0), new Vector2(100, 0) },
         new[] { new Vector2(0, 0), new Vector2(100, 0) },
@@ -54,7 +57,7 @@ public static class FuwaCourse3Builder
     public static float Height(int piece, float s)
     {
         var keys = HeightKeys[piece];
-        if (piece != 3) return Linear(keys, s);
+        if (piece != 1 && piece != 2 && piece != 3) return Linear(keys, s);
         float sum = 0; int n = 9;
         for (int i = 0; i < n; i++) sum += Linear(keys, s + Mathf.Lerp(-0.8f, 0.8f, i / (float)(n - 1)));
         return sum / n;
@@ -199,7 +202,8 @@ public static class FuwaCourse3Builder
 
     // ---- ギミック（Gimmicks_Yami の下に毎回作り直す。元は BuildTemplates（旧ミックスから残したお手本）の巣・重い霧、コース1のつむじ風） ----
     public static readonly float[] DodgeS = { 5f, 8.5f, 12f, 15.5f };
-    public const float FogA = 18f, FogB = 24.5f, BigWebS = 37f, WhirlS = 51.4f;
+    public const float FogA = 18f, FogB = 24.5f, BigWebS = 37f;
+    public const float SlopeFogSize = 4.0f, SlopeFogLat = -0.59f;   // 球の右端が、坂から0.3mの高さで道の中心から1.2m（ふわふわの中心が通れるのは右ふちの約15cm）
     public static readonly float[] CorridorS = { 62f, 65f, 68f, 71f };
     public const float CorridorFog = 66.5f, WebX1 = 76.5f, WebX2 = 81.5f;
 
@@ -319,10 +323,10 @@ public static class FuwaCourse3Builder
         }
 
         // 重い霧（球）。group の原点は道の上面から3m下（元の配置と同じ決まり）
-        GameObject Fog(Transform parent, string name, int pc, float s, float size)
+        GameObject Fog(Transform parent, string name, int pc, float s, float size, float lat = 0f)
         {
             var go = Dup(tplHeavy, parent, name);
-            go.transform.localPosition = P(pc, s, 0, -3f); go.transform.localRotation = R(s);
+            go.transform.localPosition = P(pc, s, lat, -3f); go.transform.localRotation = R(s);
             float k = size / 7f;
             // 球の中心は道の上1.2m（ふわふわが通る高さを包む）
             const float centerH = 1.2f;
@@ -388,10 +392,11 @@ public static class FuwaCourse3Builder
             log += "valley ";
         }
 
-        // 5. つむじ風で上の段へ
+        // 5. 坂の重い霧：左に寄せて、右のふちだけごく細いすき間（低く・ふちぎりぎりなら通れる）。基本は勢いで突っ切る
         {
-            FuwaCourse1Builder.MakeWhirlwind(holder, P(1, WhirlS, 0, 0), R(WhirlS), Upper);
-            log += "whirl ";
+            var g = new GameObject("G5_SlopeFog").transform; g.SetParent(holder, false);
+            Fog(g, "SlopeFog", 1, SlopeFogS, SlopeFogSize, SlopeFogLat);
+            log += "slopefog ";
         }
 
         // 6. クモの巣の回廊：左右の巣で真ん中1mだけ空ける。途中に重い霧
@@ -597,7 +602,7 @@ public static class FuwaCourse3Builder
         const float step = 0.25f;
         for (int pc = 0; pc < Pieces.Length; pc++)
         {
-            if (IsBridge(pc)) continue;   // 穴の左右の橋は木の板（BuildBridges）
+            if (IsBridge(pc) || Unused(pc)) continue;   // 穴の左右の橋は木の板（BuildBridges）
             float s0p = Pieces[pc].x, s1p = Pieces[pc].y;
             bool b0 = FreeEnd(pc, s0p), b1 = FreeEnd(pc, s1p);
             var st = new List<Vector4>();
@@ -656,7 +661,7 @@ public static class FuwaCourse3Builder
         const float step = 0.5f;
         for (int pc = 0; pc < Pieces.Length; pc++)
         {
-            if (IsBridge(pc) != bridgesOnly) continue;   // 橋は別の当たり判定
+            if (IsBridge(pc) != bridgesOnly || Unused(pc)) continue;   // 橋は別の当たり判定
             float s0p = Pieces[pc].x, s1p = Pieces[pc].y;
             int n = Mathf.CeilToInt((s1p - s0p) / step);
             int first = V.Count;
