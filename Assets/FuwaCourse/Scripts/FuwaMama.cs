@@ -3,8 +3,9 @@ using UnityEngine;
 using VRC.SDKBase;
 
 // まもののすの奥の大きい巣で寝ている「ママけだま」（自分の画面だけ、同期なし）。
-// 近くに来ると、ときどき「は…は…」とためてから「はっくしょん！」。前（このオブジェクトの forward）の円すいの中にいる
-// ふわふわと自分を、くしゃみの風で押し戻す。くしゃみの合間に通り抜ける。倒せない・突進しない。
+// 近くに来ると起きて、巣の中をめっちゃゆっくり追いかけてくる。ぶつかると大きめに吹っ飛ばされる。
+// エアガンはチャージ撃ちだけ少し押せる（ノンチャージは効かない）。倒せないので急いで抜ける。
+// （useSneeze をONにすると、前の「くしゃみで押し戻す」も使える）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaMama : UdonSharpBehaviour
 {
@@ -25,7 +26,26 @@ public class FuwaMama : UdonSharpBehaviour
     [Tooltip("白目の前の面のふくらみ（黒目を白目の面に沿わせる）")]
     public float pupilDepth = 0.04f;
 
-    [Header("くしゃみのリズム")]
+    [Header("追いかける")]
+    [Tooltip("追いかける速さ(m/s)。めっちゃ遅い")]
+    public float chaseSpeed = 0.55f;
+    [Tooltip("巣の中心（ここから moveRadius の中だけ動く）。なければ最初の位置")]
+    public Transform nestCenter;
+    public float moveRadius = 3.4f;
+    [Tooltip("体の半径(m)。ぶつかり判定に使う")]
+    public float bodyRadius = 0.8f;
+    [Tooltip("ぶつかった時に人を吹っ飛ばす強さ")]
+    public float knockback = 8.5f;
+    public float knockUp = 4f;
+    [Tooltip("ふわふわに触れた時に押しのける強さ")]
+    public float ballBump = 3.5f;
+    [Tooltip("チャージ撃ちで押された時の倍率（ふつうのけだまより重い）")]
+    public float pushScale = 0.35f;
+    public float pushDamping = 2.5f;
+    public AudioSource bumpSound;
+
+    [Header("くしゃみ（useSneeze の時だけ）")]
+    public bool useSneeze = false;
     [Tooltip("くしゃみの間の秒数（ため時間は含まない）")]
     public float interval = 3.2f;
     public float intervalJitter = 0.8f;
@@ -59,6 +79,10 @@ public class FuwaMama : UdonSharpBehaviour
     private Vector3 _visualBase;
     private Vector3 _eyesScale = Vector3.one;
     private Vector3 _zzzBase;
+    private Vector3 _home;
+    private Vector3 _push;
+    private float _bumpUntil;
+    private float _squashUntil;
 
     private void Start()
     {
@@ -69,6 +93,17 @@ public class FuwaMama : UdonSharpBehaviour
         if (warnText != null) warnText.gameObject.SetActive(false);
         if (sneezeText != null) sneezeText.gameObject.SetActive(false);
         _wait = interval;
+        _home = nestCenter != null ? nestCenter.position : transform.position;
+        _home.y = transform.position.y;
+    }
+
+    // エアガンから（FuwaBlower）。charged=false（ノンチャージ）は効かない
+    public void Blown(Vector3 impulse, bool charged)
+    {
+        if (!charged || _state == 0) return;
+        Vector3 v = impulse * pushScale; v.y = 0f;
+        _push += v;
+        _squashUntil = Time.time + 0.3f;
     }
 
     private void SetState(int s) { _state = s; _t = 0f; }
@@ -93,7 +128,7 @@ public class FuwaMama : UdonSharpBehaviour
         {
             squint = 0.55f;
             if (!near && _t > 2f) SetState(0);
-            else if (_t > _wait)
+            else if (useSneeze && _t > _wait)
             {
                 SetState(2);
                 if (warnText != null) warnText.gameObject.SetActive(true);
@@ -121,6 +156,10 @@ public class FuwaMama : UdonSharpBehaviour
                 SetState(1);
             }
         }
+
+        if (_state != 0) Move(local, dt);
+        float sq = Time.time < _squashUntil ? Mathf.Sin((_squashUntil - Time.time) / 0.3f * Mathf.PI) * 0.12f : 0f;
+        swell -= sq;
 
         // 見た目：呼吸＋ため
         float br = Mathf.Sin(Time.time * (_state == 0 ? 1.2f : 2f)) * 0.03f;
@@ -210,5 +249,46 @@ public class FuwaMama : UdonSharpBehaviour
     {
         float r = Mathf.Clamp01(_look.magnitude);
         p.localPosition = b + new Vector3(_look.x * pupilReach, _look.y * pupilReach, -pupilDepth * (1f - Mathf.Sqrt(Mathf.Max(0f, 1f - r * r * 0.8f))));
+    }
+
+    // ゆっくり追いかける（巣の外には出ない）。押された分はだんだん止まる
+    private void Move(VRCPlayerApi local, float dt)
+    {
+        Vector3 pos = transform.position;
+        Vector3 to = local.GetPosition() - pos; to.y = 0f;
+        Vector3 step = Vector3.zero;
+        if (_state != 2 && to.magnitude > bodyRadius * 0.9f) step = to.normalized * chaseSpeed * dt;
+        step += _push * dt;
+        _push *= Mathf.Exp(-pushDamping * dt);
+        pos += step;
+        Vector3 off = pos - _home; off.y = 0f;
+        if (off.magnitude > moveRadius) pos = _home + off.normalized * moveRadius + Vector3.up * (pos.y - _home.y);
+        transform.position = pos;
+        if (to.sqrMagnitude > 0.01f)
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to.normalized), 1f - Mathf.Exp(-3f * dt));
+
+        // 人にぶつかったら大きめに吹っ飛ばす
+        Vector3 c = pos + Vector3.up * bodyRadius;
+        Vector3 feet = local.GetPosition();
+        Vector3 flat = feet - pos; flat.y = 0f;
+        if (Time.time > _bumpUntil && flat.magnitude < bodyRadius + 0.35f && feet.y < c.y + bodyRadius)
+        {
+            Vector3 away = flat.sqrMagnitude > 0.0001f ? flat.normalized : -transform.forward;
+            local.SetVelocity(away * knockback + Vector3.up * knockUp);
+            _bumpUntil = Time.time + 0.6f;
+            _squashUntil = Time.time + 0.3f;
+            if (bumpSound != null) bumpSound.Play();
+        }
+        // ふわふわは押しのける
+        if (ball != null && ball.gameObject.activeInHierarchy)
+        {
+            Vector3 bd = ball.transform.position - c;
+            if (bd.magnitude < bodyRadius + 0.3f)
+            {
+                Vector3 bf = bd; bf.y = 0f;
+                bf = bf.sqrMagnitude > 0.0001f ? bf.normalized : transform.forward;
+                ball.Blow(bf * ballBump * dt * 8f + Vector3.up * 0.5f * dt * 8f);
+            }
+        }
     }
 }

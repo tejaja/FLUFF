@@ -772,6 +772,8 @@ public class FuwaBlower : UdonSharpBehaviour
             float d = Vector3.Dot(to, aim) > 0f ? Mathf.Min(to.magnitude, reach) : 0f;
             FuwaEnemy e = c.GetComponent<FuwaEnemy>();
             if (e != null) e.Blown(flat * pushPower * Mathf.Lerp(nearBoost, minFalloff, d / reach) * power, stun);
+            FuwaMama mm = c.GetComponent<FuwaMama>();
+            if (mm != null) mm.Blown(flat * pushPower * Mathf.Lerp(nearBoost, minFalloff, d / reach) * power, stun);
             FuwaStartMushroom m = c.GetComponent<FuwaStartMushroom>();
             if (m != null) m.Hit(aim);
         }
