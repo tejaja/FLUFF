@@ -182,7 +182,7 @@ public static class FuwaWindDecoBuilder
             {
                 // 橋の谷側（右）のふちの下から、谷の中ほどへ斜めに
                 basePos = W(pc, sp.s, hw - 0.05f, -0.12f);
-                var headPos = W(pc, sp.s + 0.3f, hw + 1.25f, 1.15f);
+                var headPos = W(pc, sp.s + 0.2f, hw + 0.75f, 0.55f);   // 柄は短め
                 var d = headPos - basePos;
                 baseRot = Quaternion.FromToRotation(Vector3.up, d.normalized);
                 poleScale = d.magnitude / 1.48f;
@@ -208,7 +208,7 @@ public static class FuwaWindDecoBuilder
             {
                 var pole = Child(go.transform, "Pole", polePin, new[] { mWood }, Vector3.zero); pole.localScale = new Vector3(1, poleScale, 1);
                 var head = new GameObject("Head").transform; head.SetParent(go.transform, false); head.localPosition = new Vector3(0, 1.48f * poleScale, 0);
-                if (sp.bridge > 0) deco.shake = 1f;
+                if (sp.bridge > 0) { deco.shake = 1f; deco.shakeAngle = 1.4f; deco.shakeSpeed = 48f; deco.spinMax = 1080f; }
                 var rotor = new GameObject("Rotor").transform; rotor.SetParent(head, false); rotor.localPosition = new Vector3(0, 0, -0.06f);
                 Child(rotor, "Blades", pin, new[] { mP[n % 4], mP[(n + 1) % 4], mP[(n + 2) % 4], mP[(n + 3) % 4], mPole }, Vector3.zero);
                 deco.head = head; deco.rotor = rotor;

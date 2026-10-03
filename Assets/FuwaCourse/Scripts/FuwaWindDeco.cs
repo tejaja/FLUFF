@@ -33,8 +33,8 @@ public class FuwaWindDeco : UdonSharpBehaviour
     public float shakeAngle = 3.5f;
     public float shakeSpeed = 23f;
 
-    [Tooltip("粒が消えきってから、さらにたなびき続ける秒数")]
-    public float holdExtra = 0.15f;
+    [Tooltip("風が止んでから、たなびき続ける秒数")]
+    public float holdAfter = 0.6f;
 
     private float _level;
     private float _lastSeen = -100f;
@@ -52,14 +52,13 @@ public class FuwaWindDeco : UdonSharpBehaviour
 
     private void Update()
     {
-        // 風の粒が見えている間（予告〜止んで粒が消えきるまで）はたなびかせる
+        // 吹いている間＋止んでから holdAfter 秒（粒が流れ去るくらい）はたなびかせる。予告の間は動かさない
         float target = 1f;
         bool blowing = true;
         if (wind != null)
         {
-            float vis = wind.GetVisualLevel();
-            if (vis > 0.05f || wind.GetGustLevel() > 0.01f) _lastSeen = Time.time;
-            blowing = Time.time - _lastSeen < wind.GetParticleLife() + holdExtra;
+            if (wind.GetGustLevel() > 0.01f) _lastSeen = Time.time;
+            blowing = Time.time - _lastSeen < holdAfter;
             target = blowing ? 1f : 0f;
         }
         target = Mathf.Max(target, idleLevel);
