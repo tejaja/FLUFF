@@ -26,6 +26,9 @@ public class FuwaGoal : UdonSharpBehaviour
     [Tooltip("次のキノコが生え始めるまでの間隔")]
     public float stagger = 0.08f;
 
+    [Tooltip("ゴールした後に落ちたりした時に戻る、ゴール手前の地点（空ならゴール後すぐスタートに戻す昔の動き）")]
+    public Transform returnPoint;
+
     [Tooltip("ゴールした時だけ出す「ロビーへ」ワープ（自分の画面だけ）")]
     public GameObject lobbyWarp;
     [Tooltip("ゴールしてからワープが出るまでの秒数")]
@@ -127,7 +130,7 @@ public class FuwaGoal : UdonSharpBehaviour
     public void Landed(FuwaBall ball)
     {
         if (ball == null || _ringGone) return;
-        ball.ReachGoal();
+        ball.ReachGoal(returnPoint);
         _ball = ball;
         _goalStart = ball.startPoint;
 

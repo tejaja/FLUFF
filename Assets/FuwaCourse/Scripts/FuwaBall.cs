@@ -654,7 +654,10 @@ public class FuwaBall : UdonSharpBehaviour
 
     public string FormatTimeText(float t) { return FormatTime(t); }
 
-    public void ReachGoal()
+    // returnPoint：ゴールした後に落ちたりした時に戻る、ゴール手前の地点。
+    // あれば、ゴール後もチェックポイントの光はそのまま（スタートに戻すのは、ワープで移った時・手動リスポーン・スタートのキノコを撃った時）。
+    // 無ければ（対戦レースも）昔どおり、少ししてからスタートに戻す
+    public void ReachGoal(Transform returnPoint)
     {
         if (_finished || _resetAt > 0f) return;
         _finished = true;
@@ -678,7 +681,8 @@ public class FuwaBall : UdonSharpBehaviour
         if (records != null && timerEnabled && t > 0f) records.ReportTime(startPoint, t);
         if (activeRace != null) activeRace.LocalFinished();
         if (bgm != null && timerEnabled) bgm.PlayFanfare();
-        SendCustomEventDelayedSeconds(nameof(RestartFromStart), restartDelay);
+        if (returnPoint != null && activeRace == null) respawnPoint = returnPoint;
+        else SendCustomEventDelayedSeconds(nameof(RestartFromStart), restartDelay);
     }
 
     private float _fallLockUntil;
@@ -865,6 +869,8 @@ public class FuwaBall : UdonSharpBehaviour
     // スタートのキノコが撃たれた時に呼ばれる。撃たれた向き（水平）＋上へ飛び出す
     public void ReleaseFromMushroom(Vector3 shotDir)
     {
+        // ゴールした後にスタートまで戻ってキノコを撃った時は、ここで最初からやり直す（チェックポイントの光も消す）
+        if (_finished && activeRace == null) RestartFromStart();
         if (!_hidden || _resetAt > 0f) return;
         if (Time.time < _penaltyUntil) return;
         SetHidden(false);
