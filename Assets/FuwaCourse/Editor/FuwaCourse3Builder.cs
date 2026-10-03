@@ -201,7 +201,7 @@ public static class FuwaCourse3Builder
 
 
     // ---- ギミック（Gimmicks_Yami の下に毎回作り直す。元は BuildTemplates（旧ミックスから残したお手本）の巣・重い霧、コース1のつむじ風） ----
-    public static readonly float[] DodgeS = { 5f, 8.5f, 12f, 15.5f };
+    public static readonly float[] DodgeS = { 5f, 8.5f, 12f };   // 4本目(15.5)は最初の重力きのこの直前でムズいので抜いた
     public const float FogA = 18f, FogB = 24.5f, BigWebS = 37f;
     public const float SlopeFogSize = 4.0f, SlopeFogLat = -0.59f;   // 球の右端が、坂から0.3mの高さで道の中心から1.2m（ふわふわの中心が通れるのは右ふちの約15cm）
     public static readonly float[] CorridorS = { 62f, 65f, 68f, 71f };
