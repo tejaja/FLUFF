@@ -102,22 +102,45 @@ public static class FuwaWindDecoBuilder
         return Finish(V, new List<List<int>> { T }, false);
     }
 
-    // 吹き流しの腕：原点（柱のてっぺん）から上へ BracketUp、そこから +X へ BracketOut の L字の細い棒
-    public const float BracketUp = 0.42f, BracketOut = 0.34f;
-    public static Mesh BracketMesh()
+    // 吹き流しの柱：同じ太さの1本の棒で、地面から上へ SockPoleH 立ち上がって、角を丸く曲がって +X へ SockArm。先端に玉
+    public const float SockPoleH = 2.45f, SockArm = 0.42f, SockPoleR = 0.032f, SockBallR = 0.055f, SockBend = 0.1f;
+    public static Mesh SockPoleMesh()
     {
-        var V = new List<Vector3>(); var T = new List<int>();
-        void Bar(Vector3 a, Vector3 b, float r)
+        // 中心線（下→上→曲がり→横）
+        var path = new List<Vector3>();
+        float yb = SockPoleH - SockBend;
+        path.Add(new Vector3(0, 0, 0)); path.Add(new Vector3(0, yb * 0.5f, 0)); path.Add(new Vector3(0, yb, 0));
+        for (int k = 1; k < 8; k++) { float ang = k / 8f * Mathf.PI / 2; path.Add(new Vector3(SockBend - SockBend * Mathf.Cos(ang), yb + SockBend * Mathf.Sin(ang), 0)); }
+        path.Add(new Vector3(SockBend, SockPoleH, 0)); path.Add(new Vector3(SockArm, SockPoleH, 0));
+        var V = new List<Vector3>(); var T = new List<int>(); const int seg = 10;
+        Vector3 prevN = Vector3.forward;
+        for (int i = 0; i < path.Count; i++)
         {
-            var d = (b - a).normalized; var u = Vector3.Cross(d, Mathf.Abs(d.y) < 0.9f ? Vector3.up : Vector3.right).normalized; var w = Vector3.Cross(d, u);
-            int bs = V.Count; const int seg = 8;
-            for (int i = 0; i < seg; i++) { float an = i * Mathf.PI * 2 / seg; var o = (u * Mathf.Cos(an) + w * Mathf.Sin(an)) * r; V.Add(a + o); V.Add(b + o); }
-            for (int i = 0; i < seg; i++) { int j = (i + 1) % seg; int a0 = bs + i * 2, a1 = a0 + 1, b0 = bs + j * 2, b1 = b0 + 1; T.AddRange(new[] { a0, b0, b1, a0, b1, a1 }); }
+            Vector3 d = i == 0 ? path[1] - path[0] : (i == path.Count - 1 ? path[i] - path[i - 1] : path[i + 1] - path[i - 1]); d.Normalize();
+            var u = Vector3.Cross(d, Vector3.forward).normalized; var w = Vector3.Cross(d, u);
+            for (int j = 0; j < seg; j++) { float an = j * Mathf.PI * 2 / seg; V.Add(path[i] + (u * Mathf.Cos(an) + w * Mathf.Sin(an)) * SockPoleR); }
         }
-        Bar(new Vector3(0, -0.05f, 0), new Vector3(0, BracketUp + 0.02f, 0), 0.022f);
-        Bar(new Vector3(-0.02f, BracketUp, 0), new Vector3(BracketOut, BracketUp, 0), 0.018f);
-        Bar(new Vector3(BracketOut, BracketUp + 0.02f, 0), new Vector3(BracketOut, BracketUp - 0.06f, 0), 0.016f);
-        return Finish(V, new List<List<int>> { T }, false);
+        for (int i = 0; i < path.Count - 1; i++) for (int j = 0; j < seg; j++) { int j2 = (j + 1) % seg; int a0 = i * seg + j, a1 = i * seg + j2, b0 = a0 + seg, b1 = a1 + seg; T.AddRange(new[] { a0, b0, b1, a0, b1, a1 }); }
+        // 下のふた
+        int c0 = V.Count; V.Add(path[0]); for (int j = 0; j < seg; j++) T.AddRange(new[] { c0, j, (j + 1) % seg });
+        // 先端の玉
+        int bb = V.Count; int la = 6, lo = 10; var bc = path[path.Count - 1];
+        for (int i = 0; i <= la; i++) for (int j = 0; j < lo; j++) { float th = Mathf.PI * i / la, ph = Mathf.PI * 2 * j / lo; V.Add(bc + new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph)) * SockBallR); }
+        for (int i = 0; i < la; i++) for (int j = 0; j < lo; j++) { int a = bb + i * lo + j, c = bb + i * lo + (j + 1) % lo, d = a + lo, e = c + lo; T.AddRange(new[] { a, c, e, a, e, d }); }
+        var m = new Mesh(); m.SetVertices(V); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        // 面の向きを外向きにそろえる（中心線からの向き／玉の中心からの向き）
+        var t = m.triangles; var v = m.vertices;
+        for (int k = 0; k < t.Length; k += 3)
+        {
+            var ce = (v[t[k]] + v[t[k + 1]] + v[t[k + 2]]) / 3f; var nn = Vector3.Cross(v[t[k + 1]] - v[t[k]], v[t[k + 2]] - v[t[k]]);
+            Vector3 o;
+            if (t[k] >= bb) o = ce - bc;
+            else if (t[k] >= c0) o = Vector3.down;
+            else { float best = 1e9f; o = Vector3.up; for (int i = 0; i < path.Count - 1; i++) { var ab = path[i + 1] - path[i]; float tt = Mathf.Clamp01(Vector3.Dot(ce - path[i], ab) / ab.sqrMagnitude); var q = path[i] + ab * tt; float dd = (ce - q).sqrMagnitude; if (dd < best) { best = dd; o = ce - q; } } }
+            if (Vector3.Dot(nn, o) < 0) { int sw = t[k + 1]; t[k + 1] = t[k + 2]; t[k + 2] = sw; }
+        }
+        m.triangles = t; m.RecalculateNormals();
+        return m;
     }
 
     // かざぐるま：中心から4枚の羽（角が手前へ反る）。羽ごとにサブメッシュ（色違い）＋中心の玉
@@ -168,7 +191,7 @@ public static class FuwaWindDecoBuilder
         var polePin = Save(PoleMesh(1.55f), "PinwheelPole");
         var sock = Save(SockMesh(), "Windsock");
         var tether = Save(TetherMesh(), "WindsockTether");
-        var bracket = Save(BracketMesh(), "WindsockBracket");
+        var sockPole = Save(SockPoleMesh(), "WindsockPoleL");
         var pin = Save(PinwheelMesh(0.42f), "Pinwheel");
         var mPole = Mat("WindDeco_Pole", new Color(0.93f, 0.91f, 0.88f), false);
         var mRed = Mat("WindDeco_SockRed", new Color(0.95f, 0.35f, 0.38f), true);
@@ -202,8 +225,9 @@ public static class FuwaWindDecoBuilder
             // 道の右向き
             var r = (W(0, s, 1, 0) - W(0, s, 0, 0)).normalized;
             float upwind = Vector3.Dot(dir, r) > 0 ? -1 : 1;
-            spots.Add(new Spot { s = s - 1.6f, side = upwind, sock = true, windPath = z });
-            spots.Add(new Spot { s = s + 1.6f, side = -upwind, sock = false, windPath = z });
+            // 吹き流しは風下側（腕が道の外へ出て、吹かれると道から離れる方へたなびく）、かざぐるまは風上側
+            spots.Add(new Spot { s = s - 1.6f, side = -upwind, sock = true, windPath = z });
+            spots.Add(new Spot { s = s + 1.6f, side = upwind, sock = false, windPath = z });
         }
         // 突風（谷の手前）：かざぐるま
         // 突風（谷）：人用の橋の谷側のふちから、谷の上へ斜めに突き出して、強風でぷるぷる
@@ -237,16 +261,15 @@ public static class FuwaWindDecoBuilder
             var wa = gk.Find(sp.windPath); deco.wind = wa != null ? wa.GetComponent<FuwaWindArea>() : null;
             if (sp.sock)
             {
-                var pole = Child(go.transform, "Pole", poleSock, new[] { mPole }, Vector3.zero);
-                // 柱のてっぺんから、道と反対側へ L字の腕（上へ BracketUp → 外へ BracketOut）。その先の金具を支点に吊りひも＋吹き流し
-                // 腕の先は柱より高く・柱から離れているので、垂れても横に吹かれても柱を貫通しない
-                var right = (W(pc, sp.s, 1, 0) - W(pc, sp.s, 0, 0)); right.y = 0; right.Normalize();
-                var outDir = right * sp.side;
-                var br = Child(go.transform, "Bracket", bracket, new[] { mPole }, new Vector3(0, 2.1f, 0));
-                br.rotation = Quaternion.LookRotation(Vector3.Cross(outDir, Vector3.up), Vector3.up);   // ブラケットの +X を外向きに
+                // L字の柱（同じ太さ、先端に玉）。腕は風下へ向ける＝吹かれても吹き流しは柱から離れる方へ流れる
+                Vector3 wdir = Vector3.forward;
+                if (wa != null) { var area = wa.GetComponent<FuwaWindArea>(); wdir = wa.TransformDirection(area.localDirection); }
+                wdir.y = 0; wdir = wdir.sqrMagnitude > 1e-4f ? wdir.normalized : Vector3.forward;
+                var pole = Child(go.transform, "Pole", sockPole, new[] { mPole }, Vector3.zero);
+                pole.rotation = Quaternion.LookRotation(Vector3.Cross(wdir, Vector3.up), Vector3.up);   // メッシュの +X を風下へ
                 var pivot = new GameObject("SockPivot").transform; pivot.SetParent(go.transform, false);
-                pivot.position = go.transform.TransformPoint(new Vector3(0, 2.1f + BracketUp, 0)) + outDir * BracketOut;
-                deco.droopAway = outDir;
+                pivot.position = go.transform.position + Vector3.up * (SockPoleH - SockBallR * 0.6f) + wdir * SockArm;
+                deco.droopAway = wdir;
                 Child(pivot, "Tether", tether, new[] { mRing }, new Vector3(0, 0, 0.07f));
                 var so = Child(pivot, "Sock", sock, new[] { mRed, mWhite, mRing }, new Vector3(0, 0, 0.07f + TetherLen));
                 deco.sock = pivot;
