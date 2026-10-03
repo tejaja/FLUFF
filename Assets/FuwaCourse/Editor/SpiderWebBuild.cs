@@ -443,7 +443,7 @@ public static class SpiderWebBuild
             tree.height = (hs.y - tree.fy) + hs.y * 0.5f + side.treeExtraHeight;
             // 木が片側だけなら、枝を巣の真上まで伸ばして、てっぺんからまっすぐ吊る
             float tipX = (b.topThread && treeCount == 1) ? top.x : float.NaN;
-            BuildTree(sup, b, id + "_Tree" + name, tree, sgn, 0.35f + 1.15f * s, island, tipX, name == "L" ? 1 : 7);
+            BuildTree(sup, b, id + "_Tree" + name, tree, sgn, (0.35f + 1.15f * s) * side.crownScale, island, tipX, name == "L" ? 1 : 7);
             trees[sgn] = tree;
         }
 

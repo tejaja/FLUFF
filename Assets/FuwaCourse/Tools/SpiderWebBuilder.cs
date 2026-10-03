@@ -23,6 +23,8 @@ public class SpiderWebBuilder : MonoBehaviour, VRC.SDKBase.IEditorOnly
         public float treeScale = 1f;
         [Tooltip("木の高さの足し引き(m)")]
         public float treeExtraHeight = 0f;
+        [Tooltip("葉っぱの大きさの倍率（幹はそのまま）")]
+        public float crownScale = 1f;
 
         [Header("岩")]
         [Tooltip("巣のフチから、糸が岩に刺さる所までの距離(m)")]
