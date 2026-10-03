@@ -15,7 +15,8 @@ NESTS = [
     dict(name='Nest1', c=(40.8, 2.2), r=3.0, rim=0.5, seed=1),
     dict(name='Nest2', c=(50.5, 6.5), r=3.2, rim=0.5, seed=2),
     dict(name='MamaNest', c=(64.2, 17.4), r=4.6, rim=0.7, seed=3),
-    dict(name='SideNest', c=(58.7, -0.9), r=3.0, rim=0.5, seed=4),   # 大回りルートの巣（けだま1匹＋倒しやすいイバラ）
+    dict(name='SideNest', c=(58.7, -0.9), r=3.0, rim=0.5, seed=4),
+    dict(name='Islet', c=(65.8, 7.0), r=1.8, rim=0.35, seed=5),   # 大回りの曲がり角の小島（何もない）   # 大回りルートの巣（けだま1匹＋倒しやすいイバラ）
 ]
 PODS = [   # 寝てるけだまの小さい巣（橋のわき、入口なし）
     dict(name='Pod1', c=(54.04, 12.45), r=1.25, rim=0.45, seed=11),
@@ -31,7 +32,8 @@ BRIDGES = [
     dict(name='BridgeD', a='MamaNest', b='Goal', via=[]),
     # 大回りルート：巣2 → 横の巣 → ママの巣（南側から入る）
     dict(name='BridgeE', a='Nest2', b='SideNest', via=[]),
-    dict(name='BridgeF', a='SideNest', b='MamaNest', via=[(65.8, 7.0)]),
+    dict(name='BridgeF', a='SideNest', b='Islet', via=[]),
+    dict(name='BridgeG', a='Islet', b='MamaNest', via=[]),
 ]
 
 TWIG = [(0.55, 0.41, 0.29), (0.47, 0.34, 0.24), (0.63, 0.49, 0.35), (0.41, 0.3, 0.22)]
