@@ -29,6 +29,12 @@ public class FuwaWindArea : UdonSharpBehaviour
     [Tooltip("反対向きに吹いている時の見た目")]
     public GameObject visualReverse;
 
+    [Header("風よけ（木の幹など。縦の円柱の風下側は風が当たらない。なくてもOK）")]
+    public Transform shelter;
+    [Tooltip("風よけの半径(m)。この内側の風下は無風、ふちから shelterSoft の幅でだんだん風が戻る")]
+    public float shelterRadius = 2f;
+    public float shelterSoft = 0.5f;
+
     private bool _blowing = true;
     private bool _reversed;
     private float _gust = 1f;
@@ -194,6 +200,20 @@ public class FuwaWindArea : UdonSharpBehaviour
         }
         Vector3 dir = transform.TransformDirection(localDirection).normalized;
         if (_reversed) dir = -dir;
+        if (shelter != null)
+        {
+            // 風よけの円柱の、風下の影の中か（水平で見る）
+            Vector3 rel = other.transform.position - shelter.position; rel.y = 0f;
+            Vector3 fd = dir; fd.y = 0f;
+            if (fd.sqrMagnitude > 0.0001f)
+            {
+                fd.Normalize();
+                float along = Vector3.Dot(rel, fd);
+                float side = (rel - fd * along).magnitude;
+                if (along > 0f) s *= Mathf.Clamp01((side - shelterRadius) / Mathf.Max(0.01f, shelterSoft));
+            }
+        }
+        if (s <= 0f) return;
         ball.AddWind(dir * s);
     }
 }
