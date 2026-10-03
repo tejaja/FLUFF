@@ -428,11 +428,27 @@ public static class FuwaCourse3Builder
         return 1.0f + (BridgeOut - 1.0f) * k * k;
     }
 
+    // 橋の付け根の大きな板の範囲（手前・奥）
+    public const float DeckLen = 1.2f;
+    static (float, float)[] DeckRanges() { return new[] { (RegionA, RegionA + DeckLen), (RegionB - DeckLen, RegionB) }; }
+
     static void BuildBridges(Transform root, Matrix4x4 m)
     {
         // 当たり判定（なめらかな箱）
         var col = new Mesh { name = "Course3Bridge_Col" };
         BuildCollider(col, m, true);
+        {
+            // 橋の付け根（手前と奥）の、左右の橋をつなぐ大きな板の当たり判定を足す
+            var cv = new List<Vector3>(col.vertices); var ct = new List<int>(col.triangles);
+            foreach (var (da, db) in DeckRanges())
+            {
+                float ha = BridgeLat(da) + 0.5f, hb = BridgeLat(db) + 0.5f;
+                Vector3 Q(float ss, float lat, float dy) { return m.MultiplyPoint3x4(Point(0, ss, lat, dy)); }
+                AddBox(cv, ct, new[] { Q(da, -ha, -Thick), Q(db, -hb, -Thick), Q(db, hb, -Thick), Q(da, ha, -Thick), Q(da, -ha, 0), Q(db, -hb, 0), Q(db, hb, 0), Q(da, ha, 0) });
+            }
+            col.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            col.SetVertices(cv); col.SetTriangles(ct, 0); col.RecalculateNormals(); col.RecalculateBounds();
+        }
         Save(col, "Assets/FuwaCourse/Meshes/Course3Bridge_Col.asset");
         var bt = root.Find("BridgeCollider");
         GameObject bgo = bt != null ? bt.gameObject : null;
@@ -456,9 +472,15 @@ public static class FuwaCourse3Builder
             for (float s = s0; s <= s1 + 1e-4f; s += 0.02f) { var p = P(Mathf.Min(s, s1), 0, 0); acc += (p - prev).magnitude; prev = p; ss.Add(Mathf.Min(s, s1)); len.Add(acc); }
             float total = acc;
             float SAt(float L) { for (int i = 1; i < len.Count; i++) if (len[i] >= L) return Mathf.Lerp(ss[i - 1], ss[i], (L - len[i - 1]) / Mathf.Max(1e-5f, len[i] - len[i - 1])); return s1; }
-            for (float L = 0.02f; L + PlankLen <= total - 0.02f; L += PlankLen + PlankGap)
+            float LAt(float sv) { for (int i = 1; i < ss.Count; i++) if (ss[i] >= sv) return Mathf.Lerp(len[i - 1], len[i], (sv - ss[i - 1]) / Mathf.Max(1e-5f, ss[i] - ss[i - 1])); return total; }
+            // 手前と奥の大きな板の所は、橋の板を置かない（板が重ならないように）
+            float L0 = LAt(RegionA + DeckLen) + PlankGap, L1 = LAt(RegionB - DeckLen) - PlankGap;
+            int np = Mathf.Max(1, Mathf.FloorToInt((L1 - L0 + PlankGap) / (PlankLen + PlankGap)));
+            float step = (L1 - L0 + PlankGap) / np;
+            for (float L = L0; L + step - PlankGap <= L1 + 1e-3f; L += step)
             {
-                float a = SAt(L + R(-0.012f, 0.012f)), b = SAt(L + PlankLen + R(-0.012f, 0.012f));
+                float PlankLenB = step - PlankGap;
+                float a = SAt(L + R(-0.012f, 0.012f)), b = SAt(L + PlankLenB + R(-0.012f, 0.012f));
                 // 両わきとも少しはみ出してバラつかせる
                 float l0 = -hw - 0.04f + R(-0.05f, 0.04f), l1 = hw + 0.04f - R(-0.05f, 0.04f);
                 float lift = R(0f, 0.012f), tilt = R(-0.01f, 0.01f);
@@ -478,6 +500,31 @@ public static class FuwaCourse3Builder
                         P(a, lc - BeamW / 2, t1), P(b, lc - BeamW / 2, t1), P(b, lc + BeamW / 2, t1), P(a, lc + BeamW / 2, t1),
                         P(a, lc - BeamW / 2, t0), P(b, lc - BeamW / 2, t0), P(b, lc + BeamW / 2, t0), P(a, lc + BeamW / 2, t0) });
                 }
+            }
+        }
+        // 橋の付け根（手前と奥）：左右の橋をつなぐ、道幅いっぱいの大きな板（横板を並べる）＋下に横向きの角材
+        foreach (var (da, db) in DeckRanges())
+        {
+            Vector3 Q(float sv, float lat, float dy) { return m.MultiplyPoint3x4(Point(0, sv, lat, dy)); }
+            int n = Mathf.Max(1, Mathf.RoundToInt((db - da + PlankGap) / (PlankLen + PlankGap)));
+            float stp = (db - da + PlankGap) / n;
+            for (int k = 0; k < n; k++)
+            {
+                float a = da + k * stp + R(-0.008f, 0.008f), b = da + k * stp + stp - PlankGap + R(-0.008f, 0.008f);
+                a = Mathf.Max(a, da + 0.005f); b = Mathf.Min(b, db - 0.005f);
+                float ha = BridgeLat(a) + 0.5f, hb = BridgeLat(b) + 0.5f;
+                float e0 = 0.04f - R(-0.05f, 0.04f), e1 = 0.04f - R(-0.05f, 0.04f);
+                float lift = R(0f, 0.01f), tilt = R(-0.008f, 0.008f);
+                AddBox(V, (R(0, 1) < 0.5f) ? TA : TB, new[] {
+                    Q(a, -ha - e0, -PlankT + lift - tilt), Q(b, -hb - e0, -PlankT + lift - tilt), Q(b, hb + e1, -PlankT + lift + tilt), Q(a, ha + e1, -PlankT + lift + tilt),
+                    Q(a, -ha - e0, lift - tilt), Q(b, -hb - e0, lift - tilt), Q(b, hb + e1, lift + tilt), Q(a, ha + e1, lift + tilt) });
+            }
+            foreach (float sc in new[] { da + 0.25f, db - 0.25f })
+            {
+                float h = BridgeLat(sc) + 0.5f - 0.1f, t0 = -PlankT - 0.002f, t1 = t0 - BeamH;
+                AddBox(V, TC, new[] {
+                    Q(sc - BeamW / 2, -h, t1), Q(sc + BeamW / 2, -h, t1), Q(sc + BeamW / 2, h, t1), Q(sc - BeamW / 2, h, t1),
+                    Q(sc - BeamW / 2, -h, t0), Q(sc + BeamW / 2, -h, t0), Q(sc + BeamW / 2, h, t0), Q(sc - BeamW / 2, h, t0) });
             }
         }
         var mesh = new Mesh { name = "Course3_BridgePlanks", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
