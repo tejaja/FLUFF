@@ -3,6 +3,8 @@
 // ・影はグレーではなく _ShadowTint（紫寄り）に寄せる。太陽の影（シャドウ）も同じ色で受ける
 // ・まわりの明るさは環境光（空・地平線・地面の3色）から
 // ・ふちをほんのり光らせる（リム）。光の当たっている側だけ少し強め
+// ・根元のなじませ（つららなど）：オブジェクトの y=0（根元）から下へ _BaseFadeLength の間、色を _BaseFadeColor に、
+//   向きを真下（天井と同じ）に寄せて、天井との境目をぼかす。0 なら何もしない
 Shader "FuwaCourse/ToonLit"
 {
     Properties
@@ -20,6 +22,10 @@ Shader "FuwaCourse/ToonLit"
         _RimColor ("Rim Color", Color) = (1, 0.97, 0.92, 1)
         _RimStrength ("Rim Strength", Range(0,1)) = 0.18
         _RimPower ("Rim Power", Range(0.5,8)) = 3
+        [Header(Base Fade)]
+        _BaseFadeColor ("Base Fade Color", Color) = (0.66, 0.6, 0.68, 1)
+        _BaseFadeLength ("Base Fade Length (object units, 0=off)", Float) = 0
+        _BaseFadeNormal ("Base Fade Normal (toward down)", Range(0,1)) = 1
     }
     SubShader
     {
@@ -43,6 +49,7 @@ Shader "FuwaCourse/ToonLit"
             sampler2D _MainTex; float4 _MainTex_ST;
             fixed4 _ShadowTint, _RimColor;
             half _ShadowStrength, _Wrap, _Steps, _AmbientStrength, _RimStrength, _RimPower;
+            fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(fixed4, _Color)
                 UNITY_DEFINE_INSTANCED_PROP(half4, _EmissionColor)
@@ -58,6 +65,7 @@ Shader "FuwaCourse/ToonLit"
                 half3 amb : TEXCOORD3;
                 SHADOW_COORDS(4)
                 UNITY_FOG_COORDS(5)
+                half fade : TEXCOORD6;
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -69,6 +77,8 @@ Shader "FuwaCourse/ToonLit"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 o.wn = UnityObjectToWorldNormal(v.normal);
+                o.fade = _BaseFadeLength > 0 ? smoothstep(-_BaseFadeLength, 0, v.vertex.y) : 0;
+                o.wn = lerp(o.wn, float3(0, -1, 0), o.fade * _BaseFadeNormal);
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 o.amb = ShadeSH9(float4(o.wn, 1));
                 TRANSFER_SHADOW(o);
@@ -80,6 +90,7 @@ Shader "FuwaCourse/ToonLit"
             {
                 UNITY_SETUP_INSTANCE_ID(i);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
+                col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
                 float3 n = normalize(i.wn);
                 float3 l = normalize(_WorldSpaceLightPos0.xyz);
                 float3 v = normalize(_WorldSpaceCameraPos - i.wp);
@@ -99,6 +110,7 @@ Shader "FuwaCourse/ToonLit"
 
                 // ふちの光（光の当たる側は少し強め）
                 half rim = pow(1 - saturate(dot(n, v)), _RimPower) * _RimStrength * (0.5 + 0.5 * lit);
+                rim *= 1 - i.fade;   // 根元のなじませ部分はふちを光らせない（境目が浮かないように）
                 c += _RimColor.rgb * rim;
                 c += UNITY_ACCESS_INSTANCED_PROP(Props, _EmissionColor).rgb;
 
