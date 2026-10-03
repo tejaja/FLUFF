@@ -21,6 +21,11 @@ Shader "FuwaCourse/SpiderWeb"
         _OuterMin ("Outer Edge Min (x board edge)", Range(0.3, 1)) = 0.78
         _OuterMax ("Outer Edge Max (x board edge)", Range(0.3, 1)) = 0.97
         _Round ("Corner Rounding (ellipse scale)", Float) = 1.15
+        _FrameN ("Frame Corners (0 = 従来の外形)", Float) = 0
+        _F01 ("Frame Corner 0,1 (穴の中心基準 m)", Vector) = (0, 0, 0, 0)
+        _F23 ("Frame Corner 2,3", Vector) = (0, 0, 0, 0)
+        _F45 ("Frame Corner 4,5", Vector) = (0, 0, 0, 0)
+        _F67 ("Frame Corner 6,7", Vector) = (0, 0, 0, 0)
         _FadeNear ("Camera Fade: invisible within (m)", Float) = 0.45
         _FadeFar ("Camera Fade: fully visible beyond (m)", Float) = 1.0
         _RimColor ("Hole Rim Color", Color) = (0.95, 0.95, 1.0, 1.0)
@@ -45,6 +50,8 @@ Shader "FuwaCourse/SpiderWeb"
             float4 _Size, _HoleCenter;
             float _HoleRadius, _HoleRadiusMax, _LineWidth, _Spokes, _RingStart, _RingGrow, _Seed, _OuterMin, _OuterMax, _Round;
             float _FadeNear, _FadeFar;
+            float _FrameN;
+            float4 _F01, _F23, _F45, _F67;
             fixed4 _RimColor;
             float _RimWidth, _RimGlow, _RimGlowAlpha;
 
@@ -74,9 +81,47 @@ Shader "FuwaCourse/SpiderWeb"
                 return (i + j) * 6.2831853 / _Spokes;
             }
 
+            // 枠の糸（多角形）の角 k（穴の中心基準）。_FrameN 個を順に結ぶ
+            float2 frameCorner(int k)
+            {
+                k = k % 8;
+                float4 v = k < 2 ? _F01 : (k < 4 ? _F23 : (k < 6 ? _F45 : _F67));
+                return (k % 2 == 0) ? v.xy : v.zw;
+            }
+
+            float cross2f(float2 a, float2 b) { return a.x * b.y - a.y * b.x; }
+
+            // 穴の中心から方向 d に進んで、枠の多角形に当たるまでの距離
+            float frameRayDist(float2 d)
+            {
+                float best = 1e4;
+                int n = (int)_FrameN;
+                [unroll] for (int k = 0; k < 8; k++)
+                {
+                    if (k < n)
+                    {
+                        float2 A = frameCorner(k), B = frameCorner((k + 1) % n);
+                        float2 e = B - A;
+                        float den = cross2f(d, e);
+                        if (abs(den) > 1e-6)
+                        {
+                            float t = cross2f(A, e) / den;
+                            float u = cross2f(A, d) / den;
+                            if (t > 0 && u >= -1e-4 && u <= 1 + 1e-4) best = min(best, t);
+                        }
+                    }
+                }
+                return best;
+            }
+
             // how far strand i reaches: a jittered fraction of the distance to the board edge
             float outerRadius(float i)
             {
+                if (_FrameN > 2.5)
+                {
+                    float af = spokeAngle(i);
+                    return frameRayDist(float2(cos(af), sin(af)));
+                }
                 float k = spokeIndex(i);
                 float a = spokeAngle(i);
                 float2 d = float2(cos(a), sin(a));
@@ -147,6 +192,22 @@ Shader "FuwaCourse/SpiderWeb"
                 float sideC = cross2(P1 - P0, -P0);
                 bool inside = side * sideC >= 0;
                 dEdge = segDist(p, P0, P1);
+                if (_FrameN > 2.5)
+                {
+                    // 枠の多角形：直線の枠糸そのものを描き、内側判定も多角形で
+                    int fn = (int)_FrameN;
+                    dEdge = 1e3; bool allIn = true;
+                    [unroll] for (int k = 0; k < 8; k++)
+                    {
+                        if (k < fn)
+                        {
+                            float2 A = frameCorner(k), B = frameCorner((k + 1) % fn);
+                            dEdge = min(dEdge, segDist(p, A, B));
+                            if (cross2(B - A, p - A) * cross2(B - A, -A) < 0) allIn = false;
+                        }
+                    }
+                    inside = allIn;
+                }
 
                 if (r > _HoleRadius)
                 {

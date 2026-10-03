@@ -54,6 +54,12 @@ public class SpiderWebBuilder : MonoBehaviour, VRC.SDKBase.IEditorOnly
     [Range(0.3f, 1f)] public float outerMax = 0.98f;
     [Tooltip("角の丸さ（大きいほど四角に近い）")]
     public float cornerRound = 1.1f;
+    [Tooltip("外形を、まっすぐ張った枠の糸の多角形にする（角から支えへ係留の糸を張る）。小さい巣向け")]
+    public bool polygonFrame = false;
+    [Tooltip("枠の角の数")]
+    [Range(3, 8)] public int frameCorners = 5;
+    [Tooltip("木のない側の下の角を地面へつなぐ時、地面を探す深さ m")]
+    public float groundSearch = 6f;
     [Tooltip("最初の輪までの間隔 m")]
     public float ringStart = 0.12f;
     [Tooltip("輪の間隔の広がり方")]

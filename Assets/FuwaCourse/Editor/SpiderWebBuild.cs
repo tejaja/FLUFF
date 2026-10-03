@@ -125,6 +125,18 @@ public static class SpiderWebBuild
         mat.SetFloat("_OuterMin", b.outerMin);
         mat.SetFloat("_OuterMax", Mathf.Max(b.outerMin, b.outerMax));
         mat.SetFloat("_Round", b.cornerRound);
+        {
+            // 枠の多角形の角（シェーダーには穴の中心基準で渡す）
+            var fc = b.polygonFrame ? FrameCorners(b) : new List<Vector2>();
+            var fv = new Vector4[4];
+            for (int k = 0; k < fc.Count && k < 8; k++)
+            {
+                var q = fc[k] - b.holeCenter;
+                if (k % 2 == 0) { fv[k / 2].x = q.x; fv[k / 2].y = q.y; } else { fv[k / 2].z = q.x; fv[k / 2].w = q.y; }
+            }
+            mat.SetFloat("_FrameN", fc.Count);
+            mat.SetVector("_F01", fv[0]); mat.SetVector("_F23", fv[1]); mat.SetVector("_F45", fv[2]); mat.SetVector("_F67", fv[3]);
+        }
         EditorUtility.SetDirty(mat);
 
         if (b.webRenderer != null)
@@ -221,8 +233,57 @@ public static class SpiderWebBuild
     }
 
     // 巣の外周の点（FuwaSpiderWeb シェーダーの outerRadius と同じ式）。巣の中心基準、メートル
+    // 枠の多角形の角（板の中心基準、メートル）。穴の中心から見た角度順。板のフチの少し内側に置く
+    public static List<Vector2> FrameCorners(SpiderWebBuilder b)
+    {
+        Vector2 hs = b.size * 0.5f, c = b.holeCenter;
+        int n = Mathf.Clamp(b.frameCorners, 3, 8);
+        var pts = new List<Vector2>();
+        float a0 = 90f + 360f / n * 0.5f + 25f * Mathf.Sin(b.seed * 1.7f);
+        for (int k = 0; k < n; k++)
+        {
+            float a = (a0 + 360f / n * k + 14f * Mathf.Sin(k * 2.3f + b.seed * 0.9f)) * Mathf.Deg2Rad;
+            var d = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+            float tx = Mathf.Abs(d.x) > 1e-4f ? ((d.x > 0 ? hs.x : -hs.x) - c.x) / d.x : 1e4f;
+            float ty = Mathf.Abs(d.y) > 1e-4f ? ((d.y > 0 ? hs.y : -hs.y) - c.y) / d.y : 1e4f;
+            float f = 0.93f + 0.05f * Mathf.Sin(k * 1.37f + b.seed * 2.1f);
+            pts.Add(c + d * Mathf.Min(tx, ty) * f);
+        }
+        return pts;
+    }
+
+    static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;
+
+    // 穴の中心 c から方向 d に進んで枠に当たるまでの距離（シェーダーの frameRayDist と同じ）
+    static float FrameRayDist(List<Vector2> fc, Vector2 c, Vector2 d)
+    {
+        float best = 1e4f;
+        for (int k = 0; k < fc.Count; k++)
+        {
+            Vector2 A = fc[k] - c, B = fc[(k + 1) % fc.Count] - c, e = B - A;
+            float den = Cross(d, e);
+            if (Mathf.Abs(den) < 1e-6f) continue;
+            float t = Cross(A, e) / den, u = Cross(A, d) / den;
+            if (t > 0 && u >= -1e-4f && u <= 1 + 1e-4f) best = Mathf.Min(best, t);
+        }
+        return best;
+    }
+
     public static List<Vector2> Outline(SpiderWebBuilder b)
     {
+        if (b.polygonFrame)
+        {
+            // 放射の糸の先＝枠に当たる所（当たり判定はこの点を結んだ形）
+            var fc = FrameCorners(b);
+            var vp = new List<Vector2>();
+            for (int i = 0; i < b.spokes; i++)
+            {
+                float a = (i + Mathf.Sin(i * 1.93f + b.seed * 0.77f) * 0.18f) * 6.2831853f / b.spokes;
+                var d = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                vp.Add(b.holeCenter + d * FrameRayDist(fc, b.holeCenter, d));
+            }
+            return vp;
+        }
         Vector2 hs = b.size * 0.5f, c = b.holeCenter;
         float seed = b.seed, n = b.spokes, omin = b.outerMin, omax = Mathf.Max(b.outerMin, b.outerMax);
         Vector2 he = hs + new Vector2(Mathf.Abs(c.x), Mathf.Abs(c.y));
@@ -366,6 +427,12 @@ public static class SpiderWebBuild
             trees[sgn] = tree;
         }
 
+        if (b.polygonFrame)
+        {
+            int nThreads = FrameAnchors(b, sup, th, trees);
+            return FinishThreads(sup, th, id, nThreads);
+        }
+
         // てっぺんの糸
         if (b.topThread)
         {
@@ -425,6 +492,58 @@ public static class SpiderWebBuild
             }
         }
 
+        return FinishThreads(sup, th, id, th.count);
+    }
+
+    // 枠の角から支えへ、ピンと張った係留の糸を1本ずつ。
+    // 木のある側：上の角→枝、下の角→幹。木のない側：上の角→枝（先のほう）、下の角→真下の地面（なければ幹の根元）
+    static int FrameAnchors(SpiderWebBuilder b, Transform sup, ThreadMesh th, Dictionary<float, Tree> trees)
+    {
+        var fc = FrameCorners(b);
+        foreach (var v in fc)
+        {
+            var p = new Vector3(v.x, v.y, 0);
+            float sgn = v.x - b.holeCenter.x >= 0 ? 1f : -1f;
+            bool upper = v.y > b.holeCenter.y;
+            Vector3 target;
+            if (trees.TryGetValue(sgn, out var tree))
+            {
+                if (upper && v.y > tree.branch[0].y - 0.35f * b.size.y) target = NearestOnBranch(tree, p + Vector3.up * 0.25f * b.size.y);
+                else target = tree.TrunkPoint(Mathf.Min(v.y + 0.12f * b.size.y, tree.branch[0].y - 0.1f), sgn, 0.5f);
+            }
+            else
+            {
+                Tree any = null; foreach (var t in trees.Values) any = t;
+                if (upper && any != null) target = NearestOnBranch(any, p + Vector3.up * 0.6f * b.size.y);
+                else
+                {
+                    // 真下（少し外側）の地面を探す
+                    var from = sup.TransformPoint(p + new Vector3(sgn * 0.2f * b.size.x, 0, 0));
+                    if (Physics.Raycast(from, -sup.up, out RaycastHit hit, b.groundSearch, ~0, QueryTriggerInteraction.Ignore) && !hit.collider.transform.IsChildOf(b.transform))
+                        target = sup.InverseTransformPoint(hit.point) + Vector3.down * 0.02f;
+                    else if (any != null) target = any.TrunkPoint(any.fy + 0.12f * b.size.y, -sgn, 0.6f);
+                    else continue;
+                }
+            }
+            th.Hang(p, target, 0.015f);
+        }
+        return th.count;
+    }
+
+    static Vector3 NearestOnBranch(Tree tree, Vector3 q)
+    {
+        Vector3 best = tree.OnBranch(1f); float bd = 1e9f;
+        for (int i = 0; i <= 40; i++)
+        {
+            var pt = tree.OnBranch(i / 40f);
+            float d = (pt - q).sqrMagnitude;
+            if (d < bd) { bd = d; best = pt; }
+        }
+        return best;
+    }
+
+    static int FinishThreads(Transform sup, ThreadMesh th, string id, int count)
+    {
         if (th.count > 0)
         {
             var m = new Mesh();
