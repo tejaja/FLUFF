@@ -83,6 +83,8 @@ public class SpiderWebBuilder : MonoBehaviour, VRC.SDKBase.IEditorOnly
     [Range(0f, 0.2f)] public float sag = 0.08f;
     [Tooltip("木の根元に地面がない時は、小さい浮島を作る")]
     public bool autoIsland = true;
+    [Tooltip("枯れ木にする（葉っぱなし、てっぺんに細い枝を足す、灰色っぽい幹）")]
+    public bool bareTree = false;
 
     [HideInInspector] public string assetId = "";
 }

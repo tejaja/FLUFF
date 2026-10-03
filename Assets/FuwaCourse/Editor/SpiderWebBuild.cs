@@ -543,6 +543,7 @@ public static class SpiderWebBuild
         parts.Add(new CombineInstance { mesh = Tube(new[] { sStart, sStart + sDir * sl * 0.5f, sStart + sDir * sl }, new[] { r0 * 0.35f, r0 * 0.22f, r0 * 0.08f }, 7, 0, seed + 4), transform = Matrix4x4.identity });
         Vector3 oStart = cs[6]; Vector3 oDir = new Vector3(sgn * 0.8f, 0.6f, 0.2f).normalized; float ol = height * 0.18f;
         parts.Add(new CombineInstance { mesh = Tube(new[] { oStart, oStart + oDir * ol * 0.5f, oStart + oDir * ol }, new[] { r0 * 0.38f, r0 * 0.25f, r0 * 0.1f }, 7, 0, seed + 2), transform = Matrix4x4.identity });
+        if (b.bareTree) AddDeadTwigs(parts, cs, r0, height, sgn, seed);
         var barkMesh = new Mesh();
         barkMesh.CombineMeshes(parts.ToArray(), true, true);
 
@@ -562,6 +563,11 @@ public static class SpiderWebBuild
 
         var subs = new List<CombineInstance> { new CombineInstance { mesh = barkMesh, transform = Matrix4x4.identity }, new CombineInstance { mesh = leafMesh, transform = Matrix4x4.identity } };
         var mats = new List<Material> { LoadMat("WebTree_Bark", new Color(0.52f, 0.38f, 0.28f)), LoadMat("WebTree_Leaves", new Color(0.55f, 0.78f, 0.47f)) };
+        if (b.bareTree)
+        {
+            subs.RemoveAt(1);
+            mats = new List<Material> { LoadMat("WebTree_DeadBark", new Color(0.42f, 0.37f, 0.36f)) };
+        }
 
         if (island)
         {
@@ -600,6 +606,31 @@ public static class SpiderWebBuild
         var saved = SaveMesh(Folder + "/" + assetName + ".asset", full);
         root.gameObject.AddComponent<MeshFilter>().sharedMesh = saved;
         root.gameObject.AddComponent<MeshRenderer>().sharedMaterials = mats.ToArray();
+    }
+
+    // 枯れ木のてっぺんの細い枝。巣（内側 -sgn）にはかからないよう、外側と前後へ上向きに広げる。2本は途中で枝分かれ
+    static void AddDeadTwigs(List<CombineInstance> parts, Vector3[] cs, float r0, float height, float sgn, int seed)
+    {
+        var rnd = new System.Random(seed + 77);
+        Vector3 top = cs[cs.Length - 1];
+        float[] yaw = { 0f, 70f, -70f, 140f, -140f };   // 0=外側
+        for (int i = 0; i < yaw.Length; i++)
+        {
+            float a = (yaw[i] + (float)(rnd.NextDouble() - 0.5) * 30f) * Mathf.Deg2Rad;
+            float tilt = (35f + (float)rnd.NextDouble() * 25f) * Mathf.Deg2Rad;   // 真上からの傾き
+            var dir = new Vector3(sgn * Mathf.Cos(a) * Mathf.Sin(tilt), Mathf.Cos(tilt), Mathf.Sin(a) * Mathf.Sin(tilt)).normalized;
+            float len = height * (0.12f + 0.09f * (float)rnd.NextDouble());
+            Vector3 s = i == 0 ? top : Vector3.Lerp(cs[cs.Length - 2], top, 0.4f + 0.5f * (float)rnd.NextDouble());
+            var bend = new Vector3((float)rnd.NextDouble() - 0.5f, 0.3f, (float)rnd.NextDouble() - 0.5f) * len * 0.25f;
+            var p = new[] { s, s + dir * len * 0.5f + bend * 0.5f, s + dir * len + bend };
+            parts.Add(new CombineInstance { mesh = Tube(p, new[] { r0 * 0.32f, r0 * 0.18f, r0 * 0.05f }, 6, 0, seed + 30 + i), transform = Matrix4x4.identity });
+            if (i < 2)
+            {
+                var fdir = (dir + new Vector3(0, 0.2f, 0) + Quaternion.AngleAxis(50f * (i == 0 ? 1 : -1), Vector3.up) * dir).normalized;
+                var fs = p[1]; float fl = len * 0.5f;
+                parts.Add(new CombineInstance { mesh = Tube(new[] { fs, fs + fdir * fl * 0.5f, fs + fdir * fl }, new[] { r0 * 0.15f, r0 * 0.1f, r0 * 0.03f }, 5, 0, seed + 40 + i), transform = Matrix4x4.identity });
+            }
+        }
     }
 
     static Material LoadMat(string name, Color col)
