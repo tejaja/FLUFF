@@ -31,6 +31,7 @@ Shader "FuwaCourse/SpiderWeb"
         _CoreColor ("糸の色（中心）", Color) = (0.93, 0.91, 1.0, 1)
         _OutlineColor ("糸の縁取り", Color) = (0.12, 0.09, 0.18, 0.85)
         _OutlineWidth ("縁取りの太さ (x 糸の太さ)", Float) = 0.7
+        _EdgeWidth ("いちばん外側の糸の太さ (x 糸の太さ)", Float) = 1.7
         _DewChance ("夜露のつぶの割合", Range(0, 1)) = 0.3
         _DewSize ("夜露のつぶの半径 (m)", Float) = 0.012
         _DewColor ("夜露の色", Color) = (1, 0.97, 1, 1)
@@ -62,7 +63,7 @@ Shader "FuwaCourse/SpiderWeb"
             fixed4 _RimColor;
             float _RimWidth, _RimGlow, _RimGlowAlpha;
             fixed4 _CoreColor, _OutlineColor, _DewColor;
-            float _OutlineWidth, _DewChance, _DewSize, _TwinkleSpeed;
+            float _OutlineWidth, _EdgeWidth, _DewChance, _DewSize, _TwinkleSpeed;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 m : TEXCOORD0; float3 wpos : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
@@ -256,12 +257,13 @@ Shader "FuwaCourse/SpiderWeb"
                     }
                 }
 
-                float d = inside ? min(min(dIn, dEdge), dRing) : dEdge;
+                float d = inside ? min(dIn, dRing) : 1e3;
                 float lw = px * 1.2;
-                // 白っぽい糸＋暗い縁取り（空の上でも道の上でも見える）
+                // 白っぽい糸＋暗い縁取り（空の上でも道の上でも見える）。いちばん外側の糸（当たり判定のふち）だけ少し太く
                 float ow = hw * _OutlineWidth;
-                float coreA = 1 - smoothstep(hw - lw * 0.5, hw + lw * 0.5, d);
-                float lineA = 1 - smoothstep(hw + ow - lw * 0.5, hw + ow + lw * 0.5, d);
+                float hwE = hw * _EdgeWidth, owE = hwE * _OutlineWidth * 0.8;
+                float coreA = max(1 - smoothstep(hw - lw * 0.5, hw + lw * 0.5, d), 1 - smoothstep(hwE - lw * 0.5, hwE + lw * 0.5, dEdge));
+                float lineA = max(1 - smoothstep(hw + ow - lw * 0.5, hw + ow + lw * 0.5, d), 1 - smoothstep(hwE + owE - lw * 0.5, hwE + owE + lw * 0.5, dEdge));
                 if (r < _HoleRadius - hw - ow - lw) { coreA = 0; lineA = 0; }
                 fixed3 col = lerp(_OutlineColor.rgb, _CoreColor.rgb, coreA);
                 float a = max(coreA * _CoreColor.a, lineA * _OutlineColor.a);

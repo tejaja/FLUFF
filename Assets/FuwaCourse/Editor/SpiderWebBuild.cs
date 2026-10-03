@@ -524,38 +524,63 @@ public static class SpiderWebBuild
     static int FrameAnchors(SpiderWebBuilder b, Transform sup, ThreadMesh th, Dictionary<float, Tree> trees)
     {
         var fc = FrameCorners(b);
-        foreach (var v in fc)
+        Tree any = null; foreach (var t in trees.Values) any = t;
+        for (int k = 0; k < fc.Count; k++)
         {
+            var v = fc[k];
             var p = new Vector3(v.x, v.y, 0);
             float sgn = v.x - b.holeCenter.x >= 0 ? 1f : -1f;
             bool upper = v.y > b.holeCenter.y;
-            Vector3 target;
+            // 候補を順に試して、巣の上を横切らない最初のものに張る（横切る候補しかなければ張らない）
+            var cand = new List<Vector3>();
             bool centerLow = !upper && trees.Count == 2 && Mathf.Abs(v.x) < b.size.x * 0.25f;
-            if (centerLow && GroundBelow(b, sup, p, 0f, out var gp))
+            if (centerLow && GroundBelow(b, sup, p, 0f, out var gp)) cand.Add(gp);
+            if (trees.TryGetValue(sgn, out var tree))
             {
-                // 両側に木がある巣の、真ん中あたりの下の角は真下の地面へ
-                target = gp;
-            }
-            else if (trees.TryGetValue(sgn, out var tree))
-            {
-                if (upper && v.y > tree.branch[0].y - 0.35f * b.size.y) target = NearestOnBranch(tree, p + Vector3.up * 0.25f * b.size.y);
-                else target = tree.TrunkPoint(Mathf.Min(v.y + 0.12f * b.size.y, tree.branch[0].y - 0.1f), sgn, 0.5f);
+                if (upper && v.y > tree.branch[0].y - 0.35f * b.size.y) cand.Add(NearestOnBranch(tree, p + Vector3.up * 0.25f * b.size.y));
+                cand.Add(tree.TrunkPoint(Mathf.Min(v.y + 0.12f * b.size.y, tree.branch[0].y - 0.1f), sgn, 0.5f));
             }
             else
             {
-                Tree any = null; foreach (var t in trees.Values) any = t;
-                if (upper && any != null) target = NearestOnBranch(any, p + Vector3.up * 0.6f * b.size.y);
-                else
+                if (upper && any != null)
                 {
-                    // 真下（少し外側）の地面を探す
-                    if (GroundBelow(b, sup, p, sgn * 0.2f * b.size.x, out var g2)) target = g2;
-                    else if (any != null) target = any.TrunkPoint(any.fy + 0.12f * b.size.y, -sgn, 0.6f);
-                    else continue;
+                    cand.Add(NearestOnBranch(any, p + Vector3.up * 0.6f * b.size.y));
+                    cand.Add(NearestOnBranch(any, p));
                 }
+                // 真下（少し外側／真下）の地面
+                if (GroundBelow(b, sup, p, sgn * 0.2f * b.size.x, out var g2)) cand.Add(g2);
+                if (GroundBelow(b, sup, p, 0f, out var g3)) cand.Add(g3);
+                if (any != null) cand.Add(any.TrunkPoint(any.fy + 0.12f * b.size.y, -sgn, 0.6f));
             }
-            th.Hang(p, target, 0.015f);
+            foreach (var target in cand)
+            {
+                if (CrossesFrame(fc, k, new Vector2(target.x, target.y))) continue;
+                th.Hang(p, target, 0.015f);
+                break;
+            }
         }
         return th.count;
+    }
+
+    // 角 k から点 q への糸が、角 k に接していない枠の辺と交わる（＝巣の上を横切る）か。巣の面に投影して判定
+    static bool CrossesFrame(List<Vector2> fc, int k, Vector2 q)
+    {
+        Vector2 a = fc[k];
+        int n = fc.Count;
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            if (i == k || j == k) continue;
+            Vector2 c = fc[i], d = fc[j];
+            float d1 = Cross(q - a, c - a), d2 = Cross(q - a, d - a), d3 = Cross(d - c, a - c), d4 = Cross(d - c, q - c);
+            if (d1 * d2 < 0 && d3 * d4 < 0) return true;
+        }
+        // 内側へ向かう糸（隣の2辺の内側に入る）もダメ
+        Vector2 prev = fc[(k + n - 1) % n], next = fc[(k + 1) % n];
+        Vector2 cen = Vector2.zero; foreach (var f in fc) cen += f; cen /= n;
+        Vector2 dir = q - a;
+        if (Cross(next - a, dir) * Cross(next - a, cen - a) > 0 && Cross(prev - a, dir) * Cross(prev - a, cen - a) > 0) return true;
+        return false;
     }
 
     // 円盤（中心 c、半径 r、sup の座標）の範囲に、道など自分以外の地面が同じくらいの高さであるか
