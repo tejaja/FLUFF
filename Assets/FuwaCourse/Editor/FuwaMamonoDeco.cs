@@ -85,8 +85,19 @@ public static class FuwaMamonoDeco
             var cols = mesh.colors.Length == v.Length ? mesh.colors : Enumerable.Repeat(new Color(0.5f, 0.38f, 0.27f), v.Length).ToArray();
             // 飾りなので間引いて軽くする（遠景の軽量化と同じ間引き）
             var tmp = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; tmp.SetVertices(v); tmp.SetNormals(n); tmp.SetColors(cols); tmp.SetTriangles(mesh.triangles, 0);
-            var simp = (Mesh)typeof(FuwaFarViewSetup).GetMethod("Simplify", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic).Invoke(null, new object[] { tmp, Vector3.one * 0.28f });
-            pods.Add((simp.vertices, simp.normals, simp.colors, simp.triangles, rad, floor - b.min.y));
+            var simp = (Mesh)typeof(FuwaFarViewSetup).GetMethod("Simplify", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic).Invoke(null, new object[] { tmp, Vector3.one * 0.22f });
+            // 間引くと向きが裏返る三角が出て黒ずんで見えるので、頂点の法線と逆向きの三角は裏返す。つぶれた細い三角は捨てる
+            var sv = simp.vertices; var sn = simp.normals; var st = simp.triangles; var ft = new List<int>();
+            for (int i = 0; i < st.Length; i += 3)
+            {
+                var a0 = sv[st[i]]; var a1 = sv[st[i + 1]]; var a2 = sv[st[i + 2]];
+                var fn = Vector3.Cross(a1 - a0, a2 - a0); float area = fn.magnitude;
+                float e = Mathf.Max((a1 - a0).sqrMagnitude, Mathf.Max((a2 - a1).sqrMagnitude, (a0 - a2).sqrMagnitude));
+                if (area < 1e-6f || area * area < e * e * 0.0004f) continue;   // 針みたいに細い三角
+                var vn = sn[st[i]] + sn[st[i + 1]] + sn[st[i + 2]];
+                if (Vector3.Dot(fn, vn) < 0) { ft.Add(st[i]); ft.Add(st[i + 2]); ft.Add(st[i + 1]); } else { ft.Add(st[i]); ft.Add(st[i + 1]); ft.Add(st[i + 2]); }
+            }
+            pods.Add((sv, sn, simp.colors, ft.ToArray(), rad, floor - b.min.y));
         }
         var nests = new MB(); var eggs = new MB(); var roots_ = new MB(); var floorMb = new MB();
         var placed = new List<(Vector3 pos, float rad)>();
