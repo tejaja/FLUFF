@@ -65,8 +65,24 @@ public static class FuwaPitCut
             float ymax = Mathf.Max(a.p.y, Mathf.Max(b.p.y, c.p.y));
             float lmin = Mathf.Min(L(a.p), Mathf.Min(L(b.p), L(c.p))), lmax = Mathf.Max(L(a.p), Mathf.Max(L(b.p), L(c.p)));
             if (ymax <= yBottom || lmin >= halfWidth || lmax <= -halfWidth) return false;
-            bool band0 = smax > a0 - 0.05f && smin < a1 + 0.05f, band1 = smax > b0 - 0.05f && smin < b1 + 0.05f;
+            bool band0 = smax > a0 && smin < a1 + 0.05f, band1 = smax > b0 - 0.05f && smin < b1;
             return band0 || band1;
+        }
+        // 辺を割るかどうか（辺の両端だけで決まる）
+        bool SplitEdge(V a, V b)
+        {
+            if ((a.p - b.p).sqrMagnitude <= maxEdge * maxEdge) return false;
+            float smin = Mathf.Min(S(a.p), S(b.p)), smax = Mathf.Max(S(a.p), S(b.p));
+            if (Mathf.Max(a.p.y, b.p.y) <= yBottom) return false;
+            float lmin = Mathf.Min(L(a.p), L(b.p)), lmax = Mathf.Max(L(a.p), L(b.p));
+            if (lmin >= halfWidth || lmax <= -halfWidth) return false;
+            return (smax > a0 && smin < a1 + 0.05f) || (smax > b0 - 0.05f && smin < b1);
+        }
+        // 辺の真ん中（向きに関係なく同じ点になるように、順番をそろえて計算）
+        V Mid(V a, V b)
+        {
+            bool swap = a.p.x > b.p.x || (a.p.x == b.p.x && (a.p.y > b.p.y || (a.p.y == b.p.y && a.p.z > b.p.z)));
+            return swap ? Lerp(b, a, 0.5f) : Lerp(a, b, 0.5f);
         }
         var OV = new List<V>(); var subs = new List<List<int>>();
         for (int sm = 0; sm < src.subMeshCount; sm++)
@@ -86,16 +102,29 @@ public static class FuwaPitCut
                     {
                         int bi = OV.Count; OV.Add(a); OV.Add(b); OV.Add(c); outT.Add(bi); outT.Add(bi + 1); outT.Add(bi + 2); continue;
                     }
-                    // 長い辺を半分に割る（ギザギザに沿わせる）
+                    // 長い辺を半分に割る（ギザギザに沿わせる）。割るかどうかは「辺ごと」に決めるので、
+                    // となりの三角形も同じ辺を同じ点で割る（T字のすき間ができない）
                     if (maxEdge > 0 && NearEdge(a, b, c))
                     {
-                        float dab = (a.p - b.p).sqrMagnitude, dbc = (b.p - c.p).sqrMagnitude, dca = (c.p - a.p).sqrMagnitude;
-                        float dm = Mathf.Max(dab, Mathf.Max(dbc, dca));
-                        if (dm > maxEdge * maxEdge)
+                        bool sab = SplitEdge(a, b), sbc = SplitEdge(b, c), sca = SplitEdge(c, a);
+                        if (sab || sbc || sca)
                         {
-                            if (dm == dab) { var m = Lerp(a, b, 0.5f); stack.Push((a, m, c)); stack.Push((m, b, c)); }
-                            else if (dm == dbc) { var m = Lerp(b, c, 0.5f); stack.Push((a, b, m)); stack.Push((a, m, c)); }
-                            else { var m = Lerp(c, a, 0.5f); stack.Push((a, b, m)); stack.Push((m, b, c)); }
+                            var poly = new List<V> { a }; int firstMid = -1;
+                            if (sab) { if (firstMid < 0) firstMid = poly.Count; poly.Add(Mid(a, b)); }
+                            poly.Add(b);
+                            if (sbc) { if (firstMid < 0) firstMid = poly.Count; poly.Add(Mid(b, c)); }
+                            poly.Add(c);
+                            if (sca) { if (firstMid < 0) firstMid = poly.Count; poly.Add(Mid(c, a)); }
+                            if (poly.Count == 6)
+                            {
+                                stack.Push((poly[0], poly[1], poly[5])); stack.Push((poly[1], poly[2], poly[3]));
+                                stack.Push((poly[5], poly[3], poly[4])); stack.Push((poly[1], poly[3], poly[5]));
+                            }
+                            else
+                            {
+                                int n = poly.Count;
+                                for (int q = 1; q + 1 < n; q++) stack.Push((poly[firstMid], poly[(firstMid + q) % n], poly[(firstMid + q + 1) % n]));
+                            }
                             continue;
                         }
                     }
