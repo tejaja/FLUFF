@@ -54,7 +54,7 @@ for k in range(N + 1):
 # ふち：薄く、ほんの少し内側へ巻きこむ
 prof[0] = (0.001, prof[0][1])
 prof += [(CAP_R * 0.995, 0.08), (CAP_R * 0.975, 0.04)]
-wob = lambda a, y: 0.012 * math.sin(a * 5 + 0.7) + 0.008 * math.sin(a * 9 + 2.1) + 0.005 * math.sin(a * 17 + 1.0)
+wob = lambda a, y: 0.003 * math.sin(a * 5 + 0.7)   # ほぼきれいな丸（ごくわずかだけゆらぐ）
 rings = lathe(cap, 0, prof[1:], wob=wob)
 cap_fan(cap, 0, rings[0], (0, prof[0][1], 0), flip=True)
 # ヒダ：ふちの内側から軸へ、ほぼ平らに少しだけ上がる下面。放射状のすじ
