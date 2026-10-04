@@ -102,7 +102,7 @@ Shader "FuwaCourse/ToonLit"
                 float3 wn : TEXCOORD1;
                 float3 wp : TEXCOORD2;
                 half3 amb : TEXCOORD3;
-                SHADOW_COORDS(4)
+                UNITY_SHADOW_COORDS(4)
                 UNITY_FOG_COORDS(5)
                 half fade : TEXCOORD6;
                 float3 pp : TEXCOORD7;   // 色ムラ・層の模様を取る位置（つららは根元＝天井の位置で取って、天井と同じ層の色にする）
@@ -129,7 +129,7 @@ Shader "FuwaCourse/ToonLit"
                     unity_LightColor[0].rgb, unity_LightColor[1].rgb, unity_LightColor[2].rgb, unity_LightColor[3].rgb,
                     unity_4LightAtten0, o.wp, o.wn) / max(_AmbientStrength, 0.01);
                 #endif
-                TRANSFER_SHADOW(o);
+                UNITY_TRANSFER_SHADOW(o, v.uv1);
                 FUWA_BAKED_TRANSFER(o, v)
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;

@@ -42,7 +42,7 @@ Shader "FuwaCourse/InkCap"
                 fixed4 color : COLOR;
                 float3 wn : TEXCOORD0;
                 float3 wp : TEXCOORD1;
-                SHADOW_COORDS(2)
+                UNITY_SHADOW_COORDS(2)
                 UNITY_FOG_COORDS(3)
                 FUWA_BAKED_COORDS(4)
                 UNITY_VERTEX_OUTPUT_STEREO
@@ -64,7 +64,7 @@ Shader "FuwaCourse/InkCap"
                 o.wn = UnityObjectToWorldNormal(v.normal);
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 o.color = v.color;
-                TRANSFER_SHADOW(o);
+                UNITY_TRANSFER_SHADOW(o, v.uv1);
                 FUWA_BAKED_TRANSFER(o, v)
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
@@ -81,7 +81,7 @@ Shader "FuwaCourse/InkCap"
                 half atten = FuwaBakedShadow(i.lmuv);
                 half3 amb = FuwaBakedAmbient(i.lmuv);
                 #else
-                half atten = SHADOW_ATTENUATION(i);
+                UNITY_LIGHT_ATTENUATION(atten, i, i.wp);   // 焼いた後は動く物も光プローブの影（シャドウマスク）を受ける
                 half3 amb = ShadeSH9(half4(0, 1, 0, 1));
                 #endif
                 half d = saturate((dot(n, l) + _Wrap) / (1 + _Wrap));
