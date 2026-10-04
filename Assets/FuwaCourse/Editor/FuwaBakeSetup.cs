@@ -63,7 +63,9 @@ public static class FuwaBakeSetup
                 // 柵（影がへんになる）と小さい飾り（キャンディ・マシュマロ・巣の小物など、焼くとムラになる）は焼かない
                 bool fence = false;   // 柵は解像度を上げて焼く（きれいなら残す）
                 bool smallDeco = mf != null && mf.sharedMesh != null && (SmallDecoMeshes.Any(x => mf.sharedMesh.name.StartsWith(x)));
-                bool ok = shaderOk && !fence && !smallDeco && mf != null && mf.sharedMesh != null && !IsMoving(r.transform);
+                // 小さい物（1.2m未満：小さいキノコなど）は焼くと影がぼやけて消えるので焼かない（リアルタイムの影を落とす）
+                bool tiny = Mathf.Max(r.bounds.size.x, Mathf.Max(r.bounds.size.y, r.bounds.size.z)) < 1.2f;
+                bool ok = shaderOk && !fence && !smallDeco && !tiny && mf != null && mf.sharedMesh != null && !IsMoving(r.transform);
                 if (fence) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 if (ok)
                 {
