@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -479,7 +479,19 @@ public static class FuwaCourse3Builder
             float SAt(float L) { for (int i = 1; i < len.Count; i++) if (len[i] >= L) return Mathf.Lerp(ss[i - 1], ss[i], (L - len[i - 1]) / Mathf.Max(1e-5f, len[i] - len[i - 1])); return s1; }
             float LAt(float sv) { for (int i = 1; i < ss.Count; i++) if (ss[i] >= sv) return Mathf.Lerp(len[i - 1], len[i], (sv - ss[i - 1]) / Mathf.Max(1e-5f, ss[i] - ss[i - 1])); return total; }
             // 手前と奥の大きな板の所は、橋の板を置かない（板が重ならないように）
-            float L0 = LAt(RegionA + DeckLen) + PlankGap, L1 = LAt(RegionB - DeckLen) - PlankGap;
+            // 橋の板は橋の向きに直角だと、付け根で大きな板のふちに対して斜めになって重なる。
+            // 付け根から TwistLen の間は、板の向きを「本道に直角（大きな板と平行）」から「橋に直角」へ少しずつひねる
+            const float TwistLen = 2.0f;
+            float sA = RegionA + DeckLen, sB = RegionB - DeckLen;
+            Vector3 PL(float s, float lat, float dy)
+            {
+                var c0 = Point(pc, s, 0, dy); var rb = Point(pc, s, 1, dy) - c0;   // 橋の横向き
+                Center(s, out _, out var d); var rm = new Vector3(d.y, 0, -d.x);    // 本道の横向き
+                float w = Mathf.SmoothStep(0f, 1f, Mathf.Min(s - sA, sB - s) / TwistLen);
+                var dir = Vector3.Slerp(rm, rb, w).normalized;
+                return c0 + dir * lat;
+            }
+            float L0 = LAt(sA) + PlankGap, L1 = LAt(sB) - PlankGap;
             int np = Mathf.Max(1, Mathf.FloorToInt((L1 - L0 + PlankGap) / (PlankLen + PlankGap)));
             float step = (L1 - L0 + PlankGap) / np;
             for (float L = L0; L + step - PlankGap <= L1 + 1e-3f; L += step)
@@ -489,9 +501,11 @@ public static class FuwaCourse3Builder
                 // 両わきとも少しはみ出してバラつかせる
                 float l0 = -hw - 0.04f + R(-0.05f, 0.04f), l1 = hw + 0.04f - R(-0.05f, 0.04f);
                 float lift = R(0f, 0.012f), tilt = R(-0.01f, 0.01f);
-                AddBox(V, (R(0, 1) < 0.5f) ? TA : TB, new[] {
-                    P(a, l0, -PlankT + lift - tilt), P(b, l0, -PlankT + lift - tilt), P(b, l1, -PlankT + lift + tilt), P(a, l1, -PlankT + lift + tilt),
-                    P(a, l0, lift - tilt), P(b, l0, lift - tilt), P(b, l1, lift + tilt), P(a, l1, lift + tilt) });
+                var c = new[] {
+                    PL(a, l0, -PlankT + lift - tilt), PL(b, l0, -PlankT + lift - tilt), PL(b, l1, -PlankT + lift + tilt), PL(a, l1, -PlankT + lift + tilt),
+                    PL(a, l0, lift - tilt), PL(b, l0, lift - tilt), PL(b, l1, lift + tilt), PL(a, l1, lift + tilt) };
+                for (int k = 0; k < 8; k++) c[k] = m.MultiplyPoint3x4(c[k]);
+                AddBox(V, (R(0, 1) < 0.5f) ? TA : TB, c);
             }
             foreach (float side in new[] { -1f, 1f })
             {
