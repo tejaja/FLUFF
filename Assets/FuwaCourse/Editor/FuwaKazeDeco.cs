@@ -65,7 +65,7 @@ public static class FuwaKazeDeco
         var selfPts = new List<Vector3>();
         foreach (var r in root.GetComponentsInChildren<MeshRenderer>().Where(r => !r.transform.IsChildOf(root.Find("Deco") ?? r.transform.parent) || true))
         {
-            if (r.transform.parent != null && r.transform.parent.name == "Deco") continue;
+            if (root.Find("Deco") != null && r.transform.IsChildOf(root.Find("Deco"))) continue;   // 前回作った飾り（浮島）は数えない
             var mf = r.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null || !mf.sharedMesh.isReadable) continue;
             var vv = mf.sharedMesh.vertices; int stp = Mathf.Max(1, vv.Length / 150);
             for (int i = 0; i < vv.Length; i += stp) selfPts.Add(r.transform.TransformPoint(vv[i]));
@@ -144,7 +144,7 @@ public static class FuwaKazeDeco
             const int seg = 18, rings = 12;
             foreach (var (hp, hr) in heads)
             {
-                int bi = hv.Count; float rr = hr * 0.3f;
+                int bi = hv.Count; float rr = hr * 0.45f;
                 for (int j = 0; j <= rings; j++)
                     for (int i = 0; i <= seg; i++)
                     {
@@ -168,7 +168,7 @@ public static class FuwaKazeDeco
                 hmat = new Material(Shader.Find("FuwaCourse/Fur")); AssetDatabase.CreateAsset(hmat, mp);
                 // メッシュはまとめてあるので拡大率1。毛の長さ・細かさはメートルで
                 hmat.SetColor("_Color", new Color(0.86f, 0.84f, 0.78f)); hmat.SetColor("_TipColor", Color.white);
-                hmat.SetFloat("_FurLength", 0.75f); hmat.SetFloat("_Density", 45f); hmat.SetFloat("_Thinness", 0.75f);
+                hmat.SetFloat("_FurLength", 1.0f); hmat.SetFloat("_Density", 45f); hmat.SetFloat("_Thinness", 0.75f);
                 hmat.SetFloat("_Shadow", 0.3f); hmat.SetFloat("_Gravity", 0.02f); hmat.SetFloat("_RimStrength", 0.4f);
             }
             var go = new GameObject("PuffFur", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(isl, false);
@@ -238,7 +238,7 @@ public static class FuwaKazeDeco
             // 頭そのものは、ふわふわと同じシェルファーの毛玉（PuffFur）で描く
             heads.Add((top + Vector3.up * hr * 0.2f, hr));
         }
-        else Flower(m, top, R(0.8f, 1.1f) * s, rnd);
+        else Flower(m, top, R(2.1f, 2.6f) * s, rnd);
     }
 
     // ふつうの大きさのたんぽぽ
@@ -321,7 +321,7 @@ public static class FuwaKazeDeco
                 m.Add(p0 - sd * w * 0.4f, Vector3.up, col); m.Add(p0 + sd * w * 0.4f, Vector3.up, col);
                 m.Add(p1 - sd * w, Vector3.up, col); m.Add(p1 + sd * w, Vector3.up, col);
                 m.Add(p2 - sd * w * 0.7f, Vector3.up, col * 1.03f); m.Add(p2 + sd * w * 0.7f, Vector3.up, col * 1.03f);
-                m.Quad(b, b + 2, b + 3, b + 1); m.Quad(b + 2, b + 4, b + 5, b + 3);
+                m.Quad(b, b + 1, b + 3, b + 2); m.Quad(b + 2, b + 3, b + 5, b + 4);   // 上向きの面
             }
         }
         // がく
