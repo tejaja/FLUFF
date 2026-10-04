@@ -14,6 +14,12 @@ public class FuwaPlayerUpdraft : UdonSharpBehaviour
     [Tooltip("横の速さをどれだけ残すか（1=そのまま）")]
     public float keepHorizontal = 1f;
 
+    [Header("浮いている間は横の動きをゆっくりに（流されて止まれない、を防ぐ）")]
+    [Tooltip("浮いている間（気流の中・出たあとゆっくり落ちる間）の横の速さの上限(m/s)。0=制限しない")]
+    public float airMaxSpeed = 1.6f;
+    [Tooltip("横の勢いが消える速さ（大きいほどすぐ止まる）。0=ブレーキなし")]
+    public float airBrake = 4f;
+
     [Header("てっぺんでホバリング")]
     [Tooltip("トリガーの上端からこの高さ(m)の間で、上昇をだんだん弱めて止める（0=無効）")]
     public float hoverBand = 1.2f;
@@ -37,6 +43,15 @@ public class FuwaPlayerUpdraft : UdonSharpBehaviour
         _col = GetComponent<Collider>();
     }
 
+    // 横の速さにブレーキと上限をかける（縦はそのまま）
+    private Vector3 SlowHorizontal(Vector3 v)
+    {
+        Vector3 h = new Vector3(v.x, 0f, v.z) * keepHorizontal;
+        if (airBrake > 0f) h *= Mathf.Exp(-airBrake * Time.deltaTime);
+        if (airMaxSpeed > 0f && h.magnitude > airMaxSpeed) h = h.normalized * airMaxSpeed;
+        return new Vector3(h.x, v.y, h.z);
+    }
+
     public override void OnPlayerTriggerStay(VRCPlayerApi player)
     {
         if (player == null || !player.isLocal) return;
@@ -56,15 +71,12 @@ public class FuwaPlayerUpdraft : UdonSharpBehaviour
                 float lo = -hoverDrift, hi = Mathf.Max(target, hoverDrift);
                 v.y = Mathf.Clamp(v.y, lo, hi);
                 if (v.y < target) v.y = Mathf.MoveTowards(v.y, target, liftSpeed * 2f * Time.deltaTime);
-                v.x *= keepHorizontal; v.z *= keepHorizontal;
-                player.SetVelocity(v);
+                player.SetVelocity(SlowHorizontal(v));
                 return;
             }
         }
-        if (v.y >= target) return;
-        v.x *= keepHorizontal; v.z *= keepHorizontal;
-        v.y = target;
-        player.SetVelocity(v);
+        if (v.y < target) v.y = target;
+        player.SetVelocity(SlowHorizontal(v));
     }
 
     private void Update()
@@ -74,7 +86,12 @@ public class FuwaPlayerUpdraft : UdonSharpBehaviour
         if (p == null) return;
         float since = Time.time - _lastInside;
         if (since < 0.1f) { p.SetGravityStrength(normalGravity); return; }   // 中にいる間は普段どおり（持ち上げは速度で）
-        if (since < slowFallTime && !p.IsPlayerGrounded()) { p.SetGravityStrength(normalGravity * slowFallGravity); return; }
+        if (since < slowFallTime && !p.IsPlayerGrounded())
+        {
+            p.SetGravityStrength(normalGravity * slowFallGravity);
+            p.SetVelocity(SlowHorizontal(p.GetVelocity()));
+            return;
+        }
         // 時間切れ or 着地したら元に戻す
         p.SetGravityStrength(normalGravity);
         _slow = false;
