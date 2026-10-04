@@ -167,6 +167,7 @@ public class FuwaBall : UdonSharpBehaviour
     private bool _hidden;
     private FuwaGoal _goalZone;   // 今いるゴールのリングの中（着地したらゴール）
     private bool _stuck;          // クモの巣にくっついている間
+    private bool _carried;        // 上昇気流などに運ばれている間（位置は運ぶ側が決める）
 
     [Header("アウトで破裂する時")]
     [Tooltip("ぷくーっと膨らんでから弾けるまでの秒数（0なら即破裂）")]
@@ -201,7 +202,7 @@ public class FuwaBall : UdonSharpBehaviour
 
     private void FixedUpdate()
     {
-        if (_waiting || _stuck) return;
+        if (_waiting || _stuck || _carried) return;
 
         // アイテムの効果（おもりキノコ・おいかぜ）
         if (Time.time < _heavyUntil) SetGravityScale(itemHeavyScale);
@@ -250,7 +251,7 @@ public class FuwaBall : UdonSharpBehaviour
             if (_respawnInFront) ResetInFrontOfPlayer();
             else ResetToRespawn();
         }
-        if (!_waiting && _resetAt < 0f && transform.position.y < killHeight) Fail();
+        if (!_waiting && !_carried && _resetAt < 0f && transform.position.y < killHeight) Fail();
         CheckOffCourse();
 
         if (timerText != null)
@@ -776,7 +777,7 @@ public class FuwaBall : UdonSharpBehaviour
     // 道の上なら床に触った時にアウトになるので、ここでは見ない。
     private void CheckOffCourse()
     {
-        if (_waiting || _hidden || _stuck || _resetAt > 0f || _finished) return;
+        if (_waiting || _hidden || _stuck || _carried || _resetAt > 0f || _finished) return;
         if (Time.time < _nextOffCourseCheck) return;
         _nextOffCourseCheck = Time.time + 0.1f;
         Transform rp = respawnPoint != null ? respawnPoint : startPoint;
@@ -846,6 +847,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void ResetToRespawn()
     {
         StopInflate();
+        _carried = false;
         _resetAt = -1f;
         _spiking = false;
         _goalZone = null;
@@ -990,4 +992,32 @@ public class FuwaBall : UdonSharpBehaviour
     }
 
     public bool IsWaiting() { return _waiting; }
+
+    // ===== 運ばれる（FuwaBallLift など）=====
+    // 運び始め：物理を止めて、位置は運ぶ側が毎フレーム CarryTo で決める。運べない状態なら false
+    public bool BeginCarry()
+    {
+        if (_carried || _waiting || _hidden || _stuck || _spiking || _finished || _resetAt > 0f) return false;
+        _carried = true;
+        StopInflate();
+        _rb.velocity = Vector3.zero;
+        _rb.angularVelocity = Vector3.zero;
+        _rb.isKinematic = true;
+        return true;
+    }
+    public bool IsCarried() { return _carried; }
+    public void CarryTo(Vector3 pos)
+    {
+        if (!_carried) return;
+        _rb.MovePosition(pos);
+        transform.position = pos;
+    }
+    // 運び終わり：その場の空中で止まって待つ（撃たれたら動き出す。チェックポイントからの再開と同じ待ち方）
+    public void EndCarryWaiting()
+    {
+        if (!_carried) return;
+        _carried = false;
+        _rb.isKinematic = true;
+        _waiting = true;
+    }
 }
