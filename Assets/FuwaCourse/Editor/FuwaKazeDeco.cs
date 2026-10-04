@@ -208,7 +208,7 @@ public static class FuwaKazeDeco
                 var ps = amb.GetComponent<ParticleSystem>();
                 var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Mesh; sh.meshShapeType = ParticleSystemMeshShapeType.Triangle; sh.mesh = em; sh.scale = deco.lossyScale; sh.normalOffset = 0f; sh.randomPositionAmount = 0.3f;
                 // 綿毛は大きめ・多めにして目立たせる（形は軽い三角だけの綿毛に作り直す）
-                var main = ps.main; main.startLifetime = new ParticleSystem.MinMaxCurve(14f, 22f); main.maxParticles = 700;
+                var main = ps.main; main.startLifetime = new ParticleSystem.MinMaxCurve(7f, 11f); main.maxParticles = 450;   // 飛ぶ距離は短め
                 main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.75f);
                 var emi = ps.emission; emi.rateOverTime = 36f;
                 var pr = amb.GetComponent<ParticleSystemRenderer>(); pr.mesh = SeedMesh();
