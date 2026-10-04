@@ -175,13 +175,10 @@ Shader "FuwaCourse/ToonLit"
                 half wrap = saturate((ndl + _Wrap) / (1 + _Wrap));
                 half band = smoothstep(0.5 - 0.5 * (1 - _Steps), 0.5 + 0.5 * (1 - _Steps), wrap);
                 half lit = lerp(wrap, band, 0.5);
-                #if defined(LIGHTMAP_ON)
-                half atten = FuwaBakedShadow(i.lmuv);   // 動かない物は焼いた影
-                half3 amb = FuwaBakedAmbient(i.lmuv);
-                #else
+                // 影：Unity 標準のまぜ方（焼いた影＝シャドウマスク と、動く物のリアルタイムの影 の両方）
+                // まわりの明るさは焼いた間接光ではなく、なめらかな空の明るさ（焼いた間接光は解像度が低いとムラになるので）
                 UNITY_LIGHT_ATTENUATION(atten, i, i.wp);
                 half3 amb = i.amb;
-                #endif
                 lit *= lerp(1, atten, 0.85);
 
                 // 影側はグレーではなく紫寄りの色に

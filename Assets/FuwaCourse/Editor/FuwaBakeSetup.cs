@@ -18,6 +18,7 @@ public static class FuwaBakeSetup
     // 自分は動かず、参照している物（輪っか等）だけ動かすスクリプト
     static readonly HashSet<string> RefOnlyTypes = new HashSet<string> { "FuwaWebHole" };
     const float FarScale = 0.25f;
+    static readonly string[] SmallDecoMeshes = { "Practice_EdgeProps", "Mamono_", "Kaze_", "Deco_" };
 
     [MenuItem("FuwaCourse/ベイクの準備（Static・ライトマップUV）")]
     public static void RunMenu() { Debug.Log(Run()); }
@@ -59,7 +60,11 @@ public static class FuwaBakeSetup
                 bool shaderOk = r.sharedMaterials.Length > 0 && r.sharedMaterials.Any(m => m != null && BakeShaders.Contains(m.shader.name))
                                 && r.sharedMaterials.All(m => m != null && m.renderQueue < 2450)
                                 && !r.sharedMaterials.Any(m => m.HasProperty("_SwayAmp") && m.GetFloat("_SwayAmp") > 0);   // 風でゆれる物（たんぽぽ）は焼かない
-                bool ok = shaderOk && mf != null && mf.sharedMesh != null && !IsMoving(r.transform);
+                // 柵（影がへんになる）と小さい飾り（キャンディ・マシュマロ・巣の小物など、焼くとムラになる）は焼かない
+                bool fence = false;   // 柵は解像度を上げて焼く（きれいなら残す）
+                bool smallDeco = mf != null && mf.sharedMesh != null && (SmallDecoMeshes.Any(x => mf.sharedMesh.name.StartsWith(x)));
+                bool ok = shaderOk && !fence && !smallDeco && mf != null && mf.sharedMesh != null && !IsMoving(r.transform);
+                if (fence) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 if (ok)
                 {
                     GameObjectUtility.SetStaticEditorFlags(r.gameObject, flags | StaticEditorFlags.ContributeGI);
@@ -72,6 +77,8 @@ public static class FuwaBakeSetup
                 {
                     if ((flags & StaticEditorFlags.ContributeGI) != 0) GameObjectUtility.SetStaticEditorFlags(r.gameObject, flags & ~StaticEditorFlags.ContributeGI);
                     r.receiveGI = ReceiveGI.LightProbes;
+                    // 光プローブは焼いていないので、空の明るさ（環境光）をそのまま使う（真っ暗なプローブを拾わないように）
+                    r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
                     if (shaderOk) nMoving++; else nOther++;
                 }
             }

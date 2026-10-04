@@ -90,13 +90,9 @@ Shader "FuwaCourse/InkCap"
                 float3 v = normalize(_WorldSpaceCameraPos - i.wp);
                 fixed3 col = GammaToLinearSpace(i.color.rgb);
                 half ink = saturate(1 - dot(i.color.rgb, 1.0 / 3.0) * 3.0);   // 暗い所ほど1
-                #if defined(LIGHTMAP_ON)
-                half atten = FuwaBakedShadow(i.lmuv);
-                half3 amb = FuwaBakedAmbient(i.lmuv);
-                #else
-                UNITY_LIGHT_ATTENUATION(atten, i, i.wp);   // 焼いた後は動く物も光プローブの影（シャドウマスク）を受ける
+                // 影は Unity 標準のまぜ方（焼いた影＋動く物のリアルタイムの影）。まわりの明るさは空の明るさ
+                UNITY_LIGHT_ATTENUATION(atten, i, i.wp);
                 half3 amb = ShadeSH9(half4(0, 1, 0, 1));
-                #endif
                 half d = saturate((dot(n, l) + _Wrap) / (1 + _Wrap));
                 half spec = pow(saturate(dot(n, normalize(l + v))), 40) * ink * _InkGloss;
                 half fres = pow(1 - saturate(dot(v, n)), 3);
