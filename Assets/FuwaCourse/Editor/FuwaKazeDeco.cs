@@ -21,6 +21,7 @@ public static class FuwaKazeDeco
         public void Quad(int a, int b, int c, int d) { Tri(a, b, c); Tri(a, c, d); }
     }
 
+    static Vector3 _islC; static float _islR = 999f;   // 今の浮島（葉っぱが島からはみ出さないように）
     static readonly Color LeafG = new Color(0.36f, 0.6f, 0.26f), StemG = new Color(0.55f, 0.72f, 0.4f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
 
     [MenuItem("FuwaCourse/かぜのみちの飾りを作る")]
@@ -106,7 +107,7 @@ public static class FuwaKazeDeco
             var under = new GameObject("IslandUnder", typeof(MeshFilter), typeof(MeshRenderer)); under.transform.SetParent(g, false);
             under.GetComponent<MeshFilter>().sharedMesh = underMeshes[rnd.Next(underMeshes.Length)]; under.GetComponent<MeshRenderer>().sharedMaterial = underMat;
             under.transform.localScale = new Vector3(rad / 0.97f, rad / 0.97f * R(0.8f, 1.1f), rad / 0.97f); under.transform.localRotation = Quaternion.Euler(0, R(0, 360), 0);
-            float topY = pos.y + 0.03f;
+            float topY = pos.y + 0.03f; _islC = pos; _islR = rad * 0.97f;
 
             // 大きいたんぽぽ（木よりちょっと低いくらい）：綿毛1本（必ず）＋ときどき黄色い花
             var gp = pos + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * R(0, rad * 0.3f);
@@ -144,7 +145,7 @@ public static class FuwaKazeDeco
             const int seg = 18, rings = 12;
             foreach (var (hp, hr) in heads)
             {
-                int bi = hv.Count; float rr = hr * 0.45f;
+                int bi = hv.Count; float rr = hr * 0.75f;   // 芯を大きめにして毛は短めに（茎が毛の間から透けて見えないように）
                 for (int j = 0; j <= rings; j++)
                     for (int i = 0; i <= seg; i++)
                     {
@@ -156,7 +157,7 @@ public static class FuwaKazeDeco
                     for (int i = 0; i < seg; i++)
                     {
                         int a0 = bi + j * (seg + 1) + i;
-                        ht.Add(a0); ht.Add(a0 + seg + 1); ht.Add(a0 + 1); ht.Add(a0 + 1); ht.Add(a0 + seg + 1); ht.Add(a0 + seg + 2);
+                        ht.Add(a0); ht.Add(a0 + 1); ht.Add(a0 + seg + 1); ht.Add(a0 + 1); ht.Add(a0 + seg + 2); ht.Add(a0 + seg + 1);   // 外向きの面
                     }
             }
             var hm = new Mesh { name = "Kaze_PuffFur" }; hm.SetVertices(hv); hm.SetNormals(hn); hm.SetTriangles(ht, 0); hm.RecalculateBounds();
@@ -168,7 +169,7 @@ public static class FuwaKazeDeco
                 hmat = new Material(Shader.Find("FuwaCourse/Fur")); AssetDatabase.CreateAsset(hmat, mp);
                 // メッシュはまとめてあるので拡大率1。毛の長さ・細かさはメートルで
                 hmat.SetColor("_Color", new Color(0.86f, 0.84f, 0.78f)); hmat.SetColor("_TipColor", Color.white);
-                hmat.SetFloat("_FurLength", 1.0f); hmat.SetFloat("_Density", 45f); hmat.SetFloat("_Thinness", 0.75f);
+                hmat.SetFloat("_FurLength", 0.65f); hmat.SetFloat("_Density", 50f); hmat.SetFloat("_Thinness", 0.9f);
                 hmat.SetFloat("_Shadow", 0.3f); hmat.SetFloat("_Gravity", 0.02f); hmat.SetFloat("_RimStrength", 0.4f);
             }
             var go = new GameObject("PuffFur", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(isl, false);
@@ -220,7 +221,7 @@ public static class FuwaKazeDeco
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         float s = h / 4.5f;
-        Rosette(m, at, R(1.6f, 2.4f) * s, rnd.Next(7, 10), rnd);
+        Rosette(m, at, R(2.8f, 3.6f) * s, rnd.Next(8, 11), rnd);
         var side = Vector3.Cross(Vector3.up, wind);
         var lean = (wind * R(0.6f, 1.2f) + side * R(-0.5f, 0.5f)) * s;
         var pts = new List<Vector3>(); var rr = new List<float>();
@@ -261,7 +262,13 @@ public static class FuwaKazeDeco
         for (int i = 0; i < n; i++)
         {
             float a0 = (i + R(-0.3f, 0.3f)) * Mathf.PI * 2 / n; var d = new Vector3(Mathf.Cos(a0), 0, Mathf.Sin(a0)); var sd = new Vector3(-d.z, 0, d.x);
-            float L = len * R(0.7f, 1.1f), W = L * R(0.12f, 0.16f); const int k = 8; int bi = m.V.Count;
+            float L = len * R(0.7f, 1.1f);
+            {   // 島のふちまでで止める
+                var o = new Vector2(at.x - _islC.x, at.z - _islC.z); var dd = new Vector2(d.x, d.z);
+                float b2 = Vector2.Dot(o, dd), cc = o.sqrMagnitude - _islR * _islR, disc = b2 * b2 - cc;
+                if (disc > 0) L = Mathf.Min(L, Mathf.Max(0.15f, -b2 + Mathf.Sqrt(disc)));
+            }
+            float W = Mathf.Min(L, len) * R(0.15f, 0.2f); const int k = 8; int bi = m.V.Count;
             var col = LeafG * R(0.88f, 1.1f);
             for (int j = 0; j <= k; j++)
             {
