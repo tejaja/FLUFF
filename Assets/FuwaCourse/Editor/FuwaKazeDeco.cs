@@ -24,7 +24,7 @@ public static class FuwaKazeDeco
 
     static Vector3 _islC; static float _islR = 999f;
     static List<float> _headPhase = new List<float>();   // 綿毛の頭ごとのゆれの位相（heads と同じ順）
-    const float SwayAmp = 0.22f, SwaySpeed = 1.1f;   // 今の浮島（葉っぱが島からはみ出さないように）
+    const float SwayAmp = 0.38f, SwaySpeed = 1.2f;   // 今の浮島（葉っぱが島からはみ出さないように）
     static readonly Color LeafG = new Color(0.27f, 0.68f, 0.2f), StemG = new Color(0.45f, 0.74f, 0.3f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
 
     [MenuItem("FuwaCourse/かぜのおかの飾りを作る")]
