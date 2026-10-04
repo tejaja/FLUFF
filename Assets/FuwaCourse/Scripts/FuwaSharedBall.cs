@@ -54,6 +54,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public float boingVolumeStrong = 1f;
     [Tooltip("この速さ以上に急に向きが変わったら「ぶつかった」とみなしてポヨン（それぞれの画面で）")]
     public float bumpDetect = 2.2f;
+    [Tooltip("撃った風の当たり判定を、玉の中心からこの分だけ風の中心線側に広げる(m)。玉を大きくした分のゆとり")]
+    public float hitPadding = 0f;
     private float _squashStart = -10f;
     private float _squashPower;
     private bool _squashActive;

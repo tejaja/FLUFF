@@ -698,7 +698,7 @@ public class FuwaBlower : UdonSharpBehaviour
         {
             FuwaSharedBall sb = sharedBalls[i];
             if (sb == null || !sb.gameObject.activeInHierarchy) continue;
-            Vector3 vs = ShotVelocity(origin, aim, reach, ballPower, sb.transform.position);
+            Vector3 vs = ShotVelocityPadded(origin, aim, reach, ballPower, sb.transform.position, sb.hitPadding);
             if (vs != Vector3.zero) sb.BlowShared(vs);
         }
     }
@@ -706,8 +706,22 @@ public class FuwaBlower : UdonSharpBehaviour
     // 風が当たっていれば、ふわふわに与える速度変化（当たっていなければ zero）
     private Vector3 ShotVelocity(Vector3 origin, Vector3 aim, float reach, float ballPower, Vector3 ballPos)
     {
+        return ShotVelocityPadded(origin, aim, reach, ballPower, ballPos, 0f);
+    }
+
+    // hitPadding: 判定だけ、玉の中心から風の中心線の方へこの分寄せた点で見る（大きい玉のふちに当たっても効く）
+    private Vector3 ShotVelocityPadded(Vector3 origin, Vector3 aim, float reach, float ballPower, Vector3 ballPos, float hitPadding)
+    {
         Vector3 toBall = ballPos - origin;
-        if (!InShot(origin, aim, reach, toBall)) return Vector3.zero;
+        Vector3 toHit = toBall;
+        if (hitPadding > 0f)
+        {
+            Vector3 off = toBall - aim * Vector3.Dot(toBall, aim);
+            float offLen = off.magnitude;
+            if (offLen > 0.0001f) toHit -= off * (Mathf.Min(hitPadding, offLen) / offLen);
+            toHit -= aim * Mathf.Min(hitPadding, Mathf.Max(0f, Vector3.Dot(toHit, aim)));   // 奥行きも玉のふちまで届けばOK
+        }
+        if (!InShot(origin, aim, reach, toHit)) return Vector3.zero;
         // 銃口より後ろ（0距離の筒）にいる時は距離0扱い＝いちばん強く
         float dist = Vector3.Dot(toBall, aim) > 0f ? Mathf.Min(toBall.magnitude, reach) : 0f;
 
