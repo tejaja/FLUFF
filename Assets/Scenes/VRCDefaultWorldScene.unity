@@ -54742,7 +54742,6 @@ Transform:
   - {fileID: 172042402}
   - {fileID: 800894271}
   - {fileID: 776489695}
-  - {fileID: 1965622005}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &78269920
@@ -295448,7 +295447,7 @@ MeshCollider:
   serializedVersion: 5
   m_Convex: 0
   m_CookingOptions: 30
-  m_Mesh: {fileID: 4300000, guid: d5c6afa5c8822f748af2a4ae844624bd, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d1e5253c18f4bc34d982fd9d2f0c04fa, type: 2}
 --- !u!23 &442312457
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -295499,7 +295498,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 442312454}
-  m_Mesh: {fileID: 4300000, guid: d5c6afa5c8822f748af2a4ae844624bd, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d1e5253c18f4bc34d982fd9d2f0c04fa, type: 2}
 --- !u!1 &442696256
 GameObject:
   m_ObjectHideFlags: 0
@@ -1173116,112 +1173115,6 @@ LODGroup:
     renderers:
     - renderer: {fileID: 1965459626}
   m_Enabled: 1
---- !u!1 &1965622004
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1965622005}
-  - component: {fileID: 1965622008}
-  - component: {fileID: 1965622007}
-  - component: {fileID: 1965622006}
-  m_Layer: 11
-  m_Name: PathBrokenEdge
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 2147483647
-  m_IsActive: 1
---- !u!4 &1965622005
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1965622004}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: 0.1305262, z: -0, w: 0.9914449}
-  m_LocalPosition: {x: 16.36605, y: -1.5, z: -18.95485}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 77355197}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!64 &1965622006
-MeshCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1965622004}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 5
-  m_Convex: 0
-  m_CookingOptions: 30
-  m_Mesh: {fileID: 4300000, guid: 8324933519d30f94e9bc53b389ddcb0c, type: 2}
---- !u!23 &1965622007
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1965622004}
-  m_Enabled: 1
-  m_CastShadows: 1
-  m_ReceiveShadows: 1
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 1
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: f92aca9e0f9d3f943b6c21ea3c1ef857, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 1
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_AdditionalVertexStreams: {fileID: 0}
---- !u!33 &1965622008
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1965622004}
-  m_Mesh: {fileID: 4300000, guid: 8324933519d30f94e9bc53b389ddcb0c, type: 2}
 --- !u!1 &1965947626 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5264251887328577948, guid: f4dacc4895fc40e40b899d86d02b08a2, type: 3}
@@ -1174488,7 +1174381,6 @@ MonoBehaviour:
   - {fileID: 1552159304}
   - {fileID: 1225993693}
   - {fileID: 2096944641}
-  - {fileID: 1965622007}
   - {fileID: 1461923658}
   - {fileID: 666568827}
   - {fileID: 445647110}
@@ -1175394,17 +1175286,17 @@ MonoBehaviour:
   - {x: -9.293232, y: 13.5875, z: 76.85213}
   - {x: -15.92281, y: 7.7242813, z: 85.03406}
   - {x: -10.159609, y: 8.809999, z: 60.228878}
-  - {x: -7.9008956, y: 12.624228, z: 61.03609}
-  - {x: -6.565694, y: 12.675466, z: 61.1548}
+  - {x: -7.9008956, y: 12.538228, z: 61.03609}
+  - {x: -6.565694, y: 12.563465, z: 61.1548}
   - {x: -5.1172967, y: 10.06532, z: 60.999893}
   - {x: -4.698758, y: 10.04135, z: 60.58979}
   - {x: -5.3099484, y: 10.407907, z: 60.412914}
   - {x: -4.86275, y: 10.029043, z: 61.266174}
   - {x: -9.595771, y: 10.035874, z: 60.892082}
   - {x: -9.362601, y: 10.017512, z: 61.203857}
-  - {x: -7.45, y: 12.62, z: 61.2}
-  - {x: -6.9500027, y: 12.7, z: 61.050003}
-  - {x: -8.200001, y: 12.45, z: 60.95}
+  - {x: -7.226689, y: 12.557051, z: 61.385517}
+  - {x: -7.0531654, y: 12.654677, z: 60.857445}
+  - {x: -8.526259, y: 12.082957, z: 60.82796}
   - {x: -7.294807, y: 10.897454, z: 61.429012}
   - {x: -7.294807, y: 10.897454, z: 61.429012}
   - {x: -7.294807, y: 10.897454, z: 61.429012}
@@ -1175459,7 +1175351,6 @@ MonoBehaviour:
   - {x: -8.780177, y: 14.3, z: 63.473248}
   - {x: -10.052001, y: 14.24, z: 62.888}
   - {x: -7.8480005, y: 14.24, z: 64.712}
-  - {x: -7.2699995, y: 14.15, z: 62.130005}
   - {x: 51.430523, y: 8.85, z: 48.828526}
   - {x: 22.488754, y: 7.52, z: 9.399804}
   - {x: 25.619247, y: 7.8133335, z: 17.031975}
@@ -1176373,9 +1176264,9 @@ MonoBehaviour:
   - 0.30155414
   - 0.3423137
   - 0.3364828
-  - 0.5332769
-  - 0.38556814
-  - 0.33330774
+  - 0.7348106
+  - 0.4893129
+  - 0.42353398
   - 1.3064383
   - 1.3064383
   - 1.3064383
@@ -1176430,7 +1176321,6 @@ MonoBehaviour:
   - 1.9386793
   - 0.63475007
   - 0.63475007
-  - 1.5249258
   - 50.656998
   - 1.5750289
   - 0.39088354
