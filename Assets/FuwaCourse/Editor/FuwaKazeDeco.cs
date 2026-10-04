@@ -22,7 +22,7 @@ public static class FuwaKazeDeco
     }
 
     static Vector3 _islC; static float _islR = 999f;   // 今の浮島（葉っぱが島からはみ出さないように）
-    static readonly Color LeafG = new Color(0.36f, 0.6f, 0.26f), StemG = new Color(0.55f, 0.72f, 0.4f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
+    static readonly Color LeafG = new Color(0.27f, 0.68f, 0.2f), StemG = new Color(0.45f, 0.74f, 0.3f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
 
     [MenuItem("FuwaCourse/かぜのみちの飾りを作る")]
     public static void RunMenu() { Debug.Log(Run()); }
@@ -93,7 +93,7 @@ public static class FuwaKazeDeco
             var anchor = pv[rnd.Next(pv.Count)];
             float ang = R(0, Mathf.PI * 2), dist = R(11f, 26f);
             var pos = new Vector3(anchor.x + Mathf.Cos(ang) * dist, pathY + R(-7f, 1f), anchor.z + Mathf.Sin(ang) * dist);
-            float rad = R(2.2f, 3.2f);
+            float rad = R(2.6f, 3.4f);
             float dp = DistPath(pos); if (dp < 8f + rad || dp > 28f) continue;
             if (placed.Any(q => new Vector2(q.pos.x - pos.x, q.pos.z - pos.z).magnitude < q.rad + rad + 7f)) continue;
             var bb = new Bounds(pos + Vector3.up * 1.5f, new Vector3(rad * 2 + 2, 8f, rad * 2 + 2));
@@ -110,11 +110,13 @@ public static class FuwaKazeDeco
             float topY = pos.y + 0.03f; _islC = pos; _islR = rad * 0.97f;
 
             // 大きいたんぽぽ（木よりちょっと低いくらい）：綿毛1本（必ず）＋ときどき黄色い花
-            var gp = pos + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * R(0, rad * 0.3f);
+            // 綿毛と黄色い花は島の反対側に分けて、頭どうしが重ならないようにする
+            var sep = Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward;
+            var gp = pos - sep * R(0.9f, 1.2f);
             Giant(plants, new Vector3(gp.x, topY, gp.z), R(3.0f, 3.8f), true, wind, rnd, heads);
             if (rnd.NextDouble() < 0.6)
             {
-                var yp = gp + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * R(1.2f, rad * 0.7f);
+                var yp = pos + Quaternion.Euler(0, R(-25, 25), 0) * sep * R(1.6f, rad * 0.7f);
                 Giant(plants, new Vector3(yp.x, topY, yp.z), R(2.2f, 2.9f), false, wind, rnd, heads);
             }
             // 小さいたんぽぽ（ふつうの大きさ）
@@ -268,16 +270,30 @@ public static class FuwaKazeDeco
                 float b2 = Vector2.Dot(o, dd), cc = o.sqrMagnitude - _islR * _islR, disc = b2 * b2 - cc;
                 if (disc > 0) L = Mathf.Min(L, Mathf.Max(0.15f, -b2 + Mathf.Sqrt(disc)));
             }
-            float W = Mathf.Min(L, len) * R(0.15f, 0.2f); const int k = 8; int bi = m.V.Count;
-            var col = LeafG * R(0.88f, 1.1f);
-            for (int j = 0; j <= k; j++)
+            float W = Mathf.Min(L, len) * R(0.15f, 0.2f); int bi = m.V.Count;
+            var col = LeafG * R(0.92f, 1.12f); var rib = Color.Lerp(col, new Color(0.75f, 0.9f, 0.5f), 0.35f);
+            // パキッと：まっすぐ斜めに立つ葉（曲げない）。ふちは直線のギザギザ（根元向きの三角の歯）、先はとがらせる。中央の葉脈で V 字に折る
+            float ang = R(30f, 45f) * Mathf.Deg2Rad;
+            var dir = (d * Mathf.Cos(ang) + Vector3.up * Mathf.Sin(ang)).normalized;
+            var up = (Vector3.up * Mathf.Cos(ang) - d * Mathf.Sin(ang)).normalized;
+            // (u, 幅) の列：細い柄 → 歯と切れ込みを交互に → とがった先
+            var prof = new List<Vector2> { new Vector2(0f, 0.12f), new Vector2(0.14f, 0.18f) };
+            int teeth = 4;
+            for (int t = 0; t < teeth; t++)
             {
-                float u = j / (float)k;
-                float w = W * Mathf.Sin(Mathf.PI * Mathf.Min(1f, u * 1.08f)) * (j % 2 == 1 ? 0.6f : 1f);   // ギザギザ
-                var c = at + d * L * u + Vector3.up * (0.02f + 0.18f * L * u * (1 - u));
-                m.Add(c - sd * w, Vector3.up, col); m.Add(c + Vector3.up * 0.01f * L, Vector3.up, col * 1.08f); m.Add(c + sd * w, Vector3.up, col);
+                float u0 = 0.18f + t * 0.17f;
+                prof.Add(new Vector2(u0, 0.38f + t * 0.06f));                 // 切れ込み
+                prof.Add(new Vector2(u0 + 0.05f, 1.0f - t * 0.05f));          // 歯の先（根元向きにとがる）
             }
-            for (int j = 0; j < k; j++) { int a = bi + j * 3, b = bi + (j + 1) * 3; m.Quad(a, b, b + 1, a + 1); m.Quad(a + 1, b + 1, b + 2, a + 2); }
+            prof.Add(new Vector2(0.88f, 0.55f)); prof.Add(new Vector2(1f, 0f));
+            int k2 = prof.Count - 1;
+            for (int j = 0; j <= k2; j++)
+            {
+                float u = prof[j].x, w = W * prof[j].y;
+                var c = at + Vector3.up * 0.02f + dir * L * u;
+                m.Add(c - sd * w + up * w * 0.35f, up, col); m.Add(c, up, rib); m.Add(c + sd * w + up * w * 0.35f, up, col);
+            }
+            for (int j = 0; j < k2; j++) { int a = bi + j * 3, b = bi + (j + 1) * 3; m.Quad(a, a + 1, b + 1, b); m.Quad(a + 1, a + 2, b + 2, b + 1); }   // 上向きの面
         }
     }
 
