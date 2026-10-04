@@ -56,7 +56,7 @@ for k in range(N + 1):
     prof.append((r, y))
 # ふちの巻きこみ：外→内へ少し下がる
 prof += [(CAP_R * 0.985, 0.035), (CAP_R * 0.95, 0.02)]
-wob = lambda a, y: 0.012 * math.sin(a * 5 + 0.7) + 0.008 * math.sin(a * 9 + 2.1)
+wob = lambda a, y: 0.003 * math.sin(a * 5 + 0.7)   # ほぼきれいな丸
 rings = lathe(cap, 0, prof, wob=wob)
 cap_fan(cap, 0, rings[0], (0, prof[0][1], 0), flip=True)   # てっぺんのふた（上向き）
 # ヒダ：ふちの内側から軸へ、少し上がっていく下面。放射状のすじ（凸凹）をつける
