@@ -105,8 +105,9 @@ public class FuwaJumpBoost : UdonSharpBehaviour
             jumpSound.pitch = Random.Range(0.95f, 1.08f);
             jumpSound.PlayOneShot(jumpSound.clip);
         }
-        // 揺れは全員に（自分も含む）。音とジャンプ力は自分だけ
-        SendCustomNetworkEvent(NetworkEventTarget.All, nameof(StartWobble));
+        // 揺れは全員に。自分の画面はネットワークを待たずにすぐ揺らす。音とジャンプ力は自分だけ
+        StartWobble();
+        SendCustomNetworkEvent(NetworkEventTarget.Others, nameof(StartWobble));
     }
 
     public override void OnPlayerTriggerStay(VRCPlayerApi player)
