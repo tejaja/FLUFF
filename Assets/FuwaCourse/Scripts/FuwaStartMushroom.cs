@@ -14,6 +14,10 @@ public class FuwaStartMushroom : UdonSharpBehaviour
     public AudioSource popSound;
     [Tooltip("撃たれるたびに鳴る「ボヨヨン」（胞子が出ない時も鳴る）")]
     public AudioSource boingSound;
+    [Tooltip("みんなでのロビー用：ここに隠れている同期ふわふわ（ball の代わり）")]
+    public FuwaSharedBall sharedBall;
+    [Tooltip("ふわふわがこのキノコに隠れている間だけ出す▼（飛び出したら消える）")]
+    public GameObject startArrow;
 
     private float _wobbleStart = -1f;
     private Vector3 _capScale;
@@ -32,6 +36,14 @@ public class FuwaStartMushroom : UdonSharpBehaviour
             boingSound.pitch = Random.Range(0.95f, 1.05f);
             boingSound.PlayOneShot(boingSound.clip);
         }
+        if (sharedBall != null)
+        {
+            if (!sharedBall.IsWaiting()) return;
+            sharedBall.ReleaseFromMushroom(shotDir);
+            if (burst != null) burst.Play();
+            if (popSound != null) popSound.Play();
+            return;
+        }
         if (ball == null || !ball.IsHidden() || ball.startPoint != courseStart) return;
         if (ball.raceLocked) return;   // 対戦レースのGO前は出てこない
         ball.ReleaseFromMushroom(shotDir);
@@ -39,8 +51,20 @@ public class FuwaStartMushroom : UdonSharpBehaviour
         if (popSound != null) popSound.Play();
     }
 
+    // ふわふわがこのキノコに隠れている（＝撃てば出てくる）か
+    private bool BallInside()
+    {
+        if (sharedBall != null) return sharedBall.IsWaiting();
+        return ball != null && ball.IsHidden() && ball.startPoint == courseStart;
+    }
+
     private void Update()
     {
+        if (startArrow != null)
+        {
+            bool show = BallInside();
+            if (startArrow.activeSelf != show) startArrow.SetActive(show);
+        }
         if (_wobbleStart < 0f || cap == null) return;
         float t = Time.time - _wobbleStart;
         if (t > 0.8f) { cap.localScale = _capScale; _wobbleStart = -1f; return; }

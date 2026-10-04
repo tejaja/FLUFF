@@ -31,6 +31,12 @@ public class FuwaSharedBall : UdonSharpBehaviour
     [Tooltip("待機位置からこれだけ下に落ちたら戻す(m)")]
     public float fallLimit = 6f;
 
+    [Header("キノコから飛び出す（待っている間はキノコの中に隠れている）")]
+    [Tooltip("傘を撃って飛び出す時の、撃った向きへの速さ")]
+    public float releasePush = 2.2f;
+    [Tooltip("傘を撃って飛び出す時の、上への速さ")]
+    public float releaseUp = 2.0f;
+
     [Header("見た目（なくてもOK）")]
     public ParticleSystem popEffect;
     public ParticleSystem shotPuff;
@@ -84,7 +90,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private float _respawnAt = -1f;
     private Material _furMat;
     private Vector3 _furDrag;
-    private bool _shownPopped;
+    private bool _shownHidden;
+    private Collider _col;
     private bool _shownWaiting = true;
     private Renderer _selfRenderer;
     private TrailRenderer _trail;
@@ -99,6 +106,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _rb = GetComponent<Rigidbody>();
         _selfRenderer = GetComponent<Renderer>();
         _trail = GetComponent<TrailRenderer>();
+        _col = GetComponent<Collider>();
         if (furRenderer != null) _furMat = furRenderer.material;
         _rb.useGravity = false;
         _rb.drag = airDrag;
@@ -109,7 +117,10 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _homeRot = transform.rotation;
         _rb.isKinematic = true;
         if (Networking.IsOwner(gameObject)) SetWaiting();
+        ApplyHiddenVisual();
     }
+
+    public bool IsWaiting() { return _waiting && !_popped; }
 
     // 持ち主：キノコの上に戻して、吹かれるまで止めて待つ
     private void SetWaiting()
@@ -119,7 +130,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _respawnAt = -1f;
         GoHome();
         RequestSerialization();
-        ApplyPoppedVisual();
+        ApplyHiddenVisual();
     }
 
     private void GoHome()
@@ -136,7 +147,21 @@ public class FuwaSharedBall : UdonSharpBehaviour
     // エアガンから呼ばれる（吹いた人の画面で）。その人が持ち主になって、自分の画面ではすぐ動かす
     public void BlowShared(Vector3 velocityChange)
     {
-        if (_popped) return;
+        if (_popped || _waiting) return;   // キノコに隠れている間は、傘を撃たないと出てこない
+        Launch(velocityChange);
+    }
+
+    // スタートのキノコの傘を撃った人の画面で呼ばれる：撃った向きへポンと飛び出す
+    public void ReleaseFromMushroom(Vector3 shotDir)
+    {
+        if (_popped || !_waiting) return;
+        Vector3 flat = new Vector3(shotDir.x, 0f, shotDir.z);
+        flat = flat.sqrMagnitude > 0.0001f ? flat.normalized : Vector3.zero;
+        Launch(flat * releasePush + Vector3.up * releaseUp);
+    }
+
+    private void Launch(Vector3 velocityChange)
+    {
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
         Vector3 v = _rb.isKinematic ? Vector3.zero : _rb.velocity;
         if (_waiting)
@@ -228,7 +253,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             _rb.velocity = _predVel;
             if (newShot) _rb.angularVelocity = _sAng;
         }
-        if (_shownPopped != _popped) ApplyPoppedVisual();
+        if (_shownHidden != (_popped || _waiting)) ApplyHiddenVisual();
     }
 
     // 撃たれた時（全員）：強さ k(0〜1) に合わせて、綿毛を散らして、ボヨンと鳴らして、ポヨンとつぶれる
@@ -306,7 +331,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             // 飛んでいる間はときどき今の位置を送る（壁にぶつかった後はすぐ送る）
             if (!_waiting && !_popped && (_sendSoon || Time.time >= _nextSend)) SendState();
         }
-        if (_shownPopped != _popped) ApplyPoppedVisual();
+        if (_shownHidden != (_popped || _waiting)) ApplyHiddenVisual();
         if (_trail != null) _trail.emitting = !_popped && !_waiting;
 
         // 壁や柵にぶつかった時のポヨン：急に速さが変わったのを、それぞれの画面で見て鳴らさずにつぶすだけ
@@ -339,15 +364,18 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _respawnAt = Time.time + respawnDelay;
         _rb.isKinematic = true;
         RequestSerialization();
-        ApplyPoppedVisual();
+        ApplyHiddenVisual();
         SendCustomNetworkEvent(NetworkEventTarget.All, nameof(PlayPop));
     }
 
-    // 弾けている間は見えなくする（全員：同期された _popped で）
-    private void ApplyPoppedVisual()
+    // 弾けている間とキノコに隠れている間は見えなくする（全員：同期された _popped / _waiting で）
+    private void ApplyHiddenVisual()
     {
-        _shownPopped = _popped;
-        if (_selfRenderer != null) _selfRenderer.enabled = !_popped;
+        _shownHidden = _popped || _waiting;
+        if (_selfRenderer != null) _selfRenderer.enabled = !_shownHidden;
+        if (furRenderer != null) furRenderer.enabled = !_shownHidden;
+        if (_col != null) _col.enabled = !_shownHidden;
         if (_trail != null) _trail.Clear();
+        if (_shownHidden && shotPuff != null) shotPuff.Clear();
     }
 }
