@@ -28,6 +28,7 @@ public class FuwaJumpBoost : UdonSharpBehaviour
     public int wobbleMode = 0;
     [Tooltip("揺れの大きさ（潰れ：割合、しなり：角度）")]
     public float wobbleAmount = 0.14f;
+    [Tooltip("（使っていない：ばね式になったので、おさまるまでの時間は wobbleDamping で決まる）")]
     public float wobbleTime = 0.7f;
     public float wobbleSpeed = 22f;
     [Tooltip("揺れのおさまる速さ（大きいほどすぐ止まる）")]
@@ -35,29 +36,41 @@ public class FuwaJumpBoost : UdonSharpBehaviour
 
     private float _restore = -1f;
     private bool _boosted;
-    private float _wobbleStart = -1f;
     private Vector3 _wobbleBaseScale;
     private Quaternion _wobbleBaseRot;
     private bool _wobbleSaved;
+
+    // ばねの揺れ（_wx = 揺れの量 -1〜1、_wv = その速さ）。ジャンプのたびに勢いを足すので、続けて跳ぶと揺れがつながる。大きさの上限は1回分の揺れと同じくらい
+    private float _wx, _wv;
+    private bool _wobbling;
 
     public void StartWobble()
     {
         if (wobbleTarget == null) return;
         if (!_wobbleSaved) { _wobbleBaseScale = wobbleTarget.localScale; _wobbleBaseRot = wobbleTarget.localRotation; _wobbleSaved = true; }
-        _wobbleStart = Time.time;
+        // 最初にぐっと沈む向きの勢い（1回のジャンプで、前と同じくらいの揺れになる量）
+        _wv = Mathf.Clamp(_wv - wobbleSpeed, -wobbleSpeed * 1.2f, wobbleSpeed * 1.2f);
+        _wobbling = true;
     }
 
     private void Update()
     {
-        if (_wobbleStart < 0f || wobbleTarget == null) return;
-        float t = Time.time - _wobbleStart;
-        if (t >= wobbleTime)
+        if (!_wobbling || wobbleTarget == null) return;
+        float dt = Mathf.Min(Time.deltaTime, 0.05f);
+        // 減衰つきのばね（wobbleSpeed＝揺れの速さ、wobbleDamping＝おさまる速さ）
+        float acc = -wobbleSpeed * wobbleSpeed * _wx - 2f * wobbleDamping * _wv;
+        _wv += acc * dt;
+        _wx += _wv * dt;
+        // 上限は1回ジャンプした時のいちばん大きい揺れと同じくらい（何回続けて跳んでもそれ以上は大きくならない）
+        if (_wx > 0.68f) { _wx = 0.68f; if (_wv > 0f) _wv = 0f; }
+        if (_wx < -0.68f) { _wx = -0.68f; if (_wv < 0f) _wv = 0f; }
+        if (Mathf.Abs(_wx) < 0.002f && Mathf.Abs(_wv) < 0.02f)
         {
+            _wx = 0f; _wv = 0f; _wobbling = false;
             wobbleTarget.localScale = _wobbleBaseScale; wobbleTarget.localRotation = _wobbleBaseRot;
-            _wobbleStart = -1f; return;
+            return;
         }
-        // 最初にぐっと沈んで、ぽよんぽよんと減っていく
-        float k = -Mathf.Sin(t * wobbleSpeed) * Mathf.Exp(-t * wobbleDamping);
+        float k = _wx;
         if (wobbleMode == 1)
         {
             wobbleTarget.localRotation = _wobbleBaseRot * Quaternion.Euler(-k * wobbleAmount, 0f, 0f);
