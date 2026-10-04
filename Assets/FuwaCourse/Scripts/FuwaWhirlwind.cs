@@ -26,6 +26,20 @@ public class FuwaWhirlwind : UdonSharpBehaviour
     [Tooltip("回る向き（1=上から見て反時計回り、-1=時計回り）")]
     public float spinDir = 1f;
 
+    [Header("捕まえるつむじ風（trap）")]
+    [Tooltip("オンにすると、巻き上げて送り出す代わりに、中心へ吸い寄せて少し浮かせたまま捕まえる。強く撃てば抜けられる")]
+    public bool trap = false;
+    [Tooltip("中心へ吸い寄せる強さ（加速度）。これに逆らって外まで届く速さで撃てば抜けられる")]
+    public float trapPull = 2.6f;
+    [Tooltip("中心へ向かって動いている時だけかけるブレーキ（行き過ぎて反対側へ飛び出さないように）")]
+    public float trapInwardDamp = 2.5f;
+    [Tooltip("捕まえている間、中心のまわりを回る速さ(m/s)")]
+    public float trapSpin = 0.8f;
+    [Tooltip("捕まえておく高さ(m)（底から）")]
+    public float trapHeight = 0.8f;
+    public float trapHoldStiffness = 3f;
+    public float trapHoldDamp = 2f;
+
     public void OnTriggerStay(Collider other)
     {
         if (other == null) return;
@@ -38,6 +52,7 @@ public class FuwaWhirlwind : UdonSharpBehaviour
         // その高さでの半径（上へ行くほど広がる）。箱の角など円の外では効かせない
         float rHere = topRadius > 0f ? Mathf.Lerp(radius, topRadius, h) : radius;
         if (r > rHere) return;
+        if (trap) { Trap(ball, other, local, flat, r); return; }
         Vector3 acc = Vector3.zero;
         // 上へ（てっぺんに近いほど弱め、送り出し区間では浮かせる程度）
         float up = lift * (1f - liftFade * h);
@@ -55,6 +70,31 @@ public class FuwaWhirlwind : UdonSharpBehaviour
         }
         // てっぺんで前へ送り出す
         if (h > exitFrom) acc += Vector3.forward * exitPush * Mathf.Clamp01((h - exitFrom) / (1f - exitFrom) * 2f);
+        ball.AddWind(transform.TransformDirection(acc));
+    }
+
+    // 捕まえるつむじ風：中心へ吸い寄せて、中心のまわりをゆっくり回しながら trapHeight に浮かせておく
+    private void Trap(FuwaBall ball, Collider other, Vector3 local, Vector3 flat, float r)
+    {
+        Rigidbody rb = other.attachedRigidbody;
+        Vector3 vel = rb != null ? transform.InverseTransformDirection(rb.velocity) : Vector3.zero;
+        Vector3 vFlat = new Vector3(vel.x, 0f, vel.z);
+        Vector3 acc = Vector3.zero;
+        if (r > 0.001f)
+        {
+            Vector3 radial = flat / r;
+            // 中心の近くは弱めて、真ん中でがたつかないように
+            acc -= radial * trapPull * Mathf.Clamp01(r / 0.3f);
+            // 中心へ向かう動きにだけブレーキ（外へ向かう動き＝撃って抜ける時は邪魔しない）
+            float vr = Vector3.Dot(vFlat, radial);
+            if (vr < 0f) acc -= radial * vr * trapInwardDamp;
+            // 中心のまわりをゆっくり回す（回る速さを trapSpin に近づけるだけ。外へははじかない）
+            Vector3 tangent = Vector3.Cross(Vector3.up, radial) * spinDir;
+            float vt = Vector3.Dot(vFlat, tangent);
+            acc += tangent * (trapSpin * Mathf.Clamp01(r / 0.4f) - vt) * 2f;
+        }
+        // 高さ：重さを打ち消して、trapHeight へばねで戻す
+        acc.y += ball.fallAcceleration + (trapHeight - local.y) * trapHoldStiffness - vel.y * trapHoldDamp;
         ball.AddWind(transform.TransformDirection(acc));
     }
 }
