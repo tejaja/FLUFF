@@ -6691,9 +6691,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 10914692}
   arrow: {fileID: 1154538340}
   label: {fileID: 196082651}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &11172754
 GameObject:
   m_ObjectHideFlags: 0
@@ -43732,9 +43733,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 70001578}
   arrow: {fileID: 1844616901}
   label: {fileID: 1607434219}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &70166211
 GameObject:
   m_ObjectHideFlags: 0
@@ -50353,11 +50355,10 @@ MonoBehaviour:
   _syncMethod: 3
   serializedProgramAsset: {fileID: 11400000, guid: 84a8744364c9c6343930b1d359bef367, type: 2}
   programSource: {fileID: 11400000, guid: ae61b88b8b275724f91761a84ae6e9f5, type: 2}
-  serializedPublicVariablesBytesString: Ai8AAAAAATIAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAFQAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AAAAAAAYBAAAAAAAAACcBBAAAAHQAeQBwAGUAAWgAAABTAHkAcwB0AGUAbQAuAEMAbwBsAGwAZQBjAHQAaQBvAG4AcwAuAEcAZQBuAGUAcgBpAGMALgBMAGkAcwB0AGAAMQBbAFsAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4ALgBJAG4AdABlAHIAZgBhAGMAZQBzAC4ASQBVAGQAbwBuAFYAYQByAGkAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AXQBdACwAIABtAHMAYwBvAHIAbABpAGIAAQEJAAAAVgBhAHIAaQBhAGIAbABlAHMALwEAAAABaAAAAFMAeQBzAHQAZQBtAC4AQwBvAGwAbABlAGMAdABpAG8AbgBzAC4ARwBlAG4AZQByAGkAYwAuAEwAaQBzAHQAYAAxAFsAWwBWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAEkAbgB0AGUAcgBmAGEAYwBlAHMALgBJAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlACwAIABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgBdAF0ALAAgAG0AcwBjAG8AcgBsAGkAYgABAAAABgcAAAAAAAAAAi8CAAAAAUkAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAGAAMQBbAFsAUwB5AHMAdABlAG0ALgBJAG4AdAAzADIALAAgAG0AcwBjAG8AcgBsAGkAYgBdAF0ALAAgAFYAUgBDAC4AVQBkAG8AbgAuAEMAbwBtAG0AbwBuAAIAAAAGAgAAAAAAAAAnAQQAAAB0AHkAcABlAAEXAAAAUwB5AHMAdABlAG0ALgBTAHQAcgBpAG4AZwAsACAAbQBzAGMAbwByAGwAaQBiACcBCgAAAFMAeQBtAGIAbwBsAE4AYQBtAGUAAR8AAABfAF8AXwBVAGQAbwBuAFMAaABhAHIAcABCAGUA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
+  serializedPublicVariablesBytesString: Ai8AAAAAATIAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAFQAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AAAAAAAYBAAAAAAAAACcBBAAAAHQAeQBwAGUAAWgAAABTAHkAcwB0AGUAbQAuAEMAbwBsAGwAZQBjAHQAaQBvAG4AcwAuAEcAZQBuAGUAcgBpAGMALgBMAGkAcwB0AGAAMQBbAFsAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4ALgBJAG4AdABlAHIAZgBhAGMAZQBzAC4ASQBVAGQAbwBuAFYAYQByAGkAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AXQBdACwAIABtAHMAYwBvAHIAbABpAGIAAQEJAAAAVgBhAHIAaQBhAGIAbABlAHMALwEAAAABaAAAAFMAeQBzAHQAZQBtAC4AQwBvAGwAbABlAGMAdABpAG8AbgBzAC4ARwBlAG4AZQByAGkAYwAuAEwAaQBzAHQAYAAxAFsAWwBWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAEkAbgB0AGUAcgBmAGEAYwBlAHMALgBJAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlACwAIABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgBdAF0ALAAgAG0AcwBjAG8AcgBsAGkAYgABAAAABgcAAAAAAAAAAi8CAAAAAUkAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAGAAMQBbAFsAUwB5AHMAdABlAG0ALgBJAG4AdAAzADIALAAgAG0AcwBjAG8AcgBsAGkAYgBdAF0ALAAgAFYAUgBDAC4AVQBkAG8AbgAuAEMAbwBtAG0AbwBuAAIAAAAGAgAAAAAAAAAnAQQAAAB0AHkAcABlAAEXAAAAUwB5AHMAdABlAG0ALgBTAHQAcgBpAG4AZwAsACAAbQBzAGMAbwByAGwAaQBiACcBCgAAAFMAeQBtAGIAbwBsAE4AYQBtAGUAAR8AAABfAF8AXwBVAGQAbwBuAFMAaABhAHIAcABCAGUA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
   publicVariablesUnityEngineObjects:
   - {fileID: 1849933630}
   - {fileID: 81052181}
-  - {fileID: 0}
   - {fileID: 1726194339}
   - {fileID: 616158413}
   publicVariablesSerializationDataFormat: 0
@@ -57085,7 +57086,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 89174667}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &89213614
 GameObject:
   m_ObjectHideFlags: 0
@@ -79710,9 +79711,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 115844231}
   arrow: {fileID: 2102492834}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!23 &117959666 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: 8708865953649544044, guid: 707f138df1dfc5e47bd74a8331f3d1d1, type: 3}
@@ -157519,7 +157521,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 223529123}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &223692048
 GameObject:
   m_ObjectHideFlags: 0
@@ -176348,7 +176350,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 246835266}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &247725537
 GameObject:
   m_ObjectHideFlags: 0
@@ -216661,9 +216663,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 289011349}
   arrow: {fileID: 1022330986}
   label: {fileID: 1261891236}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &290693962
 GameObject:
   m_ObjectHideFlags: 0
@@ -248547,7 +248550,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 387880230}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &387975862
 GameObject:
   m_ObjectHideFlags: 0
@@ -250465,7 +250468,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 401495244}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &402846475
 GameObject:
   m_ObjectHideFlags: 0
@@ -250821,9 +250824,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 405299915}
   arrow: {fileID: 223529124}
   label: {fileID: 971076982}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &405404124
 GameObject:
   m_ObjectHideFlags: 0
@@ -300057,9 +300061,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 484701493}
   arrow: {fileID: 871235933}
   label: {fileID: 225991877}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &486722731
 GameObject:
   m_ObjectHideFlags: 0
@@ -358568,9 +358573,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 596264691}
   arrow: {fileID: 89174668}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &596635291
 GameObject:
   m_ObjectHideFlags: 0
@@ -401672,7 +401678,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 660744786}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &662238457
 GameObject:
   m_ObjectHideFlags: 0
@@ -402268,9 +402274,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 665190601}
   arrow: {fileID: 1176972921}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &665616169
 GameObject:
   m_ObjectHideFlags: 0
@@ -424482,7 +424489,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 688258514}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &688322684 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4686805391826628684, guid: 49dc1a4b71876cf49aa1de411c954bad, type: 3}
@@ -441476,7 +441483,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 709396144}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &709420002
 GameObject:
   m_ObjectHideFlags: 0
@@ -462328,7 +462335,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 752757104}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &752859063
 GameObject:
   m_ObjectHideFlags: 0
@@ -486515,7 +486522,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 790528853}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &790722401
 GameObject:
   m_ObjectHideFlags: 0
@@ -487420,7 +487427,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 799320488}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &799547551
 GameObject:
   m_ObjectHideFlags: 0
@@ -527434,7 +527441,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 871235932}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &874360174
 GameObject:
   m_ObjectHideFlags: 0
@@ -532543,9 +532550,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 877455083}
   arrow: {fileID: 752757105}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &877725411
 GameObject:
   m_ObjectHideFlags: 0
@@ -572308,9 +572316,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 952204586}
   arrow: {fileID: 799320489}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &952424443
 GameObject:
   m_ObjectHideFlags: 0
@@ -598199,9 +598208,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1017286573}
   arrow: {fileID: 1737151303}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1017427674
 GameObject:
   m_ObjectHideFlags: 0
@@ -603548,7 +603558,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1022330985}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &1024932152
 GameObject:
   m_ObjectHideFlags: 0
@@ -607270,9 +607280,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1051881487}
   arrow: {fileID: 688258515}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1051974905
 GameObject:
   m_ObjectHideFlags: 0
@@ -706149,7 +706160,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1154538339}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!21 &1154545779
 Material:
   serializedVersion: 8
@@ -724025,7 +724036,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1176972920}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &1177245379
 GameObject:
   m_ObjectHideFlags: 0
@@ -737297,7 +737308,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1201751337}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &1202468419
 GameObject:
   m_ObjectHideFlags: 0
@@ -748322,9 +748333,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1217736383}
   arrow: {fileID: 401495245}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1218199747
 GameObject:
   m_ObjectHideFlags: 0
@@ -773892,7 +773904,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1255057643}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1001 &1255460422
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -785126,9 +785138,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1267826554}
   arrow: {fileID: 790528854}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1268874674
 GameObject:
   m_ObjectHideFlags: 0
@@ -793034,9 +793047,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1292664158}
   arrow: {fileID: 709396145}
   label: {fileID: 1073206322}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1293147638
 GameObject:
   m_ObjectHideFlags: 0
@@ -793448,9 +793462,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1296190658}
   arrow: {fileID: 387880231}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1296385849
 GameObject:
   m_ObjectHideFlags: 0
@@ -870103,9 +870118,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1445879171}
   arrow: {fileID: 660744787}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1448149585
 GameObject:
   m_ObjectHideFlags: 0
@@ -976329,7 +976345,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1626715195}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &1626738612
 GameObject:
   m_ObjectHideFlags: 0
@@ -1018113,9 +1018129,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1719202758}
   arrow: {fileID: 1255057644}
   label: {fileID: 143236651}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1719777203
 GameObject:
   m_ObjectHideFlags: 0
@@ -1025390,7 +1025407,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1737151302}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &1737621456
 GameObject:
   m_ObjectHideFlags: 0
@@ -1055842,9 +1055859,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1815100952}
   arrow: {fileID: 1626715196}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1815104679
 GameObject:
   m_ObjectHideFlags: 0
@@ -1057702,9 +1057720,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1829429505}
   arrow: {fileID: 246835267}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1829749109
 GameObject:
   m_ObjectHideFlags: 0
@@ -1065791,7 +1065810,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1844616900}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &1844710745
 GameObject:
   m_ObjectHideFlags: 0
@@ -1102774,9 +1102793,10 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1949980874}
   arrow: {fileID: 1201751338}
   label: {fileID: 0}
-  bobHeight: 0.15
-  bobSpeed: 2.2
+  bobHeight: 0.2
+  bobSpeed: 1.3
   spinSpeed: 60
+  swayAngle: 7
 --- !u!1 &1952853158
 GameObject:
   m_ObjectHideFlags: 0
@@ -1174369,7 +1174389,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2102492833}
-  m_Mesh: {fileID: 4300000, guid: 094b99b578912e144b6c191600934e50, type: 2}
+  m_Mesh: {fileID: 4300000, guid: d056b239e81d69a4d87e9de718276eb3, type: 2}
 --- !u!1 &2103219663
 GameObject:
   m_ObjectHideFlags: 0
