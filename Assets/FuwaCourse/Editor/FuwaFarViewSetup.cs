@@ -7,6 +7,7 @@ using UnityEngine.Rendering;
 // 遠くから見た時の軽量化（ロビー＋ひとりでのコース）。
 // ・飾り（草・花・ツタ・小石・小さいキノコの輪・看板・モンスターの目）は、画面上で小さくなったら描かない（LODGroup）
 //   風の道・風車・足場・モンスターの体などギミックは消さない
+// ・ポリゴンの多い物（光るキノコ・角を丸めた柵など）は、遠くでは間引いた軽い形（子の「〜_Far」）に切り替える
 // ・影を落とす物は全部 FuwaFarShadows に登録して、自分から遠い物は影を切る
 // コースを作り直したらもう一度実行する（何度実行しても同じ結果になる）
 public static class FuwaFarViewSetup
@@ -18,24 +19,65 @@ public static class FuwaFarViewSetup
     // 画面の高さに対する割合がこれより小さくなったら消す
     const float CullHeight = 0.01f;
 
+    // 軽い形を作る対象：これ以上の三角形数で、いちばん長い辺がこれ以下（道のような長い物は、上にいても遠い扱いになるので除く）
+    const int HeavyTris = 4000;
+    const float HeavyMaxSize = 20f;
+    // 間引きの細かさ(m)。これより近い頂点はまとめる
+    const float FarCell = 0.05f;
+    // 「物の太さ」に対する画面の割合がこれより小さくなったら軽い形にする
+    const float FarHeight = 0.04f;
+    const string FarDir = "Assets/FuwaCourse/Generated/Far";
+    const string FarSuffix = "_Far";
+
     [MenuItem("FuwaCourse/遠景の軽量化を設定")]
     public static void Run()
     {
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         var roots = new Dictionary<string, GameObject>();
         foreach (var g in scene.GetRootGameObjects()) roots[g.name] = g;
+        var arrayRefs = new List<(SerializedObject, string)>();
+        var scripted = ScriptReferenced(scene, arrayRefs);
 
-        int lod = 0;
-        var shadowTargets = new List<Renderer>();
+        int lod = 0, far = 0;
+        var made = new Dictionary<Mesh, Mesh>();
+        var farOf = new Dictionary<Renderer, Renderer>();
         foreach (var a in Areas)
         {
             if (!roots.TryGetValue(a, out var root)) continue;
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
-                if (r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer) continue;
-                if (IsDeco(r.transform, root.transform) && SetCull(r)) lod++;
-                if (r.shadowCastingMode == ShadowCastingMode.On) shadowTargets.Add(r);
+                if (r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer || r.name.EndsWith(FarSuffix)) continue;
+                if (IsDeco(r.transform, root.transform)) { SetCull(r); lod++; }
+                else if (r is MeshRenderer mr && IsHeavy(r, scripted))
+                {
+                    var f = SetFar(mr, made);
+                    if (f != null) { farOf[r] = f; far++; }
+                }
             }
+        }
+        // スクリプトの Renderer[]（チェックポイントで光らせる物など）に元の物が入っていたら、軽い形も足す
+        foreach (var (so, path) in arrayRefs)
+        {
+            var arr = so.FindProperty(path);
+            var have = new HashSet<Object>();
+            for (int i = 0; i < arr.arraySize; i++) have.Add(arr.GetArrayElementAtIndex(i).objectReferenceValue);
+            int n0 = arr.arraySize;
+            for (int i = 0; i < n0; i++)
+                if (arr.GetArrayElementAtIndex(i).objectReferenceValue is Renderer src && farOf.TryGetValue(src, out var fr) && !have.Contains(fr))
+                {
+                    arr.InsertArrayElementAtIndex(arr.arraySize);
+                    arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = fr;
+                    have.Add(fr);
+                }
+            so.ApplyModifiedProperties();
+        }
+
+        var shadowTargets = new List<Renderer>();
+        foreach (var a in Areas)
+        {
+            if (!roots.TryGetValue(a, out var root)) continue;
+            foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+                if (!(r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer) && r.shadowCastingMode == ShadowCastingMode.On) shadowTargets.Add(r);
         }
 
         var holder = roots.TryGetValue("FuwaSystem", out var sys) ? sys.transform.Find("FarShadows") : null;
@@ -58,8 +100,9 @@ public static class FuwaFarViewSetup
             fs.radii[i] = b.extents.magnitude;
         }
         EditorUtility.SetDirty(fs);
+        AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
-        Debug.Log($"[遠景] 飾りのLOD {lod}個、影を切る対象 {fs.targets.Length}個");
+        Debug.Log($"[遠景] 飾りのLOD {lod}個、軽い形への切り替え {far}個、影を切る対象 {fs.targets.Length}個");
     }
 
     static bool IsDeco(Transform t, Transform root)
@@ -69,7 +112,7 @@ public static class FuwaFarViewSetup
         return DecoPath.IsMatch(string.Join("/", parts));
     }
 
-    static bool SetCull(Renderer r)
+    static void SetCull(Renderer r)
     {
         var g = r.GetComponent<LODGroup>();
         if (g == null) g = Undo.AddComponent<LODGroup>(r.gameObject);
@@ -77,6 +120,151 @@ public static class FuwaFarViewSetup
         g.fadeMode = LODFadeMode.None;
         g.SetLODs(new[] { new LOD(CullHeight, new[] { r }) });
         g.RecalculateBounds();
+    }
+
+    // スクリプトから触られている物（見た目を変えたり動かしたりする）は、軽い形に差し替えると動きがずれるので除く
+    static HashSet<GameObject> ScriptReferenced(UnityEngine.SceneManagement.Scene scene, List<(SerializedObject, string)> arrayRefs)
+    {
+        var set = new HashSet<GameObject>();
+        foreach (var root in scene.GetRootGameObjects())
+            foreach (var mb in root.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (mb == null || mb is VRC.Udon.UdonBehaviour || mb is FuwaFarShadows) continue;
+                var so = new SerializedObject(mb);
+                var it = so.GetIterator();
+                while (it.NextVisible(true))
+                {
+                    if (it.isArray && (it.arrayElementType == "PPtr<Renderer>" || it.arrayElementType == "PPtr<$Renderer>")) { arrayRefs.Add((so, it.propertyPath)); continue; }
+                    if (it.propertyType != SerializedPropertyType.ObjectReference || it.objectReferenceValue == null) continue;
+                    if (it.propertyPath.Contains(".Array.data[") && it.objectReferenceValue is Renderer) continue;   // Renderer[] の中身は上で扱う
+                    var o = it.objectReferenceValue;
+                    GameObject go = o is GameObject g ? g : (o is Component c && !(c is MonoBehaviour) ? c.gameObject : null);
+                    // エリアごと表示を切り替える参照（ルート）は数えない
+                    if (go != null && go.transform.parent != null) set.Add(go);
+                }
+            }
+        return set;
+    }
+
+    static int Tris(Mesh m)
+    {
+        long t = 0;
+        for (int i = 0; i < m.subMeshCount; i++) t += m.GetIndexCount(i) / 3;
+        return (int)t;
+    }
+
+    static bool IsHeavy(Renderer r, HashSet<GameObject> scripted)
+    {
+        var mf = r.GetComponent<MeshFilter>();
+        if (mf == null || mf.sharedMesh == null) return false;   // エディタでは読み取り不可のメッシュも読める
+        if (Tris(mf.sharedMesh) < HeavyTris) return false;
+        var s = r.bounds.size;
+        if (Mathf.Max(s.x, Mathf.Max(s.y, s.z)) > HeavyMaxSize) return false;
+        // 自分と親だけ見る（コースのまとまりごと参照されていることがあるので、それより上は見ない）
+        if (scripted.Contains(r.gameObject)) return false;
+        if (r.transform.parent != null && scripted.Contains(r.transform.parent.gameObject)) return false;
         return true;
+    }
+
+    static Renderer SetFar(MeshRenderer r, Dictionary<Mesh, Mesh> made)
+    {
+        var src = r.GetComponent<MeshFilter>().sharedMesh;
+        var ls = r.transform.lossyScale;
+        if (!made.TryGetValue(src, out var lite))
+        {
+            lite = Simplify(src, new Vector3(FarCell / Mathf.Abs(ls.x), FarCell / Mathf.Abs(ls.y), FarCell / Mathf.Abs(ls.z)));
+            lite.name = src.name + FarSuffix;
+            if (Tris(lite) > Tris(src) * 0.7f) { made[src] = null; return null; }   // ほとんど減らないなら切り替えない
+            if (!AssetDatabase.IsValidFolder(FarDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Far");
+            string path = FarDir + "/" + lite.name + ".asset";
+            var old = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if (old != null) { old.Clear(); EditorUtility.CopySerialized(lite, old); lite = old; }
+            else AssetDatabase.CreateAsset(lite, path);
+            made[src] = lite;
+        }
+        if (lite == null) return null;
+
+        var child = r.transform.Find(r.name + FarSuffix);
+        if (child == null)
+        {
+            child = new GameObject(r.name + FarSuffix).transform;
+            Undo.RegisterCreatedObjectUndo(child.gameObject, "far");
+            child.SetParent(r.transform, false);
+        }
+        child.gameObject.layer = r.gameObject.layer;
+        GameObjectUtility.SetStaticEditorFlags(child.gameObject, GameObjectUtility.GetStaticEditorFlags(r.gameObject));
+        var mf = child.GetComponent<MeshFilter>();
+        if (mf == null) mf = child.gameObject.AddComponent<MeshFilter>();
+        var mr = child.GetComponent<MeshRenderer>();
+        if (mr == null) mr = child.gameObject.AddComponent<MeshRenderer>();
+        mf.sharedMesh = lite;
+        mr.sharedMaterials = r.sharedMaterials;
+        mr.shadowCastingMode = r.shadowCastingMode;
+        mr.receiveShadows = r.receiveShadows;
+        mr.lightProbeUsage = r.lightProbeUsage;
+
+        var g = r.GetComponent<LODGroup>();
+        if (g == null) g = Undo.AddComponent<LODGroup>(r.gameObject);
+        else Undo.RecordObject(g, "LOD");
+        g.fadeMode = LODFadeMode.None;
+        g.SetLODs(new[] { new LOD(FarHeight, new Renderer[] { r }), new LOD(0f, new Renderer[] { mr }) });
+        g.RecalculateBounds();
+        // 柵のように広くて低い物でも「太さ」で切り替わるように、大きさはいちばん短い辺の長さにする
+        var s = r.bounds.size;
+        g.size = Mathf.Max(0.5f, Mathf.Min(s.x, Mathf.Min(s.y, s.z))) / Mathf.Max(0.0001f, Mathf.Max(Mathf.Abs(ls.x), Mathf.Max(Mathf.Abs(ls.y), Mathf.Abs(ls.z))));
+        return mr;
+    }
+
+    // 頂点を格子でまとめて間引く（向きが逆の面は別にまとめて、薄い物の表裏がつぶれないようにする）
+    static Mesh Simplify(Mesh src, Vector3 cell)
+    {
+        var v = src.vertices; var n = src.normals; var uv = src.uv; var col = src.colors;
+        bool hasN = n != null && n.Length == v.Length, hasUV = uv != null && uv.Length == v.Length, hasC = col != null && col.Length == v.Length;
+        var map = new Dictionary<(int, int, int, int), int>();
+        var remap = new int[v.Length];
+        var P = new List<Vector3>(); var N = new List<Vector3>(); var U = new List<Vector2>(); var C = new List<Color>(); var cnt = new List<int>();
+        for (int i = 0; i < v.Length; i++)
+        {
+            int dir = 0;
+            if (hasN)
+            {
+                var a = n[i]; float ax = Mathf.Abs(a.x), ay = Mathf.Abs(a.y), az = Mathf.Abs(a.z);
+                dir = ax >= ay && ax >= az ? (a.x > 0 ? 0 : 1) : ay >= az ? (a.y > 0 ? 2 : 3) : (a.z > 0 ? 4 : 5);
+            }
+            var key = (Mathf.FloorToInt(v[i].x / cell.x), Mathf.FloorToInt(v[i].y / cell.y), Mathf.FloorToInt(v[i].z / cell.z), dir);
+            if (!map.TryGetValue(key, out int k))
+            {
+                k = P.Count; map[key] = k;
+                P.Add(Vector3.zero); N.Add(Vector3.zero); U.Add(hasUV ? uv[i] : Vector2.zero); C.Add(hasC ? col[i] : Color.white); cnt.Add(0);
+            }
+            remap[i] = k;
+            P[k] += v[i]; if (hasN) N[k] += n[i]; cnt[k]++;
+        }
+        for (int k = 0; k < P.Count; k++) { P[k] /= cnt[k]; N[k] = N[k].sqrMagnitude > 1e-12f ? N[k].normalized : Vector3.up; }
+
+        var m = new Mesh { indexFormat = P.Count > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
+        m.SetVertices(P);
+        if (hasN) m.SetNormals(N);
+        if (hasUV) m.SetUVs(0, U);
+        if (hasC) m.SetColors(C);
+        m.subMeshCount = src.subMeshCount;
+        for (int s = 0; s < src.subMeshCount; s++)
+        {
+            var t = src.GetTriangles(s);
+            var T = new List<int>(); var seen = new HashSet<(int, int, int)>();
+            for (int i = 0; i + 2 < t.Length; i += 3)
+            {
+                int a = remap[t[i]], b = remap[t[i + 1]], c = remap[t[i + 2]];
+                if (a == b || b == c || a == c) continue;
+                // 同じ三角形の重複を除く（回転した並びも同じとみなす）
+                var key = a < b && a < c ? (a, b, c) : b < c ? (b, c, a) : (c, a, b);
+                if (!seen.Add(key)) continue;
+                T.Add(a); T.Add(b); T.Add(c);
+            }
+            m.SetTriangles(T, s);
+        }
+        m.RecalculateBounds();
+        if (!hasN) m.RecalculateNormals();
+        return m;
     }
 }
