@@ -17,7 +17,8 @@ float4 _GlowColor;  // 風などの影響を受けている間の光（rgb=色�
 float4 _GlowDir;    // 光る向き（ワールド空間。この向きの側ほど明るく、光の帯もこの向きに流れる）
 float4 _Squash;     // 撃たれた時のポヨン（xyz=ワールドの向き、w=量。+で向きに潰れて横にふくらむ、-で伸びる）
 float4 _EyeDirL, _EyeDirR;   // 目のある向き（オブジェクト空間）。この向きのまわりは毛を生やさない（目を毛が貫通しないように）
-float4 _EyeMask;    // x=これより内側(cos)は毛なし、y=ここまでで元の長さ。x<=0 なら使わない
+float4 _EyeMask;    // x=これより内側(cos)は毛を短く、y=ここまでで元の長さ。x<=0 なら使わない
+float _EyeMinLen;   // 目のまわりの毛の長さ（元の長さに対する割合）。0=毛なし（地肌が見える）
 
 struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
 struct v2f
@@ -74,11 +75,14 @@ fixed4 frag (v2f i) : SV_Target
     // 3Dのマス目ごとに毛の長さを決める（毛が短いマスは途中の層で消える）
     float3 cell = floor(i.objPos * _Density);
     float hairLen = hash3(cell);
+    float eyeK = 0;
     if (_EyeMask.x > 0)
     {
         float3 od = normalize(i.objPos);
         float k = max(dot(od, normalize(_EyeDirL.xyz)), dot(od, normalize(_EyeDirR.xyz)));
-        hairLen *= 1.0 - smoothstep(_EyeMask.y, _EyeMask.x, k);
+        eyeK = smoothstep(_EyeMask.y, _EyeMask.x, k);
+        // 毛を消すと地肌（暗い根元の色）が目立つので、短く刈るだけにする
+        hairLen *= lerp(1.0, _EyeMinLen, eyeK);
     }
     float3 local = frac(i.objPos * _Density) - 0.5;
     float radial = length(local);
@@ -91,8 +95,9 @@ fixed4 frag (v2f i) : SV_Target
     float ndl = saturate(dot(n, l) * 0.6 + 0.4);
     float3 v = normalize(_WorldSpaceCameraPos - i.worldPos);
     float rim = pow(1.0 - saturate(dot(n, v)), _RimPower) * _RimStrength;
-    float ao = lerp(1.0 - _Shadow, 1.0, h);
-    float3 col = lerp(_Color.rgb, _TipColor.rgb, h);
+    float ao = lerp(1.0 - _Shadow, 1.0, saturate(h + eyeK * 0.6));
+    // 目のまわりの短い毛は、根元の暗い色ではなく毛先寄りの色に（短く刈った毛並みに見えるように）
+    float3 col = lerp(_Color.rgb, _TipColor.rgb, saturate(h + eyeK * 0.55));
     col = col * (ndl * _LightColor0.rgb + ShadeSH9(float4(n, 1))) * ao + rim * _TipColor.rgb;
     // 風の光：玉の中心から見て _GlowDir 側ほど明るいグラデ＋その向きに流れる帯。毛先ほど強く
     if (_GlowColor.a > 0.001)
