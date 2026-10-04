@@ -124,7 +124,7 @@ public static class FuwaKazeDeco
             for (int k = 0; k < ns; k++)
             {
                 var sp = pos + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * R(0.8f, rad * 0.85f);
-                Small(plants, new Vector3(sp.x, topY, sp.z), rnd.NextDouble() < 0.5, wind, rnd);
+                Small(new MB(), new Vector3(sp.x, topY, sp.z), rnd.NextDouble() < 0.5, wind, rnd);   // 小さいたんぽぽはなし（乱数だけ進めて配置を変えない）
             }
         }
         log.Append("islands " + placed.Count + " ");
