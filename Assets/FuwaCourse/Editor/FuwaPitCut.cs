@@ -30,6 +30,120 @@ public static class FuwaPitCut
 
     public static Mesh Cut(Mesh src, Transform tr, Vector3 origin, Vector3 axis, float s0, float s1, float yBottom, float halfWidth)
     {
+        return CutJagged(src, tr, origin, axis, l => s0, l => s1, yBottom, halfWidth, 0f);
+    }
+
+    // 手前・奥の切り口をギザギザにする版。e0(lat)／e1(lat) が切り口の位置（axis 方向）。
+    // 切り口付近の三角形は maxEdge 以下まで細かく割ってから切る（ギザギザに沿わせるため）。maxEdge=0 なら割らない
+    public static Mesh CutJagged(Mesh src, Transform tr, Vector3 origin, Vector3 axis, System.Func<float, float> e0, System.Func<float, float> e1, float yBottom, float halfWidth, float maxEdge)
+    {
+        axis.y = 0; axis.Normalize(); var side = new Vector3(-axis.z, 0, axis.x);
+        float S(Vector3 p) => Vector3.Dot(p - origin, axis);
+        float L(Vector3 p) => Vector3.Dot(p - origin, side);
+        float A(Vector3 p) => S(p) - e0(L(p));   // >0 なら手前の切り口より奥
+        float B(Vector3 p) => e1(L(p)) - S(p);   // >0 なら奥の切り口より手前
+        // ギザギザの幅（割る範囲を決める）
+        float a0 = float.MaxValue, a1 = float.MinValue, b0 = float.MaxValue, b1 = float.MinValue;
+        for (float l = -halfWidth; l <= halfWidth; l += 0.05f) { a0 = Mathf.Min(a0, e0(l)); a1 = Mathf.Max(a1, e0(l)); b0 = Mathf.Min(b0, e1(l)); b1 = Mathf.Max(b1, e1(l)); }
+        float s0 = a0, s1 = b1;
+        var l2w = tr.localToWorldMatrix; var w2l = tr.worldToLocalMatrix;
+        var pv = src.vertices; var pn = src.normals; var puv = src.uv; var puv2 = src.uv2; var pc = src.colors;
+        bool hasN = pn.Length == pv.Length, hasUv = puv.Length == pv.Length, hasUv2 = puv2.Length == pv.Length, hasC = pc.Length == pv.Length;
+        V Get(int i) => new V { p = l2w.MultiplyPoint3x4(pv[i]), n = hasN ? l2w.MultiplyVector(pn[i]) : Vector3.up, uv = hasUv ? puv[i] : Vector2.zero, uv2 = hasUv2 ? puv2[i] : Vector2.zero, c = hasC ? pc[i] : Color.white };
+        var pieces = new System.Func<Vector3, float>[][]
+        {
+            new System.Func<Vector3, float>[] { p => -A(p) },
+            new System.Func<Vector3, float>[] { p => -B(p) },
+            new System.Func<Vector3, float>[] { A, B, p => yBottom - p.y },
+            new System.Func<Vector3, float>[] { A, B, p => p.y - yBottom, p => -L(p) - halfWidth },
+            new System.Func<Vector3, float>[] { A, B, p => p.y - yBottom, p => L(p) - halfWidth },
+        };
+        // 切り口の帯にかかる三角形か
+        bool NearEdge(V a, V b, V c)
+        {
+            float smin = Mathf.Min(S(a.p), Mathf.Min(S(b.p), S(c.p))), smax = Mathf.Max(S(a.p), Mathf.Max(S(b.p), S(c.p)));
+            float ymax = Mathf.Max(a.p.y, Mathf.Max(b.p.y, c.p.y));
+            float lmin = Mathf.Min(L(a.p), Mathf.Min(L(b.p), L(c.p))), lmax = Mathf.Max(L(a.p), Mathf.Max(L(b.p), L(c.p)));
+            if (ymax <= yBottom || lmin >= halfWidth || lmax <= -halfWidth) return false;
+            bool band0 = smax > a0 - 0.05f && smin < a1 + 0.05f, band1 = smax > b0 - 0.05f && smin < b1 + 0.05f;
+            return band0 || band1;
+        }
+        var OV = new List<V>(); var subs = new List<List<int>>();
+        for (int sm = 0; sm < src.subMeshCount; sm++)
+        {
+            var T = src.GetTriangles(sm); var outT = new List<int>();
+            var stack = new Stack<(V, V, V)>();
+            for (int k = 0; k < T.Length; k += 3)
+            {
+                stack.Push((Get(T[k]), Get(T[k + 1]), Get(T[k + 2])));
+                while (stack.Count > 0)
+                {
+                    var (a, b, c) = stack.Pop();
+                    float smin = Mathf.Min(S(a.p), Mathf.Min(S(b.p), S(c.p))), smax = Mathf.Max(S(a.p), Mathf.Max(S(b.p), S(c.p)));
+                    float ymax = Mathf.Max(a.p.y, Mathf.Max(b.p.y, c.p.y));
+                    float lmin = Mathf.Min(L(a.p), Mathf.Min(L(b.p), L(c.p))), lmax = Mathf.Max(L(a.p), Mathf.Max(L(b.p), L(c.p)));
+                    if (smax <= s0 || smin >= s1 || ymax <= yBottom || lmin >= halfWidth || lmax <= -halfWidth)
+                    {
+                        int bi = OV.Count; OV.Add(a); OV.Add(b); OV.Add(c); outT.Add(bi); outT.Add(bi + 1); outT.Add(bi + 2); continue;
+                    }
+                    // 長い辺を半分に割る（ギザギザに沿わせる）
+                    if (maxEdge > 0 && NearEdge(a, b, c))
+                    {
+                        float dab = (a.p - b.p).sqrMagnitude, dbc = (b.p - c.p).sqrMagnitude, dca = (c.p - a.p).sqrMagnitude;
+                        float dm = Mathf.Max(dab, Mathf.Max(dbc, dca));
+                        if (dm > maxEdge * maxEdge)
+                        {
+                            if (dm == dab) { var m = Lerp(a, b, 0.5f); stack.Push((a, m, c)); stack.Push((m, b, c)); }
+                            else if (dm == dbc) { var m = Lerp(b, c, 0.5f); stack.Push((a, b, m)); stack.Push((a, m, c)); }
+                            else { var m = Lerp(c, a, 0.5f); stack.Push((a, b, m)); stack.Push((m, b, c)); }
+                            continue;
+                        }
+                    }
+                    foreach (var planes in pieces)
+                    {
+                        var poly = new List<V> { a, b, c };
+                        foreach (var f in planes) { poly = Clip(poly, f); if (poly.Count < 3) break; }
+                        if (poly.Count < 3) continue;
+                        int bi = OV.Count; OV.AddRange(poly);
+                        for (int q = 1; q + 1 < poly.Count; q++) { outT.Add(bi); outT.Add(bi + q); outT.Add(bi + q + 1); }
+                    }
+                }
+            }
+            subs.Add(outT);
+        }
+        return Build(src, OV, subs, w2l, hasN, hasUv, hasUv2, hasC);
+    }
+
+    static Mesh Build(Mesh src, List<V> OV, List<List<int>> subs, Matrix4x4 w2l, bool hasN, bool hasUv, bool hasUv2, bool hasC)
+    {
+        // 同じ頂点（位置・法線・UV・色が同じ）をまとめる。切ったり割ったりで頂点がばらばらになっているため
+        var map = new Dictionary<(int, int, int, int, int, int, int, int, int, int, int), int>(); var WV = new List<V>(); var remap = new int[OV.Count];
+        for (int i = 0; i < OV.Count; i++)
+        {
+            var v = OV[i];
+            var key = (Mathf.RoundToInt(v.p.x * 1000), Mathf.RoundToInt(v.p.y * 1000), Mathf.RoundToInt(v.p.z * 1000),
+                       Mathf.RoundToInt(v.n.x * 100), Mathf.RoundToInt(v.n.y * 100), Mathf.RoundToInt(v.n.z * 100),
+                       Mathf.RoundToInt(v.uv.x * 2000), Mathf.RoundToInt(v.uv.y * 2000), Mathf.RoundToInt(v.uv2.x * 4000), Mathf.RoundToInt(v.uv2.y * 4000),
+                       Mathf.RoundToInt(v.c.r * 255) + Mathf.RoundToInt(v.c.g * 255) * 256 + Mathf.RoundToInt(v.c.b * 255) * 65536);
+            if (!map.TryGetValue(key, out int id)) { id = WV.Count; map[key] = id; WV.Add(v); }
+            remap[i] = id;
+        }
+        OV = WV; subs = subs.Select(s => s.Select(i => remap[i]).ToList()).ToList();
+        var m = new Mesh { name = src.name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        m.SetVertices(OV.Select(v => w2l.MultiplyPoint3x4(v.p)).ToList());
+        if (hasN) m.SetNormals(OV.Select(v => w2l.MultiplyVector(v.n).normalized).ToList());
+        if (hasUv) m.SetUVs(0, OV.Select(v => v.uv).ToList());
+        if (hasUv2) m.SetUVs(1, OV.Select(v => v.uv2).ToList());
+        if (hasC) m.SetColors(OV.Select(v => v.c).ToList());
+        m.subMeshCount = subs.Count; for (int i = 0; i < subs.Count; i++) m.SetTriangles(subs[i], i);
+        m.RecalculateBounds();
+        if (!hasN) m.RecalculateNormals();
+        m.Optimize();
+        return m;
+    }
+
+    static Mesh CutOld(Mesh src, Transform tr, Vector3 origin, Vector3 axis, float s0, float s1, float yBottom, float halfWidth)
+    {
         axis.y = 0; axis.Normalize(); var side = new Vector3(-axis.z, 0, axis.x);
         float S(Vector3 p) => Vector3.Dot(p - origin, axis);
         float L(Vector3 p) => Vector3.Dot(p - origin, side);
