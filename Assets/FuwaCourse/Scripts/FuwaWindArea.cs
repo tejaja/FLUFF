@@ -23,6 +23,12 @@ public class FuwaWindArea : UdonSharpBehaviour
     public float warnSeconds = 0.6f;
     [Tooltip("風が止まっている間に消す見た目（パーティクルなど）")]
     public GameObject visual;
+    [Tooltip("予告の間の見た目（粒）の出る量（吹いている時を1として）")]
+    [Range(0f, 1f)] public float warnLevel = 1f;
+    [Tooltip("吹いている間だけ出す追加の粒（舞う葉っぱなど。予告の間は出ない）。visual 用")]
+    public ParticleSystem[] extraVisuals;
+    [Tooltip("同じく visualReverse 用")]
+    public ParticleSystem[] extraVisualsReverse;
 
     [Header("吹くたびに向きを反転（offSeconds>0の時だけ）")]
     public bool alternate = false;
@@ -61,6 +67,9 @@ public class FuwaWindArea : UdonSharpBehaviour
     private float _rateRev;
     private float _level;
     private float _levelRev;
+    private float _target = 1f;   // 吹いている=1、予告中=warnLevel
+    private float[] _extraRate;
+    private float[] _extraRateRev;
 
     private void Start()
     {
@@ -80,6 +89,29 @@ public class FuwaWindArea : UdonSharpBehaviour
         {
             _psRev = visualReverse.GetComponent<ParticleSystem>();
             if (_psRev != null) { _rateRev = _psRev.emission.rateOverTimeMultiplier; visualReverse.SetActive(true); }
+        }
+        _extraRate = ReadRates(extraVisuals);
+        _extraRateRev = ReadRates(extraVisualsReverse);
+    }
+
+    private float[] ReadRates(ParticleSystem[] list)
+    {
+        if (list == null) return null;
+        float[] r = new float[list.Length];
+        for (int i = 0; i < list.Length; i++) if (list[i] != null) r[i] = list[i].emission.rateOverTimeMultiplier;
+        return r;
+    }
+
+    // 追加の粒は、予告の分（warnLevel）を超えた分だけ出す＝吹いている時だけ
+    private void ApplyExtra(ParticleSystem[] list, float[] rates, float level)
+    {
+        if (list == null || rates == null) return;
+        float k = warnLevel < 1f ? Mathf.Clamp01((level - warnLevel) / (1f - warnLevel)) : level;
+        for (int i = 0; i < list.Length; i++)
+        {
+            if (list[i] == null) continue;
+            ParticleSystem.EmissionModule em = list[i].emission;
+            em.rateOverTimeMultiplier = rates[i] * k;
         }
     }
 
@@ -124,11 +156,12 @@ public class FuwaWindArea : UdonSharpBehaviour
         if (_blowing && !_wasBlowing && gustSound != null) gustSound.Play();
         _wasBlowing = _blowing;
 
-        if (_blowing) SetVisual(_reversed ? 2 : 1);
+        if (_blowing) { _target = 1f; SetVisual(_reversed ? 2 : 1); }
         else if (t > cycle - warnSeconds)
         {
-            // 予告は「次に吹く向き」で出す
+            // 予告は「次に吹く向き」で出す（量は warnLevel）
             bool nextReversed = alternate && ((index + 1) % 2 != 0);
+            _target = warnLevel;
             SetVisual(nextReversed ? 2 : 1);
         }
         else SetVisual(0);
@@ -139,15 +172,17 @@ public class FuwaWindArea : UdonSharpBehaviour
         float step = fadeSeconds > 0f ? Time.deltaTime / fadeSeconds : 1f;
         if (_ps != null)
         {
-            _level = Mathf.MoveTowards(_level, _visualState == 1 ? 1f : 0f, step);
+            _level = Mathf.MoveTowards(_level, _visualState == 1 ? _target : 0f, step);
             ParticleSystem.EmissionModule em = _ps.emission;
             em.rateOverTimeMultiplier = _rate * _level;
+            ApplyExtra(extraVisuals, _extraRate, _level);
         }
         if (_psRev != null)
         {
-            _levelRev = Mathf.MoveTowards(_levelRev, _visualState == 2 ? 1f : 0f, step);
+            _levelRev = Mathf.MoveTowards(_levelRev, _visualState == 2 ? _target : 0f, step);
             ParticleSystem.EmissionModule em = _psRev.emission;
             em.rateOverTimeMultiplier = _rateRev * _levelRev;
+            ApplyExtra(extraVisualsReverse, _extraRateRev, _levelRev);
         }
         // 地面のハイライトは粒と同じ速さでフェードイン／アウト（予告の間から出始める）
         if (_hlMat != null)
