@@ -61,6 +61,15 @@ public static class FuwaMamonoDeco
             return d;
         }
 
+        // 自分のコースの巣（床より外にふちや底がはみ出している）にも近づけない
+        var selfPts = new List<Vector3>();
+        foreach (var r in den.GetComponentsInChildren<MeshRenderer>())
+        {
+            var vv = r.GetComponent<MeshFilter>().sharedMesh.vertices; int stp = Mathf.Max(1, vv.Length / 300);
+            for (int i = 0; i < vv.Length; i += stp) selfPts.Add(r.transform.TransformPoint(vv[i]));
+        }
+        float DistSelf(Bounds b) { float d = 999f; foreach (var p in selfPts) { float e = Mathf.Sqrt(b.SqrDistance(p)); if (e < d) d = e; } return d; }
+
         // ---- A：まわりの小さい巣 ----
         var podSrc = new[] { "Pod1", "Pod2", "Pod3" }.Select(n => den.Find(n)).Where(t => t != null).ToList();
         var pods = new List<(Vector3[] v, Vector3[] n, Color[] c, int[] t, float rad, float depth)>();
@@ -92,24 +101,28 @@ public static class FuwaMamonoDeco
             float dp = DistPath(pos); if (dp < 5f + rad || dp > 19f) continue;
             if (placed.Any(q => new Vector2(q.pos.x - pos.x, q.pos.z - pos.z).magnitude < q.rad + rad + 4f)) continue;
             var bb = new Bounds(pos + Vector3.down * pd.depth * sc * 0.5f, new Vector3(rad * 2, pd.depth * sc + 1f, rad * 2));
-            if (DistOther(bb) < 12f) continue;
+            if (DistOther(bb) < 12f || DistSelf(bb) < 3f) continue;
             placed.Add((pos, rad));
             var xf = Matrix4x4.TRS(pos, Quaternion.Euler(R(-4, 4), R(0, 360), R(-4, 4)), Vector3.one * sc);
             int bi = nests.V.Count;
             for (int i = 0; i < pd.v.Length; i++) { nests.V.Add(xf.MultiplyPoint3x4(pd.v[i])); nests.N.Add(xf.MultiplyVector(pd.n[i]).normalized); nests.C.Add(pd.c[i]); }
             foreach (var t in pd.t) nests.T.Add(bi + t);
-            // タマゴ：1〜3個（割れたのも）
-            int ne = rnd.Next(1, 4);
-            for (int k = 0; k < ne; k++)
+            // タマゴ：3個セット。寄り添って少し外へ傾き、まわりをしきわらで囲む（ときどき1個割れてる）
             {
-                float er = R(0.17f, 0.24f) * Mathf.Lerp(1f, sc / 0.6f, 0.4f);
-                var ep = pos + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * (ne == 1 ? R(0, 0.1f) : R(0.15f, 0.32f) * sc / 0.6f);
-                bool cracked = rnd.NextDouble() < 0.35;
-                var col = EggColor(rnd);
-                var tilt = Quaternion.Euler(R(-12, 12), R(0, 360), R(-12, 12));
-                Shell(eggs, Matrix4x4.TRS(ep + Vector3.up * er * 1.05f, tilt, Vector3.one), er, er * 1.3f, cracked ? R(0.9f, 1.25f) : 0f, Mathf.PI, col, rnd);
-                if (cracked)   // 割れたカラのフタが横に転がってる
-                    Shell(eggs, Matrix4x4.TRS(ep + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * er * 2.2f + Vector3.up * er * 0.35f, Quaternion.Euler(R(150, 200), R(0, 360), R(-20, 20)), Vector3.one), er, er * 1.3f, 0f, R(0.8f, 1.0f), col, rnd);
+                float er = R(0.17f, 0.22f) * Mathf.Lerp(1f, sc / 0.6f, 0.4f);
+                var col = EggColor(rnd); float d = er * 1.18f, a0 = R(0, 360);
+                Bedding(eggs, pos, d + er * 0.95f, er, rnd);
+                int crackedOne = rnd.NextDouble() < 0.45 ? rnd.Next(3) : -1;
+                for (int k = 0; k < 3; k++)
+                {
+                    var outDir = Quaternion.Euler(0, a0 + k * 120 + R(-10, 10), 0) * Vector3.forward;
+                    var ep = pos + outDir * d;
+                    var tilt = Quaternion.AngleAxis(R(8, 16), Vector3.Cross(Vector3.up, outDir)) * Quaternion.Euler(0, R(0, 360), 0);
+                    bool cracked = k == crackedOne;
+                    Shell(eggs, Matrix4x4.TRS(ep + Vector3.up * er * 0.85f, tilt, Vector3.one), er, er * 1.3f, cracked ? R(0.9f, 1.2f) : 0f, Mathf.PI, col, rnd);
+                    if (cracked)   // 割れたカラのフタが横に転がってる
+                        Shell(eggs, Matrix4x4.TRS(pos + outDir * (d + er * 2.6f) + Vector3.up * er * 0.35f, Quaternion.Euler(R(150, 200), R(0, 360), R(-20, 20)), Vector3.one), er, er * 1.3f, 0f, R(0.8f, 1.0f), col, rnd);
+                }
             }
         }
         log.Append("nests " + placed.Count + " ");
@@ -270,7 +283,7 @@ public static class FuwaMamonoDeco
     // タマゴの殻（th0〜th1 の範囲。上が th=0）。th0>0 なら上のふちを、th1<π なら下のふちをギザギザにする
     static void Shell(MB m, Matrix4x4 xf, float r, float h, float th0, float th1, Color c, System.Random rnd)
     {
-        const int seg = 14, rings = 9;
+        const int seg = 12, rings = 8;
         bool cutTop = th0 > 0.01f, cutBot = th1 < Mathf.PI - 0.01f;
         int bi = m.V.Count;
         Vector3 P(float th, float ph)
@@ -301,6 +314,43 @@ public static class FuwaMamonoDeco
             }
         if (!cutTop) { int tp = m.Add(xf.MultiplyPoint3x4(new Vector3(0, h, 0)), xf.MultiplyVector(Vector3.up), c); for (int i = 0; i < seg; i++) m.Tri(tp, bi + (i + 1) % seg, bi + i); }
         if (!cutBot) { int bp = m.Add(xf.MultiplyPoint3x4(new Vector3(0, -h * 0.8f, 0)), xf.MultiplyVector(Vector3.down), c); int last = bi + rings * seg; for (int i = 0; i < seg; i++) m.Tri(bp, last + i, last + (i + 1) % seg); }
+    }
+
+    // タマゴのしきわら：小枝を輪に寝かせて何段か重ね（外ほど高く）、底にも敷き、枯れ草を寝かせて混ぜる
+    static void Bedding(MB m, Vector3 at, float ring, float er, System.Random rnd)
+    {
+        float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
+        Color[] cols = { new Color(0.55f, 0.4f, 0.27f), new Color(0.48f, 0.34f, 0.23f), new Color(0.66f, 0.52f, 0.33f) };
+        void Stick(float a0, float span, float r, float y, float tr)
+        {
+            var pts = new List<Vector3>(); var rad = new List<float>();
+            for (int k = 0; k <= 4; k++)
+            {
+                float a = a0 + span * k / 4f, rr = r * R(0.94f, 1.06f);
+                pts.Add(at + new Vector3(Mathf.Cos(a) * rr, y + tr + R(-0.01f, 0.01f), Mathf.Sin(a) * rr));
+                rad.Add(tr * Mathf.Lerp(1f, 0.55f, k / 4f));
+            }
+            Tube(m, pts, rad, 4, cols[rnd.Next(cols.Length)] * R(0.88f, 1.08f));
+        }
+        // 輪（外側ほど高く積む）
+        for (int layer = 0; layer < 4; layer++)
+        {
+            float rr = ring * (0.92f + layer * 0.07f), y = er * (0.02f + layer * 0.17f);
+            int n = Mathf.RoundToInt(rr * 2 * Mathf.PI / (er * 0.9f));
+            for (int i = 0; i < n; i++) Stick((i + R(-0.3f, 0.3f)) * Mathf.PI * 2 / n + layer * 0.5f, Mathf.PI * 2 / n * R(1.4f, 2.0f), rr, y, er * R(0.11f, 0.15f));
+        }
+        // 底に敷いた小枝（タマゴの下からはみ出して見える）
+        for (int i = 0; i < 10; i++) Stick(R(0, Mathf.PI * 2), R(0.5f, 1.0f), ring * R(0.3f, 0.8f), 0f, er * R(0.08f, 0.11f));
+        // 寝かせた枯れ草
+        var straw = new Color(0.82f, 0.7f, 0.42f);
+        for (int i = 0; i < 16; i++)
+        {
+            float a = R(0, Mathf.PI * 2), r = ring * R(0.8f, 1.15f); var b = at + new Vector3(Mathf.Cos(a) * r, er * R(0.1f, 0.6f), Mathf.Sin(a) * r);
+            var tang = new Vector3(-Mathf.Sin(a), 0, Mathf.Cos(a)) * (rnd.NextDouble() < 0.5 ? 1 : -1);
+            var d = (tang + new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * R(-0.2f, 0.4f) + Vector3.up * R(-0.1f, 0.15f)).normalized;
+            float len = er * R(0.7f, 1.2f);
+            Tube(m, new List<Vector3> { b, b + d * len * 0.5f, b + d * len + Vector3.down * er * 0.08f }, new List<float> { er * 0.035f, er * 0.03f, er * 0.012f }, 3, straw * R(0.85f, 1.1f));
+        }
     }
 
     // 床に落ちた小枝（少し曲がった棒＋小さい枝分かれ）
