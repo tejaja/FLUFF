@@ -342,6 +342,14 @@ public class FuwaBall : UdonSharpBehaviour
         if (mag > 0.05f) SetGlow(windGlowColor, acceleration / mag, Mathf.Clamp01(mag / windGlowFull), 0.1f);
     }
 
+    // 風の力はそのままかけて、光る向き・強さだけ指定する（つむじ風に捕まっている時など、力の向きがころころ変わる時用）
+    public void AddWindGlowDir(Vector3 acceleration, Vector3 glowDir, float glowAmount)
+    {
+        if (_waiting || _resetAt > 0f || _stuck) return;
+        _rb.AddForce(acceleration, ForceMode.Acceleration);
+        if (glowDir.sqrMagnitude > 0.0001f) SetGlow(windGlowColor, glowDir.normalized, Mathf.Clamp01(glowAmount), 0.1f);
+    }
+
     // 発射台から呼ばれる（速度をそのまま上書き）
     public void Launch(Vector3 velocity)
     {

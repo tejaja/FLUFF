@@ -43,6 +43,10 @@ public class FuwaWhirlwind : UdonSharpBehaviour
     public float trapHeight = 0.8f;
     public float trapHoldStiffness = 3f;
     public float trapHoldDamp = 2f;
+    [Tooltip("回りながら上下する幅(m)。輪の上の位置と時間でゆるく波打つ")]
+    public float trapBob = 0f;
+    [Tooltip("上下の波がずれていく速さ（1秒あたりのラジアン）")]
+    public float trapBobSpeed = 0.8f;
 
     public void OnTriggerStay(Collider other)
     {
@@ -106,8 +110,12 @@ public class FuwaWhirlwind : UdonSharpBehaviour
             float vt = Vector3.Dot(vFlat, tangent);
             acc += tangent * (trapSpin * Mathf.Clamp01(r / 0.4f) - vt) * 2f;
         }
-        // 高さ：重さを打ち消して、trapHeight へばねで戻す
-        acc.y += ball.fallAcceleration + (trapHeight - local.y) * trapHoldStiffness - vel.y * trapHoldDamp;
-        ball.AddWind(transform.TransformDirection(acc));
+        // 高さ：重さを打ち消して、目標の高さへばねで戻す。目標は輪の上の位置と時間でゆるく波打つ（回りながら上下する）
+        float targetH = trapHeight;
+        if (trapBob > 0f && r > 0.001f) targetH += trapBob * Mathf.Sin(Mathf.Atan2(flat.z, flat.x) * spinDir + Time.time * trapBobSpeed);
+        acc.y += ball.fallAcceleration + (targetH - local.y) * trapHoldStiffness - vel.y * trapHoldDamp;
+        // 光る向きは力の向き（ころころ変わる）ではなく、回っている向き＋少し上向きにして落ち着かせる
+        Vector3 glow = r > 0.001f ? Vector3.Cross(Vector3.up, flat / r) * spinDir + Vector3.up * 0.6f : Vector3.up;
+        ball.AddWindGlowDir(transform.TransformDirection(acc), transform.TransformDirection(glow), 0.55f);
     }
 }
