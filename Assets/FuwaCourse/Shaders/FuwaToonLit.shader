@@ -1,4 +1,4 @@
-// やわらかいトゥーン寄りのライティング（Standard の代わり、軽い）。
+﻿// やわらかいトゥーン寄りのライティング（Standard の代わり、軽い）。
 // ・光の当たり方はハーフランバートを少しだけ段にして、ふんわり明暗
 // ・影はグレーではなく _ShadowTint（紫寄り）に寄せる。太陽の影（シャドウ）も同じ色で受ける
 // ・まわりの明るさは環境光（空・地平線・地面の3色）から
@@ -64,6 +64,7 @@ Shader "FuwaCourse/ToonLit"
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
+            #include "FuwaBaked.cginc"
 
             sampler2D _MainTex; float4 _MainTex_ST;
             fixed4 _ShadowTint, _RimColor;
@@ -93,7 +94,7 @@ Shader "FuwaCourse/ToonLit"
                 UNITY_DEFINE_INSTANCED_PROP(half4, _EmissionColor)
             UNITY_INSTANCING_BUFFER_END(Props)
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f
             {
                 float4 pos : SV_POSITION;
@@ -105,6 +106,7 @@ Shader "FuwaCourse/ToonLit"
                 UNITY_FOG_COORDS(5)
                 half fade : TEXCOORD6;
                 float3 pp : TEXCOORD7;   // 色ムラ・層の模様を取る位置（つららは根元＝天井の位置で取って、天井と同じ層の色にする）
+                FUWA_BAKED_COORDS(8)
                 UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
@@ -128,6 +130,7 @@ Shader "FuwaCourse/ToonLit"
                     unity_4LightAtten0, o.wp, o.wn) / max(_AmbientStrength, 0.01);
                 #endif
                 TRANSFER_SHADOW(o);
+                FUWA_BAKED_TRANSFER(o, v)
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -172,13 +175,19 @@ Shader "FuwaCourse/ToonLit"
                 half wrap = saturate((ndl + _Wrap) / (1 + _Wrap));
                 half band = smoothstep(0.5 - 0.5 * (1 - _Steps), 0.5 + 0.5 * (1 - _Steps), wrap);
                 half lit = lerp(wrap, band, 0.5);
+                #if defined(LIGHTMAP_ON)
+                half atten = FuwaBakedShadow(i.lmuv);   // 動かない物は焼いた影
+                half3 amb = FuwaBakedAmbient(i.lmuv);
+                #else
                 UNITY_LIGHT_ATTENUATION(atten, i, i.wp);
+                half3 amb = i.amb;
+                #endif
                 lit *= lerp(1, atten, 0.85);
 
                 // 影側はグレーではなく紫寄りの色に
                 half3 shade = lerp(1, _ShadowTint.rgb, _ShadowStrength);
                 half3 light = lerp(shade, 1, lit) * _LightColor0.rgb;
-                half3 c = col.rgb * (light + i.amb * _AmbientStrength * shade);
+                half3 c = col.rgb * (light + amb * _AmbientStrength * shade);
 
                 // ふちの光（光の当たる側は少し強め）
                 half rim = pow(1 - saturate(dot(n, v)), _RimPower) * _RimStrength * (0.5 + 0.5 * lit);

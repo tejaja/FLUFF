@@ -1,4 +1,4 @@
-// ヒトヨタケ（重力エリアのキノコ）：頂点カラー（sRGBで書いた色）＋やわらかい光。
+﻿// ヒトヨタケ（重力エリアのキノコ）：頂点カラー（sRGBで書いた色）＋やわらかい光。
 // 黒いインクの所（暗い色）だけツヤを出して、ぬれて溶けてる感じにする。
 // 傘は厚みのない膜なので両面描画（裏から見た時は法線を反転）。しずくの付け根やふちの裏が抜けて見えないように。
 Shader "FuwaCourse/InkCap"
@@ -29,12 +29,13 @@ Shader "FuwaCourse/InkCap"
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
+            #include "FuwaBaked.cginc"
 
             half _Wrap, _Ambient, _InkGloss;
             float _DripAmp, _DripSpeed;
             fixed4 _InkTint;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f
             {
                 float4 pos : SV_POSITION;
@@ -43,6 +44,7 @@ Shader "FuwaCourse/InkCap"
                 float3 wp : TEXCOORD1;
                 SHADOW_COORDS(2)
                 UNITY_FOG_COORDS(3)
+                FUWA_BAKED_COORDS(4)
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -63,6 +65,7 @@ Shader "FuwaCourse/InkCap"
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 o.color = v.color;
                 TRANSFER_SHADOW(o);
+                FUWA_BAKED_TRANSFER(o, v)
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -74,12 +77,18 @@ Shader "FuwaCourse/InkCap"
                 float3 v = normalize(_WorldSpaceCameraPos - i.wp);
                 fixed3 col = GammaToLinearSpace(i.color.rgb);
                 half ink = saturate(1 - dot(i.color.rgb, 1.0 / 3.0) * 3.0);   // 暗い所ほど1
+                #if defined(LIGHTMAP_ON)
+                half atten = FuwaBakedShadow(i.lmuv);
+                half3 amb = FuwaBakedAmbient(i.lmuv);
+                #else
                 half atten = SHADOW_ATTENUATION(i);
+                half3 amb = ShadeSH9(half4(0, 1, 0, 1));
+                #endif
                 half d = saturate((dot(n, l) + _Wrap) / (1 + _Wrap));
                 half spec = pow(saturate(dot(n, normalize(l + v))), 40) * ink * _InkGloss;
                 half fres = pow(1 - saturate(dot(v, n)), 3);
                 fixed3 c = (col * d + spec * _InkTint.rgb) * _LightColor0.rgb * atten
-                         + col * ShadeSH9(half4(0, 1, 0, 1)) * _Ambient * 2
+                         + col * amb * _Ambient * 2
                          + fres * ink * _InkTint.rgb * 0.15;
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
