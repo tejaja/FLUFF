@@ -115,11 +115,11 @@ public static class FuwaPracticeProps
         for (int k = 0; k < n; k++)
         {
             float pr = R(0.035f, 0.045f), br = R(0.26f, 0.34f), h = R(0.45f, 0.95f);   // 細い棒＋大きいキャンディ
-            var basePt = c + side * (hw - R(0.14f, 0.22f)) + d * (along0 + k * 0.62f + R(-0.05f, 0.05f));
+            var basePt = c + side * (hw - br - R(0.15f, 0.22f)) + d * (along0 + k * 0.62f + R(-0.05f, 0.05f));   // 玉が道からはみ出さない位置
             int ci; do ci = rnd.Next(Pastel.Length); while (used.Contains(ci)); used.Add(ci);
             var ball = Pastel[ci];
-            // 斜めに立てる（道の外側か前後に傾ける。道の内側へは倒さない）
-            var lean = (side.normalized * R(0.2f, 1f) + d * R(-1f, 1f)).normalized;
+            // 斜めに立てる（おもに前後に傾ける。横は少しだけ）
+            var lean = (d * (rnd.NextDouble() < 0.5 ? 1f : -1f) + side.normalized * R(-0.25f, 0.2f)).normalized;
             var tilt = Quaternion.AngleAxis(R(12f, 24f), Vector3.Cross(Vector3.up, lean));
             Lathe(m, basePt, tilt, new List<Vector2> { new Vector2(0, 0), new Vector2(pr, 0), new Vector2(pr, h + br * 0.3f) }, 10, Cream);
             var top = basePt + tilt * Vector3.up * (h + br * 0.9f);
@@ -135,7 +135,7 @@ public static class FuwaPracticeProps
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         int n = rnd.Next(2, 4); float r0 = R(0.45f, 0.58f);
-        var basePt = c + side * (hw - r0 * 0.35f);
+        var basePt = c + side * (hw - r0 * 1.12f);   // 道からはみ出さない位置
         float y = 0; var p = basePt; float top = 0; int lastCol = -1;
         for (int k = 0; k < n; k++)
         {
