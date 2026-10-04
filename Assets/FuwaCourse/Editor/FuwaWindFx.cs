@@ -3,43 +3,51 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 
-// 横風の見た目を「風の筋（やわらかい白い帯が流れて、終わりぎわに乱れて消える）＋舞う葉っぱ」にする。
+// 風（横風・追い風）の見た目を「風の筋（やわらかい白い帯が流れて、終わりぎわに乱れて消える）＋舞う葉っぱ」にする。
 // 今ある粒（FuwaWindArea.visual / visualReverse）の設定を書き換え、葉っぱは子に足して extraVisuals に登録する。
-// 粒の出る範囲・向き・速さは今の粒のものを引き継ぐ。何度実行しても同じ結果になる。
+// 粒の出る範囲は今の粒のまま、向きは風の向き、速さは風の強さ、量は範囲の大きさから決める。何度実行しても同じ結果になる。
+// 上昇気流・斜めの突風は見た目が別物なので対象外（visual に粒が登録されている風だけ）。
 public static class FuwaWindFx
 {
     const string MatDir = "Assets/FuwaCourse/Materials";
     const string MeshDir = "Assets/FuwaCourse/Meshes";
 
-    [MenuItem("FuwaCourse/横風のエフェクトを作り直す")]
+    [MenuItem("FuwaCourse/風のエフェクトを作り直す")]
     public static void RunAll()
     {
         int n = 0;
         foreach (var wa in Object.FindObjectsOfType<FuwaWindArea>(true))
         {
-            if (wa.offSeconds <= 0f) continue;   // 吹きっぱなしの風（追い風・上昇気流）は対象外
             if (wa.transform.root.name == "FuwaDebug") continue;
+            if (Mathf.Abs(wa.transform.TransformDirection(wa.localDirection).normalized.y) > 0.5f) continue;   // 上向きの風（上昇気流など）は別
             if (Apply(wa)) n++;
         }
-        Debug.Log($"[横風] {n}か所を作り直した");
+        Debug.Log($"[風] {n}か所を作り直した");
     }
 
     public static bool Apply(FuwaWindArea wa)
     {
         bool any = false;
         var so = new SerializedObject(wa);
+        Vector3 worldDir = wa.transform.TransformDirection(wa.localDirection).normalized;
+        // 筋の速さは風の強さから（強い横風ほど速く流れる）
+        float speed = Mathf.Clamp(wa.strength * 1.5f, 5f, 9f);
         if (wa.visual != null && wa.visual.GetComponent<ParticleSystem>() != null)
         {
-            SetupStreaks(wa.visual.GetComponent<ParticleSystem>());
+            var ps = wa.visual.GetComponent<ParticleSystem>();
+            Vector3 dir = ps.transform.InverseTransformDirection(worldDir).normalized;
+            SetupStreaks(ps, dir, speed);
             so.FindProperty("extraVisuals").arraySize = 1;
-            so.FindProperty("extraVisuals").GetArrayElementAtIndex(0).objectReferenceValue = SetupLeaves(wa.visual.GetComponent<ParticleSystem>());
+            so.FindProperty("extraVisuals").GetArrayElementAtIndex(0).objectReferenceValue = SetupLeaves(ps, dir, speed);
             any = true;
         }
         if (wa.visualReverse != null && wa.visualReverse.GetComponent<ParticleSystem>() != null)
         {
-            SetupStreaks(wa.visualReverse.GetComponent<ParticleSystem>());
+            var ps = wa.visualReverse.GetComponent<ParticleSystem>();
+            Vector3 dir = ps.transform.InverseTransformDirection(-worldDir).normalized;
+            SetupStreaks(ps, dir, speed);
             so.FindProperty("extraVisualsReverse").arraySize = 1;
-            so.FindProperty("extraVisualsReverse").GetArrayElementAtIndex(0).objectReferenceValue = SetupLeaves(wa.visualReverse.GetComponent<ParticleSystem>());
+            so.FindProperty("extraVisualsReverse").GetArrayElementAtIndex(0).objectReferenceValue = SetupLeaves(ps, dir, speed);
             any = true;
         }
         if (!any) return false;
@@ -50,40 +58,37 @@ public static class FuwaWindFx
         return true;
     }
 
-    // 今の粒の「風の向き×速さ」（ローカル）
-    static Vector3 WindVelocity(ParticleSystem ps)
+    // 範囲の大きさに合わせた、1秒に出す筋の数（大きい横風で18本くらい）
+    static float StreakRate(ParticleSystem ps)
     {
-        var v = ps.velocityOverLifetime;
-        return new Vector3(v.x.constantMax, v.y.constantMax, v.z.constantMax);
+        Vector3 s = ps.shape.scale;
+        return Mathf.Clamp(Mathf.Abs(s.x * s.y * s.z) * 0.065f, 3f, 24f);
     }
 
-    static void SetupStreaks(ParticleSystem ps)
+    static void SetupStreaks(ParticleSystem ps, Vector3 dir, float newSpeed)
     {
         Undo.RecordObject(ps, "wind fx");
         var r = ps.GetComponent<ParticleSystemRenderer>();
         Undo.RecordObject(r, "wind fx");
-
-        Vector3 wind = WindVelocity(ps);
-        float speed = wind.magnitude;
-        Vector3 dir = speed > 0.01f ? wind / speed : Vector3.forward;
-        // 少し速くして、筋が流れていくのがわかるように
-        float newSpeed = Mathf.Max(speed * 1.15f, 6f);
+        float rate = StreakRate(ps);
 
         var main = ps.main;
         main.startLifetime = new ParticleSystem.MinMaxCurve(1.1f, 1.5f);
         main.startSpeed = 0f;
         main.startSize = 0.2f;
-        main.maxParticles = 60;
+        main.maxParticles = Mathf.CeilToInt(rate * 2.5f);
         main.simulationSpace = ParticleSystemSimulationSpace.World;
         main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 1f, 1f, 0.75f), new Color(0.92f, 0.97f, 1f, 0.6f));
 
         var em = ps.emission;
-        em.rateOverTime = 18f;
+        em.rateOverTime = rate;
 
         // 出る場所は今の範囲のまま、風上側に寄せる（風下へ流れていく分）
         var sh = ps.shape;
         float travel = newSpeed * 1.3f;
-        sh.position = -dir * Mathf.Min(travel * 0.35f, 4f);
+        Vector3 half = sh.scale * 0.5f;
+        float extent = Mathf.Abs(dir.x) * half.x + Mathf.Abs(dir.y) * half.y + Mathf.Abs(dir.z) * half.z;
+        sh.position = -dir * Mathf.Min(travel * 0.35f, 4f, extent * 0.8f);
 
         var vel = ps.velocityOverLifetime;
         vel.enabled = true;
@@ -132,7 +137,7 @@ public static class FuwaWindFx
         r.receiveShadows = false;
     }
 
-    static ParticleSystem SetupLeaves(ParticleSystem streaks)
+    static ParticleSystem SetupLeaves(ParticleSystem streaks, Vector3 dir, float speed)
     {
         var t = streaks.transform.Find("WindLeaves");
         GameObject go;
@@ -147,10 +152,6 @@ public static class FuwaWindFx
         var ps = go.GetComponent<ParticleSystem>();
         var r = go.GetComponent<ParticleSystemRenderer>();
         Undo.RecordObject(ps, "leaves"); Undo.RecordObject(r, "leaves");
-
-        Vector3 wind = WindVelocity(streaks);
-        float speed = wind.magnitude;
-        Vector3 dir = speed > 0.01f ? wind / speed : Vector3.forward;
 
         var main = ps.main;
         main.duration = 5f;
@@ -180,7 +181,7 @@ public static class FuwaWindFx
 
         var em = ps.emission;
         em.enabled = true;
-        em.rateOverTime = 7f;
+        em.rateOverTime = Mathf.Max(1.5f, StreakRate(streaks) * 0.4f);
 
         var sh = ps.shape;
         var src = streaks.shape;
@@ -193,7 +194,7 @@ public static class FuwaWindFx
         var vel = ps.velocityOverLifetime;
         vel.enabled = true;
         vel.space = ParticleSystemSimulationSpace.Local;
-        float s = Mathf.Max(speed, 5f);
+        float s = speed * 0.85f;
         vel.x = new ParticleSystem.MinMaxCurve(dir.x * s * 0.85f, dir.x * s * 1.1f);
         vel.y = new ParticleSystem.MinMaxCurve(dir.y * s * 0.85f + 0.2f, dir.y * s * 1.1f + 0.9f);
         vel.z = new ParticleSystem.MinMaxCurve(dir.z * s * 0.85f, dir.z * s * 1.1f);
