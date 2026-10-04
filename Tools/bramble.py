@@ -70,7 +70,7 @@ def leaf(m, p, d, size, col):
 
 def bramble(seed):
     rnd = random.Random(seed); m = Mesh()
-    nst = 18
+    nst = 11
     vines = []
     for s in range(nst):
         ang = 2 * math.pi * (s + rnd.uniform(-0.4, 0.4)) / nst
@@ -78,7 +78,7 @@ def bramble(seed):
         start = d * rnd.uniform(0.0, 0.18)
         reach = rnd.uniform(0.32, 0.68); hgt = rnd.uniform(0.2, 0.52)
         side = Vector((-d.z, 0, d.x)) * rnd.uniform(-0.9, 0.9)   # 横へ大きくそれて、ほかのつるとからまる
-        n = 14; pts = []
+        n = 11; pts = []
         for k in range(n):
             t = k / (n - 1)
             p = start + (d + side * t) * reach * t + Vector((0, hgt * math.sin(t * math.pi * 0.85) + 0.02, 0))
@@ -87,23 +87,24 @@ def bramble(seed):
             pts.append(p)
         vines.append(pts)
         col = rnd.choice((STEM, STEM2, STEM3))
-        r0 = rnd.uniform(0.026, 0.036); r1 = 0.009
+        r0 = rnd.uniform(0.036, 0.046); r1 = 0.013
         tube(m, pts, r0, r1, col, sides=5)
         def rad_at(k): return r0 + (r1 - r0) * k / (n - 1)
         # トゲ：ほぼ全部の節から、外向き・上向きに大きく鋭く（1節に1〜2本）
         for k in range(1, n - 1):
-            for _ in range(1 if rnd.random() < 0.5 else 2):
+            if k % 2 == 0 and rnd.random() < 0.7: continue
+            for _ in range(1):
                 p = pts[k]; t = (pts[k + 1] - pts[k - 1]).normalized(); a, b = frame_of(t)
                 ph = rnd.uniform(0, 6.28); out = (a * math.cos(ph) + b * math.sin(ph))
                 if out.y < -0.2: out = -out
                 dd = (out * 0.9 + t * 0.3).normalized()
                 rk = rad_at(k)
                 # トゲの根元はつるの中に半分うめる。太さはつるの太さに合わせる（細いところは細く短く）
-                br = min(rnd.uniform(0.016, 0.022), rk * 0.95 + 0.004)
-                ln = rnd.uniform(0.09, 0.15) * (0.6 + 0.4 * rk / 0.03)
+                br = min(rnd.uniform(0.022, 0.03), rk * 0.95 + 0.004)
+                ln = rnd.uniform(0.11, 0.17) * (0.6 + 0.4 * rk / 0.04)
                 cone(m, p + out * rk * 0.35, dd, ln + rk * 0.65, br, THORN if rnd.random() < 0.75 else THORN_DARK)
         # 細い枝分かれ（からまり感）
-        if rnd.random() < 0.6:
+        if rnd.random() < 0.25:
             k0 = rnd.randint(4, 8); p0 = pts[k0]; t0 = (pts[k0 + 1] - pts[k0 - 1]).normalized()
             br = Vector((rnd.uniform(-1, 1), rnd.uniform(0.2, 0.8), rnd.uniform(-1, 1))).normalized()
             bpts = [p0 + (br * 0.6 + t0 * 0.4).normalized() * (0.05 * i) + Vector((0, -0.004 * i * i, 0)) for i in range(6)]
@@ -115,7 +116,7 @@ def bramble(seed):
                 cone(m, q + out * 0.004, (out * 0.9 + tt * 0.3).normalized(), rnd.uniform(0.06, 0.09), 0.011, THORN)
     # 真ん中から突き出す大トゲ（近づくと危ない感）
     # 大トゲも、つるの太いところ（アーチの上のほう）から生やす
-    picks = rnd.sample(range(len(vines)), 7)
+    picks = rnd.sample(range(len(vines)), 5)
     for vi in picks:
         pts = vines[vi]; k = rnd.randint(2, 5); p = pts[k]
         t = (pts[k + 1] - pts[k - 1]).normalized(); a, b = frame_of(t)
