@@ -198,7 +198,7 @@ public static class FuwaKazeDeco
         if (puff)
         {
             float hr = R(1.1f, 1.5f) * s;
-            MofuPuff(m, top + Vector3.up * hr * 0.2f, hr, rnd);
+            Puff(m, top + Vector3.up * hr * 0.2f, hr, rnd, 70, 0.08f * s);
             heads.Add((top + Vector3.up * hr * 0.2f, hr));
         }
         else Flower(m, top, R(0.8f, 1.1f) * s, rnd);
@@ -252,25 +252,6 @@ public static class FuwaKazeDeco
             Tube(m, new List<Vector3> { a, b }, new List<float> { tipR * 0.18f, tipR * 0.12f }, 3, Fluff * 0.95f, Fluff);
             // 先のふわふわ（平たい星形）
             Star(m, b, d, tipR, 8, rnd);
-        }
-    }
-
-    // 大きい綿毛の頭（もふっと版・軽め）：中に白い玉を入れてすき間を隠し、表面に大きめのふわふわ（星形）をすき間なく並べる。
-    // 細い毛（筒）は作らない（三角形が多いわりに見えないので）
-    static void MofuPuff(MB m, Vector3 c, float r, System.Random rnd)
-    {
-        Sphere(m, c, r * 0.8f, Fluff * 0.86f, 10, 7);
-        const int n = 150; float ga = Mathf.PI * (3f - Mathf.Sqrt(5f));
-        float tip = r * Mathf.Sqrt(4f * Mathf.PI / n) * 0.75f;   // となりと少し重なる大きさ
-        for (int i = 0; i < n; i++)
-        {
-            float y = 1f - 2f * (i + 0.5f) / n; float rr = Mathf.Sqrt(1 - y * y); float th = ga * i;
-            var d = new Vector3(Mathf.Cos(th) * rr, y, Mathf.Sin(th) * rr);
-            if (d.y < -0.8f) continue;   // 茎のところは空ける
-            var j = new Vector3((float)rnd.NextDouble() - 0.5f, (float)rnd.NextDouble() - 0.5f, (float)rnd.NextDouble() - 0.5f) * 0.25f;
-            var dd = (d + j).normalized;
-            float len = r * (0.93f + (float)rnd.NextDouble() * 0.1f);
-            Star(m, c + d * len, dd, tip * (0.85f + (float)rnd.NextDouble() * 0.3f), 7, rnd);
         }
     }
 
