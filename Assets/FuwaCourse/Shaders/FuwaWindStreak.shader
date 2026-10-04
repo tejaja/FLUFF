@@ -6,6 +6,9 @@ Shader "FuwaCourse/WindStreak"
         _Color ("Color", Color) = (1, 1, 1, 0.8)
         _EdgeSoft ("Edge Softness", Range(0.05, 1)) = 0.75
         _EndFade ("End Fade", Range(0.01, 0.5)) = 0.25
+        _FadeStart ("Fade Start (m)", Float) = 15
+        _FadeEnd ("Fade End (m)", Float) = 45
+        _FarAlpha ("Far Alpha", Range(0, 1)) = 0.35
     }
     SubShader
     {
@@ -24,6 +27,7 @@ Shader "FuwaCourse/WindStreak"
 
             fixed4 _Color;
             half _EdgeSoft, _EndFade;
+            float _FadeStart, _FadeEnd; half _FarAlpha;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_OUTPUT_STEREO };
@@ -36,6 +40,9 @@ Shader "FuwaCourse/WindStreak"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
                 o.color = v.color * _Color;
+                // カメラから遠いほどうっすら
+                float d = distance(mul(unity_ObjectToWorld, v.vertex).xyz, _WorldSpaceCameraPos);
+                o.color.a *= lerp(1, _FarAlpha, saturate((d - _FadeStart) / max(0.01, _FadeEnd - _FadeStart)));
                 return o;
             }
 
