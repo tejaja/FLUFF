@@ -138,13 +138,13 @@ public static class FuwaKazeDeco
             go.GetComponent<MeshFilter>().sharedMesh = m; go.GetComponent<MeshRenderer>().sharedMaterial = twig;
             log.Append("tris " + plants.T.Count / 3 + " ");
         }
-        // 綿毛の玉にかぶせる半透明の玉（シェーダーで、ふちほど白く・放射状の毛の筋。もふっと見せる）
+        // 綿毛の頭：ふわふわと同じシェルファー（FuwaCourse/Fur）の白い毛玉。8個を1つのメッシュにまとめて描画回数を抑える
         {
             var hv = new List<Vector3>(); var hn = new List<Vector3>(); var ht = new List<int>();
             const int seg = 18, rings = 12;
             foreach (var (hp, hr) in heads)
             {
-                int bi = hv.Count; float rr = hr * 1.12f;
+                int bi = hv.Count; float rr = hr * 0.3f;
                 for (int j = 0; j <= rings; j++)
                     for (int i = 0; i <= seg; i++)
                     {
@@ -159,12 +159,19 @@ public static class FuwaKazeDeco
                         ht.Add(a0); ht.Add(a0 + seg + 1); ht.Add(a0 + 1); ht.Add(a0 + 1); ht.Add(a0 + seg + 1); ht.Add(a0 + seg + 2);
                     }
             }
-            var hm = new Mesh { name = "Kaze_PuffHalo" }; hm.SetVertices(hv); hm.SetNormals(hn); hm.SetTriangles(ht, 0); hm.RecalculateBounds();
-            string ap = Dir + "/Kaze_PuffHalo.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
+            var hm = new Mesh { name = "Kaze_PuffFur" }; hm.SetVertices(hv); hm.SetNormals(hn); hm.SetTriangles(ht, 0); hm.RecalculateBounds();
+            string ap = Dir + "/Kaze_PuffFur.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
             if (old != null) { old.Clear(); EditorUtility.CopySerialized(hm, old); hm = old; } else AssetDatabase.CreateAsset(hm, ap);
-            string mp = "Assets/FuwaCourse/Materials/PuffHalo.mat"; var hmat = AssetDatabase.LoadAssetAtPath<Material>(mp);
-            if (hmat == null) { hmat = new Material(Shader.Find("FuwaCourse/PuffHalo")); AssetDatabase.CreateAsset(hmat, mp); }
-            var go = new GameObject("PuffHalo", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(isl, false);
+            string mp = "Assets/FuwaCourse/Materials/PuffFur.mat"; var hmat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (hmat == null)
+            {
+                hmat = new Material(Shader.Find("FuwaCourse/Fur")); AssetDatabase.CreateAsset(hmat, mp);
+                // メッシュはまとめてあるので拡大率1。毛の長さ・細かさはメートルで
+                hmat.SetColor("_Color", new Color(0.86f, 0.84f, 0.78f)); hmat.SetColor("_TipColor", Color.white);
+                hmat.SetFloat("_FurLength", 0.75f); hmat.SetFloat("_Density", 45f); hmat.SetFloat("_Thinness", 0.75f);
+                hmat.SetFloat("_Shadow", 0.3f); hmat.SetFloat("_Gravity", 0.02f); hmat.SetFloat("_RimStrength", 0.4f);
+            }
+            var go = new GameObject("PuffFur", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(isl, false);
             go.GetComponent<MeshFilter>().sharedMesh = hm; var mr = go.GetComponent<MeshRenderer>(); mr.sharedMaterial = hmat;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         }
@@ -228,7 +235,7 @@ public static class FuwaKazeDeco
         if (puff)
         {
             float hr = R(1.1f, 1.5f) * s;
-            Puff(m, top + Vector3.up * hr * 0.2f, hr, rnd, 70, 0.08f * s);
+            // 頭そのものは、ふわふわと同じシェルファーの毛玉（PuffFur）で描く
             heads.Add((top + Vector3.up * hr * 0.2f, hr));
         }
         else Flower(m, top, R(0.8f, 1.1f) * s, rnd);
