@@ -5,6 +5,7 @@ using UnityEngine;
 // ・どのコースにいるかは、ふわふわのスタート地点（ball.startPoint）が starts[i] のどれかで決める（BGM と同じ判定）
 // ・ロビーにいる間（どれにも当てはまらない）は全部ふつうに表示
 // ・他の人のアバターは消せないので、軽い版で床だけは見せて「空中に浮いて見える」のを防ぐ
+// ・onlyMobile が ON なら、Android/iOS 向けビルド（Quest・スマホ）の時だけ働く。PC では何もしない（全部ふつう表示）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaCourseLod : UdonSharpBehaviour
 {
@@ -20,6 +21,8 @@ public class FuwaCourseLod : UdonSharpBehaviour
     public GameObject[] liteRoots;
     [Tooltip("何秒おきに調べるか")]
     public float interval = 0.5f;
+    [Tooltip("ON なら Mobile（Android/iOS ビルド）の時だけ働く")]
+    public bool onlyMobile = true;
 
     private float _next;
     private int _shown = -2;   // いま反映している状態（-1=全部ふつう、i=コースiにいる）
@@ -27,6 +30,9 @@ public class FuwaCourseLod : UdonSharpBehaviour
 
     private void Update()
     {
+#if !(UNITY_ANDROID || UNITY_IOS)
+        if (onlyMobile) { enabled = false; return; }
+#endif
         if (Time.time < _next) return;
         _next = Time.time + interval;
         int area = areaVisibility != null ? areaVisibility.GetArea() : soloArea;
