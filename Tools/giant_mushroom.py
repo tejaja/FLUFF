@@ -49,19 +49,19 @@ for k in range(N + 1):
     t = k / N                                   # 0=てっぺん 1=ふち
     r = CAP_R * t
     # 平たいドーム：まん中の小さなふくらみ＋全体はゆるいカーブ、外の3割で下に垂れる
-    y = CAP_TOP - 0.55 * t ** 2.2 - 0.45 * max(0.0, (t - 0.7) / 0.3) ** 1.8 + 0.08 * (1 - t) ** 3
+    y = CAP_TOP - 0.4 * t ** 2.2 - 0.3 * max(0.0, (t - 0.72) / 0.28) ** 1.8 + 0.08 * (1 - t) ** 3
     prof.append((r, y))
 # ふち：薄く、ほんの少し内側へ巻きこむ
 prof[0] = (0.001, prof[0][1])
-prof += [(CAP_R * 0.995, 0.08), (CAP_R * 0.975, 0.04)]
+prof += [(CAP_R * 1.0, 0.2), (CAP_R * 0.99, -0.1), (CAP_R * 0.965, -0.22)]   # 肉厚のふち
 wob = lambda a, y: 0.003 * math.sin(a * 5 + 0.7)   # ほぼきれいな丸（ごくわずかだけゆらぐ）
 rings = lathe(cap, 0, prof[1:], wob=wob)
 cap_fan(cap, 0, rings[0], (0, prof[0][1], 0), flip=True)
 # ヒダ：ふちの内側から軸へ、ほぼ平らに少しだけ上がる下面。放射状のすじ
-gprof = [(CAP_R * 0.975, 0.04), (CAP_R * 0.8, 0.07), (CAP_R * 0.55, 0.12), (CAP_R * 0.32, 0.17), (STEM_R * 1.05, 0.2), (STEM_R * 0.9, 0.21)]
-gw = lambda a, y: wob(a, y) + (0.02 * abs(math.sin(a * 40)) if 0.05 < y < 0.19 else 0.0)
+gprof = [(CAP_R * 0.965, -0.22), (CAP_R * 0.8, -0.12), (CAP_R * 0.55, 0.0), (CAP_R * 0.32, 0.1), (STEM_R * 1.05, 0.17), (STEM_R * 0.9, 0.19)]
+gw = lambda a, y: wob(a, y) + (0.02 * abs(math.sin(a * 40)) if -0.2 < y < 0.16 else 0.0)
 grings = lathe(cap, 1, gprof, wob=gw)
-cap_fan(cap, 1, grings[-1], (0, 0.22, 0))
+cap_fan(cap, 1, grings[-1], (0, 0.2, 0))
 
 # ---- 軸：根元のふくらみ → 上へ少し細く → つば → てっぺん ----
 stem = M(1)
@@ -82,7 +82,7 @@ def scaled(m, sx, sy):
 # ジャンプ用の小さいキノコ（坂の赤いキノコ）：同じ形を縮める。傘の半径1.2・てっぺんは付け根から0.3、軸は長さ2.98・半径0.3
 JUMP_R, JUMP_TOP, JUMP_H, JUMP_SR = 1.2, 0.3, 2.98, 0.3
 out = {'GiantCap': {'v': cap.V, 't': cap.T}, 'GiantStem': {'v': stem.V, 't': stem.T},
-       'JumpCap': scaled(cap, JUMP_R / CAP_R, JUMP_TOP / (CAP_TOP + 0.08)),
+       'JumpCap': scaled(cap, JUMP_R / CAP_R, 0.42 / (CAP_TOP + 0.08)),
        'JumpStem': scaled(stem, JUMP_SR / STEM_R, JUMP_H / STEM_TOP)}
 json.dump(out, open(OUT, 'w'))
 
