@@ -10,6 +10,7 @@ Shader "FuwaCourse/Fur"
         _EyeDirR ("Eye Dir R (object)", Vector) = (0, 0, 1, 0)
         _EyeMask ("Eye Mask (x=inner cos, y=outer cos, 0=off)", Vector) = (0, 0, 0, 0)
         _EyeMinLen ("Eye Fur Length (ratio)", Range(0, 1)) = 0
+        _EyeTint ("Eye Fur Tint", Range(0, 1)) = 0
         _Density ("Density", Range(5, 200)) = 60
         _Thinness ("Thinness", Range(0.1, 1)) = 0.55
         _Shadow ("Root Shadow", Range(0, 1)) = 0.35
