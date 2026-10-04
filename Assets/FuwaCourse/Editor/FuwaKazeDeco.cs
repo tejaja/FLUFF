@@ -210,7 +210,7 @@ public static class FuwaKazeDeco
                 // 綿毛は大きめ・多めにして目立たせる（形は軽い三角だけの綿毛に作り直す）
                 var main = ps.main; main.startLifetime = new ParticleSystem.MinMaxCurve(7f, 11f); main.maxParticles = 450;   // 飛ぶ距離は短め
                 main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.75f);
-                var emi = ps.emission; emi.rateOverTime = 36f;
+                var emi = ps.emission; emi.rateOverTime = 32f;
                 var pr = amb.GetComponent<ParticleSystemRenderer>(); pr.mesh = SeedMesh();
                 var smat = pr.sharedMaterial; if (smat != null) { smat.SetFloat("_FadeStart", 25f); smat.SetFloat("_FadeEnd", 80f); smat.SetFloat("_FarAlpha", 0.65f); smat.SetFloat("_Shade", 0.1f); EditorUtility.SetDirty(smat); }
                 var vel = ps.velocityOverLifetime; vel.x = new ParticleSystem.MinMaxCurve(wind.x * 1.2f, wind.x * 2.2f); vel.z = new ParticleSystem.MinMaxCurve(wind.z * 1.2f, wind.z * 2.2f); vel.y = new ParticleSystem.MinMaxCurve(-0.05f, 0.25f);
