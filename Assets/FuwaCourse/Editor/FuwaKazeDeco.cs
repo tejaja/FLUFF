@@ -138,6 +138,36 @@ public static class FuwaKazeDeco
             go.GetComponent<MeshFilter>().sharedMesh = m; go.GetComponent<MeshRenderer>().sharedMaterial = twig;
             log.Append("tris " + plants.T.Count / 3 + " ");
         }
+        // 綿毛の玉にかぶせる半透明の玉（シェーダーで、ふちほど白く・放射状の毛の筋。もふっと見せる）
+        {
+            var hv = new List<Vector3>(); var hn = new List<Vector3>(); var ht = new List<int>();
+            const int seg = 18, rings = 12;
+            foreach (var (hp, hr) in heads)
+            {
+                int bi = hv.Count; float rr = hr * 1.12f;
+                for (int j = 0; j <= rings; j++)
+                    for (int i = 0; i <= seg; i++)
+                    {
+                        float th = Mathf.PI * j / rings, ph = Mathf.PI * 2 * i / seg;
+                        var d = new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph));
+                        hv.Add(w2l.MultiplyPoint3x4(hp + d * rr)); hn.Add(w2l.MultiplyVector(d).normalized);
+                    }
+                for (int j = 0; j < rings; j++)
+                    for (int i = 0; i < seg; i++)
+                    {
+                        int a0 = bi + j * (seg + 1) + i;
+                        ht.Add(a0); ht.Add(a0 + seg + 1); ht.Add(a0 + 1); ht.Add(a0 + 1); ht.Add(a0 + seg + 1); ht.Add(a0 + seg + 2);
+                    }
+            }
+            var hm = new Mesh { name = "Kaze_PuffHalo" }; hm.SetVertices(hv); hm.SetNormals(hn); hm.SetTriangles(ht, 0); hm.RecalculateBounds();
+            string ap = Dir + "/Kaze_PuffHalo.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
+            if (old != null) { old.Clear(); EditorUtility.CopySerialized(hm, old); hm = old; } else AssetDatabase.CreateAsset(hm, ap);
+            string mp = "Assets/FuwaCourse/Materials/PuffHalo.mat"; var hmat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (hmat == null) { hmat = new Material(Shader.Find("FuwaCourse/PuffHalo")); AssetDatabase.CreateAsset(hmat, mp); }
+            var go = new GameObject("PuffHalo", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(isl, false);
+            go.GetComponent<MeshFilter>().sharedMesh = hm; var mr = go.GetComponent<MeshRenderer>(); mr.sharedMaterial = hmat;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+        }
         // 綿毛の出どころ：巨大な綿毛の頭の表面（小さな三角を並べたメッシュ）
         {
             var ev = new List<Vector3>(); var et = new List<int>();
