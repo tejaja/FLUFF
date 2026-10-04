@@ -9,11 +9,11 @@ public class FuwaGoalMarker : UdonSharpBehaviour
 {
     public Transform arrow;
     public Transform label;
-    public float bobHeight = 0.2f;
+    public float bobHeight = 0.13f;
     public float bobSpeed = 1.3f;
     public float spinSpeed = 60f;
     [Tooltip("ゆらゆら傾く角度(度)")]
-    public float swayAngle = 7f;
+    public float swayAngle = 0f;
 
     private Vector3 _arrowBase;
     private Quaternion _arrowRot;
