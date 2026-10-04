@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.SDK3.UdonNetworkCalling;
@@ -75,6 +75,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public float correctionRate = 5f;
     [Tooltip("ズレがこれ以上なら寄せずにその場へ移す(m)")]
     public float snapDistance = 2.5f;
+    [Tooltip("待っている間・弾けている間も、持ち主がこの間隔(秒)で今の状態を送り直す（画面ごとに状態がずれたままにならないように）")]
+    public float heartbeatInterval = 1.5f;
 
     [UdonSynced] private bool _waiting = true;
     [UdonSynced] private bool _popped;
@@ -256,6 +258,17 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (_shownHidden != (_popped || _waiting)) ApplyHiddenVisual();
     }
 
+    // 持ち主が入れ替わった：新しい持ち主が、今の自分の状態をすぐみんなに送る
+    // （2人がほぼ同時に撃つと、両方とも「自分が持ち主」のつもりで動いてしまい、片方の画面だけ玉が消えたままになることがあるので、
+    //  決まった持ち主の状態で全員をそろえ直す）
+    public override void OnOwnershipTransferred(VRCPlayerApi player)
+    {
+        if (player == null || !player.isLocal) return;
+        if (_popped && _respawnAt < 0f) _respawnAt = Time.time + respawnDelay;
+        _posErr = Vector3.zero;
+        SendState();
+    }
+
     // 撃たれた時（全員）：強さ k(0〜1) に合わせて、綿毛を散らして、ボヨンと鳴らして、ポヨンとつぶれる
     [NetworkCallable]
     public void PlayPuff(float k)
@@ -328,8 +341,12 @@ public class FuwaSharedBall : UdonSharpBehaviour
         {
             if (!_waiting && !_popped && transform.position.y < _homePos.y - fallLimit) SetWaiting();
             if (_popped && _respawnAt > 0f && Time.time >= _respawnAt) SetWaiting();
+            // 弾けたまま戻す予定が無い（弾けている間に持ち主が入れ替わった）なら、ここで戻す予定を立てる
+            if (_popped && _respawnAt < 0f) _respawnAt = Time.time + respawnDelay;
             // 飛んでいる間はときどき今の位置を送る（壁にぶつかった後はすぐ送る）
             if (!_waiting && !_popped && (_sendSoon || Time.time >= _nextSend)) SendState();
+            // 待っている間・弾けている間も、ゆっくり送り直す（ほぼ同時に2人が撃った時などに、画面ごとの状態がずれたままにならないように）
+            else if ((_waiting || _popped) && Time.time >= _nextSend) { _nextSend = Time.time + heartbeatInterval; RequestSerialization(); }
         }
         if (_shownHidden != (_popped || _waiting)) ApplyHiddenVisual();
         if (_trail != null) _trail.emitting = !_popped && !_waiting;
