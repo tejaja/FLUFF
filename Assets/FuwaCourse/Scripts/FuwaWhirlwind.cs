@@ -35,6 +35,10 @@ public class FuwaWhirlwind : UdonSharpBehaviour
     public float trapInwardDamp = 2.5f;
     [Tooltip("捕まえている間、中心のまわりを回る速さ(m/s)")]
     public float trapSpin = 0.8f;
+    [Tooltip("ぐるぐる回る輪の半径（radius に対する割合）。0なら中心に寄せる。外周寄りほど撃ち出しやすい")]
+    [Range(0f, 0.95f)] public float trapRing = 0f;
+    [Tooltip("輪より内側に入った時に外へ戻すばねの強さ")]
+    public float trapRingSpring = 8f;
     [Tooltip("捕まえておく高さ(m)（底から）")]
     public float trapHeight = 0.8f;
     public float trapHoldStiffness = 3f;
@@ -83,12 +87,21 @@ public class FuwaWhirlwind : UdonSharpBehaviour
         if (r > 0.001f)
         {
             Vector3 radial = flat / r;
-            // 中心の近くは弱めて、真ん中でがたつかないように
-            acc -= radial * trapPull * Mathf.Clamp01(r / 0.3f);
-            // 中心へ向かう動きにだけブレーキ（外へ向かう動き＝撃って抜ける時は邪魔しない）
             float vr = Vector3.Dot(vFlat, radial);
-            if (vr < 0f) acc -= radial * vr * trapInwardDamp;
-            // 中心のまわりをゆっくり回す（回る速さを trapSpin に近づけるだけ。外へははじかない）
+            float ring = radius * trapRing;
+            if (r > ring)
+            {
+                // 輪より外：一定の力で内へ（中心寄せの時は真ん中でがたつかないよう弱める）。内へ向かう動きにだけブレーキ
+                acc -= radial * trapPull * (ring > 0f ? 1f : Mathf.Clamp01(r / 0.3f));
+                if (vr < 0f) acc -= radial * vr * trapInwardDamp;
+            }
+            else
+            {
+                // 輪より内：ばねで輪へ戻す。外へ向かう動きにブレーキ（輪を行き過ぎないように）
+                acc += radial * (ring - r) * trapRingSpring;
+                if (vr > 0f) acc -= radial * vr * trapInwardDamp;
+            }
+            // 中心のまわりを回す（回る速さを trapSpin に近づけるだけ。外へははじかない）
             Vector3 tangent = Vector3.Cross(Vector3.up, radial) * spinDir;
             float vt = Vector3.Dot(vFlat, tangent);
             acc += tangent * (trapSpin * Mathf.Clamp01(r / 0.4f) - vt) * 2f;
