@@ -22,6 +22,7 @@ Shader "FuwaCourse/WindStreak"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
 
@@ -30,7 +31,7 @@ Shader "FuwaCourse/WindStreak"
             float _FadeStart, _FadeEnd; half _FarAlpha;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
@@ -43,7 +44,7 @@ Shader "FuwaCourse/WindStreak"
                 // カメラから遠いほどうっすら
                 float d = distance(mul(unity_ObjectToWorld, v.vertex).xyz, _WorldSpaceCameraPos);
                 o.color.a *= lerp(1, _FarAlpha, saturate((d - _FadeStart) / max(0.01, _FadeEnd - _FadeStart)));
-                return o;
+                UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
 
             fixed4 frag (v2f i) : SV_Target
@@ -53,7 +54,7 @@ Shader "FuwaCourse/WindStreak"
                 half edge = smoothstep(0, _EdgeSoft, across);
                 // 長さ方向（uv.x 0=先頭〜1=しっぽ）：両端をうすく
                 half ends = smoothstep(0, _EndFade, i.uv.x) * smoothstep(1, 1 - _EndFade * 2, i.uv.x);
-                return fixed4(i.color.rgb, i.color.a * edge * ends);
+                { fixed4 fogc__ = fixed4(i.color.rgb, i.color.a * edge * ends); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
             }
             ENDCG
         }

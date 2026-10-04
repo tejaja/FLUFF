@@ -25,6 +25,7 @@ Shader "FuwaCourse/GhostBall"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
 
@@ -32,7 +33,7 @@ Shader "FuwaCourse/GhostBall"
             half _Alpha, _Inflate, _RimPower, _RimStrength, _Shade;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; float3 v : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; float3 v : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata i)
             {
@@ -45,7 +46,7 @@ Shader "FuwaCourse/GhostBall"
                 o.pos = UnityWorldToClipPos(wp);
                 o.n = UnityObjectToWorldNormal(i.normal);
                 o.v = _WorldSpaceCameraPos - wp;
-                return o;
+                UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
 
             fixed4 frag (v2f i) : SV_Target
@@ -56,7 +57,7 @@ Shader "FuwaCourse/GhostBall"
                 half shade = lerp(1 - _Shade, 1, n.y * 0.5 + 0.5);
                 half rim = pow(1 - saturate(dot(n, v)), _RimPower) * _RimStrength;
                 fixed3 col = _Color.rgb * shade + _TipColor.rgb * rim;
-                return fixed4(col, saturate(_Alpha + rim * 0.6));
+                { fixed4 fogc__ = fixed4(col, saturate(_Alpha + rim * 0.6)); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
             }
             ENDCG
         }

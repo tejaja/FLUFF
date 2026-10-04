@@ -28,7 +28,7 @@ struct v2f
     float3 objPos : TEXCOORD0;
     float3 worldNormal : TEXCOORD1;
     float3 worldPos : TEXCOORD2;
-    UNITY_VERTEX_OUTPUT_STEREO
+    UNITY_FOG_COORDS(3) UNITY_VERTEX_OUTPUT_STEREO
 };
 
 v2f vert (appdata v)
@@ -60,7 +60,7 @@ v2f vert (appdata v)
     o.objPos = v.vertex.xyz;
     o.worldNormal = wn;
     o.worldPos = world.xyz;
-    return o;
+    UNITY_TRANSFER_FOG(o, o.pos); return o;
 }
 
 float hash3(float3 p)
@@ -113,5 +113,5 @@ fixed4 frag (v2f i) : SV_Target
         // 白い毛に足し算だと白のままなので、光の色へ寄せてから少し明るくする
         col = lerp(col, _GlowColor.rgb * 1.2, saturate(glow)) + _GlowColor.rgb * glow * 0.3;
     }
-    return fixed4(col, _Alpha);
+    { fixed4 fogc__ = fixed4(col, _Alpha); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
 }

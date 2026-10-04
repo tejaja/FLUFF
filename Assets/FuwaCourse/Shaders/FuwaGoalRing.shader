@@ -20,6 +20,7 @@ Shader "FuwaCourse/GoalRing"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_fog
             #include "UnityCG.cginc"
 
             fixed4 _Color;
@@ -29,14 +30,14 @@ Shader "FuwaCourse/GoalRing"
             half _Alpha;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; };
-            struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; };
+            struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; UNITY_FOG_COORDS(1) };
 
             v2f vert (appdata v)
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.n = UnityObjectToWorldNormal(v.normal);
-                return o;
+                UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
 
             fixed4 frag (v2f i) : SV_Target
@@ -45,7 +46,7 @@ Shader "FuwaCourse/GoalRing"
                 half shade = 0.7 + 0.3 * saturate(normalize(i.n).y * 0.5 + 0.5);
                 half3 c = _Color.rgb * (shade + _Emission);
                 c = lerp(c, _GlowColor.rgb * (1 + _Glow), saturate(_Glow * 0.5));
-                return fixed4(c, _Alpha);
+                { fixed4 fogc__ = fixed4(c, _Alpha); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
             }
             ENDCG
         }

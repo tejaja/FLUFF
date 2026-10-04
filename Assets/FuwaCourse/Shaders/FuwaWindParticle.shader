@@ -22,6 +22,7 @@ Shader "FuwaCourse/WindParticle"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
 
@@ -30,7 +31,7 @@ Shader "FuwaCourse/WindParticle"
             float _FadeStart, _FadeEnd; half _FarAlpha;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
@@ -44,13 +45,13 @@ Shader "FuwaCourse/WindParticle"
                 half far = lerp(1, _FarAlpha, saturate((d - _FadeStart) / max(0.01, _FadeEnd - _FadeStart)));
                 o.color = v.color * _Color;
                 o.color.a *= far;
-                return o;
+                UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
 
             fixed4 frag (v2f i) : SV_Target
             {
                 fixed4 c = tex2D(_MainTex, i.uv) * i.color;
-                return c;
+                { fixed4 fogc__ = c; UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
             }
             ENDCG
         }

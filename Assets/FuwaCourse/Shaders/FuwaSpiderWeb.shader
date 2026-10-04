@@ -68,6 +68,7 @@ Shader "FuwaCourse/SpiderWeb"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_fog
             #include "UnityCG.cginc"
 
             fixed4 _Color;
@@ -87,7 +88,7 @@ Shader "FuwaCourse/SpiderWeb"
             float _Spiral, _GapChance, _SplitChance, _SplitStart, _Sag, _SpacingRef;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 m : TEXCOORD0; float3 wpos : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float2 m : TEXCOORD0; float3 wpos : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
@@ -97,7 +98,7 @@ Shader "FuwaCourse/SpiderWeb"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.m = (v.uv - 0.5) * _Size.xy;   // meters from board center
                 o.wpos = mul(unity_ObjectToWorld, v.vertex).xyz;
-                return o;
+                UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
 
             float hash(float2 p) { return frac(sin(dot(p + _Seed, float2(127.1, 311.7))) * 43758.5453); }
@@ -344,7 +345,7 @@ Shader "FuwaCourse/SpiderWeb"
                 // 通り抜ける時に見づらくないよう、カメラのすぐ近くの部分はスゥっと消す
                 outA *= smoothstep(_FadeNear, max(_FadeFar, _FadeNear + 0.01), camD);
                 clip(outA - 0.03);   // 糸のない所は奥行きも書かない
-                return fixed4(col, outA);
+                { fixed4 fogc__ = fixed4(col, outA); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
             }
             ENDCG
         }

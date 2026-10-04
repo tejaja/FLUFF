@@ -18,6 +18,7 @@ Shader "FuwaCourse/WebThread"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_fog
             #include "UnityCG.cginc"
 
             fixed4 _Color;
@@ -33,7 +34,7 @@ Shader "FuwaCourse/WebThread"
             {
                 float4 pos : SV_POSITION;
                 float3 e : TEXCOORD0; // x: distance from center (px), y: half width (px), z: fade
-                UNITY_VERTEX_OUTPUT_STEREO
+                UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO
             };
 
             v2f vert (appdata v)
@@ -55,13 +56,13 @@ Shader "FuwaCourse/WebThread"
                 ca.xy += perp * (v.uv.x * ext) / hs * ca.w;
                 o.pos = ca;
                 o.e = float3(v.uv.x * ext, drawW * 0.5, pixW / drawW);
-                return o;
+                UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
 
             fixed4 frag (v2f i) : SV_Target
             {
                 float a = saturate(i.e.y + 0.5 - abs(i.e.x)) * i.e.z;
-                return fixed4(_Color.rgb, _Color.a * a);
+                { fixed4 fogc__ = fixed4(_Color.rgb, _Color.a * a); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
             }
             ENDCG
         }

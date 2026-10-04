@@ -25,54 +25,63 @@ Shader "FuwaCourse/FurGhost"
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert
         #pragma fragment frag
+        #pragma multi_compile_fog
         #define FUR_H 0.0
         #include "FuwaFur.cginc"
         ENDCG }
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert
         #pragma fragment frag
+        #pragma multi_compile_fog
         #define FUR_H 0.125
         #include "FuwaFur.cginc"
         ENDCG }
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert
         #pragma fragment frag
+        #pragma multi_compile_fog
         #define FUR_H 0.25
         #include "FuwaFur.cginc"
         ENDCG }
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert
         #pragma fragment frag
+        #pragma multi_compile_fog
         #define FUR_H 0.375
         #include "FuwaFur.cginc"
         ENDCG }
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert
         #pragma fragment frag
+        #pragma multi_compile_fog
         #define FUR_H 0.5
         #include "FuwaFur.cginc"
         ENDCG }
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert
         #pragma fragment frag
+        #pragma multi_compile_fog
         #define FUR_H 0.625
         #include "FuwaFur.cginc"
         ENDCG }
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert
         #pragma fragment frag
+        #pragma multi_compile_fog
         #define FUR_H 0.75
         #include "FuwaFur.cginc"
         ENDCG }
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert
         #pragma fragment frag
+        #pragma multi_compile_fog
         #define FUR_H 0.875
         #include "FuwaFur.cginc"
         ENDCG }
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert
         #pragma fragment frag
+        #pragma multi_compile_fog
         #define FUR_H 1.0
         #include "FuwaFur.cginc"
         ENDCG }

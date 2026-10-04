@@ -23,13 +23,14 @@ Shader "FuwaCourse/WarpVeil"
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_fog
             #include "UnityCG.cginc"
 
             fixed4 _Color;
             float _Fill, _Alpha, _Rise, _NearFade, _Start;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float camDist : TEXCOORD1; float3 wn : TEXCOORD2; float3 wv : TEXCOORD3; UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float camDist : TEXCOORD1; float3 wn : TEXCOORD2; float3 wv : TEXCOORD3; UNITY_FOG_COORDS(4) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
@@ -41,7 +42,7 @@ Shader "FuwaCourse/WarpVeil"
                 o.camDist = length(UnityObjectToViewPos(v.vertex));
                 o.wn = UnityObjectToWorldNormal(v.normal);
                 o.wv = WorldSpaceViewDir(v.vertex);
-                return o;
+                UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
 
             // 1本の柱（角度 x）の明るさ。x は始まりからの角度（一周先の分も x+1 で呼ぶ）
@@ -81,7 +82,7 @@ Shader "FuwaCourse/WarpVeil"
                 a *= smoothstep(_NearFade * 0.4, _NearFade, i.camDist);  // 目の前の幕は消す
                 // 明るい空の前でも見えるよう、普通の半透明で少し色をのせる。濃い所ほど白っぽく
                 float3 col = lerp(_Color.rgb, 1, saturate(bodyMax * 0.2 + done * 0.3));
-                return fixed4(col, saturate(a));
+                { fixed4 fogc__ = fixed4(col, saturate(a)); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
             }
             ENDCG
         }

@@ -14,12 +14,12 @@ OcclusionCullingSettings:
 RenderSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 9
-  m_Fog: 0
-  m_FogColor: {r: 0.2, g: 0.19, b: 0.29, a: 1}
-  m_FogMode: 2
+  m_Fog: 1
+  m_FogColor: {r: 0.6, g: 0.83, b: 1, a: 1}
+  m_FogMode: 1
   m_FogDensity: 0.05
-  m_LinearFogStart: 0
-  m_LinearFogEnd: 300
+  m_LinearFogStart: 50
+  m_LinearFogEnd: 150
   m_AmbientSkyColor: {r: 0.5, g: 0.6, b: 0.78, a: 1}
   m_AmbientEquatorColor: {r: 0.6, g: 0.64, b: 0.7, a: 1}
   m_AmbientGroundColor: {r: 0.58, g: 0.5, b: 0.56, a: 1}
@@ -804224,6 +804224,7 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 1421727291}
   fogColor: {r: 0.2, g: 0.19, b: 0.29, a: 1}
   density: 0.05
+  areaStart: 2
   skyDim: 1
   fadeSeconds: 1.2
 --- !u!65 &1421727293
