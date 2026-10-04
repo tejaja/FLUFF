@@ -25,6 +25,8 @@ public class FuwaCourseWarp : UdonSharpBehaviour
     [Tooltip("ワープ先のエリア（0=入口 / 1=ひとり / 2=たいせん / -1=切り替えない）。そのエリアだけ表示する")]
     public int area = -1;
     public FuwaAreaVisibility areaVisibility;
+    [Tooltip("コースへのワープ用：コース中に手動リスポーンしてロビーへ戻った時の立ち位置（そのコースのポータルの方を向いた場所。なくてもOK）")]
+    public Transform lobbyReturnSpot;
 
     [Header("暗転")]
     [Tooltip("暗転（なくてもOK。無ければすぐワープ）")]
@@ -162,6 +164,9 @@ public class FuwaCourseWarp : UdonSharpBehaviour
             respawnManager.BringGun(gunSpot);
             if (homeAction == 1) respawnManager.SetHomeWarp(this);
             else if (homeAction == 2) respawnManager.SetHomeWarp(null);
+            // モードのロビーに入り直したら、手動リスポーンの向きはふつう（説明ボード向き）に戻す
+            if (homeAction != 0) respawnManager.SetLobbyReturnSpot(null);
+            if (lobbyReturnSpot != null) respawnManager.SetLobbyReturnSpot(lobbyReturnSpot);
         }
         if (ball != null && courseStart != null) ball.StartCourse(courseStart, timed);
         if (warpSound != null) warpSound.Play();

@@ -51,11 +51,29 @@ public class FuwaRespawnManager : UdonSharpBehaviour
         if (spot != null) _current = spot;
     }
 
+    // 手動リスポーンでロビーへ戻った時の立ち位置・向き（最後に入ったコースのポータルの方を向く。null＝ふつうのロビーの向き）
+    private Transform _lobbyReturn;
+    public void SetLobbyReturnSpot(Transform spot)
+    {
+        _lobbyReturn = spot;
+    }
+
     public override void OnPlayerRespawn(VRCPlayerApi player)
     {
         if (player == null || !player.isLocal) return;
         // モードのロビーにいる（どこかのモードを選んだ）なら、そのロビーへ。入口ロビーならVRChatのスポーンのまま
-        if (_home != null) _home.DoWarp();   // 手動リスポーンは暗転なしで、すぐ戻す
+        if (_home != null)
+        {
+            // 手動リスポーンは暗転なしで、すぐ戻す。コースに入ったことがあれば、そのコースのポータルの方を向かせる
+            Transform face = _lobbyReturn;
+            _home.DoWarp();
+            if (face != null)
+            {
+                player.TeleportTo(face.position, face.rotation);
+                _lobbyReturn = face;
+                _current = face;
+            }
+        }
         else if (areaVisibility != null) areaVisibility.ShowArea(0);
         if (ball != null) ball.ReviveEnemies();
     }
