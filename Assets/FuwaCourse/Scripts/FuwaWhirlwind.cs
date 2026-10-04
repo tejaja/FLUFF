@@ -33,6 +33,8 @@ public class FuwaWhirlwind : UdonSharpBehaviour
         float h = Mathf.Clamp01(local.y / Mathf.Max(0.01f, height));
         Vector3 flat = new Vector3(local.x, 0f, local.z);
         float r = flat.magnitude;
+        // 当たり判定の箱の角（円の外）では効かせない。道のふちギリギリに置いても道の上には風が出ない
+        if (r > radius) return;
         Vector3 acc = Vector3.zero;
         // 上へ（てっぺんに近いほど弱め、送り出し区間では浮かせる程度）
         float up = lift * (1f - liftFade * h);
