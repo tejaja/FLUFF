@@ -250,8 +250,34 @@ public static class FuwaDecoTools
         int removed = RemoveOverlaps(holder, style == "rock");
         // 苔・石は間引いてまばらに（近くに同じ種類があれば消す＋ランダムに少し減らす）
         removed += Sparsify(holder, new[] { "Deco_Moss", "Deco_Stone" }, 2.6f, 0.75f, seed + 101);
+        PushVinesOut(holder, root);
         EditorUtility.SetDirty(root.gameObject);
         return "edges " + edges.Count + " clusters " + clusters + " items " + items + " removed(overlap) " + removed;
+    }
+
+    // 垂らしたツタが道・島の側面にめり込んでいたら、めり込まない所まで外へ出す
+    // （外から内向きに線を飛ばして、頂点より手前で地面に当たる＝めり込み）
+    public static int PushVinesOut(Transform holder, Transform root)
+    {
+        int moved = 0;
+        foreach (var vf in holder.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (vf.sharedMesh == null || !vf.sharedMesh.name.StartsWith("Deco_Vines")) continue;
+            var inst = vf.transform; while (inst.parent != null && inst.parent != holder && !inst.parent.name.StartsWith("Cluster")) inst = inst.parent;
+            var outDir = inst.forward; outDir.y = 0; if (outDir.sqrMagnitude < 1e-4f) continue; outDir.Normalize();
+            var vs = vf.sharedMesh.vertices; float pen = 0;
+            for (int i = 0; i < vs.Length; i += 2)
+            {
+                var w = vf.transform.TransformPoint(vs[i]);
+                foreach (var h in Physics.RaycastAll(w + outDir * 3f, -outDir, 3f, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    if (!h.collider.transform.IsChildOf(root) || h.collider.GetComponentInParent<Rigidbody>() != null) continue;
+                    pen = Mathf.Max(pen, 3f - h.distance);
+                }
+            }
+            if (pen > 0.003f) { inst.position += outDir * (pen + 0.02f); moved++; }
+        }
+        return moved;
     }
 
     public static int Sparsify(Transform holder, string[] prefixes, float minDist, float keepProb, int seed)

@@ -1,4 +1,4 @@
-Shader "FuwaCourse/Fur"
+﻿Shader "FuwaCourse/Fur"
 {
     // 毛玉（シェルファー）。根元の球＋16枚の毛の層
     Properties
@@ -21,6 +21,9 @@ Shader "FuwaCourse/Fur"
         [HideInInspector] _Alpha ("Alpha", Float) = 1
         _GlowColor ("Glow (set by script, a=amount)", Color) = (0, 0, 0, 0)
         _GlowDir ("Glow Direction (set by script)", Vector) = (0, 1, 0, 0)
+        _SwayAmp ("Sway (m, 0=off)", Float) = 0
+        _SwaySpeed ("Sway Speed", Float) = 1.2
+        _SwayDir ("Sway Direction (world)", Vector) = (1, 0, 0, 0)
     }
     SubShader
     {

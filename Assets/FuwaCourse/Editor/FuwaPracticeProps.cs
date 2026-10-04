@@ -110,19 +110,30 @@ public static class FuwaPracticeProps
     static void CandyPosts(MB m, Transform go, Vector3 c, Vector3 d, Vector3 side, float hw, System.Random rnd)
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
-        int n = rnd.Next(2, 4); float along0 = -(n - 1) * 0.31f;
+        int n = rnd.Next(2, 4); float along0 = -(n - 1) * 0.36f;
         var used = new List<int>();   // 同じグループで同じ色を使わない
+        var balls = new List<(Vector3 c, float r)>();   // 置いた玉（重ならないように）
         for (int k = 0; k < n; k++)
         {
-            float pr = R(0.035f, 0.045f), br = R(0.26f, 0.34f), h = R(0.45f, 0.95f);   // 細い棒＋大きいキャンディ
-            var basePt = c + side * (hw - br - R(0.15f, 0.22f)) + d * (along0 + k * 0.62f + R(-0.05f, 0.05f));   // 玉が道からはみ出さない位置
+            float pr = R(0.035f, 0.045f), br = 0, h = 0; Vector3 basePt = Vector3.zero, top = Vector3.zero; Quaternion tilt = Quaternion.identity;
+            // 玉どうしが重ならない傾き・高さが見つかるまで選び直す
+            for (int tries = 0; tries < 40; tries++)
+            {
+                br = R(0.26f, 0.34f); h = R(0.45f, 0.95f);
+                basePt = c + side * (hw - br - R(0.15f, 0.22f)) + d * (along0 + k * 0.72f + R(-0.05f, 0.05f));   // 玉が道からはみ出さない位置
+                // 斜めに立てる（おもに前後に傾ける。横は少しだけ）。両はしの杭は外向きに倒しやすく
+                float fb = k == 0 ? -1f : k == n - 1 ? 1f : (rnd.NextDouble() < 0.5 ? 1f : -1f);
+                var lean = (d * fb + side.normalized * R(-0.25f, 0.2f)).normalized;
+                tilt = Quaternion.AngleAxis(R(12f, 24f), Vector3.Cross(Vector3.up, lean));
+                top = basePt + tilt * Vector3.up * (h + br * 0.9f);
+                bool ok = true;
+                foreach (var bb in balls) if ((bb.c - top).magnitude < bb.r + br + 0.08f) { ok = false; break; }
+                if (ok) break;
+            }
+            balls.Add((top, br * 1.12f));
             int ci; do ci = rnd.Next(Pastel.Length); while (used.Contains(ci)); used.Add(ci);
             var ball = Pastel[ci];
-            // 斜めに立てる（おもに前後に傾ける。横は少しだけ）
-            var lean = (d * (rnd.NextDouble() < 0.5 ? 1f : -1f) + side.normalized * R(-0.25f, 0.2f)).normalized;
-            var tilt = Quaternion.AngleAxis(R(12f, 24f), Vector3.Cross(Vector3.up, lean));
             Lathe(m, basePt, tilt, new List<Vector2> { new Vector2(0, 0), new Vector2(pr, 0), new Vector2(pr, h + br * 0.3f) }, 10, Cream);
-            var top = basePt + tilt * Vector3.up * (h + br * 0.9f);
             LollipopAt(m, top, tilt, br, ball);
             br *= 0.9f;
             var cc = new GameObject("Col").AddComponent<CapsuleCollider>(); cc.transform.SetParent(go, false); cc.gameObject.layer = go.gameObject.layer;

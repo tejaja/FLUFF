@@ -57,7 +57,8 @@ public static class FuwaBakeSetup
                 var mf = r.GetComponent<MeshFilter>();
                 // 焼ける材質が1つ以上あって、全部不透明なら OK（洞窟の内側などの別シェーダーが混ざっていても、影は落とせる）
                 bool shaderOk = r.sharedMaterials.Length > 0 && r.sharedMaterials.Any(m => m != null && BakeShaders.Contains(m.shader.name))
-                                && r.sharedMaterials.All(m => m != null && m.renderQueue < 2450);
+                                && r.sharedMaterials.All(m => m != null && m.renderQueue < 2450)
+                                && !r.sharedMaterials.Any(m => m.HasProperty("_SwayAmp") && m.GetFloat("_SwayAmp") > 0);   // 風でゆれる物（たんぽぽ）は焼かない
                 bool ok = shaderOk && mf != null && mf.sharedMesh != null && !IsMoving(r.transform);
                 if (ok)
                 {

@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-// かぜのみち（FuwaCourse）のコースの外の飾り：巨大たんぽぽの浮島。何度実行しても同じ結果（作り直し）。
+// かぜのおか（FuwaCourse）のコースの外の飾り：巨大たんぽぽの浮島。何度実行しても同じ結果（作り直し）。
 // ・コースのまわりの空に浮島を浮かべ、巨大たんぽぽ（綿毛・黄色い花）と小さいたんぽぽを生やす
 // ・綿毛のパーティクル（Ambient/Dandelions）は、巨大な綿毛の頭から飛んでコースの上を風下（ゴールの方）へ流れる
 // たんぽぽは Den_Twig（InkCap・両面・頂点カラー）で1つのメッシュにまとめる。当たり判定なし
@@ -16,15 +16,18 @@ public static class FuwaKazeDeco
     {
         public List<Vector3> V = new List<Vector3>(); public List<Vector3> N = new List<Vector3>();
         public List<Color> C = new List<Color>(); public List<int> T = new List<int>();
-        public int Add(Vector3 p, Vector3 n, Color c) { V.Add(p); N.Add(n.normalized); C.Add(new Color(c.r, c.g, c.b, 1)); return V.Count - 1; }
+        public List<Vector4> U3 = new List<Vector4>();   // 風のゆれ（x＝重み、y＝位相）
+        public int Add(Vector3 p, Vector3 n, Color c) { V.Add(p); N.Add(n.normalized); C.Add(new Color(c.r, c.g, c.b, 1)); U3.Add(Vector4.zero); return V.Count - 1; }
         public void Tri(int a, int b, int c) { T.Add(a); T.Add(b); T.Add(c); }
         public void Quad(int a, int b, int c, int d) { Tri(a, b, c); Tri(a, c, d); }
     }
 
-    static Vector3 _islC; static float _islR = 999f;   // 今の浮島（葉っぱが島からはみ出さないように）
+    static Vector3 _islC; static float _islR = 999f;
+    static List<float> _headPhase = new List<float>();   // 綿毛の頭ごとのゆれの位相（heads と同じ順）
+    const float SwayAmp = 0.22f, SwaySpeed = 1.1f;   // 今の浮島（葉っぱが島からはみ出さないように）
     static readonly Color LeafG = new Color(0.27f, 0.68f, 0.2f), StemG = new Color(0.45f, 0.74f, 0.3f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
 
-    [MenuItem("FuwaCourse/かぜのみちの飾りを作る")]
+    [MenuItem("FuwaCourse/かぜのおかの飾りを作る")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run()
@@ -85,7 +88,7 @@ public static class FuwaKazeDeco
         if (isl != null) Undo.DestroyObjectImmediate(isl.gameObject);
         isl = new GameObject("DandelionIslands").transform; isl.SetParent(deco, false); Undo.RegisterCreatedObjectUndo(isl.gameObject, "deco");
 
-        var plants = new MB(); var heads = new List<(Vector3 p, float r)>();
+        var plants = new MB(); var heads = new List<(Vector3 p, float r)>(); _headPhase.Clear();
         var placed = new List<(Vector3 pos, float rad)>();
         int want = 8, tries = 0;
         while (placed.Count < want && tries++ < 8000)
@@ -134,16 +137,21 @@ public static class FuwaKazeDeco
         {
             var m = new Mesh { name = "Kaze_Dandelions", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             m.SetVertices(plants.V.Select(x => w2l.MultiplyPoint3x4(x)).ToList()); m.SetNormals(plants.N.Select(x => w2l.MultiplyVector(x).normalized).ToList());
-            m.SetColors(plants.C); m.SetTriangles(plants.T, 0); m.RecalculateBounds();
+            m.SetColors(plants.C); m.SetUVs(3, plants.U3); m.SetTriangles(plants.T, 0); m.RecalculateBounds();
             string ap = Dir + "/Kaze_Dandelions.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
             if (old != null) { old.Clear(); EditorUtility.CopySerialized(m, old); m = old; } else AssetDatabase.CreateAsset(m, ap);
             var go = new GameObject("Dandelions", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(isl, false);
-            go.GetComponent<MeshFilter>().sharedMesh = m; go.GetComponent<MeshRenderer>().sharedMaterial = twig;
+            // 風でゆれる専用の材質（Den_Twig のコピー。ゆれ幅と向きだけ足す）
+            string swp = "Assets/FuwaCourse/Materials/Kaze_DandelionSway.mat"; var sway = AssetDatabase.LoadAssetAtPath<Material>(swp);
+            if (sway == null) { sway = new Material(twig); AssetDatabase.CreateAsset(sway, swp); }
+            sway.CopyPropertiesFromMaterial(twig);
+            sway.SetFloat("_SwayAmp", SwayAmp); sway.SetFloat("_SwaySpeed", SwaySpeed); sway.SetVector("_SwayDir", new Vector4(wind.x, 0, wind.z, 0)); EditorUtility.SetDirty(sway);
+            go.GetComponent<MeshFilter>().sharedMesh = m; go.GetComponent<MeshRenderer>().sharedMaterial = sway;
             log.Append("tris " + plants.T.Count / 3 + " ");
         }
         // 綿毛の頭：ふわふわと同じシェルファー（FuwaCourse/Fur）の白い毛玉。8個を1つのメッシュにまとめて描画回数を抑える
         {
-            var hv = new List<Vector3>(); var hn = new List<Vector3>(); var ht = new List<int>();
+            var hv = new List<Vector3>(); var hn = new List<Vector3>(); var ht = new List<int>(); var hu = new List<Vector4>(); int hi = 0;
             const int seg = 18, rings = 12;
             foreach (var (hp, hr) in heads)
             {
@@ -153,7 +161,7 @@ public static class FuwaKazeDeco
                     {
                         float th = Mathf.PI * j / rings, ph = Mathf.PI * 2 * i / seg;
                         var d = new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph));
-                        hv.Add(w2l.MultiplyPoint3x4(hp + d * rr)); hn.Add(w2l.MultiplyVector(d).normalized);
+                        hv.Add(w2l.MultiplyPoint3x4(hp + d * rr)); hn.Add(w2l.MultiplyVector(d).normalized); hu.Add(new Vector4(1f, _headPhase[hi], 0, 0));
                     }
                 for (int j = 0; j < rings; j++)
                     for (int i = 0; i < seg; i++)
@@ -161,8 +169,9 @@ public static class FuwaKazeDeco
                         int a0 = bi + j * (seg + 1) + i;
                         ht.Add(a0); ht.Add(a0 + 1); ht.Add(a0 + seg + 1); ht.Add(a0 + 1); ht.Add(a0 + seg + 2); ht.Add(a0 + seg + 1);   // 外向きの面
                     }
+                hi++;
             }
-            var hm = new Mesh { name = "Kaze_PuffFur" }; hm.SetVertices(hv); hm.SetNormals(hn); hm.SetTriangles(ht, 0); hm.RecalculateBounds();
+            var hm = new Mesh { name = "Kaze_PuffFur" }; hm.SetVertices(hv); hm.SetNormals(hn); hm.SetUVs(3, hu); hm.SetTriangles(ht, 0); hm.RecalculateBounds();
             string ap = Dir + "/Kaze_PuffFur.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
             if (old != null) { old.Clear(); EditorUtility.CopySerialized(hm, old); hm = old; } else AssetDatabase.CreateAsset(hm, ap);
             string mp = "Assets/FuwaCourse/Materials/PuffFur.mat"; var hmat = AssetDatabase.LoadAssetAtPath<Material>(mp);
@@ -174,6 +183,7 @@ public static class FuwaKazeDeco
                 hmat.SetFloat("_FurLength", 0.65f); hmat.SetFloat("_Density", 50f); hmat.SetFloat("_Thinness", 0.9f);
                 hmat.SetFloat("_Shadow", 0.3f); hmat.SetFloat("_Gravity", 0.02f); hmat.SetFloat("_RimStrength", 0.4f);
             }
+            hmat.SetFloat("_SwayAmp", SwayAmp); hmat.SetFloat("_SwaySpeed", SwaySpeed); hmat.SetVector("_SwayDir", new Vector4(wind.x, 0, wind.z, 0)); EditorUtility.SetDirty(hmat);
             var go = new GameObject("PuffFur", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(isl, false);
             go.GetComponent<MeshFilter>().sharedMesh = hm; var mr = go.GetComponent<MeshRenderer>(); mr.sharedMaterial = hmat;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
@@ -197,8 +207,12 @@ public static class FuwaKazeDeco
                 amb.position = deco.position; amb.rotation = deco.rotation; amb.localScale = Vector3.one;
                 var ps = amb.GetComponent<ParticleSystem>();
                 var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Mesh; sh.meshShapeType = ParticleSystemMeshShapeType.Triangle; sh.mesh = em; sh.scale = deco.lossyScale; sh.normalOffset = 0f; sh.randomPositionAmount = 0.3f;
-                var main = ps.main; main.startLifetime = new ParticleSystem.MinMaxCurve(14f, 22f); main.maxParticles = 420;
-                var emi = ps.emission; emi.rateOverTime = 22f;
+                // 綿毛は大きめ・多めにして目立たせる（形は軽い三角だけの綿毛に作り直す）
+                var main = ps.main; main.startLifetime = new ParticleSystem.MinMaxCurve(14f, 22f); main.maxParticles = 700;
+                main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.75f);
+                var emi = ps.emission; emi.rateOverTime = 36f;
+                var pr = amb.GetComponent<ParticleSystemRenderer>(); pr.mesh = SeedMesh();
+                var smat = pr.sharedMaterial; if (smat != null) { smat.SetFloat("_FadeStart", 25f); smat.SetFloat("_FadeEnd", 80f); smat.SetFloat("_FarAlpha", 0.65f); smat.SetFloat("_Shade", 0.1f); EditorUtility.SetDirty(smat); }
                 var vel = ps.velocityOverLifetime; vel.x = new ParticleSystem.MinMaxCurve(wind.x * 1.2f, wind.x * 2.2f); vel.z = new ParticleSystem.MinMaxCurve(wind.z * 1.2f, wind.z * 2.2f); vel.y = new ParticleSystem.MinMaxCurve(-0.05f, 0.25f);
                 amb.GetComponent<ParticleSystemRenderer>().enableGPUInstancing = false;   // シェーダーがパーティクルのインスタンシング未対応（色がくずれる）
                 EditorUtility.SetDirty(ps);
@@ -207,6 +221,37 @@ public static class FuwaKazeDeco
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         return log.ToString();
+    }
+
+    // 飛んでいく綿毛（パーティクル用）：細い軸＋放射状に開いた白い毛（三角だけ）。1つ約30三角で軽い
+    static Mesh SeedMesh()
+    {
+        string ap = "Assets/FuwaCourse/Meshes/DandelionSeed.asset";
+        var V = new List<Vector3>(); var C = new List<Color32>(); var T = new List<int>();
+        Color32 white = new Color32(255, 255, 255, 255), tan = new Color32(190, 160, 110, 255), stem = new Color32(235, 230, 215, 255);
+        void Tri(Vector3 a, Vector3 b, Vector3 c, Color32 ca, Color32 cb, Color32 cc) { int i = V.Count; V.Add(a); V.Add(b); V.Add(c); C.Add(ca); C.Add(cb); C.Add(cc); T.Add(i); T.Add(i + 1); T.Add(i + 2); }
+        // 種（下のふくらみ）と軸：十字の細い板
+        for (int k = 0; k < 2; k++)
+        {
+            var sd = k == 0 ? Vector3.right : Vector3.forward;
+            Tri(new Vector3(0, -0.5f, 0), sd * 0.04f + new Vector3(0, -0.38f, 0), -sd * 0.04f + new Vector3(0, -0.38f, 0), tan, tan, tan);
+            Tri(sd * 0.04f + new Vector3(0, -0.38f, 0), sd * 0.012f + new Vector3(0, 0.1f, 0), -sd * 0.04f + new Vector3(0, -0.38f, 0), stem, stem, tan);
+            Tri(-sd * 0.04f + new Vector3(0, -0.38f, 0), sd * 0.012f + new Vector3(0, 0.1f, 0), -sd * 0.012f + new Vector3(0, 0.1f, 0), tan, stem, stem);
+        }
+        // 毛：軸の先から放射状（少し上向きに開いた傘）。細長い三角を2枚ずつ（向きの違う板）で、どの角度からも見える
+        var top = new Vector3(0, 0.1f, 0); int n = 12;
+        for (int i = 0; i < n; i++)
+        {
+            float a = i * Mathf.PI * 2 / n; var d = new Vector3(Mathf.Cos(a), 0.55f, Mathf.Sin(a)).normalized; var tip = top + d * 0.42f;
+            var side = Vector3.Cross(d, Vector3.up).normalized * 0.035f; var up = Vector3.Cross(side, d).normalized * 0.035f;
+            Tri(top, tip + side, tip - side, white, white, white);
+            Tri(top, tip + up, tip - up, white, white, white);
+        }
+        var m = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
+        if (m == null) { m = new Mesh { name = "DandelionSeed" }; AssetDatabase.CreateAsset(m, ap); }
+        m.Clear(); m.SetVertices(V); m.SetColors(C); m.SetUVs(0, new List<Vector2>(new Vector2[V.Count])); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        EditorUtility.SetDirty(m);
+        return m;
     }
 
     static Vector3 Random3(System.Random rnd)
@@ -221,6 +266,7 @@ public static class FuwaKazeDeco
     // 巨大たんぽぽ：葉のロゼット＋少し風下にしなる茎＋頭（綿毛 or 黄色い花）
     static void Giant(MB m, Vector3 at, float h, bool puff, Vector3 wind, System.Random rnd, List<(Vector3, float)> heads)
     {
+        int v0 = m.V.Count; float phase = (float)rnd.NextDouble() * 6.2832f;
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         float s = h / 4.5f;
         Rosette(m, at, R(2.8f, 3.6f) * s, rnd.Next(8, 11), rnd);
@@ -239,9 +285,11 @@ public static class FuwaKazeDeco
         {
             float hr = R(1.1f, 1.5f) * s;
             // 頭そのものは、ふわふわと同じシェルファーの毛玉（PuffFur）で描く
-            heads.Add((top + Vector3.up * hr * 0.2f, hr));
+            heads.Add((top + Vector3.up * hr * 0.2f, hr)); _headPhase.Add(phase);
         }
         else Flower(m, top, R(2.1f, 2.6f) * s, rnd);
+        // 風のゆれの重み：根元0 → 先1（高さの2乗）。葉は地面近くなのでほぼゆれない
+        for (int i2 = v0; i2 < m.V.Count; i2++) { float w = Mathf.Clamp01((m.V[i2].y - at.y) / h); m.U3[i2] = new Vector4(w * w, phase, 0, 0); }
     }
 
     // ふつうの大きさのたんぽぽ

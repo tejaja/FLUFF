@@ -3,7 +3,7 @@ using UdonSharpEditor;
 using UnityEditor;
 using UnityEngine;
 
-// かぜのみちの風の飾り（吹き流し・かざぐるま）を作って並べる。メッシュはここで生成して Meshes/WindDeco に保存。
+// かぜのおかの風の飾り（吹き流し・かざぐるま）を作って並べる。メッシュはここで生成して Meshes/WindDeco に保存。
 // 柱は道の横の面にくっつけて立てる（道の上には乗せない）。動きは FuwaWindDeco（近くの FuwaWindArea に連動）。
 public static class FuwaWindDecoBuilder
 {

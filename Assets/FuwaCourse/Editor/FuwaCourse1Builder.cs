@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-// コース1「かぜのみち」の道を生成する（FuwaCourse2Builder と同じ考え方）。
+// コース1「かぜのおか」の道を生成する（FuwaCourse2Builder と同じ考え方）。
 // 中心線はスタート(Start)のローカル座標：z=1 から +z 向きに出発、s=道に沿った距離。
 // 流れ：追い風のカーブ → 直線 → 左の斜め風 → 右の斜め風 → CP1 → 谷1（切れ目の空中から斜め突風で向こう岸へ、人は左の細道）
 //      → 谷2（斜め突風で少し高い上の段へ、人は左の坂）→ CP2 → 小さな螺旋風が邪魔する直線 → ゴール

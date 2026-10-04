@@ -422,7 +422,7 @@ public static class FuwaCourse3Builder
         return log + " webs " + webs.Count;
     }
 
-    // ---- 重力の穴の左右の木の橋（かたまり4・5）。かぜのみちの人用の橋と同じ板張り。当たり判定は別の BridgeCollider ----
+    // ---- 重力の穴の左右の木の橋（かたまり4・5）。かぜのおかの人用の橋と同じ板張り。当たり判定は別の BridgeCollider ----
     static bool IsBridge(int pc) { return pc == 4 || pc == 5; }
 
     // 橋の中心の横位置：道の左右の半分から出て、穴のまん中で一番外へふくらんで、向こうでまた道に戻る（両端は道と平行）

@@ -34,6 +34,8 @@ Material:
     - _RimPower: 2.5
     - _RimStrength: 0.4
     - _Shadow: 0.3
+    - _SwayAmp: 0.22
+    - _SwaySpeed: 1.1
     - _Thinness: 0.9
     m_Colors:
     - _Color: {r: 0.86, g: 0.84, b: 0.78, a: 1}
@@ -43,5 +45,6 @@ Material:
     - _EyeMask: {r: 0, g: 0, b: 0, a: 0}
     - _GlowColor: {r: 0, g: 0, b: 0, a: 0}
     - _GlowDir: {r: 0, g: 1, b: 0, a: 0}
+    - _SwayDir: {r: 0.21150407, g: 0, b: 0.9773771, a: 0}
     - _TipColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

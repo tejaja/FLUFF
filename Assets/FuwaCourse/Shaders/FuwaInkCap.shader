@@ -11,6 +11,10 @@ Shader "FuwaCourse/InkCap"
         _InkTint ("インクのツヤの色", Color) = (0.75, 0.6, 1, 1)
         _DripAmp ("しずくの伸び縮み (m)", Float) = 0.09
         _DripSpeed ("しずくの揺れの速さ", Float) = 1.7
+        [Header(Sway)]
+        _SwayAmp ("ゆれ幅 (m、0=ゆれない)", Float) = 0
+        _SwaySpeed ("ゆれの速さ", Float) = 1.2
+        _SwayDir ("ゆれる向き（ワールド）", Vector) = (1, 0, 0, 0)
     }
     SubShader
     {
@@ -34,8 +38,9 @@ Shader "FuwaCourse/InkCap"
             half _Wrap, _Ambient, _InkGloss;
             float _DripAmp, _DripSpeed;
             fixed4 _InkTint;
+            float _SwayAmp, _SwaySpeed; float4 _SwayDir;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; float4 uv3 : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f
             {
                 float4 pos : SV_POSITION;
@@ -59,6 +64,14 @@ Shader "FuwaCourse/InkCap"
                     float w = v.uv.x * v.uv.x;
                     float s = sin(_Time.y * _DripSpeed + v.uv.y) * 0.6 + sin(_Time.y * _DripSpeed * 2.3 + v.uv.y * 1.7) * 0.4;
                     v.vertex.y -= _DripAmp * w * (0.5 + 0.5 * s);
+                }
+                // 風でゆれる（uv3.x＝ゆれの重み 0=根元〜1=先、uv3.y＝位相）。uv3 の無いメッシュはゆれない
+                if (_SwayAmp > 0 && v.uv3.x > 0)
+                {
+                    float t = _Time.y * _SwaySpeed + v.uv3.y;
+                    float s = sin(t) * 0.65 + sin(t * 1.73 + 1.1) * 0.35;
+                    float3 dw = normalize(_SwayDir.xyz) * (0.35 + 0.65 * (s * 0.5 + 0.5)) + cross(float3(0, 1, 0), normalize(_SwayDir.xyz)) * sin(t * 0.83 + 2.0) * 0.3;
+                    v.vertex.xyz += mul((float3x3)unity_WorldToObject, dw) * _SwayAmp * v.uv3.x;
                 }
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.wn = UnityObjectToWorldNormal(v.normal);

@@ -1,4 +1,4 @@
-// シェルファー（毛玉）の共通処理。各パスで FUR_H（0=根元〜1=毛先）を定義してからincludeする
+﻿// シェルファー（毛玉）の共通処理。各パスで FUR_H（0=根元〜1=毛先）を定義してからincludeする
 #include "UnityCG.cginc"
 #include "Lighting.cginc"
 
@@ -15,13 +15,14 @@ float _RimStrength;
 float _Alpha;       // ゴースト用（不透明版では無視される）
 float4 _GlowColor;  // 風などの影響を受けている間の光（rgb=色、a=強さ0〜1、スクリプトから入れる）
 float4 _GlowDir;    // 光る向き（ワールド空間。この向きの側ほど明るく、光の帯もこの向きに流れる）
-float4 _Squash;     // 撃たれた時のポヨン（xyz=ワールドの向き、w=量。+で向きに潰れて横にふくらむ、-で伸びる）
+float4 _Squash;
+float _SwayAmp, _SwaySpeed; float4 _SwayDir;   // 風でゆれる（たんぽぽの綿毛。uv3.x＝重み、uv3.y＝位相）     // 撃たれた時のポヨン（xyz=ワールドの向き、w=量。+で向きに潰れて横にふくらむ、-で伸びる）
 float4 _EyeDirL, _EyeDirR;   // 目のある向き（オブジェクト空間）。この向きのまわりは毛を生やさない（目を毛が貫通しないように）
 float4 _EyeMask;    // x=これより内側(cos)は毛を短く、y=ここまでで元の長さ。x<=0 なら使わない
 float _EyeMinLen;
 float _EyeTint;     // 目のまわりの短い毛を、どれだけ毛先寄りの色に寄せるか   // 目のまわりの毛の長さ（元の長さに対する割合）。0=毛なし（地肌が見える）
 
-struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float4 uv3 : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
 struct v2f
 {
     float4 pos : SV_POSITION;
@@ -51,6 +52,13 @@ v2f vert (appdata v)
         // 法線は形の変形の逆向きに（楕円体の法線）。毛が潰れた形に沿って生えるように
         float wa = dot(wn, _Squash.xyz);
         wn = normalize(_Squash.xyz * wa / max(1.0 - _Squash.w, 0.2) + (wn - _Squash.xyz * wa) / (1.0 + _Squash.w * 0.5));
+    }
+    if (_SwayAmp > 0 && v.uv3.x > 0)
+    {
+        float t = _Time.y * _SwaySpeed + v.uv3.y;
+        float s = sin(t) * 0.65 + sin(t * 1.73 + 1.1) * 0.35;
+        float3 dw = normalize(_SwayDir.xyz) * (0.35 + 0.65 * (s * 0.5 + 0.5)) + cross(float3(0, 1, 0), normalize(_SwayDir.xyz)) * sin(t * 0.83 + 2.0) * 0.3;
+        world.xyz += dw * _SwayAmp * v.uv3.x;
     }
     // 毛を法線方向に伸ばし、先ほど重力となびきで曲げる
     float scale = length(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0)));
