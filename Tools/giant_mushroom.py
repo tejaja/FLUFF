@@ -77,7 +77,13 @@ sw = lambda a, y: 0.06 * math.sin(a * 7 + 0.3) * (y < ry - 0.3)
 lathe(stem, 0, skirt, wob=sw)
 lathe(stem, 0, [(r - 0.05, y - 0.03) for r, y in skirt], wob=sw, flip=True)
 
-out = {'GiantCap': {'v': cap.V, 't': cap.T}, 'GiantStem': {'v': stem.V, 't': stem.T}}
+def scaled(m, sx, sy):
+    return {'v': [(x * sx, y * sy, z * sx) for x, y, z in m.V], 't': m.T}
+# ジャンプ用の小さいキノコ（坂の赤いキノコ）：同じ形を縮める。傘の半径1.2・てっぺんは付け根から0.3、軸は長さ2.98・半径0.3
+JUMP_R, JUMP_TOP, JUMP_H, JUMP_SR = 1.2, 0.3, 2.98, 0.3
+out = {'GiantCap': {'v': cap.V, 't': cap.T}, 'GiantStem': {'v': stem.V, 't': stem.T},
+       'JumpCap': scaled(cap, JUMP_R / CAP_R, JUMP_TOP / (CAP_TOP + 0.08)),
+       'JumpStem': scaled(stem, JUMP_SR / STEM_R, JUMP_H / STEM_TOP)}
 json.dump(out, open(OUT, 'w'))
 
 try:
@@ -85,7 +91,7 @@ try:
     coll = bpy.data.collections.get('GiantMush') or bpy.data.collections.new('GiantMush')
     if coll.name not in bpy.context.scene.collection.children: bpy.context.scene.collection.children.link(coll)
     for o in list(coll.objects): bpy.data.objects.remove(o)
-    for name, d, dy in (('GiantCap', out['GiantCap'], STEM_TOP), ('GiantStem', out['GiantStem'], 0)):
+    for name, d, dy in (('GiantCap', out['GiantCap'], STEM_TOP), ('GiantStem', out['GiantStem'], 0), ('JumpCap', out['JumpCap'], JUMP_H + 6), ('JumpStem', out['JumpStem'], 6)):
         faces = []
         for sub in d['t']:
             for i in range(0, len(sub), 3): faces.append((sub[i], sub[i + 2], sub[i + 1]))
