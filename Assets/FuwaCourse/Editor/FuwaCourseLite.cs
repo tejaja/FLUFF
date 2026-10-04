@@ -58,10 +58,19 @@ public static class FuwaCourseLite
             for (int j = 0; j < NV.Count; j++) { NV[j] /= cnt[j]; NC[j] /= cnt[j]; }
             var NT = new List<int>();
             for (int k = 0; k < T.Count; k += 3) { int a = remap[T[k]], b2 = remap[T[k + 1]], c = remap[T[k + 2]]; if (a == b2 || b2 == c || a == c) continue; NT.Add(a); NT.Add(b2); NT.Add(c); }
+            // 面ごとに頂点を分けて、法線は面の向き（つぶした頂点で法線をなめらかにすると、放射状のヘンな影が出るので）
+            var FV = new List<Vector3>(); var FN = new List<Vector3>(); var FC = new List<Color>(); var FT = new List<int>();
+            for (int k = 0; k < NT.Count; k += 3)
+            {
+                var a = NV[NT[k]]; var b2 = NV[NT[k + 1]]; var c = NV[NT[k + 2]]; var fn = Vector3.Cross(b2 - a, c - a); if (fn.sqrMagnitude < 1e-10f) continue; fn.Normalize();
+                int bi2 = FV.Count; FV.Add(a); FV.Add(b2); FV.Add(c); FN.Add(fn); FN.Add(fn); FN.Add(fn);
+                foreach (var idx in new[] { NT[k], NT[k + 1], NT[k + 2] }) { var col = NC[idx]; col.a = 1; FC.Add(col); }
+                FT.Add(bi2); FT.Add(bi2 + 1); FT.Add(bi2 + 2);
+            }
             var lite = new Mesh { name = cn + "_Lite", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-            lite.SetVertices(NV); lite.SetColors(NC.Select(x => new Color(x.r, x.g, x.b, 1)).ToList());
-            lite.SetTriangles(NT, 0);   // 色はガンマのまま（InkCap シェーダーが中で直す）
-            lite.RecalculateNormals(); lite.RecalculateBounds();
+            lite.SetVertices(FV); lite.SetNormals(FN); lite.SetColors(FC);   // 色はガンマのまま（InkCap シェーダーが中で直す）
+            lite.SetTriangles(FT, 0);
+            lite.RecalculateBounds();
             string ap = Dir + "/" + cn + "_Lite.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
             if (old != null) { old.Clear(); EditorUtility.CopySerialized(lite, old); lite = old; } else AssetDatabase.CreateAsset(lite, ap);
             var go = holder.transform.Find(cn + "_Lite")?.gameObject;
