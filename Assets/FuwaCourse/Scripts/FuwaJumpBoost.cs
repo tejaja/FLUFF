@@ -30,6 +30,8 @@ public class FuwaJumpBoost : UdonSharpBehaviour
     public float wobbleAmount = 0.14f;
     public float wobbleTime = 0.7f;
     public float wobbleSpeed = 22f;
+    [Tooltip("揺れのおさまる速さ（大きいほどすぐ止まる）")]
+    public float wobbleDamping = 6f;
 
     private float _restore = -1f;
     private bool _boosted;
@@ -55,7 +57,7 @@ public class FuwaJumpBoost : UdonSharpBehaviour
             _wobbleStart = -1f; return;
         }
         // 最初にぐっと沈んで、ぽよんぽよんと減っていく
-        float k = -Mathf.Sin(t * wobbleSpeed) * Mathf.Exp(-t * 6f);
+        float k = -Mathf.Sin(t * wobbleSpeed) * Mathf.Exp(-t * wobbleDamping);
         if (wobbleMode == 1)
         {
             wobbleTarget.localRotation = _wobbleBaseRot * Quaternion.Euler(-k * wobbleAmount, 0f, 0f);
