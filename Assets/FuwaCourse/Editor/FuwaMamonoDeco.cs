@@ -295,7 +295,7 @@ public static class FuwaMamonoDeco
     // タマゴの殻（th0〜th1 の範囲。上が th=0）。th0>0 なら上のふちを、th1<π なら下のふちをギザギザにする
     static void Shell(MB m, Matrix4x4 xf, float r, float h, float th0, float th1, Color c, System.Random rnd)
     {
-        const int seg = 12, rings = 8;
+        const int seg = 10, rings = 6;
         bool cutTop = th0 > 0.01f, cutBot = th1 < Mathf.PI - 0.01f;
         int bi = m.V.Count;
         Vector3 P(float th, float ph)
@@ -336,26 +336,26 @@ public static class FuwaMamonoDeco
         void Stick(float a0, float span, float r, float y, float tr)
         {
             var pts = new List<Vector3>(); var rad = new List<float>();
-            for (int k = 0; k <= 4; k++)
+            for (int k = 0; k <= 2; k++)
             {
-                float a = a0 + span * k / 4f, rr = r * R(0.94f, 1.06f);
+                float a = a0 + span * k / 2f, rr = r * R(0.94f, 1.06f);
                 pts.Add(at + new Vector3(Mathf.Cos(a) * rr, y + tr + R(-0.01f, 0.01f), Mathf.Sin(a) * rr));
-                rad.Add(tr * Mathf.Lerp(1f, 0.55f, k / 4f));
+                rad.Add(tr * Mathf.Lerp(1f, 0.55f, k / 2f));
             }
             Tube(m, pts, rad, 4, cols[rnd.Next(cols.Length)] * R(0.88f, 1.08f));
         }
         // 輪（外側ほど高く積む）
-        for (int layer = 0; layer < 4; layer++)
+        for (int layer = 0; layer < 3; layer++)
         {
-            float rr = ring * (0.92f + layer * 0.07f), y = er * (0.02f + layer * 0.17f);
-            int n = Mathf.RoundToInt(rr * 2 * Mathf.PI / (er * 0.9f));
-            for (int i = 0; i < n; i++) Stick((i + R(-0.3f, 0.3f)) * Mathf.PI * 2 / n + layer * 0.5f, Mathf.PI * 2 / n * R(1.4f, 2.0f), rr, y, er * R(0.11f, 0.15f));
+            float rr = ring * (0.92f + layer * 0.07f), y = er * (0.02f + layer * 0.24f);
+            int n = Mathf.RoundToInt(rr * 2 * Mathf.PI / (er * 1.25f));
+            for (int i = 0; i < n; i++) Stick((i + R(-0.3f, 0.3f)) * Mathf.PI * 2 / n + layer * 0.5f, Mathf.PI * 2 / n * R(1.4f, 2.0f), rr, y, er * R(0.14f, 0.19f));
         }
         // 底に敷いた小枝（タマゴの下からはみ出して見える）
-        for (int i = 0; i < 10; i++) Stick(R(0, Mathf.PI * 2), R(0.5f, 1.0f), ring * R(0.3f, 0.8f), 0f, er * R(0.08f, 0.11f));
+        for (int i = 0; i < 5; i++) Stick(R(0, Mathf.PI * 2), R(0.5f, 1.0f), ring * R(0.3f, 0.8f), 0f, er * R(0.08f, 0.11f));
         // 寝かせた枯れ草
         var straw = new Color(0.82f, 0.7f, 0.42f);
-        for (int i = 0; i < 16; i++)
+        for (int i = 0; i < 8; i++)
         {
             float a = R(0, Mathf.PI * 2), r = ring * R(0.8f, 1.15f); var b = at + new Vector3(Mathf.Cos(a) * r, er * R(0.1f, 0.6f), Mathf.Sin(a) * r);
             var tang = new Vector3(-Mathf.Sin(a), 0, Mathf.Cos(a)) * (rnd.NextDouble() < 0.5 ? 1 : -1);
