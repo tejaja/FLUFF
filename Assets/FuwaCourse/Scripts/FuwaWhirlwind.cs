@@ -6,8 +6,10 @@ using UnityEngine;
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaWhirlwind : UdonSharpBehaviour
 {
-    [Tooltip("筒の半径(m)")]
+    [Tooltip("筒の半径(m)（底）")]
     public float radius = 1.6f;
+    [Tooltip("てっぺんの半径(m)。底より大きくすると上へ広がるらせんになる（0以下なら底と同じ）")]
+    public float topRadius = 0f;
     [Tooltip("巻き上げる高さ(m)。ここより上は送り出し")]
     public float height = 6f;
     [Tooltip("上へ持ち上げる強さ（加速度）。上へ行くほど少し弱まる")]
@@ -33,8 +35,9 @@ public class FuwaWhirlwind : UdonSharpBehaviour
         float h = Mathf.Clamp01(local.y / Mathf.Max(0.01f, height));
         Vector3 flat = new Vector3(local.x, 0f, local.z);
         float r = flat.magnitude;
-        // 当たり判定の箱の角（円の外）では効かせない。道のふちギリギリに置いても道の上には風が出ない
-        if (r > radius) return;
+        // その高さでの半径（上へ行くほど広がる）。箱の角など円の外では効かせない
+        float rHere = topRadius > 0f ? Mathf.Lerp(radius, topRadius, h) : radius;
+        if (r > rHere) return;
         Vector3 acc = Vector3.zero;
         // 上へ（てっぺんに近いほど弱め、送り出し区間では浮かせる程度）
         float up = lift * (1f - liftFade * h);
@@ -44,7 +47,7 @@ public class FuwaWhirlwind : UdonSharpBehaviour
         {
             Vector3 radial = flat / r;
             Vector3 tangent = Vector3.Cross(Vector3.up, radial) * spinDir;
-            float outer = Mathf.Clamp01(r / Mathf.Max(0.01f, radius));
+            float outer = Mathf.Clamp01(r / Mathf.Max(0.01f, rHere));
             // 送り出し区間では回転を止めて、まっすぐ前へ出す（横に飛ばされないように）
             float exitness = h > exitFrom ? Mathf.Clamp01((h - exitFrom) / (1f - exitFrom) * 2f) : 0f;
             acc += tangent * swirl * (0.4f + 0.6f * outer) * (1f - exitness);
