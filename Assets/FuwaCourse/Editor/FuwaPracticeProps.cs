@@ -87,7 +87,7 @@ public static class FuwaPracticeProps
             var side = new Vector3(-d.z, 0, d.x) * sideSign; sideSign = -sideSign;
             var go = new GameObject("Prop" + (++count)).transform; go.SetParent(holder, false); go.position = c;
             go.gameObject.layer = path.gameObject.layer;
-            if (rnd.NextDouble() < 0.5) CandyPosts(mb, go, c, d, side, hw, rnd);
+            if (count % 2 == 1) CandyPosts(mb, go, c, d, side, hw, rnd);   // 杭とマシュマロを交互に
             else Marshmallows(mb, go, c, side, hw, rnd);
         }
 
@@ -110,22 +110,21 @@ public static class FuwaPracticeProps
     static void CandyPosts(MB m, Transform go, Vector3 c, Vector3 d, Vector3 side, float hw, System.Random rnd)
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
-        int n = rnd.Next(2, 4); float along0 = -(n - 1) * 0.22f;
+        int n = rnd.Next(2, 4); float along0 = -(n - 1) * 0.31f;
         for (int k = 0; k < n; k++)
         {
-            float pr = R(0.07f, 0.09f), br = R(0.15f, 0.21f), h = R(0.45f, 0.95f);
-            var basePt = c + side * (hw - R(0.12f, 0.2f)) + d * (along0 + k * 0.44f + R(-0.05f, 0.05f));
-            var c1 = Pastel[rnd.Next(Pastel.Length)]; var c2 = Cream; var ball = Pastel[rnd.Next(Pastel.Length)];
-            // しましまの杭（帯ごとに色を変える）
-            int bands = Mathf.Max(3, Mathf.RoundToInt(h / 0.11f));
-            for (int b = 0; b < bands; b++)
-            {
-                float y0 = h * b / bands, y1 = h * (b + 1) / bands;
-                Cylinder(m, basePt + Vector3.up * y0, pr, y1 - y0, 12, b % 2 == 0 ? c1 : c2, b == 0, false);
-            }
-            Sphere(m, basePt + Vector3.up * (h + br * 0.75f), br, ball, 14, 9);
+            float pr = R(0.035f, 0.045f), br = R(0.26f, 0.34f), h = R(0.45f, 0.95f);   // 細い棒＋大きいキャンディ
+            var basePt = c + side * (hw - R(0.14f, 0.22f)) + d * (along0 + k * 0.62f + R(-0.05f, 0.05f));
+            var ball = Pastel[rnd.Next(Pastel.Length)];
+            // 斜めに立てる（道の外側か前後に傾ける。道の内側へは倒さない）
+            var lean = (side.normalized * R(0.2f, 1f) + d * R(-1f, 1f)).normalized;
+            var tilt = Quaternion.AngleAxis(R(12f, 24f), Vector3.Cross(Vector3.up, lean));
+            Lathe(m, basePt, tilt, new List<Vector2> { new Vector2(0, 0), new Vector2(pr, 0), new Vector2(pr, h + br * 0.3f) }, 10, Cream);
+            var top = basePt + tilt * Vector3.up * (h + br * 0.9f);
+            LollipopAt(m, top, tilt, br, ball);
+            br *= 0.9f;
             var cc = new GameObject("Col").AddComponent<CapsuleCollider>(); cc.transform.SetParent(go, false); cc.gameObject.layer = go.gameObject.layer;
-            cc.transform.position = basePt + Vector3.up * (h + br * 1.75f) * 0.5f; cc.direction = 1; cc.radius = br; cc.height = h + br * 1.75f;
+            cc.transform.rotation = tilt; cc.transform.position = basePt + tilt * Vector3.up * (h + br * 2.1f) * 0.5f; cc.direction = 1; cc.radius = br; cc.height = h + br * 2.1f;
         }
     }
 
@@ -135,11 +134,12 @@ public static class FuwaPracticeProps
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         int n = rnd.Next(2, 4); float r0 = R(0.3f, 0.4f);
         var basePt = c + side * (hw - r0 * 0.35f);
-        float y = 0; var p = basePt; float top = 0;
+        float y = 0; var p = basePt; float top = 0; int lastCol = -1;
         for (int k = 0; k < n; k++)
         {
             float r = r0 * (1f - k * 0.13f) * R(0.95f, 1.05f), h = r * R(0.75f, 0.95f);
-            var col = Color.Lerp(Pastel[rnd.Next(Pastel.Length)], Cream, R(0.15f, 0.4f));
+            int ci; do ci = rnd.Next(Pastel.Length); while (ci == lastCol); lastCol = ci;   // となりの段と同じ色にしない
+            var col = Color.Lerp(Pastel[ci], Cream, R(0.15f, 0.4f));
             var q = p + new Vector3(R(-0.06f, 0.06f), 0, R(-0.06f, 0.06f));
             var rot = Quaternion.Euler(R(-4, 4), R(0, 360), R(-4, 4));
             Marsh(m, q + Vector3.up * y, rot, r, h, col);
@@ -147,6 +147,19 @@ public static class FuwaPracticeProps
         }
         var cc = new GameObject("Col").AddComponent<CapsuleCollider>(); cc.transform.SetParent(go, false); cc.gameObject.layer = go.gameObject.layer;
         cc.transform.position = basePt + Vector3.up * top * 0.5f; cc.direction = 1; cc.radius = r0 * 0.95f; cc.height = Mathf.Max(top, r0 * 2f);
+    }
+
+    // チュッパチャプスみたいな玉：ほぼ球で、まん中（赤道）だけ少しふくらんだ帯
+    static void LollipopAt(MB m, Vector3 c, Quaternion rot, float r, Color col)
+    {
+        var prof = new List<Vector2>(); const int rings = 16;
+        for (int j = 0; j <= rings; j++)
+        {
+            float th = Mathf.PI * j / rings, e = Mathf.Cos(th);
+            float bulge = 1f + 0.12f * Mathf.Exp(-e * e * 40f);   // 赤道のまわりだけ太く
+            prof.Add(new Vector2(Mathf.Sin(th) * r * bulge, -Mathf.Cos(th) * r * 0.92f));
+        }
+        Lathe(m, c, rot, prof, 18, col);
     }
 
     // 角の丸い円柱（上下のふちを丸める）
