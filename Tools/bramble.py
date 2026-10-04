@@ -87,7 +87,9 @@ def bramble(seed):
             pts.append(p)
         vines.append(pts)
         col = rnd.choice((STEM, STEM2, STEM3))
-        tube(m, pts, rnd.uniform(0.026, 0.036), 0.009, col, sides=5)
+        r0 = rnd.uniform(0.026, 0.036); r1 = 0.009
+        tube(m, pts, r0, r1, col, sides=5)
+        def rad_at(k): return r0 + (r1 - r0) * k / (n - 1)
         # トゲ：ほぼ全部の節から、外向き・上向きに大きく鋭く（1節に1〜2本）
         for k in range(1, n - 1):
             for _ in range(1 if rnd.random() < 0.5 else 2):
@@ -95,8 +97,11 @@ def bramble(seed):
                 ph = rnd.uniform(0, 6.28); out = (a * math.cos(ph) + b * math.sin(ph))
                 if out.y < -0.2: out = -out
                 dd = (out * 0.9 + t * 0.3).normalized()
-                ln = rnd.uniform(0.09, 0.15)
-                cone(m, p + out * 0.018, dd, ln, rnd.uniform(0.018, 0.024), THORN if rnd.random() < 0.75 else THORN_DARK)
+                rk = rad_at(k)
+                # トゲの根元はつるの中に半分うめる。太さはつるの太さに合わせる（細いところは細く短く）
+                br = min(rnd.uniform(0.016, 0.022), rk * 0.95 + 0.004)
+                ln = rnd.uniform(0.09, 0.15) * (0.6 + 0.4 * rk / 0.03)
+                cone(m, p + out * rk * 0.35, dd, ln + rk * 0.65, br, THORN if rnd.random() < 0.75 else THORN_DARK)
         # 細い枝分かれ（からまり感）
         if rnd.random() < 0.6:
             k0 = rnd.randint(4, 8); p0 = pts[k0]; t0 = (pts[k0 + 1] - pts[k0 - 1]).normalized()
@@ -107,13 +112,16 @@ def bramble(seed):
                 q = bpts[i]; tt = (bpts[i + 1] - bpts[i - 1]).normalized(); a, b = frame_of(tt)
                 ph = rnd.uniform(0, 6.28); out = (a * math.cos(ph) + b * math.sin(ph))
                 if out.y < -0.2: out = -out
-                cone(m, q + out * 0.01, (out * 0.9 + tt * 0.3).normalized(), rnd.uniform(0.06, 0.1), 0.014, THORN)
+                cone(m, q + out * 0.004, (out * 0.9 + tt * 0.3).normalized(), rnd.uniform(0.06, 0.09), 0.011, THORN)
     # 真ん中から突き出す大トゲ（近づくと危ない感）
-    for i in range(7):
-        ang = rnd.uniform(0, 6.28); rr = rnd.uniform(0.05, 0.3)
-        p = Vector((math.cos(ang) * rr, rnd.uniform(0.18, 0.32), math.sin(ang) * rr))
-        dd = Vector((math.cos(ang) * rnd.uniform(0.3, 0.8), 1, math.sin(ang) * rnd.uniform(0.3, 0.8))).normalized()
-        cone(m, p, dd, rnd.uniform(0.2, 0.28), 0.035, THORN)
+    # 大トゲも、つるの太いところ（アーチの上のほう）から生やす
+    picks = rnd.sample(range(len(vines)), 7)
+    for vi in picks:
+        pts = vines[vi]; k = rnd.randint(2, 5); p = pts[k]
+        t = (pts[k + 1] - pts[k - 1]).normalized(); a, b = frame_of(t)
+        out = Vector((0, 1, 0)) - t * t.y; out = out.normalized() if out.length > 1e-3 else a
+        dd = (out * 0.85 + Vector((p.x, 0, p.z)).normalized() * 0.35).normalized()
+        cone(m, p + out * 0.008, dd, rnd.uniform(0.18, 0.25), 0.026, THORN)
     # 根もと：太いつるのかたまり
     for i in range(10):
         ang = rnd.uniform(0, 6.28); d = Vector((math.cos(ang), 0, math.sin(ang)))
