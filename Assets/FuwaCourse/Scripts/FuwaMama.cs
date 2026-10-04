@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -135,10 +135,42 @@ public class FuwaMama : UdonSharpBehaviour
 
         UpdatePupils(_state != 0, local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, dt);
         float swell = 0f, squint = 1f, shake = 0f;
+        // ゴールしたら：巣のまん中（最初の場所）へ戻って、また眠る（ゴールしている間は起きない）
+        bool finished = ball != null && ball.IsFinished();
+        if (finished && _state != 0 && _state != 4)
+        {
+            if (warnText != null) warnText.gameObject.SetActive(false);
+            if (sneezeText != null) sneezeText.gameObject.SetActive(false);
+            _inHop = false; _hopClock = 0f; _push = Vector3.zero;
+            SetState(4);
+        }
         if (_state == 0)
         {
             squint = 0.03f;
-            if (near) { _wait = interval * 0.6f; SetState(1); }
+            if (near && !finished) { _wait = interval * 0.6f; SetState(1); }
+        }
+        else if (_state == 4)
+        {
+            squint = 0.5f;
+            Vector3 p = transform.position; Vector3 to = _startPos - p; to.y = 0f;
+            float d = to.magnitude;
+            if (d < 0.05f)
+            {
+                transform.position = new Vector3(_startPos.x, _home.y, _startPos.z);
+                transform.rotation = Quaternion.Slerp(transform.rotation, _startRot, 1f - Mathf.Exp(-4f * dt));
+                if (_t > 0.6f && Quaternion.Angle(transform.rotation, _startRot) < 2f) { transform.rotation = _startRot; SetState(0); }
+            }
+            else
+            {
+                // ぴょんぴょん跳ねて戻る（少し速め）
+                _hopClock += dt;
+                float x = Mathf.Repeat(_hopClock / (hopTime * 0.8f), 1f);
+                Vector3 step = to.normalized * Mathf.Min(d, (hopDistance / (hopTime * 0.8f)) * 1.3f * dt);
+                p += step; p.y = _home.y + hopHeight * 0.6f * 4f * x * (1f - x);
+                transform.position = p;
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to.normalized), 1f - Mathf.Exp(-4f * dt));
+                _t = 0f;
+            }
         }
         else if (_state == 1)
         {
@@ -173,7 +205,7 @@ public class FuwaMama : UdonSharpBehaviour
             }
         }
 
-        if (_state != 0) Move(local, dt);
+        if (_state != 0 && _state != 4) Move(local, dt);
         float sq = Time.time < _squashUntil ? Mathf.Sin((_squashUntil - Time.time) / 0.3f * Mathf.PI) * 0.12f : 0f;
         swell -= sq;
         swell -= _crouch * 0.1f;

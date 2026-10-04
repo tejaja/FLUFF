@@ -234,8 +234,8 @@ Shader "FuwaCourse/ToonLit"
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(fixed4, _Color)
             UNITY_INSTANCING_BUFFER_END(Props)
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; half fade : TEXCOORD3; SHADOW_COORDS(4) UNITY_FOG_COORDS(5) UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; half fade : TEXCOORD3; UNITY_SHADOW_COORDS(4) UNITY_FOG_COORDS(5) UNITY_VERTEX_INPUT_INSTANCE_ID };
             v2f vert (appdata v)
             {
                 v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_TRANSFER_INSTANCE_ID(v, o);
@@ -244,7 +244,7 @@ Shader "FuwaCourse/ToonLit"
                 o.fade = _BaseFadeLength > 0 ? smoothstep(-_BaseFadeLength, 0, v.vertex.y) : 0;
                 o.wn = lerp(o.wn, float3(0, -1, 0), o.fade * _BaseFadeNormal);
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
-                TRANSFER_SHADOW(o); UNITY_TRANSFER_FOG(o, o.pos);
+                UNITY_TRANSFER_SHADOW(o, v.uv1); UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
             fixed4 frag (v2f i) : SV_Target

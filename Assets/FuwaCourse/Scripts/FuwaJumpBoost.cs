@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon.Common.Interfaces;
@@ -34,6 +34,20 @@ public class FuwaJumpBoost : UdonSharpBehaviour
     [Tooltip("揺れのおさまる速さ（大きいほどすぐ止まる）")]
     public float wobbleDamping = 6f;
 
+    [Header("乗っている間：力を溜めている感じ（自分の画面だけ）")]
+    [Tooltip("乗った時に鳴らす「ためる」音")]
+    public AudioSource chargeSound;
+    [Tooltip("ほんのり光らせる見た目（空なら wobbleTarget の中のレンダラー全部）")]
+    public Renderer[] glowRenderers;
+    public Color glowColor = new Color(1f, 0.8f, 0.35f, 1f);
+    [Tooltip("光の強さ（いちばん明るい時）")]
+    public float glowMax = 0.55f;
+    [Tooltip("乗ってから光りきるまでの秒数")]
+    public float glowRise = 0.35f;
+
+    private float _glow;
+    private MaterialPropertyBlock _mpb;
+
     private float _restore = -1f;
     private bool _boosted;
     private Vector3 _wobbleBaseScale;
@@ -55,6 +69,7 @@ public class FuwaJumpBoost : UdonSharpBehaviour
 
     private void Update()
     {
+        UpdateGlow();
         if (!_wobbling || wobbleTarget == null) return;
         float dt = Mathf.Min(Time.deltaTime, 0.05f);
         // 減衰つきのばね（wobbleSpeed＝揺れの速さ、wobbleDamping＝おさまる速さ）
@@ -82,6 +97,31 @@ public class FuwaJumpBoost : UdonSharpBehaviour
         }
     }
 
+    // 乗っている間はふわっと光って、ゆっくり脈打つ（降りたらすっと消える）
+    private void UpdateGlow()
+    {
+        float target = _boosted ? 1f : 0f;
+        if (target == 0f && _glow <= 0f) return;
+        float rate = _boosted ? 1f / Mathf.Max(0.05f, glowRise) : 4f;
+        _glow = Mathf.MoveTowards(_glow, target, rate * Time.deltaTime);
+        if (glowRenderers == null || glowRenderers.Length == 0)
+        {
+            if (wobbleTarget == null) return;
+            glowRenderers = wobbleTarget.GetComponentsInChildren<Renderer>();
+        }
+        if (_mpb == null) _mpb = new MaterialPropertyBlock();
+        float pulse = 0.82f + 0.18f * Mathf.Sin(Time.time * 6f);
+        float k = _glow * glowMax * (_boosted ? pulse : 1f);
+        for (int i = 0; i < glowRenderers.Length; i++)
+        {
+            Renderer r = glowRenderers[i];
+            if (r == null) continue;
+            r.GetPropertyBlock(_mpb);
+            _mpb.SetColor("_EmissionColor", new Color(glowColor.r * k, glowColor.g * k, glowColor.b * k, 1f));
+            r.SetPropertyBlock(_mpb);
+        }
+    }
+
     private bool OnTop(VRCPlayerApi p)
     {
         Transform s = surface != null ? surface : transform.parent;
@@ -99,6 +139,7 @@ public class FuwaJumpBoost : UdonSharpBehaviour
         {
             _restore = p.GetJumpImpulse();
             p.SetJumpImpulse(Mathf.Max(jumpImpulse, _restore));
+            if (chargeSound != null && chargeSound.clip != null) { chargeSound.pitch = Random.Range(0.97f, 1.04f); chargeSound.PlayOneShot(chargeSound.clip, 0.7f); }
         }
         else if (_restore >= 0f)
         {

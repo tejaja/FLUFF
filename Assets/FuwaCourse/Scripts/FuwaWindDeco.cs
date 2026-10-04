@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 
 // 風の飾り（吹き流し・かざぐるま）。つながっている FuwaWindArea の風に合わせて動く（自分の画面だけ・同期なし）。
@@ -37,6 +37,8 @@ public class FuwaWindDeco : UdonSharpBehaviour
     public float shakeAngle = 3.5f;
     public float shakeSpeed = 23f;
 
+    [Tooltip("ゆるい風（FuwaWindArea.baseLevel）の時の動きの大きさ（baseLevel に掛ける）")]
+    public float baseResponse = 1.6f;
     [Tooltip("風が止んでから、たなびき続ける秒数")]
     public float holdAfter = 0.6f;
 
@@ -61,15 +63,16 @@ public class FuwaWindDeco : UdonSharpBehaviour
         bool blowing = true;
         if (wind != null)
         {
-            if (wind.GetGustLevel() > 0.01f) _lastSeen = Time.time;
+            if (wind.IsGusting() && wind.GetGustLevel() > 0.01f) _lastSeen = Time.time;
             blowing = Time.time - _lastSeen < holdAfter;
-            target = blowing ? 1f : 0f;
+            // 強い風の間は 1、ゆるい風の間は少しだけ（吹き流しは斜め、かざぐるまはゆっくり）
+            target = blowing ? 1f : wind.GetBaseLevel() * baseResponse;
         }
         target = Mathf.Max(target, idleLevel);
         // 吹き始めは速く、止む時はゆっくり
         float rate = target > _level ? 6f : 1.5f;
         _level = Mathf.MoveTowards(_level, target, rate * Time.deltaTime);
-        if (wind != null && blowing) _lastDir = wind.GetWorldDirection();
+        if (wind != null && (blowing || wind.GetBaseLevel() > 0f)) _lastDir = wind.GetWorldDirection();
         else if (wind == null) _lastDir = fixedDirection.normalized;
         Vector3 h = new Vector3(_lastDir.x, 0f, _lastDir.z);
         h = h.sqrMagnitude > 0.0001f ? h.normalized : Vector3.forward;

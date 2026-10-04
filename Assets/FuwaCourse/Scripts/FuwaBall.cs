@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
@@ -897,6 +897,7 @@ public class FuwaBall : UdonSharpBehaviour
     }
 
     public bool IsHidden() { return _hidden; }
+    public bool IsFinished() { return _finished; }
     public bool IsRunning() { return _running; }
 
     // 対戦レースのGO：キノコを撃てるようにして、タイムをGOの瞬間から計り始める

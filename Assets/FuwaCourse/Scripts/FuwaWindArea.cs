@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 
 // トリガーの範囲内にいるふわふわに風を当て続ける（横風・上昇気流など）。
@@ -19,6 +19,11 @@ public class FuwaWindArea : UdonSharpBehaviour
     [Tooltip("吹いている間の強さの変化（横軸0〜1=吹き始め〜終わり、縦軸=強さの倍率）")]
     public AnimationCurve gustCurve = new AnimationCurve(
         new Keyframe(0f, 0f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0f));
+    [Tooltip("止んでいる間も、この割合でゆるく吹き続ける（0=完全に止む）。強い風は周期どおりに「ときどき」吹く")]
+    [Range(0f, 1f)] public float baseLevel = 0f;
+    [Tooltip("強い風のあと、この秒数だけぴたっと止む（ゆるい風も止む）。baseLevel と組み合わせて「ゆるい→強い→止む」のくり返しにする")]
+    public float calmSeconds = 0f;
+    private float _baseNow;
     [Tooltip("吹き始める何秒前から見た目を出して予告するか")]
     public float warnSeconds = 0.6f;
     [Tooltip("風が止まっている間に消す見た目（パーティクルなど）")]
@@ -117,6 +122,9 @@ public class FuwaWindArea : UdonSharpBehaviour
 
     // 飾り（吹き流し・かざぐるま）用：いまの風の強さ（0〜1、吹いていない時は0）と、ワールドでの風の向き（逆向きの時は反転）
     public float GetGustLevel() { return _blowing ? Mathf.Clamp01(_gust) : 0f; }
+    // 強い風（周期の「吹いている」間）かどうか。ゆるい風（baseLevel）の間は false
+    public bool IsGusting() { return _blowing; }
+    public float GetBaseLevel() { return offSeconds > 0f ? _baseNow : 0f; }
     // 風の粒（見た目）の出ている量 0〜1（予告の間から出始めて、止むとフェード）。粒がない時は吹いているかどうか
     public float GetVisualLevel()
     {
@@ -152,7 +160,10 @@ public class FuwaWindArea : UdonSharpBehaviour
         float t = time - index * cycle;
         _blowing = t < onSeconds;
         _reversed = alternate && (index % 2 != 0);
-        _gust = _blowing && onSeconds > 0f ? gustCurve.Evaluate(t / onSeconds) : 0f;
+        // 強い風のすぐ後の calmSeconds はぴたっと止む（ゆるい風も）
+        bool calm = !_blowing && t < onSeconds + calmSeconds;
+        _baseNow = calm ? 0f : baseLevel;
+        _gust = _blowing && onSeconds > 0f ? Mathf.Max(gustCurve.Evaluate(t / onSeconds), _baseNow) : _baseNow;
         if (_blowing && !_wasBlowing && gustSound != null) gustSound.Play();
         _wasBlowing = _blowing;
 
@@ -161,9 +172,10 @@ public class FuwaWindArea : UdonSharpBehaviour
         {
             // 予告は「次に吹く向き」で出す（量は warnLevel）
             bool nextReversed = alternate && ((index + 1) % 2 != 0);
-            _target = warnLevel;
+            _target = Mathf.Max(warnLevel, _baseNow);
             SetVisual(nextReversed ? 2 : 1);
         }
+        else if (_baseNow > 0f) { _target = _baseNow; SetVisual(_reversed ? 2 : 1); }   // ゆるい風：粒も少しだけ
         else SetVisual(0);
     }
 
@@ -218,7 +230,7 @@ public class FuwaWindArea : UdonSharpBehaviour
 
     private void OnTriggerStay(Collider other)
     {
-        if (!_blowing || other == null) return;
+        if ((!_blowing && _baseNow <= 0f) || other == null) return;
         FuwaBall ball = other.GetComponent<FuwaBall>();
         if (ball == null) return;
 

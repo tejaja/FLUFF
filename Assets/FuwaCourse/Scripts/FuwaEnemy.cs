@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -109,6 +109,8 @@ public class FuwaEnemy : UdonSharpBehaviour
     private Vector3 _home;
     private Vector3 _vel;
     private Vector3 _dashDir;
+    private Vector3 _lockDir;     // 溜め始めた時に決めた突進の向き（溜めの間は向きを変えない）
+    private float _lockDist;
     private float _phase;
     private Vector3 _visualBase;
     private Vector3 _visualScale = Vector3.one;
@@ -177,6 +179,14 @@ public class FuwaEnemy : UdonSharpBehaviour
         // 溜めをやめた（プレイヤーが離れた・撃たれた）時は溜め音も止める
         if (_state == 1 && s != 1 && windupSound != null) windupSound.Stop();
         if (s == 5 && _state != 5 && fallSound != null) fallSound.Play();
+        // 溜め始め：この時のプレイヤーの方向に向きを固定する（溜めの途中で向きを変えない＝よけられる）
+        if (s == 1)
+        {
+            VRCPlayerApi lp = Networking.LocalPlayer;
+            Vector3 d = lp != null ? lp.GetPosition() - transform.position : transform.forward; d.y = 0f;
+            _lockDir = d.sqrMagnitude > 0.001f ? d.normalized : transform.forward;
+            _lockDist = d.magnitude;
+        }
         _state = s;
         _stateTime = 0f;
     }
@@ -279,10 +289,9 @@ public class FuwaEnemy : UdonSharpBehaviour
             if (toPlayer.magnitude > detectRange * 1.3f) { SetState(0); }
             else if (_stateTime > windupTime)
             {
-                Vector3 d = local.GetPosition() - transform.position; d.y = 0f;
-                _dashDir = d.sqrMagnitude > 0.001f ? d.normalized : transform.forward;
-                // プレイヤーまでの距離に合わせて跳ぶ長さを決める（少し行き過ぎるくらい）
-                _dashDuration = Mathf.Clamp((d.magnitude + dashOvershoot) / dashSpeed, 0.3f, dashTime);
+                // 向きは溜め始めに決めた向き。跳ぶ長さは、溜め始めの距離（少し行き過ぎるくらい）
+                _dashDir = _lockDir;
+                _dashDuration = Mathf.Clamp((_lockDist + dashOvershoot) / dashSpeed, 0.3f, dashTime);
                 _groundY = transform.position.y;
                 _hitThisDash = false;
                 if (dashSound != null) dashSound.Play();
@@ -340,6 +349,7 @@ public class FuwaEnemy : UdonSharpBehaviour
         if (toPlayer.sqrMagnitude > 0.01f && _state != 5)
         {
             Vector3 flat = toPlayer; flat.y = 0f;
+            if (_state == 1 || _state == 2) flat = _lockDir;   // 溜め・突進中は決めた向きのまま
             if (flat.sqrMagnitude > 0.001f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(flat), 1f - Mathf.Exp(-8f * dt));
         }
         if (visual != null)
