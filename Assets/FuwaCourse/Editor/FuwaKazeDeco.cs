@@ -162,6 +162,7 @@ public static class FuwaKazeDeco
             sway.CopyPropertiesFromMaterial(twig);
             sway.SetFloat("_SwayAmp", SwayAmp); sway.SetFloat("_SwaySpeed", SwaySpeed); sway.SetVector("_SwayDir", new Vector4(wind.x, 0, wind.z, 0)); EditorUtility.SetDirty(sway);
             go.GetComponent<MeshFilter>().sharedMesh = m; go.GetComponent<MeshRenderer>().sharedMaterial = sway;
+            go.GetComponent<MeshRenderer>().receiveShadows = false;   // 花びらや葉どうしの影が濃く出て、ゆれとずれて見えるので自分には影を落とさない（島の地面には落とす）
             log.Append("tris " + plants.T.Count / 3 + " ");
         }
         // 綿毛の頭：ふわふわと同じシェルファー（FuwaCourse/Fur）の白い毛玉。8個を1つのメッシュにまとめて描画回数を抑える

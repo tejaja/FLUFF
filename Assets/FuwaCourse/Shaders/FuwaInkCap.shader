@@ -105,6 +105,45 @@ Shader "FuwaCourse/InkCap"
             }
             ENDCG
         }
+        // 影も同じように、しずくの伸び縮みと風のゆれに合わせて動かす（Diffuse の影だと止まったままになる）
+        Pass
+        {
+            Tags { "LightMode"="ShadowCaster" }
+            Cull Off
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_shadowcaster
+            #pragma multi_compile_instancing
+            #include "UnityCG.cginc"
+            float _DripAmp, _DripSpeed;
+            float _SwayAmp, _SwaySpeed; float4 _SwayDir;
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float4 uv3 : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { V2F_SHADOW_CASTER; };
+            v2f vert(appdata v)
+            {
+                v2f o;
+                UNITY_INITIALIZE_OUTPUT(v2f, o);
+                UNITY_SETUP_INSTANCE_ID(v);
+                if (v.uv.x > 0.001)
+                {
+                    float w = v.uv.x * v.uv.x;
+                    float s = sin(_Time.y * _DripSpeed + v.uv.y) * 0.6 + sin(_Time.y * _DripSpeed * 2.3 + v.uv.y * 1.7) * 0.4;
+                    v.vertex.y -= _DripAmp * w * (0.5 + 0.5 * s);
+                }
+                if (_SwayAmp > 0 && v.uv3.x > 0)
+                {
+                    float t = _Time.y * _SwaySpeed + v.uv3.y;
+                    float s = sin(t) * 0.65 + sin(t * 1.73 + 1.1) * 0.35;
+                    float3 dw = normalize(_SwayDir.xyz) * (0.35 + 0.65 * (s * 0.5 + 0.5)) + cross(float3(0, 1, 0), normalize(_SwayDir.xyz)) * sin(t * 0.83 + 2.0) * 0.3;
+                    v.vertex.xyz += mul((float3x3)unity_WorldToObject, dw) * _SwayAmp * v.uv3.x;
+                }
+                TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
+                return o;
+            }
+            float4 frag(v2f i) : SV_Target { SHADOW_CASTER_FRAGMENT(i) }
+            ENDCG
+        }
     }
     FallBack "Diffuse"
 }
