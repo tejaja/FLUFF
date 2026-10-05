@@ -108,7 +108,7 @@ public static class FuwaCourse2Builder
     public static void Center(float s, out Vector2 p, out Vector2 d)
     {
         p = new Vector2(0, 1); d = new Vector2(0, 1);
-        if (s < 0f) { p = new Vector2(0, 1 + s); return; }   // スタート側に継ぎ足した直線（s<0）
+        if (s < 0f) { StartSideCenter(s, out p, out d); return; }   // スタート側に継ぎ足した所（s<0）：溝の途中でゆるく曲がる
         float heading = 0f; // 右回りが+（ラジアン）
         // 区間を順に進める
         float[] seg = { BendA, BendB, TurnS1a, TurnS1b, TurnS2a, TurnS2b, 1e9f };
@@ -132,6 +132,31 @@ public static class FuwaCourse2Builder
             cur = end;
         }
         d = new Vector2(Mathf.Sin(heading), Mathf.Cos(heading));
+    }
+
+    // s<0（スタート側の継ぎ足し）：溝の中で「左に曲がって右に戻る」ゆるいS字。広場〜溝の入口と、溝の出口〜元の道はまっすぐ。
+    // 向き h(s)（右回りが+）：s<BendL0 は0、BendL0〜BendL1 で 0→-SBendDeg（左へ）、BendR0〜BendR1 で -SBendDeg→0（右へ戻る）
+    public const float BendL0 = -7.6f, BendL1 = -5.4f, BendR0 = -4.6f, BendR1 = -2.4f, SBendDeg = 35f;
+    static Vector2[] _startSide; const float SideStep = 0.02f, SideMin = -40f;
+    static float StartHeading(float s)
+    {
+        float th = SBendDeg * Mathf.Deg2Rad;
+        if (s < BendL0 || s >= BendR1) return 0f;
+        if (s < BendL1) return -th * Mathf.SmoothStep(0, 1, (s - BendL0) / (BendL1 - BendL0));
+        if (s < BendR0) return -th;
+        return -th * (1f - Mathf.SmoothStep(0, 1, (s - BendR0) / (BendR1 - BendR0)));
+    }
+    static void StartSideCenter(float s, out Vector2 p, out Vector2 d)
+    {
+        // s=0 の (0,1) から後ろへ向かって向きを積分した表（初回だけ作る）
+        if (_startSide == null)
+        {
+            int n = Mathf.CeilToInt(-SideMin / SideStep) + 1; _startSide = new Vector2[n]; _startSide[0] = new Vector2(0, 1);
+            for (int i = 1; i < n; i++) { float u = -(i - 0.5f) * SideStep, h = StartHeading(u); _startSide[i] = _startSide[i - 1] - new Vector2(Mathf.Sin(h), Mathf.Cos(h)) * SideStep; }
+        }
+        float f = Mathf.Clamp(-s / SideStep, 0, _startSide.Length - 1.001f); int k = Mathf.FloorToInt(f);
+        p = Vector2.Lerp(_startSide[k], _startSide[k + 1], f - k);
+        float hh = StartHeading(s); d = new Vector2(Mathf.Sin(hh), Mathf.Cos(hh));
     }
 
     // Startローカルの点（横x, 高さy=上面からの差, s）
@@ -975,7 +1000,7 @@ public static class FuwaCourse2Builder
 
     // ---- スタート側の継ぎ足し（2026-10-05）：s = -PreLen 〜 0 の直線を別メッシュで作る ----
     // 元の道のメッシュ（手直し済みの _broken）はそのまま使い、s=0 のふた・丸めだけ取り除いて、ここで作る直線とつなぐ。
-    public const float PreLen = 12f;
+    public const float PreLen = 18.5f;   // 広場の下まで（2026-10-05 キノコと溝の間を3m延ばした）
     // 噴気孔の溝（2026-10-05）：s = GrooveS0 〜 Bevel は黄色い道をなくして岩の床（Rocks2/GrooveFloor）にする。道はスタートの広場の下〜GrooveS0 まで
     public const float GrooveS0 = -9.3f;
     public const string PreVisPath = "Assets/FuwaCourse/Meshes/Course2Path_StartExt.asset";
