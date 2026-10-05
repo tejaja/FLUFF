@@ -403,7 +403,7 @@ public static class FuwaCourse1Builder
                 vel.enabled = true; vel.space = ParticleSystemSimulationSpace.Local; vel.x = 0f; vel.y = 0f; vel.z = spd;
             }
             w.visual = use.gameObject; w.visualReverse = null;
-            var hlx = zone.Find("GroundHighlight"); if (hlx) PathHighlight(hlx, zone, w.localDirection, "Kaze_WindHighlight_" + name, fade: 0.8f, crossScale: 12f / CrossW, crossOffset: 3f);   // 横風は矢じり2列（6m間隔で2つがちょうど収まるように、中心をずらす）
+            var hlx = zone.Find("GroundHighlight"); if (hlx) PathHighlight(hlx, zone, w.localDirection, "Kaze_WindHighlight_" + name, fade: 0.8f, crossScale: 6f / CrossW);   // 横風は矢じり1列（箱の幅いっぱいにVが1つ）
             Object.DestroyImmediate(unused.gameObject);
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(w);
         }
