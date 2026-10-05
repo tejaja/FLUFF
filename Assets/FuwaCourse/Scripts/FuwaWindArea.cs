@@ -253,7 +253,7 @@ public class FuwaWindArea : UdonSharpBehaviour
             {
                 _hlShown = lv;
                 Color c = _hlColor;
-                c.a = highlightAlpha * lv;
+                c.a = highlightAlpha * Mathf.Sqrt(lv);   // 弱い風の時も見えるように（弱風≈0.24→0.49）
                 _hlMat.color = c;
                 groundHighlight.enabled = lv > 0.001f;
             }
