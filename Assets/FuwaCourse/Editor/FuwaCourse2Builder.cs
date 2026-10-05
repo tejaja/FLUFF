@@ -108,6 +108,7 @@ public static class FuwaCourse2Builder
     public static void Center(float s, out Vector2 p, out Vector2 d)
     {
         p = new Vector2(0, 1); d = new Vector2(0, 1);
+        if (s < 0f) { p = new Vector2(0, 1 + s); return; }   // スタート側に継ぎ足した直線（s<0）
         float heading = 0f; // 右回りが+（ラジアン）
         // 区間を順に進める
         float[] seg = { BendA, BendB, TurnS1a, TurnS1b, TurnS2a, TurnS2b, 1e9f };
@@ -970,6 +971,82 @@ public static class FuwaCourse2Builder
         mesh.SetVertices(V); mesh.SetNormals(N); mesh.SetUVs(0, UV);
         mesh.subMeshCount = 2; mesh.SetTriangles(A, 0); mesh.SetTriangles(Bt, 1);
         mesh.RecalculateBounds(); mesh.RecalculateTangents();
+    }
+
+    // ---- スタート側の継ぎ足し（2026-10-05）：s = -PreLen 〜 0 の直線を別メッシュで作る ----
+    // 元の道のメッシュ（手直し済みの _broken）はそのまま使い、s=0 のふた・丸めだけ取り除いて、ここで作る直線とつなぐ。
+    public const float PreLen = 12f;
+    public const string PreVisPath = "Assets/FuwaCourse/Meshes/Course2Path_StartExt.asset";
+    public const string PreColPath = "Assets/FuwaCourse/Meshes/Course2Path_StartExt_Col.asset";
+
+    [MenuItem("FuwaCourse/Course2/スタート側の継ぎ足しを作る")]
+    public static void BuildStartExtMenu() { Debug.Log(BuildStartExt()); }
+
+    public static string BuildStartExt()
+    {
+        var root = GameObject.Find("FuwaCourse2").transform; var m = ToCourse(root);
+        float s0p = -PreLen, s1p = Bevel;   // 元の道は s=Bevel の断面から始まる（その手前の丸めとふたは消す）
+        // 見た目（BuildVisual と同じ作り。手前の端だけ丸める）
+        var V = new List<Vector3>(); var N = new List<Vector3>(); var UV = new List<Vector2>(); var A = new List<int>(); var Bt = new List<int>();
+        const float step = 0.25f; int pc = 0;
+        var st = new List<Vector4>();
+        for (int k = BevelSteps; k >= 1; k--) { float th = (Mathf.PI / 2) * k / BevelSteps; st.Add(new Vector4(s0p + Bevel * (1 - Mathf.Sin(th)), Bevel * (1 - Mathf.Cos(th)), th, -1)); }
+        float a0 = s0p + Bevel, a1 = s1p; int n = Mathf.Max(1, Mathf.CeilToInt((a1 - a0) / step));
+        for (int k = 0; k <= n; k++) st.Add(new Vector4(Mathf.Lerp(a0, a1, k / (float)n), 0, 0, 0));
+        var rings = new List<int>(); int P = 0;
+        foreach (var sv in st)
+        {
+            float s = sv.x, inset = sv.y, th = sv.z, dir = sv.w;
+            var prof = Profile(Width(pc, s)); P = prof.Count;
+            Center(s, out _, out var d);
+            var t3 = new Vector3(d.x, 0, d.y).normalized;
+            rings.Add(V.Count);
+            foreach (var q in prof)
+            {
+                V.Add(m.MultiplyPoint3x4(Point(pc, s, q.x - q.z * inset, q.y - q.w * inset)));
+                var nn = Normal(pc, s, q.z, q.w) * Mathf.Cos(th) + t3 * dir * Mathf.Sin(th);
+                N.Add(m.MultiplyVector(nn.normalized)); UV.Add(new Vector2(q.x, s));
+            }
+        }
+        for (int r = 0; r < st.Count - 1; r++)
+        {
+            var list = (Mathf.FloorToInt((st[r].x + PreLen * 4f + 0.001f) / Stripe) % 2 == 0) ? A : Bt;   // 負の s でも縞が元の道と同じ並びになるように
+            int ra = rings[r], rb = rings[r + 1];
+            for (int i = 0; i < P - 1; i++) { int x0 = ra + i, x1 = ra + i + 1, y0 = rb + i, y1 = rb + i + 1; list.AddRange(new[] { x0, y0, x1, x1, y0, y1 }); }
+            int bb = V.Count;
+            foreach (var idx in new[] { ra, rb }) { V.Add(V[idx]); N.Add(m.MultiplyVector(Vector3.down)); UV.Add(Vector2.zero); V.Add(V[idx + P - 1]); N.Add(m.MultiplyVector(Vector3.down)); UV.Add(Vector2.zero); }
+            AddTriDir(V, list, bb, bb + 1, bb + 2, m.MultiplyVector(Vector3.down)); AddTriDir(V, list, bb + 1, bb + 3, bb + 2, m.MultiplyVector(Vector3.down));
+        }
+        { int baseR = rings[0]; Center(st[0].x, out _, out var d); int cb = V.Count; var nrm = m.MultiplyVector(new Vector3(d.x, 0, d.y) * -1f);
+          for (int i = 0; i < P; i++) { V.Add(V[baseR + i]); N.Add(nrm); UV.Add(Vector2.zero); } for (int i = 1; i < P - 1; i++) AddTriDir(V, A, cb, cb + i, cb + i + 1, nrm); }
+        var vis = new Mesh { name = "Course2Path_StartExt" }; vis.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        vis.SetVertices(V); vis.SetNormals(N); vis.SetUVs(0, UV); vis.subMeshCount = 2; vis.SetTriangles(A, 0); vis.SetTriangles(Bt, 1); vis.RecalculateBounds(); vis.RecalculateTangents();
+        Unwrapping.GenerateSecondaryUVSet(vis);
+        Save(vis, PreVisPath);
+        // 判定（箱の筒）
+        var CV = new List<Vector3>(); var CT = new List<int>(); int cn = Mathf.CeilToInt((s1p - s0p) / 0.5f);
+        for (int k = 0; k <= cn; k++) { float s = Mathf.Min(s1p, s0p + k * 0.5f), W = Width(pc, s) * 0.5f; CV.Add(m.MultiplyPoint3x4(Point(pc, s, -W, 0))); CV.Add(m.MultiplyPoint3x4(Point(pc, s, W, 0))); CV.Add(m.MultiplyPoint3x4(Point(pc, s, W, -Thick))); CV.Add(m.MultiplyPoint3x4(Point(pc, s, -W, -Thick))); }
+        for (int k = 0; k < cn; k++) { int a = k * 4, b = a + 4; for (int f = 0; f < 4; f++) { int f1 = (f + 1) % 4; CT.AddRange(new[] { a + f, b + f, a + f1, a + f1, b + f, b + f1 }); } }
+        CT.AddRange(new[] { 0, 1, 2, 0, 2, 3 }); int e = cn * 4; CT.AddRange(new[] { e, e + 2, e + 1, e, e + 3, e + 2 });
+        var col = new Mesh { name = "Course2Path_StartExt_Col" }; col.SetVertices(CV); col.SetTriangles(CT, 0); col.RecalculateNormals(); col.RecalculateBounds();
+        Save(col, PreColPath);
+        // シーンに置く（PathMesh の下、同じ材質）
+        var pm = root.Find("PathMesh"); var ext = pm.Find("StartExt");
+        if (ext == null) { ext = new GameObject("StartExt", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider)).transform; ext.SetParent(pm, false); Undo.RegisterCreatedObjectUndo(ext.gameObject, "ext"); }
+        ext.localPosition = Vector3.zero; ext.localRotation = Quaternion.identity; ext.localScale = Vector3.one; ext.gameObject.layer = pm.gameObject.layer; ext.gameObject.isStatic = true;
+        // メッシュはコースのローカル座標で作ったので、PathMesh の座標に直す
+        var toPm = pm.worldToLocalMatrix * root.localToWorldMatrix;
+        foreach (var path in new[] { PreVisPath, PreColPath })
+        {
+            var mm = AssetDatabase.LoadAssetAtPath<Mesh>(path); var vv = mm.vertices; var nn2 = mm.normals;
+            for (int i = 0; i < vv.Length; i++) { vv[i] = toPm.MultiplyPoint3x4(vv[i]); if (nn2.Length == vv.Length) nn2[i] = toPm.MultiplyVector(nn2[i]).normalized; }
+            mm.vertices = vv; if (nn2.Length == vv.Length) mm.normals = nn2; mm.RecalculateBounds(); EditorUtility.SetDirty(mm);
+        }
+        ext.GetComponent<MeshFilter>().sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>(PreVisPath);
+        ext.GetComponent<MeshRenderer>().sharedMaterials = pm.GetComponent<MeshRenderer>().sharedMaterials;
+        var emc = ext.GetComponent<MeshCollider>(); emc.sharedMesh = null; emc.sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>(PreColPath);
+        AssetDatabase.SaveAssets();
+        return "start ext verts " + V.Count + " col " + CV.Count;
     }
 
     static void BuildCollider(Mesh mesh, Matrix4x4 m)
