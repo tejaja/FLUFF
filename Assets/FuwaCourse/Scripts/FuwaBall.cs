@@ -794,10 +794,16 @@ public class FuwaBall : UdonSharpBehaviour
         Transform p = respawnPoint != null ? respawnPoint : startPoint;
         if (p == null) return;
         Vector3 fwd = Vector3.ProjectOnPlane(p.forward, Vector3.up).normalized;
-        Vector3 pos = p.position - Vector3.up * playerHeightBelow - fwd * playerBackDistance;
-        // 足元の道の高さに合わせる（胞子の位置が低い時に道の下へ飛ばされないように）
+        Vector3 basePos = p.position - Vector3.up * playerHeightBelow;
+        Vector3 pos = basePos - fwd * playerBackDistance;
+        // 足元の道の高さに合わせる（胞子の位置が低い時に道の下へ飛ばされないように）。
+        // 後ろに道が無い所（谷のすぐ先のチェックポイントなど）は、道がある所まで近づける
         RaycastHit hit;
-        if (Physics.Raycast(pos + Vector3.up * 2.5f, Vector3.down, out hit, 5f, 1 << 11)) pos = hit.point;
+        for (float d = playerBackDistance; d > 0.3f; d -= 0.2f)
+        {
+            Vector3 q = basePos - fwd * d;
+            if (Physics.Raycast(q + Vector3.up * 2.5f, Vector3.down, out hit, 5f, 1 << 11)) { pos = hit.point; break; }
+        }
         player.TeleportTo(pos, Quaternion.LookRotation(fwd, Vector3.up));
         // 暗転が明けるまで少しだけ動けなくする（真っ暗なまま歩き出して、また落ちたりしないように）
         if (fade != null) { fade.FreezeFor(respawnFreezeTime); return; }
