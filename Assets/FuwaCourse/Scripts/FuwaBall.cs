@@ -143,7 +143,7 @@ public class FuwaBall : UdonSharpBehaviour
     private Vector3 _furDrag;
 
     [Header("風などの影響を受けている間の光（毛玉シェーダー用）")]
-    public Color windGlowColor = new Color(1f, 0.9f, 0.2f, 1f);
+    public Color windGlowColor = new Color(0.35f, 1f, 0.5f, 1f);
     public Color gravityGlowColor = new Color(0.7f, 0.3f, 1f, 1f);
     public Color launchGlowColor = new Color(1f, 0.6f, 0.2f, 1f);
     [Tooltip("横風がこの強さ(加速度)以上なら一番明るく光る")]
