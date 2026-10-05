@@ -223,17 +223,20 @@ public static class FuwaMamonoDeco
             }
             else if (kind == 3 && nTuft < quota[3]) { Tuft(floorMb, fp, fur, rnd); nTuft++; }
         }
-        // 抜け毛：敵（とママ）が潜んでいる所のまわりにだけ少し散らす
-        var lurkers = new List<(Vector3 p, int n, float r0, float r1)>();
-        var en = root.Find("Enemies"); if (en != null) foreach (Transform e in en) lurkers.Add((e.position, rnd.Next(4, 7), 0.35f, 1.6f));
-        var mama = root.Find("Mama"); if (mama != null) lurkers.Add((mama.position, 10, 1.4f, 3.2f));
-        foreach (var (lp, n, r0, r1) in lurkers)
-            for (int k = 0, t2 = 0; k < n && t2 < 60; t2++)
+        // 抜け毛：敵（とママ）が潜んでいる所を「ここにいる」とわかるように、ぐるっと囲むように寄せて置く
+        // （角度を均等に割って少しずらす。大きめ・明るめの毛で、遠くからでも目印になるように）
+        var lurkers = new List<(Vector3 p, int n, float r0, float r1, float size)>();
+        var en = root.Find("Enemies"); if (en != null) foreach (Transform e in en) lurkers.Add((e.position, 9, 0.45f, 0.9f, 1.5f));
+        var mama = root.Find("Mama"); if (mama != null) lurkers.Add((mama.position, 14, 1.5f, 2.6f, 2f));
+        var furBright = Color.Lerp(fur, new Color(0.75f, 0.55f, 1f), 0.5f);
+        foreach (var (lp, n, r0, r1, size) in lurkers)
+            for (int k = 0, t2 = 0; k < n && t2 < 80; t2++)
             {
-                var o = lp + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * R(r0, r1) + Vector3.up * 3f;
+                float ang = (k + R(-0.3f, 0.3f)) * 360f / n;
+                var o = lp + Quaternion.Euler(0, ang, 0) * Vector3.forward * R(r0, r1) + Vector3.up * 3f;
                 if (!Physics.Raycast(o, Vector3.down, out var hit, 8f, ~0, QueryTriggerInteraction.Ignore)) continue;
-                if (!floorCols.Contains(hit.collider) || hit.normal.y < 0.85f) continue;
-                Tuft(floorMb, hit.point + Vector3.up * 0.005f, fur, rnd); nTuft++; k++;
+                if (!floorCols.Contains(hit.collider) || hit.normal.y < 0.85f) { if (t2 % 8 == 7) k++; continue; }
+                Tuft(floorMb, hit.point + Vector3.up * 0.005f, furBright, rnd, size); nTuft++; k++;
             }
         log.Append("twig " + nTwig + " feather " + nFeather + " shell " + nShell + " tuft " + nTuft + " ");
 
@@ -423,10 +426,10 @@ public static class FuwaMamonoDeco
     }
 
     // 抜け毛のかたまり（細い毛をふんわり上向きに。まん中ほど立てて、外は寝かせる）
-    static void Tuft(MB m, Vector3 at, Color fur, System.Random rnd)
+    static void Tuft(MB m, Vector3 at, Color fur, System.Random rnd, float scale = 1f)
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
-        int n = rnd.Next(22, 30); float size = R(0.7f, 1.1f);
+        int n = rnd.Next(22, 30); float size = R(0.7f, 1.1f) * scale;
         for (int i = 0; i < n; i++)
         {
             float lean = R(0f, 1f);
