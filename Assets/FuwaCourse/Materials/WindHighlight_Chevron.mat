@@ -14,6 +14,7 @@ Material:
   m_ValidKeywords: []
   m_InvalidKeywords:
   - _CHEVRON_ON
+  - _DEBUGEDGES_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -30,6 +31,7 @@ Material:
     - _ChevPeriod: 6
     - _ChevSlope: 0.6
     - _Chevron: 1
+    - _DebugEdges: 1
     - _FlowDir: 1
     - _Phase: 0
     - _Sharp: 2
@@ -38,5 +40,5 @@ Material:
     - _Taper: 1
     - _Wavelength: 1.8
     m_Colors:
-    - _Color: {r: 0.3999997, g: 0.78, b: 1, a: 0.3}
+    - _Color: {r: 0.3999996, g: 0.78, b: 1, a: 0.3}
   m_BuildTextureStacks: []

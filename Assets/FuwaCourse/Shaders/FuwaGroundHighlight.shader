@@ -18,6 +18,7 @@ Shader "Fuwa/GroundHighlight"
         _Stroke ("矢じりの線の太さ(0-0.5)", Range(0.02, 0.5)) = 0.16
         _Phase ("矢じりの流れた距離(m、スクリプトから)", Float) = 0
         _Taper ("真ん中ほど太く（0=同じ太さ）", Range(0, 1.5)) = 0
+        [Toggle] _DebugEdges ("確認用：矢じりの両はしに線", Float) = 0
     }
     SubShader
     {
@@ -38,7 +39,7 @@ Shader "Fuwa/GroundHighlight"
 
             fixed4 _Color;
             float _Wavelength, _Speed, _FlowDir, _Base, _Sharp;
-            float _Chevron, _ChevPeriod, _ChevSlope, _Stroke, _Phase, _Taper;
+            float _Chevron, _ChevPeriod, _ChevSlope, _Stroke, _Phase, _Taper, _DebugEdges;
 
             struct appdata
             {
@@ -89,6 +90,13 @@ Shader "Fuwa/GroundHighlight"
                     float stroke = 1 - smoothstep(sw * 0.5 - aa, sw * 0.5 + aa, d);
                     // となりの矢じりとつながってジグザグに見えないように、Vの両はしを切って1つずつ離す
                     stroke *= smoothstep(_ChevPeriod * 0.5, _ChevPeriod * 0.47, yy);
+                    // 確認用：矢じりの両はし（列の境目）に風向きの直線を引く
+                    if (_DebugEdges > 0.5)
+                    {
+                        float ed = _ChevPeriod * 0.5 - yy;
+                        float aw = fwidth(i.uv.y) * 1.5;
+                        stroke = max(stroke, 1 - smoothstep(0.15 - aw, 0.15 + aw, ed));
+                    }
                     c.a *= lerp(_Base, 1.0, stroke);
                     UNITY_APPLY_FOG(i.fogCoord, c);
                     return c;
