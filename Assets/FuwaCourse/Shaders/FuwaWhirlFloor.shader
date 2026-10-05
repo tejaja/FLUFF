@@ -33,14 +33,15 @@ Shader "FuwaCourse/WhirlFloor"
             fixed4 _Color;
             half _Alpha, _Arms, _Curl, _Spin, _Sharp, _Inner, _Edge, _SpinDir, _FadeStart;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; UNITY_FOG_COORDS(1) };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_FOG_COORDS(1) };
 
             v2f vert (appdata v)
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
+                o.color = v.color;   // 頂点アルファ＝道のふちでぼかす分（ふつうの板は白）
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -57,7 +58,7 @@ Shader "FuwaCourse/WhirlFloor"
                 half fadeOut = 1 - smoothstep(_FadeStart, 1.0, r);
                 half ring = saturate(1 - abs(r - (1 - _Edge * 2)) / _Edge) * 0.6;
                 half alpha = saturate(arm * fadeIn * fadeOut + ring + 0.12 * fadeOut) * _Alpha;
-                fixed4 c = fixed4(_Color.rgb, alpha * step(r, 1));
+                fixed4 c = fixed4(_Color.rgb, alpha * step(r, 1) * i.color.a);
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;
             }
