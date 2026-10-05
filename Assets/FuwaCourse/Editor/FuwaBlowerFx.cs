@@ -275,32 +275,44 @@ public static class FuwaBlowerFx
     static Material LeakMaterial(string name, bool sheet)
     {
         string tp = "Assets/FuwaCourse/Textures/FX/" + name + ".png";
-        int W = sheet ? 1024 : 64, H = sheet ? 512 : 64; var t = new Texture2D(W, H, TextureFormat.RGBA32, false);
+        int W = sheet ? 2048 : 64, H = sheet ? 512 : 64; var t = new Texture2D(W, H, TextureFormat.RGBA32, false);
         var px = new Color[W * H];
         if (sheet)
         {
             int TW = W / 4, TH = H / 4;
-            // 筋の強さ（u ごと）：周期的な正弦の重ね合わせで、一周つながる
-            var streak = new float[TW];
-            for (int x = 0; x < TW; x++)
+            // 膜に見えないよう、一枚の面ではなく、ばらばらの細い筋（18本）にする。
+            // 筋ごとに位置・太さ・明るさ・走る速さ・出だしの遅れを変えて、すき間から放射状にシュッと走って消える
+            const int NS = 18;
+            var sc = new float[NS]; var sw = new float[NS]; var sb = new float[NS]; var ss = new float[NS]; var sd = new float[NS];
+            for (int i = 0; i < NS; i++)
             {
-                float u = (x + 0.5f) / TW * Mathf.PI * 2f, s = 0f;
-                for (int k = 0; k < 6; k++) { int f = 9 + k * 7; s += Mathf.Sin(u * f + Hash(k) * 6.28f) * (1f / (k + 1)); }
-                streak[x] = Mathf.Clamp01(0.5f + s * 0.45f); streak[x] = streak[x] * streak[x];
+                sc[i] = (i + 0.2f + 0.6f * Hash(i * 5 + 1)) / NS; sw[i] = Mathf.Lerp(0.004f, 0.009f, Hash(i * 5 + 2));
+                sb[i] = Mathf.Lerp(0.45f, 1f, Hash(i * 5 + 3)); ss[i] = Mathf.Lerp(0.75f, 1.15f, Hash(i * 5 + 4)); sd[i] = 0.18f * Hash(i * 5 + 5);
             }
             for (int f = 0; f < 16; f++)
             {
                 int tx = f % 4, ty = 3 - f / 4;   // コマは左上から右へ、下へ
-                float tt = f / 15f, head = 0.12f + 0.95f * Mathf.Sqrt(tt), fade = Mathf.Lerp(1f, 0.45f, tt);
-                for (int y = 0; y < TH; y++) for (int x = 0; x < TW; x++)
+                float tt = f / 15f, fade = Mathf.Lerp(1f, 0.4f, tt);
+                for (int y = 0; y < TH; y++)
                 {
                     float v = (y + 0.5f) / TH;
-                    // 先頭まで：先頭付近が明るく、根元側はうすく残る。先頭の外はすぐ消える
-                    // 膜が止まって見えないよう、明るいのは先頭の帯だけ。後ろは短い尾ですぐ消える（筋が外へ走っていく感じ）
-                    float body = v <= head ? Mathf.Max(Mathf.Exp(-(head - v) / 0.16f), 0.4f) : Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((v - head) / 0.12f));   // 根元までは細い筋でつながって、すき間から出てる感じに
-                    float st = Mathf.Lerp(0.05f, 1f, streak[x]) * Mathf.Lerp(1f, 0.7f, v);   // 外ほど筋がばらける
-                    float edge = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(v / 0.04f)) * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((1f - v) / 0.55f));   // 根元のふちと外のふちをぼかす
-                    px[(ty * TH + y) * W + tx * TW + x] = new Color(1, 1, 1, Mathf.Clamp01(body * st * edge * fade * 1.15f));
+                    float edge = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(v / 0.04f)) * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((1f - v) / 0.7f));
+                    for (int x = 0; x < TW; x++)
+                    {
+                        float u = (x + 0.5f) / TW, a = 0f;
+                        for (int i = 0; i < NS; i++)
+                        {
+                            float du = Mathf.Abs(u - sc[i]); du = Mathf.Min(du, 1f - du);   // 一周つながる
+                            float w = sw[i] * (1f + 0.8f * v);   // 外ほど少し太く
+                            if (du > w * 3f) continue;
+                            float k = Mathf.Max(0f, tt - sd[i]) / (1f - sd[i]); if (k <= 0f) continue;
+                            float head = Mathf.Min(1.1f, (0.1f + Mathf.Sqrt(k)) * ss[i]);
+                            // 先頭が明るく、根元までは細くつながる。先頭の外はすぐ消える
+                            float body = v <= head ? Mathf.Max(Mathf.Exp(-(head - v) / 0.2f), 0.3f) : Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((v - head) / 0.25f));   // 先頭はぼかして、くっきりした縁を作らない
+                            a = Mathf.Max(a, Mathf.Exp(-(du * du) / (w * w)) * body * sb[i]);
+                        }
+                        px[(ty * TH + y) * W + tx * TW + x] = new Color(1, 1, 1, Mathf.Clamp01(a * edge * fade * 1.2f));
+                    }
                 }
             }
         }
