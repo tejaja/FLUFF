@@ -55,6 +55,12 @@ public class FuwaWindArea : UdonSharpBehaviour
     public AudioSource gustSound;
     private bool _wasBlowing;
     private bool _risingFromWarn;
+    [Tooltip("周期で吹く風：見た目（地面の帯・粒・ふわふわの光）を実際の風より何秒先に出すか")]
+    public float visualLead = 0.15f;
+    private float _visGust;
+    [Tooltip("周期で吹く風：ふわふわの光を、強風が弱まってから何秒ぶん長めに残すか")]
+    public float glowTail = 0.2f;
+    private float _glowGust;
 
     [Header("地面のハイライト（風が吹く範囲を緑でうっすら表示。なくてもOK）")]
     public Renderer groundHighlight;
@@ -168,26 +174,48 @@ public class FuwaWindArea : UdonSharpBehaviour
         if (_blowing && !_wasBlowing && gustSound != null) gustSound.Play();
         _wasBlowing = _blowing;
 
-        // 見た目（粒・地面の帯）は実際の風の強さ（_gust）に合わせる。ふわふわの光とずれないように。
+        // 見た目（粒・地面の帯・ふわふわの光）は、実際の風より visualLead 秒だけ先の強さで出す（目で見てから備えられるように）
+        float vtime = time + visualLead;
+        int vindex = Mathf.FloorToInt(vtime / cycle);
+        float vt = vtime - vindex * cycle;
+        bool vBlowing = vt < onSeconds;
+        bool vReversed = alternate && (vindex % 2 != 0);
+        float vBase = (!vBlowing && vt < onSeconds + calmSeconds) ? 0f : baseLevel;
+        _visGust = vBlowing && onSeconds > 0f ? Mathf.Max(gustCurve.Evaluate(vt / onSeconds), vBase) : vBase;
+        // ふわふわの光は、強風の光を少し長めに残す（glowTail 秒前〜visualLead 秒先の間で一番強い値。山の途中でへこまないように）
+        float gmax = _visGust;
+        for (int k = 0; k <= 6; k++) gmax = Mathf.Max(gmax, GustAt(time - glowTail + (glowTail + visualLead) * k / 6f, cycle));
+        _glowGust = gmax;
+
         // 吹き始めは、強さが予告の濃さを超えるまで予告の濃さのまま（いったん薄くならないように）
-        if (_blowing)
+        if (vBlowing)
         {
-            float lv = Mathf.Clamp01(_gust);
+            float lv = Mathf.Clamp01(_visGust);
             if (_risingFromWarn && lv < warnLevel) lv = warnLevel; else _risingFromWarn = false;
             _target = lv;
-            SetVisual(_reversed ? 2 : 1);
+            SetVisual(vReversed ? 2 : 1);
         }
-        else if (t > cycle - warnSeconds)
+        else if (vt > cycle - warnSeconds)
         {
             // 予告は「次に吹く向き」で出す。ゆるい風の濃さから warnLevel までだんだん濃くして、そのまま強風につなげる
-            bool nextReversed = alternate && ((index + 1) % 2 != 0);
-            float wp = warnSeconds > 0f ? Mathf.Clamp01((t - (cycle - warnSeconds)) / warnSeconds) : 1f;
-            _target = Mathf.Lerp(_baseNow, Mathf.Max(warnLevel, _baseNow), wp);
+            bool nextReversed = alternate && ((vindex + 1) % 2 != 0);
+            float wp = warnSeconds > 0f ? Mathf.Clamp01((vt - (cycle - warnSeconds)) / warnSeconds) : 1f;
+            _target = Mathf.Lerp(vBase, Mathf.Max(warnLevel, vBase), wp);
             _risingFromWarn = true;
             SetVisual(nextReversed ? 2 : 1);
         }
-        else if (_baseNow > 0f) { _target = _baseNow; SetVisual(_reversed ? 2 : 1); }   // ゆるい風：粒も少しだけ
+        else if (vBase > 0f) { _target = vBase; SetVisual(vReversed ? 2 : 1); }   // ゆるい風：粒も少しだけ
         else SetVisual(0);
+    }
+
+    // ある時刻の風の強さ（強風の山なり＋ゆるい風。周期で吹く風用）
+    private float GustAt(float tm, float cycle)
+    {
+        int i = Mathf.FloorToInt(tm / cycle);
+        float tt = tm - i * cycle;
+        bool on = tt < onSeconds;
+        float b = (!on && tt < onSeconds + calmSeconds) ? 0f : baseLevel;
+        return on && onSeconds > 0f ? Mathf.Max(gustCurve.Evaluate(tt / onSeconds), b) : b;
     }
 
     private void LateUpdate()
@@ -275,7 +303,12 @@ public class FuwaWindArea : UdonSharpBehaviour
         }
         if (s <= 0f) return;
         // 周期で吹く風は、ふわふわの光を「この風の一番強い時＝1」の割合で出す（地面の帯の濃さと合わせる）
-        if (offSeconds > 0f && strength > 0f) ball.AddWindGlowDir(dir * s, dir, s / strength);
+        // 光は見た目と同じく visualLead 秒先の強さで（風よけ・風下で弱まる分は今の割合をかける）
+        if (offSeconds > 0f && strength > 0f)
+        {
+            float local = _gust > 0.0001f ? s / (strength * _gust) : 1f;
+            ball.AddWindGlowDir(dir * s, dir, _glowGust * local);
+        }
         else ball.AddWind(dir * s);
     }
 }
