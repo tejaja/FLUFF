@@ -58,6 +58,9 @@ public static class FuwaBlowerFx
             var ring = Child(puff.transform, "AirRing"); SetupRing(ring, 0.07f, cur.ringSize, cur.ringSpeed, cur.ringLife, cur.rings, cur.ringAlpha);
             var streaks = Child(puff.transform, "AirStreaks"); SetupStreaks(streaks);
             if (bl.fullBurst != null) SetupFullBurst(bl.fullBurst);
+            // 満タンの合図：口のまわりで星がきらっ（撃った時の輪とは別）
+            var sp = Child(nz, "ChargedSparkle"); SetupSparkle(sp);
+            Undo.RecordObject(bl, "fx"); bl.chargedSparkle = sp; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bl);
             EditorUtility.SetDirty(bl);
             log += bl.name + " ";
         }
@@ -140,6 +143,48 @@ public static class FuwaBlowerFx
         var vel = ps.velocityOverLifetime; vel.enabled = cur.swirl; if (cur.swirl) { vel.space = ParticleSystemSimulationSpace.Local; vel.orbitalZ = new ParticleSystem.MinMaxCurve(14f); vel.radial = new ParticleSystem.MinMaxCurve(0.6f); vel.x = 0f; vel.y = 0f; vel.z = 0f; }
         if (cur.swirl) { m.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.42f); m.startSpeed = new ParticleSystem.MinMaxCurve(3.5f, 5f); }
         var r = ps.GetComponent<ParticleSystemRenderer>(); r.renderMode = ParticleSystemRenderMode.Stretch; r.velocityScale = 0.05f; r.lengthScale = cur.streakLen; r.cameraVelocityScale = 0f;
+    }
+
+    // 満タンになった瞬間の合図：ラッパの口のふちに、4つ角の小さな星が6つ。ぱっと出て、少し外へ広がって、きらっと瞬いて消える
+    static void SetupSparkle(ParticleSystem ps)
+    {
+        Common(ps, StarMaterial(), 16);
+        var m = ps.main; m.startLifetime = new ParticleSystem.MinMaxCurve(0.32f, 0.45f); m.startSpeed = new ParticleSystem.MinMaxCurve(0.25f, 0.45f); m.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.085f);
+        m.startRotation = new ParticleSystem.MinMaxCurve(-0.3f, 0.3f); m.simulationSpace = ParticleSystemSimulationSpace.Local;
+        m.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.92f, 0.45f, 1f), new Color(1f, 1f, 0.75f, 1f));
+        var em = ps.emission; em.SetBursts(new[] { new ParticleSystem.Burst(0f, 6) });
+        var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 0.065f; sh.radiusThickness = 0f; sh.arc = 360f; sh.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; sh.rotation = Vector3.zero;
+        var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0f), new Keyframe(0.18f, 1.25f), new Keyframe(0.4f, 0.8f), new Keyframe(0.6f, 1.05f), new Keyframe(1f, 0f)));
+        var col = ps.colorOverLifetime; col.enabled = true; var g = new Gradient(); g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) }); col.color = g;
+        var rot = ps.rotationOverLifetime; rot.enabled = true; rot.z = new ParticleSystem.MinMaxCurve(1.5f, 3f);
+        var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 0.05f; lim.dampen = 0.15f;
+        var r = ps.GetComponent<ParticleSystemRenderer>(); r.renderMode = ParticleSystemRenderMode.Billboard;
+    }
+
+    static Material StarMaterial()
+    {
+        string tp = "Assets/FuwaCourse/Textures/FX/FX_Star.png";
+        if (AssetDatabase.LoadAssetAtPath<Texture2D>(tp) == null)
+        {
+            int S = 128; var t = new Texture2D(S, S, TextureFormat.RGBA32, false);
+            for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+            {
+                float u = (x + 0.5f) / S * 2 - 1, v = (y + 0.5f) / S * 2 - 1; float r = Mathf.Sqrt(u * u + v * v);
+                // 4つ角の星（細い十字）＋まん中のやわらかい光
+                float cross = Mathf.Max(Mathf.Clamp01(1 - Mathf.Abs(u) / (0.09f * (1 - Mathf.Abs(v)) + 0.01f)) * Mathf.Clamp01(1 - Mathf.Abs(v)),
+                                        Mathf.Clamp01(1 - Mathf.Abs(v) / (0.09f * (1 - Mathf.Abs(u)) + 0.01f)) * Mathf.Clamp01(1 - Mathf.Abs(u)));
+                float core = Mathf.Clamp01(1 - r / 0.32f); core = core * core;
+                t.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01(Mathf.Max(cross, core * 0.9f))));
+            }
+            t.Apply(); System.IO.File.WriteAllBytes(tp, t.EncodeToPNG()); AssetDatabase.ImportAsset(tp);
+            var ti = (TextureImporter)AssetImporter.GetAtPath(tp); ti.alphaIsTransparency = true; ti.wrapMode = TextureWrapMode.Clamp; ti.SaveAndReimport();
+        }
+        string mp = Mat + "FX_Star.mat"; var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (mat == null) { mat = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended")); AssetDatabase.CreateAsset(mat, mp); }
+        // 明るい空の上でも見えるよう、加算ではなく普通の半透明で、こい黄色
+        mat.shader = Shader.Find("Legacy Shaders/Particles/Alpha Blended");
+        mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(tp); mat.SetColor("_TintColor", new Color(0.62f, 0.58f, 0.42f, 0.5f)); EditorUtility.SetDirty(mat);
+        return mat;
     }
 
     // 満タンで撃った時：大きい輪（2枚少しずらす）＋ちいさな綿毛がふわっと

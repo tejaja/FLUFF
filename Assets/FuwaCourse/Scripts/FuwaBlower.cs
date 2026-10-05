@@ -79,8 +79,10 @@ public class FuwaBlower : UdonSharpBehaviour
     public Renderer chargeOrbRenderer;
     [Tooltip("溜め中に銃口へ吸い込まれる粒")]
     public ParticleSystem chargeParticles;
-    [Tooltip("満タンになった瞬間のきらきら")]
+    [Tooltip("満タンで撃った時の大きい輪など")]
     public ParticleSystem fullBurst;
+    [Tooltip("満タンになった瞬間の合図（口のまわりで星がきらっと）")]
+    public ParticleSystem chargedSparkle;
     [Tooltip("満タンで撃った時に追加で出す風の粒の数")]
     public int strongPuffExtra = 40;
     public AudioSource chargeSound;
@@ -403,13 +405,15 @@ public class FuwaBlower : UdonSharpBehaviour
             if (chargeOrb != null) _orbPos = chargeOrb.localPosition;
             if (chargeParticles != null) _chargePsPos = chargeParticles.transform.localPosition;
             if (fullBurst != null) _burstPsPos = fullBurst.transform.localPosition;
+            if (chargedSparkle != null) _sparklePsPos = chargedSparkle.transform.localPosition;
         }
         if (chargeOrb != null) chargeOrb.localPosition = _orbPos * s;
         if (chargeParticles != null) { chargeParticles.transform.localScale = Vector3.one * s; chargeParticles.transform.localPosition = _chargePsPos * s; }
         if (fullBurst != null) { fullBurst.transform.localScale = Vector3.one * s; fullBurst.transform.localPosition = _burstPsPos * s; }
+        if (chargedSparkle != null) { chargedSparkle.transform.localScale = Vector3.one * s; chargedSparkle.transform.localPosition = _sparklePsPos * s; }
     }
 
-    private Vector3 _orbPos, _chargePsPos, _burstPsPos;
+    private Vector3 _orbPos, _chargePsPos, _burstPsPos, _sparklePsPos;
     private bool _chargeFxPosSaved;
 
     public float GetAutoScale() { return _autoScale; }
@@ -583,7 +587,7 @@ public class FuwaBlower : UdonSharpBehaviour
         {
             _fxFull = true;
             if (chargedSound != null) chargedSound.Play();
-            if (fullBurst != null) fullBurst.Play();
+            if (chargedSparkle != null) chargedSparkle.Play();   // 満タンの合図（撃った時の輪とは別）
         }
         SetOrb(c);
     }
