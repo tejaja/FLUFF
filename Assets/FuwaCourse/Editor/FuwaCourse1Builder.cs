@@ -699,7 +699,7 @@ public static class FuwaCourse1Builder
     // 1つ目の突風の横の橋（かたまり3）は真ん中で折れていて、人はジャンプで渡る（2026-10-05）
     public const float BridgeBreakA = 57.1f, BridgeBreakB = 59.0f;   // 1.9m（走り抜けられないように、ジャンプで届く幅）
     // 2つ目の突風の横の上り坂の橋（かたまり4）も、上りきる手前で崩れていてジャンプで渡る（上りなので割れ目は短め）
-    public const float RampBreakA = 73.9f, RampBreakB = 74.9f;
+    public const float RampBreakA = 73.75f, RampBreakB = 75.05f;   // 1.3m
     // かたまりを、橋の折れ目で分けた区間のリスト
     static List<Vector2> Spans(int pc)
     {
