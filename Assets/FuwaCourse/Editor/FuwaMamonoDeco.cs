@@ -429,14 +429,19 @@ public static class FuwaMamonoDeco
     static void Tuft(MB m, Vector3 at, Color fur, System.Random rnd, float scale = 1f)
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
-        int n = rnd.Next(22, 30); float size = R(0.7f, 1.1f) * scale;
+        // 細い毛がパラパラ散っている感じ：まん中に小さく固まった数本＋まわりに寝た毛を散らす
+        int n = rnd.Next(26, 34); float size = R(0.7f, 1.1f) * scale;
         for (int i = 0; i < n; i++)
         {
-            float lean = R(0f, 1f);
-            var d = Quaternion.Euler(-Mathf.Lerp(80f, 25f, lean), R(0, 360), 0) * Vector3.forward;
-            float len = R(0.08f, 0.15f) * size; var c = Color.Lerp(fur, new Color(0.56f, 0.4f, 0.86f), 0.6f) * R(0.9f, 1.15f);
-            var b = at + new Vector3(R(-0.03f, 0.03f), 0.01f, R(-0.03f, 0.03f));
-            Tube(m, new List<Vector3> { b, b + d * len * 0.5f, b + (d + Vector3.down * 0.35f).normalized * len }, new List<float> { 0.016f * size, 0.011f * size, 0.003f }, 3, c);
+            bool loose = i >= 8;   // 8本目以降はまわりに散らばった抜け毛
+            float lean = loose ? R(0.75f, 1f) : R(0f, 0.7f);
+            var d = Quaternion.Euler(-Mathf.Lerp(70f, 6f, lean), R(0, 360), 0) * Vector3.forward;
+            float len = (loose ? R(0.1f, 0.2f) : R(0.08f, 0.14f)) * size; var c = Color.Lerp(fur, new Color(0.56f, 0.4f, 0.86f), 0.6f) * R(0.9f, 1.15f);
+            float spread = loose ? R(0.04f, 0.2f) * size : R(0f, 0.025f);
+            var b = at + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * spread + Vector3.up * 0.006f;
+            // ゆるく曲がった細い毛（3点）
+            var side = Vector3.Cross(Vector3.up, d).normalized * R(-0.25f, 0.25f);
+            Tube(m, new List<Vector3> { b, b + (d + side) .normalized * len * 0.5f, b + (d - side * 0.5f + Vector3.down * (loose ? 0.05f : 0.3f)).normalized * len }, new List<float> { 0.0065f * size, 0.0045f * size, 0.0015f }, 3, c);
         }
     }
 }
