@@ -276,7 +276,8 @@ public static class FuwaCourse1Builder
             float boxFade = Mathf.Clamp01(Mathf.Min(bx, bz) / fade);
             idx[new Vector2Int(i, k)] = V.Count;
             V.Add(hl.InverseTransformPoint(new Vector3(w.x, y + 0.015f, w.z)));
-            UV.Add(new Vector2(Vector3.Dot(w - c0, wind) + uvOffset, 0));
+            // x＝風の向きに沿った距離、y＝風に直角の距離（ゾーンの中心が0。矢じり形の帯に使う）
+            UV.Add(new Vector2(Vector3.Dot(w - c0, wind) + uvOffset, Vector3.Dot(w - c0, Vector3.Cross(Vector3.up, wind))));
             C.Add(new Color(1, 1, 1, Mathf.Min(edge, boxFade)));
         }
         foreach (var kv in idx)

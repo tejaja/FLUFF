@@ -11,6 +11,11 @@ Shader "Fuwa/GroundHighlight"
         _FlowDir ("流れる向き(1/-1)", Float) = 1
         _Base ("帯の間の薄さ(0-1)", Range(0,1)) = 0.35
         _Sharp ("帯のくっきりさ", Range(1,8)) = 2.5
+        [Header(Chevron)]
+        [Toggle] _Chevron ("矢じり形（＞＞＞）にする", Float) = 0
+        _ChevPeriod ("矢じりの横の間隔(m)", Float) = 2.4
+        _ChevSlope ("矢じりのとがり具合", Float) = 0.8
+        _Stroke ("矢じりの線の太さ(0-0.5)", Range(0.02, 0.5)) = 0.16
     }
     SubShader
     {
@@ -31,6 +36,7 @@ Shader "Fuwa/GroundHighlight"
 
             fixed4 _Color;
             float _Wavelength, _Speed, _FlowDir, _Base, _Sharp;
+            float _Chevron, _ChevPeriod, _ChevSlope, _Stroke;
 
             struct appdata
             {
@@ -63,13 +69,28 @@ Shader "Fuwa/GroundHighlight"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                fixed4 c = i.color;
+                if (_Chevron > 0.5)
+                {
+                    // 矢じり（＞＞＞）：先が風下を向いたV字の線が風下へ流れる。uv.y＝風に直角の距離
+                    float yy = abs(frac(i.uv.y / _ChevPeriod + 0.5) - 0.5) * _ChevPeriod;
+                    float xx = i.uv.x + _FlowDir * _ChevSlope * yy;
+                    float q = frac(xx / _Wavelength - _Time.y * _Speed * _FlowDir / _Wavelength);
+                    float d = abs(q - 0.5);
+                    float aa = fwidth(xx / _Wavelength) * 1.5;
+                    float stroke = 1 - smoothstep(_Stroke * 0.5 - aa, _Stroke * 0.5 + aa, d);
+                    // となりの矢じりとつながってジグザグに見えないように、Vの両はしを切って1つずつ離す
+                    stroke *= smoothstep(_ChevPeriod * 0.5, _ChevPeriod * 0.36, yy);
+                    c.a *= lerp(_Base, 1.0, stroke);
+                    UNITY_APPLY_FOG(i.fogCoord, c);
+                    return c;
+                }
                 // 風下へ流れるノコギリ波：前側がくっきり、後ろがなだらかに消える帯
                 float p = frac(i.uv.x / _Wavelength - _Time.y * _Speed * _FlowDir / _Wavelength);
                 float saw = _FlowDir > 0 ? p : 1 - p;
                 float band = pow(saw, _Sharp);
                 // 帯の先端（急に切れる所）を少しなめらかに
                 band *= smoothstep(1.0, 0.72, saw);
-                fixed4 c = i.color;
                 c.a *= lerp(_Base, 1.0, band);
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;
