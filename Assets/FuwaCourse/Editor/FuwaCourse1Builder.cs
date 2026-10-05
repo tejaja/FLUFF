@@ -422,6 +422,8 @@ public static class FuwaCourse1Builder
             zone.localRotation = Quaternion.LookRotation(d, Vector3.up);
             zone.localPosition = start + d * (length * 0.5f);
             zone.localScale = new Vector3(2.8f, 2.4f, length);
+            // 判定を上側（流れの上・道のふちの側）に少し広げて、根元のふちに落としたふわふわもすぐ風に乗るように
+            { var gbc = zone.GetComponent<BoxCollider>(); gbc.size = new Vector3(1f, 1.5f, 1f); gbc.center = new Vector3(0f, 0.25f, 0f); }
             var w = zone.GetComponent<FuwaWindArea>();
             w.localDirection = Vector3.forward; w.strength = strength; w.fadeAlongDirection = 0.55f; w.offSeconds = 0f; w.visual = null;
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(w);
