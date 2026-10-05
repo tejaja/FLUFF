@@ -14,6 +14,10 @@ public class FuwaGoalMarker : UdonSharpBehaviour
     public float spinSpeed = 60f;
     [Tooltip("ゆらゆら傾く角度(度)")]
     public float swayAngle = 0f;
+    [Tooltip("ONなら、自分がエアガンを持っている間だけ▼を出す（スタートのきのこ用。「銃を取る→きのこ」の順に案内する）")]
+    public bool showOnlyWhenGunHeld = false;
+    public FuwaRespawnManager manager;
+    private float _nextGunCheck;
 
     private Vector3 _arrowBase;
     private Quaternion _arrowRot;
@@ -29,6 +33,13 @@ public class FuwaGoalMarker : UdonSharpBehaviour
 
     private void Update()
     {
+        if (showOnlyWhenGunHeld && arrow != null && Time.time >= _nextGunCheck)
+        {
+            _nextGunCheck = Time.time + 0.15f;
+            FuwaBlower gun = manager != null ? manager.GetMyBlower() : null;
+            bool show = gun != null && gun.IsHeld();
+            if (arrow.gameObject.activeSelf != show) arrow.gameObject.SetActive(show);
+        }
         if (arrow != null)
         {
             float t = Time.time * bobSpeed + _phase;
