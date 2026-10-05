@@ -31,7 +31,7 @@ public static class FuwaCourse1Builder
         new[] { new Vector2(0, 0), new Vector2(200, 0) },
         new[] { new Vector2(0, Upper), new Vector2(200, Upper) },
         new[] { new Vector2(0, 0), new Vector2(200, 0) },
-        new[] { new Vector2(68f, 0), new Vector2(StairLandA, Upper * 0.5f), new Vector2(StairLandB, Upper * 0.5f), new Vector2(74.8f, Upper) },   // 階段：上り→踊り場→上り（2026-10-05）
+        new[] { new Vector2(68f, 0), new Vector2(74.8f, Upper) },
     };
 
     public static float Width(int piece, float s)
@@ -74,7 +74,7 @@ public static class FuwaCourse1Builder
         if (piece != 4) return Linear(keys, s);
         // 坂は折れ線を ±0.8m でならす
         float sum = 0; int n = 9;
-        for (int i = 0; i < n; i++) sum += Linear(keys, s + Mathf.Lerp(-0.3f, 0.3f, i / (float)(n - 1)));   // 踊り場が平らに残るよう、ならす幅は狭め
+        for (int i = 0; i < n; i++) sum += Linear(keys, s + Mathf.Lerp(-0.8f, 0.8f, i / (float)(n - 1)));
         return sum / n;
     }
 
@@ -698,9 +698,6 @@ public static class FuwaCourse1Builder
 
     // 1つ目の突風の横の橋（かたまり3）は真ん中で折れていて、人はジャンプで渡る（2026-10-05）
     public const float BridgeBreakA = 57.4f, BridgeBreakB = 58.7f;
-    // 2つ目の突風の横（かたまり4）は木の階段：68〜StairLandA を上って踊り場、StairLandB〜74.8 を上る。見た目だけ段々で、当たり判定はなめらかな坂
-    public const float StairLandA = 70.8f, StairLandB = 71.8f;
-    const int StairSteps = 8;
     // かたまりを、橋の折れ目で分けた区間のリスト
     static List<Vector2> Spans(int pc)
     {
@@ -733,36 +730,8 @@ public static class FuwaCourse1Builder
             Vector3 P(float s, float lat, float dy) { return m.MultiplyPoint3x4(Point(pc, s, lat, dy)); }
             foreach (var span in Spans(pc)) {
             float s0 = span.x, s1 = span.y, hw = Width(pc, s0) * 0.5f;
-            if (pc == 4)
-            {
-                // 階段の段（踏み板＋前の蹴込み板）。上り区間 [f0,f1] を StairSteps 段に分ける
-                foreach (var (f0, f1, h0, h1) in new[] { (68f, StairLandA, 0f, Upper * 0.5f), (StairLandB, 74.8f, Upper * 0.5f, Upper) })
-                {
-                    float run = (f1 - f0) / StairSteps, rise = (h1 - h0) / StairSteps;
-                    for (int i = 0; i < StairSteps; i++)
-                    {
-                        float a = f0 + run * i + 0.01f, b = f0 + run * (i + 1) - 0.01f;
-                        float top = h0 + rise * (i + 0.5f);   // 段の上面の高さ（Upper と同じ基準）
-                        // 高さを絶対値で指定する点（Point はなめらかな坂の高さを足すので、その分を引いて水平にする）
-                        Vector3 PA(float s, float lat, float y) { return P(s, lat, y - Height(pc, s)); }
-                        float l0 = -hw - 0.03f + R(-0.03f, 0.03f), l1 = hw - 0.05f;
-                        // 踏み板（少し前に出す）
-                        AddBox(V, (R(0, 1) < 0.5f) ? TA : TB, new[] {
-                            PA(a - 0.03f, l0, top - PlankT), PA(b, l0, top - PlankT), PA(b, l1, top - PlankT), PA(a - 0.03f, l1, top - PlankT),
-                            PA(a - 0.03f, l0, top), PA(b, l0, top), PA(b, l1, top), PA(a - 0.03f, l1, top) });
-                        // 蹴込み板（段の前の縦の板）
-                        float rb = top - PlankT, ra = rb - rise + 0.01f;
-                        AddBox(V, TC, new[] {
-                            PA(a, l0 + 0.03f, ra), PA(a + 0.035f, l0 + 0.03f, ra), PA(a + 0.035f, l1 - 0.03f, ra), PA(a, l1 - 0.03f, ra),
-                            PA(a, l0 + 0.03f, rb), PA(a + 0.035f, l0 + 0.03f, rb), PA(a + 0.035f, l1 - 0.03f, rb), PA(a, l1 - 0.03f, rb) });
-                        nPl++;
-                    }
-                }
-            }
             for (float s = s0 + 0.02f; s + PlankLen <= s1 - 0.02f; s += PlankLen + PlankGap)
             {
-                // 階段の上り区間は上の段で描くので、平らな所（入口・踊り場・出口）だけ板を並べる
-                if (pc == 4 && ((s + PlankLen > 68f && s < StairLandA) || (s + PlankLen > StairLandB && s < 74.8f))) continue;
                 float a = s + R(-0.012f, 0.012f), b = s + PlankLen + R(-0.012f, 0.012f);
                 // 本道側（右）は道のふちにさわらないよう少し離す、外側（左）は少しはみ出してバラつかせる
                 float l0 = -hw - 0.04f + R(-0.05f, 0.04f), l1 = hw - 0.05f;
@@ -779,7 +748,7 @@ public static class FuwaCourse1Builder
                 for (int k = 0; k < n; k++)
                 {
                     float a = Mathf.Lerp(s0 + 0.05f, s1 - 0.05f, k / (float)n), b = Mathf.Lerp(s0 + 0.05f, s1 - 0.05f, (k + 1) / (float)n);
-                    float t0 = -PlankT - 0.002f - (pc == 4 ? 0.1f : 0f), t1 = t0 - BeamH;   // 階段は段の下に収まるよう少し下げる
+                    float t0 = -PlankT - 0.002f, t1 = t0 - BeamH;
                     AddBox(V, TC, new[] {
                         P(a, lc - BeamW / 2, t1), P(b, lc - BeamW / 2, t1), P(b, lc + BeamW / 2, t1), P(a, lc + BeamW / 2, t1),
                         P(a, lc - BeamW / 2, t0), P(b, lc - BeamW / 2, t0), P(b, lc + BeamW / 2, t0), P(a, lc + BeamW / 2, t0) });
