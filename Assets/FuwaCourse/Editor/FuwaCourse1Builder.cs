@@ -698,11 +698,14 @@ public static class FuwaCourse1Builder
 
     // 1つ目の突風の横の橋（かたまり3）は真ん中で折れていて、人はジャンプで渡る（2026-10-05）
     public const float BridgeBreakA = 57.1f, BridgeBreakB = 59.0f;   // 1.9m（走り抜けられないように、ジャンプで届く幅）
+    // 2つ目の突風の横の上り坂の橋（かたまり4）も、上りきる手前で崩れていてジャンプで渡る（上りなので割れ目は短め）
+    public const float RampBreakA = 73.9f, RampBreakB = 74.9f;
     // かたまりを、橋の折れ目で分けた区間のリスト
     static List<Vector2> Spans(int pc)
     {
         var p = Pieces[pc];
         if (pc == 3) return new List<Vector2> { new Vector2(p.x, BridgeBreakA), new Vector2(BridgeBreakB, p.y) };
+        if (pc == 4) return new List<Vector2> { new Vector2(p.x, RampBreakA), new Vector2(RampBreakB, p.y) };
         return new List<Vector2> { p };
     }
 
@@ -756,9 +759,10 @@ public static class FuwaCourse1Builder
             }
             }
             // 折れ目：両側の折れた板が下へ垂れて、割れ目の中ほどに落ちかけの板が1枚ひっかかっている（見た目だけ）
-            if (pc == 3)
+            if (pc == 3 || pc == 4)
             {
-                float hw = Width(pc, BridgeBreakA) * 0.5f;
+                float BreakA = pc == 3 ? BridgeBreakA : RampBreakA, BreakB = pc == 3 ? BridgeBreakB : RampBreakB;
+                float hw = Width(pc, BreakA) * 0.5f;
                 void Hanging(float sEdge, float dir, float len, float droop, float latA, float latB, List<int> T)
                 {
                     // sEdge から dir の向きへ len 伸びて、先が droop 下がる板
@@ -767,13 +771,13 @@ public static class FuwaCourse1Builder
                         P(a, latA, -PlankT), P(b, latA, -PlankT - droop), P(b, latB, -PlankT - droop), P(a, latB, -PlankT),
                         P(a, latA, 0), P(b, latA, -droop), P(b, latB, -droop), P(a, latB, 0) });
                 }
-                Hanging(BridgeBreakA, 1f, 0.32f, 0.22f, -hw + 0.05f, -0.05f, TA);
-                Hanging(BridgeBreakA, 1f, 0.24f, 0.12f, 0.02f, hw - 0.12f, TB);
-                Hanging(BridgeBreakB, -1f, 0.30f, 0.26f, -0.05f, hw - 0.05f, TB);
-                Hanging(BridgeBreakB, -1f, 0.20f, 0.10f, -hw + 0.08f, -0.10f, TA);
+                Hanging(BreakA, 1f, 0.32f, 0.22f, -hw + 0.05f, -0.05f, TA);
+                Hanging(BreakA, 1f, 0.24f, 0.12f, 0.02f, hw - 0.12f, TB);
+                Hanging(BreakB, -1f, 0.30f, 0.26f, -0.05f, hw - 0.05f, TB);
+                Hanging(BreakB, -1f, 0.20f, 0.10f, -hw + 0.08f, -0.10f, TA);
                 // 手前の垂れた板の先から、さらにぶら下がっている板（上の端を垂れた板の先にくっつけて、浮いて見えないように）
                 {
-                    float sTop = BridgeBreakA + 0.29f, sBot = BridgeBreakA + 0.36f, t = 0.06f, yTop = -PlankT - 0.2f, yBot = -1.0f;
+                    float sTop = BreakA + 0.29f, sBot = BreakA + 0.36f, t = 0.06f, yTop = -PlankT - 0.2f, yBot = -1.0f;
                     float la = -hw + 0.1f, lb = -0.12f;
                     AddBox(V, TC, new[] {
                         P(sTop, la, yTop), P(sTop, lb, yTop), P(sBot, lb, yBot), P(sBot, la, yBot),
