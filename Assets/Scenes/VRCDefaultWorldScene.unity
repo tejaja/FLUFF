@@ -530482,10 +530482,10 @@ MonoBehaviour:
     SerializationNodes: []
   _udonSharpBackingUdonBehaviour: {fileID: 930639024}
   localDirection: {x: 0.8, y: 0, z: 0.6}
-  strength: 4.4
+  strength: 3.7
   fadeAlongDirection: 0
   onSeconds: 0.8
-  offSeconds: 2.9
+  offSeconds: 2.2
   phaseOffset: 1.5
   gustCurve:
     serializedVersion: 2
@@ -530520,8 +530520,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  baseLevel: 0.2
-  calmSeconds: 0.7
+  baseLevel: 0.24
+  calmSeconds: 0
   warnSeconds: 0.6
   visual: {fileID: 1523228897}
   warnLevel: 0.6
@@ -1015258,10 +1015258,10 @@ MonoBehaviour:
     SerializationNodes: []
   _udonSharpBackingUdonBehaviour: {fileID: 1805246047}
   localDirection: {x: -0.8, y: 0, z: 0.6}
-  strength: 4.4
+  strength: 3.7
   fadeAlongDirection: 0
   onSeconds: 0.8
-  offSeconds: 2.9
+  offSeconds: 2.2
   phaseOffset: 0
   gustCurve:
     serializedVersion: 2
@@ -1015296,8 +1015296,8 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  baseLevel: 0.2
-  calmSeconds: 0.7
+  baseLevel: 0.24
+  calmSeconds: 0
   warnSeconds: 0.6
   visual: {fileID: 827940572}
   warnLevel: 0.6
