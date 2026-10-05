@@ -220,24 +220,24 @@ public static class FuwaBlowerFx
 
         var sheet = Child(ps.transform, "LeakSheet"); sheet.transform.localPosition = new Vector3(0f, 0f, VentZ);
         Common(sheet, LeakMaterial("FX_LeakSheet", true), 2);
-        var m = sheet.main; m.startLifetime = 0.11f; m.startSpeed = 0f; m.startSize = 1f; m.simulationSpace = ParticleSystemSimulationSpace.Local; m.startColor = new Color(1f, 1f, 1f, 0.85f);   // 脇役だけど、見えるくらいに
+        var m = sheet.main; m.startLifetime = 0.2f; m.startSpeed = 0f; m.startSize = 1f; m.simulationSpace = ParticleSystemSimulationSpace.Local; m.startColor = new Color(1f, 1f, 1f, 0.85f);   // 脇役だけど、見えるくらいに
         m.startRotation3D = false; m.startRotation = 0f;
         var se = sheet.emission; se.SetBursts(new[] { new ParticleSystem.Burst(0f, 1) });
         var ss = sheet.shape; ss.enabled = false;
         var sz = sheet.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.8f, 0, 1.5f), new Keyframe(1f, 1.12f)));
-        var tsa = sheet.textureSheetAnimation; tsa.enabled = true; tsa.mode = ParticleSystemAnimationMode.Grid; tsa.numTilesX = 2; tsa.numTilesY = 4; tsa.animation = ParticleSystemAnimationType.WholeSheet;
+        var tsa = sheet.textureSheetAnimation; tsa.enabled = true; tsa.mode = ParticleSystemAnimationMode.Grid; tsa.numTilesX = 4; tsa.numTilesY = 4; tsa.animation = ParticleSystemAnimationType.WholeSheet;
         tsa.frameOverTime = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0, 0, 1, 1)); tsa.cycleCount = 1;
         var sc = sheet.colorOverLifetime; sc.enabled = false;
         var sr = sheet.GetComponent<ParticleSystemRenderer>(); sr.renderMode = ParticleSystemRenderMode.Mesh; sr.mesh = SkirtMesh(); sr.alignment = ParticleSystemRenderSpace.Local;
 
         var jets = Child(ps.transform, "LeakJets"); Common(jets, LeakMaterial("FX_LeakJet", false), 24);
-        var jm = jets.main; jm.startLifetime = new ParticleSystem.MinMaxCurve(0.045f, 0.065f); jm.startSpeed = new ParticleSystem.MinMaxCurve(3.4f, 4.8f); jm.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.013f); jm.startColor = new Color(1f, 1f, 1f, 0.85f);
+        var jm = jets.main; jm.startLifetime = new ParticleSystem.MinMaxCurve(0.08f, 0.12f); jm.startSpeed = new ParticleSystem.MinMaxCurve(1.7f, 2.4f); jm.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.013f); jm.startColor = new Color(1f, 1f, 1f, 0.85f);
         var je = jets.emission; je.SetBursts(new[] { new ParticleSystem.Burst(0f, 12) });
         var js = jets.shape; js.enabled = true; js.shapeType = ParticleSystemShapeType.Cone; js.angle = 24f; js.radius = VentR; js.radiusThickness = 0f; js.arc = 360f; js.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; js.arcSpread = 0f; js.randomDirectionAmount = 0.06f;
         js.position = new Vector3(0f, 0f, VentZ); js.rotation = new Vector3(180f, 0f, 0f);
         var jl = jets.limitVelocityOverLifetime; jl.enabled = true; jl.limit = 0.6f; jl.dampen = 0.14f;
         var jc = jets.colorOverLifetime; jc.enabled = true; var jg = new Gradient(); jg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.95f, 0f), new GradientAlphaKey(0.7f, 0.4f), new GradientAlphaKey(0f, 1f) }); jc.color = jg;
-        var jr = jets.GetComponent<ParticleSystemRenderer>(); jr.renderMode = ParticleSystemRenderMode.Stretch; jr.velocityScale = 0.0125f; jr.lengthScale = 1.8f;   // 速くしても筋の長さは同じ jr.cameraVelocityScale = 0f;
+        var jr = jets.GetComponent<ParticleSystemRenderer>(); jr.renderMode = ParticleSystemRenderMode.Stretch; jr.velocityScale = 0.025f; jr.lengthScale = 1.8f; jr.cameraVelocityScale = 0f;
 
         // 前の作り（泡と筋）が残っていたら消す
         var old = ps.transform.Find("LeakStreaks"); if (old != null) Undo.DestroyObjectImmediate(old.gameObject);
@@ -266,16 +266,16 @@ public static class FuwaBlowerFx
     static float Hash(int i) { float x = Mathf.Sin(i * 127.1f + 311.7f) * 43758.5453f; return x - Mathf.Floor(x); }
 
     // 漏れ用のテクスチャとマテリアル
-    // sheet=true：2×4コマ。各コマで、細かい筋（一周で継ぎ目なし）の明るい先頭が根元から外へ走り、だんだん薄くなる
+    // sheet=true：4×4コマ。各コマで、細かい筋（一周で継ぎ目なし）の明るい先頭が根元から外へ走り、だんだん薄くなる
     // sheet=false：ジェット1本（先が明るく、後ろへ細く消える）
     static Material LeakMaterial(string name, bool sheet)
     {
         string tp = "Assets/FuwaCourse/Textures/FX/" + name + ".png";
-        int W = sheet ? 512 : 64, H = sheet ? 512 : 64; var t = new Texture2D(W, H, TextureFormat.RGBA32, false);
+        int W = sheet ? 1024 : 64, H = sheet ? 512 : 64; var t = new Texture2D(W, H, TextureFormat.RGBA32, false);
         var px = new Color[W * H];
         if (sheet)
         {
-            int TW = W / 2, TH = H / 4;
+            int TW = W / 4, TH = H / 4;
             // 筋の強さ（u ごと）：周期的な正弦の重ね合わせで、一周つながる
             var streak = new float[TW];
             for (int x = 0; x < TW; x++)
@@ -284,16 +284,17 @@ public static class FuwaBlowerFx
                 for (int k = 0; k < 6; k++) { int f = 9 + k * 7; s += Mathf.Sin(u * f + Hash(k) * 6.28f) * (1f / (k + 1)); }
                 streak[x] = Mathf.Clamp01(0.5f + s * 0.45f); streak[x] = streak[x] * streak[x];
             }
-            for (int f = 0; f < 8; f++)
+            for (int f = 0; f < 16; f++)
             {
-                int tx = f % 2, ty = 3 - f / 2;   // コマは左上から右へ、下へ
-                float tt = f / 7f, head = 0.15f + 0.6f * Mathf.Sqrt(tt), fade = Mathf.Pow(1f - tt, 1.3f) * (f == 0 ? 0.8f : 1f);
+                int tx = f % 4, ty = 3 - f / 4;   // コマは左上から右へ、下へ
+                float tt = f / 15f, head = 0.12f + 0.95f * Mathf.Sqrt(tt), fade = Mathf.Lerp(1f, 0.45f, tt);
                 for (int y = 0; y < TH; y++) for (int x = 0; x < TW; x++)
                 {
                     float v = (y + 0.5f) / TH;
                     // 先頭まで：先頭付近が明るく、根元側はうすく残る。先頭の外はすぐ消える
-                    float body = v <= head ? Mathf.Lerp(0.35f, 1f, Mathf.SmoothStep(0, 1, v / head)) : Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((v - head) / 0.3f));
-                    float st = Mathf.Lerp(0.4f, 1f, streak[x]) * Mathf.Lerp(1f, 0.6f, v);   // 外ほど筋がばらける
+                    // 膜が止まって見えないよう、明るいのは先頭の帯だけ。後ろは短い尾ですぐ消える（筋が外へ走っていく感じ）
+                    float body = v <= head ? Mathf.Exp(-(head - v) / 0.16f) : Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((v - head) / 0.12f));
+                    float st = Mathf.Lerp(0.15f, 1f, streak[x]) * Mathf.Lerp(1f, 0.7f, v);   // 外ほど筋がばらける
                     float edge = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(v / 0.15f)) * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((1f - v) / 0.55f));   // 根元のふちと外のふちをぼかす
                     px[(ty * TH + y) * W + tx * TW + x] = new Color(1, 1, 1, Mathf.Clamp01(body * st * edge * fade * 1.15f));
                 }
