@@ -19,6 +19,7 @@ public static class FuwaBlowerFx
         public int rings = 1; public float ringSize = 0.42f, ringAlpha = 0.8f, ringSpeed = 3.2f, ringLife = 0.38f;
         public int streaks = 6; public float streakAlpha = 0.75f, streakSize = 1f, streakAngle = 9f, streakLen = 4f; public bool swirl = false;
         public float tint = 0.66f;
+        public bool puffOuter = false; public bool ringBold = false;   // もこもこを真ん中を避けて外側に／輪を太く濃く
     }
     public static readonly V[] Variants =
     {
@@ -27,6 +28,7 @@ public static class FuwaBlowerFx
         new V { name = "3_輪っかメイン", puffCount = 4, puffCount2 = 2, puffAlpha = 0.4f, rings = 3, ringSize = 0.55f, ringAlpha = 1f, ringSpeed = 4.2f, ringLife = 0.45f, streaks = 2, tint = 0.75f },
         new V { name = "4_風の筋メイン", puffCount = 5, puffCount2 = 2, puffAlpha = 0.45f, puffSize = 0.8f, rings = 0, streaks = 16, streakAlpha = 0.95f, streakSize = 1.3f, streakAngle = 14f, streakLen = 6f, tint = 0.75f },
         new V { name = "5_渦巻き", puffCount = 8, puffCount2 = 3, puffAlpha = 0.5f, rings = 1, ringSize = 0.38f, streaks = 12, streakAlpha = 0.9f, streakSize = 1.2f, streakAngle = 4f, streakLen = 3.5f, swirl = true, tint = 0.72f },
+        new V { name = "6_輪っか濃いめ（真ん中あき）", puffCount = 14, puffCount2 = 6, puffAlpha = 0.8f, puffSize = 1.1f, rings = 3, ringSize = 0.6f, ringAlpha = 1f, ringSpeed = 4.2f, ringLife = 0.48f, streaks = 4, streakAlpha = 0.9f, tint = 0.78f, puffOuter = true, ringBold = true },
     };
     static V cur = Variants[2];   // てじゃが選んだ「3_輪っかメイン」（2026-10-05）
 
@@ -36,9 +38,9 @@ public static class FuwaBlowerFx
     public static string Run(int variant)
     {
         cur = Variants[Mathf.Clamp(variant, 0, Variants.Length - 1)];
-        foreach (var (n, k) in new[] { ("FX_AirPuff", 1f), ("FX_AirStreak", 1.04f), ("FX_AirRing", 1.03f) })
+        foreach (var (n, k) in new[] { ("FX_AirPuff", 1f), ("FX_AirStreak", 1.04f), ("FX_AirRing", 1.03f), ("FX_AirRingBold", 1.03f) })
         {
-            var m = AssetDatabase.LoadAssetAtPath<Material>(Mat + n + ".mat"); float t = cur.tint * k;
+            var m = AssetDatabase.LoadAssetAtPath<Material>(Mat + n + ".mat"); if (m == null) continue; float t = cur.tint * k;
             m.SetColor("_TintColor", new Color(t, t * 1.05f, t * 1.11f, 0.5f)); EditorUtility.SetDirty(m);
         }
         return Run() + " (" + cur.name + ")";
@@ -97,7 +99,7 @@ public static class FuwaBlowerFx
         m.startSize = new ParticleSystem.MinMaxCurve(0.05f * cur.puffSize, 0.1f * cur.puffSize); m.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         m.startColor = new ParticleSystem.MinMaxGradient(new Color(0.93f, 0.97f, 1f, 1f), new Color(1f, 1f, 1f, 1f));
         var em = ps.emission; em.SetBursts(new[] { new ParticleSystem.Burst(0f, (short)cur.puffCount), new ParticleSystem.Burst(0.03f, (short)cur.puffCount2) });
-        var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 13f; sh.radius = 0.03f; sh.radiusThickness = 1f; sh.arc = 360f; sh.position = Vector3.zero; sh.rotation = Vector3.zero;
+        var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = cur.puffOuter ? 26f : 13f; sh.radius = cur.puffOuter ? 0.06f : 0.03f; sh.radiusThickness = cur.puffOuter ? 0f : 1f; sh.arc = 360f; sh.position = Vector3.zero; sh.rotation = Vector3.zero;   // 外側：口のふちの輪から外へ開くように出す（真ん中があく）
         // 飛び出してすぐ減速（空気がぶわっと押し出されて止まる感じ）
         var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 0.15f; lim.dampen = 0.12f; lim.separateAxes = false;
         var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.6f, 0, 6f), new Keyframe(0.35f, cur.puffGrow * 0.7f), new Keyframe(1f, cur.puffGrow)));
@@ -110,7 +112,7 @@ public static class FuwaBlowerFx
     // 空気の輪（口の向きに広がる）
     static void SetupRing(ParticleSystem ps, float size0, float size1, float speed, float life, int count, float alpha = 0.8f)
     {
-        Common(ps, AssetDatabase.LoadAssetAtPath<Material>(Mat + "FX_AirRing.mat"), 8);
+        Common(ps, AssetDatabase.LoadAssetAtPath<Material>(Mat + (cur.ringBold ? "FX_AirRingBold.mat" : "FX_AirRing.mat")), 8);
         var m = ps.main; m.startLifetime = life; m.startSpeed = speed; m.startSize = size0; m.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         m.startColor = new Color(1f, 1f, 1f, 1f);
         // 2つ以上の時は、少しずつ遅らせて連なって飛ぶ（空気砲の連打のように）
