@@ -156,6 +156,8 @@ public class FuwaBall : UdonSharpBehaviour
     private float _glowAmount;       // 今の光の強さ（なめらかに変化）
     private float _glowTarget;       // 目標の強さ
     private float _glowUntil;        // この時刻まで目標を保つ
+    private float _glowLongUntil;    // 長く保つ指定（0.15秒より長い）の光がこの時刻まで残っている
+    private int _glowFrame = -1;     // 最後に光を指定したフレーム
 
     [Header("スタートのキノコ")]
     [Tooltip("コースのスタートでは胞子をキノコの中に隠し、キノコを撃つと飛び出す")]
@@ -396,8 +398,13 @@ public class FuwaBall : UdonSharpBehaviour
         _launchGlow = false;
         _glowColor = color;
         _glowDir = dir;
-        if (Time.time >= _glowUntil || amount >= _glowTarget) _glowTarget = amount;
+        // 同じフレームの中では一番強いものを使う。毎フレーム呼ばれる弱まっていく風（強風の終わりなど）は、
+        // 次のフレームで弱い値に下げてよい（長く保つ指定の光が残っている間は下げない）
+        bool newFrame = _glowFrame != Time.frameCount;
+        if (Time.time >= _glowUntil || amount >= _glowTarget || (newFrame && Time.time >= _glowLongUntil)) _glowTarget = amount;
+        _glowFrame = Time.frameCount;
         _glowUntil = Mathf.Max(_glowUntil, Time.time + hold);
+        if (hold > 0.15f) _glowLongUntil = Mathf.Max(_glowLongUntil, Time.time + hold);
     }
 
     // 影響がある間はすっと光り、終わったらゆっくり消える
@@ -861,6 +868,7 @@ public class FuwaBall : UdonSharpBehaviour
         _goalZone = null;
         _stuck = false;
         _glowUntil = 0f;
+        _glowLongUntil = 0f;
         _glowAmount = 0f;
         _heavyUntil = 0f;
         _tailwindUntil = 0f;
