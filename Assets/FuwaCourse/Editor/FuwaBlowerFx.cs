@@ -229,7 +229,7 @@ public static class FuwaBlowerFx
         mm.startSize = new ParticleSystem.MinMaxCurve(0.02f, 0.034f); mm.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         mm.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 1f, 1f, 0.7f), new Color(0.95f, 0.98f, 1f, 0.95f));
         var me = mist.emission; me.SetBursts(new[] { new ParticleSystem.Burst(0f, 32), new ParticleSystem.Burst(0.01f, 12) });
-        var ms = mist.shape; ms.enabled = true; ms.shapeType = ParticleSystemShapeType.Cone; ms.angle = 40f; ms.radius = VentR; ms.radiusThickness = 0f; ms.arc = 360f; ms.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; ms.randomDirectionAmount = 0.15f;   // 一周に均等に
+        var ms = mist.shape; ms.enabled = true; ms.shapeType = ParticleSystemShapeType.Cone; ms.angle = 15f;   // 鋭角に：後ろへ細く吹き出す ms.radius = VentR; ms.radiusThickness = 0f; ms.arc = 360f; ms.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; ms.randomDirectionAmount = 0.05f;   // 一周に均等に
         ms.position = new Vector3(0f, 0f, VentZ); ms.rotation = new Vector3(180f, 0f, 0f);
         // 勢いよく出て、すぐ止まる（漏れた空気は遠くまで飛ばない）
         var ml = mist.limitVelocityOverLifetime; ml.enabled = true; ml.limit = 0.08f; ml.dampen = 0.35f;   // 速く出て、すぐ止まる
