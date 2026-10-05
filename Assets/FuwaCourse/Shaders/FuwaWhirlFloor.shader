@@ -13,6 +13,7 @@ Shader "FuwaCourse/WhirlFloor"
         _Inner ("Inner Fade Radius (uv)", Range(0, 0.5)) = 0.06
         _Edge ("Edge Ring Width (uv)", Range(0.005, 0.1)) = 0.03
         _SpinDir ("Spin Direction", Float) = 1
+        _FadeStart ("Edge Fade Start (0-1)", Range(0, 1)) = 0.75
     }
     SubShader
     {
@@ -30,7 +31,7 @@ Shader "FuwaCourse/WhirlFloor"
             #include "UnityCG.cginc"
 
             fixed4 _Color;
-            half _Alpha, _Arms, _Curl, _Spin, _Sharp, _Inner, _Edge, _SpinDir;
+            half _Alpha, _Arms, _Curl, _Spin, _Sharp, _Inner, _Edge, _SpinDir, _FadeStart;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; UNITY_FOG_COORDS(1) };
@@ -53,7 +54,7 @@ Shader "FuwaCourse/WhirlFloor"
                 float s = a * _Arms * _SpinDir + r * _Curl * _Arms - _Time.y * _Spin * _Arms;
                 half arm = pow(0.5 + 0.5 * sin(s * 6.2832), _Sharp);
                 half fadeIn = smoothstep(_Inner, _Inner + 0.2, r);
-                half fadeOut = 1 - smoothstep(0.75, 1.0, r);
+                half fadeOut = 1 - smoothstep(_FadeStart, 1.0, r);
                 half ring = saturate(1 - abs(r - (1 - _Edge * 2)) / _Edge) * 0.6;
                 half alpha = saturate(arm * fadeIn * fadeOut + ring + 0.12 * fadeOut) * _Alpha;
                 fixed4 c = fixed4(_Color.rgb, alpha * step(r, 1));
