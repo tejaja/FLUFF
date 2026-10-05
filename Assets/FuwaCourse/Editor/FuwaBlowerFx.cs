@@ -64,6 +64,14 @@ public static class FuwaBlowerFx
             EditorUtility.SetDirty(bl);
             log += bl.name + " ";
         }
+        // ソフトパーティクル：VRChatでは有効で、後ろに物があると近いほど透明になる（初期値だと1mもぼける）。
+        // 銃のすぐ手前の粒が銃にかき消されて「はみ出た所しか見えない」ので、ぼかす距離を2cm弱にする（エディタでは無効なので気づきにくい）
+        foreach (var bl in Object.FindObjectsOfType<FuwaBlower>(true))
+            foreach (var pr in bl.GetComponentsInChildren<ParticleSystemRenderer>(true))
+            {
+                var pm = pr.sharedMaterial; if (pm == null || !pm.HasProperty("_InvFade")) continue;
+                pm.SetFloat("_InvFade", 60f); EditorUtility.SetDirty(pm);
+            }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         return "blower fx: " + log;
     }
