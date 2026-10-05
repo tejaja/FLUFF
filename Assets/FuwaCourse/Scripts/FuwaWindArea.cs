@@ -54,6 +54,7 @@ public class FuwaWindArea : UdonSharpBehaviour
     [Tooltip("吹き始めに鳴らす音（なくてもOK）")]
     public AudioSource gustSound;
     private bool _wasBlowing;
+    private bool _risingFromWarn;
 
     [Header("地面のハイライト（風が吹く範囲を緑でうっすら表示。なくてもOK）")]
     public Renderer groundHighlight;
@@ -167,12 +168,22 @@ public class FuwaWindArea : UdonSharpBehaviour
         if (_blowing && !_wasBlowing && gustSound != null) gustSound.Play();
         _wasBlowing = _blowing;
 
-        if (_blowing) { _target = 1f; SetVisual(_reversed ? 2 : 1); }
+        // 見た目（粒・地面の帯）は実際の風の強さ（_gust）に合わせる。ふわふわの光とずれないように。
+        // 吹き始めは、強さが予告の濃さを超えるまで予告の濃さのまま（いったん薄くならないように）
+        if (_blowing)
+        {
+            float lv = Mathf.Clamp01(_gust);
+            if (_risingFromWarn && lv < warnLevel) lv = warnLevel; else _risingFromWarn = false;
+            _target = lv;
+            SetVisual(_reversed ? 2 : 1);
+        }
         else if (t > cycle - warnSeconds)
         {
-            // 予告は「次に吹く向き」で出す（量は warnLevel）
+            // 予告は「次に吹く向き」で出す。ゆるい風の濃さから warnLevel までだんだん濃くして、そのまま強風につなげる
             bool nextReversed = alternate && ((index + 1) % 2 != 0);
-            _target = Mathf.Max(warnLevel, _baseNow);
+            float wp = warnSeconds > 0f ? Mathf.Clamp01((t - (cycle - warnSeconds)) / warnSeconds) : 1f;
+            _target = Mathf.Lerp(_baseNow, Mathf.Max(warnLevel, _baseNow), wp);
+            _risingFromWarn = true;
             SetVisual(nextReversed ? 2 : 1);
         }
         else if (_baseNow > 0f) { _target = _baseNow; SetVisual(_reversed ? 2 : 1); }   // ゆるい風：粒も少しだけ
@@ -182,6 +193,8 @@ public class FuwaWindArea : UdonSharpBehaviour
     private void LateUpdate()
     {
         float step = fadeSeconds > 0f ? Time.deltaTime / fadeSeconds : 1f;
+        // 周期で吹く風は、強さの変化にすぐ追いつくように速めに動かす
+        if (offSeconds > 0f) step *= 4f;
         if (_ps != null)
         {
             _level = Mathf.MoveTowards(_level, _visualState == 1 ? _target : 0f, step);
@@ -261,6 +274,8 @@ public class FuwaWindArea : UdonSharpBehaviour
             }
         }
         if (s <= 0f) return;
-        ball.AddWind(dir * s);
+        // 周期で吹く風は、ふわふわの光を「この風の一番強い時＝1」の割合で出す（地面の帯の濃さと合わせる）
+        if (offSeconds > 0f && strength > 0f) ball.AddWindGlowDir(dir * s, dir, s / strength);
+        else ball.AddWind(dir * s);
     }
 }
