@@ -14,12 +14,12 @@ public static class FuwaCourse1Builder
     public const float Upper = 2.6f;   // 上の段の高さ
 
     // 中心線：直線0-3 → 左カーブR30(3-17) → 直線17-49 → 右カーブR30(49-61) → 直線61-
-    static readonly float[] SegEnd = { 3f, 17f, 23.5f, 29.5f, 85f, 97f, 1e9f };   // CP2のあとの直線を5m延長（必ず捕まる練習用つむじかぜ、2026-10-05）
+    static readonly float[] SegEnd = { 3f, 17f, 23.5f, 29.5f, 88f, 100f, 1e9f };   // CP2のあとの直線を8m延長（必ず捕まる練習用つむじかぜ、2026-10-05）
     static readonly float[] SegCurv = { 0f, -1f / 30f, 0f, 10f * Mathf.Deg2Rad / 6f, 0f, 1f / 30f, 0f };   // 斜め風の区間の入り口で右へ10°（2026-10-03）   // ゆるく左へ（コース2から離れる）→谷のあとでゆるく右へ戻す（コース0に近づかない）
 
     // かたまり：0 下の道 / 1 谷の向こうの着地点 / 2 上の段 / 3 ゴールの島 / 4 人用の細道（谷の横→そのまま坂で上の段へ）/ 5 ゴールへの細い橋
     // かたまり：0 下の道 / 1 谷1の向こう岸 / 2 上の段（ゴールまで）/ 3 人用の細道（谷1の横）/ 4 人用の坂（谷2の横）
-    public const float GapA1 = 55f, GapB1 = 61f, GapA2 = 69f, GapB2 = 75f, PathEnd = 113.9f;   // 道はゴールの広場（半径3m）のふちまで。最後の螺旋風のあと2.5m直線（ゴール後に落ちた時の戻り地点用、2026-10-03）
+    public const float GapA1 = 55f, GapB1 = 61f, GapA2 = 69f, GapB2 = 75f, PathEnd = 116.9f;   // 道はゴールの広場（半径3m）のふちまで。最後の螺旋風のあと2.5m直線（ゴール後に落ちた時の戻り地点用、2026-10-03）
     public static readonly Vector2[] Pieces =
     {
         new Vector2(0f, GapA1), new Vector2(GapB1, GapA2), new Vector2(GapB2, PathEnd),
@@ -37,7 +37,7 @@ public static class FuwaCourse1Builder
     public static float Width(int piece, float s)
     {
         if (piece == 3 || piece == 4) return 1.0f;
-        if (piece == 2) return Mathf.Lerp(3f, PathNarrow, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(85f, 87.5f, s)));   // 螺旋風の区間は細い道
+        if (piece == 2) return Mathf.Lerp(3f, PathNarrow, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(88f, 90.5f, s)));   // 螺旋風の区間は細い道
         // 横風の区間は広め（左右に流されても落ちにくく）
         if (piece == 0) return Mathf.Lerp(3f, 4.6f, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(23.5f, 25.5f, s)) * (1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(43.5f, 45.5f, s))));
         return 3f;
@@ -167,8 +167,8 @@ public static class FuwaCourse1Builder
         return "Course1 path rebuilt: verts " + vis.vertexCount;
     }
 
-    public const float CP1 = 46f, CP2 = 79f, GoalS = 116.5f;
-    public const float PracticeWhirlS = 83f;   // CP2のすぐ後、道のまん中で必ず捕まる練習用つむじかぜ
+    public const float CP1 = 46f, CP2 = 79f, GoalS = 119.5f;
+    public const float PracticeWhirlS = 85.5f;   // CP2のすぐ後、道のまん中で必ず捕まる練習用つむじかぜ
 
     public static string PlaceObjects()
     {
@@ -214,7 +214,7 @@ public static class FuwaCourse1Builder
     // ---- ギミック（Gimmicks_Kaze の下に毎回作り直す。見た目の元はコース2・旧コース1から複製） ----
     public const float TailA = 2.5f, TailB = 14f;
     public const float CrossL = 28.5f, CrossR = 41f, CrossLen = 5f;
-    public static readonly float[] WhirlS = { 90f, 96f, 102f, 108f };
+    public static readonly float[] WhirlS = { 93f, 99f, 105f, 111f };
 
     public static Transform FindIn(string rootName, string path)
     {
