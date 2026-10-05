@@ -187,10 +187,16 @@ public static class FuwaKinokoEntrance
         var a = W(d0, 0, y0); var b = W(d1, 0, y1); var along = (b - a); float len = along.magnitude; var fw = along / len;
         var up = Vector3.Cross(fw, S).normalized; if (up.y < 0) up = -up;
         const float pw = 0.28f, th = 0.08f; int n = Mathf.Max(1, Mathf.RoundToInt(len / pw)); float step = len / n;
+        // 板ごとに：はしを不ぞろいに欠けさせ（左右の長さがばらばら）、少し傾けてガタつかせる。見た目だけ（判定は箱のまま）
+        float R(float lo, float hi) => lo + (float)rnd.NextDouble() * (hi - lo);
         for (int i = 0; i < n; i++)
         {
-            var c = a + fw * (step * (i + 0.5f)) - up * (th * 0.5f);
-            mb.Box(c, S * HalfW, up * (th * 0.5f), fw * (step * 0.5f - 0.01f), Plank(rnd));
+            float cutL = rnd.NextDouble() < 0.35 ? R(0.05f, 0.28f) : R(0f, 0.04f);
+            float cutR = rnd.NextDouble() < 0.35 ? R(0.05f, 0.28f) : R(0f, 0.04f);
+            float half = HalfW - (cutL + cutR) * 0.5f; float shift = (cutL - cutR) * 0.5f;
+            var c = a + fw * (step * (i + 0.5f) + R(-0.015f, 0.015f)) - up * (th * 0.5f) + S * shift + up * R(-0.012f, 0.025f);
+            var q = Quaternion.AngleAxis(R(-2.2f, 2.2f), fw) * Quaternion.AngleAxis(R(-1.8f, 1.8f), up) * Quaternion.AngleAxis(R(-1.5f, 1.5f), S);
+            mb.Box(c, q * (S * half), q * (up * (th * 0.5f)), q * (fw * (step * 0.5f - 0.012f)), Plank(rnd));
         }
         foreach (var sg in new[] { -1f, 1f })
         {
