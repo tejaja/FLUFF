@@ -976,6 +976,8 @@ public static class FuwaCourse2Builder
     // ---- スタート側の継ぎ足し（2026-10-05）：s = -PreLen 〜 0 の直線を別メッシュで作る ----
     // 元の道のメッシュ（手直し済みの _broken）はそのまま使い、s=0 のふた・丸めだけ取り除いて、ここで作る直線とつなぐ。
     public const float PreLen = 12f;
+    // 噴気孔の溝（2026-10-05）：s = GrooveS0 〜 Bevel は黄色い道をなくして岩の床（Rocks2/GrooveFloor）にする。道はスタートの広場の下〜GrooveS0 まで
+    public const float GrooveS0 = -9.3f;
     public const string PreVisPath = "Assets/FuwaCourse/Meshes/Course2Path_StartExt.asset";
     public const string PreColPath = "Assets/FuwaCourse/Meshes/Course2Path_StartExt_Col.asset";
 
@@ -985,7 +987,7 @@ public static class FuwaCourse2Builder
     public static string BuildStartExt()
     {
         var root = GameObject.Find("FuwaCourse2").transform; var m = ToCourse(root);
-        float s0p = -PreLen, s1p = Bevel;   // 元の道は s=Bevel の断面から始まる（その手前の丸めとふたは消す）
+        float s0p = -PreLen, s1p = GrooveS0;   // 元の道は s=Bevel の断面から始まる。GrooveS0〜Bevel は岩の溝の床がつなぐ
         // 見た目（BuildVisual と同じ作り。手前の端だけ丸める）
         var V = new List<Vector3>(); var N = new List<Vector3>(); var UV = new List<Vector2>(); var A = new List<int>(); var Bt = new List<int>();
         const float step = 0.25f; int pc = 0;
@@ -1019,6 +1021,9 @@ public static class FuwaCourse2Builder
         }
         { int baseR = rings[0]; Center(st[0].x, out _, out var d); int cb = V.Count; var nrm = m.MultiplyVector(new Vector3(d.x, 0, d.y) * -1f);
           for (int i = 0; i < P; i++) { V.Add(V[baseR + i]); N.Add(nrm); UV.Add(Vector2.zero); } for (int i = 1; i < P - 1; i++) AddTriDir(V, A, cb, cb + i, cb + i + 1, nrm); }
+        // 溝の床に接する奥の端もふたをする（岩の床の端の面とぴったり背中合わせになるので見えない）
+        { int baseR = rings[rings.Count - 1]; Center(st[st.Count - 1].x, out _, out var d); int cb = V.Count; var nrm = m.MultiplyVector(new Vector3(d.x, 0, d.y));
+          for (int i = 0; i < P; i++) { V.Add(V[baseR + i]); N.Add(nrm); UV.Add(Vector2.zero); } for (int i = 1; i < P - 1; i++) AddTriDir(V, A, cb, cb + i + 1, cb + i, nrm); }
         var vis = new Mesh { name = "Course2Path_StartExt" }; vis.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         vis.SetVertices(V); vis.SetNormals(N); vis.SetUVs(0, UV); vis.subMeshCount = 2; vis.SetTriangles(A, 0); vis.SetTriangles(Bt, 1); vis.RecalculateBounds(); vis.RecalculateTangents();
         Unwrapping.GenerateSecondaryUVSet(vis);
