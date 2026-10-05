@@ -380,22 +380,30 @@ public static class FuwaCourse1Builder
             var g = Dup(tplCross, holder, name).transform;
             g.localPosition = P(0, sc, 0, 0) + Vector3.down * Top;
             g.localRotation = R(sc);
+            // 斜め前への風（横に流しつつ前へ運ぶ）。風の当たる箱そのものを風の向きに傾けて、まっすぐ吹かせる
+            //（道に沿った箱で斜めに吹かせると、箱の角で風が切れて「はしで風の影響がない」所ができる）
+            const float CrossW = 6.6f, CrossL2 = 12f;   // 風に直角の幅（道に沿って約8m分）、風の向きの長さ（道を横切る＋はみ出し）
             var zone = g.Find("CrossWind");
-            zone.localScale = new Vector3(11f, 5f, CrossLen);
+            var wdir = new Vector3(dir * 0.8f, 0, 0.6f).normalized; var zrot = Quaternion.LookRotation(wdir);
+            var zc = new Vector3(0f, 5.5f, 0.18f * CrossLen);
+            zone.localPosition = zc; zone.localRotation = zrot; zone.localScale = new Vector3(CrossW, 5f, CrossL2);
+            var zbox = zone.GetComponent<BoxCollider>(); zbox.center = Vector3.zero; zbox.size = Vector3.one;
             var w = zone.GetComponent<FuwaWindArea>();
-            w.alternate = false; w.localDirection = new Vector3(dir * 0.8f, 0, 0.6f).normalized; w.phaseOffset = phase;   // 斜め前への追い風（横に流しつつ前へ運ぶ）
+            w.alternate = false; w.localDirection = Vector3.forward; w.phaseOffset = phase;
             var psF = g.Find("WindParticles"); var psR = g.Find("WindParticlesReverse");
             var use = dir > 0 ? psF : psR; var unused = dir > 0 ? psR : psF;
-            var ups = use.GetComponent<ParticleSystem>(); var sh = ups.shape; sh.scale = new Vector3(11f, 5f, CrossLen);
+            // 粒（と葉っぱ）も箱と同じ向き・大きさで、箱の前へまっすぐ流す
+            foreach (var pt in new[] { use, g.Find("WindLeaves") })
             {
-                // 粒も風と同じ斜めの向きに流す（ゾーンのローカルで向きを決める）
-                var vel = ups.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.Local;
-                var wd = w.localDirection.normalized * 7f;
-                var lpZone = use.InverseTransformDirection(zone.TransformDirection(wd).normalized) * 7f;
-                vel.x = lpZone.x; vel.y = 0f; vel.z = lpZone.z;
+                if (pt == null) continue;
+                var pps = pt.GetComponent<ParticleSystem>();
+                var vel = pps.velocityOverLifetime; float spd = new Vector2(vel.x.constant, vel.z.constant).magnitude;
+                pt.localPosition = new Vector3(zc.x, pt.localPosition.y, zc.z); pt.localRotation = zrot;
+                var psh = pps.shape; psh.scale = new Vector3(CrossW, 5f, CrossL2);
+                vel.enabled = true; vel.space = ParticleSystemSimulationSpace.Local; vel.x = 0f; vel.y = 0f; vel.z = spd;
             }
             w.visual = use.gameObject; w.visualReverse = null;
-            var hlx = zone.Find("GroundHighlight"); if (hlx) PathHighlight(hlx, zone, w.localDirection, "Kaze_WindHighlight_" + name, fade: 1.6f, crossScale: 1.29f, crossOffset: 3f);   // 横風は矢じり2列（6m間隔で2つがちょうど収まるように、中心をずらす）
+            var hlx = zone.Find("GroundHighlight"); if (hlx) PathHighlight(hlx, zone, w.localDirection, "Kaze_WindHighlight_" + name, fade: 0.8f, crossScale: 12f / CrossW, crossOffset: 3f);   // 横風は矢じり2列（6m間隔で2つがちょうど収まるように、中心をずらす）
             Object.DestroyImmediate(unused.gameObject);
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(w);
         }
