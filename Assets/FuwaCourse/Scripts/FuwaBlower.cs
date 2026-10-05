@@ -205,6 +205,7 @@ public class FuwaBlower : UdonSharpBehaviour
     }
 
     public bool IsHeld() { return _held; }
+    public bool IsSummonHidden() { return _summonHidden; }
 
     // VRの取り出し：掴むまでは見えないようにしておく（FuwaGunSummon から）
     public void SetSummonHidden(bool hidden)
