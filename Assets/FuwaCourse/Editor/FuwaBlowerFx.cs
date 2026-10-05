@@ -144,16 +144,18 @@ public static class FuwaBlowerFx
         var m = ps.main; m.startLifetime = new ParticleSystem.MinMaxCurve(0.16f, 0.26f) ; m.startSpeed = new ParticleSystem.MinMaxCurve(6f, 9f); m.startSize = new ParticleSystem.MinMaxCurve(0.025f * cur.streakSize, 0.04f * cur.streakSize);
         m.startColor = new Color(1f, 1f, 1f, 1f);
         var em = ps.emission; em.enabled = cur.streaks > 0; em.SetBursts(new[] { new ParticleSystem.Burst(0f, (short)Mathf.Max(1, cur.streaks)) });
-        var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = cur.streakAngle; sh.radius = cur.swirl ? 0.06f : 0.035f; sh.radiusThickness = cur.swirl ? 0f : 0.3f;
+        var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = cur.streakAngle; sh.radius = cur.swirl ? 0.06f : 0.035f; sh.radiusThickness = cur.swirl ? 0f : 0.3f; sh.position = new Vector3(0f, 0f, 0.06f);   // 口より少し前から出す
         var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 1f; lim.dampen = 0.08f;
         var col = ps.colorOverLifetime; col.enabled = true; col.color = Fade(Color.white, cur.streakAlpha, cur.streakAlpha * 0.66f, 0.4f);
         // 引き伸ばした筋は粒の後ろへ尾を引くので、出た瞬間に大きいと尾が銃の後ろ（風船のあたり）まで突き抜ける。
         // 出た直後は小さくして、口から前へ離れてから伸ばす
-        var ssz = ps.sizeOverLifetime; ssz.enabled = true; ssz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0f, 0f, 0f), new Keyframe(0.2f, 1f, 0f, 0f), new Keyframe(1f, 1f)));
+        var ssz = ps.sizeOverLifetime; ssz.enabled = true; ssz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0f, 0f, 0f), new Keyframe(0.35f, 1f, 0f, 0f), new Keyframe(1f, 1f)));
         // 渦巻き：筋がまわりながら前へ（軌道の速さで、ぐるっと回る）
         var vel = ps.velocityOverLifetime; vel.enabled = cur.swirl; if (cur.swirl) { vel.space = ParticleSystemSimulationSpace.Local; vel.orbitalZ = new ParticleSystem.MinMaxCurve(14f); vel.radial = new ParticleSystem.MinMaxCurve(0.6f); vel.x = 0f; vel.y = 0f; vel.z = 0f; }
         if (cur.swirl) { m.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.42f); m.startSpeed = new ParticleSystem.MinMaxCurve(3.5f, 5f); }
-        var r = ps.GetComponent<ParticleSystemRenderer>(); r.renderMode = ParticleSystemRenderMode.Stretch; r.velocityScale = 0.05f; r.lengthScale = cur.streakLen; r.cameraVelocityScale = 0f;
+        var r = ps.GetComponent<ParticleSystemRenderer>(); r.renderMode = ParticleSystemRenderMode.Stretch; r.velocityScale = 0f; r.lengthScale = cur.streakLen * 1.8f; r.cameraVelocityScale = 0f;
+        // 速さで伸ばす分（velocityScale）は大きさの曲線が効かず、出た瞬間から 0.4m 以上の尾が銃を貫いて手前まで伸びていた（VRChat主観で確認 2026-10-05）。
+        // 長さは大きさだけで決める（出た直後は小さい→尾も短い）
     }
 
     // 満タンになった瞬間の合図：ラッパの口のふちに、4つ角の小さな星が6つ。ぱっと出て、少し外へ広がって、きらっと瞬いて消える
@@ -237,7 +239,7 @@ public static class FuwaBlowerFx
         js.position = new Vector3(0f, 0f, VentZ); js.rotation = new Vector3(180f, 0f, 0f);
         var jl = jets.limitVelocityOverLifetime; jl.enabled = true; jl.limit = 0.6f; jl.dampen = 0.14f;
         var jc = jets.colorOverLifetime; jc.enabled = true; var jg = new Gradient(); jg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.95f, 0f), new GradientAlphaKey(0.7f, 0.4f), new GradientAlphaKey(0f, 1f) }); jc.color = jg;
-        var jr = jets.GetComponent<ParticleSystemRenderer>(); jr.renderMode = ParticleSystemRenderMode.Stretch; jr.velocityScale = 0.025f; jr.lengthScale = 1.8f; jr.cameraVelocityScale = 0f;
+        var jr = jets.GetComponent<ParticleSystemRenderer>(); jr.renderMode = ParticleSystemRenderMode.Stretch; jr.velocityScale = 0f; jr.lengthScale = 5f;   // 速さで伸ばすと出た瞬間から尾が長い。大きさだけで長さを決める jr.cameraVelocityScale = 0f;
         // 筋の尾は粒の後ろ（＝すき間の方）へ伸びるので、出た瞬間に大きいとラッパや本体を貫いて見える。出た直後は小さく
         var jz = jets.sizeOverLifetime; jz.enabled = true; jz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0f, 0f, 0f), new Keyframe(0.35f, 1f, 0f, 0f), new Keyframe(1f, 1f)));
 
