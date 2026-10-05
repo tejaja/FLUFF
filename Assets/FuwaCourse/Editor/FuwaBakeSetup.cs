@@ -115,7 +115,12 @@ public static class FuwaBakeSetup
             bool usedBad = false, unusedBad = false;
             for (int i = 0; i < u.Length; i++) if (broken(u[i])) { if (used[i]) usedBad = true; else unusedBad = true; }
             if (!usedBad && !unusedBad) continue;
-            if (usedBad) { UnwrapParam p; UnwrapParam.SetDefaults(out p); Unwrapping.GenerateSecondaryUVSet(m, p); u = m.uv2; }
+            if (usedBad)
+            {
+                UnwrapParam p; UnwrapParam.SetDefaults(out p); Unwrapping.GenerateSecondaryUVSet(m, p); u = m.uv2;
+                // 作り直すと頂点が増える（UVの切れ目で分かれる）ので、使われている頂点も数え直す
+                used = new bool[u.Length]; for (int s = 0; s < m.subMeshCount; s++) foreach (var i in m.GetTriangles(s)) used[i] = true;
+            }
             for (int i = 0; i < u.Length; i++) if (!used[i] && broken(u[i])) u[i] = Vector2.zero;
             m.uv2 = u; EditorUtility.SetDirty(m); fixedUv++;
             log.Append("UV2のゴミを掃除: " + m.name + (usedBad ? "（作り直し）" : "") + "\n");
