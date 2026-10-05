@@ -220,7 +220,7 @@ public static class FuwaBlowerFx
 
         var sheet = Child(ps.transform, "LeakSheet"); sheet.transform.localPosition = new Vector3(0f, 0f, VentZ);
         Common(sheet, LeakMaterial("FX_LeakSheet", true), 2);
-        var m = sheet.main; m.startLifetime = 0.2f; m.startSpeed = 0f; m.startSize = 1f; m.simulationSpace = ParticleSystemSimulationSpace.Local; m.startColor = new Color(1f, 1f, 1f, 0.85f);   // 脇役だけど、見えるくらいに
+        var m = sheet.main; m.startLifetime = 0.11f; m.startSpeed = 0f; m.startSize = 1f; m.simulationSpace = ParticleSystemSimulationSpace.Local; m.startColor = new Color(1f, 1f, 1f, 0.85f);   // 脇役だけど、見えるくらいに
         m.startRotation3D = false; m.startRotation = 0f;
         var se = sheet.emission; se.SetBursts(new[] { new ParticleSystem.Burst(0f, 1) });
         var ss = sheet.shape; ss.enabled = false;
@@ -231,13 +231,13 @@ public static class FuwaBlowerFx
         var sr = sheet.GetComponent<ParticleSystemRenderer>(); sr.renderMode = ParticleSystemRenderMode.Mesh; sr.mesh = SkirtMesh(); sr.alignment = ParticleSystemRenderSpace.Local;
 
         var jets = Child(ps.transform, "LeakJets"); Common(jets, LeakMaterial("FX_LeakJet", false), 24);
-        var jm = jets.main; jm.startLifetime = new ParticleSystem.MinMaxCurve(0.08f, 0.12f); jm.startSpeed = new ParticleSystem.MinMaxCurve(1.7f, 2.4f); jm.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.013f); jm.startColor = new Color(1f, 1f, 1f, 0.85f);
+        var jm = jets.main; jm.startLifetime = new ParticleSystem.MinMaxCurve(0.045f, 0.065f); jm.startSpeed = new ParticleSystem.MinMaxCurve(3.4f, 4.8f); jm.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.013f); jm.startColor = new Color(1f, 1f, 1f, 0.85f);
         var je = jets.emission; je.SetBursts(new[] { new ParticleSystem.Burst(0f, 12) });
         var js = jets.shape; js.enabled = true; js.shapeType = ParticleSystemShapeType.Cone; js.angle = 24f; js.radius = VentR; js.radiusThickness = 0f; js.arc = 360f; js.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; js.arcSpread = 0f; js.randomDirectionAmount = 0.06f;
         js.position = new Vector3(0f, 0f, VentZ); js.rotation = new Vector3(180f, 0f, 0f);
         var jl = jets.limitVelocityOverLifetime; jl.enabled = true; jl.limit = 0.6f; jl.dampen = 0.14f;
         var jc = jets.colorOverLifetime; jc.enabled = true; var jg = new Gradient(); jg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.95f, 0f), new GradientAlphaKey(0.7f, 0.4f), new GradientAlphaKey(0f, 1f) }); jc.color = jg;
-        var jr = jets.GetComponent<ParticleSystemRenderer>(); jr.renderMode = ParticleSystemRenderMode.Stretch; jr.velocityScale = 0.025f; jr.lengthScale = 1.8f; jr.cameraVelocityScale = 0f;
+        var jr = jets.GetComponent<ParticleSystemRenderer>(); jr.renderMode = ParticleSystemRenderMode.Stretch; jr.velocityScale = 0.0125f; jr.lengthScale = 1.8f;   // 速くしても筋の長さは同じ jr.cameraVelocityScale = 0f;
 
         // 前の作り（泡と筋）が残っていたら消す
         var old = ps.transform.Find("LeakStreaks"); if (old != null) Undo.DestroyObjectImmediate(old.gameObject);

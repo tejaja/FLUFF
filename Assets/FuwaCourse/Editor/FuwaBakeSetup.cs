@@ -101,6 +101,25 @@ public static class FuwaBakeSetup
             else log.Append("UV2なし（直せない）: " + m.name + " " + path + "\n");
         }
         foreach (var mi in importers) { mi.SaveAndReimport(); fbx++; }
+        // UV2 のゴミ掃除（.asset のみ）：三角形に使われていない頂点は、UV2の自動作成で -4億 のような値が入ることがあり、
+        // Hikari がそれも含めて詰めるので、そのメッシュだけで1枚まるごと使い、中身は潰れてしまう（2026-10-05 PitRock など）。
+        // 使われていない頂点は (0,0) に、使われている頂点が壊れていたら作り直す
+        int fixedUv = 0;
+        foreach (var m in meshes)
+        {
+            if (!AssetDatabase.GetAssetPath(m).EndsWith(".asset")) continue;
+            var u = m.uv2; if (u == null || u.Length != m.vertexCount || u.Length == 0) continue;
+            var used = new bool[u.Length];
+            for (int s = 0; s < m.subMeshCount; s++) foreach (var i in m.GetTriangles(s)) used[i] = true;
+            System.Func<Vector2, bool> broken = q => float.IsNaN(q.x) || float.IsNaN(q.y) || float.IsInfinity(q.x) || float.IsInfinity(q.y) || q.x < -0.01f || q.y < -0.01f || q.x > 1.01f || q.y > 1.01f;
+            bool usedBad = false, unusedBad = false;
+            for (int i = 0; i < u.Length; i++) if (broken(u[i])) { if (used[i]) usedBad = true; else unusedBad = true; }
+            if (!usedBad && !unusedBad) continue;
+            if (usedBad) { UnwrapParam p; UnwrapParam.SetDefaults(out p); Unwrapping.GenerateSecondaryUVSet(m, p); u = m.uv2; }
+            for (int i = 0; i < u.Length; i++) if (!used[i] && broken(u[i])) u[i] = Vector2.zero;
+            m.uv2 = u; EditorUtility.SetDirty(m); fixedUv++;
+            log.Append("UV2のゴミを掃除: " + m.name + (usedBad ? "（作り直し）" : "") + "\n");
+        }
         // UV2 が無い・壊れた値（NaN/無限）がある物は、ライトマップを受けずに影を落とすだけにする（Hikari が止まるので）
         var bad = new HashSet<Mesh>();
         foreach (var m in meshes)
@@ -134,7 +153,7 @@ public static class FuwaBakeSetup
         foreach (var m in bad) log.Append("UV2が使えない（影を落とすだけ）: " + m.name + " " + AssetDatabase.GetAssetPath(m) + "\n");
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
-        log.Append("影だけ " + occOnly + " / static " + nStatic + " / 動く物で除外 " + nMoving + " / 別シェーダー " + nOther + " / UV2作成 " + gen + "（FBX " + fbx + "） / 面積 " + area.ToString("F0") + "m²");
+        log.Append("影だけ " + occOnly + " / static " + nStatic + " / 動く物で除外 " + nMoving + " / 別シェーダー " + nOther + " / UV2作成 " + gen + "（FBX " + fbx + "） / UV2掃除 " + fixedUv + " / 面積 " + area.ToString("F0") + "m²");
         return log.ToString();
     }
 
