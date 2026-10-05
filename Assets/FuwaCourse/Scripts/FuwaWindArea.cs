@@ -70,6 +70,11 @@ public class FuwaWindArea : UdonSharpBehaviour
     private Color _hlColor;
     private float _hlShown = -1f;
     private float _hlDir = 0f;
+    [Tooltip("矢じり形のハイライトの時：風の強さで帯の流れる速さを変える（弱風→強風、m/s）。濃さはほぼ一定")]
+    public float highlightSpeedMin = 1.2f;
+    public float highlightSpeedMax = 6f;
+    private bool _hlChevron;
+    private float _hlPhase;
 
     private int _visualState = -1; // 0=なし 1=通常 2=反対
     private BoxCollider _box;
@@ -90,6 +95,7 @@ public class FuwaWindArea : UdonSharpBehaviour
         {
             _hlMat = groundHighlight.material;
             _hlColor = _hlMat.color;
+            _hlChevron = _hlMat.GetFloat("_Chevron") > 0.5f;
         }
         // 見た目がパーティクルなら、ON/OFFの代わりに出る量を徐々に変えてフェードさせる
         if (visual != null)
@@ -249,11 +255,19 @@ public class FuwaWindArea : UdonSharpBehaviour
             }
             float lv = Mathf.Max(_level, _levelRev);
             if (_ps == null && _psRev == null) lv = _visualState != 0 ? 1f : 0f;
+            if (_hlChevron && lv > 0.001f)
+            {
+                // 矢じり：風の強さで流れる速さを変える（位置は自分で進めて、速さが変わっても帯が飛ばないように）
+                _hlPhase += Mathf.Lerp(highlightSpeedMin, highlightSpeedMax, lv) * Time.deltaTime;
+                if (_hlPhase > 1000f) _hlPhase -= 1000f;
+                _hlMat.SetFloat("_Phase", _hlPhase);
+            }
             if (Mathf.Abs(lv - _hlShown) > 0.001f)
             {
                 _hlShown = lv;
                 Color c = _hlColor;
-                c.a = highlightAlpha * Mathf.Sqrt(lv);   // 弱い風の時も見えるように（弱風≈0.24→0.49）
+                // 矢じりは濃さほぼ一定（出始め・消える時だけフェード）、帯は弱い風の時も見えるように平方根
+                c.a = highlightAlpha * (_hlChevron ? Mathf.Clamp01(lv / 0.2f) : Mathf.Sqrt(lv));
                 _hlMat.color = c;
                 groundHighlight.enabled = lv > 0.001f;
             }

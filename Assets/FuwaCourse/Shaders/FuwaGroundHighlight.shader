@@ -16,6 +16,7 @@ Shader "Fuwa/GroundHighlight"
         _ChevPeriod ("矢じりの横の間隔(m)", Float) = 2.4
         _ChevSlope ("矢じりのとがり具合", Float) = 0.8
         _Stroke ("矢じりの線の太さ(0-0.5)", Range(0.02, 0.5)) = 0.16
+        _Phase ("矢じりの流れた距離(m、スクリプトから)", Float) = 0
     }
     SubShader
     {
@@ -36,7 +37,7 @@ Shader "Fuwa/GroundHighlight"
 
             fixed4 _Color;
             float _Wavelength, _Speed, _FlowDir, _Base, _Sharp;
-            float _Chevron, _ChevPeriod, _ChevSlope, _Stroke;
+            float _Chevron, _ChevPeriod, _ChevSlope, _Stroke, _Phase;
 
             struct appdata
             {
@@ -75,7 +76,8 @@ Shader "Fuwa/GroundHighlight"
                     // 矢じり（＞＞＞）：先が風下を向いたV字の線が風下へ流れる。uv.y＝風に直角の距離
                     float yy = abs(frac(i.uv.y / _ChevPeriod + 0.5) - 0.5) * _ChevPeriod;
                     float xx = i.uv.x + _FlowDir * _ChevSlope * yy;
-                    float q = frac(xx / _Wavelength - _Time.y * _Speed * _FlowDir / _Wavelength);
+                    // 流れる距離はスクリプトが風の強さに合わせて進める（_Phase）
+                    float q = frac(xx / _Wavelength - _Phase * _FlowDir / _Wavelength);
                     float d = abs(q - 0.5);
                     float aa = fwidth(xx / _Wavelength) * 1.5;
                     float stroke = 1 - smoothstep(_Stroke * 0.5 - aa, _Stroke * 0.5 + aa, d);
