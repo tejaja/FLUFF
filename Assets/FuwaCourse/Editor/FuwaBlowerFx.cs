@@ -209,7 +209,7 @@ public static class FuwaBlowerFx
 
         var sheet = Child(ps.transform, "LeakSheet"); sheet.transform.localPosition = new Vector3(0f, 0f, VentZ);
         Common(sheet, LeakMaterial("FX_LeakSheet", true), 2);
-        var m = sheet.main; m.startLifetime = 0.2f; m.startSpeed = 0f; m.startSize = 1f; m.simulationSpace = ParticleSystemSimulationSpace.Local; m.startColor = Color.white;
+        var m = sheet.main; m.startLifetime = 0.2f; m.startSpeed = 0f; m.startSize = 1f; m.simulationSpace = ParticleSystemSimulationSpace.Local; m.startColor = new Color(1f, 1f, 1f, 0.55f);   // 脇役なのでうすめ
         m.startRotation3D = false; m.startRotation = 0f;
         var se = sheet.emission; se.SetBursts(new[] { new ParticleSystem.Burst(0f, 1) });
         var ss = sheet.shape; ss.enabled = false;
@@ -220,9 +220,9 @@ public static class FuwaBlowerFx
         var sr = sheet.GetComponent<ParticleSystemRenderer>(); sr.renderMode = ParticleSystemRenderMode.Mesh; sr.mesh = SkirtMesh(); sr.alignment = ParticleSystemRenderSpace.Local;
 
         var jets = Child(ps.transform, "LeakJets"); Common(jets, LeakMaterial("FX_LeakJet", false), 24);
-        var jm = jets.main; jm.startLifetime = new ParticleSystem.MinMaxCurve(0.08f, 0.12f); jm.startSpeed = new ParticleSystem.MinMaxCurve(1.7f, 2.4f); jm.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.013f); jm.startColor = Color.white;
-        var je = jets.emission; je.SetBursts(new[] { new ParticleSystem.Burst(0f, 14) });
-        var js = jets.shape; js.enabled = true; js.shapeType = ParticleSystemShapeType.Cone; js.angle = 44f; js.radius = VentR; js.radiusThickness = 0f; js.arc = 360f; js.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; js.arcSpread = 0f; js.randomDirectionAmount = 0.06f;
+        var jm = jets.main; jm.startLifetime = new ParticleSystem.MinMaxCurve(0.08f, 0.12f); jm.startSpeed = new ParticleSystem.MinMaxCurve(1.7f, 2.4f); jm.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.013f); jm.startColor = new Color(1f, 1f, 1f, 0.6f);
+        var je = jets.emission; je.SetBursts(new[] { new ParticleSystem.Burst(0f, 10) });
+        var js = jets.shape; js.enabled = true; js.shapeType = ParticleSystemShapeType.Cone; js.angle = 24f; js.radius = VentR; js.radiusThickness = 0f; js.arc = 360f; js.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; js.arcSpread = 0f; js.randomDirectionAmount = 0.06f;
         js.position = new Vector3(0f, 0f, VentZ); js.rotation = new Vector3(180f, 0f, 0f);
         var jl = jets.limitVelocityOverLifetime; jl.enabled = true; jl.limit = 0.6f; jl.dampen = 0.14f;
         var jc = jets.colorOverLifetime; jc.enabled = true; var jg = new Gradient(); jg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.95f, 0f), new GradientAlphaKey(0.7f, 0.4f), new GradientAlphaKey(0f, 1f) }); jc.color = jg;
@@ -236,7 +236,7 @@ public static class FuwaBlowerFx
         var em2 = big2.emission; em2.SetBursts(new[] { new ParticleSystem.Burst(0.06f, 1) });
     }
 
-    // スカート状の膜：根元はすき間の輪（半径 VentR）、後ろへ 4.5cm 進みながら半径 7.5cm まで開く。uv.x=ぐるり一周、uv.y=根元0→ふち1
+    // スカート状の膜：根元はすき間の輪（半径 VentR）、後ろへ 6cm 進みながら半径 4.2cm まで開く。uv.x=ぐるり一周、uv.y=根元0→ふち1
     static Mesh SkirtMesh()
     {
         string p = "Assets/FuwaCourse/Meshes/FX_LeakSkirt.asset"; var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(p);
@@ -244,7 +244,7 @@ public static class FuwaBlowerFx
         int N = 48, R = 6; var vs = new System.Collections.Generic.List<Vector3>(); var uv = new System.Collections.Generic.List<Vector2>(); var ts = new System.Collections.Generic.List<int>();
         for (int j = 0; j <= R; j++)
         {
-            float v = (float)j / R; float rr = VentR + (0.075f - VentR) * Mathf.Pow(v, 0.85f); float z = -0.045f * Mathf.Pow(v, 0.8f);
+            float v = (float)j / R; float rr = VentR + (0.042f - VentR) * Mathf.Pow(v, 0.85f); float z = -0.06f * Mathf.Pow(v, 0.9f);
             for (int i = 0; i <= N; i++) { float a = i * Mathf.PI * 2f / N; vs.Add(new Vector3(Mathf.Cos(a) * rr, Mathf.Sin(a) * rr, z)); uv.Add(new Vector2((float)i / N, v)); }
         }
         for (int j = 0; j < R; j++) for (int i = 0; i < N; i++) { int a = j * (N + 1) + i, b = a + 1, c = a + N + 1, d = c + 1; ts.AddRange(new[] { a, c, b, b, c, d }); }
@@ -276,14 +276,14 @@ public static class FuwaBlowerFx
             for (int f = 0; f < 8; f++)
             {
                 int tx = f % 2, ty = 3 - f / 2;   // コマは左上から右へ、下へ
-                float tt = f / 7f, head = 0.2f + 0.8f * Mathf.Sqrt(tt), fade = Mathf.Pow(1f - tt, 1.3f) * (f == 0 ? 0.8f : 1f);
+                float tt = f / 7f, head = 0.15f + 0.6f * Mathf.Sqrt(tt), fade = Mathf.Pow(1f - tt, 1.3f) * (f == 0 ? 0.8f : 1f);
                 for (int y = 0; y < TH; y++) for (int x = 0; x < TW; x++)
                 {
                     float v = (y + 0.5f) / TH;
                     // 先頭まで：先頭付近が明るく、根元側はうすく残る。先頭の外はすぐ消える
-                    float body = v <= head ? Mathf.Lerp(0.35f, 1f, Mathf.SmoothStep(0, 1, v / head)) : Mathf.Clamp01(1f - (v - head) / 0.08f);
-                    float st = Mathf.Lerp(0.25f, 1f, streak[x]) * Mathf.Lerp(1f, 0.6f, v);   // 外ほど筋がばらける
-                    float edge = Mathf.Clamp01(v / 0.06f) * Mathf.Clamp01((1f - v) / 0.25f);   // 根元のふちと外のふちをぼかす
+                    float body = v <= head ? Mathf.Lerp(0.35f, 1f, Mathf.SmoothStep(0, 1, v / head)) : Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((v - head) / 0.3f));
+                    float st = Mathf.Lerp(0.4f, 1f, streak[x]) * Mathf.Lerp(1f, 0.6f, v);   // 外ほど筋がばらける
+                    float edge = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(v / 0.15f)) * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((1f - v) / 0.55f));   // 根元のふちと外のふちをぼかす
                     px[(ty * TH + y) * W + tx * TW + x] = new Color(1, 1, 1, Mathf.Clamp01(body * st * edge * fade * 1.15f));
                 }
             }
