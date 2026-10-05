@@ -208,7 +208,6 @@ public static class FuwaBlowerFx
 
     // 満タンで撃った時：強すぎて、ラッパの裏の通気口（首まわりの輪のすき間）から空気が後ろへバシュッと漏れる
     // ・LeakSheet：すき間から開くスカート状の空気の膜（テクスチャのコマ送りで、筋が根元から外へ走って消える）
-    // ・LeakJets：膜にそって一周、細いジェットがシュッ
     // ＋前には大きい輪（2枚少しずらす）
     const float VentZ = -0.0795f, VentR = 0.018f;   // FullBurst から見た通気口の位置（銃の z=0.1405、半径 0.015〜0.0205 のすき間）
     static void SetupFullBurst(ParticleSystem ps)
@@ -230,16 +229,8 @@ public static class FuwaBlowerFx
         var sc = sheet.colorOverLifetime; sc.enabled = false;
         var sr = sheet.GetComponent<ParticleSystemRenderer>(); sr.renderMode = ParticleSystemRenderMode.Mesh; sr.mesh = SkirtMesh(); sr.alignment = ParticleSystemRenderSpace.Local;
 
-        var jets = Child(ps.transform, "LeakJets"); Common(jets, LeakMaterial("FX_LeakJet", false), 24);
-        var jm = jets.main; jm.startLifetime = new ParticleSystem.MinMaxCurve(0.08f, 0.12f); jm.startSpeed = new ParticleSystem.MinMaxCurve(1.7f, 2.4f); jm.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.013f); jm.startColor = new Color(1f, 1f, 1f, 0.85f);
-        var je = jets.emission; je.SetBursts(new[] { new ParticleSystem.Burst(0f, 12) });
-        var js = jets.shape; js.enabled = true; js.shapeType = ParticleSystemShapeType.Cone; js.angle = 24f; js.radius = VentR; js.radiusThickness = 0f; js.arc = 360f; js.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; js.arcSpread = 0f; js.randomDirectionAmount = 0.06f;
-        js.position = new Vector3(0f, 0f, VentZ); js.rotation = new Vector3(180f, 0f, 0f);
-        var jl = jets.limitVelocityOverLifetime; jl.enabled = true; jl.limit = 0.6f; jl.dampen = 0.14f;
-        var jc = jets.colorOverLifetime; jc.enabled = true; var jg = new Gradient(); jg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.95f, 0f), new GradientAlphaKey(0.7f, 0.4f), new GradientAlphaKey(0f, 1f) }); jc.color = jg;
-        var jr = jets.GetComponent<ParticleSystemRenderer>(); jr.renderMode = ParticleSystemRenderMode.Stretch; jr.velocityScale = 0.025f; jr.lengthScale = 1.8f; jr.cameraVelocityScale = 0f;
-        // 筋の尾は粒の後ろ（＝すき間の方）へ伸びるので、出た瞬間に大きいとラッパや本体を貫いて見える。出た直後は小さく
-        var jz = jets.sizeOverLifetime; jz.enabled = true; jz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0f, 0f, 0f), new Keyframe(0.35f, 1f, 0f, 0f), new Keyframe(1f, 1f)));
+        // 細いジェットは本体の上下・後ろへはみ出して「中から出てる」感じが消えるのでやめた（膜だけにする）
+        var oldJets = ps.transform.Find("LeakJets"); if (oldJets != null) Undo.DestroyObjectImmediate(oldJets.gameObject);
 
         // 前の作り（泡と筋）が残っていたら消す
         var old = ps.transform.Find("LeakStreaks"); if (old != null) Undo.DestroyObjectImmediate(old.gameObject);
@@ -295,9 +286,9 @@ public static class FuwaBlowerFx
                     float v = (y + 0.5f) / TH;
                     // 先頭まで：先頭付近が明るく、根元側はうすく残る。先頭の外はすぐ消える
                     // 膜が止まって見えないよう、明るいのは先頭の帯だけ。後ろは短い尾ですぐ消える（筋が外へ走っていく感じ）
-                    float body = v <= head ? Mathf.Exp(-(head - v) / 0.16f) : Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((v - head) / 0.12f));
-                    float st = Mathf.Lerp(0.15f, 1f, streak[x]) * Mathf.Lerp(1f, 0.7f, v);   // 外ほど筋がばらける
-                    float edge = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(v / 0.15f)) * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((1f - v) / 0.55f));   // 根元のふちと外のふちをぼかす
+                    float body = v <= head ? Mathf.Max(Mathf.Exp(-(head - v) / 0.16f), 0.4f) : Mathf.SmoothStep(1f, 0f, Mathf.Clamp01((v - head) / 0.12f));   // 根元までは細い筋でつながって、すき間から出てる感じに
+                    float st = Mathf.Lerp(0.05f, 1f, streak[x]) * Mathf.Lerp(1f, 0.7f, v);   // 外ほど筋がばらける
+                    float edge = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(v / 0.04f)) * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((1f - v) / 0.55f));   // 根元のふちと外のふちをぼかす
                     px[(ty * TH + y) * W + tx * TW + x] = new Color(1, 1, 1, Mathf.Clamp01(body * st * edge * fade * 1.15f));
                 }
             }
