@@ -335,11 +335,43 @@ public class FuwaBall : UdonSharpBehaviour
         }
     }
 
+    [Header("撃った直後は風の効きが弱まる（つむじ風から抜けやすく）")]
+    [Tooltip("ふつう撃ち／フルチャージで、風の効きを何割弱めるか")]
+    [Range(0f, 1f)] public float shotWindDampMin = 0.35f;
+    [Range(0f, 1f)] public float shotWindDampMax = 0.75f;
+    [Tooltip("ふつう撃ち／フルチャージで、弱まった効きが元に戻るまでの秒数")]
+    public float shotWindDampTimeMin = 0.35f;
+    public float shotWindDampTimeMax = 0.8f;
+    private float _windDampStart = -10f;
+    private float _windDampTime = 0f;
+    private float _windDampAmount = 0f;
+    private Vector3 _windDampDir = Vector3.zero;
+
+    // エアガンで撃たれた時に呼ばれる（charge 0〜1、shotDir＝飛ばした向き）。しばらく風の効きを弱め、だんだん元に戻す
+    public void ShotWindDamp(float charge, Vector3 shotDir)
+    {
+        _windDampStart = Time.time;
+        _windDampAmount = Mathf.Lerp(shotWindDampMin, shotWindDampMax, charge);
+        _windDampTime = Mathf.Lerp(shotWindDampTimeMin, shotWindDampTimeMax, charge);
+        _windDampDir = shotDir.sqrMagnitude > 0.0001f ? shotDir.normalized : Vector3.zero;
+    }
+
+    // 撃った向きと同じ向きの風（追い風など）はそのまま、横向き・逆向きの分だけ弱める
+    private Vector3 DampWind(Vector3 acc)
+    {
+        float t = Time.time - _windDampStart;
+        if (_windDampTime <= 0f || t >= _windDampTime) return acc;
+        float k = 1f - _windDampAmount * (1f - t / _windDampTime);
+        float along = Vector3.Dot(acc, _windDampDir);
+        Vector3 keep = along > 0f ? _windDampDir * along : Vector3.zero;
+        return keep + (acc - keep) * k;
+    }
+
     // 風ゾーンから毎フレーム呼ばれる（加速度）
     public void AddWind(Vector3 acceleration)
     {
         if (_waiting || _resetAt > 0f || _stuck) return;
-        _rb.AddForce(acceleration, ForceMode.Acceleration);
+        _rb.AddForce(DampWind(acceleration), ForceMode.Acceleration);
         float mag = acceleration.magnitude;
         if (mag > 0.05f) SetGlow(windGlowColor, acceleration / mag, Mathf.Clamp01(mag / windGlowFull), 0.1f);
     }
@@ -348,7 +380,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void AddWindGlowDir(Vector3 acceleration, Vector3 glowDir, float glowAmount)
     {
         if (_waiting || _resetAt > 0f || _stuck) return;
-        _rb.AddForce(acceleration, ForceMode.Acceleration);
+        _rb.AddForce(DampWind(acceleration), ForceMode.Acceleration);
         if (glowDir.sqrMagnitude > 0.0001f) SetGlow(windGlowColor, glowDir.normalized, Mathf.Clamp01(glowAmount), 0.1f);
     }
 

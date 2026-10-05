@@ -692,7 +692,7 @@ public class FuwaBlower : UdonSharpBehaviour
         if (targetBall != null && targetBall.gameObject.activeInHierarchy)
         {
             Vector3 vb = ShotVelocity(origin, aim, reach, ballPower, targetBall.transform.position);
-            if (vb != Vector3.zero) targetBall.Blow(vb);
+            if (vb != Vector3.zero) { targetBall.Blow(vb); targetBall.ShotWindDamp(charge, vb); }
         }
         if (sharedBalls == null) return;
         for (int i = 0; i < sharedBalls.Length; i++)
