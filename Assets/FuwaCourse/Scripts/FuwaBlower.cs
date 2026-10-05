@@ -614,11 +614,14 @@ public class FuwaBlower : UdonSharpBehaviour
         if (Mathf.Abs(inflate - _bulbInflate) < 0.0001f && inflate == 0f && Mathf.Abs(airScale - _bulbAirScale) < 0.0001f) return;
         _bulbInflate = inflate;
         _bulbAirScale = airScale;
-        // 手に当たらないよう、下端を固定して上側へ膨らむ
+        // ポンプの付け根（前のふち）を固定して、後ろと上へ膨らむ／しぼむ（しぼんでも付け根から離れないように）
         float up = 1f + inflate * 1.3f;
         Vector3 bs = _bulbBaseScale * airScale;
-        pumpBulb.localScale = new Vector3(bs.x * (1f + inflate * 0.9f), bs.y * up, bs.z * (1f + inflate * 0.8f));
-        pumpBulb.localPosition = _bulbBasePos + Vector3.up * (0.5f * _bulbBaseScale.y * (airScale * up - 1f));
+        Vector3 s3 = new Vector3(bs.x * (1f + inflate * 0.9f), bs.y * up, bs.z * (1f + inflate * 0.8f));
+        pumpBulb.localScale = s3;
+        float dz = 0.5f * (_bulbBaseScale.z - s3.z);              // 前のふちをそろえる
+        float dy = 0.35f * (s3.y - _bulbBaseScale.y);             // 膨らむ時は少し上へ
+        pumpBulb.localPosition = _bulbBasePos + new Vector3(0f, dy, dz);
     }
 
     // 空気が減るとくすんだ色に、ちょん押しできない量まで減ると赤っぽく点滅
