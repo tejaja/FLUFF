@@ -54,6 +54,9 @@ public class FuwaGoal : UdonSharpBehaviour
     public Renderer ringRenderer;
     [Tooltip("リングが光った時のまわりのぼんやりした光（FuwaCourse/GoalRingHalo、普段は非表示）")]
     public Renderer ringHalo;
+    [Tooltip("リングの内側の波・リングの影（FuwaCourse/GoalWaves）。リングと一緒に消える")]
+    public Renderer ringFloor;
+    private Material _floorMat;
     [Tooltip("ゴールの目印（▼とゴールの文字）。ゴールした瞬間に消える")]
     public GameObject marker;
     [Tooltip("リングが光ってから消えきるまでの秒数")]
@@ -96,6 +99,7 @@ public class FuwaGoal : UdonSharpBehaviour
             _ringMat = ringRenderer.material;
             _ringScale = ringRenderer.transform.localScale;
         }
+        if (ringFloor != null) _floorMat = ringFloor.material;
         if (ringHalo != null)
         {
             _haloMat = ringHalo.material;
@@ -251,6 +255,7 @@ public class FuwaGoal : UdonSharpBehaviour
             _ringMat.SetFloat("_Glow", glow * 3f);
             _ringMat.SetFloat("_Alpha", alpha);
         }
+        if (_floorMat != null) _floorMat.SetFloat("_Fade", alpha);
         float k = 1f + (flashScale - 1f) * grow;
         ringRenderer.transform.localScale = new Vector3(_ringScale.x * k, _ringScale.y, _ringScale.z * k);
         if (ringHalo != null)
@@ -263,6 +268,7 @@ public class FuwaGoal : UdonSharpBehaviour
         {
             ringRenderer.enabled = false;
             if (ringHalo != null) ringHalo.enabled = false;
+            if (ringFloor != null) ringFloor.enabled = false;
             _flashStart = -1f;
         }
     }
@@ -347,6 +353,11 @@ public class FuwaGoal : UdonSharpBehaviour
         {
             ringRenderer.transform.localScale = _ringScale;
             ringRenderer.enabled = true;
+        }
+        if (ringFloor != null)
+        {
+            ringFloor.enabled = true;
+            if (_floorMat != null) _floorMat.SetFloat("_Fade", 1f);
         }
         if (ringHalo != null) ringHalo.enabled = false;
         if (_ringMat != null)

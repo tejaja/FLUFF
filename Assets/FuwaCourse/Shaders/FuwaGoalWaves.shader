@@ -14,6 +14,7 @@ Shader "FuwaCourse/GoalWaves"
         _ShadowR ("Ring Shadow Radius (0-1)", Range(0, 1)) = 0.9
         _ShadowW ("Ring Shadow Width", Range(0.01, 0.5)) = 0.12
         _ShadowA ("Ring Shadow Alpha", Range(0, 1)) = 0.3
+        _Fade ("Fade (script)", Range(0, 1)) = 1
     }
     SubShader
     {
@@ -31,7 +32,7 @@ Shader "FuwaCourse/GoalWaves"
             #include "UnityCG.cginc"
 
             fixed4 _Color;
-            half _Alpha, _Count, _Speed, _Width, _Fill, _InnerR, _ShadowR, _ShadowW, _ShadowA;
+            half _Alpha, _Count, _Speed, _Width, _Fill, _InnerR, _ShadowR, _ShadowW, _ShadowA, _Fade;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; UNITY_FOG_COORDS(1) };
@@ -63,7 +64,7 @@ Shader "FuwaCourse/GoalWaves"
                 // 影（黒）の上に波（色）を重ねた色と不透明度
                 half outA = a + sa * (1 - a);
                 half3 col = outA > 0.0001 ? (_Color.rgb * a) / outA : _Color.rgb;
-                fixed4 c = fixed4(col, outA);
+                fixed4 c = fixed4(col, outA * _Fade);   // ゴールでリングが消える時に一緒に消す
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;
             }
