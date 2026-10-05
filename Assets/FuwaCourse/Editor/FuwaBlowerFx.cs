@@ -220,28 +220,26 @@ public static class FuwaBlowerFx
         var shp = ps.shape; shp.enabled = false;
         var oldSz = ps.sizeOverLifetime; oldSz.enabled = false; var oldCol = ps.colorOverLifetime; oldCol.enabled = false; var oldLim = ps.limitVelocityOverLifetime; oldLim.enabled = false;
 
-        var sheet = Child(ps.transform, "LeakSheet"); sheet.transform.localPosition = new Vector3(0f, 0f, VentZ);
-        Common(sheet, LeakMaterial("FX_LeakSheet", true), 2);
-        var m = sheet.main; m.startLifetime = 0.2f; m.startSpeed = 0f; m.startSize = 1f; m.simulationSpace = ParticleSystemSimulationSpace.Local; m.startColor = new Color(1f, 1f, 1f, 0.85f);   // 脇役だけど、見えるくらいに
-        m.startRotation3D = false; m.startRotation = 0f;
-        var se = sheet.emission; se.SetBursts(new[] { new ParticleSystem.Burst(0f, 1) });
-        var ss = sheet.shape; ss.enabled = false;
-        var sz = sheet.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.8f, 0, 1.5f), new Keyframe(1f, 1.12f)));
-        var tsa = sheet.textureSheetAnimation; tsa.enabled = true; tsa.mode = ParticleSystemAnimationMode.Grid; tsa.numTilesX = 4; tsa.numTilesY = 4; tsa.animation = ParticleSystemAnimationType.WholeSheet;
-        tsa.frameOverTime = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0, 0, 1, 1)); tsa.cycleCount = 1;
-        var sc = sheet.colorOverLifetime; sc.enabled = false;
-        var sr = sheet.GetComponent<ParticleSystemRenderer>(); sr.renderMode = ParticleSystemRenderMode.Mesh; sr.mesh = SkirtMesh(); sr.alignment = ParticleSystemRenderSpace.Local;
-
-        var jets = Child(ps.transform, "LeakJets"); Common(jets, LeakMaterial("FX_LeakJet", false), 24);
-        var jm = jets.main; jm.startLifetime = new ParticleSystem.MinMaxCurve(0.08f, 0.12f); jm.startSpeed = new ParticleSystem.MinMaxCurve(1.7f, 2.4f); jm.startSize = new ParticleSystem.MinMaxCurve(0.008f, 0.013f); jm.startColor = new Color(1f, 1f, 1f, 0.85f);
-        var je = jets.emission; je.SetBursts(new[] { new ParticleSystem.Burst(0f, 12) });
-        var js = jets.shape; js.enabled = true; js.shapeType = ParticleSystemShapeType.Cone; js.angle = 24f; js.radius = VentR; js.radiusThickness = 0f; js.arc = 360f; js.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; js.arcSpread = 0f; js.randomDirectionAmount = 0.06f;
-        js.position = new Vector3(0f, 0f, VentZ); js.rotation = new Vector3(180f, 0f, 0f);
-        var jl = jets.limitVelocityOverLifetime; jl.enabled = true; jl.limit = 0.6f; jl.dampen = 0.14f;
-        var jc = jets.colorOverLifetime; jc.enabled = true; var jg = new Gradient(); jg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.95f, 0f), new GradientAlphaKey(0.7f, 0.4f), new GradientAlphaKey(0f, 1f) }); jc.color = jg;
-        var jr = jets.GetComponent<ParticleSystemRenderer>(); jr.renderMode = ParticleSystemRenderMode.Stretch; jr.velocityScale = 0f; jr.lengthScale = 5f;   // 速さで伸ばすと出た瞬間から尾が長い。大きさだけで長さを決める jr.cameraVelocityScale = 0f;
-        // 筋の尾は粒の後ろ（＝すき間の方）へ伸びるので、出た瞬間に大きいとラッパや本体を貫いて見える。出た直後は小さく
-        var jz = jets.sizeOverLifetime; jz.enabled = true; jz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0f, 0f, 0f), new Keyframe(0.35f, 1f, 0f, 0f), new Keyframe(1f, 1f)));
+        // 蒸気が漏れるみたいな、プシュッとした白いもや：すき間の輪から小さく薄いもやが一瞬ぶわっと出て、すぐ溶けて消える。
+        // 丸い泡に見えないよう、もやのテクスチャは形のはっきりしない雲（ノイズ）にして、向きも大きさもばらばらに
+        // （前に試した膜・ジェットは LeakSheet/LeakJets。消しておく。作る関数は戻せるように残してある）
+        foreach (var oldName in new[] { "LeakSheet", "LeakJets" }) { var o = ps.transform.Find(oldName); if (o != null) Undo.DestroyObjectImmediate(o.gameObject); }
+        var mist = Child(ps.transform, "LeakMist"); Common(mist, MistMaterial(), 48);
+        var mm = mist.main; mm.startLifetime = new ParticleSystem.MinMaxCurve(0.16f, 0.3f); mm.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.3f);
+        mm.startSize = new ParticleSystem.MinMaxCurve(0.02f, 0.034f); mm.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        mm.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 1f, 1f, 0.7f), new Color(0.95f, 0.98f, 1f, 0.95f));
+        var me = mist.emission; me.SetBursts(new[] { new ParticleSystem.Burst(0f, 30), new ParticleSystem.Burst(0.02f, 14) });
+        var ms = mist.shape; ms.enabled = true; ms.shapeType = ParticleSystemShapeType.Cone; ms.angle = 40f; ms.radius = VentR; ms.radiusThickness = 0f; ms.arc = 360f; ms.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; ms.randomDirectionAmount = 0.15f;   // 一周に均等に
+        ms.position = new Vector3(0f, 0f, VentZ); ms.rotation = new Vector3(180f, 0f, 0f);
+        // 勢いよく出て、すぐ止まる（漏れた空気は遠くまで飛ばない）
+        var ml = mist.limitVelocityOverLifetime; ml.enabled = true; ml.limit = 0.08f; ml.dampen = 0.22f;
+        // 出た瞬間は小さく濃く、ふくらみながら薄くなって溶ける
+        var mz = mist.sizeOverLifetime; mz.enabled = true; mz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.4f, 0f, 6f), new Keyframe(0.35f, 2f), new Keyframe(1f, 3f)));
+        var mc = mist.colorOverLifetime; mc.enabled = true; var mg = new Gradient();
+        mg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.55f, 0.08f), new GradientAlphaKey(0.25f, 0.4f), new GradientAlphaKey(0f, 1f) }); mc.color = mg;
+        var mr = mist.rotationOverLifetime; mr.enabled = true; mr.z = new ParticleSystem.MinMaxCurve(-3f, 3f);
+        var mn = mist.noise; mn.enabled = true; mn.strength = 0.06f; mn.frequency = 25f;   // 流れの向きがそろうと片側に寄るので、細かく弱く mn.scrollSpeed = 1f; mn.damping = true; mn.quality = ParticleSystemNoiseQuality.Low;
+        var mrr = mist.GetComponent<ParticleSystemRenderer>(); mrr.renderMode = ParticleSystemRenderMode.Billboard; mrr.sortMode = ParticleSystemSortMode.Distance;
 
         // 前の作り（泡と筋）が残っていたら消す
         var old = ps.transform.Find("LeakStreaks"); if (old != null) Undo.DestroyObjectImmediate(old.gameObject);
@@ -265,6 +263,36 @@ public static class FuwaBlowerFx
         for (int j = 0; j < R; j++) for (int i = 0; i < N; i++) { int a = j * (N + 1) + i, b = a + 1, c = a + N + 1, d = c + 1; ts.AddRange(new[] { a, c, b, b, c, d }); }
         mesh.Clear(); mesh.SetVertices(vs); mesh.SetUVs(0, uv); mesh.SetTriangles(ts, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); EditorUtility.SetDirty(mesh);
         return mesh;
+    }
+
+    // もや用：形のはっきりしない雲。ふちはふわっと消え、中もむらがある（丸い泡に見えないように）
+    static Material MistMaterial()
+    {
+        string tp = "Assets/FuwaCourse/Textures/FX/FX_LeakMist.png";
+        int S = 128; var t = new Texture2D(S, S, TextureFormat.RGBA32, false); var px = new Color[S * S];
+        System.Func<float, float, float> vnoise = (x, y) =>
+        {
+            int xi = Mathf.FloorToInt(x), yi = Mathf.FloorToInt(y); float xf = x - xi, yf = y - yi;
+            System.Func<int, int, float> h = (a, b) => Hash(((a % 8 + 8) % 8) * 57 + ((b % 8 + 8) % 8) * 131 + 7);
+            float u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+            return Mathf.Lerp(Mathf.Lerp(h(xi, yi), h(xi + 1, yi), u), Mathf.Lerp(h(xi, yi + 1), h(xi + 1, yi + 1), u), v);
+        };
+        for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+        {
+            float u = (x + 0.5f) / S, v = (y + 0.5f) / S;
+            float n = 0.5f * vnoise(u * 4, v * 4) + 0.3f * vnoise(u * 8, v * 8) + 0.2f * vnoise(u * 16, v * 16);   // 8の周期で継ぎ目なし
+            float dx = u * 2 - 1, dy = v * 2 - 1; float r = Mathf.Sqrt(dx * dx + dy * dy) + (n - 0.5f) * 0.55f;   // ふちをノイズでくずす
+            float fall = Mathf.Clamp01(1f - r); fall = fall * fall;
+            float a = Mathf.Clamp01(fall * Mathf.Lerp(0.45f, 1.25f, n));
+            px[y * S + x] = new Color(1, 1, 1, a);
+        }
+        t.SetPixels(px); t.Apply(); System.IO.File.WriteAllBytes(tp, t.EncodeToPNG()); AssetDatabase.ImportAsset(tp);
+        var ti = (TextureImporter)AssetImporter.GetAtPath(tp); ti.alphaIsTransparency = true; ti.wrapMode = TextureWrapMode.Clamp; ti.SaveAndReimport();
+        string mp = Mat + "FX_LeakMist.mat"; var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (mat == null) { mat = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended")); AssetDatabase.CreateAsset(mat, mp); }
+        mat.shader = Shader.Find("Legacy Shaders/Particles/Alpha Blended");
+        mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(tp); mat.SetColor("_TintColor", new Color(0.8f, 0.84f, 0.9f, 0.5f)); EditorUtility.SetDirty(mat);
+        return mat;
     }
 
     static float Hash(int i) { float x = Mathf.Sin(i * 127.1f + 311.7f) * 43758.5453f; return x - Mathf.Floor(x); }
