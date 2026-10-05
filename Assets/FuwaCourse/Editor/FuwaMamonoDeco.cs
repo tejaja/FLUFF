@@ -228,7 +228,7 @@ public static class FuwaMamonoDeco
         var lurkers = new List<(Vector3 p, int n, float r0, float r1, float size)>();
         var en = root.Find("Enemies"); if (en != null) foreach (Transform e in en) lurkers.Add((e.position, 9, 0.45f, 0.9f, 1.5f));
         var mama = root.Find("Mama"); if (mama != null) lurkers.Add((mama.position, 14, 1.5f, 2.6f, 2f));
-        var furBright = Color.Lerp(fur, new Color(0.75f, 0.55f, 1f), 0.5f);
+        var dustMb = new MB();
         foreach (var (lp, n, r0, r1, size) in lurkers)
             for (int k = 0, t2 = 0; k < n && t2 < 80; t2++)
             {
@@ -236,7 +236,7 @@ public static class FuwaMamonoDeco
                 var o = lp + Quaternion.Euler(0, ang, 0) * Vector3.forward * R(r0, r1) + Vector3.up * 3f;
                 if (!Physics.Raycast(o, Vector3.down, out var hit, 8f, ~0, QueryTriggerInteraction.Ignore)) continue;
                 if (!floorCols.Contains(hit.collider) || hit.normal.y < 0.85f) { if (t2 % 8 == 7) k++; continue; }
-                Tuft(floorMb, hit.point + Vector3.up * 0.005f, furBright, rnd, size); nTuft++; k++;
+                DustBunny(dustMb, hit.point, rnd, size); nTuft++; k++;
             }
         log.Append("twig " + nTwig + " feather " + nFeather + " shell " + nShell + " tuft " + nTuft + " ");
 
@@ -259,6 +259,28 @@ public static class FuwaMamonoDeco
             // 小物と根っこは影を落とさない（軽く）。浮かべた巣とタマゴは落とす
             mr.shadowCastingMode = name == "Mamono_Nests" || name == "Mamono_Eggs" ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
             log.Append(name + " tris " + mb.T.Count / 3 + " ");
+        }
+        // 綿ぼこり：敵と同じシェルファーの別メッシュ（毛の長さ・細かさはメートルで）
+        {
+            var dm = new Mesh { name = "Mamono_Dust" };
+            dm.SetVertices(dustMb.V.Select(x => w2l.MultiplyPoint3x4(x)).ToList()); dm.SetNormals(dustMb.N.Select(x => w2l.MultiplyVector(x).normalized).ToList());
+            dm.SetTriangles(dustMb.T, 0); dm.RecalculateBounds();
+            string ap = Dir + "/Mamono_Dust.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
+            if (old != null) { old.Clear(); old.SetVertices(dm.vertices); old.SetNormals(dm.normals); old.SetTriangles(dm.triangles, 0); old.RecalculateBounds(); dm = old; EditorUtility.SetDirty(old); } else AssetDatabase.CreateAsset(dm, ap);
+            string mp = "Assets/FuwaCourse/Materials/MamonoDust.mat"; var dmat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (dmat == null)
+            {
+                dmat = new Material(Shader.Find("FuwaCourse/Fur")); AssetDatabase.CreateAsset(dmat, mp);
+                dmat.SetColor("_Color", Color.Lerp(fur, new Color(0.8f, 0.72f, 0.92f), 0.45f)); dmat.SetColor("_TipColor", new Color(0.9f, 0.85f, 0.98f));
+                dmat.SetFloat("_FurLength", 0.035f); dmat.SetFloat("_Density", 200f); dmat.SetFloat("_Thinness", 0.75f);
+                dmat.SetFloat("_Shadow", 0.35f); dmat.SetFloat("_Gravity", 0.01f); dmat.SetFloat("_RimStrength", 0.3f);
+                EditorUtility.SetDirty(dmat);
+            }
+            var t = deco.Find("Mamono_Dust"); GameObject go = t != null ? t.gameObject : null;
+            if (go == null) { go = new GameObject("Mamono_Dust", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(deco, false); Undo.RegisterCreatedObjectUndo(go, "deco"); }
+            go.GetComponent<MeshFilter>().sharedMesh = dm; var mr = go.GetComponent<MeshRenderer>(); mr.sharedMaterial = dmat;
+            mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            log.Append("Mamono_Dust tris " + dustMb.T.Count / 3 + " ");
         }
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
@@ -423,6 +445,36 @@ public static class FuwaMamonoDeco
         }
         // 根元の軸
         Tube(m, new List<Vector3> { xf.MultiplyPoint3x4(new Vector3(0, 0.006f, -L * 0.18f)), xf.MultiplyPoint3x4(new Vector3(0, 0.008f, 0.02f)) }, new List<float> { 0.003f, 0.004f }, 3, axis);
+    }
+
+    // 綿ぼこり：ふわふわと同じシェルファー（FuwaCourse/Fur）で描く小さな毛玉（芯はつぶれたでこぼこの球）。1〜2個
+    static void DustBunny(MB m, Vector3 at, System.Random rnd, float scale = 1f)
+    {
+        float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
+        int balls = rnd.NextDouble() < 0.45 ? 2 : 1;
+        for (int bI = 0; bI < balls; bI++)
+        {
+            float r = (bI == 0 ? R(0.035f, 0.05f) : R(0.02f, 0.03f)) * scale;
+            var ctr = at + (bI == 0 ? Vector3.zero : Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * R(0.1f, 0.22f) * scale) + Vector3.up * r * 0.45f;
+            const int seg = 8, rings = 5; int bi = m.V.Count;
+            float ph0 = R(0, 6.28f), wob = R(0, 10);
+            for (int j = 0; j <= rings; j++)
+            {
+                float th = Mathf.PI * j / rings;
+                for (int i = 0; i < seg; i++)
+                {
+                    float ph = ph0 + Mathf.PI * 2 * i / seg;
+                    var dir = new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph));
+                    float rr = r * (1f + 0.2f * Mathf.Sin(ph * 3 + wob + j * 1.3f) * Mathf.Sin(th));
+                    m.Add(ctr + new Vector3(dir.x * rr, dir.y * rr * 0.6f, dir.z * rr), dir, Color.white);
+                }
+            }
+            for (int j = 0; j < rings; j++) for (int i = 0; i < seg; i++)
+            {
+                int a = bi + j * seg + i, b = bi + j * seg + (i + 1) % seg, cc = bi + (j + 1) * seg + (i + 1) % seg, d = bi + (j + 1) * seg + i;
+                m.Quad(a, b, cc, d);
+            }
+        }
     }
 
     // 抜け毛のかたまり（細い毛をふんわり上向きに。まん中ほど立てて、外は寝かせる）
