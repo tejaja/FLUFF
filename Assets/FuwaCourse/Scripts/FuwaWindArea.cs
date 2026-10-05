@@ -95,7 +95,8 @@ public class FuwaWindArea : UdonSharpBehaviour
         {
             _hlMat = groundHighlight.material;
             _hlColor = _hlMat.color;
-            _hlChevron = _hlMat.GetFloat("_Chevron") > 0.5f;
+            // 矢じり、または「速さをスクリプトが決める」帯の時は、風の強さで流れる速さを変える（濃さはほぼ一定）
+            _hlChevron = _hlMat.GetFloat("_Chevron") > 0.5f || _hlMat.GetFloat("_ScriptPhase") > 0.5f;
         }
         // 見た目がパーティクルなら、ON/OFFの代わりに出る量を徐々に変えてフェードさせる
         if (visual != null)

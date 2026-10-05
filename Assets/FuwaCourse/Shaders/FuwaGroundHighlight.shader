@@ -20,6 +20,7 @@ Shader "Fuwa/GroundHighlight"
         _Taper ("真ん中ほど太く（0=同じ太さ）", Range(0, 1.5)) = 0
         [Toggle] _DebugEdges ("確認用：矢じりの両はしに線", Float) = 0
         _Soft ("矢じりのふちのぼかし(0-1)", Range(0, 1)) = 0
+        [Toggle] _ScriptPhase ("流れる速さをスクリプトが決める（風の強さで速く）", Float) = 0
     }
     SubShader
     {
@@ -40,7 +41,7 @@ Shader "Fuwa/GroundHighlight"
 
             fixed4 _Color;
             float _Wavelength, _Speed, _FlowDir, _Base, _Sharp;
-            float _Chevron, _ChevPeriod, _ChevSlope, _Stroke, _Phase, _Taper, _DebugEdges, _Soft;
+            float _Chevron, _ChevPeriod, _ChevSlope, _Stroke, _Phase, _Taper, _DebugEdges, _Soft, _ScriptPhase;
 
             struct appdata
             {
@@ -105,7 +106,9 @@ Shader "Fuwa/GroundHighlight"
                     return c;
                 }
                 // 風下へ流れるノコギリ波：前側がくっきり、後ろがなだらかに消える帯
-                float p = frac(i.uv.x / _Wavelength - _Time.y * _Speed * _FlowDir / _Wavelength);
+                // 流れた距離：スクリプトが風の強さに合わせて進める時は _Phase、そうでなければ一定の速さ
+                float flow = _ScriptPhase > 0.5 ? _Phase : _Time.y * _Speed;
+                float p = frac(i.uv.x / _Wavelength - flow * _FlowDir / _Wavelength);
                 float saw = _FlowDir > 0 ? p : 1 - p;
                 float band = pow(saw, _Sharp);
                 // 帯の先端（急に切れる所）を少しなめらかに

@@ -13,7 +13,7 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords:
-  - _CHEVRON_ON
+  - _SCRIPTPHASE_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -26,13 +26,14 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _Base: 0.12
+    - _Base: 0.2
     - _ChevPeriod: 6
     - _ChevSlope: 0.6
-    - _Chevron: 1
+    - _Chevron: 0
     - _DebugEdges: 0
     - _FlowDir: 1
     - _Phase: 0
+    - _ScriptPhase: 1
     - _Sharp: 2
     - _Soft: 0.45
     - _Speed: 3.5
@@ -40,5 +41,5 @@ Material:
     - _Taper: 0
     - _Wavelength: 2.6
     m_Colors:
-    - _Color: {r: 0.3999994, g: 0.78, b: 1, a: 0.3}
+    - _Color: {r: 0.39999938, g: 0.78, b: 1, a: 0.3}
   m_BuildTextureStacks: []
