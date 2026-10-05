@@ -108,6 +108,9 @@ public class FuwaBlower : UdonSharpBehaviour
     public float bulbEmptyScale = 0.65f;
     public Color bulbEmptyColor = new Color(0.55f, 0.6f, 0.55f, 1f);
     public Color bulbWarnColor = new Color(0.95f, 0.42f, 0.38f, 1f);
+    [Tooltip("満タンの間の点滅の色と強さ（0=点滅しない）")]
+    public Color bulbFullFlashColor = new Color(0.85f, 1f, 0.8f, 1f);
+    [Range(0f, 1f)] public float bulbFullFlash = 0.45f;
     [Tooltip("銃の側面に貼った空気ゲージ（左右。自分の銃だけ表示。色はHUDと同じ）")]
     public Renderer[] gunGauges;
     private Material[] _gunGaugeMats;
@@ -632,6 +635,12 @@ public class FuwaBlower : UdonSharpBehaviour
         {
             float blink = 0.5f + 0.5f * Mathf.Sin(Time.time * 14f);
             c = Color.Lerp(bulbEmptyColor, bulbWarnColor, blink);
+        }
+        else if (_fxCharging && _fxFull)
+        {
+            // 満タンの間は、ほんのり明るく点滅（撃ち時の合図）
+            float glow = 0.5f + 0.5f * Mathf.Sin(Time.time * 9f);
+            c = Color.Lerp(c, bulbFullFlashColor, glow * bulbFullFlash);
         }
         if (c == _bulbLastColor) return;
         _bulbLastColor = c;
