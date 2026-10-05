@@ -225,7 +225,7 @@ public static class FuwaBlowerFx
         // （前に試した膜・ジェットは LeakSheet/LeakJets。消しておく。作る関数は戻せるように残してある）
         foreach (var oldName in new[] { "LeakSheet", "LeakJets" }) { var o = ps.transform.Find(oldName); if (o != null) Undo.DestroyObjectImmediate(o.gameObject); }
         var mist = Child(ps.transform, "LeakMist"); Common(mist, MistMaterial(), 48);
-        var mm = mist.main; mm.startLifetime = new ParticleSystem.MinMaxCurve(0.13f, 0.24f); mm.startSpeed = new ParticleSystem.MinMaxCurve(1.4f, 2.8f);   // 素早くプシュッ
+        var mm = mist.main; mm.startLifetime = new ParticleSystem.MinMaxCurve(0.09f, 0.16f); mm.startSpeed = new ParticleSystem.MinMaxCurve(1.4f, 2.8f);   // 素早くプシュッ
         mm.startSize = new ParticleSystem.MinMaxCurve(0.02f, 0.034f); mm.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         mm.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 1f, 1f, 0.7f), new Color(0.95f, 0.98f, 1f, 0.95f));
         var me = mist.emission; me.SetBursts(new[] { new ParticleSystem.Burst(0f, 32), new ParticleSystem.Burst(0.01f, 12) });
