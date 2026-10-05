@@ -68,7 +68,7 @@ Shader "Fuwa/GroundHighlight"
                 float saw = _FlowDir > 0 ? p : 1 - p;
                 float band = pow(saw, _Sharp);
                 // 帯の先端（急に切れる所）を少しなめらかに
-                band *= smoothstep(1.0, 0.9, saw);
+                band *= smoothstep(1.0, 0.72, saw);
                 fixed4 c = i.color;
                 c.a *= lerp(_Base, 1.0, band);
                 UNITY_APPLY_FOG(i.fogCoord, c);
