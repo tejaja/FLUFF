@@ -39,7 +39,7 @@ public static class FuwaCourse1Builder
         if (piece == 3 || piece == 4) return 1.0f;
         if (piece == 2) return Mathf.Lerp(3f, PathNarrow, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(88f, 90.5f, s)));   // 螺旋風の区間は細い道
         // 横風の区間は広め（左右に流されても落ちにくく）
-        if (piece == 0) return Mathf.Lerp(3f, 4.6f, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(23.5f, 25.5f, s)) * (1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(43.5f, 45.5f, s))));
+        if (piece == 0) return Mathf.Lerp(3f, 4.6f, Mathf.SmoothStep(0, 1, Mathf.InverseLerp(23.5f, 25.5f, s)) * (1f - Mathf.SmoothStep(0, 1, Mathf.InverseLerp(46.5f, 49f, s))));   // 2つ目の横風のあと、CP1を過ぎてから細くする（2026-10-05）
         return 3f;
     }
 
