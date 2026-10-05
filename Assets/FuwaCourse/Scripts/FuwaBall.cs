@@ -148,6 +148,10 @@ public class FuwaBall : UdonSharpBehaviour
     public Color launchGlowColor = new Color(1f, 0.6f, 0.2f, 1f);
     [Tooltip("横風がこの強さ(加速度)以上なら一番明るく光る")]
     public float windGlowFull = 3f;
+    [Tooltip("チェックポイントで浮いて待ってる間だけ、ふわふわの上に出す▼（なくてもOK。ふわふわの子にはしない）")]
+    public Transform waitMarker;
+    [Tooltip("▼の高さ（ふわふわの大きさの何倍上か）")]
+    public float waitMarkerHeight = 1.2f;
     [Tooltip("発射台で飛ばされてから光っている秒数")]
     public float launchGlowTime = 0.9f;
     private Color _glowColor;
@@ -245,6 +249,13 @@ public class FuwaBall : UdonSharpBehaviour
         UpdatePenalty();
         // 待機中（空中で止まってる間）もゆっくり回して、ふわふわ感を出す
         if (_waiting) transform.Rotate(new Vector3(0.3f, 1f, 0.15f), idleSpin * Time.deltaTime, Space.World);
+        // チェックポイントで浮いて待ってる間だけ、上に▼を出す（スタートのキノコに隠れてる時は出さない）
+        if (waitMarker != null)
+        {
+            bool show = _waiting && !_hidden && _resetAt < 0f;
+            if (waitMarker.gameObject.activeSelf != show) waitMarker.gameObject.SetActive(show);
+            if (show) waitMarker.position = transform.position + Vector3.up * (transform.lossyScale.y * waitMarkerHeight);
+        }
         if (_resetAt > 0f && Time.time >= _resetAt)
         {
             StopInflate();
