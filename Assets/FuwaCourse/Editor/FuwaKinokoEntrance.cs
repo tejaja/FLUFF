@@ -200,7 +200,7 @@ public static class FuwaKinokoEntrance
         }
         foreach (var sg in new[] { -1f, 1f })
         {
-            var c = (a + b) * 0.5f + S * sg * (HalfW - 0.06f) - up * (th + 0.15f);
+            var c = (a + b) * 0.5f + S * sg * (HalfW - 0.42f) - up * (th + 0.15f);   // 板のはしが欠けても見えないように内側に
             mb.Box(c, S * 0.07f, up * 0.15f, fw * (len * 0.5f), BeamCol);
         }
     }
