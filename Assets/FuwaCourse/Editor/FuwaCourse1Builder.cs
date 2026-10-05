@@ -240,7 +240,7 @@ public static class FuwaCourse1Builder
     // 風のエリアの地面ハイライトを、今の道の形に合わせて作り直す。
     // zone（BoxCollider の箱）の真下で道の上面に乗っている所だけ、uv.x＝風の向きに沿った距離(m)。
     // 頂点アルファで、箱のふち・道のふちをぼかす。メッシュは hl のローカル座標で作る（親のスケール込み）。
-    public static Mesh PathHighlight(Transform hl, Transform zone, Vector3 windLocal, string assetName, float fade = 0.6f, bool fadeStart = true, bool fadeEnd = true, float uvOffset = 0f)
+    public static Mesh PathHighlight(Transform hl, Transform zone, Vector3 windLocal, string assetName, float fade = 0.6f, bool fadeStart = true, bool fadeEnd = true, float uvOffset = 0f, float crossScale = 1f)
     {
         var col = Root().Find("PathMesh").GetComponent<MeshCollider>();
         Physics.SyncTransforms();
@@ -277,7 +277,7 @@ public static class FuwaCourse1Builder
             idx[new Vector2Int(i, k)] = V.Count;
             V.Add(hl.InverseTransformPoint(new Vector3(w.x, y + 0.015f, w.z)));
             // x＝風の向きに沿った距離、y＝風に直角の距離（ゾーンの中心が0。矢じり形の帯に使う）
-            UV.Add(new Vector2(Vector3.Dot(w - c0, wind) + uvOffset, Vector3.Dot(w - c0, Vector3.Cross(Vector3.up, wind))));
+            UV.Add(new Vector2(Vector3.Dot(w - c0, wind) + uvOffset, Vector3.Dot(w - c0, Vector3.Cross(Vector3.up, wind)) * crossScale));
             C.Add(new Color(1, 1, 1, Mathf.Min(edge, boxFade)));
         }
         foreach (var kv in idx)
@@ -395,7 +395,7 @@ public static class FuwaCourse1Builder
                 vel.x = lpZone.x; vel.y = 0f; vel.z = lpZone.z;
             }
             w.visual = use.gameObject; w.visualReverse = null;
-            var hlx = zone.Find("GroundHighlight"); if (hlx) PathHighlight(hlx, zone, w.localDirection, "Kaze_WindHighlight_" + name);
+            var hlx = zone.Find("GroundHighlight"); if (hlx) PathHighlight(hlx, zone, w.localDirection, "Kaze_WindHighlight_" + name, crossScale: 0.5f);   // 横風は道に沿って長いので矢じりを大きく（1つだけ見える）
             Object.DestroyImmediate(unused.gameObject);
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(w);
         }
