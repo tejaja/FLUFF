@@ -739455,8 +739455,8 @@ ParticleSystem:
     startLifetime:
       serializedVersion: 2
       minMaxState: 3
-      scalar: 0.3
-      minScalar: 0.16
+      scalar: 0.24
+      minScalar: 0.13
       maxCurve:
         serializedVersion: 2
         m_Curve:
@@ -739508,8 +739508,8 @@ ParticleSystem:
     startSpeed:
       serializedVersion: 2
       minMaxState: 3
-      scalar: 1.3
-      minScalar: 0.5
+      scalar: 2.8
+      minScalar: 1.4
       maxCurve:
         serializedVersion: 2
         m_Curve:
@@ -740319,7 +740319,7 @@ ParticleSystem:
       countCurve:
         serializedVersion: 2
         minMaxState: 0
-        scalar: 30
+        scalar: 32
         minScalar: 30
         maxCurve:
           serializedVersion: 2
@@ -740373,11 +740373,11 @@ ParticleSystem:
       repeatInterval: 0.0001
       probability: 1
     - serializedVersion: 2
-      time: 0.02
+      time: 0.01
       countCurve:
         serializedVersion: 2
         minMaxState: 0
-        scalar: 14
+        scalar: 12
         minScalar: 30
         maxCurve:
           serializedVersion: 2
@@ -740442,15 +740442,15 @@ ParticleSystem:
         m_Curve:
         - serializedVersion: 3
           time: 0
-          value: 0.4
+          value: 0.5
           inSlope: 0
-          outSlope: 6
+          outSlope: 9
           tangentMode: 0
           weightedMode: 0
           inWeight: 0
           outWeight: 0
         - serializedVersion: 3
-          time: 0.35
+          time: 0.22
           value: 2
           inSlope: 0
           outSlope: 0
@@ -740773,7 +740773,7 @@ ParticleSystem:
       maxGradient:
         serializedVersion: 2
         key0: {r: 1, g: 1, b: 1, a: 0}
-        key1: {r: 1, g: 1, b: 1, a: 0.55}
+        key1: {r: 1, g: 1, b: 1, a: 0.6}
         key2: {r: 0, g: 0, b: 0, a: 0.25}
         key3: {r: 0, g: 0, b: 0, a: 0}
         key4: {r: 0, g: 0, b: 0, a: 0}
@@ -740789,8 +740789,8 @@ ParticleSystem:
         ctime6: 0
         ctime7: 0
         atime0: 0
-        atime1: 5243
-        atime2: 26214
+        atime1: 2621
+        atime2: 22937
         atime3: 65535
         atime4: 0
         atime5: 0
@@ -742094,7 +742094,7 @@ ParticleSystem:
     inWorldSpace: 0
     multiplyDragByParticleSize: 1
     multiplyDragByParticleVelocity: 1
-    dampen: 0.22
+    dampen: 0.35
     drag:
       serializedVersion: 2
       minMaxState: 0

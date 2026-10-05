@@ -225,18 +225,18 @@ public static class FuwaBlowerFx
         // （前に試した膜・ジェットは LeakSheet/LeakJets。消しておく。作る関数は戻せるように残してある）
         foreach (var oldName in new[] { "LeakSheet", "LeakJets" }) { var o = ps.transform.Find(oldName); if (o != null) Undo.DestroyObjectImmediate(o.gameObject); }
         var mist = Child(ps.transform, "LeakMist"); Common(mist, MistMaterial(), 48);
-        var mm = mist.main; mm.startLifetime = new ParticleSystem.MinMaxCurve(0.16f, 0.3f); mm.startSpeed = new ParticleSystem.MinMaxCurve(0.5f, 1.3f);
+        var mm = mist.main; mm.startLifetime = new ParticleSystem.MinMaxCurve(0.13f, 0.24f); mm.startSpeed = new ParticleSystem.MinMaxCurve(1.4f, 2.8f);   // 素早くプシュッ
         mm.startSize = new ParticleSystem.MinMaxCurve(0.02f, 0.034f); mm.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         mm.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 1f, 1f, 0.7f), new Color(0.95f, 0.98f, 1f, 0.95f));
-        var me = mist.emission; me.SetBursts(new[] { new ParticleSystem.Burst(0f, 30), new ParticleSystem.Burst(0.02f, 14) });
+        var me = mist.emission; me.SetBursts(new[] { new ParticleSystem.Burst(0f, 32), new ParticleSystem.Burst(0.01f, 12) });
         var ms = mist.shape; ms.enabled = true; ms.shapeType = ParticleSystemShapeType.Cone; ms.angle = 40f; ms.radius = VentR; ms.radiusThickness = 0f; ms.arc = 360f; ms.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; ms.randomDirectionAmount = 0.15f;   // 一周に均等に
         ms.position = new Vector3(0f, 0f, VentZ); ms.rotation = new Vector3(180f, 0f, 0f);
         // 勢いよく出て、すぐ止まる（漏れた空気は遠くまで飛ばない）
-        var ml = mist.limitVelocityOverLifetime; ml.enabled = true; ml.limit = 0.08f; ml.dampen = 0.22f;
+        var ml = mist.limitVelocityOverLifetime; ml.enabled = true; ml.limit = 0.08f; ml.dampen = 0.35f;   // 速く出て、すぐ止まる
         // 出た瞬間は小さく濃く、ふくらみながら薄くなって溶ける
-        var mz = mist.sizeOverLifetime; mz.enabled = true; mz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.4f, 0f, 6f), new Keyframe(0.35f, 2f), new Keyframe(1f, 3f)));
+        var mz = mist.sizeOverLifetime; mz.enabled = true; mz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.5f, 0f, 9f), new Keyframe(0.22f, 2f), new Keyframe(1f, 3f)));
         var mc = mist.colorOverLifetime; mc.enabled = true; var mg = new Gradient();
-        mg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.55f, 0.08f), new GradientAlphaKey(0.25f, 0.4f), new GradientAlphaKey(0f, 1f) }); mc.color = mg;
+        mg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.6f, 0.04f), new GradientAlphaKey(0.25f, 0.35f), new GradientAlphaKey(0f, 1f) }); mc.color = mg;
         var mr = mist.rotationOverLifetime; mr.enabled = true; mr.z = new ParticleSystem.MinMaxCurve(-3f, 3f);
         var mn = mist.noise; mn.enabled = true; mn.strength = 0.06f; mn.frequency = 25f;   // 流れの向きがそろうと片側に寄るので、細かく弱く mn.scrollSpeed = 1f; mn.damping = true; mn.quality = ParticleSystemNoiseQuality.Low;
         var mrr = mist.GetComponent<ParticleSystemRenderer>(); mrr.renderMode = ParticleSystemRenderMode.Billboard; mrr.sortMode = ParticleSystemSortMode.Distance;
