@@ -3,10 +3,10 @@ using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon.Common.Interfaces;
 
-// 足場（キノコの傘など）の上に立っている間だけ、自分のジャンプ力を上げる。降りたら元に戻す。ジャンプ力と音は自分だけ、揺れは全員に見える。
+// 足場（キノコの傘など）の上に立っている間だけ、自分のジャンプ力を上げる。降りたら元に戻す。ジャンプ力・音・揺れ・光は全部自分の画面だけ。
 // トリガー（この物体のコライダー）は判定を拾うための範囲で、実際に上げるのは
 // 「足元が足場の上面（surface）の高さにあって、足場の円の内側にいる」時だけ（近くの別の床に立っている時は上げない）。
-[UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]   // 揺れを他の人にも見せるため、ネットワークイベントだけ使う
+[UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaJumpBoost : UdonSharpBehaviour
 {
     [Tooltip("上に立っている間のジャンプ力（VRChatの標準は3）")]
@@ -21,7 +21,7 @@ public class FuwaJumpBoost : UdonSharpBehaviour
     public float below = 0.12f;
     public float above = 0.25f;
 
-    [Header("ジャンプした時のポヨヨン（見た目だけ・全員に見える）")]
+    [Header("ジャンプした時のポヨヨン（見た目だけ・自分の画面だけ）")]
     [Tooltip("揺らす見た目（当たり判定とは別の物体にしておく）")]
     public Transform wobbleTarget;
     [Tooltip("0=むにっと潰れて伸びる（傘）、1=根元を支点に板のようにしなる（サルノコシカケ）")]
@@ -44,6 +44,8 @@ public class FuwaJumpBoost : UdonSharpBehaviour
     public float glowMax = 0.55f;
     [Tooltip("乗ってから光りきるまでの秒数")]
     public float glowRise = 0.35f;
+    [Tooltip("乗っている間、傘のふちから上へ広がって消える光の輪（主観視点でも見えるように）。なくてもOK")]
+    public ParticleSystem boostRings;
 
     private float _glow;
     private MaterialPropertyBlock _mpb;
@@ -140,11 +142,12 @@ public class FuwaJumpBoost : UdonSharpBehaviour
             _restore = p.GetJumpImpulse();
             p.SetJumpImpulse(Mathf.Max(jumpImpulse, _restore));
             if (chargeSound != null && chargeSound.clip != null) { chargeSound.pitch = Random.Range(0.97f, 1.04f); chargeSound.PlayOneShot(chargeSound.clip, 0.7f); }
+            if (boostRings != null) boostRings.Play();
         }
-        else if (_restore >= 0f)
+        else
         {
-            p.SetJumpImpulse(_restore);
-            _restore = -1f;
+            if (_restore >= 0f) { p.SetJumpImpulse(_restore); _restore = -1f; }
+            if (boostRings != null) boostRings.Stop();
         }
     }
 
@@ -159,9 +162,8 @@ public class FuwaJumpBoost : UdonSharpBehaviour
             jumpSound.pitch = Random.Range(0.95f, 1.08f);
             jumpSound.PlayOneShot(jumpSound.clip);
         }
-        // 揺れは全員に。自分の画面はネットワークを待たずにすぐ揺らす。音とジャンプ力は自分だけ
+        // 揺れも自分の画面だけ（複数人で乗ると揺れや光が重なってわかりにくいので、同期しない）
         StartWobble();
-        SendCustomNetworkEvent(NetworkEventTarget.Others, nameof(StartWobble));
     }
 
     public override void OnPlayerTriggerStay(VRCPlayerApi player)
