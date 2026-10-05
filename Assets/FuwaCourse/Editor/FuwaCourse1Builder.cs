@@ -771,11 +771,14 @@ public static class FuwaCourse1Builder
                 Hanging(BridgeBreakA, 1f, 0.24f, 0.12f, 0.02f, hw - 0.12f, TB);
                 Hanging(BridgeBreakB, -1f, 0.30f, 0.26f, -0.05f, hw - 0.05f, TB);
                 Hanging(BridgeBreakB, -1f, 0.20f, 0.10f, -hw + 0.08f, -0.10f, TA);
-                // 割れ目の下で、片方の梁にひっかかって斜めに垂れている板
-                float sm = (BridgeBreakA + BridgeBreakB) * 0.5f;
-                AddBox(V, TC, new[] {
-                    P(sm - 0.14f, -hw * 0.2f, -0.35f), P(sm + 0.14f, -hw * 0.2f, -0.35f), P(sm + 0.14f, hw * 0.75f, -0.85f), P(sm - 0.14f, hw * 0.75f, -0.85f),
-                    P(sm - 0.14f, -hw * 0.2f, -0.29f), P(sm + 0.14f, -hw * 0.2f, -0.29f), P(sm + 0.14f, hw * 0.75f, -0.79f), P(sm - 0.14f, hw * 0.75f, -0.79f) });
+                // 手前の垂れた板の先から、さらにぶら下がっている板（上の端を垂れた板の先にくっつけて、浮いて見えないように）
+                {
+                    float sTop = BridgeBreakA + 0.29f, sBot = BridgeBreakA + 0.36f, t = 0.06f, yTop = -PlankT - 0.2f, yBot = -1.0f;
+                    float la = -hw + 0.1f, lb = -0.12f;
+                    AddBox(V, TC, new[] {
+                        P(sTop, la, yTop), P(sTop, lb, yTop), P(sBot, lb, yBot), P(sBot, la, yBot),
+                        P(sTop + t, la, yTop), P(sTop + t, lb, yTop), P(sBot + t, lb, yBot), P(sBot + t, la, yBot) });
+                }
             }
         }
         var mesh = new Mesh { name = "Course1_BridgePlanks", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
