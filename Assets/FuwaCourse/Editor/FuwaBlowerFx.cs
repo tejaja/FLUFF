@@ -28,7 +28,7 @@ public static class FuwaBlowerFx
         new V { name = "4_風の筋メイン", puffCount = 5, puffCount2 = 2, puffAlpha = 0.45f, puffSize = 0.8f, rings = 0, streaks = 16, streakAlpha = 0.95f, streakSize = 1.3f, streakAngle = 14f, streakLen = 6f, tint = 0.75f },
         new V { name = "5_渦巻き", puffCount = 8, puffCount2 = 3, puffAlpha = 0.5f, rings = 1, ringSize = 0.38f, streaks = 12, streakAlpha = 0.9f, streakSize = 1.2f, streakAngle = 4f, streakLen = 3.5f, swirl = true, tint = 0.72f },
     };
-    static V cur = Variants[0];
+    static V cur = Variants[2];   // てじゃが選んだ「3_輪っかメイン」（2026-10-05）
 
     [MenuItem("FuwaCourse/エアガンの射撃エフェクトを作る")]
     public static void RunMenu() { Debug.Log(Run()); }
