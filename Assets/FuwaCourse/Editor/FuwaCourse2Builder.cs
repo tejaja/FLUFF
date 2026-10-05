@@ -9,7 +9,7 @@ public static class FuwaCourse2Builder
 {
     public const float Top = 3f, Thick = 0.3f, Bevel = 0.08f;
     const int BevelSteps = 4;
-    const float Stripe = 0.75f;
+    public const float Stripe = 0.75f;
 
     // 中心線：直線0-18 → 右カーブR12(18-26) → 直線26-54 → 左カーブR14(54-66) → 直線66-
     public const float TurnR1 = 12f, TurnS1a = 18f, TurnS1b = 26f;
@@ -659,7 +659,7 @@ public static class FuwaCourse2Builder
         return l;
     }
 
-    static void Save(Mesh m, string path)
+    public static void Save(Mesh m, string path)
     {
         var old = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (old != null) { FuwaBevelTools.CopyInto(old, m); old.UploadMeshData(false); EditorUtility.SetDirty(old); }
@@ -667,7 +667,7 @@ public static class FuwaCourse2Builder
         AssetDatabase.SaveAssets();
     }
 
-    static List<Vector4> Profile(float w)
+    public static List<Vector4> Profile(float w)
     {
         float W = w * 0.5f, B = Top - Thick;
         var prof = new List<Vector4> { new Vector4(-W, -Thick, -1, 0) };
@@ -678,7 +678,7 @@ public static class FuwaCourse2Builder
     }
 
     // 断面の法線を坂の傾きに合わせて立体に
-    static Vector3 Normal(int piece, float s, float nx, float ny)
+    public static Vector3 Normal(int piece, float s, float nx, float ny)
     {
         Center(s, out _, out var d);
         float slope = (Height(piece, s + 0.05f) - Height(piece, s - 0.05f)) / 0.1f;
@@ -1003,6 +1003,7 @@ public static class FuwaCourse2Builder
     public const float PreLen = 18.5f;   // 広場の下まで（2026-10-05 キノコと溝の間を3m延ばした）
     // 噴気孔の溝（2026-10-05）：s = GrooveS0 〜 Bevel は黄色い道をなくして岩の床（Rocks2/GrooveFloor）にする。道はスタートの広場の下〜GrooveS0 まで
     public const float GrooveS0 = -9.3f;
+    public const float JagLen = 0.6f;   // 溝に接する道の端の、崩れた部分の長さ
     public const string PreVisPath = "Assets/FuwaCourse/Meshes/Course2Path_StartExt.asset";
     public const string PreColPath = "Assets/FuwaCourse/Meshes/Course2Path_StartExt_Col.asset";
 
@@ -1018,7 +1019,7 @@ public static class FuwaCourse2Builder
         const float step = 0.25f; int pc = 0;
         var st = new List<Vector4>();
         for (int k = BevelSteps; k >= 1; k--) { float th = (Mathf.PI / 2) * k / BevelSteps; st.Add(new Vector4(s0p + Bevel * (1 - Mathf.Sin(th)), Bevel * (1 - Mathf.Cos(th)), th, -1)); }
-        float a0 = s0p + Bevel, a1 = s1p; int n = Mathf.Max(1, Mathf.CeilToInt((a1 - a0) / step));
+        float a0 = s0p + Bevel, a1 = s1p - JagLen; int n = Mathf.Max(1, Mathf.CeilToInt((a1 - a0) / step));   // 最後の JagLen は崩れた端（FuwaGrooveEdges）が作る
         for (int k = 0; k <= n; k++) st.Add(new Vector4(Mathf.Lerp(a0, a1, k / (float)n), 0, 0, 0));
         var rings = new List<int>(); int P = 0;
         foreach (var sv in st)
@@ -1037,7 +1038,7 @@ public static class FuwaCourse2Builder
         }
         for (int r = 0; r < st.Count - 1; r++)
         {
-            var list = (Mathf.FloorToInt((st[r].x + PreLen * 4f + 0.001f) / Stripe) % 2 == 0) ? A : Bt;   // 負の s でも縞が元の道と同じ並びになるように
+            var list = (Mathf.FloorToInt((st[r].x + 60f + 0.001f) / Stripe) % 2 == 0) ? A : Bt;   // 負の s でも縞が元の道と同じ並びになるように
             int ra = rings[r], rb = rings[r + 1];
             for (int i = 0; i < P - 1; i++) { int x0 = ra + i, x1 = ra + i + 1, y0 = rb + i, y1 = rb + i + 1; list.AddRange(new[] { x0, y0, x1, x1, y0, y1 }); }
             int bb = V.Count;
