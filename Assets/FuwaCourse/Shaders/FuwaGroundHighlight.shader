@@ -77,6 +77,9 @@ Shader "Fuwa/GroundHighlight"
                     // 矢じり（＞＞＞）：先が風下を向いたV字の線が風下へ流れる。uv.y＝風に直角の距離
                     float yy = abs(frac(i.uv.y / _ChevPeriod + 0.5) - 0.5) * _ChevPeriod;
                     float xx = i.uv.x + _FlowDir * _ChevSlope * yy;
+                    // となりの列は半周期ずらす（Vのはしどうしがつながってジグザグにならない＝列の間を切らなくていい）
+                    float col = floor(i.uv.y / _ChevPeriod + 0.5);
+                    xx += abs(fmod(col, 2.0)) * _Wavelength * 0.5;
                     // 流れる距離はスクリプトが風の強さに合わせて進める（_Phase）
                     float q = frac(xx / _Wavelength - _Phase * _FlowDir / _Wavelength);
                     float d = abs(q - 0.5);
@@ -85,7 +88,7 @@ Shader "Fuwa/GroundHighlight"
                     float sw = _Stroke * lerp(1 + _Taper, 1 - _Taper * 0.6, saturate(yy / (_ChevPeriod * 0.5)));
                     float stroke = 1 - smoothstep(sw * 0.5 - aa, sw * 0.5 + aa, d);
                     // となりの矢じりとつながってジグザグに見えないように、Vの両はしを切って1つずつ離す
-                    stroke *= smoothstep(_ChevPeriod * 0.5, _ChevPeriod * 0.36, yy);
+                    stroke *= smoothstep(_ChevPeriod * 0.5, _ChevPeriod * 0.47, yy);
                     c.a *= lerp(_Base, 1.0, stroke);
                     UNITY_APPLY_FOG(i.fogCoord, c);
                     return c;
