@@ -70,7 +70,8 @@ public class FuwaPlayerUpdraft : UdonSharpBehaviour
             {
                 float lo = -hoverDrift, hi = Mathf.Max(target, hoverDrift);
                 v.y = Mathf.Clamp(v.y, lo, hi);
-                if (v.y < target) v.y = Mathf.MoveTowards(v.y, target, liftSpeed * 2f * Time.deltaTime);
+                // 重力の分も足して近づける（足さないと、VRChat実機では毎フレームの重力に負けて、ゆっくり沈んでいくだけになる）
+                if (v.y < target) v.y = Mathf.MoveTowards(v.y, target, (liftSpeed * 2f + 9.81f * player.GetGravityStrength()) * Time.deltaTime);
                 player.SetVelocity(SlowHorizontal(v));
                 return;
             }
