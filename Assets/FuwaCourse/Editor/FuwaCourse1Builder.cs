@@ -697,7 +697,7 @@ public static class FuwaCourse1Builder
     static bool IsBridge(int pc) { return pc == 3 || pc == 4; }
 
     // 1つ目の突風の横の橋（かたまり3）は真ん中で折れていて、人はジャンプで渡る（2026-10-05）
-    public const float BridgeBreakA = 57.4f, BridgeBreakB = 58.7f;
+    public const float BridgeBreakA = 57.1f, BridgeBreakB = 59.0f;   // 1.9m（走り抜けられないように、ジャンプで届く幅）
     // かたまりを、橋の折れ目で分けた区間のリスト
     static List<Vector2> Spans(int pc)
     {

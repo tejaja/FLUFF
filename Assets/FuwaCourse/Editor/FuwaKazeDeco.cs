@@ -85,26 +85,41 @@ public static class FuwaKazeDeco
         if (deco == null) { deco = new GameObject("Deco").transform; deco.SetParent(root, false); Undo.RegisterCreatedObjectUndo(deco.gameObject, "deco"); }
         deco.localPosition = Vector3.zero; deco.localRotation = Quaternion.identity; deco.localScale = Vector3.one;
         var isl = deco.Find("DandelionIslands");
+        // 作り直しても浮島の場所は変えない（道を伸ばすと配置の計算が変わって全部動いてしまうため）。前の浮島の位置・大きさ・向きを覚えておく
+        var keep = new List<(Vector3 pos, float rad, Quaternion rot)>();
+        if (isl != null)
+            foreach (Transform c in isl)
+            {
+                if (!c.name.StartsWith("Island")) continue;
+                var tp = c.Find("IslandTop"); if (tp == null) continue;
+                keep.Add((c.position, tp.localScale.x * 0.64f, c.rotation));
+            }
         if (isl != null) Undo.DestroyObjectImmediate(isl.gameObject);
         isl = new GameObject("DandelionIslands").transform; isl.SetParent(deco, false); Undo.RegisterCreatedObjectUndo(isl.gameObject, "deco");
 
         var plants = new MB(); var heads = new List<(Vector3 p, float r)>(); _headPhase.Clear();
         var placed = new List<(Vector3 pos, float rad)>();
-        int want = 8, tries = 0;
+        int want = keep.Count > 0 ? keep.Count : 8, tries = 0;
         while (placed.Count < want && tries++ < 8000)
         {
-            var anchor = pv[rnd.Next(pv.Count)];
-            float ang = R(0, Mathf.PI * 2), dist = R(11f, 26f);
-            var pos = new Vector3(anchor.x + Mathf.Cos(ang) * dist, pathY + R(-7f, 1f), anchor.z + Mathf.Sin(ang) * dist);
-            float rad = R(2.6f, 3.4f);
-            float dp = DistPath(pos); if (dp < 8f + rad || dp > 28f) continue;
-            if (placed.Any(q => new Vector2(q.pos.x - pos.x, q.pos.z - pos.z).magnitude < q.rad + rad + 7f)) continue;
-            var bb = new Bounds(pos + Vector3.up * 1.5f, new Vector3(rad * 2 + 2, 8f, rad * 2 + 2));
-            if (DistOther(bb) < 12f || DistSelf(bb) < 4f) continue;
+            Vector3 pos; float rad; Quaternion rot;
+            if (keep.Count > 0) { (pos, rad, rot) = keep[placed.Count]; }
+            else
+            {
+                var anchor = pv[rnd.Next(pv.Count)];
+                float ang = R(0, Mathf.PI * 2), dist = R(11f, 26f);
+                pos = new Vector3(anchor.x + Mathf.Cos(ang) * dist, pathY + R(-7f, 1f), anchor.z + Mathf.Sin(ang) * dist);
+                rad = R(2.6f, 3.4f);
+                float dp = DistPath(pos); if (dp < 8f + rad || dp > 28f) continue;
+                if (placed.Any(q => new Vector2(q.pos.x - pos.x, q.pos.z - pos.z).magnitude < q.rad + rad + 7f)) continue;
+                var bb = new Bounds(pos + Vector3.up * 1.5f, new Vector3(rad * 2 + 2, 8f, rad * 2 + 2));
+                if (DistOther(bb) < 12f || DistSelf(bb) < 4f) continue;
+                rot = Quaternion.Euler(0, R(0, 360), 0);
+            }
             placed.Add((pos, rad));
 
             // 浮島
-            var g = new GameObject("Island" + placed.Count).transform; g.SetParent(isl, false); g.position = pos; g.rotation = Quaternion.Euler(0, R(0, 360), 0);
+            var g = new GameObject("Island" + placed.Count).transform; g.SetParent(isl, false); g.position = pos; g.rotation = rot;
             var top = new GameObject("IslandTop", typeof(MeshFilter), typeof(MeshRenderer)); top.transform.SetParent(g, false);
             top.GetComponent<MeshFilter>().sharedMesh = topMesh; top.GetComponent<MeshRenderer>().sharedMaterial = groundMat; top.transform.localScale = new Vector3(rad / 0.64f, 1f, rad / 0.64f);
             var under = new GameObject("IslandUnder", typeof(MeshFilter), typeof(MeshRenderer)); under.transform.SetParent(g, false);
@@ -210,7 +225,7 @@ public static class FuwaKazeDeco
                 // 綿毛は大きめ・多めにして目立たせる（形は軽い三角だけの綿毛に作り直す）
                 var main = ps.main; main.startLifetime = new ParticleSystem.MinMaxCurve(7f, 11f); main.maxParticles = 450;   // 飛ぶ距離は短め
                 main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.75f);
-                var emi = ps.emission; emi.rateOverTime = 32f;
+                var emi = ps.emission; emi.rateOverTime = 28.8f;   // 2026-10-05 1割減
                 var pr = amb.GetComponent<ParticleSystemRenderer>(); pr.mesh = SeedMesh();
                 var smat = pr.sharedMaterial; if (smat != null) { smat.SetFloat("_FadeStart", 25f); smat.SetFloat("_FadeEnd", 80f); smat.SetFloat("_FarAlpha", 0.65f); smat.SetFloat("_Shade", 0.1f); EditorUtility.SetDirty(smat); }
                 var vel = ps.velocityOverLifetime; vel.x = new ParticleSystem.MinMaxCurve(wind.x * 1.2f, wind.x * 2.2f); vel.z = new ParticleSystem.MinMaxCurve(wind.z * 1.2f, wind.z * 2.2f); vel.y = new ParticleSystem.MinMaxCurve(-0.05f, 0.25f);
@@ -269,7 +284,8 @@ public static class FuwaKazeDeco
         int v0 = m.V.Count; float phase = (float)rnd.NextDouble() * 6.2832f;
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         float s = h / 4.5f;
-        Rosette(m, at, R(2.8f, 3.6f) * s, rnd.Next(8, 11), rnd);
+        Rosette(m, at, R(2.8f, 3.6f) * s, rnd.Next(8, 11), rnd, GiantLeafSway);
+        int leafEnd = m.V.Count;
         var side = Vector3.Cross(Vector3.up, wind);
         var lean = (wind * R(0.6f, 1.2f) + side * R(-0.5f, 0.5f)) * s;
         var pts = new List<Vector3>(); var rr = new List<float>();
@@ -289,7 +305,7 @@ public static class FuwaKazeDeco
         }
         else Flower(m, top, R(2.1f, 2.6f) * s, rnd);
         // 風のゆれの重み：根元0 → 先1（高さの2乗）。葉は地面近くなのでほぼゆれない
-        for (int i2 = v0; i2 < m.V.Count; i2++) { float w = Mathf.Clamp01((m.V[i2].y - at.y) / h); m.U3[i2] = new Vector4(w * w, phase, 0, 0); }
+        for (int i2 = leafEnd; i2 < m.V.Count; i2++) { float w =Mathf.Clamp01((m.V[i2].y - at.y) / h); m.U3[i2] = new Vector4(w * w, phase, 0, 0); }
     }
 
     // ふつうの大きさのたんぽぽ
@@ -297,7 +313,7 @@ public static class FuwaKazeDeco
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         float h = R(0.35f, 0.6f);
-        Rosette(m, at, R(0.25f, 0.4f), rnd.Next(5, 8), rnd);
+        Rosette(m, at, R(0.25f, 0.4f), rnd.Next(5, 8), rnd, SmallLeafSway);
         var lean = wind * R(0.03f, 0.1f);
         Tube(m, new List<Vector3> { at, at + Vector3.up * h * 0.5f + lean * 0.3f, at + Vector3.up * h + lean }, new List<float> { 0.018f, 0.015f, 0.013f }, 4, StemG, StemG);
         var top = at + Vector3.up * h + lean;
@@ -306,7 +322,10 @@ public static class FuwaKazeDeco
     }
 
     // 葉：地面に放射状に寝た、ギザギザ（ライオンの歯）の細長い葉
-    static void Rosette(MB m, Vector3 at, float len, int n, System.Random rnd)
+    // 葉のゆらゆら：先ほど大きく（根元からの距離の2乗）、葉ごとに位相をずらす。値はゆれ幅（SwayAmp）に掛ける重み
+    const float GiantLeafSway = 0.3f, SmallLeafSway = 0.08f;
+
+    static void Rosette(MB m, Vector3 at, float len, int n, System.Random rnd, float leafSway)
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         for (int i = 0; i < n; i++)
@@ -342,6 +361,9 @@ public static class FuwaKazeDeco
                 m.Add(c - sd * w + up * w * 0.35f, up, col); m.Add(c, up, rib); m.Add(c + sd * w + up * w * 0.35f, up, col);
             }
             for (int j = 0; j < k2; j++) { int a = bi + j * 3, b = bi + (j + 1) * 3; m.Quad(a, a + 1, b + 1, b); m.Quad(a + 1, a + 2, b + 2, b + 1); }   // 上向きの面
+            // ゆらゆら（乱数は使わない：ほかの飾りの並びが変わらないように、場所と葉の番号から位相を決める）
+            float lph = Mathf.Repeat(at.x * 1.7f + at.z * 2.3f + i * 2.399f, 6.2832f);
+            for (int j = 0; j <= k2; j++) { float u = prof[j].x; for (int q = 0; q < 3; q++) m.U3[bi + j * 3 + q] = new Vector4(leafSway * u * u, lph, 0, 0); }
         }
     }
 
