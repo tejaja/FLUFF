@@ -225,14 +225,14 @@ public static class FuwaBlowerFx
         // （前に試した膜・ジェットは LeakSheet/LeakJets。消しておく。作る関数は戻せるように残してある）
         foreach (var oldName in new[] { "LeakSheet", "LeakJets" }) { var o = ps.transform.Find(oldName); if (o != null) Undo.DestroyObjectImmediate(o.gameObject); }
         var mist = Child(ps.transform, "LeakMist"); Common(mist, MistMaterial(), 48);
-        var mm = mist.main; mm.startLifetime = new ParticleSystem.MinMaxCurve(0.09f, 0.16f); mm.startSpeed = new ParticleSystem.MinMaxCurve(1.4f, 2.8f);   // 素早くプシュッ
+        var mm = mist.main; mm.startLifetime = new ParticleSystem.MinMaxCurve(0.1f, 0.18f); mm.startSpeed = new ParticleSystem.MinMaxCurve(1.2f, 2.4f);   // 素早くプシュッ
         mm.startSize = new ParticleSystem.MinMaxCurve(0.02f, 0.034f); mm.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         mm.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 1f, 1f, 0.7f), new Color(0.95f, 0.98f, 1f, 0.95f));
         var me = mist.emission; me.SetBursts(new[] { new ParticleSystem.Burst(0f, 32), new ParticleSystem.Burst(0.01f, 12) });
         var ms = mist.shape; ms.enabled = true; ms.shapeType = ParticleSystemShapeType.Cone; ms.angle = 20f;   // 鋭角に：後ろへ細く吹き出す ms.radius = VentR; ms.radiusThickness = 0f; ms.arc = 360f; ms.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; ms.randomDirectionAmount = 0.05f;   // 一周に均等に
         ms.position = new Vector3(0f, 0f, VentZ); ms.rotation = new Vector3(180f, 0f, 0f);
         // 勢いよく出て、すぐ止まる（漏れた空気は遠くまで飛ばない）
-        var ml = mist.limitVelocityOverLifetime; ml.enabled = true; ml.limit = 0.08f; ml.dampen = 0.35f;   // 速く出て、すぐ止まる
+        var ml = mist.limitVelocityOverLifetime; ml.enabled = true; ml.limit = 0.08f; ml.dampen = 0.3f;   // 速く出て、すぐ止まる
         // 出た瞬間は小さく濃く、ふくらみながら薄くなって溶ける
         var mz = mist.sizeOverLifetime; mz.enabled = true; mz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.5f, 0f, 9f), new Keyframe(0.22f, 2f), new Keyframe(1f, 3f)));
         var mc = mist.colorOverLifetime; mc.enabled = true; var mg = new Gradient();
