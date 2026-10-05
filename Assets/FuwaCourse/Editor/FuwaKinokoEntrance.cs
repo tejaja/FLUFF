@@ -21,6 +21,7 @@ public static class FuwaKinokoEntrance
     public static float Gap2B = 2.4f;                        // すき間2（サルノコシカケ）＝ FlatA1〜Gap2B
     public static float YB0 = 10.2f, YB1 = 12.10f;           // 坂B（Gap2B〜CutB）
     public static float HalfW = 1.5f;
+    public static float CapLift = 0.15f;   // キノコの傘を床より少し上に
     public static float CapScale = 0.6f, ShelfScale = 0.32f, ShelfTopY = 10.0f;
 
     const string MeshDir = "Assets/FuwaCourse/Meshes";
@@ -80,7 +81,7 @@ public static class FuwaKinokoEntrance
         if (cap != null)
         {
             cap.name = "EntranceCap"; cap.localScale = Vector3.one * CapScale;
-            cap.position = W((Gap1A + Gap1B) * 0.5f, 0f, FloorY);
+            cap.position = W((Gap1A + Gap1B) * 0.5f, 0f, FloorY + CapLift);
             var st = cap.Find("Stem"); if (st) { st.localScale = Vector3.one; st.localPosition = new Vector3(0, -3.28f, 0); }
             var j = cap.GetComponentInChildren<FuwaJumpBoost>(); j.radius = 1.15f * CapScale;
             if (j.boostRings) { var m = j.boostRings.main; m.startSize = j.radius * 2f * 1.3f; }
