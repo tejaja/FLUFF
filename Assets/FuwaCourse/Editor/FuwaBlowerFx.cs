@@ -149,22 +149,30 @@ public static class FuwaBlowerFx
     static void SetupSparkle(ParticleSystem ps)
     {
         Common(ps, StarMaterial(), 16);
-        var m = ps.main; m.startLifetime = new ParticleSystem.MinMaxCurve(0.32f, 0.45f); m.startSpeed = new ParticleSystem.MinMaxCurve(0.25f, 0.45f); m.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.085f);
+        var m = ps.main; m.startLifetime = new ParticleSystem.MinMaxCurve(0.16f, 0.22f); m.startSpeed = new ParticleSystem.MinMaxCurve(0.35f, 0.6f); m.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.11f);
         m.startRotation = new ParticleSystem.MinMaxCurve(-0.3f, 0.3f); m.simulationSpace = ParticleSystemSimulationSpace.Local;
         m.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.92f, 0.45f, 1f), new Color(1f, 1f, 0.75f, 1f));
         var em = ps.emission; em.SetBursts(new[] { new ParticleSystem.Burst(0f, 6) });
         var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 0.065f; sh.radiusThickness = 0f; sh.arc = 360f; sh.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; sh.rotation = Vector3.zero;
-        var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0f), new Keyframe(0.18f, 1.25f), new Keyframe(0.4f, 0.8f), new Keyframe(0.6f, 1.05f), new Keyframe(1f, 0f)));
+        var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.2f), new Keyframe(0.15f, 1.3f), new Keyframe(0.45f, 0.9f), new Keyframe(1f, 0f)));
         var col = ps.colorOverLifetime; col.enabled = true; var g = new Gradient(); g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) }); col.color = g;
         var rot = ps.rotationOverLifetime; rot.enabled = true; rot.z = new ParticleSystem.MinMaxCurve(1.5f, 3f);
         var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 0.05f; lim.dampen = 0.15f;
         var r = ps.GetComponent<ParticleSystemRenderer>(); r.renderMode = ParticleSystemRenderMode.Billboard;
+        // 口の所で一瞬だけ白くぱっと光る
+        var fl = Child(ps.transform, "Flash"); Common(fl, StarMaterial(), 2);
+        var fm = fl.main; fm.startLifetime = 0.13f; fm.startSpeed = 0f; fm.startSize = 0.2f; fm.simulationSpace = ParticleSystemSimulationSpace.Local; fm.startColor = new Color(1f, 1f, 0.92f, 1f);
+        var fe = fl.emission; fe.SetBursts(new[] { new ParticleSystem.Burst(0f, 1) });
+        var fs = fl.shape; fs.enabled = false;
+        var fz = fl.sizeOverLifetime; fz.enabled = true; fz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.5f), new Keyframe(0.3f, 1.2f), new Keyframe(1f, 0.6f)));
+        var fc = fl.colorOverLifetime; fc.enabled = true; var fg = new Gradient(); fg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.9f, 0.3f), new GradientAlphaKey(0f, 1f) }); fc.color = fg;
+        fl.GetComponent<ParticleSystemRenderer>().renderMode = ParticleSystemRenderMode.Billboard;
     }
 
     static Material StarMaterial()
     {
         string tp = "Assets/FuwaCourse/Textures/FX/FX_Star.png";
-        if (AssetDatabase.LoadAssetAtPath<Texture2D>(tp) == null)
+        if (true)
         {
             int S = 128; var t = new Texture2D(S, S, TextureFormat.RGBA32, false);
             for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
@@ -173,7 +181,7 @@ public static class FuwaBlowerFx
                 // 4つ角の星（細い十字）＋まん中のやわらかい光
                 float cross = Mathf.Max(Mathf.Clamp01(1 - Mathf.Abs(u) / (0.09f * (1 - Mathf.Abs(v)) + 0.01f)) * Mathf.Clamp01(1 - Mathf.Abs(v)),
                                         Mathf.Clamp01(1 - Mathf.Abs(v) / (0.09f * (1 - Mathf.Abs(u)) + 0.01f)) * Mathf.Clamp01(1 - Mathf.Abs(u)));
-                float core = Mathf.Clamp01(1 - r / 0.32f); core = core * core;
+                float core = Mathf.Clamp01(1 - r / 0.42f); core = Mathf.Sqrt(core) * core;   // まん中を大きく明るく
                 t.SetPixel(x, y, new Color(1, 1, 1, Mathf.Clamp01(Mathf.Max(cross, core * 0.9f))));
             }
             t.Apply(); System.IO.File.WriteAllBytes(tp, t.EncodeToPNG()); AssetDatabase.ImportAsset(tp);
@@ -183,7 +191,7 @@ public static class FuwaBlowerFx
         if (mat == null) { mat = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended")); AssetDatabase.CreateAsset(mat, mp); }
         // 明るい空の上でも見えるよう、加算ではなく普通の半透明で、こい黄色
         mat.shader = Shader.Find("Legacy Shaders/Particles/Alpha Blended");
-        mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(tp); mat.SetColor("_TintColor", new Color(0.62f, 0.58f, 0.42f, 0.5f)); EditorUtility.SetDirty(mat);
+        mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(tp); mat.SetColor("_TintColor", new Color(0.8f, 0.76f, 0.6f, 0.5f)); EditorUtility.SetDirty(mat);
         return mat;
     }
 
