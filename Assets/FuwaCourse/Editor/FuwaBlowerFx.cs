@@ -139,6 +139,9 @@ public static class FuwaBlowerFx
         var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = cur.streakAngle; sh.radius = cur.swirl ? 0.06f : 0.035f; sh.radiusThickness = cur.swirl ? 0f : 0.3f;
         var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 1f; lim.dampen = 0.08f;
         var col = ps.colorOverLifetime; col.enabled = true; col.color = Fade(Color.white, cur.streakAlpha, cur.streakAlpha * 0.66f, 0.4f);
+        // 引き伸ばした筋は粒の後ろへ尾を引くので、出た瞬間に大きいと尾が銃の後ろ（風船のあたり）まで突き抜ける。
+        // 出た直後は小さくして、口から前へ離れてから伸ばす
+        var ssz = ps.sizeOverLifetime; ssz.enabled = true; ssz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0f, 0f, 0f), new Keyframe(0.2f, 1f, 0f, 0f), new Keyframe(1f, 1f)));
         // 渦巻き：筋がまわりながら前へ（軌道の速さで、ぐるっと回る）
         var vel = ps.velocityOverLifetime; vel.enabled = cur.swirl; if (cur.swirl) { vel.space = ParticleSystemSimulationSpace.Local; vel.orbitalZ = new ParticleSystem.MinMaxCurve(14f); vel.radial = new ParticleSystem.MinMaxCurve(0.6f); vel.x = 0f; vel.y = 0f; vel.z = 0f; }
         if (cur.swirl) { m.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.42f); m.startSpeed = new ParticleSystem.MinMaxCurve(3.5f, 5f); }
