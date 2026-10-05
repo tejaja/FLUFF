@@ -324,7 +324,7 @@ public static class FuwaKazeDeco
 
     // 葉：地面に放射状に寝た、ギザギザ（ライオンの歯）の細長い葉
     // 葉のゆらゆら：先ほど大きく（根元からの距離の2乗）、葉ごとに位相をずらす。値はゆれ幅（SwayAmp）に掛ける重み
-    const float GiantLeafSway = 0.3f, SmallLeafSway = 0.08f;
+    const float GiantLeafSway = 0.55f, SmallLeafSway = 0.14f;
 
     static void Rosette(MB m, Vector3 at, float len, int n, System.Random rnd, float leafSway)
     {
