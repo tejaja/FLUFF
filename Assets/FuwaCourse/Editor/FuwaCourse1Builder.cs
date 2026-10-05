@@ -668,7 +668,8 @@ public static class FuwaCourse1Builder
         for (int pc = 0; pc < Pieces.Length; pc++)
         {
             if (IsBridge(pc) != bridgesOnly) continue;   // 橋は別の当たり判定（飾りが乗らないように）
-            float s0p = Pieces[pc].x, s1p = Pieces[pc].y;
+            foreach (var span in Spans(pc)) {
+            float s0p = span.x, s1p = span.y;
             int n = Mathf.CeilToInt((s1p - s0p) / step);
             int first = V.Count;
             for (int k = 0; k <= n; k++)
@@ -685,6 +686,7 @@ public static class FuwaCourse1Builder
             int e = first + n * 4;
             T.AddRange(new[] { first, first + 1, first + 2, first, first + 2, first + 3 });
             T.AddRange(new[] { e, e + 2, e + 1, e, e + 3, e + 2 });
+            }
         }
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(V); mesh.SetTriangles(T, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
@@ -693,6 +695,16 @@ public static class FuwaCourse1Builder
 
     // ---- 人用の細道・坂（かたまり3,4）は木の板の橋（いわやまの板張りと同じ作り）。当たり判定は別の BridgeCollider ----
     static bool IsBridge(int pc) { return pc == 3 || pc == 4; }
+
+    // 1つ目の突風の横の橋（かたまり3）は真ん中で折れていて、人はジャンプで渡る（2026-10-05）
+    public const float BridgeBreakA = 57.4f, BridgeBreakB = 58.7f;
+    // かたまりを、橋の折れ目で分けた区間のリスト
+    static List<Vector2> Spans(int pc)
+    {
+        var p = Pieces[pc];
+        if (pc == 3) return new List<Vector2> { new Vector2(p.x, BridgeBreakA), new Vector2(BridgeBreakB, p.y) };
+        return new List<Vector2> { p };
+    }
 
     static void BuildBridges(Transform root, Matrix4x4 m)
     {
@@ -716,7 +728,8 @@ public static class FuwaCourse1Builder
         {
             if (!IsBridge(pc)) continue;
             Vector3 P(float s, float lat, float dy) { return m.MultiplyPoint3x4(Point(pc, s, lat, dy)); }
-            float s0 = Pieces[pc].x, s1 = Pieces[pc].y, hw = Width(pc, s0) * 0.5f;
+            foreach (var span in Spans(pc)) {
+            float s0 = span.x, s1 = span.y, hw = Width(pc, s0) * 0.5f;
             for (float s = s0 + 0.02f; s + PlankLen <= s1 - 0.02f; s += PlankLen + PlankGap)
             {
                 float a = s + R(-0.012f, 0.012f), b = s + PlankLen + R(-0.012f, 0.012f);
@@ -740,6 +753,29 @@ public static class FuwaCourse1Builder
                         P(a, lc - BeamW / 2, t1), P(b, lc - BeamW / 2, t1), P(b, lc + BeamW / 2, t1), P(a, lc + BeamW / 2, t1),
                         P(a, lc - BeamW / 2, t0), P(b, lc - BeamW / 2, t0), P(b, lc + BeamW / 2, t0), P(a, lc + BeamW / 2, t0) });
                 }
+            }
+            }
+            // 折れ目：両側の折れた板が下へ垂れて、割れ目の中ほどに落ちかけの板が1枚ひっかかっている（見た目だけ）
+            if (pc == 3)
+            {
+                float hw = Width(pc, BridgeBreakA) * 0.5f;
+                void Hanging(float sEdge, float dir, float len, float droop, float latA, float latB, List<int> T)
+                {
+                    // sEdge から dir の向きへ len 伸びて、先が droop 下がる板
+                    float a = sEdge, b = sEdge + dir * len;
+                    AddBox(V, T, new[] {
+                        P(a, latA, -PlankT), P(b, latA, -PlankT - droop), P(b, latB, -PlankT - droop), P(a, latB, -PlankT),
+                        P(a, latA, 0), P(b, latA, -droop), P(b, latB, -droop), P(a, latB, 0) });
+                }
+                Hanging(BridgeBreakA, 1f, 0.32f, 0.22f, -hw + 0.05f, -0.05f, TA);
+                Hanging(BridgeBreakA, 1f, 0.24f, 0.12f, 0.02f, hw - 0.12f, TB);
+                Hanging(BridgeBreakB, -1f, 0.30f, 0.26f, -0.05f, hw - 0.05f, TB);
+                Hanging(BridgeBreakB, -1f, 0.20f, 0.10f, -hw + 0.08f, -0.10f, TA);
+                // 割れ目の下で、片方の梁にひっかかって斜めに垂れている板
+                float sm = (BridgeBreakA + BridgeBreakB) * 0.5f;
+                AddBox(V, TC, new[] {
+                    P(sm - 0.14f, -hw * 0.2f, -0.35f), P(sm + 0.14f, -hw * 0.2f, -0.35f), P(sm + 0.14f, hw * 0.75f, -0.85f), P(sm - 0.14f, hw * 0.75f, -0.85f),
+                    P(sm - 0.14f, -hw * 0.2f, -0.29f), P(sm + 0.14f, -hw * 0.2f, -0.29f), P(sm + 0.14f, hw * 0.75f, -0.79f), P(sm - 0.14f, hw * 0.75f, -0.79f) });
             }
         }
         var mesh = new Mesh { name = "Course1_BridgePlanks", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
