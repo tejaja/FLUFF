@@ -117,8 +117,8 @@ public class FuwaLanguage : UdonSharpBehaviour
         InteractionText = _english ? "日本語にする" : "Switch to English";
         // 「JP / EN」の2つを並べて、今の言語をはっきり、もう片方を薄く
         string jpen = _english
-            ? "<color=#FFFFFF77>JP</color> / EN"
-            : "JP / <color=#FFFFFF77>EN</color>";
+            ? "<color=#FFFFFF77>JP</color>  <mark=#FFFFFF44 padding=\"18,18,6,6\">EN</mark>"
+            : "<mark=#FFFFFF44 padding=\"18,18,6,6\">JP</mark>  <color=#FFFFFF77>EN</color>";
         if (buttonLabelUi != null) buttonLabelUi.text = jpen;
         if (extraButtonLabelsUi != null) foreach (TextMeshProUGUI t in extraButtonLabelsUi) if (t != null) t.text = jpen;
     }

@@ -80,7 +80,7 @@ public class FuwaBgm : UdonSharpBehaviour
     private void UpdateLabel()
     {
         // 言語ボタン（JP / EN）と同じく、今の方をはっきり、もう片方を薄く（太字にすると幅が変わって文字がずれるので、濃さだけで）
-        string s = _muted ? "BGM  <color=#FFFFFF77>ON</color> / OFF" : "BGM  ON / <color=#FFFFFF77>OFF</color>";
+        string s = _muted ? "BGM  <color=#FFFFFF77>ON</color>  <mark=#FFFFFF44 padding=\"18,18,6,6\">OFF</mark>" : "BGM  <mark=#FFFFFF44 padding=\"18,18,6,6\">ON</mark>  <color=#FFFFFF77>OFF</color>";
         if (buttonLabel != null) buttonLabel.text = s;
         if (extraButtonLabels != null) foreach (TextMeshProUGUI t in extraButtonLabels) if (t != null) t.text = s;
     }

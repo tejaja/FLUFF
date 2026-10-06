@@ -75,7 +75,7 @@ public class FuwaHud : UdonSharpBehaviour
     {
         if (textToggleLabels == null) return;
         // 言語ボタン（JP / EN）と同じく、今の方をはっきり、もう片方を薄く（太字にすると幅が変わって文字がずれるので、濃さだけで）
-        string s = _hideText ? "HUD  <color=#FFFFFF77>ON</color> / OFF" : "HUD  ON / <color=#FFFFFF77>OFF</color>";
+        string s = _hideText ? "HUD  <color=#FFFFFF77>ON</color>  <mark=#FFFFFF44 padding=\"18,18,6,6\">OFF</mark>" : "HUD  <mark=#FFFFFF44 padding=\"18,18,6,6\">ON</mark>  <color=#FFFFFF77>OFF</color>";
         for (int i = 0; i < textToggleLabels.Length; i++) if (textToggleLabels[i] != null) textToggleLabels[i].text = s;
     }
 
