@@ -49,11 +49,8 @@ public class FuwaBgm : UdonSharpBehaviour
     {
         if (player == null || !player.isLocal || !savePlayerData) return;
         _restored = true;
-        if (PlayerData.HasKey(player, "bgm_muted"))
-        {
-            bool m = PlayerData.GetBool(player, "bgm_muted");
-            if (m != _muted) ToggleBgm();
-        }
+        // 昔のBGM ON/OFFボタン（今は非表示）の保存値 "bgm_muted" は読まない。
+        // ボタンがないのに「OFF」が復元されると戻せなくなるので。消音は音量バー（スピーカー）の0で保存される
         if (PlayerData.HasKey(player, "bgm_volume"))
         {
             _userPercent = Mathf.Clamp(PlayerData.GetFloat(player, "bgm_volume"), 0f, 100f);
@@ -188,9 +185,13 @@ public class FuwaBgm : UdonSharpBehaviour
         UpdateLabel();
     }
 
+    [Tooltip("保存した音量を読み込むまで（OnPlayerRestored）曲を鳴らさずに待つ最大秒数。待たないと入った直後に一瞬いつもの音量で鳴る")]
+    public float restoreWaitMax = 6f;
+
     private void Update()
     {
         if (tracks == null || _vol == null) return;
+        if (savePlayerData && !_restored && Time.timeSinceLevelLoad < restoreWaitMax) return;
         // ファンファーレ中：BGMは全部すばやく消す。終わったら今の場所の曲を頭から鳴らし直す
         if (_fanfareUntil > 0f)
         {
