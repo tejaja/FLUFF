@@ -13,14 +13,43 @@ public static class FuwaGunCollarRebuild
     const string DstPath = "Assets/FuwaCourse/Meshes/Gun_Accent.asset";
     const float CY = 0.055f;   // 銃身の軸の高さ（軸は z 向き）
 
-    // 断面（r, z）：内側の壁（通気口のすぐ前）→ 後ろのふち → 外側のふくらみ → 前へ向かってラッパの首に溶け込む
-    static readonly Vector2[] Profile =
+    // 断面（r, z）：内側の壁（通気口のすぐ前）→ 後ろのふち → 外側のふくらみ → 前へ向かってラッパの外側の面へなめらかにつながる。
+    // 最後の点はラッパの外側の面の輪（z=0.17198）とぴったり同じ位置・同じ向きにして、つなぎ目の線が出ないようにする
+    static readonly Vector2[] Back =
     {
         new Vector2(0.0200f, 0.1400f), new Vector2(0.0208f, 0.1382f), new Vector2(0.0217f, 0.1366f), new Vector2(0.0228f, 0.1352f),
         new Vector2(0.0240f, 0.1346f), new Vector2(0.0249f, 0.1355f), new Vector2(0.0253f, 0.1375f), new Vector2(0.0252f, 0.1400f),
-        new Vector2(0.0247f, 0.1428f), new Vector2(0.0239f, 0.1460f), new Vector2(0.0231f, 0.1500f), new Vector2(0.0226f, 0.1545f),
-        new Vector2(0.0225f, 0.1585f), new Vector2(0.0229f, 0.1615f), new Vector2(0.0236f, 0.1635f), new Vector2(0.0234f, 0.1655f),
+        new Vector2(0.0247f, 0.1428f), new Vector2(0.0239f, 0.1460f),
     };
+    const float SeamZ = 0.17198f, SeamR = 0.02986f;          // ラッパの外側の面の輪（元のメッシュの値）
+    static readonly Vector2 SeamN = new Vector2(0.7129f, -0.7012f);   // その輪の法線（r, z）
+    const int Segs = 36;                                      // ラッパと同じ分割（0°から10°ごと）
+
+    static Vector2[] BuildProfile(out Vector2[] normals)
+    {
+        var pts = new List<Vector2>(Back);
+        // 最後の点から継ぎ目の輪まで、エルミート曲線でなめらかにつなぐ（向きも合わせる）
+        Vector2 A = Back[Back.Length - 1], B = new Vector2(SeamR, SeamZ);
+        Vector2 tA = new Vector2(-0.2f, 1f).normalized, tB = new Vector2(-SeamN.y, SeamN.x).normalized;   // 法線を90°回すと接線
+        if (tB.y < 0) tB = -tB;
+        float L = (B - A).magnitude * 1.1f;
+        int K = 12;
+        for (int i = 1; i <= K; i++)
+        {
+            float t = i / (float)K, t2 = t * t, t3 = t2 * t;
+            pts.Add((2 * t3 - 3 * t2 + 1) * A + (t3 - 2 * t2 + t) * L * tA + (-2 * t3 + 3 * t2) * B + (t3 - t2) * L * tB);
+        }
+        var P = pts.ToArray(); int n = P.Length;
+        normals = new Vector2[n];
+        for (int k = 0; k < n; k++)
+        {
+            Vector2 a = P[Mathf.Max(0, k - 1)], b = P[Mathf.Min(n - 1, k + 1)];
+            var tan = (b - a).normalized; normals[k] = new Vector2(tan.y, -tan.x);
+        }
+        if (normals[6].x < 0) for (int k = 0; k < n; k++) normals[k] = -normals[k];
+        normals[n - 1] = SeamN;
+        return P;
+    }
 
     [MenuItem("FuwaCourse/エアガンのラッパの首を作り直す")]
     public static void RunMenu() { Debug.Log(Run()); }
@@ -38,27 +67,26 @@ public static class FuwaGunCollarRebuild
         }
         // 古い輪の頂点：z 0.134〜0.1485、半径 0.0198 以上（ラッパの首の外側は 0.0185 以下なので入らない）、支えの棒は除く
         bool Collar(Vector3 p) { return p.z > 0.1338f && p.z < 0.1486f && R(p) > 0.0198f && R(p) < 0.0262f && !Strut(p); }
+        // ラッパの外側の面（首〜継ぎ目の輪まで）：外向きの法線で、半径 0.017 以上
+        bool HornOuter(int i)
+        {
+            var p = v[i]; if (p.z < 0.1395f || p.z > SeamZ + 0.00005f || R(p) < 0.0170f || Strut(p)) return false;
+            var rd = new Vector2(p.x, p.y - CY).normalized; return Vector2.Dot(new Vector2(n[i].x, n[i].y), rd) > 0.05f;
+        }
+        bool Old(int i) { return Collar(v[i]) || HornOuter(i); }
         var keepT = new List<int>(); int removed = 0;
         for (int i = 0; i < t.Length; i += 3)
         {
-            if (Collar(v[t[i]]) && Collar(v[t[i + 1]]) && Collar(v[t[i + 2]])) { removed++; continue; }
+            if (Old(t[i]) && Old(t[i + 1]) && Old(t[i + 2])) { removed++; continue; }
             keepT.Add(t[i]); keepT.Add(t[i + 1]); keepT.Add(t[i + 2]);
         }
         // 使っている頂点だけに詰める
         var map = new Dictionary<int, int>(); var V = new List<Vector3>(); var N = new List<Vector3>(); var T = new List<int>();
         foreach (var i in keepT) { if (!map.TryGetValue(i, out int j)) { j = V.Count; map[i] = j; V.Add(v[i]); N.Add(n[i]); } T.Add(j); }
 
-        // 新しい回転体（法線は断面のとなりの辺から、なめらかに）
-        int S = 72, P = Profile.Length;
-        var pn = new Vector2[P];
-        for (int k = 0; k < P; k++)
-        {
-            Vector2 a = Profile[Mathf.Max(0, k - 1)], b = Profile[Mathf.Min(P - 1, k + 1)];
-            var tan = (b - a).normalized;               // (dr, dz)
-            pn[k] = new Vector2(tan.y, -tan.x);          // 断面上で外向き（r＋側）になる向き
-        }
-        // 外側のふくらみの点で外向きか確かめる
-        if (pn[6].x < 0) for (int k = 0; k < P; k++) pn[k] = -pn[k];
+        // 新しい回転体（ラッパと同じく0°から10°ごと。継ぎ目の輪はラッパの頂点とぴったり同じ位置）
+        var Profile = BuildProfile(out var pn);
+        int S = Segs, P = Profile.Length;
         int b0 = V.Count;
         for (int s = 0; s <= S; s++)
         {
