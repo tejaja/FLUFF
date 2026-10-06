@@ -775,6 +775,8 @@ public class FuwaBlower : UdonSharpBehaviour
         float ballPower = Mathf.Lerp(minBallPower, maxBallPower, charge);
         float enemyPower = Mathf.Lerp(minEnemyPower, 1f, charge);
         float reach = range * Mathf.Lerp(minRangeRatio, maxRangeRatio, charge);
+        // 風の広がり（角度）も溜め具合で：ノンチャは少し狭く、フルチャで今の広さ
+        _coneScale = Mathf.Lerp(minConeScale, 1f, charge);
 
         Transform n = nozzle != null ? nozzle : transform;
         Vector3 origin = n.position;
@@ -797,7 +799,7 @@ public class FuwaBlower : UdonSharpBehaviour
             Vector3 vb = ShotVelocity(origin, aim, reach, ballPower, targetBall.transform.position);
             if (vb != Vector3.zero) { targetBall.Blow(vb); targetBall.ShotWindDamp(charge, vb); }
         }
-        if (sharedBalls == null) return;
+        if (sharedBalls == null) { _coneScale = 1f; return; }
         for (int i = 0; i < sharedBalls.Length; i++)
         {
             FuwaSharedBall sb = sharedBalls[i];
@@ -805,6 +807,7 @@ public class FuwaBlower : UdonSharpBehaviour
             Vector3 vs = ShotVelocityPadded(origin, aim, reach, ballPower, sb.transform.position, sb.hitPadding);
             if (vs != Vector3.zero) sb.BlowShared(vs);
         }
+        _coneScale = 1f;
     }
 
     // 風が当たっていれば、ふわふわに与える速度変化（当たっていなければ zero）
@@ -848,16 +851,21 @@ public class FuwaBlower : UdonSharpBehaviour
 
     // 風の広がりの中か。狙った向きより上にずれている分だけ、角度の上限を coneAngle → coneAngleTop へ狭める
     // （真上にずれてたら coneAngleTop、真横〜下は coneAngle、その間はなめらかに）
+    [Tooltip("ノンチャ（ちょん押し）の時の風の広がり（角度）の倍率。溜めるほど1（フルチャ＝今の広さ）に近づく")]
+    [Range(0.3f, 1f)] public float minConeScale = 0.8f;
+    private float _coneScale = 1f;
+
     private bool InCone(Vector3 aim, Vector3 to)
     {
         float angle = Vector3.Angle(aim, to);
-        if (angle <= Mathf.Min(coneAngle, coneAngleTop)) return true;
+        float cA = coneAngle * _coneScale, cT = coneAngleTop * _coneScale;
+        if (angle <= Mathf.Min(cA, cT)) return true;
         Vector3 upPerp = Vector3.ProjectOnPlane(Vector3.up, aim);
         Vector3 off = Vector3.ProjectOnPlane(to, aim);
         float upness = 0f;
         if (upPerp.sqrMagnitude > 0.0001f && off.sqrMagnitude > 0.0001f)
             upness = Mathf.Max(0f, Vector3.Dot(off.normalized, upPerp.normalized));
-        return angle <= Mathf.Lerp(coneAngle, coneAngleTop, upness);
+        return angle <= Mathf.Lerp(cA, cT, upness);
     }
 
     [Tooltip("超至近距離の救済：銃口から後ろ（手元側）へこの長さ(m)の筒の中も当たりにする")]
