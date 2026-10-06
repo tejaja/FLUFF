@@ -120,7 +120,26 @@ public static class FuwaGunShowcaseSetup
                 string ap = MeshDir + "/" + m.name + ".asset";
                 if (AssetDatabase.LoadAssetAtPath<Mesh>(ap) != null) AssetDatabase.DeleteAsset(ap);
                 AssetDatabase.CreateAsset(m, ap);
-                Undo.RecordObject(mf, "highlight"); mf.sharedMesh = m;   // レンダラーは非表示のまま（描画は StumpVisual）。枠の形にだけ使われる
+                Undo.RecordObject(mf, "highlight"); mf.sharedMesh = m;
+                // VRChatは表示中のレンダラーが無いと当たり判定（小さいカプセル）の形で枠を描くので、
+                // 何も描かない材質（Invisible）で表示中にして、切り株の形で枠を描かせる（見た目は StumpVisual のまま）
+                var mr = st.GetComponent<MeshRenderer>();
+                Undo.RecordObject(mr, "highlight");
+                mr.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>(MatDir + "/Invisible.mat");
+                mr.enabled = true;
+                mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+                mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+                // 指して反応する範囲も切り株全体に（今までは真ん中の細いカプセルだけだった）
+                var cap = st.GetComponent<CapsuleCollider>();
+                if (cap != null)
+                {
+                    var b = m.bounds; var ls = st.transform.lossyScale;
+                    Undo.RecordObject(cap, "collider");
+                    cap.direction = 1; cap.center = b.center;
+                    cap.radius = Mathf.Max(b.extents.x, b.extents.z) * 0.9f;   // ローカルの半径（カプセルは x・z の大きい方の拡大率で広がる）
+                    cap.radius *= Mathf.Min(ls.x, ls.z) / Mathf.Max(ls.x, ls.z);
+                    cap.height = b.size.y;
+                }
             }
         }
         AssetDatabase.SaveAssets();
