@@ -244,8 +244,8 @@ public static class FuwaBlowerFx
         // 前の作り（泡と筋）が残っていたら消す
         var old = ps.transform.Find("LeakStreaks"); if (old != null) Undo.DestroyObjectImmediate(old.gameObject);
 
-        // 満タンの輪は少し大きく、黄色寄りの明るい白（満タンの合図・溜め撃ちの黄色い光と色をそろえる。ノンチャとの差をつける）
-        var warm = new Color(1f, 0.95f, 0.72f, 1f);
+        // 満タンの輪は少し大きく（ノンチャとの差をつける）
+        var warm = Color.white;   // 黄色くはしない（2026-10-06 てじゃ）。大きさで差をつける
         var big = Child(ps.transform, "BigRing"); SetupRing(big, 0.12f, 0.9f, 3.8f, 0.5f, 1); var bm = big.main; bm.startColor = warm;
         var big2 = Child(ps.transform, "BigRing2"); SetupRing(big2, 0.096f, 0.66f, 2.6f, 0.45f, 1); var bm2 = big2.main; bm2.startColor = warm;
         var em2 = big2.emission; em2.SetBursts(new[] { new ParticleSystem.Burst(0.06f, 1) });
