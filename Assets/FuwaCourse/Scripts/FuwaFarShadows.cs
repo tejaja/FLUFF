@@ -3,7 +3,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using VRC.SDKBase;
 
-// 自分から遠い物は影を落とさないようにする（自分の画面だけ）。
+// 自分から遠い物は影を落とさないようにする（自分の画面だけ）。小物用に、近い時だけ影を出す別の設定（shadowDistance 短め）でも使う。
 // 対象と中心・半径はエディタの「FuwaCourse/遠景の軽量化を設定」で詰める。毎フレーム少しずつ見て回る。
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaFarShadows : UdonSharpBehaviour
@@ -23,6 +23,9 @@ public class FuwaFarShadows : UdonSharpBehaviour
     {
         if (targets == null) return;
         _off = new bool[targets.Length];
+        // 最初から影オフにしてある物（近くだけ影を出す小物用）は、オフの状態から始める
+        for (int i = 0; i < targets.Length; i++)
+            if (targets[i] != null) _off[i] = targets[i].shadowCastingMode == ShadowCastingMode.Off;
     }
 
     private void Update()
