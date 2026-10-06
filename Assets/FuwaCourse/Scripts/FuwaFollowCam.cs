@@ -8,7 +8,7 @@ using VRC.SDKBase;
 // ワールドからはVRChatカメラを動かせないので、追っかけカメラの映像をテクスチャ（feedTexture）に描いて、
 // それを VRChatカメラのレンズの前に置いた板（feed、Fuwa/PhotoCamFeed）で「VRChatカメラで描く時だけ画面いっぱいに」貼る。
 // 画角と縦横比はVRChatカメラに合わせるので、カメラ側のズームもそのまま効く。
-// 設定ボタン（CycleMode）か、デスクトップならキー（toggleKey）で OFF → 後ろ → 横 → 上 と切り替え。
+// 設定ボタン（CycleMode）か、デスクトップならキー（toggleKey）で OFF → 後ろ → 右横 → 左横 → 上 と切り替え。
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaFollowCam : UdonSharpBehaviour
 {
@@ -52,7 +52,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
     [Tooltip("テスト用：VRChatカメラがなくても（ClientSimでも）追っかけカメラを動かす")]
     public bool runWithoutPhotoCamera = false;
 
-    private int _mode;   // 0=OFF 1=後ろ 2=横 3=上
+    private int _mode;   // 0=OFF 1=後ろ 2=右横 3=左横 4=上
     private Vector3 _dir = Vector3.forward;
     private Vector3 _focus;
     private Vector3 _vel;
@@ -69,7 +69,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
     // 設定のカメラボタン（レーザーで押すUIボタン）から呼ばれる。自分だけ
     public void CycleMode()
     {
-        _mode = (_mode + 1) % 4;
+        _mode = (_mode + 1) % 5;
         _snap = true;
         UpdateLabels();
     }
@@ -82,7 +82,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
 
     private void UpdateLabels()
     {
-        string s = _mode == 1 ? "BACK" : _mode == 2 ? "SIDE" : _mode == 3 ? "TOP" : "OFF";
+        string s = _mode == 1 ? "BACK" : _mode == 2 ? "SIDE R" : _mode == 3 ? "SIDE L" : _mode == 4 ? "TOP" : "OFF";
         if (modeTexts != null)
             foreach (TextMeshProUGUI t in modeTexts) if (t != null) { t.text = s; t.color = _mode != 0 ? activeTextColor : idleTextColor; }
         if (modePills != null)
@@ -158,7 +158,11 @@ public class FuwaFollowCam : UdonSharpBehaviour
 
         Vector3 want;
         if (_mode == 1) want = p - _dir * (2.6f + sep * 0.25f) + Vector3.up * (1.2f + sep * 0.12f);
-        else if (_mode == 2) want = focus + right * (3.0f + sep * 0.6f) + Vector3.up * 0.7f - _dir * 0.5f;
+        else if (_mode == 2 || _mode == 3)
+        {
+            float side = _mode == 2 ? 1f : -1f;
+            want = focus + right * side * (3.0f + sep * 0.6f) + Vector3.up * 0.7f - _dir * 0.5f;
+        }
         else want = focus - _dir * (2.0f + sep * 0.3f) + Vector3.up * (5.0f + sep * 0.4f);
 
         // 地面や壁にめり込まないように、見る所からカメラまでの間に何かあれば手前に
