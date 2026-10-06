@@ -53,6 +53,7 @@ def deck_y(x):
     t = (x - XB0) / (XB1 - XB0)
     return YA + (YB - YA) * max(0.0, min(1.0, t))
 
+JAG = globals().get('JAG', False)   # 2026-10-07：割れ目のギザギザは無しに（てじゃ「なくてもいいかも」）
 def jag_end(m, x_edge, z0, z1, y, sgn, rnd, col):
     # 割れた板の先：ギザギザのトゲ（生木の色）を何本か
     n = max(2, int((z1 - z0) / 0.12))
@@ -63,6 +64,7 @@ def jag_end(m, x_edge, z0, z1, y, sgn, rnd, col):
         a = m.v((x_edge, y, za), WOOD_IN); b = m.v((x_edge, y, zb), WOOD_IN)
         c = m.v((x_edge, y - PLANK_T, zb), mul3(WOOD_IN, 0.8)); d = m.v((x_edge, y - PLANK_T, za), mul3(WOOD_IN, 0.8))
         t = m.v(tip, WOOD_IN)
+        if not JAG: continue   # 乱数の並びは変えない（板の形がそのまま）
         m.tri(a, b, t, (0, 1, 0)); m.tri(d, t, c, (0, -1, 0)); m.tri(a, t, d, (0, 0, -1)); m.tri(b, c, t, (0, 0, 1))
 
 rnd = random.Random(5)
