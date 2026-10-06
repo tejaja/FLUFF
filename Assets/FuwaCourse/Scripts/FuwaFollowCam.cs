@@ -78,6 +78,14 @@ public class FuwaFollowCam : UdonSharpBehaviour
         UpdateLabels();
     }
 
+    // ボタンの◀側（左の部分）から呼ばれる：ひとつ前のモードへ
+    public void CycleModeBack()
+    {
+        _mode = (_mode + 4) % 5;
+        _snap = true;
+        UpdateLabels();
+    }
+
     public void TurnOff()
     {
         _mode = 0;
