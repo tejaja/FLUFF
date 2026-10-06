@@ -152,7 +152,9 @@ def kaze2(path=None, fvib=0.8, fbreath=0.8, ftaper=0.2, fsoft=0.3, fgain=1.9, tg
             m.add(wind(midi_hz(mm + 2), 0.07, v * 0.6, kind='flute', vib=0, breath=fbreath * 0.6, release=0.03, soft=fsoft), pos - 0.12, pan=0.1, rev=0.28, gain=fgain, humanize=0)
     for bar, cn in enumerate(prog):
         r, cps = old.chord(cn)
-        vo = voicing(cps, 57, 52, 64) + [voicing(cps, 64, 59, 71)[0]]
+        # 4本目は、下の3音より上にある一番低い和音の音（前は下の3音と同じ音が重なって、同じ高さの弦2本でうなっていた）
+        vo = voicing(cps, 57, 52, 64)
+        vo = vo + [next(x for x in voicing(cps, 64, 59, 71) + [y + 12 for y in voicing(cps, 64, 59, 71)] if x > vo[-1])]
         for j, (off, vel) in enumerate(((0, 0.5), (1, 0.36), (1.5, 0.3), (2.5, 0.36), (3, 0.4))):   # ストローク
             m.add(strum([midi_hz(x) for x in vo], 0.4 * m.beat, m.vel(vel), bright=0.5, spread=0.012, down=(off == int(off))), bar * 4 + off, pan=-0.45, rev=0.2, humanize=0.005)
         if bar % 4 == 0:   # ドローン
