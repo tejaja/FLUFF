@@ -20,6 +20,10 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
     [Tooltip("この高さ(m)まで離れると消える")]
     public float fadeHeight = 4f;
     public float lift = 0.02f;
+    [Tooltip("デカール（FuwaCourse/BlobDecal の箱）の時：当たった地面から下・上に何mの範囲の表面に描くか")]
+    public bool decal = true;
+    public float decalBelow = 0.4f;
+    public float decalAbove = 0.08f;
     [Tooltip("何フレームおきに人のリストを取り直すか")]
     public int refreshFrames = 30;
 
@@ -78,9 +82,19 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
             float eye = p.GetAvatarEyeHeightAsMeters();
             float size = baseSize * Mathf.Clamp(eye / 1.6f, 0.4f, 2.5f) * (1f + k * 0.4f);
             Transform t = r.transform;
-            t.position = hit.point + hit.normal * lift;
-            t.rotation = Quaternion.LookRotation(-hit.normal, Mathf.Abs(hit.normal.y) > 0.9f ? Vector3.forward : Vector3.up);
-            t.localScale = new Vector3(size, size, size);
+            if (decal)
+            {
+                // 箱で囲んだ範囲の実際の地面にだけ描く（崖のふちで空中に浮かない）
+                t.position = hit.point + hit.normal * ((decalAbove - decalBelow) * 0.5f);
+                t.rotation = Quaternion.FromToRotation(Vector3.up, hit.normal);
+                t.localScale = new Vector3(size, decalAbove + decalBelow, size);
+            }
+            else
+            {
+                t.position = hit.point + hit.normal * lift;
+                t.rotation = Quaternion.LookRotation(-hit.normal, Mathf.Abs(hit.normal.y) > 0.9f ? Vector3.forward : Vector3.up);
+                t.localScale = new Vector3(size, size, size);
+            }
             float a = nearAlpha * (1f - k);
             if (_mats[used] != null && Mathf.Abs(a - _alpha[used]) > 0.01f) { _alpha[used] = a; _mats[used].SetFloat("_Alpha", a); }
             if (!r.enabled) r.enabled = true;
