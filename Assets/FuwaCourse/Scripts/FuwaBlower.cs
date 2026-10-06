@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDK3.Components;
 using VRC.SDK3.UdonNetworkCalling;
@@ -166,6 +166,8 @@ public class FuwaBlower : UdonSharpBehaviour
     private bool _fxCharging;
     private float _fxStart;
     private bool _fxFull;
+    private float _fxKeep;        // 最後に「まだ溜めてるよ」を受け取った時刻（他人の銃の演出の保険用）
+    private float _keepSent;      // 持ち主：最後に「まだ溜めてるよ」を送った時刻
     private bool _isMine;
     private Quaternion _visualLocalRot;
     private Quaternion _nozzleLocalRot;
@@ -658,6 +660,7 @@ public class FuwaBlower : UdonSharpBehaviour
     {
         _fxCharging = true;
         _fxStart = Time.time;
+        _fxKeep = Time.time;
         _fxFull = false;
         if (chargeSound != null) chargeSound.Play();
         if (chargeParticles != null) chargeParticles.Play();
@@ -666,6 +669,19 @@ public class FuwaBlower : UdonSharpBehaviour
     public void ChargeCancelFx()
     {
         StopChargeFx();
+    }
+
+    // 持ち主が長く溜め続けている間、数秒ごとに届く「まだ溜めてるよ」。保険のタイムアウトで演出が消えないように
+    public void ChargeKeepFx()
+    {
+        _fxKeep = Time.time;
+        if (!_fxCharging)
+        {
+            // 途中で消えていた（遅れて入ってきた人など）：満タンの状態で演出を出し直す
+            ChargeStartFx();
+            _fxStart = Time.time - chargeTime;
+            _fxFull = true;
+        }
     }
 
     private void StopChargeFx()
@@ -684,13 +700,22 @@ public class FuwaBlower : UdonSharpBehaviour
         {
             _chargeFxSent = true;
             SendCustomNetworkEvent(NetworkEventTarget.All, nameof(ChargeStartFx));
+            _keepSent = Time.time;
+        }
+        // 長く溜めている間は、数秒ごとに「まだ溜めてるよ」を送る（他の人の画面で演出が消えないように）
+        if (_charging && _chargeFxSent && Time.time - _keepSent > 4f)
+        {
+            _keepSent = Time.time;
+            SendCustomNetworkEvent(NetworkEventTarget.All, nameof(ChargeKeepFx));
         }
         UpdateAir();
         UpdateBulb();
         if (!_fxCharging) return;
         float c = chargeTime > 0.001f ? Mathf.Clamp01((Time.time - _fxStart) / chargeTime) : 1f;
-        // 持ち主が撃たずに手を離した等で発射イベントが来ない時の保険
-        if (Time.time - _fxStart > 8f) { StopChargeFx(); return; }
+        // 持ち主が撃たずに手を離した等で発射イベントが来ない時の保険（2026-10-07：前は溜め始めから8秒で
+        // 自分が溜め続けていても消えていた。自分の銃で溜めている間は消さない／他人のは最後の「まだ溜めてるよ」から8秒）
+        bool stillMine = _isMine && _charging;
+        if (!stillMine && Time.time - _fxKeep > 8f) { StopChargeFx(); return; }
         if (c >= 1f && !_fxFull)
         {
             _fxFull = true;
