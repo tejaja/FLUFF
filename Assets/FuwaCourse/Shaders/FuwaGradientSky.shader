@@ -57,6 +57,14 @@ Shader "FuwaCourse/GradientSky"
             fixed4 _TopColor, _HorizonColor, _BottomColor, _SunColor, _CloudColor, _CloudShade;
             fixed4 _DimTopColor, _DimHorizonColor, _DimBottomColor;
             float _UdonSkyDim;   // グローバル（Udon の VRCShader.SetGlobalFloat）：0=いつもの空、1=くもった暗い空
+            float _UdonSunSquint; // グローバル：0=いつもの棒の目、1=「＞＜」（太陽を撃たれた時。FuwaSunFace）
+            // 線分までの距離（「＞＜」の目に使う）
+            float segDist(float2 p, float2 a, float2 b)
+            {
+                float2 pa = p - a, ba = b - a;
+                float h = saturate(dot(pa, ba) / dot(ba, ba));
+                return length(pa - ba * h);
+            }
             half _TopExponent, _BottomExponent, _SunSize, _SunGlow;
             float _CloudAlpha, _CloudScale, _CloudCover, _CloudSoft, _CloudHorizonFade;
             float4 _CloudSpeed;
@@ -176,9 +184,21 @@ Shader "FuwaCourse/GradientSky"
                     fu = normalize(fu + 1e-5); fr = normalize(fr + 1e-5);
                     float2 fp = float2(dot(d, fr), dot(d, fu)) * 57.29578 / R;   // 円の半径=1
                     float fa = aa / R;
+                    float sq = saturate(_UdonSunSquint);
+                    // 撃たれた時：顔がプルプル震える
+                    fp.x += sin(_Time.y * 55) * 0.035 * sq;
                     // 棒の目（縦長のカプセル）
                     float2 e = float2(abs(fp.x) - 0.3, clamp(fp.y, 0.02, 0.3));
                     float eye = 1 - smoothstep(0.065 - fa, 0.065 + fa, length(float2(e.x, fp.y - e.y)));
+                    // 「＞＜」の目：左は「＞」、右は「＜」（どちらも鼻側がとがる）。ぎゅっと閉じるので棒の目と入れ替える
+                    if (sq > 0.01)
+                    {
+                        float2 q = float2(abs(fp.x), fp.y - 0.14);              // 右目の向きにそろえる（x>0 が右目）
+                        float2 tip = float2(0.2, 0), o1 = float2(0.4, 0.12), o2 = float2(0.4, -0.12);
+                        float dv = min(segDist(q, tip, o1), segDist(q, tip, o2));
+                        float sqEye = 1 - smoothstep(0.05 - fa, 0.05 + fa, dv);
+                        eye = lerp(eye, sqEye, smoothstep(0.2, 0.6, sq));
+                    }
                     // ぴんくの丸ほっぺ
                     float cheek = 1 - smoothstep(0.15 - fa, 0.15 + fa, length(float2(abs(fp.x) - 0.52, fp.y + 0.16)));
                     col = lerp(col, _SunCheekColor.rgb * _SunColor.rgb, cheek * _SunCheekColor.a * disc);
