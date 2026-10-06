@@ -74,7 +74,7 @@ public class FuwaHud : UdonSharpBehaviour
     private void UpdateToggleLabels()
     {
         if (textToggleLabels == null) return;
-        string s = _hideText ? "Text: OFF" : "Text: ON";
+        string s = _hideText ? "HUD: OFF" : "HUD: ON";
         for (int i = 0; i < textToggleLabels.Length; i++) if (textToggleLabels[i] != null) textToggleLabels[i].text = s;
     }
 
