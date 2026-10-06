@@ -369,6 +369,39 @@ def tower2(path=None, wgain=2.0, ggain=1.0, fgain=1.0, pzg=1.0):
     save(st, path or os.path.join(OUT, "bgm_tower2.wav"))
     return st
 
+def aftergoal2(path=None, lead='whistle', lgain=1.0):
+    """ゴールしたあと（after_goal と同じ作曲）：F長調112BPM、軽快。ウクレレのカッティング、口笛 or ビブラフォンのメロディ、手拍子とシェイカー"""
+    m = Mix(112, 16, tail=3.0, seed=81)
+    prog = ['F', 'Dm', 'Bb', 'C'] * 2 + ['Bb', 'C', 'Am', 'Dm', 'Bb', 'C', 'F', 'F']
+    kp = old.NOTE['F']; MAJOR = old.MAJOR
+    rA = [[(0, 0.5), (0.5, 0.5), (1, 1), (2.5, 0.5), (3, 1)], [(0, 1.5), (1.5, 0.5), (2, 2)],
+          [(0, 0.5), (0.5, 0.5), (1, 0.5), (1.5, 0.5), (2, 1), (3, 1)], [(0, 3)]]
+    a = old.make_melody(np.random.default_rng(91), prog[:4], kp, MAJOR, rA, 72, 86, 77)
+    b = old.make_melody(np.random.default_rng(92), prog[8:12], kp, MAJOR, rA, 72, 86, 81)
+    c = old.make_melody(np.random.default_rng(93), prog[12:16], kp, MAJOR, rA, 72, 86, 79)
+    mel = old.end_on_root(a + old.transpose_rest(a, 4) + old.transpose_rest(b, 8) + old.transpose_rest(c, 12), kp, 72, 86)
+    for pos, d, mm in mel:
+        v = m.vel(0.72 if abs(pos - round(pos)) < 1e-6 else 0.62, 0.05)
+        if lead == 'whistle':
+            m.add(wind(midi_hz(mm), d * m.beat * 0.9, v, kind='ocarina', vib=1.4, breath=0.35, taper=0.25, release=0.08, soft=0.3), pos, pan=0.1, rev=0.25, gain=1.1 * lgain, humanize=0.008)
+        else:
+            m.add(vibes(midi_hz(mm), d * m.beat, v, hard=0.45, rel=0.6), pos, pan=0.1, rev=0.3, gain=1.3 * lgain, humanize=0.006)
+    for bar, cn in enumerate(prog):
+        r, cps = old.chord(cn)
+        voic = sorted(old.nearest(62 + (p - 62) % 12, [p], 57, 69) for p in cps)
+        # ウクレレ：ジャッ・ジャ・ジャッ・ジャ（ダウン強め、アップ弱め）
+        for off, vel in ((0, 0.5), (0.75, 0.28), (1.5, 0.45), (2, 0.5), (2.75, 0.28), (3.5, 0.45)):
+            m.add(strum([midi_hz(x) for x in voic], 0.3 * m.beat, m.vel(vel), bright=0.6, spread=0.01, down=(vel > 0.3)), bar * 4 + off, pan=-0.35, rev=0.15, humanize=0.004)
+        root = old.nearest(41, [r], 36, 47)
+        m.add(finger_bass(midi_hz(root), 0.8 * m.beat, m.vel(0.6, 0.04), tone=0.3), bar * 4, rev=0.04, humanize=0.004)
+        m.add(finger_bass(midi_hz(root + 7), 0.8 * m.beat, m.vel(0.48, 0.04), tone=0.3), bar * 4 + 2, rev=0.04, humanize=0.004)
+        for beat in (1, 3): m.add(clap2(m.vel(0.6, 0.05)), bar * 4 + beat, pan=0.2, rev=0.25, humanize=0.004)
+        for k in range(8): m.add(shaker2(m.vel(0.6 if k % 2 else 0.4, 0.06)), bar * 4 + k * 0.5, pan=0.4, rev=0.06, humanize=0.004)
+        m.add(kick2(m.vel(0.45, 0.03), punch=0.3, low=0.5), bar * 4, rev=0.03, humanize=0.002)
+    st = master(m, rt60=1.3, rev_level=0.3, damp=0.5, lowcut=30, warmth_db=0.5, air_db=1.5, comp_thresh=-16, comp_ratio=1.8, target_rms_db=-13.0)
+    save(st, path or os.path.join(OUT, "bgm_aftergoal2.wav"))
+    return st
+
 def lobby_c(path=None):
     """lobby_b と同じメロディ・コード・ゆりかごの分散和音。音源と残響・仕上げを新しくした版"""
     m = Mix(60, 16, tail=5.0, seed=11)

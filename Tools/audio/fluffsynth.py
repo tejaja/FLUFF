@@ -458,6 +458,16 @@ def woodblock2(vel=0.6, hi=True):
     y += bp(rng_global.standard_normal(n), 1500, 6000, 1) * np.exp(-t / 0.002) * 0.4
     return y * np.clip(t / 0.0005, 0, 1) * vel * 0.25
 
+def clap2(vel=0.7):
+    """手拍子（2026-10-07）：何人かの手がほんの少しずつずれて「パパッ」と鳴る＋部屋の短い響き"""
+    n = int(0.3 * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    for k, dt in enumerate((0.0, 0.009, 0.017, 0.026)):
+        i = int(dt * SR); m = n - i
+        tt = np.arange(m) / SR
+        y[i:] += bp(rng_global.standard_normal(m), 900, 2600, 2) * np.exp(-tt / (0.006 if k < 3 else 0.06)) * (0.8 if k < 3 else 1.0)
+    return y * vel * 0.35
+
 def snare2(vel=0.8, tone=0.5, snap=0.5):
     n = int(0.35 * SR); t = np.arange(n) / SR
     drum = (np.sin(2 * np.pi * 185 * t) * 0.7 + np.sin(2 * np.pi * 330 * t) * 0.35) * np.exp(-t / (0.06 + 0.04 * tone))
