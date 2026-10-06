@@ -115,8 +115,36 @@ public class FuwaBgm : UdonSharpBehaviour
         QueueVolumeSave();
     }
 
+    [Header("音量バーの横のスピーカーのマーク（押すとミュート、もう一度押すと前の音量に戻る）")]
+    public UnityEngine.UI.Image[] speakerIcons;
+    public Sprite speakerOn;
+    public Sprite speakerMuted;
+    private float _beforeMute = 100f;
+
+    // スピーカーのマーク（レーザーで押すUIボタン）から呼ばれる。自分だけ
+    public void ToggleMute()
+    {
+        if (_userPercent > 0.5f) { _beforeMute = _userPercent; SetUserPercent(0f); }
+        else SetUserPercent(_beforeMute > 0.5f ? _beforeMute : 100f);
+    }
+
+    private void SetUserPercent(float p)
+    {
+        _userPercent = Mathf.Clamp(p, 0f, 100f);
+        if (volumeSliders != null)
+            foreach (UnityEngine.UI.Slider sl in volumeSliders) if (sl != null) sl.SetValueWithoutNotify(_userPercent);
+        UpdateVolumeLabels();
+        if (fanfare != null && fanfare.isPlaying) fanfare.volume = Mathf.Clamp01(Vol() * fanfareVolume);
+        QueueVolumeSave();
+    }
+
     private void UpdateVolumeLabels()
     {
+        if (speakerIcons != null)
+        {
+            Sprite sp = _userPercent > 0.5f ? speakerOn : speakerMuted;
+            if (sp != null) foreach (UnityEngine.UI.Image im in speakerIcons) if (im != null && im.sprite != sp) im.sprite = sp;
+        }
         if (volumeLabels == null) return;
         string s = "BGM " + Mathf.RoundToInt(_userPercent);
         foreach (TextMeshProUGUI t in volumeLabels) if (t != null) t.text = s;
