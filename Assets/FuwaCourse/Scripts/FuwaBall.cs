@@ -143,7 +143,7 @@ public class FuwaBall : UdonSharpBehaviour
     private Vector3 _furDrag;
 
     [Header("風などの影響を受けている間の光（毛玉シェーダー用）")]
-    public Color windGlowColor = new Color(0.35f, 0.78f, 1f, 1f);
+    public Color windGlowColor = new Color(0.15f, 0.6f, 1f, 1f);   // 空の水色に溶けないよう濃いめの青
     public Color gravityGlowColor = new Color(0.7f, 0.3f, 1f, 1f);
     public Color launchGlowColor = new Color(1f, 0.6f, 0.2f, 1f);
     [Tooltip("横風がこの強さ(加速度)以上なら一番明るく光る")]
@@ -402,7 +402,13 @@ public class FuwaBall : UdonSharpBehaviour
         if (_waiting || _resetAt > 0f || _stuck) return;
         _rb.AddForce(DampWind(acceleration), ForceMode.Acceleration);
         float mag = acceleration.magnitude;
-        if (mag > 0.05f) SetGlow(windGlowColor, acceleration / mag, Mathf.Clamp01(mag / windGlowFull), 0.1f);
+        if (mag > 0.05f) SetGlow(windGlowColor, acceleration / mag, WindGlowCurve(mag / windGlowFull), 0.1f);
+    }
+
+    // 風の光の強さ：弱い風でも見えるように平方根で持ち上げる（0.2→0.45、0.5→0.71、1→1）
+    private float WindGlowCurve(float x)
+    {
+        return Mathf.Sqrt(Mathf.Clamp01(x));
     }
 
     // 風の力はそのままかけて、光る向き・強さだけ指定する（つむじ風に捕まっている時など、力の向きがころころ変わる時用）
@@ -410,7 +416,7 @@ public class FuwaBall : UdonSharpBehaviour
     {
         if (_waiting || _resetAt > 0f || _stuck) return;
         _rb.AddForce(DampWind(acceleration), ForceMode.Acceleration);
-        if (glowDir.sqrMagnitude > 0.0001f) SetGlow(windGlowColor, glowDir.normalized, Mathf.Clamp01(glowAmount), 0.1f);
+        if (glowDir.sqrMagnitude > 0.0001f) SetGlow(windGlowColor, glowDir.normalized, WindGlowCurve(glowAmount), 0.1f);
     }
 
     // 発射台から呼ばれる（速度をそのまま上書き）
