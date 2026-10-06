@@ -28,6 +28,9 @@ public static class FuwaKinokoEntrance
     public static float YB1;                                 // 坂Bの終わり＝上の段の切り口の上面の3cm下（実行時に道の形から決める）
     public static float FaceT = 0.06f;                       // 切り口のふたの板の厚み
     public static float ClipHalfW = 2.6f;                    // 切り取る道の横幅（半分）。上の段は±2.25
+    static float ClipCA, ClipCB, ClipY0 = 6f, ClipY1 = 13.5f;   // ClipMesh が切る区間（d）と高さ
+    // 木の塔の手前の道の先っぽ（細い出っぱり）を板張りに（2026-10-07）
+    public static float TabCut = 46.45f, TabEnd = 47.3f, TabHalfW = 1.3f, TabTopY = 18.17f;
     public static float HalfW = 1.5f;
     public static float CapLift = 0.35f;   // キノコの傘を床より上に（小ジャンプで乗る）
     public static float CapScale = 0.6f, ShelfScale = 0.5f, ShelfTopY = 9.75f;
@@ -53,8 +56,15 @@ public static class FuwaKinokoEntrance
         var visSrc = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/Bevel/Course5_Path_Bevel_Stairs3.asset");
         var colSrc = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/Bevel/Course5_Path_Cut3.asset");
         var faceA = new List<Vector3>(); var faceB = new List<Vector3>();
-        mf.sharedMesh = ClipMesh(visSrc, pm, MeshDir + "/Bevel/Course5_Path_Bevel_Entrance.asset", faceA, faceB, out int cv);
-        var colMesh = ClipMesh(colSrc, pm, MeshDir + "/Bevel/Course5_Path_CutEntrance.asset", null, null, out int cc);
+        ClipCA = CutA; ClipCB = CutB; ClipHalfW = 2.6f; ClipY0 = 6f; ClipY1 = 13.5f;
+        var vis1 = ClipMesh(visSrc, pm, MeshDir + "/Bevel/Course5_Path_Bevel_Entrance.asset", faceA, faceB, out int cv);
+        var col1 = ClipMesh(colSrc, pm, MeshDir + "/Bevel/Course5_Path_CutEntrance.asset", null, null, out int cc);
+        // 木の塔の手前の出っぱり：TabCut から先を切り取る（先は何もないので CB は遠く）
+        var faceT = new List<Vector3>();
+        ClipCA = TabCut; ClipCB = 1000f; ClipHalfW = 1.5f; ClipY0 = 16f; ClipY1 = 19.5f;
+        mf.sharedMesh = ClipMesh(vis1, pm, MeshDir + "/Bevel/Course5_Path_Bevel_Entrance2.asset", faceT, null, out int tv);
+        var colMesh = ClipMesh(col1, pm, MeshDir + "/Bevel/Course5_Path_CutEntrance2.asset", null, null, out int tc);
+        log += "tab clip vis " + tv + " col " + tc + " face " + faceT.Count + " / ";
         // 坂Bの終わりの高さ＝上の段の切り口の上面（床の幅の中）の3cm下
         float topB = -99; foreach (var q in faceB) if (Mathf.Abs(Ss(q)) < HalfW) topB = Mathf.Max(topB, q.y);
         YB1 = topB - 0.03f;
@@ -75,6 +85,16 @@ public static class FuwaKinokoEntrance
         // 道の切り口のふた（道の断面と同じ形の板。入口の先と上の段の手前）
         var hullA = Hull(faceA); var hullB = Hull(faceB);
         FacePlate(mb, hullA, CutA, CutA + FaceT); FacePlate(mb, hullB, CutB - FaceT, CutB);
+        // 木の塔の手前：切り口のふた＋板張りの床（他と同じくガタつかせる）
+        var hullT = Hull(faceT);
+        FacePlate(mb, hullT, TabCut, TabCut + FaceT);
+        float hw = HalfW; HalfW = TabHalfW;
+        Deck(mb, TabCut + FaceT, TabTopY, TabEnd, TabTopY, rnd);
+        // 道と同じ厚みの木の箱にする：先っぽと両横に横板を積む（下端は道の底にそろえる）
+        float tabH = TabTopY - (hullT.Count > 0 ? hullT.Min(h => h.y) : TabTopY - 0.8f);
+        FrontBoards(mb, TabEnd, TabTopY, tabH, -1f, rnd);
+        SideBoards(mb, TabCut + FaceT, TabEnd, TabTopY, tabH, rnd);
+        HalfW = hw;
         FrontBoards(mb, FlatA1, YA1, 1.2f, -1f, rnd);     // 平らAの先（すき間2の手前、サルノコシカケの生える所）
         FrontBoards(mb, Gap2B, YB0, 1.6f, 1f, rnd);        // 坂Bの正面
         FrontBoards(mb, SlopeA0, YA0, 1.4f, 1f, rnd);      // 坂Aの正面（入口より高い段）
@@ -89,6 +109,8 @@ public static class FuwaKinokoEntrance
         SlopeBox(cols, "SlopeB", Gap2B, YB0, CutB - FaceT, YB1);
         FaceBox(cols, "FaceA", hullA, CutA, CutA + FaceT);
         FaceBox(cols, "FaceB", hullB, CutB - FaceT, CutB);
+        FaceBox(cols, "FaceTab", hullT, TabCut, TabCut + FaceT);
+        { float hw2 = HalfW; HalfW = TabHalfW; SlopeBox(cols, "TabDeck", TabCut + FaceT, TabTopY, TabEnd, TabTopY); HalfW = hw2; }
         // 段の正面の壁（届かなかった時に板の中へすり抜けないように）
         WallBox(cols, "WallA", SlopeA0, YA0, 1.4f, 1f);
         WallBox(cols, "WallFlatA", FlatA1, YA1, 1.2f, -1f);
@@ -138,6 +160,14 @@ public static class FuwaKinokoEntrance
             bool ground = Physics.Raycast(new Vector3(b.center.x, b.min.y + 0.25f, b.center.z), Vector3.down, out var h, 0.5f, 1 << 11 | 1, QueryTriggerInteraction.Ignore);
             bool buried = Physics.Raycast(new Vector3(b.center.x, b.max.y + 3f, b.center.z), Vector3.down, out var h2, 3f, 1 << 11 | 1, QueryTriggerInteraction.Ignore) && h2.point.y > b.max.y - 0.05f;
             if (!ground || buried) { r.gameObject.SetActive(false); hidden++; }
+        }
+        // 木の塔の手前の板張りの上の草・下に垂れたツタは抜く
+        foreach (var r in c5.GetComponentsInChildren<Renderer>(true))
+        {
+            if (r.transform.IsChildOf(root) || r.transform.IsChildOf(pm)) continue;
+            var bc = r.bounds.center; float d = Dd(bc), s2 = Ss(bc);
+            if (d > TabCut - 0.3f && d < TabEnd + 0.3f && Mathf.Abs(s2) < TabHalfW + 0.3f && bc.y > 16.5f && bc.y < 19.5f && r.bounds.size.magnitude < 2f)   // 下に垂れたツタも
+            { r.gameObject.SetActive(false); hidden++; }
         }
         log += "deco hidden " + hidden;
         AssetDatabase.SaveAssets();
@@ -193,11 +223,11 @@ public static class FuwaKinokoEntrance
                 int a = tr[i], b = tr[i + 1], c = tr[i + 2];
                 var cen = (Wd[a] + Wd[b] + Wd[c]) / 3f;
                 float d0 = Mathf.Min(Dd(Wd[a]), Mathf.Min(Dd(Wd[b]), Dd(Wd[c]))), d1 = Mathf.Max(Dd(Wd[a]), Mathf.Max(Dd(Wd[b]), Dd(Wd[c])));
-                bool inBand = Mathf.Abs(Ss(cen)) < ClipHalfW && cen.y > 6f && cen.y < 13.5f;
-                if (!inBand || d1 <= CutA || d0 >= CutB) { k.Add(a); k.Add(b); k.Add(c); continue; }
+                bool inBand = Mathf.Abs(Ss(cen)) < ClipHalfW && cen.y > ClipY0 && cen.y < ClipY1;
+                if (!inBand || d1 <= ClipCA || d0 >= ClipCB) { k.Add(a); k.Add(b); k.Add(c); continue; }
                 changed++;
                 var tri = new List<int> { a, b, c };
-                foreach (var piece in new[] { ClipPoly(tri, CutA, true, faceA), ClipPoly(tri, CutB, false, faceB) })
+                foreach (var piece in new[] { ClipPoly(tri, ClipCA, true, faceA), ClipPoly(tri, ClipCB, false, faceB) })
                     for (int j = 1; j + 1 < piece.Count; j++) { k.Add(piece[0]); k.Add(piece[j]); k.Add(piece[j + 1]); }
             }
             subs.Add(k);
@@ -205,9 +235,9 @@ public static class FuwaKinokoEntrance
         // もともと切り口の面の上にあった頂点も集める
         for (int i = 0; i < src.vertexCount; i++)
         {
-            var w = Wd[i]; if (Mathf.Abs(Ss(w)) >= ClipHalfW || w.y <= 6f || w.y >= 13.5f) continue;
-            if (faceA != null && Mathf.Abs(Dd(w) - CutA) < 0.002f) faceA.Add(w);
-            if (faceB != null && Mathf.Abs(Dd(w) - CutB) < 0.002f) faceB.Add(w);
+            var w = Wd[i]; if (Mathf.Abs(Ss(w)) >= ClipHalfW || w.y <= ClipY0 || w.y >= ClipY1) continue;
+            if (faceA != null && Mathf.Abs(Dd(w) - ClipCA) < 0.002f) faceA.Add(w);
+            if (faceB != null && Mathf.Abs(Dd(w) - ClipCB) < 0.002f) faceB.Add(w);
         }
         var m = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (m == null) { m = new Mesh(); AssetDatabase.CreateAsset(m, path); }
@@ -354,6 +384,19 @@ public static class FuwaKinokoEntrance
         go.transform.position = W(d + dir * 0.1f, 0, topY - 0.15f - h * 0.5f); go.transform.rotation = Quaternion.LookRotation(D, Vector3.up);
         var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(HalfW * 2f, h, 0.2f);
         go.isStatic = true;
+    }
+
+    // 平らな床の両横に横板を積む（d0〜d1、上端 topY から高さ h）
+    static void SideBoards(MB mb, float d0, float d1, float topY, float h, System.Random rnd)
+    {
+        int n = Mathf.Max(1, Mathf.RoundToInt(h / 0.3f)); float bh = h / n;
+        foreach (var sg in new[] { -1f, 1f })
+            for (int i = 0; i < n; i++)
+            {
+                var c = W((d0 + d1) * 0.5f, sg * (HalfW - 0.02f), topY - 0.08f - bh * (i + 0.5f));
+                var col = BeamCol * (1.05f + 0.1f * (float)rnd.NextDouble()); col.a = 1;
+                mb.Box(c, S * 0.04f, Vector3.up * (bh * 0.5f - 0.01f), D * ((d1 - d0) * 0.5f), col);
+            }
     }
 
     static void SlopeBox(Transform parent, string name, float d0, float y0, float d1, float y1)
