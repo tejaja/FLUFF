@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -16,13 +16,18 @@ public static class FuwaKinokoEntrance
     // 区間（d）と高さ
     public static float CutA = -6.0f, CutB = 6.6f;          // 道を切り取る範囲
     public static float FloorY = 8.0f;                       // 入口の高さ
-    public static float Gap1A = -6.0f, Gap1B = -4.4f;        // すき間1（キノコ）
-    public static float SlopeA0 = -4.4f, SlopeA1 = -0.4f, FlatA1 = 0.8f, YA1 = 9.8f;   // 坂A → 平ら
-    public static float Gap2B = 2.4f;                        // すき間2（サルノコシカケ）＝ FlatA1〜Gap2B
-    public static float YB0 = 10.2f, YB1 = 12.10f;           // 坂B（Gap2B〜CutB）
+    // 2026-10-07：キノコを使わないと渡れないように、すき間を広げて向こう岸を高くした
+    // （ふつうのジャンプは高さ約0.46m・キノコの上は4.2で約0.9m）。キノコの傘も床より上にして、乗るのに小ジャンプが要る
+    public static float Gap1A = -6.0f, Gap1B = -3.4f;        // すき間1（キノコ）2.6m
+    public static float YA0 = 8.7f;                          // 坂Aの始まりは入口より0.7m高い（キノコなしでは届かない）
+    public static float SlopeA0 = -3.4f, SlopeA1 = -0.4f, FlatA1 = 0.8f, YA1 = 9.8f;   // 坂A → 平ら
+    public static float Gap2B = 3.0f;                        // すき間2（サルノコシカケ）＝ FlatA1〜Gap2B 2.2m
+    public static float YB0 = 10.5f, YB1 = 12.10f;           // 坂B（Gap2B〜CutB）。平らAより0.7m高い
     public static float HalfW = 1.5f;
-    public static float CapLift = 0.15f;   // キノコの傘を床より少し上に
-    public static float CapScale = 0.6f, ShelfScale = 0.32f, ShelfTopY = 10.0f;
+    public static float CapLift = 0.35f;   // キノコの傘を床より上に（小ジャンプで乗る）
+    public static float CapScale = 0.6f, ShelfScale = 0.32f, ShelfTopY = 9.75f;
+    public static float ShelfOut = 0.8f;   // サルノコシカケが平らAの先の壁（手前側）から出る長さ
+    public static float ShelfImpulse = 4.6f;   // サルノコシカケの上のジャンプ力（高さ約1.08m）
 
     const string MeshDir = "Assets/FuwaCourse/Meshes";
 
@@ -55,24 +60,28 @@ public static class FuwaKinokoEntrance
         var rnd = new System.Random(5);
         var mb = new MB();
         // 坂A＋平らA
-        Deck(mb, SlopeA0, FloorY, SlopeA1, YA1, rnd); Deck(mb, SlopeA1, YA1, FlatA1, YA1, rnd);
+        Deck(mb, SlopeA0, YA0, SlopeA1, YA1, rnd); Deck(mb, SlopeA1, YA1, FlatA1, YA1, rnd);
         // 坂B
         Deck(mb, Gap2B, YB0, CutB + 0.05f, YB1, rnd);
         // 切り口のふた（入口の先、上の段の手前）と、坂Bの正面（サルノコシカケが生える板）
         EndCap(mb, Gap1A, FloorY, 1.0f);
         EndCap(mb, CutB, YB1, 1.0f);
-        FrontBoards(mb, FlatA1, YA1, 0.9f, -1f, rnd);     // 平らAの先（すき間2の手前）
-        FrontBoards(mb, Gap2B, YB0, 1.3f, 1f, rnd);        // 坂Bの正面（サルノコシカケの生える所）
-        FrontBoards(mb, SlopeA0, FloorY, 0.7f, 1f, rnd);   // 坂Aの下のふち
+        FrontBoards(mb, FlatA1, YA1, 1.2f, -1f, rnd);     // 平らAの先（すき間2の手前、サルノコシカケの生える所）
+        FrontBoards(mb, Gap2B, YB0, 1.6f, 1f, rnd);        // 坂Bの正面
+        FrontBoards(mb, SlopeA0, YA0, 1.4f, 1f, rnd);      // 坂Aの正面（入口より高い段）
         var mesh = mb.Build("KinokoEntrance_Deck", root);
         var go = new GameObject("Deck", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(root, false);
         go.GetComponent<MeshFilter>().sharedMesh = mesh; go.GetComponent<MeshRenderer>().sharedMaterial = mat; go.isStatic = true;
 
         // ---- 3. 判定（箱） ----
         var cols = new GameObject("Colliders").transform; cols.SetParent(root, false); cols.gameObject.layer = 11;
-        SlopeBox(cols, "SlopeA", SlopeA0, FloorY, SlopeA1, YA1);
+        SlopeBox(cols, "SlopeA", SlopeA0, YA0, SlopeA1, YA1);
         SlopeBox(cols, "FlatA", SlopeA1, YA1, FlatA1, YA1);
         SlopeBox(cols, "SlopeB", Gap2B, YB0, CutB + 0.05f, YB1);
+        // 段の正面の壁（届かなかった時に板の中へすり抜けないように）
+        WallBox(cols, "WallA", SlopeA0, YA0, 1.4f, 1f);
+        WallBox(cols, "WallFlatA", FlatA1, YA1, 1.2f, -1f);
+        WallBox(cols, "WallB", Gap2B, YB0, 1.6f, 1f);
 
         // ---- 4. キノコとサルノコシカケ ----
         var mush = c5.Find("Mushrooms");
@@ -90,14 +99,15 @@ public static class FuwaKinokoEntrance
         var shelf = mush.Find("PitShelf");
         if (shelf != null)
         {
-            shelf.localScale = Vector3.one * ShelfScale; shelf.rotation = Quaternion.LookRotation(-D);
+            // 平らAの先の壁（手前側）から、すき間の中へ生やす。ここでキノコジャンプして奥の坂Bへ
+            shelf.localScale = Vector3.one * ShelfScale; shelf.rotation = Quaternion.LookRotation(D);
             var top = shelf.Find("Top");
-            shelf.position += W(Gap2B - 0.8f, 0f, ShelfTopY) - top.position;
-            // 奥のふちを坂Bの正面に少しめりこませる
+            shelf.position += W(FlatA1 + ShelfOut, 0f, ShelfTopY) - top.position;
+            // 手前のふちを平らAの壁に少しめりこませる
             Physics.SyncTransforms();
-            float maxD = -99; foreach (var r in shelf.Find("Visual").GetComponentsInChildren<MeshFilter>()) foreach (var v in r.sharedMesh.vertices) maxD = Mathf.Max(maxD, Dd(r.transform.TransformPoint(v)));
-            shelf.position += D * (Gap2B + 0.08f - maxD);
-            var j = shelf.GetComponentInChildren<FuwaJumpBoost>(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j);
+            float minD = 99; foreach (var r in shelf.Find("Visual").GetComponentsInChildren<MeshFilter>()) foreach (var v in r.sharedMesh.vertices) minD = Mathf.Min(minD, Dd(r.transform.TransformPoint(v)));
+            shelf.position += D * (FlatA1 - 0.08f - minD);
+            var j = shelf.GetComponentInChildren<FuwaJumpBoost>(); j.jumpImpulse = ShelfImpulse; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j);
         }
 
         // ---- 5. もう使わない物 ----
@@ -222,6 +232,15 @@ public static class FuwaKinokoEntrance
             var col = BeamCol * (1.05f + 0.1f * (float)rnd.NextDouble()); col.a = 1;
             mb.Box(c, S * (HalfW + 0.02f), Vector3.up * (bh * 0.5f - 0.01f), D * 0.04f, col);
         }
+    }
+
+    // 段の正面の縦の壁（dir：-1＝手前の段の先、1＝奥の段の正面）
+    static void WallBox(Transform parent, string name, float d, float topY, float h, float dir)
+    {
+        var go = new GameObject(name); go.transform.SetParent(parent, true); go.layer = 11;
+        go.transform.position = W(d + dir * 0.1f, 0, topY - 0.15f - h * 0.5f); go.transform.rotation = Quaternion.LookRotation(D, Vector3.up);
+        var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(HalfW * 2f, h, 0.2f);
+        go.isStatic = true;
     }
 
     static void SlopeBox(Transform parent, string name, float d0, float y0, float d1, float y1)
