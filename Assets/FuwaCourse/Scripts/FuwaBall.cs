@@ -329,8 +329,14 @@ public class FuwaBall : UdonSharpBehaviour
     private float _nextBounceSound;
     private void BounceOff(FuwaBounce b)
     {
+        BounceOffNormal(b, b.GetNormal(transform.position));
+    }
+
+    private void BounceOffNormal(FuwaBounce b, Vector3 n)
+    {
         if (_resetAt > 0f || _hidden || _stuck || _waiting) return;
-        Vector3 n = b.GetNormal(transform.position);
+        if (n.sqrMagnitude < 0.0001f) n = Vector3.up;
+        n.Normalize();
         Vector3 v = _rb.velocity;
         float vn = Vector3.Dot(v, n);
         Vector3 tangent = (v - n * vn) * b.keepTangent;
@@ -1066,8 +1072,20 @@ public class FuwaBall : UdonSharpBehaviour
         if (collision == null || collision.gameObject == null) return;
         FuwaHazard hazard = collision.gameObject.GetComponent<FuwaHazard>();
         FuwaBounce bouncer = collision.gameObject.GetComponent<FuwaBounce>();
+        FuwaTopOut topOut = collision.gameObject.GetComponent<FuwaTopOut>();
+        if (topOut != null)
+        {
+            // 溝の岩壁など：上の面に乗ったらアウト、横は当たるだけ
+            if (collision.contactCount > 0 && collision.GetContact(0).normal.y >= topOut.minUp) Fail();
+            return;
+        }
         if (hazard != null) hazard.HitBall(this);
-        else if (bouncer != null) BounceOff(bouncer);
+        else if (bouncer != null)
+        {
+            // 岩の柱・壁など：当たった面の向きで跳ね返す
+            if (bouncer.useContactNormal && collision.contactCount > 0) BounceOffNormal(bouncer, collision.GetContact(0).normal);
+            else BounceOff(bouncer);
+        }
         else if (collision.gameObject.layer == groundLayer)
         {
             // ゴールのリングの中で着地したらゴール、それ以外の地面はアウト

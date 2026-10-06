@@ -13,6 +13,8 @@ public class FuwaBounce : UdonSharpBehaviour
     [Range(0f, 1f)] public float keepTangent = 0.8f;
     [Tooltip("ONなら当たった場所に関係なく必ず真上に跳ねる（傘の端で横に飛ばされないように）")]
     public bool alwaysUp = true;
+    [Tooltip("ONなら当たった面の向きで跳ね返る（岩の柱・壁など形がでこぼこな物用）。alwaysUp より優先")]
+    public bool useContactNormal = false;
 
     // p の位置での表面の向き（外向き）
     public Vector3 GetNormal(Vector3 p)
