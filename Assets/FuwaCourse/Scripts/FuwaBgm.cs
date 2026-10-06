@@ -79,7 +79,8 @@ public class FuwaBgm : UdonSharpBehaviour
 
     private void UpdateLabel()
     {
-        string s = _muted ? "BGM: OFF" : "BGM: ON";
+        // 言語ボタン（JP / EN）と同じく、今の方をはっきり、もう片方を薄く
+        string s = _muted ? "BGM  <color=#FFFFFF88>ON</color> / <b>OFF</b>" : "BGM  <b>ON</b> / <color=#FFFFFF88>OFF</color>";
         if (buttonLabel != null) buttonLabel.text = s;
         if (extraButtonLabels != null) foreach (TextMeshProUGUI t in extraButtonLabels) if (t != null) t.text = s;
     }
