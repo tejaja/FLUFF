@@ -101,7 +101,7 @@ public static class FuwaStumpRebuild
         var pads = new List<(Vector3 c, float r)>();
         int made = 0;
         // (種類, 数)：0 ふちをまたぐ / 1 横（上の方）/ 2 切り口の上の小さいの / 3 根元
-        var plan = new[] { (0, 4), (1, 3), (2, 1), (3, 2) };   // 2026-10-06 19→10個に減らした
+        var plan = new[] { (1, 3), (2, 1), (3, 1) };   // 2026-10-06 19→10→5個。ふちをまたぐ苔（種類0）は、ふちの凹凸で欠けやしわが出やすいのでやめた
         foreach (var (kind, count) in plan)
         {
             int ok = 0, tries = 0;
@@ -110,7 +110,7 @@ public static class FuwaStumpRebuild
                 float ang = R(-Mathf.PI, Mathf.PI); var d = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)); float r0 = RC(ang);
                 Vector3 n, guess; float rad, thick;
                 if (kind == 0) { n = (d + Vector3.up).normalized; guess = d * r0 + Vector3.up * CutY; rad = R(0.035f, 0.055f); thick = R(0.009f, 0.013f); }
-                else if (kind == 1) { n = d; guess = d * 0.17f + Vector3.up * R(0.08f, 0.27f); rad = R(0.026f, 0.045f); thick = R(0.007f, 0.011f); }
+                else if (kind == 1) { n = d; rad = R(0.026f, 0.045f); guess = d * 0.17f + Vector3.up * R(0.06f, 0.30f - rad * 1.3f); thick = R(0.007f, 0.011f); }   // 上のふちにかからない高さ
                 else if (kind == 2) { n = Vector3.up; rad = R(0.016f, 0.024f); guess = d * (r0 - rad - R(0.02f, 0.035f)) + Vector3.up * CutY; thick = R(0.005f, 0.008f); }   // ふちにかからない所
                 else { n = (d * 2f + Vector3.up).normalized; guess = d * 0.25f + Vector3.up * R(-0.3f, -0.18f); rad = R(0.035f, 0.055f); thick = R(0.009f, 0.013f); }
                 System.Func<Vector2, (Vector3, Vector3)> surf;
