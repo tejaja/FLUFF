@@ -206,7 +206,7 @@ public static class FuwaGunCollarRebuild
     const float PadOut = 0.0345f, PadIn = 0.016f, PadBack = -0.006f, PadFront = 0.079f, PadY0 = 0.0445f, PadY1 = 0.0655f;   // 前の台と同じ大きさ（ゲージのまわりに3〜4mmのふち）
     const float PadBevel = 0.0009f;
     // 前の端の四角いブロック（給気口つき）。X は外側の面からの距離（内側〜外側）、H は高さ、In/Out は台の前の端から後ろへ埋める・前へ出す長さ
-    const float BlockX0 = 0.0008f, BlockX1 = 0.0062f, BlockH = 0.0130f, BlockIn = 0.006f, BlockOut = 0.003f, BlockR = 0.0009f, BlockBevel = 0.00045f;
+    const float BlockX0 = 0.0008f, BlockX1 = 0.0062f, BlockH = 0.0170f, BlockIn = 0.006f, BlockOut = 0.003f, BlockR = 0.0009f, BlockBevel = 0.00045f;
     const float BlockRim = 0.0011f, BlockDepth = 0.0022f;   // 穴のまわりのふちの幅、穴の深さ
 
     // 前の四角いブロックの材質：黄色い部品と同じシェーダーで、白寄りのグレー
