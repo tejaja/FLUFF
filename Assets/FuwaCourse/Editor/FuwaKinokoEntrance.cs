@@ -6,6 +6,8 @@ using UnityEngine;
 // きのこのたにの入口（スタートの先〜チェックポイント1の手前）を作る。何度実行しても同じ結果。
 // 入口（平ら）→ すき間（下から生えたキノコの傘で渡る）→ 木の坂 → すき間（次の坂の正面にサルノコシカケ）→ 木の坂 → 上の段
 // ・道のメッシュ（見た目と判定）からこの区間を切り取って、木の床（板張り）と判定の箱を置く
+//   2026-10-07：切り取りを「三角形ごと消す」から「切り口の面でぴったり切る」に変更（ギザギザのすき間が出ていた）。
+//   切り口には道の断面と同じ形の木の板（ふた）を張って、中が見えないように。坂Bはその板にぴったり突き当てる
 // ・道は一直線（O から D の向き）。d＝その向きの距離、s＝横の距離
 public static class FuwaKinokoEntrance
 {
@@ -22,9 +24,10 @@ public static class FuwaKinokoEntrance
     public static float YA0 = 8.7f;                          // 坂Aの始まりは入口より0.7m高い（キノコなしでは届かない）
     public static float SlopeA0 = -3.4f, SlopeA1 = -0.4f, FlatA1 = 0.8f, YA1 = 9.8f;   // 坂A → 平ら
     public static float Gap2B = 3.6f;                        // すき間2（サルノコシカケ）＝ FlatA1〜Gap2B 2.8m
-    public static float YB0 = 10.5f, YB1 = 12.17f;           // YB1：上の段（道の上面12.20）のすぐ下
-    public static float SlopeBEnd = 0.4f;                    // 坂Bを道の切り口の下までもぐらせる長さ（すき間が見えないように）
-              // 坂B（Gap2B〜CutB）。平らAより0.7m高い
+    public static float YB0 = 10.5f;                         // 坂B（Gap2B〜CutB）の始まり。平らAより0.7m高い
+    public static float YB1;                                 // 坂Bの終わり＝上の段の切り口の上面の3cm下（実行時に道の形から決める）
+    public static float FaceT = 0.06f;                       // 切り口のふたの板の厚み
+    public static float ClipHalfW = 2.6f;                    // 切り取る道の横幅（半分）。上の段は±2.25
     public static float HalfW = 1.5f;
     public static float CapLift = 0.35f;   // キノコの傘を床より上に（小ジャンプで乗る）
     public static float CapScale = 0.6f, ShelfScale = 0.5f, ShelfTopY = 9.75f;
@@ -49,11 +52,15 @@ public static class FuwaKinokoEntrance
         var mf = pm.GetComponent<MeshFilter>(); var mc = pm.GetComponent<MeshCollider>();
         var visSrc = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/Bevel/Course5_Path_Bevel_Stairs3.asset");
         var colSrc = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/Bevel/Course5_Path_Cut3.asset");
-        mf.sharedMesh = CutMesh(visSrc, pm, MeshDir + "/Bevel/Course5_Path_Bevel_Entrance.asset", out int cv);
-        var colMesh = CutMesh(colSrc, pm, MeshDir + "/Bevel/Course5_Path_CutEntrance.asset", out int cc);
+        var faceA = new List<Vector3>(); var faceB = new List<Vector3>();
+        mf.sharedMesh = ClipMesh(visSrc, pm, MeshDir + "/Bevel/Course5_Path_Bevel_Entrance.asset", faceA, faceB, out int cv);
+        var colMesh = ClipMesh(colSrc, pm, MeshDir + "/Bevel/Course5_Path_CutEntrance.asset", null, null, out int cc);
+        // 坂Bの終わりの高さ＝上の段の切り口の上面（床の幅の中）の3cm下
+        float topB = -99; foreach (var q in faceB) if (Mathf.Abs(Ss(q)) < HalfW) topB = Mathf.Max(topB, q.y);
+        YB1 = topB - 0.03f;
         mc.sharedMesh = null; mc.sharedMesh = colMesh;
         var bs = pm.Find("BallStairs1"); if (bs) Object.DestroyImmediate(bs.gameObject);
-        log += "cut vis " + cv + " col " + cc + " / ";
+        log += "clip vis " + cv + " col " + cc + " faceA " + faceA.Count + " faceB " + faceB.Count + " YB1 " + YB1.ToString("F3") + " / ";
 
         // ---- 2. 木の床 ----
         var old = c5.Find("KinokoEntrance"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -64,10 +71,10 @@ public static class FuwaKinokoEntrance
         // 坂A＋平らA
         Deck(mb, SlopeA0, YA0, SlopeA1, YA1, rnd); Deck(mb, SlopeA1, YA1, FlatA1, YA1, rnd);
         // 坂B
-        Deck(mb, Gap2B, YB0, CutB + SlopeBEnd, YB1, rnd);
-        // 切り口のふた（入口の先、上の段の手前）と、坂Bの正面（サルノコシカケが生える板）
-        EndCap(mb, Gap1A, FloorY, 1.0f);
-        EndCap(mb, CutB + SlopeBEnd, YB1, 1.0f);
+        Deck(mb, Gap2B, YB0, CutB - FaceT, YB1, rnd);
+        // 道の切り口のふた（道の断面と同じ形の板。入口の先と上の段の手前）
+        var hullA = Hull(faceA); var hullB = Hull(faceB);
+        FacePlate(mb, hullA, CutA, CutA + FaceT); FacePlate(mb, hullB, CutB - FaceT, CutB);
         FrontBoards(mb, FlatA1, YA1, 1.2f, -1f, rnd);     // 平らAの先（すき間2の手前、サルノコシカケの生える所）
         FrontBoards(mb, Gap2B, YB0, 1.6f, 1f, rnd);        // 坂Bの正面
         FrontBoards(mb, SlopeA0, YA0, 1.4f, 1f, rnd);      // 坂Aの正面（入口より高い段）
@@ -79,7 +86,9 @@ public static class FuwaKinokoEntrance
         var cols = new GameObject("Colliders").transform; cols.SetParent(root, false); cols.gameObject.layer = 11;
         SlopeBox(cols, "SlopeA", SlopeA0, YA0, SlopeA1, YA1);
         SlopeBox(cols, "FlatA", SlopeA1, YA1, FlatA1, YA1);
-        SlopeBox(cols, "SlopeB", Gap2B, YB0, CutB + SlopeBEnd, YB1);
+        SlopeBox(cols, "SlopeB", Gap2B, YB0, CutB - FaceT, YB1);
+        FaceBox(cols, "FaceA", hullA, CutA, CutA + FaceT);
+        FaceBox(cols, "FaceB", hullB, CutB - FaceT, CutB);
         // 段の正面の壁（届かなかった時に板の中へすり抜けないように）
         WallBox(cols, "WallA", SlopeA0, YA0, 1.4f, 1f);
         WallBox(cols, "WallFlatA", FlatA1, YA1, 1.2f, -1f);
@@ -136,29 +145,118 @@ public static class FuwaKinokoEntrance
         return log;
     }
 
-    static Mesh CutMesh(Mesh src, Transform t, string path, out int removed)
+    // 道のメッシュを、CutA〜CutB の区間（横 ClipHalfW 以内、高さ 6〜13.5m）だけ、切り口の面でぴったり切り取る。
+    // 区間をまたぐ三角形は面で分割して外側だけ残す（頂点の法線・UV・色は補間）。切り口の上に乗った点を faceA/faceB に集める
+    static Mesh ClipMesh(Mesh src, Transform t, string path, List<Vector3> faceA, List<Vector3> faceB, out int changed)
     {
-        var v = src.vertices; var keep = new List<List<int>>(); removed = 0;
+        var P = new List<Vector3>(src.vertices);
+        var Nn = src.normals.Length == P.Count ? new List<Vector3>(src.normals) : null;
+        var U0 = src.uv.Length == P.Count ? new List<Vector2>(src.uv) : null;
+        var U1 = src.uv2.Length == P.Count ? new List<Vector2>(src.uv2) : null;
+        var Cl = src.colors.Length == P.Count ? new List<Color>(src.colors) : null;
+        var Wd = P.Select(v => t.TransformPoint(v)).ToList();
+        changed = 0;
+        int Lerp(int a, int b, float k)
+        {
+            P.Add(Vector3.Lerp(P[a], P[b], k)); Wd.Add(Vector3.Lerp(Wd[a], Wd[b], k));
+            if (Nn != null) Nn.Add(Vector3.Lerp(Nn[a], Nn[b], k).normalized);
+            if (U0 != null) U0.Add(Vector2.Lerp(U0[a], U0[b], k));
+            if (U1 != null) U1.Add(Vector2.Lerp(U1[a], U1[b], k));
+            if (Cl != null) Cl.Add(Color.Lerp(Cl[a], Cl[b], k));
+            return P.Count - 1;
+        }
+        // 多角形を面で切って片側だけ残す（keepBelow：d <= plane の側を残す）
+        List<int> ClipPoly(List<int> poly, float plane, bool keepBelow, List<Vector3> onFace)
+        {
+            var o = new List<int>();
+            for (int i = 0; i < poly.Count; i++)
+            {
+                int a = poly[i], b = poly[(i + 1) % poly.Count];
+                float da = Dd(Wd[a]) - plane, db = Dd(Wd[b]) - plane;
+                if (keepBelow) { da = -da; db = -db; }   // 「0以上が残す側」にそろえる
+                bool ia = da >= 0, ib = db >= 0;
+                if (ia) o.Add(a);
+                if (ia != ib)
+                {
+                    int n = Lerp(a, b, da / (da - db));
+                    o.Add(n); if (onFace != null) onFace.Add(Wd[n]);
+                }
+            }
+            return o;
+        }
+        var subs = new List<List<int>>();
         for (int sm = 0; sm < src.subMeshCount; sm++)
         {
             var tr = src.GetTriangles(sm); var k = new List<int>();
             for (int i = 0; i < tr.Length; i += 3)
             {
-                var c = (t.TransformPoint(v[tr[i]]) + t.TransformPoint(v[tr[i + 1]]) + t.TransformPoint(v[tr[i + 2]])) / 3f;
-                float d = Dd(c), s = Ss(c);
-                if (d > CutA && d < CutB && Mathf.Abs(s) < 1.85f && c.y > 6f && c.y < 13.5f) { removed++; continue; }
-                k.Add(tr[i]); k.Add(tr[i + 1]); k.Add(tr[i + 2]);
+                int a = tr[i], b = tr[i + 1], c = tr[i + 2];
+                var cen = (Wd[a] + Wd[b] + Wd[c]) / 3f;
+                float d0 = Mathf.Min(Dd(Wd[a]), Mathf.Min(Dd(Wd[b]), Dd(Wd[c]))), d1 = Mathf.Max(Dd(Wd[a]), Mathf.Max(Dd(Wd[b]), Dd(Wd[c])));
+                bool inBand = Mathf.Abs(Ss(cen)) < ClipHalfW && cen.y > 6f && cen.y < 13.5f;
+                if (!inBand || d1 <= CutA || d0 >= CutB) { k.Add(a); k.Add(b); k.Add(c); continue; }
+                changed++;
+                var tri = new List<int> { a, b, c };
+                foreach (var piece in new[] { ClipPoly(tri, CutA, true, faceA), ClipPoly(tri, CutB, false, faceB) })
+                    for (int j = 1; j + 1 < piece.Count; j++) { k.Add(piece[0]); k.Add(piece[j]); k.Add(piece[j + 1]); }
             }
-            keep.Add(k);
+            subs.Add(k);
+        }
+        // もともと切り口の面の上にあった頂点も集める
+        for (int i = 0; i < src.vertexCount; i++)
+        {
+            var w = Wd[i]; if (Mathf.Abs(Ss(w)) >= ClipHalfW || w.y <= 6f || w.y >= 13.5f) continue;
+            if (faceA != null && Mathf.Abs(Dd(w) - CutA) < 0.002f) faceA.Add(w);
+            if (faceB != null && Mathf.Abs(Dd(w) - CutB) < 0.002f) faceB.Add(w);
         }
         var m = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (m == null) { m = new Mesh(); AssetDatabase.CreateAsset(m, path); }
         m.Clear(); m.name = System.IO.Path.GetFileNameWithoutExtension(path); m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-        m.vertices = v; if (src.normals.Length == v.Length) m.normals = src.normals;
-        if (src.uv.Length == v.Length) m.uv = src.uv; if (src.uv2.Length == v.Length) m.uv2 = src.uv2; if (src.colors.Length == v.Length) m.colors = src.colors;
-        m.subMeshCount = keep.Count; for (int i = 0; i < keep.Count; i++) m.SetTriangles(keep[i], i);
+        m.SetVertices(P); if (Nn != null) m.SetNormals(Nn); if (U0 != null) m.SetUVs(0, U0); if (U1 != null) m.SetUVs(1, U1); if (Cl != null) m.SetColors(Cl);
+        m.subMeshCount = subs.Count; for (int i = 0; i < subs.Count; i++) m.SetTriangles(subs[i], i);
         m.RecalculateBounds(); EditorUtility.SetDirty(m);
         return m;
+    }
+
+    // 切り口の面の上の点を (横s, 高さy) の凸包にする（道の断面＝角の丸い長方形）。反時計回り
+    static List<Vector2> Hull(List<Vector3> pts)
+    {
+        var p = pts.Select(w => new Vector2(Mathf.Round(Ss(w) * 1000f) / 1000f, Mathf.Round(w.y * 1000f) / 1000f)).Distinct().OrderBy(v => v.x).ThenBy(v => v.y).ToList();
+        if (p.Count < 3) return p;
+        float Cross(Vector2 o, Vector2 a, Vector2 b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+        var h = new List<Vector2>();
+        foreach (var v in p) { while (h.Count >= 2 && Cross(h[h.Count - 2], h[h.Count - 1], v) <= 1e-6f) h.RemoveAt(h.Count - 1); h.Add(v); }
+        int lo = h.Count + 1;
+        for (int i = p.Count - 2; i >= 0; i--) { var v = p[i]; while (h.Count >= lo && Cross(h[h.Count - 2], h[h.Count - 1], v) <= 1e-6f) h.RemoveAt(h.Count - 1); h.Add(v); }
+        h.RemoveAt(h.Count - 1);
+        return h;
+    }
+
+    // 道の断面の形の板（d0〜d1 の厚み）。切り口をふさぐ
+    static void FacePlate(MB mb, List<Vector2> hull, float d0, float d1)
+    {
+        if (hull.Count < 3) return;
+        var col = BeamCol; col.a = 1;
+        var f0 = hull.Select(h => W(d0, h.x, h.y)).ToList(); var f1 = hull.Select(h => W(d1, h.x, h.y)).ToList();
+        mb.Poly(f1, D, col);    // 奥向きの面
+        mb.Poly(f0, -D, col);   // 手前向きの面
+        for (int i = 0; i < hull.Count; i++)
+        {
+            int j = (i + 1) % hull.Count;
+            var e = hull[j] - hull[i]; var n2 = new Vector2(e.y, -e.x).normalized;   // 反時計回りの外向き
+            var nw = (S * n2.x + Vector3.up * n2.y).normalized;
+            mb.Poly(new List<Vector3> { f0[i], f0[j], f1[j], f1[i] }, nw, nw.y < -0.5f ? col * 0.8f : col);
+        }
+    }
+
+    static void FaceBox(Transform parent, string name, List<Vector2> hull, float d0, float d1)
+    {
+        if (hull.Count < 3) return;
+        float s0 = hull.Min(h => h.x), s1 = hull.Max(h => h.x), y0 = hull.Min(h => h.y), y1 = hull.Max(h => h.y);
+        var go = new GameObject(name); go.transform.SetParent(parent, true); go.layer = 11;
+        go.transform.position = W((d0 + d1) * 0.5f, (s0 + s1) * 0.5f, (y0 + y1) * 0.5f); go.transform.rotation = Quaternion.LookRotation(D, Vector3.up);
+        var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(s1 - s0, y1 - y0, d1 - d0);
+        go.isStatic = true;
     }
 
     // ---- 木の部品 ----
@@ -183,6 +281,14 @@ public static class FuwaKinokoEntrance
                 if (Vector3.Dot(Vector3.Cross(V[b + 1] - V[b], V[b + 2] - V[b]), f) > 0) T.AddRange(new[] { b, b + 1, b + 2, b, b + 2, b + 3 });
                 else T.AddRange(new[] { b, b + 2, b + 1, b, b + 3, b + 2 });
             }
+        }
+        // 平らな凸多角形を1枚。法線 n の側から見て表になるように並べる
+        public void Poly(List<Vector3> pts, Vector3 n, Color col)
+        {
+            col.a = 1; int b0 = V.Count;
+            foreach (var p in pts) { V.Add(p); N.Add(n); C.Add(col); }
+            bool flip = Vector3.Dot(Vector3.Cross(pts[1] - pts[0], pts[2] - pts[0]), n) < 0;
+            for (int i = 1; i + 1 < pts.Count; i++) { if (!flip) T.AddRange(new[] { b0, b0 + i, b0 + i + 1 }); else T.AddRange(new[] { b0, b0 + i + 1, b0 + i }); }
         }
         public Mesh Build(string name, Transform space)
         {
