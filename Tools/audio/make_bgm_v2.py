@@ -173,6 +173,74 @@ def kaze2(path=None, fvib=0.8, fbreath=0.8, ftaper=0.2, fsoft=0.3, fgain=1.9, tg
     save(st, path or os.path.join(OUT, "bgm_kaze2.wav"))
     return st
 
+def pitfalls2(path=None, bgain=3.5, ggain=0.6, drive=4.0, mute=0.06, lead='brass', lgain=1.0, loct=0, btone=0.75, bassg=1.0, fill='none', fgain=1.0):
+    """いわのみち（pitfalls_b と同じ作曲）：D短調100BPM、どっしりパワフル。ブラスのメロディ（1オクターブ下を重ねる）、
+    ズンズン刻むパワーコード（左右に2本）、ピック弾きのベース、重いドラムと大きいスネア、4小節ごとにクラッシュとタムの駆け下り。
+    最後の8小節はメロディの1オクターブ上にピコピコを重ねて盛り上げる"""
+    m = Mix(100, 24, tail=3.0, seed=41)
+    prog = ['Dm', 'Bb', 'C', 'A'] * 2 + ['Gm', 'Bb', 'Dm', 'A', 'Gm', 'Bb', 'C', 'A'] + ['Dm', 'Bb', 'C', 'A'] * 2
+    kp = old.NOTE['D']; MINOR = old.MINOR
+    rA = [[(0, 1), (1, 0.5), (1.5, 0.5), (2, 1.5), (3.5, 0.5)], [(0, 1.5), (1.5, 0.5), (2, 2)],
+          [(0, 0.5), (0.5, 0.5), (1, 1), (2, 1), (3, 1)], [(0, 3), (3, 0.5), (3.5, 0.5)]]
+    rB = [[(0, 2), (2, 1), (3, 1)], [(0, 1.5), (1.5, 1.5), (3, 1)], [(0, 1), (1, 1), (2, 1), (3, 1)], [(0, 4)]]
+    a = old.make_melody(np.random.default_rng(81), prog[:4], kp, MINOR, rA, 62, 76, 69)
+    b = old.make_melody(np.random.default_rng(82), prog[8:12], kp, MINOR, rB, 62, 77, 67)
+    b2 = old.make_melody(np.random.default_rng(83), prog[12:16], kp, MINOR, rB, 62, 77, 70)
+    mel = a + old.transpose_rest(a, 4) + old.transpose_rest(b, 8) + old.transpose_rest(b2, 12) + old.transpose_rest(a, 16) + old.transpose_rest(a, 20)
+    mel = old.end_on_root(mel, kp, 62, 76)
+    for pos, d, mm0 in mel:
+        mm = mm0 + 12 * int(loct)
+        v = m.vel(0.85 if abs(pos - round(pos)) < 1e-6 else 0.72, 0.05)
+        if lead == 'brass':
+            m.add(brass2(midi_hz(mm), d * m.beat * 0.92, v, bright=0.55), pos, pan=0.15, rev=0.22, gain=bgain, humanize=0.006)
+            m.add(brass2(midi_hz(mm - 12), d * m.beat * 0.92, v * 0.7, bright=0.4), pos, pan=-0.15, rev=0.22, gain=bgain, humanize=0.006)
+        elif lead == 'horn':   # まるいホルン隊：ゆっくり吹き始め、明るさ控えめ、揺れ少なめ
+            m.add(brass2(midi_hz(mm), d * m.beat * 0.95, v, bright=0.12, voices=2, att=0.07, det_c=4), pos, pan=0.15, rev=0.3, gain=bgain * lgain, humanize=0.008)
+            m.add(brass2(midi_hz(mm - 12), d * m.beat * 0.95, v * 0.6, bright=0.05, voices=2, att=0.07, det_c=4), pos, pan=-0.15, rev=0.3, gain=bgain * lgain, humanize=0.008)
+        elif lead == 'guitar':   # 歪んだリードギター（ロックっぽく）
+            m.add(lead_guitar(midi_hz(mm), d * m.beat * 0.95, v), pos, pan=0.1, rev=0.25, gain=lgain, humanize=0.006)
+            m.add(lead_guitar(midi_hz(mm), d * m.beat * 0.95, v * 0.7, bend=0.6), pos + 0.006, pan=-0.25, rev=0.25, gain=lgain * 0.8, humanize=0.006)
+        elif lead == 'lowbrass':   # トロンボーン＋チューバ隊：重く、吹き始めに「ブァッ」
+            m.add(brass2(midi_hz(mm), d * m.beat * 0.94, v, bright=0.45, voices=3, att=0.04, det_c=7), pos, pan=0.15, rev=0.2, gain=bgain * lgain, humanize=0.006)
+            m.add(brass2(midi_hz(mm - 12), d * m.beat * 0.94, v * 0.75, bright=0.3, voices=2, att=0.05, det_c=5), pos, pan=-0.15, rev=0.2, gain=bgain * lgain, humanize=0.006)
+        elif lead == 'heavyguitar':   # 低く太い歪みギター（オクターブ重ね）
+            m.add(lead_guitar(midi_hz(mm), d * m.beat * 0.95, v, drive=8.0, bend=0.5), pos, pan=-0.3, rev=0.18, gain=lgain, humanize=0.005)
+            m.add(lead_guitar(midi_hz(mm), d * m.beat * 0.95, v, drive=8.0, bend=0.5), pos + 0.008, pan=0.3, rev=0.18, gain=lgain, humanize=0.005)
+            m.add(lead_guitar(midi_hz(mm - 12), d * m.beat * 0.95, v * 0.6, drive=8.0, bend=0.3), pos, pan=0.0, rev=0.15, gain=lgain, humanize=0.005)
+        elif lead == 'old':   # 前の曲と同じシンプルなブラス（倍音8本、ゆっくり立ち上がる）を、今の仕上げで
+            m.add(old.brass(midi_hz(mm), d * m.beat * 0.92, 1.2 * v), pos, pan=0.15, rev=0.25, gain=lgain, humanize=0.006)
+            m.add(old.brass(midi_hz(mm - 12), d * m.beat * 0.92, 0.8 * v), pos, pan=-0.15, rev=0.25, gain=lgain, humanize=0.006)
+        if pos >= 64: m.add(soft_lead(midi_hz(mm0 + 12), d * m.beat * 0.85, v * 0.5), pos, pan=0.3, rev=0.28, gain=2.0, humanize=0.006)
+    for bar, cn in enumerate(prog):
+        r, cps = old.chord(cn)
+        root = old.nearest(38, [r], 33, 44)
+        for k in range(8):
+            m.add(finger_bass(midi_hz(root + (12 if k == 7 else 0)), 0.42 * m.beat, m.vel(0.8 if k % 2 == 0 else 0.62, 0.04), tone=btone), bar * 4 + k * 0.5, rev=0.03, gain=bassg, humanize=0.003)
+        pr = old.nearest(50, [r], 45, 56) - 12
+        if fill in ('ring', 'both'):   # 伸ばすパワーコード「ギャーン」：小節の頭と3拍目裏だけ、刻まずに鳴らしっぱなし
+            for off, ln, vv in ((0, 2.5, 0.9), (2.5, 1.5, 0.7)):
+                m.add(power2(midi_hz(pr), ln * m.beat, m.vel(vv, 0.03), drive=drive, mute=0.25), bar * 4 + off, pan=-0.55, rev=0.18, gain=0.45 * fgain, humanize=0.003)
+                m.add(power2(midi_hz(pr), ln * m.beat, m.vel(vv, 0.03), drive=drive, mute=0.25), bar * 4 + off + 0.012, pan=0.55, rev=0.18, gain=0.45 * fgain, humanize=0.003)
+        if fill in ('pad', 'both'):   # 低めの暗いパッドで和音をうめる
+            vo = sorted(old.nearest(52 + (p - 52) % 12, [p], 48, 60) for p in cps)
+            for x in vo: m.add(warm_pad(midi_hz(x), 4 * m.beat + 0.2, 0.42, bright=0.2), bar * 4, rev=0.3, gain=fgain, humanize=0)
+        for k in range(8):
+            if k in (3, 7) and bar % 2 == 1: continue
+            vel = 1.0 if k in (0, 3, 6) else 0.6
+            mt = mute * (2.5 if k in (0, 6) else 1.0)
+            m.add(power2(midi_hz(pr), 0.38 * m.beat, m.vel(vel, 0.04), drive=drive, mute=mt), bar * 4 + k * 0.5, pan=-0.6, rev=0.1, gain=ggain, humanize=0.004)
+            m.add(power2(midi_hz(pr), 0.38 * m.beat, m.vel(vel, 0.04), drive=drive, mute=mt), bar * 4 + k * 0.5 + 0.012, pan=0.6, rev=0.1, gain=ggain, humanize=0.004)
+        for beat in (0, 1, 2, 3): m.add(kick2(m.vel(0.95 if beat % 2 == 0 else 0.8, 0.03), punch=0.7, low=0.7), bar * 4 + beat, rev=0.03, humanize=0.002)
+        m.add(kick2(m.vel(0.7, 0.03), punch=0.7, low=0.7), bar * 4 + 2.5, rev=0.03, humanize=0.002)
+        for beat in (1, 3): m.add(snare2(m.vel(1.0, 0.03), tone=0.7, snap=0.6), bar * 4 + beat, pan=0.05, rev=0.4, humanize=0.003)
+        for k in range(8): m.add(hat2(m.vel(0.85 if k % 2 else 0.6, 0.06), open_=(k == 7)), bar * 4 + k * 0.5, pan=0.35, rev=0.03, humanize=0.003)
+        if bar % 4 == 0: m.add(crash2(m.vel(0.85, 0.03)), bar * 4, pan=-0.25, rev=0.25, humanize=0)
+        if bar % 4 == 3:
+            for k, f in enumerate((130, 110, 90, 72)): m.add(tom2(f, m.vel(0.85, 0.04), skin=0.7), bar * 4 + 2 + k * 0.5, pan=-0.4 + 0.27 * k, rev=0.25, humanize=0.003)
+    st = master(m, rt60=1.4, rev_level=0.32, damp=0.5, lowcut=32, warmth_db=0.5, air_db=2.5, comp_thresh=-16, comp_ratio=2.2, target_rms_db=-13.0)
+    save(st, path or os.path.join(OUT, "bgm_pitfalls2.wav"))
+    return st
+
 def lobby_c(path=None):
     """lobby_b と同じメロディ・コード・ゆりかごの分散和音。音源と残響・仕上げを新しくした版"""
     m = Mix(60, 16, tail=5.0, seed=11)

@@ -347,6 +347,76 @@ def tom2(f=90, vel=0.8, skin=0.5):
     y = np.tanh((body + hit) * 1.2) / np.tanh(1.2)
     return y * np.clip(t / 0.001, 0, 1) * vel * 0.7
 
+def brass2(f, dur, vel=0.8, bright=0.5, voices=3, att=0.035, det_c=6):
+    """ブラス（2026-10-07）：帯域制限したノコギリ波（倍音を足し算）を少しずらして重ねる。
+    吹き始めは「パッ」と明るく開いてから少し落ち着き、音程はほんの少し下から入る。遅れて軽いビブラート。
+    フィルターは倍音ごとの重み（時間で変わる）でかけるので、エイリアスやフィルターの段差が出ない"""
+    rel = 0.09
+    n = int((dur + rel + 0.02) * SR); t = np.arange(n) / SR
+    # 明るさ（カットオフ／基音の倍数）の時間変化：0→ピーク→落ち着き、離すと閉じる
+    peak = 6 + 10 * bright; sus = 3 + 5 * bright
+    cut = np.where(t < att, 1.5 + (peak - 1.5) * t / att, sus + (peak - sus) * np.exp(-(t - att) / 0.12))
+    cut = np.where(t > dur, cut * np.exp(-(t - dur) / 0.05), cut)
+    amp = np.minimum(t / max(0.02, att * 0.6), 1.0) * np.where(t < dur, 1.0, np.exp(-(t - dur) / (rel / 3)))
+    vib = 1 + 0.004 * np.sin(2 * np.pi * 5.3 * t) * np.clip((t - 0.25) / 0.3, 0, 1)
+    scoop = 1 - 0.012 * np.exp(-t / 0.03)
+    y = np.zeros(n)
+    K = int(min(40, (SR * 0.45) / f))
+    for v in range(voices):
+        det = (v - (voices - 1) / 2) * det_c / 1200
+        fr = f * 2 ** det * vib * scoop
+        ph = 2 * np.pi * np.cumsum(fr) / SR + rng_global.uniform(0, 6.28)
+        for k in range(1, K + 1):
+            w = 1 / k / (1 + (k / cut) ** 4)
+            y += w * np.sin(k * ph)
+    y *= amp / voices
+    return y * vel * 0.22
+
+def lead_guitar(f, dur, vel=0.8, drive=5.0, bend=1.0):
+    """歪んだリードギター（2026-10-07）：伸びる弦（帯域制限ノコギリ波）を歪ませてスピーカーの箱を通す。
+    長い音は少し下からしゃくり上げて、あとから深めのビブラート（ギターの指ビブラート）"""
+    rel = 0.07
+    n = int((dur + rel + 0.02) * SR); t = np.arange(n) / SR
+    long_ = dur > 0.4
+    scoop = 1 - (0.03 * bend if long_ else 0.008) * np.exp(-t / 0.045)
+    vib = 1 + 0.009 * np.sin(2 * np.pi * 5.6 * t) * np.clip((t - 0.22) / 0.25, 0, 1)
+    ph = 2 * np.pi * np.cumsum(f * scoop * vib) / SR
+    K = int(min(30, (SR * 0.45) / f))
+    y = sum(np.sin(k * ph) / k for k in range(1, K + 1))
+    # 弾いた瞬間の「ピッ」と、少しずつ落ちる音量（でも歪みで伸びる）
+    amp = np.minimum(t / 0.004, 1.0) * (0.55 + 0.45 * np.exp(-t / 0.15)) * np.where(t < dur, 1.0, np.exp(-(t - dur) / (rel / 3)))
+    y = lp(y, 3500, 1) * amp
+    y = np.tanh(y * drive) / np.tanh(drive)
+    y = lp(bp(y, 120, 5000, 2), 3800, 2)
+    y = y + 0.35 * bp(y, 1500, 2800, 1)
+    return y * vel * 0.3
+
+def power2(f, dur, vel=0.8, drive=4.0, mute=0.06):
+    """パワーコード（2026-10-07）：ルート＋5度＋オクターブの弦（KS）を足してから歪ませる（本物と同じ順番）。
+    スピーカーの箱っぽく高域と低域を切る。mute：ブリッジミュートの消え方（短いほどズンズン）"""
+    fs_ = [f, f * 1.5, f * 2]
+    parts = [ks_string(x, dur, 0.8, bright=0.75, damp_time=mute, body=False) for x in fs_]
+    n = max(len(p) for p in parts); y = np.zeros(n)
+    for k, p in enumerate(parts): y[int(k * 0.003 * SR):][:len(p)] += p[:n - int(k * 0.003 * SR)]
+    y = hp(y, 80, 2)
+    y = np.tanh(y * drive) / np.tanh(drive)
+    y = lp(bp(y, 90, 5200, 2), 4200, 2)
+    # 箱の山（2.5kのあたりを少し持ち上げる）
+    y = y + 0.3 * bp(y, 1800, 3200, 1)
+    return y * vel * 0.3
+
+def crash2(vel=0.8, dur=2.2):
+    """クラッシュシンバル：たくさんの金属の部分音（非整数倍）＋ノイズ、明るい頭と長い「しゃーん」"""
+    n = int(dur * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    r = np.random.default_rng(int(rng_global.integers(1 << 30)))
+    for fr in r.uniform(3000, 12000, 60):
+        y += np.sin(2 * np.pi * fr * t + r.uniform(0, 6.28)) * np.exp(-t / r.uniform(0.4, 1.4))
+    y = y / 8 + 1.2 * hp(rng_global.standard_normal(n), 4000, 2) * np.exp(-t / 0.7)
+    y = hp(y, 2500, 2) * (np.exp(-t / 0.9) * 0.8 + 0.2 * np.exp(-t / 0.05))
+    y *= np.clip(t / 0.002, 0, 1)
+    return y * vel * 0.12
+
 def snare2(vel=0.8, tone=0.5, snap=0.5):
     n = int(0.35 * SR); t = np.arange(n) / SR
     drum = (np.sin(2 * np.pi * 185 * t) * 0.7 + np.sin(2 * np.pi * 330 * t) * 0.35) * np.exp(-t / (0.06 + 0.04 * tone))
