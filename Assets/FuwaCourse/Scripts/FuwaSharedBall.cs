@@ -5,7 +5,10 @@ using VRC.SDK3.UdonNetworkCalling;
 using VRC.Udon.Common.Interfaces;
 
 // 「みんなで」ロビーの、全員で同じものを吹いて遊ぶふわふわ。
-// 吹いた人がその場で持ち主になり、撃った瞬間の「位置・速さ・時刻」を全員に送る。
+// 持ち主は1人に固定（撃っても交代しない）。持ち主の画面の動きが正解で、持ち主が「位置・速さ・時刻」をみんなに送る。
+// 持ち主でない人が撃った時は、自分の画面ではすぐ動かし（遅れなし）、同時に「この強さで撃った」を持ち主に送る。
+// 持ち主は届いた撃ちを自分の玉に反映して配り直す。撃った本人の画面は、持ち主がその撃ちを反映した状態が届くまでは自分の予測を優先する。
+// （以前は撃った人が持ち主になっていたが、2人で連打すると持ち主が入れ替わり続けて、画面ごとの位置がずれたまま戻らなかった）
 // あとはそれぞれの画面で同じ決まりで動かし（なめらか）、持ち主がときどき送る位置へそっと寄せる。
 // 最初は真ん中のキノコの上で浮いて待っていて、誰かが吹くと飛び出す。床に落ちたら弾けて、キノコの上に戻る。
 // （VRCObjectSync は使わない。同期モードは Manual）
@@ -78,8 +81,15 @@ public class FuwaSharedBall : UdonSharpBehaviour
     [Tooltip("待っている間・弾けている間も、持ち主がこの間隔(秒)で今の状態を送り直す（画面ごとに状態がずれたままにならないように）")]
     public float heartbeatInterval = 1.5f;
 
-    [UdonSynced] private bool _waiting = true;
-    [UdonSynced] private bool _popped;
+    [Tooltip("自分が撃った後、持ち主がその撃ちを反映した状態が届くまで、自分の画面の予測を優先する最長の秒数")]
+    public float pendingTimeout = 1.2f;
+
+    // 画面ごとの状態（持ち主ならこれが正解。持ち主でなければ、届いた状態をここへ写す）
+    private bool _waiting = true;
+    private bool _popped;
+    // 送る用（持ち主が OnPreSerialization で詰める）
+    [UdonSynced] private bool _nWaiting = true;
+    [UdonSynced] private bool _nPopped;
     [UdonSynced] private Vector3 _sPos;
     [UdonSynced] private Vector3 _sVel;
     [UdonSynced] private Vector3 _sAng;
@@ -102,9 +112,20 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private Vector3 _predVel;
     private float _nextSend;
     private bool _sendSoon;
+    // 持ち主でない人が撃った後：持ち主に反映されるのを待っている撃ちの数と、その時点で見えていた撃ちの番号
+    private int _pending;
+    private int _pendBase;
+    private float _pendUntil;
 
-    private void Start()
+    private bool _inited;
+
+    private void Start() { Init(); }
+
+    // Start より先に呼ばれることがある（隠れていたエリアが出た直後に撃たれた・届いた時）ので、使う前に必ず通す
+    private void Init()
     {
+        if (_inited) return;
+        _inited = true;
         _rb = GetComponent<Rigidbody>();
         _selfRenderer = GetComponent<Renderer>();
         _trail = GetComponent<TrailRenderer>();
@@ -146,25 +167,62 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (_trail != null) _trail.Clear();
     }
 
-    // エアガンから呼ばれる（吹いた人の画面で）。その人が持ち主になって、自分の画面ではすぐ動かす
+    // エアガンから呼ばれる（吹いた人の画面で）。自分の画面ではすぐ動かし、持ち主でなければ持ち主にも伝える
     public void BlowShared(Vector3 velocityChange)
     {
+        Init();
         if (_popped || _waiting) return;   // キノコに隠れている間は、傘を撃たないと出てこない
-        Launch(velocityChange);
+        Shoot(velocityChange, false);
     }
 
     // スタートのキノコの傘を撃った人の画面で呼ばれる：撃った向きへポンと飛び出す
     public void ReleaseFromMushroom(Vector3 shotDir)
     {
+        Init();
         if (_popped || !_waiting) return;
         Vector3 flat = new Vector3(shotDir.x, 0f, shotDir.z);
         flat = flat.sqrMagnitude > 0.0001f ? flat.normalized : Vector3.zero;
-        Launch(flat * releasePush + Vector3.up * releaseUp);
+        Shoot(flat * releasePush + Vector3.up * releaseUp, true);
     }
 
+    private void Shoot(Vector3 velocityChange, bool release)
+    {
+        Launch(velocityChange);
+        float k = Mathf.Clamp01(velocityChange.magnitude / Mathf.Max(0.01f, squashFullAt));
+        PlayPuff(k);   // 自分の画面ではすぐ
+        SendCustomNetworkEvent(NetworkEventTarget.Others, nameof(PlayPuff), k);
+        if (Networking.IsOwner(gameObject))
+        {
+            _sShot++;
+            _seenShot = _sShot;
+            SendState();
+        }
+        else
+        {
+            // 持ち主に伝える。持ち主がこの撃ちを反映した状態（撃ちの番号が進んだ状態）が届くまでは、自分の画面の予測を優先する
+            if (_pending == 0) _pendBase = _seenShot;
+            _pending++;
+            _pendUntil = Time.time + pendingTimeout;
+            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(RemoteShot), velocityChange, release);
+        }
+    }
+
+    // 持ち主の画面で：ほかの人が撃った分を反映して、みんなに配る
+    [NetworkCallable(30)]
+    public void RemoteShot(Vector3 velocityChange, bool release)
+    {
+        Init();
+        if (!Networking.IsOwner(gameObject) || _popped) return;
+        if (_waiting && !release) return;   // 持ち主の画面ではまだキノコの中：傘を撃った分だけ受け付ける
+        Launch(velocityChange);
+        _sShot++;
+        _seenShot = _sShot;
+        SendState();
+    }
+
+    // 玉に撃った速さを足す（自分の画面の玉に。持ち主かどうかに関係なく）
     private void Launch(Vector3 velocityChange)
     {
-        if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
         Vector3 v = _rb.isKinematic ? Vector3.zero : _rb.velocity;
         if (_waiting)
         {
@@ -179,11 +237,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
         Vector3 flat = new Vector3(velocityChange.x, 0f, velocityChange.z);
         Vector3 axis = flat.sqrMagnitude > 0.0001f ? Vector3.Cross(Vector3.up, flat.normalized) : Vector3.zero;
         _rb.angularVelocity = axis * spinPerPuff + Random.insideUnitSphere * spinRandom;
-        _posErr = Vector3.zero;   // 自分が撃った玉は、自分の見ている位置が正解
-        _sShot++;
-        _seenShot = _sShot;
-        SendState();
-        SendCustomNetworkEvent(NetworkEventTarget.All, nameof(PlayPuff), Mathf.Clamp01(velocityChange.magnitude / Mathf.Max(0.01f, squashFullAt)));
+        _posErr = Vector3.zero;   // 撃った直後は、自分の見ている位置から動かす
+        ApplyHiddenVisual();
     }
 
     // 持ち主：今の位置・速さ・時刻を送る（中身は OnPreSerialization で詰める）
@@ -196,6 +251,9 @@ public class FuwaSharedBall : UdonSharpBehaviour
 
     public override void OnPreSerialization()
     {
+        Init();
+        _nWaiting = _waiting;
+        _nPopped = _popped;
         _sPos = _rb.position;
         _sVel = _rb.isKinematic ? Vector3.zero : _rb.velocity;
         _sAng = _rb.isKinematic ? Vector3.zero : _rb.angularVelocity;
@@ -222,14 +280,26 @@ public class FuwaSharedBall : UdonSharpBehaviour
 
     public override void OnDeserialization()
     {
+        Init();
         if (Networking.IsOwner(gameObject)) return;
+        // 自分が撃った分がまだ持ち主に反映されていない間は、届いた状態より自分の予測を優先する（弾けた知らせだけはすぐ受け取る）
+        if (_pending > 0)
+        {
+            if (_sShot >= _pendBase + _pending || Time.time > _pendUntil) _pending = 0;
+            else if (!_nPopped) { _seenShot = _sShot; return; }
+        }
+        _waiting = _nWaiting;
+        _popped = _nPopped;
         if (_popped)
         {
             _rb.isKinematic = true;
+            _pending = 0;   // 弾けた：持ち主はもう撃ちを受け付けないので待たない
+            _seenShot = _sShot;
         }
         else if (_waiting)
         {
             if (!_shownWaiting) GoHome();
+            _seenShot = _sShot;
         }
         else
         {
@@ -258,19 +328,18 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (_shownHidden != (_popped || _waiting)) ApplyHiddenVisual();
     }
 
-    // 持ち主が入れ替わった：新しい持ち主が、今の自分の状態をすぐみんなに送る
-    // （2人がほぼ同時に撃つと、両方とも「自分が持ち主」のつもりで動いてしまい、片方の画面だけ玉が消えたままになることがあるので、
-    //  決まった持ち主の状態で全員をそろえ直す）
+    // 持ち主が入れ替わった（前の持ち主が抜けた時など）：新しい持ち主が、今の自分の状態をすぐみんなに送る
     public override void OnOwnershipTransferred(VRCPlayerApi player)
     {
         if (player == null || !player.isLocal) return;
         if (_popped && _respawnAt < 0f) _respawnAt = Time.time + respawnDelay;
         _posErr = Vector3.zero;
+        _pending = 0;
         SendState();
     }
 
     // 撃たれた時（全員）：強さ k(0〜1) に合わせて、綿毛を散らして、ボヨンと鳴らして、ポヨンとつぶれる
-    [NetworkCallable]
+    [NetworkCallable(30)]
     public void PlayPuff(float k)
     {
         if (shotPuff != null) shotPuff.Emit(Mathf.RoundToInt(Mathf.Lerp(shotPuffMin, shotPuffMax, k)));
