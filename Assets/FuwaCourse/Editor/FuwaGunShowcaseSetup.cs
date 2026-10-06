@@ -92,8 +92,26 @@ public static class FuwaGunShowcaseSetup
 
         // ---- スクリプト ----
         var sc = UdonSharpUndo.AddComponent<FuwaGunShowcase>(root);
-        sc.manager = summon.manager; sc.content = content; sc.spin = spin.transform;
+        sc.manager = summon.manager; sc.content = content; sc.spin = spin.transform; sc.shownVisual = vis.transform;
         UdonSharpEditorUtility.CopyProxyToUdon(sc);
+
+        // 枠線用の銃の形：本物の銃の見た目の部品（表示中のもの）を、Visual の座標でひとまとめにしたメッシュ
+        {
+            var vr = blower.visualRoot.transform;
+            var parts = blower.visualRoot.GetComponentsInChildren<MeshRenderer>(true)
+                .Where(r => r.enabled && r.gameObject.activeInHierarchy && !r.name.StartsWith("GunGauge") && r.name != "GunMuzzleHole" && r.name != "Shaft")
+                .Select(r => new CombineInstance { mesh = r.GetComponent<MeshFilter>().sharedMesh, transform = vr.worldToLocalMatrix * r.transform.localToWorldMatrix })
+                .Where(ci => ci.mesh != null).ToArray();
+            var hm = new Mesh { name = "GunDockHighlight", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            hm.CombineMeshes(parts, true, true);
+            hm.RecalculateBounds();
+            string hp = MeshDir + "/GunDockHighlight.asset";
+            if (AssetDatabase.LoadAssetAtPath<Mesh>(hp) != null) AssetDatabase.DeleteAsset(hp);
+            AssetDatabase.CreateAsset(hm, hp);
+            Undo.RecordObject(blower, "highlight"); blower.dockHighlightMesh = hm;
+            UdonSharpEditorUtility.CopyProxyToUdon(blower);
+            log.Append("highlight parts " + parts.Length + " ");
+        }
         content.SetActive(false);
 
         // ---- 各台：▼を浮かんだ銃のすぐ上へ、指した時の枠を切り株の形に ----

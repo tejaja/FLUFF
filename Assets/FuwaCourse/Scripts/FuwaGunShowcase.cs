@@ -36,5 +36,10 @@ public class FuwaGunShowcase : UdonSharpBehaviour
             spin.localPosition = Vector3.up * Mathf.Sin(Time.time * bobSpeed) * bobAmp;
             spin.localRotation = Quaternion.Euler(0f, Time.time * spinSpeed, 0f) * Quaternion.Euler(tilt);
         }
+        // 本物の銃の枠線用ダミーを、見た目の銃に重ねる（近づけた時・指した時に回っている銃のまわりに枠が出る）
+        if (shownVisual != null) gun.SetDockHighlightPose(shownVisual);
     }
+
+    [Tooltip("見た目の銃（Spin の下の Visual）。本物の銃の枠線用ダミーをここに重ねる")]
+    public Transform shownVisual;
 }

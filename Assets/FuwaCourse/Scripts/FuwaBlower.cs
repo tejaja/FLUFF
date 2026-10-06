@@ -244,8 +244,42 @@ public class FuwaBlower : UdonSharpBehaviour
     {
         if (_dock == null) return;
         _dock = null;
+        RestoreHighlightDummy();
         SetSummonHidden(false);
         SetDockGrabbable(true);
+    }
+
+    // ---- 台の上の銃に、VRChatの「近づけた時の枠線」を出す ----
+    // 枠線は掴める物（この銃）の子の表示中のレンダラーの形で描かれる。台の上では本物の銃は見えないので、
+    // 何も描かない材質のダミー（highlightDummy）の形を銃の形にして、浮いて回っている見た目の銃と同じ位置・向き・大きさに毎フレーム合わせる。
+    // 子の位置は同期されないので、通信は増えない
+    [Tooltip("台に乗っている間だけダミーに使う、銃の形（見た目の部品をひとまとめにしたメッシュ）")]
+    public Mesh dockHighlightMesh;
+    private Mesh _dummyMesh;
+    private bool _dummySwapped;
+
+    // FuwaGunShowcase から毎フレーム（見た目の銃の位置・向き・大きさ）
+    public void SetDockHighlightPose(Transform shown)
+    {
+        if (highlightDummy == null || dockHighlightMesh == null || shown == null) return;
+        if (_dock == null || _held) { RestoreHighlightDummy(); return; }
+        MeshFilter mf = (MeshFilter)highlightDummy.GetComponent(typeof(MeshFilter));
+        if (mf == null) return;
+        if (!_dummySwapped) { _dummyMesh = mf.sharedMesh; mf.sharedMesh = dockHighlightMesh; _dummySwapped = true; }
+        Transform t = highlightDummy.transform;
+        t.SetPositionAndRotation(shown.position, shown.rotation);
+        Vector3 ps = transform.lossyScale, ss = shown.lossyScale;
+        t.localScale = new Vector3(ss.x / Mathf.Max(ps.x, 1e-4f), ss.y / Mathf.Max(ps.y, 1e-4f), ss.z / Mathf.Max(ps.z, 1e-4f));
+    }
+
+    private void RestoreHighlightDummy()
+    {
+        if (!_dummySwapped || highlightDummy == null) return;
+        _dummySwapped = false;
+        MeshFilter mf = (MeshFilter)highlightDummy.GetComponent(typeof(MeshFilter));
+        if (mf != null) mf.sharedMesh = _dummyMesh;
+        Transform t = highlightDummy.transform;
+        t.localPosition = Vector3.zero; t.localRotation = Quaternion.identity; t.localScale = Vector3.one;
     }
 
     // VRで台に乗っている間は、手が近くにある時だけ掴めるようにする（遠くからレーザーで掴むと変な角度で持ってしまうため）
@@ -344,6 +378,7 @@ public class FuwaBlower : UdonSharpBehaviour
         if (hud != null && _pickup != null) hud.SetHeld(true, _pickup.currentHand == VRC_Pickup.PickupHand.Left);
         _held = true;
         if (_dock != null) { _dock = null; SetDockGrabbable(true); }   // 握ったら台から外れる
+        RestoreHighlightDummy();
         if (_summonHidden) { _summonHidden = false; ApplySummonHidden(); }
         RequestSerialization();
         UpdateVisibility();

@@ -957,6 +957,7 @@ public class FuwaBall : UdonSharpBehaviour
 
     public void ResetToRespawn()
     {
+        if (_rb == null) _rb = GetComponent<Rigidbody>();   // Start より先に呼ばれた時（隠れていたエリアに入ってすぐワープした時など）
         StopInflate();
         _carried = false;
         _resetAt = -1f;
