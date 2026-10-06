@@ -34,18 +34,29 @@ public class FuwaRecords : UdonSharpBehaviour
     private float[] _myBest = new float[0];
     private bool _restored;   // 自分の保存データが届いたか（届く前に書くと上書きされるので待つ）
 
+    private bool _inited;
+
     private void Start()
     {
+        Init();
+        Render();
+    }
+
+    // Start より先に ReportTime / OnPlayerRestored が来ても配列の外を読まないように
+    private void Init()
+    {
+        if (_inited) return;
+        _inited = true;
         int n = courseStarts != null ? courseStarts.Length : 0;
         if (_bestTimes == null || _bestTimes.Length != n) { _bestTimes = new float[n]; _bestNames = new string[n]; }
         for (int i = 0; i < n; i++) if (_bestNames[i] == null) _bestNames[i] = "";
         _myBest = new float[n];
-        Render();
     }
 
     // ゴールした時にFuwaBallから呼ばれる
     public void ReportTime(Transform start, float time)
     {
+        Init();
         int i = IndexOf(start);
         if (i < 0 || time <= 0f) return;
         // 自己ベスト
@@ -74,6 +85,7 @@ public class FuwaRecords : UdonSharpBehaviour
     // 自分の保存データが届いた時（ワールドに入って少ししてから）
     public override void OnPlayerRestored(VRCPlayerApi player)
     {
+        Init();
         if (player == null || !player.isLocal || !savePlayerData) return;
         _restored = true;
         int n = courseStarts != null ? courseStarts.Length : 0;

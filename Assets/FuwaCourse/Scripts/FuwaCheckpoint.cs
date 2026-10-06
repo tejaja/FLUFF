@@ -23,8 +23,18 @@ public class FuwaCheckpoint : UdonSharpBehaviour
     private Color[] _glowOrig;
     private Color _indicatorOrig = Color.white;
 
+    private bool _inited;
+
     private void Start()
     {
+        Init();
+    }
+
+    // コースは普段隠してあって Start がまだのうちに ResetGlow が来ることがあるので、先にここで元の色を覚える
+    private void Init()
+    {
+        if (_inited) return;
+        _inited = true;
         // 光る前の色を覚えておく（コースをやり直した時に戻す）
         if (indicator != null) _indicatorOrig = indicator.material.color;
         if (glowRenderers == null) return;
@@ -35,6 +45,7 @@ public class FuwaCheckpoint : UdonSharpBehaviour
     // 光を消して、まだ通っていない状態に戻す（FuwaBall がスタートからやり直す時に呼ぶ）
     public void ResetGlow()
     {
+        Init();
         _glowStart = -1f;
         _glowFrom = null;
         if (_glowOrig != null)
@@ -49,6 +60,7 @@ public class FuwaCheckpoint : UdonSharpBehaviour
         if (other == null) return;
         FuwaBall ball = other.GetComponent<FuwaBall>();
         if (ball == null) return;
+        Init();
         ball.SetCheckpoint(respawnPoint != null ? respawnPoint : transform);
         if (indicator != null) indicator.material.color = reachedColor;
         if (glowRenderers != null && glowRenderers.Length > 0 && _glowStart < 0f)

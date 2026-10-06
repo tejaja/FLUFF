@@ -133,6 +133,14 @@ public class FuwaJumpBoost : UdonSharpBehaviour
         return d.x * d.x + d.z * d.z <= radius * radius;
     }
 
+    // コースが隠された時（ワープなど）に乗ったままだと、高いジャンプが残ってしまうので戻す
+    private void OnDisable()
+    {
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        if (_boosted && lp != null && lp.IsValid()) SetBoost(lp, false);
+        _wobbling = false;
+    }
+
     private void SetBoost(VRCPlayerApi p, bool on)
     {
         if (on == _boosted) return;

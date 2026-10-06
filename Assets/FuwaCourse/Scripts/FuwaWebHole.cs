@@ -38,6 +38,7 @@ public class FuwaWebHole : UdonSharpBehaviour
             for (int i = 0; i < webRenderers.Length; i++)
                 if (webRenderers[i] != null) _mats[i] = webRenderers[i].material;
         }
+        _applied = -1f;   // Start より先に SetRadius が来ていても、マテリアルに入れ直す
         Apply(holeRadius);
     }
 
