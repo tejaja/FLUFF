@@ -241,6 +241,46 @@ def pitfalls2(path=None, bgain=3.5, ggain=0.6, drive=4.0, mute=0.06, lead='brass
     save(st, path or os.path.join(OUT, "bgm_pitfalls2.wav"))
     return st
 
+def yami2(path=None, lead='vibes', lgain=1.0, cgain=1.0, dgain=0.28, drev=0.85):
+    """よるのもり（yami_b と同じ作曲）：D短調70BPM、ゆったり・ふしぎ。メロディ（ビブラフォン or フェルトピアノ）に
+    1オクターブ上のチェレスタを小さく重ねる、暗いパッド、息の「ふわー」、音階のしずく「ぽちょん」、心臓みたいな低いキック「どっ・くん」"""
+    from make_bgm_tower import voicing
+    from make_bgm_yami import drip, HMINOR
+    m = Mix(70, 16, tail=4.0, seed=51)
+    prog = ['Dm', 'Bb', 'Gm', 'A', 'Dm', 'Bb', 'Gm', 'A', 'Bb', 'C', 'Am', 'Dm', 'Gm', 'Bb', 'A', 'A']
+    kp = old.NOTE['D']; MINOR = old.MINOR
+    rA = [[(0, 2), (2, 1), (3, 1)], [(0, 3), (3, 1)], [(0, 1), (1, 1), (2, 2)], [(0, 4)]]
+    a = old.make_melody(np.random.default_rng(211), prog[:4], kp, HMINOR, rA, 62, 79, 69)
+    a2 = old.make_melody(np.random.default_rng(212), prog[4:8], kp, HMINOR, rA, 62, 79, a[-1][2])
+    b = old.make_melody(np.random.default_rng(213), prog[8:12], kp, MINOR, rA, 64, 81, 72)
+    c = old.make_melody(np.random.default_rng(214), prog[12:16], kp, HMINOR, rA, 62, 79, 70)
+    mel = a + old.transpose_rest(a2, 4) + old.transpose_rest(b, 8) + old.transpose_rest(c, 12)
+    for pos, d, mm in mel:
+        v = m.vel(0.7 if (pos % 4) == 0 else 0.6, 0.05)
+        if lead == 'vibes': m.add(vibes(midi_hz(mm), d * m.beat, v, hard=0.3, trem=3.5, depth=0.35, rel=1.2), pos, pan=0.1, rev=0.5, gain=lgain, humanize=0.01)
+        else: m.add(felt_piano2(midi_hz(mm), d * m.beat, v, tone=0.3, sustain=1.0, mech=0.5), pos, pan=0.1, rev=0.5, gain=lgain, humanize=0.01)
+        m.add(celesta(midi_hz(mm + 12), d * m.beat, v * 0.3), pos + 0.02, pan=-0.35, rev=0.55, gain=cgain, humanize=0.006)
+    rng = np.random.default_rng(215)
+    for bar, cn in enumerate(prog):
+        r, cps = old.chord(cn)
+        for x in voicing(cps, 57, 52, 64):
+            m.add(warm_pad(midi_hz(x), 4 * m.beat + 0.3, 0.42, bright=0.18), bar * 4, rev=0.45, humanize=0)
+        m.add(finger_bass(midi_hz(old.nearest(38, [r], 33, 44)), 3.5 * m.beat, m.vel(0.5, 0.04), tone=0.15), bar * 4, rev=0.1, humanize=0.004)
+        if bar % 2 == 0:   # 息の「ふわー」：こもったノイズがゆっくりふくらんで消える
+            n = int(6 * m.beat * SR); t = np.arange(n) / SR
+            nz = bp(rng.standard_normal(n), 300, 1500, 2) * np.sin(np.pi * t / t[-1]) ** 2
+            m.add(nz * 0.05, bar * 4, pan=float(rng.uniform(-0.5, 0.5)), rev=0.5, humanize=0)
+        m.add(kick2(m.vel(0.38, 0.03), punch=0.1, low=0.9), bar * 4, rev=0.12, humanize=0.002)   # どっ・くん
+        m.add(kick2(m.vel(0.24, 0.03), punch=0.1, low=0.9), bar * 4 + 0.5, rev=0.12, humanize=0.002)
+        sc = old.scale_for(kp, HMINOR, cps)
+        for k in range(4):   # しずくの音階
+            if rng.random() < 0.55:
+                x = old.nearest(int(rng.integers(84, 96)), sc, 82, 98)
+                m.add(lp(drip(midi_hz(x), 0.8), 3500, 1), bar * 4 + k + float(rng.choice([0, 0.5])), pan=float(rng.uniform(-0.8, 0.8)), rev=drev, gain=dgain, humanize=0.004)
+    st = master(m, rt60=2.6, rev_level=0.45, damp=0.55, lowcut=30, warmth_db=0.5, air_db=0.5, comp_thresh=-18, comp_ratio=1.6, target_rms_db=-12.0)
+    save(st, path or os.path.join(OUT, "bgm_yami2.wav"))
+    return st
+
 def lobby_c(path=None):
     """lobby_b と同じメロディ・コード・ゆりかごの分散和音。音源と残響・仕上げを新しくした版"""
     m = Mix(60, 16, tail=5.0, seed=11)
