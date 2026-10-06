@@ -59,6 +59,25 @@ public class FuwaHud : UdonSharpBehaviour
     private bool _airEmpty;
     private bool _airHeld;
 
+    [Header("文字の表示ON/OFF（タイム・お知らせの文字。動画を撮る時など）")]
+    [Tooltip("ON/OFFボタンの文字（ロビーの看板などに置いたボタン。なくてもOK）")]
+    public TextMeshProUGUI[] textToggleLabels;
+    private bool _hideText;
+
+    // 文字の表示ON/OFFボタン（レーザーで押すUIボタン）から呼ばれる。自分だけ
+    public void ToggleText()
+    {
+        _hideText = !_hideText;
+        UpdateToggleLabels();
+    }
+
+    private void UpdateToggleLabels()
+    {
+        if (textToggleLabels == null) return;
+        string s = _hideText ? "Text: OFF" : "Text: ON";
+        for (int i = 0; i < textToggleLabels.Length; i++) if (textToggleLabels[i] != null) textToggleLabels[i].text = s;
+    }
+
     private VRCPlayerApi _local;
     private Transform _anchor;
     private Vector3 _baseScale;
@@ -77,6 +96,7 @@ public class FuwaHud : UdonSharpBehaviour
         if (timerText != null) _timerMr = timerText.GetComponent<MeshRenderer>();
         _baseScale = transform.localScale;
         if (airGaugeRenderer != null) _gaugeMat = airGaugeRenderer.material;
+        UpdateToggleLabels();
     }
 
     // 自分の風の道具から呼ばれる
@@ -164,10 +184,10 @@ public class FuwaHud : UdonSharpBehaviour
         if (statusChanged) _lastStatus = statusText.text;
         // タイムは毎フレーム数字が変わるので、空⇔表示の切り替わりの時だけ隠す
         if (timerChanged) { timerChanged = string.IsNullOrEmpty(_lastTimer) || string.IsNullOrEmpty(timerText.text); _lastTimer = timerText.text; }
-        SetTextVisible(statusText, statusBg, !statusChanged);
-        SetTextVisible(timerText, timerBg, !timerChanged);
-        if (!statusChanged) FitBackground(statusText, statusBg);
-        if (!timerChanged) FitBackground(timerText, timerBg);
+        SetTextVisible(statusText, statusBg, !statusChanged && !_hideText);
+        SetTextVisible(timerText, timerBg, !timerChanged && !_hideText);
+        if (!statusChanged && !_hideText) FitBackground(statusText, statusBg);
+        if (!timerChanged && !_hideText) FitBackground(timerText, timerBg);
         if (_local == null || !_local.IsValid()) return;
         VRCPlayerApi.TrackingData head = _local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
 
