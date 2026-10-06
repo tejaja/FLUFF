@@ -53,12 +53,13 @@ public static class FuwaStumpRebuild
         float RC(float ang) { float f = Mathf.Repeat((ang + Mathf.PI) / (Mathf.PI * 2) * B - 0.5f, B); int b0 = Mathf.FloorToInt(f) % B; return Mathf.Lerp(rc[b0], rc[(b0 + 1) % B], f - Mathf.Floor(f)); }
 
         // 苔を表面に落とすための一時メッシュ（樹皮＋切り口）。見た目のふち（波打つ）は入れずに、切り口と樹皮のすき間を
-        // なめらかな帯でふさいだだけのものにする（ふちの細かい凹凸で苔がしわしわになるので、ふちの上は厚みで越える）
+        // なめらかな帯でふさぎ、盛り上がったふちを少し外側から包む形にする（ふちの波打ちで苔がしわしわにならず、ふちに沿ってかぶさる）
         var colMesh = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         var cv = new List<Vector3>(mb.V); var ct = mb.S[0].Concat(mb.S[1]).ToList();
         {
             int S = 180, cb = cv.Count;
-            var band = new[] { new Vector2(-0.012f, CutY + 0.0005f), new Vector2(0.0015f, CutY + 0.0005f), new Vector2(0.0015f, 0.30f) };
+            var band = new[] { new Vector2(-0.012f, CutY + 0.0005f), new Vector2(-0.0085f, CutY + 0.0008f), new Vector2(-0.006f, RingY + 0.0045f), new Vector2(-0.001f, RingY + 0.006f),
+                               new Vector2(0.0055f, RingY + 0.003f), new Vector2(0.0068f, 0.322f), new Vector2(0.002f, 0.312f), new Vector2(0.0015f, 0.30f) };   // 見た目のふち（波打ち込み）を少し外側から包む形
             for (int s = 0; s <= S; s++) { float a = s / (float)S * Mathf.PI * 2 - Mathf.PI; var d = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)); foreach (var q in band) cv.Add(d * (RC(a) + q.x) + Vector3.up * q.y); }
             for (int s = 0; s < S; s++) for (int k = 0; k < band.Length - 1; k++) { int a0 = cb + s * band.Length + k, b0 = a0 + band.Length; ct.AddRange(new[] { a0, b0, a0 + 1, a0 + 1, b0, b0 + 1, a0, a0 + 1, b0, a0 + 1, b0 + 1, b0 }); }   // 両面
         }
@@ -110,7 +111,7 @@ public static class FuwaStumpRebuild
                 Vector3 n, guess; float rad, thick;
                 if (kind == 0) { n = (d + Vector3.up).normalized; guess = d * r0 + Vector3.up * CutY; rad = R(0.035f, 0.055f); thick = R(0.009f, 0.013f); }
                 else if (kind == 1) { n = d; guess = d * 0.17f + Vector3.up * R(0.08f, 0.27f); rad = R(0.026f, 0.045f); thick = R(0.007f, 0.011f); }
-                else if (kind == 2) { n = Vector3.up; guess = d * (r0 - R(0.03f, 0.05f)) + Vector3.up * CutY; rad = R(0.016f, 0.024f); thick = R(0.005f, 0.008f); }
+                else if (kind == 2) { n = Vector3.up; rad = R(0.016f, 0.024f); guess = d * (r0 - rad - R(0.02f, 0.035f)) + Vector3.up * CutY; thick = R(0.005f, 0.008f); }   // ふちにかからない所
                 else { n = (d * 2f + Vector3.up).normalized; guess = d * 0.25f + Vector3.up * R(-0.3f, -0.18f); rad = R(0.035f, 0.055f); thick = R(0.009f, 0.013f); }
                 System.Func<Vector2, (Vector3, Vector3)> surf;
                 if (kind == 0)
@@ -210,17 +211,8 @@ public static class FuwaStumpRebuild
             var (bp, bn) = surf(local);
             if (!Physics.Raycast(bp + off + bn * 0.06f, -bn, out var hit, 0.2f) || hit.collider != mc) return false;
             bns.Add(bn);
-            var hp = hit.point - off; var hn = hit.normal;
+            var hp = hit.point - off; var hn = hit.normal; if (Vector3.Dot(hn, bn) < 0f) hn = -hn;   // 両面にした帯の裏側に当たった時
             if (hn.y > 0.9f && hp.y > CutY - 0.003f) hp.y = Mathf.Max(hp.y, RingY + 0.0004f);   // 切り口の上は年輪より上から
-            // 切り口のふち（盛り上がった樹皮）の近くは、ふちを越えるだけの厚みを確保する
-            float rr = new Vector2(hp.x, hp.z).magnitude, rcut = rcAt(Mathf.Atan2(hp.z, hp.x));
-            if (hp.y > 0.29f)
-            {
-                // ふちの中心（切り口の半径・切り口の高さ）からの近さで、なめらかに厚みを足す（ふちから2cmで0）
-                float dist = new Vector2(rr - rcut, Mathf.Max(0f, CutY - hp.y)).magnitude;
-                float k = Mathf.Clamp01(1f - dist / 0.02f); k = k * k * (3f - 2f * k);
-                h += 0.0085f * k;
-            }
             p = hp + hn * h;
             return true;
         }
