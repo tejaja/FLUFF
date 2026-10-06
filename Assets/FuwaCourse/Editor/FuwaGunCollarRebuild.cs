@@ -160,12 +160,13 @@ public static class FuwaGunCollarRebuild
 
         // ゲージの台（左右）を作り直す。前の面の給気口の暗い底は Gun_Vent に足す
         var VV = new List<Vector3>(); var VN = new List<Vector3>(); var VT = new List<int>();
-        foreach (float side in new[] { 1f, -1f }) BuildPad(V, N, T, VV, VN, VT, side);
+        var BT = new List<int>();   // 前の四角いブロック（白寄りのグレー、2つ目の材質）
+        foreach (float side in new[] { 1f, -1f }) BuildPad(V, N, T, VV, VN, VT, BT, side);
 
         var dst = AssetDatabase.LoadAssetAtPath<Mesh>(DstPath);
         dst.Clear();
         dst.indexFormat = V.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
-        dst.SetVertices(V); dst.SetNormals(N); dst.SetTriangles(T, 0); dst.RecalculateBounds();
+        dst.SetVertices(V); dst.SetNormals(N); dst.subMeshCount = 2; dst.SetTriangles(T, 0); dst.SetTriangles(BT, 1); dst.RecalculateBounds();
         EditorUtility.SetDirty(dst);
         {
             var vs = AssetDatabase.LoadAssetAtPath<Mesh>(VentSrcPath); var vd = AssetDatabase.LoadAssetAtPath<Mesh>(VentDstPath);
@@ -177,6 +178,16 @@ public static class FuwaGunCollarRebuild
         // ゲージ（左右の板）を新しい台の面の上へ
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         var gun = scene.GetRootGameObjects().FirstOrDefault(g => g.name == "FuwaBlower");
+        if (gun != null)
+        {
+            var acc = gun.transform.Find("Visual/GunAccent");
+            if (acc != null)
+            {
+                var mr = acc.GetComponent<MeshRenderer>(); var mats = mr.sharedMaterials;
+                var blockMat = BlockMaterial(mats[0]);
+                if (mats.Length != 2 || mats[1] != blockMat) { Undo.RecordObject(mr, "block mat"); mr.sharedMaterials = new[] { mats[0], blockMat }; }
+            }
+        }
         if (gun != null)
             foreach (var gn in new[] { "Visual/GunGaugeR", "Visual/GunGaugeL" })
             {
@@ -197,6 +208,17 @@ public static class FuwaGunCollarRebuild
     // 前の端の四角いブロック（給気口つき）。X は外側の面からの距離（内側〜外側）、H は高さ、In/Out は台の前の端から後ろへ埋める・前へ出す長さ
     const float BlockX0 = 0.0008f, BlockX1 = 0.0062f, BlockH = 0.0130f, BlockIn = 0.006f, BlockOut = 0.003f, BlockR = 0.0009f, BlockBevel = 0.00045f;
     const float BlockRim = 0.0011f, BlockDepth = 0.0022f;   // 穴のまわりのふちの幅、穴の深さ
+
+    // 前の四角いブロックの材質：黄色い部品と同じシェーダーで、白寄りのグレー
+    static Material BlockMaterial(Material baseMat)
+    {
+        string p = "Assets/FuwaCourse/Materials/Fuwa_BlowerBlock.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (m == null) { m = new Material(baseMat); AssetDatabase.CreateAsset(m, p); }
+        m.SetColor("_Color", new Color(0.86f, 0.87f, 0.89f, 1f));
+        EditorUtility.SetDirty(m);
+        return m;
+    }
 
     static void AddTri(List<Vector3> V, List<int> T, int a, int b, int c, Vector3 want)
     {
@@ -221,7 +243,7 @@ public static class FuwaGunCollarRebuild
         return pts;
     }
 
-    static void BuildPad(List<Vector3> V, List<Vector3> N, List<int> T, List<Vector3> DV, List<Vector3> DN, List<int> DT, float side)
+    static void BuildPad(List<Vector3> V, List<Vector3> N, List<int> T, List<Vector3> DV, List<Vector3> DN, List<int> DT, List<int> BT, float side)
     {
         float yc = (PadY0 + PadY1) * 0.5f, hr = (PadY1 - PadY0) * 0.5f;
         // 台の輪郭（z, y）：前も後ろも半円の、角の丸い細長い形（前の台と同じ形）。前の半円 → 上の辺 → 後ろの半円 → 下の辺（反時計回り）
@@ -311,7 +333,7 @@ public static class FuwaGunCollarRebuild
                 for (int j = 0; j < rows - 1; j++)
                 {
                     int a0 = b0 + k * rows + j, a1 = a0 + 1, c0 = b0 + ((k + 1) % K) * rows + j, c1 = c0 + 1;
-                    var want = N[a0] + N[a1]; AddTri(V, T, a0, a1, c0, want); AddTri(V, T, a1, c1, c0, want);
+                    var want = N[a0] + N[a1]; AddTri(V, BT, a0, a1, c0, want); AddTri(V, BT, a1, c1, c0, want);
                 }
             // 前の面：ふちの丸みの内側〜穴のふち
             int f0 = V.Count;
@@ -319,7 +341,7 @@ public static class FuwaGunCollarRebuild
             for (int k = 0; k < K; k++)
             {
                 int a0 = f0 + k * 2, a1 = a0 + 1, c0 = f0 + ((k + 1) % K) * 2, c1 = c0 + 1;
-                AddTri(V, T, a0, a1, c0, nf); AddTri(V, T, a1, c1, c0, nf);
+                AddTri(V, BT, a0, a1, c0, nf); AddTri(V, BT, a1, c1, c0, nf);
             }
             // 穴の内側の壁（奥へ）
             int w0 = V.Count;
@@ -331,7 +353,7 @@ public static class FuwaGunCollarRebuild
             for (int k = 0; k < K; k++)
             {
                 int a0 = w0 + k * 2, a1 = a0 + 1, c0 = w0 + ((k + 1) % K) * 2, c1 = c0 + 1;
-                var want = N[a0]; AddTri(V, T, a0, a1, c0, want); AddTri(V, T, a1, c1, c0, want);
+                var want = N[a0]; AddTri(V, BT, a0, a1, c0, want); AddTri(V, BT, a1, c1, c0, want);
             }
             // 穴の底（暗い材質。Gun_Vent に入れる）
             int d0 = DV.Count;

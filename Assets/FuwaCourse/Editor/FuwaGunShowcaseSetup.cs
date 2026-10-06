@@ -100,8 +100,10 @@ public static class FuwaGunShowcaseSetup
             var vr = blower.visualRoot.transform;
             var parts = blower.visualRoot.GetComponentsInChildren<MeshRenderer>(true)
                 .Where(r => r.enabled && r.gameObject.activeInHierarchy && !r.name.StartsWith("GunGauge") && r.name != "GunMuzzleHole" && r.name != "Shaft")
-                .Select(r => new CombineInstance { mesh = r.GetComponent<MeshFilter>().sharedMesh, transform = vr.worldToLocalMatrix * r.transform.localToWorldMatrix })
-                .Where(ci => ci.mesh != null).ToArray();
+                .Where(r => r.GetComponent<MeshFilter>().sharedMesh != null)
+                .SelectMany(r => { var m = r.GetComponent<MeshFilter>().sharedMesh; var tr = vr.worldToLocalMatrix * r.transform.localToWorldMatrix;
+                    return Enumerable.Range(0, m.subMeshCount).Select(si => new CombineInstance { mesh = m, subMeshIndex = si, transform = tr }); })   // サブメッシュも全部
+                .ToArray();
             var hm = new Mesh { name = "GunDockHighlight", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             hm.CombineMeshes(parts, true, true);
             hm.RecalculateBounds();
