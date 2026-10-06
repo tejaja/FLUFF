@@ -54,6 +54,7 @@ public class FuwaBgm : UdonSharpBehaviour
         if (PlayerData.HasKey(player, "bgm_volume"))
         {
             _userPercent = Mathf.Clamp(PlayerData.GetFloat(player, "bgm_volume"), 0f, 100f);
+            _shownPercent = _userPercent;   // 入った直後は保存値ですぐ鳴らす（フェードしない）
             if (volumeSliders != null)
                 foreach (UnityEngine.UI.Slider sl in volumeSliders) if (sl != null) sl.SetValueWithoutNotify(_userPercent);
             UpdateVolumeLabels();
@@ -89,9 +90,13 @@ public class FuwaBgm : UdonSharpBehaviour
     [Tooltip("音量バーの横の数字（なくてもOK）")]
     public TextMeshProUGUI[] volumeLabels;
     private float _userPercent = 100f;
+    private float _shownPercent = 100f;   // 実際に鳴らしている音量バーの値（ミュートの時はスパッと切らずにすっと下げる）
+    [Tooltip("ミュート・解除の時に、今の音量から目標の音量まで動かす秒数（今の音量に関係なくこの秒数）")]
+    public float volumeFadeTime = 0.5f;
+    private float _fadeRate = 1000f;
 
     // 実際の音量（基準の音量 × 音量バー）
-    private float Vol() { return volume * _userPercent / 100f; }
+    private float Vol() { return volume * _shownPercent / 100f; }
 
     // 音量バーが動かされた時に呼ばれる（どのバーかは、今の値と違うものを探す）
     public void OnVolumeSlider()
@@ -100,7 +105,7 @@ public class FuwaBgm : UdonSharpBehaviour
         foreach (UnityEngine.UI.Slider sl in volumeSliders)
         {
             if (sl == null) continue;
-            if (Mathf.Abs(sl.value - _userPercent) > 0.01f) { _userPercent = Mathf.Clamp(sl.value, 0f, 100f); break; }
+            if (Mathf.Abs(sl.value - _userPercent) > 0.01f) { _userPercent = Mathf.Clamp(sl.value, 0f, 100f); _fadeRate = 400f; break; }
         }
         foreach (UnityEngine.UI.Slider sl in volumeSliders)
         {
@@ -121,13 +126,19 @@ public class FuwaBgm : UdonSharpBehaviour
     // スピーカーのマーク（レーザーで押すUIボタン）から呼ばれる。自分だけ
     public void ToggleMute()
     {
+        // ミュート・解除だけはゆっくり（音量バーを動かした時はすぐ追いつく）
+        _fadeRequested = true;
         if (_userPercent > 0.5f) { _beforeMute = _userPercent; SetUserPercent(0f); }
         else SetUserPercent(_beforeMute > 0.5f ? _beforeMute : 100f);
     }
 
+    private bool _fadeRequested;
+
     private void SetUserPercent(float p)
     {
         _userPercent = Mathf.Clamp(p, 0f, 100f);
+        _fadeRate = _fadeRequested && volumeFadeTime > 0.001f ? Mathf.Max(1f, Mathf.Abs(_userPercent - _shownPercent) / volumeFadeTime) : 1000f;
+        _fadeRequested = false;
         if (volumeSliders != null)
             foreach (UnityEngine.UI.Slider sl in volumeSliders) if (sl != null) sl.SetValueWithoutNotify(_userPercent);
         UpdateVolumeLabels();
@@ -191,6 +202,12 @@ public class FuwaBgm : UdonSharpBehaviour
     private void Update()
     {
         if (tracks == null || _vol == null) return;
+        // 音量バーの値に、すっと追いつく（ミュートでフェードアウト、解除でフェードイン）
+        if (_shownPercent != _userPercent)
+        {
+            _shownPercent = Mathf.MoveTowards(_shownPercent, _userPercent, _fadeRate * Time.deltaTime);
+            if (fanfare != null && fanfare.isPlaying) fanfare.volume = Mathf.Clamp01(Vol() * fanfareVolume);
+        }
         if (savePlayerData && !_restored && Time.timeSinceLevelLoad < restoreWaitMax) return;
         // ファンファーレ中：BGMは全部すばやく消す。終わったら今の場所の曲を頭から鳴らし直す
         if (_fanfareUntil > 0f)
