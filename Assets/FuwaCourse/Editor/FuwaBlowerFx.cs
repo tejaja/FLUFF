@@ -25,7 +25,7 @@ public static class FuwaBlowerFx
     {
         new V { name = "1_今の" },
         new V { name = "2_濃いめ", puffCount = 18, puffCount2 = 8, puffAlpha = 0.8f, puffSize = 1.2f, ringAlpha = 1f, ringSize = 0.5f, streaks = 8, streakAlpha = 0.95f, tint = 0.75f },
-        new V { name = "3_輪っかメイン", puffCount = 4, puffCount2 = 2, puffAlpha = 0.4f, rings = 3, ringSize = 0.55f, ringAlpha = 1f, ringSpeed = 4.2f, ringLife = 0.45f, streaks = 2, tint = 0.75f },
+        new V { name = "3_輪っかメイン", puffCount = 3, puffCount2 = 1, puffAlpha = 0.4f, puffSize = 0.8f, rings = 1, ringSize = 0.55f, ringAlpha = 0.7f, ringSpeed = 4.2f, ringLife = 0.45f, streaks = 2, tint = 0.75f },
         new V { name = "4_風の筋メイン", puffCount = 5, puffCount2 = 2, puffAlpha = 0.45f, puffSize = 0.8f, rings = 0, streaks = 16, streakAlpha = 0.95f, streakSize = 1.3f, streakAngle = 14f, streakLen = 6f, tint = 0.75f },
         new V { name = "5_渦巻き", puffCount = 8, puffCount2 = 3, puffAlpha = 0.5f, rings = 1, ringSize = 0.38f, streaks = 12, streakAlpha = 0.9f, streakSize = 1.2f, streakAngle = 4f, streakLen = 3.5f, swirl = true, tint = 0.72f },
         new V { name = "6_輪っか濃いめ（真ん中あき）", puffCount = 14, puffCount2 = 6, puffAlpha = 0.8f, puffSize = 1.1f, rings = 3, ringSize = 0.6f, ringAlpha = 1f, ringSpeed = 4.2f, ringLife = 0.48f, streaks = 4, streakAlpha = 0.9f, tint = 0.78f, puffOuter = true, ringBold = true },
@@ -244,9 +244,18 @@ public static class FuwaBlowerFx
         // 前の作り（泡と筋）が残っていたら消す
         var old = ps.transform.Find("LeakStreaks"); if (old != null) Undo.DestroyObjectImmediate(old.gameObject);
 
-        var big = Child(ps.transform, "BigRing"); SetupRing(big, 0.1f, 0.75f, 3.8f, 0.5f, 1);
-        var big2 = Child(ps.transform, "BigRing2"); SetupRing(big2, 0.08f, 0.55f, 2.6f, 0.45f, 1);
+        // 満タンの輪は少し大きく、黄色寄りの明るい白（満タンの合図・溜め撃ちの黄色い光と色をそろえる。ノンチャとの差をつける）
+        var warm = new Color(1f, 0.95f, 0.72f, 1f);
+        var big = Child(ps.transform, "BigRing"); SetupRing(big, 0.12f, 0.9f, 3.8f, 0.5f, 1); var bm = big.main; bm.startColor = warm;
+        var big2 = Child(ps.transform, "BigRing2"); SetupRing(big2, 0.096f, 0.66f, 2.6f, 0.45f, 1); var bm2 = big2.main; bm2.startColor = warm;
         var em2 = big2.emission; em2.SetBursts(new[] { new ParticleSystem.Burst(0.06f, 1) });
+        // 撃った瞬間、銃口でパッと光る（満タンの時だけ）
+        var fl = Child(ps.transform, "ShotFlash"); Common(fl, AssetDatabase.LoadAssetAtPath<Material>(Mat + "FX_Star.mat"), 1);
+        var flm = fl.main; flm.startLifetime = 0.1f; flm.startSpeed = 0f; flm.startSize = 0.16f; flm.startColor = new Color(1f, 0.96f, 0.8f, 0.9f);
+        var fle = fl.emission; fle.enabled = true; fle.SetBursts(new[] { new ParticleSystem.Burst(0f, 1) });
+        var fls = fl.shape; fls.enabled = false;
+        var flz = fl.sizeOverLifetime; flz.enabled = true; flz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 0.4f, 1f, 1f));
+        var flc = fl.colorOverLifetime; flc.enabled = true; var flg = new Gradient(); flg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) }); flc.color = flg;
     }
 
     // スカート状の膜：根元はすき間の輪（半径 VentR）、後ろへ 6cm 進みながら半径 4.2cm まで開く。uv.x=ぐるり一周、uv.y=根元0→ふち1
