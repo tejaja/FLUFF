@@ -147,6 +147,106 @@ def wind(f, dur, vel=0.7, kind='flute', vib=1.0, breath=1.0, taper=0.0, release=
     return y * vel * 0.17
 
 # ---------- たたく・はじく・打楽器（2026-10-07） ----------
+def marimba3(f, dur, vel=0.8, hard=0.35):
+    """木っぽいマリンバ（2026-10-07）：金属っぽさの元になる高いモード（9倍以上）をほぼ無くし、3.9倍もすぐ消す。
+    やわらかい毛糸のマレットの「ポコ」っとした当たり（低めのノイズ）、共鳴パイプの「ぼわん」を強め、全体を少し丸める"""
+    tail = 1.0
+    n = int((dur + tail) * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    base_dec = 0.42 * (440 / f) ** 0.4
+    for mul, amp, dec in [(1.0, 1.0, base_dec), (3.93, 0.16 * (0.4 + hard), 0.05), (9.2, 0.02 * hard, 0.012)]:
+        if f * mul > SR * 0.42: continue
+        y += amp * np.exp(-t / dec) * np.sin(2 * np.pi * f * mul * t + rng_global.uniform(0, 6.28))
+    # 共鳴パイプ：基音を少し遅れてふくらませる（木琴の「ぼわん」）
+    y += 0.4 * (1 - np.exp(-t / 0.015)) * np.exp(-t / (0.75 * (440 / f) ** 0.3)) * np.sin(2 * np.pi * f * t)
+    # 毛糸のマレット：低めのこもった「ポコ」
+    cn = int(0.02 * SR)
+    knock = lp(rng_global.standard_normal(cn), 900 + 900 * hard) * np.exp(-np.arange(cn) / SR / 0.004)
+    y[:cn] += knock * 0.22
+    y *= np.clip(t / 0.003, 0, 1)
+    y = lp(y, 2800 + 2500 * hard, 2)
+    return y * vel * 0.48
+
+def glock(f, dur, vel=0.7, hard=0.5, ring=1.0):
+    """グロッケン（鉄琴）（2026-10-07）：鉄の棒の振動モード（1, 2.76, 5.40, 8.93倍）。
+    基音は長く「キーン」と残り、上の倍音は速く消える。硬いマレットの「チッ」を少し。
+    ring: 余韻の長さの倍率。音は離しても止めない（本物と同じく鳴りっぱなし）"""
+    base = 1.6 * ring * (880 / f) ** 0.5
+    tail = min(base * 3.5, 4.0)
+    n = int(tail * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    for mul, amp, dec in [(1.0, 1.0, base), (2.76, 0.28 * (0.4 + hard), base * 0.12), (5.40, 0.12 * hard, base * 0.04), (8.93, 0.05 * hard, base * 0.02)]:
+        if f * mul > SR * 0.45: continue
+        ph = rng_global.uniform(0, 6.28)
+        # ほんの少しの揺らぎ（2本のわずかにずれた成分でうなり）
+        y += amp * np.exp(-t / dec) * (0.8 * np.sin(2 * np.pi * f * mul * t + ph) + 0.2 * np.sin(2 * np.pi * f * mul * 1.0007 * t + ph))
+    cn = int(0.006 * SR)
+    click = hp(rng_global.standard_normal(cn), 3000) * np.exp(-np.arange(cn) / SR / 0.0012)
+    y[:cn] += click * 0.08 * (0.3 + hard)
+    y *= np.clip(t / 0.0008, 0, 1)
+    return y * vel * 0.3
+
+def vibes(f, dur, vel=0.7, hard=0.4, trem=5.5, depth=0.3, rel=0.35):
+    """ビブラフォン（2026-10-07）：アルミの棒（1, 4, 10倍）＋共鳴パイプのモーターで「わんわん」揺れる余韻。
+    金属だけど丸くてやさしい。音を離したらペダルを離した感じで早めに消える"""
+    base = 1.8 * (660 / f) ** 0.35
+    n = int((dur + rel + 0.1) * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    for mul, amp, dec in [(1.0, 1.0, base), (4.0, 0.22 * (0.4 + hard), base * 0.08), (10.0, 0.05 * hard, base * 0.02)]:
+        if f * mul > SR * 0.45: continue
+        y += amp * np.exp(-t / dec) * np.sin(2 * np.pi * f * mul * t + rng_global.uniform(0, 6.28))
+    y *= 1 - depth * (0.5 + 0.5 * np.sin(2 * np.pi * trem * t + rng_global.uniform(0, 6.28)))
+    cn = int(0.008 * SR)
+    y[:cn] += lp(rng_global.standard_normal(cn), 2500) * np.exp(-np.arange(cn) / SR / 0.0015) * 0.05 * (0.3 + hard)
+    y *= np.clip(t / 0.001, 0, 1) * np.where(t < dur, 1.0, np.exp(-(t - dur) / (rel / 3)))
+    return y * vel * 0.32
+
+def celesta(f, dur, vel=0.7, hard=0.4):
+    """チェレスタ（2026-10-07）：鉄の板をフェルトのハンマーで叩く、木の箱の共鳴つき。
+    グロッケンより丸くて短め、「ポロン」とした鐘っぽさ（くるみ割り人形の金平糖の音）"""
+    base = 0.9 * (880 / f) ** 0.5
+    n = int(min(base * 4, 3.0) * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    for mul, amp, dec in [(1.0, 1.0, base), (2.0, 0.25, base * 0.35), (3.0, 0.07, base * 0.15), (5.4, 0.04 * hard, base * 0.05)]:
+        if f * mul > SR * 0.45: continue
+        y += amp * np.exp(-t / dec) * np.sin(2 * np.pi * f * mul * t + rng_global.uniform(0, 6.28))
+    # 箱の共鳴：低めの短いこもり
+    y += 0.12 * np.exp(-t / 0.05) * np.sin(2 * np.pi * f * 0.5 * t)
+    y *= np.clip(t / 0.002, 0, 1) * np.where(t < dur + 0.1, 1.0, np.exp(-(t - dur - 0.1) / 0.25))
+    return lp(y, min(f * 6, 12000), 2) * vel * 0.34
+
+def kalimba(f, dur, vel=0.7, hard=0.4):
+    """カリンバ（2026-10-07）：金属の歯をはじく。基音＋かなり上の倍音（約6倍）が「ティン」と短く、木の箱で丸く響く"""
+    base = 0.7 * (660 / f) ** 0.4
+    n = int(min(base * 4, 2.5) * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    for mul, amp, dec in [(1.0, 1.0, base), (6.2, 0.14 * (0.4 + hard), base * 0.06), (17.0, 0.03 * hard, base * 0.015)]:
+        if f * mul > SR * 0.45: continue
+        y += amp * np.exp(-t / dec) * np.sin(2 * np.pi * f * mul * t + rng_global.uniform(0, 6.28))
+    y += 0.25 * (1 - np.exp(-t / 0.01)) * np.exp(-t / 0.12) * np.sin(2 * np.pi * f * t)
+    y *= np.clip(t / 0.0015, 0, 1)
+    return y * vel * 0.36
+
+def soft_lead(f, dur, vel=0.7, pulse=0.35, cutoff=2.2):
+    """やわらかいピコピコ系（2026-10-07）：細めの矩形波を2本少しずらして重ね、音の頭だけ明るくしてすぐ丸める。
+    cutoff は基音の何倍まで残すか（フィルターの開き）"""
+    rel = 0.12
+    n = int((dur + rel + 0.05) * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    for det in (-4, 4):
+        ff = f * 2 ** (det / 1200)
+        ph = (ff * t + rng_global.uniform(0, 1)) % 1.0
+        y += np.where(ph < pulse, 1.0, -1.0) - (2 * pulse - 1)
+    y *= 0.5
+    env = np.minimum(t / 0.006, 1.0) * np.where(t < dur, 0.75 + 0.25 * np.exp(-t / 0.08), 0.0)
+    rel_part = np.where(t >= dur, np.exp(-(t - dur) / (rel / 3)), 0.0) * (0.75 + 0.25 * np.exp(-dur / 0.08))
+    env = env + rel_part * np.minimum(t / 0.006, 1.0)
+    # 頭だけ明るく→丸める：明るい版と暗い版を混ぜる
+    bright = lp(y, min(f * cutoff * 2.2, 9000), 2); dark = lp(y, min(f * cutoff, 6000), 2)
+    k = np.exp(-t / 0.05)
+    y = (bright * k + dark * (1 - k)) * env
+    return y * vel * 0.16
+
 def marimba2(f, dur, vel=0.8, hard=0.5):
     """マリンバ：木の板のモード（1, 3.9, 9.2 倍…高いほどすぐ消える）、マレットの当たり、下の共鳴パイプで基音が少し長く鳴る"""
     tail = 1.2
@@ -355,16 +455,22 @@ def compressor(st, thresh_db=-18, ratio=2.0, attack=0.02, release=0.25, makeup_d
     over = np.maximum(db - thresh_db, 0)
     gr = -over * (1 - 1 / ratio)
     # アタック・リリースでなめらかに
-    out = np.zeros_like(gr); g = 0.0
+    # 64サンプルごとに計算（速さ優先）→ 間は1サンプルずつ直線でつなぐ（2026-10-07）。
+    # 前は64サンプルごとに階段状にゲインが跳んでいて、オルゴール等のきれいな音にジリジリした「音割れ感」が乗っていた
+    idx = np.arange(0, len(gr), 64); gk = np.zeros(len(idx)); g = 0.0
     a_a = np.exp(-1 / (attack * SR)); a_r = np.exp(-1 / (release * SR))
-    for i in range(0, len(gr), 64):      # 64サンプルごと（速さ優先）
+    for j, i in enumerate(idx):
         target = gr[i]
         a = a_a if target < g else a_r
         g = a ** 64 * g + (1 - a ** 64) * target
-        out[i:i + 64] = g
+        gk[j] = g
+    out = np.interp(np.arange(len(gr)), idx, gk)
     return st * (10 ** ((out + makeup_db) / 20))[:, None]
 
-def limiter(st, ceiling=0.89, lookahead=0.005, release=0.08):
+def limiter(st, ceiling=0.89, lookahead=0.005, release=0.08, smooth=True):
+    """smooth=True（2026-10-07）：ゲインを先読みの長さで「なめらかに」下げる版。
+    前の版はピークの直前で一気にガクッと下げていて、金属系の鋭いアタックで音割れっぽく聞こえていた"""
+    if smooth: return limiter_smooth(st, ceiling, lookahead * 1.6, release * 1.5)
     peak = np.max(np.abs(st), 1)
     la = int(lookahead * SR)
     # 先読み：少し先までの最大値
@@ -377,6 +483,26 @@ def limiter(st, ceiling=0.89, lookahead=0.005, release=0.08):
         cur = need[i] if need[i] < cur else a_r * cur + (1 - a_r) * need[i]
         g[i] = cur
     return st * g[:, None]
+
+def limiter_smooth(st, ceiling=0.89, lookahead=0.008, release=0.12):
+    from numpy.lib.stride_tricks import sliding_window_view
+    peak = np.max(np.abs(st), 1)
+    la = max(2, int(lookahead * SR))
+    need = np.minimum(1.0, ceiling / np.maximum(peak, 1e-9))
+    # 先読み区間の最小ゲイン → 同じ長さで移動平均すると、ピークの la サンプル前からなだらかに下がり、ピークでちょうど need 以下になる
+    pad = np.concatenate([need, np.ones(la)])
+    gmin = sliding_window_view(pad, la + 1).min(1)[:len(need)]
+    # 直前 la+1 サンプルの平均：ピーク位置 p では gmin[p-la..p] がどれも need[p] 以下なので、平均も need[p] 以下になる
+    gpad = np.concatenate([np.full(la, gmin[0]), gmin])
+    cs = np.concatenate([[0.0], np.cumsum(gpad)])
+    gs = (cs[la + 1:] - cs[:-la - 1]) / (la + 1)
+    # 戻りはゆっくり（下げるのは即）
+    out = np.empty_like(gs); cur = 1.0; a_r = np.exp(-1 / (release * SR))
+    for i in range(len(gs)):
+        cur = gs[i] if gs[i] < cur else a_r * cur + (1 - a_r) * gs[i]
+        out[i] = cur
+    y = st * out[:, None]
+    return np.clip(y, -ceiling, ceiling)
 
 def master(mix, rt60=2.2, rev_level=0.45, damp=0.55, lowcut=35, air_db=0.0, warmth_db=1.0, out_peak=0.89,
            comp=True, final_lp=None, comp_thresh=-14, comp_ratio=1.4, target_rms_db=None):

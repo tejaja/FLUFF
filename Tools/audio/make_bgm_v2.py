@@ -81,8 +81,8 @@ def lobby_e(path=None):
     """採用版（2026-10-07）：メロディをオカリナ、音の終わりをふわっと弱める、かなりやわらか（soft 1.0）"""
     return lobby_wind(path or os.path.join(OUT, "bgm_lobby_e.wav"), kind=0, taper=0.45, release=0.3, soft=1.0, breath=0.6, vib=0.6)
 
-def basics2(path=None, swing=0.0):
-    """れんしゅう（basics）と同じ作曲：C長調128BPM。マリンバ＋オルゴールのメロディ、指弾きベース、ギターのジャカッ、ドラム"""
+def basics2(path=None, swing=0.0, woody=0, mbox=0.0, lead='vibes', goct=0, ggain=1.0, ghard=0.5, moct=12, trms=-13.0, cthr=-16.0, vrel=1.4, vrev=0.6):
+    """れんしゅう（basics）と同じ作曲：C長調128BPM。採用版（2026-10-07）はメロディがビブラフォン（引数なしで再現）。lead で他の楽器も試せる、指弾きベース、ギターのジャカッ、ドラム"""
     m = Mix(128, 16, tail=3.0, seed=21)
     prog = ['C', 'G', 'Am', 'F'] * 2 + ['F', 'G', 'Em', 'Am', 'F', 'G', 'C', 'C']
     kp = old.NOTE['C']; MAJOR = old.MAJOR
@@ -99,8 +99,18 @@ def basics2(path=None, swing=0.0):
     sw = lambda pos: pos + (swing if abs((pos % 1) - 0.5) < 1e-6 else 0.0)
     for pos, d, mm in mel:
         acc = 0.8 if abs(pos - round(pos)) < 1e-6 else 0.65
-        m.add(marimba2(midi_hz(mm), d * m.beat, m.vel(acc), hard=0.55), sw(pos), pan=0.12, rev=0.18, humanize=0.006)
-        m.add(music_box2(midi_hz(mm + 12), d * m.beat, m.vel(0.16)), sw(pos), pan=0.5, rev=0.3, humanize=0.006)
+        if lead == 'none': pass
+        elif lead in ('vibes', 'celesta', 'kalimba'):
+            fn = {'vibes': vibes, 'celesta': celesta, 'kalimba': kalimba}[lead]
+            kw = {'rel': vrel} if lead == 'vibes' else {}
+            m.add(fn(midi_hz(mm + int(goct)), d * m.beat, m.vel(acc), **kw), sw(pos), pan=0.12, rev=(vrev if lead == 'vibes' else 0.25), gain=ggain, humanize=0.006)
+        elif lead == 'glock': m.add(glock(midi_hz(mm + int(goct)), d * m.beat, m.vel(acc), hard=ghard), sw(pos), pan=0.12, rev=0.25, gain=ggain, humanize=0.006)
+        elif lead == 'recorder': m.add(wind(midi_hz(mm), d * m.beat * 0.9, m.vel(acc + 0.1), kind='recorder', vib=0.4, breath=0.5, taper=0.2, release=0.08), sw(pos), pan=0.12, rev=0.2, gain=1.6, humanize=0.006)
+        elif lead == 'pluck': m.add(ks_string(midi_hz(mm), d * m.beat, m.vel(acc), bright=0.6, damp_time=0.12), sw(pos), pan=0.12, rev=0.2, gain=3.5, humanize=0.006)
+        elif lead == 'synth': m.add(soft_lead(midi_hz(mm), d * m.beat * 0.85, m.vel(acc)), sw(pos), pan=0.12, rev=0.2, gain=2.0, humanize=0.006)
+        elif woody: m.add(marimba3(midi_hz(mm), d * m.beat, m.vel(acc), hard=0.35), sw(pos), pan=0.12, rev=0.18, humanize=0.006)
+        else: m.add(marimba2(midi_hz(mm), d * m.beat, m.vel(acc), hard=0.55), sw(pos), pan=0.12, rev=0.18, humanize=0.006)
+        if mbox > 0: m.add(music_box2(midi_hz(mm + int(moct)), d * m.beat, m.vel(0.16 * mbox)), sw(pos), pan=(0.12 if lead == 'none' else 0.5), rev=0.3, humanize=0.006)
     for bar, cn in enumerate(prog):
         r, cps = old.chord(cn)
         root = old.nearest(40, [r], 36, 47)
@@ -116,7 +126,7 @@ def basics2(path=None, swing=0.0):
             m.add(snare2(m.vel(0.75, 0.05), tone=0.5, snap=0.5), bar * 4 + beat, pan=0.05, rev=0.15, humanize=0.003)
         for k in range(8):
             m.add(hat2(m.vel(0.8 if k % 2 else 0.55, 0.08), open_=(k == 7 and bar % 4 == 3)), sw(bar * 4 + k * 0.5), pan=0.42, rev=0.03, humanize=0.004)
-    st = master(m, rt60=1.3, rev_level=0.35, damp=0.5, lowcut=30, warmth_db=0.5, air_db=1.0, comp_thresh=-16, comp_ratio=2.0, target_rms_db=-13.0)
+    st = master(m, rt60=1.3, rev_level=0.35, damp=0.5, lowcut=30, warmth_db=0.5, air_db=1.0, comp_thresh=cthr, comp_ratio=2.0, target_rms_db=trms)
     save(st, path or os.path.join(OUT, "bgm_basics2.wav"))
     return st
 
@@ -160,4 +170,7 @@ if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "lobby_c"
     out = sys.argv[2] if len(sys.argv) > 2 else None
     kw = dict(kv.split('=') for kv in sys.argv[3:])
-    globals()[which](out, **{k: float(v) for k, v in kw.items()})
+    def _num(v):
+        try: return float(v)
+        except ValueError: return v
+    globals()[which](out, **{k: _num(v) for k, v in kw.items()})
