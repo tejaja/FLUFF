@@ -22,7 +22,9 @@ public static class FuwaKinokoEntrance
     public static float YA0 = 8.7f;                          // 坂Aの始まりは入口より0.7m高い（キノコなしでは届かない）
     public static float SlopeA0 = -3.4f, SlopeA1 = -0.4f, FlatA1 = 0.8f, YA1 = 9.8f;   // 坂A → 平ら
     public static float Gap2B = 3.6f;                        // すき間2（サルノコシカケ）＝ FlatA1〜Gap2B 2.8m
-    public static float YB0 = 10.5f, YB1 = 12.10f;           // 坂B（Gap2B〜CutB）。平らAより0.7m高い
+    public static float YB0 = 10.5f, YB1 = 12.17f;           // YB1：上の段（道の上面12.20）のすぐ下
+    public static float SlopeBEnd = 0.4f;                    // 坂Bを道の切り口の下までもぐらせる長さ（すき間が見えないように）
+              // 坂B（Gap2B〜CutB）。平らAより0.7m高い
     public static float HalfW = 1.5f;
     public static float CapLift = 0.35f;   // キノコの傘を床より上に（小ジャンプで乗る）
     public static float CapScale = 0.6f, ShelfScale = 0.5f, ShelfTopY = 9.75f;
@@ -62,10 +64,10 @@ public static class FuwaKinokoEntrance
         // 坂A＋平らA
         Deck(mb, SlopeA0, YA0, SlopeA1, YA1, rnd); Deck(mb, SlopeA1, YA1, FlatA1, YA1, rnd);
         // 坂B
-        Deck(mb, Gap2B, YB0, CutB + 0.05f, YB1, rnd);
+        Deck(mb, Gap2B, YB0, CutB + SlopeBEnd, YB1, rnd);
         // 切り口のふた（入口の先、上の段の手前）と、坂Bの正面（サルノコシカケが生える板）
         EndCap(mb, Gap1A, FloorY, 1.0f);
-        EndCap(mb, CutB, YB1, 1.0f);
+        EndCap(mb, CutB + SlopeBEnd, YB1, 1.0f);
         FrontBoards(mb, FlatA1, YA1, 1.2f, -1f, rnd);     // 平らAの先（すき間2の手前、サルノコシカケの生える所）
         FrontBoards(mb, Gap2B, YB0, 1.6f, 1f, rnd);        // 坂Bの正面
         FrontBoards(mb, SlopeA0, YA0, 1.4f, 1f, rnd);      // 坂Aの正面（入口より高い段）
@@ -77,7 +79,7 @@ public static class FuwaKinokoEntrance
         var cols = new GameObject("Colliders").transform; cols.SetParent(root, false); cols.gameObject.layer = 11;
         SlopeBox(cols, "SlopeA", SlopeA0, YA0, SlopeA1, YA1);
         SlopeBox(cols, "FlatA", SlopeA1, YA1, FlatA1, YA1);
-        SlopeBox(cols, "SlopeB", Gap2B, YB0, CutB + 0.05f, YB1);
+        SlopeBox(cols, "SlopeB", Gap2B, YB0, CutB + SlopeBEnd, YB1);
         // 段の正面の壁（届かなかった時に板の中へすり抜けないように）
         WallBox(cols, "WallA", SlopeA0, YA0, 1.4f, 1f);
         WallBox(cols, "WallFlatA", FlatA1, YA1, 1.2f, -1f);
