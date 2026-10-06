@@ -105,9 +105,11 @@ public class FuwaGunSummon : UdonSharpBehaviour
         if (gun.IsHeld())
         {
             _summoning = false;
+            _dockFollow = 0;
             ShowGauge(p, -1f);   // 銃を持っている時は出さない
             return;
         }
+        if (!_summoning) FollowDocked(p, gun);
 
         VRCPlayerApi.TrackingData head = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
         if (!p.IsUserInVR())
@@ -137,6 +139,9 @@ public class FuwaGunSummon : UdonSharpBehaviour
             _waitRelease = true;
             _summoning = true;
             _summonUntil = Time.time + waitSeconds;
+            _returnDock = gun.GetDock();   // 台に乗っていたら、時間切れの時は台に戻す
+            gun.Undock();
+            _dockFollow = 0;
             _returnPos = gun.transform.position;
             _returnRot = gun.transform.rotation;
             gun.SetSummonHidden(false);
@@ -148,6 +153,7 @@ public class FuwaGunSummon : UdonSharpBehaviour
         if (Time.time > _summonUntil)
         {
             _summoning = false;
+            if (_returnDock != null) { gun.Dock(_returnDock); return; }
             summonSpot.SetPositionAndRotation(_returnPos, _returnRot);
             gun.MoveToStand(summonSpot);
             return;
@@ -155,10 +161,61 @@ public class FuwaGunSummon : UdonSharpBehaviour
 
         if (Time.time < _nextFollow) return;
         _nextFollow = Time.time + followInterval;
-        // 手の向きのままだと銃口が親指の方（上）を向くので、銃口を手の先・グリップを小指側へ回す
-        VRCPlayerApi.TrackingData hand = p.GetTrackingData(VRCPlayerApi.TrackingDataType.RightHand);
-        Quaternion rot = hand.rotation * Quaternion.Euler(gripEuler) * Quaternion.Euler(gripTilt);
-        summonSpot.SetPositionAndRotation(hand.position + rot * gripOffset, rot);
+        SetGripPose(p, false);
         gun.MoveToStand(summonSpot);
+    }
+
+    // summonSpot を、手で握った時の銃の位置・向きにする。
+    // 手の向きのままだと銃口が親指の方（上）を向くので、銃口を手の先・グリップを小指側へ回す。
+    // 左手は右手の握り方を左右反転して（手の左右の軸＝X で鏡に映す）、leftExtraEuler を足す
+    private void SetGripPose(VRCPlayerApi p, bool left)
+    {
+        VRCPlayerApi.TrackingData hand = p.GetTrackingData(left ? VRCPlayerApi.TrackingDataType.LeftHand : VRCPlayerApi.TrackingDataType.RightHand);
+        Quaternion g = Quaternion.Euler(gripEuler) * Quaternion.Euler(gripTilt);
+        Vector3 off = gripOffset;
+        if (left)
+        {
+            g = new Quaternion(g.x, -g.y, -g.z, g.w) * Quaternion.Euler(leftExtraEuler);
+            off.x = -off.x;
+        }
+        Quaternion rot = hand.rotation * g;
+        summonSpot.SetPositionAndRotation(hand.position + rot * off, rot);
+    }
+
+    [Header("台に乗っている銃（VR）")]
+    [Tooltip("台の上の銃にこの距離(m)まで手を近づけると、本物の銃が握る位置で手についてくる（銃の大きさに合わせて伸び縮み）")]
+    public float dockReach = 0.35f;
+    [Tooltip("手が離れてから台に戻すまでの距離（少し広めにして、境目でちらつかないように）")]
+    public float dockRelease = 0.5f;
+    private Transform _returnDock;
+    private int _dockFollow;   // 0=台の上、1=右手、2=左手
+
+    // 台に乗っている間：VRなら近い方の手に本物の銃（見えない）をついてこさせる。手が近くにない時は台の上に置いて、掴めないようにする
+    private void FollowDocked(VRCPlayerApi p, FuwaBlower gun)
+    {
+        Transform dock = gun.GetDock();
+        if (dock == null) { _dockFollow = 0; return; }
+        if (!p.IsUserInVR()) { gun.SetDockGrabbable(true); return; }   // デスクトップはクリックで取る（向きは持った時に視線へ合わせる）
+        if (Time.time < _nextFollow) return;
+        _nextFollow = Time.time + followInterval;
+        Vector3 c = gun.GetDockPoint();
+        float s = gun.GetAutoScale();
+        float dr = (p.GetTrackingData(VRCPlayerApi.TrackingDataType.RightHand).position - c).magnitude;
+        float dl = (p.GetTrackingData(VRCPlayerApi.TrackingDataType.LeftHand).position - c).magnitude;
+        int want = 0;
+        if (_dockFollow == 1 && dr < dockRelease * s) want = 1;
+        else if (_dockFollow == 2 && dl < dockRelease * s) want = 2;
+        else if (dr < dockReach * s || dl < dockReach * s) want = dr <= dl ? 1 : 2;
+        if (want == 0)
+        {
+            if (_dockFollow != 0) gun.MoveDocked(c, dock.rotation);
+            _dockFollow = 0;
+            gun.SetDockGrabbable(false);
+            return;
+        }
+        _dockFollow = want;
+        SetGripPose(p, want == 2);
+        gun.MoveDocked(summonSpot.position, summonSpot.rotation);
+        gun.SetDockGrabbable(true);
     }
 }

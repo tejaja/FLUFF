@@ -212,6 +212,58 @@ public class FuwaBlower : UdonSharpBehaviour
     public bool IsHeld() { return _held; }
     public bool IsSummonHidden() { return _summonHidden; }
 
+    // ---- 台に乗っている状態（自分の銃だけ）----
+    // 台の上では本物の銃は見えなくして（掴む判定の箱だけ大きく）、台の上には見た目だけの銃（FuwaGunShowcase）を浮かべて回す。
+    // VRで手を近づけると、本物の銃が召喚の時と同じ握り方で手についてくる（FuwaGunSummon）。握ったら台から外れて、あとは自由に持ち直せる
+    [Header("台に乗っている時")]
+    [Tooltip("台の銃置き場から、見た目の銃を浮かせる高さ(m、銃の大きさに合わせて伸び縮み)")]
+    public float dockHover = 0.18f;
+    private Transform _dock;
+
+    public Transform GetDock() { return _held ? null : _dock; }
+    public Vector3 GetDockPoint() { return _dock != null ? _dock.position + Vector3.up * dockHover * _autoScale : transform.position; }
+
+    // 台に乗せる（RespawnManager.BringGun から）
+    public void Dock(Transform spot)
+    {
+        if (spot == null || _held || !Networking.IsOwner(gameObject)) return;
+        _dock = spot;
+        SetSummonHidden(true);
+        TeleportTo(GetDockPoint(), spot.rotation);
+    }
+
+    // 台に乗ったまま、本物の銃（見えない）だけ動かす（手についてくる時・手を離した時）
+    public void MoveDocked(Vector3 pos, Quaternion rot)
+    {
+        if (_dock == null || _held || !Networking.IsOwner(gameObject)) return;
+        TeleportTo(pos, rot);
+    }
+
+    // 台から外す（召喚した時など）。見た目も元に戻す
+    public void Undock()
+    {
+        if (_dock == null) return;
+        _dock = null;
+        SetSummonHidden(false);
+        SetDockGrabbable(true);
+    }
+
+    // VRで台に乗っている間は、手が近くにある時だけ掴めるようにする（遠くからレーザーで掴むと変な角度で持ってしまうため）
+    public void SetDockGrabbable(bool on)
+    {
+        if (_pickup == null) _pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
+        if (_pickup != null && _isMine && _pickup.pickupable != on) _pickup.pickupable = on;
+    }
+
+    private void TeleportTo(Vector3 pos, Quaternion rot)
+    {
+        VRCObjectSync sync = (VRCObjectSync)GetComponent(typeof(VRCObjectSync));
+        transform.SetPositionAndRotation(pos, rot);
+        if (sync != null) sync.FlagDiscontinuity();
+        Rigidbody rb = (Rigidbody)GetComponent(typeof(Rigidbody));
+        if (rb != null && !rb.isKinematic) { rb.velocity = Vector3.zero; rb.angularVelocity = Vector3.zero; }
+    }
+
     // VRの取り出し：掴むまでは見えないようにしておく（FuwaGunSummon から）
     public void SetSummonHidden(bool hidden)
     {
@@ -270,6 +322,7 @@ public class FuwaBlower : UdonSharpBehaviour
     public void MoveToStand(Transform spot)
     {
         if (spot == null || _held || !Networking.IsOwner(gameObject)) return;
+        Undock();
         VRCObjectSync sync = (VRCObjectSync)GetComponent(typeof(VRCObjectSync));
         if (sync != null) sync.TeleportTo(spot);
         else transform.SetPositionAndRotation(spot.position, spot.rotation);
@@ -290,6 +343,7 @@ public class FuwaBlower : UdonSharpBehaviour
     {
         if (hud != null && _pickup != null) hud.SetHeld(true, _pickup.currentHand == VRC_Pickup.PickupHand.Left);
         _held = true;
+        if (_dock != null) { _dock = null; SetDockGrabbable(true); }   // 握ったら台から外れる
         if (_summonHidden) { _summonHidden = false; ApplySummonHidden(); }
         RequestSerialization();
         UpdateVisibility();

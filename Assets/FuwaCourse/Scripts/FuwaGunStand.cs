@@ -24,8 +24,7 @@ public class FuwaGunStand : UdonSharpBehaviour
         if (manager != null && gunSpot != null)
         {
             FuwaBlower gun = manager.GetMyBlower();
-            if (gun != null && !gun.IsHeld() && !gun.IsSummonHidden())
-                show = (gun.transform.position - gunSpot.position).sqrMagnitude < onStandDistance * onStandDistance;
+            if (gun != null) show = gun.GetDock() == gunSpot;   // 自分の銃がこの台に乗っている（持つと外れる）
         }
         if (marker.activeSelf != show) marker.SetActive(show);
     }
