@@ -102,7 +102,7 @@ def felt_piano2(f, dur, vel=0.7, tone=0.5, sustain=1.0, mech=1.0):
     y = lp(y, 1400 + 3600 * tone, 2)
     return y * vel * 0.55
 
-def wind(f, dur, vel=0.7, kind='flute', vib=1.0, breath=1.0, taper=0.0, release=0.09):
+def wind(f, dur, vel=0.7, kind='flute', vib=1.0, breath=1.0, taper=0.0, release=0.09, soft=0.0):
     """笛系（2026-10-07）。息のノイズ（音程の近くに帯域を絞ったもの＋広い「ふー」）、
     吹き始めの「チフ」（短い息の破裂）、遅れてかかるビブラート、音程のほんの少しのゆらぎ。
     kind: 'ocarina'（ほぼ正弦波・まるい）/'flute'（倍音少し・息多め）/'recorder'（2,3倍音が少し強め）"""
@@ -129,7 +129,7 @@ def wind(f, dur, vel=0.7, kind='flute', vib=1.0, breath=1.0, taper=0.0, release=
     bamt = {'ocarina': 0.6, 'flute': 1.0, 'recorder': 0.5}[kind] * breath
     y += bamt * (0.35 * tonal_breath / (np.std(tonal_breath) + 1e-9) * 0.25 + 0.022 * wide_breath / (np.std(wide_breath) + 1e-9))
     # 音量：ふわっと入って（息の量で少しふくらむ）、離すとすっと消える
-    att = {'ocarina': 0.06, 'flute': 0.07, 'recorder': 0.035}[kind]
+    att = {'ocarina': 0.06, 'flute': 0.07, 'recorder': 0.035}[kind] * (1 + 1.5 * soft)   # soft: やわらかく入る
     env = np.clip(t / att, 0, 1) ** 1.2
     if taper > 0:
         # 音の終わりをふわっと弱めていく：前半で少しふくらんで、後半はなだらかに下がる（息がぬけていく感じ）
@@ -141,9 +141,9 @@ def wind(f, dur, vel=0.7, kind='flute', vib=1.0, breath=1.0, taper=0.0, release=
     # チフ：吹き始めの短い息の破裂
     cn = int(0.04 * SR)
     chiff = bp(rng_global.standard_normal(cn), f * 1.5, min(f * 6, 9000), 2) * np.exp(-np.arange(cn) / SR / 0.012)
-    y[:cn] += chiff * {'ocarina': 0.10, 'flute': 0.16, 'recorder': 0.22}[kind] * breath
+    y[:cn] += chiff * {'ocarina': 0.10, 'flute': 0.16, 'recorder': 0.22}[kind] * breath * (1 - 0.7 * soft)
     y *= env
-    if kind == 'ocarina': y = lp(y, 3500, 2)
+    if kind == 'ocarina': y = lp(y, 3500 - 2000 * soft, 2)   # soft: 高い成分をさらに丸める
     return y * vel * 0.17
 
 # ---------- たたく・はじく・打楽器（2026-10-07） ----------

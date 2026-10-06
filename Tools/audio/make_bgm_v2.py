@@ -41,7 +41,7 @@ def lobby_felt(path=None, tone=0.45, sustain=1.0, mech=1.0, rt60=1.6, rev_level=
     save(st, path or os.path.join(OUT, "bgm_lobby_d.wav"))
     return st
 
-def lobby_wind(path=None, kind=0, vib=1.0, breath=1.0, oct=0, taper=0.0, release=0.09):
+def lobby_wind(path=None, kind=0, vib=1.0, breath=1.0, oct=0, taper=0.0, release=0.09, soft=0.0):
     """lobby_b と同じ作曲。メロディを笛（kind 0=オカリナ 1=ソフトフルート 2=リコーダー）に。伴奏はフェルトピアノA"""
     kinds = ['ocarina', 'flute', 'recorder']; kname = kinds[int(kind)]
     m = Mix(60, 16, tail=5.0, seed=11)
@@ -59,7 +59,7 @@ def lobby_wind(path=None, kind=0, vib=1.0, breath=1.0, oct=0, taper=0.0, release
     for pos, d, mm in mel:
         v = m.vel(0.7 if (pos % 4) == 0 else 0.6, 0.05)
         # 笛は音と音の間に少し息つぎ（長さを少し短く）
-        m.add(wind(midi_hz(mm + 12 * int(oct)), d * m.beat * 0.93, v, kind=kname, vib=vib, breath=breath, taper=taper, release=release), pos, pan=0.06, rev=0.3, humanize=0.01)
+        m.add(wind(midi_hz(mm + 12 * int(oct)), d * m.beat * 0.93, v, kind=kname, vib=vib, breath=breath, taper=taper, release=release, soft=soft), pos, pan=0.06, rev=0.3, humanize=0.01)
     for bar, cn in enumerate(prog):
         r, cps = old.chord(cn)
         voic = sorted(old.nearest(55 + (p - 55) % 12, [p], 52, 64) for p in cps)
@@ -78,8 +78,8 @@ def lobby_wind(path=None, kind=0, vib=1.0, breath=1.0, oct=0, taper=0.0, release
     return st
 
 def lobby_e(path=None):
-    """採用版（2026-10-07）：メロディをオカリナ、音の終わりをふわっと弱める（taper 0.45、余韻0.25秒）"""
-    return lobby_wind(path or os.path.join(OUT, "bgm_lobby_e.wav"), kind=0, taper=0.45, release=0.25)
+    """採用版（2026-10-07）：メロディをオカリナ、音の終わりをふわっと弱める、かなりやわらか（soft 1.0）"""
+    return lobby_wind(path or os.path.join(OUT, "bgm_lobby_e.wav"), kind=0, taper=0.45, release=0.3, soft=1.0, breath=0.6, vib=0.6)
 
 def basics2(path=None, swing=0.0):
     """れんしゅう（basics）と同じ作曲：C長調128BPM。マリンバ＋オルゴールのメロディ、指弾きベース、ギターのジャカッ、ドラム"""
