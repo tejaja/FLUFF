@@ -146,6 +146,119 @@ def wind(f, dur, vel=0.7, kind='flute', vib=1.0, breath=1.0, taper=0.0, release=
     if kind == 'ocarina': y = lp(y, 3500, 2)
     return y * vel * 0.17
 
+# ---------- たたく・はじく・打楽器（2026-10-07） ----------
+def marimba2(f, dur, vel=0.8, hard=0.5):
+    """マリンバ：木の板のモード（1, 3.9, 9.2 倍…高いほどすぐ消える）、マレットの当たり、下の共鳴パイプで基音が少し長く鳴る"""
+    tail = 1.2
+    n = int((dur + tail) * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    modes = [(1.0, 1.0, 0.55 * (440 / f) ** 0.35), (3.93, 0.32 * (0.5 + hard), 0.12), (9.2, 0.12 * hard, 0.04), (16.1, 0.05 * hard, 0.015)]
+    for mul, amp, dec in modes:
+        if f * mul > SR * 0.42: continue
+        y += amp * np.exp(-t / dec) * np.sin(2 * np.pi * f * mul * t + rng_global.uniform(0, 6.28))
+    # 共鳴パイプ：基音だけ少し長く、ほんの少し遅れてふくらむ
+    y += 0.25 * (1 - np.exp(-t / 0.02)) * np.exp(-t / (0.9 * (440 / f) ** 0.3)) * np.sin(2 * np.pi * f * t)
+    # マレットの当たり（やわらかいクリック）
+    cn = int(0.012 * SR)
+    y[:cn] += lp(rng_global.standard_normal(cn), 2500 + 3000 * hard) * np.exp(-np.arange(cn) / SR / 0.002) * 0.15
+    y *= np.clip(t / 0.0015, 0, 1)
+    return y * vel * 0.45
+
+def music_box2(f, dur, vel=0.5):
+    """オルゴール：金属の歯（くし）のモード＋チリッとした当たり、長い余韻"""
+    tail = 1.8
+    n = int((dur + tail) * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    for mul, amp, dec in [(1.0, 1.0, 1.6), (5.4, 0.18, 0.25), (11.5, 0.06, 0.08), (2.0, 0.08, 0.6)]:
+        if f * mul > SR * 0.42: continue
+        y += amp * np.exp(-t / dec) * np.sin(2 * np.pi * f * mul * t + rng_global.uniform(0, 6.28))
+    cn = int(0.006 * SR)
+    y[:cn] += hp(rng_global.standard_normal(cn), 4000) * np.exp(-np.arange(cn) / SR / 0.0012) * 0.12
+    y *= np.clip(t / 0.001, 0, 1)
+    return y * vel * 0.4
+
+def ks_string(f, dur, vel=0.7, bright=0.5, damp_time=None, body=True):
+    """カープラス・ストロング（弦の物理計算）：ノイズの一発を遅延線でぐるぐる回して弦の音にする。
+    bright: 弾いた時の明るさ（ピックの硬さ）。damp_time: 離した後に消えるまでの秒数（None=自然に）"""
+    tail = 1.4
+    n = int((dur + tail) * SR)
+    L = max(2, int(round(SR / f)))
+    frac = SR / f - L
+    # 最初の一発：明るさで高域を削ったノイズ
+    exc = rng_global.uniform(-1, 1, L + 1)
+    exc = lp(exc, 1500 + 7000 * bright, 1)
+    exc -= exc.mean()
+    y = np.zeros(n)
+    y[:L + 1] = exc
+    # 遅延線のフィードバック：y[i] += g * (a*y[i-L] + (1-a)*y[i-L-1])
+    loss = 0.996 - 0.002 * (f / 1000)
+    a = 0.5 + 0.5 * (1 - frac) * 0.0   # 2点平均（ローパス）
+    i = L + 1
+    while i < n:
+        j = min(n, i + L)
+        seg = y[i - L:j - L]; seg2 = y[i - L - 1:j - L - 1]
+        y[i:j] += loss * (0.5 * seg + 0.5 * seg2)
+        i = j
+    t = np.arange(n) / SR
+    if damp_time is not None:
+        y *= np.where(t > dur, np.exp(-(t - dur) / damp_time), 1.0)
+    if body:
+        # 胴鳴り：低めの共鳴を少し
+        y = y + 0.25 * bp(y, 180, 600, 1)
+    return y * vel * 0.5
+
+def strum(freqs, dur, vel=0.6, bright=0.5, spread=0.012, down=True):
+    """和音をジャカッと：弦ごとに少しずつ遅らせて鳴らす"""
+    fs = sorted(freqs, reverse=not down)
+    parts = [ks_string(f, dur, vel * (1 - 0.07 * k), bright, damp_time=0.08) for k, f in enumerate(fs)]
+    off = [int(k * spread * SR) for k in range(len(parts))]
+    n = max(len(p) + o for p, o in zip(parts, off))
+    y = np.zeros(n)
+    for p, o in zip(parts, off): y[o:o + len(p)] += p
+    return y / np.sqrt(len(parts))
+
+def finger_bass(f, dur, vel=0.8, tone=0.4):
+    """指弾きベース：弦（KS）の低い版＋サイン波の芯、指が当たる低い「ブン」"""
+    y = ks_string(f, dur, vel, bright=0.15 + 0.3 * tone, damp_time=0.05, body=False)
+    n = len(y); t = np.arange(n) / SR
+    core = np.sin(2 * np.pi * f * t) * np.exp(-t / 1.2) * np.clip(t / 0.004, 0, 1) * np.where(t > dur, np.exp(-(t - dur) / 0.05), 1.0)
+    y = lp(y, 900 + 1500 * tone, 2) * 0.8 + core * 0.45 * vel
+    return y * 0.8
+
+def kick2(vel=0.9, punch=0.5, low=0.5):
+    n = int(0.5 * SR); t = np.arange(n) / SR
+    f0, f1 = 150 + 60 * punch, 46 + 10 * (1 - low)
+    fr = f1 + (f0 - f1) * np.exp(-t / 0.035)
+    body = np.sin(2 * np.pi * np.cumsum(fr) / SR) * np.exp(-t / (0.16 + 0.12 * low))
+    click = lp(rng_global.standard_normal(n), 5000) * np.exp(-t / 0.0025) * 0.35 * (0.5 + punch)
+    y = np.tanh((body + click) * 1.4) / np.tanh(1.4)
+    return y * vel * 0.8
+
+def snare2(vel=0.8, tone=0.5, snap=0.5):
+    n = int(0.35 * SR); t = np.arange(n) / SR
+    drum = (np.sin(2 * np.pi * 185 * t) * 0.7 + np.sin(2 * np.pi * 330 * t) * 0.35) * np.exp(-t / (0.06 + 0.04 * tone))
+    wires = bp(rng_global.standard_normal(n), 1800, 9000, 2) * np.exp(-t / (0.09 + 0.08 * snap))
+    attack = hp(rng_global.standard_normal(n), 3000) * np.exp(-t / 0.004) * 0.6
+    y = drum * 0.8 + wires * (0.5 + 0.5 * snap) + attack
+    return y * vel * 0.32
+
+def hat2(vel=0.6, open_=False):
+    """ハイハット：金属っぽい6本の矩形波を混ぜてハイパス（808のやり方）"""
+    dur = 0.32 if open_ else 0.07
+    n = int(dur * SR); t = np.arange(n) / SR
+    y = np.zeros(n)
+    for fr in (205.3, 304.4, 369.6, 522.7, 540.0, 800.0):
+        y += np.sign(np.sin(2 * np.pi * fr * 1.0 * t + rng_global.uniform(0, 6.28)))
+    y = hp(y, 7000, 2) + 0.4 * hp(rng_global.standard_normal(n), 8000, 2)
+    y *= np.exp(-t / (0.1 if open_ else 0.018)) * np.clip(t / 0.0008, 0, 1)
+    return y * vel * 0.06
+
+def shaker2(vel=0.5):
+    n = int(0.12 * SR); t = np.arange(n) / SR
+    y = bp(rng_global.standard_normal(n), 3500, 11000, 2)
+    e = np.sin(np.pi * np.clip(t / 0.1, 0, 1)) ** 2
+    return y * e * vel * 0.09
+
 def warm_pad(f, dur, vel=0.7, bright=0.5):
     """パッド：ゆっくり揺れる7本のノコギリ波（帯域制限）、ローパスがゆっくり開いて閉じる、コーラスで左右に広げる。ステレオで返す"""
     tail = 1.6

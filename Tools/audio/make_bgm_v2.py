@@ -81,6 +81,45 @@ def lobby_e(path=None):
     """採用版（2026-10-07）：メロディをオカリナ、音の終わりをふわっと弱める（taper 0.45、余韻0.25秒）"""
     return lobby_wind(path or os.path.join(OUT, "bgm_lobby_e.wav"), kind=0, taper=0.45, release=0.25)
 
+def basics2(path=None, swing=0.0):
+    """れんしゅう（basics）と同じ作曲：C長調128BPM。マリンバ＋オルゴールのメロディ、指弾きベース、ギターのジャカッ、ドラム"""
+    m = Mix(128, 16, tail=3.0, seed=21)
+    prog = ['C', 'G', 'Am', 'F'] * 2 + ['F', 'G', 'Em', 'Am', 'F', 'G', 'C', 'C']
+    kp = old.NOTE['C']; MAJOR = old.MAJOR
+    rA = [[(0, 0.5), (0.5, 0.5), (1, 1), (2.5, 0.5), (3, 1)], [(0, 1), (1, 0.5), (1.5, 0.5), (2, 1.5)],
+          [(0, 0.5), (0.5, 0.5), (1, 0.5), (1.5, 0.5), (2, 1), (3, 1)], [(0, 1.5), (1.5, 0.5), (2, 2)]]
+    rB = [[(0, 1), (1, 1), (2, 0.5), (2.5, 1.5)], [(0, 0.5), (0.5, 1), (1.5, 0.5), (2, 2)],
+          [(0, 1), (1, 0.5), (1.5, 0.5), (2, 1), (3, 1)], [(0, 2), (2.5, 0.5), (3, 1)]]
+    a = old.make_melody(np.random.default_rng(21), prog[:4], kp, MAJOR, rA, 72, 88, 76)
+    a2 = [(p, d, mm) for p, d, mm in a]
+    b = old.make_melody(np.random.default_rng(22), prog[8:12], kp, MAJOR, rB, 72, 88, 81)
+    c = old.make_melody(np.random.default_rng(23), prog[12:16], kp, MAJOR, rA[:2] + rB[2:3] + [[(0, 3)]], 72, 88, 79)
+    mel = a + old.transpose_rest(a2, 4) + old.transpose_rest(b, 8) + old.transpose_rest(c, 12)
+    mel = old.end_on_root(mel, kp, 72, 88)
+    sw = lambda pos: pos + (swing if abs((pos % 1) - 0.5) < 1e-6 else 0.0)
+    for pos, d, mm in mel:
+        acc = 0.8 if abs(pos - round(pos)) < 1e-6 else 0.65
+        m.add(marimba2(midi_hz(mm), d * m.beat, m.vel(acc), hard=0.55), sw(pos), pan=0.12, rev=0.18, humanize=0.006)
+        m.add(music_box2(midi_hz(mm + 12), d * m.beat, m.vel(0.16)), sw(pos), pan=0.5, rev=0.3, humanize=0.006)
+    for bar, cn in enumerate(prog):
+        r, cps = old.chord(cn)
+        root = old.nearest(40, [r], 36, 47)
+        for k in range(8):
+            mm = root + (12 if k % 2 else 0)
+            m.add(finger_bass(midi_hz(mm), 0.42 * m.beat, m.vel(0.68 if k % 2 == 0 else 0.48, 0.05), tone=0.35), sw(bar * 4 + k * 0.5), rev=0.03, humanize=0.004)
+        voic = sorted(old.nearest(62 + (p - 62) % 12, [p], 60, 72) for p in cps)
+        for j, off in enumerate((0.5, 1.5, 2.5, 3.5)):
+            m.add(strum([midi_hz(x) for x in voic], 0.28 * m.beat, m.vel(0.5), bright=0.55, spread=0.009, down=(j % 2 == 0)), sw(bar * 4 + off), pan=-0.55, rev=0.15, humanize=0.005)
+        for beat in (0, 2, 2.75 if bar % 2 else 2):
+            m.add(kick2(m.vel(0.72, 0.04), punch=0.5, low=0.4), bar * 4 + beat, rev=0.02, humanize=0.002)
+        for beat in (1, 3):
+            m.add(snare2(m.vel(0.75, 0.05), tone=0.5, snap=0.5), bar * 4 + beat, pan=0.05, rev=0.15, humanize=0.003)
+        for k in range(8):
+            m.add(hat2(m.vel(0.8 if k % 2 else 0.55, 0.08), open_=(k == 7 and bar % 4 == 3)), sw(bar * 4 + k * 0.5), pan=0.42, rev=0.03, humanize=0.004)
+    st = master(m, rt60=1.3, rev_level=0.35, damp=0.5, lowcut=30, warmth_db=0.5, air_db=1.0, comp_thresh=-16, comp_ratio=2.0, target_rms_db=-13.0)
+    save(st, path or os.path.join(OUT, "bgm_basics2.wav"))
+    return st
+
 def lobby_c(path=None):
     """lobby_b と同じメロディ・コード・ゆりかごの分散和音。音源と残響・仕上げを新しくした版"""
     m = Mix(60, 16, tail=5.0, seed=11)
