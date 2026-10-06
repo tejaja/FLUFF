@@ -541,7 +541,12 @@ public class FuwaBlower : UdonSharpBehaviour
         if (!_charging) return;
         _charging = false;
         float charge = GetCharge();
-        if (Time.time < _nextPuff) return;
+        if (Time.time < _nextPuff)
+        {
+            // クールダウン中で撃てなかった時も、溜めの演出はすぐ止める（前は保険のタイムアウトまで残っていた）
+            if (_chargeFxSent) SendCustomNetworkEvent(NetworkEventTarget.All, nameof(ChargeCancelFx));
+            return;
+        }
         // どの撃ち方でも1発分の空気を使う（溜めている間は回復するので、溜め撃ちは実質プラス）。足りなければ空振り
         float cost = airPerTap;
         if (_air + 0.0001f < cost)
@@ -714,7 +719,7 @@ public class FuwaBlower : UdonSharpBehaviour
         float c = chargeTime > 0.001f ? Mathf.Clamp01((Time.time - _fxStart) / chargeTime) : 1f;
         // 持ち主が撃たずに手を離した等で発射イベントが来ない時の保険（2026-10-07：前は溜め始めから8秒で
         // 自分が溜め続けていても消えていた。自分の銃で溜めている間は消さない／他人のは最後の「まだ溜めてるよ」から8秒）
-        bool stillMine = _isMine && _charging;
+        bool stillMine = _isMine && _charging && _held;
         if (!stillMine && Time.time - _fxKeep > 8f) { StopChargeFx(); return; }
         if (c >= 1f && !_fxFull)
         {
