@@ -330,6 +330,45 @@ def den2(path=None, pgain=1.6, bgain=3.0, stabg=3.0, lead='marimba', lgain=1.0):
     save(st, path or os.path.join(OUT, "bgm_den2.wav"))
     return st
 
+def tower2(path=None, wgain=2.0, ggain=1.0, fgain=1.0, pzg=1.0):
+    """きのこのたに（tower_i と同じ作曲）：F長調116BPM、ほがらかなおさんぽ。口笛のメロディ＋1オクターブ上の小さいグロッケン、
+    はずむファゴット（低い音を4分で「ぽっ・ぽっ」）、裏拍のピチカートの和音、ボンゴの「ぽこぽこ」、軽いドラムとシェイカー"""
+    from make_bgm_tower import voicing
+    m = Mix(116, 16, tail=3.0, seed=71)
+    prog = ['F', 'Dm', 'Bb', 'C', 'F', 'Dm', 'Gm', 'C', 'Bb', 'C', 'Am', 'Dm', 'Bb', 'C', 'F', 'F']
+    kp = old.NOTE['F']; MAJOR = old.MAJOR
+    rA = [[(0, 1), (1, 0.5), (1.5, 0.5), (2, 1), (3, 1)], [(0, 0.5), (0.5, 0.5), (1, 1), (2, 2)],
+          [(0, 1), (1, 1), (2, 0.5), (2.5, 0.5), (3, 1)], [(0, 1.5), (1.5, 0.5), (2, 2)]]
+    a = old.make_melody(np.random.default_rng(141), prog[:4], kp, MAJOR, rA, 65, 82, 69)
+    a2 = old.make_melody(np.random.default_rng(142), prog[4:8], kp, MAJOR, rA, 65, 82, a[-1][2])
+    b = old.make_melody(np.random.default_rng(143), prog[8:12], kp, MAJOR, rA, 65, 84, 72)
+    c = old.make_melody(np.random.default_rng(144), prog[12:16], kp, MAJOR, rA[:3] + [[(0, 4)]], 65, 82, 74)
+    mel = old.end_on_root(a + old.transpose_rest(a2, 4) + old.transpose_rest(b, 8) + old.transpose_rest(c, 12), kp, 65, 82)
+    for pos, d, mm in mel:
+        v = m.vel(0.72 if abs(pos - round(pos)) < 1e-6 else 0.62, 0.05)
+        # 口笛：ほぼ純音、息少し、速めの細かいビブラート。1オクターブ上で吹く
+        m.add(wind(midi_hz(mm + 12), d * m.beat * 0.9, v, kind='ocarina', vib=1.4, breath=0.35, taper=0.25, release=0.08, soft=0.3), pos, pan=0.1, rev=0.25, gain=wgain, humanize=0.008)
+        m.add(glock(midi_hz(mm + 24), d * m.beat, v * 0.22, hard=0.3, ring=0.7), pos, pan=-0.3, rev=0.3, gain=ggain, humanize=0.004)
+    for bar, cn in enumerate(prog):
+        r, cps = old.chord(cn)
+        root = old.nearest(41, [r], 36, 47)
+        vo = voicing(cps, 62, 57, 69)
+        for beat in range(4):
+            x = root + (7 if beat % 2 else 0)
+            m.add(reed(midi_hz(x + 12), 0.3 * m.beat, m.vel(0.7 if beat % 2 == 0 else 0.6, 0.04), kind='bassoon', breath=0.4), bar * 4 + beat, pan=-0.2, rev=0.15, gain=fgain * 1.4, humanize=0.004)
+            m.add(finger_bass(midi_hz(x), 0.35 * m.beat, m.vel(0.6, 0.04), tone=0.35), bar * 4 + beat, rev=0.04, humanize=0.004)
+        for off in (0.5, 1.5, 2.5, 3.5):
+            for k, x in enumerate(vo): m.add(lp(ks_string(midi_hz(x), 0.22 * m.beat, m.vel(0.4, 0.06), bright=0.4, damp_time=0.05), 3000, 2), bar * 4 + off + k * 0.006, pan=0.35, rev=0.2, gain=pzg * 1.6, humanize=0.003)
+        for off, hi in ((0.5, False), (1.25, True), (2.5, False), (3.0, True), (3.5, True)):
+            m.add(bongo2(hi, m.vel(0.5, 0.06)), bar * 4 + off, pan=-0.4, rev=0.12, humanize=0.004)
+        m.add(kick2(m.vel(0.55, 0.03), punch=0.4, low=0.5), bar * 4, rev=0.03, humanize=0.002)
+        m.add(kick2(m.vel(0.42, 0.03), punch=0.4, low=0.5), bar * 4 + 2, rev=0.03, humanize=0.002)
+        for beat in (1, 3): m.add(snare2(m.vel(0.42, 0.04), tone=0.5, snap=0.4), bar * 4 + beat, pan=0.2, rev=0.3, humanize=0.003)
+        for k in range(8): m.add(shaker2(m.vel(0.5 if k % 2 else 0.32, 0.06)), bar * 4 + k * 0.5, pan=0.45, rev=0.05, humanize=0.004)
+    st = master(m, rt60=1.4, rev_level=0.3, damp=0.5, lowcut=30, warmth_db=0.5, air_db=1.5, comp_thresh=-16, comp_ratio=1.8, target_rms_db=-12.5)
+    save(st, path or os.path.join(OUT, "bgm_tower2.wav"))
+    return st
+
 def lobby_c(path=None):
     """lobby_b と同じメロディ・コード・ゆりかごの分散和音。音源と残響・仕上げを新しくした版"""
     m = Mix(60, 16, tail=5.0, seed=11)
