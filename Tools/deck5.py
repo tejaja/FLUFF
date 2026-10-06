@@ -68,6 +68,26 @@ def jag_end(m, x_edge, z0, z1, y, sgn, rnd, col):
 rnd = random.Random(5)
 vis = Mesh(); col = Mesh()
 
+# 2026-10-07：板をガタつかせる（きのこのたに入口の木の床と同じくらい）。見た目だけ（判定は平らのまま）
+JIT = globals().get('JIT', 1.0)
+jrnd = random.Random(11)
+def jitter(corners):
+    # 板の上面4点を、板の中心まわりに少し傾け（3軸）、少し浮かせ/沈め、横に少しずらす
+    from mathutils import Euler
+    P = [Vector(p) for p in corners]
+    ctr = sum(P, Vector()) / 4
+    e = Euler((math.radians(jrnd.uniform(-1.6, 1.6) * JIT), math.radians(jrnd.uniform(-1.8, 1.8) * JIT), math.radians(jrnd.uniform(-2.4, 2.4) * JIT)), 'XYZ')
+    off = Vector((jrnd.uniform(-0.015, 0.015) * JIT, jrnd.uniform(-0.012, 0.028) * JIT, 0))
+    out = []
+    for p in P:
+        q = p - ctr; q.rotate(e); out.append(tuple(ctr + q + off))
+    return out
+def chip(za, zb):
+    # 板の両はしを不ぞろいに欠けさせる（35%の板で 5〜26cm）
+    if jrnd.random() < 0.35: za += jrnd.uniform(0.05, 0.26)
+    if jrnd.random() < 0.35: zb -= jrnd.uniform(0.05, 0.26)
+    return za, zb
+
 # ---- 板（横向き）を並べる ----
 def lay_planks(x0, x1, broken_end=None):
     x = x0
@@ -76,6 +96,7 @@ def lay_planks(x0, x1, broken_end=None):
         xa, xb = x, x + w
         c = mul3(WOOD[rnd.randrange(len(WOOD))], rnd.uniform(0.93, 1.06))
         za, zb = Z0 + rnd.uniform(-0.04, 0.04), Z1 + rnd.uniform(-0.04, 0.04)
+        za, zb = chip(za, zb)
         # 割れ目のそばの板：長さがバラバラに欠けている（人が渡る +z 側の桁の上は残す）
         cut_z = None
         if broken_end is not None:
@@ -86,14 +107,14 @@ def lay_planks(x0, x1, broken_end=None):
                 cut_z = max(Z0 + 0.4, cut_z)
         ya, yb = deck_y(xa), deck_y(xb)
         if cut_z is None:
-            box(vis, [(xa, ya, za), (xb, yb, za), (xb, yb, zb), (xa, ya, zb)], Vector((0, -1, 0)), PLANK_T, c)
+            box(vis, jitter([(xa, ya, za), (xb, yb, za), (xb, yb, zb), (xa, ya, zb)]), Vector((0, -1, 0)), PLANK_T, c)
         else:
             # 欠けた板：-z 側だけ残る（割れ目に向かって短くなる）＋ 先はギザギザ
-            box(vis, [(xa, ya, za), (xb, yb, za), (xb, yb, cut_z), (xa, ya, cut_z)], Vector((0, -1, 0)), PLANK_T, c)
+            box(vis, jitter([(xa, ya, za), (xb, yb, za), (xb, yb, cut_z), (xa, ya, cut_z)]), Vector((0, -1, 0)), PLANK_T, c)
             if Z1 - cut_z > 0.6:
                 # +z 側の桁の上だけ、短い板の切れ端が残る
                 zz = Z1 - rnd.uniform(0.45, 0.6)
-                box(vis, [(xa, ya, zz), (xb, yb, zz), (xb, yb, zb), (xa, ya, zb)], Vector((0, -1, 0)), PLANK_T, c)
+                box(vis, jitter([(xa, ya, zz), (xb, yb, zz), (xb, yb, zb), (xa, ya, zb)]), Vector((0, -1, 0)), PLANK_T, c)
         x = xb + PLANK_GAP
 
 lay_planks(XA0, XA1, broken_end=(XA1, 1))
