@@ -362,8 +362,10 @@ public class FuwaBall : UdonSharpBehaviour
     private Vector3 _windDampDir = Vector3.zero;
     [Tooltip("風の効きが弱まっている間の光の色（溜めて撃った時だけ。ふつう撃ちは光らない）")]
     public Color resistGlowColor = new Color(1f, 0.78f, 0.15f, 1f);
-    [Tooltip("フルチャージで撃った時の光の強さ（溜め具合に比例。弱まりが戻るのに合わせて消える）")]
+    [Tooltip("フルチャージで撃った時の光の強さ（溜め具合に比例）")]
     [Range(0f, 1f)] public float resistGlowMax = 1f;
+    [Tooltip("光が消えるまでの秒数（撃った瞬間が一番明るく、だんだん消える。風の弱まり自体はもっと長く続く）")]
+    public float resistGlowTime = 0.6f;
     private float _windDampGlow = 0f;
 
     // エアガンで撃たれた時に呼ばれる（charge 0〜1、shotDir＝飛ばした向き）。しばらく風の効きを弱め（溜めるほど長く保つ）、だんだん元に戻す
@@ -486,7 +488,7 @@ public class FuwaBall : UdonSharpBehaviour
         }
         float target = Time.time < _glowUntil && !_hidden ? _glowTarget : 0f;
         // 溜めて撃って風の効きが弱まっている間は、黄色く光る（風の青い光より優先。撃った向きに光の帯が流れる）
-        float resist = _hidden ? 0f : _windDampGlow * WindDampLeft();
+        float resist = _hidden || resistGlowTime <= 0f ? 0f : _windDampGlow * Mathf.Clamp01(1f - (Time.time - _windDampStart) / resistGlowTime);
         if (resist > 0.01f)
         {
             _glowColor = resistGlowColor; target = Mathf.Max(target, resist);
