@@ -152,21 +152,21 @@ public static class FuwaKazeDeco
             // 大きいたんぽぽ（木よりちょっと低いくらい）：綿毛1本（必ず）＋ときどき黄色い花
             // 綿毛と黄色い花は島の反対側に分ける。分ける向きは、コースを進みながら前〜斜め前を見たときに頭どうしが重なって見えにくい向きの中から選ぶ
             // （一番いい向きに固定すると全部同じ見え方になるので、合格した向きの中からランダム）
-            float? useAng = null; Vector3? face = null; var snap = rnd.Clone();
+            float? useAng = null; var snap = rnd.Clone();
             {
                 var tp = new List<(Vector3, float)>(); var tph = new List<float>();
-                if (Pair(new MB(), snap.Clone(), pos, rad, topY, null, wind, tp, tph, null, out _) == 2)
+                if (Pair(new MB(), snap.Clone(), pos, rad, topY, null, wind, tp, tph, out _) == 2)
                 {
                     var cost = new List<(float ang, float c)>();
                     for (int ai = 0; ai < 72; ai++)
                     {
                         tp.Clear(); tph.Clear();
-                        Pair(new MB(), snap.Clone(), pos, rad, topY, ai * 5f, wind, tp, tph, null, out var hd);
+                        Pair(new MB(), snap.Clone(), pos, rad, topY, ai * 5f, wind, tp, tph, out var hd);
                         cost.Add((ai * 5f, ViewCost(hd[0], hd[1], views)));
                     }
                     float best = cost.Min(q => q.c), lim = Mathf.Max(best + 0.01f, 0.03f);
                     var ok = cost.Where(q => q.c <= lim).ToList();
-                    tp.Clear(); tph.Clear(); Pair(new MB(), snap.Clone(), pos, rad, topY, null, wind, tp, tph, null, out var hd0);
+                    tp.Clear(); tph.Clear(); Pair(new MB(), snap.Clone(), pos, rad, topY, null, wind, tp, tph, out var hd0);
                     float c0 = ViewCost(hd0[0], hd0[1], views);
                     if (c0 > lim)   // 元の向きで合格ならそのまま
                     {
@@ -174,12 +174,9 @@ public static class FuwaKazeDeco
                         useAng = pick.ang;
                         log.Append("\n島" + placed.Count + " 重なり " + c0.ToString("F3") + " → " + pick.c.ToString("F3") + "（合格 " + ok.Count + "/72）");
                     }
-                    // 黄色い花の頭は真上向きだと道からは横向きの薄い円盤にしか見えないので、道から見える側へ傾ける
-                    tp.Clear(); tph.Clear(); Pair(new MB(), snap.Clone(), pos, rad, topY, useAng, wind, tp, tph, null, out var hdF);
-                    face = FaceDir(hdF[1].c, views, 9300 + placed.Count);
                 }
             }
-            Pair(plants, rnd, pos, rad, topY, useAng, wind, heads, _headPhase, face, out _);
+            Pair(plants, rnd, pos, rad, topY, useAng, wind, heads, _headPhase, out _);
             // 小さいたんぽぽ（ふつうの大きさ）
             int ns = rnd.Next(5, 10);
             for (int k = 0; k < ns; k++)
@@ -292,18 +289,18 @@ public static class FuwaKazeDeco
 
     // 綿毛（必ず）＋黄色い花（ときどき）の大きいたんぽぽ1組。ang が null なら分ける向きは乱数のまま。
     // 乱数を引く回数は ang に関係なく同じ。戻り値は頭の数、hd は頭の (中心, 見た目の半径)
-    static int Pair(MB plants, System.Random rnd, Vector3 pos, float rad, float topY, float? ang, Vector3 wind, List<(Vector3, float)> heads, List<float> phases, Vector3? face, out List<(Vector3 c, float r)> hd)
+    static int Pair(MB plants, System.Random rnd, Vector3 pos, float rad, float topY, float? ang, Vector3 wind, List<(Vector3, float)> heads, List<float> phases, out List<(Vector3 c, float r)> hd)
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         hd = new List<(Vector3, float)>();
         float a0 = R(0, 360);
         var sep = Quaternion.Euler(0, ang ?? a0, 0) * Vector3.forward;
         var gp = pos - sep * R(0.9f, 1.2f);
-        hd.Add(Giant(plants, new Vector3(gp.x, topY, gp.z), R(3.0f, 3.8f), true, wind, rnd, heads, phases, null));
+        hd.Add(Giant(plants, new Vector3(gp.x, topY, gp.z), R(3.0f, 3.8f), true, wind, rnd, heads, phases));
         if (rnd.NextDouble() < 0.6)
         {
             var yp = pos + Quaternion.Euler(0, R(-25, 25), 0) * sep * R(1.6f, rad * 0.7f);
-            hd.Add(Giant(plants, new Vector3(yp.x, topY, yp.z), R(2.2f, 2.9f), false, wind, rnd, heads, phases, face));
+            hd.Add(Giant(plants, new Vector3(yp.x, topY, yp.z), R(2.2f, 2.9f), false, wind, rnd, heads, phases));
         }
         return hd.Count;
     }
@@ -363,21 +360,6 @@ public static class FuwaKazeDeco
         return n == 0 ? 0f : (float)bad / n + 0.1f * sum / n;
     }
 
-    // 花の頭を向ける向き：前〜斜め前にこの花が見える視点の方向の平均（近い視点ほど重く）へ、真上から50〜65°だけ傾ける（島ごとに少しバラけさせる）
-    static Vector3 FaceDir(Vector3 c, List<(Vector3 eye, Vector3 fwd)> views, int seed)
-    {
-        var sum = Vector3.zero;
-        foreach (var (eye, fwd) in views)
-        {
-            var d = eye - c; float l = d.magnitude; if (l > 70f) continue;
-            var back = -d; back.y = 0; if (Vector3.Angle(back, fwd) > 80f) continue;
-            sum += d / (l * l);
-        }
-        if (sum.sqrMagnitude < 1e-8f) return Vector3.up;
-        var target = sum.normalized; float tilt = 50f + (float)new System.Random(seed).NextDouble() * 15f;
-        return Vector3.RotateTowards(Vector3.up, target, Mathf.Min(Vector3.Angle(Vector3.up, target), tilt) * Mathf.Deg2Rad, 0f);
-    }
-
     // 飛んでいく綿毛（パーティクル用）：細い軸＋放射状に開いた白い毛（三角だけ）。1つ約30三角で軽い
     static Mesh SeedMesh()
     {
@@ -420,7 +402,7 @@ public static class FuwaKazeDeco
 
     // 巨大たんぽぽ：葉のロゼット＋少し風下にしなる茎＋頭（綿毛 or 黄色い花）
     // 戻り値は頭の (中心, 見た目の半径)
-    static (Vector3, float) Giant(MB m, Vector3 at, float h, bool puff, Vector3 wind, System.Random rnd, List<(Vector3, float)> heads, List<float> phases, Vector3? face)
+    static (Vector3, float) Giant(MB m, Vector3 at, float h, bool puff, Vector3 wind, System.Random rnd, List<(Vector3, float)> heads, List<float> phases)
     {
         (Vector3, float) look;
         int v0 = m.V.Count; float phase = (float)rnd.NextDouble() * 6.2832f;
@@ -449,7 +431,9 @@ public static class FuwaKazeDeco
         else
         {
             float fr = R(2.1f, 2.6f) * s; int fb = m.V.Count; Flower(m, top, fr, rnd);
-            var q = Quaternion.FromToRotation(Vector3.up, face ?? Vector3.up);   // 花の頭（花びら＋がく）を茎の先を中心に傾ける
+            // 花の頭（花びら＋がく）は、風でしなった茎の先の向きに合わせて風下へうなずかせる（頭の重みで茎の先より少し深め）
+            var tan = (Vector3.up * h + lean * 2f).normalized;
+            var q = Quaternion.AngleAxis(Vector3.Angle(Vector3.up, tan) * 1.4f, Vector3.Cross(Vector3.up, tan).normalized);
             for (int i = fb; i < m.V.Count; i++) { m.V[i] = top + q * (m.V[i] - top); m.N[i] = q * m.N[i]; }
             look = (top + Vector3.up * fr * 0.15f, fr * 0.9f);
         }
@@ -552,6 +536,7 @@ public static class FuwaKazeDeco
     static void Flower(MB m, Vector3 c, float r, System.Random rnd)
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
+        int pv0 = m.V.Count, pt0 = m.T.Count;
         for (int layer = 0; layer < 3; layer++)
         {
             int n = 18 - layer * 4; float L = r * (1f - layer * 0.28f), up = 0.12f + layer * 0.35f;
@@ -566,6 +551,13 @@ public static class FuwaKazeDeco
                 m.Add(p2 - sd * w * 0.7f, Vector3.up, col * 1.03f); m.Add(p2 + sd * w * 0.7f, Vector3.up, col * 1.03f);
                 m.Quad(b, b + 1, b + 3, b + 2); m.Quad(b + 2, b + 3, b + 5, b + 4);   // 上向きの面
             }
+        }
+        // 花びらの裏：両面描画でも裏から見ると法線が下向きになって暗く沈む（うなずいた花を後ろから見た時に茶色っぽくなる）。
+        // 少し下にずらした裏向きの面を足して、法線は表と同じ上向きのままにして明るく見せる（裏も黄色、少しだけ濃いめ）
+        {
+            int pv1 = m.V.Count, pt1 = m.T.Count; float off = r * 0.012f;
+            for (int i = pv0; i < pv1; i++) m.Add(m.V[i] - m.N[i] * off, m.N[i], Color.Lerp(m.C[i], new Color(0.95f, 0.62f, 0.12f), 0.25f));
+            for (int t = pt0; t < pt1; t += 3) m.Tri(m.T[t] - pv0 + pv1, m.T[t + 2] - pv0 + pv1, m.T[t + 1] - pv0 + pv1);
         }
         // がく
         for (int i = 0; i < 10; i++)
