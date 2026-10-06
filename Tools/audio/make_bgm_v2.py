@@ -402,6 +402,249 @@ def aftergoal2(path=None, lead='whistle', lgain=1.0):
     save(st, path or os.path.join(OUT, "bgm_aftergoal2.wav"))
     return st
 
+def fanfare2(path=None, bgain=3.5, top='glock', total=5.0):
+    """ゴールのファンファーレ（fanfare と同じ作曲、ループしない5秒）：タタタ・ターン！→ラ・シ・ド〜〜。
+    ブラス（メロディ＋1オクターブ上）、低いブラスの和音、ベース、スネアのロール→キック＋クラッシュ、タムの駆け下り"""
+    bpm = 132; beat = 60 / bpm
+    n = int(total * SR)
+    dry = np.zeros((n, 2)); send = np.zeros((n, 2))
+    def add(y, t, pan=0.0, rev=0.25, g=1.0):
+        i = int(t * SR); mlen = min(len(y), n - i)
+        if mlen <= 0: return
+        gl = np.sqrt(0.5 * (1 - pan)); gr = np.sqrt(0.5 * (1 + pan))
+        z = np.stack([y[:mlen] * gl, y[:mlen] * gr], 1) * g
+        dry[i:i + mlen] += z; send[i:i + mlen] += z * rev
+    mel = [(0, 0.33, 67), (0.33, 0.33, 67), (0.66, 0.33, 67), (1.0, 1.0, 72), (2.0, 0.5, 69), (2.5, 0.5, 71), (3.0, 3.0, 72)]
+    for b0, d, mm in mel:
+        v = 0.9 if d >= 1 else 0.78
+        add(brass2(midi_hz(mm), d * beat * 0.92, v, bright=0.7, voices=3, att=0.025), b0 * beat, pan=0.1, g=bgain)
+        add(brass2(midi_hz(mm + 12), d * beat * 0.92, v * 0.45, bright=0.55, voices=2, att=0.025), b0 * beat, pan=-0.1, g=bgain)
+        if top == 'glock': add(glock(midi_hz(mm + 12), d * beat, 0.35, hard=0.5, ring=0.8), b0 * beat, pan=0.3, rev=0.35)
+    for b0, d, ch in [(0, 1.0, [60, 64, 67]), (1.0, 1.0, [60, 64, 67]), (2.0, 0.5, [60, 65, 69]), (2.5, 0.5, [62, 67, 71]), (3.0, 3.0, [60, 64, 67, 72])]:
+        for x in ch: add(brass2(midi_hz(x - 12), d * beat * 0.95, 0.5, bright=0.4, voices=2, att=0.03), b0 * beat, pan=-0.3, g=bgain)
+        add(finger_bass(midi_hz(ch[0] - 24), d * beat, 0.85, tone=0.5), b0 * beat, rev=0.05, g=2.2)
+    for k in range(6): add(snare2(0.45 + 0.1 * k, tone=0.6, snap=0.6), k * beat / 6, pan=0.1, rev=0.2)
+    add(kick2(0.95, punch=0.7, low=0.6), 1.0 * beat, rev=0.05, g=1.6); add(crash2(0.9), 1.0 * beat, pan=-0.2, rev=0.3, g=1.8)
+    add(kick2(0.75, punch=0.7, low=0.6), 2.0 * beat, rev=0.05, g=1.6)
+    add(kick2(0.95, punch=0.7, low=0.6), 3.0 * beat, rev=0.05, g=1.6); add(crash2(1.0, dur=3.0), 3.0 * beat, pan=0.2, rev=0.3, g=1.8)
+    for k, f in enumerate((150, 125, 100)): add(tom2(f, 0.75, skin=0.7), 2.5 * beat + k * beat / 6, pan=-0.3 + 0.3 * k, rev=0.25)
+    ir = reverb_ir(1.6, damp=0.5)
+    wet = np.stack([fftconv(send[:, 0], ir[:, 0])[:n], fftconv(send[:, 1], ir[:, 1])[:n]], 1)
+    st = dry + 0.4 * wet
+    st = hp(st, 30, 2)
+    st = shelf(st, 6000, 1.5, 'high')
+    st /= np.max(np.abs(st)) + 1e-9
+    st = compressor(st, thresh_db=-14, ratio=1.6, makeup_db=0.0)
+    st = st / (np.max(np.abs(st)) + 1e-9) * 1.4
+    st = limiter(st, ceiling=0.85)
+    f = int(0.4 * SR); st[-f:] *= np.linspace(1, 0, f)[:, None]
+    st[:int(0.002 * SR)] *= np.linspace(0, 1, int(0.002 * SR))[:, None]
+    save(st, path or os.path.join(OUT, "jingle_goal2.wav"))
+    return st
+
+def _jingle_render(build, total, path, rt=1.6, peak_drive=1.05):
+    """ジングル（ループしない短い曲）の仕上げ共通。build(add) で音を置く。add(y, 秒, pan, rev, g)"""
+    n = int(total * SR)
+    dry = np.zeros((n, 2)); send = np.zeros((n, 2))
+    def add(y, t, pan=0.0, rev=0.25, g=1.0):
+        i = int(round(t * SR)); mlen = min(len(y), n - i)
+        if mlen <= 0: return
+        if y.ndim == 2: z = y[:mlen] * g
+        else:
+            gl = np.sqrt(0.5 * (1 - pan)); gr = np.sqrt(0.5 * (1 + pan))
+            z = np.stack([y[:mlen] * gl, y[:mlen] * gr], 1) * g
+        dry[i:i + mlen] += z; send[i:i + mlen] += z * rev
+    build(add)
+    ir = reverb_ir(rt, damp=0.5)
+    wet = np.stack([fftconv(send[:, 0], ir[:, 0])[:n], fftconv(send[:, 1], ir[:, 1])[:n]], 1)
+    st = hp(dry + 0.4 * wet, 30, 2)
+    st = shelf(st, 6000, 1.5, 'high')
+    st /= np.max(np.abs(st)) + 1e-9
+    st = compressor(st, thresh_db=-14, ratio=1.6)
+    st = limiter(st / (np.max(np.abs(st)) + 1e-9) * peak_drive, ceiling=0.85)
+    f = int(0.5 * SR); st[-f:] *= np.linspace(1, 0, f)[:, None] ** 2
+    st[:int(0.002 * SR)] *= np.linspace(0, 1, int(0.002 * SR))[:, None]
+    save(st, path)
+    return st
+
+def fanfare_a(path=None, bgain=3.5):
+    """A「やったー！」：王道の勝利ファンファーレ。C長調 140BPM。
+    3連符で駆け上がる「ソ・ド・ミ」→「ソー・ミ・ソ」→ Ab → Bb → C の和音で「ジャン・ジャン・ジャーン！」（♭6→♭7→1の勝利の進行）"""
+    beat = 60 / 140; T = lambda b: b * beat
+    mel = [(0, 1/3, 67), (1/3, 1/3, 72), (2/3, 1/3, 76), (1, 1, 79), (2, 0.5, 76), (2.5, 0.5, 79),
+           (3, 0.9, 80), (4, 0.9, 82), (5, 3, 84)]
+    chords = [(1, 2, [60, 64, 67], 36), (3, 0.9, [56, 60, 63], 32), (4, 0.9, [58, 62, 65], 34), (5, 3, [60, 64, 67, 72], 36)]
+    def build(add):
+        for b0, d, mm in mel:
+            v = 0.9 if d >= 0.9 else 0.75
+            add(brass2(midi_hz(mm - 12), T(d) * 0.9, v, bright=0.7, voices=3, att=0.02), T(b0), pan=0.1, g=bgain)
+            add(brass2(midi_hz(mm), T(d) * 0.9, v * 0.4, bright=0.55, voices=2, att=0.02), T(b0), pan=-0.1, g=bgain)
+        for b0, d, ch, bs in chords:
+            for x in ch: add(brass2(midi_hz(x - 12), T(d) * 0.92, 0.5, bright=0.45, voices=2, att=0.025), T(b0), pan=-0.3, g=bgain)
+            add(finger_bass(midi_hz(bs), T(d), 0.85, tone=0.5), T(b0), rev=0.05, g=2.2)
+            add(kick2(0.95, punch=0.7, low=0.6), T(b0), rev=0.05, g=1.6)
+        for k in range(3): add(snare2(0.55 + 0.15 * k, tone=0.6, snap=0.6), T(k / 3), pan=0.1, rev=0.2)
+        add(crash2(0.9), T(1), pan=-0.2, rev=0.3, g=1.6)
+        add(snare2(0.9, tone=0.6, snap=0.6), T(3), rev=0.25); add(snare2(0.9, tone=0.6, snap=0.6), T(4), rev=0.25)
+        add(crash2(1.0, dur=3.0), T(5), pan=0.2, rev=0.3, g=1.9)
+        for k in range(4): add(glock(midi_hz([84, 88, 91, 96][k]), 0.3, 0.3, hard=0.5, ring=0.8), T(5 + k * 0.25), pan=0.4, rev=0.35)
+    return _jingle_render(build, T(5) + 2.4, path or os.path.join(OUT, "jingle_goal_a.wav"))
+
+def fanfare_b(path=None):
+    """B「ふわっとおめでとう」：かわいい系。F長調 128BPM。ビブラフォン＋グロッケンで「ドレミファソ〜」と駆け上がって、
+    跳ねる「ソ・ラ・ド〜」、最後はウクレレのジャカッ＋鈴のキラキラ、ベースの「ぽーん」。ブラスなし、ふわふわの世界に合わせて"""
+    beat = 60 / 128; T = lambda b: b * beat
+    run = [65, 67, 69, 70, 72, 74, 76, 77]
+    mel = [(k * 0.25, 0.25, x) for k, x in enumerate(run)] + [(2, 0.5, 81), (2.5, 0.5, 79), (3, 0.5, 81), (3.5, 0.5, 84), (4, 3, 89)]
+    def build(add):
+        for b0, d, mm in mel:
+            v = 0.75 if d < 0.5 else 0.85
+            add(vibes(midi_hz(mm - 12), T(d), v, hard=0.5, rel=0.8), T(b0), pan=0.1, rev=0.3, g=1.1)
+            add(glock(midi_hz(mm), T(d), v * 0.25, hard=0.4, ring=0.8), T(b0), pan=-0.25, rev=0.35)
+        for b0, ch, bs in [(0, [65, 69, 72], 41), (2, [62, 65, 70], 46), (3, [64, 67, 72], 48), (4, [65, 69, 72, 77], 41)]:
+            add(strum([midi_hz(x) for x in ch], T(0.8 if b0 < 4 else 3), 0.55, bright=0.6, spread=0.012), T(b0), pan=-0.35, rev=0.2, g=1.4)
+            add(finger_bass(midi_hz(bs), T(0.9 if b0 < 4 else 2.5), 0.75, tone=0.3), T(b0), rev=0.05, g=1.8)
+        add(kick2(0.6, punch=0.3, low=0.5), T(2), g=1.2); add(kick2(0.6, punch=0.3, low=0.5), T(3), g=1.2); add(kick2(0.8, punch=0.3, low=0.5), T(4), g=1.2)
+        add(clap2(0.6), T(3), pan=0.2, rev=0.25); add(clap2(0.75), T(4), pan=0.2, rev=0.3)
+        for k in range(10): add(shaker2(0.4 + 0.04 * k), T(4 + k * 0.12), pan=0.5 - 0.1 * k, rev=0.3)
+        for k, x in enumerate([101, 98, 96, 93, 89]): add(glock(midi_hz(x), 0.2, 0.18, hard=0.6, ring=0.6), T(4.25 + k * 0.12), pan=0.5 - 0.2 * k, rev=0.45)
+    return _jingle_render(build, T(4) + 2.6, path or os.path.join(OUT, "jingle_goal_b.wav"), rt=1.9)
+
+def fanfare_c(path=None, bgain=3.0):
+    """C「ゴールテープ！」：元気でちょっとおどけた感じ。G長調 150BPM。ブラスの「タッタ・タッタ・タ〜ン」と合いの手、
+    ためて「・・・ジャン！」（一瞬止まってから決める）"""
+    beat = 60 / 150; T = lambda b: b * beat
+    mel = [(0, 0.5, 74), (0.75, 0.25, 74), (1, 0.5, 79), (1.75, 0.25, 79), (2, 1.5, 83), (3.5, 0.5, 81), (4, 0.5, 79), (4.5, 0.5, 81),
+           (5, 0.25, 83), (5.25, 0.25, 84), (5.5, 0.25, 85), (6.5, 2.5, 86)]
+    def build(add):
+        for b0, d, mm in mel:
+            v = 0.9 if d >= 1 else 0.78
+            add(brass2(midi_hz(mm - 12), T(d) * 0.88, v, bright=0.75, voices=3, att=0.018), T(b0), pan=0.1, g=bgain)
+            add(brass2(midi_hz(mm - 24), T(d) * 0.88, v * 0.5, bright=0.4, voices=2, att=0.02), T(b0), pan=-0.15, g=bgain)
+        for b0, d, ch, bs in [(0, 1, [55, 59, 62], 43), (1, 1, [55, 59, 62], 43), (2, 1.5, [60, 64, 67], 48), (3.5, 1.5, [62, 66, 69], 50), (6.5, 2.5, [55, 59, 62, 67], 43)]:
+            for x in ch: add(brass2(midi_hz(x - 12), T(d) * 0.9, 0.45, bright=0.45, voices=2, att=0.02), T(b0), pan=-0.3, g=bgain)
+            add(finger_bass(midi_hz(bs - 12), T(d), 0.85, tone=0.5), T(b0), rev=0.05, g=2.2)
+        for bb in (0, 1, 2, 3.5, 6.5): add(kick2(0.9, punch=0.7, low=0.6), T(bb), g=1.6)
+        for bb in (0.75, 1.75, 2.5, 3, 4, 4.5): add(snare2(0.7, tone=0.6, snap=0.6), T(bb), pan=0.1, rev=0.2)
+        for k in range(4): add(tom2([160, 140, 120, 100][k], 0.75, skin=0.7), T(5 + k * 0.25), pan=-0.3 + 0.2 * k, rev=0.25)
+        add(crash2(1.0, dur=3.0), T(6.5), pan=0.2, rev=0.3, g=1.9)
+        add(glock(midi_hz(98), 1.0, 0.3, hard=0.5), T(6.5), pan=0.4, rev=0.4)
+    return _jingle_render(build, T(6.5) + 2.4, path or os.path.join(OUT, "jingle_goal_c.wav"))
+
+def fanfare_d(path=None, hgain=3.0):
+    """D「ほっこり達成」：やさしいオーケストラ風。D長調 96BPM。ハープのグリッサンドで駆け上がって、
+    ホルンの「ミ〜ファ#ソ〜ラ〜」、あったかい弦（パッド）、最後は鐘（ビブラフォン＋グロッケン）がふわっと鳴る"""
+    beat = 60 / 96; T = lambda b: b * beat
+    def build(add):
+        sc = [62, 64, 66, 69, 71, 74, 76, 78, 81, 83, 86]   # D ペンタトニック
+        for k, x in enumerate(sc): add(ks_string(midi_hz(x), 0.6, 0.45 + 0.03 * k, bright=0.55), T(k * 0.09), pan=-0.4 + 0.08 * k, rev=0.45, g=2.0)
+        mel = [(1, 1, 76), (2, 0.5, 78), (2.5, 0.5, 79), (3, 1, 81), (4, 3.5, 86)]
+        for b0, d, mm in mel:
+            add(brass2(midi_hz(mm - 12), T(d) * 0.95, 0.8, bright=0.18, voices=2, att=0.06, det_c=4), T(b0), pan=0.1, rev=0.4, g=hgain)
+            add(wind(midi_hz(mm), T(d) * 0.95, 0.6, kind='flute', vib=0.6, breath=0.4, taper=0.3, release=0.2, soft=0.5), T(b0), pan=-0.2, rev=0.4, g=1.2)
+        for b0, d, ch, bs in [(1, 2, [62, 66, 69], 38), (3, 1, [67, 71, 74], 43), (4, 3.5, [62, 66, 69, 74], 38)]:
+            for x in ch: add(warm_pad(midi_hz(x), T(d) + 0.3, 0.5, bright=0.35), T(b0), rev=0.4, g=1.0)
+            add(finger_bass(midi_hz(bs), T(d), 0.7, tone=0.25), T(b0), rev=0.1, g=1.8)
+        add(timp := tom2(73, 0.8, skin=0.3), T(4), rev=0.35, g=1.4)
+        for k, x in enumerate([86, 90, 93, 98]): add(vibes(midi_hz(x), T(2.5), 0.55, hard=0.4, rel=1.2), T(4 + k * 0.12), pan=0.3 - 0.15 * k, rev=0.5, g=0.9)
+        add(glock(midi_hz(98), 1.5, 0.25, hard=0.4), T(4.5), pan=0.4, rev=0.5)
+    return _jingle_render(build, T(4) + 3.0, path or os.path.join(OUT, "jingle_goal_d.wav"), rt=2.2)
+
+def fanfare_e(path=None):
+    """E「ピロリロリン♪」：ゲームのクリア音っぽい、やわらかピコピコ。C長調 160BPM。
+    16分の「ドミソド ミソドミ」で駆け上がって、「ソ・ソ・ソ・ド〜♪」。下でピコピコのベースとハイハット、最後に和音"""
+    beat = 60 / 160; T = lambda b: b * beat
+    def build(add):
+        run = [60, 64, 67, 72, 64, 67, 72, 76, 67, 72, 76, 79]
+        for k, x in enumerate(run): add(soft_lead(midi_hz(x + 12), T(0.25) * 0.8, 0.6 + 0.02 * k, pulse=0.25, cutoff=3.0), T(k * 0.25), pan=-0.2 + 0.04 * k, rev=0.15, g=2.0)
+        mel = [(3.5, 0.33, 79), (3.83, 0.33, 79), (4.17, 0.33, 79), (4.5, 3, 84)]
+        for b0, d, mm in mel:
+            add(soft_lead(midi_hz(mm + 12), T(d) * 0.88, 0.8, pulse=0.35, cutoff=2.5), T(b0), pan=0.1, rev=0.2, g=2.2)
+            add(soft_lead(midi_hz(mm), T(d) * 0.88, 0.5, pulse=0.5, cutoff=2.0), T(b0), pan=-0.1, rev=0.2, g=2.0)
+        for k in range(14): add(soft_lead(midi_hz([36, 48][k % 2]), T(0.2), 0.7, pulse=0.5, cutoff=1.5), T(k * 0.25), rev=0.05, g=2.2)
+        for x in [60, 64, 67, 72]: add(soft_lead(midi_hz(x), T(3), 0.4, pulse=0.4, cutoff=1.8), T(4.5), pan=-0.3, rev=0.25, g=1.6)
+        add(soft_lead(midi_hz(36), T(2.5), 0.8, pulse=0.5, cutoff=1.5), T(4.5), rev=0.05, g=2.2)
+        for k in range(14): add(hat2(0.5 if k % 2 else 0.35), T(k * 0.25), pan=0.3, rev=0.05)
+        add(kick2(0.8, punch=0.6, low=0.5), T(4.5), g=1.4); add(crash2(0.6, dur=2.5), T(4.5), pan=0.2, rev=0.3, g=1.2)
+    return _jingle_render(build, T(4.5) + 2.4, path or os.path.join(OUT, "jingle_goal_e.wav"), rt=1.2, peak_drive=2.2)
+
+def fanfare_f(path=None, bgain=3.2):
+    """F「パレード」：マーチ風。B♭長調 120BPM。スネアの「タタタ・タタタ」、ブラスバンドの「タ・ラ・ラ・ター！」、
+    グロッケンがメロディをなぞる、シンバルの「ジャーン」で決め、最後にチューバの「ぶっ・ぶん」でおどけて終わる"""
+    beat = 60 / 120; T = lambda b: b * beat
+    mel = [(0, 0.75, 65), (0.75, 0.25, 70), (1, 0.75, 74), (1.75, 0.25, 77), (2, 1, 82), (3, 0.5, 81), (3.5, 0.5, 79), (4, 2, 82)]
+    def build(add):
+        for b0, d, mm in mel:
+            v = 0.88 if d >= 1 else 0.75
+            add(brass2(midi_hz(mm - 12), T(d) * 0.88, v, bright=0.65, voices=3, att=0.02), T(b0), pan=0.1, g=bgain)
+            add(glock(midi_hz(mm + 12), T(d), 0.3, hard=0.5, ring=0.7), T(b0), pan=0.35, rev=0.3)
+        for b0, d, ch, bs in [(0, 2, [58, 62, 65], 34), (2, 1, [63, 67, 70], 39), (3, 1, [60, 65, 69], 41), (4, 2, [58, 62, 65, 70], 34)]:
+            for x in ch: add(brass2(midi_hz(x - 12), T(d) * 0.9, 0.45, bright=0.4, voices=2, att=0.02), T(b0), pan=-0.3, g=bgain)
+            for k in range(int(d)): add(reed(midi_hz(bs + (7 if k % 2 else 0)), T(0.4), 0.8, kind='bassoon', breath=0.3), T(b0 + k), pan=-0.1, rev=0.15, g=1.8)
+        for bb in range(4):
+            for k in range(3): add(snare2(0.45 + 0.12 * k, tone=0.6, snap=0.7), T(bb + k / 6), pan=0.1, rev=0.2)
+            add(kick2(0.75, punch=0.5, low=0.5), T(bb), g=1.4)
+        add(kick2(0.95, punch=0.6, low=0.6), T(4), g=1.6); add(crash2(1.0, dur=2.5), T(4), pan=0.2, rev=0.3, g=1.8)
+        add(reed(midi_hz(41), T(0.3), 0.9, kind='bassoon'), T(5.5), rev=0.15, g=2.2); add(reed(midi_hz(34), T(0.5), 1.0, kind='bassoon'), T(6), rev=0.15, g=2.2)
+        add(kick2(0.6, punch=0.4, low=0.6), T(6), g=1.2)
+    return _jingle_render(build, T(6) + 1.6, path or os.path.join(OUT, "jingle_goal_f.wav"))
+
+def fanfare_g(path=None, ggain=1.1):
+    """G「ギャーン！」：ロック。E長調 150BPM。ドラムのフィル→歪んだギターのパワーコード「E・G・A・E〜」、
+    リードギターがチョーキングで「キュイーン」、最後はシンバルとギターをかき鳴らして伸ばす"""
+    beat = 60 / 150; T = lambda b: b * beat
+    def build(add):
+        for k in range(8): add(snare2(0.45 + 0.07 * k, tone=0.6, snap=0.7), T(k * 0.25), pan=0.1, rev=0.2)
+        for k, f in enumerate((170, 140, 115, 95)): add(tom2(f, 0.8, skin=0.7), T(1 + k * 0.25), pan=-0.3 + 0.2 * k, rev=0.25)
+        hits = [(2, 0.75, 40), (2.75, 0.75, 43), (3.5, 0.5, 45), (4, 3, 40)]
+        for b0, d, r in hits:
+            for side in (-0.6, 0.6):
+                add(power2(midi_hz(r), T(d), 0.9, drive=5.0, mute=(0.12 if d < 1 else 0.8)), T(b0) + (0.012 if side > 0 else 0), pan=side, rev=0.2, g=ggain)
+            add(finger_bass(midi_hz(r - 12), T(d), 0.85, tone=0.6), T(b0), rev=0.05, g=1.2)
+            add(kick2(0.95, punch=0.8, low=0.6), T(b0), g=1.6)
+            add(crash2(0.8 if d < 1 else 1.0, dur=1.0 if d < 1 else 3.0), T(b0), pan=0.2 if b0 % 1 else -0.2, rev=0.3, g=1.5)
+        add(lead_guitar(midi_hz(76), T(0.5), 0.8, drive=6.0, bend=0.2), T(2), pan=0.15, rev=0.3, g=0.9)
+        add(lead_guitar(midi_hz(79), T(0.5), 0.8, drive=6.0, bend=0.2), T(2.75), pan=0.15, rev=0.3, g=0.9)
+        add(lead_guitar(midi_hz(81), T(0.4), 0.8, drive=6.0, bend=0.2), T(3.5), pan=0.15, rev=0.3, g=0.9)
+        add(lead_guitar(midi_hz(83), T(3), 0.9, drive=6.0, bend=2.0), T(4), pan=0.15, rev=0.35, g=0.9)
+    return _jingle_render(build, T(4) + 2.4, path or os.path.join(OUT, "jingle_goal_g.wav"))
+
+def fanfare_h(path=None):
+    """H「ハレルヤ」：合唱の「あー」が下から積み上がって光が差す感じ。C長調 80BPM。
+    ド→ミ→ソ→ドと声が重なっていき、上でグロッケンとビブラフォンがキラキラ、低い鐘「ごーん」。おごそか＋ちょっとユーモラス"""
+    beat = 60 / 80; T = lambda b: b * beat
+    def build(add):
+        stack = [(0, 48, 'o'), (0.5, 55, 'o'), (1, 60, 'a'), (1.5, 64, 'a'), (2, 67, 'a'), (2.5, 72, 'a')]
+        for b0, x, vw in stack:
+            add(choir(midi_hz(x), T(5.5 - b0), 0.8, vowel=vw), T(b0), pan=-0.4 + 0.15 * (x % 7), rev=0.6, g=1.6)
+        add(choir(midi_hz(76), T(3), 0.7, vowel='a'), T(3), pan=0.2, rev=0.6, g=1.4)
+        add(choir(midi_hz(79), T(2.5), 0.7, vowel='a'), T(3.5), pan=-0.2, rev=0.6, g=1.3)
+        for k, x in enumerate([84, 88, 91, 96, 100]): add(glock(midi_hz(x), 0.4, 0.25, hard=0.4, ring=1.2), T(3 + k * 0.15), pan=0.5 - 0.25 * k, rev=0.55)
+        for k, x in enumerate([72, 76, 79, 84]): add(vibes(midi_hz(x), T(2), 0.5, hard=0.4, rel=1.5), T(3 + k * 0.1), pan=-0.3 + 0.2 * k, rev=0.55, g=0.8)
+        add(celesta(midi_hz(36), T(3), 0.6), T(3), rev=0.6, g=1.5)
+        add(tom2(65, 0.7, skin=0.2), T(3), rev=0.5, g=1.2)
+    return _jingle_render(build, T(3) + 3.2, path or os.path.join(OUT, "jingle_goal_h.wav"), rt=2.8)
+
+def fanfare_i(path=None, bgain=3.2):
+    """I「タ・ダー！」：ビッグバンドのブラスで短く一発。F長調 170BPM、はねる。
+    「ダッ・ダ・ダッ・ダー・ダ・ダー！」最後はおしゃれな6/9の和音を伸ばして、トランペットがふるえる＋ドラムのフィル"""
+    beat = 60 / 170; T = lambda b: b * beat
+    mel = [(0, 0.5, 72), (0.67, 0.33, 72), (1, 0.5, 74), (1.67, 0.33, 77), (2, 1, 79), (3, 0.33, 77), (3.33, 2.7, 81)]
+    def build(add):
+        for b0, d, mm in mel:
+            v = 0.9 if d >= 1 else 0.78
+            add(brass2(midi_hz(mm), T(d) * 0.85, v, bright=0.8, voices=3, att=0.015), T(b0), pan=0.1, g=bgain)
+            add(brass2(midi_hz(mm - 5), T(d) * 0.85, v * 0.6, bright=0.6, voices=2, att=0.015), T(b0), pan=-0.15, g=bgain)
+            add(brass2(midi_hz(mm - 12), T(d) * 0.85, v * 0.55, bright=0.45, voices=2, att=0.015), T(b0), pan=-0.35, g=bgain)
+        for x in [53, 57, 60, 62, 67]: add(brass2(midi_hz(x), T(2.7), 0.45, bright=0.45, voices=2, att=0.02), T(3.33), pan=-0.3 + 0.15 * (x % 5), g=bgain)
+        add(finger_bass(midi_hz(29), T(2.7), 0.9, tone=0.5), T(3.33), rev=0.05, g=2.0)
+        for b0 in (0, 1, 2): add(finger_bass(midi_hz(29 + [0, 2, 5][int(b0)]), T(0.5), 0.8, tone=0.5), T(b0), rev=0.05, g=2.0)
+        for b0 in (0, 1, 2, 3.33): add(kick2(0.8, punch=0.6, low=0.5), T(b0), g=1.4)
+        for b0 in (0.67, 1.67, 3): add(snare2(0.75, tone=0.6, snap=0.6), T(b0), pan=0.1, rev=0.2)
+        add(crash2(1.0, dur=2.5), T(3.33), pan=0.2, rev=0.3, g=1.8)
+        for k in range(6): add(hat2(0.5, open_=(k == 5)), T(k * 0.67), pan=0.35, rev=0.05)
+    return _jingle_render(build, T(3.33) + 2.2, path or os.path.join(OUT, "jingle_goal_i.wav"))
+
 def lobby_c(path=None):
     """lobby_b と同じメロディ・コード・ゆりかごの分散和音。音源と残響・仕上げを新しくした版"""
     m = Mix(60, 16, tail=5.0, seed=11)

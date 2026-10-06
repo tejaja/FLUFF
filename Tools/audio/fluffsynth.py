@@ -170,6 +170,26 @@ def reed(f, dur, vel=0.7, kind='clarinet', breath=0.5):
     y = (y + breath * 0.15 * nz) * amp
     return y * vel * 0.25
 
+def choir(f, dur, vel=0.7, vowel='a', voices=4):
+    """合唱「あー」（2026-10-07）：ノコギリ波の倍音を母音のフォルマント（声道の山3つ）で重みづけ。
+    何人かが少しずつずれた音程・ビブラートで歌う。ゆっくり立ち上がる"""
+    F = {'a': [(800, 90, 1.0), (1150, 110, 0.5), (2900, 160, 0.12)], 'o': [(450, 80, 1.0), (800, 100, 0.4), (2830, 160, 0.08)],
+         'u': [(325, 70, 1.0), (700, 90, 0.25), (2530, 160, 0.05)]}[vowel]
+    rel = 0.35
+    n = int((dur + rel + 0.05) * SR); t = np.arange(n) / SR
+    amp = np.minimum(t / 0.12, 1.0) * np.where(t < dur, 1.0, np.exp(-(t - dur) / (rel / 3)))
+    K = int(min(40, (SR * 0.45) / f))
+    w = np.array([sum(g / (1 + ((f * k - fc) / bw) ** 2) for fc, bw, g in F) / k ** 0.3 for k in range(1, K + 1)])
+    y = np.zeros(n)
+    for v in range(voices):
+        det = rng_global.normal(0, 6) / 1200
+        vr = rng_global.uniform(4.6, 5.6)
+        fr = f * 2 ** det * (1 + 0.006 * np.sin(2 * np.pi * vr * t + rng_global.uniform(0, 6.28)) * np.clip(t / 0.4, 0, 1))
+        ph = 2 * np.pi * np.cumsum(fr) / SR + rng_global.uniform(0, 6.28)
+        for k in range(1, K + 1): y += w[k - 1] * np.sin(k * ph)
+    y += bp(rng_global.standard_normal(n), 600, 3000, 1) * 0.05 * np.sqrt(voices)
+    return y * amp / voices * vel * 0.5
+
 def marimba3(f, dur, vel=0.8, hard=0.35):
     """木っぽいマリンバ（2026-10-07）：金属っぽさの元になる高いモード（9倍以上）をほぼ無くし、3.9倍もすぐ消す。
     やわらかい毛糸のマレットの「ポコ」っとした当たり（低めのノイズ）、共鳴パイプの「ぼわん」を強め、全体を少し丸める"""
