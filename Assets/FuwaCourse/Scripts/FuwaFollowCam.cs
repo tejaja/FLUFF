@@ -49,6 +49,10 @@ public class FuwaFollowCam : UdonSharpBehaviour
     [Range(0f, 1f)] public float focusBlend = 0.55f;
     [Tooltip("カメラと見る所の間に地面や壁があったら手前に寄せる")]
     public LayerMask obstacleMask = (1 << 0) | (1 << 11);
+    [Tooltip("当たり判定のない飾り（吹き流し・風車など）。カメラがこの中に入らないよう手前に寄せる（見た目の箱で判定）")]
+    public Renderer[] camBlockers;
+    [Tooltip("飾りの箱をどれだけ広げてよけるか(m)")]
+    public float blockerMargin = 0.35f;
     [Tooltip("テスト用：VRChatカメラがなくても（ClientSimでも）追っかけカメラを動かす")]
     public bool runWithoutPhotoCamera = false;
 
@@ -172,6 +176,25 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (len > 0.01f && Physics.Raycast(focus, toCam / len, out hit, len, obstacleMask, QueryTriggerInteraction.Ignore))
         {
             want = hit.point + hit.normal * 0.25f;
+        }
+        // 当たり判定のない飾り（吹き流しなど）も、見た目の箱でよける（カメラが中に入って画面がふさがらないように）
+        if (camBlockers != null && len > 0.01f)
+        {
+            Vector3 dir = toCam / len;
+            float near = (want - focus).magnitude;
+            Ray ray = new Ray(focus, dir);
+            bool blocked = false;
+            for (int i = 0; i < camBlockers.Length; i++)
+            {
+                Renderer br = camBlockers[i];
+                if (br == null || !br.enabled || !br.gameObject.activeInHierarchy) continue;
+                Bounds bb = br.bounds;
+                bb.Expand(blockerMargin * 2f);
+                if (bb.Contains(focus)) continue;   // 見る所が飾りの中なら、よけようがないので無視
+                float bd;
+                if (bb.IntersectRay(ray, out bd) && bd < near) { near = bd; blocked = true; }
+            }
+            if (blocked) want = focus + dir * Mathf.Max(0.3f, near - 0.1f);
         }
 
         Transform ct = cam.transform;
