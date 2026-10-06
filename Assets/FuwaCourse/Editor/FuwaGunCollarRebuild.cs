@@ -192,10 +192,10 @@ public static class FuwaGunCollarRebuild
     // 銃身は前に向かって細くなるので、前の方は台が飛び出す。その前の面に縦長の給気口（暗い穴）をあける
     const string VentSrcPath = "Assets/FuwaCourse/Meshes/Gun_Vent_Source.asset";
     const string VentDstPath = "Assets/FuwaCourse/Meshes/Gun_Vent.asset";
-    const float PadOut = 0.0345f, PadIn = 0.016f, PadBack = -0.030f, PadFront = 0.080f, PadY0 = 0.040f, PadY1 = 0.070f;   // 前の台とほぼ同じ大きさ（平らな面＋ふちの丸みぶん）
-    const float PadFrontR = 0.004f, PadBevel = 0.0009f;
+    const float PadOut = 0.0345f, PadIn = 0.016f, PadBack = -0.006f, PadFront = 0.079f, PadY0 = 0.0445f, PadY1 = 0.0655f;   // 前の台と同じ大きさ（ゲージのまわりに3〜4mmのふち）
+    const float PadBevel = 0.0009f;
     // 給気口：前の面の外側寄り。X は外側の面からの距離、Y は上下
-    const float HoleX0 = 0.0012f, HoleX1 = 0.0058f, HoleY0 = 0.0455f, HoleY1 = 0.0645f, HoleR = 0.0016f, HoleDepth = 0.004f, LipH = 0.0006f, LipW = 0.0008f;
+    const float HoleX0 = 0.0012f, HoleX1 = 0.0050f, HoleY0 = 0.0480f, HoleY1 = 0.0620f, HoleR = 0.0014f, LipH = 0.0006f, LipW = 0.0008f;
 
     static void AddTri(List<Vector3> V, List<int> T, int a, int b, int c, Vector3 want)
     {
@@ -203,23 +203,30 @@ public static class FuwaGunCollarRebuild
         if (Vector3.Dot(fn, want) >= 0) T.AddRange(new[] { a, b, c }); else T.AddRange(new[] { a, c, b });
     }
 
-    // 角を丸めた長方形の輪郭（反時計回り、角ごとに seg+1 点）
-    static List<Vector2> RoundRect(Vector2 c, Vector2 h, float r, int seg)
+    // 角を丸めた長方形の輪郭（反時計回り）。まっすぐな辺も step(m) ごとに点を入れる（曲面に沿わせる時に辺が面の内側へもぐらないように）
+    static List<Vector2> RoundRect(Vector2 c, Vector2 h, float r, int seg, float step = 0.0008f)
     {
         var pts = new List<Vector2>();
         var cs = new[] { new Vector2(h.x - r, h.y - r), new Vector2(-(h.x - r), h.y - r), new Vector2(-(h.x - r), -(h.y - r)), new Vector2(h.x - r, -(h.y - r)) };
-        for (int q = 0; q < 4; q++) for (int k = 0; k <= seg; k++) { float a = (q * 90f + k * 90f / seg) * Mathf.Deg2Rad; pts.Add(c + cs[q] + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r); }
+        for (int q = 0; q < 4; q++)
+        {
+            for (int k = 0; k <= seg; k++) { float a = (q * 90f + k * 90f / seg) * Mathf.Deg2Rad; pts.Add(c + cs[q] + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r); }
+            // 次の角までのまっすぐな辺
+            var from = pts[pts.Count - 1]; float a1 = ((q + 1) * 90f) * Mathf.Deg2Rad;
+            var to = c + cs[(q + 1) % 4] + new Vector2(Mathf.Cos(a1), Mathf.Sin(a1)) * r;
+            int n = Mathf.FloorToInt((to - from).magnitude / step);
+            for (int i = 1; i < n; i++) pts.Add(Vector2.Lerp(from, to, i / (float)n));
+        }
         return pts;
     }
 
     static void BuildPad(List<Vector3> V, List<Vector3> N, List<int> T, List<Vector3> DV, List<Vector3> DN, List<int> DT, float side)
     {
         float yc = (PadY0 + PadY1) * 0.5f, hr = (PadY1 - PadY0) * 0.5f;
-        // 台の輪郭（z, y）：前の下の角 → 前の上の角 → 上の辺 → 後ろの半円 → 下の辺（反時計回り）
+        // 台の輪郭（z, y）：前も後ろも半円の、角の丸い細長い形（前の台と同じ形）。前の半円 → 上の辺 → 後ろの半円 → 下の辺（反時計回り）
         var outl = new List<Vector2>(); var frontSeg = new List<bool>();
-        int arcSeg = 14, cSeg = 4;
-        for (int k = 0; k <= cSeg; k++) { float a = (-90f + 90f * k / cSeg) * Mathf.Deg2Rad; outl.Add(new Vector2(PadFront - PadFrontR, PadY0 + PadFrontR) + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * PadFrontR); frontSeg.Add(k == cSeg); }
-        for (int k = 0; k <= cSeg; k++) { float a = (90f * k / cSeg) * Mathf.Deg2Rad; outl.Add(new Vector2(PadFront - PadFrontR, PadY1 - PadFrontR) + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * PadFrontR); frontSeg.Add(false); }
+        int arcSeg = 14;
+        for (int k = 0; k <= arcSeg; k++) { float a = (-90f + 180f * k / arcSeg) * Mathf.Deg2Rad; outl.Add(new Vector2(PadFront - hr, yc) + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * hr); frontSeg.Add(false); }
         for (int k = 0; k <= arcSeg; k++) { float a = (90f + 180f * k / arcSeg) * Mathf.Deg2Rad; outl.Add(new Vector2(PadBack + hr, yc) + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * hr); frontSeg.Add(false); }
         int M = outl.Count;
         Vector3 P(Vector2 zy, float x) { return new Vector3(x * side, zy.y, zy.x); }
@@ -258,42 +265,32 @@ public static class FuwaGunCollarRebuild
                 }
             }
         }
-        // 前の面（z = PadFront）：給気口の穴があいた枠
+        // 前の半円の面に給気口：縦長の暗い穴（面にぴったり沿わせた暗い面）＋少し盛り上がった縁。前の丸い形はそのまま
         {
-            float xo = PadOut - PadBevel, fy0 = PadY0 + PadFrontR, fy1 = PadY1 - PadFrontR, z = PadFront;
+            float zc = PadFront - hr;
             float hx0 = PadOut - HoleX1, hx1 = PadOut - HoleX0;
-            var nf = new Vector3(0, 0, 1);
-            int seg = 3;
             var hc = new Vector2((hx0 + hx1) * 0.5f, (HoleY0 + HoleY1) * 0.5f);
-            var hole = RoundRect(hc, new Vector2((hx1 - hx0) * 0.5f, (HoleY1 - HoleY0) * 0.5f), HoleR, seg);
+            var hole = RoundRect(hc, new Vector2((hx1 - hx0) * 0.5f, (HoleY1 - HoleY0) * 0.5f), HoleR, 3);
             int H = hole.Count;
-            // 穴の各点に対応する外枠の点：角の丸みの途中は長方形の角、丸みの両端は辺へまっすぐ
-            float[] ex = { xo, 0, PadIn, 0 }; float[] ey = { 0, fy1, 0, fy0 };
-            Vector2 Edge(int q, Vector2 p) { q %= 4; return (q == 0 || q == 2) ? new Vector2(ex[q], p.y) : new Vector2(p.x, ey[q]); }
-            Vector2[] corner = { new Vector2(xo, fy1), new Vector2(PadIn, fy1), new Vector2(PadIn, fy0), new Vector2(xo, fy0) };
-            int f0 = V.Count;
-            for (int i = 0; i < H; i++)
+            // 前の半円の面の上の点と向き（x, y から）
+            Vector3 S(Vector2 xy, float lift, out Vector3 nrm)
             {
-                int q = i / (seg + 1), k = i % (seg + 1);
-                Vector2 o = k == 0 ? Edge(q, hole[i]) : (k == seg ? Edge(q + 1, hole[i]) : corner[q]);
-                V.Add(new Vector3(o.x * side, o.y, z)); N.Add(nf);
-                V.Add(new Vector3(hole[i].x * side, hole[i].y, z)); N.Add(nf);
+                float dy = Mathf.Clamp(xy.y - yc, -hr * 0.999f, hr * 0.999f), dz = Mathf.Sqrt(hr * hr - dy * dy);
+                nrm = new Vector3(0, dy / hr, dz / hr);
+                return new Vector3(xy.x * side, xy.y, zc + dz) + nrm * lift;
             }
-            for (int i = 0; i < H; i++)
-            {
-                int a0 = f0 + i * 2, a1 = a0 + 1, c0 = f0 + ((i + 1) % H) * 2, c1 = c0 + 1;
-                AddTri(V, T, a0, a1, c0, nf); AddTri(V, T, a1, c1, c0, nf);
-            }
-            // 給気口のふち（少し盛り上がった縁）と穴の内側の壁
+            // 縁：外側のすそ（面）→ 盛り上がり → 内側（穴のふち、暗い面の高さ）
             int l0 = V.Count;
             for (int i = 0; i < H; i++)
             {
                 var d = (hole[i] - hc); d = new Vector2(d.x / Mathf.Max(1e-6f, (hx1 - hx0)), d.y / Mathf.Max(1e-6f, (HoleY1 - HoleY0))).normalized;
-                var o = hole[i] + d * LipW; var dn = new Vector3(d.x * side, d.y, 0);
-                V.Add(new Vector3(o.x * side, o.y, z)); N.Add((dn + nf * 0.3f).normalized);
-                V.Add(new Vector3(o.x * side, o.y, z + LipH)); N.Add((dn * 0.4f + nf).normalized);
-                V.Add(new Vector3(hole[i].x * side, hole[i].y, z + LipH)); N.Add((-dn * 0.4f + nf).normalized);
-                V.Add(new Vector3(hole[i].x * side, hole[i].y, z - HoleDepth)); N.Add(-dn);
+                var o = hole[i] + d * LipW; Vector3 n0, n1;
+                var p0 = S(o, -0.0001f, out n0); var p1 = S(o, LipH, out n1); var p2 = S(hole[i], LipH, out _); var p3 = S(hole[i], 0.00015f, out _);
+                var dd = new Vector3(d.x * side, d.y, 0);
+                V.Add(p0); N.Add((dd + n0 * 0.4f).normalized);
+                V.Add(p1); N.Add((dd * 0.4f + n1).normalized);
+                V.Add(p2); N.Add((-dd * 0.4f + n1).normalized);
+                V.Add(p3); N.Add((-dd + n1 * 0.3f).normalized);
             }
             for (int i = 0; i < H; i++)
                 for (int j = 0; j < 3; j++)
@@ -302,11 +299,25 @@ public static class FuwaGunCollarRebuild
                     var want = N[a0] + N[a1];
                     AddTri(V, T, a0, a1, c0, want); AddTri(V, T, a1, c1, c0, want);
                 }
-            // 穴の底（暗い材質。Gun_Vent に入れる）
-            int d0 = DV.Count;
-            DV.Add(new Vector3(hc.x * side, hc.y, z - HoleDepth)); DN.Add(nf);
-            for (int i = 0; i < H; i++) { DV.Add(new Vector3(hole[i].x * side, hole[i].y, z - HoleDepth)); DN.Add(nf); }
-            for (int i = 0; i < H; i++) AddTri(DV, DT, d0, d0 + 1 + i, d0 + 1 + (i + 1) % H, nf);
+            // 穴（暗い材質。Gun_Vent に入れる）：曲がった面に沿うように細かい格子にして、ほんの少し浮かせる
+            // （中心から扇形に張ると、平らな三角が曲面の内側にもぐって見えなくなる）
+            {
+                float hw = (hx1 - hx0) * 0.5f, hh = (HoleY1 - HoleY0) * 0.5f;
+                int rowsN = 18, colsN = 4, g0 = DV.Count;
+                for (int ry = 0; ry <= rowsN; ry++)
+                {
+                    float y = HoleY0 + (HoleY1 - HoleY0) * ry / rowsN, dy = Mathf.Abs(y - hc.y);
+                    float w = dy <= hh - HoleR ? hw : hw - HoleR + Mathf.Sqrt(Mathf.Max(0f, HoleR * HoleR - (dy - (hh - HoleR)) * (dy - (hh - HoleR))));
+                    for (int cx = 0; cx <= colsN; cx++) { Vector3 nn; DV.Add(S(new Vector2(hc.x - w + 2 * w * cx / colsN, y), 0.00015f, out nn)); DN.Add(nn); }
+                }
+                for (int ry = 0; ry < rowsN; ry++)
+                    for (int cx = 0; cx < colsN; cx++)
+                    {
+                        int a0 = g0 + ry * (colsN + 1) + cx, a1 = a0 + 1, c0 = a0 + colsN + 1, c1 = c0 + 1;
+                        var want = DN[a0] + DN[c1];
+                        AddTri(DV, DT, a0, a1, c0, want); AddTri(DV, DT, a1, c1, c0, want);
+                    }
+            }
         }
     }
 }
