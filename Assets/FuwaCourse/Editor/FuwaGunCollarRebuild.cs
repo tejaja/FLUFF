@@ -51,6 +51,29 @@ public static class FuwaGunCollarRebuild
         return P;
     }
 
+    // 断面（r, z）を軸のまわりに回した面を足す。面の向きは法線に合わせる
+    static void Revolve(List<Vector3> V, List<Vector3> N, List<int> T, Vector2[] prof, Vector2[] pn, int S)
+    {
+        int P = prof.Length, b0 = V.Count;
+        for (int s = 0; s <= S; s++)
+        {
+            float a = s / (float)S * Mathf.PI * 2; float c = Mathf.Cos(a), sn = Mathf.Sin(a);
+            for (int k = 0; k < P; k++)
+            {
+                V.Add(new Vector3(c * prof[k].x, CY + sn * prof[k].x, prof[k].y));
+                N.Add(new Vector3(c * pn[k].x, sn * pn[k].x, pn[k].y).normalized);
+            }
+        }
+        for (int s = 0; s < S; s++)
+            for (int k = 0; k < P - 1; k++)
+            {
+                int a0 = b0 + s * P + k, a1 = a0 + 1, c0 = a0 + P, c1 = c0 + 1;
+                var fn = Vector3.Cross(V[a1] - V[a0], V[c0] - V[a0]);
+                if (Vector3.Dot(fn, N[a0] + N[a1] + N[c0]) > 0) T.AddRange(new[] { a0, a1, c0, a1, c1, c0 });
+                else T.AddRange(new[] { a0, c0, a1, a1, c0, c1 });
+            }
+    }
+
     [MenuItem("FuwaCourse/エアガンのラッパの首を作り直す")]
     public static void RunMenu() { Debug.Log(Run()); }
 
@@ -86,26 +109,20 @@ public static class FuwaGunCollarRebuild
 
         // 新しい回転体（ラッパと同じく0°から10°ごと。継ぎ目の輪はラッパの頂点とぴったり同じ位置）
         var Profile = BuildProfile(out var pn);
-        int S = Segs, P = Profile.Length;
-        int b0 = V.Count;
-        for (int s = 0; s <= S; s++)
+        Revolve(V, N, T, Profile, pn, Segs);
+        // 支えの棒の根元：銃身に巻いた黄色い輪（棒が刺さる所に層がある感じ）。後ろから通気口の奥に見える
         {
-            float a = s / (float)S * Mathf.PI * 2; float c = Mathf.Cos(a), sn = Mathf.Sin(a);
-            for (int k = 0; k < P; k++)
+            var sp = new[] { new Vector2(0.0140f, 0.1402f), new Vector2(0.0140f, 0.1364f), new Vector2(0.0144f, 0.1356f), new Vector2(0.0152f, 0.1352f),
+                             new Vector2(0.0161f, 0.1354f), new Vector2(0.0167f, 0.1361f), new Vector2(0.0168f, 0.1402f) };
+            var sn = new Vector2[sp.Length];
+            for (int k = 0; k < sp.Length; k++)
             {
-                V.Add(new Vector3(c * Profile[k].x, CY + sn * Profile[k].x, Profile[k].y));
-                N.Add(new Vector3(c * pn[k].x, sn * pn[k].x, pn[k].y).normalized);
+                Vector2 a = sp[Mathf.Max(0, k - 1)], b = sp[Mathf.Min(sp.Length - 1, k + 1)];
+                var tan = (b - a).normalized; sn[k] = new Vector2(tan.y, -tan.x);
             }
+            if (sn[5].x < 0) for (int k = 0; k < sn.Length; k++) sn[k] = -sn[k];   // 外側の面が外向きになるように
+            Revolve(V, N, T, sp, sn, Segs);
         }
-        for (int s = 0; s < S; s++)
-            for (int k = 0; k < P - 1; k++)
-            {
-                int a0 = b0 + s * P + k, a1 = a0 + 1, c0 = a0 + P, c1 = c0 + 1;
-                // 面の向きを法線に合わせる
-                var fn = Vector3.Cross(V[a1] - V[a0], V[c0] - V[a0]);
-                if (Vector3.Dot(fn, N[a0] + N[a1] + N[c0]) > 0) T.AddRange(new[] { a0, a1, c0, a1, c1, c0 });
-                else T.AddRange(new[] { a0, c0, a1, a1, c0, c1 });
-            }
 
         var dst = AssetDatabase.LoadAssetAtPath<Mesh>(DstPath);
         dst.Clear();
