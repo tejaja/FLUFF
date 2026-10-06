@@ -206,7 +206,7 @@ public static class FuwaGunCollarRebuild
     // 銃身は前に向かって細くなるので、前の方は台が飛び出す。その前の面に縦長の給気口（暗い穴）をあける
     const string VentSrcPath = "Assets/FuwaCourse/Meshes/Gun_Vent_Source.asset";
     const string VentDstPath = "Assets/FuwaCourse/Meshes/Gun_Vent.asset";
-    const float PadOut = 0.0333f, PadTilt = 2.63f, PadIn = 0.016f, PadBack = -0.006f, PadFront = 0.079f, PadY0 = 0.0445f, PadY1 = 0.0655f;   // 前の台と同じ大きさ（ゲージのまわりに3〜4mmのふち）
+    const float PadOut = 0.0333f, PadTilt = 2.63f, PadIn = 0.016f, PadBack = -0.00375f, PadFront = 0.07575f, PadY0 = 0.0445f, PadY1 = 0.0655f;   // ゲージ（z 0〜0.072、高さ13.5mm、両はし半円）のまわりにどこも同じ3.75mmのふち（はしの半円もゲージと同じ中心）
     const float PadBevel = 0.0009f;
     // 前の端の四角いブロック（給気口つき）。X は外側の面からの距離（内側〜外側）、H は高さ、In/Out は台の前の端から後ろへ埋める・前へ出す長さ
 
@@ -239,7 +239,7 @@ public static class FuwaGunCollarRebuild
         float yc = (PadY0 + PadY1) * 0.5f, hr = (PadY1 - PadY0) * 0.5f;
         // 台の輪郭（z, y）：前も後ろも半円の、角の丸い細長い形（前の台と同じ形）。前の半円 → 上の辺 → 後ろの半円 → 下の辺（反時計回り）
         var outl = new List<Vector2>(); var frontSeg = new List<bool>();
-        int arcSeg = 14;
+        int arcSeg = 28;
         for (int k = 0; k <= arcSeg; k++) { float a = (-90f + 180f * k / arcSeg) * Mathf.Deg2Rad; outl.Add(new Vector2(PadFront - hr, yc) + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * hr); frontSeg.Add(false); }
         for (int k = 0; k <= arcSeg; k++) { float a = (90f + 180f * k / arcSeg) * Mathf.Deg2Rad; outl.Add(new Vector2(PadBack + hr, yc) + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * hr); frontSeg.Add(false); }
         int M = outl.Count;
