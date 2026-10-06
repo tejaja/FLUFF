@@ -349,20 +349,24 @@ public class FuwaBall : UdonSharpBehaviour
     [Header("撃った直後は風の効きが弱まる（つむじ風から抜けやすく）")]
     [Tooltip("ふつう撃ち／フルチャージで、風の効きを何割弱めるか")]
     [Range(0f, 1f)] public float shotWindDampMin = 0.35f;
-    [Range(0f, 1f)] public float shotWindDampMax = 0.75f;
-    [Tooltip("ふつう撃ち／フルチャージで、弱まった効きが元に戻るまでの秒数")]
+    [Range(0f, 1f)] public float shotWindDampMax = 0.85f;
+    [Tooltip("フルチャージで、弱めたまま保つ秒数（溜め具合の2乗で伸びる。ふつう撃ちは0）")]
+    public float shotWindDampHoldMax = 0.9f;
+    [Tooltip("ふつう撃ち／フルチャージで、保ったあと元に戻るまでの秒数")]
     public float shotWindDampTimeMin = 0.35f;
     public float shotWindDampTimeMax = 0.8f;
     private float _windDampStart = -10f;
+    private float _windDampHold = 0f;
     private float _windDampTime = 0f;
     private float _windDampAmount = 0f;
     private Vector3 _windDampDir = Vector3.zero;
 
-    // エアガンで撃たれた時に呼ばれる（charge 0〜1、shotDir＝飛ばした向き）。しばらく風の効きを弱め、だんだん元に戻す
+    // エアガンで撃たれた時に呼ばれる（charge 0〜1、shotDir＝飛ばした向き）。しばらく風の効きを弱め（溜めるほど長く保つ）、だんだん元に戻す
     public void ShotWindDamp(float charge, Vector3 shotDir)
     {
         _windDampStart = Time.time;
         _windDampAmount = Mathf.Lerp(shotWindDampMin, shotWindDampMax, charge);
+        _windDampHold = shotWindDampHoldMax * charge * charge;
         _windDampTime = Mathf.Lerp(shotWindDampTimeMin, shotWindDampTimeMax, charge);
         _windDampDir = shotDir.sqrMagnitude > 0.0001f ? shotDir.normalized : Vector3.zero;
     }
@@ -370,9 +374,9 @@ public class FuwaBall : UdonSharpBehaviour
     // 撃った向きと同じ向きの風（追い風など）はそのまま、横向き・逆向きの分だけ弱める
     private Vector3 DampWind(Vector3 acc)
     {
-        float t = Time.time - _windDampStart;
+        float t = Time.time - _windDampStart - _windDampHold;
         if (_windDampTime <= 0f || t >= _windDampTime) return acc;
-        float k = 1f - _windDampAmount * (1f - t / _windDampTime);
+        float k = 1f - _windDampAmount * (1f - Mathf.Max(0f, t) / _windDampTime);
         float along = Vector3.Dot(acc, _windDampDir);
         Vector3 keep = along > 0f ? _windDampDir * along : Vector3.zero;
         return keep + (acc - keep) * k;
