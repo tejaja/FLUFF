@@ -158,6 +158,9 @@ Shader "FuwaCourse/GradientSky"
                 float popX = (_Time.y - popI * _SunPopEvery) / max(_SunPopTime, 0.05);
                 float popOn = frac(sin(popI * 12.9898) * 43758.5453) < 0.8 ? 1 : 0;
                 float pop = popX < 1 ? popOn * (1 - popX) * (1 - popX) * sin(popX * 9.4) : 0;
+                // 撃たれた時（_UdonSunSquint）：トゲがピョンと大きく広がって、ぷるぷる震える
+                float sqPop = saturate(_UdonSunSquint);
+                pop = lerp(pop, 0.9 + 0.35 * sin(_Time.y * 18), sqPop);
                 float r0 = R * (1.18 + _SunPopAmount * pop), r1 = R * (_SunRayLen + _SunPopAmount * pop * 1.15);
                 float sector = 6.2831853 / _SunRayCount;
                 float a = (frac(phi / sector) - 0.5) * sector;      // トゲの中心線からの角度
