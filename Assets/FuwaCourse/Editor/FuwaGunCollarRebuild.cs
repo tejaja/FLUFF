@@ -96,7 +96,7 @@ public static class FuwaGunCollarRebuild
             var p = v[i]; if (p.z < 0.1395f || p.z > SeamZ + 0.00005f || R(p) < 0.0170f || Strut(p)) return false;
             var rd = new Vector2(p.x, p.y - CY).normalized; return Vector2.Dot(new Vector2(n[i].x, n[i].y), rd) > 0.05f;
         }
-        bool Old(int i) { return Collar(v[i]) || HornOuter(i); }
+        bool Old(int i) { return Collar(v[i]) || HornOuter(i) || Strut(v[i]); }   // 支えの棒も作り直す（角を丸める）
         var keepT = new List<int>(); int removed = 0;
         for (int i = 0; i < t.Length; i += 3)
         {
@@ -122,6 +122,38 @@ public static class FuwaGunCollarRebuild
             }
             if (sn[5].x < 0) for (int k = 0; k < sn.Length; k++) sn[k] = -sn[k];   // 外側の面が外向きになるように
             Revolve(V, N, T, sp, sn, Segs);
+        }
+        // 支えの棒（4本、±45°・±135°）：角を少し丸めた（ベベル）細い板。根元は黄色い輪の中、先は輪の内側の壁の中に埋める
+        {
+            const float w = 0.0021f, h = 0.0085f, zc = 0.14175f, rad = 0.00025f, r0 = 0.0146f, r1 = 0.0213f; const int cs = 2;   // 角だけ少し落とす（丸い棒にはしない）。法線はなめらか
+            // 角を丸めた長方形の断面（接線方向 x、軸方向 y）
+            var sec = new List<Vector2>(); var secN = new List<Vector2>();
+            var corners = new[] { new Vector2(w / 2 - rad, h / 2 - rad), new Vector2(-(w / 2 - rad), h / 2 - rad), new Vector2(-(w / 2 - rad), -(h / 2 - rad)), new Vector2(w / 2 - rad, -(h / 2 - rad)) };
+            for (int q = 0; q < 4; q++)
+                for (int k = 0; k <= cs; k++)
+                {
+                    float a = (q * 90f + k * 90f / cs) * Mathf.Deg2Rad; var d = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                    sec.Add(corners[q] + d * rad); secN.Add(d);
+                }
+            int M = sec.Count;
+            foreach (var deg in new[] { 45f, 135f, 225f, 315f })
+            {
+                float a = deg * Mathf.Deg2Rad; var radial = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0); var tang = new Vector3(-Mathf.Sin(a), Mathf.Cos(a), 0);
+                int b = V.Count;
+                foreach (var rr in new[] { r0, r1 })
+                    for (int k = 0; k < M; k++)
+                    {
+                        V.Add(new Vector3(0, CY, zc) + radial * rr + tang * sec[k].x + Vector3.forward * sec[k].y);
+                        N.Add((tang * secN[k].x + Vector3.forward * secN[k].y).normalized);
+                    }
+                for (int k = 0; k < M; k++)
+                {
+                    int a0 = b + k, a1 = b + (k + 1) % M, c0 = a0 + M, c1 = a1 + M;
+                    var fn = Vector3.Cross(V[a1] - V[a0], V[c0] - V[a0]);
+                    if (Vector3.Dot(fn, N[a0] + N[a1]) > 0) T.AddRange(new[] { a0, a1, c0, a1, c1, c0 });
+                    else T.AddRange(new[] { a0, c0, a1, a1, c0, c1 });
+                }
+            }
         }
 
         var dst = AssetDatabase.LoadAssetAtPath<Mesh>(DstPath);
