@@ -22,6 +22,8 @@ public class FuwaLanguage : UdonSharpBehaviour
     public TextMeshPro buttonLabel;
     [Tooltip("UIボタンの文字（レーザーポインタで押す版）")]
     public TextMeshProUGUI buttonLabelUi;
+    [Tooltip("JP / EN の切り替えスイッチの見た目（白い札が今の言語の方に出る）。ある時は文字の方は使わない")]
+    public FuwaSegToggle[] segToggles;
     [Tooltip("各ロビーに置いた同じボタンの文字（まとめて切り替える）")]
     public TextMeshProUGUI[] extraButtonLabelsUi;
     [Tooltip("最速タイムの看板（なくてもOK）")]
@@ -121,6 +123,7 @@ public class FuwaLanguage : UdonSharpBehaviour
             : "<mark=#FFFFFF44 padding=\"18,18,6,6\">JP</mark>  <color=#FFFFFF77>EN</color>";
         if (buttonLabelUi != null) buttonLabelUi.text = jpen;
         if (extraButtonLabelsUi != null) foreach (TextMeshProUGUI t in extraButtonLabelsUi) if (t != null) t.text = jpen;
+        if (segToggles != null) foreach (FuwaSegToggle g in segToggles) if (g != null) g.Show(_english);
     }
 }
 

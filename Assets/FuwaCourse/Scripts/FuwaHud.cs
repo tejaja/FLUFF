@@ -62,6 +62,8 @@ public class FuwaHud : UdonSharpBehaviour
     [Header("文字の表示ON/OFF（タイム・お知らせの文字。動画を撮る時など）")]
     [Tooltip("ON/OFFボタンの文字（ロビーの看板などに置いたボタン。なくてもOK）")]
     public TextMeshProUGUI[] textToggleLabels;
+    [Tooltip("HUD ON / OFF の切り替えスイッチの見た目（白い札が今の方に出る）")]
+    public FuwaSegToggle[] segToggles;
     private bool _hideText;
 
     // 文字の表示ON/OFFボタン（レーザーで押すUIボタン）から呼ばれる。自分だけ
@@ -77,6 +79,7 @@ public class FuwaHud : UdonSharpBehaviour
         // 言語ボタン（JP / EN）と同じく、今の方をはっきり、もう片方を薄く（太字にすると幅が変わって文字がずれるので、濃さだけで）
         string s = _hideText ? "HUD  <color=#FFFFFF77>ON</color>  <mark=#FFFFFF44 padding=\"18,18,6,6\">OFF</mark>" : "HUD  <mark=#FFFFFF44 padding=\"18,18,6,6\">ON</mark>  <color=#FFFFFF77>OFF</color>";
         for (int i = 0; i < textToggleLabels.Length; i++) if (textToggleLabels[i] != null) textToggleLabels[i].text = s;
+        if (segToggles != null) foreach (FuwaSegToggle g in segToggles) if (g != null) g.Show(_hideText);
     }
 
     private VRCPlayerApi _local;
