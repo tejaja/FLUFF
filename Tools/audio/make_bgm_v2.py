@@ -281,6 +281,55 @@ def yami2(path=None, lead='vibes', lgain=1.0, cgain=1.0, dgain=0.28, drev=0.85):
     save(st, path or os.path.join(OUT, "bgm_yami2.wav"))
     return st
 
+def den2(path=None, pgain=1.6, bgain=3.0, stabg=3.0, lead='marimba', lgain=1.0):
+    """まもののす（den_a と同じ作曲）：A短調（ドリア）104BPM。しのび足のスタッカート（ピチカート＋1オクターブ下の短いブラス）、
+    半音で寄るベース、ボンゴとウッドブロックのジャングルっぽいリズム、2小節ごとにブラスの「ぶぉっ」"""
+    from make_bgm_tower import voicing
+    DORIAN = [0, 2, 3, 5, 7, 9, 10]
+    m = Mix(104, 16, tail=3.0, seed=61)
+    prog = ['Am', 'Am', 'D', 'Am', 'Am', 'Am', 'Em', 'Am', 'F', 'G', 'Am', 'Am', 'F', 'G', 'E', 'E']
+    kp = old.NOTE['A']; MINOR = old.MINOR
+    rA = [[(0, 0.5), (1, 0.5), (1.5, 0.5), (2.5, 0.5), (3, 0.5)], [(0.5, 0.5), (1, 0.5), (2, 0.5), (3, 1)],
+          [(0, 0.5), (0.5, 0.5), (1, 0.5), (2, 0.5), (2.5, 0.5), (3, 0.5)], [(0, 1), (2, 0.5), (3, 0.5)]]
+    a = old.make_melody(np.random.default_rng(301), prog[:4], kp, DORIAN, rA, 57, 74, 64)
+    a2 = old.make_melody(np.random.default_rng(302), prog[4:8], kp, DORIAN, rA, 57, 74, a[-1][2])
+    b = old.make_melody(np.random.default_rng(303), prog[8:12], kp, MINOR, rA, 59, 76, 67)
+    c = old.make_melody(np.random.default_rng(304), prog[12:16], kp, [0, 2, 3, 5, 7, 8, 11], rA, 57, 76, 64)
+    mel = a + old.transpose_rest(a2, 4) + old.transpose_rest(b, 8) + old.transpose_rest(c, 12)
+    for pos, d, mm in mel:
+        v = m.vel(0.85 if abs(pos - round(pos)) < 1e-6 else 0.7, 0.05)
+        # ピチカート：弦をはじいてすぐ止める
+        if lead == 'reeds':   # クラリネット＋1オクターブ下のファゴット（しのび足の定番）
+            m.add(reed(midi_hz(mm), 0.32 * m.beat, v, kind='clarinet'), pos, pan=0.2, rev=0.2, gain=lgain, humanize=0.006)
+            m.add(reed(midi_hz(mm - 12), 0.32 * m.beat, v * 0.8, kind='bassoon'), pos, pan=-0.2, rev=0.2, gain=lgain, humanize=0.006)
+            continue
+        if lead == 'marimba':
+            m.add(marimba3(midi_hz(mm), 0.5 * m.beat, v, hard=0.45), pos, pan=0.15, rev=0.2, gain=lgain, humanize=0.006)
+            m.add(marimba3(midi_hz(mm - 12), 0.5 * m.beat, v * 0.6, hard=0.3), pos, pan=-0.2, rev=0.2, gain=lgain, humanize=0.006)
+            continue
+        if lead == 'kalimba':
+            m.add(kalimba(midi_hz(mm), 0.5 * m.beat, v, hard=0.5), pos, pan=0.15, rev=0.22, gain=lgain, humanize=0.006)
+            m.add(brass2(midi_hz(mm - 12), 0.28 * m.beat, v * 0.6, bright=0.25, voices=2, att=0.03, det_c=5), pos, pan=-0.1, rev=0.2, gain=bgain * 0.6, humanize=0.006)
+            continue
+        m.add(lp(ks_string(midi_hz(mm), 0.3 * m.beat, v, bright=0.35, damp_time=0.06), 2800, 2), pos, pan=0.15, rev=0.2, gain=pgain * 2.5, humanize=0.006)
+        m.add(brass2(midi_hz(mm - 12), 0.28 * m.beat, v * 0.6, bright=0.25, voices=2, att=0.03, det_c=5), pos, pan=-0.1, rev=0.2, gain=bgain, humanize=0.006)
+    for bar, cn in enumerate(prog):
+        r, cps = old.chord(cn)
+        root = old.nearest(33, [r], 28, 40)
+        for beat in range(4):   # しのび足のベース
+            x = root if beat % 2 == 0 else root + (7 if beat == 1 else 5)
+            m.add(finger_bass(midi_hz(x), 0.35 * m.beat, m.vel(0.85 if beat == 0 else 0.6, 0.04), tone=0.4), bar * 4 + beat, rev=0.04, humanize=0.004)
+        for off, hi in ((0, False), (0.75, True), (1.5, True), (2, False), (2.5, True), (3.25, True), (3.5, False)):
+            m.add(bongo2(hi, m.vel(0.8 if not hi else 0.6, 0.06)), bar * 4 + off, pan=-0.45 if hi else -0.2, rev=0.12, humanize=0.004)
+        for k in range(4): m.add(woodblock2(m.vel(0.45, 0.06), hi=True), bar * 4 + k + 0.5, pan=0.5, rev=0.1, humanize=0.003)
+        m.add(kick2(m.vel(0.6, 0.03), punch=0.4, low=0.6), bar * 4, rev=0.04, humanize=0.002)
+        if bar % 2 == 1:   # 「ぶぉっ」
+            for x in voicing(cps, 50, 45, 57): m.add(brass2(midi_hz(x), 0.8 * m.beat, m.vel(0.6, 0.04), bright=0.45, voices=3, att=0.04), bar * 4 + 3, rev=0.3, gain=stabg, humanize=0.004)
+        for x in voicing(cps, 57, 52, 64): m.add(warm_pad(midi_hz(x), 4 * m.beat + 0.2, 0.3, bright=0.25), bar * 4, pan=0.3, rev=0.4, humanize=0)
+    st = master(m, rt60=1.5, rev_level=0.33, damp=0.5, lowcut=30, warmth_db=0.5, air_db=1.0, comp_thresh=-16, comp_ratio=1.8, target_rms_db=-14.0)
+    save(st, path or os.path.join(OUT, "bgm_den2.wav"))
+    return st
+
 def lobby_c(path=None):
     """lobby_b と同じメロディ・コード・ゆりかごの分散和音。音源と残響・仕上げを新しくした版"""
     m = Mix(60, 16, tail=5.0, seed=11)

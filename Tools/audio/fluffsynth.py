@@ -147,6 +147,29 @@ def wind(f, dur, vel=0.7, kind='flute', vib=1.0, breath=1.0, taper=0.0, release=
     return y * vel * 0.17
 
 # ---------- たたく・はじく・打楽器（2026-10-07） ----------
+def reed(f, dur, vel=0.7, kind='clarinet', breath=0.5):
+    """リード楽器（2026-10-07）。clarinet：奇数倍音が強い木の筒の音（低めはこもった「ぽぉ」）。
+    bassoon：倍音は全部あるけど、500Hzあたりの山（フォルマント）で鼻にかかった「ぶぉ」。スタッカート向きに頭が速い"""
+    rel = 0.06
+    n = int((dur + rel + 0.02) * SR); t = np.arange(n) / SR
+    vib = 1 + 0.003 * np.sin(2 * np.pi * 5.0 * t) * np.clip((t - 0.3) / 0.3, 0, 1)
+    ph = 2 * np.pi * np.cumsum(f * vib) / SR + rng_global.uniform(0, 6.28)
+    K = int(min(30, (SR * 0.45) / f))
+    y = np.zeros(n)
+    for k in range(1, K + 1):
+        fk = f * k
+        if kind == 'clarinet':
+            a = (1.0 / k) * (1.0 if k % 2 == 1 else (0.08 if fk < 1500 else 0.35))
+            a /= 1 + (fk / 2200) ** 2
+        else:
+            a = (1.0 / k ** 0.6) * (0.35 + np.exp(-((fk - 480) / 260) ** 2) + 0.4 * np.exp(-((fk - 1150) / 300) ** 2))
+            a /= 1 + (fk / 1800) ** 2
+        y += a * np.sin(k * ph)
+    amp = np.minimum(t / 0.012, 1.0) * np.where(t < dur, 1.0, np.exp(-(t - dur) / (rel / 3)))
+    nz = bp(rng_global.standard_normal(n), f * 1.5, min(f * 8, 9000), 1) * (0.5 + 0.5 * np.exp(-t / 0.03))
+    y = (y + breath * 0.15 * nz) * amp
+    return y * vel * 0.25
+
 def marimba3(f, dur, vel=0.8, hard=0.35):
     """木っぽいマリンバ（2026-10-07）：金属っぽさの元になる高いモード（9倍以上）をほぼ無くし、3.9倍もすぐ消す。
     やわらかい毛糸のマレットの「ポコ」っとした当たり（低めのノイズ）、共鳴パイプの「ぼわん」を強め、全体を少し丸める"""
@@ -416,6 +439,24 @@ def crash2(vel=0.8, dur=2.2):
     y = hp(y, 2500, 2) * (np.exp(-t / 0.9) * 0.8 + 0.2 * np.exp(-t / 0.05))
     y *= np.clip(t / 0.002, 0, 1)
     return y * vel * 0.12
+
+def bongo2(hi=True, vel=0.8):
+    """ボンゴ（2026-10-07）：小さい皮の「ポン」（少し音程が下がる）＋手のひらの「ぺちっ」"""
+    f = 430 if hi else 300
+    n = int(0.4 * SR); t = np.arange(n) / SR
+    fr = f * (1 + 0.12 * np.exp(-t / 0.015))
+    y = np.sin(2 * np.pi * np.cumsum(fr) / SR) * np.exp(-t / (0.07 if hi else 0.1))
+    y += 0.3 * np.sin(2 * np.pi * np.cumsum(fr * 1.59) / SR) * np.exp(-t / 0.03)
+    y += bp(rng_global.standard_normal(n), 1200, 5000, 1) * np.exp(-t / 0.004) * 0.35
+    return y * np.clip(t / 0.0008, 0, 1) * vel * 0.4
+
+def woodblock2(vel=0.6, hi=True):
+    """ウッドブロック（2026-10-07）：硬い木の箱の「コッ」。短い共鳴2つ＋叩いた瞬間のノイズ"""
+    f = 1150 if hi else 880
+    n = int(0.15 * SR); t = np.arange(n) / SR
+    y = np.sin(2 * np.pi * f * t) * np.exp(-t / 0.03) + 0.35 * np.sin(2 * np.pi * f * 2.43 * t) * np.exp(-t / 0.012)
+    y += bp(rng_global.standard_normal(n), 1500, 6000, 1) * np.exp(-t / 0.002) * 0.4
+    return y * np.clip(t / 0.0005, 0, 1) * vel * 0.25
 
 def snare2(vel=0.8, tone=0.5, snap=0.5):
     n = int(0.35 * SR); t = np.arange(n) / SR
