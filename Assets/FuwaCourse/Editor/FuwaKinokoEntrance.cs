@@ -21,11 +21,11 @@ public static class FuwaKinokoEntrance
     public static float Gap1A = -6.0f, Gap1B = -3.4f;        // すき間1（キノコ）2.6m
     public static float YA0 = 8.7f;                          // 坂Aの始まりは入口より0.7m高い（キノコなしでは届かない）
     public static float SlopeA0 = -3.4f, SlopeA1 = -0.4f, FlatA1 = 0.8f, YA1 = 9.8f;   // 坂A → 平ら
-    public static float Gap2B = 3.0f;                        // すき間2（サルノコシカケ）＝ FlatA1〜Gap2B 2.2m
+    public static float Gap2B = 3.6f;                        // すき間2（サルノコシカケ）＝ FlatA1〜Gap2B 2.8m
     public static float YB0 = 10.5f, YB1 = 12.10f;           // 坂B（Gap2B〜CutB）。平らAより0.7m高い
     public static float HalfW = 1.5f;
     public static float CapLift = 0.35f;   // キノコの傘を床より上に（小ジャンプで乗る）
-    public static float CapScale = 0.6f, ShelfScale = 0.32f, ShelfTopY = 9.75f;
+    public static float CapScale = 0.6f, ShelfScale = 0.5f, ShelfTopY = 9.75f;
     public static float ShelfOut = 0.8f;   // サルノコシカケが平らAの先の壁（手前側）から出る長さ
     public static float ShelfImpulse = 4.6f;   // サルノコシカケの上のジャンプ力（高さ約1.08m）
 
@@ -102,6 +102,11 @@ public static class FuwaKinokoEntrance
             // 平らAの先の壁（手前側）から、すき間の中へ生やす。ここでキノコジャンプして奥の坂Bへ
             shelf.localScale = Vector3.one * ShelfScale; shelf.rotation = Quaternion.LookRotation(D);
             var top = shelf.Find("Top");
+            // ジャンプの判定の中心を傘の真ん中寄り（壁の近く）にして、半径を傘全体に。壁ぎわに立っても上がるように
+            var jb = shelf.GetComponentInChildren<FuwaJumpBoost>();
+            top.localPosition = new Vector3(0f, 0f, 2.6f);
+            jb.transform.localPosition = new Vector3(0f, jb.transform.localPosition.y, 2.6f);
+            jb.radius = 1.9f * ShelfScale;
             shelf.position += W(FlatA1 + ShelfOut, 0f, ShelfTopY) - top.position;
             // 手前のふちを平らAの壁に少しめりこませる
             Physics.SyncTransforms();
