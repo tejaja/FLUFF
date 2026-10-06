@@ -6,7 +6,7 @@ Shader "FuwaCourse/SteamPuff"
     {
         _MainTex ("Puff Sheet", 2D) = "white" {}
         _Color ("Tint", Color) = (1, 1, 1, 1)
-        _ShadeColor ("Shade Color (下側の影色)", Color) = (0.74, 0.72, 0.82, 1)
+        _ShadeColor ("Shade Color (下側の影色)", Color) = (0.92, 0.92, 0.96, 1)
     }
     SubShader
     {

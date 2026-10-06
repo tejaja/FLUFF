@@ -19,6 +19,7 @@ public static class FuwaSteamVentFx
         Texture2D tex = MakeTexture(false);
         Material puff = MakeMat(PuffMatPath, "FuwaCourse/SteamPuff");
         puff.SetTexture("_MainTex", tex);
+        puff.SetColor("_ShadeColor", new Color(0.92f, 0.92f, 0.96f, 1f));   // 白っぽく（影色はほんのり）
         EditorUtility.SetDirty(puff);
         Material glow = MakeMat(GlowMatPath, "FuwaCourse/VentGlow");
         AudioClip hiss = MakeHiss(false);
@@ -59,10 +60,10 @@ public static class FuwaSteamVentFx
         {
             var ps = NewPS(fx, "Plume", Vector3.zero, puff, 90);
             var main = ps.main;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(1.8f, 2.3f);
+            main.startLifetime = new ParticleSystem.MinMaxCurve(1.5f, 1.9f);
             float v0 = Mathf.Clamp(h / (2.05f * 0.55f), 1.5f, 6f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(v0 * 0.85f, v0 * 1.1f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.6f * k, 1.0f * k);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(v0 * 1.5f, v0 * 1.9f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.5f * k, 0.85f * k);
             main.gravityModifier = -0.04f;
             var em = ps.emission;
             em.rateOverTime = 15f;
@@ -71,25 +72,31 @@ public static class FuwaSteamVentFx
             sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 7f; sh.radius = 0.2f; sh.rotation = new Vector3(-90f, 0f, 0f);
             var vol = ps.velocityOverLifetime;
             vol.enabled = true;
-            vol.speedModifier = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(0.5f, 0.35f), new Keyframe(1f, 0.12f)));
+            vol.speedModifier = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(0.25f, 0.7f), new Keyframe(0.6f, 0.25f), new Keyframe(1f, 0.08f)));
             var noise = ps.noise;
             noise.enabled = true; noise.strength = 0.35f; noise.frequency = 0.5f; noise.scrollSpeed = 0.4f; noise.damping = true;
-            SetFade(ps, 0.1f, 0.5f, 0.5f, 0.28f);
-            SetGrow(ps, 0.5f, 1.05f, 2.4f);
+            SetFade(ps, 0.1f, 0.65f, 0.5f, 0.36f);
+            SetGrow(ps, 0.35f, 0.9f, 2.6f);
         }
         // ② 口のところの勢いのいい噴き出し（シュー）
         {
-            var ps = NewPS(fx, "Jet", Vector3.zero, puff, 30);
+            var ps = NewPS(fx, "Jet", Vector3.zero, puff, 60);
             var main = ps.main;
-            main.startLifetime = new ParticleSystem.MinMaxCurve(0.32f, 0.48f);
-            main.startSpeed = new ParticleSystem.MinMaxCurve(4f * k, 6f * k);
+            main.startLifetime = new ParticleSystem.MinMaxCurve(0.22f, 0.34f);
+            main.startSpeed = new ParticleSystem.MinMaxCurve(9f * k, 13f * k);
             main.startSize = new ParticleSystem.MinMaxCurve(0.26f * k, 0.4f * k);
-            var em = ps.emission; em.rateOverTime = 26f;
-            em.SetBursts(new[] { new ParticleSystem.Burst(0.2f, 10) });
+            var em = ps.emission; em.rateOverTime = 55f;
+            em.SetBursts(new[] { new ParticleSystem.Burst(0.2f, 22) });
             var sh = ps.shape;
             sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 4f; sh.radius = 0.12f; sh.rotation = new Vector3(-90f, 0f, 0f);
             var noise = ps.noise; noise.enabled = true; noise.strength = 0.15f; noise.frequency = 1.2f;
-            SetFade(ps, 0.05f, 0.45f, 0.4f, 0.22f);
+            // 速い噴き出しは縦に伸ばして「シュッ」と勢いよく
+            var jr = ps.GetComponent<ParticleSystemRenderer>();
+            jr.renderMode = ParticleSystemRenderMode.Stretch; jr.velocityScale = 0.06f; jr.lengthScale = 1.6f;
+            var tsa = ps.textureSheetAnimation; tsa.enabled = false;
+            var jrot = ps.rotationOverLifetime; jrot.enabled = false;
+            var jm = ps.main; jm.startRotation = 0f;
+            SetFade(ps, 0.03f, 0.75f, 0.5f, 0.4f);
             SetGrow(ps, 0.6f, 1.2f, 1.9f);
         }
         // ③ てっぺんで横に広がって消える（どこまで上がるかの目印）
@@ -176,7 +183,7 @@ public static class FuwaSteamVentFx
     {
         var col = ps.colorOverLifetime; col.enabled = true;
         var gr = new Gradient();
-        gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(new Color(0.94f, 0.95f, 1f), 1f) },
+        gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
                    new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(peak, inT), new GradientAlphaKey(mid, midT), new GradientAlphaKey(0f, 1f) });
         col.color = new ParticleSystem.MinMaxGradient(gr);
     }
