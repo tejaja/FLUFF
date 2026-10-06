@@ -99,8 +99,19 @@ public class FuwaMama : UdonSharpBehaviour
     private bool _inHop;
     private float _crouch;
 
+    private bool _inited;
+
     private void Start()
     {
+        Init();
+    }
+
+    // まもののすは普段隠してあって Start がまだのうちに ResetBoss が来ることがある。
+    // その時に最初の位置(_startPos)が (0,0,0) のままだと原点へ飛んでしまうので、先にここで覚える
+    private void Init()
+    {
+        if (_inited) return;
+        _inited = true;
         if (visual != null) { _visualScale = visual.localScale; _visualBase = visual.localPosition; }
         if (eyes != null) _eyesScale = eyes.localScale;
         InitPupils();
@@ -377,6 +388,7 @@ public class FuwaMama : UdonSharpBehaviour
     // アウト・リスポーン・コース開始の時（FuwaBall から）：最初の場所で寝ている状態に戻す
     public void ResetBoss()
     {
+        Init();
         transform.position = _startPos;
         transform.rotation = _startRot;
         _push = Vector3.zero;
