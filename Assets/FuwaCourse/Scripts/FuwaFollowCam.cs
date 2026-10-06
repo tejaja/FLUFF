@@ -1,16 +1,24 @@
 using TMPro;
 using UdonSharp;
 using UnityEngine;
+using VRC.SDK3.Rendering;
 using VRC.SDKBase;
 
-// ふわふわ追っかけカメラ（自分にだけ、同期なし）。
-// ターゲットのないカメラはVRChatの画面（デスクトップの画面、VRの人はPCのモニター側だけ）に映るので、
-// それを使って、自分とふわふわの両方が入るように斜め後ろ・横・上から追いかけて撮る。
+// ふわふわ追っかけカメラ（自分にだけ、同期なし）。自分の視界はそのままで、VRChatの手持ちカメラ（写真・ストリーム）にだけ映す。
+// ワールドからはVRChatカメラを動かせないので、追っかけカメラの映像をテクスチャ（feedTexture）に描いて、
+// それを VRChatカメラのレンズの前に置いた板（feed、Fuwa/PhotoCamFeed）で「VRChatカメラで描く時だけ画面いっぱいに」貼る。
+// 画角と縦横比はVRChatカメラに合わせるので、カメラ側のズームもそのまま効く。
 // 設定ボタン（CycleMode）か、デスクトップならキー（toggleKey）で OFF → 後ろ → 横 → 上 と切り替え。
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaFollowCam : UdonSharpBehaviour
 {
+    [Tooltip("追っかけ用のカメラ（Target Texture に feedTexture を入れておく）")]
     public Camera cam;
+    [Tooltip("VRChatカメラのレンズの前に置く板（Fuwa/PhotoCamFeed のマテリアル）")]
+    public Transform feed;
+    public Renderer feedRenderer;
+    [Tooltip("板をレンズからどれだけ前に置くか(m)")]
+    public float feedDistance = 0.3f;
 
     [Tooltip("追いかける物（ひとりで用のふわふわ、みんなで用のふわふわ…）。見えていて近いものを追う")]
     public Transform[] targets;
@@ -41,16 +49,20 @@ public class FuwaFollowCam : UdonSharpBehaviour
     [Range(0f, 1f)] public float focusBlend = 0.55f;
     [Tooltip("カメラと見る所の間に地面や壁があったら手前に寄せる")]
     public LayerMask obstacleMask = (1 << 0) | (1 << 11);
+    [Tooltip("テスト用：VRChatカメラがなくても（ClientSimでも）追っかけカメラを動かす")]
+    public bool runWithoutPhotoCamera = false;
 
     private int _mode;   // 0=OFF 1=後ろ 2=横 3=上
     private Vector3 _dir = Vector3.forward;
     private Vector3 _focus;
     private Vector3 _vel;
     private bool _snap;
+    private bool _running;
 
     private void Start()
     {
         if (cam != null) cam.enabled = false;
+        if (feedRenderer != null) feedRenderer.enabled = false;
         UpdateLabels();
     }
 
@@ -59,14 +71,12 @@ public class FuwaFollowCam : UdonSharpBehaviour
     {
         _mode = (_mode + 1) % 4;
         _snap = true;
-        if (cam != null) cam.enabled = _mode != 0;
         UpdateLabels();
     }
 
     public void TurnOff()
     {
         _mode = 0;
-        if (cam != null) cam.enabled = false;
         UpdateLabels();
     }
 
@@ -86,10 +96,37 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (!lp.IsUserInVR() && Input.GetKeyDown(toggleKey)) CycleMode();
     }
 
-    // 自分が動いた後に追いかけたいので LateUpdate で
-    private void LateUpdate()
+    // VRChatカメラが動いた後に、板をレンズの前に置き直す。追っかけカメラもここで動かす
+    public override void PostLateUpdate()
     {
-        if (_mode == 0 || cam == null) return;
+        if (cam == null) return;
+        VRCCameraSettings photo = VRCCameraSettings.PhotoCamera;
+        bool photoOn = photo != null && photo.Active;
+        bool run = _mode != 0 && (photoOn || runWithoutPhotoCamera);
+        if (run != _running)
+        {
+            _running = run;
+            cam.enabled = run;
+            if (run) _snap = true;
+        }
+        if (feedRenderer != null && feedRenderer.enabled != (run && photoOn)) feedRenderer.enabled = run && photoOn;
+        if (!run) return;
+
+        if (photoOn)
+        {
+            cam.fieldOfView = photo.FieldOfView;
+            if (photo.Aspect > 0.01f) cam.aspect = photo.Aspect;
+            if (feed != null)
+            {
+                feed.position = photo.Position + photo.Forward * feedDistance;
+                feed.rotation = photo.Rotation;
+            }
+        }
+        MoveCamera();
+    }
+
+    private void MoveCamera()
+    {
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null) return;
 
