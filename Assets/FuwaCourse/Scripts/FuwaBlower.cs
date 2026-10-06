@@ -137,6 +137,17 @@ public class FuwaBlower : UdonSharpBehaviour
     [UdonSynced(UdonSyncMode.Smooth)] private float _airSync = 1f;
 
     private VRCPickup _pickup;
+
+    [Header("コントローラーの振動（VRで持っている時だけ）")]
+    [Tooltip("撃った時の振動の長さ(秒)：x=ちょん押し、y=フルチャージ")]
+    public Vector2 hapticShotTime = new Vector2(0.04f, 0.12f);
+    [Tooltip("撃った時の振動の強さ(0〜1)：x=ちょん押し、y=フルチャージ")]
+    public Vector2 hapticShotAmp = new Vector2(0.18f, 0.45f);
+    [Tooltip("溜めが満タンになった時の振動")]
+    public float hapticFullTime = 0.03f;
+    public float hapticFullAmp = 0.2f;
+    [Tooltip("振動の細かさ(Hz)")]
+    public float hapticFrequency = 180f;
     private float _nextPuff;
     private bool _charging;
     private bool _chargeFxSent;
@@ -685,6 +696,8 @@ public class FuwaBlower : UdonSharpBehaviour
             _fxFull = true;
             if (chargedSound != null) chargedSound.Play();
             if (chargedSparkle != null) chargedSparkle.Play();   // 満タンの合図（撃った時の輪とは別）
+            // 満タンになった時、持っている本人にだけ小さく「コツッ」
+            if (_isMine && _pickup != null && _pickup.IsHeld) _pickup.GenerateHapticEvent(hapticFullTime, hapticFullAmp, hapticFrequency);
         }
         SetOrb(c);
     }
@@ -780,6 +793,9 @@ public class FuwaBlower : UdonSharpBehaviour
         _lastShotTime = Time.time;
 
         SendCustomNetworkEvent(NetworkEventTarget.All, nameof(PlayShotEffect), charge);
+        // 撃った手のコントローラーを軽くぷるっと（溜めたほど少し長く強く）
+        if (_pickup != null && _pickup.IsHeld)
+            _pickup.GenerateHapticEvent(Mathf.Lerp(hapticShotTime.x, hapticShotTime.y, charge), Mathf.Lerp(hapticShotAmp.x, hapticShotAmp.y, charge), hapticFrequency);
         float ballPower = Mathf.Lerp(minBallPower, maxBallPower, charge);
         float enemyPower = Mathf.Lerp(minEnemyPower, 1f, charge);
         float reach = range * Mathf.Lerp(minRangeRatio, maxRangeRatio, charge);
