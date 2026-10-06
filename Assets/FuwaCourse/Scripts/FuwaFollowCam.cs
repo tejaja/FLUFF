@@ -31,12 +31,12 @@ public class FuwaFollowCam : UdonSharpBehaviour
     public KeyCode toggleKey = KeyCode.B;
     [Tooltip("ボタンの今のモードの文字（各ロビーのボタン）")]
     public TextMeshProUGUI[] modeTexts;
-    [Tooltip("modeTexts と同じ順で、ONの時に文字の後ろに出す白い札")]
+    [Tooltip("modeTexts と同じ順で、文字の後ろに出す白い札")]
     public UnityEngine.UI.Image[] modePills;
     [Tooltip("ONの時の文字の色（ボタンの色）")]
     public Color activeTextColor = new Color(0.45f, 0.78f, 0.62f, 1f);
-    [Tooltip("OFFの時の文字の色")]
-    public Color idleTextColor = new Color(1f, 1f, 1f, 0.75f);
+    [Tooltip("OFFの時の文字の色（白い札の上なので灰色）")]
+    public Color idleTextColor = new Color(0.55f, 0.55f, 0.6f, 1f);
 
     [Header("カメラの動き")]
     [Tooltip("位置の追いつく時間(秒)。大きいほどふわっと遅れてついてくる")]
@@ -90,7 +90,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (modeTexts != null)
             foreach (TextMeshProUGUI t in modeTexts) if (t != null) { t.text = s; t.color = _mode != 0 ? activeTextColor : idleTextColor; }
         if (modePills != null)
-            foreach (UnityEngine.UI.Image im in modePills) if (im != null) im.enabled = _mode != 0;
+            foreach (UnityEngine.UI.Image im in modePills) if (im != null) im.enabled = true;   // 札はいつも出す（今のモードが書いてある）
     }
 
     private void Update()
