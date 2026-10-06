@@ -130,6 +130,47 @@ def basics2(path=None, swing=0.0, woody=0, mbox=0.0, lead='vibes', goct=0, ggain
     save(st, path or os.path.join(OUT, "bgm_basics2.wav"))
     return st
 
+def kaze2(path=None, fvib=0.8, fbreath=0.8, ftaper=0.2, fsoft=0.3, fgain=1.9, tgain=0.6, bgain=0.75):
+    """かぜのみち（kaze_e と同じ作曲）：Aミクソリディア108BPM、民謡っぽい。フルートのメロディ（装飾音つき）、
+    ギターのジャカジャカ、低いタムの「どん・どどん」、ドローン、4小節ごとに遠くでやわらかいベル1音。風の音は入れない"""
+    from make_bgm_tower import voicing
+    MIXO = [0, 2, 4, 5, 7, 9, 10]
+    m = Mix(108, 16, tail=3.0, seed=31)
+    prog = ['A', 'G', 'A', 'G', 'D', 'A', 'G', 'A', 'D', 'G', 'A', 'Em', 'D', 'G', 'A', 'A']
+    kp = old.NOTE['A']
+    rA = [[(0, 1), (1, 0.5), (1.5, 0.5), (2, 1.5), (3.5, 0.5)], [(0, 0.5), (0.5, 0.5), (1, 1), (2, 2)],
+          [(0, 1.5), (1.5, 0.25), (1.75, 0.25), (2, 1), (3, 1)], [(0, 3), (3, 1)]]
+    a = old.make_melody(np.random.default_rng(321), prog[:4], kp, MIXO, rA, 69, 86, 76)
+    a2 = old.make_melody(np.random.default_rng(322), prog[4:8], kp, MIXO, rA, 69, 86, a[-1][2])
+    b = old.make_melody(np.random.default_rng(323), prog[8:12], kp, MIXO, rA, 71, 88, 81)
+    c = old.make_melody(np.random.default_rng(324), prog[12:16], kp, MIXO, rA, 69, 86, 79)
+    mel = old.end_on_root(a + old.transpose_rest(a2, 4) + old.transpose_rest(b, 8) + old.transpose_rest(c, 12), kp, 69, 86)
+    for i, (pos, d, mm) in enumerate(mel):
+        v = m.vel(0.72 if abs(pos - round(pos)) < 1e-6 else 0.62, 0.05)
+        m.add(wind(midi_hz(mm), d * m.beat * 0.92, v, kind='flute', vib=fvib, breath=fbreath, taper=ftaper, release=0.12, soft=fsoft), pos, pan=0.1, rev=0.32, gain=fgain, humanize=0.008)
+        if d >= 1 and i % 3 == 0 and pos >= 0.12:   # 長い音の前に短い装飾音
+            m.add(wind(midi_hz(mm + 2), 0.07, v * 0.6, kind='flute', vib=0, breath=fbreath * 0.6, release=0.03, soft=fsoft), pos - 0.12, pan=0.1, rev=0.28, gain=fgain, humanize=0)
+    for bar, cn in enumerate(prog):
+        r, cps = old.chord(cn)
+        vo = voicing(cps, 57, 52, 64) + [voicing(cps, 64, 59, 71)[0]]
+        for j, (off, vel) in enumerate(((0, 0.5), (1, 0.36), (1.5, 0.3), (2.5, 0.36), (3, 0.4))):   # ストローク
+            m.add(strum([midi_hz(x) for x in vo], 0.4 * m.beat, m.vel(vel), bright=0.5, spread=0.012, down=(off == int(off))), bar * 4 + off, pan=-0.45, rev=0.2, humanize=0.005)
+        if bar % 4 == 0:   # ドローン
+            m.add(warm_pad(midi_hz(old.nearest(45, [kp], 40, 50)), 16 * m.beat, 0.35, bright=0.3), bar * 4, rev=0.35, humanize=0)
+            m.add(warm_pad(midi_hz(old.nearest(52, [(kp + 7) % 12], 48, 57)), 16 * m.beat, 0.22, bright=0.3), bar * 4, rev=0.35, humanize=0)
+        root = old.nearest(45, [r], 40, 51)
+        m.add(finger_bass(midi_hz(root), 1.5 * m.beat, m.vel(0.62, 0.04), tone=0.3), bar * 4, rev=0.04, gain=bgain, humanize=0.004)
+        m.add(finger_bass(midi_hz(root), 1.0 * m.beat, m.vel(0.48, 0.04), tone=0.3), bar * 4 + 2.5, rev=0.04, gain=bgain, humanize=0.004)
+        m.add(tom2(85, m.vel(0.8, 0.04)), bar * 4, pan=-0.12, rev=0.22, gain=tgain, humanize=0.003)
+        m.add(tom2(85, m.vel(0.5, 0.04)), bar * 4 + 2, pan=-0.12, rev=0.22, gain=tgain, humanize=0.003)
+        m.add(tom2(100, m.vel(0.45, 0.04)), bar * 4 + 2.5, pan=0.15, rev=0.22, gain=tgain, humanize=0.003)
+        for k in range(8): m.add(shaker2(m.vel(0.6 if k % 2 else 0.38)), bar * 4 + k * 0.5, pan=0.45, rev=0.08, humanize=0.004)
+        if bar % 4 == 3:   # 遠くでやわらかいベルを1音「ぽーん」
+            m.add(celesta(midi_hz(old.nearest(84, cps, 79, 88)), 1.5 * m.beat, 0.3), bar * 4 + 2.5, pan=0.4, rev=0.6, humanize=0)
+    st = master(m, rt60=1.8, rev_level=0.38, damp=0.5, lowcut=30, warmth_db=0.5, air_db=1.5, comp_thresh=-16, comp_ratio=1.8, target_rms_db=-13.0)
+    save(st, path or os.path.join(OUT, "bgm_kaze2.wav"))
+    return st
+
 def lobby_c(path=None):
     """lobby_b と同じメロディ・コード・ゆりかごの分散和音。音源と残響・仕上げを新しくした版"""
     m = Mix(60, 16, tail=5.0, seed=11)

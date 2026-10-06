@@ -282,22 +282,25 @@ def ks_string(f, dur, vel=0.7, bright=0.5, damp_time=None, body=True):
     bright: 弾いた時の明るさ（ピックの硬さ）。damp_time: 離した後に消えるまでの秒数（None=自然に）"""
     tail = 1.4
     n = int((dur + tail) * SR)
-    L = max(2, int(round(SR / f)))
-    frac = SR / f - L
+    # 音程（2026-10-07修正）：2点平均で0.5サンプル遅れる分を引き、残りの端数は線形補間で足す。
+    # 前は端数を捨てていて、音によって最大15セントくらい低かった（ギターが「音程ずれてる」と言われた）
+    P = SR / f
+    L = max(2, int(np.floor(P - 0.5)))
+    frac = P - 0.5 - L
     # 最初の一発：明るさで高域を削ったノイズ
-    exc = rng_global.uniform(-1, 1, L + 1)
+    exc = rng_global.uniform(-1, 1, L + 2)
     exc = lp(exc, 1500 + 7000 * bright, 1)
     exc -= exc.mean()
     y = np.zeros(n)
-    y[:L + 1] = exc
+    y[:L + 2] = exc
     # 遅延線のフィードバック：y[i] += g * (a*y[i-L] + (1-a)*y[i-L-1])
     loss = 0.996 - 0.002 * (f / 1000)
-    a = 0.5 + 0.5 * (1 - frac) * 0.0   # 2点平均（ローパス）
-    i = L + 1
+    # 2点平均（ローパス）×線形補間（端数 frac）＝3タップ：遅れ L + 0.5 + frac
+    w0, w1, w2 = 0.5 * (1 - frac), 0.5, 0.5 * frac
+    i = L + 2
     while i < n:
         j = min(n, i + L)
-        seg = y[i - L:j - L]; seg2 = y[i - L - 1:j - L - 1]
-        y[i:j] += loss * (0.5 * seg + 0.5 * seg2)
+        y[i:j] += loss * (w0 * y[i - L:j - L] + w1 * y[i - L - 1:j - L - 1] + w2 * y[i - L - 2:j - L - 2])
         i = j
     t = np.arange(n) / SR
     if damp_time is not None:
@@ -333,6 +336,16 @@ def kick2(vel=0.9, punch=0.5, low=0.5):
     click = lp(rng_global.standard_normal(n), 5000) * np.exp(-t / 0.0025) * 0.35 * (0.5 + punch)
     y = np.tanh((body + click) * 1.4) / np.tanh(1.4)
     return y * vel * 0.8
+
+def tom2(f=90, vel=0.8, skin=0.5):
+    """低いタム（2026-10-07）：皮の「どん」（音程が少し下がるサイン＋2つ目のモード1.5倍）＋叩いた瞬間の「ぱすっ」"""
+    n = int(0.9 * SR); t = np.arange(n) / SR
+    fr = f * (1 + 0.35 * np.exp(-t / 0.04))
+    body = np.sin(2 * np.pi * np.cumsum(fr) / SR) * np.exp(-t / 0.32)
+    body += 0.25 * np.sin(2 * np.pi * np.cumsum(fr * 1.5) / SR) * np.exp(-t / 0.12)
+    hit = lp(rng_global.standard_normal(n), 1800 + 1500 * skin) * np.exp(-t / 0.006) * 0.3 * (0.4 + skin)
+    y = np.tanh((body + hit) * 1.2) / np.tanh(1.2)
+    return y * np.clip(t / 0.001, 0, 1) * vel * 0.7
 
 def snare2(vel=0.8, tone=0.5, snap=0.5):
     n = int(0.35 * SR); t = np.arange(n) / SR
