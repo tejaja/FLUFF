@@ -914,13 +914,32 @@ public class FuwaBlower : UdonSharpBehaviour
             main.startSpeedMultiplier = _puffBaseSpeed * (puffBaseDistance > 0.001f ? reach / puffBaseDistance : 1f);
         }
         if (charge >= 1f) PlayPuffEffectStrong();
-        else PlayPuffEffect();
+        else PlayPuffEffect(charge);
     }
 
-    public void PlayPuffEffect()
+    [Tooltip("溜めの途中で撃った時、溜め具合に合わせて足すもやの数（満タン手前で最大）")]
+    public int midPuffExtra = 6;
+    [Tooltip("溜めの途中で撃った時、溜め具合に合わせて輪っかを大きく・濃くする量（満タン手前で最大）")]
+    public float midRingGrow = 0.5f;
+    private ParticleSystem _airRing;
+    private float _ringBaseSize = -1f;
+    private Color _ringBaseColor;
+
+    // ちょん押し〜満タン手前：溜め具合 charge(0〜1) に合わせて、もやを少し足し、輪っかを大きく濃くする（ノンチャとフルチャの間）
+    public void PlayPuffEffect(float charge)
     {
         StopChargeFx();
-        if (puffEffect != null) puffEffect.Play();
+        float c = Mathf.Clamp01(charge);
+        if (puffEffect != null && _airRing == null) { Transform r = puffEffect.transform.Find("AirRing"); if (r != null) _airRing = (ParticleSystem)r.GetComponent(typeof(ParticleSystem)); }
+        if (_airRing != null)
+        {
+            ParticleSystem.MainModule rm = _airRing.main;
+            if (_ringBaseSize < 0f) { _ringBaseSize = rm.startSizeMultiplier; _ringBaseColor = rm.startColor.color; }
+            rm.startSizeMultiplier = _ringBaseSize * (1f + midRingGrow * c);
+            Color rc = _ringBaseColor; rc.a = Mathf.Lerp(_ringBaseColor.a, 1f, c);
+            rm.startColor = new ParticleSystem.MinMaxGradient(rc);
+        }
+        if (puffEffect != null) { puffEffect.Play(); int extra = Mathf.RoundToInt(midPuffExtra * c); if (extra > 0) puffEffect.Emit(extra); }
         if (puffSound != null)
         {
             puffSound.volume = _puffBaseVolume * 0.6f;
@@ -933,6 +952,7 @@ public class FuwaBlower : UdonSharpBehaviour
     public void PlayPuffEffectStrong()
     {
         StopChargeFx();
+        if (_airRing != null && _ringBaseSize >= 0f) { ParticleSystem.MainModule rm = _airRing.main; rm.startSizeMultiplier = _ringBaseSize; rm.startColor = new ParticleSystem.MinMaxGradient(_ringBaseColor); }
         if (puffEffect != null) { puffEffect.Play(); puffEffect.Emit(strongPuffExtra); }
         if (fullBurst != null) fullBurst.Play();
         if (puffBigSound != null) puffBigSound.Play();
