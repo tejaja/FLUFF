@@ -360,6 +360,11 @@ public class FuwaBall : UdonSharpBehaviour
     private float _windDampTime = 0f;
     private float _windDampAmount = 0f;
     private Vector3 _windDampDir = Vector3.zero;
+    [Tooltip("風の効きが弱まっている間の光の色（溜めて撃った時だけ。ふつう撃ちは光らない）")]
+    public Color resistGlowColor = new Color(1f, 0.78f, 0.15f, 1f);
+    [Tooltip("フルチャージで撃った時の光の強さ（溜め具合に比例。弱まりが戻るのに合わせて消える）")]
+    [Range(0f, 1f)] public float resistGlowMax = 1f;
+    private float _windDampGlow = 0f;
 
     // エアガンで撃たれた時に呼ばれる（charge 0〜1、shotDir＝飛ばした向き）。しばらく風の効きを弱め（溜めるほど長く保つ）、だんだん元に戻す
     public void ShotWindDamp(float charge, Vector3 shotDir)
@@ -369,14 +374,23 @@ public class FuwaBall : UdonSharpBehaviour
         _windDampHold = shotWindDampHoldMax * charge * charge;
         _windDampTime = Mathf.Lerp(shotWindDampTimeMin, shotWindDampTimeMax, charge);
         _windDampDir = shotDir.sqrMagnitude > 0.0001f ? shotDir.normalized : Vector3.zero;
+        _windDampGlow = resistGlowMax * charge;
+    }
+
+    // 風の弱まりの残り（保っている間は1、戻る間に1→0）
+    private float WindDampLeft()
+    {
+        float t = Time.time - _windDampStart - _windDampHold;
+        if (_windDampTime <= 0f || t >= _windDampTime) return 0f;
+        return 1f - Mathf.Max(0f, t) / _windDampTime;
     }
 
     // 撃った向きと同じ向きの風（追い風など）はそのまま、横向き・逆向きの分だけ弱める
     private Vector3 DampWind(Vector3 acc)
     {
-        float t = Time.time - _windDampStart - _windDampHold;
-        if (_windDampTime <= 0f || t >= _windDampTime) return acc;
-        float k = 1f - _windDampAmount * (1f - Mathf.Max(0f, t) / _windDampTime);
+        float left = WindDampLeft();
+        if (left <= 0f) return acc;
+        float k = 1f - _windDampAmount * left;
         float along = Vector3.Dot(acc, _windDampDir);
         Vector3 keep = along > 0f ? _windDampDir * along : Vector3.zero;
         return keep + (acc - keep) * k;
@@ -465,6 +479,13 @@ public class FuwaBall : UdonSharpBehaviour
             return;
         }
         float target = Time.time < _glowUntil && !_hidden ? _glowTarget : 0f;
+        // 溜めて撃って風の効きが弱まっている間は、黄色く光る（風の青い光より優先。撃った向きに光の帯が流れる）
+        float resist = _hidden ? 0f : _windDampGlow * WindDampLeft();
+        if (resist > 0.01f)
+        {
+            _glowColor = resistGlowColor; target = Mathf.Max(target, resist);
+            if (_windDampDir.sqrMagnitude > 0.0001f) _glowDir = _windDampDir;
+        }
         float speed = target > _glowAmount ? 8f : 3f;
         _glowAmount = Mathf.MoveTowards(_glowAmount, target, speed * Time.deltaTime);
         _furMat.SetColor("_GlowColor", new Color(_glowColor.r, _glowColor.g, _glowColor.b, _glowAmount));
