@@ -19,7 +19,7 @@ public static class FuwaSteamVentFx
         Texture2D tex = MakeTexture(false);
         Material puff = MakeMat(PuffMatPath, "FuwaCourse/SteamPuff");
         puff.SetTexture("_MainTex", tex);
-        puff.SetColor("_ShadeColor", new Color(0.92f, 0.92f, 0.96f, 1f));   // 白っぽく（影色はほんのり）
+        puff.SetColor("_ShadeColor", new Color(0.97f, 0.97f, 1f, 1f));   // 白っぽく（影色はほんのり）
         EditorUtility.SetDirty(puff);
         Material glow = MakeMat(GlowMatPath, "FuwaCourse/VentGlow");
         AudioClip hiss = MakeHiss(false);
@@ -75,7 +75,7 @@ public static class FuwaSteamVentFx
             vol.speedModifier = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(0.25f, 0.7f), new Keyframe(0.6f, 0.25f), new Keyframe(1f, 0.08f)));
             var noise = ps.noise;
             noise.enabled = true; noise.strength = 0.35f; noise.frequency = 0.5f; noise.scrollSpeed = 0.4f; noise.damping = true;
-            SetFade(ps, 0.1f, 0.65f, 0.5f, 0.36f);
+            SetFade(ps, 0.1f, 0.88f, 0.5f, 0.55f);
             SetGrow(ps, 0.35f, 0.9f, 2.6f);
         }
         // ② 口のところの勢いのいい噴き出し（シュー）
@@ -96,7 +96,7 @@ public static class FuwaSteamVentFx
             var tsa = ps.textureSheetAnimation; tsa.enabled = false;
             var jrot = ps.rotationOverLifetime; jrot.enabled = false;
             var jm = ps.main; jm.startRotation = 0f;
-            SetFade(ps, 0.03f, 0.75f, 0.5f, 0.4f);
+            SetFade(ps, 0.03f, 0.95f, 0.5f, 0.6f);
             SetGrow(ps, 0.6f, 1.2f, 1.9f);
         }
         // ③ てっぺんで横に広がって消える（どこまで上がるかの目印）
@@ -113,7 +113,7 @@ public static class FuwaSteamVentFx
             var vol = ps.velocityOverLifetime; vol.enabled = true; vol.space = ParticleSystemSimulationSpace.World;
             vol.x = 0f; vol.y = 0.15f; vol.z = 0f;
             var noise = ps.noise; noise.enabled = true; noise.strength = 0.2f; noise.frequency = 0.4f;
-            SetFade(ps, 0.15f, 0.3f, 0.6f, 0.16f);
+            SetFade(ps, 0.15f, 0.5f, 0.6f, 0.28f);
             SetGrow(ps, 0.7f, 1.2f, 2.4f);
         }
         // 噴くリズムがループの長さとそろうように（1ループに1回ブワッ）
