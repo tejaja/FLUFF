@@ -364,8 +364,8 @@ public class FuwaBall : UdonSharpBehaviour
     public Color resistGlowColor = new Color(1f, 0.78f, 0.15f, 1f);
     [Tooltip("フルチャージで撃った時の光の強さ（溜め具合に比例）")]
     [Range(0f, 1f)] public float resistGlowMax = 1f;
-    [Tooltip("光が消えるまでの秒数（撃った瞬間が一番明るく、だんだん消える。風の弱まり自体はもっと長く続く）")]
-    public float resistGlowTime = 0.6f;
+    [Tooltip("光が消えるまでの秒数（撃った瞬間が一番明るく、2乗のカーブでなめらかに消える。体感は6割くらいの時間で消える。風の弱まり自体はもっと長く続く）")]
+    public float resistGlowTime = 0.9f;
     private float _windDampGlow = 0f;
 
     // エアガンで撃たれた時に呼ばれる（charge 0〜1、shotDir＝飛ばした向き）。しばらく風の効きを弱め（溜めるほど長く保つ）、だんだん元に戻す
@@ -487,17 +487,31 @@ public class FuwaBall : UdonSharpBehaviour
             return;
         }
         float target = Time.time < _glowUntil && !_hidden ? _glowTarget : 0f;
-        // 溜めて撃って風の効きが弱まっている間は、黄色く光る（風の青い光より優先。撃った向きに光の帯が流れる）
-        float resist = _hidden || resistGlowTime <= 0f ? 0f : _windDampGlow * Mathf.Clamp01(1f - (Time.time - _windDampStart) / resistGlowTime);
-        if (resist > 0.01f)
+        // 溜めて撃って風の効きが弱まっている間は、黄色く光る（撃った向きに光の帯が流れる）。
+        // 撃った瞬間が一番明るく、(1-u)^2 でなめらかに消える（終わりぎわがパッと消えないように）
+        Color gc = _glowColor; Vector3 gd = _glowDir;
+        float u = resistGlowTime > 0f ? Mathf.Clamp01((Time.time - _windDampStart) / resistGlowTime) : 1f;
+        float resist = _hidden ? 0f : _windDampGlow * (1f - u) * (1f - u);
+        if (resist > 0.001f)
         {
-            _glowColor = resistGlowColor; target = Mathf.Max(target, resist);
-            if (_windDampDir.sqrMagnitude > 0.0001f) _glowDir = _windDampDir;
+            Vector3 rd = _windDampDir.sqrMagnitude > 0.0001f ? _windDampDir : _glowDir;
+            if (target <= 0.01f)
+            {
+                // ほかに光っていない：黄色のまま消える（消えたあとも色を残す）
+                _glowColor = resistGlowColor; _glowDir = rd; gc = _glowColor; gd = rd;
+            }
+            else
+            {
+                // 風の中：黄色が弱まるにつれて風の色へなめらかに移る
+                float mix = Mathf.Clamp01(resist / target);
+                gc = Color.Lerp(_glowColor, resistGlowColor, mix); gd = mix > 0.5f ? rd : _glowDir;
+            }
+            target = Mathf.Max(target, resist);
         }
         float speed = target > _glowAmount ? 8f : 3f;
         _glowAmount = Mathf.MoveTowards(_glowAmount, target, speed * Time.deltaTime);
-        _furMat.SetColor("_GlowColor", new Color(_glowColor.r, _glowColor.g, _glowColor.b, _glowAmount));
-        _furMat.SetVector("_GlowDir", new Vector4(_glowDir.x, _glowDir.y, _glowDir.z, 0f));
+        _furMat.SetColor("_GlowColor", new Color(gc.r, gc.g, gc.b, _glowAmount));
+        _furMat.SetVector("_GlowDir", new Vector4(gd.x, gd.y, gd.z, 0f));
     }
 
     // クモの巣にくっつく：その場でピタッと止まり、少ししたら破裂してアウト
