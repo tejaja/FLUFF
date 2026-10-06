@@ -64,6 +64,88 @@ def felt_piano(f, dur, vel=0.8, soft=1.0):
     y *= np.where(t > dur, np.exp(-(t - dur) / 0.35), 1.0)
     return lp(y, 1800 + 3500 * bright) * vel * 0.5
 
+def felt_piano2(f, dur, vel=0.7, tone=0.5, sustain=1.0, mech=1.0):
+    """本物寄りのフェルトピアノ（2026-10-07）。
+    - 打鍵の瞬間は少し明るく、すぐこもっていく（明るさのエンベロープ＝倍音ごとに速く減衰）
+    - フェルトが弦に当たる低い「ポフッ」（短い低域のノイズ）＋鍵盤の機械音「コトッ」
+    - 余韻は短め（ダンパーが軽く触れている感じ）、高い音ほど短い
+    tone: 0=こもる〜1=明るい、sustain: 余韻の長さの倍率、mech: 当たり音の量"""
+    tail = 1.6 * sustain
+    n = int((dur + tail) * SR); t = np.arange(n) / SR
+    B = 0.00015 * (f / 261.6) ** 1.6
+    y = np.zeros(n)
+    for k in range(1, 18):
+        fk = f * k * np.sqrt(1 + B * k * k)
+        if fk > SR * 0.42: break
+        # 打った瞬間の明るさ：フェルトでも2〜5倍音くらいは一瞬出る
+        a0 = (1.0 / k ** 1.25) * (0.5 + 0.9 * vel) if k > 1 else 1.0
+        if k == 2: a0 *= 0.8
+        # 倍音ほど早く消える（＝すぐこもる）
+        fast = 0.06 + 0.5 / (k ** 1.3) * (0.6 + tone)
+        slow = (1.5 * sustain * (261.6 / f) ** 0.5) / (1 + 0.6 * (k - 1))
+        env = 0.6 * np.exp(-t / fast) + 0.4 * (1.0 / k ** 0.6) * np.exp(-t / slow)
+        for det in (-0.7, 0.0, 0.9):
+            y += (a0 / 3) * env * np.sin(2 * np.pi * fk * (1 + det / 1731.0) * t + rng_global.uniform(0, 6.28))
+    # 立ち上がり：フェルトなので 4〜8ms
+    y *= np.clip(t / (0.004 + 0.004 * (1 - vel)), 0, 1)
+    # フェルトが弦に当たる「ポフッ」：低めのこもったノイズ、20msくらい
+    pn = int(0.05 * SR)
+    puff = lp(rng_global.standard_normal(pn), 450 + 300 * vel, 2) * np.exp(-np.arange(pn) / SR / 0.012)
+    y[:pn] += puff * 0.55 * mech * vel
+    # 鍵盤・アクションの機械音「コトッ」：少し高めの短いクリック（音程と関係ない）
+    cn = int(0.02 * SR)
+    click = bp(rng_global.standard_normal(cn), 1200, 3500, 2) * np.exp(-np.arange(cn) / SR / 0.003)
+    y[:cn] += click * 0.08 * mech * (0.5 + vel)
+    # 離鍵：ダンパーで止まる（少しだけ残る）
+    y *= np.where(t > dur, np.exp(-(t - dur) / (0.12 + 0.12 * sustain)), 1.0)
+    # 全体の明るさ（フェルトのこもり）
+    y = lp(y, 1400 + 3600 * tone, 2)
+    return y * vel * 0.55
+
+def wind(f, dur, vel=0.7, kind='flute', vib=1.0, breath=1.0, taper=0.0, release=0.09):
+    """笛系（2026-10-07）。息のノイズ（音程の近くに帯域を絞ったもの＋広い「ふー」）、
+    吹き始めの「チフ」（短い息の破裂）、遅れてかかるビブラート、音程のほんの少しのゆらぎ。
+    kind: 'ocarina'（ほぼ正弦波・まるい）/'flute'（倍音少し・息多め）/'recorder'（2,3倍音が少し強め）"""
+    tail = 0.35 + release
+    n = int((dur + tail) * SR); t = np.arange(n) / SR
+    # 音程：吹き始めに少しだけ下から入る＋遅れビブラート＋ゆらぎ
+    scoop = -12 * np.exp(-t / 0.035)                          # セント
+    vdepth = {'ocarina': 9, 'flute': 14, 'recorder': 7}[kind] * vib
+    vfade = np.clip((t - 0.25) / 0.45, 0, 1)
+    vibr = vdepth * vfade * np.sin(2 * np.pi * 5.0 * t + rng_global.uniform(0, 6.28))
+    wobble = 3 * np.sin(2 * np.pi * 0.7 * t + rng_global.uniform(0, 6.28))
+    inst = f * 2 ** ((scoop + vibr + wobble) / 1200)
+    ph = 2 * np.pi * np.cumsum(inst) / SR
+    harm = {'ocarina': [(1, 1.0), (2, 0.04), (3, 0.06)],
+            'flute': [(1, 1.0), (2, 0.22), (3, 0.08), (4, 0.03)],
+            'recorder': [(1, 1.0), (2, 0.35), (3, 0.22), (4, 0.06), (5, 0.04)]}[kind]
+    y = np.zeros(n)
+    for k, a in harm:
+        if f * k < SR * 0.42: y += a * np.sin(k * ph)
+    # 息：音程付近に絞ったノイズ（音にまとわりつく「ふー」）と、広い息
+    nz = rng_global.standard_normal(n)
+    tonal_breath = bp(nz, f * 0.8, f * 1.3, 2)
+    wide_breath = bp(nz, 1500, 7000, 2)
+    bamt = {'ocarina': 0.6, 'flute': 1.0, 'recorder': 0.5}[kind] * breath
+    y += bamt * (0.35 * tonal_breath / (np.std(tonal_breath) + 1e-9) * 0.25 + 0.022 * wide_breath / (np.std(wide_breath) + 1e-9))
+    # 音量：ふわっと入って（息の量で少しふくらむ）、離すとすっと消える
+    att = {'ocarina': 0.06, 'flute': 0.07, 'recorder': 0.035}[kind]
+    env = np.clip(t / att, 0, 1) ** 1.2
+    if taper > 0:
+        # 音の終わりをふわっと弱めていく：前半で少しふくらんで、後半はなだらかに下がる（息がぬけていく感じ）
+        u = np.clip(t / max(dur, 0.1), 0, 1)
+        swell = (1 + 0.12 * np.sin(np.pi * np.clip(u / 0.5, 0, 1) * 0.5)) * (1 - taper * np.clip((u - 0.3) / 0.7, 0, 1) ** 1.3)
+    else:
+        swell = 1 + 0.08 * np.clip(t / max(dur, 0.1), 0, 1)
+    env *= swell * np.where(t > dur, np.exp(-(t - dur) / release), 1.0)
+    # チフ：吹き始めの短い息の破裂
+    cn = int(0.04 * SR)
+    chiff = bp(rng_global.standard_normal(cn), f * 1.5, min(f * 6, 9000), 2) * np.exp(-np.arange(cn) / SR / 0.012)
+    y[:cn] += chiff * {'ocarina': 0.10, 'flute': 0.16, 'recorder': 0.22}[kind] * breath
+    y *= env
+    if kind == 'ocarina': y = lp(y, 3500, 2)
+    return y * vel * 0.17
+
 def warm_pad(f, dur, vel=0.7, bright=0.5):
     """パッド：ゆっくり揺れる7本のノコギリ波（帯域制限）、ローパスがゆっくり開いて閉じる、コーラスで左右に広げる。ステレオで返す"""
     tail = 1.6

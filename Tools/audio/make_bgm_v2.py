@@ -7,6 +7,80 @@ from fluffsynth import *
 
 OUT = old.OUT
 
+def lobby_felt(path=None, tone=0.45, sustain=1.0, mech=1.0, rt60=1.6, rev_level=0.32, rev_send=0.22):
+    """lobby_b と同じ作曲。メロディとゆりかごを本物寄りのフェルトピアノ（felt_piano2）に、残響は近め"""
+    m = Mix(60, 16, tail=5.0, seed=11)
+    prog = ['Gmaj7', 'Em7', 'Cmaj7', 'D', 'Gmaj7', 'Em7', 'Cmaj7', 'Dsus4',
+            'Cmaj7', 'Gmaj7', 'Am7', 'D', 'Cmaj7', 'Gmaj7', 'Am7', 'Gmaj7']
+    kp = old.NOTE['G']; MAJOR = old.MAJOR
+    rA = [[(0, 3), (3, 1)], [(0, 4)], [(0, 2), (2, 2)], [(0, 4)]]
+    rB = [[(1, 3)], [(0, 3), (3, 1)], [(0, 4)], [(0, 4)]]
+    a = old.make_melody(np.random.default_rng(71), prog[:4], kp, MAJOR, rA, 67, 79, 74)
+    a2 = old.make_melody(np.random.default_rng(72), prog[4:8], kp, MAJOR, rA, 67, 79, a[-1][2])
+    b = old.make_melody(np.random.default_rng(73), prog[8:12], kp, MAJOR, rB, 67, 79, 76)
+    c = old.make_melody(np.random.default_rng(74), prog[12:16], kp, MAJOR, rA, 67, 79, 74)
+    mel = a + old.transpose_rest(a2, 4) + old.transpose_rest(b, 8) + old.transpose_rest(c, 12)
+    mel = old.end_on_root(mel, kp, 67, 79)
+    for pos, d, mm in mel:
+        v = m.vel(0.62 if (pos % 4) == 0 else 0.5)
+        m.add(felt_piano2(midi_hz(mm), d * m.beat, v, tone=tone, sustain=sustain, mech=mech), pos, pan=0.08, rev=rev_send, humanize=0.012)
+    for bar, cn in enumerate(prog):
+        r, cps = old.chord(cn)
+        voic = sorted(old.nearest(55 + (p - 55) % 12, [p], 52, 64) for p in cps)
+        for mm in voic:
+            m.add(warm_pad(midi_hz(mm), 4 * m.beat + 0.3, 0.42, bright=0.25), bar * 4, rev=0.3, humanize=0)
+        root = old.nearest(43, [r], 36, 47)
+        m.add(sub_bass(midi_hz(root), 4 * m.beat, m.vel(0.15, 0.04)), bar * 4, pan=0, rev=0.06, humanize=0.004)
+        arp = sorted(old.nearest(60 + (p - 60) % 12, [p], 55, 67) for p in cps)
+        seq = [arp[0], arp[-1], arp[1], arp[-1]]
+        for k in range(4):
+            v = m.vel(0.38 if k == 0 else 0.29)
+            m.add(felt_piano2(midi_hz(seq[k]), 1.0 * m.beat, v, tone=tone * 0.8, sustain=sustain, mech=mech * 0.8), bar * 4 + k,
+                  pan=(-0.3 if k % 2 else 0.2), rev=rev_send, humanize=0.014)
+    st = master(m, rt60=rt60, rev_level=rev_level, damp=0.6, lowcut=32, warmth_db=1.0, final_lp=7000, target_rms_db=-12.5)
+    save(st, path or os.path.join(OUT, "bgm_lobby_d.wav"))
+    return st
+
+def lobby_wind(path=None, kind=0, vib=1.0, breath=1.0, oct=0, taper=0.0, release=0.09):
+    """lobby_b と同じ作曲。メロディを笛（kind 0=オカリナ 1=ソフトフルート 2=リコーダー）に。伴奏はフェルトピアノA"""
+    kinds = ['ocarina', 'flute', 'recorder']; kname = kinds[int(kind)]
+    m = Mix(60, 16, tail=5.0, seed=11)
+    prog = ['Gmaj7', 'Em7', 'Cmaj7', 'D', 'Gmaj7', 'Em7', 'Cmaj7', 'Dsus4',
+            'Cmaj7', 'Gmaj7', 'Am7', 'D', 'Cmaj7', 'Gmaj7', 'Am7', 'Gmaj7']
+    kp = old.NOTE['G']; MAJOR = old.MAJOR
+    rA = [[(0, 3), (3, 1)], [(0, 4)], [(0, 2), (2, 2)], [(0, 4)]]
+    rB = [[(1, 3)], [(0, 3), (3, 1)], [(0, 4)], [(0, 4)]]
+    a = old.make_melody(np.random.default_rng(71), prog[:4], kp, MAJOR, rA, 67, 79, 74)
+    a2 = old.make_melody(np.random.default_rng(72), prog[4:8], kp, MAJOR, rA, 67, 79, a[-1][2])
+    b = old.make_melody(np.random.default_rng(73), prog[8:12], kp, MAJOR, rB, 67, 79, 76)
+    c = old.make_melody(np.random.default_rng(74), prog[12:16], kp, MAJOR, rA, 67, 79, 74)
+    mel = a + old.transpose_rest(a2, 4) + old.transpose_rest(b, 8) + old.transpose_rest(c, 12)
+    mel = old.end_on_root(mel, kp, 67, 79)
+    for pos, d, mm in mel:
+        v = m.vel(0.7 if (pos % 4) == 0 else 0.6, 0.05)
+        # 笛は音と音の間に少し息つぎ（長さを少し短く）
+        m.add(wind(midi_hz(mm + 12 * int(oct)), d * m.beat * 0.93, v, kind=kname, vib=vib, breath=breath, taper=taper, release=release), pos, pan=0.06, rev=0.3, humanize=0.01)
+    for bar, cn in enumerate(prog):
+        r, cps = old.chord(cn)
+        voic = sorted(old.nearest(55 + (p - 55) % 12, [p], 52, 64) for p in cps)
+        for mm in voic:
+            m.add(warm_pad(midi_hz(mm), 4 * m.beat + 0.3, 0.4, bright=0.25), bar * 4, rev=0.3, humanize=0)
+        root = old.nearest(43, [r], 36, 47)
+        m.add(sub_bass(midi_hz(root), 4 * m.beat, m.vel(0.15, 0.04)), bar * 4, pan=0, rev=0.06, humanize=0.004)
+        arp = sorted(old.nearest(60 + (p - 60) % 12, [p], 55, 67) for p in cps)
+        seq = [arp[0], arp[-1], arp[1], arp[-1]]
+        for k in range(4):
+            v = m.vel(0.34 if k == 0 else 0.26)
+            m.add(felt_piano2(midi_hz(seq[k]), 1.0 * m.beat, v, tone=0.3, sustain=0.9, mech=0.6), bar * 4 + k,
+                  pan=(-0.3 if k % 2 else 0.2), rev=0.22, humanize=0.014)
+    st = master(m, rt60=1.8, rev_level=0.35, damp=0.6, lowcut=32, warmth_db=1.0, final_lp=8000, target_rms_db=-12.5)
+    save(st, path or os.path.join(OUT, "bgm_lobby_e.wav"))
+    return st
+
+def lobby_e(path=None):
+    """採用版（2026-10-07）：メロディをオカリナ、音の終わりをふわっと弱める（taper 0.45、余韻0.25秒）"""
+    return lobby_wind(path or os.path.join(OUT, "bgm_lobby_e.wav"), kind=0, taper=0.45, release=0.25)
+
 def lobby_c(path=None):
     """lobby_b と同じメロディ・コード・ゆりかごの分散和音。音源と残響・仕上げを新しくした版"""
     m = Mix(60, 16, tail=5.0, seed=11)
@@ -46,4 +120,5 @@ def lobby_c(path=None):
 if __name__ == "__main__":
     which = sys.argv[1] if len(sys.argv) > 1 else "lobby_c"
     out = sys.argv[2] if len(sys.argv) > 2 else None
-    globals()[which](out)
+    kw = dict(kv.split('=') for kv in sys.argv[3:])
+    globals()[which](out, **{k: float(v) for k, v in kw.items()})
