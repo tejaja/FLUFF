@@ -194,8 +194,9 @@ public static class FuwaGunCollarRebuild
     const string VentDstPath = "Assets/FuwaCourse/Meshes/Gun_Vent.asset";
     const float PadOut = 0.0345f, PadIn = 0.016f, PadBack = -0.006f, PadFront = 0.079f, PadY0 = 0.0445f, PadY1 = 0.0655f;   // 前の台と同じ大きさ（ゲージのまわりに3〜4mmのふち）
     const float PadBevel = 0.0009f;
-    // 給気口：前の面の外側寄り。X は外側の面からの距離、Y は上下
-    const float HoleX0 = 0.0012f, HoleX1 = 0.0050f, HoleY0 = 0.0480f, HoleY1 = 0.0620f, HoleR = 0.0014f, LipH = 0.0006f, LipW = 0.0008f;
+    // 前の端の四角いブロック（給気口つき）。X は外側の面からの距離（内側〜外側）、H は高さ、In/Out は台の前の端から後ろへ埋める・前へ出す長さ
+    const float BlockX0 = 0.0008f, BlockX1 = 0.0062f, BlockH = 0.0130f, BlockIn = 0.006f, BlockOut = 0.003f, BlockR = 0.0009f, BlockBevel = 0.00045f;
+    const float BlockRim = 0.0011f, BlockDepth = 0.0022f;   // 穴のまわりのふちの幅、穴の深さ
 
     static void AddTri(List<Vector3> V, List<int> T, int a, int b, int c, Vector3 want)
     {
@@ -265,59 +266,78 @@ public static class FuwaGunCollarRebuild
                 }
             }
         }
-        // 前の半円の面に給気口：縦長の暗い穴（面にぴったり沿わせた暗い面）＋少し盛り上がった縁。前の丸い形はそのまま
+        // 前の丸い端から飛び出した四角いブロック（USBメモリの差し込み口みたいな形）。平らな前の面に四角い給気口（奥行きのあるくぼみ＋暗い底）
         {
-            float zc = PadFront - hr;
-            float hx0 = PadOut - HoleX1, hx1 = PadOut - HoleX0;
-            var hc = new Vector2((hx0 + hx1) * 0.5f, (HoleY0 + HoleY1) * 0.5f);
-            var hole = RoundRect(hc, new Vector2((hx1 - hx0) * 0.5f, (HoleY1 - HoleY0) * 0.5f), HoleR, 3);
-            int H = hole.Count;
-            // 前の半円の面の上の点と向き（x, y から）
-            Vector3 S(Vector2 xy, float lift, out Vector3 nrm)
+            float bx0 = PadOut - BlockX1, bx1 = PadOut - BlockX0;          // ブロックの x の範囲（内側〜外側）
+            var bc = new Vector2((bx0 + bx1) * 0.5f, yc);
+            var bh = new Vector2((bx1 - bx0) * 0.5f, BlockH * 0.5f);
+            float zb = PadFront - BlockIn, zf = PadFront + BlockOut;         // 後ろ（台の中に埋める）〜前の面
+            int seg = 3, nX = 4, nY = 8;
+            // 輪郭を作る（外側・ふちの丸みの内側・穴）。点の数と並びをそろえて、対応する点どうしを面でつなぐ
+            List<Vector2> RR(Vector2 c, Vector2 h, float r)
             {
-                float dy = Mathf.Clamp(xy.y - yc, -hr * 0.999f, hr * 0.999f), dz = Mathf.Sqrt(hr * hr - dy * dy);
-                nrm = new Vector3(0, dy / hr, dz / hr);
-                return new Vector3(xy.x * side, xy.y, zc + dz) + nrm * lift;
-            }
-            // 縁：外側のすそ（面）→ 盛り上がり → 内側（穴のふち、暗い面の高さ）
-            int l0 = V.Count;
-            for (int i = 0; i < H; i++)
-            {
-                var d = (hole[i] - hc); d = new Vector2(d.x / Mathf.Max(1e-6f, (hx1 - hx0)), d.y / Mathf.Max(1e-6f, (HoleY1 - HoleY0))).normalized;
-                var o = hole[i] + d * LipW; Vector3 n0, n1;
-                var p0 = S(o, -0.0001f, out n0); var p1 = S(o, LipH, out n1); var p2 = S(hole[i], LipH, out _); var p3 = S(hole[i], 0.00015f, out _);
-                var dd = new Vector3(d.x * side, d.y, 0);
-                V.Add(p0); N.Add((dd + n0 * 0.4f).normalized);
-                V.Add(p1); N.Add((dd * 0.4f + n1).normalized);
-                V.Add(p2); N.Add((-dd * 0.4f + n1).normalized);
-                V.Add(p3); N.Add((-dd + n1 * 0.3f).normalized);
-            }
-            for (int i = 0; i < H; i++)
-                for (int j = 0; j < 3; j++)
+                var pts = new List<Vector2>();
+                var cs = new[] { new Vector2(h.x - r, h.y - r), new Vector2(-(h.x - r), h.y - r), new Vector2(-(h.x - r), -(h.y - r)), new Vector2(h.x - r, -(h.y - r)) };
+                for (int q = 0; q < 4; q++)
                 {
-                    int a0 = l0 + i * 4 + j, a1 = a0 + 1, c0 = l0 + ((i + 1) % H) * 4 + j, c1 = c0 + 1;
-                    var want = N[a0] + N[a1];
-                    AddTri(V, T, a0, a1, c0, want); AddTri(V, T, a1, c1, c0, want);
+                    for (int k = 0; k <= seg; k++) { float a = (q * 90f + k * 90f / seg) * Mathf.Deg2Rad; pts.Add(c + cs[q] + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r); }
+                    var from = pts[pts.Count - 1]; float a1 = ((q + 1) * 90f) * Mathf.Deg2Rad; var to = c + cs[(q + 1) % 4] + new Vector2(Mathf.Cos(a1), Mathf.Sin(a1)) * r;
+                    int n = (q % 2 == 0) ? nX : nY;   // q=0→上の辺（x方向）、q=1→左の辺（y方向）…
+                    for (int i = 1; i < n; i++) pts.Add(Vector2.Lerp(from, to, i / (float)n));
                 }
-            // 穴（暗い材質。Gun_Vent に入れる）：曲がった面に沿うように細かい格子にして、ほんの少し浮かせる
-            // （中心から扇形に張ると、平らな三角が曲面の内側にもぐって見えなくなる）
-            {
-                float hw = (hx1 - hx0) * 0.5f, hh = (HoleY1 - HoleY0) * 0.5f;
-                int rowsN = 18, colsN = 4, g0 = DV.Count;
-                for (int ry = 0; ry <= rowsN; ry++)
-                {
-                    float y = HoleY0 + (HoleY1 - HoleY0) * ry / rowsN, dy = Mathf.Abs(y - hc.y);
-                    float w = dy <= hh - HoleR ? hw : hw - HoleR + Mathf.Sqrt(Mathf.Max(0f, HoleR * HoleR - (dy - (hh - HoleR)) * (dy - (hh - HoleR))));
-                    for (int cx = 0; cx <= colsN; cx++) { Vector3 nn; DV.Add(S(new Vector2(hc.x - w + 2 * w * cx / colsN, y), 0.00015f, out nn)); DN.Add(nn); }
-                }
-                for (int ry = 0; ry < rowsN; ry++)
-                    for (int cx = 0; cx < colsN; cx++)
-                    {
-                        int a0 = g0 + ry * (colsN + 1) + cx, a1 = a0 + 1, c0 = a0 + colsN + 1, c1 = c0 + 1;
-                        var want = DN[a0] + DN[c1];
-                        AddTri(DV, DT, a0, a1, c0, want); AddTri(DV, DT, a1, c1, c0, want);
-                    }
+                return pts;
             }
+            var outer = RR(bc, bh, BlockR);
+            var inner = RR(bc, bh - new Vector2(BlockBevel, BlockBevel), Mathf.Max(0.0002f, BlockR - BlockBevel));
+            var hole = RR(bc, new Vector2(bh.x - BlockRim, bh.y - BlockRim), Mathf.Max(0.0002f, BlockR - BlockRim * 0.5f));
+            int K = outer.Count;
+            var nf = new Vector3(0, 0, 1);
+            Vector3 W3(Vector2 p, float z) { return new Vector3(p.x * side, p.y, z); }
+            Vector3 D3(Vector2 d) { return new Vector3(d.x * side, d.y, 0); }
+            // 横の壁（後ろ〜ふちの丸みの手前）と、ふちの丸み（4段）
+            int b0 = V.Count, bs = 3, rows = bs + 2;
+            for (int k = 0; k < K; k++)
+            {
+                var d = (outer[k] - inner[k]).normalized;
+                V.Add(W3(outer[k], zb)); N.Add(D3(d));
+                for (int j = 0; j <= bs; j++)
+                {
+                    float a = j / (float)bs * Mathf.PI * 0.5f;
+                    var p = Vector2.Lerp(inner[k], outer[k], Mathf.Cos(a)); float z = zf - BlockBevel * (1 - Mathf.Sin(a));
+                    V.Add(W3(p, z)); N.Add((D3(d) * Mathf.Cos(a) + nf * Mathf.Sin(a)).normalized);
+                }
+            }
+            for (int k = 0; k < K; k++)
+                for (int j = 0; j < rows - 1; j++)
+                {
+                    int a0 = b0 + k * rows + j, a1 = a0 + 1, c0 = b0 + ((k + 1) % K) * rows + j, c1 = c0 + 1;
+                    var want = N[a0] + N[a1]; AddTri(V, T, a0, a1, c0, want); AddTri(V, T, a1, c1, c0, want);
+                }
+            // 前の面：ふちの丸みの内側〜穴のふち
+            int f0 = V.Count;
+            for (int k = 0; k < K; k++) { V.Add(W3(inner[k], zf)); N.Add(nf); V.Add(W3(hole[k], zf)); N.Add(nf); }
+            for (int k = 0; k < K; k++)
+            {
+                int a0 = f0 + k * 2, a1 = a0 + 1, c0 = f0 + ((k + 1) % K) * 2, c1 = c0 + 1;
+                AddTri(V, T, a0, a1, c0, nf); AddTri(V, T, a1, c1, c0, nf);
+            }
+            // 穴の内側の壁（奥へ）
+            int w0 = V.Count;
+            for (int k = 0; k < K; k++)
+            {
+                var d = -(outer[k] - inner[k]).normalized;   // 穴の中心向き
+                V.Add(W3(hole[k], zf)); N.Add(D3(d)); V.Add(W3(hole[k], zf - BlockDepth)); N.Add(D3(d));
+            }
+            for (int k = 0; k < K; k++)
+            {
+                int a0 = w0 + k * 2, a1 = a0 + 1, c0 = w0 + ((k + 1) % K) * 2, c1 = c0 + 1;
+                var want = N[a0]; AddTri(V, T, a0, a1, c0, want); AddTri(V, T, a1, c1, c0, want);
+            }
+            // 穴の底（暗い材質。Gun_Vent に入れる）
+            int d0 = DV.Count;
+            DV.Add(W3(bc, zf - BlockDepth)); DN.Add(nf);
+            for (int k = 0; k < K; k++) { DV.Add(W3(hole[k], zf - BlockDepth)); DN.Add(nf); }
+            for (int k = 0; k < K; k++) AddTri(DV, DT, d0, d0 + 1 + k, d0 + 1 + (k + 1) % K, nf);
         }
     }
 }
