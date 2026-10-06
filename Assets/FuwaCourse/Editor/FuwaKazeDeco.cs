@@ -22,6 +22,18 @@ public static class FuwaKazeDeco
         public void Quad(int a, int b, int c, int d) { Tri(a, b, c); Tri(a, c, d); }
     }
 
+    // 何回乱数を引いたか数える乱数。同じ所まで引き直した複製を作れる（試し置きしても本番の並びを変えないため）
+    class CRandom : System.Random
+    {
+        readonly int seed; public int Count;
+        public CRandom(int s) : base(s) { seed = s; }
+        public override int Next() { Count++; return base.Next(); }
+        public override int Next(int max) { Count++; return base.Next(max); }
+        public override int Next(int a, int b) { Count++; return base.Next(a, b); }
+        public override double NextDouble() { Count++; return base.NextDouble(); }
+        public CRandom Clone() { var c = new CRandom(seed); for (int i = 0; i < Count; i++) c.Next(); return c; }
+    }
+
     static Vector3 _islC; static float _islR = 999f;
     static List<float> _headPhase = new List<float>();   // 綿毛の頭ごとのゆれの位相（heads と同じ順）
     const float SwayAmp = 0.38f, SwaySpeed = 1.2f;   // 今の浮島（葉っぱが島からはみ出さないように）
@@ -42,7 +54,7 @@ public static class FuwaKazeDeco
         var underMeshes = new[] { 0, 1, 2 }.Select(i => AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FarIslands/IslandUnderLow_" + i + ".asset")).Where(m => m != null).ToArray();
         var groundMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Goal_Ground.mat");
         var underMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/IslandUnder.mat");
-        var rnd = new System.Random(777);
+        var rnd = new CRandom(777);
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         var log = new System.Text.StringBuilder();
 
@@ -80,6 +92,7 @@ public static class FuwaKazeDeco
         var st = root.GetComponentsInChildren<Transform>().First(t => t.name == "BallStart").position; var gl = root.Find("Goal").position;
         var wind = gl - st; wind.y = 0; wind.Normalize();
         float pathY = pv.Average(p => p.y);
+        var views = PathViews(root, st);
 
         var deco = root.Find("Deco");
         if (deco == null) { deco = new GameObject("Deco").transform; deco.SetParent(root, false); Undo.RegisterCreatedObjectUndo(deco.gameObject, "deco"); }
@@ -94,8 +107,13 @@ public static class FuwaKazeDeco
                 var tp = c.Find("IslandTop"); if (tp == null) continue;
                 keep.Add((c.position, tp.localScale.x * 0.64f, c.rotation));
             }
-        if (isl != null) Undo.DestroyObjectImmediate(isl.gameObject);
-        isl = new GameObject("DandelionIslands").transform; isl.SetParent(deco, false); Undo.RegisterCreatedObjectUndo(isl.gameObject, "deco");
+        // 浮島がもうあるときは作り直さずにそのまま使う（島の地面は影を焼いてあるので、作り直すと焼き直しが要る）。たんぽぽのメッシュだけ作り直す
+        bool reuse = isl != null && keep.Count > 0;
+        if (!reuse)
+        {
+            if (isl != null) Undo.DestroyObjectImmediate(isl.gameObject);
+            isl = new GameObject("DandelionIslands").transform; isl.SetParent(deco, false); Undo.RegisterCreatedObjectUndo(isl.gameObject, "deco");
+        }
 
         var plants = new MB(); var heads = new List<(Vector3 p, float r)>(); _headPhase.Clear();
         var placed = new List<(Vector3 pos, float rad)>();
@@ -118,25 +136,47 @@ public static class FuwaKazeDeco
             }
             placed.Add((pos, rad));
 
-            // 浮島
-            var g = new GameObject("Island" + placed.Count).transform; g.SetParent(isl, false); g.position = pos; g.rotation = rot;
-            var top = new GameObject("IslandTop", typeof(MeshFilter), typeof(MeshRenderer)); top.transform.SetParent(g, false);
-            top.GetComponent<MeshFilter>().sharedMesh = topMesh; top.GetComponent<MeshRenderer>().sharedMaterial = groundMat; top.transform.localScale = new Vector3(rad / 0.64f, 1f, rad / 0.64f);
-            var under = new GameObject("IslandUnder", typeof(MeshFilter), typeof(MeshRenderer)); under.transform.SetParent(g, false);
-            under.GetComponent<MeshFilter>().sharedMesh = underMeshes[rnd.Next(underMeshes.Length)]; under.GetComponent<MeshRenderer>().sharedMaterial = underMat;
-            under.transform.localScale = new Vector3(rad / 0.97f, rad / 0.97f * R(0.8f, 1.1f), rad / 0.97f); under.transform.localRotation = Quaternion.Euler(0, R(0, 360), 0);
+            // 浮島（乱数は作り直さないときも同じだけ引いて、後の並びを変えない）
+            int um = rnd.Next(underMeshes.Length); float uy = R(0.8f, 1.1f), ur = R(0, 360);
+            if (!reuse)
+            {
+                var g = new GameObject("Island" + placed.Count).transform; g.SetParent(isl, false); g.position = pos; g.rotation = rot;
+                var top = new GameObject("IslandTop", typeof(MeshFilter), typeof(MeshRenderer)); top.transform.SetParent(g, false);
+                top.GetComponent<MeshFilter>().sharedMesh = topMesh; top.GetComponent<MeshRenderer>().sharedMaterial = groundMat; top.transform.localScale = new Vector3(rad / 0.64f, 1f, rad / 0.64f);
+                var under = new GameObject("IslandUnder", typeof(MeshFilter), typeof(MeshRenderer)); under.transform.SetParent(g, false);
+                under.GetComponent<MeshFilter>().sharedMesh = underMeshes[um]; under.GetComponent<MeshRenderer>().sharedMaterial = underMat;
+                under.transform.localScale = new Vector3(rad / 0.97f, rad / 0.97f * uy, rad / 0.97f); under.transform.localRotation = Quaternion.Euler(0, ur, 0);
+            }
             float topY = pos.y + 0.03f; _islC = pos; _islR = rad * 0.97f;
 
             // 大きいたんぽぽ（木よりちょっと低いくらい）：綿毛1本（必ず）＋ときどき黄色い花
-            // 綿毛と黄色い花は島の反対側に分けて、頭どうしが重ならないようにする
-            var sep = Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward;
-            var gp = pos - sep * R(0.9f, 1.2f);
-            Giant(plants, new Vector3(gp.x, topY, gp.z), R(3.0f, 3.8f), true, wind, rnd, heads);
-            if (rnd.NextDouble() < 0.6)
+            // 綿毛と黄色い花は島の反対側に分ける。分ける向きは、コースを進みながら前〜斜め前を見たときに頭どうしが重なって見えにくい向きの中から選ぶ
+            // （一番いい向きに固定すると全部同じ見え方になるので、合格した向きの中からランダム）
+            float? useAng = null; var snap = rnd.Clone();
             {
-                var yp = pos + Quaternion.Euler(0, R(-25, 25), 0) * sep * R(1.6f, rad * 0.7f);
-                Giant(plants, new Vector3(yp.x, topY, yp.z), R(2.2f, 2.9f), false, wind, rnd, heads);
+                var tp = new List<(Vector3, float)>(); var tph = new List<float>();
+                if (Pair(new MB(), snap.Clone(), pos, rad, topY, null, wind, tp, tph, out _) == 2)
+                {
+                    var cost = new List<(float ang, float c)>();
+                    for (int ai = 0; ai < 72; ai++)
+                    {
+                        tp.Clear(); tph.Clear();
+                        Pair(new MB(), snap.Clone(), pos, rad, topY, ai * 5f, wind, tp, tph, out var hd);
+                        cost.Add((ai * 5f, ViewCost(hd[0], hd[1], views)));
+                    }
+                    float best = cost.Min(q => q.c), lim = Mathf.Max(best + 0.01f, 0.03f);
+                    var ok = cost.Where(q => q.c <= lim).ToList();
+                    tp.Clear(); tph.Clear(); Pair(new MB(), snap.Clone(), pos, rad, topY, null, wind, tp, tph, out var hd0);
+                    float c0 = ViewCost(hd0[0], hd0[1], views);
+                    if (c0 > lim)   // 元の向きで合格ならそのまま
+                    {
+                        var pick = ok[new System.Random(9100 + placed.Count).Next(ok.Count)];
+                        useAng = pick.ang;
+                        log.Append("\n島" + placed.Count + " 重なり " + c0.ToString("F3") + " → " + pick.c.ToString("F3") + "（合格 " + ok.Count + "/72）");
+                    }
+                }
             }
+            Pair(plants, rnd, pos, rad, topY, useAng, wind, heads, _headPhase, out _);
             // 小さいたんぽぽ（ふつうの大きさ）
             int ns = rnd.Next(5, 10);
             for (int k = 0; k < ns; k++)
@@ -155,7 +195,7 @@ public static class FuwaKazeDeco
             m.SetColors(plants.C); m.SetUVs(3, plants.U3); m.SetTriangles(plants.T, 0); m.RecalculateBounds();
             string ap = Dir + "/Kaze_Dandelions.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
             if (old != null) { old.Clear(); EditorUtility.CopySerialized(m, old); m = old; } else AssetDatabase.CreateAsset(m, ap);
-            var go = new GameObject("Dandelions", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(isl, false);
+            var go = Child(isl, "Dandelions");
             // 風でゆれる専用の材質（Den_Twig のコピー。ゆれ幅と向きだけ足す）
             string swp = "Assets/FuwaCourse/Materials/Kaze_DandelionSway.mat"; var sway = AssetDatabase.LoadAssetAtPath<Material>(swp);
             if (sway == null) { sway = new Material(twig); AssetDatabase.CreateAsset(sway, swp); }
@@ -200,7 +240,7 @@ public static class FuwaKazeDeco
                 hmat.SetFloat("_Shadow", 0.3f); hmat.SetFloat("_Gravity", 0.02f); hmat.SetFloat("_RimStrength", 0.4f);
             }
             hmat.SetFloat("_SwayAmp", SwayAmp); hmat.SetFloat("_SwaySpeed", SwaySpeed); hmat.SetVector("_SwayDir", new Vector4(wind.x, 0, wind.z, 0)); EditorUtility.SetDirty(hmat);
-            var go = new GameObject("PuffFur", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(isl, false);
+            var go = Child(isl, "PuffFur");
             go.GetComponent<MeshFilter>().sharedMesh = hm; var mr = go.GetComponent<MeshRenderer>(); mr.sharedMaterial = hmat;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         }
@@ -237,6 +277,87 @@ public static class FuwaKazeDeco
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         return log.ToString();
+    }
+
+    // まとめメッシュの入れ物：あればそのまま使う（遠くで消す LODGroup などを残すため）
+    static GameObject Child(Transform parent, string name)
+    {
+        var t = parent.Find(name); if (t != null) return t.gameObject;
+        var go = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(parent, false); Undo.RegisterCreatedObjectUndo(go, "deco");
+        return go;
+    }
+
+    // 綿毛（必ず）＋黄色い花（ときどき）の大きいたんぽぽ1組。ang が null なら分ける向きは乱数のまま。
+    // 乱数を引く回数は ang に関係なく同じ。戻り値は頭の数、hd は頭の (中心, 見た目の半径)
+    static int Pair(MB plants, System.Random rnd, Vector3 pos, float rad, float topY, float? ang, Vector3 wind, List<(Vector3, float)> heads, List<float> phases, out List<(Vector3 c, float r)> hd)
+    {
+        float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
+        hd = new List<(Vector3, float)>();
+        float a0 = R(0, 360);
+        var sep = Quaternion.Euler(0, ang ?? a0, 0) * Vector3.forward;
+        var gp = pos - sep * R(0.9f, 1.2f);
+        hd.Add(Giant(plants, new Vector3(gp.x, topY, gp.z), R(3.0f, 3.8f), true, wind, rnd, heads, phases));
+        if (rnd.NextDouble() < 0.6)
+        {
+            var yp = pos + Quaternion.Euler(0, R(-25, 25), 0) * sep * R(1.6f, rad * 0.7f);
+            hd.Add(Giant(plants, new Vector3(yp.x, topY, yp.z), R(2.2f, 2.9f), false, wind, rnd, heads, phases));
+        }
+        return hd.Count;
+    }
+
+    // コースの上の視点：道の上（目の高さ）と、進む向き（スタートから道に沿った距離が増える向き）
+    static List<(Vector3 eye, Vector3 fwd)> PathViews(Transform root, Vector3 start)
+    {
+        var cells = new Dictionary<(int, int), float>();
+        foreach (var nm in new[] { "PathMesh", "BridgePlanks" })
+        {
+            var t = root.Find(nm); var mf = t != null ? t.GetComponent<MeshFilter>() : null; if (mf == null || mf.sharedMesh == null) continue;
+            foreach (var v in mf.sharedMesh.vertices) { var p = t.TransformPoint(v); var k = (Mathf.FloorToInt(p.x), Mathf.FloorToInt(p.z)); if (!cells.TryGetValue(k, out var y) || p.y > y) cells[k] = p.y; }
+        }
+        var keys = cells.Keys.ToList();
+        var s0 = keys.OrderBy(k => new Vector2(k.Item1 + 0.5f - start.x, k.Item2 + 0.5f - start.z).sqrMagnitude).First();
+        var dist = new Dictionary<(int, int), float> { [s0] = 0 };
+        var open = new SortedSet<(float, int, int)> { (0f, s0.Item1, s0.Item2) };
+        while (open.Count > 0)
+        {
+            var c = open.Min; open.Remove(c); var k = (c.Item2, c.Item3); if (c.Item1 > dist[k]) continue;
+            for (int dx = -3; dx <= 3; dx++)
+                for (int dz = -3; dz <= 3; dz++)
+                {
+                    var n = (k.Item1 + dx, k.Item2 + dz); if (n == k || !cells.TryGetValue(n, out var ny) || Mathf.Abs(ny - cells[k]) > 1.5f) continue;
+                    float nd = c.Item1 + Mathf.Sqrt(dx * dx + dz * dz);
+                    if (!dist.TryGetValue(n, out var od) || nd < od) { dist[n] = nd; open.Add((nd, n.Item1, n.Item2)); }
+                }
+        }
+        var res = new List<(Vector3, Vector3)>();
+        foreach (var k in dist.Keys)
+        {
+            var f = Vector3.zero;
+            for (int dx = -3; dx <= 3; dx++)
+                for (int dz = -3; dz <= 3; dz++)
+                    if (dist.TryGetValue((k.Item1 + dx, k.Item2 + dz), out var nd) && (dx != 0 || dz != 0)) f += new Vector3(dx, 0, dz).normalized * (nd - dist[k]);
+            if (f.sqrMagnitude < 1e-4f) continue;
+            res.Add((new Vector3(k.Item1 + 0.5f, cells[k] + 1.5f, k.Item2 + 0.5f), f.normalized));
+        }
+        return res;
+    }
+
+    // 2つの頭の重なって見える度合い：前〜斜め前（左右80°以内）に見える視点で、小さい方の頭が3割より多く隠れる視点の割合。
+    // 同じ割合なら重なりの平均が小さい方がいい（少しだけ足す）
+    static float ViewCost((Vector3 c, float r) a, (Vector3 c, float r) b, List<(Vector3 eye, Vector3 fwd)> views)
+    {
+        int n = 0, bad = 0; float sum = 0;
+        foreach (var (eye, fwd) in views)
+        {
+            var da = a.c - eye; var db = b.c - eye; float la = da.magnitude, lb = db.magnitude;
+            if (la > 70f) continue;
+            var mid = (da / la + db / lb); mid.y = 0; if (Vector3.Angle(mid, fwd) > 80f) continue;
+            float ra = Mathf.Asin(Mathf.Min(1f, a.r / la)), rb = Mathf.Asin(Mathf.Min(1f, b.r / lb));
+            float sepA = Vector3.Angle(da, db) * Mathf.Deg2Rad;
+            float o = Mathf.Clamp01((ra + rb - sepA) / (2f * Mathf.Min(ra, rb)));
+            n++; sum += o; if (o > 0.3f) bad++;
+        }
+        return n == 0 ? 0f : (float)bad / n + 0.1f * sum / n;
     }
 
     // 飛んでいく綿毛（パーティクル用）：細い軸＋放射状に開いた白い毛（三角だけ）。1つ約30三角で軽い
@@ -280,8 +401,10 @@ public static class FuwaKazeDeco
     }
 
     // 巨大たんぽぽ：葉のロゼット＋少し風下にしなる茎＋頭（綿毛 or 黄色い花）
-    static void Giant(MB m, Vector3 at, float h, bool puff, Vector3 wind, System.Random rnd, List<(Vector3, float)> heads)
+    // 戻り値は頭の (中心, 見た目の半径)
+    static (Vector3, float) Giant(MB m, Vector3 at, float h, bool puff, Vector3 wind, System.Random rnd, List<(Vector3, float)> heads, List<float> phases)
     {
+        (Vector3, float) look;
         int v0 = m.V.Count; float phase = (float)rnd.NextDouble() * 6.2832f;
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         float s = h / 4.5f;
@@ -302,11 +425,13 @@ public static class FuwaKazeDeco
         {
             float hr = R(1.1f, 1.5f) * s;
             // 頭そのものは、ふわふわと同じシェルファーの毛玉（PuffFur）で描く
-            heads.Add((top + Vector3.up * hr * 0.2f, hr)); _headPhase.Add(phase);
+            heads.Add((top + Vector3.up * hr * 0.2f, hr)); phases.Add(phase);
+            look = (top + Vector3.up * hr * 0.2f, hr * 0.75f + 0.5f);   // 芯＋毛の長さ
         }
-        else Flower(m, top, R(2.1f, 2.6f) * s, rnd);
+        else { float fr = R(2.1f, 2.6f) * s; Flower(m, top, fr, rnd); look = (top + Vector3.up * fr * 0.15f, fr * 0.9f); }
         // 風のゆれの重み：根元0 → 先1（高さの2乗）。葉は地面近くなのでほぼゆれない
         for (int i2 = leafEnd; i2 < m.V.Count; i2++) { float w =Mathf.Clamp01((m.V[i2].y - at.y) / h); m.U3[i2] = new Vector4(w * w, phase, 0, 0); }
+        return look;
     }
 
     // ふつうの大きさのたんぽぽ
