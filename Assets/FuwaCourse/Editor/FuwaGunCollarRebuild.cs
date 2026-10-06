@@ -192,10 +192,10 @@ public static class FuwaGunCollarRebuild
     // 銃身は前に向かって細くなるので、前の方は台が飛び出す。その前の面に縦長の給気口（暗い穴）をあける
     const string VentSrcPath = "Assets/FuwaCourse/Meshes/Gun_Vent_Source.asset";
     const string VentDstPath = "Assets/FuwaCourse/Meshes/Gun_Vent.asset";
-    const float PadOut = 0.0345f, PadIn = 0.016f, PadBack = -0.030f, PadFront = 0.080f, PadY0 = 0.034f, PadY1 = 0.076f;
+    const float PadOut = 0.0345f, PadIn = 0.016f, PadBack = -0.030f, PadFront = 0.080f, PadY0 = 0.040f, PadY1 = 0.070f;   // 前の台とほぼ同じ大きさ（平らな面＋ふちの丸みぶん）
     const float PadFrontR = 0.004f, PadBevel = 0.0009f;
     // 給気口：前の面の外側寄り。X は外側の面からの距離、Y は上下
-    const float HoleX0 = 0.0012f, HoleX1 = 0.0058f, HoleY0 = 0.042f, HoleY1 = 0.068f, HoleR = 0.0016f, HoleDepth = 0.004f, LipH = 0.0006f, LipW = 0.0008f;
+    const float HoleX0 = 0.0012f, HoleX1 = 0.0058f, HoleY0 = 0.0455f, HoleY1 = 0.0645f, HoleR = 0.0016f, HoleDepth = 0.004f, LipH = 0.0006f, LipW = 0.0008f;
 
     static void AddTri(List<Vector3> V, List<int> T, int a, int b, int c, Vector3 want)
     {
