@@ -131,7 +131,8 @@ public class FuwaHud : UdonSharpBehaviour
         if (airGauge == null) return;
         // デスクトップは画面下のタイムの下、VRは銃の横のタイムの下に出る（HUDごと動くので）
         // VRでは銃の側面のゲージを使うので、画面側のゲージは出さない
-        bool show = _airHeld && !(_local != null && _local.IsValid() && _local.IsUserInVR());
+        // HUD を OFF にしている時も消す（銃の側面のゲージは銃の一部なので残る）
+        bool show = _airHeld && !_hideText && !(_local != null && _local.IsValid() && _local.IsUserInVR());
         if (airGauge.activeSelf != show) airGauge.SetActive(show);
         if (!show || (airFill == null && _gaugeMat == null)) return;
         Color c = GetGaugeColor();
