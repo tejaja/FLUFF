@@ -81,7 +81,7 @@ def lobby_e(path=None):
     """採用版（2026-10-07）：メロディをオカリナ、音の終わりをふわっと弱める、かなりやわらか（soft 1.0）"""
     return lobby_wind(path or os.path.join(OUT, "bgm_lobby_e.wav"), kind=0, taper=0.45, release=0.3, soft=1.0, breath=0.6, vib=0.6)
 
-def basics2(path=None, swing=0.0, woody=0, mbox=0.0, lead='vibes', goct=0, ggain=1.0, ghard=0.5, moct=12, trms=-13.0, cthr=-16.0, vrel=1.4, vrev=0.6):
+def basics2(path=None, swing=0.0, woody=0, mbox=0.0, lead='vibes', goct=0, ggain=1.0, ghard=0.5, moct=12, trms=-13.0, cthr=-16.0, vrel=1.4, vrev=0.42):
     """れんしゅう（basics）と同じ作曲：C長調128BPM。採用版（2026-10-07）はメロディがビブラフォン（引数なしで再現）。lead で他の楽器も試せる、指弾きベース、ギターのジャカッ、ドラム"""
     m = Mix(128, 16, tail=3.0, seed=21)
     prog = ['C', 'G', 'Am', 'F'] * 2 + ['F', 'G', 'Em', 'Am', 'F', 'G', 'C', 'C']
