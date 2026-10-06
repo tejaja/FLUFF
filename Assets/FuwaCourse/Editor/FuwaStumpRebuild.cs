@@ -101,7 +101,7 @@ public static class FuwaStumpRebuild
         var pads = new List<(Vector3 c, float r)>();
         int made = 0;
         // (種類, 数)：0 ふちをまたぐ / 1 横（上の方）/ 2 切り口の上の小さいの / 3 根元
-        var plan = new[] { (1, 3), (2, 1), (3, 1) };   // 2026-10-06 19→10→5個。ふちをまたぐ苔（種類0）は、ふちの凹凸で欠けやしわが出やすいのでやめた
+        var plan = new[] { (1, 3), (3, 1) };   // 2026-10-06 19→10→5→4個（切り口の上はなし）。ふちをまたぐ苔（種類0）は、ふちの凹凸で欠けやしわが出やすいのでやめた
         foreach (var (kind, count) in plan)
         {
             int ok = 0, tries = 0;
