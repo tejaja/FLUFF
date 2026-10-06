@@ -1,0 +1,77 @@
+Shader "FuwaCourse/FurLite"
+{
+    // 毛玉（シェルファー）の遠く用の軽い版。FuwaFur と同じ見た目の作りで、毛の層を6枚に減らしたもの（LODGroup で遠い時だけ使う）
+    Properties
+    {
+        _Color ("Root Color", Color) = (1, 0.97, 0.94, 1)
+        _TipColor ("Tip Color", Color) = (1, 1, 1, 1)
+        _FurLength ("Fur Length", Range(0, 0.5)) = 0.14
+        _EyeDirL ("Eye Dir L (object)", Vector) = (0, 0, 1, 0)
+        _EyeDirR ("Eye Dir R (object)", Vector) = (0, 0, 1, 0)
+        _EyeMask ("Eye Mask (x=inner cos, y=outer cos, 0=off)", Vector) = (0, 0, 0, 0)
+        _EyeMinLen ("Eye Fur Length (ratio)", Range(0, 1)) = 0
+        _EyeTint ("Eye Fur Tint", Range(0, 1)) = 0
+        _Density ("Density", Range(5, 200)) = 60
+        _Thinness ("Thinness", Range(0.1, 1)) = 0.55
+        _Shadow ("Root Shadow", Range(0, 1)) = 0.35
+        _Gravity ("Gravity", Range(0, 0.3)) = 0.03
+        _Drag ("Drag (set by script)", Vector) = (0, 0, 0, 0)
+        _RimPower ("Rim Power", Range(0.5, 8)) = 2.5
+        _RimStrength ("Rim Strength", Range(0, 1)) = 0.35
+        [HideInInspector] _Alpha ("Alpha", Float) = 1
+        _GlowColor ("Glow (set by script, a=amount)", Color) = (0, 0, 0, 0)
+        _GlowDir ("Glow Direction (set by script)", Vector) = (0, 1, 0, 0)
+        _SwayAmp ("Sway (m, 0=off)", Float) = 0
+        _SwaySpeed ("Sway Speed", Float) = 1.2
+        _SwayDir ("Sway Direction (world)", Vector) = (1, 0, 0, 0)
+    }
+    SubShader
+    {
+        Tags { "RenderType"="Opaque" "Queue"="AlphaTest" }
+        Cull Back
+
+        Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
+        #pragma vertex vert
+        #pragma fragment frag
+        #pragma multi_compile_fog
+        #define FUR_H 0.0
+        #include "FuwaFur.cginc"
+        ENDCG }
+        Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
+        #pragma vertex vert
+        #pragma fragment frag
+        #pragma multi_compile_fog
+        #define FUR_H 0.1875
+        #include "FuwaFur.cginc"
+        ENDCG }
+        Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
+        #pragma vertex vert
+        #pragma fragment frag
+        #pragma multi_compile_fog
+        #define FUR_H 0.375
+        #include "FuwaFur.cginc"
+        ENDCG }
+        Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
+        #pragma vertex vert
+        #pragma fragment frag
+        #pragma multi_compile_fog
+        #define FUR_H 0.5625
+        #include "FuwaFur.cginc"
+        ENDCG }
+        Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
+        #pragma vertex vert
+        #pragma fragment frag
+        #pragma multi_compile_fog
+        #define FUR_H 0.75
+        #include "FuwaFur.cginc"
+        ENDCG }
+        Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
+        #pragma vertex vert
+        #pragma fragment frag
+        #pragma multi_compile_fog
+        #define FUR_H 0.9375
+        #include "FuwaFur.cginc"
+        ENDCG }
+    }
+    Fallback "Diffuse"
+}
