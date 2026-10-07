@@ -208,16 +208,16 @@ public static class FuwaKazeDeco
         // 綿毛の頭：ふわふわと同じシェルファー（FuwaCourse/Fur）の白い毛玉。8個を1つのメッシュにまとめて描画回数を抑える
         {
             var hv = new List<Vector3>(); var hn = new List<Vector3>(); var ht = new List<int>(); var hu = new List<Vector4>(); int hi = 0;
-            const int seg = 18, rings = 12;
-            foreach (var (hp, hr) in heads)
+            // 2026-10-07：まん丸1個だと、運ぶ「ふわふわ」と見分けがつかない（てじゃ）→ 小さな毛の房がたくさん集まった、輪郭がぼこぼこした頭に
+            void Sphere(Vector3 c, float r, float ph0, int seg, int rings)
             {
-                int bi = hv.Count; float rr = hr * 0.75f;   // 芯を大きめにして毛は短めに（茎が毛の間から透けて見えないように）
+                int bi = hv.Count;
                 for (int j = 0; j <= rings; j++)
                     for (int i = 0; i <= seg; i++)
                     {
                         float th = Mathf.PI * j / rings, ph = Mathf.PI * 2 * i / seg;
                         var d = new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph));
-                        hv.Add(w2l.MultiplyPoint3x4(hp + d * rr)); hn.Add(w2l.MultiplyVector(d).normalized); hu.Add(new Vector4(1f, _headPhase[hi], 0, 0));
+                        hv.Add(w2l.MultiplyPoint3x4(c + d * r)); hn.Add(w2l.MultiplyVector(d).normalized); hu.Add(new Vector4(1f, ph0, 0, 0));
                     }
                 for (int j = 0; j < rings; j++)
                     for (int i = 0; i < seg; i++)
@@ -225,6 +225,21 @@ public static class FuwaKazeDeco
                         int a0 = bi + j * (seg + 1) + i;
                         ht.Add(a0); ht.Add(a0 + 1); ht.Add(a0 + seg + 1); ht.Add(a0 + 1); ht.Add(a0 + seg + 2); ht.Add(a0 + seg + 1);   // 外向きの面
                     }
+            }
+            var tr = new System.Random(31);
+            foreach (var (hp, hr) in heads)
+            {
+                float ph0 = _headPhase[hi];
+                Sphere(hp, hr * 0.38f, ph0, 10, 6);   // 芯（房のすき間から空が抜けすぎないように）
+                const int N = 13;
+                for (int k = 0; k < N; k++)
+                {
+                    // 球の上にまんべんなく（フィボナッチ）＋少しゆらぎ
+                    float y = 1f - 2f * (k + 0.5f) / N, rad = Mathf.Sqrt(1f - y * y), a = k * 2.39996f + (float)tr.NextDouble() * 0.4f;
+                    var d = new Vector3(Mathf.Cos(a) * rad, y, Mathf.Sin(a) * rad).normalized;
+                    float r = hr * (0.27f + (float)tr.NextDouble() * 0.07f);
+                    Sphere(hp + d * hr * 0.6f, r, ph0, 9, 5);
+                }
                 hi++;
             }
             var hm = new Mesh { name = "Kaze_PuffFur" }; hm.SetVertices(hv); hm.SetNormals(hn); hm.SetUVs(3, hu); hm.SetTriangles(ht, 0); hm.RecalculateBounds();
@@ -239,6 +254,7 @@ public static class FuwaKazeDeco
                 hmat.SetFloat("_FurLength", 0.65f); hmat.SetFloat("_Density", 50f); hmat.SetFloat("_Thinness", 0.9f);
                 hmat.SetFloat("_Shadow", 0.3f); hmat.SetFloat("_Gravity", 0.02f); hmat.SetFloat("_RimStrength", 0.4f);
             }
+            hmat.SetFloat("_FurLength", 0.3f); hmat.SetFloat("_Density", 60f);   // 房ごとに短めの毛（長いと房がつながって、またまん丸に見える）
             hmat.SetFloat("_SwayAmp", SwayAmp); hmat.SetFloat("_SwaySpeed", SwaySpeed); hmat.SetVector("_SwayDir", new Vector4(wind.x, 0, wind.z, 0)); EditorUtility.SetDirty(hmat);
             var go = Child(isl, "PuffFur");
             go.GetComponent<MeshFilter>().sharedMesh = hm; var mr = go.GetComponent<MeshRenderer>(); mr.sharedMaterial = hmat;
