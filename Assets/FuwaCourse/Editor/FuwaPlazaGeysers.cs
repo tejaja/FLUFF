@@ -280,7 +280,7 @@ public static class FuwaPlazaGeysers
     }
 
     // 噴いている間の大きな柱（FuwaWindArea.visual。出る量を風の強さでフェード）
-    static ParticleSystem MakeErupt(Transform fx, Material puff)
+    internal static ParticleSystem MakeErupt(Transform fx, Material puff)
     {
         var ps = NewPS(fx, "Erupt", puff, 140);
         var main = ps.main;
@@ -299,7 +299,7 @@ public static class FuwaPlazaGeysers
     }
 
     // 口のところの勢いのいい噴き出し（extraVisuals）
-    static ParticleSystem MakeJet(Transform fx, Material puff)
+    internal static ParticleSystem MakeJet(Transform fx, Material puff)
     {
         var ps = NewPS(fx, "Jet", puff, 90);
         var main = ps.main;
@@ -320,7 +320,7 @@ public static class FuwaPlazaGeysers
     }
 
     // 噴いていない間もうっすら湯気（ここが噴くと分かるように）
-    static void MakeIdle(Transform fx, Material puff)
+    internal static void MakeIdle(Transform fx, Material puff)
     {
         var ps = NewPS(fx, "Idle", puff, 24);
         var main = ps.main; main.prewarm = true;
@@ -335,7 +335,7 @@ public static class FuwaPlazaGeysers
         Grow(ps, 0.6f, 1.0f, 2.0f);
     }
 
-    static void MakeGlow(Transform fx, Material glow)
+    internal static void MakeGlow(Transform fx, Material glow)
     {
         var g = new GameObject("Glow");
         g.transform.SetParent(fx, false);
@@ -351,7 +351,7 @@ public static class FuwaPlazaGeysers
         mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
     }
 
-    static AudioSource MakeAudio(Transform fx, string name, AudioClip clip, bool loop, float volume, float maxDist, float pitch)
+    internal static AudioSource MakeAudio(Transform fx, string name, AudioClip clip, bool loop, float volume, float maxDist, float pitch)
     {
         var a = new GameObject(name);
         a.transform.SetParent(fx, false);
@@ -368,7 +368,7 @@ public static class FuwaPlazaGeysers
     [MenuItem("FuwaCourse/Course2/噴気孔の噴く音を作り直す")]
     static void RemakeBurst() { MakeBurst(true); }
 
-    static AudioClip MakeBurst(bool force)
+    internal static AudioClip MakeBurst(bool force)
     {
         if (!force)
         {
