@@ -53,6 +53,13 @@ public class FuwaWindArea : UdonSharpBehaviour
     public float fadeSeconds = 0.35f;
     [Tooltip("吹き始めに鳴らす音（なくてもOK）")]
     public AudioSource gustSound;
+    [Tooltip("強風の予告の音（「ヒュウ…」。吹き始めの warnSoundLead 秒前に鳴らす。なくてもOK）")]
+    public AudioSource warnSound;
+    public float warnSoundLead = 0.8f;
+    private bool _warnPlayed;
+    [Tooltip("予告の間、地面の矢じりをチカチカ点滅させる（回/秒。0で点滅なし）")]
+    public float highlightWarnFlash = 0f;
+    private bool _inWarn;
     private bool _wasBlowing;
     private bool _risingFromWarn;
     [Tooltip("周期で吹く風：見た目（地面の帯・粒・ふわふわの光）を実際の風より何秒先に出すか")]
@@ -188,6 +195,11 @@ public class FuwaWindArea : UdonSharpBehaviour
         _gust = _blowing && onSeconds > 0f ? Mathf.Max(gustCurve.Evaluate(t / onSeconds), _baseNow) : _baseNow;
         if (_blowing && !_wasBlowing && gustSound != null) gustSound.Play();
         _wasBlowing = _blowing;
+        if (warnSound != null)
+        {
+            if (_blowing) _warnPlayed = false;
+            else if (!_warnPlayed && t >= cycle - warnSoundLead) { _warnPlayed = true; warnSound.Play(); }
+        }
 
         // 見た目（粒・地面の帯・ふわふわの光）は、実際の風より visualLead 秒だけ先の強さで出す（目で見てから備えられるように）
         float vtime = time + visualLead;
@@ -202,6 +214,7 @@ public class FuwaWindArea : UdonSharpBehaviour
         for (int k = 0; k <= 6; k++) gmax = Mathf.Max(gmax, GustAt(time - glowTail + (glowTail + visualLead) * k / 6f, cycle));
         _glowGust = gmax;
 
+        _inWarn = !vBlowing && vt > cycle - warnSeconds;
         // 吹き始めは、強さが予告の濃さを超えるまで予告の濃さのまま（いったん薄くならないように）
         if (vBlowing)
         {
@@ -271,9 +284,10 @@ public class FuwaWindArea : UdonSharpBehaviour
                 if (_hlPhase > 1000f) _hlPhase -= 1000f;
                 _hlMat.SetFloat("_Phase", _hlPhase);
             }
-            if (Mathf.Abs(lv - _hlShown) > 0.001f)
+            bool flash = _inWarn && highlightWarnFlash > 0f;
+            if (flash || Mathf.Abs(lv - _hlShown) > 0.001f)
             {
-                _hlShown = lv;
+                _hlShown = flash ? -1f : lv;   // 点滅中は毎フレーム塗り直す（終わった次のフレームで元の濃さに戻る）
                 Color c = _hlColor;
                 // 矢じりは濃さほぼ一定（出始め・消える時だけフェード）、帯は弱い風の時も見えるように平方根
                 c.a = highlightAlpha * (_hlChevron ? Mathf.Clamp01(lv / 0.2f) : Mathf.Sqrt(lv));
@@ -284,6 +298,13 @@ public class FuwaWindArea : UdonSharpBehaviour
                     c = Color.Lerp(c, Color.white, highlightStrongBrighten * strong);
                     c.a = Mathf.Lerp(highlightAlpha, highlightStrongAlpha, strong) * Mathf.Clamp01(lv / 0.2f);
                     if (highlightStrongStroke >= 0f) _hlMat.SetFloat("_Stroke", Mathf.Lerp(_hlStroke, highlightStrongStroke, strong));
+                }
+                if (flash)
+                {
+                    // 予告：チカチカ（明るさと濃さを点滅させる）
+                    float f = Mathf.Abs(Mathf.Sin(Time.time * Mathf.PI * highlightWarnFlash));
+                    c = Color.Lerp(c, Color.white, 0.5f * f);
+                    c.a = Mathf.Max(c.a, highlightAlpha) * (0.45f + 0.55f * f) + 0.35f * f;
                 }
                 _hlMat.color = c;
                 groundHighlight.enabled = lv > 0.001f;
