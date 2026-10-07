@@ -55,7 +55,7 @@ def loft(mb, c, rows, m, seed, ax=R, az=D, cap_top=True, tip=None, top_noise_dow
 # ---- 噴気孔の岩柱（てっぺんがクレーター）。下は雲の中へ細く消える ----
 # 2026-10-07 改：人もふわふわも同じ噴気孔をたどる一本道。柱A・Bは足場より低く（自力では上がれない＝噴気に乗る）
 # (s, 横, てっぺんの高さ)。1本目は崖から落ちたふわふわを拾う用
-VENTS = [(76.6, 0.3, 2.3), (82.0, -0.4, 1.2), (85.6, -1.8, 1.0)]
+VENTS = [(76.6, 0.3, 2.3), (82.3, -0.2, 1.2), (85.3, -2.6, 1.0)]   # 2026-10-07 再改：足場→柱A→浮き岩→ゴールをゆるく曲がる一本道に。柱Bはふわふわ用の寄り道
 def pillar(mb, mbd, s, lat, k, CREST):
     c = W(s, lat, 0)
     m = 10
@@ -161,7 +161,7 @@ def build():
     loft(mbl, c, rows, 11, 7.3, tip=TOP - 4.6, jog=0.2)
     out['plaza_ledge'] = mbl
     # 浮き岩（上下にゆっくり動く。メッシュは静止位置で作る）
-    for name, (s, lat, top, rx, rz, seed) in {'plaza_float1': (84.4, 1.3, TOP - 0.2, 0.82, 0.74, 11.1), 'plaza_float2': (82.4, 3.4, TOP - 0.6, 0.7, 0.66, 13.7)}.items():
+    for name, (s, lat, top, rx, rz, seed) in {'plaza_float1': (84.9, 0.9, TOP - 0.2, 0.88, 0.85, 11.1), 'plaza_float2': (82.4, 3.4, TOP - 0.6, 0.7, 0.66, 13.7)}.items():
         mb = MB(); float_rock(mb, s, lat, top, rx, rz, seed); out[name] = mb
     # 崩れた名残：右奥と右手前のふちのかけら、穴の中に引っかかった床の板、小石
     mbr = MB()

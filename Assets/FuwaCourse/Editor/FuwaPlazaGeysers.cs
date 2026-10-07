@@ -13,9 +13,10 @@ public static class FuwaPlazaGeysers
 {
     // 噴気孔の口（コースローカル。c2plaza.py の VENTS / CREST と同じ）
     // 2026-10-07 改：人もふわふわも柱A(2)→柱B(3)の噴気をたどる一本道。柱A・Bは足場より低い（噴気に乗らないと上がれない）。1本目は崖から落ちたふわふわを拾う用
-    static readonly Vector3[] Vents = { new Vector3(20.1085f, 2.3f, 70.8529f), new Vector3(16.5475f, 1.2f, 74.9722f), new Vector3(13.3947f, 1.0f, 77.2039f) };
-    public static float OnSec = 1.3f, OffSec = 2.3f, Lag = 1.2f;   // 1→2→3 の順に Lag 秒ずつ遅れて噴く
+    static readonly Vector3[] Vents = { new Vector3(20.1085f, 2.3f, 70.8529f), new Vector3(16.5489f, 1.2f, 75.3328f), new Vector3(12.8927f, 1.0f, 76.5125f) };
+    public static float OnSec = 2.0f, OffSec = 1.6f, Lag = 1.2f;   // 2026-10-07 てじゃ「ムズい」→ 長く・間隔短く（元 1.3/2.3）   // 1→2→3 の順に Lag 秒ずつ遅れて噴く
     public static float BallTop = 8.0f, PlayerTop = 5.3f;   // 人：ゴールの島(3.0)＋柵の上まで          // 風の届く高さ（コースローカル y）
+    public static float BaseLevel = 0.3f;   // 7×0.3=2.1 > 落ちる力1.5 → 噴気の上ではゆっくり上がって止まる
     public static float BallStrength = 7f, BallFade = 0.35f;   // 1回噴くと約3m上がる（geysim.py で試算）。10だと崖より高く上がって滑空しほうだい
     const string BurstPath = "Assets/FuwaCourse/Audio/sfx_geyser_burst.wav";
 
@@ -74,7 +75,7 @@ public static class FuwaPlazaGeysers
             w.onSeconds = OnSec; w.offSeconds = OffSec;
             w.phaseOffset = Mathf.Repeat(-Lag * k, cycle);
             w.gustCurve = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.12f, 1f), new Keyframe(0.75f, 0.9f), new Keyframe(1f, 0f));
-            w.baseLevel = 0f; w.calmSeconds = 0f;
+            w.baseLevel = BaseLevel; w.calmSeconds = 0f;   // 噴いていない間も弱い上昇気流（ふわふわを置いておけば落ちずに待つ）
             w.warnSeconds = 0.5f; w.warnLevel = 0.12f;
             w.visual = erupt.gameObject; w.extraVisuals = new[] { jet };
             w.fadeSeconds = 0.15f; w.visualLead = 0.12f;
@@ -91,8 +92,8 @@ public static class FuwaPlazaGeysers
             var lc = lift.GetComponent<BoxCollider>(); if (lc == null) lc = lift.gameObject.AddComponent<BoxCollider>();
             lc.isTrigger = true; lc.center = Vector3.zero; lc.size = new Vector3(1.3f, p1 - p0, 1.3f);
             var u = USharp<FuwaPlayerUpdraft>(lift.gameObject);
-            u.liftSpeed = 4.2f; u.hoverBand = 1.2f; u.hoverDrift = 0.25f; u.airMaxSpeed = 1.6f; u.airBrake = 4f;
-            u.slowFallTime = 1.0f; u.slowFallGravity = 0.35f; u.normalGravity = 1f;
+            u.liftSpeed = 4.2f; u.hoverBand = 1.2f; u.hoverDrift = 0.25f; u.airMaxSpeed = 3f; u.airBrake = 1f;   // 横に伸びるように（元 1.6 / 4）
+            u.slowFallTime = 2.0f; u.slowFallGravity = 0.3f; u.normalGravity = 1f;
             u.onlyWhileBlowing = w;
             UdonSharpEditorUtility.CopyProxyToUdon(u);
             log += g.name + " phase " + w.phaseOffset.ToString("F2") + "  ";
