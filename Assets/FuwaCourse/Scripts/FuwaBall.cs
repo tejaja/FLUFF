@@ -29,6 +29,8 @@ public class FuwaBall : UdonSharpBehaviour
     public float maxDrop = 3f;
     [Tooltip("この範囲の中ではコースアウト判定をしない（崖ダイブの谷の上など。底のアウトは別のトゲ等で）")]
     public Collider[] gapZones;
+    [Tooltip("この範囲の中では「再開位置より maxDrop 下でアウト」を見ない（最後に通った道より offCourseDrop 下でアウトだけ）。崖の下の広い岩場など、はみ出しても沈むまでは押し戻せるように")]
+    public Collider[] lowZones;
     [Tooltip("真下の道を探す距離(m)")]
     public float groundProbe = 12f;
     private float _nextOffCourseCheck;
@@ -915,7 +917,16 @@ public class FuwaBall : UdonSharpBehaviour
                 if (gapZones[i] != null && gapZones[i].bounds.Contains(bp)) return;
             }
         }
-        if (rp.position.y - transform.position.y > maxDrop) { Fail(); return; }
+        bool low = false;
+        if (lowZones != null)
+        {
+            Vector3 lp = transform.position;
+            for (int i = 0; i < lowZones.Length; i++)
+            {
+                if (lowZones[i] != null && lowZones[i].bounds.Contains(lp)) { low = true; break; }
+            }
+        }
+        if (!low && rp.position.y - transform.position.y > maxDrop) { Fail(); return; }
         // 道の外：最後に通った道の高さより下に落ちたらアウト（道より上に浮いている間はまだセーフ）
         if (_lastGroundY > -9999f && transform.position.y < _lastGroundY - offCourseDrop) Fail();
     }
