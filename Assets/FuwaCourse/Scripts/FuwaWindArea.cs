@@ -86,6 +86,11 @@ public class FuwaWindArea : UdonSharpBehaviour
     [Range(0f, 1f)] public float highlightStrongBrighten = 0f;
     [Tooltip("矢じり形の時：強風の時の線の太さ（材質の _Stroke）。0未満なら材質のまま")]
     public float highlightStrongStroke = -1f;
+    [Tooltip("矢じり形の時：強風の濃い見た目を、山を過ぎてから何秒そのまま残すか（実際の風の強さは変えない）")]
+    public float highlightStrongHold = 0f;
+    [Tooltip("残したあと元に戻るまでの秒数")]
+    public float highlightStrongRelease = 0.35f;
+    private float _hlPeak, _hlPeakTime;
     private float _hlStroke;
     private bool _hlChevron;
     private float _hlPhase;
@@ -284,17 +289,26 @@ public class FuwaWindArea : UdonSharpBehaviour
                 if (_hlPhase > 1000f) _hlPhase -= 1000f;
                 _hlMat.SetFloat("_Phase", _hlPhase);
             }
-            bool flash = _inWarn && highlightWarnFlash > 0f;
-            if (flash || Mathf.Abs(lv - _hlShown) > 0.001f)
+            // 強風の見た目の濃さ：山を過ぎても highlightStrongHold 秒は山の濃さのまま、その後 highlightStrongRelease 秒で戻す
+            float lvS = lv;
+            if (_hlChevron && highlightStrongHold > 0f)
             {
-                _hlShown = flash ? -1f : lv;   // 点滅中は毎フレーム塗り直す（終わった次のフレームで元の濃さに戻る）
+                if (lv >= _hlPeak) { _hlPeak = lv; _hlPeakTime = Time.time; }
+                else if (Time.time - _hlPeakTime > highlightStrongHold)
+                    _hlPeak = Mathf.MoveTowards(_hlPeak, lv, Time.deltaTime / Mathf.Max(0.01f, highlightStrongRelease));
+                lvS = Mathf.Max(lv, _hlPeak);
+            }
+            bool flash = _inWarn && highlightWarnFlash > 0f;
+            if (flash || Mathf.Abs(lvS - _hlShown) > 0.001f)
+            {
+                _hlShown = flash ? -1f : lvS;   // 点滅中は毎フレーム塗り直す（終わった次のフレームで元の濃さに戻る）
                 Color c = _hlColor;
                 // 矢じりは濃さほぼ一定（出始め・消える時だけフェード）、帯は弱い風の時も見えるように平方根
                 c.a = highlightAlpha * (_hlChevron ? Mathf.Clamp01(lv / 0.2f) : Mathf.Sqrt(lv));
                 if (_hlChevron && highlightStrongAlpha >= 0f)
                 {
                     // 弱い風（baseLevel）→ 強風（1）で濃く・明るく
-                    float strong = Mathf.Clamp01((lv - baseLevel) / Mathf.Max(0.01f, 1f - baseLevel));
+                    float strong = Mathf.Clamp01((lvS - baseLevel) / Mathf.Max(0.01f, 1f - baseLevel));
                     c = Color.Lerp(c, Color.white, highlightStrongBrighten * strong);
                     c.a = Mathf.Lerp(highlightAlpha, highlightStrongAlpha, strong) * Mathf.Clamp01(lv / 0.2f);
                     if (highlightStrongStroke >= 0f) _hlMat.SetFloat("_Stroke", Mathf.Lerp(_hlStroke, highlightStrongStroke, strong));
