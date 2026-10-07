@@ -5,9 +5,8 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 
 // コース2「いわのみち」ゴール前の崩れた広場（2026-10-07）：
-// 穴の底から立つ岩柱3本の噴気孔が順番にドンッと噴く（ふわふわ用の FuwaWindArea＋噴いている間だけ人も持ち上げる FuwaPlayerUpdraft）。
-// v4（2026-10-07）：人は回り込む上り坂（Rocks2/PlazaWalk）を歩くだけ。噴気孔はふわふわ専用で、崖下で拾う1本と、
-// 坂の内側でゴールの高さまで持ち上げる1本（ゴールの方へ少し傾けて噴く）。柱は当たっても跳ね返るだけ（FuwaBounce）。
+// v4（2026-10-07）：人は橋を降りて回り込む上り坂（Rocks2/PlazaWalk）を歩くだけ。ふわふわは崖のふちの追い風（Gimmick_Tailwind）で沖へ運ばれ、
+// 足場の正面の噴気孔（ゴールの方へ傾けて噴く）がゴールの柵の上まで持ち上げる。柱は当たっても跳ね返るだけ（FuwaBounce）。
 // ふわふわが穴に落ちたらアウト（DiveFloor を穴全体に広げる）。
 // 岩の形は Blender（FLUFF_models.blend の C2Plaza、scratchpad の c2plaza.py）→ ImportRocks で Rocks2/Plaza*。
 // 何度実行しても同じ結果（Udon の付いた物は作り直さずに設定だけ上書き、見た目の Fx だけ作り直す）。
@@ -15,9 +14,10 @@ public static class FuwaPlazaGeysers
 {
     // 噴気孔の口（コースローカル。c2plaza.py の VENTS / CREST と同じ）
     // 2026-10-07 改：人もふわふわも柱A(2)→柱B(3)の噴気をたどる一本道。柱A・Bは足場より低い（噴気に乗らないと上がれない）。1本目は崖から落ちたふわふわを拾う用
-    static readonly Vector3[] Vents = { new Vector3(19.6377f, 2.3f, 71.0213f), new Vector3(14.7774f, 3.0f, 76.1998f) };
-    static readonly float[] Tops = { 6.5f, 8.2f };       // 風の届く高さ（コースローカル y）。2本目はゴールの柵(5.6+0.6)より上まで
-    static readonly float[] Tilts = { 0f, 15f };         // ゴールの方へ傾ける角度
+    // 崖下でふわふわを拾う1本は削除。崖のふちの追い風（Gimmick_Tailwind）がこの噴気孔めがけてふわふわを運ぶ（2026-10-07 てじゃ案）
+    static readonly Vector3[] Vents = { new Vector3(14.7774f, 3.0f, 76.1998f) };
+    static readonly float[] Tops = { 8.2f };       // 風の届く高さ（コースローカル y）。ゴールの柵(5.6+0.6)より上まで
+    static readonly float[] Tilts = { 20f };       // ゴールの方へ傾ける角度（追い風で来たふわふわをゴールの柵の内側の上まで運ぶ。relay.py で試算）
     static readonly Vector3 GoalCenter = new Vector3(12.74638f, 0f, 81.45003f);
     public static float OnSec = 2.0f, OffSec = 1.6f, Lag = 1.2f;   // 2026-10-07 てじゃ「ムズい」→ 長く・間隔短く（元 1.3/2.3）   // 1→2→3 の順に Lag 秒ずつ遅れて噴く
     public static float BaseLevel = 0.3f;   // 7×0.3=2.1 > 落ちる力1.5 → 噴気の上ではゆっくり上がって止まる
@@ -96,7 +96,7 @@ public static class FuwaPlazaGeysers
             if (oldLift != null) { var ou = oldLift.GetComponent<FuwaPlayerUpdraft>(); if (ou != null) UdonSharpUndo.DestroyImmediate(ou); Undo.DestroyObjectImmediate(oldLift.gameObject); }
             log += g.name + " phase " + w.phaseOffset.ToString("F2") + "  ";
         }
-        // 前の版の3本目
+        // 前の版の余った分
         for (int k = Vents.Length; k < 6; k++) { var old = holder.Find("Geyser" + (k + 1)); if (old == null) continue; foreach (var ub in old.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true)) UdonSharpUndo.DestroyImmediate(ub); Undo.DestroyObjectImmediate(old.gameObject); log += "removed Geyser" + (k + 1) + "  "; }
 
         var rocks = root.Find("Rocks2");
@@ -116,6 +116,8 @@ public static class FuwaPlazaGeysers
             bo.bounceSpeed = 2.4f; bo.keepTangent = 0.8f; bo.alwaysUp = false; bo.useContactNormal = true;
             UdonSharpEditorUtility.CopyProxyToUdon(bo);
         }
+        // ---- 崖のふちの追い風：噴気孔の手前までふわふわを運ぶ（ずっと吹いている）
+        log += MakeTailwind(root);
         // ---- 道の外側のふちに夜光キノコ（目印）。位置は c2plaza.py が書き出した info.lights
         MakePathLights(root, holder);
 
@@ -144,6 +146,59 @@ public static class FuwaPlazaGeysers
 
         EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return log;
+    }
+
+    // 追い風の帯（コースローカルの s, 横）。崖のふち〜噴気孔の1.5m手前。下は4.5m・上は11m（崖の上〜噴気孔に入る高さ）
+    public static float TailS0 = 70.5f, TailS1 = 82.6f, TailStrength = 2.6f, TailWidth = 2.6f, TailY0 = 4.5f, TailY1 = 11f;
+
+    static Vector3 CoursePoint(float s, float lat, float y)
+    {
+        Vector3 O = new Vector3(18.53511f, 0f, 72.68986f), D = new Vector3(-0.5513058f, 0f, 0.8342972f), R = new Vector3(0.8343029f, 0f, 0.5513077f);
+        var p = O + D * (s - 79f) + R * lat; p.y = y; return p;
+    }
+
+    static string MakeTailwind(Transform root)
+    {
+        var tw = root.Find("Gimmick_Tailwind");
+        if (tw == null) return "no tailwind  ";
+        Undo.RecordObject(tw.gameObject, "tailwind");
+        tw.gameObject.SetActive(true);
+        Undo.RecordObject(tw, "tailwind");
+        tw.localPosition = Vector3.zero; tw.localRotation = Quaternion.identity; tw.localScale = Vector3.one;
+        // 噴気孔の口へ向かう直線の上に帯を置く
+        var g = Vents[0]; var gs = new Vector3(g.x, 0f, g.z);
+        var a0 = CoursePoint(71.0f, 0.3f, 0f);
+        var dir = (gs - a0); dir.y = 0f; dir.Normalize();
+        var sA = CoursePoint(TailS0, 0f, 0f); var start = a0 + dir * Vector3.Dot(sA - a0, new Vector3(-0.5513058f, 0f, 0.8342972f)) / Vector3.Dot(dir, new Vector3(-0.5513058f, 0f, 0.8342972f));
+        var sB = CoursePoint(TailS1, 0f, 0f); var end = a0 + dir * Vector3.Dot(sB - a0, new Vector3(-0.5513058f, 0f, 0.8342972f)) / Vector3.Dot(dir, new Vector3(-0.5513058f, 0f, 0.8342972f));
+        float len = (end - start).magnitude;
+        var mid = (start + end) * 0.5f;
+        var rot = Quaternion.LookRotation(dir, Vector3.up);
+
+        var zone = tw.Find("TailwindZone");
+        Undo.RecordObject(zone, "tailwind");
+        zone.localPosition = new Vector3(mid.x, (TailY0 + TailY1) * 0.5f, mid.z);
+        zone.localRotation = rot;
+        zone.localScale = new Vector3(TailWidth, TailY1 - TailY0, len);
+        var w = zone.GetComponent<FuwaWindArea>();
+        w.localDirection = Vector3.forward; w.strength = TailStrength; w.offSeconds = 0f; w.baseLevel = 0f; w.fadeAlongDirection = 0f;
+        UdonSharpEditorUtility.CopyProxyToUdon(w);
+
+        // 白い風の筋（トレイルだけの粒）。粒の +x が風の向き
+        foreach (var (name, y, h) in new[] { ("TailwindParticles", 6.4f, 2.6f), ("TailwindParticlesTop", 9.3f, 2.6f) })
+        {
+            var t = tw.Find(name); if (t == null) continue;
+            Undo.RecordObject(t, "tailwind");
+            t.localPosition = new Vector3(mid.x, y, mid.z);
+            t.localRotation = rot * Quaternion.Euler(0f, -90f, 0f);
+            var ps = t.GetComponent<ParticleSystem>();
+            Undo.RecordObject(ps, "tailwind");
+            var sh = ps.shape; sh.position = Vector3.zero; sh.scale = new Vector3(len, h, TailWidth * 0.9f);
+        }
+        // 崖のふちの吹き流しも戻す（風の向きの目印）
+        var sock = root.Find("WindDeco/Windsock_Dive");
+        if (sock != null) { Undo.RecordObject(sock.gameObject, "tailwind"); sock.gameObject.SetActive(true); }
+        return "tailwind len " + len.ToString("F1") + "  ";
     }
 
     // 道の目印の位置（c2plaza.py の info.lights と同じ。x,y,z,外向きx,z）
