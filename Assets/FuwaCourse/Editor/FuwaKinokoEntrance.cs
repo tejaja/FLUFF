@@ -95,9 +95,11 @@ public static class FuwaKinokoEntrance
         FrontBoards(mb, TabEnd, TabTopY, tabH, -1f, rnd);
         SideBoards(mb, TabCut + FaceT, TabEnd, TabTopY, tabH, rnd);
         HalfW = hw;
-        FrontBoards(mb, FlatA1, YA1, 1.2f, -1f, rnd);     // 平らAの先（すき間2の手前、サルノコシカケの生える所）
-        FrontBoards(mb, Gap2B, YB0, 1.6f, 1f, rnd);        // 坂Bの正面
-        FrontBoards(mb, SlopeA0, YA0, 1.4f, 1f, rnd);      // 坂Aの正面（入口より高い段）
+        // 段の正面：2026-10-07 横板を積んだ壁 → 上の横木から縦の板が崩れて垂れている見た目に（判定の壁はそのまま）
+        var rndH = new System.Random(11);
+        HangingBoards(mb, FlatA1, YA1, 1.2f, -1f, rndH);     // 平らAの先（すき間2の手前、サルノコシカケの生える所）
+        HangingBoards(mb, Gap2B, YB0, 1.6f, 1f, rndH);       // 坂Bの正面
+        HangingBoards(mb, SlopeA0, YA0, 1.4f, 1f, rndH);     // 坂Aの正面（入口より高い段）
         var mesh = mb.Build("KinokoEntrance_Deck", root);
         var go = new GameObject("Deck", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(root, false);
         go.GetComponent<MeshFilter>().sharedMesh = mesh; go.GetComponent<MeshRenderer>().sharedMaterial = mat; go.isStatic = true;
@@ -374,6 +376,33 @@ public static class FuwaKinokoEntrance
             var c = W(d + dir * 0.04f, 0, topY - 0.08f - bh * (i + 0.5f));
             var col = BeamCol * (1.05f + 0.1f * (float)rnd.NextDouble()); col.a = 1;
             mb.Box(c, S * (HalfW + 0.02f), Vector3.up * (bh * 0.5f - 0.01f), D * 0.04f, col);
+        }
+    }
+
+    // 段の正面に、上の横木から縦の板がぶら下がる（dir：板を置く側 -1＝手前、1＝奥）。
+    // 板ごとに長さ・幅・傾きをばらつかせ、ところどころ抜け・短く折れ・外へぷらんと垂れた板を混ぜる。見た目だけ
+    static void HangingBoards(MB mb, float d, float topY, float h, float dir, System.Random rnd)
+    {
+        float R(float lo, float hi) => lo + (float)rnd.NextDouble() * (hi - lo);
+        var outN = D * dir;                          // 板の外向き（すき間側）
+        float hingeY = topY - 0.1f;                  // 板の上端（横木の中ほど）
+        // 上の横木（板を打ちつけている桁）
+        mb.Box(W(d + dir * 0.07f, 0, topY - 0.11f), S * (HalfW + 0.04f), Vector3.up * 0.075f, D * 0.05f, BeamCol);
+        float x = -HalfW + 0.02f;
+        while (x < HalfW - 0.06f)
+        {
+            float w = Mathf.Min(R(0.17f, 0.27f), HalfW - x); float cx = x + w * 0.5f; x += w + R(0.004f, 0.02f);
+            bool edge = cx < -HalfW + 0.3f || cx > HalfW - 0.3f;
+            double roll = rnd.NextDouble();
+            if (!edge && roll < 0.13) continue;                        // 抜けた板
+            float len = roll < 0.33 ? h * R(0.3f, 0.55f) : h * R(0.72f, 1.02f);   // 折れて短い板／ほぼ全長
+            float swing = roll > 0.82 ? R(9f, 22f) : R(-2.5f, 4f);      // 外へぷらんと垂れる板
+            var hinge = W(d + dir * 0.02f, cx, hingeY);
+            var q = Quaternion.AngleAxis(swing * dir, S) * Quaternion.AngleAxis(R(-3.5f, 3.5f), outN) * Quaternion.AngleAxis(R(-2.5f, 2.5f), Vector3.up);
+            var down = q * Vector3.down; var side = q * S; var face = q * outN;
+            var c = hinge + down * (len * 0.5f) + face * 0.025f;
+            var col = Plank(rnd) * 0.82f; col.a = 1;
+            mb.Box(c, side * (w * 0.5f - 0.004f), down * (len * 0.5f), face * 0.025f, col);
         }
     }
 
