@@ -10,28 +10,33 @@ OUT = globals().get('OUT', r'D:\UnityProject\FLUFF\Tools\den.json')
 FLOOR_Y = 5.5
 # ---- レイアウト ----
 START = dict(c=(31.22, -3.15), r=3.2)          # 既存のスタートの島（作らない、橋の端だけ合わせる）
-GOAL = dict(c=(71.02, 23.37), r=3.1)           # 既存のゴールの島
+# 2026-10-07：巣1と分岐の巣の間に島を1つ足して、分岐から先を SHIFT だけ奥へずらした（巣1=1匹 / 巣2=2匹 / 巣3=やや小さめ＋チェックポイント＋分岐）
+SHIFT = (9.7, 4.3)   # 分岐から先のずらし量（巣1→巣2 と同じ向き・長さ）
+def sh(p): return (round(p[0] + SHIFT[0], 3), round(p[1] + SHIFT[1], 3))
+GOAL = dict(c=sh((71.02, 23.37)), r=3.1)           # 既存のゴールの島（Unity 側でも同じだけ動かす）
 NESTS = [
     dict(name='Nest1', c=(40.8, 2.2), r=3.0, rim=0.5, seed=1),
-    dict(name='Nest2', c=(50.5, 6.5), r=3.2, rim=0.5, seed=2),
-    dict(name='MamaNest', c=(64.2, 17.4), r=4.6, rim=0.7, seed=3),
-    dict(name='SideNest', c=(58.7, -0.9), r=3.0, rim=0.5, seed=4),
-    dict(name='Islet', c=(65.8, 7.0), r=1.8, rim=0.35, seed=5),   # 大回りの曲がり角の小島（何もない）   # 大回りルートの巣（けだま1匹＋倒しやすいイバラ）
+    dict(name='Nest2', c=(50.5, 6.5), r=3.2, rim=0.5, seed=2),       # 新しい島（けだま2匹）
+    dict(name='Nest3', c=sh((50.5, 6.5)), r=2.6, rim=0.45, seed=6),  # 分岐の巣（やや小さめ＋チェックポイント）
+    dict(name='MamaNest', c=sh((64.2, 17.4)), r=4.6, rim=0.7, seed=3),
+    dict(name='SideNest', c=sh((58.7, -0.9)), r=3.0, rim=0.5, seed=4),
+    dict(name='Islet', c=sh((65.8, 7.0)), r=1.8, rim=0.35, seed=5),   # 大回りの曲がり角の小島（何もない）   # 大回りルートの巣（けだま1匹＋倒しやすいイバラ）
 ]
 PODS = [   # 寝てるけだまの小さい巣（橋のわき、入口なし）
-    dict(name='Pod1', c=(54.04, 12.45), r=1.25, rim=0.45, seed=11),
-    dict(name='Pod2', c=(59.16, 8.45), r=1.25, rim=0.45, seed=12),
-    dict(name='Pod3', c=(57.6, 15.1), r=1.25, rim=0.45, seed=13),
+    dict(name='Pod1', c=sh((54.04, 12.45)), r=1.25, rim=0.45, seed=11),
+    dict(name='Pod2', c=sh((59.16, 8.45)), r=1.25, rim=0.45, seed=12),
+    dict(name='Pod3', c=sh((57.6, 15.1)), r=1.25, rim=0.45, seed=13),
 ]
 BRIDGE_W = 2.4
 # 橋：端の島（名前）と、途中の通り道。端は島のふちの少し内側まで入れる
 BRIDGES = [
     dict(name='BridgeA', a='Start', b='Nest1', via=[]),
     dict(name='BridgeB', a='Nest1', b='Nest2', via=[]),
-    dict(name='BridgeC', a='Nest2', b='MamaNest', via=[(55.8, 9.9), (59.0, 12.1)]),
+    dict(name='BridgeH', a='Nest2', b='Nest3', via=[]),
+    dict(name='BridgeC', a='Nest3', b='MamaNest', via=[sh((55.8, 9.9)), sh((59.0, 12.1))]),
     dict(name='BridgeD', a='MamaNest', b='Goal', via=[]),
-    # 大回りルート：巣2 → 横の巣 → ママの巣（南側から入る）
-    dict(name='BridgeE', a='Nest2', b='SideNest', via=[]),
+    # 大回りルート：巣3 → 横の巣 → ママの巣（南側から入る）
+    dict(name='BridgeE', a='Nest3', b='SideNest', via=[]),
     dict(name='BridgeF', a='SideNest', b='Islet', via=[]),
     dict(name='BridgeG', a='Islet', b='MamaNest', via=[]),
 ]
