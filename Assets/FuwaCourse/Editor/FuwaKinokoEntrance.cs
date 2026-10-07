@@ -32,7 +32,7 @@ public static class FuwaKinokoEntrance
     // 木の塔の手前の道の先っぽ（細い出っぱり）を板張りに（2026-10-07）
     public static float TabCut = 46.45f, TabEnd = 47.3f, TabHalfW = 1.3f, TabTopY = 18.17f;
     public static float HalfW = 1.5f;
-    public static float CapLift = 0.35f;   // キノコの傘を床より上に（小ジャンプで乗る）
+    public static float CapLift = 0.6f;    // キノコの傘を床より上に（小ジャンプで乗る。0.5以下だとVRChatでは歩いて登れる）
     public static float CapScale = 0.6f, ShelfScale = 0.5f, ShelfTopY = 9.75f;
     public static float ShelfOut = 0.8f;   // サルノコシカケが平らAの先の壁（手前側）から出る長さ
     public static float ShelfImpulse = 4.6f;   // サルノコシカケの上のジャンプ力（高さ約1.08m）
