@@ -63,7 +63,7 @@ Shader "FuwaCourse/DarkMist"
                 float dens = _Density * (1 + low * _LowBoost) * lerp(1, 0.6 + wob * 0.8, _Wobble);
                 float a = (1 - exp(-len * dens)) * _MaxAlpha;
                 // カメラがもやの中・すぐ近く（コースの中やスタートの島）にいる時は消す（コースの中は AreaFog が担当）
-                a *= smoothstep(1.05, 1.35, length(camO));
+                a *= smoothstep(1.1, 1.4, length(camO));
                 // ふちをもやもやに：視線が球に入る所（ワールド）でノイズを取り、ふちの消え方をちぎれたように揺らす
                 float3 entryW = mul(unity_ObjectToWorld, float4(camO + d * t0, 1)).xyz;
                 float3 q = entryW * _WispScale + float3(_Time.y * _WispSpeed, _Time.y * _WispSpeed * 0.4, -_Time.y * _WispSpeed * 0.7);
