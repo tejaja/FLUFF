@@ -206,6 +206,7 @@ public static class FuwaMamonoDeco
         var furMat = AssetDatabase.FindAssets("Fuwa_EnemyFur t:Material").Select(g => AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(g))).FirstOrDefault();
         if (furMat != null && furMat.HasProperty("_Color")) fur = furMat.color;
         int nTwig = 0, nFeather = 0, nShell = 0, nTuft = 0; tries = 0;
+        var floorSpots = new List<(Vector3 p, float r)>();   // 床の小物の場所（抜け毛と重ならないように）
         int[] quota = { 70, 0, 18, 0 };   // 羽根は鳥じゃないのでなし。抜け毛は下で敵のまわりにだけ散らす
         while (tries++ < 20000 && (nTwig < quota[0] || nFeather < quota[1] || nShell < quota[2] || nTuft < quota[3]))
         {
@@ -230,7 +231,7 @@ public static class FuwaMamonoDeco
                 // 小枝は1〜3本の小さな山にする
                 int pile = rnd.Next(1, 4);
                 for (int k = 0; k < pile; k++) Twig(floorMb, fp + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * R(0, 0.15f) + Vector3.up * k * 0.02f, Quaternion.Euler(0, R(0, 360), 0), R(0.4f, 0.9f), R(0.02f, 0.034f), rnd);
-                nTwig++;
+                nTwig++; floorSpots.Add((fp, 0.5f));
             }
             else if (kind == 1 && nFeather < quota[1]) { Feather(floorMb, Matrix4x4.TRS(fp, yaw, Vector3.one), R(0.26f, 0.42f), R(0.055f, 0.085f), FeatherColor(rnd)); nFeather++; }
             else if (kind == 2 && nShell < quota[2])
@@ -238,11 +239,10 @@ public static class FuwaMamonoDeco
                 float er = R(0.11f, 0.17f); var col = EggColor(rnd);
                 Shell(floorMb, Matrix4x4.TRS(fp + Vector3.up * er * 1.3f * 0.92f,   /* ひっくり返したカラはふくらみが下なので、高さ分だけ上げて床に乗せる（前は大部分が床に埋まっていた） */ Quaternion.Euler(R(150, 210), R(0, 360), R(-25, 25)), Vector3.one), er, er * 1.3f, 0f, R(0.9f, 1.3f), col, rnd);
                 if (rnd.NextDouble() < 0.5) Shell(floorMb, Matrix4x4.TRS(fp + yaw * Vector3.forward * er * 2.4f + Vector3.up * er * 1.3f * 0.8f * 0.92f, Quaternion.Euler(R(160, 200), R(0, 360), 0), Vector3.one * 0.8f), er, er * 1.3f, 0f, R(0.6f, 0.9f), col, rnd);
-                nShell++;
+                nShell++; floorSpots.Add((fp, er * 3.6f));
             }
             else if (kind == 3 && nTuft < quota[3]) { Tuft(floorMb, fp, fur, rnd); nTuft++; }
         }
-        foreach (var tgo in visTemps) Object.DestroyImmediate(tgo);
         // 抜け毛（綿ぼこり）：敵（とママ）が潜んでいる所の近くに数個だけ落としておく（「ここから出てくる」の目印）
         var lurkers = new List<(Vector3 p, int n, float r0, float r1, float size)>();
         var en = root.Find("Enemies"); if (en != null) foreach (Transform e in en) lurkers.Add((e.position, rnd.Next(3, 5), 0.25f, 0.6f, 1.5f));
@@ -255,8 +255,11 @@ public static class FuwaMamonoDeco
                 var o = lp + Quaternion.Euler(0, ang, 0) * Vector3.forward * R(r0, r1) + Vector3.up * 3f;
                 if (!Physics.Raycast(o, Vector3.down, out var hit, 8f, ~0, QueryTriggerInteraction.Ignore)) continue;
                 if (!floorCols.Contains(hit.collider) || hit.normal.y < 0.85f) { if (t2 % 8 == 7) k++; continue; }
-                DustBunny(dustMb, hit.point, rnd, size); nTuft++; k++;
+                var dp = VisFloor(hit.point);
+                if (dp.y - hit.point.y > 0.12f || floorSpots.Any(f => new Vector2(f.p.x - dp.x, f.p.z - dp.z).magnitude < f.r + 0.3f)) { if (t2 % 8 == 7) k++; continue; }   // ふちの上・床の小物（殻・小枝）の上は避ける
+                DustBunny(dustMb, dp, rnd, size); nTuft++; k++;
             }
+        foreach (var tgo in visTemps) Object.DestroyImmediate(tgo);
         log.Append("twig " + nTwig + " feather " + nFeather + " shell " + nShell + " tuft " + nTuft + " ");
 
         // ---- まとめて保存・配置 ----
