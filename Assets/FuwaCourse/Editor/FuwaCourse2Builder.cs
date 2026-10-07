@@ -25,7 +25,7 @@ public static class FuwaCourse2Builder
     public static readonly Vector2[] Pieces = { new Vector2(0f, 46f), new Vector2(46f, 72f), new Vector2(79f, 87f), new Vector2(68.5f, 80f), new Vector2(PitS0, PitS1), new Vector2(PitS0, PitS1) };
     public const float RampWidth = 2.2f;
     // 下の台地（かたまり2）の床を作るか。false=崩れて穴になった広場（2026-10-07）
-    public static bool PlateauOn = false;
+    public static bool PlateauOn = true;
     public static float Offset(int piece)
     {
         if (piece == 3) return -(1.5f + RampWidth * 0.5f);   // 実際の横位置は RampShift で s ごとに左へふくらむ
@@ -212,7 +212,7 @@ public static class FuwaCourse2Builder
 
     public const float CP1 = 18.5f, CP2 = 50f, GoalS = 89.5f;
     // ゴールの島を持ち上げて、柵の入口を回り込む上り坂（Rocks2/PlazaWalk）の方へ向ける（2026-10-07。c2plaza.py の GOAL_LIFT と同じ）
-    public const float GoalLift = 2.6f, GoalYawOffset = -82f;
+    public const float GoalLift = 0f, GoalYawOffset = 0f;
 
     [MenuItem("FuwaCourse/Course2/Place Objects")]
     public static void PlaceMenu() { Debug.Log(PlaceObjects()); }
