@@ -15,8 +15,12 @@ public class FuwaSunFace : UdonSharpBehaviour
     public float holdTime = 1.6f;
     public float inTime = 0.06f;
     public float outTime = 0.25f;
+    [Tooltip("トゲが1回ピョンと跳ねる時間(秒)と大きさ（2026-10-07 前はずっとぷるぷるしていた）")]
+    public float popTime = 0.65f;
+    public float popAmount = 1.4f;
 
     private int _squintId;
+    private int _popId;
     private float _start = -100f;
     private bool _active;
 
@@ -24,6 +28,8 @@ public class FuwaSunFace : UdonSharpBehaviour
     {
         _squintId = VRCShader.PropertyToID("_UdonSunSquint");
         VRCShader.SetGlobalFloat(_squintId, 0f);
+        _popId = VRCShader.PropertyToID("_UdonSunPop");
+        VRCShader.SetGlobalFloat(_popId, 0f);
     }
 
     // 撃った向きが太陽に当たっているか（撃った人のPCで判定）
@@ -49,5 +55,9 @@ public class FuwaSunFace : UdonSharpBehaviour
         else if (t < inTime + holdTime + outTime) v = 1f - (t - inTime - holdTime) / Mathf.Max(outTime, 0.001f);
         else { v = 0f; _active = false; }
         VRCShader.SetGlobalFloat(_squintId, v);
+        // トゲ：外へピョンと出て、ぷるんと1回戻って止まる（空のいつもの「ときどきピョン」と同じ形を大きめに）
+        float x = t / Mathf.Max(popTime, 0.05f);
+        float pop = x < 1f ? (1f - x) * (1f - x) * Mathf.Sin(x * 9.4f) * popAmount : 0f;
+        VRCShader.SetGlobalFloat(_popId, _active ? pop : 0f);
     }
 }

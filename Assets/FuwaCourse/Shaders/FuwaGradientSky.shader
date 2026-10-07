@@ -58,6 +58,7 @@ Shader "FuwaCourse/GradientSky"
             fixed4 _DimTopColor, _DimHorizonColor, _DimBottomColor;
             float _UdonSkyDim;   // グローバル（Udon の VRCShader.SetGlobalFloat）：0=いつもの空、1=くもった暗い空
             float _UdonSunSquint; // グローバル：0=いつもの棒の目、1=「＞＜」（太陽を撃たれた時。FuwaSunFace）
+            float _UdonSunPop;    // グローバル：撃たれた時のトゲの「ピョン」（FuwaSunFace が1回だけ跳ねる値を入れる）
             // 線分までの距離（「＞＜」の目に使う）
             float segDist(float2 p, float2 a, float2 b)
             {
@@ -158,9 +159,9 @@ Shader "FuwaCourse/GradientSky"
                 float popX = (_Time.y - popI * _SunPopEvery) / max(_SunPopTime, 0.05);
                 float popOn = frac(sin(popI * 12.9898) * 43758.5453) < 0.8 ? 1 : 0;
                 float pop = popX < 1 ? popOn * (1 - popX) * (1 - popX) * sin(popX * 9.4) : 0;
-                // 撃たれた時（_UdonSunSquint）：トゲがピョンと大きく広がって、ぷるぷる震える
+                // 撃たれた時（_UdonSunSquint）：トゲが1回ピョンと跳ねて戻る（跳ね方は FuwaSunFace が _UdonSunPop で渡す）
                 float sqPop = saturate(_UdonSunSquint);
-                pop = lerp(pop, 0.9 + 0.35 * sin(_Time.y * 18), sqPop);
+                pop = lerp(pop, _UdonSunPop, sqPop);
                 float r0 = R * (1.18 + _SunPopAmount * pop), r1 = R * (_SunRayLen + _SunPopAmount * pop * 1.15);
                 float sector = 6.2831853 / _SunRayCount;
                 float a = (frac(phi / sector) - 0.5) * sector;      // トゲの中心線からの角度
