@@ -73,6 +73,10 @@ public class FuwaWindArea : UdonSharpBehaviour
     [Tooltip("矢じり形のハイライトの時：風の強さで帯の流れる速さを変える（弱風→強風、m/s）。濃さはほぼ一定")]
     public float highlightSpeedMin = 1.2f;
     public float highlightSpeedMax = 6f;
+    [Tooltip("矢じり形の時：強風（いちばん強い時）の不透明度。0未満なら highlightAlpha のまま（弱い風〜強風で同じ濃さ）")]
+    public float highlightStrongAlpha = -1f;
+    [Tooltip("矢じり形の時：強風ほど白っぽく明るくする量（0〜1）")]
+    [Range(0f, 1f)] public float highlightStrongBrighten = 0f;
     private bool _hlChevron;
     private float _hlPhase;
 
@@ -269,6 +273,13 @@ public class FuwaWindArea : UdonSharpBehaviour
                 Color c = _hlColor;
                 // 矢じりは濃さほぼ一定（出始め・消える時だけフェード）、帯は弱い風の時も見えるように平方根
                 c.a = highlightAlpha * (_hlChevron ? Mathf.Clamp01(lv / 0.2f) : Mathf.Sqrt(lv));
+                if (_hlChevron && highlightStrongAlpha >= 0f)
+                {
+                    // 弱い風（baseLevel）→ 強風（1）で濃く・明るく
+                    float strong = Mathf.Clamp01((lv - baseLevel) / Mathf.Max(0.01f, 1f - baseLevel));
+                    c = Color.Lerp(c, Color.white, highlightStrongBrighten * strong);
+                    c.a = Mathf.Lerp(highlightAlpha, highlightStrongAlpha, strong) * Mathf.Clamp01(lv / 0.2f);
+                }
                 _hlMat.color = c;
                 groundHighlight.enabled = lv > 0.001f;
             }
