@@ -841,8 +841,8 @@ public class FuwaBlower : UdonSharpBehaviour
             aim = local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward;
         }
 
-        // イースターエッグ：太陽を撃つと、みんなの空の太陽が「＞＜」になる
-        if (sunFace != null && sunFace.IsAimAtSun(aim)) SendCustomNetworkEvent(NetworkEventTarget.All, nameof(SunHitFx));
+        // イースターエッグ：太陽をフルチャージで撃つと、みんなの空の太陽が「＞＜」になる（2026-10-07 フルチャージだけに）
+        if (charge >= 0.99f && sunFace != null && sunFace.IsAimAtSun(aim)) SendCustomNetworkEvent(NetworkEventTarget.All, nameof(SunHitFx));
 
         // フルチャージの時だけ、モンスターを少し遠くまで押し飛ばす
         if (charge >= 0.99f) enemyPower *= fullChargeEnemyBoost;
