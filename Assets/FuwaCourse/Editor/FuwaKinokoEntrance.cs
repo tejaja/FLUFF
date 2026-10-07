@@ -379,30 +379,39 @@ public static class FuwaKinokoEntrance
         }
     }
 
-    // 段の正面に、上の横木から縦の板がぶら下がる（dir：板を置く側 -1＝手前、1＝奥）。
-    // 板ごとに長さ・幅・傾きをばらつかせ、ところどころ抜け・短く折れ・外へぷらんと垂れた板を混ぜる。見た目だけ
+    // 段のはし（すき間に面した側）を、床が崩れた見た目にする（dir：FrontBoards と同じ。すき間は -dir 側）。
+    // 床の板は横向きなので、はしの横板が「片方の釘だけ残って」斜めにぶら下がる。下の桁は端から少し飛び出して折れている。見た目だけ
     static void HangingBoards(MB mb, float d, float topY, float h, float dir, System.Random rnd)
     {
         float R(float lo, float hi) => lo + (float)rnd.NextDouble() * (hi - lo);
-        var outN = D * dir;                          // 板の外向き（すき間側）
-        float hingeY = topY - 0.1f;                  // 板の上端（横木の中ほど）
-        // 上の横木（板を打ちつけている桁）
-        mb.Box(W(d + dir * 0.07f, 0, topY - 0.11f), S * (HalfW + 0.04f), Vector3.up * 0.075f, D * 0.05f, BeamCol);
-        float x = -HalfW + 0.02f;
-        while (x < HalfW - 0.06f)
+        var gap = -D * dir;                          // すき間の向き
+        const float th = 0.08f, pw = 0.27f;
+        // 桁の折れた先：床の下の2本の桁が端から飛び出している（少し下へ折れ曲がる）
+        foreach (var sg in new[] { -1f, 1f })
         {
-            float w = Mathf.Min(R(0.17f, 0.27f), HalfW - x); float cx = x + w * 0.5f; x += w + R(0.004f, 0.02f);
-            bool edge = cx < -HalfW + 0.3f || cx > HalfW - 0.3f;
-            double roll = rnd.NextDouble();
-            if (!edge && roll < 0.13) continue;                        // 抜けた板
-            float len = roll < 0.33 ? h * R(0.3f, 0.55f) : h * R(0.72f, 1.02f);   // 折れて短い板／ほぼ全長
-            float swing = roll > 0.82 ? R(9f, 22f) : R(-2.5f, 4f);      // 外へぷらんと垂れる板
-            var hinge = W(d + dir * 0.02f, cx, hingeY);
-            var q = Quaternion.AngleAxis(swing * dir, S) * Quaternion.AngleAxis(R(-3.5f, 3.5f), outN) * Quaternion.AngleAxis(R(-2.5f, 2.5f), Vector3.up);
-            var down = q * Vector3.down; var side = q * S; var face = q * outN;
-            var c = hinge + down * (len * 0.5f) + face * 0.025f;
-            var col = Plank(rnd) * 0.82f; col.a = 1;
-            mb.Box(c, side * (w * 0.5f - 0.004f), down * (len * 0.5f), face * 0.025f, col);
+            float len = R(0.12f, 0.38f);
+            float t = R(4f, 14f) * Mathf.Deg2Rad;
+            var fw = (gap * Mathf.Cos(t) + Vector3.down * Mathf.Sin(t)).normalized;
+            var up = Vector3.Cross(S, fw).normalized; if (up.y < 0) up = -up;
+            var root0 = W(d, sg * (HalfW - 0.42f), topY - th - 0.15f);
+            mb.Box(root0 + fw * (len * 0.5f), S * 0.07f, up * 0.15f, fw * (len * 0.5f), BeamCol);
+        }
+        // はしの横板が片方の端でぶら下がる（2〜3枚、手前から順に少しずつすき間側へ）
+        int n = 2 + (rnd.NextDouble() < 0.5 ? 1 : 0);
+        float lastSide = rnd.NextDouble() < 0.5 ? -1f : 1f;
+        for (int i = 0; i < n; i++)
+        {
+            float sg = (i == 0) ? lastSide : (rnd.NextDouble() < 0.65 ? -lastSide : lastSide); lastSide = sg;   // 残った釘の側
+            float plankLen = i == n - 1 && rnd.NextDouble() < 0.6 ? R(0.7f, 1.2f) : R(1.4f, HalfW * 2f - 0.1f);  // 折れて短いのも
+            float ang = R(38f, 78f);                                                     // 垂れ下がりの角度
+            var pivot = W(d, sg * (HalfW - R(0.06f, 0.28f)), topY - th * 0.5f) + gap * (0.03f + 0.075f * i);
+            var along = (-sg * S) * Mathf.Cos(ang * Mathf.Deg2Rad) + Vector3.down * Mathf.Sin(ang * Mathf.Deg2Rad);   // 板の長手
+            var twist = Quaternion.AngleAxis(R(-10f, 10f), along);
+            var wdir = twist * gap;                                                      // 板の幅方向（もとは床の進む向き）
+            var tdir = Vector3.Cross(along, wdir).normalized;                            // 板の厚み方向
+            var c = pivot + along * (plankLen * 0.5f - 0.04f);
+            var col = Plank(rnd) * 0.9f; col.a = 1;
+            mb.Box(c, along * (plankLen * 0.5f), tdir * (th * 0.5f), wdir * (pw * 0.5f - 0.01f), col);
         }
     }
 
