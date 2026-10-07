@@ -309,15 +309,25 @@ public static class FuwaMamonoDeco
             {
                 // 小枝は1〜3本の小さな山にする
                 int pile = rnd.Next(1, 4);
-                for (int k = 0; k < pile; k++) Twig(floorMb, fp + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * R(0, 0.15f) + Vector3.up * k * 0.02f, Quaternion.Euler(0, R(0, 360), 0), R(0.4f, 0.9f), R(0.02f, 0.034f), rnd);
+                for (int k = 0; k < pile; k++)
+                {
+                    var at = fp + Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward * R(0, 0.15f) + Vector3.up * k * 0.02f;
+                    var yawQ = Quaternion.Euler(0, R(0, 360), 0); float len = R(0.4f, 0.9f), rad = R(0.02f, 0.034f);
+                    // 枝の両はしの下にも床があること（ふちから空中へはみ出さない）。だめなら短くして、それでもだめなら置かない
+                    bool Ends(float L) { var d2 = yawQ * Vector3.forward * (L * 0.5f); foreach (var e in new[] { at + d2, at - d2 }) { if (!Physics.Raycast(e + Vector3.up * 1.5f, Vector3.down, out var eh, 3f, 1 << 31, QueryTriggerInteraction.Ignore) || Mathf.Abs(eh.point.y - fp.y) > 0.06f) return false; } return true; }
+                    if (!Ends(len)) { len *= 0.55f; if (!Ends(len)) continue; }
+                    Twig(floorMb, at, yawQ, len, rad, rnd);
+                }
                 nTwig++; floorSpots.Add((fp, 0.5f));
             }
             else if (kind == 1 && nFeather < quota[1]) { Feather(floorMb, Matrix4x4.TRS(fp, yaw, Vector3.one), R(0.26f, 0.42f), R(0.055f, 0.085f), FeatherColor(rnd)); nFeather++; }
             else if (kind == 2 && nShell < quota[2])
             {
                 float er = R(0.11f, 0.17f); var col = EggColor(rnd);
-                Shell(floorMb, Matrix4x4.TRS(fp + Vector3.up * er * 1.3f * 0.92f,   /* ひっくり返したカラはふくらみが下なので、高さ分だけ上げて床に乗せる（前は大部分が床に埋まっていた） */ Quaternion.Euler(R(150, 210), R(0, 360), R(-25, 25)), Vector3.one), er, er * 1.3f, 0f, R(0.9f, 1.3f), col, rnd);
-                if (rnd.NextDouble() < 0.5) Shell(floorMb, Matrix4x4.TRS(fp + yaw * Vector3.forward * er * 2.4f + Vector3.up * er * 1.3f * 0.8f * 0.92f, Quaternion.Euler(R(160, 200), R(0, 360), 0), Vector3.one * 0.8f), er, er * 1.3f, 0f, R(0.6f, 0.9f), col, rnd);
+                bool edgeOk = true; for (int q = 0; q < 6 && edgeOk; q++) { var e = fp + Quaternion.Euler(0, q * 60, 0) * Vector3.forward * (er * 3.4f); if (!Physics.Raycast(e + Vector3.up * 1.5f, Vector3.down, out var eh, 3f, 1 << 31, QueryTriggerInteraction.Ignore) || Mathf.Abs(eh.point.y - fp.y) > 0.06f) edgeOk = false; }
+                if (!edgeOk) continue;   // 殻（と横に転がるかけら）の下にも床があること
+                Shell(floorMb, Matrix4x4.TRS(fp + Vector3.up * (er * 1.3f + 0.012f),   /* ひっくり返したカラはふくらみが下なので、高さ分だけ上げて床に乗せる（前は大部分が床に埋まっていた） */ Quaternion.Euler(R(150, 210), R(0, 360), R(-25, 25)), Vector3.one), er, er * 1.3f, 0f, R(0.9f, 1.3f), col, rnd);
+                if (rnd.NextDouble() < 0.5) Shell(floorMb, Matrix4x4.TRS(fp + yaw * Vector3.forward * er * 2.4f + Vector3.up * (er * 1.3f * 0.8f + 0.012f), Quaternion.Euler(R(160, 200), R(0, 360), 0), Vector3.one * 0.8f), er, er * 1.3f, 0f, R(0.6f, 0.9f), col, rnd);
                 nShell++; floorSpots.Add((fp, er * 3.6f));
             }
             else if (kind == 3 && nTuft < quota[3]) { Tuft(floorMb, fp, fur, rnd); nTuft++; }
