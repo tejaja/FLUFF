@@ -769,30 +769,56 @@ public static class FuwaCourse1Builder
                 }
             }
             }
-            // 折れ目：両側の折れた板が下へ垂れて、割れ目の中ほどに落ちかけの板が1枚ひっかかっている（見た目だけ）
+            // 折れ目（2026-10-07 きのこのたにの崩れた段と同じ考え方に作り直し）：
+            // 床の板は横向きなので、はしの横板が「片方の釘だけ残って」斜めにぶら下がる。下の桁は端から少し飛び出して下へ折れている。見た目だけ
             if (pc == 3 || pc == 4)
             {
                 float BreakA = pc == 3 ? BridgeBreakA : RampBreakA, BreakB = pc == 3 ? BridgeBreakB : RampBreakB;
-                float hw = Width(pc, BreakA) * 0.5f;
-                void Hanging(float sEdge, float dir, float len, float droop, float latA, float latB, List<int> T)
+                var hr = new System.Random(pc == 3 ? 23 : 29);
+                float H(float lo, float hi) { return lo + (float)hr.NextDouble() * (hi - lo); }
+                // 中心・3軸（半分の長さつき）の箱を AddBox の角の順（s方向, 横方向, 上下）で
+                void BoxC(Vector3 c, Vector3 axS, Vector3 axL, Vector3 axT, List<int> T)
                 {
-                    // sEdge から dir の向きへ len 伸びて、先が droop 下がる板
-                    float a = sEdge, b = sEdge + dir * len;
-                    AddBox(V, T, new[] {
-                        P(a, latA, -PlankT), P(b, latA, -PlankT - droop), P(b, latB, -PlankT - droop), P(a, latB, -PlankT),
-                        P(a, latA, 0), P(b, latA, -droop), P(b, latB, -droop), P(a, latB, 0) });
+                    AddBox(V, T, new[] { c - axS - axL - axT, c + axS - axL - axT, c + axS + axL - axT, c - axS + axL - axT,
+                                         c - axS - axL + axT, c + axS - axL + axT, c + axS + axL + axT, c - axS + axL + axT });
                 }
-                Hanging(BreakA, 1f, 0.32f, 0.22f, -hw + 0.05f, -0.05f, TA);
-                Hanging(BreakA, 1f, 0.24f, 0.12f, 0.02f, hw - 0.12f, TB);
-                Hanging(BreakB, -1f, 0.30f, 0.26f, -0.05f, hw - 0.05f, TB);
-                Hanging(BreakB, -1f, 0.20f, 0.10f, -hw + 0.08f, -0.10f, TA);
-                // 手前の垂れた板の先から、さらにぶら下がっている板（上の端を垂れた板の先にくっつけて、浮いて見えないように）
+                foreach (var (sEdge, dir) in new[] { (BreakA, 1f), (BreakB, -1f) })
                 {
-                    float sTop = BreakA + 0.29f, sBot = BreakA + 0.36f, t = 0.06f, yTop = -PlankT - 0.2f, yBot = -1.0f;
-                    float la = -hw + 0.1f, lb = -0.12f;
-                    AddBox(V, TC, new[] {
-                        P(sTop, la, yTop), P(sTop, lb, yTop), P(sBot, lb, yBot), P(sBot, la, yBot),
-                        P(sTop + t, la, yTop), P(sTop + t, lb, yTop), P(sBot + t, lb, yBot), P(sBot + t, la, yBot) });
+                    float hw = Width(pc, sEdge) * 0.5f;
+                    Vector3 o = P(sEdge, 0, 0);
+                    Vector3 gap = (P(sEdge + dir * 0.5f, 0, 0) - o); gap.y = 0; gap.Normalize();    // すき間の向き
+                    Vector3 latV = (P(sEdge, 1f, 0) - o); latV.y = 0; latV.Normalize();               // 横（＋側）
+                    // 桁の折れた先：2本とも端から少し飛び出して、少し下へ折れる
+                    foreach (float side in new[] { -1f, 1f })
+                    {
+                        float len = H(0.12f, 0.36f), t = H(4f, 14f) * Mathf.Deg2Rad;
+                        var fw = (gap * Mathf.Cos(t) + Vector3.down * Mathf.Sin(t)).normalized;
+                        var up = Vector3.Cross(fw, latV).normalized; if (up.y < 0) up = -up;
+                        var root0 = P(sEdge, side * (hw - 0.16f), -PlankT - 0.002f - BeamH * 0.5f);
+                        BoxC(root0 + fw * (len * 0.5f), fw * (len * 0.5f), latV * (BeamW * 0.5f), up * (BeamH * 0.5f), TC);
+                    }
+                    // はしの横板が片方の端でぶら下がる（2〜3枚。すき間側へ少しずつずらす）
+                    int n = 2 + (hr.NextDouble() < 0.5 ? 1 : 0);
+                    float nail = hr.NextDouble() < 0.5 ? -1f : 1f, firstNail = nail, firstReach = 0f;
+                    for (int i = 0; i < n; i++)
+                    {
+                        if (i > 0 && hr.NextDouble() < 0.65) nail = -nail;                                   // 残った釘の側
+                        float plankLen = (i == n - 1 && hr.NextDouble() < 0.6) ? H(0.6f, 1.0f) : H(1.1f, hw * 2f - 0.05f);
+                        float ang = H(38f, 76f) * Mathf.Deg2Rad;
+                        // 反対側の釘からぶら下がる板は、先に垂れた板と×に交差しないよう短く・急に
+                        if (i > 0 && nail != firstNail)
+                        {
+                            ang = H(62f, 80f) * Mathf.Deg2Rad;
+                            plankLen = Mathf.Min(H(0.35f, 0.6f), Mathf.Max(0.3f, (hw * 2f - firstReach - 0.2f) / Mathf.Cos(ang)));
+                        }
+                        if (nail == firstNail) firstReach = Mathf.Max(firstReach, plankLen * Mathf.Cos(ang));
+                        var pivot = P(sEdge, nail * (hw - H(0.06f, 0.25f)), -PlankT * 0.5f) + gap * (0.03f + 0.07f * i);
+                        var along = (-nail * latV) * Mathf.Cos(ang) + Vector3.down * Mathf.Sin(ang);
+                        var wdir = Quaternion.AngleAxis(H(-10f, 10f), along) * gap;
+                        var tdir = Vector3.Cross(along, wdir).normalized;
+                        var c = pivot + along * (plankLen * 0.5f - 0.04f);
+                        BoxC(c, wdir * (PlankLen * 0.5f), along * (plankLen * 0.5f), tdir * (PlankT * 0.5f), (hr.NextDouble() < 0.5) ? TA : TB);
+                    }
                 }
             }
         }
