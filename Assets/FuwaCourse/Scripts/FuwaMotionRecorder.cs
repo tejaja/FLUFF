@@ -169,7 +169,8 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
         _parts[k++] = held ? ((int)_gunPickup.currentHand).ToString() : "0";
         if (_gun != null)
         {
-            var gt = _gun.transform;
+            // 見た目の部分（visualRoot）を録る。デスクトップでは本体ではなく見た目だけが手のひら＋視線の向きに動かされるため
+            var gt = _gun.visualRoot != null ? _gun.visualRoot.transform : _gun.transform;
             k = PutPos(k, gt.position); k = PutRot(k, gt.rotation);
             _parts[k++] = Mm(gt.lossyScale.x);
             object c = _gun.GetProgramVariable("_charging");

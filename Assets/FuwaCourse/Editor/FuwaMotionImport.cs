@@ -349,10 +349,12 @@ public static class FuwaMotionImport
     // シーンの銃（FuwaBlower のひな形）から見た目だけコピー
     internal static GameObject MakeGunVisual(Transform parent)
     {
-        var src = UnityEngine.Object.FindObjectsOfType<FuwaBlower>(true).Select(b => b.gameObject).FirstOrDefault();
+        // 録画は銃の見た目の部分（visualRoot）の位置と向きなので、それを基準にコピーする
+        var blower = UnityEngine.Object.FindObjectsOfType<FuwaBlower>(true).FirstOrDefault();
         var holder = new GameObject("Gun");
         holder.transform.SetParent(parent, false);
-        if (src == null) return holder;
+        if (blower == null) return holder;
+        var src = blower.visualRoot != null ? blower.visualRoot : blower.gameObject;
         foreach (var mr in src.GetComponentsInChildren<MeshRenderer>(true))
         {
             if (!mr.enabled || !mr.gameObject.activeInHierarchy && !mr.gameObject.activeSelf) continue;
