@@ -138,6 +138,83 @@ public static class FuwaMamonoDeco
         }
         log.Append("nests " + placed.Count + " ");
 
+        var eggSpots = new List<Vector3>();
+        // ---- 大回りの途中の何もない小島（Islet）：割れていないタマゴのセットを端っこにいくつか（2026-10-07 てじゃ）----
+        {
+            var islet = den.Find("Islet");
+            if (islet != null)
+            {
+                var ir = new System.Random(77);
+                float IR(float a, float b) { return a + (float)ir.NextDouble() * (b - a); }
+                var ib = islet.GetComponent<Renderer>().bounds;
+                // 床とふち（高い所の頂点）から中心と外周の半径を出す（下に垂れた根っこで bounds は広がっているので使わない）
+                var topV = islet.GetComponent<MeshFilter>().sharedMesh.vertices.Select(x => islet.TransformPoint(x)).Where(x => x.y > 5.4f).ToList();
+                var ic = topV.Aggregate(Vector3.zero, (a2, b2) => a2 + b2) / topV.Count; ic.y = 0f;
+                // 床の半径は当たり判定の床（高さ5.5の円）から（見た目はふちの小枝が外へはみ出している）
+                var colT = den.Find("Islet_Col");
+                var floorV = colT.GetComponent<MeshCollider>().sharedMesh.vertices.Select(x => colT.TransformPoint(x)).Where(x => Mathf.Abs(x.y - 5.5f) < 0.03f).ToList();
+                if (floorV.Count > 0) { ic = floorV.Aggregate(Vector3.zero, (a2, b2) => a2 + b2) / floorV.Count; ic.y = 0f; }
+                float outerR = floorV.Count > 0 ? floorV.Max(x => new Vector2(x.x - ic.x, x.z - ic.z).magnitude) : 1.8f;
+                // 見た目の床の高さを調べるための一時的な当たり判定
+                var tgo = new GameObject("_isletFloor"); tgo.hideFlags = HideFlags.HideAndDontSave; tgo.layer = 31;
+                tgo.transform.SetPositionAndRotation(islet.position, islet.rotation);
+                tgo.AddComponent<MeshCollider>().sharedMesh = islet.GetComponent<MeshFilter>().sharedMesh;
+                Physics.SyncTransforms();
+                // 橋の向き（そこには置かない）
+                var bdirs = new List<Vector3>();
+                foreach (Transform b in den)
+                {
+                    if (!b.name.StartsWith("Bridge") || b.name.EndsWith("_Col")) continue;
+                    var bm = b.GetComponent<MeshFilter>().sharedMesh; var bv = bm.vertices;
+                    // 橋の頂点で小島に一番近い所の向き
+                    Vector3 best = Vector3.zero; float bd = 1e9f;
+                    for (int i = 0; i < bv.Length; i += 5) { var w = b.TransformPoint(bv[i]); float d = new Vector2(w.x - ic.x, w.z - ic.z).magnitude; if (d < bd) { bd = d; best = w; } }
+                    if (bd < outerR + 0.6f) bdirs.Add(new Vector3(best.x - ic.x, 0, best.z - ic.z).normalized);
+                }
+                var angs = new List<float>();
+                for (int k = 0; k < 36 && angs.Count < 3; k++)
+                {
+                    float a = (k * 137.5f + 20f) % 360f;
+                    var d = Quaternion.Euler(0, a, 0) * Vector3.forward;
+                    if (bdirs.Any(b => Vector3.Angle(b, d) < 45f)) continue;
+                    if (angs.Any(o => Mathf.Abs(Mathf.DeltaAngle(o, a)) < 60f)) continue;
+                    angs.Add(a);
+                }
+                float floorR = outerR - 0.35f - 0.1f;   // ふちの内側
+                foreach (var a in angs)
+                {
+                    float er = IR(0.15f, 0.19f);
+                    var dirA = Quaternion.Euler(0, a, 0) * Vector3.forward;
+                    // ふちの上に乗らない所まで内側へ寄せる
+                    Vector3 pos = ic; RaycastHit fh = default; bool ok = false;
+                    for (float rr = floorR - er * 2.3f; rr > 0.4f && !ok; rr -= 0.12f)
+                    {
+                        pos = ic + dirA * rr;
+                        ok = true;
+                        for (int q = 0; q < 6 && ok; q++)
+                        {
+                            var probe = pos + Quaternion.Euler(0, q * 60, 0) * Vector3.forward * (er * 2.1f);
+                            if (!Physics.Raycast(new Vector3(probe.x, 9f, probe.z), Vector3.down, out var ph, 6f, 1 << 31) || ph.point.y > 5.62f) ok = false;
+                        }
+                        if (ok) ok = Physics.Raycast(new Vector3(pos.x, 9f, pos.z), Vector3.down, out fh, 6f, 1 << 31);
+                    }
+                    if (!ok) continue;
+                    pos.y = fh.point.y;
+                    eggSpots.Add(pos);
+                    var col = EggColor(ir); float d = er * 1.18f, a0 = IR(0, 360);
+                    Bedding(eggs, pos, d + er * 0.95f, er, ir);
+                    for (int k = 0; k < 3; k++)
+                    {
+                        var outDir = Quaternion.Euler(0, a0 + k * 120 + IR(-10, 10), 0) * Vector3.forward;
+                        var tilt = Quaternion.AngleAxis(IR(8, 16), Vector3.Cross(Vector3.up, outDir)) * Quaternion.Euler(0, IR(0, 360), 0);
+                        Shell(eggs, Matrix4x4.TRS(pos + outDir * d + Vector3.up * er * 0.85f, tilt, Vector3.one), er, er * 1.3f, 0f, Mathf.PI, col, ir);
+                    }
+                }
+                Object.DestroyImmediate(tgo);
+                log.Append("isletEggs " + angs.Count + " ");
+            }
+        }
+
         // ---- D：巣の裏から垂れる根っこ・ツタ ----
         var underSrc = new List<(Vector3 p, Vector3 n)>();
         foreach (var r in den.GetComponentsInChildren<MeshRenderer>())
@@ -207,6 +284,7 @@ public static class FuwaMamonoDeco
         if (furMat != null && furMat.HasProperty("_Color")) fur = furMat.color;
         int nTwig = 0, nFeather = 0, nShell = 0, nTuft = 0; tries = 0;
         var floorSpots = new List<(Vector3 p, float r)>();   // 床の小物の場所（抜け毛と重ならないように）
+        foreach (var e in eggSpots) floorSpots.Add((e, 0.75f));   // 小島のタマゴのセット
         int[] quota = { 70, 0, 18, 0 };   // 羽根は鳥じゃないのでなし。抜け毛は下で敵のまわりにだけ散らす
         while (tries++ < 20000 && (nTwig < quota[0] || nFeather < quota[1] || nShell < quota[2] || nTuft < quota[3]))
         {
@@ -223,7 +301,8 @@ public static class FuwaMamonoDeco
             }
             if (!nearEdge && rnd.NextDouble() < 0.75) continue;
             var vf = VisFloor(hit.point);
-            if (vf.y - hit.point.y > 0.12f) continue;   // 見た目のふち（当たり判定は低く削ってある）の上には置かない
+            if (vf.y - hit.point.y > 0.12f) continue;
+            if (floorSpots.Any(f => new Vector2(f.p.x - vf.x, f.p.z - vf.z).magnitude < f.r + 0.3f)) continue;   // ほかの小物・タマゴと重ねない   // 見た目のふち（当たり判定は低く削ってある）の上には置かない
             var yaw = Quaternion.Euler(0, R(0, 360), 0); var fp = vf + Vector3.up * 0.005f;
             int kind = rnd.Next(4);
             if (kind == 0 && nTwig < quota[0])
