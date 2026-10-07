@@ -1,0 +1,30 @@
+{
+    "name": "Fluff.NetSim.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Haselab.NetSim.Editor",
+        "VRC.SDKBase",
+        "VRC.SDK3",
+        "VRC.Udon",
+        "UdonSharp.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "FLUFF_NETSIM"
+    ],
+    "versionDefines": [
+        {
+            "name": "net.haselab.netsim",
+            "expression": "0.0.1",
+            "define": "FLUFF_NETSIM"
+        }
+    ],
+    "noEngineReferences": false
+}
