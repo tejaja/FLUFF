@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -194,7 +194,9 @@ public static class FuwaCourse2Builder
         mc.sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/Course2Path_v2.asset");
         EditorUtility.SetDirty(pm.gameObject);
         string planks = BuildRampPlanks(root, toCourse);
-        return "Course2 path rebuilt: verts " + vis.vertexCount + " / " + planks;
+        // 溝の出口側は道の始まりを切り取って崩れた端（JagExit）にしているので、作り直したら必ずやり直す（忘れると同じ高さで重なってZファイト。2026-10-07）
+        string jag = FuwaGrooveEdges.Run();
+        return "Course2 path rebuilt: verts " + vis.vertexCount + " / " + planks + " / " + jag;
     }
 
     // Startローカル → コースのローカル
