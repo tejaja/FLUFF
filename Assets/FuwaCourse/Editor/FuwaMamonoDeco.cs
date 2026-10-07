@@ -187,14 +187,14 @@ public static class FuwaMamonoDeco
                     var dirA = Quaternion.Euler(0, a, 0) * Vector3.forward;
                     // ふちの上に乗らない所まで内側へ寄せる
                     Vector3 pos = ic; RaycastHit fh = default; bool ok = false;
-                    for (float rr = floorR - er * 2.3f; rr > 0.4f && !ok; rr -= 0.12f)
+                    for (float rr = outerR - er * 1.2f; rr > 0.4f && !ok; rr -= 0.05f)
                     {
                         pos = ic + dirA * rr;
                         ok = true;
                         for (int q = 0; q < 6 && ok; q++)
                         {
-                            var probe = pos + Quaternion.Euler(0, q * 60, 0) * Vector3.forward * (er * 2.1f);
-                            if (!Physics.Raycast(new Vector3(probe.x, 9f, probe.z), Vector3.down, out var ph, 6f, 1 << 31) || ph.point.y > 5.62f) ok = false;
+                            var probe = pos + Quaternion.Euler(0, q * 60, 0) * Vector3.forward * (er * 1.35f);   // しきわらの外側は少しふちの下にもぐってもいい（壁ぎわに寄せる）
+                            if (!Physics.Raycast(new Vector3(probe.x, 9f, probe.z), Vector3.down, out var ph, 6f, 1 << 31) || ph.point.y > 5.75f) ok = false;
                         }
                         if (ok) ok = Physics.Raycast(new Vector3(pos.x, 9f, pos.z), Vector3.down, out fh, 6f, 1 << 31);
                     }
