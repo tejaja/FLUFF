@@ -33,9 +33,9 @@ public static class FuwaKinokoEntrance
     public static float TabCut = 46.45f, TabEnd = 47.3f, TabHalfW = 1.3f, TabTopY = 18.17f;
     public static float HalfW = 1.5f;
     public static float CapLift = 0.6f;    // キノコの傘を床より上に（小ジャンプで乗る。0.5以下だとVRChatでは歩いて登れる）
-    public static float CapScale = 0.6f, ShelfScale = 0.5f, ShelfTopY = 9.75f;
+    public static float CapScale = 0.6f, ShelfScale = 0.5f, ShelfTopY = 9.62f;   // 2026-10-07 9.75→9.62：根本の盛り上がり（傘の上面+7cm）が段の板の上端（YA1-0.08）より上に出ていた
     public static float ShelfOut = 0.8f;   // サルノコシカケが平らAの先の壁（手前側）から出る長さ
-    public static float ShelfImpulse = 4.6f;   // サルノコシカケの上のジャンプ力（高さ約1.08m）
+    public static float ShelfImpulse = 4.85f;  // サルノコシカケの上のジャンプ力（高さ約1.2m。傘を13cm下げたぶん強めた）
 
     const string MeshDir = "Assets/FuwaCourse/Meshes";
 
@@ -146,7 +146,7 @@ public static class FuwaKinokoEntrance
             // 手前のふちを平らAの壁に少しめりこませる
             Physics.SyncTransforms();
             float minD = 99; foreach (var r in shelf.Find("Visual").GetComponentsInChildren<MeshFilter>()) foreach (var v in r.sharedMesh.vertices) minD = Mathf.Min(minD, Dd(r.transform.TransformPoint(v)));
-            shelf.position += D * (FlatA1 - 0.08f - minD);
+            shelf.position += D * (FlatA1 - 0.06f - minD);   // 板の厚みの中に2cm埋める（板の裏面と同じ面だと根本の切り口が見えた）
             var j = shelf.GetComponentInChildren<FuwaJumpBoost>(); j.jumpImpulse = ShelfImpulse; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j);
         }
 
