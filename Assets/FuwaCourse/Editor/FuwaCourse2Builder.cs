@@ -211,6 +211,8 @@ public static class FuwaCourse2Builder
     }
 
     public const float CP1 = 18.5f, CP2 = 50f, GoalS = 89.5f;
+    // ゴールの島を持ち上げて、柵の入口を回り込む上り坂（Rocks2/PlazaWalk）の方へ向ける（2026-10-07。c2plaza.py の GOAL_LIFT と同じ）
+    public const float GoalLift = 2.6f, GoalYawOffset = -82f;
 
     [MenuItem("FuwaCourse/Course2/Place Objects")]
     public static void PlaceMenu() { Debug.Log(PlaceObjects()); }
@@ -245,8 +247,8 @@ public static class FuwaCourse2Builder
         var goal = root.Find("Goal");
         Undo.RecordObject(goal, "place");
         var gp = m.MultiplyPoint3x4(Point(2, GoalS, 0, 0));
-        goal.localPosition = gp + Vector3.down * 0.02f;
-        goal.localRotation = Quaternion.Euler(0, Yaw(root, 87f), 0);
+        goal.localPosition = gp + Vector3.down * 0.02f + Vector3.up * GoalLift;
+        goal.localRotation = Quaternion.Euler(0, Yaw(root, 87f) + GoalYawOffset, 0);
 
         // 落下キャッチ：道全体の下
         var fc = root.Find("FallCatcher");

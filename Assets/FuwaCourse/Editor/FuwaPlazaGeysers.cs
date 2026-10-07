@@ -6,16 +6,20 @@ using UnityEngine;
 
 // コース2「いわのみち」ゴール前の崩れた広場（2026-10-07）：
 // 穴の底から立つ岩柱3本の噴気孔が順番にドンッと噴く（ふわふわ用の FuwaWindArea＋噴いている間だけ人も持ち上げる FuwaPlayerUpdraft）。
-// 浮き岩2つは FuwaBobber で上下。ふわふわが穴に落ちたらアウト（DiveFloor を穴全体に広げる）。
+// v4（2026-10-07）：人は回り込む上り坂（Rocks2/PlazaWalk）を歩くだけ。噴気孔はふわふわ専用で、崖下で拾う1本と、
+// 坂の内側でゴールの高さまで持ち上げる1本（ゴールの方へ少し傾けて噴く）。柱は当たっても跳ね返るだけ（FuwaBounce）。
+// ふわふわが穴に落ちたらアウト（DiveFloor を穴全体に広げる）。
 // 岩の形は Blender（FLUFF_models.blend の C2Plaza、scratchpad の c2plaza.py）→ ImportRocks で Rocks2/Plaza*。
 // 何度実行しても同じ結果（Udon の付いた物は作り直さずに設定だけ上書き、見た目の Fx だけ作り直す）。
 public static class FuwaPlazaGeysers
 {
     // 噴気孔の口（コースローカル。c2plaza.py の VENTS / CREST と同じ）
     // 2026-10-07 改：人もふわふわも柱A(2)→柱B(3)の噴気をたどる一本道。柱A・Bは足場より低い（噴気に乗らないと上がれない）。1本目は崖から落ちたふわふわを拾う用
-    static readonly Vector3[] Vents = { new Vector3(20.1085f, 2.3f, 70.8529f), new Vector3(16.5489f, 1.2f, 75.3328f), new Vector3(12.8927f, 1.0f, 76.5125f) };
+    static readonly Vector3[] Vents = { new Vector3(19.6377f, 2.3f, 71.0213f), new Vector3(14.7774f, 3.0f, 76.1998f) };
+    static readonly float[] Tops = { 6.5f, 8.2f };       // 風の届く高さ（コースローカル y）。2本目はゴールの柵(5.6+0.6)より上まで
+    static readonly float[] Tilts = { 0f, 15f };         // ゴールの方へ傾ける角度
+    static readonly Vector3 GoalCenter = new Vector3(12.74638f, 0f, 81.45003f);
     public static float OnSec = 2.0f, OffSec = 1.6f, Lag = 1.2f;   // 2026-10-07 てじゃ「ムズい」→ 長く・間隔短く（元 1.3/2.3）   // 1→2→3 の順に Lag 秒ずつ遅れて噴く
-    public static float BallTop = 8.0f, PlayerTop = 5.3f;   // 人：ゴールの島(3.0)＋柵の上まで          // 風の届く高さ（コースローカル y）
     public static float BaseLevel = 0.3f;   // 7×0.3=2.1 > 落ちる力1.5 → 噴気の上ではゆっくり上がって止まる
     public static float BallStrength = 7f, BallFade = 0.35f;   // 1回噴くと約3m上がる（geysim.py で試算）。10だと崖より高く上がって滑空しほうだい
     const string BurstPath = "Assets/FuwaCourse/Audio/sfx_geyser_burst.wav";
@@ -51,6 +55,8 @@ public static class FuwaPlazaGeysers
         {
             var g = Child(holder, "Geyser" + (k + 1));
             g.localPosition = Vents[k]; g.localRotation = Quaternion.identity;
+            var toGoal = GoalCenter - Vents[k]; toGoal.y = 0f; toGoal.Normalize();
+            var tiltRot = Quaternion.AngleAxis(Tilts[k], Vector3.Cross(Vector3.up, toGoal));
 
             // ---- 見た目（毎回作り直す。Udon なし）
             var oldFx = g.Find("Fx"); if (oldFx != null) Object.DestroyImmediate(oldFx.gameObject);
@@ -58,6 +64,7 @@ public static class FuwaPlazaGeysers
             fx.localPosition = new Vector3(0f, -0.15f, 0f);
             var erupt = MakeErupt(fx, puff);
             var jet = MakeJet(fx, puff);
+            erupt.transform.localRotation = tiltRot; jet.transform.localRotation = tiltRot;
             MakeIdle(fx, puff);
             MakeGlow(fx, glow);
             var boom = MakeAudio(fx, "Burst", burst, false, 0.55f, 26f, 0.95f + 0.05f * k);
@@ -66,10 +73,11 @@ public static class FuwaPlazaGeysers
             // ---- ふわふわ用の噴気
             var zone = Child(g, "Zone");
             zone.gameObject.layer = 0;
-            float y0 = 2.0f - Vents[k].y;
-            zone.localPosition = new Vector3(0f, (y0 + (BallTop - Vents[k].y)) * 0.5f, 0f); zone.localRotation = Quaternion.identity; zone.localScale = Vector3.one;
+            // 口の0.3m下から、傾けた向きに Tops の高さまで
+            float y0 = -0.3f, y1 = (Tops[k] - Vents[k].y) / Mathf.Cos(Tilts[k] * Mathf.Deg2Rad);
+            zone.localRotation = tiltRot; zone.localPosition = tiltRot * new Vector3(0f, (y0 + y1) * 0.5f, 0f); zone.localScale = Vector3.one;
             var bc = zone.GetComponent<BoxCollider>(); if (bc == null) bc = zone.gameObject.AddComponent<BoxCollider>();
-            bc.isTrigger = true; bc.center = Vector3.zero; bc.size = new Vector3(1.5f, BallTop - 2.0f, 1.5f);
+            bc.isTrigger = true; bc.center = Vector3.zero; bc.size = new Vector3(1.5f, y1 - y0, 1.5f);
             var w = USharp<FuwaWindArea>(zone.gameObject);
             w.localDirection = Vector3.up; w.strength = BallStrength; w.fadeAlongDirection = BallFade;
             w.onSeconds = OnSec; w.offSeconds = OffSec;
@@ -83,49 +91,33 @@ public static class FuwaPlazaGeysers
             w.groundHighlight = null;
             UdonSharpEditorUtility.CopyProxyToUdon(w);
 
-            // ---- 人用（噴いている間だけ持ち上げる）
-            var lift = Child(g, "PlayerLift");
-            lift.gameObject.layer = 0;
-            float p0 = 0.05f - 0.6f;   // 穴の底（口の0.6m下）から
-            float p1 = PlayerTop - Vents[k].y;
-            lift.localPosition = new Vector3(0f, (p0 + p1) * 0.5f, 0f); lift.localRotation = Quaternion.identity; lift.localScale = Vector3.one;
-            var lc = lift.GetComponent<BoxCollider>(); if (lc == null) lc = lift.gameObject.AddComponent<BoxCollider>();
-            lc.isTrigger = true; lc.center = Vector3.zero; lc.size = new Vector3(1.3f, p1 - p0, 1.3f);
-            var u = USharp<FuwaPlayerUpdraft>(lift.gameObject);
-            u.liftSpeed = 4.2f; u.hoverBand = 1.2f; u.hoverDrift = 0.25f; u.airMaxSpeed = 3f; u.airBrake = 1f;   // 横に伸びるように（元 1.6 / 4）
-            u.slowFallTime = 2.0f; u.slowFallGravity = 0.3f; u.normalGravity = 1f;
-            u.onlyWhileBlowing = w;
-            UdonSharpEditorUtility.CopyProxyToUdon(u);
+            // 人用の上昇気流は v4 でなくした（人は坂を歩く）
+            var oldLift = g.Find("PlayerLift");
+            if (oldLift != null) { var ou = oldLift.GetComponent<FuwaPlayerUpdraft>(); if (ou != null) UdonSharpUndo.DestroyImmediate(ou); Undo.DestroyObjectImmediate(oldLift.gameObject); }
             log += g.name + " phase " + w.phaseOffset.ToString("F2") + "  ";
         }
+        // 前の版の3本目
+        for (int k = Vents.Length; k < 6; k++) { var old = holder.Find("Geyser" + (k + 1)); if (old == null) continue; foreach (var ub in old.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true)) UdonSharpUndo.DestroyImmediate(ub); Undo.DestroyObjectImmediate(old.gameObject); log += "removed Geyser" + (k + 1) + "  "; }
 
-        // ---- 浮き岩：見た目だけ上の面のまん中を軸にゆらゆら傾ける。当たり判定は固定（見た目より1.5cm上）
-        //      動く床にすると、沈む時に足が離れて空中あつかいになり、ジャンプできなくなる（VRChat。2026-10-07 てじゃ）
         var rocks = root.Find("Rocks2");
-        int i2 = 0;
-        foreach (var (name, tilt, period, phase) in new[] { ("PlazaFloat1", 3f, 4.6f, 0f), ("PlazaFloat2", 3.5f, 5.3f, 0.45f) })
+        // ---- 浮き岩は v4 でなくした
+        foreach (var name in new[] { "PlazaFloat1", "PlazaFloat2" })
         {
-            var t = rocks.Find(name); if (t == null) { log += name + " missing  "; continue; }
-            var old = t.GetComponent<FuwaBobber>(); if (old != null) UdonSharpUndo.DestroyImmediate(old);
-            var mf = t.GetComponent<MeshFilter>(); var mr = t.GetComponent<MeshRenderer>();
-            var mesh = mf.sharedMesh; var mat = mr.sharedMaterial;
-            mr.enabled = false;
-            t.localPosition = new Vector3(0f, 0.015f, 0f); t.localRotation = Quaternion.identity;
-            t.gameObject.isStatic = true;
-            var bb = mesh.bounds;
-            var top = new Vector3(bb.center.x, bb.max.y, bb.center.z);
-            var sway = Child(t, "Sway"); sway.localPosition = top; sway.localRotation = Quaternion.identity;
-            sway.gameObject.isStatic = false;
-            var vis = Child(sway, "Visual"); vis.localPosition = -top - new Vector3(0f, 0.015f, 0f); vis.localRotation = Quaternion.identity;
-            vis.gameObject.isStatic = false; vis.gameObject.layer = t.gameObject.layer;
-            var vmf = vis.GetComponent<MeshFilter>(); if (vmf == null) vmf = vis.gameObject.AddComponent<MeshFilter>();
-            var vmr = vis.GetComponent<MeshRenderer>(); if (vmr == null) vmr = vis.gameObject.AddComponent<MeshRenderer>();
-            vmf.sharedMesh = mesh; vmr.sharedMaterial = mat;
-            var b = USharp<FuwaBobber>(sway.gameObject);
-            b.tiltDegrees = tilt; b.period = period; b.phase = phase;
-            UdonSharpEditorUtility.CopyProxyToUdon(b);
-            i2++;
+            var t = rocks.Find(name); if (t == null) continue;
+            foreach (var ub in t.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true)) UdonSharpUndo.DestroyImmediate(ub);
+            Undo.DestroyObjectImmediate(t.gameObject); log += "removed " + name + "  ";
         }
+        // ---- 柱：ふわふわが当たっても跳ね返るだけ（アウトにしない）
+        var pil = rocks.Find("PlazaPillars");
+        if (pil != null)
+        {
+            pil.gameObject.layer = 0;
+            var bo = USharp<FuwaBounce>(pil.gameObject);
+            bo.bounceSpeed = 2.4f; bo.keepTangent = 0.8f; bo.alwaysUp = false; bo.useContactNormal = true;
+            UdonSharpEditorUtility.CopyProxyToUdon(bo);
+        }
+        // ---- 道の外側のふちに夜光キノコ（目印）。位置は c2plaza.py が書き出した info.lights
+        MakePathLights(root, holder);
 
         // ---- ふわふわが穴に落ちたらアウト：DiveFloor（見えないハザード）を崖下〜ゴールの島の手前まで広げる
         var df = root.Find("DiveFloor");
@@ -151,7 +143,39 @@ public static class FuwaPlazaGeysers
         }
 
         EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
-        return log + " bobbers " + i2;
+        return log;
+    }
+
+    // 道の目印の位置（c2plaza.py の info.lights と同じ。x,y,z,外向きx,z）
+    static readonly float[][] Lights =
+    {
+        new[] { 16.7051f, 3.0684f, 73.4077f, 0.9707f, -0.2403f },
+        new[] { 17.8423f, 3.5882f, 75.9360f, 0.8693f, -0.4943f },
+        new[] { 19.0697f, 4.2384f, 78.6718f, 0.9713f, -0.2379f },
+        new[] { 19.1278f, 4.8102f, 81.4181f, 0.9735f, 0.2287f },
+        new[] { 17.3329f, 5.2474f, 83.5164f, 0.3714f, 0.9285f },
+    };
+
+    static void MakePathLights(Transform root, Transform holder)
+    {
+        var src = root.Find("Gimmick_CaveLights/CaveGlow0/Yakou");
+        var old = holder.Find("PathLights"); if (old != null) Undo.DestroyObjectImmediate(old.gameObject);
+        var pl = new GameObject("PathLights").transform; pl.SetParent(holder, false);
+        Undo.RegisterCreatedObjectUndo(pl.gameObject, "lights");
+        for (int i = 0; i < Lights.Length; i++)
+        {
+            var L = Lights[i];
+            var y = Object.Instantiate(src.gameObject, pl).transform;
+            y.name = "Yakou" + i;
+            // 高さは道の上の面に合わせる（坂の形を変えても付いてくる）
+            float top = L[1];
+            if (Physics.Raycast(root.TransformPoint(new Vector3(L[0], L[1] + 3f, L[2])), Vector3.down, out var hit, 6f, 1 << 11, QueryTriggerInteraction.Ignore))
+                top = root.InverseTransformPoint(hit.point).y;
+            y.localPosition = new Vector3(L[0], top - 0.02f, L[2]);
+            y.localRotation = Quaternion.LookRotation(new Vector3(L[3], 0f, L[4])) * Quaternion.Euler(0f, 37f * i, 0f);
+            y.localScale = Vector3.one * (i % 2 == 0 ? 2.1f : 1.8f);
+            foreach (var t in y.GetComponentsInChildren<Transform>(true)) t.gameObject.isStatic = true;
+        }
     }
 
     // ===== 見た目 =====

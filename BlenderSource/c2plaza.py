@@ -55,7 +55,7 @@ def loft(mb, c, rows, m, seed, ax=R, az=D, cap_top=True, tip=None, top_noise_dow
 # ---- 噴気孔の岩柱（てっぺんがクレーター）。下は雲の中へ細く消える ----
 # 2026-10-07 改：人もふわふわも同じ噴気孔をたどる一本道。柱A・Bは足場より低く（自力では上がれない＝噴気に乗る）
 # (s, 横, てっぺんの高さ)。1本目は崖から落ちたふわふわを拾う用
-VENTS = [(76.6, 0.3, 2.3), (82.3, -0.2, 1.2), (85.3, -2.6, 1.0)]   # 2026-10-07 再改：足場→柱A→浮き岩→ゴールをゆるく曲がる一本道に。柱Bはふわふわ用の寄り道
+VENTS = [(77.0, 0.0, 2.3), (84.0, -1.2, 3.0)]   # 2026-10-07 v4：人は回り込む上り坂を歩くだけ。噴気孔は崖下でふわふわを拾う1本と、坂の内側でゴールの高さまで持ち上げる1本
 def pillar(mb, mbd, s, lat, k, CREST):
     c = W(s, lat, 0)
     m = 10
@@ -147,6 +147,84 @@ def tilted_slab(mb, s, lat, y, hx, hy, hz, rot_deg, axis, seed):
             mb.quad(P(a, b, n), P(a + 1, b, n), P(a + 1, b + 1, n), P(a, b + 1, n))
             mb.quad(P(a, b, 0), P(a, b + 1, 0), P(a + 1, b + 1, 0), P(a + 1, b, 0))
 
+# ---- 人の道（上り坂のリボン）。上の面は真っ平ら（歩きやすさ優先）、横と下だけゴツゴツ ----
+GOAL_LIFT = 2.6
+GOAL_TOP = 2.98 + GOAL_LIFT
+WALK = [(80.5, -2.3), (81.9, -0.7), (82.9, 1.2), (84.0, 3.0), (85.5, 4.3), (87.2, 4.8), (88.7, 4.0), (89.15, 2.4)]
+WALK_HALF = 1.0
+def catmull(pts, n):
+    out = []
+    P = [pts[0]] + pts + [pts[-1]]
+    for i in range(1, len(P) - 2):
+        p0, p1, p2, p3 = P[i - 1], P[i], P[i + 1], P[i + 2]
+        for k in range(n):
+            t = k / n
+            out.append(0.5 * ((2 * p1) + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (-p0 + 3 * p1 - 3 * p2 + p3) * t * t * t))
+    out.append(pts[-1])
+    return out
+def walk_samples():
+    pts = [Vector((s, l)) for s, l in WALK]
+    c = catmull(pts, 12)
+    L = [0.0]
+    for i in range(1, len(c)): L.append(L[-1] + (c[i] - c[i - 1]).length)
+    tot = L[-1]
+    y0, y1 = TOP - 0.03, GOAL_TOP - 0.04
+    res = []
+    for i, q in enumerate(c):
+        f = min(1.0, L[i] / tot / 0.86)   # 最後の少しは平ら（島の上の面と同じ高さでつなぐ）
+        sm = f * f * (3 - 2 * f)
+        e = 0.45 * f + 0.55 * sm
+        res.append((q, y0 + (y1 - y0) * e))
+    return res, tot
+def walkway():
+    mb = MB()
+    sm, tot = walk_samples()
+    # 横断面（外向き u=右, v=上）: 上の面 → ふち → 横 → 下（とがる）
+    prof = [(-1.0, 0.0), (-0.5, 0.0), (0.0, 0.0), (0.5, 0.0), (1.0, 0.0), (1.08, -0.08), (1.14, -0.35), (1.0, -0.7), (0.55, -1.05), (0.0, -1.25), (-0.55, -1.05), (-1.0, -0.7), (-1.14, -0.35), (-1.08, -0.08)]
+    rings = []
+    for i, (q, y) in enumerate(sm):
+        a = sm[max(i - 1, 0)][0]; b = sm[min(i + 1, len(sm) - 1)][0]
+        t = (b - a).normalized()
+        n = Vector((t.y, -t.x))   # (s,lat) で右手
+        ctr = O + D * (q.x - 79.0) + R * q.y
+        fw = D * t.x + R * t.y
+        side = D * n.x + R * n.y
+        ring = []
+        for j, (u, v) in enumerate(prof):
+            p = Vector((ctr.x, y, ctr.z)) + side * (u * WALK_HALF) + UP * v
+            if v < -0.01:
+                dirv = side * u + UP * (v * 0.6)
+                if dirv.length > 0:
+                    p = p + dirv.normalized() * nz(p, 1.4, 0.16, 5.5)
+                p.y += nz(p + Vector((3, 0, 0)), 0.9, 0.25 if v < -0.6 else 0.06, 6.1)
+            ring.append(mb.v(p))
+        rings.append(ring)
+    m = len(prof)
+    # 上の面はコースの道と同じしま模様（0.75mごとに A/B）。別の物体にしてマテリアルを分ける
+    tops = [MB(), MB()]
+    acc = [0.0]
+    for i in range(1, len(sm)): acc.append(acc[-1] + (sm[i][0] - sm[i - 1][0]).length)
+    def tq(t, a, b, c, d):
+        ia = [t.v(mb.V[x]) for x in (a, b, c, d)]
+        t.quad(*ia)
+    for k in range(len(rings) - 1):
+        stripe = int(((acc[k] + acc[k + 1]) * 0.5) / 0.75) % 2
+        for j in range(m):
+            jj = (j + 1) % m
+            if j < 4: tq(tops[stripe], rings[k][j], rings[k + 1][j], rings[k + 1][jj], rings[k][jj])
+            else: mb.quad(rings[k][j], rings[k + 1][j], rings[k + 1][jj], rings[k][jj])
+    # 両端のふた
+    for ring, flip in ((rings[0], True), (rings[-1], False)):
+        cp = Vector((0, 0, 0))
+        for r in ring: cp += Vector(mb.V[r])
+        cp /= len(ring)
+        c = mb.v(cp)
+        for j in range(m):
+            jj = (j + 1) % m
+            if flip: mb.tri(ring[jj], ring[j], c)
+            else: mb.tri(ring[j], ring[jj], c)
+    return mb, tops
+
 def build():
     out = {}
     mbp = MB(); mbd = MB(); info = []
@@ -160,16 +238,15 @@ def build():
             (TOP - 2.2, 1.1, 0.76, 0.24), (TOP - 3.1, 0.75, 0.55, 0.18), (TOP - 3.9, 0.38, 0.3, 0.1)]
     loft(mbl, c, rows, 11, 7.3, tip=TOP - 4.6, jog=0.2)
     out['plaza_ledge'] = mbl
-    # 浮き岩（上下にゆっくり動く。メッシュは静止位置で作る）
-    for name, (s, lat, top, rx, rz, seed) in {'plaza_float1': (84.9, 0.9, TOP - 0.2, 0.88, 0.85, 11.1), 'plaza_float2': (82.4, 3.4, TOP - 0.6, 0.7, 0.66, 13.7)}.items():
-        mb = MB(); float_rock(mb, s, lat, top, rx, rz, seed); out[name] = mb
-    # 崩れた名残：右奥と右手前のふちのかけら、穴の中に引っかかった床の板、小石
+    # 人の道：足場から右へ回り込みながら上ってゴールの島（持ち上げ済み）へ
+    out['plaza_walk'], (out['plaza_walktopA'], out['plaza_walktopB']) = walkway()
+    # 崩れた名残：カーブの外側と崖下（道とふわふわの通り道から外す）
     mbr = MB()
-    float_rock(mbr, 86.9, 3.4, TOP - 0.25, 0.85, 0.6, 21.3, depth=2.2)
-    float_rock(mbr, 79.6, 3.5, TOP - 0.45, 0.7, 0.55, 23.9, depth=1.9)
-    tilted_slab(mbr, 78.8, 1.9, 0.2, 1.1, 0.16, 0.7, 28, D, 31.0)
-    tilted_slab(mbr, 83.6, 2.7, -0.9, 0.9, 0.15, 0.8, -22, R, 33.0)
-    for (s, lat, y, r, sd) in [(86.6, 3.2, TOP - 0.18, 0.18, 41), (87.2, 3.7, TOP - 0.2, 0.13, 43), (79.4, 3.2, TOP - 0.38, 0.15, 45)]:
+    float_rock(mbr, 80.2, 4.6, TOP - 0.55, 0.8, 0.6, 21.3, depth=2.2)
+    float_rock(mbr, 85.4, 7.6, TOP + 0.4, 0.7, 0.55, 23.9, depth=1.9)
+    tilted_slab(mbr, 78.6, 2.6, 0.4, 1.0, 0.16, 0.7, 26, D, 31.0)
+    tilted_slab(mbr, 81.6, -4.9, 0.9, 0.8, 0.15, 0.7, -20, R, 33.0)
+    for (s, lat, y, r, sd) in [(80.6, 5.3, TOP - 0.6, 0.18, 41), (85.9, 8.3, TOP + 0.3, 0.13, 43), (79.3, 3.9, TOP - 0.5, 0.15, 45), (88.4, 7.4, TOP + 1.2, 0.16, 47)]:
         float_rock(mbr, s, lat, y, r, r * 0.85, sd, depth=r * 1.4)
     out['plaza_remnants'] = mbr
     return out, info
@@ -188,6 +265,8 @@ res, info = build()
 col = bpy.data.collections.get('C2Plaza') or bpy.data.collections.new('C2Plaza')
 if col.name not in bpy.context.scene.collection.children: bpy.context.scene.collection.children.link(col)
 names = []
+for _o in list(col.objects):
+    if _o.name.replace('C2P_', '') not in res: bpy.data.objects.remove(_o)
 for name, mb in res.items():
     to_blender('C2P_' + name, mb, col); names.append('C2P_' + name)
 
@@ -196,7 +275,11 @@ for _n in names:
     _me = bpy.data.objects[_n].data
     _bm = bmesh.new(); _bm.from_mesh(_me)
     bmesh.ops.remove_doubles(_bm, verts=_bm.verts, dist=1e-5)
-    bmesh.ops.recalc_face_normals(_bm, faces=_bm.faces)
+    if 'walktop' in _n:
+        _bm.normal_update()
+        bmesh.ops.reverse_faces(_bm, faces=[f for f in _bm.faces if f.normal.z < 0])
+    else:
+        bmesh.ops.recalc_face_normals(_bm, faces=_bm.faces)
     bmesh.ops.triangulate(_bm, faces=_bm.faces, quad_method='BEAUTY', ngon_method='BEAUTY')
     _bm.to_mesh(_me); _bm.free(); _me.update()
     _V = [(v.co.x, v.co.z, v.co.y) for v in _me.vertices]
@@ -205,6 +288,20 @@ for _n in names:
         _vs = list(_p.vertices)
         for _i in range(1, len(_vs) - 1): _T.append((_vs[0], _vs[_i + 1], _vs[_i]))
     _out[_n.replace('C2P_', '')] = {'v': _V, 't': _T}
-_out['info'] = {'vents': info}
+# 道の外側のふちに置く目印（夜光キノコ）の位置：Unity座標(x,y,z)＋外向き(x,z)
+_lights = []
+_sm, _tot = walk_samples()
+_cc = Vector((85.5, 1.0))
+for _f in (0.08, 0.27, 0.46, 0.64, 0.82):
+    _i = int(_f * (len(_sm) - 1))
+    _q, _y = _sm[_i]
+    _a = _sm[max(_i - 1, 0)][0]; _b = _sm[min(_i + 1, len(_sm) - 1)][0]
+    _t = (_b - _a).normalized(); _n = Vector((_t.y, -_t.x))
+    if _n.dot(_q - _cc) < 0: _n = -_n
+    _p = _q + _n * 0.72
+    _w = O + D * (_p.x - 79.0) + R * _p.y
+    _o = D * _n.x + R * _n.y
+    _lights.append([_w.x, _y, _w.z, _o.x, _o.z])
+_out['info'] = {'vents': info, 'lights': _lights}
 json.dump(_out, open(SCR + r'\course2_plaza.json', 'w'))
 print('exported', {k: len(v['t']) for k, v in _out.items() if k != 'info'}, info)
