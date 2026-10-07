@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -340790334, guid: 67cc4cb7839cd3741b63733d5adf0442, type: 3}
+  m_Name: Sub_Shoes
+  m_EditorClassIdentifier: 
+  Parameters: {fileID: 11400000, guid: ab8246e488a88054c8655d922af4847c, type: 2}
+  controls:
+  - name: Default
+    icon: {fileID: 2800000, guid: 53ee79af29811584790f956abd73563c, type: 3}
+    type: 102
+    parameter:
+      name: Shoes
+    value: 0
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  - name: LegWarmersOFF
+    icon: {fileID: 2800000, guid: a1a3aa6184bf7b548acf696f853509af, type: 3}
+    type: 102
+    parameter:
+      name: Shoes
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  - name: ALL OFF
+    icon: {fileID: 2800000, guid: 5e9458a978d788d4fab86c7daa6ab26c, type: 3}
+    type: 102
+    parameter:
+      name: Shoes
+    value: 2
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []

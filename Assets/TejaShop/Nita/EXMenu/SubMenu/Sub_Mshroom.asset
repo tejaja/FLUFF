@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -340790334, guid: 67cc4cb7839cd3741b63733d5adf0442, type: 3}
+  m_Name: Sub_Mshroom
+  m_EditorClassIdentifier: 
+  Parameters: {fileID: 11400000, guid: ab8246e488a88054c8655d922af4847c, type: 2}
+  controls:
+  - name: Mushroom_Size
+    icon: {fileID: 2800000, guid: f73f757a83d31b84280bd1f0f7912b31, type: 3}
+    type: 203
+    parameter:
+      name: 
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters:
+    - name: Mushroom_Size
+    labels: []
+  - name: Mushroom
+    icon: {fileID: 2800000, guid: f73f757a83d31b84280bd1f0f7912b31, type: 3}
+    type: 102
+    parameter:
+      name: Mushroom
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  - name: Warts
+    icon: {fileID: 2800000, guid: 2ed73d61c2a291342aee5ef52490ad8e, type: 3}
+    type: 102
+    parameter:
+      name: Warts
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []

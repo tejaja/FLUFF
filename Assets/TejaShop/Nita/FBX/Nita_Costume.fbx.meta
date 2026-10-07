@@ -1,0 +1,314 @@
+fileFormatVersion: 2
+guid: 65f07a61e52162e4f8cba2463a155b2e
+ModelImporter:
+  serializedVersion: 22200
+  internalIDToNameTable: []
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Item
+    second: {fileID: 2100000, guid: 1e0643d1f7b291a43b27cd99eb1c4e73, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: Outfit
+    second: {fileID: 2100000, guid: c41cd1e8d7b5a544f97c4a0ee2f35b79, type: 2}
+  materials:
+    materialImportMode: 2
+    materialName: 0
+    materialSearch: 1
+    materialLocation: 1
+  animations:
+    legacyGenerateAnimations: 4
+    bakeSimulation: 0
+    resampleCurves: 1
+    optimizeGameObjects: 0
+    removeConstantScaleCurves: 0
+    motionNodeName: 
+    rigImportErrors: 
+    rigImportWarnings: 
+    animationImportErrors: 
+    animationImportWarnings: 
+    animationRetargetingWarnings: 
+    animationDoRetargetingWarnings: 0
+    importAnimatedCustomProperties: 0
+    importConstraints: 0
+    animationCompression: 3
+    animationRotationError: 0.5
+    animationPositionError: 0.5
+    animationScaleError: 0.5
+    animationWrapMode: 0
+    extraExposedTransformPaths: []
+    extraUserProperties: []
+    clipAnimations: []
+    isReadable: 1
+  meshes:
+    lODScreenPercentages: []
+    globalScale: 1
+    meshCompression: 0
+    addColliders: 0
+    useSRGBMaterialColor: 1
+    sortHierarchyByName: 1
+    importPhysicalCameras: 1
+    importVisibility: 0
+    importBlendShapes: 1
+    importCameras: 0
+    importLights: 0
+    nodeNameCollisionStrategy: 1
+    fileIdsGeneration: 2
+    swapUVChannels: 0
+    generateSecondaryUV: 0
+    useFileUnits: 1
+    keepQuads: 0
+    weldVertices: 1
+    bakeAxisConversion: 0
+    preserveHierarchy: 1
+    skinWeightsMode: 0
+    maxBonesPerVertex: 4
+    minBoneWeight: 0.001
+    optimizeBones: 1
+    meshOptimizationFlags: -1
+    indexFormat: 0
+    secondaryUVAngleDistortion: 8
+    secondaryUVAreaDistortion: 15.000001
+    secondaryUVHardAngle: 88
+    secondaryUVMarginMethod: 1
+    secondaryUVMinLightmapResolution: 40
+    secondaryUVMinObjectScale: 1
+    secondaryUVPackMargin: 4
+    useFileScale: 1
+    strictVertexDataChecks: 0
+  tangentSpace:
+    normalSmoothAngle: 60
+    normalImportMode: 0
+    tangentImportMode: 2
+    normalCalculationMode: 4
+    legacyComputeAllNormalsFromSmoothingGroupsWhenMeshHasBlendShapes: 0
+    blendShapeNormalImportMode: 2
+    normalSmoothingSource: 0
+  referencedClips: []
+  importAnimation: 1
+  humanDescription:
+    serializedVersion: 3
+    human: []
+    skeleton:
+    - name: Nita_Costume(Clone)
+      parentName: 
+      position: {x: 0, y: 0, z: 0}
+      rotation: {x: 0, y: 0, z: 0, w: 1}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Armature
+      parentName: Nita_Costume(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: -0.7071068, y: 0, z: -0, w: 0.7071067}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Hips
+      parentName: Armature
+      position: {x: 0.0003023499, y: -0.021590965, z: 0.5897964}
+      rotation: {x: 0.7071068, y: 0, z: -0, w: 0.7071067}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Spine
+      parentName: Hips
+      position: {x: -0, y: 0.020593524, z: 0}
+      rotation: {x: 0, y: -0, z: -0, w: 1}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Chest
+      parentName: Spine
+      position: {x: -0, y: 0.06271273, z: 0}
+      rotation: {x: -0.20416792, y: 0.0030490684, z: -0.1975707, w: 0.9587867}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Neck
+      parentName: Chest
+      position: {x: 2.910383e-11, y: 0.16651656, z: -0.003453374}
+      rotation: {x: 0.034883503, y: 0, z: -0, w: 0.99939144}
+      scale: {x: 1, y: 0.9999999, z: 1}
+    - name: Head
+      parentName: Neck
+      position: {x: -0, y: 0.044959452, z: 0.0000000018626451}
+      rotation: {x: -0.019457746, y: -0.00000033983125, z: -0.0000003268569, w: 0.9998107}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Hair
+      parentName: Head
+      position: {x: -0.000000023527358, y: 0.10786182, z: -0.0000000039264925}
+      rotation: {x: 0.00000008208143, y: 0.0000003334072, z: 0.0000003334073, w: 1}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Mushroom
+      parentName: Head
+      position: {x: -0.034853205, y: 0.17835513, z: -0.08194185}
+      rotation: {x: -0.3284231, y: 0.13039689, z: 0.097088136, w: 0.93043476}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Mushroom.001
+      parentName: Mushroom
+      position: {x: 0.000000009313226, y: 0.036441777, z: -0.000000056810677}
+      rotation: {x: 0.8963115, y: -0.00000073980834, z: 0.44342494, w: 0.00000832546}
+      scale: {x: 1, y: 0.99999994, z: 1}
+    - name: Shoulder_L
+      parentName: Chest
+      position: {x: -0.03046232, y: 0.1355292, z: -0.004411174}
+      rotation: {x: -0.5122153, y: 0.47165918, z: 0.520517, w: 0.49420148}
+      scale: {x: 1, y: 1, z: 1}
+    - name: UpperArm_L
+      parentName: Shoulder_L
+      position: {x: -8.049664e-11, y: 0.031491566, z: -1.12525655e-10}
+      rotation: {x: -0.12628575, y: 0.0030990397, z: -0.025625784, w: 0.99165803}
+      scale: {x: 1, y: 0.99999994, z: 1}
+    - name: LowerArm_L
+      parentName: UpperArm_L
+      position: {x: 0.0000000011641532, y: 0.1777537, z: 0.000000047853973}
+      rotation: {x: 0.002967838, y: -0.0028830788, z: -0.0123255, w: 0.9999155}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Hand_L
+      parentName: LowerArm_L
+      position: {x: 1.523941e-10, y: 0.13629675, z: -2.3720492e-10}
+      rotation: {x: 0.018344074, y: -0.017820213, z: -0.011149009, w: 0.9996107}
+      scale: {x: 1, y: 1, z: 1}
+    - name: LowerArmTwist_L
+      parentName: LowerArm_L
+      position: {x: 0.000000006671652, y: 0.00000019247217, z: -1.737368e-10}
+      rotation: {x: -0.0010337332, y: 0.0010063589, z: 0.00022468696, w: 0.9999989}
+      scale: {x: 0.99999994, y: 1, z: 1}
+    - name: UpperArmTwist_L
+      parentName: UpperArm_L
+      position: {x: 4.3655746e-10, y: -0.0000000046893547, z: 0.000000023967004}
+      rotation: {x: 0.0023055312, y: -0.0023042953, z: 0.0014893403, w: 0.9999936}
+      scale: {x: 0.99999994, y: 1, z: 1}
+    - name: Shoulder_R
+      parentName: Chest
+      position: {x: 0.030462418, y: 0.1355292, z: -0.004411174}
+      rotation: {x: -0.4716587, y: -0.5122157, z: -0.49420083, w: 0.5205177}
+      scale: {x: 1, y: 1, z: 1}
+    - name: UpperArm_R
+      parentName: Shoulder_R
+      position: {x: 9.1279415e-12, y: 0.030886767, z: -1.14729004e-10}
+      rotation: {x: 0.12675534, y: -0.0026916864, z: -0.024974229, w: 0.99161595}
+      scale: {x: 1, y: 1, z: 0.99999994}
+    - name: LowerArm_R
+      parentName: UpperArm_R
+      position: {x: -1.1641532e-10, y: 0.17835848, z: 0.000000044754415}
+      rotation: {x: 0.0029577971, y: 0.0028733346, z: 0.0123328585, w: 0.9999155}
+      scale: {x: 0.99999994, y: 0.99999994, z: 0.9999999}
+    - name: Hand_R
+      parentName: LowerArm_R
+      position: {x: -5.556704e-10, y: 0.13629667, z: 0.000000059492155}
+      rotation: {x: 0.018344082, y: 0.017820168, z: 0.011149005, w: 0.9996107}
+      scale: {x: 1, y: 0.99999994, z: 1}
+    - name: LowerArmTwist_R
+      parentName: LowerArm_R
+      position: {x: -0.000000008937573, y: 0.0000001635084, z: 0.00000005955562}
+      rotation: {x: -0.0010475942, y: -0.0010176811, z: -0.011216955, w: 0.99993604}
+      scale: {x: 0.99999994, y: 1, z: 1}
+    - name: UpperArmTwist_R
+      parentName: UpperArm_R
+      position: {x: -4.3655746e-10, y: 0.000000003248715, z: 0.000000020605512}
+      rotation: {x: 0.0022956298, y: 0.0022944002, z: -0.0014819914, w: 0.9999937}
+      scale: {x: 0.9999999, y: 1, z: 0.9999999}
+    - name: Basket_Root
+      parentName: Chest
+      position: {x: -0.051602706, y: 0.04169591, z: 0.050760157}
+      rotation: {x: -0.5258113, y: -0.0013939509, z: 0.85044235, w: 0.016381966}
+      scale: {x: 1.0000002, y: 0.99999994, z: 1.0000001}
+    - name: Belt_1
+      parentName: Basket_Root
+      position: {x: 0.017234987, y: -0.10072256, z: -0.1000271}
+      rotation: {x: 0.16044901, y: -0.6781843, z: 0.69817984, w: 0.16391228}
+      scale: {x: 1, y: 1.0000002, z: 1}
+    - name: Belt_2
+      parentName: Basket_Root
+      position: {x: 0.0047641536, y: -0.021169093, z: -0.03422015}
+      rotation: {x: 0.13522294, y: 0.74745893, z: 0.117576055, w: 0.63968414}
+      scale: {x: 0.99999994, y: 1.0000001, z: 1}
+    - name: Basket
+      parentName: Basket_Root
+      position: {x: -0.02765725, y: 0.06996968, z: 0.020960402}
+      rotation: {x: 0.042910673, y: 0.90578955, z: 0.12806916, w: 0.4016245}
+      scale: {x: 0.99999994, y: 1.0000002, z: 1}
+    - name: UpperLeg_L
+      parentName: Hips
+      position: {x: -0.06041314, y: -0.053153455, z: -0.0036376622}
+      rotation: {x: 0.99998146, y: 0.004353969, z: 0.0040340503, w: -0.001353002}
+      scale: {x: 0.9999998, y: 0.9999999, z: 0.99999994}
+    - name: LowerLeg_L
+      parentName: UpperLeg_L
+      position: {x: -0.0000000053842086, y: 0.21838221, z: 2.3283064e-10}
+      rotation: {x: 0.042160917, y: -0.00798655, z: 0.007510553, w: 0.9990507}
+      scale: {x: 1, y: 0.99999994, z: 1}
+    - name: Foot_L
+      parentName: LowerLeg_L
+      position: {x: 0.0000000015279511, y: 0.24543683, z: 0.0000000013096724}
+      rotation: {x: -0.49127913, y: 0.051672157, z: -0.041574273, w: 0.86847365}
+      scale: {x: 0.9999998, y: 0.9999998, z: 0.9999998}
+    - name: Toe_L
+      parentName: Foot_L
+      position: {x: -0.000000003259629, y: 0.08346212, z: -0.000000003259629}
+      rotation: {x: -0.30224383, y: -0.061639614, z: -0.0063961255, w: 0.95121413}
+      scale: {x: 1.0000001, y: 1.0000001, z: 1.0000001}
+    - name: UpperLeg_R
+      parentName: Hips
+      position: {x: 0.059808444, y: -0.053153455, z: -0.0036376622}
+      rotation: {x: 0.99998146, y: -0.0043539694, z: -0.004034095, w: -0.0013530022}
+      scale: {x: 0.9999999, y: 0.9999999, z: 0.99999994}
+    - name: LowerLeg_R
+      parentName: UpperLeg_R
+      position: {x: 0.0000000013969839, y: 0.21838221, z: -0.0000000033760443}
+      rotation: {x: 0.04216092, y: 0.007986709, z: -0.007510546, w: 0.9990507}
+      scale: {x: 1, y: 0.99999994, z: 1}
+    - name: Foot_R
+      parentName: LowerLeg_R
+      position: {x: -8.039933e-10, y: 0.24543683, z: -0.0000000011641532}
+      rotation: {x: -0.4912792, y: -0.05167226, z: 0.041574202, w: 0.86847353}
+      scale: {x: 1, y: 0.99999994, z: 1}
+    - name: Toe_R
+      parentName: Foot_R
+      position: {x: 0.0000000013969839, y: 0.083462104, z: -0.000000003259629}
+      rotation: {x: -0.3022437, y: 0.0616396, z: 0.0063961227, w: 0.9512142}
+      scale: {x: 1.0000001, y: 1, z: 1}
+    - name: Basket
+      parentName: Nita_Costume(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: 0, y: -0, z: -0, w: 1}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Dress
+      parentName: Nita_Costume(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: 0, y: -0, z: -0, w: 1}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Jacket
+      parentName: Nita_Costume(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: 0, y: -0, z: -0, w: 1}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Mushroom
+      parentName: Nita_Costume(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: 0, y: -0, z: -0, w: 1}
+      scale: {x: 1, y: 1, z: 1}
+    - name: Shoes
+      parentName: Nita_Costume(Clone)
+      position: {x: -0, y: 0, z: 0}
+      rotation: {x: 0, y: -0, z: -0, w: 1}
+      scale: {x: 1, y: 1, z: 1}
+    armTwist: 0.5
+    foreArmTwist: 0.5
+    upperLegTwist: 0.5
+    legTwist: 0.5
+    armStretch: 0.05
+    legStretch: 0.05
+    feetSpacing: 0
+    globalScale: 1
+    rootMotionBoneName: 
+    hasTranslationDoF: 0
+    hasExtraRoot: 1
+    skeletonHasParents: 1
+  lastHumanDescriptionAvatarSource: {instanceID: 0}
+  autoGenerateAvatarMappingIfUnspecified: 1
+  animationType: 2
+  humanoidOversampling: 1
+  avatarSetup: 0
+  addHumanoidExtraRootOnlyWhenUsingAvatar: 1
+  importBlendShapeDeformPercent: 0
+  remapMaterialsIfMaterialImportModeIsNone: 0
+  additionalBone: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

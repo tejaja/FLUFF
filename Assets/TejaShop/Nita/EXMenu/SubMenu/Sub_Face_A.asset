@@ -1,0 +1,86 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -340790334, guid: 67cc4cb7839cd3741b63733d5adf0442, type: 3}
+  m_Name: Sub_Face_A
+  m_EditorClassIdentifier: 
+  Parameters: {fileID: 11400000, guid: ab8246e488a88054c8655d922af4847c, type: 2}
+  controls:
+  - name: Face 1
+    icon: {fileID: 2800000, guid: 9ac456286f0ea1e4e8e4545ae47355fe, type: 3}
+    type: 102
+    parameter:
+      name: FaceEx
+    value: 1
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  - name: Face 2
+    icon: {fileID: 2800000, guid: 25f00a5b69d3fe84390b90c744e7261e, type: 3}
+    type: 102
+    parameter:
+      name: FaceEx
+    value: 2
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  - name: Face 3
+    icon: {fileID: 2800000, guid: 2a2028bd22c45aa479cc86094e86338f, type: 3}
+    type: 102
+    parameter:
+      name: FaceEx
+    value: 3
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  - name: Face 4
+    icon: {fileID: 2800000, guid: 0da88bf2841ff084bb672f513190ebae, type: 3}
+    type: 102
+    parameter:
+      name: FaceEx
+    value: 4
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  - name: Face 5
+    icon: {fileID: 2800000, guid: 002a9fae57719c9448a87838c8c6e6d7, type: 3}
+    type: 102
+    parameter:
+      name: FaceEx
+    value: 5
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  - name: Face 6
+    icon: {fileID: 2800000, guid: 5d3455761f2fce54eaada5a6f580e09d, type: 3}
+    type: 102
+    parameter:
+      name: FaceEx
+    value: 6
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []
+  - name: Face 7
+    icon: {fileID: 2800000, guid: 06035440d690d86429225702a3e161a6, type: 3}
+    type: 102
+    parameter:
+      name: FaceEx
+    value: 7
+    style: 0
+    subMenu: {fileID: 0}
+    subParameters: []
+    labels: []

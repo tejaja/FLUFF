@@ -1,0 +1,46 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -340790334, guid: 67cc4cb7839cd3741b63733d5adf0442, type: 3}
+  m_Name: Sub_Outfit
+  m_EditorClassIdentifier: 
+  Parameters: {fileID: 11400000, guid: ab8246e488a88054c8655d922af4847c, type: 2}
+  controls:
+  - name: Basket
+    icon: {fileID: 2800000, guid: ceca2b6b44d0fcb40ae63f7db1e5db3a, type: 3}
+    type: 102
+    parameter:
+      name: Basket
+    value: 1
+    style: 0
+    subMenu: {fileID: 11400000, guid: 684d92f1311cebd43a52d20412beacb8, type: 2}
+    subParameters: []
+    labels: []
+  - name: Jacket
+    icon: {fileID: 2800000, guid: af868191ee65cf9449989091e8bb0bca, type: 3}
+    type: 102
+    parameter:
+      name: Jacket
+    value: 1
+    style: 0
+    subMenu: {fileID: 11400000, guid: 684d92f1311cebd43a52d20412beacb8, type: 2}
+    subParameters: []
+    labels: []
+  - name: Shoes
+    icon: {fileID: 2800000, guid: 53ee79af29811584790f956abd73563c, type: 3}
+    type: 103
+    parameter:
+      name: 
+    value: 0
+    style: 0
+    subMenu: {fileID: 11400000, guid: 684d92f1311cebd43a52d20412beacb8, type: 2}
+    subParameters: []
+    labels: []
