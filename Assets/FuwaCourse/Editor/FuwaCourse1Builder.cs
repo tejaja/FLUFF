@@ -788,35 +788,50 @@ public static class FuwaCourse1Builder
                     Vector3 o = P(sEdge, 0, 0);
                     Vector3 gap = (P(sEdge + dir * 0.5f, 0, 0) - o); gap.y = 0; gap.Normalize();    // すき間の向き
                     Vector3 latV = (P(sEdge, 1f, 0) - o); latV.y = 0; latV.Normalize();               // 横（＋側）
-                    // 桁の折れた先：2本とも端から少し飛び出して、少し下へ折れる
+                    // はしの横板（元の並び順のまま、1枚ずつ板幅ぶん奥）が、片側の桁の折れ残りに釘1本で留まって内側へぶら下がる。
+                    // 板は桁の内側のへりを支点にするので桁を突き抜けない。板どうしは別の列なので重ならない。すき間の半分に収まる枚数だけ
+                    const float slot = PlankLen + 0.05f;
+                    float budget = Mathf.Abs(BreakB - BreakA) * 0.5f - 0.05f;
+                    int n = Mathf.Clamp(Mathf.FloorToInt((budget - 0.06f) / slot), 1, 2 + (hr.NextDouble() < 0.5 ? 1 : 0));
+                    var nails = new float[n];
+                    nails[0] = hr.NextDouble() < 0.5 ? -1f : 1f;
+                    for (int i = 1; i < n; i++) nails[i] = hr.NextDouble() < 0.65 ? -nails[i - 1] : nails[i - 1];
+                    // 桁の折れた先：少し下へ折れる。その側の板を支える長さ（板がなければ短く）。
+                    // 元の桁の端（sEdge の 0.05 手前）から生やし、太さを少し細くして元の桁と面が重ならないように
+                    var stubFw = new Dictionary<float, Vector3>(); var stubRoot = new Dictionary<float, Vector3>();
                     foreach (float side in new[] { -1f, 1f })
                     {
-                        float len = H(0.12f, 0.36f), t = H(4f, 14f) * Mathf.Deg2Rad;
+                        float need = 0f;
+                        for (int i = 0; i < n; i++) if (nails[i] == side) need = 0.03f + slot * i + PlankLen + 0.04f;
+                        float len = need > 0f ? need + H(0f, 0.06f) : H(0.10f, 0.22f), t = H(4f, 12f) * Mathf.Deg2Rad;
                         var fw = (gap * Mathf.Cos(t) + Vector3.down * Mathf.Sin(t)).normalized;
                         var up = Vector3.Cross(fw, latV).normalized; if (up.y < 0) up = -up;
-                        var root0 = P(sEdge, side * (hw - 0.16f), -PlankT - 0.002f - BeamH * 0.5f);
-                        BoxC(root0 + fw * (len * 0.5f), fw * (len * 0.5f), latV * (BeamW * 0.5f), up * (BeamH * 0.5f), TC);
+                        // 上面の付け根の辺を軸に下へ折る（中心で回すと付け根の上が持ち上がって床板に刺さる）
+                        var top0 = P(sEdge - dir * 0.05f, side * (hw - 0.16f), -PlankT - 0.006f);
+                        BoxC(top0 + fw * ((len + 0.05f) * 0.5f) - up * (BeamH * 0.47f), fw * ((len + 0.05f) * 0.5f), latV * (BeamW * 0.46f), up * (BeamH * 0.47f), TC);
+                        stubFw[side] = fw; stubRoot[side] = top0 + fw * 0.05f;   // sEdge の位置の桁の上面中央
                     }
-                    // はしの横板が片方の端でぶら下がる（2〜3枚。すき間側へ少しずつずらす）
-                    int n = 2 + (hr.NextDouble() < 0.5 ? 1 : 0);
-                    float nail = hr.NextDouble() < 0.5 ? -1f : 1f, firstNail = nail, firstReach = 0f;
+                    float firstReach = 0f;
                     for (int i = 0; i < n; i++)
                     {
-                        if (i > 0 && hr.NextDouble() < 0.65) nail = -nail;                                   // 残った釘の側
-                        float plankLen = (i == n - 1 && hr.NextDouble() < 0.6) ? H(0.6f, 1.0f) : H(1.1f, hw * 2f - 0.05f);
-                        float ang = H(38f, 76f) * Mathf.Deg2Rad;
-                        // 反対側の釘からぶら下がる板は、先に垂れた板と×に交差しないよう短く・急に
-                        if (i > 0 && nail != firstNail)
+                        float nail = nails[i];
+                        float plankLen = (i == n - 1 && hr.NextDouble() < 0.6) ? H(0.6f, 1.0f) : H(1.0f, hw * 2f - 0.3f);
+                        float ang = H(40f, 76f) * Mathf.Deg2Rad;
+                        // 反対側の釘からぶら下がる板は、先に垂れた板と×に交差して見えないよう短く・急に
+                        if (nail != nails[0])
                         {
                             ang = H(62f, 80f) * Mathf.Deg2Rad;
                             plankLen = Mathf.Min(H(0.35f, 0.6f), Mathf.Max(0.3f, (hw * 2f - firstReach - 0.2f) / Mathf.Cos(ang)));
                         }
-                        if (nail == firstNail) firstReach = Mathf.Max(firstReach, plankLen * Mathf.Cos(ang));
-                        var pivot = P(sEdge, nail * (hw - H(0.06f, 0.25f)), -PlankT * 0.5f) + gap * (0.03f + 0.07f * i);
+                        else firstReach = Mathf.Max(firstReach, plankLen * Mathf.Cos(ang));
+                        // 支点：桁の上面の内側のへり（少し内側・上）で、この板の列の真ん中
+                        float d = 0.03f + slot * i + PlankLen * 0.5f;
+                        var pivot = stubRoot[nail] + stubFw[nail] * d - nail * latV * (BeamW * 0.46f + 0.05f) + Vector3.up * (PlankT * 0.5f + 0.01f);
                         var along = (-nail * latV) * Mathf.Cos(ang) + Vector3.down * Mathf.Sin(ang);
-                        var wdir = Quaternion.AngleAxis(H(-10f, 10f), along) * gap;
+                        var wdir = Quaternion.AngleAxis(H(-5f, 5f), along) * stubFw[nail];
+                        wdir = (wdir - along * Vector3.Dot(wdir, along)).normalized;
                         var tdir = Vector3.Cross(along, wdir).normalized;
-                        var c = pivot + along * (plankLen * 0.5f - 0.04f);
+                        var c = pivot + along * (plankLen * 0.5f);
                         BoxC(c, wdir * (PlankLen * 0.5f), along * (plankLen * 0.5f), tdir * (PlankT * 0.5f), (hr.NextDouble() < 0.5) ? TA : TB);
                     }
                 }
