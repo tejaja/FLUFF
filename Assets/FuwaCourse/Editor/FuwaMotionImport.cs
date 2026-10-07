@@ -105,7 +105,7 @@ public static class FuwaMotionImport
         // 終わりの行が無いテイク（落ちた・ログ途中）も保存
         if (take != null && cur.Count > 2) result.Add(SaveRaw(stamp, take, cur));
         AssetDatabase.Refresh();
-        foreach (var p in result) BuildPreview(p);
+        foreach (var p in result) { BuildPreview(p); FuwaMotionNita.BuildDemo(p); }
         return result;
     }
 
@@ -347,7 +347,7 @@ public static class FuwaMotionImport
     }
 
     // シーンの銃（FuwaBlower のひな形）から見た目だけコピー
-    static GameObject MakeGunVisual(Transform parent)
+    internal static GameObject MakeGunVisual(Transform parent)
     {
         var src = UnityEngine.Object.FindObjectsOfType<FuwaBlower>(true).Select(b => b.gameObject).FirstOrDefault();
         var holder = new GameObject("Gun");
