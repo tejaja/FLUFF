@@ -97,7 +97,7 @@ public static class FuwaKinokoEntrance
         HalfW = hw;
         // 段の正面：2026-10-07 横板を積んだ壁 → 上の横木から縦の板が崩れて垂れている見た目に（判定の壁はそのまま）
         var rndH = new System.Random(11);
-        HangingBoards(mb, FlatA1, YA1, 1.2f, -1f, rndH);     // 平らAの先（すき間2の手前、サルノコシカケの生える所）
+        FrontBoards(mb, FlatA1, YA1, 1.2f, -1f, rnd);        // 平らAの先（すき間2の手前）：サルノコシカケが生えているので板の壁のまま
         HangingBoards(mb, Gap2B, YB0, 1.6f, 1f, rndH);       // 坂Bの正面
         HangingBoards(mb, SlopeA0, YA0, 1.4f, 1f, rndH);     // 坂Aの正面（入口より高い段）
         var mesh = mb.Build("KinokoEntrance_Deck", root);
