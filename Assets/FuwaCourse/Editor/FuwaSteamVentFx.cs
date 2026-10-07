@@ -28,6 +28,7 @@ public static class FuwaSteamVentFx
         foreach (var up in Resources.FindObjectsOfTypeAll<FuwaPlayerUpdraft>())
         {
             if (!up.gameObject.scene.IsValid()) continue;
+            if (up.onlyWhileBlowing != null) continue;   // 周期で噴く噴気（ゴール前の広場）は FuwaPlazaGeysers が見た目を作る
             Transform zone = up.transform;
             Transform root = zone.parent;
             Collider col = zone.GetComponent<Collider>();

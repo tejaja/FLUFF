@@ -35,6 +35,10 @@ public class FuwaPlayerUpdraft : UdonSharpBehaviour
     private Collider _col;
     private float _lastInside = -10f;
     private bool _slow;
+    [Header("周期で噴く噴気に合わせる（なくてもOK）")]
+    [Tooltip("これが吹いている間だけ持ち上げる（ふわふわ用の噴気の FuwaWindArea）")]
+    public FuwaWindArea onlyWhileBlowing;
+
     [Tooltip("普段の重力の強さ（ワールドの設定。ほかで重力を変えていないので固定値）")]
     public float normalGravity = 1f;
 
@@ -55,6 +59,7 @@ public class FuwaPlayerUpdraft : UdonSharpBehaviour
     public override void OnPlayerTriggerStay(VRCPlayerApi player)
     {
         if (player == null || !player.isLocal) return;
+        if (onlyWhileBlowing != null && !onlyWhileBlowing.IsBlowingNow()) return;   // 噴いていない間は何もしない（ふつうに落ちる）
         _lastInside = Time.time;
         if (slowFallTime > 0f) _slow = true;
         Vector3 v = player.GetVelocity();

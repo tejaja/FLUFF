@@ -24,6 +24,8 @@ public static class FuwaCourse2Builder
     public const float PitS0 = 25.0f, PitS1 = 29.0f, PitHalf = 2.0f, PitSide = 2.6f;
     public static readonly Vector2[] Pieces = { new Vector2(0f, 46f), new Vector2(46f, 72f), new Vector2(79f, 87f), new Vector2(68.5f, 80f), new Vector2(PitS0, PitS1), new Vector2(PitS0, PitS1) };
     public const float RampWidth = 2.2f;
+    // 下の台地（かたまり2）の床を作るか。false=崩れて穴になった広場（2026-10-07）
+    public static bool PlateauOn = false;
     public static float Offset(int piece)
     {
         if (piece == 3) return -(1.5f + RampWidth * 0.5f);   // 実際の横位置は RampShift で s ごとに左へふくらむ
@@ -37,6 +39,7 @@ public static class FuwaCourse2Builder
     {
         if (piece == 0) return new[] { new Vector2(0f, RegionA), new Vector2(RegionB, 46f) };
         if (piece == 4 || piece == 5) return new Vector2[0];   // 穴の所は AddRegion で作る
+        if (piece == 2 && !PlateauOn) return new Vector2[0];   // 下の台地は崩れて穴に（2026-10-07、噴気孔リレーの広場。岩は Rocks2/Plaza*）
         if (piece == 1 && AssetDatabase.LoadAssetAtPath<Mesh>(DiveEndMeshPath) != null) return new[] { new Vector2(46f, DiveEndA) };
         return new[] { Pieces[piece] };
     }

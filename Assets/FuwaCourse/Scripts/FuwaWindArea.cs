@@ -107,6 +107,9 @@ public class FuwaWindArea : UdonSharpBehaviour
     private float[] _extraRate;
     private float[] _extraRateRev;
 
+    // いま強い風が吹いているか（周期で吹く噴気に、人用の上昇気流を合わせる時に使う）
+    public bool IsBlowingNow() { return _blowing; }
+
     private void Start()
     {
         _box = GetComponent<BoxCollider>();
