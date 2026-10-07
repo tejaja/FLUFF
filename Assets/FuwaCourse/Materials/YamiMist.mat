@@ -25,10 +25,13 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _Density: 0.06
-    - _EdgeSoft: 0.85
+    - _Density: 0.055
+    - _EdgeSoft: 1
     - _LowBoost: 0.6
     - _MaxAlpha: 0.93
+    - _Wisp: 0.75
+    - _WispScale: 0.11
+    - _WispSpeed: 0.06
     - _Wobble: 0.25
     m_Colors:
     - _Color: {r: 0.19999996, g: 0.18999997, b: 0.28999996, a: 1}

@@ -11,6 +11,9 @@ Shader "FuwaCourse/DarkMist"
         _LowBoost ("Lower part extra", Range(0, 2)) = 0.6
         _Wobble ("Wobble", Range(0, 1)) = 0.25
         _EdgeSoft ("Edge Softness", Range(0.01, 1)) = 0.8
+        _Wisp ("Wisp (edge raggedness)", Range(0, 1)) = 0.7
+        _WispScale ("Wisp Scale (per m)", Float) = 0.12
+        _WispSpeed ("Wisp Speed", Float) = 0.06
     }
     SubShader
     {
@@ -24,7 +27,15 @@ Shader "FuwaCourse/DarkMist"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            fixed4 _Color; float _Density, _MaxAlpha, _LowBoost, _Wobble, _EdgeSoft;
+            fixed4 _Color; float _Density, _MaxAlpha, _LowBoost, _Wobble, _EdgeSoft, _Wisp, _WispScale, _WispSpeed;
+            float hash3(float3 p) { p = frac(p * 0.3183099 + 0.1); p *= 17.0; return frac(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+            float vnoise(float3 x)
+            {
+                float3 i = floor(x), f = frac(x); f = f * f * (3 - 2 * f);
+                return lerp(lerp(lerp(hash3(i), hash3(i + float3(1,0,0)), f.x), lerp(hash3(i + float3(0,1,0)), hash3(i + float3(1,1,0)), f.x), f.y),
+                            lerp(lerp(hash3(i + float3(0,0,1)), hash3(i + float3(1,0,1)), f.x), lerp(hash3(i + float3(0,1,1)), hash3(i + float3(1,1,1)), f.x), f.y), f.z);
+            }
+            float fbm(float3 p) { return vnoise(p) * 0.55 + vnoise(p * 2.07 + 13.1) * 0.3 + vnoise(p * 4.3 + 7.7) * 0.15; }
             struct v2f { float4 pos : SV_POSITION; float3 opos : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata_base v)
             {
@@ -51,8 +62,16 @@ Shader "FuwaCourse/DarkMist"
                 float wob = sin(wp.x * 0.11 + _Time.y * 0.15) * sin(wp.z * 0.09 - _Time.y * 0.12) * 0.5 + 0.5;
                 float dens = _Density * (1 + low * _LowBoost) * lerp(1, 0.6 + wob * 0.8, _Wobble);
                 float a = (1 - exp(-len * dens)) * _MaxAlpha;
-                // ふちをふわっと：視線が中心から遠いほど（h が小さいほど）薄く
-                a *= smoothstep(0, _EdgeSoft, h);
+                // カメラがもやの中・すぐ近く（コースの中やスタートの島）にいる時は消す（コースの中は AreaFog が担当）
+                a *= smoothstep(1.05, 1.35, length(camO));
+                // ふちをもやもやに：視線が球に入る所（ワールド）でノイズを取り、ふちの消え方をちぎれたように揺らす
+                float3 entryW = mul(unity_ObjectToWorld, float4(camO + d * t0, 1)).xyz;
+                float3 q = entryW * _WispScale + float3(_Time.y * _WispSpeed, _Time.y * _WispSpeed * 0.4, -_Time.y * _WispSpeed * 0.7);
+                float n = fbm(q);
+                float edge = h - (n - 0.45) * _Wisp;         // ノイズで「ふち」の位置を前後させる
+                a *= smoothstep(0, _EdgeSoft, edge);
+                // 中のほうにもうっすらムラ（ちぎれた雲みたいな濃淡）
+                a *= lerp(1, 0.55 + n * 0.9, _Wisp * 0.5);
                 return fixed4(_Color.rgb, a * _Color.a);
             }
             ENDCG
