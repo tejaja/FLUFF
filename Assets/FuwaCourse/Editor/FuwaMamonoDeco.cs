@@ -132,7 +132,7 @@ public static class FuwaMamonoDeco
                     bool cracked = k == crackedOne;
                     Shell(eggs, Matrix4x4.TRS(ep + Vector3.up * er * 0.85f, tilt, Vector3.one), er, er * 1.3f, cracked ? R(0.9f, 1.2f) : 0f, Mathf.PI, col, rnd);
                     if (cracked)   // 割れたカラのフタが横に転がってる
-                        Shell(eggs, Matrix4x4.TRS(pos + outDir * (d + er * 2.6f) + Vector3.up * er * 0.35f, Quaternion.Euler(R(150, 200), R(0, 360), R(-20, 20)), Vector3.one), er, er * 1.3f, 0f, R(0.8f, 1.0f), col, rnd);
+                        Shell(eggs, Matrix4x4.TRS(pos + outDir * (d + er * 2.6f) + Vector3.up * er * 1.3f * 0.92f, Quaternion.Euler(R(150, 200), R(0, 360), R(-20, 20)), Vector3.one), er, er * 1.3f, 0f, R(0.8f, 1.0f), col, rnd);
                 }
             }
         }
@@ -181,6 +181,23 @@ public static class FuwaMamonoDeco
         }
         log.Append("roots " + underSrc.Count + " ");
 
+        // 見た目の床の高さ（当たり判定の床より少し高い所がある）を調べるため、巣の見た目に一時的な当たり判定を付ける（2026-10-07 殻が床に埋まっていた）
+        var visTemps = new List<GameObject>();
+        foreach (var r in den.GetComponentsInChildren<MeshRenderer>())
+        {
+            var mf = r.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue;
+            var tgo = new GameObject("_visFloor"); tgo.hideFlags = HideFlags.HideAndDontSave; tgo.layer = 31;
+            tgo.transform.SetPositionAndRotation(r.transform.position, r.transform.rotation); tgo.transform.localScale = r.transform.lossyScale;
+            tgo.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
+            visTemps.Add(tgo);
+        }
+        Physics.SyncTransforms();
+        Vector3 VisFloor(Vector3 p)
+        {
+            if (Physics.Raycast(p + Vector3.up * 1.5f, Vector3.down, out var vh, 3f, 1 << 31, QueryTriggerInteraction.Ignore)) return new Vector3(p.x, vh.point.y, p.z);
+            return p;
+        }
+
         // ---- C：巣の床の小物 ----
         var floorCols = den.GetComponentsInChildren<Collider>().Concat(path.GetComponents<Collider>()).ToList();
         var spikes = root.Find("Spikes") != null ? root.Find("Spikes").Cast<Transform>().Select(t => t.position).ToList() : new List<Vector3>();
@@ -204,7 +221,9 @@ public static class FuwaMamonoDeco
                 if (!Physics.Raycast(hit.point + d + Vector3.up * 2f, Vector3.down, out var h2, 3f, ~0, QueryTriggerInteraction.Ignore) || h2.point.y > hit.point.y + 0.15f) nearEdge = true;
             }
             if (!nearEdge && rnd.NextDouble() < 0.75) continue;
-            var yaw = Quaternion.Euler(0, R(0, 360), 0); var fp = hit.point + Vector3.up * 0.005f;
+            var vf = VisFloor(hit.point);
+            if (vf.y - hit.point.y > 0.12f) continue;   // 見た目のふち（当たり判定は低く削ってある）の上には置かない
+            var yaw = Quaternion.Euler(0, R(0, 360), 0); var fp = vf + Vector3.up * 0.005f;
             int kind = rnd.Next(4);
             if (kind == 0 && nTwig < quota[0])
             {
@@ -217,12 +236,13 @@ public static class FuwaMamonoDeco
             else if (kind == 2 && nShell < quota[2])
             {
                 float er = R(0.11f, 0.17f); var col = EggColor(rnd);
-                Shell(floorMb, Matrix4x4.TRS(fp + Vector3.up * er * 0.25f, Quaternion.Euler(R(150, 210), R(0, 360), R(-25, 25)), Vector3.one), er, er * 1.3f, 0f, R(0.9f, 1.3f), col, rnd);
-                if (rnd.NextDouble() < 0.5) Shell(floorMb, Matrix4x4.TRS(fp + yaw * Vector3.forward * er * 2.4f + Vector3.up * er * 0.2f, Quaternion.Euler(R(160, 200), R(0, 360), 0), Vector3.one * 0.8f), er, er * 1.3f, 0f, R(0.6f, 0.9f), col, rnd);
+                Shell(floorMb, Matrix4x4.TRS(fp + Vector3.up * er * 1.3f * 0.92f,   /* ひっくり返したカラはふくらみが下なので、高さ分だけ上げて床に乗せる（前は大部分が床に埋まっていた） */ Quaternion.Euler(R(150, 210), R(0, 360), R(-25, 25)), Vector3.one), er, er * 1.3f, 0f, R(0.9f, 1.3f), col, rnd);
+                if (rnd.NextDouble() < 0.5) Shell(floorMb, Matrix4x4.TRS(fp + yaw * Vector3.forward * er * 2.4f + Vector3.up * er * 1.3f * 0.8f * 0.92f, Quaternion.Euler(R(160, 200), R(0, 360), 0), Vector3.one * 0.8f), er, er * 1.3f, 0f, R(0.6f, 0.9f), col, rnd);
                 nShell++;
             }
             else if (kind == 3 && nTuft < quota[3]) { Tuft(floorMb, fp, fur, rnd); nTuft++; }
         }
+        foreach (var tgo in visTemps) Object.DestroyImmediate(tgo);
         // 抜け毛（綿ぼこり）：敵（とママ）が潜んでいる所の近くに数個だけ落としておく（「ここから出てくる」の目印）
         var lurkers = new List<(Vector3 p, int n, float r0, float r1, float size)>();
         var en = root.Find("Enemies"); if (en != null) foreach (Transform e in en) lurkers.Add((e.position, rnd.Next(3, 5), 0.25f, 0.6f, 1.5f));
