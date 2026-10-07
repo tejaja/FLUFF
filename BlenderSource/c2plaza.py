@@ -53,9 +53,10 @@ def loft(mb, c, rows, m, seed, ax=R, az=D, cap_top=True, tip=None, top_noise_dow
     return rings
 
 # ---- 噴気孔の岩柱（てっぺんがクレーター）。下は雲の中へ細く消える ----
-VENTS = [(76.6, 0.3), (80.9, 1.4), (85.0, 1.9)]
-CREST = 2.3
-def pillar(mb, mbd, s, lat, k):
+# 2026-10-07 改：人もふわふわも同じ噴気孔をたどる一本道。柱A・Bは足場より低く（自力では上がれない＝噴気に乗る）
+# (s, 横, てっぺんの高さ)。1本目は崖から落ちたふわふわを拾う用
+VENTS = [(76.6, 0.3, 2.3), (82.0, -0.4, 1.2), (85.6, -1.8, 1.0)]
+def pillar(mb, mbd, s, lat, k, CREST):
     c = W(s, lat, 0)
     m = 10
     # 外側：上から下（てっぺんのふち→肩→段々の胴→細く）。段（出っぱり→へこみ）をくり返して岩の層っぽく
@@ -64,17 +65,17 @@ def pillar(mb, mbd, s, lat, k):
         (CREST, 0.68, 0.68, 0.04),           # ふちの頂
         (CREST - 0.2, 0.95, 0.9, 0.1),       # ふちの外
         (CREST - 0.65, 1.12, 1.05, 0.2),     # 肩
-        (0.9, 1.02, 0.98, 0.22),
-        (0.65, 1.3, 1.22, 0.25),             # 段の出っぱり
-        (-0.6, 1.2, 1.12, 0.3),
-        (-0.9, 1.0, 0.95, 0.25),             # へこみ
-        (-1.2, 1.28, 1.2, 0.3),              # 段
-        (-2.9, 1.1, 1.05, 0.32),
-        (-4.4, 0.85, 0.8, 0.28),
-        (-5.8, 0.55, 0.5, 0.2),
-        (-6.9, 0.28, 0.26, 0.1),
+        (CREST - 1.4, 1.02, 0.98, 0.22),
+        (CREST - 1.65, 1.3, 1.22, 0.25),     # 段の出っぱり
+        (CREST - 2.9, 1.2, 1.12, 0.3),
+        (CREST - 3.2, 1.0, 0.95, 0.25),      # へこみ
+        (CREST - 3.5, 1.28, 1.2, 0.3),       # 段
+        (CREST - 5.2, 1.1, 1.05, 0.32),
+        (CREST - 6.7, 0.85, 0.8, 0.28),
+        (CREST - 8.1, 0.55, 0.5, 0.2),
+        (CREST - 9.2, 0.28, 0.26, 0.1),
     ]
-    rings = loft(mb, c, rows, m, k * 3.7 + 1.0, cap_top=False, tip=-7.8, jog=0.25)
+    rings = loft(mb, c, rows, m, k * 3.7 + 1.0, cap_top=False, tip=CREST - 10.1, jog=0.25)
     # 穴の中：口から下へ（内壁）、底はふた
     inner = [(CREST - 0.12, 0.47, 0.47, 0.015), (CREST - 0.45, 0.43, 0.43, 0.02), (CREST - 0.62, 0.40, 0.40, 0.0)]
     mi = MB()
@@ -149,7 +150,7 @@ def tilted_slab(mb, s, lat, y, hx, hy, hz, rot_deg, axis, seed):
 def build():
     out = {}
     mbp = MB(); mbd = MB(); info = []
-    for k, (s, lat) in enumerate(VENTS): info.append(pillar(mbp, mbd, s, lat, k))
+    for k, (s, lat, crest) in enumerate(VENTS): info.append(pillar(mbp, mbd, s, lat, k, crest))
     out['plaza_pillars'] = mbp; out['plaza_ventdark'] = mbd
     # 坂のふもとの足場（元の台地の左手前の名残）。上面は元の台地と同じ高さ
     mbl = MB()
@@ -160,15 +161,14 @@ def build():
     loft(mbl, c, rows, 11, 7.3, tip=TOP - 4.6, jog=0.2)
     out['plaza_ledge'] = mbl
     # 浮き岩（上下にゆっくり動く。メッシュは静止位置で作る）
-    for name, (s, lat, top, rx, rz, seed) in {'plaza_float1': (83.2, -3.0, TOP, 0.82, 0.74, 11.1), 'plaza_float2': (85.0, -1.0, TOP + 0.15, 0.78, 0.8, 13.7)}.items():
+    for name, (s, lat, top, rx, rz, seed) in {'plaza_float1': (84.4, 1.3, TOP - 0.2, 0.82, 0.74, 11.1), 'plaza_float2': (82.4, 3.4, TOP - 0.6, 0.7, 0.66, 13.7)}.items():
         mb = MB(); float_rock(mb, s, lat, top, rx, rz, seed); out[name] = mb
     # 崩れた名残：右奥と右手前のふちのかけら、穴の中に引っかかった床の板、小石
     mbr = MB()
     float_rock(mbr, 86.9, 3.4, TOP - 0.25, 0.85, 0.6, 21.3, depth=2.2)
     float_rock(mbr, 79.6, 3.5, TOP - 0.45, 0.7, 0.55, 23.9, depth=1.9)
     tilted_slab(mbr, 78.8, 1.9, 0.2, 1.1, 0.16, 0.7, 28, D, 31.0)
-    tilted_slab(mbr, 83.0, 1.1, -0.6, 0.9, 0.15, 0.8, -22, R, 33.0)
-    tilted_slab(mbr, 82.6, 3.7, 1.2, 0.6, 0.13, 0.5, 35, D, 35.0)
+    tilted_slab(mbr, 83.6, 2.7, -0.9, 0.9, 0.15, 0.8, -22, R, 33.0)
     for (s, lat, y, r, sd) in [(86.6, 3.2, TOP - 0.18, 0.18, 41), (87.2, 3.7, TOP - 0.2, 0.13, 43), (79.4, 3.2, TOP - 0.38, 0.15, 45)]:
         float_rock(mbr, s, lat, y, r, r * 0.85, sd, depth=r * 1.4)
     out['plaza_remnants'] = mbr

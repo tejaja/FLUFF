@@ -12,9 +12,10 @@ using UnityEngine;
 public static class FuwaPlazaGeysers
 {
     // 噴気孔の口（コースローカル。c2plaza.py の VENTS / CREST と同じ）
-    static readonly Vector3[] Vents = { new Vector3(20.1085f, 2.3f, 70.8529f), new Vector3(18.6557f, 2.3f, 75.0469f), new Vector3(16.8125f, 2.3f, 78.7431f) };
+    // 2026-10-07 改：人もふわふわも柱A(2)→柱B(3)の噴気をたどる一本道。柱A・Bは足場より低い（噴気に乗らないと上がれない）。1本目は崖から落ちたふわふわを拾う用
+    static readonly Vector3[] Vents = { new Vector3(20.1085f, 2.3f, 70.8529f), new Vector3(16.5475f, 1.2f, 74.9722f), new Vector3(13.3947f, 1.0f, 77.2039f) };
     public static float OnSec = 1.3f, OffSec = 2.3f, Lag = 1.2f;   // 1→2→3 の順に Lag 秒ずつ遅れて噴く
-    public static float BallTop = 8.0f, PlayerTop = 6.3f;          // 風の届く高さ（コースローカル y）
+    public static float BallTop = 8.0f, PlayerTop = 5.3f;   // 人：ゴールの島(3.0)＋柵の上まで          // 風の届く高さ（コースローカル y）
     public static float BallStrength = 7f, BallFade = 0.35f;   // 1回噴くと約3m上がる（geysim.py で試算）。10だと崖より高く上がって滑空しほうだい
     const string BurstPath = "Assets/FuwaCourse/Audio/sfx_geyser_burst.wav";
 
@@ -84,10 +85,11 @@ public static class FuwaPlazaGeysers
             // ---- 人用（噴いている間だけ持ち上げる）
             var lift = Child(g, "PlayerLift");
             lift.gameObject.layer = 0;
-            float p0 = 2.35f - Vents[k].y;
-            lift.localPosition = new Vector3(0f, (p0 + (PlayerTop - Vents[k].y)) * 0.5f, 0f); lift.localRotation = Quaternion.identity; lift.localScale = Vector3.one;
+            float p0 = 0.05f - 0.6f;   // 穴の底（口の0.6m下）から
+            float p1 = PlayerTop - Vents[k].y;
+            lift.localPosition = new Vector3(0f, (p0 + p1) * 0.5f, 0f); lift.localRotation = Quaternion.identity; lift.localScale = Vector3.one;
             var lc = lift.GetComponent<BoxCollider>(); if (lc == null) lc = lift.gameObject.AddComponent<BoxCollider>();
-            lc.isTrigger = true; lc.center = Vector3.zero; lc.size = new Vector3(1.3f, PlayerTop - 2.35f, 1.3f);
+            lc.isTrigger = true; lc.center = Vector3.zero; lc.size = new Vector3(1.3f, p1 - p0, 1.3f);
             var u = USharp<FuwaPlayerUpdraft>(lift.gameObject);
             u.liftSpeed = 4.2f; u.hoverBand = 1.2f; u.hoverDrift = 0.25f; u.airMaxSpeed = 1.6f; u.airBrake = 4f;
             u.slowFallTime = 1.0f; u.slowFallGravity = 0.35f; u.normalGravity = 1f;
@@ -96,15 +98,30 @@ public static class FuwaPlazaGeysers
             log += g.name + " phase " + w.phaseOffset.ToString("F2") + "  ";
         }
 
-        // ---- 浮き岩
+        // ---- 浮き岩：見た目だけ上の面のまん中を軸にゆらゆら傾ける。当たり判定は固定（見た目より1.5cm上）
+        //      動く床にすると、沈む時に足が離れて空中あつかいになり、ジャンプできなくなる（VRChat。2026-10-07 てじゃ）
         var rocks = root.Find("Rocks2");
         int i2 = 0;
-        foreach (var (name, amp, period, phase) in new[] { ("PlazaFloat1", 0.3f, 4.6f, 0f), ("PlazaFloat2", 0.32f, 5.3f, 0.45f) })
+        foreach (var (name, tilt, period, phase) in new[] { ("PlazaFloat1", 3f, 4.6f, 0f), ("PlazaFloat2", 3.5f, 5.3f, 0.45f) })
         {
             var t = rocks.Find(name); if (t == null) { log += name + " missing  "; continue; }
-            t.gameObject.isStatic = false;
-            var b = USharp<FuwaBobber>(t.gameObject);
-            b.amplitude = amp; b.period = period; b.phase = phase; b.rideRadius = 0.95f;
+            var old = t.GetComponent<FuwaBobber>(); if (old != null) UdonSharpUndo.DestroyImmediate(old);
+            var mf = t.GetComponent<MeshFilter>(); var mr = t.GetComponent<MeshRenderer>();
+            var mesh = mf.sharedMesh; var mat = mr.sharedMaterial;
+            mr.enabled = false;
+            t.localPosition = new Vector3(0f, 0.015f, 0f); t.localRotation = Quaternion.identity;
+            t.gameObject.isStatic = true;
+            var bb = mesh.bounds;
+            var top = new Vector3(bb.center.x, bb.max.y, bb.center.z);
+            var sway = Child(t, "Sway"); sway.localPosition = top; sway.localRotation = Quaternion.identity;
+            sway.gameObject.isStatic = false;
+            var vis = Child(sway, "Visual"); vis.localPosition = -top - new Vector3(0f, 0.015f, 0f); vis.localRotation = Quaternion.identity;
+            vis.gameObject.isStatic = false; vis.gameObject.layer = t.gameObject.layer;
+            var vmf = vis.GetComponent<MeshFilter>(); if (vmf == null) vmf = vis.gameObject.AddComponent<MeshFilter>();
+            var vmr = vis.GetComponent<MeshRenderer>(); if (vmr == null) vmr = vis.gameObject.AddComponent<MeshRenderer>();
+            vmf.sharedMesh = mesh; vmr.sharedMaterial = mat;
+            var b = USharp<FuwaBobber>(sway.gameObject);
+            b.tiltDegrees = tilt; b.period = period; b.phase = phase;
             UdonSharpEditorUtility.CopyProxyToUdon(b);
             i2++;
         }
