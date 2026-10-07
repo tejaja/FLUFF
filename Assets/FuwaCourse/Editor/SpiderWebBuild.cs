@@ -578,7 +578,7 @@ public static class SpiderWebBuild
         for (int i = 0; i <= n; i++)
         {
             float x = Mathf.Lerp(minX, maxX, i / (float)n);
-            float y = FloorAt(sup, new Vector3(x, -hs + 0.3f, 0));
+            float y = FloorAt(sup, new Vector3(x, -hs + 0.3f, 0), true);   // 影は道の上だけ（木の島の台座にちょこっとかかると変なので。2026-10-08）
             if (float.IsNaN(y)) continue;
             xs.Add(x); ys.Add(y); idx.Add(i);
         }
@@ -691,13 +691,16 @@ public static class SpiderWebBuild
         return th.count;
     }
 
-    static float FloorAt(Transform space, Vector3 localP)
+    static float FloorAt(Transform space, Vector3 localP, bool pathOnly = false)
     {
         if (!space.gameObject.activeInHierarchy) return float.NaN;
         Physics.SyncTransforms();
         Vector3 w = space.TransformPoint(localP + Vector3.up * 0.6f);
         if (Physics.Raycast(w, Vector3.down, out RaycastHit hit, 1.4f, ~0, QueryTriggerInteraction.Ignore))
+        {
+            if (pathOnly && !(hit.collider.name.Contains("Path") || (hit.collider.transform.parent != null && hit.collider.transform.parent.name.Contains("Path")))) return float.NaN;
             return space.InverseTransformPoint(hit.point).y;
+        }
         return float.NaN;
     }
 
