@@ -14,7 +14,9 @@ S0 = 78.3            # 岩場の手前のはし（坂の下）
 GOAL_S = 102.4       # ゴールの中心（s）。ゴールの丸い地面の半径 3
 GOAL_R = 3.0
 # 噴気孔 (s, 横)。坂の降り口(s<82, 横<-1.5)と、追い風でふわふわが来る所(s79〜81, 横0付近)はあける
-VENTS = [(83.8, 1.7), (86.6, -2.3), (89.3, 0.6), (92.0, -1.7), (94.4, 2.1), (97.1, -0.5)]
+VENTS = []   # build() で岩場いっぱいにばらまく（2026-10-07 てじゃ「目一杯ふやそ」）
+VENT_GAP = 2.6       # 噴気孔どうしの最小間隔（口のふちの盛り上がりが半径1.4m）
+VENT_EDGE = 1.5      # 岩場のふちからの最小距離
 
 def W(s, lat, y):
     p = O + D * (s - 79.0) + R * lat
@@ -111,15 +113,22 @@ def top_y(s, lat, poly):
     # ゆるい起伏。噴気孔・坂の降り口・ゴールの近く・ふちは平ら
     h = 0.06 * noise.noise(Vector((s * 0.28, lat * 0.28, 1.7))) + 0.03 * noise.noise(Vector((s * 0.9, lat * 0.9, 5.2)))
     f = 1.0
+    lip = 0.0
     for (vs, vl) in VENTS:
         d = math.hypot(s - vs, lat - vl)
-        f = min(f, max(0.0, (d - 1.15) / 0.8))
+        f = min(f, max(0.0, (d - 1.45) / 0.8))
+        if d < 1.45:
+            if d < 0.58: k = 0.0
+            elif d < 0.86: k = (d - 0.58) / 0.28; k = k * k * (3 - 2 * k)
+            else: k = 1.0 - (d - 0.86) / 0.59; k = k * k * (3 - 2 * k)
+            a = math.atan2(lat - vl, s - vs)
+            lip = max(lip, k * (0.22 + 0.06 * noise.noise(Vector((math.cos(a) * 1.3 + vs, math.sin(a) * 1.3 + vl, 8.1)))))
     if s < 83.0 and lat < -1.0: f = min(f, max(0.0, (s - 82.0) / 1.0))
     dg = math.hypot(s - GOAL_S, lat)
     f = min(f, max(0.0, (dg - GOAL_R - 0.3) / 1.2))
     de = dist_poly((s, lat), poly)
     f = min(f, max(0.0, de / 0.6))
-    return TOP + h * f
+    return TOP + h * f + lip
 
 class MB:
     def __init__(self): self.V = []; self.T = []
@@ -127,8 +136,26 @@ class MB:
     def tri(self, a, b, c): self.T.append((a, b, c))
     def quad(self, a, b, c, d): self.tri(a, b, c); self.tri(a, c, d)
 
+def place_vents(poly):
+    import random
+    rnd = random.Random(5)
+    s_min = min(p[0] for p in poly); s_max = max(p[0] for p in poly)
+    l_min = min(p[1] for p in poly); l_max = max(p[1] for p in poly)
+    out = []
+    for _ in range(8000):
+        s = rnd.uniform(s_min, s_max); l = rnd.uniform(l_min, l_max)
+        if s < 81.3: continue                                   # 追い風でふわふわが入ってくる所
+        if s < 83.2 and l < -1.0: continue                      # 坂の降り口
+        if math.hypot(s - GOAL_S, l) < GOAL_R + 1.9: continue   # ゴールの手前はあける
+        if not inside((s, l), poly) or dist_poly((s, l), poly) < VENT_EDGE: continue
+        if any(math.hypot(s - a, l - b) < VENT_GAP for (a, b) in out): continue
+        out.append((round(s, 2), round(l, 2)))
+    out.sort()
+    return out
+
 def build():
     poly = outline()
+    VENTS[:] = place_vents(poly)
     n = len(poly)
     mb = MB()
     # ---- 上の面：外周＋中の格子点で三角形分割（外周の辺は固定）
@@ -140,15 +167,15 @@ def build():
     while s < s_max:
         l = l_min + g * 0.5 + (0.35 if int((s - s_min) / g) % 2 else 0)
         while l < l_max:
-            if inside((s, l), poly) and dist_poly((s, l), poly) > 0.3:
+            if inside((s, l), poly) and dist_poly((s, l), poly) > 0.3 and all(math.hypot(s - a, l - b) > 1.7 for (a, b) in VENTS):
                 pts.append(Vector((s, l)))
             l += g
         s += g
     # 噴気孔の口のまわりは細かめの輪（ふちの岩が乗るので平らに）
     for (vs, vl) in VENTS:
-        for k in range(10):
-            a = 2 * math.pi * k / 10
-            for r in (0.6, 1.1):
+        for r, m in ((0.3, 8), (0.58, 16), (0.72, 16), (0.86, 18), (1.05, 18), (1.25, 18), (1.45, 18)):
+            for k in range(m):
+                a = 2 * math.pi * (k + (0.5 if m == 18 and r > 1.0 else 0)) / m
                 pts.append(Vector((vs + math.cos(a) * r, vl + math.sin(a) * r)))
     edges = [(i, (i + 1) % n) for i in range(n)]
     res = delaunay_2d_cdt(pts, edges, [], 2, 1e-5)   # 2 = 外周の内側だけ
@@ -240,6 +267,8 @@ for p in me.polygons:
 vents = [list(W(s, l, TOP)) for (s, l) in VENTS]
 info = {'vents': vents, 'goal': list(W(GOAL_S, 0, TOP)), 'outline_n': len(poly)}
 json.dump({'field': {'v': V, 't': T}, 'info': info}, open(SCR + r'\course2_field.json', 'w'))
+json.dump(info, open(r'D:\UnityProject\FLUFF\BlenderSource\course2_field_vents.json', 'w'))
+print('vents', len(VENTS), VENTS)
 # 非多様体の辺（穴）チェック
 bm = bmesh.new(); bm.from_mesh(me)
 nm = sum(1 for e in bm.edges if not e.is_manifold); bm.free()
