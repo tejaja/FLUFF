@@ -73,13 +73,14 @@ vis = Mesh(); col = Mesh()
 # 2026-10-07：板をガタつかせる（きのこのたに入口の木の床と同じくらい）。見た目だけ（判定は平らのまま）
 JIT = globals().get('JIT', 1.0)
 jrnd = random.Random(11)
-def jitter(corners):
+def jitter(corners, k=1.0, sink=0.0):
     # 板の上面4点を、板の中心まわりに少し傾け（3軸）、少し浮かせ/沈め、横に少しずらす
+    # k：ガタつきの強さ（道に差しこむ一番はしの板は0＝平らに。乱数の並びは変えない）、sink：沈める量
     from mathutils import Euler
     P = [Vector(p) for p in corners]
     ctr = sum(P, Vector()) / 4
-    e = Euler((math.radians(jrnd.uniform(-1.6, 1.6) * JIT), math.radians(jrnd.uniform(-1.8, 1.8) * JIT), math.radians(jrnd.uniform(-2.4, 2.4) * JIT)), 'XYZ')
-    off = Vector((jrnd.uniform(-0.015, 0.015) * JIT, jrnd.uniform(-0.012, 0.028) * JIT, 0))
+    e = Euler((math.radians(jrnd.uniform(-1.6, 1.6) * JIT * k), math.radians(jrnd.uniform(-1.8, 1.8) * JIT * k), math.radians(jrnd.uniform(-2.4, 2.4) * JIT * k)), 'XYZ')
+    off = Vector((jrnd.uniform(-0.015, 0.015) * JIT * k, jrnd.uniform(-0.012, 0.028) * JIT * k - sink, 0))
     out = []
     for p in P:
         q = p - ctr; q.rotate(e); out.append(tuple(ctr + q + off))
@@ -108,8 +109,11 @@ def lay_planks(x0, x1, broken_end=None):
                 cut_z = Z1 - rnd.uniform(0.55, 1.2) - (1.2 - dist) * rnd.uniform(0.5, 2.0)
                 cut_z = max(Z0 + 0.4, cut_z)
         ya, yb = deck_y(xa), deck_y(xb)
+        # 2026-10-07：坂Bの終わり（上の道の下にもぐる板）はガタつかせない。傾くと道の上面から板のかどが突き出ていた
+        under_path = xb > XB1 - 0.35
+        jk, js = (0.0, 0.015) if under_path else (1.0, 0.0)
         if cut_z is None:
-            box(vis, jitter([(xa, ya, za), (xb, yb, za), (xb, yb, zb), (xa, ya, zb)]), Vector((0, -1, 0)), PLANK_T, c)
+            box(vis, jitter([(xa, ya, za), (xb, yb, za), (xb, yb, zb), (xa, ya, zb)], jk, js), Vector((0, -1, 0)), PLANK_T, c)
         else:
             # 欠けた板：-z 側だけ残る（割れ目に向かって短くなる）＋ 先はギザギザ
             box(vis, jitter([(xa, ya, za), (xb, yb, za), (xb, yb, cut_z), (xa, ya, cut_z)]), Vector((0, -1, 0)), PLANK_T, c)
