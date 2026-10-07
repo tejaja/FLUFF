@@ -945,18 +945,30 @@ public class FuwaBlower : UdonSharpBehaviour
     private void PushEnemies(Vector3 origin, Vector3 aim, float reach, float power, bool stun)
     {
         // 銃口の後ろの筒（0距離の部分）まで入るように少し大きめに拾う
-        Collider[] hits = Physics.OverlapSphere(origin + aim * (reach - nearBackLength) * 0.5f, Mathf.Max(reach * 0.6f, (reach + nearBackLength) * 0.5f + nearRadius), -1, QueryTriggerInteraction.Collide);
+        Collider[] hits = Physics.OverlapSphere(origin + aim * (reach - nearBackLength) * 0.5f, Mathf.Max(reach * 0.6f, (reach + nearBackLength) * 0.5f + nearRadius) + 1f, -1, QueryTriggerInteraction.Collide);   // +1m：ママけだまの大きい体のはしも拾う
         Vector3 flat = Vector3.ProjectOnPlane(aim, Vector3.up).normalized;
         foreach (Collider c in hits)
         {
             if (c == null) continue;
             Vector3 to = c.transform.position - origin;
+            // ママけだまは体が大きいので、中心ではなく体（半径 hitRadius の球）に風の円すいがかすれば当たり
+            FuwaMama mm = c.GetComponent<FuwaMama>();
+            if (mm != null)
+            {
+                float along = Vector3.Dot(to, aim);
+                float r = mm.hitRadius;
+                if (along < -r || along - r > reach) continue;
+                float tc = Mathf.Clamp(along, 0f, reach);
+                float perp = (to - aim * tc).magnitude;
+                if (perp > r + tc * Mathf.Tan(coneAngle * Mathf.Deg2Rad) + nearRadius) continue;
+                float dm = Mathf.Clamp(along - r, 0f, reach);
+                mm.Blown(flat * pushPower * Mathf.Lerp(nearBoost, minFalloff, dm / reach) * power, stun);
+                continue;
+            }
             if (!InShot(origin, aim, reach, to)) continue;
             float d = Vector3.Dot(to, aim) > 0f ? Mathf.Min(to.magnitude, reach) : 0f;
             FuwaEnemy e = c.GetComponent<FuwaEnemy>();
             if (e != null) e.Blown(flat * pushPower * Mathf.Lerp(nearBoost, minFalloff, d / reach) * power, stun);
-            FuwaMama mm = c.GetComponent<FuwaMama>();
-            if (mm != null) mm.Blown(flat * pushPower * Mathf.Lerp(nearBoost, minFalloff, d / reach) * power, stun);
             FuwaStartMushroom m = c.GetComponent<FuwaStartMushroom>();
             if (m != null) m.Hit(aim);
         }

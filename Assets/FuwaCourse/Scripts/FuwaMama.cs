@@ -26,6 +26,10 @@ public class FuwaMama : UdonSharpBehaviour
     [Tooltip("白目の前の面のふくらみ（黒目を白目の面に沿わせる）")]
     public float pupilDepth = 0.04f;
 
+    [Header("風の当たり判定")]
+    [Tooltip("エアガンの風が当たる体の半径(m)。風の円すいがこの球のどこかにかすれば当たり（2026-10-07 前は中心の1点だけだった）")]
+    public float hitRadius = 1.3f;
+
     [Header("追いかける")]
     [Tooltip("追いかける速さ(m/s)。めっちゃ遅い（ジャンプしない時）")]
     public float chaseSpeed = 0.55f;
