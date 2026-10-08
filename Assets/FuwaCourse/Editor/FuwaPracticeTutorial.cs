@@ -35,8 +35,8 @@ public static class FuwaPracticeTutorial
     static readonly Bay[] Bays =
     {
         new Bay(7.5f, "TapCharge",
-            "<size=130%><color=#FF6B5C>ちょん押し と 溜め</color></size>\nちょん押し：すぐ撃てる・ちかく\n長押し：溜めて離すと・とおく",
-            "<size=130%><color=#FF6B5C>Tap & Charge</color></size>\nTap: quick shot, short\nHold & release: charged, far"),
+            "<size=130%><color=#FF6B5C>ちょん押し と 溜め</color></size>\nちょん押し：すぐ撃てる・ちかく\n長押し：溜めるほど強く・とおく\n銃口の玉が金色になったら満タン",
+            "<size=130%><color=#FF6B5C>Tap & Charge</color></size>\nTap: quick shot, short\nHold: the longer, the stronger\nOrb turns gold = full charge"),
         new Bay(15.0f, "Down",
             "<size=130%><color=#FF6B5C>下を撃っても上がる</color></size>\n風はいつもふわっと持ち上げる\n床に押しつけたりしない",
             "<size=130%><color=#FF6B5C>Shoot down, it goes up</color></size>\nThe wind always lifts the fluff\nIt never pushes it into the floor"),
@@ -701,9 +701,7 @@ public static class FuwaPracticeTutorial
     {
         var lane = new GameObject(name).transform; lane.SetParent(parent, false);
         lane.position = new Vector3(basePos.x, IslandTop, basePos.z); lane.rotation = Quaternion.LookRotation(d);
-        var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post"; Object.DestroyImmediate(post.GetComponent<Collider>());
-        post.transform.SetParent(lane, false); post.transform.localPosition = new Vector3(0, gunHeight * 0.5f - 0.02f, -0.08f); post.transform.localScale = new Vector3(0.07f, gunHeight * 0.5f, 0.07f);
-        post.GetComponent<Renderer>().sharedMaterial = Mat("Course_Wood");
+        // 銃は台の棒なしで浮かせる（見えない誰かが持って撃っている見本。2026-10-08）
         var gun = new GameObject("DemoGun").transform; gun.SetParent(lane, false); gun.localPosition = new Vector3(0, gunHeight, 0);
         foreach (var cn in new[] { "Visual", "Nozzle" }) { var cp = Object.Instantiate(tmpl.transform.Find(cn).gameObject, gun, false); cp.name = cn; }
         foreach (var g in gun.GetComponentsInChildren<Renderer>(true)) if (g.name.StartsWith("GunGauge")) g.enabled = false;
