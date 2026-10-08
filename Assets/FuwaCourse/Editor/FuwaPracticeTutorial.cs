@@ -511,7 +511,8 @@ public static class FuwaPracticeTutorial
         }
         var startSpot = start.Find("PlayerSpot"); var ballStart = start.Find("BallStart");
         // ロビーへのワープは、ほかのコースと同じく後ろの小島に
-        MakeWarp("WarpToLobby", lobbyPad, "ロビーにもどる", "Back to Lobby", null, null, null, true);
+        var lobbyW = MakeWarp("WarpToLobby", lobbyPad, "ロビーにもどる", "Back to Lobby", null, null, null, true);
+        lobbyW.Find("Label").gameObject.SetActive(false);   // ほかのコースのスタートと同じく、ロビーへのワープに看板は出さない（てじゃ「たぶん分かる」）
         // 説明をとばすのは、床のワープではなく柵に付けた小さいボタン（2026-10-08 てじゃ）。入って左前（銃の台は右前）
         // ワープの処理は FuwaCourseWarp をそのまま使い、床の見た目と踏んで入る当たり判定は消して、ボタン（FuwaInteractWarp）から呼ぶ
         var skip = MakeWarp("SkipTutorial", e0 + ef * 1.3f - er * 1.35f + Vector3.up * 0.02f, "説明をとばす", "Skip", startSpot, ballStart, gsSrc.Find("GunSpot"), false);
@@ -606,6 +607,20 @@ public static class FuwaPracticeTutorial
             MakeSign(root, c + outw * (HalfW - 0.35f), (f + outw * 0.45f).normalized,
                 "<size=130%><color=#FF6B5C>ここからが本番！</color></size>\nゴールまで運んでみよう\nアウトしたら、キノコか\nチェックポイントからやり直し\nほかのコースには、もっと\nいろんなしかけがあるよ",
                 "<size=130%><color=#FF6B5C>Here we go!</color></size>\nCarry it to the goal\nIf it's out, you restart from\nthe mushroom or the checkpoint\nThe other courses have\nlots more tricks", signSrc, lang, "Sign_MoreTricks");
+        }
+        // キノコの島：キノコの左横に小さい看板「キノコを撃ってスタート！」（本番の看板に入りきらないので。2026-10-08 てじゃ）。銃の台は右前なので左に
+        {
+            var mushT = start.Find("StartMushroom"); var pspot = start.Find("PlayerSpot");
+            Vector3 fwd = start.forward; fwd.y = 0f; fwd.Normalize();
+            Vector3 left = -new Vector3(fwd.z, 0f, -fwd.x);
+            Vector3 at = mushT.position + left * 1.15f + fwd * 0.2f;
+            Vector3 face = at - pspot.position; face.y = 0f;
+            MakeSign(root, at, face.normalized,
+                "<color=#FF6B5C>キノコを撃って\nスタート！</color>",
+                "<color=#FF6B5C>Shoot the mushroom\nto start!</color>", signSrc, lang, "Sign_ShootMushroom");
+            var ms = root.Find("Sign_ShootMushroom");
+            ms.position = new Vector3(at.x, IslandTop, at.z); ms.localScale = Vector3.one * 0.55f;
+            var mtm = ms.GetComponentInChildren<TMPro.TextMeshPro>(); mtm.fontSizeMax = 5f;   // 2行だけなので紙いっぱいに大きく
         }
         // 最後の壁〜キノコの島：ふわふわをコースのスタート（キノコ）へ戻す
         {
@@ -1305,7 +1320,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         var b = new GameObject(name).transform; b.SetParent(parent, false);
         // 柵の内側に、少し上向きに傾けて貼る（柵に向かって立った人が見下ろして読める）
         b.position = from + dir * (r - 0.07f) + Vector3.up * 0.12f;
-        b.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(-20f, 0f, 0f);
+        b.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(20f, 0f, 0f);   // 上の端を向こうへ倒す（見下ろして読みやすく。-20だと手前に前傾していた）
         // 押した時の処理（Canvas とは別の物に付ける：ここに当たり判定はないのでクリックの「Use」は出ない）
         var iw = UdonSharpUndo.AddComponent<FuwaInteractWarp>(b.gameObject);
         SetU(iw, "warp", warp); Sync(iw);
