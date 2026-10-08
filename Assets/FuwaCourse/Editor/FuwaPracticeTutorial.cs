@@ -717,6 +717,27 @@ public static class FuwaPracticeTutorial
         return a > GapFrom + 2f && a < GapTo - 2f;   // 両はしの柱は残す
     }
 
+    // つながっている部品ごとに、部品の中心が開ける範囲（島のふちの輪の上）にあれば消す。残す三角形を返す
+    static List<int> KeepParts(Mesh src, Vector3 center, out int removedParts)
+    {
+        var v = src.vertices; var tris = src.triangles;
+        var parent = Enumerable.Range(0, v.Length).ToArray();
+        int Find(int a) { while (parent[a] != a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; }
+        var byPos = new Dictionary<Vector3Int, int>();
+        for (int i = 0; i < v.Length; i++)
+        {
+            var k = new Vector3Int(Mathf.RoundToInt(v[i].x * 1000), Mathf.RoundToInt(v[i].y * 1000), Mathf.RoundToInt(v[i].z * 1000));
+            if (byPos.TryGetValue(k, out var j)) parent[Find(i)] = Find(j); else byPos[k] = i;
+        }
+        for (int i = 0; i < tris.Length; i += 3) { parent[Find(tris[i + 1])] = Find(tris[i]); parent[Find(tris[i + 2])] = Find(tris[i]); }
+        var sum = new Dictionary<int, Vector3>(); var cnt = new Dictionary<int, int>();
+        for (int i = 0; i < v.Length; i++) { int r = Find(i); sum[r] = (sum.TryGetValue(r, out var s0) ? s0 : Vector3.zero) + v[i]; cnt[r] = (cnt.TryGetValue(r, out var c0) ? c0 : 0) + 1; }
+        var keepTri = new List<int>(); removedParts = 0; var removedRoots = new HashSet<int>();
+        foreach (var r in sum.Keys) if (InGap(sum[r] / cnt[r], center, 3.05f)) { removedRoots.Add(r); removedParts++; }
+        for (int i = 0; i < tris.Length; i += 3) if (!removedRoots.Contains(Find(tris[i]))) keepTri.AddRange(new[] { tris[i], tris[i + 1], tris[i + 2] });
+        return keepTri;
+    }
+
     // スタートの島の柵（かぜのみちと同じメッシュを使っているので、元は触らずに れんしゅう用のコピーを作る）から、
     // 小道が入る所の柱と横木を抜く。見た目は「部品（柱1本・横木1本）ごと」に、当たり判定は三角形ごとに
     static string OpenStartFence(Transform startArea)
@@ -729,21 +750,7 @@ public static class FuwaPracticeTutorial
         Vector3 cCol = fcol.InverseTransformPoint(startArea.Find("Ground").position);
 
         // 見た目：つながっている部品ごとに、部品の中心が開ける範囲（島のふちの輪の上）にあれば消す
-        var v = srcVis.vertices; var tris = srcVis.triangles;
-        var parent = Enumerable.Range(0, v.Length).ToArray();
-        int Find(int a) { while (parent[a] != a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; }
-        var byPos = new Dictionary<Vector3Int, int>();
-        for (int i = 0; i < v.Length; i++)
-        {
-            var k = new Vector3Int(Mathf.RoundToInt(v[i].x * 1000), Mathf.RoundToInt(v[i].y * 1000), Mathf.RoundToInt(v[i].z * 1000));
-            if (byPos.TryGetValue(k, out var j)) parent[Find(i)] = Find(j); else byPos[k] = i;
-        }
-        for (int i = 0; i < tris.Length; i += 3) { parent[Find(tris[i + 1])] = Find(tris[i]); parent[Find(tris[i + 2])] = Find(tris[i]); }
-        var sum = new Dictionary<int, Vector3>(); var cnt = new Dictionary<int, int>();
-        for (int i = 0; i < v.Length; i++) { int r = Find(i); sum[r] = (sum.TryGetValue(r, out var s0) ? s0 : Vector3.zero) + v[i]; cnt[r] = (cnt.TryGetValue(r, out var c0) ? c0 : 0) + 1; }
-        var keepTri = new List<int>(); int removedParts = 0; var removedRoots = new HashSet<int>();
-        foreach (var r in sum.Keys) if (InGap(sum[r] / cnt[r], cVis, 3.05f)) { removedRoots.Add(r); removedParts++; }
-        for (int i = 0; i < tris.Length; i += 3) if (!removedRoots.Contains(Find(tris[i]))) keepTri.AddRange(new[] { tris[i], tris[i + 1], tris[i + 2] });
+        var keepTri = KeepParts(srcVis, cVis, out int removedParts);
         var vis = Object.Instantiate(srcVis); vis.name = "Course0_StartFence_Open"; vis.SetTriangles(keepTri, 0); vis.RecalculateBounds();
 
         var cv = srcCol.vertices; var ct = srcCol.triangles; var keepC = new List<int>();
@@ -763,24 +770,16 @@ public static class FuwaPracticeTutorial
         vis = Save(vis, MeshDir + "/Course0_StartFence_Open.asset");
         col = Save(col, MeshDir + "/Course0_StartFenceCollider_Open.asset");
         fence.GetComponent<MeshFilter>().sharedMesh = vis;
-        // 遠くで切り替わる軽い版（Fence/Fence_Far）も同じように開ける（こっちは間引いたメッシュなので三角形ごとに）
+        // 遠くで切り替わる軽い版（Fence/Fence_Far）は、開けた見た目をそのまま間引いて作る
+        // （前は間引き済みの柵から三角形ごとに抜いていて、切り口に穴が開いて遠くで欠けて見えた）
         var farT = fence.Find("Fence_Far");
         if (farT != null)
         {
-            var srcFar = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Generated/Far/FuwaCourse_StartFence_Bevel_Far.asset");
-            if (srcFar != null)
-            {
-                Vector3 cFar = farT.InverseTransformPoint(startArea.Find("Ground").position);
-                var fv = srcFar.vertices; var ft = srcFar.triangles; var keepF = new List<int>();
-                for (int i = 0; i < ft.Length; i += 3)
-                {
-                    var cen = (fv[ft[i]] + fv[ft[i + 1]] + fv[ft[i + 2]]) / 3f;
-                    if (!InGap(cen, cFar, 3.05f)) keepF.AddRange(new[] { ft[i], ft[i + 1], ft[i + 2] });
-                }
-                var far = Object.Instantiate(srcFar); far.name = "Course0_StartFence_Open_Far"; far.SetTriangles(keepF, 0); far.RecalculateBounds();
-                far = Save(far, MeshDir + "/Course0_StartFence_Open_Far.asset");
-                farT.GetComponent<MeshFilter>().sharedMesh = far;
-            }
+            var ls = fence.lossyScale; float cell = FuwaFarViewSetup.FarCell;
+            var far = FuwaFarViewSetup.Simplify(vis, new Vector3(cell / Mathf.Abs(ls.x), cell / Mathf.Abs(ls.y), cell / Mathf.Abs(ls.z)));
+            far.name = "Course0_StartFence_Open_Far";
+            far = Save(far, MeshDir + "/Course0_StartFence_Open_Far.asset");
+            farT.GetComponent<MeshFilter>().sharedMesh = far;
         }
         var mc = fcol.GetComponent<MeshCollider>(); mc.sharedMesh = null; mc.sharedMesh = col;
 

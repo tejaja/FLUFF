@@ -23,7 +23,7 @@ public static class FuwaFarViewSetup
     const int HeavyTris = 4000;
     const float HeavyMaxSize = 20f;
     // 間引きの細かさ(m)。これより近い頂点はまとめる
-    const float FarCell = 0.05f;
+    internal const float FarCell = 0.05f;
     // 「物の太さ」に対する画面の割合がこれより小さくなったら軽い形にする
     const float FarHeight = 0.04f;
     const string FarDir = "Assets/FuwaCourse/Generated/Far";
@@ -58,7 +58,12 @@ public static class FuwaFarViewSetup
         // スクリプトの Renderer[]（チェックポイントで光らせる物など）に元の物が入っていたら、軽い形も足す
         foreach (var (so, path) in arrayRefs)
         {
+            so.Update();
             var arr = so.FindProperty(path);
+            // 外した軽い形が入っていた所（空になった要素）は詰める。Udon で null を触ると止まるので
+            for (int i = arr.arraySize - 1; i >= 0; i--)
+                if (arr.GetArrayElementAtIndex(i).objectReferenceValue == null && arr.GetArrayElementAtIndex(i).objectReferenceInstanceIDValue != 0)
+                    arr.DeleteArrayElementAtIndex(i);
             var have = new HashSet<Object>();
             for (int i = 0; i < arr.arraySize; i++) have.Add(arr.GetArrayElementAtIndex(i).objectReferenceValue);
             int n0 = arr.arraySize;
@@ -174,7 +179,9 @@ public static class FuwaFarViewSetup
         {
             lite = Simplify(src, new Vector3(FarCell / Mathf.Abs(ls.x), FarCell / Mathf.Abs(ls.y), FarCell / Mathf.Abs(ls.z)));
             lite.name = src.name + FarSuffix;
-            if (Tris(lite) > Tris(src) * 0.7f) { made[src] = null; return null; }   // ほとんど減らないなら切り替えない
+            if (Tris(lite) > Tris(src) * 0.7f) { made[src] = null; RemoveFar(r); return null; }   // ほとんど減らないなら切り替えない
+            // 間引いて穴（元にない開いた辺）ができたら使わない（光るキノコのかさが遠くで欠けて見えた）
+            if (OpenEdges(lite) > OpenEdges(src)) { made[src] = null; RemoveFar(r); return null; }
             if (!AssetDatabase.IsValidFolder(FarDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Far");
             string path = FarDir + "/" + lite.name + ".asset";
             var old = AssetDatabase.LoadAssetAtPath<Mesh>(path);
@@ -182,7 +189,7 @@ public static class FuwaFarViewSetup
             else AssetDatabase.CreateAsset(lite, path);
             made[src] = lite;
         }
-        if (lite == null) return null;
+        if (lite == null) { RemoveFar(r); return null; }
 
         var child = r.transform.Find(r.name + FarSuffix);
         if (child == null)
@@ -198,6 +205,7 @@ public static class FuwaFarViewSetup
         var mr = child.GetComponent<MeshRenderer>();
         if (mr == null) mr = child.gameObject.AddComponent<MeshRenderer>();
         mf.sharedMesh = lite;
+        mr.enabled = true;
         mr.sharedMaterials = r.sharedMaterials;
         mr.shadowCastingMode = r.shadowCastingMode;
         mr.receiveShadows = r.receiveShadows;
@@ -215,11 +223,49 @@ public static class FuwaFarViewSetup
         return mr;
     }
 
+    // 前に作った軽い形を使わないようにする（切り替えの LODGroup を外して、子の「〜_Far」は表示しない）。
+    // 子そのものはチェックポイントの光らせる物・影焼きの一覧などから参照されているので消さない
+    static void RemoveFar(MeshRenderer r)
+    {
+        var child = r.transform.Find(r.name + FarSuffix);
+        if (child != null && child.TryGetComponent<MeshRenderer>(out var fmr)) { Undo.RecordObject(fmr, "far off"); fmr.enabled = false; }
+        var g = r.GetComponent<LODGroup>();
+        if (g != null && g.lodCount == 2) Undo.DestroyObjectImmediate(g);
+    }
+
+    // 開いた辺（三角形1枚にしか使われていない辺）の数。同じ位置の頂点は1つとみなす
+    static int OpenEdges(Mesh m)
+    {
+        var v = m.vertices;
+        var id = new int[v.Length];
+        var weld = new Dictionary<Vector3, int>();
+        for (int i = 0; i < v.Length; i++) { if (!weld.TryGetValue(v[i], out int k)) { k = weld.Count; weld[v[i]] = k; } id[i] = k; }
+        var edges = new Dictionary<long, int>();
+        for (int s = 0; s < m.subMeshCount; s++)
+        {
+            var t = m.GetTriangles(s);
+            for (int i = 0; i + 2 < t.Length; i += 3)
+                for (int j = 0; j < 3; j++)
+                {
+                    int a = id[t[i + j]], b = id[t[i + (j + 1) % 3]];
+                    long key = a < b ? ((long)a << 32) | (uint)b : ((long)b << 32) | (uint)a;
+                    edges[key] = edges.TryGetValue(key, out int n) ? n + 1 : 1;
+                }
+        }
+        int open = 0;
+        foreach (var c in edges.Values) if (c == 1) open++;
+        return open;
+    }
+
     // 頂点を格子でまとめて間引く（向きが逆の面は別にまとめて、薄い物の表裏がつぶれないようにする）
-    static Mesh Simplify(Mesh src, Vector3 cell)
+    internal static Mesh Simplify(Mesh src, Vector3 cell)
     {
         var v = src.vertices; var n = src.normals; var uv = src.uv; var col = src.colors;
         bool hasN = n != null && n.Length == v.Length, hasUV = uv != null && uv.Length == v.Length, hasC = col != null && col.Length == v.Length;
+        // 向きは「同じ位置の頂点をまとめた平均の法線」で決める。UVの継ぎ目などで同じ位置に頂点が2つあると、
+        // 法線が少し違うだけで別々のまとまりに入ってずれ、すき間（欠け）ができていた（光るキノコのかさ）
+        var posNormal = new Dictionary<Vector3, Vector3>();
+        if (hasN) for (int i = 0; i < v.Length; i++) posNormal[v[i]] = (posNormal.TryGetValue(v[i], out var sum) ? sum : Vector3.zero) + n[i];
         var map = new Dictionary<(int, int, int, int), int>();
         var remap = new int[v.Length];
         var P = new List<Vector3>(); var N = new List<Vector3>(); var U = new List<Vector2>(); var C = new List<Color>(); var cnt = new List<int>();
@@ -228,7 +274,9 @@ public static class FuwaFarViewSetup
             int dir = 0;
             if (hasN)
             {
-                var a = n[i]; float ax = Mathf.Abs(a.x), ay = Mathf.Abs(a.y), az = Mathf.Abs(a.z);
+                var a = posNormal[v[i]];
+                if (a.sqrMagnitude < 0.25f) a = n[i];   // 表裏が同じ位置にある薄い物は、打ち消し合うので自分の法線で
+                float ax = Mathf.Abs(a.x), ay = Mathf.Abs(a.y), az = Mathf.Abs(a.z);
                 dir = ax >= ay && ax >= az ? (a.x > 0 ? 0 : 1) : ay >= az ? (a.y > 0 ? 2 : 3) : (a.z > 0 ? 4 : 5);
             }
             var key = (Mathf.FloorToInt(v[i].x / cell.x), Mathf.FloorToInt(v[i].y / cell.y), Mathf.FloorToInt(v[i].z / cell.z), dir);
