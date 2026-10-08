@@ -285,6 +285,19 @@ public static class FuwaMamonoDeco
         int nTwig = 0, nFeather = 0, nShell = 0, nTuft = 0; tries = 0;
         var floorSpots = new List<(Vector3 p, float r)>();   // 床の小物の場所（抜け毛と重ならないように）
         foreach (var e in eggSpots) floorSpots.Add((e, 0.75f));   // 小島のタマゴのセット
+        // チェックポイントの光るキノコ（丸太ごと床に置いてある）の下・まわりには置かない（2026-10-09 枝が丸太に埋まっていた）
+        foreach (Transform cp in root)
+        {
+            var gm = cp.name.StartsWith("Checkpoint") ? cp.Find("GlowMushrooms") : null;
+            if (gm == null) continue;
+            foreach (Transform cl in gm)
+            {
+                if (!cl.gameObject.activeInHierarchy) continue;
+                var rs = cl.GetComponentsInChildren<MeshRenderer>(); if (rs.Length == 0) continue;   // 胞子のパーティクルは範囲が原点まで広がるので数えない
+                var cb = rs[0].bounds; foreach (var r in rs) cb.Encapsulate(r.bounds);
+                floorSpots.Add((new Vector3(cb.center.x, 0f, cb.center.z), Mathf.Max(cb.extents.x, cb.extents.z) + 0.45f));
+            }
+        }
         int[] quota = { 70, 0, 18, 0 };   // 羽根は鳥じゃないのでなし。抜け毛は下で敵のまわりにだけ散らす
         while (tries++ < 20000 && (nTwig < quota[0] || nFeather < quota[1] || nShell < quota[2] || nTuft < quota[3]))
         {
