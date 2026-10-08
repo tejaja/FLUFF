@@ -3,7 +3,8 @@ using UnityEngine;
 using VRC.SDKBase;
 
 // まもののすの奥の大きい巣で寝ている「ママけだま」（自分の画面だけ、同期なし）。
-// 近くに来ると起きて、巣の中をめっちゃゆっくり追いかけてくる。ぶつかると大きめに吹っ飛ばされる。
+// 近くに来ると起きて、巣の中をめっちゃゆっくりふわふわを追いかけてくる（運んでない時はプレイヤー）。
+// ふわふわにぶつかると大きめに吹っ飛ばす（2026-10-09 ちびけだまと同じくふわふわ狙いに）。人も通り道にいれば吹っ飛ぶ。
 // エアガンはチャージ撃ちだけ少し押せる（ノンチャージは効かない）。倒せないので急いで抜ける。
 // （useSneeze をONにすると、前の「くしゃみで押し戻す」も使える）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -31,6 +32,8 @@ public class FuwaMama : UdonSharpBehaviour
     public float hitRadius = 1.3f;
 
     [Header("追いかける")]
+    [Tooltip("ON：運んでいる最中のふわふわを追いかけて吹っ飛ばす。OFF：前と同じくプレイヤーを追いかける")]
+    public bool targetBall = true;
     [Tooltip("追いかける速さ(m/s)。めっちゃ遅い（ジャンプしない時）")]
     public float chaseSpeed = 0.55f;
     [Tooltip("ゆったりジャンプで近づく（OFFなら這う）")]
@@ -49,8 +52,14 @@ public class FuwaMama : UdonSharpBehaviour
     [Tooltip("ぶつかった時に人を吹っ飛ばす強さ")]
     public float knockback = 8.5f;
     public float knockUp = 4f;
-    [Tooltip("ふわふわに触れた時に押しのける強さ")]
+    [Tooltip("ふわふわに触れた時に押しのける強さ（運んでない・待ってる時）")]
     public float ballBump = 3.5f;
+    [Tooltip("運んでいる最中のふわふわにぶつかった時に吹っ飛ばす速さ（横・上）")]
+    public float ballKnockback = 6.5f;
+    public float ballKnockUp = 1.8f;
+    [Tooltip("一度吹っ飛ばしてから次に当たるまでの秒数")]
+    public float ballHitCooldown = 1.2f;
+    public Color ballHitGlow = new Color(0.75f, 0.35f, 1f);
     [Tooltip("チャージ撃ちで押された時の倍率（ふつうのけだまより重い）")]
     public float pushScale = 0.35f;
     public float pushDamping = 2.5f;
@@ -97,6 +106,7 @@ public class FuwaMama : UdonSharpBehaviour
     private Vector3 _home;
     private Vector3 _push;
     private float _bumpUntil;
+    private float _ballHitUntil;
     private float _squashUntil;
     private float _hopClock;
     private Vector3 _hopDir;
@@ -148,7 +158,7 @@ public class FuwaMama : UdonSharpBehaviour
         bool near = (local.GetPosition() - transform.position).magnitude < activeRange
                  || (ball != null && ball.gameObject.activeInHierarchy && (ball.transform.position - transform.position).magnitude < activeRange);
 
-        UpdatePupils(_state != 0, local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, dt);
+        UpdatePupils(_state != 0, BallLive() ? ball.transform.position : local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, dt);
         float swell = 0f, squint = 1f, shake = 0f;
         // ゴールしたら：巣のまん中（最初の場所）へ戻って、また眠る（ゴールしている間は起きない）
         bool finished = ball != null && ball.IsFinished();
@@ -323,11 +333,18 @@ public class FuwaMama : UdonSharpBehaviour
         p.localPosition = b + new Vector3(_look.x * pupilReach, _look.y * pupilReach, -pupilDepth * (1f - Mathf.Sqrt(Mathf.Max(0f, 1f - r * r * 0.8f))));
     }
 
+    // 狙うのは運んでいる最中のふわふわ（待ってる・かくれてる・持ってる・ゴール後はプレイヤー）
+    private bool BallLive()
+    {
+        return targetBall && ball != null && ball.gameObject.activeInHierarchy && !ball.IsWaitingOrHidden() && !ball.IsCarried() && !ball.IsFinished();
+    }
+
     // ゆっくり追いかける（巣の外には出ない）。押された分はだんだん止まる
     private void Move(VRCPlayerApi local, float dt)
     {
         Vector3 pos = transform.position;
-        Vector3 to = local.GetPosition() - pos; to.y = 0f;
+        bool ballLive = BallLive();
+        Vector3 to = (ballLive ? ball.transform.position : local.GetPosition()) - pos; to.y = 0f;
         Vector3 step = Vector3.zero;
         float lift = 0f;
         _crouch = 0f;
@@ -376,7 +393,7 @@ public class FuwaMama : UdonSharpBehaviour
             _squashUntil = Time.time + 0.3f;
             if (bumpSound != null) bumpSound.Play();
         }
-        // ふわふわは押しのける
+        // ふわふわ：運んでいる最中なら大きめに吹っ飛ばす（道の外まで飛べばアウト）。それ以外はやさしく押しのける
         if (ball != null && ball.gameObject.activeInHierarchy)
         {
             Vector3 bd = ball.transform.position - c;
@@ -384,7 +401,17 @@ public class FuwaMama : UdonSharpBehaviour
             {
                 Vector3 bf = bd; bf.y = 0f;
                 bf = bf.sqrMagnitude > 0.0001f ? bf.normalized : transform.forward;
-                ball.Blow(bf * ballBump * dt * 8f + Vector3.up * 0.5f * dt * 8f);
+                if (ballLive)
+                {
+                    if (Time.time > _ballHitUntil)
+                    {
+                        ball.LaunchTinted(bf * ballKnockback + Vector3.up * ballKnockUp, ballHitGlow);
+                        _ballHitUntil = Time.time + ballHitCooldown;
+                        _squashUntil = Time.time + 0.3f;
+                        if (bumpSound != null) bumpSound.Play();
+                    }
+                }
+                else ball.Blow(bf * ballBump * dt * 8f + Vector3.up * 0.5f * dt * 8f);
             }
         }
     }
