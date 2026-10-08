@@ -870,7 +870,7 @@ public static class FuwaPracticeTutorial
 
     // ---------- 空気ぎれの区画の銃（大きく・高く。ふわふわは銃口の真上より少し手前） ----------
     // ふわふわは見せない（銃の向きを決めるためだけの見えない的）：銃口の1m先・0.45m上＝約25°上向き
-    const float AirGunScale = 1.5f, AirGunHeight = 1.1f, AirBallUp = 0.45f, AirBallBack = 1.0f;
+    const float AirGunScale = 2.2f, AirGunHeight = 1.1f, AirBallUp = 0.45f, AirBallBack = 1.0f;
 
     // ---------- 横風 ----------
     const float WindStrength = 0.8f;   // 加速度 m/s²（コース1の横風のゆるい時くらい）
@@ -1401,7 +1401,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                 // 落ちる所に的（本物と同じ計算）。高く上がった方は落ちるまでが長いので、1回分の長さもそれに合わせる
                 var lat = Vector3.Cross(Vector3.up, along).normalized;
                 MakeLane(bayRoot, "Lane_Low", islandCenter - along * 1.5f - lat * 0.55f, along, 0.8f, new Vector3(0, 0.25f, 0.95f), new[] { 1.3f }, new[] { 0.5f }, null, null, false, tmpl, ballSrc, floorTop);
-                MakeLane(bayRoot, "Lane_High", islandCenter - along * 1.5f + lat * 0.55f, along, 0.15f, new Vector3(0, 1.0f, 0.08f), new[] { 1.3f }, new[] { 0.5f }, null, null, false, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane_High", islandCenter - along * 1.5f + lat * 0.55f, along, 0.8f, new Vector3(0, 0.7f, 0.06f), new[] { 1.3f }, new[] { 0.5f }, null, null, false, tmpl, ballSrc, floorTop);
                 float longest = 0f;
                 foreach (var ln in new[] { "Lane_Low", "Lane_High" })
                 {
@@ -1445,8 +1445,8 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                 // 銃が主役なので大きく・胸の高さ・道寄り（2026-10-08 てじゃ「銃が下すぎる」）。ふわふわは見せない（hideBall）：
                 // 銃は道から見て向こう向き・少し上向き（自分で持っている時と同じ向きで、銃の後ろのゲージが道から見える）
                 Vector3 bo = new Vector3(0, AirBallUp, AirBallBack);
-                MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 0.9f - lat * 0.7f, along, AirGunHeight, bo, tA.ToArray(), cA, null, hA, false, tmpl, ballSrc, floorTop, AirGunScale);
-                MakeLane(bayRoot, "Lane_Wait", islandCenter - along * 0.9f + lat * 0.7f, along, AirGunHeight, bo, tB.ToArray(), cB, null, null, false, tmpl, ballSrc, floorTop, AirGunScale);
+                MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 0.9f - lat * 0.85f, along, AirGunHeight, bo, tA.ToArray(), cA, null, hA, false, tmpl, ballSrc, floorTop, AirGunScale);
+                MakeLane(bayRoot, "Lane_Wait", islandCenter - along * 0.9f + lat * 0.85f, along, AirGunHeight, bo, tB.ToArray(), cB, null, null, false, tmpl, ballSrc, floorTop, AirGunScale);
                 foreach (var ln in new[] { "Lane_Charge", "Lane_Wait" })
                 {
                     var lane = bayRoot.Find(ln); var ds = lane.GetComponent<FuwaDemoStand>(); var gun = lane.Find("DemoGun");
