@@ -50,8 +50,8 @@ public static class FuwaPracticeTutorial
             "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる\n（待ってもゆっくりもどる）",
             "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast\n(waiting refills it slowly)"),
         new Bay(0f, "Wind",
-            "<size=130%><color=#FF6B5C>横風に注意</color></size>\n風でふわふわが流される\n溜めて撃った直後は\n流されにくい",
-            "<size=130%><color=#FF6B5C>Crosswind</color></size>\nThe wind pushes the fluff sideways\nRight after a charged shot,\nit resists the wind"),
+            "<size=130%><color=#FF6B5C>風に注意</color></size>\n風でふわふわが流される\n溜めて撃った直後は\n流されにくい",
+            "<size=130%><color=#FF6B5C>Watch the wind</color></size>\nThe wind pushes the fluff around\nRight after a charged shot,\nit resists the wind"),
         new Bay(0f, "Monster",
             "<size=130%><color=#FF6B5C>まものに注意</color></size>\nふわふわめがけて体当たりしてくる\n撃って押し返そう",
             "<size=130%><color=#FF6B5C>Watch out for monsters</color></size>\nThey ram your fluff away\nShoot them back!"),
@@ -824,6 +824,9 @@ public static class FuwaPracticeTutorial
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
     }
 
+    // ---------- 空気ぎれの区画の銃（大きく・高く。ふわふわは銃口の真上より少し手前） ----------
+    const float AirGunScale = 1.5f, AirGunHeight = 1.0f, AirBallUp = 0.9f, AirBallBack = -0.3f;
+
     // ---------- 横風 ----------
     const float WindStrength = 0.8f;   // 加速度 m/s²（コース1の横風のゆるい時くらい）
     const float WindAimDeg = 30f;      // 風上の台が風上へ向ける角度
@@ -1376,9 +1379,10 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                 var hA = new float[tA.Count]; hA[hA.Length - 1] = 0.15f;
                 var tB = new List<float>(taps) { 4.0f, 4.4f, 4.8f }; var cB = new float[tB.Count];
                 // ふわふわは銃口の真上より少し手前（銃が上を向くと銃口が前へ回りこむので、向いた後でほぼ真上になる。銃は85°くらい上向き）
-                Vector3 bo = new Vector3(0, 0.9f, -0.2f);
-                MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 0.3f - lat * 0.55f, along, 0.5f, bo, tA.ToArray(), cA, null, hA, false, tmpl, ballSrc, floorTop);
-                MakeLane(bayRoot, "Lane_Wait", islandCenter - along * 0.3f + lat * 0.55f, along, 0.5f, bo, tB.ToArray(), cB, null, null, false, tmpl, ballSrc, floorTop);
+                // 銃が主役なので大きく・胸の高さ・道寄り（2026-10-08 てじゃ「銃が下すぎる」）
+                Vector3 bo = new Vector3(0, AirBallUp, AirBallBack);
+                MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 0.9f - lat * 0.7f, along, AirGunHeight, bo, tA.ToArray(), cA, null, hA, false, tmpl, ballSrc, floorTop, AirGunScale);
+                MakeLane(bayRoot, "Lane_Wait", islandCenter - along * 0.9f + lat * 0.7f, along, AirGunHeight, bo, tB.ToArray(), cB, null, null, false, tmpl, ballSrc, floorTop, AirGunScale);
                 foreach (var ln in new[] { "Lane_Charge", "Lane_Wait" })
                 {
                     var lane = bayRoot.Find(ln); var ds = lane.GetComponent<FuwaDemoStand>(); var gun = lane.Find("DemoGun");
@@ -1489,7 +1493,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
     }
 
     // ballOffset：銃口から見た (右, 上, 前) のふわふわの位置
-    static void MakeLane(Transform parent, string name, Vector3 basePos, Vector3 d, float gunHeight, Vector3 ballOffset, float[] times, float[] charges, Vector3[] aimOffsets, float[] holds, bool showAimLine, FuwaBlower tmpl, FuwaBall ballSrc, Transform floorTop)
+    static void MakeLane(Transform parent, string name, Vector3 basePos, Vector3 d, float gunHeight, Vector3 ballOffset, float[] times, float[] charges, Vector3[] aimOffsets, float[] holds, bool showAimLine, FuwaBlower tmpl, FuwaBall ballSrc, Transform floorTop, float gunScale = 1f)
     {
         var lane = new GameObject(name).transform; lane.SetParent(parent, false);
         lane.position = new Vector3(basePos.x, IslandTop, basePos.z); lane.rotation = Quaternion.LookRotation(d);
@@ -1497,6 +1501,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         var gun = new GameObject("DemoGun").transform; gun.SetParent(lane, false); gun.localPosition = new Vector3(0, gunHeight, 0);
         foreach (var cn in new[] { "Visual", "Nozzle" }) { var cp = Object.Instantiate(tmpl.transform.Find(cn).gameObject, gun, false); cp.name = cn; }
         foreach (var g in gun.GetComponentsInChildren<Renderer>(true)) if (g.name.StartsWith("GunGauge")) g.enabled = false;
+        gun.localScale = Vector3.one * gunScale;   // 銃そのものを見せたい区画（空気ぎれ）は大きく
         var nozzle = gun.Find("Nozzle");
         var bs = new GameObject("BallStart").transform; bs.SetParent(lane, false);
         Vector3 lat = lane.right;
