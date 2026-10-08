@@ -1115,43 +1115,16 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         tm.rectTransform.sizeDelta = new Vector2(2.75f, 1.25f); tm.enableAutoSizing = true; tm.fontSizeMax = 2.2f; tm.fontSizeMin = 0.8f;
         var recs = text.GetComponent<FuwaRecords>(); if (recs != null) Object.DestroyImmediate(recs);
         AddLang(lang, tm, ja, en);
-        // 木の看板：角を丸めた木の板に白い紙を貼って、2本の柱で立てる。紙の四すみは赤い画びょうでとめる（2026-10-08 てじゃ）
+        // 木の看板：Blender で作ったモデル（Models/TutorialSign.fbx：横板3枚＋裏の横木＋頭の丸い柱1本、角のめくれた紙、画びょう4つ）。
+        // 紙の位置・大きさは元の白い板と同じ（中心 高さ1.55・1.86×0.9）なので、文字はそのまま。2026-10-08 てじゃ
+        // モデルは +Z が表なので、看板の向き（表が -Z）に合わせて180°回す
         var wood = Mat("Course_Wood");
-        Vector2 pane = sr.size * 0.62f;                       // 紙の実寸（約1.86×0.9m）
-        panel.SetActive(false);                               // 角の丸い白い板（スプライト）の代わりに、角の四角い紙
-        var paperMat = PaperMat(wood);
-        const float Margin = 0.08f, BoardT = 0.06f, PanelY = 1.55f;
-        Transform Part(string n, Mesh m, Vector3 lp, Vector3 scale)
-        {
-            var g = new GameObject(n); g.transform.SetParent(sign, false);
-            g.transform.localPosition = lp; g.transform.localScale = scale;
-            g.AddComponent<MeshFilter>().sharedMesh = m;
-            g.AddComponent<MeshRenderer>().sharedMaterial = wood;
-            return g.transform;
-        }
-        var boardSize = new Vector3(pane.x + Margin * 2f, pane.y + Margin * 2f, BoardT);
-        Part("Board", FuwaBevelTools.RoundCube(boardSize, 0.02f, 2), new Vector3(0, PanelY, 0.02f + BoardT * 0.5f), boardSize);
-        // 柱：板の後ろ、左右。地面から板の上より少し上まで
-        float postTop = PanelY + boardSize.y * 0.5f + 0.08f;
-        // 柱は板のまん中に1本（看板は道のふちに立つので、2本だと外側の柱が道からはみ出して浮いた。2026-10-08 てじゃ）
-        var postSize = new Vector3(0.1f, postTop, 0.1f);
-        Part("Post", FuwaBevelTools.RoundCube(postSize, 0.018f, 2), new Vector3(0f, postTop * 0.5f, 0.02f + BoardT + 0.05f), postSize);
-        // 紙（ごく薄い板。板の前の面にぴったり貼る。ほんの少しだけ傾けて手で貼った感じに）
-        var paperSize = new Vector3(pane.x, pane.y, 0.004f);
-        var paper = Part("Paper", FuwaBevelTools.RoundCube(paperSize, 0.0015f, 1), new Vector3(0, PanelY, 0.02f - 0.002f), paperSize);
-        paper.localRotation = Quaternion.Euler(0f, 0f, 0.6f);
-        paper.GetComponent<MeshRenderer>().sharedMaterial = paperMat;
-        // 画びょう（四すみ）
-        var pinSize = new Vector3(0.05f, 0.012f, 0.05f);
-        var pinMesh = FuwaBevelTools.RoundCylinder(pinSize, 0.006f, 2);
-        var pinMat = Mat("Mush_CapRed");
-        foreach (float sx in new[] { -1f, 1f })
-            foreach (float sy in new[] { -1f, 1f })
-            {
-                var pin = Part("Pin", pinMesh, new Vector3(sx * (pane.x * 0.5f - 0.07f), PanelY + sy * (pane.y * 0.5f - 0.07f), 0.0f), pinSize);
-                pin.localRotation = Quaternion.Euler(90f, 0f, 0f);   // 円柱の軸を板に垂直に
-                pin.GetComponent<MeshRenderer>().sharedMaterial = pinMat;
-            }
+        panel.SetActive(false);   // 角の丸い白い板（スプライト）は使わない
+        var model = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaCourse/Models/TutorialSign.fbx").OfType<Mesh>().First();
+        var g = new GameObject("SignModel"); g.transform.SetParent(sign, false);
+        g.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+        g.AddComponent<MeshFilter>().sharedMesh = model;
+        g.AddComponent<MeshRenderer>().sharedMaterials = new[] { wood, PaperMat(wood), Mat("Mush_CapRed") };   // サブメッシュ：木・紙・画びょう
     }
 
     // 看板の紙のマテリアル（木と同じシェーダーで、少しクリームがかった白）
