@@ -25,8 +25,11 @@ public class FuwaDemoStand : UdonSharpBehaviour
     public Renderer ballFur;
     [Tooltip("ふわふわが現れる位置")]
     public Transform ballStart;
-    [Tooltip("ふわふわが着地する床の高さ（この高さで止まる）。未設定なら止めない")]
+    [Tooltip("床の高さ。ふわふわがここまで落ちたら本物と同じく弾けて消える（次の回まで出ない）。未設定なら落ち続ける")]
     public Transform floor;
+    [Tooltip("弾けた時の粒（本物のふわふわの PopEffect のコピー。ふわふわの子にはしない）")]
+    public ParticleSystem popEffect;
+    public AudioSource popSound;
 
     [Header("銃の演出（本物の銃の Nozzle をコピーしたもの）")]
     public ParticleSystem puffEffect;
@@ -133,7 +136,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         }
 
         // 次の弾の溜めはじめ・発射
-        if (tuning != null && shotTimes != null && _nextShot < shotTimes.Length)
+        if (!_popped && tuning != null && shotTimes != null && _nextShot < shotTimes.Length)
         {
             float charge = Charge(_nextShot);
             float lead = charge > 0f ? tuning.chargeDelay + charge * tuning.chargeTime : 0f;
@@ -162,6 +165,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
     // こうすると、並べた台どうしが同じタイミングで撃つ（近づいた瞬間がばらばらでも）。
     // 区切りの途中で近づいた時は、その回はふわふわを出さずに次の区切りから始める
     private bool _skipCycle;
+    private bool _popped;
 
     private void BeginCycle()
     {
@@ -170,6 +174,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         _skipCycle = Time.time - _cycleStart > 0.2f;
         _nextShot = 0;
         _flying = false;
+        _popped = false;
         _v = Vector3.zero;
         _spin = 0f;
         StopCharge();
@@ -187,9 +192,15 @@ public class FuwaDemoStand : UdonSharpBehaviour
         return ball.position + right * offset.x + up * offset.y + fwd * offset.z;
     }
 
+    [Tooltip("撃ってから次の狙いに向き直るまでの待ち（秒）。撃った後に飛んでいくふわふわを追いかけないように")]
+    public float holdAfterShot = 0.8f;
+
     private void UpdateGunAim()
     {
         if (gun == null || nozzle == null) return;
+        // 最後の弾を撃った後は、その向きのまま止める（飛んでいくふわふわを目で追わない）
+        if (shotTimes == null || _nextShot >= shotTimes.Length) return;
+        if (Time.time - _shotTime < holdAfterShot) return;
         Vector3 off = (shotTimes != null && _nextShot < shotTimes.Length) ? AimOffset(_nextShot) : Vector3.zero;
         Vector3 dir = AimPoint(off) - nozzle.position;
         if (dir.sqrMagnitude < 0.0001f) return;
@@ -202,7 +213,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         if (!_active || ball == null) return;
         float dt = Time.fixedDeltaTime;
         // 溜めている間の引き寄せ（本物と同じ）
-        if (_skipCycle) return;
+        if (_skipCycle || _popped) return;
         if (useChargePull && _chargeFrom >= 0f && tuning != null && nozzle != null)
         {
             float c = ChargeNow();
@@ -220,13 +231,16 @@ public class FuwaDemoStand : UdonSharpBehaviour
         if (_v.y < -maxFall) _v.y = -maxFall;
         if (_v.magnitude > maxSpeed) _v = _v.normalized * maxSpeed;
         Vector3 p = ball.position + _v * dt;
+        ball.position = p;
         if (floor != null && p.y < floor.position.y + BallRadius())
         {
-            p.y = floor.position.y + BallRadius();
             _v = Vector3.zero;
             _flying = false;
+            _popped = true;
+            if (popEffect != null) { popEffect.transform.position = p; popEffect.Play(); }
+            if (popSound != null) { popSound.transform.position = p; popSound.Play(); }
+            return;
         }
-        ball.position = p;
         if (_spin > 0.001f)
         {
             ball.Rotate(_spinAxis, _spin * Mathf.Rad2Deg * dt, Space.World);
@@ -375,7 +389,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
     {
         float appear = Mathf.Clamp01(t / 0.25f);
         float vanish = vanishTime > 0.001f ? Mathf.Clamp01((cycleLength - t) / vanishTime) : 1f;
-        float s = Mathf.Min(1f - (1f - appear) * (1f - appear), vanish);
+        float s = _popped ? 0f : Mathf.Min(1f - (1f - appear) * (1f - appear), vanish);
         ball.localScale = _ballBaseScale * Mathf.Max(0.001f, s);
         if (!_flying) ball.Rotate(new Vector3(0.3f, 1f, 0.15f), (ballTuning != null ? ballTuning.idleSpin : 25f) * Time.deltaTime, Space.World);
         if (_furMat != null && ballTuning != null)
