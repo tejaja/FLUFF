@@ -547,7 +547,8 @@ public static class FuwaPracticeTutorial
             // ためし撃ちの場所（区画のまん中の少し手前）と、そこへふわふわを呼ぶ範囲（区画まるごと）
             var trySpot = new GameObject("TrySpot").transform; trySpot.SetParent(bayRoot, false);
             At(pts, dist, S(bayS[bi] - 0.5f), out var tc, out var tf);
-            trySpot.position = tc + Vector3.up * (bay.key == "Down" ? 0.4f : 1.15f); trySpot.rotation = Quaternion.LookRotation(tf);
+            // 下向き：足元に置いて下を撃たせる／上を向きすぎない：あえて頭より上に置いて、見上げて撃つと進まないのを自分で試せるように
+            trySpot.position = tc + Vector3.up * (bay.key == "Down" ? 0.4f : bay.key == "Steep" ? 2.1f : 1.15f); trySpot.rotation = Quaternion.LookRotation(tf);
             var zone = new GameObject("TryZone"); zone.transform.SetParent(bayRoot, false);
             zone.transform.position = c + Vector3.up * 1.2f; zone.transform.rotation = Quaternion.LookRotation(f);
             var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(HalfW * 2f + 4f, 3f, BaySpan - 0.2f);
@@ -573,15 +574,8 @@ public static class FuwaPracticeTutorial
             }
             log.Add("bubbles " + k);
         }
-        // 区画のさかいめに、ふわふわだけ止める壁を1枚ずつ（となりの区画と共通。横＝道の外は開けておく）
-        {
-            var walls = new GameObject("Barriers").transform; walls.SetParent(root, false);
-            for (int i = 0; i <= nb; i++)
-            {
-                At(pts, dist, S(FirstWall + BaySpan * i), out var wc, out var wf);
-                MakeBarrier(walls, "Barrier_" + i, wc, wf);
-            }
-        }
+        // 区画のさかいめの、ふわふわだけ止める壁はなくした（2026-10-08 てじゃ）。
+        // 次の区画に入ると TryZone がふわふわをその区画のためし撃ちの場所へ移すので、壁がなくても区画ごとに分かれる（MakeBarrier は残してある）
         // 説明の小道の出口：「この先にはほかにも仕掛けがある」看板（全部は説明しない）
         {
             At(pts, dist, S(lastWall + 2.2f), out var c, out var f);
