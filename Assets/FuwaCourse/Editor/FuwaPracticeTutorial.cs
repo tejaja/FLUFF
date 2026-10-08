@@ -49,8 +49,13 @@ public static class FuwaPracticeTutorial
         new Bay(0f, "Air",
             "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる\n（待ってもゆっくりもどる）",
             "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast\n(waiting refills it slowly)"),
-        // 「横風」「まもの」の区画は 2026-10-08 に外した（てじゃ「過剰かも」。最後の本番の道で実際に出てくるので、そこで体験する）。
-        // 区画の中身（case "Wind" / "Monster"）は残してあるので、ここに戻せばまた作られる
+        new Bay(0f, "Wind",
+            "<size=130%><color=#FF6B5C>横風に注意</color></size>\n風でふわふわが流される\n風上に向けて撃つと\nねらった所に届く",
+            "<size=130%><color=#FF6B5C>Crosswind</color></size>\nThe wind pushes the fluff sideways\nAim a little upwind\nto reach your mark"),
+        new Bay(0f, "Monster",
+            "<size=130%><color=#FF6B5C>まものに注意</color></size>\nふわふわめがけて体当たりしてくる\nぷるぷるしたら\n撃って押し返そう",
+            "<size=130%><color=#FF6B5C>Watch out for monsters</color></size>\nThey ram your fluff away\nWhen one starts to wobble,\nshoot it back!"),
+        // （「横風」「まもの」は一度外したが、てじゃが歩いてみて「そんなに長くなかった」ので戻した 2026-10-08）
         // 「溜めると吸い寄せる」は 2026-10-08 に仕組みごとなくした（端撃ちのじゃまになるので。chargePull=0）
     };
 
