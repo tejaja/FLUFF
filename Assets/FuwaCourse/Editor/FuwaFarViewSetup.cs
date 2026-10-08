@@ -1,4 +1,5 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
@@ -105,6 +106,19 @@ public static class FuwaFarViewSetup
             fs.radii[i] = b.extents.magnitude;
         }
         EditorUtility.SetDirty(fs);
+        // ほかの影の切り替え（SmallShadows など、別に作った物）も、物の位置を今の位置に合わせ直す。
+        // 位置が古いままだと、動かした物（れんしゅうのゴールのキノコなど）がずっと「遠い」扱いになって影が出なかった（2026-10-08）
+        foreach (var other in Object.FindObjectsOfType<FuwaFarShadows>(true))
+        {
+            if (other == fs || other.targets == null) continue;
+            Undo.RecordObject(other, "FarShadows");
+            var keep = other.targets.Where(r => r != null).ToArray();
+            other.targets = keep;
+            other.centers = new Vector3[keep.Length];
+            other.radii = new float[keep.Length];
+            for (int i = 0; i < keep.Length; i++) { Bounds b = keep[i].bounds; other.centers[i] = b.center; other.radii[i] = b.extents.magnitude; }
+            EditorUtility.SetDirty(other);
+        }
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log($"[遠景] 飾りのLOD {lod}個、軽い形への切り替え {far}個、影を切る対象 {fs.targets.Length}個");

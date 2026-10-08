@@ -811,7 +811,7 @@ public class FuwaBall : UdonSharpBehaviour
         SetHidden(true);
         if (records != null && timerEnabled && t > 0f) records.ReportTime(startPoint, t);
         if (activeRace != null) activeRace.LocalFinished();
-        if (bgm != null && timerEnabled) bgm.PlayFanfare();
+        if (bgm != null && (timerEnabled || ReturnPlayerUntimed())) bgm.PlayFanfare();   // れんしゅうの本番の道（タイムなし）のゴールでも鳴らす
         if (returnPoint != null && activeRace == null) respawnPoint = returnPoint;
         else SendCustomEventDelayedSeconds(nameof(RestartFromStart), restartDelay);
     }
