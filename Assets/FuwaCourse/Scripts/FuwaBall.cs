@@ -1002,9 +1002,9 @@ public class FuwaBall : UdonSharpBehaviour
     // れんしゅう：次の「ためし撃ちの場所」へ、消えずにふわっと弧を描いて飛んでいく。
     // キノコに隠れている時・弾けている途中などは、すぐその場所に出す
     [Tooltip("ためし撃ちの場所へ飛んでいく速さ(m/s)。かかる時間は glideMinTime〜glideMaxTime 秒")]
-    public float glideSpeed = 6f;
-    public float glideMinTime = 0.5f;
-    public float glideMaxTime = 1.8f;
+    public float glideSpeed = 15f;      // 2026-10-09 6→15（てじゃ「走ってると追いつかない」。となりの区画11mを約0.7秒）
+    public float glideMinTime = 0.3f;
+    public float glideMaxTime = 0.8f;
     [Tooltip("飛んでいく弧の高さ（距離に対する割合）")]
     public float glideArc = 0.18f;
     private bool _gliding;
