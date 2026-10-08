@@ -82,6 +82,10 @@ public class FuwaDemoStand : UdonSharpBehaviour
     [Tooltip("ゲージの色を読むだけ（本物の HUD）")]
     public FuwaHud hudColors;
 
+    [Header("横風（風のお手本だけ。本物の FuwaWindArea と同じく、飛んでいる間ずっと加速度をかける）")]
+    [Tooltip("風の加速度（ワールドの向き×強さ m/s²）。0なら風なし")]
+    public Vector3 windAccel = Vector3.zero;
+
     private Vector3 _v;
     private Vector3 _spinAxis;
     private float _spin;
@@ -111,6 +115,11 @@ public class FuwaDemoStand : UdonSharpBehaviour
     private Material _bulbMat;
     private Color _bulbBaseColor = Color.white;
     private Material[] _gaugeMats;
+    private float _dampStart = -10f, _dampHold, _dampTime, _dampAmount, _dampGlow;
+    private Vector3 _dampDir;
+    private float _glowAmount;
+    private Color _glowColor = Color.white;
+    private Vector3 _glowDir = Vector3.up;
 
     private void Start()
     {
@@ -185,6 +194,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         UpdateAir();
         UpdateBulb();
         UpdateBallLook(t);
+        UpdateGlow();
         UpdateAimLine(t);
     }
 
@@ -228,6 +238,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         _spin = 0f;
         _air = 1f;
         _lastRealShot = -999f;
+        _dampStart = -10f; _dampGlow = 0f;
         StopCharge();
         if (ballStart != null) { ball.position = ballStart.position; ball.rotation = ballStart.rotation; }
     }
@@ -279,6 +290,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         float drag = ballTuning != null ? ballTuning.airDrag : 1.2f;
         float maxFall = ballTuning != null ? ballTuning.maxFallSpeed : 0.7f;
         float maxSpeed = ballTuning != null ? ballTuning.maxSpeed : 7f;
+        if (windAccel != Vector3.zero) _v += DampWind(windAccel) * dt;
         _v += Vector3.down * fall * dt;
         _v *= Mathf.Clamp01(1f - drag * dt);
         if (_v.y < -maxFall) _v.y = -maxFall;
@@ -394,6 +406,16 @@ public class FuwaDemoStand : UdonSharpBehaviour
         if (_v.y < 0f && dv.y > 0f) _v.y = 0f;
         _v += dv;
         _flying = true;
+        // FuwaBall.ShotWindDamp と同じ：撃った直後はしばらく横風の効きが弱まる（溜めるほど強く長く）
+        if (ballTuning != null)
+        {
+            _dampStart = Time.time;
+            _dampAmount = Mathf.Lerp(ballTuning.shotWindDampMin, ballTuning.shotWindDampMax, charge);
+            _dampHold = ballTuning.shotWindDampHoldMax * charge * charge;
+            _dampTime = Mathf.Lerp(ballTuning.shotWindDampTimeMin, ballTuning.shotWindDampTimeMax, charge);
+            _dampDir = dv.normalized;
+            _dampGlow = ballTuning.resistGlowMax * charge;
+        }
         Vector3 flat = new Vector3(dv.x, 0f, dv.z);
         if (flat.sqrMagnitude > 0.0001f && ballTuning != null)
         {
@@ -492,6 +514,51 @@ public class FuwaDemoStand : UdonSharpBehaviour
         Vector3 s3 = _bulbBaseScale * (airScale * (1f + inflate * 1.05f));
         pumpBulb.localScale = s3;
         pumpBulb.localPosition = _bulbBasePos + new Vector3(0f, 0f, 0.5f * (_bulbBaseScale.z - s3.z));
+    }
+
+    private float DampLeft()
+    {
+        float t = Time.time - _dampStart - _dampHold;
+        if (_dampTime <= 0f || t >= _dampTime) return 0f;
+        return 1f - Mathf.Max(0f, t) / _dampTime;
+    }
+
+    // FuwaBall.DampWind と同じ：撃った向きと同じ向きの風はそのまま、横・逆向きの分だけ弱める
+    private Vector3 DampWind(Vector3 acc)
+    {
+        float left = DampLeft();
+        if (left <= 0f) return acc;
+        float k = 1f - _dampAmount * left;
+        float along = Vector3.Dot(acc, _dampDir);
+        Vector3 keep = along > 0f ? _dampDir * along : Vector3.zero;
+        return keep + (acc - keep) * k;
+    }
+
+    // ふわふわの光（FuwaBall.UpdateGlow を簡単にしたもの）：風の中を飛んでいる間は風の色、溜め撃ちの直後は黄色
+    private void UpdateGlow()
+    {
+        if (_furMat == null || ballTuning == null) return;
+        if (windAccel == Vector3.zero && _dampGlow <= 0f && _glowAmount <= 0f) return;
+        float target = 0f;
+        float mag = windAccel.magnitude;
+        if (_flying && !_popped && mag > 0.05f)
+        {
+            target = Mathf.Sqrt(Mathf.Clamp01(mag / Mathf.Max(0.01f, ballTuning.windGlowFull)));
+            _glowColor = ballTuning.windGlowColor; _glowDir = windAccel / mag;
+        }
+        Color gc = _glowColor; Vector3 gd = _glowDir;
+        float u = ballTuning.resistGlowTime > 0f ? Mathf.Clamp01((Time.time - _dampStart) / ballTuning.resistGlowTime) : 1f;
+        float resist = _popped ? 0f : _dampGlow * (1f - u) * (1f - u);
+        if (resist > 0.001f)
+        {
+            float mix = target > 0.01f ? Mathf.Clamp01(resist / target) : 1f;
+            gc = Color.Lerp(_glowColor, ballTuning.resistGlowColor, mix); gd = mix > 0.5f ? _dampDir : _glowDir;
+            target = Mathf.Max(target, resist);
+        }
+        float speed = target > _glowAmount ? 8f : 3f;
+        _glowAmount = Mathf.MoveTowards(_glowAmount, target, speed * Time.deltaTime);
+        _furMat.SetColor("_GlowColor", new Color(gc.r, gc.g, gc.b, _glowAmount));
+        _furMat.SetVector("_GlowDir", new Vector4(gd.x, gd.y, gd.z, 0f));
     }
 
     // ふわふわ：出てくる時ふくらんで、終わりぎわに縮んで消える。毛は動きと反対へなびく

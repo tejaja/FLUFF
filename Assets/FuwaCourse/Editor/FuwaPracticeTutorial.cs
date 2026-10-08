@@ -46,6 +46,9 @@ public static class FuwaPracticeTutorial
         new Bay(0f, "Air",
             "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる\n（待ってもゆっくりもどる）",
             "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast\n(waiting refills it slowly)"),
+        new Bay(0f, "Wind",
+            "<size=130%><color=#FF6B5C>横風に注意</color></size>\n風でふわふわが流される\n風上に向けて撃つと\nねらった所に届く",
+            "<size=130%><color=#FF6B5C>Crosswind</color></size>\nThe wind pushes the fluff sideways\nAim a little upwind\nto reach your mark"),
         // 「溜めると吸い寄せる」は 2026-10-08 に仕組みごとなくした（端撃ちのじゃまになるので。chargePull=0）
     };
 
@@ -399,6 +402,7 @@ public static class FuwaPracticeTutorial
             Vector3 ic = c + outw * (HalfW + 1.6f - 0.25f);
             var isl = Island("Island", ic, false); isl.SetParent(bayRoot, true);
             BuildDemo(bayRoot, bay.key, ic, f, outw, f, blowerTmpl, ball, log);
+            if (bay.key == "Wind") MakeWindZone(bayRoot, pts, dist, bayS[bi], -outw, course, log, S);
             // 看板：区画の手前（入口側）、お手本の島の側の道のふちに立てて、来る人の方を向く
             MakeSign(bayRoot, c - f * 3.4f + outw * (HalfW - 0.35f), (f + outw * 0.45f).normalized, bay.ja, bay.en, signSrc, lang);
             // ためし撃ちの場所（区画のまん中の少し手前）と、そこへふわふわを呼ぶ範囲（区画まるごと）
@@ -516,6 +520,144 @@ public static class FuwaPracticeTutorial
         go.AddComponent<MeshFilter>().sharedMesh = m;
         var r = go.AddComponent<MeshRenderer>(); r.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+    }
+
+    // ---------- 横風 ----------
+    const float WindStrength = 0.8f;   // 加速度 m/s²（コース1の横風のゆるい時くらい）
+    const float WindAimDeg = 30f;      // 風上の台が風上へ向ける角度
+
+    // お手本のふわふわが落ちる所（FuwaDemoStand.FixedUpdate と同じ計算。床の高さまで落ちた所）
+    static Vector3 SimDemoLanding(FuwaBlower b, FuwaBall bt, Vector3 nz, Vector3 aim, Vector3 p, float charge, Vector3 wind, float floorY)
+    {
+        Vector3 v = b.DemoShotVelocity(nz, aim, charge, p);
+        Vector3 dd = v.normalized;
+        float amt = Mathf.Lerp(bt.shotWindDampMin, bt.shotWindDampMax, charge), hold = bt.shotWindDampHoldMax * charge * charge;
+        float tm = Mathf.Lerp(bt.shotWindDampTimeMin, bt.shotWindDampTimeMax, charge);
+        float r = bt.transform.lossyScale.y * 0.5f, dt = 0.02f;
+        for (float t = 0f; t < 10f; t += dt)
+        {
+            Vector3 a = wind;
+            float tt = t - hold, left = (tm > 0f && tt < tm) ? 1f - Mathf.Max(0f, tt) / tm : 0f;
+            if (left > 0f) { float k = 1f - amt * left; float al = Vector3.Dot(a, dd); Vector3 keep = al > 0f ? dd * al : Vector3.zero; a = keep + (a - keep) * k; }
+            v += a * dt; v += Vector3.down * bt.fallAcceleration * dt; v *= Mathf.Clamp01(1f - bt.airDrag * dt);
+            if (v.y < -bt.maxFallSpeed) v.y = -bt.maxFallSpeed;
+            if (v.magnitude > bt.maxSpeed) v = v.normalized * bt.maxSpeed;
+            p += v * dt;
+            if (p.y < floorY + r) break;
+        }
+        return p;
+    }
+
+    // 的（島の上の丸い輪）
+    static void MakeTargetRing(Transform parent, string name, Vector3 center)
+    {
+        const float R0 = 0.2f, R1 = 0.3f; const int N = 40;
+        var V = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>();
+        var col = new Color(1f, 0.42f, 0.36f, 0.75f);
+        for (int i = 0; i <= N; i++)
+        {
+            float a = Mathf.PI * 2f * i / N; Vector3 d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            V.Add(d * R0); V.Add(d * R1); C.Add(col); C.Add(col);
+            if (i < N) { int k = i * 2; T.AddRange(new[] { k, k + 2, k + 1, k + 1, k + 2, k + 3 }); }
+        }
+        // 真ん中の点
+        int c0 = V.Count; V.Add(Vector3.zero); C.Add(col);
+        for (int i = 0; i <= N; i++) { float a = Mathf.PI * 2f * i / N; V.Add(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.06f); C.Add(col); }
+        for (int i = 0; i < N; i++) T.AddRange(new[] { c0, c0 + 2 + i, c0 + 1 + i });
+        for (int i = 0; i < T.Count; i += 3)
+            if (Vector3.Cross(V[T[i + 1]] - V[T[i]], V[T[i + 2]] - V[T[i]]).y < 0f) { int tmp = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = tmp; }
+        var m = new Mesh { name = "Tutorial_TargetRing" }; m.SetVertices(V); m.SetColors(C); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        string path = MeshDir + "/Tutorial_TargetRing.asset";
+        var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (ex == null) AssetDatabase.CreateAsset(m, path); else { ex.Clear(); EditorUtility.CopySerialized(m, ex); m = ex; }
+        var go = new GameObject(name); go.transform.SetParent(parent, false); go.transform.position = center; go.transform.rotation = Quaternion.identity;
+        go.AddComponent<MeshFilter>().sharedMesh = m;
+        var r = go.AddComponent<MeshRenderer>(); r.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+    }
+
+    // 区画の道の上に本物の横風（ためし撃ちのふわふわが流される）。見た目はコース1の横風（G3_CrossRight）と同じ：地面の＞＞＞と風の粒
+    static void MakeWindZone(Transform bayRoot, List<Vector2> pts, List<float> dist, float sMid, Vector3 windDir, Transform course, List<string> log, System.Func<float, float> S)
+    {
+        var tmplArea = Object.FindObjectsOfType<FuwaWindArea>(true).FirstOrDefault(w => w.transform.parent != null && w.transform.parent.name == "G3_CrossRight");
+        At(pts, dist, S(sMid), out var c, out var f);
+        windDir.y = 0f; windDir.Normalize();
+        float len = BaySpan - 0.4f, wid = HalfW * 2f + 2f, hei = 4f;
+        var zone = new GameObject("WindZone"); zone.transform.SetParent(bayRoot, false);
+        zone.transform.position = c + Vector3.up * (hei * 0.5f - 0.3f);
+        zone.transform.rotation = Quaternion.LookRotation(windDir);
+        zone.transform.localScale = new Vector3(len, hei, wid);   // ローカルz＝風の向き（道を横切る）、x＝道に沿う
+        zone.layer = 0;
+        var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = Vector3.one;
+        var wa = UdonSharpUndo.AddComponent<FuwaWindArea>(zone);
+        var so = new SerializedObject(wa);
+        so.FindProperty("localDirection").vector3Value = Vector3.forward;
+        so.FindProperty("strength").floatValue = WindStrength;
+        so.FindProperty("offSeconds").floatValue = 0f;
+        if (tmplArea != null)
+        {
+            so.FindProperty("highlightAlpha").floatValue = tmplArea.highlightAlpha;
+            so.FindProperty("highlightSpeedMin").floatValue = tmplArea.highlightSpeedMin;
+            so.FindProperty("highlightSpeedMax").floatValue = tmplArea.highlightSpeedMax;
+        }
+        so.ApplyModifiedPropertiesWithoutUndo();
+
+        // 地面の＞＞＞：道の上だけ（UVのx＝風の向きに沿った距離m、y＝道に沿った距離m。ふちはぼかす）
+        var V = new List<Vector3>(); var C = new List<Color>(); var UV = new List<Vector2>(); var T = new List<int>();
+        float[] across = { -HalfW, -HalfW + 0.35f, HalfW - 0.35f, HalfW };
+        float[] aAcross = { 0f, 1f, 1f, 0f };
+        float s0 = sMid - len * 0.5f, s1 = sMid + len * 0.5f; int rows = 0;
+        Vector3 origin = new Vector3(c.x, Top + 0.005f, c.z);
+        for (float s = s0; s <= s1 + 0.001f; s += 0.5f, rows++)
+        {
+            At(pts, dist, S(s), out var pc, out var pf);
+            Vector3 outw = new Vector3(pf.z, 0, -pf.x);
+            float aRow = Mathf.Clamp01(Mathf.Min(s - s0, s1 - s) / 0.8f);
+            for (int j = 0; j < across.Length; j++)
+            {
+                Vector3 w = new Vector3(pc.x, Top + 0.005f, pc.z) + outw * across[j];
+                V.Add(w - origin);
+                UV.Add(new Vector2(Vector3.Dot(w - origin, windDir), s - sMid));
+                C.Add(new Color(1f, 1f, 1f, aAcross[j] * aRow));
+            }
+        }
+        for (int r = 0; r < rows - 1; r++)
+            for (int j = 0; j < across.Length - 1; j++)
+            {
+                int a = r * across.Length + j, b2 = a + across.Length;
+                T.AddRange(new[] { a, b2, a + 1, a + 1, b2, b2 + 1 });
+            }
+        for (int i = 0; i < T.Count; i += 3)
+            if (Vector3.Cross(V[T[i + 1]] - V[T[i]], V[T[i + 2]] - V[T[i]]).y < 0f) { int tmp = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = tmp; }
+        var m = new Mesh { name = "Tutorial_WindHighlight" }; m.SetVertices(V); m.SetColors(C); m.SetUVs(0, UV); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        string path = MeshDir + "/Tutorial_WindHighlight.asset";
+        var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (ex == null) AssetDatabase.CreateAsset(m, path); else { ex.Clear(); EditorUtility.CopySerialized(m, ex); m = ex; }
+        var hl = new GameObject("WindHighlight"); hl.transform.SetParent(bayRoot, false); hl.transform.position = origin; hl.transform.rotation = Quaternion.identity;
+        hl.AddComponent<MeshFilter>().sharedMesh = m;
+        var hr = hl.AddComponent<MeshRenderer>();
+        hr.sharedMaterial = tmplArea != null && tmplArea.groundHighlight != null ? tmplArea.groundHighlight.sharedMaterial : null;
+        hr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; hr.receiveShadows = false;
+        SetU(wa, "groundHighlight", hr);
+
+        // 風の粒：コース1の横風の粒をコピーして、この区画の箱に合わせる（粒の向き＝風の向き）
+        if (tmplArea != null && tmplArea.visual != null)
+        {
+            var wp = Object.Instantiate(tmplArea.visual, bayRoot, false); wp.name = "WindParticles";
+            wp.transform.position = new Vector3(c.x, Top + 1.5f, c.z);
+            wp.transform.rotation = Quaternion.LookRotation(windDir);
+            wp.transform.localScale = Vector3.one;
+            var ps = wp.GetComponent<ParticleSystem>();
+            var sh = ps.shape; sh.position = Vector3.zero; sh.rotation = Vector3.zero; sh.scale = new Vector3(len, 3f, wid);
+            // 量は箱の大きさに合わせる（元：6.6×5×12 の箱で rateOverTime）
+            var srcSh = tmplArea.visual.GetComponent<ParticleSystem>().shape;
+            float k = (len * wid) / Mathf.Max(1f, srcSh.scale.x * srcSh.scale.z);
+            var em = ps.emission; em.rateOverTimeMultiplier *= k;
+            var mn = ps.main; mn.maxParticles = Mathf.CeilToInt(mn.maxParticles * k) + 4;
+            SetU(wa, "visual", wp);
+        }
+        Sync(wa);
+        log.Add("wind zone");
     }
 
     // 看板（ロビーの BestTimes の板と文字をコピー）。pos＝道のふちの足もと、face＝看板の向き（来る人の方を向く）
@@ -752,6 +894,32 @@ public static class FuwaPracticeTutorial
                     var es = gun.Find("Nozzle/EmptySfx"); if (es != null) SetU(ds, "emptySound", es.GetComponent<AudioSource>());
                     SetU(ds, "hudColors", tmpl.hud);
                     Sync(ds);
+                }
+                break;
+            }
+            case "Wind":
+            {
+                // 横風（道の側＝左手へ吹く）。2台ならべて、左（風下側）はまっすぐ的へ撃って流されて外れる、
+                // 右（風上側）は風上へ30°向けて撃って、流されながら的に落ちる。的の位置は本物と同じ計算で求める
+                var lat = Vector3.Cross(Vector3.up, along).normalized;
+                Vector3 wind = -outw * WindStrength;
+                // 風上の台の向き：まっすぐの向きを、風の来る側へ WindAimDeg 回す
+                Vector3 up = -wind.normalized;
+                Vector3 dB = Quaternion.AngleAxis(WindAimDeg, Vector3.up) * along;
+                if (Vector3.Dot(dB, up) < Vector3.Dot(along, up)) dB = Quaternion.AngleAxis(-WindAimDeg, Vector3.up) * along;
+                Vector3 side = Vector3.Dot(lat, up) > 0f ? lat : -lat;   // 風上の横
+                MakeLane(bayRoot, "Lane_Straight", islandCenter - along * 1.0f - side * 0.6f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.3f }, new[] { 0f }, null, null, false, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane_Upwind", islandCenter - along * 1.0f + side * 0.6f, dB, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.3f }, new[] { 0f }, null, null, false, tmpl, ballSrc, floorTop);
+                foreach (var ln in new[] { "Lane_Straight", "Lane_Upwind" })
+                {
+                    var lane = bayRoot.Find(ln); var ds = lane.GetComponent<FuwaDemoStand>();
+                    var so = new SerializedObject(ds); so.FindProperty("windAccel").vector3Value = wind; so.ApplyModifiedPropertiesWithoutUndo();
+                    Sync(ds);
+                    var nz = lane.Find("DemoGun/Nozzle"); var bs = lane.Find("BallStart");
+                    // 的：まっすぐの台は「風がなければ落ちる所」、風上の台は「風の中で実際に落ちる所」
+                    Vector3 land = SimDemoLanding(tmpl, ballSrc, nz.position, nz.forward, bs.position, 0f, ln == "Lane_Straight" ? Vector3.zero : wind, IslandTop);
+                    MakeTargetRing(bayRoot, "Target_" + ln.Substring(5), new Vector3(land.x, IslandTop + 0.012f, land.z));
+                    log.Add($"{ln} land {(land - islandCenter).magnitude:0.00}m from center");
                 }
                 break;
             }
