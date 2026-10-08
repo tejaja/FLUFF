@@ -683,10 +683,16 @@ public static class FuwaPracticeTutorial
                 MakeLane(bayRoot, "Lane", islandCenter - away * 1.25f, away, 0.95f, new Vector3(0, 0.05f, 1.1f), new[] { 1.3f }, new[] { 1f }, new[] { new Vector3(-0.5f, 0f, 0f) }, null, true, tmpl, ballSrc, floorTop);
                 {
                     // 島の上に、撃つ向き（銃の向き）と平行な縦じま。ふわふわがどっちへ寄っていくか分かりやすいように
-                    var lane = bayRoot.Find("Lane"); var nz = lane.Find("DemoGun/Nozzle"); var bs = lane.Find("BallStart");
-                    Vector3 toB = bs.position - nz.position; toB.y = 0; toB.Normalize();
-                    Vector3 aimPt = bs.position + Vector3.Cross(Vector3.up, toB) * -0.5f;
-                    Vector3 sdir = aimPt - nz.position; sdir.y = 0; sdir.Normalize();
+                    var lane = bayRoot.Find("Lane"); var gunT = lane.Find("DemoGun"); var nz = gunT.Find("Nozzle"); var bs = lane.Find("BallStart");
+                    // 実行中と同じように「ふわふわの横をねらって向き直る」をくり返して、撃つ時の銃の向きを出す（銃口が回りこむぶん少しずれるので）
+                    for (int it = 0; it < 30; it++)
+                    {
+                        Vector3 to = bs.position - nz.position; Vector3 fw = to.normalized;
+                        Vector3 rt = Vector3.Cross(Vector3.up, fw).normalized;
+                        Vector3 aimPt = bs.position + rt * -0.5f;
+                        gunT.rotation = Quaternion.LookRotation((aimPt - nz.position).normalized, Vector3.up);
+                    }
+                    Vector3 sdir = gunT.forward; sdir.y = 0; sdir.Normalize();
                     MakeStripes(bayRoot, new Vector3(islandCenter.x, IslandTop + 0.012f, islandCenter.z), sdir, nz.position);
                 }
                 break;
