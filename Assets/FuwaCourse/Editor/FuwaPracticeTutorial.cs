@@ -27,7 +27,8 @@ public static class FuwaPracticeTutorial
     const float Thick = 0.3f;
     const float HalfW = 1.75f;
     const float Stripe = 0.6f;     // しましまの幅（今の道と同じ）
-    const float IslandTop = 2.935f; // 島（BevelCyl）の上面。道より少し低い＝重ねてもZファイトしない
+    // 島（BevelCyl）の上面の高さ。Run で実物の地面（WarpGround）の上面から測る（道の上面3.0より1cmちょっと高い）
+    static float IslandTop = 3.012f;
 
     // お手本区画：小道の上の位置（入口からの距離 m）と中身
     struct Bay
@@ -270,6 +271,7 @@ public static class FuwaPracticeTutorial
         // ---------- 島（今のスタートの島の地面と下の岩をコピー） ----------
         var groundSrc = startArea.Find("Ground"); var underSrc = startArea.Find("IslandUnder");
         var smallGround = startArea.Find("WarpGround"); var smallUnder = startArea.Find("IslandUnder_Warp");
+        IslandTop = smallGround.GetComponent<Renderer>().bounds.max.y;
         Transform Island(string name, Vector3 center, bool big)
         {
             var t = new GameObject(name).transform; t.SetParent(root, false); t.position = new Vector3(center.x, 0f, center.z);
@@ -420,6 +422,43 @@ public static class FuwaPracticeTutorial
         Sync(lang);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         return "Tutorial built: " + string.Join(" / ", log);
+    }
+
+    // 島の上面の円の中に、dir と平行なしま模様（1本おき）。lineThrough の点（銃口）を通る線がしまの真ん中に来るようにそろえる
+    static void MakeStripes(Transform parent, Vector3 center, Vector3 dir, Vector3 lineThrough)
+    {
+        const float R = 1.5f, Band = 0.22f;
+        Vector3 side = Vector3.Cross(Vector3.up, dir);
+        float shift = Vector3.Dot(lineThrough - center, side);   // 銃口の線の、島の中心からの横のずれ
+        var V = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>();
+        var go = new GameObject("DirStripes"); go.transform.SetParent(parent, false); go.transform.position = center;
+        for (int k = -10; k <= 10; k++)
+        {
+            if ((k & 1) != 0) continue;
+            float o0 = shift + (k - 0.5f) * Band, o1 = shift + (k + 0.5f) * Band;
+            // 円の中だけ（細かく区切って、円のふちに沿わせる）
+            int n = 10;
+            for (int i = 0; i < n; i++)
+            {
+                float a = Mathf.Lerp(o0, o1, (float)i / n), b = Mathf.Lerp(o0, o1, (float)(i + 1) / n);
+                if (Mathf.Abs(a) >= R || Mathf.Abs(b) >= R) continue;
+                float la = Mathf.Sqrt(R * R - a * a), lb = Mathf.Sqrt(R * R - b * b);
+                int bi = V.Count;
+                V.Add(side * a - dir * la); V.Add(side * a + dir * la); V.Add(side * b - dir * lb); V.Add(side * b + dir * lb);
+                for (int j = 0; j < 4; j++) C.Add(new Color(1f, 1f, 1f, 0.32f));
+                T.AddRange(new[] { bi, bi + 1, bi + 2, bi + 2, bi + 1, bi + 3 });
+            }
+        }
+        // 上向きにそろえる
+        for (int i = 0; i < T.Count; i += 3)
+            if (Vector3.Cross(V[T[i + 1]] - V[T[i]], V[T[i + 2]] - V[T[i]]).y < 0f) { int tmp = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = tmp; }
+        var m = new Mesh { name = "Tutorial_DirStripes" }; m.SetVertices(V); m.SetColors(C); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        string path = MeshDir + "/Tutorial_DirStripes.asset";
+        var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (ex == null) AssetDatabase.CreateAsset(m, path); else { ex.Clear(); EditorUtility.CopySerialized(m, ex); m = ex; }
+        go.AddComponent<MeshFilter>().sharedMesh = m;
+        var r = go.AddComponent<MeshRenderer>(); r.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
     }
 
     // ふわふわだけ止める壁：Walkthrough レイヤー（ふわふわ＝Walkthrough とは当たる、プレイヤーとは当たらない）。跳ね返りは岩と同じ
@@ -580,6 +619,14 @@ public static class FuwaPracticeTutorial
             case "Center":
                 // ふわふわの横（道の進む向きの側）をねらう。ねらった線を見せて、そこへ寄っていくのを見せる
                 MakeLane(bayRoot, "Lane", islandCenter - away * 1.25f, away, 0.95f, new Vector3(0, 0.05f, 1.1f), new[] { 1.3f }, new[] { 1f }, new[] { new Vector3(-0.5f, 0f, 0f) }, null, true, tmpl, ballSrc, floorTop);
+                {
+                    // 島の上に、撃つ向き（銃の向き）と平行な縦じま。ふわふわがどっちへ寄っていくか分かりやすいように
+                    var lane = bayRoot.Find("Lane"); var nz = lane.Find("DemoGun/Nozzle"); var bs = lane.Find("BallStart");
+                    Vector3 toB = bs.position - nz.position; toB.y = 0; toB.Normalize();
+                    Vector3 aimPt = bs.position + Vector3.Cross(Vector3.up, toB) * -0.5f;
+                    Vector3 sdir = aimPt - nz.position; sdir.y = 0; sdir.Normalize();
+                    MakeStripes(bayRoot, new Vector3(islandCenter.x, IslandTop + 0.012f, islandCenter.z), sdir, nz.position);
+                }
                 break;
             case "Pull":
                 // 少し離れたふわふわを、長く溜めて引き寄せてから撃つ
