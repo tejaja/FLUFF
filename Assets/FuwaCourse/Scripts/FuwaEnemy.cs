@@ -132,8 +132,11 @@ public class FuwaEnemy : UdonSharpBehaviour
     private float _groundY;
     private float _dashDuration = 0.8f;
 
+    private bool _started;
+
     private void Start()
     {
+        _started = true;
         _home = transform.position;
         _groundY = _home.y;
         _phase = Random.Range(0f, 10f);
@@ -518,10 +521,13 @@ public class FuwaEnemy : UdonSharpBehaviour
         return Physics.Raycast(transform.position + Vector3.up * 0.2f, Vector3.down, 6f, 1 << groundLayer);
     }
 
-    // 倒されていたら元の場所で復活する（プレイヤーが落ちた・トゲ・リスポーン・コース開始時に呼ばれる）
+    // 元の場所・ふだんの状態に戻す（アウト・プレイヤーが落ちた・トゲ・リスポーン・コース開始時に呼ばれる）。
+    // 倒されていた子は復活、起きて追いかけていた子・巣から出ていた子も家に戻って寝る／かくれる（2026-10-09）
     public void Revive()
     {
-        if (_state == 5 || _state == 6) Respawn();
+        if (!_started) return;
+        bool idleAtHome = hideInNest ? _state == 7 : sleeping ? _state == 10 : (_state == 0 && (transform.position - _home).magnitude < wanderRadius + 0.5f);
+        if (!idleAtHome) Respawn();
     }
 
     private void Respawn()

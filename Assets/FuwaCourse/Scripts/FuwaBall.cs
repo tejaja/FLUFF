@@ -279,7 +279,7 @@ public class FuwaBall : UdonSharpBehaviour
             if (_teleportOnReset) TeleportPlayerToRespawn();
             _teleportOnReset = false;
             if (_respawnInFront) ResetInFrontOfPlayer();
-            else ResetToRespawn();
+            else { ResetToRespawn(); ReviveEnemies(); }   // アウトで戻ったら、モンスターも家に戻す
         }
         if (!_waiting && !_carried && _resetAt < 0f && transform.position.y < killHeight) Fail();
         CheckOffCourse();
