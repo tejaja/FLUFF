@@ -33,3 +33,6 @@
 crashlytics-buildid.txt
 __pycache__/
 *.pyc
+
+# モーション録画のクリップ（巨大。キー間引きを入れるまでコミットしない）
+Assets/FuwaCourse/Motion/Clips/*.anim
