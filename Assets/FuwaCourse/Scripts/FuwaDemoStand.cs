@@ -30,6 +30,8 @@ public class FuwaDemoStand : UdonSharpBehaviour
     [Tooltip("弾けた時の粒（本物のふわふわの PopEffect のコピー。ふわふわの子にはしない）")]
     public ParticleSystem popEffect;
     public AudioSource popSound;
+    [Tooltip("「床がある」とみなすレイヤー（0=Default、11=Environment）")]
+    public int floorMask = (1 << 0) | (1 << 11);
 
     [Header("銃の演出（本物の銃の Nozzle をコピーしたもの）")]
     public ParticleSystem puffEffect;
@@ -55,6 +57,8 @@ public class FuwaDemoStand : UdonSharpBehaviour
     public float[] shotCharges = new float[] { 1f };
     [Tooltip("それぞれの狙う所＝ふわふわの中心からのずれ（銃から見た 右・上・奥 の m）")]
     public Vector3[] shotAimOffsets = new Vector3[] { Vector3.zero };
+    [Tooltip("それぞれ、満タンになってから撃つまで溜めたまま待つ秒数（吸い寄せを見せる時など）")]
+    public float[] shotHolds = new float[0];
     [Tooltip("溜めている間、本物と同じようにふわふわを引き寄せる")]
     public bool useChargePull = true;
     [Tooltip("銃がふわふわの方へ向き直る速さ")]
@@ -63,6 +67,10 @@ public class FuwaDemoStand : UdonSharpBehaviour
     public float vanishTime = 0.35f;
     [Tooltip("この距離(m)より遠くにプレイヤーがいる時は止める")]
     public float activeRange = 14f;
+    [Tooltip("ねらった線（銃口からまっすぐ）を、溜め中〜撃った少し後まで見せる。なくてもOK")]
+    public LineRenderer aimLine;
+    public float aimLineLength = 3.2f;
+    public float aimLineKeep = 1.6f;
 
     private Vector3 _v;
     private Vector3 _spinAxis;
@@ -112,6 +120,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         _active = on;
         if (ball != null) ball.gameObject.SetActive(on);
         if (!on) StopCharge();
+        if (!on && aimLine != null) aimLine.enabled = false;
         if (on) BeginCycle();
     }
 
@@ -139,7 +148,8 @@ public class FuwaDemoStand : UdonSharpBehaviour
         if (!_popped && tuning != null && shotTimes != null && _nextShot < shotTimes.Length)
         {
             float charge = Charge(_nextShot);
-            float lead = charge > 0f ? tuning.chargeDelay + charge * tuning.chargeTime : 0f;
+            float hold = (shotHolds != null && _nextShot < shotHolds.Length) ? Mathf.Max(0f, shotHolds[_nextShot]) : 0f;
+            float lead = charge > 0f ? tuning.chargeDelay + charge * tuning.chargeTime + hold : 0f;
             float at = shotTimes[_nextShot];
             if (charge > 0f && _chargeFrom < 0f && t >= at - lead + tuning.chargeDelay) StartCharge(charge);
             if (t >= at) { Fire(charge, AimOffset(_nextShot)); _nextShot++; }
@@ -149,6 +159,19 @@ public class FuwaDemoStand : UdonSharpBehaviour
         UpdateChargeFx();
         UpdateBulb();
         UpdateBallLook(t);
+        UpdateAimLine(t);
+    }
+
+    private void UpdateAimLine(float t)
+    {
+        if (aimLine == null || nozzle == null) return;
+        // 撃つ1秒前（溜め中）〜撃った少し後まで
+        bool show = (_chargeFrom >= 0f) || (Time.time - _shotTime < aimLineKeep);
+        if (!show && shotTimes != null && _nextShot < shotTimes.Length) show = shotTimes[_nextShot] - t < 1.0f;
+        if (aimLine.enabled != show) aimLine.enabled = show;
+        if (!show) return;
+        aimLine.SetPosition(0, nozzle.position);
+        aimLine.SetPosition(1, nozzle.position + nozzle.forward * aimLineLength);
     }
 
     private float Charge(int i)
@@ -232,7 +255,9 @@ public class FuwaDemoStand : UdonSharpBehaviour
         if (_v.magnitude > maxSpeed) _v = _v.normalized * maxSpeed;
         Vector3 p = ball.position + _v * dt;
         ball.position = p;
-        if (floor != null && p.y < floor.position.y + BallRadius())
+        // 床の高さまで落ちて、真下に本当に床がある時だけ弾ける（台の外の空中へ飛んだ時は、そのまま落ちていって回の終わりに消える）
+        if (floor != null && p.y < floor.position.y + BallRadius() && p.y > floor.position.y - 0.3f
+            && Physics.Raycast(p + Vector3.up * 0.5f, Vector3.down, 1.2f, floorMask, QueryTriggerInteraction.Ignore))
         {
             _v = Vector3.zero;
             _flying = false;

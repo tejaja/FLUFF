@@ -920,10 +920,18 @@ public class FuwaBlower : UdonSharpBehaviour
         // 風は「向いてる水平方向に押す」＋「必ず上に持ち上げる」の合成。
         // 下の玉を狙っても床に押し付けず、見上げて吹くほど高く上がる。
         // 見上げるほど横に押す分は減り、真下から撃つと真上に飛ぶ。
-        // 押す向きは、銃の向きを銃口→ふわふわの向きへ少し寄せたもの（銃口より後ろにいる時は銃の向きのまま）
+        // 押す向き：上下の角度だけ、銃の向きを銃口→ふわふわの向きへ寄せる（銃だけ上を向けても前に進むように）。
+        // 左右の向きは銃の向きのまま（横を撃った時に風の中心線へ寄る動きを残すため）。銃口より後ろにいる時は銃の向きのまま
         Vector3 push = aim;
         if (aimToBallBlend > 0f && Vector3.Dot(toBall, aim) > 0f && toBall.sqrMagnitude > 0.0001f)
-            push = Vector3.Lerp(aim, toBall.normalized, aimToBallBlend).normalized;
+        {
+            Vector3 tb = toBall.normalized;
+            float elev = Mathf.Lerp(Mathf.Asin(Mathf.Clamp(aim.y, -1f, 1f)), Mathf.Asin(Mathf.Clamp(tb.y, -1f, 1f)), aimToBallBlend);
+            Vector3 hz = new Vector3(aim.x, 0f, aim.z);
+            if (hz.sqrMagnitude < 0.0004f) hz = new Vector3(tb.x, 0f, tb.z);   // 真上・真下を向いている時は、ふわふわのいる方を水平の向きに
+            hz = hz.sqrMagnitude > 0.000001f ? hz.normalized : Vector3.zero;
+            push = hz * Mathf.Cos(elev) + Vector3.up * Mathf.Sin(elev);
+        }
         Vector3 flatRaw = Vector3.ProjectOnPlane(push, Vector3.up);
         float side = push.y > 0f ? flatRaw.magnitude : 1f;
         Vector3 flat = flatRaw.sqrMagnitude > 0.0001f ? flatRaw.normalized : Vector3.zero;

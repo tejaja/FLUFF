@@ -960,6 +960,20 @@ public class FuwaBall : UdonSharpBehaviour
         RestartFromStart();
     }
 
+    // れんしゅうの「ためし撃ちの場所」：ここに浮いて待ち、床に落ちたり道から落ちたら弾けてここへ戻るだけ（タイムなし・プレイヤーは動かさない）。
+    // startPoint は変えないので、コースのスタートに戻る時は StartCourse で
+    public void SetPracticeSpot(Transform spot)
+    {
+        if (spot == null) return;
+        timerEnabled = false;
+        respawnPoint = spot;
+        _finished = false;
+        _running = false;
+        ResetToRespawn();
+    }
+
+    public Transform GetRespawnPoint() { return respawnPoint; }
+
     public void RestartFromStart()
     {
         respawnPoint = startPoint != null ? startPoint : transform;
