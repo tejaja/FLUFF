@@ -724,6 +724,17 @@ public static class FuwaPracticeTutorial
             }
         }
 
+        // ---------- ゴールの手前の看板：「リングの中に着地させたらゴール！」（2026-10-08 てじゃ） ----------
+        {
+            float uS = uGoal - 5.2f;
+            At(pts, dist, D(uS), out var c, out var f);
+            Vector3 outw = new Vector3(f.z, 0, -f.x);
+            MakeSign(root, c + outw * (PathHalfW(D(uS)) - 0.35f), (f + outw * 0.45f).normalized,
+                "<size=130%><color=#FF6B5C>ゴール</color></size>\nリングの中に\nふわふわを着地させよう",
+                "<size=130%><color=#FF6B5C>Goal</color></size>\nLand the fluff\ninside the ring", signSrc, lang, "Sign_Goal");
+            root.Find("Sign_Goal").position = new Vector3(c.x, c.y, c.z) + outw * (PathHalfW(D(uS)) - 0.35f);   // 坂の上の高さに
+        }
+
         // ---------- 本番の道の飾り：前のれんしゅうコースの小物（マカロンの塔・ぺろぺろキャンディ・草花）を道のふちに ----------
         // 説明の小道には置かない（てじゃ「説明ゾーンはシンプルに無し」）。島・溝・チェックポイント・まものの側は避ける
         {
@@ -740,6 +751,7 @@ public static class FuwaPracticeTutorial
                 if (side > 0 && u > uMon - 3.5f && u < uMon + 3.5f) return false;                // まもの・イバラ（右）
                 if (side < 0 && Mathf.Abs(u - (uWind0 + 1.2f)) < 2f) return false;               // 吹き流し（左）
                 if (side > 0 && u > uWind0 - 1f && u < uWind1 + 2f) return false;               // 横風の風下（右）：流されたふわふわが小物に当たってアウトにならないように
+                if (side > 0 && u > uGoal - 7f) return false;                                    // ゴールの看板（右）
                 return true;
             }
             Physics.SyncTransforms();
