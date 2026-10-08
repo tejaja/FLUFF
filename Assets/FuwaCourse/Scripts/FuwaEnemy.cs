@@ -37,6 +37,8 @@ public class FuwaEnemy : UdonSharpBehaviour
     public float dashTime = 0.8f;
     public float cooldown = 1.6f;
     public float returnSpeed = 2f;
+    [Tooltip("けだまを追って家からこれ以上離れたら、追うのをやめて戻る(m)")]
+    public float leashRange = 10f;
     [Tooltip("突進の時に跳ねる高さ(m)")]
     public float hopHeight = 1.0f;
 
@@ -338,8 +340,19 @@ public class FuwaEnemy : UdonSharpBehaviour
         }
         else if (_state == 3) // 戻る
         {
-            transform.position = Vector3.MoveTowards(transform.position, _home, returnSpeed * dt);
-            if ((transform.position - _home).sqrMagnitude < 0.04f) SetState(0);
+            // けだまに気づいている間は戻らずにその場で待って、間が空いたらまた溜める（2026-10-08 てじゃ：弱めたので少し強化）。
+            // ただし家から leashRange 以上離れたら、追うのをやめて戻る
+            Vector3 fromHome = transform.position - _home; fromHome.y = 0f;
+            bool chasing = ballLive && toBallFlat.magnitude < detectRange * 1.3f && fromHome.magnitude < leashRange;
+            if (chasing)
+            {
+                if (Time.time > _cooldownUntil && HasGroundBelow()) SetState(1);
+            }
+            else
+            {
+                transform.position = Vector3.MoveTowards(transform.position, _home, returnSpeed * dt);
+                if ((transform.position - _home).sqrMagnitude < 0.04f) SetState(0);
+            }
         }
         else if (_state == 4) // ひるみ（押されて滑る）
         {
