@@ -24,6 +24,8 @@ public class FuwaModeCounter : UdonSharpBehaviour
     [TextArea] public string[] uiLabelsEn;
     [Tooltip("UIボタンの人数の色（ボタンの地の色の上で読める色）")]
     public string uiCountColor = "#FFFFFFCC";
+    [Tooltip("文字ごとの人数の色（空なら uiCountColor）")]
+    public string[] uiCountColors;
 
     private float _next;
 
@@ -72,7 +74,7 @@ public class FuwaModeCounter : UdonSharpBehaviour
             {
                 if (uiLabels[i] == null) continue;
                 int a = (uiLabelAreas != null && i < uiLabelAreas.Length) ? uiLabelAreas[i] : 1;
-                string s = (en ? Get(uiLabelsEn, i) : Get(uiLabelsJa, i)) + "  <size=70%><color=" + uiCountColor + ">" + CountText(a == 2 ? versus : adventure) + "</color></size>";
+                string s = (en ? Get(uiLabelsEn, i) : Get(uiLabelsJa, i)) + "  <size=70%><color=" + ((uiCountColors != null && i < uiCountColors.Length && !string.IsNullOrEmpty(uiCountColors[i])) ? uiCountColors[i] : uiCountColor) + ">" + CountText(a == 2 ? versus : adventure) + "</color></size>";
                 if (uiLabels[i].text != s) uiLabels[i].text = s;
             }
         }
