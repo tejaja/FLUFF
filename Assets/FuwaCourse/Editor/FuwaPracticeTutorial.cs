@@ -537,17 +537,17 @@ public static class FuwaPracticeTutorial
             case "TapCharge":
             {
                 var lat = Vector3.Cross(Vector3.up, along).normalized;
-                MakeLane(bayRoot, "Lane_Tap", islandCenter - along * 1.2f - lat * 0.55f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.6f }, new[] { 0f }, null, null, false, tmpl, ballSrc, floorTop);
-                MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 1.2f + lat * 0.55f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.6f }, new[] { 1f }, null, null, false, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane_Tap", islandCenter - along * 1.2f - lat * 0.55f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.1f }, new[] { 0f }, null, null, false, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 1.2f + lat * 0.55f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.1f }, new[] { 1f }, null, null, false, tmpl, ballSrc, floorTop);
                 break;
             }
             case "Down":
                 // 銃を高めにして、斜め下のふわふわを撃つ（ねらった線も見せる：下を向いているのに上がる）
-                MakeLane(bayRoot, "Lane", islandCenter - along * 1.0f, along, 1.55f, new Vector3(0, -0.7f, 0.75f), new[] { 1.6f }, new[] { 1f }, null, null, true, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane", islandCenter - along * 1.0f, along, 1.2f, new Vector3(0, -1.04f, 0.9f), new[] { 1.1f }, new[] { 1f }, null, null, true, tmpl, ballSrc, floorTop);
                 break;
             case "Center":
                 // ふわふわの横（道の進む向きの側）をねらう。ねらった線を見せて、そこへ寄っていくのを見せる
-                MakeLane(bayRoot, "Lane", islandCenter - away * 1.25f, away, 0.95f, new Vector3(0, 0.05f, 1.1f), new[] { 1.6f }, new[] { 1f }, new[] { new Vector3(-0.5f, 0f, 0f) }, null, true, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane", islandCenter - away * 1.25f, away, 0.95f, new Vector3(0, 0.05f, 1.1f), new[] { 1.1f }, new[] { 1f }, new[] { new Vector3(-0.5f, 0f, 0f) }, null, true, tmpl, ballSrc, floorTop);
                 break;
             case "Pull":
                 // 少し離れたふわふわを、長く溜めて引き寄せてから撃つ
@@ -590,7 +590,7 @@ public static class FuwaPracticeTutorial
         SetArr(ds, "shotTimes", times); SetArr(ds, "shotCharges", charges);
         SetArrV(ds, "shotAimOffsets", aimOffsets ?? new Vector3[times.Length]);
         SetArr(ds, "shotHolds", holds ?? new float[times.Length]);
-        SetUF(ds, "cycleLength", holds != null ? 7f : 5f);
+        SetUF(ds, "cycleLength", holds != null ? 6f : 4f);
         if (showAimLine)
         {
             var lgo = new GameObject("AimLine"); lgo.transform.SetParent(lane, false);
