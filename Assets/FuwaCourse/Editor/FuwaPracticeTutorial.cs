@@ -588,9 +588,11 @@ public static class FuwaPracticeTutorial
                 At(pts, dist, S(s), out var bc0, out var bf0);
                 Vector3 left = -new Vector3(bf0.z, 0, -bf0.x);
                 var b = Object.Instantiate(bubSrc.gameObject, bubs, false); b.name = "Spot" + k; b.SetActive(true);
-                b.transform.position = bc0 + left * (HalfW + 2.6f + (float)rnd.NextDouble() * 2.2f) + Vector3.up * (-2.2f + (float)rnd.NextDouble() * 1.6f);
+                b.transform.position = bc0 + left * (HalfW + 3.4f + (float)rnd.NextDouble() * 2.2f) + Vector3.up * (-2.2f + (float)rnd.NextDouble() * 1.6f);
                 var ps = b.GetComponent<ParticleSystem>(); ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
                 var em = ps.emission; em.rateOverTime = 0.1f;   // 元より少し多め（1か所に1〜2個）
+                // 元の大きさ（直径1〜4m）だと大きすぎて道のじゃまになった（2026-10-08 てじゃ）。小さめに
+                var mn = ps.main; mn.startSize = new ParticleSystem.MinMaxCurve(0.4f, 1.2f);
                 ps.useAutoRandomSeed = false; ps.randomSeed = (uint)(1000 + k * 37);
             }
             log.Add("bubbles " + k);
