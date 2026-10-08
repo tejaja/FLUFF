@@ -37,6 +37,10 @@ public static class FuwaKazeDeco
     static Vector3 _islC; static float _islR = 999f;
     static List<float> _headPhase = new List<float>();   // 綿毛の頭ごとのゆれの位相（heads と同じ順）
     const float SwayAmp = 0.38f, SwaySpeed = 1.2f;   // 今の浮島（葉っぱが島からはみ出さないように）
+    // 綿毛の頭：外側の半径（前の毛玉の芯 hr*0.75＋毛 0.65 と同じ）、芯の大きさ（外側に対する比）、冠毛の数（外側の半径1.58mの頭で）
+    static float HeadOuter(float hr) { return hr * 0.75f + 0.65f; }
+    const float HeadCore = 0.26f;
+    const int TuftsPerHead = 420;
     static readonly Color LeafG = new Color(0.27f, 0.68f, 0.2f), StemG = new Color(0.45f, 0.74f, 0.3f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
 
     [MenuItem("FuwaCourse/かぜのおかの飾りを作る")]
@@ -187,6 +191,55 @@ public static class FuwaKazeDeco
         }
         log.Append("islands " + placed.Count + " ");
 
+        // 綿毛の頭（2026-10-09 てじゃの写真に寄せて作り直し）：茶色の芯＋放射状の細い軸（たんぽぽのメッシュにまとめる）
+        // ＋軸の先の冠毛（いつもカメラを向く放射状の毛の半透明の板。下の PuffTufts）。外側の大きさは前の毛玉（芯 hr*0.75＋毛0.65）と同じ
+        var tufts = new List<(Vector3 p, Vector3 d, float size, float rot, int head)>();
+        {
+            var hrnd = new System.Random(4242);   // 配置の乱数（rnd）は進めない
+            float ga = Mathf.PI * (3f - Mathf.Sqrt(5f));
+            Color stalkC = new Color(0.92f, 0.91f, 0.86f), coreA = new Color(0.55f, 0.45f, 0.32f), coreB = new Color(0.68f, 0.58f, 0.42f);
+            for (int hi = 0; hi < heads.Count; hi++)
+            {
+                var (hp, hr) = heads[hi]; float ph = _headPhase[hi];
+                float R0 = HeadOuter(hr), coreR = R0 * HeadCore;
+                int n = Mathf.RoundToInt(TuftsPerHead * (R0 / 1.58f) * (R0 / 1.58f));
+                int vb = plants.V.Count;
+                for (int k = 0; k < n; k++)
+                {
+                    float y = 1f - 2f * (k + 0.5f) / n, r = Mathf.Sqrt(1f - y * y), th = ga * k;
+                    var d = new Vector3(Mathf.Cos(th) * r, y, Mathf.Sin(th) * r);
+                    d = (d + new Vector3((float)hrnd.NextDouble() - 0.5f, (float)hrnd.NextDouble() - 0.5f, (float)hrnd.NextDouble() - 0.5f) * 0.1f).normalized;
+                    float rad = R0 * Mathf.Lerp(0.78f, 0.9f, (float)hrnd.NextDouble()), sz = R0 * Mathf.Lerp(0.15f, 0.21f, (float)hrnd.NextDouble()), rot = (float)hrnd.NextDouble() * 6.28f;
+                    if (d.y < -0.8f) continue;   // 茎のまわりは空ける
+                    var p1 = hp + d * rad; var p0 = hp + d * coreR * 0.9f;
+                    var t1 = Vector3.Cross(d, Mathf.Abs(d.y) < 0.9f ? Vector3.up : Vector3.right).normalized; var t2 = Vector3.Cross(d, t1);
+                    const float sw = 0.006f;   // 軸：細い三角柱（先ほど細く）。両面
+                    for (int s = 0; s < 3; s++)
+                    {
+                        float a0 = s * 2.094f, a1 = (s + 1) * 2.094f;
+                        var o0 = t1 * Mathf.Cos(a0) + t2 * Mathf.Sin(a0); var o1 = t1 * Mathf.Cos(a1) + t2 * Mathf.Sin(a1); var nn = o0 + o1;
+                        int i0 = plants.Add(p0 + o0 * sw, nn, stalkC), i1 = plants.Add(p0 + o1 * sw, nn, stalkC), i2 = plants.Add(p1 + o1 * sw * 0.5f, nn, stalkC), i3 = plants.Add(p1 + o0 * sw * 0.5f, nn, stalkC);
+                        plants.Quad(i0, i1, i2, i3); plants.Quad(i0, i3, i2, i1);
+                    }
+                    tufts.Add((p1, d, sz, rot, hi));
+                }
+                // 芯（花床）：小さな茶色の球。茎の先はこの中に入る
+                const int seg = 16, rings = 12; int cb = plants.V.Count;
+                for (int j = 0; j <= rings; j++)
+                    for (int i = 0; i <= seg; i++)
+                    {
+                        float th = Mathf.PI * j / rings, phi = Mathf.PI * 2 * i / seg;
+                        var dd = new Vector3(Mathf.Sin(th) * Mathf.Cos(phi), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(phi));
+                        plants.Add(hp + dd * coreR, dd, Color.Lerp(coreA, coreB, ((i * 7 + j * 13) % 5) / 5f));
+                    }
+                for (int j = 0; j < rings; j++)
+                    for (int i = 0; i < seg; i++) { int a0 = cb + j * (seg + 1) + i; plants.Tri(a0, a0 + 1, a0 + seg + 1); plants.Tri(a0 + 1, a0 + seg + 2, a0 + seg + 1); }
+                // 頭は茎の先と同じだけゆれる
+                for (int i = vb; i < plants.V.Count; i++) plants.U3[i] = new Vector4(1f, ph, 0, 0);
+            }
+            log.Append("tufts " + tufts.Count + " ");
+        }
+
         // まとめたメッシュ
         var w2l = deco.worldToLocalMatrix;
         {
@@ -205,44 +258,33 @@ public static class FuwaKazeDeco
             go.GetComponent<MeshRenderer>().receiveShadows = false;   // 花びらや葉どうしの影が濃く出て、ゆれとずれて見えるので自分には影を落とさない（島の地面には落とす）
             log.Append("tris " + plants.T.Count / 3 + " ");
         }
-        // 綿毛の頭：ふわふわと同じシェルファー（FuwaCourse/Fur）の白い毛玉。8個を1つのメッシュにまとめて描画回数を抑える
+        // 綿毛の冠毛：いつもカメラを向く放射状の毛の半透明の板（FuwaCourse/DandelionTuft）。8個の頭を1つのメッシュにまとめる
+        // 1枚＝4頂点を冠毛の中心に置き、uv＝角、uv2＝(大きさm, 回転)、uv3＝風のゆれ（茎の先と同じ）。法線＝頭の外向き（日の当たり具合）
         {
-            var hv = new List<Vector3>(); var hn = new List<Vector3>(); var ht = new List<int>(); var hu = new List<Vector4>(); int hi = 0;
-            const int seg = 18, rings = 12;
-            foreach (var (hp, hr) in heads)
+            var tv = new List<Vector3>(); var tn = new List<Vector3>(); var tu = new List<Vector2>(); var tu2 = new List<Vector2>(); var tu3 = new List<Vector4>(); var tt = new List<int>();
+            var corners = new[] { new Vector2(-1, -1), new Vector2(1, -1), new Vector2(1, 1), new Vector2(-1, 1) };
+            foreach (var (p, d, size, rot, head) in tufts)
             {
-                int bi = hv.Count; float rr = hr * 0.75f;   // 芯を大きめにして毛は短めに（茎が毛の間から透けて見えないように）
-                for (int j = 0; j <= rings; j++)
-                    for (int i = 0; i <= seg; i++)
-                    {
-                        float th = Mathf.PI * j / rings, ph = Mathf.PI * 2 * i / seg;
-                        var d = new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph));
-                        hv.Add(w2l.MultiplyPoint3x4(hp + d * rr)); hn.Add(w2l.MultiplyVector(d).normalized); hu.Add(new Vector4(1f, _headPhase[hi], 0, 0));
-                    }
-                for (int j = 0; j < rings; j++)
-                    for (int i = 0; i < seg; i++)
-                    {
-                        int a0 = bi + j * (seg + 1) + i;
-                        ht.Add(a0); ht.Add(a0 + 1); ht.Add(a0 + seg + 1); ht.Add(a0 + 1); ht.Add(a0 + seg + 2); ht.Add(a0 + seg + 1);   // 外向きの面
-                    }
-                hi++;
+                int b = tv.Count;
+                foreach (var cu in corners) { tv.Add(w2l.MultiplyPoint3x4(p)); tn.Add(w2l.MultiplyVector(d).normalized); tu.Add(cu); tu2.Add(new Vector2(size, rot)); tu3.Add(new Vector4(1f, _headPhase[head], 0, 0)); }
+                tt.Add(b); tt.Add(b + 1); tt.Add(b + 2); tt.Add(b); tt.Add(b + 2); tt.Add(b + 3);
             }
-            var hm = new Mesh { name = "Kaze_PuffFur" }; hm.SetVertices(hv); hm.SetNormals(hn); hm.SetUVs(3, hu); hm.SetTriangles(ht, 0); hm.RecalculateBounds();
-            string ap = Dir + "/Kaze_PuffFur.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
-            if (old != null) { old.Clear(); EditorUtility.CopySerialized(hm, old); hm = old; } else AssetDatabase.CreateAsset(hm, ap);
-            string mp = "Assets/FuwaCourse/Materials/PuffFur.mat"; var hmat = AssetDatabase.LoadAssetAtPath<Material>(mp);
-            if (hmat == null)
+            var tm = new Mesh { name = "Kaze_PuffTufts" }; tm.SetVertices(tv); tm.SetNormals(tn); tm.SetUVs(0, tu); tm.SetUVs(1, tu2); tm.SetUVs(3, tu3); tm.SetTriangles(tt, 0);
+            tm.RecalculateBounds(); var bb = tm.bounds; bb.Expand(1.0f); tm.bounds = bb;   // 板は描く時に広がるぶん、ゆれのぶんも足す
+            string ap = Dir + "/Kaze_PuffTufts.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
+            if (old != null) { old.Clear(); EditorUtility.CopySerialized(tm, old); old.bounds = bb; tm = old; } else AssetDatabase.CreateAsset(tm, ap);
+            string mp = "Assets/FuwaCourse/Materials/DandelionTuft.mat"; var tmat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (tmat == null)
             {
-                hmat = new Material(Shader.Find("FuwaCourse/Fur")); AssetDatabase.CreateAsset(hmat, mp);
-                // メッシュはまとめてあるので拡大率1。毛の長さ・細かさはメートルで
-                hmat.SetColor("_Color", new Color(0.86f, 0.84f, 0.78f)); hmat.SetColor("_TipColor", Color.white);
-                hmat.SetFloat("_FurLength", 0.65f); hmat.SetFloat("_Density", 50f); hmat.SetFloat("_Thinness", 0.9f);
-                hmat.SetFloat("_Shadow", 0.3f); hmat.SetFloat("_Gravity", 0.02f); hmat.SetFloat("_RimStrength", 0.4f);
+                tmat = new Material(Shader.Find("FuwaCourse/DandelionTuft")); AssetDatabase.CreateAsset(tmat, mp);
+                tmat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaCourse/Textures/DandelionPappus.png"); tmat.SetFloat("_Opacity", 1.1f);
             }
-            hmat.SetFloat("_SwayAmp", SwayAmp); hmat.SetFloat("_SwaySpeed", SwaySpeed); hmat.SetVector("_SwayDir", new Vector4(wind.x, 0, wind.z, 0)); EditorUtility.SetDirty(hmat);
-            var go = Child(isl, "PuffFur");
-            go.GetComponent<MeshFilter>().sharedMesh = hm; var mr = go.GetComponent<MeshRenderer>(); mr.sharedMaterial = hmat;
+            tmat.SetFloat("_SwayAmp", SwayAmp); tmat.SetFloat("_SwaySpeed", SwaySpeed); tmat.SetVector("_SwayDir", new Vector4(wind.x, 0, wind.z, 0)); EditorUtility.SetDirty(tmat);
+            var go = Child(isl, "PuffTufts");
+            go.GetComponent<MeshFilter>().sharedMesh = tm; var mr = go.GetComponent<MeshRenderer>(); mr.sharedMaterial = tmat;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+            // 前の毛玉（シェルファー）はもう使わない
+            var oldFur = isl.Find("PuffFur"); if (oldFur != null) Undo.DestroyObjectImmediate(oldFur.gameObject);
         }
         // 綿毛の出どころ：巨大な綿毛の頭の表面（小さな三角を並べたメッシュ）
         {
@@ -424,8 +466,9 @@ public static class FuwaKazeDeco
         if (puff)
         {
             float hr = R(1.1f, 1.5f) * s;
-            // 頭そのものは、ふわふわと同じシェルファーの毛玉（PuffFur）で描く
-            heads.Add((top + Vector3.up * hr * 0.2f, hr)); phases.Add(phase);
+            // 頭そのもの（芯・軸・冠毛）は Run の最後に heads から作る。中心は茎の先の向きの延長に置く（芯が茎の先からずれて見えないように）
+            var tan = (pts[pts.Count - 1] - pts[pts.Count - 2]).normalized;
+            heads.Add((top + tan * hr * 0.2f, hr)); phases.Add(phase);
             look = (top + Vector3.up * hr * 0.2f, hr * 0.75f + 0.5f);   // 芯＋毛の長さ
         }
         else
