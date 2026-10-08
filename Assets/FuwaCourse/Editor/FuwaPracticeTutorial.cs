@@ -423,6 +423,24 @@ public static class FuwaPracticeTutorial
             var tz = UdonSharpUndo.AddComponent<FuwaTryZone>(zone);
             SetU(tz, "ball", ball); SetU(tz, "spot", trySpot); Sync(tz);
         }
+        // 道の左側（お手本の島がない側）に、元のれんしゅうのしゃぼん玉（大きいのがゆっくり上っていく）を並べる
+        {
+            var bubSrc = course.Find("Bubbles/Spot0");
+            var bubs = new GameObject("LeftBubbles").transform; bubs.SetParent(root, false);
+            var rnd = new System.Random(17);
+            int k = 0;
+            for (float s = 3f; s < lastWall + 2f; s += 6.5f, k++)
+            {
+                At(pts, dist, S(s), out var bc0, out var bf0);
+                Vector3 left = -new Vector3(bf0.z, 0, -bf0.x);
+                var b = Object.Instantiate(bubSrc.gameObject, bubs, false); b.name = "Spot" + k; b.SetActive(true);
+                b.transform.position = bc0 + left * (HalfW + 2.6f + (float)rnd.NextDouble() * 2.2f) + Vector3.up * (-2.2f + (float)rnd.NextDouble() * 1.6f);
+                var ps = b.GetComponent<ParticleSystem>(); ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+                var em = ps.emission; em.rateOverTime = 0.1f;   // 元より少し多め（1か所に1〜2個）
+                ps.useAutoRandomSeed = false; ps.randomSeed = (uint)(1000 + k * 37);
+            }
+            log.Add("bubbles " + k);
+        }
         // 区画のさかいめに、ふわふわだけ止める壁を1枚ずつ（となりの区画と共通。横＝道の外は開けておく）
         {
             var walls = new GameObject("Barriers").transform; walls.SetParent(root, false);
