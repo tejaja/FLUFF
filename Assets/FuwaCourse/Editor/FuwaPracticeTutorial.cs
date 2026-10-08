@@ -825,7 +825,8 @@ public static class FuwaPracticeTutorial
     }
 
     // ---------- 空気ぎれの区画の銃（大きく・高く。ふわふわは銃口の真上より少し手前） ----------
-    const float AirGunScale = 1.5f, AirGunHeight = 1.0f, AirBallUp = 0.9f, AirBallBack = -0.3f;
+    // ふわふわは見せない（銃の向きを決めるためだけの見えない的）：銃口の1m先・0.45m上＝約25°上向き
+    const float AirGunScale = 1.5f, AirGunHeight = 1.1f, AirBallUp = 0.45f, AirBallBack = 1.0f;
 
     // ---------- 横風 ----------
     const float WindStrength = 0.8f;   // 加速度 m/s²（コース1の横風のゆるい時くらい）
@@ -1378,8 +1379,8 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                 var tA = new List<float>(taps) { 3.65f }; var cA = new float[tA.Count]; cA[cA.Length - 1] = 1f;
                 var hA = new float[tA.Count]; hA[hA.Length - 1] = 0.15f;
                 var tB = new List<float>(taps) { 4.0f, 4.4f, 4.8f }; var cB = new float[tB.Count];
-                // ふわふわは銃口の真上より少し手前（銃が上を向くと銃口が前へ回りこむので、向いた後でほぼ真上になる。銃は85°くらい上向き）
-                // 銃が主役なので大きく・胸の高さ・道寄り（2026-10-08 てじゃ「銃が下すぎる」）
+                // 銃が主役なので大きく・胸の高さ・道寄り（2026-10-08 てじゃ「銃が下すぎる」）。ふわふわは見せない（hideBall）：
+                // 銃は道から見て向こう向き・少し上向き（自分で持っている時と同じ向きで、銃の後ろのゲージが道から見える）
                 Vector3 bo = new Vector3(0, AirBallUp, AirBallBack);
                 MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 0.9f - lat * 0.7f, along, AirGunHeight, bo, tA.ToArray(), cA, null, hA, false, tmpl, ballSrc, floorTop, AirGunScale);
                 MakeLane(bayRoot, "Lane_Wait", islandCenter - along * 0.9f + lat * 0.7f, along, AirGunHeight, bo, tB.ToArray(), cB, null, null, false, tmpl, ballSrc, floorTop, AirGunScale);
@@ -1391,7 +1392,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                     var so = new SerializedObject(ds); var ga = so.FindProperty("gunGauges"); ga.arraySize = gauges.Length;
                     for (int i = 0; i < gauges.Length; i++) ga.GetArrayElementAtIndex(i).objectReferenceValue = gauges[i];
                     so.ApplyModifiedPropertiesWithoutUndo();
-                    SetUB(ds, "useAir", true); SetUF(ds, "cycleLength", 7f);
+                    SetUB(ds, "useAir", true); SetUB(ds, "hideBall", true); SetUF(ds, "cycleLength", 7f);
                     var es = gun.Find("Nozzle/EmptySfx"); if (es != null) SetU(ds, "emptySound", es.GetComponent<AudioSource>());
                     SetU(ds, "hudColors", tmpl.hud);
                     Sync(ds);
@@ -1419,7 +1420,8 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
             case "Monster":
             {
                 // 2台ならべる。どちらもふわふわの前へ見た目だけのまもの（コースの FuwaEnemy のコピー）が寄ってきて、ぷるぷる溜める。
-                // 左：だれも撃たない（銃なし）→ 体当たりでふわふわが吹っ飛ばされて落ちる／右：ぷるぷるの間に銃がちょん押し → 押し返されて目を回す
+                // 左：銃はあるけど撃たない → 体当たりでふわふわが吹っ飛ばされて落ちる／右：ぷるぷるの間に銃がちょん押し → 押し返されて目を回す
+                // （左も銃を見せる。ふわふわだけだと何の見本か分かりにくい 2026-10-08 てじゃ）
                 var lat = Vector3.Cross(Vector3.up, along).normalized;
                 var enemySrc = Object.FindObjectsOfType<FuwaEnemy>(true).First(e => !e.sleeping && !e.hideInNest);
                 const float ShotAt = 2.1f;
@@ -1429,7 +1431,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                     string ln = shoots ? "Lane_Shoot" : "Lane_NoShot";
                     Vector3 basePos = islandCenter - along * 1.15f + lat * (shoots ? 0.75f : -0.75f);
                     // ふわふわは銃の横（風の円すいの外）。銃はまものがぷるぷるする所をねらう
-                    Vector3 bo = new Vector3(shoots ? -0.45f : 0f, -0.35f, shoots ? 0.15f : 0.3f);
+                    Vector3 bo = new Vector3(shoots ? -0.45f : 0.45f, -0.35f, 0.15f);
                     MakeLane(bayRoot, ln, basePos, along, 0.95f, bo, shoots ? new[] { ShotAt } : new float[0], shoots ? new[] { 0f } : new float[0], null, null, false, tmpl, ballSrc, floorTop);
                     var lane = bayRoot.Find(ln); var ds = lane.GetComponent<FuwaDemoStand>();
                     SetUF(ds, "cycleLength", 5.8f);
@@ -1438,12 +1440,10 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                     Vector3 homeP = wind + along * 1.0f;
                     var wt = new GameObject("WindupSpot").transform; wt.SetParent(lane, false); wt.position = wind;
                     var ht = new GameObject("MonsterHome").transform; ht.SetParent(lane, false); ht.position = homeP;
-                    if (shoots)
                     {
                         Vector3 aimPt = wind + Vector3.up * 0.15f;
                         for (int it = 0; it < 30; it++) gun.rotation = Quaternion.LookRotation((aimPt - nz.position).normalized, Vector3.up);
                     }
-                    else gun.gameObject.SetActive(false);
                     Sync(ds);
                     // まものの見た目と音（コースのまもののコピー）
                     var mon = new GameObject("DemoMonster").transform; mon.SetParent(lane, false); mon.position = homeP;

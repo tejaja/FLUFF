@@ -21,6 +21,8 @@ public class FuwaDemoStand : UdonSharpBehaviour
     public Transform nozzle;
     [Tooltip("お手本のふわふわ（見た目だけ）")]
     public Transform ball;
+    [Tooltip("ON：ふわふわを見せない（銃だけ見せる見本。空気ぎれ）。見えないふわふわは床に落ちてもはじけない")]
+    public bool hideBall = false;
     [Tooltip("ふわふわの毛（なびかせる）")]
     public Renderer ballFur;
     [Tooltip("ふわふわが現れる位置")]
@@ -299,7 +301,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         Vector3 p = ball.position + _v * dt;
         ball.position = p;
         // 床の高さまで落ちて、真下に本当に床がある時だけ弾ける（台の外の空中へ飛んだ時は、そのまま落ちていって回の終わりに消える）
-        if (floor != null && p.y < floor.position.y + BallRadius() && p.y > floor.position.y - 0.3f
+        if (!hideBall && floor != null && p.y < floor.position.y + BallRadius() && p.y > floor.position.y - 0.3f
             && Physics.Raycast(p + Vector3.up * 0.5f, Vector3.down, 1.2f, floorMask, QueryTriggerInteraction.Ignore))
         {
             Pop(p);
@@ -591,7 +593,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
     {
         float appear = Mathf.Clamp01(t / 0.25f);
         float vanish = vanishTime > 0.001f ? Mathf.Clamp01((cycleLength - t) / vanishTime) : 1f;
-        float s = _popped ? 0f : Mathf.Min(1f - (1f - appear) * (1f - appear), vanish);
+        float s = (_popped || hideBall) ? 0f : Mathf.Min(1f - (1f - appear) * (1f - appear), vanish);
         ball.localScale = _ballBaseScale * Mathf.Max(0.001f, s);
         if (!_flying) ball.Rotate(new Vector3(0.3f, 1f, 0.15f), (ballTuning != null ? ballTuning.idleSpin : 25f) * Time.deltaTime, Space.World);
         if (_furMat != null && ballTuning != null)
