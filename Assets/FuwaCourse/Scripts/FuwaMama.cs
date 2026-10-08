@@ -62,6 +62,10 @@ public class FuwaMama : UdonSharpBehaviour
     public Color ballHitGlow = new Color(0.75f, 0.35f, 1f);
     [Tooltip("チャージ撃ちで押された時の倍率（ふつうのけだまより重い）")]
     public float pushScale = 0.35f;
+    [Tooltip("ノンチャージで押された時の倍率（0なら効かない）")]
+    public float pushScaleNormal = 0f;
+    [Tooltip("チャージ撃ちが当たったら、次のジャンプをこの秒数おくらせる（ひるむ）")]
+    public float chargedStagger = 0f;
     public float pushDamping = 2.5f;
     public AudioSource bumpSound;
 
@@ -138,13 +142,17 @@ public class FuwaMama : UdonSharpBehaviour
         _home.y = transform.position.y;
     }
 
-    // エアガンから（FuwaBlower）。charged=false（ノンチャージ）は効かない
+    // エアガンから（FuwaBlower）。ノンチャージは pushScaleNormal（0なら効かない）、チャージは pushScale で押して少しひるむ
     public void Blown(Vector3 impulse, bool charged)
     {
-        if (!charged || _state == 0) return;
-        Vector3 v = impulse * pushScale; v.y = 0f;
+        if (_state == 0) return;
+        float k = charged ? pushScale : pushScaleNormal;
+        if (k <= 0f) return;
+        Vector3 v = impulse * k; v.y = 0f;
         _push += v;
         _squashUntil = Time.time + 0.3f;
+        // ひるむ：着地して休んでいる間なら、次のジャンプまでの時計を戻す
+        if (charged && chargedStagger > 0f && !_inHop) _hopClock = Mathf.Min(_hopClock, hopRest - 0.35f) - chargedStagger;
     }
 
     private void SetState(int s) { _state = s; _t = 0f; }
