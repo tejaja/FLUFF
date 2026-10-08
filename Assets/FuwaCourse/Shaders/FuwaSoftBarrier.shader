@@ -1,18 +1,19 @@
-// チュートリアルの「ふわふわだけ止める」半透明の壁。人は通り抜けられる（当たり判定は Walkthrough レイヤー）。
-// 下のふちと左右のふちがほんのり濃く、上へいくほど消える。ゆっくり流れる縦のしま、見る角度で少し虹色。
-// 近づくと（通り抜ける時に）薄くなる。
+// チュートリアルの「ふわふわだけ止める」壁。人は通り抜けられる（当たり判定は Walkthrough レイヤー）。
+// ふだんは見えない。自分のふわふわ（_UdonFuwaBallPos、FuwaBall が毎フレーム渡す。w=見えている時1）が近づくと、
+// そのまわりだけ波紋のように丸く浮かび上がる（シャボンの膜っぽく、見る角度で少し虹色）。
+// 見ている人がすぐ近くにいる時だけ、ふちがうっすら見える（通り抜ける時に「ここに膜がある」と分かる程度）。
 Shader "FuwaCourse/SoftBarrier"
 {
     Properties
     {
-        _Color ("Color", Color) = (0.85, 0.95, 1, 0.35)
-        _EdgeColor ("Edge Color", Color) = (1, 1, 1, 0.6)
-        _EdgeWidth ("Edge Width (UV)", Range(0.005, 0.2)) = 0.04
-        _FadeTop ("Fade Top (0-1 of height)", Range(0.1, 1)) = 0.85
-        _StripeFreq ("Stripe Freq", Float) = 9
-        _StripeSpeed ("Stripe Speed", Float) = 0.25
-        _NearFade ("Near Fade Distance", Float) = 1.2
-        _Iri ("Iridescence", Range(0, 1)) = 0.35
+        _Color ("Color", Color) = (0.85, 0.95, 1, 0.55)
+        _EdgeColor ("Edge Color", Color) = (1, 1, 1, 0.35)
+        _Reveal ("Reveal Radius (m)", Float) = 1.1
+        _RingFreq ("Ring Freq", Float) = 22
+        _RingSpeed ("Ring Speed", Float) = 5
+        _EdgeWidth ("Edge Width (UV)", Range(0.005, 0.2)) = 0.03
+        _CamNear ("Edge Visible Within (m)", Float) = 2.5
+        _Iri ("Iridescence", Range(0, 1)) = 0.45
     }
     SubShader
     {
@@ -29,7 +30,8 @@ Shader "FuwaCourse/SoftBarrier"
             #include "UnityCG.cginc"
 
             fixed4 _Color, _EdgeColor;
-            float _EdgeWidth, _FadeTop, _StripeFreq, _StripeSpeed, _NearFade, _Iri;
+            float _Reveal, _RingFreq, _RingSpeed, _EdgeWidth, _CamNear, _Iri;
+            float4 _UdonFuwaBallPos;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wpos : TEXCOORD1; float3 wn : TEXCOORD2; UNITY_VERTEX_OUTPUT_STEREO };
@@ -48,30 +50,26 @@ Shader "FuwaCourse/SoftBarrier"
 
             fixed4 frag (v2f i) : SV_Target
             {
-                float2 uv = i.uv;
-                // 上へいくほど消える
-                float vfade = 1 - smoothstep(0, _FadeTop, uv.y);
-                // 下と左右のふち
-                float edge = max(1 - smoothstep(0, _EdgeWidth, uv.y), max(1 - smoothstep(0, _EdgeWidth, uv.x), 1 - smoothstep(0, _EdgeWidth, 1 - uv.x)));
-                // 左右のふちは上まで少し残す
-                float side = max(1 - smoothstep(0, _EdgeWidth * 1.5, uv.x), 1 - smoothstep(0, _EdgeWidth * 1.5, 1 - uv.x));
-                // ゆっくり上へ流れる縦のしま
-                float stripe = 0.5 + 0.5 * sin((uv.x * _StripeFreq + uv.y * 2 - _Time.y * _StripeSpeed) * 6.2831);
-                stripe = smoothstep(0.55, 1, stripe) * 0.5;
+                // ふわふわのまわりだけ浮かび上がる
+                float d = distance(i.wpos, _UdonFuwaBallPos.xyz);
+                float reveal = (1 - smoothstep(0.15, _Reveal, d)) * saturate(_UdonFuwaBallPos.w);
+                float ring = 0.5 + 0.5 * sin(d * _RingFreq - _Time.y * _RingSpeed);
+                ring = smoothstep(0.6, 1, ring);
                 float3 vdir = normalize(_WorldSpaceCameraPos - i.wpos);
                 float ndv = abs(dot(normalize(i.wn), vdir));
-                // 見る角度で少し虹色
-                float3 iri = 0.5 + 0.5 * cos(6.2831 * (ndv * 0.8 + float3(0, 0.33, 0.67)));
+                float3 iri = 0.5 + 0.5 * cos(6.2831 * (ndv * 0.8 + d * 0.6 + float3(0, 0.33, 0.67)));
                 float3 col = lerp(_Color.rgb, _Color.rgb * (0.7 + 0.6 * iri), _Iri);
-                float a = _Color.a * (0.35 + stripe) * vfade;
-                a = max(a, _EdgeColor.a * edge * (0.4 + 0.6 * vfade));
-                a = max(a, _EdgeColor.a * 0.6 * side * vfade);
-                col = lerp(col, _EdgeColor.rgb, saturate(edge + side * 0.5));
-                // 斜めから見るほど少し濃く（シャボンの膜っぽく）
-                a *= lerp(1.3, 0.8, ndv);
-                // 近いと薄く（通り抜ける時に視界をふさがない）
-                float d = distance(_WorldSpaceCameraPos, i.wpos);
-                a *= smoothstep(0.3, _NearFade, d);
+                float a = _Color.a * reveal * (0.35 + 0.65 * ring);
+
+                // すぐ近くにいる時だけ、ふちがうっすら（上へいくほど消える）
+                float2 uv = i.uv;
+                float edge = max(1 - smoothstep(0, _EdgeWidth, uv.y), max(1 - smoothstep(0, _EdgeWidth, uv.x), 1 - smoothstep(0, _EdgeWidth, 1 - uv.x)));
+                float camD = distance(_WorldSpaceCameraPos, i.wpos);
+                float camNear = 1 - smoothstep(_CamNear * 0.5, _CamNear, camD);
+                float ea = _EdgeColor.a * edge * camNear * (1 - smoothstep(0.1, 0.6, uv.y));
+                col = lerp(col, _EdgeColor.rgb, saturate(ea / max(0.001, a + ea)));
+                a = max(a, ea);
+                if (a <= 0.002) discard;
                 return fixed4(col, saturate(a));
             }
             ENDCG

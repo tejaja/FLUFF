@@ -36,6 +36,7 @@ public static class FuwaPracticeTutorial
         public float s; public string key; public string ja; public string en;
         public Bay(float s, string key, string ja, string en) { this.s = s; this.key = key; this.ja = ja; this.en = en; }
     }
+    const float BaySpan = 7.5f;   // 区画の長さ（となりの区画との間隔。さかいめに壁が1枚）
     static readonly Bay[] Bays =
     {
         new Bay(7.5f, "TapCharge",
@@ -379,15 +380,21 @@ public static class FuwaPracticeTutorial
             trySpot.position = c + f * 0.3f + Vector3.up * (bay.key == "Down" ? 0.4f : 1.15f); trySpot.rotation = Quaternion.LookRotation(f);
             var zone = new GameObject("TryZone"); zone.transform.SetParent(bayRoot, false);
             zone.transform.position = c + Vector3.up * 1.2f; zone.transform.rotation = Quaternion.LookRotation(f);
-            var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(HalfW * 2f + 4f, 3f, 6.5f);
+            var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(HalfW * 2f + 4f, 3f, BaySpan - 0.2f);
             zone.layer = 0;
             var tz = UdonSharpUndo.AddComponent<FuwaTryZone>(zone);
             SetU(tz, "ball", ball); SetU(tz, "spot", trySpot); Sync(tz);
-            // 区画の前後に、ふわふわだけ止める半透明の壁（横＝道の外は開けておく）
-            foreach (float ds in new[] { -3.0f, 3.0f })
+        }
+        // 区画のさかいめに、ふわふわだけ止める壁を1枚ずつ（となりの区画と共通。横＝道の外は開けておく）
+        {
+            var walls = new GameObject("Barriers").transform; walls.SetParent(root, false);
+            var at = new List<float> { Bays[0].s - BaySpan * 0.5f };
+            for (int i = 0; i < Bays.Length - 1; i++) at.Add((Bays[i].s + Bays[i + 1].s) * 0.5f);
+            at.Add(Bays[Bays.Length - 1].s + BaySpan * 0.5f);
+            for (int i = 0; i < at.Count; i++)
             {
-                At(pts, dist, bay.s + ds, out var wc, out var wf);
-                MakeBarrier(bayRoot, ds < 0 ? "Barrier_Back" : "Barrier_Front", wc, wf);
+                At(pts, dist, at[i], out var wc, out var wf);
+                MakeBarrier(walls, "Barrier_" + i, wc, wf);
             }
         }
         // 小道の終わり〜スタートの島：ふわふわをコースのスタート（キノコ）へ戻す

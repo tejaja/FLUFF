@@ -206,6 +206,16 @@ public class FuwaBall : UdonSharpBehaviour
         _rb.maxAngularVelocity = 12f;
         respawnPoint = startPoint != null ? startPoint : transform;
         ResetToRespawn();
+        _ballPosId = VRCShader.PropertyToID("_UdonFuwaBallPos");
+    }
+
+    // 自分のふわふわの位置をシェーダーへ（チュートリアルの「ふわふわだけ止める壁」が、ふわふわの近くだけ浮かび上がるのに使う）。
+    // w は見えている時 1、隠れている時 0
+    private int _ballPosId;
+    private void ShareBallPos()
+    {
+        Vector3 p = transform.position;
+        VRCShader.SetGlobalVector(_ballPosId, new Vector4(p.x, p.y, p.z, (_hidden || _resetAt > 0f) ? 0f : 1f));
     }
 
     private void FixedUpdate()
@@ -247,6 +257,7 @@ public class FuwaBall : UdonSharpBehaviour
         }
         if (_stuck) UpdateStuckShake();
         UpdateGlide();
+        ShareBallPos();
         UpdateInflate();
         UpdateSquash();
         UpdatePenalty();

@@ -25,13 +25,17 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _EdgeWidth: 0.04
+    - _CamNear: 2.5
+    - _EdgeWidth: 0.03
     - _FadeTop: 0.85
     - _Iri: 0.35
     - _NearFade: 1.2
+    - _Reveal: 1.1
+    - _RingFreq: 22
+    - _RingSpeed: 5
     - _StripeFreq: 9
     - _StripeSpeed: 0.25
     m_Colors:
-    - _Color: {r: 0.85, g: 0.95, b: 1, a: 0.35}
-    - _EdgeColor: {r: 1, g: 1, b: 1, a: 0.6}
+    - _Color: {r: 0.85, g: 0.95, b: 1, a: 0.55}
+    - _EdgeColor: {r: 1, g: 1, b: 1, a: 0.35}
   m_BuildTextureStacks: []
