@@ -217,10 +217,12 @@ public class FuwaDemoStand : UdonSharpBehaviour
 
     [Tooltip("撃ってから次の狙いに向き直るまでの待ち（秒）。撃った後に飛んでいくふわふわを追いかけないように")]
     public float holdAfterShot = 0.8f;
+    [Tooltip("ON：銃は置いた向きのまま動かさない（向きは組み立てる時に決めておく）。OFF：撃つ前にふわふわの方へ向き直る")]
+    public bool keepGunPose = true;
 
     private void UpdateGunAim()
     {
-        if (gun == null || nozzle == null) return;
+        if (gun == null || nozzle == null || keepGunPose) return;
         // 最後の弾を撃った後は、その向きのまま止める（飛んでいくふわふわを目で追わない）
         if (shotTimes == null || _nextShot >= shotTimes.Length) return;
         if (Time.time - _shotTime < holdAfterShot) return;
@@ -341,8 +343,11 @@ public class FuwaDemoStand : UdonSharpBehaviour
         _shotCharge = charge;
         if (tuning == null || nozzle == null) return;
         // 撃つ瞬間は狙った所へぴったり向ける（向き直り途中のずれでお手本が変わらないように）
-        Vector3 dir = AimPoint(aimOffset) - nozzle.position;
-        if (dir.sqrMagnitude > 0.0001f) gun.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up);
+        if (!keepGunPose)
+        {
+            Vector3 dir = AimPoint(aimOffset) - nozzle.position;
+            if (dir.sqrMagnitude > 0.0001f) gun.rotation = Quaternion.LookRotation(dir.normalized, Vector3.up);
+        }
         Vector3 dv = tuning.DemoShotVelocity(nozzle.position, nozzle.forward, charge, ball.position);
         PlayShotFx(charge);
         if (dv == Vector3.zero) return;

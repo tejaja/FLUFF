@@ -684,14 +684,7 @@ public static class FuwaPracticeTutorial
                 {
                     // 島の上に、撃つ向き（銃の向き）と平行な縦じま。ふわふわがどっちへ寄っていくか分かりやすいように
                     var lane = bayRoot.Find("Lane"); var gunT = lane.Find("DemoGun"); var nz = gunT.Find("Nozzle"); var bs = lane.Find("BallStart");
-                    // 実行中と同じように「ふわふわの横をねらって向き直る」をくり返して、撃つ時の銃の向きを出す（銃口が回りこむぶん少しずれるので）
-                    for (int it = 0; it < 30; it++)
-                    {
-                        Vector3 to = bs.position - nz.position; Vector3 fw = to.normalized;
-                        Vector3 rt = Vector3.Cross(Vector3.up, fw).normalized;
-                        Vector3 aimPt = bs.position + rt * -0.5f;
-                        gunT.rotation = Quaternion.LookRotation((aimPt - nz.position).normalized, Vector3.up);
-                    }
+                    // 銃の向き（MakeLane で決めて、実行中は動かない）にそろえる
                     Vector3 sdir = gunT.forward; sdir.y = 0; sdir.Normalize();
                     MakeStripes(bayRoot, new Vector3(islandCenter.x, IslandTop + 0.012f, islandCenter.z), sdir, nz.position);
                 }
@@ -751,8 +744,18 @@ public static class FuwaPracticeTutorial
             lr.enabled = false;
             SetU(ds, "aimLine", lr);
         }
-        // 銃は最初からふわふわの方を向けておく
-        gun.rotation = Quaternion.LookRotation((bs.position - nozzle.position).normalized);
+        // 銃の向きはここで決めて、実行中は動かさない（keepGunPose）。ねらう所（ふわふわの中心＋ずれ）へ、
+        // 銃口が回りこむぶんも含めてぴったり向くまで向き直りをくり返す
+        Vector3 off0 = (aimOffsets != null && aimOffsets.Length > 0) ? aimOffsets[0] : Vector3.zero;
+        for (int it = 0; it < 30; it++)
+        {
+            Vector3 fw = (bs.position - nozzle.position).normalized;
+            Vector3 rt = Vector3.Cross(Vector3.up, fw).normalized;
+            Vector3 up2 = Vector3.Cross(fw, rt);
+            Vector3 aimPt = bs.position + rt * off0.x + up2 * off0.y + fw * off0.z;
+            gun.rotation = Quaternion.LookRotation((aimPt - nozzle.position).normalized, Vector3.up);
+        }
+        SetUB(ds, "keepGunPose", true);
         Sync(ds);
     }
 }
