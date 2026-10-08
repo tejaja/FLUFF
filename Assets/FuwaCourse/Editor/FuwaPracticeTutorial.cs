@@ -4,25 +4,20 @@ using UdonSharpEditor;
 using UnityEditor;
 using UnityEngine;
 
-// れんしゅう（FuwaCourse0）の前半「説明の小道」を作る。何度実行しても同じ形に作り直す（FuwaCourse0/Tutorial を消して作る）。
-// ロビー側の入口の島 → 右回りの小道（今のれんしゅうと同じピンクのしましま）→ スタートの島の横につながる。
-// 道ぞいに「お手本区画」：道の外側に小さな島（お手本台）＋看板、道の上に自分のふわふわが浮く「ためし撃ちの場所」（FuwaTryZone）。
+// チュートリアル（FuwaCourse0）をまるごと一本道に組み立てる。何度実行しても同じ形に作り直す（FuwaCourse0/Tutorial を消して作る）。
+// 入口の島（ロビーから着く）→ 説明の小道（区画 BaySpan ごとに壁1枚、お手本台＋看板＋ためし撃ちの場所）→ キノコの島（元のスタートの島を動かす）
+// → 短いれんしゅうコース（チェックポイント・ゴールは元のものを動かす）。道はコースの前へまっすぐ、左右にゆるくうねる。
+// 区画を足す（Bays に足す）と、キノコの島から先も自動で後ろへずれる。
 public static class FuwaPracticeTutorial
 {
     const string Course = "FuwaCourse0";
     const string RootName = "Tutorial";
     const string MeshDir = "Assets/FuwaCourse/Meshes/Tutorial";
 
-    // 小道の中心線（ワールドのXZ）。入口の島の中心から、スタートの島の東のふちまで
-    // 最後の2点はスタートの島の柵を開けた所（EntryAngle）へまっすぐ入るように Run で足す
-    static readonly Vector2[] CtrlBase =
-    {
-        new Vector2(8.0f, 0.0f), new Vector2(9.6f, 3.4f), new Vector2(12.4f, 9.0f), new Vector2(13.6f, 15.0f),
-        new Vector2(12.6f, 20.4f), new Vector2(9.6f, 22.8f), new Vector2(6.6f, 21.2f),
-    };
-    static Vector2[] Ctrl = CtrlBase;
+    // 道の中心線の制御点（ワールドのXZ）。Run で Lane() から作る
+    static Vector2[] Ctrl = new Vector2[0];
     // スタートの島の柵（StartArea のローカルで、+x から +z へ測った角度）。この範囲の柵をなくして小道を通す
-    const float EntryAngle = 3f, GapFrom = -33f, GapTo = 39f;
+    const float GapFrom = -128f, GapTo = -52f;   // 後ろ（-z、小道が入ってくる側）を開ける
     const float Top = 3.0f;        // 道の上面（今のれんしゅうの道と同じ）
     const float Thick = 0.3f;
     const float HalfW = 1.75f;
@@ -36,7 +31,7 @@ public static class FuwaPracticeTutorial
         public float s; public string key; public string ja; public string en;
         public Bay(float s, string key, string ja, string en) { this.s = s; this.key = key; this.ja = ja; this.en = en; }
     }
-    const float BaySpan = 7.5f;   // 区画の長さ（となりの区画との間隔。さかいめに壁が1枚）
+    const float BaySpan = 11f;   // 区画の長さ（となりの区画との間隔。さかいめに壁が1枚）
     static readonly Bay[] Bays =
     {
         new Bay(7.5f, "TapCharge",
@@ -224,6 +219,20 @@ public static class FuwaPracticeTutorial
         if (c is UdonSharp.UdonSharpBehaviour u) UdonSharpEditorUtility.CopyProxyToUdon(u);
     }
 
+    // ---------- 一本道のレイアウト ----------
+    // 入口の島の中心（＝元のれんしゅうのスタートの島の位置）から、コースの前（FuwaCourse0 の forward）へまっすぐ、左右にゆるくうねる
+    static readonly Vector3 Origin = new Vector3(-2.01f, 0f, 14.84f);
+    const float Sway = 1.3f, SwayLen = 40f;   // うねりの幅と周期(m)
+    const float FirstWall = 4.6f;             // 入口の島（半径3）を出てすぐの壁
+    const float ToMushroom = 5.0f;            // 最後の壁からキノコの島の中心まで
+    const float ToCheckpoint = 12f, ToGoal = 25f;   // キノコの島からチェックポイント・ゴールまで
+
+    static Vector3 Lane(Vector3 fwd, float s)
+    {
+        Vector3 right = Vector3.Cross(Vector3.up, fwd);
+        return Origin + fwd * s + right * (Sway * Mathf.Sin(s * 2f * Mathf.PI / SwayLen));
+    }
+
     public static string Run()
     {
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
@@ -238,24 +247,38 @@ public static class FuwaPracticeTutorial
         root.SetParent(course, false);
         var start = course.Find("Start");
         var startArea = start.Find("StartArea");
+        var goal = course.Find("Goal");
+        var cp = course.Find("Checkpoint1");
         var ball = Object.FindObjectsOfType<FuwaBall>(true).First(b => b.name == "FuwaBall");
         var blowerTmpl = Object.FindObjectsOfType<FuwaBlower>(true).First(b => b.transform.parent == null && b.name == "FuwaBlower");
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
         var log = new List<string>();
         log.Add("lang purged " + PurgeLang(lang));
 
-        // ---------- スタートの島の柵を開ける ＆ 小道の終わりを決める ----------
-        var islandCenter = startArea.Find("Ground").position;
-        float ea = EntryAngle * Mathf.Deg2Rad;
-        Vector3 u = startArea.TransformDirection(new Vector3(Mathf.Cos(ea), 0f, Mathf.Sin(ea))); u.y = 0; u.Normalize();
-        var cl = new List<Vector2>(CtrlBase);
-        foreach (float r in new[] { 5.5f, 1.6f }) { var p = islandCenter + u * r; cl.Add(new Vector2(p.x, p.z)); }
-        Ctrl = cl.ToArray();
-        log.Add(OpenStartFence(startArea));
+        // 元のれんしゅうの道・飾りはOFF（消さない：ほかのスクリプトの参照が切れないように）
+        foreach (var n in new[] { "PathMesh", "Deco", "EdgeProps", "Bubbles" })
+        {
+            var t = course.Find(n); if (t != null && t.gameObject.activeSelf) { t.gameObject.SetActive(false); log.Add("off " + n); }
+        }
 
-        // ---------- 小道 ----------
+        // ---------- 位置を決める ----------
+        Vector3 F = course.forward; F.y = 0; F.Normalize();
+        int nb = Bays.Length;
+        var bayS = new float[nb];
+        for (int i = 0; i < nb; i++) bayS[i] = FirstWall + BaySpan * (i + 0.5f);
+        float lastWall = FirstWall + BaySpan * nb;
+        float sMush = lastWall + ToMushroom, sCp = sMush + ToCheckpoint, sGoal = sMush + ToGoal;
+        var cl = new List<Vector2>();
+        float sEnd = sGoal - 2.6f;   // 道はゴールの島のふちまで（島のまん中のリングにかぶらないように）
+        for (float s = 0f; s < sEnd - 0.5f; s += 4f) { var p = Lane(F, s); cl.Add(new Vector2(p.x, p.z)); }
+        { var p = Lane(F, sEnd); cl.Add(new Vector2(p.x, p.z)); }
+        Ctrl = cl.ToArray();
         var pts = Dense(out var dist);
         float len = dist[dist.Count - 1];
+        // s（入口からまっすぐ測った距離）→ 道の上の距離（うねりで少し長いぶんを比で合わせる）
+        float S(float s) { return s * len / sEnd; }
+
+        // ---------- 道（入口の島〜ゴールの島まで一本） ----------
         var pathGo = new GameObject("TutorialPath");
         pathGo.transform.SetParent(root, false);
         var mesh = PathMesh(pts, dist, pathGo.transform.worldToLocalMatrix);
@@ -269,27 +292,44 @@ public static class FuwaPracticeTutorial
         pathGo.layer = 11;
         log.Add($"path {len:0.0}m");
 
-        // ---------- 島（今のスタートの島の地面と下の岩をコピー） ----------
+        // ---------- 島（スタートの島の地面と下の岩をコピー） ----------
         var groundSrc = startArea.Find("Ground"); var underSrc = startArea.Find("IslandUnder");
         var smallGround = startArea.Find("WarpGround"); var smallUnder = startArea.Find("IslandUnder_Warp");
         IslandTop = smallGround.GetComponent<Renderer>().bounds.max.y;
         Transform Island(string name, Vector3 center, bool big)
         {
             var t = new GameObject(name).transform; t.SetParent(root, false); t.position = new Vector3(center.x, 0f, center.z);
-            var g = Dup(big ? groundSrc : smallGround, t, "Ground");
-            g.transform.position = new Vector3(center.x, (big ? groundSrc : smallGround).position.y, center.z);
-            var u = Dup(big ? underSrc : smallUnder, t, "IslandUnder");
-            u.transform.position = new Vector3(center.x, (big ? underSrc : smallUnder).position.y, center.z);
+            var srcG = big ? groundSrc : smallGround; var srcU = big ? underSrc : smallUnder;
+            var g = Dup(srcG, t, "Ground"); g.SetActive(true);
+            g.transform.position = new Vector3(center.x, srcG.position.y, center.z);
+            var u = Dup(srcU, t, "IslandUnder"); u.SetActive(true);
+            u.transform.position = new Vector3(center.x, srcU.position.y, center.z);
             return t;
         }
 
-        // 入口の島
+        // ---------- キノコの島（元のスタートの島）を、小道の終わりへ動かす ----------
+        At(pts, dist, S(sMush), out var mc, out var mf);
+        start.position = new Vector3(mc.x, start.position.y, mc.z);
+        start.rotation = Quaternion.LookRotation(mf);
+        // 後ろのワープの小島と橋はもう使わない（入口の島にロビーへのワープがある）
+        foreach (var n in new[] { "WarpGround", "IslandUnder_Warp", "Bridge", "BridgeWood" }) { var t = startArea.Find(n); if (t != null) t.gameObject.SetActive(false); }
+        foreach (Transform t in start) if (t.name.StartsWith("WarpToLobby")) t.gameObject.SetActive(false);
+        Transform warpLabel = null;
+        foreach (Transform t in start) { var tm0 = t.GetComponent<TMPro.TextMeshPro>(); if (t.name == "Label" && tm0 != null && tm0.text.Contains("ロビー")) warpLabel = t; }
+        log.Add(OpenStartFence(startArea));
+
+        // ---------- チェックポイントとゴールを、れんしゅうコースの道の上へ ----------
+        At(pts, dist, S(sCp), out var cc, out var cf);
+        cp.position = new Vector3(cc.x, cp.position.y, cc.z); cp.rotation = Quaternion.LookRotation(cf);
+        Vector3 gc = Lane(F, sGoal), gf = (Lane(F, sGoal) - Lane(F, sGoal - 1f)); gf.y = 0; gf.Normalize();
+        goal.position = new Vector3(gc.x, goal.position.y, gc.z); goal.rotation = Quaternion.LookRotation(gf);   // ゴールの柵の入口はローカルの -z 側
+
+        // ---------- 入口の島 ----------
         At(pts, dist, 0f, out var e0, out var ef);
         var entrance = Island("Entrance", e0, true);
         var er = new Vector3(ef.z, 0, -ef.x);
-        // プレイヤーの着く所（小道の方を向く）
         var spot = new GameObject("PlayerSpot").transform; spot.SetParent(entrance, false);
-        var sp0 = e0 - ef * 1.6f; spot.position = new Vector3(sp0.x, 3.0f, sp0.z); spot.rotation = Quaternion.LookRotation(ef);
+        var sp0 = e0 - ef * 1.0f; spot.position = new Vector3(sp0.x, 3.0f, sp0.z); spot.rotation = Quaternion.LookRotation(ef);
         // 銃の台：スタートの島での「PlayerSpot から見た位置・向き」をそのまま入口の島へ
         var startSpotT = start.Find("PlayerSpot");
         Quaternion rel = spot.rotation * Quaternion.Inverse(startSpotT.rotation);
@@ -309,11 +349,12 @@ public static class FuwaPracticeTutorial
             var w = new GameObject(name).transform; w.SetParent(entrance, false); w.position = at;
             var srcNames = new[] { "WarpToLobby", "WarpToLobby_Trigger", "WarpToLobby_Motes", "WarpToLobby_ProgressRing" };
             Transform trig = null, ring = null;
+            var srcPad = start.Find("WarpToLobby");
             foreach (var n in srcNames)
             {
                 var src = start.Find(n);
-                var c = Dup(src, w, n.Replace("WarpToLobby", name));
-                c.transform.position = at + (src.position - start.Find("WarpToLobby").position);
+                var c = Dup(src, w, n.Replace("WarpToLobby", name)); c.SetActive(true);
+                c.transform.position = at + (src.position - srcPad.position);
                 if (n.EndsWith("_Trigger")) trig = c.transform;
                 if (n.EndsWith("_ProgressRing")) ring = c.transform;
             }
@@ -327,8 +368,7 @@ public static class FuwaPracticeTutorial
                 SetU(warp, "lobbyReturnSpot", null);
             }
             Sync(warp);
-            // 札（いつも見える）
-            var labSrc = start.Find("Label");
+            var labSrc = warpLabel != null ? warpLabel : start.Find("Label");
             var lab = Dup(labSrc, w, "Label"); lab.SetActive(true);
             lab.transform.position = at + Vector3.up * 1.35f;
             var tmp = lab.GetComponent<TMPro.TextMeshPro>(); tmp.text = labelJa;
@@ -336,31 +376,30 @@ public static class FuwaPracticeTutorial
             return w;
         }
         var startSpot = start.Find("PlayerSpot"); var ballStart = start.Find("BallStart");
-        MakeWarp("WarpToLobby", e0 - ef * 1.2f - er * 1.9f + Vector3.up * 0.02f, "ロビーにもどる", "Back to Lobby", null, null, null, true);
-        MakeWarp("SkipTutorial", e0 - ef * 1.2f + er * 1.9f + Vector3.up * 0.02f, "説明をとばす", "Skip", startSpot, ballStart, gsSrc.Find("GunSpot"), false);
+        MakeWarp("WarpToLobby", e0 - ef * 0.9f - er * 1.9f + Vector3.up * 0.02f, "ロビーにもどる", "Back to Lobby", null, null, null, true);
+        MakeWarp("SkipTutorial", e0 - ef * 0.9f + er * 1.9f + Vector3.up * 0.02f, "説明をとばす", "Skip", startSpot, ballStart, gsSrc.Find("GunSpot"), false);
+        if (warpLabel != null) warpLabel.gameObject.SetActive(false);
 
-        // ロビーの「れんしゅう」ワープの行き先を入口の島に
+        // ロビーの「チュートリアル」ワープの行き先を入口の島に
         var lobbyWarp = Object.FindObjectsOfType<FuwaCourseWarp>(true).First(w => w.name == "WarpToCourse0_Trigger");
         SetU(lobbyWarp, "playerSpot", spot); SetU(lobbyWarp, "gunSpot", gs.transform.Find("GunSpot")); Sync(lobbyWarp);
 
         // ---------- お手本区画 ----------
         var signSrc = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "BestTimes" && t.parent != null && t.parent.name == "FuwaLobby");
-        foreach (var bay in Bays)
+        for (int bi = 0; bi < nb; bi++)
         {
-            At(pts, dist, bay.s, out var c, out var f);
-            // 外側＝進む向きの右手（小道は左へ曲がっていくので、右手側がカーブの外。かぜのみちとの間の広い空）
-            Vector3 outw = new Vector3(f.z, 0, -f.x);
+            var bay = Bays[bi];
+            At(pts, dist, S(bayS[bi]), out var c, out var f);
+            // お手本の島：左右交互（偶数番は右手・奇数番は左手）
+            Vector3 outw = new Vector3(f.z, 0, -f.x) * ((bi % 2 == 0) ? 1f : -1f);
             var bayRoot = new GameObject("Bay_" + bay.key).transform; bayRoot.SetParent(root, false);
             Vector3 ic = c + outw * (HalfW + 1.6f - 0.25f);
             var isl = Island("Island", ic, false); isl.SetParent(bayRoot, true);
-            // お手本は道の進む向きと外向きの間（斜め前）へ撃つ
-            Vector3 d = (f + outw).normalized;
-            BuildDemo(bayRoot, bay.key, ic, d, outw, f, blowerTmpl, ball, log);
-            // 看板：区画の手前（入口側）、道の外側のふちに立てて、来る人の方を向く
+            BuildDemo(bayRoot, bay.key, ic, f, outw, f, blowerTmpl, ball, log);
+            // 看板：区画の手前（入口側）、お手本の島の側の道のふちに立てて、来る人の方を向く
             var sign = new GameObject("Sign").transform; sign.SetParent(bayRoot, false);
-            Vector3 sp = c - f * 2.0f + outw * (HalfW - 0.35f);
+            Vector3 sp = c - f * 3.4f + outw * (HalfW - 0.35f);
             sign.position = new Vector3(sp.x, Top, sp.z);
-            // 文字は forward の反対側から読める。道のまん中を歩いてくる人の方へ少し向ける
             sign.rotation = Quaternion.LookRotation((f + outw * 0.45f).normalized);
             var panel = Dup(signSrc.Find("Panel"), sign, "Panel"); var text = Dup(signSrc.Find("Text"), sign, "Text");
             panel.transform.localPosition = new Vector3(0, 1.55f, 0.01f); panel.transform.localRotation = Quaternion.identity; panel.transform.localScale = Vector3.one * 0.62f;
@@ -370,14 +409,13 @@ public static class FuwaPracticeTutorial
             tm.rectTransform.sizeDelta = new Vector2(2.75f, 1.25f); tm.enableAutoSizing = true; tm.fontSizeMax = 2.2f; tm.fontSizeMin = 0.8f;
             var recs = text.GetComponent<FuwaRecords>(); if (recs != null) Object.DestroyImmediate(recs);
             AddLang(lang, tm, bay.ja, bay.en);
-            // 脚
             var leg = GameObject.CreatePrimitive(PrimitiveType.Cylinder); leg.name = "Leg"; Object.DestroyImmediate(leg.GetComponent<Collider>());
             leg.transform.SetParent(sign, false); leg.transform.localPosition = new Vector3(0, 0.55f, 0.03f); leg.transform.localScale = new Vector3(0.07f, 0.55f, 0.07f);
             leg.GetComponent<Renderer>().sharedMaterial = Mat("Course_Wood");
-            // ためし撃ちの場所（道の上、区画の正面）と、そこへふわふわを呼ぶ範囲
+            // ためし撃ちの場所（区画の手前寄り：前へ撃つ余裕をとる）と、そこへふわふわを呼ぶ範囲（区画まるごと）
             var trySpot = new GameObject("TrySpot").transform; trySpot.SetParent(bayRoot, false);
-            // 下向きショットの区画は、自分で撃つふわふわも地面ギリギリに（下を撃っても上がるのを試せるように）
-            trySpot.position = c + f * 0.3f + Vector3.up * (bay.key == "Down" ? 0.4f : 1.15f); trySpot.rotation = Quaternion.LookRotation(f);
+            At(pts, dist, S(bayS[bi] - 2.0f), out var tc, out var tf);
+            trySpot.position = tc + Vector3.up * (bay.key == "Down" ? 0.4f : 1.15f); trySpot.rotation = Quaternion.LookRotation(tf);
             var zone = new GameObject("TryZone"); zone.transform.SetParent(bayRoot, false);
             zone.transform.position = c + Vector3.up * 1.2f; zone.transform.rotation = Quaternion.LookRotation(f);
             var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(HalfW * 2f + 4f, 3f, BaySpan - 0.2f);
@@ -388,35 +426,30 @@ public static class FuwaPracticeTutorial
         // 区画のさかいめに、ふわふわだけ止める壁を1枚ずつ（となりの区画と共通。横＝道の外は開けておく）
         {
             var walls = new GameObject("Barriers").transform; walls.SetParent(root, false);
-            var at = new List<float> { Bays[0].s - BaySpan * 0.5f };
-            for (int i = 0; i < Bays.Length - 1; i++) at.Add((Bays[i].s + Bays[i + 1].s) * 0.5f);
-            at.Add(Bays[Bays.Length - 1].s + BaySpan * 0.5f);
-            for (int i = 0; i < at.Count; i++)
+            for (int i = 0; i <= nb; i++)
             {
-                At(pts, dist, at[i], out var wc, out var wf);
+                At(pts, dist, S(FirstWall + BaySpan * i), out var wc, out var wf);
                 MakeBarrier(walls, "Barrier_" + i, wc, wf);
             }
         }
-        // 小道の終わり〜スタートの島：ふわふわをコースのスタート（キノコ）へ戻す
+        // 最後の壁〜キノコの島：ふわふわをコースのスタート（キノコ）へ戻す
         {
-            At(pts, dist, len - 2.5f, out var c, out var f);
+            At(pts, dist, S(lastWall + 1.6f), out var c, out var f);
             var zone = new GameObject("ToCourseZone"); zone.transform.SetParent(root, false);
             zone.transform.position = c + Vector3.up * 1.2f; zone.transform.rotation = Quaternion.LookRotation(f);
-            var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(HalfW * 2f + 1f, 3f, 3f);
+            var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(HalfW * 2f + 1f, 3f, 2.6f);
             var tz = UdonSharpUndo.AddComponent<FuwaTryZone>(zone);
             SetU(tz, "ball", ball); SetU(tz, "courseStart", ballStart); Sync(tz);
         }
 
-        // ---------- 落ちた時の受け止め（今のれんしゅうのものをコピーして、小道の下に） ----------
-        var fcSrc = course.Find("FallCatcher");
-        var fc = Dup(fcSrc, root, "FallCatcher");
-        fc.transform.rotation = Quaternion.identity;
-        Vector3 mn = new Vector3(float.MaxValue, 0, float.MaxValue), mx = new Vector3(float.MinValue, 0, float.MinValue);
-        foreach (var p in pts) { mn = Vector3.Min(mn, new Vector3(p.x, 0, p.y)); mx = Vector3.Max(mx, new Vector3(p.x, 0, p.y)); }
-        mn -= new Vector3(7, 0, 6); mx += new Vector3(9, 0, 6);   // 南はロビーの下に入らないように控えめに
-        fc.transform.position = new Vector3((mn.x + mx.x) * 0.5f, fcSrc.position.y, (mn.z + mx.z) * 0.5f);
-        fc.transform.localScale = new Vector3(mx.x - mn.x, fcSrc.lossyScale.y, mx.z - mn.z);
-        foreach (var ub in fc.GetComponents<UdonSharp.UdonSharpBehaviour>()) Sync(ub);
+        // ---------- 落ちた時の受け止め：れんしゅうの FallCatcher を一本道の下に合わせる ----------
+        var fcT = course.Find("FallCatcher");
+        {
+            var mid = Lane(F, sGoal * 0.5f);
+            fcT.rotation = Quaternion.LookRotation(F);
+            fcT.position = new Vector3(mid.x, fcT.position.y, mid.z);
+            fcT.localScale = new Vector3(36f, fcT.localScale.y, sGoal + 24f);
+        }
 
         // ---------- まとめ ----------
         foreach (var t in root.GetComponentsInChildren<Transform>(true))
@@ -428,7 +461,7 @@ public static class FuwaPracticeTutorial
         }
         Sync(lang);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
-        return "Tutorial built: " + string.Join(" / ", log);
+        return "Tutorial built: " + string.Join(" / ", log) + $" / mushroom s={sMush:0} goal s={sGoal:0}";
     }
 
     // 島の上面の円の中に、dir と平行なしま模様（1本おき）。lineThrough の点（銃口）を通る線がしまの真ん中に来るようにそろえる
@@ -493,11 +526,12 @@ public static class FuwaPracticeTutorial
         return m;
     }
 
+    // 柵の部品を抜くか：島のふちの輪より外（元の橋・ワープの小島の柵）は全部、輪の上は開ける角度の範囲だけ
     static bool InGap(Vector3 localP, Vector3 center, float maxR)
     {
         var p = localP - center;
         float r = new Vector2(p.x, p.z).magnitude;
-        if (r > maxR) return false;
+        if (r > maxR) return true;
         float a = Mathf.Atan2(p.z, p.x) * Mathf.Rad2Deg;
         return a > GapFrom + 2f && a < GapTo - 2f;   // 両はしの柱は残す
     }
@@ -527,7 +561,7 @@ public static class FuwaPracticeTutorial
         var sum = new Dictionary<int, Vector3>(); var cnt = new Dictionary<int, int>();
         for (int i = 0; i < v.Length; i++) { int r = Find(i); sum[r] = (sum.TryGetValue(r, out var s0) ? s0 : Vector3.zero) + v[i]; cnt[r] = (cnt.TryGetValue(r, out var c0) ? c0 : 0) + 1; }
         var keepTri = new List<int>(); int removedParts = 0; var removedRoots = new HashSet<int>();
-        foreach (var r in sum.Keys) if (InGap(sum[r] / cnt[r], cVis, 3.0f)) { removedRoots.Add(r); removedParts++; }
+        foreach (var r in sum.Keys) if (InGap(sum[r] / cnt[r], cVis, 3.05f)) { removedRoots.Add(r); removedParts++; }
         for (int i = 0; i < tris.Length; i += 3) if (!removedRoots.Contains(Find(tris[i]))) keepTri.AddRange(new[] { tris[i], tris[i + 1], tris[i + 2] });
         var vis = Object.Instantiate(srcVis); vis.name = "Course0_StartFence_Open"; vis.SetTriangles(keepTri, 0); vis.RecalculateBounds();
 
@@ -548,6 +582,25 @@ public static class FuwaPracticeTutorial
         vis = Save(vis, MeshDir + "/Course0_StartFence_Open.asset");
         col = Save(col, MeshDir + "/Course0_StartFenceCollider_Open.asset");
         fence.GetComponent<MeshFilter>().sharedMesh = vis;
+        // 遠くで切り替わる軽い版（Fence/Fence_Far）も同じように開ける（こっちは間引いたメッシュなので三角形ごとに）
+        var farT = fence.Find("Fence_Far");
+        if (farT != null)
+        {
+            var srcFar = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Generated/Far/FuwaCourse_StartFence_Bevel_Far.asset");
+            if (srcFar != null)
+            {
+                Vector3 cFar = farT.InverseTransformPoint(startArea.Find("Ground").position);
+                var fv = srcFar.vertices; var ft = srcFar.triangles; var keepF = new List<int>();
+                for (int i = 0; i < ft.Length; i += 3)
+                {
+                    var cen = (fv[ft[i]] + fv[ft[i + 1]] + fv[ft[i + 2]]) / 3f;
+                    if (!InGap(cen, cFar, 3.05f)) keepF.AddRange(new[] { ft[i], ft[i + 1], ft[i + 2] });
+                }
+                var far = Object.Instantiate(srcFar); far.name = "Course0_StartFence_Open_Far"; far.SetTriangles(keepF, 0); far.RecalculateBounds();
+                far = Save(far, MeshDir + "/Course0_StartFence_Open_Far.asset");
+                farT.GetComponent<MeshFilter>().sharedMesh = far;
+            }
+        }
         var mc = fcol.GetComponent<MeshCollider>(); mc.sharedMesh = null; mc.sharedMesh = col;
 
         // 開けた所にある飾りキノコはどける（非表示）
@@ -557,7 +610,8 @@ public static class FuwaPracticeTutorial
             foreach (Transform m in mush)
             {
                 bool inGap = InGap(startArea.InverseTransformPoint(m.position), startArea.InverseTransformPoint(startArea.Find("Ground").position), 3.4f);
-                if (inGap && m.gameObject.activeSelf) { m.gameObject.SetActive(false); hid++; }
+                m.gameObject.SetActive(!inGap);
+                if (inGap) hid++;
             }
         return $"fence parts -{removedParts}, collider tris {ct.Length / 3}->{keepC.Count / 3}, mushrooms hidden {hid}";
     }
