@@ -491,12 +491,16 @@ public static class FuwaPracticeTutorial
         var skipTrig = skip.Find("SkipTutorial_Trigger");
         foreach (Transform ch in skip) if (ch != skipTrig) ch.gameObject.SetActive(false);
         foreach (var col in skipTrig.GetComponents<Collider>()) col.enabled = false;
-        log.Add(SkipButton(entrance, e0, ef, er, skipTrig.GetComponent<FuwaCourseWarp>(), lang));
+        log.Add(FenceButton(entrance, entrance.Find("Ground"), entrance.Find("FenceCollider"), e0, ef, 55f, "SkipButton", "説明をとばす ▶", "Skip tutorial ▶", skipTrig.GetComponent<FuwaCourseWarp>(), lang));
         if (warpLabel != null) warpLabel.gameObject.SetActive(false);
 
         // ロビーの「チュートリアル」ワープの行き先を入口の島に
         var lobbyWarp = Object.FindObjectsOfType<FuwaCourseWarp>(true).First(w => w.name == "WarpToCourse0_Trigger");
         SetU(lobbyWarp, "playerSpot", spot); SetU(lobbyWarp, "gunSpot", gs.transform.Find("GunSpot")); Sync(lobbyWarp);
+        // とばした先（キノコの島）には「説明にもどる」ボタン。行き先はロビーの「チュートリアル」ワープと同じ（入口の島）
+        // ボタンは Tutorial の下に置く（作り直しの時に一緒に消えるように）
+        log.Add(FenceButton(root, startArea.Find("Ground"), startArea.Find("FenceCollider"), startArea.Find("Ground").position, start.forward, 55f,
+            "BackToTutorialButton", "◀ 説明にもどる", "◀ Back to tutorial", lobbyWarp, lang));
 
         // ---------- お手本区画 ----------
         var signSrc = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "BestTimes" && t.parent != null && t.parent.name == "FuwaLobby");
@@ -934,19 +938,23 @@ public static class FuwaPracticeTutorial
         return removed;
     }
 
-    // 入口の島の柵（左前）に貼る「説明をとばす」ボタン。ロビーの設定ボタン（HudButton）と同じ、レーザーで押すUI
-    // （ワールド空間の Canvas＋VRCUiShape＋Button。角丸の板 RoundedPanel）。onClick → FuwaInteractWarp.Press → ワープ
-    static string SkipButton(Transform entrance, Vector3 e0, Vector3 ef, Vector3 er, FuwaCourseWarp warp, FuwaLanguage lang)
+    // 島の柵（前から leftDeg 度左）に貼る、レーザーで押すワープボタン。ロビーの設定ボタン（HudButton）と同じ
+    // ワールド空間の Canvas＋VRCUiShape＋Button（角丸の板 RoundedPanel）。onClick → FuwaInteractWarp.Press → warp
+    // 入口の島の「説明をとばす」と、キノコの島の「説明にもどる」で使う
+    static string FenceButton(Transform parent, Transform ground, Transform fence, Vector3 center, Vector3 fwd, float leftDeg,
+        string name, string ja, string en, FuwaCourseWarp warp, FuwaLanguage lang)
     {
         var src = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HudButton" && t.parent != null && t.parent.name == "SettingsStand").Find("Canvas");
-        float groundTop = entrance.Find("Ground").GetComponent<Renderer>().bounds.max.y;
-        // 左前 55° の向きで、柵の当たり判定の内側の面を探す（前の ±40° は道の入口で柵がない）
-        Vector3 dir = (ef * Mathf.Cos(55f * Mathf.Deg2Rad) - er * Mathf.Sin(55f * Mathf.Deg2Rad)).normalized;
+        float groundTop = ground.GetComponent<Renderer>().bounds.max.y;
+        fwd.y = 0f; fwd.Normalize();
+        Vector3 right = new Vector3(fwd.z, 0f, -fwd.x);
+        // 前から leftDeg 度左の向きで、柵の当たり判定の内側の面を探す
+        Vector3 dir = (fwd * Mathf.Cos(leftDeg * Mathf.Deg2Rad) - right * Mathf.Sin(leftDeg * Mathf.Deg2Rad)).normalized;
         Physics.SyncTransforms();
-        var fenceCol = entrance.Find("FenceCollider").GetComponent<Collider>();
-        Vector3 from = new Vector3(e0.x, groundTop + 0.4f, e0.z);
+        var fenceCol = fence.GetComponent<Collider>();
+        Vector3 from = new Vector3(center.x, groundTop + 0.4f, center.z);
         float r = fenceCol.Raycast(new Ray(from, dir), out var hit, 6f) ? hit.distance : 3.2f;
-        var b = new GameObject("SkipButton").transform; b.SetParent(entrance, false);
+        var b = new GameObject(name).transform; b.SetParent(parent, false);
         // 柵の内側に、少し上向きに傾けて貼る（柵に向かって立った人が見下ろして読める）
         b.position = from + dir * (r - 0.07f) + Vector3.up * 0.12f;
         b.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(-20f, 0f, 0f);
@@ -963,13 +971,13 @@ public static class FuwaPracticeTutorial
         var btn = cv.GetComponentInChildren<UnityEngine.UI.Button>(true);
         var seg = btn.transform.Find("Seg"); if (seg != null) Object.DestroyImmediate(seg.gameObject);   // ON/OFF の切り替え表示はいらない
         var text = btn.transform.Find("Text").GetComponent<TMPro.TextMeshProUGUI>(); text.gameObject.SetActive(true);
-        text.text = "説明をとばす ▶"; text.fontSize = 150f; text.alignment = TMPro.TextAlignmentOptions.Center;
+        text.text = ja; text.fontSize = 150f; text.alignment = TMPro.TextAlignmentOptions.Center;
         // onClick を付け替える（元は HUD の切り替え）
         while (btn.onClick.GetPersistentEventCount() > 0) UnityEditor.Events.UnityEventTools.RemovePersistentListener(btn.onClick, 0);
         UnityEditor.Events.UnityEventTools.AddStringPersistentListener(btn.onClick, new UnityEngine.Events.UnityAction<string>(ub.SendCustomEvent), "Press");
         EditorUtility.SetDirty(btn);
-        AddLangUI(lang, text, "説明をとばす ▶", "Skip tutorial ▶");
-        return $"skip button r={r:0.00}";
+        AddLangUI(lang, text, ja, en);
+        return $"{name} r={r:0.00}";
     }
 
     // UI の文字（TextMeshProUGUI）は uiTexts / uiJa / uiEn に入れる
