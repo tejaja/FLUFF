@@ -604,8 +604,8 @@ public static class FuwaPracticeTutorial
             At(pts, dist, S(lastWall + 2.2f), out var c, out var f);
             Vector3 outw = new Vector3(f.z, 0, -f.x);
             MakeSign(root, c + outw * (HalfW - 0.35f), (f + outw * 0.45f).normalized,
-                "<size=130%><color=#FF6B5C>ここからが本番！</color></size>\nゴールまで運んでみよう\nアウトになると、キノコか\nチェックポイントまで戻されるよ\n<size=80%>ほかのコースには、もっといろんなしかけがあるよ</size>",
-                "<size=130%><color=#FF6B5C>Here we go!</color></size>\nCarry it to the goal\nIf it's out, you go back to\nthe mushroom or the checkpoint\n<size=80%>The other courses have lots more tricks</size>", signSrc, lang, "Sign_MoreTricks");
+                "<size=130%><color=#FF6B5C>ここからが本番！</color></size>\nゴールまで運んでみよう\nアウトしたら、キノコか\nチェックポイントからやり直し\nほかのコースには、もっと\nいろんなしかけがあるよ",
+                "<size=130%><color=#FF6B5C>Here we go!</color></size>\nCarry it to the goal\nIf it's out, you restart from\nthe mushroom or the checkpoint\nThe other courses have\nlots more tricks", signSrc, lang, "Sign_MoreTricks");
         }
         // 最後の壁〜キノコの島：ふわふわをコースのスタート（キノコ）へ戻す
         {
