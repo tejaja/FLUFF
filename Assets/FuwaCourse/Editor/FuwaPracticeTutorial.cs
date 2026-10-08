@@ -464,15 +464,16 @@ public static class FuwaPracticeTutorial
         return "Tutorial built: " + string.Join(" / ", log) + $" / mushroom s={sMush:0} goal s={sGoal:0}";
     }
 
-    // 島の上面の円の中に、dir と平行なしま模様（1本おき）。lineThrough の点（銃口）を通る線がしまの真ん中に来るようにそろえる
-    static void MakeStripes(Transform parent, Vector3 center, Vector3 dir, Vector3 lineThrough)
+    // 島の上面の円の中に、dir と平行なしま模様（1本おき）。lineThrough の点を通る線がしまの真ん中に来るようにそろえる
+    // （縦じま＝撃つ向きと平行で銃口を通す／横じま＝撃つ向きと直角でふわふわの出る所を通す）
+    static void MakeStripes(Transform parent, Vector3 center, Vector3 dir, Vector3 lineThrough, string name = "DirStripes")
     {
         const float R = 1.5f, Band = 0.22f;
         Vector3 side = Vector3.Cross(Vector3.up, dir);
         float shift = Vector3.Dot(lineThrough - center, side);   // 銃口の線の、島の中心からの横のずれ
         var V = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>();
         // 頂点はワールドの向きで作るので、物体の回転はワールドで0にする（親のコースの回転がかかると向きがずれる）
-        var go = new GameObject("DirStripes"); go.transform.SetParent(parent, false); go.transform.position = center; go.transform.rotation = Quaternion.identity;
+        var go = new GameObject(name); go.transform.SetParent(parent, false); go.transform.position = center; go.transform.rotation = Quaternion.identity;
         for (int k = -10; k <= 10; k++)
         {
             if ((k & 1) != 0) continue;
@@ -493,8 +494,8 @@ public static class FuwaPracticeTutorial
         // 上向きにそろえる
         for (int i = 0; i < T.Count; i += 3)
             if (Vector3.Cross(V[T[i + 1]] - V[T[i]], V[T[i + 2]] - V[T[i]]).y < 0f) { int tmp = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = tmp; }
-        var m = new Mesh { name = "Tutorial_DirStripes" }; m.SetVertices(V); m.SetColors(C); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
-        string path = MeshDir + "/Tutorial_DirStripes.asset";
+        var m = new Mesh { name = "Tutorial_" + parent.name + "_" + name }; m.SetVertices(V); m.SetColors(C); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        string path = MeshDir + "/Tutorial_" + (name == "DirStripes" ? "" : parent.name + "_") + name + ".asset";
         var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (ex == null) AssetDatabase.CreateAsset(m, path); else { ex.Clear(); EditorUtility.CopySerialized(m, ex); m = ex; }
         go.AddComponent<MeshFilter>().sharedMesh = m;
@@ -672,11 +673,13 @@ public static class FuwaPracticeTutorial
                 var lat = Vector3.Cross(Vector3.up, along).normalized;
                 MakeLane(bayRoot, "Lane_Tap", islandCenter - along * 1.2f - lat * 0.55f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.3f }, new[] { 0f }, null, null, false, tmpl, ballSrc, floorTop);
                 MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 1.2f + lat * 0.55f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.3f }, new[] { 1f }, null, null, false, tmpl, ballSrc, floorTop);
+                CrossStripes(bayRoot, bayRoot.Find("Lane_Tap"), islandCenter);
                 break;
             }
             case "Down":
                 // 銃を高めにして、斜め下のふわふわを撃つ（ねらった線も見せる：下を向いているのに上がる）
                 MakeLane(bayRoot, "Lane", islandCenter - along * 1.0f, along, 1.2f, new Vector3(0, -0.86f, 0.9f), new[] { 1.3f }, new[] { 1f }, null, null, true, tmpl, ballSrc, floorTop);
+                CrossStripes(bayRoot, bayRoot.Find("Lane"), islandCenter);
                 break;
             case "Center":
                 // ふわふわの横（道の進む向きの側）をねらう。ねらった線を見せて、そこへ寄っていくのを見せる
@@ -694,6 +697,14 @@ public static class FuwaPracticeTutorial
                 MakeLane(bayRoot, "Lane", islandCenter - along * 1.3f, along, 0.95f, new Vector3(0, 0.05f, 1.42f), new[] { 3.6f }, new[] { 1f }, null, new[] { 2.5f }, false, tmpl, ballSrc, floorTop);
                 break;
         }
+    }
+
+    // 島の上に、撃つ向きと直角の横じま（目もり代わり：どこまで飛んだか・上がったかが分かるように）。
+    // ふわふわの出る所を通る線がしまの真ん中に来る
+    static void CrossStripes(Transform bayRoot, Transform lane, Vector3 islandCenter)
+    {
+        Vector3 sdir = lane.Find("DemoGun").forward; sdir.y = 0; sdir.Normalize();
+        MakeStripes(bayRoot, new Vector3(islandCenter.x, IslandTop + 0.012f, islandCenter.z), Vector3.Cross(Vector3.up, sdir).normalized, lane.Find("BallStart").position, "CrossStripes");
     }
 
     // ballOffset：銃口から見た (右, 上, 前) のふわふわの位置
