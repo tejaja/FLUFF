@@ -40,6 +40,9 @@ public static class FuwaPracticeTutorial
         new Bay(15.0f, "Down",
             "<size=130%><color=#FF6B5C>下を撃っても上がる</color></size>\n風はいつもふわっと持ち上げる\n床に押しつけたりしない",
             "<size=130%><color=#FF6B5C>Shoot down, it goes up</color></size>\nThe wind always lifts the fluff\nIt never pushes it into the floor"),
+        new Bay(0f, "Steep",
+            "<size=130%><color=#FF6B5C>上を向きすぎない</color></size>\n真上に近いほど、高く上がるだけ\n前に進めたい時は\n低めに撃とう",
+            "<size=130%><color=#FF6B5C>Don't aim too high</color></size>\nThe steeper you shoot,\nthe more it just goes up\nAim low to move it forward"),
         new Bay(22.5f, "Center",
             "<size=130%><color=#FF6B5C>風の真ん中に寄る</color></size>\nふわふわの横を撃っても\n銃の正面の方へ寄りながら飛ぶ",
             "<size=130%><color=#FF6B5C>Pulled to the center</color></size>\nShoot beside the fluff and\nit drifts toward where your gun points"),
@@ -735,8 +738,10 @@ public static class FuwaPracticeTutorial
     const float WindAimDeg = 30f;      // 風上の台が風上へ向ける角度
 
     // お手本のふわふわが落ちる所（FuwaDemoStand.FixedUpdate と同じ計算。床の高さまで落ちた所）
+    static float LastSimTime;   // SimDemoLanding で、撃ってから床に落ちるまでの秒
     static Vector3 SimDemoLanding(FuwaBlower b, FuwaBall bt, Vector3 nz, Vector3 aim, Vector3 p, float charge, Vector3 wind, float floorY)
     {
+        LastSimTime = 10f;
         Vector3 v = b.DemoShotVelocity(nz, aim, charge, p);
         Vector3 dd = v.normalized;
         float amt = Mathf.Lerp(bt.shotWindDampMin, bt.shotWindDampMax, charge), hold = bt.shotWindDampHoldMax * charge * charge;
@@ -751,7 +756,8 @@ public static class FuwaPracticeTutorial
             if (v.y < -bt.maxFallSpeed) v.y = -bt.maxFallSpeed;
             if (v.magnitude > bt.maxSpeed) v = v.normalized * bt.maxSpeed;
             p += v * dt;
-            if (p.y < floorY + r) break;
+            if (p.y < floorY + r) { LastSimTime = t; break; }
+
         }
         return p;
     }
@@ -1129,6 +1135,32 @@ public static class FuwaPracticeTutorial
                 MakeLane(bayRoot, "Lane", islandCenter - along * 1.0f, along, 1.2f, new Vector3(0, -0.86f, 0.9f), new[] { 1.3f }, new[] { 1f }, null, null, true, tmpl, ballSrc, floorTop);
                 CrossStripes(bayRoot, bayRoot.Find("Lane"), islandCenter);
                 break;
+            case "Steep":
+            {
+                // 2台ならべて、同じ強さ（半分溜め。ちょん押しだと差が0.2mしか出ない）で撃つ。左＝低め（斜め約15°）→約2m先、右＝上向きすぎ（約75°）→高く上がって0.6mくらいしか進まない
+                // 落ちる所に的（本物と同じ計算）。高く上がった方は落ちるまでが長いので、1回分の長さもそれに合わせる
+                var lat = Vector3.Cross(Vector3.up, along).normalized;
+                MakeLane(bayRoot, "Lane_Low", islandCenter - along * 1.5f - lat * 0.55f, along, 0.8f, new Vector3(0, 0.25f, 0.95f), new[] { 1.3f }, new[] { 0.5f }, null, null, false, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane_High", islandCenter - along * 1.5f + lat * 0.55f, along, 0.15f, new Vector3(0, 1.0f, 0.08f), new[] { 1.3f }, new[] { 0.5f }, null, null, false, tmpl, ballSrc, floorTop);
+                float longest = 0f;
+                foreach (var ln in new[] { "Lane_Low", "Lane_High" })
+                {
+                    var lane = bayRoot.Find(ln);
+                    var nz = lane.Find("DemoGun/Nozzle"); var bs = lane.Find("BallStart");
+                    Vector3 land = SimDemoLanding(tmpl, ballSrc, nz.position, nz.forward, bs.position, 0.5f, Vector3.zero, IslandTop);
+                    longest = Mathf.Max(longest, LastSimTime);
+                    MakeTargetRing(bayRoot, "Target_" + ln.Substring(5), new Vector3(land.x, IslandTop + 0.012f, land.z));
+                    var flat = land - bs.position; flat.y = 0f;
+                    log.Add($"{ln} forward {Vector3.Dot(flat, along):0.00}m, {LastSimTime:0.0}s");
+                }
+                foreach (var ln in new[] { "Lane_Low", "Lane_High" })
+                {
+                    var ds = bayRoot.Find(ln).GetComponent<FuwaDemoStand>();
+                    SetUF(ds, "cycleLength", Mathf.Max(4f, 1.3f + longest + 1.2f)); Sync(ds);
+                }
+                CrossStripes(bayRoot, bayRoot.Find("Lane_Low"), islandCenter);
+                break;
+            }
             case "Center":
                 // ふわふわの横（道の進む向きの側）をねらう。ねらった線を見せて、そこへ寄っていくのを見せる
                 MakeLane(bayRoot, "Lane", islandCenter - away * 1.25f, away, 0.95f, new Vector3(0, 0.05f, 1.1f), new[] { 1.3f }, new[] { 1f }, new[] { new Vector3(-0.5f, 0f, 0f) }, null, true, tmpl, ballSrc, floorTop);
