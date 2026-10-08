@@ -899,7 +899,7 @@ public static class FuwaPracticeTutorial
             if (ex == null) break;
             res.Add(ex);
         }
-        if (res.Count > 0) return res;
+        if (res.Count > 0) { RecolorPracticeProps(res); return res; }
         var vis = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Visual" && t.parent != null && t.parent.name == "EdgeProps" && t.parent.parent != null && t.parent.parent.name == Course);
         var src = vis.GetComponent<MeshFilter>().sharedMesh; var tr = vis.transform;
         var v = src.vertices; var nrm = src.normals; var uv = src.uv; var col = src.colors; var tri = src.triangles;
@@ -951,8 +951,43 @@ public static class FuwaPracticeTutorial
             AssetDatabase.CreateAsset(m, MeshDir + "/PracticeProp_" + idx + ".asset");
             res.Add(m); idx++;
         }
+        RecolorPracticeProps(res);
         return res;
     }
+
+    // 3段のマカロンの塔（青・オレンジ・青だった物）を、上から赤・黄・青に（2026-10-08 てじゃ）。
+    // 段＝つながった部品ごとに、いちばん多い色をその段の色とみなして、明るさの比はそのままで色だけ置き換える（何度やっても同じ結果）
+    static void RecolorPracticeProps(List<Mesh> props)
+    {
+        var target = props.FirstOrDefault(m => m.name == "PracticeProp_3");
+        if (target == null) return;
+        var tiers = new[] { new Color(1f, 0.56f, 0.56f), new Color(1f, 0.9f, 0.55f), new Color(0.62f, 0.8f, 1f) };   // 上から赤・黄・青（パステル）
+        var v = target.vertices; var col = target.colors; var tri = target.triangles;
+        if (col.Length != v.Length) return;
+        int n = v.Length;
+        var parent = Enumerable.Range(0, n).ToArray();
+        int Find(int a) { while (parent[a] != a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; }
+        var weld = new Dictionary<Vector3Int, int>();
+        for (int i = 0; i < n; i++) { var k = new Vector3Int(Mathf.RoundToInt(v[i].x * 1000), Mathf.RoundToInt(v[i].y * 1000), Mathf.RoundToInt(v[i].z * 1000)); if (weld.TryGetValue(k, out int j)) parent[Find(i)] = Find(j); else weld[k] = i; }
+        for (int i = 0; i < tri.Length; i += 3) { int a = Find(tri[i]); parent[Find(tri[i + 1])] = a; parent[Find(tri[i + 2])] = Find(a); }
+        var comps = Enumerable.Range(0, n).GroupBy(Find).Select(g => g.ToList()).OrderByDescending(g => g.Average(i => v[i].y)).ToList();
+        if (comps.Count != tiers.Length) return;
+        for (int t = 0; t < comps.Count; t++)
+        {
+            var idxs = comps[t];
+            var main = idxs.GroupBy(i => (Color32)col[i]).OrderByDescending(g => g.Count()).First().Key;
+            float mb = Mathf.Max(0.001f, ((Color)main).grayscale);
+            foreach (var i in idxs)
+            {
+                float k = Mathf.Clamp(col[i].grayscale / mb, 0.5f, 1.2f);
+                var c = tiers[t] * k; c.a = col[i].a;
+                col[i] = c;
+            }
+        }
+        target.colors = col;
+        EditorUtility.SetDirty(target);
+    }
+
 
     static void MakeWindZone(
 Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 windDir, Transform course, List<string> log, float len, float halfW, float strength, string meshName)
