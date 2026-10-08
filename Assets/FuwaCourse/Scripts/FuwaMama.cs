@@ -33,7 +33,7 @@ public class FuwaMama : UdonSharpBehaviour
 
     [Header("追いかける")]
     [Tooltip("ON：運んでいる最中のふわふわを追いかけて吹っ飛ばす。OFF：前と同じくプレイヤーを追いかける")]
-    public bool targetBall = true;
+    public bool targetBall = false;
     [Tooltip("追いかける速さ(m/s)。めっちゃ遅い（ジャンプしない時）")]
     public float chaseSpeed = 0.55f;
     [Tooltip("ゆったりジャンプで近づく（OFFなら這う）")]
