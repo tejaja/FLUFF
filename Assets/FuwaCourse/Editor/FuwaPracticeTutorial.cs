@@ -390,8 +390,8 @@ public static class FuwaPracticeTutorial
         {
             var bay = Bays[bi];
             At(pts, dist, S(bayS[bi]), out var c, out var f);
-            // お手本の島：左右交互（偶数番は右手・奇数番は左手）
-            Vector3 outw = new Vector3(f.z, 0, -f.x) * ((bi % 2 == 0) ? 1f : -1f);
+            // お手本の島：全部右手にそろえる（左右交互だと、せっかちな人が反対側を見落として素通りしやすい。2026-10-08）
+            Vector3 outw = new Vector3(f.z, 0, -f.x);
             var bayRoot = new GameObject("Bay_" + bay.key).transform; bayRoot.SetParent(root, false);
             Vector3 ic = c + outw * (HalfW + 1.6f - 0.25f);
             var isl = Island("Island", ic, false); isl.SetParent(bayRoot, true);
