@@ -5,7 +5,8 @@ using VRC.SDK3.UdonNetworkCalling;
 using VRC.Udon.Common.Interfaces;
 
 // 「みんなで」ロビーの、全員で同じものを吹いて遊ぶふわふわ。
-// 持ち主は1人に固定（撃っても交代しない）。持ち主の画面の動きが正解で、持ち主が「位置・速さ・時刻」をみんなに送る。
+// 持ち主は1人（撃っても交代しない。ただし持ち主がロビーにいない＝状態が届かなくなったら、ロビーにいる人が引き継ぐ）。
+// 持ち主の画面の動きが正解で、持ち主が「位置・速さ・時刻」をみんなに送る。
 // 持ち主でない人が撃った時は、自分の画面ではすぐ動かし（遅れなし）、同時に「この強さで撃った」を持ち主に送る。
 // 持ち主は届いた撃ちを自分の玉に反映して配り直す。撃った本人の画面は、持ち主がその撃ちを反映した状態が届くまでは自分の予測を優先する。
 // （以前は撃った人が持ち主になっていたが、2人で連打すると持ち主が入れ替わり続けて、画面ごとの位置がずれたまま戻らなかった）
@@ -83,6 +84,10 @@ public class FuwaSharedBall : UdonSharpBehaviour
 
     [Tooltip("自分が撃った後、持ち主がその撃ちを反映した状態が届くまで、自分の画面の予測を優先する最長の秒数")]
     public float pendingTimeout = 1.2f;
+    [Tooltip("持ち主からの状態（待っている間も heartbeatInterval ごとに来る）がこの秒数途切れたら、持ち主がロビーにいない（ひとりでへ行った等）とみなして、ロビーにいる人が持ち主を引き継ぐ")]
+    public float ownerSilentTimeout = 3.5f;
+    private float _lastHeard;
+    private float _takeoverJitter;
 
     // 画面ごとの状態（持ち主ならこれが正解。持ち主でなければ、届いた状態をここへ写す）
     private bool _waiting = true;
@@ -120,6 +125,17 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private bool _inited;
 
     private void Start() { Init(); }
+
+    // ロビーが表示された（自分がみんなでロビーに来た・戻ってきた）
+    private void OnEnable()
+    {
+        Init();
+        _lastHeard = Time.time;   // 来たばかりの人がすぐ持ち主を取らないように、まず届くのを待つ
+        _takeoverJitter = Random.Range(0f, 1.5f);   // ロビーにいる何人かが同時に引き継ごうとしないように、少しずつずらす
+        // 持ち主のまま戻ってきた：自分の画面の玉はロビーを離れた時のまま止まっていたので、その古い状態を配らずにキノコの上へ戻す
+        // （2026-10-09 てじゃ実機：持ち主がひとりでへ行って戻ると、みんなの画面でふわふわが一瞬ワープした）
+        if (Networking.IsOwner(gameObject) && !_waiting) SetWaiting();
+    }
 
     // Start より先に呼ばれることがある（隠れていたエリアが出た直後に撃たれた・届いた時）ので、使う前に必ず通す
     private void Init()
@@ -281,6 +297,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public override void OnDeserialization()
     {
         Init();
+        _lastHeard = Time.time;
         if (Networking.IsOwner(gameObject)) return;
         // 自分が撃った分がまだ持ち主に反映されていない間は、届いた状態より自分の予測を優先する（弾けた知らせだけはすぐ受け取る）
         if (_pending > 0)
@@ -331,6 +348,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     // 持ち主が入れ替わった（前の持ち主が抜けた時など）：新しい持ち主が、今の自分の状態をすぐみんなに送る
     public override void OnOwnershipTransferred(VRCPlayerApi player)
     {
+        Init();
+        _lastHeard = Time.time;
         if (player == null || !player.isLocal) return;
         if (_popped && _respawnAt < 0f) _respawnAt = Time.time + respawnDelay;
         _posErr = Vector3.zero;
@@ -416,6 +435,12 @@ public class FuwaSharedBall : UdonSharpBehaviour
             if (!_waiting && !_popped && (_sendSoon || Time.time >= _nextSend)) SendState();
             // 待っている間・弾けている間も、ゆっくり送り直す（ほぼ同時に2人が撃った時などに、画面ごとの状態がずれたままにならないように）
             else if ((_waiting || _popped) && Time.time >= _nextSend) { _nextSend = Time.time + heartbeatInterval; RequestSerialization(); }
+        }
+        else if (Time.time - _lastHeard > ownerSilentTimeout + _takeoverJitter)
+        {
+            // 持ち主からしばらく何も届かない＝持ち主の画面ではロビーが非表示（ひとりで・入口へ行った）。ロビーにいる自分が引き継ぐ
+            _lastHeard = Time.time;
+            Networking.SetOwner(Networking.LocalPlayer, gameObject);
         }
         if (_shownHidden != (_popped || _waiting)) ApplyHiddenVisual();
         if (_trail != null) _trail.emitting = !_popped && !_waiting;
