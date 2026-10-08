@@ -587,8 +587,8 @@ public static class FuwaPracticeTutorial
             At(pts, dist, S(lastWall + 2.2f), out var c, out var f);
             Vector3 outw = new Vector3(f.z, 0, -f.x);
             MakeSign(root, c + outw * (HalfW - 0.35f), (f + outw * 0.45f).normalized,
-                "<size=130%><color=#FF6B5C>ここからが本番！</color></size>\nコースには、ほかにもいろんな\nしかけがあるよ。よく見てすすもう",
-                "<size=130%><color=#FF6B5C>Here we go!</color></size>\nThe courses have lots of other tricks.\nKeep your eyes open!", signSrc, lang, "Sign_MoreTricks");
+                "<size=130%><color=#FF6B5C>ここからが本番！</color></size>\nゴールまで運んでみよう\nほかのコースには、もっといろんな\nしかけがあるよ",
+                "<size=130%><color=#FF6B5C>Here we go!</color></size>\nCarry it to the goal\nThe other courses have\nlots more tricks", signSrc, lang, "Sign_MoreTricks");
         }
         // 最後の壁〜キノコの島：ふわふわをコースのスタート（キノコ）へ戻す
         {
