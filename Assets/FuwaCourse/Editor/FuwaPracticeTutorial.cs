@@ -762,7 +762,9 @@ public static class FuwaPracticeTutorial
                 g.transform.position = new Vector3(p.x, GroundY(p) - 0.01f, p.z);
                 g.transform.rotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
                 g.AddComponent<MeshFilter>().sharedMesh = pm;
-                g.AddComponent<MeshRenderer>().sharedMaterials = candy;
+                var pr = g.AddComponent<MeshRenderer>(); pr.sharedMaterials = candy;
+                // 太陽が真上なので、たての側面に自分の影がしま模様に出る（2026-10-09 てじゃ「マシュマロの影きたない」）→ 影は落とすけど受けない
+                pr.receiveShadows = false;
                 // 当たり判定：元のれんしゅうと同じく道のレイヤー（ふわふわが当たるとアウト、人は通れない）
                 var cap = g.AddComponent<CapsuleCollider>();
                 cap.radius = rad * 0.8f; cap.height = pm.bounds.size.y; cap.center = new Vector3(0f, pm.bounds.size.y * 0.5f, 0f);
