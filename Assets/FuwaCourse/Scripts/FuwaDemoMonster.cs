@@ -5,7 +5,7 @@ using VRC.SDKBase;
 // チュートリアルの「まもの」のお手本：見た目だけのまもの（コースの FuwaEnemy の体・目・音のコピー）が、
 // となりのお手本台（FuwaDemoStand）のふわふわへ寄っていって、ぷるぷる溜めて体当たりする。
 // stand の銃が溜めの間に撃つ（stand の shotTimes に入れておく）と、押し返されて目を回す（ふわふわは無事）。
-// 撃たれなければ体当たりでふわふわをはじけさせる。1回分の長さ・時計の区切りは stand と同じ（同じ時刻にそろう）。
+// 撃たれなければ体当たりでふわふわを吹っ飛ばす（本物の FuwaEnemy と同じ。台の外まで飛んで落ちたらはじける）。1回分の長さ・時計の区切りは stand と同じ（同じ時刻にそろう）。
 // 自分の画面だけ・同期なし。
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaDemoMonster : UdonSharpBehaviour
@@ -23,6 +23,8 @@ public class FuwaDemoMonster : UdonSharpBehaviour
     public AudioSource windupSound;
     public AudioSource dashSound;
     public AudioSource blownSound;
+    [Tooltip("ふわふわに当たった時の音")]
+    public AudioSource hitSound;
 
     [Header("時刻（1回分の始まりからの秒）")]
     public float approachFrom = 0.4f;
@@ -32,8 +34,16 @@ public class FuwaDemoMonster : UdonSharpBehaviour
     public float shotAt = -1f;
 
     [Header("動き")]
-    public float dashTime = 0.32f;
-    public float hopHeight = 0.45f;
+    [Header("体当たり（本物の FuwaEnemy と同じ値）")]
+    public float dashSpeed = 5.3f;
+    public float hopHeight = 1f;
+    public float maxHopHeight = 2.2f;
+    public float ballOvershoot = 0.6f;
+    public float ballHitRadius = 0.5f;
+    public float ballKnockback = 5.5f;
+    public float ballKnockUp = 1.2f;
+    public Color ballHitGlow = new Color(0.75f, 0.35f, 1f);
+    private float _dashTime = 0.3f, _dashHop = 1f;
     [Tooltip("撃たれた時に押される速さ(m/s)と、止まるまでの減り方")]
     public float pushSpeed = 3.2f;
     public float pushDamping = 3f;
@@ -49,7 +59,7 @@ public class FuwaDemoMonster : UdonSharpBehaviour
     private bool _active;
     private float _nextRangeCheck;
     private Vector3 _visualBase, _visualScale = Vector3.one, _eyesBase, _eyesScale = Vector3.one;
-    private bool _popped;
+    private bool _hit;
 
     private void Start()
     {
@@ -115,22 +125,30 @@ public class FuwaDemoMonster : UdonSharpBehaviour
                 {
                     if (windupSound != null) windupSound.Stop();
                     if (dashSound != null) dashSound.Play();
+                    // 本物と同じ：ふわふわの少し先に着地するように跳ぶ。跳ねの高さは、ふわふわの所でその高さになるように
                     _dashFrom = _pos;
                     Vector3 d = ballPos - _pos; d.y = 0f;
-                    _dashTo = _pos + d + (d.sqrMagnitude > 0.0001f ? d.normalized : Vector3.zero) * 0.35f;
+                    float along = Mathf.Max(0.5f, d.magnitude);
+                    _dashTo = _pos + (d.sqrMagnitude > 0.0001f ? d.normalized : transform.forward) * (along + ballOvershoot);
                     _dashTo.y = home.position.y;
+                    _dashTime = Mathf.Max(0.2f, (along + ballOvershoot) / Mathf.Max(0.1f, dashSpeed));
+                    float xb = Mathf.Clamp(along / (along + ballOvershoot), 0.2f, 0.9f);
+                    float need = ballPos.y - _pos.y;
+                    _dashHop = Mathf.Clamp(need / (4f * xb * (1f - xb)), hopHeight * 0.6f, maxHopHeight);
                     SetState(3);
                 }
                 break;
             case 3:
             {
-                // 体当たり（ぴょんと跳んで、ふわふわの少し先に着地）
-                float k = Mathf.Clamp01((Time.time - _stateTime) / dashTime);
-                _pos = Vector3.Lerp(_dashFrom, _dashTo, k) + Vector3.up * (hopHeight * 4f * k * (1f - k));
-                if (!_popped && stand.ball != null && (stand.ball.position - (_pos + Vector3.up * 0.2f)).magnitude < 0.45f)
+                // 体当たり（ぴょんと跳んで、ふわふわの少し先に着地）。当たったらふわふわを吹っ飛ばす
+                float k = Mathf.Clamp01((Time.time - _stateTime) / _dashTime);
+                _pos = Vector3.Lerp(_dashFrom, _dashTo, k) + Vector3.up * (_dashHop * 4f * k * (1f - k));
+                if (!_hit && stand.ball != null && (stand.ball.position - _pos).magnitude < ballHitRadius)
                 {
-                    _popped = true;
-                    stand.PopBall();
+                    _hit = true;
+                    Vector3 dir = _dashTo - _dashFrom; dir.y = 0f; dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : transform.forward;
+                    stand.KnockBall(dir * ballKnockback + Vector3.up * ballKnockUp, ballHitGlow);
+                    if (hitSound != null) hitSound.Play();
                 }
                 if (k >= 1f) SetState(6);
                 break;
@@ -188,7 +206,7 @@ public class FuwaDemoMonster : UdonSharpBehaviour
     {
         _state = 0;
         _stateTime = Time.time;
-        _popped = false;
+        _hit = false;
         _vel = Vector3.zero;
         _pos = home != null ? home.position : transform.position;
         if (windupSound != null) windupSound.Stop();

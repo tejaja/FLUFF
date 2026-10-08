@@ -234,6 +234,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         _nextShot = 0;
         _flying = false;
         _popped = false;
+        _knocked = false;
         _v = Vector3.zero;
         _spin = 0f;
         _air = 1f;
@@ -301,13 +302,10 @@ public class FuwaDemoStand : UdonSharpBehaviour
         if (floor != null && p.y < floor.position.y + BallRadius() && p.y > floor.position.y - 0.3f
             && Physics.Raycast(p + Vector3.up * 0.5f, Vector3.down, 1.2f, floorMask, QueryTriggerInteraction.Ignore))
         {
-            _v = Vector3.zero;
-            _flying = false;
-            _popped = true;
-            if (popEffect != null) { popEffect.transform.position = p; popEffect.Play(); }
-            if (popSound != null) { popSound.transform.position = p; popSound.Play(); }
+            Pop(p);
             return;
         }
+        if (_knocked && floor != null && p.y < floor.position.y - offCourseDrop) { Pop(p); return; }
         if (_spin > 0.001f)
         {
             ball.Rotate(_spinAxis, _spin * Mathf.Rad2Deg * dt, Space.World);
@@ -516,14 +514,29 @@ public class FuwaDemoStand : UdonSharpBehaviour
         pumpBulb.localPosition = _bulbBasePos + new Vector3(0f, 0f, 0.5f * (_bulbBaseScale.z - s3.z));
     }
 
-    // まもの（FuwaDemoMonster）に体当たりされた時：床に落ちた時と同じようにはじけて、この回はもう出ない
-    public void PopBall()
+    // まもの（FuwaDemoMonster）に体当たりされた時：本物（FuwaEnemy.HitBall）と同じように吹っ飛ばされる。
+    // 台の外まで飛んで、床の高さより offCourseDrop 下がったらはじける（本物のコースアウトと同じ）
+    [Tooltip("吹っ飛ばされた後、床の高さよりこれだけ下がったらはじける（FuwaBall.offCourseDrop と同じ）")]
+    public float offCourseDrop = 0.8f;
+    private bool _knocked;
+
+    public void KnockBall(Vector3 velocity, Color glow)
     {
         if (_popped || _skipCycle || ball == null) return;
+        StopCharge();
+        _v = velocity;
+        _flying = true;
+        _knocked = true;
+        _glowColor = glow;
+        _glowDir = velocity.sqrMagnitude > 0.0001f ? velocity.normalized : Vector3.up;
+        _glowAmount = 1f;
+    }
+
+    private void Pop(Vector3 p)
+    {
         _v = Vector3.zero;
         _flying = false;
         _popped = true;
-        Vector3 p = ball.position;
         if (popEffect != null) { popEffect.transform.position = p; popEffect.Play(); }
         if (popSound != null) { popSound.transform.position = p; popSound.Play(); }
     }

@@ -4,7 +4,8 @@ using VRC.SDKBase;
 
 // けだまの天敵。自分のPCだけで動く（自分を狙う敵は自分にしか見えない）
 
-// うろうろ → 近づくと溜め（ぷるぷる）→ 突進。人に当たると吹っ飛ばし、けだまに当たるとアウト。
+// うろうろ → けだまが近づくと溜め（ぷるぷる）→ けだまめがけて突進。けだまに当たると吹っ飛ばす（道の外まで飛べばアウト）。
+// 人は狙わないけど、突進の通り道にいたら人も吹っ飛ぶ。
 // エアガンで押し返せて、溜め中に当てるとひるむ。浮いてるので道の外に出しても落ちない。
 // 倒せるのはトゲに当てた時だけ（しばらくして元の場所に復活）。
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -41,13 +42,22 @@ public class FuwaEnemy : UdonSharpBehaviour
 
     [Header("当たった時")]
     public float playerHitRadius = 0.75f;
-    public float ballHitRadius = 0.5f;
+    [Tooltip("けだまに当たる距離（体の中心からけだまの中心まで）")]
+    public float ballHitRadius = 0.6f;
+    [Tooltip("体の中心の高さ（足元から）")]
+    public float bodyCenterUp = 0.3f;
+    [Tooltip("けだまを吹っ飛ばす速さ（横・上）")]
+    public float ballKnockback = 5.5f;
+    public float ballKnockUp = 1.2f;
+    [Tooltip("けだまの何m先に着地するように跳ぶか（跳ねの頂上あたりでけだまに当たる）")]
+    public float ballOvershoot = 0.6f;
+    [Tooltip("跳べる高さの上限(m)。これより高いけだまには届かない")]
+    public float maxHopHeight = 2.2f;
+    public Color ballHitGlow = new Color(0.75f, 0.35f, 1f);
     public float knockback = 7f;
     public float knockUp = 3f;
     [Tooltip("頭の上どこまで当たりにするか(m)")]
     public float hitAboveHead = 0.6f;
-    [Tooltip("プレイヤーの何m先に着地するように跳ぶか")]
-    public float dashOvershoot = 0.3f;
     [Tooltip("突進してない時に触れた時の跳ね返し")]
     public float bumpRadius = 0.5f;
     public float bumpPower = 3f;
@@ -115,6 +125,8 @@ public class FuwaEnemy : UdonSharpBehaviour
     private Vector3 _visualBase;
     private Vector3 _visualScale = Vector3.one;
     private bool _hitThisDash;
+    private bool _hitBallThisDash;
+    private float _dashHop = 1f;
     private float _groundY;
     private float _dashDuration = 0.8f;
 
@@ -179,11 +191,10 @@ public class FuwaEnemy : UdonSharpBehaviour
         // 溜めをやめた（プレイヤーが離れた・撃たれた）時は溜め音も止める
         if (_state == 1 && s != 1 && windupSound != null) windupSound.Stop();
         if (s == 5 && _state != 5 && fallSound != null) fallSound.Play();
-        // 溜め始め：この時のプレイヤーの方向に向きを固定する（溜めの途中で向きを変えない＝よけられる）
+        // 溜め始め：この時のけだまの方向に向きを固定する（溜めの途中で向きを変えない＝けだまを動かせばよけられる）
         if (s == 1)
         {
-            VRCPlayerApi lp = Networking.LocalPlayer;
-            Vector3 d = lp != null ? lp.GetPosition() - transform.position : transform.forward; d.y = 0f;
+            Vector3 d = ball != null ? ball.transform.position - transform.position : transform.forward; d.y = 0f;
             _lockDir = d.sqrMagnitude > 0.001f ? d.normalized : transform.forward;
             _lockDist = d.magnitude;
         }
@@ -199,15 +210,20 @@ public class FuwaEnemy : UdonSharpBehaviour
         if (local == null || !local.IsValid()) return;
         Vector3 chest = local.GetPosition() + Vector3.up * 1.0f;
         Vector3 toPlayer = chest - transform.position;
+        // 狙うのはけだま（運んでる最中だけ。待ってる・かくれてる・持ってる・ゴール後は狙わない）
+        bool ballLive = ball != null && !ball.IsWaitingOrHidden() && !ball.IsCarried() && !ball.IsFinished();
+        Vector3 toBall = ballLive ? ball.transform.position - (transform.position + Vector3.up * bodyCenterUp) : Vector3.one * 9999f;
+        Vector3 toBallFlat = toBall; toBallFlat.y = 0f;
 
-        // 黒目：近くにいれば自分（プレイヤーの頭）を見る
-        UpdatePupils(_state != 10 && toPlayer.magnitude < detectRange * 1.3f, local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, dt);
+        // 黒目：近くにけだまがあればけだまを、なければ自分（プレイヤーの頭）を見る
+        if (ballLive && toBall.magnitude < detectRange * 1.3f) UpdatePupils(_state != 10, ball.transform.position, dt);
+        else UpdatePupils(_state != 10 && toPlayer.magnitude < detectRange * 1.3f, local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, dt);
         // 倒されたら、プレイヤーがやられる／リスポーンするまで復活しない（Revive()で戻る）
         if (_state == 6) return;
 
         if (_state == 7) // かくれてる：近づいたら出てくる
         {
-            if (toPlayer.magnitude < popRange) { SetVisible(true); SetState(8); }
+            if (toPlayer.magnitude < popRange || toBallFlat.magnitude < popRange) { SetVisible(true); SetState(8); }
             return;
         }
         if (_state == 8) // 出てくる：床の下からぴょこっ（少し跳ねて着地）
@@ -270,9 +286,9 @@ public class FuwaEnemy : UdonSharpBehaviour
             float t = Time.time * 0.6f + _phase;
             Vector3 target = _home + new Vector3(Mathf.Sin(t) * wanderRadius, 0f, Mathf.Cos(t * 0.8f) * wanderRadius * 0.5f);
             transform.position = Vector3.Lerp(transform.position, target, 1f - Mathf.Exp(-3f * dt));
-            if (toPlayer.magnitude < detectRange && Time.time > _cooldownUntil && HasGroundBelow()) SetState(1);
+            if (ballLive && toBallFlat.magnitude < detectRange && Time.time > _cooldownUntil && HasGroundBelow()) SetState(1);
             // かくれる・寝る敵は、プレイヤーが離れてしばらくしたら元に戻る
-            else if ((hideInNest || sleeping) && toPlayer.magnitude > Mathf.Max(popRange, wakeRange) * 1.6f)
+            else if ((hideInNest || sleeping) && toPlayer.magnitude > Mathf.Max(popRange, wakeRange) * 1.6f && toBallFlat.magnitude > Mathf.Max(popRange, wakeRange) * 1.6f)
             {
                 if (_farSince < 0f) _farSince = Time.time;
                 else if (Time.time - _farSince > 2.5f)
@@ -286,14 +302,20 @@ public class FuwaEnemy : UdonSharpBehaviour
         }
         else if (_state == 1) // 溜め
         {
-            if (toPlayer.magnitude > detectRange * 1.3f) { SetState(0); }
+            if (!ballLive || toBallFlat.magnitude > detectRange * 1.3f) { SetState(0); }
             else if (_stateTime > windupTime)
             {
-                // 向きは溜め始めに決めた向き。跳ぶ長さは、溜め始めの距離（少し行き過ぎるくらい）
+                // 向きは溜め始めに決めた向き。跳ぶ長さは、今のけだまのその向きの距離より少し先まで
                 _dashDir = _lockDir;
-                _dashDuration = Mathf.Clamp((_lockDist + dashOvershoot) / dashSpeed, 0.3f, dashTime);
+                float along = Mathf.Max(0.5f, Vector3.Dot(toBallFlat, _lockDir));
+                _dashDuration = Mathf.Clamp((along + ballOvershoot) / dashSpeed, 0.3f, dashTime);
                 _groundY = transform.position.y;
+                // 跳ねの高さ：けだまの所を通る時に、けだまの高さになるように（高すぎるけだまには届かない）
+                float xb = Mathf.Clamp(along / (dashSpeed * _dashDuration), 0.2f, 0.9f);
+                float need = ball.transform.position.y - (_groundY + bodyCenterUp);
+                _dashHop = Mathf.Clamp(need / (4f * xb * (1f - xb)), hopHeight * 0.6f, maxHopHeight);
                 _hitThisDash = false;
+                _hitBallThisDash = false;
                 if (dashSound != null) dashSound.Play();
                 SetState(2);
             }
@@ -303,9 +325,10 @@ public class FuwaEnemy : UdonSharpBehaviour
         {
             Vector3 p = transform.position + _dashDir * dashSpeed * dt;
             float x = Mathf.Clamp01(_stateTime / _dashDuration);
-            p.y = _groundY + hopHeight * 4f * x * (1f - x);
+            p.y = _groundY + _dashHop * 4f * x * (1f - x);
             transform.position = p;
             if (!_hitThisDash) CheckHits(local);
+            if (!_hitBallThisDash && ballLive && toBall.magnitude < ballHitRadius) HitBall();
             if (_stateTime > _dashDuration)
             {
                 // 着地先に道がなければ落ちる
@@ -345,10 +368,11 @@ public class FuwaEnemy : UdonSharpBehaviour
             if ((closest - transform.position).magnitude < bumpRadius) Bump(local);
         }
 
-        // 見た目：プレイヤーの方を向く、溜め中は震える
-        if (toPlayer.sqrMagnitude > 0.01f && _state != 5)
+        // 見た目：けだまの方を向く（近くになければプレイヤーの方）、溜め中は震える
+        Vector3 faceTo = (ballLive && toBallFlat.magnitude < detectRange * 1.3f) ? toBallFlat : toPlayer;
+        if (faceTo.sqrMagnitude > 0.01f && _state != 5)
         {
-            Vector3 flat = toPlayer; flat.y = 0f;
+            Vector3 flat = faceTo; flat.y = 0f;
             if (_state == 1 || _state == 2) flat = _lockDir;   // 溜め・突進中は決めた向きのまま
             if (flat.sqrMagnitude > 0.001f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(flat), 1f - Mathf.Exp(-8f * dt));
         }
@@ -400,6 +424,15 @@ public class FuwaEnemy : UdonSharpBehaviour
         if (_hitThisDash) return;
         local.SetVelocity(_dashDir * knockback + Vector3.up * knockUp);
         _hitThisDash = true;
+        _squashUntil = Time.time + 0.35f;
+        if (hitSound != null) hitSound.Play();
+    }
+
+    // 突進がけだまに当たった：吹っ飛ばす（道の外まで飛べばアウト、道の上なら立て直せる）
+    private void HitBall()
+    {
+        _hitBallThisDash = true;
+        ball.LaunchTinted(_dashDir * ballKnockback + Vector3.up * ballKnockUp, ballHitGlow);
         _squashUntil = Time.time + 0.35f;
         if (hitSound != null) hitSound.Play();
     }

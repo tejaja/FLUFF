@@ -50,8 +50,8 @@ public static class FuwaPracticeTutorial
             "<size=130%><color=#FF6B5C>横風に注意</color></size>\n風でふわふわが流される\n風上に向けて撃つと\nねらった所に届く",
             "<size=130%><color=#FF6B5C>Crosswind</color></size>\nThe wind pushes the fluff sideways\nAim a little upwind\nto reach your mark"),
         new Bay(0f, "Monster",
-            "<size=130%><color=#FF6B5C>まものに注意</color></size>\nふわふわに体当たりされるとアウト\nぷるぷるしたら\n撃って押し返そう",
-            "<size=130%><color=#FF6B5C>Watch out for monsters</color></size>\nIf one rams your fluff, you're out\nWhen it starts to wobble,\nshoot it back!"),
+            "<size=130%><color=#FF6B5C>まものに注意</color></size>\nふわふわめがけて体当たりしてくる\nぷるぷるしたら\n撃って押し返そう",
+            "<size=130%><color=#FF6B5C>Watch out for monsters</color></size>\nThey ram your fluff away\nWhen one starts to wobble,\nshoot it back!"),
         // 「溜めると吸い寄せる」は 2026-10-08 に仕組みごとなくした（端撃ちのじゃまになるので。chargePull=0）
     };
 
@@ -929,7 +929,7 @@ public static class FuwaPracticeTutorial
             case "Monster":
             {
                 // 2台ならべる。どちらもふわふわの前へ見た目だけのまもの（コースの FuwaEnemy のコピー）が寄ってきて、ぷるぷる溜める。
-                // 左：だれも撃たない（銃なし）→ 体当たりでふわふわがはじける／右：ぷるぷるの間に銃がちょん押し → 押し返されて目を回す
+                // 左：だれも撃たない（銃なし）→ 体当たりでふわふわが吹っ飛ばされて落ちる／右：ぷるぷるの間に銃がちょん押し → 押し返されて目を回す
                 var lat = Vector3.Cross(Vector3.up, along).normalized;
                 var enemySrc = Object.FindObjectsOfType<FuwaEnemy>(true).First(e => !e.sleeping && !e.hideInNest);
                 const float ShotAt = 2.1f;
@@ -942,7 +942,7 @@ public static class FuwaPracticeTutorial
                     Vector3 bo = new Vector3(shoots ? -0.45f : 0f, -0.35f, shoots ? 0.15f : 0.3f);
                     MakeLane(bayRoot, ln, basePos, along, 0.95f, bo, shoots ? new[] { ShotAt } : new float[0], shoots ? new[] { 0f } : new float[0], null, null, false, tmpl, ballSrc, floorTop);
                     var lane = bayRoot.Find(ln); var ds = lane.GetComponent<FuwaDemoStand>();
-                    SetUF(ds, "cycleLength", 4.6f);
+                    SetUF(ds, "cycleLength", 5.8f);
                     var bs = lane.Find("BallStart"); var gun = lane.Find("DemoGun"); var nz = gun.Find("Nozzle");
                     Vector3 wind = bs.position + along * 1.0f; wind.y = IslandTop + 0.25f;
                     Vector3 homeP = wind + along * 1.0f;
@@ -968,6 +968,20 @@ public static class FuwaPracticeTutorial
                     if (wsfx != null) SetU(dm, "windupSound", wsfx.GetComponent<AudioSource>());
                     if (jsfx != null) SetU(dm, "dashSound", jsfx.GetComponent<AudioSource>());
                     if (bsfx != null) SetU(dm, "blownSound", bsfx.GetComponent<AudioSource>());
+                    // ふわふわに当たった時の音（本物はまものの本体に付いている AudioSource）
+                    if (enemySrc.hitSound != null)
+                    {
+                        var hsfx = Object.Instantiate(enemySrc.hitSound.gameObject, mon, false);
+                        hsfx.name = "HitSfx";
+                        foreach (Transform ch in hsfx.transform.Cast<Transform>().ToArray()) Object.DestroyImmediate(ch.gameObject);
+                        foreach (var c in hsfx.GetComponents<Component>()) if (!(c is Transform) && !(c is AudioSource)) Object.DestroyImmediate(c);
+                        hsfx.transform.localPosition = Vector3.zero; hsfx.transform.localRotation = Quaternion.identity;
+                        SetU(dm, "hitSound", hsfx.GetComponent<AudioSource>());
+                    }
+                    SetUF(dm, "dashSpeed", enemySrc.dashSpeed); SetUF(dm, "hopHeight", enemySrc.hopHeight);
+                    SetUF(dm, "maxHopHeight", enemySrc.maxHopHeight); SetUF(dm, "ballOvershoot", enemySrc.ballOvershoot);
+                    SetUF(dm, "ballHitRadius", enemySrc.ballHitRadius);
+                    SetUF(dm, "ballKnockback", enemySrc.ballKnockback); SetUF(dm, "ballKnockUp", enemySrc.ballKnockUp);
                     SetUF(dm, "shotAt", shoots ? ShotAt : -1f);
                     Sync(dm);
                 }
