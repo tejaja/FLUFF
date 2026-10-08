@@ -18,7 +18,7 @@ public static class FuwaBakeSetup
     // 自分は動かず、参照している物（輪っか等）だけ動かすスクリプト
     static readonly HashSet<string> RefOnlyTypes = new HashSet<string> { "FuwaWebHole" };
     const float FarScale = 0.25f;
-    static readonly string[] SmallDecoMeshes = { "Practice_EdgeProps", "Mamono_", "Kaze_", "Deco_" };
+    static readonly string[] SmallDecoMeshes = { "Practice_EdgeProps", "PracticeProp_", "Mamono_", "Kaze_", "Deco_" };   // PracticeProp_：チュートリアルの本番の道のマシュマロ等（EdgeProps を1個ずつに分けた物。焼くとムラになった 2026-10-09）
 
     [MenuItem("FuwaCourse/ベイクの準備（Static・ライトマップUV）")]
     public static void RunMenu() { Debug.Log(Run()); }
