@@ -420,6 +420,21 @@ public static class FuwaPracticeTutorial
         At(pts, dist, 0f, out var e0, out var ef);
         var entrance = Island("Entrance", e0, true);
         var er = new Vector3(ef.z, 0, -ef.x);
+        // ほかのコースのスタートと同じ形にする（2026-10-08 てじゃ「せまい」「キノコだけなくす、小さいのも含め」）：
+        // かぜのみちのスタートの柵・後ろの橋・ワープの小島を、地面の位置を合わせてコピー（キノコは持ってこない）
+        var c1Start = scene.GetRootGameObjects().First(g => g.name == "FuwaCourse").transform.Find("Start");
+        var c1Area = c1Start.Find("StartArea");
+        Quaternion eRot = Quaternion.LookRotation(ef);
+        Quaternion rel1 = eRot * Quaternion.Inverse(c1Start.rotation);
+        Vector3 g1 = c1Area.Find("Ground").position, gE = entrance.Find("Ground").position;
+        Vector3 MapC1(Vector3 p) { return gE + rel1 * (p - g1); }
+        foreach (var n in new[] { "Fence", "FenceCollider", "Bridge", "BridgeWood", "WarpGround", "IslandUnder_Warp" })
+        {
+            var src = c1Area.Find(n); if (src == null) continue;
+            var c = Dup(src, entrance, n); c.SetActive(true);
+            c.transform.SetPositionAndRotation(MapC1(src.position), rel1 * src.rotation);
+        }
+        Vector3 lobbyPad = MapC1(c1Start.Find("WarpToLobby").position);
         var spot = new GameObject("PlayerSpot").transform; spot.SetParent(entrance, false);
         var sp0 = e0 - ef * 1.0f; spot.position = new Vector3(sp0.x, 3.0f, sp0.z); spot.rotation = Quaternion.LookRotation(ef);
         // 銃の台：スタートの島での「PlayerSpot から見た位置・向き」をそのまま入口の島へ
@@ -468,8 +483,12 @@ public static class FuwaPracticeTutorial
             return w;
         }
         var startSpot = start.Find("PlayerSpot"); var ballStart = start.Find("BallStart");
-        MakeWarp("WarpToLobby", e0 - ef * 0.9f - er * 1.9f + Vector3.up * 0.02f, "ロビーにもどる", "Back to Lobby", null, null, null, true);
-        MakeWarp("SkipTutorial", e0 - ef * 0.9f + er * 1.9f + Vector3.up * 0.02f, "説明をとばす", "Skip", startSpot, ballStart, gsSrc.Find("GunSpot"), false);
+        // ロビーへのワープは、ほかのコースと同じく後ろの小島に
+        MakeWarp("WarpToLobby", lobbyPad, "ロビーにもどる", "Back to Lobby", null, null, null, true);
+        // 説明をとばすワープは、入って左前（銃の台は右前）。入った所から視界に入るように前寄り
+        var skip = MakeWarp("SkipTutorial", e0 + ef * 1.3f - er * 1.35f + Vector3.up * 0.02f, "説明をとばす", "Skip", startSpot, ballStart, gsSrc.Find("GunSpot"), false);
+        // 入った所のすぐ前なので、ふつうの大きさ・高さだと目の前をふさぐ。小さめ・低めに
+        var skipLab = skip.Find("Label"); skipLab.localScale *= 0.6f; skipLab.position = skip.position + Vector3.up * 1.05f;
         if (warpLabel != null) warpLabel.gameObject.SetActive(false);
 
         // ロビーの「チュートリアル」ワープの行き先を入口の島に
