@@ -17,6 +17,13 @@ public class FuwaModeCounter : UdonSharpBehaviour
     public int[] labelAreas;
     [TextArea] public string[] labelsJa;
     [TextArea] public string[] labelsEn;
+    [Header("UIボタン（レーザーで押す版）に人数を出す")]
+    public TextMeshProUGUI[] uiLabels;
+    public int[] uiLabelAreas;
+    [TextArea] public string[] uiLabelsJa;
+    [TextArea] public string[] uiLabelsEn;
+    [Tooltip("UIボタンの人数の色（ボタンの地の色の上で読める色）")]
+    public string uiCountColor = "#FFFFFFCC";
 
     private float _next;
 
@@ -49,17 +56,31 @@ public class FuwaModeCounter : UdonSharpBehaviour
         }
 
         bool en = language != null && language.IsEnglish();
-        if (labels == null) return;
-        for (int i = 0; i < labels.Length; i++)
+        if (labels != null)
         {
-            if (labels[i] == null) continue;
-            int a = (labelAreas != null && i < labelAreas.Length) ? labelAreas[i] : 1;
-            int n = a == 2 ? versus : adventure;
-            string baseText = en ? Get(labelsEn, i) : Get(labelsJa, i);
-            string count = en ? (n + (n == 1 ? " player" : " players") + " now") : ("いま " + n + "人");
-            string s = baseText + "\n<size=55%><color=#FF8A7A>● " + count + "</color></size>";
-            if (labels[i].text != s) labels[i].text = s;
+            for (int i = 0; i < labels.Length; i++)
+            {
+                if (labels[i] == null) continue;
+                int a = (labelAreas != null && i < labelAreas.Length) ? labelAreas[i] : 1;
+                string s = (en ? Get(labelsEn, i) : Get(labelsJa, i)) + "\n<size=55%><color=#FF8A7A>● " + CountText(a == 2 ? versus : adventure, en) + "</color></size>";
+                if (labels[i].text != s) labels[i].text = s;
+            }
         }
+        if (uiLabels != null)
+        {
+            for (int i = 0; i < uiLabels.Length; i++)
+            {
+                if (uiLabels[i] == null) continue;
+                int a = (uiLabelAreas != null && i < uiLabelAreas.Length) ? uiLabelAreas[i] : 1;
+                string s = (en ? Get(uiLabelsEn, i) : Get(uiLabelsJa, i)) + "  <size=70%><color=" + uiCountColor + ">● " + CountText(a == 2 ? versus : adventure, en) + "</color></size>";
+                if (uiLabels[i].text != s) uiLabels[i].text = s;
+            }
+        }
+    }
+
+    private string CountText(int n, bool en)
+    {
+        return en ? (n + (n == 1 ? " player" : " players") + " now") : ("いま " + n + "人");
     }
 
     private string Get(string[] arr, int i)

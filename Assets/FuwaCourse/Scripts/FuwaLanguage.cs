@@ -13,6 +13,10 @@ public class FuwaLanguage : UdonSharpBehaviour
     public TextMeshPro[] texts;
     [TextArea] public string[] ja;
     [TextArea] public string[] en;
+    [Tooltip("UIボタン（レーザーで押す版）の文字。uiJa / uiEn と同じ順番で")]
+    public TextMeshProUGUI[] uiTexts;
+    [TextArea] public string[] uiJa;
+    [TextArea] public string[] uiEn;
 
     [Tooltip("「アウト！」などのメッセージを切り替えるため")]
     public FuwaBall ball;
@@ -106,6 +110,15 @@ public class FuwaLanguage : UdonSharpBehaviour
             for (int i = 0; i < n; i++)
             {
                 if (texts[i] != null) texts[i].text = src[i];
+            }
+        }
+        string[] uiSrc = _english ? uiEn : uiJa;
+        if (uiTexts != null && uiSrc != null)
+        {
+            int n = Mathf.Min(uiTexts.Length, uiSrc.Length);
+            for (int i = 0; i < n; i++)
+            {
+                if (uiTexts[i] != null) uiTexts[i].text = uiSrc[i];
             }
         }
         if (ball != null) ball.english = _english;
