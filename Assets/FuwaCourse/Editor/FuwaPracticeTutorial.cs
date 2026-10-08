@@ -412,9 +412,9 @@ public static class FuwaPracticeTutorial
             var leg = GameObject.CreatePrimitive(PrimitiveType.Cylinder); leg.name = "Leg"; Object.DestroyImmediate(leg.GetComponent<Collider>());
             leg.transform.SetParent(sign, false); leg.transform.localPosition = new Vector3(0, 0.55f, 0.03f); leg.transform.localScale = new Vector3(0.07f, 0.55f, 0.07f);
             leg.GetComponent<Renderer>().sharedMaterial = Mat("Course_Wood");
-            // ためし撃ちの場所（区画の手前寄り：前へ撃つ余裕をとる）と、そこへふわふわを呼ぶ範囲（区画まるごと）
+            // ためし撃ちの場所（区画のまん中の少し手前）と、そこへふわふわを呼ぶ範囲（区画まるごと）
             var trySpot = new GameObject("TrySpot").transform; trySpot.SetParent(bayRoot, false);
-            At(pts, dist, S(bayS[bi] - 2.0f), out var tc, out var tf);
+            At(pts, dist, S(bayS[bi] - 0.5f), out var tc, out var tf);
             trySpot.position = tc + Vector3.up * (bay.key == "Down" ? 0.4f : 1.15f); trySpot.rotation = Quaternion.LookRotation(tf);
             var zone = new GameObject("TryZone"); zone.transform.SetParent(bayRoot, false);
             zone.transform.position = c + Vector3.up * 1.2f; zone.transform.rotation = Quaternion.LookRotation(f);
@@ -471,7 +471,8 @@ public static class FuwaPracticeTutorial
         Vector3 side = Vector3.Cross(Vector3.up, dir);
         float shift = Vector3.Dot(lineThrough - center, side);   // 銃口の線の、島の中心からの横のずれ
         var V = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>();
-        var go = new GameObject("DirStripes"); go.transform.SetParent(parent, false); go.transform.position = center;
+        // 頂点はワールドの向きで作るので、物体の回転はワールドで0にする（親のコースの回転がかかると向きがずれる）
+        var go = new GameObject("DirStripes"); go.transform.SetParent(parent, false); go.transform.position = center; go.transform.rotation = Quaternion.identity;
         for (int k = -10; k <= 10; k++)
         {
             if ((k & 1) != 0) continue;
