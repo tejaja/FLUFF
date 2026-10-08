@@ -11,8 +11,8 @@ public class FuwaSunFace : UdonSharpBehaviour
     public Transform sunLight;
     [Tooltip("太陽の中心から何度以内を撃ったら当たりにするか（太陽の円は半径5度、トゲまで約9度）")]
     public float hitAngle = 10f;
-    [Tooltip("＞＜になっている秒数")]
-    public float holdTime = 1.6f;
+    [Tooltip("＞＜になっている秒数（2026-10-09 1.6→0.8 てじゃ「ちょっと長い」）")]
+    public float holdTime = 0.8f;
     public float inTime = 0.06f;
     public float outTime = 0.25f;
     [Tooltip("トゲが1回ピョンと跳ねる時間(秒)と大きさ（2026-10-07 前はずっとぷるぷるしていた）")]
