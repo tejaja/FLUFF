@@ -93,7 +93,86 @@ public static class FuwaPracticeTutorial
         fwd = new Vector3(d.x, 0f, d.y);
     }
 
-    // ---------- 道のメッシュ（上面はしましま2色＝サブメッシュ2つ、側面と底はA） ----------
+    // ---------- 見た目の道：ほかのコース（FuwaCourse1Builder / FuwaCourse3Builder）と同じ、上の角を丸めた断面 ----------
+    // 半径 Bevel・BevelSteps 段の丸め。両はしは島の中に埋まるので丸めない（ふたをする）。当たり判定は PathMesh（角あり）
+    const float Bevel = 0.08f;
+    const int BevelSteps = 4;
+
+    static List<Vector4> BevelProfile()
+    {
+        float W = HalfW;
+        // (横, 高さ, 法線の横, 法線の上)
+        var prof = new List<Vector4> { new Vector4(-W, -Thick, -1, 0) };
+        for (int i = 0; i <= BevelSteps; i++) { float a = Mathf.PI - (Mathf.PI / 2) * i / BevelSteps; prof.Add(new Vector4(-W + Bevel + Bevel * Mathf.Cos(a), -Bevel + Bevel * Mathf.Sin(a), Mathf.Cos(a), Mathf.Sin(a))); }
+        for (int i = 0; i <= BevelSteps; i++) { float a = Mathf.PI / 2 - (Mathf.PI / 2) * i / BevelSteps; prof.Add(new Vector4(W - Bevel + Bevel * Mathf.Cos(a), -Bevel + Bevel * Mathf.Sin(a), Mathf.Cos(a), Mathf.Sin(a))); }
+        prof.Add(new Vector4(W, -Thick, 1, 0));
+        return prof;
+    }
+
+    static Mesh BevelPathMesh(List<Vector2> pts, List<float> dist, Matrix4x4 toLocal)
+    {
+        float len = dist[dist.Count - 1];
+        // 断面を置く位置：0.2m刻み＋しまの境目（境目で色がちょうど切り替わるように）
+        var st = new List<float>();
+        int segs = Mathf.CeilToInt(len / 0.2f);
+        for (int k = 0; k <= segs; k++) st.Add(len * k / segs);
+        for (float b = Stripe; b < len - 1e-3f; b += Stripe) st.Add(b);
+        st.Sort();
+        for (int i = st.Count - 1; i > 0; i--) if (st[i] - st[i - 1] < 1e-3f) st.RemoveAt(i);
+
+        var prof = BevelProfile(); int P = prof.Count;
+        var V = new List<Vector3>(); var N = new List<Vector3>(); var UV = new List<Vector2>();
+        var A = new List<int>(); var B = new List<int>();
+        var rings = new List<int>();
+        foreach (float s in st)
+        {
+            At(pts, dist, s, out var c, out var f);
+            var right = new Vector3(f.z, 0f, -f.x);
+            rings.Add(V.Count);
+            foreach (var q in prof)
+            {
+                V.Add(toLocal.MultiplyPoint3x4(c + right * q.x + Vector3.up * q.y));
+                N.Add(toLocal.MultiplyVector(right * q.z + Vector3.up * q.w).normalized);
+                UV.Add(new Vector2(q.x, s));
+            }
+        }
+        for (int r = 0; r < st.Count - 1; r++)
+        {
+            int stripe = Mathf.FloorToInt(((st[r] + st[r + 1]) * 0.5f) / Stripe) % 2;
+            var T = stripe == 0 ? A : B;
+            int ra = rings[r], rb = rings[r + 1];
+            for (int i = 0; i < P - 1; i++) { int x0 = ra + i, x1 = ra + i + 1, y0 = rb + i, y1 = rb + i + 1; T.AddRange(new[] { x0, y0, x1, x1, y0, y1 }); }
+            // 底
+            int bb = V.Count; var down = toLocal.MultiplyVector(Vector3.down).normalized;
+            foreach (int idx in new[] { ra, rb }) { V.Add(V[idx]); V.Add(V[idx + P - 1]); N.Add(down); N.Add(down); UV.Add(Vector2.zero); UV.Add(Vector2.zero); }
+            A.AddRange(new[] { bb, bb + 1, bb + 2, bb + 1, bb + 3, bb + 2 });
+        }
+        // 両はしのふた（扇形）
+        foreach (var (ri, sign) in new[] { (0, -1f), (st.Count - 1, 1f) })
+        {
+            At(pts, dist, st[ri], out _, out var f);
+            var nrm = toLocal.MultiplyVector(f * sign).normalized;
+            int cb = V.Count;
+            for (int i = 0; i < P; i++) { V.Add(V[rings[ri] + i]); N.Add(nrm); UV.Add(Vector2.zero); }
+            for (int i = 1; i < P - 1; i++) A.AddRange(new[] { cb, cb + i, cb + i + 1 });
+        }
+        // 三角形の向きを、決めた法線にそろえる
+        foreach (var T in new[] { A, B })
+            for (int i = 0; i < T.Count; i += 3)
+            {
+                Vector3 p0 = V[T[i]], p1 = V[T[i + 1]], p2 = V[T[i + 2]];
+                Vector3 want = N[T[i]] + N[T[i + 1]] + N[T[i + 2]];
+                if (Vector3.Dot(Vector3.Cross(p1 - p0, p2 - p0), want) < 0f) { int tmp = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = tmp; }
+            }
+        var m = new Mesh { name = "Course0_TutorialPath_Bevel" };
+        m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        m.SetVertices(V); m.SetNormals(N); m.SetUVs(0, UV);
+        m.subMeshCount = 2; m.SetTriangles(A, 0); m.SetTriangles(B, 1);
+        m.RecalculateBounds(); m.RecalculateTangents();
+        return m;
+    }
+
+    // ---------- 当たり判定の道（角あり。上面はしましま2色＝サブメッシュ2つ、側面と底はA） ----------
     static Mesh PathMesh(List<Vector2> pts, List<float> dist, Matrix4x4 toLocal)
     {
         float len = dist[dist.Count - 1];
@@ -290,14 +369,18 @@ public static class FuwaPracticeTutorial
         // ---------- 道（入口の島〜ゴールの島まで一本） ----------
         var pathGo = new GameObject("TutorialPath");
         pathGo.transform.SetParent(root, false);
-        var mesh = PathMesh(pts, dist, pathGo.transform.worldToLocalMatrix);
-        string meshPath = MeshDir + "/Course0_TutorialPath.asset";
-        var existing = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
-        if (existing != null) { existing.Clear(); EditorUtility.CopySerialized(mesh, existing); mesh = existing; }
-        else AssetDatabase.CreateAsset(mesh, meshPath);
+        Mesh SaveMesh(Mesh m, string path)
+        {
+            var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if (ex == null) { AssetDatabase.CreateAsset(m, path); return m; }
+            FuwaBevelTools.CopyInto(ex, m); ex.UploadMeshData(false); EditorUtility.SetDirty(ex); return ex;
+        }
+        // 見た目は角を丸めた道（ほかのコースとそろえる）、当たり判定は角ありの箱
+        var mesh = SaveMesh(BevelPathMesh(pts, dist, pathGo.transform.worldToLocalMatrix), MeshDir + "/Course0_TutorialPath_Bevel.asset");
+        var colMesh = SaveMesh(PathMesh(pts, dist, pathGo.transform.worldToLocalMatrix), MeshDir + "/Course0_TutorialPath.asset");
         pathGo.AddComponent<MeshFilter>().sharedMesh = mesh;
         pathGo.AddComponent<MeshRenderer>().sharedMaterials = new[] { Mat("Course0_PathA"), Mat("Course0_PathB") };
-        pathGo.AddComponent<MeshCollider>().sharedMesh = mesh;
+        pathGo.AddComponent<MeshCollider>().sharedMesh = colMesh;
         pathGo.layer = 11;
         log.Add($"path {len:0.0}m");
 
