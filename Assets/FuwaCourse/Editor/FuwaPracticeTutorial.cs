@@ -632,6 +632,25 @@ public static class FuwaPracticeTutorial
                 var wr = new Vector3(wf.z, 0f, -wf.x);
                 var wdir = wr * Mathf.Cos(FinWindAngle * Mathf.Deg2Rad) + wf * Mathf.Sin(FinWindAngle * Mathf.Deg2Rad);
                 MakeWindZone(fin, pts, dist, dm, wdir, course, log, FinWindLen, FinHalfW, FinWindStrength, "Tutorial_FinalWindHighlight");
+                // 吹き流し（かぜのみちの Windsock0 のコピー）：風の入口の左（風上）のふち。風が吹いている向きになびく
+                var wsSrc = Object.FindObjectsOfType<FuwaWindDeco>(true).FirstOrDefault(w => w.name == "Windsock0");
+                if (wsSrc != null)
+                {
+                    float uWs = uWind0 + 1.2f;
+                    At(pts, dist, D(uWs), out var wc, out var wf2);
+                    var wl = -new Vector3(wf2.z, 0f, -wf2.x);
+                    var ws = Object.Instantiate(wsSrc.gameObject, fin, false); ws.name = "Windsock"; ws.SetActive(true);
+                    ws.transform.position = wc + wl * (FinHalfW - 0.3f);
+                    ws.transform.rotation = Quaternion.LookRotation(wf2);
+                    var wd = ws.GetComponent<FuwaWindDeco>();
+                    SetU(wd, "wind", fin.Find("WindZone").GetComponent<FuwaWindArea>());
+                    var wso = new SerializedObject(wd);
+                    wso.FindProperty("fixedDirection").vector3Value = wdir.normalized;
+                    wso.FindProperty("droopAway").vector3Value = wl;   // 風がない時は道の外へ垂れる
+                    wso.ApplyModifiedPropertiesWithoutUndo();
+                    Sync(wd);
+                }
+
             }
             // 道の右端にまもの、その背後（さらに右＝道のふち）にイバラ。撃ってイバラへ押し込むと倒せる
             {
@@ -666,6 +685,83 @@ public static class FuwaPracticeTutorial
                 bso.ApplyModifiedPropertiesWithoutUndo(); Sync(ball);
                 log.Add($"monster+brambles at u={uMon:0.0}, enemies {keep.Count}");
             }
+        }
+
+        // ---------- 本番の道の飾り：前のれんしゅうコースの小物（マカロンの塔・ぺろぺろキャンディ・草花）を道のふちに ----------
+        // 説明の小道には置かない（てじゃ「説明ゾーンはシンプルに無し」）。島・溝・チェックポイント・まものの側は避ける
+        {
+            var deco = new GameObject("FinalDeco").transform; deco.SetParent(root, false);
+            var props = PracticeProps();   // 小物ごとのメッシュ（根元が原点）
+            var candy = course.Find("EdgeProps/Visual").GetComponent<MeshRenderer>().sharedMaterials;
+            var clusters = course.Find("Deco").Cast<Transform>().ToList();
+            var rnd = new System.Random(23);
+            bool Free(float u, int side)
+            {
+                if (u < 5f || u > uGoal - 4.5f) return false;                                   // 島の近く
+                if (u > uGroove0 - 1.5f && u < uGroove1 + 1.5f) return false;                    // 溝
+                if (Mathf.Abs(u - uCp) < 1.8f) return false;                                     // チェックポイントの丸太
+                if (side > 0 && u > uMon - 3.5f && u < uMon + 3.5f) return false;                // まもの・イバラ（右）
+                if (side < 0 && Mathf.Abs(u - (uWind0 + 1.2f)) < 2f) return false;               // 吹き流し（左）
+                if (side > 0 && u > uWind0 - 1f && u < uWind1 + 2f) return false;               // 横風の風下（右）：流されたふわふわが小物に当たってアウトにならないように
+                return true;
+            }
+            Physics.SyncTransforms();
+            float GroundY(Vector3 p) { return Physics.Raycast(p + Vector3.up * 1.5f, Vector3.down, out var h, 4f, 1 << 11, QueryTriggerInteraction.Ignore) ? h.point.y : p.y; }
+            int np = 0, nc = 0, pi = 0;
+            // 大きい小物：左右交互に約4.5mおき
+            int sideA = -1;
+            for (float u = 5.5f; u < uGoal - 4.5f; u += 4.5f, sideA = -sideA)
+            {
+                int side = sideA;
+                if (!Free(u, side)) { side = -side; if (!Free(u, side)) continue; }
+                At(pts, dist, D(u), out var c, out var f);
+                var r = new Vector3(f.z, 0f, -f.x);
+                var pm = props[pi++ % props.Count];
+                float rad = Mathf.Max(pm.bounds.extents.x, pm.bounds.extents.z);
+                var p = c + r * side * (PathHalfW(D(u)) - rad - 0.15f);
+                var g = new GameObject("Prop" + np); g.transform.SetParent(deco, false);
+                g.transform.position = new Vector3(p.x, GroundY(p) - 0.01f, p.z);
+                g.transform.rotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+                g.AddComponent<MeshFilter>().sharedMesh = pm;
+                g.AddComponent<MeshRenderer>().sharedMaterials = candy;
+                // 当たり判定：元のれんしゅうと同じく道のレイヤー（ふわふわが当たるとアウト、人は通れない）
+                var cap = g.AddComponent<CapsuleCollider>();
+                cap.radius = rad * 0.8f; cap.height = pm.bounds.size.y; cap.center = new Vector3(0f, pm.bounds.size.y * 0.5f, 0f);
+                g.layer = 11;
+                np++;
+            }
+            // 草花：左右に約2.6mおき（小物とずらして）
+            for (float u = 6.8f; u < uGoal - 4.5f; u += 2.6f)
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    float uu = u + (side > 0 ? 1.3f : 0f);
+                    if (!Free(uu, side) || rnd.NextDouble() < 0.25) continue;
+                    At(pts, dist, D(uu), out var c, out var f);
+                    var r = new Vector3(f.z, 0f, -f.x);
+                    var src = clusters[rnd.Next(clusters.Count)];
+                    var gcl = Object.Instantiate(src.gameObject, deco, false); gcl.name = "Grass" + nc; gcl.SetActive(true);
+                    var p = c + r * side * (PathHalfW(D(uu)) - 0.45f);
+                    gcl.transform.SetPositionAndRotation(p, Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f));
+                    // 草花は1本ずつ地面に置き直す（坂でも浮かないように）。道から外れる物は消す
+                    foreach (Transform ch in gcl.transform.Cast<Transform>().ToList())
+                    {
+                        var w = ch.position;
+                        if (ch.name.StartsWith("Deco_Vines"))
+                        {
+                            // ツタは上の端（原点）を道のふちちょうどに置いて、道の横に垂らす（元のれんしゅうと同じ）
+                            float ds = D(uu) + Vector3.Dot(w - c, f);
+                            At(pts, dist, ds, out var ec, out var ef2);
+                            var er2 = new Vector3(ef2.z, 0f, -ef2.x) * side;
+                            ch.SetPositionAndRotation(ec + er2 * PathHalfW(ds) + Vector3.up * 0.01f, Quaternion.LookRotation(er2));
+                            continue;
+                        }
+
+                        if (!Physics.Raycast(w + Vector3.up * 1.5f, Vector3.down, out var h, 4f, 1 << 11, QueryTriggerInteraction.Ignore) || h.point.y < c.y - 0.3f || h.collider.name.StartsWith("Prop")) { Object.DestroyImmediate(ch.gameObject); continue; }   // 道から外れる・小物にかぶる物は消す
+                        ch.position = new Vector3(w.x, h.point.y - 0.005f, w.z);
+                    }
+                    nc++;
+                }
+            log.Add($"final deco props {np}, grass {nc}");
         }
 
         // ---------- 落ちた時の受け止め：れんしゅうの FallCatcher を一本道の下に合わせる ----------
@@ -792,7 +888,74 @@ public static class FuwaPracticeTutorial
 
     // 区画の道の上に本物の横風（ためし撃ちのふわふわが流される）。見た目はコース1の横風（G3_CrossRight）と同じ：地面の＞＞＞と風の粒
     // dMid：道の上の距離（風の箱のまん中）、len：道に沿った長さ、halfW：道の半分の幅、meshName：地面の＞＞＞のメッシュの名前（区画ごとに別）
-    static void MakeWindZone(Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 windDir, Transform course, List<string> log, float len, float halfW, float strength, string meshName)
+    // 前のれんしゅうコースの小物（EdgeProps/Visual にまとめてあるメッシュ）を、1つずつのメッシュに分ける（根元のまん中が原点）
+    // つながっている部品ごとに分けて、横に重なる部品（棒と飴、積んだマカロン）を1つの小物にまとめる
+    static List<Mesh> PracticeProps()
+    {
+        var res = new List<Mesh>();
+        for (int i = 0; ; i++)
+        {
+            var ex = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/PracticeProp_" + i + ".asset");
+            if (ex == null) break;
+            res.Add(ex);
+        }
+        if (res.Count > 0) return res;
+        var vis = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Visual" && t.parent != null && t.parent.name == "EdgeProps" && t.parent.parent != null && t.parent.parent.name == Course);
+        var src = vis.GetComponent<MeshFilter>().sharedMesh; var tr = vis.transform;
+        var v = src.vertices; var nrm = src.normals; var uv = src.uv; var col = src.colors; var tri = src.triangles;
+        int n = v.Length;
+        var parent = Enumerable.Range(0, n).ToArray();
+        int Find(int a) { while (parent[a] != a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; }
+        var weld = new Dictionary<Vector3Int, int>();
+        for (int i = 0; i < n; i++) { var k = new Vector3Int(Mathf.RoundToInt(v[i].x * 1000), Mathf.RoundToInt(v[i].y * 1000), Mathf.RoundToInt(v[i].z * 1000)); if (weld.TryGetValue(k, out int j)) parent[Find(i)] = Find(j); else weld[k] = i; }
+        for (int i = 0; i < tri.Length; i += 3) { int a = Find(tri[i]); parent[Find(tri[i + 1])] = a; parent[Find(tri[i + 2])] = Find(a); }
+        var wv = v.Select(x => tr.TransformPoint(x)).ToArray();
+        var cb = new Dictionary<int, Bounds>();
+        for (int i = 0; i < n; i++) { int r = Find(i); if (cb.TryGetValue(r, out var b)) { b.Encapsulate(wv[i]); cb[r] = b; } else cb[r] = new Bounds(wv[i], Vector3.zero); }
+        var keys = cb.Keys.ToList(); var grp = keys.ToDictionary(k => k, k => k);
+        int G(int x) { while (grp[x] != x) x = grp[x]; return x; }
+        for (int i = 0; i < keys.Count; i++)
+            for (int j = i + 1; j < keys.Count; j++)
+            {
+                var a = cb[keys[i]]; var b = cb[keys[j]];
+                if (new Vector2(a.center.x - b.center.x, a.center.z - b.center.z).magnitude < (a.extents.x + b.extents.x) * 0.9f + 0.05f) grp[G(keys[j])] = G(keys[i]);
+            }
+        var byGroup = new Dictionary<int, List<int>>();
+        for (int i = 0; i < n; i++) { int g = G(Find(i)); if (!byGroup.TryGetValue(g, out var l)) byGroup[g] = l = new List<int>(); l.Add(i); }
+        int idx = 0;
+        foreach (var kv in byGroup)
+        {
+            var set = new HashSet<int>(kv.Value);
+            var b = new Bounds(wv[kv.Value[0]], Vector3.zero); foreach (var i in kv.Value) b.Encapsulate(wv[i]);
+            var origin = new Vector3(b.center.x, b.min.y, b.center.z);
+            var map = new Dictionary<int, int>(); var V = new List<Vector3>(); var N = new List<Vector3>(); var U = new List<Vector2>(); var C = new List<Color>(); var T = new List<int>();
+            for (int i = 0; i < tri.Length; i += 3)
+            {
+                if (!set.Contains(tri[i])) continue;
+                for (int q = 0; q < 3; q++)
+                {
+                    int s = tri[i + q];
+                    if (!map.TryGetValue(s, out int d))
+                    {
+                        d = V.Count; map[s] = d; V.Add(wv[s] - origin);
+                        if (nrm.Length == n) N.Add(tr.TransformDirection(nrm[s]));
+                        if (uv.Length == n) U.Add(uv[s]);
+                        if (col.Length == n) C.Add(col[s]);
+                    }
+                    T.Add(d);
+                }
+            }
+            var m = new Mesh { name = "PracticeProp_" + idx };
+            m.SetVertices(V); if (N.Count == V.Count) m.SetNormals(N); if (U.Count == V.Count) m.SetUVs(0, U); if (C.Count == V.Count) m.SetColors(C);
+            m.SetTriangles(T, 0); m.RecalculateBounds();
+            AssetDatabase.CreateAsset(m, MeshDir + "/PracticeProp_" + idx + ".asset");
+            res.Add(m); idx++;
+        }
+        return res;
+    }
+
+    static void MakeWindZone(
+Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 windDir, Transform course, List<string> log, float len, float halfW, float strength, string meshName)
     {
         var tmplArea = Object.FindObjectsOfType<FuwaWindArea>(true).FirstOrDefault(w => w.transform.parent != null && w.transform.parent.name == "G3_CrossRight");
         At(pts, dist, dMid, out var c, out var f);
