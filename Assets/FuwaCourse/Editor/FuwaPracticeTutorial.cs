@@ -615,6 +615,10 @@ public static class FuwaPracticeTutorial
             var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(HalfW * 2f + 1f, 3f, 2.6f);
             var tz = UdonSharpUndo.AddComponent<FuwaTryZone>(zone);
             SetU(tz, "ball", ball); SetU(tz, "courseStart", ballStart); Sync(tz);
+            // キノコの島から先（本番の道）は、タイムなしでもアウトでプレイヤーも戻す（2026-10-08 てじゃ）。ためし撃ちの区画は今まで通りふわふわだけ戻る
+            var bso = new SerializedObject(ball); var rp = bso.FindProperty("returnPlayerStarts");
+            rp.arraySize = 1; rp.GetArrayElementAtIndex(0).objectReferenceValue = ballStart;
+            bso.ApplyModifiedPropertiesWithoutUndo(); Sync(ball);
         }
 
         // ---------- 最後の本番の道のしかけ ----------

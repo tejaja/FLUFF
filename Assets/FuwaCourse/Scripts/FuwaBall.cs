@@ -85,6 +85,9 @@ public class FuwaBall : UdonSharpBehaviour
     public float playerHeightBelow = 1.3f;
     [Tooltip("ふわふわがアウトになった時にプレイヤーもチェックポイントへ戻す（タイムを計るコースだけ）")]
     public bool movePlayerOnOut = true;
+    [Tooltip("タイムを計らないコースでも、このスタートから始めた時はアウトでプレイヤーも戻す（れんしゅうの最後の本番の道）")]
+    public Transform[] returnPlayerStarts;
+    private bool _practice;   // れんしゅうの「ためし撃ちの場所」にいる間（プレイヤーは動かさない）
     private bool _teleportOnReset;
 
     [HideInInspector] public Transform respawnPoint;
@@ -732,7 +735,7 @@ public class FuwaBall : UdonSharpBehaviour
         _respawnInFront = activeRace != null;
         if (_respawnInFront) return;
         // コース中なら、破裂を見せてから暗転して、真っ暗の間にプレイヤーも一緒に戻す
-        if (movePlayerOnOut && timerEnabled)
+        if (movePlayerOnOut && (timerEnabled || ReturnPlayerUntimed()))
         {
             _teleportOnReset = true;
             if (fade != null) fade.Play(Mathf.Max(0f, resetDelay + inflate - 0.35f), 0.3f, 0.15f, 0.35f);
@@ -865,6 +868,14 @@ public class FuwaBall : UdonSharpBehaviour
     }
 
     // 自分を、今の再開位置（チェックポイント）の少し後ろの道の上へ戻す
+    // タイムなしでも、returnPlayerStarts のスタートから始めたコースなら、アウトでプレイヤーも戻す（ためし撃ちの場所にいる時は戻さない）
+    private bool ReturnPlayerUntimed()
+    {
+        if (_practice || returnPlayerStarts == null) return false;
+        for (int i = 0; i < returnPlayerStarts.Length; i++) if (returnPlayerStarts[i] != null && returnPlayerStarts[i] == startPoint) return true;
+        return false;
+    }
+
     public void TeleportPlayerToRespawn()
     {
         VRCPlayerApi player = Networking.LocalPlayer;
@@ -966,6 +977,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void StartCourse(Transform newStart, bool timed)
     {
         if (newStart == null) return;
+        _practice = false;
         startPoint = newStart;
         timerEnabled = timed;
         _messageUntil = Time.time;
@@ -977,6 +989,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void SetPracticeSpot(Transform spot)
     {
         if (spot == null) return;
+        _practice = true;
         timerEnabled = false;
         respawnPoint = spot;
         _finished = false;
@@ -1003,6 +1016,7 @@ public class FuwaBall : UdonSharpBehaviour
     {
         if (spot == null) return;
         if (_hidden || _resetAt > 0f || _stuck || _spiking || _carried || !gameObject.activeInHierarchy || _rb == null) { SetPracticeSpot(spot); return; }
+        _practice = true;
         timerEnabled = false;
         respawnPoint = spot;
         _finished = false;
