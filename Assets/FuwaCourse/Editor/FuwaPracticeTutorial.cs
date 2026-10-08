@@ -44,8 +44,8 @@ public static class FuwaPracticeTutorial
             "<size=130%><color=#FF6B5C>下を撃っても上がる</color></size>\n風はいつもふわっと持ち上げる\n床に押しつけたりしない",
             "<size=130%><color=#FF6B5C>Shoot down, it goes up</color></size>\nThe wind always lifts the fluff\nIt never pushes it into the floor"),
         new Bay(22.5f, "Center",
-            "<size=130%><color=#FF6B5C>風の真ん中に寄る</color></size>\nふわふわの横をねらっても\nねらった線の方へ寄って飛ぶ",
-            "<size=130%><color=#FF6B5C>Pulled to the center</color></size>\nAim beside the fluff and\nit drifts toward your aim line"),
+            "<size=130%><color=#FF6B5C>風の真ん中に寄る</color></size>\nふわふわの横を撃っても\n銃の正面の方へ寄りながら飛ぶ",
+            "<size=130%><color=#FF6B5C>Pulled to the center</color></size>\nShoot beside the fluff and\nit drifts toward where your gun points"),
         // 「溜めると吸い寄せる」は 2026-10-08 に仕組みごとなくした（端撃ちのじゃまになるので。chargePull=0）
     };
 
