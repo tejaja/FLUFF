@@ -290,6 +290,8 @@ public static class FuwaPracticeTutorial
     // ---------- 一本道のレイアウト ----------
     // 入口の島の中心（＝元のれんしゅうのスタートの島の位置）から、コースの前（FuwaCourse0 の forward）へまっすぐ、左右にゆるくうねる
     static readonly Vector3 Origin = new Vector3(-2.01f, 0f, 14.84f);
+    // 本番の道が右に曲がるぶん、ロビーから見て右に傾いて見えるので、入口の島を軸に全体を左へ回す（2026-10-08 てじゃ）
+    const float TurnLeftDeg = 15f;
     const float Sway = 1.3f, SwayLen = 40f;   // うねりの幅と周期(m)
     const float FirstWall = 4.6f;             // 入口の島（半径3）を出てすぐの壁
     const float ToMushroom = 5.0f;            // 最後の壁からキノコの島の中心まで
@@ -338,7 +340,7 @@ public static class FuwaPracticeTutorial
         }
 
         // ---------- 位置を決める ----------
-        Vector3 F = course.forward; F.y = 0; F.Normalize();
+        Vector3 F = Quaternion.Euler(0f, -TurnLeftDeg, 0f) * course.forward; F.y = 0; F.Normalize();
         int nb = Bays.Length;
         var bayS = new float[nb];
         for (int i = 0; i < nb; i++) bayS[i] = FirstWall + BaySpan * (i + 0.5f);
