@@ -50,8 +50,8 @@ public static class FuwaPracticeTutorial
             "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる\n（待ってもゆっくりもどる）",
             "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast\n(waiting refills it slowly)"),
         new Bay(0f, "Wind",
-            "<size=130%><color=#FF6B5C>横風に注意</color></size>\n風でふわふわが流される\n風上に向けて撃つと\nねらった所に届く",
-            "<size=130%><color=#FF6B5C>Crosswind</color></size>\nThe wind pushes the fluff sideways\nAim a little upwind\nto reach your mark"),
+            "<size=130%><color=#FF6B5C>横風に注意</color></size>\n風でふわふわが流される\nねらった所からずれるよ",
+            "<size=130%><color=#FF6B5C>Crosswind</color></size>\nThe wind pushes the fluff sideways\nso it drifts off your mark"),
         new Bay(0f, "Monster",
             "<size=130%><color=#FF6B5C>まものに注意</color></size>\nふわふわめがけて体当たりしてくる\nぷるぷるしたら\n撃って押し返そう",
             "<size=130%><color=#FF6B5C>Watch out for monsters</color></size>\nThey ram your fluff away\nWhen one starts to wobble,\nshoot it back!"),
@@ -1402,27 +1402,19 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
             }
             case "Wind":
             {
-                // 横風（道の側＝左手へ吹く）。2台ならべて、左（風下側）はまっすぐ的へ撃って流されて外れる、
-                // 右（風上側）は風上へ30°向けて撃って、流されながら的に落ちる。的の位置は本物と同じ計算で求める
-                var lat = Vector3.Cross(Vector3.up, along).normalized;
+                // 横風（道の側＝左手へ吹く）。見本は1台：まっすぐ的へ撃って、流されて外れる。的＝風がなければ落ちる所（本物と同じ計算）
+                // 風上へ向けて撃つ見本はなくした（2026-10-08 てじゃ「風の仕組みくらいさすがに分かってほしい」）
                 Vector3 wind = -outw * WindStrength;
-                // 風上の台の向き：まっすぐの向きを、風の来る側へ WindAimDeg 回す
-                Vector3 up = -wind.normalized;
-                Vector3 dB = Quaternion.AngleAxis(WindAimDeg, Vector3.up) * along;
-                if (Vector3.Dot(dB, up) < Vector3.Dot(along, up)) dB = Quaternion.AngleAxis(-WindAimDeg, Vector3.up) * along;
-                Vector3 side = Vector3.Dot(lat, up) > 0f ? lat : -lat;   // 風上の横
-                MakeLane(bayRoot, "Lane_Straight", islandCenter - along * 1.0f - side * 0.6f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.3f }, new[] { 0f }, null, null, false, tmpl, ballSrc, floorTop);
-                MakeLane(bayRoot, "Lane_Upwind", islandCenter - along * 1.0f + side * 0.6f, dB, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.3f }, new[] { 0f }, null, null, false, tmpl, ballSrc, floorTop);
-                foreach (var ln in new[] { "Lane_Straight", "Lane_Upwind" })
+                MakeLane(bayRoot, "Lane_Straight", islandCenter - along * 1.0f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.3f }, new[] { 0f }, null, null, false, tmpl, ballSrc, floorTop);
                 {
-                    var lane = bayRoot.Find(ln); var ds = lane.GetComponent<FuwaDemoStand>();
+                    var lane = bayRoot.Find("Lane_Straight"); var ds = lane.GetComponent<FuwaDemoStand>();
                     var so = new SerializedObject(ds); so.FindProperty("windAccel").vector3Value = wind; so.ApplyModifiedPropertiesWithoutUndo();
                     Sync(ds);
                     var nz = lane.Find("DemoGun/Nozzle"); var bs = lane.Find("BallStart");
-                    // 的：まっすぐの台は「風がなければ落ちる所」、風上の台は「風の中で実際に落ちる所」
-                    Vector3 land = SimDemoLanding(tmpl, ballSrc, nz.position, nz.forward, bs.position, 0f, ln == "Lane_Straight" ? Vector3.zero : wind, IslandTop);
-                    MakeTargetRing(bayRoot, "Target_" + ln.Substring(5), new Vector3(land.x, IslandTop + 0.012f, land.z));
-                    log.Add($"{ln} land {(land - islandCenter).magnitude:0.00}m from center");
+                    Vector3 land = SimDemoLanding(tmpl, ballSrc, nz.position, nz.forward, bs.position, 0f, Vector3.zero, IslandTop);
+                    MakeTargetRing(bayRoot, "Target_Straight", new Vector3(land.x, IslandTop + 0.012f, land.z));
+                    Vector3 drift = SimDemoLanding(tmpl, ballSrc, nz.position, nz.forward, bs.position, 0f, wind, IslandTop);
+                    log.Add($"wind demo: lands {(drift - land).magnitude:0.00}m off the ring");
                 }
                 break;
             }
