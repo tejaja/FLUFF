@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UdonSharpEditor;
 using UnityEditor;
@@ -381,6 +381,12 @@ public static class FuwaPracticeTutorial
             zone.layer = 0;
             var tz = UdonSharpUndo.AddComponent<FuwaTryZone>(zone);
             SetU(tz, "ball", ball); SetU(tz, "spot", trySpot); Sync(tz);
+            // 区画の前後に、ふわふわだけ止める半透明の壁（横＝道の外は開けておく）
+            foreach (float ds in new[] { -3.0f, 3.0f })
+            {
+                At(pts, dist, bay.s + ds, out var wc, out var wf);
+                MakeBarrier(bayRoot, ds < 0 ? "Barrier_Back" : "Barrier_Front", wc, wf);
+            }
         }
         // 小道の終わり〜スタートの島：ふわふわをコースのスタート（キノコ）へ戻す
         {
@@ -414,6 +420,31 @@ public static class FuwaPracticeTutorial
         Sync(lang);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         return "Tutorial built: " + string.Join(" / ", log);
+    }
+
+    // ふわふわだけ止める壁：Walkthrough レイヤー（ふわふわ＝Walkthrough とは当たる、プレイヤーとは当たらない）。跳ね返りは岩と同じ
+    const float BarrierW = HalfW * 2f + 0.6f, BarrierH = 4.2f;   // 真上に撃つと3.5mくらい上がるので高め（上はシェーダーで消える）
+    static void MakeBarrier(Transform parent, string name, Vector3 center, Vector3 fwd)
+    {
+        var go = GameObject.CreatePrimitive(PrimitiveType.Quad); go.name = name;
+        Object.DestroyImmediate(go.GetComponent<Collider>());
+        go.transform.SetParent(parent, false);
+        go.transform.position = center + Vector3.up * (BarrierH * 0.5f - 0.02f);
+        go.transform.rotation = Quaternion.LookRotation(fwd);
+        go.transform.localScale = new Vector3(BarrierW, BarrierH, 1f);
+        go.layer = LayerMask.NameToLayer("Walkthrough");
+        var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(1f, 1f, 0.12f);
+        bc.sharedMaterial = AssetDatabase.FindAssets("RockBounce t:PhysicMaterial").Select(AssetDatabase.GUIDToAssetPath).Select(p => AssetDatabase.LoadAssetAtPath<PhysicMaterial>(p)).FirstOrDefault();
+        var r = go.GetComponent<MeshRenderer>(); r.sharedMaterial = BarrierMat();
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+    }
+
+    static Material BarrierMat()
+    {
+        const string path = "Assets/FuwaCourse/Materials/SoftBarrier.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (m == null) { m = new Material(Shader.Find("FuwaCourse/SoftBarrier")); AssetDatabase.CreateAsset(m, path); }
+        return m;
     }
 
     static bool InGap(Vector3 localP, Vector3 center, float maxR)
@@ -538,17 +569,17 @@ public static class FuwaPracticeTutorial
             case "TapCharge":
             {
                 var lat = Vector3.Cross(Vector3.up, along).normalized;
-                MakeLane(bayRoot, "Lane_Tap", islandCenter - along * 1.2f - lat * 0.55f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.1f }, new[] { 0f }, null, null, false, tmpl, ballSrc, floorTop);
-                MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 1.2f + lat * 0.55f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.1f }, new[] { 1f }, null, null, false, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane_Tap", islandCenter - along * 1.2f - lat * 0.55f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.3f }, new[] { 0f }, null, null, false, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 1.2f + lat * 0.55f, along, 0.95f, new Vector3(0, 0.05f, 1.0f), new[] { 1.3f }, new[] { 1f }, null, null, false, tmpl, ballSrc, floorTop);
                 break;
             }
             case "Down":
                 // 銃を高めにして、斜め下のふわふわを撃つ（ねらった線も見せる：下を向いているのに上がる）
-                MakeLane(bayRoot, "Lane", islandCenter - along * 1.0f, along, 1.2f, new Vector3(0, -0.86f, 0.9f), new[] { 1.1f }, new[] { 1f }, null, null, true, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane", islandCenter - along * 1.0f, along, 1.2f, new Vector3(0, -0.86f, 0.9f), new[] { 1.3f }, new[] { 1f }, null, null, true, tmpl, ballSrc, floorTop);
                 break;
             case "Center":
                 // ふわふわの横（道の進む向きの側）をねらう。ねらった線を見せて、そこへ寄っていくのを見せる
-                MakeLane(bayRoot, "Lane", islandCenter - away * 1.25f, away, 0.95f, new Vector3(0, 0.05f, 1.1f), new[] { 1.1f }, new[] { 1f }, new[] { new Vector3(-0.5f, 0f, 0f) }, null, true, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane", islandCenter - away * 1.25f, away, 0.95f, new Vector3(0, 0.05f, 1.1f), new[] { 1.3f }, new[] { 1f }, new[] { new Vector3(-0.5f, 0f, 0f) }, null, true, tmpl, ballSrc, floorTop);
                 break;
             case "Pull":
                 // 少し離れたふわふわを、長く溜めて引き寄せてから撃つ
@@ -590,8 +621,10 @@ public static class FuwaPracticeTutorial
         SetU(ds, "pumpBulb", gun.Find("Visual/PumpBulb"));
         SetArr(ds, "shotTimes", times); SetArr(ds, "shotCharges", charges);
         SetArrV(ds, "shotAimOffsets", aimOffsets ?? new Vector3[times.Length]);
-        SetArr(ds, "shotHolds", holds ?? new float[times.Length]);
-        SetUF(ds, "cycleLength", holds != null ? 6f : 4f);
+        // 満タンの弾は、満タンになってから少し間を置いて撃つ（最速だと「溜めて撃つ」感じが出ないので）
+        if (holds == null) { holds = new float[times.Length]; for (int i = 0; i < holds.Length; i++) holds[i] = charges[i] >= 1f ? 0.4f : 0f; }
+        SetArr(ds, "shotHolds", holds);
+        SetUF(ds, "cycleLength", 4f);
         if (showAimLine)
         {
             var lgo = new GameObject("AimLine"); lgo.transform.SetParent(lane, false);

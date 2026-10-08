@@ -246,6 +246,7 @@ public class FuwaBall : UdonSharpBehaviour
             UpdateGlow();
         }
         if (_stuck) UpdateStuckShake();
+        UpdateGlide();
         UpdateInflate();
         UpdateSquash();
         UpdatePenalty();
@@ -974,6 +975,52 @@ public class FuwaBall : UdonSharpBehaviour
 
     public Transform GetRespawnPoint() { return respawnPoint; }
 
+    // れんしゅう：次の「ためし撃ちの場所」へ、消えずにふわっと弧を描いて飛んでいく。
+    // キノコに隠れている時・弾けている途中などは、すぐその場所に出す
+    [Tooltip("ためし撃ちの場所へ飛んでいく速さ(m/s)。かかる時間は glideMinTime〜glideMaxTime 秒")]
+    public float glideSpeed = 6f;
+    public float glideMinTime = 0.5f;
+    public float glideMaxTime = 1.8f;
+    [Tooltip("飛んでいく弧の高さ（距離に対する割合）")]
+    public float glideArc = 0.18f;
+    private bool _gliding;
+    private Vector3 _glideFrom;
+    private float _glideStart;
+    private float _glideTime;
+
+    public void GlideToPracticeSpot(Transform spot)
+    {
+        if (spot == null) return;
+        if (_hidden || _resetAt > 0f || _stuck || _spiking || _carried || !gameObject.activeInHierarchy || _rb == null) { SetPracticeSpot(spot); return; }
+        timerEnabled = false;
+        respawnPoint = spot;
+        _finished = false;
+        _running = false;
+        _glideFrom = transform.position;
+        float dist = Vector3.Distance(_glideFrom, spot.position);
+        if (dist < 0.05f) { ResetToRespawn(); return; }
+        _glideTime = Mathf.Clamp(dist / Mathf.Max(0.1f, glideSpeed), glideMinTime, glideMaxTime);
+        _glideStart = Time.time;
+        _gliding = true;
+        _rb.velocity = Vector3.zero;
+        _rb.angularVelocity = Vector3.zero;
+        _rb.isKinematic = true;
+        _waiting = true;   // 飛んでいる間は物理を止めて待ち状態（撃たれたら、そこから普通に飛ぶ）
+    }
+
+    private void UpdateGlide()
+    {
+        if (!_gliding) return;
+        // 途中で撃たれた（待ちが解けた）・弾けた時はやめる
+        if (!_waiting || _resetAt > 0f || respawnPoint == null) { _gliding = false; return; }
+        float t = Mathf.Clamp01((Time.time - _glideStart) / Mathf.Max(0.01f, _glideTime));
+        float e = t * t * (3f - 2f * t);
+        Vector3 to = respawnPoint.position;
+        Vector3 p = Vector3.Lerp(_glideFrom, to, e) + Vector3.up * (Vector3.Distance(_glideFrom, to) * glideArc * 4f * e * (1f - e));
+        transform.position = p;
+        if (t >= 1f) { _gliding = false; ResetToRespawn(); }
+    }
+
     public void RestartFromStart()
     {
         respawnPoint = startPoint != null ? startPoint : transform;
@@ -989,6 +1036,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void ResetToRespawn()
     {
         if (_rb == null) _rb = GetComponent<Rigidbody>();   // Start より先に呼ばれた時（隠れていたエリアに入ってすぐワープした時など）
+        _gliding = false;
         StopInflate();
         _carried = false;
         _resetAt = -1f;

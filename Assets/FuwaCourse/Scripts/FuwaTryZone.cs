@@ -20,7 +20,7 @@ public class FuwaTryZone : UdonSharpBehaviour
         if (spot != null)
         {
             if (ball.GetRespawnPoint() == spot && !ball.IsHidden()) return;   // もうここにいる
-            ball.SetPracticeSpot(spot);
+            ball.GlideToPracticeSpot(spot);
         }
         else if (courseStart != null)
         {
