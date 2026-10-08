@@ -485,10 +485,13 @@ public static class FuwaPracticeTutorial
         var startSpot = start.Find("PlayerSpot"); var ballStart = start.Find("BallStart");
         // ロビーへのワープは、ほかのコースと同じく後ろの小島に
         MakeWarp("WarpToLobby", lobbyPad, "ロビーにもどる", "Back to Lobby", null, null, null, true);
-        // 説明をとばすワープは、入って左前（銃の台は右前）。入った所から視界に入るように前寄り
+        // 説明をとばすのは、床のワープではなく柵に付けた小さいボタン（2026-10-08 てじゃ）。入って左前（銃の台は右前）
+        // ワープの処理は FuwaCourseWarp をそのまま使い、床の見た目と踏んで入る当たり判定は消して、ボタン（FuwaInteractWarp）から呼ぶ
         var skip = MakeWarp("SkipTutorial", e0 + ef * 1.3f - er * 1.35f + Vector3.up * 0.02f, "説明をとばす", "Skip", startSpot, ballStart, gsSrc.Find("GunSpot"), false);
-        // 入った所のすぐ前なので、ふつうの大きさ・高さだと目の前をふさぐ。小さめ・低めに
-        var skipLab = skip.Find("Label"); skipLab.localScale *= 0.6f; skipLab.position = skip.position + Vector3.up * 1.05f;
+        var skipTrig = skip.Find("SkipTutorial_Trigger");
+        foreach (Transform ch in skip) if (ch != skipTrig) ch.gameObject.SetActive(false);
+        foreach (var col in skipTrig.GetComponents<Collider>()) col.enabled = false;
+        log.Add(SkipButton(entrance, e0, ef, er, skipTrig.GetComponent<FuwaCourseWarp>(), lang));
         if (warpLabel != null) warpLabel.gameObject.SetActive(false);
 
         // ロビーの「チュートリアル」ワープの行き先を入口の島に
@@ -923,6 +926,41 @@ public static class FuwaPracticeTutorial
         }
         so.ApplyModifiedPropertiesWithoutUndo();
         return removed;
+    }
+
+    // 入口の島の柵（左前）に貼る「説明をとばす」ボタン。見た目はロビーの設定ボタンの前の形（LanguageButton の板と文字。
+    // 今のロビーはレーザーで押すUIだが、ここはクリック（Interact）で押す）
+    static string SkipButton(Transform entrance, Vector3 e0, Vector3 ef, Vector3 er, FuwaCourseWarp warp, FuwaLanguage lang)
+    {
+        var src = Object.FindObjectsOfType<FuwaLanguage>(true).First().transform;   // LanguageButton
+        float groundTop = entrance.Find("Ground").GetComponent<Renderer>().bounds.max.y;
+        // 左前 55° の向きで、柵の当たり判定の内側の面を探す（前の ±40° は道の入口で柵がない）
+        Vector3 dir = (ef * Mathf.Cos(55f * Mathf.Deg2Rad) - er * Mathf.Sin(55f * Mathf.Deg2Rad)).normalized;
+        Physics.SyncTransforms();
+        var fenceCol = entrance.Find("FenceCollider").GetComponent<Collider>();
+        Vector3 from = new Vector3(e0.x, groundTop + 0.4f, e0.z);
+        float r = fenceCol.Raycast(new Ray(from, dir), out var hit, 6f) ? hit.distance : 3.2f;
+        var b = new GameObject("SkipButton").transform; b.SetParent(entrance, false);
+        // 柵の内側に、少し上向きに傾けて貼る（柵に向かって立った人が見下ろして読める）
+        b.position = from + dir * (r - 0.07f) + Vector3.up * 0.12f;
+        b.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(-20f, 0f, 0f);
+        b.localScale = Vector3.one * 0.75f;
+        foreach (var n in new[] { "Panel", "Label" })
+        {
+            var c = Object.Instantiate(src.Find(n).gameObject, b, false); c.name = n; c.SetActive(true);
+        }
+        var tmp = b.Find("Label").GetComponent<TMPro.TextMeshPro>();
+        tmp.text = "説明をとばす ▶";
+        tmp.enableAutoSizing = false; tmp.fontSize *= 0.82f;   // 板（丸い帯）からはみ出さないように
+        AddLang(lang, tmp, "説明をとばす ▶", "Skip tutorial ▶");
+        // 押せる範囲：板の大きさ
+        var pr = b.Find("Panel").GetComponent<Renderer>();
+        var bc = b.gameObject.AddComponent<BoxCollider>();
+        var lb = pr.localBounds; bc.center = b.InverseTransformPoint(pr.bounds.center); bc.size = new Vector3(lb.size.x, lb.size.y, Mathf.Max(0.05f, lb.size.z));
+        var iw = UdonSharpUndo.AddComponent<FuwaInteractWarp>(b.gameObject);
+        SetU(iw, "warp", warp); Sync(iw);
+        var ub = b.GetComponent<VRC.Udon.UdonBehaviour>(); ub.interactText = "説明をとばす"; EditorUtility.SetDirty(ub);
+        return $"skip button r={r:0.00}";
     }
 
     static void AddLang(FuwaLanguage lang, TMPro.TextMeshPro t, string ja, string en)
