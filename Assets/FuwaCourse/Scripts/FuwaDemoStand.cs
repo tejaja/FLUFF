@@ -516,6 +516,18 @@ public class FuwaDemoStand : UdonSharpBehaviour
         pumpBulb.localPosition = _bulbBasePos + new Vector3(0f, 0f, 0.5f * (_bulbBaseScale.z - s3.z));
     }
 
+    // まもの（FuwaDemoMonster）に体当たりされた時：床に落ちた時と同じようにはじけて、この回はもう出ない
+    public void PopBall()
+    {
+        if (_popped || _skipCycle || ball == null) return;
+        _v = Vector3.zero;
+        _flying = false;
+        _popped = true;
+        Vector3 p = ball.position;
+        if (popEffect != null) { popEffect.transform.position = p; popEffect.Play(); }
+        if (popSound != null) { popSound.transform.position = p; popSound.Play(); }
+    }
+
     private float DampLeft()
     {
         float t = Time.time - _dampStart - _dampHold;

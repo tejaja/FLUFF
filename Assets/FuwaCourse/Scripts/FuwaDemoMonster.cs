@@ -1,0 +1,202 @@
+using UdonSharp;
+using UnityEngine;
+using VRC.SDKBase;
+
+// チュートリアルの「まもの」のお手本：見た目だけのまもの（コースの FuwaEnemy の体・目・音のコピー）が、
+// となりのお手本台（FuwaDemoStand）のふわふわへ寄っていって、ぷるぷる溜めて体当たりする。
+// stand の銃が溜めの間に撃つ（stand の shotTimes に入れておく）と、押し返されて目を回す（ふわふわは無事）。
+// 撃たれなければ体当たりでふわふわをはじけさせる。1回分の長さ・時計の区切りは stand と同じ（同じ時刻にそろう）。
+// 自分の画面だけ・同期なし。
+[UdonBehaviourSyncMode(BehaviourSyncMode.None)]
+public class FuwaDemoMonster : UdonSharpBehaviour
+{
+    [Tooltip("いっしょに動くお手本台（ふわふわ・銃・1回分の長さを使う）")]
+    public FuwaDemoStand stand;
+    [Tooltip("体（FuwaEnemy の Body のコピー）")]
+    public Transform visual;
+    [Tooltip("目（FuwaEnemy の Eyes のコピー。ふわふわの方を向く）")]
+    public Transform eyes;
+    [Tooltip("出てくる所")]
+    public Transform home;
+    [Tooltip("ぷるぷる溜める所（ふわふわの手前）")]
+    public Transform windupSpot;
+    public AudioSource windupSound;
+    public AudioSource dashSound;
+    public AudioSource blownSound;
+
+    [Header("時刻（1回分の始まりからの秒）")]
+    public float approachFrom = 0.4f;
+    public float windupFrom = 1.8f;
+    public float dashAt = 2.6f;
+    [Tooltip("撃たれる時刻（stand の銃が撃つ時刻と同じにする）。0未満なら撃たれない＝体当たりする")]
+    public float shotAt = -1f;
+
+    [Header("動き")]
+    public float dashTime = 0.32f;
+    public float hopHeight = 0.45f;
+    [Tooltip("撃たれた時に押される速さ(m/s)と、止まるまでの減り方")]
+    public float pushSpeed = 3.2f;
+    public float pushDamping = 3f;
+    public float stunTime = 1.1f;
+    public float returnSpeed = 1.2f;
+    public float bobHeight = 0.08f;
+    public float activeRange = 14f;
+
+    private float _cycleStart = -999f;
+    private int _state;   // 0=まだ 1=寄る 2=溜め 3=体当たり 4=押された 5=戻る 6=止まる
+    private float _stateTime;
+    private Vector3 _pos, _vel, _dashFrom, _dashTo;
+    private bool _active;
+    private float _nextRangeCheck;
+    private Vector3 _visualBase, _visualScale = Vector3.one, _eyesBase, _eyesScale = Vector3.one;
+    private bool _popped;
+
+    private void Start()
+    {
+        if (visual != null) { _visualBase = visual.localPosition; _visualScale = visual.localScale; }
+        if (eyes != null) { _eyesBase = eyes.localPosition; _eyesScale = eyes.localScale; }
+        SetShown(false);
+    }
+
+    private void SetShown(bool on)
+    {
+        if (visual != null) visual.gameObject.SetActive(on);
+        if (eyes != null) eyes.gameObject.SetActive(on);
+    }
+
+    private void Update()
+    {
+        if (Time.time >= _nextRangeCheck)
+        {
+            _nextRangeCheck = Time.time + 0.5f;
+            VRCPlayerApi lp = Networking.LocalPlayer;
+            bool near = lp != null && lp.IsValid() && (lp.GetPosition() - transform.position).sqrMagnitude <= activeRange * activeRange;
+            if (near != _active) { _active = near; SetShown(near); _cycleStart = -999f; }
+        }
+        if (!_active || stand == null || home == null || windupSpot == null) return;
+
+        float len = Mathf.Max(0.1f, stand.cycleLength);
+        float cs = Mathf.Floor((Time.time - stand.timeOffset) / len) * len + stand.timeOffset;
+        if (cs != _cycleStart) { _cycleStart = cs; Begin(); }
+        float t = Time.time - _cycleStart;
+
+        Vector3 ballPos = stand.ball != null ? stand.ball.position : windupSpot.position;
+        float wob = 0f, squash = 0f;
+        switch (_state)
+        {
+            case 0:
+                _pos = home.position;
+                if (t >= approachFrom) SetState(1);
+                break;
+            case 1:
+            {
+                // ゆらゆら寄っていく
+                float k = Mathf.Clamp01((t - approachFrom) / Mathf.Max(0.1f, windupFrom - approachFrom));
+                k = k * k * (3f - 2f * k);
+                _pos = Vector3.Lerp(home.position, windupSpot.position, k);
+                if (t >= windupFrom) { SetState(2); if (windupSound != null) windupSound.Play(); }
+                break;
+            }
+            case 2:
+                // ぷるぷる（溜め）。だんだん速く・強く
+                _pos = windupSpot.position;
+                float w = Mathf.Clamp01((t - windupFrom) / Mathf.Max(0.1f, dashAt - windupFrom));
+                wob = (0.015f + 0.03f * w) * Mathf.Sin(Time.time * (40f + 30f * w));
+                squash = 0.08f * w;
+                if (shotAt >= 0f && t >= shotAt)
+                {
+                    if (windupSound != null) windupSound.Stop();
+                    if (blownSound != null) blownSound.Play();
+                    Vector3 d = windupSpot.position - stand.nozzle.position; d.y = 0f;
+                    _vel = (d.sqrMagnitude > 0.0001f ? d.normalized : transform.forward) * pushSpeed;
+                    SetState(4);
+                }
+                else if (shotAt < 0f && t >= dashAt)
+                {
+                    if (windupSound != null) windupSound.Stop();
+                    if (dashSound != null) dashSound.Play();
+                    _dashFrom = _pos;
+                    Vector3 d = ballPos - _pos; d.y = 0f;
+                    _dashTo = _pos + d + (d.sqrMagnitude > 0.0001f ? d.normalized : Vector3.zero) * 0.35f;
+                    _dashTo.y = home.position.y;
+                    SetState(3);
+                }
+                break;
+            case 3:
+            {
+                // 体当たり（ぴょんと跳んで、ふわふわの少し先に着地）
+                float k = Mathf.Clamp01((Time.time - _stateTime) / dashTime);
+                _pos = Vector3.Lerp(_dashFrom, _dashTo, k) + Vector3.up * (hopHeight * 4f * k * (1f - k));
+                if (!_popped && stand.ball != null && (stand.ball.position - (_pos + Vector3.up * 0.2f)).magnitude < 0.45f)
+                {
+                    _popped = true;
+                    stand.PopBall();
+                }
+                if (k >= 1f) SetState(6);
+                break;
+            }
+            case 4:
+            {
+                // 押された：すべって止まる。目を回す（目を細めてくるくる）
+                _vel *= Mathf.Clamp01(1f - pushDamping * Time.deltaTime);
+                _pos += _vel * Time.deltaTime;
+                float u = Time.time - _stateTime;
+                wob = 0.04f * Mathf.Sin(u * 18f) * Mathf.Clamp01(1f - u / stunTime);
+                if (u >= stunTime) SetState(5);
+                break;
+            }
+            case 5:
+            {
+                // 元の場所へゆっくり戻る
+                Vector3 to = home.position - _pos; to.y = 0f;
+                float step = returnSpeed * Time.deltaTime;
+                if (to.magnitude <= step) _pos = new Vector3(home.position.x, _pos.y, home.position.z); else _pos += to.normalized * step;
+                break;
+            }
+        }
+
+        // 位置・ふわふわ浮き・ぷるぷる
+        float bob = (_state == 3) ? 0f : bobHeight * Mathf.Sin(Time.time * 3.1f);
+        transform.position = _pos + Vector3.up * bob;
+        // 向き：ふわふわの方（押されている間・戻る間は向きを変えない）
+        if (_state <= 3)
+        {
+            Vector3 look = ballPos - transform.position; look.y = 0f;
+            if (look.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(look.normalized, Vector3.up), 1f - Mathf.Exp(-8f * Time.deltaTime));
+        }
+        // 出てくる時ふくらみ、1回分の終わりぎわに縮んで消える
+        float appear = Mathf.Clamp01(t / 0.3f);
+        float vanish = Mathf.Clamp01((len - t) / 0.35f);
+        float sc = Mathf.Min(1f - (1f - appear) * (1f - appear), vanish);
+        if (visual != null)
+        {
+            visual.localPosition = _visualBase + new Vector3(wob, 0f, 0f);
+            visual.localScale = new Vector3(_visualScale.x * (1f + squash), _visualScale.y * (1f - squash), _visualScale.z * (1f + squash)) * Mathf.Max(0.001f, sc);
+        }
+        if (eyes != null)
+        {
+            bool dizzy = _state == 4;
+            eyes.localPosition = _eyesBase + new Vector3(wob, 0f, 0f);
+            Vector3 es = _eyesScale * Mathf.Max(0.001f, sc);
+            if (dizzy) es.y *= 0.35f;   // 目を細める
+            eyes.localScale = es;
+            eyes.localRotation = dizzy ? Quaternion.Euler(0f, 0f, 25f * Mathf.Sin((Time.time - _stateTime) * 14f)) : Quaternion.identity;
+        }
+    }
+
+    private void Begin()
+    {
+        _state = 0;
+        _stateTime = Time.time;
+        _popped = false;
+        _vel = Vector3.zero;
+        _pos = home != null ? home.position : transform.position;
+        if (windupSound != null) windupSound.Stop();
+    }
+
+    private void SetState(int s)
+    {
+        _state = s;
+        _stateTime = Time.time;
+    }
+}

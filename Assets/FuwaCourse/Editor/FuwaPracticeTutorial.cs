@@ -49,6 +49,9 @@ public static class FuwaPracticeTutorial
         new Bay(0f, "Wind",
             "<size=130%><color=#FF6B5C>横風に注意</color></size>\n風でふわふわが流される\n風上に向けて撃つと\nねらった所に届く",
             "<size=130%><color=#FF6B5C>Crosswind</color></size>\nThe wind pushes the fluff sideways\nAim a little upwind\nto reach your mark"),
+        new Bay(0f, "Monster",
+            "<size=130%><color=#FF6B5C>まものに注意</color></size>\nふわふわに体当たりされるとアウト\nぷるぷるしたら\n撃って押し返そう",
+            "<size=130%><color=#FF6B5C>Watch out for monsters</color></size>\nIf one rams your fluff, you're out\nWhen it starts to wobble,\nshoot it back!"),
         // 「溜めると吸い寄せる」は 2026-10-08 に仕組みごとなくした（端撃ちのじゃまになるので。chargePull=0）
     };
 
@@ -920,6 +923,53 @@ public static class FuwaPracticeTutorial
                     Vector3 land = SimDemoLanding(tmpl, ballSrc, nz.position, nz.forward, bs.position, 0f, ln == "Lane_Straight" ? Vector3.zero : wind, IslandTop);
                     MakeTargetRing(bayRoot, "Target_" + ln.Substring(5), new Vector3(land.x, IslandTop + 0.012f, land.z));
                     log.Add($"{ln} land {(land - islandCenter).magnitude:0.00}m from center");
+                }
+                break;
+            }
+            case "Monster":
+            {
+                // 2台ならべる。どちらもふわふわの前へ見た目だけのまもの（コースの FuwaEnemy のコピー）が寄ってきて、ぷるぷる溜める。
+                // 左：だれも撃たない（銃なし）→ 体当たりでふわふわがはじける／右：ぷるぷるの間に銃がちょん押し → 押し返されて目を回す
+                var lat = Vector3.Cross(Vector3.up, along).normalized;
+                var enemySrc = Object.FindObjectsOfType<FuwaEnemy>(true).First(e => !e.sleeping && !e.hideInNest);
+                const float ShotAt = 2.1f;
+                for (int li = 0; li < 2; li++)
+                {
+                    bool shoots = li == 1;
+                    string ln = shoots ? "Lane_Shoot" : "Lane_NoShot";
+                    Vector3 basePos = islandCenter - along * 1.15f + lat * (shoots ? 0.75f : -0.75f);
+                    // ふわふわは銃の横（風の円すいの外）。銃はまものがぷるぷるする所をねらう
+                    Vector3 bo = new Vector3(shoots ? -0.45f : 0f, -0.35f, shoots ? 0.15f : 0.3f);
+                    MakeLane(bayRoot, ln, basePos, along, 0.95f, bo, shoots ? new[] { ShotAt } : new float[0], shoots ? new[] { 0f } : new float[0], null, null, false, tmpl, ballSrc, floorTop);
+                    var lane = bayRoot.Find(ln); var ds = lane.GetComponent<FuwaDemoStand>();
+                    SetUF(ds, "cycleLength", 4.6f);
+                    var bs = lane.Find("BallStart"); var gun = lane.Find("DemoGun"); var nz = gun.Find("Nozzle");
+                    Vector3 wind = bs.position + along * 1.0f; wind.y = IslandTop + 0.25f;
+                    Vector3 homeP = wind + along * 1.0f;
+                    var wt = new GameObject("WindupSpot").transform; wt.SetParent(lane, false); wt.position = wind;
+                    var ht = new GameObject("MonsterHome").transform; ht.SetParent(lane, false); ht.position = homeP;
+                    if (shoots)
+                    {
+                        Vector3 aimPt = wind + Vector3.up * 0.15f;
+                        for (int it = 0; it < 30; it++) gun.rotation = Quaternion.LookRotation((aimPt - nz.position).normalized, Vector3.up);
+                    }
+                    else gun.gameObject.SetActive(false);
+                    Sync(ds);
+                    // まものの見た目と音（コースのまもののコピー）
+                    var mon = new GameObject("DemoMonster").transform; mon.SetParent(lane, false); mon.position = homeP;
+                    mon.rotation = Quaternion.LookRotation(-along);
+                    Transform Copy(string n) { var src = enemySrc.transform.Find(n); if (src == null) return null; var c = Object.Instantiate(src.gameObject, mon, false); c.name = n; return c.transform; }
+                    var body = Copy("Body"); var eyes = Copy("Eyes");
+                    var wsfx = Copy("WindupSfx"); var jsfx = Copy("JumpSfx"); var bsfx = Copy("BlownSfx");
+                    foreach (var col in mon.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
+                    var dm = UdonSharpUndo.AddComponent<FuwaDemoMonster>(mon.gameObject);
+                    SetU(dm, "stand", ds); SetU(dm, "visual", body); SetU(dm, "eyes", eyes);
+                    SetU(dm, "home", ht); SetU(dm, "windupSpot", wt);
+                    if (wsfx != null) SetU(dm, "windupSound", wsfx.GetComponent<AudioSource>());
+                    if (jsfx != null) SetU(dm, "dashSound", jsfx.GetComponent<AudioSource>());
+                    if (bsfx != null) SetU(dm, "blownSound", bsfx.GetComponent<AudioSource>());
+                    SetUF(dm, "shotAt", shoots ? ShotAt : -1f);
+                    Sync(dm);
                 }
                 break;
             }
