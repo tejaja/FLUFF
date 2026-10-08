@@ -46,7 +46,7 @@ public class FuwaJumpBoost : UdonSharpBehaviour
     public float glowRise = 0.35f;
     [Tooltip("乗っている間、傘のふちから上へ広がって消える光の輪（主観視点でも見えるように）。なくてもOK")]
     public ParticleSystem boostRings;
-    [Tooltip("光の輪が消えきる高さ＝自分のアバターの目の高さからこれだけ下(m)。背の高さに合わせて輪の上がる速さを変える")]
+    [Tooltip("光の輪が消えきる高さ＝自分のアバターの目の高さからこれだけ下(m)。背の高さに合わせて輪の寿命を変える")]
     public float ringTopBelowEye = 0.08f;
     [Tooltip("光の輪が消えきる高さの下限(m)（ちびアバター用）")]
     public float ringMinHeight = 0.5f;
@@ -165,14 +165,15 @@ public class FuwaJumpBoost : UdonSharpBehaviour
         }
     }
 
-    // 光の輪が「目線のちょっと下」で消えきるように、上がる速さを自分のアバターの目の高さに合わせる（寿命・消え方はそのまま）
+    // 光の輪が「目線のちょっと下」で消えきるように、輪の寿命を自分のアバターの目の高さに合わせる
+    // （上がる速さは一定。速くすると間隔が詰まって見えてちらつくので）
     private void FitRingsToEye(VRCPlayerApi p)
     {
-        float life = boostRings.main.startLifetimeMultiplier * ringVisibleFraction;
-        if (life <= 0.01f) return;
+        float speed = boostRings.velocityOverLifetime.yMultiplier;
+        if (speed <= 0.01f || ringVisibleFraction <= 0.01f) return;
         float top = Mathf.Max(ringMinHeight, p.GetAvatarEyeHeightAsMeters() - ringTopBelowEye);
-        ParticleSystem.VelocityOverLifetimeModule vol = boostRings.velocityOverLifetime;
-        vol.yMultiplier = top / life;
+        ParticleSystem.MainModule main = boostRings.main;
+        main.startLifetimeMultiplier = top / (speed * ringVisibleFraction);
     }
 
     // 上に立っていて、地面にいる時にジャンプを押したら音を鳴らす
