@@ -1133,10 +1133,9 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         Part("Board", FuwaBevelTools.RoundCube(boardSize, 0.02f, 2), new Vector3(0, PanelY, 0.02f + BoardT * 0.5f), boardSize);
         // 柱：板の後ろ、左右。地面から板の上より少し上まで
         float postTop = PanelY + boardSize.y * 0.5f + 0.08f;
-        var postSize = new Vector3(0.08f, postTop, 0.08f);
-        var postMesh = FuwaBevelTools.RoundCube(postSize, 0.015f, 2);
-        foreach (float sx in new[] { -1f, 1f })
-            Part(sx < 0 ? "PostL" : "PostR", postMesh, new Vector3(sx * (boardSize.x * 0.5f - 0.18f), postTop * 0.5f, 0.02f + BoardT + 0.04f), postSize);
+        // 柱は板のまん中に1本（看板は道のふちに立つので、2本だと外側の柱が道からはみ出して浮いた。2026-10-08 てじゃ）
+        var postSize = new Vector3(0.1f, postTop, 0.1f);
+        Part("Post", FuwaBevelTools.RoundCube(postSize, 0.018f, 2), new Vector3(0f, postTop * 0.5f, 0.02f + BoardT + 0.05f), postSize);
         // 紙（ごく薄い板。板の前の面にぴったり貼る。ほんの少しだけ傾けて手で貼った感じに）
         var paperSize = new Vector3(pane.x, pane.y, 0.004f);
         var paper = Part("Paper", FuwaBevelTools.RoundCube(paperSize, 0.0015f, 1), new Vector3(0, PanelY, 0.02f - 0.002f), paperSize);
