@@ -904,35 +904,41 @@ public static class FuwaPracticeTutorial
     // 作り直しで消えた看板（null）を、言語の配列から詰める
     static int PurgeLang(FuwaLanguage lang)
     {
+        // 作り直しで消えた文字（null）を、3D の文字（texts/ja/en）と UI の文字（uiTexts/uiJa/uiEn）の両方から詰める
         var so = new SerializedObject(lang);
-        var tx = so.FindProperty("texts"); var pj = so.FindProperty("ja"); var pe = so.FindProperty("en");
-        var keepT = new List<Object>(); var keepJ = new List<string>(); var keepE = new List<string>();
         int removed = 0;
-        for (int i = 0; i < tx.arraySize; i++)
+        foreach (var (tn, jn, en) in new[] { ("texts", "ja", "en"), ("uiTexts", "uiJa", "uiEn") })
         {
-            var o = tx.GetArrayElementAtIndex(i).objectReferenceValue;
-            if (o == null) { removed++; continue; }
-            keepT.Add(o);
-            keepJ.Add(i < pj.arraySize ? pj.GetArrayElementAtIndex(i).stringValue : "");
-            keepE.Add(i < pe.arraySize ? pe.GetArrayElementAtIndex(i).stringValue : "");
+            var tx = so.FindProperty(tn); var pj = so.FindProperty(jn); var pe = so.FindProperty(en);
+            var keepT = new List<Object>(); var keepJ = new List<string>(); var keepE = new List<string>();
+            int rm = 0;
+            for (int i = 0; i < tx.arraySize; i++)
+            {
+                var o = tx.GetArrayElementAtIndex(i).objectReferenceValue;
+                if (o == null) { rm++; continue; }
+                keepT.Add(o);
+                keepJ.Add(i < pj.arraySize ? pj.GetArrayElementAtIndex(i).stringValue : "");
+                keepE.Add(i < pe.arraySize ? pe.GetArrayElementAtIndex(i).stringValue : "");
+            }
+            if (rm == 0) continue;
+            removed += rm;
+            tx.arraySize = keepT.Count; pj.arraySize = keepT.Count; pe.arraySize = keepT.Count;
+            for (int i = 0; i < keepT.Count; i++)
+            {
+                tx.GetArrayElementAtIndex(i).objectReferenceValue = keepT[i];
+                pj.GetArrayElementAtIndex(i).stringValue = keepJ[i];
+                pe.GetArrayElementAtIndex(i).stringValue = keepE[i];
+            }
         }
-        if (removed == 0) return 0;
-        tx.arraySize = keepT.Count; pj.arraySize = keepT.Count; pe.arraySize = keepT.Count;
-        for (int i = 0; i < keepT.Count; i++)
-        {
-            tx.GetArrayElementAtIndex(i).objectReferenceValue = keepT[i];
-            pj.GetArrayElementAtIndex(i).stringValue = keepJ[i];
-            pe.GetArrayElementAtIndex(i).stringValue = keepE[i];
-        }
-        so.ApplyModifiedPropertiesWithoutUndo();
+        if (removed > 0) so.ApplyModifiedPropertiesWithoutUndo();
         return removed;
     }
 
-    // 入口の島の柵（左前）に貼る「説明をとばす」ボタン。見た目はロビーの設定ボタンの前の形（LanguageButton の板と文字。
-    // 今のロビーはレーザーで押すUIだが、ここはクリック（Interact）で押す）
+    // 入口の島の柵（左前）に貼る「説明をとばす」ボタン。ロビーの設定ボタン（HudButton）と同じ、レーザーで押すUI
+    // （ワールド空間の Canvas＋VRCUiShape＋Button。角丸の板 RoundedPanel）。onClick → FuwaInteractWarp.Press → ワープ
     static string SkipButton(Transform entrance, Vector3 e0, Vector3 ef, Vector3 er, FuwaCourseWarp warp, FuwaLanguage lang)
     {
-        var src = Object.FindObjectsOfType<FuwaLanguage>(true).First().transform;   // LanguageButton
+        var src = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HudButton" && t.parent != null && t.parent.name == "SettingsStand").Find("Canvas");
         float groundTop = entrance.Find("Ground").GetComponent<Renderer>().bounds.max.y;
         // 左前 55° の向きで、柵の当たり判定の内側の面を探す（前の ±40° は道の入口で柵がない）
         Vector3 dir = (ef * Mathf.Cos(55f * Mathf.Deg2Rad) - er * Mathf.Sin(55f * Mathf.Deg2Rad)).normalized;
@@ -944,23 +950,40 @@ public static class FuwaPracticeTutorial
         // 柵の内側に、少し上向きに傾けて貼る（柵に向かって立った人が見下ろして読める）
         b.position = from + dir * (r - 0.07f) + Vector3.up * 0.12f;
         b.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(-20f, 0f, 0f);
-        b.localScale = Vector3.one * 0.75f;
-        foreach (var n in new[] { "Panel", "Label" })
-        {
-            var c = Object.Instantiate(src.Find(n).gameObject, b, false); c.name = n; c.SetActive(true);
-        }
-        var tmp = b.Find("Label").GetComponent<TMPro.TextMeshPro>();
-        tmp.text = "説明をとばす ▶";
-        tmp.enableAutoSizing = false; tmp.fontSize *= 0.82f;   // 板（丸い帯）からはみ出さないように
-        AddLang(lang, tmp, "説明をとばす ▶", "Skip tutorial ▶");
-        // 押せる範囲：板の大きさ
-        var pr = b.Find("Panel").GetComponent<Renderer>();
-        var bc = b.gameObject.AddComponent<BoxCollider>();
-        var lb = pr.localBounds; bc.center = b.InverseTransformPoint(pr.bounds.center); bc.size = new Vector3(lb.size.x, lb.size.y, Mathf.Max(0.05f, lb.size.z));
+        // 押した時の処理（Canvas とは別の物に付ける：ここに当たり判定はないのでクリックの「Use」は出ない）
         var iw = UdonSharpUndo.AddComponent<FuwaInteractWarp>(b.gameObject);
         SetU(iw, "warp", warp); Sync(iw);
-        var ub = b.GetComponent<VRC.Udon.UdonBehaviour>(); ub.interactText = "説明をとばす"; EditorUtility.SetDirty(ub);
+        var ub = b.GetComponent<VRC.Udon.UdonBehaviour>();
+
+        var cv = Object.Instantiate(src.gameObject, b, false); cv.name = "Canvas"; cv.SetActive(true);
+        var crt = (RectTransform)cv.transform;
+        crt.localPosition = Vector3.zero; crt.localRotation = Quaternion.identity; crt.localScale = Vector3.one * 0.00045f;
+        crt.sizeDelta = new Vector2(1250f, 330f);
+        var box = cv.GetComponent<BoxCollider>(); if (box != null) { box.size = new Vector3(1250f, 330f, 20f); box.center = Vector3.zero; }
+        var btn = cv.GetComponentInChildren<UnityEngine.UI.Button>(true);
+        var seg = btn.transform.Find("Seg"); if (seg != null) Object.DestroyImmediate(seg.gameObject);   // ON/OFF の切り替え表示はいらない
+        var text = btn.transform.Find("Text").GetComponent<TMPro.TextMeshProUGUI>(); text.gameObject.SetActive(true);
+        text.text = "説明をとばす ▶"; text.fontSize = 150f; text.alignment = TMPro.TextAlignmentOptions.Center;
+        // onClick を付け替える（元は HUD の切り替え）
+        while (btn.onClick.GetPersistentEventCount() > 0) UnityEditor.Events.UnityEventTools.RemovePersistentListener(btn.onClick, 0);
+        UnityEditor.Events.UnityEventTools.AddStringPersistentListener(btn.onClick, new UnityEngine.Events.UnityAction<string>(ub.SendCustomEvent), "Press");
+        EditorUtility.SetDirty(btn);
+        AddLangUI(lang, text, "説明をとばす ▶", "Skip tutorial ▶");
         return $"skip button r={r:0.00}";
+    }
+
+    // UI の文字（TextMeshProUGUI）は uiTexts / uiJa / uiEn に入れる
+    static void AddLangUI(FuwaLanguage lang, TMPro.TextMeshProUGUI t, string ja, string en)
+    {
+        var so = new SerializedObject(lang);
+        var tx = so.FindProperty("uiTexts"); var pj = so.FindProperty("uiJa"); var pe = so.FindProperty("uiEn");
+        int n = tx.arraySize;
+        tx.arraySize = n + 1; pj.arraySize = n + 1; pe.arraySize = n + 1;
+        tx.GetArrayElementAtIndex(n).objectReferenceValue = t;
+        pj.GetArrayElementAtIndex(n).stringValue = ja;
+        pe.GetArrayElementAtIndex(n).stringValue = en;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        if (lang is UdonSharp.UdonSharpBehaviour u) UdonSharpEditorUtility.CopyProxyToUdon(u);
     }
 
     static void AddLang(FuwaLanguage lang, TMPro.TextMeshPro t, string ja, string en)

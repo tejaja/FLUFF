@@ -1,7 +1,7 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 
-// クリック（Interact）でワープする。乗ると飛ぶ床（FuwaCourseWarp）と同じ処理を、クリックで呼ぶだけ
+// クリック（Interact）か、UIボタン（Press）でワープする。乗ると飛ぶ床（FuwaCourseWarp）と同じ処理を、クリックで呼ぶだけ
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaInteractWarp : UdonSharpBehaviour
 {
@@ -10,6 +10,12 @@ public class FuwaInteractWarp : UdonSharpBehaviour
     public bool noFade = false;
 
     public override void Interact()
+    {
+        Press();
+    }
+
+    // レーザーで押すUIボタン（Button の onClick → SendCustomEvent("Press")）からも呼ぶ
+    public void Press()
     {
         if (warp == null) return;
         if (noFade) warp.DoWarp();
