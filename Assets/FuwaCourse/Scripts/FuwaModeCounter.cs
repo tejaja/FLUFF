@@ -62,7 +62,7 @@ public class FuwaModeCounter : UdonSharpBehaviour
             {
                 if (labels[i] == null) continue;
                 int a = (labelAreas != null && i < labelAreas.Length) ? labelAreas[i] : 1;
-                string s = (en ? Get(labelsEn, i) : Get(labelsJa, i)) + "\n<size=55%><color=#FF8A7A>● " + CountText(a == 2 ? versus : adventure, en) + "</color></size>";
+                string s = (en ? Get(labelsEn, i) : Get(labelsJa, i)) + "\n<size=55%><color=#FF8A7A>" + CountText(a == 2 ? versus : adventure) + "</color></size>";
                 if (labels[i].text != s) labels[i].text = s;
             }
         }
@@ -72,15 +72,16 @@ public class FuwaModeCounter : UdonSharpBehaviour
             {
                 if (uiLabels[i] == null) continue;
                 int a = (uiLabelAreas != null && i < uiLabelAreas.Length) ? uiLabelAreas[i] : 1;
-                string s = (en ? Get(uiLabelsEn, i) : Get(uiLabelsJa, i)) + "  <size=70%><color=" + uiCountColor + ">● " + CountText(a == 2 ? versus : adventure, en) + "</color></size>";
+                string s = (en ? Get(uiLabelsEn, i) : Get(uiLabelsJa, i)) + "  <size=70%><color=" + uiCountColor + ">" + CountText(a == 2 ? versus : adventure) + "</color></size>";
                 if (uiLabels[i].text != s) uiLabels[i].text = s;
             }
         }
     }
 
-    private string CountText(int n, bool en)
+    // 人のマーク＋人数（言語に関係なく同じ）。マークは各文字の Sprite Asset（PersonIcon）の0番を文字色で塗る
+    private string CountText(int n)
     {
-        return en ? (n + (n == 1 ? " player" : " players") + " now") : ("いま " + n + "人");
+        return "<sprite=0 tint=1>" + n;
     }
 
     private string Get(string[] arr, int i)
