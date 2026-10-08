@@ -869,6 +869,30 @@ public class FuwaBlower : UdonSharpBehaviour
         _coneScale = 1f;
     }
 
+    // れんしゅうのお手本台（FuwaDemoStand）用：撃った時にふわふわへ与える速度変化を、本物と同じ計算で返すだけ（何も起こさない）
+    public Vector3 DemoShotVelocity(Vector3 origin, Vector3 aim, float charge, Vector3 ballPos)
+    {
+        charge = Mathf.Clamp01(charge);
+        float ballPower = Mathf.Lerp(minBallPower, maxBallPower, charge);
+        float reach = range * Mathf.Lerp(minRangeRatio, maxRangeRatio, charge);
+        _coneScale = Mathf.Lerp(minConeScale, 1f, charge);
+        Vector3 v = ShotVelocity(origin, aim, reach, ballPower, ballPos);
+        _coneScale = 1f;
+        return v;
+    }
+
+    // お手本台用：溜めている間の引き寄せ（加速度）。UpdateChargePull と同じ決まり
+    public Vector3 DemoChargePull(Vector3 origin, Vector3 aim, float charge, Vector3 ballPos)
+    {
+        if (chargePull <= 0f) return Vector3.zero;
+        float reach = Mathf.Min(range * Mathf.Lerp(minRangeRatio, maxRangeRatio, charge), chargePullRange);
+        Vector3 to = ballPos - origin;
+        if (to.magnitude < chargePullMinDist || !InShot(origin, aim, reach, to)) return Vector3.zero;
+        Vector3 flat = new Vector3(-to.x, 0f, -to.z);
+        if (flat.sqrMagnitude < 0.0001f) return Vector3.zero;
+        return flat.normalized * chargePull * Mathf.Lerp(0.3f, 1f, charge);
+    }
+
     // 風が当たっていれば、ふわふわに与える速度変化（当たっていなければ zero）
     private Vector3 ShotVelocity(Vector3 origin, Vector3 aim, float reach, float ballPower, Vector3 ballPos)
     {
