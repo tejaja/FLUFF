@@ -555,6 +555,27 @@ public static class FuwaPracticeTutorial
             zone.layer = 0;
             var tz = UdonSharpUndo.AddComponent<FuwaTryZone>(zone);
             SetU(tz, "ball", ball); SetU(tz, "spot", trySpot); Sync(tz);
+            // まものの区画：ためし撃ちの道の上に本物のまものを1匹（試し撃ちのふわふわで押し返す練習。2026-10-08 てじゃ）
+            if (bay.key == "Monster")
+            {
+                At(pts, dist, S(bayS[bi] + 2.6f), out var pc, out var pf);
+                var enemySrc = Object.FindObjectsOfType<FuwaEnemy>(true).First(e => e.name == "Enemy4");
+                Physics.SyncTransforms();
+                float up = Physics.Raycast(enemySrc.transform.position + Vector3.up * 0.6f, Vector3.down, out var gh, 5f, 1 << 11, QueryTriggerInteraction.Ignore) ? enemySrc.transform.position.y - gh.point.y : 0.2f;
+                var pm = Object.Instantiate(enemySrc.gameObject, bayRoot, true); pm.name = "PracticeMonster"; pm.SetActive(true);
+                pm.transform.SetPositionAndRotation(pc + Vector3.up * up, Quaternion.LookRotation(-pf));
+                var fe = pm.GetComponent<FuwaEnemy>();
+                SetUF(fe, "wanderRadius", 0.4f);
+                SetUF(fe, "leashRange", 4f);   // 説明の小道は細いので、遠くまで追いかけない
+                Sync(fe);
+                var bso = new SerializedObject(ball); var ep = bso.FindProperty("enemies");
+                var keep = new List<Object>();
+                for (int i = 0; i < ep.arraySize; i++) { var o = ep.GetArrayElementAtIndex(i).objectReferenceValue; if (o != null) keep.Add(o); }
+                keep.Add(fe);
+                ep.arraySize = keep.Count; for (int i = 0; i < keep.Count; i++) ep.GetArrayElementAtIndex(i).objectReferenceValue = keep[i];
+                bso.ApplyModifiedPropertiesWithoutUndo(); Sync(ball);
+                log.Add("practice monster on the path");
+            }
         }
         // 道の左側（お手本の島がない側）に、元のれんしゅうのしゃぼん玉（大きいのがゆっくり上っていく）を並べる
         {
