@@ -81,7 +81,13 @@ public static class FuwaPracticeTutorial
         return pts;
     }
 
-    // 距離 s の位置と向き
+    // ---------- 道の形（道の上の距離 d ごとの、半分の幅・上面の高さ・溝） ----------
+    // 説明の小道（キノコの島まで）は幅 HalfW・高さ Top のまま。最後の本番の道は広く、登り坂と溝がある（Run で決める）
+    static System.Func<float, float> PathHalfW = d => HalfW;
+    static System.Func<float, float> PathTop = d => Top;
+    static float GrooveD0 = -1f, GrooveD1 = -1f;   // 溝（道が切れている所）の道の上の距離。なければ -1
+
+    // 距離 s の位置（高さは道の上面）と向き（水平）
     static void At(List<Vector2> pts, List<float> dist, float s, out Vector3 pos, out Vector3 fwd)
     {
         int i = 1;
@@ -89,18 +95,27 @@ public static class FuwaPracticeTutorial
         float t = Mathf.InverseLerp(dist[i - 1], dist[i], s);
         Vector2 p = Vector2.Lerp(pts[i - 1], pts[i], t);
         Vector2 d = (pts[i] - pts[i - 1]).normalized;
-        pos = new Vector3(p.x, Top, p.y);
+        pos = new Vector3(p.x, PathTop(s), p.y);
         fwd = new Vector3(d.x, 0f, d.y);
     }
 
+    // 道のつながっている区間（溝で切れる）
+    static List<Vector2> PathPieces(float len)
+    {
+        var list = new List<Vector2>();
+        if (GrooveD0 > 0f && GrooveD1 > GrooveD0 && GrooveD1 < len) { list.Add(new Vector2(0f, GrooveD0)); list.Add(new Vector2(GrooveD1, len)); }
+        else list.Add(new Vector2(0f, len));
+        return list;
+    }
+
     // ---------- 見た目の道：ほかのコース（FuwaCourse1Builder / FuwaCourse3Builder）と同じ、上の角を丸めた断面 ----------
-    // 半径 Bevel・BevelSteps 段の丸め。両はしは島の中に埋まるので丸めない（ふたをする）。当たり判定は PathMesh（角あり）
+    // 半径 Bevel・BevelSteps 段の丸め。溝に面した端も丸める（コース3と同じ）。道の両はしは島の中に埋まるのでふただけ。
+    // 当たり判定は PathMesh（角あり）
     const float Bevel = 0.08f;
     const int BevelSteps = 4;
 
-    static List<Vector4> BevelProfile()
+    static List<Vector4> BevelProfile(float W)
     {
-        float W = HalfW;
         // (横, 高さ, 法線の横, 法線の上)
         var prof = new List<Vector4> { new Vector4(-W, -Thick, -1, 0) };
         for (int i = 0; i <= BevelSteps; i++) { float a = Mathf.PI - (Mathf.PI / 2) * i / BevelSteps; prof.Add(new Vector4(-W + Bevel + Bevel * Mathf.Cos(a), -Bevel + Bevel * Mathf.Sin(a), Mathf.Cos(a), Mathf.Sin(a))); }
@@ -112,49 +127,67 @@ public static class FuwaPracticeTutorial
     static Mesh BevelPathMesh(List<Vector2> pts, List<float> dist, Matrix4x4 toLocal)
     {
         float len = dist[dist.Count - 1];
-        // 断面を置く位置：0.2m刻み＋しまの境目（境目で色がちょうど切り替わるように）
-        var st = new List<float>();
-        int segs = Mathf.CeilToInt(len / 0.2f);
-        for (int k = 0; k <= segs; k++) st.Add(len * k / segs);
-        for (float b = Stripe; b < len - 1e-3f; b += Stripe) st.Add(b);
-        st.Sort();
-        for (int i = st.Count - 1; i > 0; i--) if (st[i] - st[i - 1] < 1e-3f) st.RemoveAt(i);
-
-        var prof = BevelProfile(); int P = prof.Count;
         var V = new List<Vector3>(); var N = new List<Vector3>(); var UV = new List<Vector2>();
         var A = new List<int>(); var B = new List<int>();
-        var rings = new List<int>();
-        foreach (float s in st)
+        foreach (var pc in PathPieces(len))
         {
-            At(pts, dist, s, out var c, out var f);
-            var right = new Vector3(f.z, 0f, -f.x);
-            rings.Add(V.Count);
-            foreach (var q in prof)
+            float s0p = pc.x, s1p = pc.y;
+            bool b0 = s0p > 0.01f, b1 = s1p < len - 0.01f;   // 溝に面した端だけ丸める
+            // 断面を置く位置：(位置, 内側へのへこみ, 端の丸めの角度, 向き)
+            var st = new List<Vector4>();
+            if (b0) for (int k = BevelSteps; k >= 1; k--) { float th = (Mathf.PI / 2) * k / BevelSteps; st.Add(new Vector4(s0p + Bevel * (1 - Mathf.Sin(th)), Bevel * (1 - Mathf.Cos(th)), th, -1)); }
+            float a0 = b0 ? s0p + Bevel : s0p, a1 = b1 ? s1p - Bevel : s1p;
+            // 0.2m刻み＋しまの境目（境目で色がちょうど切り替わるように）
+            var mids = new List<float>();
+            int segs = Mathf.Max(1, Mathf.CeilToInt((a1 - a0) / 0.2f));
+            for (int k = 0; k <= segs; k++) mids.Add(Mathf.Lerp(a0, a1, k / (float)segs));
+            for (float b = Mathf.Ceil(a0 / Stripe) * Stripe; b < a1 - 1e-3f; b += Stripe) if (b > a0 + 1e-3f) mids.Add(b);
+            mids.Sort();
+            for (int i = mids.Count - 1; i > 0; i--) if (mids[i] - mids[i - 1] < 1e-3f) mids.RemoveAt(i);
+            foreach (var m in mids) st.Add(new Vector4(m, 0, 0, 0));
+            if (b1) for (int k = 1; k <= BevelSteps; k++) { float th = (Mathf.PI / 2) * k / BevelSteps; st.Add(new Vector4(s1p - Bevel * (1 - Mathf.Sin(th)), Bevel * (1 - Mathf.Cos(th)), th, 1)); }
+
+            var rings = new List<int>(); int P = 0;
+            foreach (var sv in st)
             {
-                V.Add(toLocal.MultiplyPoint3x4(c + right * q.x + Vector3.up * q.y));
-                N.Add(toLocal.MultiplyVector(right * q.z + Vector3.up * q.w).normalized);
-                UV.Add(new Vector2(q.x, s));
+                float s = sv.x, inset = sv.y, th = sv.z, dir = sv.w;
+                var prof = BevelProfile(PathHalfW(s)); P = prof.Count;
+                At(pts, dist, s, out var c, out var f);
+                var right = new Vector3(f.z, 0f, -f.x);
+                float slope = (PathTop(s + 0.05f) - PathTop(s - 0.05f)) / 0.1f;
+                var t3 = (f + Vector3.up * slope).normalized;
+                var up = Vector3.Cross(t3, right).normalized; if (up.y < 0f) up = -up;
+                rings.Add(V.Count);
+                foreach (var q in prof)
+                {
+                    // 端の丸め：断面の法線の向きに inset だけ内側へ寄せる
+                    float qx = q.x - q.z * inset, qy = q.y - q.w * inset;
+                    V.Add(toLocal.MultiplyPoint3x4(c + right * qx + Vector3.up * qy));
+                    var nn = (right * q.z + up * q.w).normalized * Mathf.Cos(th) + t3 * dir * Mathf.Sin(th);
+                    N.Add(toLocal.MultiplyVector(nn).normalized);
+                    UV.Add(new Vector2(q.x, s));
+                }
             }
-        }
-        for (int r = 0; r < st.Count - 1; r++)
-        {
-            int stripe = Mathf.FloorToInt(((st[r] + st[r + 1]) * 0.5f) / Stripe) % 2;
-            var T = stripe == 0 ? A : B;
-            int ra = rings[r], rb = rings[r + 1];
-            for (int i = 0; i < P - 1; i++) { int x0 = ra + i, x1 = ra + i + 1, y0 = rb + i, y1 = rb + i + 1; T.AddRange(new[] { x0, y0, x1, x1, y0, y1 }); }
-            // 底
-            int bb = V.Count; var down = toLocal.MultiplyVector(Vector3.down).normalized;
-            foreach (int idx in new[] { ra, rb }) { V.Add(V[idx]); V.Add(V[idx + P - 1]); N.Add(down); N.Add(down); UV.Add(Vector2.zero); UV.Add(Vector2.zero); }
-            A.AddRange(new[] { bb, bb + 1, bb + 2, bb + 1, bb + 3, bb + 2 });
-        }
-        // 両はしのふた（扇形）
-        foreach (var (ri, sign) in new[] { (0, -1f), (st.Count - 1, 1f) })
-        {
-            At(pts, dist, st[ri], out _, out var f);
-            var nrm = toLocal.MultiplyVector(f * sign).normalized;
-            int cb = V.Count;
-            for (int i = 0; i < P; i++) { V.Add(V[rings[ri] + i]); N.Add(nrm); UV.Add(Vector2.zero); }
-            for (int i = 1; i < P - 1; i++) A.AddRange(new[] { cb, cb + i, cb + i + 1 });
+            for (int r = 0; r < st.Count - 1; r++)
+            {
+                int stripe = Mathf.FloorToInt(((st[r].x + st[r + 1].x) * 0.5f) / Stripe) % 2;
+                var T = stripe == 0 ? A : B;
+                int ra = rings[r], rb = rings[r + 1];
+                for (int i = 0; i < P - 1; i++) { int x0 = ra + i, x1 = ra + i + 1, y0 = rb + i, y1 = rb + i + 1; T.AddRange(new[] { x0, y0, x1, x1, y0, y1 }); }
+                // 底
+                int bb = V.Count; var down = toLocal.MultiplyVector(Vector3.down).normalized;
+                foreach (int idx in new[] { ra, rb }) { V.Add(V[idx]); V.Add(V[idx + P - 1]); N.Add(down); N.Add(down); UV.Add(Vector2.zero); UV.Add(Vector2.zero); }
+                A.AddRange(new[] { bb, bb + 1, bb + 2, bb + 1, bb + 3, bb + 2 });
+            }
+            // 両はしのふた（扇形）
+            foreach (var (ri, sign) in new[] { (0, -1f), (st.Count - 1, 1f) })
+            {
+                At(pts, dist, st[ri].x, out _, out var f);
+                var nrm = toLocal.MultiplyVector(f * sign).normalized;
+                int cb = V.Count;
+                for (int i = 0; i < P; i++) { V.Add(V[rings[ri] + i]); N.Add(nrm); UV.Add(Vector2.zero); }
+                for (int i = 1; i < P - 1; i++) A.AddRange(new[] { cb, cb + i, cb + i + 1 });
+            }
         }
         // 三角形の向きを、決めた法線にそろえる
         foreach (var T in new[] { A, B })
@@ -164,103 +197,46 @@ public static class FuwaPracticeTutorial
                 Vector3 want = N[T[i]] + N[T[i + 1]] + N[T[i + 2]];
                 if (Vector3.Dot(Vector3.Cross(p1 - p0, p2 - p0), want) < 0f) { int tmp = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = tmp; }
             }
-        var m = new Mesh { name = "Course0_TutorialPath_Bevel" };
-        m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-        m.SetVertices(V); m.SetNormals(N); m.SetUVs(0, UV);
-        m.subMeshCount = 2; m.SetTriangles(A, 0); m.SetTriangles(B, 1);
-        m.RecalculateBounds(); m.RecalculateTangents();
-        return m;
+        var m2 = new Mesh { name = "Course0_TutorialPath_Bevel" };
+        m2.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        m2.SetVertices(V); m2.SetNormals(N); m2.SetUVs(0, UV);
+        m2.subMeshCount = 2; m2.SetTriangles(A, 0); m2.SetTriangles(B, 1);
+        m2.RecalculateBounds(); m2.RecalculateTangents();
+        return m2;
     }
 
-    // ---------- 当たり判定の道（角あり。上面はしましま2色＝サブメッシュ2つ、側面と底はA） ----------
+    // ---------- 当たり判定の道（角ありの箱。幅・高さ・溝は見た目と同じ） ----------
     static Mesh PathMesh(List<Vector2> pts, List<float> dist, Matrix4x4 toLocal)
     {
         float len = dist[dist.Count - 1];
-        int segs = Mathf.CeilToInt(len / 0.2f);
-        var V = new List<Vector3>(); var N = new List<Vector3>(); var UV = new List<Vector2>();
-        var A = new List<int>(); var B = new List<int>();
-        Vector3 L(Vector3 w) { return toLocal.MultiplyPoint3x4(w); }
-        Vector3 Ld(Vector3 w) { return toLocal.MultiplyVector(w).normalized; }
-        var cs = new List<Vector3>(); var rs = new List<Vector3>(); var ss = new List<float>();
-        for (int k = 0; k <= segs; k++)
+        var V = new List<Vector3>(); var T = new List<int>();
+        foreach (var pc in PathPieces(len))
         {
-            float s = len * k / segs;
-            At(pts, dist, s, out var c, out var f);
-            cs.Add(c); rs.Add(new Vector3(f.z, 0f, -f.x)); ss.Add(s);
-        }
-        // 上面：しまの境目でちょうど切れるように、各区間をしま単位で分ける
-        for (int k = 0; k < segs; k++)
-        {
-            float s0 = ss[k], s1 = ss[k + 1];
-            // この区間のしまの境目
-            var cuts = new List<float> { s0 };
-            for (float b = Mathf.Ceil(s0 / Stripe) * Stripe; b < s1 - 1e-4f; b += Stripe) if (b > s0 + 1e-4f) cuts.Add(b);
-            cuts.Add(s1);
-            for (int q = 0; q < cuts.Count - 1; q++)
+            float s0p = pc.x, s1p = pc.y;
+            int n = Mathf.Max(1, Mathf.CeilToInt((s1p - s0p) / 0.25f));
+            int first = V.Count;
+            for (int k = 0; k <= n; k++)
             {
-                float a = cuts[q], b2 = cuts[q + 1];
-                float ta = (a - s0) / (s1 - s0), tb = (b2 - s0) / (s1 - s0);
-                Vector3 ca = Vector3.Lerp(cs[k], cs[k + 1], ta), cb = Vector3.Lerp(cs[k], cs[k + 1], tb);
-                Vector3 ra = Vector3.Lerp(rs[k], rs[k + 1], ta).normalized, rb = Vector3.Lerp(rs[k], rs[k + 1], tb).normalized;
-                int stripe = Mathf.FloorToInt(((a + b2) * 0.5f) / Stripe) % 2;
-                int bi = V.Count;
-                V.Add(L(ca - ra * HalfW)); V.Add(L(ca + ra * HalfW)); V.Add(L(cb - rb * HalfW)); V.Add(L(cb + rb * HalfW));
-                for (int j = 0; j < 4; j++) N.Add(Ld(Vector3.up));
-                UV.Add(new Vector2(0, a)); UV.Add(new Vector2(1, a)); UV.Add(new Vector2(0, b2)); UV.Add(new Vector2(1, b2));
-                var T = stripe == 0 ? A : B;
-                T.AddRange(new[] { bi, bi + 2, bi + 1, bi + 1, bi + 2, bi + 3 });
+                float s = Mathf.Lerp(s0p, s1p, k / (float)n), W = PathHalfW(s);
+                At(pts, dist, s, out var c, out var f);
+                var r = new Vector3(f.z, 0f, -f.x);
+                // 断面の4点：左上・右上・右下・左下
+                V.Add(toLocal.MultiplyPoint3x4(c - r * W)); V.Add(toLocal.MultiplyPoint3x4(c + r * W));
+                V.Add(toLocal.MultiplyPoint3x4(c + r * W + Vector3.down * Thick)); V.Add(toLocal.MultiplyPoint3x4(c - r * W + Vector3.down * Thick));
             }
-        }
-        // 側面（左右）と底
-        for (int side = -1; side <= 1; side += 2)
-        {
-            for (int k = 0; k < segs; k++)
+            for (int k = 0; k < n; k++)
             {
-                Vector3 o0 = cs[k] + rs[k] * HalfW * side, o1 = cs[k + 1] + rs[k + 1] * HalfW * side;
-                Vector3 nrm = Ld((rs[k] + rs[k + 1]) * side);
-                int bi = V.Count;
-                V.Add(L(o0)); V.Add(L(o1)); V.Add(L(o0 + Vector3.down * Thick)); V.Add(L(o1 + Vector3.down * Thick));
-                for (int j = 0; j < 4; j++) N.Add(nrm);
-                UV.Add(new Vector2(0, ss[k])); UV.Add(new Vector2(0, ss[k + 1])); UV.Add(new Vector2(1, ss[k])); UV.Add(new Vector2(1, ss[k + 1]));
-                if (side > 0) A.AddRange(new[] { bi, bi + 1, bi + 2, bi + 2, bi + 1, bi + 3 });
-                else A.AddRange(new[] { bi, bi + 2, bi + 1, bi + 1, bi + 2, bi + 3 });
+                int a = first + k * 4, b = a + 4;
+                for (int q = 0; q < 4; q++) { int q1 = (q + 1) % 4; T.AddRange(new[] { a + q, b + q, a + q1, a + q1, b + q, b + q1 }); }
             }
+            int e = first + n * 4;
+            T.AddRange(new[] { first, first + 1, first + 2, first, first + 2, first + 3 });
+            T.AddRange(new[] { e, e + 2, e + 1, e, e + 3, e + 2 });
         }
-        for (int k = 0; k < segs; k++)
-        {
-            Vector3 d = Vector3.down * Thick;
-            int bi = V.Count;
-            V.Add(L(cs[k] - rs[k] * HalfW + d)); V.Add(L(cs[k] + rs[k] * HalfW + d)); V.Add(L(cs[k + 1] - rs[k + 1] * HalfW + d)); V.Add(L(cs[k + 1] + rs[k + 1] * HalfW + d));
-            for (int j = 0; j < 4; j++) N.Add(Ld(Vector3.down));
-            for (int j = 0; j < 4; j++) UV.Add(Vector2.zero);
-            A.AddRange(new[] { bi, bi + 1, bi + 2, bi + 1, bi + 3, bi + 2 });
-        }
-        // 両はしのふた
-        for (int e = 0; e < 2; e++)
-        {
-            int k = e == 0 ? 0 : segs;
-            Vector3 c = cs[k], r = rs[k];
-            Vector3 f = e == 0 ? Vector3.Cross(r, Vector3.up) : -Vector3.Cross(r, Vector3.up);   // 外向き
-            int bi = V.Count;
-            V.Add(L(c - r * HalfW)); V.Add(L(c + r * HalfW)); V.Add(L(c - r * HalfW + Vector3.down * Thick)); V.Add(L(c + r * HalfW + Vector3.down * Thick));
-            for (int j = 0; j < 4; j++) N.Add(Ld(f));
-            for (int j = 0; j < 4; j++) UV.Add(Vector2.zero);
-            if (e == 0) A.AddRange(new[] { bi, bi + 1, bi + 2, bi + 2, bi + 1, bi + 3 });
-            else A.AddRange(new[] { bi, bi + 2, bi + 1, bi + 1, bi + 2, bi + 3 });
-        }
-        // 三角形の向きを、決めた法線にそろえる（裏向きのものは裏返す）
-        foreach (var T in new[] { A, B })
-            for (int i = 0; i < T.Count; i += 3)
-            {
-                Vector3 p0 = V[T[i]], p1 = V[T[i + 1]], p2 = V[T[i + 2]];
-                if (Vector3.Dot(Vector3.Cross(p1 - p0, p2 - p0), N[T[i]]) < 0f) { int tmp = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = tmp; }
-            }
         var m = new Mesh { name = "Course0_TutorialPath" };
         m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-        m.SetVertices(V); m.SetNormals(N); m.SetUVs(0, UV);
-        m.subMeshCount = 2; m.SetTriangles(A, 0); m.SetTriangles(B, 1);
-        m.RecalculateBounds();
-        // 向きの確認：上面の三角形が上を向いているか（間違っていたら裏返す）
+        m.SetVertices(V); m.SetTriangles(T, 0);
+        m.RecalculateNormals(); m.RecalculateBounds();
         return m;
     }
 
@@ -313,7 +289,15 @@ public static class FuwaPracticeTutorial
     const float Sway = 1.3f, SwayLen = 40f;   // うねりの幅と周期(m)
     const float FirstWall = 4.6f;             // 入口の島（半径3）を出てすぐの壁
     const float ToMushroom = 5.0f;            // 最後の壁からキノコの島の中心まで
-    const float ToCheckpoint = 12f, ToGoal = 25f;   // キノコの島からチェックポイント・ゴールまで
+    // 最後の本番の道（キノコの島〜ゴール。2026-10-08 てじゃ）：キノコの島の中心からの距離 u で並べる
+    // 直線 → 右カーブ → 登り坂 → 溝（飛び越える。下は埋まっていて、落ちてもジャンプで上がれる）→ ゆるい斜めの横風（左から右）
+    // → チェックポイント → 道の右端にまもの（背後にイバラ）→ ゴール。道は広め（島の柵の入口に合わせて、両はしは元の幅にもどす）
+    const float FinHalfW = 2.5f;
+    const float FinStraight = 8f;                       // 島の中心からカーブの始まりまで
+    const float FinCurveDeg = 75f, FinCurveR = 7f;      // 右カーブ
+    const float FinSlopeLen = 6f, FinRise = 1.0f;       // 登り坂
+    const float FinGrooveW = 1.0f, FinGrooveDepth = 0.6f;   // 溝。深さ0.6：歩いては上がれない（段差の乗り越えは0.5まで）がジャンプなら上がれる（柵の0.65と同じ）
+    const float FinWindLen = 7f, FinWindStrength = 0.5f, FinWindAngle = 30f;   // 横風（右へ、少し前向き）
 
     static Vector3 Lane(Vector3 fwd, float s)
     {
@@ -355,16 +339,49 @@ public static class FuwaPracticeTutorial
         var bayS = new float[nb];
         for (int i = 0; i < nb; i++) bayS[i] = FirstWall + BaySpan * (i + 0.5f);
         float lastWall = FirstWall + BaySpan * nb;
-        float sMush = lastWall + ToMushroom, sCp = sMush + ToCheckpoint, sGoal = sMush + ToGoal;
+        float sMush = lastWall + ToMushroom;
+        // 最後の本番の道の目印（キノコの島の中心からの距離 u）
+        float uCurve1 = FinStraight + FinCurveR * FinCurveDeg * Mathf.Deg2Rad;
+        float uSlope0 = uCurve1 + 1f, uSlope1 = uSlope0 + FinSlopeLen;
+        float uGroove0 = uSlope1 + 3f, uGroove1 = uGroove0 + FinGrooveW;
+        float uWind0 = uGroove1 + 3f, uWind1 = uWind0 + FinWindLen;
+        float uCp = uWind1 + 2.5f, uMon = uCp + 5.5f, uGoal = uMon + 9f;
+        float uEnd = uGoal - 2.6f;   // 道はゴールの島のふちまで（島のまん中のリングにかぶらないように）
+        float sCp = sMush + uCp, sGoal = sMush + uGoal, sEnd = sMush + uEnd;
+        // 中心線：説明の小道（うねる）→ キノコの島から先は 直線＋右カーブ＋直線
+        Vector3 pM = Lane(F, sMush), d0 = (Lane(F, sMush + 0.01f) - Lane(F, sMush - 0.01f)); d0.y = 0f; d0.Normalize();
+        Vector3 r0 = new Vector3(d0.z, 0f, -d0.x);
+        void Fin(float u, out Vector3 p, out Vector3 d)
+        {
+            if (u <= FinStraight) { p = pM + d0 * u; d = d0; return; }
+            float a = Mathf.Min(u - FinStraight, uCurve1 - FinStraight) / FinCurveR;
+            Vector3 cen = pM + d0 * FinStraight + r0 * FinCurveR;
+            p = cen - r0 * FinCurveR * Mathf.Cos(a) + d0 * FinCurveR * Mathf.Sin(a);
+            d = (d0 * Mathf.Cos(a) + r0 * Mathf.Sin(a)).normalized;
+            if (u > uCurve1) p += d * (u - uCurve1);
+        }
         var cl = new List<Vector2>();
-        float sEnd = sGoal - 2.6f;   // 道はゴールの島のふちまで（島のまん中のリングにかぶらないように）
-        for (float s = 0f; s < sEnd - 0.5f; s += 4f) { var p = Lane(F, s); cl.Add(new Vector2(p.x, p.z)); }
-        { var p = Lane(F, sEnd); cl.Add(new Vector2(p.x, p.z)); }
+        for (float s = 0f; s < sMush - 2f; s += 4f) { var p = Lane(F, s); cl.Add(new Vector2(p.x, p.z)); }
+        int iMush = cl.Count; cl.Add(new Vector2(pM.x, pM.z));
+        for (float u = 1f; u < uEnd - 0.3f; u += 1f) { Fin(u, out var p, out _); cl.Add(new Vector2(p.x, p.z)); }
+        { Fin(uEnd, out var p, out _); cl.Add(new Vector2(p.x, p.z)); }
         Ctrl = cl.ToArray();
         var pts = Dense(out var dist);
         float len = dist[dist.Count - 1];
-        // s（入口からまっすぐ測った距離）→ 道の上の距離（うねりで少し長いぶんを比で合わせる）
-        float S(float s) { return s * len / sEnd; }
+        float dMush = dist[iMush * 200];
+        // s（入口からまっすぐ測った距離）→ 道の上の距離（説明の小道はうねりで少し長いぶんを比で合わせる。本番の道は u そのまま）
+        float S(float s) { return s <= sMush ? s * dMush / sMush : dMush + (s - sMush) * (len - dMush) / uEnd; }
+        float D(float u) { return S(sMush + u); }
+        float U(float d) { return d <= dMush ? (d - dMush) : (d - dMush) * uEnd / (len - dMush); }
+        // 道の形：広さ（島の柵の入口では元の幅）・登り坂・溝
+        PathHalfW = d =>
+        {
+            float u = U(d);
+            float k = Mathf.Min(Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(3f, 6f, u)), Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(uGoal - 3f, uGoal - 6f, u)));
+            return Mathf.Lerp(HalfW, FinHalfW, k);
+        };
+        PathTop = d => Top + FinRise * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(uSlope0, uSlope1, U(d)));
+        GrooveD0 = D(uGroove0); GrooveD1 = D(uGroove1);
 
         // ---------- 道（入口の島〜ゴールの島まで一本） ----------
         var pathGo = new GameObject("TutorialPath");
@@ -412,9 +429,15 @@ public static class FuwaPracticeTutorial
 
         // ---------- チェックポイントとゴールを、れんしゅうコースの道の上へ ----------
         At(pts, dist, S(sCp), out var cc, out var cf);
-        cp.position = new Vector3(cc.x, cp.position.y, cc.z); cp.rotation = Quaternion.LookRotation(cf);
-        Vector3 gc = Lane(F, sGoal), gf = (Lane(F, sGoal) - Lane(F, sGoal - 1f)); gf.y = 0; gf.Normalize();
-        goal.position = new Vector3(gc.x, goal.position.y, gc.z); goal.rotation = Quaternion.LookRotation(gf);   // ゴールの柵の入口はローカルの -z 側
+        cp.position = cc; cp.rotation = Quaternion.LookRotation(cf);   // cc の高さ＝道の上面（坂の上）
+        // チェックポイントの光るキノコ（道の両わきの丸太）を、広い道のふちの外へ
+        foreach (Transform cl0 in cp.Find("GlowMushrooms"))
+        {
+            var lp = cl0.localPosition; lp.x = Mathf.Sign(lp.x) * (PathHalfW(S(sCp)) + 0.28f); cl0.localPosition = lp;
+        }
+        Fin(uGoal, out var gc, out var gf);
+        // ゴールの島の地面の上面（＝ゴールの位置の高さ）は、道の上面より2cm低い（元と同じ関係）
+        goal.position = new Vector3(gc.x, PathTop(len) - 0.02f, gc.z); goal.rotation = Quaternion.LookRotation(gf);   // ゴールの柵の入口はローカルの -z 側
 
         // ---------- 入口の島 ----------
         At(pts, dist, 0f, out var e0, out var ef);
@@ -514,7 +537,7 @@ public static class FuwaPracticeTutorial
             Vector3 ic = c + outw * (HalfW + 1.6f - 0.25f);
             var isl = Island("Island", ic, false); isl.SetParent(bayRoot, true);
             BuildDemo(bayRoot, bay.key, ic, f, outw, f, blowerTmpl, ball, log);
-            if (bay.key == "Wind") MakeWindZone(bayRoot, pts, dist, bayS[bi], -outw, course, log, S);
+            if (bay.key == "Wind") MakeWindZone(bayRoot, pts, dist, S(bayS[bi]), -outw, course, log, BaySpan - 0.4f, HalfW, WindStrength, "Tutorial_WindHighlight");
             // 看板：区画の手前（入口側）、お手本の島の側の道のふちに立てて、来る人の方を向く
             MakeSign(bayRoot, c - f * 3.4f + outw * (HalfW - 0.35f), (f + outw * 0.45f).normalized, bay.ja, bay.en, signSrc, lang);
             // ためし撃ちの場所（区画のまん中の少し手前）と、そこへふわふわを呼ぶ範囲（区画まるごと）
@@ -573,13 +596,84 @@ public static class FuwaPracticeTutorial
             SetU(tz, "ball", ball); SetU(tz, "courseStart", ballStart); Sync(tz);
         }
 
+        // ---------- 最後の本番の道のしかけ ----------
+        {
+            var fin = new GameObject("FinalRun").transform; fin.SetParent(root, false);
+            var pathA = Mat("Course0_PathB");   // 溝の中は濃い方の色（上から見て穴だとわかるように）
+            Transform Box(string n, Vector3 center, Quaternion rot, Vector3 size)
+            {
+                var g = new GameObject(n); g.transform.SetParent(fin, false);
+                g.transform.SetPositionAndRotation(center, rot); g.transform.localScale = size;
+                g.AddComponent<MeshFilter>().sharedMesh = FuwaBevelTools.RoundCube(size, 0.03f, 2);
+                g.AddComponent<MeshRenderer>().sharedMaterial = pathA;
+                g.AddComponent<BoxCollider>();
+                g.layer = 11;
+                return g.transform;
+            }
+            // 溝：道が切れている所の底（道の上面から FinGrooveDepth 下）と、溝の前後の壁（道の下に続けて、溝の中から見て段差がつながるように）
+            {
+                float dg = (GrooveD0 + GrooveD1) * 0.5f;
+                At(pts, dist, dg, out var gcen, out var gfw);
+                var rot = Quaternion.LookRotation(gfw);
+                float W = PathHalfW(dg) * 2f, gw = GrooveD1 - GrooveD0, wallT = 0.15f;
+                Box("GrooveFloor", gcen + Vector3.down * (FinGrooveDepth + 0.15f), rot, new Vector3(W, 0.3f, gw));
+                float wallH = FinGrooveDepth + 0.3f - Thick;   // 道の下面〜底の下面
+                Box("GrooveWallA", gcen - gfw * (gw * 0.5f + wallT * 0.5f) + Vector3.down * (Thick + wallH * 0.5f), rot, new Vector3(W, wallH, wallT));
+                Box("GrooveWallB", gcen + gfw * (gw * 0.5f + wallT * 0.5f) + Vector3.down * (Thick + wallH * 0.5f), rot, new Vector3(W, wallH, wallT));
+                log.Add($"groove {gw:0.0}m depth {FinGrooveDepth}");
+            }
+            // ゆるい斜めの横風：左から右へ、少し前向き
+            {
+                float dm = D((uWind0 + uWind1) * 0.5f);
+                At(pts, dist, dm, out _, out var wf);
+                var wr = new Vector3(wf.z, 0f, -wf.x);
+                var wdir = wr * Mathf.Cos(FinWindAngle * Mathf.Deg2Rad) + wf * Mathf.Sin(FinWindAngle * Mathf.Deg2Rad);
+                MakeWindZone(fin, pts, dist, dm, wdir, course, log, FinWindLen, FinHalfW, FinWindStrength, "Tutorial_FinalWindHighlight");
+            }
+            // 道の右端にまもの、その背後（さらに右＝道のふち）にイバラ。撃ってイバラへ押し込むと倒せる
+            {
+                At(pts, dist, D(uMon), out var mcen, out var mfw);
+                var mr = new Vector3(mfw.z, 0f, -mfw.x);
+                float GroundBelow(Vector3 p) { return Physics.Raycast(p + Vector3.up * 0.6f, Vector3.down, out var h, 5f, 1 << 11, QueryTriggerInteraction.Ignore) ? h.point.y : p.y; }
+                var enemySrc = Object.FindObjectsOfType<FuwaEnemy>(true).First(e => e.name == "Enemy4");
+                var spSrc = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "SpikePatch4" && t.parent != null && t.parent.name == "Spikes");
+                Physics.SyncTransforms();
+                float enemyUp = enemySrc.transform.position.y - GroundBelow(enemySrc.transform.position);
+                float spUp = spSrc.position.y - GroundBelow(spSrc.position);
+                var mon = Object.Instantiate(enemySrc.gameObject, fin, true); mon.name = "Monster"; mon.SetActive(true);
+                mon.transform.position = mcen + mr * 0.7f + Vector3.up * enemyUp;   // まものの当たり（半径0.45）＋うろうろでもイバラの当たり（ふちから0.9〜）に届かない所
+                mon.transform.rotation = Quaternion.LookRotation(-mr);
+                var fe = mon.GetComponent<FuwaEnemy>();
+                SetUF(fe, "wanderRadius", 0.2f);
+                Sync(fe);
+                for (int k = 0; k < 2; k++)
+                {
+                    var sp = Object.Instantiate(spSrc.gameObject, fin, true); sp.name = "Bramble" + k; sp.SetActive(true);
+                    At(pts, dist, D(uMon + (k == 0 ? -1.05f : 1.05f)), out var bc, out var bf);
+                    var br = new Vector3(bf.z, 0f, -bf.x);
+                    sp.transform.SetPositionAndRotation(bc + br * (FinHalfW - 0.55f) + Vector3.up * spUp, Quaternion.LookRotation(bf));
+                    sp.transform.localScale = new Vector3(0.5f, 1f, 1f);   // 横（道を横切る向き）を細く：道のふちに沿った帯
+                }
+                // 球の「まもの一覧」に入れる（アウトの時に復活させる）。作り直しで消えた分は詰める
+                var bso = new SerializedObject(ball); var ep = bso.FindProperty("enemies");
+                var keep = new List<Object>();
+                for (int i = 0; i < ep.arraySize; i++) { var o = ep.GetArrayElementAtIndex(i).objectReferenceValue; if (o != null) keep.Add(o); }
+                keep.Add(fe);
+                ep.arraySize = keep.Count; for (int i = 0; i < keep.Count; i++) ep.GetArrayElementAtIndex(i).objectReferenceValue = keep[i];
+                bso.ApplyModifiedPropertiesWithoutUndo(); Sync(ball);
+                log.Add($"monster+brambles at u={uMon:0.0}, enemies {keep.Count}");
+            }
+        }
+
         // ---------- 落ちた時の受け止め：れんしゅうの FallCatcher を一本道の下に合わせる ----------
         var fcT = course.Find("FallCatcher");
         {
-            var mid = Lane(F, sGoal * 0.5f);
-            fcT.rotation = Quaternion.LookRotation(F);
-            fcT.position = new Vector3(mid.x, fcT.position.y, mid.z);
-            fcT.localScale = new Vector3(36f, fcT.localScale.y, sGoal + 24f);
+            // 道全体（説明の小道＋カーブした本番の道）を囲む四角
+            float x0 = pts.Min(p => p.x), x1 = pts.Max(p => p.x), z0 = pts.Min(p => p.y), z1 = pts.Max(p => p.y);
+            fcT.rotation = Quaternion.identity;
+            fcT.position = new Vector3((x0 + x1) * 0.5f, fcT.position.y, (z0 + z1) * 0.5f);
+            fcT.localScale = new Vector3(x1 - x0 + 30f, fcT.localScale.y, z1 - z0 + 30f);
+
         }
 
         // ---------- まとめ ----------
@@ -587,6 +681,8 @@ public static class FuwaPracticeTutorial
         {
             var go = t.gameObject;
             if (go.GetComponent<FuwaDemoStand>() != null || go.GetComponentInParent<FuwaDemoStand>() != null) { GameObjectUtility.SetStaticEditorFlags(go, 0); continue; }
+            if (go.GetComponentInParent<FuwaEnemy>() != null) { GameObjectUtility.SetStaticEditorFlags(go, 0); continue; }   // まものは動く
+
             if (go.GetComponent<Renderer>() != null && go.GetComponent<ParticleSystem>() == null && go.GetComponent<TMPro.TextMeshPro>() == null && go.name != "Label")
                 GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic);
         }
@@ -689,22 +785,25 @@ public static class FuwaPracticeTutorial
     }
 
     // 区画の道の上に本物の横風（ためし撃ちのふわふわが流される）。見た目はコース1の横風（G3_CrossRight）と同じ：地面の＞＞＞と風の粒
-    static void MakeWindZone(Transform bayRoot, List<Vector2> pts, List<float> dist, float sMid, Vector3 windDir, Transform course, List<string> log, System.Func<float, float> S)
+    // dMid：道の上の距離（風の箱のまん中）、len：道に沿った長さ、halfW：道の半分の幅、meshName：地面の＞＞＞のメッシュの名前（区画ごとに別）
+    static void MakeWindZone(Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 windDir, Transform course, List<string> log, float len, float halfW, float strength, string meshName)
     {
         var tmplArea = Object.FindObjectsOfType<FuwaWindArea>(true).FirstOrDefault(w => w.transform.parent != null && w.transform.parent.name == "G3_CrossRight");
-        At(pts, dist, S(sMid), out var c, out var f);
+        At(pts, dist, dMid, out var c, out var f);
         windDir.y = 0f; windDir.Normalize();
-        float len = BaySpan - 0.4f, wid = HalfW * 2f + 2f, hei = 4f;
+        // 箱：道に沿って len、横は道より少し広く（斜めの風でも道の上を覆うように）
+        float wid = halfW * 2f + 2f, hei = 4f;
         var zone = new GameObject("WindZone"); zone.transform.SetParent(bayRoot, false);
         zone.transform.position = c + Vector3.up * (hei * 0.5f - 0.3f);
-        zone.transform.rotation = Quaternion.LookRotation(windDir);
+        var acrossPath = new Vector3(f.z, 0f, -f.x);
+        zone.transform.rotation = Quaternion.LookRotation(acrossPath);   // 箱は道にそろえる（風の向きは localDirection で。斜めの風でも道の上をむらなく覆う）
         zone.transform.localScale = new Vector3(len, hei, wid);   // ローカルz＝風の向き（道を横切る）、x＝道に沿う
         zone.layer = 0;
         var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = Vector3.one;
         var wa = UdonSharpUndo.AddComponent<FuwaWindArea>(zone);
         var so = new SerializedObject(wa);
-        so.FindProperty("localDirection").vector3Value = Vector3.forward;
-        so.FindProperty("strength").floatValue = WindStrength;
+        so.FindProperty("localDirection").vector3Value = Quaternion.Inverse(zone.transform.rotation) * windDir;
+        so.FindProperty("strength").floatValue = strength;
         so.FindProperty("offSeconds").floatValue = 0f;
         if (tmplArea != null)
         {
@@ -716,20 +815,20 @@ public static class FuwaPracticeTutorial
 
         // 地面の＞＞＞：道の上だけ（UVのx＝風の向きに沿った距離m、y＝道に沿った距離m。ふちはぼかす）
         var V = new List<Vector3>(); var C = new List<Color>(); var UV = new List<Vector2>(); var T = new List<int>();
-        float[] across = { -HalfW, -HalfW + 0.35f, HalfW - 0.35f, HalfW };
+        float[] across = { -halfW, -halfW + 0.35f, halfW - 0.35f, halfW };
         float[] aAcross = { 0f, 1f, 1f, 0f };
-        float s0 = sMid - len * 0.5f, s1 = sMid + len * 0.5f; int rows = 0;
-        Vector3 origin = new Vector3(c.x, Top + 0.005f, c.z);
+        float s0 = dMid - len * 0.5f, s1 = dMid + len * 0.5f; int rows = 0;
+        Vector3 origin = c + Vector3.up * 0.005f;
         for (float s = s0; s <= s1 + 0.001f; s += 0.5f, rows++)
         {
-            At(pts, dist, S(s), out var pc, out var pf);
+            At(pts, dist, s, out var pc, out var pf);
             Vector3 outw = new Vector3(pf.z, 0, -pf.x);
             float aRow = Mathf.Clamp01(Mathf.Min(s - s0, s1 - s) / 0.8f);
             for (int j = 0; j < across.Length; j++)
             {
-                Vector3 w = new Vector3(pc.x, Top + 0.005f, pc.z) + outw * across[j];
+                Vector3 w = pc + Vector3.up * 0.005f + outw * across[j];
                 V.Add(w - origin);
-                UV.Add(new Vector2(Vector3.Dot(w - origin, windDir), s - sMid));
+                UV.Add(new Vector2(Vector3.Dot(w - origin, windDir), s - dMid));
                 C.Add(new Color(1f, 1f, 1f, aAcross[j] * aRow));
             }
         }
@@ -741,8 +840,8 @@ public static class FuwaPracticeTutorial
             }
         for (int i = 0; i < T.Count; i += 3)
             if (Vector3.Cross(V[T[i + 1]] - V[T[i]], V[T[i + 2]] - V[T[i]]).y < 0f) { int tmp = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = tmp; }
-        var m = new Mesh { name = "Tutorial_WindHighlight" }; m.SetVertices(V); m.SetColors(C); m.SetUVs(0, UV); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
-        string path = MeshDir + "/Tutorial_WindHighlight.asset";
+        var m = new Mesh { name = meshName }; m.SetVertices(V); m.SetColors(C); m.SetUVs(0, UV); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        string path = MeshDir + "/" + meshName + ".asset";
         var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (ex == null) AssetDatabase.CreateAsset(m, path); else { ex.Clear(); EditorUtility.CopySerialized(m, ex); m = ex; }
         var hl = new GameObject("WindHighlight"); hl.transform.SetParent(bayRoot, false); hl.transform.position = origin; hl.transform.rotation = Quaternion.identity;
@@ -756,7 +855,7 @@ public static class FuwaPracticeTutorial
         if (tmplArea != null && tmplArea.visual != null)
         {
             var wp = Object.Instantiate(tmplArea.visual, bayRoot, false); wp.name = "WindParticles";
-            wp.transform.position = new Vector3(c.x, Top + 1.5f, c.z);
+            wp.transform.position = c + Vector3.up * 1.5f;
             wp.transform.rotation = Quaternion.LookRotation(windDir);
             wp.transform.localScale = Vector3.one;
             var ps = wp.GetComponent<ParticleSystem>();
