@@ -72,6 +72,16 @@ public class FuwaDemoStand : UdonSharpBehaviour
     public float aimLineLength = 3.2f;
     public float aimLineKeep = 1.6f;
 
+    [Header("空気ゲージ（ガス欠のお手本だけ。本物と同じ減り方・溜めで戻る）")]
+    [Tooltip("ON：撃つと空気が減り、足りない時はスカッと空振りする。ポンプの大きさ・色と銃の横のゲージも本物と同じに動く")]
+    public bool useAir = false;
+    [Tooltip("銃の横の空気ゲージ（お手本の銃の GunGaugeL/R）")]
+    public Renderer[] gunGauges;
+    [Tooltip("空振りの音（本物の銃の EmptySfx のコピー）")]
+    public AudioSource emptySound;
+    [Tooltip("ゲージの色を読むだけ（本物の HUD）")]
+    public FuwaHud hudColors;
+
     private Vector3 _v;
     private Vector3 _spinAxis;
     private float _spin;
@@ -96,11 +106,26 @@ public class FuwaDemoStand : UdonSharpBehaviour
     private bool _active;
     private float _nextRangeCheck;
     private Quaternion _gunBaseRot;
+    private float _air = 1f;
+    private float _lastRealShot = -999f;
+    private Material _bulbMat;
+    private Color _bulbBaseColor = Color.white;
+    private Material[] _gaugeMats;
 
     private void Start()
     {
         if (ball != null) _ballBaseScale = ball.localScale;
-        if (pumpBulb != null) { _bulbBaseScale = pumpBulb.localScale; _bulbBasePos = pumpBulb.localPosition; }
+        if (pumpBulb != null)
+        {
+            _bulbBaseScale = pumpBulb.localScale; _bulbBasePos = pumpBulb.localPosition;
+            Renderer br = pumpBulb.GetComponent<Renderer>();
+            if (useAir && br != null) { _bulbMat = br.material; _bulbBaseColor = _bulbMat.color; }
+        }
+        if (useAir && gunGauges != null)
+        {
+            _gaugeMats = new Material[gunGauges.Length];
+            for (int i = 0; i < gunGauges.Length; i++) if (gunGauges[i] != null) _gaugeMats[i] = gunGauges[i].material;
+        }
         if (ballFur != null) _furMat = ballFur.material;
         if (chargeOrb != null)
         {
@@ -157,6 +182,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
 
         UpdateGunAim();
         UpdateChargeFx();
+        UpdateAir();
         UpdateBulb();
         UpdateBallLook(t);
         UpdateAimLine(t);
@@ -200,6 +226,8 @@ public class FuwaDemoStand : UdonSharpBehaviour
         _popped = false;
         _v = Vector3.zero;
         _spin = 0f;
+        _air = 1f;
+        _lastRealShot = -999f;
         StopCharge();
         if (ballStart != null) { ball.position = ballStart.position; ball.rotation = ballStart.rotation; }
     }
@@ -339,9 +367,20 @@ public class FuwaDemoStand : UdonSharpBehaviour
     private void Fire(float charge, Vector3 aimOffset)
     {
         StopCharge();
+        if (tuning == null || nozzle == null) return;
+        // 空気が1発分ないと空振り（本物と同じ：スカッと鳴るだけで何も出ない）
+        if (useAir)
+        {
+            if (_air + 0.0001f < tuning.airPerTap)
+            {
+                if (emptySound != null) emptySound.Play();
+                return;
+            }
+            _air = Mathf.Max(0f, _air - tuning.airPerTap);
+            _lastRealShot = Time.time;
+        }
         _shotTime = Time.time;
         _shotCharge = charge;
-        if (tuning == null || nozzle == null) return;
         // 撃つ瞬間は狙った所へぴったり向ける（向き直り途中のずれでお手本が変わらないように）
         if (!keepGunPose)
         {
@@ -387,6 +426,46 @@ public class FuwaDemoStand : UdonSharpBehaviour
         }
     }
 
+    // 空気の回復（本物の UpdateAir と同じ）：溜めている間はポンプで早く、撃たずにいると自然に。
+    // ゲージの色も本物の HUD と同じ（減ると赤へ、足りない時は点滅、溜めると金色へ）
+    private void UpdateAir()
+    {
+        if (!useAir || tuning == null) return;
+        if (_chargeFrom >= 0f)
+        {
+            if (tuning.airChargeRefillTime > 0.001f) _air += Time.deltaTime / tuning.airChargeRefillTime;
+        }
+        else if (Time.time - _lastRealShot >= tuning.airRegenDelay)
+        {
+            if (tuning.airRegenTime > 0.001f) _air += Time.deltaTime / tuning.airRegenTime;
+        }
+        _air = Mathf.Clamp01(_air);
+        bool empty = _air + 0.0001f < tuning.airPerTap;
+        float c = ChargeNow();
+        if (_gaugeMats != null && hudColors != null)
+        {
+            Color low = hudColors.airColorLow;
+            Color g = empty
+                ? Color.Lerp(low, new Color(low.r, low.g, low.b, 0.35f), 0.5f + 0.5f * Mathf.Sin(Time.time * 14f))
+                : Color.Lerp(low, hudColors.airColorFull, Mathf.Clamp01(_air * 2.5f));
+            if (c >= 1f) g = Color.Lerp(hudColors.airColorCharged, Color.white, (0.5f + 0.5f * Mathf.Sin(Time.time * 18f)) * 0.6f);
+            else if (c > 0f) g = Color.Lerp(Color.Lerp(g, hudColors.airColorCharged, c * c), Color.white, 0.45f * Mathf.Sin(c * Mathf.PI));
+            for (int i = 0; i < _gaugeMats.Length; i++)
+            {
+                if (_gaugeMats[i] == null) continue;
+                _gaugeMats[i].SetFloat("_Fill", _air);
+                _gaugeMats[i].SetColor("_FillColor", g);
+            }
+        }
+        if (_bulbMat != null)
+        {
+            Color b = Color.Lerp(tuning.bulbEmptyColor, _bulbBaseColor, _air);
+            if (empty) b = Color.Lerp(tuning.bulbEmptyColor, tuning.bulbWarnColor, 0.5f + 0.5f * Mathf.Sin(Time.time * 14f));
+            else if (c >= 1f) b = Color.Lerp(b, tuning.bulbFullFlashColor, (0.5f + 0.5f * Mathf.Sin(Time.time * 9f)) * tuning.bulbFullFlash);
+            _bulbMat.color = b;
+        }
+    }
+
     // ポンプ：溜めでふくらみ、撃つとしぼむ（本物の UpdateBulb と同じ形）
     private void UpdateBulb()
     {
@@ -409,7 +488,8 @@ public class FuwaDemoStand : UdonSharpBehaviour
             float t = since / 0.3f;
             inflate = tuning.bulbMaxInflate * _shotCharge * Mathf.Max(0f, 1f - t * 3f) - 0.12f * Mathf.Sin(Mathf.PI * t);
         }
-        Vector3 s3 = _bulbBaseScale * (1f + inflate * 1.05f);
+        float airScale = useAir ? Mathf.Lerp(tuning.bulbEmptyScale, 1f, _air) : 1f;   // 空気が減るとしぼむ
+        Vector3 s3 = _bulbBaseScale * (airScale * (1f + inflate * 1.05f));
         pumpBulb.localScale = s3;
         pumpBulb.localPosition = _bulbBasePos + new Vector3(0f, 0f, 0.5f * (_bulbBaseScale.z - s3.z));
     }

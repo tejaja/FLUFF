@@ -43,6 +43,9 @@ public static class FuwaPracticeTutorial
         new Bay(22.5f, "Center",
             "<size=130%><color=#FF6B5C>風の真ん中に寄る</color></size>\nふわふわの横を撃っても\n銃の正面の方へ寄りながら飛ぶ",
             "<size=130%><color=#FF6B5C>Pulled to the center</color></size>\nShoot beside the fluff and\nit drifts toward where your gun points"),
+        new Bay(0f, "Air",
+            "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる\n（待ってもゆっくりもどる）",
+            "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast\n(waiting refills it slowly)"),
         // 「溜めると吸い寄せる」は 2026-10-08 に仕組みごとなくした（端撃ちのじゃまになるので。chargePull=0）
     };
 
@@ -397,21 +400,7 @@ public static class FuwaPracticeTutorial
             var isl = Island("Island", ic, false); isl.SetParent(bayRoot, true);
             BuildDemo(bayRoot, bay.key, ic, f, outw, f, blowerTmpl, ball, log);
             // 看板：区画の手前（入口側）、お手本の島の側の道のふちに立てて、来る人の方を向く
-            var sign = new GameObject("Sign").transform; sign.SetParent(bayRoot, false);
-            Vector3 sp = c - f * 3.4f + outw * (HalfW - 0.35f);
-            sign.position = new Vector3(sp.x, Top, sp.z);
-            sign.rotation = Quaternion.LookRotation((f + outw * 0.45f).normalized);
-            var panel = Dup(signSrc.Find("Panel"), sign, "Panel"); var text = Dup(signSrc.Find("Text"), sign, "Text");
-            panel.transform.localPosition = new Vector3(0, 1.55f, 0.01f); panel.transform.localRotation = Quaternion.identity; panel.transform.localScale = Vector3.one * 0.62f;
-            var sr = panel.GetComponent<SpriteRenderer>(); sr.size = new Vector2(3.0f, 1.45f);
-            text.transform.localPosition = new Vector3(0, 1.55f, 0f); text.transform.localRotation = Quaternion.identity; text.transform.localScale = Vector3.one * 0.62f;
-            var tm = text.GetComponent<TMPro.TextMeshPro>(); tm.text = bay.ja; tm.alignment = TMPro.TextAlignmentOptions.Center;
-            tm.rectTransform.sizeDelta = new Vector2(2.75f, 1.25f); tm.enableAutoSizing = true; tm.fontSizeMax = 2.2f; tm.fontSizeMin = 0.8f;
-            var recs = text.GetComponent<FuwaRecords>(); if (recs != null) Object.DestroyImmediate(recs);
-            AddLang(lang, tm, bay.ja, bay.en);
-            var leg = GameObject.CreatePrimitive(PrimitiveType.Cylinder); leg.name = "Leg"; Object.DestroyImmediate(leg.GetComponent<Collider>());
-            leg.transform.SetParent(sign, false); leg.transform.localPosition = new Vector3(0, 0.55f, 0.03f); leg.transform.localScale = new Vector3(0.07f, 0.55f, 0.07f);
-            leg.GetComponent<Renderer>().sharedMaterial = Mat("Course_Wood");
+            MakeSign(bayRoot, c - f * 3.4f + outw * (HalfW - 0.35f), (f + outw * 0.45f).normalized, bay.ja, bay.en, signSrc, lang);
             // ためし撃ちの場所（区画のまん中の少し手前）と、そこへふわふわを呼ぶ範囲（区画まるごと）
             var trySpot = new GameObject("TrySpot").transform; trySpot.SetParent(bayRoot, false);
             At(pts, dist, S(bayS[bi] - 0.5f), out var tc, out var tf);
@@ -449,6 +438,14 @@ public static class FuwaPracticeTutorial
                 At(pts, dist, S(FirstWall + BaySpan * i), out var wc, out var wf);
                 MakeBarrier(walls, "Barrier_" + i, wc, wf);
             }
+        }
+        // 説明の小道の出口：「この先にはほかにも仕掛けがある」看板（全部は説明しない）
+        {
+            At(pts, dist, S(lastWall + 2.2f), out var c, out var f);
+            Vector3 outw = new Vector3(f.z, 0, -f.x);
+            MakeSign(root, c + outw * (HalfW - 0.35f), (f + outw * 0.45f).normalized,
+                "<size=130%><color=#FF6B5C>ここからが本番！</color></size>\nコースには、ほかにもいろんな\nしかけがあるよ。よく見てすすもう",
+                "<size=130%><color=#FF6B5C>Here we go!</color></size>\nThe courses have lots of other tricks.\nKeep your eyes open!", signSrc, lang, "Sign_MoreTricks");
         }
         // 最後の壁〜キノコの島：ふわふわをコースのスタート（キノコ）へ戻す
         {
@@ -519,6 +516,25 @@ public static class FuwaPracticeTutorial
         go.AddComponent<MeshFilter>().sharedMesh = m;
         var r = go.AddComponent<MeshRenderer>(); r.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+    }
+
+    // 看板（ロビーの BestTimes の板と文字をコピー）。pos＝道のふちの足もと、face＝看板の向き（来る人の方を向く）
+    static void MakeSign(Transform parent, Vector3 pos, Vector3 face, string ja, string en, Transform signSrc, FuwaLanguage lang, string name = "Sign")
+    {
+        var sign = new GameObject(name).transform; sign.SetParent(parent, false);
+        sign.position = new Vector3(pos.x, Top, pos.z);
+        sign.rotation = Quaternion.LookRotation(face);
+        var panel = Dup(signSrc.Find("Panel"), sign, "Panel"); var text = Dup(signSrc.Find("Text"), sign, "Text");
+        panel.transform.localPosition = new Vector3(0, 1.55f, 0.01f); panel.transform.localRotation = Quaternion.identity; panel.transform.localScale = Vector3.one * 0.62f;
+        var sr = panel.GetComponent<SpriteRenderer>(); sr.size = new Vector2(3.0f, 1.45f);
+        text.transform.localPosition = new Vector3(0, 1.55f, 0f); text.transform.localRotation = Quaternion.identity; text.transform.localScale = Vector3.one * 0.62f;
+        var tm = text.GetComponent<TMPro.TextMeshPro>(); tm.text = ja; tm.alignment = TMPro.TextAlignmentOptions.Center;
+        tm.rectTransform.sizeDelta = new Vector2(2.75f, 1.25f); tm.enableAutoSizing = true; tm.fontSizeMax = 2.2f; tm.fontSizeMin = 0.8f;
+        var recs = text.GetComponent<FuwaRecords>(); if (recs != null) Object.DestroyImmediate(recs);
+        AddLang(lang, tm, ja, en);
+        var leg = GameObject.CreatePrimitive(PrimitiveType.Cylinder); leg.name = "Leg"; Object.DestroyImmediate(leg.GetComponent<Collider>());
+        leg.transform.SetParent(sign, false); leg.transform.localPosition = new Vector3(0, 0.55f, 0.03f); leg.transform.localScale = new Vector3(0.07f, 0.55f, 0.07f);
+        leg.GetComponent<Renderer>().sharedMaterial = Mat("Course_Wood");
     }
 
     // ふわふわだけ止める壁：Walkthrough レイヤー（ふわふわ＝Walkthrough とは当たる、プレイヤーとは当たらない）。跳ね返りは岩と同じ
@@ -710,6 +726,35 @@ public static class FuwaPracticeTutorial
                     MakeStripes(bayRoot, new Vector3(islandCenter.x, IslandTop + 0.012f, islandCenter.z), sdir, nz.position);
                 }
                 break;
+            case "Air":
+            {
+                // 2台ならべる（ちょん押しと溜めの台と同じ）。どちらも下からちょん押し6発で浮かせ続けて、7発目でスカッ（空気ぎれ）。
+                // 左：すぐ溜めて満タン撃ち（溜めている間に空気が一気に戻る）／右：待って自然に戻ってから、またちょん押し
+                // 時刻は本物と同じ計算で確かめた（ふわふわは床まで落ちず、どの弾も当たる）
+                var lat = Vector3.Cross(Vector3.up, along).normalized;
+                var taps = new List<float>(); for (int i = 0; i < 7; i++) taps.Add(0.6f + 0.4f * i);
+                var tA = new List<float>(taps) { 3.65f }; var cA = new float[tA.Count]; cA[cA.Length - 1] = 1f;
+                var hA = new float[tA.Count]; hA[hA.Length - 1] = 0.15f;
+                var tB = new List<float>(taps) { 4.0f, 4.4f, 4.8f }; var cB = new float[tB.Count];
+                // ふわふわは銃口の真上より少し手前（銃が上を向くと銃口が前へ回りこむので、向いた後でほぼ真上になる。銃は85°くらい上向き）
+                Vector3 bo = new Vector3(0, 0.9f, -0.2f);
+                MakeLane(bayRoot, "Lane_Charge", islandCenter - along * 0.3f - lat * 0.55f, along, 0.5f, bo, tA.ToArray(), cA, null, hA, false, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane_Wait", islandCenter - along * 0.3f + lat * 0.55f, along, 0.5f, bo, tB.ToArray(), cB, null, null, false, tmpl, ballSrc, floorTop);
+                foreach (var ln in new[] { "Lane_Charge", "Lane_Wait" })
+                {
+                    var lane = bayRoot.Find(ln); var ds = lane.GetComponent<FuwaDemoStand>(); var gun = lane.Find("DemoGun");
+                    var gauges = gun.GetComponentsInChildren<Renderer>(true).Where(g => g.name.StartsWith("GunGauge")).ToArray();
+                    foreach (var g in gauges) g.enabled = true;
+                    var so = new SerializedObject(ds); var ga = so.FindProperty("gunGauges"); ga.arraySize = gauges.Length;
+                    for (int i = 0; i < gauges.Length; i++) ga.GetArrayElementAtIndex(i).objectReferenceValue = gauges[i];
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                    SetUB(ds, "useAir", true); SetUF(ds, "cycleLength", 7f);
+                    var es = gun.Find("Nozzle/EmptySfx"); if (es != null) SetU(ds, "emptySound", es.GetComponent<AudioSource>());
+                    SetU(ds, "hudColors", tmpl.hud);
+                    Sync(ds);
+                }
+                break;
+            }
             case "Pull":
                 // 少し離れたふわふわを、長く溜めて引き寄せてから撃つ
                 MakeLane(bayRoot, "Lane", islandCenter - along * 1.3f, along, 0.95f, new Vector3(0, 0.05f, 1.42f), new[] { 3.6f }, new[] { 1f }, null, new[] { 2.5f }, false, tmpl, ballSrc, floorTop);
