@@ -259,7 +259,7 @@ public class FuwaBall : UdonSharpBehaviour
             UpdateGlow();
         }
         if (_stuck) UpdateStuckShake();
-        UpdateGlide();
+        UpdateAppear();
         ShareBallPos();
         UpdateInflate();
         UpdateSquash();
@@ -999,51 +999,46 @@ public class FuwaBall : UdonSharpBehaviour
 
     public Transform GetRespawnPoint() { return respawnPoint; }
 
-    // れんしゅう：次の「ためし撃ちの場所」へ、消えずにふわっと弧を描いて飛んでいく。
-    // キノコに隠れている時・弾けている途中などは、すぐその場所に出す
-    [Tooltip("ためし撃ちの場所へ飛んでいく速さ(m/s)。かかる時間は glideMinTime〜glideMaxTime 秒")]
-    public float glideSpeed = 15f;      // 2026-10-09 6→15（てじゃ「走ってると追いつかない」。となりの区画11mを約0.7秒）
-    public float glideMinTime = 0.3f;
-    public float glideMaxTime = 0.8f;
-    [Tooltip("飛んでいく弧の高さ（距離に対する割合）")]
-    public float glideArc = 0.18f;
-    private bool _gliding;
-    private Vector3 _glideFrom;
-    private float _glideStart;
-    private float _glideTime;
-
+    // れんしゅう：次の「ためし撃ちの場所」へ移る時は、今いる所でパッと弾けて、すぐ次の場所に出る
+    // （2026-10-09 てじゃ：前は弧を描いて飛んでいったが、走ると追いつかないので一瞬に）。
+    // キノコに隠れている時・弾けている途中などは、弾けずにその場所に出すだけ
     public void GlideToPracticeSpot(Transform spot)
     {
         if (spot == null) return;
-        if (_hidden || _resetAt > 0f || _stuck || _spiking || _carried || !gameObject.activeInHierarchy || _rb == null) { SetPracticeSpot(spot); return; }
-        _practice = true;
-        timerEnabled = false;
-        respawnPoint = spot;
-        _finished = false;
-        _running = false;
-        _glideFrom = transform.position;
-        float dist = Vector3.Distance(_glideFrom, spot.position);
-        if (dist < 0.05f) { ResetToRespawn(); return; }
-        _glideTime = Mathf.Clamp(dist / Mathf.Max(0.1f, glideSpeed), glideMinTime, glideMaxTime);
-        _glideStart = Time.time;
-        _gliding = true;
-        _rb.velocity = Vector3.zero;
-        _rb.angularVelocity = Vector3.zero;
-        _rb.isKinematic = true;
-        _waiting = true;   // 飛んでいる間は物理を止めて待ち状態（撃たれたら、そこから普通に飛ぶ）
+        bool visible = !_hidden && _resetAt < 0f && !_spiking && gameObject.activeInHierarchy;
+        if (visible && popEffect != null && Vector3.Distance(transform.position, spot.position) > 0.05f)
+        {
+            popEffect.transform.position = transform.position;
+            popEffect.Play();
+            PlaySfx(sfxPop);
+        }
+        SetPracticeSpot(spot);
+        if (visible && !_hidden) Appear();
     }
 
-    private void UpdateGlide()
+    // 出てくる時の一瞬のエフェクト：ポンッとふくらんで（少し行きすぎて戻る）、まわりに綿毛がふわっと散る
+    [Header("れんしゅう：次の場所に出てくる時")]
+    public float appearTime = 0.22f;
+    public int appearPuff = 14;
+    private float _appearStart = -1f;
+
+    private void Appear()
     {
-        if (!_gliding) return;
-        // 途中で撃たれた（待ちが解けた）・弾けた時はやめる
-        if (!_waiting || _resetAt > 0f || respawnPoint == null) { _gliding = false; return; }
-        float t = Mathf.Clamp01((Time.time - _glideStart) / Mathf.Max(0.01f, _glideTime));
-        float e = t * t * (3f - 2f * t);
-        Vector3 to = respawnPoint.position;
-        Vector3 p = Vector3.Lerp(_glideFrom, to, e) + Vector3.up * (Vector3.Distance(_glideFrom, to) * glideArc * 4f * e * (1f - e));
-        transform.position = p;
-        if (t >= 1f) { _gliding = false; ResetToRespawn(); }
+        _appearStart = Time.time;
+        if (_baseScale.sqrMagnitude > 0f) transform.localScale = _baseScale * 0.05f;
+        if (shotPuff != null) shotPuff.Emit(appearPuff);
+        if (sfxBoing != null && sfxBoing.clip != null) { sfxBoing.pitch = boingPitchStrong * Random.Range(0.96f, 1.04f); sfxBoing.PlayOneShot(sfxBoing.clip, boingVolumeWeak); }
+    }
+
+    private void UpdateAppear()
+    {
+        if (_appearStart < 0f) return;
+        if (_inflateStart >= 0f || _hidden) { _appearStart = -1f; return; }
+        float t = Mathf.Clamp01((Time.time - _appearStart) / Mathf.Max(0.01f, appearTime));
+        // 0 → 1.15 → 1（バネっぽく）
+        float k = t < 0.7f ? Mathf.SmoothStep(0.05f, 1.15f, t / 0.7f) : Mathf.Lerp(1.15f, 1f, Mathf.SmoothStep(0f, 1f, (t - 0.7f) / 0.3f));
+        transform.localScale = _baseScale * k;
+        if (t >= 1f) { transform.localScale = _baseScale; _appearStart = -1f; }
     }
 
     public void RestartFromStart()
@@ -1061,7 +1056,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void ResetToRespawn()
     {
         if (_rb == null) _rb = GetComponent<Rigidbody>();   // Start より先に呼ばれた時（隠れていたエリアに入ってすぐワープした時など）
-        _gliding = false;
+        _appearStart = -1f;
         StopInflate();
         _carried = false;
         _resetAt = -1f;
