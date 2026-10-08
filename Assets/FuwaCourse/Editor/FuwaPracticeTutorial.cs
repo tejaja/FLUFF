@@ -374,7 +374,7 @@ public static class FuwaPracticeTutorial
             // ためし撃ちの場所（道の上、区画の正面）と、そこへふわふわを呼ぶ範囲
             var trySpot = new GameObject("TrySpot").transform; trySpot.SetParent(bayRoot, false);
             // 下向きショットの区画は、自分で撃つふわふわも地面ギリギリに（下を撃っても上がるのを試せるように）
-            trySpot.position = c + f * 0.3f + Vector3.up * (bay.key == "Down" ? 0.22f : 1.15f); trySpot.rotation = Quaternion.LookRotation(f);
+            trySpot.position = c + f * 0.3f + Vector3.up * (bay.key == "Down" ? 0.4f : 1.15f); trySpot.rotation = Quaternion.LookRotation(f);
             var zone = new GameObject("TryZone"); zone.transform.SetParent(bayRoot, false);
             zone.transform.position = c + Vector3.up * 1.2f; zone.transform.rotation = Quaternion.LookRotation(f);
             var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(HalfW * 2f + 4f, 3f, 6.5f);
@@ -544,7 +544,7 @@ public static class FuwaPracticeTutorial
             }
             case "Down":
                 // 銃を高めにして、斜め下のふわふわを撃つ（ねらった線も見せる：下を向いているのに上がる）
-                MakeLane(bayRoot, "Lane", islandCenter - along * 1.0f, along, 1.2f, new Vector3(0, -1.04f, 0.9f), new[] { 1.1f }, new[] { 1f }, null, null, true, tmpl, ballSrc, floorTop);
+                MakeLane(bayRoot, "Lane", islandCenter - along * 1.0f, along, 1.2f, new Vector3(0, -0.86f, 0.9f), new[] { 1.1f }, new[] { 1f }, null, null, true, tmpl, ballSrc, floorTop);
                 break;
             case "Center":
                 // ふわふわの横（道の進む向きの側）をねらう。ねらった線を見せて、そこへ寄っていくのを見せる
