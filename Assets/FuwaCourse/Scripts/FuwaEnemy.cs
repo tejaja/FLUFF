@@ -80,6 +80,10 @@ public class FuwaEnemy : UdonSharpBehaviour
     public float airDamping = 0.8f;
     [Tooltip("着地した時に残す横の速さの割合（ちょっとだけ転がる）")]
     public float landKeep = 0.3f;
+    [Tooltip("突進中に弱いショットが当たった時、突進の速さにかける倍率（何回当たってもこれより下がらない最低値も）")]
+    public float weakDashSlow = 0.8f;
+    public float weakDashMin = 0.55f;
+    private float _dashMul = 1f;
     private bool _airborne;
     private float _groundOffset;
 
@@ -332,6 +336,7 @@ public class FuwaEnemy : UdonSharpBehaviour
                 _dashHop = Mathf.Clamp(need / (4f * xb * (1f - xb)), hopHeight * 0.6f, maxHopHeight);
                 _hitThisDash = false;
                 _hitBallThisDash = false;
+                _dashMul = 1f;
                 if (dashSound != null) dashSound.Play();
                 SetState(2);
             }
@@ -339,7 +344,7 @@ public class FuwaEnemy : UdonSharpBehaviour
         }
         else if (_state == 2) // 突進（ぴょーんと跳ねて飛びかかる）
         {
-            Vector3 p = transform.position + _dashDir * dashSpeed * dt;
+            Vector3 p = transform.position + _dashDir * dashSpeed * _dashMul * dt;
             float x = Mathf.Clamp01(_stateTime / _dashDuration);
             p.y = _groundY + _dashHop * 4f * x * (1f - x);
             transform.position = p;
@@ -550,11 +555,11 @@ public class FuwaEnemy : UdonSharpBehaviour
             blownSound.pitch = Mathf.Lerp(1.2f, 0.85f, k) * Random.Range(0.95f, 1.05f);
             blownSound.PlayOneShot(blownSound.clip, Mathf.Lerp(0.45f, 1f, k));
         }
-        if (!stun)
+        // 弱いショット（溜めが足りない）：突進は止まらず、勢いが少し落ちるだけ（とぶ距離が短くなる）。
+        // それ以外（うろうろ・溜め中など）は弱でもちょっぴり飛ばす＝溜めはキャンセルできる（2026-10-09 てじゃ）
+        if (!stun && _state == 2)
         {
-            if (_state == 2) return;
-            Vector3 nudge = impulse * pushScale * 0.15f; nudge.y = 0f;
-            transform.position += nudge;
+            _dashMul = Mathf.Max(weakDashMin, _dashMul * weakDashSlow);
             return;
         }
         Vector3 push = impulse * pushScale; push.y = 0f;
