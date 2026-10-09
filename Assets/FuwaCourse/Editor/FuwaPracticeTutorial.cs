@@ -88,6 +88,9 @@ public static class FuwaPracticeTutorial
     // ---------- 道の形（道の上の距離 d ごとの、半分の幅・上面の高さ・溝） ----------
     // 説明の小道（キノコの島まで）は幅 HalfW・高さ Top のまま。最後の本番の道は広く、登り坂と溝がある（Run で決める）
     static System.Func<float, float> PathHalfW = d => HalfW;
+    // 左側（お手本の島と反対）だけ広げる分。説明の区画の間だけ（2026-10-09 てじゃ「道も左側にもうちょい広く」）
+    const float BayLeftExtra = 0.8f;
+    static System.Func<float, float> PathExtraL = d => 0f;
     static System.Func<float, float> PathTop = d => Top;
     static float GrooveD0 = -1f, GrooveD1 = -1f;   // 溝（道が切れている所）の道の上の距離。なければ -1
 
@@ -118,11 +121,12 @@ public static class FuwaPracticeTutorial
     const float Bevel = 0.08f;
     const int BevelSteps = 4;
 
-    static List<Vector4> BevelProfile(float W)
+    static List<Vector4> BevelProfile(float W, float WL = -1f)
     {
+        if (WL < 0f) WL = W;   // 左側の半分の幅（右とちがう時だけ）
         // (横, 高さ, 法線の横, 法線の上)
-        var prof = new List<Vector4> { new Vector4(-W, -Thick, -1, 0) };
-        for (int i = 0; i <= BevelSteps; i++) { float a = Mathf.PI - (Mathf.PI / 2) * i / BevelSteps; prof.Add(new Vector4(-W + Bevel + Bevel * Mathf.Cos(a), -Bevel + Bevel * Mathf.Sin(a), Mathf.Cos(a), Mathf.Sin(a))); }
+        var prof = new List<Vector4> { new Vector4(-WL, -Thick, -1, 0) };
+        for (int i = 0; i <= BevelSteps; i++) { float a = Mathf.PI - (Mathf.PI / 2) * i / BevelSteps; prof.Add(new Vector4(-WL + Bevel + Bevel * Mathf.Cos(a), -Bevel + Bevel * Mathf.Sin(a), Mathf.Cos(a), Mathf.Sin(a))); }
         for (int i = 0; i <= BevelSteps; i++) { float a = Mathf.PI / 2 - (Mathf.PI / 2) * i / BevelSteps; prof.Add(new Vector4(W - Bevel + Bevel * Mathf.Cos(a), -Bevel + Bevel * Mathf.Sin(a), Mathf.Cos(a), Mathf.Sin(a))); }
         prof.Add(new Vector4(W, -Thick, 1, 0));
         return prof;
@@ -155,7 +159,7 @@ public static class FuwaPracticeTutorial
             foreach (var sv in st)
             {
                 float s = sv.x, inset = sv.y, th = sv.z, dir = sv.w;
-                var prof = BevelProfile(PathHalfW(s)); P = prof.Count;
+                var prof = BevelProfile(PathHalfW(s), PathHalfW(s) + PathExtraL(s)); P = prof.Count;
                 At(pts, dist, s, out var c, out var f);
                 var right = new Vector3(f.z, 0f, -f.x);
                 float slope = (PathTop(s + 0.05f) - PathTop(s - 0.05f)) / 0.1f;
@@ -221,12 +225,12 @@ public static class FuwaPracticeTutorial
             int first = V.Count;
             for (int k = 0; k <= n; k++)
             {
-                float s = Mathf.Lerp(s0p, s1p, k / (float)n), W = PathHalfW(s);
+                float s = Mathf.Lerp(s0p, s1p, k / (float)n), W = PathHalfW(s), WL = W + PathExtraL(s);
                 At(pts, dist, s, out var c, out var f);
                 var r = new Vector3(f.z, 0f, -f.x);
                 // 断面の4点：左上・右上・右下・左下
-                V.Add(toLocal.MultiplyPoint3x4(c - r * W)); V.Add(toLocal.MultiplyPoint3x4(c + r * W));
-                V.Add(toLocal.MultiplyPoint3x4(c + r * W + Vector3.down * Thick)); V.Add(toLocal.MultiplyPoint3x4(c - r * W + Vector3.down * Thick));
+                V.Add(toLocal.MultiplyPoint3x4(c - r * WL)); V.Add(toLocal.MultiplyPoint3x4(c + r * W));
+                V.Add(toLocal.MultiplyPoint3x4(c + r * W + Vector3.down * Thick)); V.Add(toLocal.MultiplyPoint3x4(c - r * WL + Vector3.down * Thick));
             }
             for (int k = 0; k < n; k++)
             {
@@ -311,17 +315,42 @@ public static class FuwaPracticeTutorial
         return Origin + fwd * s + right * (Sway * Mathf.Sin(s * 2f * Mathf.PI / SwayLen));
     }
 
+    // 道の見た目と当たり判定だけ作り直す（看板・島・ためし撃ちの場所など、手で直した所はさわらない）
+    static bool _pathOnly; static List<Vector2> _pathOnlyPts; static List<float> _pathOnlyDist;
+    [MenuItem("FuwaCourse/れんしゅう/説明の小道の道だけ作り直す")]
+    public static void PathOnlyMenu() { Debug.Log(RebuildPathOnly()); }
+    public static string RebuildPathOnly()
+    {
+        _pathOnly = true;
+        try { Run(); } finally { _pathOnly = false; }
+        var course = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
+        var pathGo = course.Find(RootName + "/TutorialPath");
+        Mesh SaveMesh(Mesh m, string path)
+        {
+            var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if (ex == null) { AssetDatabase.CreateAsset(m, path); return m; }
+            FuwaBevelTools.CopyInto(ex, m); ex.UploadMeshData(false); EditorUtility.SetDirty(ex); return ex;
+        }
+        var mesh = SaveMesh(BevelPathMesh(_pathOnlyPts, _pathOnlyDist, pathGo.worldToLocalMatrix), MeshDir + "/Course0_TutorialPath_Bevel.asset");
+        var colMesh = SaveMesh(PathMesh(_pathOnlyPts, _pathOnlyDist, pathGo.worldToLocalMatrix), MeshDir + "/Course0_TutorialPath.asset");
+        var mf = pathGo.GetComponent<MeshFilter>(); mf.sharedMesh = null; mf.sharedMesh = mesh;
+        var mc = pathGo.GetComponent<MeshCollider>(); mc.sharedMesh = null; mc.sharedMesh = colMesh;
+        AssetDatabase.SaveAssets();
+        return "tutorial path rebuilt " + mesh.vertexCount;
+    }
+
     public static string Run()
     {
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         var course = scene.GetRootGameObjects().First(g => g.name == Course).transform;
+        // 道だけ作り直す時（_pathOnly）は、今あるものは消さずに、位置を決めるところまでで抜ける
         var old = course.Find(RootName);
-        if (old != null) Object.DestroyImmediate(old.gameObject);
+        if (old != null && !_pathOnly) Object.DestroyImmediate(old.gameObject);
         var proto = course.Find("DemoProto");
-        if (proto != null) Object.DestroyImmediate(proto.gameObject);
+        if (proto != null && !_pathOnly) Object.DestroyImmediate(proto.gameObject);
         if (!AssetDatabase.IsValidFolder(MeshDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Meshes", "Tutorial");
 
-        var root = new GameObject(RootName).transform;
+        var root = _pathOnly ? old : new GameObject(RootName).transform;
         root.SetParent(course, false);
         var start = course.Find("Start");
         var startArea = start.Find("StartArea");
@@ -331,7 +360,7 @@ public static class FuwaPracticeTutorial
         var blowerTmpl = Object.FindObjectsOfType<FuwaBlower>(true).First(b => b.transform.parent == null && b.name == "FuwaBlower");
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
         var log = new List<string>();
-        log.Add("lang purged " + PurgeLang(lang));
+        if (!_pathOnly) log.Add("lang purged " + PurgeLang(lang));
 
         // 元のれんしゅうの道・飾りはOFF（消さない：ほかのスクリプトの参照が切れないように）
         foreach (var n in new[] { "PathMesh", "Deco", "EdgeProps", "Bubbles" })
@@ -387,7 +416,10 @@ public static class FuwaPracticeTutorial
             return Mathf.Lerp(HalfW, FinHalfW, k);
         };
         PathTop = d => Top + FinRise * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(uSlope0, uSlope1, U(d)));
+        // 左側の広がり：最初の区画の始まり〜最後の区画の終わり（入口・キノコの島の柵の入口は元の幅）
+        { float x0 = S(FirstWall), x1 = S(lastWall); PathExtraL = d => BayLeftExtra * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(x0 - 0.5f, x0 + 1.5f, d)) * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(x1 + 0.5f, x1 - 1.5f, d)); }
         GrooveD0 = D(uGroove0); GrooveD1 = D(uGroove1);
+        if (_pathOnly) { _pathOnlyPts = pts; _pathOnlyDist = dist; return "layout"; }   // 道だけ作り直す時はここまで
 
         // ---------- 道（入口の島〜ゴールの島まで一本） ----------
         var pathGo = new GameObject("TutorialPath");
