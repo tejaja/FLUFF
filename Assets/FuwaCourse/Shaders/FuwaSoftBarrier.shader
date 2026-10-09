@@ -21,7 +21,8 @@ Shader "FuwaCourse/SoftBarrier"
         _LineColor ("ふだんの線の色", Color) = (0.55, 0.8, 1, 1)
         _LineHeight ("横の線の高さ (m、床から)", Float) = 1.0
         _WallTop ("近づくと見える壁が消える高さ (m)", Float) = 1.0
-        _HexSize ("バリアの六角形の大きさ (m)", Float) = 0.3
+        _HexSize ("バリアの格子の大きさ (m)", Float) = 0.3
+        [Toggle] _GridNearBall ("格子をふわふわのまわりだけに出す（OFF＝見ている人のまわり）", Float) = 0
     }
     SubShader
     {
@@ -39,7 +40,7 @@ Shader "FuwaCourse/SoftBarrier"
             #include "UnityCG.cginc"
 
             fixed4 _Color, _EdgeColor;
-            float _Reveal, _RingFreq, _RingSpeed, _EdgeWidth, _CamNear, _Iri, _LineAlpha, _LineFar, _LineWidth, _FilmAlpha, _LineHeight, _WallTop, _HexSize;
+            float _Reveal, _RingFreq, _RingSpeed, _EdgeWidth, _CamNear, _Iri, _LineAlpha, _LineFar, _LineWidth, _FilmAlpha, _LineHeight, _WallTop, _HexSize, _GridNearBall;
             fixed4 _LineColor;
             float4 _UdonFuwaBallPos;
 
@@ -87,7 +88,9 @@ Shader "FuwaCourse/SoftBarrier"
                     float hl = 1 - smoothstep(w * 0.5, w, abs(m.y - _LineHeight));
                     float vl = (1 - smoothstep(w * 0.5, w, m.x)) * (1 - smoothstep(_LineHeight, _LineHeight + 0.8, m.y));
                     float ln = max(hl, vl);
-                    float far = 1 - smoothstep(_LineFar * 0.5, _LineFar, camD);
+                    // 見える範囲：_GridNearBall=1 なら自分のふわふわのまわりだけ（_LineFar がその半径）、0 なら見ている人のまわり
+                    float near = _GridNearBall > 0.5 ? d * (saturate(_UdonFuwaBallPos.w) > 0 ? 1 : 1e4) : camD;
+                    float far = 1 - smoothstep(_LineFar * 0.5, _LineFar, near);
                     // 近づくと見えるバリア：四角い格子（線は濃く、中はうっすら）。_WallTop まで（0以下なら上まで全部）
                     float2 gp = float2(uv.x * sx.x, m.y) / _HexSize;          // 格子は壁の左はしから（ずっと同じ間隔）
                     float2 gd = abs(frac(gp) - 0.5);                           // 線（マスのふち）で0.5
