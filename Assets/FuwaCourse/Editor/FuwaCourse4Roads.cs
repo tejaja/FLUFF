@@ -91,7 +91,9 @@ public static class FuwaCourse4Roads
         {
             float p0 = gap0 > 0f ? e0 - 0.25f : e1 - gap1 - JagMax;
             float p1 = gap0 > 0f ? e0 + gap0 + JagMax : e1 + 0.25f;
-            Put(pn, SaveMesh(Patch(p0, p1, halfW, top, name.Length * 7919 + 17), pn), new[] { br.GetComponent<Renderer>().sharedMaterial });
+            // 丸太を出すのは割れ目（巣の床のふち〜道の割れたはし）だけ
+            float v0 = gap0 > 0f ? e0 : e1 - gap1, v1 = gap0 > 0f ? e0 + gap0 : e1;
+            Put(pn, SaveMesh(Patch(p0, p1, v0, v1, halfW, top, name.Length * 7919 + 17), pn), new[] { br.GetComponent<Renderer>().sharedMaterial });
         }
         br.gameObject.SetActive(false);   // 木の橋の見た目は消さずに非表示（当たり判定 _Col はそのまま）
         // 島（巣）どうしの間が橋より長い時（ゴールを奥へずらした等）は、橋の当たり判定の代わりに道の形の箱を置く
@@ -170,7 +172,7 @@ public static class FuwaCourse4Roads
 
     // 割れ目をつなぐ小枝：道を横切る丸太（両はしは少し細い）を z0〜z1 にすき間なく並べ、左右2か所をツタでしばる。
     // 色は頂点カラー（橋と同じ Den_Twig の材質）。丸太の上は道の上面とほぼ同じ高さ（当たり判定は橋の平らな面）
-    static Mesh Patch(float z0, float z1, float halfW, float top, int seed)
+    static Mesh Patch(float z0, float z1, float v0, float v1, float halfW, float top, int seed)
     {
         var rnd = new System.Random(seed);
         float R(float lo, float hi) => lo + (float)rnd.NextDouble() * (hi - lo);
@@ -206,8 +208,11 @@ public static class FuwaCourse4Roads
             float len = halfW * 2f * R(0.92f, 1.12f), off = R(-0.12f, 0.12f), yaw = R(-7f, 7f) * Mathf.Deg2Rad;
             var d = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw));
             var c = new Vector3(off, top - r * 0.55f + R(-0.01f, 0.015f), zz);
-            Log(c - d * len * 0.5f, c + d * len * 0.5f, r * R(0.75f, 0.95f), r * R(0.75f, 0.95f), browns[rnd.Next(browns.Length)], 7);
-            logs.Add((zz, r));
+            float rA = r * R(0.75f, 0.95f), rB = r * R(0.75f, 0.95f); var col = browns[rnd.Next(browns.Length)];
+            // 巣の床や道の下に埋まる丸太は出さない（てじゃ）。ツタは埋まる所まで続ける（床・道の上に乗る）
+            bool vis = zz - r >= v0 && zz + r <= v1;
+            if (vis) Log(c - d * len * 0.5f, c + d * len * 0.5f, rA, rB, col, 7);
+            logs.Add((zz, vis ? r : 0f));
             zz += r + R(0f, 0.02f);
         }
         // ツタ：丸太の上を道の向きに2本。丸太ごとに少し上下して、乗っている感じに
@@ -215,8 +220,8 @@ public static class FuwaCourse4Roads
         foreach (float x in new[] { -halfW + 0.3f + R(-0.05f, 0.05f), halfW - 0.3f + R(-0.05f, 0.05f) })
             for (int i = 0; i < logs.Count - 1; i++)
             {
-                var p = new Vector3(x + R(-0.02f, 0.02f), top + logs[i].r * 0.45f + 0.012f, logs[i].z);
-                var q = new Vector3(x + R(-0.02f, 0.02f), top + logs[i + 1].r * 0.45f + 0.012f, logs[i + 1].z);
+                var p = new Vector3(x + R(-0.02f, 0.02f), top + logs[i].r * 0.45f + 0.025f, logs[i].z);
+                var q = new Vector3(x + R(-0.02f, 0.02f), top + logs[i + 1].r * 0.45f + 0.025f, logs[i + 1].z);
                 Log(p, q, 0.022f, 0.022f, vine, 5);
             }
         // 三角形の向きを法線にそろえる
