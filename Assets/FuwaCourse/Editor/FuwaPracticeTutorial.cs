@@ -896,24 +896,15 @@ public static class FuwaPracticeTutorial
                 var mr = new Vector3(mfw.z, 0f, -mfw.x);
                 float GroundBelow(Vector3 p) { return Physics.Raycast(p + Vector3.up * 0.6f, Vector3.down, out var h, 5f, 1 << 11, QueryTriggerInteraction.Ignore) ? h.point.y : p.y; }
                 var enemySrc = Object.FindObjectsOfType<FuwaEnemy>(true).First(e => e.name == "Enemy4");
-                var spSrc = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "SpikePatch4" && t.parent != null && t.parent.name == "Spikes");
                 Physics.SyncTransforms();
                 float enemyUp = enemySrc.transform.position.y - GroundBelow(enemySrc.transform.position);
-                float spUp = spSrc.position.y - GroundBelow(spSrc.position);
                 var mon = Object.Instantiate(enemySrc.gameObject, fin, true); mon.name = "Monster"; mon.SetActive(true);
                 mon.transform.position = mcen + mr * 0.7f + Vector3.up * enemyUp;   // まものの当たり（半径0.45）＋うろうろでもイバラの当たり（ふちから0.9〜）に届かない所
                 mon.transform.rotation = Quaternion.LookRotation(-mr);
                 var fe = mon.GetComponent<FuwaEnemy>();
                 SetUF(fe, "wanderRadius", 0.2f);
                 Sync(fe);
-                for (int k = 0; k < 2; k++)
-                {
-                    var sp = Object.Instantiate(spSrc.gameObject, fin, true); sp.name = "Bramble" + k; sp.SetActive(true);
-                    At(pts, dist, D(uMon + (k == 0 ? -1.05f : 1.05f)), out var bc, out var bf);
-                    var br = new Vector3(bf.z, 0f, -bf.x);
-                    sp.transform.SetPositionAndRotation(bc + br * (FinHalfW - 0.55f) + Vector3.up * spUp, Quaternion.LookRotation(bf));
-                    sp.transform.localScale = new Vector3(0.5f, 1f, 1f);   // 横（道を横切る向き）を細く：道のふちに沿った帯
-                }
+                // まもののわきのイバラ2つは撤去（2026-10-10 てじゃ。横につぶして回転がゆがむ・重なって足が遅いまま戻らないバグの元だった）
                 // 球の「まもの一覧」に入れる（アウトの時に復活させる）。作り直しで消えた分は詰める
                 var bso = new SerializedObject(ball); var ep = bso.FindProperty("enemies");
                 var keep = new List<Object>();
@@ -921,7 +912,7 @@ public static class FuwaPracticeTutorial
                 keep.Add(fe);
                 ep.arraySize = keep.Count; for (int i = 0; i < keep.Count; i++) ep.GetArrayElementAtIndex(i).objectReferenceValue = keep[i];
                 bso.ApplyModifiedPropertiesWithoutUndo(); Sync(ball);
-                log.Add($"monster+brambles at u={uMon:0.0}, enemies {keep.Count}");
+                log.Add($"monster at u={uMon:0.0}, enemies {keep.Count}");
             }
         }
 
