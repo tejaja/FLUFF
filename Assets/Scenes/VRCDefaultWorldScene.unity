@@ -550760,8 +550760,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 6bfa9e813467b124b8c3c745ce0d5850, type: 2}
-  m_sharedMaterial: {fileID: 2100000, guid: eebb8425e22dcc342b6cd3ddd36a34ac, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 39fdc40c05b42434c8807d885bc710dd, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 62a98d648cb7f7d4f81c850400c37818, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -550850,7 +550850,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: eebb8425e22dcc342b6cd3ddd36a34ac, type: 2}
+  - {fileID: 2100000, guid: 62a98d648cb7f7d4f81c850400c37818, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1622989,8 +1622989,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 6bfa9e813467b124b8c3c745ce0d5850, type: 2}
-  m_sharedMaterial: {fileID: 2100000, guid: eebb8425e22dcc342b6cd3ddd36a34ac, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 39fdc40c05b42434c8807d885bc710dd, type: 2}
+  m_sharedMaterial: {fileID: 2100000, guid: 62a98d648cb7f7d4f81c850400c37818, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1623079,7 +1623079,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: eebb8425e22dcc342b6cd3ddd36a34ac, type: 2}
+  - {fileID: 2100000, guid: 62a98d648cb7f7d4f81c850400c37818, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1979730,7 +1979730,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1849933631}
-  - {fileID: 1096814269}
   - {fileID: 815259902}
   - {fileID: 235332394}
   - {fileID: 1972459608}
@@ -1979751,6 +1979750,7 @@ Transform:
   - {fileID: 754346977}
   - {fileID: 2004693092}
   - {fileID: 1923247105}
+  - {fileID: 1096814269}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &1569782616
