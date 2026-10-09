@@ -716,8 +716,7 @@ public class FuwaBall : UdonSharpBehaviour
         _resetAt = Time.time + resetDelay + inflate;
         _failedSinceReset = true;
         // れんしゅうのためし撃ちの場所では「アウト！」は出さない（弾けて戻るだけ。2026-10-09 てじゃ）
-        if (!_practice) ShowMessage(english ? "Out!" : "アウト！", resetDelay + inflate + 0.5f);
-        PlaySfx(sfxOut);
+        if (!_practice) { ShowMessage(english ? "Out!" : "アウト！", resetDelay + inflate + 0.5f); PlaySfx(sfxOut); }
         // その場で止めて、ぷくーっと膨らんでからパッと弾けて消える（戻る時にResetToRespawnで元に戻る）
         _rb.velocity = Vector3.zero;
         _rb.angularVelocity = Vector3.zero;
