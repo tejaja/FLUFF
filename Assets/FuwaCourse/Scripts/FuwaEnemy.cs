@@ -71,6 +71,15 @@ public class FuwaEnemy : UdonSharpBehaviour
     public float pushScale = 1.6f;
     public float pushDamping = 3f;
     public float stunTime = 0.7f;
+    [Tooltip("押された時にピョンと浮く上向きの速さ（弱い押し〜強い押し）。0なら前のように床をすべる")]
+    public float blownHopMin = 2.4f;
+    public float blownHopMax = 3.6f;
+    [Tooltip("浮いている間の横の速さの減り方（床をすべる時より小さく＝ふわっと飛ぶ）")]
+    public float airDamping = 0.8f;
+    [Tooltip("着地した時に残す横の速さの割合（ちょっとだけ転がる）")]
+    public float landKeep = 0.3f;
+    private bool _airborne;
+    private float _groundOffset;
 
     [Header("巣の中にかくれる（まもののす）")]
     [Tooltip("ONなら、ふだんは巣の床の下にかくれていて、近づくとぴょこっと出てくる")]
@@ -357,15 +366,43 @@ public class FuwaEnemy : UdonSharpBehaviour
                 if ((transform.position - _home).sqrMagnitude < 0.04f) SetState(0);
             }
         }
-        else if (_state == 4) // ひるみ（押されて滑る）
+        else if (_state == 4) // ひるみ（押されてピョンと浮いて飛ぶ → 着地してちょっと転がる）
         {
-            Vector3 p = transform.position + _vel * dt;
-            p.y = Mathf.MoveTowards(p.y, _groundY, 4f * dt);
-            transform.position = p;
-            _vel *= Mathf.Exp(-pushDamping * dt);
-            // 道の外に押し出されたら落ちる（しばらくして復活）
-            if (!HasGroundBelow()) SetState(5);
-            else if (_stateTime > stunTime) { _cooldownUntil = Time.time + cooldown * 0.5f; SetState(3); }
+            if (_airborne)
+            {
+                _vel.y -= gravity * dt;
+                float keepH = Mathf.Exp(-airDamping * dt); _vel.x *= keepH; _vel.z *= keepH;
+                Vector3 prev = transform.position;
+                Vector3 p = prev + _vel * dt;
+                // 足元の道：前のフレームの高さから今の高さまでを調べる（重いフレームで一気に床の下へ抜けないように）
+                RaycastHit hit;
+                float top = Mathf.Max(prev.y, p.y) + 0.6f;
+                bool ground = Physics.Raycast(new Vector3(p.x, top, p.z), Vector3.down, out hit, top - p.y + 0.6f, 1 << groundLayer, QueryTriggerInteraction.Ignore);
+                if (_vel.y < 0f && ground && p.y <= hit.point.y + _groundOffset)
+                {
+                    // 着地：ぷにっとつぶれて、横の速さを少しだけ残す
+                    p.y = hit.point.y + _groundOffset;
+                    _groundY = p.y;
+                    _airborne = false;
+                    _vel.y = 0f; _vel.x *= landKeep; _vel.z *= landKeep;
+                    _squashUntil = Time.time + 0.3f;
+                    if (bumpSound != null) bumpSound.Play();
+                    _stateTime = Mathf.Min(_stateTime, stunTime - 0.3f);   // 着地してから少しだけひるむ
+                }
+                transform.position = p;
+                // 道の外へ飛んで、飛び出した高さより下まで落ちたら落下（しばらくして復活）
+                if (_airborne && _vel.y < 0f && p.y < _groundY - 0.3f && !HasGroundBelow()) SetState(5);
+            }
+            else
+            {
+                Vector3 p = transform.position + _vel * dt;
+                p.y = Mathf.MoveTowards(p.y, _groundY, 4f * dt);
+                transform.position = p;
+                _vel *= Mathf.Exp(-pushDamping * dt);
+                // 道の外に押し出されたら落ちる（しばらくして復活）
+                if (!HasGroundBelow()) SetState(5);
+                else if (_stateTime > stunTime) { _cooldownUntil = Time.time + cooldown * 0.5f; SetState(3); }
+            }
         }
         else if (_state == 5) // 落下
         {
@@ -408,6 +445,13 @@ public class FuwaEnemy : UdonSharpBehaviour
                 float k = _stateTime / windupTime;
                 visual.localPosition = _visualBase + Random.insideUnitSphere * 0.025f * (0.5f + k);
                 visual.localScale = new Vector3(_visualScale.x * (1f + 0.15f * k), _visualScale.y * (1f - 0.25f * k), _visualScale.z * (1f + 0.15f * k));
+            }
+            else if (_state == 4 && _airborne)
+            {
+                // 浮いている間：上がる時は縦にのびて、落ちる時はまるく戻る
+                float w = Mathf.Clamp(_vel.y / 4f, -0.3f, 1f) * 0.14f;
+                visual.localPosition = _visualBase;
+                visual.localScale = new Vector3(_visualScale.x * (1f - w * 0.5f), _visualScale.y * (1f + w), _visualScale.z * (1f - w * 0.5f));
             }
             else if (_state == 0 || _state == 3)
             {
@@ -496,7 +540,8 @@ public class FuwaEnemy : UdonSharpBehaviour
     // エアガンから呼ばれる。stun=false（溜めが足りない）なら、突進は止まらず少しずれるだけ
     public void Blown(Vector3 impulse, bool stun)
     {
-        if (_state == 5 || _state == 6) return;
+        // 落ちてる・消えてる・巣の床の下にかくれてる（もぐってる）時は効かない（前は床の下をすべって落ちていた）
+        if (_state == 5 || _state == 6 || _state == 7 || _state == 9) return;
         if (blownSound != null && blownSound.clip != null)
         {
             // 強く押されたほど（溜め撃ち・近い）低く大きく
@@ -513,6 +558,21 @@ public class FuwaEnemy : UdonSharpBehaviour
         }
         _vel = impulse * pushScale;
         _vel.y = 0f;
+        // ピョンと浮かせて飛ばす（強く押されたほど高く）。足元の道からの高さを覚えて、同じ高さで着地する
+        _airborne = blownHopMax > 0f;
+        if (_airborne)
+        {
+            // 立っている時の道からの高さ（家で測る。巣から出てくる途中など、床の下にいる時に撃たれてもちゃんと床の上に着地するように）
+            RaycastHit hit;
+            if (Physics.Raycast(_home + Vector3.up * 0.6f, Vector3.down, out hit, 1.5f, 1 << groundLayer, QueryTriggerInteraction.Ignore))
+                _groundOffset = _home.y - hit.point.y;
+            else _groundOffset = 0.2f;
+            _groundY = transform.position.y;
+            if (Physics.Raycast(transform.position + Vector3.up * 1f, Vector3.down, out hit, 2f, 1 << groundLayer, QueryTriggerInteraction.Ignore))
+                _groundY = Mathf.Max(_groundY, hit.point.y + _groundOffset);
+            float k = Mathf.Clamp01(impulse.magnitude / 3.4f);
+            _vel.y = Mathf.Lerp(blownHopMin, blownHopMax, k);
+        }
         SetState(4);
     }
 
@@ -534,6 +594,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     {
         transform.position = _home;
         _vel = Vector3.zero;
+        _airborne = false;
         _cooldownUntil = Time.time + cooldown;
         SetVisible(true);
         SetState(0);

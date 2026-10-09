@@ -67,6 +67,13 @@ public class FuwaMama : UdonSharpBehaviour
     [Tooltip("チャージ撃ちが当たったら、次のジャンプをこの秒数おくらせる（ひるむ）")]
     public float chargedStagger = 0f;
     public float pushDamping = 2.5f;
+    [Tooltip("押された時にずしっと浮く上向きの速さ（チャージ／ノンチャージ）。0なら浮かない")]
+    public float blownHop = 2.8f;
+    public float blownHopNormal = 1.1f;
+    [Tooltip("押されて浮いた時の重力（大きいほど重そうにすぐ落ちる）")]
+    public float blownGravity = 15f;
+    [Tooltip("浮いている間の横の押しの減り方（床の上より小さく＝ふわっと飛ぶ）")]
+    public float airDamping = 0.9f;
     public AudioSource bumpSound;
 
     [Header("くしゃみ（useSneeze の時だけ）")]
@@ -116,6 +123,7 @@ public class FuwaMama : UdonSharpBehaviour
     private Vector3 _hopDir;
     private bool _inHop;
     private float _crouch;
+    private float _knockY, _knockVy;   // 押されて浮いた高さと上向きの速さ
 
     private bool _inited;
 
@@ -145,12 +153,15 @@ public class FuwaMama : UdonSharpBehaviour
     // エアガンから（FuwaBlower）。ノンチャージは pushScaleNormal（0なら効かない）、チャージは pushScale で押して少しひるむ
     public void Blown(Vector3 impulse, bool charged)
     {
-        if (_state == 0) return;
+        if (_state == 0 || _state == 4) return;
         float k = charged ? pushScale : pushScaleNormal;
         if (k <= 0f) return;
         Vector3 v = impulse * k; v.y = 0f;
         _push += v;
         _squashUntil = Time.time + 0.3f;
+        // ずしっと浮かせる（浮いている間にもう一度当たったら、上向きの速さは大きい方）
+        float up = charged ? blownHop : blownHopNormal;
+        if (up > 0f) _knockVy = Mathf.Max(_knockVy, up);
         // ひるむ：着地して休んでいる間なら、次のジャンプまでの時計を戻す
         if (charged && chargedStagger > 0f && !_inHop) _hopClock = Mathf.Min(_hopClock, hopRest - 0.35f) - chargedStagger;
     }
@@ -174,7 +185,7 @@ public class FuwaMama : UdonSharpBehaviour
         {
             if (warnText != null) warnText.gameObject.SetActive(false);
             if (sneezeText != null) sneezeText.gameObject.SetActive(false);
-            _inHop = false; _hopClock = 0f; _push = Vector3.zero;
+            _inHop = false; _hopClock = 0f; _push = Vector3.zero; _knockY = 0f; _knockVy = 0f;
             SetState(4);
         }
         if (_state == 0)
@@ -379,12 +390,26 @@ public class FuwaMama : UdonSharpBehaviour
             }
         }
         else if (to.magnitude > bodyRadius * 0.9f) step = to.normalized * chaseSpeed * dt;
+        // 押されて浮いている：重めの放物線。着地でむにっ
+        bool airborne = _knockY > 0f || _knockVy > 0f;
+        if (airborne)
+        {
+            _knockVy -= blownGravity * dt;
+            _knockY += _knockVy * dt;
+            if (_knockY <= 0f)
+            {
+                _knockY = 0f; _knockVy = 0f;
+                _squashUntil = Time.time + 0.35f;
+                if (bumpSound != null) bumpSound.Play();
+            }
+            if (!_inHop) _hopClock = Mathf.Min(_hopClock, hopRest - 0.35f);   // 浮いている間は次のジャンプを始めない
+        }
         step += _push * dt;
-        _push *= Mathf.Exp(-pushDamping * dt);
+        _push *= Mathf.Exp(-(airborne ? airDamping : pushDamping) * dt);
         pos += step;
         Vector3 off = pos - _home; off.y = 0f;
         if (off.magnitude > moveRadius) pos = _home + off.normalized * moveRadius;
-        pos.y = _home.y + lift;
+        pos.y = _home.y + lift + _knockY;
         transform.position = pos;
         if (to.sqrMagnitude > 0.01f)
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(to.normalized), 1f - Mathf.Exp(-3f * dt));
@@ -432,6 +457,7 @@ public class FuwaMama : UdonSharpBehaviour
         transform.rotation = _startRot;
         _push = Vector3.zero;
         _inHop = false; _hopClock = 0f;
+        _knockY = 0f; _knockVy = 0f;
         if (warnText != null) warnText.gameObject.SetActive(false);
         if (sneezeText != null) sneezeText.gameObject.SetActive(false);
         SetState(0);
