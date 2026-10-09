@@ -52,10 +52,11 @@ public static class FuwaCourse1Builder
 
 
     // 螺旋風の所は、風の下を穴（道なし）にして、道は反対側へふくらんでよける（うねうねの道）
-    // 2026-10-09「螺旋がちょっとむずい」：螺旋風の位置と、風の側の道のふちはそのままで、よける側へ道を広げた（2.3→3.0m、通れる幅+0.7m）
-    public const float PathNarrow = 3.0f;
+    // 2026-10-09「螺旋がちょっとむずい」：螺旋風の位置はそのままで、よける側へ道を広げた（2.3→3.0m、通れる幅+0.7m）
+    // さらに「竜巻側にもちょっと太く」で風の側のふちも0.4m外へ（3.0→3.4m）
+    public const float PathNarrow = 3.4f;
     public const float WhirlSide = 0.7f;   // 螺旋風の中心の横位置（もとの中心線から）。旧 1.75 - 2.3/2 + 0.1
-    const float WhirlInnerEdge = 0.6f;     // 螺旋風の横で、風の側の道のふちが中心線からよける量（旧 1.75 - 2.3/2）
+    const float WhirlInnerEdge = 0.2f;     // 螺旋風の横で、風の側の道のふちが中心線からよける量（旧 1.75 - 2.3/2 = 0.6）
     const float WhirlAmp = WhirlInnerEdge + PathNarrow * 0.5f;   // 道の中心がよける量（旧 1.75）
     static float WhirlBump(float d) { return Mathf.Exp(-(d * d) / (2f * 2.1f * 2.1f)); }   // 曲がりの半径が道の半分より大きくなる幅（内側がつぶれないように）。道幅3.0mで1.9→2.1
     public static float WhirlShift(float s)
