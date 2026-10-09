@@ -176,6 +176,7 @@ public static class FuwaGunShowcaseSetup
         if (tex != null) m.mainTexture = tex;
         m.SetColor("_TintColor", tint);
         if (m.HasProperty("_InvFade")) m.SetFloat("_InvFade", 3f);   // ソフトパーティクルで手前の物の近くが消えないように
+        m.renderQueue = 3008;   // 粒はやみのもりの霧（3005）より後に描く（shader を入れ直すと 3000 に戻るので毎回入れる）
         EditorUtility.SetDirty(m);
         return m;
     }
