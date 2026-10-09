@@ -30,6 +30,32 @@ public class FuwaHazard : UdonSharpBehaviour
     private int _insideCount;   // 判定のコライダーが複数ある時用
     private float _restoreAt;
     private float _walk, _run, _strafe;
+    private Collider[] _cols;
+
+    [Header("元の移動速度（戻す時に使う。VRChatの既定値）")]
+    [Tooltip("減速する時に「今の速さ」を覚えると、別のイバラ・クモの巣で減速中の速さを覚えてしまい、遅いまま戻らなくなる（2026-10-09 バグ）。決まった元の速さを使う")]
+    public float baseWalk = 2f;
+    public float baseRun = 4f;
+    public float baseStrafe = 2f;
+
+    private void Start()
+    {
+        _cols = GetComponents<Collider>();
+    }
+
+    // 人がまだ判定の中にいるか（出る通知が来ないことがある：ジャンプや吹っ飛び・ワープで抜けた時など）
+    private bool StillInside(VRCPlayerApi p)
+    {
+        if (_cols == null || _cols.Length == 0) return true;
+        Vector3 a = p.GetPosition(); Vector3 b = a + Vector3.up * 0.9f;
+        foreach (Collider c in _cols)
+        {
+            if (c == null || !c.enabled) continue;
+            Bounds bb = c.bounds; bb.Expand(0.3f);
+            if (bb.Contains(a) || bb.Contains(b)) return true;
+        }
+        return false;
+    }
 
     public override void OnPlayerTriggerEnter(VRCPlayerApi player)
     {
@@ -38,7 +64,7 @@ public class FuwaHazard : UdonSharpBehaviour
         _inside = true;
         if (!_slowed)
         {
-            _walk = player.GetWalkSpeed(); _run = player.GetRunSpeed(); _strafe = player.GetStrafeSpeed();
+            _walk = baseWalk; _run = baseRun; _strafe = baseStrafe;
             player.SetWalkSpeed(_walk * playerSlow);
             player.SetRunSpeed(_run * playerSlow);
             player.SetStrafeSpeed(_strafe * playerSlow);
@@ -64,8 +90,21 @@ public class FuwaHazard : UdonSharpBehaviour
         if (!_slowed) return;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
+        // 出る通知を取りこぼしていたら（吹っ飛び・ジャンプ・ワープで抜けた時など）、出たことにする
+        if (_inside && !StillInside(p))
+        {
+            _inside = false; _insideCount = 0;
+            _restoreAt = Time.time + playerSlowLinger;
+        }
         if (_inside)
         {
+            // 重なった別のイバラ・巣が先に速さを戻しても、中にいる間は遅くし直す
+            if (p.GetWalkSpeed() > _walk * playerSlow + 0.01f)
+            {
+                p.SetWalkSpeed(_walk * playerSlow);
+                p.SetRunSpeed(_run * playerSlow);
+                p.SetStrafeSpeed(_strafe * playerSlow);
+            }
             // 中にいる間、空中でも横の速さは遅い速さまでに抑える
             if (!p.IsPlayerGrounded())
             {
