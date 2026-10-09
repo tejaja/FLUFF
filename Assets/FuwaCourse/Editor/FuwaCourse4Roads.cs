@@ -23,6 +23,7 @@ public static class FuwaCourse4Roads
     {
         var c4 = GameObject.Find("FuwaCourse4").transform;
         var den = c4.Find("Den");
+        Physics.SyncTransforms();   // 島を動かした直後でも、当たり判定を新しい位置で測れるように
         if (!AssetDatabase.IsValidFolder(MeshDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Meshes", "Course4");
         var matA = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/LobbyCourse4_PathA.mat");
         var matB = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/LobbyCourse4_PathB.mat");
@@ -50,7 +51,8 @@ public static class FuwaCourse4Roads
     // gap0 / gap1：そのはしの手前で道を割って、その長さを小枝でつなぐ
     static string Road(Transform den, string bridge, Vector3 a3, Vector3 b3, Collider fromCol, Collider toCol, Material mA, Material mB, string name, float gap0, float gap1)
     {
-        var br = den.Find(bridge); var bcol = den.Find(bridge + "_Col").GetComponent<Collider>();
+        var br = den.Find(bridge); var bcolT = den.Find(bridge + "_Col"); var bcol = bcolT.GetComponent<Collider>();
+        bool bcolWasOn = bcolT.gameObject.activeSelf; bcolT.gameObject.SetActive(true);   // 測るあいだだけ（道の当たり判定に置きかえた後も測れるように）
         Vector2 a = new Vector2(a3.x, a3.z), b = new Vector2(b3.x, b3.z), dir = (b - a).normalized, right = new Vector2(dir.y, -dir.x);
         float L = (b - a).magnitude;
         bool Hit(Collider c, Vector2 p, out float y) { y = 0f; if (c.Raycast(new Ray(new Vector3(p.x, 50f, p.y), Vector3.down), out var h, 100f)) { y = h.point.y; return true; } return false; }
@@ -92,6 +94,18 @@ public static class FuwaCourse4Roads
             Put(pn, SaveMesh(Patch(p0, p1, halfW, top, name.Length * 7919 + 17), pn), new[] { br.GetComponent<Renderer>().sharedMaterial });
         }
         br.gameObject.SetActive(false);   // 木の橋の見た目は消さずに非表示（当たり判定 _Col はそのまま）
+        // 島（巣）どうしの間が橋より長い時（ゴールを奥へずらした等）は、橋の当たり判定の代わりに道の形の箱を置く
+        string cn = name + "_Col";
+        var oldC = den.Find(cn); if (oldC != null) Object.DestroyImmediate(oldC.gameObject);
+        if (e0 < s0 - 0.3f || e1 > s1 + 0.3f)
+        {
+            float need0 = fromCol != null ? e0 - 0.3f : s0, need1 = toCol != null ? e1 + 0.3f : s1;
+            var cg = new GameObject(cn, typeof(BoxCollider)); cg.transform.SetParent(den, false); cg.transform.SetPositionAndRotation(pos, rot);
+            cg.layer = bcolT.gameObject.layer;
+            var bx = cg.GetComponent<BoxCollider>(); bx.center = new Vector3(0f, top - Thick * 0.5f, (need0 + need1) * 0.5f); bx.size = new Vector3(halfW * 2f, Thick, need1 - need0);
+            bcolWasOn = false;
+        }
+        bcolT.gameObject.SetActive(bcolWasOn);
         return bridge + "→" + name + " " + e0.ToString("F2") + "〜" + e1.ToString("F2") + "m 幅" + (halfW * 2f).ToString("F2") + " 上面" + top.ToString("F2") + " / ";
     }
 
