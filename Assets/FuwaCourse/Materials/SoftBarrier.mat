@@ -12,7 +12,8 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
-  m_InvalidKeywords: []
+  m_InvalidKeywords:
+  - _GRIDNEARBALL_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -33,7 +34,7 @@ Material:
     - _HexSize: 0.3
     - _Iri: 0.35
     - _LineAlpha: 0
-    - _LineFar: 2
+    - _LineFar: 1.3
     - _LineHeight: 1
     - _LineWidth: 0.025
     - _NearFade: 1.2
