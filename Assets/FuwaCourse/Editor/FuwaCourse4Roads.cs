@@ -43,7 +43,9 @@ public static class FuwaCourse4Roads
         if (sp != null)
         {
             Undo.RecordObject(sp, "move bramble"); Undo.RecordObject(sp.gameObject, "show bramble");
-            var to = ns.GetComponent<Renderer>().bounds.center; to.y = sp.position.y; sp.position = to; sp.gameObject.SetActive(true);
+            // 巣の入口（スタート側）をふさぐように置く：まん中だと巣1のけだまに、イバラの中にいるうちに見つかる（2026-10-09 てじゃ）
+            var to = ns.GetComponent<Renderer>().bounds.center; var back = startG.position - to; back.y = 0f;
+            to += back.normalized * 1.35f; to.y = sp.position.y; sp.position = to; sp.gameObject.SetActive(true);
         }
         log.Append(Road(den, "BridgeD", den.Find("MamaNestCenter").position, goalG.position, den.Find("MamaNest_Col").GetComponent<Collider>(), goalG.GetComponent<Collider>(), matA, matB, "Course4_Road_Goal", GapD, 0f, 0f, null, out _));
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(c4.gameObject.scene);
