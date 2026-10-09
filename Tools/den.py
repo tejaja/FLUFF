@@ -45,7 +45,7 @@ BRIDGES = [
     # 大回りルート：巣3 → 横の巣 → ママの巣（南側から入る）
     dict(name='BridgeE', a='Nest3', b='SideNest', via=[]),
     dict(name='BridgeF', a='SideNest', b='Islet', via=[]),
-    dict(name='BridgeG', a='Islet', b='MamaNest', via=[sh((69.68, 13.73))]),   # 2026-10-09 てじゃ：ママの巣にはゴール寄りの横（円の真ん中やや上）から入る
+    dict(name='BridgeG', a='Islet', b='MamaNest', via=[], end_in=sh((67.65, 16.4))),   # 2026-10-09 てじゃ：ママの巣の右やや上（ゴール寄り）へ、曲げずに斜めに突き刺さるように入る
 ]
 
 TWIG = [(0.55, 0.41, 0.29), (0.47, 0.34, 0.24), (0.63, 0.49, 0.35), (0.41, 0.3, 0.22)]
@@ -255,11 +255,12 @@ def catmull(pts, n_per):
 
 def bridge_points(bd):
     A = island(bd['a']); B = island(bd['b'])
-    first = Vector((bd['via'][0][0], 0, bd['via'][0][1])) if bd['via'] else Vector((B['c'][0], 0, B['c'][1]))
+    end_in = Vector((bd['end_in'][0], 0, bd['end_in'][1])) if bd.get('end_in') else None   # 終わりの巣の中の点（斜めに突き刺さるように入る時）
+    first = Vector((bd['via'][0][0], 0, bd['via'][0][1])) if bd['via'] else (end_in if end_in is not None else Vector((B['c'][0], 0, B['c'][1])))
     last = Vector((bd['via'][-1][0], 0, bd['via'][-1][1])) if bd['via'] else Vector((A['c'][0], 0, A['c'][1]))
     ca = Vector((A['c'][0], 0, A['c'][1])); cb = Vector((B['c'][0], 0, B['c'][1]))
     pa = ca + (first - ca).normalized() * (A['r'] - 0.6)
-    pb = cb + (last - cb).normalized() * (B['r'] - 0.6)
+    pb = end_in if end_in is not None else cb + (last - cb).normalized() * (B['r'] - 0.6)
     pts = [pa] + [Vector((x, 0, z)) for (x, z) in bd['via']] + [pb]
     return pts
 
@@ -331,7 +332,17 @@ for bd in BRIDGES:
     for end, nb in ((pts[0], bd['a']), (pts[-1], bd['b'])):
         if nb in gaps:
             n = island(nb); nxt = pts[1] if end is pts[0] else pts[-2]
-            gaps[nb].append(gap_for(n['c'], (nxt.x, nxt.z), n['r'], BRIDGE_W))
+            if end is pts[-1] and bd.get('end_in'):
+                # 斜めに入る：橋の線が巣のふちと交わる点に、斜めのぶん広い切れ目
+                c = Vector((n['c'][0], 0, n['c'][1])); a0 = nxt; d = (end - a0); L = d.length; d.normalize()
+                t = 0.0
+                for k in range(400):
+                    t = L * k / 400
+                    if (a0 + d * t - c).length <= n['r']: break
+                q = a0 + d * t; rad = (q - c).normalized(); cosv = max(0.3, abs(d.dot(rad)))
+                gaps[nb].append(gap_for(n['c'], (q.x, q.z), n['r'], BRIDGE_W / cosv + 0.2))
+            else:
+                gaps[nb].append(gap_for(n['c'], (nxt.x, nxt.z), n['r'], BRIDGE_W))
 # 近すぎる切れ目どうしはまとめる（間に細い壁の切れ端が残らないように）
 def merge_gaps(gs, min_wall=18.0):
     iv = sorted([(g0, g0 + (g1 - g0) % 360) for g0, g1 in gs])
