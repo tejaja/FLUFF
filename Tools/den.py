@@ -12,12 +12,15 @@ FLOOR_Y = 5.5
 # 2026-10-09：最初の橋を3mのばした（スタート直後のイバラの中で、先を飛ぶふわふわが巣1のけだまに見つからないように）。
 # スタートの島を巣1から遠ざかる向きに3m（旧 (31.22, -3.15)）。Unity ではスタートの島は元の場所のまま、
 # かわりにコースの残り（FuwaCourse4 ごと）を3m奥へずらした＝ここの座標は Unity のワールドではなく、Den の中の位置
-START = dict(c=(28.601, -4.613), r=3.2)          # 既存のスタートの島（作らない、橋の端だけ合わせる）
+# 2026-10-09（夜）：最初の巣の手前にイバラの小さい巣（NestStart）を足すため、コースの残りをさらに4.2m奥へずらした（Unity側）。
+# スタートの島は Unity では動かさないので、Den の中の位置としては巣1から遠ざかる向きに動く（旧 (28.601, -4.613)）
+START = dict(c=(24.936, -6.658), r=3.2)          # 既存のスタートの島（作らない、橋の端だけ合わせる）
 # 2026-10-07：巣1と分岐の巣の間に島を1つ足して、分岐から先を SHIFT だけ奥へずらした（巣1=1匹 / 巣2=2匹 / 巣3=やや小さめ＋チェックポイント＋分岐）
 SHIFT = (9.7, 4.3)   # 分岐から先のずらし量（巣1→巣2 と同じ向き・長さ）
 def sh(p): return (round(p[0] + SHIFT[0], 3), round(p[1] + SHIFT[1], 3))
 GOAL = dict(c=sh((71.02, 23.37)), r=3.1)           # 既存のゴールの島（Unity 側でも同じだけ動かす）
 NESTS = [
+    dict(name='NestStart', c=(33.585, -1.851), r=2.0, rim=0.4, seed=7),   # スタート直後のイバラの小さい巣（スタートからはシマシマ道＋小枝のつなぎ。Unity の FuwaCourse4Roads）
     dict(name='Nest1', c=(40.8, 2.2), r=3.0, rim=0.5, seed=1),
     dict(name='Nest2', c=(50.5, 6.5), r=3.2, rim=0.5, seed=2),       # 新しい島（けだま2匹）
     dict(name='Nest3', c=sh((50.5, 6.5)), r=2.6, rim=0.45, seed=6),  # 分岐の巣（やや小さめ＋チェックポイント）
@@ -33,7 +36,8 @@ PODS = [   # 寝てるけだまの小さい巣（橋のわき、入口なし）
 BRIDGE_W = 2.4
 # 橋：端の島（名前）と、途中の通り道。端は島のふちの少し内側まで入れる
 BRIDGES = [
-    dict(name='BridgeA', a='Start', b='Nest1', via=[]),
+    dict(name='BridgeA', a='Start', b='NestStart', via=[]),    # 見た目は使わない（Unity でシマシマ道に置きかえ。幅・高さを測るのに使う）
+    dict(name='BridgeA2', a='NestStart', b='Nest1', via=[]),
     dict(name='BridgeB', a='Nest1', b='Nest2', via=[]),
     dict(name='BridgeH', a='Nest2', b='Nest3', via=[]),
     dict(name='BridgeC', a='Nest3', b='MamaNest', via=[sh((55.8, 9.9)), sh((59.0, 12.1))]),

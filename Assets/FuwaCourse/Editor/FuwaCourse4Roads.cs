@@ -7,7 +7,7 @@ using UnityEngine;
 // 「道と道で挟めば、道の途中にできた巣っぽい」）。見た目だけ差しかえ：当たり判定は橋のもの（BridgeA_Col / BridgeD_Col）をそのまま使う。
 // 道の上面は橋の上面と同じ高さ。スタート島の側は島の下にもぐらせる、ゴールの側は島のふちまで。
 // 巣とのつなぎ目は「道が割れて途切れていて、まものが小枝を並べてツタでしばってつないだ」形（2026-10-09 てじゃ「割れてる道に、なにかで繋いでるみたいな」）。
-// 最初の巣の手前には、イバラを試せる小さい巣（Nestlet）を置く：スタート → シマシマ道 → 小枝のつなぎ → 小さい巣（イバラ）→ 木の橋 → 最初の巣
+// 最初の巣の手前には、イバラを試せる小さい巣（NestStart。ほかの巣と同じく den.py で作る）：スタート → シマシマ道 → 小枝のつなぎ → 小さい巣（イバラ）→ 橋 BridgeA2 → 最初の巣
 // （2026-10-09 てじゃ。場所が足りないので、スタート島以外のコース全体を奥へずらしてある）。
 // 何度実行してもよい（道は作り直し、橋の見た目は非表示にするだけで消さない）
 public static class FuwaCourse4Roads
@@ -35,13 +35,15 @@ public static class FuwaCourse4Roads
         var log = new System.Text.StringBuilder();
         var startG = c4.Find("Start/StartArea/Ground"); var goalG = c4.Find("Goal/GoalGround");
         // (橋, 始まりの島, 終わりの島, 始まり側の床, 終わり側の床, …, 始まり側の割れ目, 終わり側の割れ目)
-        log.Append(Road(den, "BridgeA", startG.position, den.Find("Nest1").GetComponent<Renderer>().bounds.center, startG.GetComponent<Collider>(), den.Find("Nest1_Col").GetComponent<Collider>(), matA, matB, "Course4_Road_Start", 0f, GapA, IsletR, startG, out var islet));
-        // 最初のイバラ（前は道の上にあった）を小さい島のまん中へ
+        // スタート → シマシマ道 → 小枝のつなぎ → イバラの小さい巣（NestStart。巣と橋は den.py で作る）→ 橋 BridgeA2 → 最初の巣
+        var ns = den.Find("NestStart");
+        log.Append(Road(den, "BridgeA", startG.position, ns.GetComponent<Renderer>().bounds.center, startG.GetComponent<Collider>(), den.Find("NestStart_Col").GetComponent<Collider>(), matA, matB, "Course4_Road_Start", 0f, GapA, 0f, null, out _));
+        // 最初のイバラを小さい巣のまん中へ
         var sp = c4.Find("Spikes/SpikePatch0_Start");
-        if (sp != null && islet.HasValue)
+        if (sp != null)
         {
             Undo.RecordObject(sp, "move bramble"); Undo.RecordObject(sp.gameObject, "show bramble");
-            var to = islet.Value; to.y = sp.position.y; sp.position = to; sp.gameObject.SetActive(true);
+            var to = ns.GetComponent<Renderer>().bounds.center; to.y = sp.position.y; sp.position = to; sp.gameObject.SetActive(true);
         }
         log.Append(Road(den, "BridgeD", den.Find("MamaNestCenter").position, goalG.position, den.Find("MamaNest_Col").GetComponent<Collider>(), goalG.GetComponent<Collider>(), matA, matB, "Course4_Road_Goal", GapD, 0f, 0f, null, out _));
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(c4.gameObject.scene);
@@ -130,7 +132,7 @@ public static class FuwaCourse4Roads
             islet = new Vector3(c2.x, top, c2.y);
         }
         // 道（割れ目のぶん短くして、割れた側のはしをギザギザに）。スタート島の側は島の下に 0.4m もぐらせる
-        float roadStart = fromCol != null && gap0 <= 0f && !hasIslet ? e0 : (hasIslet ? e0 - 0.4f : e0 + gap0);
+        float roadStart = (fromCol != null && gap0 <= 0f) || hasIslet ? e0 - 0.4f : e0 + gap0;   // 割れ目のない島の側は、島の地面の下に 0.4m もぐらせる
         float roadEnd = hasIslet ? rEnd : e1 - gap1;
         Put(name, SaveMesh(Strip(roadStart, roadEnd, halfW, top, !hasIslet && gap0 > 0f, gap1 > 0f), name), new[] { mA, mB });
         // 割れ目をつなぐ小枝（見えるのは割れ目の中だけ。ツタは両がわの床・道の上まで）
@@ -163,12 +165,13 @@ public static class FuwaCourse4Roads
         else
         {
             var oldBC = den.Find(name + "_BridgeCol"); if (oldBC != null) Object.DestroyImmediate(oldBC.gameObject);
-            if (e0 < s0 - 0.3f || e1 > s1 + 0.3f)
+            bool boxed = e0 < s0 - 0.3f || e1 > s1 + 0.3f;
+            if (boxed)
             {
                 float need0 = fromCol != null ? e0 - 0.3f : s0, need1 = toCol != null ? e1 + 0.3f : s1;
                 Box(cn, need0, need1, halfW * 2f);
-                bcolWasOn = false;
             }
+            bcolWasOn = !boxed;   // 箱にしない時は橋の当たり判定を使う
         }
         bcolT.gameObject.SetActive(bcolWasOn);
         return bridge + "→" + name + " " + e0.ToString("F2") + "〜" + e1.ToString("F2") + "m 幅" + (halfW * 2f).ToString("F2") + " 上面" + top.ToString("F2") + " / ";
