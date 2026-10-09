@@ -79,12 +79,14 @@ Material:
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
-    - _GroundFine: 0.8
-    - _GroundFineFade: 22
-    - _GroundFineScale: 2.4
+    - _GroundFine: 0.4
+    - _GroundFineCrisp: 1
+    - _GroundFineFade: 30
+    - _GroundFineScale: 6
     - _GroundMidScale: 2.6
     - _GroundPatch: 1
     - _GroundPatchScale: 9
+    - _GroundSteps: 3
     - _Metallic: 0
     - _Mode: 0
     - _NoiseScale: 0.6
@@ -110,7 +112,7 @@ Material:
     - _BaseFadeColor: {r: 0.65999997, g: 0.6, b: 0.68, a: 1}
     - _Color: {r: 0.6, g: 0.8, b: 0.5499999, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _GroundTintA: {r: 1.16, g: 1.12, b: 0.78, a: 1}
+    - _GroundTintA: {r: 1.08, g: 1.09, b: 0.93, a: 1}
     - _GroundTintB: {r: 0.72, g: 0.86, b: 0.78, a: 1}
     - _RimColor: {r: 1, g: 0.96999997, b: 0.92, a: 1}
     - _ShadowTint: {r: 0.55, g: 0.48, b: 0.75, a: 1}
