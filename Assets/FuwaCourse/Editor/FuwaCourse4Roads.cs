@@ -7,13 +7,17 @@ using UnityEngine;
 // 「道と道で挟めば、道の途中にできた巣っぽい」）。見た目だけ差しかえ：当たり判定は橋のもの（BridgeA_Col / BridgeD_Col）をそのまま使う。
 // 道の上面は橋の上面と同じ高さ。スタート島の側は島の下にもぐらせる、ゴールの側は島のふちまで。
 // 巣とのつなぎ目は「道が割れて途切れていて、まものが小枝を並べてツタでしばってつないだ」形（2026-10-09 てじゃ「割れてる道に、なにかで繋いでるみたいな」）。
+// 最初の巣の手前には、イバラを試せる小さい巣（Nestlet）を置く：スタート → シマシマ道 → 小枝のつなぎ → 小さい巣（イバラ）→ 木の橋 → 最初の巣
+// （2026-10-09 てじゃ。場所が足りないので、スタート島以外のコース全体を奥へずらしてある）。
 // 何度実行してもよい（道は作り直し、橋の見た目は非表示にするだけで消さない）
 public static class FuwaCourse4Roads
 {
     const float Thick = 0.3f, Bevel = 0.08f, Stripe = 0.6f;
     const int BevelSteps = 4, TopSteps = 14;
     const float GapA = 1.9f, GapD = 0.75f;   // 割れ目（小枝でつないだ所）の長さ
-    const float IsletR = 1.5f;               // 最初の巣の手前の、イバラを試せる小さい島の半径（2026-10-09 てじゃ）
+    const float IsletR = 2.0f;               // 最初の巣の手前の、イバラを試せる小さい巣の半径
+    const float IsletBridge = 3.2f;          // 小さい巣 → 最初の巣 の木の橋の長さ
+    const float RoadMin = 2.5f;              // スタート島からのシマシマ道の、最低の長さ
     const float JagMax = 0.36f;              // 割れたはしの、いちばん欠けている所の深さ
     const string MeshDir = "Assets/FuwaCourse/Meshes/Course4";
 
@@ -31,7 +35,7 @@ public static class FuwaCourse4Roads
         var log = new System.Text.StringBuilder();
         var startG = c4.Find("Start/StartArea/Ground"); var goalG = c4.Find("Goal/GoalGround");
         // (橋, 始まりの島, 終わりの島, 始まり側の床, 終わり側の床, …, 始まり側の割れ目, 終わり側の割れ目)
-        log.Append(Road(den, "BridgeA", startG.position, den.Find("Nest1").GetComponent<Renderer>().bounds.center, null, den.Find("Nest1_Col").GetComponent<Collider>(), matA, matB, "Course4_Road_Start", 0f, GapA, IsletR, startG, out var islet));
+        log.Append(Road(den, "BridgeA", startG.position, den.Find("Nest1").GetComponent<Renderer>().bounds.center, startG.GetComponent<Collider>(), den.Find("Nest1_Col").GetComponent<Collider>(), matA, matB, "Course4_Road_Start", 0f, GapA, IsletR, startG, out var islet));
         // 最初のイバラ（前は道の上にあった）を小さい島のまん中へ
         var sp = c4.Find("Spikes/SpikePatch0_Start");
         if (sp != null && islet.HasValue)
@@ -91,53 +95,80 @@ public static class FuwaCourse4Roads
             GameObjectUtility.SetStaticEditorFlags(go, flags);
             return go;
         }
-        // 小さい島（isletR > 0）：巣のすぐ手前（巣の床のふちに接する）。道 → 割れ目（小枝）→ 島 → 巣 の順（2026-10-09 てじゃ）
-        float sc = e1 - isletR - 0.05f;
-        var oldI = den.Find(name + "_Islet"); if (oldI != null) Object.DestroyImmediate(oldI.gameObject);
-        if (isletR > 0f && gap1 > 0f)
+        // 小さい巣（isletR > 0）があるとき：巣の側から 木の橋 → 小さい巣 → 小枝のつなぎ → シマシマ道 の順に決める
+        bool hasIslet = isletR > 0f && gap1 > 0f;
+        float iFar = e1 - IsletBridge, sc = iFar - isletR, iNear = sc - isletR, rEnd = iNear - gap1;
+        foreach (var n in new[] { name + "_Islet", name + "_Nestlet", name + "_Bridge", name + "_IsletCol", name + "_BridgeCol" }) { var oo = den.Find(n); if (oo != null) Object.DestroyImmediate(oo.gameObject); }
+        var twigMat = br.GetComponent<Renderer>().sharedMaterial;
+        if (hasIslet)
         {
+            if (rEnd - e0 < RoadMin) Debug.LogWarning("まもののす：スタートの道が短い " + (rEnd - e0).ToString("F2") + "m（コースを奥へずらす）");
             var c2 = a + dir * sc + right * cx;
-            var ig = new GameObject(name + "_Islet").transform; ig.SetParent(den, false);
-            ig.position = new Vector3(c2.x, top + 0.01f - 0.03f, c2.y);   // 地面（円盤の上面は根元+0.03）を道より1cm上に
-            var g0 = isletLike.GetComponent<Renderer>();
-            var topMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/IslandDisc/IslandDisc_r64.asset");
-            var tg = new GameObject("Ground", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider)); tg.transform.SetParent(ig, false);
-            tg.GetComponent<MeshFilter>().sharedMesh = topMesh; tg.GetComponent<MeshRenderer>().sharedMaterial = g0.sharedMaterial; tg.GetComponent<MeshCollider>().sharedMesh = topMesh;
-            tg.transform.localScale = new Vector3(isletR / 0.64f, 1f, isletR / 0.64f);
-            tg.layer = isletLike.gameObject.layer; GameObjectUtility.SetStaticEditorFlags(tg, GameObjectUtility.GetStaticEditorFlags(isletLike.gameObject));
-            var ug = new GameObject("IslandUnder", typeof(MeshFilter), typeof(MeshRenderer)); ug.transform.SetParent(ig, false);
-            ug.GetComponent<MeshFilter>().sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FarIslands/IslandUnderLow_1.asset");
-            ug.GetComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/IslandUnder.mat");
-            ug.transform.localScale = new Vector3(isletR / 0.97f, isletR / 0.97f * 0.9f, isletR / 0.97f); ug.transform.localRotation = Quaternion.Euler(0f, 40f, 0f);
-            GameObjectUtility.SetStaticEditorFlags(ug, GameObjectUtility.GetStaticEditorFlags(isletLike.gameObject));
+            var ig = new GameObject(name + "_Nestlet").transform; ig.SetParent(den, false);
+            ig.SetPositionAndRotation(new Vector3(c2.x, top + 0.01f, c2.y), rot);   // 床は道より1cm上
+            float gapHalf = Mathf.Asin(Mathf.Min(0.95f, (halfW + 0.15f) / isletR));
+            var vis = new GameObject("Nest", typeof(MeshFilter), typeof(MeshRenderer)); vis.transform.SetParent(ig, false);
+            vis.GetComponent<MeshFilter>().sharedMesh = SaveMesh(Nestlet(isletR, gapHalf, 4242), name + "_Nestlet");
+            vis.GetComponent<MeshRenderer>().sharedMaterial = twigMat;
+            vis.layer = br.gameObject.layer; GameObjectUtility.SetStaticEditorFlags(vis, flags);
+            // 当たり判定：床（円盤）＋ふち（入口2か所はあける）
+            var fl = new GameObject("FloorCol", typeof(MeshCollider)); fl.transform.SetParent(ig, false); fl.layer = bcolT.gameObject.layer;
+            fl.GetComponent<MeshCollider>().sharedMesh = SaveMesh(Disc(isletR + 0.1f, 32), name + "_NestletFloorCol");
+            int seg = 18;
+            for (int k = 0; k < seg; k++)
+            {
+                float an = (k + 0.5f) * Mathf.PI * 2f / seg;
+                float da = Mathf.Abs(Mathf.DeltaAngle(an * Mathf.Rad2Deg, 0f)) * Mathf.Deg2Rad, db = Mathf.Abs(Mathf.DeltaAngle(an * Mathf.Rad2Deg, 180f)) * Mathf.Deg2Rad;
+                if (da < gapHalf + 0.05f || db < gapHalf + 0.05f) continue;   // 入口（道の向き＝ローカル z の ±）
+                var rc = new GameObject("RimCol" + k, typeof(BoxCollider)); rc.transform.SetParent(ig, false); rc.layer = bcolT.gameObject.layer;
+                rc.transform.localPosition = new Vector3(Mathf.Sin(an), 0f, Mathf.Cos(an)) * (isletR + 0.05f);
+                rc.transform.localRotation = Quaternion.Euler(0f, an * Mathf.Rad2Deg, 0f);   // 箱の横（x）がふちにそう向き
+                var bc = rc.GetComponent<BoxCollider>(); bc.size = new Vector3(2f * (isletR + 0.05f) * Mathf.Sin(Mathf.PI / seg) + 0.05f, 0.4f, 0.22f); bc.center = new Vector3(0f, 0.15f, 0f);
+            }
+            // 木の橋（小さい巣 → 最初の巣）
+            Put(name + "_Bridge", SaveMesh(PlankBridge(iFar - 0.35f, e1 + 0.35f, halfW * 0.92f, top, 977), name + "_Bridge"), new[] { twigMat });
             islet = new Vector3(c2.x, top, c2.y);
         }
-        // 道（割れ目のぶん短くして、割れた側のはしをギザギザに。島がある時は島のまん中まで）
-        if (islet.HasValue) Put(name, SaveMesh(Strip(e0, sc - isletR - gap1, halfW, top, false, true), name), new[] { mA, mB });
-        else Put(name, SaveMesh(Strip(e0 + gap0, e1 - gap1, halfW, top, gap0 > 0f, gap1 > 0f), name), new[] { mA, mB });
-        // 割れ目をつなぐ小枝（巣の床の中まで少し入れる、道のギザギザの下にも少しもぐらせる）
+        // 道（割れ目のぶん短くして、割れた側のはしをギザギザに）。スタート島の側は島の下に 0.4m もぐらせる
+        float roadStart = fromCol != null && gap0 <= 0f && !hasIslet ? e0 : (hasIslet ? e0 - 0.4f : e0 + gap0);
+        float roadEnd = hasIslet ? rEnd : e1 - gap1;
+        Put(name, SaveMesh(Strip(roadStart, roadEnd, halfW, top, !hasIslet && gap0 > 0f, gap1 > 0f), name), new[] { mA, mB });
+        // 割れ目をつなぐ小枝（見えるのは割れ目の中だけ。ツタは両がわの床・道の上まで）
         string pn = name + "_Patch";
         var oldP = den.Find(pn); if (oldP != null) Object.DestroyImmediate(oldP.gameObject);
         if (gap0 > 0f || gap1 > 0f)
         {
-            float nearEnd = islet.HasValue ? sc - isletR : e1;   // 割れ目の向こう（島か巣の床）のふち
+            float nearEnd = hasIslet ? iNear : e1;   // 割れ目の向こう（小さい巣か巣の床）のふち
             float p0 = gap0 > 0f ? e0 - 0.25f : nearEnd - gap1 - JagMax;
             float p1 = gap0 > 0f ? e0 + gap0 + JagMax : nearEnd + 0.25f;
-            // 丸太を出すのは割れ目（巣の床のふち〜道の割れたはし）だけ
             float v0 = gap0 > 0f ? e0 : nearEnd - gap1, v1 = gap0 > 0f ? e0 + gap0 : nearEnd;
-            Put(pn, SaveMesh(Patch(p0, p1, v0, v1, halfW, top, name.Length * 7919 + 17), pn), new[] { br.GetComponent<Renderer>().sharedMaterial });
+            Put(pn, SaveMesh(Patch(p0, p1, v0, v1, halfW, top, name.Length * 7919 + 17), pn), new[] { twigMat });
         }
-        br.gameObject.SetActive(false);   // 木の橋の見た目は消さずに非表示（当たり判定 _Col はそのまま）
-        // 島（巣）どうしの間が橋より長い時（ゴールを奥へずらした等）は、橋の当たり判定の代わりに道の形の箱を置く
+        br.gameObject.SetActive(false);   // 木の橋の見た目は消さずに非表示
+        // 当たり判定：島（巣）どうしの間が橋より長い時や小さい巣がある時は、橋の当たり判定の代わりに道の形の箱を置く
         string cn = name + "_Col";
         var oldC = den.Find(cn); if (oldC != null) Object.DestroyImmediate(oldC.gameObject);
-        if (e0 < s0 - 0.3f || e1 > s1 + 0.3f)
+        void Box(string n, float z0b, float z1b, float w)
         {
-            float need0 = fromCol != null ? e0 - 0.3f : s0, need1 = toCol != null ? e1 + 0.3f : s1;
-            var cg = new GameObject(cn, typeof(BoxCollider)); cg.transform.SetParent(den, false); cg.transform.SetPositionAndRotation(pos, rot);
+            var cg = new GameObject(n, typeof(BoxCollider)); cg.transform.SetParent(den, false); cg.transform.SetPositionAndRotation(pos, rot);
             cg.layer = bcolT.gameObject.layer;
-            var bx = cg.GetComponent<BoxCollider>(); bx.center = new Vector3(0f, top - Thick * 0.5f, (need0 + need1) * 0.5f); bx.size = new Vector3(halfW * 2f, Thick, need1 - need0);
+            var bx = cg.GetComponent<BoxCollider>(); bx.center = new Vector3(0f, top - Thick * 0.5f, (z0b + z1b) * 0.5f); bx.size = new Vector3(w, Thick, z1b - z0b);
+        }
+        if (hasIslet)
+        {
+            Box(cn, e0 - 0.3f, iNear + 0.3f, halfW * 2f);
+            Box(name + "_BridgeCol", iFar - 0.3f, e1 + 0.3f, halfW * 2f * 0.92f);
             bcolWasOn = false;
+        }
+        else
+        {
+            var oldBC = den.Find(name + "_BridgeCol"); if (oldBC != null) Object.DestroyImmediate(oldBC.gameObject);
+            if (e0 < s0 - 0.3f || e1 > s1 + 0.3f)
+            {
+                float need0 = fromCol != null ? e0 - 0.3f : s0, need1 = toCol != null ? e1 + 0.3f : s1;
+                Box(cn, need0, need1, halfW * 2f);
+                bcolWasOn = false;
+            }
         }
         bcolT.gameObject.SetActive(bcolWasOn);
         return bridge + "→" + name + " " + e0.ToString("F2") + "〜" + e1.ToString("F2") + "m 幅" + (halfW * 2f).ToString("F2") + " 上面" + top.ToString("F2") + " / ";
@@ -202,14 +233,12 @@ public static class FuwaCourse4Roads
         return m;
     }
 
-    // 割れ目をつなぐ小枝：道を横切る丸太（両はしは少し細い）を z0〜z1 にすき間なく並べ、左右2か所をツタでしばる。
-    // 色は頂点カラー（橋と同じ Den_Twig の材質）。丸太の上は道の上面とほぼ同じ高さ（当たり判定は橋の平らな面）
-    static Mesh Patch(float z0, float z1, float v0, float v1, float halfW, float top, int seed)
+    // 頂点カラーの小枝・ツタを組み立てる（Den_Twig の材質用）
+    class TwigMB
     {
-        var rnd = new System.Random(seed);
-        float R(float lo, float hi) => lo + (float)rnd.NextDouble() * (hi - lo);
-        var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>();
-        void Log(Vector3 p0, Vector3 p1, float r0, float r1, Color c, int seg)
+        public List<Vector3> V = new List<Vector3>(); public List<Vector3> N = new List<Vector3>(); public List<Color> C = new List<Color>(); public List<int> T = new List<int>();
+        // 先ほど細い丸太（両はしは明るめの切り口）。flatY < 1 で縦につぶす（板）
+        public void Log(Vector3 p0, Vector3 p1, float r0, float r1, Color c, int seg, float flatY = 1f)
         {
             var ax = (p1 - p0).normalized; var u = Vector3.Cross(ax, Vector3.up); u = u.sqrMagnitude < 0.01f ? Vector3.right : u.normalized; var w = Vector3.Cross(u, ax);
             int b = V.Count;
@@ -217,11 +246,12 @@ public static class FuwaCourse4Roads
                 for (int k = 0; k < seg; k++)
                 {
                     float an = k * Mathf.PI * 2f / seg; var n = u * Mathf.Cos(an) + w * Mathf.Sin(an);
-                    V.Add((e == 0 ? p0 : p1) + n * (e == 0 ? r0 : r1)); N.Add(n);
-                    float sh = 0.9f + 0.1f * Mathf.Sin(an * 3f + p0.z * 9f); C.Add(new Color(c.r * sh, c.g * sh, c.b * sh, 1f));
+                    var off = n * (e == 0 ? r0 : r1); off.y *= flatY;
+                    V.Add((e == 0 ? p0 : p1) + off); N.Add(new Vector3(n.x, n.y / Mathf.Max(0.2f, flatY), n.z).normalized);
+                    float sh = 0.9f + 0.1f * Mathf.Sin(an * 3f + p0.z * 9f + p0.x * 5f); C.Add(new Color(c.r * sh, c.g * sh, c.b * sh, 1f));
                 }
             for (int k = 0; k < seg; k++) { int k1 = (k + 1) % seg; T.AddRange(new[] { b + k, b + seg + k, b + k1, b + k1, b + seg + k, b + seg + k1 }); }
-            foreach (var (e, sgn) in new[] { (0, -1f), (1, 1f) })   // 切り口（明るめ）
+            foreach (var (e, sgn) in new[] { (0, -1f), (1, 1f) })
             {
                 int cb = V.Count; var cc = new Color(Mathf.Min(1f, c.r * 1.5f), Mathf.Min(1f, c.g * 1.5f), Mathf.Min(1f, c.b * 1.4f), 1f);
                 V.Add(e == 0 ? p0 : p1); N.Add(ax * sgn); C.Add(cc);
@@ -229,8 +259,8 @@ public static class FuwaCourse4Roads
                 for (int k = 0; k < seg; k++) T.AddRange(new[] { cb, cb + 1 + k, cb + 1 + (k + 1) % seg });
             }
         }
-        // 点の列にそった管（向きは前の輪から少しずつ回して、ねじれないように）。両はしの 0.12m は細くしていく
-        void Tube(List<Vector3> path, float radius, Color c)
+        // 点の列にそった管（ねじれないように前の輪から回す）。両はしの 0.12m は細く
+        public void Tube(List<Vector3> path, float radius, Color c)
         {
             const int seg = 6;
             float total = 0f; var acc = new List<float> { 0f };
@@ -253,20 +283,37 @@ public static class FuwaCourse4Roads
                 }
             }
             for (int i = 0; i < path.Count - 1; i++)
-                for (int k = 0; k < seg; k++)
-                {
-                    int k1 = (k + 1) % seg, a = b0 + i * seg;
-                    T.AddRange(new[] { a + k, a + seg + k, a + k1, a + k1, a + seg + k, a + seg + k1 });
-                }
-            foreach (var (ri, sgn) in new[] { (0, -1f), (path.Count - 1, 1f) })   // 先っぽのふた
+                for (int k = 0; k < seg; k++) { int k1 = (k + 1) % seg, a = b0 + i * seg; T.AddRange(new[] { a + k, a + seg + k, a + k1, a + k1, a + seg + k, a + seg + k1 }); }
+            foreach (var (ri, sgn) in new[] { (0, -1f), (path.Count - 1, 1f) })
             {
                 int cb = V.Count; var tg = (path[ri] - path[Mathf.Clamp(ri - (int)sgn, 0, path.Count - 1)]).normalized;
                 V.Add(path[ri]); N.Add(tg); C.Add(c);
                 for (int k = 0; k < seg; k++) T.AddRange(new[] { cb, b0 + ri * seg + k, b0 + ri * seg + (k + 1) % seg });
             }
         }
-        var browns = new[] { new Color(0.47f, 0.32f, 0.21f), new Color(0.56f, 0.39f, 0.26f), new Color(0.40f, 0.27f, 0.18f), new Color(0.62f, 0.45f, 0.30f) };
-        // 見えている丸太（巣の床や道の下に埋まる丸太は出さない。てじゃ）
+        public Mesh ToMesh()
+        {
+            for (int i = 0; i < T.Count; i += 3)
+            {
+                Vector3 p0 = V[T[i]], p1 = V[T[i + 1]], p2 = V[T[i + 2]];
+                if (Vector3.Dot(Vector3.Cross(p1 - p0, p2 - p0), N[T[i]] + N[T[i + 1]] + N[T[i + 2]]) < 0f) { int t = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = t; }
+            }
+            var m = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            m.SetVertices(V); m.SetNormals(N); m.SetColors(C); m.SetTriangles(T, 0);
+            m.RecalculateBounds();
+            return m;
+        }
+    }
+    static readonly Color[] Browns = { new Color(0.47f, 0.32f, 0.21f), new Color(0.56f, 0.39f, 0.26f), new Color(0.40f, 0.27f, 0.18f), new Color(0.62f, 0.45f, 0.30f) };
+    static readonly Color Vine = new Color(0.33f, 0.52f, 0.24f);
+
+    // 割れ目をつなぐ小枝：道を横切る丸太（両はしは少し細い）を z0〜z1 にすき間なく並べ、左右2か所をツタでしばる。
+    // 見えるのは v0〜v1（割れ目の中）の丸太だけ（巣の床や道の下に埋まる丸太は出さない。てじゃ）
+    static Mesh Patch(float z0, float z1, float v0, float v1, float halfW, float top, int seed)
+    {
+        var rnd = new System.Random(seed);
+        float R(float lo, float hi) => lo + (float)rnd.NextDouble() * (hi - lo);
+        var mb = new TwigMB();
         var logs = new List<(Vector3 c, float yaw, float r)>();
         float zz = z0;
         while (true)
@@ -277,8 +324,8 @@ public static class FuwaCourse4Roads
             float len = halfW * 2f * R(0.92f, 1.12f), off = R(-0.12f, 0.12f), yaw = R(-7f, 7f) * Mathf.Deg2Rad;
             var d = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw));
             var c = new Vector3(off, top - r * 0.55f + R(-0.01f, 0.015f), zz);
-            float rA = r * R(0.75f, 0.95f), rB = r * R(0.75f, 0.95f); var col = browns[rnd.Next(browns.Length)];
-            if (zz - r >= v0 && zz + r <= v1) { Log(c - d * len * 0.5f, c + d * len * 0.5f, rA, rB, col, 7); logs.Add((c, yaw, (rA + rB) * 0.5f)); }
+            float rA = r * R(0.75f, 0.95f), rB = r * R(0.75f, 0.95f); var col = Browns[rnd.Next(Browns.Length)];
+            if (zz - r >= v0 && zz + r <= v1) { mb.Log(c - d * len * 0.5f, c + d * len * 0.5f, rA, rB, col, 7); logs.Add((c, yaw, (rA + rB) * 0.5f)); }
             zz += r + R(0f, 0.02f);
         }
         // ツタ：左右2本。1本のなめらかな管で、丸太の上をなぞって丸太のあいだで少したわむ。両はしの丸太にはひと巻きして、
@@ -286,30 +333,25 @@ public static class FuwaCourse4Roads
         if (logs.Count >= 2)
         {
             const float vr = 0.02f;
-            var vine = new Color(0.33f, 0.52f, 0.24f);
             foreach (float x0 in new[] { -halfW + 0.32f, halfW - 0.32f })
             {
                 float x = x0 + R(-0.04f, 0.04f);
-                // 丸太の中心の、ツタの x での位置（丸太は少し斜めなので z がずれる）
                 Vector3 At(int i) { var l = logs[i]; return new Vector3(x, l.c.y, l.c.z + (x - l.c.x) * Mathf.Tan(l.yaw)); }
                 var pts = new List<Vector3>();
-                // 巻きつき：丸太のまわりをひと回り（外側から上へ入って、外→下→内→上）。巻くあいだに横へ少しずれる
                 void Wrap(int i, float outward, float drift)
                 {
                     var ce = At(i); float rr = logs[i].r + vr;
                     for (int k = 0; k <= 12; k++)
                     {
-                        float t = k / 12f, an = Mathf.PI * 0.5f + outward * t * Mathf.PI * 2f;   // 上から始めて外側へ回る
+                        float t = k / 12f, an = Mathf.PI * 0.5f + outward * t * Mathf.PI * 2f;
                         pts.Add(ce + new Vector3(drift * (t - 0.5f), Mathf.Sin(an) * rr, Mathf.Cos(an) * rr));
                     }
                 }
                 int last = logs.Count - 1;
                 var f = At(0); var l = At(last);
-                // 外側の垂れ（道・巣の床の上、z の小さい側）
                 pts.Add(new Vector3(x - 0.05f, top + vr * 0.6f, f.z - logs[0].r - 0.32f));
                 pts.Add(new Vector3(x - 0.03f, top + vr * 0.8f, f.z - logs[0].r - 0.14f));
                 Wrap(0, 1f, 0.07f);
-                // 丸太の上をなぞる（あいだは少したわむ）
                 for (int i = 1; i <= last; i++)
                 {
                     var a = At(i - 1); var b = At(i);
@@ -318,21 +360,142 @@ public static class FuwaCourse4Roads
                     if (i < last) pts.Add(new Vector3(x + R(-0.01f, 0.01f), yb, b.z));
                 }
                 Wrap(last, -1f, -0.07f);
-                pts.Add(new Vector3(x + 0.03f, top + vr * 0.8f, l.z + logs[last].r + 0.14f));
-                pts.Add(new Vector3(x + 0.05f, top + vr * 0.6f, l.z + logs[last].r + 0.32f));
-                Tube(Smooth(pts, 4), vr, vine);
+                pts.Add(new Vector3(x + 0.03f, top + vr * 0.8f + 0.01f, l.z + logs[last].r + 0.14f));
+                pts.Add(new Vector3(x + 0.05f, top + vr * 0.6f + 0.01f, l.z + logs[last].r + 0.32f));
+                mb.Tube(Smooth(pts, 4), vr, Vine);
             }
         }
-        // 三角形の向きを法線にそろえる
-        for (int i = 0; i < T.Count; i += 3)
+        return mb.ToMesh();
+    }
+
+    // 小さい巣：砂の床（円盤）＋ 下のおわん（小枝色）＋ 小枝を3段輪に積んだふち（ローカル z の ± の入口 gapHalf はあける）＋ 垂れた根っこ。床の上面が y=0
+    static Mesh Nestlet(float R0, float gapHalf, int seed)
+    {
+        var rnd = new System.Random(seed);
+        float Rn(float lo, float hi) => lo + (float)rnd.NextDouble() * (hi - lo);
+        var mb = new TwigMB();
+        // 床
+        Color sandA = new Color(0.82f, 0.70f, 0.52f), sandB = new Color(0.76f, 0.64f, 0.46f);
+        int seg = 48, rings = 6;
+        int fb = mb.V.Count;
+        mb.V.Add(Vector3.zero); mb.N.Add(Vector3.up); mb.C.Add(sandA);
+        for (int r = 1; r <= rings; r++)
+            for (int k = 0; k < seg; k++)
+            {
+                float an = k * Mathf.PI * 2f / seg, rr = R0 * r / rings;
+                mb.V.Add(new Vector3(Mathf.Sin(an) * rr, 0f, Mathf.Cos(an) * rr)); mb.N.Add(Vector3.up);
+                mb.C.Add(Color.Lerp(sandA, sandB, 0.5f + 0.5f * Mathf.Sin(an * 5f + rr * 4f) * Mathf.Cos(rr * 3f - an * 2f)));
+            }
+        for (int k = 0; k < seg; k++) mb.T.AddRange(new[] { fb, fb + 1 + k, fb + 1 + (k + 1) % seg });
+        for (int r = 1; r < rings; r++)
+            for (int k = 0; k < seg; k++)
+            {
+                int a0 = fb + 1 + (r - 1) * seg + k, a1 = fb + 1 + (r - 1) * seg + (k + 1) % seg, b0 = a0 + seg, b1 = a1 + seg;
+                mb.T.AddRange(new[] { a0, b0, a1, a1, b0, b1 });
+            }
+        // 下のおわん（外側へ少しふくらんで、下でしぼむ）
+        var prof = new[] { new Vector2(R0 + 0.05f, -0.02f), new Vector2(R0 + 0.2f, -0.18f), new Vector2(R0 + 0.12f, -0.45f), new Vector2(R0 * 0.78f, -0.85f), new Vector2(R0 * 0.4f, -1.15f), new Vector2(0.02f, -1.3f) };
+        int bb = mb.V.Count;
+        for (int j = 0; j < prof.Length; j++)
         {
-            Vector3 p0 = V[T[i]], p1 = V[T[i + 1]], p2 = V[T[i + 2]];
-            if (Vector3.Dot(Vector3.Cross(p1 - p0, p2 - p0), N[T[i]] + N[T[i + 1]] + N[T[i + 2]]) < 0f) { int t = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = t; }
+            var t2 = j == 0 ? prof[1] - prof[0] : j == prof.Length - 1 ? prof[j] - prof[j - 1] : prof[j + 1] - prof[j - 1];
+            var n2 = new Vector2(-t2.y, t2.x).normalized; if (n2.x < 0f) n2 = -n2;
+            for (int k = 0; k < seg; k++)
+            {
+                float an = k * Mathf.PI * 2f / seg;
+                mb.V.Add(new Vector3(Mathf.Sin(an) * prof[j].x, prof[j].y, Mathf.Cos(an) * prof[j].x));
+                mb.N.Add(new Vector3(Mathf.Sin(an) * n2.x, n2.y, Mathf.Cos(an) * n2.x).normalized);
+                float st = 0.85f + 0.15f * Mathf.Sin(an * 23f + j * 1.7f);
+                var c = Color.Lerp(Browns[2], Browns[0], 0.5f + 0.5f * Mathf.Sin(an * 7f + j)); mb.C.Add(new Color(c.r * st, c.g * st, c.b * st, 1f));
+            }
         }
-        var m = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-        m.SetVertices(V); m.SetNormals(N); m.SetColors(C); m.SetTriangles(T, 0);
-        m.RecalculateBounds();
+        for (int j = 0; j < prof.Length - 1; j++)
+            for (int k = 0; k < seg; k++)
+            {
+                int a0 = bb + j * seg + k, a1 = bb + j * seg + (k + 1) % seg, b0 = a0 + seg, b1 = a1 + seg;
+                mb.T.AddRange(new[] { a0, b0, a1, a1, b0, b1 });
+            }
+        // ふち：小枝を3段、輪に積む（入口はあける）
+        bool InGap(float an) { float d0 = Mathf.Abs(Mathf.DeltaAngle(an * Mathf.Rad2Deg, 0f)) * Mathf.Deg2Rad, d1 = Mathf.Abs(Mathf.DeltaAngle(an * Mathf.Rad2Deg, 180f)) * Mathf.Deg2Rad; return d0 < gapHalf || d1 < gapHalf; }
+        for (int layer = 0; layer < 3; layer++)
+        {
+            int n = Mathf.CeilToInt(Mathf.PI * 2f * R0 / 0.42f);
+            for (int k = 0; k < n; k++)
+            {
+                float a0 = (k + Rn(-0.2f, 0.2f) + layer * 0.37f) * Mathf.PI * 2f / n, a1 = a0 + Mathf.PI * 2f / n * Rn(1.3f, 1.7f);
+                if (InGap(a0) || InGap(a1) || InGap((a0 + a1) * 0.5f)) continue;
+                float rr0 = R0 + Rn(-0.04f, 0.08f), rr1 = R0 + Rn(-0.04f, 0.08f), y = 0.05f + layer * 0.085f;
+                var p0 = new Vector3(Mathf.Sin(a0) * rr0, y + Rn(-0.02f, 0.03f), Mathf.Cos(a0) * rr0);
+                var p1 = new Vector3(Mathf.Sin(a1) * rr1, y + Rn(-0.02f, 0.03f), Mathf.Cos(a1) * rr1);
+                float r = Rn(0.045f, 0.07f);
+                mb.Log(p0, p1, r * Rn(0.7f, 1f), r * Rn(0.6f, 0.9f), Browns[rnd.Next(Browns.Length)], 6);
+            }
+        }
+        // 入口のはしに、つき出た小枝を少し（ふちが急に切れて見えないように）
+        foreach (float ga in new[] { gapHalf, -gapHalf, Mathf.PI + gapHalf, Mathf.PI - gapHalf })
+            for (int q = 0; q < 2; q++)
+            {
+                var b = new Vector3(Mathf.Sin(ga), 0f, Mathf.Cos(ga));
+                var p0 = b * (R0 + 0.05f) + Vector3.up * (0.08f + q * 0.1f);
+                var p1 = p0 + Vector3.up * Rn(0.15f, 0.32f) + b * Rn(0.05f, 0.2f) + Vector3.Cross(Vector3.up, b) * Rn(-0.1f, 0.1f);
+                mb.Log(p0, p1, 0.035f, 0.015f, Browns[rnd.Next(Browns.Length)], 5);
+            }
+        // 垂れた根っこ
+        for (int k = 0; k < 7; k++)
+        {
+            float an = Rn(0f, Mathf.PI * 2f), rr = Rn(0.2f, R0 * 0.75f);
+            var p0 = new Vector3(Mathf.Sin(an) * rr, -1.3f + (rr / R0) * 0.5f, Mathf.Cos(an) * rr);
+            var p1 = p0 + new Vector3(Rn(-0.3f, 0.3f), -Rn(0.6f, 1.4f), Rn(-0.3f, 0.3f));
+            mb.Log(p0, p1, 0.05f, 0.008f, new Color(0.30f, 0.22f, 0.24f), 5);
+        }
+        return mb.ToMesh();
+    }
+
+    // 当たり判定用の円盤（上向き、y=0）
+    static Mesh Disc(float r, int seg)
+    {
+        var v = new List<Vector3> { Vector3.zero }; var t = new List<int>();
+        for (int k = 0; k < seg; k++) { float an = k * Mathf.PI * 2f / seg; v.Add(new Vector3(Mathf.Sin(an) * r, 0f, Mathf.Cos(an) * r)); }
+        for (int k = 0; k < seg; k++) t.AddRange(new[] { 0, 1 + (k + 1) % seg, 1 + k });
+        // 上から当たるように、面を上向きに（裏向きだと上からの当たり判定が抜ける）
+        if (Vector3.Cross(v[t[1]] - v[t[0]], v[t[2]] - v[t[0]]).y < 0f) for (int i = 0; i < t.Count; i += 3) { int x = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = x; }
+        var m = new Mesh(); m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
         return m;
+    }
+
+    // 木の橋：道の向きに板（平たい丸太）を5本並べ、3か所をツタで横にしばる。板の上面は top より少しだけ上
+    static Mesh PlankBridge(float z0, float z1, float halfW, float top, int seed)
+    {
+        var rnd = new System.Random(seed);
+        float Rn(float lo, float hi) => lo + (float)rnd.NextDouble() * (hi - lo);
+        var mb = new TwigMB();
+        int n = 5; float pw = halfW * 2f / n;
+        var tops = new List<float>();
+        for (int i = 0; i < n; i++)
+        {
+            float x = -halfW + pw * (i + 0.5f) + Rn(-0.03f, 0.03f), r = pw * 0.5f * Rn(0.92f, 1.0f), flat = 0.45f;
+            float y = top - r * flat + 0.006f;
+            mb.Log(new Vector3(x, y, z0 + Rn(-0.1f, 0.1f)), new Vector3(x + Rn(-0.04f, 0.04f), y, z1 + Rn(-0.1f, 0.1f)), r, r * Rn(0.85f, 1f), Browns[rnd.Next(Browns.Length)], 8, flat);
+            tops.Add(y + r * flat);
+        }
+        // 横にしばるツタ（板の上をなぞって、両はしは板の下へ回りこむ）
+        foreach (float tz in new[] { z0 + 0.6f, (z0 + z1) * 0.5f, z1 - 0.6f })
+        {
+            var pts = new List<Vector3>();
+            float zj = tz + Rn(-0.08f, 0.08f);
+            pts.Add(new Vector3(-halfW - 0.02f, top - 0.12f, zj));
+            pts.Add(new Vector3(-halfW - 0.03f, top - 0.02f, zj));
+            for (int i = 0; i < n; i++)
+            {
+                float x = -halfW + pw * (i + 0.5f);
+                pts.Add(new Vector3(x, tops[i] + 0.018f, zj + Rn(-0.02f, 0.02f)));
+                if (i < n - 1) pts.Add(new Vector3(x + pw * 0.5f, tops[i] + 0.004f, zj));
+            }
+            pts.Add(new Vector3(halfW + 0.03f, top - 0.02f, zj));
+            pts.Add(new Vector3(halfW + 0.02f, top - 0.12f, zj));
+            mb.Tube(Smooth(pts, 3), 0.02f, Vine);
+        }
+        return mb.ToMesh();
     }
 
     // 折れ線をなめらかに（Catmull-Rom、区間ごとに n 点）
