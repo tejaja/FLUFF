@@ -421,9 +421,30 @@ public static class FuwaPracticeTutorial
         for (int i = 0; i < _pathOnlyPts.Count; i += 4) { float e = (new Vector2(ic.x, ic.z) - _pathOnlyPts[i]).sqrMagnitude; if (e < best) { best = e; dIsl = _pathOnlyDist[i]; } }
         float r = bay.Find("Island/Ground").GetComponent<Renderer>().bounds.extents.x;
         float s0 = dIsl - r, s1 = dIsl + BaySpan * 0.5f - 0.2f;
+        // 先は次の区画のさかいめの膜まで（2026-10-09 てじゃ「風の範囲、見えない壁くらいまで」）
+        var nextBar = course.Find(RootName + "/Bay_Monster/BayBarrier");
+        if (nextBar != null)
+        {
+            float bb = 1e9f;
+            for (int i = 0; i < _pathOnlyPts.Count; i += 2) { float e = (new Vector2(nextBar.position.x, nextBar.position.z) - _pathOnlyPts[i]).sqrMagnitude; if (e < bb) { bb = e; s1 = _pathOnlyDist[i] - 1.5f; } }   // 膜の少し手前まで
+        }
         foreach (var n in new[] { "WindZone", "WindHighlight", "WindParticles" }) { var t = bay.Find(n); if (t != null) Object.DestroyImmediate(t.gameObject); }
         var log = new List<string>();
         MakeWindZone(bay, _pathOnlyPts, _pathOnlyDist, (s0 + s1) * 0.5f, windDir, course, log, s1 - s0, HalfW, strength, "Tutorial_WindHighlight", BayLeftExtra);
+        // 見た目の速さを風の強さに合わせる（コピー元はコース1の強い横風なので速すぎる。強さ1.4で粒6m/s・葉3.5m/s・地面の矢印1〜3.2m/s）
+        var wa = bay.Find("WindZone").GetComponent<FuwaWindArea>();
+        float ks = strength / 1.4f;
+        wa.highlightSpeedMin = 1.0f * ks; wa.highlightSpeedMax = 3.2f * ks; UdonSharpEditorUtility.CopyProxyToUdon(wa);
+        void Speed(ParticleSystem ps, float sp)
+        {
+            var v = ps.velocityOverLifetime; var z = v.z; float k = z.constantMax / sp; z.constantMax = sp; v.z = z;
+            var m = ps.main; var l = m.startLifetime; l.constantMin *= k; l.constantMax *= k; m.startLifetime = l; m.maxParticles = Mathf.CeilToInt(m.maxParticles * 1.2f);
+            var em = ps.emission; em.rateOverTimeMultiplier /= k;
+        }
+        var wp = bay.Find("WindParticles");
+        if (wp != null) { Speed(wp.GetComponent<ParticleSystem>(), 6f * ks); var lv = wp.Find("WindLeaves"); if (lv != null) Speed(lv.GetComponent<ParticleSystem>(), 3.5f * ks); }
+        // 吹き流しを新しい風につなぎ直す
+        var sock = bay.Find("Windsock"); if (sock != null) { var d = sock.GetComponent<FuwaWindDeco>(); d.wind = wa; UdonSharpEditorUtility.CopyProxyToUdon(d); }
         AssetDatabase.SaveAssets();
         return "wind rebuilt " + (s1 - s0).ToString("F1") + "m from island start";
     }
