@@ -333,6 +333,8 @@ public static class FuwaCourse3Builder
             var z = go.transform.Find("HeavyZone"); z.localScale = Vector3.one * size;
             z.localPosition = new Vector3(0, 3f + centerH, 0);
             var ps = go.transform.Find("HeavyParticles"); if (ps) { ps.localScale = Vector3.one * k; ps.localPosition = z.localPosition; }
+            // ヒトヨタケは影を落とさない（重い霧の球と重なって変。2026-10-10 てじゃ）
+            var ink = go.transform.Find("InkCap"); if (ink) ink.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             // 地面の波紋：球が道の上面を切る円の中で、今の道の上にある所だけにメッシュを作り直す
             var hl = go.transform.Find("GroundHighlight");
             if (hl)
