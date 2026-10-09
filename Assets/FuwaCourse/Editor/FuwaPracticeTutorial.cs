@@ -91,6 +91,11 @@ public static class FuwaPracticeTutorial
     // 左側（お手本の島と反対）だけ広げる分。説明の区画の間だけ（2026-10-09 てじゃ「道も左側にもうちょい広く」）
     const float BayLeftExtra = 0.8f;
     static System.Func<float, float> PathExtraL = d => 0f;
+    // 島に入るところで、道のふちを島のふちへ弧でつなぐぶんの広がり（右・左）。Run で決める
+    static System.Func<float, float> PathFilletR = d => 0f, PathFilletL = d => 0f;
+    const float FilletR = 2.0f;
+    static float WidthR(float d) { return PathHalfW(d) + PathFilletR(d); }
+    static float WidthL(float d) { return PathHalfW(d) + PathExtraL(d) + PathFilletL(d); }
     static System.Func<float, float> PathTop = d => Top;
     static float GrooveD0 = -1f, GrooveD1 = -1f;   // 溝（道が切れている所）の道の上の距離。なければ -1
 
@@ -159,7 +164,7 @@ public static class FuwaPracticeTutorial
             foreach (var sv in st)
             {
                 float s = sv.x, inset = sv.y, th = sv.z, dir = sv.w;
-                var prof = BevelProfile(PathHalfW(s), PathHalfW(s) + PathExtraL(s)); P = prof.Count;
+                var prof = BevelProfile(WidthR(s), WidthL(s)); P = prof.Count;
                 At(pts, dist, s, out var c, out var f);
                 var right = new Vector3(f.z, 0f, -f.x);
                 float slope = (PathTop(s + 0.05f) - PathTop(s - 0.05f)) / 0.1f;
@@ -225,7 +230,7 @@ public static class FuwaPracticeTutorial
             int first = V.Count;
             for (int k = 0; k <= n; k++)
             {
-                float s = Mathf.Lerp(s0p, s1p, k / (float)n), W = PathHalfW(s), WL = W + PathExtraL(s);
+                float s = Mathf.Lerp(s0p, s1p, k / (float)n), W = WidthR(s), WL = WidthL(s);
                 At(pts, dist, s, out var c, out var f);
                 var r = new Vector3(f.z, 0f, -f.x);
                 // 断面の4点：左上・右上・右下・左下
@@ -370,8 +375,11 @@ public static class FuwaPracticeTutorial
             var g = course.Find("Start/StartArea/Ground").GetComponent<Renderer>().bounds; float r = g.extents.x;
             float best = 1e9f, dIsl = 0f;
             for (int i = 0; i < _pathOnlyPts.Count; i += 2) { float e = (new Vector2(g.center.x, g.center.z) - _pathOnlyPts[i]).sqrMagnitude; if (e < best) { best = e; dIsl = _pathOnlyDist[i]; } }
-            At(_pathOnlyPts, _pathOnlyDist, dIsl - r + 0.05f, out var c, out var f);
-            MakeBarrier(root, "MushBarrier", c, f, PathHalfW(dIsl - r) * 2f + 0.6f + PathExtraL(dIsl - r));
+            float db = dIsl - r + 0.05f;
+            At(_pathOnlyPts, _pathOnlyDist, db, out var c, out var f);
+            var rgt = new Vector3(f.z, 0f, -f.x);
+            float wr = WidthR(db) + 0.3f, wl = WidthL(db) + 0.3f;
+            MakeBarrier(root, "MushBarrier", c + rgt * ((wr - wl) * 0.5f), f, wr + wl);
             n++;
         }
         var mat = BarrierMat();
@@ -495,7 +503,8 @@ public static class FuwaPracticeTutorial
         float uGroove0 = uSlope1 + 3f, uGroove1 = uGroove0 + FinGrooveW;
         float uWind0 = uGroove1 + 3f, uWind1 = uWind0 + FinWindLen;
         float uCp = uWind1 + 2.5f, uMon = uCp + 5.5f, uGoal = uMon + 9f;
-        float uEnd = uGoal - 2.6f;   // 道はゴールの島のふちまで（島のまん中のリングにかぶらないように）
+        // 道はゴールの島の少し内側まで（島の地面の下にもぐらせて、ふちの弧が切れないように。まん中のリングまでは行かない）
+        float uEnd = uGoal - 1.2f;
         float sCp = sMush + uCp, sGoal = sMush + uGoal, sEnd = sMush + uEnd;
         // 中心線：説明の小道（うねる）→ キノコの島から先は 直線＋右カーブ＋直線
         Vector3 pM = Lane(F, sMush), d0 = (Lane(F, sMush + 0.01f) - Lane(F, sMush - 0.01f)); d0.y = 0f; d0.Normalize();
@@ -523,15 +532,59 @@ public static class FuwaPracticeTutorial
         float D(float u) { return S(sMush + u); }
         float U(float d) { return d <= dMush ? (d - dMush) : (d - dMush) * uEnd / (len - dMush); }
         // 道の形：広さ（島の柵の入口では元の幅）・登り坂・溝
-        PathHalfW = d =>
+        // 幅は島から島まで一定（説明の小道は HalfW＋左に BayLeftExtra、本番の道は FinHalfW）。切りかわりはキノコの島のまん中（地面の下）。
+        // 島の手前で細くしていたのをやめて、島に入るところは下の弧でつなぐ（2026-10-09 てじゃ「弧を描く感じに」「柵はそのままで」）
+        PathHalfW = d => d <= dMush ? HalfW : FinHalfW;
+        PathExtraL = d => d <= dMush ? BayLeftExtra : 0f;
+        // 登り坂。ゴールの島の手前で4cmだけ下げて、島の地面（道より2cm低い）の下にもぐらせる
+        PathTop = d => Top + FinRise * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(uSlope0, uSlope1, U(d))) - 0.04f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(uGoal - 3.6f, uGoal - 3.1f, U(d)));
+        // 島に入るところの弧：道のふち（直線）と島のふち（円）の両方に接する半径 FilletR の円の弧。島の中は弧の終わりの幅のまま（地面の下）
         {
-            float u = U(d);
-            float k = Mathf.Min(Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(3f, 6f, u)), Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(uGoal - 3f, uGoal - 6f, u)));
-            return Mathf.Lerp(HalfW, FinHalfW, k);
-        };
-        PathTop = d => Top + FinRise * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(uSlope0, uSlope1, U(d)));
-        // 左側の広がり：最初の区画の始まり〜最後の区画の終わり（入口・キノコの島の柵の入口は元の幅）
-        { float x0 = S(FirstWall), x1 = S(lastWall); PathExtraL = d => BayLeftExtra * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(x0 - 0.5f, x0 + 1.5f, d)) * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(x1 + 0.5f, x1 - 1.5f, d)); }
+            var isl = new List<(float sc, float lc, float r, int o)>();
+            float Rad(Collider col, Vector3 c)
+            {
+                if (col == null) return 3f;
+                float sum = 0f; int n = 0;
+                for (int a = 0; a < 24; a++)
+                {
+                    var dir = Quaternion.Euler(0f, a * 15f, 0f) * Vector3.forward;
+                    for (float r = 1.5f; r < 6f; r += 0.02f)
+                        if (!col.Raycast(new Ray(new Vector3(c.x, col.bounds.max.y + 1f, c.z) + dir * r, Vector3.down), out _, 5f)) { sum += r; n++; break; }
+                }
+                return n > 0 ? sum / n : 3f;
+            }
+            void Add(Vector3 c, Collider col, params int[] outs)
+            {
+                var c2 = new Vector2(c.x, c.z); int bi = 0; float bd = 1e9f;
+                for (int i = 0; i < pts.Count; i++) { float e = (pts[i] - c2).sqrMagnitude; if (e < bd) { bd = e; bi = i; } }
+                int j = Mathf.Clamp(bi, 1, pts.Count - 1);
+                var f2 = (pts[j] - pts[j - 1]).normalized; var r2 = new Vector2(f2.y, -f2.x); var off = c2 - pts[bi];
+                float r = Rad(col, c);
+                foreach (int o in outs) isl.Add((dist[bi] + Vector2.Dot(off, f2), Vector2.Dot(off, r2), r, o));
+            }
+            var entG = root != null ? root.Find("Entrance/Ground") : null;
+            Add(entG != null ? entG.position : Origin, entG != null ? entG.GetComponent<Collider>() : null, 1);
+            var mg = startArea.Find("Ground"); Add(mg.position, mg.GetComponent<Collider>(), -1, 1);
+            var gg = goal.Find("GoalGround"); if (gg != null) Add(gg.position, gg.GetComponent<Collider>(), -1);
+            float Fillet(float s, int side)
+            {
+                float best = 0f;
+                foreach (var (sc, lc, r, o) in isl)
+                {
+                    float t = o * (s - sc); if (t < 0f) continue;
+                    float sOut = sc + o * (r + FilletR);   // 弧より外の、ふつうの幅を測る所
+                    float w = side > 0 ? PathHalfW(sOut) : PathHalfW(sOut) + PathExtraL(sOut);
+                    float L = side * (w + FilletR) - lc, Rr = r + FilletR;
+                    if (Mathf.Abs(L) >= Rr) continue;
+                    float a = Mathf.Sqrt(Rr * Rr - L * L);   // 弧の中心の、島の中心からの道ぞいの距離
+                    if (t >= a) continue;
+                    float tt = Mathf.Max(t, a * r / Rr);     // 島のふちに接する所より内側は、そこの幅のまま
+                    best = Mathf.Max(best, FilletR - Mathf.Sqrt(Mathf.Max(0f, FilletR * FilletR - (a - tt) * (a - tt))));
+                }
+                return best;
+            }
+            PathFilletR = d => Fillet(d, 1); PathFilletL = d => Fillet(d, -1);
+        }
         GrooveD0 = D(uGroove0); GrooveD1 = D(uGroove1);
         if (_pathOnly) { _pathOnlyPts = pts; _pathOnlyDist = dist; return "layout"; }   // 道だけ作り直す時はここまで
 
