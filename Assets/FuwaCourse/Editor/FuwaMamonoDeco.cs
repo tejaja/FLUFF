@@ -63,7 +63,10 @@ public static class FuwaMamonoDeco
 
         // 自分のコースの巣（床より外にふちや底がはみ出している）にも近づけない
         var selfPts = new List<Vector3>();
-        foreach (var r in den.GetComponentsInChildren<MeshRenderer>())
+        // スタートの島（ワープの島・木の橋）も（2026-10-09 最初の橋をのばした時に、浮いてる巣がスタートの島にかぶった）
+        var selfRs = den.GetComponentsInChildren<MeshRenderer>().ToList();
+        var startT = root.Find("Start"); if (startT != null) selfRs.AddRange(startT.GetComponentsInChildren<MeshRenderer>().Where(r => r.enabled && r.GetComponent<MeshFilter>() != null && r.GetComponent<MeshFilter>().sharedMesh != null && r.GetComponent<MeshFilter>().sharedMesh.isReadable));
+        foreach (var r in selfRs)
         {
             var vv = r.GetComponent<MeshFilter>().sharedMesh.vertices; int stp = Mathf.Max(1, vv.Length / 300);
             for (int i = 0; i < vv.Length; i += stp) selfPts.Add(r.transform.TransformPoint(vv[i]));
