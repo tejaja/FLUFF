@@ -97,6 +97,7 @@ public static class FuwaStumpRebuild
 
         // ---- 苔を生やし直す ----
         var rnd = new System.Random(4242);
+        _padDropped = 0; _padDroppedInner = 0;
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         var pads = new List<(Vector3 c, float r)>();
         int made = 0;
@@ -144,7 +145,7 @@ public static class FuwaStumpRebuild
             }
         }
         Object.DestroyImmediate(colGo); Object.DestroyImmediate(colMesh);
-        log.Append("moss pads " + made + " ");
+        log.Append("moss pads " + made + " (pad tris dropped " + _padDropped + ", inner " + _padDroppedInner + ") ");
 
         // 苔の中で、面の向きとなめらかな法線が逆になっている三角（強く折れた所の小さい三角）は捨てる（裏返って見えないように）
         {
@@ -171,6 +172,7 @@ public static class FuwaStumpRebuild
         return log.ToString();
     }
 
+    static int _padDropped, _padDroppedInner;
     static int Bin(Vector3 p, int B) { return ((int)Mathf.Floor((Mathf.Atan2(p.z, p.x) + Mathf.PI) / (Mathf.PI * 2) * B)) % B; }
 
     // 頂点を共有した部品を足す（法線はなめらかに計算）。lightmap用UVは近くの樹皮の頂点から借りる
@@ -213,7 +215,9 @@ public static class FuwaStumpRebuild
             bns.Add(bn);
             var hp = hit.point - off; var hn = hit.normal; if (Vector3.Dot(hn, bn) < 0f) hn = -hn;   // 両面にした帯の裏側に当たった時
             if (hn.y > 0.9f && hp.y > CutY - 0.003f) hp.y = Mathf.Max(hp.y, RingY + 0.0004f);   // 切り口の上は年輪より上から
-            p = hp + hn * h;
+            // 浮かせる向きは、当たった所の面の向きではなく、落とした向き（bn）にそろえる。
+            // 樹皮のしわで面の向きがばらつくと、格子が横にずれて折り返し、裏返った三角を捨てた所が穴（切り株が突き抜けて見える）になっていた（2026-10-10）
+            p = hp + bn * h;
             return true;
         }
         // 中心
@@ -249,9 +253,14 @@ public static class FuwaStumpRebuild
         for (int i = 0; i < t.Count; i += 3)
         {
             var fn = Vector3.Cross(v[t[i + 1]] - v[t[i]], v[t[i + 2]] - v[t[i]]);
-            if (fn.sqrMagnitude < 1e-14f || Vector3.Dot(fn, bns[t[i]] + bns[t[i + 1]] + bns[t[i + 2]]) <= 0f) continue;
+            if (fn.sqrMagnitude < 1e-14f || Vector3.Dot(fn, bns[t[i]] + bns[t[i + 1]] + bns[t[i + 2]]) <= 0f)
+            {
+                if (Mathf.Max(t[i], Mathf.Max(t[i + 1], t[i + 2])) < 1 + rings * segs) _padDroppedInner++;   // ふち（もぐらせた輪）以外で捨てた＝穴
+                continue;
+            }
             keep.Add(t[i]); keep.Add(t[i + 1]); keep.Add(t[i + 2]);
         }
+        _padDropped += (t.Count - keep.Count) / 3;
         t = keep;
         AppendSmooth(mb, 3, v, t, null, false);
         return true;

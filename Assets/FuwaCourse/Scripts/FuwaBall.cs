@@ -795,7 +795,7 @@ public class FuwaBall : UdonSharpBehaviour
         float t = _running ? Time.time - _startTime : 0f;
         lastGoalTime = timerEnabled ? t : 0f;
         _running = false;
-        if (timerText != null) timerText.text = Mono(FormatTime(t));
+        if (timerText != null) timerText.text = timerEnabled ? Mono(FormatTime(t)) : "";   // 計らないコース（チュートリアルの本番の道）は 0:00.00 を出さない
         ShowMessage(english ? "Goal!" : "ゴール！", restartDelay);   // タイムは下のタイマーに出ているので文字には入れない
         PlaySfx(sfxGoal);
         // ゴールしたら、ふわふわがパンッと弾けて胞子を撒く（次のスタートでキノコに戻る）

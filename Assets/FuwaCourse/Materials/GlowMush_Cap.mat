@@ -14,6 +14,7 @@ Material:
   m_ValidKeywords: []
   m_InvalidKeywords:
   - _EMISSION
+  - _EMISSIONGRADIENT_ON
   m_LightmapFlags: 1
   m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
@@ -44,6 +45,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _GroundTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -66,7 +71,7 @@ Material:
     - _BaseFadeLength: 0
     - _BaseFadeNormal: 1
     - _BumpScale: 1
-    - _Cull: 2
+    - _Cull: 0
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
@@ -76,6 +81,14 @@ Material:
     - _GlossMapScale: 1
     - _Glossiness: 0.35
     - _GlossyReflections: 1
+    - _GroundFine: 0
+    - _GroundFineCrisp: 0
+    - _GroundFineFade: 18
+    - _GroundFineScale: 0.9
+    - _GroundMidScale: 3.2
+    - _GroundPatch: 0
+    - _GroundPatchScale: 11
+    - _GroundSteps: 0
     - _Metallic: 0
     - _Mode: 0
     - _NoiseScale: 0.6
@@ -101,6 +114,8 @@ Material:
     - _BaseFadeColor: {r: 0.65999997, g: 0.6, b: 0.68, a: 1}
     - _Color: {r: 0.86, g: 0.96999997, b: 0.8, a: 1}
     - _EmissionColor: {r: 0.09999997, g: 0.21999997, b: 0.09999997, a: 1}
+    - _GroundTintA: {r: 1.1, g: 1.08, b: 0.86, a: 1}
+    - _GroundTintB: {r: 0.8, g: 0.92, b: 0.8399999, a: 1}
     - _RimColor: {r: 1, g: 0.96999997, b: 0.92, a: 1}
     - _ShadowTint: {r: 0.54999995, g: 0.47999996, b: 0.75, a: 1}
     - _StrataA: {r: 1.06, g: 0.97999996, b: 0.94, a: 1}
