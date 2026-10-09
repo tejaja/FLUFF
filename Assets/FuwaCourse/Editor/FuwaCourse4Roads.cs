@@ -354,7 +354,9 @@ public static class FuwaCourse4Roads
                 }
                 int last = logs.Count - 1;
                 var f = At(0); var l = At(last);
-                pts.Add(new Vector3(x - 0.05f, top + vr * 0.6f, f.z - logs[0].r - 0.32f));
+                // 先っぽは割れた道のギザギザ（最大 JagMax 引っこむ）を越えて、道・巣の床の上まで届かせる（2026-10-09 てじゃ「つるを届かせて」）
+                pts.Add(new Vector3(x - 0.08f, top + vr * 0.6f + 0.004f, f.z - logs[0].r - JagMax - 0.42f));
+                pts.Add(new Vector3(x - 0.05f, top + vr * 0.7f + 0.004f, f.z - logs[0].r - JagMax - 0.1f));
                 pts.Add(new Vector3(x - 0.03f, top + vr * 0.8f, f.z - logs[0].r - 0.14f));
                 Wrap(0, 1f, 0.07f);
                 for (int i = 1; i <= last; i++)
@@ -366,7 +368,8 @@ public static class FuwaCourse4Roads
                 }
                 Wrap(last, -1f, -0.07f);
                 pts.Add(new Vector3(x + 0.03f, top + vr * 0.8f + 0.01f, l.z + logs[last].r + 0.14f));
-                pts.Add(new Vector3(x + 0.05f, top + vr * 0.6f + 0.01f, l.z + logs[last].r + 0.32f));
+                pts.Add(new Vector3(x + 0.05f, top + vr * 0.7f + 0.01f, l.z + logs[last].r + JagMax + 0.1f));
+                pts.Add(new Vector3(x + 0.08f, top + vr * 0.6f + 0.01f, l.z + logs[last].r + JagMax + 0.42f));
                 mb.Tube(Smooth(pts, 4), vr, Vine);
             }
         }
