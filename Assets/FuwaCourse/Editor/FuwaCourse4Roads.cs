@@ -13,6 +13,7 @@ public static class FuwaCourse4Roads
     const float Thick = 0.3f, Bevel = 0.08f, Stripe = 0.6f;
     const int BevelSteps = 4, TopSteps = 14;
     const float GapA = 1.9f, GapD = 0.75f;   // 割れ目（小枝でつないだ所）の長さ
+    const float IsletR = 1.5f;               // 最初の巣の手前の、イバラを試せる小さい島の半径（2026-10-09 てじゃ）
     const float JagMax = 0.36f;              // 割れたはしの、いちばん欠けている所の深さ
     const string MeshDir = "Assets/FuwaCourse/Meshes/Course4";
 
@@ -30,8 +31,15 @@ public static class FuwaCourse4Roads
         var log = new System.Text.StringBuilder();
         var startG = c4.Find("Start/StartArea/Ground"); var goalG = c4.Find("Goal/GoalGround");
         // (橋, 始まりの島, 終わりの島, 始まり側の床, 終わり側の床, …, 始まり側の割れ目, 終わり側の割れ目)
-        log.Append(Road(den, "BridgeA", startG.position, den.Find("Nest1").GetComponent<Renderer>().bounds.center, null, den.Find("Nest1_Col").GetComponent<Collider>(), matA, matB, "Course4_Road_Start", 0f, GapA));
-        log.Append(Road(den, "BridgeD", den.Find("MamaNestCenter").position, goalG.position, den.Find("MamaNest_Col").GetComponent<Collider>(), goalG.GetComponent<Collider>(), matA, matB, "Course4_Road_Goal", GapD, 0f));
+        log.Append(Road(den, "BridgeA", startG.position, den.Find("Nest1").GetComponent<Renderer>().bounds.center, null, den.Find("Nest1_Col").GetComponent<Collider>(), matA, matB, "Course4_Road_Start", 0f, GapA, IsletR, startG, out var islet));
+        // 最初のイバラ（前は道の上にあった）を小さい島のまん中へ
+        var sp = c4.Find("Spikes/SpikePatch0_Start");
+        if (sp != null && islet.HasValue)
+        {
+            Undo.RecordObject(sp, "move bramble"); Undo.RecordObject(sp.gameObject, "show bramble");
+            var to = islet.Value; to.y = sp.position.y; sp.position = to; sp.gameObject.SetActive(true);
+        }
+        log.Append(Road(den, "BridgeD", den.Find("MamaNestCenter").position, goalG.position, den.Find("MamaNest_Col").GetComponent<Collider>(), goalG.GetComponent<Collider>(), matA, matB, "Course4_Road_Goal", GapD, 0f, 0f, null, out _));
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(c4.gameObject.scene);
         AssetDatabase.SaveAssets();
         return log.ToString();
@@ -49,8 +57,9 @@ public static class FuwaCourse4Roads
     // a→b の向きに、橋の当たり判定の上面（幅・高さ）を測って道を作る。
     // fromCol があれば「a 側の島（巣）の床が終わる所」から、なければ橋のはしから（島の下にもぐる）。toCol も同じ。
     // gap0 / gap1：そのはしの手前で道を割って、その長さを小枝でつなぐ
-    static string Road(Transform den, string bridge, Vector3 a3, Vector3 b3, Collider fromCol, Collider toCol, Material mA, Material mB, string name, float gap0, float gap1)
+    static string Road(Transform den, string bridge, Vector3 a3, Vector3 b3, Collider fromCol, Collider toCol, Material mA, Material mB, string name, float gap0, float gap1, float isletR, Transform isletLike, out Vector3? islet)
     {
+        islet = null;
         var br = den.Find(bridge); var bcolT = den.Find(bridge + "_Col"); var bcol = bcolT.GetComponent<Collider>();
         bool bcolWasOn = bcolT.gameObject.activeSelf; bcolT.gameObject.SetActive(true);   // 測るあいだだけ（道の当たり判定に置きかえた後も測れるように）
         Vector2 a = new Vector2(a3.x, a3.z), b = new Vector2(b3.x, b3.z), dir = (b - a).normalized, right = new Vector2(dir.y, -dir.x);
@@ -82,17 +91,40 @@ public static class FuwaCourse4Roads
             GameObjectUtility.SetStaticEditorFlags(go, flags);
             return go;
         }
-        // 道（割れ目のぶん短くして、割れた側のはしをギザギザに）
-        Put(name, SaveMesh(Strip(e0 + gap0, e1 - gap1, halfW, top, gap0 > 0f, gap1 > 0f), name), new[] { mA, mB });
+        // 小さい島（isletR > 0）：巣のすぐ手前（巣の床のふちに接する）。道 → 割れ目（小枝）→ 島 → 巣 の順（2026-10-09 てじゃ）
+        float sc = e1 - isletR - 0.05f;
+        var oldI = den.Find(name + "_Islet"); if (oldI != null) Object.DestroyImmediate(oldI.gameObject);
+        if (isletR > 0f && gap1 > 0f)
+        {
+            var c2 = a + dir * sc + right * cx;
+            var ig = new GameObject(name + "_Islet").transform; ig.SetParent(den, false);
+            ig.position = new Vector3(c2.x, top + 0.01f - 0.03f, c2.y);   // 地面（円盤の上面は根元+0.03）を道より1cm上に
+            var g0 = isletLike.GetComponent<Renderer>();
+            var topMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/IslandDisc/IslandDisc_r64.asset");
+            var tg = new GameObject("Ground", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider)); tg.transform.SetParent(ig, false);
+            tg.GetComponent<MeshFilter>().sharedMesh = topMesh; tg.GetComponent<MeshRenderer>().sharedMaterial = g0.sharedMaterial; tg.GetComponent<MeshCollider>().sharedMesh = topMesh;
+            tg.transform.localScale = new Vector3(isletR / 0.64f, 1f, isletR / 0.64f);
+            tg.layer = isletLike.gameObject.layer; GameObjectUtility.SetStaticEditorFlags(tg, GameObjectUtility.GetStaticEditorFlags(isletLike.gameObject));
+            var ug = new GameObject("IslandUnder", typeof(MeshFilter), typeof(MeshRenderer)); ug.transform.SetParent(ig, false);
+            ug.GetComponent<MeshFilter>().sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FarIslands/IslandUnderLow_1.asset");
+            ug.GetComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/IslandUnder.mat");
+            ug.transform.localScale = new Vector3(isletR / 0.97f, isletR / 0.97f * 0.9f, isletR / 0.97f); ug.transform.localRotation = Quaternion.Euler(0f, 40f, 0f);
+            GameObjectUtility.SetStaticEditorFlags(ug, GameObjectUtility.GetStaticEditorFlags(isletLike.gameObject));
+            islet = new Vector3(c2.x, top, c2.y);
+        }
+        // 道（割れ目のぶん短くして、割れた側のはしをギザギザに。島がある時は島のまん中まで）
+        if (islet.HasValue) Put(name, SaveMesh(Strip(e0, sc - isletR - gap1, halfW, top, false, true), name), new[] { mA, mB });
+        else Put(name, SaveMesh(Strip(e0 + gap0, e1 - gap1, halfW, top, gap0 > 0f, gap1 > 0f), name), new[] { mA, mB });
         // 割れ目をつなぐ小枝（巣の床の中まで少し入れる、道のギザギザの下にも少しもぐらせる）
         string pn = name + "_Patch";
         var oldP = den.Find(pn); if (oldP != null) Object.DestroyImmediate(oldP.gameObject);
         if (gap0 > 0f || gap1 > 0f)
         {
-            float p0 = gap0 > 0f ? e0 - 0.25f : e1 - gap1 - JagMax;
-            float p1 = gap0 > 0f ? e0 + gap0 + JagMax : e1 + 0.25f;
+            float nearEnd = islet.HasValue ? sc - isletR : e1;   // 割れ目の向こう（島か巣の床）のふち
+            float p0 = gap0 > 0f ? e0 - 0.25f : nearEnd - gap1 - JagMax;
+            float p1 = gap0 > 0f ? e0 + gap0 + JagMax : nearEnd + 0.25f;
             // 丸太を出すのは割れ目（巣の床のふち〜道の割れたはし）だけ
-            float v0 = gap0 > 0f ? e0 : e1 - gap1, v1 = gap0 > 0f ? e0 + gap0 : e1;
+            float v0 = gap0 > 0f ? e0 : nearEnd - gap1, v1 = gap0 > 0f ? e0 + gap0 : nearEnd;
             Put(pn, SaveMesh(Patch(p0, p1, v0, v1, halfW, top, name.Length * 7919 + 17), pn), new[] { br.GetComponent<Renderer>().sharedMaterial });
         }
         br.gameObject.SetActive(false);   // 木の橋の見た目は消さずに非表示（当たり判定 _Col はそのまま）
