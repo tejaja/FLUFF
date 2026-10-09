@@ -20,6 +20,8 @@ Shader "FuwaCourse/SoftBarrier"
         _FilmAlpha ("ふだんから見える下の方のうすい膜", Range(0, 0.3)) = 0
         _LineColor ("ふだんの線の色", Color) = (0.55, 0.8, 1, 1)
         _LineHeight ("横の線の高さ (m、床から)", Float) = 1.0
+        _WallTop ("近づくと見える壁が消える高さ (m)", Float) = 1.0
+        _HexSize ("バリアの六角形の大きさ (m)", Float) = 0.3
     }
     SubShader
     {
@@ -37,7 +39,7 @@ Shader "FuwaCourse/SoftBarrier"
             #include "UnityCG.cginc"
 
             fixed4 _Color, _EdgeColor;
-            float _Reveal, _RingFreq, _RingSpeed, _EdgeWidth, _CamNear, _Iri, _LineAlpha, _LineFar, _LineWidth, _FilmAlpha, _LineHeight;
+            float _Reveal, _RingFreq, _RingSpeed, _EdgeWidth, _CamNear, _Iri, _LineAlpha, _LineFar, _LineWidth, _FilmAlpha, _LineHeight, _WallTop, _HexSize;
             fixed4 _LineColor;
             float4 _UdonFuwaBallPos;
 
@@ -86,7 +88,19 @@ Shader "FuwaCourse/SoftBarrier"
                     float vl = (1 - smoothstep(w * 0.5, w, m.x)) * (1 - smoothstep(_LineHeight, _LineHeight + 0.8, m.y));
                     float ln = max(hl, vl);
                     float far = 1 - smoothstep(_LineFar * 0.5, _LineFar, camD);
-                    float film = _FilmAlpha * (1 - smoothstep(0.05, _LineHeight, m.y));
+                    // 近づくと見えるバリア：六角形の格子（線は濃く、中はうっすら）。上へいくほど消える
+                    float2 hp = float2(m.x, m.y) / _HexSize;
+                    const float2 hr = float2(1, 1.7320508);
+                    float2 ha = (frac(hp / hr) - 0.5) * hr;
+                    float2 hb = (frac((hp - hr * 0.5) / hr) - 0.5) * hr;
+                    float2 gv = dot(ha, ha) < dot(hb, hb) ? ha : hb;
+                    float2 ag = abs(gv);
+                    float hd = max(dot(ag, normalize(hr)), ag.x);          // 六角形の中心からの距離（ふちで0.5）
+                    float hw = max(0.04, fwidth(hd) * 1.5);
+                    float hex = 1 - smoothstep(0.5 - hw, 0.5 - hw * 0.3, hd) ;
+                    hex = 1 - hex;                                          // ふちの線＝1
+                    float hexFill = 0.22 + 0.78 * hex;
+                    float film = _FilmAlpha * hexFill * (1 - smoothstep(0.05, _WallTop, m.y)) * (0.8 + 0.2 * iri.b);
                     float la = (_LineAlpha * ln + film) * far;
                     col = lerp(col, _LineColor.rgb, saturate(la / max(0.001, a + la)));
                     a = max(a, la);

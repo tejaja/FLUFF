@@ -28,10 +28,11 @@ Material:
     - _CamNear: 2.5
     - _EdgeWidth: 0.03
     - _FadeTop: 0.85
-    - _FilmAlpha: 0.08
+    - _FilmAlpha: 0.5
+    - _HexSize: 0.3
     - _Iri: 0.35
-    - _LineAlpha: 0.7
-    - _LineFar: 14
+    - _LineAlpha: 0
+    - _LineFar: 5
     - _LineHeight: 1
     - _LineWidth: 0.025
     - _NearFade: 1.2
@@ -40,8 +41,9 @@ Material:
     - _RingSpeed: 5
     - _StripeFreq: 9
     - _StripeSpeed: 0.25
+    - _WallTop: 2.6
     m_Colors:
     - _Color: {r: 0.85, g: 0.95, b: 1, a: 0.55}
     - _EdgeColor: {r: 1, g: 1, b: 1, a: 0.35}
-    - _LineColor: {r: 0.55, g: 0.8, b: 1, a: 1}
+    - _LineColor: {r: 0.5, g: 0.82, b: 1, a: 1}
   m_BuildTextureStacks: []
