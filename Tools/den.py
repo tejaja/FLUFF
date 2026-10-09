@@ -26,7 +26,7 @@ NESTS = [
     dict(name='Nest3', c=sh((50.5, 6.5)), r=2.6, rim=0.45, seed=6),  # 分岐の巣（やや小さめ＋チェックポイント）
     dict(name='MamaNest', c=sh((64.2, 17.4)), r=4.6, rim=0.7, seed=3),
     dict(name='SideNest', c=sh((58.7, -0.9)), r=3.0, rim=0.5, seed=4),
-    dict(name='Islet', c=sh((65.8, 7.0)), r=1.8, rim=0.35, seed=5),   # 大回りの曲がり角の小島（何もない）   # 大回りルートの巣（けだま1匹＋倒しやすいイバラ）
+    dict(name='Islet', c=sh((69.7, 7.87)), r=1.8, rim=0.35, seed=5),   # 2026-10-09 てじゃの経路図：ママの巣の右へ（旧 (65.8, 7.0)）。横の巣からまっすぐ上がって、ママの巣の右やや上へ入る   # 大回りの曲がり角の小島（何もない）   # 大回りルートの巣（けだま1匹＋倒しやすいイバラ）
 ]
 PODS = [   # 寝てるけだまの小さい巣（橋のわき、入口なし）
     dict(name='Pod1', c=sh((54.04, 12.45)), r=1.25, rim=0.45, seed=11),
@@ -45,7 +45,7 @@ BRIDGES = [
     # 大回りルート：巣3 → 横の巣 → ママの巣（南側から入る）
     dict(name='BridgeE', a='Nest3', b='SideNest', via=[]),
     dict(name='BridgeF', a='SideNest', b='Islet', via=[]),
-    dict(name='BridgeG', a='Islet', b='MamaNest', via=[]),
+    dict(name='BridgeG', a='Islet', b='MamaNest', via=[sh((69.68, 13.73))]),   # 2026-10-09 てじゃ：ママの巣にはゴール寄りの横（円の真ん中やや上）から入る
 ]
 
 TWIG = [(0.55, 0.41, 0.29), (0.47, 0.34, 0.24), (0.63, 0.49, 0.35), (0.41, 0.3, 0.22)]
