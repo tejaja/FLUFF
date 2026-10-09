@@ -39,6 +39,8 @@ public class FuwaHud : UdonSharpBehaviour
     public Vector2 bgPadding = new Vector2(0.08f, 0.04f);
     [Tooltip("背景を文字の中心から上下にずらす量。文字の影（アンダーレイ）が右下に出る分、見た目の中心が下がるので少し下げる")]
     public float bgOffsetY = 0f;
+    [Tooltip("背景の角の丸み（1＝両端が半円のカプセル型、小さいほど角ばる）")]
+    public float bgRoundness = 0.6f;
 
     [Header("空気ゲージ（銃を持っている間だけ、タイムの下に出す）")]
     public GameObject airGauge;
@@ -272,9 +274,9 @@ public class FuwaHud : UdonSharpBehaviour
         if (_align > 0) cx = b.min.x - bgPadding.x + size.x * 0.5f;
         else if (_align < 0) cx = b.max.x + bgPadding.x - size.x * 0.5f;
         bg.transform.localPosition = new Vector3(cx, b.center.y + bgOffsetY, 0.005f);
-        // 角丸スプライトの角の半径は大きさ1の時0.25。高さの半分がちょうど角の半径になるように
-        // 縮小して置く（両端がきれいな半円のカプセル型になる）
-        float sc = Mathf.Max(0.0001f, size.y * 2f);
+        // 角丸スプライトの角の半径は大きさ1の時0.25。高さの半分×bgRoundness が角の半径になるように
+        // 縮小して置く（bgRoundness=1で両端がきれいな半円のカプセル型。2026-10-09 てじゃ：丸みを少し減らす）
+        float sc = Mathf.Max(0.0001f, size.y * 2f * Mathf.Clamp(bgRoundness, 0.05f, 1f));
         bg.transform.localScale = new Vector3(sc, sc, 1f);
         bg.size = size / sc;
     }
