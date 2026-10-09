@@ -718998,7 +718998,6 @@ Transform:
   m_Children:
   - {fileID: 585624379}
   - {fileID: 1075866771}
-  - {fileID: 1257587271}
   - {fileID: 299591835}
   m_Father: {fileID: 871362049}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -719010,8 +719009,8 @@ LODGroup:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 560290407}
   serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.03265494, y: 0.3006, z: -0.015113704}
-  m_Size: 0.6012
+  m_LocalReferencePoint: {x: 0.03265494, y: 0.3046565, z: 0.036750816}
+  m_Size: 0.609313
   m_FadeMode: 0
   m_AnimateCrossFading: 0
   m_LastLODIsBillboard: 0
@@ -719024,7 +719023,6 @@ LODGroup:
     - renderer: {fileID: 1296546940}
     - renderer: {fileID: 1638562068}
     - renderer: {fileID: 2038110745}
-    - renderer: {fileID: 1257587272}
     - renderer: {fileID: 299591836}
   m_Enabled: 1
 --- !u!1 &560513607
@@ -1357629,7 +1357627,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1075866770}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.1736482, z: 0, w: 0.9848078}
+  m_LocalRotation: {x: -0, y: -1, z: -0, w: 0}
   m_LocalPosition: {x: 0.22000071, y: 0, z: -0.00000043213367}
   m_LocalScale: {x: 0.26000002, y: 0.26, z: 0.26000002}
   m_ConstrainProportionsScale: 0
@@ -1622792,93 +1622790,6 @@ Transform:
   - {fileID: 1471936866}
   m_Father: {fileID: 337368392}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1257587270
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1257587271}
-  - component: {fileID: 1257587273}
-  - component: {fileID: 1257587272}
-  m_Layer: 0
-  m_Name: FlowersYellow
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 20
-  m_IsActive: 1
---- !u!4 &1257587271
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1257587270}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0.25881907, z: 0, w: 0.9659259}
-  m_LocalPosition: {x: -0.0000006966293, y: 0.0003452301, z: -0.12000023}
-  m_LocalScale: {x: 0.8230962, y: 0.82309586, z: 0.8230962}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 560290408}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!23 &1257587272
-MeshRenderer:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1257587270}
-  m_Enabled: 1
-  m_CastShadows: 0
-  m_ReceiveShadows: 1
-  m_DynamicOccludee: 1
-  m_StaticShadowCaster: 0
-  m_MotionVectors: 1
-  m_LightProbeUsage: 0
-  m_ReflectionProbeUsage: 1
-  m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RenderingLayerMask: 1
-  m_RendererPriority: 0
-  m_Materials:
-  - {fileID: 2100000, guid: 8be7815f639320e4381efff3f6c675e7, type: 2}
-  - {fileID: 2100000, guid: 2d2c3ceb5d31d2d449b46930901a871a, type: 2}
-  - {fileID: 2100000, guid: 03e07a6c6cc101445b3f19ccf5b2000c, type: 2}
-  - {fileID: 2100000, guid: 0a523f9d82f643142a8ee7ecfe3a8a7f, type: 2}
-  - {fileID: 2100000, guid: 39d8e42befc01ac40bcbe53cc9b529e6, type: 2}
-  m_StaticBatchInfo:
-    firstSubMesh: 0
-    subMeshCount: 0
-  m_StaticBatchRoot: {fileID: 0}
-  m_ProbeAnchor: {fileID: 0}
-  m_LightProbeVolumeOverride: {fileID: 0}
-  m_ScaleInLightmap: 1
-  m_ReceiveGI: 2
-  m_PreserveUVs: 0
-  m_IgnoreNormalsForChartDetection: 0
-  m_ImportantGI: 0
-  m_StitchLightmapSeams: 1
-  m_SelectedEditorRenderState: 3
-  m_MinimumChartSize: 4
-  m_AutoUVMaxDistance: 0.5
-  m_AutoUVMaxAngle: 89
-  m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_AdditionalVertexStreams: {fileID: 0}
---- !u!33 &1257587273
-MeshFilter:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1257587270}
-  m_Mesh: {fileID: 4300000, guid: 78905116f87fbd14abf4e73165cf2e36, type: 2}
 --- !u!1 &1258405226
 GameObject:
   m_ObjectHideFlags: 0
