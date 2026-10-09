@@ -382,6 +382,28 @@ public static class FuwaPracticeTutorial
         return "barriers " + n;
     }
 
+    // 入口の島：エアガンの台の右（入口から見て）に「持ち方と呼び方」だけの看板（2026-10-09 てじゃ）
+    const string GunSignJa = "<size=130%><color=#FF6B5C>エアガン</color></size>\n持つ：VR トリガー／PC 左クリック\n手元に呼ぶ：PC Eキー／VR 右スティック下\n台をクリックで台にもどる";
+    const string GunSignEn = "<size=130%><color=#FF6B5C>Air Gun</color></size>\nHold: VR trigger / PC left click\nCall it: PC E key / VR right stick down\nClick the stand to send it back";
+    [MenuItem("FuwaCourse/れんしゅう/入口のエアガンの看板を作り直す")]
+    public static void GunSignMenu() { Debug.Log(MakeGunSign()); }
+    public static string MakeGunSign()
+    {
+        var course = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
+        var ent = course.Find(RootName + "/Entrance");
+        var old = ent.Find("GunSign"); if (old != null) { var l0 = Object.FindObjectsOfType<FuwaLanguage>(true).First(); RemoveLang(l0, old.GetComponentInChildren<TMPro.TextMeshPro>(true)); Object.DestroyImmediate(old.gameObject); }
+        var stand = ent.Find("GunStand_Tutorial"); var spot = ent.Find("PlayerSpot"); var ground = ent.Find("Ground").GetComponent<Renderer>().bounds;
+        Vector3 dir = stand.position - spot.position; dir.y = 0; dir.Normalize();
+        Vector3 right = Vector3.Cross(Vector3.up, dir).normalized;
+        Vector3 pos = stand.position + right * 1.25f + dir * 0.1f;
+        var signSrc = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "BestTimes" && t.parent != null && t.parent.name == "FuwaLobby");
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
+        Vector3 face = pos - spot.position; face.y = 0;
+        MakeSign(ent, pos, face.normalized, GunSignJa, GunSignEn, signSrc, lang, "GunSign");
+        var sign = ent.Find("GunSign"); sign.position = new Vector3(sign.position.x, ground.max.y - 0.02f, sign.position.z);
+        return "gun sign at " + sign.position.ToString("F2") + " dist from island center " + Vector2.Distance(new Vector2(sign.position.x, sign.position.z), new Vector2(ground.center.x, ground.center.z)).ToString("F2") + " / r " + ground.extents.x.ToString("F2");
+    }
+
     // 風の区画の風だけ作り直す：見本島の手前のはし〜区画の終わり（2026-10-09 てじゃ「風は見本島くらいから」）
     [MenuItem("FuwaCourse/れんしゅう/風の区画の風だけ作り直す")]
     public static void WindOnlyMenu() { Debug.Log(RebuildWindOnly()); }
@@ -1469,6 +1491,24 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         tx.GetArrayElementAtIndex(n).objectReferenceValue = t;
         pj.GetArrayElementAtIndex(n).stringValue = ja;
         pe.GetArrayElementAtIndex(n).stringValue = en;
+        so.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    // 言語切り替えの一覧から、この文字（と消えた文字）の行を外す
+    static void RemoveLang(FuwaLanguage lang, TMPro.TextMeshPro t)
+    {
+        var so = new SerializedObject(lang);
+        var tx = so.FindProperty("texts"); var pj = so.FindProperty("ja"); var pe = so.FindProperty("en");
+        for (int i = tx.arraySize - 1; i >= 0; i--)
+        {
+            var o = tx.GetArrayElementAtIndex(i).objectReferenceValue;
+            if (o == null || o == t)
+            {
+                int before = tx.arraySize; tx.DeleteArrayElementAtIndex(i);
+                if (tx.arraySize == before) tx.DeleteArrayElementAtIndex(i);   // 古い Unity は参照を空にするだけなので、もう一度
+                pj.DeleteArrayElementAtIndex(i); pe.DeleteArrayElementAtIndex(i);
+            }
+        }
         so.ApplyModifiedPropertiesWithoutUndo();
     }
 
