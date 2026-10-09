@@ -53,8 +53,8 @@ public static class FuwaLobbyPaths
                 cg.layer = floor.gameObject.layer;
                 GameObjectUtility.SetStaticEditorFlags(cg, GameObjectUtility.GetStaticEditorFlags(floor.gameObject) | StaticEditorFlags.BatchingStatic);
             }
-            Disc("CenterRim", CenterR, floorY + Rise, "Lobby_Ring");
-            Disc("CenterGround", CenterR - CenterRim, floorY + Rise + 0.004f, "Lobby_Floor");
+            Disc("CenterRim", CenterR, floorY + Rise, "LobbyCenter_Rim");   // 前の床・縁の色を少し明るくした専用の材質（Lobby_Floor/Ring は入口・みんなでロビーでも使うので変えない）
+            Disc("CenterGround", CenterR - CenterRim, floorY + Rise + 0.004f, "LobbyCenter_Floor");
         }
         // 床を芝に
         floor.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Goal_Ground.mat");
