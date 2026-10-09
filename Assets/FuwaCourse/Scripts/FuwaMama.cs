@@ -75,6 +75,9 @@ public class FuwaMama : UdonSharpBehaviour
     [Tooltip("浮いている間の横の押しの減り方（床の上より小さく＝ふわっと飛ぶ）")]
     public float airDamping = 0.9f;
     public AudioSource bumpSound;
+    [Tooltip("エアガンが当たった時の音（けだまと同じ音を低くして重そうに）")]
+    public AudioSource blownSound;
+    public float blownPitch = 0.6f;
 
     [Header("くしゃみ（useSneeze の時だけ）")]
     public bool useSneeze = false;
@@ -156,6 +159,11 @@ public class FuwaMama : UdonSharpBehaviour
         if (_state == 0 || _state == 4) return;
         float k = charged ? pushScale : pushScaleNormal;
         if (k <= 0f) return;
+        if (blownSound != null && blownSound.clip != null)
+        {
+            blownSound.pitch = blownPitch * (charged ? 1f : 1.12f) * Random.Range(0.96f, 1.04f);
+            blownSound.PlayOneShot(blownSound.clip, charged ? 1f : 0.6f);
+        }
         Vector3 v = impulse * k; v.y = 0f;
         _push += v;
         _squashUntil = Time.time + 0.3f;
