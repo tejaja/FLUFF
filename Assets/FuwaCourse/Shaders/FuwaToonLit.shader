@@ -44,6 +44,16 @@ Shader "FuwaCourse/ToonLit"
         _TopStrength ("Top Strength", Range(0,1)) = 0
         _TopMin ("Top Start (normal.y)", Range(0,1)) = 0.55
         [Toggle] _PatternFromBase ("Pattern From Base (stalactite)", Float) = 0
+        [Header(Ground Detail)]
+        [NoScaleOffset] _GroundTex ("Ground Detail (R=細かい草 G=大きいムラ B=中くらい、継ぎ目なし)", 2D) = "gray" {}
+        _GroundPatch ("大きいムラの強さ (0=off)", Range(0,1)) = 0
+        _GroundPatchScale ("大きいムラの大きさ (m)", Float) = 11
+        _GroundMidScale ("中くらいのかたまりの大きさ (m)", Float) = 3.2
+        _GroundTintA ("明るい所の色味", Color) = (1.1, 1.08, 0.86, 1)
+        _GroundTintB ("濃い所の色味", Color) = (0.8, 0.92, 0.84, 1)
+        _GroundFine ("細かい草の強さ (0=off)", Range(0,1)) = 0
+        _GroundFineScale ("細かい草の模様の大きさ (m)", Float) = 0.9
+        _GroundFineFade ("細かい草が消える距離 (m)", Float) = 18
     }
     SubShader
     {
@@ -73,6 +83,7 @@ Shader "FuwaCourse/ToonLit"
             half _NoiseStrength, _StrataStrength, _Facet, _TopStrength, _TopMin; float _NoiseScale, _StrataScale; fixed4 _TopColor;
             half4 _StrataA, _StrataB, _StrataC; half _PatternFromBase;
             half _EmissionGradient, _EmissionFull;
+            sampler2D _GroundTex; half _GroundPatch, _GroundFine; float _GroundPatchScale, _GroundMidScale, _GroundFineScale, _GroundFineFade; half4 _GroundTintA, _GroundTintB;
             float Hash1(float x) { return frac(sin(x * 127.1 + 311.7) * 43758.5453); }
             // 層ごとの色味：層の番号からA/B/C（と元の色）を選ぶ。となりと同じ色になることもあるので、層の厚みがバラバラに見える
             half3 LayerTint(float id)
@@ -167,6 +178,21 @@ Shader "FuwaCourse/ToonLit"
                     }
                 }
                 if (_TopStrength > 0) col.rgb = lerp(col.rgb, _TopColor.rgb, _TopStrength * smoothstep(_TopMin, 1, n.y));
+                // 芝の地面の模様（上向きの面だけ、ワールドの xz で取るのでとなりの島ともそろう）：
+                // 大きいムラ＋中くらいのかたまりで明るい黄緑〜濃い緑のまだら、細かい草の筋は近くだけ（遠くはチラつくので消す）
+                if (_GroundPatch > 0 || _GroundFine > 0)
+                {
+                    half up = smoothstep(0.45, 0.85, n.y);
+                    float2 xz = i.wp.xz;
+                    half pg = tex2D(_GroundTex, xz / _GroundPatchScale).g;
+                    half pb = tex2D(_GroundTex, xz / _GroundMidScale + 0.37).b;
+                    half p = saturate(pg * 0.65 + pb * 0.35);
+                    half3 tint = p > 0.5 ? lerp(half3(1,1,1), _GroundTintA.rgb, (p - 0.5) * 2) : lerp(_GroundTintB.rgb, half3(1,1,1), p * 2);
+                    col.rgb *= lerp(half3(1,1,1), tint, _GroundPatch * up);
+                    half fine = tex2D(_GroundTex, xz / _GroundFineScale).r;
+                    half fineFade = 1 - smoothstep(_GroundFineFade * 0.45, _GroundFineFade, distance(_WorldSpaceCameraPos, i.wp));
+                    col.rgb *= 1 + (fine - 0.5) * 2 * _GroundFine * fineFade * up;
+                }
                 float3 l = normalize(_WorldSpaceLightPos0.xyz);
                 float3 v = normalize(_WorldSpaceCameraPos - i.wp);
 
