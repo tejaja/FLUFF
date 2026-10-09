@@ -430,7 +430,11 @@ public static class FuwaPracticeTutorial
         }
         foreach (var n in new[] { "WindZone", "WindHighlight", "WindParticles" }) { var t = bay.Find(n); if (t != null) Object.DestroyImmediate(t.gameObject); }
         var log = new List<string>();
-        MakeWindZone(bay, _pathOnlyPts, _pathOnlyDist, (s0 + s1) * 0.5f, windDir, course, log, s1 - s0, HalfW, strength, "Tutorial_WindHighlight", BayLeftExtra);
+        // 右はお手本の島の向こうのふちまで（島の中心は道の中心から HalfW+1.35 の横）
+        float rightExtra = Mathf.Max(0f, (HalfW + 1.6f - 0.25f) + r + 0.3f - (HalfW + 1f));
+        MakeWindZone(bay, _pathOnlyPts, _pathOnlyDist, (s0 + s1) * 0.5f, windDir, course, log, s1 - s0, HalfW, strength, "Tutorial_WindHighlight", BayLeftExtra, rightExtra);
+        // お手本の吹き方も同じ強さに（FuwaDemoStand は自分で風の加速度をかける）
+        foreach (var ds in bay.GetComponentsInChildren<FuwaDemoStand>(true)) if (ds.windAccel != Vector3.zero) { ds.windAccel = windDir.normalized * strength; UdonSharpEditorUtility.CopyProxyToUdon(ds); }
         // 見た目の速さを風の強さに合わせる（コピー元はコース1の強い横風なので速すぎる。強さ1.4で粒6m/s・葉3.5m/s・地面の矢印1〜3.2m/s）
         var wa = bay.Find("WindZone").GetComponent<FuwaWindArea>();
         float ks = strength / 1.4f;
@@ -1177,15 +1181,16 @@ public static class FuwaPracticeTutorial
 
 
     static void MakeWindZone(
-Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 windDir, Transform course, List<string> log, float len, float halfW, float strength, string meshName, float leftExtra = 0f)
+Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 windDir, Transform course, List<string> log, float len, float halfW, float strength, string meshName, float leftExtra = 0f, float rightExtra = 0f)
     {
+        // rightExtra：箱と粒だけ右（お手本の島の側）へ広げる（地面の＞＞＞は道の上だけ）。島の上でも風の粒が見えるように
         var tmplArea = Object.FindObjectsOfType<FuwaWindArea>(true).FirstOrDefault(w => w.transform.parent != null && w.transform.parent.name == "G3_CrossRight");
         At(pts, dist, dMid, out var c, out var f);
         windDir.y = 0f; windDir.Normalize();
         // 箱：道に沿って len、横は道より少し広く（斜めの風でも道の上を覆うように）。左だけ広げた道（leftExtra）も覆う
-        float wid = halfW * 2f + 2f + leftExtra, hei = 4f;
+        float wid = halfW * 2f + 2f + leftExtra + rightExtra, hei = 4f;
         var zone = new GameObject("WindZone"); zone.transform.SetParent(bayRoot, false);
-        zone.transform.position = c + Vector3.up * (hei * 0.5f - 0.3f) - new Vector3(f.z, 0f, -f.x) * (leftExtra * 0.5f);
+        zone.transform.position = c + Vector3.up * (hei * 0.5f - 0.3f) + new Vector3(f.z, 0f, -f.x) * ((rightExtra - leftExtra) * 0.5f);
         var acrossPath = new Vector3(f.z, 0f, -f.x);
         zone.transform.rotation = Quaternion.LookRotation(acrossPath);   // 箱は道にそろえる（風の向きは localDirection で。斜めの風でも道の上をむらなく覆う）
         zone.transform.localScale = new Vector3(len, hei, wid);   // ローカルz＝風の向き（道を横切る）、x＝道に沿う
