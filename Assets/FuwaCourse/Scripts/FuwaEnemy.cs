@@ -385,8 +385,7 @@ public class FuwaEnemy : UdonSharpBehaviour
                     _groundY = p.y;
                     _airborne = false;
                     _vel.y = 0f; _vel.x *= landKeep; _vel.z *= landKeep;
-                    _squashUntil = Time.time + 0.3f;
-                    if (bumpSound != null) bumpSound.Play();
+                    _squashUntil = Time.time + 0.3f;   // 着地の音はなし（当たった音だけ）
                     _stateTime = Mathf.Min(_stateTime, stunTime - 0.3f);   // 着地してから少しだけひるむ
                 }
                 transform.position = p;

@@ -407,8 +407,7 @@ public class FuwaMama : UdonSharpBehaviour
             if (_knockY <= 0f)
             {
                 _knockY = 0f; _knockVy = 0f;
-                _squashUntil = Time.time + 0.35f;
-                if (bumpSound != null) bumpSound.Play();
+                _squashUntil = Time.time + 0.35f;   // 着地の音はなし（当たった音だけ。2026-10-09 てじゃ）
             }
             if (!_inHop) _hopClock = Mathf.Min(_hopClock, hopRest - 0.35f);   // 浮いている間は次のジャンプを始めない
         }
