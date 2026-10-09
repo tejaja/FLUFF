@@ -8,7 +8,8 @@ using UnityEngine;
 public static class FuwaLobbyPaths
 {
     const float HalfW = 0.55f, Rise = 0.025f, Sink = 0.03f, Bevel = 0.02f, Stripe = 0.5f;
-    const float CenterR = 1.5f;         // まん中の丸い土の床の半径（2026-10-09 てじゃ）。道はそのふちから始める
+    const float CenterR = 1.2f;         // まん中の丸い土の床の半径（2026-10-09 てじゃ）。道はそのふちから始める
+    const float CenterRim = 0.18f;      // ふちの濃い色の幅（前のロビーの床と同じ、Lobby_Ring の輪）
     const float StartR = CenterR;
     const float RingIn = 0.85f;         // ワープのうず（半径）の何割の所まで道を入れるか（うずが道の先に重なって、つながって見える）
     const int BevelSteps = 3;
@@ -35,20 +36,25 @@ public static class FuwaLobbyPaths
             if (m == null) { m = new Material(FindMat(n.Replace("LobbyCourse4", "Course4"))); AssetDatabase.CreateAsset(m, mp); }
             m.color = col; EditorUtility.SetDirty(m);
         }
-        // まん中の丸い土の床（前の床の材質 Lobby_Floor。角を丸めた円柱 BevelCyl を縮めて使う。上面は道と同じ高さ）
+        // まん中の丸い土の床：前のロビーと同じ作り（濃い色の Lobby_Ring の円盤の上に、少し小さい Lobby_Floor の円盤）。
+        // 角を丸めた円柱 BevelCyl を縮めて使う。外側の輪の上面は道と同じ高さ、内側は 4mm 上（重ならないように）
+        foreach (var n in new[] { "CenterGround", "CenterRim" }) { var o = lobby.Find(n); if (o != null) Object.DestroyImmediate(o.gameObject); }
         {
-            var oldC = lobby.Find("CenterGround"); if (oldC != null) Object.DestroyImmediate(oldC.gameObject);
             var cyl = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/Bevel/BevelCyl_3.20x0.15x3.20_r0.070.asset");
-            var cg = new GameObject("CenterGround", typeof(MeshFilter), typeof(MeshRenderer));
-            cg.transform.SetParent(lobby, false);
-            cg.GetComponent<MeshFilter>().sharedMesh = cyl;
-            cg.GetComponent<MeshRenderer>().sharedMaterial = FindMat("Lobby_Floor");
-            float k = CenterR * 2f / cyl.bounds.size.x;
-            cg.transform.localScale = new Vector3(k, 1f, k);
-            float topNow = cyl.bounds.max.y;
-            cg.transform.position = new Vector3(center.x, floorY + Rise - topNow, center.z);
-            cg.layer = floor.gameObject.layer;
-            GameObjectUtility.SetStaticEditorFlags(cg, GameObjectUtility.GetStaticEditorFlags(floor.gameObject) | StaticEditorFlags.BatchingStatic);
+            void Disc(string n, float r, float topY, string mat)
+            {
+                var cg = new GameObject(n, typeof(MeshFilter), typeof(MeshRenderer));
+                cg.transform.SetParent(lobby, false);
+                cg.GetComponent<MeshFilter>().sharedMesh = cyl;
+                cg.GetComponent<MeshRenderer>().sharedMaterial = FindMat(mat);
+                float k = r * 2f / cyl.bounds.size.x;
+                cg.transform.localScale = new Vector3(k, 1f, k);
+                cg.transform.position = new Vector3(center.x, topY - cyl.bounds.max.y, center.z);
+                cg.layer = floor.gameObject.layer;
+                GameObjectUtility.SetStaticEditorFlags(cg, GameObjectUtility.GetStaticEditorFlags(floor.gameObject) | StaticEditorFlags.BatchingStatic);
+            }
+            Disc("CenterRim", CenterR, floorY + Rise, "Lobby_Ring");
+            Disc("CenterGround", CenterR - CenterRim, floorY + Rise + 0.004f, "Lobby_Floor");
         }
         // 床を芝に
         floor.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Goal_Ground.mat");
