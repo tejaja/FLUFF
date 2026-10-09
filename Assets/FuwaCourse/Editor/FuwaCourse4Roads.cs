@@ -197,8 +197,45 @@ public static class FuwaCourse4Roads
                 for (int k = 0; k < seg; k++) T.AddRange(new[] { cb, cb + 1 + k, cb + 1 + (k + 1) % seg });
             }
         }
+        // 点の列にそった管（向きは前の輪から少しずつ回して、ねじれないように）。両はしの 0.12m は細くしていく
+        void Tube(List<Vector3> path, float radius, Color c)
+        {
+            const int seg = 6;
+            float total = 0f; var acc = new List<float> { 0f };
+            for (int i = 1; i < path.Count; i++) { total += (path[i] - path[i - 1]).magnitude; acc.Add(total); }
+            Vector3 prevT = (path[1] - path[0]).normalized;
+            Vector3 u = Vector3.Cross(prevT, Vector3.up); u = u.sqrMagnitude < 1e-4f ? Vector3.right : u.normalized;
+            int b0 = V.Count;
+            for (int i = 0; i < path.Count; i++)
+            {
+                var tg = (path[Mathf.Min(path.Count - 1, i + 1)] - path[Mathf.Max(0, i - 1)]).normalized;
+                u = (Quaternion.FromToRotation(prevT, tg) * u).normalized; prevT = tg;
+                var w = Vector3.Cross(tg, u);
+                float edge = Mathf.Min(acc[i], total - acc[i]);
+                float rr = radius * Mathf.Lerp(0.35f, 1f, Mathf.SmoothStep(0f, 1f, edge / 0.12f));
+                for (int k = 0; k < seg; k++)
+                {
+                    float an = k * Mathf.PI * 2f / seg; var n = u * Mathf.Cos(an) + w * Mathf.Sin(an);
+                    V.Add(path[i] + n * rr); N.Add(n);
+                    float sh = 0.88f + 0.12f * Mathf.Sin(acc[i] * 40f + an); C.Add(new Color(c.r * sh, c.g * sh, c.b * sh, 1f));
+                }
+            }
+            for (int i = 0; i < path.Count - 1; i++)
+                for (int k = 0; k < seg; k++)
+                {
+                    int k1 = (k + 1) % seg, a = b0 + i * seg;
+                    T.AddRange(new[] { a + k, a + seg + k, a + k1, a + k1, a + seg + k, a + seg + k1 });
+                }
+            foreach (var (ri, sgn) in new[] { (0, -1f), (path.Count - 1, 1f) })   // 先っぽのふた
+            {
+                int cb = V.Count; var tg = (path[ri] - path[Mathf.Clamp(ri - (int)sgn, 0, path.Count - 1)]).normalized;
+                V.Add(path[ri]); N.Add(tg); C.Add(c);
+                for (int k = 0; k < seg; k++) T.AddRange(new[] { cb, b0 + ri * seg + k, b0 + ri * seg + (k + 1) % seg });
+            }
+        }
         var browns = new[] { new Color(0.47f, 0.32f, 0.21f), new Color(0.56f, 0.39f, 0.26f), new Color(0.40f, 0.27f, 0.18f), new Color(0.62f, 0.45f, 0.30f) };
-        var logs = new List<(float z, float r)>();
+        // 見えている丸太（巣の床や道の下に埋まる丸太は出さない。てじゃ）
+        var logs = new List<(Vector3 c, float yaw, float r)>();
         float zz = z0;
         while (true)
         {
@@ -209,21 +246,51 @@ public static class FuwaCourse4Roads
             var d = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw));
             var c = new Vector3(off, top - r * 0.55f + R(-0.01f, 0.015f), zz);
             float rA = r * R(0.75f, 0.95f), rB = r * R(0.75f, 0.95f); var col = browns[rnd.Next(browns.Length)];
-            // 巣の床や道の下に埋まる丸太は出さない（てじゃ）。ツタは埋まる所まで続ける（床・道の上に乗る）
-            bool vis = zz - r >= v0 && zz + r <= v1;
-            if (vis) Log(c - d * len * 0.5f, c + d * len * 0.5f, rA, rB, col, 7);
-            logs.Add((zz, vis ? r : 0f));
+            if (zz - r >= v0 && zz + r <= v1) { Log(c - d * len * 0.5f, c + d * len * 0.5f, rA, rB, col, 7); logs.Add((c, yaw, (rA + rB) * 0.5f)); }
             zz += r + R(0f, 0.02f);
         }
-        // ツタ：丸太の上を道の向きに2本。丸太ごとに少し上下して、乗っている感じに
-        var vine = new Color(0.33f, 0.52f, 0.24f);
-        foreach (float x in new[] { -halfW + 0.3f + R(-0.05f, 0.05f), halfW - 0.3f + R(-0.05f, 0.05f) })
-            for (int i = 0; i < logs.Count - 1; i++)
+        // ツタ：左右2本。1本のなめらかな管で、丸太の上をなぞって丸太のあいだで少したわむ。両はしの丸太にはひと巻きして、
+        // 先は細くなりながら外側（道・巣の床の上）に少し垂らす（2026-10-09 てじゃ「つたも、もっと綺麗につなげられないかな」）
+        if (logs.Count >= 2)
+        {
+            const float vr = 0.02f;
+            var vine = new Color(0.33f, 0.52f, 0.24f);
+            foreach (float x0 in new[] { -halfW + 0.32f, halfW - 0.32f })
             {
-                var p = new Vector3(x + R(-0.02f, 0.02f), top + logs[i].r * 0.45f + 0.025f, logs[i].z);
-                var q = new Vector3(x + R(-0.02f, 0.02f), top + logs[i + 1].r * 0.45f + 0.025f, logs[i + 1].z);
-                Log(p, q, 0.022f, 0.022f, vine, 5);
+                float x = x0 + R(-0.04f, 0.04f);
+                // 丸太の中心の、ツタの x での位置（丸太は少し斜めなので z がずれる）
+                Vector3 At(int i) { var l = logs[i]; return new Vector3(x, l.c.y, l.c.z + (x - l.c.x) * Mathf.Tan(l.yaw)); }
+                var pts = new List<Vector3>();
+                // 巻きつき：丸太のまわりをひと回り（外側から上へ入って、外→下→内→上）。巻くあいだに横へ少しずれる
+                void Wrap(int i, float outward, float drift)
+                {
+                    var ce = At(i); float rr = logs[i].r + vr;
+                    for (int k = 0; k <= 12; k++)
+                    {
+                        float t = k / 12f, an = Mathf.PI * 0.5f + outward * t * Mathf.PI * 2f;   // 上から始めて外側へ回る
+                        pts.Add(ce + new Vector3(drift * (t - 0.5f), Mathf.Sin(an) * rr, Mathf.Cos(an) * rr));
+                    }
+                }
+                int last = logs.Count - 1;
+                var f = At(0); var l = At(last);
+                // 外側の垂れ（道・巣の床の上、z の小さい側）
+                pts.Add(new Vector3(x - 0.05f, top + vr * 0.6f, f.z - logs[0].r - 0.32f));
+                pts.Add(new Vector3(x - 0.03f, top + vr * 0.8f, f.z - logs[0].r - 0.14f));
+                Wrap(0, 1f, 0.07f);
+                // 丸太の上をなぞる（あいだは少したわむ）
+                for (int i = 1; i <= last; i++)
+                {
+                    var a = At(i - 1); var b = At(i);
+                    float ya = a.y + logs[i - 1].r + vr, yb = b.y + logs[i].r + vr;
+                    pts.Add(new Vector3(x + R(-0.01f, 0.01f), Mathf.Min(ya, yb) - 0.018f, (a.z + b.z) * 0.5f));
+                    if (i < last) pts.Add(new Vector3(x + R(-0.01f, 0.01f), yb, b.z));
+                }
+                Wrap(last, -1f, -0.07f);
+                pts.Add(new Vector3(x + 0.03f, top + vr * 0.8f, l.z + logs[last].r + 0.14f));
+                pts.Add(new Vector3(x + 0.05f, top + vr * 0.6f, l.z + logs[last].r + 0.32f));
+                Tube(Smooth(pts, 4), vr, vine);
             }
+        }
         // 三角形の向きを法線にそろえる
         for (int i = 0; i < T.Count; i += 3)
         {
@@ -234,5 +301,22 @@ public static class FuwaCourse4Roads
         m.SetVertices(V); m.SetNormals(N); m.SetColors(C); m.SetTriangles(T, 0);
         m.RecalculateBounds();
         return m;
+    }
+
+    // 折れ線をなめらかに（Catmull-Rom、区間ごとに n 点）
+    static List<Vector3> Smooth(List<Vector3> p, int n)
+    {
+        var o = new List<Vector3>();
+        for (int i = 0; i < p.Count - 1; i++)
+        {
+            Vector3 a = p[Mathf.Max(0, i - 1)], b = p[i], c = p[i + 1], d = p[Mathf.Min(p.Count - 1, i + 2)];
+            for (int k = 0; k < n; k++)
+            {
+                float t = k / (float)n, t2 = t * t, t3 = t2 * t;
+                o.Add(0.5f * ((2f * b) + (-a + c) * t + (2f * a - 5f * b + 4f * c - d) * t2 + (-a + 3f * b - 3f * c + d) * t3));
+            }
+        }
+        o.Add(p[p.Count - 1]);
+        return o;
     }
 }
