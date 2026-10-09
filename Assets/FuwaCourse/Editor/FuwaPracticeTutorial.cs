@@ -339,6 +339,60 @@ public static class FuwaPracticeTutorial
         return "tutorial path rebuilt " + mesh.vertexCount;
     }
 
+    // 区画のさかいめの「ふわふわだけ止める膜」を、各区画の見本島の手前ラインに置く（2026-10-09 てじゃ：前になくした壁を戻す。
+    // ふだんからうすい線が見えて、遠くで消える）。膜は道の左はし〜見本島の外まで（島の上を回り込めないように）
+    [MenuItem("FuwaCourse/れんしゅう/区画のさかいめの膜を作り直す")]
+    public static void BarriersMenu() { Debug.Log(RebuildBarriers()); }
+    public static string RebuildBarriers()
+    {
+        _pathOnly = true;
+        try { Run(); } finally { _pathOnly = false; }
+        var course = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
+        var root = course.Find(RootName);
+        int n = 0;
+        foreach (Transform bay in root)
+        {
+            if (!bay.name.StartsWith("Bay_")) continue;
+            var old = bay.Find("BayBarrier"); if (old != null) Object.DestroyImmediate(old.gameObject);
+            var g = bay.Find("Island/Ground").GetComponent<Renderer>().bounds; float r = g.extents.x;
+            float best = 1e9f, dIsl = 0f;
+            for (int i = 0; i < _pathOnlyPts.Count; i += 2) { float e = (new Vector2(g.center.x, g.center.z) - _pathOnlyPts[i]).sqrMagnitude; if (e < best) { best = e; dIsl = _pathOnlyDist[i]; } }
+            At(_pathOnlyPts, _pathOnlyDist, dIsl - r - 0.15f, out var c, out var f);
+            var right = new Vector3(f.z, 0f, -f.x);
+            float left = HalfW + BayLeftExtra + 0.3f, rightW = Vector3.Dot(new Vector3(g.center.x, c.y, g.center.z) - c, right) + r + 0.5f;
+            MakeBarrier(bay, "BayBarrier", c + right * ((rightW - left) * 0.5f), f, left + rightW);
+            n++;
+        }
+        var mat = BarrierMat();
+        mat.SetFloat("_LineAlpha", 0.35f); mat.SetFloat("_LineFar", 14f); mat.SetFloat("_LineWidth", 0.03f); mat.SetFloat("_FilmAlpha", 0.06f);
+        EditorUtility.SetDirty(mat); AssetDatabase.SaveAssets();
+        return "barriers " + n;
+    }
+
+    // 風の区画の風だけ作り直す：見本島の手前のはし〜区画の終わり（2026-10-09 てじゃ「風は見本島くらいから」）
+    [MenuItem("FuwaCourse/れんしゅう/風の区画の風だけ作り直す")]
+    public static void WindOnlyMenu() { Debug.Log(RebuildWindOnly()); }
+    public static string RebuildWindOnly()
+    {
+        _pathOnly = true;
+        try { Run(); } finally { _pathOnly = false; }
+        var course = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
+        var bay = course.Find(RootName + "/Bay_Wind");
+        var oldZone = bay.Find("WindZone").GetComponent<FuwaWindArea>();
+        float strength = oldZone.strength; Vector3 windDir = oldZone.transform.rotation * oldZone.localDirection;
+        // 区画のまん中（今のためし撃ちの範囲ではなく、見本島の中心に一番近い道の上の距離）
+        var ic = bay.Find("Island/Ground").GetComponent<Renderer>().bounds.center;
+        float best = 1e9f, dIsl = 0f;
+        for (int i = 0; i < _pathOnlyPts.Count; i += 4) { float e = (new Vector2(ic.x, ic.z) - _pathOnlyPts[i]).sqrMagnitude; if (e < best) { best = e; dIsl = _pathOnlyDist[i]; } }
+        float r = bay.Find("Island/Ground").GetComponent<Renderer>().bounds.extents.x;
+        float s0 = dIsl - r, s1 = dIsl + BaySpan * 0.5f - 0.2f;
+        foreach (var n in new[] { "WindZone", "WindHighlight", "WindParticles" }) { var t = bay.Find(n); if (t != null) Object.DestroyImmediate(t.gameObject); }
+        var log = new List<string>();
+        MakeWindZone(bay, _pathOnlyPts, _pathOnlyDist, (s0 + s1) * 0.5f, windDir, course, log, s1 - s0, HalfW, strength, "Tutorial_WindHighlight", BayLeftExtra);
+        AssetDatabase.SaveAssets();
+        return "wind rebuilt " + (s1 - s0).ToString("F1") + "m from island start";
+    }
+
     public static string Run()
     {
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
@@ -1067,15 +1121,15 @@ public static class FuwaPracticeTutorial
 
 
     static void MakeWindZone(
-Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 windDir, Transform course, List<string> log, float len, float halfW, float strength, string meshName)
+Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 windDir, Transform course, List<string> log, float len, float halfW, float strength, string meshName, float leftExtra = 0f)
     {
         var tmplArea = Object.FindObjectsOfType<FuwaWindArea>(true).FirstOrDefault(w => w.transform.parent != null && w.transform.parent.name == "G3_CrossRight");
         At(pts, dist, dMid, out var c, out var f);
         windDir.y = 0f; windDir.Normalize();
-        // 箱：道に沿って len、横は道より少し広く（斜めの風でも道の上を覆うように）
-        float wid = halfW * 2f + 2f, hei = 4f;
+        // 箱：道に沿って len、横は道より少し広く（斜めの風でも道の上を覆うように）。左だけ広げた道（leftExtra）も覆う
+        float wid = halfW * 2f + 2f + leftExtra, hei = 4f;
         var zone = new GameObject("WindZone"); zone.transform.SetParent(bayRoot, false);
-        zone.transform.position = c + Vector3.up * (hei * 0.5f - 0.3f);
+        zone.transform.position = c + Vector3.up * (hei * 0.5f - 0.3f) - new Vector3(f.z, 0f, -f.x) * (leftExtra * 0.5f);
         var acrossPath = new Vector3(f.z, 0f, -f.x);
         zone.transform.rotation = Quaternion.LookRotation(acrossPath);   // 箱は道にそろえる（風の向きは localDirection で。斜めの風でも道の上をむらなく覆う）
         zone.transform.localScale = new Vector3(len, hei, wid);   // ローカルz＝風の向き（道を横切る）、x＝道に沿う
@@ -1096,7 +1150,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
 
         // 地面の＞＞＞：道の上だけ（UVのx＝風の向きに沿った距離m、y＝道に沿った距離m。ふちはぼかす）
         var V = new List<Vector3>(); var C = new List<Color>(); var UV = new List<Vector2>(); var T = new List<int>();
-        float[] across = { -halfW, -halfW + 0.35f, halfW - 0.35f, halfW };
+        float[] across = { -halfW - leftExtra, -halfW - leftExtra + 0.35f, halfW - 0.35f, halfW };
         float[] aAcross = { 0f, 1f, 1f, 0f };
         float s0 = dMid - len * 0.5f, s1 = dMid + len * 0.5f; int rows = 0;
         Vector3 origin = c + Vector3.up * 0.005f;
@@ -1136,7 +1190,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         if (tmplArea != null && tmplArea.visual != null)
         {
             var wp = Object.Instantiate(tmplArea.visual, bayRoot, false); wp.name = "WindParticles";
-            wp.transform.position = c + Vector3.up * 1.5f;
+            wp.transform.position = zone.transform.position + Vector3.up * (1.5f - (hei * 0.5f - 0.3f));
             wp.transform.rotation = Quaternion.LookRotation(windDir);
             wp.transform.localScale = Vector3.one;
             var ps = wp.GetComponent<ParticleSystem>();
@@ -1192,14 +1246,14 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
 
     // ふわふわだけ止める壁：Walkthrough レイヤー（ふわふわ＝Walkthrough とは当たる、プレイヤーとは当たらない）。跳ね返りは岩と同じ
     const float BarrierW = HalfW * 2f + 0.6f, BarrierH = 4.2f;   // 真上に撃つと3.5mくらい上がるので高め（上はシェーダーで消える）
-    static void MakeBarrier(Transform parent, string name, Vector3 center, Vector3 fwd)
+    static void MakeBarrier(Transform parent, string name, Vector3 center, Vector3 fwd, float width = BarrierW)
     {
         var go = GameObject.CreatePrimitive(PrimitiveType.Quad); go.name = name;
         Object.DestroyImmediate(go.GetComponent<Collider>());
         go.transform.SetParent(parent, false);
         go.transform.position = center + Vector3.up * (BarrierH * 0.5f - 0.02f);
         go.transform.rotation = Quaternion.LookRotation(fwd);
-        go.transform.localScale = new Vector3(BarrierW, BarrierH, 1f);
+        go.transform.localScale = new Vector3(width, BarrierH, 1f);
         go.layer = LayerMask.NameToLayer("Walkthrough");
         var bc = go.AddComponent<BoxCollider>(); bc.size = new Vector3(1f, 1f, 0.12f);
         bc.sharedMaterial = AssetDatabase.FindAssets("RockBounce t:PhysicMaterial").Select(AssetDatabase.GUIDToAssetPath).Select(p => AssetDatabase.LoadAssetAtPath<PhysicMaterial>(p)).FirstOrDefault();

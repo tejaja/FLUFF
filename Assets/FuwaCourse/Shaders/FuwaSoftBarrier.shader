@@ -14,10 +14,17 @@ Shader "FuwaCourse/SoftBarrier"
         _EdgeWidth ("Edge Width (UV)", Range(0.005, 0.2)) = 0.03
         _CamNear ("Edge Visible Within (m)", Float) = 2.5
         _Iri ("Iridescence", Range(0, 1)) = 0.45
+        _LineAlpha ("ふだんから見える線の濃さ (0=見えない)", Range(0, 1)) = 0
+        _LineFar ("線が消える距離 (m)", Float) = 14
+        _LineWidth ("線の太さ (m)", Float) = 0.03
+        _FilmAlpha ("ふだんから見える下の方のうすい膜", Range(0, 0.3)) = 0
+        _LineColor ("ふだんの線の色", Color) = (0.55, 0.8, 1, 1)
+        _LineHeight ("横の線の高さ (m、床から)", Float) = 1.0
     }
     SubShader
     {
-        Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "IgnoreProjector" = "True" }
+        // 線の位置を物の大きさ（m）で出すので、まとめ描き（バッチング）は禁止（まとめると大きさが1になる）
+        Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "IgnoreProjector" = "True" "DisableBatching" = "True" }
         Blend SrcAlpha OneMinusSrcAlpha
         ZWrite Off
         Cull Off
@@ -30,7 +37,8 @@ Shader "FuwaCourse/SoftBarrier"
             #include "UnityCG.cginc"
 
             fixed4 _Color, _EdgeColor;
-            float _Reveal, _RingFreq, _RingSpeed, _EdgeWidth, _CamNear, _Iri;
+            float _Reveal, _RingFreq, _RingSpeed, _EdgeWidth, _CamNear, _Iri, _LineAlpha, _LineFar, _LineWidth, _FilmAlpha, _LineHeight;
+            fixed4 _LineColor;
             float4 _UdonFuwaBallPos;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -67,6 +75,22 @@ Shader "FuwaCourse/SoftBarrier"
                 float camD = distance(_WorldSpaceCameraPos, i.wpos);
                 float camNear = 1 - smoothstep(_CamNear * 0.5, _CamNear, camD);
                 float ea = _EdgeColor.a * edge * camNear * (1 - smoothstep(0.1, 0.6, uv.y));
+                // ふだんから見えるうすい線（下のふちと左右のはし、上へいくほど消える）と、下の方のうすい膜。遠くではすーっと消える
+                if (_LineAlpha > 0 || _FilmAlpha > 0)
+                {
+                    float3 sx = float3(length(unity_ObjectToWorld._m00_m10_m20), length(unity_ObjectToWorld._m01_m11_m21), 1);
+                    float2 m = float2(min(uv.x, 1 - uv.x) * sx.x, uv.y * sx.y);   // ふちからの距離（m）
+                    float w = max(_LineWidth, fwidth(m.y) * 1.5);
+                    // 横の線（床から _LineHeight の高さ）＋ 左右のはしの縦の線（上へいくほど消える）
+                    float hl = 1 - smoothstep(w * 0.5, w, abs(m.y - _LineHeight));
+                    float vl = (1 - smoothstep(w * 0.5, w, m.x)) * (1 - smoothstep(_LineHeight, _LineHeight + 0.8, m.y));
+                    float ln = max(hl, vl);
+                    float far = 1 - smoothstep(_LineFar * 0.5, _LineFar, camD);
+                    float film = _FilmAlpha * (1 - smoothstep(0.05, _LineHeight, m.y));
+                    float la = (_LineAlpha * ln + film) * far;
+                    col = lerp(col, _LineColor.rgb, saturate(la / max(0.001, a + la)));
+                    a = max(a, la);
+                }
                 col = lerp(col, _EdgeColor.rgb, saturate(ea / max(0.001, a + ea)));
                 a = max(a, ea);
                 if (a <= 0.002) discard;
