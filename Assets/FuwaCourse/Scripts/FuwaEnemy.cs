@@ -72,8 +72,10 @@ public class FuwaEnemy : UdonSharpBehaviour
     public float pushDamping = 3f;
     public float stunTime = 0.7f;
     [Tooltip("押された時にピョンと浮く上向きの速さ（弱い押し〜強い押し）。0なら前のように床をすべる")]
-    public float blownHopMin = 2.4f;
-    public float blownHopMax = 3.6f;
+    public float blownHopMin = 0.9f;
+    public float blownHopMax = 2.6f;
+    [Tooltip("押された時の横の速さの最低値(m/s)。弱いショットでもちょっぴり後ろに飛ぶ")]
+    public float minPushSpeed = 1.8f;
     [Tooltip("浮いている間の横の速さの減り方（床をすべる時より小さく＝ふわっと飛ぶ）")]
     public float airDamping = 0.8f;
     [Tooltip("着地した時に残す横の速さの割合（ちょっとだけ転がる）")]
@@ -555,8 +557,15 @@ public class FuwaEnemy : UdonSharpBehaviour
             transform.position += nudge;
             return;
         }
-        _vel = impulse * pushScale;
-        _vel.y = 0f;
+        Vector3 push = impulse * pushScale; push.y = 0f;
+        if (push.sqrMagnitude > 0.0001f && push.magnitude < minPushSpeed) push = push.normalized * minPushSpeed;
+        // 浮いている間にもう一度当たった：横にだけ押す（連打でどんどん浮かないように）
+        if (_state == 4 && _airborne)
+        {
+            _vel.x = push.x; _vel.z = push.z;
+            return;
+        }
+        _vel = push;
         // ピョンと浮かせて飛ばす（強く押されたほど高く）。足元の道からの高さを覚えて、同じ高さで着地する
         _airborne = blownHopMax > 0f;
         if (_airborne)

@@ -68,8 +68,12 @@ public class FuwaMama : UdonSharpBehaviour
     public float chargedStagger = 0f;
     public float pushDamping = 2.5f;
     [Tooltip("押された時にずしっと浮く上向きの速さ（チャージ／ノンチャージ）。0なら浮かない")]
-    public float blownHop = 2.8f;
-    public float blownHopNormal = 1.1f;
+    public float blownHop = 2.2f;
+    [Tooltip("いちばん弱いショットで浮く速さ（強さに合わせて blownHop まで）")]
+    public float blownHopMin = 0.5f;
+    public float blownHopNormal = 0f;
+    [Tooltip("押された時の横の速さの最低値(m/s)。弱いショットでもちょっぴり後ろに下がる")]
+    public float minPushSpeed = 0.9f;
     [Tooltip("押されて浮いた時の重力（大きいほど重そうにすぐ落ちる）")]
     public float blownGravity = 15f;
     [Tooltip("浮いている間の横の押しの減り方（床の上より小さく＝ふわっと飛ぶ）")]
@@ -165,11 +169,14 @@ public class FuwaMama : UdonSharpBehaviour
             blownSound.PlayOneShot(blownSound.clip, charged ? 1f : 0.6f);
         }
         Vector3 v = impulse * k; v.y = 0f;
+        if (v.sqrMagnitude > 0.0001f && v.magnitude < minPushSpeed) v = v.normalized * minPushSpeed;
         _push += v;
         _squashUntil = Time.time + 0.3f;
-        // ずしっと浮かせる（浮いている間にもう一度当たったら、上向きの速さは大きい方）
-        float up = charged ? blownHop : blownHopNormal;
-        if (up > 0f) _knockVy = Mathf.Max(_knockVy, up);
+        // ずしっと浮かせる（強いショットほど高く）。浮いている間に当たっても上には足さない（連打でどんどん浮かないように）
+        bool grounded = _knockY <= 0f && _knockVy <= 0f;
+        float s = Mathf.Clamp01(impulse.magnitude / 3.4f);
+        float up = charged ? Mathf.Lerp(blownHopMin, blownHop, s) : blownHopNormal;
+        if (grounded && up > 0f) _knockVy = up;
         // ひるむ：着地して休んでいる間なら、次のジャンプまでの時計を戻す
         if (charged && chargedStagger > 0f && !_inHop) _hopClock = Mathf.Min(_hopClock, hopRest - 0.35f) - chargedStagger;
     }
