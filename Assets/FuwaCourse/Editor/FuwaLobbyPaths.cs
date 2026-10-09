@@ -91,23 +91,43 @@ public static class FuwaLobbyPaths
         for (int i = 0; i <= BevelSteps; i++) { float a = Mathf.PI / 2 - (Mathf.PI / 2) * i / BevelSteps; prof.Add(new Vector4(HalfW - Bevel + Bevel * Mathf.Cos(a), top - Bevel + Bevel * Mathf.Sin(a), Mathf.Cos(a), Mathf.Sin(a))); }
         prof.Add(new Vector4(HalfW, bot, 1, 0));
         int P = prof.Count;
-        var cuts = new List<float> { z0 };
-        for (float z = Mathf.Ceil(z0 / Stripe) * Stripe; z < z1 - 1e-3f; z += Stripe) if (z > z0 + 1e-3f) cuts.Add(z);
-        cuts.Add(z1);
+        // 区切り：(位置, 内側へのへこみ, 端の丸めの角度, 向き)。両はしは上のふちも丸める（2026-10-09 てじゃ。角は丸めなくてよい）
+        var st = new List<Vector4>();
+        for (int k = BevelSteps; k >= 1; k--) { float th = (Mathf.PI / 2) * k / BevelSteps; st.Add(new Vector4(z0 + Bevel * (1 - Mathf.Sin(th)), Bevel * (1 - Mathf.Cos(th)), th, -1)); }
+        float a0 = z0 + Bevel, a1 = z1 - Bevel;
+        var mids = new List<float> { a0 };
+        for (float z = Mathf.Ceil(a0 / Stripe) * Stripe; z < a1 - 1e-3f; z += Stripe) if (z > a0 + 1e-3f) mids.Add(z);
+        mids.Add(a1);
+        foreach (var z in mids) st.Add(new Vector4(z, 0, 0, 0));
+        for (int k = 1; k <= BevelSteps; k++) { float th = (Mathf.PI / 2) * k / BevelSteps; st.Add(new Vector4(z1 - Bevel * (1 - Mathf.Sin(th)), Bevel * (1 - Mathf.Cos(th)), th, 1)); }
         var V = new List<Vector3>(); var N = new List<Vector3>(); var UV = new List<Vector2>(); var A = new List<int>(); var B = new List<int>();
-        for (int s = 0; s < cuts.Count - 1; s++)
+        var rings = new List<int>();
+        foreach (var sv in st)
         {
-            var T = (Mathf.FloorToInt((cuts[s] + cuts[s + 1]) * 0.5f / Stripe) % 2 == 0) ? A : B;
-            int b0 = V.Count;
-            foreach (float z in new[] { cuts[s], cuts[s + 1] })
-                foreach (var q in prof) { V.Add(new Vector3(q.x, q.y, z)); N.Add(new Vector3(q.z, q.w, 0)); UV.Add(new Vector2(q.x, z)); }
-            for (int i = 0; i < P - 1; i++) { int x0 = b0 + i, x1 = b0 + i + 1, y0 = b0 + P + i, y1 = b0 + P + i + 1; T.AddRange(new[] { x0, y0, x1, x1, y0, y1 }); }
+            rings.Add(V.Count);
+            foreach (var q in prof)
+            {
+                // 端の丸め：断面の法線の向きに inset だけ内側へ（側面・底は寄せない＝角はとがったまま）
+                float inset = q.w > 0.01f ? sv.y : 0f;
+                float qx = q.x - q.z * inset, qy = q.y - q.w * inset;
+                V.Add(new Vector3(qx, qy, sv.x));
+                var nn = new Vector3(q.z, q.w, 0f) * Mathf.Cos(sv.z) + new Vector3(0, 0, sv.w) * Mathf.Sin(sv.z);
+                N.Add(nn.normalized); UV.Add(new Vector2(q.x, sv.x));
+            }
+        }
+        for (int r = 0; r < st.Count - 1; r++)
+        {
+            var T = (Mathf.FloorToInt((st[r].x + st[r + 1].x) * 0.5f / Stripe) % 2 == 0) ? A : B;
+            int ra = rings[r], rb = rings[r + 1];
+            for (int i = 0; i < P - 1; i++) { int x0 = ra + i, x1 = ra + i + 1, y0 = rb + i, y1 = rb + i + 1; T.AddRange(new[] { x0, y0, x1, x1, y0, y1 }); }
         }
         // 両はしのふた（はしの色はそこのしまの色）
-        foreach (var (z, sgn, T) in new[] { (z0, -1f, Mathf.FloorToInt((z0 + 0.01f) / Stripe) % 2 == 0 ? A : B), (z1, 1f, Mathf.FloorToInt((z1 - 0.01f) / Stripe) % 2 == 0 ? A : B) })
+        foreach (var (ri, sgn) in new[] { (0, -1f), (st.Count - 1, 1f) })
         {
+            float z = st[ri].x;
+            var T = Mathf.FloorToInt((z - sgn * 0.01f) / Stripe) % 2 == 0 ? A : B;
             int cb = V.Count;
-            foreach (var q in prof) { V.Add(new Vector3(q.x, q.y, z)); N.Add(new Vector3(0, 0, sgn)); UV.Add(Vector2.zero); }
+            for (int i = 0; i < P; i++) { V.Add(V[rings[ri] + i]); N.Add(new Vector3(0, 0, sgn)); UV.Add(Vector2.zero); }
             for (int i = 1; i < P - 1; i++) T.AddRange(new[] { cb, cb + i, cb + i + 1 });
         }
         // 三角形の向きを法線にそろえる
