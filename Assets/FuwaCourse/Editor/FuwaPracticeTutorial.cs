@@ -364,8 +364,20 @@ public static class FuwaPracticeTutorial
             MakeBarrier(bay, "BayBarrier", c + right * ((rightW - left) * 0.5f), f, left + rightW);
             n++;
         }
+        // キノコの島（本番のスタート）の柵の入口にも：説明の小道のふわふわが島に入らないように（2026-10-09 てじゃ）
+        {
+            var old = root.Find("MushBarrier"); if (old != null) Object.DestroyImmediate(old.gameObject);
+            var g = course.Find("Start/StartArea/Ground").GetComponent<Renderer>().bounds; float r = g.extents.x;
+            float best = 1e9f, dIsl = 0f;
+            for (int i = 0; i < _pathOnlyPts.Count; i += 2) { float e = (new Vector2(g.center.x, g.center.z) - _pathOnlyPts[i]).sqrMagnitude; if (e < best) { best = e; dIsl = _pathOnlyDist[i]; } }
+            At(_pathOnlyPts, _pathOnlyDist, dIsl - r + 0.05f, out var c, out var f);
+            MakeBarrier(root, "MushBarrier", c, f, PathHalfW(dIsl - r) * 2f + 0.6f + PathExtraL(dIsl - r));
+            n++;
+        }
         var mat = BarrierMat();
-        mat.SetFloat("_LineAlpha", 0.35f); mat.SetFloat("_LineFar", 14f); mat.SetFloat("_LineWidth", 0.03f); mat.SetFloat("_FilmAlpha", 0.06f);
+        // 見え方（2026-10-09 決定）：紺の四角い格子が、ふわふわのまわり半径1.3mだけに出る。人が近づいても出ない
+        mat.SetFloat("_LineAlpha", 0f); mat.SetFloat("_FilmAlpha", 0.55f); mat.SetFloat("_GridNearBall", 1f); mat.SetFloat("_LineFar", 1.3f);
+        mat.SetFloat("_WallTop", 0f); mat.SetFloat("_HexSize", 0.3f); mat.SetColor("_LineColor", new Color(0.16f, 0.24f, 0.55f, 1f));
         EditorUtility.SetDirty(mat); AssetDatabase.SaveAssets();
         return "barriers " + n;
     }
