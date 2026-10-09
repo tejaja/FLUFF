@@ -222,7 +222,7 @@ public static class FuwaMamonoDeco
         var underSrc = new List<(Vector3 p, Vector3 n)>();
         foreach (var r in den.GetComponentsInChildren<MeshRenderer>())
         {
-            if (r.name.StartsWith("Bridge")) continue;
+            if (r.name.StartsWith("Bridge") || r.name.StartsWith("Course4_Road")) continue;   // 橋・シマシマ道（とつなぎの小枝）からは垂らさない
             var mesh = r.GetComponent<MeshFilter>().sharedMesh; var l2w = r.transform.localToWorldMatrix;
             var v = mesh.vertices; var n = mesh.normals;
             var cand = new List<(Vector3, Vector3)>();
@@ -266,6 +266,7 @@ public static class FuwaMamonoDeco
         foreach (var r in den.GetComponentsInChildren<MeshRenderer>())
         {
             var mf = r.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue;
+            if (r.name.StartsWith("Course4_Road")) continue;   // シマシマ道・つなぎの小枝は床の小物の置き場にしない
             var tgo = new GameObject("_visFloor"); tgo.hideFlags = HideFlags.HideAndDontSave; tgo.layer = 31;
             tgo.transform.SetPositionAndRotation(r.transform.position, r.transform.rotation); tgo.transform.localScale = r.transform.lossyScale;
             tgo.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh;
@@ -279,7 +280,8 @@ public static class FuwaMamonoDeco
         }
 
         // ---- C：巣の床の小物 ----
-        var floorCols = den.GetComponentsInChildren<Collider>().Concat(path.GetComponents<Collider>()).ToList();
+        // 床の小物はシマシマ道にした所（もとの橋A・D）には置かない（2026-10-09 道にしてから、つなぎの丸太の上に枝が乗っていた）
+        var floorCols = den.GetComponentsInChildren<Collider>().Where(c => c.name != "BridgeA_Col" && c.name != "BridgeD_Col" && !c.name.StartsWith("Course4_Road")).Concat(path.GetComponents<Collider>()).ToList();
         var spikes = root.Find("Spikes") != null ? root.Find("Spikes").Cast<Transform>().Select(t => t.position).ToList() : new List<Vector3>();
         var pb = path.GetComponent<Renderer>().bounds;
         Color fur = new Color(0.45f, 0.3f, 0.65f);
@@ -342,8 +344,10 @@ public static class FuwaMamonoDeco
                 float er = R(0.11f, 0.17f); var col = EggColor(rnd);
                 bool edgeOk = true; for (int q = 0; q < 6 && edgeOk; q++) { var e = fp + Quaternion.Euler(0, q * 60, 0) * Vector3.forward * (er * 3.4f); if (!Physics.Raycast(e + Vector3.up * 1.5f, Vector3.down, out var eh, 3f, 1 << 31, QueryTriggerInteraction.Ignore) || Mathf.Abs(eh.point.y - fp.y) > 0.06f) edgeOk = false; }
                 if (!edgeOk) continue;   // 殻（と横に転がるかけら）の下にも床があること
-                Shell(floorMb, Matrix4x4.TRS(fp + Vector3.up * (er * 1.3f + 0.012f),   /* ひっくり返したカラはふくらみが下なので、高さ分だけ上げて床に乗せる（前は大部分が床に埋まっていた） */ Quaternion.Euler(R(150, 210), R(0, 360), R(-25, 25)), Vector3.one), er, er * 1.3f, 0f, R(0.9f, 1.3f), col, rnd);
-                if (rnd.NextDouble() < 0.5) Shell(floorMb, Matrix4x4.TRS(fp + yaw * Vector3.forward * er * 2.4f + Vector3.up * (er * 1.3f * 0.8f + 0.012f), Quaternion.Euler(R(160, 200), R(0, 360), 0), Vector3.one * 0.8f), er, er * 1.3f, 0f, R(0.6f, 0.9f), col, rnd);
+                // 床の殻は1つおきだけ出す（2026-10-09 てじゃ「かけらちょっと多い」）。出さない分も乱数は同じだけ使って、ほかの小物の配置は変えない
+                var shellMb = nShell % 2 == 0 ? floorMb : new MB();
+                Shell(shellMb, Matrix4x4.TRS(fp + Vector3.up * (er * 1.3f + 0.012f),   /* ひっくり返したカラはふくらみが下なので、高さ分だけ上げて床に乗せる（前は大部分が床に埋まっていた） */ Quaternion.Euler(R(150, 210), R(0, 360), R(-25, 25)), Vector3.one), er, er * 1.3f, 0f, R(0.9f, 1.3f), col, rnd);
+                if (rnd.NextDouble() < 0.5) Shell(shellMb, Matrix4x4.TRS(fp + yaw * Vector3.forward * er * 2.4f + Vector3.up * (er * 1.3f * 0.8f + 0.012f), Quaternion.Euler(R(160, 200), R(0, 360), 0), Vector3.one * 0.8f), er, er * 1.3f, 0f, R(0.6f, 0.9f), col, rnd);
                 nShell++; floorSpots.Add((fp, er * 3.6f));
             }
             else if (kind == 3 && nTuft < quota[3]) { Tuft(floorMb, fp, fur, rnd); nTuft++; }
