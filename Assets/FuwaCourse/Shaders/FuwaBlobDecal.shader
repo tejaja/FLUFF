@@ -70,6 +70,10 @@ Shader "FuwaCourse/BlobDecal"
                 float3 up = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0)));
                 float3 lp = mul(unity_WorldToObject, float4(surf, 1)).xyz;
                 if (abs(lp.x) > 0.5 || abs(lp.z) > 0.5 || abs(lp.y) > 0.5) discard;
+                // 上向きの地面は下からは見えない。カメラが表面より下なら塗らない
+                // （島を下から見た時、島の裏側ごしに上の地面の影が透けて見えていた。2026-10-10）
+                float3 camL = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1)).xyz;
+                if (camL.y < lp.y) discard;
                 float r = length(lp.xz) * 2.0;                 // 0=中心 1=ふち
                 if (r > 1.0) discard;
                 float a = 1.0 - smoothstep(_FalloffStart, 1.0, r);
