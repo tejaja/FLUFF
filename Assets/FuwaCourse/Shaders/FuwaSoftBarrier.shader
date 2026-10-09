@@ -88,19 +88,15 @@ Shader "FuwaCourse/SoftBarrier"
                     float vl = (1 - smoothstep(w * 0.5, w, m.x)) * (1 - smoothstep(_LineHeight, _LineHeight + 0.8, m.y));
                     float ln = max(hl, vl);
                     float far = 1 - smoothstep(_LineFar * 0.5, _LineFar, camD);
-                    // 近づくと見えるバリア：六角形の格子（線は濃く、中はうっすら）。上へいくほど消える
-                    float2 hp = float2(m.x, m.y) / _HexSize;
-                    const float2 hr = float2(1, 1.7320508);
-                    float2 ha = (frac(hp / hr) - 0.5) * hr;
-                    float2 hb = (frac((hp - hr * 0.5) / hr) - 0.5) * hr;
-                    float2 gv = dot(ha, ha) < dot(hb, hb) ? ha : hb;
-                    float2 ag = abs(gv);
-                    float hd = max(dot(ag, normalize(hr)), ag.x);          // 六角形の中心からの距離（ふちで0.5）
-                    float hw = max(0.04, fwidth(hd) * 1.5);
-                    float hex = 1 - smoothstep(0.5 - hw, 0.5 - hw * 0.3, hd) ;
-                    hex = 1 - hex;                                          // ふちの線＝1
-                    float hexFill = 0.22 + 0.78 * hex;
-                    float film = _FilmAlpha * hexFill * (1 - smoothstep(0.05, _WallTop, m.y)) * (0.8 + 0.2 * iri.b);
+                    // 近づくと見えるバリア：四角い格子（線は濃く、中はうっすら）。_WallTop まで（0以下なら上まで全部）
+                    float2 gp = float2(uv.x * sx.x, m.y) / _HexSize;          // 格子は壁の左はしから（ずっと同じ間隔）
+                    float2 gd = abs(frac(gp) - 0.5);                           // 線（マスのふち）で0.5
+                    float2 gw = max(0.035, fwidth(gp) * 1.5);
+                    float2 g2 = smoothstep(0.5 - gw, 0.5 - gw * 0.3, gd);
+                    float grid = max(g2.x, g2.y);
+                    float gridFill = 0.22 + 0.78 * grid;
+                    float topFade = _WallTop > 0 ? (1 - smoothstep(_WallTop * 0.6, _WallTop, m.y)) : 1;
+                    float film = _FilmAlpha * gridFill * topFade * (0.8 + 0.2 * iri.b);
                     float la = (_LineAlpha * ln + film) * far;
                     col = lerp(col, _LineColor.rgb, saturate(la / max(0.001, a + la)));
                     a = max(a, la);

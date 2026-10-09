@@ -354,6 +354,7 @@ public static class FuwaPracticeTutorial
         {
             if (!bay.name.StartsWith("Bay_")) continue;
             var old = bay.Find("BayBarrier"); if (old != null) Object.DestroyImmediate(old.gameObject);
+            if (bay.name == "Bay_TapCharge") continue;   // 最初の区画の手前（入口の島とのさかいめ）はいらない（てじゃ）
             var g = bay.Find("Island/Ground").GetComponent<Renderer>().bounds; float r = g.extents.x;
             float best = 1e9f, dIsl = 0f;
             for (int i = 0; i < _pathOnlyPts.Count; i += 2) { float e = (new Vector2(g.center.x, g.center.z) - _pathOnlyPts[i]).sqrMagnitude; if (e < best) { best = e; dIsl = _pathOnlyDist[i]; } }
