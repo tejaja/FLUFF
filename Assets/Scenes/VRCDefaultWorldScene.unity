@@ -45022,7 +45022,6 @@ GameObject:
   - component: {fileID: 27277324}
   - component: {fileID: 27277326}
   - component: {fileID: 27277325}
-  - component: {fileID: 27277327}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -45095,25 +45094,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 27277323}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &27277327
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 27277323}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00012207031, y: -0.000015258789, z: 0}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 27277325}
-  m_Enabled: 1
 --- !u!1 &27789841
 GameObject:
   m_ObjectHideFlags: 0
@@ -112498,7 +112478,6 @@ GameObject:
   - component: {fileID: 78728108}
   - component: {fileID: 78728110}
   - component: {fileID: 78728109}
-  - component: {fileID: 78728111}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -112571,25 +112550,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 78728107}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &78728111
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 78728107}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.000061035156, y: -0.000015258789, z: 0.00012207031}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 78728109}
-  m_Enabled: 1
 --- !u!1001 &79464122
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -211648,6 +211608,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 142329592}
+  - component: {fileID: 142329593}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -211674,6 +211635,28 @@ Transform:
   - {fileID: 1192447505}
   m_Father: {fileID: 828096151}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &142329593
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 142329591}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: -0.000008396804, y: 0.059999272, z: 0.3139677}
+  m_Size: 0.36998445
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 1439003027}
+    - renderer: {fileID: 824403164}
+    - renderer: {fileID: 459345851}
+    - renderer: {fileID: 1192447506}
+  m_Enabled: 1
 --- !u!1001 &142553180
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -250987,7 +250970,6 @@ GameObject:
   - component: {fileID: 173021819}
   - component: {fileID: 173021821}
   - component: {fileID: 173021820}
-  - component: {fileID: 173021822}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -251060,25 +251042,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 173021818}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &173021822
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 173021818}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.00012207031, y: 0.000015258789, z: -0.00024414062}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 173021820}
-  m_Enabled: 1
 --- !u!1 &173955472
 GameObject:
   m_ObjectHideFlags: 0
@@ -280664,6 +280627,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 200968466}
+  - component: {fileID: 200968467}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -280690,6 +280654,28 @@ Transform:
   - {fileID: 869860267}
   m_Father: {fileID: 1355408872}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &200968467
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 200968465}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: -0.000012971461, y: 0.059999272, z: 0.31395733}
+  m_Size: 0.3700089
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 1891959026}
+    - renderer: {fileID: 1567846877}
+    - renderer: {fileID: 371291805}
+    - renderer: {fileID: 869860268}
+  m_Enabled: 1
 --- !u!21 &201373323
 Material:
   serializedVersion: 8
@@ -344721,7 +344707,6 @@ GameObject:
   - component: {fileID: 244790483}
   - component: {fileID: 244790486}
   - component: {fileID: 244790485}
-  - component: {fileID: 244790484}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -344744,25 +344729,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 747212087}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &244790484
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 244790482}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.00018310547, y: 0, z: -0.0014648438}
-  m_Size: 1.0000007
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 244790485}
-  m_Enabled: 1
 --- !u!23 &244790485
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -411385,6 +411351,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 282237252}
+  - component: {fileID: 282237253}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -411411,6 +411378,28 @@ Transform:
   - {fileID: 1186095836}
   m_Father: {fileID: 1941873020}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &282237253
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 282237251}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: -0.0000009536743, y: 0.06000018, z: 0.31396604}
+  m_Size: 0.3699995
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 1168351128}
+    - renderer: {fileID: 1787600694}
+    - renderer: {fileID: 1490466198}
+    - renderer: {fileID: 1186095837}
+  m_Enabled: 1
 --- !u!1 &282480667 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 4686805391826628684, guid: 49dc1a4b71876cf49aa1de411c954bad, type: 3}
@@ -500447,7 +500436,6 @@ GameObject:
   - component: {fileID: 371291804}
   - component: {fileID: 371291806}
   - component: {fileID: 371291805}
-  - component: {fileID: 371291807}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -500520,25 +500508,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 371291803}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &371291807
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 371291803}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00012207031, y: -0.000015258789, z: -0.00024414062}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 371291805}
-  m_Enabled: 1
 --- !u!1 &371717941
 GameObject:
   m_ObjectHideFlags: 0
@@ -517950,7 +517919,6 @@ GameObject:
   - component: {fileID: 385830774}
   - component: {fileID: 385830777}
   - component: {fileID: 385830776}
-  - component: {fileID: 385830775}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -517973,25 +517941,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 747212087}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &385830775
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 385830773}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.000061035156, y: 0, z: -0.00048828125}
-  m_Size: 1.0000007
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 385830776}
-  m_Enabled: 1
 --- !u!23 &385830776
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -520135,7 +520084,6 @@ GameObject:
   - component: {fileID: 393766138}
   - component: {fileID: 393766141}
   - component: {fileID: 393766140}
-  - component: {fileID: 393766139}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -520158,25 +520106,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 747212087}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &393766139
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 393766137}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.000030517578, y: 0, z: -0.00048828125}
-  m_Size: 1.000001
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 393766140}
-  m_Enabled: 1
 --- !u!23 &393766140
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -571917,7 +571846,6 @@ GameObject:
   - component: {fileID: 427172770}
   - component: {fileID: 427172772}
   - component: {fileID: 427172771}
-  - component: {fileID: 427172773}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -571990,25 +571918,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 427172769}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &427172773
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 427172769}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00012207031, y: -0.000015258789, z: 0.00024414062}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 427172771}
-  m_Enabled: 1
 --- !u!1 &427250117
 GameObject:
   m_ObjectHideFlags: 0
@@ -572795,6 +572704,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 429888347}
+  - component: {fileID: 429888348}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -572821,6 +572731,28 @@ Transform:
   - {fileID: 543951761}
   m_Father: {fileID: 1291653314}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &429888348
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 429888346}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: 0.000016793609, y: 0.05999937, z: 0.31398463}
+  m_Size: 0.37000123
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 1500459887}
+    - renderer: {fileID: 1914876700}
+    - renderer: {fileID: 697789905}
+    - renderer: {fileID: 543951763}
+  m_Enabled: 1
 --- !u!1 &430795330
 GameObject:
   m_ObjectHideFlags: 0
@@ -601734,7 +601666,6 @@ GameObject:
   - component: {fileID: 455220771}
   - component: {fileID: 455220773}
   - component: {fileID: 455220772}
-  - component: {fileID: 455220774}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -601807,25 +601738,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 455220770}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &455220774
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 455220770}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00012207031, y: -0.000015258789, z: 0}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 455220772}
-  m_Enabled: 1
 --- !u!1 &455356035
 GameObject:
   m_ObjectHideFlags: 0
@@ -612126,7 +612038,6 @@ GameObject:
   - component: {fileID: 459345850}
   - component: {fileID: 459345852}
   - component: {fileID: 459345851}
-  - component: {fileID: 459345853}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -612199,25 +612110,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 459345849}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &459345853
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 459345849}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00012207031, y: -0.000015258789, z: 0}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 459345851}
-  m_Enabled: 1
 --- !u!1 &459349601
 GameObject:
   m_ObjectHideFlags: 0
@@ -696171,7 +696063,6 @@ GameObject:
   - component: {fileID: 543951761}
   - component: {fileID: 543951764}
   - component: {fileID: 543951763}
-  - component: {fileID: 543951762}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -696194,25 +696085,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 429888347}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &543951762
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 543951760}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00024414062, y: 0.000015258789, z: 0}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 543951763}
-  m_Enabled: 1
 --- !u!23 &543951763
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -743213,7 +743085,6 @@ GameObject:
   - component: {fileID: 576527398}
   - component: {fileID: 576527400}
   - component: {fileID: 576527399}
-  - component: {fileID: 576527401}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -743286,25 +743157,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 576527397}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &576527401
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 576527397}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0.000015258789, z: 0}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 576527399}
-  m_Enabled: 1
 --- !u!1 &576893557
 GameObject:
   m_ObjectHideFlags: 0
@@ -785624,7 +785476,6 @@ GameObject:
   - component: {fileID: 609515056}
   - component: {fileID: 609515058}
   - component: {fileID: 609515057}
-  - component: {fileID: 609515059}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -785697,25 +785548,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 609515055}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &609515059
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 609515055}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00024414062, y: 0.000015258789, z: -0.00048828125}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 609515057}
-  m_Enabled: 1
 --- !u!1 &609610704
 GameObject:
   m_ObjectHideFlags: 0
@@ -823114,7 +822946,6 @@ GameObject:
   - component: {fileID: 650288261}
   - component: {fileID: 650288264}
   - component: {fileID: 650288263}
-  - component: {fileID: 650288262}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -823137,25 +822968,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 886279459}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &650288262
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 650288260}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00012207031, y: 0, z: 0.00024414062}
-  m_Size: 0.9999999
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 650288263}
-  m_Enabled: 1
 --- !u!23 &650288263
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -883612,6 +883424,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 686574923}
+  - component: {fileID: 686574924}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -883638,6 +883451,28 @@ Transform:
   - {fileID: 888787371}
   m_Father: {fileID: 1280290849}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &686574924
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 686574922}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: -0.000013358891, y: 0.06000042, z: 0.313959}
+  m_Size: 0.37000048
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 1390584384}
+    - renderer: {fileID: 784343875}
+    - renderer: {fileID: 762585953}
+    - renderer: {fileID: 888787373}
+  m_Enabled: 1
 --- !u!1 &686678300
 GameObject:
   m_ObjectHideFlags: 0
@@ -885512,7 +885347,6 @@ GameObject:
   - component: {fileID: 697789903}
   - component: {fileID: 697789906}
   - component: {fileID: 697789905}
-  - component: {fileID: 697789904}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -885535,25 +885369,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 429888347}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &697789904
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 697789902}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.00012207031, y: -0.0000076293945, z: -0.00048828125}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 697789905}
-  m_Enabled: 1
 --- !u!23 &697789905
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -910192,7 +910007,6 @@ GameObject:
   - component: {fileID: 721922769}
   - component: {fileID: 721922771}
   - component: {fileID: 721922770}
-  - component: {fileID: 721922772}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -910265,25 +910079,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 721922768}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &721922772
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 721922768}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0.000015258789, z: -0.00024414062}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 721922770}
-  m_Enabled: 1
 --- !u!1 &721979508
 GameObject:
   m_ObjectHideFlags: 0
@@ -959209,6 +959004,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 747212087}
+  - component: {fileID: 747212088}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -959235,6 +959031,28 @@ Transform:
   - {fileID: 385830774}
   m_Father: {fileID: 10425997}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &747212088
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 747212086}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: 0.0000068619847, y: 0.059999466, z: 0.3139257}
+  m_Size: 0.3699922
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 1088546491}
+    - renderer: {fileID: 244790485}
+    - renderer: {fileID: 393766140}
+    - renderer: {fileID: 385830776}
+  m_Enabled: 1
 --- !u!1 &747513618
 GameObject:
   m_ObjectHideFlags: 0
@@ -1001744,7 +1001562,6 @@ GameObject:
   - component: {fileID: 762585951}
   - component: {fileID: 762585954}
   - component: {fileID: 762585953}
-  - component: {fileID: 762585952}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1001767,25 +1001584,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 686574923}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &762585952
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 762585950}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00018310547, y: 0, z: -0.00024414062}
-  m_Size: 0.9999999
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 762585953}
-  m_Enabled: 1
 --- !u!23 &762585953
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1024422,7 +1024220,6 @@ GameObject:
   - component: {fileID: 784343873}
   - component: {fileID: 784343876}
   - component: {fileID: 784343875}
-  - component: {fileID: 784343874}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1024445,25 +1024242,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 686574923}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &784343874
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 784343872}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.00024414062, y: 0, z: -0.00048828125}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 784343875}
-  m_Enabled: 1
 --- !u!23 &784343875
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1060205,7 +1059983,6 @@ GameObject:
   - component: {fileID: 815745354}
   - component: {fileID: 815745356}
   - component: {fileID: 815745355}
-  - component: {fileID: 815745357}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1060278,25 +1060055,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 815745353}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &815745357
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 815745353}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00024414062, y: 0.000015258789, z: -0.00024414062}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 815745355}
-  m_Enabled: 1
 --- !u!1 &816765129
 GameObject:
   m_ObjectHideFlags: 0
@@ -1071529,7 +1071287,6 @@ GameObject:
   - component: {fileID: 824403163}
   - component: {fileID: 824403165}
   - component: {fileID: 824403164}
-  - component: {fileID: 824403166}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1071602,25 +1071359,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 824403162}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &824403166
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 824403162}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0.000015258789, z: 0}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 824403164}
-  m_Enabled: 1
 --- !u!1 &824581430
 GameObject:
   m_ObjectHideFlags: 0
@@ -1092430,7 +1092168,6 @@ GameObject:
   - component: {fileID: 830164797}
   - component: {fileID: 830164799}
   - component: {fileID: 830164798}
-  - component: {fileID: 830164800}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1092503,25 +1092240,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 830164796}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &830164800
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 830164796}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: -0.000015258789, z: -0.00012207031}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 830164798}
-  m_Enabled: 1
 --- !u!1 &831088240
 GameObject:
   m_ObjectHideFlags: 0
@@ -1125078,7 +1124796,6 @@ GameObject:
   - component: {fileID: 869860267}
   - component: {fileID: 869860269}
   - component: {fileID: 869860268}
-  - component: {fileID: 869860270}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1125151,25 +1124868,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 869860266}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &869860270
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 869860266}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00024414062, y: 0.000015258789, z: -0.00048828125}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 869860268}
-  m_Enabled: 1
 --- !u!1 &870458754
 GameObject:
   m_ObjectHideFlags: 0
@@ -1130477,7 +1130175,6 @@ GameObject:
   - component: {fileID: 875878121}
   - component: {fileID: 875878124}
   - component: {fileID: 875878123}
-  - component: {fileID: 875878122}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1130500,25 +1130197,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 886279459}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &875878122
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 875878120}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.00012207031, y: 0, z: 0.00048828125}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 875878123}
-  m_Enabled: 1
 --- !u!23 &875878123
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1137990,6 +1137668,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 886279459}
+  - component: {fileID: 886279460}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -1138016,6 +1137695,28 @@ Transform:
   - {fileID: 875878121}
   m_Father: {fileID: 410390280}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &886279460
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 886279458}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: -0.0000034421682, y: 0.06000042, z: 0.31397426}
+  m_Size: 0.37000504
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 650288263}
+    - renderer: {fileID: 1816094758}
+    - renderer: {fileID: 1506415469}
+    - renderer: {fileID: 875878123}
+  m_Enabled: 1
 --- !u!1 &886440329 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5264251887328577948, guid: f4dacc4895fc40e40b899d86d02b08a2, type: 3}
@@ -1138346,7 +1138047,6 @@ GameObject:
   - component: {fileID: 888787371}
   - component: {fileID: 888787374}
   - component: {fileID: 888787373}
-  - component: {fileID: 888787372}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1138369,25 +1138069,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 686574923}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &888787372
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 888787370}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.00012207031, y: 0, z: 0}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 888787373}
-  m_Enabled: 1
 --- !u!23 &888787373
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1202755,7 +1202436,6 @@ GameObject:
   - component: {fileID: 944025418}
   - component: {fileID: 944025420}
   - component: {fileID: 944025419}
-  - component: {fileID: 944025421}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1202828,25 +1202508,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 944025417}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &944025421
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 944025417}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0.000015258789, z: 0}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 944025419}
-  m_Enabled: 1
 --- !u!1 &944193280
 GameObject:
   m_ObjectHideFlags: 0
@@ -1265894,7 +1265555,6 @@ GameObject:
   - component: {fileID: 1010519812}
   - component: {fileID: 1010519814}
   - component: {fileID: 1010519813}
-  - component: {fileID: 1010519815}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1265967,25 +1265627,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1010519811}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1010519815
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1010519811}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0.000015258789, z: -0.00048828125}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1010519813}
-  m_Enabled: 1
 --- !u!1 &1010656945
 GameObject:
   m_ObjectHideFlags: 0
@@ -1294821,7 +1294462,6 @@ GameObject:
   - component: {fileID: 1036748123}
   - component: {fileID: 1036748125}
   - component: {fileID: 1036748124}
-  - component: {fileID: 1036748126}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1294894,25 +1294534,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1036748122}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1036748126
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1036748122}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: -0.000015258789, z: -0.00012207031}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1036748124}
-  m_Enabled: 1
 --- !u!1 &1036951650
 GameObject:
   m_ObjectHideFlags: 0
@@ -1361568,6 +1361189,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1083410349}
+  - component: {fileID: 1083410350}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -1361594,6 +1361216,28 @@ Transform:
   - {fileID: 609515056}
   m_Father: {fileID: 185463279}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &1083410350
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1083410348}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: 0, y: 0.059999272, z: 0.31395352}
+  m_Size: 0.37000126
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 1207006325}
+    - renderer: {fileID: 1010519813}
+    - renderer: {fileID: 1310486866}
+    - renderer: {fileID: 609515057}
+  m_Enabled: 1
 --- !u!1 &1084627325
 GameObject:
   m_ObjectHideFlags: 0
@@ -1362368,7 +1362012,6 @@ GameObject:
   - component: {fileID: 1088546489}
   - component: {fileID: 1088546492}
   - component: {fileID: 1088546491}
-  - component: {fileID: 1088546490}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1362391,25 +1362034,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 747212087}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &1088546490
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1088546488}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.00015258789, y: 0, z: 0}
-  m_Size: 1.000001
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1088546491}
-  m_Enabled: 1
 --- !u!23 &1088546491
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1484595,7 +1484219,6 @@ GameObject:
   - component: {fileID: 1168351127}
   - component: {fileID: 1168351129}
   - component: {fileID: 1168351128}
-  - component: {fileID: 1168351130}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1484668,25 +1484291,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1168351126}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1168351130
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1168351126}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0, z: 0}
-  m_Size: 1.0000012
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1168351128}
-  m_Enabled: 1
 --- !u!1 &1168911678
 GameObject:
   m_ObjectHideFlags: 0
@@ -1507365,7 +1506969,6 @@ GameObject:
   - component: {fileID: 1186095836}
   - component: {fileID: 1186095838}
   - component: {fileID: 1186095837}
-  - component: {fileID: 1186095839}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1507438,25 +1507041,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1186095835}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1186095839
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1186095835}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0, z: -0.00012207031}
-  m_Size: 1.000001
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1186095837}
-  m_Enabled: 1
 --- !u!1 &1187225699
 GameObject:
   m_ObjectHideFlags: 0
@@ -1518493,7 +1518077,6 @@ GameObject:
   - component: {fileID: 1192447505}
   - component: {fileID: 1192447507}
   - component: {fileID: 1192447506}
-  - component: {fileID: 1192447508}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1518566,25 +1518149,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1192447504}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1192447508
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1192447504}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00024414062, y: 0.000015258789, z: 0}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1192447506}
-  m_Enabled: 1
 --- !u!1 &1194964971
 GameObject:
   m_ObjectHideFlags: 0
@@ -1535677,7 +1535241,6 @@ GameObject:
   - component: {fileID: 1207006324}
   - component: {fileID: 1207006326}
   - component: {fileID: 1207006325}
-  - component: {fileID: 1207006327}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1535750,25 +1535313,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1207006323}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1207006327
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1207006323}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: -0.000015258789, z: -0.00024414062}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1207006325}
-  m_Enabled: 1
 --- !u!1 &1207212864
 GameObject:
   m_ObjectHideFlags: 0
@@ -1687991,7 +1687535,6 @@ GameObject:
   - component: {fileID: 1310486865}
   - component: {fileID: 1310486867}
   - component: {fileID: 1310486866}
-  - component: {fileID: 1310486868}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1688064,25 +1687607,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1310486864}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1310486868
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1310486864}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: -0.000015258789, z: -0.00024414062}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1310486866}
-  m_Enabled: 1
 --- !u!1 &1310636534
 GameObject:
   m_ObjectHideFlags: 0
@@ -1688094,7 +1687618,6 @@ GameObject:
   - component: {fileID: 1310636535}
   - component: {fileID: 1310636537}
   - component: {fileID: 1310636536}
-  - component: {fileID: 1310636538}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1688167,25 +1687690,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1310636534}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1310636538
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1310636534}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: -0.000015258789, z: 0.00024414062}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1310636536}
-  m_Enabled: 1
 --- !u!1001 &1310852657
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1697841,7 +1697345,6 @@ GameObject:
   - component: {fileID: 1340868822}
   - component: {fileID: 1340868824}
   - component: {fileID: 1340868823}
-  - component: {fileID: 1340868825}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1697914,25 +1697417,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1340868821}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1340868825
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1340868821}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0.000015258789, z: -0.00024414062}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1340868823}
-  m_Enabled: 1
 --- !u!1 &1341330387
 GameObject:
   m_ObjectHideFlags: 0
@@ -1750477,7 +1749961,6 @@ GameObject:
   - component: {fileID: 1390584382}
   - component: {fileID: 1390584385}
   - component: {fileID: 1390584384}
-  - component: {fileID: 1390584383}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1750500,25 +1749983,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 686574923}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &1390584383
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1390584381}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00012207031, y: 0, z: -0.00024414062}
-  m_Size: 0.9999999
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1390584384}
-  m_Enabled: 1
 --- !u!23 &1390584384
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1813621,7 +1813085,6 @@ GameObject:
   - component: {fileID: 1439003026}
   - component: {fileID: 1439003028}
   - component: {fileID: 1439003027}
-  - component: {fileID: 1439003029}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1813694,25 +1813157,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1439003025}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1439003029
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1439003025}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: -0.000015258789, z: 0.00012207031}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1439003027}
-  m_Enabled: 1
 --- !u!1 &1439439756
 GameObject:
   m_ObjectHideFlags: 0
@@ -1852573,7 +1852017,6 @@ GameObject:
   - component: {fileID: 1463003713}
   - component: {fileID: 1463003715}
   - component: {fileID: 1463003714}
-  - component: {fileID: 1463003716}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1852646,25 +1852089,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1463003712}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1463003716
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1463003712}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0.000015258789, z: -0.00048828125}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1463003714}
-  m_Enabled: 1
 --- !u!1001 &1463018762
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1876610,7 +1876034,6 @@ GameObject:
   - component: {fileID: 1490466197}
   - component: {fileID: 1490466199}
   - component: {fileID: 1490466198}
-  - component: {fileID: 1490466200}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1876683,25 +1876106,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1490466196}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1490466200
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1490466196}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0, z: -0.000061035156}
-  m_Size: 1.0000012
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1490466198}
-  m_Enabled: 1
 --- !u!1 &1492043146
 GameObject:
   m_ObjectHideFlags: 0
@@ -1887766,7 +1887170,6 @@ GameObject:
   - component: {fileID: 1500459885}
   - component: {fileID: 1500459888}
   - component: {fileID: 1500459887}
-  - component: {fileID: 1500459886}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1887789,25 +1887192,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 429888347}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &1500459886
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1500459884}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.00012207031, y: -0.0000076293945, z: 0}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1500459887}
-  m_Enabled: 1
 --- !u!23 &1500459887
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1893889,7 +1893273,6 @@ GameObject:
   - component: {fileID: 1506415467}
   - component: {fileID: 1506415470}
   - component: {fileID: 1506415469}
-  - component: {fileID: 1506415468}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -1893912,25 +1893295,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 886279459}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &1506415468
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1506415466}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00012207031, y: 0, z: 0.00024414062}
-  m_Size: 0.9999999
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1506415469}
-  m_Enabled: 1
 --- !u!23 &1506415469
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1969100,7 +1968464,6 @@ GameObject:
   - component: {fileID: 1567846876}
   - component: {fileID: 1567846878}
   - component: {fileID: 1567846877}
-  - component: {fileID: 1567846879}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -1969173,25 +1968536,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1567846875}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1567846879
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1567846875}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00024414062, y: 0.000015258789, z: -0.00048828125}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1567846877}
-  m_Enabled: 1
 --- !u!1 &1568506646 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 2285390532504355412, guid: bc7051c6fff3ee643bd8bb3451983c14, type: 3}
@@ -2054628,6 +2053972,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1629203009}
+  - component: {fileID: 1629203010}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -2054654,6 +2053999,28 @@ Transform:
   - {fileID: 1340868822}
   m_Father: {fileID: 61765572}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &1629203010
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1629203008}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: 0.0000030472875, y: 0.059999272, z: 0.31398022}
+  m_Size: 0.36999208
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 1310636536}
+    - renderer: {fileID: 576527399}
+    - renderer: {fileID: 427172771}
+    - renderer: {fileID: 1340868823}
+  m_Enabled: 1
 --- !u!1 &1629322814
 GameObject:
   m_ObjectHideFlags: 0
@@ -2107193,7 +2106560,6 @@ GameObject:
   - component: {fileID: 1672609357}
   - component: {fileID: 1672609359}
   - component: {fileID: 1672609358}
-  - component: {fileID: 1672609360}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -2107266,25 +2106632,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1672609356}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1672609360
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1672609356}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00024414062, y: 0.000015258789, z: -0.00048828125}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1672609358}
-  m_Enabled: 1
 --- !u!1 &1672854755
 GameObject:
   m_ObjectHideFlags: 0
@@ -2175760,6 +2175107,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1729344117}
+  - component: {fileID: 1729344118}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -2175786,6 +2175134,28 @@ Transform:
   - {fileID: 944025418}
   m_Father: {fileID: 1668810145}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &1729344118
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1729344116}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: -0.000003054738, y: 0.059999272, z: 0.3139677}
+  m_Size: 0.3699982
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 2049995934}
+    - renderer: {fileID: 173021820}
+    - renderer: {fileID: 78728109}
+    - renderer: {fileID: 944025419}
+  m_Enabled: 1
 --- !u!1001 &1729613789
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2249649,7 +2249019,6 @@ GameObject:
   - component: {fileID: 1787600693}
   - component: {fileID: 1787600695}
   - component: {fileID: 1787600694}
-  - component: {fileID: 1787600696}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -2249722,25 +2249091,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1787600692}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1787600696
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1787600692}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0, z: -0.00012207031}
-  m_Size: 1.000001
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1787600694}
-  m_Enabled: 1
 --- !u!1 &1787977699
 GameObject:
   m_ObjectHideFlags: 0
@@ -2280887,7 +2280237,6 @@ GameObject:
   - component: {fileID: 1816094756}
   - component: {fileID: 1816094759}
   - component: {fileID: 1816094758}
-  - component: {fileID: 1816094757}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -2280910,25 +2280259,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 886279459}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &1816094757
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1816094755}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0, y: 0, z: 0}
-  m_Size: 1.0000002
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1816094758}
-  m_Enabled: 1
 --- !u!23 &1816094758
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2290475,6 +2289805,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1838151150}
+  - component: {fileID: 1838151151}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -2290501,6 +2289832,28 @@ Transform:
   - {fileID: 1672609357}
   m_Father: {fileID: 746381905}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &1838151151
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1838151149}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: -0.000012971461, y: 0.059999272, z: 0.3139546}
+  m_Size: 0.36999363
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 27277325}
+    - renderer: {fileID: 1463003714}
+    - renderer: {fileID: 455220772}
+    - renderer: {fileID: 1672609358}
+  m_Enabled: 1
 --- !u!1 &1838513906
 GameObject:
   m_ObjectHideFlags: 0
@@ -2329503,7 +2328856,6 @@ GameObject:
   - component: {fileID: 1891959025}
   - component: {fileID: 1891959027}
   - component: {fileID: 1891959026}
-  - component: {fileID: 1891959028}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -2329576,25 +2328928,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1891959024}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &1891959028
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1891959024}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00012207031, y: -0.000015258789, z: 0}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1891959026}
-  m_Enabled: 1
 --- !u!1001 &1892619815
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2347122,7 +2346455,6 @@ GameObject:
   - component: {fileID: 1914876698}
   - component: {fileID: 1914876701}
   - component: {fileID: 1914876700}
-  - component: {fileID: 1914876699}
   m_Layer: 0
   m_Name: Pupil
   m_TagString: Untagged
@@ -2347145,25 +2346477,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 429888347}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!205 &1914876699
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1914876697}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: 0.00024414062, y: 0.000015258789, z: 0}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 1914876700}
-  m_Enabled: 1
 --- !u!23 &1914876700
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2505184,7 +2504497,6 @@ GameObject:
   - component: {fileID: 2049995933}
   - component: {fileID: 2049995935}
   - component: {fileID: 2049995934}
-  - component: {fileID: 2049995936}
   m_Layer: 0
   m_Name: EyeWhite
   m_TagString: Untagged
@@ -2505257,25 +2504569,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2049995932}
   m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
---- !u!205 &2049995936
-LODGroup:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2049995932}
-  serializedVersion: 2
-  m_LocalReferencePoint: {x: -0.00012207031, y: -0.000015258789, z: 0}
-  m_Size: 1
-  m_FadeMode: 0
-  m_AnimateCrossFading: 0
-  m_LastLODIsBillboard: 0
-  m_LODs:
-  - screenRelativeHeight: 0.01
-    fadeTransitionWidth: 0
-    renderers:
-    - renderer: {fileID: 2049995934}
-  m_Enabled: 1
 --- !u!1 &2050443552 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 9065673036489015912, guid: 71cc830d0919ea44ab4523ad2e295d83, type: 3}
@@ -2525239,6 +2524532,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2078580060}
+  - component: {fileID: 2078580061}
   m_Layer: 0
   m_Name: Eyes
   m_TagString: Untagged
@@ -2525265,6 +2524559,28 @@ Transform:
   - {fileID: 815745354}
   m_Father: {fileID: 203636856}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!205 &2078580061
+LODGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2078580059}
+  serializedVersion: 2
+  m_LocalReferencePoint: {x: 0.0000038146973, y: 0.059999272, z: 0.3139587}
+  m_Size: 0.36999363
+  m_FadeMode: 0
+  m_AnimateCrossFading: 0
+  m_LastLODIsBillboard: 0
+  m_LODs:
+  - screenRelativeHeight: 0.01
+    fadeTransitionWidth: 0
+    renderers:
+    - renderer: {fileID: 830164798}
+    - renderer: {fileID: 721922770}
+    - renderer: {fileID: 1036748124}
+    - renderer: {fileID: 815745355}
+  m_Enabled: 1
 --- !u!1 &2078582768
 GameObject:
   m_ObjectHideFlags: 0

@@ -42,12 +42,19 @@ public static class FuwaFarViewSetup
         int lod = 0, far = 0;
         var made = new Dictionary<Mesh, Mesh>();
         var farOf = new Dictionary<Renderer, Renderer>();
+        var eyes = new Dictionary<Transform, List<Renderer>>();
         foreach (var a in Areas)
         {
             if (!roots.TryGetValue(a, out var root)) continue;
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
                 if (r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer || r.name.EndsWith(FarSuffix)) continue;
+                // モンスターの目（白目・黒目）は目ごとにまとめて消す。1つずつだと小さい黒目が先に消えて白目をむく（2026-10-09）
+                if ((r.name == "EyeWhite" || r.name == "Pupil") && r.transform.parent != null && r.transform.parent.name == "Eyes")
+                {
+                    if (!eyes.TryGetValue(r.transform.parent, out var list)) eyes[r.transform.parent] = list = new List<Renderer>();
+                    list.Add(r); continue;
+                }
                 if (IsDeco(r.transform, root.transform)) { SetCull(r); lod++; }
                 else if (r is MeshRenderer mr && IsHeavy(r, scripted))
                 {
@@ -55,6 +62,16 @@ public static class FuwaFarViewSetup
                     if (f != null) { farOf[r] = f; far++; }
                 }
             }
+        }
+        foreach (var kv in eyes)
+        {
+            foreach (var r in kv.Value) { var old = r.GetComponent<LODGroup>(); if (old != null) Undo.DestroyObjectImmediate(old); }
+            var g = kv.Key.GetComponent<LODGroup>();
+            if (g == null) g = Undo.AddComponent<LODGroup>(kv.Key.gameObject); else Undo.RecordObject(g, "LOD");
+            g.fadeMode = LODFadeMode.None;
+            g.SetLODs(new[] { new LOD(CullHeight, kv.Value.ToArray()) });
+            g.RecalculateBounds();
+            lod++;
         }
         // スクリプトの Renderer[]（チェックポイントで光らせる物など）に元の物が入っていたら、軽い形も足す
         foreach (var (so, path) in arrayRefs)
