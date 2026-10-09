@@ -47,6 +47,13 @@ public class FuwaDemoMonster : UdonSharpBehaviour
     [Tooltip("撃たれた時に押される速さ(m/s)と、止まるまでの減り方")]
     public float pushSpeed = 3.2f;
     public float pushDamping = 3f;
+    [Tooltip("撃たれた時にピョンと浮く上向きの速さ・重力・浮いてる間の横の減り方・着地で残す横の速さ（本物の FuwaEnemy と同じ動き。0なら前のようにすべる）")]
+    public float blownHop = 2.6f;
+    public float blownGravity = 12f;
+    public float airDamping = 0.8f;
+    public float landKeep = 0.3f;
+    private float _vy, _groundY, _squashUntil;
+    private bool _airborne;
     public float stunTime = 1.1f;
     public float returnSpeed = 1.2f;
     public float bobHeight = 0.08f;
@@ -119,6 +126,7 @@ public class FuwaDemoMonster : UdonSharpBehaviour
                     if (blownSound != null) blownSound.Play();
                     Vector3 d = windupSpot.position - stand.nozzle.position; d.y = 0f;
                     _vel = (d.sqrMagnitude > 0.0001f ? d.normalized : transform.forward) * pushSpeed;
+                    _groundY = _pos.y; _vy = blownHop; _airborne = blownHop > 0f;
                     SetState(4);
                 }
                 else if (shotAt < 0f && t >= dashAt)
@@ -155,9 +163,23 @@ public class FuwaDemoMonster : UdonSharpBehaviour
             }
             case 4:
             {
-                // 押された：すべって止まる。目を回す（目を細めてくるくる）
-                _vel *= Mathf.Clamp01(1f - pushDamping * Time.deltaTime);
-                _pos += _vel * Time.deltaTime;
+                // 押された：ピョンと浮いて飛んで、着地してちょっと転がって止まる。目を回す（目を細めてくるくる）
+                float dt = Time.deltaTime;
+                if (_airborne)
+                {
+                    _vy -= blownGravity * dt;
+                    _vel *= Mathf.Exp(-airDamping * dt);
+                    _pos += (_vel + Vector3.up * _vy) * dt;
+                    if (_vy < 0f && _pos.y <= _groundY)
+                    {
+                        _pos.y = _groundY; _airborne = false; _vel *= landKeep; _squashUntil = Time.time + 0.3f;
+                    }
+                }
+                else
+                {
+                    _vel *= Mathf.Clamp01(1f - pushDamping * dt);
+                    _pos += _vel * dt;
+                }
                 float u = Time.time - _stateTime;
                 wob = 0.04f * Mathf.Sin(u * 18f) * Mathf.Clamp01(1f - u / stunTime);
                 if (u >= stunTime) SetState(5);
@@ -174,7 +196,10 @@ public class FuwaDemoMonster : UdonSharpBehaviour
         }
 
         // 位置・ふわふわ浮き・ぷるぷる
-        float bob = (_state == 3) ? 0f : bobHeight * Mathf.Sin(Time.time * 3.1f);
+        float bob = (_state == 3 || (_state == 4 && _airborne)) ? 0f : bobHeight * Mathf.Sin(Time.time * 3.1f);
+        // 浮いている間は縦にのびて、着地でぷにっとつぶれる（本物と同じ）
+        if (_state == 4 && _airborne) squash = -Mathf.Clamp(_vy / 4f, -0.3f, 1f) * 0.14f;
+        else if (Time.time < _squashUntil) squash = Mathf.Sin(Mathf.Clamp01((_squashUntil - Time.time) / 0.3f) * Mathf.PI) * 0.3f;
         transform.position = _pos + Vector3.up * bob;
         // 向き：ふわふわの方（押されている間・戻る間は向きを変えない）
         if (_state <= 3)
@@ -208,6 +233,7 @@ public class FuwaDemoMonster : UdonSharpBehaviour
         _stateTime = Time.time;
         _hit = false;
         _vel = Vector3.zero;
+        _airborne = false; _vy = 0f;
         _pos = home != null ? home.position : transform.position;
         if (windupSound != null) windupSound.Stop();
     }
