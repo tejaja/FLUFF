@@ -968,6 +968,8 @@ public static class FuwaPracticeTutorial
             var go = t.gameObject;
             if (go.GetComponent<FuwaDemoStand>() != null || go.GetComponentInParent<FuwaDemoStand>() != null) { GameObjectUtility.SetStaticEditorFlags(go, 0); continue; }
             if (go.GetComponentInParent<FuwaEnemy>() != null) { GameObjectUtility.SetStaticEditorFlags(go, 0); continue; }   // まものは動く
+            var deco = go.GetComponentInParent<FuwaWindDeco>();   // 吹き流しの布・かざぐるまの羽は動く（柱だけ静的でよい）
+            if (deco != null && ((deco.sock != null && t.IsChildOf(deco.sock)) || (deco.head != null && t.IsChildOf(deco.head)) || (deco.rotor != null && t.IsChildOf(deco.rotor)))) { GameObjectUtility.SetStaticEditorFlags(go, 0); continue; }
 
             if (go.GetComponent<Renderer>() != null && go.GetComponent<ParticleSystem>() == null && go.GetComponent<TMPro.TextMeshPro>() == null && go.name != "Label")
                 GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic | StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic);
