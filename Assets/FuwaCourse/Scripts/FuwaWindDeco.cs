@@ -68,6 +68,8 @@ public class FuwaWindDeco : UdonSharpBehaviour
             // 強い風の間は 1、ゆるい風の間は少しだけ（吹き流しは斜め、かざぐるまはゆっくり）
             target = blowing ? 1f : wind.GetBaseLevel() * baseResponse;
         }
+        // 吹き流しは、ゆるい風でもしっかり真横にたなびく（強弱は、風の強さが変わるギミックを作る時まで取っておく。2026-10-09 てじゃ）
+        if (sock != null && wind != null && wind.GetBaseLevel() > 0.001f) target = 1f;
         target = Mathf.Max(target, idleLevel);
         // 吹き始めは速く、止む時はゆっくり
         float rate = target > _level ? 6f : 1.5f;
@@ -89,7 +91,7 @@ public class FuwaWindDeco : UdonSharpBehaviour
                 lean += aw * 0.08f;
             }
             Vector3 droop = (Vector3.down + lean).normalized;
-            Vector3 blow = (h + Vector3.up * Mathf.Clamp(_lastDir.y, -0.3f, 0.6f) * 0.5f).normalized;
+            Vector3 blow = h;   // 真横（風の上下の向きは見ない）
             Vector3 dir = Vector3.Slerp(droop, blow, _level);
             Quaternion q = Quaternion.LookRotation(dir, Vector3.up);
             float f = flutterAmount * (0.3f + 0.7f * _level);
