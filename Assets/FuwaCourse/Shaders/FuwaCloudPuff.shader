@@ -14,6 +14,7 @@ Shader "FuwaCourse/CloudPuff"
         _HazeStart ("Haze Start (m)", Float) = 300
         _HazeEnd ("Haze End (m)", Float) = 1000
         _HazeMax ("Haze Max", Range(0, 1)) = 0.55
+        _FogMax ("Unity Fog Amount (0=かからない 1=ふつうにかかる)", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -26,14 +27,16 @@ Shader "FuwaCourse/CloudPuff"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma multi_compile_fog
             #include "UnityCG.cginc"
 
             fixed4 _Color, _Shade, _LightColor0, _Haze;
-            float _UdonSkyDim;   // グローバル：やみのもりにいる間、空と一緒に暗くする（FuwaAreaFog）
+            float _UdonSkyDim;
+            float _FogMax;   // シーンの霧（Lighting の Linear 霧・やみのもりの霧）をどれだけかけるか   // グローバル：やみのもりにいる間、空と一緒に暗くする（FuwaAreaFog）
             float _Rim, _Drift, _DriftSpeed, _Bob, _HazeStart, _HazeEnd, _HazeMax;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float3 wn : TEXCOORD0; float3 wv : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float3 wn : TEXCOORD0; float3 wv : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
@@ -46,6 +49,7 @@ Shader "FuwaCourse/CloudPuff"
                 float t = _Time.y;
                 wp += float3(sin(t * _DriftSpeed + ph) * _Drift, sin(t * _DriftSpeed * 3.1 + ph * 2.0) * _Bob, cos(t * _DriftSpeed * 0.8 + ph * 1.3) * _Drift);
                 o.pos = mul(UNITY_MATRIX_VP, float4(wp, 1));
+                UNITY_TRANSFER_FOG(o, o.pos);
                 o.wn = UnityObjectToWorldNormal(v.normal);
                 o.wv = _WorldSpaceCameraPos - wp;
                 return o;
@@ -65,6 +69,10 @@ Shader "FuwaCourse/CloudPuff"
                 float h = saturate((length(i.wv) - _HazeStart) / max(1, _HazeEnd - _HazeStart)) * _HazeMax;
                 col = lerp(col, _Haze.rgb * tint, h);
                 col = lerp(col, saturate(col) * float3(0.11, 0.11, 0.2), saturate(_UdonSkyDim));
+                // シーンの霧：ふつうの物（ToonLit）と同じ霧を _FogMax の分だけかける（2026-10-10 てじゃ「土台と雲に霧がかかってない」）
+                fixed4 fc = fixed4(col, 1);
+                UNITY_APPLY_FOG(i.fogCoord, fc);
+                col = lerp(col, fc.rgb, _FogMax);
                 return fixed4(col, 1);
             }
             ENDCG

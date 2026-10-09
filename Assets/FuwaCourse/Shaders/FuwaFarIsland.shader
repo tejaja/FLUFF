@@ -8,6 +8,7 @@ Shader "FuwaCourse/FarIsland"
         _HazeStart ("Haze Start (m)", Float) = 150
         _HazeEnd ("Haze End (m)", Float) = 900
         _HazeMax ("Haze Max", Range(0, 1)) = 0.75
+        _FogMax ("Unity Fog Amount (0=かからない 1=ふつうにかかる)", Range(0, 1)) = 0
         _Shade ("Shade Strength", Range(0, 1)) = 0.35
         _Bob ("Bob Height (m, 0=off)", Float) = 0
         _BobSpeed ("Bob Speed", Float) = 0.25
@@ -26,16 +27,18 @@ Shader "FuwaCourse/FarIsland"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma multi_compile_fog
             #include "UnityCG.cginc"
 
             fixed4 _Haze, _LightColor0;
-            float _UdonSkyDim;   // グローバル：やみのもりにいる間、空と一緒に暗くする（FuwaAreaFog）
+            float _UdonSkyDim;
+            float _FogMax;   // シーンの霧（Lighting の Linear 霧・やみのもりの霧）をどれだけかけるか   // グローバル：やみのもりにいる間、空と一緒に暗くする（FuwaAreaFog）
             float _HazeStart, _HazeEnd, _HazeMax, _Shade;
 
             float _FallSpeed, _FallLen, _Bob, _BobSpeed;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; fixed4 color : COLOR; float3 wn : TEXCOORD0; float3 wp : TEXCOORD1; float2 uv : TEXCOORD2; UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; fixed4 color : COLOR; float3 wn : TEXCOORD0; float3 wp : TEXCOORD1; float2 uv : TEXCOORD2; UNITY_FOG_COORDS(3) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
@@ -49,6 +52,7 @@ Shader "FuwaCourse/FarIsland"
                 float t = _Time.y * _BobSpeed;
                 wp += float3(sin(t * 0.6 + ph * 1.7) * 0.4, sin(t + ph), cos(t * 0.5 + ph * 2.3) * 0.4) * _Bob;
                 o.pos = mul(UNITY_MATRIX_VP, float4(wp, 1));
+                UNITY_TRANSFER_FOG(o, o.pos);
                 o.color = v.color;
                 o.uv = v.uv;
                 o.wn = UnityObjectToWorldNormal(v.normal);
@@ -99,6 +103,10 @@ Shader "FuwaCourse/FarIsland"
                 float h = saturate((dist - _HazeStart) / max(1, _HazeEnd - _HazeStart)) * _HazeMax;
                 col = lerp(col, _Haze.rgb * tint, h);
                 col = lerp(col, saturate(col) * float3(0.11, 0.11, 0.2), saturate(_UdonSkyDim));
+                // シーンの霧：ふつうの物（ToonLit）と同じ霧を _FogMax の分だけかける（2026-10-10 てじゃ「土台と雲に霧がかかってない」）
+                fixed4 fc = fixed4(col, 1);
+                UNITY_APPLY_FOG(i.fogCoord, fc);
+                col = lerp(col, fc.rgb, _FogMax);
                 return fixed4(col, 1);
             }
             ENDCG
