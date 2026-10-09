@@ -12,7 +12,7 @@ public static class FuwaLobbyPaths
     const float RingIn = 0.85f;         // ワープのうず（半径）の何割の所まで道を入れるか（うずが道の先に重なって、つながって見える）
     const int BevelSteps = 3;
     const string MeshDir = "Assets/FuwaCourse/Meshes/Lobby";
-    // コース4（まもののす）はシマシマ道を使っていない（巣と木の橋）ので、巣の小枝っぽい茶色を専用に作る（2026-10-09）
+    // コース4（まもののす）の道の色は専用（まものの紫を明るくしたラベンダー。2026-10-09 てじゃ、茶色は木っぽすぎた）
     static readonly string[] CourseMat = { "Course0", "Course1", "Course2", "Course3", "LobbyCourse4", "Course5" };
 
     [MenuItem("FuwaCourse/ロビーの道を作り直す")]
@@ -27,7 +27,7 @@ public static class FuwaLobbyPaths
         if (!AssetDatabase.IsValidFolder(MeshDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Meshes", "Lobby");
 
         // コース4用の茶色（なければ Course4 の道の材質を写して作る）
-        foreach (var (n, col) in new[] { ("LobbyCourse4_PathA", new Color(0.76f, 0.58f, 0.42f)), ("LobbyCourse4_PathB", new Color(0.66f, 0.49f, 0.35f)) })
+        foreach (var (n, col) in new[] { ("LobbyCourse4_PathA", new Color(0.82f, 0.74f, 0.94f)), ("LobbyCourse4_PathB", new Color(0.72f, 0.63f, 0.88f)) })
         {
             string mp = "Assets/FuwaCourse/Materials/" + n + ".mat";
             var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
