@@ -363,7 +363,7 @@ public static class FuwaPracticeTutorial
             var g = bay.Find("Island/Ground").GetComponent<Renderer>().bounds; float r = g.extents.x;
             float best = 1e9f, dIsl = 0f;
             for (int i = 0; i < _pathOnlyPts.Count; i += 2) { float e = (new Vector2(g.center.x, g.center.z) - _pathOnlyPts[i]).sqrMagnitude; if (e < best) { best = e; dIsl = _pathOnlyDist[i]; } }
-            At(_pathOnlyPts, _pathOnlyDist, dIsl - r - 0.15f, out var c, out var f);
+            At(_pathOnlyPts, _pathOnlyDist, dIsl - r - 0.15f - 2.67f, out var c, out var f);   // 2026-10-09 てじゃ：ふわふわの出る所を下げたぶん、壁も2.67m手前へ
             var right = new Vector3(f.z, 0f, -f.x);
             float left = HalfW + BayLeftExtra + 0.3f, rightW = Vector3.Dot(new Vector3(g.center.x, c.y, g.center.z) - c, right) + r + 0.5f;
             MakeBarrier(bay, "BayBarrier", c + right * ((rightW - left) * 0.5f), f, left + rightW);
