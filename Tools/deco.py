@@ -156,21 +156,23 @@ def moss(rad, h, stretch, seed):
             b.f((rings[i][k], rings[i + 1][k], rings[i + 1][k2], rings[i][k2]), 'Moss')
     return b
 
-def stones(n_min, n_max, s_min, s_max, seed):
+def stones(n_min, n_max, s_min, s_max, seed, keep=99):
     # いわのみち用の小石：苔なし、カクカクした低ポリの石（色は岩と同じ紫グレー、2色）。少し地面に埋める
+    # keep：作る数の上限（乱数は同じだけ引くので、残る石の形・位置は変わらない）
     rnd = random.Random(seed); b = Builder()
     for i in range(rnd.randint(n_min, n_max)):
         bm = bmesh.new(); bmesh.ops.create_icosphere(bm, subdivisions=1, radius=1.0)
         s = rnd.uniform(s_min, s_max); sq = rnd.uniform(0.45, 0.75); stretch = rnd.uniform(0.8, 1.3)
         c = Vector((rnd.uniform(-0.6, 0.6) * s_max * 2.2, rnd.uniform(-0.6, 0.6) * s_max * 2.2, 0)) if i else Vector((0, 0, 0))
         rot = Matrix.Rotation(rnd.uniform(0, math.tau), 3, 'Z'); sd = rnd.uniform(0, 50)
-        idx = {}
-        for v in bm.verts:
-            d = v.co.copy(); d *= 1 + noise.noise(d * 1.1 + Vector((sd, 0, 0))) * 0.28
-            p = rot @ Vector((d.x * s * stretch, d.y * s, max(d.z, -0.35) * s * sq)) + c + Vector((0, 0, s * sq * 0.18))
-            idx[v.index] = b.v(p)
         mat = 'Stone' if rnd.random() < 0.6 else 'StoneDark'
-        for f in bm.faces: b.f([idx[v.index] for v in f.verts], mat)
+        if i < keep:
+            idx = {}
+            for v in bm.verts:
+                d = v.co.copy(); d *= 1 + noise.noise(d * 1.1 + Vector((sd, 0, 0))) * 0.28
+                p = rot @ Vector((d.x * s * stretch, d.y * s, max(d.z, -0.35) * s * sq)) + c + Vector((0, 0, s * sq * 0.18))
+                idx[v.index] = b.v(p)
+            for f in bm.faces: b.f([idx[v.index] for v in f.verts], mat)
         bm.free()
     return b
 
@@ -184,7 +186,7 @@ PROPS = {
     'Vines': vines(),
     'MossSmall': moss(0.14, 0.05, 1.0, 3.0),
     'MossLarge': moss(0.26, 0.075, 1.4, 7.0),
-    'StonesSmall': stones(3, 5, 0.035, 0.07, 21),
+    'StonesSmall': stones(3, 5, 0.035, 0.07, 21, keep=2),   # 2026-10-09 てじゃ：3個並ぶのが気になる→2個
     'StonesMid': stones(2, 3, 0.07, 0.13, 22),
     'StoneLarge': stones(1, 1, 0.16, 0.24, 23),
 }
