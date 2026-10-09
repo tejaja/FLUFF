@@ -16,7 +16,7 @@ Material:
   m_LightmapFlags: 0
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 3008
   stringTagMap: {}
   disabledShaderPasses:
   - GRABPASS
@@ -52,6 +52,9 @@ Material:
     - _DistortionStrengthScaled: 0
     - _DstBlend: 0
     - _EmissionEnabled: 0
+    - _FadeEnd: 45
+    - _FadeStart: 15
+    - _FarAlpha: 0.35
     - _FlipbookMode: 0
     - _LightingEnabled: 0
     - _Mode: 0
