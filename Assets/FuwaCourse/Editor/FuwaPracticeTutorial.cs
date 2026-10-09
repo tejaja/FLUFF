@@ -501,8 +501,10 @@ public static class FuwaPracticeTutorial
         float uCurve1 = FinStraight + FinCurveR * FinCurveDeg * Mathf.Deg2Rad;
         float uSlope0 = uCurve1 + 1f, uSlope1 = uSlope0 + FinSlopeLen;
         float uGroove0 = uSlope1 + 3f, uGroove1 = uGroove0 + FinGrooveW;
-        float uWind0 = uGroove1 + 3f, uWind1 = uWind0 + FinWindLen;
-        float uCp = uWind1 + 2.5f, uMon = uCp + 5.5f, uGoal = uMon + 9f;
+        // チェックポイントは横風の手前（2026-10-10 てじゃ。前は横風のあと）。まもの・ゴールの位置は前と同じ
+        float uCp = uGroove1 + 3f;
+        float uWind0 = uCp + 2.5f, uWind1 = uWind0 + FinWindLen;
+        float uMon = uWind1 + 5.5f, uGoal = uMon + 9f;
         // 道はゴールの島の少し内側まで（島の地面の下にもぐらせて、ふちの弧が切れないように。まん中のリングまでは行かない）
         float uEnd = uGoal - 1.2f;
         float sCp = sMush + uCp, sGoal = sMush + uGoal, sEnd = sMush + uEnd;
