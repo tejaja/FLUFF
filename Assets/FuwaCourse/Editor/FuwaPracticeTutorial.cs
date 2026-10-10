@@ -413,6 +413,42 @@ public static class FuwaPracticeTutorial
     }
 
     // 風の区画の風だけ作り直す：見本島の手前のはし〜区画の終わり（2026-10-09 てじゃ「風は見本島くらいから」）
+    // ---------- 本番の道のまもの：背中側（道のふち側）の斜め左右にイバラ ----------
+    // まものは道の中心から右へ0.7m、道の中心を向いて立つ。その背中側の斜め前後に1つずつ。
+    // コース4のイバラ（SpikePatch4）を、形がゆがまないよう全体を同じ倍率で縮めて置く（横だけつぶすと中のイバラの回転で斜めにゆがむ）。
+    // 2つの判定は道に沿って1m以上あけて重ねない。まもの（半径0.45＋うろうろ0.2）にも届かない
+    const float BrambleScale = 0.7f;     // 判定 1.5×2.0m → 1.05×1.4m（0.55だと小さい草みたいで目立たなかった）
+    const float BrambleAlong = 1.25f;    // まものから道に沿って前後へ
+    const float BrambleOut = 1.0f;       // まものから道のふち側へ（中心から1.7m、ふち2.5mまでに収まる）
+    static void PlaceMonsterBrambles(Transform fin, Transform mon)
+    {
+        foreach (var old in fin.Cast<Transform>().Where(t => t.name.StartsWith("Bramble")).ToList()) Object.DestroyImmediate(old.gameObject);
+        var spSrc = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "SpikePatch4" && t.parent != null && t.parent.name == "Spikes");
+        float GroundBelow(Vector3 p) { return Physics.Raycast(p + Vector3.up * 0.6f, Vector3.down, out var h, 5f, 1 << 11, QueryTriggerInteraction.Ignore) ? h.point.y : p.y; }
+        Physics.SyncTransforms();
+        float spUp = spSrc.position.y - GroundBelow(spSrc.position);
+        Vector3 back = -mon.forward; back.y = 0f; back.Normalize();          // 道のふち側
+        Vector3 along = new Vector3(-back.z, 0f, back.x);                    // 道に沿う向き
+        for (int k = 0; k < 2; k++)
+        {
+            var sp = Object.Instantiate(spSrc.gameObject, fin, true); sp.name = "Bramble" + k; sp.SetActive(true);
+            Vector3 p = mon.position + back * BrambleOut + along * (k == 0 ? -BrambleAlong : BrambleAlong);
+            p.y = GroundBelow(p) + spUp * BrambleScale;
+            // 判定の長い辺（z）を道に沿わせる
+            sp.transform.SetPositionAndRotation(p, Quaternion.LookRotation(along));
+            sp.transform.localScale = Vector3.one * BrambleScale;
+        }
+    }
+
+    [MenuItem("FuwaCourse/れんしゅう/まもののイバラだけ置き直す")]
+    public static void MenuBrambles()
+    {
+        var fin = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "FinalRun" && t.parent != null && t.parent.name == RootName);
+        PlaceMonsterBrambles(fin, fin.Find("Monster"));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(fin.gameObject.scene);
+        Debug.Log("brambles placed");
+    }
+
     [MenuItem("FuwaCourse/れんしゅう/風の区画の風だけ作り直す")]
     public static void WindOnlyMenu() { Debug.Log(RebuildWindOnly()); }
     public static string RebuildWindOnly()
@@ -906,7 +942,9 @@ public static class FuwaPracticeTutorial
                 var fe = mon.GetComponent<FuwaEnemy>();
                 SetUF(fe, "wanderRadius", 0.2f);
                 Sync(fe);
-                // まもののわきのイバラ2つは撤去（2026-10-10 てじゃ。横につぶして回転がゆがむ・重なって足が遅いまま戻らないバグの元だった）
+                // まもののわきのイバラ2つは一度撤去（2026-10-10 てじゃ。横につぶして回転がゆがむ・重なって足が遅いまま戻らないバグの元だった）。
+                // 同じ日に「斜め後ろ左右に置こう」で、つぶさず縮めて重ならない間隔で置き直した
+                PlaceMonsterBrambles(fin, mon.transform);
                 // 球の「まもの一覧」に入れる（アウトの時に復活させる）。作り直しで消えた分は詰める
                 var bso = new SerializedObject(ball); var ep = bso.FindProperty("enemies");
                 var keep = new List<Object>();
