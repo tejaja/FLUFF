@@ -170,16 +170,18 @@ public static class FuwaVersusArena
             { "UiValueMinus", "時間/点数 −" }, { "UiValuePlus", "時間/点数 ＋" },
             { "UiRuleToggle", "時間 ⇔ 点数" }, { "UiRandomToggle", "チーム分け" },
             { "UiBallToggle", "ふわふわ" }, { "UiAllEditToggle", "みんなOK" },
-            { "UiPassAdmin", "設定をゆずる" }, { "UiStop", "中止" },
+            { "UiShuffle", "色シャッフル" }, { "UiPassAdmin", "設定をゆずる" },
+            { "UiStop", "中止" }, { "", "" },
             { "UiStart", "スタート！" },
         };
         for (int b = 0; b < btns.GetLength(0); b++)
         {
             int col = b % 2, row = b / 2;
+            if (btns[b, 0] == "") continue;   // 並びをそろえるための空き
             var go = GameObject.CreatePrimitive(PrimitiveType.Cube); go.name = "Btn_" + btns[b, 0];
             go.transform.SetParent(panel, false);
             bool start = btns[b, 0] == "UiStart";   // スタートだけ横長で一番下
-            go.transform.localPosition = start ? new Vector3(3.375f, 3.6f - row * 0.48f - 0.12f, 0f) : new Vector3(2.75f + col * 1.25f, 3.6f - row * 0.48f, 0f);
+            go.transform.localPosition = start ? new Vector3(3.375f, 4.2f - row * 0.48f - 0.12f, 0f) : new Vector3(2.75f + col * 1.25f, 4.2f - row * 0.48f, 0f);
             go.transform.localScale = start ? new Vector3(2.4f, 0.6f, 0.12f) : new Vector3(1.15f, 0.4f, 0.12f);
             go.GetComponent<MeshRenderer>().sharedMaterial = start ? TeamMat(3) : ButtonMat();
             Button(go, match, btns[b, 0], btns[b, 1]);
@@ -194,7 +196,7 @@ public static class FuwaVersusArena
         // ボタンの支柱
         var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "ButtonPost";
         Object.DestroyImmediate(post.GetComponent<Collider>());
-        post.transform.SetParent(panel, false); post.transform.localPosition = new Vector3(3.37f, 1.1f, 0.12f); post.transform.localScale = new Vector3(0.1f, 1.1f, 0.1f);
+        post.transform.SetParent(panel, false); post.transform.localPosition = new Vector3(3.37f, 1.6f, 0.12f); post.transform.localScale = new Vector3(0.1f, 1.6f, 0.1f);
         post.GetComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
 
         // つなぐ

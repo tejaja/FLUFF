@@ -115,6 +115,7 @@ public class FuwaMatch : UdonSharpBehaviour
     public void UiRandomToggle() { Ask(nameof(ReqSetting), 5); }
     public void UiAllEditToggle() { Ask(nameof(ReqSetting), 6); }
     public void UiBallToggle() { Ask(nameof(ReqSetting), 7); }
+    public void UiShuffle() { Ask(nameof(ReqSetting), 8); }
     public void UiStart() { Ask(nameof(ReqStart), 0); }
     public void UiStop() { Ask(nameof(ReqStop), 0); }
     public void UiPassAdmin() { if (Networking.IsOwner(gameObject)) PassAdmin(); }
@@ -140,6 +141,7 @@ public class FuwaMatch : UdonSharpBehaviour
     public void LocalReqSetting5() { ReqSetting(5); }
     public void LocalReqSetting6() { ReqSetting(6); }
     public void LocalReqSetting7() { ReqSetting(7); }
+    public void LocalReqSetting8() { ReqSetting(8); }
     public void LocalReqStart0() { ReqStart(0); }
     public void LocalReqStop0() { ReqStop(0); }
 
@@ -177,7 +179,7 @@ public class FuwaMatch : UdonSharpBehaviour
         Commit();
     }
 
-    // 0/1=色の数 −/+、2=時間⇔点数、3/4=時間か点数の −/+、5=ランダム振り分け、6=全員が設定OK（6は持ち主だけ）、7=ふわふわの種類
+    // 0/1=色の数 −/+、2=時間⇔点数、3/4=時間か点数の −/+、5=ランダム振り分け、6=全員が設定OK（6は持ち主だけ）、7=ふわふわの種類、8=今のメンバーをシャッフル
     [NetworkCallable(10)]
     public void ReqSetting(int key)
     {
@@ -196,6 +198,12 @@ public class FuwaMatch : UdonSharpBehaviour
         else if (key == 5) _randomTeams = !_randomTeams;
         else if (key == 6) { if (!p.isLocal) return; _allEdit = !_allEdit; }
         else if (key == 7) _soloBall = !_soloBall;
+        else if (key == 8)
+        {
+            // 今いるメンバーを、色の人数がそろうようにランダムに振り分け直す（2026-10-10 てじゃ）
+            for (int i = 0; i < MaxMembers; i++) if (_memberIds[i] != 0) _memberColors[i] = Any;
+            AssignColors();
+        }
         ClampColors();
         Commit();
     }
