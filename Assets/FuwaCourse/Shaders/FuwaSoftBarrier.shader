@@ -45,12 +45,13 @@ Shader "FuwaCourse/SoftBarrier"
             float4 _UdonFuwaBallPos;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wpos : TEXCOORD1; float3 wn : TEXCOORD2; UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wpos : TEXCOORD1; float3 wn : TEXCOORD2; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
                 v2f o;
                 UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_TRANSFER_INSTANCE_ID(v, o);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
@@ -61,6 +62,7 @@ Shader "FuwaCourse/SoftBarrier"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(i);   // まとめて描く時も、板ごとの拡大率（unity_ObjectToWorld）を使うため
                 // ふわふわのまわりだけ浮かび上がる
                 float d = distance(i.wpos, _UdonFuwaBallPos.xyz);
                 float reveal = (1 - smoothstep(0.15, _Reveal, d)) * saturate(_UdonFuwaBallPos.w);

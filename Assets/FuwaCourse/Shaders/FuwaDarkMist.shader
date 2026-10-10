@@ -36,14 +36,15 @@ Shader "FuwaCourse/DarkMist"
                             lerp(lerp(hash3(i + float3(0,0,1)), hash3(i + float3(1,0,1)), f.x), lerp(hash3(i + float3(0,1,1)), hash3(i + float3(1,1,1)), f.x), f.y), f.z);
             }
             float fbm(float3 p) { return vnoise(p) * 0.55 + vnoise(p * 2.07 + 13.1) * 0.3 + vnoise(p * 4.3 + 7.7) * 0.15; }
-            struct v2f { float4 pos : SV_POSITION; float3 opos : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float3 opos : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata_base v)
             {
-                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_TRANSFER_INSTANCE_ID(v, o); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex); o.opos = v.vertex.xyz; return o;
             }
             fixed4 frag (v2f i) : SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(i);   // まとめて描く時も自分の座標で（インスタンシング）
                 // オブジェクト空間（半径1の球。組み込みの Sphere メッシュ）で視線と球の交わりを求め、通る長さをワールドの距離に直す
                 float3 camO = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1)).xyz;
                 float3 d = normalize(i.opos - camO);
