@@ -89,6 +89,19 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private float _lastHeard;
     private float _takeoverJitter;
 
+    [Header("みんなでの会場用（ロビーのふわふわは触らない）")]
+    [Tooltip("撃たれた時の効きの倍率（会場のふわふわは重くするので1より小さく）")]
+    public float shotScale = 1f;
+    [Tooltip("会場の真ん中。ここから arenaRadius より外へは出ず、内側へはじき返す（全員の画面で同じ計算）")]
+    public Transform arenaCenter;
+    public float arenaRadius = 0f;
+    [Tooltip("膜に当たった時の、はね返りの強さ（入ってきた速さの何倍で返すか）")]
+    public float barrierBounce = 1.1f;
+    [Tooltip("膜に当たった時、最低でもこの速さで内側へ返す")]
+    public float barrierMinInward = 3.5f;
+    [Tooltip("試合の前後などで撃っても動かない（FuwaMatch が全員の画面でそれぞれ切り替える）")]
+    [System.NonSerialized] public bool locked;
+
     // 画面ごとの状態（持ち主ならこれが正解。持ち主でなければ、届いた状態をここへ写す）
     private bool _waiting = true;
     private bool _popped;
@@ -160,6 +173,16 @@ public class FuwaSharedBall : UdonSharpBehaviour
     }
 
     public bool IsWaiting() { return _waiting && !_popped; }
+    public bool IsFlying() { Init(); return !_waiting && !_popped; }
+
+    // 持ち主の画面で：キノコの上に戻す（ゴールに入った・試合が始まった・終わった時）
+    public void ForceHome()
+    {
+        Init();
+        if (!Networking.IsOwner(gameObject)) return;
+        _pending = 0;
+        SetWaiting();
+    }
 
     // 持ち主：キノコの上に戻して、吹かれるまで止めて待つ
     private void SetWaiting()
@@ -187,15 +210,15 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public void BlowShared(Vector3 velocityChange)
     {
         Init();
-        if (_popped || _waiting) return;   // キノコに隠れている間は、傘を撃たないと出てこない
-        Shoot(velocityChange, false);
+        if (_popped || _waiting || locked) return;   // キノコに隠れている間は、傘を撃たないと出てこない
+        Shoot(velocityChange * shotScale, false);
     }
 
     // スタートのキノコの傘を撃った人の画面で呼ばれる：撃った向きへポンと飛び出す
     public void ReleaseFromMushroom(Vector3 shotDir)
     {
         Init();
-        if (_popped || !_waiting) return;
+        if (_popped || !_waiting || locked) return;
         Vector3 flat = new Vector3(shotDir.x, 0f, shotDir.z);
         flat = flat.sqrMagnitude > 0.0001f ? flat.normalized : Vector3.zero;
         Shoot(flat * releasePush + Vector3.up * releaseUp, true);
@@ -228,7 +251,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public void RemoteShot(Vector3 velocityChange, bool release)
     {
         Init();
-        if (!Networking.IsOwner(gameObject) || _popped) return;
+        if (!Networking.IsOwner(gameObject) || _popped || locked) return;
         if (_waiting && !release) return;   // 持ち主の画面ではまだキノコの中：傘を撃った分だけ受け付ける
         Launch(velocityChange);
         _sShot++;
@@ -409,6 +432,21 @@ public class FuwaSharedBall : UdonSharpBehaviour
         Vector3 v = _rb.velocity;
         if (v.y < -maxFallSpeed) v.y = -maxFallSpeed;
         if (v.magnitude > maxSpeed) v = v.normalized * maxSpeed;
+        // 会場のまわりの膜：外へ向かっていたら内側へはじき返す（全員の画面で同じ計算なので、ずれにくい）
+        if (arenaCenter != null && arenaRadius > 0f)
+        {
+            Vector3 off = _rb.position - arenaCenter.position; off.y = 0f;
+            float d = off.magnitude;
+            float lim = arenaRadius - transform.lossyScale.x * 0.5f;
+            if (d > lim && d > 0.001f)
+            {
+                Vector3 n = off / d;
+                float vn = Vector3.Dot(v, n);
+                if (vn > -barrierMinInward) v -= n * (vn + Mathf.Max(barrierMinInward, vn * barrierBounce));
+                _rb.position -= n * (d - lim);
+                if (Networking.IsOwner(gameObject)) _sendSoon = true;
+            }
+        }
         _rb.velocity = v;
         // 持ち主とのズレを少しずつ寄せる
         if (_posErr.sqrMagnitude > 0.000001f)
