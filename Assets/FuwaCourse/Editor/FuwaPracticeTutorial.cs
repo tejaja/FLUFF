@@ -33,6 +33,17 @@ public static class FuwaPracticeTutorial
     }
     const float BaySpan = 11f;   // 区画の長さ（となりの区画との間隔。さかいめに壁が1枚）
     const float SignAlong = 1.0f;   // 見本島の看板：島の中心から道に沿って先へ
+    // ためし撃ちの場所（spot）と呼ぶ範囲（zone、長さ zoneLen）：見本島の中心から 道に沿って(along)・島の外向き(lat) m
+    static readonly Dictionary<string, (float spotAlong, float spotLat, float zoneAlong, float zoneLat, float zoneLen)> TrySpots = new Dictionary<string, (float, float, float, float, float)>
+    {
+        { "TapCharge", (-0.30f, -3.45f, -0.32f, -2.89f, 6.89f) },
+        { "Down",      (-0.62f, -3.68f, -0.68f, -3.15f, 6.86f) },
+        { "Steep",     (-0.96f, -3.85f, -0.95f, -3.27f, 6.91f) },
+        { "Center",    (-1.25f, -3.63f, -1.20f, -3.01f, 6.94f) },
+        { "Air",       (-0.37f, -3.52f, -0.40f, -2.95f, 6.88f) },
+        { "Wind",      (-0.70f, -3.79f, -0.74f, -3.25f, 6.87f) },
+        { "Monster",   (-1.02f, -3.80f, -1.09f, -3.28f, 6.83f) },
+    };
     static readonly Bay[] Bays =
     {
         new Bay(7.5f, "TapCharge",
@@ -816,6 +827,8 @@ public static class FuwaPracticeTutorial
             var bayRoot = new GameObject("Bay_" + bay.key).transform; bayRoot.SetParent(root, false);
             Vector3 ic = c + outw * (HalfW + 1.6f - 0.25f);
             var isl = Island("Island", ic, false); isl.SetParent(bayRoot, true);
+            // 見本島の地面は模様なしの芝（見本を見やすく。2026-10-09 にシーンだけで変えていたのを 2026-10-11 にコードへ）
+            isl.Find("Ground").GetComponent<Renderer>().sharedMaterial = Mat("Goal_Ground_Plain");
             BuildDemo(bayRoot, bay.key, ic, f, outw, f, blowerTmpl, ball, log);
             if (bay.key == "Wind")
             {
@@ -853,6 +866,15 @@ public static class FuwaPracticeTutorial
             zone.transform.position = c + Vector3.up * 1.2f; zone.transform.rotation = Quaternion.LookRotation(f);
             var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(HalfW * 2f + 4f, 3f, BaySpan - 0.2f);
             zone.layer = 0;
+            // ためし撃ちの場所と呼ぶ範囲は、見本島の中心からの位置で決めた値（2026-10-10 未明、光るしましまの上・島の中心の0.3〜1.3m手前に
+            // シーンだけで動かしていたのを 2026-10-11 にコードへ）。高さはそのまま
+            if (TrySpots.TryGetValue(bay.key, out var ts))
+            {
+                var icg = isl.Find("Ground").GetComponent<Renderer>().bounds.center;
+                Vector3 sp = icg + f * ts.spotAlong + outw * ts.spotLat; trySpot.position = new Vector3(sp.x, trySpot.position.y, sp.z);
+                Vector3 zp = icg + f * ts.zoneAlong + outw * ts.zoneLat; zone.transform.position = new Vector3(zp.x, zone.transform.position.y, zp.z);
+                bc.size = new Vector3(bc.size.x, bc.size.y, ts.zoneLen);
+            }
             var tz = UdonSharpUndo.AddComponent<FuwaTryZone>(zone);
             SetU(tz, "ball", ball); SetU(tz, "spot", trySpot); Sync(tz);
             // まものの区画：ためし撃ちの道の上に本物のまものを1匹（試し撃ちのふわふわで押し返す練習。2026-10-08 てじゃ）
