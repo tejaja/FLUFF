@@ -45,6 +45,8 @@ public class FuwaBlower : UdonSharpBehaviour
     public float liftPower = 2.2f;
     [Tooltip("見上げて吹いた時に追加で持ち上げる量(m/s)")]
     public float aimLiftBonus = 1.4f;
+    [Tooltip("見上げた分の上乗せの効き方（上の角度の sin をこの乗数で）。1=まっすぐ比例、3=真上に近づいてから効く（ちょい上げで上がりすぎない。2026-10-11 てじゃ）")]
+    public float aimLiftCurve = 3f;
     [Tooltip("押す向きを「銃の向き」から「銃口→ふわふわの向き」へ寄せる割合。0=銃の向きだけ。ふわふわが前にいるのに銃だけ上を向けて撃っても前に進むように（真下からのホバリングや水平撃ちはほぼ変わらない）")]
     [Range(0f, 1f)] public float aimToBallBlend = 0.6f;
     [Tooltip("遠くでもこの割合は残る")]
@@ -940,7 +942,7 @@ public class FuwaBlower : UdonSharpBehaviour
         Vector3 flatRaw = Vector3.ProjectOnPlane(push, Vector3.up);
         float side = push.y > 0f ? flatRaw.magnitude : 1f;
         Vector3 flat = flatRaw.sqrMagnitude > 0.0001f ? flatRaw.normalized : Vector3.zero;
-        float lift = liftPower + Mathf.Max(0f, push.y) * aimLiftBonus;
+        float lift = liftPower + Mathf.Pow(Mathf.Max(0f, push.y), aimLiftCurve) * aimLiftBonus;
         // 風の中心線から外れている分だけ、中心線の方へ吸い寄せる（気流に乗る感じ）
         Vector3 offAxis = toBall - aim * Vector3.Dot(toBall, aim);
         Vector3 pull = -offAxis * suction;
