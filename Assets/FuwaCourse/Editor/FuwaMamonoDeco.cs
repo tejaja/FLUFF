@@ -389,6 +389,9 @@ public static class FuwaMamonoDeco
             var mr = go.GetComponent<MeshRenderer>(); mr.sharedMaterial = twig;
             // 小物と根っこは影を落とさない（軽く）。浮かべた巣とタマゴは落とす
             mr.shadowCastingMode = name == "Mamono_Nests" || name == "Mamono_Eggs" ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
+            // 巣とタマゴは影を受けない：焼かない物なので、VRChatではリアルタイムの影の届く所だけ縁が自分の影で暗くなり、
+            // 少し離れると急に明るくなって見え方が切り替わっていた（2026-10-11 てじゃ「外周の巣、近距離で切り替わる」）
+            if (name == "Mamono_Nests" || name == "Mamono_Eggs") mr.receiveShadows = false;
             log.Append(name + " tris " + mb.T.Count / 3 + " ");
         }
         // 綿ぼこり：敵と同じシェルファーの別メッシュ（毛の長さ・細かさはメートルで）
