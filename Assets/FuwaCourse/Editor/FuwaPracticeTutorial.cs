@@ -694,8 +694,9 @@ public static class FuwaPracticeTutorial
             var lp = cl0.localPosition; lp.x = Mathf.Sign(lp.x) * (PathHalfW(S(sCp)) + 0.28f); cl0.localPosition = lp;
         }
         Fin(uGoal, out var gc, out var gf);
-        // ゴールの島の地面の上面（＝ゴールの位置の高さ）は、道の上面より2cm低い（元と同じ関係）
-        goal.position = new Vector3(gc.x, PathTop(len) - 0.02f, gc.z); goal.rotation = Quaternion.LookRotation(gf);   // ゴールの柵の入口はローカルの -z 側
+        // ゴールの島の地面の上面（＝ゴールの位置の高さ）は、登ったあとの道の上面より2cm低い（元と同じ関係）。
+        // 道はゴールの島の下へ4cm沈む（PathTop の -0.04）ので、沈んだ高さではなく沈む前の高さから測る（沈んだ道が島より2cm下になる）
+        goal.position = new Vector3(gc.x, Top + FinRise - 0.02f, gc.z); goal.rotation = Quaternion.LookRotation(gf);   // ゴールの柵の入口はローカルの -z 側
 
         // ---------- 入口の島 ----------
         At(pts, dist, 0f, out var e0, out var ef);
@@ -846,6 +847,7 @@ public static class FuwaPracticeTutorial
                 var fe = pm.GetComponent<FuwaEnemy>();
                 SetUF(fe, "wanderRadius", 0.4f);
                 SetUF(fe, "leashRange", 4f);   // 説明の小道は細いので、遠くまで追いかけない
+                SetUF(fe, "detectRange", 3.5f);   // コピー元はあとで5にしたが、ここは前の値（2026-10-10 復元）
                 Sync(fe);
                 var bso = new SerializedObject(ball); var ep = bso.FindProperty("enemies");
                 var keep = new List<Object>();
@@ -947,6 +949,18 @@ public static class FuwaPracticeTutorial
                 var wr = new Vector3(wf.z, 0f, -wf.x);
                 var wdir = wr * Mathf.Cos(FinWindAngle * Mathf.Deg2Rad) + wf * Mathf.Sin(FinWindAngle * Mathf.Deg2Rad);
                 MakeWindZone(fin, pts, dist, dm, wdir, course, log, FinWindLen, FinHalfW, FinWindStrength, "Tutorial_FinalWindHighlight");
+                // ずっとゆるい風（強い風の周期は来ない、ゆるい風 baseLevel だけ）。強さは FinWindStrength のまま
+                // （2026-10-09 シーンで決めた形。2026-10-10 コードへ）
+                {
+                    var fwa = fin.Find("WindZone").GetComponent<FuwaWindArea>();
+                    var fso = new SerializedObject(fwa);
+                    fso.FindProperty("strength").floatValue = 1.4f;
+                    fso.FindProperty("baseLevel").floatValue = FinWindStrength / 1.4f;
+                    fso.FindProperty("onSeconds").floatValue = 0f; fso.FindProperty("offSeconds").floatValue = 100000f;
+                    fso.FindProperty("warnSeconds").floatValue = 0f;
+                    fso.FindProperty("highlightSpeedMin").floatValue = 1.2f; fso.FindProperty("highlightSpeedMax").floatValue = 3f;
+                    fso.ApplyModifiedPropertiesWithoutUndo(); Sync(fwa);
+                }
                 // 吹き流し（かぜのみちの Windsock0 のコピー）：風の入口の左（風上）のふち。風が吹いている向きになびく
                 var wsSrc = Object.FindObjectsOfType<FuwaWindDeco>(true).FirstOrDefault(w => w.name == "Windsock0");
                 if (wsSrc != null)
@@ -980,6 +994,8 @@ public static class FuwaPracticeTutorial
                 mon.transform.rotation = Quaternion.LookRotation(-mr);
                 var fe = mon.GetComponent<FuwaEnemy>();
                 SetUF(fe, "wanderRadius", 0.2f);
+                // コピー元（まもののすの Enemy4）はあとで感知5・追いかけ5.5に変えたが、チュートリアルは前の値のまま（2026-10-10 復元）
+                SetUF(fe, "detectRange", 3.5f); SetUF(fe, "leashRange", 10f);
                 Sync(fe);
                 // まもののわきのイバラ2つは一度撤去（2026-10-10 てじゃ。横につぶして回転がゆがむ・重なって足が遅いまま戻らないバグの元だった）。
                 // 同じ日に「斜め後ろ左右に置こう」で、つぶさず縮めて重ならない間隔で置き直した
@@ -1034,10 +1050,15 @@ public static class FuwaPracticeTutorial
                 var pr = g.AddComponent<MeshRenderer>(); pr.sharedMaterials = candy;
                 // 太陽が真上なので、たての側面に自分の影がしま模様に出る（2026-10-09 てじゃ「マシュマロの影きたない」）→ 影は落とすけど受けない
                 pr.receiveShadows = false;
-                // 当たり判定：元のれんしゅうと同じく道のレイヤー（ふわふわが当たるとアウト、人は通れない）
+                // 当たり判定：道のレイヤー（人は通れない）。ふわふわは当たってもアウトにせず、ぽよんとはじく
+                // （FuwaBounce、いわのみちの頂上の岩と同じ 2.2・面の向き。2026-10-09 てじゃ）
                 var cap = g.AddComponent<CapsuleCollider>();
                 cap.radius = rad * 0.8f; cap.height = pm.bounds.size.y; cap.center = new Vector3(0f, pm.bounds.size.y * 0.5f, 0f);
                 g.layer = 11;
+                var fb = UdonSharpUndo.AddComponent<FuwaBounce>(g);
+                fb.bounceSpeed = 2.2f; fb.keepTangent = 0.7f; fb.alwaysUp = false; fb.useContactNormal = true; Sync(fb);
+                var fbu = UdonSharpEditorUtility.GetBackingUdonBehaviour(fb);
+                var fbso = new SerializedObject(fbu); fbso.FindProperty("_syncMethod").intValue = (int)VRC.SDKBase.Networking.SyncType.None; fbso.ApplyModifiedPropertiesWithoutUndo();
                 np++;
             }
             // 草花：左右に約2.6mおき（小物とずらして）
@@ -1146,7 +1167,7 @@ public static class FuwaPracticeTutorial
     const float AirGunScale = 2.2f, AirGunHeight = 1.1f, AirBallUp = 0.45f, AirBallBack = 1.0f;
 
     // ---------- 横風 ----------
-    const float WindStrength = 0.8f;   // 加速度 m/s²（コース1の横風のゆるい時くらい）
+    const float WindStrength = 1.4f;   // 加速度 m/s²（2026-10-09 0.8→1.4 に強く）
     const float WindAimDeg = 30f;      // 風上の台が風上へ向ける角度
 
     // お手本のふわふわが落ちる所（FuwaDemoStand.FixedUpdate と同じ計算。床の高さまで落ちた所）
@@ -1787,7 +1808,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                     Vector3 basePos = islandCenter - along * 1.15f + lat * (shoots ? 0.75f : -0.75f);
                     // ふわふわは銃の横（風の円すいの外）。銃はまものがぷるぷるする所をねらう
                     Vector3 bo = new Vector3(shoots ? -0.45f : 0.45f, -0.35f, 0.15f);
-                    MakeLane(bayRoot, ln, basePos, along, 0.95f, bo, shoots ? new[] { ShotAt } : new float[0], shoots ? new[] { 0f } : new float[0], null, null, false, tmpl, ballSrc, floorTop);
+                    MakeLane(bayRoot, ln, basePos, along, 0.95f, bo, shoots ? new[] { ShotAt } : new float[0], shoots ? new[] { 1f } : new float[0], null, null, false, tmpl, ballSrc, floorTop);
                     var lane = bayRoot.Find(ln); var ds = lane.GetComponent<FuwaDemoStand>();
                     SetUF(ds, "cycleLength", 5.8f);
                     var bs = lane.Find("BallStart"); var gun = lane.Find("DemoGun"); var nz = gun.Find("Nozzle");
@@ -1828,6 +1849,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                     SetUF(dm, "ballHitRadius", enemySrc.ballHitRadius);
                     SetUF(dm, "ballKnockback", enemySrc.ballKnockback); SetUF(dm, "ballKnockUp", enemySrc.ballKnockUp);
                     SetUF(dm, "shotAt", shoots ? ShotAt : -1f);
+                    if (shoots) SetUF(dm, "pushSpeed", 4.2f);   // 撃たれて押し返される速さ（シーンで調整済みだった値。2026-10-10 コードへ）
                     Sync(dm);
                 }
                 break;
