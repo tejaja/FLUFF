@@ -508,9 +508,28 @@ public static class FuwaPracticeTutorial
         log += "\n" + MakeGunSign();
         log += "\ngun shadows " + FuwaGunShadowSetup.Run();   // 見本の銃の本物の影を切って、うそ影の箱を置く
         FuwaFarViewSetup.Run();
+        log += "\nshow near " + WireDemoShowNear();   // 遠景の軽量化のあとで（見本の中の _Far を消す）
         FuwaCourseLite.Run();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         return log;
+    }
+
+    // 見本（FuwaDemoStand）の中身は、止まっている間（プレイヤーが activeRange より遠い間）見た目ごと消す（2026-10-11 てじゃ）。
+    // 消すのはレーンの子のうち見える物・音の出る物（銃・まもの・影・粒など）。島・看板・本物のまもの（PracticeMonster）はそのまま
+    public static string WireDemoShowNear()
+    {
+        int n = 0;
+        foreach (var ds in Object.FindObjectsOfType<FuwaDemoStand>(true))
+        {
+            var list = ds.transform.Cast<Transform>().Where(c => ds.ball == null || c != ds.ball)
+                .Where(c => c.GetComponentsInChildren<Renderer>(true).Length > 0 || c.GetComponentsInChildren<AudioSource>(true).Length > 0).Select(c => c.gameObject).ToArray();
+            ds.showNear = list; UdonSharpEditorUtility.CopyProxyToUdon(ds);
+            // 遠く用の軽い形（遠景の軽量化で作った _Far）はいらない
+            foreach (var far in ds.GetComponentsInChildren<Transform>(true).Where(t => t.name.EndsWith("_Far")).ToList()) Object.DestroyImmediate(far.gameObject);
+            foreach (var g in ds.GetComponentsInChildren<LODGroup>(true).ToList()) { var lods = g.GetLODs(); if (lods.Length == 2 && lods[1].renderers.All(r => r == null)) Object.DestroyImmediate(g); }
+            n += list.Length;
+        }
+        return n.ToString();
     }
 
     static string RunCore()

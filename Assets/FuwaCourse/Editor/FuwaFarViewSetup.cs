@@ -56,6 +56,8 @@ public static class FuwaFarViewSetup
                     list.Add(r); continue;
                 }
                 if (IsDeco(r.transform, root.transform)) { SetCull(r); lod++; }
+                // チュートリアルの見本（FuwaDemoStand の中）は遠くでは見た目ごと消すので、軽い形はいらない（2026-10-11 てじゃ）
+                else if (r is MeshRenderer dm && r.GetComponentInParent<FuwaDemoStand>(true) != null) RemoveFar(dm);
                 else if (r is MeshRenderer mr && IsHeavy(r, scripted))
                 {
                     var f = SetFar(mr, made);

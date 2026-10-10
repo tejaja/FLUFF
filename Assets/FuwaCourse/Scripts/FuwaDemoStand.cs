@@ -69,6 +69,8 @@ public class FuwaDemoStand : UdonSharpBehaviour
     public float vanishTime = 0.35f;
     [Tooltip("この距離(m)より遠くにプレイヤーがいる時は止める")]
     public float activeRange = 14f;
+    [Tooltip("止めている間は見た目ごと消す物（銃・まもの・影など。ふわふわはいつも消える）。島や看板は入れない")]
+    public GameObject[] showNear;
     [Tooltip("ねらった線（銃口からまっすぐ）を、溜め中〜撃った少し後まで見せる。なくてもOK")]
     public LineRenderer aimLine;
     public float aimLineLength = 3.2f;
@@ -155,6 +157,8 @@ public class FuwaDemoStand : UdonSharpBehaviour
     {
         _active = on;
         if (ball != null) ball.gameObject.SetActive(on);
+        // 遠くでは見本の中身を見た目ごと消す（2026-10-11 てじゃ「見えてる必要ないしね、近くだけで」）
+        if (showNear != null) for (int i = 0; i < showNear.Length; i++) if (showNear[i] != null && showNear[i].activeSelf != on) showNear[i].SetActive(on);
         if (!on) StopCharge();
         if (!on && aimLine != null) aimLine.enabled = false;
         if (on) BeginCycle();
