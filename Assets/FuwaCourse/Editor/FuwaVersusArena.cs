@@ -40,6 +40,8 @@ public static class FuwaVersusArena
             var src = lobby.Find(n);
             var g = Object.Instantiate(src.gameObject, arena, true); g.name = n;
             g.transform.position = src.position + ArenaOffset;
+            // 動かない島はまとめて描く（静的バッチだけ。みんなでのエリアは影を焼かないので、Contribute GI は付けない＝リアルタイムの影のまま）
+            foreach (var t in g.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, StaticEditorFlags.BatchingStatic);
         }
         // 真ん中のキノコと、会場のふわふわ
         var mush = Object.Instantiate(lobby.Find("CenterMushroom").gameObject, arena, true); mush.name = "CenterMushroom";
@@ -224,6 +226,12 @@ public static class FuwaVersusArena
         foreach (var t in arena.GetComponentsInChildren<Transform>(true))
             if (t.GetComponentInParent<FuwaSharedBall>() != null || goals.Any(g => t.IsChildOf(g)) || t.IsChildOf(bRoot)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
 
+        // チーム分けの台の動かない物（看板・台・ボタン・柱）もまとめて描く。文字（TMP）は中身が変わるので入れない
+        foreach (Transform c in panel)
+            if (c.name == "Board" || c.name.StartsWith("Pad_") || c.name.StartsWith("Btn_") || c.name == "ButtonPost")
+                foreach (var r in c.GetComponentsInChildren<MeshRenderer>(true))
+                    if (r.GetComponent<TMPro.TextMeshPro>() == null) GameObjectUtility.SetStaticEditorFlags(r.gameObject, StaticEditorFlags.BatchingStatic);
+
         // 新しく足した Udon の同期の種類を、スクリプトの指定（Manual / None）に合わせる（足した直後は Continuous のままになっていた）
         FixSyncModes(arena); FixSyncModes(panel); FixSyncModes(mGo.transform);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lobby.gameObject.scene);
@@ -365,6 +373,8 @@ public static class FuwaVersusArena
         m.SetFloat("_LineFar", 40f);
         m.SetFloat("_LineHeight", 1.2f);
         m.SetFloat("_WallTop", 4f);
+        // 36枚の板を1回の描画にまとめる（GPU インスタンシング）。シェーダーが板ごとの拡大率を使うので、1枚のメッシュにまとめたり静的バッチにはしない
+        m.enableInstancing = true;
         EditorUtility.SetDirty(m);
         return m;
     }
