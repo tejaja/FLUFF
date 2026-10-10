@@ -489,7 +489,7 @@ public class FuwaBlower : UdonSharpBehaviour
 
     // 持ち主の目の高さから銃の大きさを決める。目の高さはVRChatが同期しているので、全員で同じ大きさになる。
     // 風の口（ショットの判定の起点）は見た目の銃口について行く。届く距離・広がり・強さは大きさに関係なく固定。
-    // 撃った風の粒は大きさを打ち消して等倍のまま、溜めの見た目（光る玉・溜めの粒）は銃と一緒に伸び縮みさせる
+    // 撃った風の粒（満タン撃ちの輪なども）は大きさを打ち消して等倍のまま、溜めの見た目（光る玉・溜めの粒・満タンのキラッ）は銃と一緒に伸び縮みさせる
     private void UpdateAutoScale(VRCPlayerApi owner)
     {
         float s = 1f;
@@ -513,7 +513,8 @@ public class FuwaBlower : UdonSharpBehaviour
         }
         if (chargeOrb != null) chargeOrb.localPosition = _orbPos * s;
         if (chargeParticles != null) { chargeParticles.transform.localScale = Vector3.one * s; chargeParticles.transform.localPosition = _chargePsPos * s; }
-        if (fullBurst != null) { fullBurst.transform.localScale = Vector3.one * s; fullBurst.transform.localPosition = _burstPsPos * s; }
+        // 満タン撃ちの輪・霧・光（fullBurst）は撃った風の見た目なので等倍のまま（2026-10-11 てじゃ：ドーナツの一部だけ大きさが変わっていた）
+        if (fullBurst != null) { fullBurst.transform.localScale = Vector3.one; fullBurst.transform.localPosition = _burstPsPos * s; }
         if (chargedSparkle != null) { chargedSparkle.transform.localScale = Vector3.one * s; chargedSparkle.transform.localPosition = _sparklePsPos * s; }
     }
 
