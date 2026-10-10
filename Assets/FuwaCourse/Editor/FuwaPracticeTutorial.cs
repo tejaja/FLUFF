@@ -1615,9 +1615,9 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         Vector3 from = new Vector3(center.x, groundTop + 0.4f, center.z);
         float r = fenceCol.Raycast(new Ray(from, dir), out var hit, 6f) ? hit.distance : 3.2f;
         var b = new GameObject(name).transform; b.SetParent(parent, false);
-        // 柵の内側に、少し上向きに傾けて貼る（柵に向かって立った人が見下ろして読める）
+        // 柵の内側に、まっすぐ立てて貼る（2026-10-11 てじゃ「角度つけるのやめよ」。前は上の端を向こうへ20°倒していた）
         b.position = from + dir * (r - 0.07f) + Vector3.up * 0.12f;
-        b.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(20f, 0f, 0f);   // 上の端を向こうへ倒す（見下ろして読みやすく。-20だと手前に前傾していた）
+        b.rotation = Quaternion.LookRotation(dir);
         // 押した時の処理（Canvas とは別の物に付ける：ここに当たり判定はないのでクリックの「Use」は出ない）
         var iw = UdonSharpUndo.AddComponent<FuwaInteractWarp>(b.gameObject);
         SetU(iw, "warp", warp); Sync(iw);
@@ -1629,6 +1629,9 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         crt.sizeDelta = new Vector2(1250f, 330f);
         var box = cv.GetComponent<BoxCollider>(); if (box != null) { box.size = new Vector3(1250f, 330f, 20f); box.center = Vector3.zero; }
         var btn = cv.GetComponentInChildren<UnityEngine.UI.Button>(true);
+        // 角丸の板（9スライス）：角の大きさを高さのちょうど半分に（コピー元は高さ400用。330のままだと角が縮んで両はしの半円がつぶれる）
+        var bim = btn.GetComponent<UnityEngine.UI.Image>();
+        bim.pixelsPerUnitMultiplier = bim.sprite.border.y * 100f / (bim.sprite.pixelsPerUnit * 330f * 0.5f);
         var seg = btn.transform.Find("Seg"); if (seg != null) Object.DestroyImmediate(seg.gameObject);   // ON/OFF の切り替え表示はいらない
         var text = btn.transform.Find("Text").GetComponent<TMPro.TextMeshProUGUI>(); text.gameObject.SetActive(true);
         text.text = ja; text.fontSize = 150f; text.alignment = TMPro.TextAlignmentOptions.Center;
