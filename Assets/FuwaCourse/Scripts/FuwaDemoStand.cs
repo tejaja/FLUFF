@@ -71,6 +71,8 @@ public class FuwaDemoStand : UdonSharpBehaviour
     public float activeRange = 14f;
     [Tooltip("止めている間は見た目ごと消す物（銃・まもの・影など。ふわふわはいつも消える）。島や看板は入れない")]
     public GameObject[] showNear;
+    [Tooltip("ふわふわの尾（本物のふわふわと同じ TrailRenderer）。出し直す時に消して、弾けたら止める")]
+    public TrailRenderer ballTrail;
     [Tooltip("ねらった線（銃口からまっすぐ）を、溜め中〜撃った少し後まで見せる。なくてもOK")]
     public LineRenderer aimLine;
     public float aimLineLength = 3.2f;
@@ -248,6 +250,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         _dampStart = -10f; _dampGlow = 0f;
         StopCharge();
         if (ballStart != null) { ball.position = ballStart.position; ball.rotation = ballStart.rotation; }
+        if (ballTrail != null) { ballTrail.Clear(); ballTrail.emitting = true; }
     }
 
     // 狙う所：ふわふわの中心＋（銃から見た）ずれ
@@ -543,6 +546,7 @@ public class FuwaDemoStand : UdonSharpBehaviour
         _v = Vector3.zero;
         _flying = false;
         _popped = true;
+        if (ballTrail != null) ballTrail.emitting = false;
         if (popEffect != null) { popEffect.transform.position = p; popEffect.Play(); }
         if (popSound != null) { popSound.transform.position = p; popSound.Play(); }
     }

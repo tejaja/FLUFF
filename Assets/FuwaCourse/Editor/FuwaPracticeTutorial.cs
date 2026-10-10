@@ -534,7 +534,18 @@ public static class FuwaPracticeTutorial
         {
             var list = ds.transform.Cast<Transform>().Where(c => ds.ball == null || c != ds.ball)
                 .Where(c => c.GetComponentsInChildren<Renderer>(true).Length > 0 || c.GetComponentsInChildren<AudioSource>(true).Length > 0).Select(c => c.gameObject).ToArray();
-            ds.showNear = list; UdonSharpEditorUtility.CopyProxyToUdon(ds);
+            ds.showNear = list;
+            // 見本のふわふわにも本物と同じ尾（2026-10-11 てじゃ）
+            if (ds.ball != null)
+            {
+                var realTrail = Object.FindObjectsOfType<FuwaBall>(true).First(b => b.name == "FuwaBall").GetComponent<TrailRenderer>();
+                var tr = ds.ball.GetComponent<TrailRenderer>();
+                if (tr == null) tr = ds.ball.gameObject.AddComponent<TrailRenderer>();
+                if (realTrail != null) EditorUtility.CopySerialized(realTrail, tr);
+                tr.emitting = true;
+                ds.ballTrail = tr;
+            }
+            UdonSharpEditorUtility.CopyProxyToUdon(ds);
             // 遠く用の軽い形（遠景の軽量化で作った _Far）はいらない
             foreach (var far in ds.GetComponentsInChildren<Transform>(true).Where(t => t.name.EndsWith("_Far")).ToList()) Object.DestroyImmediate(far.gameObject);
             foreach (var g in ds.GetComponentsInChildren<LODGroup>(true).ToList()) { var lods = g.GetLODs(); if (lods.Length == 2 && lods[1].renderers.All(r => r == null)) Object.DestroyImmediate(g); }
