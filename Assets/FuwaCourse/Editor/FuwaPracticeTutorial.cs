@@ -1632,6 +1632,9 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         var seg = btn.transform.Find("Seg"); if (seg != null) Object.DestroyImmediate(seg.gameObject);   // ON/OFF の切り替え表示はいらない
         var text = btn.transform.Find("Text").GetComponent<TMPro.TextMeshProUGUI>(); text.gameObject.SetActive(true);
         text.text = ja; text.fontSize = 150f; text.alignment = TMPro.TextAlignmentOptions.Center;
+        // 「説明」の漢字が Darumadrop One にないので、ボタン全体を Yusei Magic にそろえる（2026-10-11 てじゃ）
+        text.font = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/YuseiMagic SDF Dyn.asset");
+        text.fontSharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Fonts/YuseiMagic UI.mat");
         // onClick を付け替える（元は HUD の切り替え）
         while (btn.onClick.GetPersistentEventCount() > 0) UnityEditor.Events.UnityEventTools.RemovePersistentListener(btn.onClick, 0);
         UnityEditor.Events.UnityEventTools.AddStringPersistentListener(btn.onClick, new UnityEngine.Events.UnityAction<string>(ub.SendCustomEvent), "Press");
