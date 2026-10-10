@@ -506,6 +506,7 @@ public static class FuwaPracticeTutorial
         log += "\n" + RebuildBarriers();
         log += "\n" + RebuildWindOnly();   // 風の範囲は次の区画の膜まで（膜のあとで）
         log += "\n" + MakeGunSign();
+        log += "\ngun shadows " + FuwaGunShadowSetup.Run();   // 見本の銃の本物の影を切って、うそ影の箱を置く
         FuwaFarViewSetup.Run();
         FuwaCourseLite.Run();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());

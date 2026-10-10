@@ -487,6 +487,10 @@ public class FuwaBlower : UdonSharpBehaviour
         }
     }
 
+    // うそ影（FuwaGunShadows）用：見た目の根元と、いま見えているか
+    public Transform GetVisual() { return visualRoot != null ? visualRoot.transform : transform; }
+    public bool IsGunShown() { return visualRoot != null && visualRoot.activeInHierarchy && !(_summonHidden && !_held); }
+
     // 持ち主の目の高さから銃の大きさを決める。目の高さはVRChatが同期しているので、全員で同じ大きさになる。
     // 風の口（ショットの判定の起点）は見た目の銃口について行く。届く距離・広がり・強さは大きさに関係なく固定。
     // 撃った風の粒（満タン撃ちの輪なども）は大きさを打ち消して等倍のまま、溜めの見た目（光る玉・溜めの粒・満タンのキラッ）は銃と一緒に伸び縮みさせる
