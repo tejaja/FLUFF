@@ -1132,6 +1132,8 @@ public static class FuwaPracticeTutorial
             var go = t.gameObject;
             if (go.GetComponent<FuwaDemoStand>() != null || go.GetComponentInParent<FuwaDemoStand>() != null) { GameObjectUtility.SetStaticEditorFlags(go, 0); continue; }
             if (go.GetComponentInParent<FuwaEnemy>() != null) { GameObjectUtility.SetStaticEditorFlags(go, 0); continue; }   // まものは動く
+            // 銃の台はコピー元の設定のまま。本体（Invisible のハイライト用の形）をまとめ描きすると、VRChat の近づいた時の縁取りが崩れる（2026-10-11）
+            if (go.GetComponentInParent<FuwaGunStand>() != null) continue;
             var deco = go.GetComponentInParent<FuwaWindDeco>();   // 吹き流しの布・かざぐるまの羽は動く（柱だけ静的でよい）
             if (deco != null && ((deco.sock != null && t.IsChildOf(deco.sock)) || (deco.head != null && t.IsChildOf(deco.head)) || (deco.rotor != null && t.IsChildOf(deco.rotor)))) { GameObjectUtility.SetStaticEditorFlags(go, 0); continue; }
 

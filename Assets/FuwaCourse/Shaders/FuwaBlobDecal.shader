@@ -41,6 +41,7 @@ Shader "FuwaCourse/BlobDecal"
                 float3 worldPos : TEXCOORD1;
                 float eyeDepth : TEXCOORD2;
                 UNITY_FOG_COORDS(3)
+                UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -48,6 +49,7 @@ Shader "FuwaCourse/BlobDecal"
             {
                 v2f o;
                 UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_TRANSFER_INSTANCE_ID(v, o);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.screenPos = ComputeScreenPos(o.pos);
@@ -59,6 +61,9 @@ Shader "FuwaCourse/BlobDecal"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                // 同じ材質の箱がまとめて描かれる（GPU インスタンシング）時も、その箱自身の座標を使う。
+                // これが無いと、まとめられた2個目以降の箱がよその箱の座標で判定して消えていた（2026-10-11 見本の銃の影が視線で消えた）
+                UNITY_SETUP_INSTANCE_ID(i);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float raw = SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos));
                 float sceneDepth = LinearEyeDepth(raw);
