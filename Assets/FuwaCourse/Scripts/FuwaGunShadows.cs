@@ -23,6 +23,9 @@ public class FuwaGunShadows : UdonSharpBehaviour
     [Tooltip("自分からこれより遠い銃の影は出さない(m)")]
     public float maxView = 40f;
     public int refreshFrames = 30;
+    [Tooltip("影だけ落とす見えない極小の物。毎フレーム自分の目の前に置く（下の説明）")]
+    public Transform depthKeeper;
+    public float depthKeeperAhead = 0.4f;
 
     private VRCPlayerApi[] _players = new VRCPlayerApi[96];
     private FuwaBlower[] _blowers = new FuwaBlower[96];
@@ -74,6 +77,14 @@ public class FuwaGunShadows : UdonSharpBehaviour
         if (_frame-- <= 0) { _frame = refreshFrames; Refresh(); }
         VRCPlayerApi me = Networking.LocalPlayer;
         Vector3 mePos = me != null ? me.GetPosition() : Vector3.zero;
+        // うそ影（BlobDecal）はカメラの深度テクスチャで地面に描く。VRChat は「画面の中にリアルタイムの影を落とす物が1つも無い」と
+        // 影の処理ごと深度を作らないので、向きによって全部のうそ影が消えた（2026-10-11、銃の本物の影を切った後）。
+        // 影だけ落とす見えない極小の物を、いつも自分の目の前に置いておく
+        if (depthKeeper != null && me != null)
+        {
+            VRCPlayerApi.TrackingData head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
+            depthKeeper.position = head.position + head.rotation * Vector3.forward * depthKeeperAhead;
+        }
         int used = 0;
         for (int i = 0; i < _count && used < shadows.Length; i++)
         {

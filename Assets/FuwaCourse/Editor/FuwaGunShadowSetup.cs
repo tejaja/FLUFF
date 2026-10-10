@@ -69,12 +69,26 @@ public static class FuwaGunShadowSetup
 
         // みんなの銃のうそ影（シーン側に人数ぶん）
         var sys = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "FuwaSystem" && t.parent == null);
-        var old = sys.Find("GunShadows"); if (old != null) Object.DestroyImmediate(old.gameObject);
-        var holder = new GameObject("GunShadows"); holder.transform.SetParent(sys, false);
+        // 本体（Udon）は作り直さない（作り直すとネットワークIDの一覧に消えた物が残ってビルドが止まる）。中の箱だけ作り直す
+        var ht = sys.Find("GunShadows");
+        var holder = ht != null ? ht.gameObject : new GameObject("GunShadows");
+        holder.transform.SetParent(sys, false);
+        foreach (Transform ch in holder.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject);
         var rs = new Renderer[Count];
         for (int i = 0; i < Count; i++) rs[i] = Box(holder.transform, "Shadow" + i, cube, mat);
-        var gs = UdonSharpUndo.AddComponent<FuwaGunShadows>(holder);
-        gs.blowerTemplate = tmpl; gs.shadows = rs; gs.size = Size; gs.alpha = Alpha;
+        // 深度を作らせるための、影だけ落とす見えない極小の箱（FuwaGunShadows が毎フレーム目の前に置く）
+        var keeper = GameObject.CreatePrimitive(PrimitiveType.Cube); keeper.name = "DepthKeeper";
+        Object.DestroyImmediate(keeper.GetComponent<Collider>());
+        keeper.transform.SetParent(holder.transform, false); keeper.transform.localScale = Vector3.one * 0.004f;
+        keeper.layer = 0;
+        var kr = keeper.GetComponent<MeshRenderer>();
+        kr.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
+        kr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly; kr.receiveShadows = false;
+        kr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; kr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+        GameObjectUtility.SetStaticEditorFlags(keeper, 0);
+        var gs = holder.GetComponent<FuwaGunShadows>();
+        if (gs == null) gs = UdonSharpUndo.AddComponent<FuwaGunShadows>(holder);
+        gs.blowerTemplate = tmpl; gs.shadows = rs; gs.size = Size; gs.alpha = Alpha; gs.depthKeeper = keeper.transform;
         UdonSharpEditorUtility.CopyProxyToUdon(gs);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(gs);
         var so = new SerializedObject(ub); so.FindProperty("_syncMethod").intValue = (int)VRC.SDKBase.Networking.SyncType.None; so.ApplyModifiedPropertiesWithoutUndo();
@@ -122,6 +136,7 @@ public static class FuwaGunShadowSetup
             box.enabled = true;
             n++;
         }
+        FuwaPracticeTutorial.WireDemoShowNear();   // 作り直した GunShadow を「近くだけ見せる物」に入れ直す
         return n.ToString();
     }
 
