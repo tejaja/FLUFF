@@ -32,6 +32,7 @@ public static class FuwaPracticeTutorial
         public Bay(float s, string key, string ja, string en) { this.s = s; this.key = key; this.ja = ja; this.en = en; }
     }
     const float BaySpan = 11f;   // 区画の長さ（となりの区画との間隔。さかいめに壁が1枚）
+    const float SignAlong = 1.0f;   // 見本島の看板：島の中心から道に沿って先へ
     static readonly Bay[] Bays =
     {
         new Bay(7.5f, "TapCharge",
@@ -327,7 +328,7 @@ public static class FuwaPracticeTutorial
     public static string RebuildPathOnly()
     {
         _pathOnly = true;
-        try { Run(); } finally { _pathOnly = false; }
+        try { RunCore(); } finally { _pathOnly = false; }
         var course = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
         var pathGo = course.Find(RootName + "/TutorialPath");
         Mesh SaveMesh(Mesh m, string path)
@@ -351,7 +352,7 @@ public static class FuwaPracticeTutorial
     public static string RebuildBarriers()
     {
         _pathOnly = true;
-        try { Run(); } finally { _pathOnly = false; }
+        try { RunCore(); } finally { _pathOnly = false; }
         var course = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
         var root = course.Find(RootName);
         int n = 0;
@@ -454,7 +455,7 @@ public static class FuwaPracticeTutorial
     public static string RebuildWindOnly()
     {
         _pathOnly = true;
-        try { Run(); } finally { _pathOnly = false; }
+        try { RunCore(); } finally { _pathOnly = false; }
         var course = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
         var bay = course.Find(RootName + "/Bay_Wind");
         var oldZone = bay.Find("WindZone").GetComponent<FuwaWindArea>();
@@ -497,7 +498,21 @@ public static class FuwaPracticeTutorial
         return "wind rebuilt " + (s1 - s0).ToString("F1") + "m from island start";
     }
 
+    // 丸ごと作り直す。あとから足したメニューの分（区画の膜・風の範囲・入口のエアガンの看板・遠景の軽い形・軽い版）も続けてやる。
+    // 2026-10-10：RunCore だけで作り直したら膜・エアガンの看板・遠景の軽い形が消えて、看板の位置も古いのに戻っていた（てじゃが気づいた）
     public static string Run()
+    {
+        var log = RunCore();
+        log += "\n" + RebuildBarriers();
+        log += "\n" + RebuildWindOnly();   // 風の範囲は次の区画の膜まで（膜のあとで）
+        log += "\n" + MakeGunSign();
+        FuwaFarViewSetup.Run();
+        FuwaCourseLite.Run();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        return log;
+    }
+
+    static string RunCore()
     {
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         var course = scene.GetRootGameObjects().First(g => g.name == Course).transform;
@@ -781,9 +796,33 @@ public static class FuwaPracticeTutorial
             Vector3 ic = c + outw * (HalfW + 1.6f - 0.25f);
             var isl = Island("Island", ic, false); isl.SetParent(bayRoot, true);
             BuildDemo(bayRoot, bay.key, ic, f, outw, f, blowerTmpl, ball, log);
-            if (bay.key == "Wind") MakeWindZone(bayRoot, pts, dist, S(bayS[bi]), -outw, course, log, BaySpan - 0.4f, HalfW, WindStrength, "Tutorial_WindHighlight");
-            // 看板：区画の手前（入口側）、お手本の島の側の道のふちに立てて、来る人の方を向く
-            MakeSign(bayRoot, c - f * 3.4f + outw * (HalfW - 0.35f), (f + outw * 0.45f).normalized, bay.ja, bay.en, signSrc, lang);
+            if (bay.key == "Wind")
+            {
+                MakeWindZone(bayRoot, pts, dist, S(bayS[bi]), -outw, course, log, BaySpan - 0.4f, HalfW, WindStrength, "Tutorial_WindHighlight");
+                // 吹き流し（かぜのみちの Windsock0 のコピー）：お手本の島の上、道から遠い側（風上）。風下＝道の方を向く
+                var wsSrc = Object.FindObjectsOfType<FuwaWindDeco>(true).FirstOrDefault(w => w.name == "Windsock0");
+                if (wsSrc != null)
+                {
+                    var ws = Object.Instantiate(wsSrc.gameObject, bayRoot, false); ws.name = "Windsock"; ws.SetActive(true);
+                    var wp = ic + outw * 1.56f; ws.transform.position = new Vector3(wp.x, IslandTop, wp.z);
+                    ws.transform.rotation = Quaternion.LookRotation(-outw);
+                    var wd = ws.GetComponent<FuwaWindDeco>();
+                    SetU(wd, "wind", bayRoot.Find("WindZone").GetComponent<FuwaWindArea>());
+                    var wso = new SerializedObject(wd);
+                    wso.FindProperty("fixedDirection").vector3Value = -outw;
+                    wso.FindProperty("droopAway").vector3Value = outw;   // 風がない時は道と反対へ垂れる
+                    wso.ApplyModifiedPropertiesWithoutUndo();
+                    Sync(wd);
+                }
+            }
+            // 看板：お手本の島のすぐ横（島のふちから10cm、島の中心より1m先）の道の上。来る人の方へ少し外向き（12°）
+            // （2026-10-09 にシーンだけで動かしていたのを 2026-10-10 に作り直しへ入れた。作り直しで手前に戻ってしまったので）
+            {
+                float ir = isl.Find("Ground").GetComponent<Renderer>().bounds.extents.x;
+                Vector3 sp = ic + f * SignAlong - outw * Mathf.Sqrt(Mathf.Max(0f, (ir + 0.1f) * (ir + 0.1f) - SignAlong * SignAlong));
+                MakeSign(bayRoot, sp, Quaternion.AngleAxis(12f, Vector3.up) * f, bay.ja, bay.en, signSrc, lang);
+                var sg = bayRoot.Find("Sign"); sg.position = new Vector3(sg.position.x, Top - 0.02f, sg.position.z);
+            }
             // ためし撃ちの場所（区画のまん中の少し手前）と、そこへふわふわを呼ぶ範囲（区画まるごと）
             var trySpot = new GameObject("TrySpot").transform; trySpot.SetParent(bayRoot, false);
             At(pts, dist, S(bayS[bi] - 0.5f), out var tc, out var tf);
