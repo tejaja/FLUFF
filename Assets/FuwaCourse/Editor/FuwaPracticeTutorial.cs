@@ -1635,6 +1635,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         // 「説明」の漢字が Darumadrop One にないので、ボタン全体を Yusei Magic にそろえる（2026-10-11 てじゃ）
         text.font = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/YuseiMagic SDF Dyn.asset");
         text.fontSharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Fonts/YuseiMagic UI.mat");
+        var tm = text.margin; tm.w = -6f; text.margin = tm;   // 下の余白は Darumadrop 用（57）だと文字が上にずれる。Yusei はこれで上下まん中
         // onClick を付け替える（元は HUD の切り替え）
         while (btn.onClick.GetPersistentEventCount() > 0) UnityEditor.Events.UnityEventTools.RemovePersistentListener(btn.onClick, 0);
         UnityEditor.Events.UnityEventTools.AddStringPersistentListener(btn.onClick, new UnityEngine.Events.UnityAction<string>(ub.SendCustomEvent), "Press");
