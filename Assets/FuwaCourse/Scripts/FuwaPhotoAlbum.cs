@@ -70,6 +70,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     public float feedRange = 0.9f;
 
     private RenderTexture[] _photos;
+    private RenderTexture _renderRT;   // 描く用（奥行きつき、共用の1枚）
     private bool[] _has;
     private FuwaPhotoPoint[] _pointOf;
     private int _boardCourse = -1;
@@ -223,21 +224,29 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             shotCam.fieldOfView = point.fieldOfView;
         }
 
+        // 写真は色だけ（奥行きなし）で持つ。描く時だけ、奥行きつきの共用の1枚に描いてから写す（メモリ半分）
+        int ph = photoWidth * 9 / 16;
         RenderTexture rt = _photos[slot];
         if (rt == null)
         {
-            rt = new RenderTexture(photoWidth, photoWidth * 9 / 16, 24);
+            rt = new RenderTexture(photoWidth, ph, 0);
             rt.Create();
             _photos[slot] = rt;
+        }
+        if (_renderRT == null)
+        {
+            _renderRT = new RenderTexture(photoWidth, ph, 24);
+            _renderRT.Create();
         }
 
         // HUDなどを隠して1枚だけ描く
         bool[] was = new bool[hideWhileShooting != null ? hideWhileShooting.Length : 0];
         for (int i = 0; i < was.Length; i++) { Renderer r = hideWhileShooting[i]; if (r != null) { was[i] = r.enabled; r.enabled = false; } }
-        shotCam.targetTexture = rt;
+        shotCam.targetTexture = _renderRT;
         shotCam.aspect = 16f / 9f;
         shotCam.Render();
         shotCam.targetTexture = null;
+        VRCGraphics.Blit(_renderRT, rt);
         for (int i = 0; i < was.Length; i++) { Renderer r = hideWhileShooting[i]; if (r != null) r.enabled = was[i]; }
 
         _has[slot] = true;
