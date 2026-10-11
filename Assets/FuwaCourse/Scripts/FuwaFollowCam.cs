@@ -95,6 +95,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
     private float _nextList;
     private int[] _ids = new int[0];
     private bool _feedOn;
+    private FuwaGhost _watchedGhost;
     private bool _inZone;
     private Vector3 _dir = Vector3.forward;
     private Vector3 _focus;
@@ -268,6 +269,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (feedRenderer != null && feedRenderer.enabled != feedOn) feedRenderer.enabled = feedOn;
         if (!run)
         {
+            if (_watchedGhost != null) { _watchedGhost.watched = false; _watchedGhost = null; }
             if (monitorFluff != null && monitorFluff.gameObject.activeSelf) monitorFluff.gameObject.SetActive(false);
             return;
         }
@@ -306,6 +308,13 @@ public class FuwaFollowCam : UdonSharpBehaviour
         float eye = who.GetAvatarEyeHeightAsMeters();
         Vector3 p = who.GetPosition() + Vector3.up * (eye * 0.6f);
 
+        // 映している人の分身は、見えていなくても毎フレーム動かしてもらう
+        if (ghost != _watchedGhost)
+        {
+            if (_watchedGhost != null) _watchedGhost.watched = false;
+            _watchedGhost = ghost;
+            if (ghost != null) ghost.watched = true;
+        }
         Transform tgt = null;
         bool ghostShown = false;
         if (who == lp) tgt = FindTarget(p);

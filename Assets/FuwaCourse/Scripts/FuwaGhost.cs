@@ -25,6 +25,13 @@ public class FuwaGhost : UdonSharpBehaviour
     [Tooltip("各コースのふわふわのスタート地点（FuwaCourseLod.starts と同じ）")]
     public Transform[] courseStarts;
     public FuwaAreaVisibility areaVisibility;
+    [Header("見る側の計算を減らす（2026-10-12 てじゃ）")]
+    [Tooltip("これより遠い分身は、数フレームに1回だけ動かす(m)")]
+    public float farDistance = 60f;
+    [Tooltip("遠い分身を動かす間隔（フレーム）")]
+    public int farEvery = 4;
+    [HideInInspector] public bool watched;   // おっかけカメラで映している（いつも毎フレーム動かす）
+    private int _frame;
     private bool _pWaiting;
     private bool _shownHidden;
 
@@ -188,6 +195,18 @@ public class FuwaGhost : UdonSharpBehaviour
 
     public bool IsMine() { return _isMine; }
 
+    // 見る側：見えていない間は動かさない（隠れている・浮いて待っている・まだ届いていない）。遠い時はときどきだけ。映している時はいつも
+    private bool NeedViewUpdate()
+    {
+        if (watched) return true;
+        if (_hidden || _waiting || !_hasSample) return false;
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        if (lp == null) return true;
+        if ((lp.GetPosition() - transform.position).sqrMagnitude < farDistance * farDistance) return true;
+        _frame++;
+        return _frame % Mathf.Max(1, farEvery) == 0;
+    }
+
     private int CourseOf(FuwaBall b)
     {
         if (b == null || courseStarts == null) return -1;
@@ -259,7 +278,7 @@ public class FuwaGhost : UdonSharpBehaviour
         if (shield != null && shield.activeSelf != _shielded) shield.SetActive(_shielded);
 
         if (_isMine && ball != null) OwnerUpdate();
-        else if (!_isMine) ViewUpdate();
+        else if (!_isMine && NeedViewUpdate()) ViewUpdate();
         if (!_isMine)
         {
             // 他のコース・ロビーの人の分身も出す（遠くで小さく飛んでいるのが見えるとにぎやか。負荷は小さい。てじゃ）。同じコースかは SameCourseAsMe で分かる
