@@ -6,7 +6,7 @@ using VRC.SDKBase;
 
 // ふわふわ追っかけカメラ＝写真館のモニター（自分にだけ、同期なし、保存なし）。2026-10-11 てじゃの仕様で作り直し：
 // ・写真館のモニターに「選んだ人（自分か、ひとりでモードにいる人）」のふわふわを追う映像を映す
-// ・CAMボタンで OFF → 後ろ → 右横 → 左横 → 上。OFF の時はモニターも消える（映像を止める）。最初は OFF
+// ・CAMボタンで OFF → 上 → 右横 → 左横 → 後ろ。OFF の時はモニターも消える（映像を止める）。最初は OFF
 // ・モニターの横の半透明の球（zone）に VRChatカメラ（写真・ストリーム）を入れている間だけ、カメラの映像＝モニターの映像
 //   （ワールドからはVRChatカメラを動かせないので、映像をテクスチャに描いてレンズの前の板 feed（Fuwa/PhotoCamFeed）で画面いっぱいに貼る）
 // ・他の人のふわふわは、自分の画面では半透明の分身（FuwaGhost）。モニターのカメラには分身を写さず（分身は別レイヤー）、
@@ -90,7 +90,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
     public Transform monitorFluff;
     public TrailRenderer monitorFluffTrail;
 
-    private int _mode;   // 0=OFF 1=後ろ 2=右横 3=左横 4=上
+    private int _mode;   // 0=OFF 1=上 2=右横 3=左横 4=後ろ（てじゃ「TOPとBACKの順番入れ替え」）
     private int _targetId = -1;   // 映す人の playerId（-1＝自分）
     private float _nextList;
     private int[] _ids = new int[0];
@@ -209,7 +209,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
 
     private void UpdateLabels()
     {
-        string s = _mode == 1 ? "BACK" : _mode == 2 ? "SIDE R" : _mode == 3 ? "SIDE L" : _mode == 4 ? "TOP" : "OFF";
+        string s = _mode == 1 ? "TOP" : _mode == 2 ? "SIDE R" : _mode == 3 ? "SIDE L" : _mode == 4 ? "BACK" : "OFF";
         if (modeTexts != null)
             foreach (TextMeshProUGUI t in modeTexts) if (t != null) { t.text = s; t.color = _mode != 0 ? activeTextColor : idleTextColor; }
         if (modePills != null)
@@ -345,7 +345,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
         Vector3 right = Vector3.Cross(Vector3.up, _dir).normalized;
 
         Vector3 want;
-        if (_mode == 1) want = p - _dir * (2.6f + sep * 0.25f) + Vector3.up * (1.2f + sep * 0.12f);
+        if (_mode == 4) want = p - _dir * (2.6f + sep * 0.25f) + Vector3.up * (1.2f + sep * 0.12f);
         else if (_mode == 2 || _mode == 3)
         {
             float side = _mode == 2 ? 1f : -1f;
