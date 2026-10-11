@@ -110,11 +110,11 @@ public static class FuwaMonitorBuilder
         var bspot = studio.Find("ButtonSpot");
         var cam = studio.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "CamButton" && t.Find("Canvas") != null);
         cam.SetParent(studio, true);
-        cam.SetPositionAndRotation(bspot.position + Vector3.up * 0.95f, bspot.rotation);
+        cam.SetPositionAndRotation(bspot.position + Vector3.up * 0.80f, bspot.rotation);   // ボタンの高さ 0.29m、すき間 6cm（てじゃ「やや下げる・隙間もへらそう」）
         var oldP = studio.Find("TargetButton"); if (oldP != null) Object.DestroyImmediate(oldP.gameObject);
         var person = Object.Instantiate(cam.gameObject, studio).transform;
         person.name = "TargetButton";
-        person.SetPositionAndRotation(bspot.position + Vector3.up * 1.45f, bspot.rotation);
+        person.SetPositionAndRotation(bspot.position + Vector3.up * 1.15f, bspot.rotation);
         person.localScale = cam.localScale;
         var icon = person.Find("Canvas/Button/Seg/Icon").GetComponent<Image>();
         var pimp = (TextureImporter)AssetImporter.GetAtPath(PersonIconPath);
@@ -129,7 +129,7 @@ public static class FuwaMonitorBuilder
         var zspot = studio.Find("ZoneSpot");
         var oldZ = studio.Find("CamZone"); if (oldZ != null) Object.DestroyImmediate(oldZ.gameObject);
         var zone = new GameObject("CamZone").transform; zone.SetParent(studio, false);
-        zone.SetPositionAndRotation(zspot.position + Vector3.up * 1.45f, zspot.rotation);
+        zone.SetPositionAndRotation(zspot.position + Vector3.up * 0.9f, zspot.rotation);   // 地面寄り（てじゃ）
         var ball = GameObject.CreatePrimitive(PrimitiveType.Sphere); ball.name = "Ball";
         Object.DestroyImmediate(ball.GetComponent<Collider>());
         ball.transform.SetParent(zone, false); ball.transform.localScale = Vector3.one * 0.9f;
@@ -141,7 +141,7 @@ public static class FuwaMonitorBuilder
         }
         var br = ball.GetComponent<MeshRenderer>(); br.sharedMaterial = zmat;
         br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; br.receiveShadows = false;
-        var hint = Text(zone, "Hint", srcText, new Vector3(0f, -0.62f, 0f), new Vector2(1.4f, 0.4f), 0.9f);
+        var hint = Text(zone, "Hint", srcText, new Vector3(0f, 0.66f, 0f), new Vector2(1.4f, 0.4f), 0.9f);   // 説明は球の上
         const string hintJa = "VRChatカメラを入れると\nモニターの映像になるよ", hintEn = "Put your VRChat camera here\nto film the monitor view";
         hint.text = hintJa;
         // 球の上にカメラの絵
