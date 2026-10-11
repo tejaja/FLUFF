@@ -50,7 +50,17 @@ public class FuwaCourseWarp : UdonSharpBehaviour
     public AudioClip enterClip;
     [Tooltip("輪っかから上へ伸びて体を包む光の幕（FuwaCourse/WarpVeil。なくてもOK）")]
     public Renderer progressVeil;
+    [Tooltip("目の前に出す丸いゲージ（FuwaCourse/ProgressRing の縦の板。なくてもOK）。乗った瞬間の向きで、目の高さ・正面に置く（視界には張り付かない）")]
+    public Renderer gauge;
+    [Tooltip("ゲージを頭からどれだけ前に置くか(m)")]
+    public float gaugeDistance = 0.7f;
+    [Tooltip("ゲージの大きさ(m)")]
+    public float gaugeSize = 0.32f;
+    [Tooltip("正面の幕が立ち上がる時間(秒)")]
+    public float frontRiseTime = 0.3f;
     private float _dwellStart = -1f;
+    private Material _gaugeMat;
+    private float _front;
     private float _shownFill = 0f;
     private float _holdFullUntil = 0f;
     private Material _ringMat;
@@ -62,6 +72,7 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         if (dwellTime <= 0f) { WarpLocalPlayer(); return; }
         _dwellStart = Time.time;
         SetStartFromView(player);
+        PlaceGauge(player);
         if (chargeSound != null)
         {
             chargeSound.Stop();
@@ -104,6 +115,23 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         }
     }
 
+    // 目の前のゲージを、乗った瞬間の頭の位置・向きで置く（その後は動かさない）
+    private void PlaceGauge(VRCPlayerApi player)
+    {
+        if (gauge == null) return;
+        VRCPlayerApi.TrackingData head = player.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
+        Vector3 fwd = head.rotation * Vector3.forward; fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.0001f) fwd = Vector3.forward;
+        fwd.Normalize();
+        Transform g = gauge.transform;
+        g.position = head.position + fwd * gaugeDistance + Vector3.down * 0.05f;
+        g.rotation = Quaternion.LookRotation(fwd, Vector3.up);   // 板の表（-z）が自分の方を向く
+        g.localScale = Vector3.zero;
+        if (_gaugeMat == null) _gaugeMat = gauge.material;
+        _gaugeMat.SetFloat("_Fill", 0f);
+        gauge.enabled = true;
+    }
+
     private void SetFill(float f)
     {
         _shownFill = f;
@@ -116,8 +144,34 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         {
             if (_veilMat == null) _veilMat = progressVeil.material;
             _veilMat.SetFloat("_Fill", f);
-            progressVeil.enabled = f > 0.001f;
+            progressVeil.enabled = f > 0.001f || _front > 0.001f;
         }
+        if (gauge != null && _gaugeMat != null) _gaugeMat.SetFloat("_Fill", f);
+    }
+
+    // 正面の幕（乗った瞬間にふわっと立ち上がる）とゲージの出し入れ
+    private void SetFront(float v)
+    {
+        _front = v;
+        if (progressVeil != null)
+        {
+            if (_veilMat == null) _veilMat = progressVeil.material;
+            _veilMat.SetFloat("_Front", v);
+            progressVeil.enabled = v > 0.001f || _shownFill > 0.001f;
+        }
+        if (gauge != null)
+        {
+            float s = gaugeSize * Pop(v);
+            gauge.transform.localScale = new Vector3(-s, s, s);   // 左右反転：見る人から見て時計回りに満ちる
+            gauge.enabled = v > 0.001f;
+        }
+    }
+
+    private float Pop(float x)
+    {
+        if (x <= 0f) return 0f;
+        if (x >= 1f) return 1f;
+        return Mathf.Sin(x * Mathf.PI * 0.5f) * (1f + 0.15f * Mathf.Sin(x * Mathf.PI));
     }
 
     private void Update()
@@ -125,8 +179,10 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         if (_dwellStart < 0f)
         {
             if (_shownFill > 0f && Time.time > _holdFullUntil) SetFill(Mathf.Max(0f, _shownFill - Time.deltaTime * 3f));
+            if (_front > 0f && Time.time > _holdFullUntil) SetFront(Mathf.Max(0f, _front - Time.deltaTime * 4f));
             return;
         }
+        SetFront(Mathf.Clamp01((Time.time - _dwellStart) / Mathf.Max(0.01f, frontRiseTime)));
         float p = (Time.time - _dwellStart) / Mathf.Max(0.01f, dwellTime);
         SetFill(Mathf.Clamp01(p));
         if (p < 1f) return;
@@ -139,6 +195,7 @@ public class FuwaCourseWarp : UdonSharpBehaviour
     {
         _dwellStart = -1f;
         SetFill(0f);
+        SetFront(0f);
     }
 
     private void OnDisable()

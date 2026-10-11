@@ -1,4 +1,4 @@
-// ワープのポータルに乗っている間の「光の幕」。床の輪っか(ProgressRing)の位置から上へ伸びる筒に貼る。
+﻿// ワープのポータルに乗っている間の「光の幕」。床の輪っか(ProgressRing)の位置から上へ伸びる筒に貼る。
 // uv.x = 輪っかと同じ角度(0〜1、たまっていく向き)、uv.y = 高さ(0=足元〜1=てっぺん)。
 // _Fill の分だけ足元からぐるっと回り込みながら幕が立ち上がり、満タンで体を一周包む。下が明るく上ほど薄い、縦に流れるすじ模様。
 Shader "FuwaCourse/WarpVeil"
@@ -11,6 +11,8 @@ Shader "FuwaCourse/WarpVeil"
         _Rise ("Rise Width (fill)", Range(0.05, 1)) = 0.3
         _NearFade ("Near Fade Distance", Float) = 0.25
         _Start ("Start Angle (0-1)", Range(0, 1)) = 0
+        _Front ("Front Rise (0-1)", Range(0, 1)) = 0
+        _FrontWidth ("Front Arc Half Width (0-0.5)", Range(0.05, 0.5)) = 0.2
     }
     SubShader
     {
@@ -27,7 +29,7 @@ Shader "FuwaCourse/WarpVeil"
             #include "UnityCG.cginc"
 
             fixed4 _Color;
-            float _Fill, _Alpha, _Rise, _NearFade, _Start;
+            float _Fill, _Alpha, _Rise, _NearFade, _Start, _Front, _FrontWidth;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float camDist : TEXCOORD1; float3 wn : TEXCOORD2; float3 wv : TEXCOORD3; UNITY_FOG_COORDS(4) UNITY_VERTEX_OUTPUT_STEREO };
@@ -61,13 +63,24 @@ Shader "FuwaCourse/WarpVeil"
 
             fixed4 frag (v2f i) : SV_Target
             {
-                if (_Fill <= 0.001) discard;
+                if (_Fill <= 0.001 && _Front <= 0.001) discard;
                 float ang = frac(i.uv.x - _Start + 1), h = i.uv.y;   // 乗った時に向いていた方向から始める
+                // 乗った瞬間に、目の前（向いていた方向のまわり）にふわっと立ち上がる幕（2026-10-12 てじゃ「しゃらんでふわっと目の前にヴェール」）
+                float da = min(ang, 1 - ang);                              // 正面からの角度のずれ（0〜0.5）
+                float arc = 1 - smoothstep(_FrontWidth * 0.55, _FrontWidth, da);
+                float fTop = _Front * arc;
                 float done = smoothstep(0.9, 1.0, _Fill);
                 // 先頭は一周＋ぼかし幅まで進む。一周先の分(ang+1)を重ねて、始まりのぼかしと先頭がなめらかにつながる
                 float F = _Fill * (1 + W);
                 float bodyMax = 0;
                 float v = max(Column(ang, h, F, done, bodyMax), Column(ang + 1, h, F, done, bodyMax));
+                if (fTop > 0.001)
+                {
+                    float ft = saturate(h / fTop);
+                    float fb = (0.55 + 0.45 * (1 - ft)) * (1 - smoothstep(0.5, 1.0, ft)) + exp(-h * 22) * 0.6;
+                    bodyMax = max(bodyMax, fb);
+                    v = max(v, fb);
+                }
                 if (v <= 0.0005) discard;
                 // 連続した光の膜：ゆっくり上へ流れるやわらかいゆらぎ（すじは出さない）。角度は整数周期で一周つながる
                 float tt = _Time.y;
