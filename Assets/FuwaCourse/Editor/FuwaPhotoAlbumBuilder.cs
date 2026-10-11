@@ -139,19 +139,25 @@ public static class FuwaPhotoAlbumBuilder
         if (gbOld != null) Object.DestroyImmediate(gbOld.gameObject);
         var gb = new GameObject("GoalBoard").transform;
         gb.SetParent(holder.transform, false);
-        var gPanel = Object.Instantiate(srcPanel.gameObject, gb).GetComponent<SpriteRenderer>();
-        gPanel.name = "Panel";
-        gPanel.transform.localPosition = new Vector3(0f, 0f, 0.03f);
-        gPanel.transform.localRotation = Quaternion.identity;
-        gPanel.transform.localScale = Vector3.one;
-        gPanel.size = new Vector2(4.15f, 1.95f);
+        // 2026-10-11 てじゃ「左に3枚右に3枚にわけたらおしゃれかな」：GOAL! の文字の両わきに、縦に3枚ずつの板を2枚
         var gFrames = new Renderer[Cols * Rows];
         var gEmpties = new GameObject[Cols * Rows];
-        for (int r = 0; r < Rows; r++)
-        for (int c = 0; c < Cols; c++)
+        const float colX = 2.15f, pitch = 0.74f;
+        float colH = 3 * PhotoSize.y + 2 * (pitch - PhotoSize.y) + 0.2f;
+        for (int side = 0; side < 2; side++)
         {
-            int i = r * Cols + c;
-            Slot(gb, i, new Vector3((c - 1) * 1.28f, 0.42f - r * 0.84f, 0f), srcPanel, photoMat, out gFrames[i], out gEmpties[i]);
+            float x = side == 0 ? -colX : colX;
+            var gPanel = Object.Instantiate(srcPanel.gameObject, gb).GetComponent<SpriteRenderer>();
+            gPanel.name = side == 0 ? "PanelL" : "PanelR";
+            gPanel.transform.localPosition = new Vector3(x, 0f, 0.03f);
+            gPanel.transform.localRotation = Quaternion.identity;
+            gPanel.transform.localScale = Vector3.one;
+            gPanel.size = new Vector2(PhotoSize.x + 0.2f, colH);
+            for (int k = 0; k < 3; k++)
+            {
+                int i = side * 3 + k;   // 左の上から 0,1,2、右の上から 3,4,5
+                Slot(gb, i, new Vector3(x, pitch - k * pitch, 0f), srcPanel, photoMat, out gFrames[i], out gEmpties[i]);
+            }
         }
         gb.localScale = Vector3.one * 1.7f;   // ゴールの手前から読める大きさ
         gb.gameObject.SetActive(false);
@@ -166,6 +172,7 @@ public static class FuwaPhotoAlbumBuilder
         album.emptyMarks = empties;
         album.titleText = title;
         album.goalBoard = gb;
+        album.goalBoardUp = 2.0f;   // 左右に分けたので、GOAL! の文字と同じくらいの高さに
         album.goalFrames = gFrames;
         album.goalEmptyMarks = gEmpties;
         album.feed = feed.transform;

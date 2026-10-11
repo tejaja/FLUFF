@@ -239,10 +239,11 @@ public static class FuwaSignStyle
     {
         var panel = panelT.GetComponent<SpriteRenderer>(); var board = panelT.parent;
         var tmpl = Object.FindObjectsOfType<SpriteRenderer>(true).First(r => r.name == "Border" && r.sharedMaterial != null && r.sharedMaterial.name == "PanelSpriteOneSided_Border");
-        var bt = board.Find("Border");
+        string bname = panelT.name == "Panel" ? "Border" : panelT.name + "Border";   // 1つの看板に板が2枚ある時（ゴールの左右の板）は別々に
+        var bt = board.Find(bname);
         if (bt == null)
         {
-            var go = Object.Instantiate(tmpl.gameObject, board); go.name = "Border"; Undo.RegisterCreatedObjectUndo(go, "border");
+            var go = Object.Instantiate(tmpl.gameObject, board); go.name = bname; Undo.RegisterCreatedObjectUndo(go, "border");
             bt = go.transform; bt.SetSiblingIndex(panelT.GetSiblingIndex() + 1);
         }
         Undo.RecordObject(bt, "border"); var br = bt.GetComponent<SpriteRenderer>(); Undo.RecordObject(br, "border");
@@ -270,7 +271,7 @@ public static class FuwaSignStyle
         ("FuwaVersusLobby/HowToPlayVersus/Panel", "FF8C6B"),
         ("FuwaVersusLobby/MatchPanel/Board/Panel", "F78C4C"), // たいせん：ハブのたいせんゲートと同じオレンジ
         ("FuwaLobby/PhotoGallery/Panel", "73AAE6"),          // 名場面：空色
-        ("FuwaSystem/PhotoAlbum/GoalBoard/Panel", "73AAE6"),
+        ("FuwaSystem/PhotoAlbum/GoalBoard/Panel*", "73AAE6"),
         ("FuwaLobby/PhotoStudio/BestTimes/Panel", "E8B84A"), // 最速タイム：金色
         ("FuwaLobby/PhotoStudio/CamInfo/Panel", "9E8CDB"),   // CAM：ボタンと同じむらさき
         ("FuwaHub/BackIsland/Credits/Panel", "EB8FBA"),
@@ -290,7 +291,7 @@ public static class FuwaSignStyle
             var rx = new System.Text.RegularExpressions.Regex("^" + System.Text.RegularExpressions.Regex.Escape(path).Replace("\\*", "[^/]*") + "$");
             foreach (var t in all)
             {
-                if (t.name != "Panel" || t.GetComponent<SpriteRenderer>() == null) continue;
+                if (!t.name.StartsWith("Panel") || t.GetComponent<SpriteRenderer>() == null) continue;
                 if (!rx.IsMatch(PathOf(t))) continue;
                 log.Add(AddFlatBorder(t, col));
             }
