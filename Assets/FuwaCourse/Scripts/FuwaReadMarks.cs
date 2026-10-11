@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -15,8 +15,11 @@ public class FuwaReadMarks : UdonSharpBehaviour
     public Transform[] signs;
     [Tooltip("この距離(m)まで近づいたら読んだことにする")]
     public float readDistance = 3.2f;
-    public float bobHeight = 0.06f;
+    public float bobHeight = 0.08f;
     public float bobSpeed = 2.2f;
+    [Tooltip("ぽよぽよ（縦横につぶれて戻る）の強さと速さ")]
+    public float squish = 0.12f;
+    public float squishSpeed = 4.4f;
     [Tooltip("自分から遠い時は動かさない(m)")]
     public float activeRange = 30f;
 
@@ -62,6 +65,13 @@ public class FuwaReadMarks : UdonSharpBehaviour
                 if (front && d.magnitude < readDistance) { _read[i] = true; _goneAt[i] = Time.time; }
             }
             m.position = _base[i] + Vector3.up * (Mathf.Sin(Time.time * bobSpeed + i) * bobHeight);
+            if (!_read[i])
+            {
+                // ぽよぽよ：はずむリズムで縦につぶれて横にふくらむ
+                float q = Mathf.Sin(Time.time * squishSpeed + i * 1.3f);
+                q = q * Mathf.Abs(q);
+                m.localScale = new Vector3(_scale[i].x * (1f + squish * q), _scale[i].y * (1f - squish * q), _scale[i].z);
+            }
             Vector3 look = m.position - eye; look.y = 0f;
             if (look.sqrMagnitude > 0.0001f) m.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
         }

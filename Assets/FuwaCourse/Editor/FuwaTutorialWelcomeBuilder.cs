@@ -52,7 +52,8 @@ public static class FuwaTutorialWelcomeBuilder
         }
 
         // ---- C：看板の上の「！」----
-        var signs = new List<Transform> { w, gunSign };
+        // 入口の2枚（ようこそ・エアガン）はスポーンのすぐ前で、出た瞬間に「読んだ」になって消えるので付けない。道の先の看板だけ
+        var signs = new List<Transform>();
         foreach (Transform bay in tut) if (bay.name.StartsWith("Bay_")) { var s = bay.Find("Sign"); if (s != null) signs.Add(s); }
         foreach (var n in new[] { "Sign_ShootMushroom", "Sign_MoreTricks" }) { var s = tut.Find(n); if (s != null) signs.Add(s); }
 
@@ -69,20 +70,28 @@ public static class FuwaTutorialWelcomeBuilder
             Bounds b = top != null ? top.bounds : new Bounds(s.position + Vector3.up * 1.5f, Vector3.one);
             var m = new GameObject("Mark_" + (s.parent != null && s.parent.name.StartsWith("Bay_") ? s.parent.name : s.name)).transform;
             m.SetParent(holder, false);
-            m.position = new Vector3(b.center.x, b.max.y + 0.4f, b.center.z);
-            // 丸（角丸の板を正方形にして角の丸み＝半分）
-            var c = Object.Instantiate(srcPanel.gameObject, m).GetComponent<SpriteRenderer>();
-            c.name = "Circle"; c.gameObject.SetActive(true); c.transform.localPosition = Vector3.zero; c.transform.localRotation = Quaternion.identity;
-            c.transform.localScale = Vector3.one; c.drawMode = SpriteDrawMode.Sliced; c.size = new Vector2(0.5f, 0.5f);
-            ColorUtility.TryParseHtmlString("#FF8C6B", out var oc); c.color = oc;
-            foreach (var lg in c.GetComponents<LODGroup>()) Object.DestroyImmediate(lg);
-            var tgo = new GameObject("Text"); tgo.transform.SetParent(m, false); tgo.transform.localPosition = new Vector3(0f, 0.005f, -0.01f);
-            var t = tgo.AddComponent<TMPro.TextMeshPro>();
-            t.font = srcText.font; t.fontSharedMaterial = srcText.fontSharedMaterial; t.color = Color.white;
-            t.fontSize = 3.2f; t.fontStyle = TMPro.FontStyles.Bold; t.alignment = TMPro.TextAlignmentOptions.Center;
-            t.enableWordWrapping = false; t.rectTransform.sizeDelta = new Vector2(0.5f, 0.5f); t.text = "!";
-            tgo.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            c.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            // 看板の上の、道（スポーンの向き）側の右寄りにはみ出す（てじゃ「もっとコースにはみ出して右よりでも」）
+            Vector3 toRoad = -s.forward; toRoad.y = 0f; toRoad.Normalize();   // 文字の読める側＝道の側
+            Vector3 right = Vector3.Cross(Vector3.up, toRoad);                  // 道から看板を見て右
+            m.position = new Vector3(b.center.x, b.max.y + 0.55f, b.center.z) + toRoad * 0.6f - right * 0.55f;
+            // 丸と「！」は角丸の板（RoundedPanel、角の丸み＝0.25×スケール）で作る：まん丸の赤い玉に、太い白い棒と点（文字だと細くて片寄った）
+            ColorUtility.TryParseHtmlString("#F2302A", out var red);
+            SpriteRenderer Blob(string nm, float w, float h, float y, float z, Color col)
+            {
+                var r = Object.Instantiate(srcPanel.gameObject, m).GetComponent<SpriteRenderer>();
+                r.name = nm; r.gameObject.SetActive(true);
+                foreach (var lg in r.GetComponents<LODGroup>()) Object.DestroyImmediate(lg);
+                float sc = Mathf.Min(w, h) * 0.5f / 0.25f;   // 短い辺の半分が角の丸みになるスケール
+                r.transform.localPosition = new Vector3(0f, y, z); r.transform.localRotation = Quaternion.identity;
+                r.transform.localScale = Vector3.one * sc;
+                r.drawMode = SpriteDrawMode.Sliced; r.size = new Vector2(w, h) / sc;
+                r.color = col; r.sortingOrder = 0;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                return r;
+            }
+            Blob("Circle", 0.8f, 0.8f, 0f, 0f, red);
+            Blob("Bar", 0.15f, 0.36f, 0.07f, -0.004f, Color.white);
+            Blob("Dot", 0.15f, 0.15f, -0.21f, -0.004f, Color.white);
             marks.Add(m);
         }
 
