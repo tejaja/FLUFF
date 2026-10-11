@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -105,6 +105,8 @@ public static class FuwaGunCollarRebuild
             if (Old(t[i]) && Old(t[i + 1]) && Old(t[i + 2])) { removed++; continue; }
             keepT.Add(t[i]); keepT.Add(t[i + 1]); keepT.Add(t[i + 2]);
         }
+        // 古いトリガー（つぶした球）も消す。新しいトリガーは FuwaGunTriggerRebuild で足す
+        keepT = FuwaGunTriggerRebuild.RemoveIslandsInBox(v, keepT, FuwaGunTriggerRebuild.OldTriggerBox, out int trigRemoved);
         // 使っている頂点だけに詰める
         var map = new Dictionary<int, int>(); var V = new List<Vector3>(); var N = new List<Vector3>(); var T = new List<int>();
         foreach (var i in keepT) { if (!map.TryGetValue(i, out int j)) { j = V.Count; map[i] = j; V.Add(v[i]); N.Add(n[i]); } T.Add(j); }
@@ -158,6 +160,8 @@ public static class FuwaGunCollarRebuild
             }
         }
 
+        FuwaGunTriggerRebuild.AddTrigger(V, N, T);
+
         // ゲージの台（左右）を作り直す。前の面の給気口の暗い底は Gun_Vent に足す
         var VV = new List<Vector3>(); var VN = new List<Vector3>(); var VT = new List<int>();
         foreach (float side in new[] { 1f, -1f }) BuildPad(V, N, T, VV, VN, VT, side);
@@ -198,7 +202,7 @@ public static class FuwaGunCollarRebuild
                 g.localRotation = Quaternion.AngleAxis(-sd * PadTilt, Vector3.up) * baseRot;
                 UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
             }
-        return "removed " + removed + " tris, verts " + V.Count;
+        return "removed " + removed + " tris (trigger " + trigRemoved + "), verts " + V.Count;
     }
 
     // ---- ゲージの黄色い台 ----
