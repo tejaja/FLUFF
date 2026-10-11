@@ -211,7 +211,8 @@ public static class FuwaSignStyle
         {
             if (bt != null) { Undo.RecordObject(bt.gameObject, "sign"); bt.gameObject.SetActive(false); }
             Part(deco, "Frame", SaveMesh(Tube(hw, hh, r, tr, pz), key + "_Frame"), SaveMat(bc, "Frame"), Vector3.zero);
-            Part(deco, "Back", SaveMesh(Slab(hw, hh, r, pz + 0.005f, pz + 0.07f), key + "_Back"), SaveMat(pc, "Back"), Vector3.zero);
+            // 板の厚みは枠の筒の中におさめる（はみ出すと横から見て裏板と枠の間にすき間が見えた。てじゃ）
+            Part(deco, "Back", SaveMesh(Slab(hw - tr * 0.3f, hh - tr * 0.3f, Mathf.Max(0.02f, r - tr * 0.3f), pz + 0.005f, pz + tr * 0.8f), key + "_Back"), SaveMat(pc, "Back"), Vector3.zero);
         }
         if (b)
         {
@@ -226,6 +227,19 @@ public static class FuwaSignStyle
         {
             var sc = Color.Lerp(bc, Color.white, 0.35f);
             Part(deco, "Stitch", SaveMesh(Stitch(hw, hh, r, a ? tr + 0.055f : 0.1f, pz - 0.003f, 0.06f, 0.045f, 0.018f), key + "_Stitch"), SaveMat(sc, "Stitch"), Vector3.zero);
+        }
+        // 文字はステッチの内側におさめる（英語は長くて縫い目までいった。てじゃ）：枠の中の幅で自動縮小
+        var text = sign.GetComponent<TMPro.TMP_Text>();
+        if (text != null && c)
+        {
+            float inset = (a ? tr + 0.055f : 0.1f) + 0.12f;
+            var rt = text.rectTransform;
+            float sx = Mathf.Abs(rt.localScale.x) > 1e-4f ? Mathf.Abs(rt.localScale.x) : 1f;
+            rt.sizeDelta = new Vector2((hw - inset) * 2f / sx, (hh + 0.3f) * 2f / sx);   // 縦は余裕をもたせて、横幅だけで縮むように
+            if (!text.enableAutoSizing) { text.fontSizeMax = text.fontSize; text.enableAutoSizing = true; }
+            text.fontSizeMin = text.fontSizeMax * 0.4f;
+            text.enableWordWrapping = false;
+            EditorUtility.SetDirty(text);
         }
         AssetDatabase.SaveAssets();
         EditorUtility.SetDirty(sign.gameObject);

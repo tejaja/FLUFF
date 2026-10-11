@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UdonSharp;
 using UnityEngine;
 using VRC.SDK3.Persistence;
@@ -18,6 +18,9 @@ public class FuwaRecords : UdonSharpBehaviour
     public Transform[] courseStarts;
     public string[] courseNamesJa;
     public string[] courseNamesEn;
+    // 列の位置（右の余白を詰めるため右へ。2026-10-12 てじゃ「右の余白埋めてもいいかも」）
+    private const string ColA = "49%";
+    private const string ColB = "75%";
     public TextMeshPro boardText;
     public FuwaLanguage language;
 
@@ -141,18 +144,20 @@ public class FuwaRecords : UdonSharpBehaviour
         if (boardText == null || courseStarts == null) return;
         bool en = language != null && language.IsEnglish();
         string s = "<align=center><size=150%><color=#FF6B5C>" + (en ? "Best Times" : "さいそくタイム") + "</color></size></align>\n";
-        s += "<size=65%><color=#8A7A9A>" + "<pos=44%>" + (en ? "Your best" : "自己ベスト") + "<pos=71%>" + (en ? "This instance" : "このインスタンス") + "</color></size>\n";
+        s += "<size=56%><color=#8A7A9A>" + "<pos=" + ColA + ">" + (en ? "Your best" : "自己ベスト") + "<pos=" + ColB + ">" + (en ? "This instance" : "このインスタンス") + "</color></size>\n";
         for (int i = 0; i < courseStarts.Length; i++)
         {
             string name = en ? Get(courseNamesEn, i) : Get(courseNamesJa, i);
             string mine = (_myBest != null && i < _myBest.Length) ? FormatTime(_myBest[i]) : "--";
             string best = (i < _bestTimes.Length) ? FormatTime(_bestTimes[i]) : "--";
             string who = (i < _bestNames.Length && _bestTimes[i] > 0f) ? _bestNames[i] : "";
+            // 英語のコース名は長い（Mushroom Valley が自己ベストの列にかぶった）ので少し小さく（2026-10-12 てじゃ）
+            if (en) name = "<size=80%>" + name + "</size>";
             s += "<color=#FF6B5C>●</color> " + name
-               + "<pos=44%><mspace=0.5em>" + mine + "</mspace>"
-               + "<pos=71%><mspace=0.5em>" + best + "</mspace>";
+               + "<pos=" + ColA + "><mspace=0.5em>" + mine + "</mspace>"
+               + "<pos=" + ColB + "><mspace=0.5em>" + best + "</mspace>";
             // 名前の行は記録がなくても空けておく（行の間隔をそろえるため）
-            s += "\n<pos=71%><size=60%><color=#8A7A9A>" + (who != "" ? who : " ") + "</color></size>";
+            s += "\n<pos=" + ColB + "><size=60%><color=#8A7A9A>" + (who != "" ? who : " ") + "</color></size>";
             if (i < courseStarts.Length - 1) s += "\n";
         }
         boardText.text = s;
