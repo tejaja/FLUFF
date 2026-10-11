@@ -309,7 +309,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
         Transform tgt = null;
         bool ghostShown = false;
         if (who == lp) tgt = FindTarget(p);
-        else if (ghost != null && ghost.gameObject.activeInHierarchy && ghost.ghostRenderer != null && ghost.ghostRenderer.enabled) { tgt = ghost.transform; ghostShown = true; }
+        else if (ghost != null && ghost.MonitorVisible()) { tgt = ghost.transform; ghostShown = true; }   // 浮いて待っている間も映す
         // 他の人のふわふわ：分身の位置に本物そっくりの毛玉（モニターのカメラにだけ写る）
         if (monitorFluff != null)
         {

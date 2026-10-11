@@ -17,6 +17,9 @@ public class FuwaGhost : UdonSharpBehaviour
     private bool _isMine;
     // 持ち主の胞子がキノコの中に隠れている間は、分身も隠す（半透明だとキノコからはみ出て見えるため）
     [UdonSynced] private bool _hidden;
+    // 吹かれるのを空中で待っている（チェックポイント・スタートで浮いている）。自分の目では分身を出さないが、おっかけカメラには映す
+    [UdonSynced] private bool _waiting;
+    private bool _pWaiting;
     private bool _shownHidden;
 
     [Header("対戦アイテム（なくてもOK）")]
@@ -146,9 +149,10 @@ public class FuwaGhost : UdonSharpBehaviour
     private void OwnerUpdate()
     {
         transform.SetPositionAndRotation(ball.transform.position, ball.transform.rotation);
-        // 吹かれるのを空中で待っている間（チェックポイントやスタートで浮いている時）も、他の人の画面では分身を出さない
-        // （チェックポイントで他の人のふわふわと重なって見えた。とくにチュートリアル。2026-10-12 てじゃ）
-        _hidden = ball.IsHidden() || ball.IsWaiting();
+        // 吹かれるのを空中で待っている間（チェックポイントやスタートで浮いている時）は、他の人の目には分身を出さない
+        // （チェックポイントで他の人のふわふわと重なって見えた。とくにチュートリアル。2026-10-12 てじゃ）。おっかけカメラには映す
+        _hidden = ball.IsHidden();
+        _waiting = ball.IsWaiting();
         float dt = Mathf.Max(Time.deltaTime, 0.0001f);
         Vector3 rawVel = (transform.position - _prevPos) / dt;
         _prevPos = transform.position;
@@ -156,7 +160,7 @@ public class FuwaGhost : UdonSharpBehaviour
         _vel = Vector3.Lerp(_vel, rawVel, 1f - Mathf.Exp(-20f * dt));
 
         bool moving = _vel.magnitude > 0.05f;
-        bool stateChanged = _hidden != _pHidden || _shielded != _pShielded || _trapEndMs != _pTrapEnd || _area != _pArea;
+        bool stateChanged = _hidden != _pHidden || _shielded != _pShielded || _trapEndMs != _pTrapEnd || _area != _pArea || _waiting != _pWaiting;
         bool kick = (_vel - _lastSentVel).magnitude > sendOnVelocityChange;
         bool due = moving && Time.time >= _nextSend;
         bool stopped = !moving && _moving;   // 止まった瞬間にもう一度送って、止まった位置をそろえる
@@ -164,7 +168,7 @@ public class FuwaGhost : UdonSharpBehaviour
         if (stateChanged || kick || due || stopped || !_sentOnce)
         {
             _sentOnce = true;
-            _pHidden = _hidden; _pShielded = _shielded; _pTrapEnd = _trapEndMs; _pArea = _area;
+            _pHidden = _hidden; _pShielded = _shielded; _pTrapEnd = _trapEndMs; _pArea = _area; _pWaiting = _waiting;
             _lastSentVel = _vel;
             _nextSend = Time.time + sendInterval;
             RequestSerialization();
@@ -176,6 +180,8 @@ public class FuwaGhost : UdonSharpBehaviour
     public int GetTrapEnd() { return _trapEndMs; }
 
     public bool IsMine() { return _isMine; }
+    // おっかけカメラに映すか（隠れていない・位置が届いている。浮いて待っている間も映す）
+    public bool MonitorVisible() { return !_isMine && !_hidden && _hasSample && gameObject.activeInHierarchy; }
 
     // ===== 相手から届く（持ち主のPCで実行される） =====
     public void HitHeavy() { if (items != null) items.ReceiveHeavy(); }
@@ -196,7 +202,7 @@ public class FuwaGhost : UdonSharpBehaviour
     private void ApplyOwnerLook()
     {
         // 見る側は、最初の位置が届くまで出さない（誰かが入ってきた時、届く前の分身がロビーの真ん中に一瞬出ていた。てじゃ）
-        _shownHidden = !(!_isMine && !_hidden && _hasSample);
+        _shownHidden = !(!_isMine && !_hidden && !_waiting && _hasSample);
         if (ghostRenderer != null) ghostRenderer.enabled = !_shownHidden;
         if (trail != null) trail.emitting = !_shownHidden;
         if (_isMine || ghostRenderer == null) return;
@@ -233,7 +239,7 @@ public class FuwaGhost : UdonSharpBehaviour
         else if (!_isMine) ViewUpdate();
         if (!_isMine)
         {
-            bool hide = _hidden || !_hasSample;
+            bool hide = _hidden || _waiting || !_hasSample;
             if (hide != _shownHidden)
             {
                 _shownHidden = hide;
