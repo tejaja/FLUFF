@@ -239,7 +239,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         {
             string t = "<color=#FF6B5C>" + (en ? titleEn : titleJa) + "</color>";   // 見出しはあそびかたの看板と同じオレンジ（コース名はふつうの色）
             string c = CourseName(_boardCourse, en);
-            titleText.text = any && c != "" ? t + "<size=70%>  ―  " + c + "</size>" : t;
+            titleText.text = any && c != "" ? t + "<space=0.8em><size=58%><color=#222222>" + c + "</color></size>" : t;   // 見出しとコース名の間をあけて、コース名は黒（てじゃ）
         }
         if (emptyMarks != null)
             for (int i = 0; i < emptyMarks.Length; i++) if (emptyMarks[i] != null) emptyMarks[i].SetActive(!(i < _has.Length && _has[i]));
