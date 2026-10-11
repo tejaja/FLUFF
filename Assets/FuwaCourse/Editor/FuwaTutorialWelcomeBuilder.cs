@@ -29,7 +29,7 @@ public static class FuwaTutorialWelcomeBuilder
         var w = Object.Instantiate(gunSign.gameObject, ent).transform; w.name = "WelcomeSign";
         // 道の上に少しはみ出して、スポーンの正面ちょい左・4.6m先（てじゃ「もっと右にはみ出して」）。スポーンの方を向く
         // （近すぎると出た瞬間に「読んだ」になって「！」が消えるので、読む距離より遠く）
-        w.position = spot.position + spot.forward * 4.6f - spot.right * 0.9f;
+        w.position = spot.position + spot.forward * 4.6f - spot.right * 1.4f;
         Vector3 face = spot.position - w.position; face.y = 0f;
         w.rotation = Quaternion.LookRotation(-face.normalized, Vector3.up);   // 文字の面（-z）がスポーンの方
         var wt = w.GetComponentInChildren<TMPro.TMP_Text>(true);
