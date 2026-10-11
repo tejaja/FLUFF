@@ -73,7 +73,7 @@ public static class FuwaTutorialWelcomeBuilder
             // 看板の上の、道（スポーンの向き）側の右寄りにはみ出す（てじゃ「もっとコースにはみ出して右よりでも」）
             Vector3 toRoad = -s.forward; toRoad.y = 0f; toRoad.Normalize();   // 文字の読める側＝道の側
             Vector3 right = Vector3.Cross(Vector3.up, toRoad);                  // 道から看板を見て右
-            m.position = new Vector3(b.center.x, b.max.y + 0.55f, b.center.z) + toRoad * 0.6f - right * 0.55f;
+            m.position = new Vector3(b.center.x, b.max.y + 0.55f, b.center.z);   // 看板のまん中の上（てじゃ）
             // 丸と「！」は角丸の板（RoundedPanel、角の丸み＝0.25×スケール）で作る：まん丸の赤い玉に、太い白い棒と点（文字だと細くて片寄った）
             ColorUtility.TryParseHtmlString("#F2302A", out var red);
             SpriteRenderer Blob(string nm, float w, float h, float y, float z, Color col)
