@@ -262,7 +262,8 @@ public class FuwaGhost : UdonSharpBehaviour
         else if (!_isMine) ViewUpdate();
         if (!_isMine)
         {
-            bool hide = _hidden || _waiting || !_hasSample || !SameCourseAsMe();
+            // 他のコース・ロビーの人の分身も出す（遠くで小さく飛んでいるのが見えるとにぎやか。負荷は小さい。てじゃ）。同じコースかは SameCourseAsMe で分かる
+            bool hide = _hidden || _waiting || !_hasSample;
             if (hide != _shownHidden)
             {
                 _shownHidden = hide;
