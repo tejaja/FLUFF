@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -58,6 +58,7 @@ public class FuwaGhost : UdonSharpBehaviour
     private Quaternion _aRot = Quaternion.identity, _bRot = Quaternion.identity;
     private double _aTime, _bTime;
     private bool _hasSample;
+    private bool _sentOnce;   // 持ち主：入った直後に一度は送る（動かないと送らないので、見る側に位置が届かなかった）
 
     public void SetArea(int area) { if (_isMine) _area = area; }
     public int GetArea() { return _area; }
@@ -158,8 +159,9 @@ public class FuwaGhost : UdonSharpBehaviour
         bool due = moving && Time.time >= _nextSend;
         bool stopped = !moving && _moving;   // 止まった瞬間にもう一度送って、止まった位置をそろえる
         _moving = moving;
-        if (stateChanged || kick || due || stopped)
+        if (stateChanged || kick || due || stopped || !_sentOnce)
         {
+            _sentOnce = true;
             _pHidden = _hidden; _pShielded = _shielded; _pTrapEnd = _trapEndMs; _pArea = _area;
             _lastSentVel = _vel;
             _nextSend = Time.time + sendInterval;
@@ -191,9 +193,10 @@ public class FuwaGhost : UdonSharpBehaviour
 
     private void ApplyOwnerLook()
     {
-        _shownHidden = _hidden;
-        if (ghostRenderer != null) ghostRenderer.enabled = !_isMine && !_hidden;
-        if (trail != null) trail.emitting = !_isMine && !_hidden;
+        // 見る側は、最初の位置が届くまで出さない（誰かが入ってきた時、届く前の分身がロビーの真ん中に一瞬出ていた。てじゃ）
+        _shownHidden = !(!_isMine && !_hidden && _hasSample);
+        if (ghostRenderer != null) ghostRenderer.enabled = !_shownHidden;
+        if (trail != null) trail.emitting = !_shownHidden;
         if (_isMine || ghostRenderer == null) return;
 
         // 持ち主のプレイヤーIDから色を決める（人ごとに違う淡い色）
@@ -226,11 +229,15 @@ public class FuwaGhost : UdonSharpBehaviour
 
         if (_isMine && ball != null) OwnerUpdate();
         else if (!_isMine) ViewUpdate();
-        if (_hidden != _shownHidden && !_isMine)
+        if (!_isMine)
         {
-            _shownHidden = _hidden;
-            if (ghostRenderer != null) ghostRenderer.enabled = !_hidden;
-            if (trail != null) { trail.Clear(); trail.emitting = !_hidden; }
+            bool hide = _hidden || !_hasSample;
+            if (hide != _shownHidden)
+            {
+                _shownHidden = hide;
+                if (ghostRenderer != null) ghostRenderer.enabled = !hide;
+                if (trail != null) { trail.Clear(); trail.emitting = !hide; }
+            }
         }
     }
 }
