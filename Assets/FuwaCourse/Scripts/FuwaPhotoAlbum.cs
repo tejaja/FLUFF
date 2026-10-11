@@ -5,9 +5,10 @@ using VRC.SDK3.Rendering;
 using VRC.SDKBase;
 
 // 名場面アルバム（自分にだけ、同期なし）。2026-10-11 てじゃ「遊んでるところのスクショを自動でいい感じに撮ってロビーで見れるやつ」
-// ・自分がゴールした瞬間（少し遅れて、花火が上がるあたり）に、見えないカメラ（shotCam）が
-//   自分とふわふわが両方入る斜め前へ回り込んで1枚撮る。地面や壁で隠れる角度はよける
-// ・写真はテクスチャ（photos）に描いて、ロビーの額縁（frames）に新しい順に並べる。下にコース名とタイム
+// ・自分のふわふわがコースのフォトポイント（FuwaPhotoPoint）を通ったら、見えないカメラ（shotCam）を
+//   そのポイントのカメラ位置に置いて、ふわふわ（と後ろの自分）の方へ向けて1枚撮る
+//   （最初はゴールの瞬間を撮っていたが、全コース同じ絵になるのでやめた。てじゃ）
+// ・写真はテクスチャ（photos）に描いて、ロビーの額縁（frames）に新しい順に並べる。下にコース名とポイント名
 // ・VRChatの手持ちカメラを額縁に近づけると、VRChatカメラの画面だけその写真に差し替える（シャッターで自分のアルバムに保存できる）
 //   （Fuwa/PhotoAlbumFeed の板をレンズの前に置く。FuwaFollowCam と同じやり方）
 // 画像はネットで送れないので、撮るのも見るのも自分の画面だけ。ワールドを出たら消える
@@ -17,21 +18,23 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     [Header("撮影")]
     [Tooltip("撮る用のカメラ（ふだんは止めておく。撮る時だけ Render する）")]
     public Camera shotCam;
-    [Tooltip("ゴールしてから撮るまでの秒数")]
-    public float shotDelay = 0.6f;
+    [Tooltip("フォトポイントに入ってから撮るまでの秒数")]
+    public float shotDelay = 0.2f;
+    [Tooltip("カメラの向きを、ポイントの決めた向きからふわふわの方へどれだけ向け直すか（0=決めた向きのまま、1=ふわふわを真ん中に）")]
+    [Range(0f, 1f)] public float followBall = 0.75f;
+    [Tooltip("狙う所を、ふわふわから自分の方へどれだけ寄せるか（後ろで構える自分も入るように）")]
+    [Range(0f, 1f)] public float aimTowardPlayer = 0.25f;
     [Tooltip("写真の大きさ（横）。縦は16:9")]
     public int photoWidth = 1280;
     [Tooltip("撮る時に隠すもの（HUDの文字など）")]
     public Renderer[] hideWhileShooting;
-    [Tooltip("カメラと写す物の間に地面や壁があったら、その角度はやめる")]
-    public LayerMask obstacleMask = (1 << 0) | (1 << 11);
 
     [Header("飾る所")]
     [Tooltip("額縁の写真の面（新しい順）")]
     public Renderer[] frames;
-    [Tooltip("frames と同じ順で、下の文字（コース名とタイム）")]
+    [Tooltip("frames と同じ順で、下の文字（コース名とポイント名）")]
     public TextMeshPro[] captions;
-    [Tooltip("まだ写真がない額縁に出す物（「ゴールすると写真が飾られるよ」など）。写真が入ると消す")]
+    [Tooltip("まだ写真がない額縁に出す物。写真が入ると消す")]
     public GameObject[] emptyMarks;
     [Tooltip("ボードの見出し（言語で切り替える）")]
     public TextMeshPro titleText;
@@ -54,11 +57,11 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
 
     private RenderTexture[] _photos;
     private int[] _courseOf;
-    private float[] _timeOf;
+    private FuwaPhotoPoint[] _pointOf;
     private int _count;
 
-    private FuwaBall _ball;   // 自分のふわふわ（タイムの書き方もこれに聞く）
-    private float _pendingTime;
+    private FuwaBall _ball;
+    private FuwaPhotoPoint _point;
     private float _shootAt = -1f;
     private Material _feedMat;
     private int _feedShown = -1;
@@ -68,19 +71,19 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         int n = frames != null ? frames.Length : 0;
         _photos = new RenderTexture[n];
         _courseOf = new int[n];
-        _timeOf = new float[n];
+        _pointOf = new FuwaPhotoPoint[n];
         if (shotCam != null) { shotCam.enabled = false; shotCam.depthTextureMode = DepthTextureMode.Depth; }   // うそ影（デカール）は深度を使う
         if (feedRenderer != null) { _feedMat = feedRenderer.material; feedRenderer.enabled = false; }
         for (int i = 0; i < n; i++) if (frames[i] != null) frames[i].enabled = false;
         RefreshCaptions();
     }
 
-    // 自分のふわふわがゴールした時に FuwaGoal から呼ばれる
-    public void OnGoal(FuwaBall ball)
+    // 自分のふわふわがフォトポイントに入った時に FuwaPhotoPoint から呼ばれる
+    public void OnPhotoPoint(FuwaPhotoPoint point, FuwaBall ball)
     {
-        if (ball == null || shotCam == null) return;
+        if (point == null || ball == null || shotCam == null || point.camPose == null) return;
         _ball = ball;
-        _pendingTime = ball.lastGoalTime;
+        _point = point;
         _shootAt = Time.time + shotDelay;
     }
 
@@ -94,7 +97,9 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             if (captions[i] == null) continue;
             if (i >= _count) { captions[i].text = ""; continue; }
             string name = CourseName(_courseOf[i], en);
-            captions[i].text = _timeOf[i] > 0f && _ball != null ? name + "  " + _ball.FormatTimeText(_timeOf[i]) : name;
+            FuwaPhotoPoint pt = _pointOf[i];
+            string where = pt != null ? (en ? pt.nameEn : pt.nameJa) : "";
+            captions[i].text = where != "" ? name + "  /  " + where : name;
         }
         if (titleText != null) titleText.text = en ? titleEn : titleJa;
         if (emptyMarks != null)
@@ -124,16 +129,23 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     private void Shoot()
     {
         VRCPlayerApi lp = Networking.LocalPlayer;
-        if (lp == null || !lp.IsValid() || _ball == null || frames == null || frames.Length == 0) return;
+        if (lp == null || !lp.IsValid() || _ball == null || _point == null || frames == null || frames.Length == 0) return;
 
-        // 写す物：自分の胸とふわふわ
-        float eye = lp.GetAvatarEyeHeightAsMeters();
+        // カメラはポイントの位置。向きは、決めた向きからふわふわ（少し自分寄り）の方へ向け直す
         Vector3 chest = lp.GetBonePosition(HumanBodyBones.Chest);
-        if (chest == Vector3.zero) chest = lp.GetPosition() + Vector3.up * (eye * 0.6f);
-        Vector3 head = lp.GetBonePosition(HumanBodyBones.Head);
-        if (head == Vector3.zero) head = lp.GetPosition() + Vector3.up * eye;
-        Vector3 ballPos = _ball.transform.position;
-        if (!PlaceCamera(lp, chest, head, ballPos, eye)) return;
+        if (chest == Vector3.zero) chest = lp.GetPosition() + Vector3.up * (lp.GetAvatarEyeHeightAsMeters() * 0.6f);
+        Vector3 aim = Vector3.Lerp(_ball.transform.position, chest, aimTowardPlayer);
+        Transform pose = _point.camPose;
+        Vector3 pos = pose.position;
+        Quaternion rot = pose.rotation;
+        Vector3 toAim = aim - pos;
+        if (toAim.sqrMagnitude > 0.01f) rot = Quaternion.Slerp(rot, Quaternion.LookRotation(toAim, Vector3.up), followBall);
+        // 傾きは消す（地平線がまっすぐの写真に）
+        Vector3 f = rot * Vector3.forward;
+        if (Mathf.Abs(f.y) < 0.99f) rot = Quaternion.LookRotation(f, Vector3.up);
+        shotCam.transform.position = pos;
+        shotCam.transform.rotation = rot;
+        shotCam.fieldOfView = _point.fieldOfView;
 
         // いちばん古い写真を押し出して、先頭に入れる
         int n = frames.Length;
@@ -143,10 +155,10 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             rt = new RenderTexture(photoWidth, photoWidth * 9 / 16, 24);
             rt.Create();
         }
-        for (int i = n - 1; i > 0; i--) { _photos[i] = _photos[i - 1]; _courseOf[i] = _courseOf[i - 1]; _timeOf[i] = _timeOf[i - 1]; }
+        for (int i = n - 1; i > 0; i--) { _photos[i] = _photos[i - 1]; _courseOf[i] = _courseOf[i - 1]; _pointOf[i] = _pointOf[i - 1]; }
         _photos[0] = rt;
         _courseOf[0] = CourseIndex(_ball.startPoint);
-        _timeOf[0] = _pendingTime;
+        _pointOf[0] = _point;
         if (_count < n) _count++;
 
         // HUDなどを隠して1枚だけ描く
@@ -167,44 +179,6 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         }
         _feedShown = -1;
         RefreshCaptions();
-    }
-
-    // 自分とふわふわが両方入って、間に何もない角度を探す。顔が写るよう、自分の前側の角度から順に試す
-    private bool PlaceCamera(VRCPlayerApi lp, Vector3 chest, Vector3 head, Vector3 ballPos, float eye)
-    {
-        Vector3 mid = (chest + ballPos) * 0.5f;
-        Vector3 toBall = ballPos - chest; toBall.y = 0f;
-        float sep = toBall.magnitude;
-        Vector3 fwd = lp.GetRotation() * Vector3.forward; fwd.y = 0f;
-        fwd = fwd.sqrMagnitude > 0.0001f ? fwd.normalized : Vector3.forward;
-        // ふわふわが遠い時は、ふわふわ寄りを見る（自分が小さくなりすぎないよう、少しだけ）
-        float halfFov = shotCam.fieldOfView * 0.5f * Mathf.Deg2Rad;
-        float scale = Mathf.Max(0.6f, eye / 1.6f);
-        float dist = Mathf.Clamp((sep * 0.5f + 1.0f * scale) / Mathf.Tan(halfFov * 1.6f), 2.0f * scale, 9f);
-        float[] yaws = { 35f, -35f, 60f, -60f, 0f, 90f, -90f, 130f, -130f, 180f };
-        for (int k = 0; k < yaws.Length; k++)
-        {
-            Vector3 dir = Quaternion.Euler(0f, yaws[k], 0f) * fwd;
-            Vector3 pos = mid + dir * dist + Vector3.up * (0.6f * scale);
-            if (Physics.CheckSphere(pos, 0.25f, obstacleMask, QueryTriggerInteraction.Ignore)) continue;
-            // 手前に物があって顔やふわふわが隠れる角度もやめる（少し太い線で調べる）
-            if (Blocked(pos, head)) continue;
-            if (Blocked(pos, chest)) continue;
-            if (Blocked(pos, ballPos)) continue;
-            shotCam.transform.position = pos;
-            shotCam.transform.rotation = Quaternion.LookRotation(mid + Vector3.up * (0.1f * scale) - pos, Vector3.up);
-            return true;
-        }
-        return false;
-    }
-
-    private bool Blocked(Vector3 from, Vector3 to)
-    {
-        Vector3 d = to - from;
-        float len = d.magnitude - 0.35f;   // 写す物そのもの（自分の体・ふわふわ）には当たらないよう、手前で止める
-        if (len <= 0f) return false;
-        RaycastHit hit;
-        return Physics.SphereCast(from, 0.12f, d / d.magnitude, out hit, len, obstacleMask, QueryTriggerInteraction.Ignore);
     }
 
     // VRChatカメラが額縁に近づいたら、レンズの前に写真の板を置く

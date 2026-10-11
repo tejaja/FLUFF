@@ -1103,6 +1103,7 @@ public class FuwaBall : UdonSharpBehaviour
     public bool IsHidden() { return _hidden; }
     public bool IsFinished() { return _finished; }
     public bool IsRunning() { return _running; }
+    public float GetRunStartTime() { return _startTime; }   // 名場面のフォトポイントが「1回の挑戦で1枚」を見分けるため
 
     // 対戦レースのGO：キノコを撃てるようにして、タイムをGOの瞬間から計り始める
     public void RaceGo()

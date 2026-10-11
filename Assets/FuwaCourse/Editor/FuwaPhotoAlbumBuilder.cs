@@ -8,7 +8,7 @@ using UnityEngine;
 // 名場面アルバム（FuwaPhotoAlbum）を組み立てる。2026-10-11 てじゃ「遊んでるところのスクショを自動で撮ってロビーで見れるやつ、テストで作ろう」
 // ・FuwaSystem/PhotoAlbum：本体（Udon）、撮る用のカメラ、VRChatカメラ差し替え用の板
 // ・FuwaLobby/PhotoGallery：写真を飾るボード（コース4とコース5の看板の間、最速タイムの看板と同じデザイン）
-// ・全部の FuwaGoal と FuwaLanguage につなぐ
+// ・FuwaLanguage につなぐ。各コースのフォトポイントは FuwaPhotoPointBuilder（ないコースだけ作る）
 // 本体（Udon）は作り直さない（ネットワークIDの一覧が崩れるので）。ボードと中身は何度でも作り直してよい
 public static class FuwaPhotoAlbumBuilder
 {
@@ -180,15 +180,9 @@ public static class FuwaPhotoAlbumBuilder
         UdonSharpEditorUtility.CopyProxyToUdon(album);
         EditorUtility.SetDirty(album);
 
-        // つなぐ
-        int goals = 0;
-        foreach (var g in Object.FindObjectsOfType<FuwaGoal>(true))
-        {
-            if (g.album == album) continue;
-            g.album = album; UdonSharpEditorUtility.CopyProxyToUdon(g); EditorUtility.SetDirty(g); goals++;
-        }
+        // フォトポイント（すでにあるコースはそのまま。てじゃが動かした位置・構図を消さない）
         if (lang != null && lang.album != album) { lang.album = album; UdonSharpEditorUtility.CopyProxyToUdon(lang); EditorUtility.SetDirty(lang); }
-        log.Add("goals linked " + goals + ", courses " + (album.courseStarts != null ? album.courseStarts.Length : 0) + ", hide " + album.hideWhileShooting.Length);
+        log.Add(FuwaPhotoPointBuilder.Run(album));
         log.Add("board at " + board.position);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lobby.gameObject.scene);
         return string.Join("\n", log);
