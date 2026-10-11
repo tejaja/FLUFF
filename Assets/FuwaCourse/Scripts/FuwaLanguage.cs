@@ -32,6 +32,8 @@ public class FuwaLanguage : UdonSharpBehaviour
     public TextMeshProUGUI[] extraButtonLabelsUi;
     [Tooltip("最速タイムの看板（なくてもOK）")]
     public FuwaRecords records;
+    [Tooltip("名場面アルバム（なくてもOK）")]
+    public FuwaPhotoAlbum album;
 
     private bool _english;
     private bool _manual;      // 一度でも自分で切り替えたら、VRChatの言語設定には従わない
@@ -123,6 +125,7 @@ public class FuwaLanguage : UdonSharpBehaviour
         }
         if (ball != null) ball.english = _english;
         if (records != null) records.Render();
+        if (album != null) album.RefreshCaptions();
         if (stands != null)
         {
             foreach (FuwaGunStand s in stands) if (s != null) s.ApplyLanguage(_english);
