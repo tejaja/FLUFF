@@ -120,7 +120,8 @@ public static class FuwaPhotoStudioBuilder
             t.rotation = Quaternion.LookRotation(d, Vector3.up);
             return t;
         }
-        RingSpot("BoardSpot", BoardAngle);   // 名場面（FuwaPhotoAlbumBuilder が置く）
+        var bs = RingSpot("BoardSpot", BoardAngle);   // 名場面（FuwaPhotoAlbumBuilder が置く）
+        bs.localPosition = new Vector3(1.885f, 0f, 2.249f);   // 2026-10-11 てじゃがシーンで少し奥へ動かした位置
         var bestSpot = RingSpot("BestTimesSpot", -BoardAngle);
         var best = lobby.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BestTimes" && t.GetComponentInChildren<TMPro.TextMeshPro>(true) != null);
         if (best != null)
@@ -136,9 +137,9 @@ public static class FuwaPhotoStudioBuilder
         if (cam != null && boardSpot != null)
         {
             cam.SetParent(studio, true);
-            float half = 4.15f * 0.85f * 0.5f;   // 名場面ボードの幅の半分
-            cam.position = boardSpot.position + boardSpot.right * (half + 1.1f) + Vector3.up * 2.3f;
-            cam.rotation = boardSpot.rotation;
+            // 2026-10-11 てじゃがシーンで動かした位置（島の右手、真ん中向き。説明の札はボタンの上）
+            cam.localPosition = new Vector3(3.947f, 1.033f, -0.746f);
+            cam.localRotation = Quaternion.Euler(0f, 93.4f, 0f);
             log.Add(CamInfo(studio, cam, boardSpot));
         }
 
@@ -170,8 +171,8 @@ public static class FuwaPhotoStudioBuilder
         var srcText = best.Find("Text").GetComponent<TMPro.TextMeshPro>();
         var info = new GameObject("CamInfo").transform;
         info.SetParent(studio, false);
-        info.position = cam.position + Vector3.down * 0.8f;
-        info.rotation = boardSpot.rotation;
+        info.localPosition = cam.localPosition + Vector3.up * 0.722f;
+        info.localRotation = cam.localRotation;
         var panel = Object.Instantiate(srcPanel.gameObject, info).GetComponent<SpriteRenderer>();
         panel.name = "Panel";
         panel.transform.localPosition = new Vector3(0f, 0f, 0.02f);
