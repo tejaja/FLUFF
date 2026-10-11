@@ -86,6 +86,10 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     public float feedDistance = 0.3f;
     [Tooltip("レンズが額縁からこの距離(m)以内で、額縁の方を向いていたら差し替える")]
     public float feedRange = 0.9f;
+    [Tooltip("レンズが写真の面より奥へこの距離(m)まで入っても差し替えたまま（ぶつけるくらい近づけた時）")]
+    public float feedBehind = 0.3f;
+    [Tooltip("写真の外側にこの幅(m)はみ出していても当たりにする")]
+    public float feedMargin = 0.15f;
 
     private RenderTexture[] _photos;
     private RenderTexture _renderRT;   // 描く用（奥行きつき、共用の1枚）
@@ -470,6 +474,8 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     }
 
     // 額縁（ロビーのボード・ゴールの板）のうち、VRChatカメラが近くで向いている写真の番号。なければ -1
+    // 写真の面の座標で判定する：レンズが写真の範囲（少し広め）の手前 feedRange 以内〜面の奥 feedBehind まで、写真の方を向いていれば当たり
+    // （2026-10-12 てじゃ「ぶつかるくらいまで近づけると解除されちゃう」：前は写真の中心への角度で見ていたので、近すぎると外れた）
     private int FeedTarget(Renderer[] list, Vector3 camPos, Vector3 camFwd, ref float best)
     {
         int hit = -1;
@@ -477,10 +483,19 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         for (int i = 0; i < list.Length && i < _has.Length; i++)
         {
             if (list[i] == null || !list[i].enabled || !_has[i] || _photos[i] == null) continue;
-            Vector3 d = list[i].transform.position - camPos;
-            float dist = d.magnitude;
-            if (dist >= best || Vector3.Dot(camFwd, d) < dist * 0.6f) continue;
-            best = dist;
+            Transform t = list[i].transform;
+            Vector3 n = t.forward;                       // 写真の面の奥向き（見る人は -forward 側）
+            Vector3 d = camPos - t.position;
+            float depth = -Vector3.Dot(d, n);            // 面の手前が＋、奥が－
+            if (depth > feedRange || depth < -feedBehind) continue;
+            if (Vector3.Dot(camFwd, n) < 0.3f) continue; // 写真の方を向いている
+            Vector3 lossy = t.lossyScale;
+            float hx = Mathf.Abs(lossy.x) * 0.5f + feedMargin, hy = Mathf.Abs(lossy.y) * 0.5f + feedMargin;
+            float lx = Vector3.Dot(d, t.right), ly = Vector3.Dot(d, t.up);
+            if (Mathf.Abs(lx) > hx || Mathf.Abs(ly) > hy) continue;
+            float score = Mathf.Abs(depth) + new Vector2(lx, ly).magnitude * 0.5f;
+            if (score >= best) continue;
+            best = score;
             hit = i;
         }
         return hit;
