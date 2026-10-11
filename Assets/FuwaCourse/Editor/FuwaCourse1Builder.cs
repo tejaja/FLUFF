@@ -493,7 +493,7 @@ public static class FuwaCourse1Builder
                 w.name = "Whirl" + i;
                 var ww = w.GetComponent<FuwaWhirlwind>();
                 ww.radius = 0.9f; ww.height = 1.9f; ww.lift = 2.2f; ww.swirl = 4.2f; ww.inward = 3.2f; ww.exitPush = 0f;   // 巻き込まれると抜けにくい
-                ww.spinDir = (i % 2 == 0) ? 1f : -1f;
+                ww.spinDir = (i % 2 == 0) ? -1f : 1f;   // 2026-10-11 てじゃ：全部逆回転に（見た目の粒・筒・床の向きはシーンで合わせた）
                 UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ww);
                 var bc = w.GetComponent<BoxCollider>(); bc.center = new Vector3(0, 1.05f, 0); bc.size = new Vector3(2.0f, 2.1f, 2.0f);
                 foreach (var ps in w.GetComponentsInChildren<ParticleSystem>())
