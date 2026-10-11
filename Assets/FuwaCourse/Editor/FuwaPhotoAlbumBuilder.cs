@@ -150,7 +150,9 @@ public static class FuwaPhotoAlbumBuilder
             qr.receiveShadows = false;
             qr.enabled = false;
             frames[i] = qr;
-            caps[i] = Text(slot, "Caption", srcText, new Vector3(0f, -PhotoSize.y * 0.5f - 0.1f, 0f), new Vector2(1.25f, 0.16f), 1.1f, TextAlignmentOptions.Center);
+            caps[i] = Text(slot, "Caption", srcText, new Vector3(0f, -PhotoSize.y * 0.5f - 0.04f, 0f), new Vector2(1.25f, 0.26f), 0.95f, TextAlignmentOptions.Top);   // 2行（コース名／ポイント名）
+            caps[i].rectTransform.pivot = new Vector2(0.5f, 1f);
+            caps[i].lineSpacing = -20f;
             caps[i].text = "";
         }
 

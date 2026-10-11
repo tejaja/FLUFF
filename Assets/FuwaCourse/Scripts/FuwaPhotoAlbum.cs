@@ -6,8 +6,9 @@ using VRC.SDKBase;
 
 // 名場面アルバム（自分にだけ、同期なし）。2026-10-11 てじゃ「遊んでるところのスクショを自動でいい感じに撮ってロビーで見れるやつ」
 // ・自分のふわふわがコースのフォトポイント（FuwaPhotoPoint）を通ったら、見えないカメラ（shotCam）を
-//   そのポイントのカメラ位置に置いて、ふわふわ（と後ろの自分）の方へ向けて1枚撮る
-//   （最初はゴールの瞬間を撮っていたが、全コース同じ絵になるのでやめた。てじゃ）
+//   ふわふわのすぐ近く（飛んでいく向きの斜め前）へ回り込ませて、こっちへ飛んでくるふわふわと後ろで構える自分を1枚撮る
+//   （最初はゴールの瞬間→全コース同じ絵。次にポイントごとの固定カメラ→遠くて迫力がない。てじゃ）
+//   左右どちらから撮るかは、ポイントのカメラ（camPose）がある側。どの角度も地面や物で隠れる時は camPose から撮る
 // ・写真はテクスチャ（photos）に描いて、ロビーの額縁（frames）に新しい順に並べる。下にコース名とポイント名
 // ・VRChatの手持ちカメラを額縁に近づけると、VRChatカメラの画面だけその写真に差し替える（シャッターで自分のアルバムに保存できる）
 //   （Fuwa/PhotoAlbumFeed の板をレンズの前に置く。FuwaFollowCam と同じやり方）
@@ -20,10 +21,10 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     public Camera shotCam;
     [Tooltip("フォトポイントに入ってから撮るまでの秒数")]
     public float shotDelay = 0.2f;
-    [Tooltip("カメラの向きを、ポイントの決めた向きからふわふわの方へどれだけ向け直すか（0=決めた向きのまま、1=ふわふわを真ん中に）")]
-    [Range(0f, 1f)] public float followBall = 0.75f;
-    [Tooltip("狙う所を、ふわふわから自分の方へどれだけ寄せるか（後ろで構える自分も入るように）")]
-    [Range(0f, 1f)] public float aimTowardPlayer = 0.25f;
+    [Tooltip("ふわふわからカメラまでの距離のめやす(m)")]
+    public float shotDistance = 2.4f;
+    [Tooltip("カメラを置けるか調べる時に、ぶつかったらダメな物")]
+    public LayerMask obstacleMask = (1 << 0) | (1 << 11);
     [Tooltip("写真の大きさ（横）。縦は16:9")]
     public int photoWidth = 1280;
     [Tooltip("撮る時に隠すもの（HUDの文字など）")]
@@ -99,7 +100,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             string name = CourseName(_courseOf[i], en);
             FuwaPhotoPoint pt = _pointOf[i];
             string where = pt != null ? (en ? pt.nameEn : pt.nameJa) : "";
-            captions[i].text = where != "" ? name + "  /  " + where : name;
+            captions[i].text = where != "" ? name + "\n<size=80%>" + where + "</size>" : name;
         }
         if (titleText != null) titleText.text = en ? titleEn : titleJa;
         if (emptyMarks != null)
@@ -131,21 +132,17 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null || !lp.IsValid() || _ball == null || _point == null || frames == null || frames.Length == 0) return;
 
-        // カメラはポイントの位置。向きは、決めた向きからふわふわ（少し自分寄り）の方へ向け直す
         Vector3 chest = lp.GetBonePosition(HumanBodyBones.Chest);
         if (chest == Vector3.zero) chest = lp.GetPosition() + Vector3.up * (lp.GetAvatarEyeHeightAsMeters() * 0.6f);
-        Vector3 aim = Vector3.Lerp(_ball.transform.position, chest, aimTowardPlayer);
-        Transform pose = _point.camPose;
-        Vector3 pos = pose.position;
-        Quaternion rot = pose.rotation;
-        Vector3 toAim = aim - pos;
-        if (toAim.sqrMagnitude > 0.01f) rot = Quaternion.Slerp(rot, Quaternion.LookRotation(toAim, Vector3.up), followBall);
-        // 傾きは消す（地平線がまっすぐの写真に）
-        Vector3 f = rot * Vector3.forward;
-        if (Mathf.Abs(f.y) < 0.99f) rot = Quaternion.LookRotation(f, Vector3.up);
-        shotCam.transform.position = pos;
-        shotCam.transform.rotation = rot;
-        shotCam.fieldOfView = _point.fieldOfView;
+        if (!PlaceCamera(_ball.transform.position, chest))
+        {
+            // どこも置けない時は、ポイントに置いたカメラから
+            Transform pose = _point.camPose;
+            shotCam.transform.position = pose.position;
+            Vector3 to = _ball.transform.position - pose.position;
+            shotCam.transform.rotation = to.sqrMagnitude > 0.01f ? Quaternion.LookRotation(to, Vector3.up) : pose.rotation;
+            shotCam.fieldOfView = _point.fieldOfView;
+        }
 
         // いちばん古い写真を押し出して、先頭に入れる
         int n = frames.Length;
@@ -179,6 +176,59 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         }
         _feedShown = -1;
         RefreshCaptions();
+    }
+
+    // ふわふわの飛んでいく向きの斜め前にカメラを置いて、ふわふわと後ろの自分が両方入る向き・画角にする
+    private bool PlaceCamera(Vector3 ball, Vector3 chest)
+    {
+        Rigidbody rb = _ball.GetComponent<Rigidbody>();
+        Vector3 fwd = rb != null ? rb.velocity : Vector3.zero;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.04f) { fwd = ball - chest; fwd.y = 0f; }
+        fwd = fwd.sqrMagnitude > 0.0001f ? fwd.normalized : Vector3.forward;
+        Vector3 side = Vector3.Cross(Vector3.up, fwd);
+        float pref = Vector3.Dot(_point.camPose.position - ball, side) >= 0f ? 1f : -1f;
+        float d = shotDistance;
+        // 前・横・上（ふわふわからの距離の割合）。決めた側から順に、だめなら反対側、少し遠く…
+        float[] ax = { 0.85f, 0.85f, 0.55f, 0.55f, 1.2f, 1.2f, 0.3f, 0.3f };
+        float[] sx = { 0.55f, -0.55f, 0.85f, -0.85f, 0.35f, -0.35f, 0.95f, -0.95f };
+        float[] ux = { 0.3f, 0.3f, 0.45f, 0.45f, 0.2f, 0.2f, 0.6f, 0.6f };
+        bool playerNear = (chest - ball).magnitude < 9f;
+        for (int k = 0; k < ax.Length; k++)
+        {
+            Vector3 pos = ball + (fwd * ax[k] + side * (sx[k] * pref) + Vector3.up * ux[k]) * d;
+            if (Physics.CheckSphere(pos, 0.3f, obstacleMask, QueryTriggerInteraction.Ignore)) continue;
+            if (Blocked(pos, ball)) continue;
+            bool withPlayer = playerNear && !Blocked(pos, chest);
+            Vector3 dB = (ball - pos).normalized;
+            Vector3 dir = dB;
+            float fov = 45f;
+            if (withPlayer)
+            {
+                Vector3 dC = (chest - pos).normalized;
+                float ang = Vector3.Angle(dB, dC);
+                if (ang < 70f)
+                {
+                    // ふわふわ寄りの真ん中を向いて、両方が入る画角に（ふわふわを主役に少し大きく）
+                    dir = (dB * 0.6f + dC * 0.4f).normalized;
+                    fov = Mathf.Clamp(ang * 1.1f + 14f, 32f, 62f);
+                }
+            }
+            shotCam.transform.position = pos;
+            shotCam.transform.rotation = Quaternion.LookRotation(dir, Vector3.up);
+            shotCam.fieldOfView = fov;
+            return true;
+        }
+        return false;
+    }
+
+    private bool Blocked(Vector3 from, Vector3 to)
+    {
+        Vector3 d = to - from;
+        float len = d.magnitude - 0.4f;   // 写す物そのもの（ふわふわ・自分の体）には当たらないよう、手前で止める
+        if (len <= 0f) return false;
+        RaycastHit hit;
+        return Physics.SphereCast(from, 0.1f, d / d.magnitude, out hit, len, obstacleMask, QueryTriggerInteraction.Ignore);
     }
 
     // VRChatカメラが額縁に近づいたら、レンズの前に写真の板を置く
