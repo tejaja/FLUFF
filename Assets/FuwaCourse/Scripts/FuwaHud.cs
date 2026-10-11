@@ -226,10 +226,10 @@ public class FuwaHud : UdonSharpBehaviour
             ShiftOutward(statusText, statusBg, sign);
             ShiftOutward(timerText, timerBg, sign);
             ShiftGauge(sign);
-            Vector3 toText = pos - head.position;
             transform.position = pos;
-            // 上方向は頭に合わせる（世界の上だと、視界の端で文字が斜めに傾いて見える）
-            if (toText.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.LookRotation(toText, head.rotation * Vector3.up);
+            // 向きは顔と平行（モニターみたいに）。頭の方を向かせると、視界の端（銃を右に構えた時など）で
+            // 文字が斜めに傾いたり、反対の端が奥に逃げて見えたりする（2026-10-11 てじゃ）
+            transform.rotation = head.rotation;
             transform.localScale = _baseScale * sc;
             return;
         }
