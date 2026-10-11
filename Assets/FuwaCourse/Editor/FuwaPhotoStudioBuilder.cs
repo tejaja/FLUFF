@@ -23,8 +23,8 @@ public static class FuwaPhotoStudioBuilder
     const float IslandScale = 1.35f;    // スタートの島に対する大きさ
     const float BoardRingR = 2.75f;     // 看板を置く、島の中心からの距離
     // 島の奥の並び（島の中心から見た方向、度。0＝橋の反対側の真ん中、+＝右）。どれも半径 RingR の円の上で真ん中を向く
-    const float RingR = 3.3f;
-    const float GalleryDeg = -30f, MonitorDeg = 28f, ButtonDeg = 63f, ZoneDeg = 96f;   // 人物ボタンを横に伸ばしたので球は右へ
+    const float RingR = 3.1f;   // 柵（地面のふちの14cm内側、半径約3.9）に看板のはしが当たらないように
+    const float GalleryDeg = -33f, MonitorDeg = 31f, ButtonDeg = 67f, ZoneDeg = 97f;   // 人物ボタンを横に伸ばしたので球は右へ
     // 最速タイムの看板のロビーでの元の位置（写真館に引っ越す前、FuwaLobby の子として）
     static readonly Vector3 BestTimesLobbyLocal = new Vector3(-7.1677537f, 0.2890005f, -1.6265945f);
     static readonly Quaternion BestTimesLobbyRot = new Quaternion(0f, -0.78144264f, 0f, 0.62397707f);
@@ -235,7 +235,11 @@ public static class FuwaPhotoStudioBuilder
     // 島の柵：ロビーの柵と同じ寸法（柱 0.11角×0.6、約1mおき、横木2段）。toLobby の向きに 2.0m の入口
     static string StudioFence(Transform studio, Vector3 center, Vector3 toLobby)
     {
-        float r = IslandR + 0.1f;
+        // 柱は地面のふちより内側に（前は IslandR+0.1 で、ふちからはみ出て浮いて見えた。てじゃ「島の柵ういてる」）
+        var gT = studio.Find("Ground");
+        float groundR = 0f;
+        foreach (var v in gT.GetComponent<MeshFilter>().sharedMesh.vertices) { var w = studio.InverseTransformPoint(gT.TransformPoint(v)); groundR = Mathf.Max(groundR, new Vector2(w.x, w.z).magnitude); }
+        float r = groundR - 0.14f;
         const float postW = 0.11f, postH = 0.6f, railW = 0.06f, railH = 0.06f;
         float baseY = -0.02f;                       // 柱の根元（地面の上から）
         float[] railY = { 0.22f, 0.52f };           // 横木の中心（柱の根元から）
@@ -275,6 +279,7 @@ public static class FuwaPhotoStudioBuilder
         col = Save(col, MeshDir + "/PhotoStudio_FenceCollider.asset");
 
         var wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
+        foreach (var n in new[] { "Fence", "FenceCollider" }) { var o = studio.Find(n); if (o != null) Object.DestroyImmediate(o.gameObject); }
         var f = new GameObject("Fence");
         f.transform.SetParent(studio, false);
         f.AddComponent<MeshFilter>().sharedMesh = vis;

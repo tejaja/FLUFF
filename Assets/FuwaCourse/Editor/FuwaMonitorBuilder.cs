@@ -143,6 +143,10 @@ public static class FuwaMonitorBuilder
             person.position += person.right * (E / 2) * cv.lossyScale.x;
         }
         var personText = person.Find("Canvas/Button/Seg/TextA").GetComponent<TMPro.TextMeshProUGUI>();
+        // 名前には漢字なども入るので、漢字のある丸ゴシック（M PLUS Rounded 1c、足りない字は Kosugi Maru）に（Darumadrop One は漢字がない）
+        personText.font = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/MPLUSRounded1c SDF.asset");
+        personText.fontSharedMaterial = personText.font.material;
+        personText.fontStyle = TMPro.FontStyles.Bold;
         personText.text = "ME"; personText.enableAutoSizing = true; personText.fontSizeMin = 60f; personText.fontSizeMax = personText.fontSize;
 
         // ---- VRChatカメラを入れる球 ----
