@@ -229,8 +229,8 @@ public static class FuwaPhotoAlbumBuilder
         em.name = "Empty";
         em.transform.localPosition = new Vector3(0f, 0f, 0.01f);
         em.transform.localRotation = Quaternion.identity;
-        em.transform.localScale = Vector3.one * 0.12f;
-        em.size = size / 0.12f;
+        em.transform.localScale = Vector3.one * 0.01f;   // 角の丸み＝0.25×スケールなので、ほぼ角ばった四角に（てじゃ「普通の四角に」）
+        em.size = size / 0.01f;
         em.color = new Color(0.86f, 0.88f, 0.91f, 1f);
         empty = em.gameObject;
         var q = GameObject.CreatePrimitive(PrimitiveType.Quad);

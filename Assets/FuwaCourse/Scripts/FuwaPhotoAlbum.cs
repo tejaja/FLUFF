@@ -228,7 +228,9 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     public void RefreshCaptions()
     {
         bool en = language != null && language.IsEnglish();
+        // 写真が1枚でもあればコース名を出す（写真の下の名前をなくした時に、ここで判定していたせいでコース名まで消えていた）
         bool any = false;
+        if (_has != null) for (int i = 0; i < _has.Length; i++) if (_has[i]) any = true;
         if (captions != null)
         {
             for (int i = 0; i < captions.Length; i++)
