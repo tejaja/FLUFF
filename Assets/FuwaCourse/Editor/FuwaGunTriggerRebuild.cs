@@ -105,21 +105,85 @@ public static class FuwaGunTriggerRebuild
         int b = V.Count; V.AddRange(tm); N.AddRange(tn); foreach (var i in tt) T.Add(b + i);
     }
 
-    static Vector3 Bez(Vector3 a, Vector3 b, Vector3 c, float t) { float u = 1 - t; return u * u * a + 2 * u * t * b + t * t * c; }
 
-    // トリガー：根元（銃身の中）→ 後ろへくぼみながら下へ → 先は前へ反り返る
+    // トリガー：横から見るとグリップの前の面までつながった一枚の板（2026-10-11 てじゃ「横からみるとグリップまで繋がった板」ナーフの写真）。
+    // 前のふちは指がかかるようにくぼみ、前の下の角は丸い。後ろはグリップの中、上は銃身の中。
+    // 板の厚みはふち（前・下）に向かって丸く落ちる（ふちの丸み半径 ≒ 厚みの半分）。表と裏はふちの頂点を共有して、ふちに線が出ないように
     public static void AddTrigger(List<Vector3> V, List<Vector3> N, List<int> T)
     {
-        Vector3 P0 = new Vector3(0, 0.0300f, 0.0268f), P1 = new Vector3(0, 0.0195f, 0.0222f), P2 = new Vector3(0, 0.0152f, 0.0268f);   // ナーフの写真みたいに、グリップのすぐ前（すき間1.5mmくらい）
-        int n = 22; var c = new Vector3[n]; var hw = new float[n]; var hd = new float[n];
-        for (int k = 0; k < n; k++)
+        const float yb = 0.0138f, yt = 0.0310f, h0 = 0.0019f, rb = 0.0019f, rc = 0.0025f;
+        // 前のふち（y → z）
+        float[] fy = { 0.0310f, 0.0260f, 0.0205f, 0.0165f, 0.0138f };
+        float[] fz = { 0.0318f, 0.0302f, 0.0288f, 0.0298f, 0.0312f };
+        float Zf(float y)
         {
-            float t = k / (float)(n - 1);
-            c[k] = Bez(P0, P1, P2, t);
-            hw[k] = Mathf.Lerp(0.0019f, 0.0017f, t);    // 横の厚みの半分（薄い板）
-            hd[k] = Mathf.Lerp(0.0046f, 0.0036f, t);    // 前後の幅の半分（幅広）
+            for (int i = 0; i < fy.Length - 1; i++)
+                if (y >= fy[i + 1] - 1e-6f)
+                {
+                    float t = Mathf.InverseLerp(fy[i], fy[i + 1], y);
+                    int i0 = Mathf.Max(0, i - 1), i3 = Mathf.Min(fy.Length - 1, i + 2);
+                    float p0 = fz[i0], p1 = fz[i], p2 = fz[i + 1], p3 = fz[i3], t2 = t * t, t3 = t2 * t;
+                    return 0.5f * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3);
+                }
+            return fz[fz.Length - 1];
         }
-        Sweep(V, N, T, c, hw, hd, 4f, 0.0020f, 36, 5);
+        float Zr(float y) { return 0.0139f + (y - 0.006f) * 0.21f - 0.0030f; }   // グリップの前の面より 3mm 奥
+        // ふちまでの距離（前の下の角は半径 rc で丸める）
+        float Dist(float y, float z)
+        {
+            float a = Zf(y) - z, b = y - yb;
+            if (a < rc && b < rc) return rc - new Vector2(rc - a, rc - b).magnitude;
+            return Mathf.Min(a, b);
+        }
+        // その高さでの前のふちの z（角の丸みを含む）
+        float Edge(float y)
+        {
+            float b = y - yb; float zf = Zf(y);
+            if (b >= rc) return zf;
+            float u = rc - b; return zf - rc + Mathf.Sqrt(Mathf.Max(0f, rc * rc - u * u));
+        }
+        const int rows = 56, cols = 34;
+        var pos = new Vector3[rows, cols]; var hh = new float[rows, cols];
+        for (int r = 0; r < rows; r++)
+        {
+            float s = r / (float)(rows - 1);
+            float y = yb + (yt - yb) * (1 - Mathf.Cos(s * Mathf.PI * 0.5f));   // 下の方を細かく
+            float z0 = Zr(y), z1 = Edge(y);
+            for (int c = 0; c < cols; c++)
+            {
+                float u = c / (float)(cols - 1); u = 1 - (1 - u) * (1 - u);    // 前のふちの近くを細かく
+                float z = Mathf.Lerp(z0, z1, u);
+                pos[r, c] = new Vector3(0, y, z);
+                float d = r == 0 || c == cols - 1 ? 0f : Mathf.Max(0f, Dist(y, z));
+                float q = Mathf.Clamp01(d / rb);
+                hh[r, c] = h0 * Mathf.Sqrt(1 - (1 - q) * (1 - q));
+            }
+        }
+        var tm = new List<Vector3>(); var tt = new List<int>();
+        var idF = new int[rows, cols]; var idB = new int[rows, cols];
+        for (int r = 0; r < rows; r++)
+            for (int c = 0; c < cols; c++)
+            {
+                idF[r, c] = tm.Count; tm.Add(pos[r, c] + Vector3.right * hh[r, c]);
+                if (hh[r, c] <= 0f) idB[r, c] = idF[r, c];
+                else { idB[r, c] = tm.Count; tm.Add(pos[r, c] - Vector3.right * hh[r, c]); }
+            }
+        for (int r = 0; r < rows - 1; r++)
+            for (int c = 0; c < cols - 1; c++)
+            {
+                // 表（+x を向く）：y が上、z が前 → (r,c),(r+1,c),(r,c+1) は +x から見て…向きは後でそろえる
+                tt.AddRange(new[] { idF[r, c], idF[r + 1, c], idF[r, c + 1], idF[r, c + 1], idF[r + 1, c], idF[r + 1, c + 1] });
+                tt.AddRange(new[] { idB[r, c], idB[r, c + 1], idB[r + 1, c], idB[r, c + 1], idB[r + 1, c + 1], idB[r + 1, c] });
+            }
+        // 表の面が +x を向くように
+        {
+            var a = tm[idF[rows / 2, cols / 2]]; var b = tm[idF[rows / 2 + 1, cols / 2]]; var c = tm[idF[rows / 2, cols / 2 + 1]];
+            if (Vector3.Cross(b - a, c - a).x < 0)
+                for (int i = 0; i < tt.Count; i += 3) { int x = tt[i + 1]; tt[i + 1] = tt[i + 2]; tt[i + 2] = x; }
+        }
+        var tmp = new Mesh(); tmp.SetVertices(tm); tmp.SetTriangles(tt, 0); tmp.RecalculateNormals();
+        var tn = tmp.normals; Object.DestroyImmediate(tmp);
+        int b0 = V.Count; V.AddRange(tm); N.AddRange(tn); foreach (var i in tt) T.Add(b0 + i);
     }
 
     // ガード：平たい板（横から見ると太い帯、正面から見ると薄い）。前は銃身の中 → 下へ → トリガーの下をくぐって → 後ろはグリップの前の面の中へ
