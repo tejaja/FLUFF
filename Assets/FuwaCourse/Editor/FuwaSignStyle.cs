@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -231,4 +232,71 @@ public static class FuwaSignStyle
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sign.gameObject.scene);
         return sign.parent.name + "/" + sign.name + " -> " + style;
     }
+
+    // ---- コース以外の看板：平らな色つき枠（前のコース看板と同じ作り：一回り大きい角丸の板を後ろに置く）----
+    // 2026-10-11 てじゃ「コース以外は色つけるだけでいいかも、差別化」「枠ね、色はいったんおまかせ」
+    public static string AddFlatBorder(Transform panelT, Color color)
+    {
+        var panel = panelT.GetComponent<SpriteRenderer>(); var board = panelT.parent;
+        var tmpl = Object.FindObjectsOfType<SpriteRenderer>(true).First(r => r.name == "Border" && r.sharedMaterial != null && r.sharedMaterial.name == "PanelSpriteOneSided_Border");
+        var bt = board.Find("Border");
+        if (bt == null)
+        {
+            var go = Object.Instantiate(tmpl.gameObject, board); go.name = "Border"; Undo.RegisterCreatedObjectUndo(go, "border");
+            bt = go.transform; bt.SetSiblingIndex(panelT.GetSiblingIndex() + 1);
+        }
+        Undo.RecordObject(bt, "border"); var br = bt.GetComponent<SpriteRenderer>(); Undo.RecordObject(br, "border");
+        bt.gameObject.SetActive(true);
+        float w = 0.07f / Mathf.Abs(panelT.localScale.x);              // 枠の幅（看板の親の座標で 7cm 相当）
+        float k = (0.25f + w) / 0.25f;                                   // 角の丸みが板と同心になる倍率
+        bt.localRotation = panelT.localRotation;
+        bt.localScale = panelT.localScale * k;
+        bt.localPosition = panelT.localPosition + new Vector3(0f, 0f, 0.006f);
+        br.drawMode = SpriteDrawMode.Sliced; br.sprite = tmpl.sprite; br.sharedMaterial = tmpl.sharedMaterial;
+        br.size = (panel.size + Vector2.one * 2f * w) / k;
+        br.color = color; br.sortingOrder = panel.sortingOrder;
+        EditorUtility.SetDirty(br);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(board.gameObject.scene);
+        return board.name + " border " + ColorUtility.ToHtmlStringRGB(color);
+    }
+
+    [MenuItem("FuwaCourse/看板に色つきの枠をつける（コース以外）")]
+    public static void FlatBordersMenu() { Debug.Log(FlatBorders()); }
+
+    // 看板ごとの枠の色（パスの末尾で探す）
+    static readonly (string path, string hex)[] FlatTargets =
+    {
+        ("FuwaLobby/HowToPlay/Panel", "FF8C6B"),            // あそびかた：タイトルのオレンジに合わせて少しやわらかく
+        ("FuwaVersusLobby/HowToPlayVersus/Panel", "FF8C6B"),
+        ("FuwaVersusLobby/MatchPanel/Board/Panel", "F78C4C"), // たいせん：ハブのたいせんゲートと同じオレンジ
+        ("FuwaLobby/PhotoGallery/Panel", "73AAE6"),          // 名場面：空色
+        ("FuwaSystem/PhotoAlbum/GoalBoard/Panel", "73AAE6"),
+        ("FuwaLobby/PhotoStudio/BestTimes/Panel", "E8B84A"), // 最速タイム：金色
+        ("FuwaLobby/PhotoStudio/CamInfo/Panel", "9E8CDB"),   // CAM：ボタンと同じむらさき
+        ("FuwaHub/BackIsland/Credits/Panel", "EB8FBA"),
+        ("FuwaCourse0/Tutorial/Entrance/GunSign/Panel", "EB8FBA"),   // チュートリアルの説明看板：コース0の色
+        ("FuwaCourse0/Tutorial/Sign_ShootMushroom/Panel", "EB8FBA"),
+        ("FuwaCourse0/Tutorial/Sign_MoreTricks/Panel", "EB8FBA"),
+        ("FuwaCourse0/Tutorial/Bay_*/Sign/Panel", "EB8FBA"),
+    };
+
+    public static string FlatBorders()
+    {
+        var log = new List<string>();
+        var all = Object.FindObjectsOfType<Transform>(true);
+        foreach (var (path, hex) in FlatTargets)
+        {
+            ColorUtility.TryParseHtmlString("#" + hex, out var col);
+            var rx = new System.Text.RegularExpressions.Regex("^" + System.Text.RegularExpressions.Regex.Escape(path).Replace("\\*", "[^/]*") + "$");
+            foreach (var t in all)
+            {
+                if (t.name != "Panel" || t.GetComponent<SpriteRenderer>() == null) continue;
+                if (!rx.IsMatch(PathOf(t))) continue;
+                log.Add(AddFlatBorder(t, col));
+            }
+        }
+        return string.Join("\n", log);
+    }
+
+    static string PathOf(Transform t) { var s = t.name; while (t.parent != null) { t = t.parent; s = t.name + "/" + s; } return s; }
 }
