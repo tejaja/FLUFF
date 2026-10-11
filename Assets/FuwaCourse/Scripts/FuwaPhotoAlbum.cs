@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UdonSharp;
 using UnityEngine;
 using VRC.SDK3.Rendering;
@@ -237,7 +237,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         }
         if (titleText != null)
         {
-            string t = en ? titleEn : titleJa;
+            string t = "<color=#FF6B5C>" + (en ? titleEn : titleJa) + "</color>";   // 見出しはあそびかたの看板と同じオレンジ（コース名はふつうの色）
             string c = CourseName(_boardCourse, en);
             titleText.text = any && c != "" ? t + "<size=70%>  ―  " + c + "</size>" : t;
         }

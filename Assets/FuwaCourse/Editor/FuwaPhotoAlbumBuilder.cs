@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using TMPro;
 using UdonSharp;
 using UdonSharpEditor;
@@ -89,7 +89,7 @@ public static class FuwaPhotoAlbumBuilder
         board.rotation = Quaternion.LookRotation(dir, Vector3.up);   // 見る人（ロビーの中）から見て +z が奥
         // 写真館の島があればそこへ（FuwaPhotoStudioBuilder の BoardSpot）
         var studioSpot = lobby.Find("PhotoStudio/BoardSpot");
-        if (studioSpot != null) { board.SetPositionAndRotation(studioSpot.position, studioSpot.rotation); board.localScale = Vector3.one * 0.85f; }   // 島が小さいので最速タイムの看板と同じ0.85倍
+        if (studioSpot != null) { board.SetPositionAndRotation(studioSpot.position, studioSpot.rotation); board.localScale = Vector3.one * 1.15f; }   // 島の奥の正面にドンと（2026-10-11 てじゃ「名場面を大きく」）
 
         var best = lobby.GetComponentsInChildren<Transform>(true).First(t => t.name == "BestTimes");   // 写真館の島へ引っ越していても見つける
         foreach (Transform leg in best.Cast<Transform>().Where(t => t.name == "Leg"))
@@ -108,7 +108,7 @@ public static class FuwaPhotoAlbumBuilder
 
         var srcText = best.Find("Text").GetComponent<TextMeshPro>();
         var title = Text(board, "Title", srcText, new Vector3(0f, 3.25f, 0f), new Vector2(3.8f, 0.4f), 2.4f, TextAlignmentOptions.Center);
-        title.text = "さっきの名場面";
+        title.text = "<color=#FF6B5C>さっきの名場面</color>";   // あそびかたの看板と同じオレンジ（実行中は FuwaPhotoAlbum が書き直す）
 
         var photoMat = AssetDatabase.LoadAssetAtPath<Material>(PhotoMatPath);
         if (photoMat == null) { photoMat = new Material(Shader.Find("Unlit/Texture")); AssetDatabase.CreateAsset(photoMat, PhotoMatPath); }
