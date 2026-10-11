@@ -87,6 +87,9 @@ public static class FuwaPhotoAlbumBuilder
         Vector3 dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
         board.position = new Vector3(center.x, 8.29f, center.z) + dir * Radius;
         board.rotation = Quaternion.LookRotation(dir, Vector3.up);   // 見る人（ロビーの中）から見て +z が奥
+        // 写真館の島があればそこへ（FuwaPhotoStudioBuilder の BoardSpot）
+        var studioSpot = lobby.Find("PhotoStudio/BoardSpot");
+        if (studioSpot != null) { board.SetPositionAndRotation(studioSpot.position, studioSpot.rotation); board.localScale = Vector3.one * 0.85f; }   // 島が小さいので最速タイムの看板と同じ0.85倍
 
         var best = lobby.Find("BestTimes");
         foreach (Transform leg in best.Cast<Transform>().Where(t => t.name == "Leg"))
