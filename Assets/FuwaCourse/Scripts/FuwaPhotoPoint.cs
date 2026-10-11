@@ -2,8 +2,9 @@ using UdonSharp;
 using UnityEngine;
 
 // 名場面アルバムのフォトポイント（自分にだけ、同期なし）。2026-10-11 てじゃ「各コースごとに、数カ所フォトポイントを作るのがいい」
-// 自分のふわふわがこの区画（トリガー）に入ったら、camPose の位置から1枚撮ってもらう（FuwaPhotoAlbum）。
-// 1回の挑戦で1枚まで（スタートし直したらまた撮れる）。
+// 自分のふわふわがこの区画（トリガー）に入ったら、「ふわふわ主役」と「自分に寄った」の2枚を撮ってもらう（FuwaPhotoAlbum）。
+// camPose は撮る側（左右）の好みと、どこにもカメラを置けない時の予備。
+// 1回の挑戦で1回まで（スタートし直したらまた撮れる）。
 // 位置・構図はシーンで自由に動かしてよい（作り直しメニューは、すでにあるフォトポイントを動かさない）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaPhotoPoint : UdonSharpBehaviour
@@ -13,6 +14,8 @@ public class FuwaPhotoPoint : UdonSharpBehaviour
     public Transform camPose;
     [Tooltip("画角（度）")]
     public float fieldOfView = 45f;
+    [Tooltip("コースの中の順番（0〜2）。撮る角度とボードの並び（ポイント1の2枚、ポイント2の…）に使う")]
+    public int order;
     [Tooltip("ボードの写真の下に出す名前")]
     public string nameJa = "";
     public string nameEn = "";

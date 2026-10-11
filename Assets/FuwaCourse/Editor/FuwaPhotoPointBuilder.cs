@@ -5,7 +5,7 @@ using UnityEditor;
 using UnityEngine;
 
 // 名場面アルバムのフォトポイント（FuwaPhotoPoint）を各コースに仮置きする（2026-10-11 てじゃ「いっかい仮できめちゃって、あとで変えていこう」）。
-// ふわふわが必ず通る所＝各チェックポイントのゲートと、ゴールの手前。
+// ふわふわが必ず通る所＝各チェックポイントのゲートと、ゴールの手前（とスタート直後）から、各コース3か所。
 // カメラは通る向きの先の斜め上から振り返って、飛んでくるふわふわと後ろで構える自分を撮る位置に置く（地面や壁で隠れる位置はよける）。
 // すでにフォトポイントがあるコースは触らない（てじゃが動かした位置・構図を消さないため）。
 // 作り直したいコースは、そのコースの PhotoPoints を消してからメニューを実行する
@@ -67,8 +67,9 @@ public static class FuwaPhotoPointBuilder
         var holder = course.Find("PhotoPoints");
         if (holder == null) { holder = new GameObject("PhotoPoints").transform; holder.SetParent(course, false); }
         int layer = cps.Count > 0 ? cps[0].gameObject.layer : goal.gameObject.layer;
-        var made = new List<string>();
 
+        // 候補：各チェックポイントのゲートと、ゴールの手前。3か所にそろえる（多ければ等間隔に間引き、少なければスタート直後を足す）
+        var cand = new List<(Vector3 center, Vector3 dir, float width, string ja, string en)>();
         for (int i = 0; i < cps.Count; i++)
         {
             var box = cps[i].GetComponent<BoxCollider>();
@@ -80,21 +81,32 @@ public static class FuwaPhotoPointBuilder
             dir.y = 0f; dir.Normalize();
             if (Vector3.Dot(dir, way[i + 2] - center) < 0f) dir = -dir;
             float width = Mathf.Max(Mathf.Abs(size.x), Mathf.Abs(size.z)) + 2f;
-            made.Add(Make(holder, "PhotoPoint" + (i + 1), center, dir, width, layer, album,
-                "チェックポイント" + (i + 1), "Checkpoint " + (i + 1)));
+            cand.Add((center, dir, width, "チェックポイント" + (i + 1), "Checkpoint " + (i + 1)));
         }
         {
-            // ゴールの手前（最後の点 → ゴールの向きで、ゴールの7m手前）
             Vector3 g = goal.transform.position;
             Vector3 prev = way[way.Count - 2];
             Vector3 dir = g - prev; dir.y = 0f; dir.Normalize();
-            Vector3 center = g - dir * 7f + Vector3.up * 1f;
-            made.Add(Make(holder, "PhotoPoint" + (cps.Count + 1), center, dir, 8f, layer, album, "ゴール前", "Final Stretch"));
+            cand.Add((g - dir * 7f + Vector3.up * 1f, dir, 8f, "ゴール前", "Final Stretch"));
+        }
+        if (cand.Count < 3)
+        {
+            // スタート直後（キノコから飛び出したふわふわが必ず通る、スタートの少し先）
+            Vector3 dir = way[1] - way[0]; dir.y = 0f; dir.Normalize();
+            cand.Insert(0, (way[0] + dir * 3f + Vector3.up * 1.5f, dir, 7f, "スタート", "Start"));
+        }
+        var pick = new List<int>();
+        for (int i = 0; i < 3 && i < cand.Count; i++) pick.Add(Mathf.RoundToInt(i * (cand.Count - 1) / 2f));
+        var made = new List<string>();
+        for (int i = 0; i < pick.Count; i++)
+        {
+            var c = cand[pick[i]];
+            made.Add(Make(holder, "PhotoPoint" + (i + 1), i, c.center, c.dir, c.width, layer, album, c.ja, c.en));
         }
         return string.Join(", ", made);
     }
 
-    static string Make(Transform holder, string name, Vector3 center, Vector3 dir, float width, int layer, FuwaPhotoAlbum album, string ja, string en)
+    static string Make(Transform holder, string name, int order, Vector3 center, Vector3 dir, float width, int layer, FuwaPhotoAlbum album, string ja, string en)
     {
         var go = new GameObject(name);
         go.layer = layer;
@@ -136,6 +148,7 @@ public static class FuwaPhotoPointBuilder
         pp.album = album;
         pp.camPose = cam;
         pp.fieldOfView = 50f;
+        pp.order = order;
         pp.nameJa = ja;
         pp.nameEn = en;
         UdonSharpEditorUtility.CopyProxyToUdon(pp);
