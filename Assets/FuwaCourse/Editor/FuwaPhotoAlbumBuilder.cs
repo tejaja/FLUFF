@@ -190,19 +190,13 @@ public static class FuwaPhotoAlbumBuilder
         return string.Join("\n", log);
     }
 
-    // 写真1枚ぶん（木の色の額縁・まだ写真がない時の紙・写真の面）
+    // 写真1枚ぶん（まだ写真がない時の紙・写真の面）
     static Transform Slot(Transform parent, int i, Vector3 pos, SpriteRenderer srcPanel, Material photoMat, out Renderer image, out GameObject empty)
     {
         var slot = new GameObject("Photo" + i).transform;
         slot.SetParent(parent, false);
         slot.localPosition = pos;
-        var fr = Object.Instantiate(srcPanel.gameObject, slot).GetComponent<SpriteRenderer>();
-        fr.name = "Frame";
-        fr.transform.localPosition = new Vector3(0f, 0f, 0.018f);
-        fr.transform.localRotation = Quaternion.identity;
-        fr.transform.localScale = Vector3.one * 0.25f;
-        fr.size = (PhotoSize + new Vector2(0.07f, 0.07f)) / 0.25f;
-        fr.color = new Color(0.62f, 0.47f, 0.36f, 1f);
+        // 茶色い額縁はなし（2026-10-11 てじゃ「茶色い枠いらないかも」）
         var em = Object.Instantiate(srcPanel.gameObject, slot).GetComponent<SpriteRenderer>();
         em.name = "Empty";
         em.transform.localPosition = new Vector3(0f, 0f, 0.01f);
