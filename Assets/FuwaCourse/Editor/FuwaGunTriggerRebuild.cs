@@ -110,14 +110,14 @@ public static class FuwaGunTriggerRebuild
     // トリガー：根元（銃身の中）→ 後ろへくぼみながら下へ → 先は前へ反り返る
     public static void AddTrigger(List<Vector3> V, List<Vector3> N, List<int> T)
     {
-        Vector3 P0 = new Vector3(0, 0.0305f, 0.0352f), P1 = new Vector3(0, 0.0200f, 0.0298f), P2 = new Vector3(0, 0.0163f, 0.0343f);
+        Vector3 P0 = new Vector3(0, 0.0300f, 0.0268f), P1 = new Vector3(0, 0.0195f, 0.0222f), P2 = new Vector3(0, 0.0152f, 0.0268f);   // ナーフの写真みたいに、グリップのすぐ前（すき間1.5mmくらい）
         int n = 22; var c = new Vector3[n]; var hw = new float[n]; var hd = new float[n];
         for (int k = 0; k < n; k++)
         {
             float t = k / (float)(n - 1);
             c[k] = Bez(P0, P1, P2, t);
-            hw[k] = Mathf.Lerp(0.0021f, 0.0019f, t);    // 横の厚みの半分（薄い板）
-            hd[k] = Mathf.Lerp(0.0040f, 0.0030f, t);    // 前後の幅の半分
+            hw[k] = Mathf.Lerp(0.0019f, 0.0017f, t);    // 横の厚みの半分（薄い板）
+            hd[k] = Mathf.Lerp(0.0046f, 0.0036f, t);    // 前後の幅の半分（幅広）
         }
         Sweep(V, N, T, c, hw, hd, 4f, 0.0020f, 36, 5);
     }
