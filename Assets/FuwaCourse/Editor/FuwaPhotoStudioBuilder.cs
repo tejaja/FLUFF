@@ -26,10 +26,10 @@ public static class FuwaPhotoStudioBuilder
     const float RingR = 3.1f;   // 柵（地面のふちの14cm内側、半径約3.9）に看板のはしが当たらないように
     const float GalleryDeg = -33f, MonitorDeg = 31f, ButtonDeg = 67f, ZoneDeg = 97f;   // 人物ボタンを横に伸ばしたので球は右へ
     // 最速タイムの看板のロビーでの元の位置（写真館に引っ越す前、FuwaLobby の子として）
-    static readonly Vector3 BestTimesLobbyLocal = new Vector3(-7.1677537f, 0.7890005f, -1.6265945f);   // 2026-10-12 下にステージ2のポータルの札が入るよう 0.5m 上げた（脚はシーンで伸ばしてある）
-    static readonly Quaternion BestTimesLobbyRot = new Quaternion(0f, -0.78144264f, 0f, 0.62397707f);
+    static readonly Vector3 BestTimesLobbyLocal = new Vector3(-7.1677537f, 2.0f, -1.6265945f);   // 2026-10-12 てじゃ「ぐっと上げて斜めに見上げる形」：2m上げて脚なしで浮かせ、15°下向き。下にステージ2
+    static readonly Quaternion BestTimesLobbyRot = new Quaternion(0f, -0.78144264f, 0f, 0.62397707f) * Quaternion.Euler(-15f, 0f, 0f);
     // ステージ2のポータルの場所（ロビーの中、FuwaLobby の子として）
-    static readonly Vector3 Stage2PortalTemp = new Vector3(-5.51f, 0.1f, -1.25f);   // 最速タイムの看板の手前（てじゃ「最速タイムをちょっと上げて配置」）
+    static readonly Vector3 Stage2PortalTemp = new Vector3(-5.9f, 0.1f, -1.35f);   // 最速タイムの看板の手前（てじゃ「最速タイムをちょっと上げて配置」）
     static readonly Vector3 BestTimesLobbyPos = new Vector3(5.83f, 8.29f, -17.63f);   // 最速タイムの看板がロビーにあった場所
     static float IslandR = 3.0f;        // 島の地面の半径（スタートの島と同じ。Run でスタートの地面から測り直す）
     static float BridgeGap = 1.15f;     // 島どうしのふちの間（スタートの島→ワープの小島と同じ。Run で測り直す）
@@ -141,6 +141,7 @@ public static class FuwaPhotoStudioBuilder
         {
             best.SetParent(lobby, false);
             best.localPosition = BestTimesLobbyLocal; best.localRotation = BestTimesLobbyRot; best.localScale = Vector3.one * 0.85f;
+            foreach (Transform c in best) if (c.name == "Leg") c.gameObject.SetActive(false);   // 浮かせるので脚なし
             log.Add("best times -> lobby");
         }
 
