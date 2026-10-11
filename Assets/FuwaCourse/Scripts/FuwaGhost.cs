@@ -146,7 +146,9 @@ public class FuwaGhost : UdonSharpBehaviour
     private void OwnerUpdate()
     {
         transform.SetPositionAndRotation(ball.transform.position, ball.transform.rotation);
-        _hidden = ball.IsHidden();
+        // 吹かれるのを空中で待っている間（チェックポイントやスタートで浮いている時）も、他の人の画面では分身を出さない
+        // （チェックポイントで他の人のふわふわと重なって見えた。とくにチュートリアル。2026-10-12 てじゃ）
+        _hidden = ball.IsHidden() || ball.IsWaiting();
         float dt = Mathf.Max(Time.deltaTime, 0.0001f);
         Vector3 rawVel = (transform.position - _prevPos) / dt;
         _prevPos = transform.position;
