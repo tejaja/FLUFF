@@ -27,6 +27,8 @@ public class FuwaBlower : UdonSharpBehaviour
     public float summonGrabSize = 0.3f;
     [Tooltip("VRでタイマー表示をこの道具の上に出すためのHUD")]
     public FuwaHud hud;
+    [Tooltip("名場面アルバム（撃った瞬間を撮るため。なくてもOK）")]
+    public FuwaPhotoAlbum photoAlbum;
     [Tooltip("自分の道具を登録しておく先（ワープ時や台から呼び寄せるため）")]
     public FuwaRespawnManager manager;
     [Tooltip("操作表示（発射・エアガン）の言語を合わせるため")]
@@ -852,6 +854,7 @@ public class FuwaBlower : UdonSharpBehaviour
 
         // イースターエッグ：太陽をフルチャージで撃つと、みんなの空の太陽が「＞＜」になる（2026-10-07 フルチャージだけに）
         if (charge >= 0.99f && sunFace != null && sunFace.IsAimAtSun(aim)) SendCustomNetworkEvent(NetworkEventTarget.All, nameof(SunHitFx));
+        if (photoAlbum != null) photoAlbum.OnFire(origin, aim);
 
         // フルチャージの時だけ、モンスターを少し遠くまで押し飛ばす
         if (charge >= 0.99f) enemyPower *= fullChargeEnemyBoost;

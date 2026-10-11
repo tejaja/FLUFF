@@ -180,8 +180,11 @@ public static class FuwaPhotoAlbumBuilder
         UdonSharpEditorUtility.CopyProxyToUdon(album);
         EditorUtility.SetDirty(album);
 
-        // フォトポイント（すでにあるコースはそのまま。てじゃが動かした位置・構図を消さない）
         if (lang != null && lang.album != album) { lang.album = album; UdonSharpEditorUtility.CopyProxyToUdon(lang); EditorUtility.SetDirty(lang); }
+        // 銃（撃った瞬間を知らせてもらう。PlayerObject のもとの銃に入れれば全員の銃に入る）
+        foreach (var gun in Object.FindObjectsOfType<FuwaBlower>(true))
+            if (gun.photoAlbum != album) { gun.photoAlbum = album; UdonSharpEditorUtility.CopyProxyToUdon(gun); EditorUtility.SetDirty(gun); }
+        // フォトポイント（すでにあるコースはそのまま。てじゃが動かした位置・構図を消さない）
         log.Add(FuwaPhotoPointBuilder.Run(album));
         log.Add("board at " + board.position);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lobby.gameObject.scene);
