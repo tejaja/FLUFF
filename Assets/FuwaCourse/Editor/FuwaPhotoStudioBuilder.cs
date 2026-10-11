@@ -24,7 +24,7 @@ public static class FuwaPhotoStudioBuilder
     const float BoardRingR = 2.75f;     // 看板を置く、島の中心からの距離
     // 島の奥の並び（島の中心から見た方向、度。0＝橋の反対側の真ん中、+＝右）。どれも半径 RingR の円の上で真ん中を向く
     const float RingR = 3.3f;
-    const float GalleryDeg = -30f, MonitorDeg = 28f, ButtonDeg = 63f, ZoneDeg = 84f;
+    const float GalleryDeg = -30f, MonitorDeg = 28f, ButtonDeg = 63f, ZoneDeg = 96f;   // 人物ボタンを横に伸ばしたので球は右へ
     // 最速タイムの看板のロビーでの元の位置（写真館に引っ越す前、FuwaLobby の子として）
     static readonly Vector3 BestTimesLobbyLocal = new Vector3(-7.1677537f, 0.2890005f, -1.6265945f);
     static readonly Quaternion BestTimesLobbyRot = new Quaternion(0f, -0.78144264f, 0f, 0.62397707f);

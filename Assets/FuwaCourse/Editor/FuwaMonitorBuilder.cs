@@ -122,6 +122,26 @@ public static class FuwaMonitorBuilder
         icon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(PersonIconPath);
         SetCall(person.Find("Canvas/Button").GetComponent<Button>(), "NextTarget");
         SetCall(person.Find("Canvas/Button/BackButton") != null ? person.Find("Canvas/Button/BackButton").GetComponent<Button>() : person.GetComponentsInChildren<Button>(true).First(b => b.name == "BackButton"), "PrevTarget");
+        // 名前が入るので横に長く（左はしは CAMボタンにそろえて右へ伸ばす。てじゃ「名前だすならボタン短すぎる」）
+        {
+            const float E = 600f;   // 伸ばす幅(px)
+            var cv = (RectTransform)person.Find("Canvas");
+            cv.sizeDelta += new Vector2(E, 0f);
+            var bc = cv.GetComponent<BoxCollider>(); bc.size = new Vector3(cv.sizeDelta.x, bc.size.y, bc.size.z);
+            void Shift(string path, float dx, float dw)
+            {
+                var r = (RectTransform)person.Find(path); if (r == null) return;
+                r.anchoredPosition += new Vector2(dx, 0f); r.sizeDelta += new Vector2(dw, 0f);
+            }
+            Shift("Canvas/Button/Seg/Head", -E / 2, 0f);
+            Shift("Canvas/Button/Seg/Icon", -E / 2, 0f);
+            Shift("Canvas/Button/Seg/ArrowL", -E / 2, 0f);
+            Shift("Canvas/Button/Seg/PillA", 0f, E);
+            Shift("Canvas/Button/Seg/TextA", 0f, E);
+            Shift("Canvas/Button/Seg/ArrowR", E / 2, 0f);
+            Shift("Canvas/BackButton", -E / 4, E / 2);
+            person.position += person.right * (E / 2) * cv.lossyScale.x;
+        }
         var personText = person.Find("Canvas/Button/Seg/TextA").GetComponent<TMPro.TextMeshProUGUI>();
         personText.text = "ME"; personText.enableAutoSizing = true; personText.fontSizeMin = 60f; personText.fontSizeMax = personText.fontSize;
 

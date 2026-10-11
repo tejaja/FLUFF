@@ -167,15 +167,13 @@ public class FuwaFollowCam : UdonSharpBehaviour
 
     private void UpdateTargetLabels()
     {
-        string s = "ME";
-        if (_targetId >= 0)
+        // 自分の時も名前（てじゃ「自分も名前取得しよ」）
+        string s = "";
+        VRCPlayerApi p = _targetId >= 0 ? VRCPlayerApi.GetPlayerById(_targetId) : Networking.LocalPlayer;
+        if (p != null && p.IsValid())
         {
-            VRCPlayerApi p = VRCPlayerApi.GetPlayerById(_targetId);
-            if (p != null && p.IsValid())
-            {
-                s = p.displayName;
-                if (s.Length > 12) s = s.Substring(0, 11) + "…";
-            }
+            s = p.displayName;
+            if (s.Length > 20) s = s.Substring(0, 19) + "…";
         }
         if (targetTexts != null) foreach (TextMeshProUGUI t in targetTexts) if (t != null && t.text != s) t.text = s;
         string m = _targetId >= 0 ? s : "";
