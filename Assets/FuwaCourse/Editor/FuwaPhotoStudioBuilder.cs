@@ -201,7 +201,7 @@ public static class FuwaPhotoStudioBuilder
             float w = 0f, h = 0f;
             foreach (var s in new[] { en, ja }) { t.text = s; t.ForceMeshUpdate(); w = Mathf.Max(w, t.textBounds.size.x); h = Mathf.Max(h, t.textBounds.size.y); }
             t.text = ja; t.ForceMeshUpdate();
-            float pw = Mathf.Max(2.05f, w + 0.2f), ph = h + 0.16f, bottom = -0.475f;
+            float pw = w + 0.12f, ph = h + 0.16f, bottom = -0.475f;   // 左右の余白も小さく（てじゃ）
             panel.size = new Vector2(pw, ph) / 0.5f;
             panel.transform.localPosition = new Vector3(0f, bottom + ph * 0.5f, 0.02f);
             t.rectTransform.sizeDelta = new Vector2(pw - 0.1f, ph);
