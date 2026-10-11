@@ -20,7 +20,10 @@ public static class FuwaPhotoAlbumBuilder
     // ロビーの中心から見た角度（度、+x から反時計回り。コース5の看板=218°、コース4=270°の間）と距離
     const float AngleDeg = 244f;
     const float Radius = 7.4f;
-    static readonly Vector2 PhotoSize = new Vector2(1.16f, 0.6525f);
+    static readonly Vector2 PhotoSize = new Vector2(1.16f, 0.6525f);   // ゴールの結果発表の板
+    // 写真館の名場面ボード：写真を大きく、すき間を小さく（16:9）
+    static readonly Vector2 GalleryPhoto = new Vector2(1.34f, 0.75375f);
+    const float GalleryGap = 0.06f, GalleryMargin = 0.1f, GalleryTitleH = 0.46f;
 
     [MenuItem("FuwaCourse/名場面アルバムを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
@@ -92,37 +95,34 @@ public static class FuwaPhotoAlbumBuilder
         if (studioSpot != null) { board.SetPositionAndRotation(studioSpot.position, studioSpot.rotation); board.localScale = Vector3.one * 1.15f; }   // 島の奥の正面にドンと（2026-10-11 てじゃ「名場面を大きく」）
 
         var best = lobby.GetComponentsInChildren<Transform>(true).First(t => t.name == "BestTimes");   // 写真館の島へ引っ越していても見つける
-        foreach (Transform leg in best.Cast<Transform>().Where(t => t.name == "Leg"))
-        {
-            var l = Object.Instantiate(leg.gameObject, board).transform;
-            l.name = "Leg";
-            l.localPosition = new Vector3(Mathf.Sign(leg.localPosition.x) * 1.55f, leg.localPosition.y, leg.localPosition.z);
-            l.localRotation = leg.localRotation; l.localScale = leg.localScale;
-        }
+        // 2026-10-11 てじゃ「カメラ位置の名前とか消えていいから隙間を極力小さくしつつ画像の大きさをアップ、ボードを地面ギリギリまでさげる」
+        // → 写真の下の名前はなし、写真どうしのすき間 6cm、板は地面から 12cm（脚なし）
+        float pw = GalleryPhoto.x, ph = GalleryPhoto.y;
+        float W = 3 * pw + 2 * GalleryGap + 2 * GalleryMargin, H = GalleryTitleH + 2 * ph + GalleryGap + GalleryMargin;
+        float bottom = 0.12f, top = bottom + H;
         var srcPanel = best.Find("Panel").GetComponent<SpriteRenderer>();
         var panel = Object.Instantiate(srcPanel.gameObject, board).GetComponent<SpriteRenderer>();
         panel.name = "Panel";
-        panel.transform.localPosition = new Vector3(0f, 2.2f, 0.03f);
+        panel.transform.localPosition = new Vector3(0f, bottom + H * 0.5f, 0.03f);
         panel.transform.localRotation = Quaternion.identity;
-        panel.size = new Vector2(4.15f, 2.75f);
+        panel.size = new Vector2(W, H);
 
         var srcText = best.Find("Text").GetComponent<TextMeshPro>();
-        var title = Text(board, "Title", srcText, new Vector3(0f, 3.25f, 0f), new Vector2(3.8f, 0.4f), 2.4f, TextAlignmentOptions.Center);
+        var title = Text(board, "Title", srcText, new Vector3(0f, top - GalleryTitleH * 0.5f - 0.02f, 0f), new Vector2(W - 0.3f, 0.4f), 2.4f, TextAlignmentOptions.Center);
         title.text = "<color=#FF6B5C>さっきの名場面</color>";   // あそびかたの看板と同じオレンジ（実行中は FuwaPhotoAlbum が書き直す）
 
         var photoMat = AssetDatabase.LoadAssetAtPath<Material>(PhotoMatPath);
         if (photoMat == null) { photoMat = new Material(Shader.Find("Unlit/Texture")); AssetDatabase.CreateAsset(photoMat, PhotoMatPath); }
 
         var frames = new Renderer[Cols * Rows];
-        var caps = new TextMeshPro[Cols * Rows];
+        var caps = new TextMeshPro[0];   // 写真の下のポイント名は出さない
         var empties = new GameObject[Cols * Rows];
         for (int r = 0; r < Rows; r++)
         for (int c = 0; c < Cols; c++)
         {
             int i = r * Cols + c;
-            var slot = Slot(board, i, new Vector3((c - 1) * 1.28f, 2.5f - r * 0.95f, 0f), srcPanel, photoMat, out frames[i], out empties[i]);
-            caps[i] = Text(slot, "Caption", srcText, new Vector3(0f, -PhotoSize.y * 0.5f - 0.1f, 0f), new Vector2(1.25f, 0.16f), 1.0f, TextAlignmentOptions.Center);   // ポイント名（コース名は見出しに出す）
-            caps[i].text = "";
+            float y = top - GalleryTitleH - ph * 0.5f - r * (ph + GalleryGap);
+            Slot(board, i, new Vector3((c - 1) * (pw + GalleryGap), y, 0f), srcPanel, photoMat, out frames[i], out empties[i], GalleryPhoto);
         }
 
         // ゴールの結果発表の板（ゴールの奥の空に出す。どのコースでも使い回すので FuwaSystem の下）
@@ -191,7 +191,8 @@ public static class FuwaPhotoAlbumBuilder
     }
 
     // 写真1枚ぶん（まだ写真がない時の紙・写真の面）
-    static Transform Slot(Transform parent, int i, Vector3 pos, SpriteRenderer srcPanel, Material photoMat, out Renderer image, out GameObject empty)
+    static Transform Slot(Transform parent, int i, Vector3 pos, SpriteRenderer srcPanel, Material photoMat, out Renderer image, out GameObject empty) { return Slot(parent, i, pos, srcPanel, photoMat, out image, out empty, PhotoSize); }
+    static Transform Slot(Transform parent, int i, Vector3 pos, SpriteRenderer srcPanel, Material photoMat, out Renderer image, out GameObject empty, Vector2 size)
     {
         var slot = new GameObject("Photo" + i).transform;
         slot.SetParent(parent, false);
@@ -202,7 +203,7 @@ public static class FuwaPhotoAlbumBuilder
         em.transform.localPosition = new Vector3(0f, 0f, 0.01f);
         em.transform.localRotation = Quaternion.identity;
         em.transform.localScale = Vector3.one * 0.12f;
-        em.size = PhotoSize / 0.12f;
+        em.size = size / 0.12f;
         em.color = new Color(0.86f, 0.88f, 0.91f, 1f);
         empty = em.gameObject;
         var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -210,7 +211,7 @@ public static class FuwaPhotoAlbumBuilder
         Object.DestroyImmediate(q.GetComponent<Collider>());
         q.transform.SetParent(slot, false);
         q.transform.localPosition = new Vector3(0f, 0f, 0.005f);
-        q.transform.localScale = new Vector3(PhotoSize.x, PhotoSize.y, 1f);
+        q.transform.localScale = new Vector3(size.x, size.y, 1f);
         var qr = q.GetComponent<MeshRenderer>();
         qr.sharedMaterial = photoMat;
         qr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
