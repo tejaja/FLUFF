@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -46,6 +46,8 @@ public class FuwaCourseWarp : UdonSharpBehaviour
     public Renderer progressRing;
     [Tooltip("たまっている間の音（なくてもOK）")]
     public AudioSource chargeSound;
+    [Tooltip("乗った瞬間の音（chargeSound の音源で鳴らす。なくてもOK）。2026-10-12 てじゃ「入った！ってのをわかりやすく」")]
+    public AudioClip enterClip;
     [Tooltip("輪っかから上へ伸びて体を包む光の幕（FuwaCourse/WarpVeil。なくてもOK）")]
     public Renderer progressVeil;
     private float _dwellStart = -1f;
@@ -60,7 +62,12 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         if (dwellTime <= 0f) { WarpLocalPlayer(); return; }
         _dwellStart = Time.time;
         SetStartFromView(player);
-        if (chargeSound != null) { chargeSound.Stop(); chargeSound.Play(); }
+        if (chargeSound != null)
+        {
+            chargeSound.Stop();
+            if (enterClip != null) chargeSound.PlayOneShot(enterClip);
+            chargeSound.Play();
+        }
     }
 
     public override void OnPlayerTriggerExit(VRCPlayerApi player)
