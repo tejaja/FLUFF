@@ -25,6 +25,8 @@ public static class FuwaPhotoAlbumBuilder
     static readonly Vector2 GalleryPhoto = new Vector2(1.34f, 0.75375f);
     const float GalleryGap = 0.06f, GalleryMargin = 0.1f, GalleryTitleH = 0.46f;
 
+    const bool ShowAtGoal = false;   // ゴールの奥に写真の板を出すか
+
     [MenuItem("FuwaCourse/名場面アルバムを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
@@ -176,6 +178,8 @@ public static class FuwaPhotoAlbumBuilder
         album.captions = caps;
         album.emptyMarks = empties;
         album.titleText = title;
+        // 2026-10-11 てじゃ「やっぱゴールで出るの自体やめるかあ」→ ゴールでは出さない（板は作るけど本体に渡さない。戻す時は ShowAtGoal を true に）
+        if (!ShowAtGoal) { Object.DestroyImmediate(gb.gameObject); gb = null; gFrames = new Renderer[0]; gEmpties = new GameObject[0]; }
         album.goalBoard = gb;
         album.goalBoardUp = 1.9f;    // GOAL! の文字と同じくらいの高さ
         album.goalBoardBack = 3.6f;  // 柵寄り（ゴールの島のふちのあたり）
