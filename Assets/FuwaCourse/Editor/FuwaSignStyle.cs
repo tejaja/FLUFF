@@ -275,10 +275,7 @@ public static class FuwaSignStyle
         ("FuwaLobby/PhotoStudio/BestTimes/Panel", "E8B84A"), // 最速タイム：金色
         ("FuwaLobby/PhotoStudio/Monitor/Panel", "9E8CDB"),   // モニター：CAMボタンと同じむらさき
         ("FuwaHub/BackIsland/Credits/Panel", "EB8FBA"),
-        ("FuwaCourse0/Tutorial/Entrance/GunSign/Panel", "EB8FBA"),   // チュートリアルの説明看板：コース0の色
-        ("FuwaCourse0/Tutorial/Sign_ShootMushroom/Panel", "EB8FBA"),
-        ("FuwaCourse0/Tutorial/Sign_MoreTricks/Panel", "EB8FBA"),
-        ("FuwaCourse0/Tutorial/Bay_*/Sign/Panel", "EB8FBA"),
+        // チュートリアルの説明看板は木の看板（SignModel）に貼ってあるので枠はつけない（つけたら板の後ろの木とちらついた）
     };
 
     public static string FlatBorders()
