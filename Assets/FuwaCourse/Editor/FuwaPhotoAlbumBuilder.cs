@@ -94,7 +94,7 @@ public static class FuwaPhotoAlbumBuilder
         board.rotation = Quaternion.LookRotation(dir, Vector3.up);   // 見る人（ロビーの中）から見て +z が奥
         // 写真館の島があればそこへ（FuwaPhotoStudioBuilder の BoardSpot）
         var studioSpot = lobby.Find("PhotoStudio/BoardSpot");
-        if (studioSpot != null) { board.SetPositionAndRotation(studioSpot.position, studioSpot.rotation); board.localScale = Vector3.one * 1.15f; }   // 島の奥の正面にドンと（2026-10-11 てじゃ「名場面を大きく」）
+        if (studioSpot != null) { board.SetPositionAndRotation(studioSpot.position, studioSpot.rotation); board.localScale = Vector3.one * 0.95f; }   // 右にモニターを並べるので、モニターと同じ 0.95 倍（FuwaMonitorBuilder.BoardScale）
 
         var best = lobby.GetComponentsInChildren<Transform>(true).First(t => t.name == "BestTimes");   // 写真館の島へ引っ越していても見つける
         // 2026-10-11 てじゃ「カメラ位置の名前とか消えていいから隙間を極力小さくしつつ画像の大きさをアップ、ボードを地面ギリギリまでさげる」

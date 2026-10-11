@@ -1,14 +1,17 @@
-using TMPro;
+﻿using TMPro;
 using UdonSharp;
 using UnityEngine;
 using VRC.SDK3.Rendering;
 using VRC.SDKBase;
 
-// ふわふわ追っかけカメラ（自分にだけ、同期なし）。自分の視界はそのままで、VRChatの手持ちカメラ（写真・ストリーム）にだけ映す。
-// ワールドからはVRChatカメラを動かせないので、追っかけカメラの映像をテクスチャ（feedTexture）に描いて、
-// それを VRChatカメラのレンズの前に置いた板（feed、Fuwa/PhotoCamFeed）で「VRChatカメラで描く時だけ画面いっぱいに」貼る。
-// 画角と縦横比はVRChatカメラに合わせるので、カメラ側のズームもそのまま効く。
-// 設定ボタン（CycleMode）か、デスクトップならキー（toggleKey）で OFF → 後ろ → 右横 → 左横 → 上 と切り替え。
+// ふわふわ追っかけカメラ＝写真館のモニター（自分にだけ、同期なし、保存なし）。2026-10-11 てじゃの仕様で作り直し：
+// ・写真館のモニターに「選んだ人（自分か、ひとりでモードにいる人）」のふわふわを追う映像を映す
+// ・CAMボタンで OFF → 後ろ → 右横 → 左横 → 上。OFF の時はモニターも消える（映像を止める）。最初は OFF
+// ・モニターの横の半透明の球（zone）に VRChatカメラ（写真・ストリーム）を入れている間だけ、カメラの映像＝モニターの映像
+//   （ワールドからはVRChatカメラを動かせないので、映像をテクスチャに描いてレンズの前の板 feed（Fuwa/PhotoCamFeed）で画面いっぱいに貼る）
+// ・他の人のふわふわは、自分の画面では半透明の分身（FuwaGhost）。モニターのカメラには分身を写さず（分身は別レイヤー）、
+//   かわりに本物そっくりの毛玉（monitorFluff、自分の目には写らないレイヤー）を分身の位置に置いて写す
+// ・映すのは、モニターの近く（renderRange 以内）にいる時か、球にカメラを入れている時だけ（軽くするため）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaFollowCam : UdonSharpBehaviour
 {
@@ -53,10 +56,46 @@ public class FuwaFollowCam : UdonSharpBehaviour
     public Renderer[] camBlockers;
     [Tooltip("飾りの箱をどれだけ広げてよけるか(m)")]
     public float blockerMargin = 0.35f;
-    [Tooltip("テスト用：VRChatカメラがなくても（ClientSimでも）追っかけカメラを動かす")]
+    [Tooltip("テスト用：モニターから遠くても追っかけカメラを動かす")]
     public bool runWithoutPhotoCamera = false;
 
+    [Header("モニター")]
+    [Tooltip("モニターの画面（映像を貼る板）")]
+    public Renderer monitorScreen;
+    [Tooltip("モニターが OFF の時に出す物（暗い画面・「OFF」の文字など）")]
+    public GameObject monitorOffMark;
+    [Tooltip("モニター用の映像（16:9、軽め）")]
+    public RenderTexture monitorTexture;
+    [Tooltip("VRChatカメラに出す時の映像（高画質）")]
+    public RenderTexture feedTexture;
+    [Tooltip("モニターからこの距離(m)以内にいる時だけ映す")]
+    public float renderRange = 14f;
+    [Tooltip("モニターだけの時の画角")]
+    public float monitorFov = 55f;
+    [Tooltip("VRChatカメラを入れる球（中心）")]
+    public Transform zone;
+    [Tooltip("球の半径(m)")]
+    public float zoneRadius = 0.45f;
+    [Tooltip("球の見た目（カメラが入っている時は _Glow=1）")]
+    public Renderer zoneRenderer;
+
+    [Header("映す人")]
+    [Tooltip("ひとりでモードの番号（分身に同期されているエリア）")]
+    public int soloArea = 1;
+    [Tooltip("今映している人の名前を出す文字（人物ボタン）")]
+    public TextMeshProUGUI[] targetTexts;
+    [Tooltip("モニターの画面の上に出す名前（他の人を映している時だけ）")]
+    public TextMeshPro monitorName;
+    [Tooltip("他の人を映す時に、分身の位置に置く本物そっくりの毛玉（モニター専用レイヤー）")]
+    public Transform monitorFluff;
+    public TrailRenderer monitorFluffTrail;
+
     private int _mode;   // 0=OFF 1=後ろ 2=右横 3=左横 4=上
+    private int _targetId = -1;   // 映す人の playerId（-1＝自分）
+    private float _nextList;
+    private int[] _ids = new int[0];
+    private bool _feedOn;
+    private bool _inZone;
     private Vector3 _dir = Vector3.forward;
     private Vector3 _focus;
     private Vector3 _vel;
@@ -65,9 +104,82 @@ public class FuwaFollowCam : UdonSharpBehaviour
 
     private void Start()
     {
-        if (cam != null) cam.enabled = false;
+        if (cam != null) { cam.enabled = false; if (monitorTexture != null) cam.targetTexture = monitorTexture; }
         if (feedRenderer != null) feedRenderer.enabled = false;
+        if (monitorScreen != null) monitorScreen.enabled = false;
+        if (monitorOffMark != null) monitorOffMark.SetActive(true);
+        if (monitorFluff != null) monitorFluff.gameObject.SetActive(false);
         UpdateLabels();
+        UpdateTargetLabels();
+    }
+
+    // ---- 映す人の切り替え（人物ボタン）----
+    public void NextTarget() { StepTarget(1); }
+    public void PrevTarget() { StepTarget(-1); }
+
+    private void StepTarget(int step)
+    {
+        RefreshList();
+        int n = _ids.Length;   // 0 番は自分（-1）
+        int cur = 0;
+        for (int i = 0; i < n; i++) if (_ids[i] == _targetId) { cur = i; break; }
+        cur = ((cur + step) % n + n) % n;
+        _targetId = _ids[cur];
+        _snap = true;
+        UpdateTargetLabels();
+    }
+
+    // 自分＋ひとりでモードにいる人の一覧（playerId、自分は -1）
+    private void RefreshList()
+    {
+        VRCPlayerApi[] players = new VRCPlayerApi[VRCPlayerApi.GetPlayerCount()];
+        VRCPlayerApi.GetPlayers(players);
+        int[] tmp = new int[players.Length + 1];
+        int n = 0;
+        tmp[n++] = -1;
+        foreach (VRCPlayerApi p in players)
+        {
+            if (p == null || !p.IsValid() || p.isLocal) continue;
+            FuwaGhost g = GhostOf(p);
+            if (g != null && g.GetArea() == soloArea) tmp[n++] = p.playerId;
+        }
+        _ids = new int[n];
+        for (int i = 0; i < n; i++) _ids[i] = tmp[i];
+        // 映していた人がいなくなった（モードを出た・退出）ら自分に戻す
+        bool found = false;
+        for (int i = 0; i < n; i++) if (_ids[i] == _targetId) found = true;
+        if (!found) { _targetId = -1; _snap = true; }
+    }
+
+    private FuwaGhost GhostOf(VRCPlayerApi p)
+    {
+        if (p == null || !p.IsValid()) return null;
+        GameObject[] objs = Networking.GetPlayerObjects(p);
+        if (objs == null) return null;
+        foreach (GameObject o in objs)
+        {
+            if (o == null) continue;
+            FuwaGhost g = o.GetComponent<FuwaGhost>();
+            if (g != null) return g;
+        }
+        return null;
+    }
+
+    private void UpdateTargetLabels()
+    {
+        string s = "ME";
+        if (_targetId >= 0)
+        {
+            VRCPlayerApi p = VRCPlayerApi.GetPlayerById(_targetId);
+            if (p != null && p.IsValid())
+            {
+                s = p.displayName;
+                if (s.Length > 12) s = s.Substring(0, 11) + "…";
+            }
+        }
+        if (targetTexts != null) foreach (TextMeshProUGUI t in targetTexts) if (t != null && t.text != s) t.text = s;
+        string m = _targetId >= 0 ? s : "";
+        if (monitorName != null && monitorName.text != m) monitorName.text = m;
     }
 
     // 設定のカメラボタン（レーザーで押すUIボタン）から呼ばれる。自分だけ
@@ -92,6 +204,9 @@ public class FuwaFollowCam : UdonSharpBehaviour
         UpdateLabels();
     }
 
+    // 今映している人（-1＝自分）
+    public int GetTargetId() { return _targetId; }
+
     private void UpdateLabels()
     {
         string s = _mode == 1 ? "BACK" : _mode == 2 ? "SIDE R" : _mode == 3 ? "SIDE L" : _mode == 4 ? "TOP" : "OFF";
@@ -112,19 +227,54 @@ public class FuwaFollowCam : UdonSharpBehaviour
     public override void PostLateUpdate()
     {
         if (cam == null) return;
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        if (lp == null) return;
+        if (Time.time >= _nextList)
+        {
+            _nextList = Time.time + 1f;
+            RefreshList();
+            UpdateTargetLabels();   // 人が抜けた時・名前が後から届いた時も合わせる
+        }
+
         VRCCameraSettings photo = VRCCameraSettings.PhotoCamera;
         bool photoOn = photo != null && photo.Active;
-        bool run = _mode != 0 && (photoOn || runWithoutPhotoCamera);
+        bool inZone = photoOn && zone != null && Vector3.Distance(photo.Position, zone.position) < zoneRadius;
+        if (inZone != _inZone)
+        {
+            _inZone = inZone;
+            if (zoneRenderer != null) zoneRenderer.material.SetFloat("_Glow", inZone ? 1f : 0f);
+        }
+        bool near = monitorScreen != null && Vector3.Distance(lp.GetPosition(), monitorScreen.transform.position) < renderRange;
+        bool run = _mode != 0 && (near || inZone || runWithoutPhotoCamera);
+        bool feedOn = run && inZone;
         if (run != _running)
         {
             _running = run;
             cam.enabled = run;
             if (run) _snap = true;
+            if (monitorScreen != null) monitorScreen.enabled = run;
+            if (monitorOffMark != null) monitorOffMark.SetActive(!run);
         }
-        if (feedRenderer != null && feedRenderer.enabled != (run && photoOn)) feedRenderer.enabled = run && photoOn;
-        if (!run) return;
+        if (feedOn != _feedOn)
+        {
+            _feedOn = feedOn;
+            // VRChatカメラに出す間は高画質の映像に描いて、モニターにも同じものを貼る
+            RenderTexture rt = feedOn && feedTexture != null ? feedTexture : monitorTexture;
+            if (rt != null)
+            {
+                cam.targetTexture = rt;
+                if (monitorScreen != null) monitorScreen.material.SetTexture("_MainTex", rt);
+                if (feedRenderer != null) feedRenderer.material.SetTexture("_MainTex", rt);
+            }
+        }
+        if (feedRenderer != null && feedRenderer.enabled != feedOn) feedRenderer.enabled = feedOn;
+        if (!run)
+        {
+            if (monitorFluff != null && monitorFluff.gameObject.activeSelf) monitorFluff.gameObject.SetActive(false);
+            return;
+        }
 
-        if (photoOn)
+        if (feedOn)
         {
             cam.fieldOfView = photo.FieldOfView;
             if (photo.Aspect > 0.01f) cam.aspect = photo.Aspect;
@@ -134,6 +284,11 @@ public class FuwaFollowCam : UdonSharpBehaviour
                 feed.rotation = photo.Rotation;
             }
         }
+        else
+        {
+            cam.fieldOfView = monitorFov;
+            cam.aspect = 16f / 9f;
+        }
         MoveCamera();
     }
 
@@ -141,16 +296,37 @@ public class FuwaFollowCam : UdonSharpBehaviour
     {
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null) return;
+        // 映す人：自分（-1）か、ひとりでモードにいる他の人
+        VRCPlayerApi who = lp;
+        FuwaGhost ghost = null;
+        if (_targetId >= 0)
+        {
+            VRCPlayerApi o = VRCPlayerApi.GetPlayerById(_targetId);
+            if (o != null && o.IsValid()) { who = o; ghost = GhostOf(o); }
+        }
 
-        float eye = lp.GetAvatarEyeHeightAsMeters();
-        Vector3 p = lp.GetPosition() + Vector3.up * (eye * 0.6f);
+        float eye = who.GetAvatarEyeHeightAsMeters();
+        Vector3 p = who.GetPosition() + Vector3.up * (eye * 0.6f);
 
-        Transform tgt = FindTarget(p);
+        Transform tgt = null;
+        bool ghostShown = false;
+        if (who == lp) tgt = FindTarget(p);
+        else if (ghost != null && ghost.gameObject.activeInHierarchy && ghost.ghostRenderer != null && ghost.ghostRenderer.enabled) { tgt = ghost.transform; ghostShown = true; }
+        // 他の人のふわふわ：分身の位置に本物そっくりの毛玉（モニターのカメラにだけ写る）
+        if (monitorFluff != null)
+        {
+            if (monitorFluff.gameObject.activeSelf != ghostShown) monitorFluff.gameObject.SetActive(ghostShown);
+            if (ghostShown)
+            {
+                if (monitorFluffTrail != null && (monitorFluff.position - tgt.position).sqrMagnitude > 9f) monitorFluffTrail.Clear();
+                monitorFluff.SetPositionAndRotation(tgt.position, tgt.rotation);
+            }
+        }
         Vector3 b;
         if (tgt != null) b = tgt.position;
         else
         {
-            Vector3 hf = lp.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward;
+            Vector3 hf = who.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward;
             hf.y = 0f;
             if (hf.sqrMagnitude < 0.0001f) hf = _dir;
             b = p + hf.normalized * 1.5f;

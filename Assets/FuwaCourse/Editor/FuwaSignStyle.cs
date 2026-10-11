@@ -273,7 +273,7 @@ public static class FuwaSignStyle
         ("FuwaLobby/PhotoGallery/Panel", "73AAE6"),          // 名場面：空色
         ("FuwaSystem/PhotoAlbum/GoalBoard/*/Panel", "73AAE6"),
         ("FuwaLobby/PhotoStudio/BestTimes/Panel", "E8B84A"), // 最速タイム：金色
-        ("FuwaLobby/PhotoStudio/CamInfo/Panel", "9E8CDB"),   // CAM：ボタンと同じむらさき
+        ("FuwaLobby/PhotoStudio/Monitor/Panel", "9E8CDB"),   // モニター：CAMボタンと同じむらさき
         ("FuwaHub/BackIsland/Credits/Panel", "EB8FBA"),
         ("FuwaCourse0/Tutorial/Entrance/GunSign/Panel", "EB8FBA"),   // チュートリアルの説明看板：コース0の色
         ("FuwaCourse0/Tutorial/Sign_ShootMushroom/Panel", "EB8FBA"),

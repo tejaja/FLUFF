@@ -8,7 +8,7 @@ using UnityEngine;
 // ・ロビーの柵に入口を開ける（柱1本と横木を抜いて、柱の間2.0m。スタートの島と橋の作りと同じ）。元の柵のメッシュは触らず、開けた版を作る
 // ・かぜのおかのスタートの後ろの木の橋をコピーしてかける（床2.24m）
 // ・島：スタートの島と同じ地面（直径8m）と島の下をコピー。まわりに柵（ロビーと同じ柱＋横木2段）、橋の所だけ開ける
-// ・奥の正面に「名場面」ボード（FuwaPhotoAlbumBuilder が BoardSpot に置く）、左の横に「最速タイム」の看板（ロビーから引っ越し）、右の横にCAMボタン。
+// ・奥に柵に沿って「名場面」ボード（FuwaPhotoAlbumBuilder が BoardSpot に置く）とモニター（FuwaMonitorBuilder）、その右に人物ボタン・CAMボタン、カメラの球。
 //   ステージ2のポータル（今はまだ非表示のまま）は、最速タイムの看板があったロビーの場所へ（てじゃ）
 //   島はスタートの島の 1.35 倍（看板2枚が入るように）
 // 何度実行してもよい（島はまるごと作り直す。柵は元のメッシュから開け直す）
@@ -22,7 +22,14 @@ public static class FuwaPhotoStudioBuilder
     const float GapHalfDeg = 5.5f;      // 柵を開ける範囲（柱1本＋両側の横木）
     const float IslandScale = 1.35f;    // スタートの島に対する大きさ
     const float BoardRingR = 2.75f;     // 看板を置く、島の中心からの距離
-    const float BoardAngle = 40f;       // 看板2枚の、奥の真ん中からの角度（左右）
+    // 島の奥の並び（島の中心から見た方向、度。0＝橋の反対側の真ん中、+＝右）。どれも半径 RingR の円の上で真ん中を向く
+    const float RingR = 3.3f;
+    const float GalleryDeg = -30f, MonitorDeg = 28f, ButtonDeg = 63f, ZoneDeg = 84f;
+    // 最速タイムの看板のロビーでの元の位置（写真館に引っ越す前、FuwaLobby の子として）
+    static readonly Vector3 BestTimesLobbyLocal = new Vector3(-7.1677537f, 0.2890005f, -1.6265945f);
+    static readonly Quaternion BestTimesLobbyRot = new Quaternion(0f, -0.78144264f, 0f, 0.62397707f);
+    // ステージ2のポータルの仮の場所（ロビーの中、FuwaLobby の子として）。本番で使う時に決め直す
+    static readonly Vector3 Stage2PortalTemp = new Vector3(-5.0f, 0.1f, -0.6f);
     static readonly Vector3 BestTimesLobbyPos = new Vector3(5.83f, 8.29f, -17.63f);   // 最速タイムの看板がロビーにあった場所
     static float IslandR = 3.0f;        // 島の地面の半径（スタートの島と同じ。Run でスタートの地面から測り直す）
     static float BridgeGap = 1.15f;     // 島どうしのふちの間（スタートの島→ワープの小島と同じ。Run で測り直す）
@@ -110,123 +117,52 @@ public static class FuwaPhotoStudioBuilder
         // 島の柵（橋の所だけ開ける）
         log.Add(StudioFence(studio, center, -dir));
 
-        // 奥に看板2枚をハの字に（どちらも島の中心の方を向く。+z が外向き＝見る人は内側）
-        Transform RingSpot(string name, float deg)
+        // 島の奥に、柵に沿ったゆるいカーブで（どれも島の中心の方を向く。+z が外向き＝見る人は内側）
+        // 2026-10-11 てじゃ「最速タイムを元のロビーにうつす・名場面をやや左にずらす、右に同じくらいのボード+モニター、
+        //   その右に対象人物切り替えボタン、その下にCAMボタン、CAM説明は撤去」
+        Transform RingSpot(string name, float deg, float r)
         {
             var t = new GameObject(name).transform;
             t.SetParent(studio, false);
-            Vector3 d = Quaternion.Euler(0f, deg, 0f) * dir;
-            t.position = center + d * BoardRingR;
-            t.rotation = Quaternion.LookRotation(d, Vector3.up);
+            float ra = deg * Mathf.Deg2Rad;
+            t.localPosition = new Vector3(Mathf.Sin(ra), 0f, Mathf.Cos(ra)) * r;
+            t.localRotation = Quaternion.Euler(0f, deg, 0f);
             return t;
         }
-        var bs = RingSpot("BoardSpot", BoardAngle);   // 名場面（FuwaPhotoAlbumBuilder が置く）
-        var bestSpot = RingSpot("BestTimesSpot", -BoardAngle);
-        // 2026-10-11 てじゃ「名場面を大きくして、島から入って真正面にドン。左側にスコアボード（縮めてもOK）右側にCAM」
-        // 名場面：奥の正面（1.15倍は FuwaPhotoAlbumBuilder 側）。外のはしは柵（半径4.08）の内側
-        bs.localRotation = Quaternion.identity; bs.localPosition = new Vector3(0f, 0f, 2.7f);
-        // 最速タイム：左の横、0.75倍。柵に沿う向き（島の中心から見た方向 -68°、半径3.55、真ん中を向く）
-        // （てじゃ「右と左は柵にあわせて角度つけて」「もうちょい名場面に寄せる、柵に寄せて角度もずらす」）
-        { float ba = -68f * Mathf.Deg2Rad; bestSpot.localPosition = new Vector3(Mathf.Sin(ba), 0f, Mathf.Cos(ba)) * 3.55f; bestSpot.localRotation = Quaternion.Euler(0f, -68f, 0f); }
+        RingSpot("BoardSpot", GalleryDeg, RingR);     // 名場面（FuwaPhotoAlbumBuilder が置く）
+        RingSpot("MonitorSpot", MonitorDeg, RingR);   // モニター（FuwaMonitorBuilder が置く）
+        RingSpot("ButtonSpot", ButtonDeg, RingR + 0.15f);   // 人物ボタン・CAMボタン
+        RingSpot("ZoneSpot", ZoneDeg, RingR);         // VRChatカメラを入れる球
+
+        // 最速タイムはロビーの元の場所へ（写真館に引っ越す前の位置・向き・大きさ）
         var best = lobby.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BestTimes" && t.GetComponentInChildren<TMPro.TextMeshPro>(true) != null);
         if (best != null)
         {
-            best.SetParent(studio, true);
-            best.SetPositionAndRotation(new Vector3(bestSpot.position.x, BestTimesLobbyPos.y - 8.1f + floorTop, bestSpot.position.z), bestSpot.rotation);
-            best.localScale = Vector3.one * 0.75f;
-            log.Add("best times moved");
+            best.SetParent(lobby, false);
+            best.localPosition = BestTimesLobbyLocal; best.localRotation = BestTimesLobbyRot; best.localScale = Vector3.one * 0.85f;
+            log.Add("best times -> lobby");
         }
 
-        // CAMボタン（追っかけカメラの切り替え）：最速タイムの看板の子だったのを、名場面ボードの右に独立させて、下に説明の札（てじゃ）
+        // CAMボタンは島へ（位置は FuwaMonitorBuilder がボタンの場所に合わせる）。説明の札は撤去
         var cam = lobby.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "CamButton" && t.GetComponentInChildren<Canvas>(true) != null && t.parent != null && (t.parent.name == "BestTimes" || t.parent == lobby));
-        var boardSpot = studio.Find("BoardSpot");
-        if (cam != null && boardSpot != null)
-        {
-            cam.SetParent(studio, true);
-            // 2026-10-11 てじゃがシーンで動かした位置（島の右手、真ん中向き。説明の札はボタンの上）
-            // → 名場面に寄せて柵ぎわへ：島の中心から見た方向 62°、半径3.6、柵に沿う向き
-            { const float camDeg = 62f; float ca = camDeg * Mathf.Deg2Rad; cam.localPosition = new Vector3(Mathf.Sin(ca) * 3.6f, 1.033f, Mathf.Cos(ca) * 3.6f); cam.localRotation = Quaternion.Euler(0f, camDeg, 0f); }
-            log.Add(CamInfo(studio, cam, boardSpot));
-        }
+        if (cam != null) cam.SetParent(studio, true);
 
-        // ステージ2のポータルは、最速タイムの看板があったロビーの場所へ（柵にかからないよう少し内側）。札がロビーの真ん中から読める向き
+        // ステージ2のポータル（まだ非表示）：最速タイムが元の場所に戻ったので、ロビーの中の仮の場所へ（ロビーの真ん中を向く）
         var portal = keepPortal != null ? keepPortal : lobby.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Stage2Portal");
         if (portal != null)
         {
-            portal.SetParent(lobby, true);
-            Vector3 o = BestTimesLobbyPos - lc; o.y = 0f; o.Normalize();
-            portal.position = lc + o * 6.9f;
-            portal.rotation = Quaternion.LookRotation(-o, Vector3.up);
-            log.Add("stage2 portal -> lobby (active=" + portal.gameObject.activeSelf + ")");
+            portal.SetParent(lobby, false);
+            portal.localPosition = Stage2PortalTemp;
+            Vector3 o = new Vector3(Stage2PortalTemp.x, 0f, Stage2PortalTemp.z).normalized;
+            portal.localRotation = Quaternion.LookRotation(-o, Vector3.up);
+            log.Add("stage2 portal -> temp spot (active=" + portal.gameObject.activeSelf + ")");
         }
+
+        // モニター・ボタン・カメラの球
+        log.Add(FuwaMonitorBuilder.Run());
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lobby.gameObject.scene);
         log.Add("studio at " + center.ToString("F2"));
         return string.Join("\n", log);
-    }
-
-    // CAMボタンの説明の札（角丸の板＋文字）。言語ボタンで切り替わるように FuwaLanguage に登録
-    static string CamInfo(Transform studio, Transform cam, Transform boardSpot)
-    {
-        // モード名はボタンと同じ英語のまま並べるだけ（てじゃ：ボタンは英語固定なので日本語版もここは英語に）
-        const string modes = "BACK / SIDE R / SIDE L / TOP / OFF";
-        // 見出しは「あそびかた」の看板と同じオレンジ・1.5倍（てじゃ）
-        const string ja = "<size=150%><color=#FF6B5C>CAMボタン</color></size>\nVRChatのカメラ（写真・配信）にだけ、\nふわふわを追いかける映像を映すよ\n" + modes;
-        const string en = "<size=150%><color=#FF6B5C>CAM Button</color></size>\nShows a fluff-chasing view\nonly in VRChat's camera (photo/stream)\n" + modes;
-        var lobby = studio.parent;
-        var best = studio.GetComponentsInChildren<Transform>(true).First(t => t.name == "BestTimes");
-        var srcPanel = best.Find("Panel").GetComponent<SpriteRenderer>();
-        var srcText = best.Find("Text").GetComponent<TMPro.TextMeshPro>();
-        var info = new GameObject("CamInfo").transform;
-        info.SetParent(studio, false);
-        info.localPosition = cam.localPosition + Vector3.up * 0.65f;   // 0.85倍に縮めた分、ボタンとのすき間がそのままになるよう少し下げる
-        info.localRotation = cam.localRotation;
-        info.localScale = Vector3.one * 0.85f;   // てじゃ「説明看板もちょいちいさく」
-        var panel = Object.Instantiate(srcPanel.gameObject, info).GetComponent<SpriteRenderer>();
-        panel.name = "Panel";
-        panel.transform.localPosition = new Vector3(0f, 0f, 0.02f);
-        panel.transform.localRotation = Quaternion.identity;
-        panel.transform.localScale = Vector3.one * 0.5f;
-        panel.size = new Vector2(2.05f, 0.95f) / 0.5f;
-        var go = new GameObject("Text");
-        go.transform.SetParent(info, false);
-        var t = go.AddComponent<TMPro.TextMeshPro>();
-        t.font = srcText.font; t.fontSharedMaterial = srcText.fontSharedMaterial; t.color = srcText.color;
-        t.fontSize = 1.15f; t.alignment = TMPro.TextAlignmentOptions.Center; t.enableWordWrapping = false;
-        t.lineSpacing = -10f;
-        t.rectTransform.sizeDelta = new Vector2(1.95f, 0.9f);
-        t.text = ja;
-        go.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        // 板は文字にぴったり（上下の余白を減らす、てじゃ）。下のはしは今まで通り（ボタンとのすき間を変えない）。幅は長いほうの言語に合わせる
-        {
-            float w = 0f, h = 0f;
-            foreach (var s in new[] { en, ja }) { t.text = s; t.ForceMeshUpdate(); w = Mathf.Max(w, t.textBounds.size.x); h = Mathf.Max(h, t.textBounds.size.y); }
-            t.text = ja; t.ForceMeshUpdate();
-            float pw = w + 0.12f, ph = h + 0.16f, bottom = -0.475f;   // 左右の余白も小さく（てじゃ）
-            panel.size = new Vector2(pw, ph) / 0.5f;
-            panel.transform.localPosition = new Vector3(0f, bottom + ph * 0.5f, 0.02f);
-            t.rectTransform.sizeDelta = new Vector2(pw - 0.1f, ph);
-            go.transform.localPosition = new Vector3(0f, bottom + ph * 0.5f - (t.textBounds.center.y), 0f);
-        }
-
-        // 言語の切り替えに登録（作り直しで消えた古い札は詰める）
-        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
-        if (lang != null)
-        {
-            var so = new SerializedObject(lang);
-            var tx = so.FindProperty("texts"); var pj = so.FindProperty("ja"); var pe = so.FindProperty("en");
-            for (int i = tx.arraySize - 1; i >= 0; i--)
-                if (tx.GetArrayElementAtIndex(i).objectReferenceValue == null)
-                { tx.DeleteArrayElementAtIndex(i); if (i < pj.arraySize) pj.DeleteArrayElementAtIndex(i); if (i < pe.arraySize) pe.DeleteArrayElementAtIndex(i); }
-            int n = tx.arraySize;
-            tx.arraySize = n + 1; pj.arraySize = n + 1; pe.arraySize = n + 1;
-            tx.GetArrayElementAtIndex(n).objectReferenceValue = t;
-            pj.GetArrayElementAtIndex(n).stringValue = ja;
-            pe.GetArrayElementAtIndex(n).stringValue = en;
-            so.ApplyModifiedPropertiesWithoutUndo();
-            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lang);
-            EditorUtility.SetDirty(lang);
-        }
-        return "cam info";
     }
 
     static GameObject Dup(Transform src, Transform parent, string name)
