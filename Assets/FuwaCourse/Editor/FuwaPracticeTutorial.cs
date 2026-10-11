@@ -415,12 +415,16 @@ public static class FuwaPracticeTutorial
         var stand = ent.Find("GunStand_Tutorial"); var spot = ent.Find("PlayerSpot"); var ground = ent.Find("Ground").GetComponent<Renderer>().bounds;
         Vector3 dir = stand.position - spot.position; dir.y = 0; dir.Normalize();
         Vector3 right = Vector3.Cross(Vector3.up, dir).normalized;
-        Vector3 pos = stand.position + right * 1.25f + dir * 0.1f;
+        // 2026-10-12 てじゃ「エアガンの看板をもっと道ギリギリにして奥に」：スポーンから右へ1.65m・前へ4.2m（道の右のふちの上）
+        Vector3 pos = spot.TransformPoint(new Vector3(1.65f, 0f, 4.2f));
         var signSrc = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "BestTimes" && t.parent != null && t.parent.name == "FuwaLobby");
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
         Vector3 face = pos - spot.position; face.y = 0;
         MakeSign(ent, pos, face.normalized, GunSignJa, GunSignEn, signSrc, lang, "GunSign");
-        var sign = ent.Find("GunSign"); sign.position = new Vector3(sign.position.x, ground.max.y - 0.02f, sign.position.z);
+        var sign = ent.Find("GunSign");
+        RaycastHit gh;   // 足元の高さ（島か道）
+        float gy = Physics.Raycast(new Vector3(sign.position.x, ground.max.y + 3f, sign.position.z), Vector3.down, out gh, 6f) ? gh.point.y : ground.max.y;
+        sign.position = new Vector3(sign.position.x, gy - 0.02f, sign.position.z);
         return "gun sign at " + sign.position.ToString("F2") + " dist from island center " + Vector2.Distance(new Vector2(sign.position.x, sign.position.z), new Vector2(ground.center.x, ground.center.z)).ToString("F2") + " / r " + ground.extents.x.ToString("F2");
     }
 
