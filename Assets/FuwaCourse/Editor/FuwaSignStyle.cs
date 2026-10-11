@@ -271,7 +271,7 @@ public static class FuwaSignStyle
         ("FuwaVersusLobby/HowToPlayVersus/Panel", "FF8C6B"),
         ("FuwaVersusLobby/MatchPanel/Board/Panel", "F78C4C"), // たいせん：ハブのたいせんゲートと同じオレンジ
         ("FuwaLobby/PhotoGallery/Panel", "73AAE6"),          // 名場面：空色
-        ("FuwaSystem/PhotoAlbum/GoalBoard/Panel*", "73AAE6"),
+        ("FuwaSystem/PhotoAlbum/GoalBoard/*/Panel", "73AAE6"),
         ("FuwaLobby/PhotoStudio/BestTimes/Panel", "E8B84A"), // 最速タイム：金色
         ("FuwaLobby/PhotoStudio/CamInfo/Panel", "9E8CDB"),   // CAM：ボタンと同じむらさき
         ("FuwaHub/BackIsland/Credits/Panel", "EB8FBA"),

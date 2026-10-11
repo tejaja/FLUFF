@@ -139,27 +139,32 @@ public static class FuwaPhotoAlbumBuilder
         if (gbOld != null) Object.DestroyImmediate(gbOld.gameObject);
         var gb = new GameObject("GoalBoard").transform;
         gb.SetParent(holder.transform, false);
-        // 2026-10-11 てじゃ「左に3枚右に3枚にわけたらおしゃれかな」：GOAL! の文字の両わきに、縦に3枚ずつの板を2枚
+        // 2026-10-11 てじゃ「左に3枚右に3枚にわけたら」→「柵よりに左右に横並びに、左に上段分、右に下段分で展開」
+        // GOAL! の文字の左右に、横に3枚ずつの細長い板。少しだけ内向き（見る人の方）に向ける
         var gFrames = new Renderer[Cols * Rows];
         var gEmpties = new GameObject[Cols * Rows];
-        const float colX = 2.15f, pitch = 0.74f;
-        float colH = 3 * PhotoSize.y + 2 * (pitch - PhotoSize.y) + 0.2f;
+        const float stripX = 3.5f, stripYaw = 14f, pitchX = 1.24f;
+        float stripW = 3 * PhotoSize.x + 2 * (pitchX - PhotoSize.x) + 0.2f, stripH = PhotoSize.y + 0.2f;
         for (int side = 0; side < 2; side++)
         {
-            float x = side == 0 ? -colX : colX;
-            var gPanel = Object.Instantiate(srcPanel.gameObject, gb).GetComponent<SpriteRenderer>();
-            gPanel.name = side == 0 ? "PanelL" : "PanelR";
-            gPanel.transform.localPosition = new Vector3(x, 0f, 0.03f);
+            float sx = side == 0 ? -1f : 1f;
+            var holderT = new GameObject(side == 0 ? "SideL" : "SideR").transform;
+            holderT.SetParent(gb, false);
+            holderT.localPosition = new Vector3(sx * stripX, 0f, 0f);
+            holderT.localRotation = Quaternion.Euler(0f, sx * stripYaw, 0f);   // 外側のはしが手前に来る向き
+            var gPanel = Object.Instantiate(srcPanel.gameObject, holderT).GetComponent<SpriteRenderer>();
+            gPanel.name = "Panel";
+            gPanel.transform.localPosition = new Vector3(0f, 0f, 0.03f);
             gPanel.transform.localRotation = Quaternion.identity;
             gPanel.transform.localScale = Vector3.one;
-            gPanel.size = new Vector2(PhotoSize.x + 0.2f, colH);
+            gPanel.size = new Vector2(stripW, stripH);
             for (int k = 0; k < 3; k++)
             {
-                int i = side * 3 + k;   // 左の上から 0,1,2、右の上から 3,4,5
-                Slot(gb, i, new Vector3(x, pitch - k * pitch, 0f), srcPanel, photoMat, out gFrames[i], out gEmpties[i]);
+                int i = side * 3 + k;   // 左が上の段（0,1,2）、右が下の段（3,4,5）
+                Slot(holderT, i, new Vector3((k - 1) * pitchX, 0f, 0f), srcPanel, photoMat, out gFrames[i], out gEmpties[i]);
             }
         }
-        gb.localScale = Vector3.one * 1.7f;   // ゴールの手前から読める大きさ
+        gb.localScale = Vector3.one * 1.25f;   // 近くに置くので小さめ   // ゴールの手前から読める大きさ
         gb.gameObject.SetActive(false);
 
         // 本体の設定
@@ -172,7 +177,8 @@ public static class FuwaPhotoAlbumBuilder
         album.emptyMarks = empties;
         album.titleText = title;
         album.goalBoard = gb;
-        album.goalBoardUp = 2.0f;   // 左右に分けたので、GOAL! の文字と同じくらいの高さに
+        album.goalBoardUp = 1.9f;    // GOAL! の文字と同じくらいの高さ
+        album.goalBoardBack = 3.6f;  // 柵寄り（ゴールの島のふちのあたり）
         album.goalFrames = gFrames;
         album.goalEmptyMarks = gEmpties;
         album.feed = feed.transform;
