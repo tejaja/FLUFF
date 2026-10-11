@@ -53,7 +53,7 @@ public static class FuwaGunTriggerRebuild
 
     // ---- 中心線に沿って断面を動かした筒（角の丸い四角っぽい断面）。両はしは閉じる ----
     // center[k]：中心線、side：断面の横（x）の向き（全部 x 軸）、hw/hd：断面の横・奥行きの半分、tipDome：最後の端を丸く閉じる長さ
-    static void Sweep(List<Vector3> V, List<Vector3> N, List<int> T, Vector3[] c, float[] hw, float[] hd, float pw, float tipDome, int segs, int domeRings)
+    static void Sweep(List<Vector3> V, List<Vector3> N, List<int> T, Vector3[] c, float[] hw, float[] hd, float pw, float tipDome, int segs, int domeRings, float[] flare = null)
     {
         int n = c.Length; var tm = new List<Vector3>(); var tt = new List<int>();
         var tan = new Vector3[n]; var nor = new Vector3[n];
@@ -69,7 +69,8 @@ public static class FuwaGunTriggerRebuild
             return new Vector2(Mathf.Sign(ca) * Mathf.Pow(Mathf.Abs(ca), 2f / pw) * w, Mathf.Sign(sa) * Mathf.Pow(Mathf.Abs(sa), 2f / pw) * d);
         }
         var rings = new List<(Vector3 o, Vector3 nr, float w, float d)>();
-        for (int k = 0; k < n; k++) rings.Add((c[k], nor[k], hw[k], hd[k]));
+        // flare：外側のふちはそのまま、内側（穴の側）へだけ太らせる。付け根の角を丸く埋めるのに使う
+        for (int k = 0; k < n; k++) { float f = flare != null ? flare[k] : 0f; rings.Add((c[k] + nor[k] * f, nor[k], hw[k], hd[k] + f)); }
         // 先を丸く閉じる（中心線の先へ伸ばしながら断面を小さく）
         var last = rings[n - 1];
         for (int r = 1; r <= domeRings; r++)
@@ -115,34 +116,50 @@ public static class FuwaGunTriggerRebuild
         {
             float t = k / (float)(n - 1);
             c[k] = Bez(P0, P1, P2, t);
-            hw[k] = Mathf.Lerp(0.0028f, 0.0025f, t);    // 横の厚みの半分
-            hd[k] = Mathf.Lerp(0.0033f, 0.0026f, t);    // 前後の幅の半分
+            hw[k] = Mathf.Lerp(0.0021f, 0.0019f, t);    // 横の厚みの半分（薄い板）
+            hd[k] = Mathf.Lerp(0.0040f, 0.0030f, t);    // 前後の幅の半分
         }
-        Sweep(V, N, T, c, hw, hd, 3.2f, 0.0018f, 28, 5);
+        Sweep(V, N, T, c, hw, hd, 4f, 0.0020f, 36, 5);
     }
 
-    // ガード：前は銃身の中 → 下へ → トリガーの下をくぐって → 後ろはグリップの前の面の中へ
+    // ガード：平たい板（横から見ると太い帯、正面から見ると薄い）。前は銃身の中 → 下へ → トリガーの下をくぐって → 後ろはグリップの前の面の中へ
+    // （2026-10-11 てじゃ「板状でグリップまで繋がってる形がいい」ナーフの写真）。銃身・グリップとの付け根の内側の角は丸く盛る
     static void AddGuard(List<Vector3> V, List<Vector3> N, List<int> T)
     {
         var pts = new[]
         {
-            new Vector3(0, 0.0300f, 0.0505f), new Vector3(0, 0.0215f, 0.0500f), new Vector3(0, 0.0145f, 0.0465f), new Vector3(0, 0.0102f, 0.0395f),
-            new Vector3(0, 0.0090f, 0.0310f), new Vector3(0, 0.0090f, 0.0230f), new Vector3(0, 0.0094f, 0.0160f), new Vector3(0, 0.0098f, 0.0090f),
+            new Vector3(0, 0.0310f, 0.0505f), new Vector3(0, 0.0205f, 0.0500f), new Vector3(0, 0.0115f, 0.0462f), new Vector3(0, 0.0070f, 0.0390f),
+            new Vector3(0, 0.0060f, 0.0310f), new Vector3(0, 0.0060f, 0.0230f), new Vector3(0, 0.0062f, 0.0160f), new Vector3(0, 0.0066f, 0.0090f),
         };
         // Catmull-Rom でなめらかに
         var c = new List<Vector3>();
         for (int i = 0; i < pts.Length - 1; i++)
         {
             Vector3 p0 = pts[Mathf.Max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Mathf.Min(pts.Length - 1, i + 2)];
-            for (int s = 0; s < 6; s++)
+            for (int s = 0; s < 12; s++)
             {
-                float t = s / 6f, t2 = t * t, t3 = t2 * t;
+                float t = s / 12f, t2 = t * t, t3 = t2 * t;
                 c.Add(0.5f * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3));
             }
         }
         c.Add(pts[pts.Length - 1]);
-        var hw = Enumerable.Repeat(0.0034f, c.Count).ToArray(); var hd = Enumerable.Repeat(0.0026f, c.Count).ToArray();
-        Sweep(V, N, T, c.ToArray(), hw, hd, 2.6f, 0.0015f, 24, 3);
+        var hw = Enumerable.Repeat(0.0024f, c.Count).ToArray(); var hd = Enumerable.Repeat(0.0042f, c.Count).ToArray();
+        var flare = new float[c.Count];
+        for (int k = 0; k < c.Count; k++)
+        {
+            var p = c[k];
+            // 付け根の内側の角を、四分円のくぼみ（フィレット）で埋める。d は付け根の面までの距離（面より中は d<0 で最大のまま）
+            flare[k] = Fillet(p.z - (0.0139f + (p.y - 0.006f) * 0.21f), 0.0055f)   // グリップの前の面
+                     + Fillet(0.0255f - p.y, 0.0045f);                             // 銃身の下の面
+        }
+        Sweep(V, N, T, c.ToArray(), hw, hd, 4f, 0.0015f, 36, 3, flare);
+    }
+
+    static float Fillet(float d, float r)
+    {
+        if (d >= r) return 0f;
+        if (d <= 0f) return r;
+        float u = r - d; return r - Mathf.Sqrt(r * r - u * u);
     }
 
     public static string RunGrip()
