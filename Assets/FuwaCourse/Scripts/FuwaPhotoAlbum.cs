@@ -13,6 +13,8 @@ using VRC.SDKBase;
 //   1枚目は通ってすぐ。「撃った瞬間」は通った後に次に撃った時（銃 FuwaBlower から OnFire）。3秒撃たなければ近くからの1枚にする
 //   どの角度も地面や物で隠れる時は、左右を入れ替え→予備の角度→ポイントに置いたカメラ（camPose）の順に試す
 //   （最初はゴールの瞬間→全コース同じ絵。次にポイントの固定カメラ→遠くて迫力がない。てじゃ）
+// ・ゴールした時は、ゴールの奥の空に同じ6枚の板（goalBoard）を出す（結果発表。板がふわっと出て、写真が1枚ずつぽんぽん出る）。
+//   次の挑戦を始めた時・コースを離れた時に消える
 // ・ボードは「1コース・1回の挑戦」ぶんの6枚。別のコースで（同じコースのやり直しでも）1枚撮ったら、消して並べ直す
 //   並びは通った順（ポイント1のふわふわ・自分、ポイント2の…）。見出しにコース名、写真の下にポイント名
 // ・VRChatの手持ちカメラを額縁に近づけると、VRChatカメラの画面だけその写真に差し替える（シャッターで自分のアルバムに保存できる）
@@ -55,6 +57,22 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     [TextArea] public string titleJa = "さっきの名場面";
     [TextArea] public string titleEn = "Recent Moments";
 
+    [Header("ゴールの結果発表")]
+    [Tooltip("ゴールの奥に出す写真の板（ふだんは非表示）")]
+    public Transform goalBoard;
+    [Tooltip("goalBoard の写真の面（frames と同じ順）")]
+    public Renderer[] goalFrames;
+    [Tooltip("goalBoard の、まだ写真がない所に出す物")]
+    public GameObject[] goalEmptyMarks;
+    [Tooltip("ゴールの中心から、奥（戻る地点と反対側）へどれだけ離すか(m)")]
+    public float goalBoardBack = 5.5f;
+    [Tooltip("ゴールの中心からの高さ(m)")]
+    public float goalBoardUp = 4.3f;
+    [Tooltip("板が出てくるまでの秒数（ゴールしてから）")]
+    public float goalBoardDelay = 1.6f;
+    [Tooltip("自分がこれより離れたら消す(m)")]
+    public float goalBoardHideDistance = 60f;
+
     [Header("コース名（FuwaRecords と同じ並び）")]
     public Transform[] courseStarts;
     public string[] courseNamesJa;
@@ -77,6 +95,10 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     private float _boardRun = -1f;
 
     private FuwaBall _ball;
+    private Vector3 _goalBoardScale;
+    private float _goalShowAt = -1f;
+    private float _goalRun = -1f;
+    private bool _goalShown;
     private FuwaPhotoPoint _firstPoint;
     private FuwaPhotoPoint _secondPoint;
     private float _firstShotAt = -1f;
@@ -102,7 +124,77 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         if (shotCam != null) { shotCam.enabled = false; shotCam.depthTextureMode = DepthTextureMode.Depth; }   // うそ影（デカール）は深度を使う
         if (feedRenderer != null) { _feedMat = feedRenderer.material; feedRenderer.enabled = false; }
         for (int i = 0; i < n; i++) if (frames[i] != null) frames[i].enabled = false;
+        if (goalBoard != null) { _goalBoardScale = goalBoard.localScale; goalBoard.gameObject.SetActive(false); }
         RefreshCaptions();
+    }
+
+    // 自分のふわふわがゴールした時に FuwaGoal から呼ばれる。ゴールの奥の空に、この挑戦の写真の板を出す
+    public void OnGoal(FuwaBall ball, Transform goal, Transform returnPoint)
+    {
+        if (goalBoard == null || ball == null || goal == null) return;
+        _ball = ball;
+        Vector3 away = returnPoint != null ? goal.position - returnPoint.position : goal.forward;
+        away.y = 0f;
+        away = away.sqrMagnitude > 0.0001f ? away.normalized : Vector3.forward;
+        goalBoard.position = goal.position + away * goalBoardBack + Vector3.up * goalBoardUp;
+        goalBoard.rotation = Quaternion.LookRotation(away, Vector3.up);   // 戻る地点（ゴールの手前）から読める向き
+        _goalRun = ball.GetRunStartTime();
+        _goalShowAt = Time.time + goalBoardDelay;
+        _goalShown = false;
+        goalBoard.gameObject.SetActive(false);
+    }
+
+    // ゴールの板の出し入れと、ぽんっと出る動き
+    private void UpdateGoalBoard()
+    {
+        if (goalBoard == null || _goalShowAt < 0f) return;
+        // 次の挑戦を始めた・コースを離れた・遠く離れたら消す
+        bool gone = _ball == null || _ball.GetRunStartTime() != _goalRun;
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        if (!gone && lp != null && lp.IsValid() && (lp.GetPosition() - goalBoard.position).sqrMagnitude > goalBoardHideDistance * goalBoardHideDistance) gone = true;
+        if (gone)
+        {
+            _goalShowAt = -1f;
+            goalBoard.gameObject.SetActive(false);
+            return;
+        }
+        float t = Time.time - _goalShowAt;
+        if (t < 0f) return;
+        if (!_goalShown)
+        {
+            _goalShown = true;
+            goalBoard.gameObject.SetActive(true);
+            for (int i = 0; i < goalFrames.Length; i++)
+            {
+                if (goalFrames[i] == null) continue;
+                bool has = i < _has.Length && _has[i] && _photos[i] != null;
+                goalFrames[i].enabled = has;
+                if (has) goalFrames[i].material.SetTexture("_MainTex", _photos[i]);
+            }
+        }
+        // 板はふわっと（少し行き過ぎて戻る）、写真は 0.12 秒ずつずらしてぽんっ
+        goalBoard.localScale = _goalBoardScale * Pop(t / 0.4f);
+        for (int i = 0; i < goalFrames.Length; i++)
+        {
+            if (goalFrames[i] == null) continue;
+            bool has = i < _has.Length && _has[i] && _photos[i] != null;
+            if (has && !goalFrames[i].enabled)
+            {
+                goalFrames[i].enabled = true;   // ゴールの後に撮れた写真（ゴール前の2枚目など）
+                goalFrames[i].material.SetTexture("_MainTex", _photos[i]);
+            }
+            Transform slot = goalFrames[i].transform.parent;
+            if (slot != null) slot.localScale = Vector3.one * Pop((t - 0.3f - i * 0.12f) / 0.3f);
+            if (goalEmptyMarks != null && i < goalEmptyMarks.Length && goalEmptyMarks[i] != null && goalEmptyMarks[i].activeSelf == has) goalEmptyMarks[i].SetActive(!has);
+        }
+    }
+
+    // 0→1 で、少し行き過ぎてから 1 に落ち着く大きさ
+    private float Pop(float x)
+    {
+        if (x <= 0f) return 0f;
+        if (x >= 1f) return 1f;
+        return Mathf.Sin(x * Mathf.PI * 0.5f) * (1f + 0.18f * Mathf.Sin(x * Mathf.PI));
     }
 
     // 自分のふわふわがフォトポイントに入った時に FuwaPhotoPoint から呼ばれる
@@ -168,6 +260,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
 
     private void Update()
     {
+        UpdateGoalBoard();
         if (_firstShotAt >= 0f && Time.time >= _firstShotAt)
         {
             _firstShotAt = -1f;
@@ -203,6 +296,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             _boardRun = run;
             _boardCourse = CourseIndex(_ball.startPoint);
             for (int i = 0; i < _has.Length; i++) { _has[i] = false; _pointOf[i] = null; if (frames[i] != null) frames[i].enabled = false; }
+            if (goalBoard != null) { _goalShowAt = -1f; goalBoard.gameObject.SetActive(false); }
         }
 
         float eye = lp.GetAvatarEyeHeightAsMeters();
@@ -375,6 +469,23 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         return Physics.SphereCast(from, 0.1f, d / d.magnitude, out hit, len, obstacleMask, QueryTriggerInteraction.Ignore);
     }
 
+    // 額縁（ロビーのボード・ゴールの板）のうち、VRChatカメラが近くで向いている写真の番号。なければ -1
+    private int FeedTarget(Renderer[] list, Vector3 camPos, Vector3 camFwd, ref float best)
+    {
+        int hit = -1;
+        if (list == null) return -1;
+        for (int i = 0; i < list.Length && i < _has.Length; i++)
+        {
+            if (list[i] == null || !list[i].enabled || !_has[i] || _photos[i] == null) continue;
+            Vector3 d = list[i].transform.position - camPos;
+            float dist = d.magnitude;
+            if (dist >= best || Vector3.Dot(camFwd, d) < dist * 0.6f) continue;
+            best = dist;
+            hit = i;
+        }
+        return hit;
+    }
+
     // VRChatカメラが額縁に近づいたら、レンズの前に写真の板を置く
     public override void PostLateUpdate()
     {
@@ -384,16 +495,9 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         if (photo != null && photo.Active)
         {
             float best = feedRange;
-            for (int i = 0; i < frames.Length; i++)
-            {
-                if (frames[i] == null || !_has[i] || _photos[i] == null) continue;
-                Transform fr = frames[i].transform;
-                Vector3 d = fr.position - photo.Position;
-                float dist = d.magnitude;
-                if (dist >= best || Vector3.Dot(photo.Forward, d) < dist * 0.6f) continue;
-                best = dist;
-                hit = i;
-            }
+            int h1 = FeedTarget(frames, photo.Position, photo.Forward, ref best);
+            int h2 = FeedTarget(goalFrames, photo.Position, photo.Forward, ref best);
+            hit = h2 >= 0 ? h2 : h1;
             if (hit >= 0)
             {
                 feed.position = photo.Position + photo.Forward * feedDistance;

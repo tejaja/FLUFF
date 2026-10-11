@@ -50,6 +50,9 @@ public class FuwaGoal : UdonSharpBehaviour
     [Tooltip("CLEAR! がぽんっと出てくる秒数")]
     public float clearPopTime = 0.5f;
 
+    [Tooltip("名場面アルバム（ゴールの奥に、この挑戦の写真の板を出す。なくてもOK）")]
+    public FuwaPhotoAlbum album;
+
     [Tooltip("ゴールのリング（FuwaCourse/GoalRing シェーダー）")]
     public Renderer ringRenderer;
     [Tooltip("リングが光った時のまわりのぼんやりした光（FuwaCourse/GoalRingHalo、普段は非表示）")]
@@ -149,6 +152,8 @@ public class FuwaGoal : UdonSharpBehaviour
         if (fireworks != null) { fireworks.Clear(true); fireworks.Play(true); }
         if (ringSpores != null) { ringSpores.Clear(true); ringSpores.Play(true); }
         if (fireworksSound != null) { fireworksSound.Stop(); fireworksSound.Play(); }
+
+        if (album != null) album.OnGoal(ball, transform, returnPoint);
 
         // CLEAR! とクリアタイム
         if (clearTimeText != null)

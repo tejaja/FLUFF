@@ -117,42 +117,32 @@ public static class FuwaPhotoAlbumBuilder
         for (int c = 0; c < Cols; c++)
         {
             int i = r * Cols + c;
-            var slot = new GameObject("Photo" + i).transform;
-            slot.SetParent(board, false);
-            slot.localPosition = new Vector3((c - 1) * 1.28f, 2.5f - r * 0.95f, 0f);
-            // 額縁（木の色の角丸）
-            var fr = Object.Instantiate(srcPanel.gameObject, slot).GetComponent<SpriteRenderer>();
-            fr.name = "Frame";
-            fr.transform.localPosition = new Vector3(0f, 0f, 0.018f);
-            fr.transform.localRotation = Quaternion.identity;
-            fr.transform.localScale = Vector3.one * 0.25f;
-            fr.size = (PhotoSize + new Vector2(0.07f, 0.07f)) / 0.25f;
-            fr.color = new Color(0.62f, 0.47f, 0.36f, 1f);
-            // まだ写真がない時の紙（うすい灰色）
-            var em = Object.Instantiate(srcPanel.gameObject, slot).GetComponent<SpriteRenderer>();
-            em.name = "Empty";
-            em.transform.localPosition = new Vector3(0f, 0f, 0.01f);
-            em.transform.localRotation = Quaternion.identity;
-            em.transform.localScale = Vector3.one * 0.12f;
-            em.size = PhotoSize / 0.12f;
-            em.color = new Color(0.86f, 0.88f, 0.91f, 1f);
-            empties[i] = em.gameObject;
-            // 写真
-            var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            q.name = "Image";
-            Object.DestroyImmediate(q.GetComponent<Collider>());
-            q.transform.SetParent(slot, false);
-            q.transform.localPosition = new Vector3(0f, 0f, 0.005f);
-            q.transform.localScale = new Vector3(PhotoSize.x, PhotoSize.y, 1f);
-            var qr = q.GetComponent<MeshRenderer>();
-            qr.sharedMaterial = photoMat;
-            qr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            qr.receiveShadows = false;
-            qr.enabled = false;
-            frames[i] = qr;
+            var slot = Slot(board, i, new Vector3((c - 1) * 1.28f, 2.5f - r * 0.95f, 0f), srcPanel, photoMat, out frames[i], out empties[i]);
             caps[i] = Text(slot, "Caption", srcText, new Vector3(0f, -PhotoSize.y * 0.5f - 0.1f, 0f), new Vector2(1.25f, 0.16f), 1.0f, TextAlignmentOptions.Center);   // ポイント名（コース名は見出しに出す）
             caps[i].text = "";
         }
+
+        // ゴールの結果発表の板（ゴールの奥の空に出す。どのコースでも使い回すので FuwaSystem の下）
+        var gbOld = holder.transform.Find("GoalBoard");
+        if (gbOld != null) Object.DestroyImmediate(gbOld.gameObject);
+        var gb = new GameObject("GoalBoard").transform;
+        gb.SetParent(holder.transform, false);
+        var gPanel = Object.Instantiate(srcPanel.gameObject, gb).GetComponent<SpriteRenderer>();
+        gPanel.name = "Panel";
+        gPanel.transform.localPosition = new Vector3(0f, 0f, 0.03f);
+        gPanel.transform.localRotation = Quaternion.identity;
+        gPanel.transform.localScale = Vector3.one;
+        gPanel.size = new Vector2(4.15f, 1.95f);
+        var gFrames = new Renderer[Cols * Rows];
+        var gEmpties = new GameObject[Cols * Rows];
+        for (int r = 0; r < Rows; r++)
+        for (int c = 0; c < Cols; c++)
+        {
+            int i = r * Cols + c;
+            Slot(gb, i, new Vector3((c - 1) * 1.28f, 0.42f - r * 0.84f, 0f), srcPanel, photoMat, out gFrames[i], out gEmpties[i]);
+        }
+        gb.localScale = Vector3.one * 1.7f;   // ゴールの手前から読める大きさ
+        gb.gameObject.SetActive(false);
 
         // 本体の設定
         var records = Object.FindObjectsOfType<FuwaRecords>(true).FirstOrDefault();
@@ -163,6 +153,9 @@ public static class FuwaPhotoAlbumBuilder
         album.captions = caps;
         album.emptyMarks = empties;
         album.titleText = title;
+        album.goalBoard = gb;
+        album.goalFrames = gFrames;
+        album.goalEmptyMarks = gEmpties;
         album.feed = feed.transform;
         album.feedRenderer = feedR;
         album.language = lang;
@@ -181,6 +174,9 @@ public static class FuwaPhotoAlbumBuilder
         EditorUtility.SetDirty(album);
 
         if (lang != null && lang.album != album) { lang.album = album; UdonSharpEditorUtility.CopyProxyToUdon(lang); EditorUtility.SetDirty(lang); }
+        // ゴール（ゴールの奥に結果発表の板を出してもらう）
+        foreach (var goal in Object.FindObjectsOfType<FuwaGoal>(true))
+            if (goal.album != album) { goal.album = album; UdonSharpEditorUtility.CopyProxyToUdon(goal); EditorUtility.SetDirty(goal); }
         // 銃（撃った瞬間を知らせてもらう。PlayerObject のもとの銃に入れれば全員の銃に入る）
         foreach (var gun in Object.FindObjectsOfType<FuwaBlower>(true))
             if (gun.photoAlbum != album) { gun.photoAlbum = album; UdonSharpEditorUtility.CopyProxyToUdon(gun); EditorUtility.SetDirty(gun); }
@@ -189,6 +185,42 @@ public static class FuwaPhotoAlbumBuilder
         log.Add("board at " + board.position);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lobby.gameObject.scene);
         return string.Join("\n", log);
+    }
+
+    // 写真1枚ぶん（木の色の額縁・まだ写真がない時の紙・写真の面）
+    static Transform Slot(Transform parent, int i, Vector3 pos, SpriteRenderer srcPanel, Material photoMat, out Renderer image, out GameObject empty)
+    {
+        var slot = new GameObject("Photo" + i).transform;
+        slot.SetParent(parent, false);
+        slot.localPosition = pos;
+        var fr = Object.Instantiate(srcPanel.gameObject, slot).GetComponent<SpriteRenderer>();
+        fr.name = "Frame";
+        fr.transform.localPosition = new Vector3(0f, 0f, 0.018f);
+        fr.transform.localRotation = Quaternion.identity;
+        fr.transform.localScale = Vector3.one * 0.25f;
+        fr.size = (PhotoSize + new Vector2(0.07f, 0.07f)) / 0.25f;
+        fr.color = new Color(0.62f, 0.47f, 0.36f, 1f);
+        var em = Object.Instantiate(srcPanel.gameObject, slot).GetComponent<SpriteRenderer>();
+        em.name = "Empty";
+        em.transform.localPosition = new Vector3(0f, 0f, 0.01f);
+        em.transform.localRotation = Quaternion.identity;
+        em.transform.localScale = Vector3.one * 0.12f;
+        em.size = PhotoSize / 0.12f;
+        em.color = new Color(0.86f, 0.88f, 0.91f, 1f);
+        empty = em.gameObject;
+        var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        q.name = "Image";
+        Object.DestroyImmediate(q.GetComponent<Collider>());
+        q.transform.SetParent(slot, false);
+        q.transform.localPosition = new Vector3(0f, 0f, 0.005f);
+        q.transform.localScale = new Vector3(PhotoSize.x, PhotoSize.y, 1f);
+        var qr = q.GetComponent<MeshRenderer>();
+        qr.sharedMaterial = photoMat;
+        qr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        qr.receiveShadows = false;
+        qr.enabled = false;
+        image = qr;
+        return slot;
     }
 
     static TextMeshPro Text(Transform parent, string name, TextMeshPro src, Vector3 pos, Vector2 size, float fontSize, TextAlignmentOptions align)
