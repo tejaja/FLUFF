@@ -120,7 +120,7 @@ public static class FuwaPhotoAlbumBuilder
 
         var srcText = best.Find("Text").GetComponent<TextMeshPro>();
         var title = Text(board, "Title", srcText, new Vector3(0f, top - GalleryTitleH * 0.5f - 0.02f, 0f), new Vector2(W - 0.3f, 0.4f), 2.4f, TextAlignmentOptions.Center);
-        title.text = "<color=#FF6B5C>さっきの名場面</color>";   // あそびかたの看板と同じオレンジ（実行中は FuwaPhotoAlbum が書き直す）
+        title.text = "<color=#FF6B5C>かってにスクショ</color>";   // あそびかたの看板と同じオレンジ（実行中は FuwaPhotoAlbum が書き直す）
 
         var photoMat = AssetDatabase.LoadAssetAtPath<Material>(PhotoMatPath);
         if (photoMat == null) { photoMat = new Material(Shader.Find("Unlit/Texture")); AssetDatabase.CreateAsset(photoMat, PhotoMatPath); }
@@ -178,6 +178,7 @@ public static class FuwaPhotoAlbumBuilder
         album.captions = caps;
         album.emptyMarks = empties;
         album.titleText = title;
+        album.titleJa = "かってにスクショ"; album.titleEn = "Sneaky Shots";
         // 2026-10-11 てじゃ「やっぱゴールで出るの自体やめるかあ」→ ゴールでは出さない（板は作るけど本体に渡さない。戻す時は ShowAtGoal を true に）
         if (!ShowAtGoal) { Object.DestroyImmediate(gb.gameObject); gb = null; gFrames = new Renderer[0]; gEmpties = new GameObject[0]; }
         album.goalBoard = gb;

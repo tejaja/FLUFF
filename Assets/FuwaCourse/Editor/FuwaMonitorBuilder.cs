@@ -78,7 +78,7 @@ public static class FuwaMonitorBuilder
         panel.transform.localRotation = Quaternion.identity; panel.transform.localScale = Vector3.one;
         panel.size = new Vector2(W, H);
         var title = Text(board, "Title", srcText, new Vector3(0f, top - TitleH * 0.5f - 0.02f, 0f), new Vector2(W - 0.3f, 0.4f), 2.4f);
-        const string titleJa = "<color=#FF6B5C>モニター</color>", titleEn = "<color=#FF6B5C>Monitor</color>";
+        const string titleJa = "<color=#FF6B5C>おっかけカメラ</color>", titleEn = "<color=#FF6B5C>Chase Cam</color>";   // てじゃ「モニターは分かりにくい」→「おっかけカメラいいな、かわいい」
         title.text = titleJa;
         float sy = top - TitleH - ScreenH * 0.5f;
         // 画面（映像）
@@ -142,7 +142,7 @@ public static class FuwaMonitorBuilder
         var br = ball.GetComponent<MeshRenderer>(); br.sharedMaterial = zmat;
         br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; br.receiveShadows = false;
         var hint = Text(zone, "Hint", srcText, new Vector3(0f, 0.66f, 0f), new Vector2(1.4f, 0.4f), 0.9f);   // 説明は球の上
-        const string hintJa = "VRChatカメラを入れると\nモニターの映像になるよ", hintEn = "Put your VRChat camera here\nto film the monitor view";
+        const string hintJa = "VRChatカメラを入れると\nおっかけカメラの映像になるよ", hintEn = "Put your VRChat camera here\nto film the Chase Cam view";
         hint.text = hintJa;
         // 球の上にカメラの絵
         var camIcon = new GameObject("Icon").AddComponent<SpriteRenderer>();

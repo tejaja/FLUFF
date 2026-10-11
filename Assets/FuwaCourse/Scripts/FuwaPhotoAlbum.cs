@@ -54,8 +54,8 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     public GameObject[] emptyMarks;
     [Tooltip("ボードの見出し（言語で切り替える。後ろにコース名がつく）")]
     public TextMeshPro titleText;
-    [TextArea] public string titleJa = "さっきの名場面";
-    [TextArea] public string titleEn = "Recent Moments";
+    [TextArea] public string titleJa = "かってにスクショ";   // 2026-10-11 てじゃ「ギャグっぽく、かってにスクショ」（元「さっきの名場面」）
+    [TextArea] public string titleEn = "Sneaky Shots";
 
     [Header("ゴールの結果発表")]
     [Tooltip("ゴールの奥に出す写真の板（ふだんは非表示）")]
