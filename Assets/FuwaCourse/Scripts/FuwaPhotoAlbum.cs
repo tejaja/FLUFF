@@ -41,7 +41,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     [Tooltip("カメラを置けるか調べる時に、ぶつかったらダメな物")]
     public LayerMask obstacleMask = (1 << 0) | (1 << 11);
     [Tooltip("写真の大きさ（横）。縦は16:9")]
-    public int photoWidth = 1280;
+    public int photoWidth = 1920;   // 2026-10-12 1280→1920（PCのみ。Quest対応する時は Android ビルドで下げる）
     [Tooltip("撮る時に隠すもの（HUDの文字など）")]
     public Renderer[] hideWhileShooting;
 
