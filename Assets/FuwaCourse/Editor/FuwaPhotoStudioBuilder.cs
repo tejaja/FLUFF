@@ -8,7 +8,9 @@ using UnityEngine;
 // ・ロビーの柵に入口を開ける（柱1本と横木を抜いて、柱の間2.0m。スタートの島と橋の作りと同じ）。元の柵のメッシュは触らず、開けた版を作る
 // ・かぜのおかのスタートの後ろの木の橋をコピーしてかける（床2.24m）
 // ・島：スタートの島と同じ地面（直径8m）と島の下をコピー。まわりに柵（ロビーと同じ柱＋横木2段）、橋の所だけ開ける
-// ・名場面アルバムのボード（FuwaPhotoAlbumBuilder が BoardSpot に置く）と、ステージ2のポータル（今はまだ非表示のまま）
+// ・奥に「名場面」ボード（FuwaPhotoAlbumBuilder が BoardSpot に置く）と「最速タイム」の看板（ロビーから引っ越し）をハの字に。
+//   ステージ2のポータル（今はまだ非表示のまま）は、最速タイムの看板があったロビーの場所へ（てじゃ）
+//   島はスタートの島の 1.35 倍（看板2枚が入るように）
 // 何度実行してもよい（島はまるごと作り直す。柵は元のメッシュから開け直す）
 public static class FuwaPhotoStudioBuilder
 {
@@ -18,6 +20,10 @@ public static class FuwaPhotoStudioBuilder
     const float LobbyFloorR = 8.0f;
     const float FenceR = 8.1f;          // ロビーの柵の半径
     const float GapHalfDeg = 5.5f;      // 柵を開ける範囲（柱1本＋両側の横木）
+    const float IslandScale = 1.35f;    // スタートの島に対する大きさ
+    const float BoardRingR = 2.75f;     // 看板を置く、島の中心からの距離
+    const float BoardAngle = 40f;       // 看板2枚の、奥の真ん中からの角度（左右）
+    static readonly Vector3 BestTimesLobbyPos = new Vector3(5.83f, 8.29f, -17.63f);   // 最速タイムの看板がロビーにあった場所
     static float IslandR = 3.0f;        // 島の地面の半径（スタートの島と同じ。Run でスタートの地面から測り直す）
     static float BridgeGap = 1.15f;     // 島どうしのふちの間（スタートの島→ワープの小島と同じ。Run で測り直す）
 
@@ -50,13 +56,19 @@ public static class FuwaPhotoStudioBuilder
         Transform keepPortal = null;
         if (old != null)
         {
-            // ステージ2のポータルは作り直さない（中身はロビーにあった物そのまま）
+            // 看板・ポータルは作り直さない（ロビーにあった物そのまま）。島を消す前にロビーへ戻しておく
             keepPortal = old.Find("Stage2Portal");
             if (keepPortal != null) keepPortal.SetParent(lobby, true);
+            var oldBest = old.Find("BestTimes");
+            if (oldBest != null) oldBest.SetParent(lobby, true);
+            var oldBoard = old.Find("PhotoGallery");
+            if (oldBoard != null) oldBoard.SetParent(lobby, true);
             Object.DestroyImmediate(old.gameObject);
         }
         var studio = new GameObject("PhotoStudio").transform;
         studio.SetParent(lobby, false);
+        float srcIslandR = IslandR;
+        IslandR = srcIslandR * IslandScale;
         Vector3 center = lc + dir * (LobbyFloorR + BridgeGap + IslandR);
         studio.position = center;
         studio.rotation = Quaternion.LookRotation(dir, Vector3.up);   // +z＝ロビーから外へ
@@ -67,13 +79,13 @@ public static class FuwaPhotoStudioBuilder
         float g1Top = g1T.GetComponent<Renderer>().bounds.max.y;
         Vector3 d1 = c1Area.Find("WarpGround").position - g1; d1.y = 0f; d1.Normalize();
         // スタートの島のふち（ワープ側）→ ロビーのふち（島側）に重ねる
-        Vector3 from = new Vector3(g1.x, g1Top, g1.z) + d1 * IslandR;
+        Vector3 from = new Vector3(g1.x, g1Top, g1.z) + d1 * srcIslandR;
         Vector3 to = lc + dir * LobbyFloorR;
         Quaternion rot = Quaternion.LookRotation(dir) * Quaternion.Inverse(Quaternion.LookRotation(d1));
         // ワープの小島の半径も測って、島どうしのふちの間を合わせる
         var wT = c1Area.Find("WarpGround");
         float warpR = wT.GetComponent<MeshFilter>().sharedMesh.bounds.extents.x * Mathf.Abs(wT.lossyScale.x);
-        BridgeGap = (c1Area.Find("WarpGround").position - g1T.position).magnitude - IslandR - warpR;
+        BridgeGap = (c1Area.Find("WarpGround").position - g1T.position).magnitude - srcIslandR - warpR;
         center = lc + dir * (LobbyFloorR + BridgeGap + IslandR);
         studio.position = center;
         Vector3 Map(Vector3 p) { return to + rot * (p - from); }
@@ -90,23 +102,41 @@ public static class FuwaPhotoStudioBuilder
             var c = Dup(src, studio, n);
             Vector3 off = src.position - new Vector3(g1.x, g1Top, g1.z);
             c.transform.SetPositionAndRotation(center + rot * off, rot * src.rotation);
+            var ls = c.transform.localScale; c.transform.localScale = new Vector3(ls.x * IslandScale, ls.y, ls.z * IslandScale);
         }
 
         // 島の柵（橋の所だけ開ける）
         log.Add(StudioFence(studio, center, -dir));
 
-        // ボードを置く所（島の奥、ロビーの方を向く）と、ステージ2のポータル（島の左手前）
-        var spot = new GameObject("BoardSpot").transform;
-        spot.SetParent(studio, false);
-        spot.position = center + dir * 1.5f - side * 0.7f;   // ポータルの札とかぶらないよう少し左へ
-        spot.rotation = Quaternion.LookRotation(dir, Vector3.up);   // ボードは +z を奥にして置く（見る人はロビー側）
-        var portal = keepPortal != null ? keepPortal : lobby.Find("Stage2Portal");
+        // 奥に看板2枚をハの字に（どちらも島の中心の方を向く。+z が外向き＝見る人は内側）
+        Transform RingSpot(string name, float deg)
+        {
+            var t = new GameObject(name).transform;
+            t.SetParent(studio, false);
+            Vector3 d = Quaternion.Euler(0f, deg, 0f) * dir;
+            t.position = center + d * BoardRingR;
+            t.rotation = Quaternion.LookRotation(d, Vector3.up);
+            return t;
+        }
+        RingSpot("BoardSpot", BoardAngle);   // 名場面（FuwaPhotoAlbumBuilder が置く）
+        var bestSpot = RingSpot("BestTimesSpot", -BoardAngle);
+        var best = lobby.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BestTimes" && t.GetComponentInChildren<TMPro.TextMeshPro>(true) != null);
+        if (best != null)
+        {
+            best.SetParent(studio, true);
+            best.SetPositionAndRotation(new Vector3(bestSpot.position.x, BestTimesLobbyPos.y - 8.1f + floorTop, bestSpot.position.z), bestSpot.rotation);
+            log.Add("best times moved");
+        }
+
+        // ステージ2のポータルは、最速タイムの看板があったロビーの場所へ（柵にかからないよう少し内側）。札がロビーの真ん中から読める向き
+        var portal = keepPortal != null ? keepPortal : lobby.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Stage2Portal");
         if (portal != null)
         {
-            portal.SetParent(studio, true);
-            portal.position = center - dir * 0.4f + side * 1.9f;
-            portal.rotation = Quaternion.LookRotation(-dir, Vector3.up);   // 札（Label）が橋の方から読める向き（札は台の奥側に立つ）
-            log.Add("stage2 portal moved (active=" + portal.gameObject.activeSelf + ")");
+            portal.SetParent(lobby, true);
+            Vector3 o = BestTimesLobbyPos - lc; o.y = 0f; o.Normalize();
+            portal.position = lc + o * 6.9f;
+            portal.rotation = Quaternion.LookRotation(-o, Vector3.up);
+            log.Add("stage2 portal -> lobby (active=" + portal.gameObject.activeSelf + ")");
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lobby.gameObject.scene);
         log.Add("studio at " + center.ToString("F2"));

@@ -91,7 +91,7 @@ public static class FuwaPhotoAlbumBuilder
         var studioSpot = lobby.Find("PhotoStudio/BoardSpot");
         if (studioSpot != null) { board.SetPositionAndRotation(studioSpot.position, studioSpot.rotation); board.localScale = Vector3.one * 0.85f; }   // 島が小さいので最速タイムの看板と同じ0.85倍
 
-        var best = lobby.Find("BestTimes");
+        var best = lobby.GetComponentsInChildren<Transform>(true).First(t => t.name == "BestTimes");   // 写真館の島へ引っ越していても見つける
         foreach (Transform leg in best.Cast<Transform>().Where(t => t.name == "Leg"))
         {
             var l = Object.Instantiate(leg.gameObject, board).transform;
