@@ -709,6 +709,15 @@ public class FuwaBall : UdonSharpBehaviour
         Fail();
     }
 
+    // 弾けるけど、プレイヤーは戻さない（チュートリアルの区切りの壁。2026-10-12 てじゃ「自分はリスポンなし」）
+    private bool _stayOnFail;
+    public void FailStay()
+    {
+        _stayOnFail = true;
+        Fail();
+        _stayOnFail = false;
+    }
+
     public void Fail()
     {
         if (_waiting || _finished || _resetAt > 0f || _spiking) return;
@@ -735,7 +744,7 @@ public class FuwaBall : UdonSharpBehaviour
         _respawnInFront = activeRace != null;
         if (_respawnInFront) return;
         // コース中なら、破裂を見せてから暗転して、真っ暗の間にプレイヤーも一緒に戻す
-        if (movePlayerOnOut && (timerEnabled || ReturnPlayerUntimed()))
+        if (movePlayerOnOut && !_stayOnFail && (timerEnabled || ReturnPlayerUntimed()))
         {
             _teleportOnReset = true;
             if (fade != null) fade.Play(Mathf.Max(0f, resetDelay + inflate - 0.35f), 0.3f, 0.15f, 0.35f);

@@ -1,4 +1,4 @@
-// チュートリアルの「ふわふわだけ止める」壁。人は通り抜けられる（当たり判定は Walkthrough レイヤー）。
+﻿// チュートリアルの「ふわふわだけ止める」壁。人は通り抜けられる（当たり判定は Walkthrough レイヤー）。
 // ふだんは見えない。自分のふわふわ（_UdonFuwaBallPos、FuwaBall が毎フレーム渡す。w=見えている時1）が近づくと、
 // そのまわりだけ波紋のように丸く浮かび上がる（シャボンの膜っぽく、見る角度で少し虹色）。
 // 見ている人がすぐ近くにいる時だけ、ふちがうっすら見える（通り抜ける時に「ここに膜がある」と分かる程度）。
@@ -22,6 +22,7 @@ Shader "FuwaCourse/SoftBarrier"
         _LineHeight ("横の線の高さ (m、床から)", Float) = 1.0
         _WallTop ("近づくと見える壁が消える高さ (m)", Float) = 1.0
         _HexSize ("バリアの格子の大きさ (m)", Float) = 0.3
+        _AmbientAlpha ("いつもうっすら見える濃さ（ふわふわと関係なく、見ている人から20mまで）", Range(0, 1)) = 0
         [Toggle] _GridNearBall ("格子をふわふわのまわりだけに出す（OFF＝見ている人のまわり）", Float) = 0
     }
     SubShader
@@ -40,7 +41,7 @@ Shader "FuwaCourse/SoftBarrier"
             #include "UnityCG.cginc"
 
             fixed4 _Color, _EdgeColor;
-            float _Reveal, _RingFreq, _RingSpeed, _EdgeWidth, _CamNear, _Iri, _LineAlpha, _LineFar, _LineWidth, _FilmAlpha, _LineHeight, _WallTop, _HexSize, _GridNearBall;
+            float _Reveal, _RingFreq, _RingSpeed, _EdgeWidth, _CamNear, _Iri, _LineAlpha, _LineFar, _LineWidth, _FilmAlpha, _LineHeight, _WallTop, _HexSize, _GridNearBall, _AmbientAlpha;
             fixed4 _LineColor;
             float4 _UdonFuwaBallPos;
 
@@ -81,7 +82,7 @@ Shader "FuwaCourse/SoftBarrier"
                 float camNear = 1 - smoothstep(_CamNear * 0.5, _CamNear, camD);
                 float ea = _EdgeColor.a * edge * camNear * (1 - smoothstep(0.1, 0.6, uv.y));
                 // ふだんから見えるうすい線（下のふちと左右のはし、上へいくほど消える）と、下の方のうすい膜。遠くではすーっと消える
-                if (_LineAlpha > 0 || _FilmAlpha > 0)
+                if (_LineAlpha > 0 || _FilmAlpha > 0 || _AmbientAlpha > 0)
                 {
                     float3 sx = float3(length(unity_ObjectToWorld._m00_m10_m20), length(unity_ObjectToWorld._m01_m11_m21), 1);
                     float2 m = float2(min(uv.x, 1 - uv.x) * sx.x, uv.y * sx.y);   // ふちからの距離（m）
@@ -103,6 +104,9 @@ Shader "FuwaCourse/SoftBarrier"
                     float topFade = _WallTop > 0 ? (1 - smoothstep(_WallTop * 0.6, _WallTop, m.y)) : 1;
                     float film = _FilmAlpha * gridFill * topFade * (0.8 + 0.2 * iri.b);
                     float la = (_LineAlpha * ln + film) * far;
+                    // いつもうっすら（チュートリアルの区切りの壁がどこにあるか分かるように。2026-10-12 てじゃ）
+                    float amb = _AmbientAlpha * (ln + 0.25 * gridFill * topFade) * (1 - smoothstep(10.0, 20.0, camD));
+                    la = max(la, amb);
                     col = lerp(col, _LineColor.rgb, saturate(la / max(0.001, a + la)));
                     a = max(a, la);
                 }
