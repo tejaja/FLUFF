@@ -6,7 +6,7 @@ using VRC.SDK3.Rendering;
 
 // タイマーやメッセージの表示（同期なし、自分にだけ見える）。
 // デスクトップ: 銃に関係なく、いつも視界の下の方に固定。
-// VR: 銃を持っている間は銃の横（右手なら右側、左手なら左側）に浮かび、自分の頭の方を向く。持っていない時は道具の少し上。
+// VR: 銃を持っている間はグリップの内側の下（右手なら左下、左手なら右下）に浮かび、自分の頭の方を向く。持っていない時は道具の少し上。
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaHud : UdonSharpBehaviour
 {
@@ -29,6 +29,14 @@ public class FuwaHud : UdonSharpBehaviour
     public float besideScale = 0.45f;
     [Tooltip("銃より少し上にずらす量(m)")]
     public float besideUp = 0.03f;
+    [Tooltip("ON: グリップの内側の下に出す（右手なら左下、HUDの右端がグリップの左下にくる）。OFF: 前の、銃の外側の上")]
+    public bool besideUnderGrip = true;
+    [Tooltip("グリップの下端（銃のローカル座標。銃の大きさに合わせて伸び縮みする）")]
+    public Vector3 gripBottomLocal = new Vector3(0f, -0.06f, -0.015f);
+    [Tooltip("グリップの下端からHUDの端までの横のすき間(m)")]
+    public float underGripGap = 0.04f;
+    [Tooltip("グリップの下端からタイムの中心までの高さ(m)。マイナスで下へ")]
+    public float underGripUp = -0.01f;
 
     [Header("文字の後ろの背景（なくてもOK）")]
     public TextMeshPro statusText;
@@ -208,6 +216,12 @@ public class FuwaHud : UdonSharpBehaviour
             float sign = _leftHand ? -1f : 1f;
             float sc = besideScale;
             Vector3 pos = _anchor.position + side * sign * besideGap + Vector3.up * besideUp;
+            if (besideUnderGrip)
+            {
+                // 2026-10-11 てじゃ：右手なら銃の左下（グリップの左下にHUDの右端）。持つ手と反対側（体の内側）へ出す
+                sign = -sign;
+                pos = _anchor.TransformPoint(gripBottomLocal) + side * sign * underGripGap + Vector3.up * underGripUp;
+            }
             // 文字（背景の枠）の銃側の端がそろうように、それぞれ枠の幅の半分だけ外側へずらす
             ShiftOutward(statusText, statusBg, sign);
             ShiftOutward(timerText, timerBg, sign);
