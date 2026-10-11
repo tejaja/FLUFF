@@ -36,7 +36,7 @@ public class FuwaHud : UdonSharpBehaviour
     [Tooltip("グリップの下端からHUDの端までの横のすき間(m)")]
     public float underGripGap = 0.04f;
     [Tooltip("グリップの下端からタイムの中心までの高さ(m)。マイナスで下へ")]
-    public float underGripUp = -0.01f;
+    public float underGripUp = 0.025f;
 
     [Header("文字の後ろの背景（なくてもOK）")]
     public TextMeshPro statusText;
@@ -228,7 +228,8 @@ public class FuwaHud : UdonSharpBehaviour
             ShiftGauge(sign);
             Vector3 toText = pos - head.position;
             transform.position = pos;
-            if (toText.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.LookRotation(toText, Vector3.up);
+            // 上方向は頭に合わせる（世界の上だと、視界の端で文字が斜めに傾いて見える）
+            if (toText.sqrMagnitude > 0.0001f) transform.rotation = Quaternion.LookRotation(toText, head.rotation * Vector3.up);
             transform.localScale = _baseScale * sc;
             return;
         }
