@@ -52,8 +52,8 @@ public class FuwaCourseWarp : UdonSharpBehaviour
     public Renderer progressVeil;
     [Tooltip("目の前に出す丸いゲージ（FuwaCourse/ProgressRing の縦の板。なくてもOK）。乗った瞬間の向きで、目の高さ・正面に置く（視界には張り付かない）")]
     public Renderer gauge;
-    [Tooltip("ゲージを頭からどれだけ前に置くか(m)")]
-    public float gaugeDistance = 0.7f;
+    [Tooltip("ゲージを、うずまき（床の輪）のふちからどれだけ外に置くか(m)。乗った向きの先。頭の前に置くと歩きながら追い越して見えないので（てじゃ）")]
+    public float gaugeDistance = 0.25f;
     [Tooltip("ゲージの大きさ(m)")]
     public float gaugeSize = 0.32f;
     [Tooltip("正面の幕が立ち上がる時間(秒)")]
@@ -124,7 +124,12 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         if (fwd.sqrMagnitude < 0.0001f) fwd = Vector3.forward;
         fwd.Normalize();
         Transform g = gauge.transform;
-        g.position = head.position + fwd * gaugeDistance + Vector3.down * 0.05f;
+        // うずまきの中心から、乗った向きの先の「ふちのちょい外」。高さは目の高さ
+        Vector3 c = progressRing != null ? progressRing.bounds.center : transform.position;
+        float r = progressRing != null ? Mathf.Max(progressRing.bounds.extents.x, progressRing.bounds.extents.z) : 1f;
+        Vector3 p = c + fwd * (r + gaugeDistance);
+        p.y = head.position.y - 0.05f;
+        g.position = p;
         g.rotation = Quaternion.LookRotation(fwd, Vector3.up);   // 板の表（-z）が自分の方を向く
         g.localScale = Vector3.zero;
         if (_gaugeMat == null) _gaugeMat = gauge.material;
