@@ -116,6 +116,7 @@ public static class FuwaPhotoStudioBuilder
 
         // 島の柵（橋の所だけ開ける）
         log.Add(StudioFence(studio, center, -dir));
+        log.Add(BridgeFence(studio));
 
         // 島の奥に、柵に沿ったゆるいカーブで（どれも島の中心の方を向く。+z が外向き＝見る人は内側）
         // 2026-10-11 てじゃ「最速タイムを元のロビーにうつす・名場面をやや左にずらす、右に同じくらいのボード+モニター、
@@ -284,6 +285,65 @@ public static class FuwaPhotoStudioBuilder
         fc.AddComponent<MeshCollider>().sharedMesh = col;
         GameObjectUtility.SetStaticEditorFlags(fc, (StaticEditorFlags)~0);
         return "studio fence posts " + (segs + 1);
+    }
+
+    // 橋の両側の柵（2026-10-11 てじゃ「モニタの島にいく橋にも柵つけといて」）。島の柵と同じ作り。
+    // 橋のふち（x=±BridgeRailX）にまっすぐ、島の柵からロビーの柵まで（両はしは当たり判定に向けて飛ばして決める）
+    const float BridgeRailX = 1.72f;
+    static string BridgeFence(Transform studio)
+    {
+        Physics.SyncTransforms();
+        const float postW = 0.11f, postH = 0.6f, railW = 0.06f, railH = 0.06f;
+        var bridge = studio.Find("Bridge");
+        float top = studio.InverseTransformPoint(bridge.GetComponent<Collider>().bounds.max).y;   // 橋の上の面
+        float baseY = top - 0.02f;
+        float[] railY = { 0.22f, 0.52f };
+        var postMesh = FuwaBevelTools.RoundCube(new Vector3(postW, postH, postW), 0.03f, 2);
+        var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        var parts = new List<CombineInstance>(); var colParts = new List<CombineInstance>();
+        Vector3 bc = studio.InverseTransformPoint(bridge.GetComponent<Collider>().bounds.center);
+        string log = "";
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            // 橋のまん中から島の方（+z）・ロビーの方（-z）へ柵の当たり判定を探す
+            float z0 = 0f, z1 = 0f;
+            Vector3 o = studio.TransformPoint(new Vector3(sx * BridgeRailX, top + 0.35f, bc.z));
+            foreach (float dz in new[] { 1f, -1f })
+            {
+                var hits = Physics.RaycastAll(o, studio.TransformDirection(new Vector3(0, 0, dz)), 6f);
+                float best = 6f;
+                foreach (var h in hits) if (h.collider.name.StartsWith("FenceCollider") && h.distance < best) best = h.distance;
+                float z = bc.z + dz * best;
+                if (dz > 0) z0 = z; else z1 = z;
+            }
+            Vector3 a = new Vector3(sx * BridgeRailX, 0f, z0), b = new Vector3(sx * BridgeRailX, 0f, z1);
+            float len = Mathf.Abs(z0 - z1);
+            int segs = Mathf.Max(1, Mathf.RoundToInt(len / 1.0f));
+            for (int i = 0; i <= segs; i++)
+            {
+                Vector3 p = Vector3.Lerp(a, b, i / (float)segs);
+                if (i > 0 && i < segs) parts.Add(new CombineInstance { mesh = postMesh, transform = Matrix4x4.TRS(p + Vector3.up * (baseY + postH * 0.5f), Quaternion.identity, new Vector3(postW, postH, postW)) });
+            }
+            Vector3 mid = (a + b) * 0.5f; Quaternion rr = Quaternion.LookRotation(Vector3.forward, Vector3.up);
+            var railMesh = FuwaBevelTools.RoundCube(new Vector3(railW, railH, len + 0.06f), 0.02f, 2);
+            foreach (float ry in railY)
+                parts.Add(new CombineInstance { mesh = railMesh, transform = Matrix4x4.TRS(mid + Vector3.up * (baseY + ry), rr, new Vector3(railW, railH, len + 0.06f)) });
+            colParts.Add(new CombineInstance { mesh = cube, transform = Matrix4x4.TRS(mid + Vector3.up * (baseY + 0.33f), rr, new Vector3(0.12f, 0.65f, len)) });
+            log += " " + len.ToString("F2") + "m";
+        }
+        var vis = new Mesh { name = "PhotoStudio_BridgeFence" }; vis.CombineMeshes(parts.ToArray(), true, true); vis.RecalculateBounds();
+        var col = new Mesh { name = "PhotoStudio_BridgeFenceCollider" }; col.CombineMeshes(colParts.ToArray(), true, true);
+        vis = Save(vis, MeshDir + "/PhotoStudio_BridgeFence.asset");
+        col = Save(col, MeshDir + "/PhotoStudio_BridgeFenceCollider.asset");
+        var wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
+        foreach (var n in new[] { "BridgeFence", "BridgeFenceCollider" }) { var o = studio.Find(n); if (o != null) Object.DestroyImmediate(o.gameObject); }
+        var f = new GameObject("BridgeFence"); f.transform.SetParent(studio, false);
+        f.AddComponent<MeshFilter>().sharedMesh = vis; f.AddComponent<MeshRenderer>().sharedMaterial = wood;
+        GameObjectUtility.SetStaticEditorFlags(f, (StaticEditorFlags)~0);
+        var fc = new GameObject("BridgeFenceCollider"); fc.transform.SetParent(studio, false);
+        fc.AddComponent<MeshCollider>().sharedMesh = col;
+        GameObjectUtility.SetStaticEditorFlags(fc, (StaticEditorFlags)~0);
+        return "bridge fence" + log;
     }
 
     static Mesh Save(Mesh m, string path)
