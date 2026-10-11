@@ -7,7 +7,7 @@ using UnityEngine.UI;
 // 絵は Tools/ui/make_camera_icon.py で作った Icon_Camera.png（白、まわり透明）。シーンの CamButton 全部（ハブ・たいせんロビー・写真館）に。何度実行しても同じ
 public static class FuwaCamIconSetup
 {
-    const string IconPath = "Assets/FuwaCourse/Textures/Icon_Camera.png";
+    const string IconPath = "Assets/FuwaCourse/Textures/Icon_Video.png";   // 2026-10-11 📷→📹（モニターのアングル切り替えなので。てじゃ）
 
     [MenuItem("FuwaCourse/CAMボタンをカメラの絵にする")]
     public static void RunMenu() { Debug.Log(Run()); }

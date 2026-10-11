@@ -8,7 +8,7 @@ using UnityEngine.UI;
 // ・名場面ボードの右に同じ高さのボード＋16:9の画面。右に人物ボタン（◀ 名前 ▶）、その下にCAMボタン（OFF→後ろ→右横→左横→上）
 // ・その右に半透明の球：VRChatカメラを入れている間だけ、カメラの映像＝モニターの映像
 // ・カメラは FuwaFollowCam（FuwaSystem）。他の人のふわふわは、モニターにだけ写るレイヤー（MonitorOnly）の毛玉で映し、
-//   自分の画面の半透明の分身はモニターに写さない（分身は GhostView レイヤー）
+//   自分の画面の半透明の分身・HUD はモニターに写さない（NoMonitor レイヤー）
 // FuwaPhotoStudioBuilder（写真館の島を作り直す）の最後に呼ばれる。単体でも何度でも実行できる
 public static class FuwaMonitorBuilder
 {
@@ -51,6 +51,9 @@ public static class FuwaMonitorBuilder
             Undo.RecordObject(g.gameObject, "layer"); g.gameObject.layer = GhostLayer;
             foreach (var n in new[] { "Front", "Back" }) { var c = g.transform.Find(n); if (c != null) c.gameObject.layer = GhostLayer; }
         }
+        // HUD（エア・タイム・状態の表示）もモニターには写さない（てじゃ「モニターはHUD強制非表示」）
+        foreach (var h in Object.FindObjectsOfType<FuwaHud>(true))
+            foreach (var r in h.GetComponentsInChildren<Renderer>(true)) { Undo.RecordObject(r.gameObject, "layer"); r.gameObject.layer = GhostLayer; }
 
         // ---- 映像（モニター用は軽め。VRChatカメラに出す時は今までの高画質の FollowCamFeed）----
         var rt = AssetDatabase.LoadAssetAtPath<RenderTexture>(MonitorRTPath);
@@ -93,7 +96,9 @@ public static class FuwaMonitorBuilder
         dark.transform.localScale = Vector3.one * 0.12f; dark.size = new Vector2(sw, ScreenH) / 0.12f;
         dark.color = new Color(0.25f, 0.27f, 0.33f, 1f);
         var offText = Text(off, "Text", srcText, Vector3.zero, new Vector2(sw - 0.2f, ScreenH - 0.2f), 1.5f);
-        const string offJa = "<size=160%>OFF</size>\nCAMボタンで映すよ", offEn = "<size=160%>OFF</size>\nPress CAM to watch";
+        // 「CAM」の文字のかわりにボタンと同じビデオカメラの絵（TMP のスプライト。tint=1 で文字の色になる）
+        offText.spriteAsset = AssetDatabase.LoadAssetAtPath<TMPro.TMP_SpriteAsset>("Assets/FuwaCourse/Textures/Icon_Video.asset");
+        const string offJa = "<size=160%>OFF</size>\n<sprite=0 tint=1> ボタンで映すよ", offEn = "<size=160%>OFF</size>\nPress <sprite=0 tint=1> to watch";
         offText.text = offJa; offText.color = new Color(0.85f, 0.87f, 0.92f, 1f);
         // 映している人の名前（他の人の時だけ、画面の左上）
         var nameT = Text(board, "Name", srcText, new Vector3(-sw * 0.5f + 0.1f, top - TitleH - 0.12f, -0.005f), new Vector2(sw - 0.2f, 0.2f), 1.3f);
@@ -233,13 +238,13 @@ public static class FuwaMonitorBuilder
         return t;
     }
 
-    // レイヤー名を付ける（22 MonitorOnly：モニターのカメラにだけ写る、23 GhostView：分身。自分の目には写る・モニターには写らない）
+    // レイヤー名を付ける（22 MonitorOnly：モニターのカメラにだけ写る、23 NoMonitor：分身・HUD。自分の目には写る・モニターには写らない）
     static void EnsureLayers()
     {
         var tm = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
         var layers = tm.FindProperty("layers");
         void Set(int i, string n) { var e = layers.GetArrayElementAtIndex(i); if (e.stringValue != n) e.stringValue = n; }
-        Set(MonitorLayer, "MonitorOnly"); Set(GhostLayer, "GhostView");
+        Set(MonitorLayer, "MonitorOnly"); Set(GhostLayer, "NoMonitor");
         tm.ApplyModifiedPropertiesWithoutUndo();
     }
 }
