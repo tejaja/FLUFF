@@ -13,7 +13,7 @@ public static class FuwaPhotoPointBuilder
 {
     const string ProgramPath = "Assets/FuwaCourse/Scripts/FuwaPhotoPoint.asset";
     const string ScriptPath = "Assets/FuwaCourse/Scripts/FuwaPhotoPoint.cs";
-    static readonly string[] Courses = { "FuwaCourse", "FuwaCourse2", "FuwaCourse3", "FuwaCourse4", "FuwaCourse5" };
+    static readonly string[] Courses = { "FuwaCourse0", "FuwaCourse", "FuwaCourse2", "FuwaCourse3", "FuwaCourse4", "FuwaCourse5" };
 
     [MenuItem("FuwaCourse/フォトポイントを置く（ないコースだけ）")]
     public static void Menu()
