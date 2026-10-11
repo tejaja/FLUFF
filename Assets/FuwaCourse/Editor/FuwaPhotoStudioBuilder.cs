@@ -288,8 +288,8 @@ public static class FuwaPhotoStudioBuilder
     }
 
     // 橋の両側の柵（2026-10-11 てじゃ「モニタの島にいく橋にも柵つけといて」）。島の柵と同じ作り。
-    // 橋のふち（x=±BridgeRailX）にまっすぐ、島の柵からロビーの柵まで（両はしは当たり判定に向けて飛ばして決める）
-    const float BridgeRailX = 1.72f;
+    // 島の柵とロビーの柵の入口の柱（x=±BridgeRailX）どうしを、まっすぐつなぐ（橋の板の幅は ±1.25m）
+    const float BridgeRailX = 0.99f;
     static string BridgeFence(Transform studio)
     {
         Physics.SyncTransforms();
@@ -301,21 +301,24 @@ public static class FuwaPhotoStudioBuilder
         var postMesh = FuwaBevelTools.RoundCube(new Vector3(postW, postH, postW), 0.03f, 2);
         var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
         var parts = new List<CombineInstance>(); var colParts = new List<CombineInstance>();
-        Vector3 bc = studio.InverseTransformPoint(bridge.GetComponent<Collider>().bounds.center);
+        // 柱の輪の半径：柵のメッシュの外側（柱の外のはし）から柱の半分を引く
+        float RingR(Transform fence, Transform center)
+        {
+            var mesh = fence.GetComponent<MeshFilter>().sharedMesh; float mr = 0f;
+            foreach (var v in mesh.vertices) { var w = center.InverseTransformPoint(fence.TransformPoint(v)); mr = Mathf.Max(mr, new Vector2(w.x, w.z).magnitude); }
+            return mr - postW * 0.5f;
+        }
+        var lobbyT = studio.parent;
+        float islandR = RingR(studio.Find("Fence"), studio);
+        float lobbyR = RingR(lobbyT.Find("Fence"), lobbyT);
+        Vector3 lobbyC = studio.InverseTransformPoint(lobbyT.position);
         string log = "";
         foreach (float sx in new[] { -1f, 1f })
         {
-            // 橋のまん中から島の方（+z）・ロビーの方（-z）へ柵の当たり判定を探す
-            float z0 = 0f, z1 = 0f;
-            Vector3 o = studio.TransformPoint(new Vector3(sx * BridgeRailX, top + 0.35f, bc.z));
-            foreach (float dz in new[] { 1f, -1f })
-            {
-                var hits = Physics.RaycastAll(o, studio.TransformDirection(new Vector3(0, 0, dz)), 6f);
-                float best = 6f;
-                foreach (var h in hits) if (h.collider.name.StartsWith("FenceCollider") && h.distance < best) best = h.distance;
-                float z = bc.z + dz * best;
-                if (dz > 0) z0 = z; else z1 = z;
-            }
+            // 両はしは柵の輪の上（島の柵：島の中心のまわり、ロビーの柵：ロビーの中心のまわり。どちらも柱の中心の半径）
+            float x = BridgeRailX;
+            float z0 = -Mathf.Sqrt(Mathf.Max(0f, islandR * islandR - x * x));
+            float z1 = lobbyC.z + Mathf.Sqrt(Mathf.Max(0f, lobbyR * lobbyR - x * x));
             Vector3 a = new Vector3(sx * BridgeRailX, 0f, z0), b = new Vector3(sx * BridgeRailX, 0f, z1);
             float len = Mathf.Abs(z0 - z1);
             int segs = Mathf.Max(1, Mathf.RoundToInt(len / 1.0f));
