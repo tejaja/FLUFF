@@ -63,6 +63,8 @@ public static class FuwaPhotoStudioBuilder
             if (oldBest != null) oldBest.SetParent(lobby, true);
             var oldBoard = old.Find("PhotoGallery");
             if (oldBoard != null) oldBoard.SetParent(lobby, true);
+            var oldCam = old.Find("CamButton");
+            if (oldCam != null) oldCam.SetParent(lobby, true);
             Object.DestroyImmediate(old.gameObject);
         }
         var studio = new GameObject("PhotoStudio").transform;
@@ -128,6 +130,18 @@ public static class FuwaPhotoStudioBuilder
             log.Add("best times moved");
         }
 
+        // CAMボタン（追っかけカメラの切り替え）：最速タイムの看板の子だったのを、名場面ボードの右に独立させて、下に説明の札（てじゃ）
+        var cam = lobby.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "CamButton" && t.GetComponentInChildren<Canvas>(true) != null && t.parent != null && (t.parent.name == "BestTimes" || t.parent == lobby));
+        var boardSpot = studio.Find("BoardSpot");
+        if (cam != null && boardSpot != null)
+        {
+            cam.SetParent(studio, true);
+            float half = 4.15f * 0.85f * 0.5f;   // 名場面ボードの幅の半分
+            cam.position = boardSpot.position + boardSpot.right * (half + 1.1f) + Vector3.up * 2.3f;
+            cam.rotation = boardSpot.rotation;
+            log.Add(CamInfo(studio, cam, boardSpot));
+        }
+
         // ステージ2のポータルは、最速タイムの看板があったロビーの場所へ（柵にかからないよう少し内側）。札がロビーの真ん中から読める向き
         var portal = keepPortal != null ? keepPortal : lobby.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Stage2Portal");
         if (portal != null)
@@ -141,6 +155,56 @@ public static class FuwaPhotoStudioBuilder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lobby.gameObject.scene);
         log.Add("studio at " + center.ToString("F2"));
         return string.Join("\n", log);
+    }
+
+    // CAMボタンの説明の札（角丸の板＋文字）。言語ボタンで切り替わるように FuwaLanguage に登録
+    static string CamInfo(Transform studio, Transform cam, Transform boardSpot)
+    {
+        const string ja = "<b>CAM</b>\nVRChatのカメラ（写真・配信）にだけ、\nふわふわを追いかける映像を映すよ\n押すたびに 後ろ→右→左→上→OFF";
+        const string en = "<b>CAM</b>\nShows a fluff-chasing view\nonly in VRChat's camera (photo/stream)\nPress to switch: Back → Right → Left → Top → Off";
+        var lobby = studio.parent;
+        var best = studio.GetComponentsInChildren<Transform>(true).First(t => t.name == "BestTimes");
+        var srcPanel = best.Find("Panel").GetComponent<SpriteRenderer>();
+        var srcText = best.Find("Text").GetComponent<TMPro.TextMeshPro>();
+        var info = new GameObject("CamInfo").transform;
+        info.SetParent(studio, false);
+        info.position = cam.position + Vector3.down * 0.8f;
+        info.rotation = boardSpot.rotation;
+        var panel = Object.Instantiate(srcPanel.gameObject, info).GetComponent<SpriteRenderer>();
+        panel.name = "Panel";
+        panel.transform.localPosition = new Vector3(0f, 0f, 0.02f);
+        panel.transform.localRotation = Quaternion.identity;
+        panel.transform.localScale = Vector3.one * 0.5f;
+        panel.size = new Vector2(2.05f, 0.95f) / 0.5f;
+        var go = new GameObject("Text");
+        go.transform.SetParent(info, false);
+        var t = go.AddComponent<TMPro.TextMeshPro>();
+        t.font = srcText.font; t.fontSharedMaterial = srcText.fontSharedMaterial; t.color = srcText.color;
+        t.fontSize = 1.15f; t.alignment = TMPro.TextAlignmentOptions.Center; t.enableWordWrapping = false;
+        t.lineSpacing = -10f;
+        t.rectTransform.sizeDelta = new Vector2(1.95f, 0.9f);
+        t.text = ja;
+        go.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+        // 言語の切り替えに登録（作り直しで消えた古い札は詰める）
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
+        if (lang != null)
+        {
+            var so = new SerializedObject(lang);
+            var tx = so.FindProperty("texts"); var pj = so.FindProperty("ja"); var pe = so.FindProperty("en");
+            for (int i = tx.arraySize - 1; i >= 0; i--)
+                if (tx.GetArrayElementAtIndex(i).objectReferenceValue == null)
+                { tx.DeleteArrayElementAtIndex(i); if (i < pj.arraySize) pj.DeleteArrayElementAtIndex(i); if (i < pe.arraySize) pe.DeleteArrayElementAtIndex(i); }
+            int n = tx.arraySize;
+            tx.arraySize = n + 1; pj.arraySize = n + 1; pe.arraySize = n + 1;
+            tx.GetArrayElementAtIndex(n).objectReferenceValue = t;
+            pj.GetArrayElementAtIndex(n).stringValue = ja;
+            pe.GetArrayElementAtIndex(n).stringValue = en;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lang);
+            EditorUtility.SetDirty(lang);
+        }
+        return "cam info";
     }
 
     static GameObject Dup(Transform src, Transform parent, string name)
