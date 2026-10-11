@@ -27,10 +27,11 @@ public static class FuwaTutorialWelcomeBuilder
         // ---- A：ようこそ看板（エアガンの看板を、道の向きを軸に左右反転した位置へ）----
         var old = ent.Find("WelcomeSign"); if (old != null) Object.DestroyImmediate(old.gameObject);
         var w = Object.Instantiate(gunSign.gameObject, ent).transform; w.name = "WelcomeSign";
-        Vector3 lp = spot.InverseTransformPoint(gunSign.position); lp.x = -lp.x;
-        w.position = spot.TransformPoint(lp);
-        float yaw = 2f * spot.eulerAngles.y - gunSign.eulerAngles.y;
-        w.rotation = Quaternion.Euler(0f, yaw, 0f);
+        // 道の上に少しはみ出して、スポーンの正面ちょい左・4.6m先（てじゃ「もっと右にはみ出して」）。スポーンの方を向く
+        // （近すぎると出た瞬間に「読んだ」になって「！」が消えるので、読む距離より遠く）
+        w.position = spot.position + spot.forward * 4.6f - spot.right * 0.9f;
+        Vector3 face = spot.position - w.position; face.y = 0f;
+        w.rotation = Quaternion.LookRotation(-face.normalized, Vector3.up);   // 文字の面（-z）がスポーンの方
         var wt = w.GetComponentInChildren<TMPro.TMP_Text>(true);
         wt.text = WelcomeJa;
         log.Add("welcome at " + w.position.ToString("F2"));
@@ -52,10 +53,13 @@ public static class FuwaTutorialWelcomeBuilder
         }
 
         // ---- C：看板の上の「！」----
-        // 入口の2枚（ようこそ・エアガン）はスポーンのすぐ前で、出た瞬間に「読んだ」になって消えるので付けない。道の先の看板だけ
-        var signs = new List<Transform>();
+        // 道の順（ようこそ → 各練習場 → 最後の2枚）。エアガンの看板はスポーンのすぐ横なので付けない
+        var signs = new List<Transform> { w };
         foreach (Transform bay in tut) if (bay.name.StartsWith("Bay_")) { var s = bay.Find("Sign"); if (s != null) signs.Add(s); }
-        foreach (var n in new[] { "Sign_ShootMushroom", "Sign_MoreTricks" }) { var s = tut.Find(n); if (s != null) signs.Add(s); }
+        var tail = new List<Transform>();
+        foreach (var n in new[] { "Sign_ShootMushroom", "Sign_MoreTricks" }) { var s = tut.Find(n); if (s != null) tail.Add(s); }
+        tail.Sort((x, y) => Vector3.Distance(spot.position, x.position).CompareTo(Vector3.Distance(spot.position, y.position)));
+        signs.AddRange(tail);
 
         var holderOld = tut.Find("ReadMarks"); if (holderOld != null) Object.DestroyImmediate(holderOld.gameObject);
         var holder = new GameObject("ReadMarks").transform; holder.SetParent(tut, false);
