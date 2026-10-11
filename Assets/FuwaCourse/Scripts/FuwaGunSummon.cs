@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon.Common;
@@ -76,7 +76,7 @@ public class FuwaGunSummon : UdonSharpBehaviour
         if (toHead.sqrMagnitude < 0.0001f) toHead = Vector3.back;
         // Quad の表（-Z 側から見える面）を顔へ向ける
         gauge.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(-toHead.normalized, Vector3.up));
-        gauge.transform.localScale = Vector3.one * gaugeSize;
+        gauge.transform.localScale = new Vector3(-gaugeSize, gaugeSize, gaugeSize);   // 左右反転：見る人から見て上から時計回りに満ちる（ポータルのゲージと同じ）
         if (!gauge.enabled) gauge.enabled = true;
         if (Mathf.Abs(f - _gaugeShown) > 0.002f) { _gaugeShown = f; _gaugeMat.SetFloat("_Fill", f); }
     }
