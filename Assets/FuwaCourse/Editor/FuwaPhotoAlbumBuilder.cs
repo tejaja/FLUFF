@@ -107,6 +107,15 @@ public static class FuwaPhotoAlbumBuilder
         panel.transform.localRotation = Quaternion.identity;
         panel.size = new Vector2(W, H);
 
+        // 最速タイムの看板の上のはしを、名場面ボードの上のはしにそろえる（てじゃ）。写真館の島にある時だけ
+        if (studioSpot != null && best.parent == studioSpot.parent)
+        {
+            var bp = best.Find("Panel").GetComponent<SpriteRenderer>();
+            float galleryTop = board.TransformPoint(new Vector3(0f, top, 0f)).y;
+            float bestTop = bp.bounds.max.y;
+            Undo.RecordObject(best, "align"); best.position += Vector3.up * (galleryTop - bestTop);
+        }
+
         var srcText = best.Find("Text").GetComponent<TextMeshPro>();
         var title = Text(board, "Title", srcText, new Vector3(0f, top - GalleryTitleH * 0.5f - 0.02f, 0f), new Vector2(W - 0.3f, 0.4f), 2.4f, TextAlignmentOptions.Center);
         title.text = "<color=#FF6B5C>さっきの名場面</color>";   // あそびかたの看板と同じオレンジ（実行中は FuwaPhotoAlbum が書き直す）
