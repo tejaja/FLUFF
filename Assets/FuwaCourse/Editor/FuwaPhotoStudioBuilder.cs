@@ -160,8 +160,10 @@ public static class FuwaPhotoStudioBuilder
     // CAMボタンの説明の札（角丸の板＋文字）。言語ボタンで切り替わるように FuwaLanguage に登録
     static string CamInfo(Transform studio, Transform cam, Transform boardSpot)
     {
-        const string ja = "<b>CAM</b>\nVRChatのカメラ（写真・配信）にだけ、\nふわふわを追いかける映像を映すよ\n押すたびに 後ろ→右→左→上→OFF";
-        const string en = "<b>CAM</b>\nShows a fluff-chasing view\nonly in VRChat's camera (photo/stream)\nPress to switch: Back → Right → Left → Top → Off";
+        // モード名はボタンと同じ英語のまま並べるだけ（てじゃ：ボタンは英語固定なので日本語版もここは英語に）
+        const string modes = "BACK / SIDE R / SIDE L / TOP / OFF";
+        const string ja = "<b>CAM</b>\nVRChatのカメラ（写真・配信）にだけ、\nふわふわを追いかける映像を映すよ\n" + modes;
+        const string en = "<b>CAM</b>\nShows a fluff-chasing view\nonly in VRChat's camera (photo/stream)\n" + modes;
         var lobby = studio.parent;
         var best = studio.GetComponentsInChildren<Transform>(true).First(t => t.name == "BestTimes");
         var srcPanel = best.Find("Panel").GetComponent<SpriteRenderer>();
