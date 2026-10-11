@@ -19,6 +19,12 @@ public class FuwaGhost : UdonSharpBehaviour
     [UdonSynced] private bool _hidden;
     // 吹かれるのを空中で待っている（チェックポイント・スタートで浮いている）。自分の目では分身を出さないが、おっかけカメラには映す
     [UdonSynced] private bool _waiting;
+    // 持ち主が今いるコース（courseStarts の番号、ロビーなど＝-1）。同じコースの人の分身だけ自分の目に出す（2026-10-12 てじゃ、24人対策）
+    [UdonSynced] private int _course = -1;
+    private int _pCourse = -1;
+    [Tooltip("各コースのふわふわのスタート地点（FuwaCourseLod.starts と同じ）")]
+    public Transform[] courseStarts;
+    public FuwaAreaVisibility areaVisibility;
     private bool _pWaiting;
     private bool _shownHidden;
 
@@ -153,6 +159,7 @@ public class FuwaGhost : UdonSharpBehaviour
         // （チェックポイントで他の人のふわふわと重なって見えた。とくにチュートリアル。2026-10-12 てじゃ）。おっかけカメラには映す
         _hidden = ball.IsHidden();
         _waiting = ball.IsWaiting();
+        _course = CourseOf(ball);
         float dt = Mathf.Max(Time.deltaTime, 0.0001f);
         Vector3 rawVel = (transform.position - _prevPos) / dt;
         _prevPos = transform.position;
@@ -160,7 +167,7 @@ public class FuwaGhost : UdonSharpBehaviour
         _vel = Vector3.Lerp(_vel, rawVel, 1f - Mathf.Exp(-20f * dt));
 
         bool moving = _vel.magnitude > 0.05f;
-        bool stateChanged = _hidden != _pHidden || _shielded != _pShielded || _trapEndMs != _pTrapEnd || _area != _pArea || _waiting != _pWaiting;
+        bool stateChanged = _hidden != _pHidden || _shielded != _pShielded || _trapEndMs != _pTrapEnd || _area != _pArea || _waiting != _pWaiting || _course != _pCourse;
         bool kick = (_vel - _lastSentVel).magnitude > sendOnVelocityChange;
         bool due = moving && Time.time >= _nextSend;
         bool stopped = !moving && _moving;   // 止まった瞬間にもう一度送って、止まった位置をそろえる
@@ -168,7 +175,7 @@ public class FuwaGhost : UdonSharpBehaviour
         if (stateChanged || kick || due || stopped || !_sentOnce)
         {
             _sentOnce = true;
-            _pHidden = _hidden; _pShielded = _shielded; _pTrapEnd = _trapEndMs; _pArea = _area; _pWaiting = _waiting;
+            _pHidden = _hidden; _pShielded = _shielded; _pTrapEnd = _trapEndMs; _pArea = _area; _pWaiting = _waiting; _pCourse = _course;
             _lastSentVel = _vel;
             _nextSend = Time.time + sendInterval;
             RequestSerialization();
@@ -180,6 +187,22 @@ public class FuwaGhost : UdonSharpBehaviour
     public int GetTrapEnd() { return _trapEndMs; }
 
     public bool IsMine() { return _isMine; }
+
+    private int CourseOf(FuwaBall b)
+    {
+        if (b == null || courseStarts == null) return -1;
+        Transform sp = b.startPoint;
+        for (int i = 0; i < courseStarts.Length; i++) if (courseStarts[i] != null && courseStarts[i] == sp) return i;
+        return -1;
+    }
+
+    // 自分と同じエリア・同じコースにいるか（違えば自分の目には分身を出さない。おっかけカメラには関係なく映す）
+    private bool SameCourseAsMe()
+    {
+        int myArea = areaVisibility != null ? areaVisibility.GetArea() : _area;
+        if (myArea != _area) return false;
+        return CourseOf(ball) == _course;   // ball は自分の画面の自分のふわふわ
+    }
     // おっかけカメラに映すか（隠れていない・位置が届いている。浮いて待っている間も映す）
     public bool MonitorVisible() { return !_isMine && !_hidden && _hasSample && gameObject.activeInHierarchy; }
 
@@ -239,7 +262,7 @@ public class FuwaGhost : UdonSharpBehaviour
         else if (!_isMine) ViewUpdate();
         if (!_isMine)
         {
-            bool hide = _hidden || _waiting || !_hasSample;
+            bool hide = _hidden || _waiting || !_hasSample || !SameCourseAsMe();
             if (hide != _shownHidden)
             {
                 _shownHidden = hide;
