@@ -10,8 +10,8 @@ using UnityEngine;
 public static class FuwaTutorialWelcomeBuilder
 {
     const string ProgramPath = "Assets/FuwaCourse/Scripts/FuwaReadMarks.asset";
-    const string WelcomeJa = "<size=130%><color=#FF6B5C>ようこそ！</color></size>\n看板を読みながら、道にそって進もう\n<size=85%>「<color=#FF6B5C>！</color>」がついている看板を読んでね\nとばしたい人は「説明をとばす」へ</size>";
-    const string WelcomeEn = "<size=130%><color=#FF6B5C>Welcome!</color></size>\nRead the signs as you walk along the path\n<size=85%>Look for signs with a \"<color=#FF6B5C>!</color>\"\nTo skip, use \"Skip tutorial\"</size>";
+    const string WelcomeJa = "<size=130%><color=#FF6B5C>ようこそ！</color></size>\n看板を読みながら、道にそって進もう\n<size=85%>「<color=#FF6B5C>！</color>」がついている看板を読んでね\nエアガンを忘れずに持っていこう！</size>";
+    const string WelcomeEn = "<size=130%><color=#FF6B5C>Welcome!</color></size>\nRead the signs as you walk along the path\n<size=85%>Look for signs with a \"<color=#FF6B5C>!</color>\"\nDon't forget to grab the air gun!</size>";
 
     [MenuItem("FuwaCourse/チュートリアルの「ようこそ」と「！」を作り直す")]
     public static void Menu() { Debug.Log(Run()); }
