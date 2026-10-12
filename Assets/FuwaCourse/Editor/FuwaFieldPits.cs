@@ -13,16 +13,23 @@ public static class FuwaFieldPits
 {
     const string Course = "FuwaCourse2";
     const string Dir = "Assets/FuwaCourse/Generated/FieldPits";
-    // 穴の場所（x, z）。噴気孔から 1.7m 以上・ふちから 1.5m 以上の平らな所から選んだ（入ってすぐ／真ん中の噴気孔のそば／ゴール手前の左右）
-    static readonly Vector2[] Pits = { new Vector2(136.5f, 14.5f), new Vector2(140.0f, 21.5f), new Vector2(144.5f, 31.0f), new Vector2(146.75f, 28.75f),
-        new Vector2(141.5f, 24.5f),   // 5つめ：噴気孔4つに囲まれた真ん中（2026-10-12 てじゃ「ここにもあけよう」）
-        new Vector2(134.9f, 17.8f) }; // 6つめ：追い風で運ばれた先の噴気孔（Vent1）を穴に（放置すると噴気孔が持ち上げて助けてしまう。2026-10-12 てじゃ）。その噴気孔は止める
-    const float Radius = 0.75f;     // 口の半径（ふちのギザギザで ±10%）
+    // 穴の場所（x, z）
+    // 2026-10-12：最初は小さい穴（半径0.75）を6つ → 噴気孔12個と合わせて上から見ると穴だらけ（てじゃ「集合体恐怖症殺しかも」）
+    // → 穴は3つ・大きく（半径1.2）、噴気孔も間引いて7個に（A＋B）
+    static readonly Vector2[] Pits = {
+        new Vector2(134.9f, 17.8f),   // 追い風で運ばれた先（元の噴気孔 Vent1。放置すると噴気孔が持ち上げて助けてしまったので穴に）
+        new Vector2(141.5f, 24.5f),   // 真ん中（てじゃ「ここにもあけよう」）
+        new Vector2(144.5f, 31.0f) }; // ゴール手前
+    // 止める噴気孔（穴の中に口がある噴気孔も止める）。止めた噴気孔はクレーターのふちを平らにならす
+    static readonly string[] VentsOff = { "Vent4", "Vent7", "Vent9", "Vent11", "Vent13" };
+    const float Radius = 1.2f;      // 口の半径（ふちのギザギザで ±10%）
     const float Jag = 0.1f;
     const float Depth = 2.6f;       // 縦穴の深さ
     const float FloorOuter = 1.5f;  // ふさぎ直す輪の外側（穴のふちから）
-    // 噴気孔だった所を穴にした時、クレーターのふち（盛り上がり）を平らにならす（中心 x,z・半径・平らにする高さ）。2026-10-12 てじゃ「ここだけ穴盛り上がってるのも変」
-    static readonly Vector4[] Flatten = { new Vector4(134.9f, 17.8f, 1.6f, 4.5f) };
+    // クレーターのふち（盛り上がり）を平らにならす（中心 x,z・半径・平らにする高さ）。止めた噴気孔ごとに Build で作る
+    // （2026-10-12 てじゃ「ここだけ穴盛り上がってるのも変」）
+    const float CraterR = 1.6f;
+    static List<Vector4> Flatten = new List<Vector4>();
     static float FlattenY(Vector3 w, float y)
     {
         foreach (var f in Flatten)
@@ -56,6 +63,22 @@ public static class FuwaFieldPits
         Physics.SyncTransforms();
         float Ground(float x, float z, float fallback) { return pcol.Raycast(new Ray(new Vector3(x, 40f, z), Vector3.down), out var h, 80f) ? h.point.y : fallback; }
 
+        var log = new List<string>();
+        // 噴気孔：止める物は非表示、ほかは表示（何度実行しても同じに）。止めた所はクレーターをならす高さを元の地面から測る
+        Flatten.Clear();
+        var vents = root.Find("Gimmick_FieldVents");
+        if (vents != null)
+            foreach (Transform v in vents)
+            {
+                var vp = new Vector2(v.position.x, v.position.z);
+                bool off = VentsOff.Contains(v.name) || Pits.Any(p => (vp - p).magnitude < Radius);
+                if (v.gameObject.activeSelf == off) v.gameObject.SetActive(!off);
+                if (!off) continue;
+                float gy = v.position.y;   // 噴気孔の根元の高さ＝まわりの床の高さ（まわりを測ると、坂や岩場のふちで低い所を拾ってへこんだ）
+                Flatten.Add(new Vector4(vp.x, vp.y, CraterR, gy));
+                log.Add("vent off " + v.name + " flat y " + gy.ToString("F2"));
+            }
+
         var shaftMat = ShaftMat(); var maskMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/VentHoleMask.mat");
         var rockMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Rock.mat");
         var rocks = new[] { "CrumbleRock1", "CrumbleRock2", "CrumbleRock4" }.Select(n => AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/" + n + ".asset")).ToArray();
@@ -63,7 +86,6 @@ public static class FuwaFieldPits
 
         var old = root.Find("Gimmick_FieldPits"); if (old != null) Object.DestroyImmediate(old.gameObject);
         var holder = new GameObject("Gimmick_FieldPits").transform; holder.SetParent(root, false);
-        var log = new List<string>();
         var rnd = new System.Random(505);
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
 
@@ -77,7 +99,7 @@ public static class FuwaFieldPits
             for (int i = 0; i < vv.Length; i++)
             {
                 var w = field.TransformPoint(vv[i]); float ny = FlattenY(w, w.y); if (ny == w.y) continue;
-                float k = Mathf.InverseLerp(0f, Mathf.Max(0.001f, w.y - (Flatten[0].w)), w.y - ny);
+                float k = Mathf.Clamp01((w.y - ny) / 0.05f);   // 下げた量が大きい所ほど法線を真上に
                 w.y = ny; vv[i] = field.InverseTransformPoint(w);
                 if (vn.Length == vv.Length) vn[i] = Vector3.Slerp(vn[i], field.InverseTransformDirection(Vector3.up), Mathf.Clamp01(k)).normalized;
                 moved++;
@@ -124,15 +146,21 @@ public static class FuwaFieldPits
 
             // 判定の輪（口のいちばん内側の円 〜 外側）。地面の高さに沿わせる
             {
-                const int M = 40, RINGS = 5; var V = new List<Vector3>(); var T = new List<int>();
+                const int M = 48, RINGS = 5; var V = new List<Vector3>(); var T = new List<int>(); var onGround = new List<bool>();
                 for (int j = 0; j <= RINGS; j++)
                 {
                     float rr = inner + FloorOuter * (j / (float)RINGS);
-                    for (int i = 0; i < M; i++) { float a = i / (float)M * Mathf.PI * 2f; float x = c.x + Mathf.Cos(a) * rr, z = c.y + Mathf.Sin(a) * rr; V.Add(pit.InverseTransformPoint(new Vector3(x, Ground(x, z, cy), z))); }
+                    for (int i = 0; i < M; i++)
+                    {
+                        float a = i / (float)M * Mathf.PI * 2f; float x = c.x + Mathf.Cos(a) * rr, z = c.y + Mathf.Sin(a) * rr;
+                        bool g = pcol.Raycast(new Ray(new Vector3(x, 40f, z), Vector3.down), out var gh, 80f);
+                        V.Add(pit.InverseTransformPoint(new Vector3(x, g ? gh.point.y : cy, z))); onGround.Add(g);
+                    }
                 }
                 for (int j = 0; j < RINGS; j++) for (int i = 0; i < M; i++)
                 {
                     int a0 = j * M + i, a1 = j * M + (i + 1) % M, b0 = a0 + M, b1 = a1 + M;
+                    if (!onGround[a0] || !onGround[a1] || !onGround[b0] || !onGround[b1]) continue;   // 岩場の外（空中）には判定を作らない
                     T.AddRange(new[] { a0, b0, a1, a1, b0, b1 });
                 }
                 var m = UpFacing(MakeMesh(V, T, null, "FieldPit" + (k + 1) + "_Floor"));
@@ -216,14 +244,6 @@ public static class FuwaFieldPits
                     t.position = new Vector3(np.x, Ground(np.x, np.y, t.position.y) + (t.position.y - Ground(t.position.x, t.position.z, t.position.y)), np.y);
                     log.Add("moved deco " + t.parent.name + "/" + t.name);
                 }
-            }
-        // 穴にした所の噴気孔（口の中心が穴の中）は止める（オブジェクトごと非表示：風・人用の上昇気流・湯気・音・縦穴の見た目）
-        var vents = root.Find("Gimmick_FieldVents");
-        if (vents != null)
-            foreach (Transform v in vents)
-            {
-                bool inPit = Pits.Any(p => (new Vector2(v.position.x, v.position.z) - p).magnitude < Radius);
-                if (inPit && v.gameObject.activeSelf) { v.gameObject.SetActive(false); log.Add("vent off " + v.name); }
             }
         Object.DestroyImmediate(probe); Object.DestroyImmediate(flatProbe);
         AssetDatabase.SaveAssets();
