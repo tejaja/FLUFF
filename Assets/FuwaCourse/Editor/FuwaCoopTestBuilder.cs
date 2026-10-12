@@ -168,8 +168,8 @@ public static class FuwaCoopTestBuilder
     static string BuildCourse(Transform root, Vector3 ac, float floorY, FuwaCoopGiant cg, Transform goalRoot, Transform spawn, Transform gunSpot, Transform backWarp)
     {
         if (!AssetDatabase.IsValidFolder(MeshDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Coop");
-        var pm = RootGo("FuwaCourse0").transform.Find("PathMesh").GetComponent<MeshRenderer>().sharedMaterials;
-        Material pathA = pm[0], pathB = pm.Length > 1 ? pm[1] : pm[0];
+        // 道の色はチュートリアルの道と同じ（元の FuwaCourse0/PathMesh は大掃除で削除。2026-10-12）
+        Material pathA = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course0_PathA.mat"), pathB = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course0_PathB.mat");
         var wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
         int envLayer = root.Find("VersusFloor").gameObject.layer;
 
