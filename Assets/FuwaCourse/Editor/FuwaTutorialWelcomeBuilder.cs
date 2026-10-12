@@ -130,6 +130,20 @@ public static class FuwaTutorialWelcomeBuilder
             rev.Add(signs[i].gameObject); at.Add(k);
             var bar = bay.Find("BayBarrier"); if (bar != null) { rev.Add(bar.gameObject); at.Add(k); }
         }
+        // 「ここからが本番！」（Sign_MoreTricks）も、その前の看板（まもののす）を読んだら生える（2026-10-12 てじゃ）
+        int more = signs.FindIndex(s => s.name == "Sign_MoreTricks");
+        if (more >= 0) { rev.Add(signs[more].gameObject); at.Add(more); }
+        // 静的バッチ（Batching Static）の物は実機・Play中に結合されて大きさが変えられず、看板の板と木だけパッと出ていた（文字だけぴょこん）。
+        // 生やす物は Batching Static を外す（ほかの Static はそのまま）
+        int unbatched = 0;
+        foreach (var g in rev)
+            foreach (var r in g.GetComponentsInChildren<Renderer>(true))
+            {
+                var f = GameObjectUtility.GetStaticEditorFlags(r.gameObject);
+                if ((f & StaticEditorFlags.BatchingStatic) == 0) continue;
+                GameObjectUtility.SetStaticEditorFlags(r.gameObject, f & ~StaticEditorFlags.BatchingStatic); unbatched++;
+            }
+        log.Add("unbatched " + unbatched);
         rm.reveal = rev.ToArray(); rm.revealAt = at.ToArray();
         UdonSharpEditorUtility.CopyProxyToUdon(rm);
         // 同期しない
