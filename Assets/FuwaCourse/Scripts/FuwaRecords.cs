@@ -32,6 +32,9 @@ public class FuwaRecords : UdonSharpBehaviour
     [Tooltip("コースの版（courseStarts と同じ順番）。コースの形を変えて記録をリセットしたい時に1つ上げる")]
     public int[] courseVersions;
 
+    [Tooltip("みんなでひろば：コースをクリアしたら、このインスタンスでそのコースのおもちゃを解放する（保存はしない）")]
+    public FuwaChillSpawner chill;
+
     [UdonSynced] private float[] _bestTimes = new float[0];
     [UdonSynced] private string[] _bestNames = new string[0];
     private float[] _myBest = new float[0];
@@ -62,6 +65,7 @@ public class FuwaRecords : UdonSharpBehaviour
         Init();
         int i = IndexOf(start);
         if (i < 0 || time <= 0f) return;
+        if (chill != null) chill.Unlock(i);
         // 自己ベスト
         if (_myBest[i] <= 0f || time < _myBest[i])
         {

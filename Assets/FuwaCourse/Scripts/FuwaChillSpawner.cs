@@ -44,6 +44,8 @@ public class FuwaChillSpawner : UdonSharpBehaviour
     [UdonSynced] private int _color = 0;
     [UdonSynced] private int _limit = 2;
     [UdonSynced] private bool _popGround = true;
+    // おもちゃの解放（コース i をこのインスタンスで誰かがクリアしたら bit i）。保存はしない（2026-10-12 てじゃ「竜巻解放してくるわ、みたいなことが起こる」）
+    [UdonSynced] private int _unlocked;
 
     private bool _shownEn;
     private float _nextSpawn;
@@ -109,6 +111,13 @@ public class FuwaChillSpawner : UdonSharpBehaviour
         TrimTo(Mathf.Clamp(limits[_limit], 1, balls.Length), null);
     }
     public bool PopGround() { return _popGround; }
+    public bool Unlocked(int i) { return (_unlocked & (1 << i)) != 0; }
+    // FuwaRecords から：自分がコース i をクリアした
+    public void Unlock(int i)
+    {
+        if (i < 0 || i > 30 || Unlocked(i)) return;
+        Take(); _unlocked |= 1 << i; Send();
+    }
     public void TogglePop() { Take(); _popGround = !_popGround; Send(); }
 
     private void Take() { if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject); }

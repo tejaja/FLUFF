@@ -193,7 +193,7 @@ public static class FuwaChillRoomBuilder
         var uFaceM = Mat("Chill_UchiwaFace", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.78f, 0.86f));
         var uRimM = Mat("Chill_UchiwaRim", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.97f, 0.9f));
         var windMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/WindParticle.mat");
-        EnsureProgram("FuwaHandFan"); EnsureProgram("FuwaHandFanReset");
+        EnsureProgram("FuwaHandFan"); EnsureProgram("FuwaHandFanReset"); EnsureProgram("FuwaChillRing"); EnsureProgram("FuwaChillUnlocks");
 
         GameObject Mesh(Transform parent, string name, Mesh mesh, Material[] mats, Vector3 lp)
         {
@@ -256,6 +256,55 @@ public static class FuwaChillRoomBuilder
         var list = new List<FuwaHandFan>();
         for (int i = 0; i < 3; i++) list.Add(Held("Fan" + i, G + toCenter * 2.4f + side * (-1.6f + i * 0.55f) + Vector3.up * 1.0f, face, false));
         for (int i = 0; i < 2; i++) list.Add(Held("Uchiwa" + i, G + toCenter * 2.4f + side * (0.6f + i * 0.5f) + Vector3.up * 1.0f, face, true));
+        // ゴール風リング：広場の真ん中に浮かべる（穴をキノコの方へ向ける）。持って動かせる
+        var ringT = new GameObject("Ring").transform; ringT.gameObject.layer = 13; ringT.SetParent(toys, false);
+        ringT.SetPositionAndRotation(G + Vector3.up * 1.7f, face);
+        { var rb = ringT.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false; }
+        var gate = ringT.gameObject.AddComponent<BoxCollider>(); gate.isTrigger = true; gate.size = new Vector3(1.7f, 1.7f, 0.3f);
+        var rpk = ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
+        rpk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; rpk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; rpk.InteractionText = "リング"; rpk.proximity = 2f;
+        ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+        var ringM = Mat("Chill_Ring", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.82f, 0.45f));
+        ringM.SetColor("_EmissionColor", new Color(0.18f, 0.12f, 0.03f)); EditorUtility.SetDirty(ringM);
+        var ringR = Mesh(ringT, "RingMesh", SaveGenMesh(Torus(0.85f, 0.085f, 48, 14), "Chill_Ring"), new[] { ringM }, Vector3.zero).GetComponent<MeshRenderer>();
+        var cr = UdonSharpUndo.AddComponent<FuwaChillRing>(ringT.gameObject); cr.ring = ringR;
+        var fxSrc = RootGo("FuwaCourse5").transform.Find("Goal/GoalFx");
+        if (fxSrc != null)
+        {
+            var fx = Object.Instantiate(fxSrc.gameObject, ringT, false); fx.name = "GoalFx"; fx.transform.localPosition = new Vector3(0f, 0.6f, 0f); fx.transform.localRotation = Quaternion.identity; fx.transform.localScale = Vector3.one * 0.6f;
+            cr.fireworks = fx.GetComponentsInChildren<ParticleSystem>(true);
+            cr.sfx = fx.GetComponentInChildren<AudioSource>(true);
+            foreach (var ps in cr.fireworks) { var mm = ps.main; mm.playOnAwake = false; }
+        }
+        UdonSharpEditorUtility.CopyProxyToUdon(cr);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(cr); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+
+        // コースのクリアで出てくるおもちゃの場所（広場の奥に5つ）。中身はコースごとに後で入れる。まだの間は札
+        var recs = Object.FindObjectsOfType<FuwaRecords>(true).FirstOrDefault();
+        if (recs != null) { SetU(recs, "chill", sp); Sync(recs); }
+        var unlockToys = new GameObject[5]; var lockedSigns = new GameObject[5];
+        string[] courseJa = { "かぜのおか", "いわのみち", "やみのもり", "まもののす", "きのこのたに" };
+        string[] courseEn = { "Windy Hill", "Rocky Road", "Dark Forest", "Monster Den", "Mushroom Valley" };
+        for (int i = 0; i < 5; i++)
+        {
+            float a = (-64f + 32f * i) * Mathf.Deg2Rad;
+            var outDir = Quaternion.AngleAxis(a * Mathf.Rad2Deg, Vector3.up) * -toCenter;
+            var slot = new GameObject("Unlock" + (i + 1)).transform; slot.SetParent(toys, false); slot.position = G + outDir * 3.6f;
+            slot.rotation = Quaternion.LookRotation(-outDir);
+            unlockToys[i] = slot.gameObject;
+            var lbl = MakeButton(toys, howTo, "Locked" + (i + 1), G + outDir * 3.6f + Vector3.up * 0.9f, Quaternion.LookRotation(outDir));
+            string ja = "コース" + (i + 1) + "「" + courseJa[i] + "」を\nだれかがクリアすると出てくるよ";
+            string en = "Appears when someone clears\nCourse " + (i + 1) + " " + courseEn[i];
+            lbl.text = ja; lbl.fontSize = 1.8f;
+            lockedSigns[i] = lbl.transform.parent.gameObject;
+            lbl.transform.parent.localScale = Vector3.one * 0.4f;
+            var lso2 = new SerializedObject(Object.FindObjectsOfType<FuwaLanguage>(true).First()); AddLang(lso2, "texts", "ja", "en", lbl, ja, en); lso2.ApplyModifiedPropertiesWithoutUndo();
+        }
+        var ul = UdonSharpUndo.AddComponent<FuwaChillUnlocks>(toys.gameObject);
+        ul.spawner = sp; ul.toys = unlockToys; ul.locked = lockedSigns;
+        UdonSharpEditorUtility.CopyProxyToUdon(ul);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ul); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+
         // 戻すボタン（並びの下）
         var btnLbl = MakeButton(toys, howTo, "ResetToys", G + toCenter * 2.4f + Vector3.up * 0.45f, Quaternion.LookRotation(-toCenter));
         btnLbl.text = "おもちゃを戻す";
@@ -373,6 +422,32 @@ public static class FuwaChillRoomBuilder
             if (cb != null) { cb.position = monitorHolder.TransformPoint(new Vector3(sl.x + 0.6f, sl.y - sh - 0.24f, face - 0.03f)); cb.rotation = hr; }
         }
         return "deco ok";
+    }
+
+    // 輪（XY 平面、穴は Z 向き）
+    static Mesh Torus(float R, float r, int U, int V)
+    {
+        var vs = new List<Vector3>(); var ns = new List<Vector3>(); var tr = new List<int>();
+        for (int i = 0; i <= U; i++)
+            for (int j = 0; j <= V; j++)
+            {
+                float t = 2f * Mathf.PI * i / U, ph = 2f * Mathf.PI * j / V;
+                var c = new Vector3(Mathf.Cos(t), Mathf.Sin(t), 0f);
+                var n = c * Mathf.Cos(ph) + Vector3.forward * Mathf.Sin(ph);
+                vs.Add(c * R + n * r); ns.Add(n);
+            }
+        for (int i = 0; i < U; i++)
+            for (int j = 0; j < V; j++)
+            {
+                int a = i * (V + 1) + j, b = (i + 1) * (V + 1) + j;
+                tr.AddRange(new[] { a, a + 1, b, b, a + 1, b + 1 });
+            }
+        var m = new Mesh(); m.SetVertices(vs); m.SetNormals(ns); m.SetTriangles(tr, 0); m.RecalculateBounds();
+        // 面の向き：法線と同じ向きでなければ裏返す
+        var t0 = m.triangles; var v0 = m.vertices;
+        var fn = Vector3.Cross(v0[t0[1]] - v0[t0[0]], v0[t0[2]] - v0[t0[0]]);
+        if (Vector3.Dot(fn, ns[t0[0]]) < 0f) { for (int k = 0; k < t0.Length; k += 3) { int x = t0[k + 1]; t0[k + 1] = t0[k + 2]; t0[k + 2] = x; } m.triangles = t0; }
+        return m;
     }
 
     static Mesh SaveGenMesh(Mesh m, string name)
