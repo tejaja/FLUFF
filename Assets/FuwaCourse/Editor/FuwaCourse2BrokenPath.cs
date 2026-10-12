@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -136,6 +137,10 @@ public static class FuwaCourse2BrokenPath
             }
             subs[2][i] = ni;
         }
+        int capped = 0;
+        // 頂上の柱ゾーン手前の崩落（FuwaCourse2Collapse で道を切った所）の切り口にふたをする（2026-10-12 てじゃ「頂上付近の道の端が割れてる」）。
+        // 切っただけだと切り口の断面が開いていて、横から見ると中が抜けて見えた。開いている辺の輪を岩のふたでふさぐ（見た目だけ）
+        capped = CapOpenLoops(newV, newN, uv, hasUv, subs[2], subs, l2w, new Bounds(new Vector3(121f, 12.5f, 5f), new Vector3(20f, 7f, 16f)));
         mesh.Clear();
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(newV); if (hasUv) mesh.SetUVs(0, uv);
@@ -149,6 +154,60 @@ public static class FuwaCourse2BrokenPath
         EditorUtility.SetDirty(mr);
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(pm.gameObject.scene);
-        return "broken path tris " + moved;
+        return "broken path tris " + moved + ", capped loops " + capped;
+    }
+    // 開いている辺（三角形1枚にしか使われていない辺）のうち box の中のものに、断面の壁（ふた）を足す。足した壁の数を返す。
+    // 切り口は輪になっていない（道の上面のふち・下面のふち・角の丸み、とばらばらに開いている）ので、
+    // 上面と角の開いた辺を、真下の下面の高さ（近くの下面の開いた辺の頂点）までのばした縦の壁にする
+    static int CapOpenLoops(List<Vector3> V, List<Vector3> N, List<Vector2> UV, bool hasUv, List<int> dst, List<int>[] all, Matrix4x4 l2w, Bounds box)
+    {
+        var id = new int[V.Count]; var key = new Dictionary<Vector3Int, int>();
+        for (int i = 0; i < V.Count; i++)
+        {
+            var k = new Vector3Int(Mathf.RoundToInt(V[i].x * 1000f), Mathf.RoundToInt(V[i].y * 1000f), Mathf.RoundToInt(V[i].z * 1000f));
+            if (!key.TryGetValue(k, out int q)) { q = key.Count; key[k] = q; }
+            id[i] = q;
+        }
+        var count = new Dictionary<long, int>(); var dir = new Dictionary<long, (int a, int b, int c)>();
+        long K(int a, int b) { return a < b ? ((long)a << 32) | (uint)b : ((long)b << 32) | (uint)a; }
+        foreach (var list in all)
+            for (int i = 0; i < list.Count; i += 3)
+                for (int e = 0; e < 3; e++)
+                {
+                    int va = list[i + e], vb = list[i + (e + 1) % 3]; int a = id[va], b = id[vb]; if (a == b) continue;
+                    long kk = K(a, b); count[kk] = count.TryGetValue(kk, out int c) ? c + 1 : 1; dir[kk] = (va, vb, list[i + (e + 2) % 3]);
+                }
+        var upper = new List<(Vector3 a, Vector3 b)>(); var lower = new List<Vector3>();
+        foreach (var kv in count)
+        {
+            if (kv.Value != 1) continue;
+            var (va, vb, vc) = dir[kv.Key];
+            Vector3 wa = l2w.MultiplyPoint3x4(V[va]), wb = l2w.MultiplyPoint3x4(V[vb]), wc = l2w.MultiplyPoint3x4(V[vc]);
+            if (!box.Contains((wa + wb) * 0.5f)) continue;
+            Vector3 fn = Vector3.Cross(wb - wa, wc - wa).normalized;
+            if (fn.y < -0.7f) { lower.Add(wa); lower.Add(wb); }
+            else upper.Add((V[va], V[vb]));   // 三角形の向き a→b。壁は b→a の向き
+        }
+        if (lower.Count == 0) return 0;
+        var w2l = l2w.inverse;
+        Vector3 Down(Vector3 local)
+        {
+            Vector3 w = l2w.MultiplyPoint3x4(local); float best = float.MaxValue; float y = w.y - 0.5f;
+            foreach (var p in lower) { float d = (p.x - w.x) * (p.x - w.x) + (p.z - w.z) * (p.z - w.z); if (d < best) { best = d; y = p.y; } }
+            return w2l.MultiplyPoint3x4(new Vector3(w.x, Mathf.Min(y, w.y), w.z));
+        }
+        int walls = 0;
+        foreach (var (a, b) in upper)
+        {
+            Vector3 a2 = Down(a), b2 = Down(b);
+            if ((a - a2).sqrMagnitude < 1e-6f && (b - b2).sqrMagnitude < 1e-6f) continue;
+            Vector3 n = Vector3.Cross(a - b, b2 - b).normalized;
+            int i0 = V.Count;
+            V.Add(b); V.Add(a); V.Add(a2); V.Add(b2);
+            for (int k = 0; k < 4; k++) { N.Add(n); if (hasUv) UV.Add(Vector2.zero); }
+            dst.Add(i0); dst.Add(i0 + 1); dst.Add(i0 + 2); dst.Add(i0); dst.Add(i0 + 2); dst.Add(i0 + 3);
+            walls++;
+        }
+        return walls;
     }
 }
