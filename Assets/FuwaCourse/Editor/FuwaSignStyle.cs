@@ -183,8 +183,17 @@ public static class FuwaSignStyle
             for (int i = 0; i < n; i++) { if (side == 0) T.AddRange(new[] { last + i, c, last + (i + 1) % n }); else T.AddRange(new[] { last + i, last + (i + 1) % n, c }); }
         }
         var m = Finish(V, T, "SignPillow");
+        // uv.y＝高さ（下はし0〜上はし1、SetHeightUV）。雲の下の方の水色の影に使う（FuwaToonLit の _UnderGrad）
+        SetHeightUV(m);
         if (m.normals[(rings + 1) * n].z > 0) Flip(m);   // 前の真ん中が -z を向くように
         return m;
+    }
+
+    public static void SetHeightUV(Mesh m)
+    {
+        var b = m.bounds; var vs = m.vertices; var uv = new Vector2[vs.Length];
+        for (int i = 0; i < vs.Length; i++) uv[i] = new Vector2(0f, Mathf.InverseLerp(b.min.y, b.max.y, vs[i].y));
+        m.uv = uv;
     }
 
     static void Flip(Mesh m) { var t = m.triangles; for (int i = 0; i < t.Length; i += 3) { int x = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = x; } m.triangles = t; m.RecalculateNormals(); }
@@ -214,7 +223,7 @@ public static class FuwaSignStyle
         if (!AssetDatabase.IsValidFolder(Dir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Signs");
         string path = Dir + "/" + name + ".asset";
         var old = AssetDatabase.LoadAssetAtPath<Mesh>(path);
-        if (old != null) { old.Clear(); old.indexFormat = m.indexFormat; old.SetVertices(m.vertices); old.SetNormals(m.normals); old.SetTriangles(m.triangles, 0); old.RecalculateBounds(); EditorUtility.SetDirty(old); Object.DestroyImmediate(m); return old; }
+        if (old != null) { old.Clear(); old.indexFormat = m.indexFormat; old.SetVertices(m.vertices); old.SetNormals(m.normals); if (m.uv.Length == m.vertexCount) old.SetUVs(0, m.uv); old.SetTriangles(m.triangles, 0); old.RecalculateBounds(); EditorUtility.SetDirty(old); Object.DestroyImmediate(m); return old; }
         m.name = name; AssetDatabase.CreateAsset(m, path); return m;
     }
 
@@ -297,6 +306,8 @@ public static class FuwaSignStyle
 
     // 雲の看板：白い雲（前後にぷくっとふくらむ）＋後ろに一回り大きいコース色の雲（縁どり代わり）
     // 色の雲は影で暗くならないよう影を弱く（てじゃ「コースの色、影でくらくなる」）
+    public static readonly Color CloudUnderColor = new Color(0.6f, 0.76f, 1f, 1f);
+    public const float CloudUnderGrad = 0.5f;   // 下から高さのこの割合まで、正面にもうっすら水色
     public const float CloudAmp = 0.07f, CloudLambda = 0.95f, CloudShape = 0.7f, CloudRound = 0.45f, CloudRim = 0.09f;
     static string ApplyCloud(Transform sign, Transform deco, Transform pt, Transform bt, float hw, float hh, float pz, Color pc, Color bc, string key)
     {
@@ -304,7 +315,10 @@ public static class FuwaSignStyle
         if (bt != null) { Undo.RecordObject(bt.gameObject, "sign"); bt.gameObject.SetActive(false); }
         float ow = hw - CloudAmp * 0.8f, oh = hh - CloudAmp * 0.4f;
         var body = Scallop(Outline(ow, oh, CloudRound, 12, 0.025f), CloudAmp, CloudLambda, CloudShape);
-        Part(deco, "Cloud", SaveMesh(Pillow(body, hw, hh, pz + 0.13f, 0.11f, 0.08f, 0.32f, 14), key + "_Cloud"), SaveMat(pc, "Cloud", 0.3f), Vector3.zero);
+        // 白い雲の下側に水色の影（2026-10-12 てじゃ「青っぽい影つけたらかわいい」）。光の向きに関係なく下向きの面だけ
+        var cm = SaveMat(pc, "Cloud", 0.3f);
+        cm.SetColor("_UnderColor", CloudUnderColor); cm.SetFloat("_UnderStrength", 1f); cm.SetFloat("_UnderGrad", CloudUnderGrad); EditorUtility.SetDirty(cm);
+        Part(deco, "Cloud", SaveMesh(Pillow(body, hw, hh, pz + 0.13f, 0.11f, 0.08f, 0.32f, 14), key + "_Cloud"), cm, Vector3.zero);
         var rim = Scallop(Outline(ow + CloudRim, oh + CloudRim, CloudRound + CloudRim, 12, 0.025f), CloudAmp, CloudLambda, CloudShape);
         Part(deco, "CloudRim", SaveMesh(Pillow(rim, hw + CloudRim, hh + CloudRim, pz + 0.27f, 0.06f, 0.06f, 0.2f, 8), key + "_CloudRim"), SaveMat(bc, "CloudRim", 0.2f), Vector3.zero);
         // 文字は雲の内側におさめる（横幅だけで自動縮小）

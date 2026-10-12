@@ -5,6 +5,7 @@
 // ・ふちをほんのり光らせる（リム）。光の当たっている側だけ少し強め
 // ・岩の情報量（どれも 0 で無効）：ワールド座標のノイズで色ムラ、横向きの地層の縞、面ごとのカクカク（フラット）、
 //   上向きの面だけ別の色（苔・砂）
+// ・下向きの面に色をかける（_UnderStrength、0 で無効）
 // ・根元のなじませ（つららなど）：オブジェクトの y=0（根元）から下へ _BaseFadeLength の間、色を _BaseFadeColor に、
 //   向きを真下（天井と同じ）に寄せて、天井との境目をぼかす。0 なら何もしない
 Shader "FuwaCourse/ToonLit"
@@ -31,6 +32,10 @@ Shader "FuwaCourse/ToonLit"
         _BaseFadeColor ("Base Fade Color", Color) = (0.66, 0.6, 0.68, 1)
         _BaseFadeLength ("Base Fade Length (object units, 0=off)", Float) = 0
         _BaseFadeNormal ("Base Fade Normal (toward down)", Range(0,1)) = 1
+        [Header(Under Tint)]
+        _UnderColor ("下向きの面の色（かける）", Color) = (0.72, 0.84, 1, 1)
+        _UnderStrength ("下向きの面の色の強さ (0=off)", Range(0,1)) = 0
+        _UnderGrad ("UV の y がこの値より下も色をかける（下ほど濃く。0=off）", Range(0,1)) = 0
         [Header(Rock Detail)]
         _NoiseStrength ("Color Noise Strength", Range(0,0.5)) = 0
         _NoiseScale ("Color Noise Scale (per m)", Float) = 0.6
@@ -85,6 +90,7 @@ Shader "FuwaCourse/ToonLit"
             half _NoiseStrength, _StrataStrength, _Facet, _TopStrength, _TopMin; float _NoiseScale, _StrataScale; fixed4 _TopColor;
             half4 _StrataA, _StrataB, _StrataC; half _PatternFromBase;
             half _EmissionGradient, _EmissionFull;
+            fixed4 _UnderColor; half _UnderStrength, _UnderGrad;
             sampler2D _GroundTex; half _GroundPatch, _GroundFine, _GroundSteps, _GroundFineCrisp; float _GroundPatchScale, _GroundMidScale, _GroundFineScale, _GroundFineFade; half4 _GroundTintA, _GroundTintB;
             float Hash1(float x) { return frac(sin(x * 127.1 + 311.7) * 43758.5453); }
             // 層ごとの色味：層の番号からA/B/C（と元の色）を選ぶ。となりと同じ色になることもあるので、層の厚みがバラバラに見える
@@ -208,6 +214,13 @@ Shader "FuwaCourse/ToonLit"
                         fd = lerp(fd, crisp, _GroundFineCrisp);
                     }
                     col.rgb *= 1 + fd * _GroundFine * fineFade * up;
+                }
+                // 下向きの面だけ色をかける（雲の看板の水色の影など。光の向きに関係なく、いつも下側。2026-10-12 てじゃ）
+                if (_UnderStrength > 0)
+                {
+                    half under = smoothstep(-0.15, 0.75, -n.y);
+                    if (_UnderGrad > 0) under = max(under, 0.75 * smoothstep(_UnderGrad, 0, i.uv.y));
+                    col.rgb *= lerp(1, _UnderColor.rgb, _UnderStrength * under);
                 }
                 float3 l = normalize(_WorldSpaceLightPos0.xyz);
                 float3 v = normalize(_WorldSpaceCameraPos - i.wp);
