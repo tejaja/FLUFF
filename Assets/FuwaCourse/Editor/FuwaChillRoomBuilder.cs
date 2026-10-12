@@ -227,27 +227,59 @@ public static class FuwaChillRoomBuilder
             var col = lamp.gameObject.AddComponent<CapsuleCollider>(); col.center = new Vector3(0f, 0.65f, 0f); col.height = 1.3f; col.radius = 0.14f;
         }
 
-        // 雲のテレビ：モニターの画面にかぶせる。画面（Screen）の中心＝テレビの (0, 1.24, 0)、画面は holder の -Z 側を向いている
+        // 雲のテレビ：コースの看板と同じ雲（FuwaSignStyle の Scallop＋Pillow、白い雲＋後ろに一回り大きい色の雲）に画面をはめ込む
+        //（2026-10-12 てじゃ「ソファとかモニタ、もっと波少なくていいかも、コースの看板みたいな」）。雲の前の平らな所に画面・題名・ボタン
         if (monitorHolder != null)
         {
+            // 雲が床に埋まらないよう、モニター一式を少し持ち上げる（カメラの球は元の高さのまま）
+            var zoneT = monitorHolder.Find("CamZone"); var zonePos = zoneT != null ? zoneT.position : Vector3.zero;
+            monitorHolder.position += Vector3.up * 0.35f;
+            if (zoneT != null) zoneT.position = zonePos;
             var mon = monitorHolder.Find("Monitor");
             var scr = mon.Find("Screen");
-            var tv = Put("Chill_CloudTV", cloud, Vector3.zero, Quaternion.identity, true, 0, "CloudTV");
-            tv.transform.SetParent(monitorHolder, false);
-            tv.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
             var sl = monitorHolder.InverseTransformPoint(scr.position);
-            tv.transform.localPosition = new Vector3(sl.x, sl.y - 1.24f, sl.z + 0.06f);   // 画面の板のすぐ後ろに雲の裏板
-            // 元の看板の板・ふちは消す。題名は上の雲の前、名前は画面の左上のまま
+            const float sw = 1.325f, sh = 0.745f;                  // 画面の半分の幅・高さ
+            float hw = sw + 0.4f, hh = sh + 0.5f, cy = sl.y - 0.12f; // 雲：上は題名、下はボタンのぶん広く
+            const float amp = 0.1f, lambda = 1.25f, shape = 0.7f, round = 0.6f, rimW = 0.14f, front = 0.16f, rise = 0.42f;
+            float face = sl.z + 0.015f;                            // 雲の前の平らな所（画面のすぐ後ろ）
+            var old = monitorHolder.Find("CloudTV"); if (old != null) Object.DestroyImmediate(old.gameObject);
+            var tv = new GameObject("CloudTV").transform; tv.SetParent(monitorHolder, false); tv.localPosition = new Vector3(sl.x, cy, 0f);
+            var body = FuwaSignStyle.Scallop(FuwaSignStyle.Outline(hw - amp * 0.8f, hh - amp * 0.4f, round, 12, 0.03f), amp, lambda, shape);
+            var bodyM = SaveGenMesh(FuwaSignStyle.Pillow(body, hw, hh, face + front, front, 0.14f, rise, 16), "Chill_TVCloud");
+            var rim = FuwaSignStyle.Scallop(FuwaSignStyle.Outline(hw - amp * 0.8f + rimW, hh - amp * 0.4f + rimW, round + rimW, 12, 0.03f), amp, lambda, shape);
+            var rimM = SaveGenMesh(FuwaSignStyle.Pillow(rim, hw + rimW, hh + rimW, face + front + 0.2f, 0.08f, 0.08f, 0.25f, 8), "Chill_TVCloudRim");
+            var tvCloudMat = Mat("Chill_TVCloud", "Assets/FuwaCourse/Generated/Signs/Sign_Cloud_FFFAF5.mat", new Color(0.99f, 0.98f, 1f));
+            var rimC = new Color(0.62f, 0.55f, 0.86f);   // 写真館のモニターのふちの紫
+            var tvRimMat = Mat("Chill_TVCloudRim", "Assets/FuwaCourse/Generated/Signs/Sign_CloudRim_8C63D5.mat", rimC);
+            tvRimMat.SetColor("_UnderColor", FuwaSignStyle.RimUnderColor(rimC)); EditorUtility.SetDirty(tvRimMat);
+            foreach (var (n, mesh, mat) in new[] { ("Cloud", bodyM, tvCloudMat), ("CloudRim", rimM, tvRimMat) })
+            {
+                var g = new GameObject(n, typeof(MeshFilter), typeof(MeshRenderer)); g.transform.SetParent(tv, false);
+                g.GetComponent<MeshFilter>().sharedMesh = mesh; g.GetComponent<MeshRenderer>().sharedMaterial = mat;
+                GameObjectUtility.SetStaticEditorFlags(g, StaticEditorFlags.BatchingStatic);
+            }
+            var bc = tv.gameObject.AddComponent<BoxCollider>(); bc.center = new Vector3(0f, 0f, face + 0.15f); bc.size = new Vector3((hw + rimW) * 2f, (hh + rimW) * 2f, 0.4f);
+            // 元の看板の板・ふちは消す。題名は画面の上、ボタン2つは画面の下（どちらも雲の前の平らな所）
             foreach (var n in new[] { "Panel", "Border" }) { var t = mon.Find(n); if (t != null) t.gameObject.SetActive(false); }
             var title = mon.Find("Title");
-            if (title != null) title.position = monitorHolder.TransformPoint(new Vector3(sl.x, sl.y + 1.0f, sl.z - 0.9f));
-            // ボタン2つは画面の下の雲の段の上に、少し上を向けて並べる
+            if (title != null) title.position = monitorHolder.TransformPoint(new Vector3(sl.x, sl.y + sh + 0.2f, face - 0.02f));
             var hr = monitorHolder.rotation;
             var tb = monitorHolder.Find("TargetButton"); var cb = monitorHolder.Find("CamButton");
-            if (tb != null) { tb.position = monitorHolder.TransformPoint(new Vector3(sl.x - 0.62f, sl.y - 0.68f, sl.z - 0.5f)); tb.rotation = hr * Quaternion.Euler(25f, 0f, 0f); }
-            if (cb != null) { cb.position = monitorHolder.TransformPoint(new Vector3(sl.x + 0.62f, sl.y - 0.68f, sl.z - 0.5f)); cb.rotation = hr * Quaternion.Euler(25f, 0f, 0f); }
+            if (tb != null) { tb.position = monitorHolder.TransformPoint(new Vector3(sl.x - 0.6f, sl.y - sh - 0.24f, face - 0.03f)); tb.rotation = hr; }
+            if (cb != null) { cb.position = monitorHolder.TransformPoint(new Vector3(sl.x + 0.6f, sl.y - sh - 0.24f, face - 0.03f)); cb.rotation = hr; }
         }
         return "deco ok";
+    }
+
+    static Mesh SaveGenMesh(Mesh m, string name)
+    {
+        const string dir = "Assets/FuwaCourse/Generated/Chill";
+        if (!AssetDatabase.IsValidFolder(dir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Chill");
+        string p = dir + "/" + name + ".asset"; m.name = name;
+        var old = AssetDatabase.LoadAssetAtPath<Mesh>(p);
+        if (old == null) { AssetDatabase.CreateAsset(m, p); return m; }
+        old.Clear(); old.SetVertices(m.vertices); old.SetNormals(m.normals); old.uv = m.uv; old.SetTriangles(m.triangles, 0); old.RecalculateBounds();
+        EditorUtility.SetDirty(old); Object.DestroyImmediate(m); return old;
     }
 
     static Material Mat(string name, string basePath, Color c)
