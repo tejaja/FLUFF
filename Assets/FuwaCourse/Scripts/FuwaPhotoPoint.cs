@@ -19,6 +19,10 @@ public class FuwaPhotoPoint : UdonSharpBehaviour
     [Tooltip("ボードの写真の下に出す名前")]
     public string nameJa = "";
     public string nameEn = "";
+    [Tooltip("このポイントで撮るのは1枚目（遠く/近く）か")]
+    public bool takeFirst = true;
+    [Tooltip("このポイントで撮るのは2枚目（撃った瞬間/近く）か。1枚目と2枚目を別の場所で撮りたい時は、同じ order のポイントを2つ置いて片方ずつ（2026-10-12 まもののす：1枚目はスタート、2枚目は巣の中）")]
+    public bool takeSecond = true;
 
     private float _shotRun = -1f;
 

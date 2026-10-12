@@ -206,8 +206,8 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     {
         if (point == null || ball == null || shotCam == null || point.camPose == null) return;
         _ball = ball;
-        _firstPoint = point;
-        _firstShotAt = Time.time + shotDelay;
+        if (point.takeFirst) { _firstPoint = point; _firstShotAt = Time.time + shotDelay; }
+        if (!point.takeSecond) return;
         _secondPoint = point;
         _secondIsFire = point.order <= 1;
         if (_secondIsFire) { _fireWaitUntil = Time.time + fireWait; _secondShotAt = -1f; }
