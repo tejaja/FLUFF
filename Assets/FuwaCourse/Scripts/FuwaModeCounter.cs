@@ -67,7 +67,7 @@ public class FuwaModeCounter : UdonSharpBehaviour
             {
                 if (labels[i] == null) continue;
                 int a = (labelAreas != null && i < labelAreas.Length) ? labelAreas[i] : 1;
-                string s = (en ? Get(labelsEn, i) : Get(labelsJa, i)) + "\n<size=55%><color=#FF8A7A>" + CountText(a == 2 ? versus : adventure) + "</color></size>";
+                string s = (en ? Get(labelsEn, i) : Get(labelsJa, i)) + "\n<voffset=-0.22em><size=55%><color=#FF8A7A>" + CountText(a == 2 ? versus : adventure) + "</color></size></voffset>";   // 人数は少し下げる（g・y の下と重ならないように。2026-10-12 てじゃ）
                 if (labels[i].text != s) labels[i].text = s;
             }
         }
