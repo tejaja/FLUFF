@@ -282,8 +282,8 @@ public static class FuwaFieldPits
             var o = new Vector3(R(b.min.x, b.max.x), b.max.y + 3f, R(b.min.z, b.max.z));
             if (!floorCol.Raycast(new Ray(o, Vector3.down), out var hit, 20f)) continue;
             if (hit.normal.y < 0.9f || hit.point.y < 4.3f || hit.point.y > 4.75f) continue;
-            bool big = placed.Count < 70 || rnd.NextDouble() < 0.45;
-            float r = big ? R(0.5f, 0.95f) : R(0.22f, 0.38f);
+            bool big = placed.Count < 40 || rnd.NextDouble() < 0.45;
+            float r = big ? R(0.95f, 1.6f) : R(0.42f, 0.65f);   // 2026-10-12 てじゃ「もっとあらく」で 0.5〜0.95 → 0.95〜1.6
             var hp = new Vector2(hit.point.x, hit.point.z);
             if (Pits.Any(p => (hp - p).magnitude - r * 0.5f < Radius * (1f + Jag) + 0.15f)) continue;
             if (vents.Any(v => (hp - new Vector2(v.x, v.z)).magnitude - r * 0.6f < 0.95f)) continue;   // 石の輪（半径約1m）に少しもぐるくらいまで
@@ -297,9 +297,9 @@ public static class FuwaFieldPits
             }
             if (!ok) continue;
             if (Physics.Raycast(o, Vector3.down, out var any, 20f, ~0, QueryTriggerInteraction.Ignore) && any.collider != floorCol && any.collider.name != "PitFloor") continue;
-            float thick = big ? R(0.12f, 0.2f) : R(0.06f, 0.1f);
+            float thick = big ? R(0.16f, 0.26f) : R(0.09f, 0.14f);
             var tiltAxis = Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward;
-            var rot = Quaternion.FromToRotation(Vector3.up, hit.normal) * Quaternion.AngleAxis(R(2f, 6f), tiltAxis) * Quaternion.Euler(0, R(0, 360), 0);
+            var rot = Quaternion.FromToRotation(Vector3.up, hit.normal) * Quaternion.AngleAxis(R(2f, 5f), tiltAxis) * Quaternion.Euler(0, R(0, 360), 0);
             var c = hit.point - Vector3.up * thick * R(0.4f, 0.65f);   // 半分くらい埋める（ふわふわが乗ってもほぼ段差を感じない高さ）
             FuwaGrooveRubble.Slab(mb, c, rot, r, thick, rnd.Next(6, 9), rnd);
             placed.Add((hit.point, r));
