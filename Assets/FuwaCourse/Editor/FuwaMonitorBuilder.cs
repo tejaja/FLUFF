@@ -18,7 +18,8 @@ public static class FuwaMonitorBuilder
     const string ZoneMatPath = "Assets/FuwaCourse/Generated/MonitorCamZone.mat";
     const string PersonIconPath = "Assets/FuwaCourse/Textures/Icon_Person.png";
     // 名場面ボードと同じ高さ・同じ写真の段の高さ（FuwaPhotoAlbumBuilder の Gallery* と合わせる）
-    const float Bottom = 0.12f, TitleH = 0.46f, Margin = 0.1f, ScreenH = 2 * 0.75375f + 0.06f, BoardScale = 0.95f;
+    const float Bottom = 0.42f,   // 2026-10-12 てじゃ「ちょっと上げよう」で 0.12→0.42（名場面ボードと同じ）
+         TitleH = 0.46f, Margin = 0.1f, ScreenH = 2 * 0.75375f + 0.06f, BoardScale = 0.95f;
 
     [MenuItem("FuwaCourse/写真館のモニターを作り直す")]
     public static void Menu() { Debug.Log(Run()); }

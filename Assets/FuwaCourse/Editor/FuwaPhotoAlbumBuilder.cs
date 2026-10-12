@@ -101,7 +101,8 @@ public static class FuwaPhotoAlbumBuilder
         // → 写真の下の名前はなし、写真どうしのすき間 6cm、板は地面から 12cm（脚なし）
         float pw = GalleryPhoto.x, ph = GalleryPhoto.y;
         float W = 3 * pw + 2 * GalleryGap + 2 * GalleryMargin, H = GalleryTitleH + 2 * ph + GalleryGap + GalleryMargin;
-        float bottom = 0.12f, top = bottom + H;
+        // → 2026-10-12 てじゃ「カメラとスクショのボード、ちょっと上げよう」で 12cm→42cm（おっかけカメラも同じ）
+        float bottom = 0.42f, top = bottom + H;
         var srcPanel = best.Find("Panel").GetComponent<SpriteRenderer>();
         var panel = Object.Instantiate(srcPanel.gameObject, board).GetComponent<SpriteRenderer>();
         panel.name = "Panel";
