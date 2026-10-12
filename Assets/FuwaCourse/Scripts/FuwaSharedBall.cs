@@ -424,11 +424,17 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (sfxPop != null) sfxPop.Play();
     }
 
+    private Vector3 _wind;
+    // 風のギミックから物理の1回ごとに呼ばれる（OnTriggerStay）。次の FixedUpdate で加速度として足す
+    public void AddWind(Vector3 accel) { _wind += accel; }
+
     private void FixedUpdate()
     {
-        if (_waiting || _popped || _rb.isKinematic) return;
+        if (_waiting || _popped || _rb.isKinematic) { _wind = Vector3.zero; return; }
         // 全員の画面で同じ決まりで動かす（持ち主でなくても）
         _rb.AddForce(Vector3.down * fallAcceleration, ForceMode.Acceleration);
+        // 風のギミック（FuwaCoopWind など）から足された加速度（全員の画面で同じ風を当てるので、ずれにくい）
+        if (_wind.sqrMagnitude > 0f) { _rb.AddForce(_wind, ForceMode.Acceleration); _wind = Vector3.zero; }
         Vector3 v = _rb.velocity;
         if (v.y < -maxFallSpeed) v.y = -maxFallSpeed;
         if (v.magnitude > maxSpeed) v = v.normalized * maxSpeed;

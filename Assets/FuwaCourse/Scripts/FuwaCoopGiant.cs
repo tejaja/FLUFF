@@ -60,6 +60,12 @@ public class FuwaCoopGiant : UdonSharpBehaviour
         }
     }
 
+    // コースを並べ替えた時（FuwaCoopCourse から、全員の画面で呼ばれる）：持ち主の画面でキノコへ戻す
+    public void ResetGiant()
+    {
+        if (giant != null && Networking.IsOwner(giant.gameObject)) giant.ForceHome();
+    }
+
     [NetworkCallable]
     public void Goal()
     {
