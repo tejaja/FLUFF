@@ -399,6 +399,8 @@ public static class FuwaPracticeTutorial
         mat.SetFloat("_LineAlpha", 0f); mat.SetFloat("_FilmAlpha", 0.55f); mat.SetFloat("_GridNearBall", 1f); mat.SetFloat("_LineFar", 1.3f);
         mat.SetFloat("_WallTop", 0f); mat.SetFloat("_HexSize", 0.3f); mat.SetColor("_LineColor", new Color(0.16f, 0.24f, 0.55f, 1f));
         mat.SetFloat("_AmbientAlpha", 0.3f);   // 2026-10-12 てじゃ「うっすらみえてて」：近く（20m以内）ではいつもうっすら見える
+        // ふわふわが近づくと光る（波紋・格子の膜）のは「まぎらわしいからいらない」（2026-10-12 てじゃ）。当たったら弾けるだけ
+        mat.SetFloat("_FilmAlpha", 0f); var bc = mat.GetColor("_Color"); bc.a = 0f; mat.SetColor("_Color", bc);
         EditorUtility.SetDirty(mat); AssetDatabase.SaveAssets();
         return "barriers " + n;
     }
