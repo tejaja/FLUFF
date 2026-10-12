@@ -303,10 +303,10 @@ public static class FuwaSignStyle
         Undo.RecordObject(pt.gameObject, "sign"); pt.gameObject.SetActive(false);
         if (bt != null) { Undo.RecordObject(bt.gameObject, "sign"); bt.gameObject.SetActive(false); }
         float ow = hw - CloudAmp * 0.8f, oh = hh - CloudAmp * 0.4f;
-        var body = Scallop(Outline(ow, oh, CloudRound, 16, 0.01f), CloudAmp, CloudLambda, CloudShape);
-        Part(deco, "Cloud", SaveMesh(Pillow(body, hw, hh, pz + 0.13f, 0.11f, 0.08f, 0.32f), key + "_Cloud"), SaveMat(pc, "Cloud", 0.3f), Vector3.zero);
-        var rim = Scallop(Outline(ow + CloudRim, oh + CloudRim, CloudRound + CloudRim, 16, 0.01f), CloudAmp, CloudLambda, CloudShape);
-        Part(deco, "CloudRim", SaveMesh(Pillow(rim, hw + CloudRim, hh + CloudRim, pz + 0.27f, 0.06f, 0.06f, 0.2f, 12), key + "_CloudRim"), SaveMat(bc, "CloudRim", 0.2f), Vector3.zero);
+        var body = Scallop(Outline(ow, oh, CloudRound, 12, 0.025f), CloudAmp, CloudLambda, CloudShape);
+        Part(deco, "Cloud", SaveMesh(Pillow(body, hw, hh, pz + 0.13f, 0.11f, 0.08f, 0.32f, 14), key + "_Cloud"), SaveMat(pc, "Cloud", 0.3f), Vector3.zero);
+        var rim = Scallop(Outline(ow + CloudRim, oh + CloudRim, CloudRound + CloudRim, 12, 0.025f), CloudAmp, CloudLambda, CloudShape);
+        Part(deco, "CloudRim", SaveMesh(Pillow(rim, hw + CloudRim, hh + CloudRim, pz + 0.27f, 0.06f, 0.06f, 0.2f, 8), key + "_CloudRim"), SaveMat(bc, "CloudRim", 0.2f), Vector3.zero);
         // 文字は雲の内側におさめる（横幅だけで自動縮小）
         var text = sign.GetComponent<TMPro.TMP_Text>();
         if (text != null)
