@@ -26,7 +26,15 @@ public class FuwaGravityArea : UdonSharpBehaviour
     {
         if (other == null) return;
         FuwaBall ball = other.GetComponent<FuwaBall>();
-        if (ball == null) return;
+        if (ball == null)
+        {
+            // みんなでひろばの重力のたね：同期ふわふわも重くする（全員の画面で同じ）
+            FuwaSharedBall sb = other.GetComponent<FuwaSharedBall>();
+            if (sb == null) return;
+            sb.SetGravityScale(gravityScale);
+            _lastSeen = Time.time;
+            return;
+        }
         ball.SetGravityScale(gravityScale);
         _lastSeen = Time.time;
     }

@@ -500,6 +500,10 @@ public class FuwaSharedBall : UdonSharpBehaviour
     // 風のギミックから物理の1回ごとに呼ばれる（OnTriggerStay）。次の FixedUpdate で加速度として足す
     public void AddWind(Vector3 accel) { _wind += accel; }
 
+    // 重くなるエリア（FuwaGravityArea）から毎フレーム：次の物理更新だけ落ちる速さ・落ちる上限が scale 倍（FuwaBall と同じ）
+    private float _gravScale;
+    public void SetGravityScale(float scale) { if (scale > _gravScale) _gravScale = scale; }
+
     // 全員の画面で同じように起きる当たり（みんなでひろばの転がる岩など）：通信せずに、それぞれの画面の玉の速さを変える。持ち主はすぐ送り直す
     public void Nudge(Vector3 velocityChange)
     {
@@ -514,11 +518,13 @@ public class FuwaSharedBall : UdonSharpBehaviour
     {
         if (_waiting || _popped || _rb.isKinematic) { _wind = Vector3.zero; return; }
         // 全員の画面で同じ決まりで動かす（持ち主でなくても）
-        _rb.AddForce(Vector3.down * fallAcceleration, ForceMode.Acceleration);
+        float g = _gravScale > 0f ? _gravScale : 1f;
+        _gravScale = 0f;
+        _rb.AddForce(Vector3.down * fallAcceleration * g, ForceMode.Acceleration);
         // 風のギミック（FuwaCoopWind など）から足された加速度（全員の画面で同じ風を当てるので、ずれにくい）
         if (_wind.sqrMagnitude > 0f) { _rb.AddForce(_wind, ForceMode.Acceleration); _wind = Vector3.zero; }
         Vector3 v = _rb.velocity;
-        if (v.y < -maxFallSpeed) v.y = -maxFallSpeed;
+        if (v.y < -maxFallSpeed * g) v.y = -maxFallSpeed * g;
         if (v.magnitude > maxSpeed) v = v.normalized * maxSpeed;
         // 会場のまわりの膜：外へ向かっていたら内側へはじき返す（全員の画面で同じ計算なので、ずれにくい）
         if (arenaCenter != null && arenaRadius > 0f)
@@ -593,7 +599,14 @@ public class FuwaSharedBall : UdonSharpBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (!Networking.IsOwner(gameObject) || _waiting || _popped || collision == null || collision.collider == null) return;
+        if (collision == null || collision.collider == null) return;
+        // 跳ねるキノコ（FuwaBounce）：全員の画面で同じように跳ねる（みんなでひろばの跳ねるキノコ。FuwaBall と同じ決まり）
+        if (!_waiting && !_popped)
+        {
+            FuwaBounce bo = collision.collider.GetComponent<FuwaBounce>();
+            if (bo != null) { BounceOff(bo); return; }
+        }
+        if (!Networking.IsOwner(gameObject) || _waiting || _popped) return;
         int popMask = chill != null && !chill.PopGround() ? 0 : popLayers.value;   // チルルームで「地面に落ちても消えない」の時は床ではじけない
         if ((popMask & (1 << collision.collider.gameObject.layer)) == 0)
         {
@@ -601,6 +614,17 @@ public class FuwaSharedBall : UdonSharpBehaviour
             return;
         }
         Pop();
+    }
+
+    private void BounceOff(FuwaBounce bo)
+    {
+        Vector3 n = bo.GetNormal(transform.position);
+        Vector3 v = _rb.velocity;
+        float vn = Vector3.Dot(v, n);
+        Vector3 vt = v - n * vn;
+        _rb.velocity = vt * bo.keepTangent + n * Mathf.Max(bo.bounceSpeed, -vn * 0.5f);
+        PlayPuff(0.6f);
+        if (Networking.IsOwner(gameObject)) _sendSoon = true;
     }
 
     // 持ち主の画面で：床に落ちてはじける

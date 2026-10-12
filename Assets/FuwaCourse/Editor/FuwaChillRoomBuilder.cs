@@ -180,7 +180,7 @@ public static class FuwaChillRoomBuilder
     // ---------- おもちゃ広場（左奥。2026-10-12 てじゃ「エアガンとは別の手持ち扇風機、空中固定化」「出しっぱなし」「うちわもいいね」）----------
     static readonly Vector3 ToysLocal = new Vector3(-5.5f, 0f, 5.5f);
     // コースのクリアで出てくるおもちゃの場所（島の真ん中から）：1竜巻 2岩 3重力 4ぬいぐるみ 5跳ねるキノコ
-    static readonly Vector3[] UnlockLocal = { new Vector3(-9.6f, 0f, 1.8f), new Vector3(-5.6f, 0f, 9.8f), new Vector3(-10.2f, 0f, 6.4f), new Vector3(-1.8f, 0f, 10.6f), new Vector3(-9.6f, 0f, -2.8f) };
+    static readonly Vector3[] UnlockLocal = { new Vector3(-9.6f, 0f, 1.8f), new Vector3(-5.6f, 0f, 9.8f), new Vector3(-10.2f, 0f, 6.4f), new Vector3(-0.8f, 0f, 11.0f), new Vector3(-9.6f, 0f, -2.8f) };
 
     static string Toys(Transform root, Vector3 ac, float floorY, FuwaChillSpawner sp, Transform howTo, Vector3 look)
     {
@@ -255,6 +255,7 @@ public static class FuwaChillRoomBuilder
         }
         // 扇風機3台・うちわ2本：おもちゃ広場の手前のふちに、空中に並べて浮かべておく（キノコの方を向けて）
         var face = Quaternion.LookRotation(toCenter);
+        GameObject[] resetOthers = new GameObject[0];
         var list = new List<FuwaHandFan>();
         for (int i = 0; i < 3; i++) list.Add(Held("Fan" + i, G + toCenter * 2.4f + side * (-1.6f + i * 0.55f) + Vector3.up * 1.0f, face, false));
         for (int i = 0; i < 2; i++) list.Add(Held("Uchiwa" + i, G + toCenter * 2.4f + side * (0.6f + i * 0.5f) + Vector3.up * 1.0f, face, true));
@@ -309,6 +310,15 @@ public static class FuwaChillRoomBuilder
         FillBoulder(unlockToys[1].transform, sp, G);
         // 3 やみのもり → 重力のたね（まわりのふわふわを引き寄せる）
         FillGravity(unlockToys[2].transform, sp);
+        // 4 まもののす → まもののぬいぐるみ（ふわふわが当たるとぽよんと弾む）
+        FillPlush(unlockToys[3].transform, sp);
+        // 5 きのこのたに → 跳ねるキノコ（コース5 の傘の足場のコピー。のったふわふわを高く跳ね上げる）
+        FillBounce(unlockToys[4].transform);
+
+        // 「おもちゃを戻す」：扇風機・うちわ以外の持てるおもちゃも
+        var othersList = new List<GameObject> { ringT.gameObject };
+        foreach (var u in unlockToys) foreach (var os in u.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true)) othersList.Add(os.gameObject);
+        resetOthers = othersList.ToArray();
 
         var ul = UdonSharpUndo.AddComponent<FuwaChillUnlocks>(toys.gameObject);
         ul.spawner = sp; ul.toys = unlockToys; ul.locked = lockedSigns;
@@ -319,7 +329,7 @@ public static class FuwaChillRoomBuilder
         var btnLbl = MakeButton(toys, howTo, "ResetToys", G + toCenter * 2.4f + Vector3.up * 0.45f, Quaternion.LookRotation(-toCenter));
         btnLbl.text = "おもちゃを戻す";
         var bgo = btnLbl.transform.parent.gameObject;
-        var rs = UdonSharpUndo.AddComponent<FuwaHandFanReset>(bgo); rs.fans = list.ToArray(); UdonSharpEditorUtility.CopyProxyToUdon(rs);
+        var rs = UdonSharpUndo.AddComponent<FuwaHandFanReset>(bgo); rs.fans = list.ToArray(); rs.others = resetOthers; UdonSharpEditorUtility.CopyProxyToUdon(rs);
         var rub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rs); if (rub != null) { rub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; rub.interactText = "戻す"; EditorUtility.SetDirty(rub); }
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "texts", "ja", "en", btnLbl, "おもちゃを戻す", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
@@ -506,25 +516,88 @@ public static class FuwaChillRoomBuilder
         return seed;
     }
 
-    // 重力のたね：紫の玉＋コース3の重い所の粒をまわりに
+    // 重力のたね：紫の玉。まわりにコース3と同じ「重くなる」紫の球のエリア（FuwaGravityArea、落ちるのが速くなる）
+    //（2026-10-12 てじゃ「重力、コースと同じ仕様にしよ」「落ちる速度が上がるエリア」）
     static void FillGravity(Transform slot, FuwaChillSpawner sp)
     {
-        EnsureProgram("FuwaGravitySeed");
-        var seed = Seed(slot, "GravitySeed", "重力のたね", new Color(0.62f, 0.45f, 0.95f), 0.32f, 1.6f);
-        var gs = UdonSharpUndo.AddComponent<FuwaGravitySeed>(seed); gs.spawner = sp;
-        var srcP = RootGo("FuwaCourse3").GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "HeavyParticles");
+        const float size = 0.32f, zoneR = 2.2f;
+        var seed = Seed(slot, "GravitySeed", "重力のたね", new Color(0.62f, 0.45f, 0.95f), size, 1.6f);
+        var src = Object.FindObjectsOfType<FuwaGravityArea>(true).First(a => a.GetComponent<MeshFilter>() != null && a.GetComponent<MeshFilter>().sharedMesh.name == "Sphere");
+        var z = Object.Instantiate(src.gameObject, seed.transform, false); z.name = "HeavyZone";
+        z.transform.localPosition = Vector3.zero; z.transform.localRotation = Quaternion.identity; z.transform.localScale = Vector3.one * (zoneR * 2f / size);
+        z.layer = 2;   // Ignore Raycast（たねを持つ時のじゃまにならないように）
+        foreach (var t in z.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+        var srcP = src.transform.parent.Find("HeavyParticles");
         if (srcP != null)
         {
-            // 玉は 0.32 倍に縮めてあるので、粒は玉の子にせず slot の子にして、たねについて回るのは FuwaGravitySeed の spinner で
-            var pp = Object.Instantiate(srcP.gameObject, seed.transform, false); pp.name = "Swirl";
-            pp.transform.localPosition = Vector3.zero; pp.transform.localRotation = Quaternion.identity; pp.transform.localScale = Vector3.one / 0.32f;
-            var ps = pp.GetComponent<ParticleSystem>();
-            var main = ps.main; main.simulationSpace = ParticleSystemSimulationSpace.Local; main.scalingMode = ParticleSystemScalingMode.Hierarchy;
-            var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = 2.2f; sh.position = Vector3.zero; sh.rotation = Vector3.zero; sh.scale = Vector3.one;
-            gs.spinner = pp.transform;
+            var pp = Object.Instantiate(srcP.gameObject, seed.transform, false); pp.name = "HeavyParticles";
+            pp.transform.localPosition = Vector3.zero; pp.transform.localRotation = Quaternion.identity; pp.transform.localScale = Vector3.one * (zoneR * 2f / size) / 5.5f;
+            var ps = pp.GetComponent<ParticleSystem>(); var main = ps.main; main.scalingMode = ParticleSystemScalingMode.Hierarchy;
         }
-        UdonSharpEditorUtility.CopyProxyToUdon(gs);
-        var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(gs); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
+    }
+
+    // まもののぬいぐるみ：コース4 のけだまの体と目をコピー。大きさ違いで3つ
+    static void FillPlush(Transform slot, FuwaChillSpawner sp)
+    {
+        EnsureProgram("FuwaChillPlush");
+        var e = RootGo("FuwaCourse4").GetComponentsInChildren<FuwaEnemy>(true).First();
+        float baseR = e.GetComponent<SphereCollider>().radius * e.transform.lossyScale.x;
+        var jump = e.transform.Find("JumpSfx");
+        var sizes = new[] { 1.0f, 0.75f, 1.35f };
+        var offs = new[] { new Vector3(0f, 0f, 0f), new Vector3(-1.1f, 0f, 0.5f), new Vector3(1.2f, 0f, 0.4f) };
+        for (int i = 0; i < 3; i++)
+        {
+            float r = baseR * sizes[i];
+            var root = new GameObject("Plush" + i); root.layer = 13; root.transform.SetParent(slot, false);
+            root.transform.position = slot.position + slot.rotation * offs[i] + Vector3.up * r * 0.72f;   // 毛の見た目は当たりより少し小さいので低めに
+            root.transform.rotation = slot.rotation * Quaternion.Euler(0f, (i - 1) * 20f, 0f);   // 顔（+Z）をキノコの方へ
+            var vis = new GameObject("Visual").transform; vis.SetParent(root.transform, false); vis.localScale = Vector3.one * sizes[i];
+            foreach (var n in new[] { "Body", "Eyes" })
+            {
+                var src = e.transform.Find(n); if (src == null) continue;
+                var g = Object.Instantiate(src.gameObject, vis, false); g.name = n;
+                foreach (var lg in g.GetComponentsInChildren<LODGroup>(true)) Object.DestroyImmediate(lg);
+            }
+            foreach (var t in vis.GetComponentsInChildren<Transform>(true)) { t.gameObject.layer = 13; GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0); }
+            var col = root.AddComponent<SphereCollider>(); col.isTrigger = true; col.radius = r;
+            var rb = root.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+            var pk = root.AddComponent<VRC.SDK3.Components.VRCPickup>();
+            pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "まもののぬいぐるみ"; pk.proximity = 2f;
+            root.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+            AudioSource boing = null;
+            if (jump != null) { var a = Object.Instantiate(jump.gameObject, root.transform, false); a.name = "Boing"; boing = a.GetComponent<AudioSource>(); }
+            var pl = UdonSharpUndo.AddComponent<FuwaChillPlush>(root); pl.spawner = sp; pl.visual = vis; pl.radius = r; pl.boing = boing;
+            UdonSharpEditorUtility.CopyProxyToUdon(pl);
+            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pl); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
+        }
+    }
+
+    // 跳ねるキノコ：コース5 の CapStep のコピーを高さ違いで2本。傘（FuwaBounce）を強めに
+    static void FillBounce(Transform slot)
+    {
+        var src = RootGo("FuwaCourse5").transform.Find("Mushrooms/CapStep5");
+        if (src == null) return;
+        var heights = new[] { 1.1f, 1.8f };
+        var offs = new[] { new Vector3(-0.9f, 0f, 0f), new Vector3(1.3f, 0f, -0.4f) };
+        for (int i = 0; i < 2; i++)
+        {
+            var g = Object.Instantiate(src.gameObject, slot, false); g.name = "BounceMushroom" + i;
+            foreach (var t in g.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+            foreach (var lg in g.GetComponentsInChildren<LODGroup>(true)) Object.DestroyImmediate(lg);
+            g.transform.position = Vector3.zero; g.transform.rotation = Quaternion.identity; g.transform.localScale = Vector3.one;
+            // 元の大きさを測って、傘のてっぺんが heights[i] になるように縮める（足元を地面に）
+            var rs = g.GetComponentsInChildren<Renderer>(true); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+            float k = heights[i] / Mathf.Max(0.1f, b.size.y);
+            g.transform.localScale = Vector3.one * k;
+            rs = g.GetComponentsInChildren<Renderer>(true); b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
+            var target = slot.position + slot.rotation * offs[i];
+            g.transform.position += new Vector3(target.x - b.center.x, target.y - b.min.y, target.z - b.center.z);
+            foreach (var bo in g.GetComponentsInChildren<FuwaBounce>(true))
+            {
+                var so = new SerializedObject(bo); so.FindProperty("bounceSpeed").floatValue = 6f; so.FindProperty("keepTangent").floatValue = 0.6f;
+                so.ApplyModifiedPropertiesWithoutUndo(); Sync(bo);
+            }
+        }
     }
 
     // 輪（XY 平面、穴は Z 向き）
