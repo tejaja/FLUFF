@@ -212,7 +212,8 @@ public static class FuwaCourse2Builder
         return Mathf.Atan2(d.x, d.y) * Mathf.Rad2Deg + root.Find("Start").localEulerAngles.y;
     }
 
-    public const float CP1 = 18.5f, CP2 = 50f, GoalS = 102.4f;   // 2026-10-07 夜：岩場を奥へ伸ばしてゴールもその先へ（元 89.5）
+    // CP2：頂上（50）→ 岩の柱を抜けた先・追い風（TailS0=70.5）の手前へ（2026-10-12 てじゃ「頂上のチェックポイントやめて、追い風の手前くらいに」）
+    public const float CP1 = 18.5f, CP2 = 67.6f, GoalS = 102.4f;   // 2026-10-07 夜：岩場を奥へ伸ばしてゴールもその先へ（元 89.5）
     // ゴールの島を持ち上げて、柵の入口を回り込む上り坂（Rocks2/PlazaWalk）の方へ向ける（2026-10-07。c2plaza.py の GOAL_LIFT と同じ）
     public const float GoalLift = 0f, GoalYawOffset = 0f;
 
@@ -224,18 +225,18 @@ public static class FuwaCourse2Builder
         var root = GameObject.Find("FuwaCourse2").transform;
         var m = ToCourse(root);
         var log = "";
-        void PlaceCp(string name, int piece, float s)
+        void PlaceCp(string name, int piece, float s, float leftAhead = 3f)
         {
             var cp = root.Find(name);
             Undo.RecordObject(cp, "place");
             cp.localPosition = m.MultiplyPoint3x4(Point(piece, s, 0, 0));
             cp.localRotation = Quaternion.Euler(0, Yaw(root, s), 0);
             // 光るキノコ：判定の3m先、道のふちの外（ふちから8cm、丸太のてっぺん=道+12cm）
-            float sa = s + 3f, half = Width(piece, sa) * 0.5f + 0.08f + 0.45f;
             foreach (var (cn, side, yaw) in new[] { ("ClusterL", -1f, 69.9f), ("ClusterR", 1f, -69.9f) })
             {
                 var c = cp.Find("GlowMushrooms/" + cn);
                 if (c == null) continue;
+                float sa = s + (side < 0 ? leftAhead : 3f), half = Width(piece, sa) * 0.5f + 0.08f + 0.45f;
                 Undo.RecordObject(c, "place");
                 var wp = root.TransformPoint(m.MultiplyPoint3x4(Point(piece, sa, side * half, 0)));
                 c.position = wp + Vector3.up * -0.66f;
@@ -244,7 +245,7 @@ public static class FuwaCourse2Builder
             log += name + " " + cp.localPosition.ToString("F2") + "  ";
         }
         PlaceCp("Checkpoint1", 0, CP1);
-        PlaceCp("Checkpoint2", 1, CP2);
+        PlaceCp("Checkpoint2", 1, CP2, -1f);   // 左のキノコは判定の1m手前（3m先だと人が降りる板の橋の入口をふさぐ）
 
         var goal = root.Find("Goal");
         Undo.RecordObject(goal, "place");
