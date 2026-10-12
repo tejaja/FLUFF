@@ -14,7 +14,8 @@ public static class FuwaFieldPits
     const string Course = "FuwaCourse2";
     const string Dir = "Assets/FuwaCourse/Generated/FieldPits";
     // 穴の場所（x, z）。噴気孔から 1.7m 以上・ふちから 1.5m 以上の平らな所から選んだ（入ってすぐ／真ん中の噴気孔のそば／ゴール手前の左右）
-    static readonly Vector2[] Pits = { new Vector2(136.5f, 14.5f), new Vector2(140.0f, 21.5f), new Vector2(144.5f, 31.0f), new Vector2(146.75f, 28.75f) };
+    static readonly Vector2[] Pits = { new Vector2(136.5f, 14.5f), new Vector2(140.0f, 21.5f), new Vector2(144.5f, 31.0f), new Vector2(146.75f, 28.75f),
+        new Vector2(141.5f, 24.5f) };   // 5つめ：噴気孔4つに囲まれた真ん中（2026-10-12 てじゃ「ここにもあけよう」）
     const float Radius = 0.75f;     // 口の半径（ふちのギザギザで ±10%）
     const float Jag = 0.1f;
     const float Depth = 2.6f;       // 縦穴の深さ
