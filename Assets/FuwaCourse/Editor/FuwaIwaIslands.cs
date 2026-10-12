@@ -253,10 +253,20 @@ public static class FuwaIwaIslands
                 float k = Mathf.Clamp01((CutMid - w.z) / (CutMid - CutSouth));
                 w.z += d * k; vs[i] = tr.InverseTransformPoint(w); moved++;
             }
-            live.vertices = vs; live.RecalculateBounds(); EditorUtility.SetDirty(live);
+            // 頂上の柱ゾーン手前の崩落（谷）の切れ目も入れ直す（2026-10-12：道の作り直しで消えていた。FuwaCourse2Collapse）
+            var tmp = Object.Instantiate(src); tmp.vertices = vs;
+            var cut = FuwaCourse2Collapse.CutPath(tmp, tr, root, live == mf.sharedMesh ? 0.12f : 0.25f);
+            live.Clear(); live.indexFormat = cut.indexFormat; live.SetVertices(cut.vertices);
+            if (cut.normals.Length > 0) live.SetNormals(cut.normals);
+            var u = new List<Vector2>(); cut.GetUVs(0, u); if (u.Count > 0) live.SetUVs(0, u);
+            u = new List<Vector2>(); cut.GetUVs(1, u); if (u.Count > 0) live.SetUVs(1, u);
+            if (cut.colors.Length > 0) live.SetColors(cut.colors);
+            live.subMeshCount = cut.subMeshCount; for (int si = 0; si < cut.subMeshCount; si++) live.SetTriangles(cut.GetTriangles(si), si);
+            live.RecalculateBounds(); EditorUtility.SetDirty(live);
+            Object.DestroyImmediate(tmp); Object.DestroyImmediate(cut);
         }
         if (mc != null) { var m = mc.sharedMesh; mc.sharedMesh = null; mc.sharedMesh = m; }
-        return "summit cut: moved " + moved;
+        return "summit cut: moved " + moved + " + collapse cut";
     }
 
     // ---- 部品 ----
