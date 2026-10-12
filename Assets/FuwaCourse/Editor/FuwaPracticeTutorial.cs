@@ -34,6 +34,10 @@ public static class FuwaPracticeTutorial
     const float BaySpan = 11f;   // 区画の長さ（となりの区画との間隔。さかいめに壁が1枚）
     const float SignAlong = 1.0f;   // 見本島の看板：島の中心から道に沿って先へ
     // ためし撃ちの場所（spot）と呼ぶ範囲（zone、長さ zoneLen）：見本島の中心から 道に沿って(along)・島の外向き(lat) m
+    // ためし撃ちの場所：看板から 道に沿って(x)・島の外向き(y) m（全区画同じ。2026-10-12）。呼ぶ範囲はそこから島の外向きに ZoneFromSpotLat
+    static readonly Vector2 SpotFromSign = new Vector2(-1.40f, -1.44f);
+    const float ZoneFromSpotLat = 0.56f;
+    // 下の表の spot/zone の位置は今は使っていない（zoneLen だけ使う）
     static readonly Dictionary<string, (float spotAlong, float spotLat, float zoneAlong, float zoneLat, float zoneLen)> TrySpots = new Dictionary<string, (float, float, float, float, float)>
     {
         { "TapCharge", (-0.30f, -3.45f, -0.32f, -2.89f, 6.89f) },
@@ -966,11 +970,12 @@ public static class FuwaPracticeTutorial
             zone.layer = 0;
             // ためし撃ちの場所と呼ぶ範囲は、見本島の中心からの位置で決めた値（2026-10-10 未明、光るしましまの上・島の中心の0.3〜1.3m手前に
             // シーンだけで動かしていたのを 2026-10-11 にコードへ）。高さはそのまま
+            // → 2026-10-12 てじゃ「看板からの距離がまばら、全部『空気ぎれに注意』くらいに」：看板からの位置で全区画そろえる（Air の値）
             if (TrySpots.TryGetValue(bay.key, out var ts))
             {
-                var icg = isl.Find("Ground").GetComponent<Renderer>().bounds.center;
-                Vector3 sp = icg + f * ts.spotAlong + outw * ts.spotLat; trySpot.position = new Vector3(sp.x, trySpot.position.y, sp.z);
-                Vector3 zp = icg + f * ts.zoneAlong + outw * ts.zoneLat; zone.transform.position = new Vector3(zp.x, zone.transform.position.y, zp.z);
+                var sgp = bayRoot.Find("Sign").position;
+                Vector3 sp = sgp + f * SpotFromSign.x + outw * SpotFromSign.y; trySpot.position = new Vector3(sp.x, trySpot.position.y, sp.z);
+                Vector3 zp = sp + outw * ZoneFromSpotLat; zone.transform.position = new Vector3(zp.x, zone.transform.position.y, zp.z);
                 bc.size = new Vector3(bc.size.x, bc.size.y, ts.zoneLen);
             }
             var tz = UdonSharpUndo.AddComponent<FuwaTryZone>(zone);
