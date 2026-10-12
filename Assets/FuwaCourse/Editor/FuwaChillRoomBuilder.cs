@@ -138,6 +138,7 @@ public static class FuwaChillRoomBuilder
 
         // 観戦モニター（ひとりでのロビーの写真館のモニターと、CAM・人物ボタンをコピー。2026-10-12 てじゃ「こっちでも観戦できる」）
         log.Add(Monitor(root, new Vector3(ac.x, floorY, ac.z) + MonitorLocal, look));
+        log.Add(Decorate(root, ac, floorY, root.Find("Monitor")));
 
         // 落ちた人の戻し：島の下の大きな板（FuwaLobbyFall）→ スポーンへ（見えないワープ）
         var backWarp = coop.Find("ReturnToHub");
@@ -162,6 +163,100 @@ public static class FuwaChillRoomBuilder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(coop.gameObject.scene);
         log.Add("chill room at " + ac + " home " + home.ToString("F2") + " floorY " + floorY.ToString("F2") + " balls " + balls.Count);
         return string.Join("\n", log);
+    }
+
+    // ---------- 見た目（2026-10-12 てじゃ「B（空のリビング）」「モニターもふわふわのガワ、画面だけはめ込む、ボタンも」）----------
+    // 家具は Blender（FLUFF_models.blend の ChillRoom シーン）→ Models/ChillRoomProps.fbx。Blender の正面（-Y）が Unity の +Z
+    const string PropsPath = "Assets/FuwaCourse/Models/ChillRoomProps.fbx";
+    const string MatDir = "Assets/FuwaCourse/Materials/Chill";
+    static readonly Vector3 RugLocal = new Vector3(0f, 0f, 2f);   // 真ん中の円（キノコと同じ中心）
+
+    static string Decorate(Transform root, Vector3 ac, float floorY, Transform monitorHolder)
+    {
+        if (!AssetDatabase.IsValidFolder(MatDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Materials", "Chill");
+        var meshes = AssetDatabase.LoadAllAssetsAtPath(PropsPath).OfType<Mesh>().ToDictionary(m => m.name);
+        var deco = new GameObject("Deco").transform; deco.SetParent(root, false);
+        Vector3 C = new Vector3(ac.x, floorY, ac.z) + RugLocal;
+
+        // 床は芝に（ふちの輪は濃い芝）
+        var grass = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Goal_Ground.mat");
+        root.Find("VersusFloor").GetComponent<Renderer>().sharedMaterial = grass;
+        root.Find("VersusRing").GetComponent<Renderer>().sharedMaterial = Mat("Chill_GrassRim", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.47f, 0.68f, 0.43f));
+
+        var cloud = Mat("Chill_Cloud", "Assets/FuwaCourse/Generated/Signs/Sign_Cloud_FFFAF5.mat", new Color(0.99f, 0.98f, 1f));
+        var rugM = Mat("Chill_Rug", "Assets/FuwaCourse/Generated/Signs/Sign_Cloud_FFFAF5.mat", new Color(0.97f, 0.95f, 1f));
+        rugM.SetFloat("_UnderStrength", 0f); EditorUtility.SetDirty(rugM);   // ラグは真っ白に近く（雲の下の青い影はいらない）
+        var stemM = Mat("Chill_LampStem", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.96f, 0.93f, 0.86f));
+        var capM = Mat("Chill_LampCap", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.82f, 0.55f));
+        capM.SetColor("_EmissionColor", new Color(0.9f, 0.6f, 0.25f)); EditorUtility.SetDirty(capM);
+        var bean = new[] { new Color(1f, 0.72f, 0.82f), new Color(0.62f, 0.83f, 1f), new Color(1f, 0.9f, 0.55f), new Color(0.68f, 0.92f, 0.72f) }
+            .Select((c, i) => Mat("Chill_Beanbag" + i, "Assets/FuwaCourse/Materials/Goal_Ground.mat", c)).ToArray();
+        int floorLayer = root.Find("VersusFloor").gameObject.layer;
+
+        GameObject Put(string mesh, Material m, Vector3 pos, Quaternion rot, bool collider, int layer = 0, string name = null)
+        {
+            var g = new GameObject(name ?? mesh, typeof(MeshFilter), typeof(MeshRenderer));
+            g.transform.SetParent(deco, false); g.transform.SetPositionAndRotation(pos, rot);
+            g.GetComponent<MeshFilter>().sharedMesh = meshes[mesh];
+            g.GetComponent<MeshRenderer>().sharedMaterial = m;
+            if (collider) g.AddComponent<MeshCollider>().sharedMesh = meshes[mesh];
+            g.layer = layer;
+            GameObjectUtility.SetStaticEditorFlags(g, StaticEditorFlags.BatchingStatic);
+            return g;
+        }
+        Quaternion Face(Vector3 from, Vector3 to) { var d = to - from; d.y = 0f; return Quaternion.LookRotation(d.normalized); }
+
+        // ラグ（床と同じレイヤー＝ふわふわが落ちたらはじける床として扱う）
+        Put("Chill_Rug", rugM, C + Vector3.up * 0.002f, Quaternion.identity, true, floorLayer);
+        // 雲のソファ：円の奥、キノコの方を向く（ソファの正面は +Z、弧の中心は前 4m）
+        var sofaPos = C + new Vector3(0f, 0f, 4.3f);
+        Put("Chill_CloudSofa", cloud, sofaPos, Face(sofaPos, C), true);
+        // ビーズクッション
+        var beanPos = new[] { new Vector3(-3.0f, 0f, 2.7f), new Vector3(3.0f, 0f, 2.7f), new Vector3(-3.4f, 0f, 1.0f), new Vector3(3.5f, 0f, 0.4f) };
+        for (int i = 0; i < beanPos.Length; i++)
+        {
+            var p = C + beanPos[i];
+            Put("Chill_Beanbag", bean[i], p, Face(p, C) * Quaternion.Euler(0f, (i % 2 == 0 ? 12f : -12f), 0f), true, 0, "Beanbag" + i);
+        }
+        // キノコのランプ（ソファの両脇と、スイッチの奥）
+        foreach (var lp in new[] { new Vector3(-2.6f, 0f, 4.9f), new Vector3(2.6f, 0f, 4.9f), new Vector3(-5.4f, 0f, 1.6f) })
+        {
+            var lamp = new GameObject("Lamp").transform; lamp.SetParent(deco, false); lamp.position = C + lp;
+            var s = Put("Chill_LampStem", stemM, lamp.position, Quaternion.identity, false); s.transform.SetParent(lamp, true);
+            var c = Put("Chill_LampCap", capM, lamp.position, Quaternion.identity, false); c.transform.SetParent(lamp, true);
+            var col = lamp.gameObject.AddComponent<CapsuleCollider>(); col.center = new Vector3(0f, 0.65f, 0f); col.height = 1.3f; col.radius = 0.14f;
+        }
+
+        // 雲のテレビ：モニターの画面にかぶせる。画面（Screen）の中心＝テレビの (0, 1.24, 0)、画面は holder の -Z 側を向いている
+        if (monitorHolder != null)
+        {
+            var mon = monitorHolder.Find("Monitor");
+            var scr = mon.Find("Screen");
+            var tv = Put("Chill_CloudTV", cloud, Vector3.zero, Quaternion.identity, true, 0, "CloudTV");
+            tv.transform.SetParent(monitorHolder, false);
+            tv.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            var sl = monitorHolder.InverseTransformPoint(scr.position);
+            tv.transform.localPosition = new Vector3(sl.x, sl.y - 1.24f, sl.z + 0.06f);   // 画面の板のすぐ後ろに雲の裏板
+            // 元の看板の板・ふちは消す。題名は上の雲の前、名前は画面の左上のまま
+            foreach (var n in new[] { "Panel", "Border" }) { var t = mon.Find(n); if (t != null) t.gameObject.SetActive(false); }
+            var title = mon.Find("Title");
+            if (title != null) title.position = monitorHolder.TransformPoint(new Vector3(sl.x, sl.y + 1.0f, sl.z - 0.9f));
+            // ボタン2つは画面の下の雲の段の上に、少し上を向けて並べる
+            var hr = monitorHolder.rotation;
+            var tb = monitorHolder.Find("TargetButton"); var cb = monitorHolder.Find("CamButton");
+            if (tb != null) { tb.position = monitorHolder.TransformPoint(new Vector3(sl.x - 0.62f, sl.y - 0.68f, sl.z - 0.5f)); tb.rotation = hr * Quaternion.Euler(25f, 0f, 0f); }
+            if (cb != null) { cb.position = monitorHolder.TransformPoint(new Vector3(sl.x + 0.62f, sl.y - 0.68f, sl.z - 0.5f)); cb.rotation = hr * Quaternion.Euler(25f, 0f, 0f); }
+        }
+        return "deco ok";
+    }
+
+    static Material Mat(string name, string basePath, Color c)
+    {
+        string p = MatDir + "/" + name + ".mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (m == null) { m = new Material(AssetDatabase.LoadAssetAtPath<Material>(basePath)) { name = name }; AssetDatabase.CreateAsset(m, p); }
+        m.SetColor("_Color", c); EditorUtility.SetDirty(m);
+        return m;
     }
 
     static readonly Vector3 MonitorLocal = new Vector3(4.6f, 0f, -0.6f);   // キノコの右手前（スイッチの反対側）
