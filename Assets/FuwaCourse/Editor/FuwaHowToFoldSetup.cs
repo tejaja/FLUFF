@@ -109,7 +109,24 @@ public static class FuwaHowToFoldSetup
         var open = Btn("FoldOpen", new Vector3(0f, CenterY, -0.03f), new Vector2(panelW, ClosedH), "", "Open", true);
         float r = 0.34f;
         var close = Btn("FoldClose", new Vector3(panelW * 0.5f - 0.12f, panel.transform.localPosition.y + panel.size.y * 0.5f - 0.12f, -0.03f), new Vector2(r, r), "<b>x</b>", "Close", false);   // × はフォントに無かった（ø になった）
-        close.GetComponentInChildren<TMPro.TextMeshProUGUI>(true).enableAutoSizing = false;
+        // ×ボタンは 赤い丸に白い大きい×（文字でなく棒2本で描く。2026-10-12 てじゃ）
+        {
+            var cbtn = close.GetComponentInChildren<UnityEngine.UI.Button>(true);
+            var img = cbtn.GetComponent<UnityEngine.UI.Image>();   // 丸のまま（てじゃ「×を大きくするだけ」「丸をもうちょい赤寄りに」）
+            var cols = cbtn.colors; cols.normalColor = new Color(0.93f, 0.3f, 0.27f); cols.highlightedColor = new Color(0.98f, 0.42f, 0.38f);
+            cols.pressedColor = new Color(0.75f, 0.25f, 0.18f); cols.selectedColor = cols.normalColor; cbtn.colors = cols;
+            close.GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text = "";
+            var size = ((RectTransform)close.transform.Find("Canvas")).sizeDelta.x;
+            foreach (float ang in new[] { 45f, -45f })
+            {
+                var bar = new GameObject("XBar", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+                var brt = (RectTransform)bar.transform; brt.SetParent(cbtn.transform, false);
+                brt.anchorMin = brt.anchorMax = new Vector2(0.5f, 0.5f); brt.sizeDelta = new Vector2(size * 0.62f, size * 0.15f);
+                brt.localRotation = Quaternion.Euler(0f, 0f, ang);
+                var bi = bar.GetComponent<UnityEngine.UI.Image>(); bi.color = Color.white; bi.raycastTarget = false;
+                bi.sprite = img.sprite; bi.type = UnityEngine.UI.Image.Type.Sliced; bi.pixelsPerUnitMultiplier = 2f;
+            }
+        }
 
         fold.panel = panel; fold.border = border; fold.body = body; fold.title = title; fold.language = lang;
         fold.titleT = title.transform; fold.titleGo = title.gameObject; fold.bodyGo = body.gameObject;
