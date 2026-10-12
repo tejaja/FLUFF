@@ -307,6 +307,9 @@ public static class FuwaSignStyle
     // 雲の看板：白い雲（前後にぷくっとふくらむ）＋後ろに一回り大きいコース色の雲（縁どり代わり）
     // 色の雲は影で暗くならないよう影を弱く（てじゃ「コースの色、影でくらくなる」）
     public static readonly Color CloudUnderColor = new Color(0.6f, 0.76f, 1f, 1f);
+    // 色の雲の影：自分の色をかける（濃く・鮮やかになる）＋少し暗く
+    public static Color RimUnderColor(Color c) { var u = Color.Lerp(Color.white, c, RimUnderTint) * RimUnderDark; u.a = 1f; return u; }
+    public const float RimUnderTint = 0.6f, RimUnderDark = 0.9f;
     public const float CloudUnderGrad = 0.5f;   // 下から高さのこの割合まで、正面にもうっすら水色
     public const float CloudAmp = 0.07f, CloudLambda = 0.95f, CloudShape = 0.7f, CloudRound = 0.45f, CloudRim = 0.09f;
     static string ApplyCloud(Transform sign, Transform deco, Transform pt, Transform bt, float hw, float hh, float pz, Color pc, Color bc, string key)
@@ -320,7 +323,10 @@ public static class FuwaSignStyle
         cm.SetColor("_UnderColor", CloudUnderColor); cm.SetFloat("_UnderStrength", 1f); cm.SetFloat("_UnderGrad", CloudUnderGrad); EditorUtility.SetDirty(cm);
         Part(deco, "Cloud", SaveMesh(Pillow(body, hw, hh, pz + 0.13f, 0.11f, 0.08f, 0.32f, 14), key + "_Cloud"), cm, Vector3.zero);
         var rim = Scallop(Outline(ow + CloudRim, oh + CloudRim, CloudRound + CloudRim, 12, 0.025f), CloudAmp, CloudLambda, CloudShape);
-        Part(deco, "CloudRim", SaveMesh(Pillow(rim, hw + CloudRim, hh + CloudRim, pz + 0.27f, 0.06f, 0.06f, 0.2f, 8), key + "_CloudRim"), SaveMat(bc, "CloudRim", 0.2f), Vector3.zero);
+        // 色の雲も下の方をその色の少し濃い色に（2026-10-12 てじゃ「後ろのカラーふわふわも下の方各色のちょっと影っぽく」）
+        var rm = SaveMat(bc, "CloudRim", 0.2f);
+        rm.SetColor("_UnderColor", RimUnderColor(bc)); rm.SetFloat("_UnderStrength", 1f); rm.SetFloat("_UnderGrad", CloudUnderGrad); EditorUtility.SetDirty(rm);
+        Part(deco, "CloudRim", SaveMesh(Pillow(rim, hw + CloudRim, hh + CloudRim, pz + 0.27f, 0.06f, 0.06f, 0.2f, 8), key + "_CloudRim"), rm, Vector3.zero);
         // 文字は雲の内側におさめる（横幅だけで自動縮小）
         var text = sign.GetComponent<TMPro.TMP_Text>();
         if (text != null)

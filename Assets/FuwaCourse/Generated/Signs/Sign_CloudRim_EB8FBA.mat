@@ -106,6 +106,8 @@ Material:
     - _TopMin: 0.55
     - _TopStrength: 0
     - _UVSec: 0
+    - _UnderGrad: 0.5
+    - _UnderStrength: 1
     - _Wrap: 0.35
     - _ZWrite: 1
     m_Colors:
@@ -120,4 +122,5 @@ Material:
     - _StrataB: {r: 0.93, g: 0.95, b: 1.06, a: 1}
     - _StrataC: {r: 0.9, g: 0.87, b: 0.93, a: 1}
     - _TopColor: {r: 0.62, g: 0.72, b: 0.52, a: 1}
+    - _UnderColor: {r: 0.85761, g: 0.66184914, b: 0.75457793, a: 1}
   m_BuildTextureStacks: []
