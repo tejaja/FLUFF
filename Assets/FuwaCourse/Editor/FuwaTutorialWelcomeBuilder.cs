@@ -120,6 +120,17 @@ public static class FuwaTutorialWelcomeBuilder
         rm.marks = marks.ToArray();
         rm.signs = signs.ToArray();
         rm.radius = MarkH * 0.5f;
+        // 練習場の看板とバリアは、前の看板を読んだら（または近づいたら）ぽんっと出す。最初の練習場はようこそを読んだら（エアガンの看板は読まなくてもよい）
+        var rev = new List<GameObject>(); var at = new List<int>();
+        for (int i = 0; i < signs.Count; i++)
+        {
+            var bay = signs[i].parent;
+            if (bay == null || !bay.name.StartsWith("Bay_")) continue;
+            int k = i == 2 ? 1 : i;
+            rev.Add(signs[i].gameObject); at.Add(k);
+            var bar = bay.Find("BayBarrier"); if (bar != null) { rev.Add(bar.gameObject); at.Add(k); }
+        }
+        rm.reveal = rev.ToArray(); rm.revealAt = at.ToArray();
         UdonSharpEditorUtility.CopyProxyToUdon(rm);
         // 同期しない
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rm);

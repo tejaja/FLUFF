@@ -37,6 +37,16 @@ public class FuwaReadMarks : UdonSharpBehaviour
     [Tooltip("自分から遠い時は動かさない(m)")]
     public float activeRange = 30f;
 
+    [Header("看板を順にぽんっと出す（2026-10-12 てじゃ「赤▼の看板を読んだら次の看板がポップ、いまの見た目は圧がすごい」「バリアも連動」）")]
+    [Tooltip("あとから出す物（練習場の看板・バリア）")]
+    public GameObject[] reveal;
+    [Tooltip("reveal と同じ順：次に読む看板がこの番号（marks の番号）以上になったら出す")]
+    public int[] revealAt;
+    [Tooltip("まだ出ていなくても、この距離(m)まで近づいたら出す（看板の前に立たずに進んだ時のため）")]
+    public float revealDistance = 7f;
+    private Vector3[] _revScale;
+    private float[] _revAt;
+
     private bool[] _read;
     private float[] _goneAt;
     private Vector3[] _base;
@@ -65,6 +75,51 @@ public class FuwaReadMarks : UdonSharpBehaviour
             marks[i].gameObject.SetActive(i == 0);
         }
         _next = 0;
+        int r = reveal != null ? reveal.Length : 0;
+        if (_revScale == null || _revScale.Length != r)
+        {
+            _revScale = new Vector3[r];
+            for (int j = 0; j < r; j++) if (reveal[j] != null) _revScale[j] = reveal[j].transform.localScale;
+        }
+        _revAt = new float[r];
+        for (int j = 0; j < r; j++)
+        {
+            if (reveal[j] == null) continue;
+            _revAt[j] = -1f;
+            reveal[j].transform.localScale = _revScale[j];
+            reveal[j].SetActive(RevealIndex(j) <= 0);
+        }
+    }
+
+    private int RevealIndex(int j) { return revealAt != null && j < revealAt.Length ? revealAt[j] : 0; }
+
+    // 出す時が来た物をぽんっと出す
+    private void UpdateReveal(Vector3 me)
+    {
+        if (reveal == null) return;
+        for (int j = 0; j < reveal.Length; j++)
+        {
+            GameObject g = reveal[j];
+            if (g == null) continue;
+            if (!g.activeSelf)
+            {
+                bool due = RevealIndex(j) <= _next;
+                if (!due)
+                {
+                    Vector3 d = g.transform.position - me; d.y = 0f;
+                    due = d.sqrMagnitude < revealDistance * revealDistance;
+                }
+                if (!due) continue;
+                g.SetActive(true);
+                g.transform.localScale = Vector3.zero;
+                _revAt[j] = Time.time;
+            }
+            if (_revAt[j] < 0f) continue;
+            float t = (Time.time - _revAt[j]) / 0.45f;
+            if (t >= 1f) { g.transform.localScale = _revScale[j]; _revAt[j] = -1f; continue; }
+            float k = Mathf.Sin(t * Mathf.PI * 0.5f) * (1f + 0.22f * Mathf.Sin(t * Mathf.PI));   // ぽよんと少し大きくなってから落ち着く
+            g.transform.localScale = _revScale[j] * k;
+        }
     }
 
     private void Update()
@@ -72,10 +127,12 @@ public class FuwaReadMarks : UdonSharpBehaviour
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null || marks == null) return;
         Vector3 me = lp.GetPosition();
+        UpdateReveal(me);
         // どの看板でも、読んだら（前に立ったら）そこまで進める
         for (int i = _next; i < marks.Length && i < signs.Length; i++)
         {
             if (signs[i] == null || _read[i]) continue;
+            if (!signs[i].gameObject.activeInHierarchy) continue;   // まだ出ていない看板は読めない
             Transform sg = signs[i];
             Vector3 d = me - sg.position; d.y = 0f;
             if (d.sqrMagnitude > readDistance * readDistance) continue;
