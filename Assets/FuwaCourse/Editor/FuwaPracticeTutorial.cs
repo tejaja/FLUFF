@@ -398,6 +398,7 @@ public static class FuwaPracticeTutorial
         // 見え方（2026-10-09 決定）：紺の四角い格子が、ふわふわのまわり半径1.3mだけに出る。人が近づいても出ない
         mat.SetFloat("_LineAlpha", 0f); mat.SetFloat("_FilmAlpha", 0.55f); mat.SetFloat("_GridNearBall", 1f); mat.SetFloat("_LineFar", 1.3f);
         mat.SetFloat("_WallTop", 0f); mat.SetFloat("_HexSize", 0.3f); mat.SetColor("_LineColor", new Color(0.16f, 0.24f, 0.55f, 1f));
+        mat.SetFloat("_AmbientAlpha", 0.3f);   // 2026-10-12 てじゃ「うっすらみえてて」：近く（20m以内）ではいつもうっすら見える
         EditorUtility.SetDirty(mat); AssetDatabase.SaveAssets();
         return "barriers " + n;
     }
@@ -1526,6 +1527,9 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         bc.sharedMaterial = AssetDatabase.FindAssets("RockBounce t:PhysicMaterial").Select(AssetDatabase.GUIDToAssetPath).Select(p => AssetDatabase.LoadAssetAtPath<PhysicMaterial>(p)).FirstOrDefault();
         var r = go.GetComponent<MeshRenderer>(); r.sharedMaterial = BarrierMat();
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        // ふわふわが当たったら弾けてためし撃ちの場所へ（プレイヤーはそのまま、壁は残る。2026-10-12 てじゃ）
+        var pw = UdonSharpUndo.AddComponent<FuwaPopWall>(go);
+        SetU(pw, "ball", Object.FindObjectsOfType<FuwaBall>(true).First(b => b.name == "FuwaBall")); Sync(pw);
     }
 
     static Material BarrierMat()
