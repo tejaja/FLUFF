@@ -140,7 +140,7 @@ public static class FuwaCourse2BrokenPath
         int capped = 0;
         // 頂上の柱ゾーン手前の崩落（FuwaCourse2Collapse で道を切った所）の切り口にふたをする（2026-10-12 てじゃ「頂上付近の道の端が割れてる」）。
         // 切っただけだと切り口の断面が開いていて、横から見ると中が抜けて見えた。開いている辺の輪を岩のふたでふさぐ（見た目だけ）
-        capped = CapOpenLoops(newV, newN, uv, hasUv, subs[2], subs, l2w, new Bounds(new Vector3(121f, 12.5f, 5f), new Vector3(20f, 7f, 16f)));
+        capped = CapOpenLoops(newV, newN, uv, hasUv, subs[0], subs,   /* ふたは道と同じ黄色（てじゃ「黄色でふさいでほしかった」） */ l2w, new Bounds(new Vector3(121f, 12.5f, 5f), new Vector3(20f, 7f, 16f)));
         mesh.Clear();
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(newV); if (hasUv) mesh.SetUVs(0, uv);
