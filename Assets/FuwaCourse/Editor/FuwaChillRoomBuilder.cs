@@ -468,32 +468,38 @@ public static class FuwaChillRoomBuilder
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ts); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
     }
 
-    // ころころ岩：コース2 の岩の見た目をコピー。輪の道（地面にうっすら）をまわる
+    // 投げる岩：コース2 の岩の見た目をコピーして、持って投げると転がる（2026-10-12 てじゃ「投げたら転がるPickup岩」「あたると人もふわふわも吹っ飛ぶ」）。大小2つ
     static void FillBoulder(Transform slot, FuwaChillSpawner sp, Vector3 G)
     {
-        EnsureProgram("FuwaChillBoulder");
+        EnsureProgram("FuwaThrowRock");
         var src = RootGo("FuwaCourse2").GetComponentsInChildren<FuwaBoulder>(true).First();
-        var c = new GameObject("LoopCenter").transform; c.SetParent(slot, false);
-        var inward = G - slot.position; inward.y = 0f; inward.Normalize();
-        c.position = slot.position;
-        const float loopR = 1.9f;
-        var rock = new GameObject("Boulder").transform; rock.SetParent(slot, false); rock.position = c.position + Vector3.right * loopR;
-        var vis = Object.Instantiate(src.visual.gameObject, rock, false); vis.name = "Visual"; vis.transform.localPosition = Vector3.zero;
-        vis.transform.localScale = src.visual.localScale * 0.75f;
-        foreach (var t in vis.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
-        foreach (var col in vis.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
-        AudioSource hit = null;
-        if (src.hitSound != null) { var h = Object.Instantiate(src.hitSound.gameObject, rock, false); h.name = "HitSound"; h.transform.localPosition = Vector3.zero; hit = h.GetComponent<AudioSource>(); }
-        // 道：平たい輪（少し濃い芝色）
-        var trackM = Mat("Chill_BoulderTrack", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.5f, 0.7f, 0.46f));
-        var track = new GameObject("Track", typeof(MeshFilter), typeof(MeshRenderer)); track.transform.SetParent(slot, false);
-        track.transform.position = c.position + Vector3.up * 0.004f; track.transform.rotation = Quaternion.Euler(90f, 0f, 0f); track.transform.localScale = new Vector3(1f, 1f, 0.02f);
-        track.GetComponent<MeshFilter>().sharedMesh = SaveGenMesh(Torus(loopR, 0.38f, 64, 10), "Chill_BoulderTrack");
-        track.GetComponent<MeshRenderer>().sharedMaterial = trackM;
-        var cb = UdonSharpUndo.AddComponent<FuwaChillBoulder>(rock.gameObject);
-        cb.spawner = sp; cb.center = c; cb.visual = vis.transform; cb.loopRadius = loopR; cb.rockRadius = 0.45f; cb.hitSound = hit;
-        UdonSharpEditorUtility.CopyProxyToUdon(cb);
-        var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(cb); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
+        float srcR = src.radius;
+        var sizes = new[] { 0.36f, 0.26f };
+        var offs = new[] { new Vector3(-0.6f, 0f, 0f), new Vector3(0.7f, 0f, 0.3f) };
+        for (int i = 0; i < 2; i++)
+        {
+            float r = sizes[i];
+            var rock = new GameObject("ThrowRock" + i); rock.layer = 13; rock.transform.SetParent(slot, false);
+            rock.transform.position = slot.position + slot.rotation * offs[i] + Vector3.up * (r + 0.02f);
+            var vis = Object.Instantiate(src.visual.gameObject, rock.transform, false); vis.name = "Visual"; vis.transform.localPosition = Vector3.zero;
+            vis.transform.localScale = src.visual.localScale * (r / srcR);
+            foreach (var t in vis.GetComponentsInChildren<Transform>(true)) { GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0); t.gameObject.layer = 13; }
+            foreach (var col in vis.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
+            var sc = rock.AddComponent<SphereCollider>(); sc.radius = r;
+            var pm = AssetDatabase.LoadAssetAtPath<PhysicMaterial>("Assets/FuwaCourse/Materials/Chill_Rock.physicMaterial");
+            if (pm == null) { pm = new PhysicMaterial("Chill_Rock") { bounciness = 0.15f, dynamicFriction = 0.5f, staticFriction = 0.6f }; AssetDatabase.CreateAsset(pm, "Assets/FuwaCourse/Materials/Chill_Rock.physicMaterial"); }
+            sc.sharedMaterial = pm;
+            var rb = rock.AddComponent<Rigidbody>(); rb.mass = 6f; rb.drag = 0.05f; rb.angularDrag = 0.4f; rb.useGravity = true; rb.isKinematic = false;
+            rb.interpolation = RigidbodyInterpolation.Interpolate; rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+            var pk = rock.AddComponent<VRC.SDK3.Components.VRCPickup>();
+            pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.No; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "いわ"; pk.proximity = 2f; pk.ThrowVelocityBoostScale = 1.3f;
+            var os = rock.AddComponent<VRC.SDK3.Components.VRCObjectSync>(); os.AllowCollisionOwnershipTransfer = false;
+            AudioSource hit = null;
+            if (src.hitSound != null) { var h = Object.Instantiate(src.hitSound.gameObject, rock.transform, false); h.name = "HitSound"; h.transform.localPosition = Vector3.zero; hit = h.GetComponent<AudioSource>(); }
+            var tr = UdonSharpUndo.AddComponent<FuwaThrowRock>(rock); tr.spawner = sp; tr.radius = r; tr.hitSound = hit; tr.fallY = slot.position.y - 6f;
+            UdonSharpEditorUtility.CopyProxyToUdon(tr);
+            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tr); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Continuous; EditorUtility.SetDirty(ub); }
+        }
     }
 
     // 持って置ける玉（たね）：VRCPickup＋VRCObjectSync、手を離すとその場に浮く
