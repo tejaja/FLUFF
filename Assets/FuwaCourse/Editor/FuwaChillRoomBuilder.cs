@@ -258,7 +258,7 @@ public static class FuwaChillRoomBuilder
         GameObject[] resetOthers = new GameObject[0];
         var list = new List<FuwaHandFan>();
         for (int i = 0; i < 3; i++) list.Add(Held("Fan" + i, G + toCenter * 2.4f + side * (-1.6f + i * 0.55f) + Vector3.up * 1.0f, face, false));
-        for (int i = 0; i < 2; i++) list.Add(Held("Uchiwa" + i, G + toCenter * 2.4f + side * (0.6f + i * 0.5f) + Vector3.up * 1.0f, face, true));
+        // うちわはなし（2026-10-12 てじゃ「ちょっと変だからなしに、うちわっぽくするのむずそう」）。FuwaHandFan の gustMode は残してある
         // ゴール風リング：広場の真ん中に浮かべる（穴をキノコの方へ向ける）。持って動かせる
         var ringT = new GameObject("Ring").transform; ringT.gameObject.layer = 13; ringT.SetParent(toys, false);
         ringT.SetPositionAndRotation(G + Vector3.up * 1.7f, face);
@@ -301,6 +301,7 @@ public static class FuwaChillRoomBuilder
             string en = "Appears when someone clears\nCourse " + (i + 1) + " " + courseEn[i];
             lbl.text = ja; lbl.fontSize = 1.8f;
             lockedSigns[i] = lbl.transform.parent.gameObject;
+            Object.DestroyImmediate(lockedSigns[i].GetComponent<BoxCollider>());   // 押さない札なので当たり判定なし
             lbl.transform.parent.localScale = Vector3.one * 0.4f;
             var lso2 = new SerializedObject(Object.FindObjectsOfType<FuwaLanguage>(true).First()); AddLang(lso2, "texts", "ja", "en", lbl, ja, en); lso2.ApplyModifiedPropertiesWithoutUndo();
         }
@@ -819,6 +820,8 @@ public static class FuwaChillRoomBuilder
             else { var sr = g.GetComponent<SpriteRenderer>(); if (sr != null) sr.size = new Vector2(sr.size.x, sr.size.y * 0.32f); }
         }
         var bc = r.gameObject.AddComponent<BoxCollider>(); bc.size = new Vector3(3.8f, 1.2f, 0.15f); bc.center = new Vector3(0f, 0f, 0.03f);
+        // 押せるけど、人はすり抜ける（2026-10-12 てじゃ「あそびばの一部UIに当たり判定がある」）
+        r.gameObject.layer = 17;   // Walkthrough
         return t;
     }
 
