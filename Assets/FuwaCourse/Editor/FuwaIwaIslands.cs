@@ -17,6 +17,9 @@ public static class FuwaIwaIslands
     // 並び順（島の数もこれ）
     static readonly Kind[] Kinds = { Kind.Spring, Kind.Vent, Kind.Rocks, Kind.Spring, Kind.Vent, Kind.Vent, Kind.Spring, Kind.Rocks };
 
+    static readonly Vector3 SummitSpringPos = new Vector3(107.8f, 14.06f, 0.45f);
+    static readonly Vector2 SummitSpringSize = new Vector2(1.7f, 0.6f);   // お湯の半径 x（道に沿って）, z
+
     [MenuItem("FuwaCourse/いわのみちのまわりの浮島を作り直す")]
     public static void RunMenu() { Debug.Log(Run()); }
 
@@ -177,6 +180,38 @@ public static class FuwaIwaIslands
             }
             log.Add(g.name + " " + pos.ToString("F0") + " r" + rad.ToString("F1") + " path " + DistPath(pos).ToString("F0"));
         }
+        // 頂上の崖っぷちの温泉（2026-10-12 てじゃ「頂上のこの崖っぷちも温泉にしよ、邪魔にならんし」）
+        // 頂上の木の足場の向かい、道の南側（-z）の平らな岩（y≒14.0、x 105.5〜110、z 0〜1.2）。道に沿って細長く
+        {
+            var sp = new GameObject("SummitSpring").transform; sp.SetParent(holder, false);
+            sp.position = SummitSpringPos; sp.rotation = Quaternion.identity;
+            var pm = PoolMesh(1f, new System.Random(31), Dir + "/IwaSpring_Summit.asset");
+            Part(sp, "Water", pm, waterMat, Vector3.zero, Quaternion.identity, new Vector3(SummitSpringSize.x, 1f, SummitSpringSize.y), true);
+            var srnd = new System.Random(77);
+            float SR(float a, float b) { return a + (float)srnd.NextDouble() * (b - a); }
+            int n = 18;
+            for (int k = 0; k < n; k++)
+            {
+                float a = (k + SR(-0.2f, 0.2f)) / n * Mathf.PI * 2f, er = EdgeR(pm, a);
+                var p = new Vector3(Mathf.Cos(a) * er * SummitSpringSize.x, -0.04f, Mathf.Sin(a) * er * SummitSpringSize.y) * 1f;
+                p += new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * SR(0.0f, 0.08f);
+                bool roadSide = Mathf.Sin(a) > 0.3f;   // 道の側（+z）は小さい平たい石だけ（道にはみ出さない）
+                if (!roadSide && k % 3 == 1) RockMesh(sp, rocks[srnd.Next(rocks.Length)], rockMat, p + Vector3.down * 0.05f, SR(0.3f, 0.42f), srnd);
+                else Inst(sp, stoneL, p, Quaternion.Euler(SR(-8, 8), SR(0, 360), SR(-8, 8)), Vector3.one * (roadSide ? SR(0.9f, 1.2f) : SR(1.3f, 1.8f)));
+            }
+            Steam(sp, Mathf.Min(SummitSpringSize.x, SummitSpringSize.y) * 1.3f, ventFx);
+            var st = sp.Find("Steam");
+            if (st != null)
+            {
+                var sps = st.GetComponent<ParticleSystem>();
+                var shp = sps.shape; shp.scale = new Vector3(SummitSpringSize.x / SummitSpringSize.y, 1f, 1f);
+                // 道のすぐ横なので湯気はひかえめに（コースの見通しのじゃまにならないように）
+                var sem = sps.emission; sem.rateOverTime = 4f;
+                var sm = sps.main; sm.startColor = new Color(1f, 1f, 1f, 0.35f); sm.startSize = new ParticleSystem.MinMaxCurve(0.6f, 1.1f);
+            }
+            log.Add("SummitSpring " + sp.position.ToString("F1"));
+        }
+
         // 島の物は動かないので静的に（影は小物は落とさない）
         foreach (var t in holder.GetComponentsInChildren<Transform>(true))
         {
