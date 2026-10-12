@@ -8,6 +8,9 @@ using VRC.SDKBase;
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaRespawnManager : UdonSharpBehaviour
 {
+    [Tooltip("リスポーンしたら、チュートリアルの看板の赤▼（FuwaReadMarks）をまた最初から出す")]
+    public FuwaReadMarks readMarks;
+
     [Tooltip("最初のリスポーン地点（ロビー）")]
     public Transform lobbySpot;
     [Tooltip("リスポーンした時に倒したモンスターを復活させるため")]
@@ -61,6 +64,7 @@ public class FuwaRespawnManager : UdonSharpBehaviour
     public override void OnPlayerRespawn(VRCPlayerApi player)
     {
         if (player == null || !player.isLocal) return;
+        if (readMarks != null) readMarks.ResetFromRespawn();   // チュートリアルの赤▼をまた最初から出す
         // モードのロビーにいる（どこかのモードを選んだ）なら、そのロビーへ。入口ロビーならVRChatのスポーンのまま
         if (_home != null)
         {

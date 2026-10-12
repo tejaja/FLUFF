@@ -6,7 +6,7 @@ using VRC.SDKBase;
 // ・看板の上でぴょんぴょん跳ねながらくるくる回る赤い▼（スタートの▼と同じ形で色だけ赤。2026-10-12 てじゃ「！より▽、スタートとかのあれ」）。自分の画面だけ、同期なし
 // ・看板の近く（readDistance 以内、看板の表側）まで来たら「読んだ」として、ぽんっと縮んで消える
 // ・出すのは「次に読む看板」1つだけ（全部先に見えているとくどい。てじゃ）。marks/signs は道の順。先の看板を読んだら、それより前は読んだことにする
-// ・ワールドに入り直すとまた出る（保存なし）
+// ・ワールドに入り直す・リスポーンするとまた出る（保存なし）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaReadMarks : UdonSharpBehaviour
 {
@@ -43,14 +43,25 @@ public class FuwaReadMarks : UdonSharpBehaviour
     private Vector3[] _scale;
     private int _next;
 
-    private void Start()
+    private void Start() { ResetMarks(); }
+
+    // VRChat のリスポーン（メニューの「リスポーン」）をしたら、また最初の看板から出す（2026-10-12 てじゃ「リスポンで入り直したら復活」）。
+    // リスポーンするとチュートリアルは隠れる（このスクリプトも止まる）ので、いつも動いている FuwaRespawnManager から呼んでもらう
+    public void ResetFromRespawn() { ResetMarks(); }
+
+    private void ResetMarks()
     {
         int n = marks != null ? marks.Length : 0;
-        _read = new bool[n]; _goneAt = new float[n]; _base = new Vector3[n]; _scale = new Vector3[n];
+        // 元の位置・大きさは最初の1回だけ覚える（2回目以降は跳ねている途中の位置になっているので）
+        bool first = _base == null || _base.Length != n;
+        if (first) { _base = new Vector3[n]; _scale = new Vector3[n]; }
+        _read = new bool[n]; _goneAt = new float[n];
         for (int i = 0; i < n; i++)
         {
             if (marks[i] == null) continue;
-            _base[i] = marks[i].position; _scale[i] = marks[i].localScale; _goneAt[i] = -1f;
+            if (first) { _base[i] = marks[i].position; _scale[i] = marks[i].localScale; }
+            else { marks[i].position = _base[i]; marks[i].localScale = _scale[i]; }
+            _goneAt[i] = i == 0 ? -Time.time : -1f;
             marks[i].gameObject.SetActive(i == 0);
         }
         _next = 0;
