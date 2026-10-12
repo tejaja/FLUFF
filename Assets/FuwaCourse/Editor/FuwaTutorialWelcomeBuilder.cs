@@ -39,11 +39,13 @@ public static class FuwaTutorialWelcomeBuilder
         // ---- A：ようこそ看板（エアガンの看板を、道の向きを軸に左右反転した位置へ）----
         var old = ent.Find("WelcomeSign"); if (old != null) Object.DestroyImmediate(old.gameObject);
         var w = Object.Instantiate(gunSign.gameObject, ent).transform; w.name = "WelcomeSign";
-        // 道の上に少しはみ出して、スポーンの正面ちょい左・4.6m先（てじゃ「もっと右にはみ出して」）。スポーンの方を向く
-        // （近すぎると出た瞬間に「読んだ」になって「！」が消えるので、読む距離より遠く）
-        w.position = spot.position + spot.forward * 4.6f - spot.right * 1.4f;
-        Vector3 face = spot.position - w.position; face.y = 0f;
-        w.rotation = Quaternion.LookRotation(-face.normalized, Vector3.up);   // 文字の面（-z）がスポーンの方
+        // 2026-10-12 てじゃ「ようこそ→エアガンの順に」：前のエアガンの看板の場所（てじゃが手で合わせた右前・右へ50°）へ。
+        // エアガンの看板と台は道に入ったとこの左へ（FuwaPracticeTutorial.GunSignLocal）。
+        // 読む距離（3.2m）より少しだけ遠くして、出た瞬間に「読んだ」になって▼が消えないように
+        w.position = spot.TransformPoint(new Vector3(1.95f, 0f, 2.9f));
+        RaycastHit gh;
+        if (Physics.Raycast(w.position + Vector3.up * 3f, Vector3.down, out gh, 6f)) w.position = new Vector3(w.position.x, gh.point.y - 0.02f, w.position.z);
+        w.rotation = Quaternion.Euler(0f, spot.eulerAngles.y + 50f, 0f);
         var wt = w.GetComponentInChildren<TMPro.TMP_Text>(true);
         wt.text = WelcomeJa;
         log.Add("welcome at " + w.position.ToString("F2"));

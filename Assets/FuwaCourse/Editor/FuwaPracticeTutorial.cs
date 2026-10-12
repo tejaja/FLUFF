@@ -408,6 +408,20 @@ public static class FuwaPracticeTutorial
     // 入口の島：エアガンの台の右（入口から見て）に「持ち方と呼び方」だけの看板（2026-10-09 てじゃ）
     const string GunSignJa = "<size=130%><color=#FF6B5C>エアガン</color></size>\n持つ：VR トリガー／PC 左クリック\n手元に呼ぶ：PC Eキー／VR 右スティック下\n台をクリックで台にもどる";
     const string GunSignEn = "<size=130%><color=#FF6B5C>Air Gun</color></size>\nHold: VR trigger / PC left click\nCall it: PC E key / VR right stick down\nClick the stand to send it back";
+    // 入口の島のエアガンの看板と台の場所（PlayerSpot から見て x=右・z=前、m）。ようこそ看板を読んでから取りに行く順（2026-10-12 てじゃ）
+    public static readonly Vector3 GunSignLocal = new Vector3(-1.4f, 0f, 4.6f);
+    public static readonly Vector3 GunStandLocal = new Vector3(-0.35f, 0f, 4.25f);
+
+    // 台と目印を GunStandLocal へ（高さはそのまま）
+    public static void PlaceGunStand(Transform ent)
+    {
+        var spot = ent.Find("PlayerSpot"); var stand = ent.Find("GunStand_Tutorial"); var marker = ent.Find("GunStand_Tutorial_Marker");
+        Vector3 p = spot.TransformPoint(GunStandLocal); p.y = stand.position.y;
+        Vector3 delta = p - stand.position;
+        Undo.RecordObject(stand, "gun stand"); stand.position = p;
+        if (marker != null) { Undo.RecordObject(marker, "gun stand"); marker.position += delta; }
+    }
+
     [MenuItem("FuwaCourse/れんしゅう/入口のエアガンの看板を作り直す")]
     public static void GunSignMenu() { Debug.Log(MakeGunSign()); }
     public static string MakeGunSign()
@@ -418,8 +432,9 @@ public static class FuwaPracticeTutorial
         var stand = ent.Find("GunStand_Tutorial"); var spot = ent.Find("PlayerSpot"); var ground = ent.Find("Ground").GetComponent<Renderer>().bounds;
         Vector3 dir = stand.position - spot.position; dir.y = 0; dir.Normalize();
         Vector3 right = Vector3.Cross(Vector3.up, dir).normalized;
-        // 2026-10-12 てじゃが手で調整した位置・向き（スポーンから見て右へ1.793m・前へ2.641m、スポーンの向きから右へ50°）
-        Vector3 pos = spot.TransformPoint(new Vector3(1.793f, 0f, 2.641f));
+        // 2026-10-12 てじゃ「ようこそ→エアガンの順に、台の位置も変えて」：ようこその看板と場所を入れ替え。道に入ったとこの左、スポーンの方を向く
+        // （前の、てじゃが手で合わせた場所＝右へ1.793m・前へ2.641m・右へ50°は、ようこその看板が使う）
+        Vector3 pos = spot.TransformPoint(GunSignLocal);
         var signSrc = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "BestTimes" && t.parent != null && t.parent.name == "FuwaLobby");
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
         Vector3 face = pos - spot.position; face.y = 0;
@@ -428,7 +443,7 @@ public static class FuwaPracticeTutorial
         RaycastHit gh;   // 足元の高さ（島か道）
         float gy = Physics.Raycast(new Vector3(sign.position.x, ground.max.y + 3f, sign.position.z), Vector3.down, out gh, 6f) ? gh.point.y : ground.max.y;
         sign.position = new Vector3(sign.position.x, gy - 0.02f, sign.position.z);
-        sign.rotation = Quaternion.Euler(0f, spot.eulerAngles.y + 49.99f, 0f);
+        sign.rotation = Quaternion.LookRotation(face.normalized, Vector3.up);   // 文字の面（-z）がスポーンの方
         return "gun sign at " + sign.position.ToString("F2") + " dist from island center " + Vector2.Distance(new Vector2(sign.position.x, sign.position.z), new Vector2(ground.center.x, ground.center.z)).ToString("F2") + " / r " + ground.extents.x.ToString("F2");
     }
 
@@ -779,6 +794,7 @@ public static class FuwaPracticeTutorial
         var gsMarkerSrc = start.Find("GunStand_Course0_Marker");
         GameObject gsMarker = null;
         if (gsMarkerSrc != null) { gsMarker = Dup(gsMarkerSrc, entrance, "GunStand_Tutorial_Marker"); gsMarker.transform.position = spot.position + rel * (gsMarkerSrc.position - startSpotT.position); gsMarker.transform.rotation = rel * gsMarkerSrc.rotation; }
+        PlaceGunStand(entrance);   // ようこそ看板のあと、道に入ったところ（2026-10-12 てじゃ）
         var gsComp = gs.GetComponent<FuwaGunStand>();
         SetU(gsComp, "gunSpot", gs.transform.Find("GunSpot")); if (gsMarker != null) SetU(gsComp, "marker", gsMarker); Sync(gsComp);
 
