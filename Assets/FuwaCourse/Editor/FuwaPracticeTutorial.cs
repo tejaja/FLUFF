@@ -620,7 +620,10 @@ public static class FuwaPracticeTutorial
             for (int i = 0; i < _pathOnlyPts.Count; i++) { float e = (new Vector2(p.x, p.z) - _pathOnlyPts[i]).sqrMagnitude; if (e < best) { best = e; d = _pathOnlyDist[i]; } }
             return d;
         }
-        float s0 = DistOf(bay.Find("BayBarrier").position), s1 = DistOf(root.Find("Bay_Monster/BayBarrier").position);
+        // 風の範囲（WindZone の箱）の手前のはしから、次の区画の膜まで（2026-10-12 てじゃ「風エリアから次の光の壁まで」）
+        var wz = bay.Find("WindZone"); float s0 = 1e9f;
+        for (int k = 0; k < 4; k++) s0 = Mathf.Min(s0, DistOf(wz.TransformPoint(new Vector3((k & 1) - 0.5f, 0f, (k >> 1) - 0.5f))));
+        float s1 = DistOf(root.Find("Bay_Monster/BayBarrier").position);
         int segs = Mathf.Max(1, Mathf.RoundToInt((s1 - s0) / 1.0f));
         // 柵の柱の位置（道の左はしから少し内側）と、膜の位置（柵のすぐ外）
         var fenceP = new List<Vector3>(); var wallP = new List<Vector3>(); var outN = new List<Vector3>();
@@ -636,6 +639,7 @@ public static class FuwaPracticeTutorial
         }
         var group = new GameObject("SideWall").transform; group.SetParent(bay, false);
         group.position = fenceP[segs / 2];   // 生える時のまん中
+        group.rotation = Quaternion.identity;   // 中の頂点はワールドの向きで入れる（区画の親は回っているので、親の向きのままだと斜めにずれた）
         Vector3 o = group.position;
 
         // ---- 木の柵（島の柵と同じ寸法）----
