@@ -442,8 +442,9 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             Vector3 pos; Vector3 look; float fov;
             if (order == 1)
             {
-                pos = mid + (r * (2.1f * mm) + f * 0.9f + Vector3.up * -0.05f) * s;
-                look = m0 + a * (0.9f * s); fov = 52f;
+                // 横から：撃った風と自分。見る所を少し自分寄りにして、カメラも少し後ろへ（アバターや身長によって左はしで見切れていた。2026-10-12 てじゃ）
+                pos = mid + (r * (2.2f * mm) + f * 0.55f + Vector3.up * -0.05f) * s;
+                look = Vector3.Lerp(chest, m0 + a * (0.9f * s), 0.55f); fov = 56f;
             }
             else
             {
