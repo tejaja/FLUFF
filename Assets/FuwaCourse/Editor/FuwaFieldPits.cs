@@ -15,7 +15,8 @@ public static class FuwaFieldPits
     const string Dir = "Assets/FuwaCourse/Generated/FieldPits";
     // 穴の場所（x, z）。噴気孔から 1.7m 以上・ふちから 1.5m 以上の平らな所から選んだ（入ってすぐ／真ん中の噴気孔のそば／ゴール手前の左右）
     static readonly Vector2[] Pits = { new Vector2(136.5f, 14.5f), new Vector2(140.0f, 21.5f), new Vector2(144.5f, 31.0f), new Vector2(146.75f, 28.75f),
-        new Vector2(141.5f, 24.5f) };   // 5つめ：噴気孔4つに囲まれた真ん中（2026-10-12 てじゃ「ここにもあけよう」）
+        new Vector2(141.5f, 24.5f),   // 5つめ：噴気孔4つに囲まれた真ん中（2026-10-12 てじゃ「ここにもあけよう」）
+        new Vector2(134.9f, 17.8f) }; // 6つめ：追い風で運ばれた先の噴気孔（Vent1）を穴に（放置すると噴気孔が持ち上げて助けてしまう。2026-10-12 てじゃ）。その噴気孔は止める
     const float Radius = 0.75f;     // 口の半径（ふちのギザギザで ±10%）
     const float Jag = 0.1f;
     const float Depth = 2.6f;       // 縦穴の深さ
@@ -180,6 +181,14 @@ public static class FuwaFieldPits
                     t.position = new Vector3(np.x, Ground(np.x, np.y, t.position.y) + (t.position.y - Ground(t.position.x, t.position.z, t.position.y)), np.y);
                     log.Add("moved deco " + t.parent.name + "/" + t.name);
                 }
+            }
+        // 穴にした所の噴気孔（口の中心が穴の中）は止める（オブジェクトごと非表示：風・人用の上昇気流・湯気・音・縦穴の見た目）
+        var vents = root.Find("Gimmick_FieldVents");
+        if (vents != null)
+            foreach (Transform v in vents)
+            {
+                bool inPit = Pits.Any(p => (new Vector2(v.position.x, v.position.z) - p).magnitude < Radius);
+                if (inPit && v.gameObject.activeSelf) { v.gameObject.SetActive(false); log.Add("vent off " + v.name); }
             }
         Object.DestroyImmediate(probe);
         AssetDatabase.SaveAssets();
