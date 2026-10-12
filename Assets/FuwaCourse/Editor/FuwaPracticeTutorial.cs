@@ -720,6 +720,10 @@ public static class FuwaPracticeTutorial
         const string path = "Assets/FuwaCourse/Materials/TutorialSideWall.mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
         if (m == null) { m = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/SoftBarrier.mat")); AssetDatabase.CreateAsset(m, path); }
+        // 網目だけにする：横の太い線（床から _LineHeight の高さ）と左右のはしの線は出さない（2026-10-12 てじゃ「網目に太い線あるの気になる」）。
+        // _LineHeight を床より下にすると、横の線も縦の線（_LineHeight より上で消える）も出ない
+        m.SetFloat("_LineHeight", -10f);
+        EditorUtility.SetDirty(m);
         return m;
     }
 
