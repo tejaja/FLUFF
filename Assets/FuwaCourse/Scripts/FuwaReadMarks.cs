@@ -3,24 +3,35 @@ using UnityEngine;
 using VRC.SDKBase;
 
 // チュートリアルの看板の上に浮かぶ「！」（2026-10-12 てじゃ「まずは説明を読みながら進むってのを解説するなにかほしい」）
-// ・看板の上でふわふわ上下しながら、自分の方を向く（自分の画面だけ、同期なし）
+// ・看板の上でぴょんぴょん跳ねながらくるくる回る赤い▼（スタートの▼と同じ形で色だけ赤。2026-10-12 てじゃ「！より▽、スタートとかのあれ」）。自分の画面だけ、同期なし
 // ・看板の近く（readDistance 以内、看板の表側）まで来たら「読んだ」として、ぽんっと縮んで消える
 // ・出すのは「次に読む看板」1つだけ（全部先に見えているとくどい。てじゃ）。marks/signs は道の順。先の看板を読んだら、それより前は読んだことにする
 // ・ワールドに入り直すとまた出る（保存なし）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaReadMarks : UdonSharpBehaviour
 {
-    [Tooltip("「！」の見た目（marks[i] は signs[i] の上）")]
+    [Tooltip("目印（▼）（marks[i] は signs[i] の上）")]
     public Transform[] marks;
     [Tooltip("看板（表が -z 側：文字が読める側）")]
     public Transform[] signs;
     [Tooltip("この距離(m)まで近づいたら読んだことにする")]
     public float readDistance = 3.2f;
-    public float bobHeight = 0.08f;
-    public float bobSpeed = 2.2f;
-    [Tooltip("ぽよぽよ（縦横につぶれて戻る）の強さと速さ")]
-    public float squish = 0.12f;
-    public float squishSpeed = 4.4f;
+    // 跳ねる（2026-10-12 てじゃ「ふわんふわんじゃなくて、もうちょい跳ねる感じ」）：
+    // ぴょんっと跳んで（上がる・落ちる時は縦にのびる）、着地でむにっとつぶれて、また跳ぶ
+    [Tooltip("跳ぶ高さ(m)")]
+    public float hopHeight = 0.28f;
+    [Tooltip("空中にいる秒数")]
+    public float hopTime = 0.46f;
+    [Tooltip("着地してつぶれている秒数")]
+    public float landTime = 0.2f;
+    [Tooltip("着地でつぶれる強さ")]
+    public float squish = 0.3f;
+    [Tooltip("跳ぶ・落ちる時に縦にのびる強さ")]
+    public float stretch = 0.14f;
+    [Tooltip("目印の高さの半分(m)。つぶれる時に下はし（▼の先）の位置を変えないため")]
+    public float radius = 0.25f;
+    [Tooltip("▼の回る速さ（度/秒）。スタートの▼と同じ")]
+    public float spinSpeed = 60f;
     [Tooltip("自分から遠い時は動かさない(m)")]
     public float activeRange = 30f;
 
@@ -48,7 +59,6 @@ public class FuwaReadMarks : UdonSharpBehaviour
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null || marks == null) return;
         Vector3 me = lp.GetPosition();
-        Vector3 eye = lp.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
         // どの看板でも、読んだら（前に立ったら）そこまで進める
         for (int i = _next; i < marks.Length && i < signs.Length; i++)
         {
@@ -79,19 +89,32 @@ public class FuwaReadMarks : UdonSharpBehaviour
                 m.localScale = _scale[i] * Mathf.Max(0f, s);
             }
 
-            m.position = _base[i] + Vector3.up * (Mathf.Sin(Time.time * bobSpeed + i) * bobHeight);
+            // 跳ねる：1回 = 空中 hopTime ＋ 着地 landTime。高さは放物線、のび・つぶれは縦横で体積を保つ感じに
+            float cyc = hopTime + landTime;
+            float p = Mathf.Repeat(Time.time + i * 0.37f, cyc);
+            float h = 0f, sy = 1f;
+            if (p < hopTime)
+            {
+                float u = p / hopTime;
+                h = hopHeight * 4f * u * (1f - u);
+                sy = 1f + stretch * Mathf.Abs(1f - 2f * u);   // 速い時（跳んだ直後・着地直前）ほどのびる
+            }
+            else
+            {
+                float g = (p - hopTime) / landTime;
+                sy = 1f - squish * Mathf.Sin(g * Mathf.PI);   // むにっ
+            }
+            float sx = 1f / Mathf.Sqrt(Mathf.Max(0.2f, sy));
+            // 下はしの位置はそのまま（つぶれても地面から浮かない・めりこまない）
+            m.position = _base[i] + Vector3.up * (h - radius * (1f - sy));
             if (!_read[i])
             {
                 // 出てきた時はぽんっと大きくなる（_goneAt に出た時刻をマイナスで入れてある）
                 float appear = _goneAt[i] < 0f ? Mathf.Clamp01((Time.time + _goneAt[i]) / 0.35f) : 1f;
                 float pop = appear >= 1f ? 1f : Mathf.Sin(appear * Mathf.PI * 0.5f) * (1f + 0.2f * Mathf.Sin(appear * Mathf.PI));
-                // ぽよぽよ：はずむリズムで縦につぶれて横にふくらむ
-                float q = Mathf.Sin(Time.time * squishSpeed + i * 1.3f);
-                q = q * Mathf.Abs(q);
-                m.localScale = new Vector3(_scale[i].x * (1f + squish * q), _scale[i].y * (1f - squish * q), _scale[i].z) * pop;
+                m.localScale = new Vector3(_scale[i].x * sx, _scale[i].y * sy, _scale[i].z * sx) * pop;
             }
-            Vector3 look = m.position - eye; look.y = 0f;
-            if (look.sqrMagnitude > 0.0001f) m.rotation = Quaternion.LookRotation(look.normalized, Vector3.up);
+            m.rotation = Quaternion.Euler(0f, Time.time * spinSpeed + i * 40f, 0f);
         }
     }
 }

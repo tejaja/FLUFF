@@ -10,8 +10,20 @@ using UnityEngine;
 public static class FuwaTutorialWelcomeBuilder
 {
     const string ProgramPath = "Assets/FuwaCourse/Scripts/FuwaReadMarks.asset";
-    const string WelcomeJa = "<size=130%><color=#FF6B5C>ようこそ！</color></size>\n看板を読みながら、道にそって進もう\n<size=85%>「<color=#FF6B5C>！</color>」がついている看板を読んでね\nエアガンを忘れずに持っていこう！</size>";
-    const string WelcomeEn = "<size=130%><color=#FF6B5C>Welcome!</color></size>\nRead the signs as you walk along the path\n<size=85%>Look for signs with a \"<color=#FF6B5C>!</color>\"\nDon't forget to grab the air gun!</size>";
+    const string WelcomeJa = "<size=130%><color=#FF6B5C>ようこそ！</color></size>\n看板を読みながら、道にそって進もう\n<size=85%>「<color=#FF6B5C>▼</color>」がついている看板を読んでね\nエアガンを忘れずに持っていこう！</size>";
+    const string WelcomeEn = "<size=130%><color=#FF6B5C>Welcome!</color></size>\nRead the signs as you walk along the path\n<size=85%>Look for signs with a \"<color=#FF6B5C>▼</color>\"\nDon't forget to grab the air gun!</size>";
+
+    // ▼の大きさ（スタートの▼は 0.29×0.35。看板の上は少し離れて見るので大きめ）
+    const float MarkW = 0.42f, MarkH = 0.5f;
+    const string ArrowMatPath = "Assets/FuwaCourse/Materials/ReadMarkArrow.mat";
+    static Material ArrowMat()
+    {
+        var m = AssetDatabase.LoadAssetAtPath<Material>(ArrowMatPath);
+        if (m == null) { m = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/StartArrow.mat")); AssetDatabase.CreateAsset(m, ArrowMatPath); }
+        ColorUtility.TryParseHtmlString("#F2302A", out var red);
+        m.SetColor("_Color", red); EditorUtility.SetDirty(m);
+        return m;
+    }
 
     [MenuItem("FuwaCourse/チュートリアルの「ようこそ」と「！」を作り直す")]
     public static void Menu() { Debug.Log(Run()); }
@@ -78,24 +90,15 @@ public static class FuwaTutorialWelcomeBuilder
             Vector3 toRoad = -s.forward; toRoad.y = 0f; toRoad.Normalize();   // 文字の読める側＝道の側
             Vector3 right = Vector3.Cross(Vector3.up, toRoad);                  // 道から看板を見て右
             m.position = new Vector3(b.center.x, b.max.y + 0.55f, b.center.z);   // 看板のまん中の上（てじゃ）
-            // 丸と「！」は角丸の板（RoundedPanel、角の丸み＝0.25×スケール）で作る：まん丸の赤い玉に、太い白い棒と点（文字だと細くて片寄った）
-            ColorUtility.TryParseHtmlString("#F2302A", out var red);
-            SpriteRenderer Blob(string nm, float w, float h, float y, float z, Color col)
-            {
-                var r = Object.Instantiate(srcPanel.gameObject, m).GetComponent<SpriteRenderer>();
-                r.name = nm; r.gameObject.SetActive(true);
-                foreach (var lg in r.GetComponents<LODGroup>()) Object.DestroyImmediate(lg);
-                float sc = Mathf.Min(w, h) * 0.5f / 0.25f;   // 短い辺の半分が角の丸みになるスケール
-                r.transform.localPosition = new Vector3(0f, y, z); r.transform.localRotation = Quaternion.identity;
-                r.transform.localScale = Vector3.one * sc;
-                r.drawMode = SpriteDrawMode.Sliced; r.size = new Vector2(w, h) / sc;
-                r.color = col; r.sortingOrder = 0;
-                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                return r;
-            }
-            Blob("Circle", 0.8f, 0.8f, 0f, 0f, red);
-            Blob("Bar", 0.15f, 0.36f, 0.07f, -0.004f, Color.white);
-            Blob("Dot", 0.15f, 0.15f, -0.21f, -0.004f, Color.white);
+            // 目印はスタートの▼と同じ形（MarkerPyramid を逆さに）で、色だけ赤（2026-10-12 てじゃ「！より▽」「形スタートとかと合わせて、色だけ赤く」）
+            // ピラミッドは底が原点で高さ1。逆さにすると下へのびるので、真ん中が m の位置に来るよう半分上げる（跳ねる時のつぶれの基準）
+            var a = new GameObject("Arrow"); a.transform.SetParent(m, false);
+            a.transform.localPosition = new Vector3(0f, MarkH * 0.5f, 0f);
+            a.transform.localRotation = Quaternion.Euler(0f, 180f, 180f);
+            a.transform.localScale = new Vector3(MarkW, MarkH, MarkW);
+            a.AddComponent<MeshFilter>().sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/MarkerPyramid.asset");
+            var ar = a.AddComponent<MeshRenderer>(); ar.sharedMaterial = ArrowMat();
+            ar.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             marks.Add(m);
         }
 
@@ -111,6 +114,7 @@ public static class FuwaTutorialWelcomeBuilder
         var rm = UdonSharpUndo.AddComponent<FuwaReadMarks>(holder.gameObject);
         rm.marks = marks.ToArray();
         rm.signs = signs.ToArray();
+        rm.radius = MarkH * 0.5f;
         UdonSharpEditorUtility.CopyProxyToUdon(rm);
         // 同期しない
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rm);
