@@ -116,6 +116,9 @@ public static class FuwaHowToFoldSetup
             var cols = cbtn.colors; cols.normalColor = new Color(0.93f, 0.3f, 0.27f); cols.highlightedColor = new Color(0.98f, 0.42f, 0.38f);
             cols.pressedColor = new Color(0.75f, 0.25f, 0.18f); cols.selectedColor = cols.normalColor; cbtn.colors = cols;
             close.GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text = "";
+            // 丸は奥行きを書かない普通のUIの材質で。Fuwa/UIDepth だと丸のふちの半透明な所が奥行きを書いて、
+            // あとから描く看板の板・ふちがそこだけ欠けて、空が透けた隙間に見えた（2026-10-12 てじゃ）
+            img.material = null;
             var size = ((RectTransform)close.transform.Find("Canvas")).sizeDelta.x;
             foreach (float ang in new[] { 45f, -45f })
             {
