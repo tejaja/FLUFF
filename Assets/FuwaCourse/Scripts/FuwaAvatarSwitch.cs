@@ -11,8 +11,8 @@ public class FuwaAvatarSwitch : UdonSharpBehaviour
 {
     public VRCAvatarPedestal pedestal;
 
-    [Tooltip("オンなら、看板そのもののクリックはやめて、下のレーザーボタン（Use を呼ぶ）だけで着替える（2026-10-12 てじゃ「押すもの全部レーザー式に」）")]
-    public bool laserOnly = true;
+    [Tooltip("オンなら、看板そのもののクリックはやめて、そばのレーザーボタン（Use を呼ぶ）だけで着替える。今はオフ（看板のサムネをクリック。2026-10-12 てじゃ「ボタンなし、サムネだけで」）")]
+    public bool laserOnly = false;
 
     private void Start() { if (laserOnly) DisableInteractive = true; }
 
