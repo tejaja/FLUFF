@@ -227,6 +227,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
     // 言語が切り替わった時に FuwaLanguage から呼ばれる（呼ばれなくても、次に撮った時に直る）
     public void RefreshCaptions()
     {
+        if (_has == null) return;   // Start より先に言語の切り替え（保存した言語の読み込みなど）が来た時。ここで止まると以後アルバムが動かなくなっていた（2026-10-12）
         bool en = language != null && language.IsEnglish();
         // 写真が1枚でもあればコース名を出す（写真の下の名前をなくした時に、ここで判定していたせいでコース名まで消えていた）
         bool any = false;
