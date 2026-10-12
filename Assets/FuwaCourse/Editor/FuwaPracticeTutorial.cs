@@ -394,13 +394,14 @@ public static class FuwaPracticeTutorial
             MakeBarrier(root, "MushBarrier", c + rgt * ((wr - wl) * 0.5f), f, wr + wl);
             n++;
         }
+        // 見え方：シンプルな光の板（2026-10-12 てじゃ「シンプルに光の板でもいいかも」）。
+        // 前の SoftBarrier（ふわふわの近くで格子・波紋が光る）は「まぎらわしい」でやめた
         var mat = BarrierMat();
-        // 見え方（2026-10-09 決定）：紺の四角い格子が、ふわふわのまわり半径1.3mだけに出る。人が近づいても出ない
-        mat.SetFloat("_LineAlpha", 0f); mat.SetFloat("_FilmAlpha", 0.55f); mat.SetFloat("_GridNearBall", 1f); mat.SetFloat("_LineFar", 1.3f);
-        mat.SetFloat("_WallTop", 0f); mat.SetFloat("_HexSize", 0.3f); mat.SetColor("_LineColor", new Color(0.16f, 0.24f, 0.55f, 1f));
-        mat.SetFloat("_AmbientAlpha", 0.3f);   // 2026-10-12 てじゃ「うっすらみえてて」：近く（20m以内）ではいつもうっすら見える
-        // ふわふわが近づくと光る（波紋・格子の膜）のは「まぎらわしいからいらない」（2026-10-12 てじゃ）。当たったら弾けるだけ
-        mat.SetFloat("_FilmAlpha", 0f); var bc = mat.GetColor("_Color"); bc.a = 0f; mat.SetColor("_Color", bc);
+        mat.SetColor("_Color", new Color(0.55f, 0.85f, 1f, 1f));
+        mat.SetFloat("_Alpha", 0.35f); mat.SetFloat("_Height", 2.2f);
+        mat.SetFloat("_LineAlpha", 0.8f); mat.SetFloat("_LineWidth", 0.035f); mat.SetFloat("_SideHeight", 1.6f);
+        mat.SetFloat("_BandAlpha", 0.12f); mat.SetFloat("_BandSpeed", 0.35f); mat.SetFloat("_BandGap", 1.1f);
+        mat.SetFloat("_FadeNear", 14f); mat.SetFloat("_FadeFar", 24f);
         EditorUtility.SetDirty(mat); AssetDatabase.SaveAssets();
         return "barriers " + n;
     }
@@ -1613,9 +1614,9 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
 
     static Material BarrierMat()
     {
-        const string path = "Assets/FuwaCourse/Materials/SoftBarrier.mat";
+        const string path = "Assets/FuwaCourse/Materials/TutorialLightPanel.mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
-        if (m == null) { m = new Material(Shader.Find("FuwaCourse/SoftBarrier")); AssetDatabase.CreateAsset(m, path); }
+        if (m == null) { m = new Material(Shader.Find("FuwaCourse/LightPanel")); AssetDatabase.CreateAsset(m, path); }
         return m;
     }
 
