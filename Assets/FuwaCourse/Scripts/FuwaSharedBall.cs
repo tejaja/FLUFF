@@ -102,6 +102,19 @@ public class FuwaSharedBall : UdonSharpBehaviour
     [Tooltip("試合の前後などで撃っても動かない（FuwaMatch が全員の画面でそれぞれ切り替える）")]
     [System.NonSerialized] public bool locked;
 
+    [Header("チルルーム用：出すたびに大きさ・色・地面ではじけるかを変える（FuwaChillSpawner が決める）")]
+    [Tooltip("オンなら、下の同期した大きさ・色・はじけ方を使う（持ち主が SpawnVariant で決めて配る）")]
+    public bool variant;
+    [UdonSynced] private float _vSize = 0.3f;
+    [UdonSynced] private Color _vColor = Color.white;
+    [Tooltip("チルルーム用：「地面に落ちたら消えるか」はこの係の今の設定を見る（切り替えたら、床に転がっている玉もすぐ従う）")]
+    public FuwaChillSpawner chill;
+    [UdonSynced] private float _vShotScale = 1f;
+    [UdonSynced] private double _vTime;
+    private float _shownSize = -1f;
+    private Color _shownColor = new Color(-1f, 0f, 0f, 0f);
+    private Material _selfMat;
+
     // 画面ごとの状態（持ち主ならこれが正解。持ち主でなければ、届いた状態をここへ写す）
     private bool _waiting = true;
     private bool _popped;
@@ -160,6 +173,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _trail = GetComponent<TrailRenderer>();
         _col = GetComponent<Collider>();
         if (furRenderer != null) _furMat = furRenderer.material;
+        if (variant && _selfRenderer != null) _selfMat = _selfRenderer.material;
         _rb.useGravity = false;
         _rb.drag = airDrag;
         _rb.angularDrag = spinDamping;
@@ -173,6 +187,59 @@ public class FuwaSharedBall : UdonSharpBehaviour
     }
 
     public bool IsWaiting() { return _waiting && !_popped; }
+    // 弾けて戻るのを待っている間も含めて「出ていない」（チルルームで次に出す玉を選ぶ時に使う）
+    public bool IsIdle() { Init(); return _waiting || _popped; }
+    // 出した時刻（チルルームで上限を超えた時に、いちばん古いのから戻す）
+    public double SpawnTime() { return _vTime; }
+
+    // チルルーム：持ち主になった人の画面で呼ぶ。大きさ・色・地面ではじけるか・撃たれた時の効きを決めて、キノコから撃った向きへ出す
+    public void SpawnVariant(Vector3 shotDir, float size, Color color, float shotK)
+    {
+        Init();
+        if (!Networking.IsOwner(gameObject)) return;
+        _pending = 0;
+        if (!_waiting || _popped) SetWaiting();   // 出ている玉を使い回す時は、いったんキノコへ戻す
+        _vSize = size; _vColor = color; _vShotScale = shotK;
+        _vTime = Networking.GetServerTimeInSeconds();
+        ApplyVariant();
+        ReleaseFromMushroom(shotDir);
+    }
+
+    // 持ち主の画面で：キノコへ戻す（上限を減らした・使い回す時）
+    public void Recall()
+    {
+        Init();
+        if (!Networking.IsOwner(gameObject)) return;
+        _pending = 0;
+        SetWaiting();
+    }
+
+    // 同期した大きさ・色を見た目と当たりに反映（全員）
+    private void ApplyVariant()
+    {
+        if (!variant) return;
+        if (_vSize != _shownSize)
+        {
+            _shownSize = _vSize;
+            transform.localScale = Vector3.one * _vSize;
+            float r = _vSize * 0.5f;
+            hitPadding = Mathf.Max(0f, r - 0.15f);   // 大きい玉はふちに当たった風も効くように
+            releasePush = Mathf.Lerp(2.4f, 1.2f, Mathf.InverseLerp(0.2f, 1.4f, _vSize));
+            releaseUp = Mathf.Lerp(2.1f, 1.6f, Mathf.InverseLerp(0.2f, 1.4f, _vSize));
+        }
+        shotScale = _vShotScale;
+        if (_vColor != _shownColor)
+        {
+            _shownColor = _vColor;
+            if (_furMat != null)
+            {
+                _furMat.SetColor("_Color", _vColor);
+                _furMat.SetColor("_TipColor", Color.Lerp(_vColor, Color.white, 0.55f));
+            }
+            if (_selfMat != null) _selfMat.SetColor("_Color", _vColor);
+        }
+    }
+
     public bool IsFlying() { Init(); return !_waiting && !_popped; }
 
     // 持ち主の画面で：キノコの上に戻す（ゴールに入った・試合が始まった・終わった時）
@@ -283,7 +350,9 @@ public class FuwaSharedBall : UdonSharpBehaviour
     // 持ち主：今の位置・速さ・時刻を送る（中身は OnPreSerialization で詰める）
     private void SendState()
     {
-        _nextSend = Time.time + correctionInterval;
+        // 床に止まっている間（チルルームで「消えない」の時）は送る間隔をゆっくりに
+        bool resting = !_rb.isKinematic && _rb.velocity.sqrMagnitude < 0.0025f;
+        _nextSend = Time.time + (resting ? heartbeatInterval : correctionInterval);
         _sendSoon = false;
         RequestSerialization();
     }
@@ -322,6 +391,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         Init();
         _lastHeard = Time.time;
         if (Networking.IsOwner(gameObject)) return;
+        if (variant) ApplyVariant();
         // 自分が撃った分がまだ持ち主に反映されていない間は、届いた状態より自分の予測を優先する（弾けた知らせだけはすぐ受け取る）
         if (_pending > 0)
         {
@@ -344,7 +414,9 @@ public class FuwaSharedBall : UdonSharpBehaviour
         else
         {
             float late = (float)(Networking.GetServerTimeInSeconds() - _sTime);
-            Vector3 target = Predict(_sPos, _sVel, late);
+            Vector3 target;
+            if (_sVel.sqrMagnitude < 0.0025f) { target = _sPos; _predVel = Vector3.zero; }   // 床に止まっている：先回りすると床にめり込む方へ寄せてしまう
+            else target = Predict(_sPos, _sVel, late);
             bool newShot = _sShot != _seenShot;
             _seenShot = _sShot;
             if (_shownWaiting || _rb.isKinematic)
@@ -473,6 +545,9 @@ public class FuwaSharedBall : UdonSharpBehaviour
         {
             if (!_waiting && !_popped && transform.position.y < _homePos.y - fallLimit) SetWaiting();
             if (_popped && _respawnAt > 0f && Time.time >= _respawnAt) SetWaiting();
+            // チルルーム：床に転がっている間に「消える」へ切り替えた（ぶつかった瞬間はもう過ぎている）ので、床に触れていたらはじける
+            if (chill != null && !_waiting && !_popped && !_rb.isKinematic && chill.PopGround()
+                && Physics.CheckSphere(transform.position + Vector3.down * 0.05f, transform.lossyScale.x * 0.5f, popLayers.value, QueryTriggerInteraction.Ignore)) Pop();
             // 弾けたまま戻す予定が無い（弾けている間に持ち主が入れ替わった）なら、ここで戻す予定を立てる
             if (_popped && _respawnAt < 0f) _respawnAt = Time.time + respawnDelay;
             // 飛んでいる間はときどき今の位置を送る（壁にぶつかった後はすぐ送る）
@@ -509,11 +584,18 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         if (!Networking.IsOwner(gameObject) || _waiting || _popped || collision == null || collision.collider == null) return;
-        if ((popLayers.value & (1 << collision.collider.gameObject.layer)) == 0)
+        int popMask = chill != null && !chill.PopGround() ? 0 : popLayers.value;   // チルルームで「地面に落ちても消えない」の時は床ではじけない
+        if ((popMask & (1 << collision.collider.gameObject.layer)) == 0)
         {
             _sendSoon = true;   // 壁や柵で跳ね返った：みんなの画面のズレを早めに直す
             return;
         }
+        Pop();
+    }
+
+    // 持ち主の画面で：床に落ちてはじける
+    private void Pop()
+    {
         // 床に落ちたかどうかは持ち主の画面で決める
         _popped = true;
         _respawnAt = Time.time + respawnDelay;

@@ -18,6 +18,8 @@ public class FuwaStartMushroom : UdonSharpBehaviour
     public FuwaSharedBall sharedBall;
     [Tooltip("ふわふわがこのキノコに隠れている間だけ出す▼（飛び出したら消える）")]
     public GameObject startArrow;
+    [Tooltip("チルルーム用：撃つたびに今の設定のふわふわを1個出す（ball・sharedBall の代わり）")]
+    public FuwaChillSpawner spawner;
 
     private float _wobbleStart = -1f;
     private Vector3 _capScale;
@@ -35,6 +37,13 @@ public class FuwaStartMushroom : UdonSharpBehaviour
         {
             boingSound.pitch = Random.Range(0.95f, 1.05f);
             boingSound.PlayOneShot(boingSound.clip);
+        }
+        if (spawner != null)
+        {
+            spawner.Spawn(shotDir);
+            if (burst != null) burst.Play();
+            if (popSound != null) popSound.Play();
+            return;
         }
         if (sharedBall != null)
         {
@@ -54,6 +63,7 @@ public class FuwaStartMushroom : UdonSharpBehaviour
     // ふわふわがこのキノコに隠れている（＝撃てば出てくる）か
     private bool BallInside()
     {
+        if (spawner != null) return true;   // チルルーム：いつでも出せる
         if (sharedBall != null) return sharedBall.IsWaiting();
         return ball != null && ball.IsHidden() && ball.startPoint == courseStart;
     }
