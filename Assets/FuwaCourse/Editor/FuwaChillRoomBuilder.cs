@@ -267,8 +267,8 @@ public static class FuwaChillRoomBuilder
         var rpk = ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
         rpk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; rpk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; rpk.InteractionText = "リング"; rpk.proximity = 2f;
         ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
-        var ringM = Mat("Chill_Ring", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.82f, 0.45f));
-        ringM.SetColor("_EmissionColor", new Color(0.18f, 0.12f, 0.03f)); EditorUtility.SetDirty(ringM);
+        // 色はコースのゴールリングと同じ（Goal_Ring をそのまま使う。2026-10-12 てじゃ「本物と同じピンクに」）
+        var ringM = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.FindAssets("Goal_Ring t:Material").Select(AssetDatabase.GUIDToAssetPath).First(pp => pp.EndsWith("/Goal_Ring.mat")));
         var ringR = Mesh(ringT, "RingMesh", SaveGenMesh(Torus(0.85f, 0.085f, 48, 14), "Chill_Ring"), new[] { ringM }, Vector3.zero).GetComponent<MeshRenderer>();
         var cr = UdonSharpUndo.AddComponent<FuwaChillRing>(ringT.gameObject); cr.ring = ringR;
         var fxSrc = RootGo("FuwaCourse5").transform.Find("Goal/GoalFx");

@@ -16,6 +16,8 @@ public class FuwaReadMarks : UdonSharpBehaviour
     public Transform[] signs;
     [Tooltip("この距離(m)まで近づいたら読んだことにする")]
     public float readDistance = 3.2f;
+    [Tooltip("この枚数先までの看板を読んだら、間の看板も読んだことにする（それより先なら、読んだその1枚だけ）")]
+    public int maxSkip = 2;
     // 跳ねる（2026-10-12 てじゃ「ふわんふわんじゃなくて、もうちょい跳ねる感じ」）：
     // ぴょんっと跳んで（上がる・落ちる時は縦にのびる）、着地でむにっとつぶれて、また跳ぶ
     [Tooltip("跳ぶ高さ(m)")]
@@ -67,13 +69,19 @@ public class FuwaReadMarks : UdonSharpBehaviour
             Vector3 d = me - sg.position; d.y = 0f;
             if (d.sqrMagnitude > readDistance * readDistance) continue;
             if (Vector3.Dot(d, -sg.forward) <= 0f) continue;   // 文字の読める側にいる
-            for (int j = _next; j <= i; j++)
+            // 少し先（maxSkip 枚まで）の看板を読んだ時だけ、間の看板も読んだことにする。
+            // ずっと先の看板（ワープで本番のスタートへ飛んだ時の「キノコを撃ってスタート」など）を読んでも、その1枚だけ
+            //（2026-10-12 てじゃ「赤矢印全部消えてる」：チュートリアルを飛ばして本番のスタートの看板を読むと、全部読んだことになっていた）
+            int from = i - _next <= maxSkip ? _next : i;
+            for (int j = from; j <= i; j++)
             {
                 if (_read[j]) continue;
                 _read[j] = true; _goneAt[j] = Time.time;
                 if (j < i && marks[j] != null) marks[j].gameObject.SetActive(false);   // 飛ばした看板のはすぐ消す
             }
+            if (from != _next) { if (marks[i] != null) marks[i].gameObject.SetActive(false); continue; }   // 離れた1枚だけ読んだ：今の▼はそのまま
             _next = i + 1;
+            while (_next < marks.Length && _read[_next]) _next++;   // 先に読んであった看板は飛ばす
             if (_next < marks.Length && marks[_next] != null) { marks[_next].gameObject.SetActive(true); marks[_next].localScale = Vector3.zero; _goneAt[_next] = -Time.time; }
         }
         for (int i = 0; i < marks.Length; i++)

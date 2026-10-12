@@ -10,17 +10,18 @@ public class FuwaChillRing : UdonSharpBehaviour
     public Renderer ring;
     public ParticleSystem[] fireworks;
     public AudioSource sfx;
-    public Color glowColor = new Color(1f, 0.85f, 0.35f, 1f);
+    [Tooltip("光らせる強さ（リングのマテリアルの _Glow。コースのゴールリング FuwaCourse/GoalRing と同じ）")]
+    public float glowMax = 1f;
     public float glowSeconds = 1.2f;
     public float cooldown = 1.5f;
 
     private float _last = -10f;
     private Material _mat;
-    private Color _baseEmission;
+    private float _baseGlow;
 
     private void Start()
     {
-        if (ring != null) { _mat = ring.material; _baseEmission = _mat.GetColor("_EmissionColor"); }
+        if (ring != null) { _mat = ring.material; _baseGlow = _mat.GetFloat("_Glow"); }
     }
 
     private void OnTriggerEnter(Collider other)
@@ -39,6 +40,6 @@ public class FuwaChillRing : UdonSharpBehaviour
         float t = (Time.time - _last) / glowSeconds;
         if (t > 1.2f) return;
         float k = t < 0f || t > 1f ? 0f : Mathf.Sin(t * Mathf.PI) * (0.6f + 0.4f * Mathf.Cos(t * 30f));
-        _mat.SetColor("_EmissionColor", Color.Lerp(_baseEmission, glowColor, k));
+        _mat.SetFloat("_Glow", Mathf.Lerp(_baseGlow, glowMax, k));
     }
 }

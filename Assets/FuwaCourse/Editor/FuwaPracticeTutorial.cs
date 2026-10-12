@@ -1030,7 +1030,7 @@ public static class FuwaPracticeTutorial
             At(pts, dist, S(lastWall + 2.2f), out var c, out var f);
             Vector3 outw = new Vector3(f.z, 0, -f.x);
             MakeSign(root, c + outw * (HalfW - 0.35f), (f + outw * 0.45f).normalized,
-                "<size=130%><color=#FF6B5C>ここからが本番！</color></size>\nゴールリングまで運んでみよう\nアウトしたら、キノコか\nチェックポイントからやり直し\nほかのコースには、もっと\nいろんなしかけがあるよ",
+                "<size=130%><color=#FF6B5C>ここからが本番！</color></size>\nゴールリングまで運んでみよう\nアウトになったら、キノコか\nチェックポイントからやり直し\nほかのコースには、もっと\nいろんなしかけがあるよ",
                 "<size=130%><color=#FF6B5C>Here we go!</color></size>\nCarry it to the goal ring\nIf it's out, you restart from\nthe mushroom or the checkpoint\nThe other courses have\nlots more tricks", signSrc, lang, "Sign_MoreTricks");
         }
         // キノコの島：キノコの左横に小さい看板「キノコを撃ってスタート！」（本番の看板に入りきらないので。2026-10-08 てじゃ）。銃の台は右前なので左に
