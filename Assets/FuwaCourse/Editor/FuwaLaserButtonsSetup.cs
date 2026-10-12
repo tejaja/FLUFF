@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 // クリック（Interact）で押していた物に、ほかのUIと同じレーザーで押すボタンを付ける（2026-10-12 てじゃ「押すもの全部レーザー式に」「距離とかも」）。
-// ・エアガンの台：台の手前（プレイヤーの立つ側）に「エアガンを呼ぶ」→ FuwaGunStand.Summon。台のクリックは止める（laserOnly）
+// ・エアガンの台：ボタンは付けない。台そのもののクリック（Interact）で呼ぶ（2026-10-12 てじゃ「台をインタラクトのはずだった」）。前に付けたボタンは消して laserOnly を切る
 // ・入口の裏の島のアバター見本：看板の下に「このアバターになる」→ FuwaAvatarSwitch.Use
 // 近くに来た時だけ押せるのは FuwaUiProximity（ビルド前に自動で登録し直す）。何度実行してもよい（前のボタンは消して作り直す）
 public static class FuwaLaserButtonsSetup
@@ -20,17 +20,8 @@ public static class FuwaLaserButtonsSetup
             var parent = gs.transform.parent;
             string bn = gs.name + "_LaserButton";
             var old = parent.Find(bn); if (old != null) Object.DestroyImmediate(old.gameObject);
-            // プレイヤーの立つ側（PlayerSpot がなければ台の前）へ少し出して、腰の高さ。表をプレイヤーへ
-            var spot = parent.Find("PlayerSpot");
-            Vector3 toward = spot != null ? spot.position - gs.transform.position : gs.transform.forward;
-            toward.y = 0f; toward = toward.sqrMagnitude > 0.0001f ? toward.normalized : Vector3.forward;
-            var pos = gs.transform.position + toward * 0.45f + Vector3.up * 0.12f;
-            var t = FuwaChillRoomBuilder.LaserButton(parent, bn, pos, Quaternion.LookRotation(-toward), 1.0f, "エアガンを呼ぶ", gs, "Summon");
-            t.transform.parent.parent.parent.localScale *= 0.8f;
-            Lang(t, "エアガンを呼ぶ", "Summon air gun");
-            var so = new SerializedObject(gs); so.FindProperty("laserOnly").boolValue = true; so.ApplyModifiedPropertiesWithoutUndo();
+            var so = new SerializedObject(gs); so.FindProperty("laserOnly").boolValue = false; so.ApplyModifiedPropertiesWithoutUndo();
             UdonSharpEditorUtility.CopyProxyToUdon(gs);
-            n++;
         }
         foreach (var av in Object.FindObjectsOfType<FuwaAvatarSwitch>(true))
         {

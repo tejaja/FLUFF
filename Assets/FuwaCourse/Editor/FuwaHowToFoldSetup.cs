@@ -23,18 +23,18 @@ public static class FuwaHowToFoldSetup
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         foreach (var n in new[] { "FoldTitle", "FoldOpen", "FoldClose" }) { var o = h.Find(n); if (o != null) Object.DestroyImmediate(o.gameObject); }
 
-        // 本文の古い案内（台をクリック → 台の前のボタン）
+        // 本文の台の案内は「台をクリック」（台のボタンはやめた。2026-10-12 てじゃ）
         string ja0 = "台をクリックで台に戻る", ja1 = "台の前のボタンでも呼べる";
         string en0 = "Click a stand to call it there", en1 = "Or use the button by a stand";
-        body.text = body.text.Replace(ja0, ja1); EditorUtility.SetDirty(body);
+        body.text = body.text.Replace(ja1, ja0); EditorUtility.SetDirty(body);
         if (lang != null)
         {
             int i = System.Array.IndexOf(lang.texts, body);
             if (i >= 0)
             {
                 var so = new SerializedObject(lang);
-                var pj = so.FindProperty("ja").GetArrayElementAtIndex(i); pj.stringValue = pj.stringValue.Replace(ja0, ja1);
-                var pe = so.FindProperty("en").GetArrayElementAtIndex(i); pe.stringValue = pe.stringValue.Replace(en0, en1);
+                var pj = so.FindProperty("ja").GetArrayElementAtIndex(i); pj.stringValue = pj.stringValue.Replace(ja1, ja0);
+                var pe = so.FindProperty("en").GetArrayElementAtIndex(i); pe.stringValue = pe.stringValue.Replace(en1, en0);
                 so.ApplyModifiedPropertiesWithoutUndo(); UdonSharpEditorUtility.CopyProxyToUdon(lang);
             }
         }

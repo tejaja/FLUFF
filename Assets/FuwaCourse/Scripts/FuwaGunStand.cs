@@ -48,8 +48,8 @@ public class FuwaGunStand : UdonSharpBehaviour
         if (marker.activeSelf != show) marker.SetActive(show);
     }
 
-    [Tooltip("オンなら、台そのもののクリックはやめて、そばのレーザーボタン（Summon を呼ぶ）だけで呼ぶ（2026-10-12 てじゃ「押すもの全部レーザー式に」）")]
-    public bool laserOnly = true;
+    [Tooltip("オンなら、台そのもののクリックはやめて、そばのレーザーボタン（Summon を呼ぶ）だけで呼ぶ（台はクリックで呼ぶことになったので今はオフ。2026-10-12 てじゃ「台をインタラクトのはずだった」）")]
+    public bool laserOnly = false;
 
     public override void Interact() { Summon(); }
 
