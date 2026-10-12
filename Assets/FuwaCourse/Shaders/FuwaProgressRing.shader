@@ -11,6 +11,7 @@ Shader "FuwaCourse/ProgressRing"
         _Outer ("Outer Radius (0-0.5)", Range(0, 0.5)) = 0.47
         _Start ("Start Angle (0-1)", Range(0, 1)) = 0
         _Soft ("Soft Glow (0=sharp band)", Range(0, 1)) = 0
+        [Enum(UnityEngine.Rendering.CompareFunction)] _ZTest ("ZTest（Always＝物に隠れない。目の前のゲージ用）", Float) = 4
     }
     SubShader
     {
@@ -19,6 +20,7 @@ Shader "FuwaCourse/ProgressRing"
         {
             Blend SrcAlpha OneMinusSrcAlpha
             ZWrite Off
+            ZTest [_ZTest]
             Cull Off
             CGPROGRAM
             #pragma vertex vert

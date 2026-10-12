@@ -28,6 +28,10 @@ public static class FuwaPortalGaugeSetup
                 mat.renderQueue = 3020;   // 幕（Transparent+10）より手前に
                 AssetDatabase.CreateAsset(mat, MatPath);
             }
+            // 物に隠れないように、一番手前に描く（2026-10-12 てじゃ「ものに隠れちゃうときあるから表示を優先して」）
+            mat.SetFloat("_ZTest", (float)UnityEngine.Rendering.CompareFunction.Always);
+            mat.renderQueue = 3900;   // 幕・雲・粒などの半透明よりもあと
+            EditorUtility.SetDirty(mat);
             var parent = w.transform.parent;
             var old = parent.Find(w.name + "_Gauge"); if (old != null) Object.DestroyImmediate(old.gameObject);
             var q = GameObject.CreatePrimitive(PrimitiveType.Quad);
