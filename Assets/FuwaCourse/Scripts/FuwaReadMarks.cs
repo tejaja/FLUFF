@@ -21,9 +21,9 @@ public class FuwaReadMarks : UdonSharpBehaviour
     [Tooltip("跳ぶ高さ(m)")]
     public float hopHeight = 0.28f;
     [Tooltip("空中にいる秒数")]
-    public float hopTime = 0.46f;
+    public float hopTime = 0.56f;   // てじゃ「もうちょっぴり遅く」で 0.46→0.56
     [Tooltip("着地してつぶれている秒数")]
-    public float landTime = 0.2f;
+    public float landTime = 0.24f;
     [Tooltip("着地でつぶれる強さ")]
     public float squish = 0.3f;
     [Tooltip("跳ぶ・落ちる時に縦にのびる強さ")]
