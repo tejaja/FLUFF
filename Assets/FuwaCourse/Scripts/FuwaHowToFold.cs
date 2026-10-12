@@ -23,6 +23,8 @@ public class FuwaHowToFold : UdonSharpBehaviour
     public GameObject whenOpen;
     [Tooltip("たたんだ時の板の高さ（Panel の size.y）")]
     public float closedHeight = 0.62f;
+    [Tooltip("ふち（Border）の拡大率")]
+    public float borderScale = 1.28f;
     [Tooltip("見出しの位置：たたんだ時（板のまん中）と開いた時（本文の見出しの所）。看板のローカルの y")]
     public float titleClosedY = 1.96f;
     public float titleOpenY = 3.556f;
@@ -78,7 +80,8 @@ public class FuwaHowToFold : UdonSharpBehaviour
         float e = _p >= 1f ? 1f : (_p <= 0f ? 0f : 1f - Mathf.Pow(1f - _p, 3f) + 0.08f * Mathf.Sin(_p * Mathf.PI));
         float k = Mathf.Lerp(closedHeight / Mathf.Max(0.01f, _panelFull), 1f, e);
         if (panel != null) panel.size = new Vector2(panel.size.x, _panelFull * k);
-        if (border != null) border.size = new Vector2(border.size.x, _borderFull * k);
+        // ふちは板より一回り大きいだけ（ふちの太さを上下左右そろえる。比で縮めると上下だけ細くなって変な形だった。2026-10-12 てじゃ）
+        if (border != null) border.size = new Vector2(border.size.x, _borderFull - _panelFull * (1f - k) / Mathf.Max(0.01f, borderScale));
         // 見出し：前半で上へ動く。本文：後半でふわっと出る（出きったら見出しは本文の見出しと入れ替わる）
         float mv = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(_p / 0.85f));
         float fade = _target > 0.5f ? (_p >= 1f ? Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((Time.time - _openedAt) / fadeIn)) : 0f) : Mathf.Clamp01((_p - 0.7f) / 0.3f);   // 開く時は伸びきってからふわっと、閉じる時はすぐ消える

@@ -114,7 +114,7 @@ public static class FuwaHowToFoldSetup
         fold.panel = panel; fold.border = border; fold.body = body; fold.title = title; fold.language = lang;
         fold.titleT = title.transform; fold.titleGo = title.gameObject; fold.bodyGo = body.gameObject;
         fold.whenClosed = open; fold.whenOpen = close;
-        fold.closedHeight = ClosedH; fold.titleClosedY = CenterY; fold.titleOpenY = TitleOpenY;
+        fold.closedHeight = ClosedH; fold.borderScale = border.transform.localScale.y; fold.titleClosedY = CenterY; fold.titleOpenY = TitleOpenY;
         UdonSharpEditorUtility.CopyProxyToUdon(fold);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(fold); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
         // 消した文字の言語登録（null）を詰める
