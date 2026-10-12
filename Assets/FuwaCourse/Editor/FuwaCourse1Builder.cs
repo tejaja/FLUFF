@@ -378,18 +378,20 @@ public static class FuwaCourse1Builder
         }
 
         // 2. 横風：左に吹くゾーン → 右に吹くゾーン（交互ではなく場所で分ける。粒の色も分ける）
-        var crossDefs = new[] { ("G2_CrossLeft", CrossL, -1f, 0f), ("G3_CrossRight", CrossR, 1f, 1.5f) };
-        foreach (var (name, sc, dir, phase) in crossDefs)
+        // 箱の範囲（風に直角 x0〜x1、風の向き z0〜z1、箱のローカルのm）。風下の芝の張り出し（FuwaCourse1Shoulders）の端まで風が届くように広げた（2026-10-12 てじゃ「芝のとちゅうで切れてるのやだ」）
+        var crossDefs = new[] { ("G2_CrossLeft", CrossL, -1f, 0f, -5.0f, 6.2f, 8.5f), ("G3_CrossRight", CrossR, 1f, 1.5f, -4.0f, 4.4f, 6.7f) };
+        foreach (var (name, sc, dir, phase, x0, x1, z1) in crossDefs)
         {
             var g = Dup(tplCross, holder, name).transform;
             g.localPosition = P(0, sc, 0, 0) + Vector3.down * Top;
             g.localRotation = R(sc);
             // 斜め前への風（横に流しつつ前へ運ぶ）。風の当たる箱そのものを風の向きに傾けて、まっすぐ吹かせる
             //（道に沿った箱で斜めに吹かせると、箱の角で風が切れて「はしで風の影響がない」所ができる）
-            const float CrossW = 6.6f, CrossL2 = 12f;   // 風に直角の幅（道に沿って約8m分）、風の向きの長さ（道を横切る＋はみ出し）
+            // もとは幅 6.6（道に沿って約8m分）×長さ 12（-6〜6）の真ん中そろえ
+            float CrossW = x1 - x0, CrossL2 = z1 + 6f;   // 風に直角の幅、風の向きの長さ（道を横切る＋はみ出し）
             var zone = g.Find("CrossWind");
             var wdir = new Vector3(dir * 0.8f, 0, 0.6f).normalized; var zrot = Quaternion.LookRotation(wdir);
-            var zc = new Vector3(0f, 5.5f, 0.18f * CrossLen);
+            var zc = new Vector3(0f, 5.5f, 0.18f * CrossLen) + zrot * new Vector3((x0 + x1) * 0.5f, 0f, (z1 - 6f) * 0.5f);
             zone.localPosition = zc; zone.localRotation = zrot; zone.localScale = new Vector3(CrossW, 5f, CrossL2);
             var zbox = zone.GetComponent<BoxCollider>(); zbox.center = Vector3.zero; zbox.size = Vector3.one;
             var w = zone.GetComponent<FuwaWindArea>();
