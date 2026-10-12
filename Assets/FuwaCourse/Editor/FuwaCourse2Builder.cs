@@ -196,6 +196,8 @@ public static class FuwaCourse2Builder
         string planks = BuildRampPlanks(root, toCourse);
         // 溝の出口側は道の始まりを切り取って崩れた端（JagExit）にしているので、作り直したら必ずやり直す（忘れると同じ高さで重なってZファイト。2026-10-07）
         string jag = FuwaGrooveEdges.Run();
+        // ※頂上の柱ゾーン手前の崩落の切れ目（FuwaCourse2Collapse）と頂上の温泉ぶんの削り（FuwaIwaIslands.ApplySummitCut）は、
+        //   Meshes/Backup/*_PreSpringCut から作っている。道を作り直したら、そのバックアップを消して ApplySummitCut をやり直すこと（2026-10-12 切れ目が消えていた）
         return "Course2 path rebuilt: verts " + vis.vertexCount + " / " + planks + " / " + jag;
     }
 
