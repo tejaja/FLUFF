@@ -15,8 +15,12 @@ public static class FuwaChillRoomBuilder
     static readonly Vector3 Offset = new Vector3(0f, 0f, 65f);   // 古いみんなでロビーからの島の位置（協力の試作と同じ）
     const int Pool = 10;
     const float MushScale = 1.8f;               // 待っている玉は見えないので、巨大（1.4）が隠れなくてもよい（3倍は大きすぎた。てじゃ「キノコデカいままかも」）
-    static readonly Vector3 MushLocal = new Vector3(0f, 0f, 2f);
-    static readonly Vector3 PanelLocal = new Vector3(-4.6f, 0f, -0.6f);   // スイッチ（キノコの左手前）
+    // 配置（2026-10-12 てじゃ「真ん中にキノコ、右奥にデカソファでモニタを眺めるエリア、左奥にフワフワギミックエリア（未定）」）。スポーンは手前（-Z）
+    static readonly Vector3 MushLocal = new Vector3(0f, 0f, 0f);          // 島の真ん中
+    static readonly Vector3 PanelLocal = new Vector3(-2.9f, 0f, -2.0f);   // スイッチ（キノコの左手前、スポーンの方を向く）
+    static readonly Vector3 LivingLocal = new Vector3(5.3f, 0f, 5.3f);    // 右奥の観戦リビング（ラグの中心）
+    static readonly Vector3 HowToLocal = new Vector3(-5.6f, -0.12f, -6.4f);   // 遊び方の看板（スポーンの左前）
+    // 左奥（-5.5, 0, 5.5）あたりはギミック用に空けておく
 
     [MenuItem("FuwaCourse/みんなで/チルルームを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
@@ -134,10 +138,17 @@ public static class FuwaChillRoomBuilder
         UdonSharpEditorUtility.CopyProxyToUdon(sp);
         var sub = UdonSharpEditorUtility.GetBackingUdonBehaviour(sp); if (sub != null) { sub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(sub); }
 
-        if (howTo != null) SetHowToText(howTo.Find("Text").GetComponent<TMPro.TextMeshPro>());
+        if (howTo != null)
+        {
+            SetHowToText(howTo.Find("Text").GetComponent<TMPro.TextMeshPro>());
+            var hp = ac + HowToLocal; var hd = hp - look; hd.y = 0f;
+            howTo.position = hp; howTo.rotation = Quaternion.LookRotation(hd.normalized);   // 表（-Z）をスポーンへ
+        }
 
         // 観戦モニター（ひとりでのロビーの写真館のモニターと、CAM・人物ボタンをコピー。2026-10-12 てじゃ「こっちでも観戦できる」）
-        log.Add(Monitor(root, new Vector3(ac.x, floorY, ac.z) + MonitorLocal, look));
+        // テレビは観戦リビングの奥（島のふち側）、ソファの方を向く
+        Vector3 L = new Vector3(ac.x, floorY, ac.z) + LivingLocal, dirL = new Vector3(LivingLocal.x, 0f, LivingLocal.z).normalized;
+        log.Add(Monitor(root, L + dirL * 2.9f, L - dirL * 1.7f));
         log.Add(Decorate(root, ac, floorY, root.Find("Monitor")));
 
         // 落ちた人の戻し：島の下の大きな板（FuwaLobbyFall）→ スポーンへ（見えないワープ）
@@ -169,14 +180,15 @@ public static class FuwaChillRoomBuilder
     // 家具は Blender（FLUFF_models.blend の ChillRoom シーン）→ Models/ChillRoomProps.fbx。Blender の正面（-Y）が Unity の +Z
     const string PropsPath = "Assets/FuwaCourse/Models/ChillRoomProps.fbx";
     const string MatDir = "Assets/FuwaCourse/Materials/Chill";
-    static readonly Vector3 RugLocal = new Vector3(0f, 0f, 2f);   // 真ん中の円（キノコと同じ中心）
 
     static string Decorate(Transform root, Vector3 ac, float floorY, Transform monitorHolder)
     {
         if (!AssetDatabase.IsValidFolder(MatDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Materials", "Chill");
         var meshes = AssetDatabase.LoadAllAssetsAtPath(PropsPath).OfType<Mesh>().ToDictionary(m => m.name);
         var deco = new GameObject("Deco").transform; deco.SetParent(root, false);
-        Vector3 C = new Vector3(ac.x, floorY, ac.z) + RugLocal;
+        Vector3 C = new Vector3(ac.x, floorY, ac.z) + LivingLocal;            // 観戦リビングの真ん中
+        Vector3 dir = new Vector3(LivingLocal.x, 0f, LivingLocal.z).normalized; // リビングの奥（テレビの方）
+        Vector3 perp = new Vector3(dir.z, 0f, -dir.x);
 
         // 床は芝に（ふちの輪は濃い芝）
         var grass = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Goal_Ground.mat");
@@ -206,22 +218,23 @@ public static class FuwaChillRoomBuilder
         }
         Quaternion Face(Vector3 from, Vector3 to) { var d = to - from; d.y = 0f; return Quaternion.LookRotation(d.normalized); }
 
-        // ラグ（床と同じレイヤー＝ふわふわが落ちたらはじける床として扱う）
-        Put("Chill_Rug", rugM, C + Vector3.up * 0.002f, Quaternion.identity, true, floorLayer);
-        // 雲のソファ：円の奥、キノコの方を向く（ソファの正面は +Z、弧の中心は前 4m）
-        var sofaPos = C + new Vector3(0f, 0f, 4.3f);
-        Put("Chill_CloudSofa", cloud, sofaPos, Face(sofaPos, C), true);
-        // ビーズクッション
-        var beanPos = new[] { new Vector3(-3.0f, 0f, 2.7f), new Vector3(3.0f, 0f, 2.7f), new Vector3(-3.4f, 0f, 1.0f), new Vector3(3.5f, 0f, 0.4f) };
+        // ラグ（床と同じレイヤー＝ふわふわが落ちたらはじける床として扱う）。リビングの広さに合わせて少し小さく
+        var rugG = Put("Chill_Rug", rugM, C + Vector3.up * 0.002f, Quaternion.identity, true, floorLayer);
+        rugG.transform.localScale = new Vector3(0.8f, 1f, 0.8f);
+        // 雲のソファ：リビングの手前側、テレビの方を向く（ソファの正面は +Z、弧の中心は前 4m＝テレビのあたり）
+        var sofaPos = C - dir * 1.7f;
+        Put("Chill_CloudSofa", cloud, sofaPos, Face(sofaPos, C + dir * 3f), true);
+        // ビーズクッション：ソファの両わき2つと、テレビ寄りの両わき2つ（テレビの方を向く）
+        var beanPos = new[] { C - dir * 0.9f - perp * 2.6f, C - dir * 0.9f + perp * 2.6f, C + dir * 0.9f - perp * 2.3f, C + dir * 0.9f + perp * 2.3f };
         for (int i = 0; i < beanPos.Length; i++)
         {
-            var p = C + beanPos[i];
-            Put("Chill_Beanbag", bean[i], p, Face(p, C) * Quaternion.Euler(0f, (i % 2 == 0 ? 12f : -12f), 0f), true, 0, "Beanbag" + i);
+            var p = beanPos[i];
+            Put("Chill_Beanbag", bean[i], p, Face(p, C + dir * 3f) * Quaternion.Euler(0f, (i % 2 == 0 ? 12f : -12f), 0f), true, 0, "Beanbag" + i);
         }
-        // キノコのランプ（ソファの両脇と、スイッチの奥）
-        foreach (var lp in new[] { new Vector3(-2.6f, 0f, 4.9f), new Vector3(2.6f, 0f, 4.9f), new Vector3(-5.4f, 0f, 1.6f) })
+        // キノコのランプ：ソファの後ろの両わき
+        foreach (var lp in new[] { C - dir * 2.7f - perp * 2.3f, C - dir * 2.7f + perp * 2.3f })
         {
-            var lamp = new GameObject("Lamp").transform; lamp.SetParent(deco, false); lamp.position = C + lp;
+            var lamp = new GameObject("Lamp").transform; lamp.SetParent(deco, false); lamp.position = lp;
             var s = Put("Chill_LampStem", stemM, lamp.position, Quaternion.identity, false); s.transform.SetParent(lamp, true);
             var c = Put("Chill_LampCap", capM, lamp.position, Quaternion.identity, false); c.transform.SetParent(lamp, true);
             var col = lamp.gameObject.AddComponent<CapsuleCollider>(); col.center = new Vector3(0f, 0.65f, 0f); col.height = 1.3f; col.radius = 0.14f;
@@ -291,7 +304,6 @@ public static class FuwaChillRoomBuilder
         return m;
     }
 
-    static readonly Vector3 MonitorLocal = new Vector3(4.6f, 0f, -0.6f);   // キノコの右手前（スイッチの反対側）
 
     // 写真館のモニター・CAMボタン・人物ボタンを、モニターとの位置関係のままコピーして pos に置く（表をスポーンの方へ）。FuwaFollowCam に登録
     static string Monitor(Transform root, Vector3 pos, Vector3 look)
