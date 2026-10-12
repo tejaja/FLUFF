@@ -28,10 +28,17 @@ public static class FuwaCoopTestBuilder
     public static string Run()
     {
         var log = new List<string>();
-        var lobby = GameObject.Find(LobbyName).transform;
+        // 2026-10-12 てじゃ「みんなでワープ→小さい待機ロビーここ、って構造に。デカいロビーやたいせんコースは不要」：
+        // この島をみんなでの待機ロビー兼スタートにする。入れ物は新しいルート FuwaCoop（エリアの表示切り替えの versus はこれだけ）。
+        // 古いみんなでロビー（FuwaVersusLobby：色ゴールの会場・チーム分けの台つき）は非表示にして残す（島・キノコ・ふわふわのコピー元）
+        var roots = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+        var lobby = roots.First(g => g.name == LobbyName).transform;
         Vector3 lc = lobby.position, ac = lc + Offset;
-        var old = lobby.Find("CoopTest"); if (old != null) Object.DestroyImmediate(old.gameObject);
-        var root = new GameObject("CoopTest").transform; root.SetParent(lobby, false); root.position = ac;
+        var coopGo = roots.FirstOrDefault(g => g.name == "FuwaCoop");
+        if (coopGo == null) { coopGo = new GameObject("FuwaCoop"); }
+        var coop = coopGo.transform; coop.position = ac; coop.rotation = Quaternion.identity; coop.localScale = Vector3.one;
+        foreach (var o in new[] { lobby.Find("CoopTest"), coop.Find("CoopTest"), lobby.Find("ToCoopTest") }) if (o != null) Object.DestroyImmediate(o.gameObject);
+        var root = new GameObject("CoopTest").transform; root.SetParent(coop, false); root.position = ac;
 
         // 島
         foreach (var n in new[] { "VersusFloor", "VersusRing", "IslandUnder" })   // 落ちた時の戻しはコース用に別に作る（ロビーの FallReturn はロビーへ戻す）
@@ -61,7 +68,7 @@ public static class FuwaCoopTestBuilder
         so.FindProperty("shotScale").floatValue = 0.3f;             // FuwaCoopGiant が人数で書き換える
         so.FindProperty("releasePush").floatValue = 1.2f;           // キノコから出る時も重め
         so.FindProperty("releaseUp").floatValue = 1.6f;
-        so.FindProperty("fallLimit").floatValue = 8f;
+        so.FindProperty("fallLimit").floatValue = 2.5f;   // 道から落ちたらすぐキノコへ（ゆっくり落ちるので 8m だと待たされた。てじゃ「落ちてもアウトにならん」）
         so.FindProperty("arenaCenter").objectReferenceValue = null;
         so.FindProperty("arenaRadius").floatValue = 0f;
         so.ApplyModifiedPropertiesWithoutUndo(); Sync(giant);
@@ -89,7 +96,7 @@ public static class FuwaCoopTestBuilder
         Object.DestroyImmediate(disc.GetComponent<Collider>());
         disc.transform.SetParent(goal, false); disc.transform.localPosition = Vector3.up * 0.02f; disc.transform.localScale = new Vector3(4.4f, 0.01f, 4.4f);
         disc.GetComponent<MeshRenderer>().sharedMaterial = GoalMat();
-        var flag = GameObject.Find("FuwaCourse2").transform.Find("Goal");   // 旗の代わりにゴールの花火を借りる
+        var flag = RootGo("FuwaCourse2").transform.Find("Goal");   // 旗の代わりにゴールの花火を借りる
         ParticleSystem fx = null;
         var fxSrc = flag != null ? flag.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "GoalFx") : null;
         if (fxSrc != null) { var f = Object.Instantiate(fxSrc.gameObject, goal, false); f.name = "GoalFx"; f.transform.localPosition = Vector3.up * 0.5f; fx = f.GetComponentInChildren<ParticleSystem>(true); }
@@ -102,16 +109,32 @@ public static class FuwaCoopTestBuilder
         board.transform.localPosition = Vector3.zero; board.transform.localRotation = Quaternion.identity;
         board.text = "みんなで運ぼう";
 
-        // ワープ：ロビー → 島、島 → ロビー
-        var spawn = new GameObject("CoopSpawn").transform; spawn.SetParent(root, false);
+        // スポーン（入口の島のみんなでワープの行き先。作り直しても消えないよう FuwaCoop の直下）
+        var spawn = coop.Find("CoopSpawn"); if (spawn == null) { spawn = new GameObject("CoopSpawn").transform; spawn.SetParent(coop, false); }
         spawn.position = new Vector3(ac.x, floorY + 0.05f, ac.z - 10f); spawn.rotation = Quaternion.LookRotation(Vector3.forward);
-        var gunSpot = new GameObject("CoopGunSpot").transform; gunSpot.SetParent(root, false);
-        gunSpot.position = spawn.position + new Vector3(1.0f, 1.0f, 0.8f);
-        var toSolo = lobby.Find("ToSolo");
-        var versusSpawn = lobby.Find("VersusSpawn");
-        var wGo = MakeWarp(toSolo, lobby, "ToCoopTest", toSolo.position + new Vector3(-1.6f, 0f, -3.2f), spawn, gunSpot, "協力（試作）", "Co-op (test)");
-        var vGun = toSolo.GetComponentInChildren<FuwaCourseWarp>(true).gunSpot;
-        var back = MakeWarp(toSolo, root, "BackToVersus", new Vector3(ac.x - 2.5f, toSolo.position.y - lc.y + ac.y, ac.z - 11.5f), versusSpawn, vGun, "もどる", "Back");
+        // 古いみんなでロビーから、エアガンの台・入口へ戻るワープ・ひとりでへのワープを島へ引っ越し（参照・言語の登録はそのまま）
+        Transform Move(string n, Vector3 local, float yaw)
+        {
+            var t = coop.Find(n) ?? lobby.Find(n); if (t == null) return null;
+            t.SetParent(coop, true);
+            t.position = spawn.position + Quaternion.Euler(0f, spawn.eulerAngles.y, 0f) * local; t.rotation = Quaternion.Euler(0f, yaw, 0f);
+            return t;
+        }
+        var stand = Move("GunStand_Versus", new Vector3(2.4f, 0.4f, 1.6f), 0f);
+        var marker = coop.Find("GunStand_Versus_Marker") ?? lobby.Find("GunStand_Versus_Marker");
+        if (marker != null && stand != null) { marker.SetParent(coop, true); marker.position = stand.position + Vector3.up * 0.3f; }
+        var toHub = Move("ReturnToHub", new Vector3(-4.5f, 0.07f, -1.2f), 90f);
+        var toSolo = Move("ToSolo", new Vector3(-4.5f, 0.07f, 2.2f), 90f);
+        var gunSpot = stand != null ? stand.Find("GunSpot") : spawn;
+        // 入口の島の「みんなで」ワープと、ひとりでのロビーの「みんなでへ」ワープの行き先をこの島に
+        foreach (var w in Object.FindObjectsOfType<FuwaCourseWarp>(true))
+            if (w.name == "VersusGate_Trigger" || w.name == "ToVersus_Trigger") { SetU(w, "playerSpot", spawn); SetU(w, "gunSpot", gunSpot); Sync(w); }
+        // エリアの表示切り替え：みんなで＝この島だけ。古いロビーと試合の係は止める
+        var av = Object.FindObjectsOfType<FuwaAreaVisibility>(true).FirstOrDefault();
+        if (av != null) { var aso = new SerializedObject(av); var vp = aso.FindProperty("versusObjects"); vp.arraySize = 1; vp.GetArrayElementAtIndex(0).objectReferenceValue = coopGo; aso.ApplyModifiedPropertiesWithoutUndo(); Sync(av); }
+        lobby.gameObject.SetActive(false);
+        var match = Object.FindObjectsOfType<FuwaMatch>(true).FirstOrDefault(); if (match != null) match.gameObject.SetActive(false);
+        var back = toHub;
 
         // 動かす係
         var holder = new GameObject("CoopGiant"); holder.transform.SetParent(root, false);
@@ -124,14 +147,15 @@ public static class FuwaCoopTestBuilder
         }
         var cg = UdonSharpUndo.AddComponent<FuwaCoopGiant>(holder);
         var countC = new GameObject("CountCenter").transform; countC.SetParent(root, false); countC.position = ac + new Vector3(0f, 0f, 30f);
-        cg.giant = giant; cg.arenaCenter = countC; cg.arenaRadius = 60f;   // 島とコース全体 cg.goal = goal; cg.goalFx = fx; cg.board = board;
+        cg.giant = giant; cg.arenaCenter = countC; cg.arenaRadius = 60f;   // 人数を数える範囲は島とコース全体
+        cg.goal = goal; cg.goalFx = fx; cg.board = board;
         UdonSharpEditorUtility.CopyProxyToUdon(cg);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(cg);
         if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); }   // ゴールの合図（ネットワークイベント）を受けるため
 
         log.Add(BuildCourse(root, ac, floorY, cg, goalRoot, spawn, gunSpot, back));
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lobby.gameObject.scene);
-        log.Add("coop test at " + ac + " giant " + giantGo.transform.position.ToString("F2") + " warp " + wGo.position.ToString("F1"));
+        log.Add("coop at " + ac + " giant " + giantGo.transform.position.ToString("F2"));
         return string.Join("\n", log);
     }
 
@@ -141,7 +165,7 @@ public static class FuwaCoopTestBuilder
     static string BuildCourse(Transform root, Vector3 ac, float floorY, FuwaCoopGiant cg, Transform goalRoot, Transform spawn, Transform gunSpot, Transform backWarp)
     {
         if (!AssetDatabase.IsValidFolder(MeshDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Coop");
-        var pm = GameObject.Find("FuwaCourse0").transform.Find("PathMesh").GetComponent<MeshRenderer>().sharedMaterials;
+        var pm = RootGo("FuwaCourse0").transform.Find("PathMesh").GetComponent<MeshRenderer>().sharedMaterials;
         Material pathA = pm[0], pathB = pm.Length > 1 ? pm[1] : pm[0];
         var wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
         int envLayer = root.Find("VersusFloor").gameObject.layer;
@@ -176,7 +200,7 @@ public static class FuwaCoopTestBuilder
         }
 
         // 並べる係（同期するので、エリアの表示切り替えで隠れない FuwaSystem の下に）
-        var sys = GameObject.Find("FuwaSystem").transform;
+        var sys = RootGo("FuwaSystem").transform;
         var oldC = sys.Find("CoopCourse"); if (oldC != null) Object.DestroyImmediate(oldC.gameObject);
         var cgo = new GameObject("CoopCourse"); cgo.transform.SetParent(sys, false);
         EnsureProgram("FuwaCoopCourse");
@@ -195,7 +219,7 @@ public static class FuwaCoopTestBuilder
         EnsureProgram("FuwaCoopButton");
         var b = UdonSharpUndo.AddComponent<FuwaCoopButton>(btn); b.course = course; UdonSharpEditorUtility.CopyProxyToUdon(b);
         var bub = UdonSharpEditorUtility.GetBackingUdonBehaviour(b); if (bub != null) { bub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; bub.interactText = "コースを変える"; EditorUtility.SetDirty(bub); }
-        var lblSrc = GameObject.Find("FuwaVersusLobby").transform.Find("HowToPlayVersus/Text").gameObject;
+        var lblSrc = RootGo("FuwaVersusLobby").transform.Find("HowToPlayVersus/Text").gameObject;
         var lbl = Object.Instantiate(lblSrc, btn.transform, false).GetComponent<TMPro.TextMeshPro>();
         lbl.name = "Label"; lbl.transform.localPosition = new Vector3(0f, 0f, -0.6f); lbl.transform.localRotation = Quaternion.identity;
         lbl.transform.localScale = new Vector3(lblSrc.transform.localScale.x / 1.4f, lblSrc.transform.localScale.y / 0.5f, lblSrc.transform.localScale.z / 0.12f) * 0.35f;
@@ -207,7 +231,7 @@ public static class FuwaCoopTestBuilder
         foreach (var cc in fallWarp.GetComponentsInChildren<Collider>(true)) cc.enabled = false;
         foreach (var ps in fallWarp.GetComponentsInChildren<ParticleSystem>(true)) ps.gameObject.SetActive(false);
         var fw = fallWarp.GetComponentInChildren<FuwaCourseWarp>(true); SetU(fw, "playerSpot", spawn); SetU(fw, "gunSpot", gunSpot); Sync(fw);
-        var lobbyFall = GameObject.Find("FuwaVersusLobby").transform.Find("FallReturn").GetComponent<FuwaLobbyFall>();
+        var lobbyFall = RootGo("FuwaVersusLobby").transform.Find("FallReturn").GetComponent<FuwaLobbyFall>();
         var fall = new GameObject("CoopFall"); fall.transform.SetParent(root, false); fall.transform.position = ac + new Vector3(0f, -12f, 30f);
         var fbx = fall.AddComponent<BoxCollider>(); fbx.isTrigger = true; fbx.size = new Vector3(150f, 4f, 150f);
         EnsureProgram("FuwaLobbyFall");
@@ -235,8 +259,8 @@ public static class FuwaCoopTestBuilder
         z.layer = 2;   // Ignore Raycast
         EnsureProgram("FuwaCoopWind");
         var w = UdonSharpUndo.AddComponent<FuwaCoopWind>(z);
-        w.strength = 2.5f; w.onSeconds = 2.5f; w.offSeconds = 2f;
-        var src = GameObject.Find("FuwaCourse2").transform.Find("Gimmick_Tailwind/TailwindParticles");
+        w.strength = 1.2f; w.onSeconds = 2f; w.offSeconds = 2.5f;   // 2.5 だと1人の風では止まった時しか進めず、押し戻される一方だった
+        var src = RootGo("FuwaCourse2").transform.Find("Gimmick_Tailwind/TailwindParticles");
         if (src != null)
         {
             var ps = Object.Instantiate(src.gameObject, z.transform, false); ps.name = "Streaks";
@@ -369,6 +393,7 @@ public static class FuwaCoopTestBuilder
         return m;
     }
 
+    static GameObject RootGo(string n) { return UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == n); }
     static void SetU(Object o, string field, Object v) { var s = new SerializedObject(o); var p = s.FindProperty(field); if (p != null) { p.objectReferenceValue = v; s.ApplyModifiedPropertiesWithoutUndo(); } }
     static void Sync(Object o) { if (o is UdonSharpBehaviour u) UdonSharpEditorUtility.CopyProxyToUdon(u); EditorUtility.SetDirty(o); }
 }

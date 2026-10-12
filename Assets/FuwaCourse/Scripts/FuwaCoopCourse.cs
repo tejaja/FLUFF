@@ -69,6 +69,7 @@ public class FuwaCoopCourse : UdonSharpBehaviour
                 if (pieces[i] == null || used[i]) continue;
                 int t = pieceType[i];
                 if (t == lastType || typeCount[t] >= 2) continue;
+                if (k == 0 && t == 4) continue;   // 1つめが向かい風だと、島から出たとたん押し戻されてコースに入れない（2026-10-12 てじゃ）
                 float h = heading + pieceTurn[i];
                 if (h > 90.5f || h < -90.5f) continue;
                 // 同じ種類のパーツが複数あっても、選ばれやすさは種類ごとに同じに（最初の1つだけ候補にする）
