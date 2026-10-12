@@ -140,6 +140,53 @@ public static class FuwaSignStyle
         return m;
     }
 
+    // 雲：輪郭に沿って丸いこぶを並べる（2026-10-12 てじゃ「もっとふわっと感」→ 雲型の B「大きくゆるい波」に決定。こぶが細かいと「もこもこが強すぎ」）
+    // amp＝こぶの高さ、lambda＝こぶ1個の長さ、shape＝こぶの丸み（1＝半円、小さいほど平たくて谷がとがる）
+    public static List<Vector2> Scallop(List<Vector2> p, float amp, float lambda, float shape)
+    {
+        int n = p.Count; var L = new float[n + 1];
+        for (int i = 0; i < n; i++) L[i + 1] = L[i] + (p[(i + 1) % n] - p[i]).magnitude;
+        float total = L[n]; int bumps = Mathf.Max(6, Mathf.RoundToInt(total / lambda)); float per = total / bumps;
+        var nr = Normals(p); var o = new List<Vector2>(n);
+        for (int i = 0; i < n; i++)
+        {
+            float ph = Mathf.Repeat(L[i] / per, 1f);
+            float b = Mathf.Pow(Mathf.Max(0f, 1f - (2f * ph - 1f) * (2f * ph - 1f)), shape);
+            o.Add(p[i] + nr[i] * amp * b);
+        }
+        return o;
+    }
+
+    // まくら：輪郭から前（-z）と後ろ（+z）の両方にふくらませる。ふちは zc、前の真ん中は zc - front。
+    // 輪郭を幅・高さそれぞれ同じ距離だけ内側へ寄せた輪を重ねる（Cushion と同じ作り）
+    public static Mesh Pillow(List<Vector2> p, float hw, float hh, float zc, float front, float back, float rise, int rings = 18)
+    {
+        int n = p.Count; var V = new List<Vector3>(); var T = new List<int>();
+        float maxIn = Mathf.Min(hw, hh) * 0.985f;
+        for (int side = 0; side < 2; side++)
+        {
+            int b0 = V.Count; float sgn = side == 0 ? -1f : 1f, bul = side == 0 ? front : back;
+            for (int k = 0; k <= rings; k++)
+            {
+                float d = maxIn * (1 - Mathf.Cos(k / (float)rings * Mathf.PI * 0.5f));
+                float q = Mathf.Clamp01(d / rise); float z = zc + sgn * bul * Mathf.Sqrt(1 - (1 - q) * (1 - q));
+                float sx = Mathf.Max(0f, hw - d) / hw, sy = Mathf.Max(0f, hh - d) / hh;
+                for (int i = 0; i < n; i++) V.Add(new Vector3(p[i].x * sx, p[i].y * sy, z));
+            }
+            for (int k = 0; k < rings; k++)
+                for (int i = 0; i < n; i++)
+                {
+                    int a0 = b0 + k * n + i, a1 = b0 + k * n + (i + 1) % n, c0 = a0 + n, c1 = a1 + n;
+                    if (side == 0) T.AddRange(new[] { a0, c0, a1, a1, c0, c1 }); else T.AddRange(new[] { a0, a1, c0, a1, c1, c0 });
+                }
+            int c = V.Count, last = b0 + rings * n; V.Add(new Vector3(0, 0, V[last].z));
+            for (int i = 0; i < n; i++) { if (side == 0) T.AddRange(new[] { last + i, c, last + (i + 1) % n }); else T.AddRange(new[] { last + i, last + (i + 1) % n, c }); }
+        }
+        var m = Finish(V, T, "SignPillow");
+        if (m.normals[(rings + 1) * n].z > 0) Flip(m);   // 前の真ん中が -z を向くように
+        return m;
+    }
+
     static void Flip(Mesh m) { var t = m.triangles; for (int i = 0; i < t.Length; i += 3) { int x = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = x; } m.triangles = t; m.RecalculateNormals(); }
 
     public static GameObject Part(Transform parent, string name, Mesh mesh, Material mat, Vector3 lp)
@@ -206,6 +253,7 @@ public static class FuwaSignStyle
         string key = sign.parent.name + "_" + sign.name + "_" + style;
         var deco = new GameObject("SignDeco").transform; Undo.RegisterCreatedObjectUndo(deco.gameObject, "sign");
         deco.SetParent(sign, false); deco.localPosition = new Vector3(pt.localPosition.x, pt.localPosition.y, 0f); deco.localRotation = pt.localRotation;
+        if (style == "Cloud") return ApplyCloud(sign, deco, pt, bt, hw, hh, pz, pc, bc, key);
         bool a = style.Contains("A"), b = style.Contains("B"), c = style.Contains("C");
         if (a)
         {
@@ -245,6 +293,51 @@ public static class FuwaSignStyle
         EditorUtility.SetDirty(sign.gameObject);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sign.gameObject.scene);
         return sign.parent.name + "/" + sign.name + " -> " + style;
+    }
+
+    // 雲の看板：白い雲（前後にぷくっとふくらむ）＋後ろに一回り大きいコース色の雲（縁どり代わり）
+    // 色の雲は影で暗くならないよう影を弱く（てじゃ「コースの色、影でくらくなる」）
+    public const float CloudAmp = 0.07f, CloudLambda = 0.95f, CloudShape = 0.7f, CloudRound = 0.45f, CloudRim = 0.09f;
+    static string ApplyCloud(Transform sign, Transform deco, Transform pt, Transform bt, float hw, float hh, float pz, Color pc, Color bc, string key)
+    {
+        Undo.RecordObject(pt.gameObject, "sign"); pt.gameObject.SetActive(false);
+        if (bt != null) { Undo.RecordObject(bt.gameObject, "sign"); bt.gameObject.SetActive(false); }
+        float ow = hw - CloudAmp * 0.8f, oh = hh - CloudAmp * 0.4f;
+        var body = Scallop(Outline(ow, oh, CloudRound, 16, 0.01f), CloudAmp, CloudLambda, CloudShape);
+        Part(deco, "Cloud", SaveMesh(Pillow(body, hw, hh, pz + 0.13f, 0.11f, 0.08f, 0.32f), key + "_Cloud"), SaveMat(pc, "Cloud", 0.3f), Vector3.zero);
+        var rim = Scallop(Outline(ow + CloudRim, oh + CloudRim, CloudRound + CloudRim, 16, 0.01f), CloudAmp, CloudLambda, CloudShape);
+        Part(deco, "CloudRim", SaveMesh(Pillow(rim, hw + CloudRim, hh + CloudRim, pz + 0.27f, 0.06f, 0.06f, 0.2f, 12), key + "_CloudRim"), SaveMat(bc, "CloudRim", 0.2f), Vector3.zero);
+        // 文字は雲の内側におさめる（横幅だけで自動縮小）
+        var text = sign.GetComponent<TMPro.TMP_Text>();
+        if (text != null)
+        {
+            const float inset = 0.24f;
+            var rt = text.rectTransform;
+            float sx = Mathf.Abs(rt.localScale.x) > 1e-4f ? Mathf.Abs(rt.localScale.x) : 1f;
+            Undo.RecordObject(rt, "sign"); Undo.RecordObject(text, "sign");
+            rt.sizeDelta = new Vector2((hw - inset) * 2f / sx, (hh + 0.3f) * 2f / sx);
+            if (!text.enableAutoSizing) { text.fontSizeMax = text.fontSize; text.enableAutoSizing = true; }
+            text.fontSizeMin = text.fontSizeMax * 0.4f;
+            text.enableWordWrapping = false;
+            EditorUtility.SetDirty(text);
+        }
+        AssetDatabase.SaveAssets();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sign.gameObject.scene);
+        return sign.parent.name + "/" + sign.name + " -> Cloud";
+    }
+
+    // ロビーのコース看板（Slot0〜5）とつぎのしまの看板を雲にする
+    [MenuItem("FuwaCourse/コース看板を雲にする")]
+    public static void CloudSignsMenu()
+    {
+        var log = new List<string>();
+        foreach (var t in Object.FindObjectsOfType<Transform>(true).Where(x => x.name == "Label").ToList())   // 先に集める（付け直しで古い SignDeco が消えるので）
+        {
+            if (t.name != "Label" || t.parent == null || t.parent.parent == null || t.parent.parent.name != "FuwaLobby") continue;
+            if (!(t.parent.name.StartsWith("Slot") || t.parent.name == "Stage2Portal") || t.Find("Panel") == null) continue;
+            log.Add(Apply(t, "Cloud", Color.white));
+        }
+        Debug.Log(string.Join("\n", log));
     }
 
     // ---- コース以外の看板：平らな色つき枠（前のコース看板と同じ作り：一回り大きい角丸の板を後ろに置く）----
