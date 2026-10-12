@@ -21,7 +21,7 @@ public static class FuwaFieldPits
         new Vector2(141.5f, 24.5f),   // 真ん中（てじゃ「ここにもあけよう」）
         new Vector2(144.5f, 31.0f) }; // ゴール手前
     // 止める噴気孔（穴の中に口がある噴気孔も止める）。止めた噴気孔はクレーターのふちを平らにならす
-    static readonly string[] VentsOff = { "Vent4", "Vent7", "Vent9", "Vent11", "Vent13" };
+    static readonly string[] VentsOff = { "Vent4", "Vent9", "Vent11", "Vent13" };   // Vent7 は「このへんにもういっこ」で復活（2026-10-12 てじゃ）
     const float Radius = 1.2f;      // 口の半径（ふちのギザギザで ±10%）
     const float Jag = 0.1f;
     const float Depth = 2.6f;       // 縦穴の深さ
