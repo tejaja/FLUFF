@@ -178,6 +178,7 @@ public static class FuwaPhotoAlbumBuilder
         album.frames = frames;
         album.captions = caps;
         album.emptyMarks = empties;
+        OneLod(board);
         album.titleText = title;
         album.titleJa = "かってにスクショ"; album.titleEn = "Sneaky Shots";
         // 2026-10-11 てじゃ「やっぱゴールで出るの自体やめるかあ」→ ゴールでは出さない（板は作るけど本体に渡さない。戻す時は ShowAtGoal を true に）
@@ -219,6 +220,18 @@ public static class FuwaPhotoAlbumBuilder
     }
 
     // 写真1枚ぶん（まだ写真がない時の紙・写真の面）
+    // ボード全体（板・ふち・題名・写真・グレーの下地）を1つの LODGroup でまとめて消す。部品ごとだと遠くで写真や下地がバラバラに消えた
+    // （2026-10-12 てじゃ「バラバラに消えてくのが気になる」「下地のグレーはボードと同じ扱いで」）。FuwaFarViewSetup はこのボードの中には LOD を付けない
+    public static void OneLod(Transform board)
+    {
+        foreach (var lg in board.GetComponentsInChildren<LODGroup>(true)) if (lg.transform != board) Object.DestroyImmediate(lg);
+        var rs = board.GetComponentsInChildren<Renderer>(true).Where(r => !(r is ParticleSystemRenderer)).ToArray();
+        var g = board.GetComponent<LODGroup>(); if (g == null) g = board.gameObject.AddComponent<LODGroup>();
+        g.fadeMode = LODFadeMode.None;
+        g.SetLODs(new[] { new LOD(0.01f, rs) });
+        g.RecalculateBounds();
+    }
+
     static Transform Slot(Transform parent, int i, Vector3 pos, SpriteRenderer srcPanel, Material photoMat, out Renderer image, out GameObject empty) { return Slot(parent, i, pos, srcPanel, photoMat, out image, out empty, PhotoSize); }
     static Transform Slot(Transform parent, int i, Vector3 pos, SpriteRenderer srcPanel, Material photoMat, out Renderer image, out GameObject empty, Vector2 size)
     {

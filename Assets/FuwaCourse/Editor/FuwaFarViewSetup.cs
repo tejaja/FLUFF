@@ -49,6 +49,8 @@ public static class FuwaFarViewSetup
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
                 if (r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer || r.name.EndsWith(FarSuffix)) continue;
+                // 名場面ボード（かってにスクショ）は FuwaPhotoAlbumBuilder.OneLod でボードごとまとめて消すので、部品ごとには付けない（2026-10-12）
+                if (r.GetComponentsInParent<Transform>(true).Any(t => t.name == "PhotoGallery")) continue;
                 // モンスターの目（白目・黒目）は目ごとにまとめて消す。1つずつだと小さい黒目が先に消えて白目をむく（2026-10-09）
                 if ((r.name == "EyeWhite" || r.name == "Pupil") && r.transform.parent != null && r.transform.parent.name == "Eyes")
                 {
