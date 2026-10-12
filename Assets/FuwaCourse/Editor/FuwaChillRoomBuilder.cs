@@ -150,6 +150,7 @@ public static class FuwaChillRoomBuilder
         Vector3 L = new Vector3(ac.x, floorY, ac.z) + LivingLocal, dirL = new Vector3(LivingLocal.x, 0f, LivingLocal.z).normalized;
         log.Add(Monitor(root, L + dirL * 2.9f, L - dirL * 1.7f));
         log.Add(Decorate(root, ac, floorY, root.Find("Monitor")));
+        log.Add(Toys(root, ac, floorY, sp, howTo, look));
 
         // 落ちた人の戻し：島の下の大きな板（FuwaLobbyFall）→ スポーンへ（見えないワープ）
         var backWarp = coop.Find("ReturnToHub");
@@ -174,6 +175,96 @@ public static class FuwaChillRoomBuilder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(coop.gameObject.scene);
         log.Add("chill room at " + ac + " home " + home.ToString("F2") + " floorY " + floorY.ToString("F2") + " balls " + balls.Count);
         return string.Join("\n", log);
+    }
+
+    // ---------- おもちゃ広場（左奥。2026-10-12 てじゃ「エアガンとは別の手持ち扇風機、空中固定化」「出しっぱなし」「うちわもいいね」）----------
+    static readonly Vector3 ToysLocal = new Vector3(-5.5f, 0f, 5.5f);
+
+    static string Toys(Transform root, Vector3 ac, float floorY, FuwaChillSpawner sp, Transform howTo, Vector3 look)
+    {
+        var toys = new GameObject("Toys").transform; toys.SetParent(root, false);
+        Vector3 G = new Vector3(ac.x, floorY, ac.z) + ToysLocal;
+        var toCenter = (new Vector3(ac.x, floorY, ac.z) - G); toCenter.y = 0f; toCenter.Normalize();
+        var side = new Vector3(toCenter.z, 0f, -toCenter.x);
+        var fanMeshes = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaCourse/Models/ChillFan.fbx").OfType<Mesh>().ToDictionary(m => m.name);
+        var uchiMeshes = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaCourse/Models/ChillUchiwa.fbx").OfType<Mesh>().ToDictionary(m => m.name);
+        var fanBodyM = Mat("Chill_FanBody", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.66f, 0.84f, 1f));
+        var fanBladeM = Mat("Chill_FanBlades", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.8f, 0.87f));
+        var uFaceM = Mat("Chill_UchiwaFace", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.78f, 0.86f));
+        var uRimM = Mat("Chill_UchiwaRim", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.97f, 0.9f));
+        var windMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/WindParticle.mat");
+        EnsureProgram("FuwaHandFan"); EnsureProgram("FuwaHandFanReset");
+
+        GameObject Mesh(Transform parent, string name, Mesh mesh, Material[] mats, Vector3 lp)
+        {
+            var g = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)); g.transform.SetParent(parent, false); g.transform.localPosition = lp;
+            g.GetComponent<MeshFilter>().sharedMesh = mesh; g.GetComponent<MeshRenderer>().sharedMaterials = mats;
+            g.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            g.layer = 13; return g;
+        }
+        ParticleSystem Streaks(Transform parent)
+        {
+            var g = new GameObject("Streaks", typeof(ParticleSystem)); g.transform.SetParent(parent, false);
+            var ps = g.GetComponent<ParticleSystem>();
+            var main = ps.main; main.playOnAwake = false; main.loop = true; main.startLifetime = 0.55f; main.startSpeed = 5f; main.startSize = 0.06f;
+            main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 80; main.startColor = new Color(1f, 1f, 1f, 0.8f);
+            var em = ps.emission; em.rateOverTime = 28f;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 12f; sh.radius = 0.12f;
+            var col = ps.colorOverLifetime; col.enabled = true;
+            var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.8f, 0.2f), new GradientAlphaKey(0f, 1f) });
+            col.color = gr;
+            var r = g.GetComponent<ParticleSystemRenderer>(); r.renderMode = ParticleSystemRenderMode.Stretch; r.velocityScale = 0.08f; r.lengthScale = 2f; r.sharedMaterial = windMat;
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            return ps;
+        }
+        FuwaHandFan Held(string name, Vector3 pos, Quaternion rot, bool uchiwa)
+        {
+            var go = new GameObject(name); go.layer = 13; go.transform.SetParent(toys, false); go.transform.SetPositionAndRotation(pos, rot);
+            var rb = go.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+            var bc = go.AddComponent<BoxCollider>();
+            if (uchiwa) { bc.center = new Vector3(0f, 0.3f, 0f); bc.size = new Vector3(0.38f, 0.56f, 0.06f); }
+            else { bc.center = new Vector3(0f, 0.28f, -0.03f); bc.size = new Vector3(0.38f, 0.58f, 0.18f); }
+            var pk = go.AddComponent<VRC.SDK3.Components.VRCPickup>();
+            pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any;
+            pk.InteractionText = uchiwa ? "うちわ" : "せんぷうき"; pk.UseText = uchiwa ? "あおぐ" : "風 ON/OFF"; pk.proximity = 2f;
+            go.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+            var fan = UdonSharpUndo.AddComponent<FuwaHandFan>(go);
+            var nozzle = new GameObject("Nozzle").transform; nozzle.SetParent(go.transform, false);
+            if (uchiwa)
+            {
+                Mesh(go.transform, "Handle", uchiMeshes["Chill_UchiwaHandle"], new[] { uRimM }, Vector3.zero);
+                var paddle = Mesh(go.transform, "Paddle", uchiMeshes["Chill_UchiwaPaddle"], new[] { uFaceM, uRimM }, new Vector3(0f, 0.2f, 0f)).transform;
+                nozzle.localPosition = new Vector3(0f, 0.37f, 0.05f);
+                fan.gustMode = true; fan.swing = paddle;
+                fan.range = 3.5f; fan.radius0 = 0.3f; fan.spread = 0.35f;
+            }
+            else
+            {
+                Mesh(go.transform, "Body", fanMeshes["Chill_FanBody"], new[] { fanBodyM }, Vector3.zero);
+                var bl = Mesh(go.transform, "Blades", fanMeshes["Chill_FanBlades"], new[] { fanBladeM }, new Vector3(0f, 0.36f, 0f)).transform;
+                nozzle.localPosition = new Vector3(0f, 0.36f, 0.04f);
+                fan.blades = bl;
+            }
+            fan.streaks = Streaks(nozzle);
+            fan.nozzle = nozzle; fan.spawner = sp;
+            UdonSharpEditorUtility.CopyProxyToUdon(fan);
+            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(fan); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Continuous; EditorUtility.SetDirty(ub); }
+            return fan;
+        }
+        // 扇風機3台・うちわ2本：おもちゃ広場の手前のふちに、空中に並べて浮かべておく（キノコの方を向けて）
+        var face = Quaternion.LookRotation(toCenter);
+        var list = new List<FuwaHandFan>();
+        for (int i = 0; i < 3; i++) list.Add(Held("Fan" + i, G + toCenter * 2.4f + side * (-1.6f + i * 0.55f) + Vector3.up * 1.0f, face, false));
+        for (int i = 0; i < 2; i++) list.Add(Held("Uchiwa" + i, G + toCenter * 2.4f + side * (0.6f + i * 0.5f) + Vector3.up * 1.0f, face, true));
+        // 戻すボタン（並びの下）
+        var btnLbl = MakeButton(toys, howTo, "ResetToys", G + toCenter * 2.4f + Vector3.up * 0.45f, Quaternion.LookRotation(-toCenter));
+        btnLbl.text = "おもちゃを戻す";
+        var bgo = btnLbl.transform.parent.gameObject;
+        var rs = UdonSharpUndo.AddComponent<FuwaHandFanReset>(bgo); rs.fans = list.ToArray(); UdonSharpEditorUtility.CopyProxyToUdon(rs);
+        var rub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rs); if (rub != null) { rub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; rub.interactText = "戻す"; EditorUtility.SetDirty(rub); }
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
+        if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "texts", "ja", "en", btnLbl, "おもちゃを戻す", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
+        return "toys " + list.Count;
     }
 
     // ---------- 見た目（2026-10-12 てじゃ「B（空のリビング）」「モニターもふわふわのガワ、画面だけはめ込む、ボタンも」）----------
