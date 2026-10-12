@@ -69,8 +69,9 @@ public static class FuwaTutorialWelcomeBuilder
         }
 
         // ---- C：看板の上の「！」----
-        // 道の順（ようこそ → 各練習場 → 最後の2枚）。エアガンの看板はスポーンのすぐ横なので付けない
-        var signs = new List<Transform> { w };
+        // 道の順（ようこそ → エアガンの看板 → 各練習場 → 最後の2枚）
+        //（エアガンの看板：最初は付けていなかったが、2026-10-12 てじゃ「看板の赤矢印をエアガンの看板にも」）
+        var signs = new List<Transform> { w, gunSign };
         foreach (Transform bay in tut) if (bay.name.StartsWith("Bay_")) { var s = bay.Find("Sign"); if (s != null) signs.Add(s); }
         var tail = new List<Transform>();
         foreach (var n in new[] { "Sign_ShootMushroom", "Sign_MoreTricks" }) { var s = tut.Find(n); if (s != null) tail.Add(s); }
@@ -124,6 +125,9 @@ public static class FuwaTutorialWelcomeBuilder
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rm);
         if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
         EditorUtility.SetDirty(rm);
+        // リスポーンしたら最初から出す（FuwaRespawnManager が呼ぶ）
+        foreach (var rmgr in Object.FindObjectsOfType<FuwaRespawnManager>(true))
+        { var rso = new SerializedObject(rmgr); rso.FindProperty("readMarks").objectReferenceValue = rm; rso.ApplyModifiedPropertiesWithoutUndo(); UdonSharpEditorUtility.CopyProxyToUdon(rmgr); EditorUtility.SetDirty(rmgr); }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(tut.gameObject.scene);
         log.Add("marks " + marks.Count);
         return string.Join("\n", log);
