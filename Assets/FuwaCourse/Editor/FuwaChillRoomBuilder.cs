@@ -33,6 +33,7 @@ public static class FuwaChillRoomBuilder
 
         // 協力の試作・前のチルルームを片付け
         var oldGiant = coop.Find("CoopTest/GiantFluff");
+        UnregisterMonitor(coop.Find("ChillRoom"));
         foreach (var o in new[] { coop.Find("CoopTest"), coop.Find("ChillRoom"), sys.Find("CoopCourse"), sys.Find("ChillSpawner") }) if (o != null) Object.DestroyImmediate(o.gameObject);
         var root = new GameObject("ChillRoom").transform; root.SetParent(coop, false); root.position = ac;
 
@@ -135,6 +136,9 @@ public static class FuwaChillRoomBuilder
 
         if (howTo != null) SetHowToText(howTo.Find("Text").GetComponent<TMPro.TextMeshPro>());
 
+        // 観戦モニター（ひとりでのロビーの写真館のモニターと、CAM・人物ボタンをコピー。2026-10-12 てじゃ「こっちでも観戦できる」）
+        log.Add(Monitor(root, new Vector3(ac.x, floorY, ac.z) + MonitorLocal, look));
+
         // 落ちた人の戻し：島の下の大きな板（FuwaLobbyFall）→ スポーンへ（見えないワープ）
         var backWarp = coop.Find("ReturnToHub");
         var gunSpot = coop.Find("GunStand_Versus/GunSpot") ?? spawn;
@@ -159,6 +163,146 @@ public static class FuwaChillRoomBuilder
         log.Add("chill room at " + ac + " home " + home.ToString("F2") + " floorY " + floorY.ToString("F2") + " balls " + balls.Count);
         return string.Join("\n", log);
     }
+
+    static readonly Vector3 MonitorLocal = new Vector3(4.6f, 0f, -0.6f);   // キノコの右手前（スイッチの反対側）
+
+    // 写真館のモニター・CAMボタン・人物ボタンを、モニターとの位置関係のままコピーして pos に置く（表をスポーンの方へ）。FuwaFollowCam に登録
+    static string Monitor(Transform root, Vector3 pos, Vector3 look)
+    {
+        var studio = RootGo("FuwaLobby").transform.Find("PhotoStudio");
+        var mon = studio.Find("Monitor"); var spot = studio.Find("MonitorSpot");
+        var holder = new GameObject("Monitor").transform; holder.SetParent(root, false);
+        var face = pos - look; face.y = 0f;
+        holder.position = pos; holder.rotation = Quaternion.LookRotation(face.normalized);
+        // 写真館のモニターの足もと（MonitorSpot）とモニターの向きを holder に合わせる
+        var srcFrame = Matrix4x4.TRS(spot.position, Quaternion.LookRotation(mon.forward), Vector3.one);
+        var copies = new Dictionary<string, Transform>();
+        foreach (var n in new[] { "Monitor", "CamButton", "TargetButton" })
+        {
+            var src = studio.Find(n);
+            var g = Object.Instantiate(src.gameObject, holder, true); g.name = n;
+            var lp = srcFrame.inverse.MultiplyPoint3x4(src.position);
+            var lr = Quaternion.Inverse(Quaternion.LookRotation(mon.forward)) * src.rotation;
+            g.transform.position = holder.TransformPoint(lp); g.transform.rotation = holder.rotation * lr;
+            copies[n] = g.transform;
+        }
+        var fc = Object.FindObjectsOfType<FuwaFollowCam>(true).First();
+        var m = copies["Monitor"];
+        var so = new SerializedObject(fc);
+        void Add(SerializedProperty p, Object v) { p.arraySize++; p.GetArrayElementAtIndex(p.arraySize - 1).objectReferenceValue = v; }
+        Add(so.FindProperty("extraScreens"), m.Find("Screen").GetComponent<Renderer>());
+        Add(so.FindProperty("extraOffMarks"), m.Find("Off").gameObject);
+        Add(so.FindProperty("extraNames"), m.Find("Name").GetComponent<TMPro.TextMeshPro>());
+        // ボタンの文字・札（元と同じ並びで足す）
+        var camSrc = studio.Find("CamButton"); var tgtSrc = studio.Find("TargetButton");
+        var mt = so.FindProperty("modeTexts"); var mp = so.FindProperty("modePills"); int n0 = mt.arraySize;
+        for (int i = 0; i < n0; i++)
+        {
+            var t = mt.GetArrayElementAtIndex(i).objectReferenceValue as Component; if (t == null || !t.transform.IsChildOf(camSrc)) continue;
+            var ct = copies["CamButton"].Find(Rel(t.transform, camSrc));
+            Add(mt, ct.GetComponent<TMPro.TextMeshProUGUI>());
+            Component pill = i < mp.arraySize ? mp.GetArrayElementAtIndex(i).objectReferenceValue as Component : null;
+            var cp = pill != null && pill.transform.IsChildOf(camSrc) ? copies["CamButton"].Find(Rel(pill.transform, camSrc)) : null;
+            mp.arraySize = mt.arraySize; mp.GetArrayElementAtIndex(mp.arraySize - 1).objectReferenceValue = cp != null ? cp.GetComponent<UnityEngine.UI.Image>() : null;
+        }
+        var tt = so.FindProperty("targetTexts"); int t0 = tt.arraySize;
+        for (int i = 0; i < t0; i++)
+        {
+            var t = tt.GetArrayElementAtIndex(i).objectReferenceValue as Component; if (t == null || !t.transform.IsChildOf(tgtSrc)) continue;
+            Add(tt, copies["TargetButton"].Find(Rel(t.transform, tgtSrc)).GetComponent<TMPro.TextMeshProUGUI>());
+        }
+        so.ApplyModifiedPropertiesWithoutUndo(); Sync(fc);
+        // 言語の切り替え：元の文字と同じ日本語・英語で登録
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
+        int added = 0;
+        if (lang != null)
+        {
+            var lso = new SerializedObject(lang);
+            foreach (var kv in copies)
+            {
+                var srcTop = studio.Find(kv.Key);
+                foreach (var t in kv.Value.GetComponentsInChildren<TMPro.TextMeshPro>(true))
+                {
+                    var srcT = srcTop.Find(Rel(t.transform, kv.Value)); if (srcT == null) continue;
+                    int i = System.Array.IndexOf(lang.texts, srcT.GetComponent<TMPro.TextMeshPro>()); if (i < 0) continue;
+                    AddLang(lso, "texts", "ja", "en", t, lang.ja[i], lang.en[i]); added++;
+                }
+                foreach (var t in kv.Value.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true))
+                {
+                    var srcT = srcTop.Find(Rel(t.transform, kv.Value)); if (srcT == null) continue;
+                    int i = System.Array.IndexOf(lang.uiTexts, srcT.GetComponent<TMPro.TextMeshProUGUI>()); if (i < 0) continue;
+                    AddLang(lso, "uiTexts", "uiJa", "uiEn", t, lang.uiJa[i], lang.uiEn[i]); added++;
+                }
+            }
+            lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang);
+        }
+        return "monitor ok, lang +" + added;
+    }
+
+    static string Rel(Transform t, Transform top) { return t == top ? "" : (t.parent == top ? t.name : Rel(t.parent, top) + "/" + t.name); }
+
+    static void AddLang(SerializedObject lso, string a, string j, string e, Object t, string ja, string en)
+    {
+        foreach (var pn in new[] { a, j, e }) lso.FindProperty(pn).arraySize++;
+        int k = lso.FindProperty(a).arraySize - 1;
+        lso.FindProperty(a).GetArrayElementAtIndex(k).objectReferenceValue = t;
+        lso.FindProperty(j).GetArrayElementAtIndex(k).stringValue = ja;
+        lso.FindProperty(e).GetArrayElementAtIndex(k).stringValue = en;
+    }
+
+    // 作り直しの前に：前のチルルームのモニターを FuwaFollowCam・言語の登録から外す
+    static void UnregisterMonitor(Transform oldRoot)
+    {
+        if (oldRoot == null) return;
+        var fc = Object.FindObjectsOfType<FuwaFollowCam>(true).FirstOrDefault();
+        if (fc != null)
+        {
+            var so = new SerializedObject(fc);
+            // modeTexts と modePills は同じ並びなので、同じ番号を一緒に外す
+            var mt = so.FindProperty("modeTexts"); var mp = so.FindProperty("modePills");
+            for (int i = mt.arraySize - 1; i >= 0; i--)
+            {
+                if (!Under(mt.GetArrayElementAtIndex(i).objectReferenceValue, oldRoot)) continue;
+                mt.GetArrayElementAtIndex(i).objectReferenceValue = null; mt.DeleteArrayElementAtIndex(i);
+                if (i < mp.arraySize) { mp.GetArrayElementAtIndex(i).objectReferenceValue = null; mp.DeleteArrayElementAtIndex(i); }
+            }
+            foreach (var pn in new[] { "extraScreens", "extraOffMarks", "extraNames", "targetTexts" })
+            {
+                var p = so.FindProperty(pn);
+                for (int i = p.arraySize - 1; i >= 0; i--)
+                {
+                    if (!Under(p.GetArrayElementAtIndex(i).objectReferenceValue, oldRoot)) continue;
+                    p.GetArrayElementAtIndex(i).objectReferenceValue = null; p.DeleteArrayElementAtIndex(i);
+                }
+            }
+            so.ApplyModifiedPropertiesWithoutUndo(); Sync(fc);
+        }
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
+        if (lang != null)
+        {
+            var lso = new SerializedObject(lang);
+            foreach (var (a, j, e) in new[] { ("texts", "ja", "en"), ("uiTexts", "uiJa", "uiEn") })
+            {
+                var pa = lso.FindProperty(a); var pj = lso.FindProperty(j); var pe = lso.FindProperty(e);
+                for (int i = pa.arraySize - 1; i >= 0; i--)
+                {
+                    if (!Under(pa.GetArrayElementAtIndex(i).objectReferenceValue, oldRoot)) continue;
+                    pa.GetArrayElementAtIndex(i).objectReferenceValue = null; pa.DeleteArrayElementAtIndex(i);
+                    if (i < pj.arraySize) pj.DeleteArrayElementAtIndex(i);
+                    if (i < pe.arraySize) pe.DeleteArrayElementAtIndex(i);
+                }
+            }
+            lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang);
+        }
+    }
+
+    static bool Under(Object o, Transform root)
+    {
+        var tr = o is Component c ? c.transform : o is GameObject g ? g.transform : null;
+        return tr != null && tr.IsChildOf(root);
+    }
+
+    static GameObject RootGo(string n) { return UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == n); }
 
     // 遊び方の看板の板（Panel・Border）と文字（Text）をコピーした横長のボタン。文字を返す。表（-Z）を手前に
     static TMPro.TextMeshPro MakeButton(Transform parent, Transform howTo, string name, Vector3 pos, Quaternion rot)

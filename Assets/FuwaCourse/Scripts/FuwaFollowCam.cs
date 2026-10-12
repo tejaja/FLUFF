@@ -90,6 +90,14 @@ public class FuwaFollowCam : UdonSharpBehaviour
     public Transform monitorFluff;
     public TrailRenderer monitorFluffTrail;
 
+    [Header("ほかの場所のモニター（みんなでひろば等。2026-10-12 てじゃ「こっちでも観戦できる」）")]
+    [Tooltip("同じ映像を貼る画面。どれかの近くにいれば映す")]
+    public Renderer[] extraScreens;
+    [Tooltip("extraScreens と同じ順で、OFF の時に出す物")]
+    public GameObject[] extraOffMarks;
+    [Tooltip("extraScreens と同じ順で、画面の上の名前")]
+    public TextMeshPro[] extraNames;
+
     private int _mode;   // 0=OFF 1=上 2=右横 3=左横 4=後ろ（てじゃ「TOPとBACKの順番入れ替え」）
     private int _targetId = -1;   // 映す人の playerId（-1＝自分）
     private float _nextList;
@@ -109,6 +117,8 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (feedRenderer != null) feedRenderer.enabled = false;
         if (monitorScreen != null) monitorScreen.enabled = false;
         if (monitorOffMark != null) monitorOffMark.SetActive(true);
+        SetExtra(false);
+        if (extraScreens != null && monitorTexture != null) foreach (Renderer r in extraScreens) if (r != null) r.material.SetTexture("_MainTex", monitorTexture);
         if (monitorFluff != null) monitorFluff.gameObject.SetActive(false);
         UpdateLabels();
         UpdateTargetLabels();
@@ -179,6 +189,22 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (targetTexts != null) foreach (TextMeshProUGUI t in targetTexts) if (t != null && t.text != s) t.text = s;
         string m = _targetId >= 0 ? s : "";
         if (monitorName != null && monitorName.text != m) monitorName.text = m;
+        if (extraNames != null) foreach (TextMeshPro t in extraNames) if (t != null && t.text != m) t.text = m;
+    }
+
+    // ほかの場所のモニターを ON/OFF
+    private void SetExtra(bool on)
+    {
+        if (extraScreens != null) foreach (Renderer r in extraScreens) if (r != null) r.enabled = on;
+        if (extraOffMarks != null) foreach (GameObject g in extraOffMarks) if (g != null) g.SetActive(!on);
+    }
+
+    // どれかのモニターの近くにいるか
+    private bool NearAnyMonitor(Vector3 pos)
+    {
+        if (monitorScreen != null && Vector3.Distance(pos, monitorScreen.transform.position) < renderRange) return true;
+        if (extraScreens != null) foreach (Renderer r in extraScreens) if (r != null && r.gameObject.activeInHierarchy && Vector3.Distance(pos, r.transform.position) < renderRange) return true;
+        return false;
     }
 
     // 設定のカメラボタン（レーザーで押すUIボタン）から呼ばれる。自分だけ
@@ -243,7 +269,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
             _inZone = inZone;
             if (zoneRenderer != null) zoneRenderer.material.SetFloat("_Glow", inZone ? 1f : 0f);
         }
-        bool near = monitorScreen != null && Vector3.Distance(lp.GetPosition(), monitorScreen.transform.position) < renderRange;
+        bool near = NearAnyMonitor(lp.GetPosition());
         bool run = _mode != 0 && (near || inZone || runWithoutPhotoCamera);
         bool feedOn = run && inZone;
         if (run != _running)
@@ -253,6 +279,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
             if (run) _snap = true;
             if (monitorScreen != null) monitorScreen.enabled = run;
             if (monitorOffMark != null) monitorOffMark.SetActive(!run);
+            SetExtra(run);
         }
         if (feedOn != _feedOn)
         {
@@ -263,6 +290,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
             {
                 cam.targetTexture = rt;
                 if (monitorScreen != null) monitorScreen.material.SetTexture("_MainTex", rt);
+                if (extraScreens != null) foreach (Renderer r in extraScreens) if (r != null) r.material.SetTexture("_MainTex", rt);
                 if (feedRenderer != null) feedRenderer.material.SetTexture("_MainTex", rt);
             }
         }
