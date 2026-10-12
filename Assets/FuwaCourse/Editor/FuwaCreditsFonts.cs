@@ -5,6 +5,7 @@ using UnityEditor;
 using UnityEngine;
 
 // 入口の島の裏のクレジット（FuwaHub/BackIsland/Credits）のフォント一覧で、それぞれの名前をそのフォントで書く（2026-10-12 てじゃ「該当のフォントにしたらオサレ」）。
+// 2026-10-12 Kosugi Maru（M PLUS の予備）は使っていなかったので削除。
 // 元の文字（M PLUS）の名前の部分は透明にして、同じ位置に名前だけの文字（そのフォント）を重ねる。何度実行しても同じ結果
 public static class FuwaCreditsFonts
 {
@@ -15,9 +16,8 @@ public static class FuwaCreditsFonts
         ("Darumadrop One", "DarumadropOne SDF Dyn"),
         ("M PLUS Rounded 1c", "MPLUSRounded1c SDF"),
         ("Yusei Magic", "YuseiMagic SDF Dyn"),
-        ("Kosugi Maru", "KosugiMaru SDF"),
     };
-    const string Plain = "<b>Fonts</b>\n<size=75%>Sniglet\nCherry Bomb One\nDarumadrop One\nM PLUS Rounded 1c\nYusei Magic\n<size=60%>SIL Open Font License 1.1</size>\n\nKosugi Maru\n<size=60%>Apache License 2.0</size></size>";
+    const string Plain = "<b>Fonts</b>\n<size=45%> </size>\n<size=75%>Sniglet\nCherry Bomb One\nDarumadrop One\nM PLUS Rounded 1c\nYusei Magic</size>\n<size=45%> </size>\n<size=45%>SIL Open Font License 1.1</size>";   // 見出しの下・ライセンスの前に少しすき間（てじゃ）
 
     [MenuItem("FuwaCourse/クレジットのフォント名をそのフォントで書く")]
     public static void Menu() { Debug.Log(Run()); }
