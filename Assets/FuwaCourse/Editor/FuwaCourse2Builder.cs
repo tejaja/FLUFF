@@ -245,7 +245,7 @@ public static class FuwaCourse2Builder
             log += name + " " + cp.localPosition.ToString("F2") + "  ";
         }
         PlaceCp("Checkpoint1", 0, CP1);
-        PlaceCp("Checkpoint2", 1, CP2, -1f);   // 左のキノコは判定の1m手前（3m先だと人が降りる板の橋の入口をふさぐ）
+        PlaceCp("Checkpoint2", 1, CP2, -1f);   // 左のキノコは判定の1m手前（3m先だと人が降りる板の橋の入口をふさぐ）。→ 2026-10-12 てじゃ「左のきのこいらない」でシーンで非表示（ClusterL を SetActive(false)）
 
         var goal = root.Find("Goal");
         Undo.RecordObject(goal, "place");
