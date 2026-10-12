@@ -52,7 +52,9 @@ public class FuwaWhirlwind : UdonSharpBehaviour
     {
         if (other == null) return;
         FuwaBall ball = other.GetComponent<FuwaBall>();
-        if (ball == null) return;
+        // みんなでひろばの竜巻（2026-10-12）：同期ふわふわ（FuwaSharedBall）も巻き上げる。全員の画面で同じ風（捕まえるモードは使わない）
+        FuwaSharedBall shared = ball == null ? other.GetComponent<FuwaSharedBall>() : null;
+        if (ball == null && shared == null) return;
         Vector3 local = transform.InverseTransformPoint(other.transform.position);
         float h = Mathf.Clamp01(local.y / Mathf.Max(0.01f, height));
         Vector3 flat = new Vector3(local.x, 0f, local.z);
@@ -60,7 +62,7 @@ public class FuwaWhirlwind : UdonSharpBehaviour
         // その高さでの半径（上へ行くほど広がる）。箱の角など円の外では効かせない
         float rHere = topRadius > 0f ? Mathf.Lerp(radius, topRadius, h) : radius;
         if (r > rHere) return;
-        if (trap) { Trap(ball, other, local, flat, r); return; }
+        if (trap && ball != null) { Trap(ball, other, local, flat, r); return; }
         Vector3 acc = Vector3.zero;
         // 上へ（てっぺんに近いほど弱め、送り出し区間では浮かせる程度）
         float up = lift * (1f - liftFade * h);
@@ -78,7 +80,8 @@ public class FuwaWhirlwind : UdonSharpBehaviour
         }
         // てっぺんで前へ送り出す
         if (h > exitFrom) acc += Vector3.forward * exitPush * Mathf.Clamp01((h - exitFrom) / (1f - exitFrom) * 2f);
-        ball.AddWind(transform.TransformDirection(acc));
+        if (ball != null) ball.AddWind(transform.TransformDirection(acc));
+        else shared.AddWind(transform.TransformDirection(acc) * Mathf.Sqrt(Mathf.Max(0.05f, shared.shotScale)));   // 重い玉（巨大）は巻き上がりにくく
     }
 
     // 捕まえるつむじ風：中心へ吸い寄せて、中心のまわりをゆっくり回しながら trapHeight に浮かせておく

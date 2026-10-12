@@ -300,6 +300,9 @@ public static class FuwaChillRoomBuilder
             lbl.transform.parent.localScale = Vector3.one * 0.4f;
             var lso2 = new SerializedObject(Object.FindObjectsOfType<FuwaLanguage>(true).First()); AddLang(lso2, "texts", "ja", "en", lbl, ja, en); lso2.ApplyModifiedPropertiesWithoutUndo();
         }
+        // 1 かぜのおか → 竜巻のたね
+        FillTornado(unlockToys[0].transform, sp);
+
         var ul = UdonSharpUndo.AddComponent<FuwaChillUnlocks>(toys.gameObject);
         ul.spawner = sp; ul.toys = unlockToys; ul.locked = lockedSigns;
         UdonSharpEditorUtility.CopyProxyToUdon(ul);
@@ -422,6 +425,34 @@ public static class FuwaChillRoomBuilder
             if (cb != null) { cb.position = monitorHolder.TransformPoint(new Vector3(sl.x + 0.6f, sl.y - sh - 0.24f, face - 0.03f)); cb.rotation = hr; }
         }
         return "deco ok";
+    }
+
+    // 竜巻のたね（持てる玉）＋竜巻（コース1 のつむじ風 Whirl0 のコピー、捕まえない普通の巻き上げに）
+    static void FillTornado(Transform slot, FuwaChillSpawner sp)
+    {
+        EnsureProgram("FuwaTornadoSeed");
+        var src = RootGo("FuwaCourse").GetComponentsInChildren<FuwaWhirlwind>(true).First(w => w.name == "Whirl0");
+        var tw = Object.Instantiate(src.gameObject, slot, false); tw.name = "Tornado";
+        tw.transform.position = slot.position; tw.transform.rotation = slot.rotation;
+        var wso = new SerializedObject(tw.GetComponent<FuwaWhirlwind>());
+        wso.FindProperty("trap").boolValue = false;
+        wso.FindProperty("radius").floatValue = 1.2f; wso.FindProperty("topRadius").floatValue = 1.9f; wso.FindProperty("height").floatValue = 2.6f;
+        wso.FindProperty("lift").floatValue = 3.4f; wso.FindProperty("liftFade").floatValue = 0.3f; wso.FindProperty("swirl").floatValue = 2.6f;
+        wso.FindProperty("inward").floatValue = 2.2f; wso.FindProperty("exitPush").floatValue = 1.6f; wso.FindProperty("exitFrom").floatValue = 0.85f;
+        wso.ApplyModifiedPropertiesWithoutUndo(); Sync(tw.GetComponent<FuwaWhirlwind>());
+        foreach (var t in tw.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+        // たね：ころんとした水色の玉。竜巻の上に浮かべておく
+        var seed = GameObject.CreatePrimitive(PrimitiveType.Sphere); seed.name = "TornadoSeed"; seed.layer = 13;
+        seed.transform.SetParent(slot, false); seed.transform.position = slot.position + Vector3.up * 1.5f; seed.transform.localScale = Vector3.one * 0.26f;
+        GameObjectUtility.SetStaticEditorFlags(seed, 0);
+        seed.GetComponent<MeshRenderer>().sharedMaterial = Mat("Chill_TornadoSeed", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.6f, 0.95f, 0.9f));
+        var rb = seed.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+        var pk = seed.AddComponent<VRC.SDK3.Components.VRCPickup>();
+        pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "竜巻のたね"; pk.proximity = 2f;
+        seed.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+        var ts = UdonSharpUndo.AddComponent<FuwaTornadoSeed>(seed); ts.tornado = tw.transform; ts.ground = 1 << 11;
+        UdonSharpEditorUtility.CopyProxyToUdon(ts);
+        var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ts); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
     }
 
     // 輪（XY 平面、穴は Z 向き）
