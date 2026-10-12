@@ -87,6 +87,7 @@ public class FuwaBall : UdonSharpBehaviour
     public bool movePlayerOnOut = true;
     [Tooltip("タイムを計らないコースでも、このスタートから始めた時はアウトでプレイヤーも戻す（れんしゅうの最後の本番の道）")]
     public Transform[] returnPlayerStarts;
+    private bool _untimedRun;   // タイムを計らない道での挑戦中（IsInRun）
     private bool _practice;   // れんしゅうの「ためし撃ちの場所」にいる間（プレイヤーは動かさない）
     private bool _teleportOnReset;
 
@@ -311,6 +312,12 @@ public class FuwaBall : UdonSharpBehaviour
             if (timerEnabled && !_running && !_finished && respawnPoint == startPoint)
             {
                 _running = true;
+                _startTime = Time.time;
+            }
+            // タイムを計らない道（チュートリアルの本番）でも「挑戦中」は覚えておく（名場面のフォトポイント用。2026-10-12 てじゃ「チュートリアル後半の写真とれてない」）
+            else if (!timerEnabled && !_untimedRun && !_finished && respawnPoint == startPoint)
+            {
+                _untimedRun = true;
                 _startTime = Time.time;
             }
         }
@@ -803,7 +810,7 @@ public class FuwaBall : UdonSharpBehaviour
         _finished = true;
         float t = _running ? Time.time - _startTime : 0f;
         lastGoalTime = timerEnabled ? t : 0f;
-        _running = false;
+        _running = false; _untimedRun = false;
         if (timerText != null) timerText.text = timerEnabled ? Mono(FormatTime(t)) : "";   // 計らないコース（チュートリアルの本番の道）は 0:00.00 を出さない
         ShowMessage(english ? "Goal!" : "ゴール！", restartDelay);   // タイムは下のタイマーに出ているので文字には入れない
         PlaySfx(sfxGoal);
@@ -1002,7 +1009,7 @@ public class FuwaBall : UdonSharpBehaviour
         timerEnabled = false;
         respawnPoint = spot;
         _finished = false;
-        _running = false;
+        _running = false; _untimedRun = false;
         ResetToRespawn();
     }
 
@@ -1054,7 +1061,7 @@ public class FuwaBall : UdonSharpBehaviour
     {
         respawnPoint = startPoint != null ? startPoint : transform;
         _finished = false;
-        _running = false;
+        _running = false; _untimedRun = false;
         ReviveEnemies();
         // 通ったチェックポイントの光（キノコ）を消して、最初の状態に戻す
         if (checkpoints != null)
@@ -1083,7 +1090,7 @@ public class FuwaBall : UdonSharpBehaviour
         _penaltyShownCount = -1;
         _lastGroundY = -10000f;
         // 対戦レース中は、スタートからやり直してもタイムは止めない（GOから計っているので）
-        if (respawnPoint == startPoint && activeRace == null) _running = false;
+        if (respawnPoint == startPoint && activeRace == null) { _running = false; _untimedRun = false; }
         _rb.isKinematic = false;
         _rb.velocity = Vector3.zero;
         _rb.angularVelocity = Vector3.zero;
@@ -1112,6 +1119,8 @@ public class FuwaBall : UdonSharpBehaviour
     public bool IsHidden() { return _hidden; }
     public bool IsFinished() { return _finished; }
     public bool IsRunning() { return _running; }
+    // 挑戦中か（タイムを計らない道も含む）。名場面のフォトポイント用
+    public bool IsInRun() { return _running || _untimedRun; }
     public float GetRunStartTime() { return _startTime; }   // 名場面のフォトポイントが「1回の挑戦で1枚」を見分けるため
 
     // 対戦レースのGO：キノコを撃てるようにして、タイムをGOの瞬間から計り始める

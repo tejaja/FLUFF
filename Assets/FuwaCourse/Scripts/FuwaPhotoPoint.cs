@@ -26,7 +26,7 @@ public class FuwaPhotoPoint : UdonSharpBehaviour
     {
         if (other == null || album == null) return;
         FuwaBall ball = other.GetComponent<FuwaBall>();
-        if (ball == null || !ball.IsRunning()) return;
+        if (ball == null || !ball.IsInRun()) return;   // タイムを計らない道（チュートリアルの本番）でも撮る
         float run = ball.GetRunStartTime();
         if (run == _shotRun) return;
         _shotRun = run;
