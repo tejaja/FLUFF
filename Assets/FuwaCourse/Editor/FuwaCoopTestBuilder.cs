@@ -101,31 +101,34 @@ public static class FuwaCoopTestBuilder
         var fxSrc = flag != null ? flag.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "GoalFx") : null;
         if (fxSrc != null) { var f = Object.Instantiate(fxSrc.gameObject, goal, false); f.name = "GoalFx"; f.transform.localPosition = Vector3.up * 0.5f; fx = f.GetComponentInChildren<ParticleSystem>(true); }
 
-        // 看板（人数・ゴール回数）：ロビーの遊び方の看板の文字をコピー、島の奥に
-        var txtSrc = lobby.Find("HowToPlayVersus/Text").GetComponent<TMPro.TextMeshPro>();
-        var bRoot = new GameObject("Board").transform; bRoot.SetParent(root, false); bRoot.position = new Vector3(ac.x - 7f, floorY + 4.5f, ac.z + 2f);
-        bRoot.rotation = Quaternion.LookRotation(new Vector3(-0.6f, 0f, 1f));
-        var board = Object.Instantiate(txtSrc.gameObject, bRoot, false).GetComponent<TMPro.TextMeshPro>(); board.name = "Text";
-        board.transform.localPosition = Vector3.zero; board.transform.localRotation = Quaternion.identity;
-        board.text = "みんなで運ぼう";
-
         // スポーン（入口の島のみんなでワープの行き先。作り直しても消えないよう FuwaCoop の直下）
         var spawn = coop.Find("CoopSpawn"); if (spawn == null) { spawn = new GameObject("CoopSpawn").transform; spawn.SetParent(coop, false); }
-        spawn.position = new Vector3(ac.x, floorY + 0.05f, ac.z - 10f); spawn.rotation = Quaternion.LookRotation(Vector3.forward);
+        // 配置は古いみんなでロビーと同じ（スポーン・ワープ・エアガンの台・遊び方の看板の位置関係）を、島の真ん中で180°回したもの
+        // （古いロビーはスポーンが +Z 側。この島は +Z がコースの出口なので、スポーンを -Z 側に。2026-10-12 てじゃ「はいちめちゃくちゃ」）
+        spawn.position = ac + new Vector3(0f, 0.1f, -8.75f); spawn.rotation = Quaternion.identity;
         // 古いみんなでロビーから、エアガンの台・入口へ戻るワープ・ひとりでへのワープを島へ引っ越し（参照・言語の登録はそのまま）
-        Transform Move(string n, Vector3 local, float yaw)
+        Transform Move(string n, Vector3 local, float yaw)   // local・yaw は島の真ん中から（古いロビーの値を180°回したもの）
         {
             var t = coop.Find(n) ?? lobby.Find(n); if (t == null) return null;
             t.SetParent(coop, true);
-            t.position = spawn.position + Quaternion.Euler(0f, spawn.eulerAngles.y, 0f) * local; t.rotation = Quaternion.Euler(0f, yaw, 0f);
+            t.position = ac + local; t.rotation = Quaternion.Euler(0f, yaw, 0f);
             return t;
         }
-        var stand = Move("GunStand_Versus", new Vector3(2.4f, 0.4f, 1.6f), 0f);
-        var marker = coop.Find("GunStand_Versus_Marker") ?? lobby.Find("GunStand_Versus_Marker");
-        if (marker != null && stand != null) { marker.SetParent(coop, true); marker.position = stand.position + Vector3.up * 0.3f; }
-        var toHub = Move("ReturnToHub", new Vector3(-4.5f, 0.07f, -1.2f), 90f);
-        var toSolo = Move("ToSolo", new Vector3(-4.5f, 0.07f, 2.2f), 90f);
+        var stand = Move("GunStand_Versus", new Vector3(1.296f, 0.485f, -5.198f), 294.4f);
+        Move("GunStand_Versus_Marker", new Vector3(1.296f, 0.843f, -5.198f), 180f);
+        var toHub = Move("ReturnToHub", new Vector3(7.35f, 0.12f, -9.45f), 180f);
+        var toSolo = Move("ToSolo", new Vector3(10.57f, 0.12f, -5.62f), 180f);
         var gunSpot = stand != null ? stand.Find("GunSpot") : spawn;
+        // 遊び方の看板（言語・BGM・HUD の切り替えボタンつき）も引っ越して、協力の説明に書き換え。スポーンの左前
+        var howTo = coop.Find("HowToPlayVersus") ?? lobby.Find("HowToPlayVersus");
+        if (howTo != null)
+        {
+            howTo.SetParent(coop, true);
+            howTo.position = ac + new Vector3(-12.378f, -0.12f, 5.001f); howTo.rotation = Quaternion.Euler(0f, 292.04f, 0f);
+            SetHowToText(howTo.Find("Text").GetComponent<TMPro.TextMeshPro>());
+        }
+        // 人数・ゴール回数の看板：遊び方の看板の板と文字をコピーした小さい看板。キノコの左
+        var board = MakeSign(root, howTo, "Board", ac + new Vector3(-3.4f, 2.2f, MushZ - 1f), spawn.position, 0.7f, "みんなで運ぼう");   // キノコの左
         // 入口の島の「みんなで」ワープと、ひとりでのロビーの「みんなでへ」ワープの行き先をこの島に
         foreach (var w in Object.FindObjectsOfType<FuwaCourseWarp>(true))
             if (w.name == "VersusGate_Trigger" || w.name == "ToVersus_Trigger") { SetU(w, "playerSpot", spawn); SetU(w, "gunSpot", gunSpot); Sync(w); }
@@ -211,19 +214,14 @@ public static class FuwaCoopTestBuilder
         var cub = UdonSharpEditorUtility.GetBackingUdonBehaviour(course);
         if (cub != null) { cub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(cub); }
 
-        // 「コースを変える」ボタン：スポーンの横の押せる板
-        var btn = GameObject.CreatePrimitive(PrimitiveType.Cube); btn.name = "RerollButton"; btn.transform.SetParent(root, false);
-        btn.transform.position = spawn.position + new Vector3(-2.2f, 1.1f, 1.5f); btn.transform.rotation = Quaternion.LookRotation(new Vector3(0.5f, 0f, -1f));
-        btn.transform.localScale = new Vector3(1.4f, 0.5f, 0.12f);
-        btn.GetComponent<MeshRenderer>().sharedMaterial = GoalMat();
+        // 「コースを変える」ボタン：スポーンの右前の小さい看板（押せる）
+        var howTo2 = RootGo("FuwaCoop").transform.Find("HowToPlayVersus");
+        var btnLbl = MakeSign(root, howTo2, "RerollButton", ac + new Vector3(3.4f, 1.2f, MushZ - 1f), spawn.position, 0.5f, "コースを変える");   // キノコの右
+        var btn = btnLbl.transform.parent.gameObject;
+        var bcol = btn.AddComponent<BoxCollider>(); bcol.size = new Vector3(3.8f, 1.2f, 0.15f); bcol.center = new Vector3(0f, 0f, 0.03f);
         EnsureProgram("FuwaCoopButton");
         var b = UdonSharpUndo.AddComponent<FuwaCoopButton>(btn); b.course = course; UdonSharpEditorUtility.CopyProxyToUdon(b);
         var bub = UdonSharpEditorUtility.GetBackingUdonBehaviour(b); if (bub != null) { bub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; bub.interactText = "コースを変える"; EditorUtility.SetDirty(bub); }
-        var lblSrc = RootGo("FuwaVersusLobby").transform.Find("HowToPlayVersus/Text").gameObject;
-        var lbl = Object.Instantiate(lblSrc, btn.transform, false).GetComponent<TMPro.TextMeshPro>();
-        lbl.name = "Label"; lbl.transform.localPosition = new Vector3(0f, 0f, -0.6f); lbl.transform.localRotation = Quaternion.identity;
-        lbl.transform.localScale = new Vector3(lblSrc.transform.localScale.x / 1.4f, lblSrc.transform.localScale.y / 0.5f, lblSrc.transform.localScale.z / 0.12f) * 0.35f;
-        lbl.text = "コースを変える";
 
         // 落ちた人の戻し：コースの下の大きな板（FuwaLobbyFall）→ 島のスポーンへ（見えないワープ）
         var fallWarp = Object.Instantiate(backWarp.gameObject, root, true); fallWarp.name = "CoopFallWarp";
@@ -366,6 +364,42 @@ public static class FuwaCoopTestBuilder
             old.RecalculateNormals(); old.RecalculateBounds(); EditorUtility.SetDirty(old); Object.DestroyImmediate(m); return old;
         }
         AssetDatabase.CreateAsset(m, path); return m;
+    }
+
+    // 遊び方の看板の板（Panel・Border）と文字（Text）をコピーした小さい看板。文字を返す。表（-Z）を look の方へ
+    static TMPro.TextMeshPro MakeSign(Transform parent, Transform howTo, string name, Vector3 pos, Vector3 look, float scale, string text)
+    {
+        var r = new GameObject(name).transform; r.SetParent(parent, false); r.position = pos;
+        var d = pos - look; d.y = 0f; r.rotation = Quaternion.LookRotation(d.normalized);
+        r.localScale = Vector3.one * scale;
+        TMPro.TextMeshPro t = null;
+        foreach (var n in new[] { "Panel", "Border", "Text" })
+        {
+            var src = howTo.Find(n); if (src == null) continue;
+            var g = Object.Instantiate(src.gameObject, r, false); g.name = n;
+            g.transform.localPosition = new Vector3(0f, 0f, src.localPosition.z); g.transform.localRotation = Quaternion.identity;
+            if (n == "Text") { t = g.GetComponent<TMPro.TextMeshPro>(); t.text = text; t.alignment = TMPro.TextAlignmentOptions.Center; t.enableAutoSizing = false; t.fontSize = 3f; }   // 元の看板（説明がたくさん）より字を大きく
+        }
+        if (name == "RerollButton")
+        {
+            // ボタンは横長に
+            foreach (var n in new[] { "Panel", "Border" }) { var sr = r.Find(n).GetComponent<SpriteRenderer>(); sr.size = new Vector2(sr.size.x, sr.size.y * 0.32f); }
+            t.rectTransform.sizeDelta = new Vector2(t.rectTransform.sizeDelta.x, 1f);
+        }
+        return t;
+    }
+
+    // 遊び方の看板の文字（日本語・英語の切り替えにも登録してあるので両方書き換える）
+    static void SetHowToText(TMPro.TextMeshPro t)
+    {
+        const string ja = "<align=center><size=150%><color=#FF6B5C>みんなでのあそびかた</color></size></align>\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>大きなふわふわを、みんなの風で\n<pos=1.1em>ゴールの島まで運ぼう\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>キノコの傘を撃つと出てくる\n<pos=1.1em>重いので、人数が多いほど速く進む\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>道から落ちたらキノコに戻る\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>「コースを変える」で道が組み変わる\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>エアガンを手元に呼ぶ：PCはEキー\n<pos=1.1em>VRは右スティックを下に倒し続ける";
+        const string en = "<align=center><size=150%><color=#FF6B5C>Play Together</color></size></align>\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>Carry the giant fluff to the goal\n<pos=1.1em>island with everyone's wind\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>Shoot the mushroom cap to release it\n<pos=1.1em>It's heavy: more players, more speed\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>If it falls off, it returns to the mushroom\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>\"Change course\" reshuffles the path\n<size=45%>\n</size><color=#FF6B5C>●</color><pos=1.1em>Summon your air gun: E key (PC)\n<pos=1.1em>or hold the right stick down (VR)";
+        t.text = ja; EditorUtility.SetDirty(t);
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault(); if (lang == null) return;
+        int i = System.Array.IndexOf(lang.texts, t); if (i < 0) return;
+        var so = new SerializedObject(lang);
+        so.FindProperty("ja").GetArrayElementAtIndex(i).stringValue = ja; so.FindProperty("en").GetArrayElementAtIndex(i).stringValue = en;
+        so.ApplyModifiedPropertiesWithoutUndo(); Sync(lang);
     }
 
     static Transform MakeWarp(Transform src, Transform parent, string name, Vector3 pos, Transform playerSpot, Transform gunSpot, string ja, string en)
