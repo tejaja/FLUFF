@@ -64,6 +64,8 @@ public class FuwaRace : UdonSharpBehaviour
     private int _lastCount = -1;
     private float _returnAt = -1f;
     private float _nextRender;
+    // 言語を切り替えた時に FuwaLanguage から呼ばれる：次のフレームで看板を書き直す（0.5秒ごとを待たずに）
+    public void RefreshNow() { _nextRender = 0f; }
 
     private void Start()
     {

@@ -29,6 +29,9 @@ public class FuwaModeCounter : UdonSharpBehaviour
 
     private float _next;
 
+    // 言語を切り替えた時に FuwaLanguage から呼ばれる：次のフレームで書き直す（1秒ごとを待たずに、ほかの看板と一緒に変わるように）
+    public void RefreshNow() { _next = 0f; }
+
     private void Update()
     {
         if (Time.time < _next) return;
