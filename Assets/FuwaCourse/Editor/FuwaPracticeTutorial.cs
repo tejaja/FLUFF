@@ -420,6 +420,67 @@ public static class FuwaPracticeTutorial
         Vector3 delta = p - stand.position;
         Undo.RecordObject(stand, "gun stand"); stand.position = p;
         if (marker != null) { Undo.RecordObject(marker, "gun stand"); marker.position += delta; }
+        MakeStandGrass(ent, stand);
+    }
+
+    // 台の下だけ、道の上にちょっと芝生（2026-10-12 てじゃ）。入口の島と同じ芝の材質で、ふちが少し波打った薄いまる。
+    // ふちは道の面にぴったり接して、そこから丸く盛り上がる（道の面と同じ高さで重ねない＝Zファイトしない）。台は芝に少しうまる
+    const float StandGrassR = 0.85f, StandGrassH = 0.035f;
+    static void MakeStandGrass(Transform ent, Transform stand)
+    {
+        var old = ent.Find("GunStandGrass"); if (old != null) Object.DestroyImmediate(old.gameObject);
+        Physics.SyncTransforms();
+        float gy = stand.position.y - 0.4f;
+        foreach (var h in Physics.RaycastAll(stand.position + Vector3.up * 2f, Vector3.down, 6f, ~0, QueryTriggerInteraction.Ignore))
+            if (h.collider.name == "TutorialPath") gy = h.point.y;
+        var go = new GameObject("GunStandGrass"); go.transform.SetParent(ent, false);
+        go.transform.position = new Vector3(stand.position.x, gy, stand.position.z); go.transform.rotation = Quaternion.identity;
+        var groundT = ent.Find("Ground"); go.layer = groundT.gameObject.layer;
+        // 輪郭：半径をゆるく波打たせる。ふち（高さ0）→ 少し内側 → 天面、の輪で丸いふち
+        int n = 64; var V = new List<Vector3>(); var T = new List<int>();
+        float[] ringR = { 1f, 0.975f, 0.93f, 0.85f }, ringY = { 0f, 0.65f, 0.92f, 1f };
+        for (int k = 0; k < ringR.Length; k++)
+            for (int i = 0; i < n; i++)
+            {
+                float a = i / (float)n * Mathf.PI * 2f;
+                float r = StandGrassR * (1f + 0.07f * Mathf.Sin(5f * a + 0.8f) + 0.04f * Mathf.Sin(3f * a + 2.1f)) * ringR[k];
+                V.Add(new Vector3(Mathf.Cos(a) * r, StandGrassH * ringY[k], Mathf.Sin(a) * r));
+            }
+        for (int k = 0; k < ringR.Length - 1; k++)
+            for (int i = 0; i < n; i++)
+            {
+                int a0 = k * n + i, a1 = k * n + (i + 1) % n, b0 = a0 + n, b1 = a1 + n;
+                T.AddRange(new[] { a0, b0, a1, a1, b0, b1 });
+            }
+        int c = V.Count; V.Add(new Vector3(0f, StandGrassH, 0f)); int last = (ringR.Length - 1) * n;
+        for (int i = 0; i < n; i++) T.AddRange(new[] { last + i, c, last + (i + 1) % n });
+        var tmp = new Mesh(); tmp.SetVertices(V); tmp.SetTriangles(T, 0); tmp.RecalculateNormals();
+        if (tmp.normals[c].y < 0) { for (int i = 0; i < T.Count; i += 3) { int x = T[i + 1]; T[i + 1] = T[i + 2]; T[i + 2] = x; } }
+        Object.DestroyImmediate(tmp);
+        const string path = "Assets/FuwaCourse/Generated/Tutorial_GunStandGrass.asset";
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (mesh == null) { mesh = new Mesh { name = "Tutorial_GunStandGrass" }; AssetDatabase.CreateAsset(mesh, path); }
+        mesh.Clear(); mesh.SetVertices(V); mesh.SetTriangles(T, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds(); EditorUtility.SetDirty(mesh);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = groundT.GetComponent<Renderer>().sharedMaterial;
+        GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
+        // 芝のふちに小さい草を3つ（台のまわりがさみしくないように）
+        var tuft = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/FuwaCourse/Prefabs/Deco/Deco_GrassSmall.prefab");
+        if (tuft != null)
+        {
+            float[] ang = { 35f, 160f, 270f };
+            for (int i = 0; i < ang.Length; i++)
+            {
+                var g = (GameObject)PrefabUtility.InstantiatePrefab(tuft, go.transform);
+                float a = ang[i] * Mathf.Deg2Rad; float r = StandGrassR * 0.72f;
+                g.transform.localPosition = new Vector3(Mathf.Cos(a) * r, StandGrassH * 0.9f, Mathf.Sin(a) * r);
+                g.transform.localRotation = Quaternion.Euler(0f, ang[i] * 1.7f, 0f);
+                g.transform.localScale = Vector3.one * (1.3f + 0.2f * i);
+                GameObjectUtility.SetStaticEditorFlags(g, StaticEditorFlags.BatchingStatic);
+            }
+        }
+        AssetDatabase.SaveAssets();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(ent.gameObject.scene);
     }
 
     [MenuItem("FuwaCourse/れんしゅう/入口のエアガンの看板を作り直す")]
