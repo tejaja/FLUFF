@@ -73,10 +73,20 @@ public static class FuwaFieldPits
                 var vp = new Vector2(v.position.x, v.position.z);
                 bool off = VentsOff.Contains(v.name) || Pits.Any(p => (vp - p).magnitude < Radius);
                 if (v.gameObject.activeSelf == off) v.gameObject.SetActive(!off);
-                if (!off) continue;
+                // 噴気孔はみんな、丸いクレーター（岩場のメッシュのもり上がり）をならして、溝の噴気孔と同じゴツゴツの石の輪（Rim）にする
+                // （2026-10-12 てじゃ「噴気孔の見た目がイボっぽい」「手前の噴気孔のタイプ（1：溝の石の輪）がいい」）
+                if (!off)
+                {
+                    var rim = v.Find("Rim");
+                    if (rim == null) { var go = new GameObject("Rim", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(v, false); rim = go.transform; }
+                    rim.localPosition = Vector3.zero; rim.localRotation = Quaternion.identity; rim.localScale = Vector3.one;
+                    rim.GetComponent<MeshFilter>().sharedMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/Course2_VentRim_Short.asset");
+                    rim.GetComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Rock.mat");
+                    GameObjectUtility.SetStaticEditorFlags(rim.gameObject, StaticEditorFlags.BatchingStatic);
+                }
                 float gy = v.position.y;   // 噴気孔の根元の高さ＝まわりの床の高さ（まわりを測ると、坂や岩場のふちで低い所を拾ってへこんだ）
                 Flatten.Add(new Vector4(vp.x, vp.y, CraterR, gy));
-                log.Add("vent off " + v.name + " flat y " + gy.ToString("F2"));
+                if (off) log.Add("vent off " + v.name);
             }
 
         var shaftMat = ShaftMat(); var maskMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/VentHoleMask.mat");
@@ -245,6 +255,7 @@ public static class FuwaFieldPits
                     log.Add("moved deco " + t.parent.name + "/" + t.name);
                 }
             }
+        log.Add(BuildRubble(root, field, mc));
         Object.DestroyImmediate(probe); Object.DestroyImmediate(flatProbe);
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
@@ -253,6 +264,61 @@ public static class FuwaFieldPits
 
     // 岩場の上の面（上を向いていて、床の高さ 4.5m 付近）だけ。裏側（下を向いた大きな三角形）は抜かない
     static bool TopTri(Vector3 a, Vector3 b, Vector3 c) { return Vector3.Cross(b - a, c - a).normalized.y > 0.3f && (a.y + b.y + c.y) / 3f > 3.8f; }
+
+    // 岩場の床に大きめの平たい岩の板をガタガタに敷く（見た目だけ、当たり判定なし）。序盤の溝（FuwaGrooveRubble）と同じ作りで、
+    // 広い岩場では溝と同じ細かさだと細かすぎるので、板を大きく・少なく（2026-10-12 てじゃ「もっと荒く」）。穴・噴気孔の石の輪・ふちはあける
+    static string BuildRubble(Transform root, Transform field, MeshCollider floorCol)
+    {
+        Physics.SyncTransforms();
+        var vents = root.Find("Gimmick_FieldVents").Cast<Transform>().Where(t => t.gameObject.activeSelf).Select(t => t.position).ToList();
+        var b = field.GetComponent<Renderer>().bounds;
+        var rnd = new System.Random(4242);
+        float R(float a, float c) => a + (float)rnd.NextDouble() * (c - a);
+        var mb = new FuwaGrooveRubble.MB();
+        var placed = new List<(Vector3 p, float r)>();
+        int tries = 0;
+        while (tries++ < 20000 && placed.Count < 150)
+        {
+            var o = new Vector3(R(b.min.x, b.max.x), b.max.y + 3f, R(b.min.z, b.max.z));
+            if (!floorCol.Raycast(new Ray(o, Vector3.down), out var hit, 20f)) continue;
+            if (hit.normal.y < 0.9f || hit.point.y < 4.3f || hit.point.y > 4.75f) continue;
+            bool big = placed.Count < 70 || rnd.NextDouble() < 0.45;
+            float r = big ? R(0.5f, 0.95f) : R(0.22f, 0.38f);
+            var hp = new Vector2(hit.point.x, hit.point.z);
+            if (Pits.Any(p => (hp - p).magnitude - r * 0.5f < Radius * (1f + Jag) + 0.15f)) continue;
+            if (vents.Any(v => (hp - new Vector2(v.x, v.z)).magnitude - r * 0.6f < 0.95f)) continue;   // 石の輪（半径約1m）に少しもぐるくらいまで
+            if (placed.Any(q => new Vector2(q.p.x - hit.point.x, q.p.z - hit.point.z).magnitude < (q.r + r) * 0.8f)) continue;
+            // ふちの方向にも床があること（崖っぷちからはみ出さない）。ゴール・道・ほかの物の上には置かない
+            bool ok = true;
+            for (int k = 0; k < 6 && ok; k++)
+            {
+                var d = Quaternion.Euler(0, k * 60 + 30, 0) * Vector3.forward * r;
+                if (!floorCol.Raycast(new Ray(hit.point + d + Vector3.up * 1.5f, Vector3.down), out var h2, 3f) || Mathf.Abs(h2.point.y - hit.point.y) > 0.25f) ok = false;
+            }
+            if (!ok) continue;
+            if (Physics.Raycast(o, Vector3.down, out var any, 20f, ~0, QueryTriggerInteraction.Ignore) && any.collider != floorCol && any.collider.name != "PitFloor") continue;
+            float thick = big ? R(0.12f, 0.2f) : R(0.06f, 0.1f);
+            var tiltAxis = Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward;
+            var rot = Quaternion.FromToRotation(Vector3.up, hit.normal) * Quaternion.AngleAxis(R(2f, 6f), tiltAxis) * Quaternion.Euler(0, R(0, 360), 0);
+            var c = hit.point - Vector3.up * thick * R(0.4f, 0.65f);   // 半分くらい埋める（ふわふわが乗ってもほぼ段差を感じない高さ）
+            FuwaGrooveRubble.Slab(mb, c, rot, r, thick, rnd.Next(6, 9), rnd);
+            placed.Add((hit.point, r));
+        }
+        var rocks2 = root.Find("Rocks2");
+        var holder = rocks2.Find("FieldRubble");
+        if (holder == null) { var go = new GameObject("FieldRubble", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(rocks2, false); holder = go.transform; }
+        holder.localPosition = Vector3.zero; holder.localRotation = Quaternion.identity; holder.localScale = Vector3.one;
+        var w2l = holder.worldToLocalMatrix;
+        var mesh = new Mesh { name = "Course2_FieldRubble", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        mesh.SetVertices(mb.V.Select(p => w2l.MultiplyPoint3x4(p)).ToList()); mesh.SetTriangles(mb.T, 0);
+        mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        holder.GetComponent<MeshFilter>().sharedMesh = Save(mesh, Dir + "/Course2_FieldRubble.asset");
+        var mr = holder.GetComponent<MeshRenderer>(); mr.sharedMaterial = field.GetComponent<MeshRenderer>().sharedMaterial;
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+        holder.gameObject.layer = 0;
+        GameObjectUtility.SetStaticEditorFlags(holder.gameObject, StaticEditorFlags.BatchingStatic);
+        return "field rubble " + placed.Count + " tris " + mb.T.Count / 3;
+    }
 
     static Vector2 XZ(Vector3 v) { return new Vector2(v.x, v.z); }
 

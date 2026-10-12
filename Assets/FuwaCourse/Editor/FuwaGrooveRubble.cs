@@ -12,7 +12,7 @@ public static class FuwaGrooveRubble
     [MenuItem("FuwaCourse/Course2/噴気孔の溝の床に岩の板を敷く")]
     public static void Menu() { Debug.Log(Build()); }
 
-    class MB { public List<Vector3> V = new List<Vector3>(); public List<int> T = new List<int>(); }
+    public class MB { public List<Vector3> V = new List<Vector3>(); public List<int> T = new List<int>(); }
 
     static void Tri(MB m, Vector3 a, Vector3 b, Vector3 c, Vector3 outHint)
     {
@@ -23,7 +23,7 @@ public static class FuwaGrooveRubble
     }
 
     // 平たい板：上の面（少しふくらむ）＋側面。底は見えないのでなし
-    static void Slab(MB m, Vector3 c, Quaternion rot, float r, float thick, int sides, System.Random rnd)
+    public static void Slab(MB m, Vector3 c, Quaternion rot, float r, float thick, int sides, System.Random rnd)
     {
         float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
         var top = new List<Vector3>(); var bot = new List<Vector3>();
