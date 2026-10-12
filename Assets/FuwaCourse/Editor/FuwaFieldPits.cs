@@ -21,6 +21,19 @@ public static class FuwaFieldPits
     const float Jag = 0.1f;
     const float Depth = 2.6f;       // 縦穴の深さ
     const float FloorOuter = 1.5f;  // ふさぎ直す輪の外側（穴のふちから）
+    // 噴気孔だった所を穴にした時、クレーターのふち（盛り上がり）を平らにならす（中心 x,z・半径・平らにする高さ）。2026-10-12 てじゃ「ここだけ穴盛り上がってるのも変」
+    static readonly Vector4[] Flatten = { new Vector4(134.9f, 17.8f, 1.6f, 4.5f) };
+    static float FlattenY(Vector3 w, float y)
+    {
+        foreach (var f in Flatten)
+        {
+            float d = new Vector2(w.x - f.x, w.z - f.y).magnitude; if (d >= f.z) continue;
+            if (w.y < f.w - 0.05f || w.y > f.w + 0.5f) continue;   // 上の面のでっぱりだけ（裏側・穴の奥はさわらない）
+            float k = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(f.z * 0.75f, f.z, d));
+            y = Mathf.Lerp(y, f.w, k);
+        }
+        return y;
+    }
 
     [MenuItem("FuwaCourse/Course2/ゴール前の岩場の落とし穴を作る")]
     public static void Menu() { Debug.Log(Build()); }
@@ -54,9 +67,31 @@ public static class FuwaFieldPits
         var rnd = new System.Random(505);
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
 
+        // ---- 見た目：クレーターのふちをならす（元の見た目のメッシュは Backup/*_PrePits から毎回）----
+        {
+            var vmf = field.GetComponent<MeshFilter>(); string vlp = AssetDatabase.GetAssetPath(vmf.sharedMesh);
+            string vbp = "Assets/FuwaCourse/Meshes/Backup/" + System.IO.Path.GetFileNameWithoutExtension(vlp) + "_PrePits.asset";
+            if (AssetDatabase.LoadAssetAtPath<Mesh>(vbp) == null) AssetDatabase.CopyAsset(vlp, vbp);
+            var vb = AssetDatabase.LoadAssetAtPath<Mesh>(vbp); var vl = AssetDatabase.LoadAssetAtPath<Mesh>(vlp);
+            var vv = vb.vertices; var vn = vb.normals; int moved = 0;
+            for (int i = 0; i < vv.Length; i++)
+            {
+                var w = field.TransformPoint(vv[i]); float ny = FlattenY(w, w.y); if (ny == w.y) continue;
+                float k = Mathf.InverseLerp(0f, Mathf.Max(0.001f, w.y - (Flatten[0].w)), w.y - ny);
+                w.y = ny; vv[i] = field.InverseTransformPoint(w);
+                if (vn.Length == vv.Length) vn[i] = Vector3.Slerp(vn[i], field.InverseTransformDirection(Vector3.up), Mathf.Clamp01(k)).normalized;
+                moved++;
+            }
+            vl.vertices = vv; if (vn.Length == vv.Length) vl.normals = vn; vl.RecalculateBounds(); EditorUtility.SetDirty(vl);
+            log.Add("field visual flattened " + moved);
+        }
+
         // ---- 判定：穴にかかる三角形を抜く ----
         var bv = bak.vertices; var bt = bak.triangles; var ft = field;
         var wv = bv.Select(v => ft.TransformPoint(v)).ToArray();
+        for (int i = 0; i < wv.Length; i++) { float ny = FlattenY(wv[i], wv[i].y); if (ny != wv[i].y) { wv[i].y = ny; bv[i] = ft.InverseTransformPoint(wv[i]); } }
+        // 高さを測る一時的な判定も、ならした形に
+        var flatProbe = Object.Instantiate(bak); flatProbe.vertices = bv; flatProbe.RecalculateBounds(); pcol.sharedMesh = flatProbe; Physics.SyncTransforms();
         float inner = Radius * (1f - Jag);   // 判定の穴は口のいちばん内側に合わせる（見た目は地面なのに落ちる、がないように）
         var keep = new List<int>(bt.Length); int removed = 0;
         for (int i = 0; i < bt.Length; i += 3)
@@ -190,7 +225,7 @@ public static class FuwaFieldPits
                 bool inPit = Pits.Any(p => (new Vector2(v.position.x, v.position.z) - p).magnitude < Radius);
                 if (inPit && v.gameObject.activeSelf) { v.gameObject.SetActive(false); log.Add("vent off " + v.name); }
             }
-        Object.DestroyImmediate(probe);
+        Object.DestroyImmediate(probe); Object.DestroyImmediate(flatProbe);
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return string.Join("\n", log);
