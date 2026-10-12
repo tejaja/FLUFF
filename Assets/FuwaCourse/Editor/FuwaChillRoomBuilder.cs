@@ -307,6 +307,8 @@ public static class FuwaChillRoomBuilder
         FillTornado(unlockToys[0].transform, sp);
         // 2 いわのみち → ころころ岩（地面の輪をずっと回る）
         FillBoulder(unlockToys[1].transform, sp, G);
+        // 3 やみのもり → 重力のたね（まわりのふわふわを引き寄せる）
+        FillGravity(unlockToys[2].transform, sp);
 
         var ul = UdonSharpUndo.AddComponent<FuwaChillUnlocks>(toys.gameObject);
         ul.spawner = sp; ul.toys = unlockToys; ul.locked = lockedSigns;
@@ -486,6 +488,43 @@ public static class FuwaChillRoomBuilder
         cb.spawner = sp; cb.center = c; cb.visual = vis.transform; cb.loopRadius = loopR; cb.rockRadius = 0.45f; cb.hitSound = hit;
         UdonSharpEditorUtility.CopyProxyToUdon(cb);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(cb); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
+    }
+
+    // 持って置ける玉（たね）：VRCPickup＋VRCObjectSync、手を離すとその場に浮く
+    static GameObject Seed(Transform slot, string name, string label, Color col, float size, float height)
+    {
+        var seed = GameObject.CreatePrimitive(PrimitiveType.Sphere); seed.name = name; seed.layer = 13;
+        seed.transform.SetParent(slot, false); seed.transform.position = slot.position + Vector3.up * height; seed.transform.localScale = Vector3.one * size;
+        GameObjectUtility.SetStaticEditorFlags(seed, 0);
+        var m = Mat("Chill_" + name, "Assets/FuwaCourse/Materials/Goal_Ground.mat", col);
+        m.SetColor("_EmissionColor", col * 0.35f); EditorUtility.SetDirty(m);
+        seed.GetComponent<MeshRenderer>().sharedMaterial = m;
+        var rb = seed.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+        var pk = seed.AddComponent<VRC.SDK3.Components.VRCPickup>();
+        pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = label; pk.proximity = 2f;
+        seed.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+        return seed;
+    }
+
+    // 重力のたね：紫の玉＋コース3の重い所の粒をまわりに
+    static void FillGravity(Transform slot, FuwaChillSpawner sp)
+    {
+        EnsureProgram("FuwaGravitySeed");
+        var seed = Seed(slot, "GravitySeed", "重力のたね", new Color(0.62f, 0.45f, 0.95f), 0.32f, 1.6f);
+        var gs = UdonSharpUndo.AddComponent<FuwaGravitySeed>(seed); gs.spawner = sp;
+        var srcP = RootGo("FuwaCourse3").GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "HeavyParticles");
+        if (srcP != null)
+        {
+            // 玉は 0.32 倍に縮めてあるので、粒は玉の子にせず slot の子にして、たねについて回るのは FuwaGravitySeed の spinner で
+            var pp = Object.Instantiate(srcP.gameObject, seed.transform, false); pp.name = "Swirl";
+            pp.transform.localPosition = Vector3.zero; pp.transform.localRotation = Quaternion.identity; pp.transform.localScale = Vector3.one / 0.32f;
+            var ps = pp.GetComponent<ParticleSystem>();
+            var main = ps.main; main.simulationSpace = ParticleSystemSimulationSpace.Local; main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+            var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Sphere; sh.radius = 2.2f; sh.position = Vector3.zero; sh.rotation = Vector3.zero; sh.scale = Vector3.one;
+            gs.spinner = pp.transform;
+        }
+        UdonSharpEditorUtility.CopyProxyToUdon(gs);
+        var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(gs); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
     }
 
     // 輪（XY 平面、穴は Z 向き）
