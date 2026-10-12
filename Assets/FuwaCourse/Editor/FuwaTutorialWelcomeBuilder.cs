@@ -129,6 +129,7 @@ public static class FuwaTutorialWelcomeBuilder
             int k = i == 2 ? 1 : i;
             rev.Add(signs[i].gameObject); at.Add(k);
             var bar = bay.Find("BayBarrier"); if (bar != null) { rev.Add(bar.gameObject); at.Add(k); }
+            var side = bay.Find("SideWall"); if (side != null) { rev.Add(side.gameObject); at.Add(k); }   // 横風の区画の横の柵と壁
         }
         // 「ここからが本番！」（Sign_MoreTricks）も、その前の看板（まもののす）を読んだら生える（2026-10-12 てじゃ）
         int more = signs.FindIndex(s => s.name == "Sign_MoreTricks");

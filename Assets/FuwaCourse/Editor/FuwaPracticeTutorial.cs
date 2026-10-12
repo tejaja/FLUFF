@@ -599,6 +599,126 @@ public static class FuwaPracticeTutorial
         return "wind rebuilt " + (s1 - s0).ToString("F1") + "m from island start";
     }
 
+    // 横風の区画の左（風下・空の側）のふちに、木の柵＋ふわふわを跳ね返す膜（2026-10-12 てじゃ「落ちちゃダメだと思っちゃうひとがいる」「木の柵と壁」）。
+    // ・柵：ほかの島の柵と同じ作り（柱と横木2本）。人はこの柵で止まる
+    // ・膜：ふわふわが近づくと格子と波紋が光る SoftBarrier（「前のぶつかった時に光るの、横壁に」）。割れずに跳ね返すだけ（「横は破裂なしで」。FuwaPopWall は付けない）
+    // ・区画の入口の膜から次の区画の膜まで。まとめて「SideWall」の下に置き、ReadMarks で区画の看板と一緒に生やす
+    const float SideWallH = 4.2f;
+    [MenuItem("FuwaCourse/れんしゅう/横風の区画の横の柵と壁を作り直す")]
+    public static void WindSideWallMenu() { Debug.Log(RebuildWindSideWall()); }
+    public static string RebuildWindSideWall()
+    {
+        _pathOnly = true;
+        try { RunCore(); } finally { _pathOnly = false; }
+        var course = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
+        var root = course.Find(RootName);
+        var bay = root.Find("Bay_Wind");
+        var old = bay.Find("SideWall"); if (old != null) Object.DestroyImmediate(old.gameObject);
+        float DistOf(Vector3 p)
+        {
+            float best = 1e9f, d = 0f;
+            for (int i = 0; i < _pathOnlyPts.Count; i++) { float e = (new Vector2(p.x, p.z) - _pathOnlyPts[i]).sqrMagnitude; if (e < best) { best = e; d = _pathOnlyDist[i]; } }
+            return d;
+        }
+        float s0 = DistOf(bay.Find("BayBarrier").position), s1 = DistOf(root.Find("Bay_Monster/BayBarrier").position);
+        int segs = Mathf.Max(1, Mathf.RoundToInt((s1 - s0) / 1.0f));
+        // 柵の柱の位置（道の左はしから少し内側）と、膜の位置（柵のすぐ外）
+        var fenceP = new List<Vector3>(); var wallP = new List<Vector3>(); var outN = new List<Vector3>();
+        for (int i = 0; i <= segs; i++)
+        {
+            float s = Mathf.Lerp(s0, s1, i / (float)segs);
+            At(_pathOnlyPts, _pathOnlyDist, s, out var c, out var f);
+            var right = new Vector3(f.z, 0f, -f.x);
+            float wl = WidthL(s);
+            fenceP.Add(c - right * (wl - 0.12f) - Vector3.up * 0.02f);
+            wallP.Add(c - right * (wl - 0.02f) - Vector3.up * 0.02f);
+            outN.Add(-right);
+        }
+        var group = new GameObject("SideWall").transform; group.SetParent(bay, false);
+        group.position = fenceP[segs / 2];   // 生える時のまん中
+        Vector3 o = group.position;
+
+        // ---- 木の柵（島の柵と同じ寸法）----
+        const float postW = 0.11f, postH = 0.6f, railW = 0.06f, railH = 0.06f;
+        float[] railY = { 0.22f, 0.52f };
+        var postMesh = FuwaBevelTools.RoundCube(new Vector3(postW, postH, postW), 0.03f, 2);
+        var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        var parts = new List<CombineInstance>(); var colParts = new List<CombineInstance>();
+        for (int i = 0; i <= segs; i++)
+        {
+            Vector3 p = fenceP[i] - o;
+            parts.Add(new CombineInstance { mesh = postMesh, transform = Matrix4x4.TRS(p + Vector3.up * (postH * 0.5f), Quaternion.identity, new Vector3(postW, postH, postW)) });   // RoundCube は単位の箱（角の丸みだけ実寸）
+            if (i == segs) break;
+            Vector3 q = fenceP[i + 1] - o; Vector3 mid = (p + q) * 0.5f; Vector3 d = q - p; float len = d.magnitude;
+            Quaternion rr = Quaternion.LookRotation(d / len, Vector3.up);
+            var railMesh = FuwaBevelTools.RoundCube(new Vector3(railW, railH, len + 0.04f), 0.02f, 2);
+            foreach (float ry in railY) parts.Add(new CombineInstance { mesh = railMesh, transform = Matrix4x4.TRS(mid + Vector3.up * ry, rr, new Vector3(railW, railH, len + 0.04f)) });
+            colParts.Add(new CombineInstance { mesh = cube, transform = Matrix4x4.TRS(mid + Vector3.up * 0.33f, rr, new Vector3(0.12f, 0.65f, len)) });
+        }
+        Mesh Save(Mesh m, string path)
+        {
+            var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+            if (ex == null) { AssetDatabase.CreateAsset(m, path); return m; }
+            FuwaBevelTools.CopyInto(ex, m); ex.UploadMeshData(false); EditorUtility.SetDirty(ex); return ex;
+        }
+        var vis = new Mesh { name = "Tutorial_WindSideFence" }; vis.CombineMeshes(parts.ToArray(), true, true); vis.RecalculateBounds();
+        var col = new Mesh { name = "Tutorial_WindSideFenceCollider" }; col.CombineMeshes(colParts.ToArray(), true, true);
+        vis = Save(vis, MeshDir + "/Tutorial_WindSideFence.asset");
+        col = Save(col, MeshDir + "/Tutorial_WindSideFenceCollider.asset");
+        var fence = new GameObject("Fence"); fence.transform.SetParent(group, false);
+        fence.AddComponent<MeshFilter>().sharedMesh = vis;
+        fence.AddComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
+        var fc = new GameObject("FenceCollider"); fc.transform.SetParent(group, false);
+        fc.AddComponent<MeshCollider>().sharedMesh = col;
+        // 生やす（大きさを変える）ので静的バッチにはしない
+        foreach (var g in new[] { fence, fc }) GameObjectUtility.SetStaticEditorFlags(g, (StaticEditorFlags)~0 & ~StaticEditorFlags.BatchingStatic);
+
+        // ---- 膜（見た目）：道に沿って曲がる1枚の帯。シェーダーは物の拡大率を長さ・高さ（m）として使うので、
+        // 拡大率を (全長, 高さ, 1) にして、頂点はその分だけ縮めて入れる（曲がっていても格子の間隔がそろう）
+        float total = 0f; var arc = new List<float> { 0f };
+        for (int i = 1; i <= segs; i++) { total += (wallP[i] - wallP[i - 1]).magnitude; arc.Add(total); }
+        var V = new List<Vector3>(); var N = new List<Vector3>(); var UV = new List<Vector2>(); var T = new List<int>();
+        for (int i = 0; i <= segs; i++)
+        {
+            Vector3 p = wallP[i] - o;
+            V.Add(new Vector3(p.x / total, p.y / SideWallH, p.z)); V.Add(new Vector3(p.x / total, (p.y + SideWallH) / SideWallH, p.z));
+            Vector3 n = outN[i]; var nl = new Vector3(n.x * total, 0f, n.z).normalized; N.Add(nl); N.Add(nl);
+            UV.Add(new Vector2(arc[i] / total, 0f)); UV.Add(new Vector2(arc[i] / total, 1f));
+            if (i == segs) break;
+            int k = i * 2; T.Add(k); T.Add(k + 1); T.Add(k + 3); T.Add(k); T.Add(k + 3); T.Add(k + 2);
+        }
+        var wm = new Mesh { name = "Tutorial_WindSideWall" }; wm.SetVertices(V); wm.SetNormals(N); wm.SetUVs(0, UV); wm.SetTriangles(T, 0); wm.RecalculateBounds();
+        wm = Save(wm, MeshDir + "/Tutorial_WindSideWall.asset");
+        var wall = new GameObject("Wall"); wall.transform.SetParent(group, false);
+        wall.transform.localScale = new Vector3(total, SideWallH, 1f);
+        wall.AddComponent<MeshFilter>().sharedMesh = wm;
+        var wr = wall.AddComponent<MeshRenderer>(); wr.sharedMaterial = SideWallMat();
+        wr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; wr.receiveShadows = false;
+        // ---- 膜（当たり判定）：区間ごとの箱。人は通り抜ける（Walkthrough）、ふわふわはぽよんと跳ね返る ----
+        var wc = new GameObject("WallCollider"); wc.transform.SetParent(group, false);
+        var bounce = AssetDatabase.FindAssets("RockBounce t:PhysicMaterial").Select(AssetDatabase.GUIDToAssetPath).Select(p => AssetDatabase.LoadAssetAtPath<PhysicMaterial>(p)).FirstOrDefault();
+        int walk = LayerMask.NameToLayer("Walkthrough");
+        for (int i = 0; i < segs; i++)
+        {
+            Vector3 p = wallP[i], q = wallP[i + 1]; Vector3 d = q - p; float len = d.magnitude;
+            Vector3 n = ((outN[i] + outN[i + 1]) * 0.5f).normalized;
+            var b = new GameObject("Seg" + i); b.transform.SetParent(wc.transform, false); b.layer = walk;
+            b.transform.position = (p + q) * 0.5f + n * 0.1f + Vector3.up * (SideWallH * 0.5f);   // 箱の内側の面が膜の位置に来るように少し外へ
+            b.transform.rotation = Quaternion.LookRotation(d / len, Vector3.up);
+            var bc = b.AddComponent<BoxCollider>(); bc.size = new Vector3(0.2f, SideWallH, len + 0.1f); bc.sharedMaterial = bounce;
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bay.gameObject.scene);
+        return "wind side wall " + total.ToString("F1") + "m, posts " + (segs + 1);
+    }
+
+    static Material SideWallMat()
+    {
+        const string path = "Assets/FuwaCourse/Materials/TutorialSideWall.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (m == null) { m = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/SoftBarrier.mat")); AssetDatabase.CreateAsset(m, path); }
+        return m;
+    }
+
     // 丸ごと作り直す。あとから足したメニューの分（区画の膜・風の範囲・入口のエアガンの看板・遠景の軽い形・軽い版）も続けてやる。
     // 2026-10-10：RunCore だけで作り直したら膜・エアガンの看板・遠景の軽い形が消えて、看板の位置も古いのに戻っていた（てじゃが気づいた）
     public static string Run()
@@ -606,6 +726,7 @@ public static class FuwaPracticeTutorial
         var log = RunCore();
         log += "\n" + RebuildBarriers();
         log += "\n" + RebuildWindOnly();   // 風の範囲は次の区画の膜まで（膜のあとで）
+        log += "\n" + RebuildWindSideWall();
         log += "\n" + MakeGunSign();
         log += "\ngun shadows " + FuwaGunShadowSetup.Run();   // 見本の銃の本物の影を切って、うそ影の箱を置く
         FuwaFarViewSetup.Run();
