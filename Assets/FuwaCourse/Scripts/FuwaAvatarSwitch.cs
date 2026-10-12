@@ -11,7 +11,15 @@ public class FuwaAvatarSwitch : UdonSharpBehaviour
 {
     public VRCAvatarPedestal pedestal;
 
-    public override void Interact()
+    [Tooltip("オンなら、看板そのもののクリックはやめて、下のレーザーボタン（Use を呼ぶ）だけで着替える（2026-10-12 てじゃ「押すもの全部レーザー式に」）")]
+    public bool laserOnly = true;
+
+    private void Start() { if (laserOnly) DisableInteractive = true; }
+
+    public override void Interact() { Use(); }
+
+    // レーザーで押すボタンから（SendCustomEvent "Use"）
+    public void Use()
     {
         if (pedestal == null) return;
         pedestal.SetAvatarUse(Networking.LocalPlayer);

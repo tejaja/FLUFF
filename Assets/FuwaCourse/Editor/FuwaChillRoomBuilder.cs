@@ -103,35 +103,31 @@ public static class FuwaChillRoomBuilder
             bso.ApplyModifiedPropertiesWithoutUndo(); Sync(bl);
         }
 
-        // スイッチ4つ（2×2）。遊び方の看板の板をコピーした横長の看板を押す
+        // スイッチ4つ（2×2）：ロビーと同じレーザーで押す白いボタン（近くに来た時だけ押せる＝FuwaUiProximity がビルド前に自動登録）
+        //（2026-10-12 てじゃ「押すもの全部レーザー式に」「ほかのボタンと同じかんじ、距離とかも」）
         var spawn = coop.Find("CoopSpawn");
         var howTo = coop.Find("HowToPlayVersus");
         var panel = new GameObject("Switches").transform; panel.SetParent(root, false);
         Vector3 pc = new Vector3(ac.x, floorY, ac.z) + PanelLocal;
         Vector3 look = spawn != null ? spawn.position : ac + Vector3.back * 9f;
         var face = pc - look; face.y = 0f; var rot = Quaternion.LookRotation(face.normalized);
-        var labels = new TMPro.TextMeshPro[4];
+        var labels = new TMPro.TextMeshProUGUI[4];
+        var events = new[] { "NextSize", "NextColor", "NextLimit", "TogglePop" };
         for (int k = 0; k < 4; k++)
         {
             int col = k % 2, row = k / 2;
-            var pos = pc + rot * new Vector3(col == 0 ? -1.02f : 1.02f, row == 0 ? 1.75f : 1.08f, 0f);
-            var lbl = MakeButton(panel, howTo, "Switch" + k, pos, rot);
-            labels[k] = lbl;
-            var btn = lbl.transform.parent.gameObject;
-            EnsureProgram("FuwaChillButton");
-            var cb = UdonSharpUndo.AddComponent<FuwaChillButton>(btn); cb.spawner = sp; cb.kind = k; UdonSharpEditorUtility.CopyProxyToUdon(cb);
-            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(cb);
-            if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; ub.interactText = new[] { "サイズを変える", "色を変える", "上限を変える", "落ちたら消えるか" }[k]; EditorUtility.SetDirty(ub); }
+            var pos = pc + rot * new Vector3(col == 0 ? -0.68f : 0.68f, row == 0 ? 1.55f : 1.15f, 0f);
+            labels[k] = LaserButton(panel, "Switch" + k, pos, rot, 1.45f, "", sp, events[k]);
         }
-        // 支柱（木の棒）2本
+        // 支柱（木の棒）2本と、横木
         var wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
-        foreach (float sx in new[] { -2.05f, 2.05f })
+        foreach (float sx in new[] { -1.42f, 1.42f })
         {
             var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post";
             Object.DestroyImmediate(post.GetComponent<Collider>());
             post.transform.SetParent(panel, false);
-            post.transform.position = pc + rot * new Vector3(sx, 1.05f, 0.08f); post.transform.rotation = rot;
-            post.transform.localScale = new Vector3(0.09f, 1.05f, 0.09f);
+            post.transform.position = pc + rot * new Vector3(sx, 0.9f, 0.06f); post.transform.rotation = rot;
+            post.transform.localScale = new Vector3(0.08f, 0.9f, 0.08f);
             post.GetComponent<MeshRenderer>().sharedMaterial = wood;
         }
         sp.sizeLabel = labels[0]; sp.colorLabel = labels[1]; sp.limitLabel = labels[2]; sp.popLabel = labels[3];
@@ -326,14 +322,13 @@ public static class FuwaChillRoomBuilder
         UdonSharpEditorUtility.CopyProxyToUdon(ul);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ul); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
 
-        // 戻すボタン（並びの下）
-        var btnLbl = MakeButton(toys, howTo, "ResetToys", G + toCenter * 2.4f + Vector3.up * 0.45f, Quaternion.LookRotation(-toCenter));
-        btnLbl.text = "おもちゃを戻す";
-        var bgo = btnLbl.transform.parent.gameObject;
-        var rs = UdonSharpUndo.AddComponent<FuwaHandFanReset>(bgo); rs.fans = list.ToArray(); rs.others = resetOthers; UdonSharpEditorUtility.CopyProxyToUdon(rs);
-        var rub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rs); if (rub != null) { rub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; rub.interactText = "戻す"; EditorUtility.SetDirty(rub); }
+        // 戻すボタン（並びの下）：レーザーで押すボタン
+        var rsGo = new GameObject("ResetToys"); rsGo.transform.SetParent(toys, false);
+        var rs = UdonSharpUndo.AddComponent<FuwaHandFanReset>(rsGo); rs.fans = list.ToArray(); rs.others = resetOthers; UdonSharpEditorUtility.CopyProxyToUdon(rs);
+        var rub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rs); if (rub != null) { rub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(rub); }
+        var btnLbl = LaserButton(toys, "ResetToysButton", G + toCenter * 2.4f + Vector3.up * 0.55f, Quaternion.LookRotation(-toCenter), 1.3f, "おもちゃを戻す", rs, "ResetAll");
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
-        if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "texts", "ja", "en", btnLbl, "おもちゃを戻す", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
+        if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "uiTexts", "uiJa", "uiEn", btnLbl, "おもちゃを戻す", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
         return "toys " + list.Count;
     }
 
@@ -800,6 +795,31 @@ public static class FuwaChillRoomBuilder
     }
 
     static GameObject RootGo(string n) { return UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == n); }
+
+    // レーザーで押すボタン：ロビーの「みんなで」ボタン（FuwaLobby/HowToPlay/TogetherButton）をコピーして、押したら target に evt を送る
+    public static TMPro.TextMeshProUGUI LaserButton(Transform parent, string name, Vector3 pos, Quaternion rot, float widthK, string text, UdonSharpBehaviour target, string evt)
+    {
+        var src = RootGo("FuwaLobby").transform.Find("HowToPlay/TogetherButton");
+        var g = Object.Instantiate(src.gameObject, parent, false); g.name = name;
+        g.transform.SetPositionAndRotation(pos, rot); g.transform.localScale = src.lossyScale;
+        var canvas = (RectTransform)g.transform.Find("Canvas");
+        canvas.sizeDelta = new Vector2(canvas.sizeDelta.x * widthK, canvas.sizeDelta.y);
+        var bc = canvas.GetComponent<BoxCollider>(); bc.size = new Vector3(bc.size.x * widthK, bc.size.y, bc.size.z);
+        var btn = g.GetComponentInChildren<UnityEngine.UI.Button>(true);
+        var so = new SerializedObject(btn);
+        var calls = so.FindProperty("m_OnClick.m_PersistentCalls.m_Calls");
+        calls.arraySize = 1;
+        var c0 = calls.GetArrayElementAtIndex(0);
+        c0.FindPropertyRelative("m_Target").objectReferenceValue = UdonSharpEditorUtility.GetBackingUdonBehaviour(target);
+        c0.FindPropertyRelative("m_TargetAssemblyTypeName").stringValue = "VRC.Udon.UdonBehaviour, VRC.Udon";
+        c0.FindPropertyRelative("m_MethodName").stringValue = "SendCustomEvent";
+        c0.FindPropertyRelative("m_Mode").intValue = 5;
+        c0.FindPropertyRelative("m_Arguments.m_StringArgument").stringValue = evt;
+        c0.FindPropertyRelative("m_CallState").intValue = 2;
+        so.ApplyModifiedPropertiesWithoutUndo();
+        var t = g.GetComponentInChildren<TMPro.TextMeshProUGUI>(true); t.text = text; EditorUtility.SetDirty(t);
+        return t;
+    }
 
     // 遊び方の看板の板（Panel・Border）と文字（Text）をコピーした横長のボタン。文字を返す。表（-Z）を手前に
     static TMPro.TextMeshPro MakeButton(Transform parent, Transform howTo, string name, Vector3 pos, Quaternion rot)

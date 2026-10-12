@@ -12,7 +12,10 @@ public class FuwaHandFanReset : UdonSharpBehaviour
     [Tooltip("ほかの持てるおもちゃ（VRCObjectSync つき）")]
     public GameObject[] others;
 
-    public override void Interact()
+    public override void Interact() { ResetAll(); }
+
+    // レーザーで押すボタンから（SendCustomEvent "ResetAll"）
+    public void ResetAll()
     {
         if (fans != null) foreach (FuwaHandFan f in fans) if (f != null) f.ResetFan();
         if (others == null) return;

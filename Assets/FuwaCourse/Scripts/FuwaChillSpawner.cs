@@ -5,7 +5,7 @@ using VRC.SDKBase;
 
 // 「みんなで」のチルルーム（2026-10-12 てじゃ「みんなでをチルルームにする方向性で固めよう」）。
 // 真ん中のキノコを撃つと、今の設定のふわふわが1個出る（FuwaSharedBall を balls 個まで使い回す）。
-// スイッチ4つ（FuwaChillButton）で設定を切り替える：サイズ／カラー／出せる上限数／地面に落ちたら消えるか。設定はみんなで共通（同期）。
+// スイッチ4つ（レーザーで押すボタン → NextSize 等。2026-10-12 てじゃ「押すもの全部レーザー式に」）で設定を切り替える：サイズ／カラー／出せる上限数／地面に落ちたら消えるか。設定はみんなで共通（同期）。
 // 上限を超えたら、いちばん前に出したのをキノコへ戻して使う。
 // 同期は Manual（押した人が持ち主になって設定を送る）。エリアの表示切り替えで隠れない FuwaSystem の下に置く
 [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
@@ -29,16 +29,16 @@ public class FuwaChillSpawner : UdonSharpBehaviour
         new Color(1f, 0.9f, 0.45f), new Color(0.6f, 0.92f, 0.6f), new Color(0.78f, 0.62f, 1f),
     };
     [Tooltip("スイッチの文字の色（colors を少し濃くしたもの。最後はランダム）")]
-    public string[] colorHex = { "9C8F86", "E0507F", "3A8FD6", "C79A10", "3E9E48", "8A5CD6", "FF6B5C" };
+    public string[] colorHex = { "FFFFFF", "FFB3CF", "9AD4FF", "FFE680", "A8F0A8", "D3B8FF", "FFFFFF" };
 
     [Header("上限数")]
     public int[] limits = { 1, 3, 6, 10 };
 
-    [Header("スイッチの文字（なくてもOK）")]
-    public TextMeshPro sizeLabel;
-    public TextMeshPro colorLabel;
-    public TextMeshPro limitLabel;
-    public TextMeshPro popLabel;
+    [Header("スイッチ（レーザーで押すボタン）の文字（なくてもOK）")]
+    public TextMeshProUGUI sizeLabel;
+    public TextMeshProUGUI colorLabel;
+    public TextMeshProUGUI limitLabel;
+    public TextMeshProUGUI popLabel;
 
     [UdonSynced] private int _size = 1;
     [UdonSynced] private int _color = 0;
@@ -132,10 +132,12 @@ public class FuwaChillSpawner : UdonSharpBehaviour
         _dirty = false; _shownEn = en;
         int si = Mathf.Clamp(_size, 0, sizeJa.Length - 1), ci = Mathf.Clamp(_color, 0, colorJa.Length - 1), li = Mathf.Clamp(_limit, 0, limits.Length - 1);
         string colHex = colorHex[Mathf.Clamp(ci, 0, colorHex.Length - 1)];
-        if (sizeLabel != null) sizeLabel.text = (en ? "Size: " : "サイズ：") + "<color=#FF6B5C>" + (en ? sizeEn[si] : sizeJa[si]) + "</color>";
-        if (colorLabel != null) colorLabel.text = (en ? "Color: " : "カラー：") + "<color=#" + colHex + ">" + (en ? colorEn[ci] : colorJa[ci]) + "</color>";
-        if (limitLabel != null) limitLabel.text = (en ? "Max: " : "上限：") + "<color=#FF6B5C>" + limits[li] + "</color>";
-        if (popLabel != null) popLabel.text = en ? ("On landing: <color=#FF6B5C>" + (_popGround ? "Pop" : "Stay") + "</color>")
-                                                 : ("落ちたら：<color=#FF6B5C>" + (_popGround ? "消える" : "消えない") + "</color>");
+        // ボタンはオレンジなので、値は白で太く（色は●で見せる）
+        string V = "<color=#FFFFFF><b>"; string VE = "</b></color>";
+        if (sizeLabel != null) sizeLabel.text = (en ? "Size: " : "サイズ：") + V + (en ? sizeEn[si] : sizeJa[si]) + VE;
+        if (colorLabel != null) colorLabel.text = (en ? "Color: " : "カラー：") + "<color=#" + colHex + ">●</color>" + V + (en ? colorEn[ci] : colorJa[ci]) + VE;
+        if (limitLabel != null) limitLabel.text = (en ? "Max: " : "上限：") + V + limits[li] + VE;
+        if (popLabel != null) popLabel.text = en ? ("On landing: " + V + (_popGround ? "Pop" : "Stay") + VE)
+                                                 : ("落ちたら：" + V + (_popGround ? "消える" : "消えない") + VE);
     }
 }

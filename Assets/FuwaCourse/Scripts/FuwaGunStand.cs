@@ -21,6 +21,7 @@ public class FuwaGunStand : UdonSharpBehaviour
 
     private void Start()
     {
+        if (laserOnly) DisableInteractive = true;
         if (marker == null) return;
         _arrow = marker.transform.Find("Arrow");
         if (_arrow != null) _arrowBase = _arrow.localPosition;
@@ -47,7 +48,13 @@ public class FuwaGunStand : UdonSharpBehaviour
         if (marker.activeSelf != show) marker.SetActive(show);
     }
 
-    public override void Interact()
+    [Tooltip("オンなら、台そのもののクリックはやめて、そばのレーザーボタン（Summon を呼ぶ）だけで呼ぶ（2026-10-12 てじゃ「押すもの全部レーザー式に」）")]
+    public bool laserOnly = true;
+
+    public override void Interact() { Summon(); }
+
+    // レーザーで押すボタンから（SendCustomEvent "Summon"）
+    public void Summon()
     {
         if (manager != null) manager.BringGun(gunSpot);
     }
