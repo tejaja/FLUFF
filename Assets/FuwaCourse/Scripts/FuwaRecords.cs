@@ -21,6 +21,8 @@ public class FuwaRecords : UdonSharpBehaviour
     // 列の位置（右の余白を詰めるため右へ。2026-10-12 てじゃ「右の余白埋めてもいいかも」）
     private const string ColA = "49%";
     private const string ColB = "75%";
+    private const string NameGap = "70%";   // タイムの行から名前の行まで（せまく）
+    private const string RowGap = "135%";   // 名前の行から次のコースまで（広く）
     public TextMeshPro boardText;
     public FuwaLanguage language;
 
@@ -160,9 +162,10 @@ public class FuwaRecords : UdonSharpBehaviour
             s += "<color=#FF6B5C>●</color> " + name
                + "<pos=" + ColA + "><mspace=0.5em>" + mine + "</mspace>"
                + "<pos=" + ColB + "><mspace=0.5em>" + best + "</mspace>";
-            // 名前の行は記録がなくても空けておく（行の間隔をそろえるため）
-            s += "\n<pos=" + ColB + "><size=60%><color=#8A7A9A>" + (who != "" ? who : " ") + "</color></size>";
-            if (i < courseStarts.Length - 1) s += "\n";
+            // 名前の行は記録がなくても空けておく（行の間隔をそろえるため）。
+            // 名前はすぐ上のタイムにくっつけて、コースの間はすき間をあける（どっちのタイムの名前か分かりやすく。2026-10-12 てじゃ）
+            s += "<line-height=" + NameGap + ">\n<pos=" + ColB + "><size=60%><color=#8A7A9A>" + (who != "" ? who : " ") + "</color></size></line-height>";
+            if (i < courseStarts.Length - 1) s += "<line-height=" + RowGap + ">\n</line-height>";
         }
         boardText.text = s;
     }
