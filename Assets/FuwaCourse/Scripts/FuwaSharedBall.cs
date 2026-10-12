@@ -27,6 +27,14 @@ public class FuwaSharedBall : UdonSharpBehaviour
     [Tooltip("待機中にゆっくり回る速さ(度/秒)")]
     public float idleSpin = 25f;
 
+    [Header("柵の上で止まらない（FuwaBall と同じ。2026-10-12 てじゃ「一応つけとこ」）")]
+    [Tooltip("名前にこれを含む物（FenceCollider など）の上に乗って止まったら、まわりの一番高い床の方へ転がす")]
+    public string perchName = "Fence";
+    public float perchDelay = 0.35f;
+    public float perchPush = 0.9f;
+    public float perchProbe = 0.8f;
+    private float _perchSeen = -1f, _perchStart = -1f;
+
     [Header("落ちたら")]
     [Tooltip("このレイヤーの物（ロビーの床など）に触れたら弾けて戻る")]
     public LayerMask popLayers = 1;
@@ -542,6 +550,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             }
         }
         _rb.velocity = v;
+        UpdatePerch();
         // 持ち主とのズレを少しずつ寄せる
         if (_posErr.sqrMagnitude > 0.000001f)
         {
@@ -595,6 +604,46 @@ public class FuwaSharedBall : UdonSharpBehaviour
             _furDrag = Vector3.Lerp(_furDrag, target, 1f - Mathf.Exp(-8f * Time.deltaTime));
             _furMat.SetVector("_Drag", new Vector4(_furDrag.x, _furDrag.y, _furDrag.z, 0f));
         }
+    }
+
+    // 柵の上の面に乗っている間（持ち主だけが見て、転がしたら送る）
+    private void OnCollisionStay(Collision collision)
+    {
+        if (collision == null || collision.gameObject == null || collision.contactCount == 0) return;
+        if (perchName == "" || !collision.gameObject.name.Contains(perchName)) return;
+        if (collision.GetContact(0).normal.y < 0.6f) return;   // 横に当たっているだけの時は数えない
+        if (_perchStart < 0f || Time.time - _perchSeen > 0.2f) _perchStart = Time.time;
+        _perchSeen = Time.time;
+    }
+
+    // 柵のてっぺん（平らな当たり判定）に乗ってほとんど止まったら、まわりで一番高い床の方へそっと転がす
+    private void UpdatePerch()
+    {
+        if (_perchStart < 0f) return;
+        if (Time.time - _perchSeen > 0.2f) { _perchStart = -1f; return; }   // もう乗っていない
+        if (_rb.velocity.sqrMagnitude > 0.25f) { _perchStart = Time.time; return; }   // まだ動いている
+        if (Time.time - _perchStart < perchDelay) return;
+        _perchStart = -1f;
+        if (!Networking.IsOwner(gameObject)) return;
+        Vector3 p = transform.position;
+        Vector3 best = Vector3.zero; float bestY = -1e9f;
+        for (int i = 0; i < 8; i++)
+        {
+            float a = i * Mathf.PI * 0.25f;
+            Vector3 d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            RaycastHit hit;
+            if (!Physics.Raycast(p + d * perchProbe + Vector3.up * 0.3f, Vector3.down, out hit, 12f, ~0, QueryTriggerInteraction.Ignore)) continue;
+            if (hit.collider.gameObject.name.Contains(perchName) || hit.collider.gameObject == gameObject) continue;   // 柵そのもの・自分は床じゃない
+            if (hit.point.y > bestY) { bestY = hit.point.y; best = d; }
+        }
+        if (best == Vector3.zero)
+        {
+            best = _homePos - p; best.y = 0f;   // まわりに床がない：出てきた所の方へ
+            if (best.sqrMagnitude < 0.0001f) return;
+            best.Normalize();
+        }
+        _rb.velocity = best * perchPush + Vector3.up * 0.3f;
+        _sendSoon = true;
     }
 
     private void OnCollisionEnter(Collision collision)
