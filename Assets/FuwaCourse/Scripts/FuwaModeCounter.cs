@@ -17,6 +17,8 @@ public class FuwaModeCounter : UdonSharpBehaviour
     public int[] labelAreas;
     [TextArea] public string[] labelsJa;
     [TextArea] public string[] labelsEn;
+    [Tooltip("labels と同じ順：数字を少し大きくする（フォントの数字が小さい看板）")]
+    public bool[] bigDigits;
     [Header("UIボタン（レーザーで押す版）に人数を出す")]
     public TextMeshProUGUI[] uiLabels;
     public int[] uiLabelAreas;
@@ -67,7 +69,12 @@ public class FuwaModeCounter : UdonSharpBehaviour
             {
                 if (labels[i] == null) continue;
                 int a = (labelAreas != null && i < labelAreas.Length) ? labelAreas[i] : 1;
-                string s = (en ? Get(labelsEn, i) : Get(labelsJa, i)) + "\n<size=55%><color=#FF8A7A><voffset=-0.1em><sprite=0 tint=1></voffset><size=68%><voffset=-0.02em>" + (a == 2 ? versus : adventure) + "</voffset></size></color></size>";   // 数字はこのフォントだと小さく低く見えるので、少し大きく上げてピクトグラムとそろえる   // 人数は少し下げる（g・y の下と重ならないように。2026-10-12 てじゃ）
+                int cnt = a == 2 ? versus : adventure;
+                bool big = bigDigits != null && i < bigDigits.Length && bigDigits[i];
+                // 入口のゲート（だるまドロップのフォント）は数字が小さく低く見えるので、少し大きくしてピクトグラムとそろえる（2026-10-12 てじゃ）
+                string s = (en ? Get(labelsEn, i) : Get(labelsJa, i)) + (big
+                    ? "\n<size=55%><color=#FF8A7A><voffset=-0.15em><sprite=0 tint=1></voffset><size=68%>" + cnt + "</size></color></size>"
+                    : "\n<size=55%><color=#FF8A7A><sprite=0 tint=1>" + cnt + "</color></size>");
                 if (labels[i].text != s) labels[i].text = s;
             }
         }
