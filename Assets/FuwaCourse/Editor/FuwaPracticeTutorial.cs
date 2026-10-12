@@ -409,8 +409,8 @@ public static class FuwaPracticeTutorial
     const string GunSignJa = "<size=130%><color=#FF6B5C>エアガン</color></size>\n持つ：VR トリガー／PC 左クリック\n手元に呼ぶ：PC Eキー／VR 右スティック下\n台をクリックで台にもどる";
     const string GunSignEn = "<size=130%><color=#FF6B5C>Air Gun</color></size>\nHold: VR trigger / PC left click\nCall it: PC E key / VR right stick down\nClick the stand to send it back";
     // 入口の島のエアガンの看板と台の場所（PlayerSpot から見て x=右・z=前、m）。ようこそ看板を読んでから取りに行く順（2026-10-12 てじゃ）
-    public static readonly Vector3 GunSignLocal = new Vector3(-1.4f, 0f, 4.6f);
-    public static readonly Vector3 GunStandLocal = new Vector3(-0.35f, 0f, 4.25f);
+    public static readonly Vector3 GunSignLocal = new Vector3(-1.4f, 0f, 5.8f);   // てじゃ「エアガンもうちょい奥」4.6→5.8
+    public static readonly Vector3 GunStandLocal = new Vector3(-0.35f, 0f, 5.45f);
 
     // 台と目印を GunStandLocal へ（高さはそのまま）
     public static void PlaceGunStand(Transform ent)
