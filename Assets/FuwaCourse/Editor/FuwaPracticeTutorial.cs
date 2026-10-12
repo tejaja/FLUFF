@@ -600,7 +600,7 @@ public static class FuwaPracticeTutorial
     }
 
     // 横風の区画の左（風下・空の側）のふちに、背の高い木の柵（2026-10-12 てじゃ「落ちちゃダメだと思っちゃうひとがいる」）。
-    // ・柵：ほかの島の柵と同じ作りで、横木5段・高さ1.6m（低い柵だとふわふわが越える。網目の光る壁も付けたが「違和感」で、柵を5段に）。人はこの柵で止まる
+    // ・柵：ほかの島の柵と同じ作りで、横木7段・高さ2.3m（低い柵だとふわふわが越える。網目の光る壁も付けたが「違和感」で柵を5段に、さらに「もう2段ふやそ」で7段）。人はこの柵で止まる
     // ・ふわふわは柵に当たるとぽよんと跳ね返る（割れない。「横は破裂なしで」）。柵より高く上がったら越えて落ちてもよい（てじゃ「柵超えで落ちるのはありでも」）
     // ・風の範囲の手前のはしから次の区画の膜まで。まとめて「SideWall」の下に置き、ReadMarks で区画の看板と一緒に生やす
     [MenuItem("FuwaCourse/れんしゅう/横風の区画の横の柵を作り直す")]
@@ -639,9 +639,9 @@ public static class FuwaPracticeTutorial
         group.rotation = Quaternion.identity;   // 中の頂点はワールドの向きで入れる（区画の親は回っているので、親の向きのままだと斜めにずれた）
         Vector3 o = group.position;
 
-        // ---- 木の柵（島の柵と同じ作りで、背を高く・横木5段）----
-        const float postW = 0.12f, postH = 1.66f, railW = 0.06f, railH = 0.07f;
-        float[] railY = { 0.22f, 0.55f, 0.88f, 1.21f, 1.54f };
+        // ---- 木の柵（島の柵と同じ作りで、背を高く・横木7段）----
+        const float postW = 0.12f, postH = 2.32f, railW = 0.06f, railH = 0.07f;
+        float[] railY = { 0.22f, 0.55f, 0.88f, 1.21f, 1.54f, 1.87f, 2.20f };
         var postMesh = FuwaBevelTools.RoundCube(new Vector3(postW, postH, postW), 0.03f, 2);
         var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
         var parts = new List<CombineInstance>(); var colParts = new List<CombineInstance>();

@@ -18,6 +18,17 @@ public class FuwaBall : UdonSharpBehaviour
     [Tooltip("空気抵抗")]
     public float airDrag = 1.2f;
 
+    [Header("柵の上で止まらない（2026-10-12 てじゃ「柵にちょうど乗っかって止まる時がある」）")]
+    [Tooltip("名前にこれを含む物（FenceCollider など）の上に乗って止まったら、近くの道（島）の方へ転がす")]
+    public string perchName = "Fence";
+    [Tooltip("乗ったまま、この秒数ほとんど動かなかったら転がす")]
+    public float perchDelay = 0.35f;
+    [Tooltip("転がす速さ(m/s)")]
+    public float perchPush = 0.9f;
+    [Tooltip("道を探す時に横へずらす距離(m)")]
+    public float perchProbe = 0.8f;
+    private float _perchSeen = -1f, _perchStart = -1f;
+
     [Header("リスポーン")]
     public Transform startPoint;
     [Tooltip("この高さより下に落ちたらアウト")]
@@ -235,6 +246,7 @@ public class FuwaBall : UdonSharpBehaviour
         _gravityScale = 0f;
 
         _rb.AddForce(Vector3.down * fallAcceleration * g, ForceMode.Acceleration);
+        UpdatePerch();
         // エアガンを溜めている間のささやかな引き寄せ（FuwaBlower.SetChargePull から毎フレーム届く）
         if (Time.time < _pullUntil) _rb.AddForce(_pullAcc, ForceMode.Acceleration);
 
@@ -1204,6 +1216,46 @@ public class FuwaBall : UdonSharpBehaviour
             if (_goalZone != null) _goalZone.Landed(this);
             else Fail();
         }
+    }
+
+    // 柵の上の面に乗っている間（OnCollisionStay は物理の1歩ごと）
+    private void OnCollisionStay(Collision collision)
+    {
+        if (collision == null || collision.gameObject == null || collision.contactCount == 0) return;
+        if (perchName == "" || !collision.gameObject.name.Contains(perchName)) return;
+        if (collision.GetContact(0).normal.y < 0.6f) return;   // 横に当たっているだけの時は数えない
+        if (_perchStart < 0f || Time.time - _perchSeen > 0.2f) _perchStart = Time.time;
+        _perchSeen = Time.time;
+    }
+
+    // 柵のてっぺん（平らな当たり判定）に乗ってほとんど止まったら、まわりで一番高い道（島）の方へそっと転がす
+    private void UpdatePerch()
+    {
+        if (_perchStart < 0f) return;
+        if (Time.time - _perchSeen > 0.2f) { _perchStart = -1f; return; }   // もう乗っていない
+        if (_rb.velocity.sqrMagnitude > 0.25f) { _perchStart = Time.time; return; }   // まだ動いている
+        if (Time.time - _perchStart < perchDelay) return;
+        _perchStart = -1f;
+        Vector3 p = transform.position;
+        Vector3 best = Vector3.zero; float bestY = -1e9f;
+        for (int i = 0; i < 8; i++)
+        {
+            float a = i * Mathf.PI * 0.25f;
+            Vector3 d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            RaycastHit hit;
+            if (Physics.Raycast(p + d * perchProbe + Vector3.up * 0.3f, Vector3.down, out hit, groundProbe, 1 << groundLayer, QueryTriggerInteraction.Ignore) && hit.point.y > bestY)
+            { bestY = hit.point.y; best = d; }
+        }
+        if (best == Vector3.zero)
+        {
+            // まわりに道がない：再開位置の方へ
+            Transform rp = respawnPoint != null ? respawnPoint : startPoint;
+            if (rp == null) return;
+            best = rp.position - p; best.y = 0f;
+            if (best.sqrMagnitude < 0.0001f) return;
+            best.Normalize();
+        }
+        _rb.velocity = best * perchPush + Vector3.up * 0.3f;
     }
 
     private void PlaySfx(AudioSource source)
