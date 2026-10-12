@@ -683610,6 +683610,7 @@ MeshRenderer:
   m_Materials:
   - {fileID: 2100000, guid: f92aca9e0f9d3f943b6c21ea3c1ef857, type: 2}
   - {fileID: 2100000, guid: 1d3b316f2fa947643af0f378816bf30e, type: 2}
+  - {fileID: 2100000, guid: cb9139cf8e319774aa3f0ebd616af9fb, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -925439,7 +925440,7 @@ MonoBehaviour:
   m_faceColor:
     serializedVersion: 2
     rgba: 4294967295
-  m_fontSize: 1.45
+  m_fontSize: 1.8
   m_fontSizeBase: 1.75
   m_fontWeight: 400
   m_enableAutoSizing: 1
@@ -1218698,7 +1218699,7 @@ GameObject:
   m_IsActive: 1
 --- !u!114 &847454245
 MonoBehaviour:
-  m_ObjectHideFlags: 0
+  m_ObjectHideFlags: 2
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -3030870,10 +3030871,6 @@ MonoBehaviour:
     SerializedTypeNames:
     - VRC.Udon.UdonBehaviour
     - VRC.Udon.UdonBehaviour
-  - gameObject: {fileID: 0}
-    ID: 720
-    SerializedTypeNames:
-    - VRC.Udon.UdonBehaviour
   - gameObject: {fileID: 915938636}
     ID: 721
     SerializedTypeNames:
@@ -3031033,6 +3031030,10 @@ MonoBehaviour:
     - VRC.Udon.UdonBehaviour
   - gameObject: {fileID: 1988388730}
     ID: 755
+    SerializedTypeNames:
+    - VRC.Udon.UdonBehaviour
+  - gameObject: {fileID: 847454244}
+    ID: 756
     SerializedTypeNames:
     - VRC.Udon.UdonBehaviour
   portraitCameraPositionOffset: {x: 0, y: 0, z: 0}

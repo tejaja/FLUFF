@@ -12,7 +12,25 @@ public static class FuwaCourse2BrokenPath
     const string MeshPath = "Assets/FuwaCourse/Meshes/Course2Path_v2_Bevel.asset";
     const string BackupPath = "Assets/FuwaCourse/Meshes/Backup/Course2Path_v2_Bevel_PreBroken.asset";
     // 割れる所（ワールド座標）：x がこれより奥（洞窟側）。ふちは z に沿ってぎざぎざ
-    const float CutX = 98.2f, Jag = 0.9f, EndX = 104.9f, MaxY = 12.5f, MinZ = -1.5f, MaxZ = 9.5f;
+    // 2026-10-12 てじゃのイメージ（赤線）：ぎざぎざの割れ目、右奥（洞窟に向かって右＝z の小さい側）ほど多めに削れる
+    const float CutX = 98.6f, Slope = 0.55f, ZMid = 4f, Tooth = 1.4f, Amp = 0.6f, EndX = 104.9f, MaxY = 12.5f, MinZ = -1.5f, MaxZ = 9.5f;
+    const int Depth = 6;
+
+    // 割れ目の x（z ごと）：右（z 小）ほど手前。ぎざぎざは三角波（歯ごとに少し大きさを変える）
+    static float CutAt(float z)
+    {
+        float u = z / Tooth; float f = u - Mathf.Floor(u);
+        float tri = 1f - 4f * Mathf.Abs(f - 0.5f);                 // -1..1 のとがった波
+        float k = 0.75f + 0.5f * Mathf.PerlinNoise(Mathf.Floor(u) * 0.73f, 0.31f);
+        return CutX + Slope * (z - ZMid) + Amp * k * tri;
+    }
+
+    // 1＝岩にする所、0＝黄色のまま
+    static int Side(Vector3 w)
+    {
+        if (w.x >= EndX || w.y >= MaxY || w.z <= MinZ || w.z >= MaxZ) return 0;
+        return w.x > CutAt(w.z) ? 1 : 0;
+    }
 
     [MenuItem("FuwaCourse/Course2/木の足場から奥の道を割れた岩肌にする")]
     public static void Menu() { Debug.Log(Run()); }
@@ -31,22 +49,76 @@ public static class FuwaCourse2BrokenPath
             AssetDatabase.CreateAsset(src, BackupPath);
         }
         var l2w = pm.localToWorldMatrix;
-        var verts = src.vertices;
-        var newV = new List<Vector3>(verts); var newN = new List<Vector3>(src.normals);
+        var verts = src.vertices; var norms = src.normals;
+        var newV = new List<Vector3>(verts); var newN = new List<Vector3>(norms);
         var uv = new List<Vector2>(); src.GetUVs(0, uv); bool hasUv = uv.Count == verts.Length;
         var subs = new List<int>[3]; for (int s = 0; s < 3; s++) subs[s] = new List<int>();
         int moved = 0;
+        // ふちにかかる三角形は、割れ目の線でぴったり切る（割れ目は z の区間ごとに直線＝三角波の山・谷で区切る）。
+        // 切った多角形は扇形に三角形にする。となりの三角形も同じ線で切るので、すき間はできない
+        var w2lc = l2w.inverse;
+        int AddV(Vector3 lp, Vector3 n, Vector2 t)
+        {
+            newV.Add(lp); newN.Add(n); if (hasUv) uv.Add(t); return newV.Count - 1;
+        }
+        void Emit(List<int> poly, int sub)
+        {
+            if (poly.Count < 3) return;
+            Vector3 c = Vector3.zero; foreach (int v in poly) c += l2w.MultiplyPoint3x4(newV[v]); c /= poly.Count;
+            bool rock = Side(c) == 1;
+            var dst = rock ? subs[2] : subs[sub];
+            for (int i = 1; i + 1 < poly.Count; i++) { dst.Add(poly[0]); dst.Add(poly[i]); dst.Add(poly[i + 1]); if (rock) moved++; }
+        }
+        // poly を「dot(w, n) - d >= 0」側と反対側に分ける（どちらも返す）
+        void Split(List<int> poly, System.Func<Vector3, float> f, List<int> pos, List<int> neg)
+        {
+            int n = poly.Count;
+            for (int i = 0; i < n; i++)
+            {
+                int a = poly[i], b2 = poly[(i + 1) % n];
+                Vector3 wa = l2w.MultiplyPoint3x4(newV[a]), wb = l2w.MultiplyPoint3x4(newV[b2]);
+                float fa = f(wa), fb = f(wb);
+                if (fa >= 0f) pos.Add(a); else neg.Add(a);
+                if ((fa >= 0f) != (fb >= 0f))
+                {
+                    float t = fa / (fa - fb);
+                    var nv = AddV(Vector3.Lerp(newV[a], newV[b2], t), Vector3.Lerp(newN[a], newN[b2], t).normalized, hasUv ? Vector2.Lerp(uv[a], uv[b2], t) : Vector2.zero);
+                    pos.Add(nv); neg.Add(nv);
+                }
+            }
+        }
+        float half = Tooth * 0.5f;
         for (int s = 0; s < src.subMeshCount && s < 2; s++)
         {
             var tris = src.GetTriangles(s);
             for (int i = 0; i < tris.Length; i += 3)
             {
-                Vector3 c = l2w.MultiplyPoint3x4((verts[tris[i]] + verts[tris[i + 1]] + verts[tris[i + 2]]) / 3f);
-                float cut = CutX + Jag * (0.55f * Mathf.Sin(c.z * 2.3f + 0.7f) + 0.45f * Mathf.Sin(c.z * 5.1f + 2.1f));
-                bool rock = c.x > cut && c.x < EndX && c.y < MaxY && c.z > MinZ && c.z < MaxZ;
-                var dst = rock ? subs[2] : subs[s];
-                dst.Add(tris[i]); dst.Add(tris[i + 1]); dst.Add(tris[i + 2]);
-                if (rock) moved++;
+                Vector3 w0 = l2w.MultiplyPoint3x4(verts[tris[i]]), w1 = l2w.MultiplyPoint3x4(verts[tris[i + 1]]), w2 = l2w.MultiplyPoint3x4(verts[tris[i + 2]]);
+                Vector3 cen = (w0 + w1 + w2) / 3f;
+                float zmin = Mathf.Min(w0.z, Mathf.Min(w1.z, w2.z)), zmax = Mathf.Max(w0.z, Mathf.Max(w1.z, w2.z));
+                float xmin = Mathf.Min(w0.x, Mathf.Min(w1.x, w2.x)), xmax = Mathf.Max(w0.x, Mathf.Max(w1.x, w2.x));
+                bool inBox = cen.x < EndX && cen.y < MaxY && cen.z > MinZ && cen.z < MaxZ;
+                float lo = CutX + Slope * (zmin - ZMid) - Amp * 1.3f - 0.1f, hi = CutX + Slope * (zmax - ZMid) + Amp * 1.3f + 0.1f;
+                var tri = new List<int> { tris[i], tris[i + 1], tris[i + 2] };
+                if (!inBox || xmax < lo || xmin > hi) { Emit(tri, s); continue; }
+                // z の区間（三角波の折れ目）で切る
+                var pieces = new List<List<int>> { tri };
+                for (float zk = Mathf.Floor(zmin / half) * half + half; zk < zmax; zk += half)
+                {
+                    float zz = zk; var next = new List<List<int>>();
+                    foreach (var pc in pieces) { var a = new List<int>(); var bb = new List<int>(); Split(pc, w => w.z - zz, a, bb); if (a.Count >= 3) next.Add(a); if (bb.Count >= 3) next.Add(bb); }
+                    pieces = next;
+                }
+                // 区間ごとに割れ目の直線で切る
+                foreach (var pc in pieces)
+                {
+                    Vector3 pc0 = Vector3.zero; foreach (int v in pc) pc0 += l2w.MultiplyPoint3x4(newV[v]); pc0 /= pc.Count;
+                    float z0 = Mathf.Floor(pc0.z / half) * half, z1 = z0 + half;
+                    float x0 = CutAt(z0 + 1e-4f), x1 = CutAt(z1 - 1e-4f);
+                    System.Func<Vector3, float> f = w => w.x - (x0 + (x1 - x0) * (w.z - z0) / half);
+                    var a = new List<int>(); var bb = new List<int>(); Split(pc, f, a, bb);
+                    Emit(a, s); Emit(bb, s);
+                }
             }
         }
         // 岩の部分は頂点を分けて、少しでこぼこ（割れた感じ）に。当たり判定は別メッシュなので見た目だけ（±4cm、岩が浮いて見えない程度）
@@ -57,10 +129,10 @@ public static class FuwaCourse2BrokenPath
             if (!remap.TryGetValue(vi, out int ni))
             {
                 ni = newV.Count; remap[vi] = ni;
-                Vector3 w = l2w.MultiplyPoint3x4(verts[vi]);
+                Vector3 w = l2w.MultiplyPoint3x4(newV[vi]);
                 float n = Mathf.PerlinNoise(w.x * 1.7f, w.z * 1.7f) - 0.5f;
                 w += Vector3.up * n * 0.08f;
-                newV.Add(w2l.MultiplyPoint3x4(w)); newN.Add(src.normals[vi]); if (hasUv) uv.Add(uv[vi]);
+                newV.Add(w2l.MultiplyPoint3x4(w)); newN.Add(newN[vi]); if (hasUv) uv.Add(uv[vi]);
             }
             subs[2][i] = ni;
         }
