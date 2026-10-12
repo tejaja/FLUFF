@@ -177,7 +177,7 @@ public static class FuwaChillRoomBuilder
         // 写真館のモニターの足もと（MonitorSpot）とモニターの向きを holder に合わせる
         var srcFrame = Matrix4x4.TRS(spot.position, Quaternion.LookRotation(mon.forward), Vector3.one);
         var copies = new Dictionary<string, Transform>();
-        foreach (var n in new[] { "Monitor", "CamButton", "TargetButton" })
+        foreach (var n in new[] { "Monitor", "CamButton", "TargetButton", "CamZone" })
         {
             var src = studio.Find(n);
             var g = Object.Instantiate(src.gameObject, holder, true); g.name = n;
@@ -193,6 +193,12 @@ public static class FuwaChillRoomBuilder
         Add(so.FindProperty("extraScreens"), m.Find("Screen").GetComponent<Renderer>());
         Add(so.FindProperty("extraOffMarks"), m.Find("Off").gameObject);
         Add(so.FindProperty("extraNames"), m.Find("Name").GetComponent<TMPro.TextMeshPro>());
+        // VRChatカメラを入れる球：写真館の球（fc.zone）と同じ所をコピーから探す
+        var zSrc = studio.Find("CamZone"); var zc = copies["CamZone"];
+        var zt = fc.zone == zSrc ? zc : (fc.zone != null && fc.zone.IsChildOf(zSrc) ? zc.Find(Rel(fc.zone, zSrc)) : null);
+        var zr = fc.zoneRenderer != null && fc.zoneRenderer.transform.IsChildOf(zSrc) ? (fc.zoneRenderer.transform == zSrc ? zc : zc.Find(Rel(fc.zoneRenderer.transform, zSrc))) : null;
+        Add(so.FindProperty("extraZones"), zt);
+        Add(so.FindProperty("extraZoneRenderers"), zr != null ? zr.GetComponent<Renderer>() : null);
         // ボタンの文字・札（元と同じ並びで足す）
         var camSrc = studio.Find("CamButton"); var tgtSrc = studio.Find("TargetButton");
         var mt = so.FindProperty("modeTexts"); var mp = so.FindProperty("modePills"); int n0 = mt.arraySize;
@@ -265,6 +271,15 @@ public static class FuwaChillRoomBuilder
                 if (!Under(mt.GetArrayElementAtIndex(i).objectReferenceValue, oldRoot)) continue;
                 mt.GetArrayElementAtIndex(i).objectReferenceValue = null; mt.DeleteArrayElementAtIndex(i);
                 if (i < mp.arraySize) { mp.GetArrayElementAtIndex(i).objectReferenceValue = null; mp.DeleteArrayElementAtIndex(i); }
+            }
+            // extraZones と extraZoneRenderers も同じ並び
+            var ez = so.FindProperty("extraZones"); var ezr = so.FindProperty("extraZoneRenderers");
+            for (int i = ez.arraySize - 1; i >= 0; i--)
+            {
+                var o = ez.GetArrayElementAtIndex(i).objectReferenceValue;
+                if (o != null && !Under(o, oldRoot)) continue;
+                ez.GetArrayElementAtIndex(i).objectReferenceValue = null; ez.DeleteArrayElementAtIndex(i);
+                if (i < ezr.arraySize) { ezr.GetArrayElementAtIndex(i).objectReferenceValue = null; ezr.DeleteArrayElementAtIndex(i); }
             }
             foreach (var pn in new[] { "extraScreens", "extraOffMarks", "extraNames", "targetTexts" })
             {

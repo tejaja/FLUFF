@@ -97,6 +97,10 @@ public class FuwaFollowCam : UdonSharpBehaviour
     public GameObject[] extraOffMarks;
     [Tooltip("extraScreens と同じ順で、画面の上の名前")]
     public TextMeshPro[] extraNames;
+    [Tooltip("VRChatカメラを入れる球（ほかの場所の分）。どれかに入れればよい")]
+    public Transform[] extraZones;
+    [Tooltip("extraZones と同じ順で、球の見た目")]
+    public Renderer[] extraZoneRenderers;
 
     private int _mode;   // 0=OFF 1=上 2=右横 3=左横 4=後ろ（てじゃ「TOPとBACKの順番入れ替え」）
     private int _targetId = -1;   // 映す人の playerId（-1＝自分）
@@ -105,6 +109,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
     private bool _feedOn;
     private FuwaGhost _watchedGhost;
     private bool _inZone;
+    private int _zoneIdx = -1;   // カメラが入っている球（-1=なし、0=写真館、1〜=extraZones）
     private Vector3 _dir = Vector3.forward;
     private Vector3 _focus;
     private Vector3 _vel;
@@ -192,6 +197,15 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (extraNames != null) foreach (TextMeshPro t in extraNames) if (t != null && t.text != m) t.text = m;
     }
 
+    // 球の光（idx：0=写真館、1〜=extraZones）
+    private void ZoneGlow(int idx, float v)
+    {
+        Renderer r = null;
+        if (idx == 0) r = zoneRenderer;
+        else if (idx > 0 && extraZoneRenderers != null && idx - 1 < extraZoneRenderers.Length) r = extraZoneRenderers[idx - 1];
+        if (r != null) r.material.SetFloat("_Glow", v);
+    }
+
     // ほかの場所のモニターを ON/OFF
     private void SetExtra(bool on)
     {
@@ -263,12 +277,22 @@ public class FuwaFollowCam : UdonSharpBehaviour
 
         VRCCameraSettings photo = VRCCameraSettings.PhotoCamera;
         bool photoOn = photo != null && photo.Active;
-        bool inZone = photoOn && zone != null && Vector3.Distance(photo.Position, zone.position) < zoneRadius;
-        if (inZone != _inZone)
+        int zi = -1;
+        if (photoOn)
         {
-            _inZone = inZone;
-            if (zoneRenderer != null) zoneRenderer.material.SetFloat("_Glow", inZone ? 1f : 0f);
+            if (zone != null && Vector3.Distance(photo.Position, zone.position) < zoneRadius) zi = 0;
+            else if (extraZones != null)
+                for (int i = 0; i < extraZones.Length; i++)
+                    if (extraZones[i] != null && extraZones[i].gameObject.activeInHierarchy && Vector3.Distance(photo.Position, extraZones[i].position) < zoneRadius) { zi = i + 1; break; }
         }
+        bool inZone = zi >= 0;
+        if (zi != _zoneIdx)
+        {
+            ZoneGlow(_zoneIdx, 0f);
+            _zoneIdx = zi;
+            ZoneGlow(zi, 1f);
+        }
+        _inZone = inZone;
         bool near = NearAnyMonitor(lp.GetPosition());
         bool run = _mode != 0 && (near || inZone || runWithoutPhotoCamera);
         bool feedOn = run && inZone;
