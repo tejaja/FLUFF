@@ -17,8 +17,9 @@ public static class FuwaIwaIslands
     // 並び順（島の数もこれ）
     static readonly Kind[] Kinds = { Kind.Spring, Kind.Vent, Kind.Rocks, Kind.Spring, Kind.Vent, Kind.Vent, Kind.Spring, Kind.Rocks };
 
-    static readonly Vector3 SummitSpringPos = new Vector3(107.8f, 14.06f, 0.45f);
-    static readonly Vector2 SummitSpringSize = new Vector2(1.7f, 0.6f);   // お湯の半径 x（道に沿って）, z
+    // 頂上の温泉：道の南側のふちを削って（ApplySummitCut）広げた。2026-10-12 てじゃ「道ちょっと削っておおきくしよ」
+    static readonly Vector3 SummitSpringPos = new Vector3(107.45f, 14.06f, 0.95f);
+    static readonly Vector2 SummitSpringSize = new Vector2(1.75f, 0.75f);   // お湯の半径 x（道に沿って）, z
 
     [MenuItem("FuwaCourse/いわのみちのまわりの浮島を作り直す")]
     public static void RunMenu() { Debug.Log(Run()); }
@@ -180,6 +181,7 @@ public static class FuwaIwaIslands
             }
             log.Add(g.name + " " + pos.ToString("F0") + " r" + rad.ToString("F1") + " path " + DistPath(pos).ToString("F0"));
         }
+        log.Add(ApplySummitCut());
         // 頂上の崖っぷちの温泉（2026-10-12 てじゃ「頂上のこの崖っぷちも温泉にしよ、邪魔にならんし」）
         // 頂上の木の足場の向かい、道の南側（-z）の平らな岩（y≒14.0、x 105.5〜110、z 0〜1.2）。道に沿って細長く
         {
@@ -221,6 +223,40 @@ public static class FuwaIwaIslands
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         return "IwaIslands " + placed.Count + "/" + Kinds.Length + " (kept " + keep.Count + ")\n" + string.Join("\n", log);
+    }
+
+    // ---- 頂上の道のふちを削る ----
+    // 頂上の平らな道（幅3m、y 14.0〜14.3、x 105.5〜113、南のふち z≒1.13）の南側を、スタート側のはし（x 105.5）〜温泉の先（x 109）だけ
+    // CutDepth m 北へ寄せる（その先 1.3m でゆるやかに元の幅へ）。南半分を縮めるように動かすので、ふちの丸み（ベベル）の形は残る。
+    // 元のメッシュは Meshes/Backup に *_PreSpringCut として残し、いつもそこから作るので何度やっても同じ。
+    // ※FuwaCourse2Builder で道を作り直したらこの削りは消える（作り直した後にこのメニューをもう一度）
+    const float CutDepth = 0.7f, CutX0 = 104.5f, CutFull = 109.0f, CutEnd = 110.3f, CutSouth = 1.13f, CutMid = 2.6f;
+    static string ApplySummitCut()
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
+        var pm = root.Find("PathMesh"); var tr = pm.transform;
+        var mf = pm.GetComponent<MeshFilter>(); var mc = pm.GetComponent<MeshCollider>();
+        int moved = 0;
+        foreach (var live in new[] { mf.sharedMesh, mc != null ? mc.sharedMesh : null })
+        {
+            if (live == null) continue;
+            string lp = AssetDatabase.GetAssetPath(live);
+            string bp = "Assets/FuwaCourse/Meshes/Backup/" + System.IO.Path.GetFileNameWithoutExtension(lp) + "_PreSpringCut.asset";
+            if (AssetDatabase.LoadAssetAtPath<Mesh>(bp) == null) AssetDatabase.CopyAsset(lp, bp);
+            var src = AssetDatabase.LoadAssetAtPath<Mesh>(bp);
+            var vs = src.vertices;
+            for (int i = 0; i < vs.Length; i++)
+            {
+                var w = tr.TransformPoint(vs[i]);
+                if (w.x < CutX0 || w.x > CutEnd || w.y < 13.8f || w.z > CutMid) continue;
+                float d = CutDepth * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(CutFull, CutEnd, w.x)));
+                float k = Mathf.Clamp01((CutMid - w.z) / (CutMid - CutSouth));
+                w.z += d * k; vs[i] = tr.InverseTransformPoint(w); moved++;
+            }
+            live.vertices = vs; live.RecalculateBounds(); EditorUtility.SetDirty(live);
+        }
+        if (mc != null) { var m = mc.sharedMesh; mc.sharedMesh = null; mc.sharedMesh = m; }
+        return "summit cut: moved " + moved;
     }
 
     // ---- 部品 ----
