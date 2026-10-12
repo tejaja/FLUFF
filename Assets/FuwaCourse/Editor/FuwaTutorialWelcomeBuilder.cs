@@ -42,7 +42,8 @@ public static class FuwaTutorialWelcomeBuilder
         // 2026-10-12 てじゃ「ようこそ→エアガンの順に」：前のエアガンの看板の場所（右前）へ。
         // エアガンの看板と台は道に入ったとこの左へ（FuwaPracticeTutorial.GunSignLocal）。
         // 読む距離（3.2m）より少しだけ遠くして、出た瞬間に「読んだ」になって▼が消えないように
-        w.position = spot.TransformPoint(new Vector3(1.95f, 0f, 2.9f));
+        // → VRChatで入ったら右はしで近すぎて見えづらかった（てじゃ）。正面ちょい右・4.2m先へ（入った時に読んだ判定にもならない）
+        w.position = spot.TransformPoint(new Vector3(0.8f, 0f, 4.1f));
         RaycastHit gh;
         if (Physics.Raycast(w.position + Vector3.up * 3f, Vector3.down, out gh, 6f)) w.position = new Vector3(w.position.x, gh.point.y - 0.02f, w.position.z);
         Vector3 face = w.position - spot.position; face.y = 0f;
