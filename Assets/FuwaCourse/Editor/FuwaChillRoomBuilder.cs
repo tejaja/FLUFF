@@ -179,6 +179,8 @@ public static class FuwaChillRoomBuilder
 
     // ---------- おもちゃ広場（左奥。2026-10-12 てじゃ「エアガンとは別の手持ち扇風機、空中固定化」「出しっぱなし」「うちわもいいね」）----------
     static readonly Vector3 ToysLocal = new Vector3(-5.5f, 0f, 5.5f);
+    // コースのクリアで出てくるおもちゃの場所（島の真ん中から）：1竜巻 2岩 3重力 4ぬいぐるみ 5跳ねるキノコ
+    static readonly Vector3[] UnlockLocal = { new Vector3(-9.6f, 0f, 1.8f), new Vector3(-5.6f, 0f, 9.8f), new Vector3(-10.2f, 0f, 6.4f), new Vector3(-1.8f, 0f, 10.6f), new Vector3(-9.6f, 0f, -2.8f) };
 
     static string Toys(Transform root, Vector3 ac, float floorY, FuwaChillSpawner sp, Transform howTo, Vector3 look)
     {
@@ -287,12 +289,13 @@ public static class FuwaChillRoomBuilder
         string[] courseEn = { "Windy Hill", "Rocky Road", "Dark Forest", "Monster Den", "Mushroom Valley" };
         for (int i = 0; i < 5; i++)
         {
-            float a = (-64f + 32f * i) * Mathf.Deg2Rad;
-            var outDir = Quaternion.AngleAxis(a * Mathf.Rad2Deg, Vector3.up) * -toCenter;
-            var slot = new GameObject("Unlock" + (i + 1)).transform; slot.SetParent(toys, false); slot.position = G + outDir * 3.6f;
+            // 島の左半分にばらして置く（重ならないように。2026-10-12 竜巻と岩が近すぎた）
+            var sl = new Vector3(ac.x, floorY, ac.z) + UnlockLocal[i];
+            var outDir = sl - new Vector3(ac.x, floorY, ac.z); outDir.y = 0f; outDir.Normalize();
+            var slot = new GameObject("Unlock" + (i + 1)).transform; slot.SetParent(toys, false); slot.position = sl;
             slot.rotation = Quaternion.LookRotation(-outDir);
             unlockToys[i] = slot.gameObject;
-            var lbl = MakeButton(toys, howTo, "Locked" + (i + 1), G + outDir * 3.6f + Vector3.up * 0.9f, Quaternion.LookRotation(outDir));
+            var lbl = MakeButton(toys, howTo, "Locked" + (i + 1), sl + Vector3.up * 0.9f, Quaternion.LookRotation(outDir));
             string ja = "コース" + (i + 1) + "「" + courseJa[i] + "」を\nだれかがクリアすると出てくるよ";
             string en = "Appears when someone clears\nCourse " + (i + 1) + " " + courseEn[i];
             lbl.text = ja; lbl.fontSize = 1.8f;
@@ -302,6 +305,8 @@ public static class FuwaChillRoomBuilder
         }
         // 1 かぜのおか → 竜巻のたね
         FillTornado(unlockToys[0].transform, sp);
+        // 2 いわのみち → ころころ岩（地面の輪をずっと回る）
+        FillBoulder(unlockToys[1].transform, sp, G);
 
         var ul = UdonSharpUndo.AddComponent<FuwaChillUnlocks>(toys.gameObject);
         ul.spawner = sp; ul.toys = unlockToys; ul.locked = lockedSigns;
@@ -453,6 +458,34 @@ public static class FuwaChillRoomBuilder
         var ts = UdonSharpUndo.AddComponent<FuwaTornadoSeed>(seed); ts.tornado = tw.transform; ts.ground = 1 << 11;
         UdonSharpEditorUtility.CopyProxyToUdon(ts);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ts); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
+    }
+
+    // ころころ岩：コース2 の岩の見た目をコピー。輪の道（地面にうっすら）をまわる
+    static void FillBoulder(Transform slot, FuwaChillSpawner sp, Vector3 G)
+    {
+        EnsureProgram("FuwaChillBoulder");
+        var src = RootGo("FuwaCourse2").GetComponentsInChildren<FuwaBoulder>(true).First();
+        var c = new GameObject("LoopCenter").transform; c.SetParent(slot, false);
+        var inward = G - slot.position; inward.y = 0f; inward.Normalize();
+        c.position = slot.position;
+        const float loopR = 1.9f;
+        var rock = new GameObject("Boulder").transform; rock.SetParent(slot, false); rock.position = c.position + Vector3.right * loopR;
+        var vis = Object.Instantiate(src.visual.gameObject, rock, false); vis.name = "Visual"; vis.transform.localPosition = Vector3.zero;
+        vis.transform.localScale = src.visual.localScale * 0.75f;
+        foreach (var t in vis.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+        foreach (var col in vis.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
+        AudioSource hit = null;
+        if (src.hitSound != null) { var h = Object.Instantiate(src.hitSound.gameObject, rock, false); h.name = "HitSound"; h.transform.localPosition = Vector3.zero; hit = h.GetComponent<AudioSource>(); }
+        // 道：平たい輪（少し濃い芝色）
+        var trackM = Mat("Chill_BoulderTrack", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.5f, 0.7f, 0.46f));
+        var track = new GameObject("Track", typeof(MeshFilter), typeof(MeshRenderer)); track.transform.SetParent(slot, false);
+        track.transform.position = c.position + Vector3.up * 0.004f; track.transform.rotation = Quaternion.Euler(90f, 0f, 0f); track.transform.localScale = new Vector3(1f, 1f, 0.02f);
+        track.GetComponent<MeshFilter>().sharedMesh = SaveGenMesh(Torus(loopR, 0.38f, 64, 10), "Chill_BoulderTrack");
+        track.GetComponent<MeshRenderer>().sharedMaterial = trackM;
+        var cb = UdonSharpUndo.AddComponent<FuwaChillBoulder>(rock.gameObject);
+        cb.spawner = sp; cb.center = c; cb.visual = vis.transform; cb.loopRadius = loopR; cb.rockRadius = 0.45f; cb.hitSound = hit;
+        UdonSharpEditorUtility.CopyProxyToUdon(cb);
+        var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(cb); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
     }
 
     // 輪（XY 平面、穴は Z 向き）

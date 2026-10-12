@@ -500,6 +500,16 @@ public class FuwaSharedBall : UdonSharpBehaviour
     // 風のギミックから物理の1回ごとに呼ばれる（OnTriggerStay）。次の FixedUpdate で加速度として足す
     public void AddWind(Vector3 accel) { _wind += accel; }
 
+    // 全員の画面で同じように起きる当たり（みんなでひろばの転がる岩など）：通信せずに、それぞれの画面の玉の速さを変える。持ち主はすぐ送り直す
+    public void Nudge(Vector3 velocityChange)
+    {
+        Init();
+        if (_waiting || _popped || _rb.isKinematic) return;
+        _rb.velocity = _rb.velocity + velocityChange;
+        PlayPuff(Mathf.Clamp01(velocityChange.magnitude / Mathf.Max(0.01f, squashFullAt)));
+        if (Networking.IsOwner(gameObject)) _sendSoon = true;
+    }
+
     private void FixedUpdate()
     {
         if (_waiting || _popped || _rb.isKinematic) { _wind = Vector3.zero; return; }
