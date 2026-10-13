@@ -256,18 +256,23 @@ public static class FuwaPlaygroundBuilder
             g.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
             g.layer = 13; return g;
         }
+        // 風の筋：かぜのおかの風（G2_CrossLeft/WindParticlesReverse：粒は見せず、ゆらゆらした軌跡の筋だけ）と同じ作りを小さくしたもの
+        //（2026-10-13 てじゃ「風の粒子、かぜのおかの風っぽくできないかな」。前は引き伸ばした粒）
+        var windSrc = RootGo("FuwaCourse").transform.Find("Gimmicks_Kaze/G2_CrossLeft/WindParticlesReverse").GetComponent<ParticleSystem>();
         ParticleSystem Streaks(Transform parent)
         {
             var g = new GameObject("Streaks", typeof(ParticleSystem)); g.transform.SetParent(parent, false);
             var ps = g.GetComponent<ParticleSystem>();
-            var main = ps.main; main.playOnAwake = false; main.loop = true; main.startLifetime = 0.55f; main.startSpeed = 5f; main.startSize = 0.06f;
-            main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 80; main.startColor = new Color(1f, 1f, 1f, 0.8f);
-            var em = ps.emission; em.rateOverTime = 28f;
-            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 12f; sh.radius = 0.12f;
-            var col = ps.colorOverLifetime; col.enabled = true;
-            var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.8f, 0.2f), new GradientAlphaKey(0f, 1f) });
-            col.color = gr;
-            var r = g.GetComponent<ParticleSystemRenderer>(); r.renderMode = ParticleSystemRenderMode.Stretch; r.velocityScale = 0.08f; r.lengthScale = 2f; r.sharedMaterial = windMat;
+            EditorUtility.CopySerialized(windSrc, ps);
+            EditorUtility.CopySerialized(windSrc.GetComponent<ParticleSystemRenderer>(), g.GetComponent<ParticleSystemRenderer>());
+            var main = ps.main; main.playOnAwake = false; main.loop = true; main.startLifetime = 0.6f; main.startSpeed = 0f; main.startSize = 0.07f;
+            main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 60; main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+            var em = ps.emission; em.rateOverTime = 22f;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.11f; sh.scale = Vector3.one; sh.position = Vector3.zero; sh.rotation = Vector3.zero;
+            var vel = ps.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.Local;
+            vel.x = new ParticleSystem.MinMaxCurve(0f); vel.y = new ParticleSystem.MinMaxCurve(0f); vel.z = new ParticleSystem.MinMaxCurve(5f);
+            var nz = ps.noise; nz.strengthMultiplier = 0.35f; nz.frequency = 1.2f;
+            var tr = ps.trails; tr.lifetime = new ParticleSystem.MinMaxCurve(0.18f, 0.25f); tr.minVertexDistance = 0.04f; tr.widthOverTrailMultiplier = 0.07f;   // 筋の太さ（コースの風は0.32m。手持ちなので細く）
             ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             return ps;
         }
