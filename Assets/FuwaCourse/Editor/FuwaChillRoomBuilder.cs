@@ -331,7 +331,33 @@ public static class FuwaChillRoomBuilder
         var btnLbl = LaserButton(toys, "ResetToysButton", G + toCenter * 2.4f + Vector3.up * 0.55f, Quaternion.LookRotation(-toCenter), 1.3f, "おもちゃを戻す", rs, "ResetAll");
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "uiTexts", "uiJa", "uiEn", btnLbl, "おもちゃを戻す", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
+        AddTestUnlockAll(toys, sp);
         return "toys " + list.Count;
+    }
+
+    // テスト用：クリア報酬のおもちゃを全部出すボタン（マスターにだけ見える）。2026-10-13 てじゃ「あとで消す」→ 消す時はこの呼び出しと関数を消す
+    static void AddTestUnlockAll(Transform toys, FuwaChillSpawner sp)
+    {
+        foreach (var n in new[] { "TestUnlockAll", "TestUnlockAllButton" }) { var old = toys.Find(n); if (old != null) Object.DestroyImmediate(old.gameObject); }
+        EnsureProgram("FuwaTestUnlockAll");
+        var go = new GameObject("TestUnlockAll"); go.transform.SetParent(toys, false);
+        var tu = UdonSharpUndo.AddComponent<FuwaTestUnlockAll>(go); tu.spawner = sp;
+        // 「おもちゃを戻す」の横（同じ向き、横へ1.6m・少し上）
+        var reset = toys.Find("ResetToysButton");
+        Vector3 pos = reset.position + reset.right * 1.6f + Vector3.up * 0.35f;
+        LaserButton(toys, "TestUnlockAllButton", pos, reset.rotation, 1.3f, "テスト：おもちゃ全部出す", tu, "UnlockAll");
+        tu.button = toys.Find("TestUnlockAllButton").gameObject;
+        UdonSharpEditorUtility.CopyProxyToUdon(tu);
+        var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tu); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
+    }
+
+    [MenuItem("FuwaCourse/みんなで/テスト用：おもちゃ全部出すボタンを置く")]
+    static void MenuAddTestUnlockAll()
+    {
+        var toys = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Toys" && t.parent != null && t.parent.name == "ChillRoom");
+        AddTestUnlockAll(toys, Object.FindObjectsOfType<FuwaChillSpawner>(true).First());
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
+        Debug.Log("test unlock button placed");
     }
 
     // ---------- 見た目（2026-10-12 てじゃ「B（空のリビング）」「モニターもふわふわのガワ、画面だけはめ込む、ボタンも」）----------
