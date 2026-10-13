@@ -914,15 +914,21 @@ public static class FuwaPlaygroundBuilder
     const float BoardBottomY = 0.72f, BoardBottomX = 0.75f;
     static void BoardButtons(Transform coop, Transform panel, Vector3 pc, Quaternion rot, Transform howTo)
     {
+        var lobbyHow = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HowToPlay" && t.parent != null && t.parent.name == "FuwaLobby");
         if (howTo != null)
         {
             howTo.SetPositionAndRotation(pc, rot);
             foreach (var n in new[] { "Panel", "Border", "Text", "HudButton" }) { var t = howTo.Find(n); if (t != null) t.gameObject.SetActive(false); }
-            var lang = howTo.Find("LanguageButton"); if (lang != null) lang.localPosition = new Vector3(-BoardBottomX, BoardBottomY, 0f);
-            var vol = howTo.Find("BgmVolume"); if (vol != null) vol.localPosition = new Vector3(BoardBottomX, BoardBottomY, 0f);
+            // 言語・音量はチャレンジのロビーと同じ大きさ（0.88×0.25m。2026-10-13 てじゃ「チャレンジのサイズに揃えよう、ふわふわ設定のはそのまま」。前はスイッチに合わせて1.4×0.4m）
+            foreach (var n in new[] { "LanguageButton", "BgmVolume" })
+            {
+                var t = howTo.Find(n); var src = lobbyHow.Find(n); if (t == null || src == null) continue;
+                var ps = t.parent.lossyScale; var ss = src.lossyScale;
+                t.localScale = new Vector3(ss.x / ps.x, ss.y / ps.y, ss.z / ps.z);
+                t.localPosition = new Vector3(n == "LanguageButton" ? -BoardBottomX : BoardBottomX, BoardBottomY, 0f);
+            }
             // 角の丸みは最後に FuwaButtonCorners で全部そろえる（端が丸いボタン。音量の板も）
         }
-        var lobbyHow = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HowToPlay" && t.parent != null && t.parent.name == "FuwaLobby");
         GameObject Copy(string src, string name, int row)
         {
             var s = lobbyHow.Find(src);
