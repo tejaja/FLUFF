@@ -133,9 +133,12 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
         int si = Mathf.Clamp(_size, 0, sizeJa.Length - 1), ci = Mathf.Clamp(_color, 0, colorJa.Length - 1), li = Mathf.Clamp(_limit, 0, limits.Length - 1);
         string colHex = colorHex[Mathf.Clamp(ci, 0, colorHex.Length - 1)];
         // ボタンはオレンジなので、値は白で太く（色は●で見せる）
-        string V = "<color=#FFFFFF><b>"; string VE = "</b></color>";
+        // スイッチは白いボタン＋オレンジの枠、文字は紺。今の値はオレンジ（2026-10-13 てじゃ）
+        string V = "<color=#F2786B>"; string VE = "</color>";
+        // 色見本の丸は大きめに。白は白いボタンの上で見えないので、うすい灰色で縁どった色にする（2026-10-13 てじゃ「色見本ちっちゃいかも」）
+        string swHex = (colHex == "FFFFFF") ? "DDE2EC" : colHex;
         if (sizeLabel != null) sizeLabel.text = (en ? "Size: " : "サイズ: ") + V + (en ? sizeEn[si] : sizeJa[si]) + VE;
-        if (colorLabel != null) colorLabel.text = (en ? "Color: " : "カラー: ") + "<color=#" + colHex + ">●</color>" + V + (en ? colorEn[ci] : colorJa[ci]) + VE;
+        if (colorLabel != null) colorLabel.text = (en ? "Color: " : "カラー: ") + "<size=150%><voffset=-0.08em><color=#" + swHex + ">●</color></voffset></size> " + V + (en ? colorEn[ci] : colorJa[ci]) + VE;
         if (limitLabel != null) limitLabel.text = (en ? "Max: " : "かず: ") + V + limits[li] + VE;
         if (popLabel != null) popLabel.text = en ? ("On landing: " + V + (_popGround ? "Pop" : "Stay") + VE)
                                                  : ("おちたら: " + V + (_popGround ? "きえる" : "きえない") + VE);

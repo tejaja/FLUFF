@@ -149,6 +149,7 @@ public static class FuwaPlaygroundBuilder
             // 大きさは下の言語・音量ボタンと同じ（幅1.36・高さ0.4。2026-10-13 てじゃ「下のボタンとサイズあわせよ」）
             var pos = pc + rot * new Vector3(col == 0 ? -BoardBottomX : BoardBottomX, row == 0 ? BoardSideY[0] : BoardSideY[1], 0f);
             labels[k] = LaserButton(panel, "Switch" + k, pos, rot, 0.99f, "", sp, events[k]);
+            OutlinedStyle(panel.Find("Switch" + k));
             panel.Find("Switch" + k).localScale = Vector3.one;
         }
         // 支柱はなし（2026-10-13 てじゃ「柱なくそう」）
@@ -1262,6 +1263,27 @@ public static class FuwaPlaygroundBuilder
         so.ApplyModifiedPropertiesWithoutUndo();
         var t = g.GetComponentInChildren<TMPro.TextMeshProUGUI>(true); t.text = text; EditorUtility.SetDirty(t);
         return t;
+    }
+
+    // ふわふわ設定のスイッチの見た目：白いボタン＋オレンジの枠、文字は紺（2026-10-13 てじゃ「オレンジ枠に白ボタン、文字は紺にしよ」）。
+    // 枠はボタンの後ろに一回り大きい角丸の板（RoundedPanel）。角の丸みは最後に FuwaButtonCorners がそろえる
+    static readonly Color SwitchFrame = new Color(0.949f, 0.471f, 0.42f), SwitchFace = new Color(1f, 0.98f, 0.96f), SwitchText = new Color(0.27f, 0.36f, 0.62f);
+    const float SwitchFrameW = 26f;
+    static void OutlinedStyle(Transform sw)
+    {
+        var btn = sw.GetComponentInChildren<UnityEngine.UI.Button>(true); var img = btn.GetComponent<UnityEngine.UI.Image>();
+        var cb = btn.colors; cb.normalColor = SwitchFace; cb.selectedColor = SwitchFace; cb.highlightedColor = new Color(1f, 0.94f, 0.9f); cb.pressedColor = new Color(1f, 0.86f, 0.8f); btn.colors = cb;
+        img.color = Color.white;
+        var t = btn.GetComponentInChildren<TMPro.TextMeshProUGUI>(true); t.color = SwitchText;
+        var old = btn.transform.parent.Find("Frame"); if (old != null) Object.DestroyImmediate(old.gameObject);
+        var fr = new GameObject("Frame", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+        var frt = (RectTransform)fr.transform; var brt = (RectTransform)btn.transform;
+        frt.SetParent(brt.parent, false); frt.SetSiblingIndex(brt.GetSiblingIndex());
+        frt.anchorMin = brt.anchorMin; frt.anchorMax = brt.anchorMax; frt.pivot = brt.pivot; frt.anchoredPosition3D = brt.anchoredPosition3D + new Vector3(0f, 0f, 6f); frt.localRotation = brt.localRotation; frt.localScale = brt.localScale;   // 少し奥へ（同じ面だとボタンの UI 材質が深さを書くのでちらついた）
+        frt.sizeDelta = brt.sizeDelta + Vector2.one * SwitchFrameW * 2f;
+        var fi = fr.GetComponent<UnityEngine.UI.Image>(); fi.sprite = img.sprite; fi.type = UnityEngine.UI.Image.Type.Sliced; fi.material = img.material; fi.color = SwitchFrame; fi.raycastTarget = false;
+        fi.pixelsPerUnitMultiplier = img.pixelsPerUnitMultiplier;
+        EditorUtility.SetDirty(btn); EditorUtility.SetDirty(t);
     }
 
     // 遊び方の看板の板（Panel・Border）と文字（Text）をコピーした横長のボタン。文字を返す。表（-Z）を手前に
