@@ -255,7 +255,7 @@ public static class FuwaIwaIslands
             }
             // 頂上の柱ゾーン手前の崩落（谷）の切れ目も入れ直す（2026-10-12：道の作り直しで消えていた。FuwaCourse2Collapse）
             var tmp = Object.Instantiate(src); tmp.vertices = vs;
-            var cut = FuwaCourse2Collapse.CutPath(tmp, tr, root, live == mf.sharedMesh ? 0.12f : 0.25f);
+            var cut = FuwaCourse2Collapse.CutPath(tmp, tr, root, 0.12f);   // 当たり判定も細かく（粗いと切り口の点が線から離れて、ふたの輪がつながらなかった。2026-10-13）
             live.Clear(); live.indexFormat = cut.indexFormat; live.SetVertices(cut.vertices);
             if (cut.normals.Length > 0) live.SetNormals(cut.normals);
             var u = new List<Vector2>(); cut.GetUVs(0, u); if (u.Count > 0) live.SetUVs(0, u);

@@ -45,14 +45,35 @@ public static class FuwaCourse2Collapse
         return (map.MultiplyPoint3x4(OldOrigin), ax.normalized);
     }
 
-    // 道のメッシュ（ローカル）から崩落の範囲を切り抜いた新しいメッシュを返す
+    // ---- 谷の切り口の線（2026-10-13 作り直し）----
+    // てじゃ「頂上後の崖周りが道も岩もところどころ乱れてる」「岩の割れ目そのものもちょっと荒い」「隙間、はみ出し系は徹底的に洗って」：
+    // 前は道（細かいギザギザ）・山の穴（10-05 に別のギザギザで切ったまま）・谷の壁と底（PitRock、手で作った別の岩）がそれぞれ別の線で、すき間・はみ出し・トゲが出ていた。
+    // 今は「手前の線 Near(l)」「奥の線 Far(l)」の2本だけ。山・山の当たり判定・道・谷の壁と底を全部この線で切ってふさぐ（FuwaCourse2Valley・FuwaCutCap）。
+    // 線は当時の山の穴のふち（ギザギザ）を 8cm 外から包んで、なめらかにしたもの（測った値を固定。横 l は -7〜7m を 0.2m おき）。谷の幅は平均 2.9m → 約 3.4m
+    internal const float CurveL0 = -7f, CurveStep = 0.2f;
+    static readonly float[] NearCurve = { 0.010f,0.010f,0.010f,0.010f,0.010f,0.010f,0.010f,0.010f,0.009f,0.008f,0.005f,-0.001f,-0.013f,-0.033f,-0.067f,-0.119f,-0.199f,-0.314f,-0.459f,-0.609f,-0.718f,-0.743f,-0.670f,-0.529f,-0.373f,-0.247f,-0.166f,-0.128f,-0.122f,-0.138f,-0.173f,-0.224f,-0.283f,-0.340f,-0.382f,-0.400f,-0.396f,-0.378f,-0.358f,-0.347f,-0.356f,-0.387f,-0.433f,-0.481f,-0.514f,-0.520f,-0.500f,-0.464f,-0.430f,-0.406f,-0.393f,-0.381f,-0.362f,-0.331f,-0.287f,-0.230f,-0.164f,-0.100f,-0.048f,-0.012f,0.009f,0.021f,0.026f,0.029f,0.030f,0.030f,0.030f,0.030f,0.030f,0.030f,0.030f };
+    static readonly float[] FarCurve = { 1.800f,1.800f,1.800f,1.800f,1.800f,1.800f,1.800f,1.800f,1.800f,1.804f,1.811f,1.827f,1.865f,1.939f,2.075f,2.293f,2.581f,2.885f,3.134f,3.297f,3.392f,3.452f,3.486f,3.473f,3.399f,3.275f,3.130f,2.996f,2.900f,2.851f,2.844f,2.872f,2.920f,2.970f,3.005f,3.017f,3.008f,2.984f,2.955f,2.925f,2.900f,2.881f,2.872f,2.874f,2.890f,2.921f,2.970f,3.036f,3.112f,3.180f,3.222f,3.225f,3.190f,3.132f,3.071f,3.021f,2.988f,2.969f,2.958f,2.954f,2.951f,2.950f,2.950f,2.950f,2.950f,2.950f,2.950f,2.950f,2.950f,2.950f,2.950f };
+    static float Sample(float[] a, float l) { float f = (l - CurveL0) / CurveStep; int i = Mathf.Clamp(Mathf.FloorToInt(f), 0, a.Length - 2); return Mathf.Lerp(a[i], a[i + 1], Mathf.Clamp01(f - i)); }
+    internal static float Near(float l) => Sample(NearCurve, l);
+    internal static float Far(float l) => Sample(FarCurve, l);
+    // 道の手前の切り口：舌の所だけ谷へ突き出す。奥の切り口が前より奥へ下がった分（Far - 前の道の奥の切り口）だけ舌も伸ばして、跳ぶ距離は前と同じ
+    internal static float PathNear(float l)
+    {
+        var (_, j1) = Jags();
+        float k = TongueK(l);
+        return Near(l) * (1f - k) + Tongue(l) + k * (Far(l) - (S1 + FarEdge(j1, l)));
+    }
+    internal const float ValleyBottom = YBottom, ValleyHalfWidth = HalfWidth;
+    public static string LastCapLog = "";
+
+    // 道のメッシュ（ローカル）から崩落の範囲を切り抜いて、切り口をふさいだ新しいメッシュを返す
     public static Mesh CutPath(Mesh src, Transform pathTr, Transform courseRoot, float maxEdge)
     {
-        var map = courseRoot.localToWorldMatrix * Matrix4x4.TRS(OldRootPos, OldRootRot, Vector3.one).inverse;
-        var origin = map.MultiplyPoint3x4(OldOrigin);
-        var axis = map.MultiplyVector(OldAxis.normalized);
-        var (j0, j1) = Jags();
-        return FuwaPitCut.CutJagged(src, pathTr, origin, axis, l => S0 + Interp(j0, l) * (1f - TongueK(l)) + Tongue(l), l => S1 + FarEdge(j1, l), YBottom, HalfWidth, maxEdge);
+        var (origin, axis) = Frame(courseRoot);
+        var cut = FuwaPitCut.CutJagged(src, pathTr, origin, axis, PathNear, Far, YBottom, HalfWidth, maxEdge);
+        var f = new FuwaCutCap.Frame { origin = origin, axis = axis, side = new Vector3(-axis.z, 0f, axis.x), e0 = PathNear, e1 = Far, yBottom = YBottom };
+        var (ct, cb, cl) = FuwaCutCap.Cap(cut, pathTr, f, 0, 0f, 0f, 1); LastCapLog += "path cap tris " + ct + (cb > 0 ? " UNRESOLVED " + cb + " " + cl : "") + "; ";
+        return cut;
     }
 
     // 切り口のギザギザ（当時と同じ作り方・同じ乱数）
@@ -84,9 +105,5 @@ public static class FuwaCourse2Collapse
     static float Interp(float[] arr, float l) { float f = (l - JL0) / JStep; int i = Mathf.Clamp(Mathf.FloorToInt(f), 0, JN - 1); return Mathf.Lerp(arr[i], arr[i + 1], Mathf.Clamp01(f - i)); }
 
     // 手前の切り口の位置（切り抜きの軸に沿った距離 s、横 l は CutJagged の向き）。足場の下の岩（FuwaCourse2Ledge）が使う
-    internal static float NearEdge(float l)
-    {
-        var (j0, _) = Jags();
-        return S0 + Interp(j0, l) * (1f - TongueK(l)) + Tongue(l);
-    }
+    internal static float NearEdge(float l) => PathNear(l);
 }
