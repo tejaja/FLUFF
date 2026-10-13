@@ -498,7 +498,8 @@ public static class FuwaChillRoomBuilder
             var hr = monitorHolder.rotation;
             var tb = monitorHolder.Find("TargetButton"); var cb = monitorHolder.Find("CamButton");
             if (tb != null) { tb.position = monitorHolder.TransformPoint(new Vector3(sl.x - 0.6f, sl.y - sh - 0.24f, face - 0.03f)); tb.rotation = hr; }
-            if (cb != null) { cb.position = monitorHolder.TransformPoint(new Vector3(sl.x + 0.6f, sl.y - sh - 0.24f, face - 0.03f)); cb.rotation = hr; }
+            // カメラアングルのボタンは少し右（2026-10-13 てじゃ「もうちょい右に」。前は +0.6）
+            if (cb != null) { cb.position = monitorHolder.TransformPoint(new Vector3(sl.x + 0.9f, sl.y - sh - 0.24f, face - 0.03f)); cb.rotation = hr; }
         }
         return "deco ok";
     }
