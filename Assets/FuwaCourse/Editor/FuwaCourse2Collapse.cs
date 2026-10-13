@@ -37,6 +37,14 @@ public static class FuwaCourse2Collapse
         return k * (TongueLen + lump);
     }
 
+    // 崩落の切り抜きの基準（ワールド）。origin と、谷を横切る向き axis（水平）
+    internal static (Vector3 origin, Vector3 axis) Frame(Transform courseRoot)
+    {
+        var map = courseRoot.localToWorldMatrix * Matrix4x4.TRS(OldRootPos, OldRootRot, Vector3.one).inverse;
+        var ax = map.MultiplyVector(OldAxis.normalized); ax.y = 0f;
+        return (map.MultiplyPoint3x4(OldOrigin), ax.normalized);
+    }
+
     // 道のメッシュ（ローカル）から崩落の範囲を切り抜いた新しいメッシュを返す
     public static Mesh CutPath(Mesh src, Transform pathTr, Transform courseRoot, float maxEdge)
     {

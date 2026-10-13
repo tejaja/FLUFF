@@ -143,7 +143,8 @@ public static class FuwaCourse2BrokenPath
         capped = CapOpenLoops(newV, newN, uv, hasUv, subs[0], subs,   /* ふたは道と同じ黄色（てじゃ「黄色でふさいでほしかった」） */ l2w, new Bounds(new Vector3(121f, 12.5f, 5f), new Vector3(20f, 7f, 16f)));
         // 切り口の断面（縦の面）は、元の道の面取りの法線を引きずっていて、縦の筋のような明暗のむらが出ていた（2026-10-13 てじゃ「筋もあるしちょっときたなく」）。
         // 崩落の範囲の縦向きの三角形は、頂点を分けて、面の向き（水平）の法線にそろえる
-        FlattenCutNormals(newV, newN, uv, hasUv, subs, l2w, new Bounds(new Vector3(121f, 12.5f, 5f), new Vector3(20f, 7f, 16f)));
+        var (cutO, cutAx) = FuwaCourse2Collapse.Frame(pm.parent);
+        FlattenCutNormals(newV, newN, uv, hasUv, subs, l2w, cutO, cutAx);
         mesh.Clear();
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(newV); if (hasUv) mesh.SetUVs(0, uv);
@@ -162,17 +163,21 @@ public static class FuwaCourse2BrokenPath
     // 開いている辺（三角形1枚にしか使われていない辺）のうち box の中のものに、断面の壁（ふた）を足す。足した壁の数を返す。
     // 切り口は輪になっていない（道の上面のふち・下面のふち・角の丸み、とばらばらに開いている）ので、
     // 上面と角の開いた辺を、真下の下面の高さ（近くの下面の開いた辺の頂点）までのばした縦の壁にする
-    static void FlattenCutNormals(List<Vector3> V, List<Vector3> N, List<Vector2> UV, bool hasUv, List<int>[] subs, Matrix4x4 l2w, Bounds box)
+    // 崩落の谷の切り口の面（谷を横切る向き ±axis を向いた縦の面）だけ。道の横の面（面取り）は触らない（触ると角が剥がれたように見えた。2026-10-13 てじゃ）
+    static void FlattenCutNormals(List<Vector3> V, List<Vector3> N, List<Vector2> UV, bool hasUv, List<int>[] subs, Matrix4x4 l2w, Vector3 cutO, Vector3 cutAx)
     {
         var w2l = l2w.inverse;
         foreach (var list in subs)
             for (int i = 0; i < list.Count; i += 3)
             {
                 Vector3 a = l2w.MultiplyPoint3x4(V[list[i]]), b = l2w.MultiplyPoint3x4(V[list[i + 1]]), c = l2w.MultiplyPoint3x4(V[list[i + 2]]);
-                if (!box.Contains((a + b + c) / 3f)) continue;
+                Vector3 ctr = (a + b + c) / 3f; Vector3 d = ctr - cutO;
+                float sAlong = Vector3.Dot(d, cutAx), lSide = Vector3.Dot(d, new Vector3(-cutAx.z, 0f, cutAx.x));
+                if (sAlong < -1.5f || sAlong > 4.5f || Mathf.Abs(lSide) > 3.5f || ctr.y < 9.5f) continue;
                 Vector3 fn = Vector3.Cross(b - a, c - a); if (fn.sqrMagnitude < 1e-10f) continue; fn.Normalize();
                 if (Mathf.Abs(fn.y) > 0.35f) continue;   // 上面・下面はそのまま
                 fn.y = 0f; fn.Normalize();
+                if (Mathf.Abs(Vector3.Dot(fn, cutAx)) < 0.6f) continue;   // 道の横の面はそのまま
                 Vector3 ln = w2l.MultiplyVector(fn).normalized;
                 for (int k = 0; k < 3; k++)
                 {
