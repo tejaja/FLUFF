@@ -369,13 +369,10 @@ public static class FuwaPlaygroundBuilder
             var slot = new GameObject("Unlock" + (i + 1)).transform; slot.SetParent(toys, false); slot.position = sl;
             slot.rotation = Quaternion.LookRotation(-outDir);
             unlockToys[i] = slot.gameObject;
-            var lbl = MakeButton(toys, howTo, "Locked" + (i + 1), sl + Vector3.up * 0.9f, Quaternion.LookRotation(outDir));
-            string ja = "コース" + (i + 1) + "「" + courseJa[i] + "」を\nだれかがクリアすると出てくるよ";
-            string en = "Appears when someone clears\nCourse " + (i + 1) + " " + courseEn[i];
-            lbl.text = ja; lbl.fontSize = 1.8f;
-            lockedSigns[i] = lbl.transform.parent.gameObject;
-            Object.DestroyImmediate(lockedSigns[i].GetComponent<BoxCollider>());   // 押さない札なので当たり判定なし
-            lbl.transform.parent.localScale = Vector3.one * 0.4f;
+            string ja = "コース" + (i + 1) + "「" + courseJa[i] + "」を\nクリアすると でてくるよ";
+            string en = "Clear Course " + (i + 1) + "\n" + courseEn[i] + " to unlock";
+            var (lroot, lbl) = LockedSign(toys, "Locked" + (i + 1), sl, outDir, CourseAccent[i], ja);
+            lockedSigns[i] = lroot;
             var lso2 = new SerializedObject(Object.FindObjectsOfType<FuwaLanguage>(true).First()); AddLang(lso2, "texts", "ja", "en", lbl, ja, en); lso2.ApplyModifiedPropertiesWithoutUndo();
         }
         // 1 かぜのおか → 竜巻のたね
@@ -409,6 +406,51 @@ public static class FuwaPlaygroundBuilder
         if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "uiTexts", "uiJa", "uiEn", btnLbl, "おもちゃをもどす", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
         AddTestUnlockAll(toys, sp);
         return "toys " + list.Count;
+    }
+
+    // ---------- まだ出ていないおもちゃの場所：「？」の台座＋ぷっくり看板 ----------
+    // 2026-10-13 てじゃ「出現前の看板きえてた、そのままは味気ない」→ 案A（入口と同じぷっくりクッション看板・コースの色のふち）＋B（半透明のドームの台座に「?」）。
+    // 前は遊び方の看板の板と文字をコピーしていて、遊び方の看板を隠したらコピーも隠れたまま作られていた
+    static readonly Color[] CourseAccent = { Hex("7DD8AD"), Hex("D0A35B"), Hex("77435F"), Hex("8C63D5"), Hex("73AAE6") };   // ロビーのコース看板の雲のふちと同じ色
+    static Color Hex(string h) { ColorUtility.TryParseHtmlString("#" + h, out var c); return c; }
+    const float LockHW = 0.72f, LockHH = 0.3f, LockRound = 0.28f, LockPipe = 0.035f, LockY = 1.3f, DomeR = 0.68f;
+
+    static (GameObject, TMPro.TextMeshPro) LockedSign(Transform toys, string name, Vector3 floor, Vector3 outDir, Color accent, string ja)
+    {
+        var root = new GameObject(name).transform; root.SetParent(toys, false);
+        root.SetPositionAndRotation(floor, Quaternion.LookRotation(outDir));   // 表（-Z）が島の真ん中の方
+        var hubLab = RootGo("FuwaHub").transform.Find("SoloGate/Label").GetComponent<TMPro.TextMeshPro>();
+        string key = name;
+        // 台座：半透明のドーム（下半分は床に埋める）＋中に「?」
+        var dome = GameObject.CreatePrimitive(PrimitiveType.Sphere); dome.name = "Dome"; Object.DestroyImmediate(dome.GetComponent<Collider>());
+        dome.transform.SetParent(root, false); dome.transform.localPosition = Vector3.zero; dome.transform.localScale = new Vector3(DomeR * 2f, DomeR * 1.5f, DomeR * 2f);
+        var dm = dome.GetComponent<MeshRenderer>(); dm.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Generated/MonitorCamZone.mat") ?? AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/ItemBubble.mat");
+        dm.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        var ringMesh = SaveGenMesh(Torus(DomeR, 0.05f, 40, 10), "Playground_LockRing");
+        var baseRing = new GameObject("Rim", typeof(MeshFilter), typeof(MeshRenderer)); baseRing.transform.SetParent(root, false);
+        baseRing.transform.localPosition = new Vector3(0f, 0.02f, 0f); baseRing.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        baseRing.GetComponent<MeshFilter>().sharedMesh = ringMesh; baseRing.GetComponent<MeshRenderer>().sharedMaterial = Mat("Playground_Lock_" + ColorUtility.ToHtmlStringRGB(accent), "Assets/FuwaCourse/Materials/Goal_Ground.mat", accent);
+        var q = Object.Instantiate(hubLab.gameObject, root, false); q.name = "Mark";
+        foreach (Transform ch in q.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject);
+        var qt = q.GetComponent<TMPro.TextMeshPro>(); qt.text = "?"; qt.enableAutoSizing = false; qt.fontSize = 7.5f; qt.alignment = TMPro.TextAlignmentOptions.Center;
+        qt.color = Color.Lerp(accent, Color.black, 0.1f); qt.rectTransform.sizeDelta = new Vector2(2f, 2f);
+        q.transform.localPosition = new Vector3(0f, 0.38f, 0f); q.transform.localRotation = Quaternion.identity; q.transform.localScale = Vector3.one;
+        // 看板：白いクッション＋コースの色のふち（入口の看板と同じ作り）。ドームの上に浮かせる
+        var sign = new GameObject("Sign").transform; sign.SetParent(root, false); sign.localPosition = new Vector3(0f, LockY, 0f); sign.localRotation = Quaternion.identity;
+        var body = FuwaSignStyle.Outline(LockHW, LockHH, LockRound, 12, 0.02f);
+        var cm = Mat("Playground_LockCushion", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.98f, 0.96f));
+        cm.SetFloat("_ShadowStrength", 0.3f); cm.SetColor("_UnderColor", new Color(0.82f, 0.86f, 0.98f)); cm.SetFloat("_UnderStrength", 1f); cm.SetFloat("_UnderGrad", 0.45f); EditorUtility.SetDirty(cm);
+        float zc = 0.08f;
+        FuwaSignStyle.Part(sign, "Cushion", SaveGenMesh(FuwaSignStyle.Pillow(body, LockHW, LockHH, zc, 0.06f, 0.04f, 0.18f, 12), "Playground_LockCushion"), cm, Vector3.zero);
+        FuwaSignStyle.Part(sign, "Piping", SaveGenMesh(FuwaSignStyle.Tube(LockHW, LockHH, LockRound, LockPipe, zc, 12), "Playground_LockPiping"), Mat("Playground_Lock_" + ColorUtility.ToHtmlStringRGB(accent), "Assets/FuwaCourse/Materials/Goal_Ground.mat", accent), Vector3.zero);
+        var t = Object.Instantiate(hubLab.gameObject, sign, false); t.name = "Text";
+        foreach (Transform ch in t.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject);
+        var tm = t.GetComponent<TMPro.TextMeshPro>(); tm.text = ja; tm.alignment = TMPro.TextAlignmentOptions.Center; tm.lineSpacing = -10f;
+        tm.enableAutoSizing = true; tm.fontSizeMax = 3.2f; tm.fontSizeMin = 0.6f; tm.enableWordWrapping = false;
+        tm.rectTransform.sizeDelta = new Vector2((LockHW - 0.08f) * 2f, (LockHH - 0.02f) * 2f);
+        t.transform.localPosition = new Vector3(0f, 0f, 0f); t.transform.localRotation = Quaternion.identity; t.transform.localScale = Vector3.one;
+        foreach (var r in root.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        return (root.gameObject, tm);
     }
 
     // テスト用：クリア報酬のおもちゃを全部出すボタン（マスターにだけ見える）。2026-10-13 てじゃ「あとで消す」→ 消す時はこの呼び出しと関数を消す
