@@ -24,6 +24,8 @@ Shader "FuwaCourse/ToonLit"
         _Wrap ("Wrap (half lambert)", Range(0,1)) = 0.6
         _Steps ("Soft Band Sharpness", Range(0,1)) = 0.35
         _AmbientStrength ("Ambient Strength", Range(0,2)) = 0.6
+        _BakedGlow ("焼いた点光源の光を足す（0=使わない。洞窟の光るキノコなど）", Range(0,3)) = 0
+        _BakedGlowFloor ("↑ライトマップがこの明るさを超えた分だけ足す（ふだんの間接光の明るさ）", Range(0,1)) = 0.25
         [Header(Rim)]
         _RimColor ("Rim Color", Color) = (1, 0.97, 0.92, 1)
         _RimStrength ("Rim Strength", Range(0,1)) = 0.18
@@ -85,7 +87,7 @@ Shader "FuwaCourse/ToonLit"
 
             sampler2D _MainTex; float4 _MainTex_ST;
             fixed4 _ShadowTint, _RimColor;
-            half _ShadowStrength, _Wrap, _Steps, _AmbientStrength, _RimStrength, _RimPower;
+            half _ShadowStrength, _Wrap, _Steps, _AmbientStrength, _RimStrength, _RimPower, _BakedGlow, _BakedGlowFloor;
             fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal;
             half _NoiseStrength, _StrataStrength, _Facet, _TopStrength, _TopMin; float _NoiseScale, _StrataScale; fixed4 _TopColor;
             half4 _StrataA, _StrataB, _StrataC; half _PatternFromBase;
@@ -234,6 +236,10 @@ Shader "FuwaCourse/ToonLit"
                 // まわりの明るさは焼いた間接光ではなく、なめらかな空の明るさ（焼いた間接光は解像度が低いとムラになるので）
                 UNITY_LIGHT_ATTENUATION(atten, i, i.wp);
                 half3 amb = i.amb;
+                #if defined(LIGHTMAP_ON)
+                // 焼いた点光源（2026-10-14 洞窟の光るキノコ）：ライトマップが _BakedGlowFloor（点光源のない所の明るさ）を超えた分だけ足す
+                if (_BakedGlow > 0) { half3 lm = FuwaBakedAmbient(i.lmuv); amb += max(0, lm - _BakedGlowFloor) * _BakedGlow; }
+                #endif
                 lit *= lerp(1, atten, 0.85);
 
                 // 影側はグレーではなく紫寄りの色に
