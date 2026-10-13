@@ -43,6 +43,7 @@ public static class FuwaPlaygroundBuilder
     const float PanelYaw = PanelAngle;   // 島の真ん中から読める向き
     // 観戦リビング（ラグの中心）：正面からやや左の奥。テレビは柵側、ソファは真ん中側
     const float LivingAngle = -22f;
+    const float CamZoneAngle = -3f;   // VRChatカメラを入れる球：テレビの右、柵ぎわ（デッキの始まり 9° の手前）
     static readonly Vector3 LivingLocal = OnRing(LivingAngle, IslandR - 4.9f);
     // おもちゃ（柵沿い、右回りに）：もどすボタン → 扇風機 → ゴールリング → コース1〜5のおもちゃ
     const float ResetAngle = 45f, FanAngle = 45f, RingAngle = 60f;   // もどすボタンは扇風機の真下（2026-10-13 てじゃ。前は設定ボードの右で「タイトルにもどる」にかぶって見えた）
@@ -438,9 +439,11 @@ public static class FuwaPlaygroundBuilder
         baseRing.GetComponent<MeshFilter>().sharedMesh = ringMesh; baseRing.GetComponent<MeshRenderer>().sharedMaterial = Mat("Playground_Lock_" + ColorUtility.ToHtmlStringRGB(accent), "Assets/FuwaCourse/Materials/Goal_Ground.mat", accent);
         var q = Object.Instantiate(hubLab.gameObject, root, false); q.name = "Mark";
         foreach (Transform ch in q.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject);
-        var qt = q.GetComponent<TMPro.TextMeshPro>(); qt.text = "?"; qt.enableAutoSizing = false; qt.fontSize = 7.5f; qt.alignment = TMPro.TextAlignmentOptions.Center;
+        var qt = q.GetComponent<TMPro.TextMeshPro>(); qt.text = "?"; qt.enableAutoSizing = false; qt.fontSize = 4f; qt.alignment = TMPro.TextAlignmentOptions.Center;
         qt.color = Color.Lerp(accent, Color.black, 0.1f); qt.rectTransform.sizeDelta = new Vector2(2f, 2f);
-        q.transform.localPosition = new Vector3(0f, 0.38f, 0f); q.transform.localRotation = Quaternion.identity; q.transform.localScale = Vector3.one;
+        q.transform.localRotation = Quaternion.identity; q.transform.localScale = Vector3.one;
+        // 文字の実際の下はしを床から 0.08m 上に（2026-10-13 てじゃ「？が地面にめりこんでる」→ 小さくして測って置く）
+        qt.ForceMeshUpdate(); q.transform.localPosition = new Vector3(0f, 0.08f - qt.bounds.min.y, 0f);   // bounds＝実際の字の形（textBounds は行の余白込み）。てっぺんはドーム（高さ0.51）の中
         // 看板：白いクッション＋コースの色のふち（入口の看板と同じ作り）。ドームの上に浮かせる
         var sign = new GameObject("Sign").transform; sign.SetParent(root, false); sign.localPosition = new Vector3(0f, LockY, 0f); sign.localRotation = Quaternion.identity;
         var body = FuwaSignStyle.Outline(LockHW, LockHH, LockRound, 12, 0.02f);
@@ -562,6 +565,14 @@ public static class FuwaPlaygroundBuilder
             var zoneT = monitorHolder.Find("CamZone"); var zonePos = zoneT != null ? zoneT.position : Vector3.zero;
             monitorHolder.position += Vector3.up * 0.35f;
             if (zoneT != null) zoneT.position = zonePos;
+            // カメラの球はテレビの右の柵ぎわへ（2026-10-13 てじゃ「カメラハック用のタマがソファにめりこんでる、柵沿いに」）。向きはテレビとの関係のまま島の外向きに
+            if (zoneT != null)
+            {
+                Vector3 zl = OnRing(CamZoneAngle, IslandR - 1.1f), outD = new Vector3(zl.x, 0f, zl.z).normalized;
+                var rel = Quaternion.Inverse(monitorHolder.rotation) * zoneT.rotation;
+                zoneT.position = new Vector3(ac.x + zl.x, zonePos.y, ac.z + zl.z);
+                zoneT.rotation = Quaternion.LookRotation(outD) * rel;
+            }
             var mon = monitorHolder.Find("Monitor");
             var scr = mon.Find("Screen");
             var sl = monitorHolder.InverseTransformPoint(scr.position);
