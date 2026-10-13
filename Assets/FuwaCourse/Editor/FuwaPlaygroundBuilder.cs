@@ -937,6 +937,16 @@ public static class FuwaPlaygroundBuilder
                 var ps = t.parent.lossyScale; var ss = src.lossyScale;
                 t.localScale = new Vector3(ss.x / ps.x, ss.y / ps.y, ss.z / ps.z);
                 t.localPosition = new Vector3(n == "LanguageButton" ? -BoardBottomX : BoardBottomX, BoardBottomY, 0f);
+                // 文字の見た目（フォント・大きさ）もチャレンジのロビーにそろえる（あそびばの方だけ別のフォント MPLUS だった。2026-10-13 てじゃ「言語選択もあわせよ」）
+                foreach (var dst in t.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true))
+                {
+                    string rel = dst.transform.name; for (var q = dst.transform.parent; q != null && q != t; q = q.parent) rel = q.name + "/" + rel;
+                    var st = src.Find(rel); var s2 = st != null ? st.GetComponent<TMPro.TextMeshProUGUI>() : null; if (s2 == null) continue;
+                    dst.font = s2.font; dst.fontSharedMaterial = s2.fontSharedMaterial; dst.fontSize = s2.fontSize; dst.fontStyle = s2.fontStyle;
+                    dst.characterSpacing = s2.characterSpacing; dst.enableAutoSizing = s2.enableAutoSizing; dst.fontSizeMin = s2.fontSizeMin; dst.fontSizeMax = s2.fontSizeMax;
+                    dst.margin = s2.margin; dst.alignment = s2.alignment;
+                    EditorUtility.SetDirty(dst);
+                }
             }
             // 角の丸みは最後に FuwaButtonCorners で全部そろえる（端が丸いボタン。音量の板も）
         }
