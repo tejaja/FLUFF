@@ -155,6 +155,19 @@ public static class FuwaPlaygroundBuilder
         // 支柱はなし（2026-10-13 てじゃ「柱なくそう」）
         BoardButtons(coop, panel, pc, rot, howTo);
         sp.sizeLabel = labels[0]; sp.colorLabel = labels[1]; sp.limitLabel = labels[2]; sp.popLabel = labels[3];
+        // カラーの文字の材質：ふつう／紺の縁どりつき（「しろ」の時）
+        {
+            const string op = "Assets/FuwaCourse/Materials/Playground/Playground_SwitchTextOutline.mat";
+            var om = AssetDatabase.LoadAssetAtPath<Material>(op);
+            if (om == null) { om = new Material(labels[1].fontSharedMaterial) { name = "Playground_SwitchTextOutline" }; AssetDatabase.CreateAsset(om, op); }
+            om.CopyPropertiesFromMaterial(labels[1].fontSharedMaterial);
+            om.EnableKeyword("OUTLINE_ON"); om.SetColor("_OutlineColor", SwitchText); om.SetFloat("_OutlineWidth", 0.22f); om.SetFloat("_FaceDilate", 0.12f);
+            EditorUtility.SetDirty(om);
+            var dup = Object.Instantiate(labels[1].gameObject, labels[1].transform.parent, false); dup.name = "TextOutlined";
+            var dt = dup.GetComponent<TMPro.TextMeshProUGUI>(); dt.fontSharedMaterial = om; dup.SetActive(false);
+            foreach (Transform ch in dup.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject);   // TMP の SubMesh はやり直しで作られる
+            sp.colorLabelOutlined = dt;
+        }
         UdonSharpEditorUtility.CopyProxyToUdon(sp);
         var sub = UdonSharpEditorUtility.GetBackingUdonBehaviour(sp); if (sub != null) { sub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(sub); }
 
@@ -1267,7 +1280,7 @@ public static class FuwaPlaygroundBuilder
 
     // ふわふわ設定のスイッチの見た目：白いボタン＋オレンジの枠、文字は紺（2026-10-13 てじゃ「オレンジ枠に白ボタン、文字は紺にしよ」）。
     // 枠はボタンの後ろに一回り大きい角丸の板（RoundedPanel）。角の丸みは最後に FuwaButtonCorners がそろえる
-    static readonly Color SwitchFrame = new Color(0.949f, 0.471f, 0.42f), SwitchFace = new Color(1f, 0.98f, 0.96f), SwitchText = new Color(0.27f, 0.36f, 0.62f);
+    static readonly Color SwitchFrame = new Color(0.4f, 0.55f, 0.88f),   /* 枠は青（オレンジから。2026-10-13 てじゃ「枠を青にしてみて」） */ SwitchFace = new Color(1f, 0.98f, 0.96f), SwitchText = new Color(0.27f, 0.36f, 0.62f);
     const float SwitchFrameW = 26f;
     static void OutlinedStyle(Transform sw)
     {

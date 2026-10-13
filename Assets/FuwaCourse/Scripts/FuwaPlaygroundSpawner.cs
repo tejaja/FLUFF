@@ -37,6 +37,10 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
     [Header("スイッチ（レーザーで押すボタン）の文字（なくてもOK）")]
     public TextMeshProUGUI sizeLabel;
     public TextMeshProUGUI colorLabel;
+    [Tooltip("カラーのスイッチの、紺の縁どりつきの文字（colorLabel と同じ場所に重ねた別の文字。「しろ」の時だけこちらを出す。Udon からは材質を替えられないので2つ用意）")]
+    public TextMeshProUGUI colorLabelOutlined;
+    [Tooltip("カラーの名前の文字の色（colorJa と同じ順。白いボタンの上で読めるよう、ふわふわの色より少し濃い）。空なら colorHex")]
+    public string[] colorTextHex = { "FFFFFF", "FF8FB8", "5FB4F5", "E8B520", "52C46E", "A57FEA", "" };
     public TextMeshProUGUI limitLabel;
     public TextMeshProUGUI popLabel;
 
@@ -135,10 +139,23 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
         // ボタンはオレンジなので、値は白で太く（色は●で見せる）
         // スイッチは白いボタン＋オレンジの枠、文字は紺。今の値はオレンジ（2026-10-13 てじゃ）
         string V = "<color=#F2786B>"; string VE = "</color>";
-        // 色見本の丸は大きめに。白は白いボタンの上で見えないので、うすい灰色で縁どった色にする（2026-10-13 てじゃ「色見本ちっちゃいかも」）
-        string swHex = (colHex == "FFFFFF") ? "DDE2EC" : colHex;
+        // カラーは色見本の丸をやめて、名前の文字そのものをその色に（2026-10-13 てじゃ「色見本やめて文字の色をかえよう、白は紺のアウトラインつき」）。
+        // ランダムは1文字ずつ色を変える
+        string cname = en ? colorEn[ci] : colorJa[ci];
+        string th = (colorTextHex != null && ci < colorTextHex.Length) ? colorTextHex[ci] : colHex;
+        string colored;
+        if (th == "")
+        {
+            colored = "";
+            for (int k = 0; k < cname.Length; k++) colored += "<color=#" + colorTextHex[1 + (k % 5)] + ">" + cname.Substring(k, 1) + "</color>";
+        }
+        else colored = "<color=#" + th + ">" + cname + "</color>";
+
         if (sizeLabel != null) sizeLabel.text = (en ? "Size: " : "サイズ: ") + V + (en ? sizeEn[si] : sizeJa[si]) + VE;
-        if (colorLabel != null) colorLabel.text = (en ? "Color: " : "カラー: ") + "<size=150%><voffset=-0.08em><color=#" + swHex + ">●</color></voffset></size> " + V + (en ? colorEn[ci] : colorJa[ci]) + VE;
+        string ctext = (en ? "Color: " : "カラー: ") + colored;
+        bool outlined = th == "FFFFFF" && colorLabelOutlined != null;
+        if (colorLabel != null) { colorLabel.text = ctext; if (colorLabel.gameObject.activeSelf == outlined) colorLabel.gameObject.SetActive(!outlined); }
+        if (colorLabelOutlined != null) { colorLabelOutlined.text = ctext; if (colorLabelOutlined.gameObject.activeSelf != outlined) colorLabelOutlined.gameObject.SetActive(outlined); }
         if (limitLabel != null) limitLabel.text = (en ? "Max: " : "かず: ") + V + limits[li] + VE;
         if (popLabel != null) popLabel.text = en ? ("On landing: " + V + (_popGround ? "Pop" : "Stay") + VE)
                                                  : ("おちたら: " + V + (_popGround ? "きえる" : "きえない") + VE);
