@@ -176,7 +176,7 @@ public static class FuwaChillRoomBuilder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(coop.gameObject.scene);
         log.Add("chill room at " + ac + " home " + home.ToString("F2") + " floorY " + floorY.ToString("F2") + " balls " + balls.Count);
         log.Add(FuwaSharedBallShadowSetup.Run());   // 新しい玉に影を付け直す
-        log.Add(FuwaButtonCorners.Run(coop));   // ボタンの角を角丸の四角に（2026-10-13 てじゃ）
+        log.Add(FuwaButtonCorners.Run(coop));   // ボタンの形を端が丸いのにそろえる（2026-10-13 てじゃ）
         return string.Join("\n", log);
     }
 
@@ -893,7 +893,7 @@ public static class FuwaChillRoomBuilder
             foreach (var n in new[] { "Panel", "Border", "Text", "HudButton" }) { var t = howTo.Find(n); if (t != null) t.gameObject.SetActive(false); }
             var lang = howTo.Find("LanguageButton"); if (lang != null) lang.localPosition = new Vector3(-BoardBottomX, BoardBottomY, 0f);
             var vol = howTo.Find("BgmVolume"); if (vol != null) vol.localPosition = new Vector3(BoardBottomX, BoardBottomY, 0f);
-            // 角の丸み：音量の板の形（角丸の四角）にほかのボタンもそろえる（2026-10-13 てじゃ「ボリューム設定の形にボタンを揃えて」）→ BoardCorners
+            // 角の丸みは最後に FuwaButtonCorners で全部そろえる（端が丸いボタン。音量の板も）
         }
         var lobbyHow = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HowToPlay" && t.parent != null && t.parent.name == "FuwaLobby");
         GameObject Copy(string src, string name, int row)
@@ -946,7 +946,6 @@ public static class FuwaChillRoomBuilder
             }
             so.ApplyModifiedPropertiesWithoutUndo(); Sync(mc);
         }
-        BoardCorners(panel); if (howTo != null) BoardCorners(howTo);
         // 「タイトルにもどる」の言語切り替え（チャレンジのロビーの登録と同じ文字）
         var language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         var titleText = toTitle.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
@@ -956,18 +955,6 @@ public static class FuwaChillRoomBuilder
             int k = System.Array.IndexOf(language.uiTexts, srcText);
             string tja = k >= 0 ? language.uiJa[k] : titleText.text, ten = k >= 0 ? language.uiEn[k] : "Back to Title";
             var lso = new SerializedObject(language); AddLang(lso, "uiTexts", "uiJa", "uiEn", titleText, tja, ten); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(language);
-        }
-    }
-
-    // ボードのボタンの角の丸み：丸い端（RoundedPanel・pixelsPerUnitMultiplier 0.125）を、音量の板と同じ角丸の四角（0.1667）に
-    const float BoardCornerPPU = 0.1666667f;
-    static void BoardCorners(Transform root)
-    {
-        foreach (var img in root.GetComponentsInChildren<UnityEngine.UI.Image>(true))
-        {
-            if (img.sprite == null || img.sprite.name != "RoundedPanel" || img.type != UnityEngine.UI.Image.Type.Sliced) continue;
-            if (Mathf.Abs(img.pixelsPerUnitMultiplier - 0.125f) > 0.001f) continue;   // 丸い端のものだけ（言語ボタンの中の小さい札などはそのまま）
-            img.pixelsPerUnitMultiplier = BoardCornerPPU; EditorUtility.SetDirty(img);
         }
     }
 
