@@ -18,6 +18,7 @@ public static class FuwaCourse2DeadEndSign
     const float BarW = 0.56f, BarH = 0.13f, BarLift = 0.006f;
     const float PoleR = 0.035f;
     const int Seg = 40;
+    const float TiltSide = -9f, TiltBack = 4f;   // 傾き（度）：横（見る人から見て右へ）・うしろ
 
     [MenuItem("FuwaCourse/Course2/いきどまりの標識（進入禁止）を作り直す")]
     public static void Menu() { Debug.Log(Run()); }
@@ -98,7 +99,8 @@ public static class FuwaCourse2DeadEndSign
             if (h.collider.name == "Mountain" || h.collider.name == "PathMesh") y = Mathf.Max(y, h.point.y);
         go.transform.position = new Vector3(Pos.x, y, Pos.z);
         var face = Pos - LookFrom; face.y = 0f;
-        go.transform.rotation = Quaternion.LookRotation(face.normalized);   // 表（-z）が来る人の方
+        // 表（-z）が来る人の方。少し傾けて、崩れた道ぎわに立ちっぱなしの古い標識っぽく（2026-10-13 てじゃ「ちょっと傾けちゃお」）
+        go.transform.rotation = Quaternion.LookRotation(face.normalized) * Quaternion.Euler(TiltBack, 0f, TiltSide);
         go.transform.localScale = Vector3.one / root.lossyScale.x;
         go.GetComponent<MeshFilter>().sharedMesh = mesh;
         go.GetComponent<MeshRenderer>().sharedMaterials = new[] { Mat("Sign_Red", new Color(0.86f, 0.18f, 0.18f)), Mat("Sign_Paper", Color.white), Mat("Sign_Pole", new Color(0.62f, 0.63f, 0.67f)) };
