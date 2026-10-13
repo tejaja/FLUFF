@@ -14,7 +14,7 @@ public static class FuwaChillRoomBuilder
     const string LobbyName = "FuwaVersusLobby";
     static readonly Vector3 Offset = new Vector3(0f, 0f, 65f);   // 古いみんなでロビーからの島の位置（協力の試作と同じ）
     const int Pool = 10;
-    const float MushScale = 1.8f;               // 待っている玉は見えないので、巨大（1.4）が隠れなくてもよい（3倍は大きすぎた。てじゃ「キノコデカいままかも」）
+    const float MushScale = 1.31f;              // コース（チャレンジ）のスタートのキノコと同じ大きさ（傘の直径1.05m。2026-10-13 てじゃ「中央のきのこまだでかい」。前は1.8、その前は3倍）
     // 配置（2026-10-12 てじゃ「真ん中にキノコ、右奥にデカソファでモニタを眺めるエリア、左奥にフワフワギミックエリア（未定）」）。スポーンは手前（-Z）
     static readonly Vector3 MushLocal = new Vector3(0f, 0f, 0f);          // 島の真ん中
     static readonly Vector3 PanelLocal = new Vector3(-2.9f, 0f, -2.0f);   // スイッチ（キノコの左手前、スポーンの方を向く）
