@@ -598,32 +598,87 @@ public static class FuwaChillRoomBuilder
         }
     }
 
-    // 跳ねるキノコ：コース5 の CapStep のコピーを高さ違いで2本。傘（FuwaBounce）を強めに
+    // 跳ねるキノコ：きのこのたに（コース5）のギミックのキノコ（CapStep：傘がジャンプ台）を、コースと同じ大きさで2本。台座の島はなし（2026-10-13 てじゃ）。
+    // 1本目はふつうのジャンプ（ジャンプ力3＝足が約46cm上がる）で乗れる高さ、2本目は1本目の上（ジャンプ台4.2＝約90cm）から乗れる高さ。
+    // 低い方は柄がほとんど見えず傘だけ地面から出ている形（てじゃ「それでもいい」）。
+    // 持って動かせて、いつも水平（FuwaMovableMushroom）。傘（FuwaBounce）はふわふわを強めに跳ねる
+    static readonly float[] BounceCapTop = { 0.4f, 1.1f };
+    const float BounceGapExtra = 0.25f;   // 2本の傘のすき間（1本目から2本目へ跳び移れる近さ）
     static void FillBounce(Transform slot)
     {
+        foreach (var old in slot.Cast<Transform>().Where(t => t.name.StartsWith("BounceMushroom")).ToList()) Object.DestroyImmediate(old.gameObject);
+        EnsureProgram("FuwaMovableMushroom");
         var src = RootGo("FuwaCourse5").transform.Find("Mushrooms/CapStep5");
         if (src == null) return;
-        var heights = new[] { 1.1f, 1.8f };
-        var offs = new[] { new Vector3(-0.9f, 0f, 0f), new Vector3(1.3f, 0f, -0.4f) };
-        for (int i = 0; i < 2; i++)
+        float capW = src.Find("Cap").GetComponent<Collider>().bounds.size.x;
+        Vector3 fwd = slot.forward; fwd.y = 0f; fwd.Normalize();
+        Vector3 side = new Vector3(fwd.z, 0f, -fwd.x);
+        Quaternion rot = Quaternion.LookRotation(fwd);
+        for (int i = 0; i < BounceCapTop.Length; i++)
         {
-            var g = Object.Instantiate(src.gameObject, slot, false); g.name = "BounceMushroom" + i;
-            foreach (var t in g.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+            float H = BounceCapTop[i];
+            Vector3 basePos = slot.position + side * ((i - 0.5f) * (capW + BounceGapExtra));
+
+            // 見た目・当たり・ジャンプ台（持つところの子にしない）。CapStep は傘のてっぺんが原点なので、足元の body の上 H に置く
+            var body = new GameObject("BounceMushroomBody" + i).transform; body.SetParent(slot, false); body.SetPositionAndRotation(basePos, rot);
+            var g = Object.Instantiate(src.gameObject, body, false); g.name = "CapStep";
+            g.transform.localPosition = Vector3.up * H; g.transform.localRotation = Quaternion.identity; g.transform.localScale = src.lossyScale;
+            foreach (var n in new[] { "IslandTop", "IslandUnder" }) { var t = g.transform.Find(n); if (t != null) Object.DestroyImmediate(t.gameObject); }
             foreach (var lg in g.GetComponentsInChildren<LODGroup>(true)) Object.DestroyImmediate(lg);
-            g.transform.position = Vector3.zero; g.transform.rotation = Quaternion.identity; g.transform.localScale = Vector3.one;
-            // 元の大きさを測って、傘のてっぺんが heights[i] になるように縮める（足元を地面に）
-            var rs = g.GetComponentsInChildren<Renderer>(true); var b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
-            float k = heights[i] / Mathf.Max(0.1f, b.size.y);
-            g.transform.localScale = Vector3.one * k;
-            rs = g.GetComponentsInChildren<Renderer>(true); b = rs[0].bounds; foreach (var r in rs) b.Encapsulate(r.bounds);
-            var target = slot.position + slot.rotation * offs[i];
-            g.transform.position += new Vector3(target.x - b.center.x, target.y - b.min.y, target.z - b.center.z);
+            // 柄：傘の下から地面までの長さに（短すぎたら隠す）
+            var stem = g.transform.Find("Stem");
+            if (stem != null)
+            {
+                var sr = stem.GetComponent<Renderer>(); Bounds sb = sr.bounds;
+                float top = sb.max.y, bottom = basePos.y - 0.02f;
+                if (top - bottom < 0.05f) stem.gameObject.SetActive(false);
+                else
+                {
+                    stem.localScale = new Vector3(stem.localScale.x, stem.localScale.y * (top - bottom) / Mathf.Max(0.01f, sb.size.y), stem.localScale.z);
+                    stem.position += Vector3.up * (bottom - sr.bounds.min.y);
+                }
+            }
             foreach (var bo in g.GetComponentsInChildren<FuwaBounce>(true))
             {
                 var so = new SerializedObject(bo); so.FindProperty("bounceSpeed").floatValue = 6f; so.FindProperty("keepTangent").floatValue = 0.6f;
                 so.ApplyModifiedPropertiesWithoutUndo(); Sync(bo);
             }
+            foreach (var t in body.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+
+            // 持つところ：見た目なし。キノコ全体を囲む箱（トリガー）を持つ
+            var handle = new GameObject("BounceMushroom" + i); handle.layer = 13; handle.transform.SetParent(slot, false); handle.transform.SetPositionAndRotation(basePos, rot);
+            var box = handle.AddComponent<BoxCollider>(); box.isTrigger = true;
+            float hh = Mathf.Max(0.35f, H + 0.05f);
+            box.size = new Vector3(capW, hh, capW); box.center = new Vector3(0f, hh * 0.5f, 0f);
+            var rb = handle.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+            var pk = handle.AddComponent<VRC.SDK3.Components.VRCPickup>();
+            pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "はねるキノコ"; pk.proximity = 2f;
+            handle.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+            var mm = UdonSharpUndo.AddComponent<FuwaMovableMushroom>(handle); mm.body = body; mm.ground = 1 << 11;
+            UdonSharpEditorUtility.CopyProxyToUdon(mm);
+            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(mm); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
+            GameObjectUtility.SetStaticEditorFlags(handle, 0);
         }
+    }
+
+    [MenuItem("FuwaCourse/みんなで/跳ねるキノコだけ作り直す")]
+    static void MenuRebuildBounce()
+    {
+        var slot = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Unlock5" && t.parent != null && t.parent.name == "Toys");
+        FillBounce(slot);
+        // 「おもちゃを戻す」の一覧：消えた分を詰めて、新しい持つところを足す
+        var reset = Object.FindObjectsOfType<FuwaHandFanReset>(true).FirstOrDefault();
+        if (reset != null)
+        {
+            var so = new SerializedObject(reset); var p = so.FindProperty("others");
+            var list = new List<Object>();
+            for (int i = 0; i < p.arraySize; i++) { var o = p.GetArrayElementAtIndex(i).objectReferenceValue; if (o != null) list.Add(o); }
+            foreach (var os in slot.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true)) if (!list.Contains(os.gameObject)) list.Add(os.gameObject);
+            p.arraySize = list.Count; for (int i = 0; i < list.Count; i++) p.GetArrayElementAtIndex(i).objectReferenceValue = list[i];
+            so.ApplyModifiedPropertiesWithoutUndo(); Sync(reset);
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(slot.gameObject.scene);
+        Debug.Log("bounce mushrooms rebuilt");
     }
 
     // 輪（XY 平面、穴は Z 向き）

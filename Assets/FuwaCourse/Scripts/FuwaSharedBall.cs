@@ -625,8 +625,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             if (!_waiting && !_popped && transform.position.y < _homePos.y - fallLimit) SetWaiting();
             if (_popped && _respawnAt > 0f && Time.time >= _respawnAt) SetWaiting();
             // チルルーム：床に転がっている間に「消える」へ切り替えた（ぶつかった瞬間はもう過ぎている）ので、床に触れていたらはじける
-            if (chill != null && !_waiting && !_popped && !_rb.isKinematic && chill.PopGround()
-                && Physics.CheckSphere(transform.position + Vector3.down * 0.05f, transform.lossyScale.x * 0.5f, popLayers.value, QueryTriggerInteraction.Ignore)) Pop();
+            if (chill != null && !_waiting && !_popped && !_rb.isKinematic && chill.PopGround() && TouchingPopGround()) Pop();
             // 弾けたまま戻す予定が無い（弾けている間に持ち主が入れ替わった）なら、ここで戻す予定を立てる
             if (_popped && _respawnAt < 0f) _respawnAt = Time.time + respawnDelay;
             // 飛んでいる間はときどき今の位置を送る（壁にぶつかった後はすぐ送る）
@@ -717,6 +716,19 @@ public class FuwaSharedBall : UdonSharpBehaviour
             return;
         }
         Pop();
+    }
+
+    // 床（popLayers）に触れているか。跳ねるキノコの傘（FuwaBounce）は床ではない（同じレイヤーなので、乗った瞬間にはじけていた。2026-10-13）
+    private bool TouchingPopGround()
+    {
+        Collider[] cols = Physics.OverlapSphere(transform.position + Vector3.down * 0.05f, transform.lossyScale.x * 0.5f, popLayers.value, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < cols.Length; i++)
+        {
+            if (cols[i] == null || cols[i].gameObject == gameObject) continue;
+            if (cols[i].GetComponent<FuwaBounce>() != null) continue;
+            return true;
+        }
+        return false;
     }
 
     private void BounceOff(FuwaBounce bo)
