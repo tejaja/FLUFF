@@ -533,6 +533,30 @@ public static class FuwaChillRoomBuilder
             pp.transform.localPosition = Vector3.zero; pp.transform.localRotation = Quaternion.identity; pp.transform.localScale = Vector3.one * (zoneR * 2f / size) / 5.5f;
             var ps = pp.GetComponent<ParticleSystem>(); var main = ps.main; main.scalingMode = ParticleSystemScalingMode.Hierarchy;
         }
+        KeepGravityUpright(seed);
+    }
+
+    // たねを回しても、紫の球（グラデ）と粒の出る向きはまっすぐのまま（2026-10-13 てじゃ「回すとエフェクトも回って変だから固定に」）
+    static void KeepGravityUpright(GameObject seed)
+    {
+        // スクリプトはたね本体（VRCObjectSync のネットワークIDを持つ）ではなく、子の HeavyZone に付ける（たねの部品の種類を変えない）
+        EnsureProgram("FuwaKeepUpright");
+        var zone = seed.transform.Find("HeavyZone"); if (zone == null) return;
+        var ku = zone.GetComponent<FuwaKeepUpright>();
+        if (ku == null) ku = UdonSharpUndo.AddComponent<FuwaKeepUpright>(zone.gameObject);
+        ku.targets = new[] { zone, seed.transform.Find("HeavyParticles") }.Where(t => t != null).ToArray();
+        UdonSharpEditorUtility.CopyProxyToUdon(ku);
+        var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ku); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
+        EditorUtility.SetDirty(ku);
+    }
+
+    [MenuItem("FuwaCourse/みんなで/重力のたねのエフェクトをまっすぐに")]
+    static void MenuKeepGravityUpright()
+    {
+        var seed = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "GravitySeed").gameObject;
+        KeepGravityUpright(seed);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(seed.scene);
+        Debug.Log("gravity seed upright");
     }
 
     // まもののぬいぐるみ：コース4 のけだまの体と目をコピー。大きさ違いで3つ
