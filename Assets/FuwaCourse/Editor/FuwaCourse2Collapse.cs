@@ -14,6 +14,20 @@ public static class FuwaCourse2Collapse
     static readonly Vector3 OldAxis = new Vector3(1f, 0f, 0.08f);
     const float S0 = 0f, S1 = 2.6f, YBottom = 10.0f, HalfWidth = 6.5f;
 
+    // 手前の切り口から谷の上へ突き出た舌のような足場（2026-10-13 てじゃ「黄色い道をこの赤枠の分伸ばして」。別の板を乗せたら取ってつけた感じだったので、切り口の形そのものを変える）。
+    // 横 l（CutJagged の向き）の TongueL0〜TongueL1 で、手前の切り口を最大 TongueLen だけ先へ。両わきはなだらかに戻し、先はギザギザ
+    const float TongueL0 = -0.3f, TongueL1 = 1.2f, TongueLen = 1.55f, TongueShoulder = 0.35f;
+    static float Tongue(float l)
+    {
+        if (l < TongueL0 - TongueShoulder || l > TongueL1 + TongueShoulder) return 0f;
+        float k = Mathf.Min(Mathf.InverseLerp(TongueL0 - TongueShoulder, TongueL0, l), Mathf.InverseLerp(TongueL1 + TongueShoulder, TongueL1, l));
+        k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k));
+        // 先のギザギザ（決まった形：0.3m ごとに出たり引っこんだり）
+        float u = (l - TongueL0) / 0.3f; float f = u - Mathf.Floor(u);
+        float tooth = (1f - 4f * Mathf.Abs(f - 0.5f)) * 0.12f + Mathf.PerlinNoise(Mathf.Floor(u) * 0.91f, 0.37f) * -0.25f;
+        return k * (TongueLen + tooth);
+    }
+
     // 道のメッシュ（ローカル）から崩落の範囲を切り抜いた新しいメッシュを返す
     public static Mesh CutPath(Mesh src, Transform pathTr, Transform courseRoot, float maxEdge)
     {
@@ -34,6 +48,6 @@ public static class FuwaCourse2Collapse
             j0[i] = Mathf.Clamp(j0[i], -widen, narrow); j1[i] = Mathf.Clamp(j1[i], -narrow, widen);
         }
         float Interp(float[] arr, float l) { float f = (l - L0) / step; int i = Mathf.Clamp(Mathf.FloorToInt(f), 0, nE - 1); return Mathf.Lerp(arr[i], arr[i + 1], Mathf.Clamp01(f - i)); }
-        return FuwaPitCut.CutJagged(src, pathTr, origin, axis, l => S0 + Interp(j0, l), l => S1 + Interp(j1, l), YBottom, HalfWidth, maxEdge);
+        return FuwaPitCut.CutJagged(src, pathTr, origin, axis, l => S0 + Interp(j0, l) + Tongue(l), l => S1 + Interp(j1, l), YBottom, HalfWidth, maxEdge);
     }
 }
