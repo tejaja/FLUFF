@@ -16,10 +16,18 @@ public static class FuwaChillRoomBuilder
     const int Pool = 10;
     const float MushScale = 1.31f;              // コース（チャレンジ）のスタートのキノコと同じ大きさ（傘の直径1.05m。2026-10-13 てじゃ「中央のきのこまだでかい」。前は1.8、その前は3倍）
     // 配置（2026-10-12 てじゃ「真ん中にキノコ、右奥にデカソファでモニタを眺めるエリア、左奥にフワフワギミックエリア（未定）」）。スポーンは手前（-Z）
+    // 島の大きさ：古いみんなでロビーの島（半径14m）の何倍か（2026-10-13 てじゃ「ちょっと広い」→ 半径10.5m。手前半分がほぼ空だった）
+    const float IslandScale = 0.75f;
     static readonly Vector3 MushLocal = new Vector3(0f, 0f, 0f);          // 島の真ん中
     static readonly Vector3 PanelLocal = new Vector3(-2.9f, 0f, -2.0f);   // スイッチ（キノコの左手前、スポーンの方を向く）
-    static readonly Vector3 LivingLocal = new Vector3(5.3f, 0f, 5.3f);    // 右奥の観戦リビング（ラグの中心）
-    static readonly Vector3 HowToLocal = new Vector3(-5.6f, -0.12f, -6.4f);   // 遊び方の看板（スポーンの左前）
+    // 右奥の観戦リビング（ラグの中心）。島を縮めた時に、跳ねるキノコと重ならないよう少し右へ回した（前は (5.3, 0, 5.3)）
+    static readonly Vector3 LivingLocal = new Vector3(4.7f, 0f, 2.9f);
+    static readonly Vector3 HowToLocal = new Vector3(-5.6f * IslandScale, -0.12f, -6.4f * IslandScale);   // 遊び方の看板（スポーンの左前）
+    // 島の外の物（FuwaCoop の直下。前は手で置いていた位置×島の大きさ）：スポーン、ワープ2つ、エアガンの台（2026-10-13 てじゃ「銃の台も真ん中に」→ キノコの右手前、スイッチの反対）
+    static readonly Vector3 SpawnLocal = new Vector3(0f, 0f, -8.8f) * IslandScale;
+    static readonly Vector3 ReturnWarpLocal = new Vector3(7.3f, 0f, -9.4f) * IslandScale;
+    static readonly Vector3 SoloWarpLocal = new Vector3(10.6f, 0f, -5.6f) * IslandScale;
+    static readonly Vector3 GunStandLocal = new Vector3(2.7f, 0f, -2.0f);
     // 左奥（-5.5, 0, 5.5）あたりはギミック用に空けておく
 
     [MenuItem("FuwaCourse/みんなで/チルルームを作り直す")]
@@ -47,11 +55,13 @@ public static class FuwaChillRoomBuilder
             var src = lobby.Find(n);
             var g = Object.Instantiate(src.gameObject, root, true); g.name = n;
             g.transform.position = src.position + Offset;
+            g.transform.localScale = new Vector3(g.transform.localScale.x * IslandScale, g.transform.localScale.y, g.transform.localScale.z * IslandScale);
             foreach (var t in g.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, StaticEditorFlags.BatchingStatic);
         }
         var floor = root.Find("VersusFloor");
         float floorY = floor.GetComponent<Renderer>().bounds.max.y;
         int floorLayer = floor.gameObject.layer;
+        PlaceFixtures(coop, ac, floorY);
 
         // キノコ
         var mushSrc = lobby.Find("CenterMushroom");
@@ -175,11 +185,36 @@ public static class FuwaChillRoomBuilder
     }
 
     // ---------- おもちゃ広場（左奥。2026-10-12 てじゃ「エアガンとは別の手持ち扇風機、空中固定化」「出しっぱなし」「うちわもいいね」）----------
-    static readonly Vector3 ToysLocal = new Vector3(-5.5f, 0f, 5.5f);
+    static readonly Vector3 ToysLocal = new Vector3(-5.5f, 0f, 5.5f) * IslandScale;
     // コースのクリアで出てくるおもちゃの場所（島の真ん中から）：1竜巻 2岩 3重力 4ぬいぐるみ 5跳ねるキノコ
     // コース1〜5の順に、スポーンから見て手前（左）から奥へ島のふちに沿って並べる（2026-10-13 てじゃ「順番あべこべなの直そう」。前は 5→1→3→2→4 の順になっていた）。
     // 5か所の場所は前と同じ。となりとの間隔は、大きいおもちゃ（竜巻・重力の球）の見た目の半径を足しても重ならない
-    static readonly Vector3[] UnlockLocal = { new Vector3(-9.6f, 0f, -2.8f), new Vector3(-9.6f, 0f, 1.8f), new Vector3(-10.2f, 0f, 6.4f), new Vector3(-5.6f, 0f, 9.8f), new Vector3(-0.8f, 0f, 11.0f) };
+    // 島を縮めた時（2026-10-13）：半径8.2mの弧に、遊び方の看板の後ろ（-118°）から真後ろ（+2°）まで。角度は島の真ん中から +Z が0°、時計回り。
+    // となりとの間隔はおもちゃの大きさ（竜巻の見た目2.45m・重力の球2.2m・ぬいぐるみとイバラ／跳ねるキノコは横に2.6m）から決めた
+    static readonly float[] UnlockAngles = { -118f, -92f, -66f, -34f, 2f };
+    const float UnlockRadius = 8.2f;
+    static readonly Vector3[] UnlockLocal = UnlockAngles.Select(a => new Vector3(Mathf.Sin(a * Mathf.Deg2Rad), 0f, Mathf.Cos(a * Mathf.Deg2Rad)) * UnlockRadius).ToArray();
+
+    // スポーン・ワープ・エアガンの台を島の大きさに合わせて置く（向きは前と同じ関係のまま）
+    static void PlaceFixtures(Transform coop, Vector3 ac, float floorY)
+    {
+        Vector3 Ground(Vector3 local, Transform t) { return new Vector3(ac.x + local.x, t.position.y, ac.z + local.z); }
+        var spawn = coop.Find("CoopSpawn");
+        if (spawn != null) spawn.position = Ground(SpawnLocal, spawn);
+        foreach (var (n, l) in new[] { ("ReturnToHub", ReturnWarpLocal), ("ToSolo", SoloWarpLocal) }) { var w = coop.Find(n); if (w != null) w.position = Ground(l, w); }
+        var stand = coop.Find("GunStand_Versus");
+        if (stand != null && spawn != null)
+        {
+            var marker = coop.Find("GunStand_Versus_Marker");
+            Vector3 mOff = marker != null ? marker.position - stand.position : Vector3.zero;
+            Quaternion mRot = marker != null ? Quaternion.Inverse(stand.rotation) * marker.rotation : Quaternion.identity;
+            stand.position = Ground(GunStandLocal, stand);
+            // 前と同じく、台の正面から見てスポーンが右90°くらいにある向き
+            var toSpawn = spawn.position - stand.position; toSpawn.y = 0f;
+            stand.rotation = Quaternion.LookRotation(Quaternion.Euler(0f, 94f, 0f) * toSpawn.normalized);
+            if (marker != null) { marker.position = stand.position + new Vector3(0f, mOff.y, 0f); marker.rotation = stand.rotation * mRot; }
+        }
+    }
 
     static string Toys(Transform root, Vector3 ac, float floorY, FuwaChillSpawner sp, Transform howTo, Vector3 look)
     {
@@ -329,9 +364,9 @@ public static class FuwaChillRoomBuilder
         var rsGo = new GameObject("ResetToys"); rsGo.transform.SetParent(toys, false);
         var rs = UdonSharpUndo.AddComponent<FuwaHandFanReset>(rsGo); rs.fans = list.ToArray(); rs.others = resetOthers; UdonSharpEditorUtility.CopyProxyToUdon(rs);
         var rub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rs); if (rub != null) { rub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(rub); }
-        var btnLbl = LaserButton(toys, "ResetToysButton", G + toCenter * 2.4f + Vector3.up * 0.55f, Quaternion.LookRotation(-toCenter), 1.3f, "おもちゃを戻す", rs, "ResetAll");
+        var btnLbl = LaserButton(toys, "ResetToysButton", G + toCenter * 2.4f + Vector3.up * 0.55f, Quaternion.LookRotation(-toCenter), 1.3f, "おもちゃをもどす", rs, "ResetAll");   // 「戻」はボタンのフォントに無くて□になっていた（2026-10-13）
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
-        if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "uiTexts", "uiJa", "uiEn", btnLbl, "おもちゃを戻す", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
+        if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "uiTexts", "uiJa", "uiEn", btnLbl, "おもちゃをもどす", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
         AddTestUnlockAll(toys, sp);
         return "toys " + list.Count;
     }
@@ -346,7 +381,7 @@ public static class FuwaChillRoomBuilder
         // 「おもちゃを戻す」の横（同じ向き、横へ1.6m・少し上）
         var reset = toys.Find("ResetToysButton");
         Vector3 pos = reset.position + reset.right * 1.6f + Vector3.up * 0.35f;
-        LaserButton(toys, "TestUnlockAllButton", pos, reset.rotation, 1.3f, "テスト：おもちゃ全部出す", tu, "UnlockAll");
+        LaserButton(toys, "TestUnlockAllButton", pos, reset.rotation, 1.3f, "テスト おもちゃぜんぶだす", tu, "UnlockAll");
         tu.button = toys.Find("TestUnlockAllButton").gameObject;
         UdonSharpEditorUtility.CopyProxyToUdon(tu);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tu); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
