@@ -18,6 +18,8 @@ public class FuwaThrowRock : UdonSharpBehaviour
     public float ballUp = 2.8f;
     public float playerPush = 1.2f;
     public float playerUp = 4f;
+    [Tooltip("投げた本人は、手を離してからこの秒数は当たらない（投げた直後に自分が吹っ飛んでいた。2026-10-13 てじゃ）")]
+    public float throwerSafeTime = 0.6f;
     public AudioSource hitSound;
     [Tooltip("ここより下へ落ちたら戻す（ワールドの高さ）")]
     public float fallY = 80f;
@@ -26,8 +28,11 @@ public class FuwaThrowRock : UdonSharpBehaviour
     private Vector3 _vel;
     private float[] _hitAt = new float[0];
     private float _playerHitAt;
+    private float _droppedAt = -10f;   // 自分の手から離した時刻（自分の画面だけ）
 
     private void Start() { _prev = transform.position; }
+
+    public override void OnDrop() { _droppedAt = Time.time; }
 
     private void FixedUpdate()
     {
@@ -67,7 +72,7 @@ public class FuwaThrowRock : UdonSharpBehaviour
         // 自分（持っている時は当たらない）
         VRCPlayerApi lp = Networking.LocalPlayer;
         VRCPickup pk = (VRCPickup)GetComponent(typeof(VRCPickup));
-        if (lp == null || (pk != null && pk.IsHeld) || Time.time - _playerHitAt < 0.8f) return;
+        if (lp == null || (pk != null && pk.IsHeld) || Time.time - _playerHitAt < 0.8f || Time.time - _droppedAt < throwerSafeTime) return;
         Vector3 me = lp.GetPosition();
         Vector3 d = me - p; float dy = d.y; d.y = 0f;
         if (d.magnitude > radius + 0.3f || dy > 0.3f || dy < -1.8f) return;
