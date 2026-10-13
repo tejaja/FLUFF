@@ -129,6 +129,30 @@ public static class FuwaHowToFoldSetup
                 var bi = bar.GetComponent<UnityEngine.UI.Image>(); bi.color = Color.white; bi.raycastTarget = false;
                 bi.sprite = img.sprite; bi.type = UnityEngine.UI.Image.Type.Sliced; bi.pixelsPerUnitMultiplier = 2f;
             }
+            // 押せる範囲は見た目の丸より大きく（2026-10-13 てじゃ「VRだとレーザー狙いづらいかも、判定でっかくしちゃお」）。
+            // ボタンの画像は透明な大きい四角（レーザーが当たる所）にして、赤い丸と×はその子（Dot）に移す。色の変化は Dot にかける
+            {
+                // てじゃ「右上の余白に広げよう」「でかすぎるのもあれだし、ボタン１個分くらい余白に広げるイメージ」：
+                // 丸の右・上はそのまま、左と下へ丸1個分（0.34）ずつ広げた四角
+                const float hitW = 0.68f, hitH = 0.68f;
+                float right = close.transform.localPosition.x + r * 0.5f, top = close.transform.localPosition.y + r * 0.5f;
+                var hitCenter = new Vector2(right - hitW * 0.5f, top - hitH * 0.5f);
+                var canvas = (RectTransform)close.transform.Find("Canvas");
+                float k = canvas.lossyScale.x / h.lossyScale.x;
+                var off = hitCenter - (Vector2)close.transform.localPosition;   // 押せる範囲の真ん中（×の丸からのずれ）
+                canvas.localPosition = new Vector3(off.x, off.y, canvas.localPosition.z);
+                canvas.sizeDelta = new Vector2(hitW / k, hitH / k);
+                var bc = canvas.GetComponent<BoxCollider>(); bc.size = new Vector3(canvas.sizeDelta.x, canvas.sizeDelta.y, bc.size.z); bc.center = Vector3.zero;
+                var brt0 = (RectTransform)cbtn.transform; brt0.anchorMin = Vector2.zero; brt0.anchorMax = Vector2.one; brt0.offsetMin = brt0.offsetMax = Vector2.zero;
+                var dot = new GameObject("Dot", typeof(RectTransform), typeof(CanvasRenderer), typeof(UnityEngine.UI.Image));
+                var drt = (RectTransform)dot.transform; drt.SetParent(cbtn.transform, false);
+                drt.anchorMin = drt.anchorMax = new Vector2(0.5f, 0.5f); drt.sizeDelta = new Vector2(size, size);
+                drt.anchoredPosition = new Vector2(-off.x / k, -off.y / k);   // 丸は元の位置のまま
+                var di = dot.GetComponent<UnityEngine.UI.Image>(); di.sprite = img.sprite; di.type = img.type; di.pixelsPerUnitMultiplier = img.pixelsPerUnitMultiplier; di.color = Color.white; di.raycastTarget = false; di.material = null;
+                foreach (var bar in cbtn.transform.Cast<Transform>().Where(t => t.name == "XBar").ToList()) bar.SetParent(dot.transform, false);
+                img.sprite = null; img.color = new Color(1f, 1f, 1f, 0f); img.raycastTarget = true;
+                cbtn.targetGraphic = di;
+            }
         }
 
         fold.panel = panel; fold.border = border; fold.body = body; fold.title = title; fold.language = lang;
