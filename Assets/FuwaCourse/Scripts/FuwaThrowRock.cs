@@ -13,7 +13,7 @@ public class FuwaThrowRock : UdonSharpBehaviour
     public FuwaChillSpawner spawner;
     public float radius = 0.35f;
     [Tooltip("この速さ(m/s)以上で動いている時だけ当たる")]
-    public float hitSpeed = 1.6f;
+    public float hitSpeed = 0.9f;
     public float ballPush = 3.5f;
     public float ballUp = 2.8f;
     public float playerPush = 1.2f;
@@ -75,9 +75,11 @@ public class FuwaThrowRock : UdonSharpBehaviour
         if (lp == null || (pk != null && pk.IsHeld) || Time.time - _playerHitAt < 0.8f || Time.time - _droppedAt < throwerSafeTime) return;
         Vector3 me = lp.GetPosition();
         Vector3 d = me - p; float dy = d.y; d.y = 0f;
-        if (d.magnitude > radius + 0.3f || dy > 0.3f || dy < -1.8f) return;
+        if (d.magnitude > radius + 0.35f || dy > 0.3f || dy < -1.8f) return;
         _playerHitAt = Time.time;
-        Vector3 push = (d.sqrMagnitude > 0.0001f ? d.normalized : dir) * spd * playerPush + dir * spd * 0.5f + Vector3.up * playerUp;
+        // 大きい岩は転がるとすぐ遅くなるので、遅くても当たるようにして（前は1.6m/s以上だけ＝転がってきた岩にほぼ当たらなかった。2026-10-13 てじゃ）、
+        // そのかわり遅い時は上に飛ぶのも弱く
+        Vector3 push = (d.sqrMagnitude > 0.0001f ? d.normalized : dir) * spd * playerPush + dir * spd * 0.5f + Vector3.up * playerUp * Mathf.Clamp(spd / 3f, 0.4f, 1f);
         lp.SetVelocity(lp.GetVelocity() + push);
         PlayHit();
     }
