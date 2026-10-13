@@ -10,7 +10,7 @@ using VRC.SDKBase;
 [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
 public class FuwaThrowRock : UdonSharpBehaviour
 {
-    public FuwaChillSpawner spawner;
+    public FuwaPlaygroundSpawner spawner;
     public float radius = 0.35f;
     [Tooltip("この速さ(m/s)以上で動いている時だけ当たる")]
     public float hitSpeed = 0.9f;

@@ -117,13 +117,13 @@ public class FuwaSharedBall : UdonSharpBehaviour
     [Tooltip("試合の前後などで撃っても動かない（FuwaMatch が全員の画面でそれぞれ切り替える）")]
     [System.NonSerialized] public bool locked;
 
-    [Header("チルルーム用：出すたびに大きさ・色・地面ではじけるかを変える（FuwaChillSpawner が決める）")]
+    [Header("チルルーム用：出すたびに大きさ・色・地面ではじけるかを変える（FuwaPlaygroundSpawner が決める）")]
     [Tooltip("オンなら、下の同期した大きさ・色・はじけ方を使う（持ち主が SpawnVariant で決めて配る）")]
     public bool variant;
     [UdonSynced] private float _vSize = 0.3f;
     [UdonSynced] private Color _vColor = Color.white;
     [Tooltip("チルルーム用：「地面に落ちたら消えるか」はこの係の今の設定を見る（切り替えたら、床に転がっている玉もすぐ従う）")]
-    public FuwaChillSpawner chill;
+    [UnityEngine.Serialization.FormerlySerializedAs("chill")] public FuwaPlaygroundSpawner playground;
     [UdonSynced] private float _vShotScale = 1f;
     [UdonSynced] private double _vTime;
     private float _shownSize = -1f;
@@ -583,7 +583,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         float g = _gravScale > 0f ? _gravScale : 1f;
         _gravScale = 0f;
         _rb.AddForce(Vector3.down * fallAcceleration * g, ForceMode.Acceleration);
-        // 風のギミック（FuwaCoopWind など）から足された加速度（全員の画面で同じ風を当てるので、ずれにくい）
+        // 風のギミック（うちわ・扇風機など）から足された加速度（全員の画面で同じ風を当てるので、ずれにくい）
         if (_wind.sqrMagnitude > 0f) { _rb.AddForce(DampWind(_wind), ForceMode.Acceleration); _wind = Vector3.zero; }
         Vector3 v = _rb.velocity;
         if (v.y < -maxFallSpeed * g) v.y = -maxFallSpeed * g;
@@ -625,7 +625,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             if (!_waiting && !_popped && transform.position.y < _homePos.y - fallLimit) SetWaiting();
             if (_popped && _respawnAt > 0f && Time.time >= _respawnAt) SetWaiting();
             // チルルーム：床に転がっている間に「消える」へ切り替えた（ぶつかった瞬間はもう過ぎている）ので、床に触れていたらはじける
-            if (chill != null && !_waiting && !_popped && !_rb.isKinematic && chill.PopGround() && TouchingPopGround()) Pop();
+            if (playground != null && !_waiting && !_popped && !_rb.isKinematic && playground.PopGround() && TouchingPopGround()) Pop();
             // 弾けたまま戻す予定が無い（弾けている間に持ち主が入れ替わった）なら、ここで戻す予定を立てる
             if (_popped && _respawnAt < 0f) _respawnAt = Time.time + respawnDelay;
             // 飛んでいる間はときどき今の位置を送る（壁にぶつかった後はすぐ送る）
@@ -709,7 +709,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             if (bo != null) { BounceOff(bo); return; }
         }
         if (!Networking.IsOwner(gameObject) || _waiting || _popped) return;
-        int popMask = chill != null && !chill.PopGround() ? 0 : popLayers.value;   // チルルームで「地面に落ちても消えない」の時は床ではじけない
+        int popMask = playground != null && !playground.PopGround() ? 0 : popLayers.value;   // あそびばで「地面に落ちても消えない」の時は床ではじけない
         if ((popMask & (1 << collision.collider.gameObject.layer)) == 0)
         {
             _sendSoon = true;   // 壁や柵で跳ね返った：みんなの画面のズレを早めに直す

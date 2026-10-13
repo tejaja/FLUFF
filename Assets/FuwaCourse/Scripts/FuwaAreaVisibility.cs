@@ -9,7 +9,7 @@ public class FuwaAreaVisibility : UdonSharpBehaviour
 {
     public GameObject[] hubObjects;
     public GameObject[] soloObjects;
-    public GameObject[] versusObjects;
+    [UnityEngine.Serialization.FormerlySerializedAs("versusObjects")] public GameObject[] playgroundObjects;
     [Tooltip("デバッグエリア（ギミックを並べたテスト用。完成したら消す）")]
     public GameObject[] debugObjects;
     [Tooltip("ワールドに入った時のエリア（スポーン地点＝入口）")]
@@ -30,7 +30,7 @@ public class FuwaAreaVisibility : UdonSharpBehaviour
         _area = area;
         SetAll(hubObjects, area == 0);
         SetAll(soloObjects, area == 1);
-        SetAll(versusObjects, area == 2);
+        SetAll(playgroundObjects, area == 2);
         SetAll(debugObjects, area == 3);
     }
 

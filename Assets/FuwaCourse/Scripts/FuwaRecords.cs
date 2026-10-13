@@ -35,7 +35,7 @@ public class FuwaRecords : UdonSharpBehaviour
     public int[] courseVersions;
 
     [Tooltip("みんなでひろば：コースをクリアしたら、このインスタンスでそのコースのおもちゃを解放する（保存はしない）")]
-    public FuwaChillSpawner chill;
+    [UnityEngine.Serialization.FormerlySerializedAs("chill")] public FuwaPlaygroundSpawner playground;
 
     [UdonSynced] private float[] _bestTimes = new float[0];
     [UdonSynced] private string[] _bestNames = new string[0];
@@ -67,7 +67,7 @@ public class FuwaRecords : UdonSharpBehaviour
         Init();
         int i = IndexOf(start);
         if (i < 0 || time <= 0f) return;
-        if (chill != null) chill.Unlock(i);
+        if (playground != null) playground.Unlock(i);
         // 自己ベスト
         if (_myBest[i] <= 0f || time < _myBest[i])
         {

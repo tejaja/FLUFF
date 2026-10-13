@@ -6,13 +6,13 @@ using VRC.SDKBase;
 // みんなでひろばの手持ち扇風機（2026-10-12 てじゃ「エアガンとは別の手持ち扇風機ほしいね、空中固定化」「出しっぱなしにもできたら」）。
 // ・持ってトリガーで風の ON/OFF。手を離すとその場の空中に止まる（落ちない）。ON のまま置けば吹き続ける
 // ・風は全員の画面で同じように当てる：扇風機の位置は VRCObjectSync、ON/OFF はこの同期変数。それぞれの画面で、前の円すいの中にいる
-//   ふわふわ（FuwaSharedBall）に AddWind する（FuwaCoopWind と同じ「全員で同じ風」。撃つたびの通信はない）
+//   ふわふわ（FuwaSharedBall）に AddWind する（全員で同じ風。撃つたびの通信はない）
 // VRCObjectSync と同じオブジェクトなので Continuous（Manual は併用できない）
 [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
 public class FuwaHandFan : UdonSharpBehaviour
 {
     [Tooltip("風を当てるふわふわ（チルルームの玉）")]
-    public FuwaChillSpawner spawner;
+    public FuwaPlaygroundSpawner spawner;
     [Tooltip("風の出る所（+Z が風の向き）")]
     public Transform nozzle;
     [Tooltip("回す羽")]

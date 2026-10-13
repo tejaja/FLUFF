@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 // まものの寝ている時の目「︶」（2026-10-13 てじゃ「寝てる時の目玉、うっすら黒目みえてこわい」「😴こんな目に切り替えるとか」）。
-// 目（Eyes）の白目ごとに、細い弧の線（SleepEye）を足す。寝ている間だけ白目・黒目の代わりに出す（FuwaEnemy / FuwaMama / FuwaChillPlush が切り替える）。
+// 目（Eyes）の白目ごとに、細い弧の線（SleepEye）を足す。寝ている間だけ白目・黒目の代わりに出す（FuwaEnemy / FuwaMama / FuwaPlaygroundPlush が切り替える）。
 // まものを作り直したら（コース4・チュートリアル・あそびば）、このメニューをもう一度。何度実行してもよい
 public static class FuwaSleepEyesSetup
 {
@@ -25,7 +25,7 @@ public static class FuwaSleepEyesSetup
         var eyesList = new List<Transform>();
         foreach (var e in Object.FindObjectsOfType<FuwaEnemy>(true)) if (e.eyes != null) eyesList.Add(e.eyes);
         foreach (var m in Object.FindObjectsOfType<FuwaMama>(true)) if (m.eyes != null) eyesList.Add(m.eyes);
-        foreach (var p in Object.FindObjectsOfType<FuwaChillPlush>(true)) if (p.eyes != null) eyesList.Add(p.eyes);
+        foreach (var p in Object.FindObjectsOfType<FuwaPlaygroundPlush>(true)) if (p.eyes != null) eyesList.Add(p.eyes);
         int n = 0;
         foreach (var eyes in eyesList.Distinct()) { AddTo(eyes, mesh); n++; }
         // 白目・黒目をなめらかな球に（低ポリの球だと、上から見た時に白目のてっぺんがカクカクに割れて、くぼんでいるように見えた。2026-10-13 てじゃ）

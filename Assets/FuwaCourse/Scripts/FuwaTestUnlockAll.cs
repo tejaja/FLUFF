@@ -4,11 +4,11 @@ using VRC.SDKBase;
 
 // テスト用（2026-10-13 てじゃ「テスト用にコース報酬全部出すボタンほしい」「あとで消す」）：
 // あそびばのクリア報酬のおもちゃを、このインスタンスの全員に5つ全部出す。ボタンはインスタンスのマスターにだけ見える（マスターが交代したら新しいマスターに）。
-// 消す時は ChillRoom/Toys/TestUnlockAll と TestUnlockAllButton を消すだけ
+// 消す時は FuwaPlayground/Room/Toys/TestUnlockAll と TestUnlockAllButton を消すだけ
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaTestUnlockAll : UdonSharpBehaviour
 {
-    public FuwaChillSpawner spawner;
+    public FuwaPlaygroundSpawner spawner;
     [Tooltip("マスターにだけ出すボタン")]
     public GameObject button;
     private float _next;

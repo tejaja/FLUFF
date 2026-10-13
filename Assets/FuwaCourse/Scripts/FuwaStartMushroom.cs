@@ -19,7 +19,7 @@ public class FuwaStartMushroom : UdonSharpBehaviour
     [Tooltip("ふわふわがこのキノコに隠れている間だけ出す▼（飛び出したら消える）")]
     public GameObject startArrow;
     [Tooltip("チルルーム用：撃つたびに今の設定のふわふわを1個出す（ball・sharedBall の代わり）")]
-    public FuwaChillSpawner spawner;
+    public FuwaPlaygroundSpawner spawner;
 
     private float _wobbleStart = -1f;
     private Vector3 _capScale;

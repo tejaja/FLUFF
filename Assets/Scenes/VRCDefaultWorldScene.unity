@@ -29453,7 +29453,7 @@ GameObject:
   - component: {fileID: 21276740}
   - component: {fileID: 21276739}
   m_Layer: 0
-  m_Name: Chill_LampCap
+  m_Name: LampCap
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -35806,7 +35806,7 @@ GameObject:
   - component: {fileID: 26363696}
   - component: {fileID: 26363695}
   m_Layer: 0
-  m_Name: Chill_LampStem
+  m_Name: LampStem
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -154260,7 +154260,7 @@ GameObject:
   m_Component:
   - component: {fileID: 122416839}
   m_Layer: 0
-  m_Name: HowToPlayVersus
+  m_Name: HowToPlay
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -376730,7 +376730,7 @@ GameObject:
   - component: {fileID: 262807207}
   - component: {fileID: 262807206}
   m_Layer: 11
-  m_Name: VersusFloor
+  m_Name: Floor
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -433049,7 +433049,7 @@ GameObject:
   - component: {fileID: 316407261}
   - component: {fileID: 316407260}
   m_Layer: 11
-  m_Name: Chill_Rug
+  m_Name: Rug
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -453861,7 +453861,7 @@ GameObject:
   - component: {fileID: 347340957}
   - component: {fileID: 347340958}
   m_Layer: 0
-  m_Name: ChillSpawner
+  m_Name: PlaygroundSpawner
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -508897,7 +508897,7 @@ MonoBehaviour:
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 1
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!23 &370913820
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -543150,7 +543150,7 @@ GameObject:
   - component: {fileID: 391034170}
   - component: {fileID: 391034169}
   m_Layer: 0
-  m_Name: ToVersus_ProgressRing
+  m_Name: ToPlayground_ProgressRing
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -764225,7 +764225,7 @@ MonoBehaviour:
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 1
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!23 &540137696
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -832217,7 +832217,7 @@ MonoBehaviour:
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 1
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!23 &593127101
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -862791,7 +862791,7 @@ GameObject:
   m_Component:
   - component: {fileID: 607481085}
   m_Layer: 0
-  m_Name: VersusGate
+  m_Name: PlaygroundGate
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -875122,7 +875122,7 @@ GameObject:
   - component: {fileID: 617870685}
   - component: {fileID: 617870684}
   m_Layer: 0
-  m_Name: VersusGate_Trigger_Gauge
+  m_Name: PlaygroundGate_Trigger_Gauge
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -876407,7 +876407,7 @@ GameObject:
   - component: {fileID: 623961453}
   - component: {fileID: 623961452}
   m_Layer: 0
-  m_Name: Chill_LampCap
+  m_Name: LampCap
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -888648,7 +888648,7 @@ GameObject:
   m_Component:
   - component: {fileID: 635432033}
   m_Layer: 0
-  m_Name: ToVersus
+  m_Name: ToPlayground
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -911609,7 +911609,7 @@ GameObject:
   m_Component:
   - component: {fileID: 652695178}
   m_Layer: 0
-  m_Name: FuwaCoop
+  m_Name: FuwaPlayground
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1022776,7 +1022776,7 @@ GameObject:
   m_Component:
   - component: {fileID: 735797903}
   m_Layer: 0
-  m_Name: ChillRoom
+  m_Name: Room
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1183047,7 +1183047,7 @@ GameObject:
   - component: {fileID: 852686117}
   - component: {fileID: 852686116}
   m_Layer: 0
-  m_Name: Chill_LampStem
+  m_Name: LampStem
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1248913,7 +1248913,7 @@ MonoBehaviour:
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 1
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!23 &908493704
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1378126,7 +1378126,7 @@ GameObject:
   - component: {fileID: 1028356535}
   - component: {fileID: 1028356534}
   m_Layer: 0
-  m_Name: ToVersus_Trigger_Gauge
+  m_Name: ToPlayground_Trigger_Gauge
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1396713,7 +1396713,7 @@ GameObject:
   - component: {fileID: 1043262870}
   - component: {fileID: 1043262871}
   m_Layer: 0
-  m_Name: VersusGate_Trigger
+  m_Name: PlaygroundGate_Trigger
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1458217,7 +1458217,7 @@ MonoBehaviour:
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 1
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!23 &1080175843
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1556771,7 +1556771,7 @@ GameObject:
   - component: {fileID: 1140153582}
   - component: {fileID: 1140153581}
   m_Layer: 0
-  m_Name: VersusGate_Pad
+  m_Name: PlaygroundGate_Pad
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1582008,7 +1582008,7 @@ GameObject:
   - component: {fileID: 1166173214}
   - component: {fileID: 1166173213}
   m_Layer: 0
-  m_Name: VersusGate_ProgressRing
+  m_Name: PlaygroundGate_ProgressRing
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1647909,7 +1647909,7 @@ GameObject:
   - component: {fileID: 1198006578}
   - component: {fileID: 1198006577}
   m_Layer: 0
-  m_Name: GunStand_Versus
+  m_Name: GunStand_Playground
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1656038,7 +1656038,7 @@ MonoBehaviour:
   - monster
   - tower
   courseVersions: 0200000001000000020000000100000001000000
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!1 &1210330829
 GameObject:
   m_ObjectHideFlags: 0
@@ -1702358,7 +1702358,7 @@ MonoBehaviour:
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 1
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!23 &1238018541
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1717505,7 +1717505,7 @@ MonoBehaviour:
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 1
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!23 &1257070021
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1814126,7 +1814126,7 @@ MonoBehaviour:
   - {fileID: 495774401}
   - {fileID: 1223660003}
   - {fileID: 1554344}
-  versusObjects:
+  playgroundObjects:
   - {fileID: 652695177}
   debugObjects: []
   startArea: 0
@@ -1821530,7 +1821530,7 @@ GameObject:
   - component: {fileID: 1351960935}
   - component: {fileID: 1351960934}
   m_Layer: 0
-  m_Name: ChillFall
+  m_Name: Fall
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1886012,7 +1886012,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1399485038}
   m_Layer: 0
-  m_Name: ChillFallWarp
+  m_Name: FallWarp
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1919910,7 +1919910,7 @@ GameObject:
   - component: {fileID: 1418315986}
   - component: {fileID: 1418315985}
   m_Layer: 17
-  m_Name: Chill_CloudSofa
+  m_Name: CloudSofa
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1931706,7 +1931706,7 @@ MonoBehaviour:
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 1
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!23 &1425982908
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2052109,7 +2052109,7 @@ GameObject:
   - component: {fileID: 1508067291}
   - component: {fileID: 1508067290}
   m_Layer: 0
-  m_Name: VersusGate_Pad_Motes
+  m_Name: PlaygroundGate_Pad_Motes
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2057860,7 +2057860,7 @@ GameObject:
   - component: {fileID: 1510637895}
   - component: {fileID: 1510637894}
   m_Layer: 11
-  m_Name: VersusRing
+  m_Name: Ring
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2091382,7 +2091382,7 @@ GameObject:
   - component: {fileID: 1528268457}
   - component: {fileID: 1528268458}
   m_Layer: 0
-  m_Name: ToVersus_Trigger
+  m_Name: ToPlayground_Trigger
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2138263,7 +2138263,7 @@ MonoBehaviour:
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 1
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!23 &1564159064
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2331688,7 +2331688,7 @@ MonoBehaviour:
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 1
-  chill: {fileID: 347340957}
+  playground: {fileID: 347340957}
 --- !u!23 &1699266091
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -2647857,7 +2647857,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1956295359}
   m_Layer: 0
-  m_Name: CoopSpawn
+  m_Name: Spawn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2947789,7 +2947789,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2128668287}
   m_Layer: 0
-  m_Name: GunStand_Versus_Marker
+  m_Name: GunStand_Playground_Marker
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
