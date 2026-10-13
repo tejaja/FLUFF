@@ -52,9 +52,12 @@ public class FuwaWhirlwind : UdonSharpBehaviour
     [Tooltip("この溜め具合（0〜1）から上で撃たれたら、しばらく捕まえる力をゆるめて、撃った向きへ運び出す。ふつう撃ちの連打では抜けない")]
     [Range(0f, 1f)] public float trapEscapeFromCharge = 0.3f;
     [Tooltip("フルチャージで撃った時に放しておく秒数（溜めが少ないほど短く、最短で半分）")]
-    public float trapEscapeTime = 1.0f;
-    [Tooltip("放している間、撃った向き（水平）へ運ぶ強さ（加速度）。フルチャージで全部、溜めが少ないほど弱い")]
-    public float trapEscapeCarry = 7f;
+    public float trapEscapeTime = 1.2f;
+    // 前は一定の力で押し続けていて、外へ出る時に不自然にギュインと加速した（2026-10-13 てじゃ）。今は足りない分だけ足すので、撃った勢いより速くはならない
+    [Tooltip("放している間、撃った向き（水平）へこの速さ(m/s)を下回らないように押す。フルチャージで全部、溜めが少ないほど遅い")]
+    public float trapEscapeSpeed = 2.2f;
+    [Tooltip("足りない速さを足す強さ（1秒あたり）")]
+    public float trapEscapeGain = 4f;
 
     public void OnTriggerStay(Collider other)
     {
@@ -155,7 +158,13 @@ public class FuwaWhirlwind : UdonSharpBehaviour
             {
                 acc.x *= 1f - rel; acc.z *= 1f - rel;
                 Vector3 sd = transform.InverseTransformDirection(shotDir); sd.y = 0f;
-                if (sd.sqrMagnitude > 0.000001f) acc += sd.normalized * trapEscapeCarry * rel * carryK;
+                if (sd.sqrMagnitude > 0.000001f)
+                {
+                    sd.Normalize();
+                    float va = Vector3.Dot(vFlat, sd);
+                    float want = trapEscapeSpeed * rel * carryK;
+                    if (va < want) acc += sd * (want - va) * trapEscapeGain;
+                }
             }
         }
         // 高さ：重さを打ち消して、目標の高さへばねで戻す。目標は輪の上の位置と時間でゆるく波打つ（回りながら上下する）
