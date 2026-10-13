@@ -1,6 +1,7 @@
 using TMPro;
 using UdonSharp;
 using UnityEngine;
+using VRC.SDKBase;
 
 // ロビーの「あそびかた」看板をたたむ（2026-10-12 てじゃ「常時展開やめて、デフォは『あそびかた』だけの細い状態、レーザーで押すと展開（アニメーションで伸びる）、戻すには右上に×」「デフォの位置は今の中央くらいで、上下に伸びる」）。
 // たたんだ時：板（Panel・Border）は真ん中の細い帯、見出し（title）だけが帯のまん中に出る。
@@ -31,6 +32,8 @@ public class FuwaHowToFold : UdonSharpBehaviour
     public float duration = 0.45f;
     [Tooltip("伸びきってから本文がふわっと出るまでの秒数")]
     public float fadeIn = 0.35f;
+    [Tooltip("開いている時、看板（板のまん中）からこれより離れたら自動で閉じる（m、水平距離）。0 で閉じない")]
+    public float autoCloseDistance = 8f;
     public string titleJa = "あそびかた";
     public string titleEn = "How to Play";
 
@@ -54,6 +57,14 @@ public class FuwaHowToFold : UdonSharpBehaviour
         _shownEn = !(language != null && language.IsEnglish());   // 最初の Update で必ず見出しを書く
     }
 
+    // 看板ごと非表示になって（コースへ移動など）また出てきた時は、たたんだ状態から始める
+    private void OnEnable()
+    {
+        if (!_inited) return;
+        _target = 0f; _p = 0f;
+        Apply();
+    }
+
     public void Open() { Init(); _target = 1f; }
     public void Close() { Init(); _target = 0f; }
 
@@ -65,6 +76,17 @@ public class FuwaHowToFold : UdonSharpBehaviour
         {
             _shownEn = en;
             title.text = "<size=150%><color=#FF6B5C>" + (en ? titleEn : titleJa) + "</color></size>";
+        }
+        // 離れたら閉じる（2026-10-13 てじゃ「離れても閉じるようにしよう」）
+        if (_target > 0.5f && autoCloseDistance > 0f && panel != null)
+        {
+            VRCPlayerApi lp = Networking.LocalPlayer;
+            if (lp != null)
+            {
+                Vector3 d = lp.GetPosition() - panel.transform.position;
+                d.y = 0f;
+                if (d.sqrMagnitude > autoCloseDistance * autoCloseDistance) Close();
+            }
         }
         bool fading = _target >= 1f && _p >= 1f && Time.time - _openedAt < fadeIn + 0.05f;
         if (_p == _target && !fading) return;
