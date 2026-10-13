@@ -47,7 +47,7 @@ public static class FuwaCourse2Ledge
         }
         float rockTop = topY - 0.3f;            // 足場の裏（道の厚み0.3）
         const float rockBottom = 9.8f;          // 谷底より少し下
-        const float inset = 0.1f;               // 足場のふちより少し内側（足場が少し張り出す）
+        const float inset = 0.18f;               // 足場のふちより少し内側（足場が少し張り出す）
         const float flare = 0.35f;              // 下ほど外へ広がる
         // 輪郭：足場の先（Tongue）に沿った点を、横の左→右に。うしろは切り口の奥（崖の中）
         float l0 = FuwaCourse2Collapse.TongueL0 - FuwaCourse2Collapse.TongueShoulder + 0.15f, l1 = FuwaCourse2Collapse.TongueL1 + FuwaCourse2Collapse.TongueShoulder - 0.15f;
@@ -64,10 +64,21 @@ public static class FuwaCourse2Ledge
         var verts = new List<Vector3>(); var tris = new List<int>();
         var rnd = new System.Random(7731);
         float N(int i, int r) { return (float)new System.Random(i * 131 + r * 7919 + 17).NextDouble() - 0.5f; }
+        // 道はこの先で谷へ向かって下り坂なので、岩のてっぺんは場所ごとに道の裏（上面 - 0.38m）に合わせる。
+        // 前は手前の高さ一つで決めていて、足場の先で岩が道の上へ突き抜けていた（2026-10-13 てじゃ「岩盤突き抜けてる」）
+        var visGo = new GameObject("tmpVisCol"); visGo.transform.SetPositionAndRotation(path.position, path.rotation); visGo.transform.localScale = path.lossyScale;
+        var visCol = visGo.AddComponent<MeshCollider>(); visCol.sharedMesh = path.GetComponent<MeshFilter>().sharedMesh;
+        Physics.SyncTransforms();
+        var topAt = new float[nO];
+        for (int i = 0; i < nO; i++)
+        {
+            var p = outline[i]; Vector3 w0 = origin + axis * (p.x - 0.1f) + side * p.y; w0.y = 30f;
+            topAt[i] = visCol.Raycast(new Ray(w0, Vector3.down), out var vh, 40f) ? Mathf.Min(rockTop, vh.point.y - 0.38f) : rockTop - 0.4f;
+        }
+        Object.DestroyImmediate(visGo);
         for (int r = 0; r <= rows; r++)
         {
             float t = r / (float)rows;                 // 0=下 1=上
-            float y = Mathf.Lerp(rockBottom, rockTop, t);
             float grow = flare * (1f - t) * (1f - t);
             for (int i = 0; i < nO; i++)
             {
@@ -77,6 +88,7 @@ public static class FuwaCourse2Ledge
                 // 上の方は足場のふちより外へ出ない（出ると道の上に岩が見える）。下ほどでこぼこ・広がる
                 float bump = backPt ? 0f : (t > 0.7f ? -Mathf.Abs(N(i, r)) * 0.15f : N(i, r) * 0.18f);
                 var q = p + dir * (backPt ? 0f : grow + bump);
+                float y = Mathf.Lerp(rockBottom, topAt[i], t);
                 Vector3 w = origin + axis * q.x + side * q.y; w.y = y + (r > 0 && r < rows ? N(i + 999, r) * 0.15f : 0f);
                 verts.Add(root.InverseTransformPoint(w));
             }
@@ -90,7 +102,7 @@ public static class FuwaCourse2Ledge
         // 上のふた（足場の裏にくっつく）
         {
             int topRow = rows * nO; int ci = verts.Count;
-            Vector3 cw = origin + axis * cen.x + side * cen.y; cw.y = rockTop; verts.Add(root.InverseTransformPoint(cw));
+            Vector3 cw = origin + axis * cen.x + side * cen.y; cw.y = topAt.Min(); verts.Add(root.InverseTransformPoint(cw));
             for (int i = 0; i < nO - 1; i++) tris.AddRange(new[] { ci, topRow + i + 1, topRow + i });
         }
         // 外向きの面になっているか（輪郭の向きで裏返る）を確かめて、内向きならひっくり返す

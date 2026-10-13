@@ -16,7 +16,7 @@ public static class FuwaCourse2Collapse
 
     // 手前の切り口から谷の上へ突き出た舌のような足場（2026-10-13 てじゃ「黄色い道をこの赤枠の分伸ばして」。別の板を乗せたら取ってつけた感じだったので、切り口の形そのものを変える）。
     // 横 l（CutJagged の向き）の TongueL0〜TongueL1 で、手前の切り口を最大 TongueLen だけ先へ。両わきはなだらかに戻し、先はギザギザ
-    internal const float TongueL0 = -0.3f, TongueL1 = 1.2f, TongueLen = 1.55f, TongueShoulder = 0.35f;
+    internal const float TongueL0 = -0.3f, TongueL1 = 1.2f, TongueLen = 1.55f, TongueShoulder = 0.7f;   // 肩は広め（元の切り口となだらかにつながるように。2026-10-13 てじゃ「つなぎ目にちょっと違和感」）
     // 舌の所か（0〜1）
     static float TongueK(float l)
     {
@@ -44,7 +44,7 @@ public static class FuwaCourse2Collapse
         var origin = map.MultiplyPoint3x4(OldOrigin);
         var axis = map.MultiplyVector(OldAxis.normalized);
         var (j0, j1) = Jags();
-        return FuwaPitCut.CutJagged(src, pathTr, origin, axis, l => S0 + Interp(j0, l) * (1f - 0.85f * TongueK(l)) + Tongue(l), l => S1 + Interp(j1, l), YBottom, HalfWidth, maxEdge);
+        return FuwaPitCut.CutJagged(src, pathTr, origin, axis, l => S0 + Interp(j0, l) * (1f - TongueK(l)) + Tongue(l), l => S1 + Interp(j1, l), YBottom, HalfWidth, maxEdge);
     }
 
     // 切り口のギザギザ（当時と同じ作り方・同じ乱数）
@@ -70,6 +70,6 @@ public static class FuwaCourse2Collapse
     internal static float NearEdge(float l)
     {
         var (j0, _) = Jags();
-        return S0 + Interp(j0, l) * (1f - 0.85f * TongueK(l)) + Tongue(l);
+        return S0 + Interp(j0, l) * (1f - TongueK(l)) + Tongue(l);
     }
 }
