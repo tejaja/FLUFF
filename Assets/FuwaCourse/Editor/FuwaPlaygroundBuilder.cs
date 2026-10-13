@@ -31,19 +31,26 @@ public static class FuwaPlaygroundBuilder
     // 配置（2026-10-12 てじゃ「真ん中にキノコ、右奥にデカソファでモニタを眺めるエリア、左奥にフワフワギミックエリア（未定）」）。スポーンは手前（-Z）
     // 島の大きさ：古いみんなでロビーの島（半径14m）の何倍か（2026-10-13 てじゃ「ちょっと広い」→ 半径10.5m。手前半分がほぼ空だった）
     const float IslandScale = 0.75f;
-    static readonly Vector3 MushLocal = new Vector3(-2.56f, 0f, -4.16f);  // 左手前（2026-10-13 てじゃが手で置いた位置）
-    static readonly Vector3 PanelLocal = new Vector3(-4.731f, 0f, -8.000f);   // スイッチ（スポーンの左。2026-10-13 てじゃが手で置いた位置・向き。2回目：スイッチと言語・音量ボタンを一緒に10°回して少し左へ）
-    const float PanelYaw = 215.46f;
-    // 右奥の観戦リビング（ラグの中心）。島を縮めた時に、跳ねるキノコと重ならないよう少し右へ回した（前は (5.3, 0, 5.3)）
-    static readonly Vector3 LivingLocal = new Vector3(4.7f, 0f, 2.9f);
+    // 2026-10-13 てじゃの並べ直し：「モニタ一式は入って正面からやや左、きのこは中央、🔫はキノコの右手前。モニタの右横の正面の柵沿いに設定ボタンを丸ごと、
+    // おもちゃリセットもその近く、その右横からおもちゃ（最初に扇風機とゴールリング、そこから各コースのギミックをぐるっと柵沿いに）。モニタから左側は空けておく」
+    // 角度は島の真ん中から：入口から見て奥（+Z）が0°、右回り（+X 側）がプラス。入口（スポーン）は180°
+    static Vector3 OnRing(float deg, float r) { return new Vector3(Mathf.Sin(deg * Mathf.Deg2Rad), 0f, Mathf.Cos(deg * Mathf.Deg2Rad)) * r; }
+    static readonly Vector3 MushLocal = Vector3.zero;   // 島の真ん中
+    const float PanelAngle = 16f;   // 設定ボタン一式（スイッチ4つ＋言語・音量＋人数・チャレンジ・タイトル）：正面奥の柵沿い、モニタの右
+    static readonly Vector3 PanelLocal = OnRing(PanelAngle, 9.0f);
+    const float PanelYaw = PanelAngle;   // 島の真ん中から読める向き
+    // 観戦リビング（ラグの中心）：正面からやや左の奥。テレビは柵側、ソファは真ん中側
+    static readonly Vector3 LivingLocal = OnRing(-22f, 5.6f);
+    // おもちゃ（柵沿い、右回りに）：もどすボタン → 扇風機 → ゴールリング → コース1〜5のおもちゃ
+    const float ResetAngle = 32f, FanAngle = 45f, RingAngle = 60f;
     // 遊び方の看板の言語・音量ボタンはスイッチのボードの下（BoardButtons）
     // 島の外の物（FuwaPlayground の直下。前は手で置いていた位置×島の大きさ）：スポーン、ワープ2つ、エアガンの台（2026-10-13 てじゃ「銃の台も真ん中に」→ キノコの右手前、スイッチの反対）
     static readonly Vector3 SpawnLocal = new Vector3(0f, 0f, -8.8f) * IslandScale;
-    static readonly Vector3 ReturnWarpLocal = new Vector3(7.3f, 0f, -9.4f) * IslandScale;
-    static readonly Vector3 SoloWarpLocal = new Vector3(10.6f, 0f, -5.6f) * IslandScale;
-    static readonly Vector3 GunStandLocal = new Vector3(-0.637f, 0f, -4.451f);   // 2026-10-13 てじゃが手で置いた位置・向き（見た目の切り株だけ動いていたのを台ごとに直した）
+    // ワープの輪2つ（ハブへ・チャレンジへ）：入口の左手前（前は右手前。おもちゃの列とぶつかるので左右反転。2026-10-13）
+    static readonly Vector3 ReturnWarpLocal = new Vector3(-7.3f, 0f, -9.4f) * IslandScale;
+    static readonly Vector3 SoloWarpLocal = new Vector3(-10.6f, 0f, -5.6f) * IslandScale;
+    static readonly Vector3 GunStandLocal = new Vector3(1.4f, 0f, -1.5f);   // キノコの右手前
     const float GunStandYaw = 304.4f;
-    // 左奥（-5.5, 0, 5.5）あたりはギミック用に空けておく
 
     [MenuItem("FuwaCourse/あそびば/あそびばを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
@@ -189,14 +196,11 @@ public static class FuwaPlaygroundBuilder
         return string.Join("\n", log);
     }
 
-    // ---------- おもちゃ広場（左奥。2026-10-12 てじゃ「エアガンとは別の手持ち扇風機、空中固定化」「出しっぱなし」「うちわもいいね」）----------
-    static readonly Vector3 ToysLocal = new Vector3(-5.5f, 0f, 5.5f) * IslandScale;
-    // コースのクリアで出てくるおもちゃの場所（島の真ん中から）：1竜巻 2岩 3重力 4ぬいぐるみ 5跳ねるキノコ
-    // コース1〜5の順に、スポーンから見て手前（左）から奥へ島のふちに沿って並べる（2026-10-13 てじゃ「順番あべこべなの直そう」。前は 5→1→3→2→4 の順になっていた）。
-    // 5か所の場所は前と同じ。となりとの間隔は、大きいおもちゃ（竜巻・重力の球）の見た目の半径を足しても重ならない
-    // 島を縮めた時（2026-10-13）：半径8.2mの弧に、遊び方の看板の後ろ（-118°）から真後ろ（+2°）まで。角度は島の真ん中から +Z が0°、時計回り。
-    // となりとの間隔はおもちゃの大きさ（竜巻の見た目2.45m・重力の球2.2m・ぬいぐるみとイバラ／跳ねるキノコは横に2.6m）から決めた
-    static readonly float[] UnlockAngles = { -118f, -92f, -66f, -34f, 2f };
+    // ---------- おもちゃ（2026-10-12 てじゃ「エアガンとは別の手持ち扇風機、空中固定化」「出しっぱなし」）----------
+    // コースのクリアで出てくるおもちゃの場所（島の真ん中から）：1竜巻 2岩 3重力 4ぬいぐるみ 5跳ねるキノコ。
+    // 2026-10-13 並べ直し：ゴールリングの右から右回りに柵沿い（76°〜152°、入口の右手前まで）。
+    // となりとの間隔（19°＝弧で2.7m）はおもちゃの大きさ（竜巻の見た目2.45m・重力の球2.2m・ぬいぐるみとイバラ／跳ねるキノコは横に2.6m）から決めた
+    static readonly float[] UnlockAngles = { 76f, 95f, 114f, 133f, 152f };
     const float UnlockRadius = 8.2f;
     static readonly Vector3[] UnlockLocal = UnlockAngles.Select(a => new Vector3(Mathf.Sin(a * Mathf.Deg2Rad), 0f, Mathf.Cos(a * Mathf.Deg2Rad)) * UnlockRadius).ToArray();
 
@@ -222,8 +226,10 @@ public static class FuwaPlaygroundBuilder
     static string Toys(Transform root, Vector3 ac, float floorY, FuwaPlaygroundSpawner sp, Transform howTo, Vector3 look)
     {
         var toys = new GameObject("Toys").transform; toys.SetParent(root, false);
-        Vector3 G = new Vector3(ac.x, floorY, ac.z) + ToysLocal;
-        var toCenter = (new Vector3(ac.x, floorY, ac.z) - G); toCenter.y = 0f; toCenter.Normalize();
+        Vector3 O = new Vector3(ac.x, floorY, ac.z);
+        Vector3 G = O + OnRing(RingAngle, 7.6f);   // ゴールリングの真下
+        Vector3 Fc = O + OnRing(FanAngle, 8.4f);   // 扇風機の並びの真ん中
+        var toCenter = (O - Fc); toCenter.y = 0f; toCenter.Normalize();
         var side = new Vector3(toCenter.z, 0f, -toCenter.x);
         var fanMeshes = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaCourse/Models/PlaygroundFan.fbx").OfType<Mesh>().ToDictionary(m => m.name);
         var uchiMeshes = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaCourse/Models/PlaygroundUchiwa.fbx").OfType<Mesh>().ToDictionary(m => m.name);
@@ -294,11 +300,11 @@ public static class FuwaPlaygroundBuilder
         var face = Quaternion.LookRotation(toCenter);
         GameObject[] resetOthers = new GameObject[0];
         var list = new List<FuwaHandFan>();
-        for (int i = 0; i < 3; i++) list.Add(Held("Fan" + i, G + toCenter * 2.4f + side * (-1.6f + i * 0.55f) + Vector3.up * 1.0f, face, false));
+        for (int i = 0; i < 3; i++) list.Add(Held("Fan" + i, Fc + side * (-0.55f + i * 0.55f) + Vector3.up * 1.0f, face, false));
         // うちわはなし（2026-10-12 てじゃ「ちょっと変だからなしに、うちわっぽくするのむずそう」）。FuwaHandFan の gustMode は残してある
         // ゴール風リング：広場の真ん中に浮かべる（穴をキノコの方へ向ける）。持って動かせる
         var ringT = new GameObject("Ring").transform; ringT.gameObject.layer = 13; ringT.SetParent(toys, false);
-        ringT.SetPositionAndRotation(G + Vector3.up * 1.7f, face);
+        { var tcR = O - G; tcR.y = 0f; ringT.SetPositionAndRotation(G + Vector3.up * 1.7f, Quaternion.LookRotation(tcR.normalized)); }
         { var rb = ringT.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false; }
         var gate = ringT.gameObject.AddComponent<BoxCollider>(); gate.isTrigger = true; gate.size = new Vector3(1.7f, 1.7f, 0.3f);
         var rpk = ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
@@ -327,7 +333,7 @@ public static class FuwaPlaygroundBuilder
         string[] courseEn = { "Windy Hill", "Rocky Road", "Dark Forest", "Monster Den", "Mushroom Valley" };
         for (int i = 0; i < 5; i++)
         {
-            // 島の左半分にばらして置く（重ならないように。2026-10-12 竜巻と岩が近すぎた）
+            // 柵沿いに並べる（重ならないように。2026-10-12 竜巻と岩が近すぎた）
             var sl = new Vector3(ac.x, floorY, ac.z) + UnlockLocal[i];
             var outDir = sl - new Vector3(ac.x, floorY, ac.z); outDir.y = 0f; outDir.Normalize();
             var slot = new GameObject("Unlock" + (i + 1)).transform; slot.SetParent(toys, false); slot.position = sl;
@@ -367,7 +373,8 @@ public static class FuwaPlaygroundBuilder
         var rsGo = new GameObject("ResetToys"); rsGo.transform.SetParent(toys, false);
         var rs = UdonSharpUndo.AddComponent<FuwaHandFanReset>(rsGo); rs.fans = list.ToArray(); rs.others = resetOthers; UdonSharpEditorUtility.CopyProxyToUdon(rs);
         var rub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rs); if (rub != null) { rub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(rub); }
-        var btnLbl = LaserButton(toys, "ResetToysButton", G + toCenter * 2.4f + Vector3.up * 0.55f, Quaternion.LookRotation(-toCenter), 1.3f, "おもちゃをもどす", rs, "ResetAll");   // 「戻」はボタンのフォントに無くて□になっていた（2026-10-13）
+        var rsPos = O + OnRing(ResetAngle, 8.6f); var rsOut = rsPos - O; rsOut.y = 0f;
+        var btnLbl = LaserButton(toys, "ResetToysButton", rsPos + Vector3.up * 0.55f, Quaternion.LookRotation(rsOut.normalized), 1.3f, "おもちゃをもどす", rs, "ResetAll");   // 「戻」はボタンのフォントに無くて□になっていた（2026-10-13）
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "uiTexts", "uiJa", "uiEn", btnLbl, "おもちゃをもどす", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
         AddTestUnlockAll(toys, sp);
