@@ -197,10 +197,14 @@ public static class FuwaCourse2BrokenPath
             return w2l.MultiplyPoint3x4(new Vector3(w.x, Mathf.Min(y, w.y), w.z));
         }
         int walls = 0;
-        foreach (var (a, b) in upper)
+        foreach (var (ua, ub) in upper)
         {
+            Vector3 a = ua, b = ub;
             Vector3 a2 = Down(a), b2 = Down(b);
             if ((a - a2).sqrMagnitude < 1e-6f && (b - b2).sqrMagnitude < 1e-6f) continue;
+            // となりの壁・下の面とのあいだに髪の毛くらいのすき間が見えた（2026-10-13 てじゃ「つなぎ目に隙間」）→ 壁を少し下へ・横へはみ出させて重ねる（中に隠れる）
+            Vector3 along = (a - b).normalized * 0.012f;
+            a += along; b -= along; a2 += along + Vector3.down * 0.04f; b2 += -along + Vector3.down * 0.04f;
             Vector3 n = Vector3.Cross(a - b, b2 - b).normalized;
             int i0 = V.Count;
             V.Add(b); V.Add(a); V.Add(a2); V.Add(b2);
