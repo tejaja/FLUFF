@@ -10,7 +10,7 @@ using UnityEngine;
 public static class FuwaHubSignStyle
 {
     const string Dir = "Assets/FuwaCourse/Generated/Signs";
-    const float Round = 0.42f;          // 角の丸み
+    static float Round = 0.62f;         // 角の丸み（2026-10-13 てじゃ「もっと丸み強く」→ 0.42 から 0.62 に）
     const float Front = 0.16f, Back = 0.09f, Rise = 0.42f;   // ふくらみ（前・後ろ）、ふくらみきるまでの幅
     const float PipeR = 0.065f;         // パイピングの太さ
     const float StitchInset = 0.17f;    // ステッチの内側への入り
