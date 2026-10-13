@@ -18,6 +18,8 @@ public static class FuwaCourse2BrokenPath
     const string ColBackupPath = "Assets/FuwaCourse/Meshes/Backup/Course2Path_v2_PreBroken.asset";
     // 割れる所（ワールド座標）：x がこれより奥（洞窟側）。右奥（洞窟に向かって右＝z の小さい側）ほど手前まで割れている（2026-10-12 てじゃのイメージ）
     const float CutX = 98.6f, Slope = 0.55f, ZMid = 4f, Amp = 0.45f, MaxY = 12.5f, MinZ = -1.5f, MaxZ = 9.5f;
+    // 割れるのは洞窟の奥まで（x < MaxX）。2026-10-13 てじゃ「頂上温泉後の岩柱のとこの道がおかしい」：これが無くて、頂上の先で道が 12.5m より下る所（岩柱〜下りの板の手前、x 119〜129）まで道の板が消えて山の地面だけになっていた
+    const float MaxX = 112f;
     const float Seg = 0.2f;          // 割れ目の線はこの幅ごとの直線でつなぐ（なめらかな曲線の近似）
     const float BreakDepth = 0.42f;  // 割れ目の断面の壁の深さ。道の厚み0.3＋下の岩肌まで0.04＋岩肌に少し埋める
     static readonly Bounds BreakBox = new Bounds(new Vector3(100.5f, 10f, 3f), new Vector3(10f, 4f, 8f));
@@ -32,7 +34,7 @@ public static class FuwaCourse2BrokenPath
     // 1＝割れて無くなる所、0＝道のまま
     static int Side(Vector3 w)
     {
-        if (w.y >= MaxY || w.z <= MinZ || w.z >= MaxZ) return 0;
+        if (w.y >= MaxY || w.z <= MinZ || w.z >= MaxZ || w.x >= MaxX) return 0;
         return w.x > CutAt(w.z) ? 1 : 0;
     }
 
