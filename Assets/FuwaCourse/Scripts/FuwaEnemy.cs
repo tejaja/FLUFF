@@ -189,8 +189,42 @@ public class FuwaEnemy : UdonSharpBehaviour
             SetState(10);
         }
         if (sleepFx != null) sleepFx.gameObject.SetActive(sleeping && !hideInNest);
-        if (eyes != null) eyes.localScale = _eyesScale;
+        SetEyesClosed(false);
     }
+
+    // 寝ている目「︶」：寝ている間は白目・黒目を隠して、弧の線（Eyes の子の SleepEye、FuwaSleepEyesSetup で付ける）を出す。
+    // SleepEye が無ければ前のように目を上下につぶして、黒目だけ隠す（2026-10-13 てじゃ「うっすら黒目みえてこわい」「😴こんな目に」）
+    private Transform[] _eyeParts = new Transform[0];
+    private bool _hasSleepEye;
+    private bool _eyesInited;
+    private bool _eyesClosed;
+    private void InitEyes()
+    {
+        if (_eyesInited) return;
+        _eyesInited = true;
+        if (eyes == null) return;
+        _eyeParts = new Transform[eyes.childCount];
+        for (int i = 0; i < eyes.childCount; i++) { _eyeParts[i] = eyes.GetChild(i); if (_eyeParts[i].name == "SleepEye") _hasSleepEye = true; }
+    }
+    private void SetEyesClosed(bool closed)
+    {
+        InitEyes();
+        if (eyes == null) return;
+        if (closed == _eyesClosed && _eyesInited && (closed || eyes.localScale == _eyesScale)) return;
+        _eyesClosed = closed;
+        for (int i = 0; i < _eyeParts.Length; i++)
+        {
+            Transform t = _eyeParts[i];
+            if (t == null) continue;
+            bool on;
+            if (t.name == "SleepEye") on = closed;
+            else if (t.name == "Pupil") on = !closed;
+            else on = !closed || !_hasSleepEye;   // 白目：︶ がある時は隠す、無い時はつぶして見せる
+            if (t.gameObject.activeSelf != on) t.gameObject.SetActive(on);
+        }
+        eyes.localScale = closed && !_hasSleepEye ? new Vector3(_eyesScale.x, _eyesScale.y * 0.03f, _eyesScale.z) : _eyesScale;
+    }
+
 
     // エアガンを撃った音（FuwaBlower から）。寝てたら起きる
     public void Hear(Vector3 pos)
@@ -203,7 +237,7 @@ public class FuwaEnemy : UdonSharpBehaviour
         if (_state != 10) return;
         if (sleepFx != null) sleepFx.gameObject.SetActive(false);
         if (alertFx != null) alertFx.gameObject.SetActive(true);
-        if (eyes != null) eyes.localScale = _eyesScale;
+        SetEyesClosed(false);
         if (wakeSound != null) wakeSound.Play();
         SetState(11);
     }
@@ -284,7 +318,7 @@ public class FuwaEnemy : UdonSharpBehaviour
                 visual.localPosition = _visualBase;
                 visual.localScale = new Vector3(_visualScale.x * (1.08f + 0.04f * br), _visualScale.y * (0.84f - 0.04f * br), _visualScale.z * (1.08f + 0.04f * br));
             }
-            if (eyes != null) eyes.localScale = new Vector3(_eyesScale.x, _eyesScale.y * 0.03f, _eyesScale.z);
+            SetEyesClosed(true);
             if (sleepFx != null)
             {
                 // 鼻ちょうちん：息を吐くとふくらんで、吸うとしぼむ

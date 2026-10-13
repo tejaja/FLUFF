@@ -359,6 +359,40 @@ public class FuwaChillPlush : UdonSharpBehaviour
         return best;
     }
 
+
+    // 寝ている目「︶」：寝ている間は白目・黒目を隠して、弧の線（Eyes の子の SleepEye、FuwaSleepEyesSetup で付ける）を出す。
+    // SleepEye が無ければ前のように目を上下につぶして、黒目だけ隠す（2026-10-13 てじゃ「うっすら黒目みえてこわい」「😴こんな目に」）
+    private Transform[] _eyeParts = new Transform[0];
+    private bool _hasSleepEye;
+    private bool _eyesInited;
+    private bool _eyesClosed;
+    private void InitEyes()
+    {
+        if (_eyesInited) return;
+        _eyesInited = true;
+        if (eyes == null) return;
+        _eyeParts = new Transform[eyes.childCount];
+        for (int i = 0; i < eyes.childCount; i++) { _eyeParts[i] = eyes.GetChild(i); if (_eyeParts[i].name == "SleepEye") _hasSleepEye = true; }
+    }
+    private void SetEyesClosed(bool closed)
+    {
+        InitEyes();
+        if (eyes == null) return;
+        if (closed == _eyesClosed && _eyesInited && (closed || eyes.localScale == _eyesScale)) return;
+        _eyesClosed = closed;
+        for (int i = 0; i < _eyeParts.Length; i++)
+        {
+            Transform t = _eyeParts[i];
+            if (t == null) continue;
+            bool on;
+            if (t.name == "SleepEye") on = closed;
+            else if (t.name == "Pupil") on = !closed;
+            else on = !closed || !_hasSleepEye;   // 白目：︶ がある時は隠す、無い時はつぶして見せる
+            if (t.gameObject.activeSelf != on) t.gameObject.SetActive(on);
+        }
+        eyes.localScale = closed && !_hasSleepEye ? new Vector3(_eyesScale.x, _eyesScale.y * 0.03f, _eyesScale.z) : _eyesScale;
+    }
+
     // ---------- 全員の画面：見た目 ----------
     private void UpdateLook()
     {
@@ -382,7 +416,7 @@ public class FuwaChillPlush : UdonSharpBehaviour
             // 寝てる：すーすー（コース4の寝ているまものと同じ）
             float br = Mathf.Sin(Time.time * 1.6f + _phase);
             s = new Vector3(_baseScale.x * (1.08f + 0.04f * br), _baseScale.y * (0.84f - 0.04f * br), _baseScale.z * (1.08f + 0.04f * br));
-            if (eyes != null) eyes.localScale = new Vector3(_eyesScale.x, _eyesScale.y * 0.03f, _eyesScale.z);
+            SetEyesClosed(true);
             if (sleepFx != null)
             {
                 if (!sleepFx.gameObject.activeSelf) sleepFx.gameObject.SetActive(true);
@@ -393,7 +427,7 @@ public class FuwaChillPlush : UdonSharpBehaviour
         }
         else
         {
-            if (eyes != null && eyes.localScale != _eyesScale) eyes.localScale = _eyesScale;
+            SetEyesClosed(false);
             if (sleepFx != null && sleepFx.gameObject.activeSelf) sleepFx.gameObject.SetActive(false);
             if (_windup)
             {
