@@ -13,7 +13,7 @@ public class FuwaModeCounter : UdonSharpBehaviour
     public FuwaLanguage language;
     [Tooltip("人数を出す看板の文字")]
     public TextMeshPro[] labels;
-    [Tooltip("各看板が数えるエリア（1=ぼうけん / 2=たいせん）")]
+    [Tooltip("各看板が数えるエリア（0=入口（タイトル） / 1=チャレンジ / 2=あそびば）")]
     public int[] labelAreas;
     [TextArea] public string[] labelsJa;
     [TextArea] public string[] labelsEn;
@@ -45,7 +45,7 @@ public class FuwaModeCounter : UdonSharpBehaviour
         FuwaGhost mine = GhostOf(local);
         if (mine != null && areaVisibility != null) mine.SetArea(areaVisibility.GetArea());
 
-        int adventure = 0, playground = 0;
+        int hub = 0, adventure = 0, playground = 0;
         VRCPlayerApi[] players = new VRCPlayerApi[VRCPlayerApi.GetPlayerCount()];
         VRCPlayerApi.GetPlayers(players);
         foreach (VRCPlayerApi p in players)
@@ -60,6 +60,7 @@ public class FuwaModeCounter : UdonSharpBehaviour
             }
             if (area == 1) adventure++;
             else if (area == 2) playground++;
+            else hub++;
         }
 
         bool en = language != null && language.IsEnglish();
@@ -69,7 +70,7 @@ public class FuwaModeCounter : UdonSharpBehaviour
             {
                 if (labels[i] == null) continue;
                 int a = (labelAreas != null && i < labelAreas.Length) ? labelAreas[i] : 1;
-                int cnt = a == 2 ? playground : adventure;
+                int cnt = a == 2 ? playground : (a == 0 ? hub : adventure);
                 bool big = bigDigits != null && i < bigDigits.Length && bigDigits[i];
                 // 入口のゲート（だるまドロップのフォント）は数字が小さく低く見えるので、少し大きくしてピクトグラムとそろえる（2026-10-12 てじゃ）
                 string s = (en ? Get(labelsEn, i) : Get(labelsJa, i)) + (big
@@ -84,7 +85,7 @@ public class FuwaModeCounter : UdonSharpBehaviour
             {
                 if (uiLabels[i] == null) continue;
                 int a = (uiLabelAreas != null && i < uiLabelAreas.Length) ? uiLabelAreas[i] : 1;
-                string s = (en ? Get(uiLabelsEn, i) : Get(uiLabelsJa, i)) + "  <size=70%><color=" + ((uiCountColors != null && i < uiCountColors.Length && !string.IsNullOrEmpty(uiCountColors[i])) ? uiCountColors[i] : uiCountColor) + ">" + CountText(a == 2 ? playground : adventure) + "</color></size>";
+                string s = (en ? Get(uiLabelsEn, i) : Get(uiLabelsJa, i)) + "  <size=70%><color=" + ((uiCountColors != null && i < uiCountColors.Length && !string.IsNullOrEmpty(uiCountColors[i])) ? uiCountColors[i] : uiCountColor) + ">" + CountText(a == 2 ? playground : (a == 0 ? hub : adventure)) + "</color></size>";
                 if (uiLabels[i].text != s) uiLabels[i].text = s;
             }
         }

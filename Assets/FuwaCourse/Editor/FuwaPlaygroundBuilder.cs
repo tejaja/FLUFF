@@ -46,9 +46,10 @@ public static class FuwaPlaygroundBuilder
     // 遊び方の看板の言語・音量ボタンはスイッチのボードの下（BoardButtons）
     // 島の外の物（FuwaPlayground の直下。前は手で置いていた位置×島の大きさ）：スポーン、ワープ2つ、エアガンの台（2026-10-13 てじゃ「銃の台も真ん中に」→ キノコの右手前、スイッチの反対）
     static readonly Vector3 SpawnLocal = new Vector3(0f, 0f, -8.8f) * IslandScale;
-    // ワープの輪2つ（ハブへ・チャレンジへ）：入口の左手前（前は右手前。おもちゃの列とぶつかるので左右反転。2026-10-13）
-    static readonly Vector3 ReturnWarpLocal = new Vector3(-7.3f, 0f, -9.4f) * IslandScale;
-    static readonly Vector3 SoloWarpLocal = new Vector3(-10.6f, 0f, -5.6f) * IslandScale;
+    // ワープの輪2つ（ハブへ ReturnToHub・チャレンジへ ToSolo）は見た目なし（2026-10-13 てじゃ「ボタンワープあるしポータルいらんかも」）。
+    // 設定ボタンの「タイトルにもどる」「チャレンジ」がこのワープの DoWarp を呼ぶので、ワープの係（FuwaCourseWarp）だけ残して見た目と踏む判定を消す
+    static readonly Vector3 ReturnWarpLocal = new Vector3(-1.0f, 0f, -8.8f) * IslandScale;
+    static readonly Vector3 SoloWarpLocal = new Vector3(1.0f, 0f, -8.8f) * IslandScale;
     static readonly Vector3 GunStandLocal = new Vector3(1.4f, 0f, -1.5f);   // キノコの右手前
     const float GunStandYaw = 304.4f;
 
@@ -169,16 +170,14 @@ public static class FuwaPlaygroundBuilder
         log.Add(Fence(root, ac, floorY));
         log.Add(Toys(root, ac, floorY, sp, howTo, look));
 
-        // 落ちた人の戻し：島の下の大きな板（FuwaLobbyFall）→ スポーンへ（見えないワープ）
-        var backWarp = coop.Find("ReturnToHub");
+        // 落ちた人の戻し：島の下の大きな板（FuwaLobbyFall）→ スポーンへ（見えないワープ）。
+        // 元はハブの「あそびばへ」ゲート（行き先エリア＝あそびば）。前はハブへのワープのコピーで、落ちると表示がハブになってあそびばが消えていた（2026-10-13 修正）
+        var backWarp = RootGo("FuwaHub").transform.Find("PlaygroundGate");
         var gunSpot = coop.Find("GunStand_Playground/GunSpot") ?? spawn;
         if (backWarp != null && spawn != null)
         {
             var fallWarp = Object.Instantiate(backWarp.gameObject, root, true); fallWarp.name = "FallWarp";
-            foreach (var rr in fallWarp.GetComponentsInChildren<Renderer>(true)) rr.enabled = false;
-            foreach (var cc in fallWarp.GetComponentsInChildren<Collider>(true)) cc.enabled = false;
-            foreach (var ps in fallWarp.GetComponentsInChildren<ParticleSystem>(true)) ps.gameObject.SetActive(false);
-            foreach (var t in fallWarp.GetComponentsInChildren<TMPro.TextMeshPro>(true)) t.gameObject.SetActive(false);
+            HideWarpVisuals(fallWarp);
             var fw = fallWarp.GetComponentInChildren<FuwaCourseWarp>(true); SetU(fw, "playerSpot", spawn); SetU(fw, "gunSpot", gunSpot); Sync(fw);
             var lobbyFall = Object.FindObjectsOfType<FuwaLobbyFall>(true).First(f => f.transform.parent != null && f.transform.parent.name == "FuwaHub");   // 音・暗転はハブの落下戻しと同じ
             var fall = new GameObject("Fall"); fall.transform.SetParent(root, false); fall.transform.position = ac + new Vector3(0f, -12f, 0f);
@@ -204,13 +203,23 @@ public static class FuwaPlaygroundBuilder
     const float UnlockRadius = 8.2f;
     static readonly Vector3[] UnlockLocal = UnlockAngles.Select(a => new Vector3(Mathf.Sin(a * Mathf.Deg2Rad), 0f, Mathf.Cos(a * Mathf.Deg2Rad)) * UnlockRadius).ToArray();
 
+    // ワープの見た目（輪・足元・文字・粒）と踏む判定を消す。ワープの係（FuwaCourseWarp）は残す（ボタン・落下から呼ぶ）
+    static void HideWarpVisuals(GameObject g)
+    {
+        foreach (var rr in g.GetComponentsInChildren<Renderer>(true)) rr.enabled = false;
+        foreach (var cc in g.GetComponentsInChildren<Collider>(true)) cc.enabled = false;
+        foreach (var ps in g.GetComponentsInChildren<ParticleSystem>(true)) ps.gameObject.SetActive(false);
+        foreach (var t in g.GetComponentsInChildren<TMPro.TMP_Text>(true)) t.gameObject.SetActive(false);
+        foreach (var a in g.GetComponentsInChildren<AudioSource>(true)) a.playOnAwake = false;
+    }
+
     // スポーン・ワープ・エアガンの台を島の大きさに合わせて置く（向きは前と同じ関係のまま）
     static void PlaceFixtures(Transform coop, Vector3 ac, float floorY)
     {
         Vector3 Ground(Vector3 local, Transform t) { return new Vector3(ac.x + local.x, t.position.y, ac.z + local.z); }
         var spawn = coop.Find("Spawn");
         if (spawn != null) spawn.position = Ground(SpawnLocal, spawn);
-        foreach (var (n, l) in new[] { ("ReturnToHub", ReturnWarpLocal), ("ToSolo", SoloWarpLocal) }) { var w = coop.Find(n); if (w != null) w.position = Ground(l, w); }
+        foreach (var (n, l) in new[] { ("ReturnToHub", ReturnWarpLocal), ("ToSolo", SoloWarpLocal) }) { var w = coop.Find(n); if (w != null) { w.position = Ground(l, w); HideWarpVisuals(w.gameObject); } }
         var stand = coop.Find("GunStand_Playground");
         if (stand != null && spawn != null)
         {
@@ -956,6 +965,10 @@ public static class FuwaPlaygroundBuilder
             // 札（あそびば）は数字がコーラル、ボタン（チャレンジ）は白っぽく（チャレンジのロビーと同じ）
             L.Add(here.GetComponentInChildren<TMPro.TextMeshProUGUI>(true)); A.Add(2); J.Add("あそびば"); E.Add("Playground"); C.Add("#F2786B");
             L.Add(toSolo.GetComponentInChildren<TMPro.TextMeshProUGUI>(true)); A.Add(1); J.Add("チャレンジ"); E.Add("Challenge"); C.Add("");
+            // 「タイトルにもどる」にもタイトル（入口）にいる人数（2026-10-13 てじゃ「ここのボタンにも接続人数表示ほしい」）
+            var titleT = toTitle.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+            titleT.spriteAsset = toSolo.GetComponentInChildren<TMPro.TextMeshProUGUI>(true).spriteAsset;   // 人のマーク（PersonIcon）。無いと既定の絵文字の顔になった
+            L.Add(titleT); A.Add(0); J.Add("タイトルにもどる"); E.Add("Back to Title"); C.Add("");
             lab.arraySize = L.Count; area.arraySize = L.Count; ja.arraySize = L.Count; en.arraySize = L.Count; col.arraySize = L.Count;
             for (int i = 0; i < L.Count; i++)
             {
@@ -964,16 +977,7 @@ public static class FuwaPlaygroundBuilder
             }
             so.ApplyModifiedPropertiesWithoutUndo(); Sync(mc);
         }
-        // 「タイトルにもどる」の言語切り替え（チャレンジのロビーの登録と同じ文字）
-        var language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
-        var titleText = toTitle.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
-        if (language != null && titleText != null)
-        {
-            var srcText = lobbyHow.Find("ModeSelectButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
-            int k = System.Array.IndexOf(language.uiTexts, srcText);
-            string tja = k >= 0 ? language.uiJa[k] : titleText.text, ten = k >= 0 ? language.uiEn[k] : "Back to Title";
-            var lso = new SerializedObject(language); AddLang(lso, "uiTexts", "uiJa", "uiEn", titleText, tja, ten); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(language);
-        }
+        // 「タイトルにもどる」の文字は人数つきで FuwaModeCounter が言語に合わせて書く（FuwaLanguage には入れない）
     }
 
     // 島のまわりの木の柵（2026-10-13 てじゃ「周りに柵つけとこ」）。写真館の島の柵（FuwaPhotoStudioBuilder.StudioFence）と同じ作り：
