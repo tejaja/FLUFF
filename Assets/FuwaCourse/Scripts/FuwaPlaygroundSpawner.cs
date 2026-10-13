@@ -43,6 +43,9 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
     public string[] colorTextHex = { "FFFFFF", "FF8FB8", "5FB4F5", "E8B520", "52C46E", "A57FEA", "" };
     public TextMeshProUGUI limitLabel;
     public TextMeshProUGUI popLabel;
+    [Tooltip("スイッチの文字の頭を固定する左の余白（<space=..em> のタグ。サイズ・カラー・かず・おちたら の順、ビルダーが一番長い値で真ん中になるように計算。2026-10-14 てじゃ「切り替えると文字の位置がずれる、左側は固定で値だけ変わるように」）")]
+    public string[] padJa = new string[4];
+    public string[] padEn = new string[4];
 
     [UdonSynced] private int _size = 1;
     [UdonSynced] private int _color = 0;
@@ -151,13 +154,19 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
         }
         else colored = "<color=#" + th + ">" + cname + "</color>";
 
-        if (sizeLabel != null) sizeLabel.text = (en ? "Size: " : "サイズ: ") + V + (en ? sizeEn[si] : sizeJa[si]) + VE;
-        string ctext = (en ? "Color: " : "カラー: ") + colored;
+        if (sizeLabel != null) sizeLabel.text = Pad(0, en) + (en ? "Size: " : "サイズ: ") + V + (en ? sizeEn[si] : sizeJa[si]) + VE;
+        string ctext = Pad(1, en) + (en ? "Color: " : "カラー: ") + colored;
         bool outlined = th == "FFFFFF" && colorLabelOutlined != null;
         if (colorLabel != null) { colorLabel.text = ctext; if (colorLabel.gameObject.activeSelf == outlined) colorLabel.gameObject.SetActive(!outlined); }
         if (colorLabelOutlined != null) { colorLabelOutlined.text = ctext; if (colorLabelOutlined.gameObject.activeSelf != outlined) colorLabelOutlined.gameObject.SetActive(outlined); }
-        if (limitLabel != null) limitLabel.text = (en ? "Max: " : "かず: ") + V + limits[li] + VE;
-        if (popLabel != null) popLabel.text = en ? ("On landing: " + V + (_popGround ? "Pop" : "Stay") + VE)
-                                                 : ("おちたら: " + V + (_popGround ? "きえる" : "きえない") + VE);
+        if (limitLabel != null) limitLabel.text = Pad(2, en) + (en ? "Max: " : "かず: ") + V + limits[li] + VE;
+        if (popLabel != null) popLabel.text = Pad(3, en) + (en ? ("On landing: " + V + (_popGround ? "Pop" : "Stay") + VE)
+                                                 : ("おちたら: " + V + (_popGround ? "きえる" : "きえない") + VE));
+    }
+
+    private string Pad(int k, bool en)
+    {
+        string[] a = en ? padEn : padJa;
+        return (a != null && k < a.Length && a[k] != null) ? a[k] : "";
     }
 }

@@ -172,6 +172,19 @@ public static class FuwaPlaygroundBuilder
             foreach (Transform ch in dup.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject);   // TMP の SubMesh はやり直しで作られる
             sp.colorLabelOutlined = dt;
         }
+        SwitchLabelLayout(sp, labels, sp.colorLabelOutlined);
+        // 見出し「ふわふわせってい」（2026-10-14 てじゃ「上にふわふわせっていってかいとこ」）。スイッチの上、オレンジ（あそびかたの見出しと同じ色）
+        {
+            var hubLab = RootGo("FuwaHub").transform.Find("SoloGate/Label").GetComponent<TMPro.TextMeshPro>();
+            var hg = Object.Instantiate(hubLab.gameObject, panel, false); hg.name = "Heading";
+            foreach (Transform ch in hg.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject);
+            var ht = hg.GetComponent<TMPro.TextMeshPro>();
+            const string hJa = "ふわふわせってい", hEn = "Fluff Settings";
+            ht.text = hJa; ht.alignment = TMPro.TextAlignmentOptions.Center; ht.enableAutoSizing = false; ht.fontSize = 3.2f; ht.enableWordWrapping = false;
+            ht.color = new Color(1f, 0.42f, 0.36f); ht.rectTransform.sizeDelta = new Vector2(3f, 0.5f);
+            hg.transform.SetPositionAndRotation(pc + rot * new Vector3(0f, BoardSideY[0] + 0.5f, 0f), rot); hg.transform.localScale = Vector3.one;
+            var hso = new SerializedObject(Object.FindObjectsOfType<FuwaLanguage>(true).First()); AddLang(hso, "texts", "ja", "en", ht, hJa, hEn); hso.ApplyModifiedPropertiesWithoutUndo();
+        }
         UdonSharpEditorUtility.CopyProxyToUdon(sp);
         var sub = UdonSharpEditorUtility.GetBackingUdonBehaviour(sp); if (sub != null) { sub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(sub); }
 
@@ -1001,7 +1014,37 @@ public static class FuwaPlaygroundBuilder
     // ・右：チャレンジのロビーの看板の右と同じ「今いるモード（押せない札）／もう一つのモード／タイトルにもどる」。
     //   ここはあそびばなので、上の札が「あそびば（人数）」、その下が「チャレンジ（人数）」＝押すとチャレンジへ飛ぶ、いちばん下が「タイトルにもどる」
     const float BoardSideX = 2.25f;
-    static readonly float[] BoardSideY = { 1.76f, 1.24f, 0.72f };   // 右の列の高さ。上2つはスイッチの2段と、いちばん下は言語・音量の段とそろえる
+    // スイッチの文字：値を切り替えても「サイズ:」などの頭が動かないように（2026-10-14 てじゃ「切り替えると全部の文字の位置がずれる、左側は位置固定で値の部分だけ変わるように、ちょっと片側に寄ってもいい」）。
+    // 大きさ自動をやめて4つとも同じ大きさに固定、左ぞろえ。頭の位置は、そのスイッチでいちばん長い値の時にちょうど真ん中に来る所（<space> タグを Spawner が先頭に足す）
+    static void SwitchLabelLayout(FuwaPlaygroundSpawner sp, TMPro.TextMeshProUGUI[] labels, TMPro.TextMeshProUGUI outlined)
+    {
+        string[][] ja = {
+            sp.sizeJa.Select(v => "サイズ: " + v).ToArray(), sp.colorJa.Select(v => "カラー: " + v).ToArray(),
+            sp.limits.Select(v => "かず: " + v).ToArray(), new[] { "おちたら: きえる", "おちたら: きえない" } };
+        string[][] en = {
+            sp.sizeEn.Select(v => "Size: " + v).ToArray(), sp.colorEn.Select(v => "Color: " + v).ToArray(),
+            sp.limits.Select(v => "Max: " + v).ToArray(), new[] { "On landing: Pop", "On landing: Stay" } };
+        var t = labels[0];
+        float maxFs = t.fontSizeMax, avail = t.rectTransform.rect.width - t.margin.x - t.margin.z;
+        float W(string s) { t.enableAutoSizing = false; t.fontSize = maxFs; return t.GetPreferredValues(s).x; }
+        // いちばん長い文字が入る大きさ（4つ共通）
+        float fs = maxFs;
+        foreach (var set in ja.Concat(en)) foreach (var s in set) fs = Mathf.Min(fs, maxFs * avail / Mathf.Max(1f, W(s)));
+        sp.padJa = new string[4]; sp.padEn = new string[4];
+        for (int k = 0; k < 4; k++)
+        {
+            float wj = ja[k].Max(W) * fs / maxFs, we = en[k].Max(W) * fs / maxFs;
+            sp.padJa[k] = "<space=" + ((avail - wj) * 0.5f / fs).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "em>";
+            sp.padEn[k] = "<space=" + ((avail - we) * 0.5f / fs).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "em>";
+        }
+        foreach (var l in labels.Concat(new[] { outlined }))
+        {
+            if (l == null) continue;
+            l.enableAutoSizing = false; l.fontSize = fs; l.alignment = TMPro.TextAlignmentOptions.Left; EditorUtility.SetDirty(l);
+        }
+    }
+
+    static readonly float[] BoardSideY ={ 1.76f, 1.24f, 0.72f };   // 右の列の高さ。上2つはスイッチの2段と、いちばん下は言語・音量の段とそろえる
     const float BoardBottomY = 0.72f, BoardBottomX = 0.75f;
     static void BoardButtons(Transform coop, Transform panel, Vector3 pc, Quaternion rot, Transform howTo)
     {
