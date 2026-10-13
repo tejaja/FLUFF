@@ -1,3 +1,4 @@
+﻿using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -37,7 +38,12 @@ public static class FuwaReflectionProbes
     public static void Run()
     {
         Directory.CreateDirectory(Dir);
-        MarkReflectionStatic();
+        var saved = SkyOnly();
+        try { Place(); } finally { Restore(saved); }
+    }
+
+    static void Place()
+    {
         var root = GameObject.Find(RootName);
         if (root == null) { root = new GameObject(RootName); Undo.RegisterCreatedObjectUndo(root, "probes"); }
 
@@ -76,21 +82,30 @@ public static class FuwaReflectionProbes
         Debug.Log("[FuwaReflectionProbes] done");
     }
 
-    // 撮る時に写るのは Reflection Probe Static の物だけ。ほとんど付いていなくて、地面や道が写らず空だけの反射になっていた
-    //（2026-10-13 てじゃ「地面はうつらないんだね」：コース1は377個中6個だけ）。
-    // 動かない物（ライトの焼きに入る物・まとめ描画の物）に付ける。撮る時にしか使わない印なので、実行中の重さは変わらない
-    static void MarkReflectionStatic()
+    // 撮る時に写るのは Reflection Probe Static の物だけ。
+    // 2026-10-13 てじゃ「いまの形だとコースとか変に見える。どの場所でも空・太陽・雲・遠景の浮島だけ映す」
+    //（前は動かない物全部に付けて地面やコースも写していた）→ 撮る間だけ、雲（CloudPuffs）と遠くの浮島（FarIslands）だけに印を付けて、終わったら元に戻す。
+    // 太陽と空はスカイボックス（FuwaSky）に入っている。やみのもりは今まで通り霧と暗い空で撮る
+    static readonly string[] SkyRoots = { "CloudPuffs", "FarIslands" };
+    static Dictionary<GameObject, StaticEditorFlags> SkyOnly()
     {
-        int n = 0;
-        foreach (var r in Object.FindObjectsOfType<MeshRenderer>(true))
+        var saved = new Dictionary<GameObject, StaticEditorFlags>();
+        var sky = new HashSet<GameObject>();
+        foreach (var g in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+            if (System.Array.IndexOf(SkyRoots, g.name) >= 0) foreach (var r in g.GetComponentsInChildren<Renderer>(true)) sky.Add(r.gameObject);
+        foreach (var r in Object.FindObjectsOfType<Renderer>(true))
         {
-            var go = r.gameObject;
-            var f = GameObjectUtility.GetStaticEditorFlags(go);
-            if ((f & (StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic)) == 0) continue;
-            if ((f & StaticEditorFlags.ReflectionProbeStatic) != 0) continue;
-            GameObjectUtility.SetStaticEditorFlags(go, f | StaticEditorFlags.ReflectionProbeStatic); n++;
+            var go = r.gameObject; if (saved.ContainsKey(go)) continue;
+            var f = GameObjectUtility.GetStaticEditorFlags(go); saved[go] = f;
+            var nf = sky.Contains(go) ? f | StaticEditorFlags.ReflectionProbeStatic : f & ~StaticEditorFlags.ReflectionProbeStatic;
+            if (nf != f) GameObjectUtility.SetStaticEditorFlags(go, nf);
         }
-        Debug.Log("[FuwaReflectionProbes] Reflection Probe Static を付けた: " + n);
+        Debug.Log("[FuwaReflectionProbes] 空だけ写す: 雲・浮島 " + sky.Count);
+        return saved;
+    }
+    static void Restore(Dictionary<GameObject, StaticEditorFlags> saved)
+    {
+        foreach (var kv in saved) if (kv.Key != null && GameObjectUtility.GetStaticEditorFlags(kv.Key) != kv.Value) GameObjectUtility.SetStaticEditorFlags(kv.Key, kv.Value);
     }
 
     static Cubemap Capture(ReflectionProbe p, string name, bool yami)
