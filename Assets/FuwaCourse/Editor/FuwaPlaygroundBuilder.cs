@@ -186,7 +186,8 @@ public static class FuwaPlaygroundBuilder
         log.Add(Monitor(root, L + dirL * 2.9f, L - dirL * 1.7f));
         log.Add(Decorate(root, ac, floorY, root.Find("Monitor")));
         log.Add(Fence(root, ac, floorY));
-        log.Add(Toys(root, ac, floorY, sp, howTo, look));
+        log.Add(Deck(root, ac, floorY, floorLayer));
+        log.Add(Toys(root, ac, floorY + DeckH, sp, howTo, look));   // おもちゃ・扇風機・リングは木のデッキの上
 
         // 落ちた人の戻し：島の下の大きな板（FuwaLobbyFall）→ スポーンへ（見えないワープ）。
         // 元はハブの「あそびばへ」ゲート（行き先エリア＝あそびば）。前はハブへのワープのコピーで、落ちると表示がハブになってあそびばが消えていた（2026-10-13 修正）
@@ -1112,6 +1113,115 @@ public static class FuwaPlaygroundBuilder
         fc.AddComponent<MeshCollider>().sharedMesh = col;
         GameObjectUtility.SetStaticEditorFlags(fc, (StaticEditorFlags)~0);
         return "fence r=" + r.ToString("F2") + " posts " + segs;
+    }
+
+    // ---------- 外周の木のデッキ（2026-10-13 てじゃ「外周に円の帯状の床。モニタの下のカーペットのちょっと横から反対側までぐるっと。各おもちゃがそこに乗ってる。そこそこ幅。色はとりあえず木っぽく」）----------
+    // カーペットの右はし（島の真ん中から5°）のすぐ横から右回りに、ぐるっとカーペットの左はし（-49°）のすぐ横まで（てじゃ「反対側までつなげちゃって」）。内側は竜巻の見た目の内はし（7.9m）より少し内、外側は柵の手前。
+    // 板は弧に沿った曲がった板（列ごとに長さをずらす）。板の間は 1.5cm のすき間から濃い色の下地が見える。高さ DeckH（床とぴったり重ねるとチラつくので少し上げる）
+    const float DeckStartDeg = 9f, DeckEndDeg = 307f, DeckInR = 7.2f, DeckOutGap = 0.14f, DeckH = 0.06f;
+    const float DeckRowW = 0.5f, DeckGap = 0.015f, DeckChamfer = 0.012f;
+    static readonly Color[] DeckTones = { new Color(0.80f, 0.62f, 0.42f), new Color(0.75f, 0.56f, 0.37f), new Color(0.84f, 0.67f, 0.47f) };
+    class DeckPart { public List<Vector3> verts = new List<Vector3>(), norms = new List<Vector3>(); public List<int> tris = new List<int>(); }
+    static string Deck(Transform root, Vector3 ac, float floorY, int floorLayer)
+    {
+        { var o = root.Find("Deck"); if (o != null) Object.DestroyImmediate(o.gameObject); }
+        float y0 = floorY - root.position.y;
+        float rOut = IslandR - 0.14f - DeckOutGap;   // 柵の柱の内側
+        float a0 = DeckStartDeg * Mathf.Deg2Rad, a1 = DeckEndDeg * Mathf.Deg2Rad;
+        // 島の角度（奥が0°、右回り）→ ローカル座標
+        Vector3 P(float a, float r, float h) { return new Vector3(Mathf.Sin(a) * r, y0 + h, Mathf.Cos(a) * r); }
+        int rows = Mathf.Max(1, Mathf.RoundToInt((rOut - DeckInR) / DeckRowW));
+        float rowW = (rOut - DeckInR) / rows;
+        var rnd = new System.Random(20261013);
+        var tones = DeckTones.Select(_ => new DeckPart()).ToArray();
+        void Quad(DeckPart m, Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+        {
+            // a→b→c→d（上から見て時計回り＝表）。平らな面ごとに頂点を分ける（トゥーンで板の角をくっきり）
+            var nrm = Vector3.Cross(b - a, d - a).normalized; int i = m.verts.Count;
+            m.verts.AddRange(new[] { a, b, c, d }); m.norms.AddRange(new[] { nrm, nrm, nrm, nrm });
+            m.tris.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
+        }
+        int boards = 0;
+        for (int row = 0; row < rows; row++)
+        {
+            float ri = DeckInR + row * rowW + DeckGap * 0.5f, ro = DeckInR + (row + 1) * rowW - DeckGap * 0.5f;
+            float rm = (ri + ro) * 0.5f;
+            // 板の長さ 1.4〜2.4m、列ごとに始まりをずらす
+            var cuts = new List<float> { a0 };
+            float a = a0 + (float)(0.3 + rnd.NextDouble() * 1.6) / rm;
+            while (a < a1 - 0.6f / rm) { cuts.Add(a); a += (float)(1.4 + rnd.NextDouble() * 1.0) / rm; }
+            cuts.Add(a1);
+            for (int k = 0; k + 1 < cuts.Count; k++)
+            {
+                float b0 = cuts[k] + (k == 0 ? 0f : DeckGap * 0.5f / rm), b1 = cuts[k + 1] - (k + 2 == cuts.Count ? 0f : DeckGap * 0.5f / rm);
+                var m = tones[rnd.Next(tones.Length)];
+                float c = DeckChamfer, cr = c / rm, h = DeckH, hb = 0f;
+                int seg = Mathf.Max(2, Mathf.CeilToInt((b1 - b0) * rm / 0.25f));
+                for (int sIdx = 0; sIdx < seg; sIdx++)
+                {
+                    float t0 = Mathf.Lerp(b0 + cr, b1 - cr, (float)sIdx / seg), t1 = Mathf.Lerp(b0 + cr, b1 - cr, (float)(sIdx + 1) / seg);
+                    float u0 = Mathf.Lerp(b0, b1, (float)sIdx / seg), u1 = Mathf.Lerp(b0, b1, (float)(sIdx + 1) / seg);
+                    // 上の面（ふちは面取りの分だけ内側）
+                    Quad(m, P(t0, ri + c, h), P(t0, ro - c, h), P(t1, ro - c, h), P(t1, ri + c, h));
+                    // 面取り（外・内）と側面（外・内）
+                    Quad(m, P(t0, ro - c, h), P(t0, ro, h - c), P(t1, ro, h - c), P(t1, ro - c, h));
+                    Quad(m, P(t1, ri + c, h), P(t1, ri, h - c), P(t0, ri, h - c), P(t0, ri + c, h));
+                    Quad(m, P(u0, ro, h - c), P(u0, ro, hb), P(u1, ro, hb), P(u1, ro, h - c));
+                    Quad(m, P(u1, ri, h - c), P(u1, ri, hb), P(u0, ri, hb), P(u0, ri, h - c));
+                }
+                // 端（板の切り口）：面取り＋側面
+                Quad(m, P(b0 + cr, ri + c, h), P(b0, ri, h - c), P(b0, ro, h - c), P(b0 + cr, ro - c, h));
+                Quad(m, P(b0, ri, h - c), P(b0, ri, hb), P(b0, ro, hb), P(b0, ro, h - c));
+                Quad(m, P(b1 - cr, ro - c, h), P(b1, ro, h - c), P(b1, ri, h - c), P(b1 - cr, ri + c, h));
+                Quad(m, P(b1, ro, h - c), P(b1, ro, hb), P(b1, ri, hb), P(b1, ri, h - c));
+                boards++;
+            }
+        }
+        // 下地（すき間から見える濃い色）：床から 2cm 上（床と同じ高さだとチラつく）
+        var under = new DeckPart();
+        int useg = Mathf.CeilToInt((a1 - a0) * rOut / 0.3f);
+        for (int sIdx = 0; sIdx < useg; sIdx++)
+        {
+            float t0 = Mathf.Lerp(a0, a1, (float)sIdx / useg), t1 = Mathf.Lerp(a0, a1, (float)(sIdx + 1) / useg);
+            Quad(under, P(t0, DeckInR, 0.02f), P(t0, rOut, 0.02f), P(t1, rOut, 0.02f), P(t1, DeckInR, 0.02f));
+        }
+        // 見た目：板（色3つ＝サブメッシュ3つ）＋下地
+        var mesh = new Mesh { name = "Playground_Deck", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        var all = tones.Concat(new[] { under }).ToArray();
+        var vAll = new List<Vector3>(); var nAll = new List<Vector3>(); var subs = new List<int[]>();
+        foreach (var t in all) { int off = vAll.Count; vAll.AddRange(t.verts); nAll.AddRange(t.norms); subs.Add(t.tris.Select(i => i + off).ToArray()); }
+        mesh.SetVertices(vAll); mesh.SetNormals(nAll); mesh.subMeshCount = subs.Count;
+        for (int i = 0; i < subs.Count; i++) mesh.SetTriangles(subs[i], i);
+        mesh.RecalculateBounds();
+        mesh = SaveFenceMesh(mesh, "Playground_Deck");
+        var mats = DeckTones.Select((c, i) => Mat("Playground_DeckWood" + i, "Assets/FuwaCourse/Materials/Goal_Ground.mat", c)).ToList();
+        mats.Add(Mat("Playground_DeckUnder", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.36f, 0.25f, 0.17f)));
+        foreach (var dm in mats)
+        {
+            // 元の Goal_Ground の草の模様（三角の葉っぱ・ムラ）は木には要らない
+            foreach (var pn in new[] { "_GroundPatch", "_GroundFine", "_TopStrength", "_StrataStrength", "_NoiseStrength" }) if (dm.HasProperty(pn)) dm.SetFloat(pn, 0f);
+            EditorUtility.SetDirty(dm);
+        }
+        var g = new GameObject("Deck"); g.transform.SetParent(root, false); g.transform.localPosition = Vector3.zero; g.layer = floorLayer;
+        g.AddComponent<MeshFilter>().sharedMesh = mesh; g.AddComponent<MeshRenderer>().sharedMaterials = mats.ToArray();
+        // 当たり：上の面の高さの、すき間のない帯（ふわふわが板のすき間で引っかからないように）
+        var col = new Mesh { name = "Playground_DeckCollider", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        var cv = new List<Vector3>(); var ct = new List<int>();
+        for (int sIdx = 0; sIdx <= useg; sIdx++)
+        {
+            float t = Mathf.Lerp(a0, a1, (float)sIdx / useg);
+            cv.Add(P(t, DeckInR, DeckH)); cv.Add(P(t, rOut, DeckH)); cv.Add(P(t, DeckInR, -0.05f)); cv.Add(P(t, rOut, -0.05f));
+            if (sIdx == 0) continue;
+            int b = sIdx * 4, p = b - 4;
+            ct.AddRange(new[] { p, p + 1, b + 1, p, b + 1, b });              // 上
+            ct.AddRange(new[] { p + 2, p, b, p + 2, b, b + 2 });              // 内側のふち
+            ct.AddRange(new[] { p + 1, p + 3, b + 3, p + 1, b + 3, b + 1 });  // 外側のふち
+        }
+        col.SetVertices(cv); col.SetTriangles(ct, 0); col.RecalculateNormals(); col.RecalculateBounds();
+        col = SaveFenceMesh(col, "Playground_DeckCollider");
+        g.AddComponent<MeshCollider>().sharedMesh = col;
+        GameObjectUtility.SetStaticEditorFlags(g, (StaticEditorFlags)~0);
+        return "deck rows " + rows + " boards " + boards + " verts " + vAll.Count;
     }
 
     // 柵は頂点が多いので 32bit の番号で保存（SaveGenMesh は 16bit のまま上書きする）
