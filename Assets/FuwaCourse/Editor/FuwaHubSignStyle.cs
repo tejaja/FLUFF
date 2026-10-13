@@ -16,6 +16,7 @@ public static class FuwaHubSignStyle
     const float StitchInset = 0.17f;    // ステッチの内側への入り
     const float BodyBehind = 0.2f;      // 板の真ん中の厚みの中心（文字より後ろ）
     const float ExtraH = 0.24f;         // 元の板より縦にのばす分（下へ）
+    const float LineSpacing = -12f;
     const bool ShowStitch = false;      // 内側のステッチ（2026-10-13 てじゃ「ステッチも外してみて」）
 
     [MenuItem("FuwaCourse/入口の看板をぷっくりにする")]
@@ -82,6 +83,7 @@ public static class FuwaHubSignStyle
             rt.sizeDelta = new Vector2((hw - StitchInset - 0.15f) * 2f / sx, (hh + 0.3f) * 2f / sx);
             if (!text.enableAutoSizing) { text.fontSizeMax = text.fontSize; text.enableAutoSizing = true; }
             text.fontSizeMin = text.fontSizeMax * 0.4f;
+            text.lineSpacing = LineSpacing;   // 名前と人数の行の間（2026-10-13 てじゃ「文字と人数が近すぎる」。前は -25）
             EditorUtility.SetDirty(text);
         }
         return sign.parent.name + " -> cushion " + kind + " (" + hw.ToString("F2") + "x" + hh.ToString("F2") + ")";
