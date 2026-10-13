@@ -24,6 +24,10 @@ public static class FuwaCourse2BrokenPath
     const float BreakDepth = 0.42f;  // 割れ目の断面の壁の深さ。道の厚み0.3＋下の岩肌まで0.04＋岩肌に少し埋める
     static readonly Bounds BreakBox = new Bounds(new Vector3(100.5f, 10f, 3f), new Vector3(10f, 4f, 8f));
 
+    // FuwaCutCap 用：割れ目の線（CutMesh と同じ、z の Seg ごとの直線）。軸 +x・横 z
+    static float CutLinear(float z) { float z0 = Mathf.Floor(z / Seg) * Seg; float x0 = CutAt(z0), x1 = CutAt(z0 + Seg); return x0 + (x1 - x0) * (z - z0) / Seg; }
+    static FuwaCutCap.Frame BreakFrame() => new FuwaCutCap.Frame { origin = Vector3.zero, axis = Vector3.right, side = new Vector3(0f, 0f, 1f), e0 = CutLinear, e1 = l => 1000f, yBottom = -1000f };
+
     // 割れ目の x（z ごと）：大きくゆるいでこぼこ（2026-10-13 てじゃ「ぎざぎざもなめらかに」。前は三角波のぎざぎざ）
     static float CutAt(float z)
     {
@@ -64,15 +68,33 @@ public static class FuwaCourse2BrokenPath
         // 割れ目の壁の下はしは「元の道の上面 - BreakDepth」。元の道の上面の高さは元の見た目のメッシュから
         var topGo = new GameObject("tmpTop"); topGo.transform.SetPositionAndRotation(pm.position, pm.rotation); topGo.transform.localScale = pm.lossyScale;
         var topCol = topGo.AddComponent<MeshCollider>(); topCol.sharedMesh = src; Physics.SyncTransforms();
+        // 下の山の地面より下には垂らさない（道の横で山が下がっている所では、壁が道の色の板のように下へのびて見えた。2026-10-14 てじゃ）。
+        // 山の地面が深すぎる所は、道の厚みぶん（0.3）で止める
+        var mtnT = pm.parent.Find("Rocks2/Mountain"); var mtnCol = mtnT != null ? mtnT.GetComponent<MeshCollider>() : null;
         System.Func<Vector3, float> wallBottom = w =>
-            topCol.Raycast(new Ray(new Vector3(w.x, w.y + 2f, w.z), Vector3.down), out var h, 4f) ? Mathf.Min(w.y, h.point.y - BreakDepth) : w.y - BreakDepth;
+        {
+            float top = topCol.Raycast(new Ray(new Vector3(w.x, w.y + 2f, w.z), Vector3.down), out var h, 4f) ? h.point.y : w.y;
+            float b = Mathf.Min(w.y, top - BreakDepth);
+            if (mtnCol != null && mtnCol.Raycast(new Ray(new Vector3(w.x, w.y + 0.05f, w.z), Vector3.down), out var hm, 3f))
+                b = Mathf.Max(b, Mathf.Min(w.y, hm.point.y - 0.03f) > top - 0.3f - 0.001f ? hm.point.y - 0.03f : top - 0.3f);
+            else b = Mathf.Max(b, top - 0.3f);
+            // 道の横のふち（0.3m以内）では、道の厚みより下へは垂らさない（横から見ると、道の下に黄色い板がのびて見えた）
+            bool nearSide = false;
+            foreach (var d in new[] { Vector3.forward, Vector3.back, Vector3.left, Vector3.right })
+                if (!topCol.Raycast(new Ray(new Vector3(w.x, w.y + 2f, w.z) + d * 0.3f, Vector3.down), out var _, 4f)) { nearSide = true; break; }
+            if (nearSide) b = Mathf.Max(b, top - 0.27f);
+            return Mathf.Min(b, w.y);
+        };
 
         // 見た目
         var (newV, newN, uv, hasUv, subs, removed) = CutMesh(src, l2w, 2);
-        int breakWalls = CapOpenLoops(newV, newN, uv, hasUv, subs[0], subs, l2w, BreakBox, wallBottom);
+        // 割れ目の断面は FuwaCutCap で切り口の輪をすき間なくふさぐ（2026-10-14 てじゃ「道の切れ目の下に道の色の板がのびてる」「その真上にちょっとだけ欠け」：
+        // 前は開いた辺から縦の板を下ろしていて、道の横で板が垂れたり、角に小さなすき間が出ていた）。下で mesh に書いてからかける
+        int breakWalls = 0;
         // 頂上の柱ゾーン手前の崩落（FuwaCourse2Collapse で道を切った所）の切り口にふたをする（2026-10-12 てじゃ「頂上付近の道の端が割れてる」）。
         // 切っただけだと切り口の断面が開いていて、横から見ると中が抜けて見えた。開いている辺の輪をふさぐ（見た目だけ。ふたは道と同じ黄色＝てじゃ「黄色でふさいでほしかった」）
-        int capped = CapOpenLoops(newV, newN, uv, hasUv, subs[0], subs, l2w, new Bounds(new Vector3(121f, 12.5f, 5f), new Vector3(20f, 7f, 16f)), null);
+        // 崩落の切り口は FuwaCourse2Collapse.CutPath が FuwaCutCap でふさぎ済み（ここで板を足すと重なる）
+        int capped = 0;
         // 切り口の断面（縦の面）は、元の道の面取りの法線を引きずっていて、縦の筋のような明暗のむらが出ていた（2026-10-13 てじゃ「筋もあるしちょっときたなく」）。
         // 崩落の範囲の縦向きの三角形は、頂点を分けて、面の向き（水平）の法線にそろえる
         var (cutO, cutAx) = FuwaCourse2Collapse.Frame(pm.parent);
@@ -83,6 +105,7 @@ public static class FuwaCourse2BrokenPath
         mesh.subMeshCount = subs.Length;
         for (int s = 0; s < subs.Length; s++) mesh.SetTriangles(subs[s], s);
         mesh.SetNormals(newN); mesh.RecalculateBounds();   // 法線は元のまま（ベベルのなめらかさを崩さない）
+        { var r0 = FuwaCutCap.Cap(mesh, pm, BreakFrame(), 0, 0f, 0f, 11); breakWalls = r0.tris; if (r0.unresolved > 0) Debug.LogWarning("[BrokenPath] cap unresolved " + r0.unresolved + " " + r0.log); }
         EditorUtility.SetDirty(mesh);
         var mats = mr.sharedMaterials;
         mr.sharedMaterials = new[] { mats[0], mats.Length > 1 ? mats[1] : mats[0] };   // 前は3つ目に岩の色（道を塗っていた）
@@ -90,12 +113,13 @@ public static class FuwaCourse2BrokenPath
 
         // 当たり判定も同じ線で切って、割れ目に壁（転がる岩・ふわふわ・プレイヤーが段差に当たる）
         var (cV, cN, cUv, cHasUv, cSubs, cRemoved) = CutMesh(colSrc, l2w, colSrc.subMeshCount);
-        int colWalls = CapOpenLoops(cV, cN, cUv, cHasUv, cSubs[0], cSubs, l2w, BreakBox, wallBottom);
+        int colWalls = 0;
         colMesh.Clear();
         colMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         colMesh.SetVertices(cV); colMesh.subMeshCount = cSubs.Length;
         for (int s = 0; s < cSubs.Length; s++) colMesh.SetTriangles(cSubs[s], s);
         colMesh.SetNormals(cN); colMesh.RecalculateBounds();
+        { var r1 = FuwaCutCap.Cap(colMesh, pm, BreakFrame(), 0, 0f, 0f, 12); colWalls = r1.tris; }
         EditorUtility.SetDirty(colMesh);
         Object.DestroyImmediate(topGo);
         var mc = pm.GetComponent<MeshCollider>(); if (mc != null && mc.sharedMesh == colMesh) { mc.sharedMesh = null; mc.sharedMesh = colMesh; }
