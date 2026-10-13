@@ -65,6 +65,8 @@ public static class FuwaBakeSetup
                 bool smallDeco = mf != null && mf.sharedMesh != null && (SmallDecoMeshes.Any(x => mf.sharedMesh.name.StartsWith(x)));
                 // 小さい物（1.2m未満：小さいキノコなど）は焼くと影がぼやけて消えるので焼かない（リアルタイムの影を落とす）
                 bool tiny = Mathf.Max(r.bounds.size.x, Mathf.Max(r.bounds.size.y, r.bounds.size.z)) < 1.2f;
+                // ただし洞窟の天井のトゲ（つらら）は焼く：洞窟の光るキノコの光（焼き込み）を壁と同じように受けるため（2026-10-14 てじゃ「トゲがへんになる」）
+                if (r.name == "Stalactite" && r.transform.parent != null && r.transform.parent.name == "Gimmick_CeilingSpikes") tiny = false;
                 bool ok = shaderOk && !fence && !smallDeco && !tiny && mf != null && mf.sharedMesh != null && !IsMoving(r.transform);
                 if (fence) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 if (ok)
