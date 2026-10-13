@@ -114,6 +114,8 @@ public class FuwaEnemy : UdonSharpBehaviour
     public float fallDepth = 8f;
     [Tooltip("足元の道を探すレイヤー（11=Environment）")]
     public int groundLayer = 11;
+    [Tooltip("倒れて（トゲ・落下）からこの秒数で、家の床からぴょこっと勝手に復活する。0 なら勝手には復活しない（アウト・リスポーンまで待つ）")]
+    public float autoReviveDelay = 0f;
 
     [Tooltip("トゲで倒れた時に弾け飛ぶ毛（なくてもOK）")]
     public ParticleSystem popEffect;
@@ -239,7 +241,12 @@ public class FuwaEnemy : UdonSharpBehaviour
         if (ballLive && toBall.magnitude < detectRange * 1.3f) UpdatePupils(_state != 10, ball.transform.position, dt);
         else UpdatePupils(_state != 10 && toPlayer.magnitude < detectRange * 1.3f, local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, dt);
         // 倒されたら、プレイヤーがやられる／リスポーンするまで復活しない（Revive()で戻る）
-        if (_state == 6) return;
+        if (_state == 6)
+        {
+            // 練習場のまものは何回でも練習できるよう、少し待ってから家の床からぴょこっと出てくる（2026-10-13 てじゃ「どっちもクールタイムほしい」）
+            if (autoReviveDelay > 0f && _stateTime >= autoReviveDelay) { Respawn(); SetState(8); }
+            return;
+        }
 
         if (_state == 7) // かくれてる：近づいたら出てくる
         {

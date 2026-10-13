@@ -542,6 +542,46 @@ public static class FuwaPracticeTutorial
         }
     }
 
+    // ---------- 練習場の「まものに注意」の区画：道の左ふち（見本島と反対）、まものの少し先の斜め前にイバラ2つ ----------
+    // （2026-10-13 てじゃ「まものの説明のあとのとこ、イバラを設置」案A。看板の「トゲに当てて倒そう」をここで練習 → 本番でもう一回）
+    // 大きさ・判定は本番のまもののイバラと同じ（BrambleScale）。判定の長い辺を道に沿わせ、2つは道に沿って1m以上あける。
+    // まもの（半径0.45＋うろうろ0.4）にも、左ふち（中心から HalfW+BayLeftExtra）にもはみ出さない
+    const float PracticeBrambleLeft = 1.8f;                                   // 道の中心から左へ（判定の幅0.53 → 2.33m まで。ふちは2.55m）
+    static readonly float[] PracticeBrambleAlong = { -0.6f, 1.9f };            // まものから道の先の方へ
+    const float PracticeMonsterRevive = 3f;                                   // 倒れて（トゲ・落下）から復活するまでの秒数（てじゃ「クールタイムほしい」）
+    static void PlacePracticeBrambles(Transform bayRoot, Transform mon, Vector3 pathF)
+    {
+        foreach (var old in bayRoot.Cast<Transform>().Where(t => t.name.StartsWith("Bramble")).ToList()) Object.DestroyImmediate(old.gameObject);
+        var spSrc = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "SpikePatch4" && t.parent != null && t.parent.name == "Spikes");
+        float GroundBelow(Vector3 p) { return Physics.Raycast(p + Vector3.up * 0.6f, Vector3.down, out var h, 5f, 1 << 11, QueryTriggerInteraction.Ignore) ? h.point.y : p.y; }
+        Physics.SyncTransforms();
+        float spUp = spSrc.position.y - GroundBelow(spSrc.position);
+        Vector3 along = pathF; along.y = 0f; along.Normalize();
+        Vector3 left = new Vector3(-along.z, 0f, along.x);
+        Vector3 home = mon.position;   // まものの家（道のまん中）
+        for (int k = 0; k < PracticeBrambleAlong.Length; k++)
+        {
+            var sp = Object.Instantiate(spSrc.gameObject, bayRoot, true); sp.name = "Bramble" + k; sp.SetActive(true);
+            Vector3 p = home + left * PracticeBrambleLeft + along * PracticeBrambleAlong[k];
+            p.y = GroundBelow(p) + spUp * BrambleScale;
+            sp.transform.SetPositionAndRotation(p, Quaternion.LookRotation(along));
+            sp.transform.localScale = Vector3.one * BrambleScale;
+        }
+        var fe = mon.GetComponent<FuwaEnemy>();
+        SetUF(fe, "autoReviveDelay", PracticeMonsterRevive);
+        Sync(fe);
+    }
+
+    [MenuItem("FuwaCourse/れんしゅう/練習場のまもののイバラだけ置き直す")]
+    public static void MenuPracticeBrambles()
+    {
+        var bay = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Bay_Monster" && t.parent != null && t.parent.name == RootName);
+        var mon = bay.Find("PracticeMonster");
+        PlacePracticeBrambles(bay, mon, -mon.forward);   // まものは道の手前（来る人の方）を向いて置いてある
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bay.gameObject.scene);
+        Debug.Log("practice brambles placed");
+    }
+
     [MenuItem("FuwaCourse/れんしゅう/まもののイバラだけ置き直す")]
     public static void MenuBrambles()
     {
@@ -1080,6 +1120,7 @@ public static class FuwaPracticeTutorial
                 keep.Add(fe);
                 ep.arraySize = keep.Count; for (int i = 0; i < keep.Count; i++) ep.GetArrayElementAtIndex(i).objectReferenceValue = keep[i];
                 bso.ApplyModifiedPropertiesWithoutUndo(); Sync(ball);
+                PlacePracticeBrambles(bayRoot, pm.transform, pf);
                 log.Add("practice monster on the path");
             }
         }
