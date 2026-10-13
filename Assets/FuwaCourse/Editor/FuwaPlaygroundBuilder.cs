@@ -295,7 +295,7 @@ public static class FuwaPlaygroundBuilder
             else
             {
                 Mesh(go.transform, "Body", fanMeshes["Chill_FanBody"], new[] { fanBodyM }, Vector3.zero);
-                var bl = Mesh(go.transform, "Blades", fanMeshes["Chill_FanBlades"], new[] { fanBladeM }, new Vector3(0f, 0.36f, 0f)).transform;
+                var bl = Mesh(go.transform, "Blades", fanMeshes["Chill_FanBlades"], new[] { fanBodyM, fanBladeM }, new Vector3(0f, 0.36f, 0f)).transform;   // 1つ目は羽の真ん中のキャップ（白。2026-10-13 てじゃ）
                 nozzle.localPosition = new Vector3(0f, 0.36f, 0.04f);
                 fan.blades = bl;
             }
@@ -309,7 +309,7 @@ public static class FuwaPlaygroundBuilder
         var face = Quaternion.LookRotation(toCenter);
         GameObject[] resetOthers = new GameObject[0];
         var list = new List<FuwaHandFan>();
-        for (int i = 0; i < 3; i++) list.Add(Held("Fan" + i, Fc + side * (-0.55f + i * 0.55f) + Vector3.up * 1.0f, face, false));
+        for (int i = 0; i < 3; i++) list.Add(Held("Fan" + i, Fc + side * (-0.55f + i * 0.55f) + Vector3.up * 1.0f, Quaternion.LookRotation(-toCenter), false));   // 風の出る正面を柵の方へ（真ん中から近づいて持つと、風が向こう向きになる。2026-10-13 てじゃ）
         // うちわはなし（2026-10-12 てじゃ「ちょっと変だからなしに、うちわっぽくするのむずそう」）。FuwaHandFan の gustMode は残してある
         // ゴール風リング：広場の真ん中に浮かべる（穴をキノコの方へ向ける）。持って動かせる
         var ringT = new GameObject("Ring").transform; ringT.gameObject.layer = 13; ringT.SetParent(toys, false);
