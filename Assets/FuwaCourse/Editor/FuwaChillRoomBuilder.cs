@@ -569,12 +569,19 @@ public static class FuwaChillRoomBuilder
     // たねを回しても、紫の球（グラデ）と粒の出る向きはまっすぐのまま（2026-10-13 てじゃ「回すとエフェクトも回って変だから固定に」）
     static void KeepGravityUpright(GameObject seed)
     {
-        // スクリプトはたね本体（VRCObjectSync のネットワークIDを持つ）ではなく、子の HeavyZone に付ける（たねの部品の種類を変えない）
+        // 紫の球と粒は、たねの子にしないで（持った時の光る輪郭に6mの球まで入っていた。2026-10-13 てじゃ）、FuwaKeepUpright で位置だけついていく。
+        // スクリプトはたね本体（VRCObjectSync のネットワークIDを持つ）ではなく HeavyZone に付ける（たねの部品の種類を変えない）
         EnsureProgram("FuwaKeepUpright");
-        var zone = seed.transform.Find("HeavyZone"); if (zone == null) return;
+        var slot = seed.transform.parent;
+        Transform Get(string n) { var t = seed.transform.Find(n); if (t == null) t = slot.Find(n); return t; }
+        var zone = Get("HeavyZone"); if (zone == null) return;
+        var parts = Get("HeavyParticles");
+        zone.SetParent(slot, true); if (parts != null) parts.SetParent(slot, true);
         var ku = zone.GetComponent<FuwaKeepUpright>();
         if (ku == null) ku = UdonSharpUndo.AddComponent<FuwaKeepUpright>(zone.gameObject);
-        ku.targets = new[] { zone, seed.transform.Find("HeavyParticles") }.Where(t => t != null).ToArray();
+        ku.targets = new[] { zone, parts }.Where(t => t != null).ToArray();
+        ku.follow = seed.transform;
+        ku.offsets = ku.targets.Select(t => t.position - seed.transform.position).ToArray();
         UdonSharpEditorUtility.CopyProxyToUdon(ku);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ku); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
         EditorUtility.SetDirty(ku);
@@ -622,6 +629,7 @@ public static class FuwaChillRoomBuilder
         UdonSharpEditorUtility.CopyProxyToUdon(bmm);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bmm); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
         GameObjectUtility.SetStaticEditorFlags(bHandle, 0);
+        AddHighlightProxy(bHandle.transform, bBody);
 
         // ---- ぬいぐるみ ----
         float r = baseR;
@@ -639,6 +647,16 @@ public static class FuwaChillRoomBuilder
             foreach (var lg in g.GetComponentsInChildren<LODGroup>(true)) Object.DestroyImmediate(lg);
         }
         foreach (var t in vis.GetComponentsInChildren<Transform>(true)) { t.gameObject.layer = 13; GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0); }
+        // 足元のウソ影（デカールの箱）は、持った時の光る輪郭に入らないよう、ぬいぐるみの外に出して位置だけついていく（2026-10-13 てじゃ）
+        var shadow = vis.Find("Body/Shadow");
+        if (shadow != null)
+        {
+            shadow.SetParent(slot, true); shadow.name = "Plush0Shadow"; shadow.gameObject.layer = 0;
+            EnsureProgram("FuwaKeepUpright");
+            var sku = UdonSharpUndo.AddComponent<FuwaKeepUpright>(shadow.gameObject); sku.targets = new[] { shadow }; sku.follow = root.transform; sku.offsets = new[] { shadow.position - root.transform.position };
+            UdonSharpEditorUtility.CopyProxyToUdon(sku);
+            var sub = UdonSharpEditorUtility.GetBackingUdonBehaviour(sku); if (sub != null) { sub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(sub); }
+        }
         var col = root.AddComponent<SphereCollider>(); col.isTrigger = true; col.radius = r;
         var rb = root.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
         var pk = root.AddComponent<VRC.SDK3.Components.VRCPickup>();
@@ -754,6 +772,29 @@ public static class FuwaChillRoomBuilder
             UdonSharpEditorUtility.CopyProxyToUdon(mm);
             var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(mm); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
             GameObjectUtility.SetStaticEditorFlags(handle, 0);
+            AddHighlightProxy(handle.transform, body);
+        }
+    }
+
+    // 持った時の光る輪郭（VRChat は持てる物の中のレンダラーの形で光らせる）を、見た目（body、持つところの子ではない）と同じ形にする。
+    // 見た目の形をそのまま、見えない材質（Invisible）で持つところの子に置く（2026-10-13 てじゃ「持った時のハイライトの形をオブジェクトにあわせて」）
+    static void AddHighlightProxy(Transform handle, Transform body)
+    {
+        var old = handle.Find("HighlightShape"); if (old != null) Object.DestroyImmediate(old.gameObject);
+        var inv = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Invisible.mat");
+        var holder = new GameObject("HighlightShape").transform; holder.SetParent(handle, false); holder.gameObject.layer = handle.gameObject.layer;
+        foreach (var mr in body.GetComponentsInChildren<MeshRenderer>(false))
+        {
+            if (!mr.enabled) continue;
+            var mf = mr.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue;
+            var g = new GameObject(mr.name); g.layer = handle.gameObject.layer;
+            g.transform.SetPositionAndRotation(mr.transform.position, mr.transform.rotation);
+            g.transform.localScale = mr.transform.lossyScale;
+            g.transform.SetParent(holder, true);
+            g.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+            var r = g.AddComponent<MeshRenderer>(); r.sharedMaterial = inv;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            GameObjectUtility.SetStaticEditorFlags(g, 0);
         }
     }
 
