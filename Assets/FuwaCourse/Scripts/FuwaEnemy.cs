@@ -198,10 +198,24 @@ public class FuwaEnemy : UdonSharpBehaviour
     private bool _hasSleepEye;
     private bool _eyesInited;
     private bool _eyesClosed;
+    // 寝ている間は、目のまわりの毛を短くする仕組み（毛のシェーダーの _EyeMinLen）を弱めて、目の所がハゲて見えないように（2026-10-13 てじゃ）
+    private Renderer[] _furs = new Renderer[0];
+    private float[] _furEyeMin = new float[0];
+    private MaterialPropertyBlock _furMpb;
+    private const float SleepFurEyeMin = 0.75f;
     private void InitEyes()
     {
         if (_eyesInited) return;
         _eyesInited = true;
+        if (visual != null)
+        {
+            Renderer[] rs = visual.GetComponentsInChildren<Renderer>(true);
+            int n = 0;
+            for (int i = 0; i < rs.Length; i++) if (rs[i].sharedMaterial != null && rs[i].sharedMaterial.HasProperty("_EyeMinLen")) n++;
+            _furs = new Renderer[n]; _furEyeMin = new float[n]; n = 0;
+            for (int i = 0; i < rs.Length; i++) if (rs[i].sharedMaterial != null && rs[i].sharedMaterial.HasProperty("_EyeMinLen")) { _furs[n] = rs[i]; _furEyeMin[n] = rs[i].sharedMaterial.GetFloat("_EyeMinLen"); n++; }
+            _furMpb = new MaterialPropertyBlock();
+        }
         if (eyes == null) return;
         _eyeParts = new Transform[eyes.childCount];
         for (int i = 0; i < eyes.childCount; i++) { _eyeParts[i] = eyes.GetChild(i); if (_eyeParts[i].name == "SleepEye") _hasSleepEye = true; }
@@ -223,6 +237,14 @@ public class FuwaEnemy : UdonSharpBehaviour
             if (t.gameObject.activeSelf != on) t.gameObject.SetActive(on);
         }
         eyes.localScale = closed && !_hasSleepEye ? new Vector3(_eyesScale.x, _eyesScale.y * 0.03f, _eyesScale.z) : _eyesScale;
+        if (_hasSleepEye && _furMpb != null)
+            for (int i = 0; i < _furs.Length; i++)
+            {
+                if (_furs[i] == null) continue;
+                _furs[i].GetPropertyBlock(_furMpb);
+                _furMpb.SetFloat("_EyeMinLen", closed ? Mathf.Max(SleepFurEyeMin, _furEyeMin[i]) : _furEyeMin[i]);
+                _furs[i].SetPropertyBlock(_furMpb);
+            }
     }
 
 
