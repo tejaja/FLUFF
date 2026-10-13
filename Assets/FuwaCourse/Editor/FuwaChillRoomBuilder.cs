@@ -128,8 +128,10 @@ public static class FuwaChillRoomBuilder
         for (int k = 0; k < 4; k++)
         {
             int col = k % 2, row = k / 2;
-            var pos = pc + rot * new Vector3(col == 0 ? -0.68f : 0.68f, row == 0 ? 1.55f : 1.15f, 0f);
-            labels[k] = LaserButton(panel, "Switch" + k, pos, rot, 1.45f, "", sp, events[k]);
+            // 大きさは下の言語・音量ボタンと同じ（幅1.36・高さ0.4。2026-10-13 てじゃ「下のボタンとサイズあわせよ」）
+            var pos = pc + rot * new Vector3(col == 0 ? -BoardBottomX : BoardBottomX, row == 0 ? BoardSideY[0] : BoardSideY[1], 0f);
+            labels[k] = LaserButton(panel, "Switch" + k, pos, rot, 0.99f, "", sp, events[k]);
+            panel.Find("Switch" + k).localScale = Vector3.one;
         }
         // 支柱はなし（2026-10-13 てじゃ「柱なくそう」）
         BoardButtons(coop, panel, pc, rot, howTo);
@@ -880,7 +882,7 @@ public static class FuwaChillRoomBuilder
     // ・右：チャレンジのロビーの看板の右と同じ「今いるモード（押せない札）／もう一つのモード／タイトルにもどる」。
     //   ここはあそびばなので、上の札が「あそびば（人数）」、その下が「チャレンジ（人数）」＝押すとチャレンジへ飛ぶ、いちばん下が「タイトルにもどる」
     const float BoardSideX = 2.25f;
-    static readonly float[] BoardSideY = { 1.75f, 1.35f, 0.95f };
+    static readonly float[] BoardSideY = { 1.76f, 1.24f, 0.72f };   // 右の列の高さ。上2つはスイッチの2段と、いちばん下は言語・音量の段とそろえる
     const float BoardBottomY = 0.72f, BoardBottomX = 0.75f;
     static void BoardButtons(Transform coop, Transform panel, Vector3 pc, Quaternion rot, Transform howTo)
     {
