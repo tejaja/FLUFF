@@ -176,7 +176,9 @@ public static class FuwaChillRoomBuilder
     // ---------- おもちゃ広場（左奥。2026-10-12 てじゃ「エアガンとは別の手持ち扇風機、空中固定化」「出しっぱなし」「うちわもいいね」）----------
     static readonly Vector3 ToysLocal = new Vector3(-5.5f, 0f, 5.5f);
     // コースのクリアで出てくるおもちゃの場所（島の真ん中から）：1竜巻 2岩 3重力 4ぬいぐるみ 5跳ねるキノコ
-    static readonly Vector3[] UnlockLocal = { new Vector3(-9.6f, 0f, 1.8f), new Vector3(-5.6f, 0f, 9.8f), new Vector3(-10.2f, 0f, 6.4f), new Vector3(-0.8f, 0f, 11.0f), new Vector3(-9.6f, 0f, -2.8f) };
+    // コース1〜5の順に、スポーンから見て手前（左）から奥へ島のふちに沿って並べる（2026-10-13 てじゃ「順番あべこべなの直そう」。前は 5→1→3→2→4 の順になっていた）。
+    // 5か所の場所は前と同じ。となりとの間隔は、大きいおもちゃ（竜巻・重力の球）の見た目の半径を足しても重ならない
+    static readonly Vector3[] UnlockLocal = { new Vector3(-9.6f, 0f, -2.8f), new Vector3(-9.6f, 0f, 1.8f), new Vector3(-10.2f, 0f, 6.4f), new Vector3(-5.6f, 0f, 9.8f), new Vector3(-0.8f, 0f, 11.0f) };
 
     static string Toys(Transform root, Vector3 ac, float floorY, FuwaChillSpawner sp, Transform howTo, Vector3 look)
     {
