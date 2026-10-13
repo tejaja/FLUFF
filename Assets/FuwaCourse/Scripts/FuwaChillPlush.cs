@@ -84,6 +84,7 @@ public class FuwaChillPlush : UdonSharpBehaviour
     private bool _homeSet;
     private float _lastSeen;
     private Vector3 _dashFrom, _dashDir;
+    private float _dashLen, _dashHop, _dashDur;
     private Vector3 _air;        // 吹っ飛んでいる時の速さ
     private VRCPickup _pickup;
 
@@ -250,21 +251,30 @@ public class FuwaChillPlush : UdonSharpBehaviour
             {
                 _windup = false;
                 if (target == null) { _state = 0; _stateAt = Time.time; RequestSerialization(); return; }
-                Vector3 d = target.transform.position - p; d.y = 0f;
+                Vector3 tp = target.transform.position;
+                Vector3 d = tp - p; d.y = 0f;
                 _dashDir = d.sqrMagnitude > 0.0001f ? d.normalized : transform.forward;
                 _dashFrom = p;
+                // 跳び方をふわふわに合わせる：ふわふわの少し先に着地して、ちょうどふわふわの所で体がふわふわの高さに来る弧にする
+                // （前はいつも同じ高さ・同じ距離で、床にいる小さいふわふわの頭上を越えてしまっていた。2026-10-13 てじゃ）
+                float dist = d.magnitude;
+                _dashLen = Mathf.Clamp(dist + 0.5f, 0.8f, dashSpeed * dashTime * 1.6f);
+                float xHit = Mathf.Clamp01(dist / _dashLen);
+                float lift = tp.y - p.y;   // 体の中心から見たふわふわの高さ（床のふわふわならマイナス）
+                _dashHop = Mathf.Clamp(lift / Mathf.Max(0.35f, Mathf.Sin(xHit * Mathf.PI)), 0.1f, hopHeight * 3f);
+                _dashDur = _dashLen / Mathf.Max(0.1f, dashSpeed);
                 _state = 2; _stateAt = Time.time;
                 RequestSerialization();
             }
         }
         else if (_state == 2)
         {
-            float x = Mathf.Clamp01(t / dashTime);
-            Vector3 q = _dashFrom + _dashDir * dashSpeed * dashTime * x;
+            float x = Mathf.Clamp01(t / Mathf.Max(0.05f, _dashDur));
+            Vector3 q = _dashFrom + _dashDir * _dashLen * x;
             // おうちから離れすぎない
             Vector3 fromHome = q - _home; fromHome.y = 0f;
             if (fromHome.magnitude > leashRange) q = _home + fromHome.normalized * leashRange + Vector3.up * (q.y - _home.y);
-            if (!Place(q, hopHeight * Mathf.Sin(x * Mathf.PI)))
+            if (!Place(q, _dashHop * Mathf.Sin(x * Mathf.PI)))
             {
                 // 足元に地面がない所へ跳んだ：そのまま落ちる
                 _air = _dashDir * dashSpeed * 0.5f; _state = 4; _stateAt = Time.time; return;

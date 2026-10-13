@@ -170,6 +170,7 @@ public static class FuwaChillRoomBuilder
 
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(coop.gameObject.scene);
         log.Add("chill room at " + ac + " home " + home.ToString("F2") + " floorY " + floorY.ToString("F2") + " balls " + balls.Count);
+        log.Add(FuwaSharedBallShadowSetup.Run());   // 新しい玉に影を付け直す
         return string.Join("\n", log);
     }
 
