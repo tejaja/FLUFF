@@ -447,12 +447,9 @@ public static class FuwaChillRoomBuilder
         var src = RootGo("FuwaCourse").GetComponentsInChildren<FuwaWhirlwind>(true).First(w => w.name == "Whirl0");
         var tw = Object.Instantiate(src.gameObject, slot, false); tw.name = "Tornado";
         tw.transform.position = slot.position; tw.transform.rotation = slot.rotation;
-        var wso = new SerializedObject(tw.GetComponent<FuwaWhirlwind>());
-        wso.FindProperty("trap").boolValue = false;
-        wso.FindProperty("radius").floatValue = 1.2f; wso.FindProperty("topRadius").floatValue = 1.9f; wso.FindProperty("height").floatValue = 2.6f;
-        wso.FindProperty("lift").floatValue = 3.4f; wso.FindProperty("liftFade").floatValue = 0.3f; wso.FindProperty("swirl").floatValue = 2.6f;
-        wso.FindProperty("inward").floatValue = 2.2f; wso.FindProperty("exitPush").floatValue = 1.6f; wso.FindProperty("exitFrom").floatValue = 0.85f;
-        wso.ApplyModifiedPropertiesWithoutUndo(); Sync(tw.GetComponent<FuwaWhirlwind>());
+        // 動きはかぜのおかのつむじ風（Whirl0）のまま＝捕まえて、溜め撃ちで抜ける（2026-10-13 てじゃ「なるべくコースと同じ動きにしたい」。
+        // 前は巻き上げててっぺんから吐き出す形に変えていた）
+        Sync(tw.GetComponent<FuwaWhirlwind>());
         foreach (var t in tw.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
         // たね：ころんとした水色の玉。竜巻の上に浮かべておく
         var seed = GameObject.CreatePrimitive(PrimitiveType.Sphere); seed.name = "TornadoSeed"; seed.layer = 13;

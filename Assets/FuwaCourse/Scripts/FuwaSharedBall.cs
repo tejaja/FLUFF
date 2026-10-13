@@ -35,6 +35,13 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public float perchProbe = 0.8f;
     private float _perchSeen = -1f, _perchStart = -1f;
 
+    [Header("撃った直後は風の効きが弱まる（FuwaBall と同じ。つむじ風から抜けやすく）")]
+    [Range(0f, 1f)] public float shotWindDampMin = 0.35f;
+    [Range(0f, 1f)] public float shotWindDampMax = 0.85f;
+    public float shotWindDampHoldMax = 0.4f;
+    public float shotWindDampTimeMin = 0.3f;
+    public float shotWindDampTimeMax = 0.55f;
+
     [Header("落ちたら")]
     [Tooltip("このレイヤーの物（ロビーの床など）に触れたら弾けて戻る")]
     public LayerMask popLayers = 1;
@@ -134,6 +141,13 @@ public class FuwaSharedBall : UdonSharpBehaviour
     [UdonSynced] private Vector3 _sAng;
     [UdonSynced] private double _sTime;
     [UdonSynced] private int _sShot;
+    // 最後の撃ち（溜め具合・向き・サーバー時刻）。つむじ風が「溜めて撃たれたら放す」・撃った直後は風が効きにくい、を全員の画面でそろえる（2026-10-13）
+    [UdonSynced] private float _sShotCharge;
+    [UdonSynced] private Vector3 _sShotDir;
+    [UdonSynced] private double _sShotAt;
+    private float _shotCharge;
+    private Vector3 _shotDir;
+    private double _shotAt = -100.0;
 
     private Rigidbody _rb;
     private Vector3 _homePos;
@@ -262,6 +276,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     // 持ち主：キノコの上に戻して、吹かれるまで止めて待つ
     private void SetWaiting()
     {
+        _shotCharge = 0f; _shotDir = Vector3.zero; _shotAt = -100.0;
         _waiting = true;
         _popped = false;
         _respawnAt = -1f;
@@ -281,12 +296,12 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (_trail != null) _trail.Clear();
     }
 
-    // エアガンから呼ばれる（吹いた人の画面で）。自分の画面ではすぐ動かし、持ち主でなければ持ち主にも伝える
-    public void BlowShared(Vector3 velocityChange)
+    // エアガンから呼ばれる（吹いた人の画面で）。自分の画面ではすぐ動かし、持ち主でなければ持ち主にも伝える。charge＝溜め具合（0〜1）
+    public void BlowShared(Vector3 velocityChange, float charge)
     {
         Init();
         if (_popped || _waiting || locked) return;   // キノコに隠れている間は、傘を撃たないと出てこない
-        Shoot(velocityChange * shotScale, false);
+        Shoot(velocityChange * shotScale, false, charge);
     }
 
     // スタートのキノコの傘を撃った人の画面で呼ばれる：撃った向きへポンと飛び出す
@@ -296,12 +311,13 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (_popped || !_waiting || locked) return;
         Vector3 flat = new Vector3(shotDir.x, 0f, shotDir.z);
         flat = flat.sqrMagnitude > 0.0001f ? flat.normalized : Vector3.zero;
-        Shoot(flat * releasePush + Vector3.up * releaseUp, true);
+        Shoot(flat * releasePush + Vector3.up * releaseUp, true, 0f);
     }
 
-    private void Shoot(Vector3 velocityChange, bool release)
+    private void Shoot(Vector3 velocityChange, bool release, float charge)
     {
         Launch(velocityChange);
+        NoteShot(velocityChange, charge, Networking.GetServerTimeInSeconds());
         float k = Mathf.Clamp01(velocityChange.magnitude / Mathf.Max(0.01f, squashFullAt));
         PlayPuff(k);   // 自分の画面ではすぐ
         SendCustomNetworkEvent(NetworkEventTarget.Others, nameof(PlayPuff), k);
@@ -317,21 +333,55 @@ public class FuwaSharedBall : UdonSharpBehaviour
             if (_pending == 0) _pendBase = _seenShot;
             _pending++;
             _pendUntil = Time.time + pendingTimeout;
-            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(RemoteShot), velocityChange, release);
+            SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(RemoteShot), velocityChange, release, charge);
         }
     }
 
     // 持ち主の画面で：ほかの人が撃った分を反映して、みんなに配る
     [NetworkCallable(30)]
-    public void RemoteShot(Vector3 velocityChange, bool release)
+    public void RemoteShot(Vector3 velocityChange, bool release, float charge)
     {
         Init();
         if (!Networking.IsOwner(gameObject) || _popped || locked) return;
         if (_waiting && !release) return;   // 持ち主の画面ではまだキノコの中：傘を撃った分だけ受け付ける
         Launch(velocityChange);
+        NoteShot(velocityChange, charge, Networking.GetServerTimeInSeconds());
         _sShot++;
         _seenShot = _sShot;
         SendState();
+    }
+
+    private void NoteShot(Vector3 velocityChange, float charge, double at)
+    {
+        _shotCharge = charge;
+        _shotDir = velocityChange.sqrMagnitude > 0.000001f ? velocityChange.normalized : Vector3.zero;
+        _shotAt = at;
+    }
+
+    public float LastShotCharge() { return _shotCharge; }
+    public float LastShotAge() { return (float)(Networking.GetServerTimeInSeconds() - _shotAt); }
+    public Vector3 LastShotDir() { return _shotDir; }
+
+    // 撃った直後の風の弱まりの残り（FuwaBall と同じ決まり。保っている間は1、戻る間に1→0）
+    private float WindDampLeft()
+    {
+        if (_shotCharge <= 0f && _shotDir == Vector3.zero) return 0f;
+        float hold = shotWindDampHoldMax * _shotCharge * _shotCharge;
+        float time = Mathf.Lerp(shotWindDampTimeMin, shotWindDampTimeMax, _shotCharge);
+        float t = LastShotAge() - hold;
+        if (time <= 0f || t >= time) return 0f;
+        return 1f - Mathf.Max(0f, t) / time;
+    }
+
+    // 撃った向きと同じ向きの風はそのまま、横向き・逆向きの分だけ弱める
+    private Vector3 DampWind(Vector3 acc)
+    {
+        float left = WindDampLeft();
+        if (left <= 0f) return acc;
+        float k = 1f - Mathf.Lerp(shotWindDampMin, shotWindDampMax, _shotCharge) * left;
+        float along = Vector3.Dot(acc, _shotDir);
+        Vector3 keep = along > 0f ? _shotDir * along : Vector3.zero;
+        return keep + (acc - keep) * k;
     }
 
     // 玉に撃った速さを足す（自分の画面の玉に。持ち主かどうかに関係なく）
@@ -374,6 +424,9 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _sVel = _rb.isKinematic ? Vector3.zero : _rb.velocity;
         _sAng = _rb.isKinematic ? Vector3.zero : _rb.angularVelocity;
         _sTime = Networking.GetServerTimeInSeconds();
+        _sShotCharge = _shotCharge;
+        _sShotDir = _shotDir;
+        _sShotAt = _shotAt;
     }
 
     // 送られた時刻から今までの動きを、ふわふわの決まり（落ちる速さ・空気抵抗・上限）で先回りして計算する
@@ -427,6 +480,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             else target = Predict(_sPos, _sVel, late);
             bool newShot = _sShot != _seenShot;
             _seenShot = _sShot;
+            if (newShot) { _shotCharge = _sShotCharge; _shotDir = _sShotDir; _shotAt = _sShotAt; }
             if (_shownWaiting || _rb.isKinematic)
             {
                 // 待っていた玉が飛び出した：その場へ置いて動かし始める
@@ -530,7 +584,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _gravScale = 0f;
         _rb.AddForce(Vector3.down * fallAcceleration * g, ForceMode.Acceleration);
         // 風のギミック（FuwaCoopWind など）から足された加速度（全員の画面で同じ風を当てるので、ずれにくい）
-        if (_wind.sqrMagnitude > 0f) { _rb.AddForce(_wind, ForceMode.Acceleration); _wind = Vector3.zero; }
+        if (_wind.sqrMagnitude > 0f) { _rb.AddForce(DampWind(_wind), ForceMode.Acceleration); _wind = Vector3.zero; }
         Vector3 v = _rb.velocity;
         if (v.y < -maxFallSpeed * g) v.y = -maxFallSpeed * g;
         if (v.magnitude > maxSpeed) v = v.normalized * maxSpeed;

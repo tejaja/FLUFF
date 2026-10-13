@@ -419,7 +419,14 @@ public class FuwaBall : UdonSharpBehaviour
         _windDampTime = Mathf.Lerp(shotWindDampTimeMin, shotWindDampTimeMax, charge);
         _windDampDir = shotDir.sqrMagnitude > 0.0001f ? shotDir.normalized : Vector3.zero;
         _windDampGlow = resistGlowMax * charge;
+        _lastShotCharge = charge;
     }
+
+    // 最後に撃たれた時の溜め具合・経過秒数・向き（つむじ風が「溜めて撃たれたら放す」のに使う。2026-10-13）
+    private float _lastShotCharge;
+    public float LastShotCharge() { return _lastShotCharge; }
+    public float LastShotAge() { return Time.time - _windDampStart; }
+    public Vector3 LastShotDir() { return _windDampDir; }
 
     // 風の弱まりの残り（保っている間は1、戻る間に1→0）
     private float WindDampLeft()

@@ -874,7 +874,7 @@ public class FuwaBlower : UdonSharpBehaviour
             FuwaSharedBall sb = sharedBalls[i];
             if (sb == null || !sb.gameObject.activeInHierarchy) continue;
             Vector3 vs = ShotVelocityPadded(origin, aim, reach, ballPower, sb.transform.position, sb.hitPadding);
-            if (vs != Vector3.zero) sb.BlowShared(vs);
+            if (vs != Vector3.zero) sb.BlowShared(vs, charge);
         }
         _coneScale = 1f;
     }
