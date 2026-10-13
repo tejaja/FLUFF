@@ -3,61 +3,159 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
-// いわのみち：木の足場（BrokenBridge/Deck）から奥、洞窟（転がる岩の出口）までの黄色い道を、割れて岩肌が出ている見た目にする
+// いわのみち：木の足場（BrokenBridge/Deck）から奥、洞窟（転がる岩の出口）までの黄色い道が割れて抜け落ち、下の岩肌が出ている
 //（2026-10-12 てじゃ「うっかり直進する人がいるから、木の足場より上奥の黄色い道は割れて岩肌になってる感じに」）。
-// 見た目のメッシュ（Course2Path_v2_Bevel）だけ変える。当たり判定（Course2Path_v2）はそのままなので、転がる岩の通り道は変わらない。
-// 元のメッシュは Backup/Course2Path_v2_Bevel_PreBroken に取っておき、毎回そこから作る（何度実行しても同じ結果）。
-// 道を作り直した（FuwaCourse2Builder など）後はもう一度実行する
+// 2026-10-13 てじゃ「道がグレーになった感じ。きっちり段差つけて割って」：前は道の面を岩の色に塗っただけだった。
+// 今は割れ目から奥の道の板（見た目も当たり判定も）を消して、すぐ下（約0.34m下）にある山（Mountain）の岩肌を床にする。割れ目には道の断面（黄色の壁）を立てる。
+// 割れ目の線は大きくゆるいでこぼこ（てじゃ「ぎざぎざもなめらかに」）。転がる岩はこの段差で跳ねて乗り越える（FixBoulders）。
+// 元のメッシュは Backup/*_PreBroken に取っておき、毎回そこから作る（何度実行しても同じ結果）。
+// 道を作り直した（FuwaCourse2Builder・FuwaIwaIslands.ApplySummitCut など）後は、PreBroken を作り直してからもう一度実行する
 public static class FuwaCourse2BrokenPath
 {
     const string MeshPath = "Assets/FuwaCourse/Meshes/Course2Path_v2_Bevel.asset";
     const string BackupPath = "Assets/FuwaCourse/Meshes/Backup/Course2Path_v2_Bevel_PreBroken.asset";
-    // 割れる所（ワールド座標）：x がこれより奥（洞窟側）。ふちは z に沿ってぎざぎざ
-    // 2026-10-12 てじゃのイメージ（赤線）：ぎざぎざの割れ目、右奥（洞窟に向かって右＝z の小さい側）ほど多めに削れる
-    const float CutX = 98.6f, Slope = 0.55f, ZMid = 4f, Tooth = 1.4f, Amp = 0.6f, EndX = 104.9f, MaxY = 12.5f, MinZ = -1.5f, MaxZ = 9.5f;
-    const int Depth = 6;
+    const string ColPath = "Assets/FuwaCourse/Meshes/Course2Path_v2.asset";
+    const string ColBackupPath = "Assets/FuwaCourse/Meshes/Backup/Course2Path_v2_PreBroken.asset";
+    // 割れる所（ワールド座標）：x がこれより奥（洞窟側）。右奥（洞窟に向かって右＝z の小さい側）ほど手前まで割れている（2026-10-12 てじゃのイメージ）
+    const float CutX = 98.6f, Slope = 0.55f, ZMid = 4f, Amp = 0.45f, MaxY = 12.5f, MinZ = -1.5f, MaxZ = 9.5f;
+    const float Seg = 0.2f;          // 割れ目の線はこの幅ごとの直線でつなぐ（なめらかな曲線の近似）
+    const float BreakDepth = 0.42f;  // 割れ目の断面の壁の深さ。道の厚み0.3＋下の岩肌まで0.04＋岩肌に少し埋める
+    static readonly Bounds BreakBox = new Bounds(new Vector3(100.5f, 10f, 3f), new Vector3(10f, 4f, 8f));
 
-    // 割れ目の x（z ごと）：右（z 小）ほど手前。ぎざぎざは三角波（歯ごとに少し大きさを変える）
+    // 割れ目の x（z ごと）：大きくゆるいでこぼこ（2026-10-13 てじゃ「ぎざぎざもなめらかに」。前は三角波のぎざぎざ）
     static float CutAt(float z)
     {
-        float u = z / Tooth; float f = u - Mathf.Floor(u);
-        float tri = 1f - 4f * Mathf.Abs(f - 0.5f);                 // -1..1 のとがった波
-        float k = 0.75f + 0.5f * Mathf.PerlinNoise(Mathf.Floor(u) * 0.73f, 0.31f);
-        return CutX + Slope * (z - ZMid) + Amp * k * tri;
+        float wave = 0.6f * Mathf.Sin(z * 1.7f + 0.6f) + 0.4f * Mathf.Sin(z * 3.3f + 2.2f);
+        return CutX + Slope * (z - ZMid) + Amp * wave;
     }
 
-    // 1＝岩にする所、0＝黄色のまま
+    // 1＝割れて無くなる所、0＝道のまま
     static int Side(Vector3 w)
     {
-        if (w.x >= EndX || w.y >= MaxY || w.z <= MinZ || w.z >= MaxZ) return 0;
+        if (w.y >= MaxY || w.z <= MinZ || w.z >= MaxZ) return 0;
         return w.x > CutAt(w.z) ? 1 : 0;
     }
 
     [MenuItem("FuwaCourse/Course2/木の足場から奥の道を割れた岩肌にする")]
     public static void Menu() { Debug.Log(Run()); }
 
+    static Mesh Backup(string path, string backup, string name)
+    {
+        var src = AssetDatabase.LoadAssetAtPath<Mesh>(backup);
+        if (src != null) return src;
+        if (!AssetDatabase.IsValidFolder("Assets/FuwaCourse/Meshes/Backup")) AssetDatabase.CreateFolder("Assets/FuwaCourse/Meshes", "Backup");
+        src = Object.Instantiate(AssetDatabase.LoadAssetAtPath<Mesh>(path)); src.name = name;
+        AssetDatabase.CreateAsset(src, backup);
+        return src;
+    }
+
     public static string Run()
     {
         var pm = GameObject.Find("FuwaCourse2").transform.Find("PathMesh");
-        var mf = pm.GetComponent<MeshFilter>();
         var mr = pm.GetComponent<MeshRenderer>();
         var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshPath);
-        var src = AssetDatabase.LoadAssetAtPath<Mesh>(BackupPath);
-        if (src == null)
-        {
-            if (!AssetDatabase.IsValidFolder("Assets/FuwaCourse/Meshes/Backup")) AssetDatabase.CreateFolder("Assets/FuwaCourse/Meshes", "Backup");
-            src = Object.Instantiate(mesh); src.name = "Course2Path_v2_Bevel_PreBroken";
-            AssetDatabase.CreateAsset(src, BackupPath);
-        }
+        var src = Backup(MeshPath, BackupPath, "Course2Path_v2_Bevel_PreBroken");
+        var colMesh = AssetDatabase.LoadAssetAtPath<Mesh>(ColPath);
+        var colSrc = Backup(ColPath, ColBackupPath, "Course2Path_v2_PreBroken");
         var l2w = pm.localToWorldMatrix;
+
+        // 割れ目の壁の下はしは「元の道の上面 - BreakDepth」。元の道の上面の高さは元の見た目のメッシュから
+        var topGo = new GameObject("tmpTop"); topGo.transform.SetPositionAndRotation(pm.position, pm.rotation); topGo.transform.localScale = pm.lossyScale;
+        var topCol = topGo.AddComponent<MeshCollider>(); topCol.sharedMesh = src; Physics.SyncTransforms();
+        System.Func<Vector3, float> wallBottom = w =>
+            topCol.Raycast(new Ray(new Vector3(w.x, w.y + 2f, w.z), Vector3.down), out var h, 4f) ? Mathf.Min(w.y, h.point.y - BreakDepth) : w.y - BreakDepth;
+
+        // 見た目
+        var (newV, newN, uv, hasUv, subs, removed) = CutMesh(src, l2w, 2);
+        int breakWalls = CapOpenLoops(newV, newN, uv, hasUv, subs[0], subs, l2w, BreakBox, wallBottom);
+        // 頂上の柱ゾーン手前の崩落（FuwaCourse2Collapse で道を切った所）の切り口にふたをする（2026-10-12 てじゃ「頂上付近の道の端が割れてる」）。
+        // 切っただけだと切り口の断面が開いていて、横から見ると中が抜けて見えた。開いている辺の輪をふさぐ（見た目だけ。ふたは道と同じ黄色＝てじゃ「黄色でふさいでほしかった」）
+        int capped = CapOpenLoops(newV, newN, uv, hasUv, subs[0], subs, l2w, new Bounds(new Vector3(121f, 12.5f, 5f), new Vector3(20f, 7f, 16f)), null);
+        // 切り口の断面（縦の面）は、元の道の面取りの法線を引きずっていて、縦の筋のような明暗のむらが出ていた（2026-10-13 てじゃ「筋もあるしちょっときたなく」）。
+        // 崩落の範囲の縦向きの三角形は、頂点を分けて、面の向き（水平）の法線にそろえる
+        var (cutO, cutAx) = FuwaCourse2Collapse.Frame(pm.parent);
+        FlattenCutNormals(newV, newN, uv, hasUv, subs, l2w, cutO, cutAx);
+        mesh.Clear();
+        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        mesh.SetVertices(newV); if (hasUv) mesh.SetUVs(0, uv);
+        mesh.subMeshCount = subs.Length;
+        for (int s = 0; s < subs.Length; s++) mesh.SetTriangles(subs[s], s);
+        mesh.SetNormals(newN); mesh.RecalculateBounds();   // 法線は元のまま（ベベルのなめらかさを崩さない）
+        EditorUtility.SetDirty(mesh);
+        var mats = mr.sharedMaterials;
+        mr.sharedMaterials = new[] { mats[0], mats.Length > 1 ? mats[1] : mats[0] };   // 前は3つ目に岩の色（道を塗っていた）
+        EditorUtility.SetDirty(mr);
+
+        // 当たり判定も同じ線で切って、割れ目に壁（転がる岩・ふわふわ・プレイヤーが段差に当たる）
+        var (cV, cN, cUv, cHasUv, cSubs, cRemoved) = CutMesh(colSrc, l2w, colSrc.subMeshCount);
+        int colWalls = CapOpenLoops(cV, cN, cUv, cHasUv, cSubs[0], cSubs, l2w, BreakBox, wallBottom);
+        colMesh.Clear();
+        colMesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        colMesh.SetVertices(cV); colMesh.subMeshCount = cSubs.Length;
+        for (int s = 0; s < cSubs.Length; s++) colMesh.SetTriangles(cSubs[s], s);
+        colMesh.SetNormals(cN); colMesh.RecalculateBounds();
+        EditorUtility.SetDirty(colMesh);
+        Object.DestroyImmediate(topGo);
+        var mc = pm.GetComponent<MeshCollider>(); if (mc != null && mc.sharedMesh == colMesh) { mc.sharedMesh = null; mc.sharedMesh = colMesh; }
+        AssetDatabase.SaveAssets();
+        Physics.SyncTransforms();
+        string boulders = FixBoulders();
+        string settled = SettleOnFloor(pm.parent);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(pm.gameObject.scene);
+        return "broken path removed tris " + removed + " (col " + cRemoved + "), break walls " + breakWalls + " (col " + colWalls + "), capped " + capped + ", " + boulders + settled;
+    }
+
+    // 道の板が無くなって床が下がった分、元の道の上に乗っていた物を下の岩肌に下ろす：
+    // 洞窟の奥の暗がり（CaveDark）の底（元の道の高さのままだと入口に暗い縁が見えた）・洞窟の入口の柵（CaveBarrier）・小石（Deco_StonesSmall）
+    static float Floor(Vector3 p)
+    {
+        float best = float.NaN;
+        foreach (var h in Physics.RaycastAll(new Ray(new Vector3(p.x, p.y + 1.5f, p.z), Vector3.down), 4f))
+            if ((h.collider.name == "PathMesh" || h.collider.name == "Mountain") && !h.collider.isTrigger && !(h.point.y <= best)) best = h.point.y;
+        return best;
+    }
+    static string SettleOnFloor(Transform root)
+    {
+        var sb = new System.Text.StringBuilder();
+        var dark = root.Find("Rocks2/CaveDark");
+        if (dark != null)
+        {
+            var m = dark.GetComponent<MeshFilter>().sharedMesh; var l2w = dark.localToWorldMatrix; var w2l = l2w.inverse;
+            var vs = m.vertices; float minY = vs.Min(v => l2w.MultiplyPoint3x4(v).y);
+            var mouth = l2w.MultiplyPoint3x4(vs.OrderBy(v => l2w.MultiplyPoint3x4(v).x).First());
+            float floor = Floor(new Vector3(mouth.x - 0.3f, minY, dark.GetComponent<Renderer>().bounds.center.z));
+            if (!float.IsNaN(floor))
+            {
+                int n = 0;
+                for (int i = 0; i < vs.Length; i++) { var w = l2w.MultiplyPoint3x4(vs[i]); if (w.y < minY + 0.05f) { w.y = floor - 0.06f; vs[i] = w2l.MultiplyPoint3x4(w); n++; } }
+                m.vertices = vs; m.RecalculateBounds(); EditorUtility.SetDirty(m);
+                sb.Append(" cavedark " + n + " verts → " + (floor - 0.06f).ToString("F2"));
+            }
+        }
+        foreach (var r in Object.FindObjectsOfType<Renderer>(true))
+        {
+            if (r.name != "CaveBarrier" && r.name != "Deco_StonesSmall") continue;
+            var b = r.bounds; if (b.center.x < 96f || b.center.x > 106f || b.center.z < 0.5f || b.center.z > 5f) continue;
+            float g = Floor(new Vector3(b.center.x, b.max.y, b.center.z)); if (float.IsNaN(g)) continue;
+            float want = g - (r.name == "CaveBarrier" ? 0.04f : 0.02f);
+            if (Mathf.Abs(b.min.y - want) < 0.005f) continue;
+            Undo.RecordObject(r.transform, "settle"); r.transform.position += Vector3.up * (want - b.min.y);
+            sb.Append(" " + r.name + " " + (want - b.min.y).ToString("F2"));
+        }
+        return sb.ToString();
+    }
+
+    // src を割れ目の線でぴったり切って、奥（Side==1）を捨てる。subCount 個までのサブメッシュを返す
+    static (List<Vector3>, List<Vector3>, List<Vector2>, bool, List<int>[], int) CutMesh(Mesh src, Matrix4x4 l2w, int subCount)
+    {
         var verts = src.vertices; var norms = src.normals;
+        if (norms.Length != verts.Length) norms = new Vector3[verts.Length];
         var newV = new List<Vector3>(verts); var newN = new List<Vector3>(norms);
         var uv = new List<Vector2>(); src.GetUVs(0, uv); bool hasUv = uv.Count == verts.Length;
-        var subs = new List<int>[3]; for (int s = 0; s < 3; s++) subs[s] = new List<int>();
-        int moved = 0;
-        // ふちにかかる三角形は、割れ目の線でぴったり切る（割れ目は z の区間ごとに直線＝三角波の山・谷で区切る）。
+        var subs = new List<int>[subCount]; for (int s = 0; s < subCount; s++) subs[s] = new List<int>();
+        int removed = 0;
+        // ふちにかかる三角形は、割れ目の線でぴったり切る（割れ目は z の Seg 幅ごとに直線）。
         // 切った多角形は扇形に三角形にする。となりの三角形も同じ線で切るので、すき間はできない
-        var w2lc = l2w.inverse;
         int AddV(Vector3 lp, Vector3 n, Vector2 t)
         {
             newV.Add(lp); newN.Add(n); if (hasUv) uv.Add(t); return newV.Count - 1;
@@ -66,11 +164,10 @@ public static class FuwaCourse2BrokenPath
         {
             if (poly.Count < 3) return;
             Vector3 c = Vector3.zero; foreach (int v in poly) c += l2w.MultiplyPoint3x4(newV[v]); c /= poly.Count;
-            bool rock = Side(c) == 1;
-            var dst = rock ? subs[2] : subs[sub];
-            for (int i = 1; i + 1 < poly.Count; i++) { dst.Add(poly[0]); dst.Add(poly[i]); dst.Add(poly[i + 1]); if (rock) moved++; }
+            if (Side(c) == 1) { removed += poly.Count - 2; return; }
+            for (int i = 1; i + 1 < poly.Count; i++) { subs[sub].Add(poly[0]); subs[sub].Add(poly[i]); subs[sub].Add(poly[i + 1]); }
         }
-        // poly を「dot(w, n) - d >= 0」側と反対側に分ける（どちらも返す）
+        // poly を f(w) >= 0 側と反対側に分ける（どちらも返す）
         void Split(List<int> poly, System.Func<Vector3, float> f, List<int> pos, List<int> neg)
         {
             int n = poly.Count;
@@ -88,8 +185,7 @@ public static class FuwaCourse2BrokenPath
                 }
             }
         }
-        float half = Tooth * 0.5f;
-        for (int s = 0; s < src.subMeshCount && s < 2; s++)
+        for (int s = 0; s < src.subMeshCount && s < subCount; s++)
         {
             var tris = src.GetTriangles(s);
             for (int i = 0; i < tris.Length; i += 3)
@@ -98,13 +194,13 @@ public static class FuwaCourse2BrokenPath
                 Vector3 cen = (w0 + w1 + w2) / 3f;
                 float zmin = Mathf.Min(w0.z, Mathf.Min(w1.z, w2.z)), zmax = Mathf.Max(w0.z, Mathf.Max(w1.z, w2.z));
                 float xmin = Mathf.Min(w0.x, Mathf.Min(w1.x, w2.x)), xmax = Mathf.Max(w0.x, Mathf.Max(w1.x, w2.x));
-                bool inBox = cen.x < EndX && cen.y < MaxY && cen.z > MinZ && cen.z < MaxZ;
-                float lo = CutX + Slope * (zmin - ZMid) - Amp * 1.3f - 0.1f, hi = CutX + Slope * (zmax - ZMid) + Amp * 1.3f + 0.1f;
+                bool inBox = cen.y < MaxY && cen.z > MinZ && cen.z < MaxZ;
+                float lo = CutX + Slope * (zmin - ZMid) - Amp - 0.1f, hi = CutX + Slope * (zmax - ZMid) + Amp + 0.1f;
                 var tri = new List<int> { tris[i], tris[i + 1], tris[i + 2] };
                 if (!inBox || xmax < lo || xmin > hi) { Emit(tri, s); continue; }
-                // z の区間（三角波の折れ目）で切る
+                // z の区間で切る
                 var pieces = new List<List<int>> { tri };
-                for (float zk = Mathf.Floor(zmin / half) * half + half; zk < zmax; zk += half)
+                for (float zk = Mathf.Floor(zmin / Seg) * Seg + Seg; zk < zmax; zk += Seg)
                 {
                     float zz = zk; var next = new List<List<int>>();
                     foreach (var pc in pieces) { var a = new List<int>(); var bb = new List<int>(); Split(pc, w => w.z - zz, a, bb); if (a.Count >= 3) next.Add(a); if (bb.Count >= 3) next.Add(bb); }
@@ -114,55 +210,80 @@ public static class FuwaCourse2BrokenPath
                 foreach (var pc in pieces)
                 {
                     Vector3 pc0 = Vector3.zero; foreach (int v in pc) pc0 += l2w.MultiplyPoint3x4(newV[v]); pc0 /= pc.Count;
-                    float z0 = Mathf.Floor(pc0.z / half) * half, z1 = z0 + half;
-                    float x0 = CutAt(z0 + 1e-4f), x1 = CutAt(z1 - 1e-4f);
-                    System.Func<Vector3, float> f = w => w.x - (x0 + (x1 - x0) * (w.z - z0) / half);
+                    float z0 = Mathf.Floor(pc0.z / Seg) * Seg, z1 = z0 + Seg;
+                    float x0 = CutAt(z0), x1 = CutAt(z1);
+                    System.Func<Vector3, float> f = w => w.x - (x0 + (x1 - x0) * (w.z - z0) / Seg);
                     var a = new List<int>(); var bb = new List<int>(); Split(pc, f, a, bb);
                     Emit(a, s); Emit(bb, s);
                 }
             }
         }
-        // 岩の部分は頂点を分けて、少しでこぼこ（割れた感じ）に。当たり判定は別メッシュなので見た目だけ（±4cm、岩が浮いて見えない程度）
-        var w2l = l2w.inverse; var remap = new Dictionary<int, int>();
-        for (int i = 0; i < subs[2].Count; i++)
-        {
-            int vi = subs[2][i];
-            if (!remap.TryGetValue(vi, out int ni))
-            {
-                ni = newV.Count; remap[vi] = ni;
-                Vector3 w = l2w.MultiplyPoint3x4(newV[vi]);
-                float n = Mathf.PerlinNoise(w.x * 1.7f, w.z * 1.7f) - 0.5f;
-                w += Vector3.up * n * 0.08f;
-                newV.Add(w2l.MultiplyPoint3x4(w)); newN.Add(newN[vi]); if (hasUv) uv.Add(uv[vi]);
-            }
-            subs[2][i] = ni;
-        }
-        int capped = 0;
-        // 頂上の柱ゾーン手前の崩落（FuwaCourse2Collapse で道を切った所）の切り口にふたをする（2026-10-12 てじゃ「頂上付近の道の端が割れてる」）。
-        // 切っただけだと切り口の断面が開いていて、横から見ると中が抜けて見えた。開いている辺の輪を岩のふたでふさぐ（見た目だけ）
-        capped = CapOpenLoops(newV, newN, uv, hasUv, subs[0], subs,   /* ふたは道と同じ黄色（てじゃ「黄色でふさいでほしかった」） */ l2w, new Bounds(new Vector3(121f, 12.5f, 5f), new Vector3(20f, 7f, 16f)));
-        // 切り口の断面（縦の面）は、元の道の面取りの法線を引きずっていて、縦の筋のような明暗のむらが出ていた（2026-10-13 てじゃ「筋もあるしちょっときたなく」）。
-        // 崩落の範囲の縦向きの三角形は、頂点を分けて、面の向き（水平）の法線にそろえる
-        var (cutO, cutAx) = FuwaCourse2Collapse.Frame(pm.parent);
-        FlattenCutNormals(newV, newN, uv, hasUv, subs, l2w, cutO, cutAx);
-        mesh.Clear();
-        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
-        mesh.SetVertices(newV); if (hasUv) mesh.SetUVs(0, uv);
-        mesh.subMeshCount = 3;
-        for (int s = 0; s < 3; s++) mesh.SetTriangles(subs[s], s);
-        mesh.SetNormals(newN); mesh.RecalculateBounds();   // 法線は元のまま（ベベルのなめらかさを崩さない）
-        EditorUtility.SetDirty(mesh);
-        var rockMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Rock.mat");
-        var mats = mr.sharedMaterials;
-        mr.sharedMaterials = new[] { mats[0], mats.Length > 1 ? mats[1] : mats[0], rockMat };
-        EditorUtility.SetDirty(mr);
-        AssetDatabase.SaveAssets();
-        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(pm.gameObject.scene);
-        return "broken path tris " + moved + ", capped loops " + capped;
+        return (newV, newN, uv, hasUv, subs, removed);
     }
-    // 開いている辺（三角形1枚にしか使われていない辺）のうち box の中のものに、断面の壁（ふた）を足す。足した壁の数を返す。
-    // 切り口は輪になっていない（道の上面のふち・下面のふち・角の丸み、とばらばらに開いている）ので、
-    // 上面と角の開いた辺を、真下の下面の高さ（近くの下面の開いた辺の頂点）までのばした縦の壁にする
+
+    // 転がる岩（FuwaBoulder）の通り道を、新しい床（割れた所は下の岩肌）の高さに合わせ、割れ目の段差で跳ねて乗り越えるようにする。
+    // 通り道の点の高さは床に当てて決め直し、段差の前後の点は毎回作り直す（何度実行してもよい）
+    const float HopBefore = 0.9f, HopAfter = 1.5f, HopHeight = 0.35f;
+    static string FixBoulders()
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var b in Object.FindObjectsOfType<FuwaBoulder>(true))
+        {
+            if (b.path == null || b.path.Length < 2) continue;
+            float r = b.radius;
+            float Ground(Vector3 p)
+            {
+                float best = float.NaN;
+                foreach (var h in Physics.RaycastAll(new Ray(new Vector3(p.x, p.y + 1.5f, p.z), Vector3.down), 4f))
+                    if ((h.collider.name == "PathMesh" || h.collider.name == "Mountain") && !h.collider.isTrigger && !(h.point.y <= best)) best = h.point.y;
+                return best;
+            }
+            var pts = new List<Vector3>(b.path);
+            // 床の高さに合わせる（床が見つからない洞窟の中は、出口の床の高さ）
+            var ys = new float[pts.Count];
+            for (int i = 0; i < pts.Count; i++) ys[i] = Ground(pts[i]);
+            for (int i = 0; i < pts.Count; i++) if (float.IsNaN(ys[i])) for (int k = i + 1; k < pts.Count; k++) if (!float.IsNaN(ys[k])) { ys[i] = ys[k]; break; }
+            for (int i = 1; i < pts.Count; i++) if (float.IsNaN(ys[i])) ys[i] = ys[i - 1];
+            for (int i = 0; i < pts.Count; i++) if (!float.IsNaN(ys[i])) pts[i] = new Vector3(pts[i].x, ys[i] + r, pts[i].z);
+            // 段差の位置（割れ目の線を、転がる向きに横切る所）
+            int cross = -1;
+            for (int i = 1; i < pts.Count; i++) if (pts[i - 1].x > CutAt(pts[i - 1].z) && pts[i].x <= CutAt(pts[i].z)) { cross = i; break; }
+            if (cross < 0) { b.path = pts.ToArray(); EditorUtility.SetDirty(b); sb.Append(b.name + " no step; "); continue; }
+            Vector3 pa = pts[cross - 1], pb = pts[cross];
+            float fa = pa.x - CutAt(pa.z), fb = pb.x - CutAt(pb.z); float t = fa / (fa - fb);
+            Vector3 edge = Vector3.Lerp(pa, pb, t);
+            Vector3 dir = pb - pa; dir.y = 0f; dir.Normalize();
+            float DistAlong(Vector3 p) { var d = p - edge; d.y = 0f; return Vector3.Dot(d, dir); }
+            // 段差の前後（HopBefore 手前〜HopAfter 先）の点を消して、跳ねる弧を入れ直す
+            var keep = new List<Vector3>(); int insertAt = -1;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                float da = DistAlong(pts[i]);
+                if (da >= -HopBefore - 0.05f && da <= HopAfter + 0.05f) { if (insertAt < 0) insertAt = keep.Count; continue; }
+                keep.Add(pts[i]);
+            }
+            if (insertAt < 0) insertAt = keep.Count;
+            Vector3 p0 = edge - dir * HopBefore, p1 = edge + dir * HopAfter;
+            float g0 = Ground(p0), g1 = Ground(p1);
+            p0.y = (float.IsNaN(g0) ? edge.y - r - 0.34f : g0) + r; p1.y = (float.IsNaN(g1) ? edge.y - r : g1) + r;
+            // 低い床から段差の上へ：段差のふちに当たって持ち上がり、少し浮いて着地（二次ベジェ）
+            float ctrl = Mathf.Max(p0.y, p1.y) + HopHeight * 2f;
+            var arc = new List<Vector3>();
+            const int N = 10;
+            for (int k = 0; k <= N; k++)
+            {
+                float u = k / (float)N;
+                Vector3 q = Vector3.Lerp(p0, p1, u);
+                q.y = (1f - u) * (1f - u) * p0.y + 2f * u * (1f - u) * ctrl + u * u * p1.y;
+                arc.Add(q);
+            }
+            keep.InsertRange(insertAt, arc);
+            b.path = keep.ToArray(); EditorUtility.SetDirty(b);
+            sb.Append(b.name + " step at " + edge.ToString("F2") + " low " + p0.y.ToString("F2") + " high " + p1.y.ToString("F2") + "; ");
+        }
+        return sb.ToString();
+    }
+
     // 崩落の谷の切り口の面（谷を横切る向き ±axis を向いた縦の面）だけ。道の横の面（面取り）は触らない（触ると角が剥がれたように見えた。2026-10-13 てじゃ）
     static void FlattenCutNormals(List<Vector3> V, List<Vector3> N, List<Vector2> UV, bool hasUv, List<int>[] subs, Matrix4x4 l2w, Vector3 cutO, Vector3 cutAx)
     {
@@ -189,7 +310,11 @@ public static class FuwaCourse2BrokenPath
     }
 
     const float WallDepth = 0.3f;   // 道の厚み（FuwaCourse2Builder.Thick）
-    static int CapOpenLoops(List<Vector3> V, List<Vector3> N, List<Vector2> UV, bool hasUv, List<int> dst, List<int>[] all, Matrix4x4 l2w, Bounds box)
+    // 開いている辺（三角形1枚にしか使われていない辺）のうち box の中のものに、断面の壁（ふた）を足す。足した壁の数を返す。
+    // 切り口は輪になっていない（道の上面のふち・下面のふち・角の丸み、とばらばらに開いている）ので、
+    // 上面と角の開いた辺を、真下の下面の高さ（近くの下面の開いた辺の頂点）までのばした縦の壁にする
+    // bottom を渡すと、壁の下はしをその高さ（ワールドの y、上はしの点ごと）に。null なら上はしから道の厚みぶん下
+    static int CapOpenLoops(List<Vector3> V, List<Vector3> N, List<Vector2> UV, bool hasUv, List<int> dst, List<int>[] all, Matrix4x4 l2w, Bounds box, System.Func<Vector3, float> bottom)
     {
         var id = new int[V.Count]; var key = new Dictionary<Vector3Int, int>();
         for (int i = 0; i < V.Count; i++)
@@ -218,7 +343,7 @@ public static class FuwaCourse2BrokenPath
             if (fn.y < -0.7f) { lower.Add(wa); lower.Add(wb); }
             else upper.Add((V[va], V[vb]));   // 三角形の向き a→b。壁は b→a の向き
         }
-        if (lower.Count == 0) return 0;
+        if (lower.Count == 0 && bottom == null) return 0;
         var w2l = l2w.inverse;
         Vector3 Down(Vector3 local)
         {
@@ -231,12 +356,13 @@ public static class FuwaCourse2BrokenPath
         {
             Vector3 a = ua, b = ub;
             Vector3 a2 = Down(a), b2 = Down(b);
-            if ((a - a2).sqrMagnitude < 1e-6f && (b - b2).sqrMagnitude < 1e-6f) continue;
+            if (bottom == null && (a - a2).sqrMagnitude < 1e-6f && (b - b2).sqrMagnitude < 1e-6f) continue;
             // 壁の下はしは、上はしから道の厚みぶん下にそろえる（近くの下面の頂点まで伸ばすと、ところどころ長く垂れて「黄色がたれて」見えた。2026-10-13 てじゃ）。
             // となりの壁とは横に少し重ねて髪の毛くらいのすき間を消す（2026-10-13 てじゃ「つなぎ目に隙間」）
             Vector3 wa = l2w.MultiplyPoint3x4(a), wb = l2w.MultiplyPoint3x4(b);
-            a2 = w2l.MultiplyPoint3x4(new Vector3(wa.x, wa.y - WallDepth, wa.z));
-            b2 = w2l.MultiplyPoint3x4(new Vector3(wb.x, wb.y - WallDepth, wb.z));
+            a2 = w2l.MultiplyPoint3x4(new Vector3(wa.x, bottom != null ? bottom(wa) : wa.y - WallDepth, wa.z));
+            b2 = w2l.MultiplyPoint3x4(new Vector3(wb.x, bottom != null ? bottom(wb) : wb.y - WallDepth, wb.z));
+            if (bottom != null && (a - a2).sqrMagnitude < 1e-6f && (b - b2).sqrMagnitude < 1e-6f) continue;
             Vector3 along = (a - b).normalized * 0.012f;
             a += along; b -= along; a2 += along; b2 -= along;
             // 法線は水平に（縦の筋のような明暗のむらが出ないように）
