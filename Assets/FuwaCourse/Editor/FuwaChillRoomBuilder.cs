@@ -18,14 +18,12 @@ public static class FuwaChillRoomBuilder
     // 配置（2026-10-12 てじゃ「真ん中にキノコ、右奥にデカソファでモニタを眺めるエリア、左奥にフワフワギミックエリア（未定）」）。スポーンは手前（-Z）
     // 島の大きさ：古いみんなでロビーの島（半径14m）の何倍か（2026-10-13 てじゃ「ちょっと広い」→ 半径10.5m。手前半分がほぼ空だった）
     const float IslandScale = 0.75f;
-    static readonly Vector3 MushLocal = new Vector3(0f, 0f, -3.54f);      // 島の真ん中から少し手前（2026-10-13 てじゃが手で置いた位置）
-    static readonly Vector3 PanelLocal = new Vector3(-3.299f, 0f, -8.229f);   // スイッチ（スポーンの左。2026-10-13 てじゃが手で置いた位置・向き）
-    const float PanelYaw = 202.4f;
+    static readonly Vector3 MushLocal = new Vector3(-2.56f, 0f, -4.16f);  // 左手前（2026-10-13 てじゃが手で置いた位置）
+    static readonly Vector3 PanelLocal = new Vector3(-4.253f, 0f, -8.036f);   // スイッチ（スポーンの左。2026-10-13 てじゃが手で置いた位置・向き）
+    const float PanelYaw = 205.4f;
     // 右奥の観戦リビング（ラグの中心）。島を縮めた時に、跳ねるキノコと重ならないよう少し右へ回した（前は (5.3, 0, 5.3)）
     static readonly Vector3 LivingLocal = new Vector3(4.7f, 0f, 2.9f);
-    // 遊び方の看板（板と文字は消して、言語・HUD・音量のボタンだけ。2026-10-13 てじゃ「あそびかたボードいらんかも、ボタンだけ残し」）。てじゃが手で置いた位置・向き
-    static readonly Vector3 HowToLocal = new Vector3(-3.23f, -0.12f, -8.76f);
-    const float HowToYaw = 195f;
+    // 遊び方の看板の言語・音量ボタンはスイッチのボードの下（BoardButtons）
     // 島の外の物（FuwaCoop の直下。前は手で置いていた位置×島の大きさ）：スポーン、ワープ2つ、エアガンの台（2026-10-13 てじゃ「銃の台も真ん中に」→ キノコの右手前、スイッチの反対）
     static readonly Vector3 SpawnLocal = new Vector3(0f, 0f, -8.8f) * IslandScale;
     static readonly Vector3 ReturnWarpLocal = new Vector3(7.3f, 0f, -9.4f) * IslandScale;
@@ -133,17 +131,8 @@ public static class FuwaChillRoomBuilder
             var pos = pc + rot * new Vector3(col == 0 ? -0.68f : 0.68f, row == 0 ? 1.55f : 1.15f, 0f);
             labels[k] = LaserButton(panel, "Switch" + k, pos, rot, 1.45f, "", sp, events[k]);
         }
-        // 支柱（木の棒）2本と、横木
-        var wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
-        foreach (float sx in new[] { -1.42f, 1.42f })
-        {
-            var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post";
-            Object.DestroyImmediate(post.GetComponent<Collider>());
-            post.transform.SetParent(panel, false);
-            post.transform.position = pc + rot * new Vector3(sx, 0.9f, 0.06f); post.transform.rotation = rot;
-            post.transform.localScale = new Vector3(0.08f, 0.9f, 0.08f);
-            post.GetComponent<MeshRenderer>().sharedMaterial = wood;
-        }
+        // 支柱はなし（2026-10-13 てじゃ「柱なくそう」）
+        BoardButtons(coop, panel, pc, rot, howTo);
         sp.sizeLabel = labels[0]; sp.colorLabel = labels[1]; sp.limitLabel = labels[2]; sp.popLabel = labels[3];
         UdonSharpEditorUtility.CopyProxyToUdon(sp);
         var sub = UdonSharpEditorUtility.GetBackingUdonBehaviour(sp); if (sub != null) { sub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(sub); }
@@ -151,8 +140,7 @@ public static class FuwaChillRoomBuilder
         if (howTo != null)
         {
             SetHowToText(howTo.Find("Text").GetComponent<TMPro.TextMeshPro>());
-            howTo.position = ac + HowToLocal; howTo.rotation = Quaternion.Euler(0f, HowToYaw, 0f);
-            foreach (var n in new[] { "Panel", "Border", "Text" }) { var t = howTo.Find(n); if (t != null) t.gameObject.SetActive(false); }
+            // 看板の板・文字は消して、ボタンはスイッチのボードのまわりへ（BoardButtons）
         }
 
         // 観戦モニター（ひとりでのロビーの写真館のモニターと、CAM・人物ボタンをコピー。2026-10-12 てじゃ「こっちでも観戦できる」）
@@ -885,6 +873,85 @@ public static class FuwaChillRoomBuilder
         var fn = Vector3.Cross(v0[t0[1]] - v0[t0[0]], v0[t0[2]] - v0[t0[0]]);
         if (Vector3.Dot(fn, ns[t0[0]]) < 0f) { for (int k = 0; k < t0.Length; k += 3) { int x = t0[k + 1]; t0[k + 1] = t0[k + 2]; t0[k + 2] = x; } m.triangles = t0; }
         return m;
+    }
+
+    // スイッチのボードのまわりのボタン（2026-10-13 てじゃ「柱なくそう、言語ボタンと音量ボタンはその下に横並び、HUDはここではいらん、チャレンジにあるワープボタンを右側に」）。
+    // ・下：遊び方の看板（HowToPlayVersus）にある言語・音量ボタンを、ボードの下に横並び（看板の板・文字・HUD は消す）
+    // ・右：チャレンジのロビーの看板の右と同じ「今いるモード（押せない札）／もう一つのモード／タイトルにもどる」。
+    //   ここはあそびばなので、上の札が「あそびば（人数）」、その下が「チャレンジ（人数）」＝押すとチャレンジへ飛ぶ、いちばん下が「タイトルにもどる」
+    const float BoardSideX = 2.25f;
+    static readonly float[] BoardSideY = { 1.75f, 1.35f, 0.95f };
+    const float BoardBottomY = 0.72f, BoardBottomX = 0.75f;
+    static void BoardButtons(Transform coop, Transform panel, Vector3 pc, Quaternion rot, Transform howTo)
+    {
+        if (howTo != null)
+        {
+            howTo.SetPositionAndRotation(pc, rot);
+            foreach (var n in new[] { "Panel", "Border", "Text", "HudButton" }) { var t = howTo.Find(n); if (t != null) t.gameObject.SetActive(false); }
+            var lang = howTo.Find("LanguageButton"); if (lang != null) lang.localPosition = new Vector3(-BoardBottomX, BoardBottomY, 0f);
+            var vol = howTo.Find("BgmVolume"); if (vol != null) vol.localPosition = new Vector3(BoardBottomX, BoardBottomY, 0f);
+        }
+        var lobbyHow = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HowToPlay" && t.parent != null && t.parent.name == "FuwaLobby");
+        GameObject Copy(string src, string name, int row)
+        {
+            var s = lobbyHow.Find(src);
+            var g = Object.Instantiate(s.gameObject, panel, false); g.name = name;
+            g.transform.SetPositionAndRotation(pc + rot * new Vector3(BoardSideX, BoardSideY[row], 0f), rot);
+            g.transform.localScale = s.lossyScale;
+            return g;
+        }
+        void Retarget(GameObject g, string warpName)
+        {
+            var target = coop.Find(warpName + "/" + warpName + "_Trigger");
+            var ub = target != null ? target.GetComponent<VRC.Udon.UdonBehaviour>() : null;
+            var b = g.GetComponentInChildren<UnityEngine.UI.Button>(true);
+            if (b == null || ub == null) return;
+            var so = new SerializedObject(b);
+            var calls = so.FindProperty("m_OnClick.m_PersistentCalls.m_Calls");
+            for (int i = 0; i < calls.arraySize; i++) calls.GetArrayElementAtIndex(i).FindPropertyRelative("m_Target").objectReferenceValue = ub;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+        var here = Copy("SoloCount", "HereCount", 0);              // あそびば（押せない札）
+        var toSolo = Copy("TogetherButton", "ToChallengeButton", 1); Retarget(toSolo, "ToSolo");
+        var toTitle = Copy("ModeSelectButton", "ToTitleButton", 2); Retarget(toTitle, "ReturnToHub");
+        // 人数は動いてから FuwaModeCounter が書くので、エディタで見た時に分かるよう名前だけ入れておく（コピー元のままだと逆に見える）
+        here.GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text = "あそびば";
+        toSolo.GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text = "チャレンジ";
+
+        // 人数つきの文字は FuwaModeCounter が書く（チャレンジのロビーと同じ決まり）。消えた古い分を詰めて足す
+        var mc = Object.FindObjectsOfType<FuwaModeCounter>(true).FirstOrDefault();
+        if (mc != null)
+        {
+            var so = new SerializedObject(mc);
+            var lab = so.FindProperty("uiLabels"); var area = so.FindProperty("uiLabelAreas"); var ja = so.FindProperty("uiLabelsJa"); var en = so.FindProperty("uiLabelsEn"); var col = so.FindProperty("uiCountColors");
+            var keep = new List<int>();
+            for (int i = 0; i < lab.arraySize; i++) if (lab.GetArrayElementAtIndex(i).objectReferenceValue != null) keep.Add(i);
+            var L = keep.Select(i => lab.GetArrayElementAtIndex(i).objectReferenceValue).ToList();
+            var A = keep.Select(i => area.GetArrayElementAtIndex(i).intValue).ToList();
+            var J = keep.Select(i => ja.GetArrayElementAtIndex(i).stringValue).ToList();
+            var E = keep.Select(i => en.GetArrayElementAtIndex(i).stringValue).ToList();
+            var C = keep.Select(i => i < col.arraySize ? col.GetArrayElementAtIndex(i).stringValue : "").ToList();
+            // 札（あそびば）は数字がコーラル、ボタン（チャレンジ）は白っぽく（チャレンジのロビーと同じ）
+            L.Add(here.GetComponentInChildren<TMPro.TextMeshProUGUI>(true)); A.Add(2); J.Add("あそびば"); E.Add("Playground"); C.Add("#F2786B");
+            L.Add(toSolo.GetComponentInChildren<TMPro.TextMeshProUGUI>(true)); A.Add(1); J.Add("チャレンジ"); E.Add("Challenge"); C.Add("");
+            lab.arraySize = L.Count; area.arraySize = L.Count; ja.arraySize = L.Count; en.arraySize = L.Count; col.arraySize = L.Count;
+            for (int i = 0; i < L.Count; i++)
+            {
+                lab.GetArrayElementAtIndex(i).objectReferenceValue = L[i]; area.GetArrayElementAtIndex(i).intValue = A[i];
+                ja.GetArrayElementAtIndex(i).stringValue = J[i]; en.GetArrayElementAtIndex(i).stringValue = E[i]; col.GetArrayElementAtIndex(i).stringValue = C[i];
+            }
+            so.ApplyModifiedPropertiesWithoutUndo(); Sync(mc);
+        }
+        // 「タイトルにもどる」の言語切り替え（チャレンジのロビーの登録と同じ文字）
+        var language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
+        var titleText = toTitle.GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+        if (language != null && titleText != null)
+        {
+            var srcText = lobbyHow.Find("ModeSelectButton").GetComponentInChildren<TMPro.TextMeshProUGUI>(true);
+            int k = System.Array.IndexOf(language.uiTexts, srcText);
+            string tja = k >= 0 ? language.uiJa[k] : titleText.text, ten = k >= 0 ? language.uiEn[k] : "Back to Title";
+            var lso = new SerializedObject(language); AddLang(lso, "uiTexts", "uiJa", "uiEn", titleText, tja, ten); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(language);
+        }
     }
 
     // 島のまわりの木の柵（2026-10-13 てじゃ「周りに柵つけとこ」）。写真館の島の柵（FuwaPhotoStudioBuilder.StudioFence）と同じ作り：
