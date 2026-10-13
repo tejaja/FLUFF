@@ -571,7 +571,7 @@ public static class FuwaPlaygroundBuilder
                 Vector3 zl = OnRing(CamZoneAngle, IslandR - 1.1f), outD = new Vector3(zl.x, 0f, zl.z).normalized;
                 var rel = Quaternion.Inverse(monitorHolder.rotation) * zoneT.rotation;
                 zoneT.position = new Vector3(ac.x + zl.x, zonePos.y, ac.z + zl.z);
-                zoneT.rotation = Quaternion.LookRotation(outD) * rel;
+                zoneT.rotation = Quaternion.LookRotation(outD);   // 文字が島の真ん中から正面に読める向き（写真館との向きの関係を引き継ぐと横向きで斜めに見えた。2026-10-13 てじゃ「カメラ球の向きが変」）
             }
             var mon = monitorHolder.Find("Monitor");
             var scr = mon.Find("Screen");
@@ -1171,7 +1171,8 @@ public static class FuwaPlaygroundBuilder
                 int seg = Mathf.Max(2, Mathf.CeilToInt((b1 - b0) * rm / 0.25f));
                 for (int sIdx = 0; sIdx < seg; sIdx++)
                 {
-                    float t0 = Mathf.Lerp(b0 + cr, b1 - cr, (float)sIdx / seg), t1 = Mathf.Lerp(b0 + cr, b1 - cr, (float)(sIdx + 1) / seg);
+                    // 端は面取りしない（板の長い辺だけ面取り。端も面取りすると角に三角の面が出て変に見えた。2026-10-13 てじゃ「木の床の角が変」）
+                    float t0 = Mathf.Lerp(b0, b1, (float)sIdx / seg), t1 = Mathf.Lerp(b0, b1, (float)(sIdx + 1) / seg);
                     float u0 = Mathf.Lerp(b0, b1, (float)sIdx / seg), u1 = Mathf.Lerp(b0, b1, (float)(sIdx + 1) / seg);
                     // 上の面（ふちは面取りの分だけ内側）
                     Quad(m, P(t0, ri + c, h), P(t0, ro - c, h), P(t1, ro - c, h), P(t1, ri + c, h));
@@ -1181,10 +1182,10 @@ public static class FuwaPlaygroundBuilder
                     Quad(m, P(u0, ro, h - c), P(u0, ro, hb), P(u1, ro, hb), P(u1, ro, h - c));
                     Quad(m, P(u1, ri, h - c), P(u1, ri, hb), P(u0, ri, hb), P(u0, ri, h - c));
                 }
-                // 端（板の切り口）：面取り＋側面
-                Quad(m, P(b0 + cr, ri + c, h), P(b0, ri, h - c), P(b0, ro, h - c), P(b0 + cr, ro - c, h));
+                // 端（板の切り口）：まっすぐな縦の面（上は長い辺の面取りの形に合わせた六角形）
+                Quad(m, P(b0, ri + c, h), P(b0, ri, h - c), P(b0, ro, h - c), P(b0, ro - c, h));
                 Quad(m, P(b0, ri, h - c), P(b0, ri, hb), P(b0, ro, hb), P(b0, ro, h - c));
-                Quad(m, P(b1 - cr, ro - c, h), P(b1, ro, h - c), P(b1, ri, h - c), P(b1 - cr, ri + c, h));
+                Quad(m, P(b1, ro - c, h), P(b1, ro, h - c), P(b1, ri, h - c), P(b1, ri + c, h));
                 Quad(m, P(b1, ro, h - c), P(b1, ro, hb), P(b1, ri, hb), P(b1, ri, h - c));
                 boards++;
             }
@@ -1264,7 +1265,11 @@ public static class FuwaPlaygroundBuilder
         string p = MatDir + "/" + name + ".mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(p);
         if (m == null) { m = new Material(AssetDatabase.LoadAssetAtPath<Material>(basePath)) { name = name }; AssetDatabase.CreateAsset(m, p); }
-        m.SetColor("_Color", c); EditorUtility.SetDirty(m);
+        m.SetColor("_Color", c);
+        // 元にした地面の材質（Goal_Ground）の草の模様は、地面以外には要らない（2026-10-13 てじゃ「ミニソファに芝模様はいってる？」）
+        if (basePath.EndsWith("Goal_Ground.mat") && !name.Contains("Grass"))
+            foreach (var pn in new[] { "_GroundPatch", "_GroundFine", "_TopStrength", "_StrataStrength", "_NoiseStrength" }) if (m.HasProperty(pn)) m.SetFloat(pn, 0f);
+        EditorUtility.SetDirty(m);
         return m;
     }
 
