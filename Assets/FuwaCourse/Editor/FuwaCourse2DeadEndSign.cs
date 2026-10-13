@@ -58,7 +58,7 @@ public static class FuwaCourse2DeadEndSign
             int i = V.Count;
             V.Add(c + d0 * PlateR + Vector3.forward * zf); V.Add(c + d1 * PlateR + Vector3.forward * zf); V.Add(c + d1 * PlateR + Vector3.forward * zb); V.Add(c + d0 * PlateR + Vector3.forward * zb);
             N.Add(d0); N.Add(d1); N.Add(d1); N.Add(d0);
-            T[2].AddRange(new[] { i, i + 2, i + 1, i, i + 3, i + 2 });
+            T[2].AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });   // 外向き（前は裏返っていて、横から見ると手前のふちが透けた。2026-10-13 てじゃ）
         }
         // 白い横棒（面から少し浮かせた板＋厚みの側面）
         {
@@ -105,9 +105,27 @@ public static class FuwaCourse2DeadEndSign
         go.GetComponent<MeshFilter>().sharedMesh = mesh;
         go.GetComponent<MeshRenderer>().sharedMaterials = new[] { Mat("Sign_Red", new Color(0.86f, 0.18f, 0.18f)), Mat("Sign_Paper", Color.white), Mat("Sign_Pole", new Color(0.62f, 0.63f, 0.67f)) };
         GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic);
+        // 柱の根元に重なる小石（LedgeRock5 が貫通していた。2026-10-13 てじゃ）を、柱から少し離して床に置き直す
+        string moved = "";
+        foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            if (r.gameObject == go) continue;
+            var b = r.bounds; if (b.size.magnitude > 1.2f || b.min.y > y + 0.3f || b.max.y < y - 0.3f) continue;
+            var d = new Vector2(b.center.x - Pos.x, b.center.z - Pos.z); float need = PoleR + b.extents.x + 0.08f;
+            if (d.magnitude >= need) continue;
+            var dir = d.sqrMagnitude > 1e-6f ? d.normalized : new Vector2(1f, 0f);
+            var to = new Vector2(Pos.x, Pos.z) + dir * need;
+            Undo.RecordObject(r.transform, "move rock");
+            r.transform.position += new Vector3(to.x - b.center.x, 0f, to.y - b.center.z);
+            float g = float.MinValue;
+            foreach (var h in Physics.RaycastAll(new Ray(new Vector3(to.x, 14f, to.y), Vector3.down), 8f))
+                if (h.collider.name == "Mountain" || h.collider.name == "PathMesh") g = Mathf.Max(g, h.point.y);
+            if (g > float.MinValue) r.transform.position += Vector3.up * (g - 0.04f - r.bounds.min.y);
+            moved += " moved " + r.name;
+        }
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
-        return "no entry sign at " + go.transform.position.ToString("F2");
+        return "no entry sign at " + go.transform.position.ToString("F2") + moved;
     }
 
     // 看板の色（木の看板と同じシェーダー）。無ければ作る
