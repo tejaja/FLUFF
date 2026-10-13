@@ -265,10 +265,11 @@ public static class FuwaPlaygroundBuilder
             var ps = g.GetComponent<ParticleSystem>();
             EditorUtility.CopySerialized(windSrc, ps);
             EditorUtility.CopySerialized(windSrc.GetComponent<ParticleSystemRenderer>(), g.GetComponent<ParticleSystemRenderer>());
-            var main = ps.main; main.playOnAwake = false; main.loop = true; main.startLifetime = 0.6f; main.startSpeed = 0f; main.startSize = 0.07f;
-            main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 60; main.scalingMode = ParticleSystemScalingMode.Hierarchy;
-            var em = ps.emission; em.rateOverTime = 22f;
-            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.11f; sh.scale = Vector3.one; sh.position = Vector3.zero; sh.rotation = Vector3.zero;
+            var main = ps.main; main.playOnAwake = false; main.loop = true; main.startLifetime = 0.9f; main.startSpeed = 0f; main.startSize = 0.07f;
+            main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 90; main.scalingMode = ParticleSystemScalingMode.Hierarchy;
+            // 筋が出る範囲は、実際に風が当たる範囲（FuwaHandFan：根元の半径0.35m、1mごとに0.25m広がる、届くのは4.5m）に合わせる（2026-10-13 てじゃ「もうちょい範囲広げよ」）
+            var em = ps.emission; em.rateOverTime = 36f;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 14f; sh.radius = 0.3f; sh.scale = Vector3.one; sh.position = Vector3.zero; sh.rotation = Vector3.zero;
             var vel = ps.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.Local;
             vel.x = new ParticleSystem.MinMaxCurve(0f); vel.y = new ParticleSystem.MinMaxCurve(0f); vel.z = new ParticleSystem.MinMaxCurve(5f);
             var nz = ps.noise; nz.strengthMultiplier = 0.35f; nz.frequency = 1.2f;
