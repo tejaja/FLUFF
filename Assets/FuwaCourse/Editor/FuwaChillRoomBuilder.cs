@@ -625,7 +625,9 @@ public static class FuwaChillRoomBuilder
 
         // ---- ぬいぐるみ ----
         float r = baseR;
-        float standUp = r * 0.72f;   // 毛の見た目は当たりより少し小さいので低めに
+        // 地面からの高さはコース4のまものと同じ（毛の芯の下はしが地面すれすれ。前は r*0.72 で浮いて見えた。2026-10-13 てじゃ「もうちょい接地」）
+        Physics.SyncTransforms();
+        float standUp = Physics.Raycast(e.transform.position + Vector3.up * 0.6f, Vector3.down, out var eg, 5f, 1 << 11, QueryTriggerInteraction.Ignore) ? e.transform.position.y - eg.point.y : 0.2f;
         var root = new GameObject("Plush0"); root.layer = 13; root.transform.SetParent(slot, false);
         root.transform.position = slot.position - side * 1.2f + Vector3.up * standUp;
         root.transform.rotation = Quaternion.LookRotation(fwd);   // 顔（+Z）をキノコの方へ
@@ -653,6 +655,7 @@ public static class FuwaChillRoomBuilder
         FuwaSleepEyesSetup.AddTo(pl.eyes);   // 寝ている時の「︶」の目
         FuwaSleepEyesSetup.SmoothEyes(pl.eyes);   // なめらかな目玉
         pl.standUp = standUp; pl.ground = 1 << 11; pl.fallY = slot.position.y - 6f;
+        pl.bodyBottom = vis.Find("Body").GetComponent<Renderer>().bounds.extents.y;
         pl.bramble = bBody; pl.brambleRadius = bR;
         pl.popEffect = popFx; pl.popSound = popSfx;
         UdonSharpEditorUtility.CopyProxyToUdon(pl);

@@ -31,7 +31,9 @@ public class FuwaChillPlush : UdonSharpBehaviour
 
     [Header("追いかける")]
     [Tooltip("地面から体の中心（このオブジェクトの位置）までの高さ")]
-    public float standUp = 0.3f;
+    public float standUp = 0.2f;
+    [Tooltip("体（毛の芯）の中心から下はしまで(m)。つぶれた時に足元が浮かないよう、見た目をこの分だけ下げる")]
+    public float bodyBottom = 0.175f;
     public float detectRange = 4.5f;
     [Tooltip("置いた場所からこれ以上離れたふわふわは追わない")]
     public float leashRange = 6f;
@@ -67,6 +69,7 @@ public class FuwaChillPlush : UdonSharpBehaviour
     [UdonSynced] private bool _down;
 
     private Vector3 _baseScale = Vector3.one;
+    private Vector3 _basePos;
     private Vector3 _eyesScale = Vector3.one;
     private Vector3 _fxBase, _fxScale = Vector3.one;
     private float _squashAt = -10f;
@@ -90,7 +93,7 @@ public class FuwaChillPlush : UdonSharpBehaviour
 
     private void Start()
     {
-        if (visual != null) _baseScale = visual.localScale;
+        if (visual != null) { _baseScale = visual.localScale; _basePos = visual.localPosition; }
         if (eyes != null) _eyesScale = eyes.localScale;
         if (sleepFx != null) { _fxBase = sleepFx.localPosition; _fxScale = sleepFx.localScale; }
         _pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
@@ -442,5 +445,8 @@ public class FuwaChillPlush : UdonSharpBehaviour
             s = new Vector3(s.x * (1f + w * 0.6f), s.y * (1f - w), s.z * (1f + w * 0.6f));
         }
         if (visual.localScale != s) visual.localScale = s;
+        // つぶれて低くなった分だけ下げて、足元を地面につけたままにする（寝息・溜め・ぽよん）（2026-10-13 てじゃ「もうちょい接地」）
+        Vector3 lp = _basePos + Vector3.down * bodyBottom * (1f - s.y / Mathf.Max(0.0001f, _baseScale.y));
+        if (visual.localPosition != lp) visual.localPosition = lp;
     }
 }
