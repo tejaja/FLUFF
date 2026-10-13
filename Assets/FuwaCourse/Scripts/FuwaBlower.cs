@@ -15,6 +15,8 @@ public class FuwaBlower : UdonSharpBehaviour
     public FuwaBall targetBall;
     [Tooltip("みんなで吹く同期ふわふわ（FuwaSharedBall）。自分のふわふわと同じ風で吹ける")]
     public FuwaSharedBall[] sharedBalls;
+    [Tooltip("あそびばのまもののぬいぐるみ（FuwaChillPlush）。撃つと押し返せる（2026-10-13）")]
+    public FuwaChillPlush[] plushes;
     [Tooltip("風が出る口。forward（青い矢印）が風の向き")]
     public Transform nozzle;
     public ParticleSystem puffEffect;
@@ -868,6 +870,15 @@ public class FuwaBlower : UdonSharpBehaviour
             Vector3 vb = ShotVelocity(origin, aim, reach, ballPower, targetBall.transform.position);
             if (vb != Vector3.zero) { targetBall.Blow(vb); targetBall.ShotWindDamp(charge, vb); }
         }
+        // あそびばのまもののぬいぐるみ：撃った向きへ押し返す（持ち主の画面で動く）
+        if (plushes != null)
+            for (int i = 0; i < plushes.Length; i++)
+            {
+                FuwaChillPlush pl = plushes[i];
+                if (pl == null || !pl.gameObject.activeInHierarchy) continue;
+                Vector3 vp = ShotVelocityPadded(origin, aim, reach, enemyPower, pl.transform.position, pl.radius);
+                if (vp != Vector3.zero) pl.Blown(vp);
+            }
         if (sharedBalls == null) { _coneScale = 1f; return; }
         for (int i = 0; i < sharedBalls.Length; i++)
         {

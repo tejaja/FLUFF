@@ -588,40 +588,104 @@ public static class FuwaChillRoomBuilder
         Debug.Log("gravity seed upright");
     }
 
-    // まもののぬいぐるみ：コース4 のけだまの体と目をコピー。大きさ違いで3つ
+    // まもののぬいぐるみ1体＋イバラ1つ（2026-10-13 てじゃ「まもの1 いばら1」。前は大きさ違いのぬいぐるみ3体）。
+    // ぬいぐるみ：コース4 のけだまの体と目と鼻ちょうちん。寝ている⇄起きて追いかける（FuwaChillPlush）。持って置ける
+    // イバラ：コース4 のイバラ（SpikePatch4）。ふわふわははじける・人は足が遅くなる・ぬいぐるみは押し込まれると倒れる。持って動かせる（FuwaMovableMushroom と同じ仕組み）
     static void FillPlush(Transform slot, FuwaChillSpawner sp)
     {
-        EnsureProgram("FuwaChillPlush");
-        var e = RootGo("FuwaCourse4").GetComponentsInChildren<FuwaEnemy>(true).First();
+        foreach (var old in slot.Cast<Transform>().Where(t => t.name.StartsWith("Plush") || t.name.StartsWith("Bramble")).ToList()) Object.DestroyImmediate(old.gameObject);
+        EnsureProgram("FuwaChillPlush"); EnsureProgram("FuwaMovableMushroom");
+        var e = RootGo("FuwaCourse4").GetComponentsInChildren<FuwaEnemy>(true).First(x => x.name == "Enemy4");
         float baseR = e.GetComponent<SphereCollider>().radius * e.transform.lossyScale.x;
-        var jump = e.transform.Find("JumpSfx");
-        var sizes = new[] { 1.0f, 0.75f, 1.35f };
-        var offs = new[] { new Vector3(0f, 0f, 0f), new Vector3(-1.1f, 0f, 0.5f), new Vector3(1.2f, 0f, 0.4f) };
-        for (int i = 0; i < 3; i++)
+        Vector3 fwd = slot.forward; fwd.y = 0f; fwd.Normalize();
+        Vector3 side = new Vector3(fwd.z, 0f, -fwd.x);
+
+        // ---- イバラ（見た目と判定＝body、持つところ＝handle） ----
+        var spSrc = RootGo("FuwaCourse4").GetComponentsInChildren<Transform>(true).First(t => t.name == "SpikePatch4" && t.parent != null && t.parent.name == "Spikes");
+        Vector3 bPos = slot.position + side * 1.6f;   // ぬいぐるみと2.8m離す（起きてすぐ自分から飛び込まないように）
+        var bBody = new GameObject("BrambleBody").transform; bBody.SetParent(slot, false); bBody.SetPositionAndRotation(bPos, Quaternion.LookRotation(fwd));
+        var bg = Object.Instantiate(spSrc.gameObject, bBody, false); bg.name = "SpikePatch";
+        bg.transform.localPosition = Vector3.zero; bg.transform.localRotation = Quaternion.identity; bg.transform.localScale = Vector3.one;
+        foreach (var t in bBody.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+        foreach (var fs in bBody.GetComponentsInChildren<FuwaSpike>(true)) { SetU(fs, "ball", null); Sync(fs); }
+        var trig = bBody.GetComponentInChildren<FuwaSpike>(true).GetComponent<BoxCollider>();
+        float bR = Mathf.Max(trig.bounds.extents.x, trig.bounds.extents.z) * 0.8f;   // 長方形の判定を円で近似（少し内側）
+        var bHandle = new GameObject("Bramble"); bHandle.layer = 13; bHandle.transform.SetParent(slot, false); bHandle.transform.SetPositionAndRotation(bPos, Quaternion.LookRotation(fwd));
+        var bBox = bHandle.AddComponent<BoxCollider>(); bBox.isTrigger = true;
+        bBox.size = new Vector3(trig.bounds.size.x, 0.45f, trig.bounds.size.z); bBox.center = new Vector3(0f, 0.22f, 0f);
+        var bRb = bHandle.AddComponent<Rigidbody>(); bRb.isKinematic = true; bRb.useGravity = false;
+        var bPk = bHandle.AddComponent<VRC.SDK3.Components.VRCPickup>();
+        bPk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; bPk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; bPk.InteractionText = "イバラ"; bPk.proximity = 2f;
+        bHandle.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+        var bmm = UdonSharpUndo.AddComponent<FuwaMovableMushroom>(bHandle); bmm.body = bBody; bmm.ground = 1 << 11;
+        UdonSharpEditorUtility.CopyProxyToUdon(bmm);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bmm); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+        GameObjectUtility.SetStaticEditorFlags(bHandle, 0);
+
+        // ---- ぬいぐるみ ----
+        float r = baseR;
+        float standUp = r * 0.72f;   // 毛の見た目は当たりより少し小さいので低めに
+        var root = new GameObject("Plush0"); root.layer = 13; root.transform.SetParent(slot, false);
+        root.transform.position = slot.position - side * 1.2f + Vector3.up * standUp;
+        root.transform.rotation = Quaternion.LookRotation(fwd);   // 顔（+Z）をキノコの方へ
+        var vis = new GameObject("Visual").transform; vis.SetParent(root.transform, false);
+        foreach (var n in new[] { "Body", "Eyes", "SleepBubble" })
         {
-            float r = baseR * sizes[i];
-            var root = new GameObject("Plush" + i); root.layer = 13; root.transform.SetParent(slot, false);
-            root.transform.position = slot.position + slot.rotation * offs[i] + Vector3.up * r * 0.72f;   // 毛の見た目は当たりより少し小さいので低めに
-            root.transform.rotation = slot.rotation * Quaternion.Euler(0f, (i - 1) * 20f, 0f);   // 顔（+Z）をキノコの方へ
-            var vis = new GameObject("Visual").transform; vis.SetParent(root.transform, false); vis.localScale = Vector3.one * sizes[i];
-            foreach (var n in new[] { "Body", "Eyes" })
-            {
-                var src = e.transform.Find(n); if (src == null) continue;
-                var g = Object.Instantiate(src.gameObject, vis, false); g.name = n;
-                foreach (var lg in g.GetComponentsInChildren<LODGroup>(true)) Object.DestroyImmediate(lg);
-            }
-            foreach (var t in vis.GetComponentsInChildren<Transform>(true)) { t.gameObject.layer = 13; GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0); }
-            var col = root.AddComponent<SphereCollider>(); col.isTrigger = true; col.radius = r;
-            var rb = root.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
-            var pk = root.AddComponent<VRC.SDK3.Components.VRCPickup>();
-            pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "まもののぬいぐるみ"; pk.proximity = 2f;
-            root.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
-            AudioSource boing = null;
-            if (jump != null) { var a = Object.Instantiate(jump.gameObject, root.transform, false); a.name = "Boing"; boing = a.GetComponent<AudioSource>(); }
-            var pl = UdonSharpUndo.AddComponent<FuwaChillPlush>(root); pl.spawner = sp; pl.visual = vis; pl.radius = r; pl.boing = boing;
-            UdonSharpEditorUtility.CopyProxyToUdon(pl);
-            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pl); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
+            var src = e.transform.Find(n); if (src == null) continue;
+            var g = Object.Instantiate(src.gameObject, vis, false); g.name = n;
+            foreach (var lg in g.GetComponentsInChildren<LODGroup>(true)) Object.DestroyImmediate(lg);
         }
+        foreach (var t in vis.GetComponentsInChildren<Transform>(true)) { t.gameObject.layer = 13; GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0); }
+        var col = root.AddComponent<SphereCollider>(); col.isTrigger = true; col.radius = r;
+        var rb = root.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+        var pk = root.AddComponent<VRC.SDK3.Components.VRCPickup>();
+        pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "まもののぬいぐるみ（トリガーで起こす・寝かせる）"; pk.UseText = "起こす・寝かせる"; pk.proximity = 2f;
+        root.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+        AudioSource Copy(string n, string as_) { var s = e.transform.Find(n); if (s == null) return null; var a = Object.Instantiate(s.gameObject, root.transform, false); a.name = as_; return a.GetComponent<AudioSource>(); }
+        var boing = Copy("JumpSfx", "Boing");
+        var popSfx = Copy("PopSfx", "PopSfx");
+        ParticleSystem popFx = null;
+        { var s = e.transform.Find("PopEffect"); if (s != null) { var g = Object.Instantiate(s.gameObject, root.transform, false); g.name = "PopEffect"; popFx = g.GetComponent<ParticleSystem>(); } }
+        var pl = UdonSharpUndo.AddComponent<FuwaChillPlush>(root);
+        pl.spawner = sp; pl.visual = vis; pl.radius = r; pl.boing = boing;
+        pl.eyes = vis.Find("Eyes"); pl.sleepFx = vis.Find("SleepBubble");
+        pl.standUp = standUp; pl.ground = 1 << 11; pl.fallY = slot.position.y - 6f;
+        pl.bramble = bBody; pl.brambleRadius = bR;
+        pl.popEffect = popFx; pl.popSound = popSfx;
+        UdonSharpEditorUtility.CopyProxyToUdon(pl);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pl); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Continuous; EditorUtility.SetDirty(ub); } }
+
+        // エアガンで撃つと押し返せるように
+        foreach (var bl in Object.FindObjectsOfType<FuwaBlower>(true))
+        {
+            var so = new SerializedObject(bl); var p = so.FindProperty("plushes");
+            p.arraySize = 1; p.GetArrayElementAtIndex(0).objectReferenceValue = pl;
+            so.ApplyModifiedPropertiesWithoutUndo(); Sync(bl);
+        }
+    }
+
+    [MenuItem("FuwaCourse/みんなで/ぬいぐるみとイバラだけ作り直す")]
+    static void MenuRebuildPlush()
+    {
+        var slot = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Unlock4" && t.parent != null && t.parent.name == "Toys");
+        // 消える持てる物（ネットワークIDを持つ）を一覧から外す
+        var gone = slot.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true).Select(o => o.gameObject).ToList();
+        var desc = Object.FindObjectOfType<VRC.SDK3.Components.VRCSceneDescriptor>(true);
+        if (desc != null) { desc.NetworkIDCollection.RemoveAll(x => x.gameObject == null || gone.Contains(x.gameObject)); EditorUtility.SetDirty(desc); }
+        FillPlush(slot, Object.FindObjectsOfType<FuwaChillSpawner>(true).First());
+        // 「おもちゃを戻す」の一覧：消えた分を詰めて、新しい持てる物を足す
+        var reset = Object.FindObjectsOfType<FuwaHandFanReset>(true).FirstOrDefault();
+        if (reset != null)
+        {
+            var so = new SerializedObject(reset); var p = so.FindProperty("others");
+            var list = new List<Object>();
+            for (int i = 0; i < p.arraySize; i++) { var o = p.GetArrayElementAtIndex(i).objectReferenceValue; if (o != null) list.Add(o); }
+            foreach (var os in slot.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true)) if (!list.Contains(os.gameObject)) list.Add(os.gameObject);
+            p.arraySize = list.Count; for (int i = 0; i < list.Count; i++) p.GetArrayElementAtIndex(i).objectReferenceValue = list[i];
+            so.ApplyModifiedPropertiesWithoutUndo(); Sync(reset);
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(slot.gameObject.scene);
+        Debug.Log("plush and bramble rebuilt");
     }
 
     // 跳ねるキノコ：きのこのたに（コース5）のギミックのキノコ（CapStep：傘がジャンプ台）を、コースと同じ大きさで2本。台座の島はなし（2026-10-13 てじゃ）。

@@ -731,6 +731,13 @@ public class FuwaSharedBall : UdonSharpBehaviour
         return false;
     }
 
+    // あそびばのイバラ（FuwaSpike）に入ったら、はじける（コースと同じ。2026-10-13 てじゃ）。はじけるかは持ち主の画面で決める
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other == null || _waiting || _popped || !Networking.IsOwner(gameObject)) return;
+        if (other.GetComponent<FuwaSpike>() != null) Pop();
+    }
+
     private void BounceOff(FuwaBounce bo)
     {
         Vector3 n = bo.GetNormal(transform.position);
