@@ -176,6 +176,7 @@ public static class FuwaChillRoomBuilder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(coop.gameObject.scene);
         log.Add("chill room at " + ac + " home " + home.ToString("F2") + " floorY " + floorY.ToString("F2") + " balls " + balls.Count);
         log.Add(FuwaSharedBallShadowSetup.Run());   // 新しい玉に影を付け直す
+        log.Add(FuwaButtonCorners.Run(coop));   // ボタンの角を角丸の四角に（2026-10-13 てじゃ）
         return string.Join("\n", log);
     }
 
