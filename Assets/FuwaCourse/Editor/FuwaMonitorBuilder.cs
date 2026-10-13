@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using UdonSharpEditor;
 using UnityEditor;
 using UnityEngine;
@@ -161,7 +161,7 @@ public static class FuwaMonitorBuilder
         var zmat = AssetDatabase.LoadAssetAtPath<Material>(ZoneMatPath);
         if (zmat == null)
         {
-            var bubble = Object.FindObjectsOfType<FuwaGhost>(true).First().shield.GetComponent<Renderer>().sharedMaterial;   // シャボン玉の材質
+            var bubble = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/ItemBubble.mat");   // シャボン玉の材質（前は分身のシャボン玉＝対戦アイテムから取っていた）
             zmat = new Material(bubble) { name = "MonitorCamZone" }; AssetDatabase.CreateAsset(zmat, ZoneMatPath);
         }
         var br = ball.GetComponent<MeshRenderer>(); br.sharedMaterial = zmat;

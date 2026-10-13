@@ -395,8 +395,6 @@ public static class FuwaSignStyle
     static readonly (string path, string hex)[] FlatTargets =
     {
         ("FuwaLobby/HowToPlay/Panel", "FF8C6B"),            // あそびかた：タイトルのオレンジに合わせて少しやわらかく
-        ("FuwaVersusLobby/HowToPlayVersus/Panel", "FF8C6B"),
-        ("FuwaVersusLobby/MatchPanel/Board/Panel", "F78C4C"), // たいせん：ハブのたいせんゲートと同じオレンジ
         ("FuwaLobby/PhotoGallery/Panel", "73AAE6"),          // 名場面：空色
         ("FuwaSystem/PhotoAlbum/GoalBoard/*/Panel", "73AAE6"),
         ("FuwaLobby/PhotoStudio/BestTimes/Panel", "E8B84A"), // 最速タイム：金色

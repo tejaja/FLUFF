@@ -104,33 +104,7 @@ public class FuwaBall : UdonSharpBehaviour
 
     [HideInInspector] public Transform respawnPoint;
     [HideInInspector] public bool english;   // FuwaLanguageが切り替える
-    [HideInInspector] public FuwaRace activeRace;   // 対戦レースに参加中ならそのレース
-    [HideInInspector] public bool raceLocked;       // GO前：スタートのキノコを撃っても出てこない
-
-    [Header("対戦：アイテムの効果とペナルティ")]
-    [Tooltip("おもりキノコを受けた時の重さ（落下の倍率）")]
-    public float itemHeavyScale = 2.2f;
-    [Tooltip("おいかぜの強さ（前向きの加速度）")]
-    public float tailwindPower = 3.2f;
-    [Tooltip("おいかぜの持ち上げ（上向きの加速度）")]
-    public float tailwindLift = 1.2f;
-    [Tooltip("レースでアウトになった後、ふわふわが動かせない秒数")]
-    public float racePenaltySeconds = 2f;
-    [Tooltip("ペナルティ中にふわふわを包む殻（なくてもOK）")]
-    public GameObject penaltyShell;
-    public Color penaltyColor = new Color(0.55f, 0.55f, 0.62f, 1f);
-    private float _heavyUntil;
-    private float _tailwindUntil;
-    private Vector3 _tailwindDir;
-    private float _penaltyUntil;
-    private bool _failedSinceReset;
-    private int _penaltyShownCount = -1;
     private bool _softStick;
-    [Tooltip("対戦レースでアウトになった時、戻らずに自分の目の前に出てくる（前方の距離m）")]
-    public float raceRespawnAhead = 1.0f;
-    [Tooltip("同じく、目の高さからどれだけ下に出すか(m)")]
-    public float raceRespawnBelowEye = 0.25f;
-    private bool _respawnInFront;
 
     private Rigidbody _rb;
     private bool _waiting;   // 吹かれるまで空中で止まって待ってる
@@ -237,10 +211,6 @@ public class FuwaBall : UdonSharpBehaviour
     {
         if (_waiting || _stuck || _carried) return;
 
-        // アイテムの効果（おもりキノコ・おいかぜ）
-        if (Time.time < _heavyUntil) SetGravityScale(itemHeavyScale);
-        if (Time.time < _tailwindUntil) AddWind(_tailwindDir * tailwindPower + Vector3.up * tailwindLift);
-
         // 重くなるゾーンから届いた倍率（届いてなければ1倍）
         float g = _gravityScale > 0f ? _gravityScale : 1f;
         _gravityScale = 0f;
@@ -276,7 +246,6 @@ public class FuwaBall : UdonSharpBehaviour
         ShareBallPos();
         UpdateInflate();
         UpdateSquash();
-        UpdatePenalty();
         // 待機中（空中で止まってる間）もゆっくり回して、ふわふわ感を出す
         if (_waiting) transform.Rotate(new Vector3(0.3f, 1f, 0.15f), idleSpin * Time.deltaTime, Space.World);
         // チェックポイントで浮いて待ってる間だけ、上に▼を出す（スタートのキノコに隠れてる時は出さない）
@@ -291,8 +260,7 @@ public class FuwaBall : UdonSharpBehaviour
             StopInflate();
             if (_teleportOnReset) TeleportPlayerToRespawn();
             _teleportOnReset = false;
-            if (_respawnInFront) ResetInFrontOfPlayer();
-            else { ResetToRespawn(); ReviveEnemies(); }   // アウトで戻ったら、モンスターも家に戻す
+            ResetToRespawn(); ReviveEnemies();   // アウトで戻ったら、モンスターも家に戻す
         }
         if (!_waiting && !_carried && _resetAt < 0f && transform.position.y < killHeight) Fail();
         CheckOffCourse();
@@ -313,7 +281,6 @@ public class FuwaBall : UdonSharpBehaviour
     public void Blow(Vector3 velocityChange)
     {
         if (_resetAt > 0f || _hidden || _stuck || _spiking) return;
-        if (Time.time < _penaltyUntil) return;
         if (_waiting)
         {
             _waiting = false;
@@ -528,13 +495,6 @@ public class FuwaBall : UdonSharpBehaviour
     // 影響がある間はすっと光り、終わったらゆっくり消える
     private void UpdateGlow()
     {
-        if (Time.time < _penaltyUntil)
-        {
-            _furMat.SetColor("_GlowColor", new Color(penaltyColor.r, penaltyColor.g, penaltyColor.b, 0.85f));
-            _furMat.SetVector("_GlowDir", new Vector4(0f, 1f, 0f, 0f));
-            _glowAmount = 0f;
-            return;
-        }
         float target = Time.time < _glowUntil && !_hidden ? _glowTarget : 0f;
         // 溜めて撃って風の効きが弱まっている間は、黄色く光る（撃った向きに光の帯が流れる）。
         // 撃った瞬間が一番明るく、(1-u)^2 でなめらかに消える（終わりぎわがパッと消えないように）
@@ -601,48 +561,12 @@ public class FuwaBall : UdonSharpBehaviour
         _softStick = _stuck;
     }
 
-    // ===== アイテムの効果 =====
-    public void ApplyItemHeavy(float seconds)
-    {
-        _heavyUntil = Mathf.Max(_heavyUntil, Time.time + seconds);
-    }
-
-    public void ApplyTailwind(Vector3 forward, float seconds)
-    {
-        Vector3 f = new Vector3(forward.x, 0f, forward.z);
-        _tailwindDir = f.sqrMagnitude > 0.0001f ? f.normalized : Vector3.forward;
-        _tailwindUntil = Mathf.Max(_tailwindUntil, Time.time + seconds);
-    }
-
     public bool IsWaitingOrHidden() { return _waiting || _hidden || _resetAt > 0f; }
 
     // アイテムなどの一言（普通の大きさ）
     public void ShowInfo(string ja, string en, float seconds)
     {
         ShowMessage(english ? en : ja, seconds);
-    }
-
-    // レースのアウト後ペナルティ：灰色＋殻で固定、カウントダウン、解除でポンッ
-    private void UpdatePenalty()
-    {
-        bool on = Time.time < _penaltyUntil;
-        if (penaltyShell != null && penaltyShell.activeSelf != on) penaltyShell.SetActive(on);
-        if (!on)
-        {
-            if (_penaltyShownCount > 0)
-            {
-                _penaltyShownCount = -1;
-                ShowMessage(english ? "Go!" : "動ける！", 1f);
-                PlaySfx(sfxPop);
-            }
-            return;
-        }
-        int count = Mathf.CeilToInt(_penaltyUntil - Time.time);
-        if (count != _penaltyShownCount)
-        {
-            _penaltyShownCount = count;
-            ShowMessage((english ? "Frozen " : "かたまり中 ") + count, 1.1f);
-        }
     }
 
     [Header("撃たれた時のポヨン（見た目だけ。自分の玉だけ）")]
@@ -749,7 +673,6 @@ public class FuwaBall : UdonSharpBehaviour
         if (_waiting || _finished || _resetAt > 0f || _spiking) return;
         float inflate = popEffect != null ? Mathf.Max(0f, inflateTime) : 0f;
         _resetAt = Time.time + resetDelay + inflate;
-        _failedSinceReset = true;
         // れんしゅうのためし撃ちの場所では「アウト！」は出さない（弾けて戻るだけ。2026-10-09 てじゃ）
         if (!_practice) { ShowMessage(english ? "Out!" : "アウト！", resetDelay + inflate + 0.5f); PlaySfx(sfxOut); }
         // その場で止めて、ぷくーっと膨らんでからパッと弾けて消える（戻る時にResetToRespawnで元に戻る）
@@ -766,9 +689,6 @@ public class FuwaBall : UdonSharpBehaviour
             SendCustomEventDelayedSeconds(nameof(PopNow), inflate);
         }
         else PopNow();
-        // 対戦レース中は戻らない：破裂したら、自分の目の前に出てくる（ペナルティでしばらく動かせない）
-        _respawnInFront = activeRace != null;
-        if (_respawnInFront) return;
         // コース中なら、破裂を見せてから暗転して、真っ暗の間にプレイヤーも一緒に戻す
         if (movePlayerOnOut && !_stayOnFail && (timerEnabled || ReturnPlayerUntimed()))
         {
@@ -845,9 +765,8 @@ public class FuwaBall : UdonSharpBehaviour
         _rb.isKinematic = true;
         SetHidden(true);
         if (records != null && timerEnabled && t > 0f) records.ReportTime(startPoint, t);
-        if (activeRace != null) activeRace.LocalFinished();
         if (bgm != null && (timerEnabled || ReturnPlayerUntimed())) bgm.PlayFanfare();   // れんしゅうの本番の道（タイムなし）のゴールでも鳴らす
-        if (returnPoint != null && activeRace == null) respawnPoint = returnPoint;
+        if (returnPoint != null) respawnPoint = returnPoint;
         else SendCustomEventDelayedSeconds(nameof(RestartFromStart), restartDelay);
     }
 
@@ -989,22 +908,6 @@ public class FuwaBall : UdonSharpBehaviour
         if (_lastGroundY > -9999f && transform.position.y < _lastGroundY - offCourseDrop) Fail();
     }
 
-    // 対戦レースのアウト後：チェックポイントに戻さず、自分の目の前の空中にふわふわを出す
-    private void ResetInFrontOfPlayer()
-    {
-        _respawnInFront = false;
-        ResetToRespawn();   // 状態のリセットとペナルティ開始（位置はこのあと上書き）
-        VRCPlayerApi player = Networking.LocalPlayer;
-        if (player == null || !player.IsValid()) return;
-        VRCPlayerApi.TrackingData head = player.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
-        Vector3 fwd = Vector3.ProjectOnPlane(head.rotation * Vector3.forward, Vector3.up);
-        fwd = fwd.sqrMagnitude > 0.0001f ? fwd.normalized : Vector3.forward;
-        Vector3 pos = head.position + fwd * raceRespawnAhead - Vector3.up * raceRespawnBelowEye;
-        _rb.isKinematic = true;
-        transform.position = pos;
-        SetHidden(false);   // キノコには戻らない
-    }
-
     // 別のコース（またはロビー）に切り替える。timed=falseならタイムを計らない
     [Tooltip("全コースのチェックポイント（スタートからやり直す時に光を消す）")]
     public FuwaCheckpoint[] checkpoints;
@@ -1101,15 +1004,9 @@ public class FuwaBall : UdonSharpBehaviour
         _glowUntil = 0f;
         _glowLongUntil = 0f;
         _glowAmount = 0f;
-        _heavyUntil = 0f;
-        _tailwindUntil = 0f;
         _flightUntil = 0f;
-        _penaltyUntil = (_failedSinceReset && activeRace != null && racePenaltySeconds > 0f) ? Time.time + racePenaltySeconds : 0f;
-        _failedSinceReset = false;
-        _penaltyShownCount = -1;
         _lastGroundY = -10000f;
-        // 対戦レース中は、スタートからやり直してもタイムは止めない（GOから計っているので）
-        if (respawnPoint == startPoint && activeRace == null) { _running = false; _untimedRun = false; }
+        if (respawnPoint == startPoint) { _running = false; _untimedRun = false; }
         _rb.isKinematic = false;
         _rb.velocity = Vector3.zero;
         _rb.angularVelocity = Vector3.zero;
@@ -1124,9 +1021,8 @@ public class FuwaBall : UdonSharpBehaviour
     public void ReleaseFromMushroom(Vector3 shotDir)
     {
         // ゴールした後にスタートまで戻ってキノコを撃った時は、ここで最初からやり直す（チェックポイントの光も消す）
-        if (_finished && activeRace == null) RestartFromStart();
+        if (_finished) RestartFromStart();
         if (!_hidden || _resetAt > 0f) return;
-        if (Time.time < _penaltyUntil) return;
         SetHidden(false);
         // 胞子を出す前にモンスターを倒しておく、はできないように、スタートで全部復活させる
         ReviveEnemies();
@@ -1141,21 +1037,6 @@ public class FuwaBall : UdonSharpBehaviour
     // 挑戦中か（タイムを計らない道も含む）。名場面のフォトポイント用
     public bool IsInRun() { return _running || _untimedRun; }
     public float GetRunStartTime() { return _startTime; }   // 名場面のフォトポイントが「1回の挑戦で1枚」を見分けるため
-
-    // 対戦レースのGO：キノコを撃てるようにして、タイムをGOの瞬間から計り始める
-    public void RaceGo()
-    {
-        raceLocked = false;
-        _finished = false;
-        _running = true;
-        _startTime = Time.time;
-    }
-
-    // 対戦レースのカウントダウンなど（大きめに出す）
-    public void ShowRaceMessage(string ja, string en, float seconds)
-    {
-        ShowMessage("<size=160%>" + (english ? en : ja) + "</size>", seconds);
-    }
 
     public void SetGoalZone(FuwaGoal goal) { _goalZone = goal; }
     public void LeaveGoalZone(FuwaGoal goal) { if (_goalZone == goal) _goalZone = null; }

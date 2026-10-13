@@ -36,8 +36,6 @@ public class FuwaLanguage : UdonSharpBehaviour
     public FuwaPhotoAlbum album;
     [Tooltip("人数の出るモードの看板（自分で1秒ごとに書き直すので、切り替えた時に今すぐ書き直してもらう）")]
     public FuwaModeCounter[] modeCounters;
-    [Tooltip("レースの看板（0.5秒ごとに書き直すので、切り替えた時に今すぐ書き直してもらう）")]
-    public FuwaRace[] races;
 
     private bool _english;
     private bool _manual;      // 一度でも自分で切り替えたら、VRChatの言語設定には従わない
@@ -132,7 +130,6 @@ public class FuwaLanguage : UdonSharpBehaviour
         if (album != null) album.RefreshCaptions();
         // 自分のタイミングで書き直す看板も、いっしょに変わるように（2026-10-12 てじゃ「一気に切り替わらない、ズレがある」）
         if (modeCounters != null) foreach (FuwaModeCounter mc in modeCounters) if (mc != null) mc.RefreshNow();
-        if (races != null) foreach (FuwaRace r in races) if (r != null) r.RefreshNow();
         if (stands != null)
         {
             foreach (FuwaGunStand s in stands) if (s != null) s.ApplyLanguage(_english);

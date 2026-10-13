@@ -13,7 +13,7 @@ public static class FuwaBakeSetup
     static readonly HashSet<string> BakeShaders = new HashSet<string> { "FuwaCourse/ToonLit", "FuwaCourse/InkCap" };
     // 物を動かすスクリプト（自分とその下、参照している物を Static にしない）
     static readonly HashSet<string> MovingTypes = new HashSet<string> {
-        "FuwaBall", "FuwaBlower", "FuwaBoulder", "FuwaEnemy", "FuwaFacePlayer", "FuwaGoal", "FuwaGoalMarker", "FuwaItemBox",
+        "FuwaBall", "FuwaBlower", "FuwaBoulder", "FuwaEnemy", "FuwaFacePlayer", "FuwaGoal", "FuwaGoalMarker",
         "FuwaJumpBoost", "FuwaMama", "FuwaSharedBall", "FuwaStartMushroom", "FuwaWebHole", "FuwaWindDeco" };
     // 自分は動かず、参照している物（輪っか等）だけ動かすスクリプト
     static readonly HashSet<string> RefOnlyTypes = new HashSet<string> { "FuwaWebHole" };

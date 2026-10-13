@@ -23,7 +23,7 @@ public static class FuwaReflectionProbes
     {
         new Spot("Lobby",       new Vector3(13, 10, -16),  new Vector3(32, 20, 32), 2),
         new Spot("Hub",         new Vector3(0, 160, -45),  new Vector3(44, 24, 44), 2),
-        new Spot("VersusLobby", new Vector3(-80, 90, 22),  new Vector3(44, 24, 44), 2),
+        new Spot("Playground",  new Vector3(-72, 90, 80),  new Vector3(32, 20, 32), 2),   // あそびば（2026-10-13 たいせんの部屋を消して置き換え）
         new Spot("Course0",     new Vector3(-31, 6, 65),   new Vector3(100, 30, 140)),
         new Spot("Course1",     new Vector3(42, 8, 71),    new Vector3(105, 30, 140)),
         new Spot("Course2",     new Vector3(96, 10, 9),    new Vector3(126, 30, 66)),

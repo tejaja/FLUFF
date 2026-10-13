@@ -35,17 +35,7 @@ public class FuwaGhost : UdonSharpBehaviour
     private bool _pWaiting;
     private bool _shownHidden;
 
-    [Header("対戦アイテム（なくてもOK）")]
-    [Tooltip("アイテムの管理（シーンに1つ）。相手から届いた効果をここへ渡す")]
-    public FuwaItems items;
-    [Tooltip("クモの糸の見た目（持ち主が置いた場所に全員の画面で出る）")]
-    public Transform trap;
-    [Tooltip("シャボン玉の見た目（持ち主のふわふわを包む）")]
-    public GameObject shield;
-    [UdonSynced] private Vector3 _trapPos;
-    [UdonSynced] private int _trapEndMs;      // サーバー時刻。これを過ぎたら消える（0=なし）
-    [UdonSynced] private bool _shielded;
-    [UdonSynced] private int _area;          // 持ち主が今いるエリア（0=入口 1=ぼうけん 2=たいせん）。モードの看板の人数表示用
+    [UdonSynced] private int _area;          // 持ち主が今いるエリア（0=入口 1=チャレンジ 2=あそびば）。モードの看板の人数表示用
 
     [Header("同期（持ち主が送る・見る側がなめらかにつなぐ）")]
     [Tooltip("動いている間に送る間隔(秒)")]
@@ -67,8 +57,8 @@ public class FuwaGhost : UdonSharpBehaviour
     private Vector3 _lastSentVel;
     private float _nextSend;
     private bool _moving;
-    private bool _pHidden, _pShielded;
-    private int _pTrapEnd, _pArea;
+    private bool _pHidden;
+    private int _pArea;
     // 見る側：A（受け取った時に表示していた状態）から B（届いた点）へつなぐ
     private Vector3 _aPos, _aVel, _bPos, _bVel;
     private Quaternion _aRot = Quaternion.identity, _bRot = Quaternion.identity;
@@ -78,20 +68,6 @@ public class FuwaGhost : UdonSharpBehaviour
 
     public void SetArea(int area) { if (_isMine) _area = area; }
     public int GetArea() { return _area; }
-
-    // ===== 持ち主がセットする =====
-    public void PlaceTrap(Vector3 pos, float seconds)
-    {
-        if (!_isMine) return;
-        _trapPos = pos;
-        _trapEndMs = Networking.GetServerTimeInMilliseconds() + Mathf.RoundToInt(seconds * 1000f);
-    }
-
-    public void SetShielded(bool on)
-    {
-        if (!_isMine) return;
-        _shielded = on;
-    }
 
     // ===== 同期 =====
     public override void OnPreSerialization()
@@ -174,7 +150,7 @@ public class FuwaGhost : UdonSharpBehaviour
         _vel = Vector3.Lerp(_vel, rawVel, 1f - Mathf.Exp(-20f * dt));
 
         bool moving = _vel.magnitude > 0.05f;
-        bool stateChanged = _hidden != _pHidden || _shielded != _pShielded || _trapEndMs != _pTrapEnd || _area != _pArea || _waiting != _pWaiting || _course != _pCourse;
+        bool stateChanged = _hidden != _pHidden || _area != _pArea || _waiting != _pWaiting || _course != _pCourse;
         bool kick = (_vel - _lastSentVel).magnitude > sendOnVelocityChange;
         bool due = moving && Time.time >= _nextSend;
         bool stopped = !moving && _moving;   // 止まった瞬間にもう一度送って、止まった位置をそろえる
@@ -182,16 +158,12 @@ public class FuwaGhost : UdonSharpBehaviour
         if (stateChanged || kick || due || stopped || !_sentOnce)
         {
             _sentOnce = true;
-            _pHidden = _hidden; _pShielded = _shielded; _pTrapEnd = _trapEndMs; _pArea = _area; _pWaiting = _waiting; _pCourse = _course;
+            _pHidden = _hidden; _pArea = _area; _pWaiting = _waiting; _pCourse = _course;
             _lastSentVel = _vel;
             _nextSend = Time.time + sendInterval;
             RequestSerialization();
         }
     }
-
-    public bool TrapActive() { return _trapEndMs != 0 && Networking.GetServerTimeInMilliseconds() < _trapEndMs; }
-    public Vector3 GetTrapPos() { return _trapPos; }
-    public int GetTrapEnd() { return _trapEndMs; }
 
     public bool IsMine() { return _isMine; }
 
@@ -226,8 +198,6 @@ public class FuwaGhost : UdonSharpBehaviour
     public bool MonitorVisible() { return !_isMine && !_hidden && _hasSample && gameObject.activeInHierarchy; }
 
     // ===== 相手から届く（持ち主のPCで実行される） =====
-    public void HitHeavy() { if (items != null) items.ReceiveHeavy(); }
-    public void HitFog() { if (items != null) items.ReceiveFog(); }
 
     private void Start()
     {
@@ -267,16 +237,6 @@ public class FuwaGhost : UdonSharpBehaviour
 
     private void Update()
     {
-        // クモの糸とシャボン玉の見た目（全員の画面）
-        if (trap != null)
-        {
-            bool on = _trapEndMs != 0 && Networking.GetServerTimeInMilliseconds() < _trapEndMs;
-            if (trap.gameObject.activeSelf != on) trap.gameObject.SetActive(on);
-            // 分身は玉と一緒に回るので、糸は向きを固定して置いた場所に出す
-            if (on) trap.SetPositionAndRotation(_trapPos, Quaternion.identity);
-        }
-        if (shield != null && shield.activeSelf != _shielded) shield.SetActive(_shielded);
-
         if (_isMine && ball != null) OwnerUpdate();
         else if (!_isMine && NeedViewUpdate()) ViewUpdate();
         if (!_isMine)

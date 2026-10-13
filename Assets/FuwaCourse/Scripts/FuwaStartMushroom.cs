@@ -54,7 +54,6 @@ public class FuwaStartMushroom : UdonSharpBehaviour
             return;
         }
         if (ball == null || !ball.IsHidden() || ball.startPoint != courseStart) return;
-        if (ball.raceLocked) return;   // 対戦レースのGO前は出てこない
         ball.ReleaseFromMushroom(shotDir);
         if (burst != null) burst.Play();
         if (popSound != null) popSound.Play();
