@@ -114,6 +114,7 @@ public static class FuwaCourse2BrokenPath
             if ((h.collider.name == "PathMesh" || h.collider.name == "Mountain") && !h.collider.isTrigger && !(h.point.y <= best)) best = h.point.y;
         return best;
     }
+    const float CaveBarrierTop = 12.15f;   // 洞窟の入口のバリアの上はし（ワールドの y、元の高さ）
     static string SettleOnFloor(Transform root)
     {
         var sb = new System.Text.StringBuilder();
@@ -132,12 +133,39 @@ public static class FuwaCourse2BrokenPath
                 sb.Append(" cavedark " + n + " verts → " + (floor - 0.06f).ToString("F2"));
             }
         }
+        // 洞窟の入口の岩（CaveMouth）のアーチの足の内側の下はしが、元の道の上面で止まっていて床から浮いていた（2026-10-13 てじゃ「洞窟の下が切れちゃった」）。
+        // 床から 0.15〜0.5m 浮いた低い頂点を床まで下ろす
+        var mouthT = root.Find("Rocks2/CaveMouth");
+        if (mouthT != null)
+        {
+            var m = mouthT.GetComponent<MeshFilter>().sharedMesh; var l2w = mouthT.localToWorldMatrix; var w2l = l2w.inverse;
+            var vs = m.vertices; int n = 0;
+            for (int i = 0; i < vs.Length; i++)
+            {
+                var w = l2w.MultiplyPoint3x4(vs[i]); if (w.y > 10.45f) continue;
+                float g = Floor(new Vector3(w.x, 10.6f, w.z)); if (float.IsNaN(g)) continue;
+                float gap = w.y - g; if (gap < 0.15f || gap > 0.5f) continue;
+                w.y = g - 0.04f; vs[i] = w2l.MultiplyPoint3x4(w); n++;
+            }
+            if (n > 0) { m.vertices = vs; m.RecalculateBounds(); EditorUtility.SetDirty(m); sb.Append(" cavemouth " + n + " verts"); }
+        }
         foreach (var r in Object.FindObjectsOfType<Renderer>(true))
         {
             if (r.name != "CaveBarrier" && r.name != "Deco_StonesSmall") continue;
             var b = r.bounds; if (b.center.x < 96f || b.center.x > 106f || b.center.z < 0.5f || b.center.z > 5f) continue;
             float g = Floor(new Vector3(b.center.x, b.max.y, b.center.z)); if (float.IsNaN(g)) continue;
             float want = g - (r.name == "CaveBarrier" ? 0.04f : 0.02f);
+            if (r.name == "CaveBarrier")
+            {
+                // 近づくと出るバリア（縦の板）は、上はしは元の高さ（洞窟の天井）のまま、下はしだけ床まで伸ばす（2026-10-13 てじゃ「バリアも上がきれてる」：前は丸ごと下げていた）
+                float h = CaveBarrierTop - want;
+                if (Mathf.Abs(b.min.y - want) < 0.005f && Mathf.Abs(b.max.y - CaveBarrierTop) < 0.005f) continue;
+                Undo.RecordObject(r.transform, "settle");
+                var s = r.transform.localScale; s.y = h / r.transform.parent.lossyScale.y; r.transform.localScale = s;
+                var p = r.transform.position; p.y = (want + CaveBarrierTop) * 0.5f; r.transform.position = p;
+                sb.Append(" CaveBarrier " + want.ToString("F2") + "〜" + CaveBarrierTop.ToString("F2"));
+                continue;
+            }
             if (Mathf.Abs(b.min.y - want) < 0.005f) continue;
             Undo.RecordObject(r.transform, "settle"); r.transform.position += Vector3.up * (want - b.min.y);
             sb.Append(" " + r.name + " " + (want - b.min.y).ToString("F2"));
