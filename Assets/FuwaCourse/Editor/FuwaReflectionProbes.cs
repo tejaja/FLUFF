@@ -37,6 +37,7 @@ public static class FuwaReflectionProbes
     public static void Run()
     {
         Directory.CreateDirectory(Dir);
+        MarkReflectionStatic();
         var root = GameObject.Find(RootName);
         if (root == null) { root = new GameObject(RootName); Undo.RegisterCreatedObjectUndo(root, "probes"); }
 
@@ -73,6 +74,23 @@ public static class FuwaReflectionProbes
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.scene);
         Debug.Log("[FuwaReflectionProbes] done");
+    }
+
+    // 撮る時に写るのは Reflection Probe Static の物だけ。ほとんど付いていなくて、地面や道が写らず空だけの反射になっていた
+    //（2026-10-13 てじゃ「地面はうつらないんだね」：コース1は377個中6個だけ）。
+    // 動かない物（ライトの焼きに入る物・まとめ描画の物）に付ける。撮る時にしか使わない印なので、実行中の重さは変わらない
+    static void MarkReflectionStatic()
+    {
+        int n = 0;
+        foreach (var r in Object.FindObjectsOfType<MeshRenderer>(true))
+        {
+            var go = r.gameObject;
+            var f = GameObjectUtility.GetStaticEditorFlags(go);
+            if ((f & (StaticEditorFlags.ContributeGI | StaticEditorFlags.BatchingStatic)) == 0) continue;
+            if ((f & StaticEditorFlags.ReflectionProbeStatic) != 0) continue;
+            GameObjectUtility.SetStaticEditorFlags(go, f | StaticEditorFlags.ReflectionProbeStatic); n++;
+        }
+        Debug.Log("[FuwaReflectionProbes] Reflection Probe Static を付けた: " + n);
     }
 
     static Cubemap Capture(ReflectionProbe p, string name, bool yami)
