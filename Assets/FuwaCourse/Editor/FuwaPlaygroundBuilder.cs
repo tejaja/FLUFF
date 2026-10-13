@@ -244,7 +244,7 @@ public static class FuwaPlaygroundBuilder
         var fanMeshes = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaCourse/Models/PlaygroundFan.fbx").OfType<Mesh>().ToDictionary(m => m.name);
         var uchiMeshes = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaCourse/Models/PlaygroundUchiwa.fbx").OfType<Mesh>().ToDictionary(m => m.name);
         var fanBodyM = Mat("Playground_FanBody", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.97f, 0.97f, 0.98f));   // 白いボディに水色の羽（2026-10-13 てじゃ）
-        var fanBladeM = Mat("Playground_FanBlades", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.6f, 0.84f, 1f));
+        var fanBladeM = Mat("Playground_FanBlades", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.55f, 0.92f, 0.78f));   // ミントグリーン（水色は空にまぎれて見えづらかった。2026-10-13 てじゃ）
         var uFaceM = Mat("Playground_UchiwaFace", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.78f, 0.86f));
         var uRimM = Mat("Playground_UchiwaRim", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.97f, 0.9f));
         var windMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/WindParticle.mat");
