@@ -35,8 +35,13 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     [Tooltip("体（毛の芯）の中心から下はしまで(m)。つぶれた時に足元が浮かないよう、見た目をこの分だけ下げる")]
     public float bodyBottom = 0.175f;
     public float detectRange = 4.5f;
-    [Tooltip("置いた場所からこれ以上離れたふわふわは追わない")]
+    [Tooltip("置いた場所からこれ以上離れたふわふわは追わない（areaRadius が 0 の時）")]
     public float leashRange = 6f;
+    [Tooltip("動き回れる範囲（島）。areaRadius > 0 なら、置いた場所ではなくこの円の中なら追いかける（2026-10-13 てじゃ「ふわふわ飛ばしながら追いかけると感知範囲超えちゃって戻っちゃう」）")]
+    public Vector3 areaCenter;
+    public float areaRadius = 0f;
+    [Tooltip("一度追いかけ始めたふわふわは、この距離までは見失わない（見つけるのは detectRange）")]
+    public float keepRange = 9f;
     public float windupTime = 0.6f;
     public float dashSpeed = 4f;
     public float dashTime = 0.55f;
@@ -274,9 +279,10 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         {
             float x = Mathf.Clamp01(t / Mathf.Max(0.05f, _dashDur));
             Vector3 q = _dashFrom + _dashDir * _dashLen * x;
-            // おうちから離れすぎない
-            Vector3 fromHome = q - _home; fromHome.y = 0f;
-            if (fromHome.magnitude > leashRange) q = _home + fromHome.normalized * leashRange + Vector3.up * (q.y - _home.y);
+            // 動ける範囲から出ない（島の中／おうちのまわり）
+            Vector3 c = areaRadius > 0f ? areaCenter : _home; float lim = areaRadius > 0f ? areaRadius : leashRange;
+            Vector3 fromHome = q - c; fromHome.y = 0f;
+            if (fromHome.magnitude > lim) q = new Vector3(c.x, q.y, c.z) + fromHome.normalized * lim;
             if (!Place(q, _dashHop * Mathf.Sin(x * Mathf.PI)))
             {
                 // 足元に地面がない所へ跳んだ：そのまま落ちる
@@ -346,6 +352,9 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     private FuwaSharedBall FindTarget(Vector3 p)
     {
         if (spawner == null || spawner.balls == null) return null;
+        // 追いかけている最中のふわふわは、遠くへ飛ばしても（keepRange まで・動ける範囲の中なら）見失わない
+        if (_chase != null && _chase.IsFlying() && InArea(_chase.transform.position) && (_chase.transform.position - p).magnitude < keepRange) return _chase;
+        _chase = null;
         FuwaSharedBall best = null;
         float bestD = detectRange;
         FuwaSharedBall[] balls = spawner.balls;
@@ -354,12 +363,20 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
             FuwaSharedBall b = balls[i];
             if (b == null || !b.IsFlying()) continue;
             Vector3 bp = b.transform.position;
-            Vector3 fh = bp - _home; fh.y = 0f;
-            if (fh.magnitude > leashRange) continue;
+            if (!InArea(bp)) continue;
             float d = (bp - p).magnitude;
             if (d < bestD) { bestD = d; best = b; }
         }
+        _chase = best;
         return best;
+    }
+
+    private FuwaSharedBall _chase;
+    private bool InArea(Vector3 v)
+    {
+        Vector3 c = areaRadius > 0f ? areaCenter : _home; float lim = areaRadius > 0f ? areaRadius : leashRange;
+        Vector3 d = v - c; d.y = 0f;
+        return d.magnitude <= lim;
     }
 
 

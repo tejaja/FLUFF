@@ -743,6 +743,9 @@ public static class FuwaPlaygroundBuilder
         pl.bodyBottom = vis.Find("Body").GetComponent<Renderer>().bounds.extents.y;
         pl.bramble = bBody; pl.brambleRadius = bR;
         pl.popEffect = popFx; pl.popSound = popSfx;
+        // 動き回れる範囲＝島の中（柵の内側）。置いた場所のまわりだけだと、ふわふわを飛ばしながら追うとすぐ戻っていた（2026-10-13 てじゃ）
+        var roomT = slot.parent != null ? slot.parent.parent : null;
+        if (roomT != null) { pl.areaCenter = roomT.position; pl.areaRadius = 9.2f; }
         UdonSharpEditorUtility.CopyProxyToUdon(pl);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pl); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Continuous; EditorUtility.SetDirty(ub); } }
 
