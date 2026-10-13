@@ -469,7 +469,7 @@ public static class FuwaPlaygroundBuilder
         for (int i = 0; i < beanPos.Length; i++)
         {
             var p = beanPos[i];
-            Put("Chill_Beanbag", bean[i], p, Face(p, C + dir * 3f) * Quaternion.Euler(0f, (i % 2 == 0 ? 12f : -12f), 0f), true, 0, "Beanbag" + i);
+            Put("Chill_Beanbag", bean[i], p, Face(p, C + dir * 3f) * Quaternion.Euler(0f, (i % 2 == 0 ? 12f : -12f), 0f), true, 17, "Beanbag" + i);   // ふわふわだけ当たって人はすり抜け（Walkthrough。2026-10-13 てじゃ「すりぬけてほしい」）
         }
         // キノコのランプ：ソファの後ろの両わき
         foreach (var lp in new[] { C - dir * 2.7f - perp * 2.3f, C - dir * 2.7f + perp * 2.3f })
