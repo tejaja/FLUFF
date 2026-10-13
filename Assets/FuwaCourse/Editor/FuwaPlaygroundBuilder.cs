@@ -182,19 +182,11 @@ public static class FuwaPlaygroundBuilder
             const string hJa = "ふわふわせってい", hEn = "Fluff Settings";
             ht.text = hJa; ht.alignment = TMPro.TextAlignmentOptions.Center; ht.enableAutoSizing = false; ht.fontSize = 3.2f; ht.enableWordWrapping = false;
             ht.rectTransform.sizeDelta = new Vector2(3f, 0.5f);
-            // 色はタイトル（入口の FLUFF・ふわっとデリバリー）と同じ：白い字に紺のふち＋下にうっすら影（2026-10-14 てじゃ「タイトルと同じにしてみて」。前はオレンジ）
+            // 字はタイトルの副題「ふわっとデリバリー」と同じ（フォント・白い字に紺のふち・影の材質ごと）（2026-10-14 てじゃ「タイトルと同じ色に」「フォントを副題と同じに」）。
+            // 副題のフォントは使う字だけ入った固定のフォントなので、足りない字（せ・て・い）はフォントに足してある
             {
-                var tsrc = RootGo("FuwaHub").transform.Find("TitleBoard/Subtitle").GetComponent<TMPro.TMP_Text>().fontSharedMaterial;
-                const string hp = "Assets/FuwaCourse/Materials/Playground/Playground_HeadingTitle.mat";
-                var hm = AssetDatabase.LoadAssetAtPath<Material>(hp);
-                if (hm == null) { hm = new Material(ht.fontSharedMaterial) { name = "Playground_HeadingTitle" }; AssetDatabase.CreateAsset(hm, hp); }
-                hm.CopyPropertiesFromMaterial(ht.font.material);   // 字の形（アトラス）は見出しのフォントのまま
-                foreach (var kw in new[] { "OUTLINE_ON", "UNDERLAY_ON" }) hm.EnableKeyword(kw);
-                foreach (var pn in new[] { "_FaceColor", "_OutlineColor", "_UnderlayColor" }) hm.SetColor(pn, tsrc.GetColor(pn));
-                foreach (var pn in new[] { "_OutlineWidth", "_FaceDilate", "_UnderlayOffsetX", "_UnderlayOffsetY", "_UnderlayDilate", "_UnderlaySoftness" }) hm.SetFloat(pn, tsrc.GetFloat(pn));
-                hm.SetFloat("_OutlineWidth", 0.34f);   // このフォントは字の太さの割にふちが細く見えるので太めに
-                EditorUtility.SetDirty(hm);
-                ht.fontSharedMaterial = hm; ht.color = Color.white;
+                var subT = RootGo("FuwaHub").transform.Find("TitleBoard/Subtitle").GetComponent<TMPro.TMP_Text>();
+                ht.font = subT.font; ht.fontSharedMaterial = subT.fontSharedMaterial; ht.color = subT.color;
             }
             hg.transform.SetPositionAndRotation(pc + rot * new Vector3(0f, BoardSideY[0] + 0.5f, 0f), rot); hg.transform.localScale = Vector3.one;
             var hso = new SerializedObject(Object.FindObjectsOfType<FuwaLanguage>(true).First()); AddLang(hso, "texts", "ja", "en", ht, hJa, hEn); hso.ApplyModifiedPropertiesWithoutUndo();
