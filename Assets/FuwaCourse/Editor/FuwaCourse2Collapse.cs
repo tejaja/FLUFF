@@ -17,16 +17,24 @@ public static class FuwaCourse2Collapse
     // 手前の切り口から谷の上へ突き出た舌のような足場（2026-10-13 てじゃ「黄色い道をこの赤枠の分伸ばして」。別の板を乗せたら取ってつけた感じだったので、切り口の形そのものを変える）。
     // 横 l（CutJagged の向き）の TongueL0〜TongueL1 で、手前の切り口を最大 TongueLen だけ先へ。両わきはなだらかに戻し、先はギザギザ
     internal const float TongueL0 = -0.3f, TongueL1 = 1.2f, TongueLen = 1.55f, TongueShoulder = 0.35f;
+    // 舌の所か（0〜1）
+    static float TongueK(float l)
+    {
+        float k = Mathf.Min(Mathf.InverseLerp(TongueL0 - TongueShoulder, TongueL0, l), Mathf.InverseLerp(TongueL1 + TongueShoulder, TongueL1, l));
+        return Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k));
+    }
+
     internal static float Tongue(float l)
     {
         if (l < TongueL0 - TongueShoulder || l > TongueL1 + TongueShoulder) return 0f;
         float k = Mathf.Min(Mathf.InverseLerp(TongueL0 - TongueShoulder, TongueL0, l), Mathf.InverseLerp(TongueL1 + TongueShoulder, TongueL1, l));
         k = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(k));
-        // 先のギザギザ（決まった形）。2026-10-13 てじゃ「ギザギザをもうちょい荒く」：歯を 0.3→0.45m ごと・高さ ±0.12→±0.28m に、歯ごとの出っぱり差も大きく。
-        // 肩（両わき）にも歯をつけて、まっすぐな辺にならないように
-        float u = (l - TongueL0) / 0.45f; float f = u - Mathf.Floor(u);
-        float tooth = (1f - 4f * Mathf.Abs(f - 0.5f)) * 0.28f + (Mathf.PerlinNoise(Mathf.Floor(u) * 0.91f, 0.37f) - 0.5f) * 0.7f;
-        return k * (TongueLen + tooth) + (k > 0f && k < 1f ? tooth * 0.6f * Mathf.Sin(k * Mathf.PI) : 0f);
+        // 先の形：細かいギザギザではなく、大きなかたまりが欠けたような、ゆるいでこぼこ（2026-10-13 てじゃ「もっとギザギザしてない感じ」）。
+        // 0.6m ごとの高さを決めて、そのあいだはなめらかにつなぐ
+        float u = (l - TongueL0) / 0.6f; int i0 = Mathf.FloorToInt(u); float f = Mathf.SmoothStep(0f, 1f, u - i0);
+        float h0 = Mathf.PerlinNoise(i0 * 0.77f, 0.41f) - 0.5f, h1 = Mathf.PerlinNoise((i0 + 1) * 0.77f, 0.41f) - 0.5f;
+        float lump = Mathf.Lerp(h0, h1, f) * 0.55f;
+        return k * (TongueLen + lump);
     }
 
     // 道のメッシュ（ローカル）から崩落の範囲を切り抜いた新しいメッシュを返す
@@ -36,7 +44,7 @@ public static class FuwaCourse2Collapse
         var origin = map.MultiplyPoint3x4(OldOrigin);
         var axis = map.MultiplyVector(OldAxis.normalized);
         var (j0, j1) = Jags();
-        return FuwaPitCut.CutJagged(src, pathTr, origin, axis, l => S0 + Interp(j0, l) + Tongue(l), l => S1 + Interp(j1, l), YBottom, HalfWidth, maxEdge);
+        return FuwaPitCut.CutJagged(src, pathTr, origin, axis, l => S0 + Interp(j0, l) * (1f - 0.85f * TongueK(l)) + Tongue(l), l => S1 + Interp(j1, l), YBottom, HalfWidth, maxEdge);
     }
 
     // 切り口のギザギザ（当時と同じ作り方・同じ乱数）
@@ -62,6 +70,6 @@ public static class FuwaCourse2Collapse
     internal static float NearEdge(float l)
     {
         var (j0, _) = Jags();
-        return S0 + Interp(j0, l) + Tongue(l);
+        return S0 + Interp(j0, l) * (1f - 0.85f * TongueK(l)) + Tongue(l);
     }
 }
