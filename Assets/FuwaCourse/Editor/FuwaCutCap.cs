@@ -119,7 +119,7 @@ public static class FuwaCutCap
         }
 
         // 面ごとに輪を作って三角形に割る
-        var capV = new List<Vector3>(); var capT = new List<int>();
+        var capV = new List<Vector3>(); var capT = new List<int>(); var capF = new List<int>();
         int capTris = 0;
         int brokenLoops = 0;
         for (int face = 0; face < 3; face++)
@@ -150,7 +150,7 @@ public static class FuwaCutCap
                     int nx = nb[0] == prev ? nb[1] : nb[0]; prev = cur; cur = nx;
                 }
                 if (loop == null || loop.Count < 3) { brokenLoops++; unresolved++; continue; }
-                capTris += TriangulateLoop(loop, face, f, P, capV, capT, rough, maxArea, seed + face * 101);
+                capTris += TriangulateLoop(loop, face, f, P, capV, capT, capF, rough, maxArea, seed + face * 101);
             }
         }
 
@@ -196,11 +196,24 @@ public static class FuwaCutCap
         for (int s = 0; s < subs.Length; s++) mesh.SetTriangles(subs[s], s);
         if (hasN)
         {
-            // ふたの頂点の法線は面の向き（三角形ごとに分けてあるので、その三角形の法線）
-            for (int i = 0; i < capT.Count; i += 3)
+            // ふたの法線：三角形ごとの向きだと細い三角形ごとに陰影が変わって斜めの筋に見えた（2026-10-13 てじゃ「斜めのギザギザ感」）。
+            // でこぼこなし（道）は切り口の面の向きそのもの（線の傾きから計算）、でこぼこあり（山）は同じ位置の三角形の向きの平均
+            var sumN = new Dictionary<Vector3Int, Vector3>();
+            Vector3Int Q(Vector3 p) => Vector3Int.RoundToInt(p * 5000f);
+            if (rough > 0f)
+                for (int i = 0; i < capT.Count; i += 3)
+                {
+                    var fn = Vector3.Cross(capV[capT[i + 1]] - capV[capT[i]], capV[capT[i + 2]] - capV[capT[i]]);
+                    for (int k = 0; k < 3; k++) { var q = Q(capV[capT[i + k]]); sumN[q] = (sumN.TryGetValue(q, out var x) ? x : Vector3.zero) + fn; }
+                }
+            for (int i = 0; i < capV.Count; i++)
             {
-                var n = w2l.MultiplyVector(Vector3.Cross(capV[capT[i + 1]] - capV[capT[i]], capV[capT[i + 2]] - capV[capT[i]])).normalized;
-                N[baseI + capT[i]] = n; N[baseI + capT[i + 1]] = n; N[baseI + capT[i + 2]] = n;
+                Vector3 nw;
+                int face = capF[i];
+                if (rough > 0f) nw = sumN[Q(capV[i])];
+                else if (face == 2) nw = Vector3.up;
+                else { float l = f.L(capV[i]); nw = (f.axis - f.Slope(face, l) * f.side) * (face == 0 ? 1f : -1f); }
+                N[baseI + i] = w2l.MultiplyVector(nw).normalized;
             }
             mesh.SetNormals(N);
         }
@@ -209,7 +222,7 @@ public static class FuwaCutCap
     }
 
     // 輪を面の座標で多角形にして三角形に割り、capV/capT に足す（頂点は三角形ごとに分ける）
-    static int TriangulateLoop(List<int> loop, int face, Frame f, System.Func<int, Vector3> P, List<Vector3> capV, List<int> capT, float rough, float maxArea, int seed)
+    static int TriangulateLoop(List<int> loop, int face, Frame f, System.Func<int, Vector3> P, List<Vector3> capV, List<int> capT, List<int> capF, float rough, float maxArea, int seed)
     {
         Vector2 To2(Vector3 p) => face < 2 ? new Vector2(f.U(face, f.L(p)), p.y) : new Vector2(f.L(p), f.S(p));
         var pts3 = loop.Select(P).ToList();
@@ -279,7 +292,7 @@ public static class FuwaCutCap
             int bi = capV.Count;
             if (Vector3.Dot(n, want) >= 0f) { capV.Add(a); capV.Add(b); capV.Add(c); }
             else { capV.Add(a); capV.Add(c); capV.Add(b); }
-            capT.Add(bi); capT.Add(bi + 1); capT.Add(bi + 2); count++;
+            capT.Add(bi); capT.Add(bi + 1); capT.Add(bi + 2); capF.Add(face); capF.Add(face); capF.Add(face); count++;
         }
         return count;
     }

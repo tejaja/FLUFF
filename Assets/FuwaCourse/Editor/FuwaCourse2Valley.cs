@@ -62,6 +62,11 @@ public static class FuwaCourse2Valley
             var src = Backup(live, "_PreValley");
             var cut = FuwaPitCut.CutJagged(src, mt, origin, axis, f.e0, f.e1, f.yBottom, FuwaCourse2Collapse.ValleyHalfWidth, isCol ? 0.3f : 0.2f);
             var (tris, bad, clog) = FuwaCutCap.Cap(cut, mt, f, 0, WallRough, WallMaxArea, 7);
+            // 山の面の折り目（細く折り返して影の線に見える所）をならす（2026-10-13 てじゃ「謎の横線」）
+            var uf = FuwaMeshUnfold.Run(cut, mt, new Bounds(new Vector3(115f, 8f, 4f), new Vector3(60f, 30f, 60f)));
+            clog += " folds " + uf.before + "->" + uf.after + " moved " + uf.moved;
+            // 温泉の先、道の南のふちの下の細い段差（影の横線に見えた）をならす
+            if (!isCol) clog += " smoothed " + FuwaMeshUnfold.Smooth(cut, mt, new Bounds(new Vector3(111f, 13.6f, 0.3f), new Vector3(6f, 0.9f, 1.3f)), 12);
             // ライトマップの UV2 は作り直さない（作り直すと焼いた影がずれて山じゅうにシミが出た。切った所は元の値を引き継ぎ、ふたは近くの点の値を借りる）
             Write(live, cut); Object.DestroyImmediate(cut);
             log.Add((isCol ? "mountain col" : "mountain") + ": cap tris " + tris + (bad > 0 ? " UNRESOLVED " + bad : "") + " " + clog);
@@ -94,8 +99,8 @@ public static class FuwaCourse2Valley
         AssetDatabase.SaveAssets();
         log.Add(FuwaCourse2BrokenPath.Run());
 
-        // 4. 舌の足場の下の岩
-        log.Add(FuwaCourse2Ledge.Run());
+        // 4. 舌の足場の下の岩は置かない（2026-10-13 てじゃ「飛び出した道の下に岩追加はいらなかったかも、浮いてる感じでいい」）
+        var ledge = root.Find("CollapseLedgeRocks"); if (ledge != null) { Object.DestroyImmediate(ledge.gameObject); log.Add("ledge rocks removed"); }
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return string.Join("\n", log);

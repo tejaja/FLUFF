@@ -76,7 +76,7 @@ public static class FuwaCourse2BrokenPath
         // 切り口の断面（縦の面）は、元の道の面取りの法線を引きずっていて、縦の筋のような明暗のむらが出ていた（2026-10-13 てじゃ「筋もあるしちょっときたなく」）。
         // 崩落の範囲の縦向きの三角形は、頂点を分けて、面の向き（水平）の法線にそろえる
         var (cutO, cutAx) = FuwaCourse2Collapse.Frame(pm.parent);
-        FlattenCutNormals(newV, newN, uv, hasUv, subs, l2w, cutO, cutAx);
+        // FlattenCutNormals はやめた（2026-10-13）：谷の切り口のふたは FuwaCutCap が面の向きの法線を付ける。三角形ごとの向きにそろえると細い三角形ごとに陰影が変わって斜めの筋に見えた
         mesh.Clear();
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(newV); if (hasUv) mesh.SetUVs(0, uv);
