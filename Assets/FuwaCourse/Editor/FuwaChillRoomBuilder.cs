@@ -28,7 +28,7 @@ public static class FuwaChillRoomBuilder
     static readonly Vector3 SpawnLocal = new Vector3(0f, 0f, -8.8f) * IslandScale;
     static readonly Vector3 ReturnWarpLocal = new Vector3(7.3f, 0f, -9.4f) * IslandScale;
     static readonly Vector3 SoloWarpLocal = new Vector3(10.6f, 0f, -5.6f) * IslandScale;
-    static readonly Vector3 GunStandLocal = new Vector3(1.9f, 0f, -3.53f);   // 2026-10-13 てじゃが手で置いた位置・向き
+    static readonly Vector3 GunStandLocal = new Vector3(-0.637f, 0f, -4.451f);   // 2026-10-13 てじゃが手で置いた位置・向き（見た目の切り株だけ動いていたのを台ごとに直した）
     const float GunStandYaw = 304.4f;
     // 左奥（-5.5, 0, 5.5）あたりはギミック用に空けておく
 
