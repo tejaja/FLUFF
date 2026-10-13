@@ -18,16 +18,20 @@ public static class FuwaChillRoomBuilder
     // 配置（2026-10-12 てじゃ「真ん中にキノコ、右奥にデカソファでモニタを眺めるエリア、左奥にフワフワギミックエリア（未定）」）。スポーンは手前（-Z）
     // 島の大きさ：古いみんなでロビーの島（半径14m）の何倍か（2026-10-13 てじゃ「ちょっと広い」→ 半径10.5m。手前半分がほぼ空だった）
     const float IslandScale = 0.75f;
-    static readonly Vector3 MushLocal = new Vector3(0f, 0f, 0f);          // 島の真ん中
-    static readonly Vector3 PanelLocal = new Vector3(-2.9f, 0f, -2.0f);   // スイッチ（キノコの左手前、スポーンの方を向く）
+    static readonly Vector3 MushLocal = new Vector3(0f, 0f, -3.54f);      // 島の真ん中から少し手前（2026-10-13 てじゃが手で置いた位置）
+    static readonly Vector3 PanelLocal = new Vector3(-3.299f, 0f, -8.229f);   // スイッチ（スポーンの左。2026-10-13 てじゃが手で置いた位置・向き）
+    const float PanelYaw = 202.4f;
     // 右奥の観戦リビング（ラグの中心）。島を縮めた時に、跳ねるキノコと重ならないよう少し右へ回した（前は (5.3, 0, 5.3)）
     static readonly Vector3 LivingLocal = new Vector3(4.7f, 0f, 2.9f);
-    static readonly Vector3 HowToLocal = new Vector3(-5.6f * IslandScale, -0.12f, -6.4f * IslandScale);   // 遊び方の看板（スポーンの左前）
+    // 遊び方の看板（板と文字は消して、言語・HUD・音量のボタンだけ。2026-10-13 てじゃ「あそびかたボードいらんかも、ボタンだけ残し」）。てじゃが手で置いた位置・向き
+    static readonly Vector3 HowToLocal = new Vector3(-3.23f, -0.12f, -8.76f);
+    const float HowToYaw = 195f;
     // 島の外の物（FuwaCoop の直下。前は手で置いていた位置×島の大きさ）：スポーン、ワープ2つ、エアガンの台（2026-10-13 てじゃ「銃の台も真ん中に」→ キノコの右手前、スイッチの反対）
     static readonly Vector3 SpawnLocal = new Vector3(0f, 0f, -8.8f) * IslandScale;
     static readonly Vector3 ReturnWarpLocal = new Vector3(7.3f, 0f, -9.4f) * IslandScale;
     static readonly Vector3 SoloWarpLocal = new Vector3(10.6f, 0f, -5.6f) * IslandScale;
-    static readonly Vector3 GunStandLocal = new Vector3(2.7f, 0f, -2.0f);
+    static readonly Vector3 GunStandLocal = new Vector3(1.9f, 0f, -3.53f);   // 2026-10-13 てじゃが手で置いた位置・向き
+    const float GunStandYaw = 304.4f;
     // 左奥（-5.5, 0, 5.5）あたりはギミック用に空けておく
 
     [MenuItem("FuwaCourse/みんなで/チルルームを作り直す")]
@@ -120,7 +124,7 @@ public static class FuwaChillRoomBuilder
         var panel = new GameObject("Switches").transform; panel.SetParent(root, false);
         Vector3 pc = new Vector3(ac.x, floorY, ac.z) + PanelLocal;
         Vector3 look = spawn != null ? spawn.position : ac + Vector3.back * 9f;
-        var face = pc - look; face.y = 0f; var rot = Quaternion.LookRotation(face.normalized);
+        var rot = Quaternion.Euler(0f, PanelYaw, 0f);
         var labels = new TMPro.TextMeshProUGUI[4];
         var events = new[] { "NextSize", "NextColor", "NextLimit", "TogglePop" };
         for (int k = 0; k < 4; k++)
@@ -147,8 +151,8 @@ public static class FuwaChillRoomBuilder
         if (howTo != null)
         {
             SetHowToText(howTo.Find("Text").GetComponent<TMPro.TextMeshPro>());
-            var hp = ac + HowToLocal; var hd = hp - look; hd.y = 0f;
-            howTo.position = hp; howTo.rotation = Quaternion.LookRotation(hd.normalized);   // 表（-Z）をスポーンへ
+            howTo.position = ac + HowToLocal; howTo.rotation = Quaternion.Euler(0f, HowToYaw, 0f);
+            foreach (var n in new[] { "Panel", "Border", "Text" }) { var t = howTo.Find(n); if (t != null) t.gameObject.SetActive(false); }
         }
 
         // 観戦モニター（ひとりでのロビーの写真館のモニターと、CAM・人物ボタンをコピー。2026-10-12 てじゃ「こっちでも観戦できる」）
@@ -156,6 +160,7 @@ public static class FuwaChillRoomBuilder
         Vector3 L = new Vector3(ac.x, floorY, ac.z) + LivingLocal, dirL = new Vector3(LivingLocal.x, 0f, LivingLocal.z).normalized;
         log.Add(Monitor(root, L + dirL * 2.9f, L - dirL * 1.7f));
         log.Add(Decorate(root, ac, floorY, root.Find("Monitor")));
+        log.Add(Fence(root, ac, floorY));
         log.Add(Toys(root, ac, floorY, sp, howTo, look));
 
         // 落ちた人の戻し：島の下の大きな板（FuwaLobbyFall）→ スポーンへ（見えないワープ）
@@ -209,9 +214,7 @@ public static class FuwaChillRoomBuilder
             Vector3 mOff = marker != null ? marker.position - stand.position : Vector3.zero;
             Quaternion mRot = marker != null ? Quaternion.Inverse(stand.rotation) * marker.rotation : Quaternion.identity;
             stand.position = Ground(GunStandLocal, stand);
-            // 前と同じく、台の正面から見てスポーンが右90°くらいにある向き
-            var toSpawn = spawn.position - stand.position; toSpawn.y = 0f;
-            stand.rotation = Quaternion.LookRotation(Quaternion.Euler(0f, 94f, 0f) * toSpawn.normalized);
+            stand.rotation = Quaternion.Euler(0f, GunStandYaw, 0f);
             if (marker != null) { marker.position = stand.position + new Vector3(0f, mOff.y, 0f); marker.rotation = stand.rotation * mRot; }
         }
     }
@@ -443,7 +446,7 @@ public static class FuwaChillRoomBuilder
         rugG.transform.localScale = new Vector3(0.8f, 1f, 0.8f);
         // 雲のソファ：リビングの手前側、テレビの方を向く（ソファの正面は +Z、弧の中心は前 4m＝テレビのあたり）
         var sofaPos = C - dir * 1.7f;
-        Put("Chill_CloudSofa", cloud, sofaPos, Face(sofaPos, C + dir * 3f), true);
+        Put("Chill_CloudSofa", cloud, sofaPos, Face(sofaPos, C + dir * 3f), true, 17);   // ふわふわだけ当たって人はすり抜ける（Walkthrough。2026-10-13 てじゃ）
         // ビーズクッション：ソファの両わき2つと、テレビ寄りの両わき2つ（テレビの方を向く）
         var beanPos = new[] { C - dir * 0.9f - perp * 2.6f, C - dir * 0.9f + perp * 2.6f, C + dir * 0.9f - perp * 2.3f, C + dir * 0.9f + perp * 2.3f };
         for (int i = 0; i < beanPos.Length; i++)
@@ -457,6 +460,8 @@ public static class FuwaChillRoomBuilder
             var lamp = new GameObject("Lamp").transform; lamp.SetParent(deco, false); lamp.position = lp;
             var s = Put("Chill_LampStem", stemM, lamp.position, Quaternion.identity, false); s.transform.SetParent(lamp, true);
             var c = Put("Chill_LampCap", capM, lamp.position, Quaternion.identity, false); c.transform.SetParent(lamp, true);
+            // ランプ：ふわふわだけ当たって人はすり抜ける（Walkthrough。2026-10-13 てじゃ）
+            lamp.gameObject.layer = 17;
             var col = lamp.gameObject.AddComponent<CapsuleCollider>(); col.center = new Vector3(0f, 0.65f, 0f); col.height = 1.3f; col.radius = 0.14f;
         }
 
@@ -491,7 +496,10 @@ public static class FuwaChillRoomBuilder
                 g.GetComponent<MeshFilter>().sharedMesh = mesh; g.GetComponent<MeshRenderer>().sharedMaterial = mat;
                 GameObjectUtility.SetStaticEditorFlags(g, StaticEditorFlags.BatchingStatic);
             }
-            var bc = tv.gameObject.AddComponent<BoxCollider>(); bc.center = new Vector3(0f, 0f, face + 0.15f); bc.size = new Vector3((hw + rimW) * 2f, (hh + rimW) * 2f, 0.4f);
+            // 雲のテレビの当たり判定：ふわふわだけ当たって人はすり抜ける（Walkthrough レイヤー）。ボタンが埋まらないよう、画面・ボタンより奥だけ
+            //（2026-10-13 てじゃ「テレビのボタンがコライダーにうまってる」「ふわふわだけ当たるように、プレイヤーは貫通で」）
+            var bump = new GameObject("BallBump"); bump.layer = 17; bump.transform.SetParent(tv, false);
+            var bc = bump.AddComponent<BoxCollider>(); bc.center = new Vector3(0f, 0f, face + 0.25f); bc.size = new Vector3((hw + rimW) * 2f, (hh + rimW) * 2f, 0.3f);
             // 元の看板の板・ふちは消す。題名は画面の上、ボタン2つは画面の下（どちらも雲の前の平らな所）
             foreach (var n in new[] { "Panel", "Border" }) { var t = mon.Find(n); if (t != null) t.gameObject.SetActive(false); }
             var title = mon.Find("Title");
@@ -876,6 +884,64 @@ public static class FuwaChillRoomBuilder
         var t0 = m.triangles; var v0 = m.vertices;
         var fn = Vector3.Cross(v0[t0[1]] - v0[t0[0]], v0[t0[2]] - v0[t0[0]]);
         if (Vector3.Dot(fn, ns[t0[0]]) < 0f) { for (int k = 0; k < t0.Length; k += 3) { int x = t0[k + 1]; t0[k + 1] = t0[k + 2]; t0[k + 2] = x; } m.triangles = t0; }
+        return m;
+    }
+
+    // 島のまわりの木の柵（2026-10-13 てじゃ「周りに柵つけとこ」）。写真館の島の柵（FuwaPhotoStudioBuilder.StudioFence）と同じ作り：
+    // 柱は地面のふちより内側、横木2本、当たり判定は横木の区間ごとの段差のない板（高さ0.65＝歩いては越えられない、ジャンプなら越えられる。横木があると足場になって登られる）。
+    // 名前に Fence を含むので、ふわふわが柵のてっぺんに乗って止まったら転がり落ちる
+    static string Fence(Transform root, Vector3 ac, float floorY)
+    {
+        var gT = root.Find("VersusFloor");
+        float groundR = 0f;
+        foreach (var v in gT.GetComponent<MeshFilter>().sharedMesh.vertices) { var w = gT.TransformPoint(v) - ac; groundR = Mathf.Max(groundR, new Vector2(w.x, w.z).magnitude); }
+        float r = groundR - 0.14f;
+        const float postW = 0.11f, postH = 0.6f, railW = 0.06f, railH = 0.06f;
+        float baseY = -0.02f;
+        float[] railY = { 0.22f, 0.52f };
+        int segs = Mathf.RoundToInt(Mathf.PI * 2f * r / 1.0f);
+        var postMesh = FuwaBevelTools.RoundCube(new Vector3(postW, postH, postW), 0.03f, 2);
+        var parts = new List<CombineInstance>();
+        var colParts = new List<CombineInstance>();
+        var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        Vector3 P(float ang) { return new Vector3(Mathf.Cos(ang) * r, floorY - root.position.y, Mathf.Sin(ang) * r); }
+        for (int i = 0; i < segs; i++)
+        {
+            float a0 = Mathf.PI * 2f * i / segs, a1 = Mathf.PI * 2f * (i + 1) / segs;
+            Vector3 p = P(a0), q = P(a1);
+            parts.Add(new CombineInstance { mesh = postMesh, transform = Matrix4x4.TRS(p + Vector3.up * (baseY + postH * 0.5f), Quaternion.identity, new Vector3(postW, postH, postW)) });
+            Vector3 mid = (p + q) * 0.5f; Vector3 d = q - p; float len = d.magnitude;
+            Quaternion rr = Quaternion.LookRotation(d / len, Vector3.up);
+            var railMesh = FuwaBevelTools.RoundCube(new Vector3(railW, railH, len + 0.04f), 0.02f, 2);
+            foreach (float ry in railY)
+                parts.Add(new CombineInstance { mesh = railMesh, transform = Matrix4x4.TRS(mid + Vector3.up * (baseY + ry), rr, new Vector3(railW, railH, len + 0.04f)) });
+            colParts.Add(new CombineInstance { mesh = cube, transform = Matrix4x4.TRS(mid + Vector3.up * (baseY + 0.33f), rr, new Vector3(0.12f, 0.65f, len)) });
+        }
+        var vis = new Mesh { name = "Chill_Fence", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        vis.CombineMeshes(parts.ToArray(), true, true); vis.RecalculateBounds();
+        var col = new Mesh { name = "Chill_FenceCollider", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        col.CombineMeshes(colParts.ToArray(), true, true); col.RecalculateBounds();
+        vis = SaveFenceMesh(vis, "Chill_Fence"); col = SaveFenceMesh(col, "Chill_FenceCollider");
+        var wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
+        foreach (var n in new[] { "Fence", "FenceCollider" }) { var o = root.Find(n); if (o != null) Object.DestroyImmediate(o.gameObject); }
+        var f = new GameObject("Fence"); f.transform.SetParent(root, false); f.transform.localPosition = Vector3.zero;
+        f.AddComponent<MeshFilter>().sharedMesh = vis; f.AddComponent<MeshRenderer>().sharedMaterial = wood;
+        GameObjectUtility.SetStaticEditorFlags(f, (StaticEditorFlags)~0);
+        var fc = new GameObject("FenceCollider"); fc.transform.SetParent(root, false); fc.transform.localPosition = Vector3.zero;
+        fc.AddComponent<MeshCollider>().sharedMesh = col;
+        GameObjectUtility.SetStaticEditorFlags(fc, (StaticEditorFlags)~0);
+        return "fence r=" + r.ToString("F2") + " posts " + segs;
+    }
+
+    // 柵は頂点が多いので 32bit の番号で保存（SaveGenMesh は 16bit のまま上書きする）
+    static Mesh SaveFenceMesh(Mesh m, string name)
+    {
+        const string dir = "Assets/FuwaCourse/Generated/Chill";
+        if (!AssetDatabase.IsValidFolder(dir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Chill");
+        string p = dir + "/" + name + ".asset";
+        var old = AssetDatabase.LoadAssetAtPath<Mesh>(p);
+        if (old != null) AssetDatabase.DeleteAsset(p);
+        AssetDatabase.CreateAsset(m, p);
         return m;
     }
 
