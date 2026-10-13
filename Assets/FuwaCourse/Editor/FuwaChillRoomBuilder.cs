@@ -651,6 +651,7 @@ public static class FuwaChillRoomBuilder
         pl.spawner = sp; pl.visual = vis; pl.radius = r; pl.boing = boing;
         pl.eyes = vis.Find("Eyes"); pl.sleepFx = vis.Find("SleepBubble");
         FuwaSleepEyesSetup.AddTo(pl.eyes);   // 寝ている時の「︶」の目
+        FuwaSleepEyesSetup.SmoothEyes(pl.eyes);   // なめらかな目玉
         pl.standUp = standUp; pl.ground = 1 << 11; pl.fallY = slot.position.y - 6f;
         pl.bramble = bBody; pl.brambleRadius = bR;
         pl.popEffect = popFx; pl.popSound = popSfx;

@@ -12,7 +12,7 @@ public static class FuwaSleepEyesSetup
     // 目（Eyes）の中の大きさ。白目は直径0.15、前の面は z 0.34
     const float Width = 0.15f, Sag = 0.04f, Thick = 0.024f, FrontZ = 0.335f, DownY = -0.012f;
 
-    [MenuItem("FuwaCourse/まものの寝てる目（︶）を付ける")]
+    [MenuItem("FuwaCourse/まものの目を整える（寝てる目︶・なめらかな目玉）")]
     public static void Menu()
     {
         Debug.Log(Run());
@@ -28,7 +28,11 @@ public static class FuwaSleepEyesSetup
         foreach (var p in Object.FindObjectsOfType<FuwaChillPlush>(true)) if (p.eyes != null) eyesList.Add(p.eyes);
         int n = 0;
         foreach (var eyes in eyesList.Distinct()) { AddTo(eyes, mesh); n++; }
-        return "sleep eyes: " + n;
+        // 白目・黒目をなめらかな球に（低ポリの球だと、上から見た時に白目のてっぺんがカクカクに割れて、くぼんでいるように見えた。2026-10-13 てじゃ）
+        var demoEyes = Object.FindObjectsOfType<FuwaDemoMonster>(true).Where(d => d.eyes != null).Select(d => d.eyes);
+        int sm = 0;
+        foreach (var eyes in eyesList.Concat(demoEyes).Distinct()) sm += SmoothEyes(eyes);
+        return "sleep eyes: " + n + ", smooth eye parts: " + sm;
     }
 
     public static void AddTo(Transform eyes, Mesh mesh = null)
@@ -49,6 +53,19 @@ public static class FuwaSleepEyesSetup
             GameObjectUtility.SetStaticEditorFlags(g, 0);
             g.SetActive(false);
         }
+    }
+
+    public static int SmoothEyes(Transform eyes)
+    {
+        var sphere = Resources.GetBuiltinResource<Mesh>("New-Sphere.fbx");
+        int n = 0;
+        foreach (Transform t in eyes)
+        {
+            if (t.name != "EyeWhite" && t.name != "Pupil") continue;
+            var mf = t.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == sphere) continue;
+            mf.sharedMesh = sphere; EditorUtility.SetDirty(mf); n++;
+        }
+        return n;
     }
 
     // 「︶」の弧：両はしが上、まん中が下の放物線に沿った細い筒。前（+Z）から見る
