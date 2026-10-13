@@ -44,7 +44,7 @@ public static class FuwaCourse2Collapse
         var origin = map.MultiplyPoint3x4(OldOrigin);
         var axis = map.MultiplyVector(OldAxis.normalized);
         var (j0, j1) = Jags();
-        return FuwaPitCut.CutJagged(src, pathTr, origin, axis, l => S0 + Interp(j0, l) * (1f - TongueK(l)) + Tongue(l), l => S1 + Interp(j1, l), YBottom, HalfWidth, maxEdge);
+        return FuwaPitCut.CutJagged(src, pathTr, origin, axis, l => S0 + Interp(j0, l) * (1f - TongueK(l)) + Tongue(l), l => S1 + FarEdge(j1, l), YBottom, HalfWidth, maxEdge);
     }
 
     // 切り口のギザギザ（当時と同じ作り方・同じ乱数）
@@ -64,6 +64,15 @@ public static class FuwaCourse2Collapse
         }
         return (j0, j1);
     }
+    // 向こう岸の切り口：細かいギザギザだと、歯ごとに光の当たり方が変わって縦の筋のように見え、汚く見えた（2026-10-13 てじゃ「筋もあるしちょっときたなく」）。
+    // 足場と同じく、大きくゆるいでこぼこにする（元のギザギザは2割だけ残す）
+    static float FarEdge(float[] j1, float l)
+    {
+        float u = l / 0.7f; int i0 = Mathf.FloorToInt(u); float f = Mathf.SmoothStep(0f, 1f, u - i0);
+        float h0 = Mathf.PerlinNoise(i0 * 0.63f, 1.7f) - 0.5f, h1 = Mathf.PerlinNoise((i0 + 1) * 0.63f, 1.7f) - 0.5f;
+        return Interp(j1, l) * 0.2f + Mathf.Lerp(h0, h1, f) * 0.5f + 0.15f;
+    }
+
     static float Interp(float[] arr, float l) { float f = (l - JL0) / JStep; int i = Mathf.Clamp(Mathf.FloorToInt(f), 0, JN - 1); return Mathf.Lerp(arr[i], arr[i + 1], Mathf.Clamp01(f - i)); }
 
     // 手前の切り口の位置（切り抜きの軸に沿った距離 s、横 l は CutJagged の向き）。足場の下の岩（FuwaCourse2Ledge）が使う

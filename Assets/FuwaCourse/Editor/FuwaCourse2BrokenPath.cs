@@ -141,6 +141,9 @@ public static class FuwaCourse2BrokenPath
         // 頂上の柱ゾーン手前の崩落（FuwaCourse2Collapse で道を切った所）の切り口にふたをする（2026-10-12 てじゃ「頂上付近の道の端が割れてる」）。
         // 切っただけだと切り口の断面が開いていて、横から見ると中が抜けて見えた。開いている辺の輪を岩のふたでふさぐ（見た目だけ）
         capped = CapOpenLoops(newV, newN, uv, hasUv, subs[0], subs,   /* ふたは道と同じ黄色（てじゃ「黄色でふさいでほしかった」） */ l2w, new Bounds(new Vector3(121f, 12.5f, 5f), new Vector3(20f, 7f, 16f)));
+        // 切り口の断面（縦の面）は、元の道の面取りの法線を引きずっていて、縦の筋のような明暗のむらが出ていた（2026-10-13 てじゃ「筋もあるしちょっときたなく」）。
+        // 崩落の範囲の縦向きの三角形は、頂点を分けて、面の向き（水平）の法線にそろえる
+        FlattenCutNormals(newV, newN, uv, hasUv, subs, l2w, new Bounds(new Vector3(121f, 12.5f, 5f), new Vector3(20f, 7f, 16f)));
         mesh.Clear();
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(newV); if (hasUv) mesh.SetUVs(0, uv);
@@ -159,6 +162,27 @@ public static class FuwaCourse2BrokenPath
     // 開いている辺（三角形1枚にしか使われていない辺）のうち box の中のものに、断面の壁（ふた）を足す。足した壁の数を返す。
     // 切り口は輪になっていない（道の上面のふち・下面のふち・角の丸み、とばらばらに開いている）ので、
     // 上面と角の開いた辺を、真下の下面の高さ（近くの下面の開いた辺の頂点）までのばした縦の壁にする
+    static void FlattenCutNormals(List<Vector3> V, List<Vector3> N, List<Vector2> UV, bool hasUv, List<int>[] subs, Matrix4x4 l2w, Bounds box)
+    {
+        var w2l = l2w.inverse;
+        foreach (var list in subs)
+            for (int i = 0; i < list.Count; i += 3)
+            {
+                Vector3 a = l2w.MultiplyPoint3x4(V[list[i]]), b = l2w.MultiplyPoint3x4(V[list[i + 1]]), c = l2w.MultiplyPoint3x4(V[list[i + 2]]);
+                if (!box.Contains((a + b + c) / 3f)) continue;
+                Vector3 fn = Vector3.Cross(b - a, c - a); if (fn.sqrMagnitude < 1e-10f) continue; fn.Normalize();
+                if (Mathf.Abs(fn.y) > 0.35f) continue;   // 上面・下面はそのまま
+                fn.y = 0f; fn.Normalize();
+                Vector3 ln = w2l.MultiplyVector(fn).normalized;
+                for (int k = 0; k < 3; k++)
+                {
+                    int vi = list[i + k]; int ni = V.Count;
+                    V.Add(V[vi]); N.Add(ln); if (hasUv) UV.Add(UV[vi]);
+                    list[i + k] = ni;
+                }
+            }
+    }
+
     const float WallDepth = 0.3f;   // 道の厚み（FuwaCourse2Builder.Thick）
     static int CapOpenLoops(List<Vector3> V, List<Vector3> N, List<Vector2> UV, bool hasUv, List<int> dst, List<int>[] all, Matrix4x4 l2w, Bounds box)
     {
