@@ -62,7 +62,7 @@ public static class FuwaCourse2Valley
             var src = Backup(live, "_PreValley");
             var cut = FuwaPitCut.CutJagged(src, mt, origin, axis, f.e0, f.e1, f.yBottom, FuwaCourse2Collapse.ValleyHalfWidth, isCol ? 0.3f : 0.2f);
             var (tris, bad, clog) = FuwaCutCap.Cap(cut, mt, f, 0, WallRough, WallMaxArea, 7);
-            if (!isCol && cut.uv2.Length == cut.vertexCount) Unwrapping.GenerateSecondaryUVSet(cut);
+            // ライトマップの UV2 は作り直さない（作り直すと焼いた影がずれて山じゅうにシミが出た。切った所は元の値を引き継ぎ、ふたは近くの点の値を借りる）
             Write(live, cut); Object.DestroyImmediate(cut);
             log.Add((isCol ? "mountain col" : "mountain") + ": cap tris " + tris + (bad > 0 ? " UNRESOLVED " + bad : "") + " " + clog);
         }

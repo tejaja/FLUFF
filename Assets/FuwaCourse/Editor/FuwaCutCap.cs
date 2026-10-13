@@ -157,11 +157,28 @@ public static class FuwaCutCap
         if (brokenLoops > 0) log.Add("broken loops " + brokenLoops);
         // ふたを足す（面ごとの平らな法線。頂点は三角形ごとに分ける）
         int baseI = V.Count;
+        // UV・UV2（ライトマップ）は、いちばん近い元の点の値を借りる（焼き直すまでの間も、ふただけ真っ黒などにならないように）
+        var ugrid = new Dictionary<Vector3Int, List<int>>(); const float ucell = 0.25f;
+        if (hasUv || hasUv2) for (int i = 0; i < W.Count; i++) { var c = Vector3Int.FloorToInt(W[i] / ucell); if (!ugrid.TryGetValue(c, out var l)) ugrid[c] = l = new List<int>(); l.Add(i); }
+        int Nearest(Vector3 p)
+        {
+            var c = Vector3Int.FloorToInt(p / ucell);
+            for (int r = 1; r <= 8; r++)
+            {
+                int best = -1; float bd = float.MaxValue;
+                for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++)
+                            if (ugrid.TryGetValue(new Vector3Int(c.x + dx, c.y + dy, c.z + dz), out var l))
+                                foreach (var j in l) { float d = (W[j] - p).sqrMagnitude; if (d < bd) { bd = d; best = j; } }
+                if (best >= 0) return best;
+            }
+            return 0;
+        }
         for (int i = 0; i < capV.Count; i++)
         {
             V.Add(w2l.MultiplyPoint3x4(capV[i]));
-            if (hasUv) UV.Add(Vector2.zero);
-            if (hasUv2) UV2.Add(Vector2.zero);
+            int nn = (hasUv || hasUv2) ? Nearest(capV[i]) : 0;
+            if (hasUv) UV.Add(UV[nn]);
+            if (hasUv2) UV2.Add(UV2[nn]);
         }
         for (int i = 0; i < capT.Count; i += 3)
         {
