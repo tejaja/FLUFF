@@ -159,6 +159,7 @@ public static class FuwaCourse2BrokenPath
     // 開いている辺（三角形1枚にしか使われていない辺）のうち box の中のものに、断面の壁（ふた）を足す。足した壁の数を返す。
     // 切り口は輪になっていない（道の上面のふち・下面のふち・角の丸み、とばらばらに開いている）ので、
     // 上面と角の開いた辺を、真下の下面の高さ（近くの下面の開いた辺の頂点）までのばした縦の壁にする
+    const float WallDepth = 0.3f;   // 道の厚み（FuwaCourse2Builder.Thick）
     static int CapOpenLoops(List<Vector3> V, List<Vector3> N, List<Vector2> UV, bool hasUv, List<int> dst, List<int>[] all, Matrix4x4 l2w, Bounds box)
     {
         var id = new int[V.Count]; var key = new Dictionary<Vector3Int, int>();
@@ -202,10 +203,15 @@ public static class FuwaCourse2BrokenPath
             Vector3 a = ua, b = ub;
             Vector3 a2 = Down(a), b2 = Down(b);
             if ((a - a2).sqrMagnitude < 1e-6f && (b - b2).sqrMagnitude < 1e-6f) continue;
-            // となりの壁・下の面とのあいだに髪の毛くらいのすき間が見えた（2026-10-13 てじゃ「つなぎ目に隙間」）→ 壁を少し下へ・横へはみ出させて重ねる（中に隠れる）
+            // 壁の下はしは、上はしから道の厚みぶん下にそろえる（近くの下面の頂点まで伸ばすと、ところどころ長く垂れて「黄色がたれて」見えた。2026-10-13 てじゃ）。
+            // となりの壁とは横に少し重ねて髪の毛くらいのすき間を消す（2026-10-13 てじゃ「つなぎ目に隙間」）
+            Vector3 wa = l2w.MultiplyPoint3x4(a), wb = l2w.MultiplyPoint3x4(b);
+            a2 = w2l.MultiplyPoint3x4(new Vector3(wa.x, wa.y - WallDepth, wa.z));
+            b2 = w2l.MultiplyPoint3x4(new Vector3(wb.x, wb.y - WallDepth, wb.z));
             Vector3 along = (a - b).normalized * 0.012f;
-            a += along; b -= along; a2 += along + Vector3.down * 0.04f; b2 += -along + Vector3.down * 0.04f;
-            Vector3 n = Vector3.Cross(a - b, b2 - b).normalized;
+            a += along; b -= along; a2 += along; b2 -= along;
+            // 法線は水平に（縦の筋のような明暗のむらが出ないように）
+            Vector3 n = Vector3.Cross(a - b, b2 - b); n.y = 0f; n = n.sqrMagnitude > 1e-8f ? n.normalized : Vector3.Cross(a - b, b2 - b).normalized;
             int i0 = V.Count;
             V.Add(b); V.Add(a); V.Add(a2); V.Add(b2);
             for (int k = 0; k < 4; k++) { N.Add(n); if (hasUv) UV.Add(Vector2.zero); }
