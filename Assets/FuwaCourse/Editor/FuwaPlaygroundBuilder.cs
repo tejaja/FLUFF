@@ -449,6 +449,8 @@ public static class FuwaPlaygroundBuilder
         tm.enableAutoSizing = true; tm.fontSizeMax = 3.2f; tm.fontSizeMin = 0.6f; tm.enableWordWrapping = false;
         tm.rectTransform.sizeDelta = new Vector2((LockHW - 0.08f) * 2f, (LockHH - 0.02f) * 2f);
         t.transform.localPosition = new Vector3(0f, 0f, 0f); t.transform.localRotation = Quaternion.identity; t.transform.localScale = Vector3.one;
+        // フォントの行の余白で文字の見た目が下に寄る（2026-10-13 てじゃ「文字が下よりじゃない？」）→ 実際の文字の範囲の真ん中を板の真ん中に
+        tm.ForceMeshUpdate(); t.transform.localPosition = new Vector3(0f, 0.02f - tm.textBounds.center.y, 0f);   // +0.02 は濁点などで重く見える分
         foreach (var r in root.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         return (root.gameObject, tm);
     }
