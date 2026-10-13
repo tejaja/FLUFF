@@ -66,7 +66,7 @@ public static class FuwaCourse2Valley
             var uf = FuwaMeshUnfold.Run(cut, mt, new Bounds(new Vector3(115f, 8f, 4f), new Vector3(60f, 30f, 60f)));
             clog += " folds " + uf.before + "->" + uf.after + " moved " + uf.moved;
             // 温泉の先、道の南のふちの下の細い段差（影の横線に見えた）をならす
-            if (!isCol) clog += " smoothed " + FuwaMeshUnfold.Smooth(cut, mt, new Bounds(new Vector3(111f, 13.6f, 0.3f), new Vector3(6f, 0.9f, 1.3f)), 12);
+            // （温泉の先の細い段差をならす Smooth は、ゴツゴツの崖まで平らにしたのでやめた。2026-10-14 てじゃ「頂上の崖がまっすぐになっちゃってる」）
             // ライトマップの UV2 は作り直さない（作り直すと焼いた影がずれて山じゅうにシミが出た。切った所は元の値を引き継ぎ、ふたは近くの点の値を借りる）
             Write(live, cut); Object.DestroyImmediate(cut);
             log.Add((isCol ? "mountain col" : "mountain") + ": cap tris " + tris + (bad > 0 ? " UNRESOLVED " + bad : "") + " " + clog);
@@ -81,6 +81,49 @@ public static class FuwaCourse2Valley
         return string.Join("\n", log);
     }
 
+    // 上の道の始まり（洞窟の上、x≒105.5）のはしを、欠けた形に（2026-10-14 てじゃ「頂上の崖、前はいい感じだったのにまっすぐになっちゃってる」。
+    // 10-04 の PathBrokenEdge は道の作り直しで消えていた）。はしを 0.4〜0.9m ゆるくでこぼこに切り落として、切り口を FuwaCutCap でふさぐ（見た目も当たり判定も）
+    const float EdgeX = 105.35f, EdgeZ = 3f, EdgeYBottom = 13.4f, EdgeHalf = 3.2f;
+    static float EdgeCut(float l)
+    {
+        float u = l / 0.55f; int i0 = Mathf.FloorToInt(u); float f = Mathf.SmoothStep(0f, 1f, u - i0);
+        float h0 = Mathf.PerlinNoise(i0 * 0.83f, 4.2f), h1 = Mathf.PerlinNoise((i0 + 1) * 0.83f, 4.2f);
+        return 0.45f + Mathf.Lerp(h0, h1, f) * 0.5f;
+    }
+    static string UpperStartEdge(Transform pm)
+    {
+        var axis = Vector3.right; var origin = new Vector3(EdgeX, 0f, EdgeZ);
+        var f = new FuwaCutCap.Frame { origin = origin, axis = axis, side = new Vector3(-axis.z, 0f, axis.x), e0 = l => -3f, e1 = EdgeCut, yBottom = EdgeYBottom };
+        var log = new List<string>();
+        // 当たり判定：三角形を消すだけ（CutJagged に通すと、この当たり判定のメッシュでは三角形がつぶれて道が大きく欠けた。2026-10-14）。はしの 0.5m くらいの差は遊びに影響しない
+        {
+            var colM = pm.GetComponent<MeshCollider>().sharedMesh;
+            if (colM != null)
+            {
+                var l2w = pm.localToWorldMatrix; var V = colM.vertices; var T = colM.triangles; var keep = new List<int>(); int removed = 0;
+                for (int i = 0; i < T.Length; i += 3)
+                {
+                    var c = (l2w.MultiplyPoint3x4(V[T[i]]) + l2w.MultiplyPoint3x4(V[T[i + 1]]) + l2w.MultiplyPoint3x4(V[T[i + 2]])) / 3f;
+                    float s = Vector3.Dot(c - origin, axis), l = c.z - origin.z;
+                    if (c.y > EdgeYBottom && Mathf.Abs(l) < EdgeHalf && s > -3f && s < EdgeCut(l)) { removed++; continue; }
+                    keep.Add(T[i]); keep.Add(T[i + 1]); keep.Add(T[i + 2]);
+                }
+                colM.SetTriangles(keep, 0); colM.RecalculateBounds(); EditorUtility.SetDirty(colM);
+                log.Add("upper edge col removed " + removed);
+            }
+        }
+        foreach (var (live, edge) in new[] { (pm.GetComponent<MeshFilter>().sharedMesh, 0.08f) })
+        {
+            if (live == null) continue;
+            var cut = FuwaPitCut.CutJagged(live, pm, origin, axis, f.e0, f.e1, f.yBottom, EdgeHalf, edge);
+            var (tris, bad, clog) = FuwaCutCap.Cap(cut, pm, f, 0, 0f, 0f, 3);
+            Write(live, cut); Object.DestroyImmediate(cut);
+            log.Add("upper edge cap " + tris + (bad > 0 ? " UNRESOLVED " + bad + " " + clog : ""));
+        }
+        var mc = pm.GetComponent<MeshCollider>(); if (mc != null) { var m = mc.sharedMesh; mc.sharedMesh = null; mc.sharedMesh = m; }
+        return string.Join("; ", log);
+    }
+
     public static string RunPath()
     {
         var root = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "FuwaCourse2" && t.parent == null);
@@ -90,6 +133,7 @@ public static class FuwaCourse2Valley
         var asc = typeof(FuwaIwaIslands).GetMethod("ApplySummitCut", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic);
         log.Add((string)asc.Invoke(null, null));
         var pm = root.Find("PathMesh");
+        log.Add(UpperStartEdge(pm));
         foreach (var (live, bp) in new[] { (pm.GetComponent<MeshFilter>().sharedMesh, "Assets/FuwaCourse/Meshes/Backup/Course2Path_v2_Bevel_PreBroken.asset"), (pm.GetComponent<MeshCollider>().sharedMesh, "Assets/FuwaCourse/Meshes/Backup/Course2Path_v2_PreBroken.asset") })
         {
             var b = AssetDatabase.LoadAssetAtPath<Mesh>(bp);
