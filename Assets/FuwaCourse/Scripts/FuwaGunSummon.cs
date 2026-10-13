@@ -122,6 +122,7 @@ public class FuwaGunSummon : UdonSharpBehaviour
             fwd.Normalize();
             summonSpot.SetPositionAndRotation(head.position + fwd * desktopDistance + Vector3.down * desktopDrop, Quaternion.LookRotation(fwd, Vector3.up));
             gun.MoveToStand(summonSpot);
+            gun.PlaySpawnSound();
             return;
         }
 
@@ -146,6 +147,7 @@ public class FuwaGunSummon : UdonSharpBehaviour
             _returnRot = gun.transform.rotation;
             gun.SetSummonHidden(false);
             _nextFollow = 0f;
+            _spawnSoundPending = true;   // 手元へ動かしてから鳴らす
         }
         if (!_summoning) return;
 
@@ -163,7 +165,9 @@ public class FuwaGunSummon : UdonSharpBehaviour
         _nextFollow = Time.time + followInterval;
         SetGripPose(p, false);
         gun.MoveToStand(summonSpot);
+        if (_spawnSoundPending) { _spawnSoundPending = false; gun.PlaySpawnSound(); }
     }
+    private bool _spawnSoundPending;
 
     // summonSpot を、手で握った時の銃の位置・向きにする。
     // 手の向きのままだと銃口が親指の方（上）を向くので、銃口を手の先・グリップを小指側へ回す。

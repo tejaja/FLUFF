@@ -20,6 +20,9 @@ public class FuwaHandFan : UdonSharpBehaviour
     [Tooltip("風の粒（なくてもOK）")]
     public ParticleSystem streaks;
     public AudioSource hum;
+    [Tooltip("ON/OFF の音（2026-10-14 てじゃ）")]
+    public AudioSource switchSound;
+    public AudioClip onClip, offClip;
 
     [Header("風")]
     [Tooltip("風の届く距離(m)")]
@@ -96,6 +99,8 @@ public class FuwaHandFan : UdonSharpBehaviour
         _shownOn = _on;
         if (streaks != null) { if (_on) streaks.Play(); else streaks.Stop(); }
         if (hum != null) { if (_on) hum.Play(); else hum.Stop(); }
+        // 入った直後（あとから来た人が今の状態を受け取った時）は鳴らさない
+        if (switchSound != null && Time.timeSinceLevelLoad > 3f) { AudioClip c = _on ? onClip : offClip; if (c != null) switchSound.PlayOneShot(c); }
     }
 
     private void Update()

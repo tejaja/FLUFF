@@ -326,6 +326,12 @@ public static class FuwaPlaygroundBuilder
                 var bl = Mesh(go.transform, "Blades", fanMeshes["Chill_FanBlades"], new[] { fanBodyM, fanBladeM }, new Vector3(0f, 0.36f, 0f)).transform;   // 1つ目は羽の真ん中のキャップ（白。2026-10-13 てじゃ）
                 nozzle.localPosition = new Vector3(0f, 0.36f, 0.04f);
                 fan.blades = bl;
+                // ON/OFF の音（カチッ＋ふぃーん。Tools/audio/make_sfx_gun_fan.py。2026-10-14 てじゃ「扇風機のオンオフに効果音」）
+                var snd = nozzle.gameObject.AddComponent<AudioSource>();
+                snd.playOnAwake = false; snd.spatialBlend = 1f; snd.volume = 0.6f; snd.rolloffMode = AudioRolloffMode.Linear; snd.minDistance = 1f; snd.maxDistance = 9f; snd.dopplerLevel = 0f;
+                fan.switchSound = snd;
+                fan.onClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaCourse/Audio/sfx_fan_on.wav");
+                fan.offClip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaCourse/Audio/sfx_fan_off.wav");
             }
             fan.streaks = Streaks(nozzle);
             fan.nozzle = nozzle; fan.spawner = sp;

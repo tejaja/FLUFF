@@ -114,6 +114,9 @@ public class FuwaBlower : UdonSharpBehaviour
     public float airChargeRefillTime = 0.4f;
     [Tooltip("空気が足りない時の空振り音")]
     public AudioSource emptySound;
+    [Tooltip("台から呼んだ・召喚した時に鳴らす音（自分にだけ。2026-10-14 てじゃ）")]
+    public AudioSource spawnSound;
+    public void PlaySpawnSound() { if (spawnSound != null) spawnSound.Play(); }
     [Tooltip("空気が空の時のポンプの大きさ（満タン=1）")]
     public float bulbEmptyScale = 0.65f;
     public Color bulbEmptyColor = new Color(0.55f, 0.6f, 0.55f, 1f);
