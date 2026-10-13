@@ -219,8 +219,9 @@ public static class FuwaPlaygroundBuilder
     // 2026-10-13 並べ直し：ゴールリングの右から右回りに柵沿い、入口の真後ろまで。
     // 前は19°おき（2.7m）で、実際の広さ（竜巻の見た目 直径5.1m・重力の球4.4m・跳ねるキノコ2本で横6.4m・いばら＋まもの）が重なっていた（てじゃ「かぶってる」）。
     // 島を半径14m にして、外側が柵の 0.8m 内側に来る距離で、となりと 1.3m 以上あく角度を計算して決めた。まものといばらは横ではなく縦（いばらが柵側）に並べる
-    static readonly float[] UnlockAngles = { 86f, 108f, 128f, 152f, 180f };
-    static readonly float[] UnlockDist = { IslandR - 3.55f, IslandR - 1.65f, IslandR - 3.15f, IslandR - 3.85f, IslandR - 2.55f };
+    // 2026-10-13 木のデッキを敷いたので、みんなデッキの幅の真ん中の線（10.4m）にそろえる（てじゃ「岩なんで奥気味？」。前は外はしを柵に寄せていて小さい岩だけ奥だった）。となりとは 1.5m あける
+    static readonly float[] UnlockAngles = { 87f, 114f, 138.5f, 163f, 191.5f };
+    static readonly float[] UnlockDist = { IslandR - 3.6f, IslandR - 3.6f, IslandR - 3.6f, IslandR - 3.6f, IslandR - 3.6f };
     static readonly Vector3[] UnlockLocal = UnlockAngles.Select((a, i) => OnRing(a, UnlockDist[i])).ToArray();
 
     // ワープの見た目（輪・足元・文字・粒）と踏む判定を消す。ワープの係（FuwaCourseWarp）は残す（ボタン・落下から呼ぶ）
