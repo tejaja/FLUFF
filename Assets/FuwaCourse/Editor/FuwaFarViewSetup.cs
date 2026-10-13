@@ -145,6 +145,53 @@ public static class FuwaFarViewSetup
         Debug.Log($"[遠景] 飾りのLOD {lod}個、軽い形への切り替え {far}個、影を切る対象 {fs.targets.Length}個");
     }
 
+    // 影の切り替え（FuwaFarShadows：FarShadows・SmallShadows など全部）の「物の位置」だけを今の位置に合わせ直す。対象の顔ぶれは変えない。
+    // コースを引っ越した後に位置が古いままで、目の前の物まで「遠い」扱いで影が消えていた
+    //（2026-10-13 てじゃ「コースのきのこだけ傘の下のヒラヒラが明るい」：FarShadows 633個のうち535個が古い位置、最大163mずれ）。
+    // 物を動かしたらこれを実行する。非表示の物も、メッシュの大きさから位置を出す
+    [MenuItem("FuwaCourse/影の切り替えの位置を今の位置に合わせ直す")]
+    public static void RefreshShadowCentersMenu() { Debug.Log(RefreshShadowCenters()); }
+
+    public static string RefreshShadowCenters()
+    {
+        var log = new List<string>();
+        foreach (var f in Object.FindObjectsOfType<FuwaFarShadows>(true))
+        {
+            if (f.targets == null) continue;
+            Undo.RecordObject(f, "FarShadows");
+            var oldC = new Dictionary<Renderer, Vector3>();
+            for (int i = 0; i < f.targets.Length && f.centers != null && i < f.centers.Length; i++) if (f.targets[i] != null) oldC[f.targets[i]] = f.centers[i];
+            var keep = f.targets.Where(r => r != null).ToArray();
+            int moved = 0;
+            f.targets = keep;
+            f.centers = new Vector3[keep.Length];
+            f.radii = new float[keep.Length];
+            for (int i = 0; i < keep.Length; i++)
+            {
+                var b = WorldBounds(keep[i]);
+                f.centers[i] = b.center; f.radii[i] = b.extents.magnitude;
+                if (!oldC.TryGetValue(keep[i], out var oc) || Vector3.Distance(oc, b.center) > 0.5f) moved++;
+            }
+            EditorUtility.SetDirty(f);
+            log.Add(f.name + " " + keep.Length + "個（位置が変わった " + moved + "）");
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+        return "影の切り替えの位置: " + string.Join(" / ", log);
+    }
+
+    // 非表示（renderer.bounds が空になる）でも、メッシュの大きさをワールドに直して使う
+    static Bounds WorldBounds(Renderer r)
+    {
+        if (r.enabled && r.gameObject.activeInHierarchy) return r.bounds;
+        Mesh m = r is SkinnedMeshRenderer sk ? sk.sharedMesh : r.GetComponent<MeshFilter>()?.sharedMesh;
+        if (m == null) return r.bounds;
+        var lb = m.bounds; var l2w = r.transform.localToWorldMatrix;
+        var b = new Bounds(l2w.MultiplyPoint3x4(lb.center), Vector3.zero);
+        for (int k = 0; k < 8; k++)
+            b.Encapsulate(l2w.MultiplyPoint3x4(lb.center + Vector3.Scale(lb.extents, new Vector3((k & 1) == 0 ? -1 : 1, (k & 2) == 0 ? -1 : 1, (k & 4) == 0 ? -1 : 1))));
+        return b;
+    }
+
     static bool IsDeco(Transform t, Transform root)
     {
         var parts = new List<string>();
