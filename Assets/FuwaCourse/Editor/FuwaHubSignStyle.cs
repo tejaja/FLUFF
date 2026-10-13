@@ -16,6 +16,7 @@ public static class FuwaHubSignStyle
     const float StitchInset = 0.17f;    // ステッチの内側への入り
     const float BodyBehind = 0.2f;      // 板の真ん中の厚みの中心（文字より後ろ）
     const float ExtraH = 0.24f;         // 元の板より縦にのばす分（下へ）
+    const bool ShowStitch = false;      // 内側のステッチ（2026-10-13 てじゃ「ステッチも外してみて」）
 
     [MenuItem("FuwaCourse/入口の看板をぷっくりにする")]
     public static void Menu() { Debug.Log(Run()); }
@@ -63,11 +64,14 @@ public static class FuwaHubSignStyle
         // パイピング（ふちの筒）
         var pm = Mat(accent, "HubPiping_" + kind, 0.2f);
         FuwaSignStyle.Part(deco, "Piping", Save(FuwaSignStyle.Tube(hw, hh, Round, PipeR, zc, 14), key + "_Piping"), pm, Vector3.zero);
-        // ステッチ：ふくらんだ面の少し手前（ふちからの距離で面の高さを出す）
-        float q = Mathf.Clamp01(StitchInset / Rise);
-        float sz = zc - Front * Mathf.Sqrt(1f - (1f - q) * (1f - q)) - 0.006f;
-        var sc = Color.Lerp(accent, Color.white, 0.25f);
-        FuwaSignStyle.Part(deco, "Stitch", Save(FuwaSignStyle.Stitch(hw, hh, Round, StitchInset, sz, 0.07f, 0.05f, 0.022f), key + "_Stitch"), Mat(sc, "HubStitch_" + kind, 0.2f), Vector3.zero);
+        if (ShowStitch)
+        {
+            // ステッチ：ふくらんだ面の少し手前（ふちからの距離で面の高さを出す）
+            float q = Mathf.Clamp01(StitchInset / Rise);
+            float sz = zc - Front * Mathf.Sqrt(1f - (1f - q) * (1f - q)) - 0.006f;
+            var sc = Color.Lerp(accent, Color.white, 0.25f);
+            FuwaSignStyle.Part(deco, "Stitch", Save(FuwaSignStyle.Stitch(hw, hh, Round, StitchInset, sz, 0.07f, 0.05f, 0.022f), key + "_Stitch"), Mat(sc, "HubStitch_" + kind, 0.2f), Vector3.zero);
+        }
 
         // 文字はふくらみより手前（文字は Label の z=0、板の前の真ん中は zc - Front）
         var text = sign.GetComponent<TMPro.TMP_Text>();
