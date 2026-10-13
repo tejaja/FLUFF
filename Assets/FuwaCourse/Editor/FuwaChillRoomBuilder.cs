@@ -19,8 +19,8 @@ public static class FuwaChillRoomBuilder
     // 島の大きさ：古いみんなでロビーの島（半径14m）の何倍か（2026-10-13 てじゃ「ちょっと広い」→ 半径10.5m。手前半分がほぼ空だった）
     const float IslandScale = 0.75f;
     static readonly Vector3 MushLocal = new Vector3(-2.56f, 0f, -4.16f);  // 左手前（2026-10-13 てじゃが手で置いた位置）
-    static readonly Vector3 PanelLocal = new Vector3(-4.253f, 0f, -8.036f);   // スイッチ（スポーンの左。2026-10-13 てじゃが手で置いた位置・向き）
-    const float PanelYaw = 205.4f;
+    static readonly Vector3 PanelLocal = new Vector3(-4.731f, 0f, -8.000f);   // スイッチ（スポーンの左。2026-10-13 てじゃが手で置いた位置・向き。2回目：スイッチと言語・音量ボタンを一緒に10°回して少し左へ）
+    const float PanelYaw = 215.46f;
     // 右奥の観戦リビング（ラグの中心）。島を縮めた時に、跳ねるキノコと重ならないよう少し右へ回した（前は (5.3, 0, 5.3)）
     static readonly Vector3 LivingLocal = new Vector3(4.7f, 0f, 2.9f);
     // 遊び方の看板の言語・音量ボタンはスイッチのボードの下（BoardButtons）
