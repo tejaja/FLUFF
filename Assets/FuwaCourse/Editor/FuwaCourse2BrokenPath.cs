@@ -114,6 +114,53 @@ public static class FuwaCourse2BrokenPath
             if ((h.collider.name == "PathMesh" || h.collider.name == "Mountain") && !h.collider.isTrigger && !(h.point.y <= best)) best = h.point.y;
         return best;
     }
+    static string SnapDarkToRim(Transform dark, Transform mouth)
+    {
+        // アーチの内側のふち＝入口の岩のメッシュの開いている辺のうち、入口の面（x が 104.2〜104.5）にあって床より上の物
+        var mm = mouth.GetComponent<MeshFilter>().sharedMesh; var ml2w = mouth.localToWorldMatrix;
+        var MV = mm.vertices.Select(v => ml2w.MultiplyPoint3x4(v)).ToArray(); var mt = mm.triangles;
+        var key = new Dictionary<Vector3Int, int>(); var id = new int[MV.Length];
+        for (int i = 0; i < MV.Length; i++) { var k = new Vector3Int(Mathf.RoundToInt(MV[i].x * 1000f), Mathf.RoundToInt(MV[i].y * 1000f), Mathf.RoundToInt(MV[i].z * 1000f)); if (!key.TryGetValue(k, out int q)) { q = key.Count; key[k] = q; } id[i] = q; }
+        var cnt = new Dictionary<long, int>(); var ed = new Dictionary<long, (int, int)>();
+        for (int i = 0; i < mt.Length; i += 3) for (int e = 0; e < 3; e++)
+            {
+                int a = mt[i + e], b = mt[i + (e + 1) % 3]; int A = id[a], B = id[b]; if (A == B) continue;
+                long kk = A < B ? ((long)A << 32) | (uint)B : ((long)B << 32) | (uint)A; cnt[kk] = cnt.TryGetValue(kk, out int c) ? c + 1 : 1; ed[kk] = (a, b);
+            }
+        var rim = new List<(Vector3 a, Vector3 b)>();
+        foreach (var kv in cnt)
+        {
+            if (kv.Value != 1) continue; var (a, b) = ed[kv.Key]; Vector3 pa = MV[a], pb = MV[b];
+            if (pa.x < 104.2f || pa.x > 104.5f || pb.x < 104.2f || pb.x > 104.5f) continue;
+            if (Mathf.Abs(pa.y - pb.y) < 0.03f && Mathf.Max(pa.y, pb.y) < 10.2f) continue;   // 足の下はし（床ぎわ）は除く
+            rim.Add((pa, pb));
+        }
+        if (rim.Count == 0) return " rim not found";
+        float rimBottom = rim.Min(r => Mathf.Min(r.a.y, r.b.y));
+        float cz = rim.Average(r => (r.a.z + r.b.z) * 0.5f);
+        var m = dark.GetComponent<MeshFilter>().sharedMesh; var l2w = dark.localToWorldMatrix; var w2l = l2w.inverse;
+        var vs = m.vertices; int n = 0;
+        float frontX = vs.Min(v => l2w.MultiplyPoint3x4(v).x);
+        for (int i = 0; i < vs.Length; i++)
+        {
+            var w = l2w.MultiplyPoint3x4(vs[i]); if (w.x > frontX + 0.15f) continue;   // 入口側のふちだけ
+            var q = new Vector2(Mathf.Max(w.y, rimBottom), w.z);   // (y, z) の面で一番近いふちの点
+            Vector3 best = Vector3.zero; float bd = float.MaxValue;
+            foreach (var (ra, rb) in rim)
+            {
+                Vector2 a2 = new Vector2(ra.y, ra.z), b2 = new Vector2(rb.y, rb.z), ab = b2 - a2;
+                float t = ab.sqrMagnitude > 1e-8f ? Mathf.Clamp01(Vector2.Dot(q - a2, ab) / ab.sqrMagnitude) : 0f;
+                float d = (a2 + ab * t - q).sqrMagnitude; if (d < bd) { bd = d; best = Vector3.Lerp(ra, rb, t); }
+            }
+            // ふちの少しだけ外（岩の中）へ。下の方は横向き、天井は上向き
+            Vector2 outDir = new Vector2(best.y - Mathf.Min(best.y, 11f), best.z - cz); outDir = outDir.sqrMagnitude > 1e-6f ? outDir.normalized : Vector2.right;
+            var nw = new Vector3(best.x, w.y < rimBottom ? w.y : best.y + outDir.x * 0.005f, best.z + outDir.y * 0.005f);
+            if ((nw - w).sqrMagnitude < 1e-8f) continue;
+            vs[i] = w2l.MultiplyPoint3x4(nw); n++;
+        }
+        if (n > 0) { m.vertices = vs; m.RecalculateBounds(); EditorUtility.SetDirty(m); }
+        return " dark→rim " + n;
+    }
     const float CaveBarrierTop = 12.15f;   // 洞窟の入口のバリアの上はし（ワールドの y、元の高さ）
     static string SettleOnFloor(Transform root)
     {
@@ -134,7 +181,7 @@ public static class FuwaCourse2BrokenPath
             }
         }
         // 洞窟の入口の岩（CaveMouth）のアーチの足の内側の下はしが、元の道の上面で止まっていて床から浮いていた（2026-10-13 てじゃ「洞窟の下が切れちゃった」）。
-        // 床から 0.15〜0.5m 浮いた低い頂点を床まで下ろす
+        // 床から浮いた（0.5mまで）低い頂点を床の少し下まで下ろす（2026-10-13 てじゃ「トンネルの前のぶぶんにすきま」：0.15m以上だけ下ろしたら、足の前の面の下が細くとがって床との間にすき間が見えた）
         var mouthT = root.Find("Rocks2/CaveMouth");
         if (mouthT != null)
         {
@@ -144,11 +191,14 @@ public static class FuwaCourse2BrokenPath
             {
                 var w = l2w.MultiplyPoint3x4(vs[i]); if (w.y > 10.45f) continue;
                 float g = Floor(new Vector3(w.x, 10.6f, w.z)); if (float.IsNaN(g)) continue;
-                float gap = w.y - g; if (gap < 0.15f || gap > 0.5f) continue;
+                float gap = w.y - g; if (gap < 0.005f || gap > 0.5f) continue;
                 w.y = g - 0.04f; vs[i] = w2l.MultiplyPoint3x4(w); n++;
             }
             if (n > 0) { m.vertices = vs; m.RecalculateBounds(); EditorUtility.SetDirty(m); sb.Append(" cavemouth " + n + " verts"); }
         }
+        // 洞窟の暗がり（CaveDark）の入口側のふちを、入口の岩（CaveMouth）のアーチの内側のふち（開いている辺）にぴったり合わせる。
+        // 6cmほど外にずれていて、近くから斜めに見るとアーチのふちと暗がりの壁の間から外が透けた（2026-10-13 てじゃ「トンネルの前のぶぶんにすきま」）
+        if (dark != null && mouthT != null) sb.Append(SnapDarkToRim(dark, mouthT));
         foreach (var r in Object.FindObjectsOfType<Renderer>(true))
         {
             if (r.name != "CaveBarrier" && r.name != "Deco_StonesSmall") continue;
