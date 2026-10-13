@@ -15,7 +15,7 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
     public FuwaLanguage language;
 
     [Header("サイズ（玉の大きさ・撃たれた時の効き）")]
-    public string[] sizeJa = { "ちび", "ふつう", "おおきめ", "巨大" };
+    public string[] sizeJa = { "ちび", "ふつう", "おおきめ", "でっかい" };   // ボタンのフォント（だるまドロップ）には漢字が無いので、ひらがなで（2026-10-13）
     public string[] sizeEn = { "Tiny", "Normal", "Big", "Giant" };
     public float[] sizeScale = { 0.2f, 0.3f, 0.55f, 1.4f };
     public float[] sizeShot = { 1.3f, 1f, 0.6f, 0.3f };
@@ -134,10 +134,10 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
         string colHex = colorHex[Mathf.Clamp(ci, 0, colorHex.Length - 1)];
         // ボタンはオレンジなので、値は白で太く（色は●で見せる）
         string V = "<color=#FFFFFF><b>"; string VE = "</b></color>";
-        if (sizeLabel != null) sizeLabel.text = (en ? "Size: " : "サイズ：") + V + (en ? sizeEn[si] : sizeJa[si]) + VE;
-        if (colorLabel != null) colorLabel.text = (en ? "Color: " : "カラー：") + "<color=#" + colHex + ">●</color>" + V + (en ? colorEn[ci] : colorJa[ci]) + VE;
-        if (limitLabel != null) limitLabel.text = (en ? "Max: " : "上限：") + V + limits[li] + VE;
+        if (sizeLabel != null) sizeLabel.text = (en ? "Size: " : "サイズ: ") + V + (en ? sizeEn[si] : sizeJa[si]) + VE;
+        if (colorLabel != null) colorLabel.text = (en ? "Color: " : "カラー: ") + "<color=#" + colHex + ">●</color>" + V + (en ? colorEn[ci] : colorJa[ci]) + VE;
+        if (limitLabel != null) limitLabel.text = (en ? "Max: " : "かず: ") + V + limits[li] + VE;
         if (popLabel != null) popLabel.text = en ? ("On landing: " + V + (_popGround ? "Pop" : "Stay") + VE)
-                                                 : ("落ちたら：" + V + (_popGround ? "消える" : "消えない") + VE);
+                                                 : ("おちたら: " + V + (_popGround ? "きえる" : "きえない") + VE);
     }
 }

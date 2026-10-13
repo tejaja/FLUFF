@@ -40,9 +40,10 @@ public static class FuwaPlaygroundBuilder
     static readonly Vector3 PanelLocal = OnRing(PanelAngle, 9.0f);
     const float PanelYaw = PanelAngle;   // 島の真ん中から読める向き
     // 観戦リビング（ラグの中心）：正面からやや左の奥。テレビは柵側、ソファは真ん中側
-    static readonly Vector3 LivingLocal = OnRing(-22f, 5.6f);
+    const float LivingAngle = -22f;
+    static readonly Vector3 LivingLocal = OnRing(LivingAngle, 5.6f);
     // おもちゃ（柵沿い、右回りに）：もどすボタン → 扇風機 → ゴールリング → コース1〜5のおもちゃ
-    const float ResetAngle = 32f, FanAngle = 45f, RingAngle = 60f;
+    const float ResetAngle = 45f, FanAngle = 45f, RingAngle = 60f;   // もどすボタンは扇風機の真下（2026-10-13 てじゃ。前は設定ボードの右で「タイトルにもどる」にかぶって見えた）
     // 遊び方の看板の言語・音量ボタンはスイッチのボードの下（BoardButtons）
     // 島の外の物（FuwaPlayground の直下。前は手で置いていた位置×島の大きさ）：スポーン、ワープ2つ、エアガンの台（2026-10-13 てじゃ「銃の台も真ん中に」→ キノコの右手前、スイッチの反対）
     static readonly Vector3 SpawnLocal = new Vector3(0f, 0f, -8.8f) * IslandScale;
@@ -388,7 +389,7 @@ public static class FuwaPlaygroundBuilder
         var rsGo = new GameObject("ResetToys"); rsGo.transform.SetParent(toys, false);
         var rs = UdonSharpUndo.AddComponent<FuwaHandFanReset>(rsGo); rs.fans = list.ToArray(); rs.others = resetOthers; UdonSharpEditorUtility.CopyProxyToUdon(rs);
         var rub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rs); if (rub != null) { rub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(rub); }
-        var rsPos = O + OnRing(ResetAngle, 8.6f); var rsOut = rsPos - O; rsOut.y = 0f;
+        var rsPos = O + OnRing(ResetAngle, 8.4f); var rsOut = rsPos - O; rsOut.y = 0f;
         var btnLbl = LaserButton(toys, "ResetToysButton", rsPos + Vector3.up * 0.55f, Quaternion.LookRotation(rsOut.normalized), 1.3f, "おもちゃをもどす", rs, "ResetAll");   // 「戻」はボタンのフォントに無くて□になっていた（2026-10-13）
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "uiTexts", "uiJa", "uiEn", btnLbl, "おもちゃをもどす", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
@@ -403,10 +404,11 @@ public static class FuwaPlaygroundBuilder
         EnsureProgram("FuwaTestUnlockAll");
         var go = new GameObject("TestUnlockAll"); go.transform.SetParent(toys, false);
         var tu = UdonSharpUndo.AddComponent<FuwaTestUnlockAll>(go); tu.spawner = sp;
-        // 「おもちゃを戻す」の横（同じ向き、横へ1.6m・少し上）
+        // テレビの裏の柵ぎわ（マスターにしか見えないし、公開前に消すので目立たない所。2026-10-13 てじゃ「全部出すは他所においとこ」）
         var reset = toys.Find("ResetToysButton");
-        Vector3 pos = reset.position + reset.right * 1.6f + Vector3.up * 0.35f;
-        LaserButton(toys, "TestUnlockAllButton", pos, reset.rotation, 1.3f, "テスト おもちゃぜんぶだす", tu, "UnlockAll");
+        Vector3 O = toys.parent.position; Vector3 pos = O + OnRing(LivingAngle, 9.6f) + Vector3.up * (reset.position.y - O.y);
+        Vector3 outD = pos - O; outD.y = 0f;
+        LaserButton(toys, "TestUnlockAllButton", pos, Quaternion.LookRotation(outD.normalized), 1.3f, "テスト おもちゃぜんぶだす", tu, "UnlockAll");
         tu.button = toys.Find("TestUnlockAllButton").gameObject;
         UdonSharpEditorUtility.CopyProxyToUdon(tu);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tu); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
