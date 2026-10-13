@@ -473,9 +473,10 @@ public static class FuwaChillRoomBuilder
         EnsureProgram("FuwaThrowRock");
         var src = RootGo("FuwaCourse2").GetComponentsInChildren<FuwaBoulder>(true).First();
         float srcR = src.radius;
-        var sizes = new[] { 0.36f, 0.26f };
-        var offs = new[] { new Vector3(-0.6f, 0f, 0f), new Vector3(0.7f, 0f, 0.3f) };
-        for (int i = 0; i < 2; i++)
+        // コースと同じ大きさの岩を1個だけ（2026-10-13 てじゃ「小さいのいらない、コースと同じ大きさの1個」。前は半径0.36と0.26の2個）
+        var sizes = new[] { srcR };
+        var offs = new[] { Vector3.zero };
+        for (int i = 0; i < sizes.Length; i++)
         {
             float r = sizes[i];
             var rock = new GameObject("ThrowRock" + i); rock.layer = 13; rock.transform.SetParent(slot, false);
