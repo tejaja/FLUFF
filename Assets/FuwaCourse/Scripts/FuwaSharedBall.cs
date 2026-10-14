@@ -274,7 +274,9 @@ public class FuwaSharedBall : UdonSharpBehaviour
 
     public bool IsFlying() { Init(); return !_waiting && !_popped && _here; }
 
-    private bool Here() { return areas == null || areas.GetArea() == myArea; }
+    // 追っかけカメラがほかのエリアからあそびばを映している間は、エリアにいる扱いにして動かして見せる（FuwaFollowCam が切り替える）
+    [System.NonSerialized] public bool showAway;
+    private bool Here() { return areas == null || areas.GetArea() == myArea || showAway; }
     private bool ShouldHide() { return _popped || _waiting || !_here; }
 
     // エリアに来た・離れたの切り替え（自分の画面だけ）

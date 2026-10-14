@@ -93,6 +93,10 @@ public class FuwaFollowCam : UdonSharpBehaviour
     public GameObject[] courseRoots;
     [Tooltip("各コースの床だけの軽い版（同じ順）。Quest・スマホではこちらを出す")]
     public GameObject[] courseLites;
+    [Tooltip("あそびばの本体。チャレンジ側からあそびばの人を映している間だけ出す（2026-10-14 てじゃ「チャレンジにいるとあそびばの人見れない」）")]
+    public GameObject playgroundRoot;
+    private bool _shownPlayground;
+    private int _shownPlaygroundArea = -2;
     private int _shownCourse = -1;
     private int _shownCourseArea = -2;
     [Tooltip("今映している人の名前を出す文字（人物ボタン）")]
@@ -172,7 +176,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
             FuwaGhost g = GhostOf(p);
             if (g == null) continue;
             int a = g.GetArea();
-            if (a == soloArea || (a == playgroundArea && MyArea() == playgroundArea)) tmp[n++] = p.playerId;
+            if (a == soloArea || a == playgroundArea) tmp[n++] = p.playerId;
         }
         _ids = new int[n];
         for (int i = 0; i < n; i++) _ids[i] = tmp[i];
@@ -194,6 +198,23 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (_shownCourse >= 0 && !mine) SetCourse(_shownCourse, false);
         _shownCourse = k;
         if (k >= 0 && !mine) SetCourse(k, true);
+    }
+
+    // 映すためだけにあそびばを出す。みんなのふわふわも、その間はエリアにいる扱いで動かす
+    private void ShowPlayground(bool on)
+    {
+        int area = MyArea();
+        if (area != _shownPlaygroundArea)
+        {
+            // エリアが変わった：FuwaAreaVisibility が出し直したので記録を捨てて、ふわふわの「いる扱い」も戻す
+            _shownPlaygroundArea = area; _shownPlayground = false;
+            if (playgroundBalls != null) foreach (FuwaSharedBall b in playgroundBalls) if (b != null && b.showAway) b.showAway = false;
+        }
+        if (on == _shownPlayground) return;
+        _shownPlayground = on;
+        if (area == playgroundArea) return;   // 自分があそびばにいる時は FuwaAreaVisibility に任せる
+        if (playgroundRoot != null && playgroundRoot.activeSelf != on) playgroundRoot.SetActive(on);
+        if (playgroundBalls != null) foreach (FuwaSharedBall b in playgroundBalls) if (b != null) b.showAway = on;
     }
 
     private void SetCourse(int k, bool on)
@@ -388,6 +409,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (!run)
         {
             ShowCourse(-1);
+            ShowPlayground(false);
             if (_watchedGhost != null) { _watchedGhost.watched = false; _watchedGhost = null; }
             if (monitorFluff != null && monitorFluff.gameObject.activeSelf) monitorFluff.gameObject.SetActive(false);
             return;
@@ -440,6 +462,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
         int showCourse = -1;
         if (who != lp && ghost != null && ghost.GetArea() == soloArea && MyArea() != soloArea) showCourse = ghost.GetCourse();
         ShowCourse(showCourse);
+        ShowPlayground(who != lp && ghost != null && ghost.GetArea() == playgroundArea && MyArea() != playgroundArea);
         bool inPlayground = who == lp ? MyArea() == playgroundArea : (ghost != null && ghost.GetArea() == playgroundArea);
         if (inPlayground) tgt = NearestPlaygroundBall(p);   // あそびば：近くのみんなのふわふわ（無ければその人だけ）
         else if (who == lp) tgt = FindTarget(p);
@@ -466,6 +489,15 @@ public class FuwaFollowCam : UdonSharpBehaviour
 
         // 進む向き：自分→ふわふわ（横だけ）。急に振り向かないようにゆっくり回す
         Vector3 d = b - p;
+        // あそびば：ふわふわは自分のものではなく近くのを追うだけなので、向きはその人の顔の向き（BACK がちゃんと後ろになるように。2026-10-14 てじゃ）
+        if (inPlayground)
+        {
+            d = who.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward;
+            // 見る所もその人の前（後ろのふわふわに引っぱられて、カメラが前に回り込まないように）
+            Vector3 hf = new Vector3(d.x, 0f, d.z);
+            if (hf.sqrMagnitude < 0.0001f) hf = _dir;
+            b = p + hf.normalized * 1.5f;
+        }
         d.y = 0f;
         if (d.sqrMagnitude > 0.04f)
         {
