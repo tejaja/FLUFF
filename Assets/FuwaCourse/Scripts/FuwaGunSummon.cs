@@ -95,6 +95,23 @@ public class FuwaGunSummon : UdonSharpBehaviour
         _stickY = value;
     }
 
+    // デスクトップ・スマホ：目の前に銃を出す（Fキー、スマホの画面のボタン FuwaMobileGunButton から）
+    public void SummonInFront()
+    {
+        VRCPlayerApi p = Networking.LocalPlayer;
+        if (p == null || !p.IsValid() || manager == null || summonSpot == null) return;
+        FuwaBlower gun = manager.GetMyBlower();
+        if (gun == null || gun.IsHeld()) return;
+        VRCPlayerApi.TrackingData head = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
+        Vector3 fwd = head.rotation * Vector3.forward;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.001f) fwd = Vector3.forward;
+        fwd.Normalize();
+        summonSpot.SetPositionAndRotation(head.position + fwd * desktopDistance + Vector3.down * desktopDrop, Quaternion.LookRotation(fwd, Vector3.up));
+        gun.MoveToStand(summonSpot);
+        gun.PlaySpawnSound();
+    }
+
     private void Update()
     {
         VRCPlayerApi p = Networking.LocalPlayer;
@@ -115,14 +132,7 @@ public class FuwaGunSummon : UdonSharpBehaviour
         if (!p.IsUserInVR())
         {
             ShowGauge(p, -1f);
-            if (!Input.GetKeyDown(desktopKey)) return;
-            Vector3 fwd = head.rotation * Vector3.forward;
-            fwd.y = 0f;
-            if (fwd.sqrMagnitude < 0.001f) fwd = Vector3.forward;
-            fwd.Normalize();
-            summonSpot.SetPositionAndRotation(head.position + fwd * desktopDistance + Vector3.down * desktopDrop, Quaternion.LookRotation(fwd, Vector3.up));
-            gun.MoveToStand(summonSpot);
-            gun.PlaySpawnSound();
+            if (Input.GetKeyDown(desktopKey)) SummonInFront();
             return;
         }
 
