@@ -19,7 +19,7 @@ MonoBehaviour:
   scriptVersion: 2
   compiledVersion: 2
   behaviourSyncMode: 1
-  hasInteractEvent: 1
+  hasInteractEvent: 0
   scriptID: -3418701184253771691
   serializationData:
     SerializedFormat: 2
@@ -226,19 +226,19 @@ MonoBehaviour:
       Data: 
     - Name: $k
       Entry: 1
-      Data: hit
+      Data: ui
     - Name: $v
       Entry: 7
       Data: 13|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
     - Name: <Name>k__BackingField
       Entry: 1
-      Data: hit
+      Data: ui
     - Name: <UserType>k__BackingField
       Entry: 7
       Data: 14|System.RuntimeType, mscorlib
     - Name: 
       Entry: 1
-      Data: UnityEngine.Collider, UnityEngine.PhysicsModule
+      Data: UnityEngine.GameObject, UnityEngine.CoreModule
     - Name: 
       Entry: 8
       Data: 
@@ -268,7 +268,7 @@ MonoBehaviour:
       Data: 16|UnityEngine.TooltipAttribute, UnityEngine.CoreModule
     - Name: tooltip
       Entry: 1
-      Data: "\u30BF\u30C3\u30D7\u3092\u53D7\u3051\u308B\u5F53\u305F\u308A\u5224\u5B9A"
+      Data: "\u30BF\u30C3\u30D7\u3092\u53D7\u3051\u308B UI\uFF08Canvas \u306E\u7269\u3002\u8868\u793A\u4E2D\u3060\u3051\u6709\u52B9\uFF09"
     - Name: 
       Entry: 8
       Data: 

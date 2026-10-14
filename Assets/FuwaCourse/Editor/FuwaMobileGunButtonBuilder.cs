@@ -40,8 +40,24 @@ public static class FuwaMobileGunButtonBuilder
         mr.sharedMaterial = mat;
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-        // 当たり判定はトリガー（カメラの目の前に置くので、ふつうの当たり判定だとプレイヤーを押してしまう）
-        var col = go.AddComponent<SphereCollider>(); col.isTrigger = true; col.radius = 0.5f;
+        // タップは UI のボタンで受ける（Interact の当たり判定だと、スマホでは押せる物の青い枠がずっと出る。2026-10-14 てじゃ）
+        // Canvas は 100×100、0.01倍 → 親（ボタンの大きさに毎フレーム合わせる）の 1×1。VRCUiShape と同じ物にトリガーの BoxCollider（無いと実機で反応しない）
+        var cgo = new GameObject("MobileGunButtonUI", typeof(RectTransform));
+        cgo.transform.SetParent(go.transform, false);
+        var crt = (RectTransform)cgo.transform;
+        crt.sizeDelta = new Vector2(100f, 100f); crt.localScale = Vector3.one * 0.01f;
+        var canvas = cgo.AddComponent<Canvas>(); canvas.renderMode = RenderMode.WorldSpace;
+        cgo.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+        cgo.AddComponent<VRC.SDK3.Components.VRCUiShape>();
+        var bc = cgo.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(100f, 100f, 1f);
+        var igo = new GameObject("Tap", typeof(RectTransform));
+        igo.transform.SetParent(cgo.transform, false);
+        var irt = (RectTransform)igo.transform;
+        irt.anchorMin = Vector2.zero; irt.anchorMax = Vector2.one; irt.offsetMin = Vector2.zero; irt.offsetMax = Vector2.zero;
+        var img = igo.AddComponent<UnityEngine.UI.Image>(); img.color = new Color(1f, 1f, 1f, 0f);
+        var btn = igo.AddComponent<UnityEngine.UI.Button>();
+        btn.transition = UnityEngine.UI.Selectable.Transition.None;
+        btn.navigation = new UnityEngine.UI.Navigation { mode = UnityEngine.UI.Navigation.Mode.None };
 
         var prog = AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(ProgramPath);
         if (prog == null)
@@ -54,10 +70,15 @@ public static class FuwaMobileGunButtonBuilder
         var b = UdonSharpUndo.AddComponent<FuwaMobileGunButton>(go);
         b.summon = Object.FindObjectsOfType<FuwaGunSummon>(true).First();
         b.manager = Object.FindObjectsOfType<FuwaRespawnManager>(true).First();
-        b.visual = mr; b.hit = col;
+        b.visual = mr; b.ui = cgo;
         UdonSharpEditorUtility.CopyProxyToUdon(b);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(b);
-        if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; ub.interactText = "エアガンを呼ぶ"; ub.proximity = 3f; EditorUtility.SetDirty(ub); }
+        if (ub != null)
+        {
+            ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub);
+            UnityEditor.Events.UnityEventTools.AddStringPersistentListener(btn.onClick, ub.SendCustomEvent, nameof(FuwaMobileGunButton.OnTap));
+            EditorUtility.SetDirty(btn);
+        }
         EditorUtility.SetDirty(b);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(go.scene);
         return "ok";
