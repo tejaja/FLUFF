@@ -7,6 +7,8 @@ using VRC.SDKBase;
 // ・切り替えはそのコースのワープ（ロビーのポータル）と同じ：BGM・軽い版・リスポーン先・ロビーに戻った時の向き。プレイヤーは動かさない
 // ・ふわふわはそのコースのスタートから（タイムも計る。2026-10-14 てじゃ「どこに立ってもスタートからやらないとだめ」）
 // ・ひとりでモード（areaVisibility の soloArea）の時だけ
+// ・エリア（入口・ひとりで・あそびば）の間を飛んでいった時は、着く前に（areaMin〜areaMax に入ったら）そのエリアに切り替えて見えるようにする
+//  （2026-10-14 てじゃ「強引に飛んでいった時、近づいたら切り替わって見えるように」）。切り替えはそのエリアへのワープと同じ（プレイヤーは動かさない）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaCourseJoin : UdonSharpBehaviour
 {
@@ -23,6 +25,20 @@ public class FuwaCourseJoin : UdonSharpBehaviour
     public float dwell = 1f;
     public float interval = 0.25f;
 
+    [Header("エリアの間を飛んだ時")]
+    [Tooltip("各エリアの範囲（少し広げてある）の小さい角")]
+    public Vector3[] areaMin;
+    [Tooltip("各エリアの範囲の大きい角")]
+    public Vector3[] areaMax;
+    [Tooltip("areaMin と同じ順：FuwaAreaVisibility のエリア番号")]
+    public int[] areaIds;
+    [Tooltip("areaMin と同じ順：そのエリアへ行くワープ")]
+    public FuwaCourseWarp[] areaWarps;
+    [Tooltip("範囲に入ってこの秒数たったら切り替える")]
+    public float areaDwell = 0.5f;
+    private int _areaCand = -1;
+    private float _areaCandSince;
+
     private float _next;
     private int _cand = -1;
     private float _candSince;
@@ -33,6 +49,7 @@ public class FuwaCourseJoin : UdonSharpBehaviour
         _next = Time.time + interval;
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null || ball == null || roots == null) return;
+        if (CheckArea(lp.GetPosition())) { _cand = -1; return; }
         if (areaVisibility != null && areaVisibility.GetArea() != soloArea) { _cand = -1; return; }
         int c = -1;
         if (lp.IsPlayerGrounded())
@@ -53,5 +70,25 @@ public class FuwaCourseJoin : UdonSharpBehaviour
         if (Time.time - _candSince < dwell) return;
         _cand = -1;
         warps[c].JoinWithoutWarp();
+    }
+
+    // 今と違うエリアの範囲に入っていたら切り替える。切り替えたら true
+    private bool CheckArea(Vector3 p)
+    {
+        if (areaVisibility == null || areaMin == null) return false;
+        int cur = areaVisibility.GetArea();
+        int k = -1;
+        for (int i = 0; i < areaMin.Length; i++)
+        {
+            Vector3 a = areaMin[i], b = areaMax[i];
+            if (p.x < a.x || p.y < a.y || p.z < a.z || p.x > b.x || p.y > b.y || p.z > b.z) continue;
+            k = i; break;
+        }
+        if (k < 0 || areaIds[k] == cur || areaWarps[k] == null) { _areaCand = -1; return false; }
+        if (k != _areaCand) { _areaCand = k; _areaCandSince = Time.time; return false; }
+        if (Time.time - _areaCandSince < areaDwell) return false;
+        _areaCand = -1;
+        areaWarps[k].JoinWithoutWarp();
+        return true;
     }
 }
