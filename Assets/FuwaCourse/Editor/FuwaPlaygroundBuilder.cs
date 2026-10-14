@@ -563,6 +563,7 @@ public static class FuwaPlaygroundBuilder
         // ラグ（床と同じレイヤー＝ふわふわが落ちたらはじける床として扱う）。リビングの広さに合わせて少し小さく
         var rugG = Put("Chill_Rug", rugM, C + Vector3.up * 0.002f, Quaternion.identity, true, floorLayer);
         rugG.transform.localScale = new Vector3(0.8f, 1f, 0.8f);
+        FuwaPlaygroundRugEdge.Apply(rugG);   // ふちにほんのり青い影のグラデ（2026-10-14 てじゃ）
         // 雲のソファ：リビングの手前側、テレビの方を向く（ソファの正面は +Z、弧の中心は前 4m＝テレビのあたり）
         var sofaPos = C - dir * 1.7f;
         Put("Chill_CloudSofa", cloud, sofaPos, Face(sofaPos, C + dir * 3f), true, 17);   // ふわふわだけ当たって人はすり抜ける（Walkthrough。2026-10-13 てじゃ）
