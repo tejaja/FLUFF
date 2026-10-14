@@ -224,6 +224,23 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         SendCustomEventDelayedSeconds(nameof(DoWarp), fadeOutTime);
     }
 
+    // ワープせずに（飛んで）このワープの行き先のコースに降りた時（FuwaCourseJoin）：プレイヤーは動かさず、コースに入った扱いにだけする。
+    // ふわふわはスタートから（どこに降りてもスタートからやり直し、タイムも計る。てじゃ）。エアガンは呼ばない（持っていなければスタートの台に置かれても遠いので）
+    public void JoinWithoutWarp()
+    {
+        if (respawnManager != null)
+        {
+            respawnManager.SetRespawnSpot(playerSpot);
+            if (homeAction == 1) respawnManager.SetHomeWarp(this);
+            else if (homeAction == 2) respawnManager.SetHomeWarp(null);
+            if (homeAction != 0) respawnManager.SetLobbyReturnSpot(null);
+            if (lobbyReturnSpot != null) respawnManager.SetLobbyReturnSpot(lobbyReturnSpot);
+        }
+        if (ball != null && courseStart != null) ball.StartCourse(courseStart, timed);
+        if (resetReadMarks != null) resetReadMarks.ResetFromRespawn();
+        if (areaVisibility != null && area >= 0 && areaVisibility.GetArea() != area) areaVisibility.ShowArea(area);
+    }
+
     public void DoWarp()
     {
         VRCPlayerApi player = Networking.LocalPlayer;
