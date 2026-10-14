@@ -117,6 +117,8 @@ public class FuwaBlower : UdonSharpBehaviour
     [Tooltip("台から呼んだ・召喚した時に鳴らす音（自分にだけ。2026-10-14 てじゃ）")]
     public AudioSource spawnSound;
     public void PlaySpawnSound() { if (spawnSound != null) spawnSound.Play(); }
+    [Tooltip("握った時の小さな「カチャ」（自分の画面だけ。2026-10-14 てじゃ「ささやかに、ひかえめに」）")]
+    public AudioSource grabSound;
     [Tooltip("空気が空の時のポンプの大きさ（満タン=1）")]
     public float bulbEmptyScale = 0.65f;
     public Color bulbEmptyColor = new Color(0.55f, 0.6f, 0.55f, 1f);
@@ -411,6 +413,7 @@ public class FuwaBlower : UdonSharpBehaviour
     {
         if (hud != null && _pickup != null) hud.SetHeld(true, _pickup.currentHand == VRC_Pickup.PickupHand.Left);
         _held = true;
+        if (grabSound != null) grabSound.Play();
         if (_dock != null) { _dock = null; SetDockGrabbable(true); }   // 握ったら台から外れる
         RestoreHighlightDummy();
         if (_summonHidden) { _summonHidden = false; ApplySummonHidden(); }
