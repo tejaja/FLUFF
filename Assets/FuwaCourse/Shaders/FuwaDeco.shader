@@ -15,7 +15,8 @@ Shader "FuwaCourse/Deco"
         #pragma target 3.0
         fixed4 _Color;
         half _Wrap;
-        struct Input { float facing : VFACE; };
+        // 表裏は VFACE ではなく、法線とカメラの向きで見る（VFACE を Input に入れると Android(GLES3) でコンパイルエラーになり描画されない。2026-10-14）
+        struct Input { float3 worldPos; float3 worldNormal; INTERNAL_DATA };
 
         half4 LightingWrapped(SurfaceOutput s, half3 lightDir, half atten)
         {
@@ -26,7 +27,8 @@ Shader "FuwaCourse/Deco"
         void surf(Input IN, inout SurfaceOutput o)
         {
             o.Albedo = _Color.rgb;
-            o.Normal = IN.facing < 0 ? half3(0, 0, -1) : half3(0, 0, 1);
+            float3 n = WorldNormalVector(IN, float3(0, 0, 1));   // 接線がなくても z 軸＝法線は正しく取れる
+            o.Normal = dot(n, _WorldSpaceCameraPos - IN.worldPos) < 0 ? half3(0, 0, -1) : half3(0, 0, 1);
             o.Alpha = 1;
         }
         ENDCG
