@@ -82,6 +82,12 @@ public class FuwaFollowCam : UdonSharpBehaviour
     [Header("映す人")]
     [Tooltip("ひとりでモードの番号（分身に同期されているエリア）")]
     public int soloArea = 1;
+    [Tooltip("あそびばの番号。自分があそびばにいる時は、あそびばにいる人も映せる（2026-10-14 てじゃ「おっかけカメラの対象、あそびばも含めよう」）")]
+    public int playgroundArea = 2;
+    [Tooltip("自分が今いるエリア")]
+    public FuwaAreaVisibility areas;
+    [Tooltip("あそびばのふわふわ。あそびばにいる人を映す時は、その人にいちばん近い飛んでいるふわふわを追う")]
+    public FuwaSharedBall[] playgroundBalls;
     [Tooltip("今映している人の名前を出す文字（人物ボタン）")]
     public TextMeshProUGUI[] targetTexts;
     [Tooltip("モニターの画面の上に出す名前（他の人を映している時だけ）")]
@@ -145,7 +151,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
         UpdateTargetLabels();
     }
 
-    // 自分＋ひとりでモードにいる人の一覧（playerId、自分は -1）
+    // 自分＋ひとりでモードにいる人（自分があそびばにいる時は、あそびばにいる人も）の一覧（playerId、自分は -1）
     private void RefreshList()
     {
         VRCPlayerApi[] players = new VRCPlayerApi[VRCPlayerApi.GetPlayerCount()];
@@ -157,7 +163,9 @@ public class FuwaFollowCam : UdonSharpBehaviour
         {
             if (p == null || !p.IsValid() || p.isLocal) continue;
             FuwaGhost g = GhostOf(p);
-            if (g != null && g.GetArea() == soloArea) tmp[n++] = p.playerId;
+            if (g == null) continue;
+            int a = g.GetArea();
+            if (a == soloArea || (a == playgroundArea && MyArea() == playgroundArea)) tmp[n++] = p.playerId;
         }
         _ids = new int[n];
         for (int i = 0; i < n; i++) _ids[i] = tmp[i];
@@ -165,6 +173,24 @@ public class FuwaFollowCam : UdonSharpBehaviour
         bool found = false;
         for (int i = 0; i < n; i++) if (_ids[i] == _targetId) found = true;
         if (!found) { _targetId = -1; _snap = true; }
+    }
+
+    private int MyArea() { return areas != null ? areas.GetArea() : -1; }
+
+    // あそびばにいる人：その人にいちばん近い、飛んでいるふわふわ
+    private Transform NearestPlaygroundBall(Vector3 p)
+    {
+        if (playgroundBalls == null) return null;
+        Transform best = null;
+        float bestD = maxTargetDistance;
+        for (int i = 0; i < playgroundBalls.Length; i++)
+        {
+            FuwaSharedBall b = playgroundBalls[i];
+            if (b == null || !b.IsFlying()) continue;
+            float d = Vector3.Distance(p, b.transform.position);
+            if (d < bestD) { bestD = d; best = b.transform; }
+        }
+        return best;
     }
 
     private FuwaGhost GhostOf(VRCPlayerApi p)
@@ -369,7 +395,9 @@ public class FuwaFollowCam : UdonSharpBehaviour
         }
         Transform tgt = null;
         bool ghostShown = false;
-        if (who == lp) tgt = FindTarget(p);
+        bool inPlayground = who == lp ? MyArea() == playgroundArea : (ghost != null && ghost.GetArea() == playgroundArea);
+        if (inPlayground) tgt = NearestPlaygroundBall(p);   // あそびば：近くのみんなのふわふわ（無ければその人だけ）
+        else if (who == lp) tgt = FindTarget(p);
         else if (ghost != null && ghost.MonitorVisible()) { tgt = ghost.transform; ghostShown = true; }   // 浮いて待っている間も映す
         // 他の人のふわふわ：分身の位置に本物そっくりの毛玉（モニターのカメラにだけ写る）
         if (monitorFluff != null)

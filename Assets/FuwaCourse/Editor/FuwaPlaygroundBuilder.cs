@@ -131,6 +131,15 @@ public static class FuwaPlaygroundBuilder
         sp.language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         foreach (var sm in mush.GetComponentsInChildren<FuwaStartMushroom>(true)) { SetU(sm, "sharedBall", null); SetU(sm, "ball", null); SetU(sm, "spawner", sp); Sync(sm); }
 
+        // 追っかけカメラ：あそびばにいる人を映す時に追うふわふわ
+        foreach (var fc in Object.FindObjectsOfType<FuwaFollowCam>(true))
+        {
+            var fso = new SerializedObject(fc); var fp = fso.FindProperty("playgroundBalls");
+            fp.arraySize = balls.Count; for (int i = 0; i < balls.Count; i++) fp.GetArrayElementAtIndex(i).objectReferenceValue = balls[i];
+            fso.FindProperty("areas").objectReferenceValue = Object.FindObjectsOfType<FuwaAreaVisibility>(true).FirstOrDefault();
+            fso.ApplyModifiedPropertiesWithoutUndo(); Sync(fc);
+        }
+
         // エアガンで吹けるふわふわ：消えた物を外して、新しい玉を足す
         foreach (var bl in Object.FindObjectsOfType<FuwaBlower>(true))
         {
