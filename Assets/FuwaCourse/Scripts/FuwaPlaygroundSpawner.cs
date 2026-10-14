@@ -14,9 +14,9 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
     public FuwaSharedBall[] balls;
     public FuwaLanguage language;
 
-    [Header("サイズ（玉の大きさ・撃たれた時の効き）")]
-    public string[] sizeJa = { "ちび", "ふつう", "おおきめ", "でっかい" };   // ボタンのフォント（だるまドロップ）には漢字が無いので、ひらがなで（2026-10-13）
-    public string[] sizeEn = { "Tiny", "Normal", "Big", "Giant" };
+    [Header("サイズ（玉の大きさ・撃たれた時の効き。名前の最後は「ランダム」＝出すたびに sizeScale から選ぶ。2026-10-14 てじゃ）")]
+    public string[] sizeJa = { "ちび", "ふつう", "おおきめ", "でっかい", "ランダム" };   // ボタンのフォント（だるまドロップ）には漢字が無いので、ひらがなで（2026-10-13）
+    public string[] sizeEn = { "Tiny", "Normal", "Big", "Giant", "Random" };
     public float[] sizeScale = { 0.2f, 0.3f, 0.55f, 1.4f };
     public float[] sizeShot = { 1.3f, 1f, 0.6f, 0.3f };
 
@@ -85,7 +85,8 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
 
         int ci = Mathf.Clamp(_color, 0, colorJa.Length - 1);
         Color c = ci >= colors.Length ? colors[Random.Range(0, colors.Length)] : colors[ci];
-        int si = Mathf.Clamp(_size, 0, sizeScale.Length - 1);
+        int si = Mathf.Clamp(_size, 0, sizeJa.Length - 1);
+        if (si >= sizeScale.Length) si = Random.Range(0, sizeScale.Length);   // ランダム
         Networking.SetOwner(Networking.LocalPlayer, pick.gameObject);
         pick.SpawnVariant(shotDir, sizeScale[si], c, sizeShot[si]);
     }
@@ -110,7 +111,7 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
     }
 
     // スイッチ（FuwaChillButton）から：押した人の画面で呼ばれる
-    public void NextSize() { Take(); _size = (_size + 1) % sizeScale.Length; Send(); }
+    public void NextSize() { Take(); _size = (_size + 1) % sizeJa.Length; Send(); }
     public void NextColor() { Take(); _color = (_color + 1) % colorJa.Length; Send(); }
     public void NextLimit()
     {

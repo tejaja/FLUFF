@@ -1249,12 +1249,14 @@ public static class FuwaPlaygroundBuilder
             }
         }
         // 下地（すき間から見える濃い色）：床から 2cm 上（床と同じ高さだとチラつく）
+        // 板の内はし・外はし・両端より少し内側までにする（板と同じ幅だと、板の側面の途中から薄い板がはみ出して見えた。2026-10-14 てじゃ「真ん中に謎の板」）
         var under = new DeckPart();
         int useg = Mathf.CeilToInt((a1 - a0) * rOut / 0.3f);
+        float uIn = DeckInR + DeckGap, uOut = rOut - DeckGap, ua0 = a0 + DeckGap / DeckInR, ua1 = a1 - DeckGap / DeckInR;
         for (int sIdx = 0; sIdx < useg; sIdx++)
         {
-            float t0 = Mathf.Lerp(a0, a1, (float)sIdx / useg), t1 = Mathf.Lerp(a0, a1, (float)(sIdx + 1) / useg);
-            Quad(under, P(t0, DeckInR, 0.02f), P(t0, rOut, 0.02f), P(t1, rOut, 0.02f), P(t1, DeckInR, 0.02f));
+            float t0 = Mathf.Lerp(ua0, ua1, (float)sIdx / useg), t1 = Mathf.Lerp(ua0, ua1, (float)(sIdx + 1) / useg);
+            Quad(under, P(t0, uIn, 0.02f), P(t0, uOut, 0.02f), P(t1, uOut, 0.02f), P(t1, uIn, 0.02f));
         }
         // 見た目：板（色3つ＝サブメッシュ3つ）＋下地
         var mesh = new Mesh { name = "Playground_Deck", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
