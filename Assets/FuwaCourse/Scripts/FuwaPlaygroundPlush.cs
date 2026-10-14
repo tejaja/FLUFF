@@ -7,14 +7,15 @@ using VRC.Udon.Common.Interfaces;
 
 // あそびばのまもののぬいぐるみ（コース4 まもののす を誰かがクリアすると出てくる）。
 // ふわふわ（FuwaSharedBall）がぶつかると、ぬいぐるみがぽよんとつぶれて、ふわふわを跳ね返す（それぞれの画面で同じように Nudge）。
-// 持って好きな所に置ける（VRCObjectSync）。当たり判定はトリガー（持つため）で、跳ね返しはこのスクリプト。
+// 持って好きな所に置ける。当たり判定はトリガー（持つため）で、跳ね返しはこのスクリプト。
 // 2026-10-13 てじゃ「ペットみたいに追いかける。ただ止めれるように」：
-// ・最初は寝ている（目を閉じて鼻ちょうちん）。持ってトリガー（撃つボタン）で起きる⇄寝るを切り替え
-// ・起きていると、置いた場所のまわりでふわふわを見つけて、ぷるぷる溜めてからぴょんと体当たり（割らない、押すだけ）
+// ・最初は寝ている（目を閉じて鼻ちょうちん）。持ってトリガー（撃つボタン）で起きる⇄寝るを切り替え。持っている間も寝ている見た目のまま
+// ・起きていると、島の中でふわふわを見つけて、ぷるぷる溜めてからぴょんと体当たり（割らない、押すだけ）。着地した所が新しい居場所（戻って歩かない）
 // ・追いかける相手がいないまま sleepAfter 秒たったら勝手に寝る
 // ・エアガンで撃つと押し返せる（FuwaBlower → Blown）。島の外へ落ちたら元の場所へ戻って寝る
-// ・イバラ（bramble）に押し込まれたら、パチンと倒れて少ししたら元の場所で寝て復活
-// 動かすのは持ち主の画面だけ（位置は VRCObjectSync が配る）。起きている・溜めている・倒れているは同期
+// ・イバラ（bramble）に押し込まれたら、パチンと倒れて少ししたら元の場所で寝て復活（今のあそびばにはイバラはない）
+// 同期（2026-10-14）：位置は VRCObjectSync ではなく「動きの区切り」を送って、みんなの画面で同じ動きを計算する。
+// 決めるのは持ち主の画面（追いかける・跳ぶ・着地）。撃った人は持ち主を待たずに自分の画面ですぐ吹っ飛ばし（先読み）、同じ区切りを持ち主に送って配ってもらう
 [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
 public class FuwaPlaygroundPlush : UdonSharpBehaviour
 {
@@ -72,6 +73,36 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     [UdonSynced] private bool _awake;
     [UdonSynced] private bool _windup;
     [UdonSynced] private bool _down;
+    // 動きの区切り。kind 0＝その場に立つ 2＝体当たり（ぴょん） 4＝吹っ飛び（重力つき）。時刻はサーバー時刻
+    [UdonSynced] private int _sKind;
+    [UdonSynced] private Vector3 _sFrom;
+    [UdonSynced] private Vector3 _sVec;     // 体当たり：向き（水平・長さ1）／吹っ飛び：最初の速さ
+    [UdonSynced] private float _sLen;
+    [UdonSynced] private float _sHop;
+    [UdonSynced] private float _sDur;
+    [UdonSynced] private double _sAt;
+    [UdonSynced(UdonSyncMode.Smooth)] private Quaternion _sRot = Quaternion.identity;
+    // 持たれている間：持っている人（＝持ち主）が位置を送る
+    [UdonSynced] private bool _held;
+    [UdonSynced(UdonSyncMode.Smooth)] private Vector3 _sHoldPos;
+
+    // 今使っている区切り（届いた区切り、または自分が撃った時の先読み）
+    private int _aKind;
+    private Vector3 _aFrom, _aVec;
+    private float _aLen, _aHop, _aDur;
+    private double _aAt;
+    private float _predUntil;        // 自分が撃った先読みを、届いた区切りより優先する期限
+    private double _predAt;
+    // 吹っ飛びの計算（毎回はじめからではなく、続きから細かい刻みで進める。みんなの画面で同じ刻み）
+    private Vector3 _flyPos, _flyVel;
+    private float _flyT;
+    private bool _flyLanded;
+    private double _flyFor = -1.0;
+    private double _landSquashFor = -1.0;
+    private bool _dashNoGround;
+    private Vector3 _spawnPos;
+    private Quaternion _spawnRot;
+    private const float FlyStep = 0.02f;
 
     private Vector3 _baseScale = Vector3.one;
     private Vector3 _basePos;
@@ -85,15 +116,10 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     private float _phase;
     private bool _shownDown;
 
-    // 持ち主の画面だけで使う動き
-    private int _state;          // 0 待つ・戻る 1 溜め 2 体当たり 3 ひと休み 4 吹っ飛び（撃たれた・落ちる） 5 倒れている
+    // 持ち主の画面だけで使う
+    private int _state;          // 0 待つ 1 溜め 2 体当たり 3 ひと休み 4 吹っ飛び（撃たれた・落ちる） 5 倒れている
     private float _stateAt;
-    private Vector3 _home;
-    private bool _homeSet;
     private float _lastSeen;
-    private Vector3 _dashFrom, _dashDir;
-    private float _dashLen, _dashHop, _dashDur;
-    private Vector3 _air;        // 吹っ飛んでいる時の速さ
     private VRCPickup _pickup;
 
     private void Start()
@@ -104,8 +130,13 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         _pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
         _prevPos = transform.position;
         _phase = Random.Range(0f, 6.28f);
+        _spawnPos = transform.position; _spawnRot = transform.rotation;
+        // まだ何も届いていない時は置いてある場所に立つ（届いたら OnDeserialization で上書き）
+        if (_sAt == 0.0 && _sFrom == Vector3.zero) { _sFrom = _spawnPos; _sRot = _spawnRot; }
+        CopyToActive();
     }
 
+    private double Now() { return Networking.GetServerTimeInSeconds(); }
     private bool Held() { return _pickup != null && _pickup.IsHeld; }
 
     // 持っている人がトリガー：起きる⇄寝る
@@ -120,41 +151,91 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         RequestSerialization();
     }
 
-    public override void OnPickup() { _state = 0; if (_windup) { _windup = false; RequestSerialization(); } }
+    public override void OnPickup()
+    {
+        if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
+        _state = 0; _windup = false; _held = true;
+        _sHoldPos = transform.position; _sRot = transform.rotation;
+        RequestSerialization();
+    }
 
-    // 手を離したら、その場の地面に立てる。ここが新しい「おうち」
+    // 手を離したら、その場の地面に立てる
     public override void OnDrop()
     {
         Vector3 p = transform.position;
         RaycastHit hit;
         if (Physics.Raycast(p + Vector3.up * 0.3f, Vector3.down, out hit, maxDrop + 0.3f, ground, QueryTriggerInteraction.Ignore)) p = hit.point + Vector3.up * standUp;
         Vector3 f = transform.forward; f.y = 0f;
-        transform.SetPositionAndRotation(p, f.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(f.normalized) : transform.rotation);
-        _home = p; _homeSet = true;
+        _sRot = f.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(f.normalized) : transform.rotation;
+        transform.SetPositionAndRotation(p, _sRot);
+        _held = false;
+        SetSeg(0, p, Vector3.zero, 0f, 0f, 0f, Now());
         _state = 0; _stateAt = Time.time; _lastSeen = Time.time;
     }
 
-    // エアガンから（撃った人の画面で）。持ち主の画面で動かす
+    // エアガンから（撃った人の画面で）。持ち主ならそのまま、そうでなければ自分の画面ですぐ吹っ飛ばして（先読み）、同じ区切りを持ち主に送る
     public void Blown(Vector3 velocity)
     {
-        if (Held() || _down) return;
-        if (Networking.IsOwner(gameObject)) ApplyBlown(velocity);
-        else SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(RemoteBlown), velocity);
+        if (_held || Held() || _down) return;
+        Vector3 v0 = new Vector3(velocity.x, Mathf.Max(1.2f, velocity.y), velocity.z) * pushScale;
+        Vector3 from = transform.position;
+        double at = Now();
+        if (Networking.IsOwner(gameObject)) { StartFly(from, v0, at); return; }
+        SetActive(4, from, v0, 0f, 0f, 0f, at);
+        _predUntil = Time.time + 1.5f; _predAt = at;
+        Squash(0.8f);
+        SendCustomNetworkEvent(NetworkEventTarget.Owner, nameof(RemoteBlown), from, v0, at);
     }
 
     [NetworkCallable(10)]
-    public void RemoteBlown(Vector3 velocity)
+    public void RemoteBlown(Vector3 from, Vector3 v0, double at)
     {
-        if (!Networking.IsOwner(gameObject) || Held() || _down) return;
-        ApplyBlown(velocity);
+        if (!Networking.IsOwner(gameObject) || _held || Held() || _down) return;
+        StartFly(from, v0, at);
     }
 
-    private void ApplyBlown(Vector3 velocity)
+    private void StartFly(Vector3 from, Vector3 v0, double at)
     {
-        _air = new Vector3(velocity.x, Mathf.Max(1.2f, velocity.y), velocity.z) * pushScale;
+        SetSeg(4, from, v0, 0f, 0f, 0f, at);
         _state = 4; _stateAt = Time.time;
-        if (_windup) { _windup = false; RequestSerialization(); }
+        _windup = false;
         Squash(0.8f);
+    }
+
+    // 持ち主：区切りを決めて配る
+    private void SetSeg(int kind, Vector3 from, Vector3 vec, float len, float hop, float dur, double at)
+    {
+        _sKind = kind; _sFrom = from; _sVec = vec; _sLen = len; _sHop = hop; _sDur = dur; _sAt = at;
+        CopyToActive();
+        RequestSerialization();
+    }
+
+    private void SetActive(int kind, Vector3 from, Vector3 vec, float len, float hop, float dur, double at)
+    {
+        _aKind = kind; _aFrom = from; _aVec = vec; _aLen = len; _aHop = hop; _aDur = dur; _aAt = at;
+        _dashNoGround = false;
+    }
+
+    private void CopyToActive() { SetActive(_sKind, _sFrom, _sVec, _sLen, _sHop, _sDur, _sAt); }
+
+    public override void OnDeserialization()
+    {
+        if (Networking.IsOwner(gameObject)) return;
+        // 自分が撃った先読みが、まだ持ち主に反映されていない（届いたのはそれより前の区切り）
+        if (Time.time < _predUntil && _sAt < _predAt - 0.02) return;
+        _predUntil = 0f;
+        if (_sAt != _aAt || _sKind != _aKind || _sFrom != _aFrom) CopyToActive();
+    }
+
+    // 持ち主が入れ替わった：今の区切りの続きから自分が決める
+    public override void OnOwnershipTransferred(VRCPlayerApi player)
+    {
+        if (player == null || !player.isLocal) return;
+        _sKind = _aKind; _sFrom = _aFrom; _sVec = _aVec; _sLen = _aLen; _sHop = _aHop; _sDur = _aDur; _sAt = _aAt;
+        _state = _aKind == 2 ? 2 : (_aKind == 4 ? 4 : 0);
+        _stateAt = Time.time; _lastSeen = Time.time;
+        _predUntil = 0f;
+        RequestSerialization();
     }
 
     private void FixedUpdate()
@@ -196,15 +277,78 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
 
     private void Update()
     {
-        if (Networking.IsOwner(gameObject) && !Held()) Think();
+        bool owner = Networking.IsOwner(gameObject);
+        if (Held())
+        {
+            // 自分が持っている：位置を送る（Continuous なので変えておけば届く）
+            if (owner) { _sHoldPos = transform.position; _sRot = transform.rotation; }
+        }
+        else if (_held)
+        {
+            // ほかの人が持っている
+            transform.SetPositionAndRotation(_sHoldPos, _sRot);
+        }
+        else
+        {
+            if (owner) Think();
+            if (!_down)
+            {
+                transform.position = EvalPos();
+                transform.rotation = _sRot;
+            }
+        }
         UpdateLook();
     }
 
-    // ---------- 持ち主の画面：動き ----------
+    // ---------- 区切りから今の位置を出す（全員の画面で同じ計算） ----------
+    private Vector3 EvalPos()
+    {
+        float t = Mathf.Max(0f, (float)(Now() - _aAt));
+        if (_aKind == 2)
+        {
+            float x = Mathf.Clamp01(t / Mathf.Max(0.05f, _aDur));
+            Vector3 q = _aFrom + _aVec * _aLen * x;
+            // 動ける範囲から出ない（島の中／置いた場所のまわり）
+            Vector3 c = areaRadius > 0f ? areaCenter : _aFrom; float lim = areaRadius > 0f ? areaRadius : leashRange;
+            Vector3 fromC = q - c; fromC.y = 0f;
+            if (fromC.magnitude > lim) q = new Vector3(c.x, q.y, c.z) + fromC.normalized * lim;
+            RaycastHit hit;
+            if (!Physics.Raycast(q + Vector3.up * 1.0f, Vector3.down, out hit, 2.5f, ground, QueryTriggerInteraction.Ignore))
+            {
+                _dashNoGround = true;   // 足元に地面がない：持ち主が吹っ飛び（落ちる）に切り替える
+                return new Vector3(q.x, transform.position.y, q.z);
+            }
+            return new Vector3(q.x, hit.point.y + standUp + _aHop * Mathf.Sin(x * Mathf.PI), q.z);
+        }
+        if (_aKind == 4)
+        {
+            if (_flyFor != _aAt) { _flyFor = _aAt; _flyPos = _aFrom; _flyVel = _aVec; _flyT = 0f; _flyLanded = false; }
+            t = Mathf.Min(t, 8f);
+            int guard = 0;
+            while (!_flyLanded && _flyT + FlyStep <= t && guard++ < 400)
+            {
+                _flyVel += Vector3.down * gravity * FlyStep;
+                float drag = Mathf.Clamp01(1f - 0.8f * FlyStep);
+                _flyVel.x *= drag; _flyVel.z *= drag;
+                Vector3 q = _flyPos + _flyVel * FlyStep;
+                RaycastHit hit;
+                if (_flyVel.y <= 0f && Physics.Raycast(q + Vector3.up * 0.5f, Vector3.down, out hit, 0.5f + standUp, ground, QueryTriggerInteraction.Ignore))
+                {
+                    _flyPos = new Vector3(q.x, hit.point.y + standUp, q.z);
+                    _flyLanded = true;
+                }
+                else _flyPos = q;
+                _flyT += FlyStep;
+            }
+            if (_flyLanded && _landSquashFor != _aAt) { _landSquashFor = _aAt; Squash(0.5f); }
+            return _flyPos;
+        }
+        return _aFrom;
+    }
+
+    // ---------- 持ち主の画面：どう動くか決める ----------
     private void Think()
     {
-        if (!_homeSet) { _home = transform.position; _homeSet = true; }
-        float dt = Time.deltaTime;
         Vector3 p = transform.position;
         if (_state == 5)
         {
@@ -212,9 +356,9 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
             if (Time.time - _stateAt >= reviveDelay) ResetHome();
             return;
         }
-        // 落ちすぎたら元の場所へ（VRCObjectSync の最初の位置）、寝かせる
+        // 落ちすぎたら元の場所へ戻して寝かせる
         if (p.y < fallY) { ResetHome(); return; }
-        // イバラに押し込まれた（体当たり中・吹っ飛び中だけ。歩いて戻る時は避ける）
+        // イバラに押し込まれた（体当たり中・吹っ飛び中だけ）
         if ((_state == 2 || _state == 4) && TouchingBramble(p))
         {
             _state = 5; _stateAt = Time.time;
@@ -222,7 +366,12 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
             RequestSerialization();
             return;
         }
-        if (_state == 4) { Fly(dt); return; }
+        if (_aKind == 4)
+        {
+            // 吹っ飛び中：着地したらその場に立つ（そこが新しい居場所）
+            if (_flyLanded && _flyFor == _aAt) { SetSeg(0, _flyPos, Vector3.zero, 0f, 0f, 0f, Now()); _state = 3; _stateAt = Time.time; }
+            return;
+        }
         if (!_awake) return;
 
         FuwaSharedBall target = FindTarget(p);
@@ -236,20 +385,11 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         float t = Time.time - _stateAt;
         if (_state == 0)
         {
-            if (target != null && Time.time - _stateAt > 0.2f)
+            // 置いた場所へ歩いて戻ることはしない（2026-10-14 てじゃ「ジャンプしてから戻ろうとしちゃう」）
+            if (target != null && t > 0.2f)
             {
                 Face(target.transform.position - p);
                 _state = 1; _stateAt = Time.time; _windup = true; RequestSerialization();
-                return;
-            }
-            // おうちへ戻る（ぴょこぴょこ歩き。イバラは回り込む）
-            Vector3 h = _home - p; h.y = 0f;
-            if (h.magnitude > 0.15f)
-            {
-                Vector3 step = h.normalized * Mathf.Min(h.magnitude, returnSpeed * dt);
-                if (TouchingBramble(p + step * 8f)) step = new Vector3(step.z, 0f, -step.x);
-                Face(step);
-                Place(p + step, 0.08f * Mathf.Abs(Mathf.Sin(Time.time * 9f)));
             }
         }
         else if (_state == 1)
@@ -261,39 +401,34 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
                 if (target == null) { _state = 0; _stateAt = Time.time; RequestSerialization(); return; }
                 Vector3 tp = target.transform.position;
                 Vector3 d = tp - p; d.y = 0f;
-                _dashDir = d.sqrMagnitude > 0.0001f ? d.normalized : transform.forward;
-                _dashFrom = p;
+                Vector3 dir = d.sqrMagnitude > 0.0001f ? d.normalized : transform.forward;
                 // 跳び方をふわふわに合わせる：ふわふわの少し先に着地して、ちょうどふわふわの所で体がふわふわの高さに来る弧にする
-                // （前はいつも同じ高さ・同じ距離で、床にいる小さいふわふわの頭上を越えてしまっていた。2026-10-13 てじゃ）
                 float dist = d.magnitude;
-                _dashLen = Mathf.Clamp(dist + 0.5f, 0.8f, dashSpeed * dashTime * 1.6f);
-                float xHit = Mathf.Clamp01(dist / _dashLen);
-                float lift = tp.y - p.y;   // 体の中心から見たふわふわの高さ（床のふわふわならマイナス）
-                _dashHop = Mathf.Clamp(lift / Mathf.Max(0.35f, Mathf.Sin(xHit * Mathf.PI)), 0.1f, hopHeight * 3f);
-                _dashDur = _dashLen / Mathf.Max(0.1f, dashSpeed);
+                float len = Mathf.Clamp(dist + 0.5f, 0.8f, dashSpeed * dashTime * 1.6f);
+                float xHit = Mathf.Clamp01(dist / len);
+                float lift = tp.y - p.y;
+                float hop = Mathf.Clamp(lift / Mathf.Max(0.35f, Mathf.Sin(xHit * Mathf.PI)), 0.1f, hopHeight * 3f);
+                SetSeg(2, p, dir, len, hop, len / Mathf.Max(0.1f, dashSpeed), Now());
                 _state = 2; _stateAt = Time.time;
-                RequestSerialization();
             }
         }
         else if (_state == 2)
         {
-            float x = Mathf.Clamp01(t / Mathf.Max(0.05f, _dashDur));
-            Vector3 q = _dashFrom + _dashDir * _dashLen * x;
-            // 動ける範囲から出ない（島の中／おうちのまわり）
-            Vector3 c = areaRadius > 0f ? areaCenter : _home; float lim = areaRadius > 0f ? areaRadius : leashRange;
-            Vector3 fromHome = q - c; fromHome.y = 0f;
-            if (fromHome.magnitude > lim) q = new Vector3(c.x, q.y, c.z) + fromHome.normalized * lim;
-            if (!Place(q, _dashHop * Mathf.Sin(x * Mathf.PI)))
+            if (_aKind != 2) { _state = 0; _stateAt = Time.time; return; }
+            if (_dashNoGround)
             {
                 // 足元に地面がない所へ跳んだ：そのまま落ちる
-                _air = _dashDir * dashSpeed * 0.5f; _state = 4; _stateAt = Time.time; return;
+                SetSeg(4, p, _aVec * dashSpeed * 0.5f, 0f, 0f, 0f, Now()); _state = 4; _stateAt = Time.time; return;
             }
-            // 着地した所を新しいおうちにする（前は跳ぶたびに置いた場所へ歩いて戻ろうとした。2026-10-14 てじゃ「ジャンプ後に戻らないように」）
-            if (x >= 1f) { _state = 3; _stateAt = Time.time; _home = transform.position; }
+            if (Now() - _aAt >= _aDur) { SetSeg(0, p, Vector3.zero, 0f, 0f, 0f, Now()); _state = 3; _stateAt = Time.time; }
         }
         else if (_state == 3)
         {
             if (t >= cooldown) { _state = 0; _stateAt = Time.time; }
+        }
+        else if (_state == 4)
+        {
+            _state = 0; _stateAt = Time.time;   // 吹っ飛びは上で扱う（ここに来たら区切りはもう立っている）
         }
     }
 
@@ -306,49 +441,24 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         return d.magnitude < brambleRadius + radius * 0.6f;
     }
 
-    // 元の場所（VRCObjectSync の最初の位置）へ戻して寝かせる
-    private void ResetHome()
+    // 元の場所へ戻して寝かせる（落ちた時・「おもちゃを戻す」ボタン FuwaHandFanReset から。呼ぶ前に持ち主になっておく）
+    public void ResetHome()
     {
-        VRCObjectSync s = (VRCObjectSync)GetComponent(typeof(VRCObjectSync));
-        if (s != null) s.Respawn();
-        _homeSet = false; _state = 0;
+        if (!Networking.IsOwner(gameObject)) return;
+        if (_pickup != null && _pickup.IsHeld) _pickup.Drop();
+        _held = false;
+        _sRot = _spawnRot;
+        SetSeg(0, _spawnPos, Vector3.zero, 0f, 0f, 0f, Now());
+        _state = 0;
         _awake = false; _windup = false; _down = false;
         RequestSerialization();
-    }
-
-    // 地面の上の q へ置く（lift＝地面からの浮き）。下に地面がなければ false
-    private bool Place(Vector3 q, float lift)
-    {
-        RaycastHit hit;
-        if (!Physics.Raycast(q + Vector3.up * 1.0f, Vector3.down, out hit, 2.5f, ground, QueryTriggerInteraction.Ignore)) return false;
-        transform.position = new Vector3(q.x, hit.point.y + standUp + lift, q.z);
-        return true;
-    }
-
-    // 撃たれて吹っ飛ぶ・落ちる
-    private void Fly(float dt)
-    {
-        Vector3 p = transform.position;
-        _air += Vector3.down * gravity * dt;
-        _air.x *= Mathf.Clamp01(1f - 0.8f * dt); _air.z *= Mathf.Clamp01(1f - 0.8f * dt);
-        Vector3 q = p + _air * dt;
-        RaycastHit hit;
-        if (_air.y <= 0f && Physics.Raycast(q + Vector3.up * 0.5f, Vector3.down, out hit, 0.5f + standUp, ground, QueryTriggerInteraction.Ignore))
-        {
-            transform.position = new Vector3(q.x, hit.point.y + standUp, q.z);
-            Squash(0.5f);
-            _state = 3; _stateAt = Time.time;
-            _home = transform.position;   // 吹っ飛ばされて着地した所がおうち（戻って歩かない）
-            return;
-        }
-        transform.position = q;
     }
 
     private void Face(Vector3 d)
     {
         d.y = 0f;
         if (d.sqrMagnitude < 0.0001f) return;
-        transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(d.normalized), 0.25f);
+        _sRot = Quaternion.Slerp(_sRot, Quaternion.LookRotation(d.normalized), 0.25f);
     }
 
     private FuwaSharedBall FindTarget(Vector3 p)
@@ -376,7 +486,7 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     private FuwaSharedBall _chase;
     private bool InArea(Vector3 v)
     {
-        Vector3 c = areaRadius > 0f ? areaCenter : _home; float lim = areaRadius > 0f ? areaRadius : leashRange;
+        Vector3 c = areaRadius > 0f ? areaCenter : _aFrom; float lim = areaRadius > 0f ? areaRadius : leashRange;
         Vector3 d = v - c; d.y = 0f;
         return d.magnitude <= lim;
     }

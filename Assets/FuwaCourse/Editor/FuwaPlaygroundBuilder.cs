@@ -426,6 +426,7 @@ public static class FuwaPlaygroundBuilder
         // 「おもちゃを戻す」：扇風機・うちわ以外の持てるおもちゃも
         var othersList = new List<GameObject> { ringT.gameObject };
         foreach (var u in unlockToys) foreach (var os in u.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true)) othersList.Add(os.gameObject);
+        foreach (var u in unlockToys) foreach (var pp in u.GetComponentsInChildren<FuwaPlaygroundPlush>(true)) if (!othersList.Contains(pp.gameObject)) othersList.Add(pp.gameObject);   // ぬいぐるみは ObjectSync なし
         resetOthers = othersList.ToArray();
 
         var ul = UdonSharpUndo.AddComponent<FuwaPlaygroundUnlocks>(toys.gameObject);
@@ -843,7 +844,7 @@ public static class FuwaPlaygroundBuilder
         var rb = root.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
         var pk = root.AddComponent<VRC.SDK3.Components.VRCPickup>();
         pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "まもののぬいぐるみ（トリガーで起こす・寝かせる）"; pk.UseText = "起こす・寝かせる"; pk.proximity = 2f;
-        root.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+        // 位置は VRCObjectSync を使わず、FuwaPlaygroundPlush が動きの区切りを同期してみんなの画面で計算する（2026-10-14 てじゃ「オーナー以外が撃つとラグって見える」）
         AudioSource Copy(string n, string as_) { var s = e.transform.Find(n); if (s == null) return null; var a = Object.Instantiate(s.gameObject, root.transform, false); a.name = as_; return a.GetComponent<AudioSource>(); }
         var boing = Copy("JumpSfx", "Boing");
         var popSfx = Copy("PopSfx", "PopSfx");
@@ -878,7 +879,7 @@ public static class FuwaPlaygroundBuilder
     {
         var slot = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Unlock4" && t.parent != null && t.parent.name == "Toys");
         // 消える持てる物（ネットワークIDを持つ）を一覧から外す
-        var gone = slot.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true).Select(o => o.gameObject).ToList();
+        var gone = slot.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true).Select(o => o.gameObject).Concat(slot.GetComponentsInChildren<VRC.Udon.UdonBehaviour>(true).Select(o => o.gameObject)).Distinct().ToList();
         var desc = Object.FindObjectOfType<VRC.SDK3.Components.VRCSceneDescriptor>(true);
         if (desc != null) { desc.NetworkIDCollection.RemoveAll(x => x.gameObject == null || gone.Contains(x.gameObject)); EditorUtility.SetDirty(desc); }
         FillPlush(slot, Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First());
@@ -889,7 +890,7 @@ public static class FuwaPlaygroundBuilder
             var so = new SerializedObject(reset); var p = so.FindProperty("others");
             var list = new List<Object>();
             for (int i = 0; i < p.arraySize; i++) { var o = p.GetArrayElementAtIndex(i).objectReferenceValue; if (o != null) list.Add(o); }
-            foreach (var os in slot.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true)) if (!list.Contains(os.gameObject)) list.Add(os.gameObject);
+            foreach (var os in slot.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true)) if (!list.Contains(os.gameObject)) list.Add(os.gameObject); foreach (var pp in slot.GetComponentsInChildren<FuwaPlaygroundPlush>(true)) if (!list.Contains(pp.gameObject)) list.Add(pp.gameObject);   // ぬいぐるみは ObjectSync なし
             p.arraySize = list.Count; for (int i = 0; i < list.Count; i++) p.GetArrayElementAtIndex(i).objectReferenceValue = list[i];
             so.ApplyModifiedPropertiesWithoutUndo(); Sync(reset);
         }
@@ -995,7 +996,7 @@ public static class FuwaPlaygroundBuilder
             var so = new SerializedObject(reset); var p = so.FindProperty("others");
             var list = new List<Object>();
             for (int i = 0; i < p.arraySize; i++) { var o = p.GetArrayElementAtIndex(i).objectReferenceValue; if (o != null) list.Add(o); }
-            foreach (var os in slot.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true)) if (!list.Contains(os.gameObject)) list.Add(os.gameObject);
+            foreach (var os in slot.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true)) if (!list.Contains(os.gameObject)) list.Add(os.gameObject); foreach (var pp in slot.GetComponentsInChildren<FuwaPlaygroundPlush>(true)) if (!list.Contains(pp.gameObject)) list.Add(pp.gameObject);   // ぬいぐるみは ObjectSync なし
             p.arraySize = list.Count; for (int i = 0; i < list.Count; i++) p.GetArrayElementAtIndex(i).objectReferenceValue = list[i];
             so.ApplyModifiedPropertiesWithoutUndo(); Sync(reset);
         }

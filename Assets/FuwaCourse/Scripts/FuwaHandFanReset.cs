@@ -9,7 +9,7 @@ using VRC.SDKBase;
 public class FuwaHandFanReset : UdonSharpBehaviour
 {
     public FuwaHandFan[] fans;
-    [Tooltip("ほかの持てるおもちゃ（VRCObjectSync つき）")]
+    [Tooltip("ほかの持てるおもちゃ（VRCObjectSync つき、またはまもののぬいぐるみ）")]
     public GameObject[] others;
 
     public override void Interact() { ResetAll(); }
@@ -28,6 +28,9 @@ public class FuwaHandFanReset : UdonSharpBehaviour
             if (p != null) p.Drop();
             VRCObjectSync s = (VRCObjectSync)g.GetComponent(typeof(VRCObjectSync));
             if (s != null) s.Respawn();
+            // まもののぬいぐるみは VRCObjectSync を使わない（動きを自前で同期。2026-10-14）
+            FuwaPlaygroundPlush pl = g.GetComponent<FuwaPlaygroundPlush>();
+            if (pl != null) pl.ResetHome();
         }
     }
 }
