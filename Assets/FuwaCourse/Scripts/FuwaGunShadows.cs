@@ -32,6 +32,7 @@ public class FuwaGunShadows : UdonSharpBehaviour
     private Vector3[] _centers = new Vector3[96];
     private bool[] _centerReady = new bool[96];
     private int _count, _frame;
+    private bool _depthOn;
     private Material[] _mats;
     private float[] _alpha;
 
@@ -85,6 +86,18 @@ public class FuwaGunShadows : UdonSharpBehaviour
             VRCPlayerApi.TrackingData head = me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
             depthKeeper.position = head.position + head.rotation * Vector3.forward * depthKeeperAhead;
         }
+#if UNITY_ANDROID || UNITY_IOS
+        // スマホ・Quest は影がオフなので、上の仕掛けでも深度が作られず、うそ影が出なかった（2026-10-14 てじゃ）。カメラに深度を作らせる
+        if (!_depthOn)
+        {
+            VRC.SDK3.Rendering.VRCCameraSettings cam = VRC.SDK3.Rendering.VRCCameraSettings.ScreenCamera;
+            if (cam != null)
+            {
+                if (cam.DepthTextureMode == DepthTextureMode.None) cam.DepthTextureMode = DepthTextureMode.Depth;
+                _depthOn = true;
+            }
+        }
+#endif
         int used = 0;
         for (int i = 0; i < _count && used < shadows.Length; i++)
         {
