@@ -17,7 +17,7 @@ public static class FuwaMobileGunButtonBuilder
     public static string Run()
     {
         var sys = GameObject.Find("FuwaSystem").transform;
-        var old = sys.Find("MobileGunButton"); if (old != null) Object.DestroyImmediate(old.gameObject);
+        foreach (var n in new[] { "MobileGunButton", "MobileGunButtonVisual" }) { var old = sys.Find(n); if (old != null) Object.DestroyImmediate(old.gameObject); }
 
         var ti = (TextureImporter)AssetImporter.GetAtPath(TexPath);
         if (ti.alphaIsTransparency == false || ti.wrapMode != TextureWrapMode.Clamp || ti.maxTextureSize != 256)
@@ -33,8 +33,10 @@ public static class FuwaMobileGunButtonBuilder
 
         var go = new GameObject("MobileGunButton");
         go.transform.SetParent(sys, false);
-        go.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Quad.fbx");
-        var mr = go.AddComponent<MeshRenderer>();
+        // 見た目は別の物に分ける（当たり判定と同じ物・その子に描くと、VRChat の「押せる」ハイライトで青い四角が出る。2026-10-14 てじゃ）
+        var vis = new GameObject("MobileGunButtonVisual"); vis.transform.SetParent(sys, false);
+        vis.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Quad.fbx");
+        var mr = vis.AddComponent<MeshRenderer>();
         mr.sharedMaterial = mat;
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
