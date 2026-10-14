@@ -68,6 +68,8 @@ public class FuwaGhost : UdonSharpBehaviour
 
     public void SetArea(int area) { if (_isMine) _area = area; }
     public int GetArea() { return _area; }
+    // 持ち主が今いるコース（courseStarts の番号、-1=どれでもない）。追っかけカメラが、ほかのエリアから見る時にそのコースを出すのに使う
+    public int GetCourse() { return _course; }
 
     // ===== 同期 =====
     public override void OnPreSerialization()

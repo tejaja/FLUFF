@@ -88,6 +88,13 @@ public class FuwaFollowCam : UdonSharpBehaviour
     public FuwaAreaVisibility areas;
     [Tooltip("あそびばのふわふわ。あそびばにいる人を映す時は、その人にいちばん近い飛んでいるふわふわを追う")]
     public FuwaSharedBall[] playgroundBalls;
+    [Header("ほかのエリア（あそびば）からチャレンジの人を映す時（2026-10-14 てじゃ「地形が見えない、見れないと置いた意味ない」）")]
+    [Tooltip("各コースの本体（FuwaGhost.courseStarts と同じ順）。映している間だけ、その人のいるコース1つを出す")]
+    public GameObject[] courseRoots;
+    [Tooltip("各コースの床だけの軽い版（同じ順）。Quest・スマホではこちらを出す")]
+    public GameObject[] courseLites;
+    private int _shownCourse = -1;
+    private int _shownCourseArea = -2;
     [Tooltip("今映している人の名前を出す文字（人物ボタン）")]
     public TextMeshProUGUI[] targetTexts;
     [Tooltip("モニターの画面の上に出す名前（他の人を映している時だけ）")]
@@ -176,6 +183,39 @@ public class FuwaFollowCam : UdonSharpBehaviour
     }
 
     private int MyArea() { return areas != null ? areas.GetArea() : -1; }
+
+    // 映すためだけに出しているコース（k=-1 で隠す）。自分がチャレンジに入った時は FuwaAreaVisibility が全部出すので、その時は触らない
+    private void ShowCourse(int k)
+    {
+        int area = MyArea();
+        if (area != _shownCourseArea) { _shownCourseArea = area; _shownCourse = -1; }   // エリアが変わった：FuwaAreaVisibility が出し直したので、こちらの記録は捨てる
+        if (k == _shownCourse) return;
+        bool mine = area == soloArea;
+        if (_shownCourse >= 0 && !mine) SetCourse(_shownCourse, false);
+        _shownCourse = k;
+        if (k >= 0 && !mine) SetCourse(k, true);
+    }
+
+    private void SetCourse(int k, bool on)
+    {
+#if UNITY_ANDROID || UNITY_IOS
+        GameObject[] arr = courseLites;   // Quest・スマホは床だけの軽い版
+#else
+        GameObject[] arr = courseRoots;
+#endif
+        if (arr == null || k < 0 || k >= arr.Length || arr[k] == null) return;
+#if UNITY_ANDROID || UNITY_IOS
+        // 軽い版は親（CourseLites）ごと隠れているので、ほかの軽い版を消してから親ごと出す。隠す時は親ごと隠す
+        Transform parent = arr[k].transform.parent;
+        if (on)
+        {
+            for (int i = 0; i < arr.Length; i++) if (i != k && arr[i] != null && arr[i].activeSelf) arr[i].SetActive(false);
+            if (parent != null && !parent.gameObject.activeSelf) parent.gameObject.SetActive(true);
+        }
+        else if (parent != null && parent.gameObject.activeSelf) parent.gameObject.SetActive(false);
+#endif
+        if (arr[k].activeSelf != on) arr[k].SetActive(on);
+    }
 
     // あそびばにいる人：その人にいちばん近い、飛んでいるふわふわ
     private Transform NearestPlaygroundBall(Vector3 p)
@@ -347,6 +387,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (feedRenderer != null && feedRenderer.enabled != feedOn) feedRenderer.enabled = feedOn;
         if (!run)
         {
+            ShowCourse(-1);
             if (_watchedGhost != null) { _watchedGhost.watched = false; _watchedGhost = null; }
             if (monitorFluff != null && monitorFluff.gameObject.activeSelf) monitorFluff.gameObject.SetActive(false);
             return;
@@ -395,6 +436,10 @@ public class FuwaFollowCam : UdonSharpBehaviour
         }
         Transform tgt = null;
         bool ghostShown = false;
+        // チャレンジにいる人を、ほかのエリアから映している：その人のいるコースを出す（ふだんは隠れている）
+        int showCourse = -1;
+        if (who != lp && ghost != null && ghost.GetArea() == soloArea && MyArea() != soloArea) showCourse = ghost.GetCourse();
+        ShowCourse(showCourse);
         bool inPlayground = who == lp ? MyArea() == playgroundArea : (ghost != null && ghost.GetArea() == playgroundArea);
         if (inPlayground) tgt = NearestPlaygroundBall(p);   // あそびば：近くのみんなのふわふわ（無ければその人だけ）
         else if (who == lp) tgt = FindTarget(p);
