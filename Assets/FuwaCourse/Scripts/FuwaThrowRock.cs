@@ -30,12 +30,29 @@ public class FuwaThrowRock : UdonSharpBehaviour
     private float _playerHitAt;
     private float _droppedAt = -10f;   // 自分の手から離した時刻（自分の画面だけ）
 
+    [Tooltip("ぶつからずにすり抜ける物（手持ちの扇風機・うちわ。2026-10-14 てじゃ「扇風機を岩はすりぬけてほしい」）")]
+    public Collider[] passThrough;
+
+    private bool _ignored;
+
     private void Start() { _prev = transform.position; }
+
+    // すり抜けの設定は、物が隠れる（エリアの切り替え）と消えるので、出てくるたびに最初の物理の1回でかけ直す
+    private void OnEnable() { _ignored = false; }
+
+    private void ApplyPassThrough()
+    {
+        _ignored = true;
+        Collider me = (Collider)GetComponent(typeof(Collider));
+        if (me == null || passThrough == null) return;
+        foreach (Collider c in passThrough) if (c != null) Physics.IgnoreCollision(me, c, true);
+    }
 
     public override void OnDrop() { _droppedAt = Time.time; }
 
     private void FixedUpdate()
     {
+        if (!_ignored) ApplyPassThrough();
         Vector3 p = transform.position;
         Vector3 v = (p - _prev) / Mathf.Max(0.0001f, Time.fixedDeltaTime);
         _prev = p;

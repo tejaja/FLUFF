@@ -702,6 +702,7 @@ public static class FuwaPlaygroundBuilder
             AudioSource hit = null;
             if (src.hitSound != null) { var h = Object.Instantiate(src.hitSound.gameObject, rock.transform, false); h.name = "HitSound"; h.transform.localPosition = Vector3.zero; hit = h.GetComponent<AudioSource>(); }
             var tr = UdonSharpUndo.AddComponent<FuwaThrowRock>(rock); tr.spawner = sp; tr.radius = r; tr.hitSound = hit; tr.fallY = slot.position.y - 6f;
+            tr.passThrough = Object.FindObjectsOfType<FuwaHandFan>(true).SelectMany(f => f.GetComponents<Collider>()).ToArray();   // 扇風機・うちわはすり抜ける
             UdonSharpEditorUtility.CopyProxyToUdon(tr);
             var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tr); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Continuous; EditorUtility.SetDirty(ub); }
         }
@@ -733,6 +734,8 @@ public static class FuwaPlaygroundBuilder
         var z = Object.Instantiate(src.gameObject, seed.transform, false); z.name = "HeavyZone";
         z.transform.localPosition = Vector3.zero; z.transform.localRotation = Quaternion.identity; z.transform.localScale = Vector3.one * (zoneR * 2f / size);
         z.layer = 2;   // Ignore Raycast（たねを持つ時のじゃまにならないように）
+        // 音はなし（コースの重いエリアのうねる低音。あそびばだとうるさい。2026-10-14 てじゃ）
+        { var ga = z.GetComponent<FuwaGravityArea>(); if (ga != null) { SetU(ga, "loopSound", null); Sync(ga); } foreach (var a in z.GetComponentsInChildren<AudioSource>(true)) Object.DestroyImmediate(a); }
         foreach (var t in z.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
         var srcP = src.transform.parent.Find("HeavyParticles");
         if (srcP != null)
