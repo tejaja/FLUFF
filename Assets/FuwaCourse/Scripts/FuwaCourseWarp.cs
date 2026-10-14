@@ -27,6 +27,8 @@ public class FuwaCourseWarp : UdonSharpBehaviour
     public FuwaAreaVisibility areaVisibility;
     [Tooltip("コースへのワープ用：コース中に手動リスポーンしてロビーへ戻った時の立ち位置（そのコースのポータルの方を向いた場所。なくてもOK）")]
     public Transform lobbyReturnSpot;
+    [Tooltip("チュートリアルへのワープ用：入るたびに看板の赤▼と、順に出す看板をまた最初からにする（2026-10-14 てじゃ「入り直しても出っぱなし」。なくてもOK）")]
+    public FuwaReadMarks resetReadMarks;
 
     [Header("暗転")]
     [Tooltip("暗転（なくてもOK。無ければすぐワープ）")]
@@ -240,6 +242,7 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         if (ball != null && courseStart != null) ball.StartCourse(courseStart, timed);
         if (warpSound != null) warpSound.Play();
         if (hideOnWarp != null) hideOnWarp.SetActive(false);
+        if (resetReadMarks != null) resetReadMarks.ResetFromRespawn();
         // 最後にエリアの表示を切り替える（このワープ自身が非表示になることがあるので最後に）
         if (areaVisibility != null && area >= 0) areaVisibility.ShowArea(area);
     }

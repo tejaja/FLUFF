@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UdonSharp;
 using UdonSharpEditor;
@@ -154,6 +154,9 @@ public static class FuwaTutorialWelcomeBuilder
         // リスポーンしたら最初から出す（FuwaRespawnManager が呼ぶ）
         foreach (var rmgr in Object.FindObjectsOfType<FuwaRespawnManager>(true))
         { var rso = new SerializedObject(rmgr); rso.FindProperty("readMarks").objectReferenceValue = rm; rso.ApplyModifiedPropertiesWithoutUndo(); UdonSharpEditorUtility.CopyProxyToUdon(rmgr); EditorUtility.SetDirty(rmgr); }
+        // ロビーのポータルからチュートリアルへ入り直した時も最初から出す（2026-10-14 てじゃ「入り直しても出っぱなし」）
+        foreach (var wp in Object.FindObjectsOfType<FuwaCourseWarp>(true).Where(x => x.playerSpot == spot))
+        { var wso = new SerializedObject(wp); wso.FindProperty("resetReadMarks").objectReferenceValue = rm; wso.ApplyModifiedPropertiesWithoutUndo(); UdonSharpEditorUtility.CopyProxyToUdon(wp); EditorUtility.SetDirty(wp); log.Add("warp reset " + wp.name); }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(tut.gameObject.scene);
         log.Add("marks " + marks.Count);
         return string.Join("\n", log);
