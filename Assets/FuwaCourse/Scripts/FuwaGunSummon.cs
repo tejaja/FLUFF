@@ -95,6 +95,28 @@ public class FuwaGunSummon : UdonSharpBehaviour
         _stickY = value;
     }
 
+    // 掴むボタン（トリガー／グリップ）を押した手：台の銃がもう一方の手についていたら、すぐこの手へ乗りかえる
+    // （VRChat が掴む前にここが呼ばれれば、押した手の向きで持てる。後だった時のために、手の動きでも選んでいる）
+    public override void InputUse(bool value, UdonInputEventArgs args) { if (value) OnGrabPress(args.handType == HandType.LEFT ? 2 : 1); }
+    public override void InputGrab(bool value, UdonInputEventArgs args) { if (value) OnGrabPress(args.handType == HandType.LEFT ? 2 : 1); }
+
+    private void OnGrabPress(int hand)
+    {
+        _pressedHand = hand;
+        _pressedUntil = Time.time + 0.3f;
+        if (_dockFollow == 0 || _dockFollow == hand) return;
+        VRCPlayerApi p = Networking.LocalPlayer;
+        if (p == null || !p.IsValid() || !p.IsUserInVR() || manager == null || summonSpot == null) return;
+        FuwaBlower gun = manager.GetMyBlower();
+        if (gun == null || gun.IsHeld() || gun.GetDock() == null) return;
+        Vector3 c = gun.GetDockPoint();
+        float d = (p.GetTrackingData(hand == 2 ? VRCPlayerApi.TrackingDataType.LeftHand : VRCPlayerApi.TrackingDataType.RightHand).position - c).magnitude;
+        if (d > dockRelease * gun.GetAutoScale()) return;
+        _dockFollow = hand;
+        SetGripPose(p, hand == 2);
+        gun.MoveDocked(summonSpot.position, summonSpot.rotation);
+    }
+
     // デスクトップ・スマホ：目の前に銃を出す（Fキー、スマホの画面のボタン FuwaMobileGunButton から）
     public void SummonInFront()
     {
@@ -205,6 +227,11 @@ public class FuwaGunSummon : UdonSharpBehaviour
     public float dockSwitchMargin = 0.05f;
     [Tooltip("手についてきている間の、掴む箱の大きさ（銃の大きさ基準。呼び出しの時の summonGrabSize より小さく）")]
     public float dockFollowGrabSize = 0.2f;
+    [Tooltip("手の近づく速さから、何秒先の距離で比べるか")]
+    public float dockLookAhead = 0.2f;
+    private float _lastDr, _lastDl, _lastDistAt, _approachR, _approachL;
+    private int _pressedHand;      // 1=右 2=左
+    private float _pressedUntil;
     private Transform _returnDock;
     private int _dockFollow;   // 0=台の上、1=右手、2=左手
 
@@ -220,6 +247,20 @@ public class FuwaGunSummon : UdonSharpBehaviour
         float s = gun.GetAutoScale();
         float dr = (p.GetTrackingData(VRCPlayerApi.TrackingDataType.RightHand).position - c).magnitude;
         float dl = (p.GetTrackingData(VRCPlayerApi.TrackingDataType.LeftHand).position - c).magnitude;
+        // 台へ近づいている速さ（なめらかに）。置いているだけの手より、伸ばしている手を優先する
+        float dt = Mathf.Max(0.001f, Time.time - _lastDistAt);
+        if (_lastDistAt > 0f && dt < 0.5f)
+        {
+            float k = 1f - Mathf.Exp(-dt / 0.08f);
+            _approachR = Mathf.Lerp(_approachR, (_lastDr - dr) / dt, k);
+            _approachL = Mathf.Lerp(_approachL, (_lastDl - dl) / dt, k);
+        }
+        else { _approachR = 0f; _approachL = 0f; }
+        _lastDr = dr; _lastDl = dl; _lastDistAt = Time.time;
+        // 少し先の距離（近づいている手ほど小さい）で比べる
+        float pr = dr - Mathf.Max(0f, _approachR) * dockLookAhead, pl = dl - Mathf.Max(0f, _approachL) * dockLookAhead;
+        // 掴むボタンを押した手（InputUse / InputGrab）は、少しの間それを優先
+        if (Time.time < _pressedUntil) { if (_pressedHand == 1) pr -= 1f; else if (_pressedHand == 2) pl -= 1f; }
         // 両手とも近い時は、今ついている手より反対の手の方がはっきり近くなったら乗りかえる
         // （前は一度ついた手から離れるまで乗りかえなかったので、左手が台の近くにあると、右手で掴んでも左手用の向きで持っていた。2026-10-14 てじゃ）
         bool rIn = dr < (_dockFollow == 1 ? dockRelease : dockReach) * s;
@@ -227,9 +268,9 @@ public class FuwaGunSummon : UdonSharpBehaviour
         int want = 0;
         if (rIn && lIn)
         {
-            want = _dockFollow != 0 ? _dockFollow : (dr <= dl ? 1 : 2);
-            if (want == 1 && dl + dockSwitchMargin * s < dr) want = 2;
-            else if (want == 2 && dr + dockSwitchMargin * s < dl) want = 1;
+            want = _dockFollow != 0 ? _dockFollow : (pr <= pl ? 1 : 2);
+            if (want == 1 && pl + dockSwitchMargin * s < pr) want = 2;
+            else if (want == 2 && pr + dockSwitchMargin * s < pl) want = 1;
         }
         else if (rIn) want = 1;
         else if (lIn) want = 2;
