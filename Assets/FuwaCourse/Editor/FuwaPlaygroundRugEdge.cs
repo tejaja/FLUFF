@@ -10,7 +10,7 @@ public static class FuwaPlaygroundRugEdge
     const string MeshPath = "Assets/FuwaCourse/Generated/Playground_RugEdge.asset";
     const string TexPath = "Assets/FuwaCourse/Generated/Playground_RugEdge.png";
     const int Res = 512;
-    const float Width = 0.55f;                                  // グラデの幅（メッシュの座標で。ラグは0.8倍なので実際は約0.45m）
+    const float Width = 0.42f;                                  // グラデの幅（メッシュの座標で。ラグは0.8倍なので実際は約0.34m。0.55→0.42 てじゃ「ちょっとだけ狭めて」）
     static readonly Color Edge = new Color(0.8f, 0.87f, 1f);    // いちばんふちの色（_Color に掛かる）
 
     [MenuItem("FuwaCourse/あそびば/雲カーペットのふちのグラデを作り直す")]
