@@ -860,6 +860,14 @@ public static class FuwaPlaygroundBuilder
         AudioSource Copy(string n, string as_) { var s = e.transform.Find(n); if (s == null) return null; var a = Object.Instantiate(s.gameObject, root.transform, false); a.name = as_; return a.GetComponent<AudioSource>(); }
         var boing = Copy("JumpSfx", "Boing");
         var popSfx = Copy("PopSfx", "PopSfx");
+        // 音は近くだけ聞こえるように（コース4のまものの音は立体音響なしで遠くまで同じ大きさだった。2026-10-14 てじゃ「距離減衰もうちょい強く」）
+        foreach (var a in new[] { boing, popSfx })
+        {
+            if (a == null) continue;
+            a.spatialBlend = 1f; a.rolloffMode = AudioRolloffMode.Logarithmic; a.minDistance = 1.5f; a.maxDistance = 18f;
+            var vs = a.GetComponent<VRC.SDK3.Components.VRCSpatialAudioSource>();
+            if (vs != null) { vs.EnableSpatialization = true; vs.Near = 1.5f; vs.Far = 18f; vs.Gain = 0f; }
+        }
         ParticleSystem popFx = null;
         { var s = e.transform.Find("PopEffect"); if (s != null) { var g = Object.Instantiate(s.gameObject, root.transform, false); g.name = "PopEffect"; popFx = g.GetComponent<ParticleSystem>(); } }
         var pl = UdonSharpUndo.AddComponent<FuwaPlaygroundPlush>(root);
