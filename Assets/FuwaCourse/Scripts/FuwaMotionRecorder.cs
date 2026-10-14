@@ -9,6 +9,7 @@ using VRC.SDKBase;
 // 骨は向きではなく位置で録る（アバターごとに骨の軸の決まりが違うため。位置なら別の人形にも移せる）。
 // Unity側の「FuwaCourse/モーション録画/ログから取り込む」でアニメに変換する。
 // 開始/停止：このボタンをInteract、デスクトップは toggleKey、VRは両手を頭の上に上げて1秒。開始はカウントダウン付き。
+// インスタンスのマスターにだけ見えて使える（2026-10-14 てじゃ「おもちゃ全部出すみたいにオーナーだけ見えるボタンに」。公開ワールドに置いたままでも他の人には出ない）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaMotionRecorder : UdonSharpBehaviour
 {
@@ -29,6 +30,8 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
     public KeyCode toggleKey = KeyCode.Alpha0;
     [Tooltip("VR：両手を頭の上に上げ続けたら開始/停止(秒)")]
     public float gestureHold = 1f;
+    [Tooltip("マスターにだけ見せる物（柱・文字など）。このボタン自身の見た目と当たりも同じく切り替える")]
+    public GameObject[] masterOnlyObjects;
 
     private const string Tag = "[FMR] ";
     private int[] _bones;
@@ -42,6 +45,8 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
     private bool _gestureLatch;
     private VRCPickup _gunPickup;
     private FuwaBlower _gun;
+    private float _nextMasterCheck;
+    private int _shownAs = -1;     // -1=まだ 0=隠し 1=見せ
 
     private void Start()
     {
@@ -69,6 +74,8 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
 
     private void Toggle(string why)
     {
+        var lp = Networking.LocalPlayer;
+        if (lp == null || !lp.isMaster) return;
         if (_state == 0) { _state = 1; _stateAt = Time.time; }
         else if (_state == 1) { _state = 0; SetPanel("キャンセル"); ShowHead(false); }
         else Stop(why);
@@ -78,6 +85,8 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
     {
         var me = Networking.LocalPlayer;
         if (me == null) return;
+        UpdateMasterOnly(me);
+        if (!me.isMaster) return;
 
         if (Input.GetKeyDown(toggleKey)) Toggle("key");
         UpdateGesture(me);
@@ -107,6 +116,22 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
             SetHead("<color=#ff4040>●</color> REC " + sec);
             SetPanel("録画中 " + sec + "秒");
         }
+    }
+
+    // マスターにだけ見せる（1秒ごとに確認。マスターが交代したら新しいマスターに）
+    private void UpdateMasterOnly(VRCPlayerApi me)
+    {
+        if (Time.time < _nextMasterCheck) return;
+        _nextMasterCheck = Time.time + 1f;
+        int on = me.isMaster ? 1 : 0;
+        if (on == _shownAs) return;
+        _shownAs = on;
+        bool b = on == 1;
+        if (masterOnlyObjects != null)
+            for (int i = 0; i < masterOnlyObjects.Length; i++) if (masterOnlyObjects[i] != null) masterOnlyObjects[i].SetActive(b);
+        var mr = (MeshRenderer)GetComponent(typeof(MeshRenderer)); if (mr != null) mr.enabled = b;
+        var col = (Collider)GetComponent(typeof(Collider)); if (col != null) col.enabled = b;
+        if (!b) { if (_state != 0) { _state = 0; ShowHead(false); } }
     }
 
     // VR：両手が頭より上に gestureHold 秒あったら切り替え（一度切り替えたら手を下ろすまで再反応しない）
