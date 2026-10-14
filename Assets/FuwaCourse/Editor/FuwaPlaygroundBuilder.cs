@@ -776,6 +776,7 @@ public static class FuwaPlaygroundBuilder
     // まもののぬいぐるみ1体＋イバラ1つ（2026-10-13 てじゃ「まもの1 いばら1」。前は大きさ違いのぬいぐるみ3体）。
     // ぬいぐるみ：コース4 のけだまの体と目と鼻ちょうちん。寝ている⇄起きて追いかける（FuwaPlaygroundPlush）。持って置ける
     // イバラ：コース4 のイバラ（SpikePatch4）。ふわふわははじける・人は足が遅くなる・ぬいぐるみは押し込まれると倒れる。持って動かせる（FuwaMovableMushroom と同じ仕組み）
+    const bool WithBramble = false;
     static void FillPlush(Transform slot, FuwaPlaygroundSpawner sp)
     {
         foreach (var old in slot.Cast<Transform>().Where(t => t.name.StartsWith("Plush") || t.name.StartsWith("Bramble")).ToList()) Object.DestroyImmediate(old.gameObject);
@@ -785,27 +786,32 @@ public static class FuwaPlaygroundBuilder
         Vector3 fwd = slot.forward; fwd.y = 0f; fwd.Normalize();
 
         // ---- イバラ（見た目と判定＝body、持つところ＝handle） ----
-        var spSrc = RootGo("FuwaCourse4").GetComponentsInChildren<Transform>(true).First(t => t.name == "SpikePatch4" && t.parent != null && t.parent.name == "Spikes");
-        Vector3 bPos = slot.position - fwd * 1.6f;   // ぬいぐるみと2.8m離す（起きてすぐ自分から飛び込まないように）。柵側（ぬいぐるみの後ろ）＝追いかけて真ん中へ行く時に通らない。前は横並びで場所を取った
-        var bBody = new GameObject("BrambleBody").transform; bBody.SetParent(slot, false); bBody.SetPositionAndRotation(bPos, Quaternion.LookRotation(fwd));
-        var bg = Object.Instantiate(spSrc.gameObject, bBody, false); bg.name = "SpikePatch";
-        bg.transform.localPosition = Vector3.zero; bg.transform.localRotation = Quaternion.identity; bg.transform.localScale = Vector3.one;
-        foreach (var t in bBody.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
-        foreach (var fs in bBody.GetComponentsInChildren<FuwaSpike>(true)) { SetU(fs, "ball", null); Sync(fs); }
-        var trig = bBody.GetComponentInChildren<FuwaSpike>(true).GetComponent<BoxCollider>();
-        float bR = Mathf.Max(trig.bounds.extents.x, trig.bounds.extents.z) * 0.8f;   // 長方形の判定を円で近似（少し内側）
-        var bHandle = new GameObject("Bramble"); bHandle.layer = 13; bHandle.transform.SetParent(slot, false); bHandle.transform.SetPositionAndRotation(bPos, Quaternion.LookRotation(fwd));
-        var bBox = bHandle.AddComponent<BoxCollider>(); bBox.isTrigger = true;
-        bBox.size = new Vector3(trig.bounds.size.x, 0.45f, trig.bounds.size.z); bBox.center = new Vector3(0f, 0.22f, 0f);
-        var bRb = bHandle.AddComponent<Rigidbody>(); bRb.isKinematic = true; bRb.useGravity = false;
-        var bPk = bHandle.AddComponent<VRC.SDK3.Components.VRCPickup>();
-        bPk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; bPk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; bPk.InteractionText = "イバラ"; bPk.proximity = 2f;
-        bHandle.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
-        var bmm = UdonSharpUndo.AddComponent<FuwaMovableMushroom>(bHandle); bmm.body = bBody; bmm.ground = 1 << 11;
-        UdonSharpEditorUtility.CopyProxyToUdon(bmm);
-        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bmm); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
-        GameObjectUtility.SetStaticEditorFlags(bHandle, 0);
-        AddHighlightProxy(bHandle.transform, bBody);
+        // 2026-10-14 てじゃ「あそびばのいばらやっぱいらんかも」→ 作らない（WithBramble=true で元に戻せる。ぬいぐるみは bramble なしでも動く）
+        Transform bBody = null; float bR = 0f;
+        if (WithBramble)
+        {
+            var spSrc = RootGo("FuwaCourse4").GetComponentsInChildren<Transform>(true).First(t => t.name == "SpikePatch4" && t.parent != null && t.parent.name == "Spikes");
+            Vector3 bPos = slot.position - fwd * 1.6f;   // ぬいぐるみと2.8m離す（起きてすぐ自分から飛び込まないように）。柵側（ぬいぐるみの後ろ）＝追いかけて真ん中へ行く時に通らない。前は横並びで場所を取った
+            bBody = new GameObject("BrambleBody").transform; bBody.SetParent(slot, false); bBody.SetPositionAndRotation(bPos, Quaternion.LookRotation(fwd));
+            var bg = Object.Instantiate(spSrc.gameObject, bBody, false); bg.name = "SpikePatch";
+            bg.transform.localPosition = Vector3.zero; bg.transform.localRotation = Quaternion.identity; bg.transform.localScale = Vector3.one;
+            foreach (var t in bBody.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+            foreach (var fs in bBody.GetComponentsInChildren<FuwaSpike>(true)) { SetU(fs, "ball", null); Sync(fs); }
+            var trig = bBody.GetComponentInChildren<FuwaSpike>(true).GetComponent<BoxCollider>();
+            bR = Mathf.Max(trig.bounds.extents.x, trig.bounds.extents.z) * 0.8f;   // 長方形の判定を円で近似（少し内側）
+            var bHandle = new GameObject("Bramble"); bHandle.layer = 13; bHandle.transform.SetParent(slot, false); bHandle.transform.SetPositionAndRotation(bPos, Quaternion.LookRotation(fwd));
+            var bBox = bHandle.AddComponent<BoxCollider>(); bBox.isTrigger = true;
+            bBox.size = new Vector3(trig.bounds.size.x, 0.45f, trig.bounds.size.z); bBox.center = new Vector3(0f, 0.22f, 0f);
+            var bRb = bHandle.AddComponent<Rigidbody>(); bRb.isKinematic = true; bRb.useGravity = false;
+            var bPk = bHandle.AddComponent<VRC.SDK3.Components.VRCPickup>();
+            bPk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; bPk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; bPk.InteractionText = "イバラ"; bPk.proximity = 2f;
+            bHandle.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+            var bmm = UdonSharpUndo.AddComponent<FuwaMovableMushroom>(bHandle); bmm.body = bBody; bmm.ground = 1 << 11;
+            UdonSharpEditorUtility.CopyProxyToUdon(bmm);
+            { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bmm); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+            GameObjectUtility.SetStaticEditorFlags(bHandle, 0);
+            AddHighlightProxy(bHandle.transform, bBody);
+        }
 
         // ---- ぬいぐるみ ----
         float r = baseR;
