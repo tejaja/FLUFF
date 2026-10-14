@@ -30,6 +30,15 @@ public static class FuwaDeviceTextSetup
         // エアガンの台の札
         { "<size=60%>クリックで呼ぶ</size>", "<size=60%>{pc|クリック}{vr|トリガー}{mo|タップ}で呼ぶ</size>" },
         { "<size=60%>Click to summon</size>", "<size=60%>{pc|Click}{vr|Trigger}{mo|Tap} to summon</size>" },
+        // スマホ：右上のボタン（FuwaMobileGunButton）の案内を足す（2026-10-14）。上の行で置きかえた後の文字をさらに置きかえる
+        { "{mo|台をタップすると台に来る}\n<pos=1.1em>{pc|台をクリックで台に戻る}{vr|台をトリガーで台に戻る}{mo|（どの台からでも呼べる）}", "{mo|画面右上のボタンで手元に来る}\n<pos=1.1em>{pc|台をクリックで台に戻る}{vr|台をトリガーで台に戻る}{mo|台をタップすると台に来る}" },
+        { "{mo|Tap a stand to call it there}\n<pos=1.1em>{pc|Click a stand to call it there}{vr|Trigger a stand to call it there}{mo|(works at any stand)}", "{mo|Tap the top-right button}\n<pos=1.1em>{pc|Click a stand to call it there}{vr|Trigger a stand to call it there}{mo|Tap a stand to call it there}" },
+        { "{mo|どの台からでも呼べる}", "{mo|手元に呼ぶ：右上のボタン}" },
+        { "{mo|Call it from any stand}", "{mo|Call it: top-right button}" },
+        { "{mo|エアガンは台をタップで呼べる}", "{mo|エアガンは右上のボタンで呼べる}" },
+        { "{mo|（どの台からでも）}", "{mo|（台をタップでも呼べる）}" },
+        { "{mo|Tap a stand to call your air gun}", "{mo|Call your air gun: top-right button}" },
+        { "{mo|(works at any stand)}", "{mo|(or tap a stand)}" },
     };
 
     [MenuItem("FuwaCourse/操作の説明を端末ごとの書き方にする")]
