@@ -18109,11 +18109,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &10744275
 AudioSource:
@@ -18135,8 +18135,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -18171,7 +18171,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -77616,8 +77616,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -77652,7 +77652,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -77712,8 +77712,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -77748,7 +77748,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -77800,11 +77800,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &61778129
 GameObject:
@@ -105344,11 +105344,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &76616468
 AudioSource:
@@ -105370,8 +105370,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -105406,7 +105406,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -153695,8 +153695,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -153731,7 +153731,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -153783,11 +153783,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &115844229
 GameObject:
@@ -205860,8 +205860,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -205896,7 +205896,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -205963,11 +205963,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &153497844
 GameObject:
@@ -245850,8 +245850,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -245886,7 +245886,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -245946,8 +245946,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -245982,7 +245982,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -246034,11 +246034,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &185708020
 GameObject:
@@ -257276,8 +257276,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -257312,7 +257312,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -257364,11 +257364,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &195050950
 GameObject:
@@ -273646,8 +273646,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -273682,7 +273682,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -273742,8 +273742,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -273778,7 +273778,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -273917,11 +273917,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &204391985
 GameObject:
@@ -304014,8 +304014,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -304050,7 +304050,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -304102,11 +304102,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &226981419
 GameObject:
@@ -446311,8 +446311,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -446347,7 +446347,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -446399,11 +446399,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &335200019
 GameObject:
@@ -447052,8 +447052,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -447088,7 +447088,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -447155,11 +447155,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &338083890 stripped
 GameObject:
@@ -554680,11 +554680,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &401528840
 AudioSource:
@@ -554706,8 +554706,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -554742,7 +554742,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -555048,11 +555048,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &403313126
 AudioSource:
@@ -555074,8 +555074,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -555110,7 +555110,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -730674,8 +730674,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -730710,7 +730710,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -730762,11 +730762,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &529240759
 GameObject:
@@ -754157,11 +754157,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &544622371
 AudioSource:
@@ -754183,8 +754183,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -754219,7 +754219,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -785304,8 +785304,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -785340,7 +785340,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -785392,11 +785392,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &567325238 stripped
 GameObject:
@@ -816412,8 +816412,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -816448,7 +816448,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -816515,11 +816515,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &597184875
 GameObject:
@@ -1009502,8 +1009502,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1009538,7 +1009538,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1009598,8 +1009598,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1009634,7 +1009634,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1009686,11 +1009686,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &746390339
 GameObject:
@@ -1038529,8 +1038529,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1038565,7 +1038565,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1038617,11 +1038617,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &763600515
 GameObject:
@@ -1049114,8 +1049114,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1049150,7 +1049150,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1049202,11 +1049202,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &769062056
 GameObject:
@@ -1120796,8 +1120796,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1120832,7 +1120832,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1120892,8 +1120892,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1120928,7 +1120928,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1120980,11 +1120980,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &828677391
 GameObject:
@@ -1137116,8 +1137116,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1137152,7 +1137152,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1137204,11 +1137204,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1001 &853092455
 PrefabInstance:
@@ -1167649,11 +1167649,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &881101175
 AudioSource:
@@ -1167675,8 +1167675,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1167711,7 +1167711,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1205375,8 +1205375,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1205411,7 +1205411,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1205463,11 +1205463,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &918867670
 GameObject:
@@ -1241537,11 +1241537,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &948359446
 AudioSource:
@@ -1241563,8 +1241563,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1241599,7 +1241599,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1285523,8 +1285523,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1285559,7 +1285559,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1285611,11 +1285611,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &995877693
 GameObject:
@@ -1291103,11 +1291103,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &998167685
 AudioSource:
@@ -1291129,8 +1291129,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1291165,7 +1291165,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1371060,8 +1371060,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1371096,7 +1371096,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1371148,11 +1371148,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1061720858
 GameObject:
@@ -1404756,8 +1404756,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1404792,7 +1404792,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1404859,11 +1404859,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1090771250
 GameObject:
@@ -1566512,8 +1566512,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1566548,7 +1566548,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1566600,11 +1566600,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1192243528
 GameObject:
@@ -1669279,8 +1669279,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1669315,7 +1669315,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1669367,11 +1669367,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1274521338 stripped
 GameObject:
@@ -1676413,8 +1676413,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1676449,7 +1676449,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1676501,11 +1676501,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1282874275
 GameObject:
@@ -1682748,8 +1682748,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1682784,7 +1682784,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1682836,11 +1682836,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1290126137
 GameObject:
@@ -1712094,8 +1712094,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1712130,7 +1712130,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1712197,11 +1712197,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1313862865
 GameObject:
@@ -1735772,8 +1735772,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1735808,7 +1735808,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1735868,8 +1735868,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1735904,7 +1735904,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1736129,11 +1736129,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1355664811
 GameObject:
@@ -1812770,8 +1812770,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1812806,7 +1812806,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1812858,11 +1812858,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1408777661
 GameObject:
@@ -1870782,8 +1870782,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1870818,7 +1870818,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1870870,11 +1870870,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1453266598 stripped
 GameObject:
@@ -1871179,8 +1871179,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1871215,7 +1871215,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1871267,11 +1871267,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1454658064
 GameObject:
@@ -1916100,8 +1916100,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1916136,7 +1916136,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1916188,11 +1916188,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1475045558
 GameObject:
@@ -1928254,11 +1928254,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &1490853615
 AudioSource:
@@ -1928280,8 +1928280,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1928316,7 +1928316,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1928576,8 +1928576,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -1928612,7 +1928612,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -1928664,11 +1928664,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1493697654
 GameObject:
@@ -2135507,8 +2135507,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2135543,7 +2135543,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2135595,11 +2135595,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1629203008
 GameObject:
@@ -2138808,8 +2138808,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2138844,7 +2138844,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2138896,11 +2138896,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1643215503
 GameObject:
@@ -2139755,11 +2139755,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &1645950626
 AudioSource:
@@ -2139781,8 +2139781,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2139817,7 +2139817,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2139877,8 +2139877,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2139913,7 +2139913,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2169443,8 +2169443,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2169479,7 +2169479,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2169531,11 +2169531,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1001 &1668235504
 PrefabInstance:
@@ -2169992,8 +2169992,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2170028,7 +2170028,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2170088,8 +2170088,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2170124,7 +2170124,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2170176,11 +2170176,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1668868607
 GameObject:
@@ -2281376,8 +2281376,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2281412,7 +2281412,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2281464,11 +2281464,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1760105176
 GameObject:
@@ -2348226,8 +2348226,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2348262,7 +2348262,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2348329,11 +2348329,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1001 &1799034313
 PrefabInstance:
@@ -2471126,8 +2471126,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2471162,7 +2471162,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2471214,11 +2471214,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1001 &1903871901
 PrefabInstance:
@@ -2472001,8 +2472001,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2472037,7 +2472037,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2472089,11 +2472089,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1907610901 stripped
 GameObject:
@@ -2487350,8 +2487350,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2487386,7 +2487386,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2487438,11 +2487438,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &1924010791
 GameObject:
@@ -2642367,11 +2642367,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &2032408943
 AudioSource:
@@ -2642393,8 +2642393,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2642429,7 +2642429,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2642489,8 +2642489,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2642525,7 +2642525,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2650400,11 +2650400,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 80
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!82 &2043005978
 AudioSource:
@@ -2650426,8 +2650426,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2650462,7 +2650462,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2651976,8 +2651976,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 0
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 1.5
+  MaxDistance: 18
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -2652012,7 +2652012,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -2652064,11 +2652064,11 @@ MonoBehaviour:
   m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Gain: 10
-  Far: 40
-  Near: 0
+  Gain: 0
+  Far: 18
+  Near: 1.5
   VolumetricRadius: 0
-  EnableSpatialization: 0
+  EnableSpatialization: 1
   UseAudioSourceVolumeCurve: 0
 --- !u!1 &2046063007
 GameObject:
