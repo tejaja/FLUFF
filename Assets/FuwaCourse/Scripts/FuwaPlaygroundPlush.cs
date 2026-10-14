@@ -91,6 +91,9 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     private Vector3 _aFrom, _aVec;
     private float _aLen, _aHop, _aDur;
     private double _aAt;
+    // 届くのが遅れた区切り（体当たり・吹っ飛び）は、その分だけ遅らせて最初から動かす（途中が抜けて「跳ねたのが省略」に見えないように）
+    private float _aShift;
+    private bool _pendingSeg;     // 今の動きが終わるまで、届いた「立つ」区切りを待たせている
     private float _predUntil;        // 自分が撃った先読みを、届いた区切りより優先する期限
     private double _predAt;
     // 吹っ飛びの計算（毎回はじめからではなく、続きから細かい刻みで進める。みんなの画面で同じ刻み）
@@ -103,6 +106,12 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     private Vector3 _spawnPos;
     private Quaternion _spawnRot;
     private const float FlyStep = 0.02f;
+    [Tooltip("体当たりの区切りを、跳ぶ何秒前に配るか（通信の遅れの分）")]
+    public float dashLead = 0.35f;
+    [Tooltip("区切りが変わった時の位置のずれを寄せる速さ（大きいほど早く寄る）")]
+    public float errDecay = 10f;
+    private Vector3 _err;
+    private double _errSeg = -1.0;
 
     private Vector3 _baseScale = Vector3.one;
     private Vector3 _basePos;
@@ -192,6 +201,7 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     {
         if (!Networking.IsOwner(gameObject) || _held || Held() || _down) return;
         StartFly(from, v0, at);
+        _aShift = Mathf.Clamp((float)(Now() - at), 0f, 0.6f);   // 撃った人より遅れて知った分、自分の画面ではずらして最初から
     }
 
     private void StartFly(Vector3 from, Vector3 v0, double at)
@@ -213,7 +223,7 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     private void SetActive(int kind, Vector3 from, Vector3 vec, float len, float hop, float dur, double at)
     {
         _aKind = kind; _aFrom = from; _aVec = vec; _aLen = len; _aHop = hop; _aDur = dur; _aAt = at;
-        _dashNoGround = false;
+        _dashNoGround = false; _aShift = 0f;
     }
 
     private void CopyToActive()
@@ -221,6 +231,16 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         Vector3 from = _sFrom;
         if (from == Vector3.zero) from = _spawnPos != Vector3.zero ? _spawnPos : transform.position;   // まだ何も届いていない
         SetActive(_sKind, from, _sVec, _sLen, _sHop, _sDur, _sAt);
+        // ほかの人の画面：届くのが遅れた動きは、遅れた分だけ遅らせて最初から見せる（最大0.6秒）
+        if (!Networking.IsOwner(gameObject) && (_sKind == 2 || _sKind == 4)) _aShift = Mathf.Clamp((float)(Now() - _sAt), 0f, 0.6f);
+    }
+
+    // 今の動き（体当たり・吹っ飛び）がまだ途中か
+    private bool Busy()
+    {
+        if (_aKind == 4) return !(_flyLanded && _flyFor == _aAt);
+        if (_aKind == 2) return Now() - _aAt - _aShift < _aDur;
+        return false;
     }
 
     public override void OnDeserialization()
@@ -229,7 +249,11 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         // 自分が撃った先読みが、まだ持ち主に反映されていない（届いたのはそれより前の区切り）
         if (Time.time < _predUntil && _sAt < _predAt - 0.02) return;
         _predUntil = 0f;
-        if (_sAt != _aAt || _sKind != _aKind || _sFrom != _aFrom) CopyToActive();
+        if (_sAt == _aAt && _sKind == _aKind && _sFrom == _aFrom) return;
+        // 跳んでいる・吹っ飛んでいる途中に「立つ」が届いた：自分の画面の動きが終わってから切り替える
+        if (_sKind == 0 && Busy()) { _pendingSeg = true; return; }
+        _pendingSeg = false;
+        CopyToActive();
     }
 
     // 持ち主が入れ替わった：今の区切りの続きから自分が決める
@@ -299,7 +323,20 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
             if (!_down)
             {
                 Vector3 p = EvalPos();
-                if (p != Vector3.zero) transform.position = p;
+                if (_pendingSeg && !Busy()) { _pendingSeg = false; CopyToActive(); p = EvalPos(); }
+                if (p != Vector3.zero)
+                {
+                    // 区切りが変わった瞬間の位置のずれ（撃たれた知らせ・体当たりの知らせが通信の分だけ遅れて届いた時など）は、
+                    // ワープさせずに少しずつ寄せる（2026-10-14 てじゃ「オーナー以外が撃ったあとワープして見える」）
+                    if (_aAt != _errSeg)
+                    {
+                        _errSeg = _aAt;
+                        Vector3 e = transform.position - p;
+                        _err = e.magnitude < 3f ? e : Vector3.zero;   // 遠すぎる（元の場所へ戻した等）時はそのまま
+                    }
+                    _err = Vector3.Lerp(_err, Vector3.zero, 1f - Mathf.Exp(-errDecay * Time.deltaTime));
+                    transform.position = p + _err;
+                }
                 transform.rotation = SafeRot();
             }
         }
@@ -318,7 +355,7 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     // ---------- 区切りから今の位置を出す（全員の画面で同じ計算） ----------
     private Vector3 EvalPos()
     {
-        float t = Mathf.Max(0f, (float)(Now() - _aAt));
+        float t = Mathf.Max(0f, (float)(Now() - _aAt) - _aShift);
         if (_aKind == 2)
         {
             float x = Mathf.Clamp01(t / Mathf.Max(0.05f, _aDur));
@@ -410,10 +447,10 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         else if (_state == 1)
         {
             if (target != null) Face(target.transform.position - p);
-            if (t >= windupTime)
+            // 体当たりの区切りは、溜めが終わる dashLead 秒前に「この時刻に跳ぶ」と先に配る（通信の遅れで、ほかの人の画面でジャンプの途中が抜けないように。2026-10-14 てじゃ「ジャンプ中が見えない」）
+            if (t >= windupTime - dashLead)
             {
-                _windup = false;
-                if (target == null) { _state = 0; _stateAt = Time.time; RequestSerialization(); return; }
+                if (target == null) { _windup = false; _state = 0; _stateAt = Time.time; RequestSerialization(); return; }
                 Vector3 tp = target.transform.position;
                 Vector3 d = tp - p; d.y = 0f;
                 Vector3 dir = d.sqrMagnitude > 0.0001f ? d.normalized : transform.forward;
@@ -423,13 +460,14 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
                 float xHit = Mathf.Clamp01(dist / len);
                 float lift = tp.y - p.y;
                 float hop = Mathf.Clamp(lift / Mathf.Max(0.35f, Mathf.Sin(xHit * Mathf.PI)), 0.1f, hopHeight * 3f);
-                SetSeg(2, p, dir, len, hop, len / Mathf.Max(0.1f, dashSpeed), Now());
+                SetSeg(2, p, dir, len, hop, len / Mathf.Max(0.1f, dashSpeed), Now() + Mathf.Max(0f, windupTime - t));
                 _state = 2; _stateAt = Time.time;
             }
         }
         else if (_state == 2)
         {
             if (_aKind != 2) { _state = 0; _stateAt = Time.time; return; }
+            if (_windup && Now() >= _aAt) { _windup = false; RequestSerialization(); }   // 跳び始めたら溜めの見た目をやめる
             if (_dashNoGround)
             {
                 // 足元に地面がない所へ跳んだ：そのまま落ちる
