@@ -4,7 +4,7 @@ using VRC.SDKBase;
 using VRC.Udon.Common;
 
 // 自分のエアガンをどこからでも呼び出す（自分だけ）。
-// ・デスクトップ：Eキーで目の前に出てくる（あとはいつも通りクリックで持つ）
+// ・デスクトップ：Fキーで目の前に出てくる（あとはいつも通りクリックで持つ）
 // ・VR：右スティックを下にしばらく倒すと、右手の中に銃が出てきて手についてくる。そのままグリップを握れば持てる
 //   （VRChatはスクリプトから「持たせる」ことはできないので、握るまで手の位置に置き続ける。
 //     waitSeconds 秒たっても握らなければ、元の場所に戻す）
@@ -13,7 +13,7 @@ public class FuwaGunSummon : UdonSharpBehaviour
 {
     public FuwaRespawnManager manager;
     [Tooltip("デスクトップで呼び出すキー")]
-    public KeyCode desktopKey = KeyCode.E;
+    public KeyCode desktopKey = KeyCode.F;   // 2026-10-14 E→F（EはVRChatのカメラの上下移動とかぶる。てじゃ）
     [Tooltip("デスクトップ：目の前のどれくらい先に出すか(m)")]
     public float desktopDistance = 0.6f;
     [Tooltip("デスクトップ：目線からどれくらい下に出すか(m)")]
