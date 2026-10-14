@@ -216,7 +216,12 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         _dashNoGround = false;
     }
 
-    private void CopyToActive() { SetActive(_sKind, _sFrom, _sVec, _sLen, _sHop, _sDur, _sAt); }
+    private void CopyToActive()
+    {
+        Vector3 from = _sFrom;
+        if (from == Vector3.zero) from = _spawnPos != Vector3.zero ? _spawnPos : transform.position;   // まだ何も届いていない
+        SetActive(_sKind, from, _sVec, _sLen, _sHop, _sDur, _sAt);
+    }
 
     public override void OnDeserialization()
     {
@@ -286,18 +291,28 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         else if (_held)
         {
             // ほかの人が持っている
-            transform.SetPositionAndRotation(_sHoldPos, _sRot);
+            if (_sHoldPos != Vector3.zero) transform.SetPositionAndRotation(_sHoldPos, SafeRot());
         }
         else
         {
             if (owner) Think();
             if (!_down)
             {
-                transform.position = EvalPos();
-                transform.rotation = _sRot;
+                Vector3 p = EvalPos();
+                if (p != Vector3.zero) transform.position = p;
+                transform.rotation = SafeRot();
             }
         }
         UpdateLook();
+    }
+
+    // 同期した向き。届く前・補間の途中で長さ0の回転になると表示が壊れるので、その時は置いてあった向き
+    private Quaternion SafeRot()
+    {
+        Quaternion q = _sRot;
+        float m = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+        if (m < 0.5f) return _spawnRot;
+        return q;
     }
 
     // ---------- 区切りから今の位置を出す（全員の画面で同じ計算） ----------
