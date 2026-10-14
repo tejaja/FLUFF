@@ -32,6 +32,8 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
     public float gestureHold = 1f;
     [Tooltip("マスターにだけ見せる物（柱・文字など）。このボタン自身の見た目と当たりも同じく切り替える")]
     public GameObject[] masterOnlyObjects;
+    [Tooltip("さらにこの表示名の人だけに限る（空なら名前は見ない）。保険（2026-10-14 てじゃ）")]
+    public string[] ownerNames;
 
     private const string Tag = "[FMR] ";
     private int[] _bones;
@@ -75,7 +77,7 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
     private void Toggle(string why)
     {
         var lp = Networking.LocalPlayer;
-        if (lp == null || !lp.isMaster) return;
+        if (lp == null || !CanUse(lp)) return;
         if (_state == 0) { _state = 1; _stateAt = Time.time; }
         else if (_state == 1) { _state = 0; SetPanel("キャンセル"); ShowHead(false); }
         else Stop(why);
@@ -86,7 +88,7 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
         var me = Networking.LocalPlayer;
         if (me == null) return;
         UpdateMasterOnly(me);
-        if (!me.isMaster) return;
+        if (_shownAs != 1) return;
 
         if (Input.GetKeyDown(toggleKey)) Toggle("key");
         UpdateGesture(me);
@@ -123,7 +125,7 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
     {
         if (Time.time < _nextMasterCheck) return;
         _nextMasterCheck = Time.time + 1f;
-        int on = me.isMaster ? 1 : 0;
+        int on = CanUse(me) ? 1 : 0;
         if (on == _shownAs) return;
         _shownAs = on;
         bool b = on == 1;
@@ -132,6 +134,16 @@ public class FuwaMotionRecorder : UdonSharpBehaviour
         var mr = (MeshRenderer)GetComponent(typeof(MeshRenderer)); if (mr != null) mr.enabled = b;
         var col = (Collider)GetComponent(typeof(Collider)); if (col != null) col.enabled = b;
         if (!b) { if (_state != 0) { _state = 0; ShowHead(false); } }
+    }
+
+    // マスターで、名前の指定があればその名前の人だけ
+    private bool CanUse(VRCPlayerApi p)
+    {
+        if (!p.isMaster) return false;
+        if (ownerNames == null || ownerNames.Length == 0) return true;
+        string n = p.displayName;
+        for (int i = 0; i < ownerNames.Length; i++) if (ownerNames[i] == n) return true;
+        return false;
     }
 
     // VR：両手が頭より上に gestureHold 秒あったら切り替え（一度切り替えたら手を下ろすまで再反応しない）

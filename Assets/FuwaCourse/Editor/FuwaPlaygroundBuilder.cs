@@ -502,6 +502,7 @@ public static class FuwaPlaygroundBuilder
         Vector3 outD = pos - O; outD.y = 0f;
         LaserButton(toys, "TestUnlockAllButton", pos, Quaternion.LookRotation(outD.normalized), 1.3f, "テスト おもちゃぜんぶだす", tu, "UnlockAll");
         tu.button = toys.Find("TestUnlockAllButton").gameObject;
+        tu.ownerNames = new[] { "Teja" };   // マスターかつこの表示名だけ（保険、2026-10-14 てじゃ）
         UdonSharpEditorUtility.CopyProxyToUdon(tu);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tu); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
     }

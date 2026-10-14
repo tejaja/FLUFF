@@ -11,6 +11,8 @@ public class FuwaTestUnlockAll : UdonSharpBehaviour
     public FuwaPlaygroundSpawner spawner;
     [Tooltip("マスターにだけ出すボタン")]
     public GameObject button;
+    [Tooltip("さらにこの表示名の人だけに限る（空なら名前は見ない）。保険（2026-10-14 てじゃ）")]
+    public string[] ownerNames;
     private float _next;
 
     private void Update()
@@ -18,14 +20,23 @@ public class FuwaTestUnlockAll : UdonSharpBehaviour
         if (Time.time < _next) return;
         _next = Time.time + 1f;
         VRCPlayerApi lp = Networking.LocalPlayer;
-        bool on = lp != null && lp.isMaster;
+        bool on = lp != null && CanUse(lp);
         if (button != null && button.activeSelf != on) button.SetActive(on);
     }
 
     public void UnlockAll()
     {
         VRCPlayerApi lp = Networking.LocalPlayer;
-        if (spawner == null || lp == null || !lp.isMaster) return;
+        if (spawner == null || lp == null || !CanUse(lp)) return;
         for (int i = 0; i < 5; i++) spawner.Unlock(i);
+    }
+
+    private bool CanUse(VRCPlayerApi p)
+    {
+        if (!p.isMaster) return false;
+        if (ownerNames == null || ownerNames.Length == 0) return true;
+        string n = p.displayName;
+        for (int i = 0; i < ownerNames.Length; i++) if (ownerNames[i] == n) return true;
+        return false;
     }
 }
