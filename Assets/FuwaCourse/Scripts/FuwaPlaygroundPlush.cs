@@ -455,9 +455,9 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         if (_down) return;
         float t = Time.time - _squashAt;
         Vector3 s = _baseScale;
-        if (!_awake && !Held())
+        if (!_awake)
         {
-            // 寝てる：すーすー（コース4の寝ているまものと同じ）
+            // 寝てる：すーすー（コース4の寝ているまものと同じ）。持っている間も寝たまま（2026-10-14 てじゃ「寝てる時につかんだら寝たままで」。前は持つと目を開けた）
             float br = Mathf.Sin(Time.time * 1.6f + _phase);
             s = new Vector3(_baseScale.x * (1.08f + 0.04f * br), _baseScale.y * (0.84f - 0.04f * br), _baseScale.z * (1.08f + 0.04f * br));
             SetEyesClosed(true);
