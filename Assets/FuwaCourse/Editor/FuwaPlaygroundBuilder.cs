@@ -537,8 +537,9 @@ public static class FuwaPlaygroundBuilder
         root.Find("Ring").GetComponent<Renderer>().sharedMaterial = Mat("Playground_GrassRim", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.47f, 0.68f, 0.43f));
 
         var cloud = Mat("Playground_Cloud", "Assets/FuwaCourse/Generated/Signs/Sign_Cloud_FFFAF5.mat", new Color(0.99f, 0.98f, 1f));
-        var rugM = Mat("Playground_Rug", "Assets/FuwaCourse/Generated/Signs/Sign_Cloud_FFFAF5.mat", new Color(0.97f, 0.95f, 1f));
-        rugM.SetFloat("_UnderStrength", 0f); EditorUtility.SetDirty(rugM);   // ラグは真っ白に近く（雲の下の青い影はいらない）
+        // ラグ：床で真上から日が当たるので、看板の雲と同じ色でも真っ白に飛んでまぶしかった（2026-10-14 てじゃ）→ 色・環境光を下げて看板の雲くらいのクリームっぽい白に
+        var rugM = Mat("Playground_Rug", "Assets/FuwaCourse/Generated/Signs/Sign_Cloud_FFFAF5.mat", new Color(0.91f, 0.86f, 0.82f));
+        rugM.SetFloat("_UnderStrength", 0f); rugM.SetFloat("_AmbientStrength", 0.7f); EditorUtility.SetDirty(rugM);   // 雲の下の青い影はいらない
         var stemM = Mat("Playground_LampStem", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.96f, 0.93f, 0.86f));
         var capM = Mat("Playground_LampCap", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.82f, 0.55f));
         capM.SetColor("_EmissionColor", new Color(0.9f, 0.6f, 0.25f)); EditorUtility.SetDirty(capM);
