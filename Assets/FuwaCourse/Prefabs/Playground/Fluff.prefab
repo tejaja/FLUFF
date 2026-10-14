@@ -5056,7 +5056,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 7112626d2af00a64baf977782030f917, type: 2}
+  - {fileID: 2100000, guid: 01d93480e407230428c10dc8e63d4f96, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -5319,13 +5319,15 @@ MonoBehaviour:
   heartbeatInterval: 1.5
   pendingTimeout: 1.2
   ownerSilentTimeout: 3.5
+  areas: {fileID: 0}
+  myArea: 2
   shotScale: 1
   arenaCenter: {fileID: 0}
   arenaRadius: 0
   barrierBounce: 1.1
   barrierMinInward: 3.5
   variant: 0
-  chill: {fileID: 0}
+  playground: {fileID: 0}
 --- !u!114 &6240502302204872760
 MonoBehaviour:
   m_ObjectHideFlags: 0
