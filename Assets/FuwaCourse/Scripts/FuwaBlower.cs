@@ -313,6 +313,16 @@ public class FuwaBlower : UdonSharpBehaviour
         if (_pickup != null && _isMine && _pickup.pickupable != on) _pickup.pickupable = on;
     }
 
+    // 隠している間の掴む箱の大きさを変える（size<0 で summonGrabSize に戻す）。台の銃が手についてきている間は小さく（FuwaGunSummon から）
+    public void SetGrabBoxSize(float size)
+    {
+        if (!_grabBoxBig) return;
+        BoxCollider box = (BoxCollider)GetComponent(typeof(BoxCollider));
+        if (box == null) return;
+        Vector3 v = Vector3.one * (size < 0f ? summonGrabSize : size);
+        if (box.size != v) box.size = v;
+    }
+
     private void TeleportTo(Vector3 pos, Quaternion rot)
     {
         VRCObjectSync sync = (VRCObjectSync)GetComponent(typeof(VRCObjectSync));

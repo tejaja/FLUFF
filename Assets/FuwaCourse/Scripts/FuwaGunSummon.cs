@@ -201,6 +201,10 @@ public class FuwaGunSummon : UdonSharpBehaviour
     public float dockReach = 0.35f;
     [Tooltip("手が離れてから台に戻すまでの距離（少し広めにして、境目でちらつかないように）")]
     public float dockRelease = 0.5f;
+    [Tooltip("両手とも近い時、反対の手がこれ(m)以上近くなったら乗りかえる")]
+    public float dockSwitchMargin = 0.05f;
+    [Tooltip("手についてきている間の、掴む箱の大きさ（銃の大きさ基準。呼び出しの時の summonGrabSize より小さく）")]
+    public float dockFollowGrabSize = 0.2f;
     private Transform _returnDock;
     private int _dockFollow;   // 0=台の上、1=右手、2=左手
 
@@ -216,20 +220,32 @@ public class FuwaGunSummon : UdonSharpBehaviour
         float s = gun.GetAutoScale();
         float dr = (p.GetTrackingData(VRCPlayerApi.TrackingDataType.RightHand).position - c).magnitude;
         float dl = (p.GetTrackingData(VRCPlayerApi.TrackingDataType.LeftHand).position - c).magnitude;
+        // 両手とも近い時は、今ついている手より反対の手の方がはっきり近くなったら乗りかえる
+        // （前は一度ついた手から離れるまで乗りかえなかったので、左手が台の近くにあると、右手で掴んでも左手用の向きで持っていた。2026-10-14 てじゃ）
+        bool rIn = dr < (_dockFollow == 1 ? dockRelease : dockReach) * s;
+        bool lIn = dl < (_dockFollow == 2 ? dockRelease : dockReach) * s;
         int want = 0;
-        if (_dockFollow == 1 && dr < dockRelease * s) want = 1;
-        else if (_dockFollow == 2 && dl < dockRelease * s) want = 2;
-        else if (dr < dockReach * s || dl < dockReach * s) want = dr <= dl ? 1 : 2;
+        if (rIn && lIn)
+        {
+            want = _dockFollow != 0 ? _dockFollow : (dr <= dl ? 1 : 2);
+            if (want == 1 && dl + dockSwitchMargin * s < dr) want = 2;
+            else if (want == 2 && dr + dockSwitchMargin * s < dl) want = 1;
+        }
+        else if (rIn) want = 1;
+        else if (lIn) want = 2;
         if (want == 0)
         {
             if (_dockFollow != 0) gun.MoveDocked(c, dock.rotation);
             _dockFollow = 0;
             gun.SetDockGrabbable(false);
+            gun.SetGrabBoxSize(-1f);
             return;
         }
         _dockFollow = want;
         SetGripPose(p, want == 2);
         gun.MoveDocked(summonSpot.position, summonSpot.rotation);
         gun.SetDockGrabbable(true);
+        // ついている手のまわりだけで掴めるように、掴む箱を小さく（反対の手で掴むと、ついている手用の向きで持ってしまうので）
+        gun.SetGrabBoxSize(dockFollowGrabSize);
     }
 }
