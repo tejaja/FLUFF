@@ -72,7 +72,7 @@ public static class FuwaPlaygroundBuilder
 
         // 前のあそびばを片付け
         UnregisterMonitor(coop.Find("Room"));
-        foreach (var o in new[] { coop.Find("Room"), sys.Find("PlaygroundSpawner") }) if (o != null) Object.DestroyImmediate(o.gameObject);
+        foreach (var o in new[] { coop.Find("Room"), sys.Find("PlaygroundSpawner"), sys.Find("PlaygroundFluffs") }) if (o != null) Object.DestroyImmediate(o.gameObject);
         var root = new GameObject("Room").transform; root.SetParent(coop, false); root.position = ac;
 
         // 島（プレハブ。横だけ島の大きさに縮める）
@@ -96,7 +96,10 @@ public static class FuwaPlaygroundBuilder
         // ふわふわ（ロビーの共有ふわふわのコピー）を Pool 個。待つ位置はキノコの中
         var fluffSrc = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabDir + "Fluff.prefab");
         Vector3 home = mush.transform.position + Vector3.up * (FluffRel.y - MushRel.y) * MushScale;
-        var pool = new GameObject("Fluffs").transform; pool.SetParent(root, false);
+        // 同期するので FuwaSystem の下（あそびばの中だと、隠れている間の同期を取りこぼして入り直した人に一部の玉が見えなかった。2026-10-14）。
+        // あそびばにいない間は玉が自分の画面で止まって隠れる（areas / myArea）
+        var pool = new GameObject("PlaygroundFluffs").transform; pool.SetParent(sys, false);
+        var areaVis = Object.FindObjectsOfType<FuwaAreaVisibility>(true).FirstOrDefault();
         var balls = new List<FuwaSharedBall>();
         for (int i = 0; i < Pool; i++)
         {
@@ -113,6 +116,8 @@ public static class FuwaPlaygroundBuilder
             so.FindProperty("arenaCenter").objectReferenceValue = null;
             so.FindProperty("arenaRadius").floatValue = 0f;
             so.FindProperty("shotScale").floatValue = 1f;
+            so.FindProperty("areas").objectReferenceValue = areaVis;
+            so.FindProperty("myArea").intValue = 2;
             so.ApplyModifiedPropertiesWithoutUndo(); Sync(b);
             balls.Add(b);
         }

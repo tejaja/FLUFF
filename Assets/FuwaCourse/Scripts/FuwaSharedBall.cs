@@ -13,6 +13,8 @@ using VRC.Udon.Common.Interfaces;
 // あとはそれぞれの画面で同じ決まりで動かし（なめらか）、持ち主がときどき送る位置へそっと寄せる。
 // 最初は真ん中のキノコの上で浮いて待っていて、誰かが吹くと飛び出す。床に落ちたら弾けて、キノコの上に戻る。
 // （VRCObjectSync は使わない。同期モードは Manual）
+// あそびばの玉は FuwaSystem の下に置く（エリアごと隠れる物の中に置くと、隠れている間の同期を取りこぼし、入り直した人に一部の玉が見えなかった。2026-10-14 てじゃ）。
+// 自分がそのエリア（areas / myArea）にいない間は、自分の画面では止めて隠す（床が消えるので落ちないように）。持ち主がいない間は「いない」を送り、エリアにいる人が引き継ぐ
 [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class FuwaSharedBall : UdonSharpBehaviour
 {
@@ -103,6 +105,14 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public float ownerSilentTimeout = 3.5f;
     private float _lastHeard;
     private float _takeoverJitter;
+
+    [Header("エリア（あそびば用。なければいつもエリアにいる扱い）")]
+    [Tooltip("自分が myArea にいない間は、自分の画面では玉を止めて隠す")]
+    public FuwaAreaVisibility areas;
+    public int myArea = 2;
+    [UdonSynced] private bool _sAway;    // 持ち主がエリアにいない（エリアにいる人が引き継ぐ）
+    private bool _here = true;
+    private float _awaySince = -1f;
 
     [Header("みんなでの会場用（ロビーのふわふわは触らない）")]
     [Tooltip("撃たれた時の効きの倍率（会場のふわふわは重くするので1より小さく）")]
@@ -262,7 +272,31 @@ public class FuwaSharedBall : UdonSharpBehaviour
         }
     }
 
-    public bool IsFlying() { Init(); return !_waiting && !_popped; }
+    public bool IsFlying() { Init(); return !_waiting && !_popped && _here; }
+
+    private bool Here() { return areas == null || areas.GetArea() == myArea; }
+    private bool ShouldHide() { return _popped || _waiting || !_here; }
+
+    // エリアに来た・離れたの切り替え（自分の画面だけ）
+    private void UpdateHere()
+    {
+        bool h = Here();
+        if (h == _here) return;
+        _here = h;
+        if (!_waiting && !_popped)
+        {
+            if (h)
+            {
+                // 戻った：止めていた玉を、今の位置（いない間も届いた状態で動かしてある）から動かし始める
+                _rb.isKinematic = false;
+                _rb.velocity = Networking.IsOwner(gameObject) ? Vector3.zero : _predVel;
+                _posErr = Vector3.zero;
+            }
+            else _rb.isKinematic = true;   // 離れた：床が消えるので止める
+        }
+        if (Networking.IsOwner(gameObject)) _sendSoon = true;   // 「いる／いない」をすぐ知らせる
+        ApplyHiddenVisual();
+    }
 
     // 持ち主の画面で：キノコの上に戻す（ゴールに入った・試合が始まった・終わった時）
     public void ForceHome()
@@ -409,7 +443,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private void SendState()
     {
         // 床に止まっている間（チルルームで「消えない」の時）は送る間隔をゆっくりに
-        bool resting = !_rb.isKinematic && _rb.velocity.sqrMagnitude < 0.0025f;
+        bool resting = _rb.isKinematic || _rb.velocity.sqrMagnitude < 0.0025f;
         _nextSend = Time.time + (resting ? heartbeatInterval : correctionInterval);
         _sendSoon = false;
         RequestSerialization();
@@ -427,6 +461,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _sShotCharge = _shotCharge;
         _sShotDir = _shotDir;
         _sShotAt = _shotAt;
+        _sAway = !_here;
     }
 
     // 送られた時刻から今までの動きを、ふわふわの決まり（落ちる速さ・空気抵抗・上限）で先回りして計算する
@@ -452,6 +487,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
         Init();
         _lastHeard = Time.time;
         if (Networking.IsOwner(gameObject)) return;
+        UpdateHere();
+        if (_sAway) { if (_awaySince < 0f) _awaySince = Time.time; } else _awaySince = -1f;
         if (variant) ApplyVariant();
         // 自分が撃った分がまだ持ち主に反映されていない間は、届いた状態より自分の予測を優先する（弾けた知らせだけはすぐ受け取る）
         if (_pending > 0)
@@ -481,7 +518,16 @@ public class FuwaSharedBall : UdonSharpBehaviour
             bool newShot = _sShot != _seenShot;
             _seenShot = _sShot;
             if (newShot) { _shotCharge = _sShotCharge; _shotDir = _sShotDir; _shotAt = _sShotAt; }
-            if (_shownWaiting || _rb.isKinematic)
+            if (!_here)
+            {
+                // エリアにいない：止めたまま、届いた位置へ置いておく（戻った時にそこから動かす）
+                _shownWaiting = false;
+                _rb.isKinematic = true;
+                _rb.position = target;
+                transform.position = target;
+                _posErr = Vector3.zero;
+            }
+            else if (_shownWaiting || _rb.isKinematic)
             {
                 // 待っていた玉が飛び出した：その場へ置いて動かし始める
                 _shownWaiting = false;
@@ -496,10 +542,13 @@ public class FuwaSharedBall : UdonSharpBehaviour
                 if (err.magnitude > snapDistance) { _rb.position = target; transform.position = target; _posErr = Vector3.zero; }
                 else _posErr = err;
             }
-            _rb.velocity = _predVel;
-            if (newShot) _rb.angularVelocity = _sAng;
+            if (!_rb.isKinematic)
+            {
+                _rb.velocity = _predVel;
+                if (newShot) _rb.angularVelocity = _sAng;
+            }
         }
-        if (_shownHidden != (_popped || _waiting)) ApplyHiddenVisual();
+        if (_shownHidden != ShouldHide()) ApplyHiddenVisual();
     }
 
     // 持ち主が入れ替わった（前の持ち主が抜けた時など）：新しい持ち主が、今の自分の状態をすぐみんなに送る
@@ -578,6 +627,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
 
     private void FixedUpdate()
     {
+        UpdateHere();   // エリアを離れた直後の物理の1回で、消えた床を抜けて落ちないように
         if (_waiting || _popped || _rb.isKinematic) { _wind = Vector3.zero; return; }
         // 全員の画面で同じ決まりで動かす（持ち主でなくても）
         float g = _gravScale > 0f ? _gravScale : 1f;
@@ -616,16 +666,17 @@ public class FuwaSharedBall : UdonSharpBehaviour
 
     private void Update()
     {
+        UpdateHere();
         bool owner = Networking.IsOwner(gameObject);
         Vector3 vel = _rb.isKinematic ? Vector3.zero : _rb.velocity;
 
         if (_waiting && _shownWaiting) transform.Rotate(new Vector3(0.3f, 1f, 0.15f), idleSpin * Time.deltaTime, Space.World);
         if (owner)
         {
-            if (!_waiting && !_popped && transform.position.y < _homePos.y - fallLimit) SetWaiting();
+            if (_here && !_waiting && !_popped && transform.position.y < _homePos.y - fallLimit) SetWaiting();
             if (_popped && _respawnAt > 0f && Time.time >= _respawnAt) SetWaiting();
             // チルルーム：床に転がっている間に「消える」へ切り替えた（ぶつかった瞬間はもう過ぎている）ので、床に触れていたらはじける
-            if (playground != null && !_waiting && !_popped && !_rb.isKinematic && playground.PopGround() && TouchingPopGround()) Pop();
+            if (_here && playground != null && !_waiting && !_popped && !_rb.isKinematic && playground.PopGround() && TouchingPopGround()) Pop();
             // 弾けたまま戻す予定が無い（弾けている間に持ち主が入れ替わった）なら、ここで戻す予定を立てる
             if (_popped && _respawnAt < 0f) _respawnAt = Time.time + respawnDelay;
             // 飛んでいる間はときどき今の位置を送る（壁にぶつかった後はすぐ送る）
@@ -633,14 +684,16 @@ public class FuwaSharedBall : UdonSharpBehaviour
             // 待っている間・弾けている間も、ゆっくり送り直す（ほぼ同時に2人が撃った時などに、画面ごとの状態がずれたままにならないように）
             else if ((_waiting || _popped) && Time.time >= _nextSend) { _nextSend = Time.time + heartbeatInterval; RequestSerialization(); }
         }
-        else if (Time.time - _lastHeard > ownerSilentTimeout + _takeoverJitter)
+        else if (_here && ((_sAway && _awaySince >= 0f && Time.time - _awaySince > 0.3f + _takeoverJitter) || Time.time - _lastHeard > ownerSilentTimeout + _takeoverJitter))
         {
+            // 持ち主がエリアにいない（「いない」が届いた）か、持ち主からしばらく何も届かない：エリアにいる自分が引き継ぐ
+            _awaySince = -1f;
             // 持ち主からしばらく何も届かない＝持ち主の画面ではロビーが非表示（ひとりで・入口へ行った）。ロビーにいる自分が引き継ぐ
             _lastHeard = Time.time;
             Networking.SetOwner(Networking.LocalPlayer, gameObject);
         }
-        if (_shownHidden != (_popped || _waiting)) ApplyHiddenVisual();
-        if (_trail != null) _trail.emitting = !_popped && !_waiting;
+        if (_shownHidden != ShouldHide()) ApplyHiddenVisual();
+        if (_trail != null) _trail.emitting = !ShouldHide();
 
         // 壁や柵にぶつかった時のポヨン：急に速さが変わったのを、それぞれの画面で見て鳴らさずにつぶすだけ
         if (!_waiting && !_popped && Time.time > _bumpCooldown && (vel - _prevVel).magnitude > bumpDetect && _prevVel.magnitude > 1f)
@@ -764,7 +817,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     // 弾けている間とキノコに隠れている間は見えなくする（全員：同期された _popped / _waiting で）
     private void ApplyHiddenVisual()
     {
-        _shownHidden = _popped || _waiting;
+        _shownHidden = ShouldHide();
         if (_selfRenderer != null) _selfRenderer.enabled = !_shownHidden;
         if (furRenderer != null) furRenderer.enabled = !_shownHidden;
         if (_col != null) _col.enabled = !_shownHidden;
