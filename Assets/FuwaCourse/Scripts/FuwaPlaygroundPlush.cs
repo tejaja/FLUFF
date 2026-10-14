@@ -288,7 +288,8 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
                 // 足元に地面がない所へ跳んだ：そのまま落ちる
                 _air = _dashDir * dashSpeed * 0.5f; _state = 4; _stateAt = Time.time; return;
             }
-            if (x >= 1f) { _state = 3; _stateAt = Time.time; }
+            // 着地した所を新しいおうちにする（前は跳ぶたびに置いた場所へ歩いて戻ろうとした。2026-10-14 てじゃ「ジャンプ後に戻らないように」）
+            if (x >= 1f) { _state = 3; _stateAt = Time.time; _home = transform.position; }
         }
         else if (_state == 3)
         {
@@ -337,6 +338,7 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
             transform.position = new Vector3(q.x, hit.point.y + standUp, q.z);
             Squash(0.5f);
             _state = 3; _stateAt = Time.time;
+            _home = transform.position;   // 吹っ飛ばされて着地した所がおうち（戻って歩かない）
             return;
         }
         transform.position = q;
