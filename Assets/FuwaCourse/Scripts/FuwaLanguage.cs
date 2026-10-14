@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UdonSharp;
 using UnityEngine;
 using VRC.SDK3.Persistence;
@@ -105,6 +105,42 @@ public class FuwaLanguage : UdonSharpBehaviour
         return l.StartsWith("ja") || l.Contains("japanese") || l.Contains("日本");
     }
 
+    // 操作の説明を使っている端末の分だけにする（2026-10-14 てじゃ「VRとデスクトップの併記、端末で表示そのものを変えられたらスッキリ」）。
+    // 文字の中の {vr|…} {pc|…} {mo|…}（mo＝スマホ）は、その端末の時だけ中身を出す。{pc,vr|…} のように並べてもよい
+    private int _device = -1;   // 0=PC 1=VR 2=スマホ
+    private string ForDevice(string s)
+    {
+        if (s == null || s.IndexOf('{') < 0) return s;
+        if (_device < 0)
+        {
+            VRCPlayerApi lp = Networking.LocalPlayer;
+            if (lp != null && lp.IsUserInVR()) _device = 1;
+            else
+            {
+#if UNITY_ANDROID || UNITY_IOS
+                _device = 2;
+#else
+                _device = 0;
+#endif
+            }
+        }
+        string key = _device == 1 ? ",vr," : (_device == 2 ? ",mo," : ",pc,");
+        string o = "";
+        int i = 0;
+        while (i < s.Length)
+        {
+            int a = s.IndexOf('{', i);
+            if (a < 0) { o += s.Substring(i); break; }
+            int bar = s.IndexOf('|', a), c = s.IndexOf('}', a);
+            if (bar < 0 || c < 0 || bar > c) { o += s.Substring(i, a - i + 1); i = a + 1; continue; }
+            o += s.Substring(i, a - i);
+            string tags = "," + s.Substring(a + 1, bar - a - 1) + ",";
+            if (tags.IndexOf(key) >= 0) o += s.Substring(bar + 1, c - bar - 1);
+            i = c + 1;
+        }
+        return o;
+    }
+
     private void Apply()
     {
         string[] src = _english ? en : ja;
@@ -113,7 +149,7 @@ public class FuwaLanguage : UdonSharpBehaviour
             int n = Mathf.Min(texts.Length, src.Length);
             for (int i = 0; i < n; i++)
             {
-                if (texts[i] != null) texts[i].text = src[i];
+                if (texts[i] != null) texts[i].text = ForDevice(src[i]);
             }
         }
         string[] uiSrc = _english ? uiEn : uiJa;
@@ -122,7 +158,7 @@ public class FuwaLanguage : UdonSharpBehaviour
             int n = Mathf.Min(uiTexts.Length, uiSrc.Length);
             for (int i = 0; i < n; i++)
             {
-                if (uiTexts[i] != null) uiTexts[i].text = uiSrc[i];
+                if (uiTexts[i] != null) uiTexts[i].text = ForDevice(uiSrc[i]);
             }
         }
         if (ball != null) ball.english = _english;
