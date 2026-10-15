@@ -27,6 +27,7 @@ public static class TejaVideoPlayerBuilder
     //（2026-10-15 てじゃ「音量減衰きつすぎ、あそびば全体聞こえるくらい」。前は3〜20m）
     const float SoundNear = 15f, SoundFar = 45f;
     const float TabH = 72f;   // パネルの下のたたむタブの段の高さ（Canvas の単位）
+    public static int Style = 0;   // 操作パネルの見た目（TejaVideoStyle：0=A シンプル、1=B FLUFF風、2=C ぽってり）
 
     [MenuItem("FuwaCourse/あそびば/動画プレイヤー（テスト）を置く")]
     public static void Build()
@@ -232,6 +233,8 @@ public static class TejaVideoPlayerBuilder
         var tabL = Label(tabGo.transform, "Label", "▼", font, 44, Color.white, TextAnchor.MiddleCenter); Fill(tabL.gameObject, 4f);
         vp.panelTabLabel = tabL;
         vp.panelTab = (RectTransform)tabGo.transform; vp.panelHeight = 212f;
+
+        TejaVideoStyle.Apply(canvasGo.transform, Style);   // 見た目（色・角の丸み）
 
         UdonSharpEditorUtility.CopyProxyToUdon(vp);
         // 同期は Manual（AddComponent 直後は Continuous のことがある）
