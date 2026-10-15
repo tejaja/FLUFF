@@ -312,6 +312,9 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         return _paused && _pausedAt <= 0.01f && !IsLive();
     }
 
+    // 自分が動画の音の聞こえる範囲にいるか
+    public bool IsListenerInZone() { return _inZone; }
+
     // 動画なし・最後まで再生した（■停止は含まない）
     public bool IsEndedOrEmpty()
     {

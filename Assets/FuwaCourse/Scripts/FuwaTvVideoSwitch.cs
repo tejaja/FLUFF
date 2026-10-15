@@ -8,7 +8,8 @@ using UnityEngine.UI;
 // ・だれかが動画を流しても、テレビは勝手に切りかえない（おっかけカメラを見たい人もいるので。音は流れる）。
 //   代わりに切りかえボタンに「動画やってるよ」の印（コーラルの点がぽわぽわ）を出す（2026-10-15 てじゃ「勝手に動画切り替わるのきになる」）
 // ・最後まで再生・動画なしになったら、動画を見ていた人のテレビはカメラに戻す。■停止・一時停止は動画のまま（2026-10-15 てじゃ「再生中に停止おすとおっかけカメラになっちゃう」）
-// ・BGM は動画モードの間だけ止める（自分だけ。再生しているかどうかではなく、モードで切りかえ。2026-10-15 てじゃ「BGMのオンオフは動画モードのオンオフで」）
+// ・BGM（自分だけ）：動画モードの間は止める（再生していなくても）。カメラモードでも、動画の音が聞こえる所で動画が流れている間は止める（動画の音とかぶらないように）
+//  （2026-10-15 てじゃ「BGMのオンオフは動画モードのオンオフで」→「操作してる人はモードで、それ以外の人は動画が流れてるかどうかで」）
 // ・動画の時：テレビの画面の手前に動画の画面を出し、下の ME／CAM ボタンの所を動画の操作パネルに入れかえ、見出しを「どうが」に
 // （2026-10-15 てじゃ「おすすめでいこう」＝ボタンで切りかえ＋再生で自動）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -109,7 +110,12 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         }
         HideCamera();
         ApplyTitle();
-        SetBgmSilence(v);
+        UpdateBgm();
+    }
+
+    private void UpdateBgm()
+    {
+        SetBgmSilence(_video || (video != null && video.IsPlayingNow() && video.IsListenerInZone()));
     }
 
     private void ApplyTitle()
@@ -139,6 +145,7 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         _wasEnded = ended;
         _wasPlaying = playing; _wasIdle = idle;
         ApplyTitle();   // 言語の切りかえで見出しが書きかわっても、今のモードの見出しに戻す
+        UpdateBgm();
         _badge = playing && !_video;
         if (playingBadge != null && playingBadge.activeSelf != _badge) playingBadge.SetActive(_badge);
     }
