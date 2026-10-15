@@ -29,6 +29,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public float spinDamping = 0.6f;
     [Tooltip("待機中にゆっくり回る速さ(度/秒)")]
     public float idleSpin = 25f;
+    [Tooltip("回る速さの基準の大きさ。これより大きい玉はゆっくり、小さい玉は速く回る（速さ×基準÷大きさ。本物の玉が転がる時と同じく表面の速さがそろう）。2026-10-15 てじゃ")]
+    public float spinRefSize = 0.3f;
 
     [Header("柵の上で止まらない（FuwaBall と同じ。2026-10-12 てじゃ「一応つけとこ」）")]
     [Tooltip("名前にこれを含む物（FenceCollider など）の上に乗って止まったら、まわりの一番高い床の方へ転がす")]
@@ -273,6 +275,12 @@ public class FuwaSharedBall : UdonSharpBehaviour
     }
 
     // 同期した大きさ・色を見た目と当たりに反映（全員）
+    // 大きさに合わせた回る速さの倍率（大きいほどゆっくり）
+    private float SpinK()
+    {
+        return spinRefSize / Mathf.Max(0.05f, transform.lossyScale.x);
+    }
+
     private void ApplyVariant()
     {
         if (!variant) return;
@@ -284,6 +292,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             hitPadding = Mathf.Max(0f, r - 0.15f);   // 大きい玉はふちに当たった風も効くように
             releasePush = Mathf.Lerp(2.4f, 1.2f, Mathf.InverseLerp(0.2f, 1.4f, _vSize));
             releaseUp = Mathf.Lerp(2.1f, 1.6f, Mathf.InverseLerp(0.2f, 1.4f, _vSize));
+            if (_rb != null) _rb.maxAngularVelocity = Mathf.Max(12f, 12f * SpinK());   // 小さい玉は速く回ってよい
         }
         shotScale = _vShotScale;
         if (_vColor != _shownColor)
@@ -517,7 +526,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _rb.velocity = v + velocityChange;
         Vector3 flat = new Vector3(velocityChange.x, 0f, velocityChange.z);
         Vector3 axis = flat.sqrMagnitude > 0.0001f ? Vector3.Cross(Vector3.up, flat.normalized) : Vector3.zero;
-        _rb.angularVelocity = axis * spinPerPuff + Random.insideUnitSphere * spinRandom;
+        _rb.angularVelocity = (axis * spinPerPuff + Random.insideUnitSphere * spinRandom) * SpinK();
         _posErr = Vector3.zero;   // 撃った直後は、自分の見ている位置から動かす
         ApplyHiddenVisual();
     }
@@ -765,7 +774,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         bool owner = Networking.IsOwner(gameObject);
         Vector3 vel = _rb.isKinematic ? Vector3.zero : _rb.velocity;
 
-        if (_waiting && _shownWaiting) transform.Rotate(new Vector3(0.3f, 1f, 0.15f), idleSpin * Time.deltaTime, Space.World);
+        if (_waiting && _shownWaiting) transform.Rotate(new Vector3(0.3f, 1f, 0.15f), idleSpin * SpinK() * Time.deltaTime, Space.World);
         if (owner)
         {
             if (_here && !_waiting && !_popped && transform.position.y < _homePos.y - fallLimit) SetWaiting();
