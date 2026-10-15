@@ -331,6 +331,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     private void Update()
     {
         UpdateZone();
+        CleanFields();
         if (Time.time < _nextCheck) return;
         _nextCheck = Time.time + 0.5f;
         // 持ち主以外：ときどき位置のずれを見て寄せる
@@ -347,6 +348,25 @@ public class TejaVideoPlayer : UdonSharpBehaviour
             if (!_ready) timeText.text = "";
             else if (IsLive()) timeText.text = "LIVE";
             else timeText.text = Clock(player.GetTime()) + " / " + Clock(player.GetDuration());
+        }
+    }
+
+    // 入力欄に、押す前のキー入力（デスクトップの移動キーなど）が入りこむことがある（2026-10-15 てじゃ「URLボタンおすまえから、入力したキーが入っちゃってる」）。
+    // URL欄は送信（Enter）の時に読むだけで、ふだんは空のはず → 何か入っていたら消す。コピー欄はいつも今のURLに戻す
+    private float _nextClean;
+    private void CleanFields()
+    {
+        if (Time.time < _nextClean) return;
+        _nextClean = Time.time + 0.2f;
+        if (urlField != null)
+        {
+            VRCUrl u = urlField.GetUrl();
+            if (u != null && u.Get() != "") urlField.SetUrl(VRCUrl.Empty);
+        }
+        if (copyField != null)
+        {
+            string want = (_url != null) ? _url.Get() : "";
+            if (copyField.text != want) copyField.text = want;
         }
     }
 

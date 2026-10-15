@@ -306,6 +306,7 @@ public static class TejaVideoPlayerBuilder
         var fSo = new SerializedObject(field);
         fSo.FindProperty("m_TextComponent").objectReferenceValue = txt;
         fSo.FindProperty("m_Placeholder").objectReferenceValue = ph;
+        var aos = fSo.FindProperty("m_ShouldActivateOnSelect"); if (aos != null) aos.boolValue = false;   // 選ばれただけで入力状態にしない（押す前のキーが入りこむので）
         fSo.ApplyModifiedPropertiesWithoutUndo();
         // 押した時の色の変化はボタンと同じくらいに
         field.targetGraphic = inGo.GetComponent<Image>();
@@ -323,6 +324,7 @@ public static class TejaVideoPlayerBuilder
         var ct = Label(cGo.transform, "Text", "", font, 20, new Color(1f, 1f, 1f, 0f), TextAnchor.MiddleCenter); Fill(ct.gameObject, 6f);
         ct.supportRichText = false;
         copy.textComponent = ct;
+        copy.shouldActivateOnSelect = false;   // 選ばれただけで入力状態にしない
         copy.targetGraphic = cGo.GetComponent<Image>();
         var ccb = copy.colors; ccb.highlightedColor = new Color(1f, 0.9f, 0.85f); ccb.pressedColor = new Color(0.8f, 0.8f, 0.8f); ccb.disabledColor = new Color(0.6f, 0.6f, 0.6f, 0.5f); copy.colors = ccb;
         IconOn(cGo.transform, "Icon_Copy.png", 100f);
