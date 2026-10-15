@@ -145,7 +145,10 @@ public static class TejaVideoPlayerBuilder
         var field = inGo.AddComponent<VRCUrlInputField>();
         var txt = Label(inGo.transform, "Text", "", font, 28, Color.white, TextAnchor.MiddleCenter); Fill(txt.gameObject, 8f);
         txt.supportRichText = false; txt.horizontalOverflow = HorizontalWrapMode.Overflow;
-        var ph = Label(inGo.transform, "Placeholder", "URL", font, 40, Color.white, TextAnchor.MiddleCenter); Fill(ph.gameObject, 6f);
+        // 入力欄の「うすい案内の文字」は VRChat の入力フォームの中にそのまま出る（タイトルの「URL を入力」は VRChat 側で変えられない）。
+        // ボタンの上には見せず（透明）、表のボタンの文字「URL」は別のラベルで出す
+        var ph = Label(inGo.transform, "Placeholder", "ここに動画のURLを貼りつけてね / Paste a video URL", font, 30, new Color(1f, 1f, 1f, 0f), TextAnchor.MiddleCenter); Fill(ph.gameObject, 6f);
+        var urlLab = Label(inGo.transform, "Label", "URL", font, 40, Color.white, TextAnchor.MiddleCenter); Fill(urlLab.gameObject, 6f);
         var fSo = new SerializedObject(field);
         fSo.FindProperty("m_TextComponent").objectReferenceValue = txt;
         fSo.FindProperty("m_Placeholder").objectReferenceValue = ph;
@@ -164,7 +167,7 @@ public static class TejaVideoPlayerBuilder
         var disp = dGo.AddComponent<VRCUrlInputField>();
         var dt = Label(dGo.transform, "Text", "", font, 30, new Color(0.85f, 0.9f, 1f), TextAnchor.MiddleLeft); Fill(dt.gameObject, 20f);
         dt.supportRichText = false; dt.horizontalOverflow = HorizontalWrapMode.Overflow;
-        var dph = Label(dGo.transform, "Placeholder", "（URLを押して動画を入れてね）", font, 30, new Color(0.55f, 0.6f, 0.7f), TextAnchor.MiddleLeft); Fill(dph.gameObject, 20f);
+        var dph = Label(dGo.transform, "Placeholder", "← URL から動画を入れてね", font, 30, new Color(0.55f, 0.6f, 0.7f), TextAnchor.MiddleLeft); Fill(dph.gameObject, 20f);
         var dSo = new SerializedObject(disp);
         dSo.FindProperty("m_TextComponent").objectReferenceValue = dt;
         dSo.FindProperty("m_Placeholder").objectReferenceValue = dph;

@@ -67,6 +67,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     private void Start()
     {
+        ShowUrl();
         if (volumeSlider != null) volumeSlider.SetValueWithoutNotify(defaultVolume);
         SetVolume(defaultVolume);
         SetStatus("URLを入れてね / Paste a URL");
@@ -157,7 +158,10 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     private void ShowUrl()
     {
-        if (urlDisplay != null) urlDisplay.SetUrl(_url != null ? _url : VRCUrl.Empty);
+        if (urlDisplay == null) return;
+        bool has = _url != null && _url.Get() != "";
+        urlDisplay.SetUrl(has ? _url : VRCUrl.Empty);
+        urlDisplay.interactable = has;   // 何も流れていない時は押せない（空のフォームが出るだけなので）
     }
 
     public void OnVolumeChanged()
