@@ -292,42 +292,56 @@ public static class FuwaDecoTools
                 foreach (var hit in Physics.RaycastAll(a + Vector3.up * 0.3f - outDir * back, Vector3.down, 0.6f, ~0, QueryTriggerInteraction.Ignore))
                     if (hit.collider.transform.IsChildOf(root) && !hit.collider.transform.IsChildOf(holder) && hit.collider.GetComponentInParent<Rigidbody>() == null && !hit.collider.isTrigger) { host = hit.collider; break; }
             if (host == null) continue;
-            // 根元の高さ：道の上面から2cm下（ふちより内側に入った根元の上の端が、道の上にちょこんと出ないように）
-            float topY = a.y;
-            for (float back = 0.1f; back <= 2.5f; back += 0.2f) if (host.Raycast(new Ray(new Vector3(a.x, a.y + 0.5f, a.z) - outDir * back, Vector3.down), out var th, 1f)) { topY = th.point.y; break; }
-            var a0 = new Vector3(a.x, topY - 0.02f, a.z);
-            // ふち（上面のすぐ下の側面）の位置：根元から外向きの距離
-            float edge = 0f;
-            if (host.Raycast(new Ray(a0 + Vector3.down * 0.02f + outDir * 2f, -outDir), out var eh, 5f)) edge = Vector3.Dot(eh.point - a0, outDir);
             // ツタの頂点（根元から見た形。上の端3cmは道の中に隠れてよいので除く）
             var lv = new List<Vector3>();
             var verts = vf.sharedMesh.vertices;
-            for (int i = 0; i < verts.Length; i += 5)
+            for (int i = 0; i < verts.Length; i += 8)
             {
                 var l = inst.InverseTransformPoint(vf.transform.TransformPoint(verts[i])) * sc;
                 if (l.y < -0.03f) lv.Add(l);
             }
-            // 傾き 0〜40°：頂点ごとに、その高さ・横位置の壁を測って「カーテンが壁に1cmで触れる寄せ量」を出す。
-            // 根元がふちより外へ出ない（＝浮かない）一番小さい傾きを使う
-            float bestTh = 0f, bestC = float.PositiveInfinity; bool found = false;
-            for (int deg = 0; deg <= 40; deg += 4)
-            {
-                var rot = Quaternion.LookRotation(outDir, Vector3.up) * Quaternion.Euler(-deg, 0f, 0f);
-                float c = float.NegativeInfinity;
-                foreach (var l in lv)
+            // 置き方の候補：ふちに沿って少しずらす（-0.6〜0.6m）×向きを少し回す（-30〜30°）。
+            // カーブだとまっすぐなツタの片側だけ壁に触れて反対側が浮くので、壁との平均のすき間が一番小さい置き方を選ぶ
+            //（2026-10-15 てじゃ「カーブにあるやつ浮きガチ」）
+            float bestScore = float.PositiveInfinity; Vector3 bestPos = inst.position; Quaternion bestRot = inst.rotation; bool any = false;
+            for (int si = -3; si <= 3; si++)
+                for (int yi = -3; yi <= 3; yi++)
                 {
-                    var p = a0 + rot * l;
-                    if (!host.Raycast(new Ray(p + outDir * 1.5f, -outDir), out var wh, 3f)) continue;   // その高さ・横に壁がない（薄い道の下など）
-                    c = Mathf.Max(c, Vector3.Dot(wh.point - a0, outDir) + 0.01f - Vector3.Dot(p - a0, outDir));
+                    float slide = si * 0.2f;
+                    var od = Quaternion.Euler(0f, yi * 10f, 0f) * outDir;
+                    var bp = a + along * slide;
+                    // 根元の高さ：道の上面から2cm下（ふちより内側に入った根元の上の端が、道の上にちょこんと出ないように）
+                    float topY = float.NaN;
+                    for (float back = 0.1f; back <= 2.5f; back += 0.2f) if (host.Raycast(new Ray(new Vector3(bp.x, a.y + 0.5f, bp.z) - od * back, Vector3.down), out var th, 1f)) { topY = th.point.y; break; }
+                    if (float.IsNaN(topY) || Mathf.Abs(topY - a.y) > 0.3f) continue;   // 道の上でない・段差の所はやめる
+                    var a0 = new Vector3(bp.x, topY - 0.02f, bp.z);
+                    // ふち（上面のすぐ下の側面）の位置：根元から外向きの距離
+                    if (!host.Raycast(new Ray(a0 + Vector3.down * 0.02f + od * 2f, -od), out var eh, 5f)) continue;
+                    float edge = Vector3.Dot(eh.point - a0, od);
+                    // 傾き 0〜40°：めり込まずにカーテンが壁に1cmで触れる寄せ量。根元がふちより外へ出ない一番小さい傾き
+                    for (int deg = 0; deg <= 40; deg += 8)
+                    {
+                        var rot = Quaternion.LookRotation(od, Vector3.up) * Quaternion.Euler(-deg, 0f, 0f);
+                        float c = float.NegativeInfinity;
+                        var gw = new List<(float vz, float w)>();
+                        foreach (var l in lv)
+                        {
+                            var p = a0 + rot * l;
+                            if (!host.Raycast(new Ray(p + od * 1.5f, -od), out var wh, 3f)) continue;   // その高さ・横に壁がない（薄い道の下など）
+                            float w = Vector3.Dot(wh.point - a0, od), vz = Vector3.Dot(p - a0, od);
+                            gw.Add((vz, w));
+                            c = Mathf.Max(c, w + 0.01f - vz);
+                        }
+                        if (gw.Count == 0) c = edge - 0.05f;   // どこにも壁がない：根元をふちの少し内側に
+                        if (c > edge + 0.02f) continue;          // 根元がふちより外へ出る＝浮く。もっと傾ける
+                        float mean = 0f; foreach (var (vz, w) in gw) mean += vz + c - w; mean = gw.Count > 0 ? mean / gw.Count : 0.2f;
+                        float score = mean + Mathf.Abs(slide) * 0.03f + Mathf.Abs(yi) * 0.004f + deg * 0.0005f;   // 同じくらいなら元の場所・向きに近い方
+                        if (score < bestScore) { bestScore = score; bestPos = a0 + od * c; bestRot = rot; any = true; }
+                        break;
+                    }
                 }
-                if (float.IsNegativeInfinity(c)) c = edge - 0.05f;   // どこにも壁がない：根元をふちの少し内側に
-                if (c < bestC) { bestC = c; bestTh = deg; }
-                if (c <= edge + 0.02f) { bestTh = deg; bestC = c; found = true; break; }
-            }
-            if (!found && bestC > edge + 0.15f) { Object.DestroyImmediate(inst.gameObject); moved++; continue; }   // 壁が大きく張り出していてそわせられない：消す
-            var np = a0 + outDir * bestC;
-            var nr = Quaternion.LookRotation(outDir, Vector3.up) * Quaternion.Euler(-bestTh, 0f, 0f);
-            if ((np - inst.position).sqrMagnitude > 1e-6f || Quaternion.Angle(nr, inst.rotation) > 0.1f) { inst.SetPositionAndRotation(np, nr); moved++; }
+            if (!any) { Object.DestroyImmediate(inst.gameObject); moved++; continue; }   // どこに置いてもそわせられない：消す
+            if ((bestPos - inst.position).sqrMagnitude > 1e-6f || Quaternion.Angle(bestRot, inst.rotation) > 0.1f) { inst.SetPositionAndRotation(bestPos, bestRot); moved++; }
         }
         return (moved, total);
     }
