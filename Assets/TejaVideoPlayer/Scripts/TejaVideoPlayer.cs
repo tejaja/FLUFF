@@ -48,6 +48,9 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     [Tooltip("待機画面（画面の手前の板）。■で止まっている間・読み込み中・最後まで再生した時に出す（2026-10-15 てじゃ「停止して止まってる時だけ別の画面、待機画面の真っ黒とか」）")]
     public GameObject[] standbyScreens;
+    [Tooltip("読み込み中に出すマーク（待機画面の中。出し入れはこれ、回すのは最初の子）（2026-10-15 てじゃ「ロード待ちの時に画面にもローディング」）")]
+    public Transform[] loadingSpinners;
+    public float spinnerSpeed = 300f;
 
     [Header("音の範囲・BGM（なくてもOK）")]
     [Tooltip("この中心から audioZoneRadius 以内に自分がいる時だけ動画の音を出す（空なら どこでも）")]
@@ -73,6 +76,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     [UdonSynced] private bool _loop;          // くり返し再生（みんな共通。2026-10-15 てじゃ「連続再生の切り替えスイッチ」）
 
     private int _loadedVer = -1;
+    private bool _error;      // 読み込みに失敗した（読み込み直すまで）
     private bool _ready;
     private bool _loadQueued;
     private float _nextLoad;
@@ -267,6 +271,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         }
         _ready = false;
         _ended = false;
+        _error = false;
         _loadedVer = _ver;
         ShowUrl();
         _nextLoad = Time.time + loadInterval;
@@ -386,6 +391,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
             Load();
             return;
         }
+        _error = true;
         if (videoError == VideoError.InvalidURL) SetStatus("Invalid URL");
         else if (videoError == VideoError.AccessDenied) SetStatus("Turn on \"Allow Untrusted URLs\" in VRChat settings");
         else if (videoError == VideoError.PlayerError) SetStatus("Couldn't play this video");
@@ -447,6 +453,18 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         if (!_ready) sb = true;
         else if (_ended) sb = true;
         else sb = _paused && _pausedAt <= 0.01f && !IsLive();
+        // 読み込み中（URLがあって、まだ映らず、エラーでもない）はくるくる
+        bool loading = !_ready && !_error && _url != null && _url.Get() != "";
+        if (loadingSpinners != null)
+        {
+            for (int i = 0; i < loadingSpinners.Length; i++)
+            {
+                Transform s = loadingSpinners[i];
+                if (s == null) continue;
+                if (s.gameObject.activeSelf != loading) s.gameObject.SetActive(loading);
+                if (loading && s.childCount > 0) s.GetChild(0).Rotate(0f, 0f, spinnerSpeed * Time.deltaTime, Space.Self);   // 回すのは中の輪（外側は画面の縦横比の打ち消し）
+            }
+        }
         if (sb == _standby && _standbyInit) return;
         _standby = sb; _standbyInit = true;
         if (standbyScreens == null) return;

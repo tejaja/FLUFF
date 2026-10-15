@@ -53,6 +53,7 @@ public static class TejaVideoPlayerBuilder
 
         var ts = MakeScreen(root, "Screen", new Vector3(0f, ScreenCenterY, 0f), Quaternion.identity, new Vector3(ScreenW, ScreenH, 1f), av, true);
         vp.standbyScreens = new[] { MakeStandby(ts.transform) };
+        vp.loadingSpinners = new[] { vp.standbyScreens[0].transform.Find("Spinner") };
         vp.speakers = MakeSpeakers(root, new[] { new Vector3(-ScreenW * 0.5f, ScreenCenterY, 0f), new Vector3(ScreenW * 0.5f, ScreenCenterY, 0f) }, av);
         BuildControls(root, new Vector3(0f, ScreenCenterY - ScreenH * 0.5f - 0.01f - (212f + TabH) * 0.0005f, -0.01f), 0.001f, true, vp, font);
         Finish(vp, scene);
@@ -80,6 +81,7 @@ public static class TejaVideoPlayerBuilder
         var vs = MakeScreen(inner, "VideoScreen", tvScreen.localPosition, tvScreen.localRotation, tvScreen.localScale, av, false);
         vs.SetActive(false);
         vp.standbyScreens = new[] { MakeStandby(vs.transform) };
+        vp.loadingSpinners = new[] { vp.standbyScreens[0].transform.Find("Spinner") };
         // 音：画面の左右のふち
         Vector3 sl = tv.InverseTransformPoint(tvScreen.position);
         float hw = tvScreen.lossyScale.x * 0.5f;
@@ -274,6 +276,16 @@ public static class TejaVideoPlayerBuilder
         float ppu = sr.sprite.pixelsPerUnit, sz = sr.sprite.rect.height / ppu;   // スプライト1枚の大きさ（ローカル単位）
         Vector3 ps = screen.lossyScale;
         icon.transform.localScale = new Vector3(k / sz * ps.y / ps.x, k / sz, 1f);
+        // 読み込み中のくるくる（ロゴの下。ふだんは隠す。TejaVideoPlayer が出して回す）
+        var sp = new GameObject("Spinner"); sp.transform.SetParent(sb.transform, false);
+        sp.transform.localPosition = new Vector3(0f, -0.25f, -0.001f);
+        // 外側（Spinner）で画面の縦横比を打ち消し、中の輪（Ring）は正方形のまま回す（つぶれた楕円にならないように）
+        sp.transform.localScale = new Vector3(ps.y / ps.x, 1f, 1f);
+        var ring = new GameObject("Ring"); ring.transform.SetParent(sp.transform, false);
+        var spr = ring.AddComponent<SpriteRenderer>(); spr.sprite = IconSprite(Dir + "Standby_Spinner.png"); spr.color = new Color(1f, 1f, 1f, 0.45f);
+        float ks = 0.09f, ssz = spr.sprite.rect.height / spr.sprite.pixelsPerUnit;
+        ring.transform.localScale = Vector3.one * (ks / ssz);
+        sp.SetActive(false);
         sb.SetActive(true);
         return sb;
     }
