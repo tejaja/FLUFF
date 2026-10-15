@@ -70,6 +70,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public Material plainMaterial;
     [Tooltip("毛オフの時の球のメッシュ（毛ありの玉のメッシュは粗くて、毛がないと輪郭がカクカクに見えるので細かい球に替える）。なければそのまま")]
     public Mesh plainMesh;
+    [Tooltip("撃たれた時に顔が 😣（ぎゅっと閉じた目＋への字口）になっている秒数（顔を出している時だけ見える）")]
+    public float hitFaceTime = 0.6f;
 
     [Header("撃たれた時のポヨンと綿毛（全員の画面で、FuwaBall と同じ）")]
     public float squashAmount = 0.4f;
@@ -172,6 +174,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private bool _plain;
     private MeshFilter _furMeshFilter;
     private Mesh _furMesh;
+    private float _hitFaceUntil;
+    private bool _hitFaceShown;
     private Vector3 _furDrag;
     private bool _shownHidden;
     private Collider _col;
@@ -619,6 +623,18 @@ public class FuwaSharedBall : UdonSharpBehaviour
             sfxBoing.PlayOneShot(sfxBoing.clip, Mathf.Lerp(boingVolumeWeak, boingVolumeStrong, k));
         }
         StartSquash(k);
+        _hitFaceUntil = Time.time + hitFaceTime;
+    }
+
+    // 撃たれた顔 😣 の出し入れ（顔の材質の _FaceHit。毛あり・毛オフの両方）
+    private void UpdateHitFace()
+    {
+        bool hit = Time.time < _hitFaceUntil;
+        if (hit == _hitFaceShown) return;
+        _hitFaceShown = hit;
+        float v = hit ? 1f : 0f;
+        if (_furMat != null) _furMat.SetFloat("_FaceHit", v);
+        if (_plainMat != null) _plainMat.SetFloat("_FaceHit", v);
     }
 
     private void StartSquash(float k)
@@ -748,6 +764,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         }
         _prevVel = vel;
         UpdateSquash();
+        UpdateHitFace();
 
         if (_furMat != null)
         {

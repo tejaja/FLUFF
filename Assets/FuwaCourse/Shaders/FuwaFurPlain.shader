@@ -25,6 +25,7 @@
         _FaceDepth ("Face Sphere (x fur, = Plain Sphere)", Range(0, 1)) = 0.6
         [Enum(Lines,0,Smile,1,Dots,2,DotsMouth,3)] _FaceStyle ("Face Style", Float) = 3
         _FaceCheekSize ("Face Cheek Size", Range(0, 1.5)) = 1
+        [Toggle] _FaceHit ("Face Hit (set by script)", Float) = 0
         _FaceEyeColor ("Face Eye Color", Color) = (0.28, 0.17, 0.12, 1)
         _FaceCheekColor ("Face Cheek Color (a=strength)", Color) = (1, 0.55, 0.6, 0.75)
     }

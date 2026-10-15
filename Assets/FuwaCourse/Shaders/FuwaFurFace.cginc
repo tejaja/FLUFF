@@ -7,6 +7,7 @@ float _FaceLift;    // 毛先からさらに外へ浮かせる量（毛の長さ
 float _FaceDepth;   // 顔の絵が乗って見える球の大きさ（毛の長さに対する割合）。見た目の毛玉のふくらみに合わせる
 float _FaceStyle;    // 目の形（下の fragFace を見て）
 float _FaceCheekSize;
+float _FaceHit;      // 1=撃たれた顔 😣（スクリプトが撃たれた直後だけ入れる）
 fixed4 _FaceEyeColor;
 fixed4 _FaceCheekColor;
 
@@ -15,6 +16,13 @@ fixed4 _FaceCheekColor;
 #define FUR_H (1.0 + _FaceLift)
 #endif
 #include "FuwaFur.cginc"
+
+// 線分 a-b までの距離
+float sdSeg(float2 p, float2 a, float2 b)
+{
+    float2 pa = p - a, ba = b - a;
+    return length(pa - ba * saturate(dot(pa, ba) / dot(ba, ba)));
+}
 
 // 角を丸めた縦長の棒（カプセル）までの距離
 float sdCapsuleY(float2 p, float halfLen, float r)
@@ -88,6 +96,18 @@ fixed4 fragFace (v2f i) : SV_Target
         dEye = min(dEye, dMouth);
     }
     float ck = max(_FaceCheekSize, 0.01);
+    if (_FaceHit > 0.5)
+    {
+        // 撃たれた顔 😣：ぎゅっと閉じた目（真ん中向きの「＞ ＜」）＋への字口。眉はなし（2026-10-15 てじゃ）
+        float2 q = float2(abs(uv.x) - 0.30, uv.y - 0.10);   // +x=外側
+        float dE = min(sdSeg(q, float2(0.09, 0.075), float2(-0.07, 0.0)), sdSeg(q, float2(-0.07, 0.0), float2(0.09, -0.075))) - 0.032;
+        // への字口（ゆるやかな下向きの弧。口の形はにっこり口の上下反対）
+        const float hr = 0.17, hma = 0.56;
+        float2 hm = uv - float2(0, -0.09 - hr);
+        float2 hend = float2(sin(hma), cos(hma)) * hr;
+        float dM = (hm.y > 0 && abs(hm.x) <= hm.y * tan(hma)) ? abs(length(hm) - hr) - 0.028 : length(float2(abs(hm.x), hm.y) - hend) - 0.028;
+        dEye = min(dE, dM);
+    }
     float2 pc = float2(abs(uv.x) - 0.56, uv.y + 0.16) / (float2(0.17, 0.11) * ck);
     float dCheek = _FaceCheekSize > 0.01 ? (length(pc) - 1.0) * 0.11 * ck : 1.0;   // 0=ほっぺなし
 
