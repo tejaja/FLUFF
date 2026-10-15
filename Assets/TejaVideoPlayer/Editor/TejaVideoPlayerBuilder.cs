@@ -52,7 +52,7 @@ public static class TejaVideoPlayerBuilder
         vp.loadingSpinners = new[] { vp.standbyScreens[0].transform.Find("Spinner") };
         vp.speakers = MakeSpeakers(root, new[] { new Vector3(-ScreenW * 0.5f, ScreenCenterY, 0f), new Vector3(ScreenW * 0.5f, ScreenCenterY, 0f) }, av, 5f, 30f);
         // 操作パネルは画面のすぐ下、右上の角（時間の右）に ▼▲ の隠すボタン（FLUFF のテレビと同じ並び）
-        const float cs = 0.001f, gap = 0.02f;
+        const float cs = 0.001f, gap = 0.018f;   // FLUFF のテレビ（画面2.79m・すき間2.5cm）と同じ比率
         float screenBottom = ScreenCenterY - ScreenH * 0.5f;
         float panelCenter = screenBottom - gap - 106f * cs;
         var controls = BuildControls(root, new Vector3(0f, panelCenter, -0.01f), cs, false, vp, font);
