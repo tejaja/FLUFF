@@ -335,6 +335,9 @@ public class FuwaSharedBall : UdonSharpBehaviour
     // 遠くの玉は毛なしに（自分の画面だけ）。切り替わりの境目でちらつかないよう、戻る時は1割近くまで来てから
     private void UpdateLod()
     {
+#if !(UNITY_ANDROID || UNITY_IOS)
+        return;   // PCは毛が重くないので自動の毛オフはなし（Quest/スマホだけ。2026-10-15 てじゃ「PC版でこれあるいみあんまないかも」）
+#else
         if (_plainMat == null || lodRatio <= 0f || _shownHidden) return;
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null) return;
@@ -349,6 +352,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (far == _lodPlain) return;
         _lodPlain = far;
         ApplyPlain();
+#endif
     }
 
     // 追っかけカメラがほかのエリアからあそびばを映している間は、エリアにいる扱いにして動かして見せる（FuwaFollowCam が切り替える）
