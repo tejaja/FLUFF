@@ -275,7 +275,7 @@ public static class TejaVideoPlayerBuilder
         Place(inGo, 20f, 12f, 220f, 116f);
         inGo.GetComponent<Image>().color = new Color(0.95f, 0.55f, 0.45f);
         var field = inGo.AddComponent<VRCUrlInputField>();
-        var txt = Label(inGo.transform, "Text", "", font, 28, Color.white, TextAnchor.MiddleCenter); Fill(txt.gameObject, 8f);
+        var txt = Label(inGo.transform, "Text", "", font, 28, new Color(1f, 1f, 1f, 0f), TextAnchor.MiddleCenter); Fill(txt.gameObject, 8f);   // 入れた文字はボタンの上に見せない（くさりの絵に重なるので。2026-10-15 てじゃ「ボタンにURLみえちゃう」）
         txt.supportRichText = false; txt.horizontalOverflow = HorizontalWrapMode.Overflow;
         // 入力欄の「うすい案内の文字」は VRChat の入力フォームの中にそのまま出る（タイトルの「URL を入力」は VRChat 側で変えられない）。
         // ボタンの上には見せず（透明）、表のボタンの文字「URL」は別のラベルで出す
