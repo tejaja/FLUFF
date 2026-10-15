@@ -25,6 +25,8 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public Text panelTabLabel;
     [Tooltip("たたむタブ。たたんだ時は画面のすぐ下まで上げる（パネルの高さぶん）")]
     public RectTransform panelTab;
+    [Tooltip("隠すボタンで出し入れする物（空なら panelRoot）。操作パネルの Canvas まるごとにすると、隠している間はレーザーも当たらない")]
+    public GameObject panelHideTarget;
     public float panelHeight = 212f;
     public AudioSource[] speakers;
     [Header("表示（なくてもOK）")]
@@ -212,13 +214,16 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         _nextCheck = Time.time + 0.5f;   // 直後にバーを古い位置へ戻さない
     }
 
-    // たたむタブ：操作パネルを出す／隠す（自分の画面だけ）
+    // 隠すボタン・たたむタブ：操作パネルを出す／隠す（自分の画面だけ）。
+    // panelHideTarget があればそれ（操作パネルの Canvas まるごと）、なければ panelRoot を出し入れする
     public void TogglePanel()
     {
-        if (panelRoot == null) return;
-        bool show = !panelRoot.activeSelf;
-        panelRoot.SetActive(show);
-        if (panelTabLabel != null) panelTabLabel.text = show ? "▼" : "▲";
+        GameObject target = panelHideTarget != null ? panelHideTarget : panelRoot;
+        if (target == null) return;
+        bool show = !target.activeSelf;
+        target.SetActive(show);
+        // 画面と操作パネルの間の隠すボタン：出ている時▲（しまう）、隠れている時▼（出す）。パネルの下にぶら下がるタブは逆
+        if (panelTabLabel != null) panelTabLabel.text = panelTab != null ? (show ? "▼" : "▲") : (show ? "▲" : "▼");
         if (panelTab != null) { Vector2 a = panelTab.anchoredPosition; a.y = show ? 0f : panelHeight; panelTab.anchoredPosition = a; }
     }
 

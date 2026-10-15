@@ -51,9 +51,37 @@ public static class TejaVideoPlayerBuilder
         vp.standbyScreens = new[] { MakeStandby(ts.transform) };
         vp.loadingSpinners = new[] { vp.standbyScreens[0].transform.Find("Spinner") };
         vp.speakers = MakeSpeakers(root, new[] { new Vector3(-ScreenW * 0.5f, ScreenCenterY, 0f), new Vector3(ScreenW * 0.5f, ScreenCenterY, 0f) }, av, 5f, 30f);
-        BuildControls(root, new Vector3(0f, ScreenCenterY - ScreenH * 0.5f - 0.01f - (212f + TabH) * 0.0005f, -0.01f), 0.001f, true, vp, font);
+        // 操作パネルは画面の下、すき間の真ん中に ▲▼ の隠すボタン（FLUFF のテレビと同じ並び。2026-10-15 てじゃ「UI隠しボタンとかの位置もいっしょで」）
+        const float cs = 0.001f, gap = 0.085f;
+        float screenBottom = ScreenCenterY - ScreenH * 0.5f;
+        float panelCenter = screenBottom - gap - 106f * cs;
+        var controls = BuildControls(root, new Vector3(0f, panelCenter, -0.01f), cs, false, vp, font);
+        var hide = MakeHideButton(root, new Vector3(0f, screenBottom - gap * 0.5f, -0.012f), cs, font);
+        var hub = UdonSharpEditorUtility.GetBackingUdonBehaviour(vp);
+        UnityEventTools.AddStringPersistentListener(hide.GetComponentInChildren<UnityEngine.UI.Button>().onClick, hub.SendCustomEvent, nameof(TejaVideoPlayer.TogglePanel));
+        vp.panelTabLabel = hide.GetComponentInChildren<Text>(); vp.panelTab = null;
+        vp.panelHideTarget = controls.gameObject;
         Finish(vp, scene);
         Selection.activeGameObject = root.gameObject;
+    }
+
+    // 操作パネルを隠す／出すボタン（▲▼。小さい丸っこいラベンダーのボタン）。localPos は Canvas の真ん中。押した時の配線は呼ぶ側で
+    public static GameObject MakeHideButton(Transform parent, Vector3 localPos, float scale, Font font)
+    {
+        var hdCv = new GameObject("PanelHide", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        hdCv.transform.SetParent(parent, false);
+        hdCv.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+        var hrt = (RectTransform)hdCv.transform; hrt.sizeDelta = new Vector2(150f, 56f); hrt.localScale = Vector3.one * scale;
+        hrt.localPosition = localPos; hrt.localRotation = Quaternion.identity;
+        hdCv.AddComponent<VRC.SDK3.Components.VRCUiShape>();
+        var hbc = hdCv.AddComponent<BoxCollider>(); hbc.size = new Vector3(150f, 56f, 10f); hbc.isTrigger = true;
+        var hGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); hGo.transform.SetParent(hdCv.transform, false);
+        var hbrt = (RectTransform)hGo.transform; hbrt.anchorMin = Vector2.zero; hbrt.anchorMax = Vector2.one; hbrt.offsetMin = Vector2.zero; hbrt.offsetMax = Vector2.zero;
+        var hImg = hGo.GetComponent<Image>(); hImg.sprite = IconSprite9(Dir + "UI_Round.png"); hImg.type = Image.Type.Sliced; hImg.color = Color.white;
+        var hSel = hGo.GetComponent<UnityEngine.UI.Button>();
+        var hcb = hSel.colors; hcb.normalColor = new Color(0.62f, 0.55f, 0.86f); hcb.highlightedColor = new Color(0.72f, 0.66f, 0.93f); hcb.pressedColor = new Color(0.52f, 0.45f, 0.76f); hcb.selectedColor = hcb.normalColor; hSel.colors = hcb;
+        var hLab = Label(hGo.transform, "Label", "▲", font, 36, Color.white, TextAnchor.MiddleCenter); Fill(hLab.gameObject, 2f);
+        return hdCv;
     }
 
     // 本体（AVPro の再生部品＋TejaVideoPlayer）を parent の下に用意する（あれば使い回す。消して作り直すとネットワークIDがずれるので）。
