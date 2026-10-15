@@ -123,9 +123,12 @@ public static class TejaVideoPlayerBuilder
         var iImg = icon.GetComponent<Image>(); iImg.raycastTarget = false; iImg.preserveAspect = true;
         // 「動画やってるよ」の印：右上のコーラルの点（カメラを見ている間に動画が流れていたら出る）
         var badge = new GameObject("PlayingBadge", typeof(RectTransform), typeof(Image)); badge.transform.SetParent(bGo.transform, false);
-        var bdr = (RectTransform)badge.transform; bdr.anchorMin = bdr.anchorMax = new Vector2(0.86f, 0.86f); bdr.sizeDelta = new Vector2(46f, 46f);
-        var bdi = badge.GetComponent<Image>(); bdi.sprite = IconSprite9(Dir + "UI_Circle.png"); bdi.color = new Color(1f, 0.42f, 0.36f); bdi.raycastTarget = false;
-        var bdo = badge.AddComponent<Outline>(); bdo.effectColor = Color.white; bdo.effectDistance = new Vector2(4f, -4f);
+        // 白いふち＝ひと回り大きい白い丸の上にコーラルの丸（Outline だと4方向にずらして重ねるだけで、ふちがでこぼこの形になった。2026-10-15 てじゃ「縁の白が◯じゃない」）
+        var bdr = (RectTransform)badge.transform; bdr.anchorMin = bdr.anchorMax = new Vector2(0.86f, 0.86f); bdr.sizeDelta = new Vector2(56f, 56f);
+        var bdi = badge.GetComponent<Image>(); bdi.sprite = IconSprite9(Dir + "UI_Circle.png"); bdi.color = Color.white; bdi.raycastTarget = false;
+        var dot = new GameObject("Dot", typeof(RectTransform), typeof(Image)); dot.transform.SetParent(badge.transform, false);
+        var drt = (RectTransform)dot.transform; drt.anchorMin = drt.anchorMax = new Vector2(0.5f, 0.5f); drt.sizeDelta = new Vector2(44f, 44f);
+        var ddi = dot.GetComponent<Image>(); ddi.sprite = bdi.sprite; ddi.color = new Color(1f, 0.42f, 0.36f); ddi.raycastTarget = false;
         badge.SetActive(false);
 
         // 操作パネルを隠す／出すボタン：画面の下のふちとパネルの間のすき間の真ん中（パネルを隠しても、ここだけ残る）
