@@ -51,7 +51,8 @@ public static class TejaVideoPlayerBuilder
         root.position = new Vector3(tv.position.x, floor, tv.position.z) + right * SideOffset;
         root.rotation = Quaternion.LookRotation(-toViewer, Vector3.up);   // Quad は -Z 側が表なので、+Z を奥（見る人と反対）へ
 
-        MakeScreen(root, "Screen", new Vector3(0f, ScreenCenterY, 0f), Quaternion.identity, new Vector3(ScreenW, ScreenH, 1f), av, true);
+        var ts = MakeScreen(root, "Screen", new Vector3(0f, ScreenCenterY, 0f), Quaternion.identity, new Vector3(ScreenW, ScreenH, 1f), av, true);
+        vp.standbyScreens = new[] { MakeStandby(ts.transform) };
         vp.speakers = MakeSpeakers(root, new[] { new Vector3(-ScreenW * 0.5f, ScreenCenterY, 0f), new Vector3(ScreenW * 0.5f, ScreenCenterY, 0f) }, av);
         BuildControls(root, new Vector3(0f, ScreenCenterY - ScreenH * 0.5f - 0.01f - (212f + TabH) * 0.0005f, -0.01f), 0.001f, true, vp, font);
         Finish(vp, scene);
@@ -78,6 +79,7 @@ public static class TejaVideoPlayerBuilder
         // 動画の画面：テレビの画面と同じ所・同じ大きさ（動画の時はカメラの画面を非表示にするので重ねない。2026-10-15 てじゃ「横から見ると隙間からチラ見え」）
         var vs = MakeScreen(inner, "VideoScreen", tvScreen.localPosition, tvScreen.localRotation, tvScreen.localScale, av, false);
         vs.SetActive(false);
+        vp.standbyScreens = new[] { MakeStandby(vs.transform) };
         // 音：画面の左右のふち
         Vector3 sl = tv.InverseTransformPoint(tvScreen.position);
         float hw = tvScreen.lossyScale.x * 0.5f;
@@ -245,6 +247,27 @@ public static class TejaVideoPlayerBuilder
             back.GetComponent<MeshRenderer>().sharedMaterial = blackMat;
         }
         return screen;
+    }
+
+    // 待機画面：画面のすぐ手前に黒い板＋まん中にうすい「▶ テレビ」のマーク（画面の子。画面と一緒に出る・隠れる）
+    static GameObject MakeStandby(Transform screen)
+    {
+        var sb = GameObject.CreatePrimitive(PrimitiveType.Quad); sb.name = "Standby";
+        Object.DestroyImmediate(sb.GetComponent<Collider>());
+        sb.transform.SetParent(screen, false);
+        sb.transform.localPosition = new Vector3(0f, 0f, -0.002f / Mathf.Max(screen.lossyScale.z, 0.0001f)); sb.transform.localRotation = Quaternion.identity; sb.transform.localScale = Vector3.one;
+        var mr = sb.GetComponent<MeshRenderer>();
+        mr.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>(Dir + "TejaVideoBack.mat");
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+        var icon = new GameObject("Icon"); icon.transform.SetParent(sb.transform, false);
+        icon.transform.localPosition = new Vector3(0f, 0f, -0.001f);
+        float k = 0.28f;   // 画面の高さに対するマークの大きさ
+        var sr = icon.AddComponent<SpriteRenderer>(); sr.sprite = IconSprite(Dir + "Icon_TvPlay.png"); sr.color = new Color(1f, 1f, 1f, 0.22f);
+        float ppu = sr.sprite.pixelsPerUnit, sz = sr.sprite.rect.height / ppu;   // スプライト1枚の大きさ（ローカル単位）
+        Vector3 ps = screen.lossyScale;
+        icon.transform.localScale = new Vector3(k / sz * ps.y / ps.x, k / sz, 1f);
+        sb.SetActive(true);
+        return sb;
     }
 
     // 音（左右2つ）

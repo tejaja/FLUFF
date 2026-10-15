@@ -46,6 +46,9 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public Color loopOnColor = new Color(0.45f, 0.84f, 0.6f, 1f);
     public float loopOffIconAlpha = 0.55f;
 
+    [Tooltip("待機画面（画面の手前の板）。■で止まっている間・読み込み中・最後まで再生した時に出す（2026-10-15 てじゃ「停止して止まってる時だけ別の画面、待機画面の真っ黒とか」）")]
+    public GameObject[] standbyScreens;
+
     [Header("音の範囲・BGM（なくてもOK）")]
     [Tooltip("この中心から audioZoneRadius 以内に自分がいる時だけ動画の音を出す（空なら どこでも）")]
     public Transform audioZone;
@@ -396,6 +399,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     {
         UpdateZone();
         CleanFields();
+        UpdateStandby();
         if (Time.time < _nextCheck) return;
         _nextCheck = Time.time + 0.5f;
         // 持ち主以外：ときどき位置のずれを見て寄せる
@@ -432,6 +436,21 @@ public class TejaVideoPlayer : UdonSharpBehaviour
             string want = (_url != null) ? _url.Get() : "";
             if (copyField.text != want) copyField.text = want;
         }
+    }
+
+    // 待機画面：まだ映っていない（動画なし・読み込み中・エラー）、■で頭に戻して止まっている、最後まで再生した → 出す
+    private bool _standby;
+    private bool _standbyInit;
+    private void UpdateStandby()
+    {
+        bool sb;
+        if (!_ready) sb = true;
+        else if (_ended) sb = true;
+        else sb = _paused && _pausedAt <= 0.01f && !IsLive();
+        if (sb == _standby && _standbyInit) return;
+        _standby = sb; _standbyInit = true;
+        if (standbyScreens == null) return;
+        for (int i = 0; i < standbyScreens.Length; i++) if (standbyScreens[i] != null) standbyScreens[i].SetActive(sb);
     }
 
     // 範囲の外では動画の音を消す。範囲の中で再生中ならBGMを止めてもらう
