@@ -26,6 +26,10 @@ public class FuwaWhirlwind : UdonSharpBehaviour
     [Range(0f, 1f)] public float exitFrom = 0.85f;
     [Tooltip("回る向き（1=上から見て反時計回り、-1=時計回り）")]
     public float spinDir = 1f;
+    [Tooltip("中にいるふわふわ自身をくるくる回す速さ(rad/s)。風と同じ向きに、少しかたむいた軸で（2026-10-16 てじゃ「竜巻にふわふわが乗った時、ちょっと回転」）")]
+    public float ballSpin = 3.5f;
+    [Tooltip("その回転に近づく速さ（1秒あたり）。大きいほどすぐ回りだす")]
+    public float ballSpinGain = 2.5f;
 
     [Header("捕まえるつむじ風（trap）")]
     [Tooltip("オンにすると、巻き上げて送り出す代わりに、中心へ吸い寄せて少し浮かせたまま捕まえる。強く撃てば抜けられる")]
@@ -73,6 +77,7 @@ public class FuwaWhirlwind : UdonSharpBehaviour
         // その高さでの半径（上へ行くほど広がる）。箱の角など円の外では効かせない
         float rHere = topRadius > 0f ? Mathf.Lerp(radius, topRadius, h) : radius;
         if (r > rHere) return;
+        SpinBall(other, flat, r, shared != null ? 0.3f / Mathf.Max(0.05f, other.transform.lossyScale.x) : 1f);
         if (trap && ball != null) { Trap(ball, other, local, flat, r); return; }
         if (trap && shared != null) { TrapShared(shared, other, local, flat, r); return; }
         Vector3 acc = Vector3.zero;
@@ -94,6 +99,18 @@ public class FuwaWhirlwind : UdonSharpBehaviour
         if (h > exitFrom) acc += Vector3.forward * exitPush * Mathf.Clamp01((h - exitFrom) / (1f - exitFrom) * 2f);
         if (ball != null) ball.AddWind(transform.TransformDirection(acc));
         else shared.AddWind(transform.TransformDirection(acc) * Mathf.Sqrt(Mathf.Max(0.05f, shared.shotScale)));   // 重い玉（巨大）は巻き上がりにくく
+    }
+
+    // ふわふわ自身を、風の回る向きにくるくる回す（見た目。少しかたむいた軸にして、こまのように単調にならないように）。
+    // 同期ふわふわは大きいほどゆっくり（k＝0.3÷大きさ、FuwaSharedBall の回り方と同じ）
+    private void SpinBall(Collider other, Vector3 flat, float r, float k)
+    {
+        Rigidbody rb = other.attachedRigidbody;
+        if (rb == null || rb.isKinematic || ballSpin <= 0f) return;
+        Vector3 axis = Vector3.up;
+        if (r > 0.001f) axis = (Vector3.up + (flat / r) * 0.35f).normalized;   // 外へ少しかたむける
+        Vector3 target = transform.TransformDirection(axis) * (spinDir * ballSpin * k);
+        rb.angularVelocity = Vector3.Lerp(rb.angularVelocity, target, Mathf.Clamp01(ballSpinGain * Time.fixedDeltaTime));
     }
 
     // 捕まえるつむじ風：中心へ吸い寄せて、中心のまわりをゆっくり回しながら trapHeight に浮かせておく
