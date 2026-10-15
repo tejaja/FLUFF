@@ -1360,6 +1360,8 @@ public static class FuwaPracticeTutorial
                     nc++;
                 }
             log.Add($"final deco props {np}, grass {nc}");
+            Physics.SyncTransforms();
+            log.Add("vines fit " + FuwaDecoTools.FitVinesToWall(deco, deco.root));   // ツタを道の側面にそわせる（ふちに置いただけだとカーテンが壁から離れて浮いて見える）
         }
 
         // ---------- 落ちた時の受け止め：れんしゅうの FallCatcher を一本道の下に合わせる ----------
