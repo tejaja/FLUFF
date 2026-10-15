@@ -136,25 +136,25 @@ public static class TejaVideoPlayerBuilder
 
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(vp);
 
-        // URL 入力欄
+        // URL ボタン＝URL入力欄そのもの（オレンジのボタンの見た目）。押すとすぐ VRChat の入力が出る
+        //（2026-10-15 てじゃ：ふだん広い入力欄が出ていると入力状態になりっぱなし → ボタンで出す形にしたら「URLボタン→白い枠→押す」の2手になったので、ボタン自体を入力欄に）
         var inGo = new GameObject("UrlInput", typeof(RectTransform), typeof(Image));
         inGo.transform.SetParent(canvasGo.transform, false);
-        Place(inGo, 240f, 140f, 1040f, 100f);
-        inGo.GetComponent<Image>().color = Color.white;
+        Place(inGo, 20f, 140f, 200f, 100f);
+        inGo.GetComponent<Image>().color = new Color(0.95f, 0.55f, 0.45f);
         var field = inGo.AddComponent<VRCUrlInputField>();
-        var txt = Label(inGo.transform, "Text", "", font, 40, new Color(0.1f, 0.1f, 0.15f), TextAnchor.MiddleLeft); Fill(txt.gameObject, 20f);
-        txt.supportRichText = false;
-        var ph = Label(inGo.transform, "Placeholder", "ここに動画のURLを貼って Enter / Paste a video URL", font, 36, new Color(0.45f, 0.45f, 0.5f), TextAnchor.MiddleLeft); Fill(ph.gameObject, 20f);
+        var txt = Label(inGo.transform, "Text", "", font, 28, Color.white, TextAnchor.MiddleCenter); Fill(txt.gameObject, 8f);
+        txt.supportRichText = false; txt.horizontalOverflow = HorizontalWrapMode.Overflow;
+        var ph = Label(inGo.transform, "Placeholder", "URL", font, 40, Color.white, TextAnchor.MiddleCenter); Fill(ph.gameObject, 6f);
         var fSo = new SerializedObject(field);
         fSo.FindProperty("m_TextComponent").objectReferenceValue = txt;
         fSo.FindProperty("m_Placeholder").objectReferenceValue = ph;
         fSo.ApplyModifiedPropertiesWithoutUndo();
+        // 押した時の色の変化はボタンと同じくらいに
+        field.targetGraphic = inGo.GetComponent<Image>();
+        var cb = field.colors; cb.highlightedColor = new Color(1f, 0.9f, 0.85f); cb.pressedColor = new Color(0.8f, 0.8f, 0.8f); field.colors = cb;
         UnityEventTools.AddStringPersistentListener(field.onEndEdit, ub.SendCustomEvent, nameof(TejaVideoPlayer.OnUrlEntered));
         vp.urlField = field;
-        vp.urlFieldRoot = inGo;
-        inGo.SetActive(false);   // ふだんはしまっておく。URLボタンで出す
-        var ub2 = Button(canvasGo.transform, "UrlButton", "URL", font, 20f, 140f, 200f, 100f, ub, nameof(TejaVideoPlayer.ToggleUrlField));
-        vp.urlButtonLabel = ub2;
 
         // ボタン：再生/一時停止・再同期
         var pp = Button(canvasGo.transform, "PlayPause", "▶", font, 1300f, 140f, 200f, 100f, ub, nameof(TejaVideoPlayer.PlayPause));
