@@ -91,14 +91,16 @@ public static class TejaVideoPlayerBuilder
         controls.name = "VideoControls";
         controls.gameObject.SetActive(false);
 
-        // 切りかえの丸ボタン：見出しの右
+        // 切りかえの丸ボタン
         var title = inner.Find("Title");
         Vector3 tl = tv.InverseTransformPoint(title.position);
         var tgCv = new GameObject("VideoToggle", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         tgCv.transform.SetParent(tv, false);
         tgCv.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
         var trt = (RectTransform)tgCv.transform; trt.sizeDelta = new Vector2(160f, 160f); trt.localScale = Vector3.one * 0.00135f;
-        trt.localPosition = new Vector3(sl.x + 1.0f, tl.y, tl.z - 0.01f); trt.localRotation = Quaternion.identity;
+        // 画面の右の白いふちの下の方（見出しの横は高すぎて押しにくかった。2026-10-15 てじゃ）
+        float sw2 = tvScreen.lossyScale.x * 0.5f, sh2 = tvScreen.lossyScale.y * 0.5f;
+        trt.localPosition = new Vector3(sl.x + sw2 + 0.16f, sl.y - sh2 + 0.14f, rowZ - 0.004f); trt.localRotation = Quaternion.identity;
         tgCv.AddComponent<VRC.SDK3.Components.VRCUiShape>();
         var tbc = tgCv.AddComponent<BoxCollider>(); tbc.size = new Vector3(160f, 160f, 10f);
         var bGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); bGo.transform.SetParent(tgCv.transform, false);
