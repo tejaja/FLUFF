@@ -292,6 +292,8 @@ public static class FuwaDecoTools
                 foreach (var hit in Physics.RaycastAll(a + Vector3.up * 0.3f - outDir * back, Vector3.down, 0.6f, ~0, QueryTriggerInteraction.Ignore))
                     if (hit.collider.transform.IsChildOf(root) && !hit.collider.transform.IsChildOf(holder) && hit.collider.GetComponentInParent<Rigidbody>() == null && !hit.collider.isTrigger) { host = hit.collider; break; }
             if (host == null) continue;
+            // 木の足場（橋・板）に垂らしたツタは消す（2026-10-15 てじゃ「木の足場にあるのは撤去しといて」）
+            if (IsWood(host)) { Object.DestroyImmediate(inst.gameObject); moved++; continue; }
             // ツタの頂点（根元から見た形。上の端3cmは道の中に隠れてよいので除く）
             var lv = new List<Vector3>();
             var verts = vf.sharedMesh.vertices;
@@ -342,8 +344,21 @@ public static class FuwaDecoTools
                 }
             if (!any) { Object.DestroyImmediate(inst.gameObject); moved++; continue; }   // どこに置いてもそわせられない：消す
             if ((bestPos - inst.position).sqrMagnitude > 1e-6f || Quaternion.Angle(bestRot, inst.rotation) > 0.1f) { inst.SetPositionAndRotation(bestPos, bestRot); moved++; }
+            // 置いた後、ツタの一部が木の足場の下・横にかかっていたら消す（道と橋のつなぎ目など）
+            Physics.SyncTransforms();
+            var vb = vf.GetComponent<Renderer>().bounds;
+            bool wood = false;
+            foreach (var c in Physics.OverlapBox(vb.center, vb.extents + Vector3.one * 0.05f, Quaternion.identity, ~0, QueryTriggerInteraction.Ignore))
+                if (c.transform.IsChildOf(root) && IsWood(c)) { wood = true; break; }
+            if (wood) { Object.DestroyImmediate(inst.gameObject); moved++; continue; }
         }
         return (moved, total);
+    }
+
+    static bool IsWood(Collider c)
+    {
+        string n = c.name;
+        return n.Contains("Bridge") || n.Contains("Plank") || n.Contains("Board") || n.Contains("Wood") || n.Contains("Scaffold");
     }
 
     // 垂らしたツタが道・島の側面にめり込んでいたら、めり込まない所まで外へ出す（古いやり方。今は FitVinesToWall）
