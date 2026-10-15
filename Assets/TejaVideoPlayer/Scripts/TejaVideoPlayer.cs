@@ -20,6 +20,12 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public VRCUrlInputField urlField;
     [Tooltip("コピーのボタン（ふつうの文字の入力欄。中に今の動画のURLが入っていて、押すとVRChatの入力が出てそこからコピーできる。Enterしても再生は変わらない）。2026-10-15 てじゃ")]
     public InputField copyField;
+    [Tooltip("操作パネル（たたむタブで出す／隠す。自分の画面だけ）")]
+    public GameObject panelRoot;
+    public Text panelTabLabel;
+    [Tooltip("たたむタブ。たたんだ時は画面のすぐ下まで上げる（パネルの高さぶん）")]
+    public RectTransform panelTab;
+    public float panelHeight = 212f;
     public AudioSource[] speakers;
     [Header("表示（なくてもOK）")]
     public Text statusText;
@@ -147,6 +153,16 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         player.SetTime(target);
         RequestSerialization();
         _nextCheck = Time.time + 0.5f;   // 直後にバーを古い位置へ戻さない
+    }
+
+    // たたむタブ：操作パネルを出す／隠す（自分の画面だけ）
+    public void TogglePanel()
+    {
+        if (panelRoot == null) return;
+        bool show = !panelRoot.activeSelf;
+        panelRoot.SetActive(show);
+        if (panelTabLabel != null) panelTabLabel.text = show ? "▼" : "▲";
+        if (panelTab != null) { Vector2 a = panelTab.anchoredPosition; a.y = show ? 0f : panelHeight; panelTab.anchoredPosition = a; }
     }
 
     // スピーカーのボタン：自分だけミュート／解除
