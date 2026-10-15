@@ -83,7 +83,12 @@ public static class TejaVideoPlayerBuilder
         // 音：画面の左右のふち
         Vector3 sl = tv.InverseTransformPoint(tvScreen.position);
         float hw = tvScreen.lossyScale.x * 0.5f;
-        var spRoot = new GameObject("VideoSpeakers").transform; spRoot.SetParent(tv, false);
+        // スピーカーは本体（FuwaSystem/VideoPlayer＝エリアの切り替えで隠れない所）の下に、テレビと同じ位置・向きで置く。
+        // テレビと一緒に隠れると、戻ってきた時に AVPro の音が二度と出なくなった（2026-10-15 てじゃ「チャレンジに飛んで戻ると動画の音が復活しない」）。
+        // あそびばの外では audioZone で消音するので、隠さなくてよい
+        var spRoot = new GameObject("VideoSpeakers").transform; spRoot.SetParent(av.transform, false);
+        spRoot.SetPositionAndRotation(tv.position, tv.rotation); spRoot.localScale = Vector3.one;
+        { var ls = tv.lossyScale; var pls = av.transform.lossyScale; spRoot.localScale = new Vector3(ls.x / pls.x, ls.y / pls.y, ls.z / pls.z); }
         vp.speakers = MakeSpeakers(spRoot, new[] { sl + new Vector3(-hw, 0f, 0f), sl + new Vector3(hw, 0f, 0f) }, av);
 
         // 動画の操作パネル：ME／CAM ボタンの所（同じ高さ・テレビの真ん中）
@@ -182,6 +187,8 @@ public static class TejaVideoPlayerBuilder
     {
         var tv = room.Find("Monitor");
         var list = new System.Collections.Generic.List<Transform> { room.Find("VideoScreenTest") };
+        var sysT = room.root.gameObject.scene.GetRootGameObjects().FirstOrDefault(g => g.name == "FuwaSystem");
+        if (sysT != null) list.Add(sysT.transform.Find("VideoPlayer/VideoSpeakers"));
         if (tv != null)
         {
             list.Add(tv.Find("VideoSpeakers")); list.Add(tv.Find("VideoControls")); list.Add(tv.Find("VideoToggle")); list.Add(tv.Find("VideoHide"));
