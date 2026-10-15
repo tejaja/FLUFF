@@ -16,7 +16,7 @@ public static class FuwaFaceSetup
     const string PlainMat = MatDir + "Fuwa_BallFurPlain.mat";
     const string FluffPrefab = "Assets/FuwaCourse/Prefabs/Playground/Fluff.prefab";
     const float FaceStyle = 3f;   // 顔：点の目＋小さいにっこり口＋ほっぺ（2026-10-15 てじゃが選んだ。たて目はカービィすぎた）
-    const float PlainH = 0.5f;   // 毛オフの球の大きさ（毛の長さの何割ぶんふくらませるか）。毛ありの見た目の大きさに合わせる（0.6だとちょっと大きかった。2026-10-15 てじゃ「ごくわずかに小さく」）
+    const float PlainH = 0.3f;   // 毛オフの球の大きさ（毛の長さの何割ぶんふくらませるか）。毛ありの見た目の大きさに合わせる（0.6→0.5→0.3。2026-10-15 てじゃ「ごくわずかに小さく」「もうちょい小さく」）
 
     [MenuItem("FuwaCourse/ふわふわの顔・毛オフの材質をそろえる")]
     public static void Apply()
