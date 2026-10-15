@@ -1,10 +1,11 @@
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
 
 // 動画プレイヤーの操作パネルの見た目（2026-10-15 てじゃ「ボタンとかオシャレにしたい」→ 3案を順番に見る）
 // 0 = A：シンプルなメディアプレイヤー風（角の丸い半透明の黒、背景なしの白いアイコン、細いバー＋丸いつまみ）
-// 1 = B：FLUFFになじむ風（白いボタン＋オレンジの枠、紺のアイコン、クリーム色のパネル）
+// 1 = B：クリーム（FLUFFになじむ風）（白いボタン＋オレンジの枠、紺のアイコン、クリーム色のパネル）
 // 2 = C：ぽってり風（白っぽいパネル、ラベンダーの丸っこいボタンにやわらかい影。色はあそびばのテレビに合わせた）
 // 作るのは TejaVideoPlayerBuilder。ここは出来上がった物の色・形だけを変える（何度かけても同じ）
 public static class TejaVideoStyle
@@ -21,7 +22,7 @@ public static class TejaVideoStyle
 
     static S Get(int style)
     {
-        if (style == 1) return new S   // B：FLUFF
+        if (style == 1) return new S   // B：クリーム
         {
             panel = new Color(1f, 0.98f, 0.95f, 0.93f), btn = Color.white, btnHi = new Color(1f, 0.93f, 0.88f), btnPress = new Color(0.92f, 0.86f, 0.82f), btnDisabled = new Color(0.85f, 0.85f, 0.85f, 0.6f),
             icon = new Color(0.18f, 0.21f, 0.38f), accent = new Color(0.95f, 0.55f, 0.45f), track = new Color(0.18f, 0.21f, 0.38f, 0.15f), handle = new Color(0.95f, 0.55f, 0.45f),
@@ -187,15 +188,25 @@ public static class TejaVideoStyle
         return AssetDatabase.LoadAssetAtPath<Sprite>(path);
     }
 
-    [MenuItem("FuwaCourse/あそびば/動画プレイヤーの見た目/A シンプル")] static void MA() { ApplyScene(0); }
-    [MenuItem("FuwaCourse/あそびば/動画プレイヤーの見た目/B FLUFF風")] static void MB() { ApplyScene(1); }
-    [MenuItem("FuwaCourse/あそびば/動画プレイヤーの見た目/C ぽってり")] static void MC() { ApplyScene(2); }
+    [MenuItem("Tools/Teja Player/見た目/A シンプル")] static void MA() { ApplyScene(0); }
+    [MenuItem("Tools/Teja Player/見た目/B クリーム")] static void MB() { ApplyScene(1); }
+    [MenuItem("Tools/Teja Player/見た目/C ぽってり")] static void MC() { ApplyScene(2); }
 
+    // シーンの Teja Player の操作パネル全部（選んでいる物があれば、その中のプレイヤーだけ）に見た目をかける
     public static void ApplyScene(int style)
     {
-        var c = GameObject.Find("FuwaPlayground/Room/Monitor/VideoControls") ?? GameObject.Find("FuwaPlayground/Room/VideoScreenTest/Controls");
-        if (c == null) { Debug.LogError("動画プレイヤーの操作パネルが見つからない"); return; }
-        Apply(c.transform, style);
-        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(c.scene);
+        var all = Object.FindObjectsOfType<TejaVideoPlayer>(true);
+        var sel = Selection.transforms;
+        int n = 0;
+        foreach (var vp in all)
+        {
+            if (vp.panelRoot == null || vp.panelRoot.transform.parent == null) continue;
+            var c = vp.panelRoot.transform.parent;
+            if (sel.Length > 0 && !sel.Any(t => c.IsChildOf(t) || vp.transform.IsChildOf(t))) continue;
+            Apply(c, style);
+            UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(c.gameObject.scene);
+            n++;
+        }
+        if (n == 0) Debug.LogWarning("Teja Player の操作パネルが見つからない");
     }
 }
