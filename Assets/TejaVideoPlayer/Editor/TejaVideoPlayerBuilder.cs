@@ -344,15 +344,15 @@ public static class TejaVideoPlayerBuilder
         vp.copyField = copy;
 
         // ボタン：再生/一時停止・再同期
-        var pp = Button(pt, "PlayPause", "▶", font, 430f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.PlayPause));
+        var pp = Button(pt, "PlayPause", "▶", font, 560f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.PlayPause));
         vp.playPauseLabel = pp; pp.fontSize = 64;   // アイコンと同じくらいの大きさに（2026-10-15 てじゃ「各アイコンの大きさ自体おおきく」）
-        // くり返し（再生の横、半分の幅。みんな共通、最初はオフ。OFFの時はグレーアウト）（2026-10-15 てじゃ「連続再生の切り替えスイッチ」「場所は再生の横」「オフがグレーアウト」）
-        var lp = Button(pt, "Loop", "", font, 670f, 12f, 110f, 116f, ub, nameof(TejaVideoPlayer.ToggleLoop));
+        // くり返し（再生の左、半分の幅。みんな共通、最初はオフ。OFFの時はグレーアウト）（2026-10-15 てじゃ「連続再生の切り替えスイッチ」「場所は再生の横」→「再生ボタンの左側」「オフがグレーアウト」）
+        var lp = Button(pt, "Loop", "", font, 430f, 12f, 110f, 116f, ub, nameof(TejaVideoPlayer.ToggleLoop));
         var lpBtn = lp.transform.parent;
         IconOn(lpBtn, "Icon_Loop.png", 84f);
         vp.loopButtonImage = lpBtn.GetComponent<Image>();
         vp.loopIcon = lpBtn.Find("Icon").GetComponent<Image>();
-        // 停止（最初に戻して止める）。ボタンは左にまとめて、くさり・コピー｜すき間｜再生・くり返し・停止・再同期（2026-10-15 てじゃ）
+        // 停止（最初に戻して止める）。ボタンは左にまとめて、くさり・コピー｜すき間｜くり返し・再生・停止・再同期（2026-10-15 てじゃ）
         var stopL = Button(pt, "Stop", "■", font, 800f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.StopVideo));
         stopL.fontSize = 60;
         // 再同期は記号だけ（ぐるっと矢印。↻ はフォントに無くてVRChatで豆腐になるので絵で。2026-10-15 てじゃ「記号だけでいいかも」）
