@@ -113,6 +113,10 @@ public static class TejaVideoPlayerBuilder
             speakers[i] = a;
         }
         vp.speakers = speakers;
+        // 音は あそびば の中だけ、再生中は あそびば のBGMを止める（2026-10-15 てじゃ「動画の音声は遊び場のみ、再生中はあそびばのみBGMオフ」）
+        vp.audioZone = roots.First(g => g.name == "FuwaPlayground").transform;
+        vp.audioZoneRadius = 17f;   // 島の半径14m＋柵の外の少し
+        vp.bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault();
 
         // ----- 操作パネル（画面のすぐ下。ワールドの Canvas、レーザーで押す） -----
         var canvasGo = new GameObject("Controls", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));

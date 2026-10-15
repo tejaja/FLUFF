@@ -185,6 +185,9 @@ public class FuwaBgm : UdonSharpBehaviour
         UpdateLabel();
     }
 
+    [Tooltip("ほかの係が「今はBGMを止めて」と言っている間 true（あそびばで動画を再生中など。TejaVideoPlayer が SetProgramVariable で入れる）。戻ったら元の音量でまた鳴る")]
+    [HideInInspector] public bool externalSilence;
+
     [Tooltip("保存した音量を読み込むまで（OnPlayerRestored）曲を鳴らさずに待つ最大秒数。待たないと入った直後に一瞬いつもの音量で鳴る")]
     public float restoreWaitMax = 6f;
 
@@ -225,14 +228,14 @@ public class FuwaBgm : UdonSharpBehaviour
             if (s == null) continue;
             // 止まっている曲は、ワンテンポ置いてから頭から普通の音量で鳴らす（フェードインすると曲の頭が
             // 聞こえないので。前の曲だけフェードアウトする）。フェードアウト中の曲に戻る時は続きからフェードイン
-            if (i == _current && !s.isPlaying && !_muted)
+            if (i == _current && !s.isPlaying && !_muted && !externalSilence)
             {
                 if (Time.time < _startAt) continue;
                 _vol[i] = 1f;
                 s.volume = Vol();
                 s.Play();
             }
-            float goal = (i == _current && !_muted) ? 1f : 0f;
+            float goal = (i == _current && !_muted && !externalSilence) ? 1f : 0f;
             _vol[i] = Mathf.MoveTowards(_vol[i], goal, step);
             s.volume = _vol[i] * _vol[i] * Vol();   // 2乗で聞こえ方の変化をなめらかに
             if (_vol[i] <= 0f && s.isPlaying) s.Stop();

@@ -26,6 +26,15 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public Slider volumeSlider;
     public Slider seekSlider;
 
+    [Header("音の範囲・BGM（なくてもOK）")]
+    [Tooltip("この中心から audioZoneRadius 以内に自分がいる時だけ動画の音を出す（空なら どこでも）")]
+    public Transform audioZone;
+    public float audioZoneRadius = 17f;
+    public float audioZoneHeight = 20f;
+    [Tooltip("範囲の中で動画が再生中の間、このBGMの係の bgmSilenceVariable を true にして止めてもらう（止まったら false で元の音量に戻る）")]
+    public UdonSharpBehaviour bgm;
+    public string bgmSilenceVariable = "externalSilence";
+
     [Header("調整")]
     [Tooltip("ずれがこれ（秒）を超えたら、持ち主の位置に寄せる")]
     public float maxDrift = 1.0f;
@@ -45,6 +54,9 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     private float _nextLoad;
     private float _nextCheck;
     private string _status = "";
+    private bool _inZone = true;
+    private bool _silencing;
+    private float _nextZone;
 
     private void Start()
     {
@@ -241,6 +253,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     private void Update()
     {
+        UpdateZone();
         if (Time.time < _nextCheck) return;
         _nextCheck = Time.time + 0.5f;
         // 持ち主以外：ときどき位置のずれを見て寄せる
@@ -256,6 +269,34 @@ public class TejaVideoPlayer : UdonSharpBehaviour
             if (!_ready) timeText.text = "";
             else if (IsLive()) timeText.text = "LIVE";
             else timeText.text = Clock(player.GetTime()) + " / " + Clock(player.GetDuration());
+        }
+    }
+
+    // 範囲の外では動画の音を消す。範囲の中で再生中ならBGMを止めてもらう
+    private void UpdateZone()
+    {
+        if (Time.time < _nextZone) return;
+        _nextZone = Time.time + 0.25f;
+        bool inZone = true;
+        if (audioZone != null)
+        {
+            VRCPlayerApi lp = Networking.LocalPlayer;
+            if (lp != null)
+            {
+                Vector3 d = lp.GetPosition() - audioZone.position;
+                inZone = Mathf.Abs(d.y) < audioZoneHeight && new Vector2(d.x, d.z).magnitude < audioZoneRadius;
+            }
+        }
+        if (inZone != _inZone || Time.frameCount < 5)
+        {
+            _inZone = inZone;
+            if (speakers != null) for (int i = 0; i < speakers.Length; i++) if (speakers[i] != null) speakers[i].mute = !inZone;
+        }
+        bool silence = inZone && _ready && player.IsPlaying;
+        if (silence != _silencing)
+        {
+            _silencing = silence;
+            if (bgm != null) bgm.SetProgramVariable(bgmSilenceVariable, silence);
         }
     }
 
