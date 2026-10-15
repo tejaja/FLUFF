@@ -11,7 +11,7 @@ using VRC.SDK3.Video.Components.AVPro;
 
 // シンプルな同期動画プレイヤーを置く（何度実行しても同じ結果＝前のを消して作り直し）。
 // ・本体（AVPro の再生部品＋TejaVideoPlayer）は FuwaSystem の下（エリア切り替えで隠れない所。隠れると同期を取りこぼす）
-// ・画面・音・操作パネルは、あそびばの観戦リビングのテレビの横（テスト。2026-10-15 てじゃ「とりあえずテストとして横あたりに」「画面のみで」）
+// ・画面・音・操作パネルは、あそびばの観戦リビングのテレビに組み込む（おっかけカメラ⇄動画の切りかえ、BuildTv）。テレビの横に画面だけ置くテスト版（Build）も残す
 public static class TejaVideoPlayerBuilder
 {
     const string Dir = "Assets/TejaVideoPlayer/";
@@ -29,23 +29,136 @@ public static class TejaVideoPlayerBuilder
     const float TabH = 72f;   // パネルの下のたたむタブの段の高さ（Canvas の単位）
     public static int Style = 2;   // 操作パネルの見た目（TejaVideoStyle：0=A シンプル、1=B FLUFF風、2=C ぽってり）
 
-    [MenuItem("FuwaCourse/あそびば/動画プレイヤー（テスト）を置く")]
+    // ===== テスト用：テレビの横に画面だけ置く（ほかのワールドで使う時の形） =====
+    [MenuItem("FuwaCourse/あそびば/動画プレイヤー（テスト）をテレビの横に置く")]
     public static void Build()
     {
         var scene = EditorSceneManager.GetActiveScene();
         var roots = scene.GetRootGameObjects();
-        var sys = roots.First(g => g.name == "FuwaSystem").transform;
         var room = roots.First(g => g.name == "FuwaPlayground").transform.Find("Room");
         var tv = room.Find("Monitor");
-
-        // 前の画面は片付け。本体（同期する物）は作り直さず使い回す
-        //（消して作り直すと、シーンのネットワークIDの一覧に古い物が残ってビルドの AssignSceneNetworkIDs で止まることがある）
-        var oldScreen = room.Find("VideoScreenTest"); if (oldScreen != null) Object.DestroyImmediate(oldScreen.gameObject);
-
-        EnsureProgram();
+        RemoveScreens(room);
         var font = AssetDatabase.LoadAssetAtPath<Font>(FontPath);
+        var core = EnsureCore(roots);
+        var av = core.Item1; var vp = core.Item2;
 
-        // ----- 本体 -----
+        // 置き場所：テレビの横。画面はテレビと同じ向き（島の真ん中から見える向き）
+        var root = new GameObject("VideoScreenTest").transform; root.SetParent(room, false);
+        var floor = room.Find("Floor").GetComponent<Renderer>().bounds.max.y;
+        Vector3 center = room.position; center.y = tv.position.y;
+        Vector3 toViewer = (center - tv.position); toViewer.y = 0f; toViewer.Normalize();
+        Vector3 right = Vector3.Cross(Vector3.up, toViewer);   // 見る人から見て左＝この向き。テレビの左に置く
+        root.position = new Vector3(tv.position.x, floor, tv.position.z) + right * SideOffset;
+        root.rotation = Quaternion.LookRotation(-toViewer, Vector3.up);   // Quad は -Z 側が表なので、+Z を奥（見る人と反対）へ
+
+        MakeScreen(root, "Screen", new Vector3(0f, ScreenCenterY, 0f), Quaternion.identity, new Vector3(ScreenW, ScreenH, 1f), av, true);
+        vp.speakers = MakeSpeakers(root, new[] { new Vector3(-ScreenW * 0.5f, ScreenCenterY, 0f), new Vector3(ScreenW * 0.5f, ScreenCenterY, 0f) }, av);
+        BuildControls(root, new Vector3(0f, ScreenCenterY - ScreenH * 0.5f - 0.01f - (212f + TabH) * 0.0005f, -0.01f), 0.001f, true, vp, font);
+        Finish(vp, scene);
+        Selection.activeGameObject = root.gameObject;
+    }
+
+    // ===== あそびばの観戦リビングのテレビに組み込む（おっかけカメラ ⇄ 動画） =====
+    // 2026-10-15 てじゃ「おすすめでいこう」：見出しの横の丸ボタンで切りかえ＋だれかが再生したら自動で動画、停止・おわりでカメラ。
+    // 動画の時は ME／CAM ボタンの所が動画の操作パネルに入れかわる。テレビの画面はもともと16:9（カメラの映像も1280×720）なのでそのまま重ねる
+    [MenuItem("FuwaCourse/あそびば/動画プレイヤーをテレビに組み込む")]
+    public static void BuildTv()
+    {
+        var scene = EditorSceneManager.GetActiveScene();
+        var roots = scene.GetRootGameObjects();
+        var room = roots.First(g => g.name == "FuwaPlayground").transform.Find("Room");
+        var tv = room.Find("Monitor");             // テレビ全体（向き・位置の基準）
+        var inner = tv.Find("Monitor");            // 画面・見出しがある方
+        var tvScreen = inner.Find("Screen");
+        RemoveScreens(room);
+        var font = AssetDatabase.LoadAssetAtPath<Font>(FontPath);
+        var core = EnsureCore(roots);
+        var av = core.Item1; var vp = core.Item2;
+
+        // 動画の画面：テレビの画面と同じ大きさで、ほんの少し手前（名前の文字より手前）
+        var vs = MakeScreen(inner, "VideoScreen", tvScreen.localPosition + new Vector3(0f, 0f, -0.012f), tvScreen.localRotation, tvScreen.localScale, av, false);
+        vs.SetActive(false);
+        // 音：画面の左右のふち
+        Vector3 sl = tv.InverseTransformPoint(tvScreen.position);
+        float hw = tvScreen.lossyScale.x * 0.5f;
+        var spRoot = new GameObject("VideoSpeakers").transform; spRoot.SetParent(tv, false);
+        vp.speakers = MakeSpeakers(spRoot, new[] { sl + new Vector3(-hw, 0f, 0f), sl + new Vector3(hw, 0f, 0f) }, av);
+
+        // 動画の操作パネル：ME／CAM ボタンの所（同じ高さ・テレビの真ん中）
+        var tb = tv.Find("TargetButton");
+        float rowY = tb != null ? tb.localPosition.y : 0.25f, rowZ = tb != null ? tb.localPosition.z - 0.002f : -0.012f;
+        var controls = BuildControls(tv, new Vector3(sl.x, rowY, rowZ), 0.00135f, false, vp, font);
+        controls.name = "VideoControls";
+        controls.gameObject.SetActive(false);
+
+        // 切りかえの丸ボタン：見出しの右
+        var title = inner.Find("Title");
+        Vector3 tl = tv.InverseTransformPoint(title.position);
+        var tgCv = new GameObject("VideoToggle", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        tgCv.transform.SetParent(tv, false);
+        tgCv.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+        var trt = (RectTransform)tgCv.transform; trt.sizeDelta = new Vector2(160f, 160f); trt.localScale = Vector3.one * 0.00135f;
+        trt.localPosition = new Vector3(sl.x + 1.0f, tl.y, tl.z - 0.01f); trt.localRotation = Quaternion.identity;
+        tgCv.AddComponent<VRC.SDK3.Components.VRCUiShape>();
+        var tbc = tgCv.AddComponent<BoxCollider>(); tbc.size = new Vector3(160f, 160f, 10f);
+        var bGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); bGo.transform.SetParent(tgCv.transform, false);
+        var brt = (RectTransform)bGo.transform; brt.anchorMin = Vector2.zero; brt.anchorMax = Vector2.one; brt.offsetMin = Vector2.zero; brt.offsetMax = Vector2.zero;
+        var bImg = bGo.GetComponent<Image>(); bImg.sprite = IconSprite9(Dir + "UI_Circle.png"); bImg.color = Color.white;
+        var bSel = bGo.GetComponent<UnityEngine.UI.Button>();
+        var cb = bSel.colors; cb.normalColor = new Color(0.62f, 0.55f, 0.86f); cb.highlightedColor = new Color(0.72f, 0.66f, 0.93f); cb.pressedColor = new Color(0.52f, 0.45f, 0.76f); cb.selectedColor = cb.normalColor; bSel.colors = cb;
+        var sh = bGo.AddComponent<Shadow>(); sh.effectColor = new Color(0.36f, 0.3f, 0.55f, 0.35f); sh.effectDistance = new Vector2(0f, -6f);
+        var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image)); icon.transform.SetParent(bGo.transform, false);
+        var irt = (RectTransform)icon.transform; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.sizeDelta = new Vector2(104f, 104f);
+        var iImg = icon.GetComponent<Image>(); iImg.raycastTarget = false; iImg.preserveAspect = true;
+
+        // 切りかえの係（自分の画面だけ。テレビと一緒にエリアで隠れてよい）
+        var swT = tv.Find("VideoSwitch");
+        var swGo = swT != null ? swT.gameObject : new GameObject("VideoSwitch");
+        swGo.transform.SetParent(tv, false);
+        EnsureProgramFor("Assets/FuwaCourse/Scripts/FuwaTvVideoSwitch.cs", "Assets/FuwaCourse/Scripts/FuwaTvVideoSwitch.asset");
+        var sw = swGo.GetComponent<FuwaTvVideoSwitch>(); if (sw == null) sw = UdonSharpUndo.AddComponent<FuwaTvVideoSwitch>(swGo);
+        sw.video = vp;
+        sw.videoScreen = vs;
+        sw.videoControls = controls.gameObject;
+        var tbT = tv.Find("TargetButton"); var cbT = tv.Find("CamButton");
+        sw.cameraOnly = new[] { tbT != null ? tbT.gameObject : null, cbT != null ? cbT.gameObject : null };
+        sw.title = title.GetComponent<TMPro.TextMeshPro>();
+        sw.language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
+        sw.toggleIcon = iImg;
+        sw.iconToVideo = IconSprite(Dir + "Icon_TvPlay.png");
+        sw.iconToCam = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/FuwaCourse/Textures/Icon_Video.png");   // CAM ボタンと同じビデオカメラの絵
+        iImg.sprite = sw.iconToVideo;
+        var swUb = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw);
+        UnityEventTools.AddStringPersistentListener(bSel.onClick, swUb.SendCustomEvent, nameof(FuwaTvVideoSwitch.ToggleMode));
+        UdonSharpEditorUtility.CopyProxyToUdon(sw);
+        if (swUb != null) { swUb.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(swUb); }
+
+        Finish(vp, scene);
+        Selection.activeGameObject = tv.gameObject;
+    }
+
+    // 前の画面（テスト・テレビ組み込み）を片付け。本体（同期する物）は作り直さず使い回す
+    //（消して作り直すと、シーンのネットワークIDの一覧に古い物が残ってビルドの AssignSceneNetworkIDs で止まることがある）
+    static void RemoveScreens(Transform room)
+    {
+        var tv = room.Find("Monitor");
+        var list = new System.Collections.Generic.List<Transform> { room.Find("VideoScreenTest") };
+        if (tv != null)
+        {
+            list.Add(tv.Find("VideoSpeakers")); list.Add(tv.Find("VideoControls")); list.Add(tv.Find("VideoToggle"));
+            var inner = tv.Find("Monitor"); if (inner != null) list.Add(inner.Find("VideoScreen"));
+            // カメラのボタンが隠れたまま残らないように
+            foreach (var n in new[] { "TargetButton", "CamButton" }) { var b = tv.Find(n); if (b != null) b.gameObject.SetActive(true); }
+            var title = tv.Find("Monitor/Title"); var swT = tv.Find("VideoSwitch");
+            if (swT != null && title != null) { var s = swT.GetComponent<FuwaTvVideoSwitch>(); if (s != null) title.GetComponent<TMPro.TextMeshPro>().text = s.camTitleJa; }
+        }
+        foreach (var t in list) if (t != null) Object.DestroyImmediate(t.gameObject);
+    }
+
+    static System.Tuple<VRCAVProVideoPlayer, TejaVideoPlayer> EnsureCore(GameObject[] roots)
+    {
+        EnsureProgram();
+        var sys = roots.First(g => g.name == "FuwaSystem").transform;
         var coreT = sys.Find("VideoPlayer");
         var core = coreT != null ? coreT.gameObject : new GameObject("VideoPlayer");
         core.transform.SetParent(sys, false);
@@ -57,28 +170,24 @@ public static class TejaVideoPlayerBuilder
         avSo.ApplyModifiedPropertiesWithoutUndo();
         var vp = core.GetComponent<TejaVideoPlayer>(); if (vp == null) vp = UdonSharpUndo.AddComponent<TejaVideoPlayer>(core);
         vp.player = av;
+        // 音は あそびば の中だけ、再生中は あそびば のBGMを止める（2026-10-15 てじゃ「動画の音声は遊び場のみ、再生中はあそびばのみBGMオフ」）
+        vp.audioZone = roots.First(g => g.name == "FuwaPlayground").transform;
+        vp.audioZoneRadius = 17f;   // 島の半径14m＋柵の外の少し
+        vp.bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault();
+        return System.Tuple.Create(av, vp);
+    }
 
-        // ----- 置き場所：テレビの横。画面はテレビと同じ向き（島の真ん中から見える向き） -----
-        var root = new GameObject("VideoScreenTest").transform; root.SetParent(room, false);
-        var floor = room.Find("Floor").GetComponent<Renderer>().bounds.max.y;
-        // テレビの「見る人の方」：島の真ん中側
-        Vector3 center = room.position; center.y = tv.position.y;
-        Vector3 toViewer = (center - tv.position); toViewer.y = 0f; toViewer.Normalize();
-        Vector3 right = Vector3.Cross(Vector3.up, toViewer);   // 見る人から見て左＝この向き。テレビの左に置く
-        root.position = new Vector3(tv.position.x, floor, tv.position.z) + right * SideOffset;
-        root.rotation = Quaternion.LookRotation(-toViewer, Vector3.up);   // Quad は -Z 側が表なので、+Z を奥（見る人と反対）へ
-
-        // 画面
+    static GameObject MakeScreen(Transform parent, string name, Vector3 lp, Quaternion lr, Vector3 ls, VRCAVProVideoPlayer av, bool withBack)
+    {
         var mat = AssetDatabase.LoadAssetAtPath<Material>(MatPath);
         if (mat == null) { mat = new Material(Shader.Find("TejaVideo/Screen")); AssetDatabase.CreateAsset(mat, MatPath); }
-        mat.SetFloat("_ScreenAspect", ScreenW / ScreenH);
-        var screen = GameObject.CreatePrimitive(PrimitiveType.Quad); screen.name = "Screen";
+        mat.SetFloat("_ScreenAspect", ls.x / ls.y);
+        var screen = GameObject.CreatePrimitive(PrimitiveType.Quad); screen.name = name;
         Object.DestroyImmediate(screen.GetComponent<Collider>());
-        screen.transform.SetParent(root, false);
-        screen.transform.localPosition = new Vector3(0f, ScreenCenterY, 0f);
-        screen.transform.localScale = new Vector3(ScreenW, ScreenH, 1f);
-        screen.GetComponent<MeshRenderer>().sharedMaterial = mat;
-        screen.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        screen.transform.SetParent(parent, false);
+        screen.transform.localPosition = lp; screen.transform.localRotation = lr; screen.transform.localScale = ls;
+        var mr = screen.GetComponent<MeshRenderer>();
+        mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         var vs = screen.AddComponent<VRCAVProVideoScreen>();
         var vsSo = new SerializedObject(vs);
         vsSo.FindProperty("videoPlayer").objectReferenceValue = av;
@@ -86,23 +195,29 @@ public static class TejaVideoPlayerBuilder
         vsSo.FindProperty("textureProperty").stringValue = "_MainTex";
         vsSo.FindProperty("useSharedMaterial").boolValue = false;
         vsSo.ApplyModifiedPropertiesWithoutUndo();
-        // 裏面（黒い板。裏から見て透けないように）
-        var back = GameObject.CreatePrimitive(PrimitiveType.Quad); back.name = "Back";
-        Object.DestroyImmediate(back.GetComponent<Collider>());
-        back.transform.SetParent(root, false);
-        back.transform.localPosition = new Vector3(0f, ScreenCenterY, 0.005f);
-        back.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-        back.transform.localScale = new Vector3(ScreenW, ScreenH, 1f);
-        var blackMat = AssetDatabase.LoadAssetAtPath<Material>(Dir + "TejaVideoBack.mat");
-        if (blackMat == null) { blackMat = new Material(Shader.Find("Unlit/Color")); blackMat.color = new Color(0.05f, 0.05f, 0.07f); AssetDatabase.CreateAsset(blackMat, Dir + "TejaVideoBack.mat"); }
-        back.GetComponent<MeshRenderer>().sharedMaterial = blackMat;
-
-        // 音（左右2つ。画面の左右のふち）
-        var speakers = new AudioSource[2];
-        for (int i = 0; i < 2; i++)
+        if (withBack)
         {
-            var s = new GameObject(i == 0 ? "SpeakerL" : "SpeakerR"); s.transform.SetParent(root, false);
-            s.transform.localPosition = new Vector3((i == 0 ? -1 : 1) * ScreenW * 0.5f, ScreenCenterY, 0f);
+            // 裏面（黒い板。裏から見て透けないように）
+            var back = GameObject.CreatePrimitive(PrimitiveType.Quad); back.name = "Back";
+            Object.DestroyImmediate(back.GetComponent<Collider>());
+            back.transform.SetParent(screen.transform, false);
+            back.transform.localPosition = new Vector3(0f, 0f, 0.005f);
+            back.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            var blackMat = AssetDatabase.LoadAssetAtPath<Material>(Dir + "TejaVideoBack.mat");
+            if (blackMat == null) { blackMat = new Material(Shader.Find("Unlit/Color")); blackMat.color = new Color(0.05f, 0.05f, 0.07f); AssetDatabase.CreateAsset(blackMat, Dir + "TejaVideoBack.mat"); }
+            back.GetComponent<MeshRenderer>().sharedMaterial = blackMat;
+        }
+        return screen;
+    }
+
+    // 音（左右2つ）
+    static AudioSource[] MakeSpeakers(Transform parent, Vector3[] localPos, VRCAVProVideoPlayer av)
+    {
+        var speakers = new AudioSource[localPos.Length];
+        for (int i = 0; i < localPos.Length; i++)
+        {
+            var s = new GameObject(i == 0 ? "SpeakerL" : "SpeakerR"); s.transform.SetParent(parent, false);
+            s.transform.localPosition = localPos[i];
             var a = s.AddComponent<AudioSource>();
             a.playOnAwake = false; a.spatialBlend = 1f; a.rolloffMode = AudioRolloffMode.Linear; a.minDistance = SoundNear; a.maxDistance = SoundFar; a.dopplerLevel = 0f;
             var sp = s.AddComponent<VRCAVProVideoSpeaker>();
@@ -117,26 +232,36 @@ public static class TejaVideoPlayerBuilder
             saSo.ApplyModifiedPropertiesWithoutUndo();
             speakers[i] = a;
         }
-        vp.speakers = speakers;
-        // 音は あそびば の中だけ、再生中は あそびば のBGMを止める（2026-10-15 てじゃ「動画の音声は遊び場のみ、再生中はあそびばのみBGMオフ」）
-        vp.audioZone = roots.First(g => g.name == "FuwaPlayground").transform;
-        vp.audioZoneRadius = 17f;   // 島の半径14m＋柵の外の少し
-        vp.bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault();
+        return speakers;
+    }
 
+    static void Finish(TejaVideoPlayer vp, UnityEngine.SceneManagement.Scene scene)
+    {
+        UdonSharpEditorUtility.CopyProxyToUdon(vp);
+        var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(vp);
+        // 同期は Manual（AddComponent 直後は Continuous のことがある）
+        if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); }
+        EditorSceneManager.MarkSceneDirty(scene);
+    }
+
+    // 操作パネル（2段：上＝シークバー・時間、下＝ボタン・音量）。localPos は Canvas の真ん中、scale は Canvas 1単位の大きさ(m)
+    static Transform BuildControls(Transform parent, Vector3 localPos, float scale, bool withTab, TejaVideoPlayer vp, Font font)
+    {
+        float tabH = withTab ? TabH : 0f;
         // ----- 操作パネル（画面のすぐ下。ワールドの Canvas、レーザーで押す） -----
         var canvasGo = new GameObject("Controls", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        canvasGo.transform.SetParent(root, false);
+        canvasGo.transform.SetParent(parent, false);
         var cv = canvasGo.GetComponent<Canvas>(); cv.renderMode = RenderMode.WorldSpace;
         var crt = (RectTransform)canvasGo.transform;
-        crt.sizeDelta = new Vector2(1920f, 212f + TabH);   // 2段：上＝シークバー・時間（読み込み前は状態の文字）、下＝ボタン・音量（2026-10-15 てじゃ「ボリュームを上に、スリムに」）
-        crt.localScale = Vector3.one * 0.001f;
-        crt.localPosition = new Vector3(0f, ScreenCenterY - ScreenH * 0.5f - 0.01f - (212f + TabH) * 0.0005f, -0.01f);
+        crt.sizeDelta = new Vector2(1920f, 212f + tabH);   // 2段：上＝シークバー・時間（読み込み前は状態の文字）、下＝ボタン・音量（2026-10-15 てじゃ「ボリュームを上に、スリムに」）
+        crt.localScale = Vector3.one * scale;
+        crt.localPosition = localPos;
         crt.localRotation = Quaternion.identity;   // Canvas も Quad と同じく -Z 側（見る人の側）が表
         canvasGo.AddComponent<VRC.SDK3.Components.VRCUiShape>();
-        var cbox = canvasGo.AddComponent<BoxCollider>(); cbox.size = new Vector3(1920f, 212f + TabH, 10f);   // レーザーが当たる板（左下基準ではなく真ん中基準）
+        var cbox = canvasGo.AddComponent<BoxCollider>(); cbox.size = new Vector3(1920f, 212f + tabH, 10f);   // レーザーが当たる板（左下基準ではなく真ん中基準）
         // パネル本体（たたむと消える）と、その下のたたむタブ（2026-10-15 てじゃ「下のUIを隠す・戻す」→ B：パネルの端の小さいタブ。画面クリックだとVRで誤操作するので）
         var panelGo = new GameObject("Panel", typeof(RectTransform), typeof(Image)); panelGo.transform.SetParent(canvasGo.transform, false);
-        Place(panelGo, 0f, TabH, 1920f, 212f);
+        Place(panelGo, 0f, tabH, 1920f, 212f);
         panelGo.GetComponent<Image>().color = new Color(0.12f, 0.14f, 0.2f, 0.85f);
         var pt = panelGo.transform;
         vp.panelRoot = panelGo;
@@ -225,7 +350,10 @@ public static class TejaVideoPlayerBuilder
         var tm = Label(pt, "Time", "", font, 36, Color.white, TextAnchor.MiddleRight); Place(tm.gameObject, 1620f, 140f, 280f, 68f);
         vp.timeText = tm;
 
-        // たたむタブ（パネルの右下にぶら下がる。▼でたたむ、▲で出す）
+        // たたむタブ（パネルの右下にぶら下がる。▼でたたむ、▲で出す）。テレビに組み込む時はなし（カメラと切りかえるので）
+        vp.panelTab = null; vp.panelTabLabel = null;
+        if (withTab)
+        {
         var tabGo = new GameObject("PanelTab", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); tabGo.transform.SetParent(canvasGo.transform, false);
         Place(tabGo, 1700f, 0f, 200f, TabH - 4f);
         tabGo.GetComponent<Image>().color = new Color(0.12f, 0.14f, 0.2f, 0.85f);
@@ -233,15 +361,10 @@ public static class TejaVideoPlayerBuilder
         var tabL = Label(tabGo.transform, "Label", "▼", font, 44, Color.white, TextAnchor.MiddleCenter); Fill(tabL.gameObject, 4f);
         vp.panelTabLabel = tabL;
         vp.panelTab = (RectTransform)tabGo.transform; vp.panelHeight = 212f;
+        }
 
         TejaVideoStyle.Apply(canvasGo.transform, Style);   // 見た目（色・角の丸み）
-
-        UdonSharpEditorUtility.CopyProxyToUdon(vp);
-        // 同期は Manual（AddComponent 直後は Continuous のことがある）
-        if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); }
-        EditorSceneManager.MarkSceneDirty(scene);
-        Selection.activeGameObject = root.gameObject;
-        Debug.Log("TejaVideoPlayer: placed at " + root.position);
+        return canvasGo.transform;
     }
 
     // 左下基準（Canvas の左下が (0,0)）で置く
@@ -293,6 +416,23 @@ public static class TejaVideoPlayerBuilder
             imp.SaveAndReimport();
         }
         return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+    }
+
+    static Sprite IconSprite9(string path)
+    {
+        var imp = (TextureImporter)AssetImporter.GetAtPath(path);
+        if (imp != null && (imp.textureType != TextureImporterType.Sprite || !imp.alphaIsTransparency)) { imp.textureType = TextureImporterType.Sprite; imp.alphaIsTransparency = true; imp.SaveAndReimport(); }
+        return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+    }
+
+    static void EnsureProgramFor(string script, string asset)
+    {
+        if (AssetDatabase.LoadAssetAtPath<UdonSharpProgramAsset>(asset) != null) return;
+        var prog = ScriptableObject.CreateInstance<UdonSharpProgramAsset>();
+        prog.sourceCsScript = AssetDatabase.LoadAssetAtPath<MonoScript>(script);
+        AssetDatabase.CreateAsset(prog, asset);
+        AssetDatabase.SaveAssets();
+        UdonSharp.Compiler.UdonSharpCompilerV1.CompileSync();
     }
 
     static void EnsureProgram()

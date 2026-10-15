@@ -171,7 +171,7 @@ public static class TejaVideoStyle
 
     public static void ApplyScene(int style)
     {
-        var c = GameObject.Find("FuwaPlayground/Room/VideoScreenTest/Controls");
+        var c = GameObject.Find("FuwaPlayground/Room/Monitor/VideoControls") ?? GameObject.Find("FuwaPlayground/Room/VideoScreenTest/Controls");
         if (c == null) { Debug.LogError("動画プレイヤーの操作パネルが見つからない"); return; }
         Apply(c.transform, style);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(c.scene);

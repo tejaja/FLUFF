@@ -65,6 +65,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     private bool _loadQueued;
     private float _nextLoad;
     private float _nextCheck;
+    private bool _ended;      // 最後まで再生した（自分の画面）
     private bool _inZone = true;
     private bool _userMuted;   // スピーカーのボタンで自分だけミュート
     private bool _silencing;
@@ -223,6 +224,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
             return;
         }
         _ready = false;
+        _ended = false;
         _loadedVer = _ver;
         ShowUrl();
         _nextLoad = Time.time + loadInterval;
@@ -257,6 +259,16 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         if (force || Mathf.Abs(player.GetTime() - target) > maxDrift) player.SetTime(target);
     }
 
+    // ほかの係（テレビの切りかえなど）から：今まさに再生中か
+    public bool IsPlayingNow() { return _ready && player.IsPlaying; }
+    // 動画なし・■停止（最初で止まっている）・最後まで再生した、のどれか（一時停止は含まない）
+    public bool IsIdle()
+    {
+        if (_url == null || _url.Get() == "") return true;
+        if (_ended) return true;
+        return _paused && _pausedAt <= 0.01f && !IsLive();
+    }
+
     private bool IsLive()
     {
         float d = player.GetDuration();
@@ -280,6 +292,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     public override void OnVideoStart()
     {
+        _ended = false;
         // 持ち主：再生が始まった時刻から「動画の0秒のサーバー時刻」を決めて配る（最初の1回だけ。一時停止からの再開は PlayPause で決める）
         if (Networking.IsOwner(gameObject) && _start < 0 && !IsLive())
         {
@@ -291,6 +304,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     public override void OnVideoEnd()
     {
+        _ended = true;
         SetStatus("Ended");
         UpdatePlayLabel();
     }
