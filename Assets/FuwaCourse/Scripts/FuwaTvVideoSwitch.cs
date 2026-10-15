@@ -5,7 +5,9 @@ using UnityEngine.UI;
 
 // あそびばの観戦リビングのテレビ：おっかけカメラ ⇄ 動画（TejaVideoPlayer）の切りかえ（自分の画面だけ）。
 // ・見出しの横の丸ボタンで手動切りかえ
-// ・誰かが動画を再生したら（再開も）自動で動画に、■停止・最後まで再生・動画なしになったら自動でカメラに戻す。一時停止は動画のまま
+// ・だれかが動画を流しても、テレビは勝手に切りかえない（おっかけカメラを見たい人もいるので。音は流れる）。
+//   代わりに切りかえボタンに「動画やってるよ」の印（コーラルの点がぽわぽわ）を出す（2026-10-15 てじゃ「勝手に動画切り替わるのきになる」）
+// ・■停止・最後まで再生・動画なしになったら、動画を見ていた人のテレビはカメラに戻す。一時停止は動画のまま
 // ・動画の時：テレビの画面の手前に動画の画面を出し、下の ME／CAM ボタンの所を動画の操作パネルに入れかえ、見出しを「どうが」に
 // （2026-10-15 てじゃ「おすすめでいこう」＝ボタンで切りかえ＋再生で自動）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -30,6 +32,9 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
     public Sprite iconToVideo;
     [Tooltip("動画の時に出す絵（押すとカメラへ）")]
     public Sprite iconToCam;
+
+    [Tooltip("カメラを見ている間に動画が流れていたら出す印（切りかえボタンの右上の点）")]
+    public GameObject playingBadge;
 
     [Header("操作パネルを隠すボタン（動画の時だけ出す。画面とパネルのすき間の真ん中）")]
     public GameObject hideButton;
@@ -91,12 +96,22 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         {
             _started = true;
             _wasPlaying = playing; _wasIdle = idle;
-            SetMode(playing || (!idle && _video));
+            SetMode(!idle && _video);
             return;
         }
-        if (playing && !_wasPlaying) SetMode(true);   // だれかが再生した・再開した
         if (idle && !_wasIdle) SetMode(false);        // 停止・おわり・動画なし
         _wasPlaying = playing; _wasIdle = idle;
         ApplyTitle();   // 言語の切りかえで見出しが書きかわっても、今のモードの見出しに戻す
+        _badge = playing && !_video;
+        if (playingBadge != null && playingBadge.activeSelf != _badge) playingBadge.SetActive(_badge);
+    }
+
+    private bool _badge;
+    // 印をぽわぽわさせる（出ている時だけ）
+    private void LateUpdate()
+    {
+        if (!_badge || playingBadge == null) return;
+        float k = 1f + 0.18f * Mathf.Sin(Time.time * 4f);
+        playingBadge.transform.localScale = new Vector3(k, k, 1f);
     }
 }

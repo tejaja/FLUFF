@@ -112,6 +112,12 @@ public static class TejaVideoPlayerBuilder
         var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image)); icon.transform.SetParent(bGo.transform, false);
         var irt = (RectTransform)icon.transform; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.sizeDelta = new Vector2(104f, 104f);
         var iImg = icon.GetComponent<Image>(); iImg.raycastTarget = false; iImg.preserveAspect = true;
+        // 「動画やってるよ」の印：右上のコーラルの点（カメラを見ている間に動画が流れていたら出る）
+        var badge = new GameObject("PlayingBadge", typeof(RectTransform), typeof(Image)); badge.transform.SetParent(bGo.transform, false);
+        var bdr = (RectTransform)badge.transform; bdr.anchorMin = bdr.anchorMax = new Vector2(0.86f, 0.86f); bdr.sizeDelta = new Vector2(46f, 46f);
+        var bdi = badge.GetComponent<Image>(); bdi.sprite = IconSprite9(Dir + "UI_Circle.png"); bdi.color = new Color(1f, 0.42f, 0.36f); bdi.raycastTarget = false;
+        var bdo = badge.AddComponent<Outline>(); bdo.effectColor = Color.white; bdo.effectDistance = new Vector2(4f, -4f);
+        badge.SetActive(false);
 
         // 操作パネルを隠す／出すボタン：画面の下のふちとパネルの間のすき間の真ん中（パネルを隠しても、ここだけ残る）
         //（2026-10-15 てじゃ「UI隠しボタン」「UIの右上あたり」→「隙間の真ん中くらいもありか」。右上の角だとパネルに隠れて見えなかった）
@@ -147,6 +153,7 @@ public static class TejaVideoPlayerBuilder
         sw.language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         sw.toggleIcon = iImg;
         sw.hideButton = hdCv;
+        sw.playingBadge = badge;
         sw.hideLabel = hLab;
         sw.iconToVideo = IconSprite(Dir + "Icon_TvPlay.png");
         sw.iconToCam = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/FuwaCourse/Textures/Icon_Video.png");   // CAM ボタンと同じビデオカメラの絵
