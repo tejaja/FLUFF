@@ -72,6 +72,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public Mesh plainMesh;
     [Tooltip("撃たれた時に顔が 😣（ぎゅっと閉じた目＋への字口）になっている秒数（顔を出している時だけ見える）")]
     public float hitFaceTime = 0.6f;
+    [Tooltip("遠くの玉は自動で毛オフ：自分の頭からの距離 ÷ 玉の直径 がこれを超えたら毛なし（0.3mの玉なら 27×0.3＝約8m。でっかい玉ほど遠くまで毛あり）。0=自動なし（2026-10-15 てじゃ「距離で自動切りかえ」）")]
+    public float lodRatio = 27f;
 
     [Header("撃たれた時のポヨンと綿毛（全員の画面で、FuwaBall と同じ）")]
     public float squashAmount = 0.4f;
@@ -175,6 +177,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private MeshFilter _furMeshFilter;
     private Mesh _furMesh;
     private float _hitFaceUntil;
+    private bool _forcePlain;   // スイッチで「け: なし」
+    private bool _lodPlain;     // 遠いので自動で毛なし
     private bool _hitFaceShown;
     private Vector3 _furDrag;
     private bool _shownHidden;
@@ -314,11 +318,31 @@ public class FuwaSharedBall : UdonSharpBehaviour
         float f = face ? 1f : 0f;
         if (_furMat != null) _furMat.SetFloat("_FaceOn", f);
         if (_plainMat != null) _plainMat.SetFloat("_FaceOn", f);
-        if (_plainMat == null || furRenderer == null) plain = false;
+        _forcePlain = plain;
+        ApplyPlain();
+    }
+
+    private void ApplyPlain()
+    {
+        bool plain = (_forcePlain || _lodPlain) && _plainMat != null && furRenderer != null;
         if (plain == _plain) return;
         _plain = plain;
         furRenderer.sharedMaterial = plain ? _plainMat : _furMat;
         if (_furMeshFilter != null && plainMesh != null) _furMeshFilter.sharedMesh = plain ? plainMesh : _furMesh;
+    }
+
+    // 遠くの玉は毛なしに（自分の画面だけ）。切り替わりの境目でちらつかないよう、戻る時は1割近くまで来てから
+    private void UpdateLod()
+    {
+        if (_plainMat == null || lodRatio <= 0f || _shownHidden) return;
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        if (lp == null) return;
+        float d = Vector3.Distance(lp.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, transform.position);
+        float r = d / Mathf.Max(0.05f, transform.lossyScale.x);
+        bool far = _lodPlain ? r > lodRatio * 0.9f : r > lodRatio;
+        if (far == _lodPlain) return;
+        _lodPlain = far;
+        ApplyPlain();
     }
 
     // 追っかけカメラがほかのエリアからあそびばを映している間は、エリアにいる扱いにして動かして見せる（FuwaFollowCam が切り替える）
@@ -765,6 +789,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _prevVel = vel;
         UpdateSquash();
         UpdateHitFace();
+        UpdateLod();
 
         if (_furMat != null)
         {
