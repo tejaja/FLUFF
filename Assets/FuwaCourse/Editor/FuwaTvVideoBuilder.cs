@@ -100,7 +100,10 @@ public static class FuwaTvVideoBuilder
 
         // 動画の操作パネル：ME／CAM ボタンの所（同じ高さ・テレビの真ん中）
         var tb = tv.Find("TargetButton");
-        float rowY = tb != null ? tb.localPosition.y : 0.25f, rowZ = tb != null ? tb.localPosition.z - 0.002f : -0.012f;
+        float rowZ = tb != null ? tb.localPosition.z - 0.002f : -0.012f;
+        // 画面のすぐ下に寄せる（画面の下のふちから PanelGap あけて、パネルの上のふち）（2026-10-15 てじゃ「UIを画面に寄せよう」。前は ME/CAM ボタンと同じ高さ）
+        const float PanelGap = 0.025f;
+        float rowY = (sl.y - tvScreen.lossyScale.y * 0.5f) - PanelGap - 106f * 0.00135f;
         var controls = BuildControls(tv, new Vector3(sl.x, rowY, rowZ), 0.00135f, false, vp, font);
         controls.name = "VideoControls";
         controls.gameObject.SetActive(false);
