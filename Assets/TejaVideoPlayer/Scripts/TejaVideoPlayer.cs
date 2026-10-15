@@ -18,8 +18,8 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     [Header("部品")]
     public BaseVRCVideoPlayer player;
     public VRCUrlInputField urlField;
-    [Tooltip("今流れている動画のURLを見せる欄（押すとVRChatの入力が出て、そこからコピーできる。ここでEnterしても再生は変わらない）。2026-10-15 てじゃ")]
-    public VRCUrlInputField urlDisplay;
+    [Tooltip("コピーのボタン（ふつうの文字の入力欄。中に今の動画のURLが入っていて、押すとVRChatの入力が出てそこからコピーできる。Enterしても再生は変わらない）。2026-10-15 てじゃ")]
+    public InputField copyField;
     public AudioSource[] speakers;
     [Header("表示（なくてもOK）")]
     public Text statusText;
@@ -150,18 +150,18 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         if (muteIcon != null) muteIcon.sprite = _userMuted ? iconMuted : iconOn;
     }
 
-    // URL表示欄でEnterされた：書き換えられていても今のURLに戻すだけ（再生は変えない）
-    public void OnUrlDisplayEdited()
+    // コピーの欄でEnterされた：書き換えられていても今のURLに戻すだけ（再生は変えない）
+    public void OnCopyEdited()
     {
         ShowUrl();
     }
 
     private void ShowUrl()
     {
-        if (urlDisplay == null) return;
+        if (copyField == null) return;
         bool has = _url != null && _url.Get() != "";
-        urlDisplay.SetUrl(has ? _url : VRCUrl.Empty);
-        urlDisplay.interactable = has;   // 何も流れていない時は押せない（空のフォームが出るだけなので）
+        copyField.text = has ? _url.Get() : "";
+        copyField.interactable = has;   // 何も流れていない時は押せない（空のフォームが出るだけなので）
     }
 
     public void OnVolumeChanged()
