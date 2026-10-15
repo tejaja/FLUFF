@@ -17,7 +17,8 @@ public static class FuwaCreditsFonts
         ("M PLUS Rounded 1c", "MPLUSRounded1c SDF"),
         ("Yusei Magic", "YuseiMagic SDF Dyn"),
     };
-    const string Plain = "<b>Fonts</b>\n<size=45%> </size>\n<size=75%>Sniglet\nCherry Bomb One\nDarumadrop One\nM PLUS Rounded 1c\nYusei Magic</size>\n<size=45%> </size>\n<size=45%>SIL Open Font License 1.1</size>";   // 見出しの下・ライセンスの前に少しすき間（てじゃ）
+    // 見出しの下・ライセンスの前に少しすき間（てじゃ）。フォント名どうしの行間は少しあけ、ライセンスは小さく（2026-10-15 てじゃ「行間ちょっぴりあける、ライセンスは小さく」）
+    const string Plain = "<b>Fonts</b>\n<size=45%> </size>\n<size=75%><line-height=125%>Sniglet\nCherry Bomb One\nDarumadrop One\nM PLUS Rounded 1c\nYusei Magic</line-height></size>\n<size=45%> </size>\n<size=34%>SIL Open Font License 1.1</size>";
 
     [MenuItem("FuwaCourse/クレジットのフォント名をそのフォントで書く")]
     public static void Menu() { Debug.Log(Run()); }
