@@ -125,7 +125,12 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         if (_paused)
         {
             _paused = false;
-            if (!IsLive()) _start = now - _pausedAt;
+            _ended = false;
+            if (!IsLive())
+            {
+                _start = now - _pausedAt;
+                player.SetTime(_pausedAt);   // 最後まで行った後などは実際の位置が _pausedAt と違うことがある（ログで 0 秒のはずが 279.6 秒から再生していた）。そろえてから再生
+            }
             player.Play();
         }
         else
@@ -201,6 +206,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         Take();
         if (_paused) _pausedAt = target;
         else _start = Networking.GetServerTimeInSeconds() - target;
+        if (target < dur - 0.5f) _ended = false;   // 最後まで行った後にシークで戻した
         player.SetTime(target);
         RequestSerialization();
         _nextCheck = Time.time + 0.5f;   // 直後にバーを古い位置へ戻さない
@@ -307,6 +313,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
             if (!live) player.SetTime(_pausedAt);
             return;
         }
+        _ended = false;   // 持ち主が再生中＝もう「最後まで行った」状態ではない
         if (!player.IsPlaying) player.Play();
         if (live || _start < 0) return;
         float target = (float)(Networking.GetServerTimeInSeconds() - _start);
@@ -482,7 +489,8 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     private void UpdateStandby()
     {
         bool sb;
-        if (!_ready) sb = true;
+        if (_ready && player.IsPlaying) { sb = false; _ended = false; }   // 実際に流れている時は絶対に出さない（2026-10-15 てじゃ「シークをいじってると待機画面で固定、音は流れてる」）
+        else if (!_ready) sb = true;
         else if (_ended) sb = true;
         else sb = _paused && _pausedAt <= 0.01f && !IsLive();
         // 読み込み中（URLがあって、まだ映らず、エラーでもない）はくるくる
