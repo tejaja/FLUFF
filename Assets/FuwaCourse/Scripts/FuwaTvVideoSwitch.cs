@@ -66,7 +66,7 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         bool ctrl = v && !_panelHidden;
         if (videoControls != null && videoControls.activeSelf != ctrl) videoControls.SetActive(ctrl);
         if (hideButton != null && hideButton.activeSelf != v) hideButton.SetActive(v);
-        if (hideLabel != null) hideLabel.text = _panelHidden ? "▲" : "▼";
+        if (hideLabel != null) hideLabel.text = _panelHidden ? "▼" : "▲";   // 出ている時▲（しまう）、隠れている時▼（出す）（2026-10-15 てじゃ「イメージ逆」）
         if (cameraOnly != null) for (int i = 0; i < cameraOnly.Length; i++) if (cameraOnly[i] != null && cameraOnly[i].activeSelf == v) cameraOnly[i].SetActive(!v);
         if (toggleIcon != null) toggleIcon.sprite = v ? iconToCam : iconToVideo;
         ApplyTitle();

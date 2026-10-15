@@ -127,7 +127,7 @@ public static class TejaVideoPlayerBuilder
         var hImg = hGo.GetComponent<Image>(); hImg.sprite = IconSprite9(Dir + "UI_Round.png"); hImg.type = Image.Type.Sliced; hImg.color = Color.white;
         var hSel = hGo.GetComponent<UnityEngine.UI.Button>();
         var hcb = hSel.colors; hcb.normalColor = new Color(0.62f, 0.55f, 0.86f); hcb.highlightedColor = new Color(0.72f, 0.66f, 0.93f); hcb.pressedColor = new Color(0.52f, 0.45f, 0.76f); hcb.selectedColor = hcb.normalColor; hSel.colors = hcb;
-        var hLab = Label(hGo.transform, "Label", "▼", font, 36, Color.white, TextAnchor.MiddleCenter); Fill(hLab.gameObject, 2f);
+        var hLab = Label(hGo.transform, "Label", "▲", font, 36, Color.white, TextAnchor.MiddleCenter); Fill(hLab.gameObject, 2f);
         hdCv.SetActive(false);
 
         // 切りかえの係（自分の画面だけ。テレビと一緒にエリアで隠れてよい）
