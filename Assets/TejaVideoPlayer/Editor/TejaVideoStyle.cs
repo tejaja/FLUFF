@@ -91,14 +91,18 @@ public static class TejaVideoStyle
             }
         }
 
-        // くり返しのボタン：OFFの時は、コピーの「押せない時」の色とそろえる（2026-10-15 てじゃ「コピーボタンの無効化カラーと揃えて」）。
-        // ボタンは押せるままにしたいので無効化はせず、ボタンの絵の色（ボタンの色×これ、半透明）で同じ見た目を作る（押した時の色の変化は残る）。最初はOFFの見た目
+        // くり返しのボタン：OFFはコピーの「押せない時」の色、ONは緑（2026-10-15 てじゃ「コピーボタンの無効化カラーと揃えて」「繰り返しオンを緑に」）。
+        // ボタンは押せるままにしたいので無効化はせず、色はボタンの絵の色で出す。ColorBlock は明るさの変化だけ（ふだん0.9・乗ると1・押すと0.78）
+        // → 絵の色＝ほしい色÷0.9。押した時の色の変化は残る。最初はOFFの見た目
         var loopB = panel.Find("Loop");
         var vp = controls.GetComponentInParent<TejaVideoPlayer>(true);
         if (vp == null) vp = Object.FindObjectsOfType<TejaVideoPlayer>(true).Length > 0 ? Object.FindObjectsOfType<TejaVideoPlayer>(true)[0] : null;
         if (loopB != null && vp != null)
         {
-            vp.loopOffTint = OffTint(s);
+            const float LoopNormal = 0.9f;
+            Colors(loopB.GetComponent<Selectable>(), Gray(LoopNormal), Color.white, Gray(0.78f), Gray(LoopNormal));
+            vp.loopOffTint = s.btn.a < 0.01f ? new Color(1f, 1f, 1f, 0f) : Div(s.btnDisabled, LoopNormal);
+            vp.loopOnColor = Div(new Color(0.45f, 0.8f, 0.58f, 1f), LoopNormal);
             vp.loopOffIconAlpha = 1f;   // コピーも押せない時はアイコンは白のまま
             loopB.GetComponent<Image>().color = vp.loopOffTint;
             var li = loopB.Find("Icon"); if (li != null) li.GetComponent<Image>().color = s.icon;
@@ -124,29 +128,8 @@ public static class TejaVideoStyle
         EditorUtility.SetDirty(controls.gameObject);
     }
 
-    // 「押せない時の色（btnDisabled、パネルの上に半透明）」と同じ見た目になる、ボタンの絵の色（ColorBlock の normal と掛け算される。1を超えられないので一番近いものを探す）
-    static Color OffTint(S s)
-    {
-        if (s.btn.a < 0.01f) return new Color(1f, 1f, 1f, Mathf.Max(0.35f, s.btnDisabled.a));
-        // 混ぜ方はリニア色空間（このプロジェクトの設定）で計算する
-        bool lin = PlayerSettings.colorSpace == ColorSpace.Linear;
-        System.Func<Color, Color> L = c => lin ? c.linear : c;
-        Color bg = L(s.panel), btn = L(s.btn), dis = L(new Color(s.btnDisabled.r, s.btnDisabled.g, s.btnDisabled.b, 1f));
-        Color want = Color.Lerp(bg, dis, s.btnDisabled.a);
-        Color best = Color.white; float bestErr = float.MaxValue; Color bestOk = Color.clear;
-        for (int i = 5; i <= 100; i++)
-        {
-            float a = i / 100f;
-            // 色の掛け算はガンマの値どうし（UI の頂点カラー）なので、リニアで解いてからガンマに戻す
-            Color k = new Color(Mathf.Clamp01((want.r - bg.r * (1f - a)) / (a * btn.r)), Mathf.Clamp01((want.g - bg.g * (1f - a)) / (a * btn.g)), Mathf.Clamp01((want.b - bg.b * (1f - a)) / (a * btn.b)));
-            Color got = Color.Lerp(bg, new Color(btn.r * k.r, btn.g * k.g, btn.b * k.b), a);
-            float err = Mathf.Abs(got.r - want.r) + Mathf.Abs(got.g - want.g) + Mathf.Abs(got.b - want.b);
-            Color kg = lin ? k.gamma : k; kg.a = a;
-            if (err < bestErr) { bestErr = err; best = kg; }
-            if (err < 0.006f) bestOk = kg;   // 合うものの中で一番不透明なもの（影の濃さも近くなる）
-        }
-        return bestOk.a > 0f ? bestOk : best;
-    }
+    static Color Gray(float v) { return new Color(v, v, v, 1f); }
+    static Color Div(Color c, float k) { return new Color(Mathf.Clamp01(c.r / k), Mathf.Clamp01(c.g / k), Mathf.Clamp01(c.b / k), c.a); }
 
     static void Slider(Transform t, S s, Sprite pill, Sprite circle)
     {

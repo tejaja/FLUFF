@@ -40,8 +40,10 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     [Tooltip("くり返しのボタンの絵（OFFの時はグレーアウト。2026-10-15 てじゃ「オフがグレーアウト」）")]
     public Image loopButtonImage;
     public Image loopIcon;
-    [Tooltip("OFFの時にボタンの絵にかける色（ボタンの色×これ＝グレー。見た目の係が決める）")]
-    public Color loopOffTint = new Color(0.89f, 1f, 0.64f, 1f);
+    [Tooltip("OFFの時のボタンの絵の色（コピーの押せない時と同じ見た目。見た目の係が決める）")]
+    public Color loopOffTint = new Color(0.89f, 0.86f, 0.98f, 0.7f);
+    [Tooltip("ONの時のボタンの絵の色（緑。2026-10-15 てじゃ「繰り返しオンを緑に」）")]
+    public Color loopOnColor = new Color(0.45f, 0.84f, 0.6f, 1f);
     public float loopOffIconAlpha = 0.55f;
 
     [Header("音の範囲・BGM（なくてもOK）")]
@@ -153,7 +155,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     private void ApplyLoop()
     {
         if (player != null && player.Loop != _loop) player.Loop = _loop;
-        if (loopButtonImage != null) loopButtonImage.color = _loop ? Color.white : loopOffTint;
+        if (loopButtonImage != null) loopButtonImage.color = _loop ? loopOnColor : loopOffTint;
         if (loopIcon != null) { Color c = loopIcon.color; c.a = _loop ? 1f : loopOffIconAlpha; loopIcon.color = c; }
     }
 
