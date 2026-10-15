@@ -105,6 +105,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         VRCUrl u = urlField.GetUrl();
         if (u == null || u.Get() == "") return;
         urlField.SetUrl(VRCUrl.Empty);
+        Log(Me() + " entered URL: " + u.Get());
         Take();
         _url = u;
         _ver++;
@@ -118,6 +119,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public void PlayPause()
     {
         if (!_ready) return;
+        Log(Me() + (_paused ? " pressed play" : " pressed pause") + " at " + player.GetTime().ToString("0.0") + "s");
         Take();
         double now = Networking.GetServerTimeInSeconds();
         if (_paused)
@@ -140,6 +142,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public void StopVideo()
     {
         if (!_ready) return;
+        Log(Me() + " pressed stop");
         Take();
         _paused = true;
         _pausedAt = 0f;
@@ -154,6 +157,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     {
         Take();
         _loop = !_loop;
+        Log(Me() + " turned loop " + (_loop ? "ON" : "OFF"));
         if (_loop && _ended && _ready && !IsLive()) Restart();
         RequestSerialization();
         ApplyLoop();
@@ -181,6 +185,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public void Resync()
     {
         if (_url == null || _url.Get() == "") return;
+        Log("resync pressed (ready=" + _ready + ")");
         if (!_ready) { Load(); return; }
         ApplyState(true);
     }
@@ -192,6 +197,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         float dur = player.GetDuration();
         if (dur <= 0f) return;
         float target = Mathf.Clamp01(seekSlider.value) * dur;
+        Log(Me() + " seeked to " + target.ToString("0.0") + "s");
         Take();
         if (_paused) _pausedAt = target;
         else _start = Networking.GetServerTimeInSeconds() - target;
@@ -247,6 +253,8 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     public override void OnDeserialization()
     {
+        VRCPlayerApi o = Networking.GetOwner(gameObject);
+        Log("received state from " + (o != null ? o.displayName : "?") + ": ver=" + _ver + " paused=" + _paused + " pausedAt=" + _pausedAt.ToString("0.0") + " start=" + _start.ToString("0.0") + " loop=" + _loop + " url=" + (_url != null ? _url.Get() : ""));
         ApplyLoop();
         if (_ver != _loadedVer) { Load(); return; }
         ApplyState(false);
@@ -267,6 +275,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         {
             if (!_loadQueued) { _loadQueued = true; SendCustomEventDelayedSeconds(nameof(_QueuedLoad), wait + 0.05f); }
             SetStatus("Waiting...");
+            Log("load waits " + wait.ToString("0.0") + "s (VRChat 5s rule)");
             return;
         }
         _ready = false;
@@ -278,6 +287,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         player.Stop();
         player.LoadURL(_url);
         SetStatus("Loading...");
+        Log("loading ver=" + _ver + ": " + _url.Get());
     }
 
     public void _QueuedLoad()
@@ -307,7 +317,12 @@ public class TejaVideoPlayer : UdonSharpBehaviour
             if (!_loop) return;   // もう終わっている
             target = target % dur;  // くり返し中：何周目かのどこか
         }
-        if (force || Mathf.Abs(player.GetTime() - target) > maxDrift) player.SetTime(target);
+        float drift = player.GetTime() - target;
+        if (force || Mathf.Abs(drift) > maxDrift)
+        {
+            if (!force) Log("drift " + drift.ToString("0.00") + "s -> jump to " + target.ToString("0.0") + "s");
+            player.SetTime(target);
+        }
     }
 
     // ほかの係（テレビの切りかえなど）から：今まさに再生中か
@@ -341,6 +356,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public override void OnVideoReady()
     {
         _ready = true;
+        Log("ready: duration=" + player.GetDuration().ToString("0.0") + "s" + (IsLive() ? " (live)" : "") + " owner=" + Networking.IsOwner(gameObject));
         if (Networking.IsOwner(gameObject))
         {
             if (_paused) { ApplyState(true); }
@@ -354,6 +370,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public override void OnVideoStart()
     {
         _ended = false;
+        Log("started at " + player.GetTime().ToString("0.0") + "s");
         // 持ち主：再生が始まった時刻から「動画の0秒のサーバー時刻」を決めて配る（最初の1回だけ。一時停止からの再開は PlayPause で決める）
         if (Networking.IsOwner(gameObject) && _start < 0 && !IsLive())
         {
@@ -367,6 +384,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public override void OnVideoLoop()
     {
         _ended = false;
+        Log("looped");
         if (Networking.IsOwner(gameObject) && !IsLive() && !_paused)
         {
             _start = Networking.GetServerTimeInSeconds() - player.GetTime();
@@ -374,16 +392,30 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         }
     }
 
+    // 最後まで再生した：■停止と同じ（頭に戻して止める、待機画面）。持ち主が配る。▶でまた頭から
+    //（2026-10-15 てじゃ「時間で終了したときもおっかけカメラにもどっちゃう、停止と同じ状態に」）
     public override void OnVideoEnd()
     {
         _ended = true;
-        SetStatus("Ended");
+        Log("ended");
+        if (!IsLive())
+        {
+            player.SetTime(0f);
+            if (Networking.IsOwner(gameObject))
+            {
+                _paused = true;
+                _pausedAt = 0f;
+                RequestSerialization();
+            }
+        }
+        SetStatus("");
         UpdatePlayLabel();
     }
 
     public override void OnVideoError(VideoError videoError)
     {
         _ready = false;
+        Log("error: " + videoError.ToString());
         if (videoError == VideoError.RateLimited)
         {
             // 読み込みが早すぎた：5秒後にもう一度
@@ -508,6 +540,18 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     }
 
     // 表示はぜんぶ英語（ほかのワールドでも使い回せるように。2026-10-15 てじゃ「全部英語でもいいかも」）
+    // 動作のログ：VRChat のログ（output_log）に [TejaPlayer] つきで書く。困った時にあとから追えるように（2026-10-15 てじゃ「なんかあったときように動作のログ」）
+    private void Log(string m)
+    {
+        Debug.Log("[TejaPlayer] " + m);
+    }
+
+    private string Me()
+    {
+        VRCPlayerApi p = Networking.LocalPlayer;
+        return p != null ? p.displayName : "?";
+    }
+
     private void SetStatus(string s)
     {
         if (statusText != null) statusText.text = s;
