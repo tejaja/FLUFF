@@ -346,15 +346,12 @@ public static class TejaVideoPlayerBuilder
         // ボタン：再生/一時停止・再同期
         var pp = Button(pt, "PlayPause", "▶", font, 430f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.PlayPause));
         vp.playPauseLabel = pp; pp.fontSize = 64;   // アイコンと同じくらいの大きさに（2026-10-15 てじゃ「各アイコンの大きさ自体おおきく」）
-        // くり返し（再生の横、半分の幅。みんな共通、最初はオフ。ONの時はコーラルの板を出す）（2026-10-15 てじゃ「連続再生の切り替えスイッチ」「場所は再生の横」）
+        // くり返し（再生の横、半分の幅。みんな共通、最初はオフ。OFFの時はグレーアウト）（2026-10-15 てじゃ「連続再生の切り替えスイッチ」「場所は再生の横」「オフがグレーアウト」）
         var lp = Button(pt, "Loop", "", font, 670f, 12f, 110f, 116f, ub, nameof(TejaVideoPlayer.ToggleLoop));
         var lpBtn = lp.transform.parent;
-        var onMark = new GameObject("OnMark", typeof(RectTransform), typeof(Image)); onMark.transform.SetParent(lpBtn, false); onMark.transform.SetSiblingIndex(0);
-        var omrt = (RectTransform)onMark.transform; omrt.anchorMin = Vector2.zero; omrt.anchorMax = Vector2.one; omrt.offsetMin = omrt.offsetMax = Vector2.zero;
-        var omi = onMark.GetComponent<Image>(); omi.sprite = IconSprite9(Dir + "UI_Round.png"); omi.type = Image.Type.Sliced; omi.color = new Color(1f, 0.42f, 0.36f); omi.raycastTarget = false;
-        onMark.SetActive(false);
-        vp.loopOnMark = onMark;
         IconOn(lpBtn, "Icon_Loop.png", 84f);
+        vp.loopButtonImage = lpBtn.GetComponent<Image>();
+        vp.loopIcon = lpBtn.Find("Icon").GetComponent<Image>();
         // 停止（最初に戻して止める）。ボタンは左にまとめて、くさり・コピー｜すき間｜再生・くり返し・停止・再同期（2026-10-15 てじゃ）
         var stopL = Button(pt, "Stop", "■", font, 800f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.StopVideo));
         stopL.fontSize = 60;
