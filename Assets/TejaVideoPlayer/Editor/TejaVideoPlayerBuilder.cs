@@ -156,6 +156,26 @@ public static class TejaVideoPlayerBuilder
         UnityEventTools.AddStringPersistentListener(field.onEndEdit, ub.SendCustomEvent, nameof(TejaVideoPlayer.OnUrlEntered));
         vp.urlField = field;
 
+        // 今のURLの表示（押すとVRChatの入力が出てコピーできる）
+        var dGo = new GameObject("UrlDisplay", typeof(RectTransform), typeof(Image));
+        dGo.transform.SetParent(canvasGo.transform, false);
+        Place(dGo, 240f, 140f, 1040f, 100f);
+        dGo.GetComponent<Image>().color = new Color(0.08f, 0.09f, 0.13f, 0.9f);
+        var disp = dGo.AddComponent<VRCUrlInputField>();
+        var dt = Label(dGo.transform, "Text", "", font, 30, new Color(0.85f, 0.9f, 1f), TextAnchor.MiddleLeft); Fill(dt.gameObject, 20f);
+        dt.supportRichText = false; dt.horizontalOverflow = HorizontalWrapMode.Overflow;
+        var dph = Label(dGo.transform, "Placeholder", "（URLを押して動画を入れてね）", font, 30, new Color(0.55f, 0.6f, 0.7f), TextAnchor.MiddleLeft); Fill(dph.gameObject, 20f);
+        var dSo = new SerializedObject(disp);
+        dSo.FindProperty("m_TextComponent").objectReferenceValue = dt;
+        dSo.FindProperty("m_Placeholder").objectReferenceValue = dph;
+        dSo.ApplyModifiedPropertiesWithoutUndo();
+        disp.targetGraphic = dGo.GetComponent<Image>();
+        var dcb = disp.colors; dcb.highlightedColor = new Color(0.8f, 0.85f, 1f); disp.colors = dcb;
+        // 欄の外にはみ出した文字を隠す
+        dGo.AddComponent<RectMask2D>();
+        UnityEventTools.AddStringPersistentListener(disp.onEndEdit, ub.SendCustomEvent, nameof(TejaVideoPlayer.OnUrlDisplayEdited));
+        vp.urlDisplay = disp;
+
         // ボタン：再生/一時停止・再同期
         var pp = Button(canvasGo.transform, "PlayPause", "▶", font, 1300f, 140f, 200f, 100f, ub, nameof(TejaVideoPlayer.PlayPause));
         vp.playPauseLabel = pp;

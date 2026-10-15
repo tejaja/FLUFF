@@ -18,6 +18,8 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     [Header("部品")]
     public BaseVRCVideoPlayer player;
     public VRCUrlInputField urlField;
+    [Tooltip("今流れている動画のURLを見せる欄（押すとVRChatの入力が出て、そこからコピーできる。ここでEnterしても再生は変わらない）。2026-10-15 てじゃ")]
+    public VRCUrlInputField urlDisplay;
     public AudioSource[] speakers;
     [Header("表示（なくてもOK）")]
     public Text statusText;
@@ -147,6 +149,17 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         if (muteIcon != null) muteIcon.sprite = _userMuted ? iconMuted : iconOn;
     }
 
+    // URL表示欄でEnterされた：書き換えられていても今のURLに戻すだけ（再生は変えない）
+    public void OnUrlDisplayEdited()
+    {
+        ShowUrl();
+    }
+
+    private void ShowUrl()
+    {
+        if (urlDisplay != null) urlDisplay.SetUrl(_url != null ? _url : VRCUrl.Empty);
+    }
+
     public void OnVolumeChanged()
     {
         if (volumeSlider != null) SetVolume(volumeSlider.value);
@@ -179,6 +192,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         }
         _ready = false;
         _loadedVer = _ver;
+        ShowUrl();
         _nextLoad = Time.time + loadInterval;
         player.Stop();
         player.LoadURL(_url);
