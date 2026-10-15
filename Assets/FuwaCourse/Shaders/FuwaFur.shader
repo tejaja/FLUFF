@@ -29,6 +29,8 @@
     {
         Tags { "RenderType"="Opaque" "Queue"="AlphaTest" }
         Cull Back
+        // ステンシルの64番のビットに「ふわふわ」の印。うそ影のデカール（FuwaBlobDecal）がふわふわ自身に乗らないように（2026-10-15 地面近くで玉の下の方に影のふちが出ていた）
+        Stencil { Ref 64 ReadMask 64 WriteMask 64 Comp Always Pass Replace }
 
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert
