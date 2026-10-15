@@ -111,7 +111,7 @@ public static class TejaVideoPlayerBuilder
         float sw2 = tvScreen.lossyScale.x * 0.5f, sh2 = tvScreen.lossyScale.y * 0.5f;
         trt.localPosition = new Vector3(sl.x + sw2 + 0.16f, sl.y - sh2 + 0.14f, rowZ - 0.004f); trt.localRotation = Quaternion.identity;
         tgCv.AddComponent<VRC.SDK3.Components.VRCUiShape>();
-        var tbc = tgCv.AddComponent<BoxCollider>(); tbc.size = new Vector3(160f, 160f, 10f);
+        var tbc = tgCv.AddComponent<BoxCollider>(); tbc.size = new Vector3(160f, 160f, 10f); tbc.isTrigger = true;
         var bGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); bGo.transform.SetParent(tgCv.transform, false);
         var brt = (RectTransform)bGo.transform; brt.anchorMin = Vector2.zero; brt.anchorMax = Vector2.one; brt.offsetMin = Vector2.zero; brt.offsetMax = Vector2.zero;
         var bImg = bGo.GetComponent<Image>(); bImg.sprite = IconSprite9(Dir + "UI_Circle.png"); bImg.color = Color.white;
@@ -138,7 +138,7 @@ public static class TejaVideoPlayerBuilder
         float screenBottom = sl.y - tvScreen.lossyScale.y * 0.5f, panelTop = rowY + 106f * cs;
         hrt.localPosition = new Vector3(sl.x, (screenBottom + panelTop) * 0.5f, rowZ - 0.004f); hrt.localRotation = Quaternion.identity;
         hdCv.AddComponent<VRC.SDK3.Components.VRCUiShape>();
-        var hbc = hdCv.AddComponent<BoxCollider>(); hbc.size = new Vector3(150f, 56f, 10f);
+        var hbc = hdCv.AddComponent<BoxCollider>(); hbc.size = new Vector3(150f, 56f, 10f); hbc.isTrigger = true;
         var hGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); hGo.transform.SetParent(hdCv.transform, false);
         var hbrt = (RectTransform)hGo.transform; hbrt.anchorMin = Vector2.zero; hbrt.anchorMax = Vector2.one; hbrt.offsetMin = Vector2.zero; hbrt.offsetMax = Vector2.zero;
         var hImg = hGo.GetComponent<Image>(); hImg.sprite = IconSprite9(Dir + "UI_Round.png"); hImg.type = Image.Type.Sliced; hImg.color = Color.white;
@@ -338,7 +338,7 @@ public static class TejaVideoPlayerBuilder
         crt.localPosition = localPos;
         crt.localRotation = Quaternion.identity;   // Canvas も Quad と同じく -Z 側（見る人の側）が表
         canvasGo.AddComponent<VRC.SDK3.Components.VRCUiShape>();
-        var cbox = canvasGo.AddComponent<BoxCollider>(); cbox.size = new Vector3(1920f, 212f + tabH, 10f);   // レーザーが当たる板（左下基準ではなく真ん中基準）
+        var cbox = canvasGo.AddComponent<BoxCollider>(); cbox.size = new Vector3(1920f, 212f + tabH, 10f); cbox.isTrigger = true;   // すり抜ける（ほかのレーザーUIと同じ。2026-10-15 てじゃ「コライダーがある」）   // レーザーが当たる板（左下基準ではなく真ん中基準）
         // パネル本体（たたむと消える）と、その下のたたむタブ（2026-10-15 てじゃ「下のUIを隠す・戻す」→ B：パネルの端の小さいタブ。画面クリックだとVRで誤操作するので）
         var panelGo = new GameObject("Panel", typeof(RectTransform), typeof(Image)); panelGo.transform.SetParent(canvasGo.transform, false);
         Place(panelGo, 0f, tabH, 1920f, 212f);

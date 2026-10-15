@@ -24,6 +24,20 @@ public static class FuwaMonitorBuilder
     [MenuItem("FuwaCourse/写真館のモニターを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
+    // まっ白な四角のスプライト（9スライス。角も白なので伸ばしても四角のまま）
+    public static Sprite SquareSprite()
+    {
+        const string path = "Assets/FuwaCourse/Textures/SquarePanel.png";
+        var imp = (TextureImporter)AssetImporter.GetAtPath(path);
+        if (imp != null && (imp.textureType != TextureImporterType.Sprite || imp.spriteBorder != new Vector4(4, 4, 4, 4) || imp.spriteImportMode != SpriteImportMode.Single))
+        {
+            imp.textureType = TextureImporterType.Sprite; imp.spriteImportMode = SpriteImportMode.Single; imp.spriteBorder = new Vector4(4, 4, 4, 4);
+            imp.mipmapEnabled = false; imp.alphaIsTransparency = true; imp.filterMode = FilterMode.Bilinear;
+            imp.SaveAndReimport();
+        }
+        return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+    }
+
     public static string Run()
     {
         var log = new System.Collections.Generic.List<string>();
@@ -96,6 +110,7 @@ public static class FuwaMonitorBuilder
         dark.name = "Dark"; dark.transform.localPosition = new Vector3(0f, 0f, 0.01f); dark.transform.localRotation = Quaternion.identity;
         dark.transform.localScale = Vector3.one * 0.12f; dark.size = new Vector2(sw, ScreenH) / 0.12f;
         dark.color = new Color(0.25f, 0.27f, 0.33f, 1f);
+        dark.sprite = SquareSprite();   // 角は丸めず、画面と同じ四角（2026-10-15 てじゃ「OFFのグレーの画面の端が丸い、画面とあわせて四角に」）
         var offText = Text(off, "Text", srcText, Vector3.zero, new Vector2(sw - 0.2f, ScreenH - 0.2f), 1.5f);
         // 「CAM」の文字のかわりにボタンと同じビデオカメラの絵（TMP のスプライト。tint=1 で文字の色になる）
         offText.spriteAsset = AssetDatabase.LoadAssetAtPath<TMPro.TMP_SpriteAsset>("Assets/FuwaCourse/Textures/Icon_Video.asset");
