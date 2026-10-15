@@ -51,12 +51,12 @@ public static class TejaVideoPlayerBuilder
         vp.standbyScreens = new[] { MakeStandby(ts.transform) };
         vp.loadingSpinners = new[] { vp.standbyScreens[0].transform.Find("Spinner") };
         vp.speakers = MakeSpeakers(root, new[] { new Vector3(-ScreenW * 0.5f, ScreenCenterY, 0f), new Vector3(ScreenW * 0.5f, ScreenCenterY, 0f) }, av, 5f, 30f);
-        // 操作パネルは画面の下、すき間の真ん中に ▲▼ の隠すボタン（FLUFF のテレビと同じ並び。2026-10-15 てじゃ「UI隠しボタンとかの位置もいっしょで」）
-        const float cs = 0.001f, gap = 0.085f;
+        // 操作パネルは画面のすぐ下、右上の角（時間の右）に ▼▲ の隠すボタン（FLUFF のテレビと同じ並び）
+        const float cs = 0.001f, gap = 0.02f;
         float screenBottom = ScreenCenterY - ScreenH * 0.5f;
         float panelCenter = screenBottom - gap - 106f * cs;
         var controls = BuildControls(root, new Vector3(0f, panelCenter, -0.01f), cs, false, vp, font);
-        var hide = MakeHideButton(root, new Vector3(0f, screenBottom - gap * 0.5f, -0.012f), cs, font);
+        var hide = MakeHideButton(root, new Vector3(0f, panelCenter, -0.012f) + HideButtonOffset(cs), cs, font);
         var hub = UdonSharpEditorUtility.GetBackingUdonBehaviour(vp);
         UnityEventTools.AddStringPersistentListener(hide.GetComponentInChildren<UnityEngine.UI.Button>().onClick, hub.SendCustomEvent, nameof(TejaVideoPlayer.TogglePanel));
         vp.panelTabLabel = hide.GetComponentInChildren<Text>(); vp.panelTab = null;
@@ -65,16 +65,24 @@ public static class TejaVideoPlayerBuilder
         Selection.activeGameObject = root.gameObject;
     }
 
-    // 操作パネルを隠す／出すボタン（▲▼。小さい丸っこいラベンダーのボタン）。localPos は Canvas の真ん中。押した時の配線は呼ぶ側で
+    // 隠すボタンの位置：操作パネル（1920×212、真ん中基準）の右上の角＝時間の右（パネルの真ん中からのずれ、scale は Canvas 1単位の大きさ）
+    public static Vector3 HideButtonOffset(float scale)
+    {
+        return new Vector3((1820f - 960f) * scale, (174f - 106f) * scale, 0f);
+    }
+
+    // 操作パネルを隠す／出すボタン（▼▲。小さい丸っこいラベンダーのボタン）。localPos は Canvas の真ん中。押した時の配線は呼ぶ側で。
+    // パネルとは別の Canvas（パネルを隠しても、これだけ残る）
     public static GameObject MakeHideButton(Transform parent, Vector3 localPos, float scale, Font font)
     {
         var hdCv = new GameObject("PanelHide", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         hdCv.transform.SetParent(parent, false);
         hdCv.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-        var hrt = (RectTransform)hdCv.transform; hrt.sizeDelta = new Vector2(150f, 56f); hrt.localScale = Vector3.one * scale;
+        hdCv.GetComponent<Canvas>().sortingOrder = 1;   // 操作パネル（半透明の板、Order 0）より必ず手前に描く。重なる所にあるので、距離順だと見る角度でパネルの下に沈んだ
+        var hrt = (RectTransform)hdCv.transform; hrt.sizeDelta = new Vector2(140f, 60f); hrt.localScale = Vector3.one * scale;
         hrt.localPosition = localPos; hrt.localRotation = Quaternion.identity;
         hdCv.AddComponent<VRC.SDK3.Components.VRCUiShape>();
-        var hbc = hdCv.AddComponent<BoxCollider>(); hbc.size = new Vector3(150f, 56f, 10f); hbc.isTrigger = true;
+        var hbc = hdCv.AddComponent<BoxCollider>(); hbc.size = new Vector3(140f, 60f, 10f); hbc.isTrigger = true;
         var hGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); hGo.transform.SetParent(hdCv.transform, false);
         var hbrt = (RectTransform)hGo.transform; hbrt.anchorMin = Vector2.zero; hbrt.anchorMax = Vector2.one; hbrt.offsetMin = Vector2.zero; hbrt.offsetMax = Vector2.zero;
         var hImg = hGo.GetComponent<Image>(); hImg.sprite = IconSprite9(Dir + "UI_Round.png"); hImg.type = Image.Type.Sliced; hImg.color = Color.white;
@@ -307,7 +315,8 @@ public static class TejaVideoPlayerBuilder
         // シークバー（いちばん上の段。つまんで動かすとその位置へ。ライブの時は隠す）
         var skGo = DefaultControls.CreateSlider(new DefaultControls.Resources());
         skGo.name = "Seek"; skGo.transform.SetParent(pt, false);
-        float topW = 1580f;
+        // 右上の角は隠すボタンの場所（別の Canvas で重ねる）。シークバーは短めに、時間はその左（2026-10-15 てじゃ「シークバー左に縮めて、時間の右に」）
+        float topW = 1400f;
         Place(skGo, 30f, 146f, topW, 56f);
         var sk = skGo.GetComponent<Slider>(); sk.minValue = 0f; sk.maxValue = 1f; sk.value = 0f;
         var fill = skGo.transform.Find("Fill Area/Fill"); if (fill != null) fill.GetComponent<Image>().color = new Color(0.95f, 0.55f, 0.45f);
@@ -317,7 +326,7 @@ public static class TejaVideoPlayerBuilder
         // 状態・時間
         var st = Label(pt, "Status", "", font, 34, new Color(1f, 0.85f, 0.6f), TextAnchor.MiddleLeft); Place(st.gameObject, 30f, 140f, topW, 68f);
         vp.statusText = st;
-        var tm = Label(pt, "Time", "", font, 36, Color.white, TextAnchor.MiddleRight); Place(tm.gameObject, 1620f, 140f, 280f, 68f);
+        var tm = Label(pt, "Time", "", font, 36, Color.white, TextAnchor.MiddleRight); Place(tm.gameObject, 1440f, 140f, 280f, 68f);
         vp.timeText = tm;
 
         // たたむタブ（パネルの右下にぶら下がる。▼でたたむ、▲で出す）。テレビに組み込む時はなし（カメラと切りかえるので）

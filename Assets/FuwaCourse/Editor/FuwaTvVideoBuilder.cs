@@ -142,11 +142,12 @@ public static class FuwaTvVideoBuilder
         var hdCv = new GameObject("VideoHide", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
         hdCv.transform.SetParent(tv, false);
         hdCv.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-        var hrt = (RectTransform)hdCv.transform; hrt.sizeDelta = new Vector2(150f, 56f); hrt.localScale = Vector3.one * cs;
-        float screenBottom = sl.y - tvScreen.lossyScale.y * 0.5f, panelTop = rowY + 106f * cs;
-        hrt.localPosition = new Vector3(sl.x, (screenBottom + panelTop) * 0.5f, rowZ - 0.004f); hrt.localRotation = Quaternion.identity;
+        hdCv.GetComponent<Canvas>().sortingOrder = 1;   // 操作パネル（半透明の板、Order 0）より必ず手前に描く。重なる所にあるので、距離順だと見る角度でパネルの下に沈んだ
+        var hrt = (RectTransform)hdCv.transform; hrt.sizeDelta = new Vector2(140f, 60f); hrt.localScale = Vector3.one * cs;
+        // 操作パネルの右上の角（時間の右）。すき間の真ん中だとシークバーを押し間違えた（2026-10-15 てじゃ「シークバー左に縮めて、時間の右に」）
+        hrt.localPosition = new Vector3(sl.x, rowY, rowZ - 0.004f) + HideButtonOffset(cs); hrt.localRotation = Quaternion.identity;
         hdCv.AddComponent<VRC.SDK3.Components.VRCUiShape>();
-        var hbc = hdCv.AddComponent<BoxCollider>(); hbc.size = new Vector3(150f, 56f, 10f); hbc.isTrigger = true;
+        var hbc = hdCv.AddComponent<BoxCollider>(); hbc.size = new Vector3(140f, 60f, 10f); hbc.isTrigger = true;
         var hGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); hGo.transform.SetParent(hdCv.transform, false);
         var hbrt = (RectTransform)hGo.transform; hbrt.anchorMin = Vector2.zero; hbrt.anchorMax = Vector2.one; hbrt.offsetMin = Vector2.zero; hbrt.offsetMax = Vector2.zero;
         var hImg = hGo.GetComponent<Image>(); hImg.sprite = IconSprite9(Dir + "UI_Round.png"); hImg.type = Image.Type.Sliced; hImg.color = Color.white;

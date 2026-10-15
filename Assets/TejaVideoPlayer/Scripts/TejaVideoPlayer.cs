@@ -222,8 +222,8 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         if (target == null) return;
         bool show = !target.activeSelf;
         target.SetActive(show);
-        // 画面と操作パネルの間の隠すボタン：出ている時▲（しまう）、隠れている時▼（出す）。パネルの下にぶら下がるタブは逆
-        if (panelTabLabel != null) panelTabLabel.text = panelTab != null ? (show ? "▼" : "▲") : (show ? "▲" : "▼");
+        // 出ている時▲（上に隠す）、隠れている時▼（下に出す）（2026-10-15 てじゃ「上に隠して下にだすほうがイメージ近い」）
+        if (panelTabLabel != null) panelTabLabel.text = show ? "▲" : "▼";
         if (panelTab != null) { Vector2 a = panelTab.anchoredPosition; a.y = show ? 0f : panelHeight; panelTab.anchoredPosition = a; }
     }
 
