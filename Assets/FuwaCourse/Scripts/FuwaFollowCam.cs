@@ -84,11 +84,21 @@ public class FuwaFollowCam : UdonSharpBehaviour
     public int soloArea = 1;
     [Tooltip("あそびばの番号。自分があそびばにいる時は、あそびばにいる人も映せる（2026-10-14 てじゃ「おっかけカメラの対象、あそびばも含めよう」）")]
     public int playgroundArea = 2;
+    [Tooltip("入口の番号。入口にいる人も映せる（2026-10-16 てじゃ「入口にいるときもおねがい」）")]
+    public int hubArea = 0;
     [Tooltip("自分が今いるエリア")]
     public FuwaAreaVisibility areas;
     [Tooltip("あそびばのふわふわ。あそびばにいる人を映す時は、その人にいちばん近い飛んでいるふわふわを追う")]
     public FuwaSharedBall[] playgroundBalls;
     [Header("ほかのエリア（あそびば）からチャレンジの人を映す時（2026-10-14 てじゃ「地形が見えない、見れないと置いた意味ない」）")]
+    [Tooltip("ひとりモードのロビー（コースに入る前の島）。映している人がロビーにいる間だけ出す（2026-10-16 てじゃ「ロビーにいる人を映すと地面が消える」）")]
+    public GameObject lobbyRoot;
+    private bool _shownLobby;
+    private int _shownLobbyArea = -2;
+    [Tooltip("入口（FuwaHub）。映している人が入口にいる間だけ出す")]
+    public GameObject hubRoot;
+    private bool _shownHub;
+    private int _shownHubArea = -2;
     [Tooltip("各コースの本体（FuwaGhost.courseStarts と同じ順）。映している間だけ、その人のいるコース1つを出す")]
     public GameObject[] courseRoots;
     [Tooltip("各コースの床だけの軽い版（同じ順）。Quest・スマホではこちらを出す")]
@@ -176,7 +186,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
             FuwaGhost g = GhostOf(p);
             if (g == null) continue;
             int a = g.GetArea();
-            if (a == soloArea || a == playgroundArea) tmp[n++] = p.playerId;
+            if (a == soloArea || a == playgroundArea || a == hubArea) tmp[n++] = p.playerId;
         }
         _ids = new int[n];
         for (int i = 0; i < n; i++) _ids[i] = tmp[i];
@@ -198,6 +208,28 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (_shownCourse >= 0 && !mine) SetCourse(_shownCourse, false);
         _shownCourse = k;
         if (k >= 0 && !mine) SetCourse(k, true);
+    }
+
+    // 映すためだけにひとりモードのロビーを出す（自分がひとりモードにいる時は FuwaAreaVisibility に任せる）
+    private void ShowLobby(bool on)
+    {
+        int area = MyArea();
+        if (area != _shownLobbyArea) { _shownLobbyArea = area; _shownLobby = false; }   // エリアが変わった：FuwaAreaVisibility が出し直した
+        if (on == _shownLobby) return;
+        _shownLobby = on;
+        if (area == soloArea || lobbyRoot == null) return;
+        if (lobbyRoot.activeSelf != on) lobbyRoot.SetActive(on);
+    }
+
+    // 映すためだけに入口を出す（自分が入口にいる時は FuwaAreaVisibility に任せる）
+    private void ShowHub(bool on)
+    {
+        int area = MyArea();
+        if (area != _shownHubArea) { _shownHubArea = area; _shownHub = false; }
+        if (on == _shownHub) return;
+        _shownHub = on;
+        if (area == hubArea || hubRoot == null) return;
+        if (hubRoot.activeSelf != on) hubRoot.SetActive(on);
     }
 
     // 映すためだけにあそびばを出す。みんなのふわふわも、その間はエリアにいる扱いで動かす
@@ -279,7 +311,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
             if (s.Length > 20) s = s.Substring(0, 19) + "…";
         }
         if (targetTexts != null) foreach (TextMeshProUGUI t in targetTexts) if (t != null && t.text != s) t.text = s;
-        string m = _targetId >= 0 ? s : "";
+        string m = "";   // 画面の上の名前は出さない（人物ボタンに出ているので。2026-10-16 てじゃ「左上の名前いらない」）
         if (monitorName != null && monitorName.text != m) monitorName.text = m;
         if (extraNames != null) foreach (TextMeshPro t in extraNames) if (t != null && t.text != m) t.text = m;
     }
@@ -409,6 +441,8 @@ public class FuwaFollowCam : UdonSharpBehaviour
         if (!run)
         {
             ShowCourse(-1);
+            ShowLobby(false);
+            ShowHub(false);
             ShowPlayground(false);
             if (_watchedGhost != null) { _watchedGhost.watched = false; _watchedGhost = null; }
             if (monitorFluff != null && monitorFluff.gameObject.activeSelf) monitorFluff.gameObject.SetActive(false);
@@ -462,7 +496,9 @@ public class FuwaFollowCam : UdonSharpBehaviour
         int showCourse = -1;
         if (who != lp && ghost != null && ghost.GetArea() == soloArea && MyArea() != soloArea) showCourse = ghost.GetCourse();
         ShowCourse(showCourse);
+        ShowLobby(who != lp && ghost != null && ghost.GetArea() == soloArea && MyArea() != soloArea);   // コースの番号はロビーに戻っても前のコースのまま残るので、ひとりモードの間はロビーも一緒に出す
         ShowPlayground(who != lp && ghost != null && ghost.GetArea() == playgroundArea && MyArea() != playgroundArea);
+        ShowHub(who != lp && ghost != null && ghost.GetArea() == hubArea && MyArea() != hubArea);
         bool inPlayground = who == lp ? MyArea() == playgroundArea : (ghost != null && ghost.GetArea() == playgroundArea);
         if (inPlayground) tgt = NearestPlaygroundBall(p);   // あそびば：近くのみんなのふわふわ（無ければその人だけ）
         else if (who == lp) tgt = FindTarget(p);

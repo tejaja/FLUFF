@@ -163,6 +163,8 @@ public static class FuwaMonitorBuilder
         personText.font = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/MPLUSRounded1c SDF.asset");
         personText.fontSharedMaterial = personText.font.material;
         personText.fontStyle = TMPro.FontStyles.Bold;
+        // 下の余白は Darumadrop One（CAM の OFF・BACK）用の値のまま。M PLUS だと字が白い枠の中で上に寄るので、そのぶん減らす（2026-10-16 てじゃ「名前欄ちょっとだけ上より」）
+        { var m = personText.margin; personText.margin = new Vector4(m.x, m.y, m.z, Mathf.Max(0f, m.w - 40f)); }
         personText.text = "ME"; personText.enableAutoSizing = true; personText.fontSizeMin = 60f; personText.fontSizeMax = personText.fontSize;
 
         // ---- VRChatカメラを入れる球 ----
