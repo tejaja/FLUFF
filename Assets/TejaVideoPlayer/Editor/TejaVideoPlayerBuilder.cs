@@ -23,6 +23,9 @@ public static class TejaVideoPlayerBuilder
     const float ScreenW = 1.92f, ScreenH = 1.08f;   // 16:9
     const float ScreenCenterY = 1.55f;              // 床からの画面の真ん中の高さ
     const float SideOffset = 3.1f;                  // テレビの真ん中から横へ
+    // 音の届き方：島の端から端（約28m）でも聞こえるように。15mまでそのまま、45mで0（島の外は audioZone で消す）
+    //（2026-10-15 てじゃ「音量減衰きつすぎ、あそびば全体聞こえるくらい」。前は3〜20m）
+    const float SoundNear = 15f, SoundFar = 45f;
 
     [MenuItem("FuwaCourse/あそびば/動画プレイヤー（テスト）を置く")]
     public static void Build()
@@ -99,7 +102,7 @@ public static class TejaVideoPlayerBuilder
             var s = new GameObject(i == 0 ? "SpeakerL" : "SpeakerR"); s.transform.SetParent(root, false);
             s.transform.localPosition = new Vector3((i == 0 ? -1 : 1) * ScreenW * 0.5f, ScreenCenterY, 0f);
             var a = s.AddComponent<AudioSource>();
-            a.playOnAwake = false; a.spatialBlend = 1f; a.rolloffMode = AudioRolloffMode.Linear; a.minDistance = 3f; a.maxDistance = 20f; a.dopplerLevel = 0f;
+            a.playOnAwake = false; a.spatialBlend = 1f; a.rolloffMode = AudioRolloffMode.Linear; a.minDistance = SoundNear; a.maxDistance = SoundFar; a.dopplerLevel = 0f;
             var sp = s.AddComponent<VRCAVProVideoSpeaker>();
             var spSo = new SerializedObject(sp);
             spSo.FindProperty("videoPlayer").objectReferenceValue = av;
@@ -107,8 +110,8 @@ public static class TejaVideoPlayerBuilder
             spSo.ApplyModifiedPropertiesWithoutUndo();
             var spatial = s.AddComponent<VRC.SDK3.Components.VRCSpatialAudioSource>();
             var saSo = new SerializedObject(spatial);
-            var near = saSo.FindProperty("Near"); if (near != null) near.floatValue = 3f;
-            var far = saSo.FindProperty("Far"); if (far != null) far.floatValue = 20f;
+            var near = saSo.FindProperty("Near"); if (near != null) near.floatValue = SoundNear;
+            var far = saSo.FindProperty("Far"); if (far != null) far.floatValue = SoundFar;
             saSo.ApplyModifiedPropertiesWithoutUndo();
             speakers[i] = a;
         }
@@ -165,11 +168,18 @@ public static class TejaVideoPlayerBuilder
         // 音量
         var slGo = DefaultControls.CreateSlider(new DefaultControls.Resources());
         slGo.name = "Volume"; slGo.transform.SetParent(canvasGo.transform, false);
-        Place(slGo, 1300f, 30f, 600f, 70f);
+        Place(slGo, 1410f, 25f, 490f, 90f);
+        slGo.transform.Find("Handle Slide Area/Handle").GetComponent<RectTransform>().sizeDelta = new Vector2(36f, 0f);
         var sl = slGo.GetComponent<Slider>(); sl.minValue = 0f; sl.maxValue = 1f; sl.value = vp.defaultVolume;
         UnityEventTools.AddStringPersistentListener(sl.onValueChanged, ub.SendCustomEvent, nameof(TejaVideoPlayer.OnVolumeChanged));
         vp.volumeSlider = sl;
-        var vol = Label(canvasGo.transform, "VolumeLabel", "♪", font, 44, Color.white, TextAnchor.MiddleRight); Place(vol.gameObject, 1200f, 30f, 90f, 70f);
+        // スピーカーの絵＝ミュートボタン（2026-10-15 てじゃ「ワールドのボリュームみたいに、音符をミュートボタンに」「サイズもおおきく」「音符よりスピーカーマーク」）
+        var muteGo = new GameObject("MuteButton", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); muteGo.transform.SetParent(canvasGo.transform, false);
+        Place(muteGo, 1300f, 20f, 100f, 100f);
+        var mi = muteGo.GetComponent<Image>(); mi.preserveAspect = true; mi.color = Color.white;
+        vp.iconOn = IconSprite(Dir + "Icon_Speaker.png"); vp.iconMuted = IconSprite(Dir + "Icon_SpeakerMute.png"); mi.sprite = vp.iconOn;   // 音符よりスピーカーの絵（てじゃ）
+        UnityEventTools.AddStringPersistentListener(muteGo.GetComponent<UnityEngine.UI.Button>().onClick, ub.SendCustomEvent, nameof(TejaVideoPlayer.ToggleMute));
+        vp.muteIcon = mi;
 
         // シークバー（いちばん上の段。つまんで動かすとその位置へ。ライブの時は隠す）
         var skGo = DefaultControls.CreateSlider(new DefaultControls.Resources());

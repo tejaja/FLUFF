@@ -25,6 +25,10 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public Text playPauseLabel;
     public Slider volumeSlider;
     public Slider seekSlider;
+    [Tooltip("スピーカーのアイコン（押すと自分だけミュート）")]
+    public Image muteIcon;
+    public Sprite iconOn;
+    public Sprite iconMuted;
     [Tooltip("URL入力欄は、このボタンを押した時だけ出す（ずっと出ていると入力状態になりっぱなしになるので。2026-10-15 てじゃ）")]
     public GameObject urlFieldRoot;
     public Text urlButtonLabel;
@@ -58,6 +62,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     private float _nextCheck;
     private string _status = "";
     private bool _inZone = true;
+    private bool _userMuted;   // スピーカーのボタンで自分だけミュート
     private bool _silencing;
     private float _nextZone;
 
@@ -143,6 +148,20 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         player.SetTime(target);
         RequestSerialization();
         _nextCheck = Time.time + 0.5f;   // 直後にバーを古い位置へ戻さない
+    }
+
+    // スピーカーのボタン：自分だけミュート／解除
+    public void ToggleMute()
+    {
+        _userMuted = !_userMuted;
+        ApplyMute();
+    }
+
+    private void ApplyMute()
+    {
+        bool m = _userMuted || !_inZone;
+        if (speakers != null) for (int i = 0; i < speakers.Length; i++) if (speakers[i] != null) speakers[i].mute = m;
+        if (muteIcon != null) muteIcon.sprite = _userMuted ? iconMuted : iconOn;
     }
 
     public void OnVolumeChanged()
@@ -307,7 +326,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         if (inZone != _inZone || Time.frameCount < 5)
         {
             _inZone = inZone;
-            if (speakers != null) for (int i = 0; i < speakers.Length; i++) if (speakers[i] != null) speakers[i].mute = !inZone;
+            ApplyMute();
         }
         bool silence = inZone && _ready && player.IsPlaying;
         if (silence != _silencing)
