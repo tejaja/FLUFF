@@ -885,7 +885,7 @@ public static class FuwaPlaygroundBuilder
         pl.popEffect = popFx; pl.popSound = popSfx;
         // 動き回れる範囲＝島の中（柵の内側）。置いた場所のまわりだけだと、ふわふわを飛ばしながら追うとすぐ戻っていた（2026-10-13 てじゃ）
         var roomT = slot.parent != null ? slot.parent.parent : null;
-        if (roomT != null) { pl.areaCenter = roomT.position; pl.areaRadius = IslandR - 1.3f; }
+        if (roomT != null) { pl.areaCenter = roomT.position; pl.areaRadius = IslandR - 0.6f; }   // 柵（IslandR-0.14）のすぐ内側まで。前の -1.3 だと柵ぎわで止まった（2026-10-15 てじゃ）
         UdonSharpEditorUtility.CopyProxyToUdon(pl);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pl); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Continuous; EditorUtility.SetDirty(ub); } }
 

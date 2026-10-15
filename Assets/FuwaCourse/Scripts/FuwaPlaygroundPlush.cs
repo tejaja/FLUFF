@@ -53,6 +53,17 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     public float dashPush = 1f;
     [Tooltip("追いかける相手がいないまま、この秒数で寝る")]
     public float sleepAfter = 30f;
+    [Tooltip("ふわふわは、動ける範囲（areaRadius）よりこれだけ外まで追う（柵ぎわのふわふわも追えるように。体は areaRadius で止まる）")]
+    public float targetMargin = 0.6f;
+
+    [Header("起きていて相手がいない時：ときどきぴょんと跳ねる（2026-10-15 てじゃ「柵付近くると静止しちゃうの寂しい」「ランダムで跳ねるのもあり」）")]
+    public float wanderMin = 1.5f;
+    public float wanderMax = 4f;
+    public float wanderLenMin = 0.6f;
+    public float wanderLenMax = 1.5f;
+    [Tooltip("跳ねる高さ（hopHeight にかける）")]
+    public float wanderHop = 0.6f;
+    private float _nextWander;
 
     [Header("撃たれた時・落ちた時")]
     public float pushScale = 1.2f;
@@ -443,6 +454,11 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
                 Face(target.transform.position - p);
                 _state = 1; _stateAt = Time.time; _windup = true; RequestSerialization();
             }
+            else if (target == null)
+            {
+                if (_nextWander <= 0f) _nextWander = Time.time + Random.Range(wanderMin, wanderMax);
+                if (Time.time >= _nextWander) { _nextWander = 0f; Wander(p); }
+            }
         }
         else if (_state == 1)
         {
@@ -483,6 +499,21 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         {
             _state = 0; _stateAt = Time.time;   // 吹っ飛びは上で扱う（ここに来たら区切りはもう立っている）
         }
+    }
+
+    // 相手がいない時のぴょん：ランダムな向きへ少しだけ。動ける範囲のふちに近い時は内側へ向かう
+    private void Wander(Vector3 p)
+    {
+        Vector3 c = areaRadius > 0f ? areaCenter : _aFrom; float lim = areaRadius > 0f ? areaRadius : leashRange;
+        Vector3 toC = c - p; toC.y = 0f;
+        float a = Random.Range(0f, 360f);
+        Vector3 dir = Quaternion.Euler(0f, a, 0f) * Vector3.forward;
+        if (toC.magnitude > lim - 1.8f && toC.sqrMagnitude > 0.0001f)
+            dir = Quaternion.Euler(0f, Random.Range(-60f, 60f), 0f) * toC.normalized;   // ふちの近く：内側へ
+        float len = Random.Range(wanderLenMin, wanderLenMax);
+        _sRot = Quaternion.LookRotation(dir);
+        SetSeg(2, p, dir, len, hopHeight * wanderHop, len / Mathf.Max(0.1f, dashSpeed * 0.6f), Now() + dashLead);
+        _state = 2; _stateAt = Time.time;
     }
 
     private bool TouchingBramble(Vector3 p)
@@ -539,7 +570,7 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     private FuwaSharedBall _chase;
     private bool InArea(Vector3 v)
     {
-        Vector3 c = areaRadius > 0f ? areaCenter : _aFrom; float lim = areaRadius > 0f ? areaRadius : leashRange;
+        Vector3 c = areaRadius > 0f ? areaCenter : _aFrom; float lim = (areaRadius > 0f ? areaRadius : leashRange) + targetMargin;
         Vector3 d = v - c; d.y = 0f;
         return d.magnitude <= lim;
     }
