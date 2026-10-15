@@ -158,6 +158,9 @@ public static class TejaVideoPlayerBuilder
         var offT = inner.Find("Off"); sw.cameraOff = offT != null ? offT.gameObject : null;
         var nameT = inner.Find("Name"); sw.cameraName = nameT != null ? nameT.gameObject : null;
         sw.hideLabel = hLab;
+        // BGM はテレビの動画モードで止める（再生中かどうかでは止めない）。動画プレイヤー本体の BGM 止めは使わない（2026-10-15 てじゃ）
+        sw.bgm = vp.bgm; vp.bgm = null;
+        UdonSharpEditorUtility.CopyProxyToUdon(vp);
         sw.iconToVideo = IconSprite(Dir + "Icon_TvPlay.png");
         sw.iconToCam = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/FuwaCourse/Textures/Icon_Video.png");   // CAM ボタンと同じビデオカメラの絵
         iImg.sprite = sw.iconToVideo;
@@ -318,7 +321,7 @@ public static class TejaVideoPlayerBuilder
         var fSo = new SerializedObject(field);
         fSo.FindProperty("m_TextComponent").objectReferenceValue = txt;
         fSo.FindProperty("m_Placeholder").objectReferenceValue = ph;
-        var aos = fSo.FindProperty("m_ShouldActivateOnSelect"); if (aos != null) aos.boolValue = false;   // 選ばれただけで入力状態にしない（押す前のキーが入りこむので）
+        var aos = fSo.FindProperty("m_ShouldActivateOnSelect"); if (aos != null) aos.boolValue = true;   // false だと1回目の押しで選ばれるだけで、2回押さないと入力が出なかった（2026-10-15 てじゃ「URLボタンが2回おさないと反応しない」）。押す前のキーの入りこみは TejaVideoPlayer.CleanFields で消す
         fSo.ApplyModifiedPropertiesWithoutUndo();
         // 押した時の色の変化はボタンと同じくらいに
         field.targetGraphic = inGo.GetComponent<Image>();
@@ -336,7 +339,7 @@ public static class TejaVideoPlayerBuilder
         var ct = Label(cGo.transform, "Text", "", font, 20, new Color(1f, 1f, 1f, 0f), TextAnchor.MiddleCenter); Fill(ct.gameObject, 6f);
         ct.supportRichText = false;
         copy.textComponent = ct;
-        copy.shouldActivateOnSelect = false;   // 選ばれただけで入力状態にしない
+        copy.shouldActivateOnSelect = true;   // URL と同じく、1回で入力が出るように
         copy.targetGraphic = cGo.GetComponent<Image>();
         var ccb = copy.colors; ccb.highlightedColor = new Color(1f, 0.9f, 0.85f); ccb.pressedColor = new Color(0.8f, 0.8f, 0.8f); ccb.disabledColor = new Color(0.6f, 0.6f, 0.6f, 0.5f); copy.colors = ccb;
         IconOn(cGo.transform, "Icon_Copy.png", 84f);

@@ -7,7 +7,8 @@ using UnityEngine.UI;
 // ・見出しの横の丸ボタンで手動切りかえ
 // ・だれかが動画を流しても、テレビは勝手に切りかえない（おっかけカメラを見たい人もいるので。音は流れる）。
 //   代わりに切りかえボタンに「動画やってるよ」の印（コーラルの点がぽわぽわ）を出す（2026-10-15 てじゃ「勝手に動画切り替わるのきになる」）
-// ・■停止・最後まで再生・動画なしになったら、動画を見ていた人のテレビはカメラに戻す。一時停止は動画のまま
+// ・最後まで再生・動画なしになったら、動画を見ていた人のテレビはカメラに戻す。■停止・一時停止は動画のまま（2026-10-15 てじゃ「再生中に停止おすとおっかけカメラになっちゃう」）
+// ・BGM は動画モードの間だけ止める（自分だけ。再生しているかどうかではなく、モードで切りかえ。2026-10-15 てじゃ「BGMのオンオフは動画モードのオンオフで」）
 // ・動画の時：テレビの画面の手前に動画の画面を出し、下の ME／CAM ボタンの所を動画の操作パネルに入れかえ、見出しを「どうが」に
 // （2026-10-15 てじゃ「おすすめでいこう」＝ボタンで切りかえ＋再生で自動）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -46,10 +47,16 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
     public GameObject hideButton;
     public Text hideLabel;
 
+    [Header("BGM（動画モードの間 bgmSilenceVariable を true にして止めてもらう）")]
+    public UdonSharpBehaviour bgm;
+    public string bgmSilenceVariable = "externalSilence";
+
     private bool _video;
+    private bool _silencing;
     private bool _panelHidden;   // 動画の操作パネルを隠している（自分の画面だけ。2026-10-15 てじゃ「UI隠しボタンもどっかにほしい」）
     private bool _wasPlaying;
     private bool _wasIdle = true;
+    private bool _wasEnded = true;
     private bool _started;
     private float _next;
 
@@ -57,6 +64,19 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
     {
         // エリアに戻ってきた時：今の再生の状態に合わせて始める
         _started = false;
+    }
+
+    private void OnDisable()
+    {
+        // エリアを出てテレビが隠れた：BGM を止めたままにしない（戻ってきたら Update でモードに合わせ直す）
+        SetBgmSilence(false);
+    }
+
+    private void SetBgmSilence(bool v)
+    {
+        if (_silencing == v) return;
+        _silencing = v;
+        if (bgm != null) bgm.SetProgramVariable(bgmSilenceVariable, v);
     }
 
     public void TogglePanel()
@@ -89,6 +109,7 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         }
         HideCamera();
         ApplyTitle();
+        SetBgmSilence(v);
     }
 
     private void ApplyTitle()
@@ -109,11 +130,13 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         if (!_started)
         {
             _started = true;
-            _wasPlaying = playing; _wasIdle = idle;
-            SetMode(!idle && _video);
+            _wasPlaying = playing; _wasIdle = idle; _wasEnded = video.IsEndedOrEmpty();
+            SetMode(!_wasEnded && _video);
             return;
         }
-        if (idle && !_wasIdle) SetMode(false);        // 停止・おわり・動画なし
+        bool ended = video.IsEndedOrEmpty();
+        if (ended && !_wasEnded && _video) SetMode(false);   // おわり・動画なし（■停止では戻さない）
+        _wasEnded = ended;
         _wasPlaying = playing; _wasIdle = idle;
         ApplyTitle();   // 言語の切りかえで見出しが書きかわっても、今のモードの見出しに戻す
         _badge = playing && !_video;

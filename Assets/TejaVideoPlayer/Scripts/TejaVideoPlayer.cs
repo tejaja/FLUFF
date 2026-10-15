@@ -312,6 +312,13 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         return _paused && _pausedAt <= 0.01f && !IsLive();
     }
 
+    // 動画なし・最後まで再生した（■停止は含まない）
+    public bool IsEndedOrEmpty()
+    {
+        if (_url == null || _url.Get() == "") return true;
+        return _ended;
+    }
+
     private bool IsLive()
     {
         float d = player.GetDuration();
