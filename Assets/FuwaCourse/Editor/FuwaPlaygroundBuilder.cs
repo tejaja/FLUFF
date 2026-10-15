@@ -1084,6 +1084,16 @@ public static class FuwaPlaygroundBuilder
 
     // スイッチ6つ（2列×3段）：ロビーと同じレーザーで押す白いボタン（近くに来た時だけ押せる＝FuwaUiProximity がビルド前に自動登録）
     // 上から サイズ・カラー／かず・おちたら／かお・け。足りない分だけ作って、全部を決まった位置へ置く（シーンに置いてある分にも使える）
+    // 右の列（あそびば・チャレンジ・タイトルにもどる）の高さ：真ん中のボタンをスイッチの真ん中の段にそろえて、
+    // 上下の間隔はチャレンジのロビーの3つのボタンと同じ（2026-10-15 てじゃ「チャレンジ側と同じ隙間に、中央基準で」。前はスイッチの段に合わせて0.52m間隔）
+    static float SideRowY(int row, Transform lobbyHow)
+    {
+        float gap = 0.36f;
+        var a = lobbyHow != null ? lobbyHow.Find("SoloCount") : null; var b = lobbyHow != null ? lobbyHow.Find("TogetherButton") : null;
+        if (a != null && b != null) gap = Mathf.Abs(a.position.y - b.position.y);
+        return BoardSideY[1] + (1 - row) * gap;
+    }
+
     static readonly string[] SwitchEvents = { "NextSize", "NextColor", "NextLimit", "TogglePop", "ToggleFace", "ToggleFur" };
     static TMPro.TextMeshProUGUI[] PlaceSwitches(Transform panel, Vector3 pc, Quaternion rot, FuwaPlaygroundSpawner sp)
     {
@@ -1120,7 +1130,8 @@ public static class FuwaPlaygroundBuilder
         var labels = PlaceSwitches(panel, pc, rot, sp);
         // 右の列（あそびば・チャレンジ・タイトルにもどる）と言語・音量、見出し
         string[] side = { "HereCount", "ToChallengeButton", "ToTitleButton" };
-        for (int r = 0; r < 3; r++) { var t = panel.Find(side[r]); if (t != null) t.position = pc + rot * new Vector3(BoardSideX, BoardSideY[r], 0f); }
+        var lobbyHow = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HowToPlay" && t.parent != null && t.parent.name == "FuwaLobby");
+        for (int r = 0; r < 3; r++) { var t = panel.Find(side[r]); if (t != null) t.position = pc + rot * new Vector3(BoardSideX, SideRowY(r, lobbyHow), 0f); }
         var howTo = coop.Find("HowToPlay");
         if (howTo != null) foreach (var n in new[] { "LanguageButton", "BgmVolume" }) { var t = howTo.Find(n); if (t != null) t.localPosition = new Vector3(n == "LanguageButton" ? -BoardBottomX : BoardBottomX, BoardBottomY, 0f); }
         var hg = panel.Find("Heading"); if (hg != null) hg.position = pc + rot * new Vector3(0f, BoardSideY[0] + 0.5f, 0f);
@@ -1160,7 +1171,7 @@ public static class FuwaPlaygroundBuilder
         {
             var s = lobbyHow.Find(src);
             var g = Object.Instantiate(s.gameObject, panel, false); g.name = name;
-            g.transform.SetPositionAndRotation(pc + rot * new Vector3(BoardSideX, BoardSideY[row], 0f), rot);
+            g.transform.SetPositionAndRotation(pc + rot * new Vector3(BoardSideX, SideRowY(row, lobbyHow), 0f), rot);
             g.transform.localScale = s.lossyScale;
             return g;
         }
