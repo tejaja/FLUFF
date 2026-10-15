@@ -5,6 +5,8 @@ float _FaceMode;    // 0=いつもこっちを向く、1=玉にくっついて�
 float _FaceSize;    // 顔の広さ（玉の中心から見た半分の角度のsin）
 float _FaceLift;    // 毛先からさらに外へ浮かせる量（毛の長さに対する割合）。描く板の位置（毛に隠れないため）
 float _FaceDepth;   // 顔の絵が乗って見える球の大きさ（毛の長さに対する割合）。見た目の毛玉のふくらみに合わせる
+float _FaceStyle;    // 目の形（下の fragFace を見て）
+float _FaceCheekSize;
 fixed4 _FaceEyeColor;
 fixed4 _FaceCheekColor;
 
@@ -64,11 +66,27 @@ fixed4 fragFace (v2f i) : SV_Target
     float2 uv = float2(dot(od, R), dot(od, U)) / _FaceSize;   // 顔の真ん中=(0,0)、ふち=±1
     if (dot(uv, uv) > 1.6) discard;
 
-    // 目：たて線2本、ほっぺ：横長のだ円
+    // 目（_FaceStyle）：0=たて線 1=にっこり閉じ目（^ ^） 2=点 3=点＋小さい口。ほっぺ：横長のだ円（大きさ _FaceCheekSize）
     float2 pe = float2(abs(uv.x) - 0.30, uv.y - 0.10);
-    float dEye = sdCapsuleY(pe, 0.11, 0.06);
-    float2 pc = float2(abs(uv.x) - 0.56, uv.y + 0.16) / float2(0.17, 0.11);
-    float dCheek = (length(pc) - 1.0) * 0.11;
+    float dEye;
+    if (_FaceStyle < 0.5) dEye = sdCapsuleY(pe, 0.11, 0.06);
+    else if (_FaceStyle < 1.5)
+    {
+        // 上に丸い弧（中心を少し下げた円の上半分）。端は丸く
+        float2 q = pe - float2(0, -0.05);
+        dEye = q.y >= 0 ? abs(length(q) - 0.12) - 0.035 : length(float2(abs(q.x) - 0.12, q.y)) - 0.035;
+    }
+    else dEye = length(pe) - 0.07;
+    if (_FaceStyle > 2.5)
+    {
+        // 小さいにっこり口（下に丸い弧）
+        float2 m = uv - float2(0, -0.02);
+        float dMouth = m.y <= 0 ? abs(length(m) - 0.09) - 0.026 : length(float2(abs(m.x) - 0.09, m.y)) - 0.026;
+        dEye = min(dEye, dMouth);
+    }
+    float ck = max(_FaceCheekSize, 0.01);
+    float2 pc = float2(abs(uv.x) - 0.56, uv.y + 0.16) / (float2(0.17, 0.11) * ck);
+    float dCheek = _FaceCheekSize > 0.01 ? (length(pc) - 1.0) * 0.11 * ck : 1.0;   // 0=ほっぺなし
 
     float aa = max(fwidth(uv.x), 1e-4) * 0.75;
     float eyeA = 1.0 - smoothstep(-aa, aa, dEye);

@@ -1,4 +1,4 @@
-Shader "FuwaCourse/FurPlain"
+﻿Shader "FuwaCourse/FurPlain"
 {
     // ふわふわの毛なし版（軽量）。毛の層を描かずに、毛の分だけふくらませた球1枚＋顔。
     // プロパティは FuwaCourse/Fur・FurFace と同じ名前（色・ポヨン・なびき・光をスクリプトからそのまま入れられる）
@@ -23,6 +23,8 @@ Shader "FuwaCourse/FurPlain"
         _FaceSize ("Face Size (sin)", Range(0.2, 1)) = 0.62
         _FaceLift ("Face Lift (x fur)", Range(0, 0.5)) = 0.08
         _FaceDepth ("Face Sphere (x fur, = Plain Sphere)", Range(0, 1)) = 0.6
+        [Enum(Lines,0,Smile,1,Dots,2,DotsMouth,3)] _FaceStyle ("Face Style", Float) = 1
+        _FaceCheekSize ("Face Cheek Size", Range(0, 1.5)) = 1
         _FaceEyeColor ("Face Eye Color", Color) = (0.28, 0.17, 0.12, 1)
         _FaceCheekColor ("Face Cheek Color (a=strength)", Color) = (1, 0.55, 0.6, 0.75)
     }

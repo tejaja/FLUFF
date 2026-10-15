@@ -63,6 +63,36 @@ public static class FuwaFaceSetup
         Debug.Log($"ふわふわの材質：ふつう={BallMat} / あそびば={RotMat}・毛オフ={PlainMat}（プレハブ{n}・シーン{s}個）");
     }
 
+    // 毛オフ用の細かい球（半径0.5＝玉のメッシュと同じ大きさ）。すでにあれば中身だけ作り直す
+    const string SpherePath = "Assets/FuwaCourse/Generated/FuwaPlainSphere.asset";
+    static Mesh PlainSphere()
+    {
+        const int U = 40, V = 24;
+        var vs = new System.Collections.Generic.List<Vector3>(); var tr = new System.Collections.Generic.List<int>();
+        for (int j = 0; j <= V; j++)
+            for (int i = 0; i <= U; i++)
+            {
+                float th = Mathf.PI * j / V, ph = 2f * Mathf.PI * i / U;
+                vs.Add(new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph)) * 0.5f);
+            }
+        for (int j = 0; j < V; j++)
+            for (int i = 0; i < U; i++)
+            {
+                int a = j * (U + 1) + i, b = a + U + 1;
+                tr.AddRange(new[] { a, a + 1, b, a + 1, b + 1, b });
+            }
+        var m = AssetDatabase.LoadAssetAtPath<Mesh>(SpherePath);
+        bool isNew = m == null;
+        if (isNew) m = new Mesh();
+        m.Clear(); m.name = "FuwaPlainSphere";
+        m.SetVertices(vs); m.SetTriangles(tr, 0);
+        m.SetNormals(vs.ConvertAll(v => v.normalized));
+        m.RecalculateBounds();
+        if (isNew) { System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(SpherePath)); AssetDatabase.CreateAsset(m, SpherePath); }
+        else EditorUtility.SetDirty(m);
+        return m;
+    }
+
     static Material Ensure(string path, Material src)
     {
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -77,6 +107,7 @@ public static class FuwaFaceSetup
             if (r.sharedMaterial == ball || r.sharedMaterial == rot) r.sharedMaterial = rot;
         var so = new SerializedObject(b);
         so.FindProperty("plainMaterial").objectReferenceValue = plain;
+        so.FindProperty("plainMesh").objectReferenceValue = PlainSphere();
         so.ApplyModifiedPropertiesWithoutUndo();
         UdonSharpEditorUtility.CopyProxyToUdon(b);
     }

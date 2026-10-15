@@ -68,6 +68,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public float furDragMax = 0.12f;
     [Tooltip("毛オフ（軽量）の時の材質（FuwaCourse/FurPlain）。あそびばの設定スイッチで切り替え（FuwaPlaygroundSpawner → SetLook）。なければ毛オフなし")]
     public Material plainMaterial;
+    [Tooltip("毛オフの時の球のメッシュ（毛ありの玉のメッシュは粗くて、毛がないと輪郭がカクカクに見えるので細かい球に替える）。なければそのまま")]
+    public Mesh plainMesh;
 
     [Header("撃たれた時のポヨンと綿毛（全員の画面で、FuwaBall と同じ）")]
     public float squashAmount = 0.4f;
@@ -168,6 +170,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private Material _furMat;
     private Material _plainMat;   // 毛オフの材質（自分用の複製）。色・ポヨン・なびきは毛ありと両方に入れておく
     private bool _plain;
+    private MeshFilter _furMeshFilter;
+    private Mesh _furMesh;
     private Vector3 _furDrag;
     private bool _shownHidden;
     private Collider _col;
@@ -216,6 +220,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
             furRenderer.sharedMaterial = plainMaterial;
             _plainMat = furRenderer.material;
             furRenderer.sharedMaterial = _furMat;
+            _furMeshFilter = furRenderer.GetComponent<MeshFilter>();
+            if (_furMeshFilter != null) _furMesh = _furMeshFilter.sharedMesh;
         }
         _rb.useGravity = false;
         _rb.drag = airDrag;
@@ -308,6 +314,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (plain == _plain) return;
         _plain = plain;
         furRenderer.sharedMaterial = plain ? _plainMat : _furMat;
+        if (_furMeshFilter != null && plainMesh != null) _furMeshFilter.sharedMesh = plain ? plainMesh : _furMesh;
     }
 
     // 追っかけカメラがほかのエリアからあそびばを映している間は、エリアにいる扱いにして動かして見せる（FuwaFollowCam が切り替える）

@@ -12,7 +12,8 @@ Material:
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
-  m_InvalidKeywords: []
+  m_InvalidKeywords:
+  - _FACEON_ON
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -29,11 +30,13 @@ Material:
     - _Density: 38
     - _EyeMinLen: 0
     - _EyeTint: 0
+    - _FaceCheekSize: 1
     - _FaceDepth: 0.5
     - _FaceLift: 0.08
     - _FaceMode: 1
     - _FaceOn: 0
     - _FaceSize: 0.62
+    - _FaceStyle: 1
     - _FurLength: 0.2
     - _Gravity: 0.03
     - _RimPower: 2.5
