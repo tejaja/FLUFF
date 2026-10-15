@@ -639,8 +639,8 @@ public static class FuwaPlaygroundBuilder
             var hr = monitorHolder.rotation;
             var tb = monitorHolder.Find("TargetButton"); var cb = monitorHolder.Find("CamButton");
             if (tb != null) { tb.position = monitorHolder.TransformPoint(new Vector3(sl.x - 0.6f, sl.y - sh - 0.24f, face - 0.03f)); tb.rotation = hr; }
-            // カメラアングルのボタンは少し右（2026-10-13 てじゃ「もうちょい右に」。前は +0.6）
-            if (cb != null) { cb.position = monitorHolder.TransformPoint(new Vector3(sl.x + 0.9f, sl.y - sh - 0.24f, face - 0.03f)); cb.rotation = hr; }
+            // カメラアングルのボタンは右寄せ：右端を画面の右端にそろえる（2026-10-13 てじゃ「もうちょい右に」で +0.9 → 2026-10-15「右端がモニタの端とあうように」で +0.82。左の人物ボタンは左端がそろっている）
+            if (cb != null) { cb.position = monitorHolder.TransformPoint(new Vector3(sl.x + 0.82f, sl.y - sh - 0.24f, face - 0.03f)); cb.rotation = hr; }
         }
         return "deco ok";
     }

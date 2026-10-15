@@ -33,6 +33,12 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
     [Tooltip("動画の時に出す絵（押すとカメラへ）")]
     public Sprite iconToCam;
 
+    [Header("おっかけカメラの画面（動画の時は非表示にする。重ねるだけだと横からすき間ごしに見えたので。2026-10-15 てじゃ）")]
+    public Renderer cameraScreen;
+    [Tooltip("カメラが OFF の時の「OFF」の表示（FuwaFollowCam が出し入れする。戻す時はカメラの画面の状態に合わせる）")]
+    public GameObject cameraOff;
+    public GameObject cameraName;
+
     [Tooltip("カメラを見ている間に動画が流れていたら出す印（切りかえボタンの右上の点）")]
     public GameObject playingBadge;
 
@@ -74,6 +80,14 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         if (hideLabel != null) hideLabel.text = _panelHidden ? "▼" : "▲";   // 出ている時▲（しまう）、隠れている時▼（出す）（2026-10-15 てじゃ「イメージ逆」）
         if (cameraOnly != null) for (int i = 0; i < cameraOnly.Length; i++) if (cameraOnly[i] != null && cameraOnly[i].activeSelf == v) cameraOnly[i].SetActive(!v);
         if (toggleIcon != null) toggleIcon.sprite = v ? iconToCam : iconToVideo;
+        if (!v)
+        {
+            // カメラに戻す：画面と名前を出し、OFF の表示は FuwaFollowCam の今の状態（画面が出ていなければ OFF）に合わせる
+            if (cameraScreen != null && !cameraScreen.gameObject.activeSelf) cameraScreen.gameObject.SetActive(true);
+            if (cameraName != null && !cameraName.activeSelf) cameraName.SetActive(true);
+            if (cameraOff != null && cameraScreen != null) cameraOff.SetActive(!cameraScreen.enabled);
+        }
+        HideCamera();
         ApplyTitle();
     }
 
@@ -106,10 +120,20 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         if (playingBadge != null && playingBadge.activeSelf != _badge) playingBadge.SetActive(_badge);
     }
 
+    // 動画の時：おっかけカメラの画面・OFF・名前を隠す（FuwaFollowCam が出し直しても、毎フレームの最後に隠し直す）
+    private void HideCamera()
+    {
+        if (!_video) return;
+        if (cameraScreen != null && cameraScreen.gameObject.activeSelf) cameraScreen.gameObject.SetActive(false);
+        if (cameraOff != null && cameraOff.activeSelf) cameraOff.SetActive(false);
+        if (cameraName != null && cameraName.activeSelf) cameraName.SetActive(false);
+    }
+
     private bool _badge;
     // 印をぽわぽわさせる（出ている時だけ）
     private void LateUpdate()
     {
+        HideCamera();
         if (!_badge || playingBadge == null) return;
         float k = 1f + 0.18f * Mathf.Sin(Time.time * 4f);
         playingBadge.transform.localScale = new Vector3(k, k, 1f);

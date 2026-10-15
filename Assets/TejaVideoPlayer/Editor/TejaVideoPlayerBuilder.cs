@@ -75,8 +75,8 @@ public static class TejaVideoPlayerBuilder
         var core = EnsureCore(roots);
         var av = core.Item1; var vp = core.Item2;
 
-        // 動画の画面：テレビの画面と同じ大きさで、ほんの少し手前（名前の文字より手前）
-        var vs = MakeScreen(inner, "VideoScreen", tvScreen.localPosition + new Vector3(0f, 0f, -0.012f), tvScreen.localRotation, tvScreen.localScale, av, false);
+        // 動画の画面：テレビの画面と同じ所・同じ大きさ（動画の時はカメラの画面を非表示にするので重ねない。2026-10-15 てじゃ「横から見ると隙間からチラ見え」）
+        var vs = MakeScreen(inner, "VideoScreen", tvScreen.localPosition, tvScreen.localRotation, tvScreen.localScale, av, false);
         vs.SetActive(false);
         // 音：画面の左右のふち
         Vector3 sl = tv.InverseTransformPoint(tvScreen.position);
@@ -154,6 +154,9 @@ public static class TejaVideoPlayerBuilder
         sw.toggleIcon = iImg;
         sw.hideButton = hdCv;
         sw.playingBadge = badge;
+        sw.cameraScreen = tvScreen.GetComponent<Renderer>();
+        var offT = inner.Find("Off"); sw.cameraOff = offT != null ? offT.gameObject : null;
+        var nameT = inner.Find("Name"); sw.cameraName = nameT != null ? nameT.gameObject : null;
         sw.hideLabel = hLab;
         sw.iconToVideo = IconSprite(Dir + "Icon_TvPlay.png");
         sw.iconToCam = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/FuwaCourse/Textures/Icon_Video.png");   // CAM ボタンと同じビデオカメラの絵
@@ -179,7 +182,7 @@ public static class TejaVideoPlayerBuilder
             list.Add(tv.Find("VideoSpeakers")); list.Add(tv.Find("VideoControls")); list.Add(tv.Find("VideoToggle")); list.Add(tv.Find("VideoHide"));
             var inner = tv.Find("Monitor"); if (inner != null) list.Add(inner.Find("VideoScreen"));
             // カメラのボタンが隠れたまま残らないように
-            foreach (var n in new[] { "TargetButton", "CamButton" }) { var b = tv.Find(n); if (b != null) b.gameObject.SetActive(true); }
+            foreach (var n in new[] { "TargetButton", "CamButton", "Monitor/Screen", "Monitor/Name" }) { var b = tv.Find(n); if (b != null) b.gameObject.SetActive(true); }
             var title = tv.Find("Monitor/Title"); var swT = tv.Find("VideoSwitch");
             if (swT != null && title != null) { var s = swT.GetComponent<FuwaTvVideoSwitch>(); if (s != null) title.GetComponent<TMPro.TextMeshPro>().text = s.camTitleJa; }
         }
