@@ -1,5 +1,6 @@
 ﻿using UdonSharp;
 using UnityEngine;
+using VRC.SDK3.Rendering;
 using VRC.SDKBase;
 using VRC.SDK3.UdonNetworkCalling;
 using VRC.Udon.Common.Interfaces;
@@ -338,6 +339,11 @@ public class FuwaSharedBall : UdonSharpBehaviour
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null) return;
         float d = Vector3.Distance(lp.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, transform.position);
+        // VRChatカメラ（手持ち・写真）を出している時は、カメラからの距離も見る。ズームしているほど近い扱い（画角60°が基準）
+        //（2026-10-15 てじゃ「VRChatのカメラで近づいたときも毛にもどる」）
+        VRCCameraSettings photo = VRCCameraSettings.PhotoCamera;
+        if (photo != null && photo.Active)
+            d = Mathf.Min(d, Vector3.Distance(photo.Position, transform.position) * Mathf.Clamp(photo.FieldOfView, 5f, 120f) / 60f);
         float r = d / Mathf.Max(0.05f, transform.lossyScale.x);
         bool far = _lodPlain ? r > lodRatio * 0.9f : r > lodRatio;
         if (far == _lodPlain) return;
