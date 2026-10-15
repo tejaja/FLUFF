@@ -25,6 +25,7 @@ Shader "TejaVideo/Screen"
             sampler2D _MainTex;
             float4 _MainTex_TexelSize;   // zw = 動画の幅・高さ（ピクセル）
             float _Brightness, _ScreenAspect, _ApplyGamma, _FlipY;
+            float _VRChatMirrorMode;   // VRChat が入れる：0=ふつう、1=VRのミラー、2=デスクトップのミラー
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
@@ -52,6 +53,8 @@ Shader "TejaVideo/Screen"
                 #if !defined(SHADER_API_MOBILE)
                 if (_FlipY > 0.5) uv.y = 1.0 - uv.y;
                 #endif
+                // ミラーに映った時は左右を戻して、文字や絵がさかさまに見えないように（2026-10-15 てじゃ）
+                if (_VRChatMirrorMode > 0.5) uv.x = 1.0 - uv.x;
                 float inside = step(0, uv.x) * step(uv.x, 1) * step(0, uv.y) * step(uv.y, 1);
                 float3 c = tex2D(_MainTex, uv).rgb * inside;
                 // AVPro の映像はガンマ空間のまま来るので、リニアのプロジェクトでは戻す（SDK の Video/RealtimeEmissiveGamma と同じ）
