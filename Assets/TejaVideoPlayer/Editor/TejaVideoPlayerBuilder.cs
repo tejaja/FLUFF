@@ -339,6 +339,9 @@ public static class TejaVideoPlayerBuilder
         var ct = Label(cGo.transform, "Text", "", font, 20, new Color(1f, 1f, 1f, 0f), TextAnchor.MiddleCenter); Fill(ct.gameObject, 6f);
         ct.supportRichText = false;
         copy.textComponent = ct;
+        // 案内の文字（ボタンの上には見せない＝透明）。VRChat のフォームで中身を消した時に、ここが何の欄かわかるように出る（2026-10-15 てじゃ「URL消した時、URLコピペ用っすよって英語で」）
+        var cph = Label(cGo.transform, "Placeholder", "For copying the video URL (editing here does nothing)", font, 20, new Color(1f, 1f, 1f, 0f), TextAnchor.MiddleCenter); Fill(cph.gameObject, 6f);
+        copy.placeholder = cph;
         copy.shouldActivateOnSelect = true;   // URL と同じく、1回で入力が出るように
         copy.targetGraphic = cGo.GetComponent<Image>();
         var ccb = copy.colors; ccb.highlightedColor = new Color(1f, 0.9f, 0.85f); ccb.pressedColor = new Color(0.8f, 0.8f, 0.8f); ccb.disabledColor = new Color(0.6f, 0.6f, 0.6f, 0.5f); copy.colors = ccb;
