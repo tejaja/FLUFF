@@ -65,7 +65,6 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     private bool _loadQueued;
     private float _nextLoad;
     private float _nextCheck;
-    private string _status = "";
     private bool _inZone = true;
     private bool _userMuted;   // スピーカーのボタンで自分だけミュート
     private bool _silencing;
@@ -76,7 +75,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         ShowUrl();
         if (volumeSlider != null) volumeSlider.SetValueWithoutNotify(defaultVolume);
         SetVolume(defaultVolume);
-        SetStatus("URLを入れてね / Paste a URL");
+        SetStatus("Add a video with the link button");
         UpdatePlayLabel();
     }
 
@@ -220,7 +219,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         if (wait > 0f)
         {
             if (!_loadQueued) { _loadQueued = true; SendCustomEventDelayedSeconds(nameof(_QueuedLoad), wait + 0.05f); }
-            SetStatus("まってね… / Waiting…");
+            SetStatus("Waiting...");
             return;
         }
         _ready = false;
@@ -229,7 +228,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         _nextLoad = Time.time + loadInterval;
         player.Stop();
         player.LoadURL(_url);
-        SetStatus("よみこみ中… / Loading…");
+        SetStatus("Loading...");
     }
 
     public void _QueuedLoad()
@@ -275,7 +274,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
             else player.Play();
         }
         else ApplyState(true);
-        SetStatus(IsLive() ? "ライブ / Live" : "");
+        SetStatus(IsLive() ? "Live" : "");
         UpdatePlayLabel();
     }
 
@@ -292,7 +291,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     public override void OnVideoEnd()
     {
-        SetStatus("おわり / Ended");
+        SetStatus("Ended");
         UpdatePlayLabel();
     }
 
@@ -306,12 +305,10 @@ public class TejaVideoPlayer : UdonSharpBehaviour
             Load();
             return;
         }
-        string msg;
-        if (videoError == VideoError.InvalidURL) msg = "URLがだめみたい / Invalid URL";
-        else if (videoError == VideoError.AccessDenied) msg = "設定の「Allow Untrusted URLs」をオンにしてね / Enable Allow Untrusted URLs";
-        else if (videoError == VideoError.PlayerError) msg = "再生できなかった / Player error";
-        else msg = "エラー / Error: " + videoError.ToString();
-        SetStatus(msg);
+        if (videoError == VideoError.InvalidURL) SetStatus("Invalid URL");
+        else if (videoError == VideoError.AccessDenied) SetStatus("Turn on \"Allow Untrusted URLs\" in VRChat settings");
+        else if (videoError == VideoError.PlayerError) SetStatus("Couldn't play this video");
+        else SetStatus("Error: " + videoError.ToString());
         UpdatePlayLabel();
     }
 
@@ -375,9 +372,9 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         return h > 0 ? h + ":" + m.ToString("00") + ":" + sec.ToString("00") : m + ":" + sec.ToString("00");
     }
 
+    // 表示はぜんぶ英語（ほかのワールドでも使い回せるように。2026-10-15 てじゃ「全部英語でもいいかも」）
     private void SetStatus(string s)
     {
-        _status = s;
         if (statusText != null) statusText.text = s;
     }
 
