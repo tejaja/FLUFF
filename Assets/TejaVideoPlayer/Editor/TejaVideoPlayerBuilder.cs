@@ -249,7 +249,8 @@ public static class TejaVideoPlayerBuilder
         return screen;
     }
 
-    // 待機画面：画面のすぐ手前に黒い板＋まん中にうすい「▶ テレビ」のマーク（画面の子。画面と一緒に出る・隠れる）
+    // 待機画面：画面のすぐ手前に黒い板＋まん中にうすいロゴ（▶テレビのマーク＋「Teja Player」）（画面の子。画面と一緒に出る・隠れる）
+    //（2026-10-15 てじゃ「うすいのいいね」「ここ以外でも使うし私の名前に、Teja Player」）
     static GameObject MakeStandby(Transform screen)
     {
         var sb = GameObject.CreatePrimitive(PrimitiveType.Quad); sb.name = "Standby";
@@ -261,8 +262,8 @@ public static class TejaVideoPlayerBuilder
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         var icon = new GameObject("Icon"); icon.transform.SetParent(sb.transform, false);
         icon.transform.localPosition = new Vector3(0f, 0f, -0.001f);
-        float k = 0.28f;   // 画面の高さに対するマークの大きさ
-        var sr = icon.AddComponent<SpriteRenderer>(); sr.sprite = IconSprite(Dir + "Icon_TvPlay.png"); sr.color = new Color(1f, 1f, 1f, 0.22f);
+        float k = 0.4f;   // 画面の高さに対するロゴの大きさ
+        var sr = icon.AddComponent<SpriteRenderer>(); sr.sprite = IconSprite(Dir + "Standby_Logo.png"); sr.color = new Color(1f, 1f, 1f, 0.25f);
         float ppu = sr.sprite.pixelsPerUnit, sz = sr.sprite.rect.height / ppu;   // スプライト1枚の大きさ（ローカル単位）
         Vector3 ps = screen.lossyScale;
         icon.transform.localScale = new Vector3(k / sz * ps.y / ps.x, k / sz, 1f);
