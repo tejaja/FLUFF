@@ -32,6 +32,10 @@ public class FuwaThrowRock : UdonSharpBehaviour
 
     [Tooltip("ぶつからずにすり抜ける物（手持ちの扇風機・うちわ。2026-10-14 てじゃ「扇風機を岩はすりぬけてほしい」）")]
     public Collider[] passThrough;
+    [Tooltip("持っている間だけ（自分の画面だけ）この半透明の材質にする。前が見えて狙いやすいように（2026-10-15 てじゃ「いわ持った時に前みえなくて狙い定めにくい」）")]
+    public Renderer visual;
+    public Material heldMaterial;
+    private Material _normalMat;
 
     private bool _ignored;
 
@@ -48,7 +52,18 @@ public class FuwaThrowRock : UdonSharpBehaviour
         foreach (Collider c in passThrough) if (c != null) Physics.IgnoreCollision(me, c, true);
     }
 
-    public override void OnDrop() { _droppedAt = Time.time; }
+    public override void OnPickup()
+    {
+        if (visual == null || heldMaterial == null) return;
+        if (_normalMat == null) _normalMat = visual.sharedMaterial;
+        visual.sharedMaterial = heldMaterial;
+    }
+
+    public override void OnDrop()
+    {
+        _droppedAt = Time.time;
+        if (visual != null && _normalMat != null) visual.sharedMaterial = _normalMat;
+    }
 
     private void FixedUpdate()
     {

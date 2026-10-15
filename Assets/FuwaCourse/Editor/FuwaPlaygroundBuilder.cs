@@ -700,10 +700,25 @@ public static class FuwaPlaygroundBuilder
             AudioSource hit = null;
             if (src.hitSound != null) { var h = Object.Instantiate(src.hitSound.gameObject, rock.transform, false); h.name = "HitSound"; h.transform.localPosition = Vector3.zero; hit = h.GetComponent<AudioSource>(); }
             var tr = UdonSharpUndo.AddComponent<FuwaThrowRock>(rock); tr.spawner = sp; tr.radius = r; tr.hitSound = hit; tr.fallY = slot.position.y - 6f;
+            tr.visual = vis.GetComponentInChildren<Renderer>(); tr.heldMaterial = RockHeldMaterial(tr.visual != null ? tr.visual.sharedMaterial : null);
             tr.passThrough = Object.FindObjectsOfType<FuwaHandFan>(true).SelectMany(f => f.GetComponents<Collider>()).ToArray();   // 扇風機・うちわはすり抜ける
             UdonSharpEditorUtility.CopyProxyToUdon(tr);
             var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tr); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Continuous; EditorUtility.SetDirty(ub); }
         }
+    }
+
+    // 持っている間のいわ（半透明。自分の画面だけ）。色はいつもの岩の材質から
+    static Material RockHeldMaterial(Material src)
+    {
+        const string path = "Assets/FuwaCourse/Materials/Playground_RockHeld.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (m == null) { m = new Material(Shader.Find("Legacy Shaders/Transparent/Diffuse")); AssetDatabase.CreateAsset(m, path); }
+        Color c = src != null && src.HasProperty("_Color") ? src.GetColor("_Color") : new Color(0.6f, 0.55f, 0.5f);
+        c.a = 0.35f;
+        m.SetColor("_Color", c);
+        if (src != null && src.HasProperty("_MainTex")) m.SetTexture("_MainTex", src.GetTexture("_MainTex"));
+        EditorUtility.SetDirty(m);
+        return m;
     }
 
     // 持って置ける玉（たね）：VRCPickup＋VRCObjectSync、手を離すとその場に浮く
