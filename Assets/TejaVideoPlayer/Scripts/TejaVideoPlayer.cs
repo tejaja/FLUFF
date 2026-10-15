@@ -24,6 +24,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public Text timeText;
     public Text playPauseLabel;
     public Slider volumeSlider;
+    public Slider seekSlider;
 
     [Header("調整")]
     [Tooltip("ずれがこれ（秒）を超えたら、持ち主の位置に寄せる")]
@@ -98,6 +99,21 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         if (_url == null || _url.Get() == "") return;
         if (!_ready) { Load(); return; }
         ApplyState(true);
+    }
+
+    // シークバーを動かした：その位置へ（動かした人が持ち主になって配る）。バーを表示に合わせて動かす時は SetValueWithoutNotify なのでここは来ない
+    public void OnSeek()
+    {
+        if (!_ready || seekSlider == null || IsLive()) return;
+        float dur = player.GetDuration();
+        if (dur <= 0f) return;
+        float target = Mathf.Clamp01(seekSlider.value) * dur;
+        Take();
+        if (_paused) _pausedAt = target;
+        else _start = Networking.GetServerTimeInSeconds() - target;
+        player.SetTime(target);
+        RequestSerialization();
+        _nextCheck = Time.time + 0.5f;   // 直後にバーを古い位置へ戻さない
     }
 
     public void OnVolumeChanged()
@@ -229,6 +245,12 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         _nextCheck = Time.time + 0.5f;
         // 持ち主以外：ときどき位置のずれを見て寄せる
         if (_ready && !_paused && !Networking.IsOwner(gameObject)) ApplyState(false);
+        if (seekSlider != null)
+        {
+            bool show = _ready && !IsLive();
+            if (seekSlider.gameObject.activeSelf != show) seekSlider.gameObject.SetActive(show);
+            if (show) { float d = player.GetDuration(); seekSlider.SetValueWithoutNotify(d > 0f ? Mathf.Clamp01(player.GetTime() / d) : 0f); }
+        }
         if (timeText != null)
         {
             if (!_ready) timeText.text = "";
