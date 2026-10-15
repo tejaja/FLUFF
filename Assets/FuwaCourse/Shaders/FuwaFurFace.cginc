@@ -79,9 +79,12 @@ fixed4 fragFace (v2f i) : SV_Target
     else dEye = length(pe) - 0.07;
     if (_FaceStyle > 2.5)
     {
-        // 小さいにっこり口（下に丸い弧）
-        float2 m = uv - float2(0, -0.02);
-        float dMouth = m.y <= 0 ? abs(length(m) - 0.09) - 0.026 : length(float2(abs(m.x) - 0.09, m.y)) - 0.026;
+        // 小さいにっこり口：大きい円の下の方だけを使ったゆるやかな弧（2026-10-15 てじゃ「曲線をもうちょいゆるやかに」）。
+        // 円の半径 r、使う範囲は真下から左右 ma ラジアン。いちばん下は y=-0.11、幅は前の口（半円、半径0.09）とほぼ同じ
+        const float r = 0.17, ma = 0.56;
+        float2 m = uv - float2(0, -0.11 + r);
+        float2 endp = float2(sin(ma), -cos(ma)) * r;
+        float dMouth = (m.y < 0 && abs(m.x) <= -m.y * tan(ma)) ? abs(length(m) - r) - 0.026 : length(float2(abs(m.x), m.y) - endp) - 0.026;
         dEye = min(dEye, dMouth);
     }
     float ck = max(_FaceCheekSize, 0.01);

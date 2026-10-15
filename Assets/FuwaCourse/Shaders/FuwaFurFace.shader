@@ -29,7 +29,7 @@
         _FaceSize ("Face Size (sin)", Range(0.2, 1)) = 0.62
         _FaceLift ("Face Lift (x fur)", Range(0, 0.5)) = 0.08
         _FaceDepth ("Face Sphere (x fur)", Range(0, 1)) = 0.5
-        [Enum(Lines,0,Smile,1,Dots,2,DotsMouth,3)] _FaceStyle ("Face Style", Float) = 1
+        [Enum(Lines,0,Smile,1,Dots,2,DotsMouth,3)] _FaceStyle ("Face Style", Float) = 3
         _FaceCheekSize ("Face Cheek Size", Range(0, 1.5)) = 1
         _FaceEyeColor ("Face Eye Color", Color) = (0.28, 0.17, 0.12, 1)
         _FaceCheekColor ("Face Cheek Color (a=strength)", Color) = (1, 0.55, 0.6, 0.75)

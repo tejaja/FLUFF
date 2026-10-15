@@ -15,7 +15,8 @@ public static class FuwaFaceSetup
     const string RotMat = MatDir + "Fuwa_BallFurFaceRot.mat";
     const string PlainMat = MatDir + "Fuwa_BallFurPlain.mat";
     const string FluffPrefab = "Assets/FuwaCourse/Prefabs/Playground/Fluff.prefab";
-    const float PlainH = 0.6f;   // 毛オフの球の大きさ（毛の長さの何割ぶんふくらませるか）。毛ありの見た目の大きさに合わせる
+    const float FaceStyle = 3f;   // 顔：点の目＋小さいにっこり口＋ほっぺ（2026-10-15 てじゃが選んだ。たて目はカービィすぎた）
+    const float PlainH = 0.5f;   // 毛オフの球の大きさ（毛の長さの何割ぶんふくらませるか）。毛ありの見た目の大きさに合わせる（0.6だとちょっと大きかった。2026-10-15 てじゃ「ごくわずかに小さく」）
 
     [MenuItem("FuwaCourse/ふわふわの顔・毛オフの材質をそろえる")]
     public static void Apply()
@@ -34,12 +35,14 @@ public static class FuwaFaceSetup
         rot.shader = faceShader;
         rot.SetFloat("_FaceOn", 0f);
         rot.SetFloat("_FaceMode", 1f);
+        rot.SetFloat("_FaceStyle", FaceStyle);
         EditorUtility.SetDirty(rot);
 
         var plain = Ensure(PlainMat, ball);
         plain.shader = plainShader;
         plain.SetFloat("_FaceOn", 0f);
         plain.SetFloat("_FaceMode", 1f);
+        plain.SetFloat("_FaceStyle", FaceStyle);
         plain.SetFloat("_PlainH", PlainH);
         plain.SetFloat("_FaceDepth", PlainH);
         EditorUtility.SetDirty(plain);
