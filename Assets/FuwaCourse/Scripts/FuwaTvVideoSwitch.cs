@@ -31,7 +31,12 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
     [Tooltip("動画の時に出す絵（押すとカメラへ）")]
     public Sprite iconToCam;
 
+    [Header("操作パネルを隠すボタン（動画の時だけ出す。画面とパネルのすき間の真ん中）")]
+    public GameObject hideButton;
+    public Text hideLabel;
+
     private bool _video;
+    private bool _panelHidden;   // 動画の操作パネルを隠している（自分の画面だけ。2026-10-15 てじゃ「UI隠しボタンもどっかにほしい」）
     private bool _wasPlaying;
     private bool _wasIdle = true;
     private bool _started;
@@ -43,6 +48,12 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         _started = false;
     }
 
+    public void TogglePanel()
+    {
+        _panelHidden = !_panelHidden;
+        SetMode(_video);
+    }
+
     public void ToggleMode()
     {
         SetMode(!_video);
@@ -52,7 +63,10 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
     {
         _video = v;
         if (videoScreen != null && videoScreen.activeSelf != v) videoScreen.SetActive(v);
-        if (videoControls != null && videoControls.activeSelf != v) videoControls.SetActive(v);
+        bool ctrl = v && !_panelHidden;
+        if (videoControls != null && videoControls.activeSelf != ctrl) videoControls.SetActive(ctrl);
+        if (hideButton != null && hideButton.activeSelf != v) hideButton.SetActive(v);
+        if (hideLabel != null) hideLabel.text = _panelHidden ? "▲" : "▼";
         if (cameraOnly != null) for (int i = 0; i < cameraOnly.Length; i++) if (cameraOnly[i] != null && cameraOnly[i].activeSelf == v) cameraOnly[i].SetActive(!v);
         if (toggleIcon != null) toggleIcon.sprite = v ? iconToCam : iconToVideo;
         ApplyTitle();

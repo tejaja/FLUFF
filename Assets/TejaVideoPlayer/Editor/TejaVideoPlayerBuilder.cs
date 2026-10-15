@@ -111,6 +111,25 @@ public static class TejaVideoPlayerBuilder
         var irt = (RectTransform)icon.transform; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.sizeDelta = new Vector2(104f, 104f);
         var iImg = icon.GetComponent<Image>(); iImg.raycastTarget = false; iImg.preserveAspect = true;
 
+        // 操作パネルを隠す／出すボタン：画面の下のふちとパネルの間のすき間の真ん中（パネルを隠しても、ここだけ残る）
+        //（2026-10-15 てじゃ「UI隠しボタン」「UIの右上あたり」→「隙間の真ん中くらいもありか」。右上の角だとパネルに隠れて見えなかった）
+        const float cs = 0.00135f;
+        var hdCv = new GameObject("VideoHide", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        hdCv.transform.SetParent(tv, false);
+        hdCv.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+        var hrt = (RectTransform)hdCv.transform; hrt.sizeDelta = new Vector2(150f, 56f); hrt.localScale = Vector3.one * cs;
+        float screenBottom = sl.y - tvScreen.lossyScale.y * 0.5f, panelTop = rowY + 106f * cs;
+        hrt.localPosition = new Vector3(sl.x, (screenBottom + panelTop) * 0.5f, rowZ - 0.004f); hrt.localRotation = Quaternion.identity;
+        hdCv.AddComponent<VRC.SDK3.Components.VRCUiShape>();
+        var hbc = hdCv.AddComponent<BoxCollider>(); hbc.size = new Vector3(150f, 56f, 10f);
+        var hGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); hGo.transform.SetParent(hdCv.transform, false);
+        var hbrt = (RectTransform)hGo.transform; hbrt.anchorMin = Vector2.zero; hbrt.anchorMax = Vector2.one; hbrt.offsetMin = Vector2.zero; hbrt.offsetMax = Vector2.zero;
+        var hImg = hGo.GetComponent<Image>(); hImg.sprite = IconSprite9(Dir + "UI_Round.png"); hImg.type = Image.Type.Sliced; hImg.color = Color.white;
+        var hSel = hGo.GetComponent<UnityEngine.UI.Button>();
+        var hcb = hSel.colors; hcb.normalColor = new Color(0.62f, 0.55f, 0.86f); hcb.highlightedColor = new Color(0.72f, 0.66f, 0.93f); hcb.pressedColor = new Color(0.52f, 0.45f, 0.76f); hcb.selectedColor = hcb.normalColor; hSel.colors = hcb;
+        var hLab = Label(hGo.transform, "Label", "▼", font, 36, Color.white, TextAnchor.MiddleCenter); Fill(hLab.gameObject, 2f);
+        hdCv.SetActive(false);
+
         // 切りかえの係（自分の画面だけ。テレビと一緒にエリアで隠れてよい）
         var swT = tv.Find("VideoSwitch");
         var swGo = swT != null ? swT.gameObject : new GameObject("VideoSwitch");
@@ -125,11 +144,14 @@ public static class TejaVideoPlayerBuilder
         sw.title = title.GetComponent<TMPro.TextMeshPro>();
         sw.language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         sw.toggleIcon = iImg;
+        sw.hideButton = hdCv;
+        sw.hideLabel = hLab;
         sw.iconToVideo = IconSprite(Dir + "Icon_TvPlay.png");
         sw.iconToCam = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/FuwaCourse/Textures/Icon_Video.png");   // CAM ボタンと同じビデオカメラの絵
         iImg.sprite = sw.iconToVideo;
         var swUb = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw);
         UnityEventTools.AddStringPersistentListener(bSel.onClick, swUb.SendCustomEvent, nameof(FuwaTvVideoSwitch.ToggleMode));
+        UnityEventTools.AddStringPersistentListener(hSel.onClick, swUb.SendCustomEvent, nameof(FuwaTvVideoSwitch.TogglePanel));
         UdonSharpEditorUtility.CopyProxyToUdon(sw);
         if (swUb != null) { swUb.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(swUb); }
 
@@ -145,7 +167,7 @@ public static class TejaVideoPlayerBuilder
         var list = new System.Collections.Generic.List<Transform> { room.Find("VideoScreenTest") };
         if (tv != null)
         {
-            list.Add(tv.Find("VideoSpeakers")); list.Add(tv.Find("VideoControls")); list.Add(tv.Find("VideoToggle"));
+            list.Add(tv.Find("VideoSpeakers")); list.Add(tv.Find("VideoControls")); list.Add(tv.Find("VideoToggle")); list.Add(tv.Find("VideoHide"));
             var inner = tv.Find("Monitor"); if (inner != null) list.Add(inner.Find("VideoScreen"));
             // カメラのボタンが隠れたまま残らないように
             foreach (var n in new[] { "TargetButton", "CamButton" }) { var b = tv.Find(n); if (b != null) b.gameObject.SetActive(true); }
@@ -338,14 +360,15 @@ public static class TejaVideoPlayerBuilder
         // シークバー（いちばん上の段。つまんで動かすとその位置へ。ライブの時は隠す）
         var skGo = DefaultControls.CreateSlider(new DefaultControls.Resources());
         skGo.name = "Seek"; skGo.transform.SetParent(pt, false);
-        Place(skGo, 30f, 146f, 1580f, 56f);
+        float topW = 1580f;
+        Place(skGo, 30f, 146f, topW, 56f);
         var sk = skGo.GetComponent<Slider>(); sk.minValue = 0f; sk.maxValue = 1f; sk.value = 0f;
         var fill = skGo.transform.Find("Fill Area/Fill"); if (fill != null) fill.GetComponent<Image>().color = new Color(0.95f, 0.55f, 0.45f);
         UnityEventTools.AddStringPersistentListener(sk.onValueChanged, ub.SendCustomEvent, nameof(TejaVideoPlayer.OnSeek));
         vp.seekSlider = sk;
 
         // 状態・時間
-        var st = Label(pt, "Status", "", font, 34, new Color(1f, 0.85f, 0.6f), TextAnchor.MiddleLeft); Place(st.gameObject, 30f, 140f, 1580f, 68f);
+        var st = Label(pt, "Status", "", font, 34, new Color(1f, 0.85f, 0.6f), TextAnchor.MiddleLeft); Place(st.gameObject, 30f, 140f, topW, 68f);
         vp.statusText = st;
         var tm = Label(pt, "Time", "", font, 36, Color.white, TextAnchor.MiddleRight); Place(tm.gameObject, 1620f, 140f, 280f, 68f);
         vp.timeText = tm;
