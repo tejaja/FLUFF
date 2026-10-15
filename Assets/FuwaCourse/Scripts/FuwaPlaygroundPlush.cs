@@ -55,6 +55,8 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     public float sleepAfter = 30f;
     [Tooltip("ふわふわは、動ける範囲（areaRadius）よりこれだけ外まで追う（柵ぎわのふわふわも追えるように。体は areaRadius で止まる）")]
     public float targetMargin = 0.6f;
+    [Tooltip("追いかけている途中でも、今の相手よりこの倍率より近いふわふわが来たら乗りかえる（0.6＝今の相手の6割の距離より近ければ）")]
+    [Range(0.1f, 1f)] public float switchRatio = 0.6f;
 
     [Header("起きていて相手がいない時：ときどきぴょんと跳ねる（2026-10-15 てじゃ「柵付近くると静止しちゃうの寂しい」「ランダムで跳ねるのもあり」）")]
     public float wanderMin = 1.5f;
@@ -249,7 +251,9 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     // 今の動き（体当たり・吹っ飛び）がまだ途中か
     private bool Busy()
     {
-        if (_aKind == 4) return !(_flyLanded && _flyFor == _aAt);
+        // 吹っ飛び：着地するまで。ただし島の外へ落ちて着地しないまま（持ち主が元の場所へ戻した知らせが待たされっぱなしになる）なので、3秒で打ち切る
+        //（2026-10-16 てじゃ「まものを外にふっとばしてリスポンしたとき、一人しか見えてなかった」）
+        if (_aKind == 4) return !(_flyLanded && _flyFor == _aAt) && Now() - _aAt < 3.0;
         if (_aKind == 2) return Now() - _aAt - _aShift < _aDur;
         return false;
     }
@@ -331,6 +335,12 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
         else
         {
             if (owner) Think();
+            else if (_aKind == 4 && Now() - _aAt > 4.0 && transform.position.y < fallY)
+            {
+                // 島の外へ落ちたのに持ち主が戻さない（持ち主があそびばにいなくて、この子が隠れて動いていない時など）：自分が持ち主になって元の場所へ戻す
+                Networking.SetOwner(Networking.LocalPlayer, gameObject);
+                ResetHome();
+            }
             if (!_down)
             {
                 Vector3 p = EvalPos();
@@ -548,8 +558,15 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     private FuwaSharedBall FindTarget(Vector3 p)
     {
         if (spawner == null || spawner.balls == null) return null;
-        // 追いかけている最中のふわふわは、遠くへ飛ばしても（keepRange まで・動ける範囲の中なら）見失わない
-        if (_chase != null && _chase.IsFlying() && InArea(_chase.transform.position) && (_chase.transform.position - p).magnitude < keepRange) return _chase;
+        // 追いかけている最中のふわふわは、遠くへ飛ばしても（keepRange まで・動ける範囲の中なら）見失わない。
+        // ただし近くに別のふわふわが来たら（今の相手の switchRatio 倍より近い）そっちへ乗りかえる（2026-10-16 てじゃ「近くに別のがあるときにターゲットうつりやすく」）
+        float keepD = -1f;
+        if (_chase != null && _chase.IsFlying() && InArea(_chase.transform.position))
+        {
+            keepD = (_chase.transform.position - p).magnitude;
+            if (keepD >= keepRange) keepD = -1f;
+        }
+        FuwaSharedBall cur = keepD >= 0f ? _chase : null;
         _chase = null;
         FuwaSharedBall best = null;
         float bestD = detectRange;
@@ -563,6 +580,8 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
             float d = (bp - p).magnitude;
             if (d < bestD) { bestD = d; best = b; }
         }
+        // 今の相手がいる時：いちばん近いのが今の相手より switchRatio 倍以上近い時だけ乗りかえる（すぐ行ったり来たりしないように）
+        if (cur != null && (best == null || best == cur || bestD > keepD * switchRatio)) best = cur;
         _chase = best;
         return best;
     }
