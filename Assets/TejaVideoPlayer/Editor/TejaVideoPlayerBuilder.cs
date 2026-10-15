@@ -148,7 +148,7 @@ public static class TejaVideoPlayerBuilder
         // 入力欄の「うすい案内の文字」は VRChat の入力フォームの中にそのまま出る（タイトルの「URL を入力」は VRChat 側で変えられない）。
         // ボタンの上には見せず（透明）、表のボタンの文字「URL」は別のラベルで出す
         var ph = Label(inGo.transform, "Placeholder", "ここに動画のURLを貼りつけてね / Paste a video URL", font, 30, new Color(1f, 1f, 1f, 0f), TextAnchor.MiddleCenter); Fill(ph.gameObject, 6f);
-        IconOn(inGo.transform, "Icon_Link.png", 112f);   // 表はリンク（くさり）のマーク（2026-10-15 てじゃ「URLもなんかいいマーク」）
+        IconOn(inGo.transform, "Icon_Link.png", 140f);   // 表はリンク（くさり）のマーク（2026-10-15 てじゃ「URLもなんかいいマーク」）
         var fSo = new SerializedObject(field);
         fSo.FindProperty("m_TextComponent").objectReferenceValue = txt;
         fSo.FindProperty("m_Placeholder").objectReferenceValue = ph;
