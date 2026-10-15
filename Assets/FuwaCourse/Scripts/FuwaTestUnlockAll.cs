@@ -31,10 +31,10 @@ public class FuwaTestUnlockAll : UdonSharpBehaviour
         for (int i = 0; i < 5; i++) spawner.Unlock(i);
     }
 
+    // 名前（ownerNames）が入っていればその人だけ（マスターでなくても。入り直すとマスターでなくなって消えたので。2026-10-16 てじゃ）。名前が空ならマスターだけ
     private bool CanUse(VRCPlayerApi p)
     {
-        if (!p.isMaster) return false;
-        if (ownerNames == null || ownerNames.Length == 0) return true;
+        if (ownerNames == null || ownerNames.Length == 0) return p.isMaster;
         string n = p.displayName;
         for (int i = 0; i < ownerNames.Length; i++) if (ownerNames[i] == n) return true;
         return false;
