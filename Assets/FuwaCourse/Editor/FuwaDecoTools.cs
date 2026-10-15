@@ -250,12 +250,89 @@ public static class FuwaDecoTools
         int removed = RemoveOverlaps(holder, style == "rock");
         // 苔・石は間引いてまばらに（近くに同じ種類があれば消す＋ランダムに少し減らす）
         removed += Sparsify(holder, new[] { "Deco_Moss", "Deco_Stone" }, 2.6f, 0.75f, seed + 101);
-        PushVinesOut(holder, root);
+        FitVinesToWall(holder, root);
         EditorUtility.SetDirty(root.gameObject);
         return "edges " + edges.Count + " clusters " + clusters + " items " + items + " removed(overlap) " + removed;
     }
 
-    // 垂らしたツタが道・島の側面にめり込んでいたら、めり込まない所まで外へ出す
+    [MenuItem("FuwaCourse/コースのツルを壁にそわせる")]
+    static void MenuFitAllVines()
+    {
+        int n = 0, total = 0;
+        foreach (var go in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+            foreach (var t in go.GetComponentsInChildren<Transform>(true))
+                if (t.name == "Deco" || t.name == "FinalDeco") { var (a, b) = FitVinesToWallCount(t, go.transform); n += a; total += b; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log($"ツルを壁にそわせた：{n}/{total}");
+    }
+
+    public static int FitVinesToWall(Transform holder, Transform root) { return FitVinesToWallCount(holder, root).Item1; }
+
+    // 垂らしたツタを、道・島の側面にそわせる（2026-10-15 てじゃ「コースの飾りのツル、結構浮いてること多い」）。
+    // 前は「下の方が壁にめり込んでいたら丸ごと外へずらす」だけだったので、下に向かって広がる壁だと根元ごと外へ押し出されて浮き、
+    // まっすぐな壁でもツタのカーテン（根元から外へ約0.1×大きさ）が壁から離れて見えていた。
+    // 今は：ツタの真横から内向きに線を飛ばして、高さごとの壁の位置を測る → 壁の傾きに合わせてツタを外へ傾け（0〜40°）、
+    // カーテンの内側が一番出っぱった所の壁に1cmで触れる位置まで寄せる。根元（上の端）はふちの上のまま
+    static (int, int) FitVinesToWallCount(Transform holder, Transform root)
+    {
+        Physics.SyncTransforms();
+        int moved = 0, total = 0;
+        foreach (var vf in holder.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (vf.sharedMesh == null || !vf.sharedMesh.name.StartsWith("Deco_Vines")) continue;
+            total++;
+            var inst = vf.transform; while (inst.parent != null && inst.parent != holder && !inst.parent.name.StartsWith("Cluster") && !inst.parent.name.StartsWith("Grass")) inst = inst.parent;
+            var outDir = inst.forward; outDir.y = 0; if (outDir.sqrMagnitude < 1e-4f) continue; outDir.Normalize();
+            var along = Vector3.Cross(Vector3.up, outDir);
+            float sc = inst.lossyScale.x;
+            Vector3 a = inst.position;
+            // ツタがぶら下がっている物（根元の真下の道・島）。壁はこの物だけで測る（下や奥にある別の島をツタの壁と間違えないように）
+            Collider host = null;
+            for (float back = 0.15f; back <= 2.5f && host == null; back += 0.25f)   // 外へ押し出されて浮いているツタもあるので、内側へずらしながら探す
+                foreach (var hit in Physics.RaycastAll(a + Vector3.up * 0.3f - outDir * back, Vector3.down, 0.6f, ~0, QueryTriggerInteraction.Ignore))
+                    if (hit.collider.transform.IsChildOf(root) && !hit.collider.transform.IsChildOf(holder) && hit.collider.GetComponentInParent<Rigidbody>() == null && !hit.collider.isTrigger) { host = hit.collider; break; }
+            if (host == null) continue;
+            // 根元の高さ：道の上面から2cm下（ふちより内側に入った根元の上の端が、道の上にちょこんと出ないように）
+            float topY = a.y;
+            for (float back = 0.1f; back <= 2.5f; back += 0.2f) if (host.Raycast(new Ray(new Vector3(a.x, a.y + 0.5f, a.z) - outDir * back, Vector3.down), out var th, 1f)) { topY = th.point.y; break; }
+            var a0 = new Vector3(a.x, topY - 0.02f, a.z);
+            // ふち（上面のすぐ下の側面）の位置：根元から外向きの距離
+            float edge = 0f;
+            if (host.Raycast(new Ray(a0 + Vector3.down * 0.02f + outDir * 2f, -outDir), out var eh, 5f)) edge = Vector3.Dot(eh.point - a0, outDir);
+            // ツタの頂点（根元から見た形。上の端3cmは道の中に隠れてよいので除く）
+            var lv = new List<Vector3>();
+            var verts = vf.sharedMesh.vertices;
+            for (int i = 0; i < verts.Length; i += 5)
+            {
+                var l = inst.InverseTransformPoint(vf.transform.TransformPoint(verts[i])) * sc;
+                if (l.y < -0.03f) lv.Add(l);
+            }
+            // 傾き 0〜40°：頂点ごとに、その高さ・横位置の壁を測って「カーテンが壁に1cmで触れる寄せ量」を出す。
+            // 根元がふちより外へ出ない（＝浮かない）一番小さい傾きを使う
+            float bestTh = 0f, bestC = float.PositiveInfinity; bool found = false;
+            for (int deg = 0; deg <= 40; deg += 4)
+            {
+                var rot = Quaternion.LookRotation(outDir, Vector3.up) * Quaternion.Euler(-deg, 0f, 0f);
+                float c = float.NegativeInfinity;
+                foreach (var l in lv)
+                {
+                    var p = a0 + rot * l;
+                    if (!host.Raycast(new Ray(p + outDir * 1.5f, -outDir), out var wh, 3f)) continue;   // その高さ・横に壁がない（薄い道の下など）
+                    c = Mathf.Max(c, Vector3.Dot(wh.point - a0, outDir) + 0.01f - Vector3.Dot(p - a0, outDir));
+                }
+                if (float.IsNegativeInfinity(c)) c = edge - 0.05f;   // どこにも壁がない：根元をふちの少し内側に
+                if (c < bestC) { bestC = c; bestTh = deg; }
+                if (c <= edge + 0.02f) { bestTh = deg; bestC = c; found = true; break; }
+            }
+            if (!found && bestC > edge + 0.15f) { Object.DestroyImmediate(inst.gameObject); moved++; continue; }   // 壁が大きく張り出していてそわせられない：消す
+            var np = a0 + outDir * bestC;
+            var nr = Quaternion.LookRotation(outDir, Vector3.up) * Quaternion.Euler(-bestTh, 0f, 0f);
+            if ((np - inst.position).sqrMagnitude > 1e-6f || Quaternion.Angle(nr, inst.rotation) > 0.1f) { inst.SetPositionAndRotation(np, nr); moved++; }
+        }
+        return (moved, total);
+    }
+
+    // 垂らしたツタが道・島の側面にめり込んでいたら、めり込まない所まで外へ出す（古いやり方。今は FitVinesToWall）
     // （外から内向きに線を飛ばして、頂点より手前で地面に当たる＝めり込み）
     public static int PushVinesOut(Transform holder, Transform root)
     {
