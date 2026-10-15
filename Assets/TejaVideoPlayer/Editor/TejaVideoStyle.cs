@@ -10,7 +10,7 @@ using UnityEngine.UI;
 public static class TejaVideoStyle
 {
     const string Dir = "Assets/TejaVideoPlayer/";
-    static readonly string[] Buttons = { "UrlInput", "CopyUrl", "PlayPause", "Stop", "Resync" };
+    static readonly string[] Buttons = { "UrlInput", "CopyUrl", "PlayPause", "Loop", "Stop", "Resync" };
 
     class S
     {
@@ -87,6 +87,7 @@ public static class TejaVideoStyle
             foreach (var g in b.GetComponentsInChildren<Graphic>(true))
             {
                 if (g.transform == b || g.name == "Outline") continue;
+                if (g.name == "OnMark") { g.color = s.accent; continue; }   // くり返しON の板
                 if (g.name == "Icon" || g.name == "Label") g.color = s.icon;
             }
         }

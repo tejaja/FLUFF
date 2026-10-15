@@ -37,6 +37,8 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public Image muteIcon;
     public Sprite iconOn;
     public Sprite iconMuted;
+    [Tooltip("くり返しのボタンの「ON」の印（ボタンの上のコーラルの板。ONの時だけ出す）")]
+    public GameObject loopOnMark;
 
     [Header("音の範囲・BGM（なくてもOK）")]
     [Tooltip("この中心から audioZoneRadius 以内に自分がいる時だけ動画の音を出す（空なら どこでも）")]
@@ -59,6 +61,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     [UdonSynced] private double _start = -1;  // 動画の0秒にあたるサーバー時刻（持ち主の再生が始まるまで -1）
     [UdonSynced] private bool _paused;
     [UdonSynced] private float _pausedAt;
+    [UdonSynced] private bool _loop;          // くり返し再生（みんな共通。2026-10-15 てじゃ「連続再生の切り替えスイッチ」）
 
     private int _loadedVer = -1;
     private bool _ready;
@@ -78,6 +81,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         SetVolume(defaultVolume);
         SetStatus("Add a video with the link button");
         UpdatePlayLabel();
+        ApplyLoop();
     }
 
     // ===== UI から（Button / InputField / Slider の SendCustomEvent） =====
@@ -130,6 +134,33 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         if (!IsLive()) player.SetTime(0f);
         RequestSerialization();
         UpdatePlayLabel();
+    }
+
+    // くり返しのオン／オフ（押した人が持ち主になって配る）。最後まで終わって止まっている時にオンにしたら、頭からもう一度
+    public void ToggleLoop()
+    {
+        Take();
+        _loop = !_loop;
+        if (_loop && _ended && _ready && !IsLive()) Restart();
+        RequestSerialization();
+        ApplyLoop();
+    }
+
+    private void ApplyLoop()
+    {
+        if (player != null && player.Loop != _loop) player.Loop = _loop;
+        if (loopOnMark != null && loopOnMark.activeSelf != _loop) loopOnMark.SetActive(_loop);
+    }
+
+    // 持ち主：頭から再生し直して配る
+    private void Restart()
+    {
+        _ended = false;
+        _paused = false;
+        _pausedAt = 0f;
+        _start = Networking.GetServerTimeInSeconds();
+        player.SetTime(0f);
+        player.Play();
     }
 
     // 自分の画面だけ：止まった・ずれた時に持ち主の状態へ合わせ直す（読み込めていなければ読み直す）
@@ -202,6 +233,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     public override void OnDeserialization()
     {
+        ApplyLoop();
         if (_ver != _loadedVer) { Load(); return; }
         ApplyState(false);
         UpdatePlayLabel();
@@ -255,7 +287,11 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         float target = (float)(Networking.GetServerTimeInSeconds() - _start);
         float dur = player.GetDuration();
         if (target < 0f) target = 0f;
-        if (dur > 0f && target > dur) return;   // もう終わっている
+        if (dur > 0f && target > dur)
+        {
+            if (!_loop) return;   // もう終わっている
+            target = target % dur;  // くり返し中：何周目かのどこか
+        }
         if (force || Mathf.Abs(player.GetTime() - target) > maxDrift) player.SetTime(target);
     }
 
@@ -300,6 +336,17 @@ public class TejaVideoPlayer : UdonSharpBehaviour
             RequestSerialization();
         }
         UpdatePlayLabel();
+    }
+
+    // くり返しで頭に戻った：持ち主は「0秒のサーバー時刻」を今の周に合わせ直して配る（読み込みの待ちでずれた分をほかの人にも反映）
+    public override void OnVideoLoop()
+    {
+        _ended = false;
+        if (Networking.IsOwner(gameObject) && !IsLive() && !_paused)
+        {
+            _start = Networking.GetServerTimeInSeconds() - player.GetTime();
+            RequestSerialization();
+        }
     }
 
     public override void OnVideoEnd()

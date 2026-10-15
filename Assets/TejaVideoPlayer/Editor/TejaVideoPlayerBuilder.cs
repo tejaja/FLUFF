@@ -330,7 +330,7 @@ public static class TejaVideoPlayerBuilder
         // 中身（今の動画のURL）はボタンの上には見せず、押すと VRChat のフォームに入った状態で出る → そこでコピー（2026-10-15 てじゃ）
         var cGo = new GameObject("CopyUrl", typeof(RectTransform), typeof(Image));
         cGo.transform.SetParent(pt, false);
-        Place(cGo, 260f, 12f, 220f, 116f);
+        Place(cGo, 260f, 12f, 110f, 116f);   // 半分の幅（2026-10-15 てじゃ「コピーと連続再生は半分程度」）
         cGo.GetComponent<Image>().color = new Color(0.95f, 0.55f, 0.45f);
         var copy = cGo.AddComponent<InputField>();
         var ct = Label(cGo.transform, "Text", "", font, 20, new Color(1f, 1f, 1f, 0f), TextAnchor.MiddleCenter); Fill(ct.gameObject, 6f);
@@ -339,18 +339,27 @@ public static class TejaVideoPlayerBuilder
         copy.shouldActivateOnSelect = false;   // 選ばれただけで入力状態にしない
         copy.targetGraphic = cGo.GetComponent<Image>();
         var ccb = copy.colors; ccb.highlightedColor = new Color(1f, 0.9f, 0.85f); ccb.pressedColor = new Color(0.8f, 0.8f, 0.8f); ccb.disabledColor = new Color(0.6f, 0.6f, 0.6f, 0.5f); copy.colors = ccb;
-        IconOn(cGo.transform, "Icon_Copy.png", 100f);
+        IconOn(cGo.transform, "Icon_Copy.png", 84f);
         UnityEventTools.AddStringPersistentListener(copy.onEndEdit, ub.SendCustomEvent, nameof(TejaVideoPlayer.OnCopyEdited));
         vp.copyField = copy;
 
         // ボタン：再生/一時停止・再同期
-        var pp = Button(pt, "PlayPause", "▶", font, 540f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.PlayPause));
+        var pp = Button(pt, "PlayPause", "▶", font, 430f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.PlayPause));
         vp.playPauseLabel = pp; pp.fontSize = 64;   // アイコンと同じくらいの大きさに（2026-10-15 てじゃ「各アイコンの大きさ自体おおきく」）
-        // 停止（最初に戻して止める）。ボタンは左にまとめて、くさり・コピー｜すき間｜再生・停止・再同期（2026-10-15 てじゃ）
-        var stopL = Button(pt, "Stop", "■", font, 780f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.StopVideo));
+        // くり返し（再生の横、半分の幅。みんな共通、最初はオフ。ONの時はコーラルの板を出す）（2026-10-15 てじゃ「連続再生の切り替えスイッチ」「場所は再生の横」）
+        var lp = Button(pt, "Loop", "", font, 670f, 12f, 110f, 116f, ub, nameof(TejaVideoPlayer.ToggleLoop));
+        var lpBtn = lp.transform.parent;
+        var onMark = new GameObject("OnMark", typeof(RectTransform), typeof(Image)); onMark.transform.SetParent(lpBtn, false); onMark.transform.SetSiblingIndex(0);
+        var omrt = (RectTransform)onMark.transform; omrt.anchorMin = Vector2.zero; omrt.anchorMax = Vector2.one; omrt.offsetMin = omrt.offsetMax = Vector2.zero;
+        var omi = onMark.GetComponent<Image>(); omi.sprite = IconSprite9(Dir + "UI_Round.png"); omi.type = Image.Type.Sliced; omi.color = new Color(1f, 0.42f, 0.36f); omi.raycastTarget = false;
+        onMark.SetActive(false);
+        vp.loopOnMark = onMark;
+        IconOn(lpBtn, "Icon_Loop.png", 84f);
+        // 停止（最初に戻して止める）。ボタンは左にまとめて、くさり・コピー｜すき間｜再生・くり返し・停止・再同期（2026-10-15 てじゃ）
+        var stopL = Button(pt, "Stop", "■", font, 800f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.StopVideo));
         stopL.fontSize = 60;
         // 再同期は記号だけ（ぐるっと矢印。↻ はフォントに無くてVRChatで豆腐になるので絵で。2026-10-15 てじゃ「記号だけでいいかも」）
-        var rs = Button(pt, "Resync", "", font, 1020f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.Resync));
+        var rs = Button(pt, "Resync", "", font, 1040f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.Resync));
         var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image)); icon.transform.SetParent(rs.transform.parent, false);
         var irt = (RectTransform)icon.transform; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.sizeDelta = new Vector2(104f, 104f);
         var ii = icon.GetComponent<Image>(); ii.sprite = IconSprite(Dir + "Icon_Resync.png"); ii.raycastTarget = false; ii.preserveAspect = true;
