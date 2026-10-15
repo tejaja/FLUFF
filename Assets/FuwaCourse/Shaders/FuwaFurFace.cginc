@@ -8,7 +8,10 @@ float _FaceDepth;   // 顔の絵が乗って見える球の大きさ（毛の長
 fixed4 _FaceEyeColor;
 fixed4 _FaceCheekColor;
 
+// 毛なし版（FuwaFurPlain）は先に FUR_H を決めてから include する
+#ifndef FUR_H
 #define FUR_H (1.0 + _FaceLift)
+#endif
 #include "FuwaFur.cginc"
 
 // 角を丸めた縦長の棒（カプセル）までの距離

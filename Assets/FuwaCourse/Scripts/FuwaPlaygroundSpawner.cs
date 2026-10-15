@@ -6,6 +6,7 @@ using VRC.SDKBase;
 // 「みんなで」のチルルーム（2026-10-12 てじゃ「みんなでをチルルームにする方向性で固めよう」）。
 // 真ん中のキノコを撃つと、今の設定のふわふわが1個出る（FuwaSharedBall を balls 個まで使い回す）。
 // スイッチ4つ（レーザーで押すボタン → NextSize 等。2026-10-12 てじゃ「押すもの全部レーザー式に」）で設定を切り替える：サイズ／カラー／出せる上限数／地面に落ちたら消えるか。設定はみんなで共通（同期）。
+// その下の段に、顔（玉にくっついて一緒に回るお日さま顔）と毛オフ（軽量）の2つ（2026-10-15 てじゃ）。顔はみんな共通（同期）、毛オフは自分の画面だけ（重さは端末ごとなので）
 // 上限を超えたら、いちばん前に出したのをキノコへ戻して使う。
 // 同期は Manual（押した人が持ち主になって設定を送る）。エリアの表示切り替えで隠れない FuwaSystem の下に置く
 [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
@@ -43,14 +44,18 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
     public string[] colorTextHex = { "FFFFFF", "FF8FB8", "5FB4F5", "E8B520", "52C46E", "A57FEA", "" };
     public TextMeshProUGUI limitLabel;
     public TextMeshProUGUI popLabel;
+    public TextMeshProUGUI faceLabel;
+    public TextMeshProUGUI furLabel;
     [Tooltip("スイッチの文字の頭を固定する左の余白（<space=..em> のタグ。サイズ・カラー・かず・おちたら の順、ビルダーが一番長い値で真ん中になるように計算。2026-10-14 てじゃ「切り替えると文字の位置がずれる、左側は固定で値だけ変わるように」）")]
-    public string[] padJa = new string[4];
-    public string[] padEn = new string[4];
+    public string[] padJa = new string[6];
+    public string[] padEn = new string[6];
 
     [UdonSynced] private int _size = 1;
     [UdonSynced] private int _color = 0;
     [UdonSynced] private int _limit = 2;
     [UdonSynced] private bool _popGround = true;
+    [UdonSynced] private bool _face;
+    private bool _plain;   // 毛オフ（自分の画面だけ）
     // おもちゃの解放（コース i をこのインスタンスで誰かがクリアしたら bit i）。保存はしない（2026-10-12 てじゃ「竜巻解放してくるわ、みたいなことが起こる」）
     [UdonSynced] private int _unlocked;
 
@@ -127,6 +132,8 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
         Take(); _unlocked |= 1 << i; Send();
     }
     public void TogglePop() { Take(); _popGround = !_popGround; Send(); }
+    public void ToggleFace() { Take(); _face = !_face; Send(); }
+    public void ToggleFur() { _plain = !_plain; _dirty = true; }
 
     private void Take() { if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject); }
     private void Send() { RequestSerialization(); _dirty = true; }
@@ -138,6 +145,7 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
         bool en = language != null && language.IsEnglish();
         if (!_dirty && en == _shownEn) return;
         _dirty = false; _shownEn = en;
+        if (balls != null) for (int i = 0; i < balls.Length; i++) if (balls[i] != null) balls[i].SetLook(_face, _plain);
         int si = Mathf.Clamp(_size, 0, sizeJa.Length - 1), ci = Mathf.Clamp(_color, 0, colorJa.Length - 1), li = Mathf.Clamp(_limit, 0, limits.Length - 1);
         string colHex = colorHex[Mathf.Clamp(ci, 0, colorHex.Length - 1)];
         // ボタンはオレンジなので、値は白で太く（色は●で見せる）
@@ -163,6 +171,8 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
         if (limitLabel != null) limitLabel.text = Pad(2, en) + (en ? "Max: " : "かず: ") + V + limits[li] + VE;
         if (popLabel != null) popLabel.text = Pad(3, en) + (en ? ("On landing: " + V + (_popGround ? "Pop" : "Stay") + VE)
                                                  : ("おちたら: " + V + (_popGround ? "きえる" : "きえない") + VE));
+        if (faceLabel != null) faceLabel.text = Pad(4, en) + (en ? "Face: " : "かお: ") + V + (_face ? (en ? "On" : "あり") : (en ? "Off" : "なし")) + VE;
+        if (furLabel != null) furLabel.text = Pad(5, en) + (en ? "Fur: " : "け: ") + V + (_plain ? (en ? "Off" : "なし") : (en ? "On" : "あり")) + VE;
     }
 
     private string Pad(int k, bool en)

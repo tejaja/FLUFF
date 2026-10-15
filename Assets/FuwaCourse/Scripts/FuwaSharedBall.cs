@@ -66,6 +66,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     public Renderer furRenderer;
     public float furDragAmount = 0.025f;
     public float furDragMax = 0.12f;
+    [Tooltip("毛オフ（軽量）の時の材質（FuwaCourse/FurPlain）。あそびばの設定スイッチで切り替え（FuwaPlaygroundSpawner → SetLook）。なければ毛オフなし")]
+    public Material plainMaterial;
 
     [Header("撃たれた時のポヨンと綿毛（全員の画面で、FuwaBall と同じ）")]
     public float squashAmount = 0.4f;
@@ -164,6 +166,8 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private Quaternion _homeRot;
     private float _respawnAt = -1f;
     private Material _furMat;
+    private Material _plainMat;   // 毛オフの材質（自分用の複製）。色・ポヨン・なびきは毛ありと両方に入れておく
+    private bool _plain;
     private Vector3 _furDrag;
     private bool _shownHidden;
     private Collider _col;
@@ -206,6 +210,13 @@ public class FuwaSharedBall : UdonSharpBehaviour
         _col = GetComponent<Collider>();
         if (furRenderer != null) _furMat = furRenderer.material;
         if (variant && _selfRenderer != null) _selfMat = _selfRenderer.material;
+        // 毛オフの材質の複製を作って、毛ありに戻しておく（先に毛ありの複製 _furMat/_selfMat を取ってから）
+        if (plainMaterial != null && furRenderer != null)
+        {
+            furRenderer.sharedMaterial = plainMaterial;
+            _plainMat = furRenderer.material;
+            furRenderer.sharedMaterial = _furMat;
+        }
         _rb.useGravity = false;
         _rb.drag = airDrag;
         _rb.angularDrag = spinDamping;
@@ -269,10 +280,35 @@ public class FuwaSharedBall : UdonSharpBehaviour
                 _furMat.SetColor("_TipColor", Color.Lerp(_vColor, Color.white, 0.55f));
             }
             if (_selfMat != null) _selfMat.SetColor("_Color", _vColor);
+            if (_plainMat != null)
+            {
+                _plainMat.SetColor("_Color", _vColor);
+                _plainMat.SetColor("_TipColor", Color.Lerp(_vColor, Color.white, 0.55f));
+            }
         }
     }
 
     public bool IsFlying() { Init(); return !_waiting && !_popped && _here; }
+
+    // 毛ありと毛オフの両方の材質に入れる（今どっちを使っていても切り替えた瞬間に同じ見た目になるように）
+    private void FurVec(string n, Vector4 v)
+    {
+        if (_furMat != null) _furMat.SetVector(n, v);
+        if (_plainMat != null) _plainMat.SetVector(n, v);
+    }
+
+    // あそびばの設定スイッチ（FuwaPlaygroundSpawner）から：顔（一緒に回る）と毛オフ（軽量）。自分の画面だけの見た目
+    public void SetLook(bool face, bool plain)
+    {
+        Init();
+        float f = face ? 1f : 0f;
+        if (_furMat != null) _furMat.SetFloat("_FaceOn", f);
+        if (_plainMat != null) _plainMat.SetFloat("_FaceOn", f);
+        if (_plainMat == null || furRenderer == null) plain = false;
+        if (plain == _plain) return;
+        _plain = plain;
+        furRenderer.sharedMaterial = plain ? _plainMat : _furMat;
+    }
 
     // 追っかけカメラがほかのエリアからあそびばを映している間は、エリアにいる扱いにして動かして見せる（FuwaFollowCam が切り替える）
     [System.NonSerialized] public bool showAway;
@@ -596,11 +632,11 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (env < 0.01f)
         {
             _squashActive = false;
-            _furMat.SetVector("_Squash", Vector4.zero);
+            FurVec("_Squash", Vector4.zero);
             return;
         }
         float w = _squashPower * env * Mathf.Cos(t * squashFrequency * 2f * Mathf.PI);
-        _furMat.SetVector("_Squash", new Vector4(0f, 1f, 0f, w));
+        FurVec("_Squash", new Vector4(0f, 1f, 0f, w));
     }
 
     public void PlayPop()
@@ -710,7 +746,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         {
             Vector3 target = _waiting ? Vector3.zero : Vector3.ClampMagnitude(-vel * furDragAmount, furDragMax);
             _furDrag = Vector3.Lerp(_furDrag, target, 1f - Mathf.Exp(-8f * Time.deltaTime));
-            _furMat.SetVector("_Drag", new Vector4(_furDrag.x, _furDrag.y, _furDrag.z, 0f));
+            FurVec("_Drag", new Vector4(_furDrag.x, _furDrag.y, _furDrag.z, 0f));
         }
     }
 

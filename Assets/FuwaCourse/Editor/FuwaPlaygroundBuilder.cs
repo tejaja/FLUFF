@@ -159,20 +159,9 @@ public static class FuwaPlaygroundBuilder
         Vector3 pc = new Vector3(ac.x, floorY, ac.z) + PanelLocal;
         Vector3 look = spawn != null ? spawn.position : ac + Vector3.back * 9f;
         var rot = Quaternion.Euler(0f, PanelYaw, 0f);
-        var labels = new TMPro.TextMeshProUGUI[4];
-        var events = new[] { "NextSize", "NextColor", "NextLimit", "TogglePop" };
-        for (int k = 0; k < 4; k++)
-        {
-            int col = k % 2, row = k / 2;
-            // 大きさは下の言語・音量ボタンと同じ（幅1.36・高さ0.4。2026-10-13 てじゃ「下のボタンとサイズあわせよ」）
-            var pos = pc + rot * new Vector3(col == 0 ? -BoardBottomX : BoardBottomX, row == 0 ? BoardSideY[0] : BoardSideY[1], 0f);
-            labels[k] = LaserButton(panel, "Switch" + k, pos, rot, 0.99f, "", sp, events[k]);
-            OutlinedStyle(panel.Find("Switch" + k));
-            panel.Find("Switch" + k).localScale = Vector3.one;
-        }
+        var labels = PlaceSwitches(panel, pc, rot, sp);
         // 支柱はなし（2026-10-13 てじゃ「柱なくそう」）
         BoardButtons(coop, panel, pc, rot, howTo);
-        sp.sizeLabel = labels[0]; sp.colorLabel = labels[1]; sp.limitLabel = labels[2]; sp.popLabel = labels[3];
         // カラーの文字の材質：ふつう／紺の縁どりつき（「しろ」の時）
         {
             const string op = "Assets/FuwaCourse/Materials/Playground/Playground_SwitchTextOutline.mat";
@@ -1061,18 +1050,21 @@ public static class FuwaPlaygroundBuilder
     {
         string[][] ja = {
             sp.sizeJa.Select(v => "サイズ: " + v).ToArray(), sp.colorJa.Select(v => "カラー: " + v).ToArray(),
-            sp.limits.Select(v => "かず: " + v).ToArray(), new[] { "おちたら: きえる", "おちたら: きえない" } };
+            sp.limits.Select(v => "かず: " + v).ToArray(), new[] { "おちたら: きえる", "おちたら: きえない" },
+            new[] { "かお: あり", "かお: なし" }, new[] { "け: あり", "け: なし" } };
         string[][] en = {
             sp.sizeEn.Select(v => "Size: " + v).ToArray(), sp.colorEn.Select(v => "Color: " + v).ToArray(),
-            sp.limits.Select(v => "Max: " + v).ToArray(), new[] { "On landing: Pop", "On landing: Stay" } };
+            sp.limits.Select(v => "Max: " + v).ToArray(), new[] { "On landing: Pop", "On landing: Stay" },
+            new[] { "Face: On", "Face: Off" }, new[] { "Fur: On", "Fur: Off" } };
         var t = labels[0];
         float maxFs = t.fontSizeMax, avail = t.rectTransform.rect.width - t.margin.x - t.margin.z;
         float W(string s) { t.enableAutoSizing = false; t.fontSize = maxFs; return t.GetPreferredValues(s).x; }
-        // いちばん長い文字が入る大きさ（4つ共通）
+        // いちばん長い文字が入る大きさ（全部共通）
         float fs = maxFs;
         foreach (var set in ja.Concat(en)) foreach (var s in set) fs = Mathf.Min(fs, maxFs * avail / Mathf.Max(1f, W(s)));
-        sp.padJa = new string[4]; sp.padEn = new string[4];
-        for (int k = 0; k < 4; k++)
+        int nS = ja.Length;
+        sp.padJa = new string[nS]; sp.padEn = new string[nS];
+        for (int k = 0; k < nS; k++)
         {
             float wj = ja[k].Max(W) * fs / maxFs, we = en[k].Max(W) * fs / maxFs;
             sp.padJa[k] = "<space=" + ((avail - wj) * 0.5f / fs).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture) + "em>";
@@ -1085,8 +1077,58 @@ public static class FuwaPlaygroundBuilder
         }
     }
 
-    static readonly float[] BoardSideY ={ 1.76f, 1.24f, 0.72f };   // 右の列の高さ。上2つはスイッチの2段と、いちばん下は言語・音量の段とそろえる
-    const float BoardBottomY = 0.72f, BoardBottomX = 0.75f;
+    // 右の列の高さ＝スイッチの3段とそろえる。言語・音量はその下
+    //（2026-10-15 スイッチを3段に（かお・け を足した）。前は 1.76/1.24 の2段＋言語・音量 0.72 で、右の列の3つ目が言語・音量の段とそろっていた）
+    static readonly float[] BoardSideY ={ 2.12f, 1.60f, 1.08f };
+    const float BoardBottomY = 0.56f, BoardBottomX = 0.75f;
+
+    // スイッチ6つ（2列×3段）：ロビーと同じレーザーで押す白いボタン（近くに来た時だけ押せる＝FuwaUiProximity がビルド前に自動登録）
+    // 上から サイズ・カラー／かず・おちたら／かお・け。足りない分だけ作って、全部を決まった位置へ置く（シーンに置いてある分にも使える）
+    static readonly string[] SwitchEvents = { "NextSize", "NextColor", "NextLimit", "TogglePop", "ToggleFace", "ToggleFur" };
+    static TMPro.TextMeshProUGUI[] PlaceSwitches(Transform panel, Vector3 pc, Quaternion rot, FuwaPlaygroundSpawner sp)
+    {
+        var labels = new TMPro.TextMeshProUGUI[SwitchEvents.Length];
+        for (int k = 0; k < SwitchEvents.Length; k++)
+        {
+            int col = k % 2, row = k / 2;
+            // 大きさは下の言語・音量ボタンと同じ（幅1.36・高さ0.4。2026-10-13 てじゃ「下のボタンとサイズあわせよ」）
+            var pos = pc + rot * new Vector3(col == 0 ? -BoardBottomX : BoardBottomX, BoardSideY[row], 0f);
+            var t = panel.Find("Switch" + k);
+            if (t == null)
+            {
+                LaserButton(panel, "Switch" + k, pos, rot, 0.99f, "", sp, SwitchEvents[k]);
+                t = panel.Find("Switch" + k);
+                OutlinedStyle(t);
+            }
+            t.SetPositionAndRotation(pos, rot); t.localScale = Vector3.one;
+            labels[k] = t.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true).First(l => l.name != "TextOutlined");
+        }
+        sp.sizeLabel = labels[0]; sp.colorLabel = labels[1]; sp.limitLabel = labels[2]; sp.popLabel = labels[3]; sp.faceLabel = labels[4]; sp.furLabel = labels[5];
+        return labels;
+    }
+
+    [MenuItem("FuwaCourse/あそびば/設定スイッチだけ並べ直す（かお・け の段を足す）")]
+    static void MenuRelayoutSwitches()
+    {
+        var coop = RootGo(RootName).transform;
+        var root = coop.Find("Room"); var panel = root.Find("Switches");
+        var sp = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
+        float floorY = root.Find("Floor").GetComponent<Renderer>().bounds.max.y;
+        Vector3 ac = coop.position;
+        Vector3 pc = new Vector3(ac.x, floorY, ac.z) + PanelLocal;
+        var rot = Quaternion.Euler(0f, PanelYaw, 0f);
+        var labels = PlaceSwitches(panel, pc, rot, sp);
+        // 右の列（あそびば・チャレンジ・タイトルにもどる）と言語・音量、見出し
+        string[] side = { "HereCount", "ToChallengeButton", "ToTitleButton" };
+        for (int r = 0; r < 3; r++) { var t = panel.Find(side[r]); if (t != null) t.position = pc + rot * new Vector3(BoardSideX, BoardSideY[r], 0f); }
+        var howTo = coop.Find("HowToPlay");
+        if (howTo != null) foreach (var n in new[] { "LanguageButton", "BgmVolume" }) { var t = howTo.Find(n); if (t != null) t.localPosition = new Vector3(n == "LanguageButton" ? -BoardBottomX : BoardBottomX, BoardBottomY, 0f); }
+        var hg = panel.Find("Heading"); if (hg != null) hg.position = pc + rot * new Vector3(0f, BoardSideY[0] + 0.5f, 0f);
+        SwitchLabelLayout(sp, labels, sp.colorLabelOutlined);
+        UdonSharpEditorUtility.CopyProxyToUdon(sp);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(panel.gameObject.scene);
+        Debug.Log("playground switches relayout: " + labels.Length);
+    }
     static void BoardButtons(Transform coop, Transform panel, Vector3 pc, Quaternion rot, Transform howTo)
     {
         var lobbyHow = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "HowToPlay" && t.parent != null && t.parent.name == "FuwaLobby");
