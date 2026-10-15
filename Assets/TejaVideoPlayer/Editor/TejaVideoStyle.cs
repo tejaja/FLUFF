@@ -5,7 +5,7 @@ using UnityEngine.UI;
 // 動画プレイヤーの操作パネルの見た目（2026-10-15 てじゃ「ボタンとかオシャレにしたい」→ 3案を順番に見る）
 // 0 = A：シンプルなメディアプレイヤー風（角の丸い半透明の黒、背景なしの白いアイコン、細いバー＋丸いつまみ）
 // 1 = B：FLUFFになじむ風（白いボタン＋オレンジの枠、紺のアイコン、クリーム色のパネル）
-// 2 = C：ぽってりかわいい風（クリーム色のパネル、丸っこいピーチ色のボタンにやわらかい影）
+// 2 = C：ぽってり風（白っぽいパネル、ラベンダーの丸っこいボタンにやわらかい影。色はあそびばのテレビに合わせた）
 // 作るのは TejaVideoPlayerBuilder。ここは出来上がった物の色・形だけを変える（何度かけても同じ）
 public static class TejaVideoStyle
 {
@@ -28,12 +28,12 @@ public static class TejaVideoStyle
             time = new Color(0.18f, 0.21f, 0.38f), status = new Color(0.85f, 0.4f, 0.3f), tab = new Color(1f, 0.98f, 0.95f, 0.93f), tabIcon = new Color(0.18f, 0.21f, 0.38f),
             btnBg = true, outline = true, outlineCol = new Color(0.95f, 0.55f, 0.45f), trackH = 14f, handleSize = 40f,
         };
-        if (style == 2) return new S   // C：ぽってりかわいい
+        if (style == 2) return new S   // C：ぽってり。色はあそびばのテレビ（おっかけカメラ）に合わせる：白い雲の枠・ラベンダーのふち・コーラルの見出し（2026-10-15 てじゃ「Cで色あわせ」）
         {
-            panel = new Color(1f, 0.95f, 0.86f, 0.95f), btn = new Color(1f, 0.7f, 0.6f), btnHi = new Color(1f, 0.8f, 0.72f), btnPress = new Color(0.92f, 0.6f, 0.52f), btnDisabled = new Color(0.9f, 0.82f, 0.78f, 0.7f),
-            icon = Color.white, accent = new Color(1f, 0.6f, 0.5f), track = new Color(0.6f, 0.4f, 0.32f, 0.2f), handle = Color.white,
-            time = new Color(0.5f, 0.33f, 0.27f), status = new Color(0.8f, 0.42f, 0.35f), tab = new Color(1f, 0.95f, 0.86f, 0.95f), tabIcon = new Color(0.6f, 0.4f, 0.32f),
-            btnBg = true, shadow = true, shadowCol = new Color(0.55f, 0.32f, 0.26f, 0.35f), trackH = 18f, handleSize = 46f,
+            panel = new Color(0.99f, 0.98f, 1f, 0.95f), btn = new Color(0.62f, 0.55f, 0.86f), btnHi = new Color(0.72f, 0.66f, 0.93f), btnPress = new Color(0.52f, 0.45f, 0.76f), btnDisabled = new Color(0.8f, 0.77f, 0.88f, 0.7f),
+            icon = Color.white, accent = new Color(1f, 0.42f, 0.36f), track = new Color(0.62f, 0.55f, 0.86f, 0.22f), handle = Color.white,
+            time = new Color(0.25f, 0.22f, 0.3f), status = new Color(1f, 0.42f, 0.36f), tab = new Color(0.99f, 0.98f, 1f, 0.95f), tabIcon = new Color(0.62f, 0.55f, 0.86f),
+            btnBg = true, shadow = true, shadowCol = new Color(0.36f, 0.3f, 0.55f, 0.35f), trackH = 18f, handleSize = 46f,
         };
         return new S   // A：シンプル
         {
@@ -96,7 +96,7 @@ public static class TejaVideoStyle
         if (mute != null)
         {
             mute.GetComponent<Image>().color = Color.white;
-            var mc = style == 2 ? s.time : s.icon;   // C はボタンの外なので、白いと薄い背景に溶ける → 茶色
+            var mc = style == 2 ? s.tabIcon : s.icon;   // C はボタンの外なので、白いと薄い背景に溶ける → ラベンダー
             Colors(mute.GetComponent<Selectable>(), mc, Color.Lerp(mc, s.accent, 0.5f), s.accent, mc);
         }
 
