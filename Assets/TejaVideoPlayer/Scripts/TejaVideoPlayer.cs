@@ -312,6 +312,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         {
             bool show = _ready && !IsLive();
             if (seekSlider.gameObject.activeSelf != show) seekSlider.gameObject.SetActive(show);
+            if (statusText != null) statusText.enabled = !show;   // 状態の文字はシークバーと同じ段（バーが出ている間は隠す）
             if (show) { float d = player.GetDuration(); seekSlider.SetValueWithoutNotify(d > 0f ? Mathf.Clamp01(player.GetTime() / d) : 0f); }
         }
         if (timeText != null)

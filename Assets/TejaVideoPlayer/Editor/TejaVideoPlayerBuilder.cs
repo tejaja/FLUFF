@@ -126,12 +126,12 @@ public static class TejaVideoPlayerBuilder
         canvasGo.transform.SetParent(root, false);
         var cv = canvasGo.GetComponent<Canvas>(); cv.renderMode = RenderMode.WorldSpace;
         var crt = (RectTransform)canvasGo.transform;
-        crt.sizeDelta = new Vector2(1920f, 340f);
+        crt.sizeDelta = new Vector2(1920f, 212f);   // 2段：上＝シークバー・時間（読み込み前は状態の文字）、下＝ボタン・音量（2026-10-15 てじゃ「ボリュームを上に、スリムに」）
         crt.localScale = Vector3.one * 0.001f;
-        crt.localPosition = new Vector3(0f, ScreenCenterY - ScreenH * 0.5f - 0.2f, -0.01f);
+        crt.localPosition = new Vector3(0f, ScreenCenterY - ScreenH * 0.5f - 0.116f, -0.01f);
         crt.localRotation = Quaternion.identity;   // Canvas も Quad と同じく -Z 側（見る人の側）が表
         canvasGo.AddComponent<VRC.SDK3.Components.VRCUiShape>();
-        var cbox = canvasGo.AddComponent<BoxCollider>(); cbox.size = new Vector3(1920f, 340f, 10f);   // レーザーが当たる板（左下基準ではなく真ん中基準）
+        var cbox = canvasGo.AddComponent<BoxCollider>(); cbox.size = new Vector3(1920f, 212f, 10f);   // レーザーが当たる板（左下基準ではなく真ん中基準）
         var bg = canvasGo.AddComponent<Image>(); bg.color = new Color(0.12f, 0.14f, 0.2f, 0.85f);
 
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(vp);
@@ -140,7 +140,7 @@ public static class TejaVideoPlayerBuilder
         //（2026-10-15 てじゃ：ふだん広い入力欄が出ていると入力状態になりっぱなし → ボタンで出す形にしたら「URLボタン→白い枠→押す」の2手になったので、ボタン自体を入力欄に）
         var inGo = new GameObject("UrlInput", typeof(RectTransform), typeof(Image));
         inGo.transform.SetParent(canvasGo.transform, false);
-        Place(inGo, 20f, 132f, 220f, 116f);
+        Place(inGo, 20f, 12f, 220f, 116f);
         inGo.GetComponent<Image>().color = new Color(0.95f, 0.55f, 0.45f);
         var field = inGo.AddComponent<VRCUrlInputField>();
         var txt = Label(inGo.transform, "Text", "", font, 28, Color.white, TextAnchor.MiddleCenter); Fill(txt.gameObject, 8f);
@@ -163,7 +163,7 @@ public static class TejaVideoPlayerBuilder
         // 中身（今の動画のURL）はボタンの上には見せず、押すと VRChat のフォームに入った状態で出る → そこでコピー（2026-10-15 てじゃ）
         var cGo = new GameObject("CopyUrl", typeof(RectTransform), typeof(Image));
         cGo.transform.SetParent(canvasGo.transform, false);
-        Place(cGo, 260f, 132f, 220f, 116f);
+        Place(cGo, 260f, 12f, 220f, 116f);
         cGo.GetComponent<Image>().color = new Color(0.95f, 0.55f, 0.45f);
         var copy = cGo.AddComponent<InputField>();
         var ct = Label(cGo.transform, "Text", "", font, 20, new Color(1f, 1f, 1f, 0f), TextAnchor.MiddleCenter); Fill(ct.gameObject, 6f);
@@ -176,13 +176,13 @@ public static class TejaVideoPlayerBuilder
         vp.copyField = copy;
 
         // ボタン：再生/一時停止・再同期
-        var pp = Button(canvasGo.transform, "PlayPause", "▶", font, 540f, 132f, 220f, 116f, ub, nameof(TejaVideoPlayer.PlayPause));
+        var pp = Button(canvasGo.transform, "PlayPause", "▶", font, 540f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.PlayPause));
         vp.playPauseLabel = pp; pp.fontSize = 64;   // アイコンと同じくらいの大きさに（2026-10-15 てじゃ「各アイコンの大きさ自体おおきく」）
         // 停止（最初に戻して止める）。ボタンは左にまとめて、くさり・コピー｜すき間｜再生・停止・再同期（2026-10-15 てじゃ）
-        var stopL = Button(canvasGo.transform, "Stop", "■", font, 780f, 132f, 220f, 116f, ub, nameof(TejaVideoPlayer.StopVideo));
+        var stopL = Button(canvasGo.transform, "Stop", "■", font, 780f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.StopVideo));
         stopL.fontSize = 60;
         // 再同期は記号だけ（ぐるっと矢印。↻ はフォントに無くてVRChatで豆腐になるので絵で。2026-10-15 てじゃ「記号だけでいいかも」）
-        var rs = Button(canvasGo.transform, "Resync", "", font, 1020f, 132f, 220f, 116f, ub, nameof(TejaVideoPlayer.Resync));
+        var rs = Button(canvasGo.transform, "Resync", "", font, 1020f, 12f, 220f, 116f, ub, nameof(TejaVideoPlayer.Resync));
         var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image)); icon.transform.SetParent(rs.transform.parent, false);
         var irt = (RectTransform)icon.transform; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.sizeDelta = new Vector2(104f, 104f);
         var ii = icon.GetComponent<Image>(); ii.sprite = IconSprite(Dir + "Icon_Resync.png"); ii.raycastTarget = false; ii.preserveAspect = true;
@@ -190,14 +190,14 @@ public static class TejaVideoPlayerBuilder
         // 音量
         var slGo = DefaultControls.CreateSlider(new DefaultControls.Resources());
         slGo.name = "Volume"; slGo.transform.SetParent(canvasGo.transform, false);
-        Place(slGo, 1440f, 18f, 460f, 96f);
+        Place(slGo, 1440f, 22f, 460f, 96f);
         slGo.transform.Find("Handle Slide Area/Handle").GetComponent<RectTransform>().sizeDelta = new Vector2(36f, 0f);
         var sl = slGo.GetComponent<Slider>(); sl.minValue = 0f; sl.maxValue = 1f; sl.value = vp.defaultVolume;
         UnityEventTools.AddStringPersistentListener(sl.onValueChanged, ub.SendCustomEvent, nameof(TejaVideoPlayer.OnVolumeChanged));
         vp.volumeSlider = sl;
         // スピーカーの絵＝ミュートボタン（2026-10-15 てじゃ「ワールドのボリュームみたいに、音符をミュートボタンに」「サイズもおおきく」「音符よりスピーカーマーク」）
         var muteGo = new GameObject("MuteButton", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); muteGo.transform.SetParent(canvasGo.transform, false);
-        Place(muteGo, 1300f, 6f, 124f, 124f);
+        Place(muteGo, 1300f, 8f, 124f, 124f);
         var mi = muteGo.GetComponent<Image>(); mi.preserveAspect = true; mi.color = Color.white;
         vp.iconOn = IconSprite(Dir + "Icon_Speaker.png"); vp.iconMuted = IconSprite(Dir + "Icon_SpeakerMute.png"); mi.sprite = vp.iconOn;   // 音符よりスピーカーの絵（てじゃ）
         UnityEventTools.AddStringPersistentListener(muteGo.GetComponent<UnityEngine.UI.Button>().onClick, ub.SendCustomEvent, nameof(TejaVideoPlayer.ToggleMute));
@@ -206,16 +206,16 @@ public static class TejaVideoPlayerBuilder
         // シークバー（いちばん上の段。つまんで動かすとその位置へ。ライブの時は隠す）
         var skGo = DefaultControls.CreateSlider(new DefaultControls.Resources());
         skGo.name = "Seek"; skGo.transform.SetParent(canvasGo.transform, false);
-        Place(skGo, 30f, 262f, 1860f, 56f);
+        Place(skGo, 30f, 146f, 1580f, 56f);
         var sk = skGo.GetComponent<Slider>(); sk.minValue = 0f; sk.maxValue = 1f; sk.value = 0f;
         var fill = skGo.transform.Find("Fill Area/Fill"); if (fill != null) fill.GetComponent<Image>().color = new Color(0.95f, 0.55f, 0.45f);
         UnityEventTools.AddStringPersistentListener(sk.onValueChanged, ub.SendCustomEvent, nameof(TejaVideoPlayer.OnSeek));
         vp.seekSlider = sk;
 
         // 状態・時間
-        var st = Label(canvasGo.transform, "Status", "", font, 34, new Color(1f, 0.85f, 0.6f), TextAnchor.MiddleLeft); Place(st.gameObject, 20f, 30f, 900f, 90f);
+        var st = Label(canvasGo.transform, "Status", "", font, 34, new Color(1f, 0.85f, 0.6f), TextAnchor.MiddleLeft); Place(st.gameObject, 30f, 140f, 1580f, 68f);
         vp.statusText = st;
-        var tm = Label(canvasGo.transform, "Time", "", font, 36, Color.white, TextAnchor.MiddleRight); Place(tm.gameObject, 900f, 30f, 280f, 90f);
+        var tm = Label(canvasGo.transform, "Time", "", font, 36, Color.white, TextAnchor.MiddleRight); Place(tm.gameObject, 1620f, 140f, 280f, 68f);
         vp.timeText = tm;
 
         UdonSharpEditorUtility.CopyProxyToUdon(vp);
