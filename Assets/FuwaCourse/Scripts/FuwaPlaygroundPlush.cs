@@ -186,7 +186,15 @@ public class FuwaPlaygroundPlush : UdonSharpBehaviour
     {
         Vector3 p = transform.position;
         RaycastHit hit;
-        if (Physics.Raycast(p + Vector3.up * 0.3f, Vector3.down, out hit, maxDrop + 0.3f, ground, QueryTriggerInteraction.Ignore)) p = hit.point + Vector3.up * standUp;
+        _held = false;
+        if (!Physics.Raycast(p + Vector3.up * 0.3f, Vector3.down, out hit, maxDrop + 0.3f, ground, QueryTriggerInteraction.Ignore))
+        {
+            // 下に地面がない（持ったまま島の外へ落ちた・外で離した）：その場に浮かせず、落として元の場所へ戻す（2026-10-16 てじゃ「手に持って落ちたら外にのこっちゃった」）
+            if (p.y < fallY) { ResetHome(); return; }
+            StartFly(p, Vector3.zero, Now());
+            return;
+        }
+        p = hit.point + Vector3.up * standUp;
         Vector3 f = transform.forward; f.y = 0f;
         _sRot = f.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(f.normalized) : transform.rotation;
         transform.SetPositionAndRotation(p, _sRot);
