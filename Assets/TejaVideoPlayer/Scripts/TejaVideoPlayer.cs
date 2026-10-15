@@ -25,6 +25,9 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public Text playPauseLabel;
     public Slider volumeSlider;
     public Slider seekSlider;
+    [Tooltip("URL入力欄は、このボタンを押した時だけ出す（ずっと出ていると入力状態になりっぱなしになるので。2026-10-15 てじゃ）")]
+    public GameObject urlFieldRoot;
+    public Text urlButtonLabel;
 
     [Header("音の範囲・BGM（なくてもOK）")]
     [Tooltip("この中心から audioZoneRadius 以内に自分がいる時だけ動画の音を出す（空なら どこでも）")]
@@ -60,6 +63,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     private void Start()
     {
+        ShowUrlField(false);
         if (volumeSlider != null) volumeSlider.SetValueWithoutNotify(defaultVolume);
         SetVolume(defaultVolume);
         SetStatus("URLを入れてね / Paste a URL");
@@ -74,6 +78,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         VRCUrl u = urlField.GetUrl();
         if (u == null || u.Get() == "") return;
         urlField.SetUrl(VRCUrl.Empty);
+        ShowUrlField(false);
         Take();
         _url = u;
         _ver++;
@@ -82,6 +87,18 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         _pausedAt = 0f;
         RequestSerialization();
         Load();
+    }
+
+    // URLボタン：入力欄を出す／しまう（自分の画面だけ）
+    public void ToggleUrlField()
+    {
+        ShowUrlField(urlFieldRoot == null || !urlFieldRoot.activeSelf);
+    }
+
+    private void ShowUrlField(bool show)
+    {
+        if (urlFieldRoot != null && urlFieldRoot.activeSelf != show) urlFieldRoot.SetActive(show);
+        if (urlButtonLabel != null) urlButtonLabel.text = show ? "×" : "URL";
     }
 
     public void PlayPause()

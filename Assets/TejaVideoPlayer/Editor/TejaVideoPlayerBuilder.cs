@@ -136,7 +136,7 @@ public static class TejaVideoPlayerBuilder
         // URL 入力欄
         var inGo = new GameObject("UrlInput", typeof(RectTransform), typeof(Image));
         inGo.transform.SetParent(canvasGo.transform, false);
-        Place(inGo, 20f, 140f, 1260f, 100f);
+        Place(inGo, 240f, 140f, 1040f, 100f);
         inGo.GetComponent<Image>().color = Color.white;
         var field = inGo.AddComponent<VRCUrlInputField>();
         var txt = Label(inGo.transform, "Text", "", font, 40, new Color(0.1f, 0.1f, 0.15f), TextAnchor.MiddleLeft); Fill(txt.gameObject, 20f);
@@ -148,6 +148,10 @@ public static class TejaVideoPlayerBuilder
         fSo.ApplyModifiedPropertiesWithoutUndo();
         UnityEventTools.AddStringPersistentListener(field.onEndEdit, ub.SendCustomEvent, nameof(TejaVideoPlayer.OnUrlEntered));
         vp.urlField = field;
+        vp.urlFieldRoot = inGo;
+        inGo.SetActive(false);   // ふだんはしまっておく。URLボタンで出す
+        var ub2 = Button(canvasGo.transform, "UrlButton", "URL", font, 20f, 140f, 200f, 100f, ub, nameof(TejaVideoPlayer.ToggleUrlField));
+        vp.urlButtonLabel = ub2;
 
         // ボタン：再生/一時停止・再同期
         var pp = Button(canvasGo.transform, "PlayPause", "▶", font, 1300f, 140f, 200f, 100f, ub, nameof(TejaVideoPlayer.PlayPause));
