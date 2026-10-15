@@ -176,10 +176,13 @@ public static class TejaVideoPlayerBuilder
         vp.copyField = copy;
 
         // ボタン：再生/一時停止・再同期
-        var pp = Button(canvasGo.transform, "PlayPause", "▶", font, 1220f, 132f, 220f, 116f, ub, nameof(TejaVideoPlayer.PlayPause));
+        var pp = Button(canvasGo.transform, "PlayPause", "▶", font, 540f, 132f, 220f, 116f, ub, nameof(TejaVideoPlayer.PlayPause));
         vp.playPauseLabel = pp; pp.fontSize = 64;   // アイコンと同じくらいの大きさに（2026-10-15 てじゃ「各アイコンの大きさ自体おおきく」）
+        // 停止（最初に戻して止める）。ボタンは左にまとめて、くさり・コピー｜すき間｜再生・停止・再同期（2026-10-15 てじゃ）
+        var stopL = Button(canvasGo.transform, "Stop", "■", font, 780f, 132f, 220f, 116f, ub, nameof(TejaVideoPlayer.StopVideo));
+        stopL.fontSize = 60;
         // 再同期は記号だけ（ぐるっと矢印。↻ はフォントに無くてVRChatで豆腐になるので絵で。2026-10-15 てじゃ「記号だけでいいかも」）
-        var rs = Button(canvasGo.transform, "Resync", "", font, 1460f, 132f, 220f, 116f, ub, nameof(TejaVideoPlayer.Resync));
+        var rs = Button(canvasGo.transform, "Resync", "", font, 1020f, 132f, 220f, 116f, ub, nameof(TejaVideoPlayer.Resync));
         var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image)); icon.transform.SetParent(rs.transform.parent, false);
         var irt = (RectTransform)icon.transform; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.sizeDelta = new Vector2(104f, 104f);
         var ii = icon.GetComponent<Image>(); ii.sprite = IconSprite(Dir + "Icon_Resync.png"); ii.raycastTarget = false; ii.preserveAspect = true;

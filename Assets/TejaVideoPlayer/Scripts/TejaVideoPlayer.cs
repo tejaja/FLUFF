@@ -113,6 +113,19 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         UpdatePlayLabel();
     }
 
+    // 停止：最初に戻して止める（押した人が持ち主になって配る）。もう一度▶で頭から
+    public void StopVideo()
+    {
+        if (!_ready) return;
+        Take();
+        _paused = true;
+        _pausedAt = 0f;
+        player.Pause();
+        if (!IsLive()) player.SetTime(0f);
+        RequestSerialization();
+        UpdatePlayLabel();
+    }
+
     // 自分の画面だけ：止まった・ずれた時に持ち主の状態へ合わせ直す（読み込めていなければ読み直す）
     public void Resync()
     {
