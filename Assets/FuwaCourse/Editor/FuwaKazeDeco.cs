@@ -502,46 +502,86 @@ public static class FuwaKazeDeco
     // 葉のゆらゆら：先ほど大きく（根元からの距離の2乗）、葉ごとに位相をずらす。値はゆれ幅（SwayAmp）に掛ける重み
     const float GiantLeafSway = 0.55f, SmallLeafSway = 0.14f;
 
+    // 2026-10-16 てじゃ「葉っぱもクオリティあげよ　実物と比べるとちいさすぎる　とはいえ実物ほどでかいと花が目立たない」
+    // → ひと回り大きく（LeafScale）、根元から立ち上がって先ほど弓なりに垂れる形、深い切れ込みの根元向きの歯（左右で少しずらす）、
+    //   根元は明るい黄緑→先ほど濃い緑のグラデ、明るい葉脈。長い葉のあいだに短い葉を足してロゼットらしく。
+    // rnd は前と同じ回数だけ引く（1枚につき5回。ほかの飾りの並びを変えないため）。形のゆらぎは場所から作った別の乱数で
+    const float LeafScale = 1.35f;
     static void Rosette(MB m, Vector3 at, float len, int n, System.Random rnd, float leafSway)
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
+        var fr = new System.Random(Mathf.RoundToInt(at.x * 613f) * 17 + Mathf.RoundToInt(at.z * 727f) + n);
+        float F(float a, float b) { return a + (float)fr.NextDouble() * (b - a); }
         for (int i = 0; i < n; i++)
         {
-            float a0 = (i + R(-0.3f, 0.3f)) * Mathf.PI * 2 / n; var d = new Vector3(Mathf.Cos(a0), 0, Mathf.Sin(a0)); var sd = new Vector3(-d.z, 0, d.x);
-            float L = len * R(0.7f, 1.1f);
-            {   // 島のふちまでで止める
-                var o = new Vector2(at.x - _islC.x, at.z - _islC.z); var dd = new Vector2(d.x, d.z);
-                float b2 = Vector2.Dot(o, dd), cc = o.sqrMagnitude - _islR * _islR, disc = b2 * b2 - cc;
-                if (disc > 0) L = Mathf.Min(L, Mathf.Max(0.15f, -b2 + Mathf.Sqrt(disc)));
-            }
-            float W = Mathf.Min(L, len) * R(0.15f, 0.2f); int bi = m.V.Count;
-            var col = LeafG * R(0.92f, 1.12f); var rib = Color.Lerp(col, new Color(0.75f, 0.9f, 0.5f), 0.35f);
-            // パキッと：まっすぐ斜めに立つ葉（曲げない）。ふちは直線のギザギザ（根元向きの三角の歯）、先はとがらせる。中央の葉脈で V 字に折る
+            float a0 = (i + R(-0.3f, 0.3f)) * Mathf.PI * 2 / n;
+            float L = len * R(0.7f, 1.1f) * LeafScale;
+            float W = Mathf.Min(L, len * LeafScale) * R(0.15f, 0.2f) * 0.95f;
+            float tone = R(0.92f, 1.12f);
             float ang = R(30f, 45f) * Mathf.Deg2Rad;
-            var dir = (d * Mathf.Cos(ang) + Vector3.up * Mathf.Sin(ang)).normalized;
-            var up = (Vector3.up * Mathf.Cos(ang) - d * Mathf.Sin(ang)).normalized;
-            // (u, 幅) の列：細い柄 → 歯と切れ込みを交互に → とがった先
-            var prof = new List<Vector2> { new Vector2(0f, 0.12f), new Vector2(0.14f, 0.18f) };
-            int teeth = 4;
+            float lph = Mathf.Repeat(at.x * 1.7f + at.z * 2.3f + i * 2.399f, 6.2832f);
+            Leaf(m, at, a0, L, W, tone, ang, lph, leafSway, F);
+            // あいだの短い葉（6割くらい）
+            if (fr.NextDouble() < 0.6)
+            {
+                float a1 = a0 + Mathf.PI / n * F(0.7f, 1.3f);
+                Leaf(m, at, a1, L * F(0.5f, 0.7f), W * F(0.75f, 0.9f), tone * F(0.95f, 1.05f), ang + F(0.05f, 0.2f), lph + 1.3f, leafSway, F);
+            }
+        }
+    }
+
+    delegate float RandF(float a, float b);
+
+    static void Leaf(MB m, Vector3 at, float a0, float L, float W, float tone, float ang, float lph, float leafSway, RandF F)
+    {
+        var d = new Vector3(Mathf.Cos(a0), 0, Mathf.Sin(a0)); var sd = new Vector3(-d.z, 0, d.x);
+        {   // 島のふちまで。先は垂れるので少しはみ出してよい
+            var o = new Vector2(at.x - _islC.x, at.z - _islC.z); var dd = new Vector2(d.x, d.z);
+            float b2 = Vector2.Dot(o, dd), cc = o.sqrMagnitude - _islR * _islR, disc = b2 * b2 - cc;
+            if (disc > 0) L = Mathf.Min(L, Mathf.Max(0.15f, -b2 + Mathf.Sqrt(disc) + 0.5f));
+        }
+        // 幅の折れ線（u, 幅）：細い柄 → 深い切れ込みと根元向きの歯 → 大きい三角の先。左右で歯を少しずらす
+        int teeth = 4;
+        List<Vector2> Side(float shift)
+        {
+            var pr = new List<Vector2> { new Vector2(0f, 0.07f), new Vector2(0.1f, 0.12f) };
             for (int t = 0; t < teeth; t++)
             {
-                float u0 = 0.18f + t * 0.17f;
-                prof.Add(new Vector2(u0, 0.38f + t * 0.06f));                 // 切れ込み
-                prof.Add(new Vector2(u0 + 0.05f, 1.0f - t * 0.05f));          // 歯の先（根元向きにとがる）
+                float u0 = 0.15f + t * 0.16f + shift;
+                float deep = F(0.13f, 0.2f) + t * 0.03f, tip = Mathf.Lerp(0.72f, 1.0f, t / (teeth - 1f)) * F(0.88f, 1.06f);
+                pr.Add(new Vector2(u0, deep));                 // 切れ込み（深く）
+                pr.Add(new Vector2(u0 + 0.06f, tip));          // 裂片の先（少し根元向き）
             }
-            prof.Add(new Vector2(0.88f, 0.55f)); prof.Add(new Vector2(1f, 0f));
-            int k2 = prof.Count - 1;
-            for (int j = 0; j <= k2; j++)
-            {
-                float u = prof[j].x, w = W * prof[j].y;
-                var c = at + Vector3.up * 0.02f + dir * L * u;
-                m.Add(c - sd * w + up * w * 0.35f, up, col); m.Add(c, up, rib); m.Add(c + sd * w + up * w * 0.35f, up, col);
-            }
-            for (int j = 0; j < k2; j++) { int a = bi + j * 3, b = bi + (j + 1) * 3; m.Quad(a, a + 1, b + 1, b); m.Quad(a + 1, a + 2, b + 2, b + 1); }   // 上向きの面
-            // ゆらゆら（乱数は使わない：ほかの飾りの並びが変わらないように、場所と葉の番号から位相を決める）
-            float lph = Mathf.Repeat(at.x * 1.7f + at.z * 2.3f + i * 2.399f, 6.2832f);
-            for (int j = 0; j <= k2; j++) { float u = prof[j].x; for (int q = 0; q < 3; q++) m.U3[bi + j * 3 + q] = new Vector4(leafSway * u * u, lph, 0, 0); }
+            pr.Add(new Vector2(0.8f + shift * 0.5f, 0.3f));    // 先の大きい三角の付け根
+            pr.Add(new Vector2(0.84f + shift * 0.5f, 1.0f));
+            pr.Add(new Vector2(1f, 0f));
+            return pr;
         }
+        var left = Side(0f); var right = Side(0.05f);
+        float Wd(List<Vector2> pr, float u) { for (int k = 1; k < pr.Count; k++) if (u <= pr[k].x) return Mathf.Lerp(pr[k - 1].y, pr[k].y, (u - pr[k - 1].x) / Mathf.Max(1e-4f, pr[k].x - pr[k - 1].x)); return 0f; }
+        var us = left.Select(p => p.x).Concat(right.Select(p => p.x)).Concat(Enumerable.Range(0, 6).Select(k => k / 5f)).Where(u => u >= 0f && u <= 1f).Distinct().OrderBy(u => u).ToList();
+        // 中心線：根元は ang で立ち上がり、先ほど下へ（先は水平より少し下まで）。横にも少しよじる
+        float droopEnd = F(12f, 26f) * Mathf.Deg2Rad, curl = F(-0.18f, 0.18f);
+        var baseCol = new Color(0.55f, 0.78f, 0.3f) * tone; var tipCol = new Color(0.2f, 0.56f, 0.17f) * tone;
+        int bi = m.V.Count; Vector3 pos = at + Vector3.up * 0.02f; float prevU = 0f;
+        for (int j = 0; j < us.Count; j++)
+        {
+            float u = us[j];
+            float th = ang - (ang + droopEnd) * Mathf.Pow(u, 1.4f), yw = curl * u;
+            var hd = Quaternion.AngleAxis(yw * Mathf.Rad2Deg, Vector3.up) * d;
+            var tan = (hd * Mathf.Cos(th) + Vector3.up * Mathf.Sin(th)).normalized;
+            if (j > 0) pos += tan * L * (u - prevU);
+            prevU = u;
+            var sdj = Vector3.Cross(Vector3.up, hd).normalized * -1f;   // 横（左右は sd と同じ向き）
+            if (Vector3.Dot(sdj, sd) < 0) sdj = -sdj;
+            var nrm = Vector3.Cross(sdj, tan).normalized; if (nrm.y < 0) nrm = -nrm;
+            float wl = W * Wd(left, u), wr = W * Wd(right, u);
+            var col = Color.Lerp(baseCol, tipCol, Mathf.SmoothStep(0f, 1f, u));
+            var rib = Color.Lerp(col, new Color(0.82f, 0.93f, 0.55f), Mathf.Lerp(0.55f, 0.3f, u));
+            m.Add(pos - sdj * wl + nrm * wl * 0.3f, nrm, col * 0.97f); m.Add(pos + nrm * W * 0.03f, nrm, rib); m.Add(pos + sdj * wr + nrm * wr * 0.3f, nrm, col);
+            for (int q = 0; q < 3; q++) m.U3[m.V.Count - 1 - q] = new Vector4(leafSway * u * u, lph, 0, 0);
+        }
+        for (int j = 0; j < us.Count - 1; j++) { int a = bi + j * 3, b = bi + (j + 1) * 3; m.Quad(a, a + 1, b + 1, b); m.Quad(a + 1, a + 2, b + 2, b + 1); }   // 上向きの面
     }
 
     // 綿毛の頭：まん中の芯から細い毛が放射状に出て、先に小さなふわふわ。下（茎の側）は少なめ
