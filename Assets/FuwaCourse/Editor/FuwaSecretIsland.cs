@@ -97,11 +97,25 @@ public static class FuwaSecretIsland
         au.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaCourse/Audio/sfx_goal.wav");
         au.playOnAwake = false; au.spatialBlend = 1f; au.rolloffMode = AudioRolloffMode.Linear; au.minDistance = 2f; au.maxDistance = 25f; au.volume = 0.8f;
         cap.gameObject.AddComponent<VRC.SDK3.Components.VRCSpatialAudioSource>();
+        var again = new GameObject("AgainSfx"); again.transform.SetParent(cap, false);
+        var au2 = again.AddComponent<AudioSource>();
+        au2.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaCourse/Audio/sfx_boing.wav");
+        au2.playOnAwake = false; au2.spatialBlend = 1f; au2.rolloffMode = AudioRolloffMode.Linear; au2.minDistance = 2f; au2.maxDistance = 20f; au2.volume = 0.7f;
+        again.AddComponent<VRC.SDK3.Components.VRCSpatialAudioSource>();
+
+        // きのこの上に浮かぶ文字（ワープの札と同じ見た目。2行入る大きさ）。押した時だけ出す
+        var pop = Object.Instantiate(lobby.Find("ToPlayground/Label").gameObject, m, false); pop.name = "Popup";
+        pop.transform.localPosition = new Vector3(0f, 1.45f, 0f); pop.transform.localRotation = Quaternion.identity; pop.transform.localScale = Vector3.one;
+        var popT = pop.GetComponent<TMPro.TextMeshPro>(); popT.text = "あそびばの おもちゃが\nぜんぶ でたよ！"; popT.fontSize = 2.6f; popT.lineSpacing = -10f;
+        var panel = pop.transform.Find("Panel").GetComponent<SpriteRenderer>(); panel.size = new Vector2(2.75f, 1.05f);
+        foreach (var lg in pop.GetComponentsInChildren<LODGroup>(true)) Object.DestroyImmediate(lg);
+        pop.SetActive(false);
 
         // スクリプト（傘に付ける。当たりも傘）
         EnsureProgram("FuwaSecretUnlock");
         var su = UdonSharpUndo.AddComponent<FuwaSecretUnlock>(cap.gameObject);
-        su.spawner = spawner; su.burst = bps; su.sound = au; su.cap = cap;
+        su.spawner = spawner; su.burst = bps; su.sound = au; su.soundAgain = au2; su.cap = cap;
+        su.popup = popT; su.popupRoot = pop.transform; su.popupPanel = panel; su.language = Object.FindObjectsOfType<FuwaLanguage>(true).First();
         UdonSharpEditorUtility.CopyProxyToUdon(su);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(su);
         if (ub != null) { ub.interactText = "？？？"; ub.proximity = 2f; ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
