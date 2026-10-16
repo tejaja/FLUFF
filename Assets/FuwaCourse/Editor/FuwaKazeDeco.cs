@@ -683,24 +683,49 @@ public static class FuwaKazeDeco
         // 2026-10-16 てじゃ「もうちょい詰めて」「トゲにみえるのがな、もうちょい平べったく」：
         // 細い筒だとトゲに見えたので、平たい葉の形（根元が広くて先がとがる）に。面は花のまわりの円に沿う向き（外から見て平らに見える）。
         // 内側は短く花びらの裏に添わせ、外側は茎の近くへ巻き込む。法線は花びらと同じく上向き（下から見ても暗く沈まない）
+        // さらに「重なりがきになる」「先端を尖らせないで」：根元を中心の1点でなく小さい輪の上に並べ、隣どうしが重ならない幅に。
+        // 先は丸く（へら形）。内と外で高さと角度を半分ずらす
         var cs = c - Vector3.up * r * 0.07f;
-        void Bract(float a, Vector3 d1, Vector3 d2, float wide, Color c0, Color c1)
+        void Bract(float a, float ringR, float y, Vector3 d1, Vector3 d2, float w0, float w1, Color c0, Color c1)
         {
-            var side = new Vector3(-Mathf.Sin(a), 0f, Mathf.Cos(a));
-            var p = new[] { cs, cs + d1, cs + d1 + d2 }; var w = new[] { wide, wide * 0.8f, 0f };
-            int bi = m.V.Count;
-            for (int j = 0; j < 3; j++) { var col = Color.Lerp(c0, c1, j / 2f); m.Add(p[j] - side * w[j], Vector3.up, col); m.Add(p[j] + side * w[j], Vector3.up, col); }
-            m.Quad(bi, bi + 1, bi + 3, bi + 2); m.Tri(bi + 2, bi + 3, bi + 4);
+            var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var side = new Vector3(-Mathf.Sin(a), 0f, Mathf.Cos(a));
+            var p0 = cs + o * ringR + Vector3.up * y; var p1 = p0 + d1; var p2 = p1 + d2; var dir = d2.normalized;
+            var ws = new[] { w0, w1, w1 * 0.85f }; var ps = new[] { p0, p1, p2 };
+            int bi = m.V.Count, bt = m.T.Count;
+            for (int j = 0; j < 3; j++) { var col = Color.Lerp(c0, c1, j / 2f); m.Add(ps[j] - side * ws[j], Vector3.up, col); m.Add(ps[j] + side * ws[j], Vector3.up, col); }
+            m.Quad(bi, bi + 1, bi + 3, bi + 2); m.Quad(bi + 2, bi + 3, bi + 5, bi + 4);
+            // 丸い先（扇）
+            float w2 = ws[2]; int ci = m.Add(p2, Vector3.up, c1);
+            int k0 = bi + 4, n = 5, first = m.V.Count;
+            for (int k = 1; k < n; k++) { float t = k / (float)n * Mathf.PI; m.Add(p2 - side * Mathf.Cos(t) * w2 + dir * Mathf.Sin(t) * w2, Vector3.up, c1); }
+            int prev = k0;
+            for (int k = 0; k < n - 1; k++) { m.Tri(ci, first + k, prev); prev = first + k; }
+            m.Tri(ci, bi + 5, prev);
+            // 裏面：両面描画だと裏から見た側だけ暗く沈んで先の丸い所と色が分かれたので、少しずらした裏向きの面を足して両側とも同じ明るさに
+            var pn = Vector3.Cross(side, (p1 - p0).normalized).normalized * r * 0.004f;
+            int vb2 = m.V.Count, ve = vb2, te = m.T.Count;
+            for (int i = bi; i < ve; i++) m.Add(m.V[i] - pn, m.N[i], m.C[i]);
+            for (int t = bt; t < te; t += 3) m.Tri(m.T[t] - bi + vb2, m.T[t + 2] - bi + vb2, m.T[t + 1] - bi + vb2);
         }
-        for (int i = 0; i < 14; i++)
+        // 花托（がくの根元の緑の皿）：がくの輪の内側のすき間から花の裏のオレンジが見えないように
         {
-            float a = (i + 0.5f) * Mathf.PI * 2 / 14; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-            Bract(a, (o + Vector3.up * 0.3f).normalized * r * 0.1f, (o + Vector3.up * 0.25f).normalized * r * 0.08f, r * 0.045f, LeafG, StemG);
+            var gc = LeafG * 0.95f; int n = 12, ci = m.Add(cs - Vector3.up * r * 0.03f, Vector3.up, gc);
+            for (int i = 0; i < n; i++) { float a = i * Mathf.PI * 2 / n; m.Add(cs + new Vector3(Mathf.Cos(a) * r * 0.1f, r * 0.01f, Mathf.Sin(a) * r * 0.1f), Vector3.up, gc); }
+            for (int i = 0; i < n; i++) m.Tri(ci, ci + 1 + (i + 1) % n, ci + 1 + i);
         }
-        for (int i = 0; i < 12; i++)
+        var bractTip = Color.Lerp(LeafG, StemG, 0.35f);
+        const int NIn = 10, NOut = 10;
+        for (int i = 0; i < NIn; i++)
         {
-            float a = i * Mathf.PI * 2 / 12; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-            Bract(a, (o - Vector3.up * 0.9f).normalized * r * 0.08f, (o * 0.3f - Vector3.up).normalized * r * 0.09f, r * 0.04f, LeafG, LeafG * 0.9f);
+            float a = (i + 0.5f) * Mathf.PI * 2 / NIn; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            float rr = r * 0.07f, slot = Mathf.PI * rr / NIn;
+            Bract(a, rr, 0f, (o + Vector3.up * 0.3f).normalized * r * 0.09f, (o + Vector3.up * 0.22f).normalized * r * 0.07f, slot * 0.9f, r * 0.034f, LeafG, bractTip);
+        }
+        for (int i = 0; i < NOut; i++)
+        {
+            float a = i * Mathf.PI * 2 / NOut; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            float rr = r * 0.06f, slot = Mathf.PI * rr / NOut;
+            Bract(a, rr, -r * 0.02f, (o - Vector3.up * 0.9f).normalized * r * 0.07f, (o * 0.3f - Vector3.up).normalized * r * 0.07f, slot * 0.9f, r * 0.03f, LeafG * 0.95f, LeafG);
         }
     }
 
