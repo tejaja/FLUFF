@@ -20,9 +20,9 @@ public class FuwaUiProximitySetup : IVRCSDKBuildRequestedCallback
         return true;
     }
 
-    // 場所ごとの押せる距離（0＝FuwaUiProximity.range）。ロビーの看板まわりのボタンは、銃の台・練習のきのこから4.4〜5mにあり、
-    // 全体を5mにしたら銃を取る・きのこを撃つ時に押してしまった（2026-10-16 てじゃ）→ ここだけ前の4mに
-    static readonly (string prefix, float range)[] RangeOverrides = { ("FuwaLobby/HowToPlay/", 4f) };
+    // 場所ごとの押せる距離（0＝FuwaUiProximity.range）。今は無し。
+    //（2026-10-16 ロビーの看板まわりだけ4mにしたが、てじゃ「４でもやりかたでは誤爆する」→ 5mに戻して、銃の台・練習のきのこの方を看板から離した）
+    static readonly (string prefix, float range)[] RangeOverrides = { };
     static float RangeFor(Collider c)
     {
         string path = c.transform.GetHierarchyPath();
