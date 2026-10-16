@@ -680,16 +680,17 @@ public static class FuwaKazeDeco
         }
         // がく：花びらの下から出す（前は花の中心から出していて、太い根元が花びらの上に突き抜けて緑がもれていた）。
         // 内側＝花びらの裏に添って少し上向き、外側＝下へ反り返る（本物のたんぽぽの総苞）
+        // 2026-10-16 てじゃ「もうちょい詰めて」：広がりすぎてトゲトゲに見えたので、内側は短く花びらの裏に添わせ、外側は短く茎の近くへ巻き込む
         var cs = c - Vector3.up * r * 0.07f;
+        for (int i = 0; i < 14; i++)
+        {
+            float a = (i + 0.5f) * Mathf.PI * 2 / 14; var d = new Vector3(Mathf.Cos(a), 0.3f, Mathf.Sin(a)).normalized;
+            Tube(m, new List<Vector3> { cs, cs + d * r * 0.1f, cs + d * r * 0.17f }, new List<float> { r * 0.03f, r * 0.022f, r * 0.004f }, 3, LeafG, StemG);
+        }
         for (int i = 0; i < 12; i++)
         {
-            float a = (i + 0.5f) * Mathf.PI * 2 / 12; var d = new Vector3(Mathf.Cos(a), 0.18f, Mathf.Sin(a)).normalized;
-            Tube(m, new List<Vector3> { cs, cs + d * r * 0.16f, cs + d * r * 0.26f + Vector3.up * r * 0.02f }, new List<float> { r * 0.035f, r * 0.028f, r * 0.006f }, 3, LeafG, StemG);
-        }
-        for (int i = 0; i < 10; i++)
-        {
-            float a = i * Mathf.PI * 2 / 10; var d = new Vector3(Mathf.Cos(a), -0.25f, Mathf.Sin(a)).normalized;
-            Tube(m, new List<Vector3> { cs, cs + d * r * 0.2f, cs + d * r * 0.3f + Vector3.down * r * 0.18f }, new List<float> { r * 0.04f, r * 0.025f, r * 0.006f }, 3, LeafG, LeafG);
+            float a = i * Mathf.PI * 2 / 12; var d = new Vector3(Mathf.Cos(a), -0.9f, Mathf.Sin(a)).normalized; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            Tube(m, new List<Vector3> { cs, cs + d * r * 0.08f, cs + d * r * 0.12f + Vector3.down * r * 0.08f - o * r * 0.02f }, new List<float> { r * 0.03f, r * 0.02f, r * 0.004f }, 3, LeafG, LeafG);
         }
     }
 
