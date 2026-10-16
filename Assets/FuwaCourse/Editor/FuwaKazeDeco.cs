@@ -7,7 +7,7 @@ using UnityEngine;
 // ・コースのまわりの空に浮島を浮かべ、巨大たんぽぽ（綿毛・黄色い花）と小さいたんぽぽを生やす
 // ・綿毛のパーティクル（Ambient/Dandelions）は、巨大な綿毛の頭から飛んでコースの上を風下（ゴールの方）へ流れる
 // たんぽぽは Den_Twig（InkCap・両面・頂点カラー）で1つのメッシュにまとめる。当たり判定なし
-public static class FuwaKazeDeco
+public static partial class FuwaKazeDeco
 {
     const string Dir = "Assets/FuwaCourse/Generated/Kaze";
     const string Course = "FuwaCourse";
@@ -17,7 +17,9 @@ public static class FuwaKazeDeco
         public List<Vector3> V = new List<Vector3>(); public List<Vector3> N = new List<Vector3>();
         public List<Color> C = new List<Color>(); public List<int> T = new List<int>();
         public List<Vector4> U3 = new List<Vector4>();   // 風のゆれ（x＝重み、y＝位相）
-        public int Add(Vector3 p, Vector3 n, Color c) { V.Add(p); N.Add(n.normalized); C.Add(new Color(c.r, c.g, c.b, 1)); U3.Add(Vector4.zero); return V.Count - 1; }
+        public List<Vector2> UV = new List<Vector2>();   // 軽い版（板）のテクスチャの位置。ふつうの版は使わない
+        public int Add(Vector3 p, Vector3 n, Color c) { V.Add(p); N.Add(n.normalized); C.Add(new Color(c.r, c.g, c.b, 1)); U3.Add(Vector4.zero); UV.Add(Vector2.zero); return V.Count - 1; }
+        public int Add(Vector3 p, Vector3 n, Color c, Vector2 uv) { int i = Add(p, n, c); UV[i] = uv; return i; }
         public void Tri(int a, int b, int c) { T.Add(a); T.Add(b); T.Add(c); }
         public void Quad(int a, int b, int c, int d) { Tri(a, b, c); Tri(a, c, d); }
     }
@@ -35,6 +37,7 @@ public static class FuwaKazeDeco
     }
 
     static Vector3 _islC; static float _islR = 999f;
+    static List<(Vector3 p, float r)> _lastHeads = new List<(Vector3, float)>();   // 最後に作った綿毛の頭（軽い版の絵を撮る用）
     static List<float> _headPhase = new List<float>();   // 綿毛の頭ごとのゆれの位相（heads と同じ順）
     static Dictionary<Vector3, Vector3> _headTan = new Dictionary<Vector3, Vector3>();   // 綿毛の頭の中心 → 茎の先の向き（芯の下のがくを茎に合わせる）
     const float SwayAmp = 0.38f, SwaySpeed = 1.2f;   // 今の浮島（葉っぱが島からはみ出さないように）
@@ -56,7 +59,7 @@ public static class FuwaKazeDeco
     static readonly Color LeafG = new Color(0.27f, 0.68f, 0.2f), StemG = new Color(0.45f, 0.74f, 0.3f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
 
     [MenuItem("FuwaCourse/かぜのおかの飾りを作る")]
-    public static void RunMenu() { Debug.Log(Run()); }
+    public static void RunMenu() { Debug.Log(BuildLite()); }   // ふつうの版＋板の版＋島ごとのLOD（2026-10-16）
 
     public static string Run()
     {
@@ -213,6 +216,7 @@ public static class FuwaKazeDeco
             for (int hi = 0; hi < heads.Count; hi++)
             {
                 var (hp, hr) = heads[hi]; float ph = _headPhase[hi];
+                if (Lite) { PuffLite(plants, hp, hr, ph); continue; }   // 軽い版：十字の板（芯・軸・がく・冠毛を焼いた絵）
                 float R0 = HeadOuter(hr), coreR = R0 * HeadCore;
                 int n = Mathf.RoundToInt(TuftsPerHead * (R0 / 1.58f) * (R0 / 1.58f));
                 int vb = plants.V.Count;
@@ -279,6 +283,8 @@ public static class FuwaKazeDeco
 
         // まとめたメッシュ
         var w2l = deco.worldToLocalMatrix;
+        if (Lite) return WriteLite(plants, deco, isl, wind, log);
+        _lastHeads = heads.ToList();
         {
             var m = new Mesh { name = "Kaze_Dandelions", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             m.SetVertices(plants.V.Select(x => w2l.MultiplyPoint3x4(x)).ToList()); m.SetNormals(plants.N.Select(x => w2l.MultiplyVector(x).normalized).ToList());
@@ -516,7 +522,8 @@ public static class FuwaKazeDeco
             pts.Add(at + Vector3.up * h * u + lean * u * u);
             rr.Add(Mathf.Lerp(0.12f, 0.08f, u) * s);
         }
-        Tube(m, pts, rr, 7, StemG, StemG * 0.85f);
+        if (Lite) Tube(m, pts.Where((p, i) => i % 2 == 0).ToList(), rr.Where((p, i) => i % 2 == 0).ToList(), 4, StemG, StemG * 0.85f);   // 軽い版：4角・半分の節
+        else Tube(m, pts, rr, 7, StemG, StemG * 0.85f);
         var top = pts[pts.Count - 1];
         if (puff)
         {
@@ -528,7 +535,7 @@ public static class FuwaKazeDeco
         }
         else
         {
-            float fr = R(2.1f, 2.6f) * s; int fb = m.V.Count; Flower(m, top + Vector3.up * fr * 0.15f, fr, rnd);   // がくのおわんの底が茎の先に来るように（花の中心はおわんの底より0.15r上）
+            float fr = R(2.1f, 2.6f) * s; int fb = m.V.Count; if (Lite) FlowerLite(m, top + Vector3.up * fr * 0.15f, fr); else Flower(m, top + Vector3.up * fr * 0.15f, fr, rnd);   // がくのおわんの底が茎の先に来るように（花の中心はおわんの底より0.15r上）
             // 花の頭（花びら＋がく）は、風でしなった茎の先の向きに合わせて風下へうなずかせる（頭の重みで茎の先より少し深め）
             var tan = (Vector3.up * h + lean * 2f).normalized;
             var q = Quaternion.AngleAxis(Vector3.Angle(Vector3.up, tan) * 1.4f, Vector3.Cross(Vector3.up, tan).normalized);
@@ -575,12 +582,13 @@ public static class FuwaKazeDeco
             float tone = R(0.92f, 1.12f);
             float ang = R(30f, 45f) * Mathf.Deg2Rad;
             float lph = Mathf.Repeat(at.x * 1.7f + at.z * 2.3f + i * 2.399f, 6.2832f);
-            Leaf(m, at, a0, L, W, tone, ang, lph, leafSway, F);
+            if (Lite) LeafLite(m, at, a0, L, W, tone, ang, lph, leafSway, F); else Leaf(m, at, a0, L, W, tone, ang, lph, leafSway, F);
             // あいだの短い葉（6割くらい）
             if (fr.NextDouble() < 0.6)
             {
                 float a1 = a0 + Mathf.PI / n * F(0.7f, 1.3f);
-                Leaf(m, at, a1, L * F(0.5f, 0.7f), W * F(0.75f, 0.9f), tone * F(0.95f, 1.05f), ang + F(0.05f, 0.2f), lph + 1.3f, leafSway, F);
+                float L1 = L * F(0.5f, 0.7f), W1 = W * F(0.75f, 0.9f), t1 = tone * F(0.95f, 1.05f), g1 = ang + F(0.05f, 0.2f);
+                if (Lite) LeafLite(m, at, a1, L1, W1, t1, g1, lph + 1.3f, leafSway, F); else Leaf(m, at, a1, L1, W1, t1, g1, lph + 1.3f, leafSway, F);
             }
         }
     }

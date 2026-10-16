@@ -49,6 +49,8 @@ public static class FuwaFarViewSetup
             foreach (var r in root.GetComponentsInChildren<Renderer>(true))
             {
                 if (r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer || r.name.EndsWith(FarSuffix)) continue;
+                // かぜのおかのたんぽぽは島ごとの LODGroup（DandelionLOD：近い＝ふつう／遠い＝板）で切りかえるので、ここでは触らない（2026-10-16）
+                if (r.GetComponentsInParent<LODGroup>(true).Any(g => g.name == "DandelionLOD")) continue;
                 // 名場面ボード（かってにスクショ）は FuwaPhotoAlbumBuilder.OneLod でボードごとまとめて消すので、部品ごとには付けない（2026-10-12）
                 if (r.GetComponentsInParent<Transform>(true).Any(t => t.name == "PhotoGallery")) continue;
                 // モンスターの目（白目・黒目）は目ごとにまとめて消す。1つずつだと小さい黒目が先に消えて白目をむく（2026-10-09）
