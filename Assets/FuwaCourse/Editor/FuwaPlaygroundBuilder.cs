@@ -656,6 +656,23 @@ public static class FuwaPlaygroundBuilder
     }
 
     // 竜巻のたね（持てる玉）＋竜巻（コース1 のつむじ風 Whirl0 のコピー、捕まえない普通の巻き上げに）
+    // 地面のうずまき：写し元（かぜのおかのつむじ風）は道の幅で切った形のメッシュなので、あそびばの床だと片側が欠けて見えた
+    //（2026-10-16 てじゃ「遊び場のたつまきの地面エフェクトが欠けてる」）→ 練習のつむじ風と同じ丸ごとの板（直径2.8m）にして、床から少し浮かせる
+    static void FullFloorSwirl(Transform tornado)
+    {
+        var fs = tornado.Find("FloorSwirl"); if (fs == null) return;
+        var quad = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "FloorSwirl" && t.parent != null && t.parent.name == "WhirlPractice");
+        if (quad == null) return;
+        fs.GetComponent<MeshFilter>().sharedMesh = quad.GetComponent<MeshFilter>().sharedMesh;
+        var r = fs.GetComponent<MeshRenderer>();
+        var mat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/WhirlFloor_Rev.mat");
+        if (r.sharedMaterial != null && r.sharedMaterial.name.EndsWith("_S")) mat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/WhirlFloor.mat") ?? mat;
+        r.sharedMaterial = mat;
+        fs.localPosition = new Vector3(0f, 0.012f, 0f);
+        fs.localScale = new Vector3(2.8f, 1f, 2.8f);
+        EditorUtility.SetDirty(fs.gameObject); EditorUtility.SetDirty(r);
+    }
+
     static void FillTornado(Transform slot, FuwaPlaygroundSpawner sp)
     {
         EnsureProgram("FuwaTornadoSeed");
@@ -665,6 +682,7 @@ public static class FuwaPlaygroundBuilder
         // 動きはかぜのおかのつむじ風（Whirl0）のまま＝捕まえて、溜め撃ちで抜ける（2026-10-13 てじゃ「なるべくコースと同じ動きにしたい」。
         // 前は巻き上げててっぺんから吐き出す形に変えていた）
         Sync(tw.GetComponent<FuwaWhirlwind>());
+        FullFloorSwirl(tw.transform);
         foreach (var t in tw.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
         // たね：ころんとした水色の玉。竜巻の上に浮かべておく
         var seed = GameObject.CreatePrimitive(PrimitiveType.Sphere); seed.name = "TornadoSeed"; seed.layer = 13;
