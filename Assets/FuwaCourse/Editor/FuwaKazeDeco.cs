@@ -402,29 +402,47 @@ public static class FuwaKazeDeco
         return n == 0 ? 0f : (float)bad / n + 0.1f * sum / n;
     }
 
-    // 飛んでいく綿毛（パーティクル用）：細い軸＋放射状に開いた白い毛（三角だけ）。1つ約30三角で軽い
+    // 飛んでいく綿毛（パーティクル用）。2026-10-16 てじゃ「飛んでる綿毛もちょっと良くできないかな」：
+    // 前は太い三角12本の風車みたいな形だった → 本物の冠毛のように、細い毛24本を傘の形に開き（根元は横に近く、先へ少し反り上がる）、
+    // 毛の先に小さなふわふわ。種は茶色い紡錘形で、細いくちばし（軸）でつながる。毛は先ほどわずかに空色に寄せて透けた感じに。
+    // 1つ56三角・約100頂点（前は30三角・90頂点）。原点＝冠毛の付け根より少し下（前と同じ大きさ・重心）
     static Mesh SeedMesh()
     {
         string ap = "Assets/FuwaCourse/Meshes/DandelionSeed.asset";
         var V = new List<Vector3>(); var C = new List<Color32>(); var T = new List<int>();
-        Color32 white = new Color32(255, 255, 255, 255), tan = new Color32(190, 160, 110, 255), stem = new Color32(235, 230, 215, 255);
+        Color32 white = new Color32(255, 255, 255, 255), tipC = new Color32(236, 244, 255, 255), seedA = new Color32(150, 112, 70, 255), seedB = new Color32(196, 160, 110, 255), beak = new Color32(232, 226, 210, 255);
         void Tri(Vector3 a, Vector3 b, Vector3 c, Color32 ca, Color32 cb, Color32 cc) { int i = V.Count; V.Add(a); V.Add(b); V.Add(c); C.Add(ca); C.Add(cb); C.Add(cc); T.Add(i); T.Add(i + 1); T.Add(i + 2); }
-        // 種（下のふくらみ）と軸：十字の細い板
+        // 種：紡錘形（十字の板2枚、まん中がふくらむ）
         for (int k = 0; k < 2; k++)
         {
             var sd = k == 0 ? Vector3.right : Vector3.forward;
-            Tri(new Vector3(0, -0.5f, 0), sd * 0.04f + new Vector3(0, -0.38f, 0), -sd * 0.04f + new Vector3(0, -0.38f, 0), tan, tan, tan);
-            Tri(sd * 0.04f + new Vector3(0, -0.38f, 0), sd * 0.012f + new Vector3(0, 0.1f, 0), -sd * 0.04f + new Vector3(0, -0.38f, 0), stem, stem, tan);
-            Tri(-sd * 0.04f + new Vector3(0, -0.38f, 0), sd * 0.012f + new Vector3(0, 0.1f, 0), -sd * 0.012f + new Vector3(0, 0.1f, 0), tan, stem, stem);
+            Vector3 s0 = new Vector3(0, -0.52f, 0), s1 = new Vector3(0, -0.44f, 0), s2 = new Vector3(0, -0.34f, 0);
+            Tri(s0, s1 + sd * 0.035f, s1 - sd * 0.035f, seedA, seedB, seedB);
+            Tri(s1 + sd * 0.035f, s2, s1 - sd * 0.035f, seedB, seedA, seedB);
+            // くちばし（細い軸）
+            Tri(s2 - sd * 0.008f, s2 + sd * 0.008f, new Vector3(0, 0.08f, 0) + sd * 0.004f, seedA, seedA, beak);
+            Tri(s2 - sd * 0.008f, new Vector3(0, 0.08f, 0) + sd * 0.004f, new Vector3(0, 0.08f, 0) - sd * 0.004f, seedA, beak, beak);
         }
-        // 毛：軸の先から放射状（少し上向きに開いた傘）。細長い三角を2枚ずつ（向きの違う板）で、どの角度からも見える
-        var top = new Vector3(0, 0.1f, 0); int n = 12;
+        // 冠毛：24本。軽さ優先（メッシュのパーティクルは頂点をCPUで毎フレーム動かすので頂点数が効く）：
+        // 根元は24頂点の小さな輪、毛は1本1三角、先のふわふわも1三角（毛の先の2点を使い回す）
+        var top = new Vector3(0, 0.08f, 0); int n = 24; float ringR = 0.012f;
+        int ring0 = V.Count;
+        for (int i = 0; i < n; i++) { float a = i * Mathf.PI * 2 / n; V.Add(top + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * ringR); C.Add(white); }
         for (int i = 0; i < n; i++)
         {
-            float a = i * Mathf.PI * 2 / n; var d = new Vector3(Mathf.Cos(a), 0.55f, Mathf.Sin(a)).normalized; var tip = top + d * 0.42f;
-            var side = Vector3.Cross(d, Vector3.up).normalized * 0.035f; var up = Vector3.Cross(side, d).normalized * 0.035f;
-            Tri(top, tip + side, tip - side, white, white, white);
-            Tri(top, tip + up, tip - up, white, white, white);
+            float a = (i + 0.5f) * Mathf.PI * 2 / n;
+            var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var side = new Vector3(-Mathf.Sin(a), 0f, Mathf.Cos(a));
+            float len = (i % 3 == 0) ? 0.4f : 0.44f;
+            var d = (o + Vector3.up * (i % 2 == 0 ? 0.42f : 0.5f)).normalized;
+            var tip = top + d * len;
+            // 毛：根元の1点から先へ少しずつ太くなる細いくさび（1本の糸だと細すぎてチラついた）。先の2点はふわふわと共有
+            var fu = Vector3.Cross(side, d).normalized; float w = 0.011f;
+            int ti = V.Count;
+            V.Add(tip - side * w + fu * w * 0.3f); C.Add(tipC);
+            V.Add(tip + side * w - fu * w * 0.3f); C.Add(tipC);
+            V.Add(tip + d * 0.05f); C.Add(white);
+            T.Add(ring0 + i); T.Add(ti); T.Add(ti + 1);                 // 毛
+            T.Add(ti); T.Add(ti + 2); T.Add(ti + 1);                    // 先のふわふわ（くさびの先に小さな山）
         }
         var m = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
         if (m == null) { m = new Mesh { name = "DandelionSeed" }; AssetDatabase.CreateAsset(m, ap); }
