@@ -680,17 +680,27 @@ public static class FuwaKazeDeco
         }
         // がく：花びらの下から出す（前は花の中心から出していて、太い根元が花びらの上に突き抜けて緑がもれていた）。
         // 内側＝花びらの裏に添って少し上向き、外側＝下へ反り返る（本物のたんぽぽの総苞）
-        // 2026-10-16 てじゃ「もうちょい詰めて」：広がりすぎてトゲトゲに見えたので、内側は短く花びらの裏に添わせ、外側は短く茎の近くへ巻き込む
+        // 2026-10-16 てじゃ「もうちょい詰めて」「トゲにみえるのがな、もうちょい平べったく」：
+        // 細い筒だとトゲに見えたので、平たい葉の形（根元が広くて先がとがる）に。面は花のまわりの円に沿う向き（外から見て平らに見える）。
+        // 内側は短く花びらの裏に添わせ、外側は茎の近くへ巻き込む。法線は花びらと同じく上向き（下から見ても暗く沈まない）
         var cs = c - Vector3.up * r * 0.07f;
+        void Bract(float a, Vector3 d1, Vector3 d2, float wide, Color c0, Color c1)
+        {
+            var side = new Vector3(-Mathf.Sin(a), 0f, Mathf.Cos(a));
+            var p = new[] { cs, cs + d1, cs + d1 + d2 }; var w = new[] { wide, wide * 0.8f, 0f };
+            int bi = m.V.Count;
+            for (int j = 0; j < 3; j++) { var col = Color.Lerp(c0, c1, j / 2f); m.Add(p[j] - side * w[j], Vector3.up, col); m.Add(p[j] + side * w[j], Vector3.up, col); }
+            m.Quad(bi, bi + 1, bi + 3, bi + 2); m.Tri(bi + 2, bi + 3, bi + 4);
+        }
         for (int i = 0; i < 14; i++)
         {
-            float a = (i + 0.5f) * Mathf.PI * 2 / 14; var d = new Vector3(Mathf.Cos(a), 0.3f, Mathf.Sin(a)).normalized;
-            Tube(m, new List<Vector3> { cs, cs + d * r * 0.1f, cs + d * r * 0.17f }, new List<float> { r * 0.03f, r * 0.022f, r * 0.004f }, 3, LeafG, StemG);
+            float a = (i + 0.5f) * Mathf.PI * 2 / 14; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            Bract(a, (o + Vector3.up * 0.3f).normalized * r * 0.1f, (o + Vector3.up * 0.25f).normalized * r * 0.08f, r * 0.045f, LeafG, StemG);
         }
         for (int i = 0; i < 12; i++)
         {
-            float a = i * Mathf.PI * 2 / 12; var d = new Vector3(Mathf.Cos(a), -0.9f, Mathf.Sin(a)).normalized; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-            Tube(m, new List<Vector3> { cs, cs + d * r * 0.08f, cs + d * r * 0.12f + Vector3.down * r * 0.08f - o * r * 0.02f }, new List<float> { r * 0.03f, r * 0.02f, r * 0.004f }, 3, LeafG, LeafG);
+            float a = i * Mathf.PI * 2 / 12; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            Bract(a, (o - Vector3.up * 0.9f).normalized * r * 0.08f, (o * 0.3f - Vector3.up).normalized * r * 0.09f, r * 0.04f, LeafG, LeafG * 0.9f);
         }
     }
 
