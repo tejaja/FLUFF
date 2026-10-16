@@ -143,7 +143,7 @@ public static class FuwaGunTriggerRebuild
             if (b >= rc) return zf;
             float u = rc - b; return zf - rc + Mathf.Sqrt(Mathf.Max(0f, rc * rc - u * u));
         }
-        const int rows = 56, cols = 34;
+        const int rows = 24, cols = 14;   // 2026-10-16 軽く（56×34＝7,260三角 → 1,196三角。指先くらいの大きさなので見た目はほぼ同じ）
         var pos = new Vector3[rows, cols]; var hh = new float[rows, cols];
         for (int r = 0; r < rows; r++)
         {
@@ -201,9 +201,9 @@ public static class FuwaGunTriggerRebuild
         for (int i = 0; i < pts.Length - 1; i++)
         {
             Vector3 p0 = pts[Mathf.Max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Mathf.Min(pts.Length - 1, i + 2)];
-            for (int s = 0; s < 12; s++)
+            for (int s = 0; s < 6; s++)   // 2026-10-16 軽く（12→6）
             {
-                float t = s / 12f, t2 = t * t, t3 = t2 * t;
+                float t = s / 6f, t2 = t * t, t3 = t2 * t;
                 c.Add(0.5f * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3));
             }
         }
@@ -216,7 +216,7 @@ public static class FuwaGunTriggerRebuild
             // 付け根の内側の角を、四分円のくぼみ（フィレット）で埋める。d は付け根の面までの距離（面より中は d<0 で最大のまま）
             flare[k] = Fillet(0.0255f - p.y, 0.0045f);   // 銃身の下の面（グリップ側の角はトリガーの板で埋まるのでいらない）
         }
-        Sweep(V, N, T, c.ToArray(), hw, hd, 4f, 0.0015f, 36, 3, flare);
+        Sweep(V, N, T, c.ToArray(), hw, hd, 4f, 0.0015f, 16, 3, flare);   // 2026-10-16 軽く（まわりの分割 36→16）
     }
 
     static float Fillet(float d, float r)
