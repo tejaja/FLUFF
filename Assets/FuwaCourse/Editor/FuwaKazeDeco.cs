@@ -225,14 +225,12 @@ public static class FuwaKazeDeco
                     if (d.y < -0.8f) continue;   // 茎のまわりは空ける
                     var p1 = hp + d * rad; var p0 = hp + d * coreR * 0.9f;
                     var t1 = Vector3.Cross(d, Mathf.Abs(d.y) < 0.9f ? Vector3.up : Vector3.right).normalized; var t2 = Vector3.Cross(d, t1);
-                    const float sw = 0.006f;   // 軸：細い三角柱（先ほど細く）。両面
-                    for (int s = 0; s < 3; s++)
-                    {
-                        float a0 = s * 2.094f, a1 = (s + 1) * 2.094f;
-                        var o0 = t1 * Mathf.Cos(a0) + t2 * Mathf.Sin(a0); var o1 = t1 * Mathf.Cos(a1) + t2 * Mathf.Sin(a1); var nn = o0 + o1;
-                        int i0 = plants.Add(p0 + o0 * sw, nn, stalkC), i1 = plants.Add(p0 + o1 * sw, nn, stalkC), i2 = plants.Add(p1 + o1 * sw * 0.5f, nn, stalkC), i3 = plants.Add(p1 + o0 * sw * 0.5f, nn, stalkC);
-                        plants.Quad(i0, i1, i2, i3); plants.Quad(i0, i3, i2, i1);
-                    }
+                    const float sw = 0.006f;   // 軸：細い三角柱（先ほど細く）。
+                    // 軽く（2026-10-16 てじゃ「結構あるな」）：前は面ごとに頂点4つ×3面＋裏向きの面（12頂点）→ 両端の3頂点ずつを共有して6頂点。材質が両面描画なので裏向きの面もいらない
+                    int sb0 = plants.V.Count;
+                    for (int s = 0; s < 3; s++) { float a0 = s * 2.094f; var o0 = t1 * Mathf.Cos(a0) + t2 * Mathf.Sin(a0); plants.Add(p0 + o0 * sw, o0, stalkC); }
+                    for (int s = 0; s < 3; s++) { float a0 = s * 2.094f; var o0 = t1 * Mathf.Cos(a0) + t2 * Mathf.Sin(a0); plants.Add(p1 + o0 * sw * 0.5f, o0, stalkC); }
+                    for (int s = 0; s < 3; s++) { int s1 = (s + 1) % 3; plants.Quad(sb0 + s, sb0 + s1, sb0 + 3 + s1, sb0 + 3 + s); }
                     tufts.Add((p1, d, sz, rot, hi));
                 }
                 // 芯（花床）：小さな茶色の球。茎の先はこの中に入る
@@ -345,9 +343,9 @@ public static class FuwaKazeDeco
                 var ps = amb.GetComponent<ParticleSystem>();
                 var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Mesh; sh.meshShapeType = ParticleSystemMeshShapeType.Triangle; sh.mesh = em; sh.scale = deco.lossyScale; sh.normalOffset = 0f; sh.randomPositionAmount = 0.3f;
                 // 綿毛は大きめ・多めにして目立たせる（形は軽い三角だけの綿毛に作り直す）
-                var main = ps.main; main.startLifetime = new ParticleSystem.MinMaxCurve(7f, 11f); main.maxParticles = 450;   // 飛ぶ距離は短め
+                var main = ps.main; main.startLifetime = new ParticleSystem.MinMaxCurve(7f, 11f); main.maxParticles = 300;   // 飛ぶ距離は短め（2026-10-16 軽く：450→300）
                 main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.75f);
-                var emi = ps.emission; emi.rateOverTime = 28.8f;   // 2026-10-05 1割減
+                var emi = ps.emission; emi.rateOverTime = 20f;   // 2026-10-05 1割減、2026-10-16 軽く（28.8→20。同時に飛ぶ数 約260→約180）
                 var pr = amb.GetComponent<ParticleSystemRenderer>(); pr.mesh = SeedMesh();
                 var smat = pr.sharedMaterial; if (smat != null) { smat.SetFloat("_FadeStart", 25f); smat.SetFloat("_FadeEnd", 80f); smat.SetFloat("_FarAlpha", 0.65f); smat.SetFloat("_Shade", 0.1f); EditorUtility.SetDirty(smat); }
                 var vel = ps.velocityOverLifetime; vel.x = new ParticleSystem.MinMaxCurve(wind.x * 1.2f, wind.x * 2.2f); vel.z = new ParticleSystem.MinMaxCurve(wind.z * 1.2f, wind.z * 2.2f); vel.y = new ParticleSystem.MinMaxCurve(-0.05f, 0.25f);
@@ -635,10 +633,12 @@ public static class FuwaKazeDeco
             float wl = W * Wd(left, u), wr = W * Wd(right, u);
             var col = Color.Lerp(baseCol, tipCol, Mathf.SmoothStep(0f, 1f, u));
             var rib = Color.Lerp(col, new Color(0.82f, 0.93f, 0.55f), Mathf.Lerp(0.55f, 0.3f, u));
-            m.Add(pos - sdj * wl + nrm * wl * 0.3f, nrm, col * 0.97f); m.Add(pos + nrm * W * 0.03f, nrm, rib); m.Add(pos + sdj * wr + nrm * wr * 0.3f, nrm, col);
-            for (int q = 0; q < 3; q++) m.U3[m.V.Count - 1 - q] = new Vector4(leafSway * u * u, lph, 0, 0);
+            // 軽く（2026-10-16）：まん中の葉脈の列をやめて左右2列（頂点 2/3）。葉脈の明るさは左右の色を少し明るくして残す
+            var colL = Color.Lerp(col * 0.97f, rib, 0.25f); var colR = Color.Lerp(col, rib, 0.25f);
+            m.Add(pos - sdj * wl + nrm * wl * 0.15f, nrm, colL); m.Add(pos + sdj * wr + nrm * wr * 0.15f, nrm, colR);
+            for (int q = 0; q < 2; q++) m.U3[m.V.Count - 1 - q] = new Vector4(leafSway * u * u, lph, 0, 0);
         }
-        for (int j = 0; j < us.Count - 1; j++) { int a = bi + j * 3, b = bi + (j + 1) * 3; m.Quad(a, a + 1, b + 1, b); m.Quad(a + 1, a + 2, b + 2, b + 1); }   // 上向きの面
+        for (int j = 0; j < us.Count - 1; j++) { int a = bi + j * 2, b = bi + (j + 1) * 2; m.Quad(a, a + 1, b + 1, b); }   // 上向きの面
     }
 
     // 綿毛の頭：まん中の芯から細い毛が放射状に出て、先に小さなふわふわ。下（茎の側）は少なめ
