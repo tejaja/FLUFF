@@ -172,7 +172,7 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
         if (popLabel != null) popLabel.text = Pad(3, en) + (en ? ("On landing: " + V + (_popGround ? "Pop" : "Stay") + VE)
                                                  : ("おちたら: " + V + (_popGround ? "きえる" : "きえない") + VE));
         if (faceLabel != null) faceLabel.text = Pad(4, en) + (en ? "Face: " : "かお: ") + V + (_face ? (en ? "On" : "あり") : (en ? "Off" : "なし")) + VE;
-        if (furLabel != null) furLabel.text = Pad(5, en) + (en ? "Fur: " : "け: ") + V + (_plain ? (en ? "Off" : "なし") : (en ? "On" : "あり")) + VE;
+        if (furLabel != null) furLabel.text = Pad(5, en) + (en ? "Fur: " : "もふもふ: ") + V + (_plain ? (en ? "Off" : "なし") : (en ? "On" : "あり")) + VE;
     }
 
     private string Pad(int k, bool en)

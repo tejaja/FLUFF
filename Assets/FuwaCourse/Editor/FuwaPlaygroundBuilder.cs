@@ -1114,7 +1114,7 @@ public static class FuwaPlaygroundBuilder
         string[][] ja = {
             sp.sizeJa.Select(v => "サイズ: " + v).ToArray(), sp.colorJa.Select(v => "カラー: " + v).ToArray(),
             sp.limits.Select(v => "かず: " + v).ToArray(), new[] { "おちたら: きえる", "おちたら: きえない" },
-            new[] { "かお: あり", "かお: なし" }, new[] { "け: あり", "け: なし" } };
+            new[] { "かお: あり", "かお: なし" }, new[] { "もふもふ: あり", "もふもふ: なし" } };   // 2026-10-16 てじゃ「"け"がわかりづらい、もふもふ とかに」
         string[][] en = {
             sp.sizeEn.Select(v => "Size: " + v).ToArray(), sp.colorEn.Select(v => "Color: " + v).ToArray(),
             sp.limits.Select(v => "Max: " + v).ToArray(), new[] { "On landing: Pop", "On landing: Stay" },
