@@ -25,6 +25,10 @@ Shader "Fuwa/WindDecal"
         _Taper ("真ん中ほど太く（0=同じ太さ）", Range(0, 1.5)) = 0
         _Soft ("矢じりのふちのぼかし(0-1)", Range(0, 1)) = 0
         [Toggle] _ScriptPhase ("流れる速さをスクリプトが決める（風の強さで速く）", Float) = 0
+        // つながった風のエリアの境目（世界座標の面 xyz=向き w=距離。dot(位置, xyz) > w の側は塗らない。0=切らない）。
+        // カーブに沿って回した箱どうしが内側でくさび形に重なり、二重に塗られて濃い帯になっていた（2026-10-16 てじゃ「グラデのとこに濃い境目」）
+        _CutFront ("風下の境目（スクリプトから）", Vector) = (0, 0, 0, 0)
+        _CutBack ("風上の境目（スクリプトから）", Vector) = (0, 0, 0, 0)
     }
     SubShader
     {
@@ -47,6 +51,7 @@ Shader "Fuwa/WindDecal"
             float4 _WindDir;
             float _EdgeFade, _FadeFront, _FadeBack, _Wavelength, _Speed, _FlowDir, _Base, _Sharp;
             float _Chevron, _ChevPeriod, _ChevSlope, _Stroke, _Phase, _Taper, _Soft, _ScriptPhase;
+            float4 _CutFront, _CutBack;
             UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
 
             struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -89,6 +94,7 @@ Shader "Fuwa/WindDecal"
                 if (abs(lp.x) > 0.5 || abs(lp.z) > 0.5 || abs(lp.y) > 0.5) discard;
                 float3 camL = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1)).xyz;
                 if (camL.y < lp.y) discard;   // 下から見た時は塗らない
+                if (dot(surf, _CutFront.xyz) > _CutFront.w || dot(surf, _CutBack.xyz) > _CutBack.w) discard;   // 隣の箱の受け持ち
 
                 // メートルでの位置（箱の大きさ＝物体の拡大率）
                 float3 sc = float3(length(unity_ObjectToWorld._m00_m10_m20), length(unity_ObjectToWorld._m01_m11_m21), length(unity_ObjectToWorld._m02_m12_m22));

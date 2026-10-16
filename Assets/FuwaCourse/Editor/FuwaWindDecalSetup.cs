@@ -12,6 +12,7 @@ public static class FuwaWindDecalSetup
 {
     const string Dir = "Assets/FuwaCourse/Generated/WindDecal";
     const float Below = 0.6f, Height = 1.5f;   // 上は 0.9m まで（ふわふわ・アバターの頭に模様が乗らないように）
+    const float JoinExtend = 0.6f;             // つながった箱のすき間を埋める長さ(m)。はみ出た分は境目の面で切る
 
     [MenuItem("FuwaCourse/風の地面の模様を地面に投影する形にする")]
     public static void Menu() { Debug.Log(Run()); }
@@ -78,12 +79,43 @@ public static class FuwaWindDecalSetup
             var list = g.ToList();
             Vector3 wdW = list[0].transform.TransformDirection(list[0].localDirection); wdW.y = 0f; wdW.Normalize();
             list.Sort((a, b) => Vector3.Dot(a.transform.position, wdW).CompareTo(Vector3.Dot(b.transform.position, wdW)));
+            // 境目の面：カーブに沿って回した箱は内側でくさび形に重なって二重に塗られ、外側はすき間になる
+            // （2026-10-16 てじゃ「グラデのとこになんか濃い境目」）。隣どうしの境目（前の箱の風下のふちと次の箱の風上のふちの中間、
+            // 向きは2つの風向きの平均）から先は塗らない。すき間を埋めるため、つながる側は箱を JoinExtend だけ長くする
+            var front = new Vector3[list.Count]; var back = new Vector3[list.Count]; var fwd = new Vector3[list.Count];
             for (int i = 0; i < list.Count; i++)
             {
-                var m = list[i].transform.Find("WindDecal").GetComponent<Renderer>().sharedMaterial;
+                var dt = list[i].transform.Find("WindDecal");
+                Vector3 dl = list[i].localDirection; dl.y = 0f; dl = dl.sqrMagnitude < 1e-6f ? Vector3.forward : dl.normalized;
+                front[i] = dt.TransformPoint(dl * 0.5f); back[i] = dt.TransformPoint(-dl * 0.5f);
+                fwd[i] = dt.TransformDirection(dl); fwd[i].y = 0f; fwd[i].Normalize();
+            }
+            for (int i = 0; i < list.Count; i++)
+            {
+                var dt = list[i].transform.Find("WindDecal");
+                var m = dt.GetComponent<Renderer>().sharedMaterial;
                 m.SetFloat("_FadeBack", i == 0 ? 0.6f : 0f);
                 m.SetFloat("_FadeFront", i == list.Count - 1 ? 0.6f : 0f);
+                Vector4 cutF = Vector4.zero, cutB = Vector4.zero;
+                if (i < list.Count - 1)
+                {
+                    Vector3 p = (front[i] + back[i + 1]) * 0.5f, nn = (fwd[i] + fwd[i + 1]).normalized;
+                    cutF = new Vector4(nn.x, nn.y, nn.z, Vector3.Dot(p, nn));
+                }
+                if (i > 0)
+                {
+                    Vector3 p = (front[i - 1] + back[i]) * 0.5f, nn = -(fwd[i - 1] + fwd[i]).normalized;
+                    cutB = new Vector4(nn.x, nn.y, nn.z, Vector3.Dot(p, nn));
+                }
+                m.SetVector("_CutFront", cutF); m.SetVector("_CutBack", cutB);
                 EditorUtility.SetDirty(m);
+                // つながる側を長くする（風のエリアのローカルで）
+                Vector3 dl = list[i].localDirection; dl.y = 0f; dl = dl.sqrMagnitude < 1e-6f ? Vector3.forward : dl.normalized;
+                float perM = 1f / Mathf.Max(1e-4f, list[i].transform.TransformVector(dl).magnitude);
+                float eF = (i < list.Count - 1 ? JoinExtend : 0f) * perM, eB = (i > 0 ? JoinExtend : 0f) * perM;
+                dt.localPosition += dl * (eF - eB) * 0.5f;
+                Vector3 ad = new Vector3(Mathf.Abs(dl.x), 0f, Mathf.Abs(dl.z));
+                dt.localScale += ad * (eF + eB);
             }
         }
         AssetDatabase.SaveAssets();
