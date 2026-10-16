@@ -14,7 +14,7 @@ using UnityEngine;
 public static class FuwaSecretIsland
 {
     const string Root = "SecretIsland", FallName = "SecretFallReturn";
-    const float Drop = 6f;           // 写真館の地面から小島の地面まで
+    const float Drop = 4f;           // 写真館の地面から小島の地面まで（2026-10-16 てじゃ「もうちょい上に」。前は6m）
     const float Beyond = 2.4f;       // 柵から小島の真ん中まで（横）
     const float FenceR = 4.6f;       // 写真館の真ん中から柵まで
     const float IslandScale = 0.37f; // 写真館の島（直径9.7m）→ 3.6m
@@ -27,12 +27,11 @@ public static class FuwaSecretIsland
     {
         var lobby = GameObject.Find("FuwaLobby").transform;
         var studio = lobby.Find("PhotoStudio");
-        var gallery = lobby.Find("PhotoGallery");
         foreach (var n in new[] { Root, FallName }) { var o = lobby.Find(n); if (o != null) Object.DestroyImmediate(o.gameObject); }
 
-        // 位置：写真館の真ん中から「かってにスクショ」ボードの向こうへ
+        // 位置：ロビーの真ん中から写真館の真ん中へまっすぐ延ばした先（2026-10-16 てじゃ「ロビーからボードのある小島に真っすぐ行った時の直線の位置に」。前は「かってにスクショ」ボードの向こう）
         Vector3 c = studio.position;
-        Vector3 d = gallery.position - c; d.y = 0f; d.Normalize();
+        Vector3 d = c - lobby.position; d.y = 0f; d.Normalize();
         Vector3 top = c + d * (FenceR + Beyond) + Vector3.down * Drop;
         var root = new GameObject(Root).transform; root.SetParent(lobby, false);
         root.position = top; root.rotation = Quaternion.LookRotation(-d, Vector3.up);   // 前（+Z）＝写真館の方
@@ -106,11 +105,11 @@ public static class FuwaSecretIsland
         // きのこの上に浮かぶ文字（ワープの札と同じ見た目。2行入る大きさ）。押した時だけ出す
         var pop = Object.Instantiate(lobby.Find("ToPlayground/Label").gameObject, m, false); pop.name = "Popup";
         pop.transform.localPosition = new Vector3(0f, 1.45f, 0f); pop.transform.localRotation = Quaternion.identity; pop.transform.localScale = Vector3.one;
-        var popT = pop.GetComponent<TMPro.TextMeshPro>(); popT.text = "あそびばの おもちゃが\nぜんぶ でたよ!"; popT.fontSize = 3.1f; popT.lineSpacing = -10f;
+        var popT = pop.GetComponent<TMPro.TextMeshPro>(); popT.text = "あそびばの おもちゃが\nぜんぶ でたよ!"; popT.fontSize = 2f; popT.lineSpacing = -10f;   // 2026-10-16 てじゃ「デカいから見切れる」（前は3.1）
         // 文字はだるまのフォント（2026-10-16 てじゃ。あそびばのおもちゃの札と同じ板用の材質）
         var daruma = Object.FindObjectsOfType<TMPro.TextMeshPro>(true).FirstOrDefault(x => x.font != null && x.font.name.Contains("Daruma") && x.fontSharedMaterial.name == "DarumadropOne SDF Board");
         if (daruma != null) { popT.font = daruma.font; popT.fontSharedMaterial = daruma.fontSharedMaterial; }
-        var panel = pop.transform.Find("Panel").GetComponent<SpriteRenderer>(); panel.size = new Vector2(2.75f, 1.05f);
+        var panel = pop.transform.Find("Panel").GetComponent<SpriteRenderer>(); panel.size = new Vector2(1.8f, 0.72f);
         foreach (var lg in pop.GetComponentsInChildren<LODGroup>(true)) Object.DestroyImmediate(lg);
         pop.SetActive(false);
 
@@ -163,6 +162,8 @@ public static class FuwaSecretIsland
         // ロビーのあそびばへのワープは今はボタンで呼ぶので、床の輪・文字・粒が非表示になっている。こっちは乗って使うので出す
         foreach (Transform ch in w.transform) ch.gameObject.SetActive(true);
         var trig = w.GetComponentInChildren<FuwaCourseWarp>(true);
+        // 写し元は乗っても飛ばないように当たりが切ってあった（ボタンで呼ぶため）。こっちは乗って使うので入れる（2026-10-16 てじゃ「ポータルうごいてない」）
+        foreach (var col in trig.GetComponents<Collider>()) col.enabled = true;
         var solo = GameObject.Find("FuwaHub").transform.Find("SoloGate/SoloGate_Trigger").GetComponent<FuwaCourseWarp>();
         var so = new SerializedObject(trig); var ss = new SerializedObject(solo);
         foreach (var f in new[] { "courseStart", "playerSpot", "gunSpot" }) so.FindProperty(f).objectReferenceValue = ss.FindProperty(f).objectReferenceValue;
