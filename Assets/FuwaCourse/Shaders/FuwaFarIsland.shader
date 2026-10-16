@@ -111,5 +111,45 @@ Shader "FuwaCourse/FarIsland"
             }
             ENDCG
         }
+
+        // 深度テクスチャ用（2026-10-16 てじゃ「浮島越しに風の床のグラデーションが透けてる」）：
+        // カメラの深度テクスチャは ShadowCaster パスで描かれる。このシェーダーには無かったので島の岩が深度に入らず、
+        // 深度から地面を探す物（風の床の模様 Fuwa/WindDecal・ふわふわのウソ影 BlobDecal）が岩の奥の床に描いて透けていた。
+        // 影は今まで通り落とさない：太陽（平行光源）の影の地図は正射影なので、その時は三角形を画面の外へ飛ばす
+        Pass
+        {
+            Tags { "LightMode"="ShadowCaster" }
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_shadowcaster
+            #include "UnityCG.cginc"
+
+            float _Bob, _BobSpeed;
+
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { V2F_SHADOW_CASTER; UNITY_VERTEX_OUTPUT_STEREO };
+
+            v2f vert (appdata v)
+            {
+                v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                // 見た目のパスと同じゆれ
+                float3 wp = mul(unity_ObjectToWorld, v.vertex).xyz;
+                float3 origin = float3(unity_ObjectToWorld._m03, unity_ObjectToWorld._m13, unity_ObjectToWorld._m23);
+                float ph = dot(origin, float3(0.071, 0.0, 0.113));
+                float t = _Time.y * _BobSpeed;
+                wp += float3(sin(t * 0.6 + ph * 1.7) * 0.4, sin(t + ph), cos(t * 0.5 + ph * 2.3) * 0.4) * _Bob;
+                v.vertex = mul(unity_WorldToObject, float4(wp, 1));
+                TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
+                if (UNITY_MATRIX_P[3][3] > 0.5) o.pos = float4(2, 2, 2, 1);   // 正射影＝太陽の影の地図には描かない
+                return o;
+            }
+
+            float4 frag (v2f i) : SV_Target { SHADOW_CASTER_FRAGMENT(i) }
+            ENDCG
+        }
     }
 }
