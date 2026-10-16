@@ -50,7 +50,9 @@ public static class FuwaWindDecalSetup
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
             r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             GameObjectUtility.SetStaticEditorFlags(decalT.gameObject, 0);
-            decalT.gameObject.layer = 2;   // Ignore Raycast
+            // ふつうのレイヤー（当たりは無いので Ignore Raycast にする必要はない）。
+            // 前は Ignore Raycast で、VRChat のカメラ（写真）に写らなかった（2026-10-16 てじゃ「風の床のグラデーション、VRChatのカメラにうつんない」）
+            decalT.gameObject.layer = 0;
             // 材質：エリアごと（風の向きが違うので）。元の板の値を写す
             string key = t.parent != null ? t.parent.name + "_" + t.name : t.name;
             string path = Dir + "/WindDecal_" + key + ".mat";
