@@ -91,7 +91,13 @@ public static class FuwaPlaygroundBuilder
         var mush = Spawn("Mushroom", root, ac + MushRel + MushLocal); mush.name = "Mushroom";
         mush.transform.localScale = mush.transform.localScale * MushScale;
         // プレハブにはシーンの物への参照が入らないので、キノコの矢印の係（RespawnManager）を入れ直す
-        foreach (var gm in mush.GetComponentsInChildren<FuwaGoalMarker>(true)) { SetU(gm, "manager", Object.FindObjectsOfType<FuwaRespawnManager>(true).FirstOrDefault()); Sync(gm); }
+        // あそびばでは▼はいらない（2026-10-16）ので、矢印を外して消す
+        foreach (var gm in mush.GetComponentsInChildren<FuwaGoalMarker>(true))
+        {
+            SetU(gm, "manager", Object.FindObjectsOfType<FuwaRespawnManager>(true).FirstOrDefault());
+            var arrow = gm.arrow; SetU(gm, "arrow", null); Sync(gm);
+            if (arrow != null) Object.DestroyImmediate(arrow.gameObject);
+        }
 
         // ふわふわ（ロビーの共有ふわふわのコピー）を Pool 個。待つ位置はキノコの中
         var fluffSrc = AssetDatabase.LoadAssetAtPath<GameObject>(PrefabDir + "Fluff.prefab");
@@ -267,12 +273,13 @@ public static class FuwaPlaygroundBuilder
         var stand = coop.Find("GunStand_Playground");
         if (stand != null && spawn != null)
         {
-            var marker = coop.Find("GunStand_Playground_Marker");
-            Vector3 mOff = marker != null ? marker.position - stand.position : Vector3.zero;
-            Quaternion mRot = marker != null ? Quaternion.Inverse(stand.rotation) * marker.rotation : Quaternion.identity;
             stand.position = Ground(GunStandLocal, stand);
             stand.rotation = Quaternion.Euler(0f, GunStandYaw, 0f);
-            if (marker != null) { marker.position = stand.position + new Vector3(0f, mOff.y, 0f); marker.rotation = stand.rotation * mRot; }
+            // あそびばの台に▼はいらない（2026-10-16。ロビーの台と同じく目印なし）
+            var gs = stand.GetComponent<FuwaGunStand>();
+            if (gs != null && gs.marker != null) { SetU(gs, "marker", null); Sync(gs); }
+            var marker = coop.Find("GunStand_Playground_Marker");
+            if (marker != null) Object.DestroyImmediate(marker.gameObject);
         }
     }
 
@@ -1126,6 +1133,7 @@ public static class FuwaPlaygroundBuilder
                 OutlinedStyle(t);
             }
             t.SetPositionAndRotation(pos, rot); t.localScale = Vector3.one;
+            PillCorners(t);
             labels[k] = t.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true).First(l => l.name != "TextOutlined");
         }
         sp.sizeLabel = labels[0]; sp.colorLabel = labels[1]; sp.limitLabel = labels[2]; sp.popLabel = labels[3]; sp.faceLabel = labels[4]; sp.furLabel = labels[5];
@@ -1629,8 +1637,25 @@ public static class FuwaPlaygroundBuilder
         frt.anchorMin = brt.anchorMin; frt.anchorMax = brt.anchorMax; frt.pivot = brt.pivot; frt.anchoredPosition3D = brt.anchoredPosition3D + new Vector3(0f, 0f, 6f); frt.localRotation = brt.localRotation; frt.localScale = brt.localScale;   // 少し奥へ（同じ面だとボタンの UI 材質が深さを書くのでちらついた）
         frt.sizeDelta = brt.sizeDelta + Vector2.one * SwitchFrameW * 2f;
         var fi = fr.GetComponent<UnityEngine.UI.Image>(); fi.sprite = img.sprite; fi.type = UnityEngine.UI.Image.Type.Sliced; fi.material = img.material; fi.color = SwitchFrame; fi.raycastTarget = false;
-        fi.pixelsPerUnitMultiplier = img.pixelsPerUnitMultiplier;
+        PillCorners(sw);
         EditorUtility.SetDirty(btn); EditorUtility.SetDirty(t);
+    }
+
+    // 白い面とフチの角を、どっちも高さの半分の「まんまる」にそろえる（2026-10-16 てじゃ「フチがまるみがあってない」）。
+    // 角の大きさが板より大きいと縦だけ縮められて横長のだ円の角になり、フチ（ひと回り大きい）と中心がずれて角だけフチが太く見えていた
+    static void PillCorners(Transform sw)
+    {
+        var btn = sw.GetComponentInChildren<UnityEngine.UI.Button>(true); if (btn == null) return;
+        var imgs = new List<UnityEngine.UI.Image> { btn.GetComponent<UnityEngine.UI.Image>() };
+        var fr = btn.transform.parent.Find("Frame"); if (fr != null) imgs.Add(fr.GetComponent<UnityEngine.UI.Image>());
+        foreach (var im in imgs)
+        {
+            if (im == null || im.sprite == null || im.canvas == null) continue;
+            float k = im.sprite.pixelsPerUnit / im.canvas.referencePixelsPerUnit;
+            float r = im.rectTransform.rect.height * 0.5f;
+            im.pixelsPerUnitMultiplier = im.sprite.border.y / (k * r);
+            EditorUtility.SetDirty(im);
+        }
     }
 
     // 遊び方の看板の板（Panel・Border）と文字（Text）をコピーした横長のボタン。文字を返す。表（-Z）を手前に
