@@ -757,6 +757,7 @@ public static class FuwaPlaygroundBuilder
         var z = Object.Instantiate(src.gameObject, seed.transform, false); z.name = "HeavyZone";
         z.transform.localPosition = Vector3.zero; z.transform.localRotation = Quaternion.identity; z.transform.localScale = Vector3.one * (zoneR * 2f / size);
         z.layer = 2;   // Ignore Raycast（たねを持つ時のじゃまにならないように）
+        SplitZoneVisual(z);
         // 音はなし（コースの重いエリアのうねる低音。あそびばだとうるさい。2026-10-14 てじゃ）
         { var ga = z.GetComponent<FuwaGravityArea>(); if (ga != null) { SetU(ga, "loopSound", null); Sync(ga); } foreach (var a in z.GetComponentsInChildren<AudioSource>(true)) Object.DestroyImmediate(a); }
         foreach (var t in z.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
@@ -768,6 +769,25 @@ public static class FuwaPlaygroundBuilder
             var ps = pp.GetComponent<ParticleSystem>(); var main = ps.main; main.scalingMode = ParticleSystemScalingMode.Hierarchy;
         }
         KeepGravityUpright(seed);
+    }
+
+    // 紫の球の見た目だけ子（Visual、ふつうのレイヤー）に分ける。当たり（トリガー）は Ignore Raycast のまま。
+    // Ignore Raycast の物は VRChat のカメラ（写真）に写らなかった（2026-10-16 てじゃ「なおしたい」）
+    static void SplitZoneVisual(GameObject z)
+    {
+        var mr = z.GetComponent<MeshRenderer>(); var mf = z.GetComponent<MeshFilter>();
+        if (mr == null || mf == null) return;
+        var old = z.transform.Find("Visual"); if (old != null) Object.DestroyImmediate(old.gameObject);
+        var v = new GameObject("Visual"); v.layer = 0;
+        v.transform.SetParent(z.transform, false);
+        GameObjectUtility.SetStaticEditorFlags(v, 0);
+        v.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+        var vr = v.AddComponent<MeshRenderer>();
+        EditorUtility.CopySerialized(mr, vr);
+        Object.DestroyImmediate(mr);
+        // MeshCollider は MeshFilter の形を使うので、外す前に当たりへ形を入れておく
+        var mc = z.GetComponent<MeshCollider>(); if (mc != null && mc.sharedMesh == null) mc.sharedMesh = mf.sharedMesh;
+        Object.DestroyImmediate(mf);
     }
 
     // たねを回しても、紫の球（グラデ）と粒の出る向きはまっすぐのまま（2026-10-13 てじゃ「回すとエフェクトも回って変だから固定に」）
