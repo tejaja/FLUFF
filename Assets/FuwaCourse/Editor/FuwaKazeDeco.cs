@@ -724,7 +724,7 @@ public static class FuwaKazeDeco
         // 花びらの裏：両面描画でも裏から見ると法線が下向きになって暗く沈む（うなずいた花を後ろから見た時に茶色っぽくなる）。
         // 少し下にずらした裏向きの面を足して、法線は表と同じ上向きのままにして明るく見せる（裏も黄色、少しだけ濃いめ）
         {
-            int pv1 = m.V.Count, pt1 = m.T.Count; float off = r * 0.01f;
+            int pv1 = m.V.Count, pt1 = m.T.Count; float off = r * 0.005f;   // 横から見たすき間を半分に（2026-10-16 てじゃ。前は 0.01）
             for (int i = pv0; i < pv1; i++) m.Add(m.V[i] - m.N[i] * off, m.N[i], Color.Lerp(m.C[i], new Color(0.95f, 0.62f, 0.12f), 0.25f));
             for (int t = pt0; t < pt1; t += 3) m.Tri(m.T[t] - pv0 + pv1, m.T[t + 2] - pv0 + pv1, m.T[t + 1] - pv0 + pv1);
         }
@@ -781,7 +781,7 @@ public static class FuwaKazeDeco
             for (int j = 0; j < 3; j++) { m.Add(ps[j] - side * ws[j], o, beard); m.Add(ps[j] + side * ws[j], o, beard); }
             m.Quad(bi, bi + 1, bi + 3, bi + 2); m.Quad(bi + 2, bi + 3, bi + 5, bi + 4);
             int tip = m.Add(p2 + (p2 - p1).normalized * ws[2], o, beard); m.Tri(bi + 4, bi + 5, tip);
-            var pn = Vector3.Cross(side, (p1 - p0).normalized).normalized * r * 0.003f;
+            var pn = Vector3.Cross(side, (p1 - p0).normalized).normalized * r * 0.0015f;
             int vb2 = m.V.Count, ve = vb2, te = m.T.Count;
             for (int i = bi; i < ve; i++) m.Add(m.V[i] - pn, m.N[i], m.C[i]);
             for (int t = bt; t < te; t += 3) m.Tri(m.T[t] - bi + vb2, m.T[t + 2] - bi + vb2, m.T[t + 1] - bi + vb2);
