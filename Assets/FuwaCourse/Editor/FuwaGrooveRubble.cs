@@ -47,6 +47,49 @@ public static class FuwaGrooveRubble
         }
     }
 
+    // 今の板の並びはそのままで、噴気孔の上にかかっている板だけメッシュから抜く（2026-10-16）。
+    // Build をやり直すと、当時と床まわりが変わっていて板の並びが全然違う物になったので、こちらで直した。何度実行しても同じ結果
+    [MenuItem("FuwaCourse/Course2/噴気孔の溝の岩の板：穴の上の板だけ抜く")]
+    public static void RemoveOnVentsMenu() { Debug.Log(RemoveOnVents()); }
+
+    const float HoleClear = 0.62f;   // 穴の口の半径＋少し
+
+    public static string RemoveOnVents()
+    {
+        var root = GameObject.Find("FuwaCourse2").transform;
+        var holder = root.Find("Rocks2/GrooveRubble");
+        var mesh = holder.GetComponent<MeshFilter>().sharedMesh;
+        var vents = root.Find("Gimmick_GrooveVents").Cast<Transform>().Select(t => t.position).ToList();
+        var v = mesh.vertices; var tris = mesh.triangles;
+        // 同じ位置の頂点でつながる三角形をまとめる＝板1枚
+        var parent = Enumerable.Range(0, tris.Length / 3).ToArray();
+        int Find(int a) { while (parent[a] != a) a = parent[a] = parent[parent[a]]; return a; }
+        var owner = new Dictionary<Vector3Int, int>();
+        for (int t = 0; t < tris.Length / 3; t++)
+            for (int k = 0; k < 3; k++)
+            {
+                var key = Vector3Int.RoundToInt(v[tris[t * 3 + k]] * 1e4f);
+                if (owner.TryGetValue(key, out int o)) parent[Find(o)] = Find(t); else owner[key] = t;
+            }
+        var groups = Enumerable.Range(0, tris.Length / 3).GroupBy(Find).ToList();
+        var keep = new List<int>(); int removed = 0;
+        foreach (var g in groups)
+        {
+            var pts = g.SelectMany(t => new[] { tris[t * 3], tris[t * 3 + 1], tris[t * 3 + 2] }).Select(i => holder.TransformPoint(v[i])).ToList();
+            var c = pts.Aggregate(Vector3.zero, (a, b) => a + b) / pts.Count;
+            float r = pts.Max(p => new Vector2(p.x - c.x, p.z - c.z).magnitude);
+            // 穴（半径約0.5m）の口に板のふちがかかるものだけ抜く（ふちの盛り上がりのまわりの板は残す。Build の決まりだと46枚抜けて、まわりがつるつるになった）
+            if (vents.Any(vp => new Vector2(vp.x - c.x, vp.z - c.z).magnitude - r < HoleClear)) { removed++; continue; }
+            foreach (var t in g) { keep.Add(tris[t * 3]); keep.Add(tris[t * 3 + 1]); keep.Add(tris[t * 3 + 2]); }
+        }
+        if (removed > 0)
+        {
+            mesh.SetTriangles(keep, 0); mesh.RecalculateBounds();
+            EditorUtility.SetDirty(mesh); AssetDatabase.SaveAssets();
+        }
+        return "rubble: 板 " + groups.Count + " 枚のうち、穴の上の " + removed + " 枚を抜いた";
+    }
+
     public static string Build()
     {
         var root = GameObject.Find("FuwaCourse2").transform;
@@ -58,7 +101,7 @@ public static class FuwaGrooveRubble
         float R(float a, float c) => a + (float)rnd.NextDouble() * (c - a);
         var mb = new MB();
         var placed = new List<(Vector3 p, float r)>();
-        int tries = 0;
+        int tries = 0, skipped = 0;
         while (tries++ < 9000 && placed.Count < 160)
         {
             var o = new Vector3(R(b.min.x, b.max.x), b.max.y + 3f, R(b.min.z, b.max.z));
@@ -68,7 +111,10 @@ public static class FuwaGrooveRubble
             if (Physics.Raycast(o, Vector3.down, out var any, 10f, ~0, QueryTriggerInteraction.Ignore) && any.collider != floorCol) continue;
             bool big = placed.Count < 70 || rnd.NextDouble() < 0.5;
             float r = big ? R(0.24f, 0.42f) : R(0.09f, 0.16f);
-            if (vents.Any(v => new Vector2(v.x - hit.point.x, v.z - hit.point.z).magnitude - r * 0.6f < 0.92f))   // 噴気孔のふち（半径約1m）に少しもぐるくらいまでは置く continue;
+            // 噴気孔のふち（半径約1m）に少しもぐるくらいまでは置く。
+            // 前はこの continue がコメントの中に入っていて効いておらず、穴の上に板が浮いていた（2026-10-16 てじゃ「3連噴気孔、穴に石がういてる」）。
+            // ほかの板の並びを変えないよう、乱数はそのまま使って板だけ捨てる（placed にも入れて、後の板の位置を同じにする）
+            bool onVent = vents.Any(v => new Vector2(v.x - hit.point.x, v.z - hit.point.z).magnitude - r * 0.6f < 0.92f);
             if (placed.Any(q => new Vector2(q.p.x - hit.point.x, q.p.z - hit.point.z).magnitude < (q.r + r) * 0.82f)) continue;
             // ふちの4方向にも床があること（壁ぎわ・崖っぷちからはみ出さない）
             bool ok = true;
@@ -82,8 +128,9 @@ public static class FuwaGrooveRubble
             var tiltAxis = Quaternion.Euler(0, R(0, 360), 0) * Vector3.forward;
             var rot = Quaternion.FromToRotation(Vector3.up, hit.normal) * Quaternion.AngleAxis(R(3f, 9f), tiltAxis) * Quaternion.Euler(0, R(0, 360), 0);
             var c = hit.point - Vector3.up * thick * R(0.35f, 0.6f);   // 半分くらい埋める
-            Slab(mb, c, rot, r, thick, rnd.Next(6, 9), rnd);
+            Slab(onVent ? new MB() : mb, c, rot, r, thick, rnd.Next(6, 9), rnd);
             placed.Add((hit.point, r));
+            if (onVent) skipped++;
         }
         var holder = root.Find("Rocks2/GrooveRubble");
         if (holder == null)
@@ -107,6 +154,6 @@ public static class FuwaGrooveRubble
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
         holder.gameObject.layer = 0;
         EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
-        return "rubble slabs " + placed.Count + " tris " + mb.T.Count / 3;
+        return "rubble slabs " + (placed.Count - skipped) + " (噴気孔の上で捨てた " + skipped + ") tris " + mb.T.Count / 3;
     }
 }
