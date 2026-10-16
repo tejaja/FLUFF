@@ -58,7 +58,7 @@ public class FuwaSecretUnlock : UdonSharpBehaviour
         }
         else
         {
-            ShowPopup(en ? "All playground toys\nare out now!" : "あそびばの おもちゃが\nぜんぶ でたよ！");
+            ShowPopup(en ? "All playground toys\nare out now!" : "あそびばの おもちゃが\nぜんぶ でたよ!");
             if (burst != null) burst.Play();
             if (sound != null) { sound.Stop(); sound.Play(); }
         }

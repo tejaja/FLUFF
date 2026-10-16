@@ -106,7 +106,10 @@ public static class FuwaSecretIsland
         // きのこの上に浮かぶ文字（ワープの札と同じ見た目。2行入る大きさ）。押した時だけ出す
         var pop = Object.Instantiate(lobby.Find("ToPlayground/Label").gameObject, m, false); pop.name = "Popup";
         pop.transform.localPosition = new Vector3(0f, 1.45f, 0f); pop.transform.localRotation = Quaternion.identity; pop.transform.localScale = Vector3.one;
-        var popT = pop.GetComponent<TMPro.TextMeshPro>(); popT.text = "あそびばの おもちゃが\nぜんぶ でたよ！"; popT.fontSize = 2.6f; popT.lineSpacing = -10f;
+        var popT = pop.GetComponent<TMPro.TextMeshPro>(); popT.text = "あそびばの おもちゃが\nぜんぶ でたよ!"; popT.fontSize = 3.1f; popT.lineSpacing = -10f;
+        // 文字はだるまのフォント（2026-10-16 てじゃ。あそびばのおもちゃの札と同じ板用の材質）
+        var daruma = Object.FindObjectsOfType<TMPro.TextMeshPro>(true).FirstOrDefault(x => x.font != null && x.font.name.Contains("Daruma") && x.fontSharedMaterial.name == "DarumadropOne SDF Board");
+        if (daruma != null) { popT.font = daruma.font; popT.fontSharedMaterial = daruma.fontSharedMaterial; }
         var panel = pop.transform.Find("Panel").GetComponent<SpriteRenderer>(); panel.size = new Vector2(2.75f, 1.05f);
         foreach (var lg in pop.GetComponentsInChildren<LODGroup>(true)) Object.DestroyImmediate(lg);
         pop.SetActive(false);
