@@ -708,7 +708,7 @@ public static class FuwaKazeDeco
                     float wu = w * (0.35f + 0.65f * Mathf.Sin(Mathf.Min(1f, u * 1.6f) * Mathf.PI * 0.5f)) * (u > 0.75f ? Mathf.Lerp(1f, 0.85f, (u - 0.75f) * 4f) : 1f);
                     var col = Color.Lerp(colBase, colTip, Mathf.SmoothStep(0f, 1f, u * 1.15f));
                     m.Add(pc - sd * wu, Vector3.up, col); m.Add(pc + sd * wu, Vector3.up, col);
-                    if (sgi > 0) { int q = b + (sgi - 1) * 2; m.Quad(q, q + 1, q + 3, q + 2); }
+                    if (sgi > 0 && sgi < Seg) { int q = b + (sgi - 1) * 2; m.Quad(q, q + 1, q + 3, q + 2); }   // 最後の区間は先のギザギザとつなげて下で張る
                     if (sgi == Seg) endDir = (pc - (c + dir * (baseR + len * (u - 1f / Seg)) + Vector3.up * (baseY + len * (rs * (u - 1f / Seg) - dr * (u - 1f / Seg) * (u - 1f / Seg))))).normalized;
                 }
                 // 先のギザギザ（とがり3つ＋へこみ2つ）
@@ -717,6 +717,8 @@ public static class FuwaKazeDeco
                 int i1 = m.Add(d1, Vector3.up, tc), i2 = m.Add(d2, Vector3.up, tc);
                 int tL = m.Add(Vector3.Lerp(pL, d1, 0.5f) + ext * 0.8f, Vector3.up, tc), tM = m.Add(Vector3.Lerp(d1, d2, 0.5f) + ext, Vector3.up, tc), tR = m.Add(Vector3.Lerp(d2, pR, 0.5f) + ext * 0.8f, Vector3.up, tc);
                 m.Tri(eL, i1, tL); m.Tri(i1, i2, tM); m.Tri(i2, eR, tR);
+                // 最後の区間：ギザギザの付け根（i1, i2）も頂点に入れて張る（別々に張ると付け根の線にすき間が出た。2026-10-16 てじゃ「花びらの先がきれてる」）
+                { int pl = b + (Seg - 1) * 2, pr = pl + 1; m.Tri(pl, pr, eR); m.Tri(pl, eR, i2); m.Tri(pl, i2, i1); m.Tri(pl, i1, eL); }
             }
         }
         // 花びらの裏：両面描画でも裏から見ると法線が下向きになって暗く沈む（うなずいた花を後ろから見た時に茶色っぽくなる）。
