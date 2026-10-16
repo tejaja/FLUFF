@@ -521,6 +521,16 @@ public static class FuwaPlaygroundBuilder
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tu); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
     }
 
+    [MenuItem("FuwaCourse/あそびば/床と柵だけ作り直す")]
+    static void MenuFenceDeck()
+    {
+        var coop = RootGo(RootName).transform; var root = coop.Find("Room");
+        var floor = root.Find("Floor"); float floorY = floor.GetComponent<Renderer>().bounds.max.y;
+        Debug.Log(Fence(root, coop.position, floorY));
+        Debug.Log(Deck(root, coop.position, floorY, floor.gameObject.layer));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(coop.gameObject.scene);
+    }
+
     [MenuItem("FuwaCourse/あそびば/テスト用：おもちゃ全部出すボタンを置く")]
     static void MenuAddTestUnlockAll()
     {
@@ -1301,7 +1311,8 @@ public static class FuwaPlaygroundBuilder
         float baseY = -0.02f;
         float[] railY = { 0.22f, 0.52f };
         int segs = Mathf.RoundToInt(Mathf.PI * 2f * r / 1.0f);
-        var postMesh = FuwaBevelTools.RoundCube(new Vector3(postW, postH, postW), 0.03f, 2);
+        // 角の丸みは1段（2026-10-16 軽く：2段→1段。なめらかな法線なので、3cmの丸みは1段でも丸く見える）
+        var postMesh = FuwaBevelTools.RoundCube(new Vector3(postW, postH, postW), 0.03f, 1);
         var parts = new List<CombineInstance>();
         var colParts = new List<CombineInstance>();
         var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
@@ -1313,7 +1324,7 @@ public static class FuwaPlaygroundBuilder
             parts.Add(new CombineInstance { mesh = postMesh, transform = Matrix4x4.TRS(p + Vector3.up * (baseY + postH * 0.5f), Quaternion.identity, new Vector3(postW, postH, postW)) });
             Vector3 mid = (p + q) * 0.5f; Vector3 d = q - p; float len = d.magnitude;
             Quaternion rr = Quaternion.LookRotation(d / len, Vector3.up);
-            var railMesh = FuwaBevelTools.RoundCube(new Vector3(railW, railH, len + 0.04f), 0.02f, 2);
+            var railMesh = FuwaBevelTools.RoundCube(new Vector3(railW, railH, len + 0.04f), 0.02f, 1);
             foreach (float ry in railY)
                 parts.Add(new CombineInstance { mesh = railMesh, transform = Matrix4x4.TRS(mid + Vector3.up * (baseY + ry), rr, new Vector3(railW, railH, len + 0.04f)) });
             colParts.Add(new CombineInstance { mesh = cube, transform = Matrix4x4.TRS(mid + Vector3.up * (baseY + 0.33f), rr, new Vector3(0.12f, 0.65f, len)) });
@@ -1324,12 +1335,14 @@ public static class FuwaPlaygroundBuilder
         col.CombineMeshes(colParts.ToArray(), true, true); col.RecalculateBounds();
         vis = SaveFenceMesh(vis, "Playground_Fence"); col = SaveFenceMesh(col, "Playground_FenceCollider");
         var wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
-        foreach (var n in new[] { "Fence", "FenceCollider" }) { var o = root.Find(n); if (o != null) Object.DestroyImmediate(o.gameObject); }
-        var f = new GameObject("Fence"); f.transform.SetParent(root, false); f.transform.localPosition = Vector3.zero;
-        f.AddComponent<MeshFilter>().sharedMesh = vis; f.AddComponent<MeshRenderer>().sharedMaterial = wood;
+        // もうあれば物はそのまま使ってメッシュだけ差しかえる（影の切りかえ・焼きの一覧などが物を覚えているので。2026-10-16）
+        var f = root.Find("Fence")?.gameObject;
+        if (f == null) { f = new GameObject("Fence"); f.transform.SetParent(root, false); f.transform.localPosition = Vector3.zero; f.AddComponent<MeshFilter>(); f.AddComponent<MeshRenderer>(); }
+        f.GetComponent<MeshFilter>().sharedMesh = vis; f.GetComponent<MeshRenderer>().sharedMaterial = wood;
         GameObjectUtility.SetStaticEditorFlags(f, (StaticEditorFlags)~0);
-        var fc = new GameObject("FenceCollider"); fc.transform.SetParent(root, false); fc.transform.localPosition = Vector3.zero;
-        fc.AddComponent<MeshCollider>().sharedMesh = col;
+        var fc = root.Find("FenceCollider")?.gameObject;
+        if (fc == null) { fc = new GameObject("FenceCollider"); fc.transform.SetParent(root, false); fc.transform.localPosition = Vector3.zero; fc.AddComponent<MeshCollider>(); }
+        fc.GetComponent<MeshCollider>().sharedMesh = col;
         GameObjectUtility.SetStaticEditorFlags(fc, (StaticEditorFlags)~0);
         return "fence r=" + r.ToString("F2") + " posts " + segs;
     }
@@ -1343,7 +1356,6 @@ public static class FuwaPlaygroundBuilder
     class DeckPart { public List<Vector3> verts = new List<Vector3>(), norms = new List<Vector3>(); public List<int> tris = new List<int>(); }
     static string Deck(Transform root, Vector3 ac, float floorY, int floorLayer)
     {
-        { var o = root.Find("Deck"); if (o != null) Object.DestroyImmediate(o.gameObject); }
         float y0 = floorY - root.position.y;
         float rOut = IslandR - 0.14f - DeckOutGap;   // 柵の柱の内側
         float a0 = DeckStartDeg * Mathf.Deg2Rad, a1 = DeckEndDeg * Mathf.Deg2Rad;
@@ -1375,7 +1387,7 @@ public static class FuwaPlaygroundBuilder
                 float b0 = cuts[k] + (k == 0 ? 0f : DeckGap * 0.5f / rm), b1 = cuts[k + 1] - (k + 2 == cuts.Count ? 0f : DeckGap * 0.5f / rm);
                 var m = tones[rnd.Next(tones.Length)];
                 float c = DeckChamfer, cr = c / rm, h = DeckH, hb = 0f;
-                int seg = Mathf.Max(2, Mathf.CeilToInt((b1 - b0) * rm / 0.25f));
+                int seg = Mathf.Max(2, Mathf.CeilToInt((b1 - b0) * rm / 0.6f));   // 2026-10-16 軽く（25cm→60cmごと。ゆるい弧なので見た目ほぼ同じ）
                 for (int sIdx = 0; sIdx < seg; sIdx++)
                 {
                     // 端は面取りしない（板の長い辺だけ面取り。端も面取りすると角に三角の面が出て変に見えた。2026-10-13 てじゃ「木の床の角が変」）
@@ -1424,8 +1436,11 @@ public static class FuwaPlaygroundBuilder
             foreach (var pn in new[] { "_GroundPatch", "_GroundFine", "_TopStrength", "_StrataStrength", "_NoiseStrength" }) if (dm.HasProperty(pn)) dm.SetFloat(pn, 0f);
             EditorUtility.SetDirty(dm);
         }
-        var g = new GameObject("Deck"); g.transform.SetParent(root, false); g.transform.localPosition = Vector3.zero; g.layer = floorLayer;
-        g.AddComponent<MeshFilter>().sharedMesh = mesh; g.AddComponent<MeshRenderer>().sharedMaterials = mats.ToArray();
+        // もうあれば物はそのまま使ってメッシュだけ差しかえる（2026-10-16）
+        var g = root.Find("Deck")?.gameObject;
+        if (g == null) { g = new GameObject("Deck"); g.transform.SetParent(root, false); g.transform.localPosition = Vector3.zero; g.AddComponent<MeshFilter>(); g.AddComponent<MeshRenderer>(); g.AddComponent<MeshCollider>(); }
+        g.layer = floorLayer;
+        g.GetComponent<MeshFilter>().sharedMesh = mesh; g.GetComponent<MeshRenderer>().sharedMaterials = mats.ToArray();
         // 当たり：上の面の高さの、すき間のない帯（ふわふわが板のすき間で引っかからないように）
         var col = new Mesh { name = "Playground_DeckCollider", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         var cv = new List<Vector3>(); var ct = new List<int>();
@@ -1441,7 +1456,7 @@ public static class FuwaPlaygroundBuilder
         }
         col.SetVertices(cv); col.SetTriangles(ct, 0); col.RecalculateNormals(); col.RecalculateBounds();
         col = SaveFenceMesh(col, "Playground_DeckCollider");
-        g.AddComponent<MeshCollider>().sharedMesh = col;
+        (g.GetComponent<MeshCollider>() ?? g.AddComponent<MeshCollider>()).sharedMesh = col;
         GameObjectUtility.SetStaticEditorFlags(g, (StaticEditorFlags)~0);
         return "deck rows " + rows + " boards " + boards + " verts " + vAll.Count;
     }
@@ -1453,8 +1468,18 @@ public static class FuwaPlaygroundBuilder
         if (!AssetDatabase.IsValidFolder(dir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Playground");
         string p = dir + "/" + name + ".asset";
         var old = AssetDatabase.LoadAssetAtPath<Mesh>(p);
-        if (old != null) AssetDatabase.DeleteAsset(p);
-        AssetDatabase.CreateAsset(m, p);
+        // 前のアセットに上書き（GUID を変えない）。CopySerialized だと2つ目以降のサブメッシュが描かれない罠があるので Clear→Set 系で入れ直す
+        if (old != null)
+        {
+            old.Clear(); old.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            old.SetVertices(m.vertices); old.SetNormals(m.normals);
+            if (m.uv.Length > 0) old.uv = m.uv;
+            old.subMeshCount = m.subMeshCount; for (int s = 0; s < m.subMeshCount; s++) old.SetTriangles(m.GetTriangles(s), s);
+            old.RecalculateBounds(); FuwaGunWeld.Weld(old); EditorUtility.SetDirty(old);
+            Object.DestroyImmediate(m);
+            return old;
+        }
+        AssetDatabase.CreateAsset(m, p); FuwaGunWeld.Weld(m);
         return m;
     }
 
