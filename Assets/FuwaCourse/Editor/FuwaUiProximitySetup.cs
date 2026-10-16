@@ -20,6 +20,16 @@ public class FuwaUiProximitySetup : IVRCSDKBuildRequestedCallback
         return true;
     }
 
+    // 場所ごとの押せる距離（0＝FuwaUiProximity.range）。ロビーの看板まわりのボタンは、銃の台・練習のきのこから4.4〜5mにあり、
+    // 全体を5mにしたら銃を取る・きのこを撃つ時に押してしまった（2026-10-16 てじゃ）→ ここだけ前の4mに
+    static readonly (string prefix, float range)[] RangeOverrides = { ("FuwaLobby/HowToPlay/", 4f) };
+    static float RangeFor(Collider c)
+    {
+        string path = c.transform.GetHierarchyPath();
+        foreach (var (prefix, r) in RangeOverrides) if (path.StartsWith(prefix)) return r;
+        return 0f;
+    }
+
     public static string Run()
     {
         var prox = Object.FindObjectsOfType<FuwaUiProximity>(true).FirstOrDefault();
@@ -31,9 +41,11 @@ public class FuwaUiProximitySetup : IVRCSDKBuildRequestedCallback
             .Where(c => c != null)
             .OrderBy(c => c.transform.GetHierarchyPath())
             .ToArray();
-        if (prox.uiColliders != null && prox.uiColliders.SequenceEqual(cols)) return "UiProximity: 変更なし " + cols.Length + "個";
+        var ranges = cols.Select(RangeFor).ToArray();
+        if (prox.uiColliders != null && prox.uiColliders.SequenceEqual(cols) && prox.ranges != null && prox.ranges.SequenceEqual(ranges)) return "UiProximity: 変更なし " + cols.Length + "個";
         int before = prox.uiColliders == null ? 0 : prox.uiColliders.Length;
         prox.uiColliders = cols;
+        prox.ranges = ranges;
         UdonSharpEditorUtility.CopyProxyToUdon(prox);
         EditorUtility.SetDirty(prox);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(prox.gameObject.scene);
