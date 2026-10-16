@@ -473,7 +473,7 @@ public static class FuwaKazeDeco
         }
         else
         {
-            float fr = R(2.1f, 2.6f) * s; int fb = m.V.Count; Flower(m, top, fr, rnd);
+            float fr = R(2.1f, 2.6f) * s; int fb = m.V.Count; Flower(m, top + Vector3.up * fr * 0.15f, fr, rnd);   // がくのおわんの底が茎の先に来るように（花の中心はおわんの底より0.15r上）
             // 花の頭（花びら＋がく）は、風でしなった茎の先の向きに合わせて風下へうなずかせる（頭の重みで茎の先より少し深め）
             var tan = (Vector3.up * h + lean * 2f).normalized;
             var q = Quaternion.AngleAxis(Vector3.Angle(Vector3.up, tan) * 1.4f, Vector3.Cross(Vector3.up, tan).normalized);
