@@ -36,10 +36,22 @@ public static class FuwaKazeDeco
 
     static Vector3 _islC; static float _islR = 999f;
     static List<float> _headPhase = new List<float>();   // 綿毛の頭ごとのゆれの位相（heads と同じ順）
+    static Dictionary<Vector3, Vector3> _headTan = new Dictionary<Vector3, Vector3>();   // 綿毛の頭の中心 → 茎の先の向き（芯の下のがくを茎に合わせる）
     const float SwayAmp = 0.38f, SwaySpeed = 1.2f;   // 今の浮島（葉っぱが島からはみ出さないように）
     // 綿毛の頭：外側の半径（前の毛玉の芯 hr*0.75＋毛 0.65 と同じ）、芯の大きさ（外側に対する比）、冠毛の数（外側の半径1.58mの頭で）
     static float HeadOuter(float hr) { return hr * 0.75f + 0.65f; }
     const float HeadCore = 0.26f;
+    const bool PuffCalyx = true;   // 綿毛の芯の下のがく（おためし）
+    const float CupScale = 0.145f;  // 綿毛のがくのカップの大きさ（カップの半径 = 芯の半径 / CupScale）
+    // カップ（CupCalyx）の高さ h（カップの半径で割った、花の中心からの高さ）での内側の半径（カップの半径で割った値）。ふちより上は 0（制限なし）
+    static float CupInnerR(float h)
+    {
+        var prof = new[] { new Vector2(0.034f, -0.15f), new Vector2(0.06f, -0.125f), new Vector2(0.095f, -0.09f), new Vector2(0.13f, -0.05f), new Vector2(0.155f, -0.015f), new Vector2(0.162f, 0.02f) };
+        if (h >= prof[prof.Length - 1].y) return 0f;
+        if (h <= prof[0].y) return prof[0].x;
+        for (int k = 1; k < prof.Length; k++) if (h <= prof[k].y) return Mathf.Lerp(prof[k - 1].x, prof[k].x, (h - prof[k - 1].y) / (prof[k].y - prof[k - 1].y));
+        return 0f;
+    }
     const int TuftsPerHead = 420;
     static readonly Color LeafG = new Color(0.27f, 0.68f, 0.2f), StemG = new Color(0.45f, 0.74f, 0.3f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
 
@@ -119,7 +131,7 @@ public static class FuwaKazeDeco
             isl = new GameObject("DandelionIslands").transform; isl.SetParent(deco, false); Undo.RegisterCreatedObjectUndo(isl.gameObject, "deco");
         }
 
-        var plants = new MB(); var heads = new List<(Vector3 p, float r)>(); _headPhase.Clear();
+        var plants = new MB(); var heads = new List<(Vector3 p, float r)>(); _headPhase.Clear(); _headTan.Clear();
         var placed = new List<(Vector3 pos, float rad)>();
         int want = keep.Count > 0 ? keep.Count : 8, tries = 0;
         while (placed.Count < want && tries++ < 8000)
@@ -234,6 +246,33 @@ public static class FuwaKazeDeco
                     }
                 for (int j = 0; j < rings; j++)
                     for (int i = 0; i < seg; i++) { int a0 = cb + j * (seg + 1) + i; plants.Tri(a0, a0 + 1, a0 + seg + 1); plants.Tri(a0 + 1, a0 + seg + 2, a0 + seg + 1); }
+                // がくのカップに合わせて芯の下半分をすぼめる（カップの内側に収めて、裏から見ても茶色が突き抜けないように。2026-10-16 てじゃ）
+                if (PuffCalyx)
+                {
+                    var up0 = _headTan.TryGetValue(hp, out var tg0) ? tg0.normalized : Vector3.up;
+                    float cr0 = coreR / CupScale; var cc = hp - up0 * (coreR * 1.05f - 0.15f * cr0);
+                    for (int i = cb; i < plants.V.Count; i++)
+                    {
+                        var rel = plants.V[i] - cc; float h = Vector3.Dot(rel, up0) / cr0; var rad = rel - up0 * (h * cr0);
+                        float lim = CupInnerR(h) * cr0 * 0.94f;
+                        if (lim > 0f && rad.magnitude > lim) plants.V[i] = cc + up0 * (Mathf.Max(h, -0.14f) * cr0) + rad.normalized * lim;
+                    }
+                }
+                // 芯の下のがく（おためし 2026-10-16 てじゃ「白いタンポポの中心のタマのしたにもちゃんとガクつけたら」「ちょと色褪せてる状態で」）：
+                // 綿毛のころのがくは全部下へ反り返って茎ぞいに垂れる。枯れかけの色あせた黄土色がかった緑。内側（長い）と外側（短い）の2重
+                // 芯の下のがく（おためし 2026-10-16 てじゃ「白いタンポポの中心のタマのしたにもちゃんとガクつけたら」「ちょと色褪せてる」
+                // 「黄色のタンポポのガクをそのままつかってみよ」「色変えて」）：黄色い花と同じカップ型を、芯の下を包む大きさにして、
+                // 色あせた黄土色がかった緑に。茎の先の向きに合わせて回す
+                if (PuffCalyx)
+                {
+                    var up = _headTan.TryGetValue(hp, out var tg) ? tg.normalized : Vector3.up;
+                    float cr = coreR / CupScale;                          // カップのふち（0.155〜0.167cr）が芯の半径より少し大きく（同じだと芯に隠れて見えなかった）
+                    var cc0 = hp - Vector3.up * (coreR * 1.05f - 0.15f * cr);   // カップの底＝芯の底より少し下
+                    int cvb = plants.V.Count;
+                    CupCalyx(plants, cc0, cr, new Color(0.5f, 0.52f, 0.3f), new Color(0.62f, 0.6f, 0.38f), new Color(0.56f, 0.54f, 0.34f));
+                    var q = Quaternion.FromToRotation(Vector3.up, up);
+                    for (int i = cvb; i < plants.V.Count; i++) { plants.V[i] = hp + q * (plants.V[i] - hp); plants.N[i] = q * plants.N[i]; }
+                }
                 // 頭は茎の先と同じだけゆれる
                 for (int i = vb; i < plants.V.Count; i++) plants.U3[i] = new Vector4(1f, ph, 0, 0);
             }
@@ -486,7 +525,7 @@ public static class FuwaKazeDeco
             float hr = R(1.1f, 1.5f) * s;
             // 頭そのもの（芯・軸・冠毛）は Run の最後に heads から作る。中心は茎の先の向きの延長に置く（芯が茎の先からずれて見えないように）
             var tan = (pts[pts.Count - 1] - pts[pts.Count - 2]).normalized;
-            heads.Add((top + tan * hr * 0.2f, hr)); phases.Add(phase);
+            heads.Add((top + tan * hr * 0.2f, hr)); phases.Add(phase); _headTan[top + tan * hr * 0.2f] = tan;
             look = (top + Vector3.up * hr * 0.2f, hr * 0.75f + 0.5f);   // 芯＋毛の長さ
         }
         else
@@ -696,6 +735,12 @@ public static class FuwaKazeDeco
             for (int i = 0; i < n; i++) { float a = i * Mathf.PI * 2 / n; m.Add(c + new Vector3(Mathf.Cos(a) * r * 0.13f, 0f, Mathf.Sin(a) * r * 0.13f), Vector3.up, cc); }
             for (int i = 0; i < n; i++) m.Quad(ci + 1 + i, ci + 1 + (i + 1) % n, ri + (i + 1) % n, ri + i);
         }
+        CupCalyx(m, c, r, StemG * 0.8f, StemG * 0.92f, StemG * 0.82f);
+    }
+
+    // がく（カップ型）：c＝花の中心、r＝花の半径。上が +Y の向きで作る（呼んだ側で回す）。黄色い花と綿毛の芯の下で共通
+    static void CupCalyx(MB m, Vector3 c, float r, Color dark, Color light, Color beard)
+    {
         // がく（2026-10-16）：花の中心から出すと花びらの上に突き抜けて緑がもれた。細い筒はトゲに、平たい葉を放射状に並べると
         // 下から見て緑の花がもう1つ咲いたように見えた（てじゃ「重なりがきになる」「しっくりこない」）。
         // 2026-10-16 てじゃ「しっくりこない」→ カップ型（1案）：内側のがくは立てて花の裏をすき間なく包む緑のおわん
@@ -703,7 +748,7 @@ public static class FuwaKazeDeco
         {
             const int CSeg = 48, Lobes = 16;
             var prof = new[] { new Vector2(0.034f, -0.15f), new Vector2(0.06f, -0.125f), new Vector2(0.095f, -0.09f), new Vector2(0.13f, -0.05f), new Vector2(0.155f, -0.015f) };
-            var dark = StemG * 0.8f; var light = StemG * 0.92f;   // 茎と同じ色み（明るいと浮いて見えた。2026-10-16 てじゃ「茎より明るいから違和感」）
+            // 色は茎と同じ色み（明るいと浮いて見えた。2026-10-16 てじゃ「茎より明るいから違和感」）
             int rows = prof.Length + 1, cb = m.V.Count;
             for (int j = 0; j < rows; j++)
                 for (int i = 0; i <= CSeg; i++)
@@ -730,9 +775,9 @@ public static class FuwaKazeDeco
             var p0 = c + o * r * 0.075f + Vector3.up * -0.115f * r; var p1 = p0 + (o * 0.45f - Vector3.up * 0.9f).normalized * r * 0.055f; var p2 = p1 + (o * 0.05f - Vector3.up).normalized * r * 0.06f;   // 外へ張り出すとクモの足に見えたので、茎ぞいに
             var ps = new[] { p0, p1, p2 }; var ws = new[] { r * 0.022f, r * 0.018f, r * 0.009f };
             int bi = m.V.Count, bt = m.T.Count;
-            for (int j = 0; j < 3; j++) { m.Add(ps[j] - side * ws[j], o, StemG * 0.82f); m.Add(ps[j] + side * ws[j], o, StemG * 0.82f); }
+            for (int j = 0; j < 3; j++) { m.Add(ps[j] - side * ws[j], o, beard); m.Add(ps[j] + side * ws[j], o, beard); }
             m.Quad(bi, bi + 1, bi + 3, bi + 2); m.Quad(bi + 2, bi + 3, bi + 5, bi + 4);
-            int tip = m.Add(p2 + (p2 - p1).normalized * ws[2], o, StemG * 0.82f); m.Tri(bi + 4, bi + 5, tip);
+            int tip = m.Add(p2 + (p2 - p1).normalized * ws[2], o, beard); m.Tri(bi + 4, bi + 5, tip);
             var pn = Vector3.Cross(side, (p1 - p0).normalized).normalized * r * 0.003f;
             int vb2 = m.V.Count, ve = vb2, te = m.T.Count;
             for (int i = bi; i < ve; i++) m.Add(m.V[i] - pn, m.N[i], m.C[i]);
