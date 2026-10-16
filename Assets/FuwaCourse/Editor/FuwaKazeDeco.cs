@@ -735,11 +735,12 @@ public static class FuwaKazeDeco
             for (int i = 0; i < n; i++) { float a = i * Mathf.PI * 2 / n; m.Add(c + new Vector3(Mathf.Cos(a) * r * 0.13f, 0f, Mathf.Sin(a) * r * 0.13f), Vector3.up, cc); }
             for (int i = 0; i < n; i++) m.Quad(ci + 1 + i, ci + 1 + (i + 1) % n, ri + (i + 1) % n, ri + i);
         }
-        CupCalyx(m, c, r, StemG * 0.8f, StemG * 0.92f, StemG * 0.82f);
+        // 黄色い花はがくの先が花びらの根元にうもれてギザギザが見えなかったので、先を上でなく外へ出す（下から見たふちが波形になる。2026-10-16 てじゃ「上のほうのギザギザ、黄色い方も」）
+        CupCalyx(m, c, r, StemG * 0.8f, StemG * 0.92f, StemG * 0.82f, 0.012f, 0.06f);
     }
 
     // がく（カップ型）：c＝花の中心、r＝花の半径。上が +Y の向きで作る（呼んだ側で回す）。黄色い花と綿毛の芯の下で共通
-    static void CupCalyx(MB m, Vector3 c, float r, Color dark, Color light, Color beard)
+    static void CupCalyx(MB m, Vector3 c, float r, Color dark, Color light, Color beard, float lobeH = 0.045f, float lobeOut = 0.012f)
     {
         // がく（2026-10-16）：花の中心から出すと花びらの上に突き抜けて緑がもれた。細い筒はトゲに、平たい葉を放射状に並べると
         // 下から見て緑の花がもう1つ咲いたように見えた（てじゃ「重なりがきになる」「しっくりこない」）。
@@ -757,7 +758,7 @@ public static class FuwaKazeDeco
                     float lobe = Mathf.Abs(Mathf.Cos(i * Mathf.PI * Lobes / CSeg));   // 1＝がくの真ん中、0＝あいだ
                     Vector2 pr; float k;
                     if (j < prof.Length) { pr = prof[j]; k = j / (float)prof.Length; }
-                    else { pr = prof[prof.Length - 1] + new Vector2(0.012f, 0.045f) * Mathf.Sqrt(lobe); k = 1f; }   // ふち：がくの先が丸く出る
+                    else { pr = prof[prof.Length - 1] + new Vector2(lobeOut, lobeH) * Mathf.Sqrt(lobe); k = 1f; }   // ふち：がくの先が丸く出る
                     var pos = c + o * pr.x * r + Vector3.up * pr.y * r;
                     var col = Color.Lerp(dark, light, k * 0.7f + lobe * 0.3f);
                     m.Add(pos, (o + Vector3.up * 0.15f).normalized, col);   // 法線は茎と同じく横向き（上向きだと茎より明るく照らされた）
