@@ -602,11 +602,18 @@ public static class FuwaKazeDeco
             for (int i = pv0; i < pv1; i++) m.Add(m.V[i] - m.N[i] * off, m.N[i], Color.Lerp(m.C[i], new Color(0.95f, 0.62f, 0.12f), 0.25f));
             for (int t = pt0; t < pt1; t += 3) m.Tri(m.T[t] - pv0 + pv1, m.T[t + 2] - pv0 + pv1, m.T[t + 1] - pv0 + pv1);
         }
-        // がく
+        // 花のまんなか：花びらの根元のすき間をふさぐ小さな山（下のがく・茎が上から見えないように）
+        {
+            var cc = new Color(1f, 0.72f, 0.12f); int n = 12, ci = m.Add(c + Vector3.up * r * 0.06f, Vector3.up, cc);
+            for (int i = 0; i < n; i++) { float a = i * Mathf.PI * 2 / n; m.Add(c + new Vector3(Mathf.Cos(a) * r * 0.17f, r * 0.01f, Mathf.Sin(a) * r * 0.17f), Vector3.up, cc); }
+            for (int i = 0; i < n; i++) m.Tri(ci, ci + 1 + (i + 1) % n, ci + 1 + i);
+        }
+        // がく：花びらの下から出す（前は花の中心から出していて、太い根元が花びらの上に突き抜けて緑がもれていた。2026-10-16 てじゃ）
+        var cs = c - Vector3.up * r * 0.07f;
         for (int i = 0; i < 10; i++)
         {
             float a = i * Mathf.PI * 2 / 10; var d = new Vector3(Mathf.Cos(a), -0.6f, Mathf.Sin(a)).normalized;
-            Tube(m, new List<Vector3> { c, c + d * r * 0.45f }, new List<float> { r * 0.05f, r * 0.01f }, 3, LeafG, LeafG);
+            Tube(m, new List<Vector3> { cs, cs + d * r * 0.45f }, new List<float> { r * 0.05f, r * 0.01f }, 3, LeafG, LeafG);
         }
     }
 
