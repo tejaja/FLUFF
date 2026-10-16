@@ -18,7 +18,8 @@ public static partial class FuwaKazeDeco
         public List<Color> C = new List<Color>(); public List<int> T = new List<int>();
         public List<Vector4> U3 = new List<Vector4>();   // 風のゆれ（x＝重み、y＝位相）
         public List<Vector2> UV = new List<Vector2>();   // 軽い版（板）のテクスチャの位置。ふつうの版は使わない
-        public int Add(Vector3 p, Vector3 n, Color c) { V.Add(p); N.Add(n.normalized); C.Add(new Color(c.r, c.g, c.b, 1)); U3.Add(Vector4.zero); UV.Add(Vector2.zero); return V.Count - 1; }
+        public List<Vector2> UV1 = new List<Vector2>();  // 軽い版のこっちを向く板（綿毛の頭）の角のずれ(m)
+        public int Add(Vector3 p, Vector3 n, Color c) { V.Add(p); N.Add(n.normalized); C.Add(new Color(c.r, c.g, c.b, 1)); U3.Add(Vector4.zero); UV.Add(Vector2.zero); UV1.Add(Vector2.zero); return V.Count - 1; }
         public int Add(Vector3 p, Vector3 n, Color c, Vector2 uv) { int i = Add(p, n, c); UV[i] = uv; return i; }
         public void Tri(int a, int b, int c) { T.Add(a); T.Add(b); T.Add(c); }
         public void Quad(int a, int b, int c, int d) { Tri(a, b, c); Tri(a, c, d); }

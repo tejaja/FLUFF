@@ -6,9 +6,8 @@ Shader "FuwaCourse/DandelionLite"
     {
         _MainTex ("Atlas", 2D) = "white" {}
         _Cutoff ("Cutoff", Range(0, 1)) = 0.45
-        _Wrap ("Soft Light (wrap)", Range(0, 1)) = 0.7
-        _Ambient ("Ambient", Range(0, 1)) = 0.55
-        _LightAmount ("Light Amount", Range(0, 1)) = 0.45
+        _Wrap ("Soft Light (wrap)", Range(0, 1)) = 0.5
+        _Ambient ("Ambient", Range(0, 1)) = 0.35
         [Header(Sway)]
         _SwayAmp ("ゆれ幅 (m、0=ゆれない)", Float) = 0
         _SwaySpeed ("ゆれの速さ", Float) = 1.2
@@ -30,10 +29,10 @@ Shader "FuwaCourse/DandelionLite"
             #include "Lighting.cginc"
 
             sampler2D _MainTex; float4 _MainTex_ST;
-            half _Cutoff, _Wrap, _Ambient, _LightAmount;
+            half _Cutoff, _Wrap, _Ambient;
             float _SwayAmp, _SwaySpeed; float4 _SwayDir;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; float2 uv : TEXCOORD0; float4 uv3 : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; float4 uv3 : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; fixed4 color : COLOR; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
 
             float3 Sway(float4 vtx, float4 uv3)
@@ -48,11 +47,25 @@ Shader "FuwaCourse/DandelionLite"
                 return vtx.xyz;
             }
 
+            // こっちを向く板（綿毛の頭）：頂点はみんな頭の中心、uv1＝(横, 縦)のずれ(m)、法線＝茎の向き（縦の軸）。軸のまわりだけ回してカメラに向ける
+            void Billboard(inout float4 vtx, inout float3 nrm, float2 off)
+            {
+                if (dot(off, off) <= 0) return;
+                float3 c = mul(unity_ObjectToWorld, float4(vtx.xyz, 1)).xyz;
+                float3 axis = normalize(mul((float3x3)unity_ObjectToWorld, nrm));
+                float3 toCam = _WorldSpaceCameraPos - c;
+                float3 right = cross(axis, toCam); right = dot(right, right) > 1e-6 ? normalize(right) : float3(1, 0, 0);
+                float3 p = c + right * off.x + axis * off.y;
+                vtx.xyz = mul(unity_WorldToObject, float4(p, 1)).xyz;
+                nrm = mul((float3x3)unity_WorldToObject, axis);   // 光は茎の向き（上）から当たる扱い（綿毛は明るく）
+            }
+
             v2f vert(appdata v)
             {
                 v2f o;
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                Billboard(v.vertex, v.normal, v.uv1);
                 v.vertex.xyz = Sway(v.vertex, v.uv3);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
@@ -66,11 +79,14 @@ Shader "FuwaCourse/DandelionLite"
             {
                 fixed4 tex = tex2D(_MainTex, i.uv);
                 clip(tex.a - _Cutoff);
-                float3 n = normalize(i.wn) * (facing > 0 ? 1 : -1);
-                float3 l = normalize(_WorldSpaceLightPos0.xyz + float3(0, 1e-4, 0));
-                half nl = saturate((dot(n, l) + _Wrap) / (1 + _Wrap));
-                half3 light = lerp(1, _LightColor0.rgb * nl + ShadeSH9(half4(n, 1)) * _Ambient, _LightAmount);
-                fixed4 c = fixed4(tex.rgb * i.color.rgb * light, 1);
+                // 光の当て方はふつうの版（Kaze_DandelionSway＝InkCap）と同じ（絵は光なしの色で撮ってある）。影（atten）だけなし
+                // 裏から見ても法線は裏返さない（ふつうの版は花びら・葉の裏にも上向きの法線の面があって、下から見ても明るい）
+                float3 n = normalize(i.wn);
+                float3 l = normalize(_WorldSpaceLightPos0.xyz);
+                fixed3 col = tex.rgb * GammaToLinearSpace(i.color.rgb);
+                half3 amb = ShadeSH9(half4(0, 1, 0, 1));
+                half d = saturate((dot(n, l) + _Wrap) / (1 + _Wrap));
+                fixed4 c = fixed4(col * d * _LightColor0.rgb + col * amb * _Ambient * 2, 1);
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;
             }
@@ -88,13 +104,22 @@ Shader "FuwaCourse/DandelionLite"
             #include "UnityCG.cginc"
             sampler2D _MainTex; float4 _MainTex_ST; half _Cutoff;
             float _SwayAmp, _SwaySpeed; float4 _SwayDir;
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float4 uv3 : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; float4 uv3 : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { V2F_SHADOW_CASTER; float2 uv : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert(appdata v)
             {
                 v2f o;
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                if (dot(v.uv1, v.uv1) > 0)
+                {
+                    float3 c = mul(unity_ObjectToWorld, float4(v.vertex.xyz, 1)).xyz;
+                    float3 axis = normalize(mul((float3x3)unity_ObjectToWorld, v.normal));
+                    float3 toL = UnityWorldSpaceLightDir(c);
+                    float3 right = cross(axis, toL); right = dot(right, right) > 1e-6 ? normalize(right) : float3(1, 0, 0);
+                    v.vertex.xyz = mul(unity_WorldToObject, float4(c + right * v.uv1.x + axis * v.uv1.y, 1)).xyz;
+                    v.normal = mul((float3x3)unity_WorldToObject, normalize(toL));
+                }
                 if (_SwayAmp > 0 && v.uv3.x > 0)
                 {
                     float t = _Time.y * _SwaySpeed + v.uv3.y;

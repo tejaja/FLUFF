@@ -58,7 +58,7 @@ public static partial class FuwaKazeDeco
             foreach (var (go, part) in src)
             {
                 var mf = go.GetComponent<MeshFilter>(); var srcMr = go.GetComponent<MeshRenderer>();
-                var mesh = ExtractIsland(mf.sharedMesh, mf.transform, holder, it.position, 4.3f, Dir + "/" + it.name + "_" + part + ".asset", part == "Tufts");
+                var mesh = ExtractIsland(mf.sharedMesh, mf.transform, holder, it.position, 4.3f, Dir + "/" + it.name + "_" + part + ".asset", part == "Tufts" ? 1f : part == "Lite" ? 5f : 0f);
                 var t = holder.Find(part);
                 if (t == null) { t = new GameObject(part, typeof(MeshFilter), typeof(MeshRenderer)).transform; t.SetParent(holder, false); Undo.RegisterCreatedObjectUndo(t.gameObject, "lod"); }
                 t.localPosition = Vector3.zero; t.localRotation = Quaternion.identity; t.localScale = Vector3.one;
@@ -98,7 +98,7 @@ public static partial class FuwaKazeDeco
     }
 
     // まとめメッシュから、島の中心から半径 rad 以内の三角形だけを取り出して、holder のローカル座標のメッシュにする
-    static Mesh ExtractIsland(Mesh src, Transform srcT, Transform holder, Vector3 c, float rad, string path, bool billboard)
+    static Mesh ExtractIsland(Mesh src, Transform srcT, Transform holder, Vector3 c, float rad, string path, float expand)
     {
         var V = src.vertices; var N = src.normals; var C = src.colors; var T = src.triangles;
         var uv0 = new List<Vector4>(); src.GetUVs(0, uv0); var uv1 = new List<Vector4>(); src.GetUVs(1, uv1); var uv3 = new List<Vector4>(); src.GetUVs(3, uv3);
@@ -121,7 +121,7 @@ public static partial class FuwaKazeDeco
         if (uv1.Count > 0) m.SetUVs(1, order.Select(o => uv1[o]).ToList());
         if (uv3.Count > 0) m.SetUVs(3, order.Select(o => uv3[o]).ToList());
         m.SetTriangles(tris, 0); m.RecalculateBounds();
-        if (billboard) { var b = m.bounds; b.Expand(1.0f); m.bounds = b; }   // 冠毛の板は描く時に広がる＋ゆれ
+        if (expand > 0f) { var b = m.bounds; b.Expand(expand); m.bounds = b; }   // こっちを向く板は描く時に広がる＋ゆれ
         EditorUtility.SetDirty(m);
         return m;
     }
@@ -190,23 +190,16 @@ public static partial class FuwaKazeDeco
         for (int j = 0; j < seg; j++) { int a = bi + j * 2, b = bi + (j + 1) * 2; m.Quad(a, a + 1, b + 1, b); }
     }
 
-    // 綿毛の頭：横から撮った絵を貼った板を、茎の向きを軸に3枚（60度ずつ）
+    // 綿毛の頭：横から撮った絵を貼った「こっちを向く板」1枚（茎の向きを軸に回る。シェーダーで向ける）。
+    // 前は十字の板3枚だったが、横から見ると板がななめに薄く見えた（2026-10-16 てじゃ「見え方へん」）
     static void PuffLite(MB m, Vector3 hp, float hr, float ph)
     {
         var up = _headTan.TryGetValue(hp, out var tg) ? tg.normalized : Vector3.up;
-        var ax = Vector3.Cross(up, Mathf.Abs(up.y) < 0.9f ? Vector3.up : Vector3.right).normalized; var az = Vector3.Cross(ax, up);
         float h = HeadOuter(hr) * PuffFrame;
-        for (int k = 0; k < 3; k++)
-        {
-            float a = k * Mathf.PI / 3f; var side = ax * Mathf.Cos(a) + az * Mathf.Sin(a);
-            int b = m.V.Count;
-            m.Add(hp - side * h - up * h, up, Color.white, Uv(UvPuff, 0f, 0f));
-            m.Add(hp + side * h - up * h, up, Color.white, Uv(UvPuff, 1f, 0f));
-            m.Add(hp + side * h + up * h, up, Color.white, Uv(UvPuff, 1f, 1f));
-            m.Add(hp - side * h + up * h, up, Color.white, Uv(UvPuff, 0f, 1f));
-            m.Quad(b, b + 1, b + 2, b + 3);
-            for (int q = 0; q < 4; q++) m.U3[b + q] = new Vector4(1f, ph, 0, 0);
-        }
+        int b = m.V.Count;
+        var corners = new[] { new Vector2(-1, -1), new Vector2(1, -1), new Vector2(1, 1), new Vector2(-1, 1) };
+        foreach (var cu in corners) { int i = m.Add(hp, up, Color.white, Uv(UvPuff, cu.x * 0.5f + 0.5f, cu.y * 0.5f + 0.5f)); m.UV1[i] = cu * h; m.U3[i] = new Vector4(1f, ph, 0, 0); }
+        m.Quad(b, b + 1, b + 2, b + 3);
     }
 
     // まとめた板のメッシュを書き出す（ふつうの版の Dandelions は触らない）
@@ -215,12 +208,15 @@ public static partial class FuwaKazeDeco
         var w2l = deco.worldToLocalMatrix;
         var m = new Mesh { name = "Kaze_Dandelions_Lite", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         m.SetVertices(plants.V.Select(x => w2l.MultiplyPoint3x4(x)).ToList()); m.SetNormals(plants.N.Select(x => w2l.MultiplyVector(x).normalized).ToList());
-        m.SetColors(plants.C); m.SetUVs(0, plants.UV); m.SetUVs(3, plants.U3); m.SetTriangles(plants.T, 0); m.RecalculateBounds();
+        m.SetColors(plants.C); m.SetUVs(0, plants.UV); m.SetUVs(1, plants.UV1); m.SetUVs(3, plants.U3); m.SetTriangles(plants.T, 0); m.RecalculateBounds();
+        { var bb = m.bounds; bb.Expand(5f); m.bounds = bb; }   // こっちを向く板は頂点が頭の中心にあるので、広がるぶん
         string ap = Dir + "/Kaze_Dandelions_Lite.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
         if (old != null) { old.Clear(); EditorUtility.CopySerialized(m, old); m = old; } else AssetDatabase.CreateAsset(m, ap);
         string mp = "Assets/FuwaCourse/Materials/Kaze_DandelionLite.mat"; var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (mat == null) { mat = new Material(Shader.Find("FuwaCourse/DandelionLite")); AssetDatabase.CreateAsset(mat, mp); }
         mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(AtlasPath);
+        var hiMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Kaze_DandelionSway.mat");
+        if (hiMat != null) { mat.SetFloat("_Wrap", hiMat.GetFloat("_Wrap")); mat.SetFloat("_Ambient", hiMat.GetFloat("_Ambient")); }   // 明るさをふつうの版とそろえる
         mat.SetFloat("_SwayAmp", SwayAmp); mat.SetFloat("_SwaySpeed", SwaySpeed); mat.SetVector("_SwayDir", new Vector4(wind.x, 0, wind.z, 0)); mat.enableInstancing = true;
         EditorUtility.SetDirty(mat);
         var go = Child(isl, "DandelionsLite");
@@ -233,8 +229,8 @@ public static partial class FuwaKazeDeco
 
     static string BakeAtlas()
     {
-        var hiMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Kaze_DandelionSway.mat");
-        var still = new Material(hiMat); still.SetFloat("_SwayAmp", 0f);
+        // 花・葉は光なしの色で撮る（軽い版のシェーダーで、ふつうの版と同じ光を当て直す。光ありで撮ると二重に暗くなった）
+        var still = new Material(Shader.Find("Hidden/FuwaBakeUnlitVC"));
         const int layer = 31;
         var origin = new Vector3(0f, -800f, 0f);
         var atlas = new Texture2D(AtlasSize, AtlasSize, TextureFormat.RGBA32, true);
