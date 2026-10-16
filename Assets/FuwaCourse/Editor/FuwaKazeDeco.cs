@@ -678,55 +678,49 @@ public static class FuwaKazeDeco
             for (int i = 0; i < n; i++) { float a = i * Mathf.PI * 2 / n; m.Add(c + new Vector3(Mathf.Cos(a) * r * 0.13f, 0f, Mathf.Sin(a) * r * 0.13f), Vector3.up, cc); }
             for (int i = 0; i < n; i++) m.Quad(ci + 1 + i, ci + 1 + (i + 1) % n, ri + (i + 1) % n, ri + i);
         }
-        // がく：花びらの下から出す（前は花の中心から出していて、太い根元が花びらの上に突き抜けて緑がもれていた）。
-        // 内側＝花びらの裏に添って少し上向き、外側＝下へ反り返る（本物のたんぽぽの総苞）
-        // 2026-10-16 てじゃ「もうちょい詰めて」「トゲにみえるのがな、もうちょい平べったく」：
-        // 細い筒だとトゲに見えたので、平たい葉の形（根元が広くて先がとがる）に。面は花のまわりの円に沿う向き（外から見て平らに見える）。
-        // 内側は短く花びらの裏に添わせ、外側は茎の近くへ巻き込む。法線は花びらと同じく上向き（下から見ても暗く沈まない）
-        // さらに「重なりがきになる」「先端を尖らせないで」：根元を中心の1点でなく小さい輪の上に並べ、隣どうしが重ならない幅に。
-        // 先は丸く（へら形）。内と外で高さと角度を半分ずらす
-        var cs = c - Vector3.up * r * 0.07f;
-        void Bract(float a, float ringR, float y, Vector3 d1, Vector3 d2, float w0, float w1, Color c0, Color c1)
+        // がく（2026-10-16）：花の中心から出すと花びらの上に突き抜けて緑がもれた。細い筒はトゲに、平たい葉を放射状に並べると
+        // 下から見て緑の花がもう1つ咲いたように見えた（てじゃ「重なりがきになる」「しっくりこない」）。
+        // 2026-10-16 てじゃ「しっくりこない」→ カップ型（1案）：内側のがくは立てて花の裏をすき間なく包む緑のおわん
+        //（回転体。ふちは丸いがくの先が16個並ぶ波形。まん中が明るい縦すじ）。外側のがくは細く短く、茎ぞいに垂れる
         {
+            const int CSeg = 48, Lobes = 16;
+            var prof = new[] { new Vector2(0.034f, -0.15f), new Vector2(0.06f, -0.125f), new Vector2(0.095f, -0.09f), new Vector2(0.13f, -0.05f), new Vector2(0.155f, -0.015f) };
+            var dark = LeafG * 0.85f; var light = Color.Lerp(LeafG, StemG, 0.55f);
+            int rows = prof.Length + 1, cb = m.V.Count;
+            for (int j = 0; j < rows; j++)
+                for (int i = 0; i <= CSeg; i++)
+                {
+                    float a = i * Mathf.PI * 2 / CSeg; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                    float lobe = Mathf.Abs(Mathf.Cos(i * Mathf.PI * Lobes / CSeg));   // 1＝がくの真ん中、0＝あいだ
+                    Vector2 pr; float k;
+                    if (j < prof.Length) { pr = prof[j]; k = j / (float)prof.Length; }
+                    else { pr = prof[prof.Length - 1] + new Vector2(0.012f, 0.045f) * Mathf.Sqrt(lobe); k = 1f; }   // ふち：がくの先が丸く出る
+                    var pos = c + o * pr.x * r + Vector3.up * pr.y * r;
+                    var col = Color.Lerp(dark, light, k * 0.7f + lobe * 0.3f);
+                    m.Add(pos, (o * 0.5f + Vector3.up).normalized, col);
+                }
+            for (int j = 0; j < rows - 1; j++)
+                for (int i = 0; i < CSeg; i++) { int q = cb + j * (CSeg + 1) + i; m.Quad(q, q + CSeg + 1, q + CSeg + 2, q + 1); }
+            // 底のふた（茎とのすき間）
+            int bc = m.Add(c + Vector3.up * prof[0].y * r - Vector3.up * r * 0.01f, Vector3.up, dark);
+            for (int i = 0; i < CSeg; i++) m.Tri(bc, cb + i + 1, cb + i);
+        }
+        void Beard(float a)
+        {
+            // 外側のがく：細いひげ。おわんの下のほうから外へ少し出て、茎ぞいに下へ垂れる。両面同じ明るさ
             var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var side = new Vector3(-Mathf.Sin(a), 0f, Mathf.Cos(a));
-            var p0 = cs + o * ringR + Vector3.up * y; var p1 = p0 + d1; var p2 = p1 + d2; var dir = d2.normalized;
-            var ws = new[] { w0, w1, w1 * 0.85f }; var ps = new[] { p0, p1, p2 };
+            var p0 = c + o * r * 0.075f + Vector3.up * -0.115f * r; var p1 = p0 + (o * 0.45f - Vector3.up * 0.9f).normalized * r * 0.055f; var p2 = p1 + (o * 0.05f - Vector3.up).normalized * r * 0.06f;   // 外へ張り出すとクモの足に見えたので、茎ぞいに
+            var ps = new[] { p0, p1, p2 }; var ws = new[] { r * 0.022f, r * 0.018f, r * 0.009f };
             int bi = m.V.Count, bt = m.T.Count;
-            for (int j = 0; j < 3; j++) { var col = Color.Lerp(c0, c1, j / 2f); m.Add(ps[j] - side * ws[j], Vector3.up, col); m.Add(ps[j] + side * ws[j], Vector3.up, col); }
+            for (int j = 0; j < 3; j++) { m.Add(ps[j] - side * ws[j], Vector3.up, LeafG * 0.9f); m.Add(ps[j] + side * ws[j], Vector3.up, LeafG * 0.9f); }
             m.Quad(bi, bi + 1, bi + 3, bi + 2); m.Quad(bi + 2, bi + 3, bi + 5, bi + 4);
-            // 丸い先（扇）
-            float w2 = ws[2]; int ci = m.Add(p2, Vector3.up, c1);
-            int k0 = bi + 4, n = 5, first = m.V.Count;
-            for (int k = 1; k < n; k++) { float t = k / (float)n * Mathf.PI; m.Add(p2 - side * Mathf.Cos(t) * w2 + dir * Mathf.Sin(t) * w2, Vector3.up, c1); }
-            int prev = k0;
-            for (int k = 0; k < n - 1; k++) { m.Tri(ci, first + k, prev); prev = first + k; }
-            m.Tri(ci, bi + 5, prev);
-            // 裏面：両面描画だと裏から見た側だけ暗く沈んで先の丸い所と色が分かれたので、少しずらした裏向きの面を足して両側とも同じ明るさに
-            var pn = Vector3.Cross(side, (p1 - p0).normalized).normalized * r * 0.004f;
+            int tip = m.Add(p2 + (p2 - p1).normalized * ws[2], Vector3.up, LeafG * 0.9f); m.Tri(bi + 4, bi + 5, tip);
+            var pn = Vector3.Cross(side, (p1 - p0).normalized).normalized * r * 0.003f;
             int vb2 = m.V.Count, ve = vb2, te = m.T.Count;
             for (int i = bi; i < ve; i++) m.Add(m.V[i] - pn, m.N[i], m.C[i]);
             for (int t = bt; t < te; t += 3) m.Tri(m.T[t] - bi + vb2, m.T[t + 2] - bi + vb2, m.T[t + 1] - bi + vb2);
         }
-        // 花托（がくの根元の緑の皿）：がくの輪の内側のすき間から花の裏のオレンジが見えないように
-        {
-            var gc = LeafG * 0.95f; int n = 12, ci = m.Add(cs - Vector3.up * r * 0.03f, Vector3.up, gc);
-            for (int i = 0; i < n; i++) { float a = i * Mathf.PI * 2 / n; m.Add(cs + new Vector3(Mathf.Cos(a) * r * 0.1f, r * 0.01f, Mathf.Sin(a) * r * 0.1f), Vector3.up, gc); }
-            for (int i = 0; i < n; i++) m.Tri(ci, ci + 1 + (i + 1) % n, ci + 1 + i);
-        }
-        var bractTip = Color.Lerp(LeafG, StemG, 0.35f);
-        const int NIn = 10, NOut = 10;
-        for (int i = 0; i < NIn; i++)
-        {
-            float a = (i + 0.5f) * Mathf.PI * 2 / NIn; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-            float rr = r * 0.07f, slot = Mathf.PI * rr / NIn;
-            Bract(a, rr, 0f, (o + Vector3.up * 0.3f).normalized * r * 0.09f, (o + Vector3.up * 0.22f).normalized * r * 0.07f, slot * 0.9f, r * 0.034f, LeafG, bractTip);
-        }
-        for (int i = 0; i < NOut; i++)
-        {
-            float a = i * Mathf.PI * 2 / NOut; var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-            float rr = r * 0.06f, slot = Mathf.PI * rr / NOut;
-            Bract(a, rr, -r * 0.02f, (o - Vector3.up * 0.9f).normalized * r * 0.07f, (o * 0.3f - Vector3.up).normalized * r * 0.07f, slot * 0.9f, r * 0.03f, LeafG * 0.95f, LeafG);
-        }
+        for (int i = 0; i < 9; i++) Beard((i + 0.25f) * Mathf.PI * 2 / 9);
     }
 
     static void Sphere(MB m, Vector3 c, float r, Color col, int seg, int rings)
