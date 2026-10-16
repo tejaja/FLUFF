@@ -8,7 +8,6 @@ using UnityEngine;
 // ロビーの写真館の「かってにスクショ」ボード（当たりなし）を突っ切って柵を飛び越えると、6mくらい下に小島がある。
 // 見た目は写真館の島（草の円盤＋下の岩）を小さくしたもの。まわりの飾りの浮島にまぎれる。
 // ・ひみつのきのこ（FuwaSecretUnlock）：クリックであそびばのおもちゃを全部出す
-// ・ロビーへのワープ（あそびばへのワープを写して、行き先をロビーに）
 // ・下に落ちたら暗転してロビーへ（FuwaLobbyFall。写真館から飛び降りて島に届かなかった時も）
 // 何度実行しても同じ結果（FuwaLobby/SecretIsland と SecretFallReturn を作り直す）
 public static class FuwaSecretIsland
@@ -51,7 +50,8 @@ public static class FuwaSecretIsland
 
         var spawner = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
         string mush = MakeMushroom(root, lobby, spawner);
-        string warp = MakeReturnWarp(root, lobby);
+        // ロビーへのワープは置かない（2026-10-16 てじゃ「ポータルいらんかもね、飛び降りればいいし」）。飛び降りると下の SecretFallReturn でロビーへ
+        string warp = "no warp";
         MakeFallReturn(lobby, top);
 
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lobby.gameObject.scene);
@@ -63,8 +63,8 @@ public static class FuwaSecretIsland
     {
         var pm = lobby.Find("PracticeMushroom");
         var m = new GameObject("SecretMushroom").transform; m.SetParent(root, false);
-        // 降りた人は写真館と反対（-Z）を向いているので、きのことワープはその前に左右に並べる
-        m.localPosition = new Vector3(0.6f, 0f, -0.3f); m.localRotation = Quaternion.identity; m.localScale = Vector3.one * 0.9f;   // 2026-10-16 てじゃ「もうちょい小さく」（前は1.15）
+        // 降りた人は写真館と反対（-Z）を向いているので、きのこは真ん中より少し前
+        m.localPosition = new Vector3(0f, 0f, -0.25f); m.localRotation = Quaternion.identity; m.localScale = Vector3.one * 0.9f;   // 2026-10-16 てじゃ「もうちょい小さく」（前は1.15）
         foreach (var n in new[] { "Stem", "Cap", "Gill" })
         {
             var src = pm.Find(n);
@@ -151,51 +151,6 @@ public static class FuwaSecretIsland
             var g = col.color.gradient;
             if (g != null) { var ng = new Gradient(); ng.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, g.alphaKeys); col.color = new ParticleSystem.MinMaxGradient(ng); }
         }
-    }
-
-    // ロビーへ戻るワープ：あそびばへのワープを写して、行き先をロビーにする（ハブからロビーへ行くワープと同じ設定）
-    static string MakeReturnWarp(Transform root, Transform lobby)
-    {
-        var src = lobby.Find("ToPlayground");
-        var w = Object.Instantiate(src.gameObject, root, false); w.name = "SecretReturn";
-        w.transform.localPosition = new Vector3(-0.55f, 0f, -0.45f); w.transform.localRotation = Quaternion.identity; w.transform.localScale = Vector3.one * 0.6f;
-        // ロビーのあそびばへのワープは今はボタンで呼ぶので、床の輪・文字・粒が非表示になっている。こっちは乗って使うので出す
-        foreach (Transform ch in w.transform) ch.gameObject.SetActive(true);
-        var trig = w.GetComponentInChildren<FuwaCourseWarp>(true);
-        // 写し元は乗っても飛ばないように当たりが切ってあった（ボタンで呼ぶため）。こっちは乗って使うので入れる（2026-10-16 てじゃ「ポータルうごいてない」）
-        foreach (var col in trig.GetComponents<Collider>()) col.enabled = true;
-        var solo = GameObject.Find("FuwaHub").transform.Find("SoloGate/SoloGate_Trigger").GetComponent<FuwaCourseWarp>();
-        var so = new SerializedObject(trig); var ss = new SerializedObject(solo);
-        foreach (var f in new[] { "courseStart", "playerSpot", "gunSpot" }) so.FindProperty(f).objectReferenceValue = ss.FindProperty(f).objectReferenceValue;
-        so.FindProperty("area").intValue = ss.FindProperty("area").intValue;
-        so.FindProperty("homeAction").intValue = ss.FindProperty("homeAction").intValue;
-        so.ApplyModifiedPropertiesWithoutUndo();
-        UdonSharpEditorUtility.CopyProxyToUdon(trig); EditorUtility.SetDirty(trig);
-        foreach (var r in w.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(r.gameObject, 0);
-
-        // 札（「ロビーへ」）は付けない（2026-10-16 てじゃ「ロビーへの看板いらんかも」）
-        var label = w.transform.Find("Label"); if (label != null) Object.DestroyImmediate(label.gameObject);
-        int removed = DropMissingLanguageTexts();
-        return "warp ok (lang cleaned " + removed + ")";
-    }
-
-    // 言語切りかえの文字の一覧から、消えた文字（前に作った札）の行を取りのぞく
-    static int DropMissingLanguageTexts()
-    {
-        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
-        var lso = new SerializedObject(lang);
-        var texts = lso.FindProperty("texts"); var ja = lso.FindProperty("ja"); var en = lso.FindProperty("en");
-        int removed = 0;
-        for (int i = texts.arraySize - 1; i >= 0; i--)
-        {
-            if (texts.GetArrayElementAtIndex(i).objectReferenceValue != null) continue;
-            texts.DeleteArrayElementAtIndex(i);
-            if (i < ja.arraySize) ja.DeleteArrayElementAtIndex(i);
-            if (i < en.arraySize) en.DeleteArrayElementAtIndex(i);
-            removed++;
-        }
-        if (removed > 0) { lso.ApplyModifiedPropertiesWithoutUndo(); UdonSharpEditorUtility.CopyProxyToUdon(lang); EditorUtility.SetDirty(lang); }
-        return removed;
     }
 
     // 写真館・小島の下に落ちたら暗転してロビーへ（ロビーの下の FallReturn を写して、写真館のまわりを広くおおう）
