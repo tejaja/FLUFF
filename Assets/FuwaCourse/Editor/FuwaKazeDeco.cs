@@ -575,45 +575,81 @@ public static class FuwaKazeDeco
         for (int i = 0; i < k * 2; i++) m.Tri(ci, first + i, first + (i + 1) % (k * 2));
     }
 
-    // 黄色い花：細い花びらを3重の輪に。下に緑のがく
+    // 黄色い花（2026-10-16 てじゃ「白たんぽぽめっちゃクオリティあがってるし、こっちもクオリティアップできないかな、負荷と相談」）。
+    // 本物のたんぽぽの頭のように、細い舌状花を5重に（外ほど長く平らで先が少し垂れ、内ほど短く立ち上がって真ん中がこんもり）。
+    // 花びらは根元オレンジ→先が明るい黄色、先は5つにギザギザ。がくは花びらに添う内側と、下に反り返る外側の2種類。
+    // 形のゆらぎは花の位置から作った別の乱数で（rnd を引く回数を変えると、ほかの飾りの並びが全部変わるので rnd は使わない）。
+    // 大きい黄色い花は6本だけなので、1本2千ポリゴンくらいまでは気にしない
     static void Flower(MB m, Vector3 c, float r, System.Random rnd)
     {
-        float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
+        var fr = new System.Random(Mathf.RoundToInt(c.x * 997f) * 31 + Mathf.RoundToInt(c.z * 991f));
+        float F(float a0, float b0) { return a0 + (float)fr.NextDouble() * (b0 - a0); }
         int pv0 = m.V.Count, pt0 = m.T.Count;
-        for (int layer = 0; layer < 3; layer++)
+        const int Rings = 5, Seg = 3;
+        int[] counts = { 30, 26, 22, 18, 13 };
+        for (int k = 0; k < Rings; k++)
         {
-            int n = 18 - layer * 4; float L = r * (1f - layer * 0.28f), up = 0.12f + layer * 0.35f;
-            var col = Color.Lerp(Yellow, new Color(1f, 0.68f, 0.1f), layer * 0.4f);
+            float t = k / (Rings - 1f);
+            int n = counts[k];
+            float L = r * Mathf.Lerp(1f, 0.3f, t);              // 花びらの長さ
+            float rise = Mathf.Lerp(0.12f, 1.15f, t * t);        // 立ち上がり（内ほど立つ）
+            float droop = Mathf.Lerp(0.16f, 0f, t);              // 先の垂れ（外ほど）
+            float baseY = r * 0.035f * k, baseR = r * Mathf.Lerp(0.1f, 0.03f, t);
+            var colBase = Color.Lerp(new Color(1f, 0.6f, 0.07f), new Color(0.98f, 0.5f, 0.04f), t);
+            var colTip = Color.Lerp(new Color(1f, 0.9f, 0.26f), new Color(1f, 0.74f, 0.14f), t);
             for (int i = 0; i < n; i++)
             {
-                float a = (i + layer * 0.5f) * Mathf.PI * 2 / n; var d = new Vector3(Mathf.Cos(a), up, Mathf.Sin(a)).normalized; var sd = new Vector3(-Mathf.Sin(a), 0, Mathf.Cos(a));
-                float w = L * 0.11f; var p0 = c + Vector3.up * r * 0.05f * layer; var p1 = p0 + d * L * 0.5f; var p2 = p0 + d * L;
+                float a = (i + k * 0.37f + F(-0.18f, 0.18f)) * Mathf.PI * 2 / n;
+                var dir = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)); var sd = new Vector3(-Mathf.Sin(a), 0, Mathf.Cos(a));
+                float len = L * F(0.86f, 1.08f), w = len * Mathf.Lerp(0.085f, 0.14f, t), dr = droop * F(0.6f, 1.3f), rs = rise * F(0.85f, 1.15f);
                 int b = m.V.Count;
-                m.Add(p0 - sd * w * 0.4f, Vector3.up, col); m.Add(p0 + sd * w * 0.4f, Vector3.up, col);
-                m.Add(p1 - sd * w, Vector3.up, col); m.Add(p1 + sd * w, Vector3.up, col);
-                m.Add(p2 - sd * w * 0.7f, Vector3.up, col * 1.03f); m.Add(p2 + sd * w * 0.7f, Vector3.up, col * 1.03f);
-                m.Quad(b, b + 1, b + 3, b + 2); m.Quad(b + 2, b + 3, b + 5, b + 4);   // 上向きの面
+                Vector3 endDir = dir;
+                for (int sgi = 0; sgi <= Seg; sgi++)
+                {
+                    float u = sgi / (float)Seg;
+                    var pc = c + dir * (baseR + len * u) + Vector3.up * (baseY + len * (rs * u - dr * u * u));
+                    float wu = w * (0.35f + 0.65f * Mathf.Sin(Mathf.Min(1f, u * 1.6f) * Mathf.PI * 0.5f)) * (u > 0.75f ? Mathf.Lerp(1f, 0.85f, (u - 0.75f) * 4f) : 1f);
+                    var col = Color.Lerp(colBase, colTip, Mathf.SmoothStep(0f, 1f, u * 1.15f));
+                    m.Add(pc - sd * wu, Vector3.up, col); m.Add(pc + sd * wu, Vector3.up, col);
+                    if (sgi > 0) { int q = b + (sgi - 1) * 2; m.Quad(q, q + 1, q + 3, q + 2); }
+                    if (sgi == Seg) endDir = (pc - (c + dir * (baseR + len * (u - 1f / Seg)) + Vector3.up * (baseY + len * (rs * (u - 1f / Seg) - dr * (u - 1f / Seg) * (u - 1f / Seg))))).normalized;
+                }
+                // 先のギザギザ（とがり3つ＋へこみ2つ）
+                int eL = b + Seg * 2, eR = eL + 1; var pL = m.V[eL]; var pR = m.V[eR]; var tc = Color.Lerp(colTip, Color.white, 0.08f);
+                var d1 = Vector3.Lerp(pL, pR, 0.34f); var d2 = Vector3.Lerp(pL, pR, 0.66f); var ext = endDir * len * 0.05f;
+                int i1 = m.Add(d1, Vector3.up, tc), i2 = m.Add(d2, Vector3.up, tc);
+                int tL = m.Add(Vector3.Lerp(pL, d1, 0.5f) + ext * 0.8f, Vector3.up, tc), tM = m.Add(Vector3.Lerp(d1, d2, 0.5f) + ext, Vector3.up, tc), tR = m.Add(Vector3.Lerp(d2, pR, 0.5f) + ext * 0.8f, Vector3.up, tc);
+                m.Tri(eL, i1, tL); m.Tri(i1, i2, tM); m.Tri(i2, eR, tR);
             }
         }
         // 花びらの裏：両面描画でも裏から見ると法線が下向きになって暗く沈む（うなずいた花を後ろから見た時に茶色っぽくなる）。
         // 少し下にずらした裏向きの面を足して、法線は表と同じ上向きのままにして明るく見せる（裏も黄色、少しだけ濃いめ）
         {
-            int pv1 = m.V.Count, pt1 = m.T.Count; float off = r * 0.012f;
+            int pv1 = m.V.Count, pt1 = m.T.Count; float off = r * 0.01f;
             for (int i = pv0; i < pv1; i++) m.Add(m.V[i] - m.N[i] * off, m.N[i], Color.Lerp(m.C[i], new Color(0.95f, 0.62f, 0.12f), 0.25f));
             for (int t = pt0; t < pt1; t += 3) m.Tri(m.T[t] - pv0 + pv1, m.T[t + 2] - pv0 + pv1, m.T[t + 1] - pv0 + pv1);
         }
-        // 花のまんなか：花びらの根元のすき間をふさぐ小さな山（下のがく・茎が上から見えないように）
+        // 花のまんなか：つぼみのような小さい山（いちばん内の花びらの根元をふさぐ）
         {
-            var cc = new Color(1f, 0.72f, 0.12f); int n = 12, ci = m.Add(c + Vector3.up * r * 0.06f, Vector3.up, cc);
-            for (int i = 0; i < n; i++) { float a = i * Mathf.PI * 2 / n; m.Add(c + new Vector3(Mathf.Cos(a) * r * 0.17f, r * 0.01f, Mathf.Sin(a) * r * 0.17f), Vector3.up, cc); }
+            var cc = new Color(0.97f, 0.55f, 0.06f); int n = 12, ci = m.Add(c + Vector3.up * r * 0.2f, Vector3.up, cc);
+            for (int i = 0; i < n; i++) { float a = i * Mathf.PI * 2 / n; m.Add(c + new Vector3(Mathf.Cos(a) * r * 0.08f, r * 0.13f, Mathf.Sin(a) * r * 0.08f), Vector3.up, cc); }
             for (int i = 0; i < n; i++) m.Tri(ci, ci + 1 + (i + 1) % n, ci + 1 + i);
+            int ri = m.V.Count;
+            for (int i = 0; i < n; i++) { float a = i * Mathf.PI * 2 / n; m.Add(c + new Vector3(Mathf.Cos(a) * r * 0.13f, 0f, Mathf.Sin(a) * r * 0.13f), Vector3.up, cc); }
+            for (int i = 0; i < n; i++) m.Quad(ci + 1 + i, ci + 1 + (i + 1) % n, ri + (i + 1) % n, ri + i);
         }
-        // がく：花びらの下から出す（前は花の中心から出していて、太い根元が花びらの上に突き抜けて緑がもれていた。2026-10-16 てじゃ）
+        // がく：花びらの下から出す（前は花の中心から出していて、太い根元が花びらの上に突き抜けて緑がもれていた）。
+        // 内側＝花びらの裏に添って少し上向き、外側＝下へ反り返る（本物のたんぽぽの総苞）
         var cs = c - Vector3.up * r * 0.07f;
+        for (int i = 0; i < 12; i++)
+        {
+            float a = (i + 0.5f) * Mathf.PI * 2 / 12; var d = new Vector3(Mathf.Cos(a), 0.18f, Mathf.Sin(a)).normalized;
+            Tube(m, new List<Vector3> { cs, cs + d * r * 0.16f, cs + d * r * 0.26f + Vector3.up * r * 0.02f }, new List<float> { r * 0.035f, r * 0.028f, r * 0.006f }, 3, LeafG, StemG);
+        }
         for (int i = 0; i < 10; i++)
         {
-            float a = i * Mathf.PI * 2 / 10; var d = new Vector3(Mathf.Cos(a), -0.6f, Mathf.Sin(a)).normalized;
-            Tube(m, new List<Vector3> { cs, cs + d * r * 0.45f }, new List<float> { r * 0.05f, r * 0.01f }, 3, LeafG, LeafG);
+            float a = i * Mathf.PI * 2 / 10; var d = new Vector3(Mathf.Cos(a), -0.25f, Mathf.Sin(a)).normalized;
+            Tube(m, new List<Vector3> { cs, cs + d * r * 0.2f, cs + d * r * 0.3f + Vector3.down * r * 0.18f }, new List<float> { r * 0.04f, r * 0.025f, r * 0.006f }, 3, LeafG, LeafG);
         }
     }
 
