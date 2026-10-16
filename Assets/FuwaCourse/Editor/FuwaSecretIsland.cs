@@ -64,7 +64,7 @@ public static class FuwaSecretIsland
         var pm = lobby.Find("PracticeMushroom");
         var m = new GameObject("SecretMushroom").transform; m.SetParent(root, false);
         // 降りた人は写真館と反対（-Z）を向いているので、きのこは真ん中より少し前
-        m.localPosition = new Vector3(0f, 0f, -0.25f); m.localRotation = Quaternion.identity; m.localScale = Vector3.one * 0.9f;   // 2026-10-16 てじゃ「もうちょい小さく」（前は1.15）
+        m.localPosition = new Vector3(0f, 0f, -0.25f); m.localRotation = Quaternion.identity; m.localScale = Vector3.one * 0.65f;   // 2026-10-16 てじゃ「もうちょい小さく」「もっとちっさくても」（1.15→0.9→0.65）
         foreach (var n in new[] { "Stem", "Cap", "Gill" })
         {
             var src = pm.Find(n);
@@ -105,11 +105,11 @@ public static class FuwaSecretIsland
         // きのこの上に浮かぶ文字（ワープの札と同じ見た目。2行入る大きさ）。押した時だけ出す
         var pop = Object.Instantiate(lobby.Find("ToPlayground/Label").gameObject, m, false); pop.name = "Popup";
         pop.transform.localPosition = new Vector3(0f, 1.45f, 0f); pop.transform.localRotation = Quaternion.identity; pop.transform.localScale = Vector3.one;
-        var popT = pop.GetComponent<TMPro.TextMeshPro>(); popT.text = "あそびばの おもちゃが\nぜんぶ でたよ!"; popT.fontSize = 2f; popT.lineSpacing = -10f;   // 2026-10-16 てじゃ「デカいから見切れる」（前は3.1）
+        var popT = pop.GetComponent<TMPro.TextMeshPro>(); popT.text = "あそびばの おもちゃが\nぜんぶ でたよ!"; popT.fontSize = 1.8f; popT.lineSpacing = -10f;   // 2026-10-16 てじゃ「デカいから見切れる」「もっとちっさくても」（3.1→2→1.8。きのこの子なのできのこの大きさでも小さくなる）
         // 文字はだるまのフォント（2026-10-16 てじゃ。あそびばのおもちゃの札と同じ板用の材質）
         var daruma = Object.FindObjectsOfType<TMPro.TextMeshPro>(true).FirstOrDefault(x => x.font != null && x.font.name.Contains("Daruma") && x.fontSharedMaterial.name == "DarumadropOne SDF Board");
         if (daruma != null) { popT.font = daruma.font; popT.fontSharedMaterial = daruma.fontSharedMaterial; }
-        var panel = pop.transform.Find("Panel").GetComponent<SpriteRenderer>(); panel.size = new Vector2(1.8f, 0.72f);
+        var panel = pop.transform.Find("Panel").GetComponent<SpriteRenderer>(); panel.size = new Vector2(1.62f, 0.66f);
         foreach (var lg in pop.GetComponentsInChildren<LODGroup>(true)) Object.DestroyImmediate(lg);
         pop.SetActive(false);
 
