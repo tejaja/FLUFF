@@ -685,7 +685,7 @@ public static class FuwaKazeDeco
         {
             const int CSeg = 48, Lobes = 16;
             var prof = new[] { new Vector2(0.034f, -0.15f), new Vector2(0.06f, -0.125f), new Vector2(0.095f, -0.09f), new Vector2(0.13f, -0.05f), new Vector2(0.155f, -0.015f) };
-            var dark = LeafG * 0.85f; var light = Color.Lerp(LeafG, StemG, 0.55f);
+            var dark = StemG * 0.8f; var light = StemG * 0.92f;   // 茎と同じ色み（明るいと浮いて見えた。2026-10-16 てじゃ「茎より明るいから違和感」）
             int rows = prof.Length + 1, cb = m.V.Count;
             for (int j = 0; j < rows; j++)
                 for (int i = 0; i <= CSeg; i++)
@@ -697,12 +697,12 @@ public static class FuwaKazeDeco
                     else { pr = prof[prof.Length - 1] + new Vector2(0.012f, 0.045f) * Mathf.Sqrt(lobe); k = 1f; }   // ふち：がくの先が丸く出る
                     var pos = c + o * pr.x * r + Vector3.up * pr.y * r;
                     var col = Color.Lerp(dark, light, k * 0.7f + lobe * 0.3f);
-                    m.Add(pos, (o * 0.5f + Vector3.up).normalized, col);
+                    m.Add(pos, (o + Vector3.up * 0.15f).normalized, col);   // 法線は茎と同じく横向き（上向きだと茎より明るく照らされた）
                 }
             for (int j = 0; j < rows - 1; j++)
                 for (int i = 0; i < CSeg; i++) { int q = cb + j * (CSeg + 1) + i; m.Quad(q, q + CSeg + 1, q + CSeg + 2, q + 1); }
             // 底のふた（茎とのすき間）
-            int bc = m.Add(c + Vector3.up * prof[0].y * r - Vector3.up * r * 0.01f, Vector3.up, dark);
+            int bc = m.Add(c + Vector3.up * prof[0].y * r - Vector3.up * r * 0.01f, Vector3.down, dark);
             for (int i = 0; i < CSeg; i++) m.Tri(bc, cb + i + 1, cb + i);
         }
         void Beard(float a)
@@ -712,9 +712,9 @@ public static class FuwaKazeDeco
             var p0 = c + o * r * 0.075f + Vector3.up * -0.115f * r; var p1 = p0 + (o * 0.45f - Vector3.up * 0.9f).normalized * r * 0.055f; var p2 = p1 + (o * 0.05f - Vector3.up).normalized * r * 0.06f;   // 外へ張り出すとクモの足に見えたので、茎ぞいに
             var ps = new[] { p0, p1, p2 }; var ws = new[] { r * 0.022f, r * 0.018f, r * 0.009f };
             int bi = m.V.Count, bt = m.T.Count;
-            for (int j = 0; j < 3; j++) { m.Add(ps[j] - side * ws[j], Vector3.up, LeafG * 0.9f); m.Add(ps[j] + side * ws[j], Vector3.up, LeafG * 0.9f); }
+            for (int j = 0; j < 3; j++) { m.Add(ps[j] - side * ws[j], o, StemG * 0.82f); m.Add(ps[j] + side * ws[j], o, StemG * 0.82f); }
             m.Quad(bi, bi + 1, bi + 3, bi + 2); m.Quad(bi + 2, bi + 3, bi + 5, bi + 4);
-            int tip = m.Add(p2 + (p2 - p1).normalized * ws[2], Vector3.up, LeafG * 0.9f); m.Tri(bi + 4, bi + 5, tip);
+            int tip = m.Add(p2 + (p2 - p1).normalized * ws[2], o, StemG * 0.82f); m.Tri(bi + 4, bi + 5, tip);
             var pn = Vector3.Cross(side, (p1 - p0).normalized).normalized * r * 0.003f;
             int vb2 = m.V.Count, ve = vb2, te = m.T.Count;
             for (int i = bi; i < ve; i++) m.Add(m.V[i] - pn, m.N[i], m.C[i]);
