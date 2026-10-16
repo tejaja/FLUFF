@@ -65,7 +65,7 @@ public static class FuwaSecretIsland
         var pm = lobby.Find("PracticeMushroom");
         var m = new GameObject("SecretMushroom").transform; m.SetParent(root, false);
         // 降りた人は写真館と反対（-Z）を向いているので、きのことワープはその前に左右に並べる
-        m.localPosition = new Vector3(0.6f, 0f, -0.3f); m.localRotation = Quaternion.identity; m.localScale = Vector3.one * 1.15f;
+        m.localPosition = new Vector3(0.6f, 0f, -0.3f); m.localRotation = Quaternion.identity; m.localScale = Vector3.one * 0.9f;   // 2026-10-16 てじゃ「もうちょい小さく」（前は1.15）
         foreach (var n in new[] { "Stem", "Cap", "Gill" })
         {
             var src = pm.Find(n);
@@ -172,20 +172,29 @@ public static class FuwaSecretIsland
         UdonSharpEditorUtility.CopyProxyToUdon(trig); EditorUtility.SetDirty(trig);
         foreach (var r in w.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(r.gameObject, 0);
 
-        // 文字：「ロビーへ」（言語切りかえに登録）
-        var label = w.transform.Find("Label").GetComponent<TMPro.TextMeshPro>();
-        label.text = "ロビーへ"; EditorUtility.SetDirty(label);
+        // 札（「ロビーへ」）は付けない（2026-10-16 てじゃ「ロビーへの看板いらんかも」）
+        var label = w.transform.Find("Label"); if (label != null) Object.DestroyImmediate(label.gameObject);
+        int removed = DropMissingLanguageTexts();
+        return "warp ok (lang cleaned " + removed + ")";
+    }
+
+    // 言語切りかえの文字の一覧から、消えた文字（前に作った札）の行を取りのぞく
+    static int DropMissingLanguageTexts()
+    {
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
         var lso = new SerializedObject(lang);
         var texts = lso.FindProperty("texts"); var ja = lso.FindProperty("ja"); var en = lso.FindProperty("en");
-        int k = texts.arraySize;
-        for (int i = 0; i < texts.arraySize; i++) if (texts.GetArrayElementAtIndex(i).objectReferenceValue == null) { k = i; break; }
-        if (k == texts.arraySize) { texts.arraySize++; ja.arraySize = texts.arraySize; en.arraySize = texts.arraySize; }
-        texts.GetArrayElementAtIndex(k).objectReferenceValue = label;
-        ja.GetArrayElementAtIndex(k).stringValue = "ロビーへ";
-        en.GetArrayElementAtIndex(k).stringValue = "Lobby";
-        lso.ApplyModifiedPropertiesWithoutUndo(); UdonSharpEditorUtility.CopyProxyToUdon(lang); EditorUtility.SetDirty(lang);
-        return "warp ok (lang " + k + ")";
+        int removed = 0;
+        for (int i = texts.arraySize - 1; i >= 0; i--)
+        {
+            if (texts.GetArrayElementAtIndex(i).objectReferenceValue != null) continue;
+            texts.DeleteArrayElementAtIndex(i);
+            if (i < ja.arraySize) ja.DeleteArrayElementAtIndex(i);
+            if (i < en.arraySize) en.DeleteArrayElementAtIndex(i);
+            removed++;
+        }
+        if (removed > 0) { lso.ApplyModifiedPropertiesWithoutUndo(); UdonSharpEditorUtility.CopyProxyToUdon(lang); EditorUtility.SetDirty(lang); }
+        return removed;
     }
 
     // 写真館・小島の下に落ちたら暗転してロビーへ（ロビーの下の FallReturn を写して、写真館のまわりを広くおおう）
