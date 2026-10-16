@@ -38,7 +38,7 @@ public static partial class FuwaKazeDeco
 
     // ---- 浮島ごとに分けて、近い＝ふつうの版／遠い＝板の版 を LODGroup で切りかえる ----
     // まとめメッシュ（Dandelions / PuffTufts / DandelionsLite）は作るためだけに残して非表示。各島に DandelionLOD（Plants・Tufts・Lite）を置く
-    const float LiteSwitchDistance = 20f;   // このくらい（m）から板の版（縦の画角60度で計算。VRは広いのでもう少し近くで切りかわる）
+    const float LiteSwitchDistance = 30f;   // 2026-10-16 てじゃ「きりかわるの近い」で 20→30   // このくらい（m）から板の版（縦の画角60度で計算。VRは広いのでもう少し近くで切りかわる）
     static string SplitLod()
     {
         var root = GameObject.Find(Course).transform;
@@ -72,10 +72,12 @@ public static partial class FuwaKazeDeco
             }
             var g = holder.GetComponent<LODGroup>(); if (g == null) g = Undo.AddComponent<LODGroup>(holder.gameObject);
             g.fadeMode = LODFadeMode.None;
-            g.SetLODs(new[] { new LOD(0.5f, hiR.ToArray()), new LOD(0.01f, liteR.ToArray()) });
-            g.RecalculateBounds();
-            float h0 = Mathf.Clamp(g.size / (2f * LiteSwitchDistance * Mathf.Tan(30f * Mathf.Deg2Rad)), 0.02f, 0.95f);
-            g.SetLODs(new[] { new LOD(h0, hiR.ToArray()), new LOD(0.01f, liteR.ToArray()) });
+            // 冠毛（Tufts）は遠くでも今の版のまま（板にすると色味が出せなかった）。軽くするのは草花（Plants）だけ
+            var tuftR = hiR.Where(r => r.name == "Tufts").ToList(); var farR = liteR.Concat(tuftR).ToArray();
+            g.SetLODs(new[] { new LOD(0.5f, hiR.ToArray()), new LOD(0.005f, farR) });
+            // SetLODs で size が描く物全部の大きさに戻るので、そのあとの size で計算する。品質設定の LOD Bias（今は2）でも距離が倍になるので割る
+            float h0 = Mathf.Clamp(g.size / (2f * LiteSwitchDistance * Mathf.Tan(30f * Mathf.Deg2Rad) * Mathf.Max(0.1f, QualitySettings.lodBias)), 0.005f, 0.95f);
+            g.SetLODs(new[] { new LOD(h0, hiR.ToArray()), new LOD(Mathf.Min(0.004f, h0 * 0.5f), farR) });
             made.AddRange(hiR); made.AddRange(liteR);
         }
         // まとめメッシュは作るためだけ（表示しない）
@@ -266,20 +268,12 @@ public static partial class FuwaKazeDeco
             var fwd = Vector3.Cross(side, up).normalized;
             float h = HeadOuter(hr) * PuffFrame;
             var isl = GameObject.Find(Course).transform.GetComponentsInChildren<Transform>(true).First(t => t.name == "DandelionIslands");
-            var objs = new[] { isl.Find("Dandelions"), isl.Find("PuffTufts") }.Where(t => t != null).Select(t => t.gameObject).ToList();
+            // 冠毛（PuffTufts）は遠くでも今の版を使うので、絵には芯と軸だけ撮る（板にすると冠毛のふわっとした色が出せなかった。2026-10-16 てじゃ「綿毛の色味がむずい」）
+            var objs = new[] { isl.Find("Dandelions") }.Where(t => t != null).Select(t => t.gameObject).ToList();
             var keepL = objs.Select(o => o.layer).ToList(); var keepA = objs.Select(o => o.activeSelf).ToList();
             foreach (var o in objs) { o.layer = layer; o.SetActive(true); }   // まとめメッシュは LOD に分けた後は非表示なので、撮る間だけ出す
             try { Blit(atlas, null, hp - fwd * (h * 3f), Quaternion.LookRotation(fwd, up), h, h, layer, 512, 512, 512, 512, h * 2f, h * 4f); }
             finally { for (int i = 0; i < objs.Count; i++) { objs[i].layer = keepL[i]; objs[i].SetActive(keepA[i]); } }
-            // 板にすると切り抜きでふわっとした光がなくなって灰色っぽく見えたので、毛を白に寄せる（芯と茎は少しだけ）
-            for (int y = 512; y < 1024; y++)
-                for (int x = 512; x < 1024; x++)
-                {
-                    var c = atlas.GetPixel(x, y); if (c.a <= 0f) continue;
-                    bool green = c.g > c.r * 1.15f && c.g > c.b * 1.15f, brown = c.r > c.b * 1.25f;
-                    float k = green || brown ? 0.12f : 0.45f;
-                    atlas.SetPixel(x, y, new Color(Mathf.Lerp(c.r, 1f, k), Mathf.Lerp(c.g, 1f, k), Mathf.Lerp(c.b, 1f, k), c.a));
-                }
         }
         atlas.Apply();
         System.IO.File.WriteAllBytes(AtlasPath, atlas.EncodeToPNG());

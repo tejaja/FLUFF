@@ -8,6 +8,7 @@ Shader "FuwaCourse/DandelionLite"
         _Cutoff ("Cutoff", Range(0, 1)) = 0.45
         _Wrap ("Soft Light (wrap)", Range(0, 1)) = 0.5
         _Ambient ("Ambient", Range(0, 1)) = 0.35
+        _Bright ("明るさ（影がないぶん下げる）", Range(0, 1.5)) = 0.85
         [Header(Sway)]
         _SwayAmp ("ゆれ幅 (m、0=ゆれない)", Float) = 0
         _SwaySpeed ("ゆれの速さ", Float) = 1.2
@@ -29,7 +30,7 @@ Shader "FuwaCourse/DandelionLite"
             #include "Lighting.cginc"
 
             sampler2D _MainTex; float4 _MainTex_ST;
-            half _Cutoff, _Wrap, _Ambient;
+            half _Cutoff, _Wrap, _Ambient, _Bright;
             float _SwayAmp, _SwaySpeed; float4 _SwayDir;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; fixed4 color : COLOR; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; float4 uv3 : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -86,7 +87,7 @@ Shader "FuwaCourse/DandelionLite"
                 fixed3 col = tex.rgb * GammaToLinearSpace(i.color.rgb);
                 half3 amb = ShadeSH9(half4(0, 1, 0, 1));
                 half d = saturate((dot(n, l) + _Wrap) / (1 + _Wrap));
-                fixed4 c = fixed4(col * d * _LightColor0.rgb + col * amb * _Ambient * 2, 1);
+                fixed4 c = fixed4((col * d * _LightColor0.rgb + col * amb * _Ambient * 2) * _Bright, 1);
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;
             }
