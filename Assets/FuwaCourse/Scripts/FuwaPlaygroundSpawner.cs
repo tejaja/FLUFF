@@ -172,7 +172,10 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
         if (popLabel != null) popLabel.text = Pad(3, en) + (en ? ("On landing: " + V + (_popGround ? "Pop" : "Stay") + VE)
                                                  : ("おちたら: " + V + (_popGround ? "きえる" : "きえない") + VE));
         if (faceLabel != null) faceLabel.text = Pad(4, en) + (en ? "Face: " : "かお: ") + V + (_face ? (en ? "On" : "あり") : (en ? "Off" : "なし")) + VE;
-        if (furLabel != null) furLabel.text = Pad(5, en) + (en ? "Fur: " : "もふもふ: ") + V + (_plain ? (en ? "Off" : "なし") : (en ? "On" : "あり")) + VE;
+        // もふもふだけは自分の画面だけの設定（ほかは同期）なので、下に小さく書いておく（2026-10-17 てじゃ「これだけローカル設定だよって分かるように」）。
+        // フォントに「画面」の漢字がないのでひらがな
+        if (furLabel != null) furLabel.text = "<line-height=45%>" + Pad(5, en) + (en ? "Fur: " : "もふもふ: ") + V + (_plain ? (en ? "Off" : "なし") : (en ? "On" : "あり")) + VE
+            + "\n<align=center><size=50%><color=#8A96AA>" + (en ? "only on your screen" : "じぶんのがめんだけ") + "</color></size></align>";
     }
 
     private string Pad(int k, bool en)
