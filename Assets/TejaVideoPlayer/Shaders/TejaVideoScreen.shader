@@ -67,5 +67,35 @@ Shader "TejaVideo/Screen"
             }
             ENDCG
         }
+
+        // カメラの深度テクスチャ用（ShadowCaster パスで描かれる）。無いと画面が深度に入らず、深度から地面を探すデカール
+        // （FLUFF の風の床の模様など）が画面の奥の床に描いて透けて見えた（2026-10-17）。
+        // 影は落とさない：太陽（平行光源）の影の地図は正射影なので、その時は三角形を画面の外へ飛ばす
+        Pass
+        {
+            Tags { "LightMode"="ShadowCaster" }
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_instancing
+            #pragma multi_compile_shadowcaster
+            #include "UnityCG.cginc"
+
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { V2F_SHADOW_CASTER; UNITY_VERTEX_OUTPUT_STEREO };
+
+            v2f vert (appdata v)
+            {
+                v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                TRANSFER_SHADOW_CASTER_NORMALOFFSET(o)
+                if (UNITY_MATRIX_P[3][3] > 0.5) o.pos = float4(2, 2, 2, 1);   // 正射影＝太陽の影の地図には描かない
+                return o;
+            }
+
+            float4 frag (v2f i) : SV_Target { SHADOW_CASTER_FRAGMENT(i) }
+            ENDCG
+        }
     }
 }

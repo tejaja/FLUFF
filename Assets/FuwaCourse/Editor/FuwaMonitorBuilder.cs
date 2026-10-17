@@ -76,7 +76,8 @@ public static class FuwaMonitorBuilder
         var feedRT = follow.feedTexture != null ? follow.feedTexture : follow.cam.targetTexture;
         if (feedRT == rt) feedRT = AssetDatabase.FindAssets("FollowCamFeed t:RenderTexture").Select(id => AssetDatabase.LoadAssetAtPath<RenderTexture>(AssetDatabase.GUIDToAssetPath(id))).FirstOrDefault();
         var screenMat = AssetDatabase.LoadAssetAtPath<Material>(ScreenMatPath);
-        if (screenMat == null) { screenMat = new Material(Shader.Find("Unlit/Texture")) { name = "MonitorScreen" }; AssetDatabase.CreateAsset(screenMat, ScreenMatPath); }
+        if (screenMat == null) { screenMat = new Material(Shader.Find("Fuwa/MonitorScreen")) { name = "MonitorScreen" }; AssetDatabase.CreateAsset(screenMat, ScreenMatPath); }
+        screenMat.shader = Shader.Find("Fuwa/MonitorScreen");   // 深度に入る画面（風の床の模様が透けないように）
         screenMat.mainTexture = rt; EditorUtility.SetDirty(screenMat);
 
         // ---- モニターのボード ----
