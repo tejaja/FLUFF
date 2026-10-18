@@ -31,8 +31,11 @@ public class FuwaBall : UdonSharpBehaviour
 
     [Header("リスポーン")]
     public Transform startPoint;
-    [Tooltip("この高さより下に落ちたらアウト")]
+    [Tooltip("この高さより下に落ちたらアウト（ステージ1）")]
     public float killHeight = -3f;
+    [Tooltip("ステージ2（つぎのしま、ステージ1の真下170m）でのアウトの高さ。2026-10-17")]
+    public float stage2KillHeight = -200f;
+    private int _stage = 1;
     [Tooltip("コースアウト判定：真下に道が無く、最後に通った道の高さよりこれだけ下がったらアウト(m)")]
     public float offCourseDrop = 0.8f;
     private float _lastGroundY = -10000f;
@@ -262,7 +265,7 @@ public class FuwaBall : UdonSharpBehaviour
             _teleportOnReset = false;
             ResetToRespawn(); ReviveEnemies();   // アウトで戻ったら、モンスターも家に戻す
         }
-        if (!_waiting && !_carried && _resetAt < 0f && transform.position.y < killHeight) Fail();
+        if (!_waiting && !_carried && _resetAt < 0f && transform.position.y < (_stage == 2 ? stage2KillHeight : killHeight)) Fail();
         CheckOffCourse();
 
         if (timerText != null)
@@ -415,6 +418,19 @@ public class FuwaBall : UdonSharpBehaviour
     }
 
     // 風ゾーンから毎フレーム呼ばれる（加速度）
+    // 今いるステージ（ワープ FuwaCourseWarp.stage から）。アウトの高さを切り替える
+    public void SetStage(int stage) { if (stage > 0) _stage = stage; }
+
+    // 水（FuwaWater）から：浮力・水の抵抗・流れの加速度。風と違って撃った直後も弱めない、光らせない
+    public void AddWater(Vector3 acceleration)
+    {
+        if (_waiting || _resetAt > 0f || _stuck) return;
+        _rb.AddForce(acceleration, ForceMode.Acceleration);
+    }
+    public Vector3 GetVelocity() { return _rb != null ? _rb.velocity : Vector3.zero; }
+    public float GetFallAcceleration() { return fallAcceleration; }
+    public float GetDrag() { return _rb != null ? _rb.drag : airDrag; }
+
     public void AddWind(Vector3 acceleration)
     {
         if (_waiting || _resetAt > 0f || _stuck) return;
@@ -473,6 +489,13 @@ public class FuwaBall : UdonSharpBehaviour
     {
         if (scale > _gravityScale) _gravityScale = scale;
         if (scale > 1f && !_waiting && !_hidden && _resetAt < 0f) SetGlow(gravityGlowColor, Vector3.down, 1f, 0.1f);
+    }
+
+    // 滝（FuwaWaterfall）から：重くするのは同じ、光る色だけ水色に（重くなるゾーンの紫と見分ける）
+    public void SetGravityScaleTint(float scale, Color tint)
+    {
+        if (scale > _gravityScale) _gravityScale = scale;
+        if (scale > 1f && !_waiting && !_hidden && _resetAt < 0f) SetGlow(tint, Vector3.down, 0.8f, 0.1f);
     }
 
     // 光らせる（色・向き・強さ・保つ秒数）。発射台の光っている間は、弱い横風などで上書きしない

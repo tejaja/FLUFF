@@ -24,6 +24,8 @@ public class FuwaCourseWarp : UdonSharpBehaviour
     public int homeAction = 0;
     [Tooltip("ワープ先のエリア（0=入口 / 1=ひとり / 2=たいせん / -1=切り替えない）。そのエリアだけ表示する")]
     public int area = -1;
+    [Tooltip("ひとりでモードの中のステージ（1＝ステージ1、2＝つぎのしま、0＝切り替えない）。入口・あそびばからひとりでへ入るワープは 1")]
+    public int stage = 0;
     public FuwaAreaVisibility areaVisibility;
     [Tooltip("コースへのワープ用：コース中に手動リスポーンしてロビーへ戻った時の立ち位置（そのコースのポータルの方を向いた場所。なくてもOK）")]
     public Transform lobbyReturnSpot;
@@ -238,6 +240,8 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         }
         if (ball != null && courseStart != null) ball.StartCourse(courseStart, timed);
         if (resetReadMarks != null) resetReadMarks.ResetFromRespawn();
+        if (stage > 0 && ball != null) ball.SetStage(stage);
+        if (areaVisibility != null && stage > 0) areaVisibility.ShowStage(stage);
         if (areaVisibility != null && area >= 0 && areaVisibility.GetArea() != area) areaVisibility.ShowArea(area);
     }
 
@@ -261,6 +265,8 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         if (hideOnWarp != null) hideOnWarp.SetActive(false);
         if (resetReadMarks != null) resetReadMarks.ResetFromRespawn();
         // 最後にエリアの表示を切り替える（このワープ自身が非表示になることがあるので最後に）
+        if (stage > 0 && ball != null) ball.SetStage(stage);
+        if (areaVisibility != null && stage > 0) areaVisibility.ShowStage(stage);
         if (areaVisibility != null && area >= 0) areaVisibility.ShowArea(area);
     }
 }

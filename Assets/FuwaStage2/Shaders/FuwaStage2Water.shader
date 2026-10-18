@@ -1,0 +1,106 @@
+// ステージ2「みずのたに」の水面（2026-10-17）。ステージ1の温泉（FuwaCourse/HotSpring）と同じ、光を当てない明るいトゥーンの水
+// ・ふちほど明るい水色、まん中は濃い水色。ふちに白い泡の線（ゆらゆら太さが変わる）
+// ・流れのある水は、流れの向きに白い筋が流れていく（向き＝この板のローカル +Y を水平にしたもの。builder が向けて置く）
+// ・止まった水はゆっくり揺れるさざなみ。どちらもたまにきらっと光る
+// 板（Unity の Quad、X に90度倒して置く）の uv 0〜1 と、板の大きさ（行列から）で、ふちからの距離をメートルで出す
+// 静的バッチングだとオブジェクトの行列が消えるので、水面は Static にしないこと
+Shader "FuwaStage2/Water"
+{
+    Properties
+    {
+        _Deep ("Center Color", Color) = (0.26, 0.66, 0.86, 1)
+        _Shallow ("Edge Color", Color) = (0.58, 0.88, 0.95, 1)
+        _Foam ("Foam Color", Color) = (0.96, 1, 1, 1)
+        _FoamWidth ("Edge Foam Width (m)", Float) = 0.18
+        _DeepWidth ("Edge→Center Width (m)", Float) = 2.0
+        _FlowSpeed ("Flow Speed (m/s, 0=still)", Float) = 0
+        _StreakScale ("Streak Size", Float) = 1.0
+        _StreakStrength ("Streak Strength", Range(0, 1)) = 0.55
+        _Sparkle ("Sparkle", Range(0, 1)) = 0.5
+    }
+    SubShader
+    {
+        Tags { "Queue" = "Geometry" "RenderType" = "Opaque" }
+        Pass
+        {
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_fog
+            #include "UnityCG.cginc"
+
+            fixed4 _Deep, _Shallow, _Foam;
+            float _FoamWidth, _DeepWidth, _FlowSpeed, _StreakScale, _StreakStrength, _Sparkle;
+
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wp : TEXCOORD1; float4 frame : TEXCOORD2; UNITY_FOG_COORDS(3) };
+
+            v2f vert (appdata v)
+            {
+                v2f o;
+                o.pos = UnityObjectToClipPos(v.vertex);
+                o.uv = v.uv;
+                o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
+                // 板の横・縦の大きさ(m)と、流れの向き（ローカル +Y を水平に）
+                float3 ax = mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0));
+                float3 ay = mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0));
+                float2 fd = ay.xz; float fl = length(fd); fd = fl > 1e-4 ? fd / fl : float2(0, 1);
+                o.frame = float4(length(ax), length(ay), fd);
+                UNITY_TRANSFER_FOG(o, o.pos);
+                return o;
+            }
+
+            float Hash(float2 p) { return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
+            float Noise(float2 p)
+            {
+                float2 i = floor(p), f = frac(p);
+                float2 u = f * f * (3 - 2 * f);
+                return lerp(lerp(Hash(i), Hash(i + float2(1, 0)), u.x), lerp(Hash(i + float2(0, 1)), Hash(i + float2(1, 1)), u.x), u.y);
+            }
+
+            fixed4 frag (v2f i) : SV_Target
+            {
+                float2 size = i.frame.xy;
+                float2 fd = i.frame.zw;
+                // ふちからの距離(m)
+                float2 d2 = min(i.uv, 1 - i.uv) * size;
+                float edge = min(d2.x, d2.y);
+                float3 col = lerp(_Shallow.rgb, _Deep.rgb, smoothstep(0, _DeepWidth, edge));
+                // 流れの座標：along＝流れの向き、across＝横
+                float2 perp = float2(-fd.y, fd.x);
+                float along = dot(i.wp.xz, fd), across = dot(i.wp.xz, perp);
+                float s = _StreakScale;
+                if (_FlowSpeed > 0.001)
+                {
+                    // 流れの白い筋：横に細かく、流れの向きに長いノイズを流す。2つ重ねて速さを少しずらす
+                    float2 p1 = float2(across * 2.2 / s, (along - _Time.y * _FlowSpeed) * 0.35 / s);
+                    float2 p2 = float2(across * 3.1 / s + 7.3, (along - _Time.y * _FlowSpeed * 1.35) * 0.5 / s);
+                    float n = Noise(p1) * 0.6 + Noise(p2) * 0.4;
+                    float streak = smoothstep(0.62, 0.72, n);
+                    col = lerp(col, _Foam.rgb, streak * _StreakStrength);
+                }
+                else
+                {
+                    // 止まった水：ゆっくり動くさざなみの明るい線
+                    float n = Noise(i.wp.xz * 0.9 / s + float2(_Time.y * 0.12, _Time.y * 0.07)) + Noise(i.wp.xz * 1.7 / s - _Time.y * 0.1) * 0.5;
+                    // 等高線の山のところだけ細い明るい線（frac が 0/1 に近い所）
+                    float rip = smoothstep(0.0, 0.025, abs(frac(n * 1.6) - 0.5) - 0.455);
+                    col = lerp(col, _Foam.rgb, rip * _StreakStrength * 0.7);
+                }
+                // きらめき
+                float2 cell = floor(i.wp.xz * 5.0);
+                float h = Hash(cell);
+                float tw = saturate(sin(_Time.y * (1.5 + h * 2.0) + h * 40.0) * 8.0 - 7.0);
+                float2 f = frac(i.wp.xz * 5.0) - 0.5;
+                col = lerp(col, _Foam.rgb, tw * (1 - smoothstep(0.05, 0.2, length(f))) * _Sparkle * step(0.65, h));
+                // ふちの泡（場所と時間で太さがゆらぐ）
+                float fw = _FoamWidth * (0.7 + 0.3 * sin((along + across) * 3.0 + _Time.y * 1.2));
+                col = lerp(col, _Foam.rgb, 1 - smoothstep(fw * 0.5, fw, edge));
+                fixed4 c = fixed4(col, 1);
+                UNITY_APPLY_FOG(i.fogCoord, c);
+                return c;
+            }
+            ENDCG
+        }
+    }
+}

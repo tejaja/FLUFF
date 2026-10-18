@@ -104,9 +104,14 @@ public class FuwaWindDeco : UdonSharpBehaviour
         }
         if (head != null)
         {
-            // 風上を向く（羽の正面＝ローカル -Z 側が風上）
-            Quaternion hq = Quaternion.LookRotation(faceDownwind ? -h : h, Vector3.up);
-            head.rotation = Quaternion.Slerp(head.rotation, hq, 1f - Mathf.Exp(-2f * Time.deltaTime));
+            // 風上を向く（羽の正面＝ローカル -Z 側が風上）。回るのは棒の軸まわりだけ（斜めの棒でも羽が棒に当たらない）
+            Vector3 up = transform.up;
+            Vector3 f = Vector3.ProjectOnPlane(faceDownwind ? -h : h, up);
+            if (f.sqrMagnitude > 0.01f)
+            {
+                Quaternion hq = Quaternion.LookRotation(f.normalized, up);
+                head.rotation = Quaternion.Slerp(head.rotation, hq, 1f - Mathf.Exp(-2f * Time.deltaTime));
+            }
         }
         if (rotor != null)
         {

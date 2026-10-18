@@ -1070,6 +1070,7 @@ public static class FuwaPracticeTutorial
                     wso.FindProperty("droopAway").vector3Value = outw;   // 風がない時は道と反対へ垂れる
                     wso.ApplyModifiedPropertiesWithoutUndo();
                     Sync(wd);
+                    FuwaWindDecoBuilder.AlignSockArm(wd);   // L 字の腕を風下へ（コピー元の向きのままだとずれる）
                 }
             }
             // 看板：お手本の島のすぐ横（島のふちから10cm、島の中心より1m先）の道の上。来る人の方へ少し外向き（12°）
@@ -1245,6 +1246,7 @@ public static class FuwaPracticeTutorial
                     wso.FindProperty("droopAway").vector3Value = wl;   // 風がない時は道の外へ垂れる
                     wso.ApplyModifiedPropertiesWithoutUndo();
                     Sync(wd);
+                    FuwaWindDecoBuilder.AlignSockArm(wd);   // L 字の腕を風下へ（コピー元の向きのままだとずれる）
                 }
 
             }
@@ -2081,7 +2083,9 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                 // （左も銃を見せる。ふわふわだけだと何の見本か分かりにくい 2026-10-08 てじゃ）
                 var lat = Vector3.Cross(Vector3.up, along).normalized;
                 var enemySrc = Object.FindObjectsOfType<FuwaEnemy>(true).First(e => !e.sleeping && !e.hideInNest);
-                const float ShotAt = 2.1f;
+                // 撃つ見本：まものが寄ってくる間に溜めはじめ、満タンのまま ShotHold 秒ためてから、飛びかかる直前（dashAt 2.6）に撃つ
+                //（2026-10-18 てじゃ「チャージが短すぎてチャージでふっとばしてる感じがしない、フルチャージショット感だそう」。前は 2.1 秒・ためなし）
+                const float ShotAt = 2.45f, ShotHold = 0.8f;
                 for (int li = 0; li < 2; li++)
                 {
                     bool shoots = li == 1;
@@ -2089,7 +2093,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                     Vector3 basePos = islandCenter - along * 1.15f + lat * (shoots ? 0.75f : -0.75f);
                     // ふわふわは銃の横（風の円すいの外）。銃はまものがぷるぷるする所をねらう
                     Vector3 bo = new Vector3(shoots ? -0.45f : 0.45f, -0.35f, 0.15f);
-                    MakeLane(bayRoot, ln, basePos, along, 0.95f, bo, shoots ? new[] { ShotAt } : new float[0], shoots ? new[] { 1f } : new float[0], null, null, false, tmpl, ballSrc, floorTop);
+                    MakeLane(bayRoot, ln, basePos, along, 0.95f, bo, shoots ? new[] { ShotAt } : new float[0], shoots ? new[] { 1f } : new float[0], null, shoots ? new[] { ShotHold } : null, false, tmpl, ballSrc, floorTop);
                     var lane = bayRoot.Find(ln); var ds = lane.GetComponent<FuwaDemoStand>();
                     SetUF(ds, "cycleLength", 5.8f);
                     var bs = lane.Find("BallStart"); var gun = lane.Find("DemoGun"); var nz = gun.Find("Nozzle");

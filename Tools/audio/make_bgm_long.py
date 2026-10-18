@@ -177,7 +177,7 @@ def basics(path=None):
     return st
 
 # ---------------- かぜのみち（bgm_kaze2：Aミクソリディア108BPM、フルート＋ギターのストローク＋タム＋ドローン）----------------
-def kaze(path=None):
+def kaze(path=None, pickg=1.0, pickbright=0.28, pickfade=4):   # 2026-10-17 てじゃ k2 を採用
     """A＝今の kaze2 そのまま、B＝D から始まる16小節（前半はギターを指弾きのつま弾きに、タムなし、フルートは低めで長く。
     後半はタムが戻って、フルートが元の高さで2本目のフルートが3度下でハモる）、A'＝今のメロディ＋後半8小節だけハモり。48小節＝1分47秒。風の音は入れない"""
     from make_bgm_tower import voicing
@@ -221,8 +221,9 @@ def kaze(path=None):
                     m.add(strum([midi_hz(x) for x in vo], 0.4 * m.beat, m.vel(vel), bright=0.5, spread=0.012, down=(o == int(o))), at + o, pan=-0.45, rev=0.2, humanize=0.005)
             else:   # 指弾きのつま弾き（1音ずつ8分で）
                 seq = [vo[0], vo[2], vo[1], vo[3], vo[2], vo[1], vo[3], vo[2]]
+                fade = min(1.0, 0.35 + 0.65 * bar / pickfade) if pickfade else 1.0   # 入りをそっと（てじゃ「Bの最初の弦楽器がちょっと強くてびっくり」）
                 for k, x in enumerate(seq):
-                    m.add(ks_string(midi_hz(x), 1.2 * m.beat, m.vel(0.42 if k % 4 == 0 else 0.32), bright=0.45), at + k * 0.5, pan=-0.4, rev=0.25, gain=2.2, humanize=0.006)
+                    m.add(ks_string(midi_hz(x), 1.2 * m.beat, m.vel(0.42 if k % 4 == 0 else 0.32), bright=pickbright), at + k * 0.5, pan=-0.4, rev=0.25, gain=pickg * fade, humanize=0.006)
             if bar % 4 == 0:
                 m.add(warm_pad(midi_hz(old.nearest(45, [kp], 40, 50)), 16 * m.beat, 0.35, bright=0.3), at, rev=0.35, humanize=0)
                 m.add(warm_pad(midi_hz(old.nearest(52, [(kp + 7) % 12], 48, 57)), 16 * m.beat, 0.22, bright=0.3), at, rev=0.35, humanize=0)

@@ -414,8 +414,9 @@ public static class FuwaPlaygroundBuilder
             var slot = new GameObject("Unlock" + (i + 1)).transform; slot.SetParent(toys, false); slot.position = sl;
             slot.rotation = Quaternion.LookRotation(-outDir);
             unlockToys[i] = slot.gameObject;
-            string ja = "コース" + (i + 1) + "「" + courseJa[i] + "」を\nクリアすると でてくるよ";
-            string en = "Clear Course " + (i + 1) + "\n" + courseEn[i] + " to unlock";
+            // 2026-10-17 ステージ制の番号（1–1〜）。ハイフンは遠くで消えるので en ダッシュ
+            string ja = "コース1–" + (i + 1) + "「" + courseJa[i] + "」を\nクリアすると でてくるよ";
+            string en = "Clear Course 1–" + (i + 1) + "\n" + courseEn[i] + " to unlock";
             var (lroot, lbl) = LockedSign(toys, "Locked" + (i + 1), sl, outDir, CourseAccent[i], ja);
             lockedSigns[i] = lroot;
             var lso2 = new SerializedObject(Object.FindObjectsOfType<FuwaLanguage>(true).First()); AddLang(lso2, "texts", "ja", "en", lbl, ja, en); lso2.ApplyModifiedPropertiesWithoutUndo();

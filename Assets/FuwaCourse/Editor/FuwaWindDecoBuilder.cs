@@ -36,7 +36,7 @@ public static class FuwaWindDecoBuilder
         for (int i = 0; i < seg; i++) { int j = (i + 1) % seg; int a0 = b + i * 2, a1 = a0 + 1, b0 = b + j * 2, b1 = b0 + 1; T.AddRange(new[] { a0, a1, b1, a0, b1, b0 }); }
         if (!caps) return;
         int c0 = V.Count; V.Add(new Vector3(0, y0, 0)); int c1 = V.Count; V.Add(new Vector3(0, y1, 0));
-        for (int i = 0; i < seg; i++) { int j = (i + 1) % seg; T.AddRange(new[] { c0, b + j * 2, b + i * 2 }); T.AddRange(new[] { c1, b + i * 2 + 1, b + j * 2 + 1 }); }
+        for (int i = 0; i < seg; i++) { int j = (i + 1) % seg; T.AddRange(new[] { c0, b + i * 2, b + j * 2 }); T.AddRange(new[] { c1, b + j * 2 + 1, b + i * 2 + 1 }); }
     }
 
     static Mesh Finish(List<Vector3> V, List<List<int>> subs, bool flat)
@@ -63,6 +63,28 @@ public static class FuwaWindDecoBuilder
         int b = V.Count; int la = 6, lo = 10; float r = 0.06f;
         for (int i = 0; i <= la; i++) for (int j = 0; j < lo; j++) { float th = Mathf.PI * i / la, ph = Mathf.PI * 2 * j / lo; V.Add(new Vector3(Mathf.Sin(th) * Mathf.Cos(ph) * r, h + 0.04f + Mathf.Cos(th) * r, Mathf.Sin(th) * Mathf.Sin(ph) * r)); }
         for (int i = 0; i < la; i++) for (int j = 0; j < lo; j++) { int a = b + i * lo + j, c = b + i * lo + (j + 1) % lo, d = a + lo, e = c + lo; T.AddRange(new[] { a, c, e, a, e, d }); }
+        return Finish(V, new List<List<int>> { T }, false);
+    }
+
+    // かざぐるまの棒：先端は丸い頭（玉なし）。羽はこの先端から前へ出した軸につける
+    public const float PinPoleH = 1.55f, PinPoleR = 0.03f, PinHeadDown = 0.02f, PinRotorZ = -0.085f, PinAxleR = 0.011f;
+    public static Mesh PinwheelPoleMesh()
+    {
+        var V = new List<Vector3>(); var T = new List<int>(); const int seg = 10;
+        Tube(V, T, 0.035f, PinPoleR, 0f, PinPoleH, seg, true);
+        int b = V.Count; const int la = 3;
+        for (int i = 0; i <= la; i++) for (int j = 0; j < seg; j++) { float th = Mathf.PI * 0.5f * i / la, ph = Mathf.PI * 2 * j / seg; V.Add(new Vector3(Mathf.Cos(th) * Mathf.Cos(ph) * PinPoleR, PinPoleH + Mathf.Sin(th) * PinPoleR, Mathf.Cos(th) * Mathf.Sin(ph) * PinPoleR)); }
+        for (int i = 0; i < la; i++) for (int j = 0; j < seg; j++) { int a = b + i * seg + j, c = b + i * seg + (j + 1) % seg, d = a + seg, e = c + seg; T.AddRange(new[] { a, d, e, a, e, c }); }
+        return Finish(V, new List<List<int>> { T }, false);
+    }
+
+    // かざぐるまの軸：頭の原点（棒の中心）からローカル -Z の羽の中心まで
+    public static Mesh PinwheelAxleMesh()
+    {
+        var V = new List<Vector3>(); var T = new List<int>(); const int seg = 8;
+        float z0 = 0f, z1 = PinRotorZ - 0.01f;
+        for (int i = 0; i < seg; i++) { float a = i * Mathf.PI * 2 / seg; var o = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0) * PinAxleR; V.Add(o + new Vector3(0, 0, z0)); V.Add(o + new Vector3(0, 0, z1)); }
+        for (int i = 0; i < seg; i++) { int j = (i + 1) % seg; int a0 = i * 2, a1 = a0 + 1, b0 = j * 2, b1 = b0 + 1; T.AddRange(new[] { a0, a1, b1, a0, b1, b0 }); }
         return Finish(V, new List<List<int>> { T }, false);
     }
 
@@ -206,7 +228,8 @@ public static class FuwaWindDecoBuilder
         Undo.RegisterCreatedObjectUndo(holder.gameObject, "winddeco");
 
         var poleSock = Save(PoleMesh(2.1f), "WindsockPole");
-        var polePin = Save(PoleMesh(1.55f), "PinwheelPole");
+        var polePin = Save(PinwheelPoleMesh(), "PinwheelPole");
+        var axle = Save(PinwheelAxleMesh(), "PinwheelAxle");
         var sock = Save(SockMesh(), "Windsock");
         var tether = Save(TetherMesh(), "WindsockTether");
         var sockPole = Save(SockPoleMesh(), "WindsockPoleL");
@@ -266,12 +289,14 @@ public static class FuwaWindDecoBuilder
                 var headPos = W(pc, sp.s + 0.2f, hw + 0.75f, 0.55f);   // 柄は短め
                 var d = headPos - basePos;
                 baseRot = Quaternion.FromToRotation(Vector3.up, d.normalized);
-                poleScale = d.magnitude / 1.48f;
+                poleScale = d.magnitude / (PinPoleH - PinHeadDown);
             }
             else
             {
-                // 柱は道の横の面にくっつける（道のふちのすぐ外、下端は道の底）
-                basePos = W(pc, sp.s, sp.side * (hw + 0.05f), -FuwaCourse1Builder.Thick);
+                // 柱は道の横の面にくっつける（道のふちのすぐ外、下端は道の底）。柱の太さぶんだけ外に＝面にぴったり
+                //（前は 5cm 外で 1.5〜2cm すき間が見えていた。2026-10-18 てじゃ「コース外の縁にぴったりくっついてる形に」）
+                float poleR = sp.sock ? SockPoleR : 0.035f;
+                basePos = W(pc, sp.s, sp.side * (hw + poleR + 0.001f), -FuwaCourse1Builder.Thick);
             }
             var go = new GameObject((sp.sock ? "Windsock" : "Pinwheel") + n++);
             go.transform.SetParent(holder, true); go.transform.position = basePos; go.transform.rotation = baseRot;
@@ -295,17 +320,78 @@ public static class FuwaWindDecoBuilder
             else
             {
                 var pole = Child(go.transform, "Pole", polePin, new[] { mWood }, Vector3.zero); pole.localScale = new Vector3(1, poleScale, 1);
-                var head = new GameObject("Head").transform; head.SetParent(go.transform, false); head.localPosition = new Vector3(0, 1.48f * poleScale, 0);
+                var head = new GameObject("Head").transform; head.SetParent(go.transform, false);
                 if (sp.bridge > 0) { deco.shake = 1f; deco.shakeAngle = 1.4f; deco.shakeSpeed = 48f; deco.spinMax = 1080f; }
-                var rotor = new GameObject("Rotor").transform; rotor.SetParent(head, false); rotor.localPosition = new Vector3(0, 0, -0.06f);
+                var rotor = new GameObject("Rotor").transform; rotor.SetParent(head, false);
                 Child(rotor, "Blades", pin, new[] { mP[n % 4], mP[(n + 1) % 4], mP[(n + 2) % 4], mP[(n + 3) % 4], mPole }, Vector3.zero);
                 deco.head = head; deco.rotor = rotor;
+                FitPinwheelHead(deco, axle, mPole);
             }
             UdonSharpEditorUtility.CopyProxyToUdon(deco);
             log += go.name + " s=" + sp.s.ToString("F1") + " wind=" + (deco.wind != null ? sp.windPath : "none") + "\n";
         }
         EditorUtility.SetDirty(root.gameObject);
         AssetDatabase.SaveAssets();
+        return log;
+    }
+
+    // 羽の頭を棒の先端に合わせ、棒から前へ出した軸の先に羽をつける（羽と棒が当たらない距離）
+    static void FitPinwheelHead(FuwaWindDeco deco, Mesh axle, Material mat)
+    {
+        var pole = deco.transform.Find("Pole");
+        float sy = pole != null ? pole.localScale.y : 1f;
+        Undo.RecordObject(deco.head, "pinwheel"); Undo.RecordObject(deco.rotor, "pinwheel");
+        deco.head.localPosition = new Vector3(0, (PinPoleH - PinHeadDown) * sy, 0);
+        deco.head.localRotation = Quaternion.identity;
+        deco.rotor.localPosition = new Vector3(0, 0, PinRotorZ);
+        var ax = deco.head.Find("Axle");
+        if (ax == null) { ax = Child(deco.head, "Axle", axle, new[] { mat }, Vector3.zero); Undo.RegisterCreatedObjectUndo(ax.gameObject, "pinwheel"); }
+        ax.GetComponent<MeshFilter>().sharedMesh = axle; ax.GetComponent<MeshRenderer>().sharedMaterials = new[] { mat };
+    }
+
+    // シーンにあるかざぐるま全部（コース1・コース5・ほかのコピー）の棒と羽の頭を今の作りに合わせ直す（並べ直しはしない）
+    [MenuItem("FuwaCourse/Course1/Fit Pinwheel Heads")]
+    public static string FitAllPinwheels()
+    {
+        Save(PinwheelPoleMesh(), "PinwheelPole");
+        var axle = Save(PinwheelAxleMesh(), "PinwheelAxle");
+        var mPole = AssetDatabase.LoadAssetAtPath<Material>(MatDir + "WindDeco_Pole.mat");
+        string log = "";
+        foreach (var d in Object.FindObjectsOfType<FuwaWindDeco>(true))
+        {
+            if (d.head == null || d.rotor == null) continue;
+            FitPinwheelHead(d, axle, mPole);
+            EditorUtility.SetDirty(d.gameObject);
+            log += d.transform.parent.name + "/" + d.name + "\n";
+        }
+        AssetDatabase.SaveAssets();
+        return log;
+    }
+
+    // 吹き流しの L 字の腕を風下へ向ける（柱の根元を軸に、柱と吊り元をいっしょに回す）。風がない時も腕の先から垂れるよう droopAway も腕の向きに
+    //（2026-10-18 てじゃ「ふきながしの棒のL、全部風向きと揃えよう」。チュートリアルのコピー2本が回したコピーのままでずれていた）
+    public static void AlignSockArm(FuwaWindDeco d)
+    {
+        if (d == null || d.sock == null) return;
+        var pole = d.transform.Find("Pole"); if (pole == null) return;
+        Vector3 wind = d.wind != null ? d.wind.transform.TransformDirection(d.wind.localDirection) : d.fixedDirection;
+        wind.y = 0; if (wind.sqrMagnitude < 1e-4f) return; wind.Normalize();
+        Vector3 arm = pole.TransformDirection(Vector3.right); arm.y = 0; arm.Normalize();
+        var q = Quaternion.AngleAxis(Vector3.SignedAngle(arm, wind, Vector3.up), Vector3.up);
+        Undo.RecordObject(pole, "sock arm"); Undo.RecordObject(d.sock, "sock arm"); Undo.RecordObject(d, "sock arm");
+        var root = d.transform.position;
+        pole.position = root + q * (pole.position - root); pole.rotation = q * pole.rotation;
+        d.sock.position = root + q * (d.sock.position - root); d.sock.rotation = Quaternion.LookRotation(wind, Vector3.up);
+        d.droopAway = wind;
+        UdonSharpEditorUtility.CopyProxyToUdon(d);
+        EditorUtility.SetDirty(d.gameObject);
+    }
+
+    [MenuItem("FuwaCourse/吹き流しの腕を風下へそろえる")]
+    public static string AlignAllSockArms()
+    {
+        string log = "";
+        foreach (var d in Object.FindObjectsOfType<FuwaWindDeco>(true)) if (d.sock != null) { AlignSockArm(d); log += d.transform.parent.name + "/" + d.name + "\n"; }
         return log;
     }
 

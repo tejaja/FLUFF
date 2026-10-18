@@ -62,7 +62,16 @@ public static class FuwaWindFx
     static float StreakRate(ParticleSystem ps)
     {
         Vector3 s = ps.shape.scale;
-        return Mathf.Clamp(Mathf.Abs(s.x * s.y * s.z) * 0.065f, 3f, 24f);
+        return Mathf.Clamp(Mathf.Abs(s.x * s.y * s.z) * 0.065f, 3f, 24f) * RateScale(ps);
+    }
+
+    // かぜのおかの密度（2026-10-18 てじゃ「最初の追い風は密度ちょっとさげる、横風はもうちょいだけ多く」）
+    public static float RateScale(ParticleSystem ps)
+    {
+        var p = ps.transform.parent; string n = p != null ? p.name : "";
+        if (n == "G1_Tailwind") return 0.5f;   // 0.7 →「おいかぜだけもうちょい密度低めに」
+        if (n == "G2_CrossLeft" || n == "G3_CrossRight") return 1.2f;
+        return 1f;
     }
 
     static void SetupStreaks(ParticleSystem ps, Vector3 dir, float newSpeed)
@@ -97,12 +106,12 @@ public static class FuwaWindFx
         vel.y = new ParticleSystem.MinMaxCurve(dir.y * newSpeed);
         vel.z = new ParticleSystem.MinMaxCurve(dir.z * newSpeed);
 
-        // 前半はまっすぐ、終わりぎわほど大きく乱れて、くるっと巻いて消える
+        // 出てすぐからゆったり波打って、終わりぎわほど大きく揺れて消える（Vketブースの風と同じ形。2026-10-18）
         var noise = ps.noise;
         noise.enabled = true;
         noise.separateAxes = false;
-        noise.strength = new ParticleSystem.MinMaxCurve(2.2f, new AnimationCurve(new Keyframe(0f, 0.12f), new Keyframe(0.55f, 0.25f), new Keyframe(1f, 1f)));
-        noise.frequency = 0.45f;
+        noise.strength = new ParticleSystem.MinMaxCurve(2.2f * SleekNoise, SwayCurve());
+        noise.frequency = 0.45f * SleekFreq;
         noise.scrollSpeed = 0.6f;
         noise.damping = true;
         noise.octaveCount = 1;
@@ -121,20 +130,79 @@ public static class FuwaWindFx
         tr.enabled = true;
         tr.mode = ParticleSystemTrailMode.PerParticle;
         tr.ratio = 1f;
-        tr.lifetime = new ParticleSystem.MinMaxCurve(0.45f, 0.6f);
-        tr.minVertexDistance = 0.12f;
+        tr.lifetime = new ParticleSystem.MinMaxCurve(0.45f * SleekTrail, 0.6f * SleekTrail);
+        tr.minVertexDistance = 0.1f;
         tr.textureMode = ParticleSystemTrailTextureMode.Stretch;
         tr.worldSpace = true;
         tr.dieWithParticles = false;
         tr.sizeAffectsWidth = false;
         tr.sizeAffectsLifetime = false;
         tr.inheritParticleColor = true;
-        tr.widthOverTrail = new ParticleSystem.MinMaxCurve(0.32f, new AnimationCurve(new Keyframe(0f, 0.35f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0f)));
+        tr.widthOverTrail = new ParticleSystem.MinMaxCurve(0.32f * SleekWidth, WidthCurve());
 
         r.renderMode = ParticleSystemRenderMode.None;
-        r.trailMaterial = StreakMaterial();
+        r.trailMaterial = BandMaterial();
         r.shadowCastingMode = ShadowCastingMode.Off;
         r.receiveShadows = false;
+    }
+
+    // 風の筋を長く、ゆらゆら（2026-10-18 てじゃ「Vketのに近くしたい」）。速さは風の強さに合わせてあるのでそのまま
+    // 揺れは 1.3 倍＋出てすぐから大きく揺れる形だと「ゆらゆらが目立ちすぎ」（てじゃ）→ 0.85 倍、出てすぐは控えめに → 0.6 倍（てじゃ）
+    // 形は細くとがった筋（0.56 倍）から「もっと帯みたいな形」→ 同じ幅で続く帯・太め（1.25 倍）＋ふちくっきり・少し薄く（帯の材質）
+    // 筋の長さ 1.6 倍 →「もっと長くても良いかも」で 2.24 倍（1.6×1.4）
+    public const float SleekWidth = 1.25f, SleekTrail = 2.24f, SleekNoise = 0.6f, SleekFreq = 0.78f;
+    static AnimationCurve SwayCurve() => new AnimationCurve(new Keyframe(0f, 0.22f), new Keyframe(0.5f, 0.4f), new Keyframe(1f, 1f));
+    static AnimationCurve WidthCurve() => new AnimationCurve(new Keyframe(0f, 0.7f), new Keyframe(0.1f, 1f), new Keyframe(0.85f, 1f), new Keyframe(1f, 0.6f));   // 先も後ろも同じ幅の帯（両端は材質でうすく）
+
+    // 帯の材質（WindStreak の複製。突風・つむじ風・あそびばの扇風機は元の WindStreak のまま）
+    public static Material BandMaterial()
+    {
+        string path = MatDir + "/WindStreakBand.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (m == null) { m = new Material(StreakMaterial()); AssetDatabase.CreateAsset(m, path); }
+        m.SetFloat("_EdgeSoft", 0.4f);
+        var c = m.GetColor("_Color"); c.a = 0.62f; m.SetColor("_Color", c);
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    // シーンで風ごとに寿命・筋の長さを調整してある所があるので、作り直さずに今の設定へ掛け算で入れる（帯の材質で済みか判定、何度実行しても同じ）
+    [MenuItem("FuwaCourse/風の筋を細長くゆらゆらに（今の調整のまま）")]
+    public static string SleekAll()
+    {
+        var list = new List<ParticleSystem>();
+        foreach (var wa in Object.FindObjectsOfType<FuwaWindArea>(true))
+        {
+            if (wa.transform.root.name == "FuwaDebug") continue;
+            // 斜めの突風（かぜのおか2か所・きのこのたにのデッキ）の基本の筋も（2026-10-18 てじゃ「一個だけかわってた、全部かえていいかも」）。速い筋・ゆっくりの筋はそのまま
+            bool gust = wa.visual != null && wa.visual.name == "GustStreaks";
+            if (!gust && Mathf.Abs(wa.transform.TransformDirection(wa.localDirection).normalized.y) > 0.5f) continue;
+            foreach (var v in new[] { wa.visual, wa.visualReverse }) if (v != null && v.GetComponent<ParticleSystem>() != null) list.Add(v.GetComponent<ParticleSystem>());
+        }
+        var top = GameObject.Find("FuwaCourse2/Gimmick_Tailwind/TailwindParticlesTop"); if (top != null) list.Add(top.GetComponent<ParticleSystem>());
+        string log = "";
+        var band = BandMaterial();
+        foreach (var ps in list)
+        {
+            var tr = ps.trails;
+            var pr = ps.GetComponent<ParticleSystemRenderer>();
+            if (pr.trailMaterial == band) continue;   // もう帯にしてある
+            Undo.RecordObject(pr, "sleek wind"); pr.trailMaterial = band;
+            Undo.RecordObject(ps, "sleek wind");
+            float life = ps.main.startLifetime.constantMin;
+            tr.widthOverTrail = new ParticleSystem.MinMaxCurve(tr.widthOverTrailMultiplier * SleekWidth, WidthCurve());
+            // 筋の長さは粒の寿命まで（粒が消えた後はしっぽが追いついて縮むだけ）
+            float t0 = Mathf.Min(tr.lifetime.constantMin * SleekTrail, life), t1 = Mathf.Min(tr.lifetime.constantMax * SleekTrail, life);
+            tr.lifetime = new ParticleSystem.MinMaxCurve(t0, Mathf.Max(t0, t1));
+            tr.minVertexDistance = Mathf.Min(tr.minVertexDistance, 0.1f);
+            var nz = ps.noise;
+            nz.strength = new ParticleSystem.MinMaxCurve(nz.strengthMultiplier * SleekNoise, SwayCurve());
+            nz.frequency *= SleekFreq;
+            EditorUtility.SetDirty(ps); EditorUtility.SetDirty(pr);
+            log += ps.transform.parent.name + "/" + ps.name + "\n";
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+        return log;
     }
 
     static ParticleSystem SetupLeaves(ParticleSystem streaks, Vector3 dir, float speed)
