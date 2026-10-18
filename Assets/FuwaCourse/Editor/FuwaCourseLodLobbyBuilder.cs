@@ -30,6 +30,7 @@ public static class FuwaCourseLodLobbyBuilder
         var referenced = new HashSet<GameObject>();
         foreach (var u in Object.FindObjectsOfType<UdonSharpBehaviour>(true))
         {
+            if (u is FuwaCourseLod) continue;   // 自分の一覧（前に集めた粒）を「参照されている」と数えて、2回目に粒が全部外れた（2026-10-18）
             var so = new SerializedObject(u); var it = so.GetIterator();
             while (it.Next(true))
                 if (it.propertyType == SerializedPropertyType.ObjectReference && it.objectReferenceValue)
