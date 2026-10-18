@@ -15,7 +15,7 @@ public static class FuwaGrooveEdges
     const string ExitPath = "Assets/FuwaCourse/Meshes/Course2Path_JagExit.asset";
     const string PathBackup = "Assets/FuwaCourse/Meshes/Backup/Course2Path_broken_beforeGrooveCut.asset";
 
-    [MenuItem("FuwaCourse/Course2/溝の道の端を崩す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/溝の道の端を崩す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

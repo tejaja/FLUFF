@@ -147,7 +147,7 @@ public static class FuwaCourse1Builder
         return null;
     }
 
-    [MenuItem("FuwaCourse/Course1/Rebuild Path")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course1/Rebuild Path")]
     public static void RebuildMenu() { Debug.Log(Rebuild()); }
 
     public static string Rebuild()

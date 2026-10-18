@@ -15,7 +15,7 @@ public static class FuwaGunShowcaseSetup
     const string MeshDir = "Assets/FuwaCourse/Meshes/GunStand";
     const float ShowScale = 1.4f;   // 台の上の見た目の銃は少し大きめに（遠くからでも形が分かるように）
 
-    [MenuItem("FuwaCourse/エアガンの台の見た目を作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの台の見た目を作る")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run()

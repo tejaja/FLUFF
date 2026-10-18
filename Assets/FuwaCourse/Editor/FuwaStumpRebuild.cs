@@ -14,7 +14,7 @@ public static class FuwaStumpRebuild
     const string DstPath = "Assets/FuwaCourse/Meshes/GunStand_Stump.asset";
     const float CutY = 0.332f, RingY = 0.334f;
 
-    [MenuItem("FuwaCourse/エアガンの台の切り株を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの台の切り株を作り直す")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     class MB

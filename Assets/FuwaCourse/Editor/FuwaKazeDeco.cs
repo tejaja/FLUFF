@@ -59,7 +59,7 @@ public static partial class FuwaKazeDeco
     const int TuftsPerHead = 420;
     static readonly Color LeafG = new Color(0.27f, 0.68f, 0.2f), StemG = new Color(0.45f, 0.74f, 0.3f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
 
-    [MenuItem("FuwaCourse/かぜのおかの飾りを作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/かぜのおかの飾りを作る")]
     public static void RunMenu() { Debug.Log(BuildLite()); }   // ふつうの版＋板の版＋島ごとのLOD（2026-10-16）
 
     public static string Run()

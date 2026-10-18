@@ -11,7 +11,7 @@ public static class FuwaCourseJoinBuilder
     const float AreaMargin = 20f;   // エリアのこの距離(m)まで近づいたら切り替える
     const string ProgramPath = "Assets/FuwaCourse/Scripts/FuwaCourseJoin.asset";
 
-    [MenuItem("FuwaCourse/飛んで入ったコースの切り替えを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/飛んで入ったコースの切り替えを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

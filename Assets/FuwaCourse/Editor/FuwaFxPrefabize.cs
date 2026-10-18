@@ -12,7 +12,7 @@ public static class FuwaFxPrefabize
 {
     const string Dir = "Assets/FuwaCourse/Prefabs/FX";
 
-    [MenuItem("FuwaCourse/パーティクルをプレハブにしてシーンを軽くする")]
+    [MenuItem("FuwaCourse/よく使う/パーティクルをプレハブにしてシーンを軽くする")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

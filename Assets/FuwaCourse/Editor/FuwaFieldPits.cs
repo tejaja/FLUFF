@@ -42,7 +42,7 @@ public static class FuwaFieldPits
         return y;
     }
 
-    [MenuItem("FuwaCourse/Course2/ゴール前の岩場の落とし穴を作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/ゴール前の岩場の落とし穴を作る")]
     public static void Menu() { Debug.Log(Build()); }
 
     public static string Build()

@@ -11,7 +11,7 @@ public static class FuwaGunWeld
 {
     public static readonly string[] Meshes = { "Gun_Accent", "Gun_Body", "Gun_Grip", "Gun_Bulb", "Gun_Vent" };
 
-    [MenuItem("FuwaCourse/エアガンの重複頂点をまとめる")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの重複頂点をまとめる")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

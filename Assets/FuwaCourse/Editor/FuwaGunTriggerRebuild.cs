@@ -14,7 +14,7 @@ public static class FuwaGunTriggerRebuild
     const string GripSrcPath = "Assets/FuwaCourse/Meshes/Gun_Grip_Source.asset";
     const string GripDstPath = "Assets/FuwaCourse/Meshes/Gun_Grip.asset";
 
-    [MenuItem("FuwaCourse/エアガンのトリガーとガードを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンのトリガーとガードを作り直す")]
     public static void RunMenu()
     {
         Debug.Log(FuwaGunCollarRebuild.Run());   // トリガー（黄色の部品）はこの中で作る

@@ -12,7 +12,7 @@ public static class FuwaEnemyShadows
     const float ShadowAbove = 0.6f, ShadowBelow = 2.6f;
     const float SizeK = 1.15f;   // 体の幅に対する影の直径
 
-    [MenuItem("FuwaCourse/まものの影をつける")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/まものの影をつける")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

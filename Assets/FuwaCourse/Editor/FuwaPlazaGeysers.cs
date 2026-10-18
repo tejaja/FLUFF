@@ -24,7 +24,7 @@ public static class FuwaPlazaGeysers
     public static float BallStrength = 7f, BallFade = 0.35f;   // 1回噴くと約3m上がる（geysim.py で試算）。10だと崖より高く上がって滑空しほうだい
     const string BurstPath = "Assets/FuwaCourse/Audio/sfx_geyser_burst.wav";
 
-    [MenuItem("FuwaCourse/Course2/ゴール前の噴気孔広場を作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/ゴール前の噴気孔広場を作る")]
     public static void Menu() { Debug.Log(Build()); }
 
     static Transform Child(Transform parent, string name)
@@ -365,7 +365,7 @@ public static class FuwaPlazaGeysers
     }
 
     // ===== 「ボシュッ」と噴く音（1.4秒）=====
-    [MenuItem("FuwaCourse/Course2/噴気孔の噴く音を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/噴気孔の噴く音を作り直す")]
     static void RemakeBurst() { MakeBurst(true); }
 
     internal static AudioClip MakeBurst(bool force)

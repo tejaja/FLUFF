@@ -41,7 +41,7 @@ public static class FuwaDeviceTextSetup
         { "{mo|(works at any stand)}", "{mo|(or tap a stand)}" },
     };
 
-    [MenuItem("FuwaCourse/操作の説明を端末ごとの書き方にする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/操作の説明を端末ごとの書き方にする")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

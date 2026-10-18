@@ -39,7 +39,7 @@ public static class FuwaKinokoEntrance
 
     const string MeshDir = "Assets/FuwaCourse/Meshes";
 
-    [MenuItem("FuwaCourse/きのこのたにの入口を作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/きのこのたにの入口を作る")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     static Vector3 W(float d, float s, float y) { var p = O + D * d + S * s; p.y = y; return p; }

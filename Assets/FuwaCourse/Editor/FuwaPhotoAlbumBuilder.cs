@@ -27,7 +27,7 @@ public static class FuwaPhotoAlbumBuilder
 
     const bool ShowAtGoal = false;   // ゴールの奥に写真の板を出すか
 
-    [MenuItem("FuwaCourse/名場面アルバムを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/名場面アルバムを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

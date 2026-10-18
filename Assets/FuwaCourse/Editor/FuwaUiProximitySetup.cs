@@ -11,7 +11,7 @@ public class FuwaUiProximitySetup : IVRCSDKBuildRequestedCallback
 {
     public int callbackOrder => 0;
 
-    [MenuItem("FuwaCourse/UIボタンを近くだけ押せるように（登録し直す）")]
+    [MenuItem("FuwaCourse/よく使う/UIボタンを近くだけ押せるように（登録し直す）")]
     public static void Menu() { Debug.Log(Run()); }
 
     public bool OnBuildRequested(VRCSDKRequestedBuildType requestedBuildType)

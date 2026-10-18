@@ -8,7 +8,7 @@ using UnityEngine;
 // 2026-10-13 てじゃ「同期フワフワの影がみえない」。同期ふわふわを作り直した後（チルルームを作り直す等）にも実行する。何度実行してもよい
 public static class FuwaSharedBallShadowSetup
 {
-    [MenuItem("FuwaCourse/同期ふわふわの影を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/同期ふわふわの影を作り直す")]
     public static void Menu()
     {
         Debug.Log(Run());

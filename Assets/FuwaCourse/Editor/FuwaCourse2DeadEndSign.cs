@@ -20,7 +20,7 @@ public static class FuwaCourse2DeadEndSign
     const int Seg = 40;
     const float TiltSide = -9f, TiltBack = 4f;   // 傾き（度）：横（見る人から見て右へ）・うしろ
 
-    [MenuItem("FuwaCourse/Course2/いきどまりの標識（進入禁止）を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/いきどまりの標識（進入禁止）を作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

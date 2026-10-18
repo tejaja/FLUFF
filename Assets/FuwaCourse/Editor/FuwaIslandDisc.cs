@@ -82,7 +82,7 @@ public static class FuwaIslandDisc
     }
 
     // シーンの IslandTop（Unity の Cylinder を平たくしたもの）を、丸めた円盤に置き換える
-    [MenuItem("FuwaCourse/Bevel Island Discs")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Bevel Island Discs")]
     public static void ReplaceAllMenu() { Debug.Log(ReplaceAll()); }
 
     public static string ReplaceAll()

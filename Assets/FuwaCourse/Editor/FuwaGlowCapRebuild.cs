@@ -19,7 +19,7 @@ public static class FuwaGlowCapRebuild
         ("GlowCaps_Fix_Full", "Far/GlowCaps_Mirror_Fix_Far", 12, 5, true),
     };
 
-    [MenuItem("FuwaCourse/チェックポイントの光るキノコの傘を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/チェックポイントの光るキノコの傘を作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

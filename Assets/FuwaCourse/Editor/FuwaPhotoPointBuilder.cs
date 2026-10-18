@@ -15,7 +15,7 @@ public static class FuwaPhotoPointBuilder
     const string ScriptPath = "Assets/FuwaCourse/Scripts/FuwaPhotoPoint.cs";
     static readonly string[] Courses = { "FuwaCourse0", "FuwaCourse", "FuwaCourse2", "FuwaCourse3", "FuwaCourse4", "FuwaCourse5" };
 
-    [MenuItem("FuwaCourse/フォトポイントを置く（ないコースだけ）")]
+    [MenuItem("FuwaCourse/よく使う/フォトポイントを置く（ないコースだけ）")]
     public static void Menu()
     {
         var album = Object.FindObjectsOfType<FuwaPhotoAlbum>(true).FirstOrDefault();

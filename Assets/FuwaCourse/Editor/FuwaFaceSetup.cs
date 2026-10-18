@@ -18,7 +18,7 @@ public static class FuwaFaceSetup
     const float FaceStyle = 3f;   // 顔：点の目＋小さいにっこり口＋ほっぺ（2026-10-15 てじゃが選んだ。たて目はカービィすぎた）
     const float PlainH = 0.3f;   // 毛オフの球の大きさ（毛の長さの何割ぶんふくらませるか）。毛ありの見た目の大きさに合わせる（0.6→0.5→0.3。2026-10-15 てじゃ「ごくわずかに小さく」「もうちょい小さく」）
 
-    [MenuItem("FuwaCourse/ふわふわの顔・毛オフの材質をそろえる")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ふわふわの顔・毛オフの材質をそろえる")]
     public static void Apply()
     {
         var furShader = Shader.Find("FuwaCourse/Fur");

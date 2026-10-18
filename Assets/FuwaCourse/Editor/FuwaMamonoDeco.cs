@@ -22,7 +22,7 @@ public static class FuwaMamonoDeco
         public void Quad(int a, int b, int c, int d) { Tri(a, b, c); Tri(a, c, d); }
     }
 
-    [MenuItem("FuwaCourse/まもののすの飾りを作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/まもののすの飾りを作る")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run()

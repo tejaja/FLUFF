@@ -34,7 +34,7 @@ public static class FuwaPhotoStudioBuilder
     static float IslandR = 3.0f;        // 島の地面の半径（スタートの島と同じ。Run でスタートの地面から測り直す）
     static float BridgeGap = 1.15f;     // 島どうしのふちの間（スタートの島→ワープの小島と同じ。Run で測り直す）
 
-    [MenuItem("FuwaCourse/写真館の島を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/写真館の島を作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

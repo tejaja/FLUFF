@@ -11,7 +11,7 @@ public static class FuwaMobileGunButtonBuilder
     const string TexPath = "Assets/FuwaCourse/Textures/Icons/MobileGunButton.png";
     const string MatPath = "Assets/FuwaCourse/Materials/MobileGunButton.mat";
 
-    [MenuItem("FuwaCourse/スマホのエアガン呼び出しボタンを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/スマホのエアガン呼び出しボタンを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

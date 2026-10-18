@@ -19,7 +19,7 @@ public static class FuwaSecretIsland
     const float IslandScale = 0.37f; // 写真館の島（直径9.7m）→ 3.6m
     const string MatDir = "Assets/FuwaCourse/Materials/";
 
-    [MenuItem("FuwaCourse/ロビー/ひみつの小島を作る（おもちゃ全部出すきのこ）")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ロビー/ひみつの小島を作る（おもちゃ全部出すきのこ）")]
     public static void Menu() { Debug.Log(Build()); }
 
     public static string Build()

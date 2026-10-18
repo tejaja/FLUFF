@@ -20,7 +20,7 @@ public static class FuwaCreditsFonts
     // 見出しの下・ライセンスの前に少しすき間（てじゃ）。フォント名どうしの行間は少しあけ、ライセンスは小さく（2026-10-15 てじゃ「行間ちょっぴりあける、ライセンスは小さく」）
     const string Plain = "<b>Fonts</b>\n<size=45%> </size>\n<size=75%><line-height=125%>Sniglet\nCherry Bomb One\nDarumadrop One\nM PLUS Rounded 1c\nYusei Magic</line-height></size>\n<size=45%> </size>\n<size=34%>SIL Open Font License 1.1</size>";
 
-    [MenuItem("FuwaCourse/クレジットのフォント名をそのフォントで書く")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/クレジットのフォント名をそのフォントで書く")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

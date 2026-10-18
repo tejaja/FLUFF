@@ -14,7 +14,7 @@ public static class FuwaWindDecalSetup
     const float Below = 0.6f, Height = 1.5f;   // 上は 0.9m まで（ふわふわ・アバターの頭に模様が乗らないように）
     const float JoinExtend = 0.6f;             // つながった箱のすき間を埋める長さ(m)。はみ出た分は境目の面で切る
 
-    [MenuItem("FuwaCourse/風の地面の模様を地面に投影する形にする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/風の地面の模様を地面に投影する形にする")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

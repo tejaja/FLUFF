@@ -9,7 +9,7 @@ using UnityEngine;
 // 噴気孔のまわり・壁ぎわ・道へ上がる坂の上はあける。何度実行しても同じ結果。
 public static class FuwaGrooveRubble
 {
-    [MenuItem("FuwaCourse/Course2/噴気孔の溝の床に岩の板を敷く")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/噴気孔の溝の床に岩の板を敷く")]
     public static void Menu() { Debug.Log(Build()); }
 
     public class MB { public List<Vector3> V = new List<Vector3>(); public List<int> T = new List<int>(); }
@@ -49,7 +49,7 @@ public static class FuwaGrooveRubble
 
     // 今の板の並びはそのままで、噴気孔の上にかかっている板だけメッシュから抜く（2026-10-16）。
     // Build をやり直すと、当時と床まわりが変わっていて板の並びが全然違う物になったので、こちらで直した。何度実行しても同じ結果
-    [MenuItem("FuwaCourse/Course2/噴気孔の溝の岩の板：穴の上の板だけ抜く")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/噴気孔の溝の岩の板：穴の上の板だけ抜く")]
     public static void RemoveOnVentsMenu() { Debug.Log(RemoveOnVents()); }
 
     const float HoleClear = 0.62f;   // 穴の口の半径＋少し

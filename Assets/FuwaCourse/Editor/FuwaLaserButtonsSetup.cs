@@ -8,7 +8,7 @@ using UnityEngine;
 // このメニューはそのボタンを消して laserOnly を切る。何度実行してもよい
 public static class FuwaLaserButtonsSetup
 {
-    [MenuItem("FuwaCourse/台・看板のレーザーボタンを外す（クリックで使う）")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/台・看板のレーザーボタンを外す（クリックで使う）")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

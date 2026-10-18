@@ -16,7 +16,7 @@ public static class FuwaDenImport
     const string GenDir = "Assets/FuwaCourse/Generated/Den/";
     const float RimTopY = 5.82f, RimBotY = 5.3f;   // ふちの上の足場の高さ（床 5.5 + 32cm）
 
-    [MenuItem("FuwaCourse/まもののすの巣と橋を取り込む")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/まもののすの巣と橋を取り込む")]
     public static void Menu() { Debug.Log(Run()); }
 
     class M { public List<Vector3> v = new List<Vector3>(); public List<int> t = new List<int>(); public List<Color> c; }

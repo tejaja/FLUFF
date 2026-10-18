@@ -11,7 +11,7 @@ public static class FuwaVentShafts
     const string MatDir = "Assets/FuwaCourse/Materials/";
     const float Depth = 1.3f;
 
-    [MenuItem("FuwaCourse/噴気孔の縦穴を作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/噴気孔の縦穴を作る")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

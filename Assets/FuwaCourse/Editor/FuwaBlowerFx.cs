@@ -32,7 +32,7 @@ public static class FuwaBlowerFx
     };
     static V cur = Variants[2];   // てじゃが選んだ「3_輪っかメイン」（2026-10-05）
 
-    [MenuItem("FuwaCourse/エアガンの射撃エフェクトを作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの射撃エフェクトを作る")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run(int variant)

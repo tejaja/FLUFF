@@ -47,7 +47,7 @@ public static class FuwaMotionImport
         public Quaternion ballRot;
     }
 
-    [MenuItem("FuwaCourse/モーション録画/ログから取り込む")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/モーション録画/ログから取り込む")]
     static void ImportMenu()
     {
         string vrcDir = Path.Combine(Environment.GetEnvironmentVariable("USERPROFILE") ?? "", "AppData", "LocalLow", "VRChat", "VRChat");
@@ -57,7 +57,7 @@ public static class FuwaMotionImport
         EditorUtility.DisplayDialog("モーション録画", names.Count == 0 ? "テイクが見つからなかった" : "取り込んだ：\n" + string.Join("\n", names), "OK");
     }
 
-    [MenuItem("FuwaCourse/モーション録画/選んだテイクから確認用アニメを作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/モーション録画/選んだテイクから確認用アニメを作る")]
     static void BuildMenu()
     {
         foreach (var o in Selection.objects)

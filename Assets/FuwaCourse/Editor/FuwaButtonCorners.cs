@@ -10,7 +10,7 @@ public static class FuwaButtonCorners
 {
     const float RoundRadius = 50f;   // 板の高さ（キャンバスの単位）× pixelsPerUnitMultiplier。この値で端が半円になる
 
-    [MenuItem("FuwaCourse/ボタンの形をそろえる（端が丸いボタン）")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ボタンの形をそろえる（端が丸いボタン）")]
     public static void Menu()
     {
         Debug.Log(Run(null));

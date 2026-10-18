@@ -12,7 +12,7 @@ public static class FuwaIslandColliders
     const int Ground = 11;
     const string ChildName = "IslandFloorCollider";
 
-    [MenuItem("FuwaCourse/コース外の浮島に床の当たりをつける")]
+    [MenuItem("FuwaCourse/よく使う/コース外の浮島に床の当たりをつける")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

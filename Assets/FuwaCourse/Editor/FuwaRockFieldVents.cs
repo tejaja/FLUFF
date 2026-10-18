@@ -18,7 +18,7 @@ public static class FuwaRockFieldVents
     // 噴く秒数・止まる秒数（前の広場と同じ）
     const float OnSec = 2.0f, OffSec = 1.6f;
 
-    [MenuItem("FuwaCourse/Course2/ゴール前の岩場の噴気孔を作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/ゴール前の岩場の噴気孔を作る")]
     public static void Menu() { Debug.Log(Build()); }
 
     static Vector3[] ReadVents()

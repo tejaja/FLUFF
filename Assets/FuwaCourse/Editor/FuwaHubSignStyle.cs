@@ -19,7 +19,7 @@ public static class FuwaHubSignStyle
     const float LineSpacing = -12f;
     const bool ShowStitch = false;      // 内側のステッチ（2026-10-13 てじゃ「ステッチも外してみて」）
 
-    [MenuItem("FuwaCourse/入口の看板をぷっくりにする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/入口の看板をぷっくりにする")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

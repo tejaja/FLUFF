@@ -21,7 +21,7 @@ public static class FuwaMonitorBuilder
     const float Bottom = 0.42f,   // 2026-10-12 てじゃ「ちょっと上げよう」で 0.12→0.42（名場面ボードと同じ）
          TitleH = 0.46f, Margin = 0.1f, ScreenH = 2 * 0.75375f + 0.06f, BoardScale = 0.95f;
 
-    [MenuItem("FuwaCourse/写真館のモニターを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/写真館のモニターを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     // まっ白な四角のスプライト（9スライス。角も白なので伸ばしても四角のまま）

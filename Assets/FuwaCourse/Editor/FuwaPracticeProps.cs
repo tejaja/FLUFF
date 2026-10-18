@@ -25,7 +25,7 @@ public static class FuwaPracticeProps
     };
     static readonly Color Cream = new Color(1f, 0.97f, 0.92f);
 
-    [MenuItem("FuwaCourse/れんしゅうの道ばたオブジェを作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅうの道ばたオブジェを作る")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run()

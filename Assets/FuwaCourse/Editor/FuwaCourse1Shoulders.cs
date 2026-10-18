@@ -21,7 +21,7 @@ public static class FuwaCourse1Shoulders
     const float Step = 0.25f;         // 道に沿った刻み
     const int Across = 6;             // 横の刻み
 
-    [MenuItem("FuwaCourse/Course1/横風の張り出しを作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course1/横風の張り出しを作る")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     // 張り出しの外側までの幅（道のふちから）。両端はなめらかに 0 へ、ふちは少しうねらせる

@@ -13,7 +13,7 @@ public static class FuwaSteamVentFx
     const string GlowMatPath = "Assets/FuwaCourse/Materials/VentGlow.mat";
     const string HissPath = "Assets/FuwaCourse/Audio/sfx_steam_loop.wav";
 
-    [MenuItem("FuwaCourse/蒸気の穴のエフェクトを作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/蒸気の穴のエフェクトを作る")]
     public static void Build()
     {
         Texture2D tex = MakeTexture(false);
@@ -204,7 +204,7 @@ public static class FuwaSteamVentFx
     }
 
     // ===== もくもくの形（4×4 の16パターン）。赤＝明るさ（上ほど明るい）、アルファ＝濃さ =====
-    [MenuItem("FuwaCourse/蒸気のテクスチャを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/蒸気のテクスチャを作り直す")]
     static void RemakeTexture() { MakeTexture(true); }
 
     static Texture2D MakeTexture(bool force)

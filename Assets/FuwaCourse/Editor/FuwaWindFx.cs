@@ -12,7 +12,7 @@ public static class FuwaWindFx
     const string MatDir = "Assets/FuwaCourse/Materials";
     const string MeshDir = "Assets/FuwaCourse/Meshes";
 
-    [MenuItem("FuwaCourse/風のエフェクトを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/風のエフェクトを作り直す")]
     public static void RunAll()
     {
         int n = 0;
@@ -161,13 +161,15 @@ public static class FuwaWindFx
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
         if (m == null) { m = new Material(StreakMaterial()); AssetDatabase.CreateAsset(m, path); }
         m.SetFloat("_EdgeSoft", 0.4f);
+        // 遠くの帯はうすく（横風が交差して遠目にごちゃつく。2026-10-18 てじゃ）。元は 15〜45m で 0.35 まで
+        m.SetFloat("_FadeStart", 8f); m.SetFloat("_FadeEnd", 26f); m.SetFloat("_FarAlpha", 0.18f);
         var c = m.GetColor("_Color"); c.a = 0.62f; m.SetColor("_Color", c);
         EditorUtility.SetDirty(m);
         return m;
     }
 
     // シーンで風ごとに寿命・筋の長さを調整してある所があるので、作り直さずに今の設定へ掛け算で入れる（帯の材質で済みか判定、何度実行しても同じ）
-    [MenuItem("FuwaCourse/風の筋を細長くゆらゆらに（今の調整のまま）")]
+    [MenuItem("FuwaCourse/よく使う/風の筋を細長くゆらゆらに（今の調整のまま）")]
     public static string SleekAll()
     {
         var list = new List<ParticleSystem>();

@@ -255,7 +255,7 @@ public static class FuwaDecoTools
         return "edges " + edges.Count + " clusters " + clusters + " items " + items + " removed(overlap) " + removed;
     }
 
-    [MenuItem("FuwaCourse/コースのツルを壁にそわせる")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/コースのツルを壁にそわせる")]
     static void MenuFitAllVines()
     {
         int n = 0, total = 0;

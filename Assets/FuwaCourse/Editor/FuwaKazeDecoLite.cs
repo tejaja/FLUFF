@@ -22,7 +22,7 @@ public static partial class FuwaKazeDeco
     const float LeafBakeW = 0.18f, LeafFrameX0 = -0.02f, LeafFrameX1 = 1.02f;   // 葉は長さ1・幅 LeafBakeW で撮る
     static float LeafFrameHalfH => (LeafFrameX1 - LeafFrameX0) * 384f / 1024f * 0.5f;
 
-    [MenuItem("FuwaCourse/かぜのおか/たんぽぽの軽い版を作る（絵を撮る＋板）")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/かぜのおか/たんぽぽの軽い版を作る（絵を撮る＋板）")]
     public static void MenuLite() { Debug.Log(BuildLite()); }
 
     public static string BuildLite()

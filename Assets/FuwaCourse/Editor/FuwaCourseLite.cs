@@ -13,7 +13,7 @@ public static class FuwaCourseLite
     const float MinSize = 2.5f;   // これより小さい物は入れない(m、いちばん長い辺)
     const float Cell = 0.35f;     // 間引きの細かさ(m)
 
-    [MenuItem("FuwaCourse/コースの軽い版を作る")]
+    [MenuItem("FuwaCourse/よく使う/コースの軽い版を作る")]
     public static void Run()
     {
         if (!AssetDatabase.IsValidFolder(Dir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Lite");

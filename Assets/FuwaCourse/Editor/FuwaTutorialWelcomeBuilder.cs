@@ -25,7 +25,7 @@ public static class FuwaTutorialWelcomeBuilder
         return m;
     }
 
-    [MenuItem("FuwaCourse/チュートリアルの「ようこそ」と「！」を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/チュートリアルの「ようこそ」と「！」を作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

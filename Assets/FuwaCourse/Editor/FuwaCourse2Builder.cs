@@ -171,7 +171,7 @@ public static class FuwaCourse2Builder
         return new Vector3(q.x, Top + Height(piece, s) + dy, q.y);
     }
 
-    [MenuItem("FuwaCourse/Course2/Rebuild Path")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/Rebuild Path")]
     public static void RebuildMenu() { Debug.Log(Rebuild()); }
 
     public static string Rebuild()
@@ -219,7 +219,7 @@ public static class FuwaCourse2Builder
     // ゴールの島を持ち上げて、柵の入口を回り込む上り坂（Rocks2/PlazaWalk）の方へ向ける（2026-10-07。c2plaza.py の GOAL_LIFT と同じ）
     public const float GoalLift = 0f, GoalYawOffset = 0f;
 
-    [MenuItem("FuwaCourse/Course2/Place Objects")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/Place Objects")]
     public static void PlaceMenu() { Debug.Log(PlaceObjects()); }
 
     public static string PlaceObjects()
@@ -1017,7 +1017,7 @@ public static class FuwaCourse2Builder
     public const string PreVisPath = "Assets/FuwaCourse/Meshes/Course2Path_StartExt.asset";
     public const string PreColPath = "Assets/FuwaCourse/Meshes/Course2Path_StartExt_Col.asset";
 
-    [MenuItem("FuwaCourse/Course2/スタート側の継ぎ足しを作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/スタート側の継ぎ足しを作る")]
     public static void BuildStartExtMenu() { Debug.Log(BuildStartExt()); }
 
     public static string BuildStartExt()

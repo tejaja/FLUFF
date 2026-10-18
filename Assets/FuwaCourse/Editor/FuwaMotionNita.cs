@@ -255,7 +255,7 @@ public static class FuwaMotionNita
         return poses;
     }
 
-    [MenuItem("FuwaCourse/モーション録画/選んだテイクからNitaのお手本を作る")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/モーション録画/選んだテイクからNitaのお手本を作る")]
     static void BuildMenu()
     {
         foreach (var o in Selection.objects)

@@ -11,7 +11,7 @@ public static class FuwaHowToFoldSetup
 {
     const float ClosedH = 0.62f, CenterY = 1.96f, TitleOpenY = 3.556f;
 
-    [MenuItem("FuwaCourse/ロビーのあそびかたをたためるようにする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ロビーのあそびかたをたためるようにする")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

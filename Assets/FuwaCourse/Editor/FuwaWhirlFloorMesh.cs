@@ -9,7 +9,7 @@ public static class FuwaWhirlFloorMesh
 {
     const float Radius = 1.4f, Cell = 0.04f, Lift = 0.012f, Fade = 0.16f;
 
-    [MenuItem("FuwaCourse/Course1/螺旋風の床のうずまきを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course1/螺旋風の床のうずまきを作り直す")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run()

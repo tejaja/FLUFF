@@ -30,7 +30,7 @@ public static class FuwaFarViewSetup
     const string FarDir = "Assets/FuwaCourse/Generated/Far";
     const string FarSuffix = "_Far";
 
-    [MenuItem("FuwaCourse/遠景の軽量化を設定")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/遠景の軽量化を設定")]
     public static void Run()
     {
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
@@ -151,7 +151,7 @@ public static class FuwaFarViewSetup
     // コースを引っ越した後に位置が古いままで、目の前の物まで「遠い」扱いで影が消えていた
     //（2026-10-13 てじゃ「コースのきのこだけ傘の下のヒラヒラが明るい」：FarShadows 633個のうち535個が古い位置、最大163mずれ）。
     // 物を動かしたらこれを実行する。非表示の物も、メッシュの大きさから位置を出す
-    [MenuItem("FuwaCourse/影の切り替えの位置を今の位置に合わせ直す")]
+    [MenuItem("FuwaCourse/よく使う/影の切り替えの位置を今の位置に合わせ直す")]
     public static void RefreshShadowCentersMenu() { Debug.Log(RefreshShadowCenters()); }
 
     public static string RefreshShadowCenters()

@@ -20,7 +20,7 @@ public static class FuwaBakeSetup
     const float FarScale = 0.25f;
     static readonly string[] SmallDecoMeshes = { "Practice_EdgeProps", "PracticeProp_", "Mamono_", "Kaze_", "Deco_" };   // PracticeProp_：チュートリアルの本番の道のマシュマロ等（EdgeProps を1個ずつに分けた物。焼くとムラになった 2026-10-09）
 
-    [MenuItem("FuwaCourse/ベイクの準備（Static・ライトマップUV）")]
+    [MenuItem("FuwaCourse/よく使う/ベイクの準備（Static・ライトマップUV）")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run()

@@ -10,7 +10,7 @@ public static class FuwaInkCapColliders
 {
     const string Dir = "Assets/FuwaCourse/Meshes/InkCap/";
 
-    [MenuItem("FuwaCourse/ヒトヨタケの当たりからしずくを外す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ヒトヨタケの当たりからしずくを外す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

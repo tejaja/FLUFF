@@ -347,7 +347,7 @@ public static class FuwaSignStyle
     }
 
     // ロビーのコース看板（Slot0〜5）とつぎのしまの看板を雲にする
-    [MenuItem("FuwaCourse/コース看板を雲にする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/コース看板を雲にする")]
     public static void CloudSignsMenu()
     {
         var log = new List<string>();
@@ -388,7 +388,7 @@ public static class FuwaSignStyle
         return board.name + " border " + ColorUtility.ToHtmlStringRGB(color);
     }
 
-    [MenuItem("FuwaCourse/看板に色つきの枠をつける（コース以外）")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/看板に色つきの枠をつける（コース以外）")]
     public static void FlatBordersMenu() { Debug.Log(FlatBorders()); }
 
     // 看板ごとの枠の色（パスの末尾で探す）

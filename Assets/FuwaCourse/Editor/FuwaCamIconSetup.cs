@@ -9,7 +9,7 @@ public static class FuwaCamIconSetup
 {
     const string IconPath = "Assets/FuwaCourse/Textures/Icon_Video.png";   // 2026-10-11 📷→📹（モニターのアングル切り替えなので。てじゃ）
 
-    [MenuItem("FuwaCourse/CAMボタンをカメラの絵にする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/CAMボタンをカメラの絵にする")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run()

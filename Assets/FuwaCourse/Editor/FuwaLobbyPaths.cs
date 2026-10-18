@@ -17,7 +17,7 @@ public static class FuwaLobbyPaths
     // コース4（まもののす）の道の色は専用（まものの紫を明るくしたラベンダー。2026-10-09 てじゃ、茶色は木っぽすぎた）
     static readonly string[] CourseMat = { "Course0", "Course1", "Course2", "Course3", "LobbyCourse4", "Course5" };
 
-    [MenuItem("FuwaCourse/ロビーの道を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ロビーの道を作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

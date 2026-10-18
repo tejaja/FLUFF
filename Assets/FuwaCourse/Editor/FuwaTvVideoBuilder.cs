@@ -35,7 +35,7 @@ public static class FuwaTvVideoBuilder
     }
 
     // ===== テスト用：テレビの横に画面だけ置く（ほかのワールドで使う時の形） =====
-    [MenuItem("FuwaCourse/あそびば/動画プレイヤー（テスト）をテレビの横に置く")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/動画プレイヤー（テスト）をテレビの横に置く")]
     public static void Build()
     {
         var scene = EditorSceneManager.GetActiveScene();
@@ -68,7 +68,7 @@ public static class FuwaTvVideoBuilder
     // ===== あそびばの観戦リビングのテレビに組み込む（おっかけカメラ ⇄ 動画） =====
     // 2026-10-15 てじゃ「おすすめでいこう」：見出しの横の丸ボタンで切りかえ＋だれかが再生したら自動で動画、停止・おわりでカメラ。
     // 動画の時は ME／CAM ボタンの所が動画の操作パネルに入れかわる。テレビの画面はもともと16:9（カメラの映像も1280×720）なのでそのまま重ねる
-    [MenuItem("FuwaCourse/あそびば/動画プレイヤーをテレビに組み込む")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/動画プレイヤーをテレビに組み込む")]
     public static void BuildTv()
     {
         var scene = EditorSceneManager.GetActiveScene();

@@ -17,7 +17,7 @@ public class FuwaMeshWeldAll : IVRCSDKBuildRequestedCallback
         return true;
     }
 
-    [MenuItem("FuwaCourse/自作メッシュの重複頂点をまとめる（見た目は同じ）")]
+    [MenuItem("FuwaCourse/よく使う/自作メッシュの重複頂点をまとめる（見た目は同じ）")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

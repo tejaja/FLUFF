@@ -61,7 +61,7 @@ public static class FuwaPlaygroundBuilder
     static readonly Vector3 GunStandLocal = new Vector3(1.4f, 0f, -1.5f);   // キノコの右手前
     const float GunStandYaw = 304.4f;
 
-    [MenuItem("FuwaCourse/あそびば/あそびばを作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/あそびばを作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()
@@ -522,7 +522,7 @@ public static class FuwaPlaygroundBuilder
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tu); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
     }
 
-    [MenuItem("FuwaCourse/あそびば/床と柵だけ作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/床と柵だけ作り直す")]
     static void MenuFenceDeck()
     {
         var coop = RootGo(RootName).transform; var root = coop.Find("Room");
@@ -532,7 +532,7 @@ public static class FuwaPlaygroundBuilder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(coop.gameObject.scene);
     }
 
-    [MenuItem("FuwaCourse/あそびば/テスト用：おもちゃ全部出すボタンを置く")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/テスト用：おもちゃ全部出すボタンを置く")]
     static void MenuAddTestUnlockAll()
     {
         var toys = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Toys" && t.parent != null && t.parent.name == "Room");
@@ -840,7 +840,7 @@ public static class FuwaPlaygroundBuilder
         EditorUtility.SetDirty(ku);
     }
 
-    [MenuItem("FuwaCourse/あそびば/重力のたねのエフェクトをまっすぐに")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/重力のたねのエフェクトをまっすぐに")]
     static void MenuKeepGravityUpright()
     {
         var seed = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "GravitySeed").gameObject;
@@ -957,7 +957,7 @@ public static class FuwaPlaygroundBuilder
         }
     }
 
-    [MenuItem("FuwaCourse/あそびば/ぬいぐるみとイバラだけ作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/ぬいぐるみとイバラだけ作り直す")]
     static void MenuRebuildPlush()
     {
         var slot = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Unlock4" && t.parent != null && t.parent.name == "Toys");
@@ -1067,7 +1067,7 @@ public static class FuwaPlaygroundBuilder
         }
     }
 
-    [MenuItem("FuwaCourse/あそびば/跳ねるキノコだけ作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/跳ねるキノコだけ作り直す")]
     static void MenuRebuildBounce()
     {
         var slot = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Unlock5" && t.parent != null && t.parent.name == "Toys");
@@ -1192,7 +1192,7 @@ public static class FuwaPlaygroundBuilder
         return labels;
     }
 
-    [MenuItem("FuwaCourse/あそびば/設定スイッチだけ並べ直す（かお・け の段を足す）")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/設定スイッチだけ並べ直す（かお・け の段を足す）")]
     static void MenuRelayoutSwitches()
     {
         var coop = RootGo(RootName).transform;

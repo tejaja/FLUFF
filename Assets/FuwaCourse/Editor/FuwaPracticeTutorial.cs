@@ -75,7 +75,7 @@ public static class FuwaPracticeTutorial
         // 「溜めると吸い寄せる」は 2026-10-08 に仕組みごとなくした（端撃ちのじゃまになるので。chargePull=0）
     };
 
-    [MenuItem("FuwaCourse/れんしゅう/説明の小道を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/説明の小道を作り直す")]
     public static void Menu() { Debug.Log(Run()); }
 
     // ---------- 中心線 ----------
@@ -338,7 +338,7 @@ public static class FuwaPracticeTutorial
 
     // 道の見た目と当たり判定だけ作り直す（看板・島・ためし撃ちの場所など、手で直した所はさわらない）
     static bool _pathOnly; static List<Vector2> _pathOnlyPts; static List<float> _pathOnlyDist;
-    [MenuItem("FuwaCourse/れんしゅう/説明の小道の道だけ作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/説明の小道の道だけ作り直す")]
     public static void PathOnlyMenu() { Debug.Log(RebuildPathOnly()); }
     public static string RebuildPathOnly()
     {
@@ -362,7 +362,7 @@ public static class FuwaPracticeTutorial
 
     // 区画のさかいめの「ふわふわだけ止める膜」を、各区画の見本島の手前ラインに置く（2026-10-09 てじゃ：前になくした壁を戻す。
     // ふだんからうすい線が見えて、遠くで消える）。膜は道の左はし〜見本島の外まで（島の上を回り込めないように）
-    [MenuItem("FuwaCourse/れんしゅう/区画のさかいめの膜を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/区画のさかいめの膜を作り直す")]
     public static void BarriersMenu() { Debug.Log(RebuildBarriers()); }
     public static string RebuildBarriers()
     {
@@ -490,7 +490,7 @@ public static class FuwaPracticeTutorial
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(ent.gameObject.scene);
     }
 
-    [MenuItem("FuwaCourse/れんしゅう/入口のエアガンの看板を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/入口のエアガンの看板を作り直す")]
     public static void GunSignMenu() { Debug.Log(MakeGunSign()); }
     public static string MakeGunSign()
     {
@@ -573,7 +573,7 @@ public static class FuwaPracticeTutorial
         Sync(fe);
     }
 
-    [MenuItem("FuwaCourse/れんしゅう/練習場のまもののイバラだけ置き直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/練習場のまもののイバラだけ置き直す")]
     public static void MenuPracticeBrambles()
     {
         var bay = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Bay_Monster" && t.parent != null && t.parent.name == RootName);
@@ -583,7 +583,7 @@ public static class FuwaPracticeTutorial
         Debug.Log("practice brambles placed");
     }
 
-    [MenuItem("FuwaCourse/れんしゅう/まもののイバラだけ置き直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/まもののイバラだけ置き直す")]
     public static void MenuBrambles()
     {
         var fin = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "FinalRun" && t.parent != null && t.parent.name == RootName);
@@ -592,7 +592,7 @@ public static class FuwaPracticeTutorial
         Debug.Log("brambles placed");
     }
 
-    [MenuItem("FuwaCourse/れんしゅう/風の区画の風だけ作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/風の区画の風だけ作り直す")]
     public static void WindOnlyMenu() { Debug.Log(RebuildWindOnly()); }
     public static string RebuildWindOnly()
     {
@@ -644,7 +644,7 @@ public static class FuwaPracticeTutorial
     // ・柵：ほかの島の柵と同じ作りで、横木7段・高さ2.3m（低い柵だとふわふわが越える。網目の光る壁も付けたが「違和感」で柵を5段に、さらに「もう2段ふやそ」で7段）。人はこの柵で止まる
     // ・ふわふわは柵に当たるとぽよんと跳ね返る（割れない。「横は破裂なしで」）。柵より高く上がったら越えて落ちてもよい（てじゃ「柵超えで落ちるのはありでも」）
     // ・風の範囲の手前のはしから次の区画の膜まで。まとめて「SideWall」の下に置き、ReadMarks で区画の看板と一緒に生やす
-    [MenuItem("FuwaCourse/れんしゅう/横風の区画の横の柵を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/横風の区画の横の柵を作り直す")]
     public static void WindSideWallMenu() { Debug.Log(RebuildWindSideWall()); }
     public static string RebuildWindSideWall()
     {

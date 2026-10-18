@@ -12,7 +12,7 @@ public static class FuwaSleepEyesSetup
     // 目（Eyes）の中の大きさ。白目は直径0.15、前の面は z 0.34
     const float Width = 0.15f, Sag = 0.04f, Thick = 0.024f, FrontZ = 0.335f, DownY = -0.012f;
 
-    [MenuItem("FuwaCourse/まものの目を整える（寝てる目︶・なめらかな目玉）")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/まものの目を整える（寝てる目︶・なめらかな目玉）")]
     public static void Menu()
     {
         Debug.Log(Run());

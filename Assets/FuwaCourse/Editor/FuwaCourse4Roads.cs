@@ -21,7 +21,7 @@ public static class FuwaCourse4Roads
     const float JagMax = 0.36f;              // 割れたはしの、いちばん欠けている所の深さ
     const string MeshDir = "Assets/FuwaCourse/Meshes/Course4";
 
-    [MenuItem("FuwaCourse/まもののす/最初と最後の橋をシマシマ道にする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/まもののす/最初と最後の橋をシマシマ道にする")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()

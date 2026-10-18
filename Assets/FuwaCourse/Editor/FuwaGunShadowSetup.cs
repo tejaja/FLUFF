@@ -15,7 +15,7 @@ public static class FuwaGunShadowSetup
     static readonly Vector2 Size = new Vector2(0.22f, 0.42f);
     const float Alpha = 0.45f;
 
-    [MenuItem("FuwaCourse/エアガンの影をうそ影にする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの影をうそ影にする")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static Material Mat()

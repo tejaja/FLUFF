@@ -16,7 +16,7 @@ public static class FuwaCourse2Ledge
     static readonly Vector3 OldAxis = new Vector3(1f, 0f, 0.08f);
     const string MeshPath = "Assets/FuwaCourse/Meshes/Course2_LedgeRock.asset";
 
-    [MenuItem("FuwaCourse/いわのみち：崩落の谷の足場の下の岩を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/いわのみち：崩落の谷の足場の下の岩を作り直す")]
     public static void Menu()
     {
         Debug.Log(Run());

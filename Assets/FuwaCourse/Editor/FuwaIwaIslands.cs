@@ -21,7 +21,7 @@ public static class FuwaIwaIslands
     static readonly Vector3 SummitSpringPos = new Vector3(107.45f, 14.06f, 0.95f);
     static readonly Vector2 SummitSpringSize = new Vector2(1.75f, 0.75f);   // お湯の半径 x（道に沿って）, z
 
-    [MenuItem("FuwaCourse/いわのみちのまわりの浮島を作り直す")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/いわのみちのまわりの浮島を作り直す")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run(bool forceNewPlaces = false)

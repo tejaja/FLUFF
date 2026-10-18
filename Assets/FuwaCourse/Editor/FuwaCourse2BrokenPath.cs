@@ -42,7 +42,7 @@ public static class FuwaCourse2BrokenPath
         return w.x > CutAt(w.z) ? 1 : 0;
     }
 
-    [MenuItem("FuwaCourse/Course2/木の足場から奥の道を割れた岩肌にする")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/木の足場から奥の道を割れた岩肌にする")]
     public static void Menu() { Debug.Log(Run()); }
 
     static Mesh Backup(string path, string backup, string name)

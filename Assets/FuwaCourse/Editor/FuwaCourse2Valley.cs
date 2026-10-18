@@ -15,7 +15,7 @@ public static class FuwaCourse2Valley
     const string BackupDir = "Assets/FuwaCourse/Meshes/Backup";
     const float WallRough = 0.22f, WallMaxArea = 0.3f;
 
-    [MenuItem("FuwaCourse/Course2/崩落の谷を作り直す（山・道・壁・底）")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/崩落の谷を作り直す（山・道・壁・底）")]
     public static void Menu() { Debug.Log(Run()); UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty(); }
 
     static Mesh Backup(Mesh live, string suffix)

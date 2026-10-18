@@ -14,7 +14,7 @@ public static class SpiderWebBuild
 
     // ───────── メニュー ─────────
 
-    [MenuItem("FuwaCourse/Spider Web/Rebuild All")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Spider Web/Rebuild All")]
     public static void RebuildAllMenu() { Debug.Log(RebuildAll()); }
 
     public static string RebuildAll()

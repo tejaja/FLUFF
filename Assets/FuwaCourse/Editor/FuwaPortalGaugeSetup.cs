@@ -9,7 +9,7 @@ public static class FuwaPortalGaugeSetup
 {
     const string MatPath = "Assets/FuwaCourse/Materials/PortalGauge.mat";
 
-    [MenuItem("FuwaCourse/ポータルに目の前のゲージを付ける")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ポータルに目の前のゲージを付ける")]
     public static void Menu() { Debug.Log(Run()); }
 
     public static string Run()
