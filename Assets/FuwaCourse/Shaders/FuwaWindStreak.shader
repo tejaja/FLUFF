@@ -9,6 +9,9 @@ Shader "FuwaCourse/WindStreak"
         _FadeStart ("Fade Start (m)", Float) = 15
         _FadeEnd ("Fade End (m)", Float) = 45
         _FarAlpha ("Far Alpha", Range(0, 1)) = 0.35
+        // 目の前の筋は消す（2026-10-18 てじゃ「クモの巣みたいに目の前は消えるように、クモの巣より至近距離でいい」。クモの巣は 0.45〜1.0m）
+        _NearHide ("Camera Fade: invisible within (m)", Float) = 0.2
+        _NearShow ("Camera Fade: fully visible beyond (m)", Float) = 0.6
     }
     SubShader
     {
@@ -29,9 +32,10 @@ Shader "FuwaCourse/WindStreak"
             fixed4 _Color;
             half _EdgeSoft, _EndFade;
             float _FadeStart, _FadeEnd; half _FarAlpha;
+            float _NearHide, _NearShow;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_FOG_COORDS(1) float3 wp : TEXCOORD2; UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
@@ -42,7 +46,8 @@ Shader "FuwaCourse/WindStreak"
                 o.uv = v.uv;
                 o.color = v.color * _Color;
                 // カメラから遠いほどうっすら
-                float d = distance(mul(unity_ObjectToWorld, v.vertex).xyz, _WorldSpaceCameraPos);
+                o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
+                float d = distance(o.wp, _WorldSpaceCameraPos);
                 o.color.a *= lerp(1, _FarAlpha, saturate((d - _FadeStart) / max(0.01, _FadeEnd - _FadeStart)));
                 UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
@@ -54,7 +59,9 @@ Shader "FuwaCourse/WindStreak"
                 half edge = smoothstep(0, _EdgeSoft, across);
                 // 長さ方向（uv.x 0=先頭〜1=しっぽ）：両端をうすく
                 half ends = smoothstep(0, _EndFade, i.uv.x) * smoothstep(1, 1 - _EndFade * 2, i.uv.x);
-                { fixed4 fogc__ = fixed4(i.color.rgb, i.color.a * edge * ends); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
+                // 目の前は消す（筋は長いので頂点ではなくピクセルごとの距離で）
+                half nearFade = smoothstep(_NearHide, max(_NearShow, _NearHide + 0.01), distance(i.wp, _WorldSpaceCameraPos));
+                { fixed4 fogc__ = fixed4(i.color.rgb, i.color.a * edge * ends * nearFade); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
             }
             ENDCG
         }
