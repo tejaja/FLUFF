@@ -24,6 +24,14 @@ public class FuwaCourseLod : UdonSharpBehaviour
     [Tooltip("ON なら Mobile（Android/iOS ビルド）の時だけ働く")]
     public bool onlyMobile = true;
 
+    // ロビーにいる間（どのコースにも入っていない時）は、コースの見た目はそのまま、毎フレーム動く仕掛け（Udon の Update）と粒を止める
+    //（2026-10-18 てじゃ「ロビーが色々見えてるから重い」「ギミックとめるのはありだな」。FuwaCourseLodLobbyBuilder が集める）
+    [Tooltip("ロビーの間だけ止める仕掛け（Update で動く Udon）")]
+    public VRC.Udon.UdonBehaviour[] lobbyStopBehaviours;
+    [Tooltip("ロビーの間だけ隠す粒（パーティクルの物）")]
+    public GameObject[] lobbyHideObjects;
+    private int _lobbyState = -1;   // 0=止めていない、1=止めている
+
     private float _next;
     private int _shown = -2;   // いま反映している状態（-1=全部ふつう、i=コースiにいる）
     private int _area = -1;
@@ -58,5 +66,11 @@ public class FuwaCourseLod : UdonSharpBehaviour
             if (fullRoots[i] != null && inSolo && fullRoots[i].activeSelf != full) fullRoots[i].SetActive(full);
             if (liteRoots != null && i < liteRoots.Length && liteRoots[i] != null && liteRoots[i].activeSelf != lite) liteRoots[i].SetActive(lite);
         }
+        int lobby = inSolo && cur < 0 ? 1 : 0;
+        if (lobby == _lobbyState) return;
+        _lobbyState = lobby;
+        bool run = lobby == 0;
+        if (lobbyStopBehaviours != null) for (int i = 0; i < lobbyStopBehaviours.Length; i++) if (lobbyStopBehaviours[i] != null) lobbyStopBehaviours[i].enabled = run;
+        if (lobbyHideObjects != null) for (int i = 0; i < lobbyHideObjects.Length; i++) if (lobbyHideObjects[i] != null) lobbyHideObjects[i].SetActive(run);
     }
 }
