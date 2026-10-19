@@ -174,6 +174,11 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private Vector3 _homePos;
     private Quaternion _homeRot;
     private float _respawnAt = -1f;
+    // キノコから出た直後：でっかい玉（直径1.4m）は出発点で床やキノコの輪にもう触れていて、撃った瞬間に「おちたら きえる」ではじけていた（2026-10-19 てじゃ）。
+    // 出てから一度床から離れるまで（最大 releaseGrace 秒）は床でははじけない
+    private bool _clearOfHome = true;
+    private float _releasedAt;
+    private const float releaseGrace = 1.5f;
     private Material _furMat;
     private Material _plainMat;   // 毛オフの材質（自分用の複製）。色・ポヨン・なびきは毛ありと両方に入れておく
     private bool _plain;
@@ -442,6 +447,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
 
     private void Shoot(Vector3 velocityChange, bool release, float charge)
     {
+        if (release && _waiting) MarkRelease();
         Launch(velocityChange);
         NoteShot(velocityChange, charge, Networking.GetServerTimeInSeconds());
         float k = Mathf.Clamp01(velocityChange.magnitude / Mathf.Max(0.01f, squashFullAt));
@@ -470,6 +476,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         Init();
         if (!Networking.IsOwner(gameObject) || _popped || locked) return;
         if (_waiting && !release) return;   // 持ち主の画面ではまだキノコの中：傘を撃った分だけ受け付ける
+        if (_waiting) MarkRelease();
         Launch(velocityChange);
         NoteShot(velocityChange, charge, Networking.GetServerTimeInSeconds());
         _sShot++;
@@ -780,7 +787,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
             if (_here && !_waiting && !_popped && transform.position.y < _homePos.y - fallLimit) SetWaiting();
             if (_popped && _respawnAt > 0f && Time.time >= _respawnAt) SetWaiting();
             // チルルーム：床に転がっている間に「消える」へ切り替えた（ぶつかった瞬間はもう過ぎている）ので、床に触れていたらはじける
-            if (_here && playground != null && !_waiting && !_popped && !_rb.isKinematic && playground.PopGround() && TouchingPopGround()) Pop();
+            if (_here && playground != null && !_waiting && !_popped && !_rb.isKinematic && playground.PopGround() && GroundPopAllowed() && TouchingPopGround()) Pop();
             // 弾けたまま戻す予定が無い（弾けている間に持ち主が入れ替わった）なら、ここで戻す予定を立てる
             if (_popped && _respawnAt < 0f) _respawnAt = Time.time + respawnDelay;
             // 飛んでいる間はときどき今の位置を送る（壁にぶつかった後はすぐ送る）
@@ -874,7 +881,17 @@ public class FuwaSharedBall : UdonSharpBehaviour
             _sendSoon = true;   // 壁や柵で跳ね返った：みんなの画面のズレを早めに直す
             return;
         }
+        if (!GroundPopAllowed()) return;   // キノコから出た直後で、まだ出発点の床に触れている
         Pop();
+    }
+
+    private void MarkRelease() { _clearOfHome = false; _releasedAt = Time.time; }
+
+    // 床ではじけてよいか：キノコから出たあと一度床から離れた（か releaseGrace 秒たった）
+    private bool GroundPopAllowed()
+    {
+        if (!_clearOfHome && (Time.time - _releasedAt > releaseGrace || !TouchingPopGround())) _clearOfHome = true;
+        return _clearOfHome;
     }
 
     // 床（popLayers）に触れているか。跳ねるキノコの傘（FuwaBounce）は床ではない（同じレイヤーなので、乗った瞬間にはじけていた。2026-10-13）

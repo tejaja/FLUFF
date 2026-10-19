@@ -11,6 +11,8 @@ Shader "FuwaCourse/BlobDecal"
         _FalloffStart ("Falloff Start (0=中心からすぐ薄く, 1=ふちまで濃い)", Range(0, 0.95)) = 0.35
         _Power ("Falloff Power", Range(0.5, 3)) = 1
         _EdgeY ("上下のふちで薄くし始める位置", Range(0.05, 0.5)) = 0.35
+        _UpMin ("この向きより横を向いた面には塗らない (dot)", Range(0, 1)) = 0.55
+        _UpMax ("この向きより上を向いていれば全部塗る (dot)", Range(0, 1)) = 0.85
     }
     SubShader
     {
@@ -32,7 +34,7 @@ Shader "FuwaCourse/BlobDecal"
             #include "UnityCG.cginc"
 
             fixed4 _Color;
-            float _Alpha, _FalloffStart, _Power, _EdgeY;
+            float _Alpha, _FalloffStart, _Power, _EdgeY, _UpMin, _UpMax;
             UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
 
             struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -86,7 +88,7 @@ Shader "FuwaCourse/BlobDecal"
                 float a = 1.0 - smoothstep(_FalloffStart, 1.0, r);
                 a = pow(a, _Power);
                 a *= 1.0 - smoothstep(_EdgeY, 0.5, abs(lp.y));  // 箱の上下のふちでなめらかに消す
-                a *= smoothstep(0.55, 0.85, abs(dot(sn, up)));   // 崖の横の面など、地面と違う向きの面には塗らない
+                a *= smoothstep(_UpMin, _UpMax, abs(dot(sn, up)));   // 崖の横の面など、地面と違う向きの面には塗らない
                 fixed4 c = fixed4(_Color.rgb, a * _Alpha);
                 UNITY_APPLY_FOG_COLOR(i.fogCoord, c, fixed4(_Color.rgb, 0));
                 return c;

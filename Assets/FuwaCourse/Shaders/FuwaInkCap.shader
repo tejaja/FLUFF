@@ -59,6 +59,8 @@ Shader "FuwaCourse/InkCap"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 // しずく（uv.x＝付け根0〜先1、uv.y＝位相）：先ほど大きく、たらーんと伸びたり縮んだり
+                // uv0 の無いメッシュに使う材質は _DripAmp=0 に。スマホでは無い uv0 にでたらめな値が入って、まもののすの床が読み込むたびに
+                // ちがう形でデコボコになり輪っか模様が出た（2026-10-19。Den_Twig・Practice_Candy・Kaze_DandelionSway を 0 に）
                 if (v.uv.x > 0.001)
                 {
                     float w = v.uv.x * v.uv.x;

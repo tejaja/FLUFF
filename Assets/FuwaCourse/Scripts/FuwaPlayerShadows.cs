@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -23,7 +23,16 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
     [Tooltip("デカール（FuwaCourse/BlobDecal の箱）の時：当たった地面から下・上に何mの範囲の表面に描くか")]
     public bool decal = true;
     public float decalBelow = 0.4f;
-    public float decalAbove = 0.08f;
+    // 2026-10-19 てじゃ「手とか下につくとこうなる」：0.08 だと床に手をついた時に手（アバターも深度に入る）に影が乗って、細かい面の向きでザラザラに見えた → 0.04。
+    // 低すぎると凸凹の地面の出っぱりに影が乗らなくなる（てじゃ「凸凹の地面とかおかしくならない？」）ので、手が床すれすれの時だけ乗る程度
+    // 4cm でも床に手をつくと指（床から0〜2cm）に全開で乗ったまま（てじゃ「あんまかわってない」）→ 3cm にして、床から fadeFrom より上はだんだん薄く（てじゃ A案）
+    [Tooltip("当たった地面から上に何mの表面に描くか（ここで影が消える）")]
+    public float decalAboveGround = 0.03f;
+    [Tooltip("地面からこの高さ(m)までは影の濃さそのまま、そこから decalAboveGround にかけて薄く")]
+    public float fadeFrom = 0.005f;
+    [Tooltip("影を塗る面の向き（地面の上向きとの dot）。ほかのうそ影と同じ 0.55〜0.85（厳しくすると凸凹の地面で影が欠ける）")]
+    public float upMin = 0.55f;
+    public float upMax = 0.85f;
     [Tooltip("何フレームおきに人のリストを取り直すか")]
     public int refreshFrames = 30;
 
@@ -46,6 +55,9 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
         {
             if (shadows[i] == null) continue;
             _mats[i] = shadows[i].material;
+            // 箱の上のふちで薄くする所：地面＋fadeFrom から上（箱のローカルの y は -0.5〜0.5、地面は上から decalAboveGround の所）
+            float edgeY = 0.5f - (decalAboveGround - fadeFrom) / (decalAboveGround + decalBelow);
+            if (_mats[i] != null) { _mats[i].SetFloat("_UpMin", upMin); _mats[i].SetFloat("_UpMax", upMax); _mats[i].SetFloat("_EdgeY", edgeY); }
             _alpha[i] = -1f;
             shadows[i].enabled = false;
         }
@@ -85,9 +97,9 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
             if (decal)
             {
                 // 箱で囲んだ範囲の実際の地面にだけ描く（崖のふちで空中に浮かない）
-                t.position = hit.point + hit.normal * ((decalAbove - decalBelow) * 0.5f);
+                t.position = hit.point + hit.normal * ((decalAboveGround - decalBelow) * 0.5f);
                 t.rotation = Quaternion.FromToRotation(Vector3.up, hit.normal);
-                t.localScale = new Vector3(size, decalAbove + decalBelow, size);
+                t.localScale = new Vector3(size, decalAboveGround + decalBelow, size);
             }
             else
             {
