@@ -11,7 +11,7 @@ using VRC.SDKBase;
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaShallowWater : UdonSharpBehaviour
 {
-    [Range(0.1f, 1f)] public float moveMul = 0.55f;
+    [Range(0.1f, 1f)] public float moveMul = 0.3f;   // 2026-10-19 てじゃ「水の減速を強めに、プレイヤーは水に極力入りたくない」0.55→0.3（ジャンプはそのまま＝岸に上がれる）
     [Range(0.1f, 1f)] public float jumpMul = 0.7f;
     [Tooltip("水面からこの高さまでに足があれば水の中（蓮の葉が水面すれすれまで沈んだ時も入るように）")]
     public float surfaceAbove = 0.03f;

@@ -8,6 +8,14 @@ using VRC.SDKBase;
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaLilyPad : UdonSharpBehaviour
 {
+    [Header("動かない足場（2026-10-19 てじゃ「蓮はただの固定でいいかも、見かけだけの揺れはあってもいい」）")]
+    [Tooltip("ON：当たり判定は動かさず、見た目（visual）だけ水に浮いてゆらゆら。沈む・傾く・長く乗ると沈む はなし")]
+    public bool fixedPad = true;
+    [Tooltip("見た目（葉っぱと花）。fixedPad の時はこれだけ動かす")]
+    public Transform visual;
+    [Tooltip("見た目のゆらゆら：かたむきの幅(度)")]
+    public float swayDeg = 1.2f;
+
     [Tooltip("乗った時に沈む深さ(m)")]
     public float sinkDepth = 0.045f;   // 水面より下に沈むと水の板に隠れて見えなくなるので、浮かせて置いて沈みは浅め
     [Tooltip("沈む・戻る速さ（1/s）")]
@@ -45,7 +53,10 @@ public class FuwaLilyPad : UdonSharpBehaviour
         _basePos = transform.localPosition;
         _baseRot = transform.localRotation;
         _phase = (transform.position.x * 0.37f + transform.position.z * 0.61f) % 6.28f;
+        if (visual != null) { _visPos = visual.localPosition; _visRot = visual.localRotation; }
     }
+    private Vector3 _visPos;
+    private Quaternion _visRot;
 
     public override void OnPlayerTriggerEnter(VRCPlayerApi player)
     {
@@ -63,6 +74,15 @@ public class FuwaLilyPad : UdonSharpBehaviour
 
     private void Update()
     {
+        if (fixedPad)
+        {
+            // 見た目だけ：ゆっくり上下＋少しかたむく（当たり判定は動かない）
+            if (visual == null) return;
+            float t = Time.time * bobSpeed + _phase;
+            visual.localPosition = _visPos + Vector3.up * (Mathf.Sin(t) * bobAmp / Mathf.Max(0.01f, transform.lossyScale.y));
+            visual.localRotation = Quaternion.Euler(Mathf.Sin(t * 0.83f + 1.3f) * swayDeg, 0f, Mathf.Sin(t * 0.67f + 0.4f) * swayDeg) * _visRot;
+            return;
+        }
         float dt = Time.deltaTime;
         _kick = Mathf.MoveTowards(_kick, 0f, dt * 3f);
         float target = _on ? sinkDepth * (1f + 0.5f * _kick) : 0f;

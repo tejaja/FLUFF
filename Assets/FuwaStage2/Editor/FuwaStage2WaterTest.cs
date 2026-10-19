@@ -179,8 +179,10 @@ public static class FuwaStage2WaterTest
         var g = new GameObject(name); g.transform.SetParent(parent, false);
         g.transform.localPosition = lp; g.transform.localRotation = Quaternion.Euler(0, yaw, 0); g.transform.localScale = Vector3.one * radius;
         var mesh = LilyMesh();
-        g.AddComponent<MeshFilter>().sharedMesh = mesh;
-        var mr = g.AddComponent<MeshRenderer>(); mr.sharedMaterial = LilyMat();
+        // 見た目は子の Leaf（ゆらゆらは見た目だけ。当たり判定は動かない。2026-10-19 てじゃ「蓮はただの固定でいいかも」）
+        var leaf = new GameObject("Leaf"); leaf.transform.SetParent(g.transform, false);
+        leaf.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var mr = leaf.AddComponent<MeshRenderer>(); mr.sharedMaterial = LilyMat();
         var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = mesh; mc.convex = true;
         var tr = g.AddComponent<BoxCollider>(); tr.isTrigger = true; tr.center = new Vector3(0, 0.35f / radius, 0); tr.size = new Vector3(1.7f, 0.5f / radius, 1.7f);
         if (flower)
@@ -189,7 +191,7 @@ public static class FuwaStage2WaterTest
             var lotusMesh = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2Water.fbx").OfType<Mesh>().FirstOrDefault(m => m.name == "LotusFlower");
             if (lotusMesh)
             {
-                var f = new GameObject("Lotus"); f.transform.SetParent(g.transform, false);
+                var f = new GameObject("Lotus"); f.transform.SetParent(leaf.transform, false);
                 f.transform.localPosition = new Vector3(0.35f, 0.02f, -0.25f); f.transform.localRotation = Quaternion.Euler(0, 40, 0);
                 f.transform.localScale = Vector3.one * (1.15f / radius);
                 f.AddComponent<MeshFilter>().sharedMesh = lotusMesh;
@@ -198,7 +200,7 @@ public static class FuwaStage2WaterTest
             }
         }
         var pad = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLilyPad>(g);
-        pad.radius = radius;
+        pad.radius = radius; pad.visual = leaf.transform;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pad); NoSync(pad);
         return g;
     }
