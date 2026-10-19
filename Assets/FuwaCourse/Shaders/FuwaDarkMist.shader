@@ -11,6 +11,8 @@ Shader "FuwaCourse/DarkMist"
         _LowBoost ("Lower part extra", Range(0, 2)) = 0.6
         _Wobble ("Wobble", Range(0, 1)) = 0.25
         _EdgeSoft ("Edge Softness", Range(0.01, 1)) = 0.8
+        // 外側と空の境目をもっとぼかす（2026-10-19 てじゃ「もっと外側と空の境界を曖昧にしたい」）。1＝前と同じ、大きいほどふちが長く薄くなる
+        _EdgePow ("Edge Fade Power", Range(1, 5)) = 1
         _Wisp ("Wisp (edge raggedness)", Range(0, 1)) = 0.7
         _WispScale ("Wisp Scale (per m)", Float) = 0.12
         _WispSpeed ("Wisp Speed", Float) = 0.06
@@ -32,7 +34,7 @@ Shader "FuwaCourse/DarkMist"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            fixed4 _Color; float _Density, _MaxAlpha, _LowBoost, _Wobble, _EdgeSoft, _Wisp, _WispScale, _WispSpeed, _Drift, _DriftScale, _DriftSpeed, _DriftPeak;
+            fixed4 _Color; float _Density, _MaxAlpha, _LowBoost, _Wobble, _EdgeSoft, _Wisp, _WispScale, _WispSpeed, _Drift, _DriftScale, _DriftSpeed, _DriftPeak, _EdgePow;
             float hash3(float3 p) { p = frac(p * 0.3183099 + 0.1); p *= 17.0; return frac(p.x * p.y * p.z * (p.x + p.y + p.z)); }
             float vnoise(float3 x)
             {
@@ -75,7 +77,8 @@ Shader "FuwaCourse/DarkMist"
                 float3 q = entryW * _WispScale + float3(_Time.y * _WispSpeed, _Time.y * _WispSpeed * 0.4, -_Time.y * _WispSpeed * 0.7);
                 float n = fbm(q);
                 float edge = h - (n - 0.45) * _Wisp;         // ノイズで「ふち」の位置を前後させる
-                a *= smoothstep(0, _EdgeSoft, edge);
+                float ef = smoothstep(0, _EdgeSoft, edge);
+                a *= pow(ef, _EdgePow);
                 // 中のほうにもうっすらムラ（ちぎれた雲みたいな濃淡）
                 a *= lerp(1, 0.55 + n * 0.9, _Wisp * 0.5);
                 // 大きくゆっくり流れる濃淡：視線が通る所の真ん中（ワールド）で、ゆるいノイズを2つの向きに流して重ねる。濃い所と薄い所がグラデで入れかわる
@@ -84,7 +87,9 @@ Shader "FuwaCourse/DarkMist"
                     float t = _Time.y * _DriftSpeed;
                     float g = fbm(wp * _DriftScale + float3(t, t * 0.3, -t * 0.6)) * 0.6 + fbm(wp * _DriftScale * 0.6 + float3(-t * 0.7, 0, t * 0.8) + 21.7) * 0.4;
                     g = smoothstep(0.25, 0.75, g);
-                    a *= lerp(1, 0.2 + g * (_DriftPeak - 0.2), _Drift);   // 薄い所は 0.2倍、濃い所は _DriftPeak 倍
+                    // ふちの近くでは濃い所を持ち上げない（ふちに濃いかたまりが出ると、そこで空との境目がくっきりした）
+                    float peak = lerp(1, _DriftPeak, smoothstep(0.15, 0.75, h));
+                    a *= lerp(1, 0.2 + g * (peak - 0.2), _Drift);   // 薄い所は 0.2倍、濃い所は _DriftPeak 倍（真ん中ほど）
                     a = min(a, 0.95);
                 }
                 return fixed4(_Color.rgb, a * _Color.a);
