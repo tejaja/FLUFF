@@ -343,12 +343,12 @@ public static class FuwaCourse4Roads
             float r = R(0.065f, 0.095f);
             if (zz + 2f * r > z1) break;
             zz += r;
-            float len = halfW * 2f * R(0.92f, 1.12f), off = R(-0.12f, 0.12f), yaw = R(-7f, 7f) * Mathf.Deg2Rad;
+            float len = halfW * 2f * R(0.92f, 1.12f), off = R(-0.12f, 0.12f), yaw = R(-1.6f, 1.6f) * Mathf.Deg2Rad;   // 2026-10-19 てじゃ「まんなかの棒がめっちゃ重なってる」→ ±7°だと隣の丸太と交差した
             var d = new Vector3(Mathf.Cos(yaw), 0f, Mathf.Sin(yaw));
             var c = new Vector3(off, top - r * 0.55f + R(-0.01f, 0.015f), zz);
             float rA = r * R(0.75f, 0.95f), rB = r * R(0.75f, 0.95f); var col = Browns[rnd.Next(Browns.Length)];
             if (zz - r >= v0 && zz + r <= v1) { mb.Log(c - d * len * 0.5f, c + d * len * 0.5f, rA, rB, col, 7); logs.Add((c, yaw, (rA + rB) * 0.5f)); }
-            zz += r + R(0f, 0.02f);
+            zz += r + R(0.012f, 0.03f);   // 隣の丸太とは少しすき間（傾き ±1.6° の両はしのずれぶん）
         }
         // ツタ：左右2本。1本のなめらかな管で、丸太の上をなぞって丸太のあいだで少したわむ。両はしの丸太にはひと巻きして、
         // 先は細くなりながら外側（道・巣の床の上）に少し垂らす（2026-10-09 てじゃ「つたも、もっと綺麗につなげられないかな」）
