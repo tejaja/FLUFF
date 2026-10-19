@@ -2106,29 +2106,16 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                         for (int it = 0; it < 30; it++) gun.rotation = Quaternion.LookRotation((aimPt - nz.position).normalized, Vector3.up);
                     }
                     Sync(ds);
-                    // まものの見た目と音（コースのまもののコピー）
+                    // まものの見た目（コースのまもののコピー）。音はなし（2026-10-20 てじゃ「見本まものの音はなくていいかも、やかましい」。
+                    // くり返し動くので、溜め・体当たり・吹っ飛び・当たりの音がずっと鳴っていた）。練習用のまもの（PracticeMonster）・最後のまものは音あり
                     var mon = new GameObject("DemoMonster").transform; mon.SetParent(lane, false); mon.position = homeP;
                     mon.rotation = Quaternion.LookRotation(-along);
                     Transform Copy(string n) { var src = enemySrc.transform.Find(n); if (src == null) return null; var c = Object.Instantiate(src.gameObject, mon, false); c.name = n; return c.transform; }
                     var body = Copy("Body"); var eyes = Copy("Eyes");
-                    var wsfx = Copy("WindupSfx"); var jsfx = Copy("JumpSfx"); var bsfx = Copy("BlownSfx");
                     foreach (var col in mon.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(col);
                     var dm = UdonSharpUndo.AddComponent<FuwaDemoMonster>(mon.gameObject);
                     SetU(dm, "stand", ds); SetU(dm, "visual", body); SetU(dm, "eyes", eyes);
                     SetU(dm, "home", ht); SetU(dm, "windupSpot", wt);
-                    if (wsfx != null) SetU(dm, "windupSound", wsfx.GetComponent<AudioSource>());
-                    if (jsfx != null) SetU(dm, "dashSound", jsfx.GetComponent<AudioSource>());
-                    if (bsfx != null) SetU(dm, "blownSound", bsfx.GetComponent<AudioSource>());
-                    // ふわふわに当たった時の音（本物はまものの本体に付いている AudioSource）
-                    if (enemySrc.hitSound != null)
-                    {
-                        var hsfx = Object.Instantiate(enemySrc.hitSound.gameObject, mon, false);
-                        hsfx.name = "HitSfx";
-                        foreach (Transform ch in hsfx.transform.Cast<Transform>().ToArray()) Object.DestroyImmediate(ch.gameObject);
-                        foreach (var c in hsfx.GetComponents<Component>()) if (!(c is Transform) && !(c is AudioSource)) Object.DestroyImmediate(c);
-                        hsfx.transform.localPosition = Vector3.zero; hsfx.transform.localRotation = Quaternion.identity;
-                        SetU(dm, "hitSound", hsfx.GetComponent<AudioSource>());
-                    }
                     SetUF(dm, "dashSpeed", enemySrc.dashSpeed); SetUF(dm, "hopHeight", enemySrc.hopHeight);
                     SetUF(dm, "maxHopHeight", enemySrc.maxHopHeight); SetUF(dm, "ballOvershoot", enemySrc.ballOvershoot);
                     SetUF(dm, "ballHitRadius", enemySrc.ballHitRadius);
