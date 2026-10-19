@@ -97,6 +97,7 @@ public static class FuwaStage2LobbyCourses
             var to = slot.position - center; to.y = 0f;
             var mesh = FuwaLobbyPaths.Strip(StartR, to.magnitude - warpR * RingIn, floorY - center.y);
             mesh.name = "Stage2LobbyPath_" + i;
+            Unwrapping.GenerateSecondaryUVSet(mesh);   // 影を焼く（LightmapStatic）のでライトマップ用UV。無いとスマホで床がまだらになる（2026-10-19）
             string path = MeshDir + "/Stage2LobbyPath_" + i + ".asset";
             var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
             if (!ex) AssetDatabase.CreateAsset(mesh, path); else { ex.Clear(false); FuwaBevelTools.CopyInto(ex, mesh); ex.name = mesh.name; mesh = ex; }

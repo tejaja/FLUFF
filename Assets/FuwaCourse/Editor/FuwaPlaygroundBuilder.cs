@@ -1472,16 +1472,23 @@ public static class FuwaPlaygroundBuilder
         // 前のアセットに上書き（GUID を変えない）。CopySerialized だと2つ目以降のサブメッシュが描かれない罠があるので Clear→Set 系で入れ直す
         if (old != null)
         {
-            old.Clear(); old.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            old.Clear(false); old.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             old.SetVertices(m.vertices); old.SetNormals(m.normals);
             if (m.uv.Length > 0) old.uv = m.uv;
             old.subMeshCount = m.subMeshCount; for (int s = 0; s < m.subMeshCount; s++) old.SetTriangles(m.GetTriangles(s), s);
-            old.RecalculateBounds(); FuwaGunWeld.Weld(old); EditorUtility.SetDirty(old);
+            old.RecalculateBounds(); FuwaGunWeld.Weld(old); LightmapUV(old, name); EditorUtility.SetDirty(old);
             Object.DestroyImmediate(m);
             return old;
         }
-        AssetDatabase.CreateAsset(m, p); FuwaGunWeld.Weld(m);
+        AssetDatabase.CreateAsset(m, p); FuwaGunWeld.Weld(m); LightmapUV(m, name);
         return m;
+    }
+
+    // 床と柵は影を焼くので、ライトマップ用UV（uv1）を作る。無いとスマホでは無い uv1 にでたらめな値が入って床がまだらになる（2026-10-19）
+    static void LightmapUV(Mesh m, string name)
+    {
+        if (name.EndsWith("Collider")) return;
+        UnwrapParam p; UnwrapParam.SetDefaults(out p); Unwrapping.GenerateSecondaryUVSet(m, p);
     }
 
     static Mesh SaveGenMesh(Mesh m, string name)

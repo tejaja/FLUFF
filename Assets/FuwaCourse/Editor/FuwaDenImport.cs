@@ -74,13 +74,16 @@ public static class FuwaDenImport
         var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         bool fresh = mesh == null;
         if (fresh) mesh = new Mesh();
-        mesh.Clear();
+        // Clear(false)：Clear() だと前のライトマップ用UV（uv1）の入れ物が残って中身がでたらめになり、焼いた影の読み取りがおかしくなった
+        //（2026-10-19 スマホでまもののすの床がまだら模様）。作り直したら uv1 も作り直す
+        mesh.Clear(false);
         mesh.name = name;
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         mesh.SetVertices(m.v);
         if (m.c != null) mesh.SetColors(m.c);
         mesh.SetTriangles(m.t, 0);
         mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        if (!name.EndsWith("_Col")) { UnwrapParam p; UnwrapParam.SetDefaults(out p); Unwrapping.GenerateSecondaryUVSet(mesh, p); }
         if (fresh) AssetDatabase.CreateAsset(mesh, path); else EditorUtility.SetDirty(mesh);
         return mesh;
     }
@@ -194,7 +197,7 @@ public static class FuwaDenImport
         var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         bool fresh = mesh == null;
         if (fresh) mesh = new Mesh();
-        mesh.Clear(); mesh.name = n + "_Col_Low";
+        mesh.Clear(false); mesh.name = n + "_Col_Low";
         mesh.SetVertices(V); mesh.triangles = tri; mesh.RecalculateNormals(); mesh.RecalculateBounds();
         if (fresh) AssetDatabase.CreateAsset(mesh, path); else EditorUtility.SetDirty(mesh);
         return mesh;

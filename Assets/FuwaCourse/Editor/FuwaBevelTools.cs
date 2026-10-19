@@ -157,9 +157,12 @@ public static class FuwaBevelTools
     // 既存のメッシュアセットの中身を入れ替える（CopySerialized だと描画用のデータが古いまま残ることがあったので、Clear して入れ直す）
     public static void CopyInto(Mesh dst, Mesh src)
     {
-        dst.Clear();
+        // Clear(false)：Clear() だと前の uv1 などの入れ物が残って中身がでたらめになる（2026-10-19 スマホで焼いた影がまだら）
+        dst.Clear(false);
         dst.indexFormat = src.indexFormat;
         dst.SetVertices(src.vertices); dst.SetNormals(src.normals); dst.SetUVs(0, src.uv);
+        for (int c = 1; c < 8; c++) { var u = new List<Vector4>(); src.GetUVs(c, u); if (u.Count == src.vertexCount) dst.SetUVs(c, u); }
+        if (src.colors.Length == src.vertexCount) dst.SetColors(src.colors);
         if (src.tangents.Length == src.vertexCount) dst.SetTangents(src.tangents);
         dst.subMeshCount = src.subMeshCount;
         for (int i = 0; i < src.subMeshCount; i++) dst.SetTriangles(src.GetTriangles(i), i);
