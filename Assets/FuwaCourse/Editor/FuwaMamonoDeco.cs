@@ -290,6 +290,7 @@ public static class FuwaMamonoDeco
         int nTwig = 0, nFeather = 0, nShell = 0, nTuft = 0; tries = 0;
         var floorSpots = new List<(Vector3 p, float r)>();   // 床の小物の場所（抜け毛と重ならないように）
         foreach (var e in eggSpots) floorSpots.Add((e, 0.75f));   // 小島のタマゴのセット
+        foreach (var e in PocketEggSpots(den)) floorSpots.Add((e, 0.75f));   // ママの巣のポケットのタマゴ（PocketEggs）
         // チェックポイントの光るキノコ（丸太ごと床に置いてある）の下・まわりには置かない（2026-10-09 枝が丸太に埋まっていた）
         foreach (Transform cp in root)
         {
@@ -416,6 +417,7 @@ public static class FuwaMamonoDeco
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             log.Append("Mamono_Dust tris " + dustMb.T.Count / 3 + " ");
         }
+        log.Append(PocketEggs());
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         return log.ToString();
@@ -432,6 +434,20 @@ public static class FuwaMamonoDeco
         return r;
     }
 
+    // ポケットの奥の左右の角（壁ぎわ）に1セットずつ。ボスが入る真ん中はあける。乱数を使わないので、全体の飾り（Run）からも同じ場所がわかる
+    static List<Vector3> PocketEggSpots(Transform den)
+    {
+        var l = new List<Vector3>();
+        foreach (var b in MamaBulges)
+            foreach (float side in new[] { -0.62f, 0.62f })
+            {
+                float a = b.ang + side * b.half;
+                float rr = MamaNestR(a) - 0.15f * 2.6f - 0.12f;   // ふちの内側の面から少しはなす
+                l.Add(den.TransformPoint(new Vector3(MamaC.x + Mathf.Cos(a * Mathf.Deg2Rad) * rr, 5.5f, MamaC.y + Mathf.Sin(a * Mathf.Deg2Rad) * rr)));
+            }
+        return l;
+    }
+
     [MenuItem("FuwaCourse/済み（押す前に相談）/ママの巣のポケットのタマゴを作る")]
     public static void PocketEggsMenu() { Debug.Log(PocketEggs()); }
 
@@ -443,16 +459,11 @@ public static class FuwaMamonoDeco
         var rnd = new System.Random(1019);
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         var eggs = new MB(); int sets = 0;
-        foreach (var b in MamaBulges)
+        var spots = PocketEggSpots(den);
+        foreach (var pos in spots)
         {
-            // ポケットの奥の左右の角（壁ぎわ）に1セットずつ。ボスが入る真ん中はあける
-            foreach (float side in new[] { -0.62f, 0.62f })
             {
-                float a = b.ang + side * b.half + R(-1.5f, 1.5f);
                 float er = R(0.13f, 0.17f);
-                float rr = MamaNestR(a) - er * 2.6f - 0.12f;   // ふちの内側の面から少しはなす
-                var lp = new Vector3(MamaC.x + Mathf.Cos(a * Mathf.Deg2Rad) * rr, 5.5f, MamaC.y + Mathf.Sin(a * Mathf.Deg2Rad) * rr);
-                var pos = den.TransformPoint(lp);
                 var col = EggColor(rnd); float d = er * 1.18f, a0 = R(0, 360);
                 Bedding(eggs, pos, d + er * 0.95f, er, rnd);
                 int crackedOne = rnd.NextDouble() < 0.4 ? rnd.Next(3) : -1;

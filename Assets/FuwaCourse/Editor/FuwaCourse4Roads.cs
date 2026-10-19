@@ -19,10 +19,25 @@ public static class FuwaCourse4Roads
     const float IsletBridge = 3.2f;          // 小さい巣 → 最初の巣 の木の橋の長さ
     const float RoadMin = 2.5f;              // スタート島からのシマシマ道の、最低の長さ
     const float JagMax = 0.36f;              // 割れたはしの、いちばん欠けている所の深さ
+    const float NestLip = 0.38f;             // 巣の見た目の床は当たり判定（r×1.03）より外へ少し続く（ふちの下の土手 r+0.45）。割れ目の小枝はそこから先に置く（2026-10-19 てじゃ「ほとんど木がうまってる」）
     const string MeshDir = "Assets/FuwaCourse/Meshes/Course4";
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/まもののす/最初と最後の橋をシマシマ道にする")]
     public static void Menu() { Debug.Log(Run()); }
+
+    [MenuItem("FuwaCourse/済み（押す前に相談）/まもののす/出口のシマシマ道だけ作り直す")]
+    public static void GoalMenu() { Debug.Log(RunGoal()); }
+
+    public static string RunGoal()
+    {
+        var c4 = GameObject.Find("FuwaCourse4").transform; var den = c4.Find("Den"); Physics.SyncTransforms();
+        var matA = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/LobbyCourse4_PathA.mat");
+        var matB = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/LobbyCourse4_PathB.mat");
+        var goalG = c4.Find("Goal/GoalGround");
+        var r = Road(den, "BridgeD", den.Find("MamaNestCenter").position, goalG.position, den.Find("MamaNest_Col").GetComponent<Collider>(), goalG.GetComponent<Collider>(), matA, matB, "Course4_Road_Goal", GapD, 0f, 0f, null, out _);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(c4.gameObject.scene); AssetDatabase.SaveAssets();
+        return r;
+    }
 
     public static string Run()
     {
@@ -69,6 +84,7 @@ public static class FuwaCourse4Roads
     {
         islet = null;
         var br = den.Find(bridge); var bcolT = den.Find(bridge + "_Col"); var bcol = bcolT.GetComponent<Collider>();
+        if (br == null) br = den.Find("BridgeB");   // 木の橋の見た目は取り込みで作らない（FuwaDenImport.NoVisual）。材質・レイヤー・Static はほかの橋から
         bool bcolWasOn = bcolT.gameObject.activeSelf; bcolT.gameObject.SetActive(true);   // 測るあいだだけ（道の当たり判定に置きかえた後も測れるように）
         Vector2 a = new Vector2(a3.x, a3.z), b = new Vector2(b3.x, b3.z), dir = (b - a).normalized, right = new Vector2(dir.y, -dir.x);
         float L = (b - a).magnitude;
@@ -134,7 +150,8 @@ public static class FuwaCourse4Roads
             islet = new Vector3(c2.x, top, c2.y);
         }
         // 道（割れ目のぶん短くして、割れた側のはしをギザギザに）。スタート島の側は島の下に 0.4m もぐらせる
-        float roadStart = (fromCol != null && gap0 <= 0f) || hasIslet ? e0 - 0.4f : e0 + gap0;   // 割れ目のない島の側は、島の地面の下に 0.4m もぐらせる
+        float ev = fromCol != null && gap0 > 0f ? e0 + NestLip : e0;   // 見た目の床が終わる所（割れ目の小枝・道はここから）
+        float roadStart = (fromCol != null && gap0 <= 0f) || hasIslet ? e0 - 0.4f : ev + gap0;   // 割れ目のない島の側は、島の地面の下に 0.4m もぐらせる
         float roadEnd = hasIslet ? rEnd : e1 - gap1;
         Put(name, SaveMesh(Strip(roadStart, roadEnd, halfW, top, !hasIslet && gap0 > 0f, gap1 > 0f), name), new[] { mA, mB });
         // 割れ目をつなぐ小枝（見えるのは割れ目の中だけ。ツタは両がわの床・道の上まで）
@@ -143,12 +160,12 @@ public static class FuwaCourse4Roads
         if (gap0 > 0f || gap1 > 0f)
         {
             float nearEnd = hasIslet ? iNear : e1;   // 割れ目の向こう（小さい巣か巣の床）のふち
-            float p0 = gap0 > 0f ? e0 - 0.25f : nearEnd - gap1 - JagMax;
-            float p1 = gap0 > 0f ? e0 + gap0 + JagMax : nearEnd + 0.25f;
-            float v0 = gap0 > 0f ? e0 : nearEnd - gap1, v1 = gap0 > 0f ? e0 + gap0 : nearEnd;
+            float p0 = gap0 > 0f ? ev - 0.25f : nearEnd - gap1 - JagMax;
+            float p1 = gap0 > 0f ? ev + gap0 + JagMax : nearEnd + 0.25f;
+            float v0 = gap0 > 0f ? ev : nearEnd - gap1, v1 = gap0 > 0f ? ev + gap0 : nearEnd;
             Put(pn, SaveMesh(Patch(p0, p1, v0, v1, halfW, top, name.Length * 7919 + 17), pn), new[] { twigMat });
         }
-        br.gameObject.SetActive(false);   // 木の橋の見た目は消さずに非表示
+        if (br.name == bridge) br.gameObject.SetActive(false);   // 木の橋の見た目は消さずに非表示（ほかの橋を借りた時は触らない）
         // 当たり判定：島（巣）どうしの間が橋より長い時や小さい巣がある時は、橋の当たり判定の代わりに道の形の箱を置く
         string cn = name + "_Col";
         var oldC = den.Find(cn); if (oldC != null) Object.DestroyImmediate(oldC.gameObject);
