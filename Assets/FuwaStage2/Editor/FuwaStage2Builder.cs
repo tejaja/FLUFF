@@ -19,8 +19,9 @@ public static class FuwaStage2Builder
     // 動きもそのまま使う物（銃の台：クリックで自分の銃が戻ってくる）。中の参照はステージ2側の物につなぎ直す
     static readonly string[] KeepBehaviour = { "GunStand_Lobby" };
     // 仮のコース名（テーマ）。決まったら差し替える
-    public static readonly string[] CourseJa = { "みずのたに", "ひのやま", "こおりのやま", "からくりこうじょう", "そらのいせき", "きのこのくに" };
-    public static readonly string[] CourseEn = { "Water Valley", "Fire Mountain", "Ice Peak", "Clockwork Works", "Sky Ruins", "Mushroom Kingdom" };
+    // 2026-10-19 てじゃ「ほのおのやま こおりのほら はぐるまのとう そらのいせき きのこのくに でいこう、かわるかもだけど」
+    public static readonly string[] CourseJa = { "みずのさと", "ほのおのやま", "こおりのほら", "はぐるまのとう", "そらのいせき", "きのこのくに" };
+    public static readonly string[] CourseEn = { "Water Village", "Flame Mountain", "Ice Grotto", "Gear Tower", "Sky Ruins", "Mushroom Kingdom" };
 
     [MenuItem("FuwaCourse/ステージ2/土台を作り直す")]
     public static void Menu() { Debug.Log(Build()); }
@@ -81,7 +82,7 @@ public static class FuwaStage2Builder
             portal2.localPosition = portal1.localPosition; portal2.localRotation = portal1.localRotation; portal2.localScale = portal1.localScale;
             foreach (Transform c in portal2.Cast<Transform>().ToList()) if (c.name.EndsWith("_Trigger") || c.name.EndsWith("_Trigger_Gauge")) Object.DestroyImmediate(c.gameObject);
             StripBehaviour(portal2.gameObject); portal2.gameObject.SetActive(true);
-            var lab2 = portal2.Find("Label")?.GetComponent<TMPro.TMP_Text>(); if (lab2) { lab2.text = "ステージ1"; langTexts.Add((lab2, "ステージ1", "Stage 1")); }
+            var lab2 = portal2.Find("Label")?.GetComponent<TMPro.TMP_Text>(); if (lab2) { lab2.text = "まえのしま"; langTexts.Add((lab2, "まえのしま", "Last Island")); }   // 2026-10-19 てじゃ「ステージ2のは まえのしま にしよ」
             var lab1 = portal1.Find("Label")?.GetComponent<TMPro.TMP_Text>(); if (lab1) langTexts.Add((lab1, "つぎのしま", "Next Island"));
             // ステージ1 → 2（ステージ1のロビーの門。シーンの物なので作り直しのたびに付け直す）
             foreach (Transform c in portal1.Cast<Transform>().ToList()) if (c.name == "Stage2Portal_Trigger" || c.name == "Stage2Portal_Trigger_Gauge") Object.DestroyImmediate(c.gameObject);
@@ -156,6 +157,8 @@ public static class FuwaStage2Builder
             if (p != null && p.floatValue > -Drop - 200f) { p.floatValue = -Drop - 230f; so.ApplyModifiedProperties(); log.Add("RespawnHeightY → " + p.floatValue); }
         }
 
+        // コースごとの色（ロビーの道・看板の後ろの雲）
+        log.Add(FuwaStage2LobbyCourses.Run());
         // プレハブにしてシーンにはそれを置く（シーンの物への参照は、置いた物の上書きとして残る）
         var prefab = PrefabUtility.SaveAsPrefabAssetAndConnect(root.gameObject, PrefabPath, InteractionMode.AutomatedAction);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);

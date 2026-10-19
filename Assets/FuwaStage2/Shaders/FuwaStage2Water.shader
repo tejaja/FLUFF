@@ -3,6 +3,8 @@
 // ・流れのある水は、流れの向きに白い筋が流れていく（向き＝この板のローカル +Y を水平にしたもの。builder が向けて置く）
 // ・止まった水はゆっくり揺れるさざなみ。どちらもたまにきらっと光る
 // 板（Unity の Quad、X に90度倒して置く）の uv 0〜1 と、板の大きさ（行列から）で、ふちからの距離をメートルで出す
+// _Ribbon=1：曲がった川・池の帯メッシュ用（2026-10-19、2–1 みずのたに）。uv1＝(横の位置, 半分の幅, 始まりからの距離, 終わりまでの距離) m、uv2.x＝中心線に沿った距離 m。
+//   ふちの泡・流れの筋を帯に沿わせる（板の大きさ・向きは使わない）。開いた端（流れ込み・流れ出し）は距離を大きくして泡を出さない
 // 静的バッチングだとオブジェクトの行列が消えるので、水面は Static にしないこと
 Shader "FuwaStage2/Water"
 {
@@ -17,6 +19,7 @@ Shader "FuwaStage2/Water"
         _StreakScale ("Streak Size", Float) = 1.0
         _StreakStrength ("Streak Strength", Range(0, 1)) = 0.55
         _Sparkle ("Sparkle", Range(0, 1)) = 0.5
+        [Toggle] _Ribbon ("Ribbon Mesh (uv1/uv2)", Float) = 0
     }
     SubShader
     {
@@ -30,10 +33,10 @@ Shader "FuwaStage2/Water"
             #include "UnityCG.cginc"
 
             fixed4 _Deep, _Shallow, _Foam;
-            float _FoamWidth, _DeepWidth, _FlowSpeed, _StreakScale, _StreakStrength, _Sparkle;
+            float _FoamWidth, _DeepWidth, _FlowSpeed, _StreakScale, _StreakStrength, _Sparkle, _Ribbon;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wp : TEXCOORD1; float4 frame : TEXCOORD2; UNITY_FOG_COORDS(3) };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float4 rib : TEXCOORD1; float2 rib2 : TEXCOORD2; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wp : TEXCOORD1; float4 frame : TEXCOORD2; float4 rib : TEXCOORD4; float rs : TEXCOORD5; UNITY_FOG_COORDS(3) };
 
             v2f vert (appdata v)
             {
@@ -46,6 +49,7 @@ Shader "FuwaStage2/Water"
                 float3 ay = mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0));
                 float2 fd = ay.xz; float fl = length(fd); fd = fl > 1e-4 ? fd / fl : float2(0, 1);
                 o.frame = float4(length(ax), length(ay), fd);
+                o.rib = v.rib; o.rs = v.rib2.x;
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -65,10 +69,12 @@ Shader "FuwaStage2/Water"
                 // ふちからの距離(m)
                 float2 d2 = min(i.uv, 1 - i.uv) * size;
                 float edge = min(d2.x, d2.y);
+                if (_Ribbon > 0.5) edge = min(i.rib.y - abs(i.rib.x), min(i.rib.z, i.rib.w));
                 float3 col = lerp(_Shallow.rgb, _Deep.rgb, smoothstep(0, _DeepWidth, edge));
                 // 流れの座標：along＝流れの向き、across＝横
                 float2 perp = float2(-fd.y, fd.x);
                 float along = dot(i.wp.xz, fd), across = dot(i.wp.xz, perp);
+                if (_Ribbon > 0.5) { along = i.rs; across = i.rib.x; }
                 float s = _StreakScale;
                 if (_FlowSpeed > 0.001)
                 {

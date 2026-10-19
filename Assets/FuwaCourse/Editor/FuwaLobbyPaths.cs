@@ -93,7 +93,7 @@ public static class FuwaLobbyPaths
         return log.ToString();
     }
 
-    static Material FindMat(string n)
+    public static Material FindMat(string n)
     {
         foreach (var g in AssetDatabase.FindAssets(n + " t:Material"))
         {
@@ -104,7 +104,7 @@ public static class FuwaLobbyPaths
     }
 
     // ローカル：z が道の向き（z0〜z1）、x が横、y=floorY が床の上面。上面は floorY+Rise、下は床に埋める
-    static Mesh Strip(float z0, float z1, float floorY)
+    public static Mesh Strip(float z0, float z1, float floorY)
     {
         float top = floorY + Rise, bot = floorY - Sink;
         // 断面（横, 高さ, 法線x, 法線y）：左の側面 → 丸め → 上面 → 丸め → 右の側面

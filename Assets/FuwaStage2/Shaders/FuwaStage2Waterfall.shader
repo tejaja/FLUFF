@@ -1,5 +1,6 @@
 // 滝のカーテン（ステージ2、2026-10-17）。縦に落ちる白い筋と、上下のふちの泡。少しだけ透ける
 // 板（Quad）の uv：x＝横、y＝下0〜上1。落ちる速さは _FallSpeed（m/s）、筋の間隔は板の大きさ（行列）から
+// _Curved=1：曲がった滝のメッシュ用（2026-10-19、2–1 の落ち口がRで張り出す滝）。uv1＝(横 m, 下からの長さ m)、uv2＝(全体の幅 m, 全体の長さ m)
 Shader "FuwaStage2/Waterfall"
 {
     Properties
@@ -11,6 +12,7 @@ Shader "FuwaStage2/Waterfall"
         _FallSpeed ("Fall Speed (m/s)", Float) = 3.0
         _StreakScale ("Streak Size", Float) = 1.0
         _EdgeFoam ("Top/Bottom Foam (m)", Float) = 0.35
+        [Toggle] _Curved ("Curved Mesh (uv1/uv2)", Float) = 0
     }
     SubShader
     {
@@ -27,9 +29,9 @@ Shader "FuwaStage2/Waterfall"
             #include "UnityCG.cginc"
 
             fixed4 _Top, _Bottom, _Foam;
-            float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam;
+            float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) };
 
             v2f vert (appdata v)
@@ -38,6 +40,7 @@ Shader "FuwaStage2/Waterfall"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
                 o.size = float2(length(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0))), length(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0))));
+                if (_Curved > 0.5) { o.size = v.tot; o.uv = v.m / max(v.tot, 0.001); }
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }

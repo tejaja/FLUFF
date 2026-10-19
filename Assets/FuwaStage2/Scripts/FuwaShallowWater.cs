@@ -29,6 +29,9 @@ public class FuwaShallowWater : UdonSharpBehaviour
     [Tooltip("下向きにこの速さ(m/s)より速く落ちてきたら「ザブン」")]
     public float strongFall = 2.5f;
     public FuwaWaterFx fx;
+    // 曲がった川・池（2–1）：向きのついた箱をいくつも並べた水は、ここに全部入れて1つで見る（箱ごとに置くと境目で「ちゃぷ」が鳴り続ける）。
+    // 空なら自分のコライダーの外接箱で見る（まっすぐな池・テスト場）
+    public BoxCollider[] areas;
     public float splashStrength = 1.2f;
 
     private Collider _col;
@@ -42,9 +45,26 @@ public class FuwaShallowWater : UdonSharpBehaviour
         _col = GetComponent<Collider>();
     }
 
+    private float _hitTop;
+
     private bool FeetInWater(Vector3 f)
     {
+        if (areas != null && areas.Length > 0)
+        {
+            for (int i = 0; i < areas.Length; i++)
+            {
+                BoxCollider a = areas[i];
+                if (a == null) continue;
+                Transform t = a.transform;
+                Vector3 lp = t.InverseTransformPoint(f) - a.center;
+                Vector3 h = a.size * 0.5f;
+                float top = t.TransformPoint(a.center + new Vector3(0f, h.y, 0f)).y;
+                if (Mathf.Abs(lp.x) < h.x && Mathf.Abs(lp.z) < h.z && f.y < top + surfaceAbove && f.y > top - a.size.y * t.lossyScale.y - 0.3f) { _hitTop = top; return true; }
+            }
+            return false;
+        }
         if (_col == null) return false;
+        _hitTop = _col.bounds.max.y;
         Bounds b = _col.bounds;
         return f.x > b.min.x && f.x < b.max.x && f.z > b.min.z && f.z < b.max.z && f.y < b.max.y + surfaceAbove && f.y > b.min.y - 0.3f;
     }
@@ -55,7 +75,7 @@ public class FuwaShallowWater : UdonSharpBehaviour
         if (p == null || !p.IsValid()) return;
         Vector3 f = p.GetPosition();
         bool inside = FeetInWater(f);
-        if (inside && !_in) Splash(new Vector3(f.x, _col.bounds.max.y, f.z), p.GetVelocity());
+        if (inside && !_in) Splash(new Vector3(f.x, _hitTop, f.z), p.GetVelocity());
         if (!inside && _in) _leftAt = Time.time;
         _in = inside;
         if (inside)
