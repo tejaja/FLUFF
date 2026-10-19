@@ -47,6 +47,8 @@ public class FuwaMama : UdonSharpBehaviour
     [Tooltip("巣の中心（ここから moveRadius の中だけ動く）。なければ最初の位置")]
     public Transform nestCenter;
     public float moveRadius = 3.4f;
+    [Tooltip("動ける範囲の膨らみ（巣のポケット。2026-10-19 てじゃ：出口の両わきに小部屋を作って、撃ってボスを押し込めば出口があく）。x=ワールドの角度(度、巣の中心から +X が0・+Z へ)、y=片側の幅(度)、z=膨らみ(m)。巣の形（Tools/den.py の bulges）と同じ形。FuwaDenPocket が入れる")]
+    public Vector3[] moveBulges;
     [Tooltip("体の半径(m)。ぶつかり判定に使う")]
     public float bodyRadius = 0.8f;
     [Tooltip("ぶつかった時に人を吹っ飛ばす強さ")]
@@ -375,12 +377,31 @@ public class FuwaMama : UdonSharpBehaviour
         return targetBall && ball != null && ball.gameObject.activeInHierarchy && !ball.IsWaitingOrHidden() && !ball.IsCarried() && !ball.IsFinished();
     }
 
+    // その向きで動ける半径。ふつうは moveRadius の円、膨らみ（ポケット）の向きだけ外へ丸く膨らむ（(1-u²)^0.75、den.py の nest_r と同じ）
+    private float LimitRadius(Vector3 offFlat)
+    {
+        float r = moveRadius;
+        if (moveBulges == null || offFlat.sqrMagnitude < 0.0001f) return r;
+        float ang = Mathf.Atan2(offFlat.z, offFlat.x) * Mathf.Rad2Deg;
+        for (int i = 0; i < moveBulges.Length; i++)
+        {
+            Vector3 b = moveBulges[i];
+            float d = Mathf.DeltaAngle(b.x, ang);
+            if (Mathf.Abs(d) < b.y) { float u = d / b.y; r += b.z * Mathf.Pow(Mathf.Max(0f, 1f - u * u), 0.75f); }
+        }
+        return r;
+    }
+
     // ゆっくり追いかける（巣の外には出ない）。押された分はだんだん止まる
     private void Move(VRCPlayerApi local, float dt)
     {
         Vector3 pos = transform.position;
         bool ballLive = BallLive();
-        Vector3 to = (ballLive ? ball.transform.position : local.GetPosition()) - pos; to.y = 0f;
+        Vector3 tgt = ballLive ? ball.transform.position : local.GetPosition();
+        // ふわふわが巣の外へ抜けたら、追うのをやめて巣の真ん中へ帰る（出口の前でふさぎっぱなしにならないように）
+        Vector3 toff = tgt - _home; toff.y = 0f;
+        if (ballLive && toff.magnitude > LimitRadius(toff) + bodyRadius + 0.6f) tgt = _home;
+        Vector3 to = tgt - pos; to.y = 0f;
         Vector3 step = Vector3.zero;
         float lift = 0f;
         _crouch = 0f;
@@ -424,7 +445,8 @@ public class FuwaMama : UdonSharpBehaviour
         _push *= Mathf.Exp(-(airborne ? airDamping : pushDamping) * dt);
         pos += step;
         Vector3 off = pos - _home; off.y = 0f;
-        if (off.magnitude > moveRadius) pos = _home + off.normalized * moveRadius;
+        float lim = LimitRadius(off);
+        if (off.magnitude > lim) pos = _home + off.normalized * lim;
         pos.y = _home.y + lift + _knockY;
         transform.position = pos;
         if (to.sqrMagnitude > 0.01f)

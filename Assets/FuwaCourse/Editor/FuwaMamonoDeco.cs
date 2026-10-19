@@ -421,6 +421,70 @@ public static class FuwaMamonoDeco
         return log.ToString();
     }
 
+    // ママの巣のポケット（Tools/den.py の MamaNest の bulges）の壁ぎわにタマゴのセット（2026-10-19 てじゃ「壁際には卵（飾り）」）。
+    // 全体の飾り（Run）は作り直すと浮かぶ巣の並びが変わるので、これだけ別のメッシュ（Deco/Mamono_PocketEggs）に
+    public static readonly (float ang, float half, float depth)[] MamaBulges = { (5.4f, 13.5f, 1.5f), (77f, 13.5f, 1.5f) };   // den.py と同じ
+    const float MamaR = 4.6f; static readonly Vector2 MamaC = new Vector2(73.9f, 21.7f);
+    static float MamaNestR(float aDeg)
+    {
+        float r = MamaR;
+        foreach (var b in MamaBulges) { float d = Mathf.DeltaAngle(b.ang, aDeg); if (Mathf.Abs(d) < b.half) { float u = d / b.half; r += b.depth * Mathf.Pow(Mathf.Max(0f, 1f - u * u), 0.75f); } }
+        return r;
+    }
+
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ママの巣のポケットのタマゴを作る")]
+    public static void PocketEggsMenu() { Debug.Log(PocketEggs()); }
+
+    public static string PocketEggs()
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
+        var den = root.Find("Den");
+        var twig = AssetDatabase.FindAssets("Den_Twig t:Material").Select(g => AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(g))).First(m => m.name == "Den_Twig");
+        var rnd = new System.Random(1019);
+        float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
+        var eggs = new MB(); int sets = 0;
+        foreach (var b in MamaBulges)
+        {
+            // ポケットの奥の左右の角（壁ぎわ）に1セットずつ。ボスが入る真ん中はあける
+            foreach (float side in new[] { -0.62f, 0.62f })
+            {
+                float a = b.ang + side * b.half + R(-1.5f, 1.5f);
+                float er = R(0.13f, 0.17f);
+                float rr = MamaNestR(a) - er * 2.6f - 0.12f;   // ふちの内側の面から少しはなす
+                var lp = new Vector3(MamaC.x + Mathf.Cos(a * Mathf.Deg2Rad) * rr, 5.5f, MamaC.y + Mathf.Sin(a * Mathf.Deg2Rad) * rr);
+                var pos = den.TransformPoint(lp);
+                var col = EggColor(rnd); float d = er * 1.18f, a0 = R(0, 360);
+                Bedding(eggs, pos, d + er * 0.95f, er, rnd);
+                int crackedOne = rnd.NextDouble() < 0.4 ? rnd.Next(3) : -1;
+                for (int k = 0; k < 3; k++)
+                {
+                    var outDir = Quaternion.Euler(0, a0 + k * 120 + R(-10, 10), 0) * Vector3.forward;
+                    var tilt = Quaternion.AngleAxis(R(8, 16), Vector3.Cross(Vector3.up, outDir)) * Quaternion.Euler(0, R(0, 360), 0);
+                    bool cracked = k == crackedOne;
+                    Shell(eggs, Matrix4x4.TRS(pos + outDir * d + Vector3.up * er * 0.85f, tilt, Vector3.one), er, er * 1.3f, cracked ? R(0.9f, 1.2f) : 0f, Mathf.PI, col, rnd);
+                }
+                sets++;
+            }
+        }
+        var deco = root.Find("Deco");
+        var w2l = deco.worldToLocalMatrix;
+        var m = new Mesh { name = "Mamono_PocketEggs", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        m.SetVertices(eggs.V.Select(x => w2l.MultiplyPoint3x4(x)).ToList()); m.SetNormals(eggs.N.Select(x => w2l.MultiplyVector(x).normalized).ToList());
+        m.SetColors(eggs.C); m.SetTriangles(eggs.T, 0); m.RecalculateBounds();
+        string ap = Dir + "/Mamono_PocketEggs.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
+        if (old != null) { old.Clear(false); EditorUtility.CopySerialized(m, old); m = old; } else AssetDatabase.CreateAsset(m, ap);
+        var t = deco.Find("Mamono_PocketEggs"); GameObject go = t != null ? t.gameObject : null;
+        if (go == null) { go = new GameObject("Mamono_PocketEggs", typeof(MeshFilter), typeof(MeshRenderer)); go.transform.SetParent(deco, false); Undo.RegisterCreatedObjectUndo(go, "deco"); }
+        go.GetComponent<MeshFilter>().sharedMesh = m;
+        var mr = go.GetComponent<MeshRenderer>(); mr.sharedMaterial = twig;
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; mr.receiveShadows = false;   // Mamono_Eggs と同じ
+        var eggsT = deco.Find("Mamono_Eggs");
+        if (eggsT != null) { GameObjectUtility.SetStaticEditorFlags(go, GameObjectUtility.GetStaticEditorFlags(eggsT.gameObject)); go.layer = eggsT.gameObject.layer; }
+        AssetDatabase.SaveAssets();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+        return "pocket eggs " + sets + " sets, tris " + eggs.T.Count / 3;
+    }
+
     static Color EggColor(System.Random rnd)
     {
         Color[] c = { new Color(0.97f, 0.93f, 0.82f), new Color(0.86f, 0.92f, 0.95f), new Color(0.95f, 0.86f, 0.9f), new Color(0.9f, 0.88f, 0.98f) };

@@ -24,7 +24,10 @@ NESTS = [
     dict(name='Nest1', c=(40.8, 2.2), r=3.0, rim=0.5, seed=1),
     dict(name='Nest2', c=(50.5, 6.5), r=3.2, rim=0.5, seed=2),       # 新しい島（けだま2匹）
     dict(name='Nest3', c=sh((50.5, 6.5)), r=2.6, rim=0.45, seed=6),  # 分岐の巣（やや小さめ＋チェックポイント）
-    dict(name='MamaNest', c=sh((64.2, 17.4)), r=4.6, rim=0.7, seed=3),
+    dict(name='MamaNest', c=sh((64.2, 17.4)), r=4.6, rim=0.7, seed=3,
+         # 2026-10-19 てじゃ：出口の両わきに膨らんだ小部屋（ポケット）。撃ってボスをここへ押し込めば出口があく。
+         # (中心の角度, 片側の幅(度), 膨らみ(m))。角度はここの座標（Den のローカル）で、出口の切れ目と大回りの橋の切れ目の間の壁
+         bulges=[(5.4, 13.5, 1.5), (77.0, 13.5, 1.5)]),   # 2026-10-19 出口の切れ目の横で角が出っぱって引っかかった（てじゃ）→ 出口から4°離して、立ち上がりもなだらかに（(1-u²)^0.75）
     dict(name='SideNest', c=sh((58.7, -0.9)), r=3.0, rim=0.5, seed=4),
     dict(name='Islet', c=sh((69.7, 7.87)), r=1.8, rim=0.35, seed=5),   # 2026-10-09 てじゃの経路図：ママの巣の右へ（旧 (65.8, 7.0)）。横の巣からまっすぐ上がって、ママの巣の右やや上へ入る   # 大回りの曲がり角の小島（何もない）   # 大回りルートの巣（けだま1匹＋倒しやすいイバラ）
 ]
@@ -119,16 +122,33 @@ def island(name):
     return START if name == 'Start' else GOAL
 
 # ---- 巣 ----
+def nest_r(nd, a_deg):
+    # その向きのふちの半径。ふつうは円、bulges があればそこだけ外へ丸く膨らむ（(1-u²)^0.75：丸いけど、つけ根は直角にならずなだらか）
+    r = nd['r']
+    for (c, half, depth) in nd.get('bulges', ()):
+        d = (a_deg - c + 180.0) % 360.0 - 180.0
+        if abs(d) < half:
+            u = d / half; r += depth * max(0.0, 1.0 - u * u) ** 0.75
+    return r
+
 def build_nest(nd, gaps, vis, col):
     rnd = random.Random(nd['seed']); cx, cz = nd['c']; r = nd['r']; rim = nd['rim']; y = FLOOR_Y
+    bulgy = bool(nd.get('bulges'))
+    def RA(a_rad): return nest_r(nd, math.degrees(a_rad))   # ラジアンの角度での半径
+    def outward(a_deg):
+        # ふちの外向きの水平の向き（円なら半径の向き。膨らんだ所はふちの曲線の法線）
+        aa = math.radians(a_deg); R = nest_r(nd, a_deg); dR = (nest_r(nd, a_deg + 0.5) - nest_r(nd, a_deg - 0.5)) / math.radians(1.0)
+        tx, tz = dR * math.cos(aa) - R * math.sin(aa), dR * math.sin(aa) + R * math.cos(aa)
+        nx, nz = tz, -tx; L = math.hypot(nx, nz) or 1.0
+        return nx / L, nz / L
     # 床（わらっぽい筋の色ムラ）。中心から同心円で
-    R_STEPS = max(4, int(r / 0.3)); SEG = max(24, int(r * 14))
+    R_STEPS = max(4, int(r / 0.3)); SEG = max(24, int(r * 14)) * (2 if bulgy else 1)
     ctr = vis.v((cx, y, cz), STRAW); rings = []
     ang0 = rnd.uniform(0, 6.28)
     for j in range(1, R_STEPS + 1):
-        rr = r * j / R_STEPS; ring = []
+        ring = []
         for i in range(SEG):
-            a = 2 * math.pi * i / SEG; px, pz = cx + rr * math.cos(a), cz + rr * math.sin(a)
+            a = 2 * math.pi * i / SEG; rr = RA(a) * j / R_STEPS; px, pz = cx + rr * math.cos(a), cz + rr * math.sin(a)
             s = noise.noise(Vector((px * 1.7 * math.cos(ang0) + pz * 3.1, pz * 1.7 - px * 3.1 * math.sin(ang0), nd['seed'])))
             ring.append(vis.v((px, y - 0.01 * j / R_STEPS, pz), lerp3(STRAW2, STRAW, 0.5 + s * 0.9)))
         rings.append(ring)
@@ -140,11 +160,11 @@ def build_nest(nd, gaps, vis, col):
             vis.quad(rings[j][i], rings[j + 1][i], rings[j + 1][i1], rings[j][i1], (0, 1, 0))
     # 外側のお椀（下へすぼまる）。ふちの外 r+0.45 から、下 2.2m の点へ
     bowl = []
-    BR = [(r + 0.45, y - 0.05), (r + 0.5, y - 0.35), (r * 0.92, y - 0.9), (r * 0.65, y - 1.45), (r * 0.32, y - 1.95), (0.08, y - 2.2)]
-    for (rr, yy) in BR:
+    BR = [(lambda R: R + 0.45, y - 0.05), (lambda R: R + 0.5, y - 0.35), (lambda R: R * 0.92, y - 0.9), (lambda R: R * 0.65, y - 1.45), (lambda R: R * 0.32, y - 1.95), (lambda R: 0.08, y - 2.2)]
+    for (rf, yy) in BR:
         ring = []
         for i in range(SEG):
-            a = 2 * math.pi * i / SEG
+            a = 2 * math.pi * i / SEG; rr = rf(RA(a))
             px, pz = cx + rr * math.cos(a), cz + rr * math.sin(a)
             s = noise.noise(Vector((a * 3.0, yy * 2.3, nd['seed'] + 5)))
             c = lerp3(TWIG[1], TWIG[2], 0.5 + s); c = lerp3(c, TWIG_DARK, (y - yy) / 2.6)
@@ -161,7 +181,7 @@ def build_nest(nd, gaps, vis, col):
             vis.quad(bowl[j][i], bowl[j][i1], bowl[j + 1][i1], bowl[j + 1][i], (math.cos(a), -0.4, math.sin(a)))
     # ふちの壁：まず中身の詰まった丸い土手（小枝の色の筋）、その表面に小枝をたくさん巻きつける。切れ目はあける
     PROF = [(-0.02, -0.03), (0.0, 0.45), (0.08, 0.85), (0.22, 1.0), (0.38, 0.85), (0.48, 0.45), (0.52, -0.25)]   # (外への距離, 高さ/rim)
-    step = 4.0; angs = []
+    step = 2.0 if bulgy else 4.0; angs = []
     a = 0.0
     while a < 360.0 - 1e-6: angs.append(a); a += step
     runs = []; cur = []
@@ -184,11 +204,12 @@ def build_nest(nd, gaps, vis, col):
             row = []
             for (dr, hy) in PROF:
                 wob = noise.noise(Vector((a * 0.07, hy * 2, nd['seed'] * 3.1))) * 0.05
-                rr = r + dr + wob; yy = y + hy * rim * hk
+                rr = nest_r(nd, a) + dr + wob; yy = y + hy * rim * hk
                 st = noise.noise(Vector((a * 0.35, hy * 9.0 + dr * 6, nd['seed'] + 9)))
                 c = lerp3(TWIG[3], TWIG[2], 0.5 + st * 0.9); c = lerp3(c, TWIG_DARK, max(0, -hy) * 0.8)
                 row.append(vis.v((cx + rr * ca, yy, cz + rr * sa), c))
-            rows.append((row, ca, sa))
+            onx, onz = outward(a) if bulgy else (ca, sa)
+            rows.append((row, onx, onz))
         for qi in range(n - 1):
             (r0, ca, sa), (r1, _, _) = rows[qi], rows[qi + 1]
             for k in range(len(PROF) - 1):
@@ -214,7 +235,7 @@ def build_nest(nd, gaps, vis, col):
                     for k in range(7):
                         t = k / 6; aa = math.radians(a + arc * t)
                         endk = 1.0 if closed else min(1.0, min(a + arc * t - run[0], run[-1] - (a + arc * t)) / 12.0)
-                        rk = r + dr + (t - 0.5) * rnd.uniform(-0.06, 0.06) + rad * 0.5
+                        rk = nest_r(nd, a + arc * t) + dr + (t - 0.5) * rnd.uniform(-0.06, 0.06) + rad * 0.5
                         yk = y + rim * hy * (0.35 + 0.65 * endk) + math.sin(t * math.pi) * 0.025
                         pts.append((cx + rk * math.cos(aa), yk, cz + rk * math.sin(aa)))
                     tube(vis, pts, rad, twig_color(rnd), sides=5)
@@ -223,22 +244,24 @@ def build_nest(nd, gaps, vis, col):
     for k in range(int(r * 7)):
         a = rnd.uniform(0, 360)
         if ang_in(a, gaps) or any(ang_in((a + d) % 360, gaps) for d in (-12, 12)): continue
-        aa = math.radians(a); base = Vector((cx + (r + 0.25) * math.cos(aa), y + rnd.uniform(0.1, rim), cz + (r + 0.25) * math.sin(aa)))
+        aa = math.radians(a); ra = nest_r(nd, a); base = Vector((cx + (ra + 0.25) * math.cos(aa), y + rnd.uniform(0.1, rim), cz + (ra + 0.25) * math.sin(aa)))
         tang = Vector((-math.sin(aa), 0, math.cos(aa))) * rnd.choice((-1, 1))
         d = (Vector((math.cos(aa), rnd.uniform(-0.1, 0.5), math.sin(aa))) * rnd.uniform(0.3, 0.8) + tang * rnd.uniform(0.3, 1.0)).normalized()
         L = rnd.uniform(0.5, 1.0)
         pts = [tuple(base - d * L * 0.4 + d * L * t + Vector((0, -0.05 * math.sin(t * math.pi), 0))) for t in (0, 0.33, 0.66, 1.0)]
         tube(vis, pts, rnd.uniform(0.025, 0.04), twig_color(rnd), sides=4)
     # 当たり判定：床（円盤）＋ふちの壁（切れ目以外、内側 r、高さ rim+0.15）
-    SEGC = 32; c0 = col.v((cx, y, cz)); prev = None
-    ringc = [col.v((cx + r * 1.03 * math.cos(2 * math.pi * i / SEGC), y, cz + r * 1.03 * math.sin(2 * math.pi * i / SEGC))) for i in range(SEGC)]
+    SEGC = 96 if bulgy else 32; c0 = col.v((cx, y, cz)); prev = None
+    ringc = [col.v((cx + RA(2 * math.pi * i / SEGC) * 1.03 * math.cos(2 * math.pi * i / SEGC), y, cz + RA(2 * math.pi * i / SEGC) * 1.03 * math.sin(2 * math.pi * i / SEGC))) for i in range(SEGC)]
     for i in range(SEGC): col.tri(c0, ringc[i], ringc[(i + 1) % SEGC], (0, 1, 0))
     for i in range(SEGC):
         a0 = 360.0 * i / SEGC; a1 = 360.0 * (i + 1) / SEGC
         if ang_in((a0 + a1) * 0.5 % 360, gaps): continue
-        p0 = Vector((cx + (r + 0.05) * math.cos(math.radians(a0)), y - 0.2, cz + (r + 0.05) * math.sin(math.radians(a0))))
-        p1 = Vector((cx + (r + 0.05) * math.cos(math.radians(a1)), y - 0.2, cz + (r + 0.05) * math.sin(math.radians(a1))))
+        r0c = nest_r(nd, a0) + 0.05; r1c = nest_r(nd, a1) + 0.05
+        p0 = Vector((cx + r0c * math.cos(math.radians(a0)), y - 0.2, cz + r0c * math.sin(math.radians(a0))))
+        p1 = Vector((cx + r1c * math.cos(math.radians(a1)), y - 0.2, cz + r1c * math.sin(math.radians(a1))))
         up = Vector((0, rim + 0.35, 0)); inward = Vector((cx, 0, cz)) - (p0 + p1) * 0.5; inward.y = 0
+        if bulgy: onx, onz = outward((a0 + a1) * 0.5); inward = Vector((-onx, 0, -onz))
         i0 = col.v(p0); i1 = col.v(p1); i2 = col.v(p1 + up); i3 = col.v(p0 + up)
         col.quad(i0, i1, i2, i3, inward)
 

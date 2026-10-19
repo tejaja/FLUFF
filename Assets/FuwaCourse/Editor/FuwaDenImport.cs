@@ -14,7 +14,8 @@ public static class FuwaDenImport
 {
     const string JsonPath = "Tools/den.json";
     const string GenDir = "Assets/FuwaCourse/Generated/Den/";
-    const float RimTopY = 5.82f, RimBotY = 5.3f;   // ふちの上の足場の高さ（床 5.5 + 32cm）
+    const float RimTopY = 5.82f, RimBotY = 5.3f;
+    static readonly string[] NoVisual = { "BridgeA", "BridgeD" };   // ふちの上の足場の高さ（床 5.5 + 32cm）
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/まもののすの巣と橋を取り込む")]
     public static void Menu() { Debug.Log(Run()); }
@@ -95,8 +96,10 @@ public static class FuwaDenImport
         {
             string name = kv.Key;
             bool isCol = name.EndsWith("_Col");
-            var mesh = SaveMesh(GenDir + name + ".asset", name, kv.Value);
             var t = den.Find(name);
+            // 見た目をシマシマ道に置きかえた橋（スタートの橋・出口の橋）は、見た目の物を作り直さない（2026-10-19 取り込み直したら小枝の見た目が復活した）
+            if (!isCol && t == null && NoVisual.Contains(name)) continue;
+            var mesh = SaveMesh(GenDir + name + ".asset", name, kv.Value);
             if (t == null)
             {
                 var go = new GameObject(name);
