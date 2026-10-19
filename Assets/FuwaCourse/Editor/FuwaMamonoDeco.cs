@@ -194,9 +194,9 @@ public static class FuwaMamonoDeco
                     {
                         pos = ic + dirA * rr;
                         ok = true;
-                        for (int q = 0; q < 6 && ok; q++)
+                        for (int q = 0; q < 8 && ok; q++)
                         {
-                            var probe = pos + Quaternion.Euler(0, q * 60, 0) * Vector3.forward * (er * 2.2f);   // しきわらの外側は少しふちの下にもぐってもいい（壁ぎわに寄せる）
+                            var probe = pos + Quaternion.Euler(0, q * 45, 0) * Vector3.forward * (er * 2.9f);   // しきわらの外側まで平らな床に（2026-10-19 てじゃ「卵セットが壁にうまってる」：前は er*2.2 で、しきわらとタマゴのふくらみが壁にかかっていた）
                             if (!Physics.Raycast(new Vector3(probe.x, 9f, probe.z), Vector3.down, out var ph, 6f, 1 << 31) || ph.point.y > 5.6f) ok = false;   // タマゴ（外側まで）が平らな床に乗ること。しきわらは少しもぐってもいい
                         }
                         if (ok) ok = Physics.Raycast(new Vector3(pos.x, 9f, pos.z), Vector3.down, out fh, 6f, 1 << 31);
@@ -434,17 +434,49 @@ public static class FuwaMamonoDeco
         return r;
     }
 
-    // ポケットの奥の左右の角（壁ぎわ）に1セットずつ。ボスが入る真ん中はあける。乱数を使わないので、全体の飾り（Run）からも同じ場所がわかる
+    // ポケットの奥の左右の角（壁ぎわ）に1セットずつ。ボスが入る真ん中はあける。乱数を使わないので、全体の飾り（Run）からも同じ場所がわかる。
+    // 巣の見た目のメッシュに一時的な当たり判定を付けて、しきわらの外側まで平らな床に乗る所まで、ポケットの真ん中の向きへ寄せる
+    //（2026-10-19 てじゃ「卵セットが壁にうまってる」：ポケットのわきは壁がななめなので、半径の向きに内側へ寄せるだけでは足りなかった）
     static List<Vector3> PocketEggSpots(Transform den)
     {
         var l = new List<Vector3>();
-        foreach (var b in MamaBulges)
-            foreach (float side in new[] { -0.62f, 0.62f })
+        var nest = den.Find("MamaNest");
+        var tgo = new GameObject("_pocketFloor") { hideFlags = HideFlags.HideAndDontSave, layer = 31 };
+        tgo.transform.SetPositionAndRotation(nest.position, nest.rotation); tgo.transform.localScale = nest.lossyScale;
+        tgo.AddComponent<MeshCollider>().sharedMesh = nest.GetComponent<MeshFilter>().sharedMesh;
+        Physics.SyncTransforms();
+        try
+        {
+            const float need = 0.42f;   // しきわら（d+er*0.95）＋タマゴの外側のふくらみまで
+            bool Flat(Vector3 w)
             {
-                float a = b.ang + side * b.half;
-                float rr = MamaNestR(a) - 0.15f * 2.6f - 0.12f;   // ふちの内側の面から少しはなす
-                l.Add(den.TransformPoint(new Vector3(MamaC.x + Mathf.Cos(a * Mathf.Deg2Rad) * rr, 5.5f, MamaC.y + Mathf.Sin(a * Mathf.Deg2Rad) * rr)));
+                if (!Physics.Raycast(new Vector3(w.x, 9f, w.z), Vector3.down, out var h, 6f, 1 << 31) || Mathf.Abs(h.point.y - 5.5f) > 0.04f) return false;
+                for (int q = 0; q < 8; q++)
+                {
+                    var pr = w + Quaternion.Euler(0, q * 45, 0) * Vector3.forward * need;
+                    if (!Physics.Raycast(new Vector3(pr.x, 9f, pr.z), Vector3.down, out var ph, 6f, 1 << 31) || Mathf.Abs(ph.point.y - 5.5f) > 0.04f) return false;
+                }
+                return true;
             }
+            foreach (var b in MamaBulges)
+            {
+                float am = b.ang * Mathf.Deg2Rad; var mid = new Vector2(MamaC.x + Mathf.Cos(am) * (MamaR - 0.2f), MamaC.y + Mathf.Sin(am) * (MamaR - 0.2f));   // ポケットの入口の真ん中（ここへ向かって寄せる）
+                foreach (float side in new[] { -0.62f, 0.62f })
+                {
+                    float a = (b.ang + side * b.half) * Mathf.Deg2Rad, rr = MamaNestR(b.ang + side * b.half);
+                    var start = new Vector2(MamaC.x + Mathf.Cos(a) * rr, MamaC.y + Mathf.Sin(a) * rr);
+                    Vector3 found = Vector3.zero; bool ok = false;
+                    for (float t = 0.05f; t <= 1f && !ok; t += 0.02f)
+                    {
+                        var p2 = Vector2.Lerp(start, mid, t);
+                        var w = den.TransformPoint(new Vector3(p2.x, 5.5f, p2.y));
+                        if (Flat(w)) { found = w; ok = true; }
+                    }
+                    if (ok) l.Add(found);
+                }
+            }
+        }
+        finally { Object.DestroyImmediate(tgo); }
         return l;
     }
 
@@ -466,13 +498,12 @@ public static class FuwaMamonoDeco
                 float er = R(0.13f, 0.17f);
                 var col = EggColor(rnd); float d = er * 1.18f, a0 = R(0, 360);
                 Bedding(eggs, pos, d + er * 0.95f, er, rnd);
-                int crackedOne = rnd.NextDouble() < 0.4 ? rnd.Next(3) : -1;
+                rnd.NextDouble();   // （前は割れたタマゴも出していたが、割れ目から床が見えた。2026-10-19 てじゃ「割れた卵が地面貫通」）
                 for (int k = 0; k < 3; k++)
                 {
                     var outDir = Quaternion.Euler(0, a0 + k * 120 + R(-10, 10), 0) * Vector3.forward;
                     var tilt = Quaternion.AngleAxis(R(8, 16), Vector3.Cross(Vector3.up, outDir)) * Quaternion.Euler(0, R(0, 360), 0);
-                    bool cracked = k == crackedOne;
-                    Shell(eggs, Matrix4x4.TRS(pos + outDir * d + Vector3.up * er * 0.85f, tilt, Vector3.one), er, er * 1.3f, cracked ? R(0.9f, 1.2f) : 0f, Mathf.PI, col, rnd);
+                    Shell(eggs, Matrix4x4.TRS(pos + outDir * d + Vector3.up * er * 0.85f, tilt, Vector3.one), er, er * 1.3f, 0f, Mathf.PI, col, rnd);
                 }
                 sets++;
             }
