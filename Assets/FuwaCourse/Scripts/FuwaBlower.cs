@@ -231,7 +231,7 @@ public class FuwaBlower : UdonSharpBehaviour
     {
         if (_pickup == null) _pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
         if (_pickup == null) return;
-        _pickup.UseText = english ? "Shoot" : "ショット";   // チャージの説明は看板のあそびかたに任せる
+        _pickup.UseText = english ? "Shoot / Charge" : "ショット / チャージ";   // 2026-10-19 Vket ブースとそろえて、長押しで溜められるのも手元で（前は看板のあそびかたに任せていた）
         _pickup.InteractionText = english ? "Air Gun" : "エアガン";
     }
 
