@@ -791,7 +791,33 @@ public class FuwaBall : UdonSharpBehaviour
         if (bgm != null && (timerEnabled || ReturnPlayerUntimed())) bgm.PlayFanfare();   // れんしゅうの本番の道（タイムなし）のゴールでも鳴らす
         if (returnPoint != null) respawnPoint = returnPoint;
         else SendCustomEventDelayedSeconds(nameof(RestartFromStart), restartDelay);
+        _goalReturn = returnPoint;
     }
+
+    // ゴールした後（コースに残って見ている時）に落ちたら、今いるコースのチェックポイントとゴール前のうち、落ちた所にいちばん近い所へ戻す
+    //（2026-10-19 てじゃ「先にクリアした人がまだの人を近くで見てるケースが割とあって、そのほうが追いかけやすい」。前はいつもゴール前）。
+    // 今いるコース＝スタート地点と同じ一番上の親（FuwaCourse〜）。近さは横の距離（落ちている途中で高さは当てにならない）
+    private Transform _goalReturn;
+    private Vector3 _missPos;
+    private bool _hasMissPos;
+    private Transform NearestAfterGoal(Vector3 at)
+    {
+        if (_goalReturn == null) return null;
+        Transform best = _goalReturn;
+        float bd = FlatDist(_goalReturn.position, at);
+        Transform courseRoot = startPoint != null ? startPoint.root : null;
+        if (checkpoints == null || courseRoot == null) return best;
+        for (int i = 0; i < checkpoints.Length; i++)
+        {
+            FuwaCheckpoint cp = checkpoints[i];
+            if (cp == null || cp.transform.root != courseRoot) continue;
+            Transform p = cp.respawnPoint != null ? cp.respawnPoint : cp.transform;
+            float d = FlatDist(p.position, at);
+            if (d < bd) { bd = d; best = p; }
+        }
+        return best;
+    }
+    private float FlatDist(Vector3 a, Vector3 b) { a.y = 0f; b.y = 0f; return Vector3.Distance(a, b); }
 
     private float _fallLockUntil;
 
@@ -804,7 +830,7 @@ public class FuwaBall : UdonSharpBehaviour
         _fallLockUntil = Time.time + 1.5f;
         // ワープまでの間に落ち続けて、VRChatの「下に落ちたらスポーンへ戻す」高さ(-20)を割らないように、落ちる速さを止める
         VRCPlayerApi player = Networking.LocalPlayer;
-        if (player != null) player.SetVelocity(Vector3.zero);
+        if (player != null) { player.SetVelocity(Vector3.zero); _missPos = player.GetPosition(); _hasMissPos = true; }
         ShowMessage(english ? messageEn : messageJa, 1.8f);
         PlaySfx(sfxFell);
         if (fade != null) fade.Play(0.1f, 0.3f, 0.15f, 0.35f);
@@ -820,6 +846,7 @@ public class FuwaBall : UdonSharpBehaviour
         ShowMessage(english ? messageEn : messageJa, 2f);
         PlaySfx(sfxSpike);
         VRCPlayerApi player = Networking.LocalPlayer;
+        if (player != null) { _missPos = player.GetPosition(); _hasMissPos = true; }
         // 動けなくするのは暗転側にまとめる（戻し忘れを防ぐため。暗転が無い時だけ自分で）
         if (fade != null) fade.FreezeFor(spikeFreezeTime + 0.45f);
         else if (player != null)
@@ -858,6 +885,12 @@ public class FuwaBall : UdonSharpBehaviour
         VRCPlayerApi player = Networking.LocalPlayer;
         if (player == null) return;
         Transform p = respawnPoint != null ? respawnPoint : startPoint;
+        if (_finished)
+        {
+            Transform n = NearestAfterGoal(_hasMissPos ? _missPos : player.GetPosition());
+            if (n != null) p = n;
+        }
+        _hasMissPos = false;
         if (p == null) return;
         Vector3 fwd = Vector3.ProjectOnPlane(p.forward, Vector3.up).normalized;
         Vector3 basePos = p.position - Vector3.up * playerHeightBelow;
@@ -935,10 +968,20 @@ public class FuwaBall : UdonSharpBehaviour
     [Tooltip("全コースのチェックポイント（スタートからやり直す時に光を消す）")]
     public FuwaCheckpoint[] checkpoints;
 
+    [Tooltip("チュートリアルの看板の赤▼。チュートリアルのコースから出た時（別のコース・ロビーへ。ワープでも手動リスポーンでも）に最初から出し直す")]
+    public FuwaReadMarks tutorialMarks;
+
     public void StartCourse(Transform newStart, bool timed)
     {
         if (newStart == null) return;
         _practice = false;
+        // チュートリアルから出た時だけ看板の赤▼をリセット（2026-10-20 てじゃ「条件をチュートリアルコースから出たとき、にしよう」。
+        // 前は手動リスポーンとチュートリアルへのワープでリセットしていた）
+        if (tutorialMarks != null && startPoint != null)
+        {
+            Transform tut = tutorialMarks.transform.root;
+            if (startPoint.root == tut && newStart.root != tut) tutorialMarks.ResetFromRespawn();
+        }
         startPoint = newStart;
         timerEnabled = timed;
         _messageUntil = Time.time;

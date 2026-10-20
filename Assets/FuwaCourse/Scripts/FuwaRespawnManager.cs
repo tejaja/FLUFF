@@ -64,7 +64,7 @@ public class FuwaRespawnManager : UdonSharpBehaviour
     public override void OnPlayerRespawn(VRCPlayerApi player)
     {
         if (player == null || !player.isLocal) return;
-        if (readMarks != null) readMarks.ResetFromRespawn();   // チュートリアルの赤▼をまた最初から出す
+        // チュートリアルの赤▼のリセットは、チュートリアルから出た時（FuwaBall.StartCourse）にまとめた。手動リスポーンはロビーへのワープなので、そこで出たことになる
         // モードのロビーにいる（どこかのモードを選んだ）なら、そのロビーへ。入口ロビーならVRChatのスポーンのまま
         if (_home != null)
         {

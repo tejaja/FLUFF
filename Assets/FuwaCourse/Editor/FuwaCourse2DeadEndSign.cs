@@ -19,6 +19,9 @@ public static class FuwaCourse2DeadEndSign
     const float PoleR = 0.035f;
     const int Seg = 40;
     const float TiltSide = -9f, TiltBack = 4f;   // 傾き（度）：横（見る人から見て右へ）・うしろ
+    // てじゃが手で置き直した位置・向き（2026-10-20 洞窟の横へ。「洞窟目指しちゃう人いるんだよね」）。false で上の自動の置き方に戻る
+    const bool UseManual = true;
+    static readonly Vector3 ManualPos = new Vector3(104.0401f, 10.096f, 1.44f), ManualRot = new Vector3(4f, 99.128f, 351f);   // 2026-10-20 もう一度てじゃが動かした
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/いきどまりの標識（進入禁止）を作り直す")]
     public static void Menu() { Debug.Log(Run()); }
@@ -101,6 +104,7 @@ public static class FuwaCourse2DeadEndSign
         var face = Pos - LookFrom; face.y = 0f;
         // 表（-z）が来る人の方。少し傾けて、崩れた道ぎわに立ちっぱなしの古い標識っぽく（2026-10-13 てじゃ「ちょっと傾けちゃお」）
         go.transform.rotation = Quaternion.LookRotation(face.normalized) * Quaternion.Euler(TiltBack, 0f, TiltSide);
+        if (UseManual) go.transform.SetPositionAndRotation(ManualPos, Quaternion.Euler(ManualRot));
         go.transform.localScale = Vector3.one / root.lossyScale.x;
         go.GetComponent<MeshFilter>().sharedMesh = mesh;
         go.GetComponent<MeshRenderer>().sharedMaterials = new[] { Mat("Sign_Red", new Color(0.86f, 0.18f, 0.18f)), Mat("Sign_Paper", Color.white), Mat("Sign_Pole", new Color(0.62f, 0.63f, 0.67f)) };

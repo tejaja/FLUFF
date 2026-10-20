@@ -42,10 +42,28 @@ public class FuwaCheckpoint : UdonSharpBehaviour
         for (int i = 0; i < glowRenderers.Length; i++) if (glowRenderers[i] != null) _glowOrig[i] = glowRenderers[i].material.GetColor("_EmissionColor");
     }
 
+    // byPlayer：自分がこのコースを走っている間、チェックポイントの線を越えたら更新（1回だけ。やり直しで ResetGlow が戻す）
+    private void CheckPlayer()
+    {
+        if (_playerPassed || playerBall == null) return;
+        if (playerBall.startPoint == null || playerBall.startPoint.root != transform.root) return;   // 今このコースにいない
+        VRC.SDKBase.VRCPlayerApi lp = VRC.SDKBase.Networking.LocalPlayer;
+        if (lp == null) return;
+        Transform rp = respawnPoint != null ? respawnPoint : transform;
+        Vector3 d = lp.GetPosition() - transform.position;
+        if (Mathf.Abs(d.y) > 6f) return;
+        Vector3 fwd = rp.forward; fwd.y = 0f; fwd.Normalize();
+        Vector3 flat = d; flat.y = 0f;
+        if (flat.magnitude > playerRadius || Vector3.Dot(flat, fwd) < 0f) return;
+        _playerPassed = true;
+        Reach(playerBall);
+    }
+
     // 光を消して、まだ通っていない状態に戻す（FuwaBall がスタートからやり直す時に呼ぶ）
     public void ResetGlow()
     {
         Init();
+        _playerPassed = false;
         _glowStart = -1f;
         _glowFrom = null;
         if (_glowOrig != null)
@@ -55,11 +73,25 @@ public class FuwaCheckpoint : UdonSharpBehaviour
         if (indicator != null) indicator.material.color = _indicatorOrig;
     }
 
+    [Header("プレイヤーが通ったら更新（ふわふわではなく）")]
+    [Tooltip("チュートリアルの前半など：ふわふわが先に飛んでチェックポイントを通り、本人はスタート付近で落ちたのに先へ戻される、を防ぐ（2026-10-20 てじゃ）")]
+    public bool byPlayer;
+    [Tooltip("byPlayer の時に使う、自分のふわふわ")]
+    public FuwaBall playerBall;
+    [Tooltip("byPlayer の時：チェックポイントの横 この距離(m)以内で、再開位置の向きの線を越えたら通ったことにする（トリガーより道が広いので）")]
+    public float playerRadius = 9f;
+    private bool _playerPassed;
+
     private void OnTriggerEnter(Collider other)
     {
-        if (other == null) return;
+        if (other == null || byPlayer) return;
         FuwaBall ball = other.GetComponent<FuwaBall>();
         if (ball == null) return;
+        Reach(ball);
+    }
+
+    private void Reach(FuwaBall ball)
+    {
         Init();
         ball.SetCheckpoint(respawnPoint != null ? respawnPoint : transform);
         if (indicator != null) indicator.material.color = reachedColor;
@@ -75,6 +107,7 @@ public class FuwaCheckpoint : UdonSharpBehaviour
 
     private void Update()
     {
+        if (byPlayer) CheckPlayer();
         if (_glowStart < 0f || _glowFrom == null) return;
         float k = Mathf.Clamp01((Time.time - _glowStart) / Mathf.Max(0.01f, glowFadeTime));
         // ぼわっと：最初に少し明るすぎるくらいまで行って落ち着く
