@@ -13,9 +13,9 @@ using Object = UnityEngine.Object;
 //     人は洞窟の右の壁の脇道（クモの巣を通り抜ける。人は遅くなるだけ、ふわふわはくっついてアウト）から出て、岸の道を下りる。
 //     崖の上は水源の池（滝の元）。2026-10-19 てじゃ「スタートを今のスタートの下に洞窟をつくって…ふわふわを滝に打ち込むしかない形に、
 //     人は滝のよこに脇道を作ってそこにクモの巣」「上の段は水源として使う」（前の作りだと岸の道ぞいに空中で運べて滝を迂回できた）
-//  ② 池からうねる川（流れあり）。人は右の岸。川の終わりはふち（壁）でふわふわが止まる → 撃って水から出す。道はふちの外から
-//     川の途中で岸の道が橋で川をまたぐ。橋の下はトゲの植物でふわふわは通れない → 手前で撃ち出して、橋を越えて、向こうの川に落とす
-//     （2026-10-19 てじゃ「川と道をクロスさせて、道の下を川が通る、そこにはトゲの植物が生えててふわふわは通れないからどこかで撃ち出さないとだめ」）
+//  ② 池からうねる川（流れあり）でふわふわが流される。人は右の岸を追いかける。下流の渡り場で右岸の道が川で切れていて、
+//     待ちかまえて流れてきたふわふわを左岸の道の続きへ撃ってすくい上げる。人は川をじゃぶじゃぶ渡る。
+//     間に合わないと川の終わりの崖の滝から谷へ落ちてアウト。左岸の道は谷を小さい橋で越える（2026-10-20 てじゃ。前は橋＋橋の下のトゲ）
 //  ③ 蓮の池：道が途切れて、人は固定の蓮の葉を飛び石で渡る。ふわふわは池を撃って渡す
 // ふわふわは地面（道も、水の底も）に触るとアウト、水に浮いている間はセーフ。水から出る時は撃って浮かせる（道を水の中まで伸ばすと触ってアウトになる）
 //  ④ 泡の段々（3段）：泡の柱でふわふわを上の池へ。人は左の岸の坂で上へ
@@ -88,8 +88,10 @@ public static class FuwaCourse2_1Builder
     static Vector2 Right(Vector2 d) { return new Vector2(d.y, -d.x); }
 
     // ---- 区間（BuildAll で決める）----
-    public const float BridgeSpan = 10f, BridgeH = 1.7f;
-    static float sBridge, sWade0, sWade1;
+    // 川の渡り場（右岸の道が川で切れて、人は川をじゃぶじゃぶ渡って左岸の道へ）は川の終わりの CrossBefore m 手前。
+    // 川の終わりは崖の滝で、その先は谷（GorgeLen m、落ちたらアウト）。左岸の道は谷を小さい橋で越える
+    public const float CrossBefore = 9f, CrossGap = 2.4f, GorgeLen = 5.5f, GorgeDrop = 10f;
+    static float sCross;
     static float sPlaza0, sPlaza1, sPool1, sRiver1, sPond0, sPond1, sTer0, sGoal0, sEnd;
     static float[] terA = new float[3], terB = new float[3];
 
@@ -109,6 +111,8 @@ public static class FuwaCourse2_1Builder
         // 深い水：人は落ちたらアウト（浅瀬の減速ではなく、最後の再開位置へ戻す）。2026-10-19 てじゃ「滝壺、深くして人は落ちたらアウトにしよう、現状つっきれてしまう」
         public bool deep;
         public float depth = WaterDepth;
+        // 左のふちの切れ目（あふれて流れ落ちる所）。s の範囲、無しなら gapL1 <= gapL0
+        public float gapL0, gapL1;
     }
 
     static float Smooth01(float x) { x = Mathf.Clamp01(x); return x * x * (3 - 2 * x); }
@@ -121,8 +125,15 @@ public static class FuwaCourse2_1Builder
     // 滝壺：滝の幅から急に広がる（ふくらみは手前寄り）。岸の道から向こう岸まではダッシュジャンプで届かない広さ（てじゃ「ここぐらいまでは届いちゃう、こっちルートは防ぎたい」）
     static float PoolHW(float s) { float t = Mathf.InverseLerp(sPlaza1, sPool1, s); return Mathf.Lerp(CaveHW - RimW, 1.8f, t) + 4.3f * Mathf.Pow(Mathf.Max(0f, Mathf.Sin(Mathf.PI * Mathf.Pow(Mathf.Clamp01(t), 0.65f))), 0.9f); }
     static float RiverHW(float s) { float t = s - sPool1; return 1.8f + 0.25f * Mathf.Sin(t * 0.45f) - 0.4f * Smooth01((s - (sRiver1 - 2.5f)) / 2.5f); }
-    static float PondHW(float s) { float t = Mathf.InverseLerp(sPond0, sPond1, s); return 1.4f + 4.6f * Mathf.Pow(Mathf.Max(0f, Mathf.Sin(Mathf.PI * Mathf.Clamp01(t))), 0.8f); }
+    // 蓮の池：まるっこい形（だ円より少しふっくら）。入口・出口は道の幅の口（2026-10-20 てじゃ「池自体もっと丸っこくしたいな」。前は sin で両はしがとがったレンズ形）
+    static float PondHW(float s) { float u = Mathf.Abs(Mathf.InverseLerp(sPond0, sPond1, s) * 2f - 1f); return Mathf.Max(1.4f, 6.2f * Mathf.Pow(Mathf.Max(0f, 1f - Mathf.Pow(u, 2.3f)), 1f / 2.3f)); }
     const float TerHW = 2.1f, BubbleLat = 1.25f;
+    // 蓮の池の左のふちの、水があふれて流れ落ちる所（まん中の大きい蓮の花をよけて少し先）
+    static float PondSpill() { return (sPond0 + sPond1) * 0.5f + 4f; }
+    // 蓮の葉のあいだ（ふちからふちまで）。VRChat の走りジャンプで約2.4m 飛べるので、着地の分を引いてギリ届くくらい
+    public static float LilyGapMin = 1.6f, LilyGapMax = 1.9f;
+    // 蓮の池のふちの浅瀬の幅（その内側は深い＝人は落ちたらアウト）
+    public static float PondShallowW = 2.4f;   // 1.8→2.4（てじゃ「もうちょい浅瀬を広く」）
     static float WaterHW(float s)
     {
         if (s >= sPlaza1 && s < sPool1) return PoolHW(s);
@@ -139,8 +150,7 @@ public static class FuwaCourse2_1Builder
         sEnd = SI(Ctrl.Length - 2);
         sPlaza0 = 0f; sPlaza1 = SI(2.0f);
         sPool1 = SI(3.8f); sRiver1 = SI(7.3f);
-        sBridge = Mathf.Lerp(sPool1, sRiver1, 0.5f);
-        sWade0 = sPool1 + 2.5f; sWade1 = sBridge - BridgeSpan * 0.5f - 2.5f;   // 浅瀬を歩く区間（道が切れている所）
+        sCross = sRiver1 - CrossBefore;
         sPond0 = SI(8.9f); sPond1 = SI(10.9f);
         sTer0 = SI(11.8f);
         const float TerLen = 5.5f;
@@ -172,28 +182,28 @@ public static class FuwaCourse2_1Builder
         var pieces = new List<Piece>();
         // M1 スタートの台（幅6）
         pieces.Add(new Piece { name = "M1_Start", s0 = sPlaza0 - 1.5f, s1 = sPlaza1, off = s => 0f, h = s => StartH, w = s => 6f });
-        // B1 右の岸の道：台の右半分から出て、滝をよけ、池・川の岸をくねっと下りて、川の終わりの先で本道に合流
-        float mergeA = sRiver1 + 0.8f, mergeB = sRiver1 + 5.5f;
-        // 橋：右の岸 → 左の岸へ、斜めに川をまたぐ。まん中が一番高い（BridgeH）
-        float bx0 = sBridge - BridgeSpan * 0.5f, bx1 = sBridge + BridgeSpan * 0.5f;
+        // B1 右の岸の道：台の右半分から出て、滝をよけ、池・川の岸をくねっと下りて、渡り場で川にぶつかって終わる。
+        // B2 左の岸の道：渡り場の向こう岸から、川の終わりの崖の滝の横を通って谷を小さい橋で越え、本道に合流。
+        // ふわふわは滝→川で流される。人は右岸を追いかけて、渡り場で待ちかまえて、流れてきたふわふわを左岸の道の続きへ撃ってすくい上げる。
+        // もたもたしてると流されて川の終わりの滝から谷へ落ちてアウト（トゲはなし）。人は川を渡る（浅瀬で遅くなる）
+        //（2026-10-20 てじゃ「道と川をクロスさせるけど、道は川でとぎれる、そのあたりで待ち構えてフワフワを川から川の対岸の道の続きにすくいあげる」
+        // 「モタモタしてると川に流されて滝で落下アウト（ここのトゲはやめる）」「川に突っ込んでいいと思う、川で遅くなるのも体験できるし」。
+        // 前は岸の道が途中で切れて浅瀬を歩き、橋で川をまたいで橋の下はトゲ、だった）
+        float gorge1 = sRiver1 + GorgeLen;
+        float mergeA = gorge1 + 0.5f, mergeB = gorge1 + 5f;
+        float bankOff(float s) => RiverHW(Mathf.Clamp(s, sPool1, sRiver1)) + RimW + 1.55f;
         Func<float, float> b1t = s =>
         {
             // 洞窟の中（右半分）から右の壁の脇道を抜けて外へ
             if (s < sPlaza1) return Mathf.Lerp(1.5f, 4.7f, Smooth01((s - (sPlaza1 - 4.6f)) / 4.1f));
-            float side = Mathf.Lerp(1f, -1f, Smooth01((s - bx0) / (bx1 - bx0)));
-            if (s < mergeA) return side * Mathf.Max(Mathf.Lerp(4.7f, 3.4f, Smooth01((s - sPlaza1) / 6f)), WaterHW(Mathf.Min(s, sRiver1)) + RimW + 1.55f);
-            return -Mathf.Lerp(RiverHW(sRiver1) + RimW + 1.55f, 0f, Smooth01((s - mergeA) / (mergeB - mergeA)));
+            return Mathf.Max(Mathf.Lerp(4.7f, 3.4f, Smooth01((s - sPlaza1) / 6f)), WaterHW(Mathf.Min(s, sRiver1)) + RimW + 1.55f);
         };
-        // 岸の道は滝壺の少し先でいったん切れる：人は川の浅瀬に下りて進み、橋の手前の川の中の石段から道に戻る。
-        // 道に戻ったら浅瀬のふわふわを打ち上げて橋を越えさせる（2026-10-19 てじゃ「いったん道をどっかで切って浅瀬に入らないとダメにして、浅瀬からふわふわを打ち上げて道にもどる」）
-        Func<float, float> b1off = Smoothed(b1t, 1.2f);
-        Func<float, float> b1h = s => Ramp(s, sPlaza1 + 0.3f, sPlaza1 + 10f, StartH - 0.01f, BankTop - 0.01f)
-                   + (BridgeH - BankTop) * Mathf.Pow(Mathf.Cos(Mathf.Clamp(((s - sBridge) / (BridgeSpan * 0.5f + 2.5f)) * Mathf.PI * 0.5f, -Mathf.PI * 0.5f, Mathf.PI * 0.5f)), 2f);
-        pieces.Add(new Piece { name = "B1a_Bank", s0 = sPlaza1 - 4.6f, s1 = sWade0, off = b1off, w = s => 3f, h = b1h });
-        pieces.Add(new Piece { name = "B1b_Bank", s0 = sWade1, s1 = mergeB, off = b1off, w = s => 3f, h = b1h });
-        // 本道は水のふち（終わりの壁）の外側にぴったりつける（端は丸めない）
-        // M2 川の終わり → 蓮の池の手前
-        pieces.Add(new Piece { name = "M2", s0 = sRiver1 + RimW, s1 = sPond0 - RimW, off = s => 0f, w = s => 3f, h = s => BankTop, round0 = false, round1 = false });
+        Func<float, float> b2t = s => -Mathf.Lerp(bankOff(s), 0f, Smooth01((s - mergeA) / (mergeB - mergeA)));
+        Func<float, float> b1h = s => Ramp(s, sPlaza1 + 0.3f, sPlaza1 + 10f, StartH - 0.01f, BankTop - 0.01f);
+        pieces.Add(new Piece { name = "B1_Bank", s0 = sPlaza1 - 4.6f, s1 = sCross - CrossGap * 0.5f, off = Smoothed(b1t, 1.2f), w = s => 3f, h = b1h });
+        pieces.Add(new Piece { name = "B2_Bank", s0 = sCross + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
+        // M2 谷の向こう → 蓮の池の手前（本道は水のふちの外側にぴったりつける。端は丸めない）
+        pieces.Add(new Piece { name = "M2", s0 = mergeA, s1 = sPond0 - RimW, off = s => 0f, w = s => 3f, h = s => BankTop, round0 = false, round1 = false });
         // M3 蓮の池の向こう → 泡の段々の1段目の手前
         pieces.Add(new Piece { name = "M3", s0 = sPond1 + RimW, s1 = sTer0 - RimW, off = s => 0f, w = s => 3f, h = s => BankTop, round0 = false, round1 = false });
         // B3 左の岸の坂：段々の横を上の段まで
@@ -232,18 +242,15 @@ public static class FuwaCourse2_1Builder
             new Water { name = "W0_Source", s0 = sPlaza0 - 1.5f, s1 = sPlaza1, surf = SourceSurf, flow = 0.8f, open1 = true, bodyBottom = StartH + CaveIn + RoofT,
                 hw = s => Mathf.Lerp(CaveHW - RimW, MouthHW, Smooth01((s - (sPlaza1 - 3.5f)) / 3.5f)) },
             new Water { name = "W1_Pool", s0 = sPlaza1, s1 = sPool1, surf = 0f, flow = 0.9f, hw = PoolHW, open0 = true, open1 = true, deep = true, depth = 2.5f },
-            new Water { name = "W2_River", s0 = sPool1, s1 = sRiver1, surf = 0f, flow = 1.1f, hw = RiverHW, open0 = true },   // 1.6→1.1：浅瀬を歩く人が置いていかれないように
-            new Water { name = "W3_LilyPond", s0 = sPond0, s1 = sPond1, surf = 0f, flow = 0f, hw = PondHW },
+            // 終わりは崖の滝（open1）。下のかたまりを深くして、谷から見て崖に見えるように
+            new Water { name = "W2_River", s0 = sPool1, s1 = sRiver1, surf = 0f, flow = 1.1f, hw = RiverHW, open0 = true, open1 = true, bodyBottom = -6f },   // 1.6→1.1：浅瀬を歩く人が置いていかれないように
+            new Water { name = "W3_LilyPond", s0 = sPond0, s1 = sPond1, surf = 0f, flow = 0f, hw = PondHW, gapL0 = PondSpill() - 1.1f, gapL1 = PondSpill() + 1.1f },
         };
         for (int k = 0; k < 3; k++)
             waters.Add(new Water { name = "W4_Terrace" + k, s0 = terA[k], s1 = terB[k], surf = k * TerraceStep, flow = k == 2 ? 0.5f : 0.35f,
                 hw = s => TerHW + 0.15f * Mathf.Sin(s * 0.7f), open1 = k < 2 });
         var wroot = new GameObject("Water").transform; wroot.SetParent(root, false);
         foreach (var w in waters) BuildWater(wroot, w, bedMat, ground, fx, splash);
-        // 橋の下のトゲの植物（ふわふわが触るとアウト。人は水に入らないので減速だけ）：まいご防止に川幅いっぱい、水面の上下
-        // ほっとくと流れの先がトゲ（2026-10-19 てじゃ「基本的に流れっぱなしはペナルティになるように」）
-        Thorns(root, "Thorns_Bridge", sBridge, 0f, -RiverHW(sBridge), RiverHW(sBridge), 3.0f);
-        Thorns(root, "Thorns_RiverEnd", sRiver1 - 1.4f, 0f, -RiverHW(sRiver1 - 1.4f), RiverHW(sRiver1 - 1.4f), 2.4f);
         // 段々：1・2段目は終わりの右の角だけ泡の柱があいていて、ほかはトゲ（流れのまま＝まん中を来るとトゲ。右へ撃って柱に入れる）。3段目は全部トゲ
         for (int k = 0; k < 3; k++)
         {
@@ -251,15 +258,36 @@ public static class FuwaCourse2_1Builder
             Thorns(root, "Thorns_Terrace" + k, terB[k] - 1.0f, k * TerraceStep, -hwT, k < 2 ? BubbleLat - 0.85f : hwT, 2.0f);
         }
 
-        // 浅瀬から道に戻る石段（川の右のふちの中、流れの向きに3段）。ふわふわが上に乗るとアウト、横は当たるだけ
+        // 渡り場：川から左岸の道に上がる石段（川の左のふちの内側、ふちに向かって3段）。ふわふわが上に乗るとアウト、横は当たるだけ
         {
             var steps = new GameObject("WadeSteps").transform; steps.SetParent(root, false);
             float[] tops = { -0.28f, 0.0f, 0.24f };
+            float a = sCross - 0.3f, b = sCross + CrossGap * 0.5f + 0.8f;
             for (int i = 0; i < 3; i++)
             {
-                float a = sWade1 + 1.0f - 0.65f * (3 - i), b = a + 0.65f;
-                Sweep(steps, "Step" + i, a, b, s => RiverHW(s) - 1.05f, s => RiverHW(s), s => -WaterDepth - 0.05f, s => tops[i], ground, 0, true, true);
+                int k = i;
+                Sweep(steps, "Step" + i, a, b, s => -RiverHW(s) + 0.5f * (2 - k), s => -RiverHW(s) + 0.5f * (3 - k), s => -WaterDepth - 0.05f, s => tops[k], ground, 0, true, true);
             }
+        }
+        // 川の終わりの崖の滝 → 谷（下は何もない。ふわふわも人も落ちたらアウト）
+        CurvedFalls(root, "Falls_River", sRiver1, 0.02f, -GorgeDrop, RiverHW(sRiver1) * 2f + 0.4f, 1.6f, 0.4f);
+        {
+            var gz = new GameObject("Gorge").transform; gz.SetParent(root, false);
+            float gm = (sRiver1 + gorge1) * 0.5f;
+            Center(gm, out var gp0, out var gd0);
+            var ballProxy = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
+            // ふわふわ：道の下 2m より下に落ちたらアウト。人：その少し下
+            var bo = new GameObject("BallOut"); bo.transform.SetParent(gz, false); bo.layer = 4;
+            bo.transform.localPosition = new Vector3(gp0.x, -4f, gp0.y); bo.transform.localRotation = Quaternion.LookRotation(new Vector3(gd0.x, 0, gd0.y));
+            var bbc = bo.AddComponent<BoxCollider>(); bbc.isTrigger = true; bbc.size = new Vector3(24f, 4f, GorgeLen + 6f);
+            var hz = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHazard>(bo); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hz); NoSync(hz);
+            var po = new GameObject("PlayerOut"); po.transform.SetParent(gz, false); po.layer = 0;
+            po.transform.localPosition = new Vector3(gp0.x, -5f, gp0.y); po.transform.localRotation = bo.transform.localRotation;
+            var pbc = po.AddComponent<BoxCollider>(); pbc.isTrigger = true; pbc.size = new Vector3(24f, 4f, GorgeLen + 6f);
+            var pcc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(po); pcc.ball = ballProxy; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pcc); NoSync(pcc);
+            // 谷の向こうの崖（本道の下）
+            float fw = RiverHW(sRiver1) + RimW + 0.5f;
+            Sweep(gz, "FarCliff", gorge1, sPond0 - RimW, s => -fw - 3.2f, s => fw, s => -6f, s => BankTop - Thick - 0.01f, ground, 0, true, true);
         }
 
         // 段々のあいだの壁（上の段の始まり）と泡の柱
@@ -325,23 +353,177 @@ public static class FuwaCourse2_1Builder
         Waterwheel(terr, new Vector3(wc.x, GoalH + 0.2f, wc.y), new Vector3(gd.x, 0, gd.y), bedMat, ground);
 
         // ---- 蓮の葉（固定）：池の手前の桟橋から向こうの坂まで ----
+        // ジグザグにばらけて、葉っぱのふちからふちまで LilyGapMin〜Max（走ってジャンプでギリ届く）。ところどころ深い所（濃い色、人は落ちたらアウト）。
+        // 浅い所に落ちたら、出口のふちの内側の石段まで歩いて上がる（2026-10-20 てじゃ「もうちょいバラバラに配置、ギリ届くくらいにして　所々深い場所も作ろう」）。
+        // まん中の深い所を蓮で突っ切ると速い、外周の浅瀬をじゃぶじゃぶ回ると遅いけど安全（てじゃ「外周の蓮なくてもいいかもね」→ 寄り道の葉っぱはなし）
         var lilies = new GameObject("LilyPads").transform; lilies.SetParent(root, false);
-        float sl0 = sPond0 + 1.2f, sl1 = sPond1 - 1.2f;
-        int nl = Mathf.Max(2, Mathf.RoundToInt((sl1 - sl0) / 2.25f) + 1);
-        for (int i = 0; i < nl; i++)
+        var pads = new List<Vector3>();   // x,z＝コースのローカル、y＝半径
         {
-            float s = Mathf.Lerp(sl0, sl1, i / (float)(nl - 1));
-            Center(s, out var p, out var d);
-            float lat = 1.3f * Mathf.Sin(i * 1.4f);
-            var q = p + Right(d) * lat;
-            FuwaStage2WaterTest.LilyPad(lilies, "Lily" + i, new Vector3(q.x, 0.07f, q.y), 0.85f + 0.08f * Mathf.Sin(i * 2.1f), i * 67f + 20f, false);
+            var rng = new System.Random(2101);
+            float Rnd() => (float)rng.NextDouble();
+            Vector2 W(float s, float lat) { Center(s, out var p, out var d); return p + Right(d) * lat; }
+            // よける所：右の水源の滝、左のあふれ口
+            float smid = (sPond0 + sPond1) * 0.5f;
+            var avoid = new[] { W(smid, PondHW(smid) - 0.5f), W(PondSpill(), -PondHW(PondSpill()) + 0.5f) };
+            // 入口の岸のはし（中心線上）から始めて、出口の岸のはしへジャンプで届くまで
+            Vector2 cur = W(sPond0 - RimW, 0f); float curR = 0f, curS = sPond0 - RimW; int side = Rnd() < 0.5f ? 1 : -1;
+            for (int guard = 0; guard < 20; guard++)
+            {
+                if ((sPond1 + RimW) - curS - curR <= LilyGapMax - 0.1f && pads.Count > 0) break;   // 出口の岸に届く
+                float r = 0.78f + 0.17f * Rnd(), gap = Mathf.Lerp(LilyGapMin, LilyGapMax, Rnd());
+                float want = curR + gap + r;
+                Vector2 best = Vector2.zero; float bestScore = float.MaxValue, bestS = 0;
+                for (float s = curS + 0.5f; s < sPond1; s += 0.2f)
+                {
+                    float lim = PondHW(s) - r - 0.4f; if (lim < 0) continue;
+                    for (float lat = -lim; lat <= lim; lat += 0.2f)
+                    {
+                        var q = W(s, lat);
+                        float err = Mathf.Abs((q - cur).magnitude - want); if (err > 0.15f) continue;
+                        bool bad = false;
+                        foreach (var a in avoid) if ((q - a).magnitude < r + 1.6f) bad = true;
+                        foreach (var pz in pads) if ((q - new Vector2(pz.x, pz.z)).magnitude < r + pz.y + 1.2f) bad = true;
+                        if (bad) continue;
+                        // ジグザグ：今の向きの側（side）へ。進みすぎず、横に振る
+                        // まん中（深い所）を突っ切る：横の振れは小さめ
+                        float wantLat = side * Mathf.Min(lim, 0.5f + 1.1f * Rnd());
+                        float score = Mathf.Abs(lat - wantLat) + err * 4f + Mathf.Abs((s - curS) - want * 0.6f) * 0.5f;
+                        if (score < bestScore) { bestScore = score; best = q; bestS = s; }
+                    }
+                }
+                if (bestScore == float.MaxValue) break;
+                pads.Add(new Vector3(best.x, r, best.y));
+                cur = best; curR = r; curS = bestS; side = -side;
+            }
+            for (int i = 0; i < pads.Count; i++)
+                FuwaStage2WaterTest.LilyPad(lilies, "Lily" + i, new Vector3(pads[i].x, 0.07f, pads[i].z), pads[i].y, i * 67f + 20f, false);
+            // 大きい蓮の花（飾り）：葉っぱ・深い所・滝をよけてふちのそば
+            for (int k = 0, tries = 0; k < 3 && tries < 400; tries++)
+            {
+                float s = Mathf.Lerp(sPond0 + 2.5f, sPond1 - 2.5f, Rnd());
+                var q = W(s, (Rnd() < 0.5f ? 1f : -1f) * (PondHW(s) - 1.4f));
+                bool bad = false;
+                foreach (var a in avoid) if ((q - a).magnitude < 2.4f) bad = true;
+                foreach (var pz in pads) if ((q - new Vector2(pz.x, pz.z)).magnitude < pz.y + 1.6f) bad = true;
+                if (bad) continue;
+                FuwaStage2WaterTest.BigLotus(lilies, "BigLotus" + k, new Vector3(q.x, 0.33f, q.y), 3.3f, k * 83f + 10f); k++;
+            }
         }
-        for (int i = 0; i < 3; i++)
+        // 深い所：濃い色の円を水面のすぐ上に（見た目）＋人の落下判定（FuwaPlayerCatcher、水面の 0.15m 下から底まで）
         {
-            float s = Mathf.Lerp(sPond0 + 3f, sPond1 - 3f, i / 2f);
-            Center(s, out var p, out var d);
-            var q = p + Right(d) * ((i % 2 == 0 ? 1f : -1f) * (PondHW(s) - 1.6f));
-            FuwaStage2WaterTest.BigLotus(lilies, "BigLotus" + i, new Vector3(q.x, 0.33f, q.y), 3.3f, i * 83f + 10f);
+            var dg = new GameObject("DeepSpots").transform; dg.SetParent(root, false);
+            var ballProxy = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
+            // 材質：深い水の色、ふちは池の浅い色に溶かす（泡のふちはなし）
+            const string dmp = "Assets/FuwaStage2/Materials/Stage2_WaterDeepSpot.mat";
+            var shallowRef = WaterMat(0f, true, false);
+            var deepMat = AssetDatabase.LoadAssetAtPath<Material>(dmp);
+            if (!deepMat) { deepMat = new Material(shallowRef); AssetDatabase.CreateAsset(deepMat, dmp); }
+            deepMat.CopyPropertiesFromMaterial(shallowRef);
+            deepMat.SetColor("_Deep", DeepCenter); deepMat.SetFloat("_DeepWidth", 0.9f); deepMat.SetFloat("_FoamWidth", 0f); deepMat.SetFloat("_Ribbon", 1f);
+            EditorUtility.SetDirty(deepMat);
+            // 池の形をひとまわり小さくした深い所が真ん中に1つ（ふちから PondShallowW m は浅瀬）。2026-10-20 てじゃ「池の形に近い感じで真ん中は深い感じにしよう」（前は丸い深い所が3つ）
+            // 入口・出口の側も丸く（池のはしはとがっているので、だ円と重ねて小さい方）。外周がぐるっと同じくらいの幅の浅瀬の道になる
+            //（2026-10-20 てじゃ「入り口と出口付近は丸く　外周に浅瀬の道があるイメージ、あともうちょい浅瀬を広く」）
+            float dMid = (sPond0 + sPond1) * 0.5f, ea = (sPond1 - sPond0) * 0.5f - PondShallowW, eb = PondHW(dMid) - PondShallowW;
+            Func<float, float> dhw = s => { float u = (s - dMid) / ea; return u * u >= 1f ? 0f : Mathf.Min(PondHW(s) - PondShallowW, eb * Mathf.Sqrt(1f - u * u)); };
+            float d0 = dMid - ea, d1 = dMid + ea;
+            // 外周を少しゆがませる：左右べつべつに、ゆるい波を足す（はしで 0 になる掛け算なので丸いはしは保つ）。浅瀬は最低 1.6m 残す
+            //（2026-10-20 てじゃ「濃い部分の外周をちょっと歪ませて」）
+            float Wob(float s, float ph) { float x = (s - d0) / Mathf.Max(0.01f, d1 - d0); return 0.16f * Mathf.Sin(x * 9.4f + ph) + 0.09f * Mathf.Sin(x * 17.3f + ph * 2.3f); }
+            Func<float, float> hwL = s => Mathf.Min(PondHW(s) - 1.6f, dhw(s) * (1f + Wob(s, 0.7f)));
+            Func<float, float> hwR = s => Mathf.Min(PondHW(s) - 1.6f, dhw(s) * (1f + Wob(s, 2.9f)));
+            {
+                var V = new List<Vector3>(); var T = new List<int>(); var U1 = new List<Vector4>(); var U2 = new List<Vector2>();
+                const int across = 10; int n = Mathf.Max(1, Mathf.CeilToInt((d1 - d0) / 0.2f));
+                for (int k = 0; k <= n; k++)
+                {
+                    float kk = k / (float)n, s = dMid + ea * -Mathf.Cos(kk * Mathf.PI);   // はしほど細かく（丸く見えるように）
+                    float l = Mathf.Max(0.0005f, hwL(s)), r = Mathf.Max(0.0005f, hwR(s)), mid = (r - l) * 0.5f, hw = (l + r) * 0.5f;
+                    Center(s, out var p, out var d); var rr = Right(d);
+                    for (int i = 0; i <= across; i++)
+                    {
+                        float lat = Mathf.Lerp(-l, r, i / (float)across); var q = p + rr * lat;
+                        V.Add(new Vector3(q.x, 0.006f, q.y));
+                        U1.Add(new Vector4(lat - mid, hw, 99f, 99f)); U2.Add(new Vector2(s, 0));   // ふちからの距離＝hw−|lat−mid|
+                    }
+                }
+                for (int k = 0; k < n; k++)
+                    for (int i = 0; i < across; i++)
+                    {
+                        int a = k * (across + 1) + i, b = a + across + 1;
+                        AddTriDir(V, T, a, b, a + 1, Vector3.up); AddTriDir(V, T, a + 1, b, b + 1, Vector3.up);
+                    }
+                var dm = new Mesh { name = "Course2_1_PondDeep", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+                dm.SetVertices(V); dm.SetTriangles(T, 0); dm.SetUVs(0, V.Select(v => Vector2.zero).ToList()); dm.SetUVs(1, U1); dm.SetUVs(2, U2);
+                dm.normals = V.Select(v => Vector3.up).ToArray(); dm.RecalculateBounds();
+                var deep = new GameObject("PondDeep"); deep.transform.SetParent(dg, false);
+                deep.AddComponent<MeshFilter>().sharedMesh = Save(dm, MeshDir + "/PondDeep.asset");
+                deep.AddComponent<MeshRenderer>().sharedMaterial = deepMat;
+            }
+            // 人の落下判定：中心線にそって 1.2m ごとの箱（幅はその区間のいちばん細い所。見た目の濃い所より少し内側）
+            int nb = Mathf.Max(1, Mathf.CeilToInt((d1 - d0) / 1.2f));
+            for (int k = 0; k < nb; k++)
+            {
+                float a = Mathf.Lerp(d0, d1, k / (float)nb), b = Mathf.Lerp(d0, d1, (k + 1) / (float)nb);
+                float lm = float.MaxValue, rm = float.MaxValue;
+                for (int i = 0; i <= 4; i++) { float si = Mathf.Lerp(a, b, i / 4f); lm = Mathf.Min(lm, hwL(si)); rm = Mathf.Min(rm, hwR(si)); }
+                float hwm = (lm + rm) * 0.5f;
+                if (hwm < 0.5f) continue;
+                Center(a, out var pa, out _); Center(b, out var pb, out var db);
+                var c = new GameObject("PlayerFall" + k); c.transform.SetParent(dg, false);
+                var mid = (pa + pb) * 0.5f + Right(db) * ((rm - lm) * 0.5f);
+                c.transform.localPosition = new Vector3(mid.x, (-0.15f - WaterDepth) * 0.5f, mid.y);
+                c.transform.localRotation = Quaternion.LookRotation(new Vector3(pb.x - pa.x, 0, pb.y - pa.y));
+                var bc = c.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3((hwm - 0.3f) * 2f, WaterDepth - 0.15f, (pb - pa).magnitude);
+                var pc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(c); pc.ball = ballProxy;
+                UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pc); NoSync(pc);
+            }
+            // 浅い所に落ちた人が出口の岸に上がる石段（出口のふちの内側、3段）。ふわふわが上に乗るとアウト
+            float[] tops = { -0.28f, 0.0f, 0.24f };
+            for (int i = 0; i < 3; i++)
+            {
+                int k = i; float a = sPond1 - 0.5f * (3 - k), b = a + 0.5f;
+                Sweep(dg, "ExitStep" + i, a, b, s => -1.2f, s => 1.2f, s => -WaterDepth - 0.05f, s => tops[k], ground, 0, true, true);
+            }
+        }
+        // 蓮の池の水源：右のふちの岩から小さな滝が流れ込む（上の川は谷に落ちるので、池には別の水源。2026-10-20 てじゃ「次の池には適当に水源作って流し込もう」）。
+        // 置き場所は大きい蓮の花のない側（まん中の花は左）。岩の面は池のふちの内側ぎりぎり（ふちの内側の面と重ねるとZファイト）
+        {
+            float sm = (sPond0 + sPond1) * 0.5f;
+            Center(sm, out var pp, out var pd); var pr = Right(pd);
+            float face = PondHW(sm) - 0.03f, depthR = 3f, topY = 2.6f;
+            var rc = pp + pr * (face + depthR * 0.5f);
+            var rock = Box(terr, "PondSpringRock", new Vector3(rc.x, (Base - 0.4f + topY) * 0.5f, rc.y), new Vector3(3.6f, topY - Base + 0.4f, depthR), ground, 0);
+            rock.transform.localRotation = Quaternion.LookRotation(new Vector3(pr.x, 0, pr.y));
+            var fc = pp + pr * (face - 0.12f);
+            FuwaStage2WaterTest.Waterfall(root, "Falls_PondSpring", new Vector3(fc.x, 0, fc.y), topY - 0.05f, 0f, 1.4f, new Vector3(-pr.x, 0, -pr.y));
+            // 岩の上の小さな湧き水の池（見た目）
+            var spring = GameObject.CreatePrimitive(PrimitiveType.Quad); spring.name = "PondSpringTop"; spring.transform.SetParent(terr, false);
+            Object.DestroyImmediate(spring.GetComponent<Collider>());
+            var sc2 = pp + pr * (face + 1.1f);
+            spring.transform.localPosition = new Vector3(sc2.x, topY + 0.01f, sc2.y);
+            spring.transform.localRotation = Quaternion.LookRotation(Vector3.down, new Vector3(-pr.x, 0, -pr.y));
+            spring.transform.localScale = new Vector3(1.4f, 2.0f, 1f);
+            spring.GetComponent<Renderer>().sharedMaterial = WaterMat(0f, false);
+        }
+        // 反対側（左のふち）の切れ目から池の水があふれて、島の外へ流れ落ちる（飾り。2026-10-20 てじゃ「反対側あたりに流れ落ちてる場所もつくっとこ」）。
+        // ふわふわが切れ目から外へ出ないように、見えない壁（当たるだけ、アウトにはしない）
+        {
+            float sg = PondSpill();
+            Center(sg, out var gp3, out var gd3); var gr = Right(gd3);
+            float hwg = PondHW(sg);
+            var lipW = GameObject.CreatePrimitive(PrimitiveType.Quad); lipW.name = "PondSpillLip"; lipW.transform.SetParent(terr, false);
+            Object.DestroyImmediate(lipW.GetComponent<Collider>());
+            var lc2 = gp3 - gr * (hwg + RimW * 0.5f);
+            lipW.transform.localPosition = new Vector3(lc2.x, 0.005f, lc2.y);
+            lipW.transform.localRotation = Quaternion.LookRotation(Vector3.down, new Vector3(-gr.x, 0, -gr.y));
+            lipW.transform.localScale = new Vector3(2.2f, RimW + 0.1f, 1f);
+            lipW.GetComponent<Renderer>().sharedMaterial = WaterMat(0f, false);
+            var oc = gp3 - gr * (hwg + RimW + 0.05f);
+            FuwaStage2WaterTest.Waterfall(root, "Falls_PondSpill", new Vector3(oc.x, 0, oc.y), 0.02f, -8f, 2.0f, new Vector3(-gr.x, 0, -gr.y));
+            var guard = Box(terr, "PondSpillGuard", new Vector3(lc2.x, 0.6f, lc2.y), new Vector3(2.4f, 1.3f, RimW), null, 0);
+            guard.transform.localRotation = Quaternion.LookRotation(new Vector3(gr.x, 0, gr.y));
+            Object.DestroyImmediate(guard.GetComponent<Renderer>()); Object.DestroyImmediate(guard.GetComponent<MeshFilter>());
         }
 
         // ---- スタート・ゴールの目印 ----
@@ -696,7 +878,14 @@ public static class FuwaCourse2_1Builder
             s => bodyBot, s => bed - 0.3f, rimMat, 0, true, true);
         // ふち（上に乗るとアウト）
         float rimTop = w.surf + RimUp;
-        if (w.rimL) Sweep(g, "RimL", w.s0, w.s1, s => -w.hw(s) - RimW, s => -w.hw(s), s => bed - 0.3f, s => rimTop, rimMat, 0, true, true);
+        if (w.rimL && w.gapL1 > w.gapL0)
+        {
+            // 切れ目は水面すれすれの低いふち（水があふれて流れ落ちて見える）
+            Sweep(g, "RimL", w.s0, w.gapL0, s => -w.hw(s) - RimW, s => -w.hw(s), s => bed - 0.3f, s => rimTop, rimMat, 0, true, true);
+            Sweep(g, "RimL2", w.gapL1, w.s1, s => -w.hw(s) - RimW, s => -w.hw(s), s => bed - 0.3f, s => rimTop, rimMat, 0, true, true);
+            Sweep(g, "RimL_Lip", w.gapL0, w.gapL1, s => -w.hw(s) - RimW, s => -w.hw(s), s => bed - 0.3f, s => w.surf - 0.04f, rimMat, 0, true, true);
+        }
+        else if (w.rimL) Sweep(g, "RimL", w.s0, w.s1, s => -w.hw(s) - RimW, s => -w.hw(s), s => bed - 0.3f, s => rimTop, rimMat, 0, true, true);
         if (w.rimR) Sweep(g, "RimR", w.s0, w.s1, s => w.hw(s), s => w.hw(s) + RimW, s => bed - 0.3f, s => rimTop, rimMat, 0, true, true);
         if (!w.open0) Sweep(g, "RimStart", w.s0 - RimW, w.s0, s => -w.hw(w.s0) - RimW, s => w.hw(w.s0) + RimW, s => bed - 0.3f, s => rimTop, rimMat, 0, true, true);
         if (!w.open1) Sweep(g, "RimEnd", w.s1, w.s1 + RimW, s => -w.hw(w.s1) - RimW, s => w.hw(w.s1) + RimW, s => bed - 0.3f, s => rimTop, rimMat, 0, true, true);
