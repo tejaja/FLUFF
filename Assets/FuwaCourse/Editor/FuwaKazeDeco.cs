@@ -44,17 +44,37 @@ public static partial class FuwaKazeDeco
     const float SwayAmp = 0.38f, SwaySpeed = 1.2f;   // 今の浮島（葉っぱが島からはみ出さないように）
     // 綿毛の頭：外側の半径（前の毛玉の芯 hr*0.75＋毛 0.65 と同じ）、芯の大きさ（外側に対する比）、冠毛の数（外側の半径1.58mの頭で）
     static float HeadOuter(float hr) { return hr * 0.75f + 0.65f; }
-    const float HeadCore = 0.26f;
-    const bool PuffCalyx = true;   // 綿毛の芯の下のがく（おためし）
-    const float CupScale = 0.145f;  // 綿毛のがくのカップの大きさ（カップの半径 = 芯の半径 / CupScale）
-    // カップ（CupCalyx）の高さ h（カップの半径で割った、花の中心からの高さ）での内側の半径（カップの半径で割った値）。ふちより上は 0（制限なし）
-    static float CupInnerR(float h)
+    // 2026-10-20 てじゃ「白い線は茶色いタマから出したい、茶色い球部分を大きくしてカップ部分をがっつり小さく」：
+    // 前は芯 0.26・カップのふちが芯の半径より一回り大きく芯の下半分を包んでいて、横〜下向きの軸が緑のカップから生えて見えた。
+    // カップは芯の底に小さく付けるだけ（ふちが芯の表面にちょうど沈む高さ）。芯はもうすぼめない
+    const float HeadCore = 0.26f;   // 0.36 にしたら てじゃ「たまでかい！」「元のが良いな」→ 大きさは元のまま、カップだけ小さく
+    const bool PuffCalyx = true;   // 綿毛の芯の下のがく
+    // 綿毛のがくのカップのふちの半径（芯の半径に対する比）。てじゃ「ガクとカップを線のあるギリギリまで大きく」→ 前の軸を抜いた範囲（32°）のふちの sin
+    const float CupRim = 0.516f;
+    const float CupLobeShow = 0.5f; // がくの先のうち芯の外に出す割合
+    const float CupCutAbove = -0.04f; // 芯の平らな底の高さ（カップのふちからの高さ、芯の半径に対する比。マイナス＝カップの中）
+    // 芯の円すいがカップのふちの高さでふちより外に出るぶん（芯の半径に対する比）。0 より大きいと、ふちのすぐ下で茶色が壁からはみ出して線に見えた。
+    // 芯とカップの角の向き・数をそろえてあるので 0（ふちでぴったり接する）でよい
+    const float CupSeal = 0f;
+    const float CupConeSlope = 2f;   // 芯の底をすぼめる円すいの広がり（高さ1につき半径がどれだけ広がるか）
+    const float CupLobeH = -0.03f, CupLobeOut = 0.06f;   // ふちのがくの先（黄色い花のがくと同じ：外へ、少し下向き）
+    const float CupDepth = 0.6f;    // カップの深さ（黄色い花のがくに対する比）。浅いほど壁が開く（てじゃ「カップの角度もうちょいゆるめに」）
+    // カップのふちの深さ（芯の中心から茎の向きへ、芯の半径に対する比）：がくの先のとちゅう（ふちから 1-CupLobeShow の所）が芯の表面に来る高さ
+    static float CupSink()
     {
-        var prof = new[] { new Vector2(0.034f, -0.15f), new Vector2(0.06f, -0.125f), new Vector2(0.095f, -0.09f), new Vector2(0.13f, -0.05f), new Vector2(0.155f, -0.015f), new Vector2(0.162f, 0.02f) };
-        if (h >= prof[prof.Length - 1].y) return 0f;
-        if (h <= prof[0].y) return prof[0].x;
-        for (int k = 1; k < prof.Length; k++) if (h <= prof[k].y) return Mathf.Lerp(prof[k - 1].x, prof[k].x, (h - prof[k - 1].y) / (prof[k].y - prof[k - 1].y));
-        return 0f;
+        float f = 1f - CupLobeShow;
+        float pR = CupRim * (0.155f + CupLobeOut * f) / 0.155f, pRise = CupLobeH * f * CupDepth * CupRim / 0.155f;   // その点のふちからの外・上（芯の半径に対する比）
+        return Mathf.Sqrt(Mathf.Max(0f, 1f - pR * pR)) + pRise;
+    }
+    // 茎のまわりの軸を抜く範囲（茎の向きとの cos）：がくの先（いちばん外）より外側の軸だけ残す。前は 32° 固定で、がくを突き抜ける軸があった
+    //（2026-10-20 てじゃ「いまガクをかんつうしてる線だけなんとかしたい」）。軸の太さのぶん 3° 足す
+    static float StemGapDot
+    {
+        get
+        {
+            float tipR = CupRim * (0.155f + CupLobeOut) / 0.155f, tipDepth = CupSink() - CupLobeH * CupDepth * CupRim / 0.155f;
+            return Mathf.Cos(Mathf.Atan2(tipR, tipDepth) + 3f * Mathf.Deg2Rad);
+        }
     }
     const int TuftsPerHead = 420;
     static readonly Color LeafG = new Color(0.27f, 0.68f, 0.2f), StemG = new Color(0.45f, 0.74f, 0.3f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
@@ -80,6 +100,7 @@ public static partial class FuwaKazeDeco
 
         var pv = path.GetComponent<MeshFilter>().sharedMesh.vertices.Where((v, i) => i % 3 == 0).Select(v => path.TransformPoint(v)).ToList();
         float DistPath(Vector3 c) { return pv.Min(q => new Vector2(q.x - c.x, q.z - c.z).magnitude); }
+        _pathPts = pv;   // 黄色い花を向ける先（TiltToPath）
         // 他のコース・ロビー：小さい物は箱、大きい物は頂点で
         var otherR = roots.Where(g => g.name.StartsWith("FuwaCourse") && g.name != Course || g.name.Contains("Lobby") || g.name == "FuwaHub")
             .SelectMany(g => g.GetComponentsInChildren<Renderer>().Where(r => !(r is ParticleSystemRenderer))).ToList();
@@ -220,6 +241,7 @@ public static partial class FuwaKazeDeco
                 if (Lite) { PuffLite(plants, hp, hr, ph); continue; }   // 軽い版：十字の板（芯・軸・がく・冠毛を焼いた絵）
                 float R0 = HeadOuter(hr), coreR = R0 * HeadCore;
                 int n = Mathf.RoundToInt(TuftsPerHead * (R0 / 1.58f) * (R0 / 1.58f));
+                var stemIn = _headTan.TryGetValue(hp, out var tg1) ? -tg1.normalized : Vector3.down;   // 茎が頭に入ってくる向き
                 int vb = plants.V.Count;
                 for (int k = 0; k < n; k++)
                 {
@@ -227,7 +249,8 @@ public static partial class FuwaKazeDeco
                     var d = new Vector3(Mathf.Cos(th) * r, y, Mathf.Sin(th) * r);
                     d = (d + new Vector3((float)hrnd.NextDouble() - 0.5f, (float)hrnd.NextDouble() - 0.5f, (float)hrnd.NextDouble() - 0.5f) * 0.1f).normalized;
                     float rad = R0 * Mathf.Lerp(0.78f, 0.9f, (float)hrnd.NextDouble()), sz = R0 * Mathf.Lerp(0.15f, 0.21f, (float)hrnd.NextDouble()), rot = (float)hrnd.NextDouble() * 6.28f;
-                    if (d.y < -0.8f) continue;   // 茎のまわりは空ける
+                    // 茎のまわりは空ける。空ける向きは茎の先の向き（前は真下で、ななめに入る茎と16〜25°ずれていた。2026-10-20 てじゃ「下の方開いてるけど茎とずれてて気になる」）
+                    if (Vector3.Dot(d, stemIn) > StemGapDot) continue;
                     var p1 = hp + d * rad; var p0 = hp + d * coreR * 0.9f;
                     var t1 = Vector3.Cross(d, Mathf.Abs(d.y) < 0.9f ? Vector3.up : Vector3.right).normalized; var t2 = Vector3.Cross(d, t1);
                     const float sw = 0.006f;   // 軸：細い三角柱（先ほど細く）。
@@ -239,28 +262,22 @@ public static partial class FuwaKazeDeco
                     tufts.Add((p1, d, sz, rot, hi));
                 }
                 // 芯（花床）：小さな茶色の球。茎の先はこの中に入る
-                const int seg = 16, rings = 12; int cb = plants.V.Count;
+                // 芯はカップと同じ向き（茎の先の向きが上）・同じ分割数（カップの CSeg=48）で作って、底をすぼめた円すいの角をカップの角とそろえる
+                //（16×12 で向きもばらばらだと、角の間で円すいがカップのふちの内側に入り、細いすき間が見えた）
+                const int seg = 48, rings = 24; int cb = plants.V.Count;
+                var coreQ = Quaternion.FromToRotation(Vector3.up, _headTan.TryGetValue(hp, out var tgc) ? tgc.normalized : Vector3.up);
                 for (int j = 0; j <= rings; j++)
                     for (int i = 0; i <= seg; i++)
                     {
                         float th = Mathf.PI * j / rings, phi = Mathf.PI * 2 * i / seg;
-                        var dd = new Vector3(Mathf.Sin(th) * Mathf.Cos(phi), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(phi));
-                        plants.Add(hp + dd * coreR, dd, Color.Lerp(coreA, coreB, ((i * 7 + j * 13) % 5) / 5f));
+                        var dd = coreQ * new Vector3(Mathf.Sin(th) * Mathf.Cos(phi), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(phi));
+                        // 色むらは頂点ごとのばらばらな値で（前の (i*7+j*13)%5 は規則的で、斜めのしま模様に見えた。2026-10-20 てじゃ「茶色い球の模様が斜めなのもきになる」）。
+                        // 継ぎ目（i=seg）は i=0 と同じ値にする
+                        int ii = i % seg; float hsh = Mathf.Abs(Mathf.Sin(ii * 12.9898f + j * 78.233f + hi * 37.719f) * 43758.5453f) % 1f;
+                        plants.Add(hp + dd * coreR, dd, Color.Lerp(coreA, coreB, hsh));
                     }
                 for (int j = 0; j < rings; j++)
                     for (int i = 0; i < seg; i++) { int a0 = cb + j * (seg + 1) + i; plants.Tri(a0, a0 + 1, a0 + seg + 1); plants.Tri(a0 + 1, a0 + seg + 2, a0 + seg + 1); }
-                // がくのカップに合わせて芯の下半分をすぼめる（カップの内側に収めて、裏から見ても茶色が突き抜けないように。2026-10-16 てじゃ）
-                if (PuffCalyx)
-                {
-                    var up0 = _headTan.TryGetValue(hp, out var tg0) ? tg0.normalized : Vector3.up;
-                    float cr0 = coreR / CupScale; var cc = hp - up0 * (coreR * 1.05f - 0.15f * cr0);
-                    for (int i = cb; i < plants.V.Count; i++)
-                    {
-                        var rel = plants.V[i] - cc; float h = Vector3.Dot(rel, up0) / cr0; var rad = rel - up0 * (h * cr0);
-                        float lim = CupInnerR(h) * cr0 * 0.94f;
-                        if (lim > 0f && rad.magnitude > lim) plants.V[i] = cc + up0 * (Mathf.Max(h, -0.14f) * cr0) + rad.normalized * lim;
-                    }
-                }
                 // 芯の下のがく（おためし 2026-10-16 てじゃ「白いタンポポの中心のタマのしたにもちゃんとガクつけたら」「ちょと色褪せてる状態で」）：
                 // 綿毛のころのがくは全部下へ反り返って茎ぞいに垂れる。枯れかけの色あせた黄土色がかった緑。内側（長い）と外側（短い）の2重
                 // 芯の下のがく（おためし 2026-10-16 てじゃ「白いタンポポの中心のタマのしたにもちゃんとガクつけたら」「ちょと色褪せてる」
@@ -269,12 +286,33 @@ public static partial class FuwaKazeDeco
                 if (PuffCalyx)
                 {
                     var up = _headTan.TryGetValue(hp, out var tg) ? tg.normalized : Vector3.up;
-                    float cr = coreR / CupScale;                          // カップのふち（0.155〜0.167cr）が芯の半径より少し大きく（同じだと芯に隠れて見えなかった）
-                    var cc0 = hp - Vector3.up * (coreR * 1.05f - 0.15f * cr);   // カップの底＝芯の底より少し下
+                    float cr = CupRim * coreR / 0.155f;                   // カップのふち（プロファイルの 0.155cr）が芯の半径の CupRim 倍
+                    // がくの先は黄色い花と同じく外へ出す（2026-10-20 てじゃ「黄色タンポポのほうみたいなかんじに」）。
+                    // 芯とのすき間を作らないよう、がく全体を上げて、がくの先のとちゅう（ふちから 1-CupLobeShow の所）が芯の表面に来る高さに。
+                    // ふちは芯の中に入り、がくの先が芯から生えて見える（てじゃ「このすきま、ギリギリまで埋める」「ふちの角度かえるんじゃなくて、ガクそのものを上にあげる」）。
+                    // 先まで芯の表面に合わせると、がくがほとんど芯に隠れた
+                    const float lobeH = CupLobeH, lobeOut = CupLobeOut;
+                    float sink = CupSink();
+                    var cc0 = hp - Vector3.up * (sink * coreR - 0.015f * CupDepth * cr);   // プロファイルのふち（-0.015cr）をそこへ
                     int cvb = plants.V.Count;
-                    CupCalyx(plants, cc0, cr, new Color(0.5f, 0.52f, 0.3f), new Color(0.62f, 0.6f, 0.38f), new Color(0.56f, 0.54f, 0.34f));
+                    CupCalyx(plants, cc0, cr, new Color(0.5f, 0.52f, 0.3f), new Color(0.62f, 0.6f, 0.38f), new Color(0.56f, 0.54f, 0.34f), lobeH, lobeOut, CupDepth);
                     var q = Quaternion.FromToRotation(Vector3.up, up);
                     for (int i = cvb; i < plants.V.Count; i++) { plants.V[i] = hp + q * (plants.V[i] - hp); plants.N[i] = q * plants.N[i]; }
+                    // がくが突き抜けている所の芯を消す（てじゃ「貫通してる部分の球のほうを消そう」）：芯の底をカップのふちに向かってすぼめる。
+                    // ふちの少し上は平らな底（ふちと同じ半径）、そこから上は円すい（高さ1につき CupConeSlope 広がる）で芯の球につなぐ。
+                    // 平らに切るだけだと切り口がふちより一回り大きくひさしのように張り出し、がくとの間が空いて見えた（てじゃ「このすきまなんとか埋めれないかな」）
+                    // 底はカップのふちより少し下（カップの中）。円すいはカップのふちのすぐ外を通り、ふちより下ではカップの壁の内側に入る
+                    //（カップの壁より急に広がる＝CupConeSlope がカップの壁の広がり 1.2 より大きい）。ふちより上で底を切ると
+                    // 底とふちの細いすき間から中の茎が見え（てじゃ「上から隙間みえるんよな」「ぴっちりとじてほしい」）、壁と同じ広がりだと壁から茶色がはみ出した
+                    float rimH = -sink * coreR, cutH = rimH + CupCutAbove * coreR, rimR = CupRim * coreR;
+                    for (int i = cb; i < cvb; i++)
+                    {
+                        var rel = plants.V[i] - hp; float h = Vector3.Dot(rel, up); var rad = rel - up * h;
+                        if (h < cutH) { h = cutH; plants.N[i] = -up; }
+                        float rMax = rimR + CupSeal * coreR + (h - rimH) * CupConeSlope;
+                        if (rad.magnitude > rMax) { rad = rad.normalized * rMax; if (h > cutH) plants.N[i] = (rad.normalized - up * CupConeSlope).normalized; }
+                        plants.V[i] = hp + up * h + rad;
+                    }
                 }
                 // 頭は茎の先と同じだけゆれる
                 for (int i = vb; i < plants.V.Count; i++) plants.U3[i] = new Vector4(1f, ph, 0, 0);
@@ -541,11 +579,43 @@ public static partial class FuwaKazeDeco
             var tan = (Vector3.up * h + lean * 2f).normalized;
             var q = Quaternion.AngleAxis(Vector3.Angle(Vector3.up, tan) * 1.4f, Vector3.Cross(Vector3.up, tan).normalized);
             for (int i = fb; i < m.V.Count; i++) { m.V[i] = top + q * (m.V[i] - top); m.N[i] = q * m.N[i]; }
-            look = (top + Vector3.up * fr * 0.15f, fr * 0.9f);
+            TiltToPath(m, at, leafEnd, fb, top, q * Vector3.up, h);
+            var headC = top; for (int i = fb; i < m.V.Count; i++) headC += m.V[i]; headC = (headC - top) / Mathf.Max(1, m.V.Count - fb);
+            look = (headC, fr * 0.9f);
         }
         // 風のゆれの重み：根元0 → 先1（高さの2乗）。葉は地面近くなのでほぼゆれない
         for (int i2 = leafEnd; i2 < m.V.Count; i2++) { float w =Mathf.Clamp01((m.V[i2].y - at.y) / h); m.U3[i2] = new Vector4(w * w, phase, 0, 0); }
         return look;
+    }
+
+    // 黄色い花の面をコースの道のほうへ向ける（2026-10-20 てじゃ「FLUFFの黄色いたんぽぽも向きかえよう」→ Vket ブースと同じやり方）。
+    // 風下へうなずかせた花は、コースから見ると横向き・裏向きが多かった。花の向きを「いちばん近い道の点の目の高さ」へ TiltAmount の割合だけ回す
+    //（最大 TiltMax°）。茎は根元から先へだんだん曲げて StemShare の割合、残りは首（茎の先）でかしげる。花びら（黄色）の法線は回さない（明るさを変えない）
+    static List<Vector3> _pathPts = new List<Vector3>();
+    const float TiltAmount = 0.45f, TiltMax = 45f, StemShare = 0.45f, EyeHeight = 1.5f;   // 0.7・70° は てじゃ「ちょっとかたむけすぎ」
+    static void TiltToPath(MB m, Vector3 at, int stemStart, int headStart, Vector3 neck, Vector3 face, float h)
+    {
+        if (_pathPts.Count == 0) return;
+        var hc = Vector3.zero; for (int i = headStart; i < m.V.Count; i++) hc += m.V[i]; hc /= Mathf.Max(1, m.V.Count - headStart);
+        var near = _pathPts.OrderBy(p => (p - hc).sqrMagnitude).First();
+        var eye = near + Vector3.up * EyeHeight;
+        var t = Vector3.Slerp(face, (eye - hc).normalized, TiltAmount);
+        Quaternion.FromToRotation(face, t).ToAngleAxis(out float ang, out var axis);
+        if (ang < 0.5f || axis.sqrMagnitude < 0.5f) return;
+        ang = Mathf.Min(ang, TiltMax); float aStem = ang * StemShare;
+        var rAll = Quaternion.AngleAxis(ang, axis);
+        var neckNew = at + Quaternion.AngleAxis(aStem, axis) * (neck - at);
+        for (int i = stemStart; i < headStart; i++)
+        {
+            float w = Mathf.Pow(Mathf.Clamp01((m.V[i].y - at.y) / Mathf.Max(1e-4f, neck.y - at.y)), 1.5f);
+            var r = Quaternion.AngleAxis(aStem * w, axis); m.V[i] = at + r * (m.V[i] - at); m.N[i] = r * m.N[i];
+        }
+        for (int i = headStart; i < m.V.Count; i++)
+        {
+            m.V[i] = neckNew + rAll * (m.V[i] - neck);
+            var c = m.C[i]; bool petal = c.r > 0.8f && c.g > 0.45f && c.b < 0.35f;
+            if (!petal) m.N[i] = rAll * m.N[i];
+        }
     }
 
     // ふつうの大きさのたんぽぽ
@@ -751,8 +821,12 @@ public static partial class FuwaKazeDeco
     }
 
     // がく（カップ型）：c＝花の中心、r＝花の半径。上が +Y の向きで作る（呼んだ側で回す）。黄色い花と綿毛の芯の下で共通
-    static void CupCalyx(MB m, Vector3 c, float r, Color dark, Color light, Color beard, float lobeH = 0.045f, float lobeOut = 0.012f)
+    const int BeardCount = 9;   // がくの外側の垂れるひげの本数
+    static void CupCalyx(MB m, Vector3 c, float r, Color dark, Color light, Color beard, float lobeH = 0.045f, float lobeOut = 0.012f, float depth = 1f)
     {
+        // depth：高さ方向だけ縮める（浅いカップ＝壁が開く）。ふちのがくの先・ひげの付け根も同じだけ
+        var c0 = c;
+        int vStart = m.V.Count;
         // がく（2026-10-16）：花の中心から出すと花びらの上に突き抜けて緑がもれた。細い筒はトゲに、平たい葉を放射状に並べると
         // 下から見て緑の花がもう1つ咲いたように見えた（てじゃ「重なりがきになる」「しっくりこない」）。
         // 2026-10-16 てじゃ「しっくりこない」→ カップ型（1案）：内側のがくは立てて花の裏をすき間なく包む緑のおわん
@@ -780,14 +854,25 @@ public static partial class FuwaKazeDeco
             int bc = m.Add(c + Vector3.up * prof[0].y * r - Vector3.up * r * 0.01f, Vector3.down, dark);
             for (int i = 0; i < CSeg; i++) m.Tri(bc, cb + i + 1, cb + i);
         }
+        // 垂れ具合のむら（2026-10-20 てじゃ「垂れ具合にむらがほしい」）：花ごとに位置から決まる乱数で、1本ずつ開き・長さ・向きを変える
+        var brnd = new System.Random(Mathf.RoundToInt(c.x * 1000f) * 73856093 ^ Mathf.RoundToInt(c.z * 1000f) * 19349663);
+        float BR(float lo, float hi) => lo + (float)brnd.NextDouble() * (hi - lo);
         void Beard(float a)
         {
             // 外側のがく：細いひげ。おわんの下のほうから外へ少し出て、茎ぞいに下へ垂れる。両面同じ明るさ
+            // 付け根は等間隔のまま（ずらすと隣の付け根と重なった。てじゃ「根本が重ならないように」）、垂れる向きだけ少しずらす
+            var o0 = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            a += BR(-0.06f, 0.06f);
             var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var side = new Vector3(-Mathf.Sin(a), 0f, Mathf.Cos(a));
-            var p0 = c + o * r * 0.075f + Vector3.up * -0.115f * r; var p1 = p0 + (o * 0.45f - Vector3.up * 0.9f).normalized * r * 0.055f; var p2 = p1 + (o * 0.05f - Vector3.up).normalized * r * 0.06f;   // 外へ張り出すとクモの足に見えたので、茎ぞいに
-            var ps = new[] { p0, p1, p2 }; var ws = new[] { r * 0.022f, r * 0.018f, r * 0.009f };
+            // 付け根はカップの壁の少し内側（高さ -0.09r の壁の半径 0.095r より内）から。前は壁より外（0.075r＠-0.115r、壁は 0.07r）から生やしていて、
+            // 付け根と壁の間にすき間が見えた（2026-10-20 てじゃ「ガクの垂れてるやつ、根本がすきまあるのがきになる、黄色いタンポポも」）
+            float open = BR(0.2f, 0.75f), len = BR(0.94f, 1.06f), open2 = BR(-0.05f, 0.25f);
+            var p0 = c + o0 * r * 0.087f + Vector3.up * -0.09f * r; var p1 = p0 + (o * open - Vector3.up * 0.9f).normalized * r * 0.08f * len; var p2 = p1 + (o * open2 - Vector3.up).normalized * r * 0.06f * len;   // 外へ張り出すとクモの足に見えたので、茎ぞいに
+            // 幅は前の約1.6倍（てじゃ「もうちょい幅を広げて隙間を狭く」）。付け根は隣とちょうど接する幅（付け根の円周÷本数の 95%）
+            var ps = new[] { p0, p1, p2 }; var ws = new[] { r * 0.087f * Mathf.PI / BeardCount * 0.95f, r * 0.029f, r * 0.014f };
+            var sides = new[] { new Vector3(-o0.z, 0f, o0.x), side, side };
             int bi = m.V.Count, bt = m.T.Count;
-            for (int j = 0; j < 3; j++) { m.Add(ps[j] - side * ws[j], o, beard); m.Add(ps[j] + side * ws[j], o, beard); }
+            for (int j = 0; j < 3; j++) { m.Add(ps[j] - sides[j] * ws[j], o, beard); m.Add(ps[j] + sides[j] * ws[j], o, beard); }
             m.Quad(bi, bi + 1, bi + 3, bi + 2); m.Quad(bi + 2, bi + 3, bi + 5, bi + 4);
             int tip = m.Add(p2 + (p2 - p1).normalized * ws[2], o, beard); m.Tri(bi + 4, bi + 5, tip);
             var pn = Vector3.Cross(side, (p1 - p0).normalized).normalized * r * 0.0015f;
@@ -795,7 +880,9 @@ public static partial class FuwaKazeDeco
             for (int i = bi; i < ve; i++) m.Add(m.V[i] - pn, m.N[i], m.C[i]);
             for (int t = bt; t < te; t += 3) m.Tri(m.T[t] - bi + vb2, m.T[t + 2] - bi + vb2, m.T[t + 1] - bi + vb2);
         }
-        for (int i = 0; i < 9; i++) Beard((i + 0.25f) * Mathf.PI * 2 / 9);
+        for (int i = 0; i < BeardCount; i++) Beard((i + 0.25f) * Mathf.PI * 2 / BeardCount);
+        if (depth != 1f)
+            for (int i = vStart; i < m.V.Count; i++) { var rel = m.V[i] - c0; m.V[i] = c0 + new Vector3(rel.x, rel.y * depth, rel.z); }
     }
 
     static void Sphere(MB m, Vector3 c, float r, Color col, int seg, int rings)
