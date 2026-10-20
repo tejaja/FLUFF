@@ -573,8 +573,12 @@ public static partial class FuwaKazeDeco
             pts.Add(at + Vector3.up * h * u + lean * u * u);
             rr.Add(Mathf.Lerp(0.12f, 0.08f, u) * s);
         }
-        if (Lite) Tube(m, pts.Where((p, i) => i % 2 == 0).ToList(), rr.Where((p, i) => i % 2 == 0).ToList(), 4, StemG, StemG * 0.85f);   // 軽い版：4角・半分の節
-        else Tube(m, pts, rr, 7, StemG, StemG * 0.85f);
+        // 黄色い花の茎は、花を道へ向けたあとに作る（下）。曲げた5〜9節の筒は節で折れて見えて陰もガタガタだった（2026-10-20 てじゃ「白タンポポみたいになめらかに」）
+        if (puff)
+        {
+            if (Lite) Tube(m, pts.Where((p, i) => i % 2 == 0).ToList(), rr.Where((p, i) => i % 2 == 0).ToList(), 4, StemG, StemG * 0.85f);   // 軽い版：4角・半分の節
+            else Tube(m, pts, rr, 7, StemG, StemG * 0.85f);
+        }
         var top = pts[pts.Count - 1];
         if (puff)
         {
@@ -591,8 +595,20 @@ public static partial class FuwaKazeDeco
             var tan = (Vector3.up * h + lean * 2f).normalized;
             var q = Quaternion.AngleAxis(Vector3.Angle(Vector3.up, tan) * 1.4f, Vector3.Cross(Vector3.up, tan).normalized);
             for (int i = fb; i < m.V.Count; i++) { m.V[i] = top + q * (m.V[i] - top); m.N[i] = q * m.N[i]; }
-            TiltToPath(m, at, leafEnd, fb, top, q * Vector3.up, h);
+            var (neck, rHead) = TiltToPath(m, at, fb, fb, top, q * Vector3.up, h);
             var headC = top; for (int i = fb; i < m.V.Count; i++) headC += m.V[i]; headC = (headC - top) / Mathf.Max(1, m.V.Count - fb);
+            // 茎：根元（上向き）から首（花の軸の向き）までの3次ベジェ1本。曲がりを1本のカーブにして、白と同じ節の数でもなめらかに
+            var axis = (rHead * q * Vector3.up).normalized; float L = (neck - at).magnitude;
+            Vector3 b1 = at + (Vector3.up * 0.85f + lean.normalized * 0.15f).normalized * L * 0.4f, b2 = neck - axis * L * 0.35f;
+            int nr = Lite ? 4 : 8;   // 白の茎と同じ9つの輪（てじゃ「できればおなじ９」）
+            var sp = new List<Vector3>(); var sr = new List<float>();
+            for (int i = 0; i <= nr; i++)
+            {
+                float u = i / (float)nr, w = 1 - u;
+                sp.Add(w * w * w * at + 3 * w * w * u * b1 + 3 * w * u * u * b2 + u * u * u * neck);
+                sr.Add(Mathf.Lerp(0.12f, 0.08f, u) * s);
+            }
+            Tube(m, sp, sr, Lite ? 4 : 7, StemG, StemG * 0.85f);
             look = (headC, fr * 0.9f);
         }
         // 風のゆれの重み：根元0 → 先1（高さの2乗）。葉は地面近くなのでほぼゆれない
@@ -605,15 +621,16 @@ public static partial class FuwaKazeDeco
     //（最大 TiltMax°）。茎は根元から先へだんだん曲げて StemShare の割合、残りは首（茎の先）でかしげる。花びら（黄色）の法線は回さない（明るさを変えない）
     static List<Vector3> _pathPts = new List<Vector3>();
     const float TiltAmount = 0.45f, TiltMax = 45f, StemShare = 0.45f, EyeHeight = 1.5f;   // 0.7・70° は てじゃ「ちょっとかたむけすぎ」
-    static void TiltToPath(MB m, Vector3 at, int stemStart, int headStart, Vector3 neck, Vector3 face, float h)
+    // 戻り値：動かしたあとの首の位置と、花にかけた回転（茎はこのあと首まで作る）
+    static (Vector3, Quaternion) TiltToPath(MB m, Vector3 at, int stemStart, int headStart, Vector3 neck, Vector3 face, float h)
     {
-        if (_pathPts.Count == 0) return;
+        if (_pathPts.Count == 0) return (neck, Quaternion.identity);
         var hc = Vector3.zero; for (int i = headStart; i < m.V.Count; i++) hc += m.V[i]; hc /= Mathf.Max(1, m.V.Count - headStart);
         var near = _pathPts.OrderBy(p => (p - hc).sqrMagnitude).First();
         var eye = near + Vector3.up * EyeHeight;
         var t = Vector3.Slerp(face, (eye - hc).normalized, TiltAmount);
         Quaternion.FromToRotation(face, t).ToAngleAxis(out float ang, out var axis);
-        if (ang < 0.5f || axis.sqrMagnitude < 0.5f) return;
+        if (ang < 0.5f || axis.sqrMagnitude < 0.5f) return (neck, Quaternion.identity);
         ang = Mathf.Min(ang, TiltMax); float aStem = ang * StemShare;
         var rAll = Quaternion.AngleAxis(ang, axis);
         var neckNew = at + Quaternion.AngleAxis(aStem, axis) * (neck - at);
@@ -628,6 +645,7 @@ public static partial class FuwaKazeDeco
             var c = m.C[i]; bool petal = c.r > 0.8f && c.g > 0.45f && c.b < 0.35f;
             if (!petal) m.N[i] = rAll * m.N[i];
         }
+        return (neckNew, rAll);
     }
 
     // ふつうの大きさのたんぽぽ
