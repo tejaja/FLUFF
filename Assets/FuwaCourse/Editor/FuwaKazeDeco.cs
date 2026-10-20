@@ -77,6 +77,7 @@ public static partial class FuwaKazeDeco
         }
     }
     const int TuftsPerHead = 420;
+    const float SeedHz = 1.7f, SeedUp = 1.4f;   // 飛ぶ綿毛：風下への速さ（風の向き×m/s、平均）、出た直後に上がる速さ(m/s)
     static readonly Color LeafG = new Color(0.27f, 0.68f, 0.2f), StemG = new Color(0.45f, 0.74f, 0.3f), Yellow = new Color(1f, 0.82f, 0.18f), Fluff = new Color(0.97f, 0.97f, 0.95f);
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/かぜのおかの飾りを作る")]
@@ -393,7 +394,18 @@ public static partial class FuwaKazeDeco
                 var emi = ps.emission; emi.rateOverTime = 20f;   // 2026-10-05 1割減、2026-10-16 軽く（28.8→20。同時に飛ぶ数 約260→約180）
                 var pr = amb.GetComponent<ParticleSystemRenderer>(); pr.mesh = SeedMesh();
                 var smat = pr.sharedMaterial; if (smat != null) { smat.SetFloat("_FadeStart", 25f); smat.SetFloat("_FadeEnd", 80f); smat.SetFloat("_FarAlpha", 0.65f); smat.SetFloat("_Shade", 0.1f); EditorUtility.SetDirty(smat); }
-                var vel = ps.velocityOverLifetime; vel.x = new ParticleSystem.MinMaxCurve(wind.x * 1.2f, wind.x * 2.2f); vel.z = new ParticleSystem.MinMaxCurve(wind.z * 1.2f, wind.z * 2.2f); vel.y = new ParticleSystem.MinMaxCurve(-0.05f, 0.25f);
+                // 飛び方（2026-10-20 てじゃ「FLUFFのほうもこんなかんじの動きがいいな」＝Vket ブースの綿毛）：出た直後にふわっと上がって、
+                // 風に乗ったら横に加速して流れる。横は 60%→100%（最初の3割で）、上は出た直後が強く、寿命の半分で 0。
+                // 上下のゆらぎは弱く（ゆらぎで横の速さが消えると真上に飛んで見えた）
+                AnimationCurve Sc(AnimationCurve c, float k) { var o = new AnimationCurve(); foreach (var key in c.keys) o.AddKey(new Keyframe(key.time, key.value * k)); return o; }
+                var hz = new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(0.3f, 1f), new Keyframe(1f, 1f));
+                var upc = new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(0.08f, 1f), new Keyframe(0.25f, 0.55f), new Keyframe(0.5f, 0f), new Keyframe(1f, 0f));
+                var vel = ps.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.World;
+                vel.x = new ParticleSystem.MinMaxCurve(wind.x * SeedHz, Sc(hz, 1.2f / 1.7f), Sc(hz, 2.2f / 1.7f));   // 前と同じ 1.2〜2.2 倍の速さ（平均 1.7）
+                vel.z = new ParticleSystem.MinMaxCurve(wind.z * SeedHz, Sc(hz, 1.2f / 1.7f), Sc(hz, 2.2f / 1.7f));
+                vel.y = new ParticleSystem.MinMaxCurve(SeedUp, Sc(upc, 0.6f), Sc(upc, 0.8f));
+                var no = ps.noise;
+                if (no.enabled && !no.separateAxes) { float ns = no.strength.constant; no.separateAxes = true; no.strengthX = ns * 0.7f; no.strengthY = ns * 0.25f; no.strengthZ = ns * 0.7f; }   // 1回だけ（作り直すたびに弱くならないように）
                 amb.GetComponent<ParticleSystemRenderer>().enableGPUInstancing = false;   // シェーダーがパーティクルのインスタンシング未対応（色がくずれる）
                 EditorUtility.SetDirty(ps);
             }
