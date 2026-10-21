@@ -18,7 +18,9 @@ using Object = UnityEngine.Object;
 //     間に合わないと川の終わりの崖の滝から谷へ落ちてアウト。左岸の道は谷を小さい橋で越える（2026-10-20 てじゃ。前は橋＋橋の下のトゲ）
 //  ③ 蓮の池：道が途切れて、人は固定の蓮の葉を飛び石で渡る。ふわふわは池を撃って渡す
 // ふわふわは地面（道も、水の底も）に触るとアウト、水に浮いている間はセーフ。水から出る時は撃って浮かせる（道を水の中まで伸ばすと触ってアウトになる）
-//  ④ 泡の段々（3段）：泡の柱でふわふわを上の池へ。人は左の岸の坂で上へ
+//  ④ 貝の道（2026-10-21、前の「泡の段々」と入れかえ）：蓮の池から先は海っぽく（河口・浜辺へ）。細い堤の道の両わきで貝が左右交互に
+//     パカッと開いて、道を横切る泡を吹く。ふわふわが泡に触れると包まれて流され、放っておくと反対側の滝へ運ばれて落下アウト。
+//     割れる前に撃てば泡ごと押し戻せる（FuwaClamBubbles）。てじゃ「回避可能な風ギミックに近いイメージ、そのかわり当たると風より厄介」
 //  ⑤ 大きな滝の横を登ってゴール。水車は飾り
 // 道どうしのつなぎ目（岸の道→本道）は、岸の道を 1cm 低くして本道の中に埋める（同じ高さで重ねるとZファイト）
 public static class FuwaCourse2_1Builder
@@ -127,7 +129,10 @@ public static class FuwaCourse2_1Builder
     static float RiverHW(float s) { float t = s - sPool1; return 1.8f + 0.25f * Mathf.Sin(t * 0.45f) - 0.4f * Smooth01((s - (sRiver1 - 2.5f)) / 2.5f); }
     // 蓮の池：まるっこい形（だ円より少しふっくら）。入口・出口は道の幅の口（2026-10-20 てじゃ「池自体もっと丸っこくしたいな」。前は sin で両はしがとがったレンズ形）
     static float PondHW(float s) { float u = Mathf.Abs(Mathf.InverseLerp(sPond0, sPond1, s) * 2f - 1f); return Mathf.Max(1.4f, 6.2f * Mathf.Pow(Mathf.Max(0f, 1f - Mathf.Pow(u, 2.3f)), 1f / 2.3f)); }
-    const float TerHW = 2.1f, BubbleLat = 1.25f;
+    // 貝の道：道の半分の幅、貝の置き場所（道のふちから外へ）、両わきの滝（道のふちから外へ）。sWalk0/1 と WalkH は Build で決める
+    public static float WalkHW = 1.7f, ClamOut = 0.6f, FallsOut = 2.6f;
+    static float sWalk0, sWalk1;
+    static Func<float, float> WalkH;
     // 蓮の池の左のふちの、水があふれて流れ落ちる所（まん中の大きい蓮の花をよけて少し先）
     static float PondSpill() { return (sPond0 + sPond1) * 0.5f + 4f; }
     // 蓮の葉のあいだ（ふちからふちまで）。VRChat の走りジャンプで約2.4m 飛べるので、着地の分を引いてギリ届くくらい
@@ -204,20 +209,13 @@ public static class FuwaCourse2_1Builder
         pieces.Add(new Piece { name = "B2_Bank", s0 = sCross + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         // M2 谷の向こう → 蓮の池の手前（本道は水のふちの外側にぴったりつける。端は丸めない）
         pieces.Add(new Piece { name = "M2", s0 = mergeA, s1 = sPond0 - RimW, off = s => 0f, w = s => 3f, h = s => BankTop, round0 = false, round1 = false });
-        // M3 蓮の池の向こう → 泡の段々の1段目の手前
-        pieces.Add(new Piece { name = "M3", s0 = sPond1 + RimW, s1 = sTer0 - RimW, off = s => 0f, w = s => 3f, h = s => BankTop, round0 = false, round1 = false });
-        // B3 左の岸の坂：段々の横を上の段まで
-        float m3A = b2 + 0.8f, m3B = b2 + 5.5f;
-        float b3far = TerHW + RimW + 1.55f;
-        Func<float, float> b3t = s =>
-        {
-            if (s < sTer0 + 0.5f) return -Mathf.Lerp(0f, b3far, Smooth01((s - (sTer0 - 5f)) / 5.5f));
-            if (s < m3A) return -b3far;
-            return -Mathf.Lerp(b3far, 0f, Smooth01((s - m3A) / (m3B - m3A)));
-        };
+        // M3 貝の道：蓮の池の向こうから、細い堤の道をゆるく登って大きな滝の登り坂へ（両わきは崖の外＝落ちたらアウト）
+        float m3B = b2 + 5.5f;
         float topSurf = 2 * TerraceStep;
-        pieces.Add(new Piece { name = "B3_Bank", s0 = sTer0 - 5f, s1 = m3B, off = Smoothed(b3t, 1.0f), w = s => 3f,
-            h = s => Ramp(s, sTer0 + 1f, m3A, BankTop - 0.01f, topSurf + BankTop - 0.01f) });
+        sWalk0 = sPond1 + RimW; sWalk1 = b2 + RimW;
+        float walkTop = topSurf + BankTop;
+        WalkH = s => Ramp(s, sWalk0 + 1.5f, sWalk1 - 1.5f, BankTop, walkTop);
+        pieces.Add(new Piece { name = "M3_ClamWalk", s0 = sWalk0, s1 = sWalk1, off = s => 0f, w = s => WalkHW * 2f, h = WalkH, round0 = false, round1 = false });
         // M4 3段目の向こう → 大きな滝の横を登る → ゴールの広場
         pieces.Add(new Piece { name = "M4_Climb", s0 = b2 + RimW, s1 = sEnd + 2f, off = s => 0f, round0 = false,
             w = s => Ramp(s, sGoal0 - 1f, sGoal0 + 2f, 3f, 7f),
@@ -246,17 +244,8 @@ public static class FuwaCourse2_1Builder
             new Water { name = "W2_River", s0 = sPool1, s1 = sRiver1, surf = 0f, flow = 1.1f, hw = RiverHW, open0 = true, open1 = true, bodyBottom = -6f },   // 1.6→1.1：浅瀬を歩く人が置いていかれないように
             new Water { name = "W3_LilyPond", s0 = sPond0, s1 = sPond1, surf = 0f, flow = 0f, hw = PondHW, gapL0 = PondSpill() - 1.1f, gapL1 = PondSpill() + 1.1f },
         };
-        for (int k = 0; k < 3; k++)
-            waters.Add(new Water { name = "W4_Terrace" + k, s0 = terA[k], s1 = terB[k], surf = k * TerraceStep, flow = k == 2 ? 0.5f : 0.35f,
-                hw = s => TerHW + 0.15f * Mathf.Sin(s * 0.7f), open1 = k < 2 });
         var wroot = new GameObject("Water").transform; wroot.SetParent(root, false);
         foreach (var w in waters) BuildWater(wroot, w, bedMat, ground, fx, splash);
-        // 段々：1・2段目は終わりの右の角だけ泡の柱があいていて、ほかはトゲ（流れのまま＝まん中を来るとトゲ。右へ撃って柱に入れる）。3段目は全部トゲ
-        for (int k = 0; k < 3; k++)
-        {
-            float hwT = TerHW + 0.15f;
-            Thorns(root, "Thorns_Terrace" + k, terB[k] - 1.0f, k * TerraceStep, -hwT, k < 2 ? BubbleLat - 0.85f : hwT, 2.0f);
-        }
 
         // 渡り場：川から左岸の道に上がる石段（川の左のふちの内側、ふちに向かって3段）。ふわふわが上に乗るとアウト、横は当たるだけ
         {
@@ -290,16 +279,8 @@ public static class FuwaCourse2_1Builder
             Sweep(gz, "FarCliff", gorge1, sPond0 - RimW, s => -fw - 3.2f, s => fw, s => -6f, s => BankTop - Thick - 0.01f, ground, 0, true, true);
         }
 
-        // 段々のあいだの壁（上の段の始まり）と泡の柱
-        var bubbles = new GameObject("Bubbles").transform; bubbles.SetParent(root, false);
-        for (int k = 0; k < 2; k++)
-        {
-            // 泡の柱は流れの線から右へずらす（流れのままだと入らずにトゲへ。撃って入れる）。人の岸（左）の反対側
-            float sb = terB[k] - 0.9f;
-            Center(sb, out var p, out var d);
-            p += Right(d) * BubbleLat;
-            FuwaStage2WaterTest.BubbleColumn(bubbles, "Bubble" + k, new Vector3(p.x, 0, p.y), k * TerraceStep - WaterDepth, (k + 1) * TerraceStep + 0.75f, new Vector3(d.x, 0, d.y));
-        }
+        // ④ 貝の道
+        ClamWalk(root, ground);
 
         // ---- 地形のかたまり（ブロックアウト）----
         var terr = new GameObject("Terrain").transform; terr.SetParent(root, false);
@@ -572,7 +553,132 @@ public static class FuwaCourse2_1Builder
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–1] 長さ " + sEnd.ToString("F0") + "m  台→池 " + sPlaza1.ToString("F1") + " 川 " + sPool1.ToString("F1") + "–" + sRiver1.ToString("F1")
-            + " 蓮 " + sPond0.ToString("F1") + "–" + sPond1.ToString("F1") + " 段々 " + sTer0.ToString("F1") + "–" + b2.ToString("F1") + " ゴール " + sGoal0.ToString("F1");
+            + " 蓮 " + sPond0.ToString("F1") + "–" + sPond1.ToString("F1") + " 貝の道 " + sWalk0.ToString("F1") + "–" + sWalk1.ToString("F1") + " ゴール " + sGoal0.ToString("F1");
+    }
+
+    // ---- ④ 貝の道（2026-10-21）----
+    // 細い堤の道（M3_ClamWalk）の下の土台、両わきの崖、貝（左右交互）、貝の反対側の滝、道の外に落ちた時のアウト判定、泡（FuwaClamBubbles）。
+    // 見た目（砂浜・岩場・本物の貝）はあとでまとめて。今は形と動きだけ
+    public static float[] ClamAt = { 0.2f, 0.4f, 0.6f, 0.8f };   // 貝の道の長さに対する位置。左から交互
+    public static float ClamPeriod = 2.8f;
+    static void ClamWalk(Transform root, Material ground)
+    {
+        var g = new GameObject("ClamWalk").transform; g.SetParent(root, false);
+        var ballProxy = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
+        float len = sWalk1 - sWalk0;
+        // 道の下の土台（堤）と、両わきの崖（滝が流れ落ちる岩）
+        Sweep(g, "WalkBase", sWalk0, sWalk1, s => -WalkHW, s => WalkHW, s => -8f, s => WalkH(s) - Thick - 0.01f, ground, 0, true);
+        foreach (float o in new[] { -1f, 1f })
+        {
+            float a = WalkHW + FallsOut + 0.35f, b = WalkHW + FallsOut + 3f;
+            Sweep(g, o < 0 ? "CliffL" : "CliffR", sWalk0 + 0.3f, sWalk1 - 0.3f, s => o < 0 ? -b : a, s => o < 0 ? -a : b, s => -8f, s => WalkH(s) + 4.5f, ground, 0, true);
+        }
+        // アウト判定：道のふちの外の下（ふわふわ＝FuwaHazard、人＝FuwaPlayerCatcher）。4m ごとの箱
+        var outs = new GameObject("Outs").transform; outs.SetParent(g, false);
+        int nSeg = Mathf.Max(1, Mathf.CeilToInt(len / 4f));
+        for (int k = 0; k < nSeg; k++)
+        {
+            float a = Mathf.Lerp(sWalk0, sWalk1, k / (float)nSeg), b = Mathf.Lerp(sWalk0, sWalk1, (k + 1) / (float)nSeg), m = (a + b) * 0.5f;
+            Center(m, out var cp, out var cd); var cr = Right(cd);
+            float segLen = b - a + 0.4f, wOut = FallsOut + 0.3f;
+            foreach (float o in new[] { -1f, 1f })
+            {
+                var c = cp + cr * (o * (WalkHW + 0.15f + wOut * 0.5f));
+                var bo = new GameObject((o < 0 ? "BallOutL" : "BallOutR") + k); bo.transform.SetParent(outs, false); bo.layer = 4;
+                bo.transform.localPosition = new Vector3(c.x, WalkH(m) - 2.4f, c.y); bo.transform.localRotation = Quaternion.LookRotation(new Vector3(cd.x, 0, cd.y));
+                var bbc = bo.AddComponent<BoxCollider>(); bbc.isTrigger = true; bbc.size = new Vector3(wOut, 2.4f, segLen);
+                var hz = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHazard>(bo); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hz); NoSync(hz);
+                var po = new GameObject((o < 0 ? "PlayerOutL" : "PlayerOutR") + k); po.transform.SetParent(outs, false);
+                po.transform.localPosition = new Vector3(c.x, WalkH(m) - 4.2f, c.y); po.transform.localRotation = bo.transform.localRotation;
+                var pbc = po.AddComponent<BoxCollider>(); pbc.isTrigger = true; pbc.size = new Vector3(wOut, 2.4f, segLen);
+                var pcc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(po); pcc.ball = ballProxy; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pcc); NoSync(pcc);
+            }
+        }
+        // 貝（仮：つぶした球の上下の殻。ふたは後ろのちょうつがいで開く）と、反対側の滝
+        var shellMat = FlatMat("Stage2_ClamShell", new Color(0.96f, 0.80f, 0.76f));
+        var innerMat = FlatMat("Stage2_ClamInner", new Color(0.98f, 0.95f, 0.97f));
+        var bubbleMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Bubble3D.mat");
+        int n = ClamAt.Length;
+        var clams = new Transform[n]; var lids = new Transform[n]; var mouths = new Transform[n]; var phases = new float[n];
+        var cg = new GameObject("Clams").transform; cg.SetParent(g, false);
+        for (int i = 0; i < n; i++)
+        {
+            float side = i % 2 == 0 ? -1f : 1f;   // 左から
+            float sc = Mathf.Lerp(sWalk0, sWalk1, ClamAt[i]);
+            Center(sc, out var p, out var d); var r = Right(d);
+            float y = WalkH(sc);
+            var c2 = p + r * (side * (WalkHW + ClamOut));
+            // 台の岩（上は道より少し低い）
+            var rock = Box(cg, "ClamRock" + i, new Vector3(c2.x, y - 0.15f - 0.75f, c2.y), new Vector3(1.4f, 1.5f, 1.3f), ground, 0);
+            rock.transform.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y));
+            var clam = new GameObject("Clam" + i).transform; clam.SetParent(cg, false);
+            clam.localPosition = new Vector3(c2.x, y - 0.15f, c2.y);
+            clam.localRotation = Quaternion.LookRotation(new Vector3(-side * r.x, 0, -side * r.y));   // +Z＝道を横切る向き
+            var bot = GameObject.CreatePrimitive(PrimitiveType.Sphere); bot.name = "ShellBottom"; bot.transform.SetParent(clam, false);
+            Object.DestroyImmediate(bot.GetComponent<Collider>());
+            bot.transform.localPosition = new Vector3(0, 0.12f, 0); bot.transform.localScale = new Vector3(1.0f, 0.3f, 0.85f);
+            bot.GetComponent<Renderer>().sharedMaterial = shellMat;
+            var inner = GameObject.CreatePrimitive(PrimitiveType.Sphere); inner.name = "Inner"; inner.transform.SetParent(clam, false);
+            Object.DestroyImmediate(inner.GetComponent<Collider>());
+            inner.transform.localPosition = new Vector3(0, 0.2f, 0.02f); inner.transform.localScale = new Vector3(0.82f, 0.12f, 0.68f);
+            inner.GetComponent<Renderer>().sharedMaterial = innerMat;
+            var lid = new GameObject("LidHinge").transform; lid.SetParent(clam, false); lid.localPosition = new Vector3(0, 0.18f, -0.38f);
+            var top = GameObject.CreatePrimitive(PrimitiveType.Sphere); top.name = "ShellTop"; top.transform.SetParent(lid, false);
+            Object.DestroyImmediate(top.GetComponent<Collider>());
+            top.transform.localPosition = new Vector3(0, 0.06f, 0.38f); top.transform.localScale = new Vector3(1.0f, 0.28f, 0.85f);
+            top.GetComponent<Renderer>().sharedMaterial = shellMat;
+            var mouth = new GameObject("Mouth").transform; mouth.SetParent(clam, false); mouth.localPosition = new Vector3(0, 0.75f, 0.6f);
+            clams[i] = clam; lids[i] = lid; mouths[i] = mouth;
+            phases[i] = i * ClamPeriod / n;
+            // 反対側の滝：崖から道の方へ流れ出て、下の海へ落ちる（泡に運ばれたふわふわはここで押し落とされる）
+            float o = -side;
+            var fc = p + r * (o * (WalkHW + FallsOut));
+            FuwaStage2WaterTest.Waterfall(g, "SideFalls" + i, new Vector3(fc.x, 0, fc.y), y + 4.2f, -8f, 5f, new Vector3(-o * r.x, 0, -o * r.y));
+        }
+        // 泡（貝ごとに3つ）・割れた時の粒・音
+        var bg = new GameObject("Bubbles").transform; bg.SetParent(g, false);
+        const int per = 3;
+        var bubbles = new Transform[n * per];
+        for (int k = 0; k < bubbles.Length; k++)
+        {
+            var b = GameObject.CreatePrimitive(PrimitiveType.Sphere); b.name = "Bubble" + k; b.transform.SetParent(bg, false);
+            Object.DestroyImmediate(b.GetComponent<Collider>());
+            b.GetComponent<Renderer>().sharedMaterial = bubbleMat;
+            b.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            b.SetActive(false); bubbles[k] = b.transform;
+        }
+        var pop = new GameObject("PopFx"); pop.transform.SetParent(g, false);
+        var pp = pop.AddComponent<ParticleSystem>(); pp.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var pm = pp.main; pm.loop = false; pm.playOnAwake = false; pm.simulationSpace = ParticleSystemSimulationSpace.World;
+        pm.startLifetime = new ParticleSystem.MinMaxCurve(0.25f, 0.45f); pm.startSpeed = new ParticleSystem.MinMaxCurve(1.2f, 2.2f); pm.startSize = new ParticleSystem.MinMaxCurve(0.03f, 0.06f);
+        pm.startColor = new Color(0.9f, 1f, 1f, 0.95f); pm.maxParticles = 60; pm.gravityModifier = 0.3f;
+        var pem = pp.emission; pem.enabled = false;
+        var psh = pp.shape; psh.shapeType = ParticleSystemShapeType.Sphere; psh.radius = 0.28f;
+        var ppr = pop.GetComponent<ParticleSystemRenderer>(); ppr.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        ppr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        AudioSource Snd(string name, string clip)
+        {
+            var go = new GameObject(name); go.transform.SetParent(g, false);
+            var a = go.AddComponent<AudioSource>(); a.playOnAwake = false; a.spatialBlend = 1f; a.minDistance = 2f; a.maxDistance = 20f; a.rolloffMode = AudioRolloffMode.Linear;
+            a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clip); return a;
+        }
+        var cb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaClamBubbles>(g.gameObject);
+        cb.ball = ballProxy; cb.clams = clams; cb.lids = lids; cb.mouths = mouths; cb.phases = phases; cb.period = ClamPeriod;
+        cb.bubbles = bubbles; cb.bubblesPerClam = per;
+        // 吹き出し口から反対側の滝まで（ここで割れて落ちる）
+        cb.bubbleRange = 2f * WalkHW + ClamOut + FallsOut - 0.2f;
+        cb.popFx = pp; cb.popSound = Snd("PopSfx", "Assets/FuwaStage2/Audio/sfx_bubble_pop.wav"); cb.captureSound = Snd("CaptureSfx", "Assets/FuwaStage2/Audio/sfx_bubble_wrap.wav");
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); NoSync(cb);
+    }
+
+    // FuwaCourse/ToonLit の単色の材質（水のテスト場の ToonMat と同じ作り）
+    static Material FlatMat(string name, Color c)
+    {
+        string p = "Assets/FuwaStage2/Materials/" + name + ".mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (!m) { m = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Lobby_Ring.mat")); AssetDatabase.CreateAsset(m, p); }
+        m.SetColor("_Color", c); EditorUtility.SetDirty(m);
+        return m;
     }
 
     // 曲がった滝：落ち口(sLip, top)から水平に出て、放物線で reach m 先の bottom に落ちる。前後2枚の水の膜（厚み thick）＋放物線にそった押す箱
