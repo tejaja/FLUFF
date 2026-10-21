@@ -108,7 +108,7 @@ public static class FuwaWindDecoBuilder
         int rb = V.Count; float rr = 0.012f;
         for (int i = 0; i < seg; i++) { float a = i * Mathf.PI * 2 / seg; var o = new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0);
             for (int j = 0; j < 6; j++) { float p = j * Mathf.PI * 2 / 6; V.Add(o * (R0 + Mathf.Cos(p) * rr) + new Vector3(0, 0, Mathf.Sin(p) * rr)); } }
-        for (int i = 0; i < seg; i++) { int i2 = (i + 1) % seg; for (int j = 0; j < 6; j++) { int j2 = (j + 1) % 6; int a = rb + i * 6 + j, b = rb + i * 6 + j2, c = rb + i2 * 6 + j, d = rb + i2 * 6 + j2; ring.AddRange(new[] { a, b, d, a, d, c }); } }
+        for (int i = 0; i < seg; i++) { int i2 = (i + 1) % seg; for (int j = 0; j < 6; j++) { int j2 = (j + 1) % 6; int a = rb + i * 6 + j, b = rb + i * 6 + j2, c = rb + i2 * 6 + j, d = rb + i2 * 6 + j2; ring.AddRange(new[] { a, d, b, a, c, d }); } }   // 2026-10-21 前は面が全部内向きで、輪の内側の壁だけ見えて二重線になっていた（てじゃ）
         return Finish(V, new List<List<int>> { red, white, ring }, false);
     }
 
@@ -123,6 +123,13 @@ public static class FuwaWindDecoBuilder
             int bs = V.Count; const int seg = 5;
             for (int i = 0; i < seg; i++) { float an = i * Mathf.PI * 2 / seg; var o = (u * Mathf.Cos(an) + w * Mathf.Sin(an)) * r; V.Add(a + o); V.Add(b + o); }
             for (int i = 0; i < seg; i++) { int j = (i + 1) % seg; int a0 = bs + i * 2, a1 = a0 + 1, b0 = bs + j * 2, b1 = b0 + 1; T.AddRange(new[] { a0, b0, b1, a0, b1, a1 }); }
+            // 両端のふた（2026-10-21 てじゃ「つなぎの部品の裏面がみえなくて後ろが見える」）。角がとがるよう頂点は分ける
+            foreach (var e in new[] { 0, 1 })
+            {
+                int cb = V.Count; V.Add(e == 0 ? a : b);
+                for (int i = 0; i < seg; i++) V.Add(V[bs + i * 2 + e]);
+                for (int i = 0; i < seg; i++) { int p = cb + 1 + i, q = cb + 1 + (i + 1) % seg; if (e == 1) T.AddRange(new[] { cb, p, q }); else T.AddRange(new[] { cb, q, p }); }
+            }
         }
         var c = Vector3.zero;
         for (int k = 0; k < 4; k++) { float an = k * Mathf.PI / 2 + Mathf.PI / 4; Rope(c, new Vector3(Mathf.Cos(an) * SockR0, Mathf.Sin(an) * SockR0, TetherLen), 0.006f); }
@@ -315,7 +322,7 @@ public static class FuwaWindDecoBuilder
                 var pole = Child(go.transform, "Pole", sockPole, new[] { mPole }, Vector3.zero);
                 pole.rotation = Quaternion.LookRotation(Vector3.Cross(wdir, Vector3.up), Vector3.up);   // メッシュの +X を風下へ
                 var pivot = new GameObject("SockPivot").transform; pivot.SetParent(go.transform, false);
-                pivot.position = go.transform.position + Vector3.up * (SockPoleH - SockBallR * 0.6f) + wdir * SockArm;
+                pivot.position = go.transform.position + Vector3.up * SockPoleH + wdir * SockArm;   // 玉の真ん中（2026-10-21 前は玉の少し下で、金具が玉の下から出ていた）
                 deco.droopAway = wdir;
                 Child(pivot, "Tether", tether, new[] { mRing }, new Vector3(0, 0, 0.07f));
                 var so = Child(pivot, "Sock", sock, new[] { mRed, mWhite, mRing }, new Vector3(0, 0, 0.07f + TetherLen));

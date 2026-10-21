@@ -562,7 +562,7 @@ public static partial class FuwaKazeDeco
         int v0 = m.V.Count; float phase = (float)rnd.NextDouble() * 6.2832f;
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         float s = h / 4.5f;
-        Rosette(m, at, R(2.8f, 3.6f) * s, rnd.Next(8, 11), rnd, GiantLeafSway);
+        Rosette(m, at, R(2.8f, 3.6f) * s, rnd.Next(8, 11), rnd, GiantLeafSway, 0.06f * s, false);   // 葉の付け根は茎（根元の半径 0.12×s）の中に隠れる半径の輪から（てじゃ「ちゃんと茎に繋がってて欲しい」）。0.13（茎の外）だと細い葉柄が茎の根元にトゲのように出て「削れて」見えた
         int leafEnd = m.V.Count;
         var side = Vector3.Cross(Vector3.up, wind);
         var lean = (wind * R(0.6f, 1.2f) + side * R(-0.5f, 0.5f)) * s;
@@ -653,7 +653,7 @@ public static partial class FuwaKazeDeco
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         float h = R(0.35f, 0.6f);
-        Rosette(m, at, R(0.25f, 0.4f), rnd.Next(5, 8), rnd, SmallLeafSway);
+        Rosette(m, at, R(0.25f, 0.4f), rnd.Next(5, 8), rnd, SmallLeafSway, 0.015f);
         var lean = wind * R(0.03f, 0.1f);
         Tube(m, new List<Vector3> { at, at + Vector3.up * h * 0.5f + lean * 0.3f, at + Vector3.up * h + lean }, new List<float> { 0.018f, 0.015f, 0.013f }, 4, StemG, StemG);
         var top = at + Vector3.up * h + lean;
@@ -669,8 +669,9 @@ public static partial class FuwaKazeDeco
     // → ひと回り大きく（LeafScale）、根元から立ち上がって先ほど弓なりに垂れる形、深い切れ込みの根元向きの歯（左右で少しずらす）、
     //   根元は明るい黄緑→先ほど濃い緑のグラデ、明るい葉脈。長い葉のあいだに短い葉を足してロゼットらしく。
     // rnd は前と同じ回数だけ引く（1枚につき5回。ほかの飾りの並びを変えないため）。形のゆらぎは場所から作った別の乱数で
-    const float LeafScale = 1.35f;
-    static void Rosette(MB m, Vector3 at, float len, int n, System.Random rnd, float leafSway)
+    const float LeafScale = 1.35f, LeafRise = 0.7f;
+    // baseR：葉の根元を茎のまわりのこの半径の輪に並べる。前は全部の葉が1点から出ていて、根元で重なってゴチャついた（2026-10-20 てじゃ）
+    static void Rosette(MB m, Vector3 at, float len, int n, System.Random rnd, float leafSway, float baseR, bool shortLeaves = true)
     {
         float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
         var fr = new System.Random(Mathf.RoundToInt(at.x * 613f) * 17 + Mathf.RoundToInt(at.z * 727f) + n);
@@ -681,15 +682,25 @@ public static partial class FuwaKazeDeco
             float L = len * R(0.7f, 1.1f) * LeafScale;
             float W = Mathf.Min(L, len * LeafScale) * R(0.15f, 0.2f) * 0.95f;
             float tone = R(0.92f, 1.12f);
-            float ang = R(30f, 45f) * Mathf.Deg2Rad;
+            float ang = R(30f, 45f) * Mathf.Deg2Rad * LeafRise;   // 根元の立ち上がりを少しゆるく（重なりにくく）
             float lph = Mathf.Repeat(at.x * 1.7f + at.z * 2.3f + i * 2.399f, 6.2832f);
-            if (Lite) LeafLite(m, at, a0, L, W, tone, ang, lph, leafSway, F); else Leaf(m, at, a0, L, W, tone, ang, lph, leafSway, F);
-            // あいだの短い葉（6割くらい）
-            if (fr.NextDouble() < 0.6)
+            var at0 = at + new Vector3(Mathf.Cos(a0), 0, Mathf.Sin(a0)) * baseR;
+            if (Lite) LeafLite(m, at0, a0, L, W, tone, ang, lph, leafSway, F); else Leaf(m, at0, a0, L, W, tone, ang, lph, leafSway, F);
+            // あいだの短い葉（6割くらい）。巨大たんぽぽは無し：根元の立ち上がりをゆるくしたら長い葉の下にもぐって「下に短いのが生えてる」に見えた（2026-10-20 てじゃ）
+            // 巨大たんぽぽは短い葉のかわりに、あいだにほぼ同じ長さの葉（同じ角度で寝かせる）を足す（短い葉なしだと「へりすぎてさみしい」2026-10-20 てじゃ）
+            if (!shortLeaves && fr.NextDouble() < 0.85)
+            {
+                float a1 = a0 + Mathf.PI / n * F(0.8f, 1.2f);
+                float L1 = L * F(0.78f, 0.95f), W1 = W * F(0.85f, 1f), t1 = tone * F(0.95f, 1.05f), g1 = ang * F(0.85f, 1f);
+                var at1 = at + new Vector3(Mathf.Cos(a1), 0, Mathf.Sin(a1)) * baseR;
+                if (Lite) LeafLite(m, at1, a1, L1, W1, t1, g1, lph + 1.3f, leafSway, F); else Leaf(m, at1, a1, L1, W1, t1, g1, lph + 1.3f, leafSway, F);
+            }
+            else if (fr.NextDouble() < 0.6 && shortLeaves)
             {
                 float a1 = a0 + Mathf.PI / n * F(0.7f, 1.3f);
                 float L1 = L * F(0.5f, 0.7f), W1 = W * F(0.75f, 0.9f), t1 = tone * F(0.95f, 1.05f), g1 = ang + F(0.05f, 0.2f);
-                if (Lite) LeafLite(m, at, a1, L1, W1, t1, g1, lph + 1.3f, leafSway, F); else Leaf(m, at, a1, L1, W1, t1, g1, lph + 1.3f, leafSway, F);
+                var at1 = at + new Vector3(Mathf.Cos(a1), 0, Mathf.Sin(a1)) * baseR * 0.85f;
+                if (Lite) LeafLite(m, at1, a1, L1, W1, t1, g1, lph + 1.3f, leafSway, F); else Leaf(m, at1, a1, L1, W1, t1, g1, lph + 1.3f, leafSway, F);
             }
         }
     }
