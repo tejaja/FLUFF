@@ -24,13 +24,16 @@ public class FuwaCourseLod : UdonSharpBehaviour
     [Tooltip("ON なら Mobile（Android/iOS ビルド）の時だけ働く")]
     public bool onlyMobile = true;
 
-    // ロビーにいる間（どのコースにも入っていない時）は、コースの見た目はそのまま、毎フレーム動く仕掛け（Udon の Update）と粒を止める
+    // ロビーにいる間（どのコースにも入っていない時）は、コースの見た目はそのまま、遠くの毎フレーム動く仕掛け（Udon の Update）と粒を止める
     //（2026-10-18 てじゃ「ロビーが色々見えてるから重い」「ギミックとめるのはありだな」。FuwaCourseLodLobbyBuilder が集める）
     [Tooltip("ロビーの間だけ止める仕掛け（Update で動く Udon）")]
     public VRC.Udon.UdonBehaviour[] lobbyStopBehaviours;
     [Tooltip("ロビーの間だけ隠す粒（パーティクルの物）")]
     public GameObject[] lobbyHideObjects;
+    [Tooltip("ロビーの間も、自分からこの距離(m)以内の仕掛け・粒は動かす（2026-10-22 てじゃ「ロビーからの見た目はほしい」→ 近くだけ動かす案）。0なら全部止める")]
+    public float lobbyNearRadius = 40f;
     private int _lobbyState = -1;   // 0=止めていない、1=止めている
+    private bool[] _bRun, _oRun;
 
     private float _next;
     private int _shown = -2;   // いま反映している状態（-1=全部ふつう、i=コースiにいる）
@@ -51,9 +54,37 @@ public class FuwaCourseLod : UdonSharpBehaviour
             for (int i = 0; i < starts.Length; i++) if (starts[i] != null && starts[i] == sp) { cur = i; break; }
         }
         // エリアが変わった時は、FuwaAreaVisibility がコースの本体を出し直しているので必ずやり直す
-        if (cur == _shown && area == _area) return;
-        _shown = cur; _area = area;
-        Apply(area == soloArea, cur);
+        if (cur != _shown || area != _area)
+        {
+            _shown = cur; _area = area;
+            Apply(area == soloArea, cur);
+        }
+        if (_lobbyState == 1) UpdateLobbyNear();
+    }
+
+    // ロビーの間：近くの物だけ動かす。境目でちらつかないよう、出す距離と止める距離に少し差をつける
+    private void UpdateLobbyNear()
+    {
+        VRC.SDKBase.VRCPlayerApi p = VRC.SDKBase.Networking.LocalPlayer;
+        if (p == null || lobbyNearRadius <= 0f) return;
+        Vector3 me = p.GetPosition();
+        float rOn = lobbyNearRadius * lobbyNearRadius, rOff = (lobbyNearRadius + 5f) * (lobbyNearRadius + 5f);
+        if (lobbyStopBehaviours != null)
+            for (int i = 0; i < lobbyStopBehaviours.Length; i++)
+            {
+                var b = lobbyStopBehaviours[i]; if (b == null) continue;
+                float d = (b.transform.position - me).sqrMagnitude;
+                bool run = _bRun[i] ? d < rOff : d < rOn;
+                if (run != _bRun[i]) { _bRun[i] = run; b.enabled = run; }
+            }
+        if (lobbyHideObjects != null)
+            for (int i = 0; i < lobbyHideObjects.Length; i++)
+            {
+                var o = lobbyHideObjects[i]; if (o == null) continue;
+                float d = (o.transform.position - me).sqrMagnitude;
+                bool run = _oRun[i] ? d < rOff : d < rOn;
+                if (run != _oRun[i]) { _oRun[i] = run; o.SetActive(run); }
+            }
     }
 
     private void Apply(bool inSolo, int cur)
@@ -70,7 +101,9 @@ public class FuwaCourseLod : UdonSharpBehaviour
         if (lobby == _lobbyState) return;
         _lobbyState = lobby;
         bool run = lobby == 0;
-        if (lobbyStopBehaviours != null) for (int i = 0; i < lobbyStopBehaviours.Length; i++) if (lobbyStopBehaviours[i] != null) lobbyStopBehaviours[i].enabled = run;
-        if (lobbyHideObjects != null) for (int i = 0; i < lobbyHideObjects.Length; i++) if (lobbyHideObjects[i] != null) lobbyHideObjects[i].SetActive(run);
+        int nb = lobbyStopBehaviours != null ? lobbyStopBehaviours.Length : 0, no = lobbyHideObjects != null ? lobbyHideObjects.Length : 0;
+        if (_bRun == null) { _bRun = new bool[nb]; _oRun = new bool[no]; }
+        for (int i = 0; i < nb; i++) { _bRun[i] = run; if (lobbyStopBehaviours[i] != null) lobbyStopBehaviours[i].enabled = run; }
+        for (int i = 0; i < no; i++) { _oRun[i] = run; if (lobbyHideObjects[i] != null) lobbyHideObjects[i].SetActive(run); }
     }
 }

@@ -195,6 +195,8 @@ public static partial class FuwaKazeDeco
             // 綿毛と黄色い花は島の反対側に分ける。分ける向きは、コースを進みながら前〜斜め前を見たときに頭どうしが重なって見えにくい向きの中から選ぶ
             // （一番いい向きに固定すると全部同じ見え方になるので、合格した向きの中からランダム）
             float? useAng = null; var snap = rnd.Clone();
+            bool wasLite = Lite; Lite = false;   // 向き選びはいつもふつうの版の形で（軽い版で選び直すと島5だけ別の向きになって、切りかえで花がガクッと動いた。2026-10-22）
+            try
             {
                 var tp = new List<(Vector3, float)>(); var tph = new List<float>();
                 if (Pair(new MB(), snap.Clone(), pos, rad, topY, null, wind, tp, tph, out _) == 2)
@@ -218,6 +220,7 @@ public static partial class FuwaKazeDeco
                     }
                 }
             }
+            finally { Lite = wasLite; }
             Pair(plants, rnd, pos, rad, topY, useAng, wind, heads, _headPhase, out _);
             // 小さいたんぽぽ（ふつうの大きさ）
             int ns = rnd.Next(5, 10);
