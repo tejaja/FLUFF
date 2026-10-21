@@ -32,8 +32,27 @@ public class FuwaCourseLod : UdonSharpBehaviour
     public GameObject[] lobbyHideObjects;
     [Tooltip("ロビーの間も、自分からこの距離(m)以内の仕掛け・粒は動かす（2026-10-22 てじゃ「ロビーからの見た目はほしい」→ 近くだけ動かす案）。0なら全部止める")]
     public float lobbyNearRadius = 40f;
+    [Tooltip("0=きれい（全部ふつう表示・ロビーも全部動く）、1=ふつう（他コースは軽い版・ロビーは近くだけ動く）、2=かるい（他コースは軽い版・ロビーは全部止める）。ロビーのボタン（FuwaQualitySwitch）で切り替える。スマホ・Quest は始めから2")]
+    public int mode = 1;
     private int _lobbyState = -1;   // 0=止めていない、1=止めている
     private bool[] _bRun, _oRun;
+
+    private void Start()
+    {
+#if UNITY_ANDROID || UNITY_IOS
+        mode = 2;
+#endif
+    }
+
+    public int GetMode() { return mode; }
+
+    // ロビーのボタンから呼ぶ（自分だけ）。次の Update で全部やり直す
+    public void SetMode(int m)
+    {
+        mode = Mathf.Clamp(m, 0, 2);
+        _shown = -2; _lobbyState = -1; _next = 0f;
+        enabled = true;
+    }
 
     private float _next;
     private int _shown = -2;   // いま反映している状態（-1=全部ふつう、i=コースiにいる）
@@ -66,7 +85,7 @@ public class FuwaCourseLod : UdonSharpBehaviour
     private void UpdateLobbyNear()
     {
         VRC.SDKBase.VRCPlayerApi p = VRC.SDKBase.Networking.LocalPlayer;
-        if (p == null || lobbyNearRadius <= 0f) return;
+        if (p == null || lobbyNearRadius <= 0f || mode != 1) return;
         Vector3 me = p.GetPosition();
         float rOn = lobbyNearRadius * lobbyNearRadius, rOff = (lobbyNearRadius + 5f) * (lobbyNearRadius + 5f);
         if (lobbyStopBehaviours != null)
@@ -90,14 +109,15 @@ public class FuwaCourseLod : UdonSharpBehaviour
     private void Apply(bool inSolo, int cur)
     {
         int n = fullRoots != null ? fullRoots.Length : 0;
+        int c = mode == 0 ? -1 : cur;   // きれい：コースの中でも全部ふつう表示
         for (int i = 0; i < n; i++)
         {
-            bool full = inSolo && (cur < 0 || cur == i);
-            bool lite = inSolo && cur >= 0 && cur != i;
+            bool full = inSolo && (c < 0 || c == i);
+            bool lite = inSolo && c >= 0 && c != i;
             if (fullRoots[i] != null && inSolo && fullRoots[i].activeSelf != full) fullRoots[i].SetActive(full);
             if (liteRoots != null && i < liteRoots.Length && liteRoots[i] != null && liteRoots[i].activeSelf != lite) liteRoots[i].SetActive(lite);
         }
-        int lobby = inSolo && cur < 0 ? 1 : 0;
+        int lobby = mode != 0 && inSolo && cur < 0 ? 1 : 0;
         if (lobby == _lobbyState) return;
         _lobbyState = lobby;
         bool run = lobby == 0;
