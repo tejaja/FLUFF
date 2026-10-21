@@ -554,6 +554,7 @@ public static class FuwaCourse2_1Builder
         // ロビーのワープ（WarpToCourse0）はスタートの BallStart/PlayerSpot を指しているので、作り直したらつなぎ直す
         //（2026-10-21 作り直したあとワープが効かず、キノコからふわふわが出なかった）
         FuwaStage2LobbyCourses.Run();
+        FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–1] 長さ " + sEnd.ToString("F0") + "m  台→池 " + sPlaza1.ToString("F1") + " 川 " + sPool1.ToString("F1") + "–" + sRiver1.ToString("F1")
             + " 蓮 " + sPond0.ToString("F1") + "–" + sPond1.ToString("F1") + " 貝の道 " + sWalk0.ToString("F1") + "–" + sWalk1.ToString("F1") + " ゴール " + sGoal0.ToString("F1");
@@ -564,6 +565,8 @@ public static class FuwaCourse2_1Builder
     // 見た目（砂浜・岩場・本物の貝）はあとでまとめて。今は形と動きだけ
     public static float[] ClamAt = { 0.2f, 0.4f, 0.6f, 0.8f };   // 貝の道の長さに対する位置。左から交互
     public static float ClamPeriod = 2.8f;
+    // 泡の大きさ（直径）と包む距離。0.62 だと上から軽く越えられそう（2026-10-21 てじゃ「あわはもっとデカくしよ」）
+    public static float ClamBubbleSize = 1.5f, ClamCapture = 0.9f;
     static void ClamWalk(Transform root, Material ground)
     {
         var g = new GameObject("ClamWalk").transform; g.SetParent(root, false);
@@ -630,7 +633,7 @@ public static class FuwaCourse2_1Builder
             Object.DestroyImmediate(top.GetComponent<Collider>());
             top.transform.localPosition = new Vector3(0, 0.06f, 0.38f); top.transform.localScale = new Vector3(1.0f, 0.28f, 0.85f);
             top.GetComponent<Renderer>().sharedMaterial = shellMat;
-            var mouth = new GameObject("Mouth").transform; mouth.SetParent(clam, false); mouth.localPosition = new Vector3(0, 0.75f, 0.6f);
+            var mouth = new GameObject("Mouth").transform; mouth.SetParent(clam, false); mouth.localPosition = new Vector3(0, 0.95f, 0.75f);
             clams[i] = clam; lids[i] = lid; mouths[i] = mouth;
             phases[i] = i * ClamPeriod / n;
             // 反対側の滝：崖から道の方へ流れ出て、下の海へ落ちる（泡に運ばれたふわふわはここで押し落とされる）
@@ -668,6 +671,7 @@ public static class FuwaCourse2_1Builder
         var cb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaClamBubbles>(g.gameObject);
         cb.ball = ballProxy; cb.clams = clams; cb.lids = lids; cb.mouths = mouths; cb.phases = phases; cb.period = ClamPeriod;
         cb.bubbles = bubbles; cb.bubblesPerClam = per;
+        cb.bubbleSize = ClamBubbleSize; cb.captureRadius = ClamCapture;
         // 吹き出し口から反対側の滝まで（ここで割れて落ちる）
         cb.bubbleRange = 2f * WalkHW + ClamOut + FallsOut - 0.2f;
         cb.popFx = pp; cb.popSound = Snd("PopSfx", "Assets/FuwaStage2/Audio/sfx_bubble_pop.wav"); cb.captureSound = Snd("CaptureSfx", "Assets/FuwaStage2/Audio/sfx_bubble_wrap.wav");
@@ -1088,6 +1092,26 @@ public static class FuwaCourse2_1Builder
         if (deep) { m.SetColor("_Deep", DeepCenter); m.SetColor("_Shallow", DeepEdge); m.SetFloat("_DeepWidth", 1.2f); }
         EditorUtility.SetDirty(m);
         return m;
+    }
+
+    // 作り直すと Udon の付いた物が消えて新しくなるので、シーンのネットワークIDに消えた物（InvalidObject）が残ってビルドが止まる
+    //（2026-10-21「Build was blocked by the SDK callback」）。SDK のチェック（ConfigureNetworkIDs）を回すと消えた物を外して新しい物に番号をつける。
+    // 1回目で直して、2回目でエラー0を確かめる
+    static void FixNetworkIDs()
+    {
+        var desc = Object.FindObjectOfType<VRC.SDK3.Components.VRCSceneDescriptor>(); if (!desc) return;
+        var t = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("VRC.SDKBase.Network.NetworkIDAssignment")).FirstOrDefault(x => x != null); if (t == null) return;
+        var m = t.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static).FirstOrDefault(x => x.Name == "ConfigureNetworkIDs"); if (m == null) return;
+        var setErrT = m.GetParameters()[2].ParameterType.GetElementType();
+        int left = 0;
+        for (int i = 0; i < 2; i++)
+        {
+            var args = new object[] { desc, null, Array.CreateInstance(setErrT, 0) };
+            m.Invoke(null, args);
+            left = 0; foreach (var e in (System.Collections.IEnumerable)args[1]) left++;
+        }
+        EditorUtility.SetDirty(desc);
+        if (left > 0) Debug.LogWarning("[2–1] ネットワークIDのエラーが " + left + " 個残っています");
     }
 
     static void NoSync(UdonSharp.UdonSharpBehaviour b)
