@@ -115,7 +115,8 @@ public static class FuwaMonitorBuilder
         var offText = Text(off, "Text", srcText, Vector3.zero, new Vector2(sw - 0.2f, ScreenH - 0.2f), 1.5f);
         // 「CAM」の文字のかわりにボタンと同じビデオカメラの絵（TMP のスプライト。tint=1 で文字の色になる）
         offText.spriteAsset = AssetDatabase.LoadAssetAtPath<TMPro.TMP_SpriteAsset>("Assets/FuwaCourse/Textures/Icon_Video.asset");
-        const string offJa = "<size=160%>OFF</size>\n<sprite=0 tint=1> ボタンで映すよ", offEn = "<size=160%>OFF</size>\nPress <sprite=0 tint=1> to watch";
+        // 3行目はカメラのタイプの数（2026-10-22 てじゃ「カメラのタイプは４種類　ってつけくわえよ」）
+        const string offJa = "<size=160%>OFF</size>\n<sprite=0 tint=1> ボタンで映すよ\nカメラのタイプは4種類", offEn = "<size=160%>OFF</size>\nPress <sprite=0 tint=1> to watch\n4 camera types";
         offText.text = offJa; offText.color = new Color(0.85f, 0.87f, 0.92f, 1f);
         // 映している人の名前（他の人の時だけ、画面の左上）
         var nameT = Text(board, "Name", srcText, new Vector3(-sw * 0.5f + 0.1f, top - TitleH - 0.12f, -0.005f), new Vector2(sw - 0.2f, 0.2f), 1.3f);
