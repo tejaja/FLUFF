@@ -22,7 +22,10 @@ public static class FuwaCourseLite
         var holder = roots.FirstOrDefault(g => g.name == "CourseLites");
         if (holder == null) { holder = new GameObject("CourseLites"); Undo.RegisterCreatedObjectUndo(holder, "lite"); }
         holder.transform.position = Vector3.zero; holder.transform.rotation = Quaternion.identity; holder.transform.localScale = Vector3.one;
-        var mat = AssetDatabase.FindAssets("Den_Twig t:Material").Select(g => AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(g))).First(m => m.name == "Den_Twig");
+        // 材質は軽い版専用（頂点カラー＋ToonLit と同じ光り方）。前は Den_Twig（InkCap）を借りていて影が黒っぽかった
+        const string MatPath = Dir + "/CourseLite.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(MatPath);
+        if (mat == null) { mat = new Material(Shader.Find("FuwaCourse/LiteVC")) { name = "CourseLite", enableInstancing = true }; AssetDatabase.CreateAsset(mat, MatPath); }
         var log = new System.Text.StringBuilder();
         var starts = new List<Transform>(); var fulls = new List<GameObject>(); var lites = new List<GameObject>();
         foreach (var cn in Courses)
@@ -46,6 +49,8 @@ public static class FuwaCourseLite
                     var m = s < mr.sharedMaterials.Length ? mr.sharedMaterials[s] : mr.sharedMaterials.LastOrDefault();
                     Color mcol = m != null && m.HasProperty("_Color") ? m.color : Color.white; mcol.a = 1;
                     bool useVc = mc.Length == mv.Length && m != null && m.shader.name.Contains("InkCap");
+                    // 島の下（FarIsland）も頂点カラー。こっちは色をそのまま（リニアで）使うシェーダーなので、軽い版の書き方（ガンマ）に直す
+                    bool useVcLinear = mc.Length == mv.Length && m != null && m.shader.name.Contains("FarIsland");
                     // 色がテクスチャに入っている物（大きいきのこのかさのグラデ）は、頂点の UV の所の色をかける（2026-10-22 軽い版で赤いかさが白かった）
                     var tex = m != null && m.HasProperty("_MainTex") && muv.Length == mv.Length ? Readable(m.mainTexture) : null;
                     Vector2 ts = tex != null ? m.mainTextureScale : Vector2.one, to = tex != null ? m.mainTextureOffset : Vector2.zero;
@@ -56,7 +61,7 @@ public static class FuwaCourseLite
                         {
                             j = V.Count; V.Add(l2w.MultiplyPoint3x4(mv[t]));
                             N.Add(mn.Length == mv.Length ? n2w.MultiplyVector(mn[t]).normalized : Vector3.zero);
-                            var col = useVc ? new Color(mc[t].r, mc[t].g, mc[t].b, 1) : mcol;
+                            var col = useVc ? new Color(mc[t].r, mc[t].g, mc[t].b, 1) : useVcLinear ? new Color(mc[t].r, mc[t].g, mc[t].b, 1).gamma : mcol;
                             if (tex != null) { var uv = Vector2.Scale(muv[t], ts) + to; col *= tex.GetPixelBilinear(uv.x, uv.y); col.a = 1; }
                             C.Add(col); map[t] = j;
                         }
