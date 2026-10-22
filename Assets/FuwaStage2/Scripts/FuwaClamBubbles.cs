@@ -47,8 +47,17 @@ public class FuwaClamBubbles : UdonSharpBehaviour
     [Tooltip("撃った時に泡が進む速さ(m/s、横)。ためるほど少し速く")]
     public float shotSpeed = 2.4f;
     public float shotSpeedCharged = 3.4f;
-    [Tooltip("撃ったあと泡の横の速さが落ちていく強さ（1/s）。撃つと押されて、だんだん止まる（押しっぱなしで遠くまで飛ばないように）")]
+    // 撃った時（2026-10-22 てじゃ「撃った方向にまっすぐ気味に、ただし元の泡の移動の慣性も残す」「ぐにゃって変な方向に飛ぶはず、それが狙い」）：
+    // 撃った勢い（上下も）と、それまでの泡の動き（慣性）を別々に持って足す。撃った勢いは早く、慣性はゆっくり弱まるので、
+    // はじめは撃った向きにまっすぐ → だんだん元の泡の流れの向きへぐにゃっと曲がる
+    [Tooltip("撃った勢いが弱まる強さ（1/s）")]
     public float shotDrag = 1.2f;
+    [Tooltip("撃った時に、それまでの泡の動きをどれだけ残すか（慣性）")]
+    [Range(0f, 1f)] public float shotKeep = 0.5f;
+    [Tooltip("撃ったあと、残した慣性が弱まる強さ（1/s）。shotDrag より小さいと、あとから慣性の向きへ曲がる")]
+    public float driftDrag = 0.6f;
+    [Tooltip("下向きに撃った時の下向きの分をこの倍率に弱める（道にたたきつけてアウトになりにくく）")]
+    [Range(0f, 1f)] public float shotDownScale = 0.3f;
     [Tooltip("割れたあと、また包まれるまでの秒数")]
     public float recaptureDelay = 0.8f;
 
@@ -68,6 +77,7 @@ public class FuwaClamBubbles : UdonSharpBehaviour
     private int _held = -1;
     private float _heldAt, _noCatchUntil, _shotSeen;
     private bool _heldShot;
+    private Vector3 _shotVel;   // 包んでいる泡の、撃った勢いの分（_vel[_held] は慣性＋浮き上がり）
 
     private void Start()
     {
@@ -147,24 +157,32 @@ public class FuwaClamBubbles : UdonSharpBehaviour
             if (age < 0.15f && shotAt > _heldAt + 0.05f && Mathf.Abs(shotAt - _shotSeen) > 0.01f)
             {
                 _shotSeen = shotAt;
-                Vector3 d = ball.LastShotDir(); d.y = 0f;
+                // 撃った向きにまっすぐ（上下も）＋それまでの泡の速さを shotKeep だけ残す。前は水平だけで、上に撃っても高さが変わらなかった。下向きは弱める
+                Vector3 d = ball.LastShotDir();
                 if (d.sqrMagnitude > 1e-4f)
                 {
+                    d.Normalize();
+                    if (d.y < 0f) d.y *= shotDownScale;
                     float sp = Mathf.Lerp(shotSpeed, shotSpeedCharged, Mathf.Clamp01(ball.LastShotCharge()));
-                    _vel[h] = d.normalized * sp + Vector3.up * bubbleRise;
+                    Vector3 rise0 = Vector3.up * bubbleRise;
+                    _vel[h] = rise0 + (_vel[h] + _shotVel - rise0) * shotKeep;   // 前に撃った勢いも慣性に入れる
+                    _shotVel = d * sp;
                     _heldShot = true;
                 }
             }
             if (_heldShot)
             {
-                float k = Mathf.Exp(-shotDrag * Time.deltaTime);
-                _vel[h] = new Vector3(_vel[h].x * k, _vel[h].y, _vel[h].z * k);
+                // 撃った勢いは早く、慣性はゆっくり弱める（慣性はふつうの浮き上がり＝真上に bubbleRise へ戻る）
+                _shotVel *= Mathf.Exp(-shotDrag * Time.deltaTime);
+                Vector3 rise = Vector3.up * bubbleRise;
+                _vel[h] = rise + (_vel[h] - rise) * Mathf.Exp(-driftDrag * Time.deltaTime);
             }
+            Vector3 hv = _vel[h] + _shotVel;
             Vector3 v = ball.GetVelocity();
             // 空気の抵抗（drag）のぶんも足して、泡の速さにちゃんと乗せる（足さないと6割くらいの速さにしかならなかった）
             float dr = ball.GetDrag();
-            float ay = ball.GetFallAcceleration() + (_vel[h].y - v.y) * holdResponse + _vel[h].y * dr;
-            Vector3 ah = new Vector3(_vel[h].x - v.x, 0f, _vel[h].z - v.z) * holdResponse + new Vector3(_vel[h].x, 0f, _vel[h].z) * dr;
+            float ay = ball.GetFallAcceleration() + (hv.y - v.y) * holdResponse + hv.y * dr;
+            Vector3 ah = new Vector3(hv.x - v.x, 0f, hv.z - v.z) * holdResponse + new Vector3(hv.x, 0f, hv.z) * dr;
             ball.AddWater(new Vector3(ah.x, ay, ah.z));
             float hw = now - _heldAt;
             float s = bubbleSize * (1f + 0.05f * Mathf.Sin(hw * 9f));
@@ -194,7 +212,7 @@ public class FuwaClamBubbles : UdonSharpBehaviour
 
     private void Capture(int b)
     {
-        _held = b; _heldAt = Time.time; _heldShot = false;
+        _held = b; _heldAt = Time.time; _heldShot = false; _shotVel = Vector3.zero;
         // 包んだ時のふわふわの勢いは少し残す（泡の向きとまぜる）
         Vector3 v = ball.GetVelocity(); v.y = 0f;
         Vector3 bv = _vel[b]; bv.y = 0f;
