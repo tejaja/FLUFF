@@ -10,7 +10,7 @@ using Object = UnityEngine.Object;
 // 道はステージ1と同じシマシマ（Course2_1_PathA/B、いちばん濃い青）。水は要所だけ（てじゃ「水に乗せるのは要所要所だけ」）、人は水に入りたくない（強い減速）。
 // 流れ：
 //  ① スタートは崖の中の洞窟。口のすぐ前を滝が流れ落ちていて、ふわふわは口から滝に撃ち込むしかない（滝で池へ押し落とされる）。
-//     人は洞窟の右の壁の脇道（クモの巣を通り抜ける。人は遅くなるだけ、ふわふわはくっついてアウト）から出て、岸の道を下りる。
+//     人は洞窟の右の壁の脇道（ツタのカーテンをくぐる。人はすり抜け、ふわふわは跳ね返される。2026-10-22 クモの巣から変更）から出て、岸の道を下りる。
 //     崖の上は水源の池（滝の元）。2026-10-19 てじゃ「スタートを今のスタートの下に洞窟をつくって…ふわふわを滝に打ち込むしかない形に、
 //     人は滝のよこに脇道を作ってそこにクモの巣」「上の段は水源として使う」（前の作りだと岸の道ぞいに空中で運べて滝を迂回できた）
 //  ② 池からうねる川（流れあり）でふわふわが流される。人は右の岸を追いかける。下流の渡り場で右岸の道が川で切れていて、
@@ -24,7 +24,7 @@ using Object = UnityEngine.Object;
 //  ⑤ 滝の道（2026-10-21）：ぐねぐねの道のカーブの外側に、上から滝が落ちてきて、その下は道の横の水路。滝に当たると水路に落とされて浮き、
 //     流れで運ばれて水路の端の滝から落ちたらアウト。落ちる前に撃ってすくい上げればセーフ。3セット、後ろほど滝が太くて水路が短い（FallsRoad）。
 //     てじゃ「ぐねぐねの道+上から滝+川、ちょっと流れて下に落下する滝ってのを数セット…あたっても落ちるまでにすくい上げればセーフ」（かぜのおかの竜巻に近い流れ）
-//  ⑥ 大きな滝の横を登ってゴール。水車は飾り
+//  ⑥ よけられない滝 → 下の川を流される → 右岸のゴールの広場へ撃ち上げる。人は滝の左の岩のくぐり口（ツタのカーテン）を通って左岸を走る
 // 道どうしのつなぎ目（岸の道→本道）は、岸の道を 1cm 低くして本道の中に埋める（同じ高さで重ねるとZファイト）
 public static class FuwaCourse2_1Builder
 {
@@ -44,6 +44,7 @@ public static class FuwaCourse2_1Builder
     const float FinCliffLen = 6f;                              // 川の始まりの右の崖（カーテンの右を回り込めないように）の長さ
     const float FinWalkW = 1.8f, FinDownEnd = 12f;             // 左岸の人の道の幅と、踊り場から下りきる所
     const float FinBankW = 0.6f;                               // 右岸の細い地面
+    const float FinGateH = 2.6f, FinWallOut = 9.5f;            // 滝の左の岩の壁：人のくぐり口の高さ、壁の左のはし（中心線から）
     const float FinPlaza0 = 22f, FinPlazaLen = 8f, FinPlazaW = 7f, FinGoalUp = 1.6f;   // 右岸のゴールの広場（始まり・長さ・幅・川の水面からの高さ）
     static float FinGoalLat => FinRiverHW + FinBankW + FinPlazaW * 0.5f;
     // 左岸の人の道の高さ：踊り場の高さから川岸の高さへ下りる
@@ -348,18 +349,12 @@ public static class FuwaCourse2_1Builder
         Sweep(terr, "CaveMouthL", gapB, sPlaza1, s => -3f, s => -MouthHW, s => wallB, s => cIn, ground, 0, true);
         Sweep(terr, "CaveMouthR", gapB, sPlaza1, s => MouthHW, s => CaveHW, s => wallB, s => cIn, ground, 0, true);
         Sweep(terr, "CaveRoof", cs0 - 0.4f, sPlaza1, s => -CaveHW, s => CaveHW, s => cIn, s => cIn + RoofT, ground, 0, true);
-        // 脇道のクモの巣（やみのもりのクモの巣を写す）：右の壁のすき間いっぱい
-        var webSrc = GameObject.Find("FuwaCourse3/Gimmicks_Yami/G1_DodgeWebs/Web0");
-        if (webSrc)
+        // 脇道のツタのカーテン：右の壁のすき間いっぱい（2026-10-22 てじゃ「入口のクモの巣もこれにすれば分かるか」→ ラストの滝の左とそろえる）
         {
             float gm = (gapA + gapB) * 0.5f;
             Center(gm, out var wp, out var wd); var wr = Right(wd);
-            var web = Object.Instantiate(webSrc, root); web.name = "SideWeb"; web.SetActive(true);
             var wq = wp + wr * (3f + (CaveHW - 3f) * 0.5f);
-            web.transform.localPosition = new Vector3(wq.x, StartH + SideGapH * 0.5f, wq.y);
-            web.transform.localRotation = Quaternion.LookRotation(new Vector3(wr.x, 0, wr.y));   // 板の面＝壁の面
-            // 巣は六角形なので、すき間（四角）の角が抜けないように大きめにして、はみ出した所は壁に埋める
-            web.transform.localScale = new Vector3(SideGapLen * 1.45f, SideGapH * 1.45f, 0.4f);
+            VineCurtain(root, "SideVines", new Vector3(wq.x, StartH + SideGapH, wq.y), new Vector3(wd.x, 0, wd.y), gapB - gapA, SideGapH, 2101);
         }
         // ① の滝：水源の池から、洞窟の口の前を下の池へ
         Center(sPlaza1, out var fp, out var fd);
@@ -843,7 +838,7 @@ public static class FuwaCourse2_1Builder
 
     // ---- ⑥ ラスト（2026-10-22 てじゃ「3連滝のあとに、強制で滝にぶつかるゾーン作る→そのまま流されてく、川はゴール横を直進、
     //      途中で打ち上げてゴールへ　プレイヤーは川岸を走って追いかける」。前の試作＝段々の池＋泡の柱＋水車は「川を登らせるのは変」でやめた）----
-    // 踊り場の先は道の幅いっぱいの滝のカーテン（よけられない。左の人の坂の上を回り込むふわふわはアウト、右は崖）。
+    // 踊り場の先は道の幅いっぱいの滝のカーテン（よけられない。左は岩の壁で、人の坂の所はツタのくぐり口、右は崖）。
     // ふわふわは押し落とされて下の川へ。川はまっすぐ流れて、右岸の一段高いゴールの広場の横を通り、終わりは滝で落ちてアウト。
     // 人は左の坂を下りて左岸の道（M7_LeftBank）を走り、流れてくるふわふわを右の広場へ撃ち上げる
     static void Finale(Transform root, Transform terr, Material ground, Material bedMat, FuwaWaterFx fx, AudioSource splash)
@@ -864,9 +859,18 @@ public static class FuwaCourse2_1Builder
         // 滝のカーテン：道の幅いっぱい（踊り場の先、川の始まりの上）。落ち口は高く、川の水面まで
         Center(sF1 + FinCurtain, out var cp, out var cd); var cr = Right(cd);
         FuwaStage2WaterTest.Waterfall(g, "ForcedFalls", new Vector3(cp.x, 0, cp.y), H + FinCurtainTop, surf, FinRiverHW * 2f + 0.6f, new Vector3(cd.x, 0, cd.y));
-        // 回り込み防止：左（人の坂の上）はふわふわだけアウト、右は崖
+        // 回り込み防止：左は岩の壁（滝の落ち口より高い）。人の坂の所だけくぐり口をあけて、ツタのカーテン（人はすり抜け、ふわふわは跳ね返る）、右は崖
+        // （2026-10-22 てじゃ「滝の左をふわふわを防がないとな」。前は見えないアウトだけだった）
+        float wa = sF1 + FinCurtain - 0.2f, wb = sF1 + FinCurtain + 0.6f, wm = (wa + wb) * 0.5f;
+        float gIn = -(FinRiverHW + 0.25f), gOut = -(FinRiverHW + FinWalkW + 0.4f), gTop = LeftBankH(wm) + FinGateH;
+        float wallTop = H + FinCurtainTop + 1f, wallBot = surf - WaterDepth - 1.5f;
+        Sweep(terr, "FinalWallL", wa, wb, s => -FinWallOut, s => gOut, s => wallBot, s => wallTop, ground, 0, true);
+        Sweep(terr, "FinalWallL_Lintel", wa, wb, s => gOut, s => gIn, s => gTop, s => wallTop, ground, 0, true);
+        Center(wm, out var vp, out var vd); var vq = vp + Right(vd) * ((gIn + gOut) * 0.5f);
+        VineCurtain(g, "GateVines", new Vector3(vq.x, gTop, vq.y), new Vector3(Right(vd).x, 0, Right(vd).y), gIn - gOut, FinGateH, 2106);
+        // 壁のさらに左（空中）を回り込むふわふわはアウト（ふつうは届かない保険）
         var by = new GameObject("BypassOut"); by.transform.SetParent(g, false); by.layer = 4;
-        var bl = cp + cr * (-(FinRiverHW + 0.3f) - 2.5f);
+        var bl = cp + cr * (-FinWallOut - 2.5f);
         by.transform.localPosition = new Vector3(bl.x, (surf + H + FinCurtainTop) * 0.5f, bl.y); by.transform.localRotation = Quaternion.LookRotation(new Vector3(cd.x, 0, cd.y));
         var bbc = by.AddComponent<BoxCollider>(); bbc.isTrigger = true; bbc.size = new Vector3(5f, H + FinCurtainTop - surf, 0.8f);
         var hz = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHazard>(by); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hz); NoSync(hz);
@@ -890,6 +894,66 @@ public static class FuwaCourse2_1Builder
             var c2 = po.AddComponent<BoxCollider>(); c2.isTrigger = true; c2.size = new Vector3(30f, 2.4f, b - a + 1f);
             var pc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(po); pc.ball = ballProxy; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pc); NoSync(pc);
         }
+    }
+
+    // ---- ツタのカーテン（2026-10-22 てじゃ：滝の左をふわふわが回り込めないように。入口の脇道のクモの巣もこれにそろえる）----
+    // 人はすり抜け（Walkthrough レイヤー＝プレイヤーと当たらない）、ふわふわは当たると ぽよんと跳ね返る（FuwaBounce。アウトにはしない）。
+    // 見た目は Stage2Water.fbx の Vine_<長さ×10>_<A/B>（Blenderで作った1本のツタ。上が原点で下へ垂れる）を並べて1つのメッシュにまとめる。
+    // top＝カーテンの上の辺のまん中（parent のローカル）、across＝横の向き
+    static readonly float[] VineLens = { 0.8f, 1.1f, 1.6f, 2.2f, 2.8f, 3.4f };
+    static GameObject VineCurtain(Transform parent, string name, Vector3 top, Vector3 across, float width, float height, int seed)
+    {
+        across = across.normalized;
+        var face = Vector3.Cross(across, Vector3.up).normalized;
+        var g = new GameObject(name); g.transform.SetParent(parent, false);
+        g.transform.localPosition = top; g.transform.localRotation = Quaternion.LookRotation(face);   // ローカル x＝横、y＝上、z＝面の向き
+        var fbx = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2Water.fbx");
+        var mats = new[] { FlatMat("Stage2_VineStem", new Color(0.27f, 0.50f, 0.24f)), FlatMat("Stage2_VineLeaf", new Color(0.42f, 0.74f, 0.34f)), FlatMat("Stage2_VineLeafLight", new Color(0.62f, 0.86f, 0.42f)) };
+        string[] matNames = { "Vine_Stem", "Vine_Leaf", "Vine_LeafLight" };
+        var V = new List<Vector3>(); var N = new List<Vector3>(); var T = new[] { new List<int>(), new List<int>(), new List<int>() };
+        var rng = new System.Random(seed);
+        float Rnd(float a, float b) => a + (b - a) * (float)rng.NextDouble();
+        void Strand(float x, float z, float want)
+        {
+            float L = VineLens.OrderBy(l => Mathf.Abs(want / l - 1f)).First();
+            var src = fbx.OfType<Mesh>().FirstOrDefault(m => m.name == "Vine_" + Mathf.RoundToInt(L * 10f) + "_" + (rng.Next(2) == 0 ? "A" : "B"));
+            var mr = fbx.OfType<GameObject>().FirstOrDefault(o => src && o.name == src.name)?.GetComponent<MeshRenderer>();
+            if (!src || !mr) { Debug.LogWarning("[2–1] ツタのメッシュがありません: Vine_" + Mathf.RoundToInt(L * 10f)); return; }
+            var m4 = Matrix4x4.TRS(new Vector3(x, Rnd(-0.04f, 0f), z), Quaternion.Euler(0, Rnd(0f, 360f), 0), new Vector3(1f, want / L, 1f));
+            int b = V.Count;
+            foreach (var v in src.vertices) V.Add(m4.MultiplyPoint3x4(v));
+            foreach (var nn in src.normals) N.Add(m4.inverse.transpose.MultiplyVector(nn).normalized);
+            for (int sm = 0; sm < src.subMeshCount; sm++)
+            {
+                int k = Array.IndexOf(matNames, mr.sharedMaterials[sm].name); if (k < 0) k = 1;
+                foreach (var t in src.GetTriangles(sm)) T[k].Add(b + t);
+            }
+        }
+        // 長いツタ：10cmおきに前後2列、地面にはつかない長さ（すき間から向こうが少し見える）。上のふちには短いツタをもう1段かさねて葉っぱを茂らせる
+        int n = Mathf.Max(2, Mathf.RoundToInt(width / 0.1f));
+        for (int i = 0; i < n; i++)
+            Strand(-width * 0.5f + (i + 0.5f) * width / n + Rnd(-0.03f, 0.03f), (i % 2 == 0 ? 1f : -1f) * Rnd(0.03f, 0.08f), height * Rnd(0.68f, 0.93f));
+        int nf = Mathf.Max(2, Mathf.RoundToInt(width / 0.14f));
+        for (int i = 0; i < nf; i++)
+            Strand(-width * 0.5f + (i + 0.5f) * width / nf + Rnd(-0.04f, 0.04f), Rnd(-0.1f, 0.1f), height * Rnd(0.25f, 0.45f));
+        string path = MeshDir + "/" + name + ".asset";
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        bool isNew = !mesh;
+        if (isNew) mesh = new Mesh(); else mesh.Clear(false);
+        mesh.name = "Course2_1_" + name; mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        mesh.SetVertices(V); mesh.SetNormals(N); mesh.subMeshCount = 3;
+        for (int k = 0; k < 3; k++) mesh.SetTriangles(T[k], k);
+        mesh.RecalculateBounds();
+        if (isNew) AssetDatabase.CreateAsset(mesh, path); else EditorUtility.SetDirty(mesh);
+        g.AddComponent<MeshFilter>().sharedMesh = mesh; g.AddComponent<MeshRenderer>().sharedMaterials = mats;
+        // 当たり：カーテンの厚み 0.35m の箱。面の向きで跳ね返す
+        var hit = new GameObject("BallBlock"); hit.transform.SetParent(g.transform, false); hit.layer = 17;   // Walkthrough
+        hit.transform.localPosition = new Vector3(0, -height * 0.5f, 0);
+        var bc = hit.AddComponent<BoxCollider>(); bc.size = new Vector3(width, height, 0.35f);
+        var bo = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBounce>(hit);
+        bo.alwaysUp = false; bo.useContactNormal = true; bo.bounceSpeed = 1.5f; bo.keepTangent = 0.5f;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bo); NoSync(bo);
+        return g;
     }
 
     // FuwaCourse/ToonLit の単色の材質（水のテスト場の ToonMat と同じ作り）
