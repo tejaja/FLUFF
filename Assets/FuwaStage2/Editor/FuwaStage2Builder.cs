@@ -20,8 +20,8 @@ public static class FuwaStage2Builder
     static readonly string[] KeepBehaviour = { "GunStand_Lobby" };
     // 仮のコース名（テーマ）。決まったら差し替える
     // 2026-10-19 てじゃ「ほのおのやま こおりのほら はぐるまのとう そらのいせき きのこのくに でいこう、かわるかもだけど」
-    public static readonly string[] CourseJa = { "みずのさと", "ほのおのやま", "こおりのほら", "はぐるまのとう", "そらのいせき", "きのこのくに" };
-    public static readonly string[] CourseEn = { "Water Village", "Flame Mountain", "Ice Grotto", "Gear Tower", "Sky Ruins", "Mushroom Kingdom" };
+    public static readonly string[] CourseJa = { "みずのこみち", "ほのおのやま", "こおりのほら", "はぐるまのとう", "そらのいせき", "きのこのくに" };
+    public static readonly string[] CourseEn = { "Water Path", "Flame Mountain", "Ice Grotto", "Gear Tower", "Sky Ruins", "Mushroom Kingdom" };
 
     [MenuItem("FuwaCourse/ステージ2/土台を作り直す")]
     public static void Menu() { Debug.Log(Build()); }

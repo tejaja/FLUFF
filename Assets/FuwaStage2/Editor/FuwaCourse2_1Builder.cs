@@ -5,7 +5,7 @@ using UnityEditor;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
-// コース 2–1「みずのさと」（2026-10-19 てじゃ「水車あるし里もありだな」で みずのたに から改名）のブロックアウト（2026-10-19）。
+// コース 2–1「みずのこみち」（Water Path。2026-10-22 てじゃ「みずのこみちにしとくか」で みずのさと から改名。その前は 2026-10-19 に みずのたに→みずのさと）のブロックアウト（2026-10-19）。
 // てじゃ「コース自体も全体的に流線的な感じにしたいな、水の流れを感じるような」→ 道も水も、ゆるくうねる1本の中心線（Catmull-Rom）にそって作る。
 // 道はステージ1と同じシマシマ（Course2_1_PathA/B、いちばん濃い青）。水は要所だけ（てじゃ「水に乗せるのは要所要所だけ」）、人は水に入りたくない（強い減速）。
 // 流れ：
@@ -167,7 +167,7 @@ public static class FuwaCourse2_1Builder
         return 0f;
     }
 
-    [MenuItem("FuwaCourse/ステージ2/2–1 みずのさと（ブロックアウト）を作り直す")]
+    [MenuItem("FuwaCourse/ステージ2/2–1 みずのこみち（ブロックアウト）を作り直す")]
     public static void Menu() { Debug.Log(Build()); }
 
     public static string Build()
