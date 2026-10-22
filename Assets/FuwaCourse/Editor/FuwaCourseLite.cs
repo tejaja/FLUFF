@@ -12,7 +12,8 @@ public static class FuwaCourseLite
     const string Dir = "Assets/FuwaCourse/Generated/Lite";
     const float MinSize = 2.5f;   // これより小さい物は入れない(m、いちばん長い辺)
     const float Cell = 0.35f;     // 間引きの細かさ(m)
-    const float DecoCell = 0.7f;  // 飾り（まわりの浮島・まもののすの巣）の間引きの細かさ(m)
+    const float DecoCell = 0.7f;  // 飾り（まわりの浮島）の間引きの細かさ(m)
+    const float NestCell = 0.6f;  // まもののすの浮いた巣は向き・色で分けずにまとめる（根っこは入れない）（2026-10-22 てじゃ「まものの巣ふてるなぁ、浮いてる巣をもっと簡略化」）
 
     [MenuItem("FuwaCourse/よく使う/コースの軽い版を作る")]
     public static void Run()
@@ -32,7 +33,7 @@ public static class FuwaCourseLite
         foreach (var cn in Courses)
         {
             var root = roots.FirstOrDefault(g => g.name == cn); if (root == null) continue;
-            var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>(); int used = 0;
+            var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>(); var S = new List<float>(); int used = 0;
             foreach (var mr in root.GetComponentsInChildren<MeshRenderer>(true))
             {
                 if (!mr.enabled || !mr.gameObject.activeInHierarchy) continue;
@@ -40,10 +41,11 @@ public static class FuwaCourseLite
                 var mf = mr.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue;
                 string path = mr.transform.name; for (var p = mr.transform.parent; p != null && p != root.transform; p = p.parent) path = p.name + "/" + path;
                 // 飾りの中でも遠くから形がわかる物は入れる：まわりの浮島（やみのもりの木の下の小さい島も）・まもののすの巣（2026-10-22 てじゃ「浮島そのものが消えるのちょと気なる」「木だけういてる」）
-                bool keep = mr.name == "IslandTop" || mr.name == "IslandUnder" || path.Contains("Deco/Mamono_");
+                bool keep = mr.name == "IslandTop" || mr.name == "IslandUnder" || path.Contains("Deco/Mamono_") && !path.Contains("Eggs") && !path.Contains("Roots");   // たまご・根っこはいらない
                 var b = mr.bounds; float size = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
                 bool deco = size < MinSize || path.Contains("Deco/") || path.Contains("Fence") || path.Contains("Web") || path.Contains("Wind") || path.Contains("Gimmick");
                 if (deco && !(keep && size >= 1f)) continue;
+                float cell = !deco ? Cell : mr.name == "Mamono_Nests" ? NestCell : DecoCell;
                 if (mr.sharedMaterials.Any(m => m != null && m.renderQueue >= 2450)) continue;
                 var mesh = mf.sharedMesh; if (!mesh.isReadable) continue;
                 var mv = mesh.vertices; var mn = mesh.normals; var mc = mesh.colors; var muv = mesh.uv; var l2w = mr.transform.localToWorldMatrix;
@@ -63,7 +65,7 @@ public static class FuwaCourseLite
                     {
                         if (!map.TryGetValue(t, out int j))
                         {
-                            j = V.Count; V.Add(l2w.MultiplyPoint3x4(mv[t]));
+                            j = V.Count; V.Add(l2w.MultiplyPoint3x4(mv[t])); S.Add(cell);
                             N.Add(mn.Length == mv.Length ? n2w.MultiplyVector(mn[t]).normalized : Vector3.zero);
                             var col = useVc ? new Color(mc[t].r, mc[t].g, mc[t].b, 1) : useVcLinear ? new Color(mc[t].r, mc[t].g, mc[t].b, 1).gamma : mcol;
                             if (tex != null) { var uv = Vector2.Scale(muv[t], ts) + to; col *= tex.GetPixelBilinear(uv.x, uv.y); }
@@ -87,7 +89,9 @@ public static class FuwaCourseLite
             int Find(int x) { while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
             for (int i = 0; i < V.Count; i++)
             {
-                var k = (Vector3Int.FloorToInt(V[i] / (C[i].a < 0.5f ? DecoCell : Cell)),Vector3Int.RoundToInt(N[i] * 1.5f), Vector3Int.RoundToInt(new Vector3(C[i].r, C[i].g, C[i].b + C[i].a * 10f) * 6f));
+                // 巣・根っこは向きや色で分けない（分けると細い枝の面が残りまくって減らなかった）
+                var k = S[i] == NestCell ? (Vector3Int.FloorToInt(V[i] / S[i]), Vector3Int.zero, new Vector3Int(-1, -1, -1))
+                    : (Vector3Int.FloorToInt(V[i] / S[i]), Vector3Int.RoundToInt(N[i] * 1.5f), Vector3Int.RoundToInt(new Vector3(C[i].r, C[i].g, C[i].b + C[i].a * 10f) * 6f));
                 if (!cellMap.TryGetValue(k, out int j)) { j = NC.Count; cellMap[k] = j; NC.Add(Color.clear); cnt.Add(0); parent.Add(j); }
                 NC[j] += C[i]; cnt[j]++; remap[i] = j;
                 var w = Vector3Int.RoundToInt(V[i] * 1000f);   // 1mm 以内は同じ所
