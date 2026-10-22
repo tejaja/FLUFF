@@ -601,12 +601,27 @@ public static class FuwaCourse2_1Builder
     // ---- ④ 貝の道（2026-10-21）----
     // 細い堤の道（M3_ClamWalk）の下の土台、両わきの崖、貝（左右交互）、貝の反対側の滝、道の外に落ちた時のアウト判定、泡（FuwaClamBubbles）。
     // 見た目（砂浜・岩場・本物の貝）はあとでまとめて。今は形と動きだけ
-    public static float[] ClamAt = { 0.2f, 0.4f, 0.6f, 0.8f };   // 貝の道の長さに対する位置。左から交互
+    // 貝の道の長さに対する位置・置く側（-1＝左）・高い台か。ふつうの貝（左右交互）のあいだに、高い台の貝を足す
+    // （2026-10-22 てじゃ「まだ上から回避できる」「各貝の間にさらに貝追加して、ぐっと高い位置を飛ぶ形に」「上回避するとそれにあたるみたいな」）
+    public static float[] ClamAt = { 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f };
+    public static float[] ClamSide = { -1f, 1f, 1f, -1f, -1f, 1f, 1f };
+    public static bool[] ClamHigh = { false, true, false, true, false, true, false };
     public static float ClamPeriod = 2.8f;
     // 泡の大きさ（直径）と包む距離。0.62 だと上から軽く越えられそう（2026-10-21 てじゃ「あわはもっとデカくしよ」）→ 1.5 → 1.8（2026-10-22 てじゃ「ちょっとサイズアップ」）
     public static float ClamBubbleSize = 1.8f, ClamCapture = 1.05f;
     // 貝の置き場所の高さ（道の上からの、貝の底の高さ）。前は道より 0.15m 低い岩の上で、泡の上を越えられそうだった（2026-10-22 てじゃ「貝をちょっと高い台に置く」）
     public static float ClamBase = 0.35f;
+    // 高い台の貝の底の高さ（道の上から）。泡は道の上 3.15m あたりから出て、ふつうの泡の上（〜2.4m）を越えようとすると当たる
+    public static float ClamHighBase = 2.2f;
+    static float ClamPhase(int i)
+    {
+        int nLow = ClamHigh.Count(h => !h);
+        float Low(int k) { int j = 0; for (int q = 0; q < k; q++) if (!ClamHigh[q]) j++; return j * ClamPeriod / nLow; }   // k 番目より前のふつうの貝の数で等分
+        if (!ClamHigh[i]) return Low(i);
+        int a = i - 1, b = i + 1;   // 両どなりはふつうの貝（並びは ふつう・高い・ふつう…）
+        float m = (Low(a) + Low(b)) * 0.5f;
+        return (m + ClamPeriod * 0.5f) % ClamPeriod;
+    }
     static void ClamWalk(Transform root, Material ground)
     {
         var g = new GameObject("ClamWalk").transform; g.SetParent(root, false);
@@ -658,17 +673,18 @@ public static class FuwaCourse2_1Builder
         var cg = new GameObject("Clams").transform; cg.SetParent(g, false);
         for (int i = 0; i < n; i++)
         {
-            float side = i % 2 == 0 ? -1f : 1f;   // 左から
+            float side = ClamSide[i];
+            float baseH = ClamHigh[i] ? ClamHighBase : ClamBase;
             float sc = Mathf.Lerp(sWalk0, sWalk1, ClamAt[i]);
             Center(sc, out var p, out var d); var r = Right(d);
             float y = WalkH(sc);
             var c2 = p + r * (side * (WalkHW + ClamOut));
-            // 台の岩（上が貝の底＝道より ClamBase 高い。下は前と同じ道の 1.65m 下まで）
-            float rockH = ClamBase + 1.65f;
-            var rock = Box(cg, "ClamRock" + i, new Vector3(c2.x, y + ClamBase - rockH * 0.5f, c2.y), new Vector3(1.4f, rockH, 1.3f), ground, 0);
+            // 台の岩（上が貝の底＝道より baseH 高い。下は道の 1.65m 下まで）
+            float rockH = baseH + 1.65f;
+            var rock = Box(cg, "ClamRock" + i, new Vector3(c2.x, y + baseH - rockH * 0.5f, c2.y), new Vector3(1.4f, rockH, 1.3f), ground, 0);
             rock.transform.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y));
             var clam = new GameObject("Clam" + i).transform; clam.SetParent(cg, false);
-            clam.localPosition = new Vector3(c2.x, y + ClamBase, c2.y);
+            clam.localPosition = new Vector3(c2.x, y + baseH, c2.y);
             clam.localRotation = Quaternion.LookRotation(new Vector3(-side * r.x, 0, -side * r.y));   // +Z＝道を横切る向き
             var bot = GameObject.CreatePrimitive(PrimitiveType.Sphere); bot.name = "ShellBottom"; bot.transform.SetParent(clam, false);
             Object.DestroyImmediate(bot.GetComponent<Collider>());
@@ -685,7 +701,9 @@ public static class FuwaCourse2_1Builder
             top.GetComponent<Renderer>().sharedMaterial = shellMat;
             var mouth = new GameObject("Mouth").transform; mouth.SetParent(clam, false); mouth.localPosition = new Vector3(0, 0.95f, 0.75f);
             clams[i] = clam; lids[i] = lid; mouths[i] = mouth;
-            phases[i] = i * ClamPeriod / n;
+            // 泡を出すタイミング：ふつうの貝は前と同じ（ふつうの貝どうしで 1 周を等分）。高い貝は両どなりのふつうの貝のまん中の、ちょうど半周ずらし
+            //（2026-10-22 てじゃ「感覚はちょうど低いやつと逆になる感じ」：低いのが出ていない時に高いのが出る）
+            phases[i] = ClamPhase(i);
             // 反対側の滝：崖から道の方へ流れ出て、下の海へ落ちる（泡に運ばれたふわふわはここで押し落とされる）
             float o = -side;
             var fc = p + r * (o * (WalkHW + FallsOut));

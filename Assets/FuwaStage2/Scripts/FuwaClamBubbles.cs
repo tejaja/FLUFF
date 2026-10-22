@@ -232,7 +232,8 @@ public class FuwaClamBubbles : UdonSharpBehaviour
         Vector3 at = bubbles[b].position;
         bubbles[b].gameObject.SetActive(false);
         if (popFx != null) { popFx.transform.position = at; popFx.Emit(wasHeld ? 18 : 10); }
-        if (popSound != null) { popSound.transform.position = at; popSound.pitch = Random.Range(0.95f, 1.12f); popSound.Play(); }
+        // 音はふわふわが入っていた泡だけ（空の泡はだまって消える。2026-10-22 てじゃ「ふわふわが入ってない泡が割れる音もいらない」）
+        if (wasHeld && popSound != null) { popSound.transform.position = at; popSound.pitch = Random.Range(0.95f, 1.12f); popSound.Play(); }
     }
 
     private float Smooth(float x) { x = Mathf.Clamp01(x); return x * x * (3f - 2f * x); }
