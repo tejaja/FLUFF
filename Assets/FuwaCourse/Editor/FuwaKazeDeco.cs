@@ -38,6 +38,9 @@ public static partial class FuwaKazeDeco
     }
 
     static Vector3 _islC; static float _islR = 999f;
+    // 島ごとに、たんぽぽを島ごと上から見て時計回りに回す角度（度）。キーは島の番号（Island4 なら 4）。
+    // 2026-10-22 てじゃ「左上の白と黄色の島、時計回りに10度くらい」（コース左の島4）。島（地面・下の岩）の Transform は reuse で前の向きのまま使うので、ここに足した時にシーンの島も一度だけ同じ角度回す
+    static readonly Dictionary<int, float> ExtraYaw = new Dictionary<int, float> { { 4, 10f } };
     static List<(Vector3 p, float r)> _lastHeads = new List<(Vector3, float)>();   // 最後に作った綿毛の頭（軽い版の絵を撮る用）
     static List<float> _headPhase = new List<float>();   // 綿毛の頭ごとのゆれの位相（heads と同じ順）
     static Dictionary<Vector3, Vector3> _headTan = new Dictionary<Vector3, Vector3>();   // 綿毛の頭の中心 → 茎の先の向き（芯の下のがくを茎に合わせる）
@@ -221,7 +224,20 @@ public static partial class FuwaKazeDeco
                 }
             }
             finally { Lite = wasLite; }
+            int pv0 = plants.V.Count, ph0 = heads.Count;
             Pair(plants, rnd, pos, rad, topY, useAng, wind, heads, _headPhase, out _);
+            // 島ごとの追加の回転（上から見て時計回り）：たんぽぽを島の中心のまわりに回す。島の Transform は別（ExtraYaw のコメント）
+            if (ExtraYaw.TryGetValue(placed.Count, out float ey))
+            {
+                var q = Quaternion.Euler(0, ey, 0);
+                for (int i = pv0; i < plants.V.Count; i++) { plants.V[i] = pos + q * (plants.V[i] - pos); plants.N[i] = q * plants.N[i]; }
+                for (int i = ph0; i < heads.Count; i++)
+                {
+                    var (hp, hr) = heads[i]; var np = pos + q * (hp - pos);
+                    if (_headTan.TryGetValue(hp, out var tg)) { _headTan.Remove(hp); _headTan[np] = q * tg; }
+                    heads[i] = (np, hr);
+                }
+            }
             // 小さいたんぽぽ（ふつうの大きさ）
             int ns = rnd.Next(5, 10);
             for (int k = 0; k < ns; k++)
