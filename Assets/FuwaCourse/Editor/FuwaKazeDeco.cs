@@ -39,8 +39,8 @@ public static partial class FuwaKazeDeco
 
     static Vector3 _islC; static float _islR = 999f;
     // 島ごとに、たんぽぽを島ごと上から見て時計回りに回す角度（度）。キーは島の番号（Island4 なら 4）。
-    // 2026-10-22 てじゃ「左上の白と黄色の島、時計回りに10度くらい」（コース左の島4）。島（地面・下の岩）の Transform は reuse で前の向きのまま使うので、ここに足した時にシーンの島も一度だけ同じ角度回す
-    static readonly Dictionary<int, float> ExtraYaw = new Dictionary<int, float> { { 4, 10f } };
+    // 2026-10-22 てじゃ「左上の白と黄色の島、時計回りに10度くらい」→「もうちょい」でてじゃが手で回して41.4度（コース左の島4）。島（地面・下の岩）の Transform は reuse で前の向きのまま使うので、ここに足した時にシーンの島も一度だけ同じ角度回す
+    static readonly Dictionary<int, float> ExtraYaw = new Dictionary<int, float> { { 4, 41.4f } };
     static List<(Vector3 p, float r)> _lastHeads = new List<(Vector3, float)>();   // 最後に作った綿毛の頭（軽い版の絵を撮る用）
     static List<float> _headPhase = new List<float>();   // 綿毛の頭ごとのゆれの位相（heads と同じ順）
     static Dictionary<Vector3, Vector3> _headTan = new Dictionary<Vector3, Vector3>();   // 綿毛の頭の中心 → 茎の先の向き（芯の下のがくを茎に合わせる）
