@@ -643,7 +643,16 @@ public static class FuwaCourse2_1Builder
         // 貝（仮：つぶした球の上下の殻。ふたは後ろのちょうつがいで開く）と、反対側の滝
         var shellMat = FlatMat("Stage2_ClamShell", new Color(0.96f, 0.80f, 0.76f));
         var innerMat = FlatMat("Stage2_ClamInner", new Color(0.98f, 0.95f, 0.97f));
-        var bubbleMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Bubble3D.mat");
+        // 泡の材質：しゃぼんの虹色はやめて、全体をうっすら薄い青に（2026-10-22 てじゃ「しゃぼんっぽい虹色を消してもうちょい青っぽい」「全体的に薄青」「弱めの」）。
+        // れんしゅう等の Bubble3D とは別の材質（無い時だけ作る。色はこの材質で調整）
+        const string cbPath = "Assets/FuwaStage2/Materials/Stage2_ClamBubble.mat";
+        var bubbleMat = AssetDatabase.LoadAssetAtPath<Material>(cbPath);
+        if (!bubbleMat)
+        {
+            bubbleMat = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Bubble3D.mat")) { name = "Stage2_ClamBubble" };
+            bubbleMat.SetFloat("_Iris", 0f); bubbleMat.SetColor("_Tint", new Color(0.58f, 0.8f, 1f, 1f)); bubbleMat.SetFloat("_FillAlpha", 0.12f);
+            AssetDatabase.CreateAsset(bubbleMat, cbPath);
+        }
         int n = ClamAt.Length;
         var clams = new Transform[n]; var lids = new Transform[n]; var mouths = new Transform[n]; var phases = new float[n];
         var cg = new GameObject("Clams").transform; cg.SetParent(g, false);
