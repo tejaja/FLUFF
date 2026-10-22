@@ -103,8 +103,8 @@ public static class FuwaQualitySwitchSetup
             var t = o.GetComponent<TextMeshProUGUI>(); t.alignment = TextAlignmentOptions.Center; t.raycastTarget = false; return t;
         }
         // 見出し「がしつ」（英語は Quality。長いので自動で縮める）
-        var head = Text(srcHead, "Head", new Vector2(-410f, 0f), new Vector2(380f, 400f));
-        head.text = HeadJa; head.enableAutoSizing = true; head.fontSizeMax = 150f; head.fontSizeMin = 60f;
+        var head = Text(srcHead, "Head", new Vector2(-415f, 0f), new Vector2(510f, 400f));   // 札の左はし（-140）まで広げる（2026-10-22 てじゃ「もうちょい大きくてもはいる」）
+        head.text = HeadJa; head.enableAutoSizing = true; head.fontSizeMax = 177f; head.fontSizeMin = 60f;
         allTexts.Add((head, HeadJa, HeadEn));
         // 白い札
         var pill = new GameObject("Pill", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image)); Rect(pill, new Vector2(190f, 0f), new Vector2(660f, 260f));
