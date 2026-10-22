@@ -48,8 +48,8 @@ public class FuwaClamBubbles : UdonSharpBehaviour
     [Tooltip("泡の速さに寄せる強さ（1/s）")]
     public float holdResponse = 5f;
     [Tooltip("撃った時に泡が進む速さ(m/s、横)。ためるほど少し速く")]
-    public float shotSpeed = 2.4f;
-    public float shotSpeedCharged = 3.4f;
+    public float shotSpeed = 1.5f;   // 2.4→1.5、ためた時 3.4→2.1（2026-10-22 てじゃ「吹っ飛びをもっと弱め」）
+    public float shotSpeedCharged = 2.1f;
     // 撃った時（2026-10-22 てじゃ「撃った方向にまっすぐ気味に、ただし元の泡の移動の慣性も残す」「ぐにゃって変な方向に飛ぶはず、それが狙い」）：
     // 撃った勢い（上下も）と、それまでの泡の動き（慣性）を別々に持って足す。撃った勢いは早く、慣性はゆっくり弱まるので、
     // はじめは撃った向きにまっすぐ → だんだん元の泡の流れの向きへぐにゃっと曲がる
