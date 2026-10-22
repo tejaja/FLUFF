@@ -133,6 +133,7 @@ public static class FuwaQualitySwitchSetup
         }
         sw.lod = lod; sw.texts = texts;
         UdonSharpEditorUtility.CopyProxyToUdon(sw);
+        FuwaArrowHover.Apply(go.transform.Find("Canvas"));   // 当たっている側の矢印だけ濃く
         ub0.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub0);
         EditorUtility.SetDirty(sw);
         return sw;
