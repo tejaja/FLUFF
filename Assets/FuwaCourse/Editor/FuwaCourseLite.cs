@@ -88,10 +88,32 @@ public static class FuwaCourseLite
             var so = new SerializedObject(lod);
             void SetArr(string name, Object[] arr) { var p = so.FindProperty(name); p.arraySize = arr.Length; for (int i = 0; i < arr.Length; i++) p.GetArrayElementAtIndex(i).objectReferenceValue = arr[i]; }
             SetArr("starts", starts.ToArray()); SetArr("fullRoots", fulls.ToArray()); SetArr("liteRoots", lites.ToArray());
-            so.ApplyModifiedProperties(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lod);
+            so.ApplyModifiedProperties();
+            SetBounds(lod);
         }
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log("[軽い版] " + log);
+    }
+
+    // 近づいたら本体に戻す判定用：各コースの床がある所を cellSize 角のマスにして持たせる（軽い版のメッシュの頂点が入っているマス）。
+    // コース全体の箱1個だと隣のコースと重なって、普通に遊んでいても隣が戻りっぱなしになったので
+    public static string SetBounds(FuwaCourseLod lod)
+    {
+        Undo.RecordObject(lod, "lite cells");
+        float cs = lod.cellSize > 0f ? lod.cellSize : 10f;
+        var centers = new List<Vector3>(); var course = new List<int>(); var log = new System.Text.StringBuilder();
+        for (int i = 0; i < lod.liteRoots.Length; i++)
+        {
+            var mf = lod.liteRoots[i] != null ? lod.liteRoots[i].GetComponent<MeshFilter>() : null;
+            if (mf == null || mf.sharedMesh == null) continue;
+            var set = new HashSet<Vector3Int>(); var tr = lod.liteRoots[i].transform;
+            foreach (var v in mf.sharedMesh.vertices) set.Add(Vector3Int.FloorToInt(tr.TransformPoint(v) / cs));
+            foreach (var k in set) { centers.Add(((Vector3)k + Vector3.one * 0.5f) * cs); course.Add(i); }
+            log.Append(lod.liteRoots[i].name + " " + set.Count + "マス\n");
+        }
+        lod.cellCenters = centers.ToArray(); lod.cellCourse = course.ToArray();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lod); EditorUtility.SetDirty(lod);
+        return log.ToString();
     }
 }
