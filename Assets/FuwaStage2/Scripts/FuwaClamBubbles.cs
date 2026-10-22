@@ -48,17 +48,17 @@ public class FuwaClamBubbles : UdonSharpBehaviour
     [Tooltip("泡の速さに寄せる強さ（1/s）")]
     public float holdResponse = 5f;
     [Tooltip("撃った時に泡が進む速さ(m/s、横)。ためるほど少し速く")]
-    public float shotSpeed = 1.5f;   // 2.4→1.5、ためた時 3.4→2.1（2026-10-22 てじゃ「吹っ飛びをもっと弱め」）
-    public float shotSpeedCharged = 2.1f;
+    public float shotSpeed = 1.1f;   // 2.4→1.5→1.1、ためた時 3.4→2.1→1.5（2026-10-22 てじゃ「吹っ飛びをもっと弱め」×2）
+    public float shotSpeedCharged = 1.5f;
     // 撃った時（2026-10-22 てじゃ「撃った方向にまっすぐ気味に、ただし元の泡の移動の慣性も残す」「ぐにゃって変な方向に飛ぶはず、それが狙い」）：
     // 撃った勢い（上下も）と、それまでの泡の動き（慣性）を別々に持って足す。撃った勢いは早く、慣性はゆっくり弱まるので、
     // はじめは撃った向きにまっすぐ → だんだん元の泡の流れの向きへぐにゃっと曲がる
     [Tooltip("撃った勢いが弱まる強さ（1/s）")]
     public float shotDrag = 1.2f;
     [Tooltip("撃った時に、それまでの泡の動きをどれだけ残すか（慣性）")]
-    [Range(0f, 1f)] public float shotKeep = 0.7f;   // 0.5→0.7（2026-10-22 てじゃ「もっと元の慣性残して」）
+    [Range(0f, 1f)] public float shotKeep = 0.4f;   // 0.5→0.7（てじゃ「もっと元の慣性残して」）→0.4（「慣性突きすぎて外にもってかれすぎ」）
     [Tooltip("撃ったあと、残した慣性が弱まる強さ（1/s）。shotDrag より小さいと、あとから慣性の向きへ曲がる")]
-    public float driftDrag = 0.45f;
+    public float driftDrag = 0.8f;
     [Tooltip("下向きに撃った時の下向きの分をこの倍率に弱める（道にたたきつけてアウトになりにくく）")]
     [Range(0f, 1f)] public float shotDownScale = 0.3f;
     [Tooltip("割れたあと、また包まれるまでの秒数")]
