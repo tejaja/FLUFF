@@ -125,6 +125,10 @@ public static class FuwaCourse2_1Builder
         public float gapL0, gapL1;
         // 中心線からの横のずれ（道の横の水路など）。0＝中心線にそう
         public Func<float, float> off = s => 0f;
+        // 0より大きいと、底に当たったふわふわをアウトにせず、この速さ(m/s)で上へぽよんと戻す（浅い水路で、滝に押されて底まで沈んでも助かるように）
+        public float bedBounce;
+        // 流れを中心線の逆向き（s が減る向き）に
+        public bool back;
     }
 
     static float Smooth01(float x) { x = Mathf.Clamp01(x); return x * x * (3 - 2 * x); }
@@ -151,7 +155,12 @@ public static class FuwaCourse2_1Builder
     // 水路の、滝より下流の長さ（ここで撃ってすくい上げる。滝の横ですくうと、また滝に当たって押し戻される）。後ろほど短く
     public static float[] ChanAfter = { 5f, 4f, 3f };
     // 水路の半分の幅（えぐれていない所）・道からの水面の低さ・流れ・深さ、滝の高さ（水の出どころはあとで。今は空中から）
-    public static float ChanDepth = 2f, ChanHW = 1.1f, ChanDrop = 0.9f, ChanFlow = 1.3f, OverFallsH = 6f;
+    // 2026-10-22 てじゃ「深い水だと救出できないから浅くする」「下の水に飛び込んだあとにジャンプで戻れるくらいの高さに」：
+    // 前は 深さ2m・水面が道の0.9m下（人は落ちたらアウト）。今は浅瀬（人は入れる）で、底から道の上まで 0.4m（ジャンプ約0.46m で上がれる）。
+    // 浅いと滝に押されたふわふわが底に当たるので、底はアウトにせずぽよんと戻す（ChanBedBounce）
+    public static float ChanDepth = 0.28f, ChanHW = 1.1f, ChanDrop = 0.12f, ChanFlow = 1.3f, OverFallsH = 6f, ChanBedBounce = 1.5f;
+    // 水路の流れを来た方（スタート側）へ（2026-10-22 てじゃ「流れを手前にする」）。水路の長い側・端の滝・道のえぐれの形も前後反転する
+    public static bool FallsFlowBack = true;
     static float sF0, sF1, FallsH;
     static float[] setS, setO;   // セットの中心線の位置と、えぐる側（+1＝右）
     // 蓮の池の左のふちの、水があふれて流れ落ちる所（まん中の大きい蓮の花をよけて少し先）
@@ -726,7 +735,7 @@ public static class FuwaCourse2_1Builder
     {
         float c = 0f;
         if (setS == null) return 0f;
-        for (int i = 0; i < setS.Length; i++) if (setO[i] == side) c += CutDepth[i] * NotchShape(s - setS[i]);
+        for (int i = 0; i < setS.Length; i++) if (setO[i] == side) c += CutDepth[i] * NotchShape(FallsFlowBack ? setS[i] - s : s - setS[i]);
         return c;
     }
     // カーブの外側（+1＝右）：中心線の向きが左へ回っていれば右が外
@@ -744,21 +753,25 @@ public static class FuwaCourse2_1Builder
         for (int i = 0; i < setS.Length; i++)
         {
             float sc = setS[i], o = setO[i];
-            float c0 = sc - NotchUp - 1.2f, c1 = sc + NotchEnd + ChanAfter[i];
+            // 流れの上流（滝より少し手前）から下流（滝のあと ChanAfter）まで。流れが逆向きなら前後反転
+            float fb = FallsFlowBack ? -1f : 1f;
+            float c0 = sc - fb * (NotchUp + 1.2f), c1 = sc + fb * (NotchEnd + ChanAfter[i]);
+            if (c0 > c1) { float tmp = c0; c0 = c1; c1 = tmp; }
             var set = new GameObject("Set" + i).transform; set.SetParent(g, false);
             // 水路（道の側のふちなし＝道の土台のえぐれにそう、端は開いていて落ちる）
             Func<float, float> inner = s => RoadHW - Cut(s, o);
             var w = new Water { name = "Channel" + i, s0 = c0, s1 = c1, surf = surf, flow = ChanFlow, hw = s => (outer - inner(s)) * 0.5f, off = s => o * (outer + inner(s)) * 0.5f,
-                open1 = true, bodyBottom = -8f, rimL = o > 0f ? false : true, rimR = o > 0f ? true : false,
-                // 深くする：滝に押されたふわふわは勢いよく沈むので、浅い（0.6m）と底に触ってアウトになった。人は落ちたらアウト
-                deep = true, depth = ChanDepth };
+                open0 = FallsFlowBack, open1 = !FallsFlowBack, back = FallsFlowBack, bodyBottom = -8f, rimL = o > 0f ? false : true, rimR = o > 0f ? true : false,
+                // 浅瀬：人は入って歩ける。滝に押されて底まで沈んだふわふわは、底でぽよんと戻す（前は深さ2mで人は落ちたらアウト）
+                deep = false, depth = ChanDepth, bedBounce = ChanBedBounce };
             BuildWater(set, w, bedMat, ground, fx, splash);
             // 水路の端の滝（下は何もない → 落ちたらアウト）
-            Center(c1, out var ep, out var ed); var er = Right(ed);
+            Center(FallsFlowBack ? c0 : c1, out var ep, out var ed); var er = Right(ed);
             var ec = ep + er * (o * (RoadHW + ChanHW));
-            FuwaStage2WaterTest.Waterfall(set, "EndFalls", new Vector3(ec.x, 0, ec.y), surf + 0.02f, -10f, ChanHW * 2f + 0.3f, new Vector3(ed.x, 0, ed.y));
+            var eo = ed * fb;   // 落ちる向き＝流れの向き
+            FuwaStage2WaterTest.Waterfall(set, "EndFalls", new Vector3(ec.x, 0, ec.y), surf + 0.02f, -10f, ChanHW * 2f + 0.3f, new Vector3(eo.x, 0, eo.y));
             // 滝のカーテン：道を横切る向きで、外側から食い込む（幕の面は道の進む向きを向く）。押す厚み 0.9m がえぐれの中に収まるように少し手前に
-            Center(sc - 0.3f, out var fp, out var fd); var fr = Right(fd);
+            Center(sc - fb * 0.3f, out var fp, out var fd); var fr = Right(fd);
             float ia = RoadHW - CutDepth[i], width = outer - ia;
             var fc = fp + fr * (o * (ia + width * 0.5f));
             FuwaStage2WaterTest.Waterfall(set, "OverFalls", new Vector3(fc.x, 0, fc.y), FallsH + OverFallsH, surf, width, new Vector3(fd.x, 0, fd.y));
@@ -1082,7 +1095,7 @@ public static class FuwaCourse2_1Builder
             {
                 float lat = Mathf.Lerp(-hw, hw, i / (float)across);
                 var q = p + r * (lat + w.off(s)); V.Add(new Vector3(q.x, w.surf, q.y));
-                U1.Add(new Vector4(lat, hw, w.open0 ? 99f : s - w.s0, w.open1 ? 99f : w.s1 - s)); U2.Add(new Vector2(s, 0));
+                U1.Add(new Vector4(lat, hw, w.open0 ? 99f : s - w.s0, w.open1 ? 99f : w.s1 - s)); U2.Add(new Vector2(w.back ? -s : s, 0));
             }
         }
         for (int k = 0; k < n; k++)
@@ -1098,7 +1111,14 @@ public static class FuwaCourse2_1Builder
         var surf = new GameObject("Surface"); surf.transform.SetParent(g, false);
         surf.AddComponent<MeshFilter>().sharedMesh = sm; surf.AddComponent<MeshRenderer>().sharedMaterial = WaterMat(w.flow, true, w.deep);
         // 底（地面＝ふわふわが触るとアウト）と、その下のかたまり（横に当たるだけ）
-        Sweep(g, "Bed", w.s0, w.s1, s => w.off(s) - w.hw(s) - 0.01f, s => w.off(s) + w.hw(s) + 0.01f, s => bed - 0.3f, s => bed, bedMat, 11, true);
+        var bedGo = Sweep(g, "Bed", w.s0, w.s1, s => w.off(s) - w.hw(s) - 0.01f, s => w.off(s) + w.hw(s) + 0.01f, s => bed - 0.3f, s => bed, bedMat, 11, true);
+        if (w.bedBounce > 0f)
+        {
+            // 地面のレイヤーのまま（真下の道として覚える＝道の外でアウト、にならない）。当たった時だけ跳ねる
+            var bb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBounce>(bedGo);
+            bb.bounceSpeed = w.bedBounce; bb.keepTangent = 0.8f; bb.alwaysUp = false; bb.useContactNormal = true;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bb); NoSync(bb);
+        }
         Sweep(g, "Body", w.s0 - (w.open0 ? 0f : RimW), w.s1 + (w.open1 ? 0f : RimW), s => w.off(s) - w.hw(Mathf.Clamp(s, w.s0, w.s1)) - (w.rimL ? RimW : 0f), s => w.off(s) + w.hw(Mathf.Clamp(s, w.s0, w.s1)) + (w.rimR ? RimW : 0f),
             s => bodyBot, s => bed - 0.3f, rimMat, 0, true, true);
         // ふち（上に乗るとアウト）
@@ -1135,7 +1155,7 @@ public static class FuwaCourse2_1Builder
             seg.transform.localRotation = Quaternion.LookRotation(new Vector3(pb.x - pa.x, 0, pb.y - pa.y));
             var bc = seg.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(hwm * 2f, w.surf - bed, (pb - pa).magnitude + 0.02f);
             var fw = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaWater>(seg);
-            fw.surface = sy; fw.flowDirection = Vector3.forward; fw.flowSpeed = w.flow; fw.fx = fx;
+            fw.surface = sy; fw.flowDirection = w.back ? Vector3.back : Vector3.forward; fw.flowSpeed = w.flow; fw.fx = fx;
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fw); NoSync(fw);
             areas.Add(bc);
         }
