@@ -24,7 +24,8 @@ Shader "FuwaCourse/DarkMist"
     }
     SubShader
     {
-        Tags { "Queue" = "Transparent+5" "RenderType" = "Transparent" "IgnoreProjector" = "True" }
+        // まとめ描き（動的・静的バッチング）されるとオブジェクト座標が消えて形が壊れるので禁止（小さいもやを何個も置くようになったので。インスタンシングは使える）
+        Tags { "Queue" = "Transparent+5" "RenderType" = "Transparent" "IgnoreProjector" = "True" "DisableBatching" = "True" }
         Cull Back ZWrite Off ZTest LEqual
         Blend SrcAlpha OneMinusSrcAlpha
         Pass

@@ -9,7 +9,7 @@ public static class FuwaYamiFarFx
     public static float MistDensity = 0.033f, MistMaxAlpha = 0.55f, Drift = 0.85f, DriftPeak = 2.4f, DriftScale = 0.085f, DriftSpeed = 0.035f;   // 濃い所 1.7→2.4（てじゃ「濃いところもうちょい濃く」）。模様 0.035→0.085（もや全体が1つの模様に入って「全部消える・全部見える」時があった）
     public static Color MistColor = new Color(0.42f, 0.38f, 0.58f, 1f);
 
-    [MenuItem("FuwaCourse/よく使う/遠くのやみのもり：もやを薄く＋ゆらぐ濃淡")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/遠くのやみのもり：大きいもやを薄く＋ゆらぐ濃淡（今は小さいもやに替えて描いていない）")]
     public static void Menu() { Debug.Log(Build()); }
 
     public static string Build()
