@@ -75,16 +75,30 @@ public static class FuwaCourseLite
             // 頂点を格子にまとめて間引く（位置が同じ格子の頂点は1つに。色は平均）。
             // ただし向き（法線）や色が大きく違う頂点はまとめない：薄い板（スタートの島の芝 15cm）の表と裏がまとまって面がガタガタに傾き、
             // 放射状の影が出たり、芝が下がって本体では隠れている道の端が見えたりした（2026-10-22 てじゃ）
-            var cellMap = new Dictionary<(Vector3Int, Vector3Int, Vector3Int), int>(); var NV = new List<Vector3>(); var NC = new List<Color>(); var cnt = new List<int>(); var remap = new int[V.Count];
+            // 位置は「同じ所にあった頂点どうし（角ばった岩の折れ目など）」が別々のまとまりになっても1つにそろえる：
+            // まとまりごとに平均を取ると、折れ目の両側が別の位置に動いて空がすける割れ目になった（2026-10-22 てじゃ「軽量版の洞窟とかが隙間バキバキに」）
+            var cellMap = new Dictionary<(Vector3Int, Vector3Int, Vector3Int), int>(); var NC = new List<Color>(); var cnt = new List<int>(); var remap = new int[V.Count];
+            var parent = new List<int>(); var weld = new Dictionary<Vector3Int, int>();
+            int Find(int x) { while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
             for (int i = 0; i < V.Count; i++)
             {
                 var k = (Vector3Int.FloorToInt(V[i] / Cell), Vector3Int.RoundToInt(N[i] * 1.5f), Vector3Int.RoundToInt(new Vector3(C[i].r, C[i].g, C[i].b) * 6f));
-                if (!cellMap.TryGetValue(k, out int j)) { j = NV.Count; cellMap[k] = j; NV.Add(Vector3.zero); NC.Add(Color.clear); cnt.Add(0); }
-                NV[j] += V[i]; NC[j] += C[i]; cnt[j]++; remap[i] = j;
+                if (!cellMap.TryGetValue(k, out int j)) { j = NC.Count; cellMap[k] = j; NC.Add(Color.clear); cnt.Add(0); parent.Add(j); }
+                NC[j] += C[i]; cnt[j]++; remap[i] = j;
+                var w = Vector3Int.RoundToInt(V[i] * 1000f);   // 1mm 以内は同じ所
+                if (weld.TryGetValue(w, out int o)) { int ra = Find(o), rb = Find(j); if (ra != rb) parent[rb] = ra; } else weld[w] = j;
             }
-            for (int j = 0; j < NV.Count; j++) { NV[j] /= cnt[j]; NC[j] /= cnt[j]; }
+            for (int j = 0; j < NC.Count; j++) NC[j] /= cnt[j];
+            var NV = new Vector3[NC.Count]; var gv = new Vector3[NC.Count]; var gc = new int[NC.Count];
+            for (int i = 0; i < V.Count; i++) { int g = Find(remap[i]); gv[g] += V[i]; gc[g]++; }
+            for (int j = 0; j < NC.Count; j++) { int g = Find(j); NV[j] = gv[g] / gc[g]; }
             var NT = new List<int>();
-            for (int k = 0; k < T.Count; k += 3) { int a = remap[T[k]], b2 = remap[T[k + 1]], c = remap[T[k + 2]]; if (a == b2 || b2 == c || a == c) continue; NT.Add(a); NT.Add(b2); NT.Add(c); }
+            for (int k = 0; k < T.Count; k += 3)
+            {
+                int a = remap[T[k]], b2 = remap[T[k + 1]], c = remap[T[k + 2]];
+                int ga = Find(a), gb = Find(b2), gc2 = Find(c); if (ga == gb || gb == gc2 || ga == gc2) continue;
+                NT.Add(a); NT.Add(b2); NT.Add(c);
+            }
             // 面ごとに頂点を分けて、法線は面の向き（つぶした頂点で法線をなめらかにすると、放射状のヘンな影が出るので）
             var FV = new List<Vector3>(); var FN = new List<Vector3>(); var FC = new List<Color>(); var FT = new List<int>();
             for (int k = 0; k < NT.Count; k += 3)
