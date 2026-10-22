@@ -117,6 +117,25 @@ public static class FuwaCourseLite
             log.Append(lod.liteRoots[i].name + " " + boxes.Count + "マス\n");
         }
         lod.cellMin = mins.ToArray(); lod.cellMax = maxs.ToArray(); lod.cellCourse = course.ToArray();
+
+        // 隣のコース（床の箱どうしが neighborDist 以内）。ふつうではコースの中にいても隣は本体のまま
+        int n = lod.fullRoots.Length; var bits = new int[n];
+        for (int a = 0; a < mins.Count; a++)
+            for (int b = 0; b < mins.Count; b++)
+            {
+                int ca = course[a], cb = course[b]; if (ca == cb || ((bits[ca] >> cb) & 1) == 1) continue;
+                var gap = Vector3.Max(Vector3.zero, Vector3.Max(mins[b] - maxs[a], mins[a] - maxs[b]));
+                if (gap.magnitude <= lod.neighborDist) { bits[ca] |= 1 << cb; bits[cb] |= 1 << ca; }
+            }
+        lod.neighborBits = bits;
+        for (int i = 0; i < n; i++)
+            log.Append(lod.fullRoots[i].name + " の隣: " + string.Join(",", Enumerable.Range(0, n).Where(j => ((bits[i] >> j) & 1) == 1).Select(j => lod.fullRoots[j].name)) + "\n");
+
+        // ロビーで止める物がどのコースの物か（ふつうでコースの中にいる時、そのコースの物は止めない）
+        int CourseOf(Transform t) { for (int i = 0; i < n; i++) if (lod.fullRoots[i] != null && t.IsChildOf(lod.fullRoots[i].transform)) return i; return -1; }
+        lod.stopCourse = (lod.lobbyStopBehaviours ?? new VRC.Udon.UdonBehaviour[0]).Select(b => b != null ? CourseOf(b.transform) : -1).ToArray();
+        lod.hideCourse = (lod.lobbyHideObjects ?? new GameObject[0]).Select(o => o != null ? CourseOf(o.transform) : -1).ToArray();
+
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lod); EditorUtility.SetDirty(lod);
         return log.ToString();
     }

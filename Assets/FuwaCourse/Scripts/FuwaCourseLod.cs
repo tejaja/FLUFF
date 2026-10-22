@@ -53,6 +53,17 @@ public class FuwaCourseLod : UdonSharpBehaviour
     public int mode = 1;
     private int _lobbyState = -1;   // 0=止めていない、1=止めている
     private bool[] _bRun, _oRun;
+    [Tooltip("lobbyStopBehaviours と同じ順：どのコースの物か（fullRoots の番号、どれでもなければ -1）。FuwaCourseLite が入れる")]
+    public int[] stopCourse;
+    [Tooltip("lobbyHideObjects と同じ順：どのコースの物か")]
+    public int[] hideCourse;
+
+    // ふつうでは、今いるコースの隣（床どうしが neighborDist 以内）も本体のまま見せる。隣の仕掛け・粒はロビーと同じく近くだけ動かす
+    //（2026-10-22 てじゃ「隣軽くなるのきになるな、ふつう、だと隣のコースくらいは見えてるくらいの設定って」）
+    [Tooltip("コースごとの隣のコース（ビット i が立っていればコース i が隣）。FuwaCourseLite が入れる")]
+    public int[] neighborBits;
+    [Tooltip("床どうしがこの距離(m)以内のコースを隣とする（並びは 0–1 20m、1–2 22m、2–3 14m、3–4 16m、4–5 18m、5–0 39m）")]
+    public float neighborDist = 25f;
 
     private void Start()
     {
@@ -126,7 +137,7 @@ public class FuwaCourseLod : UdonSharpBehaviour
             _shown = cur; _area = area;
             Apply(area == soloArea, cur);
         }
-        if (_lobbyState == 1) UpdateLobbyNear();
+        if (_lobbyState >= 1) UpdateLobbyNear();
     }
 
     // コースの中にいる時、自分の近くにある他のコースを調べる。変わったら true
@@ -160,7 +171,7 @@ public class FuwaCourseLod : UdonSharpBehaviour
         return changed;
     }
 
-    // ロビーの間：近くの物だけ動かす。境目でちらつかないよう、出す距離と止める距離に少し差をつける
+    // ロビーの間（と、ふつうでコースの中にいる時の他のコースの物）：近くの物だけ動かす。境目でちらつかないよう、出す距離と止める距離に少し差をつける
     private void UpdateLobbyNear()
     {
         VRC.SDKBase.VRCPlayerApi p = VRC.SDKBase.Networking.LocalPlayer;
@@ -170,7 +181,7 @@ public class FuwaCourseLod : UdonSharpBehaviour
         if (lobbyStopBehaviours != null)
             for (int i = 0; i < lobbyStopBehaviours.Length; i++)
             {
-                var b = lobbyStopBehaviours[i]; if (b == null) continue;
+                var b = lobbyStopBehaviours[i]; if (b == null || IsCurrent(stopCourse, i)) continue;
                 float d = (b.transform.position - me).sqrMagnitude;
                 bool run = _bRun[i] ? d < rOff : d < rOn;
                 if (run != _bRun[i]) { _bRun[i] = run; b.enabled = run; }
@@ -178,7 +189,7 @@ public class FuwaCourseLod : UdonSharpBehaviour
         if (lobbyHideObjects != null)
             for (int i = 0; i < lobbyHideObjects.Length; i++)
             {
-                var o = lobbyHideObjects[i]; if (o == null) continue;
+                var o = lobbyHideObjects[i]; if (o == null || IsCurrent(hideCourse, i)) continue;
                 float d = (o.transform.position - me).sqrMagnitude;
                 bool run = _oRun[i] ? d < rOff : d < rOn;
                 if (run != _oRun[i]) { _oRun[i] = run; o.SetActive(run); }
@@ -191,19 +202,30 @@ public class FuwaCourseLod : UdonSharpBehaviour
         int c = mode == 0 ? -1 : cur;   // きれい：コースの中でも全部ふつう表示
         for (int i = 0; i < n; i++)
         {
-            bool near = _near != null && i < _near.Length && _near[i];
+            bool near = (_near != null && i < _near.Length && _near[i]) || IsNeighbor(c, i);
             bool full = inSolo && (c < 0 || c == i || near);
             bool lite = inSolo && c >= 0 && c != i && !near;
             if (fullRoots[i] != null && inSolo && fullRoots[i].activeSelf != full) fullRoots[i].SetActive(full);
             if (liteRoots != null && i < liteRoots.Length && liteRoots[i] != null && liteRoots[i].activeSelf != lite) liteRoots[i].SetActive(lite);
         }
-        int lobby = mode != 0 && inSolo && cur < 0 ? 1 : 0;
+        // 0=全部動かす、1=ロビー（ふつう：近くだけ／かるい：全部止める）、2+cur=ふつうでコースcurの中（curの物は動かす、隣など他は近くだけ）
+        int lobby = mode != 0 && inSolo && cur < 0 ? 1 : (mode == 1 && inSolo && cur >= 0 ? 2 + cur : 0);
         if (lobby == _lobbyState) return;
         _lobbyState = lobby;
-        bool run = lobby == 0;
         int nb = lobbyStopBehaviours != null ? lobbyStopBehaviours.Length : 0, no = lobbyHideObjects != null ? lobbyHideObjects.Length : 0;
         if (_bRun == null) { _bRun = new bool[nb]; _oRun = new bool[no]; }
-        for (int i = 0; i < nb; i++) { _bRun[i] = run; if (lobbyStopBehaviours[i] != null) lobbyStopBehaviours[i].enabled = run; }
-        for (int i = 0; i < no; i++) { _oRun[i] = run; if (lobbyHideObjects[i] != null) lobbyHideObjects[i].SetActive(run); }
+        for (int i = 0; i < nb; i++) { bool run = lobby == 0 || IsCurrent(stopCourse, i); _bRun[i] = run; if (lobbyStopBehaviours[i] != null) lobbyStopBehaviours[i].enabled = run; }
+        for (int i = 0; i < no; i++) { bool run = lobby == 0 || IsCurrent(hideCourse, i); _oRun[i] = run; if (lobbyHideObjects[i] != null) lobbyHideObjects[i].SetActive(run); }
+    }
+
+    // ふつうでコースの中にいる時（_lobbyState = 2+cur）、i 番目の物がそのコースの物か
+    private bool IsCurrent(int[] course, int i)
+    {
+        return _lobbyState >= 2 && course != null && i < course.Length && course[i] == _lobbyState - 2;
+    }
+
+    private bool IsNeighbor(int c, int i)
+    {
+        return mode == 1 && c >= 0 && neighborBits != null && c < neighborBits.Length && ((neighborBits[c] >> i) & 1) == 1;
     }
 }

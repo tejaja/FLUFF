@@ -66,6 +66,7 @@ public static class FuwaCourseLodLobbyBuilder
         Undo.RecordObject(lod, "lobby stop");
         lod.lobbyStopBehaviours = behaviours.ToArray();
         lod.lobbyHideObjects = hide.ToArray();
+        FuwaCourseLite.SetBounds(lod);   // 集めた物がどのコースの物か（stopCourse・hideCourse）も入れ直す
         UdonSharpEditorUtility.CopyProxyToUdon(lod);
         EditorUtility.SetDirty(lod);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lod.gameObject.scene);
