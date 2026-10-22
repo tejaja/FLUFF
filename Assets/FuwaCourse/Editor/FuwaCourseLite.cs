@@ -28,7 +28,7 @@ public static class FuwaCourseLite
         foreach (var cn in Courses)
         {
             var root = roots.FirstOrDefault(g => g.name == cn); if (root == null) continue;
-            var V = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>(); int used = 0;
+            var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>(); int used = 0;
             foreach (var mr in root.GetComponentsInChildren<MeshRenderer>(true))
             {
                 if (!mr.enabled || !mr.gameObject.activeInHierarchy) continue;
@@ -39,22 +39,44 @@ public static class FuwaCourseLite
                 string path = mr.transform.name; for (var p = mr.transform.parent; p != null && p != root.transform; p = p.parent) path = p.name + "/" + path;
                 if (path.Contains("Deco/") || path.Contains("Fence") || path.Contains("Web") || path.Contains("Wind") || path.Contains("Gimmick")) continue;
                 var mesh = mf.sharedMesh; if (!mesh.isReadable) continue;
-                var mv = mesh.vertices; var mc = mesh.colors; var l2w = mr.transform.localToWorldMatrix;
+                var mv = mesh.vertices; var mn = mesh.normals; var mc = mesh.colors; var muv = mesh.uv; var l2w = mr.transform.localToWorldMatrix;
+                var n2w = l2w.inverse.transpose;
                 for (int s = 0; s < mesh.subMeshCount; s++)
                 {
                     var m = s < mr.sharedMaterials.Length ? mr.sharedMaterials[s] : mr.sharedMaterials.LastOrDefault();
                     Color mcol = m != null && m.HasProperty("_Color") ? m.color : Color.white; mcol.a = 1;
                     bool useVc = mc.Length == mv.Length && m != null && m.shader.name.Contains("InkCap");
+                    // 色がテクスチャに入っている物（大きいきのこのかさのグラデ）は、頂点の UV の所の色をかける（2026-10-22 軽い版で赤いかさが白かった）
+                    var tex = m != null && m.HasProperty("_MainTex") && muv.Length == mv.Length ? Readable(m.mainTexture) : null;
+                    Vector2 ts = tex != null ? m.mainTextureScale : Vector2.one, to = tex != null ? m.mainTextureOffset : Vector2.zero;
                     var tri = mesh.GetTriangles(s); int bi = V.Count; var map = new Dictionary<int, int>();
-                    foreach (var t in tri) { if (!map.TryGetValue(t, out int j)) { j = V.Count; V.Add(l2w.MultiplyPoint3x4(mv[t])); C.Add(useVc ? new Color(mc[t].r, mc[t].g, mc[t].b, 1) : mcol); map[t] = j; } T.Add(j); }
+                    foreach (var t in tri)
+                    {
+                        if (!map.TryGetValue(t, out int j))
+                        {
+                            j = V.Count; V.Add(l2w.MultiplyPoint3x4(mv[t]));
+                            N.Add(mn.Length == mv.Length ? n2w.MultiplyVector(mn[t]).normalized : Vector3.zero);
+                            var col = useVc ? new Color(mc[t].r, mc[t].g, mc[t].b, 1) : mcol;
+                            if (tex != null) { var uv = Vector2.Scale(muv[t], ts) + to; col *= tex.GetPixelBilinear(uv.x, uv.y); col.a = 1; }
+                            C.Add(col); map[t] = j;
+                        }
+                        T.Add(j);
+                    }
                     // 裏表：拡大率が負の物は向きを反転
                     if (l2w.determinant < 0) for (int k = T.Count - tri.Length; k < T.Count; k += 3) { var x = T[k + 1]; T[k + 1] = T[k + 2]; T[k + 2] = x; }
                 }
                 used++;
             }
-            // 頂点を格子にまとめて間引く（位置が同じ格子の頂点は1つに。色は平均）
-            var cellMap = new Dictionary<Vector3Int, int>(); var NV = new List<Vector3>(); var NC = new List<Color>(); var cnt = new List<int>(); var remap = new int[V.Count];
-            for (int i = 0; i < V.Count; i++) { var k = Vector3Int.FloorToInt(V[i] / Cell); if (!cellMap.TryGetValue(k, out int j)) { j = NV.Count; cellMap[k] = j; NV.Add(Vector3.zero); NC.Add(Color.clear); cnt.Add(0); } NV[j] += V[i]; NC[j] += C[i]; cnt[j]++; remap[i] = j; }
+            // 頂点を格子にまとめて間引く（位置が同じ格子の頂点は1つに。色は平均）。
+            // ただし向き（法線）や色が大きく違う頂点はまとめない：薄い板（スタートの島の芝 15cm）の表と裏がまとまって面がガタガタに傾き、
+            // 放射状の影が出たり、芝が下がって本体では隠れている道の端が見えたりした（2026-10-22 てじゃ）
+            var cellMap = new Dictionary<(Vector3Int, Vector3Int, Vector3Int), int>(); var NV = new List<Vector3>(); var NC = new List<Color>(); var cnt = new List<int>(); var remap = new int[V.Count];
+            for (int i = 0; i < V.Count; i++)
+            {
+                var k = (Vector3Int.FloorToInt(V[i] / Cell), Vector3Int.RoundToInt(N[i] * 1.5f), Vector3Int.RoundToInt(new Vector3(C[i].r, C[i].g, C[i].b) * 6f));
+                if (!cellMap.TryGetValue(k, out int j)) { j = NV.Count; cellMap[k] = j; NV.Add(Vector3.zero); NC.Add(Color.clear); cnt.Add(0); }
+                NV[j] += V[i]; NC[j] += C[i]; cnt[j]++; remap[i] = j;
+            }
             for (int j = 0; j < NV.Count; j++) { NV[j] /= cnt[j]; NC[j] /= cnt[j]; }
             var NT = new List<int>();
             for (int k = 0; k < T.Count; k += 3) { int a = remap[T[k]], b2 = remap[T[k + 1]], c = remap[T[k + 2]]; if (a == b2 || b2 == c || a == c) continue; NT.Add(a); NT.Add(b2); NT.Add(c); }
@@ -94,6 +116,21 @@ public static class FuwaCourseLite
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log("[軽い版] " + log);
+    }
+
+    // テクスチャの色を読めるコピー（読み込み設定が Read/Write でなくても読めるように、GPU で写して読む。色はガンマのまま）
+    static readonly Dictionary<Texture, Texture2D> _readable = new Dictionary<Texture, Texture2D>();
+    static Texture2D Readable(Texture t)
+    {
+        if (t == null) return null;
+        if (_readable.TryGetValue(t, out var r) && r != null) return r;
+        var rt = RenderTexture.GetTemporary(t.width, t.height, 0, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB);
+        var prev = RenderTexture.active;
+        Graphics.Blit(t, rt); RenderTexture.active = rt;
+        r = new Texture2D(t.width, t.height, TextureFormat.RGBA32, false, false) { wrapMode = t.wrapMode, filterMode = FilterMode.Bilinear };
+        r.ReadPixels(new Rect(0, 0, t.width, t.height), 0, 0); r.Apply();
+        RenderTexture.active = prev; RenderTexture.ReleaseTemporary(rt);
+        _readable[t] = r; return r;
     }
 
     // 近づいたら本体に戻す判定用：各コースの床（軽い版のメッシュの頂点）を cellSize 角のマスに分けて、マスごとに中の頂点を囲む箱を持たせる。
