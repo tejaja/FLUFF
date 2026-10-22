@@ -21,6 +21,11 @@ Shader "FuwaCourse/DarkMist"
         _DriftScale ("Drift Scale (per m)", Float) = 0.035
         _DriftSpeed ("Drift Speed", Float) = 0.05
         _DriftPeak ("Drift: thick part (x)", Float) = 1.7
+        // もや自体をゆっくり行ったり来たり（2026-10-22 てじゃ「負荷かわんないならちょっとだけ動かしたい」）。もやごとに向き・タイミングがずれる（白い雲 CloudPuff と同じやり方）
+        _Move ("Move Distance (m)", Float) = 0
+        _MoveSpeed ("Move Speed", Float) = 0.05
+        // やみのもりに入って空が紫になる（グローバル _UdonSkyDim、FuwaAreaFog）のといっしょに消す（2026-10-22 てじゃ）。1＝空が暗くなりきったら見えない
+        _SkyDimHide ("Hide when sky dims", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -35,7 +40,7 @@ Shader "FuwaCourse/DarkMist"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            fixed4 _Color; float _Density, _MaxAlpha, _LowBoost, _Wobble, _EdgeSoft, _Wisp, _WispScale, _WispSpeed, _Drift, _DriftScale, _DriftSpeed, _DriftPeak, _EdgePow;
+            fixed4 _Color; float _Density, _MaxAlpha, _LowBoost, _Wobble, _EdgeSoft, _Wisp, _WispScale, _WispSpeed, _Drift, _DriftScale, _DriftSpeed, _DriftPeak, _EdgePow, _Move, _MoveSpeed, _SkyDimHide, _UdonSkyDim;
             float hash3(float3 p) { p = frac(p * 0.3183099 + 0.1); p *= 17.0; return frac(p.x * p.y * p.z * (p.x + p.y + p.z)); }
             float vnoise(float3 x)
             {
@@ -44,17 +49,26 @@ Shader "FuwaCourse/DarkMist"
                             lerp(lerp(hash3(i + float3(0,0,1)), hash3(i + float3(1,0,1)), f.x), lerp(hash3(i + float3(0,1,1)), hash3(i + float3(1,1,1)), f.x), f.y), f.z);
             }
             float fbm(float3 p) { return vnoise(p) * 0.55 + vnoise(p * 2.07 + 13.1) * 0.3 + vnoise(p * 4.3 + 7.7) * 0.15; }
+            // もやごとのずれ（ワールド）。もやの原点で向き・タイミングを変える
+            float3 MoveOffset()
+            {
+                float3 origin = float3(unity_ObjectToWorld._m03, unity_ObjectToWorld._m13, unity_ObjectToWorld._m23);
+                float ph = dot(origin, float3(0.131, 0.0, 0.173)), t = _Time.y * _MoveSpeed;
+                return float3(sin(t + ph), sin(t * 1.7 + ph * 2.0) * 0.35, cos(t * 0.8 + ph * 1.3)) * _Move;
+            }
             struct v2f { float4 pos : SV_POSITION; float3 opos : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata_base v)
             {
                 v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_TRANSFER_INSTANCE_ID(v, o); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-                o.pos = UnityObjectToClipPos(v.vertex); o.opos = v.vertex.xyz; return o;
+                o.pos = mul(UNITY_MATRIX_VP, float4(mul(unity_ObjectToWorld, v.vertex).xyz + MoveOffset(), 1)); o.opos = v.vertex.xyz; return o;
             }
             fixed4 frag (v2f i) : SV_Target
             {
                 UNITY_SETUP_INSTANCE_ID(i);   // まとめて描く時も自分の座標で（インスタンシング）
                 // オブジェクト空間（半径1の球。組み込みの Sphere メッシュ）で視線と球の交わりを求め、通る長さをワールドの距離に直す
-                float3 camO = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1)).xyz;
+                // もやが off だけずれている＝カメラが -off ずれたのと同じ
+                float3 off = MoveOffset();
+                float3 camO = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos - off, 1)).xyz;
                 float3 d = normalize(i.opos - camO);
                 float b = dot(camO, d), c = dot(camO, camO) - 1.0;
                 float h = b * b - c;
@@ -67,14 +81,14 @@ Shader "FuwaCourse/DarkMist"
                 float3 mid = camO + d * (t0 + t1) * 0.5;
                 float low = saturate(0.5 - mid.y * 0.5);
                 // ゆっくり動くムラ（安いサイン波の重ね）
-                float3 wp = mul(unity_ObjectToWorld, float4(mid, 1)).xyz;
+                float3 wp = mul(unity_ObjectToWorld, float4(mid, 1)).xyz + off;   // 模様ももやといっしょに動く
                 float wob = sin(wp.x * 0.11 + _Time.y * 0.15) * sin(wp.z * 0.09 - _Time.y * 0.12) * 0.5 + 0.5;
                 float dens = _Density * (1 + low * _LowBoost) * lerp(1, 0.6 + wob * 0.8, _Wobble);
                 float a = (1 - exp(-len * dens)) * _MaxAlpha;
                 // カメラがもやの中・すぐ近く（コースの中やスタートの島）にいる時は消す（コースの中は AreaFog が担当）
                 a *= smoothstep(1.1, 1.4, length(camO));
                 // ふちをもやもやに：視線が球に入る所（ワールド）でノイズを取り、ふちの消え方をちぎれたように揺らす
-                float3 entryW = mul(unity_ObjectToWorld, float4(camO + d * t0, 1)).xyz;
+                float3 entryW = mul(unity_ObjectToWorld, float4(camO + d * t0, 1)).xyz + off;
                 float3 q = entryW * _WispScale + float3(_Time.y * _WispSpeed, _Time.y * _WispSpeed * 0.4, -_Time.y * _WispSpeed * 0.7);
                 float n = fbm(q);
                 float edge = h - (n - 0.45) * _Wisp;         // ノイズで「ふち」の位置を前後させる
@@ -93,6 +107,7 @@ Shader "FuwaCourse/DarkMist"
                     a *= lerp(1, 0.2 + g * (peak - 0.2), _Drift);   // 薄い所は 0.2倍、濃い所は _DriftPeak 倍（真ん中ほど）
                     a = min(a, 0.95);
                 }
+                a *= 1 - saturate(_UdonSkyDim) * _SkyDimHide;
                 return fixed4(_Color.rgb, a * _Color.a);
             }
             ENDCG
