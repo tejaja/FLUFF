@@ -49,8 +49,8 @@ public class FuwaCourseLod : UdonSharpBehaviour
     public GameObject[] lobbyHideObjects;
     [Tooltip("ロビーの間も、自分からこの距離(m)以内の仕掛け・粒は動かす（2026-10-22 てじゃ「ロビーからの見た目はほしい」→ 近くだけ動かす案）。0なら全部止める")]
     public float lobbyNearRadius = 40f;
-    [Tooltip("0=きれい（全部ふつう表示・ロビーも全部動く）、1=ふつう（他コースは軽い版・ロビーは近くだけ動く）、2=かるい（他コースは軽い版・ロビーは全部止める）。ロビーとタイトルのボタン（FuwaQualitySwitch）で切り替える。PC ははじめ0（2026-10-22 てじゃ「きれいからでいいよ」）、スマホ・Quest は始めから2")]
-    public int mode = 0;
+    [Tooltip("0=きれい（全部ふつう表示・ロビーも全部動く）、1=ふつう（他コースは軽い版・ロビーは近くだけ動く）、2=かるい（他コースは軽い版・ロビーは全部止める）。ロビーとタイトルのボタン（FuwaQualitySwitch）で切り替える。PC ははじめ1（2026-10-22 てじゃ、近づいたら本体に戻るようにしたあと「ちょーどいいかも、これならデフォをふつうにしてもいいかも」）、スマホ・Quest は始めから2")]
+    public int mode = 1;
     private int _lobbyState = -1;   // 0=止めていない、1=止めている
     private bool[] _bRun, _oRun;
 
