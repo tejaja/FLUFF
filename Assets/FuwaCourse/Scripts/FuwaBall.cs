@@ -1020,6 +1020,28 @@ public class FuwaBall : UdonSharpBehaviour
         if (visible && !_hidden) Appear();
     }
 
+    // テスト用（2026-10-22、公開前に消す。FuwaDebugBallSummon から）：今いる所でパッと弾けて spot に出し、そこをチェックポイントにする。
+    // タイムは計らない。落ちたら spot に戻る（プレイヤーもふつうのアウトと同じく戻る）。先のチェックポイントを通ればそっちに更新される
+    public void DebugSummon(Transform spot, int stage)
+    {
+        if (spot == null) return;
+        SetStage(stage);
+        bool visible = !_hidden && _resetAt < 0f && !_spiking && gameObject.activeInHierarchy;
+        if (visible && popEffect != null)
+        {
+            popEffect.transform.position = transform.position;
+            popEffect.Play();
+            PlaySfx(sfxPop);
+        }
+        _practice = false;
+        timerEnabled = false;
+        _finished = false;
+        _running = false; _untimedRun = false;
+        respawnPoint = spot;
+        ResetToRespawn();
+        Appear();
+    }
+
     // 出てくる時の一瞬のエフェクト：ポンッとふくらんで（少し行きすぎて戻る）、まわりに綿毛がふわっと散る
     [Header("れんしゅう：次の場所に出てくる時")]
     public float appearTime = 0.22f;
