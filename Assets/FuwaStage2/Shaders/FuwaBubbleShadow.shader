@@ -10,7 +10,7 @@ Shader "FuwaStage2/BubbleShadow"
         _Alpha ("Alpha", Range(0, 1)) = 1
         _RingAlpha ("Ring Alpha", Range(0, 1)) = 0.62
         _FillAlpha ("Inner Shade Alpha", Range(0, 1)) = 0.22
-        _GlowAlpha ("Glow Alpha", Range(0, 1)) = 0.75
+        _GlowAlpha ("Glow Alpha", Range(0, 1)) = 0   // 0.75→0（2026-10-22 てじゃ「真ん中の白い◯いらない」）
         _GlowSize ("Glow Size (半径に対して)", Range(0.05, 0.6)) = 0.3
         _EdgeY ("上下のふちで薄くし始める位置", Range(0.05, 0.5)) = 0.35
         _UpMin ("この向きより横を向いた面には塗らない (dot)", Range(0, 1)) = 0.55
