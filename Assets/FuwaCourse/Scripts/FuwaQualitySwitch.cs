@@ -1,25 +1,28 @@
 using TMPro;
 using UdonSharp;
 using UnityEngine;
-using UnityEngine.UI;
 
 // ロビーの説明ボードとタイトルの「きれい / ふつう / かるい」ボタン（自分だけ、同期なし）。FuwaCourseLod.mode を切り替える。
-// 2026-10-22 てじゃ「これゲーム内できりかえられたらいいのに」「3段かなあ」。見た目は FuwaSegToggle と同じ（選んでいる方だけ白い札＋ボタンの色の文字）
+// 2026-10-22 てじゃ「これゲーム内できりかえられたらいいのに」「3段かなあ」。
+// 見た目は おっかけカメラのボタンと同じ「がしつ ◀ ふつう ▶」（2026-10-22 てじゃ「なんとか画質設定であるってことを付け加えたい、でも長さが足りない」
+// 「がしつ：◁ふつう▷ みたいに」「おっかけカメラにつかってるやつみたいな」）。札の左半分で前、右半分で次（端まで行ったら反対の端へ）。
+// 3つの名前は同じ場所に重ねて、選んでいる1つだけ出す（英語の切り替えは FuwaLanguage の UI 文字の一覧のまま）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaQualitySwitch : UdonSharpBehaviour
 {
     public FuwaCourseLod lod;
-    [Tooltip("きれい・ふつう・かるい の順")]
-    public Image[] pills;
+    [Tooltip("きれい・ふつう・かるい の順。同じ場所に重ねてあって、選んでいる1つだけ出す")]
     public TextMeshProUGUI[] texts;
-    public Color activeTextColor = new Color(0.45f, 0.78f, 0.62f, 1f);
-    public Color idleTextColor = new Color(1f, 1f, 1f, 0.75f);
 
     private void Start() { SendCustomEventDelayedFrames(nameof(Refresh), 2); }   // FuwaCourseLod の Start（スマホは かるい）のあとで
 
     public void SetKirei() { Set(0); }
     public void SetFutsuu() { Set(1); }
     public void SetKarui() { Set(2); }
+    public void Prev() { Set((Cur() + 2) % 3); }
+    public void Next() { Set((Cur() + 1) % 3); }
+    private int Cur() { return lod != null ? lod.GetMode() : _shown; }
+    private int _shown = 1;
 
     // FuwaCourseLod が保存・ほかのボタンの表示合わせまでやる（ボタンはロビーの説明ボードとタイトルの2か所）
     private void Set(int m)
@@ -32,10 +35,8 @@ public class FuwaQualitySwitch : UdonSharpBehaviour
 
     private void Show(int m)
     {
+        _shown = m;
         for (int i = 0; i < 3; i++)
-        {
-            if (pills != null && i < pills.Length && pills[i] != null) pills[i].enabled = i == m;
-            if (texts != null && i < texts.Length && texts[i] != null) texts[i].color = i == m ? activeTextColor : idleTextColor;
-        }
+            if (texts != null && i < texts.Length && texts[i] != null) texts[i].enabled = i == m;
     }
 }
