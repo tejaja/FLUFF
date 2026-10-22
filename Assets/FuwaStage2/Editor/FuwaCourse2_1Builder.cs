@@ -721,6 +721,21 @@ public static class FuwaCourse2_1Builder
             b.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             b.SetActive(false); bubbles[k] = b.transform;
         }
+        // 泡の地面の影（泡1つにつき1つのデカールの箱。うすい水色の輪＋まん中の光。FuwaStage2/BubbleShadow）。2026-10-22 てじゃ「地面に影ないのつらい」
+        const string bsPath = "Assets/FuwaStage2/Materials/Stage2_BubbleShadow.mat";
+        var shadowMat = AssetDatabase.LoadAssetAtPath<Material>(bsPath);
+        if (!shadowMat) { shadowMat = new Material(Shader.Find("FuwaStage2/BubbleShadow")) { name = "Stage2_BubbleShadow" }; AssetDatabase.CreateAsset(shadowMat, bsPath); }
+        var sg = new GameObject("BubbleShadows").transform; sg.SetParent(g, false);
+        var shadows = new Renderer[bubbles.Length];
+        for (int k = 0; k < shadows.Length; k++)
+        {
+            var sh = GameObject.CreatePrimitive(PrimitiveType.Cube); sh.name = "Shadow" + k; sh.transform.SetParent(sg, false);
+            Object.DestroyImmediate(sh.GetComponent<Collider>());
+            var sr = sh.GetComponent<Renderer>(); sr.sharedMaterial = shadowMat;
+            sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; sr.receiveShadows = false;
+            sr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; sr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            sr.enabled = false; shadows[k] = sr;
+        }
         var pop = new GameObject("PopFx"); pop.transform.SetParent(g, false);
         var pp = pop.AddComponent<ParticleSystem>(); pp.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         var pm = pp.main; pm.loop = false; pm.playOnAwake = false; pm.simulationSpace = ParticleSystemSimulationSpace.World;
@@ -738,7 +753,7 @@ public static class FuwaCourse2_1Builder
         }
         var cb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaClamBubbles>(g.gameObject);
         cb.ball = ballProxy; cb.clams = clams; cb.lids = lids; cb.mouths = mouths; cb.phases = phases; cb.period = ClamPeriod;
-        cb.bubbles = bubbles; cb.bubblesPerClam = per;
+        cb.bubbles = bubbles; cb.bubblesPerClam = per; cb.shadows = shadows;
         cb.bubbleSize = ClamBubbleSize; cb.captureRadius = ClamCapture;
         // 吹き出し口から反対側の滝まで（ここで割れて落ちる）
         cb.bubbleRange = 2f * WalkHW + ClamOut + FallsOut - 0.2f;

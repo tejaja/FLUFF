@@ -71,6 +71,21 @@ public class FuwaClamBubbles : UdonSharpBehaviour
     [Tooltip("貝が泡を吹いた音（貝の位置で鳴らす。なくてもOK）")]
     public AudioSource blowSound;
 
+    [Header("地面の影（泡1つにつき1つ。FuwaStage2/BubbleShadow の箱。2026-10-22 てじゃ「地面に影ないのつらい」）")]
+    public Renderer[] shadows;
+    public LayerMask shadowMask = (1 << 0) | (1 << 11);
+    public float shadowMaxDistance = 12f;
+    [Tooltip("影の直径（泡の直径に対する倍率）：真下すぐ／farHeight の高さ")]
+    public float shadowNearSize = 0.75f;
+    public float shadowFarSize = 1.15f;
+    [Tooltip("影の濃さ：真下すぐ／farHeight の高さ")]
+    public float shadowNearAlpha = 1f;
+    public float shadowFarAlpha = 0.4f;
+    public float shadowFarHeight = 4.5f;
+    public float shadowBelow = 0.35f, shadowAbove = 0.06f;
+    private Material[] _shadowMats;
+    private float[] _shadowAlpha;
+
     private int _n;
     private int[] _lastCycle;
     private Quaternion[] _lidRest;
@@ -95,13 +110,22 @@ public class FuwaClamBubbles : UdonSharpBehaviour
         int nb = bubbles != null ? bubbles.Length : 0;
         _alive = new bool[nb]; _pos = new Vector3[nb]; _vel = new Vector3[nb]; _from = new Vector3[nb]; _dir = new Vector3[nb]; _born = new float[nb];
         for (int b = 0; b < nb; b++) if (bubbles[b] != null) bubbles[b].gameObject.SetActive(false);
+        int ns = shadows != null ? shadows.Length : 0;
+        _shadowMats = new Material[ns]; _shadowAlpha = new float[ns];
+        for (int b = 0; b < ns; b++)
+        {
+            _shadowAlpha[b] = -1f;
+            if (shadows[b] == null) continue;
+            _shadowMats[b] = shadows[b].material;   // 高さで濃さを変えるので泡ごとに材質を分ける
+            shadows[b].enabled = false;
+        }
     }
 
     private void OnDisable()
     {
         // ステージを出た・エリアが隠れた：泡は全部消して、包んでいたら放す
         if (_alive == null) return;
-        for (int b = 0; b < _alive.Length; b++) { _alive[b] = false; if (bubbles[b] != null) bubbles[b].gameObject.SetActive(false); }
+        for (int b = 0; b < _alive.Length; b++) { _alive[b] = false; if (bubbles[b] != null) bubbles[b].gameObject.SetActive(false); HideShadow(b); }
         _held = -1;
     }
 
@@ -231,9 +255,49 @@ public class FuwaClamBubbles : UdonSharpBehaviour
         if (wasHeld || b == _held) { _held = -1; _noCatchUntil = Time.time + recaptureDelay; }
         Vector3 at = bubbles[b].position;
         bubbles[b].gameObject.SetActive(false);
+        HideShadow(b);
         if (popFx != null) { popFx.transform.position = at; popFx.Emit(wasHeld ? 18 : 10); }
         // 音はふわふわが入っていた泡だけ（空の泡はだまって消える。2026-10-22 てじゃ「ふわふわが入ってない泡が割れる音もいらない」）
         if (wasHeld && popSound != null) { popSound.transform.position = at; popSound.pitch = Random.Range(0.95f, 1.12f); popSound.Play(); }
+    }
+
+    private void LateUpdate()
+    {
+        if (_alive != null) UpdateShadows();
+    }
+
+    // 泡の真下の地面に影を置く（FuwaGroundMarker のデカールと同じ置き方）。高いほど大きく薄く
+    private void UpdateShadows()
+    {
+        if (shadows == null) return;
+        int nb = Mathf.Min(shadows.Length, _alive.Length);
+        for (int b = 0; b < nb; b++)
+        {
+            Renderer r = shadows[b];
+            if (r == null) continue;
+            if (!_alive[b]) { if (r.enabled) r.enabled = false; continue; }
+            Transform bt = bubbles[b];
+            RaycastHit hit;
+            if (!Physics.Raycast(bt.position, Vector3.down, out hit, shadowMaxDistance, shadowMask, QueryTriggerInteraction.Ignore))
+            {
+                if (r.enabled) r.enabled = false;
+                continue;
+            }
+            float h = Mathf.Clamp01(hit.distance / Mathf.Max(0.01f, shadowFarHeight));
+            float size = bt.localScale.y * Mathf.Lerp(shadowNearSize, shadowFarSize, h);
+            float a = Mathf.Lerp(shadowNearAlpha, shadowFarAlpha, h);
+            Transform t = r.transform;
+            t.position = hit.point + hit.normal * ((shadowAbove - shadowBelow) * 0.5f);
+            t.rotation = Quaternion.FromToRotation(Vector3.up, hit.normal);
+            t.localScale = new Vector3(size, shadowAbove + shadowBelow, size);
+            if (!r.enabled) r.enabled = true;
+            if (_shadowMats[b] != null && Mathf.Abs(a - _shadowAlpha[b]) > 0.02f) { _shadowAlpha[b] = a; _shadowMats[b].SetFloat("_Alpha", a); }
+        }
+    }
+
+    private void HideShadow(int b)
+    {
+        if (shadows != null && b < shadows.Length && shadows[b] != null) shadows[b].enabled = false;
     }
 
     private float Smooth(float x) { x = Mathf.Clamp01(x); return x * x * (3f - 2f * x); }
