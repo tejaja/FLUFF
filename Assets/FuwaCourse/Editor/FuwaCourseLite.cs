@@ -12,6 +12,7 @@ public static class FuwaCourseLite
     const string Dir = "Assets/FuwaCourse/Generated/Lite";
     const float MinSize = 2.5f;   // これより小さい物は入れない(m、いちばん長い辺)
     const float Cell = 0.35f;     // 間引きの細かさ(m)
+    const float DecoCell = 0.7f;  // 飾り（まわりの浮島・まもののすの巣）の間引きの細かさ(m)
 
     [MenuItem("FuwaCourse/よく使う/コースの軽い版を作る")]
     public static void Run()
@@ -37,10 +38,13 @@ public static class FuwaCourseLite
                 if (!mr.enabled || !mr.gameObject.activeInHierarchy) continue;
                 if (mr.name.EndsWith("_Far")) continue;
                 var mf = mr.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue;
-                var b = mr.bounds; if (Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z)) < MinSize) continue;
-                if (mr.sharedMaterials.Any(m => m != null && m.renderQueue >= 2450)) continue;
                 string path = mr.transform.name; for (var p = mr.transform.parent; p != null && p != root.transform; p = p.parent) path = p.name + "/" + path;
-                if (path.Contains("Deco/") || path.Contains("Fence") || path.Contains("Web") || path.Contains("Wind") || path.Contains("Gimmick")) continue;
+                // 飾りの中でも遠くから形がわかる物は入れる：まわりの浮島（やみのもりの木の下の小さい島も）・まもののすの巣（2026-10-22 てじゃ「浮島そのものが消えるのちょと気なる」「木だけういてる」）
+                bool keep = mr.name == "IslandTop" || mr.name == "IslandUnder" || path.Contains("Deco/Mamono_");
+                var b = mr.bounds; float size = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
+                bool deco = size < MinSize || path.Contains("Deco/") || path.Contains("Fence") || path.Contains("Web") || path.Contains("Wind") || path.Contains("Gimmick");
+                if (deco && !(keep && size >= 1f)) continue;
+                if (mr.sharedMaterials.Any(m => m != null && m.renderQueue >= 2450)) continue;
                 var mesh = mf.sharedMesh; if (!mesh.isReadable) continue;
                 var mv = mesh.vertices; var mn = mesh.normals; var mc = mesh.colors; var muv = mesh.uv; var l2w = mr.transform.localToWorldMatrix;
                 var n2w = l2w.inverse.transpose;
@@ -62,7 +66,8 @@ public static class FuwaCourseLite
                             j = V.Count; V.Add(l2w.MultiplyPoint3x4(mv[t]));
                             N.Add(mn.Length == mv.Length ? n2w.MultiplyVector(mn[t]).normalized : Vector3.zero);
                             var col = useVc ? new Color(mc[t].r, mc[t].g, mc[t].b, 1) : useVcLinear ? new Color(mc[t].r, mc[t].g, mc[t].b, 1).gamma : mcol;
-                            if (tex != null) { var uv = Vector2.Scale(muv[t], ts) + to; col *= tex.GetPixelBilinear(uv.x, uv.y); col.a = 1; }
+                            if (tex != null) { var uv = Vector2.Scale(muv[t], ts) + to; col *= tex.GetPixelBilinear(uv.x, uv.y); }
+                            col.a = deco ? 0 : 1;   // a=0 は飾り：SetBounds の床の箱（近づいたら戻す・入場判定）に入れない。間引きも粗く
                             C.Add(col); map[t] = j;
                         }
                         T.Add(j);
@@ -82,7 +87,7 @@ public static class FuwaCourseLite
             int Find(int x) { while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; } return x; }
             for (int i = 0; i < V.Count; i++)
             {
-                var k = (Vector3Int.FloorToInt(V[i] / Cell), Vector3Int.RoundToInt(N[i] * 1.5f), Vector3Int.RoundToInt(new Vector3(C[i].r, C[i].g, C[i].b) * 6f));
+                var k = (Vector3Int.FloorToInt(V[i] / (C[i].a < 0.5f ? DecoCell : Cell)),Vector3Int.RoundToInt(N[i] * 1.5f), Vector3Int.RoundToInt(new Vector3(C[i].r, C[i].g, C[i].b + C[i].a * 10f) * 6f));
                 if (!cellMap.TryGetValue(k, out int j)) { j = NC.Count; cellMap[k] = j; NC.Add(Color.clear); cnt.Add(0); parent.Add(j); }
                 NC[j] += C[i]; cnt[j]++; remap[i] = j;
                 var w = Vector3Int.RoundToInt(V[i] * 1000f);   // 1mm 以内は同じ所
@@ -105,7 +110,7 @@ public static class FuwaCourseLite
             {
                 var a = NV[NT[k]]; var b2 = NV[NT[k + 1]]; var c = NV[NT[k + 2]]; var fn = Vector3.Cross(b2 - a, c - a); if (fn.sqrMagnitude < 1e-10f) continue; fn.Normalize();
                 int bi2 = FV.Count; FV.Add(a); FV.Add(b2); FV.Add(c); FN.Add(fn); FN.Add(fn); FN.Add(fn);
-                foreach (var idx in new[] { NT[k], NT[k + 1], NT[k + 2] }) { var col = NC[idx]; col.a = 1; FC.Add(col); }
+                foreach (var idx in new[] { NT[k], NT[k + 1], NT[k + 2] }) { var col = NC[idx]; col.a = col.a < 0.5f ? 0 : 1; FC.Add(col); }
                 FT.Add(bi2); FT.Add(bi2 + 1); FT.Add(bi2 + 2);
             }
             var lite = new Mesh { name = cn + "_Lite", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
@@ -164,9 +169,11 @@ public static class FuwaCourseLite
             var mf = lod.liteRoots[i] != null ? lod.liteRoots[i].GetComponent<MeshFilter>() : null;
             if (mf == null || mf.sharedMesh == null) continue;
             var boxes = new Dictionary<Vector3Int, Bounds>(); var tr = lod.liteRoots[i].transform;
-            foreach (var v0 in mf.sharedMesh.vertices)
+            var verts = mf.sharedMesh.vertices; var cols = mf.sharedMesh.colors;
+            for (int vi = 0; vi < verts.Length; vi++)
             {
-                var v = tr.TransformPoint(v0); var k = Vector3Int.FloorToInt(v / cs);
+                if (cols.Length == verts.Length && cols[vi].a < 0.5f) continue;   // まわりの浮島などの飾りは床に数えない
+                var v = tr.TransformPoint(verts[vi]); var k = Vector3Int.FloorToInt(v / cs);
                 if (boxes.TryGetValue(k, out var b)) { b.Encapsulate(v); boxes[k] = b; } else boxes[k] = new Bounds(v, Vector3.zero);
             }
             foreach (var b in boxes.Values) { mins.Add(b.min); maxs.Add(b.max); course.Add(i); }
