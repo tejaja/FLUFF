@@ -1,5 +1,7 @@
 using UdonSharp;
 using UnityEngine;
+using VRC.SDK3.Persistence;
+using VRC.SDKBase;
 
 // ひとりでモードで、自分がいるコース以外のコースを「床だけの軽い版」に切り替える（自分の画面だけ）。
 // ・どのコースにいるかは、ふわふわのスタート地点（ball.startPoint）が starts[i] のどれかで決める（BGM と同じ判定）
@@ -46,12 +48,42 @@ public class FuwaCourseLod : UdonSharpBehaviour
 
     public int GetMode() { return mode; }
 
-    // ロビーのボタンから呼ぶ（自分だけ）。次の Update で全部やり直す
+    [Tooltip("きれい・ふつう・かるい のボタン（ロビーの説明ボードとタイトルの2か所）。どれかで切り替えたら全部の表示を合わせる")]
+    public FuwaQualitySwitch[] switches;
+
+    // ロビー・タイトルのボタンから呼ぶ（自分だけ）。次の Update で全部やり直す
     public void SetMode(int m)
+    {
+        ApplyMode(m);
+        // 選んだ設定は保存して、次に来た時もその設定で始める（2026-10-22 てじゃ「保存するようにしよう」）
+        if (_restored) PlayerData.SetInt(SaveKey, mode);
+    }
+
+    private void ApplyMode(int m)
     {
         mode = Mathf.Clamp(m, 0, 2);
         _shown = -2; _lobbyState = -1; _next = 0f;
         enabled = true;
+        if (switches != null) foreach (FuwaQualitySwitch s in switches) if (s != null) s.Refresh();
+    }
+
+    // ===== 保存（PlayerData）=====
+    // PC と Quest・スマホで同じ保存データを読むので、キーを分ける（PC で きれい にしても Quest は かるい のまま始まる）
+#if UNITY_ANDROID || UNITY_IOS
+    private const string SaveKey = "quality_mobile";
+#else
+    private const string SaveKey = "quality_pc";
+#endif
+    private bool _restored;
+    [Tooltip("ONで選んだ設定をVRChatに保存する。ワールド側からは保存データを消せないので、完成するまではOFF")]
+    public bool savePlayerData = true;
+
+    public override void OnPlayerRestored(VRCPlayerApi player)
+    {
+        if (player == null || !player.isLocal || !savePlayerData) return;
+        _restored = true;
+        if (!PlayerData.HasKey(player, SaveKey)) return;   // まだ一度も選んでいない人ははじめの設定のまま
+        ApplyMode(PlayerData.GetInt(player, SaveKey));
     }
 
     private float _next;

@@ -3,7 +3,7 @@ using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
 
-// ロビーの説明ボードの「きれい / ふつう / かるい」ボタン（自分だけ、同期なし）。FuwaCourseLod.mode を切り替える。
+// ロビーの説明ボードとタイトルの「きれい / ふつう / かるい」ボタン（自分だけ、同期なし）。FuwaCourseLod.mode を切り替える。
 // 2026-10-22 てじゃ「これゲーム内できりかえられたらいいのに」「3段かなあ」。見た目は FuwaSegToggle と同じ（選んでいる方だけ白い札＋ボタンの色の文字）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaQualitySwitch : UdonSharpBehaviour
@@ -21,10 +21,11 @@ public class FuwaQualitySwitch : UdonSharpBehaviour
     public void SetFutsuu() { Set(1); }
     public void SetKarui() { Set(2); }
 
+    // FuwaCourseLod が保存・ほかのボタンの表示合わせまでやる（ボタンはロビーの説明ボードとタイトルの2か所）
     private void Set(int m)
     {
         if (lod != null) lod.SetMode(m);
-        Show(m);
+        else Show(m);
     }
 
     public void Refresh() { Show(lod != null ? lod.GetMode() : 1); }
