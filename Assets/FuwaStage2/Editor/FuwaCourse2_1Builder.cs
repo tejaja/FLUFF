@@ -36,16 +36,18 @@ public static class FuwaCourse2_1Builder
     const int BevelSteps = 4;
     public const float WaterDepth = 0.6f, RimW = 0.45f, RimUp = 0.35f, BankTop = 0.4f, Base = -1.5f;
     public const float StartH = 2.2f, TerraceStep = 1.8f;
-    // ⑥ ラスト（2026-10-22 てじゃ「ためしにやってみよ」：泡の柱で滝の横の段々の池を登って、最後は水車で持ち上げる）。
-    // 位置は滝の道の終わり（sF1）からの距離、高さは滝の道（FallsH）からの高さ
+    // ⑥ ラスト（2026-10-22 てじゃ「3連滝のあとに、強制で滝にぶつかるゾーン→そのまま流されてく、川はゴール横を直進、途中で打ち上げてゴールへ、
+    // プレイヤーは川岸を走って追いかける」）。位置は滝の道の終わり（sF1）からの距離、高さは滝の道（FallsH）からの高さ
     const float FinLand = 3f;                                  // 踊り場（滝の道のあと、広め）
-    const float FinA0 = 3.5f, FinB0 = 10.5f, FinC0 = 17.5f, FinC1 = 28f;   // 池A・B・C の始まり（Cは終わりも）
-    const float FinSurfA = -0.6f, FinSurfB = 3.2f, FinSurfC = 6.4f;         // 池の水面
-    const float FinPoolHW = 2.4f;                              // 池の半分の幅
-    const float FinColA = 9f, FinColB = 16f, FinColRadius = 1f; // 泡の柱（Aの池→Bの池、Bの池→Cの池）
-    const float FinWheelS = 25f, FinWheelR = 3f;               // 水車の軸の位置と、バケツの回る半径
-    const float FinPlaza = 29f, FinPlazaLen = 9f, FinGoal = 10.6f;          // ゴールの広場（始まり・長さ・高さ）。水車のてっぺんで降ろされた所より約1.8m低く（撃って届く）
-    const float FinSlopeOff = -5.2f, FinSlopeW = 1.8f;         // 人が登る左の坂道（中心線からの位置・幅）
+    const float FinCurtain = 3.7f, FinCurtainTop = 7f;         // よけられない滝のカーテンの位置と落ち口の高さ
+    const float FinRiver0 = 3.5f, FinRiver1 = 42f, FinRiverSurf = -3f, FinRiverHW = 2.2f, FinRiverFlow = 1.2f;   // 下の川
+    const float FinCliffLen = 6f;                              // 川の始まりの右の崖（カーテンの右を回り込めないように）の長さ
+    const float FinWalkW = 1.8f, FinDownEnd = 12f;             // 左岸の人の道の幅と、踊り場から下りきる所
+    const float FinBankW = 0.6f;                               // 右岸の細い地面
+    const float FinPlaza0 = 22f, FinPlazaLen = 8f, FinPlazaW = 7f, FinGoalUp = 1.6f;   // 右岸のゴールの広場（始まり・長さ・幅・川の水面からの高さ）
+    static float FinGoalLat => FinRiverHW + FinBankW + FinPlazaW * 0.5f;
+    // 左岸の人の道の高さ：踊り場の高さから川岸の高さへ下りる
+    static float LeftBankH(float s) { return Mathf.Lerp(FallsH, FallsH + FinRiverSurf + BankTop, Mathf.Clamp01((s - sF1 - FinLand) / (FinDownEnd - FinLand))); }
     static float goalH;
     // 洞窟：床＝StartH、天井の高さ CaveIn、壁の外側 CaveHW（道の幅6の外に厚み0.4）、口の半分の幅 MouthHW。上に屋根の板、その上が水源の池
     public const float CaveIn = 2.6f, CaveHW = 3.4f, MouthHW = 1.7f, RoofT = 0.3f, SideGapLen = 3.4f, SideGapH = 2.4f;
@@ -61,7 +63,7 @@ public static class FuwaCourse2_1Builder
         // ⑤ 滝の道（ぐねぐね。カーブ 15.1 / 17.05 / 19 に滝と水路）→ ⑥ 登ってゴール
         new Vector2(0, 103), new Vector2(-4, 109), new Vector2(-1, 116), new Vector2(4, 122), new Vector2(2, 129), new Vector2(0, 136),
         new Vector2(0, 143), new Vector2(0, 149),
-        // ⑥ ラスト（2026-10-22）：段々の池＋泡の柱 → 水車 → ゴールの広場。まっすぐ伸ばす
+        // ⑥ ラスト（2026-10-22）：よけられない滝 → 下の川を流される → 右岸のゴールの広場へ撃ち上げる。まっすぐ伸ばす
         new Vector2(0, 155), new Vector2(0, 161), new Vector2(0, 167), new Vector2(0, 173), new Vector2(0, 179), new Vector2(0, 185),
     };
 
@@ -263,13 +265,13 @@ public static class FuwaCourse2_1Builder
         setS = new float[FallsSetU.Length]; setO = new float[FallsSetU.Length];
         for (int i = 0; i < FallsSetU.Length; i++) { setS[i] = SI(FallsSetU[i]); setO[i] = OuterSide(setS[i]); }
         { int last = FallsSetU.Length - 1; sF1 = setS[last] + NotchEnd + ChanAfter[last] + 3f; }
-        sGoal0 = sF1 + FinPlaza; goalH = FallsH + FinGoal;
+        sGoal0 = sF1 + FinPlaza0; goalH = FallsH + FinRiverSurf + FinGoalUp;
         pieces.Add(new Piece { name = "M4_FallsRoad", s0 = sF0, s1 = sF1, off = s => (Cut(s, -1f) - Cut(s, 1f)) * 0.5f, w = s => RoadW(s) - Cut(s, -1f) - Cut(s, 1f), h = s => FallsH, round0 = false, round1 = false, centerLat = true });
-        // M5 踊り場 → M6 左の坂道（人が登る。ふわふわは右の段々の池を泡の柱と水車で）→ M7 ゴールの広場
+        // M5 踊り場 → M6 左の坂（川岸へ下りる）→ M7 左岸の道（人が走って追いかける）、M8 右岸のゴールの広場（ふわふわを撃ち上げる）
         pieces.Add(new Piece { name = "M5_Landing", s0 = sF1, s1 = sF1 + FinLand, off = s => -2f, w = s => 8.4f, h = s => FallsH, round0 = false, round1 = false });
-        pieces.Add(new Piece { name = "M6_Slope", s0 = sF1 + FinLand, s1 = sGoal0, off = s => FinSlopeOff, w = s => FinSlopeW,
-            h = s => Mathf.Lerp(FallsH, goalH, (s - sF1 - FinLand) / (sGoal0 - sF1 - FinLand)), round0 = false, round1 = false });
-        pieces.Add(new Piece { name = "M7_GoalPlaza", s0 = sGoal0, s1 = sGoal0 + FinPlazaLen, off = s => -1.8f, w = s => 9f, h = s => goalH, round0 = false });
+        pieces.Add(new Piece { name = "M6_Down", s0 = sF1 + FinLand, s1 = sF1 + FinDownEnd, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false });
+        pieces.Add(new Piece { name = "M7_LeftBank", s0 = sF1 + FinDownEnd, s1 = sF1 + FinRiver1, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false });
+        pieces.Add(new Piece { name = "M8_GoalPlaza", s0 = sGoal0, s1 = sGoal0 + FinPlazaLen, off = s => FinGoalLat, w = s => FinPlazaW, h = s => goalH });
 
         var pm = new GameObject("PathMesh"); pm.transform.SetParent(root, false); pm.layer = pathLayer;
         var vis = new Mesh { name = "Course2_1Path_Bevel" }; BuildPathVisual(vis, pieces);
@@ -364,7 +366,7 @@ public static class FuwaCourse2_1Builder
         // 落ち口はRで前へ張り出して、洞窟の口から少し離れた所に落ちる（ふわふわが崖ぎわのふちに叩きつけられないように）。厚みもつける
         // 2026-10-19 てじゃ「滝にあたったふわふわが地面に激突するから、ちょっとRつけて遠くに落ちるように、厚みもほしい」
         CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.02f, 0f, MouthHW * 2f + 0.4f, FallsReach, 0.45f);
-        // ⑥ ラスト：段々の池＋泡の柱、水車、右の崖と大きな滝
+        // ⑥ ラスト：よけられない滝、下の川、右岸のゴールの広場
         Finale(root, terr, ground, bedMat, fx, splash);
 
         // ---- 蓮の葉（固定）：池の手前の桟橋から向こうの坂まで ----
@@ -568,7 +570,8 @@ public static class FuwaCourse2_1Builder
         }
         var goal = new GameObject("Goal").transform; goal.SetParent(root, false);
         Center(sGoal0 + 4f, out var gp2, out var gd2);
-        goal.localPosition = new Vector3(gp2.x, goalH, gp2.y); goal.localRotation = Quaternion.LookRotation(new Vector3(gd2.x, 0, gd2.y));
+        var gq = gp2 + Right(gd2) * FinGoalLat;
+        goal.localPosition = new Vector3(gq.x, goalH, gq.y); goal.localRotation = Quaternion.LookRotation(new Vector3(gd2.x, 0, gd2.y));
         var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ring.name = "GoalMarker"; ring.transform.SetParent(goal, false);
         Object.DestroyImmediate(ring.GetComponent<Collider>());
         ring.transform.localPosition = new Vector3(0, 0.03f, 0); ring.transform.localScale = new Vector3(2.4f, 0.02f, 2.4f);
@@ -838,100 +841,55 @@ public static class FuwaCourse2_1Builder
         }
     }
 
-    // ---- ⑥ ラスト（2026-10-22）----
-    // 滝の道の先の踊り場から、右の高い崖ぞいに段々の池（A→B→C）。池の奥の泡の柱がふわふわを包んで上の池へ放り出す。
-    // 池Cの奥は水車：流れで寄ったふわふわがバケツに乗って上がり、てっぺんを越えた所で空中に降ろされて待つ。そこから撃ってゴールの広場へ。
-    // 人は左の坂道（M6_Slope）で登る。右の崖には大きな滝（はみ出すと押し落とされる）
+    // ---- ⑥ ラスト（2026-10-22 てじゃ「3連滝のあとに、強制で滝にぶつかるゾーン作る→そのまま流されてく、川はゴール横を直進、
+    //      途中で打ち上げてゴールへ　プレイヤーは川岸を走って追いかける」。前の試作＝段々の池＋泡の柱＋水車は「川を登らせるのは変」でやめた）----
+    // 踊り場の先は道の幅いっぱいの滝のカーテン（よけられない。左の人の坂の上を回り込むふわふわはアウト、右は崖）。
+    // ふわふわは押し落とされて下の川へ。川はまっすぐ流れて、右岸の一段高いゴールの広場の横を通り、終わりは滝で落ちてアウト。
+    // 人は左の坂を下りて左岸の道（M7_LeftBank）を走り、流れてくるふわふわを右の広場へ撃ち上げる
     static void Finale(Transform root, Transform terr, Material ground, Material bedMat, FuwaWaterFx fx, AudioSource splash)
     {
         var g = new GameObject("Finale").transform; g.SetParent(root, false);
-        float H = FallsH;
-        float a0 = sF1 + FinA0, b0 = sF1 + FinB0, c0 = sF1 + FinC0, c1 = sF1 + FinC1;
-        float surfA = H + FinSurfA, surfB = H + FinSurfB, surfC = H + FinSurfC;
-        // 池：上の池のはじめのふち（RimStart）が下の池の奥の壁になる（下の池は奥を開けて、上の池の下のかたまりにくっつける）
-        var pools = new[]
+        float H = FallsH, surf = H + FinRiverSurf;
+        float r0 = sF1 + FinRiver0, r1 = sF1 + FinRiver1, p0 = sF1 + FinPlaza0, p1 = p0 + FinPlazaLen;
+        // 川（浅い：人が落ちても歩ける。ふちはなし＝両岸の地面がふち。終わりは開いていて滝で落ちる）
+        BuildWater(g, new Water { name = "W6_FinalRiver", s0 = r0, s1 = r1, surf = surf, flow = FinRiverFlow, hw = s => FinRiverHW,
+            rimL = false, rimR = false, open1 = true, bodyBottom = -6f }, bedMat, ground, fx, splash);
+        Center(r1, out var ep, out var ed);
+        FuwaStage2WaterTest.Waterfall(g, "EndFalls", new Vector3(ep.x, 0, ep.y), surf + 0.02f, surf - 10f, FinRiverHW * 2f + 0.3f, new Vector3(ed.x, 0, ed.y));
+        // 右岸：川ぞいの細い地面（ふわふわが乗るとアウト）。ゴールの広場の所は広場の土台
+        Sweep(g, "RightBank", r0 + FinCliffLen, r1, s => FinRiverHW, s => FinRiverHW + FinBankW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, ground, 11, true);
+        Sweep(g, "GoalBase", p0, p1, s => FinRiverHW + FinBankW, s => FinRiverHW + FinBankW + FinPlazaW, s => surf - WaterDepth - 1.5f, s => goalH - Thick - 0.01f, ground, 0, true);
+        // 左岸の道の下の土台（道と川のあいだのすき間を埋める）
+        Sweep(g, "LeftBankBase", sF1 + FinLand, r1, s => -FinRiverHW - FinWalkW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => LeftBankH(s) - Thick - 0.01f, ground, 0, true);
+        // 滝のカーテン：道の幅いっぱい（踊り場の先、川の始まりの上）。落ち口は高く、川の水面まで
+        Center(sF1 + FinCurtain, out var cp, out var cd); var cr = Right(cd);
+        FuwaStage2WaterTest.Waterfall(g, "ForcedFalls", new Vector3(cp.x, 0, cp.y), H + FinCurtainTop, surf, FinRiverHW * 2f + 0.6f, new Vector3(cd.x, 0, cd.y));
+        // 回り込み防止：左（人の坂の上）はふわふわだけアウト、右は崖
+        var by = new GameObject("BypassOut"); by.transform.SetParent(g, false); by.layer = 4;
+        var bl = cp + cr * (-(FinRiverHW + 0.3f) - 2.5f);
+        by.transform.localPosition = new Vector3(bl.x, (surf + H + FinCurtainTop) * 0.5f, bl.y); by.transform.localRotation = Quaternion.LookRotation(new Vector3(cd.x, 0, cd.y));
+        var bbc = by.AddComponent<BoxCollider>(); bbc.isTrigger = true; bbc.size = new Vector3(5f, H + FinCurtainTop - surf, 0.8f);
+        var hz = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHazard>(by); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hz); NoSync(hz);
+        Sweep(terr, "FinalCliffR", sF1 - 2f, r0 + FinCliffLen, s => FinRiverHW, s => FinRiverHW + 5f, s => Base - 4f, s => H + FinCurtainTop + 1f, ground, 0, true);
+        // アウト判定：川より下（ふわふわ＝FuwaHazard、人＝FuwaPlayerCatcher）。滝の道のアウトの続き（広場の始まり〜川の終わりの先）
+        var outs = new GameObject("Outs").transform; outs.SetParent(g, false);
+        var ballProxy = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
+        float o0 = sGoal0, o1 = r1 + 8f;
+        int nSeg = Mathf.Max(1, Mathf.CeilToInt((o1 - o0) / 4f));
+        for (int k = 0; k < nSeg; k++)
         {
-            new Water { name = "W6_PoolA", s0 = a0, s1 = b0 - RimW, surf = surfA, flow = 0.4f, hw = s => FinPoolHW, open1 = true },
-            new Water { name = "W7_PoolB", s0 = b0, s1 = c0 - RimW, surf = surfB, flow = 0.4f, hw = s => FinPoolHW, open1 = true },
-            new Water { name = "W8_PoolC", s0 = c0, s1 = c1, surf = surfC, flow = 0.4f, hw = s => FinPoolHW },
-        };
-        foreach (var w in pools) BuildWater(g, w, bedMat, ground, fx, splash);
-        // 泡の柱：池の奥。てっぺんは上の池の水面の 1.3m 上で、前（上の池の方）へ放り出す
-        void Column(string name, float s, float bottom, float top)
-        {
-            Center(s, out var cp, out var cd);
-            var c = FuwaStage2WaterTest.BubbleColumn(g, name, new Vector3(cp.x, 0, cp.y), bottom, top, new Vector3(cd.x, 0, cd.y));
-            var cc = c.GetComponent<CapsuleCollider>(); cc.radius = FinColRadius;   // 池の幅のどこを流れてきても入るように太く
-            var bc = c.GetComponent<FuwaBubbleColumn>(); bc.exitPush = new Vector3(0f, 0.6f, 3f);
-            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bc);
+            float a = Mathf.Lerp(o0, o1, k / (float)nSeg), b = Mathf.Lerp(o0, o1, (k + 1) / (float)nSeg), m = (a + b) * 0.5f;
+            Center(m, out var op, out var od);
+            var rot = Quaternion.LookRotation(new Vector3(od.x, 0, od.y));
+            var bo = new GameObject("BallOut" + k); bo.transform.SetParent(outs, false); bo.layer = 4;
+            bo.transform.localPosition = new Vector3(op.x, surf - 5f, op.y); bo.transform.localRotation = rot;
+            var c1 = bo.AddComponent<BoxCollider>(); c1.isTrigger = true; c1.size = new Vector3(30f, 2.4f, b - a + 1f);
+            var h1 = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHazard>(bo); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(h1); NoSync(h1);
+            var po = new GameObject("PlayerOut" + k); po.transform.SetParent(outs, false);
+            po.transform.localPosition = new Vector3(op.x, surf - 7f, op.y); po.transform.localRotation = rot;
+            var c2 = po.AddComponent<BoxCollider>(); c2.isTrigger = true; c2.size = new Vector3(30f, 2.4f, b - a + 1f);
+            var pc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(po); pc.ball = ballProxy; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pc); NoSync(pc);
         }
-        Column("ColumnA", sF1 + FinColA, surfA - 0.55f, surfB + 1.3f);
-        Column("ColumnB", sF1 + FinColB, surfB - 0.55f, surfC + 1.3f);
-        Waterwheel(g, sF1 + FinWheelS, surfC, bedMat, ground);
-        // 右の高い崖と大きな滝（崖の上から段々の池の横へ。はみ出したふわふわは押し落とされる）
-        float cliffIn = FinPoolHW + RimW + 0.8f;
-        Sweep(terr, "BigFallsCliff", sF1 - 1f, sGoal0 + FinPlazaLen, s => cliffIn, s => cliffIn + 4.5f, s => Base - 4f, s => goalH + 6f, ground, 0, true);
-        Center(sF1 + 14f, out var fp, out var fd); var fr = Right(fd);
-        var fc = fp + fr * (FinPoolHW + RimW + 0.4f);
-        FuwaStage2WaterTest.Waterfall(root, "Falls_Big", new Vector3(fc.x, 0, fc.y), goalH + 5.5f, surfA, 9f, new Vector3(-fr.x, 0, -fr.y));
-    }
-
-    // 水車エレベーター（FuwaWaterwheelLift）：池Cの水面すれすれをバケツが通る。軸は道を横切る向き、手前（来た方）側のバケツが上っていく
-    static void Waterwheel(Transform parent, float s, float surf, Material wood, Material hub)
-    {
-        Center(s, out var wp, out var wd);
-        var frame = new GameObject("WaterwheelLift").transform; frame.SetParent(parent, false);
-        frame.localPosition = new Vector3(wp.x, surf + FinWheelR - 0.1f, wp.y);   // いちばん下のバケツの中心が水面の 0.1m 下
-        frame.localRotation = Quaternion.LookRotation(new Vector3(wd.x, 0, wd.y));
-        var wheel = new GameObject("Wheel").transform; wheel.SetParent(frame, false);
-        wheel.localRotation = Quaternion.LookRotation(Vector3.right, Vector3.up);   // ローカル +Z＝軸（道を横切る向き）
-        var rimMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_TestPost.mat") ?? wood;
-        const float halfW = 1.25f;
-        GameObject Part(PrimitiveType t, string name, Transform p)
-        {
-            var o = GameObject.CreatePrimitive(t); o.name = name; o.transform.SetParent(p, false);
-            Object.DestroyImmediate(o.GetComponent<Collider>()); return o;
-        }
-        foreach (var z in new[] { -halfW, halfW })
-        {
-            var d = Part(PrimitiveType.Cylinder, "Disc", wheel);
-            d.transform.localPosition = new Vector3(0, 0, z); d.transform.localRotation = Quaternion.Euler(90, 0, 0);
-            d.transform.localScale = new Vector3(FinWheelR * 2f - 0.3f, 0.05f, FinWheelR * 2f - 0.3f);
-            d.GetComponent<Renderer>().sharedMaterial = rimMat;
-        }
-        for (int i = 0; i < 8; i++)   // 8本の腕（45度ずつ＝どちら回りでもバケツの向きにそろう）
-        {
-            var arm = Part(PrimitiveType.Cube, "Arm" + i, wheel);
-            var q = Quaternion.Euler(0, 0, i * 45f);
-            arm.transform.localRotation = q; arm.transform.localPosition = q * new Vector3(0, -FinWheelR * 0.5f, 0);
-            arm.transform.localScale = new Vector3(0.14f, FinWheelR, 0.14f);
-            arm.GetComponent<Renderer>().sharedMaterial = wood;
-        }
-        var ax = Part(PrimitiveType.Cylinder, "Axle", wheel);
-        ax.transform.localRotation = Quaternion.Euler(90, 0, 0); ax.transform.localScale = new Vector3(0.5f, halfW + 0.3f, 0.5f);
-        ax.GetComponent<Renderer>().sharedMaterial = hub;
-        // バケツ：浅いトレー（道を横切る向きに長い）。向きは水車の枠のまま（いつも上を向く）
-        var bucketMat = FlatMat("Stage2_WheelBucket", new Color(0.86f, 0.62f, 0.38f));
-        var buckets = new Transform[8];
-        for (int i = 0; i < buckets.Length; i++)
-        {
-            var b = new GameObject("Bucket" + i).transform; b.SetParent(frame, false);
-            var tray = Part(PrimitiveType.Cube, "Tray", b); tray.transform.localPosition = new Vector3(0, -0.1f, 0); tray.transform.localScale = new Vector3(halfW * 2f - 0.2f, 0.08f, 0.9f);
-            tray.GetComponent<Renderer>().sharedMaterial = bucketMat;
-            foreach (var zz in new[] { -0.45f, 0.45f })
-            {
-                var lip = Part(PrimitiveType.Cube, "Lip", b); lip.transform.localPosition = new Vector3(0, 0.02f, zz); lip.transform.localScale = new Vector3(halfW * 2f - 0.2f, 0.25f, 0.06f);
-                lip.GetComponent<Renderer>().sharedMaterial = bucketMat;
-            }
-            buckets[i] = b;
-        }
-        var snd = new GameObject("CatchSfx"); snd.transform.SetParent(frame, false);
-        var a = snd.AddComponent<AudioSource>(); a.playOnAwake = false; a.spatialBlend = 1f; a.minDistance = 2f; a.maxDistance = 20f; a.rolloffMode = AudioRolloffMode.Linear;
-        a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/sfx_water_plop.wav");
-        var lift = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaWaterwheelLift>(frame.gameObject);
-        lift.ball = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
-        lift.wheel = wheel; lift.buckets = buckets; lift.bucketRadius = FinWheelR; lift.catchHalfWidth = halfW + 0.1f; lift.catchSound = a;
-        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lift); NoSync(lift);
     }
 
     // FuwaCourse/ToonLit の単色の材質（水のテスト場の ToonMat と同じ作り）
