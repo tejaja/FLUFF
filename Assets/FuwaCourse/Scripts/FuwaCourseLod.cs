@@ -27,10 +27,13 @@ public class FuwaCourseLod : UdonSharpBehaviour
     public bool onlyMobile = true;
 
     // 他のコースに飛んで近づいた時は、そのコースを本体に戻す（2026-10-22 てじゃ「横とか上から接近したとき、ある程度近づくと切り替わるように」）
-    // コース全体の箱1個だと隣のコースと重なるので、床がある所を cellSize 角のマスで持つ（FuwaCourseLite が入れる）
-    [Tooltip("床があるマスの中心（ワールド座標）")]
-    public Vector3[] cellCenters;
-    [Tooltip("cellCenters がどのコースのマスか（fullRoots の番号）")]
+    // コース全体の箱1個だと隣のコースと重なるので、床を cellSize 角のマスに分けて、マスごとに「中の床がある範囲」の箱で持つ（FuwaCourseLite が入れる）。
+    // マスそのままの箱だと、端に床がかかっただけで最大10m近く見えた（コース4のスタートでコース5が戻ったまま）
+    [Tooltip("床の箱（ワールド座標）の小さい側")]
+    public Vector3[] cellMin;
+    [Tooltip("床の箱（ワールド座標）の大きい側")]
+    public Vector3[] cellMax;
+    [Tooltip("cellMin/cellMax がどのコースの床か（fullRoots の番号）")]
     public int[] cellCourse;
     public float cellSize = 10f;
     [Tooltip("他のコースの床のマスからこの距離(m)以内に近づいたら本体に戻す。離れる時は +5m で軽い版に。15m なら普通にコースを進んでいる間は隣が戻らない（2026-10-22 計算）")]
@@ -132,20 +135,18 @@ public class FuwaCourseLod : UdonSharpBehaviour
         int n = fullRoots != null ? fullRoots.Length : 0;
         if (_near == null || _near.Length != n) _near = new bool[n];
         VRC.SDKBase.VRCPlayerApi p = VRC.SDKBase.Networking.LocalPlayer;
-        bool check = inSolo && cur >= 0 && mode != 0 && p != null && cellCenters != null && cellCourse != null;
+        bool check = inSolo && cur >= 0 && mode != 0 && p != null && cellMin != null && cellMax != null && cellCourse != null;
         if (_dist == null || _dist.Length != n) _dist = new float[n];
         for (int i = 0; i < n; i++) _dist[i] = 1e9f;
         if (check)
         {
-            // コースごとに、いちばん近いマス（の箱のいちばん近い点）までの距離
+            // コースごとに、いちばん近い床の箱（のいちばん近い点）までの距離
             Vector3 me = p.GetPosition();
-            Vector3 h = Vector3.one * (cellSize * 0.5f);
-            int m = Mathf.Min(cellCenters.Length, cellCourse.Length);
+            int m = Mathf.Min(Mathf.Min(cellMin.Length, cellMax.Length), cellCourse.Length);
             for (int k = 0; k < m; k++)
             {
                 int i = cellCourse[k]; if (i < 0 || i >= n || i == cur) continue;
-                Vector3 c = cellCenters[k];
-                float d = (Vector3.Max(c - h, Vector3.Min(c + h, me)) - me).sqrMagnitude;
+                float d = (Vector3.Max(cellMin[k], Vector3.Min(cellMax[k], me)) - me).sqrMagnitude;
                 if (d < _dist[i]) _dist[i] = d;
             }
         }
