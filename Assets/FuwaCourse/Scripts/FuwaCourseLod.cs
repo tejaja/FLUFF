@@ -184,7 +184,7 @@ public class FuwaCourseLod : UdonSharpBehaviour
                 var b = lobbyStopBehaviours[i]; if (b == null || IsCurrent(stopCourse, i)) continue;
                 float d = (b.transform.position - me).sqrMagnitude;
                 bool run = _bRun[i] ? d < rOff : d < rOn;
-                if (run != _bRun[i]) { _bRun[i] = run; b.enabled = run; }
+                if (run != _bRun[i]) { _bRun[i] = run; SetRun(b, run); }
             }
         if (lobbyHideObjects != null)
             for (int i = 0; i < lobbyHideObjects.Length; i++)
@@ -214,8 +214,16 @@ public class FuwaCourseLod : UdonSharpBehaviour
         _lobbyState = lobby;
         int nb = lobbyStopBehaviours != null ? lobbyStopBehaviours.Length : 0, no = lobbyHideObjects != null ? lobbyHideObjects.Length : 0;
         if (_bRun == null) { _bRun = new bool[nb]; _oRun = new bool[no]; }
-        for (int i = 0; i < nb; i++) { bool run = lobby == 0 || IsCurrent(stopCourse, i); _bRun[i] = run; if (lobbyStopBehaviours[i] != null) lobbyStopBehaviours[i].enabled = run; }
+        for (int i = 0; i < nb; i++) { bool run = lobby == 0 || IsCurrent(stopCourse, i); _bRun[i] = run; SetRun(lobbyStopBehaviours[i], run); }
         for (int i = 0; i < no; i++) { bool run = lobby == 0 || IsCurrent(hideCourse, i); _oRun[i] = run; if (lobbyHideObjects[i] != null) lobbyHideObjects[i].SetActive(run); }
+    }
+
+    // 止める前に「LodStop」を送る（転がる岩：落ちている途中で止まると空中に浮いて見えるので消す。OnDisable は ClientSim で呼ばれなかった。LodStop が無い物には何も起きない）
+    private void SetRun(VRC.Udon.UdonBehaviour b, bool run)
+    {
+        if (b == null) return;
+        if (!run && b.enabled) b.SendCustomEvent("LodStop");
+        b.enabled = run;
     }
 
     // ふつうでコースの中にいる時（_lobbyState = 2+cur）、i 番目の物がそのコースの物か

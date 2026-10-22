@@ -22,7 +22,7 @@ public class FuwaBoulder : UdonSharpBehaviour
     [Tooltip("上に出てくる時間（秒）")]
     public float emergeTime = 0.5f;
     [Tooltip("道の端から落ちていく時間（秒）。この間は重力で落ちて、最後に消える")]
-    public float fallTime = 2.0f;
+    public float fallTime = 1.0f;   // 3秒だと、スマホのロビー等で Udon を止めた時に下のほうで空中に止まった岩が丸見えだった（2026-10-22 てじゃ）
     [Tooltip("落ちる時に前へ進む速さの割合（穴の向こう側の壁にぶつからないように）")]
     public float fallCarry = 0.5f;
 
@@ -41,6 +41,7 @@ public class FuwaBoulder : UdonSharpBehaviour
     private Vector3 _dir;
     private float _rolled;
     private Vector3 _baseScale;
+    private bool _falling;
 
     private void Start()
     {
@@ -62,13 +63,14 @@ public class FuwaBoulder : UdonSharpBehaviour
         if (t >= total) { SetActive(false); return; }
         SetActive(true);
 
-        float d; float scale = 1f;
+        float d; float scale = 1f; _falling = false;
         Vector3 pos;
         if (t < emergeTime) { d = 0f; scale = Mathf.SmoothStep(0f, 1f, t / emergeTime); pos = Sample(0f, out _dir); }
         else if (t < emergeTime + travel) { d = (t - emergeTime) * speed; pos = Sample(d, out _dir); }
         else
         {
             // 最後の向きのまま飛び出して、重力で落ちる
+            _falling = true;
             float k = t - emergeTime - travel;
             pos = Sample(_length, out _dir);
             Vector3 flat = _dir; flat.y = 0f;
@@ -92,6 +94,12 @@ public class FuwaBoulder : UdonSharpBehaviour
         _rolled = d;
         // 沈んでいる間・出てくる途中は当たらない
         if (_col != null) _col.enabled = t >= emergeTime * 0.6f && t < emergeTime + travel + 0.15f;
+    }
+
+    // FuwaCourseLod がロビー・別のコースで Udon を止める直前に呼ぶ。落ちている途中なら消す（空中で止まって見えるので）
+    public void LodStop()
+    {
+        if (_falling) SetActive(false);
     }
 
     private void SetActive(bool on)
