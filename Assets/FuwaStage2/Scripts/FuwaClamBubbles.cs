@@ -34,6 +34,9 @@ public class FuwaClamBubbles : UdonSharpBehaviour
     [Tooltip("泡の進む速さ(m/s)と上がる速さ(m/s)")]
     public float bubbleSpeed = 1.2f;
     public float bubbleRise = 0.22f;
+    [Tooltip("泡の上下のゆれ（m、片側）と速さ（rad/s）。2026-10-22 てじゃ「上下の揺れも追加」（前は 0.05m のふわふわだけ）。包む判定もゆれた位置で")]
+    public float bobAmp = 0.35f;
+    public float bobSpeed = 2.2f;
     [Tooltip("吹き出し口から横にこれだけ進んだら割れる(m)＝反対側の滝のあたり。包んでいても割れる")]
     public float bubbleRange = 6.2f;
 
@@ -53,9 +56,9 @@ public class FuwaClamBubbles : UdonSharpBehaviour
     [Tooltip("撃った勢いが弱まる強さ（1/s）")]
     public float shotDrag = 1.2f;
     [Tooltip("撃った時に、それまでの泡の動きをどれだけ残すか（慣性）")]
-    [Range(0f, 1f)] public float shotKeep = 0.5f;
+    [Range(0f, 1f)] public float shotKeep = 0.7f;   // 0.5→0.7（2026-10-22 てじゃ「もっと元の慣性残して」）
     [Tooltip("撃ったあと、残した慣性が弱まる強さ（1/s）。shotDrag より小さいと、あとから慣性の向きへ曲がる")]
-    public float driftDrag = 0.6f;
+    public float driftDrag = 0.45f;
     [Tooltip("下向きに撃った時の下向きの分をこの倍率に弱める（道にたたきつけてアウトになりにくく）")]
     [Range(0f, 1f)] public float shotDownScale = 0.3f;
     [Tooltip("割れたあと、また包まれるまでの秒数")]
@@ -142,7 +145,9 @@ public class FuwaClamBubbles : UdonSharpBehaviour
             if (Vector3.Dot(_pos[b] - _from[b], _dir[b]) > bubbleRange) { Pop(b, false); continue; }
             float w = now - _born[b];
             float s = bubbleSize * Mathf.Min(1f, 0.35f + w * 2.2f);   // 吹き出した直後はふくらむ
-            bubbles[b].position = _pos[b] + Vector3.up * (0.05f * Mathf.Sin(w * 3.1f + b));
+            // 出た瞬間は 0 から（ゆれ始めでパッと動かないように）。貝ごとに向きを逆にする
+            float bob = bobAmp * Mathf.Sin(w * bobSpeed) * Mathf.Min(1f, w * 1.5f) * ((b / Mathf.Max(1, bubblesPerClam)) % 2 == 0 ? 1f : -1f);
+            bubbles[b].position = _pos[b] + Vector3.up * (bob + 0.05f * Mathf.Sin(w * 3.1f + b));
             bubbles[b].localScale = new Vector3(s * (1f + 0.04f * Mathf.Sin(w * 7f + b)), s, s * (1f - 0.04f * Mathf.Sin(w * 7f + b)));
             if (ballOk && _held < 0 && now >= _noCatchUntil && w > 0.25f && (bubbles[b].position - bp).magnitude < captureRadius) Capture(b);
         }
