@@ -52,6 +52,10 @@ public static class FuwaCourseJoinBuilder
         j.ball = ball;
         j.areaVisibility = Object.FindObjectsOfType<FuwaAreaVisibility>(true).First();
         j.roots = roots.ToArray(); j.liteRoots = lites.ToArray(); j.warps = warps.ToArray();
+        j.lod = lod;   // コースの床の箱（近くに浮いているだけでも入った扱い）。roots の 0〜 は lod.fullRoots と同じ順
+        // ロビーの床の箱：ロビーの下の地面レイヤー(11)の当たり判定（写真スタジオ・ひみつの島も）
+        var lcols = lobby.GetComponentsInChildren<Collider>(true).Where(c => !c.isTrigger && c.enabled && c.gameObject.layer == 11).ToArray();
+        j.lobbyMin = lcols.Select(c => c.bounds.min).ToArray(); j.lobbyMax = lcols.Select(c => c.bounds.max).ToArray();
         // エリアの範囲（床などの当たり判定の箱を AreaMargin 広げる）と、そこへ行くワープ
         var av = j.areaVisibility;
         var groups = new[] { (0, av.hubObjects, "FuwaPlayground", "ReturnToHub_Trigger"), (1, av.soloObjects, "FuwaHub", "SoloGate_Trigger"), (2, av.playgroundObjects, "FuwaHub", "PlaygroundGate_Trigger") };

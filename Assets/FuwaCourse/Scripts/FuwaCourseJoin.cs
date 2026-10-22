@@ -23,6 +23,16 @@ public class FuwaCourseJoin : UdonSharpBehaviour
     public FuwaCourseWarp[] warps;
     [Tooltip("地面に立ってこの秒数たったら入った扱い")]
     public float dwell = 1f;
+    // 着地しなくても、コースの床（FuwaCourseLod の床の箱）から joinDist 以内に dwell 秒いたら入った扱い（2026-10-22 てじゃ「コース入場判定も、この範囲でもいいかも」
+    // 「上を通る時にふわふわリセットされても問題なくない？」「ロビーも近づいたらかわってもいいかも」）。roots の 0〜 は FuwaCourseLod.fullRoots と同じ順、
+    // ロビー（roots の最後）は lobbyMin/lobbyMax の床の箱で。いくつも近い時はいちばん近い所。コースとロビーの床は13m以上離れている
+    [Tooltip("床の箱を持っている FuwaCourseLod（なければ地面だけで判定）")]
+    public FuwaCourseLod lod;
+    [Tooltip("ロビーの床の箱（当たり判定の箱、ワールド座標）。roots の最後がロビー")]
+    public Vector3[] lobbyMin;
+    public Vector3[] lobbyMax;
+    [Tooltip("コース・ロビーの床からこの距離(m)以内なら入った扱い（FuwaCourseLod.nearCourseDist より小さく）")]
+    public float joinDist = 8f;
     public float interval = 0.25f;
 
     [Header("エリアの間を飛んだ時")]
@@ -65,11 +75,37 @@ public class FuwaCourseJoin : UdonSharpBehaviour
                     if (r == roots[i] || (liteRoots != null && i < liteRoots.Length && liteRoots[i] != null && t.IsChildOf(liteRoots[i]))) { c = i; break; }
             }
         }
+        if (c < 0) c = NearestCourse(lp.GetPosition());
         if (c < 0 || warps[c] == null || warps[c].courseStart == ball.startPoint) { _cand = -1; return; }
         if (c != _cand) { _cand = c; _candSince = Time.time; return; }
         if (Time.time - _candSince < dwell) return;
         _cand = -1;
         warps[c].JoinWithoutWarp();
+    }
+
+    // 床の箱から joinDist 以内でいちばん近いコース・ロビー（roots の番号。なければ -1）
+    private int NearestCourse(Vector3 p)
+    {
+        float best = joinDist * joinDist; int c = -1;
+        if (lod != null && lod.cellMin != null && lod.cellMax != null && lod.cellCourse != null)
+        {
+            int m = Mathf.Min(Mathf.Min(lod.cellMin.Length, lod.cellMax.Length), lod.cellCourse.Length);
+            for (int k = 0; k < m; k++)
+            {
+                float d = (Vector3.Max(lod.cellMin[k], Vector3.Min(lod.cellMax[k], p)) - p).sqrMagnitude;
+                if (d < best) { best = d; c = lod.cellCourse[k]; }
+            }
+        }
+        if (lobbyMin != null && lobbyMax != null)
+        {
+            int m = Mathf.Min(lobbyMin.Length, lobbyMax.Length);
+            for (int k = 0; k < m; k++)
+            {
+                float d = (Vector3.Max(lobbyMin[k], Vector3.Min(lobbyMax[k], p)) - p).sqrMagnitude;
+                if (d < best) { best = d; c = roots.Length - 1; }
+            }
+        }
+        return c;
     }
 
     // 今と違うエリアの範囲に入っていたら切り替える。切り替えたら true
