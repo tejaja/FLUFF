@@ -1,6 +1,6 @@
 # ステージ2「みずのたに」の水の効果音（2026-10-17）
 #   python make_water_sfx.py            → sfx_water_plop.wav（ふわふわが水に落ちた「ちゃぽん」）ほか全部
-#   python make_water_sfx.py pop        → sfx_bubble_pop.wav（泡が割れる「ぱちん」）だけ
+#   python make_water_sfx.py bubble     → 泡の2つ（sfx_bubble_pop.wav 割れる「パチン！」、sfx_bubble_wrap.wav 包まれる「ボヨン」）だけ
 # 出力は Assets/FuwaStage2/Audio
 import os, sys, wave
 import numpy as np
@@ -61,30 +61,35 @@ def waterfall_loop(seconds=6.0, seed=5):
     out = np.concatenate([head, y[fade:n]])
     return out
 
-def bubble_pop(seed=8):
-    """泡が割れる「ぱちん」：はじける短いクリック＋ごく短い明るい響き（音程は動かさない）。
-    2026-10-22 てじゃ「われたらパチン」：前は高い所から下がる「ぴゅ」がついていて「ピュン」に聞こえた"""
+def hp(x, a): return x - lp(x, a)
+
+def bubble_pop(seed=21):
+    """泡が割れる「パチン！」（2026-10-22 てじゃ「パチン！っと弾ける感じ」、候補Aに決定）：
+    一瞬の鋭いはじけ（広い帯域）＋空気がシュッと抜ける短いノイズ＋低い「ポッ」。前の「ぴゅ」（下がる音）は「ピュン」に聞こえたのでなし"""
     r = np.random.default_rng(seed)
-    n = int(0.12 * SR); t = np.arange(n) / SR
-    click = (r.standard_normal(n) - lp(r.standard_normal(n), 0.3)) * np.exp(-t / 0.003)
-    ring = (np.sin(2 * np.pi * 2300 * t) * 0.6 + np.sin(2 * np.pi * 3400 * t) * 0.3) * np.exp(-t / 0.009)
-    body = lp(r.standard_normal(n), 0.15) * np.exp(-t / 0.006) * 0.5
-    y = click * 0.9 + ring * 0.5 + body
-    y *= np.minimum(1, (n - np.arange(n)) / (0.02 * SR))
+    n = int(0.22 * SR); t = np.arange(n) / SR
+    snap = hp(r.standard_normal(n), 0.25) * np.exp(-t / 0.0025)
+    crack = hp(r.standard_normal(n), 0.5) * np.exp(-t / 0.018) * 0.35
+    thump = np.sin(2 * np.pi * (160 * np.exp(-t / 0.03) + 90) * t) * np.exp(-t / 0.02) * 0.5
+    y = snap * 1.2 + crack + thump
+    y *= np.minimum(1, (n - np.arange(n)) / (0.03 * SR))
     return y
 
-def bubble_wrap(seed=9):
-    """泡に包まれた「ぽわん」：やわらかく上がっていく音"""
-    n = int(0.45 * SR); t = np.arange(n) / SR
-    f = 380 + 420 * (1 - np.exp(-t / 0.12))
-    y = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.minimum(1, t / 0.03) * np.exp(-t / 0.18)
-    y += 0.4 * np.sin(2 * np.pi * np.cumsum(f * 2.01) / SR) * np.minimum(1, t / 0.03) * np.exp(-t / 0.1)
-    y *= np.minimum(1, (n - np.arange(n)) / (0.05 * SR))
+def bubble_wrap(base=110, top=230, wob=0.18, dur=0.8):
+    """泡に包まれた「ボヨン」（2026-10-22 てじゃ「もっとボヨンに近い」、候補Aに決定。前はやわらかく上がる「ぽわん」）：
+    低い「ボ」から上がって、ばねみたいに音程がびよんびよん揺れながら落ち着く"""
+    n = int(dur * SR); t = np.arange(n) / SR
+    f = base + (top - base) * (1 - np.exp(-t / 0.05))
+    f *= 1 + wob * np.sin(2 * np.pi * 9 * t) * np.exp(-t / 0.25)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    env = np.minimum(1, t / 0.012) * np.exp(-t / 0.25)
+    y = np.sin(ph) * env + 0.35 * np.sin(2 * ph) * env * np.exp(-t / 0.1) + 0.15 * np.sin(3 * ph) * env * np.exp(-t / 0.05)
+    y *= np.minimum(1, (n - np.arange(n)) / (0.08 * SR))
     return y
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1 and sys.argv[1] == 'pop':
-        save(bubble_pop(), "sfx_bubble_pop.wav"); sys.exit()
+    if len(sys.argv) > 1 and sys.argv[1] == 'bubble':
+        save(bubble_pop(), "sfx_bubble_pop.wav"); save(bubble_wrap(), "sfx_bubble_wrap.wav"); sys.exit()
     save(plop(), "sfx_water_plop.wav")
     save(waterfall_loop(), "sfx_waterfall_loop.wav")
     save(bubble_pop(), "sfx_bubble_pop.wav")
