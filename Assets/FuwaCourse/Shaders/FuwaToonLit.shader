@@ -14,6 +14,9 @@ Shader "FuwaCourse/ToonLit"
     {
         _Color ("Color", Color) = (1,1,1,1)
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
+        // 看板の文字・赤い枠など、数mm手前に重ねた層が遠くでチラつかないように前へずらす（スマホは深度の精度が低い）。ふだんは0
+        _OffsetFactor ("Depth Offset Factor（重ねた層を手前に：-1）", Float) = 0
+        _OffsetUnits ("Depth Offset Units（重ねた層を手前に：-1〜-4）", Float) = 0
         _MainTex ("Albedo (optional)", 2D) = "white" {}
         [HDR] _EmissionColor ("Emission", Color) = (0,0,0,1)
         [Toggle] _EmissionGradient ("Emission: グラデーションで光る（足し算で白飛びしない）", Float) = 0
@@ -74,6 +77,7 @@ Shader "FuwaCourse/ToonLit"
             Name "FORWARD"
             Tags { "LightMode"="ForwardBase" }
             Cull [_Cull]
+            Offset [_OffsetFactor], [_OffsetUnits]
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -279,6 +283,7 @@ Shader "FuwaCourse/ToonLit"
             Name "FORWARD_ADD"
             Tags { "LightMode"="ForwardAdd" }
             Cull [_Cull]
+            Offset [_OffsetFactor], [_OffsetUnits]
             Blend One One
             ZWrite Off
             CGPROGRAM

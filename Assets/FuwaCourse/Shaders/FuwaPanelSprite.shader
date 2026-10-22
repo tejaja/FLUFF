@@ -9,12 +9,16 @@ Shader "Fuwa/PanelSprite"
         _Color ("Tint", Color) = (1,1,1,1)
         _Cutoff ("Alpha Cutoff (これ以下は奥行きも書かない)", Range(0,1)) = 0.3
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull（Backで裏から見えない看板に）", Float) = 0
+        // 枠（Border）はパネルの6mm後ろ。遠くでパネルとチラつかないよう奥へずらす（+1）。ふだんは0
+        _OffsetFactor ("Depth Offset Factor", Float) = 0
+        _OffsetUnits ("Depth Offset Units", Float) = 0
     }
     SubShader
     {
         Tags { "Queue"="Transparent-10" "RenderType"="Transparent" "IgnoreProjector"="True" "PreviewType"="Plane" "CanUseSpriteAtlas"="True" }
         Cull [_Cull]
         ZWrite On
+        Offset [_OffsetFactor], [_OffsetUnits]
         Blend SrcAlpha OneMinusSrcAlpha
 
         Pass
