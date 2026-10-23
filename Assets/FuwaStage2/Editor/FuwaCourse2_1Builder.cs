@@ -567,10 +567,7 @@ public static class FuwaCourse2_1Builder
         Center(sGoal0 + 4f, out var gp2, out var gd2);
         var gq = gp2 + Right(gd2) * FinGoalLat;
         goal.localPosition = new Vector3(gq.x, goalH, gq.y); goal.localRotation = Quaternion.LookRotation(new Vector3(gd2.x, 0, gd2.y));
-        var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ring.name = "GoalMarker"; ring.transform.SetParent(goal, false);
-        Object.DestroyImmediate(ring.GetComponent<Collider>());
-        ring.transform.localPosition = new Vector3(0, 0.03f, 0); ring.transform.localScale = new Vector3(2.4f, 0.02f, 2.4f);
-        ring.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_TestButton_BallStand_Bubble.mat") ?? bedMat;
+        GoalSet(goal, bedMat);
 
         // ステージ2にいる時だけ表示
         var visb = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(m => m && m.gameObject.scene.IsValid() && m.GetType().Name == "FuwaAreaVisibility");
@@ -590,6 +587,81 @@ public static class FuwaCourse2_1Builder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–1] 長さ " + sEnd.ToString("F0") + "m  台→池 " + sPlaza1.ToString("F1") + " 川 " + sPool1.ToString("F1") + "–" + sRiver1.ToString("F1")
             + " 蓮 " + sPond0.ToString("F1") + "–" + sPond1.ToString("F1") + " 貝の道 " + sWalk0.ToString("F1") + "–" + sWalk1.ToString("F1") + " 滝の道 " + sF0.ToString("F1") + "–" + sF1.ToString("F1") + " ゴール " + sGoal0.ToString("F1");
+    }
+
+    // ---- ゴール（2026-10-23）----
+    // ステージ1のコース1のゴール一式（リング・判定・キノコの輪・▼GOAL・CLEAR!・花火・ロビーへのワープ）を写して、広場のまん中に置く。
+    // 島（GoalGround/IslandUnder）と柵は写さない：床は広場（M8_GoalPlaza、地面レイヤー）。リングの外の広場に着地したらアウト（ステージ1と同じ）。
+    // ワープの戻り先はステージ2のロビー。アルバム（名場面）は2–1のフォトポイントができるまでなし
+    static readonly string[] GoalCopy = { "Ring", "GoalTrigger", "FairyRing", "Marker", "GoalWarp", "RingHalo", "GoalFx", "ClearBanner", "ReturnPoint", "GoalWaves" };
+    static void GoalSet(Transform goal, Material fallback)
+    {
+        var src = GameObject.Find("FuwaCourse/Goal")?.transform;
+        if (!src)
+        {
+            // 写す元がない時は仮の丸だけ
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ring.name = "GoalMarker"; ring.transform.SetParent(goal, false);
+            Object.DestroyImmediate(ring.GetComponent<Collider>());
+            ring.transform.localPosition = new Vector3(0, 0.03f, 0); ring.transform.localScale = new Vector3(2.4f, 0.02f, 2.4f);
+            ring.GetComponent<Renderer>().sharedMaterial = fallback;
+            Debug.LogWarning("[2–1] FuwaCourse/Goal がないので仮のゴール");
+            return;
+        }
+        var map = new Dictionary<Object, Object>();
+        foreach (var n in GoalCopy)
+        {
+            var s = src.Find(n); if (!s) continue;
+            var c = Object.Instantiate(s.gameObject, goal, false); c.name = n;
+            c.transform.localPosition = s.localPosition; c.transform.localRotation = s.localRotation; c.transform.localScale = s.localScale;
+            var sAll = s.GetComponentsInChildren<Transform>(true); var cAll = c.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < sAll.Length && i < cAll.Length; i++)
+            {
+                map[sAll[i]] = cAll[i]; map[sAll[i].gameObject] = cAll[i].gameObject;
+                var sc = sAll[i].GetComponents<Component>(); var cc = cAll[i].GetComponents<Component>();
+                for (int k = 0; k < sc.Length && k < cc.Length; k++) if (sc[k]) map[sc[k]] = cc[k];
+            }
+        }
+        // 戻る所：広場の手前寄り（広場の長さ8mからはみ出さない）
+        var rp = goal.Find("ReturnPoint"); if (rp) rp.localPosition = new Vector3(0f, 1.32f, -2.5f);
+        // 写した物の中の参照を、元のゴールの物 → 写した物に付け替える
+        var lobby2 = GameObject.Find("FuwaStage2/Lobby")?.transform;
+        foreach (var mb in goal.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true))
+        {
+            var so = new SerializedObject(mb); var it = so.GetIterator();
+            while (it.Next(true))
+                if (it.propertyType == SerializedPropertyType.ObjectReference && it.objectReferenceValue && map.TryGetValue(it.objectReferenceValue, out var to)) it.objectReferenceValue = to;
+            if (mb is FuwaGoal) so.FindProperty("album").objectReferenceValue = null;
+            if (mb is FuwaCourseWarp && lobby2)
+            {
+                so.FindProperty("courseStart").objectReferenceValue = lobby2.Find("BallPark");
+                so.FindProperty("playerSpot").objectReferenceValue = lobby2.Find("LobbySpawn");
+                so.FindProperty("gunSpot").objectReferenceValue = lobby2.Find("GunStand_Lobby/GunSpot");
+                so.FindProperty("stage").intValue = 2;
+            }
+            so.ApplyModifiedProperties();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mb);
+        }
+        // 日本語・英語の切り替え：元の文字（ロビーにもどる 等）と同じ文で、写した文字も登録する
+        var lang = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(x => x && x.gameObject.scene.IsValid() && x.GetType().Name == "FuwaLanguage");
+        if (lang)
+        {
+            var so = new SerializedObject(lang);
+            var texts = so.FindProperty("texts"); var ja = so.FindProperty("ja"); var en = so.FindProperty("en");
+            for (int k = texts.arraySize - 1; k >= 0; k--)
+                if (texts.GetArrayElementAtIndex(k).objectReferenceValue == null) { texts.DeleteArrayElementAtIndex(k); ja.DeleteArrayElementAtIndex(k); en.DeleteArrayElementAtIndex(k); }
+            int n0 = texts.arraySize;
+            for (int k = 0; k < n0; k++)
+            {
+                var o = texts.GetArrayElementAtIndex(k).objectReferenceValue;
+                if (!o || !map.TryGetValue(o, out var to)) continue;
+                int j = texts.arraySize; texts.arraySize++; ja.arraySize++; en.arraySize++;
+                texts.GetArrayElementAtIndex(j).objectReferenceValue = to;
+                ja.GetArrayElementAtIndex(j).stringValue = ja.GetArrayElementAtIndex(k).stringValue;
+                en.GetArrayElementAtIndex(j).stringValue = en.GetArrayElementAtIndex(k).stringValue;
+            }
+            so.ApplyModifiedProperties();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)lang);
+        }
     }
 
     // ---- ④ 貝の道（2026-10-21）----
