@@ -45,7 +45,7 @@ public static class FuwaCourse2_1Builder
     const float FinRiver0 = 3.5f, FinRiverSurf = -3f, FinRiverHW = 2.2f, FinRiverFlow = 1.2f;   // 下の川
     const float FinAfterBend = 8f;                             // カーブのあとの川の長さ（その先は滝）
     const float FinCliffLen = 6f;                              // 川の始まりの右の崖（カーテンの右を回り込めないように）の長さ
-    const float FinWalkW = 1.8f, FinDownEnd = 12f;             // 左岸の人の道の幅と、踊り場から下りきる所（そこからはまっすぐゴールの島へ）
+    const float FinWalkW = 1.8f, FinDownEnd = 8f;              // 左岸の人の道の幅と、踊り場から下りきる所（2026-10-23 12→8、てじゃ「坂急にしてもいい」）
     const float FinBankW = 0.6f;                               // 右岸の細い地面
     const float FinGateH = 2.6f, FinWallOut = 9.5f;            // 滝の左の岩の壁：人のくぐり口の高さ、壁の左のはし（中心線から）
     const float FinGoalOut = 22f, FinGoalUp = BankTop;   // 滝の道のアウトの終わり（踊り場から）、ゴールの島の川の水面からの高さ（2026-10-23 てじゃ「ゴール、川岸と同じくらいの高さにしよ」1.6→川岸）
@@ -68,13 +68,14 @@ public static class FuwaCourse2_1Builder
         new Vector2(-3, 76), new Vector2(2, 82), new Vector2(5, 89), new Vector2(5, 97),
         // ⑤ 滝の道（ぐねぐね。滝と水路は FallsSet0・FallsGap で置く）→ ⑥ ラスト
         // 2026-10-23 滝の道を短くしたので、(-1,116) から先はまっすぐ (0,136) へ（ラストの踊り場がカーブにかかって道が折れた。前は (4,122),(2,129)）
-        new Vector2(0, 103), new Vector2(-4, 109), new Vector2(-1, 116), new Vector2(-0.667f, 122.667f), new Vector2(-0.333f, 129.333f), new Vector2(0, 136),
-        // ⑥ ラスト：よけられない滝 → 下の川を流される。川は (0,143) から右へ半径6mで80°曲がって、まっすぐ滝へ。
+        // 同日 てじゃ「ラストの川の直線も短くしたい」：カーブから先を 7m 手前へ（約18m→約11m）
+        new Vector2(0, 103), new Vector2(-4, 109), new Vector2(-1, 116), new Vector2(-0.5f, 122.5f), new Vector2(0, 129),
+        // ⑥ ラスト：よけられない滝 → 下の川を流される。川は (0,136) から右へ半径6mで80°曲がって、まっすぐ滝へ。
         // 曲がった先の外側の岸にゴールの島（2026-10-23 てじゃのスケッチ「川を曲げる、島を曲がった先の川岸におく、川の先は滝」）
-        new Vector2(0, 143), new Vector2(1.404f, 146.857f), new Vector2(4.958f, 148.909f),
-        new Vector2(10.867f, 149.951f), new Vector2(16.776f, 150.993f), new Vector2(22.685f, 152.035f), new Vector2(28.594f, 153.077f),
+        new Vector2(0, 136), new Vector2(1.404f, 139.857f), new Vector2(4.958f, 141.909f),
+        new Vector2(10.867f, 142.951f), new Vector2(16.776f, 143.993f), new Vector2(22.685f, 145.035f), new Vector2(28.594f, 146.077f),
     };
-    const int BendCtrl0 = 22, BendCtrl1 = 24;   // カーブの始まり・終わりの点（Ctrl の番号）
+    const int BendCtrl0 = 21, BendCtrl1 = 23;   // カーブの始まり・終わりの点（Ctrl の番号）
 
     // ---- 中心線 ----
     static List<float> _tu, _ts;
