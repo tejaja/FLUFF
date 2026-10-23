@@ -317,17 +317,7 @@ public static class FuwaCourse2_1Builder
         var wroot = new GameObject("Water").transform; wroot.SetParent(root, false);
         foreach (var w in waters) BuildWater(wroot, w, bedMat, ground, fx, splash);
 
-        // 渡り場：川から左岸の道に上がる石段（川の左のふちの内側、ふちに向かって3段）。ふわふわが上に乗るとアウト、横は当たるだけ
-        {
-            var steps = new GameObject("WadeSteps").transform; steps.SetParent(root, false);
-            float[] tops = { Mathf.Lerp(-WaterDepth, BankTop, 0.25f), Mathf.Lerp(-WaterDepth, BankTop, 0.5f), Mathf.Lerp(-WaterDepth, BankTop, 0.75f) };
-            float a = sCross - 0.3f, b = sCross + CrossGap * 0.5f + 0.8f;
-            for (int i = 0; i < 3; i++)
-            {
-                int k = i;
-                Sweep(steps, "Step" + i, a, b, s => -RiverHW(s) + 0.5f * (2 - k), s => -RiverHW(s) + 0.5f * (3 - k), s => -WaterDepth - 0.05f, s => tops[k], ground, 0, true, true);
-            }
-        }
+        // 渡り場の石段は 2026-10-23 にやめた（浅くしてどこからでも上がれるようになった。てじゃ「ふわふわぶつかるトラップになってる」）
         // 川の終わりの崖の滝 → 谷（下は何もない。ふわふわも人も落ちたらアウト）
         CurvedFalls(root, "Falls_River", sRiver1, 0.02f, -GorgeDrop, RiverHW(sRiver1) * 2f + 0.4f, 1.6f, 0.4f);
         {
