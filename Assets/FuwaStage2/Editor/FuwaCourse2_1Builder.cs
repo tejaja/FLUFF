@@ -295,6 +295,9 @@ public static class FuwaCourse2_1Builder
         pm.AddComponent<MeshFilter>().sharedMesh = vis;
         pm.AddComponent<MeshRenderer>().sharedMaterials = new[] { pathA, pathB };
         pm.AddComponent<MeshCollider>().sharedMesh = col;
+        // 道の横の面にふわふわが当たってもアウトにしない（上に乗ったらアウト）。川から撃ち上げる時に道のふちにかすってアウト、をなくす
+        //（2026-10-23 てじゃ「川から脱出するときに道の縁にあたってアウトになることあるかも」）
+        { var to = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaTopOut>(pm); if (to) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(to); NoSync(to); } }
 
         // ---- 水 ----
         var fx = FuwaStage2WaterTest.MakeFx(root);
@@ -973,11 +976,11 @@ public static class FuwaCourse2_1Builder
         Center(r1, out var ep, out var ed);
         FuwaStage2WaterTest.Waterfall(g, "EndFalls", new Vector3(ep.x, 0, ep.y), surf + 0.02f, surf - 10f, FinRiverHW * 2f + 0.3f, new Vector3(ed.x, 0, ed.y));
         // 右岸：川ぞいの細い地面（ふわふわが乗るとアウト）
-        Sweep(g, "RightBank", r0 + FinCliffLen, r1, s => FinRiverHW, s => FinRiverHW + FinBankW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, ground, 11, true);
+        Sweep(g, "RightBank", r0 + FinCliffLen, r1, s => FinRiverHW, s => FinRiverHW + FinBankW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, ground, 11, true, true);
         // 左岸の道の下の土台（道と川のあいだのすき間を埋める）。カーブの始まりまで。その先の道は川から離れていく桟橋
         Sweep(g, "LeftBankBase", sF1 + FinLand, sBend0, s => -FinRiverHW - FinWalkW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => LeftBankH(s) - Thick - 0.01f, ground, 0, true);
         // カーブの外側の岸：右岸と同じ細い地面
-        Sweep(g, "LeftBank", sBend0, r1, s => -FinRiverHW - FinBankW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, ground, 11, true);
+        Sweep(g, "LeftBank", sBend0, r1, s => -FinRiverHW - FinBankW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, ground, 11, true, true);
         // 滝のカーテン：道の幅いっぱい（踊り場の先、川の始まりの上）。落ち口は高く、川の水面まで
         Center(sF1 + FinCurtain, out var cp, out var cd); var cr = Right(cd);
         FuwaStage2WaterTest.Waterfall(g, "ForcedFalls", new Vector3(cp.x, 0, cp.y), H + FinCurtainTop, surf, FinRiverHW * 2f + 0.6f, new Vector3(cd.x, 0, cd.y));
