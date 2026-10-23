@@ -48,13 +48,13 @@ public static class FuwaCourse2_1Builder
     const float FinWalkW = 1.8f, FinDownEnd = 12f;             // 左岸の人の道の幅と、踊り場から下りきる所（そこからはまっすぐゴールの島へ）
     const float FinBankW = 0.6f;                               // 右岸の細い地面
     const float FinGateH = 2.6f, FinWallOut = 9.5f;            // 滝の左の岩の壁：人のくぐり口の高さ、壁の左のはし（中心線から）
-    const float FinGoalOut = 22f, FinGoalUp = 1.6f;   // 滝の道のアウトの終わり（踊り場から）、ゴールの島の川の水面からの高さ
+    const float FinGoalOut = 22f, FinGoalUp = BankTop;   // 滝の道のアウトの終わり（踊り場から）、ゴールの島の川の水面からの高さ（2026-10-23 てじゃ「ゴール、川岸と同じくらいの高さにしよ」1.6→川岸）
     // 左岸の人の道の高さ：踊り場の高さから川岸の高さへ下りる
     // 左岸の道の高さ：踊り場から川岸の高さまで下りる（川に落ちた人が上がれるように。2026-10-23）。カーブの所から先はゴールの島の高さへ登る
     static float LeftBankH(float s) { return Mathf.Lerp(FallsH, FallsH + FinRiverSurf + BankTop, Mathf.Clamp01((s - sF1 - FinLand) / (FinDownEnd - FinLand))); }
     static float WalkToGoalH(float s) { return Ramp(s, sBend0, sWalkEnd - 0.6f, FallsH + FinRiverSurf + BankTop, goalH); }
     static float goalH, sBend0, sBend1, sFin1;   // ゴールの島の上の面、川のカーブの始まり・終わり、川の終わり（滝）
-    static Vector2 goalC, goalD; static float sWalkEnd;   // ゴールの島の中心・向き（入口の逆）、左岸の道の終わり
+    static Vector2 goalC, goalD, walkP0; static float sWalkEnd;   // walkP0＝左岸の道のまっすぐな所の始まり（道の中心）、向きは goalD   // ゴールの島の中心・向き（入口の逆）、左岸の道の終わり
     // 洞窟：床＝StartH、天井の高さ CaveIn、壁の外側 CaveHW（道の幅6の外に厚み0.4）、口の半分の幅 MouthHW。上に屋根の板、その上が水源の池
     public const float CaveIn = 2.6f, CaveHW = 3.4f, MouthHW = 1.7f, RoofT = 0.3f, SideGapLen = 3.4f, SideGapH = 2.4f;
     public const float FallsReach = 2.8f;   // 滝が落ち口からどれだけ前に落ちるか(m)
@@ -703,7 +703,7 @@ public static class FuwaCourse2_1Builder
         float River(Vector2 q) { float m = float.MaxValue; for (float s = sF1 + FinRiver0; s <= sFin1; s += 0.1f) { Center(s, out var p, out _); m = Mathf.Min(m, (q - p).magnitude); } return m; }
         float t = rGround + 0.5f;
         while (t < 40f && River(w0 + wd * t) < need) t += 0.05f;
-        goalC = w0 + wd * t; goalD = wd;
+        goalC = w0 + wd * t; goalD = wd; walkP0 = w0;
         sWalkEnd = sF1 + FinDownEnd + t - rGround + 0.15f;   // 道の角まで島の地面にとどくように少し入れる（道は島より2cm低い）
     }
     static void GoalSet(Transform goal)
@@ -980,7 +980,13 @@ public static class FuwaCourse2_1Builder
         // 左岸の道の下の土台（道と川のあいだのすき間を埋める）。カーブの始まりまで。その先の道は川から離れていく桟橋
         Sweep(g, "LeftBankBase", sF1 + FinLand, sBend0, s => -FinRiverHW - FinWalkW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => LeftBankH(s) - Thick - 0.01f, ground, 0, true);
         // カーブの外側の岸：右岸と同じ細い地面
-        Sweep(g, "LeftBank", sBend0, r1, s => -FinRiverHW - FinBankW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, ground, 11, true, true);
+        // 道がまだ岸の上にある所は道の内側のへりで切る（同じ高さで重なるとZファイト）
+        float WalkInnerLat(float s)
+        {
+            Center(s, out var p, out var d); var n = Right(goalD); var q0 = walkP0 + n * (FinWalkW * 0.5f);
+            float den = Vector2.Dot(Right(d), n); return Mathf.Abs(den) < 1e-4f ? -99f : Vector2.Dot(q0 - p, n) / den;
+        }
+        Sweep(g, "LeftBank", sBend0, r1, s => Mathf.Min(Mathf.Max(-FinRiverHW - FinBankW, WalkInnerLat(s)), -FinRiverHW - 0.001f), s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, ground, 11, true, true);
         // 滝のカーテン：道の幅いっぱい（踊り場の先、川の始まりの上）。落ち口は高く、川の水面まで
         Center(sF1 + FinCurtain, out var cp, out var cd); var cr = Right(cd);
         FuwaStage2WaterTest.Waterfall(g, "ForcedFalls", new Vector3(cp.x, 0, cp.y), H + FinCurtainTop, surf, FinRiverHW * 2f + 0.6f, new Vector3(cd.x, 0, cd.y));
