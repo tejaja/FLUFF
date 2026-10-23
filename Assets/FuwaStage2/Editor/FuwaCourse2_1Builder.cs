@@ -186,6 +186,7 @@ public static class FuwaCourse2_1Builder
     // 2026-10-22 てじゃ「深い水だと救出できないから浅くする」「下の水に飛び込んだあとにジャンプで戻れるくらいの高さに」：
     // 前は 深さ2m・水面が道の0.9m下（人は落ちたらアウト）。今は浅瀬（人は入れる）で、底から道の上まで 0.4m（ジャンプ約0.46m で上がれる）。
     // 浅いと滝に押されたふわふわが底に当たるので、底はアウトにせずぽよんと戻す（ChanBedBounce）
+    public static float OverFallsGap = 0.4f;
     public static float ChanDepth = 0.28f, ChanHW = 1.1f, ChanDrop = 0.12f, ChanFlow = 1.3f, OverFallsH = 6f, ChanBedBounce = 1.5f;
     // 水路の流れを来た方（スタート側）へ（2026-10-22 てじゃ「流れを手前にする」）。水路の長い側・端の滝・道のえぐれの形も前後反転する
     public static bool FallsFlowBack = true;
@@ -924,7 +925,8 @@ public static class FuwaCourse2_1Builder
             FuwaStage2WaterTest.Waterfall(set, "EndFalls", new Vector3(ec.x, 0, ec.y), surf + 0.02f, -10f, ChanHW * 2f + 0.3f, new Vector3(eo.x, 0, eo.y));
             // 滝のカーテン：道を横切る向きで、外側から食い込む（幕の面は道の進む向きを向く）。押す厚み 0.9m がえぐれの中に収まるように少し手前に
             Center(sc - fb * 0.3f, out var fp, out var fd); var fr = Right(fd);
-            float ia = RoadHW - CutDepth[i], width = outer - ia;
+            // 幕の内側のはしは、えぐれのふちから OverFallsGap だけ水の上へ（ふちギリギリで当たると道に叩きつけられた。2026-10-23 てじゃ「余裕もたせよう」）
+            float ia = RoadHW - CutDepth[i] + OverFallsGap, width = outer - ia;
             var fc = fp + fr * (o * (ia + width * 0.5f));
             FuwaStage2WaterTest.Waterfall(set, "OverFalls", new Vector3(fc.x, 0, fc.y), FallsH + OverFallsH, surf, width, new Vector3(fd.x, 0, fd.y));
         }
