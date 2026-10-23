@@ -34,7 +34,9 @@ public static class FuwaCourse2_1Builder
     const string MeshDir = "Assets/FuwaStage2/Generated/Course2_1";
     const float Thick = 0.3f, Bevel = 0.08f, Stripe = 0.75f;
     const int BevelSteps = 4;
-    public const float WaterDepth = 0.6f, RimW = 0.45f, RimUp = 0.35f, BankTop = 0.4f, Base = -1.5f;
+    // 浅瀬は底から岸の道まで 0.4m（ふつうのジャンプ約0.46m で上がれる）。2026-10-23 てじゃ「各種浅瀬は全部道に上がりやすくしたい」「浅くする感じ」：
+    // 前は 深さ0.6・ふち0.35・岸の道0.4（底から道まで約1m、石段の所しか上がれなかった）
+    public const float WaterDepth = 0.25f, RimW = 0.45f, RimUp = 0.12f, BankTop = 0.15f, Base = -1.5f;
     public const float StartH = 2.2f, TerraceStep = 1.8f;
     // ⑥ ラスト（2026-10-22 てじゃ「3連滝のあとに、強制で滝にぶつかるゾーン→そのまま流されてく、川はゴール横を直進、途中で打ち上げてゴールへ、
     // プレイヤーは川岸を走って追いかける」）。位置は滝の道の終わり（sF1）からの距離、高さは滝の道（FallsH）からの高さ
@@ -48,8 +50,9 @@ public static class FuwaCourse2_1Builder
     const float FinGateH = 2.6f, FinWallOut = 9.5f;            // 滝の左の岩の壁：人のくぐり口の高さ、壁の左のはし（中心線から）
     const float FinGoalOut = 22f, FinGoalUp = 1.6f;   // 滝の道のアウトの終わり（踊り場から）、ゴールの島の川の水面からの高さ
     // 左岸の人の道の高さ：踊り場の高さから川岸の高さへ下りる
-    // 左岸の道の高さ：踊り場からゴールの島の高さまで下りる
-    static float LeftBankH(float s) { return Mathf.Lerp(FallsH, goalH, Mathf.Clamp01((s - sF1 - FinLand) / (FinDownEnd - FinLand))); }
+    // 左岸の道の高さ：踊り場から川岸の高さまで下りる（川に落ちた人が上がれるように。2026-10-23）。カーブの所から先はゴールの島の高さへ登る
+    static float LeftBankH(float s) { return Mathf.Lerp(FallsH, FallsH + FinRiverSurf + BankTop, Mathf.Clamp01((s - sF1 - FinLand) / (FinDownEnd - FinLand))); }
+    static float WalkToGoalH(float s) { return Ramp(s, sBend0, sWalkEnd - 0.6f, FallsH + FinRiverSurf + BankTop, goalH); }
     static float goalH, sBend0, sBend1, sFin1;   // ゴールの島の上の面、川のカーブの始まり・終わり、川の終わり（滝）
     static Vector2 goalC, goalD; static float sWalkEnd;   // ゴールの島の中心・向き（入口の逆）、左岸の道の終わり
     // 洞窟：床＝StartH、天井の高さ CaveIn、壁の外側 CaveHW（道の幅6の外に厚み0.4）、口の半分の幅 MouthHW。上に屋根の板、その上が水源の池
@@ -281,7 +284,7 @@ public static class FuwaCourse2_1Builder
         pieces.Add(new Piece { name = "M6_Down", s0 = sF1 + FinLand, s1 = sF1 + FinDownEnd, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false });
         {
             Center(sF1 + FinDownEnd, out var wp, out var wd); var wq = wp + Right(wd) * (-FinRiverHW - FinWalkW * 0.5f); float ws = sF1 + FinDownEnd;
-            pieces.Add(new Piece { name = "M7_LeftBank", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = s => goalH, round0 = false, round1 = false });
+            pieces.Add(new Piece { name = "M7_LeftBank", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = WalkToGoalH, round0 = false, round1 = false });
         }
         // 右岸のゴールの広場（M8_GoalPlaza）は 2026-10-23 にやめて、ゴールの島（GoalSet）に
 
@@ -314,7 +317,7 @@ public static class FuwaCourse2_1Builder
         // 渡り場：川から左岸の道に上がる石段（川の左のふちの内側、ふちに向かって3段）。ふわふわが上に乗るとアウト、横は当たるだけ
         {
             var steps = new GameObject("WadeSteps").transform; steps.SetParent(root, false);
-            float[] tops = { -0.28f, 0.0f, 0.24f };
+            float[] tops = { Mathf.Lerp(-WaterDepth, BankTop, 0.25f), Mathf.Lerp(-WaterDepth, BankTop, 0.5f), Mathf.Lerp(-WaterDepth, BankTop, 0.75f) };
             float a = sCross - 0.3f, b = sCross + CrossGap * 0.5f + 0.8f;
             for (int i = 0; i < 3; i++)
             {
@@ -499,14 +502,14 @@ public static class FuwaCourse2_1Builder
                 Center(a, out var pa, out _); Center(b, out var pb, out var db);
                 var c = new GameObject("PlayerFall" + k); c.transform.SetParent(dg, false);
                 var mid = (pa + pb) * 0.5f + Right(db) * ((rm - lm) * 0.5f);
-                c.transform.localPosition = new Vector3(mid.x, (-0.15f - WaterDepth) * 0.5f, mid.y);
+                c.transform.localPosition = new Vector3(mid.x, (-0.1f - WaterDepth - 0.3f) * 0.5f, mid.y);
                 c.transform.localRotation = Quaternion.LookRotation(new Vector3(pb.x - pa.x, 0, pb.y - pa.y));
-                var bc = c.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3((hwm - 0.3f) * 2f, WaterDepth - 0.15f, (pb - pa).magnitude);
+                var bc = c.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3((hwm - 0.3f) * 2f, WaterDepth + 0.2f, (pb - pa).magnitude);
                 var pc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(c); pc.ball = ballProxy;
                 UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pc); NoSync(pc);
             }
             // 浅い所に落ちた人が出口の岸に上がる石段（出口のふちの内側、3段）。ふわふわが上に乗るとアウト
-            float[] tops = { -0.28f, 0.0f, 0.24f };
+            float[] tops = { Mathf.Lerp(-WaterDepth, BankTop, 0.25f), Mathf.Lerp(-WaterDepth, BankTop, 0.5f), Mathf.Lerp(-WaterDepth, BankTop, 0.75f) };
             for (int i = 0; i < 3; i++)
             {
                 int k = i; float a = sPond1 - 0.5f * (3 - k), b = a + 0.5f;
@@ -1390,6 +1393,8 @@ public static class FuwaCourse2_1Builder
         surf.AddComponent<MeshFilter>().sharedMesh = sm; surf.AddComponent<MeshRenderer>().sharedMaterial = WaterMat(w.flow, true, w.deep);
         // 底（地面＝ふわふわが触るとアウト）と、その下のかたまり（横に当たるだけ）
         var bedGo = Sweep(g, "Bed", w.s0, w.s1, s => w.off(s) - w.hw(s) - 0.01f, s => w.off(s) + w.hw(s) + 0.01f, s => bed - 0.3f, s => bed, bedMat, 11, true);
+        // 浅瀬は全部（2026-10-23 浅くしたので、流されたふわふわが底に当たりやすい）
+        if (!w.deep && w.bedBounce <= 0f) w.bedBounce = ChanBedBounce;
         if (w.bedBounce > 0f)
         {
             // 地面のレイヤーのまま（真下の道として覚える＝道の外でアウト、にならない）。当たった時だけ跳ねる
