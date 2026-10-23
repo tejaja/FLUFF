@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -232,7 +232,7 @@ public static class FuwaCourse2_1Builder
         // ---- 道 ----
         var pieces = new List<Piece>();
         // M1 スタートの台（幅6）
-        pieces.Add(new Piece { name = "M1_Start", s0 = sPlaza0 - 1.5f, s1 = sPlaza1, off = s => 0f, h = s => StartH, w = s => 6f });
+        pieces.Add(new Piece { name = "M1_Start", s0 = sPlaza0 - 1.5f, s1 = sPlaza1, off = s => 0f, h = s => StartH, w = s => 6f, round0 = false });   // 後ろは洞窟の入口の敷居とつながる
         // B1 右の岸の道：台の右半分から出て、滝をよけ、池・川の岸をくねっと下りて、渡り場で川にぶつかって終わる。
         // B2 左の岸の道：渡り場の向こう岸から、川の終わりの崖の滝の横を通って谷を小さい橋で越え、本道に合流。
         // ふわふわは滝→川で流される。人は右岸を追いかけて、渡り場で待ちかまえて、流れてきたふわふわを左岸の道の続きへ撃ってすくい上げる。
@@ -272,7 +272,7 @@ public static class FuwaCourse2_1Builder
         pieces.Add(new Piece { name = "M5_Landing", s0 = sF1, s1 = sF1 + FinLand, off = s => -2f, w = s => 8.4f, h = s => FallsH, round0 = false, round1 = false });
         pieces.Add(new Piece { name = "M6_Down", s0 = sF1 + FinLand, s1 = sF1 + FinDownEnd, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false });
         pieces.Add(new Piece { name = "M7_LeftBank", s0 = sF1 + FinDownEnd, s1 = sF1 + FinRiver1, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false });
-        pieces.Add(new Piece { name = "M8_GoalPlaza", s0 = sGoal0, s1 = sGoal0 + FinPlazaLen, off = s => FinGoalLat, w = s => FinPlazaW, h = s => goalH });
+        // 右岸のゴールの広場（M8_GoalPlaza）は 2026-10-23 にやめて、川の向こうに浮かせたゴールの島（GoalSet）に
 
         var pm = new GameObject("PathMesh"); pm.transform.SetParent(root, false); pm.layer = pathLayer;
         var vis = new Mesh { name = "Course2_1Path_Bevel" }; BuildPathVisual(vis, pieces);
@@ -342,7 +342,11 @@ public static class FuwaCourse2_1Builder
         // ① スタートの洞窟（崖）：床の下・左右の壁・奥の壁・口の両わき・屋根。右の壁は脇道のすき間をあける
         float cs0 = sPlaza0 - 1.5f, cIn = StartH + CaveIn, wallB = StartH - Thick, gapA = sPlaza1 - 0.4f - SideGapLen, gapB = sPlaza1 - 0.4f;
         Sweep(terr, "CaveFloorCliff", cs0 - 0.4f, sPlaza1, s => -CaveHW, s => CaveHW, s => Base, s => wallB - 0.01f, ground, 0, true);
-        Sweep(terr, "CaveBack", cs0 - 0.4f, cs0, s => -CaveHW, s => CaveHW, s => wallB, s => cIn, ground, 0, true);
+        // 奥の壁：まん中に人が歩いて入る入口（2026-10-23 スタートの島から木の橋で入ってくる）。入口の下は敷居
+        Sweep(terr, "CaveBackL", cs0 - 0.4f, cs0, s => -CaveHW, s => -DoorHW, s => wallB, s => cIn, ground, 0, true);
+        Sweep(terr, "CaveBackR", cs0 - 0.4f, cs0, s => DoorHW, s => CaveHW, s => wallB, s => cIn, ground, 0, true);
+        Sweep(terr, "CaveBackLintel", cs0 - 0.4f, cs0, s => -DoorHW, s => DoorHW, s => StartH + DoorH, s => cIn, ground, 0, true);
+        Sweep(terr, "CaveDoorSill", cs0 - 0.4f, cs0, s => -DoorHW, s => DoorHW, s => wallB, s => StartH, ground, pathLayer, true);
         Sweep(terr, "CaveWallL", cs0, sPlaza1, s => -CaveHW, s => -3f, s => wallB, s => cIn, ground, 0, true);
         Sweep(terr, "CaveWallR_Back", cs0, gapA, s => 3f, s => CaveHW, s => wallB, s => cIn, ground, 0, true);
         Sweep(terr, "CaveWallR_Lintel", gapA, gapB, s => 3f, s => CaveHW, s => StartH + SideGapH, s => cIn, ground, 0, true);
@@ -538,36 +542,11 @@ public static class FuwaCourse2_1Builder
             Object.DestroyImmediate(guard.GetComponent<Renderer>()); Object.DestroyImmediate(guard.GetComponent<MeshFilter>());
         }
 
-        // ---- スタート・ゴールの目印 ----
-        var start = new GameObject("Start").transform; start.SetParent(root, false);
-        Center(2.2f, out var sp, out var sd);
-        start.localPosition = new Vector3(sp.x, StartH, sp.y); start.localRotation = Quaternion.LookRotation(new Vector3(sd.x, 0, sd.y));
-        // スタートのキノコ（撃つと胞子が出てタイム開始）はステージ1のコース1の物を写す。玉の位置・人の立ち位置もコース1と同じ並び
-        var ballStart = new GameObject("BallStart").transform; ballStart.SetParent(start, false); ballStart.localPosition = new Vector3(0, 0.62f, 0);
-        var playerSpot = new GameObject("PlayerSpot").transform; playerSpot.SetParent(start, false); playerSpot.localPosition = new Vector3(0, 0, -3.0f);
-        var srcStart = GameObject.Find("FuwaCourse/Start");
-        var srcMush = srcStart ? srcStart.transform.Find("StartMushroom") : null;
-        if (srcMush)
-        {
-            var mm = Object.Instantiate(srcMush.gameObject, start); mm.name = "StartMushroom"; mm.transform.localPosition = Vector3.zero; mm.transform.localRotation = Quaternion.identity;
-            var burstSrc = srcStart.transform.Find("SporeBurst");
-            Transform burst = null;
-            if (burstSrc) { burst = Object.Instantiate(burstSrc.gameObject, start).transform; burst.name = "SporeBurst"; burst.localPosition = burstSrc.localPosition - srcMush.localPosition; burst.localRotation = burstSrc.localRotation; }
-            var sm = mm.GetComponentInChildren<FuwaStartMushroom>(true);
-            if (sm)
-            {
-                var so = new SerializedObject(sm);
-                so.FindProperty("courseStart").objectReferenceValue = ballStart;
-                if (burst) so.FindProperty("burst").objectReferenceValue = burst.GetComponent<ParticleSystem>();
-                so.ApplyModifiedProperties();
-                UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sm);
-            }
-        }
+        // ---- スタート・ゴール（2026-10-23 てじゃ「スタートはステージ1と同じように、ロビー戻りポータル島、スタート島、そこから洞窟に歩いて入っていく」
+        //      「ゴールはとりあえず川の向こうに一旦ゴール島として浮かせてから考えよう」）----
+        StartSet(root);
         var goal = new GameObject("Goal").transform; goal.SetParent(root, false);
-        Center(sGoal0 + 4f, out var gp2, out var gd2);
-        var gq = gp2 + Right(gd2) * FinGoalLat;
-        goal.localPosition = new Vector3(gq.x, goalH, gq.y); goal.localRotation = Quaternion.LookRotation(new Vector3(gd2.x, 0, gd2.y));
-        GoalSet(goal, bedMat);
+        GoalSet(goal);
 
         // ステージ2にいる時だけ表示
         var visb = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(m => m && m.gameObject.scene.IsValid() && m.GetType().Name == "FuwaAreaVisibility");
@@ -589,29 +568,17 @@ public static class FuwaCourse2_1Builder
             + " 蓮 " + sPond0.ToString("F1") + "–" + sPond1.ToString("F1") + " 貝の道 " + sWalk0.ToString("F1") + "–" + sWalk1.ToString("F1") + " 滝の道 " + sF0.ToString("F1") + "–" + sF1.ToString("F1") + " ゴール " + sGoal0.ToString("F1");
     }
 
-    // ---- ゴール（2026-10-23）----
-    // ステージ1のコース1のゴール一式（リング・判定・キノコの輪・▼GOAL・CLEAR!・花火・ロビーへのワープ）を写して、広場のまん中に置く。
-    // 島（GoalGround/IslandUnder）と柵は写さない：床は広場（M8_GoalPlaza、地面レイヤー）。リングの外の広場に着地したらアウト（ステージ1と同じ）。
-    // ワープの戻り先はステージ2のロビー。アルバム（名場面）は2–1のフォトポイントができるまでなし
-    static readonly string[] GoalCopy = { "Ring", "GoalTrigger", "FairyRing", "Marker", "GoalWarp", "RingHalo", "GoalFx", "ClearBanner", "ReturnPoint", "GoalWaves" };
-    static void GoalSet(Transform goal, Material fallback)
+    // ---- スタート・ゴール（2026-10-23）----
+    // ステージ1のコース1のスタート一式・ゴール一式を写して使う（てじゃ「最終的にはステージ1のスタートとゴールの配置を統一したい。小島から小島のやつ」）。
+    // 写した物の中の参照は写した物へ付け替え、ワープの戻り先はステージ2のロビー、日本語・英語の切り替えとエアガンの台も登録する
+
+    // 写す元 src の子（names が null なら全部）を dst の下に写す。元の物 → 写した物 の対応表を map に足す
+    static void CopyChildren(Transform src, Transform dst, string[] names, Dictionary<Object, Object> map)
     {
-        var src = GameObject.Find("FuwaCourse/Goal")?.transform;
-        if (!src)
+        var list = names == null ? src.Cast<Transform>().ToList() : names.Select(n => src.Find(n)).Where(t => t).ToList();
+        foreach (var s in list)
         {
-            // 写す元がない時は仮の丸だけ
-            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ring.name = "GoalMarker"; ring.transform.SetParent(goal, false);
-            Object.DestroyImmediate(ring.GetComponent<Collider>());
-            ring.transform.localPosition = new Vector3(0, 0.03f, 0); ring.transform.localScale = new Vector3(2.4f, 0.02f, 2.4f);
-            ring.GetComponent<Renderer>().sharedMaterial = fallback;
-            Debug.LogWarning("[2–1] FuwaCourse/Goal がないので仮のゴール");
-            return;
-        }
-        var map = new Dictionary<Object, Object>();
-        foreach (var n in GoalCopy)
-        {
-            var s = src.Find(n); if (!s) continue;
-            var c = Object.Instantiate(s.gameObject, goal, false); c.name = n;
+            var c = Object.Instantiate(s.gameObject, dst, false); c.name = s.name;
             c.transform.localPosition = s.localPosition; c.transform.localRotation = s.localRotation; c.transform.localScale = s.localScale;
             var sAll = s.GetComponentsInChildren<Transform>(true); var cAll = c.GetComponentsInChildren<Transform>(true);
             for (int i = 0; i < sAll.Length && i < cAll.Length; i++)
@@ -621,16 +588,18 @@ public static class FuwaCourse2_1Builder
                 for (int k = 0; k < sc.Length && k < cc.Length; k++) if (sc[k]) map[sc[k]] = cc[k];
             }
         }
-        // 戻る所：広場の手前寄り（広場の長さ8mからはみ出さない）
-        var rp = goal.Find("ReturnPoint"); if (rp) rp.localPosition = new Vector3(0f, 1.32f, -2.5f);
-        // 写した物の中の参照を、元のゴールの物 → 写した物に付け替える
+    }
+
+    // 写した物の U# の参照を付け替える。ロビーへのワープはステージ2のロビーへ。日本語・英語の文字とエアガンの台を FuwaLanguage に登録
+    static void FixCopied(Transform dst, Dictionary<Object, Object> map)
+    {
         var lobby2 = GameObject.Find("FuwaStage2/Lobby")?.transform;
-        foreach (var mb in goal.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true))
+        foreach (var mb in dst.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true))
         {
             var so = new SerializedObject(mb); var it = so.GetIterator();
             while (it.Next(true))
                 if (it.propertyType == SerializedPropertyType.ObjectReference && it.objectReferenceValue && map.TryGetValue(it.objectReferenceValue, out var to)) it.objectReferenceValue = to;
-            if (mb is FuwaGoal) so.FindProperty("album").objectReferenceValue = null;
+            if (mb is FuwaGoal) so.FindProperty("album").objectReferenceValue = null;   // 名場面アルバムは2–1のフォトポイントができるまでなし
             if (mb is FuwaCourseWarp && lobby2)
             {
                 so.FindProperty("courseStart").objectReferenceValue = lobby2.Find("BallPark");
@@ -641,27 +610,82 @@ public static class FuwaCourse2_1Builder
             so.ApplyModifiedProperties();
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mb);
         }
-        // 日本語・英語の切り替え：元の文字（ロビーにもどる 等）と同じ文で、写した文字も登録する
         var lang = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(x => x && x.gameObject.scene.IsValid() && x.GetType().Name == "FuwaLanguage");
-        if (lang)
+        if (!lang) return;
+        var ls = new SerializedObject(lang);
+        var texts = ls.FindProperty("texts"); var ja = ls.FindProperty("ja"); var en = ls.FindProperty("en");
+        for (int k = texts.arraySize - 1; k >= 0; k--)
+            if (texts.GetArrayElementAtIndex(k).objectReferenceValue == null) { texts.DeleteArrayElementAtIndex(k); ja.DeleteArrayElementAtIndex(k); en.DeleteArrayElementAtIndex(k); }
+        int n0 = texts.arraySize;
+        for (int k = 0; k < n0; k++)
         {
-            var so = new SerializedObject(lang);
-            var texts = so.FindProperty("texts"); var ja = so.FindProperty("ja"); var en = so.FindProperty("en");
-            for (int k = texts.arraySize - 1; k >= 0; k--)
-                if (texts.GetArrayElementAtIndex(k).objectReferenceValue == null) { texts.DeleteArrayElementAtIndex(k); ja.DeleteArrayElementAtIndex(k); en.DeleteArrayElementAtIndex(k); }
-            int n0 = texts.arraySize;
-            for (int k = 0; k < n0; k++)
-            {
-                var o = texts.GetArrayElementAtIndex(k).objectReferenceValue;
-                if (!o || !map.TryGetValue(o, out var to)) continue;
-                int j = texts.arraySize; texts.arraySize++; ja.arraySize++; en.arraySize++;
-                texts.GetArrayElementAtIndex(j).objectReferenceValue = to;
-                ja.GetArrayElementAtIndex(j).stringValue = ja.GetArrayElementAtIndex(k).stringValue;
-                en.GetArrayElementAtIndex(j).stringValue = en.GetArrayElementAtIndex(k).stringValue;
-            }
-            so.ApplyModifiedProperties();
-            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)lang);
+            var o = texts.GetArrayElementAtIndex(k).objectReferenceValue;
+            if (!o || !map.TryGetValue(o, out var to)) continue;
+            int j = texts.arraySize; texts.arraySize++; ja.arraySize++; en.arraySize++;
+            texts.GetArrayElementAtIndex(j).objectReferenceValue = to;
+            ja.GetArrayElementAtIndex(j).stringValue = ja.GetArrayElementAtIndex(k).stringValue;
+            en.GetArrayElementAtIndex(j).stringValue = en.GetArrayElementAtIndex(k).stringValue;
         }
+        var stands = ls.FindProperty("stands");
+        for (int k = stands.arraySize - 1; k >= 0; k--) if (stands.GetArrayElementAtIndex(k).objectReferenceValue == null) stands.DeleteArrayElementAtIndex(k);
+        foreach (var st in dst.GetComponentsInChildren<FuwaGunStand>(true)) { stands.arraySize++; stands.GetArrayElementAtIndex(stands.arraySize - 1).objectReferenceValue = st; }
+        ls.ApplyModifiedProperties();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)lang);
+    }
+
+    // スタート：コース1の Start を丸ごと（ロビーへ戻るポータルの島 → 木の橋 → キノコの島。エアガンの台つき）。
+    // キノコの島から、もう1本の木の橋で洞窟の奥の壁の入口へ。人は歩いて洞窟に入って行く
+    const float DoorHW = 1.3f, DoorH = 2.4f;   // 洞窟の奥の壁の入口（半分の幅・高さ）
+    static float CaveBackS => sPlaza0 - 1.5f - 0.4f;   // 洞窟の奥の壁の外の面
+    static void StartSet(Transform root)
+    {
+        var start = new GameObject("Start").transform; start.SetParent(root, false);
+        var src = GameObject.Find("FuwaCourse/Start")?.transform;
+        if (!src) { Debug.LogWarning("[2–1] FuwaCourse/Start がない"); return; }
+        var map = new Dictionary<Object, Object>();
+        CopyChildren(src, start, null, map);
+        foreach (var t in start.GetComponentsInChildren<Transform>(true)) if (t.name.Contains("_Course1")) t.name = t.name.Replace("_Course1", "_Course2_1");   // GunStand_Course1 → GunStand_Course2_1
+        // 島の地面の高さ（コース1の Start の座標で、キノコの根もと）→ 洞窟の床（StartH）にそろえる
+        float islandTop = src.Find("StartMushroom").localPosition.y;
+        var area = start.Find("StartArea");
+        var ground = area.Find("Ground"); var bridge = area.Find("Bridge"); var bridgeWood = area.Find("BridgeWood");
+        // キノコの島から洞窟への橋：ポータル側の橋を、島の中心で前に折り返した位置。橋の先は洞窟の入口に 0.5m 入る
+        var bc = bridge.GetComponent<BoxCollider>();
+        float halfLen = (bc ? bc.size.z : 1f) * bridge.localScale.z * 0.5f;
+        float frontZ = 2f * ground.localPosition.z - bridge.localPosition.z;   // 洞窟側の橋の中心
+        float doorZ = frontZ + halfLen - 0.5f;                                 // ここを洞窟の奥の壁の外の面に合わせる
+        Center(CaveBackS - doorZ, out var sp, out var sd);
+        start.localPosition = new Vector3(sp.x, StartH - islandTop, sp.y); start.localRotation = Quaternion.LookRotation(new Vector3(sd.x, 0, sd.y));
+        foreach (var b in new[] { bridge, bridgeWood })
+        {
+            var c = Object.Instantiate(b.gameObject, area, false); c.name = b.name + "_Cave";
+            c.transform.localPosition = new Vector3(b.localPosition.x, b.localPosition.y, 2f * ground.localPosition.z - b.localPosition.z);
+            c.transform.localRotation = Quaternion.Euler(0, 180f, 0) * b.localRotation; c.transform.localScale = b.localScale;
+        }
+        FixCopied(start, map);
+    }
+
+    // ゴール：コース1の Goal を丸ごと（島・柵・リング・判定・キノコの輪・▼GOAL・CLEAR!・花火・ロビーへのワープ）。
+    // とりあえず川の右岸の向こうに浮かせる（2026-10-23 仮。ゴール周りの形はこのあと考える）
+    const float GoalGap = 1.2f;
+    static void GoalSet(Transform goal)
+    {
+        var src = GameObject.Find("FuwaCourse/Goal")?.transform;
+        if (!src) { Debug.LogWarning("[2–1] FuwaCourse/Goal がない"); return; }
+        var map = new Dictionary<Object, Object>();
+        CopyChildren(src, goal, null, map);
+        // 島の半径（地面と柵の大きいほう）。右岸の外側から GoalGap あけて浮かせる
+        float r = 0f;
+        foreach (var n in new[] { "GoalGround", "Fence" })
+        {
+            var mf = goal.Find(n)?.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue;
+            var e = mf.sharedMesh.bounds; var sc = mf.transform.localScale;
+            r = Mathf.Max(r, Mathf.Abs(e.max.x * sc.x), Mathf.Abs(e.min.x * sc.x), Mathf.Abs(e.max.z * sc.z), Mathf.Abs(e.min.z * sc.z));
+        }
+        Center(sGoal0 + 4f, out var gp, out var gd);
+        var gq = gp + Right(gd) * (FinRiverHW + FinBankW + GoalGap + r);
+        goal.localPosition = new Vector3(gq.x, goalH, gq.y); goal.localRotation = Quaternion.LookRotation(new Vector3(gd.x, 0, gd.y));
+        FixCopied(goal, map);
     }
 
     // ---- ④ 貝の道（2026-10-21）----
@@ -925,7 +949,6 @@ public static class FuwaCourse2_1Builder
         FuwaStage2WaterTest.Waterfall(g, "EndFalls", new Vector3(ep.x, 0, ep.y), surf + 0.02f, surf - 10f, FinRiverHW * 2f + 0.3f, new Vector3(ed.x, 0, ed.y));
         // 右岸：川ぞいの細い地面（ふわふわが乗るとアウト）。ゴールの広場の所は広場の土台
         Sweep(g, "RightBank", r0 + FinCliffLen, r1, s => FinRiverHW, s => FinRiverHW + FinBankW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, ground, 11, true);
-        Sweep(g, "GoalBase", p0, p1, s => FinRiverHW + FinBankW, s => FinRiverHW + FinBankW + FinPlazaW, s => surf - WaterDepth - 1.5f, s => goalH - Thick - 0.01f, ground, 0, true);
         // 左岸の道の下の土台（道と川のあいだのすき間を埋める）
         Sweep(g, "LeftBankBase", sF1 + FinLand, r1, s => -FinRiverHW - FinWalkW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => LeftBankH(s) - Thick - 0.01f, ground, 0, true);
         // 滝のカーテン：道の幅いっぱい（踊り場の先、川の始まりの上）。落ち口は高く、川の水面まで

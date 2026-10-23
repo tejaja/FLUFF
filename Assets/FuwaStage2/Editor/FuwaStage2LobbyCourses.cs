@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -76,7 +76,8 @@ public static class FuwaStage2LobbyCourses
                 var so = new SerializedObject(w);
                 so.FindProperty("courseStart").objectReferenceValue = cStart.Find("BallStart");
                 so.FindProperty("playerSpot").objectReferenceValue = cStart.Find("PlayerSpot");
-                so.FindProperty("gunSpot").objectReferenceValue = null;   // コースの銃の台はまだない
+                var stand = cStart.GetComponentInChildren<FuwaGunStand>(true);   // スタートの島のエアガンの台（2026-10-23 からステージ1のスタートを写している）
+                so.FindProperty("gunSpot").objectReferenceValue = stand ? stand.gunSpot : null;
                 so.FindProperty("lobbyReturnSpot").objectReferenceValue = null;
                 so.FindProperty("stage").intValue = 2;
                 so.FindProperty("timed").boolValue = false;   // ゴールができるまではタイムなし
