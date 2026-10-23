@@ -380,9 +380,9 @@ public static class FuwaStage2WaterTest
         var sol = ps.sizeOverLifetime; sol.enabled = true; sol.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.6f), new Keyframe(1, 1.4f)));
         var pr = m.GetComponent<ParticleSystemRenderer>(); pr.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
         pr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; pr.receiveShadows = false;
-        // 音（いつも鳴っている、近くで聞こえる）
+        // 音（いつも鳴っている、近くで聞こえる）。2026-10-23 てじゃ「滝の音ちょとでかいかも」0.35・18m → 0.2・14m
         var a = m.AddComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/sfx_waterfall_loop.wav");
-        a.loop = true; a.playOnAwake = true; a.spatialBlend = 1f; a.minDistance = 1.5f; a.maxDistance = 18f; a.rolloffMode = AudioRolloffMode.Linear; a.volume = 0.35f;
+        a.loop = true; a.playOnAwake = true; a.spatialBlend = 1f; a.minDistance = 1.5f; a.maxDistance = 14f; a.rolloffMode = AudioRolloffMode.Linear; a.volume = 0.2f;
     }
 
     static Material WaterfallMat()
