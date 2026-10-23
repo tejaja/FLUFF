@@ -495,9 +495,9 @@ public static class FuwaCourse2_1Builder
                 Center(a, out var pa, out _); Center(b, out var pb, out var db);
                 var c = new GameObject("PlayerFall" + k); c.transform.SetParent(dg, false);
                 var mid = (pa + pb) * 0.5f + Right(db) * ((rm - lm) * 0.5f);
-                c.transform.localPosition = new Vector3(mid.x, (-0.1f - WaterDepth - 0.3f) * 0.5f, mid.y);
+                c.transform.localPosition = new Vector3(mid.x, (-0.02f - WaterDepth - 0.3f) * 0.5f, mid.y);   // 上は水面の2cm下（蓮の葉に乗った足は水面より上なので反応しない）。浅くしたので前の15cm下だと足がほとんど入らず落ちなかった
                 c.transform.localRotation = Quaternion.LookRotation(new Vector3(pb.x - pa.x, 0, pb.y - pa.y));
-                var bc = c.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3((hwm - 0.3f) * 2f, WaterDepth + 0.2f, (pb - pa).magnitude);
+                var bc = c.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3((hwm - 0.3f) * 2f, WaterDepth + 0.28f, (pb - pa).magnitude);
                 var pc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(c); pc.ball = ballProxy;
                 UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pc); NoSync(pc);
             }
