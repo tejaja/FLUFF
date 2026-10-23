@@ -66,8 +66,9 @@ public static class FuwaCourse2_1Builder
         new Vector2(0, -6), new Vector2(0, 0), new Vector2(0, 6), new Vector2(-2, 13), new Vector2(-6, 20), new Vector2(-5, 28),
         new Vector2(1, 34), new Vector2(7, 40), new Vector2(8, 48), new Vector2(4, 55), new Vector2(-2, 61), new Vector2(-5, 68),
         new Vector2(-3, 76), new Vector2(2, 82), new Vector2(5, 89), new Vector2(5, 97),
-        // ⑤ 滝の道（ぐねぐね。カーブ 15.1 / 17.05 / 19 に滝と水路）→ ⑥ 登ってゴール
-        new Vector2(0, 103), new Vector2(-4, 109), new Vector2(-1, 116), new Vector2(4, 122), new Vector2(2, 129), new Vector2(0, 136),
+        // ⑤ 滝の道（ぐねぐね。滝と水路は FallsSet0・FallsGap で置く）→ ⑥ ラスト
+        // 2026-10-23 滝の道を短くしたので、(-1,116) から先はまっすぐ (0,136) へ（ラストの踊り場がカーブにかかって道が折れた。前は (4,122),(2,129)）
+        new Vector2(0, 103), new Vector2(-4, 109), new Vector2(-1, 116), new Vector2(-0.667f, 122.667f), new Vector2(-0.333f, 129.333f), new Vector2(0, 136),
         // ⑥ ラスト：よけられない滝 → 下の川を流される。川は (0,143) から右へ半径6mで80°曲がって、まっすぐ滝へ。
         // 曲がった先の外側の岸にゴールの島（2026-10-23 てじゃのスケッチ「川を曲げる、島を曲がった先の川岸におく、川の先は滝」）
         new Vector2(0, 143), new Vector2(1.404f, 146.857f), new Vector2(4.958f, 148.909f),
@@ -174,7 +175,8 @@ public static class FuwaCourse2_1Builder
     static Func<float, float> WalkH;
     // 滝の道：道の半分の幅、セットの場所（中心線の u＝カーブのあたり）
     public static float RoadHW = 1.5f;
-    public static float[] FallsSetU = { 15.1f, 17.05f, 19f };
+    // 2026-10-23 てじゃ「三連滝の間隔をもっと狭めたい」：前は中心線の u＝カーブのあたり（15.1/17.05/19、間隔約15m）。今は滝の道の始まりから FallsSet0 m、FallsGap m おき（滝の道もそのぶん短い）
+    public static float FallsSet0 = 8f, FallsGap = 10f; const int FallsSets = 3;
     // 滝が道の外側から食い込む深さ（そこは道がえぐれて水路。残る道の幅＝2×RoadHW−これ）。後ろほど深く
     public static float[] CutDepth = { 1.2f, 1.5f, 1.8f };
     // 水路の、滝より下流の長さ（ここで撃ってすくい上げる。滝の横ですくうと、また滝に当たって押し戻される）。後ろほど短く
@@ -272,9 +274,9 @@ public static class FuwaCourse2_1Builder
         pieces.Add(new Piece { name = "M3_ClamWalk", s0 = sWalk0, s1 = sWalk1, off = s => 0f, w = s => WalkHW * 2f, h = WalkH, round0 = false, round1 = false });
         // M4 滝の道：貝の道の高さのまま、ぐねぐね。最後のセットの水路の先まで
         sF0 = sWalk1; FallsH = walkTop;
-        setS = new float[FallsSetU.Length]; setO = new float[FallsSetU.Length];
-        for (int i = 0; i < FallsSetU.Length; i++) { setS[i] = SI(FallsSetU[i]); setO[i] = OuterSide(setS[i]); }
-        { int last = FallsSetU.Length - 1; sF1 = setS[last] + NotchEnd + ChanAfter[last] + 3f; }
+        setS = new float[FallsSets]; setO = new float[FallsSets];
+        for (int i = 0; i < FallsSets; i++) { setS[i] = sF0 + FallsSet0 + FallsGap * i; setO[i] = OuterSide(setS[i]); }
+        { int last = FallsSets - 1; sF1 = setS[last] + NotchEnd + ChanAfter[last] + 3f; }
         sGoal0 = sF1 + FinGoalOut; goalH = FallsH + FinRiverSurf + FinGoalUp;
         sBend0 = SI(BendCtrl0); sBend1 = SI(BendCtrl1); sFin1 = sBend1 + FinAfterBend;
         GoalSpot();
@@ -282,9 +284,10 @@ public static class FuwaCourse2_1Builder
         // M5 踊り場 → M6 左の坂（川岸へ下りる）→ M7 左岸の道（人が走って追いかける）。川が右へ曲がる所から先は、まっすぐゴールの島の入口へ
         pieces.Add(new Piece { name = "M5_Landing", s0 = sF1, s1 = sF1 + FinLand, off = s => -2f, w = s => 8.4f, h = s => FallsH, round0 = false, round1 = false });
         pieces.Add(new Piece { name = "M6_Down", s0 = sF1 + FinLand, s1 = sF1 + FinDownEnd, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false });
+        pieces.Add(new Piece { name = "M7_LeftBank", s0 = sF1 + FinDownEnd, s1 = sBend0, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false });
         {
-            Center(sF1 + FinDownEnd, out var wp, out var wd); var wq = wp + Right(wd) * (-FinRiverHW - FinWalkW * 0.5f); float ws = sF1 + FinDownEnd;
-            pieces.Add(new Piece { name = "M7_LeftBank", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = WalkToGoalH, round0 = false, round1 = false });
+            Center(sBend0, out var wp, out var wd); var wq = wp + Right(wd) * (-FinRiverHW - FinWalkW * 0.5f); float ws = sBend0;
+            pieces.Add(new Piece { name = "M8_ToGoal", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = WalkToGoalH, round0 = false, round1 = false });
         }
         // 右岸のゴールの広場（M8_GoalPlaza）は 2026-10-23 にやめて、ゴールの島（GoalSet）に
 
@@ -682,13 +685,14 @@ public static class FuwaCourse2_1Builder
     static void GoalSpot()
     {
         float rUnder = Mathf.Max(GoalR("IslandUnder"), GoalR("GoalGround")), rGround = GoalR("GoalGround");
-        Center(sF1 + FinDownEnd, out var wp, out var wd); var w0 = wp + Right(wd) * (-FinRiverHW - FinWalkW * 0.5f);
+        // まっすぐな所はカーブの始まりから（その手前は川にそう。2026-10-23 滝の道を短くしてラストの川がくねくねした所から始まるようになった）
+        Center(sBend0, out var wp, out var wd); var w0 = wp + Right(wd) * (-FinRiverHW - FinWalkW * 0.5f);
         float need = FinRiverHW + FinBankW + GoalGap + rUnder;
         float River(Vector2 q) { float m = float.MaxValue; for (float s = sF1 + FinRiver0; s <= sFin1; s += 0.1f) { Center(s, out var p, out _); m = Mathf.Min(m, (q - p).magnitude); } return m; }
         float t = rGround + 0.5f;
         while (t < 40f && River(w0 + wd * t) < need) t += 0.05f;
         goalC = w0 + wd * t; goalD = wd; walkP0 = w0;
-        sWalkEnd = sF1 + FinDownEnd + t - rGround + 0.15f;   // 道の角まで島の地面にとどくように少し入れる（道は島より2cm低い）
+        sWalkEnd = sBend0 + t - rGround + 0.15f;   // 道の角まで島の地面にとどくように少し入れる（道は島より2cm低い）
     }
     static void GoalSet(Transform goal)
     {
@@ -705,7 +709,7 @@ public static class FuwaCourse2_1Builder
     // 見た目（砂浜・岩場・本物の貝）はあとでまとめて。今は形と動きだけ
     // 貝の道の長さに対する位置・置く側（-1＝左）・高い台か。ふつうの貝（左右交互）のあいだに、高い台の貝を足す
     // （2026-10-22 てじゃ「まだ上から回避できる」「各貝の間にさらに貝追加して、ぐっと高い位置を飛ぶ形に」「上回避するとそれにあたるみたいな」）
-    public static float[] ClamAt = { 0.2f, 0.3f, 0.4f, 0.5f, 0.6f, 0.7f, 0.8f };
+    public static float[] ClamAt = { 0.14f, 0.26f, 0.38f, 0.5f, 0.62f, 0.74f, 0.86f };   // 2026-10-23 0.1おき（約2.5m）→0.12おき（約3m）（てじゃ「貝は間隔ちょっと広げたい」）
     public static float[] ClamSide = { -1f, 1f, 1f, -1f, -1f, 1f, 1f };
     public static bool[] ClamHigh = { false, true, false, true, false, true, false };
     public static float ClamPeriod = 2.8f;
