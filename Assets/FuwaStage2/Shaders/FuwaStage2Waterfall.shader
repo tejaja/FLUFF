@@ -10,8 +10,8 @@ Shader "FuwaStage2/Waterfall"
         _Foam ("Foam Color", Color) = (0.97, 1, 1, 1)
         _Alpha ("Alpha", Range(0, 1)) = 0.92
         _FallSpeed ("Fall Speed (m/s)", Float) = 3.0
-        _StreakScale ("Streak Size", Float) = 1.0
-        _EdgeFoam ("Top/Bottom Foam (m)", Float) = 0.35
+        _StreakScale ("Streak Size", Float) = 1.6
+        _EdgeFoam ("Top/Bottom Foam (m)", Float) = 0.8
         [Toggle] _Curved ("Curved Mesh (uv1/uv2)", Float) = 0
     }
     SubShader
