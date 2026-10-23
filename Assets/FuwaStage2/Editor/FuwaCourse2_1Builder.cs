@@ -40,16 +40,18 @@ public static class FuwaCourse2_1Builder
     // プレイヤーは川岸を走って追いかける」）。位置は滝の道の終わり（sF1）からの距離、高さは滝の道（FallsH）からの高さ
     const float FinLand = 3f;                                  // 踊り場（滝の道のあと、広め）
     const float FinCurtain = 3.7f, FinCurtainTop = 7f;         // よけられない滝のカーテンの位置と落ち口の高さ
-    const float FinRiver0 = 3.5f, FinRiver1 = 42f, FinRiverSurf = -3f, FinRiverHW = 2.2f, FinRiverFlow = 1.2f;   // 下の川
+    const float FinRiver0 = 3.5f, FinRiverSurf = -3f, FinRiverHW = 2.2f, FinRiverFlow = 1.2f;   // 下の川
+    const float FinAfterBend = 8f;                             // カーブのあとの川の長さ（その先は滝）
     const float FinCliffLen = 6f;                              // 川の始まりの右の崖（カーテンの右を回り込めないように）の長さ
-    const float FinWalkW = 1.8f, FinDownEnd = 12f;             // 左岸の人の道の幅と、踊り場から下りきる所
+    const float FinWalkW = 1.8f, FinDownEnd = 12f;             // 左岸の人の道の幅と、踊り場から下りきる所（そこからはまっすぐゴールの島へ）
     const float FinBankW = 0.6f;                               // 右岸の細い地面
     const float FinGateH = 2.6f, FinWallOut = 9.5f;            // 滝の左の岩の壁：人のくぐり口の高さ、壁の左のはし（中心線から）
-    const float FinPlaza0 = 22f, FinPlazaLen = 8f, FinPlazaW = 7f, FinGoalUp = 1.6f;   // 右岸のゴールの広場（始まり・長さ・幅・川の水面からの高さ）
-    static float FinGoalLat => FinRiverHW + FinBankW + FinPlazaW * 0.5f;
+    const float FinGoalOut = 22f, FinGoalUp = 1.6f;   // 滝の道のアウトの終わり（踊り場から）、ゴールの島の川の水面からの高さ
     // 左岸の人の道の高さ：踊り場の高さから川岸の高さへ下りる
-    static float LeftBankH(float s) { return Mathf.Lerp(FallsH, FallsH + FinRiverSurf + BankTop, Mathf.Clamp01((s - sF1 - FinLand) / (FinDownEnd - FinLand))); }
-    static float goalH;
+    // 左岸の道の高さ：踊り場からゴールの島の高さまで下りる
+    static float LeftBankH(float s) { return Mathf.Lerp(FallsH, goalH, Mathf.Clamp01((s - sF1 - FinLand) / (FinDownEnd - FinLand))); }
+    static float goalH, sBend0, sBend1, sFin1;   // ゴールの島の上の面、川のカーブの始まり・終わり、川の終わり（滝）
+    static Vector2 goalC, goalD; static float sWalkEnd;   // ゴールの島の中心・向き（入口の逆）、左岸の道の終わり
     // 洞窟：床＝StartH、天井の高さ CaveIn、壁の外側 CaveHW（道の幅6の外に厚み0.4）、口の半分の幅 MouthHW。上に屋根の板、その上が水源の池
     public const float CaveIn = 2.6f, CaveHW = 3.4f, MouthHW = 1.7f, RoofT = 0.3f, SideGapLen = 3.4f, SideGapH = 2.4f;
     public const float FallsReach = 2.8f;   // 滝が落ち口からどれだけ前に落ちるか(m)
@@ -63,10 +65,12 @@ public static class FuwaCourse2_1Builder
         new Vector2(-3, 76), new Vector2(2, 82), new Vector2(5, 89), new Vector2(5, 97),
         // ⑤ 滝の道（ぐねぐね。カーブ 15.1 / 17.05 / 19 に滝と水路）→ ⑥ 登ってゴール
         new Vector2(0, 103), new Vector2(-4, 109), new Vector2(-1, 116), new Vector2(4, 122), new Vector2(2, 129), new Vector2(0, 136),
-        new Vector2(0, 143), new Vector2(0, 149),
-        // ⑥ ラスト（2026-10-22）：よけられない滝 → 下の川を流される → 右岸のゴールの広場へ撃ち上げる。まっすぐ伸ばす
-        new Vector2(0, 155), new Vector2(0, 161), new Vector2(0, 167), new Vector2(0, 173), new Vector2(0, 179), new Vector2(0, 185),
+        // ⑥ ラスト：よけられない滝 → 下の川を流される。川は (0,143) から右へ半径6mで80°曲がって、まっすぐ滝へ。
+        // 曲がった先の外側の岸にゴールの島（2026-10-23 てじゃのスケッチ「川を曲げる、島を曲がった先の川岸におく、川の先は滝」）
+        new Vector2(0, 143), new Vector2(1.404f, 146.857f), new Vector2(4.958f, 148.909f),
+        new Vector2(10.867f, 149.951f), new Vector2(16.776f, 150.993f), new Vector2(22.685f, 152.035f), new Vector2(28.594f, 153.077f),
     };
+    const int BendCtrl0 = 22, BendCtrl1 = 24;   // カーブの始まり・終わりの点（Ctrl の番号）
 
     // ---- 中心線 ----
     static List<float> _tu, _ts;
@@ -126,6 +130,8 @@ public static class FuwaCourse2_1Builder
         public bool round0 = true, round1 = true;
         // 横の位置は中心線に直角にとる（off で片側だけえぐる道。off の線の向きでとると、えぐれの所で断面がねじれて縞がゆがんだ）
         public bool centerLat;
+        // 中心線にそわない道（null でなければ、off のかわりにこの位置。曲がる川からまっすぐ離れていく道など）
+        public Func<float, Vector2> at;
     }
     class Water
     {
@@ -266,13 +272,18 @@ public static class FuwaCourse2_1Builder
         setS = new float[FallsSetU.Length]; setO = new float[FallsSetU.Length];
         for (int i = 0; i < FallsSetU.Length; i++) { setS[i] = SI(FallsSetU[i]); setO[i] = OuterSide(setS[i]); }
         { int last = FallsSetU.Length - 1; sF1 = setS[last] + NotchEnd + ChanAfter[last] + 3f; }
-        sGoal0 = sF1 + FinPlaza0; goalH = FallsH + FinRiverSurf + FinGoalUp;
+        sGoal0 = sF1 + FinGoalOut; goalH = FallsH + FinRiverSurf + FinGoalUp;
+        sBend0 = SI(BendCtrl0); sBend1 = SI(BendCtrl1); sFin1 = sBend1 + FinAfterBend;
+        GoalSpot();
         pieces.Add(new Piece { name = "M4_FallsRoad", s0 = sF0, s1 = sF1, off = s => (Cut(s, -1f) - Cut(s, 1f)) * 0.5f, w = s => RoadW(s) - Cut(s, -1f) - Cut(s, 1f), h = s => FallsH, round0 = false, round1 = false, centerLat = true });
-        // M5 踊り場 → M6 左の坂（川岸へ下りる）→ M7 左岸の道（人が走って追いかける）、M8 右岸のゴールの広場（ふわふわを撃ち上げる）
+        // M5 踊り場 → M6 左の坂（川岸へ下りる）→ M7 左岸の道（人が走って追いかける）。川が右へ曲がる所から先は、まっすぐゴールの島の入口へ
         pieces.Add(new Piece { name = "M5_Landing", s0 = sF1, s1 = sF1 + FinLand, off = s => -2f, w = s => 8.4f, h = s => FallsH, round0 = false, round1 = false });
         pieces.Add(new Piece { name = "M6_Down", s0 = sF1 + FinLand, s1 = sF1 + FinDownEnd, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false });
-        pieces.Add(new Piece { name = "M7_LeftBank", s0 = sF1 + FinDownEnd, s1 = sF1 + FinRiver1, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false });
-        // 右岸のゴールの広場（M8_GoalPlaza）は 2026-10-23 にやめて、川の向こうに浮かせたゴールの島（GoalSet）に
+        {
+            Center(sF1 + FinDownEnd, out var wp, out var wd); var wq = wp + Right(wd) * (-FinRiverHW - FinWalkW * 0.5f); float ws = sF1 + FinDownEnd;
+            pieces.Add(new Piece { name = "M7_LeftBank", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = s => goalH, round0 = false, round1 = false });
+        }
+        // 右岸のゴールの広場（M8_GoalPlaza）は 2026-10-23 にやめて、ゴールの島（GoalSet）に
 
         var pm = new GameObject("PathMesh"); pm.transform.SetParent(root, false); pm.layer = pathLayer;
         var vis = new Mesh { name = "Course2_1Path_Bevel" }; BuildPathVisual(vis, pieces);
@@ -666,25 +677,36 @@ public static class FuwaCourse2_1Builder
     }
 
     // ゴール：コース1の Goal を丸ごと（島・柵・リング・判定・キノコの輪・▼GOAL・CLEAR!・花火・ロビーへのワープ）。
-    // とりあえず川の右岸の向こうに浮かせる（2026-10-23 仮。ゴール周りの形はこのあと考える）
-    const float GoalGap = 1.2f;
+    // 川が右へ曲がった先の、外側の岸に置く。左岸の道がまっすぐのびて島の入口（柵の切れ目＝島の後ろ）につながる
+    //（2026-10-23 てじゃのスケッチ。前は川の右岸の向こうに浮かせた仮の島）
+    const float GoalGap = 0.3f;   // 島の下の岩と、カーブの外側の岸とのすき間
+    // 島の半径（Unity の座標で、島の中心から）。地面＝人が乗る所、下の岩＝いちばん外
+    static float GoalR(string n)
+    {
+        var t = GameObject.Find("FuwaCourse/Goal")?.transform.Find(n); var mf = t ? t.GetComponent<MeshFilter>() : null;
+        if (!mf || !mf.sharedMesh) return 3f;
+        var e = mf.sharedMesh.bounds; var sc = t.localScale;
+        return Mathf.Max(Mathf.Abs(e.max.x * sc.x), Mathf.Abs(e.min.x * sc.x), Mathf.Abs(e.max.z * sc.z), Mathf.Abs(e.min.z * sc.z));
+    }
+    // 島の置き場所：左岸の道（踊り場から下りきった所から先はまっすぐ）の延長上で、島の下の岩が川のカーブの外側の岸から GoalGap 離れる所まで進める
+    static void GoalSpot()
+    {
+        float rUnder = Mathf.Max(GoalR("IslandUnder"), GoalR("GoalGround")), rGround = GoalR("GoalGround");
+        Center(sF1 + FinDownEnd, out var wp, out var wd); var w0 = wp + Right(wd) * (-FinRiverHW - FinWalkW * 0.5f);
+        float need = FinRiverHW + FinBankW + GoalGap + rUnder;
+        float River(Vector2 q) { float m = float.MaxValue; for (float s = sF1 + FinRiver0; s <= sFin1; s += 0.1f) { Center(s, out var p, out _); m = Mathf.Min(m, (q - p).magnitude); } return m; }
+        float t = rGround + 0.5f;
+        while (t < 40f && River(w0 + wd * t) < need) t += 0.05f;
+        goalC = w0 + wd * t; goalD = wd;
+        sWalkEnd = sF1 + FinDownEnd + t - rGround + 0.15f;   // 道の角まで島の地面にとどくように少し入れる（道は島より2cm低い）
+    }
     static void GoalSet(Transform goal)
     {
         var src = GameObject.Find("FuwaCourse/Goal")?.transform;
         if (!src) { Debug.LogWarning("[2–1] FuwaCourse/Goal がない"); return; }
         var map = new Dictionary<Object, Object>();
         CopyChildren(src, goal, null, map);
-        // 島の半径（地面と柵の大きいほう）。右岸の外側から GoalGap あけて浮かせる
-        float r = 0f;
-        foreach (var n in new[] { "GoalGround", "Fence" })
-        {
-            var mf = goal.Find(n)?.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue;
-            var e = mf.sharedMesh.bounds; var sc = mf.transform.localScale;
-            r = Mathf.Max(r, Mathf.Abs(e.max.x * sc.x), Mathf.Abs(e.min.x * sc.x), Mathf.Abs(e.max.z * sc.z), Mathf.Abs(e.min.z * sc.z));
-        }
-        Center(sGoal0 + 4f, out var gp, out var gd);
-        var gq = gp + Right(gd) * (FinRiverHW + FinBankW + GoalGap + r);
-        goal.localPosition = new Vector3(gq.x, goalH, gq.y); goal.localRotation = Quaternion.LookRotation(new Vector3(gd.x, 0, gd.y));
+        goal.localPosition = new Vector3(goalC.x, goalH + 0.02f, goalC.y); goal.localRotation = Quaternion.LookRotation(new Vector3(goalD.x, 0, goalD.y));
         FixCopied(goal, map);
     }
 
@@ -941,16 +963,18 @@ public static class FuwaCourse2_1Builder
     {
         var g = new GameObject("Finale").transform; g.SetParent(root, false);
         float H = FallsH, surf = H + FinRiverSurf;
-        float r0 = sF1 + FinRiver0, r1 = sF1 + FinRiver1, p0 = sF1 + FinPlaza0, p1 = p0 + FinPlazaLen;
+        float r0 = sF1 + FinRiver0, r1 = sFin1;
         // 川（浅い：人が落ちても歩ける。ふちはなし＝両岸の地面がふち。終わりは開いていて滝で落ちる）
         BuildWater(g, new Water { name = "W6_FinalRiver", s0 = r0, s1 = r1, surf = surf, flow = FinRiverFlow, hw = s => FinRiverHW,
             rimL = false, rimR = false, open1 = true, bodyBottom = -6f }, bedMat, ground, fx, splash);
         Center(r1, out var ep, out var ed);
         FuwaStage2WaterTest.Waterfall(g, "EndFalls", new Vector3(ep.x, 0, ep.y), surf + 0.02f, surf - 10f, FinRiverHW * 2f + 0.3f, new Vector3(ed.x, 0, ed.y));
-        // 右岸：川ぞいの細い地面（ふわふわが乗るとアウト）。ゴールの広場の所は広場の土台
+        // 右岸：川ぞいの細い地面（ふわふわが乗るとアウト）
         Sweep(g, "RightBank", r0 + FinCliffLen, r1, s => FinRiverHW, s => FinRiverHW + FinBankW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, ground, 11, true);
-        // 左岸の道の下の土台（道と川のあいだのすき間を埋める）
-        Sweep(g, "LeftBankBase", sF1 + FinLand, r1, s => -FinRiverHW - FinWalkW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => LeftBankH(s) - Thick - 0.01f, ground, 0, true);
+        // 左岸の道の下の土台（道と川のあいだのすき間を埋める）。カーブの始まりまで。その先の道は川から離れていく桟橋
+        Sweep(g, "LeftBankBase", sF1 + FinLand, sBend0, s => -FinRiverHW - FinWalkW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => LeftBankH(s) - Thick - 0.01f, ground, 0, true);
+        // カーブの外側の岸：右岸と同じ細い地面
+        Sweep(g, "LeftBank", sBend0, r1, s => -FinRiverHW - FinBankW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, ground, 11, true);
         // 滝のカーテン：道の幅いっぱい（踊り場の先、川の始まりの上）。落ち口は高く、川の水面まで
         Center(sF1 + FinCurtain, out var cp, out var cd); var cr = Right(cd);
         FuwaStage2WaterTest.Waterfall(g, "ForcedFalls", new Vector3(cp.x, 0, cp.y), H + FinCurtainTop, surf, FinRiverHW * 2f + 0.6f, new Vector3(cd.x, 0, cd.y));
@@ -1158,7 +1182,7 @@ public static class FuwaCourse2_1Builder
     }
 
     // ---- 道のメッシュ（FuwaCourse3Builder と同じ断面：端は丸め、縞は0.75mごと。縞はその道の実際の長さで数える）----
-    static Vector2 PieceC(Piece pc, float s) { Center(s, out var p, out var d); return p + Right(d) * pc.off(s); }
+    static Vector2 PieceC(Piece pc, float s) { if (pc.at != null) return pc.at(s); Center(s, out var p, out var d); return p + Right(d) * pc.off(s); }
     static Vector3 Point(Piece pc, float s, float lat, float dy)
     {
         if (pc.centerLat)
