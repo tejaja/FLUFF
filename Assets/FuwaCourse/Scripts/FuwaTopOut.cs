@@ -8,4 +8,6 @@ public class FuwaTopOut : UdonSharpBehaviour
 {
     [Tooltip("当たった面の上向き成分がこれ以上なら「上の面」＝アウト（0.6 ≒ 53度より平ら）")]
     public float minUp = 0.6f;
+    [Tooltip("当たる直前にこれ(m/s)より速く上がっていたら、上の面でもアウトにしない（ふちの角をかすって上がっていく時）")]
+    public float risingSpeed = 0.5f;
 }

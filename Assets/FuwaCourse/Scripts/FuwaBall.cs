@@ -210,8 +210,11 @@ public class FuwaBall : UdonSharpBehaviour
         VRCShader.SetGlobalVector(_ballPosId, new Vector4(p.x, p.y, p.z, (_hidden || _resetAt > 0f) ? 0f : 1f));
     }
 
+    // 直前の物理の1歩での速さ（当たった瞬間の向きを見る。OnCollisionEnter の時点の速さは当たったあとの値）
+    private Vector3 _fixedVel;
     private void FixedUpdate()
     {
+        _fixedVel = _rb.velocity;
         if (_waiting || _stuck || _carried) return;
 
         // 重くなるゾーンから届いた倍率（届いてなければ1倍）
@@ -426,7 +429,11 @@ public class FuwaBall : UdonSharpBehaviour
     {
         if (_waiting || _resetAt > 0f || _stuck) return;
         _rb.AddForce(acceleration, ForceMode.Acceleration);
+        _waterAt = Time.time;
     }
+    // 最後に水に浮いていた時刻（水に浮いたまま道のふちに寄った時はアウトにしない）
+    private float _waterAt = -10f;
+    private bool InWaterNow() { return Time.time - _waterAt < 0.2f; }
     public Vector3 GetVelocity() { return _rb != null ? _rb.velocity : Vector3.zero; }
     public float GetFallAcceleration() { return fallAcceleration; }
     public float GetDrag() { return _rb != null ? _rb.drag : airDrag; }
@@ -1176,7 +1183,9 @@ public class FuwaBall : UdonSharpBehaviour
         if (topOut != null)
         {
             // 溝の岩壁など：上の面に乗ったらアウト、横は当たるだけ
-            if (collision.contactCount > 0 && collision.GetContact(0).normal.y >= topOut.minUp) Fail();
+            // 上がっている途中でふちの角をかすっただけならアウトにしない（水路で道に寄ったまま道の方へ撃つとアウトになった。2026-10-23 てじゃ）
+            // 水に浮いたまま道に寄っただけでもアウトにしない（水に浮くと道の上の面とほぼ同じ高さになる。道に乗り上げて水から出たら OnCollisionStay で見る）
+            if (collision.contactCount > 0 && collision.GetContact(0).normal.y >= topOut.minUp && _fixedVel.y < topOut.risingSpeed && !InWaterNow()) Fail();
             return;
         }
         if (hazard != null) hazard.HitBall(this);
@@ -1198,6 +1207,12 @@ public class FuwaBall : UdonSharpBehaviour
     private void OnCollisionStay(Collision collision)
     {
         if (collision == null || collision.gameObject == null || collision.contactCount == 0) return;
+        // 水から道に乗り上げて、水から出たまま上の面に乗っていたらアウト（OnCollisionEnter の時は水に浮いていたので見のがした分）
+        if (!InWaterNow() && _resetAt < 0f && collision.GetContact(0).normal.y >= 0.6f && _rb.velocity.y < 0.3f)
+        {
+            FuwaTopOut stayTop = collision.gameObject.GetComponent<FuwaTopOut>();
+            if (stayTop != null && collision.GetContact(0).normal.y >= stayTop.minUp) { Fail(); return; }
+        }
         if (perchName == "" || !collision.gameObject.name.Contains(perchName)) return;
         if (collision.GetContact(0).normal.y < 0.6f) return;   // 横に当たっているだけの時は数えない
         if (_perchStart < 0f || Time.time - _perchSeen > 0.2f) _perchStart = Time.time;
