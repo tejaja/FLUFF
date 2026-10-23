@@ -82,8 +82,8 @@ public static class FuwaStage2Builder
             portal2.localPosition = portal1.localPosition; portal2.localRotation = portal1.localRotation; portal2.localScale = portal1.localScale;
             foreach (Transform c in portal2.Cast<Transform>().ToList()) if (c.name.EndsWith("_Trigger") || c.name.EndsWith("_Trigger_Gauge")) Object.DestroyImmediate(c.gameObject);
             StripBehaviour(portal2.gameObject); portal2.gameObject.SetActive(true);
-            var lab2 = portal2.Find("Label")?.GetComponent<TMPro.TMP_Text>(); if (lab2) { lab2.text = "ステージ1へ"; langTexts.Add((lab2, "ステージ1へ", "To Stage 1")); }   // 2026-10-23 てじゃ「ステージ２へ、とステージ１へでいいかも」（前は まえのしま）
-            var lab1 = portal1.Find("Label")?.GetComponent<TMPro.TMP_Text>(); if (lab1) { lab1.text = "ステージ2へ"; langTexts.Add((lab1, "ステージ2へ", "To Stage 2")); }   // 前は つぎのしま
+            var lab2 = portal2.Find("Label")?.GetComponent<TMPro.TMP_Text>(); if (lab2) { lab2.text = "<size=90%>ステージ1へ</size>"; langTexts.Add((lab2, "<size=90%>ステージ1へ</size>", "<size=78%>To Stage 1</size>")); }   // 2026-10-23 てじゃ「ステージ２へ、とステージ１へでいいかも」（前は まえのしま）。雲からはみ出さないよう文字は少し小さく（英語は78%）
+            var lab1 = portal1.Find("Label")?.GetComponent<TMPro.TMP_Text>(); if (lab1) { lab1.text = "<size=90%>ステージ2へ</size>"; langTexts.Add((lab1, "<size=90%>ステージ2へ</size>", "<size=78%>To Stage 2</size>")); }   // 前は つぎのしま
             // ステージ1 → 2（ステージ1のロビーの門。シーンの物なので作り直しのたびに付け直す）
             foreach (Transform c in portal1.Cast<Transform>().ToList()) if (c.name == "Stage2Portal_Trigger" || c.name == "Stage2Portal_Trigger_Gauge") Object.DestroyImmediate(c.gameObject);
             var gun2 = lobby.Find("GunStand_Lobby/GunSpot");
