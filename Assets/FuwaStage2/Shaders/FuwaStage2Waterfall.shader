@@ -16,7 +16,9 @@ Shader "FuwaStage2/Waterfall"
     }
     SubShader
     {
-        Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "IgnoreProjector" = "True" }
+        // DisableBatching：板の大きさを行列から取るので、まとめ描き（ダイナミックバッチング）されると 1m×1m 扱いになって
+        // 筋と泡が変になる。どの滝が同時に映るかで切り替わって見えた（2026-10-23 てじゃ「距離とか向きとかで変に切り替わる」）
+        Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "IgnoreProjector" = "True" "DisableBatching" = "True" }
         Cull Off
         ZWrite Off
         Blend SrcAlpha OneMinusSrcAlpha

@@ -23,7 +23,8 @@ Shader "FuwaStage2/Water"
     }
     SubShader
     {
-        Tags { "Queue" = "Geometry" "RenderType" = "Opaque" }
+        // 板の大きさと向きを行列から取るので、まとめ描きはしない（滝の板と同じ。2026-10-23）
+        Tags { "Queue" = "Geometry" "RenderType" = "Opaque" "DisableBatching" = "True" }
         Pass
         {
             CGPROGRAM
