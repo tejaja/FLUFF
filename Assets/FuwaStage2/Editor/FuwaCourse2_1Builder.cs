@@ -501,13 +501,7 @@ public static class FuwaCourse2_1Builder
                 var pc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(c); pc.ball = ballProxy;
                 UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pc); NoSync(pc);
             }
-            // 浅い所に落ちた人が出口の岸に上がる石段（出口のふちの内側、3段）。ふわふわが上に乗るとアウト
-            float[] tops = { Mathf.Lerp(-WaterDepth, BankTop, 0.25f), Mathf.Lerp(-WaterDepth, BankTop, 0.5f), Mathf.Lerp(-WaterDepth, BankTop, 0.75f) };
-            for (int i = 0; i < 3; i++)
-            {
-                int k = i; float a = sPond1 - 0.5f * (3 - k), b = a + 0.5f;
-                Sweep(dg, "ExitStep" + i, a, b, s => -1.2f, s => 1.2f, s => -WaterDepth - 0.05f, s => tops[k], ground, 0, true, true);
-            }
+            // 出口の石段は 2026-10-23 にやめた（浅くしてどこからでも上がれる。ふわふわが引っかかる）
         }
         // 蓮の池の水源：右のふちの岩から小さな滝が流れ込む（上の川は谷に落ちるので、池には別の水源。2026-10-20 てじゃ「次の池には適当に水源作って流し込もう」）。
         // 置き場所は大きい蓮の花のない側（まん中の花は左）。岩の面は池のふちの内側ぎりぎり（ふちの内側の面と重ねるとZファイト）
