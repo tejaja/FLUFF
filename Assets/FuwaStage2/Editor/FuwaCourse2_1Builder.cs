@@ -57,7 +57,7 @@ public static class FuwaCourse2_1Builder
     static Vector2 goalC, goalD, walkP0; static float sWalkEnd;   // walkP0＝左岸の道のまっすぐな所の始まり（道の中心）、向きは goalD   // ゴールの島の中心・向き（入口の逆）、左岸の道の終わり
     // 洞窟：床＝StartH、天井の高さ CaveIn、壁の外側 CaveHW（道の幅6の外に厚み0.4）、口の半分の幅 MouthHW。上に屋根の板、その上が水源の池
     public const float CaveIn = 2.6f, CaveHW = 3.4f, MouthHW = 1.7f, RoofT = 0.3f, SideGapLen = 3.4f, SideGapH = 2.4f;
-    public const float FallsReach = 2.8f;   // 滝が落ち口からどれだけ前に落ちるか(m)
+    public const float FallsReach = 1.6f;   // 滝が落ち口からどれだけ前に落ちるか(m)。2026-10-23 2.8→1.6（てじゃ「ちょと遠くてふわふわが届かないことがおおい」）
     public static float SourceSurf { get { return StartH + CaveIn + RoofT + 0.3f + WaterDepth; } }
 
     // 中心線の点（コースのローカル x,z）。最初と最後はカーブの向きを決めるだけの点
