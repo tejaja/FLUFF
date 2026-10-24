@@ -25,6 +25,8 @@ public static class TejaVideoPlayerBuilder
     public const float ScreenW = 1.92f, ScreenH = 1.08f;   // 16:9
     public const float ScreenCenterY = 1.55f;              // 床からの画面の真ん中の高さ
     public const float TabH = 72f;   // パネルの下のたたむタブの段の高さ（Canvas の単位）
+    public const float TitleH = 64f;  // パネルの一番上の、動画のタイトルの段（2026-10-24 てじゃ「タイトルは操作パネルの一番上」）
+    public const float PanelH = 212f + TitleH;   // パネルの高さ（下から ボタン・シークバー＋時間・タイトル）
     public static int Style = 2;   // 操作パネルの見た目（TejaVideoStyle：0=A シンプル、1=B FLUFF風、2=C ぽってり）
 
     // ===== 汎用：シーンビューの真ん中あたりに、プレイヤー一式（画面・スピーカー・操作パネル・待機画面）を置く =====
@@ -54,7 +56,7 @@ public static class TejaVideoPlayerBuilder
         // 操作パネルは画面のすぐ下、右上の角（時間の右）に ▼▲ の隠すボタン（FLUFF のテレビと同じ並び）
         const float cs = 0.001f, gap = 0.018f;   // FLUFF のテレビ（画面2.79m・すき間2.5cm）と同じ比率
         float screenBottom = ScreenCenterY - ScreenH * 0.5f;
-        float panelCenter = screenBottom - gap - 106f * cs;
+        float panelCenter = screenBottom - gap - PanelH * 0.5f * cs;
         var controls = BuildControls(root, new Vector3(0f, panelCenter, -0.01f), cs, false, vp, font);
         var hide = MakeHideButton(root, new Vector3(0f, panelCenter, -0.012f) + HideButtonOffset(cs), cs, font);
         var hub = UdonSharpEditorUtility.GetBackingUdonBehaviour(vp);
@@ -68,7 +70,7 @@ public static class TejaVideoPlayerBuilder
     // 隠すボタンの位置：操作パネル（1920×212、真ん中基準）の右上の角＝時間の右（パネルの真ん中からのずれ、scale は Canvas 1単位の大きさ）
     public static Vector3 HideButtonOffset(float scale)
     {
-        return new Vector3((1820f - 960f) * scale, (174f - 106f) * scale, 0f);
+        return new Vector3((1820f - 960f) * scale, (PanelH - 38f - PanelH * 0.5f) * scale, 0f);
     }
 
     // 操作パネルを隠す／出すボタン（▼▲。小さい丸っこいラベンダーのボタン）。localPos は Canvas の真ん中。押した時の配線は呼ぶ側で。
@@ -88,6 +90,7 @@ public static class TejaVideoPlayerBuilder
         var hImg = hGo.GetComponent<Image>(); hImg.sprite = IconSprite9(Dir + "UI_Round.png"); hImg.type = Image.Type.Sliced; hImg.color = Color.white;
         var hSel = hGo.GetComponent<UnityEngine.UI.Button>();
         var hcb = hSel.colors; hcb.normalColor = new Color(0.62f, 0.55f, 0.86f); hcb.highlightedColor = new Color(0.72f, 0.66f, 0.93f); hcb.pressedColor = new Color(0.52f, 0.45f, 0.76f); hcb.selectedColor = hcb.normalColor; hSel.colors = hcb;
+        var hNav = hSel.navigation; hNav.mode = Navigation.Mode.None; hSel.navigation = hNav;   // キー操作で選ばれないように
         var hLab = Label(hGo.transform, "Label", "▲", font, 36, Color.white, TextAnchor.MiddleCenter); Fill(hLab.gameObject, 2f);
         return hdCv;
     }
@@ -219,15 +222,15 @@ public static class TejaVideoPlayerBuilder
         canvasGo.transform.SetParent(parent, false);
         var cv = canvasGo.GetComponent<Canvas>(); cv.renderMode = RenderMode.WorldSpace;
         var crt = (RectTransform)canvasGo.transform;
-        crt.sizeDelta = new Vector2(1920f, 212f + tabH);   // 2段：上＝シークバー・時間（読み込み前は状態の文字）、下＝ボタン・音量（2026-10-15 てじゃ「ボリュームを上に、スリムに」）
+        crt.sizeDelta = new Vector2(1920f, PanelH + tabH);   // 2段：上＝シークバー・時間（読み込み前は状態の文字）、下＝ボタン・音量（2026-10-15 てじゃ「ボリュームを上に、スリムに」）
         crt.localScale = Vector3.one * scale;
         crt.localPosition = localPos;
         crt.localRotation = Quaternion.identity;   // Canvas も Quad と同じく -Z 側（見る人の側）が表
         canvasGo.AddComponent<VRC.SDK3.Components.VRCUiShape>();
-        var cbox = canvasGo.AddComponent<BoxCollider>(); cbox.size = new Vector3(1920f, 212f + tabH, 10f); cbox.isTrigger = true;   // すり抜ける（ほかのレーザーUIと同じ。2026-10-15 てじゃ「コライダーがある」）   // レーザーが当たる板（左下基準ではなく真ん中基準）
+        var cbox = canvasGo.AddComponent<BoxCollider>(); cbox.size = new Vector3(1920f, PanelH + tabH, 10f); cbox.isTrigger = true;   // すり抜ける（ほかのレーザーUIと同じ。2026-10-15 てじゃ「コライダーがある」）   // レーザーが当たる板（左下基準ではなく真ん中基準）
         // パネル本体（たたむと消える）と、その下のたたむタブ（2026-10-15 てじゃ「下のUIを隠す・戻す」→ B：パネルの端の小さいタブ。画面クリックだとVRで誤操作するので）
         var panelGo = new GameObject("Panel", typeof(RectTransform), typeof(Image)); panelGo.transform.SetParent(canvasGo.transform, false);
-        Place(panelGo, 0f, tabH, 1920f, 212f);
+        Place(panelGo, 0f, tabH, 1920f, PanelH);
         panelGo.GetComponent<Image>().color = new Color(0.12f, 0.14f, 0.2f, 0.85f);
         var pt = panelGo.transform;
         vp.panelRoot = panelGo;
@@ -328,6 +331,10 @@ public static class TejaVideoPlayerBuilder
         vp.statusText = st;
         var tm = Label(pt, "Time", "", font, 36, Color.white, TextAnchor.MiddleRight); Place(tm.gameObject, 1440f, 140f, 280f, 68f);
         vp.timeText = tm;
+        // 動画のタイトル（一番上の段。右はしは隠すボタン）
+        var tt = Label(pt, "Title", "", font, 36, Color.white, TextAnchor.MiddleLeft); Place(tt.gameObject, 30f, 212f, 1720f, TitleH);
+        tt.horizontalOverflow = HorizontalWrapMode.Wrap; tt.verticalOverflow = VerticalWrapMode.Truncate;
+        vp.titleText = tt;
 
         // たたむタブ（パネルの右下にぶら下がる。▼でたたむ、▲で出す）。テレビに組み込む時はなし（カメラと切りかえるので）
         vp.panelTab = null; vp.panelTabLabel = null;
@@ -339,10 +346,12 @@ public static class TejaVideoPlayerBuilder
         UnityEventTools.AddStringPersistentListener(tabGo.GetComponent<UnityEngine.UI.Button>().onClick, ub.SendCustomEvent, nameof(TejaVideoPlayer.TogglePanel));
         var tabL = Label(tabGo.transform, "Label", "▼", font, 44, Color.white, TextAnchor.MiddleCenter); Fill(tabL.gameObject, 4f);
         vp.panelTabLabel = tabL;
-        vp.panelTab = (RectTransform)tabGo.transform; vp.panelHeight = 212f;
+        vp.panelTab = (RectTransform)tabGo.transform; vp.panelHeight = PanelH;
         }
 
         TejaVideoStyle.Apply(canvasGo.transform, Style);   // 見た目（色・角の丸み）
+        // キー操作で選ばれないように（デスクトップの移動キーでスライダーが動いた。2026-10-24 てじゃ「キー操作にはんのう」）
+        foreach (var sel in canvasGo.GetComponentsInChildren<Selectable>(true)) { var nav = sel.navigation; nav.mode = Navigation.Mode.None; sel.navigation = nav; }
         return canvasGo.transform;
     }
 

@@ -5,6 +5,9 @@ using VRC.SDK3.Components;
 using VRC.SDK3.Components.Video;
 using VRC.SDK3.Video.Components.Base;
 using VRC.SDKBase;
+using VRC.SDK3.Data;
+using VRC.SDK3.StringLoading;
+using VRC.Udon.Common.Interfaces;
 
 // シンプルな同期動画プレイヤー（2026-10-15 てじゃ「URLを入れて再生、ライブも見れる、一応同期する」「配布のソフトみたいな多機能じゃなくてよし」）。
 // ・URL入力欄に貼る → 入れた人が持ち主になって「URL・動画の0秒がサーバー時刻の何秒か・一時停止中か」を配る
@@ -54,6 +57,12 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public Transform[] loadingSpinners;
     public float spinnerSpeed = 300f;
 
+    [Header("動画のタイトル（なくてもOK）")]
+    [Tooltip("動画のタイトルを出す所。動画のページを文字列読み込みで取ってきて、YouTube はページの中のJSONから、ほかのサイトは og:title / <title> から抜く（2026-10-24 てじゃ「YamaPlayerみたいにタイトル」）。" +
+             "youtube.com などは VRChat の文字列読み込みの許可リストに無いので、Allow Untrusted URLs がオンの人だけ取れる。URLを入れた人（持ち主）が取れたタイトルは同期して配る")]
+    public Text titleText;
+    public bool fetchTitle = true;
+
     [Header("音の範囲・BGM（なくてもOK）")]
     [Tooltip("この中心から audioZoneRadius 以内に自分がいる時だけ動画の音を出す（空なら どこでも）")]
     public Transform audioZone;
@@ -76,6 +85,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     [UdonSynced] private bool _paused;
     [UdonSynced] private float _pausedAt;
     [UdonSynced] private bool _loop;          // くり返し再生（みんな共通。2026-10-15 てじゃ「連続再生の切り替えスイッチ」）
+    [UdonSynced] private string _title = "";  // 持ち主が取れた動画のタイトル（Allow Untrusted URLs がオフの人にも見えるように配る）
 
     private int _loadedVer = -1;
     private bool _error;      // 読み込みに失敗した（読み込み直すまで）
@@ -88,6 +98,8 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     private bool _userMuted;   // スピーカーのボタンで自分だけミュート
     private bool _silencing;
     private float _nextZone;
+    private string _localTitle = "";   // 自分で取れたタイトル（今の URL の）
+    private int _titleTries;
 
     private void Start()
     {
@@ -114,6 +126,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         _start = -1;
         _paused = false;
         _pausedAt = 0f;
+        _title = "";
         RequestSerialization();
         Load();
     }
@@ -267,6 +280,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         VRCPlayerApi o = Networking.GetOwner(gameObject);
         Log("received state from " + (o != null ? o.displayName : "?") + ": ver=" + _ver + " paused=" + _paused + " pausedAt=" + _pausedAt.ToString("0.0") + " start=" + _start.ToString("0.0") + " loop=" + _loop + " url=" + (_url != null ? _url.Get() : ""));
         ApplyLoop();
+        ShowTitle();
         if (_ver != _loadedVer) { Load(); return; }
         ApplyState(false);
         UpdatePlayLabel();
@@ -297,6 +311,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         _nextLoad = Time.time + loadInterval;
         player.Stop();
         player.LoadURL(_url);
+        StartTitleFetch();
         SetStatus("Loading...");
         Log("loading ver=" + _ver + ": " + _url.Get());
     }
@@ -441,6 +456,140 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         else if (videoError == VideoError.PlayerError) SetStatus("Couldn't play this video");
         else SetStatus("Error: " + videoError.ToString());
         UpdatePlayLabel();
+    }
+
+    // ===== 動画のタイトル =====
+
+    private void StartTitleFetch()
+    {
+        _localTitle = "";
+        _titleTries = 0;
+        ShowTitle();
+        if (!fetchTitle || titleText == null) return;
+        _FetchTitle();
+    }
+
+    public void _FetchTitle()
+    {
+        if (_url == null || _url.Get() == "") return;
+        _titleTries++;
+        VRCStringDownloader.LoadUrl(_url, (IUdonEventReceiver)this);
+    }
+
+    public override void OnStringLoadSuccess(IVRCStringDownload result)
+    {
+        if (_url == null || result.Url == null || result.Url.Get() != _url.Get()) return;   // 途中で別の動画になった
+        string t = ParseTitle(result.Result, _url.Get());
+        Log("title: " + (t != "" ? t : "(not found)"));
+        if (t == "") return;
+        _localTitle = t;
+        if (Networking.IsOwner(gameObject) && _title != t) { _title = t; RequestSerialization(); }
+        ShowTitle();
+    }
+
+    public override void OnStringLoadError(IVRCStringDownload result)
+    {
+        if (_url == null || result.Url == null || result.Url.Get() != _url.Get()) return;
+        Log("title load error " + result.ErrorCode + ": " + result.Error);
+        // 読み込みが重なって断られた時だけ、少し待ってもう一度（許可されていないURLは何度やってもだめなのでやめる）
+        if (result.ErrorCode == 429 && _titleTries < 3) SendCustomEventDelayedSeconds(nameof(_FetchTitle), 6f);
+    }
+
+    private void ShowTitle()
+    {
+        if (titleText == null) return;
+        string t = _localTitle != "" ? _localTitle : (_title != null ? _title : "");
+        if (titleText.text != t) titleText.text = t;
+    }
+
+    // ページの文字からタイトルを抜く。YouTube：videoDetails の title（JSON の文字列）→ og:title → <title>
+    private string ParseTitle(string html, string url)
+    {
+        if (html == null || html == "") return "";
+        int p = html.IndexOf("\"videoDetails\"");
+        if (p >= 0)
+        {
+            int t = html.IndexOf("\"title\":\"", p);
+            if (t >= 0 && t - p < 4000)
+            {
+                string s = ReadJsonString(html, t + 9);
+                if (s != "") return s;
+            }
+        }
+        // Twitch：配信中のページは ld+json（"@graph" の最初）の name が配信のタイトル。og:title はただの「Twitch」
+        if (url.IndexOf("twitch.tv") >= 0)
+        {
+            int l = html.IndexOf("application/ld+json");
+            int n = l >= 0 ? html.IndexOf("\"name\":\"", l) : -1;
+            if (n >= 0 && n - l < 6000)
+            {
+                string s = ReadJsonString(html, n + 8);
+                if (s != "" && s != "Twitch") return s;
+            }
+        }
+        int o = html.IndexOf("og:title");
+        if (o >= 0)
+        {
+            int tagStart = html.LastIndexOf('<', o);
+            int tagEnd = html.IndexOf('>', o);
+            if (tagStart >= 0 && tagEnd > o)
+            {
+                string tag = html.Substring(tagStart, tagEnd - tagStart);
+                string s = HtmlDecode(AttrValue(tag, "content"));
+                if (s != "" && s != "Twitch") return s;
+            }
+        }
+        int a = html.IndexOf("<title");
+        if (a >= 0)
+        {
+            int b = html.IndexOf('>', a);
+            int c = b >= 0 ? html.IndexOf("</title>", b) : -1;
+            if (c > b)
+            {
+                string s = HtmlDecode(html.Substring(b + 1, c - b - 1)).Trim();
+                if (s.EndsWith(" - YouTube")) s = s.Substring(0, s.Length - 10);
+                if (s != "" && s != "YouTube" && s != "Twitch") return s;
+            }
+        }
+        return "";
+    }
+
+    // start から JSON の文字列の中身（閉じの " まで）を読んで、\uXXXX や \" などを戻す
+    private string ReadJsonString(string src, int start)
+    {
+        int end = -1;
+        int lim = Mathf.Min(src.Length, start + 2000);
+        for (int i = start; i < lim; i++)
+        {
+            char ch = src[i];
+            if (ch == '\\') { i++; continue; }
+            if (ch == '"') { end = i; break; }
+        }
+        if (end < 0) return "";
+        DataToken tok;
+        if (VRCJson.TryDeserializeFromJson("[\"" + src.Substring(start, end - start) + "\"]", out tok)
+            && tok.TokenType == TokenType.DataList && tok.DataList.Count > 0 && tok.DataList[0].TokenType == TokenType.String)
+            return tok.DataList[0].String;
+        return "";
+    }
+
+    // タグの文字から name="..." / name='...' の値
+    private string AttrValue(string tag, string name)
+    {
+        int i = tag.IndexOf(name + "=");
+        if (i < 0) return "";
+        i += name.Length + 1;
+        if (i >= tag.Length) return "";
+        char q = tag[i];
+        if (q != '"' && q != '\'') return "";
+        int j = tag.IndexOf(q, i + 1);
+        return j > i ? tag.Substring(i + 1, j - i - 1) : "";
+    }
+
+    private string HtmlDecode(string s)
+    {
+        return s.Replace("&quot;", "\"").Replace("&#39;", "'").Replace("&#x27;", "'").Replace("&#039;", "'")
+                .Replace("&lt;", "<").Replace("&gt;", ">").Replace("&amp;", "&");
     }
 
     // ===== 表示 =====

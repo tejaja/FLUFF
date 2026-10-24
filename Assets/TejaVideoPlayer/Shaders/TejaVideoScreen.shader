@@ -9,6 +9,7 @@ Shader "TejaVideo/Screen"
         _ScreenAspect ("Screen Aspect (幅÷高さ)", Float) = 1.7777778
         [Toggle] _ApplyGamma ("Apply Gamma (AVPro + Linear)", Float) = 1
         [Toggle] _FlipY ("Flip Y on PC (AVPro)", Float) = 1
+        _Fog ("Fog amount (0 = 霧の影響なし)", Range(0, 1)) = 1
     }
     SubShader
     {
@@ -24,7 +25,7 @@ Shader "TejaVideo/Screen"
 
             sampler2D _MainTex;
             float4 _MainTex_TexelSize;   // zw = 動画の幅・高さ（ピクセル）
-            float _Brightness, _ScreenAspect, _ApplyGamma, _FlipY;
+            float _Brightness, _ScreenAspect, _ApplyGamma, _FlipY, _Fog;
             float _VRChatMirrorMode;   // VRChat が入れる：0=ふつう、1=VRのミラー、2=デスクトップのミラー
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -62,8 +63,10 @@ Shader "TejaVideo/Screen"
                 if (_ApplyGamma > 0.5) c = pow(c, 2.2);
                 #endif
                 fixed4 col = fixed4(c * _Brightness, 1);
-                UNITY_APPLY_FOG(i.fogCoord, col);
-                return col;
+                // 霧の効き具合（2026-10-24 ラーメンの油：暗い霧の中の大画面が霞まないように 0 にできる）
+                fixed4 fogged = col;
+                UNITY_APPLY_FOG(i.fogCoord, fogged);
+                return lerp(col, fogged, _Fog);
             }
             ENDCG
         }

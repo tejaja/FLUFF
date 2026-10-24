@@ -60,7 +60,7 @@ public static class FuwaTvVideoBuilder
         vp.standbyScreens = new[] { MakeStandby(ts.transform) };
         vp.loadingSpinners = new[] { vp.standbyScreens[0].transform.Find("Spinner") };
         vp.speakers = MakeSpeakers(root, new[] { new Vector3(-ScreenW * 0.5f, ScreenCenterY, 0f), new Vector3(ScreenW * 0.5f, ScreenCenterY, 0f) }, av, SoundNear, SoundFar);
-        BuildControls(root, new Vector3(0f, ScreenCenterY - ScreenH * 0.5f - 0.01f - (212f + TabH) * 0.0005f, -0.01f), 0.001f, true, vp, font);
+        BuildControls(root, new Vector3(0f, ScreenCenterY - ScreenH * 0.5f - 0.01f - (PanelH + TabH) * 0.0005f, -0.01f), 0.001f, true, vp, font);
         Finish(vp, scene);
         Selection.activeGameObject = root.gameObject;
     }
@@ -103,7 +103,7 @@ public static class FuwaTvVideoBuilder
         float rowZ = tb != null ? tb.localPosition.z - 0.002f : -0.012f;
         // 画面のすぐ下に寄せる（画面の下のふちから PanelGap あけて、パネルの上のふち）（2026-10-15 てじゃ「UIを画面に寄せよう」。前は ME/CAM ボタンと同じ高さ）
         const float PanelGap = 0.025f;
-        float rowY = (sl.y - tvScreen.lossyScale.y * 0.5f) - PanelGap - 106f * 0.00135f;
+        float rowY = (sl.y - tvScreen.lossyScale.y * 0.5f) - PanelGap - PanelH * 0.5f * 0.00135f;
         var controls = BuildControls(tv, new Vector3(sl.x, rowY, rowZ), 0.00135f, false, vp, font);
         controls.name = "VideoControls";
         controls.gameObject.SetActive(false);

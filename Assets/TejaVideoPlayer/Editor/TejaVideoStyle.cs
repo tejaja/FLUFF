@@ -125,6 +125,7 @@ public static class TejaVideoStyle
 
         // 時間・状態の文字
         var tm = panel.Find("Time"); if (tm != null) tm.GetComponent<Text>().color = s.time;
+        var ti = panel.Find("Title"); if (ti != null) ti.GetComponent<Text>().color = s.time;
         var st = panel.Find("Status"); if (st != null) st.GetComponent<Text>().color = s.status;
         EditorUtility.SetDirty(controls.gameObject);
     }
