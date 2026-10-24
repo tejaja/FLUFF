@@ -10,14 +10,12 @@ Shader "TejaVideo/Screen"
         [Toggle] _ApplyGamma ("Apply Gamma (AVPro + Linear)", Float) = 1
         [Toggle] _FlipY ("Flip Y on PC (AVPro)", Float) = 1
         _Fog ("Fog amount (0 = 霧の影響なし)", Range(0, 1)) = 1
-        [Enum(Off, 0, On, 1)] _ZWrite ("ZWrite (ミラー専用のコピーは Off にして、いちばん奥に描く)", Float) = 1
     }
     SubShader
     {
         Tags { "RenderType"="Opaque" "Queue"="Geometry" }
         Pass
         {
-            ZWrite [_ZWrite]
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
