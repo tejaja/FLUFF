@@ -77,7 +77,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public float maxDrift = 1.0f;
     [Tooltip("VRChat の決まり：次の読み込みまで5秒あける（少し余裕をみる）")]
     public float loadInterval = 5.5f;
-    public float defaultVolume = 0.5f;
+    public float defaultVolume = 0.3f;   // 最初の音量（2026-10-24 てじゃ「デフォルトの動画ボリューム30%くらい」）
 
     [UdonSynced] private VRCUrl _url = VRCUrl.Empty;
     [UdonSynced] private int _ver;            // URL を入れ直すたびに +1（同じURLでも読み直す）
