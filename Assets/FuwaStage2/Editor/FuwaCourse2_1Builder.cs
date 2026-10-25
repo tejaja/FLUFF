@@ -13,9 +13,10 @@ using Object = UnityEngine.Object;
 //     人は洞窟の右の壁の脇道（ツタのカーテンをくぐる。人はすり抜け、ふわふわは跳ね返される。2026-10-22 クモの巣から変更）から出て、岸の道を下りる。
 //     崖の上は水源の池（滝の元）。2026-10-19 てじゃ「スタートを今のスタートの下に洞窟をつくって…ふわふわを滝に打ち込むしかない形に、
 //     人は滝のよこに脇道を作ってそこにクモの巣」「上の段は水源として使う」（前の作りだと岸の道ぞいに空中で運べて滝を迂回できた）
-//  ② 池からうねる川（流れあり）でふわふわが流される。人は右の岸を追いかける。下流の渡り場で右岸の道が川で切れていて、
-//     待ちかまえて流れてきたふわふわを左岸の道の続きへ撃ってすくい上げる。人は川をじゃぶじゃぶ渡る。
-//     間に合わないと川の終わりの崖の滝から谷へ落ちてアウト。左岸の道は谷を小さい橋で越える（2026-10-20 てじゃ。前は橋＋橋の下のトゲ）
+//  ② 池から川（流れあり）でふわふわが流される。人は右の岸を追いかける。1回目の渡り場で右岸の道が川で切れていて、
+//     待ちかまえて流れてきたふわふわを左岸の道へ撃ってすくい上げる。人は川をじゃぶじゃぶ渡る。
+//     左岸を空中で運んで、2回目の渡り場で川を越えて右岸へ。川上へ跳ねる魚に当たると川上へ飛ばされて川に落ちる（2026-10-25 てじゃのスケッチ）。
+//     間に合わないと川の終わりの崖の滝から谷へ落ちてアウト。右岸の道は谷を小さい橋で越える（2026-10-20 てじゃ。前は橋＋橋の下のトゲ）
 //  ③ 蓮の池：道が途切れて、人は固定の蓮の葉を飛び石で渡る。ふわふわは池を撃って渡す
 // ふわふわは地面（道も、水の底も）に触るとアウト、水に浮いている間はセーフ。水から出る時は撃って浮かせる（道を水の中まで伸ばすと触ってアウトになる）
 //  ④ 貝の道（2026-10-21、前の「泡の段々」と入れかえ）：蓮の池から先は海っぽく（河口・浜辺へ）。細い堤の道の両わきで貝が左右交互に
@@ -63,8 +64,9 @@ public static class FuwaCourse2_1Builder
     // 中心線の点（コースのローカル x,z）。最初と最後はカーブの向きを決めるだけの点
     static readonly Vector2[] Ctrl =
     {
-        new Vector2(0, -6), new Vector2(0, 0), new Vector2(0, 6), new Vector2(-2, 13), new Vector2(-6, 20), new Vector2(-5, 28),
-        new Vector2(1, 34), new Vector2(7, 40), new Vector2(8, 48), new Vector2(4, 55), new Vector2(-2, 61), new Vector2(-5, 68),
+        // 川（4〜8）は 2026-10-25 にまっすぐ寄りに（てじゃのスケッチ「赤が道、青が川、２回渡る」。前は (-6,20),(-5,28),(1,34),(7,40),(8,48) の大きいS字）
+        new Vector2(0, -6), new Vector2(0, 0), new Vector2(0, 6), new Vector2(-2, 13), new Vector2(-4, 20), new Vector2(-3.5f, 28),
+        new Vector2(-2, 35), new Vector2(1, 42), new Vector2(4, 48), new Vector2(4, 55), new Vector2(-2, 61), new Vector2(-5, 68),
         new Vector2(-3, 76), new Vector2(2, 82), new Vector2(5, 89), new Vector2(5, 97),
         // ⑤ 滝の道（ぐねぐね。滝と水路は FallsSet0・FallsGap で置く）→ ⑥ ラスト
         // 2026-10-23 滝の道を短くしたので、(-1,116) から先はまっすぐ (0,136) へ（ラストの踊り場がカーブにかかって道が折れた。前は (4,122),(2,129)）
@@ -121,10 +123,12 @@ public static class FuwaCourse2_1Builder
     static Vector2 Right(Vector2 d) { return new Vector2(d.y, -d.x); }
 
     // ---- 区間（BuildAll で決める）----
-    // 川の渡り場（右岸の道が川で切れて、人は川をじゃぶじゃぶ渡って左岸の道へ）は川の終わりの CrossBefore m 手前。
-    // 川の終わりは崖の滝で、その先は谷（GorgeLen m、落ちたらアウト）。左岸の道は谷を小さい橋で越える
-    public const float CrossBefore = 9f, CrossGap = 2.4f, GorgeLen = 5.5f, GorgeDrop = 10f;
-    static float sCross;
+    // 川の渡り場は2つ（2026-10-25 てじゃ「川で見てるのが長過ぎる」→ スケッチ「２回渡る」）。
+    //  1回目：川の始まりから Cross1After m。右岸の道が川で切れていて、流れてきたふわふわを左岸の道へすくい上げる。人は川をじゃぶじゃぶ渡る
+    //  2回目：川の終わりの Cross2Before m 手前。左岸の道が切れていて、空中で運んできたふわふわを右岸の道へ撃って渡す。川上へ跳ねる魚がじゃま（FuwaRiverFish）
+    // 川の終わりは崖の滝で、その先は谷（GorgeLen m、落ちたらアウト）。右岸の道は谷を小さい橋で越える
+    public const float Cross1After = 6f, Cross2Before = 8f, CrossGap = 2.4f, GorgeLen = 5.5f, GorgeDrop = 10f;
+    static float sCross1, sCross2;
     static float sPlaza0, sPlaza1, sPool1, sRiver1, sPond0, sPond1, sTer0, sGoal0, sEnd;
     static float[] terA = new float[3], terB = new float[3];
 
@@ -229,7 +233,7 @@ public static class FuwaCourse2_1Builder
         sEnd = SI(Ctrl.Length - 2);
         sPlaza0 = 0f; sPlaza1 = SI(2.0f);
         sPool1 = SI(3.8f); sRiver1 = SI(7.3f);
-        sCross = sRiver1 - CrossBefore;
+        sCross1 = sPool1 + Cross1After; sCross2 = sRiver1 - Cross2Before;
         sPond0 = SI(8.9f); sPond1 = SI(10.9f);
         sTer0 = SI(11.8f);
         const float TerLen = 5.5f;
@@ -277,10 +281,13 @@ public static class FuwaCourse2_1Builder
             if (s < sPlaza1) return Mathf.Lerp(1.5f, 4.7f, Smooth01((s - (sPlaza1 - 4.6f)) / 4.1f));
             return Mathf.Max(Mathf.Lerp(4.7f, 3.4f, Smooth01((s - sPlaza1) / 6f)), WaterHW(Mathf.Min(s, sRiver1)) + RimW + 1.55f);
         };
-        Func<float, float> b2t = s => -Mathf.Lerp(bankOff(s), 0f, Smooth01((s - mergeA) / (mergeB - mergeA)));
+        // 2026-10-25 道は 右岸(B1) → 1回目の渡り場 → 左岸(B2) → 2回目の渡り場 → 右岸(B3) → 谷を越えて本道（前は右岸 → 渡り場1つ → 左岸）
+        Func<float, float> b2t = s => -bankOff(s);
+        Func<float, float> b3t = s => Mathf.Lerp(bankOff(s), 0f, Smooth01((s - mergeA) / (mergeB - mergeA)));
         Func<float, float> b1h = s => Ramp(s, sPlaza1 + 0.3f, sPlaza1 + 10f, StartH - 0.01f, BankTop - 0.01f);
-        pieces.Add(new Piece { name = "B1_Bank", s0 = sPlaza1 - 4.6f, s1 = sCross - CrossGap * 0.5f, off = Smoothed(b1t, 1.2f), w = s => 3f, h = b1h });
-        pieces.Add(new Piece { name = "B2_Bank", s0 = sCross + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
+        pieces.Add(new Piece { name = "B1_Bank", s0 = sPlaza1 - 4.6f, s1 = sCross1 - CrossGap * 0.5f, off = Smoothed(b1t, 1.2f), w = s => 3f, h = b1h });
+        pieces.Add(new Piece { name = "B2_Bank", s0 = sCross1 + CrossGap * 0.5f, s1 = sCross2 - CrossGap * 0.5f, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
+        pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b3t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         // M2 谷の向こう → 蓮の池の手前（本道は水のふちの外側にぴったりつける。端は丸めない）
         pieces.Add(new Piece { name = "M2", s0 = mergeA, s1 = sPond0 - RimW, off = s => 0f, w = s => 3f, h = s => BankTop, round0 = false, round1 = false });
         // M3 貝の道：蓮の池の向こうから、細い堤の道をゆるく登って大きな滝の登り坂へ（両わきは崖の外＝落ちたらアウト）
@@ -329,9 +336,10 @@ public static class FuwaCourse2_1Builder
         {
             new Water { name = "W0_Source", s0 = sPlaza0 - 1.5f, s1 = sPlaza1, surf = SourceSurf, flow = 0.8f, open1 = true, bodyBottom = StartH + CaveIn + RoofT,
                 hw = s => Mathf.Lerp(CaveHW - RimW, MouthHW, Smooth01((s - (sPlaza1 - 3.5f)) / 3.5f)) },
-            new Water { name = "W1_Pool", s0 = sPlaza1, s1 = sPool1, surf = 0f, flow = 0.9f, hw = PoolHW, open0 = true, open1 = true, deep = true, depth = 2.5f },
+            // 流れ 2026-10-25 0.9→1.3、川 1.1→1.4（てじゃ「川で見てるのが長過ぎる」。人は浅瀬を歩かず岸の道を走るので速くしてよい）
+            new Water { name = "W1_Pool", s0 = sPlaza1, s1 = sPool1, surf = 0f, flow = 1.3f, hw = PoolHW, open0 = true, open1 = true, deep = true, depth = 2.5f },
             // 終わりは崖の滝（open1）。下のかたまりを深くして、谷から見て崖に見えるように
-            new Water { name = "W2_River", s0 = sPool1, s1 = sRiver1, surf = 0f, flow = 1.1f, hw = RiverHW, open0 = true, open1 = true, bodyBottom = -6f },   // 1.6→1.1：浅瀬を歩く人が置いていかれないように
+            new Water { name = "W2_River", s0 = sPool1, s1 = sRiver1, surf = 0f, flow = 1.4f, hw = RiverHW, open0 = true, open1 = true, bodyBottom = -6f },
             new Water { name = "W3_LilyPond", s0 = sPond0, s1 = sPond1, surf = 0f, flow = 0f, hw = PondHW, gapL0 = PondSpill() - 1.1f, gapL1 = PondSpill() + 1.1f,
                 hole0 = PondDeep0, hole1 = PondDeep1, holeL = PondDeepL, holeR = PondDeepR, holeBed = PondHoleBed },
         };
@@ -360,6 +368,8 @@ public static class FuwaCourse2_1Builder
             Sweep(gz, "FarCliff", gorge1, sPond0 - RimW, s => -fw - 3.2f, s => fw, s => -6f, s => BankTop - Thick - 0.01f, ground, 0, true, true);
         }
 
+        // 2回目の渡り場の魚
+        RiverFish(root, fx);
         // ④ 貝の道
         ClamWalk(root, ground);
         // ⑤ 滝の道
@@ -741,6 +751,64 @@ public static class FuwaCourse2_1Builder
         float m = (Low(a) + Low(b)) * 0.5f;
         return (m + ClamPeriod * 0.5f) % ClamPeriod;
     }
+    // ---- 2回目の渡り場の魚（2026-10-25）----
+    // 川の何本かの筋（FishLanes、中心線からの横のずれ）で、渡り場の FishSpan m 下流から上流へ水面を跳ねる。仮の形（あとで Blender）
+    public static float[] FishLanes = { -1.0f, 0f, 1.0f };
+    // 魚ごとのずらし（秒）：右から左へ波のように続けて跳んで、そのあと静かな間がある
+    public static float[] FishPhases = { 0f, -0.35f, -0.7f };
+    public static float FishSpan = 1.7f, FishPeriod = 3.2f, FishDepth = 0.15f;
+    static void RiverFish(Transform root, FuwaWaterFx fx)
+    {
+        var g = new GameObject("RiverFish").transform; g.SetParent(root, false);
+        var ballProxy = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
+        Center(sCross2, out var cp, out var cd); var cr = Right(cd);
+        var crossing = new GameObject("Crossing").transform; crossing.SetParent(g, false);
+        crossing.localPosition = new Vector3(cp.x, 0f, cp.y);
+        crossing.localRotation = Quaternion.LookRotation(new Vector3(-cd.x, 0, -cd.y));   // +Z＝川上
+        var bodyMat = FlatMat("Stage2_FishBody", new Color(0.98f, 0.56f, 0.45f));
+        var finMat = FlatMat("Stage2_FishFin", new Color(0.86f, 0.38f, 0.32f));
+        var eyeMat = FlatMat("Stage2_FishEye", new Color(0.12f, 0.12f, 0.16f));
+        int n = FishLanes.Length;
+        var fish = new Transform[n]; var from = new Transform[n]; var to = new Transform[n];
+        for (int i = 0; i < n; i++)
+        {
+            Center(sCross2 + FishSpan, out var pa, out var da); Center(sCross2 - FishSpan, out var pb, out var db);
+            var qa = pa + Right(da) * FishLanes[i]; var qb = pb + Right(db) * FishLanes[i];
+            var a = new GameObject("From" + i).transform; a.SetParent(g, false); a.localPosition = new Vector3(qa.x, -FishDepth, qa.y);
+            var b = new GameObject("To" + i).transform; b.SetParent(g, false); b.localPosition = new Vector3(qb.x, -FishDepth, qb.y);
+            from[i] = a; to[i] = b;
+            // 仮の魚：+Z が頭。胴（カプセルを寝かせる）・尾びれ・背びれ・目
+            var f = new GameObject("Fish" + i).transform; f.SetParent(g, false); f.localPosition = a.localPosition;
+            GameObject Part(PrimitiveType t, string name, Vector3 lp, Vector3 ls, Vector3 le, Material m)
+            {
+                var o = GameObject.CreatePrimitive(t); o.name = name; o.transform.SetParent(f, false);
+                Object.DestroyImmediate(o.GetComponent<Collider>());
+                o.transform.localPosition = lp; o.transform.localScale = ls; o.transform.localEulerAngles = le;
+                var r = o.GetComponent<Renderer>(); r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                return o;
+            }
+            Part(PrimitiveType.Capsule, "Body", Vector3.zero, new Vector3(0.22f, 0.3f, 0.28f), new Vector3(90, 0, 0), bodyMat);
+            Part(PrimitiveType.Cube, "Tail", new Vector3(0, 0, -0.34f), new Vector3(0.03f, 0.24f, 0.14f), new Vector3(0, 0, 0), finMat);
+            Part(PrimitiveType.Cube, "Dorsal", new Vector3(0, 0.13f, -0.02f), new Vector3(0.025f, 0.08f, 0.14f), new Vector3(-15, 0, 0), finMat);
+            Part(PrimitiveType.Sphere, "EyeL", new Vector3(-0.09f, 0.04f, 0.17f), Vector3.one * 0.045f, Vector3.zero, eyeMat);
+            Part(PrimitiveType.Sphere, "EyeR", new Vector3(0.09f, 0.04f, 0.17f), Vector3.one * 0.045f, Vector3.zero, eyeMat);
+            f.gameObject.SetActive(false);
+            fish[i] = f;
+        }
+        AudioSource Snd(string name, string clip, float vol)
+        {
+            var go = new GameObject(name); go.transform.SetParent(g, false);
+            var s = go.AddComponent<AudioSource>(); s.playOnAwake = false; s.spatialBlend = 1f; s.minDistance = 2f; s.maxDistance = 20f; s.rolloffMode = AudioRolloffMode.Linear;
+            s.volume = vol; s.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clip); return s;
+        }
+        var rf = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaRiverFish>(g.gameObject);
+        rf.ball = ballProxy; rf.fx = fx; rf.crossing = crossing;
+        rf.fish = fish; rf.jumpFrom = from; rf.jumpTo = to; rf.phases = (float[])FishPhases.Clone(); rf.period = FishPeriod;
+        rf.jumpSound = Snd("JumpSfx", "Assets/FuwaStage2/Audio/sfx_water_splash_soft.wav", 0.6f);
+        rf.hitSound = Snd("HitSfx", "Assets/FuwaCourse/Audio/sfx_boing.wav", 0.8f);
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(rf); NoSync(rf);
+    }
+
     static void ClamWalk(Transform root, Material ground)
     {
         var g = new GameObject("ClamWalk").transform; g.SetParent(root, false);
