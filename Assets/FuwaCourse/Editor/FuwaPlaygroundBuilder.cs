@@ -458,7 +458,9 @@ public static class FuwaPlaygroundBuilder
     // ---------- まだ出ていないおもちゃの場所：「？」の台座＋ぷっくり看板 ----------
     // 2026-10-13 てじゃ「出現前の看板きえてた、そのままは味気ない」→ 案A（入口と同じぷっくりクッション看板・コースの色のふち）＋B（半透明のドームの台座に「?」）。
     // 前は遊び方の看板の板と文字をコピーしていて、遊び方の看板を隠したらコピーも隠れたまま作られていた
-    static readonly Color[] CourseAccent = { Hex("7DD8AD"), Hex("D0A35B"), Hex("77435F"), Hex("8C63D5"), Hex("73AAE6") };   // ロビーのコース看板の雲のふちと同じ色
+    // ロビーのコース看板の雲のふちと同じ色。きのこのたには 2026-10-25 空色 73AAE6 → うすい赤 E8706A（てじゃ「みずのこみちと青でかぶってるうえに連続」
+    // 「どうせ被るなら、連続ではない赤のほうがマシかも」。オレンジはいわのみちとかぶってやめた）
+    static readonly Color[] CourseAccent = { Hex("7DD8AD"), Hex("D0A35B"), Hex("77435F"), Hex("8C63D5"), Hex("E8706A") };
     static Color Hex(string h) { ColorUtility.TryParseHtmlString("#" + h, out var c); return c; }
     const float LockHW = 0.72f, LockHH = 0.3f, LockRound = 0.28f, LockPipe = 0.035f, LockY = 1.3f, DomeR = 0.68f;
 
