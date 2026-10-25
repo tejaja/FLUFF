@@ -14,7 +14,7 @@ using Object = UnityEngine.Object;
 //     崖の上は水源の池（滝の元）。2026-10-19 てじゃ「スタートを今のスタートの下に洞窟をつくって…ふわふわを滝に打ち込むしかない形に、
 //     人は滝のよこに脇道を作ってそこにクモの巣」「上の段は水源として使う」（前の作りだと岸の道ぞいに空中で運べて滝を迂回できた）
 //  ② 池から川（流れあり）でふわふわが流される。人は右の岸を追いかける。1回目の渡り場で右岸の道が川で切れていて、
-//     待ちかまえて流れてきたふわふわを左岸の道へ撃ってすくい上げる。人は川をじゃぶじゃぶ渡る。
+//     すぐ先の岩（StopRocks）で止まったふわふわを左岸の道へ撃ってすくい上げる。人は川をじゃぶじゃぶ渡る。
 //     左岸を空中で運んで、2回目の渡り場で川を越えて右岸へ。川上へ跳ねる魚に当たると川上へ飛ばされて川に落ちる（2026-10-25 てじゃのスケッチ）。
 //     間に合わないと川の終わりの崖の滝から谷へ落ちてアウト。右岸の道は谷を小さい橋で越える（2026-10-20 てじゃ。前は橋＋橋の下のトゲ）
 //  ③ 蓮の池：道が途切れて、人は固定の蓮の葉を飛び石で渡る。ふわふわは池を撃って渡す
@@ -368,7 +368,8 @@ public static class FuwaCourse2_1Builder
             Sweep(gz, "FarCliff", gorge1, sPond0 - RimW, s => -fw - 3.2f, s => fw, s => -6f, s => BankTop - Thick - 0.01f, ground, 0, true, true);
         }
 
-        // 2回目の渡り場の魚
+        // 1回目の渡り場の先の岩、2回目の渡り場の魚
+        StopRocks(root);
         RiverFish(root, fx);
         // ④ 貝の道
         ClamWalk(root, ground);
@@ -751,6 +752,37 @@ public static class FuwaCourse2_1Builder
         float m = (Low(a) + Low(b)) * 0.5f;
         return (m + ClamPeriod * 0.5f) % ClamPeriod;
     }
+    // ---- 1回目の渡り場の先の岩（2026-10-25）----
+    // 川を横切って岩が並んでいて、流れてきたふわふわはここで止まる（水は岩のすき間を抜ける）。止まったふわふわを左岸の道へすくい上げる。
+    // てじゃ「そのまま川で2回目まで行けちゃう」→「アウトにならなくていいから岩で止まるようにしようか、まだ水の顔見せだし」。
+    // 当たり判定は川幅いっぱいの見えない箱（レイヤー0＝当たるだけ、アウトにはならない）。見た目は丸い岩を並べる（仮）
+    public static float StopAfter = 0.8f, StopTop = 0.7f;
+    static void StopRocks(Transform root)
+    {
+        var g = new GameObject("StopRocks").transform; g.SetParent(root, false);
+        var rockMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Rock.mat");
+        float s = sCross1 + CrossGap * 0.5f + StopAfter;
+        Center(s, out var p, out var d); var r = Right(d);
+        float hw = RiverHW(s) + RimW;
+        var col = Box(g, "Block", new Vector3(p.x, (StopTop - WaterDepth - 0.1f) * 0.5f, p.y), new Vector3(hw * 2f, StopTop + WaterDepth + 0.1f, 0.7f), null, 0);
+        col.transform.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y));
+        Object.DestroyImmediate(col.GetComponent<MeshRenderer>()); Object.DestroyImmediate(col.GetComponent<MeshFilter>());
+        var rng = new System.Random(2511);
+        int n = Mathf.CeilToInt(hw * 2f / 0.62f);
+        for (int i = 0; i < n; i++)
+        {
+            float lat = Mathf.Lerp(-hw + 0.3f, hw - 0.3f, i / (float)(n - 1));
+            float sz = 0.72f + 0.22f * (float)rng.NextDouble();
+            var q = p + r * lat + d * (0.12f * ((float)rng.NextDouble() - 0.5f));
+            var b = GameObject.CreatePrimitive(PrimitiveType.Sphere); b.name = "Rock" + i; b.transform.SetParent(g, false);
+            Object.DestroyImmediate(b.GetComponent<Collider>());
+            b.transform.localPosition = new Vector3(q.x, StopTop - sz * 0.5f + 0.05f, q.y);
+            b.transform.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y)) * Quaternion.Euler(0, (float)rng.NextDouble() * 360f, 0);
+            b.transform.localScale = new Vector3(sz * 1.1f, sz, sz * 0.9f);
+            b.GetComponent<Renderer>().sharedMaterial = rockMat;
+        }
+    }
+
     // ---- 2回目の渡り場の魚（2026-10-25）----
     // 川の何本かの筋（FishLanes、中心線からの横のずれ）で、渡り場の FishSpan m 下流から上流へ水面を跳ねる。仮の形（あとで Blender）
     public static float[] FishLanes = { -1.0f, 0f, 1.0f };
