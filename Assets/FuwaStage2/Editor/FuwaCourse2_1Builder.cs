@@ -570,6 +570,17 @@ public static class FuwaCourse2_1Builder
             var rc = pp + pr * (face + depthR * 0.5f);
             var rock = Box(terr, "PondSpringRock", new Vector3(rc.x, (Base - 0.4f + topY) * 0.5f, rc.y), new Vector3(3.6f, topY - Base + 0.4f, depthR), ground, 0);
             rock.transform.localRotation = Quaternion.LookRotation(new Vector3(pr.x, 0, pr.y));
+            // 見た目は上が平らなごつごつ岩（2026-10-25、箱は当たり判定だけ）。上の面（メッシュの y 0.3）が topY にそろうように
+            rock.GetComponent<MeshRenderer>().enabled = false;
+            {
+                float hgt = topY - Base + 0.4f;
+                var rv = new GameObject("PondSpringRockVisual"); rv.transform.SetParent(terr, false);
+                rv.AddComponent<MeshFilter>().sharedMesh = BoulderMesh(7, true);
+                rv.AddComponent<MeshRenderer>().sharedMaterial = StoneMat();
+                rv.transform.localRotation = rock.transform.localRotation;
+                rv.transform.localScale = new Vector3(3.6f * 1.15f, hgt / 0.8f, depthR * 1.15f);
+                rv.transform.localPosition = new Vector3(rc.x, topY - 0.3f * rv.transform.localScale.y + 0.02f, rc.y);
+            }
             var fc = pp + pr * (face - 0.12f);
             FuwaStage2WaterTest.Waterfall(root, "Falls_PondSpring", new Vector3(fc.x, 0, fc.y), topY - 0.05f, 0f, 1.4f, new Vector3(-pr.x, 0, -pr.y));
             // 岩の上の小さな湧き水の池（見た目）
@@ -580,6 +591,8 @@ public static class FuwaCourse2_1Builder
             spring.transform.localRotation = Quaternion.LookRotation(Vector3.down, new Vector3(-pr.x, 0, -pr.y));
             spring.transform.localScale = new Vector3(1.4f, 2.0f, 1f);
             spring.GetComponent<Renderer>().sharedMaterial = WaterMat(0f, false);
+            // この水も、上に浮かぶ小さい青い球から（スタートの水源と同じ「ふしぎな青い球」）
+            WaterOrb(terr, new Vector3(sc2.x, topY, sc2.y), "PondOrb", 1.6f, 0.26f, 0.2f);
         }
         // 反対側（左のふち）の切れ目から池の水があふれて、島の外へ流れ落ちる（飾り。2026-10-20 てじゃ「反対側あたりに流れ落ちてる場所もつくっとこ」）。
         // ふわふわが切れ目から外へ出ないように、見えない壁（当たるだけ、アウトにはしない）
@@ -890,9 +903,10 @@ public static class FuwaCourse2_1Builder
     // ふしぎな青い球（2026-10-25 てじゃ「この空間に水がわいてるの納得できんな、不思議パワーがほしい、謎の青い球でも浮かせて水おとすか」）：
     // 池のまん中の上に光る青い球が浮かんで（FuwaHover でゆらゆら・くるくる）、球の下から水が池へ落ち続ける。落ちる所は湧き水の波紋（Spring）
     public static float OrbHeight = 2.6f, OrbRadius = 0.45f, OrbStream = 0.32f;
-    static void WaterOrb(Transform terr, Vector3 pool)
+    static void WaterOrb(Transform terr, Vector3 pool) { WaterOrb(terr, pool, "WaterOrb", OrbHeight, OrbRadius, OrbStream); }
+    static void WaterOrb(Transform terr, Vector3 pool, string name, float OrbHeight, float OrbRadius, float OrbStream)
     {
-        var g = new GameObject("WaterOrb").transform; g.SetParent(terr, false); g.localPosition = pool + Vector3.up * OrbHeight;
+        var g = new GameObject(name).transform; g.SetParent(terr, false); g.localPosition = pool + Vector3.up * OrbHeight;
         var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere); orb.name = "Orb"; orb.transform.SetParent(g, false);
         Object.DestroyImmediate(orb.GetComponent<Collider>());
         orb.transform.localScale = Vector3.one * OrbRadius * 2f;
