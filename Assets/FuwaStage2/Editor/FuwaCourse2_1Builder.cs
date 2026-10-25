@@ -412,7 +412,7 @@ public static class FuwaCourse2_1Builder
         // 奥の壁：まん中に人が歩いて入る入口（2026-10-23 スタートの島から木の橋で入ってくる）。入口の下は敷居
         Sweep(terr, "CaveBackL", cs0 - 0.4f, cs0, s => -CaveHW, s => -DoorHW, s => wallB, s => cIn, ground, 0, true);
         Sweep(terr, "CaveBackR", cs0 - 0.4f, cs0, s => DoorHW, s => CaveHW, s => wallB, s => cIn, ground, 0, true);
-        Sweep(terr, "CaveBackLintel", cs0 - 0.4f, cs0, s => -DoorHW, s => DoorHW, s => StartH + DoorH, s => cIn, ground, 0, true);
+        if (StartH + DoorH < cIn - 0.01f) Sweep(terr, "CaveBackLintel", cs0 - 0.4f, cs0, s => -DoorHW, s => DoorHW, s => StartH + DoorH, s => cIn, ground, 0, true);
         Sweep(terr, "CaveDoorSill", cs0 - 0.4f, cs0, s => -DoorHW, s => DoorHW, s => wallB, s => StartH, ground, pathLayer, true);
         Sweep(terr, "CaveWallL", cs0, sPlaza1, s => -CaveHW, s => -3f, s => wallB, s => cIn, ground, 0, true);
         Sweep(terr, "CaveWallR_Back", cs0, gapA, s => 3f, s => CaveHW, s => wallB, s => cIn, ground, 0, true);
@@ -427,6 +427,8 @@ public static class FuwaCourse2_1Builder
             var wq = wp + wr * (3f + (CaveHW - 3f) * 0.5f);
             VineCurtain(root, "SideVines", new Vector3(wq.x, StartH + SideGapH, wq.y), new Vector3(wd.x, 0, wd.y), gapB - gapA, SideGapH, 2101);
         }
+        // 洞窟の見た目は Blender の岩山（箱の壁は当たり判定だけ残す）
+        CaveRock(root, terr);
         // ① の滝：水源の池から、洞窟の口の前を下の池へ
         Center(sPlaza1, out var fp, out var fd);
         // 落ち口はRで前へ張り出して、洞窟の口から少し離れた所に落ちる（ふわふわが崖ぎわのふちに叩きつけられないように）。厚みもつける
@@ -705,7 +707,8 @@ public static class FuwaCourse2_1Builder
 
     // スタート：コース1の Start を丸ごと（ロビーへ戻るポータルの島 → 木の橋 → キノコの島。エアガンの台つき）。
     // キノコの島から、もう1本の木の橋で洞窟の奥の壁の入口へ。人は歩いて洞窟に入って行く
-    const float DoorHW = 1.3f, DoorH = 2.4f;   // 洞窟の奥の壁の入口（半分の幅・高さ）
+    // 洞窟の奥の壁の入口（半分の幅・高さ）。2026-10-25 岩山のアーチ（Stage2_CaveRock の Cut_Arch：幅±2.6・天井まで）に合わせて 1.3/2.4 → 2.6/2.6
+    const float DoorHW = 2.6f, DoorH = 2.6f;
     static float CaveBackS => sPlaza0 - 1.5f - 0.4f;   // 洞窟の奥の壁の外の面
     static void StartSet(Transform root)
     {
@@ -794,6 +797,45 @@ public static class FuwaCourse2_1Builder
         float m = (Low(a) + Low(b)) * 0.5f;
         return (m + ClamPeriod * 0.5f) % ClamPeriod;
     }
+    // ---- スタートの岩山（2026-10-25）----
+    // てじゃ「岩ベースにはしたいけど、最初の洞窟みたいになってるとこがロビーからみてダサい」「滝みえてほしい」→ 岩山＋ロビー側は大きな岩のアーチ＋てっぺんの池から細い滝2本。
+    // 形は Blender（FLUFF_models.blend の Stage2Cave シーン、Stage2_CaveRock。CaveRock を Cut_* でくりぬく）で、座標はコースのローカルそのまま。
+    // 箱の壁（CaveWall*・CaveBack*・CaveMouth*・CaveRoof・CaveFloorCliff・CaveDoorSill）は見た目だけ消して当たり判定は残す。岩山にも当たり判定（メッシュ）
+    const string CaveRockModel = "Assets/FuwaStage2/Models/Stage2_CaveRock.fbx";
+    // ロビー側の細い滝（岩山のてっぺんの溝 Cut_FallL/R）：x・溝の底の高さ
+    static readonly (float x, float floor)[] BackFalls = { (-1.45f, 5.45f), (1.8f, 5.55f) };
+    static void CaveRock(Transform root, Transform terr)
+    {
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>(CaveRockModel); if (!src) { Debug.LogWarning("[2–1] 岩山のモデルがない"); return; }
+        var mesh = AssetDatabase.LoadAllAssetsAtPath(CaveRockModel).OfType<Mesh>().First();
+        var go = new GameObject("CaveRock"); go.transform.SetParent(terr, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterials = new[]
+        {
+            AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_CaveRock.mat"),
+            AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_LobbyGround.mat"),
+        };
+        go.AddComponent<MeshCollider>().sharedMesh = mesh;
+        foreach (Transform c in terr)
+            if (c.name.StartsWith("CaveWall") || c.name.StartsWith("CaveBack") || c.name.StartsWith("CaveMouth") || c.name == "CaveRoof" || c.name == "CaveFloorCliff" || c.name == "CaveDoorSill")
+            { var r = c.GetComponent<MeshRenderer>(); if (r) r.enabled = false; }
+        // ロビー側の細い滝：溝の水（池のふちから岩山の後ろのはしまで）＋落ちる滝
+        var mesh2 = mesh; var b = mesh2.bounds;
+        foreach (var (x, floor) in BackFalls)
+        {
+            // 岩山の後ろのはし（溝の所）：上から下へレイで探す代わりに、メッシュの頂点で一番後ろ（z が小さい）を見る
+            float zBack = mesh2.vertices.Where(v => Mathf.Abs(v.x - x) < 0.35f && v.y > floor - 0.6f).Select(v => v.z).DefaultIfEmpty(b.min.z).Min();
+            var q = GameObject.CreatePrimitive(PrimitiveType.Quad); q.name = "BackFallChannel"; q.transform.SetParent(terr, false);
+            Object.DestroyImmediate(q.GetComponent<Collider>());
+            float z0 = -1.6f, len = z0 - zBack;
+            q.transform.localPosition = new Vector3(x, floor + 0.12f, (z0 + zBack) * 0.5f);
+            q.transform.localRotation = Quaternion.LookRotation(Vector3.down, Vector3.back);
+            q.transform.localScale = new Vector3(0.5f, len, 1f);
+            q.GetComponent<Renderer>().sharedMaterial = WaterMat(0.8f, false);
+            FuwaStage2WaterTest.Waterfall(terr, "BackFall", new Vector3(x, 0, zBack), floor + 0.14f, -10f, 0.45f, Vector3.back);   // 下は岩山の下のとがりより下まで（空に落ちていく）
+        }
+    }
+
     // ---- BGM（2026-10-25 てじゃ「音楽先につくっちゃうか」→ 候補C「すいめんのひかり」の笛ひかえめ版 C3、Tools/audio/make_bgm_mizu.py の mizu_c_long）----
     // FuwaSystem/BGM に曲（BGM_course2_1、ほかの曲の AudioSource を写す）を足して、FuwaBgm の tracks と starts（このコースの BallStart）をつなぐ。
     // 作り直すと BallStart が新しくなるので毎回つなぎ直す
