@@ -385,8 +385,9 @@ public static class FuwaCourse2_1Builder
         RiverFish(root, fx);
         // ④ 貝の道
         ClamWalk(root, ground);
-        // ⑤ 滝の道
+        // ⑤ 滝の道（＋滝の方へ押す横風と吹き流し）
         FallsRoad(root, ground, bedMat, fx, splash);
+        FallsWind(root);
 
         // ---- 地形のかたまり（ブロックアウト）----
         var terr = new GameObject("Terrain").transform; terr.SetParent(root, false);
@@ -1127,6 +1128,86 @@ public static class FuwaCourse2_1Builder
             po.transform.localPosition = new Vector3(cp.x, FallsH - 8.5f, cp.y); po.transform.localRotation = rot;
             var pbc = po.AddComponent<BoxCollider>(); pbc.isTrigger = true; pbc.size = new Vector3(26f, 2.4f, segLen);
             var pcc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(po); pcc.ball = ballProxy; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pcc); NoSync(pcc);
+        }
+    }
+
+    // ---- ⑤ 滝の道の横風（2026-10-25）----
+    // てじゃ「三連滝が地味」→「風でもふかせる」「ふわふわでいいかな」「ふいたりやんだりさせよう」「吹き流しもセットで」。
+    // 滝ごとに、道の上を滝の側へ押す横風（FuwaWindArea、吹いたりやんだり、滝ごとに周期をずらす）。
+    // 見た目はステージ1のかぜのみちの横風（G3_CrossRight の地面の＞＞＞と風の粒）を写す。道の内側のふちに吹き流し（Windsock4 を写す）
+    public static float FallsWindLen = 6f, FallsWindWidth = 7.5f, FallsWindStrength = 3.5f;   // 5 だと1回の強風で空中のふわふわが横に約5.3m流された（ClientSim）。3.5 で約3.7m の見込み
+    public static float FallsWindOn = 1.6f, FallsWindOff = 2.4f;
+    public static float[] FallsWindPhase = { 0f, 1.3f, 2.6f };
+    static void FallsWind(Transform root)
+    {
+        var tmplZone = Object.FindObjectsOfType<FuwaWindArea>(true).FirstOrDefault(w => w.transform.parent != null && w.transform.parent.name == "G3_CrossRight");
+        var tmplSock = Object.FindObjectsOfType<FuwaWindDeco>(true).FirstOrDefault(d => d.name == "Windsock4");
+        if (tmplZone == null) { Debug.LogWarning("[2–1] 横風のお手本（G3_CrossRight）がない"); return; }
+        var g = new GameObject("FallsWind").transform; g.SetParent(root, false);
+        const string decalDir = "Assets/FuwaCourse/Generated/WindDecal";
+        Vector3 tScale = tmplZone.transform.lossyScale;
+        for (int i = 0; i < setS.Length; i++)
+        {
+            float sc = setS[i], o = setO[i];
+            Center(sc, out var p, out var d); var r = Right(d);
+            var wind = new Vector3(r.x, 0, r.y) * o;               // 滝の側（外側）へ
+            var along = new Vector3(d.x, 0, d.y);
+            var set = new GameObject("Wind" + i).transform; set.SetParent(g, false);
+            // 風の箱：ローカル z＝風の向き、x＝道にそう。お手本と同じ高さ 5m、底は道の 0.5m 下
+            var zone = Object.Instantiate(tmplZone.gameObject, set, false); zone.name = "CrossWind";
+            zone.transform.localPosition = new Vector3(p.x, FallsH - 0.5f + tScale.y * 0.5f, p.y);
+            zone.transform.localRotation = Quaternion.LookRotation(wind);
+            zone.transform.localScale = new Vector3(FallsWindLen, tScale.y, FallsWindWidth);
+            var wa = zone.GetComponent<FuwaWindArea>();
+            var so = new SerializedObject(wa);
+            so.FindProperty("localDirection").vector3Value = Vector3.forward;
+            so.FindProperty("strength").floatValue = FallsWindStrength;
+            so.FindProperty("onSeconds").floatValue = FallsWindOn;
+            so.FindProperty("offSeconds").floatValue = FallsWindOff;
+            so.FindProperty("phaseOffset").floatValue = FallsWindPhase[i % FallsWindPhase.Length];
+            so.FindProperty("baseLevel").floatValue = 0f;
+            so.FindProperty("warnSeconds").floatValue = 0.6f;
+            // 吹き始めはすっと強く、終わりぎわに弱まる（お手本の G3_CrossRight はずっと弱い風なので、強さのカーブは平らな 0 だった）
+            so.FindProperty("gustCurve").animationCurveValue = new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.15f, 1f), new Keyframe(0.8f, 1f), new Keyframe(1f, 0f));
+            // 地面の＞＞＞：子の WindDecal の材質を滝ごとに（向きは風のエリアのローカルなので同じでいいが、作り直しで共有を避ける）
+            var decal = zone.transform.Find("WindDecal");
+            if (decal != null)
+            {
+                var src = decal.GetComponent<Renderer>().sharedMaterial;
+                string mp = decalDir + "/WindDecal_Course2_1_FallsWind" + i + ".mat";
+                var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+                if (m == null) { m = new Material(src); AssetDatabase.CreateAsset(m, mp); }
+                m.CopyPropertiesFromMaterial(src); m.SetVector("_WindDir", new Vector4(0, 0, 1, 0)); EditorUtility.SetDirty(m);
+                decal.GetComponent<Renderer>().sharedMaterial = m;
+                so.FindProperty("groundHighlight").objectReferenceValue = decal.GetComponent<Renderer>();
+            }
+            // 風の粒：お手本の粒を写して、箱の大きさに合わせる
+            if (tmplZone.visual != null)
+            {
+                var vis = Object.Instantiate(tmplZone.visual, set, false); vis.name = "WindParticles";
+                vis.transform.position = zone.transform.position; vis.transform.rotation = zone.transform.rotation;
+                var ps = vis.GetComponent<ParticleSystem>();
+                if (ps != null)
+                {
+                    float kx = FallsWindLen / tScale.x, kz = FallsWindWidth / tScale.z;
+                    var sh = ps.shape; var ss = sh.scale; sh.scale = new Vector3(ss.x * kx, ss.y, ss.z * kz);
+                    var em = ps.emission; em.rateOverTimeMultiplier *= kx * kz;
+                }
+                so.FindProperty("visual").objectReferenceValue = vis;
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(wa); NoSync(wa);
+            // 吹き流し：道の内側（滝と反対）のふち、滝の少し手前
+            if (tmplSock != null)
+            {
+                Center(sc + 1.5f, out var sp, out var sd); var sr = Right(sd);
+                var q = sp + sr * (-o * (RoadHW - 0.25f));
+                var sock = Object.Instantiate(tmplSock.gameObject, set, false); sock.name = "Windsock";
+                sock.transform.localPosition = new Vector3(q.x, FallsH, q.y);
+                var wd = sock.GetComponent<FuwaWindDeco>(); wd.wind = wa;
+                FuwaWindDecoBuilder.AlignSockArm(wd);
+                UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(wd); NoSync(wd);
+            }
         }
     }
 
