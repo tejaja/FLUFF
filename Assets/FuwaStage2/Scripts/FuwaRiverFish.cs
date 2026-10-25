@@ -54,6 +54,9 @@ public class FuwaRiverFish : UdonSharpBehaviour
     [Tooltip("川上へ飛ばす速さ(m/s)・上へ(m/s)")]
     public float playerKnockBack = 4.5f;
     public float playerKnockUp = 4f;
+    [Tooltip("ここに立っている間は当たらない（飛び石の上の面の中心。2026-10-25 てじゃ「飛び石の上は安全な感じにしたい」）")]
+    public Transform[] safeSpots;
+    public float safeRadius = 0.55f;
 
     [Header("音")]
     public AudioSource jumpSound;
@@ -87,6 +90,7 @@ public class FuwaRiverFish : UdonSharpBehaviour
         VRCPlayerApi lp = Networking.LocalPlayer;
         bool playerOk = Utilities.IsValid(lp);
         Vector3 pp = playerOk ? lp.GetPosition() : Vector3.zero;
+        if (playerOk && OnSafeSpot(pp)) playerOk = false;
         for (int i = 0; i < _n; i++)
         {
             if (fish[i] == null || jumpFrom[i] == null || jumpTo[i] == null) continue;
@@ -150,6 +154,20 @@ public class FuwaRiverFish : UdonSharpBehaviour
         }
         ball.LaunchTinted(v, knockGlow);
         if (hitSound != null) { hitSound.transform.position = at; hitSound.pitch = Random.Range(0.95f, 1.1f); hitSound.Play(); }
+    }
+
+    // 飛び石の上に立っている（足が石の上の面より上で、横の距離が safeRadius 以内）
+    private bool OnSafeSpot(Vector3 feet)
+    {
+        if (safeSpots == null) return false;
+        for (int i = 0; i < safeSpots.Length; i++)
+        {
+            Transform s = safeSpots[i];
+            if (s == null) continue;
+            Vector3 d = feet - s.position;
+            if (d.y > -0.1f && d.y < 2f && d.x * d.x + d.z * d.z < safeRadius * safeRadius) return true;
+        }
+        return false;
     }
 
     // プレイヤーも川上へ（少し上向きに）。自分のプレイヤーだけ

@@ -175,7 +175,15 @@ public static class FuwaCourse2_1Builder
     // 滝壺：滝の幅から急に広がる（ふくらみは手前寄り）。岸の道から向こう岸まではダッシュジャンプで届かない広さ（てじゃ「ここぐらいまでは届いちゃう、こっちルートは防ぎたい」）
     // ふくらみ 2026-10-25 4.3→3.2（滝つぼを短くしたので、横に広すぎないように）
     static float PoolHW(float s) { float t = Mathf.InverseLerp(sPlaza1, sPool1, s); return Mathf.Lerp(CaveHW - RimW, 1.8f, t) + 3.2f * Mathf.Pow(Mathf.Max(0f, Mathf.Sin(Mathf.PI * Mathf.Pow(Mathf.Clamp01(t), 0.65f))), 0.9f); }
-    static float RiverHW(float s) { float t = s - sPool1; return 1.8f + 0.25f * Mathf.Sin(t * 0.45f) - 0.4f * Smooth01((s - (sRiver1 - 2.5f)) / 2.5f); }
+    // 2回目の渡り場だけ川を CrossWiden m 広げる（前後 CrossWidenLen m でなだらかに）。魚と飛び石を並べる場所をとる
+    //（2026-10-25 てじゃ「川広げないとちょっときついか、魚小さくすると地味すぎるし」）
+    public static float CrossWiden = 1.0f, CrossWidenLen = 4.5f;
+    static float RiverHW(float s)
+    {
+        float t = s - sPool1;
+        float widen = CrossWiden * Smooth01(1f - Mathf.Abs(s - sCross2) / CrossWidenLen);
+        return 1.8f + 0.25f * Mathf.Sin(t * 0.45f) - 0.4f * Smooth01((s - (sRiver1 - 2.5f)) / 2.5f) + widen;
+    }
     // 蓮の池：まるっこい形（だ円より少しふっくら）。入口・出口は道の幅の口（2026-10-20 てじゃ「池自体もっと丸っこくしたいな」。前は sin で両はしがとがったレンズ形）
     static float PondHW(float s) { float u = Mathf.Abs(Mathf.InverseLerp(sPond0, sPond1, s) * 2f - 1f); return Mathf.Max(1.4f, 6.2f * Mathf.Pow(Mathf.Max(0f, 1f - Mathf.Pow(u, 2.3f)), 1f / 2.3f)); }
     // 貝の道：道の半分の幅、貝の置き場所（道のふちから外へ）、両わきの滝（道のふちから外へ）。sWalk0/1 と WalkH は Build で決める
@@ -828,7 +836,7 @@ public static class FuwaCourse2_1Builder
     // ---- 2回目の渡り場の魚（2026-10-25）----
     // 川の何本かの筋（FishLanes、中心線からの横のずれ）で、渡り場の FishSpan m 下流から上流へ水面を跳ねる。仮の形（あとで Blender）
     // 2026-10-25 3匹→2匹（てじゃ「むずすぎる」「２匹でいいきがする」。まん中の高い魚を抜いた＝まん中が通り道）
-    public static float[] FishLanes = { -1.0f, 1.0f };
+    public static float[] FishLanes = { -1.9f, 1.9f };   // ±1.0→±1.9（川を広げて、飛び石の外側を跳ぶ）
     // 魚ごとのずらし（秒）：右から左へ波のように続けて跳んで、そのあと静かな間がある
     public static float[] FishPhases = { 0f, -0.7f };
     // 2026-10-25 てじゃ「魚がよわい、もっとでかくして幅をとりたい、高さも３匹バラバラに」→ 大きさ FishScale 倍・跳ぶ長さ 1.7→2.4・高さは魚ごと
@@ -884,6 +892,9 @@ public static class FuwaCourse2_1Builder
         var rf = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaRiverFish>(g.gameObject);
         rf.ball = ballProxy; rf.fx = fx; rf.crossing = crossing;
         rf.fish = fish; rf.jumpFrom = from; rf.jumpTo = to; rf.phases = (float[])FishPhases.Clone(); rf.period = FishPeriod;
+        // 飛び石の上は安全（てじゃ「魚、飛び石の上は安全な感じにしたい」）。CrossingStones を先に作っておく
+        var stones2 = root.Find("Stones2");
+        if (stones2) { rf.safeSpots = stones2.Cast<Transform>().ToArray(); rf.safeRadius = StoneR + 0.15f; }
         rf.jumpHeights = (float[])FishHeights.Clone(); rf.periods = FishHeights.Select(h => FishPeriodBase + h * FishPeriodPerM).ToArray(); rf.hitRadius = FishHit; rf.playerHitRadius = FishHit * 0.8f;
         rf.jumpSound = Snd("JumpSfx", "Assets/FuwaStage2/Audio/sfx_water_splash_soft.wav", 0.6f);
         rf.hitSound = Snd("HitSfx", "Assets/FuwaCourse/Audio/sfx_boing.wav", 0.8f);
