@@ -827,12 +827,13 @@ public static class FuwaCourse2_1Builder
 
     // ---- 2回目の渡り場の魚（2026-10-25）----
     // 川の何本かの筋（FishLanes、中心線からの横のずれ）で、渡り場の FishSpan m 下流から上流へ水面を跳ねる。仮の形（あとで Blender）
-    public static float[] FishLanes = { -1.0f, 0f, 1.0f };
+    // 2026-10-25 3匹→2匹（てじゃ「むずすぎる」「２匹でいいきがする」。まん中の高い魚を抜いた＝まん中が通り道）
+    public static float[] FishLanes = { -1.0f, 1.0f };
     // 魚ごとのずらし（秒）：右から左へ波のように続けて跳んで、そのあと静かな間がある
-    public static float[] FishPhases = { 0f, -0.35f, -0.7f };
+    public static float[] FishPhases = { 0f, -0.7f };
     // 2026-10-25 てじゃ「魚がよわい、もっとでかくして幅をとりたい、高さも３匹バラバラに」→ 大きさ FishScale 倍・跳ぶ長さ 1.7→2.4・高さは魚ごと
     public static float FishSpan = 2.4f, FishPeriod = 3.2f, FishDepth = 0.15f, FishScale = 2f, FishHit = 1.0f;
-    public static float[] FishHeights = { 1.3f, 2.4f, 1.8f };
+    public static float[] FishHeights = { 1.3f, 1.8f };
     // 魚ごとの周期：高いほど長く（てじゃ「魚が出るタイミングズラそう、高いほど周期を長く」）。周期＝FishPeriodBase＋高さ×FishPeriodPerM
     public static float FishPeriodBase = 0.8f, FishPeriodPerM = 1.4f;
     static void RiverFish(Transform root, FuwaWaterFx fx)
