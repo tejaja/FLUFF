@@ -1499,7 +1499,7 @@ public static class FuwaCourse2_1Builder
     public static float[] WallOrbsL = { 0.2f, 0.55f }, WallOrbsR = { 0.4f, 0.85f };
     public static int WallDivL = 1, WallDivR = 0;
     // はしの切れ目の滝の幅（壁の上の水の幅に対する割合）
-    public static float WallEndSpill = 0.8f;
+    public static float WallEndSpill = 1f;
     // 壁のはしの丸み（上から見て、はしから WallRoundLen m で四分円）。2026-10-25 てじゃ「壁のはしが縦長の柱っぽい」→ 丸くすぼめる
     public static float WallRoundLen = 2f, WallTopMin = 0.55f;
     static float WallRound(float s, float s0, float s1)
@@ -1608,20 +1608,46 @@ public static class FuwaCourse2_1Builder
         }
 
         // カーテンの滝：水面からふちを回りこんで、真下へ。断面（ふちからの d、水面からの y。NaN＝下のはし）
+        // ふちの線は、はしの切れ目（はしの面）→ 角 → 道の側のふち → 角 → もう一方のはしの切れ目、と1枚でつなぐ（2026-10-25 てじゃ「はしの滝が不自然」→ 箱の滝をやめて同じ形で回りこむ）
         {
             var prof = new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) };
             int pc = prof.Count;
+            // ふちの線：(位置（水面の高さ）, 外向き（水が落ちる向き。角はななめで長さ √2＝角をとがらせる）)
+            var lip = new List<Vector3>(); var outs = new List<Vector3>();
+            void EndEdge(float se, bool first)
+            {
+                Center(se, out var p, out var d); var r = Right(d) * o; var t3 = new Vector3(d.x, 0, d.y) * (first ? -1f : 1f);
+                float ww = waterW(se) * WallEndSpill; int cnt = Mathf.Max(2, Mathf.CeilToInt(ww / 0.3f));
+                for (int k = 0; k < cnt; k++)
+                {
+                    float dd = first ? Mathf.Lerp(ww, 0f, k / (float)cnt) : Mathf.Lerp(0f, ww, (k + 1) / (float)cnt);
+                    if (!first && k == cnt - 1) dd = ww;
+                    var q = p + r * (WallIn + dd); lip.Add(new Vector3(q.x, surf(se), q.y)); outs.Add(t3);
+                }
+            }
+            void Corner(float se, bool first)
+            {
+                Center(se, out var p, out var d); var r = Right(d) * o; var t3 = new Vector3(d.x, 0, d.y) * (first ? -1f : 1f);
+                var q = p + r * WallIn; lip.Add(new Vector3(q.x, surf(se), q.y)); outs.Add((t3 - new Vector3(r.x, 0, r.y)));   // 長さ √2
+            }
+            EndEdge(wa, true); Corner(wa, true);
             int m = Mathf.Max(1, Mathf.CeilToInt((wb - wa) / 0.4f));
-            var grid = new Vector3[m + 1, pc]; var lens = new float[m + 1, pc]; var along = new float[m + 1];
-            float maxLen = 0f; Vector3 prev = Vector3.zero;
-            for (int k = 0; k <= m; k++)
+            for (int k = 1; k < m; k++)
             {
                 float s = Mathf.Lerp(wa, wb, k / (float)m); Center(s, out var p, out var d); var r = Right(d) * o;
-                float sf = surf(s);
+                var q = p + r * WallIn; lip.Add(new Vector3(q.x, surf(s), q.y)); outs.Add(-new Vector3(r.x, 0, r.y));
+            }
+            Corner(wb, false); EndEdge(wb, false);
+            int nl = lip.Count;
+            var grid = new Vector3[nl, pc]; var lens = new float[nl, pc]; var along = new float[nl];
+            float maxLen = 0f; Vector3 prev = Vector3.zero;
+            for (int k = 0; k < nl; k++)
+            {
+                float sf = lip[k].y;
                 for (int j = 0; j < pc; j++)
                 {
                     var pr = prof[j]; float yy = float.IsNaN(pr.y) ? WallBottom - sf : pr.y;
-                    var q = p + r * (WallIn + pr.x); grid[k, j] = new Vector3(q.x, sf + yy, q.y);
+                    var q = lip[k] - outs[k] * pr.x; grid[k, j] = new Vector3(q.x, sf + yy, q.z);
                 }
                 // 横の長さ（ふちにそった m）
                 var lipP = grid[k, 1];
@@ -1631,21 +1657,21 @@ public static class FuwaCourse2_1Builder
                 maxLen = Mathf.Max(maxLen, lens[k, 0]);
             }
             var FV = new List<Vector3>(); var FT = new List<int>(); var F1 = new List<Vector2>(); var F2 = new List<Vector2>(); var FC = new List<Color>();
-            for (int k = 0; k <= m; k++)
+            for (int k = 0; k < nl; k++)
                 for (int j = 0; j < pc; j++)
                 {
                     FV.Add(grid[k, j]);
                     // 下からの長さ：上（落ち口）を全体の長さにそろえる（落ち口の泡がどこも同じ太さに）
-                    F1.Add(new Vector2(along[k], maxLen - (lens[k, 0] - lens[k, j]))); F2.Add(new Vector2(along[m], maxLen)); FC.Add(Color.white);
+                    F1.Add(new Vector2(along[k], maxLen - (lens[k, 0] - lens[k, j]))); F2.Add(new Vector2(along[nl - 1], maxLen)); FC.Add(Color.white);
                 }
-            for (int k = 0; k < m; k++)
+            for (int k = 0; k < nl - 1; k++)
             {
-                float s = Mathf.Lerp(wa, wb, (k + 0.5f) / m); Center(s, out _, out var d); var r = Right(d) * o; var r3 = new Vector3(r.x, 0, r.y);
+                var ow = (outs[k] + outs[k + 1]).normalized;
                 for (int j = 0; j < pc - 1; j++)
                 {
                     int a = k * pc + j, b = a + pc;
                     var t = prof[j + 1] - prof[j]; if (float.IsNaN(t.y)) t = new Vector2(t.x, -1f);
-                    var want = r3 * t.y + Vector3.up * -t.x;   // 断面の (dy, -dd)：道の側・上を向く面
+                    var want = -ow * t.y + Vector3.up * -t.x;   // 断面の (dy, -dd)：外（水の落ちる側）・上を向く面
                     AddTriDir(FV, FT, a, b, a + 1, want); AddTriDir(FV, FT, a + 1, b, b + 1, want);
                 }
             }
@@ -1684,16 +1710,6 @@ public static class FuwaCourse2_1Builder
             var au = new GameObject(nm + "_Sound" + k); au.transform.SetParent(g, false); au.transform.localPosition = new Vector3(q.x, WalkH(s) + 0.5f, q.y);
             var a = au.AddComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/sfx_waterfall_loop.wav");
             a.loop = true; a.playOnAwake = true; a.spatialBlend = 1f; a.minDistance = 1.5f; a.maxDistance = 14f; a.rolloffMode = AudioRolloffMode.Linear; a.volume = 0.1f;
-        }
-
-        // はしの切れ目の滝（上の水がこぼれて、はしの岩の前を落ちる）
-        foreach (float se in new[] { s0, s1 })
-        {
-            Center(se, out var p, out var d); var r = Right(d) * o;
-            var outward = se == s0 ? -d : d;
-            float ww = waterW(se);
-            var q = p + r * (WallIn + ww * 0.5f) + outward * 0.05f;
-            FuwaStage2WaterTest.Waterfall(g, nm + "_EndFalls" + (se == s0 ? "0" : "1"), new Vector3(q.x, 0, q.y), surf(se) + 0.05f, WallBottom, ww * WallEndSpill, new Vector3(outward.x, 0, outward.y));
         }
 
         // 青い球（水面の上に浮かんで、水を落とす）。落ちる所は湧き水の波紋
