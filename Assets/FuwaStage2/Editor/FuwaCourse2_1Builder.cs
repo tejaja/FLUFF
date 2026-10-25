@@ -614,6 +614,7 @@ public static class FuwaCourse2_1Builder
         // ---- スタート・ゴール（2026-10-23 てじゃ「スタートはステージ1と同じように、ロビー戻りポータル島、スタート島、そこから洞窟に歩いて入っていく」
         //      「ゴールはとりあえず川の向こうに一旦ゴール島として浮かせてから考えよう」）----
         StartSet(root);
+        RegisterBgm(root);
         var goal = new GameObject("Goal").transform; goal.SetParent(root, false);
         GoalSet(goal);
 
@@ -793,6 +794,32 @@ public static class FuwaCourse2_1Builder
         float m = (Low(a) + Low(b)) * 0.5f;
         return (m + ClamPeriod * 0.5f) % ClamPeriod;
     }
+    // ---- BGM（2026-10-25 てじゃ「音楽先につくっちゃうか」→ 候補C「すいめんのひかり」の笛ひかえめ版 C3、Tools/audio/make_bgm_mizu.py の mizu_c_long）----
+    // FuwaSystem/BGM に曲（BGM_course2_1、ほかの曲の AudioSource を写す）を足して、FuwaBgm の tracks と starts（このコースの BallStart）をつなぐ。
+    // 作り直すと BallStart が新しくなるので毎回つなぎ直す
+    const string BgmClip = "Assets/FuwaStage2/Audio/bgm_mizu_long.wav";
+    static void RegisterBgm(Transform root)
+    {
+        var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault(); if (!bgm) return;
+        var start = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BallStart"); if (!start) return;
+        var src = bgm.transform.Find("BGM_mix"); if (!src) return;
+        var tr = bgm.transform.Find("BGM_course2_1");
+        if (!tr)
+        {
+            tr = Object.Instantiate(src.gameObject, bgm.transform, false).transform; tr.name = "BGM_course2_1";
+        }
+        var a = tr.GetComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(BgmClip); EditorUtility.SetDirty(a);
+        var so = new SerializedObject(bgm);
+        var tracks = so.FindProperty("tracks"); var starts = so.FindProperty("starts");
+        int idx = -1;
+        for (int i = 0; i < tracks.arraySize; i++) if (tracks.GetArrayElementAtIndex(i).objectReferenceValue == a) idx = i;
+        if (idx < 0) { idx = tracks.arraySize; tracks.arraySize++; tracks.GetArrayElementAtIndex(idx).objectReferenceValue = a; }
+        while (starts.arraySize <= idx) { starts.arraySize++; starts.GetArrayElementAtIndex(starts.arraySize - 1).objectReferenceValue = null; }
+        starts.GetArrayElementAtIndex(idx).objectReferenceValue = start;
+        so.ApplyModifiedProperties();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bgm);
+    }
+
     // ---- チェックポイント（2026-10-25）----
     // ステージ1の FuwaCourse3/Checkpoint1（光るキノコ＋丸太が道の両わき、通り抜けの判定、戻る場所）を写す。使っていない門の柱・横木は消す。
     // cps＝(中心線の位置 s, 横のずれ, 道の半分の幅, 道の上の面の高さ)。キノコは道のふちから CpOut 外。ふわふわの checkpoints にも登録（やり直しで光を消す）
