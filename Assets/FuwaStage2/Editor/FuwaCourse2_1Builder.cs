@@ -1543,7 +1543,9 @@ public static class FuwaCourse2_1Builder
                 float yy = pr.y + (fixedPt ? 0f : (Mathf.PerlinNoise(nOff + 30f + s * 0.4f, k * 2.7f) - 0.5f) * 0.6f);
                 // はしは丸くすぼめる：道の側のふちはそのまま、外へ出る分と下へ伸びる分を縮める
                 // 上（k 1〜4）は切れ目の水の幅を残す
-                dd *= k <= 4 ? Mathf.Max(rf, WallTopMin) : rf; if (k >= 5) yy *= Mathf.Lerp(0.3f, 1f, rf);
+                // 外の面の上の方（k 5・6）も上と同じ幅から縮め始める（2026-10-25 てじゃ「端にとがってるのが」→ 前は外のふちだけはしで外に残って、下がえぐれてツノになってた）
+                float topK = Mathf.Max(rf, WallTopMin);
+                dd *= k <= 5 ? topK : k == 6 ? Mathf.Lerp(topK, rf, 0.5f) : rf; if (k >= 6) yy *= Mathf.Lerp(0.3f, 1f, rf);
                 var q = p + r * (WallIn + dd);
                 var v = new Vector3(q.x, sf + yy, q.y); V.Add(v); c += v;
             }
