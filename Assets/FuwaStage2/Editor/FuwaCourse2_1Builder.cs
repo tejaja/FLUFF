@@ -1098,6 +1098,51 @@ public static class FuwaCourse2_1Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bgm);
     }
 
+    // ---- 川の小物の岩（2026-10-25 てじゃ「手前から順番に」→ 止める岩・飛び石を、岩山と同じ色のごつごつした岩に。前は紫の球）----
+    // 半径 0.5 の正二十面体を2回分けた球を、ノイズでごつごつさせた形。面は三角形ごとに頂点を分けて角ばらせる。flatTop は上を平らに（飛び石）
+    static Material StoneMat() { return AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_CaveRock.mat"); }
+    static Mesh BoulderMesh(int k, bool flatTop)
+    {
+        string path = MeshDir + "/Boulder" + k + (flatTop ? "_Flat" : "") + ".asset";
+        float t = (1f + Mathf.Sqrt(5f)) / 2f;
+        var V = new List<Vector3> { new Vector3(-1, t, 0), new Vector3(1, t, 0), new Vector3(-1, -t, 0), new Vector3(1, -t, 0), new Vector3(0, -1, t), new Vector3(0, 1, t),
+            new Vector3(0, -1, -t), new Vector3(0, 1, -t), new Vector3(t, 0, -1), new Vector3(t, 0, 1), new Vector3(-t, 0, -1), new Vector3(-t, 0, 1) };
+        var F = new List<int> { 0,11,5, 0,5,1, 0,1,7, 0,7,10, 0,10,11, 1,5,9, 5,11,4, 11,10,2, 10,7,6, 7,1,8, 3,9,4, 3,4,2, 3,2,6, 3,6,8, 3,8,9, 4,9,5, 2,4,11, 6,2,10, 8,6,7, 9,8,1 };
+        for (int it = 0; it < 2; it++)
+        {
+            var mid = new Dictionary<long, int>(); var F2 = new List<int>();
+            int Mid(int a, int b) { long key = a < b ? ((long)a << 32) | (uint)b : ((long)b << 32) | (uint)a; if (mid.TryGetValue(key, out int m)) return m; V.Add((V[a] + V[b]) * 0.5f); mid[key] = V.Count - 1; return V.Count - 1; }
+            for (int i = 0; i < F.Count; i += 3)
+            {
+                int a = F[i], b = F[i + 1], c = F[i + 2], ab = Mid(a, b), bc = Mid(b, c), ca = Mid(c, a);
+                F2.AddRange(new[] { a, ab, ca, b, bc, ab, c, ca, bc, ab, bc, ca });
+            }
+            F = F2;
+        }
+        float off = k * 17.3f;
+        for (int i = 0; i < V.Count; i++)
+        {
+            var n = V[i].normalized;
+            // ゆるいでこぼこだけ（強いと水晶みたいにトゲトゲした。2026-10-25）
+            float d = 1f + (Mathf.PerlinNoise(n.x * 1.2f + off, n.y * 1.2f + n.z * 0.7f) - 0.5f) * 0.32f + (Mathf.PerlinNoise(n.z * 2.2f + off, n.x * 2.2f + 5f) - 0.5f) * 0.08f;
+            var q = n * 0.5f * d;
+            if (flatTop && q.y > 0.3f) q.y = 0.3f + (q.y - 0.3f) * 0.15f;
+            V[i] = q;
+        }
+        // 角ばった面：三角形ごとに頂点を分ける。表は外向き（Cross(b-a,c-a) が中心から外を向くように並べる）
+        var V2 = new List<Vector3>(); var T2 = new List<int>();
+        for (int i = 0; i < F.Count; i += 3)
+        {
+            Vector3 a = V[F[i]], b = V[F[i + 1]], c = V[F[i + 2]];
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a), a + b + c) < 0f) { var tmp = b; b = c; c = tmp; }
+            V2.Add(a); V2.Add(b); V2.Add(c);
+            T2.AddRange(new[] { i, i + 1, i + 2 });
+        }
+        var m2 = new Mesh { name = "Boulder" + k + (flatTop ? "_Flat" : "") };
+        m2.SetVertices(V2); m2.SetTriangles(T2, 0); m2.RecalculateNormals(); m2.RecalculateBounds();
+        return Save(m2, path);
+    }
+
     // ---- チェックポイント（2026-10-25）----
     // ステージ1の FuwaCourse3/Checkpoint1（光るキノコ＋丸太が道の両わき、通り抜けの判定、戻る場所）を写す。使っていない門の柱・横木は消す。
     // cps＝(中心線の位置 s, 横のずれ, 道の半分の幅, 道の上の面の高さ)。キノコは道のふちから CpOut 外。ふわふわの checkpoints にも登録（やり直しで光を消す）
@@ -1159,7 +1204,6 @@ public static class FuwaCourse2_1Builder
     static void CrossingStones(Transform root, string name, float sc, float from)
     {
         var g = new GameObject(name).transform; g.SetParent(root, false);
-        var rockMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Rock.mat");
         // 円柱のメッシュは作った円柱から借りる（GetBuiltinResource("Cylinder.fst") は null で、当たり判定がなく石に乗れなかった）
         var tmpCyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder); var cyl = tmpCyl.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(tmpCyl);
         var rng = new System.Random(name.GetHashCode());
@@ -1176,11 +1220,13 @@ public static class FuwaCourse2_1Builder
             cg.transform.localPosition = new Vector3(0, -h * 0.5f, 0); cg.transform.localScale = new Vector3(StoneR * 2f, h * 0.5f, StoneR * 2f);
             cg.AddComponent<MeshCollider>().sharedMesh = cyl; cg.GetComponent<MeshCollider>().convex = true;
             // 見た目：上が平たい丸い岩
-            var v = GameObject.CreatePrimitive(PrimitiveType.Sphere); v.name = "Rock"; v.transform.SetParent(st.transform, false);
-            Object.DestroyImmediate(v.GetComponent<Collider>());
+            // 見た目：上が平たいごつごつした岩（岩山・土台と同じ色）
+            var v = new GameObject("Rock"); v.transform.SetParent(st.transform, false);
+            v.AddComponent<MeshFilter>().sharedMesh = BoulderMesh(i + (from > 0 ? 0 : 3), true);
+            v.AddComponent<MeshRenderer>().sharedMaterial = StoneMat();
             float r = StoneR * (1.05f + 0.1f * (float)rng.NextDouble());
-            v.transform.localPosition = new Vector3(0, -0.2f, 0); v.transform.localScale = new Vector3(r * 2.1f, 0.42f, r * 1.9f);
-            v.GetComponent<Renderer>().sharedMaterial = rockMat;
+            // 上の平らな面（メッシュの y 0.3×0.42≒0.13）が岸の道の高さ（＝当たり判定の上の面）にそろうように
+            v.transform.localPosition = new Vector3(0, -0.135f, 0); v.transform.localScale = new Vector3(r * 2.1f, 0.42f, r * 1.9f);
         }
     }
 
@@ -1192,7 +1238,6 @@ public static class FuwaCourse2_1Builder
     static void StopRocks(Transform root)
     {
         var g = new GameObject("StopRocks").transform; g.SetParent(root, false);
-        var rockMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Rock.mat");
         float s = sCross1 + CrossGap * 0.5f + StopAfter;
         Center(s, out var p, out var d); var r = Right(d);
         float hw = RiverHW(s) + RimW;
@@ -1206,12 +1251,12 @@ public static class FuwaCourse2_1Builder
             float lat = Mathf.Lerp(-hw + 0.3f, hw - 0.3f, i / (float)(n - 1));
             float sz = 0.72f + 0.22f * (float)rng.NextDouble();
             var q = p + r * lat + d * (0.12f * ((float)rng.NextDouble() - 0.5f));
-            var b = GameObject.CreatePrimitive(PrimitiveType.Sphere); b.name = "Rock" + i; b.transform.SetParent(g, false);
-            Object.DestroyImmediate(b.GetComponent<Collider>());
+            var b = new GameObject("Rock" + i); b.transform.SetParent(g, false);
+            b.AddComponent<MeshFilter>().sharedMesh = BoulderMesh(i % 6, false);
+            b.AddComponent<MeshRenderer>().sharedMaterial = StoneMat();
             b.transform.localPosition = new Vector3(q.x, StopTop - sz * 0.5f + 0.05f, q.y);
             b.transform.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y)) * Quaternion.Euler(0, (float)rng.NextDouble() * 360f, 0);
             b.transform.localScale = new Vector3(sz * 1.1f, sz, sz * 0.9f);
-            b.GetComponent<Renderer>().sharedMaterial = rockMat;
         }
     }
 
