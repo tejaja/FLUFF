@@ -965,22 +965,28 @@ public static class FuwaCourse2_1Builder
     // 片側の断面（ふちから内側のとがりへ）：(ふちから外へのずれ or とがりへ寄る割合, 高さ)。f<0 はふちから外へ -f m、f>=0 は中央へ f の割合
     static readonly (float f, float down, bool fromEdge)[] BaseProfile =
     {
-        (-0.12f, 0.12f, true), (-0.32f, 0.7f, true), (-0.25f, 1.7f, true), (0.25f, 0.6f, false), (0.6f, 0.88f, false),
+        // ふちから外の面は、1つ目だけ固定（ふちの 0.12m 下）、2つ目からは厚みに対する割合（深い水の所で入れ物の壁がはみ出さないように）
+        (-0.12f, 0.12f, true), (-0.25f, 0.3f, true), (-0.18f, 0.62f, true), (0.3f, 0.82f, false), (0.65f, 0.95f, false),
     };
+    // 土台の厚み（ふちからとがりまで、m）。2026-10-25 てじゃ「分厚いと岩の道とかぶるから、かなり薄めにいこう」4.8〜6.6 → 1.6〜2.2
+    public static float BaseDepth = 1.6f, BaseDepthVar = 0.6f;
     static void RockBase(Transform root, Transform g, string name, float s0, float s1, int seed)
     {
         const float step = 0.5f, scanW = 14f, scanStep = 0.2f;
         var ss = new List<float>(); for (float s = s0; s <= s1 + 1e-3f; s += step) ss.Add(s);
         int n = ss.Count;
         var L = new float[n]; var R = new float[n]; var yL = new float[n]; var yR = new float[n]; var ok = new bool[n];
+        var yMin = new float[n];   // いちばん低い所（深い水の底）。土台はそれより下まで
         for (int i = 0; i < n; i++)
         {
             Center(ss[i], out var p, out var d); var r = Right(d);
-            float lo = float.MaxValue, hi = float.MinValue, ylo = 0, yhi = 0;
+            float lo = float.MaxValue, hi = float.MinValue, ylo = 0, yhi = 0, ymin = float.MaxValue;
             for (float lat = -scanW; lat <= scanW; lat += scanStep)
             {
                 var q = p + r * lat;
                 var from = root.TransformPoint(new Vector3(q.x, 20f, q.y));
+                // その点のいちばん上（ふち・道の上の面）と、いちばん下（深い水の底）。RaycastAll の順番はばらばらなので全部見る
+                float yTop = float.MinValue;
                 foreach (var h in Physics.RaycastAll(from, Vector3.down, 40f, ~0, QueryTriggerInteraction.Ignore))
                 {
                     var t = h.collider.transform;
@@ -988,14 +994,16 @@ public static class FuwaCourse2_1Builder
                     bool water = t.parent && t.parent.parent && t.parent.parent.name == "Water" && t.parent.parent.parent == root && t.parent.name != "W0_Source";
                     if (!path && !water) continue;
                     float y = root.InverseTransformPoint(h.point).y;
-                    if (lat < lo) { lo = lat; ylo = y; }
-                    if (lat > hi) { hi = lat; yhi = y; }
+                    ymin = Mathf.Min(ymin, y); yTop = Mathf.Max(yTop, y);
                 }
+                if (yTop == float.MinValue) continue;
+                if (lat < lo) { lo = lat; ylo = yTop; }
+                if (lat > hi) { hi = lat; yhi = yTop; }
             }
-            ok[i] = hi > lo; L[i] = lo; R[i] = hi; yL[i] = ylo; yR[i] = yhi;
+            ok[i] = hi > lo; L[i] = lo; R[i] = hi; yL[i] = ylo; yR[i] = yhi; yMin[i] = ymin;
         }
         // 抜けた所は近くで埋める。はばは前後 2m の外側いっぱい（でこぼこしないように）
-        for (int i = 0; i < n; i++) if (!ok[i]) { int j = i; while (j > 0 && !ok[j]) j--; if (!ok[j]) { j = i; while (j < n - 1 && !ok[j]) j++; } L[i] = L[j]; R[i] = R[j]; yL[i] = yL[j]; yR[i] = yR[j]; }
+        for (int i = 0; i < n; i++) if (!ok[i]) { int j = i; while (j > 0 && !ok[j]) j--; if (!ok[j]) { j = i; while (j < n - 1 && !ok[j]) j++; } L[i] = L[j]; R[i] = R[j]; yL[i] = yL[j]; yR[i] = yR[j]; yMin[i] = yMin[j]; }
         var L2 = new float[n]; var R2 = new float[n];
         for (int i = 0; i < n; i++) { L2[i] = L[i]; R2[i] = R[i]; for (int k = -4; k <= 4; k++) { int j = Mathf.Clamp(i + k, 0, n - 1); L2[i] = Mathf.Min(L2[i], L[j]); R2[i] = Mathf.Max(R2[i], R[j]); } }
         var rng = new System.Random(seed);
@@ -1008,9 +1016,13 @@ public static class FuwaCourse2_1Builder
             Center(s, out var p, out var d); var r = Right(d);
             float end = Smooth01(Mathf.Min(s - s0, s1 - s) / 2.5f);   // 両はしはすぼめて浅く
             float mid = (L2[i] + R2[i]) * 0.5f;
-            float l = Mathf.Lerp(mid, L2[i], Mathf.Lerp(0.6f, 1f, end)), rr = Mathf.Lerp(mid, R2[i], Mathf.Lerp(0.6f, 1f, end));
+            // はばはすぼめない（すぼめると深い水の入れ物の壁がはみ出した）。両はしは浅くするだけ
+            float l = L2[i], rr = R2[i];
             float top = Mathf.Min(yL[i], yR[i]);
-            float depth = (4.8f + 1.8f * Mathf.PerlinNoise(nOff, s * 0.08f)) * Mathf.Lerp(0.45f, 1f, end);
+            float depth = (BaseDepth + BaseDepthVar * Mathf.PerlinNoise(nOff, s * 0.08f)) * Mathf.Lerp(0.6f, 1f, end);
+            // 深い水（滝つぼ・蓮の池の深い所）の底がはみ出さないように（前後 2m のいちばん深い所＋0.5m）
+            float deep = float.MaxValue; for (int k = -4; k <= 4; k++) deep = Mathf.Min(deep, yMin[Mathf.Clamp(i + k, 0, n - 1)]);
+            depth = Mathf.Max(depth, top - deep + 0.5f);
             for (int k = 0; k < cols; k++)
             {
                 float lat, y;
@@ -1020,12 +1032,17 @@ public static class FuwaCourse2_1Builder
                     bool right = k > BaseProfile.Length;
                     var pr = BaseProfile[right ? cols - 1 - k : k];
                     float edge = right ? rr : l, ey = right ? yR[i] : yL[i], outw = right ? 1f : -1f;
-                    if (pr.fromEdge) { lat = edge - outw * pr.f; y = ey - pr.down; }
+                    if (pr.fromEdge)
+                    {
+                        lat = edge - outw * pr.f;
+                        y = k == 0 || k == cols - 1 ? ey - pr.down : Mathf.Min(ey - 0.3f, top - depth * pr.down);
+                        if (k == 2 || k == cols - 3) y = Mathf.Min(y, deep - 0.2f);   // 外の面の下のはしは、深い水の底より下（入れ物の壁の角が出ないように）
+                    }
                     else { lat = edge + (mid - edge) * pr.f; y = top - depth * pr.down; }
                     // ごつごつ：ふちのすぐ下以外はノイズで出し入れ
-                    float amt = k == 0 || k == cols - 1 ? 0.05f : 0.45f;
+                    float amt = k == 0 || k == cols - 1 ? 0.05f : 0.3f;
                     lat += outw * (Mathf.PerlinNoise(nOff + s * 0.55f, k * 1.7f) - 0.5f) * amt * 2f;
-                    y += (Mathf.PerlinNoise(nOff + 40f + s * 0.4f, k * 2.3f) - 0.5f) * (k == 0 || k == cols - 1 ? 0f : 0.7f);
+                    y += (Mathf.PerlinNoise(nOff + 40f + s * 0.4f, k * 2.3f) - 0.5f) * (k == 0 || k == cols - 1 ? 0f : 0.35f);
                 }
                 var q = p + r * lat;
                 V.Add(new Vector3(q.x, y, q.y));
