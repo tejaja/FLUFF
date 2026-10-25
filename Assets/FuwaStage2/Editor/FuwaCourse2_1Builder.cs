@@ -756,7 +756,7 @@ public static class FuwaCourse2_1Builder
     // 川を横切って岩が並んでいて、流れてきたふわふわはここで止まる（水は岩のすき間を抜ける）。止まったふわふわを左岸の道へすくい上げる。
     // てじゃ「そのまま川で2回目まで行けちゃう」→「アウトにならなくていいから岩で止まるようにしようか、まだ水の顔見せだし」。
     // 当たり判定は川幅いっぱいの見えない箱（レイヤー0＝当たるだけ、アウトにはならない）。見た目は丸い岩を並べる（仮）
-    public static float StopAfter = 0.8f, StopTop = 0.7f;
+    public static float StopAfter = 3.5f, StopTop = 0.7f;   // 0.8→3.5（てじゃ「もうちょい奥じゃないとプレイヤがわたりにくい」）
     static void StopRocks(Transform root)
     {
         var g = new GameObject("StopRocks").transform; g.SetParent(root, false);
