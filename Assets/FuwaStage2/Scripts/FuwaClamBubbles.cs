@@ -61,8 +61,8 @@ public class FuwaClamBubbles : UdonSharpBehaviour
     public float driftDrag = 0.8f;
     [Tooltip("下向きに撃った時の下向きの分をこの倍率に弱める（道にたたきつけてアウトになりにくく）")]
     [Range(0f, 1f)] public float shotDownScale = 0.3f;
-    [Tooltip("割れたあと、また包まれるまでの秒数")]
-    public float recaptureDelay = 0.8f;
+    [Tooltip("割れたあと、また包まれるまでの秒数（泡に無敵）。2026-10-25 0.8→2（てじゃ「割れた後、また同じとこで捕まるのが理不尽だから、割れた後にちょっと泡無敵時間ほしい」）")]
+    public float recaptureDelay = 2f;
 
     [Header("音・粒")]
     public ParticleSystem popFx;
