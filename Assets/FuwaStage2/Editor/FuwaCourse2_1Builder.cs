@@ -173,7 +173,8 @@ public static class FuwaCourse2_1Builder
     static float Ramp(float s, float a, float b, float va, float vb) { return Mathf.Lerp(va, vb, Smooth01((s - a) / (b - a))); }
 
     // 滝壺：滝の幅から急に広がる（ふくらみは手前寄り）。岸の道から向こう岸まではダッシュジャンプで届かない広さ（てじゃ「ここぐらいまでは届いちゃう、こっちルートは防ぎたい」）
-    static float PoolHW(float s) { float t = Mathf.InverseLerp(sPlaza1, sPool1, s); return Mathf.Lerp(CaveHW - RimW, 1.8f, t) + 4.3f * Mathf.Pow(Mathf.Max(0f, Mathf.Sin(Mathf.PI * Mathf.Pow(Mathf.Clamp01(t), 0.65f))), 0.9f); }
+    // ふくらみ 2026-10-25 4.3→3.2（滝つぼを短くしたので、横に広すぎないように）
+    static float PoolHW(float s) { float t = Mathf.InverseLerp(sPlaza1, sPool1, s); return Mathf.Lerp(CaveHW - RimW, 1.8f, t) + 3.2f * Mathf.Pow(Mathf.Max(0f, Mathf.Sin(Mathf.PI * Mathf.Pow(Mathf.Clamp01(t), 0.65f))), 0.9f); }
     static float RiverHW(float s) { float t = s - sPool1; return 1.8f + 0.25f * Mathf.Sin(t * 0.45f) - 0.4f * Smooth01((s - (sRiver1 - 2.5f)) / 2.5f); }
     // 蓮の池：まるっこい形（だ円より少しふっくら）。入口・出口は道の幅の口（2026-10-20 てじゃ「池自体もっと丸っこくしたいな」。前は sin で両はしがとがったレンズ形）
     static float PondHW(float s) { float u = Mathf.Abs(Mathf.InverseLerp(sPond0, sPond1, s) * 2f - 1f); return Mathf.Max(1.4f, 6.2f * Mathf.Pow(Mathf.Max(0f, 1f - Mathf.Pow(u, 2.3f)), 1f / 2.3f)); }
@@ -232,7 +233,8 @@ public static class FuwaCourse2_1Builder
         _tu = null; Table();
         sEnd = SI(Ctrl.Length - 2);
         sPlaza0 = 0f; sPlaza1 = SI(2.0f);
-        sPool1 = SI(3.8f); sRiver1 = SI(7.3f);
+        // 滝つぼ 2026-10-25 u3.8→3.1（約13m→約7m。てじゃ「滝壺がでかいのかな、待ち時間がやっぱながい」）
+        sPool1 = SI(3.1f); sRiver1 = SI(7.3f);
         sCross1 = sPool1 + Cross1After; sCross2 = sRiver1 - Cross2Before;
         sPond0 = SI(8.9f); sPond1 = SI(10.9f);
         sTer0 = SI(11.8f);
@@ -336,10 +338,10 @@ public static class FuwaCourse2_1Builder
         {
             new Water { name = "W0_Source", s0 = sPlaza0 - 1.5f, s1 = sPlaza1, surf = SourceSurf, flow = 0.8f, open1 = true, bodyBottom = StartH + CaveIn + RoofT,
                 hw = s => Mathf.Lerp(CaveHW - RimW, MouthHW, Smooth01((s - (sPlaza1 - 3.5f)) / 3.5f)) },
-            // 流れ 2026-10-25 0.9→1.3、川 1.1→1.4（てじゃ「川で見てるのが長過ぎる」。人は浅瀬を歩かず岸の道を走るので速くしてよい）
-            new Water { name = "W1_Pool", s0 = sPlaza1, s1 = sPool1, surf = 0f, flow = 1.3f, hw = PoolHW, open0 = true, open1 = true, deep = true, depth = 2.5f },
+            // 流れ 2026-10-25 0.9→1.3→1.6、川 1.1→1.4→1.6（てじゃ「川で見てるのが長過ぎる」。人は浅瀬を歩かず岸の道を走るので速くしてよい）
+            new Water { name = "W1_Pool", s0 = sPlaza1, s1 = sPool1, surf = 0f, flow = 1.6f, hw = PoolHW, open0 = true, open1 = true, deep = true, depth = 2.5f },
             // 終わりは崖の滝（open1）。下のかたまりを深くして、谷から見て崖に見えるように
-            new Water { name = "W2_River", s0 = sPool1, s1 = sRiver1, surf = 0f, flow = 1.4f, hw = RiverHW, open0 = true, open1 = true, bodyBottom = -6f },
+            new Water { name = "W2_River", s0 = sPool1, s1 = sRiver1, surf = 0f, flow = 1.6f, hw = RiverHW, open0 = true, open1 = true, bodyBottom = -6f },
             new Water { name = "W3_LilyPond", s0 = sPond0, s1 = sPond1, surf = 0f, flow = 0f, hw = PondHW, gapL0 = PondSpill() - 1.1f, gapL1 = PondSpill() + 1.1f,
                 hole0 = PondDeep0, hole1 = PondDeep1, holeL = PondDeepL, holeR = PondDeepR, holeBed = PondHoleBed },
         };
