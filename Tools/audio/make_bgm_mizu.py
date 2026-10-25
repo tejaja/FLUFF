@@ -127,7 +127,7 @@ def mizu_c(path=None, mgain=1.8, msoft=0.3, mrev=0.4):
     st = master(m, rt60=2.2, rev_level=0.45, damp=0.55, lowcut=30, warmth_db=0.8, air_db=0.8, comp_thresh=-16, comp_ratio=1.5, target_rms_db=-13.5)
     save(st, path or os.path.join(OUT, "bgm_mizu_c.wav"))
 
-def mizu_c_long(path=None, mgain=0.85, msoft=0.6, mrev=0.6):
+def mizu_c_long(path=None, mgain=0.85, msoft=0.6, mrev=0.6, bacc='celesta'):   # B の伴奏 ハープ→チェレスタ（てじゃ「弦がつよすぎる」→ 聴き比べで②）
     """2–1 の採用版（2026-10-25 てじゃ「C3かな」＝C の笛をひかえめ：音量 0.85・soft 0.6・響き 0.6）を、ほかの曲と同じく約3倍に。
     A（C3 そのまま16小節）→ B（ロ短調寄りの16小節：低めの長い音のメロディ、伴奏はハープの8分の分散和音、シェイカーは裏だけ）
     → A'（A のメロディ＋ビブラフォンの3度下のハモり（後半8小節）） → 頭に戻る。48小節＝約2分11秒"""
@@ -170,7 +170,13 @@ def mizu_c_long(path=None, mgain=0.85, msoft=0.6, mrev=0.6):
             vo = sorted(old.nearest(62 + (p - 62) % 12, [p], 57, 69) for p in cps)
             seq = vo + [vo[1] + 12, vo[2] + 12, vo[1] + 12]
             for k in range(8):
-                m.add(harp(midi_hz(seq[k % len(seq)]), 0.5 * m.beat, m.vel(0.42 if k % 4 == 0 else 0.3)), bar * 4 + k * 0.5, pan=-0.3, rev=0.4, gain=1.5, humanize=0.004)
+                f, v = midi_hz(seq[k % len(seq)]), m.vel(0.42 if k % 4 == 0 else 0.3)
+                if bacc == 'harp': y, g = harp(f, 0.5 * m.beat, v), 1.5
+                elif bacc == 'marimba': y, g = marimba3(f, 0.5 * m.beat, v, hard=0.25), 1.2
+                elif bacc == 'celesta': y, g = celesta(f, 0.5 * m.beat, v * 0.8, hard=0.3), 1.0
+                elif bacc == 'kalimba': y, g = kalimba(f, 0.5 * m.beat, v * 0.8, hard=0.3), 1.0
+                else: y, g = vibes(f, 0.5 * m.beat, v * 0.8, rel=0.9), 1.0
+                m.add(y, bar * 4 + k * 0.5, pan=-0.3, rev=0.4, gain=g, humanize=0.004)
         else:
             vo = sorted(old.nearest(67 + (p - 67) % 12, [p], 62, 74) for p in cps)
             seq = vo + vo[::-1][1:-1]
