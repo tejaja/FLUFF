@@ -1287,9 +1287,10 @@ public static class FuwaCourse2_1Builder
         var crossing = new GameObject("Crossing").transform; crossing.SetParent(g, false);
         crossing.localPosition = new Vector3(cp.x, 0f, cp.y);
         crossing.localRotation = Quaternion.LookRotation(new Vector3(-cd.x, 0, -cd.y));   // +Z＝川上
-        var bodyMat = FlatMat("Stage2_FishBody", new Color(0.98f, 0.56f, 0.45f));
-        var finMat = FlatMat("Stage2_FishFin", new Color(0.86f, 0.38f, 0.32f));
-        var eyeMat = FlatMat("Stage2_FishEye", new Color(0.12f, 0.12f, 0.16f));
+        // 材質は Blender の並び（胴・おなか・ひれ・目・目の光）
+        var fishMesh = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2_Fish.fbx").OfType<Mesh>().First();
+        var fishMats = new[] { FlatMat("Stage2_FishBody", new Color(0.98f, 0.56f, 0.45f)), FlatMat("Stage2_FishBelly", new Color(1f, 0.9f, 0.8f)),
+            FlatMat("Stage2_FishFin", new Color(0.9f, 0.42f, 0.36f)), FlatMat("Stage2_FishEye", new Color(0.12f, 0.12f, 0.16f)), FlatMat("Stage2_FishEyeHi", Color.white) };
         int n = FishLanes.Length;
         var fish = new Transform[n]; var from = new Transform[n]; var to = new Transform[n];
         for (int i = 0; i < n; i++)
@@ -1302,21 +1303,10 @@ public static class FuwaCourse2_1Builder
             var a = new GameObject("From" + i).transform; a.SetParent(g, false); a.localPosition = new Vector3(qa.x, -FishDepth, qa.y);
             var b = new GameObject("To" + i).transform; b.SetParent(g, false); b.localPosition = new Vector3(qb.x, -FishDepth, qb.y);
             from[i] = a; to[i] = b;
-            // 仮の魚：+Z が頭。胴（カプセルを寝かせる）・尾びれ・背びれ・目
+            // 魚：Blender（FLUFF_models.blend の Stage2Fish シーン、Stage2_Fish。+Z が頭）。2026-10-25 仮のカプセルから差し替え
             var f = new GameObject("Fish" + i).transform; f.SetParent(g, false); f.localPosition = a.localPosition;
-            GameObject Part(PrimitiveType t, string name, Vector3 lp, Vector3 ls, Vector3 le, Material m)
-            {
-                var o = GameObject.CreatePrimitive(t); o.name = name; o.transform.SetParent(f, false);
-                Object.DestroyImmediate(o.GetComponent<Collider>());
-                o.transform.localPosition = lp; o.transform.localScale = ls; o.transform.localEulerAngles = le;
-                var r = o.GetComponent<Renderer>(); r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                return o;
-            }
-            Part(PrimitiveType.Capsule, "Body", Vector3.zero, new Vector3(0.22f, 0.3f, 0.28f), new Vector3(90, 0, 0), bodyMat);
-            Part(PrimitiveType.Cube, "Tail", new Vector3(0, 0, -0.34f), new Vector3(0.03f, 0.24f, 0.14f), new Vector3(0, 0, 0), finMat);
-            Part(PrimitiveType.Cube, "Dorsal", new Vector3(0, 0.13f, -0.02f), new Vector3(0.025f, 0.08f, 0.14f), new Vector3(-15, 0, 0), finMat);
-            Part(PrimitiveType.Sphere, "EyeL", new Vector3(-0.09f, 0.04f, 0.17f), Vector3.one * 0.045f, Vector3.zero, eyeMat);
-            Part(PrimitiveType.Sphere, "EyeR", new Vector3(0.09f, 0.04f, 0.17f), Vector3.one * 0.045f, Vector3.zero, eyeMat);
+            f.gameObject.AddComponent<MeshFilter>().sharedMesh = fishMesh;
+            var fmr = f.gameObject.AddComponent<MeshRenderer>(); fmr.sharedMaterials = fishMats; fmr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             f.localScale = Vector3.one * FishScale;
             f.gameObject.SetActive(false);
             fish[i] = f;
