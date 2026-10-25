@@ -43,6 +43,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _GroundTex:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -62,17 +66,38 @@ Material:
     m_Ints: []
     m_Floats:
     - _AmbientStrength: 0.55
+    - _BakedGlow: 0
+    - _BakedGlowFloor: 0.25
+    - _BaseFadeLength: 0
+    - _BaseFadeNormal: 1
     - _BumpScale: 1
+    - _Cull: 2
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
+    - _EmissionFull: 1.6
+    - _EmissionGradient: 0
+    - _Facet: 0
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
+    - _GroundFine: 0
+    - _GroundFineCrisp: 0
+    - _GroundFineFade: 18
+    - _GroundFineScale: 0.9
+    - _GroundMidScale: 3.2
+    - _GroundPatch: 0
+    - _GroundPatchScale: 11
+    - _GroundSteps: 0
     - _Metallic: 0
     - _Mode: 0
+    - _NoiseScale: 0.6
+    - _NoiseStrength: 0
     - _OcclusionStrength: 1
+    - _OffsetFactor: 0
+    - _OffsetUnits: 0
     - _Parallax: 0.02
+    - _PatternFromBase: 0
     - _RimPower: 3
     - _RimStrength: 0.25
     - _ShadowStrength: 0.75
@@ -80,12 +105,26 @@ Material:
     - _SpecularHighlights: 1
     - _SrcBlend: 1
     - _Steps: 0.75
+    - _StrataScale: 1.2
+    - _StrataStrength: 0
+    - _TopMin: 0.55
+    - _TopStrength: 0
     - _UVSec: 0
+    - _UnderGrad: 0
+    - _UnderStrength: 0
     - _Wrap: 0.35
     - _ZWrite: 1
     m_Colors:
-    - _Color: {r: 0.7, g: 0.82, b: 0.95, a: 1}
+    - _BaseFadeColor: {r: 0.65999997, g: 0.6, b: 0.68, a: 1}
+    - _Color: {r: 0.9647059, g: 0.8039216, b: 0.627451, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _GroundTintA: {r: 1.1, g: 1.08, b: 0.86, a: 1}
+    - _GroundTintB: {r: 0.8, g: 0.92, b: 0.8399999, a: 1}
     - _RimColor: {r: 1, g: 0.96999997, b: 0.92, a: 1}
     - _ShadowTint: {r: 0.54999995, g: 0.47999996, b: 0.75, a: 1}
+    - _StrataA: {r: 1.06, g: 0.97999996, b: 0.94, a: 1}
+    - _StrataB: {r: 0.93, g: 0.95, b: 1.06, a: 1}
+    - _StrataC: {r: 0.9, g: 0.87, b: 0.93, a: 1}
+    - _TopColor: {r: 0.62, g: 0.72, b: 0.52, a: 1}
+    - _UnderColor: {r: 0.72, g: 0.8399999, b: 1, a: 1}
   m_BuildTextureStacks: []
