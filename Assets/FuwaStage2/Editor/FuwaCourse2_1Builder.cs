@@ -1493,7 +1493,16 @@ public static class FuwaCourse2_1Builder
     // WallIn＝道の中心線から壁のふちまで、WallW＝壁の上の幅、WallSurf＝道からの水面の高さ、WallBottom＝滝の下のはし
     public static float WallIn = 4.55f, WallW = 2.9f, WallSurf = 4.3f, WallBottom = -8f;
     public static float WallFlow = 0.8f;
+    // 球の高さ（水面から）。2.0 だと下の水の筋が街灯の柱みたいだった（2026-10-25 てじゃ）→ 1.0
+    public static float WallOrbHeight = 1.0f;
     public static float[] WallOrbsL = { 0.22f, 0.7f }, WallOrbsR = { 0.45f, 0.92f };
+    // 壁のはしの丸み（上から見て、はしから WallRoundLen m で四分円）。2026-10-25 てじゃ「壁のはしが縦長の柱っぽい」→ 丸くすぼめる
+    public static float WallRoundLen = 2f;
+    static float WallRound(float s, float s0, float s1)
+    {
+        float t = Mathf.Clamp01(Mathf.Min(s - s0, s1 - s) / WallRoundLen);
+        return Mathf.Max(0.12f, Mathf.Sqrt(1f - (1f - t) * (1f - t)));
+    }
     static void ClamWall(Transform root, Transform g, float o)
     {
         string nm = o < 0 ? "WallL" : "WallR";
@@ -1511,6 +1520,7 @@ public static class FuwaCourse2_1Builder
             float s = ss[i]; Center(s, out var p, out var d); var r = Right(d) * o;
             float sf = surf(s), w = WallW + 0.35f * (Mathf.PerlinNoise(nOff, s * 0.15f) - 0.5f), wy = WalkH(Mathf.Clamp(s, sWalk0, sWalk1));
             bool cap = i == 0 || i == n - 1;   // 両はしは水をせき止める（上を平らに）
+            float rf = WallRound(s, s0, s1);
             float fl = cap ? 0.25f : -0.3f, lip = cap ? 0.25f : -0.06f;
             var prof = new List<Vector2>
             {
@@ -1526,6 +1536,8 @@ public static class FuwaCourse2_1Builder
                 bool fixedPt = k <= 4;   // 上（ふち・水の底・外のふち）はでこぼこさせない
                 float dd = pr.x + (fixedPt ? 0f : (Mathf.PerlinNoise(nOff + s * 0.5f, k * 1.9f) - 0.5f) * 0.5f);
                 float yy = pr.y + (fixedPt ? 0f : (Mathf.PerlinNoise(nOff + 30f + s * 0.4f, k * 2.7f) - 0.5f) * 0.6f);
+                // はしは丸くすぼめる：道の側のふちはそのまま、外へ出る分と下へ伸びる分を縮める
+                dd *= rf; if (k >= 5) yy *= Mathf.Lerp(0.3f, 1f, rf);
                 var q = p + r * (WallIn + dd);
                 var v = new Vector3(q.x, sf + yy, q.y); V.Add(v); c += v;
             }
@@ -1565,7 +1577,7 @@ public static class FuwaCourse2_1Builder
             for (int k = 0; k <= m; k++)
             {
                 float s = Mathf.Lerp(wa, wb, k / (float)m); Center(s, out var p, out var d); var r = Right(d) * o;
-                float dA = -0.03f, dB = WallW - 0.42f, hw = (dB - dA) * 0.5f;
+                float dA = -0.03f, dB = Mathf.Max(0.3f, (WallW - 0.45f) * WallRound(s, s0, s1) - 0.05f), hw = (dB - dA) * 0.5f;
                 for (int i = 0; i <= across; i++)
                 {
                     float dd = Mathf.Lerp(dA, dB, i / (float)across);
@@ -1673,7 +1685,7 @@ public static class FuwaCourse2_1Builder
             var pos = new Vector3(q.x, surf(s), q.y);
             var sp = new GameObject(nm + "_Orb" + at.ToString("F2")).transform; sp.SetParent(g, false);
             Spring(sp, pos);
-            WaterOrb(sp, pos, "WaterOrb", 2.0f, 0.36f, 0.24f);
+            WaterOrb(sp, pos, "WaterOrb", WallOrbHeight, 0.36f, 0.24f);
         }
     }
 
