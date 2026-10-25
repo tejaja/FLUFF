@@ -359,7 +359,8 @@ public static class FuwaCourse2_1Builder
         splash.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/sfx_water_splash.wav");
         var waters = new List<Water>
         {
-            new Water { name = "W0_Source", s0 = sPlaza0 - 1.5f, s1 = sPlaza1, surf = SourceSurf, flow = 0.8f, open1 = true, bodyBottom = StartH + CaveIn + RoofT,
+            new Water { name = "W0_Source", s0 = sPlaza0 - 1.5f, s1 = sPlaza1, surf = SourceSurf, flow = 0f,   // 流れ 0.8→0（まん中の湧き水の波紋と流れの筋が重なってへん。2026-10-25 てじゃ）
+                open1 = true, bodyBottom = StartH + CaveIn + RoofT,
                 hw = s => Mathf.Lerp(CaveHW - RimW, MouthHW, Smooth01((s - (sPlaza1 - 3.5f)) / 3.5f)) },
             // 流れ 2026-10-25 0.9→1.3→1.6、川 1.1→1.4→1.6（てじゃ「川で見てるのが長過ぎる」。人は浅瀬を歩かず岸の道を走るので速くしてよい）
             new Water { name = "W1_Pool", s0 = sPlaza1, s1 = sPool1, surf = 0f, flow = 1.6f, hw = PoolHW, open0 = true, open1 = true, deep = true, depth = 2.5f },
