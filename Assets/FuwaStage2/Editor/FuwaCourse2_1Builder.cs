@@ -778,12 +778,9 @@ public static class FuwaCourse2_1Builder
         // 円柱のメッシュは作った円柱から借りる（GetBuiltinResource("Cylinder.fst") は null で、当たり判定がなく石に乗れなかった）
         var tmpCyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder); var cyl = tmpCyl.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(tmpCyl);
         var rng = new System.Random(name.GetHashCode());
-        float edge = RiverHW(sc) + RimW;
         for (int i = 0; i < StoneCount; i++)
         {
-            float k = (i + 1f) / (StoneCount + 1f);
-            float lat = from * Mathf.Lerp(edge, -edge, k);
-            float s = sc + Mathf.Lerp(-StoneSpread, StoneSpread, k);
+            StoneAt(sc, from, i, out float s, out float lat);
             Center(s, out var p, out var d); var q = p + Right(d) * lat;
             var st = new GameObject("Stone" + i); st.transform.SetParent(g, false);
             st.transform.localPosition = new Vector3(q.x, BankTop, q.y);
@@ -834,16 +831,24 @@ public static class FuwaCourse2_1Builder
     }
 
     // ---- 2回目の渡り場の魚（2026-10-25）----
-    // 川の何本かの筋（FishLanes、中心線からの横のずれ）で、渡り場の FishSpan m 下流から上流へ水面を跳ねる。仮の形（あとで Blender）
-    // 2026-10-25 3匹→2匹（てじゃ「むずすぎる」「２匹でいいきがする」。まん中の高い魚を抜いた＝まん中が通り道）
-    public static float[] FishLanes = { -1.9f, 1.9f };   // ±1.0→±1.9（川を広げて、飛び石の外側を跳ぶ）
-    // 魚ごとのずらし（秒）：右から左へ波のように続けて跳んで、そのあと静かな間がある
+    // 2回目の渡り場の飛び石1個につき1匹。横の筋は FishLanes（石の外側）のまま、前後は石と同じ所が跳ぶ頂点になるように、FishSpan m 下流から上流へ跳ねる
+    //（てじゃ「ちょうど石の位置がジャンプの頂点になるくらいに調整、あともっと高く飛ばそう、間隔はいまのままで」「高さと前後のはなし」「ラインは石にあわせないで」）。
+    // 仮の形（あとで Blender）。2026-10-25 3匹→2匹（「むずすぎる」「２匹でいいきがする」）。石の上に立っている間は当たらない（safeSpots）
+    public static float[] FishLanes = { -1.9f, 1.9f };   // ±1.0→±1.9（川を広げて、飛び石の外側を跳ぶ）。i 番目の魚が i 番目の石（左から）
+    // 魚ごとのずらし（秒）
     public static float[] FishPhases = { 0f, -0.7f };
     // 2026-10-25 てじゃ「魚がよわい、もっとでかくして幅をとりたい、高さも３匹バラバラに」→ 大きさ FishScale 倍・跳ぶ長さ 1.7→2.4・高さは魚ごと
     public static float FishSpan = 2.4f, FishPeriod = 3.2f, FishDepth = 0.15f, FishScale = 2f, FishHit = 1.0f;
-    public static float[] FishHeights = { 1.3f, 1.8f };
-    // 魚ごとの周期：高いほど長く（てじゃ「魚が出るタイミングズラそう、高いほど周期を長く」）。周期＝FishPeriodBase＋高さ×FishPeriodPerM
-    public static float FishPeriodBase = 0.8f, FishPeriodPerM = 1.4f;
+    public static float[] FishHeights = { 2.4f, 3.0f };   // 1.3/1.8 → 2.4/3.0（「もっと高く」）
+    // 魚ごとの周期（秒）。高い方が長い（「高いほど周期を長く」で 0.8＋高さ×1.4 にした値を、高さを上げた後もそのまま）
+    public static float[] FishPeriods = { 2.62f, 3.32f };
+    // 飛び石の場所（CrossingStones と同じ式）：sc＝渡り場、from＝出発する岸、i 番目の石の中心線の位置 s と横のずれ lat
+    static void StoneAt(float sc, float from, int i, out float s, out float lat)
+    {
+        float k = (i + 1f) / (StoneCount + 1f);
+        lat = from * Mathf.Lerp(RiverHW(sc) + RimW, -(RiverHW(sc) + RimW), k);
+        s = sc + Mathf.Lerp(-StoneSpread, StoneSpread, k);
+    }
     static void RiverFish(Transform root, FuwaWaterFx fx)
     {
         var g = new GameObject("RiverFish").transform; g.SetParent(root, false);
@@ -859,7 +864,10 @@ public static class FuwaCourse2_1Builder
         var fish = new Transform[n]; var from = new Transform[n]; var to = new Transform[n];
         for (int i = 0; i < n; i++)
         {
-            Center(sCross2 + FishSpan, out var pa, out var da); Center(sCross2 - FishSpan, out var pb, out var db);
+            // 頂点の前後＝i 番目の石（2回目の渡り場は左岸から出発＝from -1、石0が左）
+            float sTop = sCross2;
+            if (i < StoneCount) StoneAt(sCross2, -1f, i, out sTop, out _);
+            Center(sTop + FishSpan, out var pa, out var da); Center(sTop - FishSpan, out var pb, out var db);
             var qa = pa + Right(da) * FishLanes[i]; var qb = pb + Right(db) * FishLanes[i];
             var a = new GameObject("From" + i).transform; a.SetParent(g, false); a.localPosition = new Vector3(qa.x, -FishDepth, qa.y);
             var b = new GameObject("To" + i).transform; b.SetParent(g, false); b.localPosition = new Vector3(qb.x, -FishDepth, qb.y);
@@ -895,7 +903,7 @@ public static class FuwaCourse2_1Builder
         // 飛び石の上は安全（てじゃ「魚、飛び石の上は安全な感じにしたい」）。CrossingStones を先に作っておく
         var stones2 = root.Find("Stones2");
         if (stones2) { rf.safeSpots = stones2.Cast<Transform>().ToArray(); rf.safeRadius = StoneR + 0.15f; }
-        rf.jumpHeights = (float[])FishHeights.Clone(); rf.periods = FishHeights.Select(h => FishPeriodBase + h * FishPeriodPerM).ToArray(); rf.hitRadius = FishHit; rf.playerHitRadius = FishHit * 0.8f;
+        rf.jumpHeights = (float[])FishHeights.Clone(); rf.periods = (float[])FishPeriods.Clone(); rf.hitRadius = FishHit; rf.playerHitRadius = FishHit * 0.8f;
         rf.jumpSound = Snd("JumpSfx", "Assets/FuwaStage2/Audio/sfx_water_splash_soft.wav", 0.6f);
         rf.hitSound = Snd("HitSfx", "Assets/FuwaCourse/Audio/sfx_boing.wav", 0.8f);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(rf); NoSync(rf);
