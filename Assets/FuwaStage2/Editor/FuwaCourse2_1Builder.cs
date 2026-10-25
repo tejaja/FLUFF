@@ -833,6 +833,8 @@ public static class FuwaCourse2_1Builder
     // 2026-10-25 てじゃ「魚がよわい、もっとでかくして幅をとりたい、高さも３匹バラバラに」→ 大きさ FishScale 倍・跳ぶ長さ 1.7→2.4・高さは魚ごと
     public static float FishSpan = 2.4f, FishPeriod = 3.2f, FishDepth = 0.15f, FishScale = 2f, FishHit = 1.0f;
     public static float[] FishHeights = { 1.3f, 2.4f, 1.8f };
+    // 魚ごとの周期：高いほど長く（てじゃ「魚が出るタイミングズラそう、高いほど周期を長く」）。周期＝FishPeriodBase＋高さ×FishPeriodPerM
+    public static float FishPeriodBase = 0.8f, FishPeriodPerM = 1.4f;
     static void RiverFish(Transform root, FuwaWaterFx fx)
     {
         var g = new GameObject("RiverFish").transform; g.SetParent(root, false);
@@ -881,7 +883,7 @@ public static class FuwaCourse2_1Builder
         var rf = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaRiverFish>(g.gameObject);
         rf.ball = ballProxy; rf.fx = fx; rf.crossing = crossing;
         rf.fish = fish; rf.jumpFrom = from; rf.jumpTo = to; rf.phases = (float[])FishPhases.Clone(); rf.period = FishPeriod;
-        rf.jumpHeights = (float[])FishHeights.Clone(); rf.hitRadius = FishHit; rf.playerHitRadius = FishHit * 0.8f;
+        rf.jumpHeights = (float[])FishHeights.Clone(); rf.periods = FishHeights.Select(h => FishPeriodBase + h * FishPeriodPerM).ToArray(); rf.hitRadius = FishHit; rf.playerHitRadius = FishHit * 0.8f;
         rf.jumpSound = Snd("JumpSfx", "Assets/FuwaStage2/Audio/sfx_water_splash_soft.wav", 0.6f);
         rf.hitSound = Snd("HitSfx", "Assets/FuwaCourse/Audio/sfx_boing.wav", 0.8f);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(rf); NoSync(rf);

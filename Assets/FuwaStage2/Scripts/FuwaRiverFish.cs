@@ -20,8 +20,10 @@ public class FuwaRiverFish : UdonSharpBehaviour
     public Transform[] jumpTo;
     [Tooltip("魚ごとのずらし（秒）")]
     public float[] phases;
-    [Tooltip("1周の長さ（秒）。この中で1回ずつ跳ぶ")]
+    [Tooltip("1周の長さ（秒）。この中で1回ずつ跳ぶ。periods に魚ごとの値があればそっちを使う")]
     public float period = 3.2f;
+    [Tooltip("魚ごとの1周の長さ（2026-10-25 てじゃ「魚が出るタイミングズラそう、高いほど周期を長く」）")]
+    public float[] periods;
     [Tooltip("跳んでいる時間（秒）")]
     public float jumpTime = 0.9f;
     [Tooltip("いちばん高い所（水面から、m）。jumpHeights に魚ごとの値があればそっちを使う")]
@@ -90,8 +92,9 @@ public class FuwaRiverFish : UdonSharpBehaviour
             if (fish[i] == null || jumpFrom[i] == null || jumpTo[i] == null) continue;
             float ph = phases != null && i < phases.Length ? phases[i] : 0f;
             double tt = server + ph;
-            int cyc = (int)System.Math.Floor(tt / period);
-            float inCyc = (float)(tt - (double)cyc * period);   // 0〜warnLead：合図、warnLead〜+jumpTime：跳ぶ
+            float per = periods != null && i < periods.Length && periods[i] > warnLead + jumpTime ? periods[i] : period;
+            int cyc = (int)System.Math.Floor(tt / per);
+            float inCyc = (float)(tt - (double)cyc * per);   // 0〜warnLead：合図、warnLead〜+jumpTime：跳ぶ
             Vector3 a = jumpFrom[i].position, b = jumpTo[i].position;
             if (inCyc < warnLead)
             {
