@@ -764,7 +764,8 @@ public static class FuwaCourse2_1Builder
     {
         var g = new GameObject(name).transform; g.SetParent(root, false);
         var rockMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Rock.mat");
-        var cyl = Resources.GetBuiltinResource<Mesh>("Cylinder.fst");
+        // 円柱のメッシュは作った円柱から借りる（GetBuiltinResource("Cylinder.fst") は null で、当たり判定がなく石に乗れなかった）
+        var tmpCyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder); var cyl = tmpCyl.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(tmpCyl);
         var rng = new System.Random(name.GetHashCode());
         float edge = RiverHW(sc) + RimW;
         for (int i = 0; i < StoneCount; i++)
