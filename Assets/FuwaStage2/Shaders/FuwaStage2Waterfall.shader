@@ -13,14 +13,20 @@ Shader "FuwaStage2/Waterfall"
         _StreakScale ("Streak Size", Float) = 1.6
         _EdgeFoam ("Top/Bottom Foam (m)", Float) = 0.8
         [Toggle] _Curved ("Curved Mesh (uv1/uv2)", Float) = 0
+        // 厚みのある滝（2026-10-25 てじゃ「各種滝、太くしたい」「最初の滝も、太いっていうより２重ってかんじ」）：
+        // 前・後ろ・横の面で閉じた形を、透けさせず手前の面だけ描く（Cull Back・ZWrite On・Alpha 1）。横の面は頂点カラーで少し暗く
+        _SideFade ("Side Edge Fade (m, 0=none)", Float) = 0.12
+        [Toggle] _UseVColor ("Multiply Vertex Color", Float) = 0
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 0
+        [Enum(Off, 0, On, 1)] _ZWrite ("ZWrite", Float) = 0
     }
     SubShader
     {
         // DisableBatching：板の大きさを行列から取るので、まとめ描き（ダイナミックバッチング）されると 1m×1m 扱いになって
         // 筋と泡が変になる。どの滝が同時に映るかで切り替わって見えた（2026-10-23 てじゃ「距離とか向きとかで変に切り替わる」）
         Tags { "Queue" = "Transparent" "RenderType" = "Transparent" "IgnoreProjector" = "True" "DisableBatching" = "True" }
-        Cull Off
-        ZWrite Off
+        Cull [_Cull]
+        ZWrite [_ZWrite]
         Blend SrcAlpha OneMinusSrcAlpha
         Pass
         {
@@ -31,10 +37,10 @@ Shader "FuwaStage2/Waterfall"
             #include "UnityCG.cginc"
 
             fixed4 _Top, _Bottom, _Foam;
-            float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved;
+            float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; fixed4 color : COLOR; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; };
 
             v2f vert (appdata v)
             {
@@ -42,7 +48,10 @@ Shader "FuwaStage2/Waterfall"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
                 o.size = float2(length(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0))), length(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0))));
+                // 厚みのある滝の横の面（ローカル x 向きの面）は、横＝奥行き（z）の長さ（筋が横に詰まらないように）
+                if (_UseVColor > 0.5 && abs(v.normal.x) > 0.5) o.size.x = length(mul((float3x3)unity_ObjectToWorld, float3(0, 0, 1)));
                 if (_Curved > 0.5) { o.size = v.tot; o.uv = v.m / max(v.tot, 0.001); }
+                o.color = _UseVColor > 0.5 ? v.color : fixed4(1, 1, 1, 1);
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -69,8 +78,9 @@ Shader "FuwaStage2/Waterfall"
                 float bot = 1 - smoothstep(0, _EdgeFoam * 1.5, i.uv.y * i.size.y);
                 float wob = 0.75 + 0.25 * Noise(float2(m.x * 2.0, _Time.y * 2.0));
                 col = lerp(col, _Foam.rgb, saturate((top + bot) * wob));
-                // 左右のふちは少し薄く
-                float side = smoothstep(0, 0.12, min(i.uv.x, 1 - i.uv.x) * i.size.x);
+                // 左右のふちは少し薄く（厚みのある滝は横の面があるので薄くしない）
+                float side = _SideFade > 0.0001 ? smoothstep(0, _SideFade, min(i.uv.x, 1 - i.uv.x) * i.size.x) : 1;
+                col *= i.color.rgb;
                 fixed4 c = fixed4(col, _Alpha * side);
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;

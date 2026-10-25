@@ -358,7 +358,7 @@ public static class FuwaCourse2_1Builder
 
         // 渡り場の石段は 2026-10-23 にやめた（浅くしてどこからでも上がれるようになった。てじゃ「ふわふわぶつかるトラップになってる」）
         // 川の終わりの崖の滝 → 谷（下は何もない。ふわふわも人も落ちたらアウト）
-        CurvedFalls(root, "Falls_River", sRiver1, 0.02f, -GorgeDrop, RiverHW(sRiver1) * 2f + 0.4f, 1.6f, 0.4f);
+        CurvedFalls(root, "Falls_River", sRiver1, 0.02f, -GorgeDrop, RiverHW(sRiver1) * 2f + 0.4f, 1.6f, 0.8f);   // 厚み 0.4→0.8（2026-10-25 てじゃ「各種滝、太くしたい」）
         {
             var gz = new GameObject("Gorge").transform; gz.SetParent(root, false);
             float gm = (sRiver1 + gorge1) * 0.5f;
@@ -416,7 +416,7 @@ public static class FuwaCourse2_1Builder
         Center(sPlaza1, out var fp, out var fd);
         // 落ち口はRで前へ張り出して、洞窟の口から少し離れた所に落ちる（ふわふわが崖ぎわのふちに叩きつけられないように）。厚みもつける
         // 2026-10-19 てじゃ「滝にあたったふわふわが地面に激突するから、ちょっとRつけて遠くに落ちるように、厚みもほしい」
-        CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.02f, 0f, MouthHW * 2f + 0.4f, FallsReach, 0.45f);
+        CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.02f, 0f, MouthHW * 2f + 0.4f, FallsReach, 0.9f);   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
         // ⑥ ラスト：よけられない滝、下の川、右岸のゴールの広場
         Finale(root, terr, ground, bedMat, fx, splash);
 
@@ -1388,38 +1388,43 @@ public static class FuwaCourse2_1Builder
         var len = new float[pts.Count]; for (int i = 1; i < pts.Count; i++) len[i] = len[i - 1] + (pts[i] - pts[i - 1]).magnitude;
         float total = len[pts.Count - 1];
         Vector3 Nrm(int i) { var tg = (pts[Mathf.Min(i + 1, pts.Count - 1)] - pts[Mathf.Max(i - 1, 0)]).normalized; var n = Vector3.Cross(rgt, tg).normalized; if (Vector3.Dot(n, f) + n.y < 0) n = -n; return n; }   // 外向き（前・上）
-        var V = new List<Vector3>(); var T = new List<int>(); var U1 = new List<Vector2>(); var U2 = new List<Vector2>();
+        // 厚みのある閉じた形（2026-10-25 てじゃ「最初の滝も、太いっていうより２重ってかんじ」。前は透ける膜が前後に2枚だけ）：
+        // 外側の面・内側の面・左右の横の面。手前の面だけ描く材質なので、三角形は外向きにそろえる。横の面は頂点カラーで暗く
+        var V = new List<Vector3>(); var T = new List<int>(); var U1 = new List<Vector2>(); var U2 = new List<Vector2>(); var Cl = new List<Color>();
         const int cols = 6;
-        foreach (float side in new[] { 1f, -1f })   // 外側の膜・内側の膜
+        var sideCol = new Color(FuwaStage2WaterTest.SlabSideShade, FuwaStage2WaterTest.SlabSideShade, FuwaStage2WaterTest.SlabSideShade, 1f);
+        // 格子（rows＝pts、横 cols+1）を外向き out(i) にそって並べる
+        void Grid(Func<int, int, Vector3> at, int across, Func<int, Vector3> outN, Func<int, float> ux, Color col)
         {
             int b0 = V.Count;
             for (int i = 0; i < pts.Count; i++)
-            {
-                var c = pts[i] + Nrm(i) * (thick * 0.5f * side);
-                for (int k = 0; k <= cols; k++)
-                {
-                    float x = Mathf.Lerp(-width * 0.5f, width * 0.5f, k / (float)cols);
-                    V.Add(c + rgt * x); U1.Add(new Vector2(x + width * 0.5f, total - len[i])); U2.Add(new Vector2(width, total));
-                }
-            }
+                for (int k = 0; k <= across; k++) { V.Add(at(i, k)); U1.Add(new Vector2(ux(k), total - len[i])); U2.Add(new Vector2(width, total)); Cl.Add(col); }
             for (int i = 0; i < pts.Count - 1; i++)
-                for (int k = 0; k < cols; k++)
+                for (int k = 0; k < across; k++)
                 {
-                    int a = b0 + i * (cols + 1) + k, b = a + cols + 1;
-                    T.AddRange(new[] { a, b, a + 1, a + 1, b, b + 1 });
+                    int a = b0 + i * (across + 1) + k, b = a + across + 1;
+                    var n = outN(i);
+                    foreach (var tri in new[] { new[] { a, b, a + 1 }, new[] { a + 1, b, b + 1 } })
+                    {
+                        if (Vector3.Dot(Vector3.Cross(V[tri[1]] - V[tri[0]], V[tri[2]] - V[tri[0]]), n) < 0f) { int s = tri[1]; tri[1] = tri[2]; tri[2] = s; }
+                        T.AddRange(tri);
+                    }
                 }
         }
+        foreach (float side in new[] { 1f, -1f })   // 外側の面・内側の面
+            Grid((i, k) => pts[i] + Nrm(i) * (thick * 0.5f * side) + rgt * Mathf.Lerp(-width * 0.5f, width * 0.5f, k / (float)cols), cols,
+                i => Nrm(i) * side, k => width * k / cols, Color.white);
+        foreach (float side in new[] { 1f, -1f })   // 左右の横の面（外側の面から内側の面へ）
+            Grid((i, k) => pts[i] + Nrm(i) * (thick * 0.5f * (1f - 2f * k)) + rgt * (width * 0.5f * side), 1,
+                i => rgt * side, k => side > 0 ? width : 0f, sideCol);
         var mesh = new Mesh { name = "Course2_1_" + name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-        mesh.SetVertices(V); mesh.SetTriangles(T, 0); mesh.SetUVs(0, U1.Select(u => Vector2.zero).ToList()); mesh.SetUVs(1, U1); mesh.SetUVs(2, U2);
+        mesh.SetVertices(V); mesh.SetTriangles(T, 0); mesh.SetUVs(0, U1.Select(u => Vector2.zero).ToList()); mesh.SetUVs(1, U1); mesh.SetUVs(2, U2); mesh.SetColors(Cl);
         mesh.RecalculateNormals(); mesh.RecalculateBounds();
         mesh = Save(mesh, MeshDir + "/" + name + ".asset");
         var g0 = new GameObject(name).transform; g0.SetParent(root, false);
         var cur = new GameObject("Curtain"); cur.transform.SetParent(g0, false);
         cur.AddComponent<MeshFilter>().sharedMesh = mesh;
-        const string mp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurved.mat";
-        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
-        if (!mat) { mat = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_Waterfall.mat")); AssetDatabase.CreateAsset(mat, mp); }
-        mat.SetFloat("_Curved", 1f); EditorUtility.SetDirty(mat);
+        var mat = FuwaStage2WaterTest.WaterfallThickMat(true);
         var mr = cur.AddComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         // 押す箱：放物線を 0.8m ごとに区切って、膜にそわせる（箱の +Z＝外向き＝FuwaWaterfall が前へ押す向き）。下は滝つぼの水面の 0.35m 上まで
         float seg = 0.8f; int ns = Mathf.Max(1, Mathf.CeilToInt(total / seg));

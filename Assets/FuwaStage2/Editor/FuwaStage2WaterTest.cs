@@ -347,22 +347,24 @@ public static class FuwaStage2WaterTest
     }
 
     // 滝：落ち口(top)から滝つぼの水面(bottom)まで。width＝幅、outward＝滝が落ちていく前の向き（水が流れてくる向き）
+    // 滝の厚み（m）。2026-10-25 てじゃ「各種滝、太くしたい」→ 板1枚から、厚みのある閉じた形（前・後ろ・左右の面）に
+    public static float FallsThick = 0.6f;
     public static void Waterfall(Transform root, string name, Vector3 lp, float top, float bottom, float width, Vector3 outward)
     {
         var g = new GameObject(name).transform; g.SetParent(root, false); g.localPosition = new Vector3(lp.x, 0, lp.z);
         g.localRotation = Quaternion.LookRotation(outward, Vector3.up);   // ローカル +Z＝水の進む向き
         float h = top - bottom;
-        // 見た目：縦の板（落ち口から少し前に出て、滝つぼへ）
-        var q = GameObject.CreatePrimitive(PrimitiveType.Quad); q.name = "Curtain"; q.transform.SetParent(g, false);
-        Object.DestroyImmediate(q.GetComponent<Collider>());
-        q.transform.localPosition = new Vector3(0, bottom + h / 2f, 0.15f); q.transform.localRotation = Quaternion.Euler(0, 180, 0);
-        q.transform.localScale = new Vector3(width, h, 1f);
-        q.GetComponent<Renderer>().sharedMaterial = WaterfallMat();
-        // 押す範囲（厚み 0.9m、落ち口の少し上から滝つぼの水面まで）
+        // 見た目：厚みのある水のかたまり（落ち口から少し前に出て、滝つぼへ）。単位の箱（WaterfallSlab）を大きさで伸ばす
+        var q = new GameObject("Curtain"); q.transform.SetParent(g, false);
+        q.AddComponent<MeshFilter>().sharedMesh = SlabMesh();
+        q.transform.localPosition = new Vector3(0, bottom + h / 2f, 0.15f);
+        q.transform.localScale = new Vector3(width, h, FallsThick);
+        var qr = q.AddComponent<MeshRenderer>(); qr.sharedMaterial = WaterfallThickMat(false); qr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        // 押す範囲（厚み 0.9m か滝の厚み＋0.3m、落ち口の少し上から滝つぼの水面まで）
         var t = new GameObject("Push"); t.transform.SetParent(g, false); t.layer = 4;
         // 下は滝つぼの水面の 0.35m 上まで（水面まで押すと滝の真下で浮いたまま押され続けた）
         t.transform.localPosition = new Vector3(0, bottom + 0.35f + (h - 0.35f + 0.4f) / 2f, 0.3f);
-        var bc = t.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(width, h - 0.35f + 0.4f, 0.9f);
+        var bc = t.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(width, h - 0.35f + 0.4f, Mathf.Max(0.9f, FallsThick + 0.3f));
         var wf = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaWaterfall>(t);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(wf); NoSync(wf);
         // しぶきの霧（滝つぼに当たる所でずっと）
@@ -383,6 +385,54 @@ public static class FuwaStage2WaterTest
         // 音（いつも鳴っている、近くで聞こえる）。2026-10-23 てじゃ「滝の音ちょとでかいかも」0.35・18m → 0.2・14m → 0.12（「もうちょいちいさくても」）
         var a = m.AddComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/sfx_waterfall_loop.wav");
         a.loop = true; a.playOnAwake = true; a.spatialBlend = 1f; a.minDistance = 1.5f; a.maxDistance = 14f; a.rolloffMode = AudioRolloffMode.Linear; a.volume = 0.12f;
+    }
+
+    // 厚みのある滝の材質：透けさせず手前の面だけ（Cull Back・ZWrite On・Alpha 1）、横の面は頂点カラーで暗く。curved＝曲がった滝のメッシュ用
+    public static Material WaterfallThickMat(bool curved)
+    {
+        string p = "Assets/FuwaStage2/Materials/Stage2_Waterfall" + (curved ? "Curved" : "") + "Thick.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (!m) { m = new Material(WaterfallMat()); AssetDatabase.CreateAsset(m, p); }
+        m.SetFloat("_Curved", curved ? 1f : 0f); m.SetFloat("_Alpha", 1f); m.SetFloat("_SideFade", 0f); m.SetFloat("_UseVColor", 1f);
+        m.SetFloat("_Cull", (float)UnityEngine.Rendering.CullMode.Back); m.SetFloat("_ZWrite", 1f);
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    // 横の面の暗さ（頂点カラー）
+    public const float SlabSideShade = 0.8f;
+    // 単位の箱（x・z −0.5〜0.5、y −0.5〜0.5、上下の面なし）。uv0：前後の面は x＝横、横の面は x＝奥行き、y＝下0〜上1
+    public static Mesh SlabMesh()
+    {
+        const string p = "Assets/FuwaStage2/Generated/WaterfallSlab.asset";
+        var m = AssetDatabase.LoadAssetAtPath<Mesh>(p);
+        if (m) return m;
+        var V = new List<Vector3>(); var U = new List<Vector2>(); var C = new List<Color>(); var N = new List<Vector3>(); var T = new List<int>();
+        void Face(Vector3 n, Vector3 a, Color c)   // a＝横の向き（uv x）、面の中心＝n*0.5
+        {
+            int i0 = V.Count;
+            for (int j = 0; j < 4; j++)
+            {
+                float u = (j == 1 || j == 2) ? 1f : 0f, v = j >= 2 ? 1f : 0f;
+                V.Add(n * 0.5f + a * (u - 0.5f) + Vector3.up * (v - 0.5f)); U.Add(new Vector2(u, v)); C.Add(c); N.Add(n);
+            }
+            int[] tri = { 0, 1, 2, 0, 2, 3 };
+            for (int k = 0; k < 6; k += 3)
+            {
+                int x = i0 + tri[k], y = i0 + tri[k + 1], z = i0 + tri[k + 2];
+                if (Vector3.Dot(Vector3.Cross(V[y] - V[x], V[z] - V[x]), n) < 0f) { int s = y; y = z; z = s; }
+                T.Add(x); T.Add(y); T.Add(z);
+            }
+        }
+        var side = new Color(SlabSideShade, SlabSideShade, SlabSideShade, 1f);
+        Face(Vector3.forward, Vector3.left, Color.white);
+        Face(Vector3.back, Vector3.right, Color.white);
+        Face(Vector3.right, Vector3.forward, side);
+        Face(Vector3.left, Vector3.back, side);
+        m = new Mesh { name = "WaterfallSlab" };
+        m.SetVertices(V); m.SetUVs(0, U); m.SetColors(C); m.SetNormals(N); m.SetTriangles(T, 0); m.RecalculateBounds();
+        AssetDatabase.CreateAsset(m, p);
+        return m;
     }
 
     static Material WaterfallMat()

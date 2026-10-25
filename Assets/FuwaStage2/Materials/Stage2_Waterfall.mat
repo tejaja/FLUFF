@@ -26,10 +26,14 @@ Material:
     m_Ints: []
     m_Floats:
     - _Alpha: 0.92
+    - _Cull: 0
     - _Curved: 0
     - _EdgeFoam: 0.8
     - _FallSpeed: 3
+    - _SideFade: 0.12
     - _StreakScale: 1.6
+    - _UseVColor: 0
+    - _ZWrite: 0
     m_Colors:
     - _Bottom: {r: 0.3, g: 0.66, b: 0.9, a: 1}
     - _Foam: {r: 0.96999997, g: 1, b: 1, a: 1}
