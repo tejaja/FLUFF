@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -1388,38 +1388,10 @@ public static class FuwaCourse2_1Builder
         var len = new float[pts.Count]; for (int i = 1; i < pts.Count; i++) len[i] = len[i - 1] + (pts[i] - pts[i - 1]).magnitude;
         float total = len[pts.Count - 1];
         Vector3 Nrm(int i) { var tg = (pts[Mathf.Min(i + 1, pts.Count - 1)] - pts[Mathf.Max(i - 1, 0)]).normalized; var n = Vector3.Cross(rgt, tg).normalized; if (Vector3.Dot(n, f) + n.y < 0) n = -n; return n; }   // 外向き（前・上）
-        // 厚みのある閉じた形（2026-10-25 てじゃ「最初の滝も、太いっていうより２重ってかんじ」。前は透ける膜が前後に2枚だけ）：
-        // 外側の面・内側の面・左右の横の面。手前の面だけ描く材質なので、三角形は外向きにそろえる。横の面は頂点カラーで暗く
-        var V = new List<Vector3>(); var T = new List<int>(); var U1 = new List<Vector2>(); var U2 = new List<Vector2>(); var Cl = new List<Color>();
-        const int cols = 6;
-        var sideCol = new Color(FuwaStage2WaterTest.SlabSideShade, FuwaStage2WaterTest.SlabSideShade, FuwaStage2WaterTest.SlabSideShade, 1f);
-        // 格子（rows＝pts、横 cols+1）を外向き out(i) にそって並べる
-        void Grid(Func<int, int, Vector3> at, int across, Func<int, Vector3> outN, Func<int, float> ux, Color col)
-        {
-            int b0 = V.Count;
-            for (int i = 0; i < pts.Count; i++)
-                for (int k = 0; k <= across; k++) { V.Add(at(i, k)); U1.Add(new Vector2(ux(k), total - len[i])); U2.Add(new Vector2(width, total)); Cl.Add(col); }
-            for (int i = 0; i < pts.Count - 1; i++)
-                for (int k = 0; k < across; k++)
-                {
-                    int a = b0 + i * (across + 1) + k, b = a + across + 1;
-                    var n = outN(i);
-                    foreach (var tri in new[] { new[] { a, b, a + 1 }, new[] { a + 1, b, b + 1 } })
-                    {
-                        if (Vector3.Dot(Vector3.Cross(V[tri[1]] - V[tri[0]], V[tri[2]] - V[tri[0]]), n) < 0f) { int s = tri[1]; tri[1] = tri[2]; tri[2] = s; }
-                        T.AddRange(tri);
-                    }
-                }
-        }
-        foreach (float side in new[] { 1f, -1f })   // 外側の面・内側の面
-            Grid((i, k) => pts[i] + Nrm(i) * (thick * 0.5f * side) + rgt * Mathf.Lerp(-width * 0.5f, width * 0.5f, k / (float)cols), cols,
-                i => Nrm(i) * side, k => width * k / cols, Color.white);
-        foreach (float side in new[] { 1f, -1f })   // 左右の横の面（外側の面から内側の面へ）
-            Grid((i, k) => pts[i] + Nrm(i) * (thick * 0.5f * (1f - 2f * k)) + rgt * (width * 0.5f * side), 1,
-                i => rgt * side, k => side > 0 ? width : 0f, sideCol);
-        var mesh = new Mesh { name = "Course2_1_" + name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-        mesh.SetVertices(V); mesh.SetTriangles(T, 0); mesh.SetUVs(0, U1.Select(u => Vector2.zero).ToList()); mesh.SetUVs(1, U1); mesh.SetUVs(2, U2); mesh.SetColors(Cl);
-        mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        // 厚みのある閉じた形（2026-10-25 てじゃ「最初の滝も、太いっていうより２重ってかんじ」。前は透ける膜が前後に2枚だけ）。
+        // 断面は角の丸い形（「まるみつけられる？」、FuwaStage2WaterTest.FallsSection）を放物線にそって並べる
+        var nrms = Enumerable.Range(0, pts.Count).Select(Nrm).ToList();
+        var mesh = FuwaStage2WaterTest.SweepFalls("Course2_1_" + name, pts, nrms, Enumerable.Repeat(rgt, pts.Count).ToList(), len, total, width, thick);
         mesh = Save(mesh, MeshDir + "/" + name + ".asset");
         var g0 = new GameObject(name).transform; g0.SetParent(root, false);
         var cur = new GameObject("Curtain"); cur.transform.SetParent(g0, false);

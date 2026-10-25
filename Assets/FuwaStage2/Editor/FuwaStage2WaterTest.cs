@@ -354,12 +354,21 @@ public static class FuwaStage2WaterTest
         var g = new GameObject(name).transform; g.SetParent(root, false); g.localPosition = new Vector3(lp.x, 0, lp.z);
         g.localRotation = Quaternion.LookRotation(outward, Vector3.up);   // ローカル +Z＝水の進む向き
         float h = top - bottom;
-        // 見た目：厚みのある水のかたまり（落ち口から少し前に出て、滝つぼへ）。単位の箱（WaterfallSlab）を大きさで伸ばす
+        // 見た目：厚みのある水のかたまり（落ち口から少し前に出て、滝つぼへ）。断面は角の丸い形（FallsSection）を縦にのばす。大きさごとにメッシュを作る
         var q = new GameObject("Curtain"); q.transform.SetParent(g, false);
-        q.AddComponent<MeshFilter>().sharedMesh = SlabMesh();
         q.transform.localPosition = new Vector3(0, bottom + h / 2f, 0.15f);
-        q.transform.localScale = new Vector3(width, h, FallsThick);
-        var qr = q.AddComponent<MeshRenderer>(); qr.sharedMaterial = WaterfallThickMat(false); qr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        string key = "WaterfallRound_w" + width.ToString("F2") + "_h" + h.ToString("F2") + "_t" + FallsThick.ToString("F2") + "_r" + FallsRound.ToString("F2");
+        var meshP = "Assets/FuwaStage2/Generated/Falls/" + key + ".asset";
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshP);
+        if (!mesh)
+        {
+            if (!AssetDatabase.IsValidFolder("Assets/FuwaStage2/Generated/Falls")) AssetDatabase.CreateFolder("Assets/FuwaStage2/Generated", "Falls");
+            var cs = new List<Vector3> { Vector3.down * (h / 2f), Vector3.up * (h / 2f) };
+            mesh = SweepFalls(key, cs, new List<Vector3> { Vector3.forward, Vector3.forward }, new List<Vector3> { Vector3.right, Vector3.right }, new List<float> { h, 0f }, h, width, FallsThick);
+            AssetDatabase.CreateAsset(mesh, meshP);
+        }
+        q.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var qr = q.AddComponent<MeshRenderer>(); qr.sharedMaterial = WaterfallThickMat(true); qr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         // 押す範囲（厚み 0.9m か滝の厚み＋0.3m、落ち口の少し上から滝つぼの水面まで）
         var t = new GameObject("Push"); t.transform.SetParent(g, false); t.layer = 4;
         // 下は滝つぼの水面の 0.35m 上まで（水面まで押すと滝の真下で浮いたまま押され続けた）
@@ -399,39 +408,61 @@ public static class FuwaStage2WaterTest
         return m;
     }
 
-    // 横の面の暗さ（頂点カラー）
+    // 横の面の暗さ（頂点カラー。前後の面は1、真横を向いた所がこの値）
     public const float SlabSideShade = 0.8f;
-    // 単位の箱（x・z −0.5〜0.5、y −0.5〜0.5、上下の面なし）。uv0：前後の面は x＝横、横の面は x＝奥行き、y＝下0〜上1
-    public static Mesh SlabMesh()
+    // 断面の角の丸み：厚みの半分に対する割合（1＝横がまるいカプセル形）。2026-10-25 てじゃ「まるみつけられる？」
+    public static float FallsRound = 0.9f;
+    const int RoundSegs = 6;
+    // 断面（角の丸い長方形、幅 width・厚み thick）のまわりの点（x＝横、y＝前後）と外向きの向き、まわりの長さ。最初の点を最後にもう一度入れて閉じる
+    public static void FallsSection(float width, float thick, out List<Vector2> pts, out List<Vector2> nrm, out List<float> arc)
     {
-        const string p = "Assets/FuwaStage2/Generated/WaterfallSlab.asset";
-        var m = AssetDatabase.LoadAssetAtPath<Mesh>(p);
-        if (m) return m;
-        var V = new List<Vector3>(); var U = new List<Vector2>(); var C = new List<Color>(); var N = new List<Vector3>(); var T = new List<int>();
-        void Face(Vector3 n, Vector3 a, Color c)   // a＝横の向き（uv x）、面の中心＝n*0.5
-        {
-            int i0 = V.Count;
-            for (int j = 0; j < 4; j++)
+        float a = width * 0.5f, b = thick * 0.5f, r = Mathf.Min(a, b) * FallsRound;
+        pts = new List<Vector2>(); nrm = new List<Vector2>(); arc = new List<float>();
+        // 角の中心（右前・左前・左後ろ・右後ろ）と、それぞれの弧の始まりの角度
+        var cs = new[] { new Vector2(a - r, b - r), new Vector2(-(a - r), b - r), new Vector2(-(a - r), -(b - r)), new Vector2(a - r, -(b - r)) };
+        for (int c = 0; c < 4; c++)
+            for (int k = 0; k <= RoundSegs; k++)
             {
-                float u = (j == 1 || j == 2) ? 1f : 0f, v = j >= 2 ? 1f : 0f;
-                V.Add(n * 0.5f + a * (u - 0.5f) + Vector3.up * (v - 0.5f)); U.Add(new Vector2(u, v)); C.Add(c); N.Add(n);
+                float ang = (c * 90f + 90f * k / RoundSegs) * Mathf.Deg2Rad;
+                var n = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
+                pts.Add(cs[c] + n * r); nrm.Add(n);
             }
-            int[] tri = { 0, 1, 2, 0, 2, 3 };
-            for (int k = 0; k < 6; k += 3)
+        pts.Add(pts[0]); nrm.Add(nrm[0]);
+        float L = 0f; arc.Add(0f);
+        for (int i = 1; i < pts.Count; i++) { L += (pts[i] - pts[i - 1]).magnitude; arc.Add(L); }
+    }
+
+    // 断面を線にそって並べた滝のメッシュ。center[i]＝i 段目の中心、fwd＝断面の前後（外向き）、right＝断面の横、fromTop＝落ち口からの長さ、total＝全体の長さ。
+    // uv1＝(まわりの長さ m, 下からの長さ m)、uv2＝(まわり全体, 全体の長さ)＝シェーダーの _Curved。頂点カラー＝真横ほど暗く。三角形は外向き
+    public static Mesh SweepFalls(string name, IList<Vector3> center, IList<Vector3> fwd, IList<Vector3> right, IList<float> fromTop, float total, float width, float thick)
+    {
+        FallsSection(width, thick, out var sp, out var sn, out var sa);
+        float per = sa[sa.Count - 1];
+        int cols = sp.Count;
+        var V = new List<Vector3>(); var N = new List<Vector3>(); var U1 = new List<Vector2>(); var U2 = new List<Vector2>(); var C = new List<Color>(); var T = new List<int>();
+        for (int i = 0; i < center.Count; i++)
+            for (int j = 0; j < cols; j++)
             {
-                int x = i0 + tri[k], y = i0 + tri[k + 1], z = i0 + tri[k + 2];
-                if (Vector3.Dot(Vector3.Cross(V[y] - V[x], V[z] - V[x]), n) < 0f) { int s = y; y = z; z = s; }
-                T.Add(x); T.Add(y); T.Add(z);
+                V.Add(center[i] + right[i] * sp[j].x + fwd[i] * sp[j].y);
+                N.Add((right[i] * sn[j].x + fwd[i] * sn[j].y).normalized);
+                U1.Add(new Vector2(sa[j], total - fromTop[i])); U2.Add(new Vector2(per, total));
+                float sh = Mathf.Lerp(SlabSideShade, 1f, Mathf.Abs(sn[j].y));
+                C.Add(new Color(sh, sh, sh, 1f));
             }
-        }
-        var side = new Color(SlabSideShade, SlabSideShade, SlabSideShade, 1f);
-        Face(Vector3.forward, Vector3.left, Color.white);
-        Face(Vector3.back, Vector3.right, Color.white);
-        Face(Vector3.right, Vector3.forward, side);
-        Face(Vector3.left, Vector3.back, side);
-        m = new Mesh { name = "WaterfallSlab" };
-        m.SetVertices(V); m.SetUVs(0, U); m.SetColors(C); m.SetNormals(N); m.SetTriangles(T, 0); m.RecalculateBounds();
-        AssetDatabase.CreateAsset(m, p);
+        for (int i = 0; i < center.Count - 1; i++)
+            for (int j = 0; j < cols - 1; j++)
+            {
+                int a = i * cols + j, b = a + cols;
+                foreach (var tri in new[] { new[] { a, b, a + 1 }, new[] { a + 1, b, b + 1 } })
+                {
+                    var n = N[tri[0]] + N[tri[1]] + N[tri[2]];
+                    if (Vector3.Dot(Vector3.Cross(V[tri[1]] - V[tri[0]], V[tri[2]] - V[tri[0]]), n) < 0f) { int s = tri[1]; tri[1] = tri[2]; tri[2] = s; }
+                    T.AddRange(tri);
+                }
+            }
+        var m = new Mesh { name = name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        m.SetVertices(V); m.SetNormals(N); m.SetUVs(0, U1.Select(u => Vector2.zero).ToList()); m.SetUVs(1, U1); m.SetUVs(2, U2); m.SetColors(C); m.SetTriangles(T, 0);
+        m.RecalculateBounds();
         return m;
     }
 
