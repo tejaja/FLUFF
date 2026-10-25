@@ -368,7 +368,9 @@ public static class FuwaCourse2_1Builder
             Sweep(gz, "FarCliff", gorge1, sPond0 - RimW, s => -fw - 3.2f, s => fw, s => -6f, s => BankTop - Thick - 0.01f, ground, 0, true, true);
         }
 
-        // 1回目の渡り場の先の岩、2回目の渡り場の魚
+        // 渡り場の飛び石、1回目の渡り場の先の岩、2回目の渡り場の魚
+        CrossingStones(root, "Stones1", sCross1, 1f);
+        CrossingStones(root, "Stones2", sCross2, -1f);
         StopRocks(root);
         RiverFish(root, fx);
         // ④ 貝の道
@@ -752,6 +754,42 @@ public static class FuwaCourse2_1Builder
         float m = (Low(a) + Low(b)) * 0.5f;
         return (m + ClamPeriod * 0.5f) % ClamPeriod;
     }
+    // ---- 渡り場の飛び石（2026-10-25）----
+    // てじゃ「水の減速がけっこうなストレス」→「減速有りで飛び石かな」「ふわふわ当たってセーフなら」。
+    // 切れた岸の道のはしから向こう岸の道のはしへ、川を斜めに横切って StoneCount 個。上の面は岸の道と同じ高さ、レイヤー0（ふわふわが当たっても乗ってもアウトにならない）。
+    // from＝出発する岸（+1＝右岸、-1＝左岸）
+    public static int StoneCount = 3;
+    public static float StoneR = 0.42f, StoneSpread = 0.5f;
+    static void CrossingStones(Transform root, string name, float sc, float from)
+    {
+        var g = new GameObject(name).transform; g.SetParent(root, false);
+        var rockMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Rock.mat");
+        var cyl = Resources.GetBuiltinResource<Mesh>("Cylinder.fst");
+        var rng = new System.Random(name.GetHashCode());
+        float edge = RiverHW(sc) + RimW;
+        for (int i = 0; i < StoneCount; i++)
+        {
+            float k = (i + 1f) / (StoneCount + 1f);
+            float lat = from * Mathf.Lerp(edge, -edge, k);
+            float s = sc + Mathf.Lerp(-StoneSpread, StoneSpread, k);
+            Center(s, out var p, out var d); var q = p + Right(d) * lat;
+            var st = new GameObject("Stone" + i); st.transform.SetParent(g, false);
+            st.transform.localPosition = new Vector3(q.x, BankTop, q.y);
+            st.transform.localRotation = Quaternion.Euler(0, (float)rng.NextDouble() * 360f, 0);
+            // 当たり判定：平たい円柱（上の面＝岸の道の高さ、下は川底の下まで）
+            var cg = new GameObject("Collider"); cg.transform.SetParent(st.transform, false);
+            float h = BankTop + WaterDepth + 0.1f;
+            cg.transform.localPosition = new Vector3(0, -h * 0.5f, 0); cg.transform.localScale = new Vector3(StoneR * 2f, h * 0.5f, StoneR * 2f);
+            cg.AddComponent<MeshCollider>().sharedMesh = cyl; cg.GetComponent<MeshCollider>().convex = true;
+            // 見た目：上が平たい丸い岩
+            var v = GameObject.CreatePrimitive(PrimitiveType.Sphere); v.name = "Rock"; v.transform.SetParent(st.transform, false);
+            Object.DestroyImmediate(v.GetComponent<Collider>());
+            float r = StoneR * (1.05f + 0.1f * (float)rng.NextDouble());
+            v.transform.localPosition = new Vector3(0, -0.2f, 0); v.transform.localScale = new Vector3(r * 2.1f, 0.42f, r * 1.9f);
+            v.GetComponent<Renderer>().sharedMaterial = rockMat;
+        }
+    }
+
     // ---- 1回目の渡り場の先の岩（2026-10-25）----
     // 川を横切って岩が並んでいて、流れてきたふわふわはここで止まる（水は岩のすき間を抜ける）。止まったふわふわを左岸の道へすくい上げる。
     // てじゃ「そのまま川で2回目まで行けちゃう」→「アウトにならなくていいから岩で止まるようにしようか、まだ水の顔見せだし」。

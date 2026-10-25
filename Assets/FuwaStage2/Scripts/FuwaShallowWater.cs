@@ -11,7 +11,8 @@ using VRC.SDKBase;
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaShallowWater : UdonSharpBehaviour
 {
-    [Range(0.1f, 1f)] public float moveMul = 1f;   // 2026-10-25 てじゃ「水の減速がけっこうなストレス」「もう減速なしにしよか」0.3→1（その前 10/19 に 0.55→0.3）
+    [Range(0.1f, 1f)] public float moveMul = 0.3f;   // 2026-10-19 てじゃ「水の減速を強めに、プレイヤーは水に極力入りたくない」0.55→0.3（ジャンプはそのまま＝岸に上がれる）。
+    // 2026-10-25 「減速がけっこうなストレス」で一度なしにしたが、「減速有りで飛び石かな」→ 0.3 のまま、川の渡り場に飛び石（FuwaCourse2_1Builder.CrossingStones）
     [Range(0.1f, 1f)] public float jumpMul = 1f;   // 2026-10-23 てじゃ「ジャンプ力は下げなくていい」0.7→1（前は跳べる高さは同じで、ふわっとゆっくり）
     [Tooltip("水面からこの高さまでに足があれば水の中（蓮の葉が水面すれすれまで沈んだ時も入るように）")]
     public float surfaceAbove = 0.03f;
