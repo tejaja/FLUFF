@@ -819,6 +819,7 @@ public static class FuwaCourse2_1Builder
         foreach (Transform c in terr)
             if (c.name.StartsWith("CaveWall") || c.name.StartsWith("CaveBack") || c.name.StartsWith("CaveMouth") || c.name == "CaveRoof" || c.name == "CaveFloorCliff" || c.name == "CaveDoorSill")
             { var r = c.GetComponent<MeshRenderer>(); if (r) r.enabled = false; }
+        Spring(terr, new Vector3(0f, SourceSurf, 1.6f));
         // ロビー側の細い滝：溝の水（池のふちから岩山の後ろのはしまで）＋落ちる滝
         var mesh2 = mesh; var b = mesh2.bounds;
         foreach (var (x, floor) in BackFalls)
@@ -834,6 +835,52 @@ public static class FuwaCourse2_1Builder
             q.GetComponent<Renderer>().sharedMaterial = WaterMat(0.8f, false);
             FuwaStage2WaterTest.Waterfall(terr, "BackFall", new Vector3(x, 0, zBack), floor + 0.14f, -10f, 0.45f, Vector3.back);   // 下は岩山の下のとがりより下まで（空に落ちていく）
         }
+    }
+
+    // 水源の池のまん中の湧き水（2026-10-25 てじゃ「水源、まんなかから湧き出てるかんじにしよ」）：
+    // 水面がぽこっと盛り上がった水のふくらみ＋そこから広がり続ける波紋＋白い泡の粒が湧いてはじける
+    static void Spring(Transform terr, Vector3 p)
+    {
+        var g = new GameObject("Spring").transform; g.SetParent(terr, false); g.localPosition = p;
+        // まん中のわき上がり：白いやわらかい丸がぽこぽこ（水の材質の球だと穴に見えた）
+        var c = new GameObject("Boil"); c.transform.SetParent(g, false); c.transform.localPosition = new Vector3(0, 0.05f, 0); c.transform.localRotation = Quaternion.Euler(90, 0, 0);
+        var cp = c.AddComponent<ParticleSystem>();
+        var cm = cp.main; cm.loop = true; cm.playOnAwake = true; cm.prewarm = true; cm.simulationSpace = ParticleSystemSimulationSpace.World;
+        cm.startLifetime = new ParticleSystem.MinMaxCurve(0.5f, 0.9f); cm.startSpeed = 0f; cm.startSize = new ParticleSystem.MinMaxCurve(0.35f, 0.7f);
+        cm.maxParticles = 30; cm.startColor = new Color(0.92f, 0.98f, 1f, 0.5f); cm.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        var ce = cp.emission; ce.rateOverTime = 14f;
+        var cs = cp.shape; cs.shapeType = ParticleSystemShapeType.Circle; cs.radius = 0.25f;
+        var csz = cp.sizeOverLifetime; csz.enabled = true; csz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.4f), new Keyframe(1, 1.2f)));
+        var cc = cp.colorOverLifetime; cc.enabled = true;
+        var cg = new Gradient(); cg.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0f, 0), new GradientAlphaKey(0.55f, 0.2f), new GradientAlphaKey(0f, 1) });
+        cc.color = cg;
+        var cr = c.GetComponent<ParticleSystemRenderer>(); cr.renderMode = ParticleSystemRenderMode.Billboard; cr.alignment = ParticleSystemRenderSpace.Local;
+        cr.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat"); cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; cr.receiveShadows = false;
+        var ripMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_Ripple.mat");
+        // 波紋：まん中から次々に広がる
+        var r = new GameObject("Rings"); r.transform.SetParent(g, false); r.transform.localPosition = new Vector3(0, 0.04f, 0); r.transform.localRotation = Quaternion.Euler(90, 0, 0);
+        var rp = r.AddComponent<ParticleSystem>();
+        var rm = rp.main; rm.loop = true; rm.playOnAwake = true; rm.prewarm = true; rm.simulationSpace = ParticleSystemSimulationSpace.World;
+        rm.startLifetime = 2.2f; rm.startSpeed = 0f; rm.startSize = 1.0f; rm.maxParticles = 12; rm.startColor = new Color(1, 1, 1, 0.8f);
+        var re = rp.emission; re.rateOverTime = 1.6f;
+        var rsh = rp.shape; rsh.enabled = false;
+        var rsz = rp.sizeOverLifetime; rsz.enabled = true; rsz.size = new ParticleSystem.MinMaxCurve(3.4f, new AnimationCurve(new Keyframe(0, 0.3f), new Keyframe(1, 1f)));
+        var rc = rp.colorOverLifetime; rc.enabled = true;
+        var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0f, 0), new GradientAlphaKey(0.8f, 0.12f), new GradientAlphaKey(0f, 1) });
+        rc.color = gr;
+        var rr = r.GetComponent<ParticleSystemRenderer>(); rr.renderMode = ParticleSystemRenderMode.Billboard; rr.alignment = ParticleSystemRenderSpace.Local;
+        rr.sharedMaterial = ripMat; rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; rr.receiveShadows = false;
+        // 泡：ふくらみのまわりから湧いて、少し上がってはじける
+        var b = new GameObject("Bubbles"); b.transform.SetParent(g, false); b.transform.localPosition = new Vector3(0, 0.08f, 0); b.transform.localRotation = Quaternion.Euler(-90, 0, 0);
+        var bp = b.AddComponent<ParticleSystem>();
+        var bm = bp.main; bm.loop = true; bm.playOnAwake = true; bm.prewarm = true; bm.simulationSpace = ParticleSystemSimulationSpace.World;
+        bm.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.7f); bm.startSpeed = new ParticleSystem.MinMaxCurve(0.2f, 0.45f); bm.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.16f);
+        bm.maxParticles = 40; bm.startColor = new Color(0.95f, 1f, 1f, 0.9f); bm.gravityModifier = 0.15f;
+        var be = bp.emission; be.rateOverTime = 18f;
+        var bs = bp.shape; bs.shapeType = ParticleSystemShapeType.Circle; bs.radius = 0.45f; bs.radiusThickness = 1f;
+        var bsz = bp.sizeOverLifetime; bsz.enabled = true; bsz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.6f), new Keyframe(0.8f, 1f), new Keyframe(1, 0f)));
+        var br = b.GetComponent<ParticleSystemRenderer>(); br.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; br.receiveShadows = false;
     }
 
     // ---- BGM（2026-10-25 てじゃ「音楽先につくっちゃうか」→ 候補C「すいめんのひかり」の笛ひかえめ版 C3、Tools/audio/make_bgm_mizu.py の mizu_c_long）----
