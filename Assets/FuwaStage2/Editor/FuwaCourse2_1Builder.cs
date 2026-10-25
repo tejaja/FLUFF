@@ -634,6 +634,8 @@ public static class FuwaCourse2_1Builder
         }
         // ロビーのワープ（WarpToCourse0）はスタートの BallStart/PlayerSpot を指しているので、作り直したらつなぎ直す
         //（2026-10-21 作り直したあとワープが効かず、キノコからふわふわが出なかった）
+        // 道と水の下の岩の土台（浮島の形）。道・水がそろってから、上から測って作る
+        RockBases(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
@@ -931,6 +933,126 @@ public static class FuwaCourse2_1Builder
         var st = new GameObject("Stream"); st.transform.SetParent(g, false);
         st.AddComponent<MeshFilter>().sharedMesh = mesh;
         var sr = st.AddComponent<MeshRenderer>(); sr.sharedMaterial = FuwaStage2WaterTest.WaterfallThickMat(true); sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+    }
+
+    // ---- 道と水の下の岩の土台（2026-10-25 てじゃ「手前から順番にどんどんいこ」→ 滝つぼ〜川〜蓮の池）----
+    // 前は水の入れ物（Water/*/Body）が下までまっすぐ伸びた柱みたいだった。かわりに、道・水のふちの下から始まって、下にいくほど
+    // 細くなる浮島の形の岩（スタートの岩山と同じ色、内側も見える両面）を中心線にそって作る。
+    // 幅と高さは、できあがった道・水の当たり判定を上からレイで測る（道の形を変えても作り直すだけでそろう）。当たり判定はなし（見た目だけ。前の入れ物の当たり判定は残す）
+    // 区間：滝つぼ〜川の終わりの滝、谷の向こう〜蓮の池の終わり（谷で島が切れる）
+    static void RockBases(Transform root)
+    {
+        var g = new GameObject("RockBase").transform; g.SetParent(root, false);
+        Physics.SyncTransforms();
+        float gorge1 = sRiver1 + GorgeLen;
+        RockBase(root, g, "BaseA", sPlaza1 - 0.4f, sRiver1 + 0.2f, 11);
+        RockBase(root, g, "BaseB", gorge1 - 0.2f, sPond1 + RimW + 0.4f, 23);
+        // 前の柱みたいな入れ物の見た目は消す（当たり判定は残す）
+        foreach (var nm in new[] { "W1_Pool/Body", "W2_River/Body", "W3_LilyPond/Body", "W3_LilyPond/Body2", "W3_LilyPond/BodyL", "W3_LilyPond/BodyR", "W3_LilyPond/BodyHole" })
+        { var t = root.Find("Water/" + nm); if (t && t.GetComponent<Renderer>()) t.GetComponent<Renderer>().enabled = false; }
+        var fc = root.Find("Gorge/FarCliff"); if (fc && fc.GetComponent<Renderer>()) fc.GetComponent<Renderer>().enabled = false;
+    }
+    static Material RockBaseMat()
+    {
+        const string p = "Assets/FuwaStage2/Materials/Stage2_RockBase.mat";
+        var src = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_CaveRock.mat");
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, p); }
+        m.CopyPropertiesFromMaterial(src);
+        m.SetFloat("_Cull", 0f); EditorUtility.SetDirty(m);   // 道と水のすき間から内側が見えるので両面
+        return m;
+    }
+    // 片側の断面（ふちから内側のとがりへ）：(ふちから外へのずれ or とがりへ寄る割合, 高さ)。f<0 はふちから外へ -f m、f>=0 は中央へ f の割合
+    static readonly (float f, float down, bool fromEdge)[] BaseProfile =
+    {
+        (-0.12f, 0.12f, true), (-0.32f, 0.7f, true), (-0.25f, 1.7f, true), (0.25f, 0.6f, false), (0.6f, 0.88f, false),
+    };
+    static void RockBase(Transform root, Transform g, string name, float s0, float s1, int seed)
+    {
+        const float step = 0.5f, scanW = 14f, scanStep = 0.2f;
+        var ss = new List<float>(); for (float s = s0; s <= s1 + 1e-3f; s += step) ss.Add(s);
+        int n = ss.Count;
+        var L = new float[n]; var R = new float[n]; var yL = new float[n]; var yR = new float[n]; var ok = new bool[n];
+        for (int i = 0; i < n; i++)
+        {
+            Center(ss[i], out var p, out var d); var r = Right(d);
+            float lo = float.MaxValue, hi = float.MinValue, ylo = 0, yhi = 0;
+            for (float lat = -scanW; lat <= scanW; lat += scanStep)
+            {
+                var q = p + r * lat;
+                var from = root.TransformPoint(new Vector3(q.x, 20f, q.y));
+                foreach (var h in Physics.RaycastAll(from, Vector3.down, 40f, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    var t = h.collider.transform;
+                    bool path = t.name == "PathMesh" && t.parent == root;
+                    bool water = t.parent && t.parent.parent && t.parent.parent.name == "Water" && t.parent.parent.parent == root && t.parent.name != "W0_Source";
+                    if (!path && !water) continue;
+                    float y = root.InverseTransformPoint(h.point).y;
+                    if (lat < lo) { lo = lat; ylo = y; }
+                    if (lat > hi) { hi = lat; yhi = y; }
+                }
+            }
+            ok[i] = hi > lo; L[i] = lo; R[i] = hi; yL[i] = ylo; yR[i] = yhi;
+        }
+        // 抜けた所は近くで埋める。はばは前後 2m の外側いっぱい（でこぼこしないように）
+        for (int i = 0; i < n; i++) if (!ok[i]) { int j = i; while (j > 0 && !ok[j]) j--; if (!ok[j]) { j = i; while (j < n - 1 && !ok[j]) j++; } L[i] = L[j]; R[i] = R[j]; yL[i] = yL[j]; yR[i] = yR[j]; }
+        var L2 = new float[n]; var R2 = new float[n];
+        for (int i = 0; i < n; i++) { L2[i] = L[i]; R2[i] = R[i]; for (int k = -4; k <= 4; k++) { int j = Mathf.Clamp(i + k, 0, n - 1); L2[i] = Mathf.Min(L2[i], L[j]); R2[i] = Mathf.Max(R2[i], R[j]); } }
+        var rng = new System.Random(seed);
+        float nOff = (float)rng.NextDouble() * 100f;
+        int cols = BaseProfile.Length * 2 + 1;
+        var V = new List<Vector3>(); var T = new List<int>();
+        for (int i = 0; i < n; i++)
+        {
+            float s = ss[i];
+            Center(s, out var p, out var d); var r = Right(d);
+            float end = Smooth01(Mathf.Min(s - s0, s1 - s) / 2.5f);   // 両はしはすぼめて浅く
+            float mid = (L2[i] + R2[i]) * 0.5f;
+            float l = Mathf.Lerp(mid, L2[i], Mathf.Lerp(0.6f, 1f, end)), rr = Mathf.Lerp(mid, R2[i], Mathf.Lerp(0.6f, 1f, end));
+            float top = Mathf.Min(yL[i], yR[i]);
+            float depth = (4.8f + 1.8f * Mathf.PerlinNoise(nOff, s * 0.08f)) * Mathf.Lerp(0.45f, 1f, end);
+            for (int k = 0; k < cols; k++)
+            {
+                float lat, y;
+                if (k == BaseProfile.Length) { lat = mid; y = top - depth; }
+                else
+                {
+                    bool right = k > BaseProfile.Length;
+                    var pr = BaseProfile[right ? cols - 1 - k : k];
+                    float edge = right ? rr : l, ey = right ? yR[i] : yL[i], outw = right ? 1f : -1f;
+                    if (pr.fromEdge) { lat = edge - outw * pr.f; y = ey - pr.down; }
+                    else { lat = edge + (mid - edge) * pr.f; y = top - depth * pr.down; }
+                    // ごつごつ：ふちのすぐ下以外はノイズで出し入れ
+                    float amt = k == 0 || k == cols - 1 ? 0.05f : 0.45f;
+                    lat += outw * (Mathf.PerlinNoise(nOff + s * 0.55f, k * 1.7f) - 0.5f) * amt * 2f;
+                    y += (Mathf.PerlinNoise(nOff + 40f + s * 0.4f, k * 2.3f) - 0.5f) * (k == 0 || k == cols - 1 ? 0f : 0.7f);
+                }
+                var q = p + r * lat;
+                V.Add(new Vector3(q.x, y, q.y));
+            }
+        }
+        for (int i = 0; i < n - 1; i++)
+            for (int k = 0; k < cols - 1; k++)
+            {
+                int a = i * cols + k, b = a + cols;
+                T.AddRange(new[] { a, a + 1, b, a + 1, b + 1, b });
+            }
+        // 両はしのふた（扇）
+        foreach (int i in new[] { 0, n - 1 })
+        {
+            var cen = Vector3.zero; for (int k = 0; k < cols; k++) cen += V[i * cols + k]; cen /= cols;
+            int ci = V.Count; V.Add(cen);
+            for (int k = 0; k < cols - 1; k++) T.AddRange(new[] { ci, i * cols + k, i * cols + k + 1 });
+        }
+        // 角ばった面（岩らしく）：三角形ごとに頂点を分ける
+        var V2 = new List<Vector3>(); var T2 = new List<int>();
+        for (int i = 0; i < T.Count; i++) { V2.Add(V[T[i]]); T2.Add(i); }
+        var mesh = new Mesh { name = "Course2_1_" + name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        mesh.SetVertices(V2); mesh.SetTriangles(T2, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        mesh = Save(mesh, MeshDir + "/" + name + ".asset");
+        var go = new GameObject(name); go.transform.SetParent(g, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterial = RockBaseMat();
     }
 
     // ---- BGM（2026-10-25 てじゃ「音楽先につくっちゃうか」→ 候補C「すいめんのひかり」の笛ひかえめ版 C3、Tools/audio/make_bgm_mizu.py の mizu_c_long）----
