@@ -761,7 +761,8 @@ public static class FuwaCourse2_1Builder
     // 切れた岸の道のはしから向こう岸の道のはしへ、川を斜めに横切って StoneCount 個。上の面は岸の道と同じ高さ、レイヤー0（ふわふわが当たっても乗ってもアウトにならない）。
     // from＝出発する岸（+1＝右岸、-1＝左岸）
     public static int StoneCount = 2;   // 3→2（てじゃ「石２個でいいかも」）
-    public static float StoneR = 0.42f, StoneSpread = 0.5f;
+    // StoneSpread：川の流れの向きにどれだけずらして並べるか（片側、m）。0.5→2.5（てじゃ「飛び石、斜めぎみに配置しよう」。石2個で前後に約1.7mずれる）
+    public static float StoneR = 0.42f, StoneSpread = 2.5f;
     static void CrossingStones(Transform root, string name, float sc, float from)
     {
         var g = new GameObject(name).transform; g.SetParent(root, false);
