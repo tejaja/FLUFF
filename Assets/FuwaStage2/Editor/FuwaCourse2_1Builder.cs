@@ -599,10 +599,11 @@ public static class FuwaCourse2_1Builder
             float s1 = sCross2 + CrossGap * 0.5f + 2.3f;   // 2026-10-25 てじゃ「ちょっと奥に」+1.2→+2.3
             Checkpoints(root, new[]
             {
-                (s1, RiverHW(s1) + RimW + 1.55f, 1.5f, BankTop),
-                (sStraight0 + 0.5f, 0f, WalkHW, BankTop),   // まっすぐな道の上（キノコは判定の約3m先＝貝の道の手前）
-                (sF0 + 1.5f, 0f, RoadHW, FallsH),
-                (sF1 - 3.5f, 0f, RoadHW, FallsH),   // 踊り場の上だとキノコが左右の岩の壁にうまった→ 滝の道の終わりに（キノコは判定の約3m先に立つので、踊り場にかからないように）
+                (s1, (Func<float, float>)(s => RiverHW(Mathf.Min(s, sRiver1)) + RimW + 1.55f), 1.5f, 1.5f, BankTop),
+                (sStraight0 + 0.5f, (Func<float, float>)(s => 0f), WalkHW, WalkHW, BankTop),   // まっすぐな道の上（キノコは判定の約3m先＝貝の道の手前）
+                // 水路の側のキノコは水路の外まで（てじゃ「右を完全に川の外側までもっていって」）
+                (sF0 + 1.5f, (Func<float, float>)(s => 0f), setO[0] < 0 ? RoadHW + ChanHW * 2f + RimW : RoadHW, setO[0] > 0 ? RoadHW + ChanHW * 2f + RimW : RoadHW, FallsH),
+                (sF1 - 3.5f, (Func<float, float>)(s => 0f), RoadHW, RoadHW, FallsH),   // 踊り場の上だとキノコが左右の岩の壁にうまった→ 滝の道の終わりに（キノコは判定の約3m先に立つので、踊り場にかからないように）
             });
         }
 
@@ -792,7 +793,8 @@ public static class FuwaCourse2_1Builder
     // ステージ1の FuwaCourse3/Checkpoint1（光るキノコ＋丸太が道の両わき、通り抜けの判定、戻る場所）を写す。使っていない門の柱・横木は消す。
     // cps＝(中心線の位置 s, 横のずれ, 道の半分の幅, 道の上の面の高さ)。キノコは道のふちから CpOut 外。ふわふわの checkpoints にも登録（やり直しで光を消す）
     public static float CpOut = 0.6f;   // 0.35→0.6（てじゃ「道にうまらないように」）
-    static void Checkpoints(Transform root, (float s, float lat, float hw, float h)[] cps)
+    // lat＝中心線からの横のずれ（s ごと）、hwL/hwR＝左右それぞれ、道（または水路）のふちまでの距離
+    static void Checkpoints(Transform root, (float s, Func<float, float> lat, float hwL, float hwR, float h)[] cps)
     {
         var tmpl = GameObject.Find("FuwaCourse3/Checkpoint1");
         if (tmpl == null) { Debug.LogWarning("[2–1] チェックポイントのお手本（FuwaCourse3/Checkpoint1）がない"); return; }
@@ -800,7 +802,8 @@ public static class FuwaCourse2_1Builder
         var made = new List<FuwaCheckpoint>();
         for (int i = 0; i < cps.Length; i++)
         {
-            var (s, lat, hw, h) = cps[i];
+            var (s, latF, hwL, hwR, h) = cps[i];
+            float lat = latF(s), hw = Mathf.Min(hwL, hwR);
             Center(s, out var p, out var d); var q = p + Right(d) * lat;
             var cp = Object.Instantiate(tmpl, g, false); cp.name = "Checkpoint" + (i + 1);
             cp.transform.localPosition = new Vector3(q.x, h, q.y);
@@ -814,8 +817,13 @@ public static class FuwaCourse2_1Builder
             if (gm)
                 foreach (Transform cl in gm)
                 {
-                    float sx = Mathf.Sign(cl.localPosition.x);
-                    cl.localPosition = new Vector3(sx * (hw + CpOut), cl.localPosition.y, cl.localPosition.z);
+                    // 群れは判定の約3m先に立つので、その先の中心線（曲がっている所でも）にそって道のふちの外へ（2026-10-25 てじゃ「左が離れてて右がめり込んでる」）
+                    float sx = Mathf.Sign(cl.localPosition.x), sc2 = s + cl.localPosition.z;
+                    Center(sc2, out var p2, out var d2);
+                    var q2 = p2 + Right(d2) * (latF(sc2) + sx * ((sx > 0 ? hwR : hwL) + CpOut));
+                    var w = root.TransformPoint(new Vector3(q2.x, h, q2.y));
+                    var lp2 = cp.transform.InverseTransformPoint(w);
+                    cl.localPosition = new Vector3(lp2.x, cl.localPosition.y, lp2.z);
                 }
             var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
             if (fc) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); NoSync(fc); made.Add(fc); }
