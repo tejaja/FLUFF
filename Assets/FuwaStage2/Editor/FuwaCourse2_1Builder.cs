@@ -960,7 +960,9 @@ public static class FuwaCourse2_1Builder
         Physics.SyncTransforms();
         float gorge1 = sRiver1 + GorgeLen;
         RockBase(root, g, "BaseA", sPlaza1 - 0.4f, sRiver1 + 0.2f, 11);
-        RockBase(root, g, "BaseB", gorge1 - 0.2f, sPond1 + RimW + 0.4f, 23);
+        // 2026-10-25 貝の道の下まで続ける（貝の道の両わきを岩の壁にしたのにあわせて）
+        RockBase(root, g, "BaseB", gorge1 - 0.2f, sWalk1 + 0.2f, 23);
+        var wbase = root.Find("ClamWalk/WalkBase"); if (wbase && wbase.GetComponent<Renderer>()) wbase.GetComponent<Renderer>().enabled = false;
         // 前の柱みたいな入れ物の見た目は消す（当たり判定は残す）
         foreach (var nm in new[] { "W1_Pool/Body", "W2_River/Body", "W3_LilyPond/Body", "W3_LilyPond/Body2", "W3_LilyPond/BodyL", "W3_LilyPond/BodyR", "W3_LilyPond/BodyHole" })
         { var t = root.Find("Water/" + nm); if (t && t.GetComponent<Renderer>()) t.GetComponent<Renderer>().enabled = false; }
@@ -1350,11 +1352,8 @@ public static class FuwaCourse2_1Builder
         float len = sWalk1 - sStraight0;   // 土台とアウト判定は、手前のまっすぐな道（sStraight0〜）から
         // 道の下の土台（堤）と、両わきの崖（滝が流れ落ちる岩）
         Sweep(g, "WalkBase", sStraight0, sWalk1, s => -WalkHW, s => WalkHW, s => -8f, s => WalkH(s) - Thick - 0.01f, ground, 0, true);
-        foreach (float o in new[] { -1f, 1f })
-        {
-            float a = WalkHW + FallsOut + 0.35f, b = WalkHW + FallsOut + 3f;
-            Sweep(g, o < 0 ? "CliffL" : "CliffR", sWalk0 + 0.3f, sWalk1 - 0.3f, s => o < 0 ? -b : a, s => o < 0 ? -a : b, s => -8f, s => WalkH(s) + 4.5f, ground, 0, true);
-        }
+        // 両わきの岩の壁。上は一面の水で、道の側のふちから全部カーテンの滝で落ちる（ClamWall）
+        foreach (float o in new[] { -1f, 1f }) ClamWall(root, g, o);
         // アウト判定：道のふちの外の下（ふわふわ＝FuwaHazard、人＝FuwaPlayerCatcher）。4m ごとの箱
         var outs = new GameObject("Outs").transform; outs.SetParent(g, false);
         int nSeg = Mathf.Max(1, Mathf.CeilToInt(len / 4f));
@@ -1404,6 +1403,15 @@ public static class FuwaCourse2_1Builder
             float rockH = baseH + 1.65f;
             var rock = Box(cg, "ClamRock" + i, new Vector3(c2.x, y + baseH - rockH * 0.5f, c2.y), new Vector3(1.4f, rockH, 1.3f), ground, 0);
             rock.transform.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y));
+            // 見た目は上の平たいごつごつ岩（箱は当たり判定だけ）。2026-10-25 壁を岩にしたのにあわせて
+            rock.GetComponent<Renderer>().enabled = false;
+            var bm = BoulderMesh(10 + i, true); var bb = bm.bounds;
+            var rv = new GameObject("ClamRockVisual" + i); rv.transform.SetParent(cg, false);
+            rv.AddComponent<MeshFilter>().sharedMesh = bm; rv.AddComponent<MeshRenderer>().sharedMaterial = StoneMat();
+            float sy = (rockH + 0.6f) / bb.size.y;
+            rv.transform.localRotation = rock.transform.localRotation * Quaternion.Euler(0, 37f * i, 0);
+            rv.transform.localScale = new Vector3(1.75f / bb.size.x, sy, 1.65f / bb.size.z);
+            rv.transform.localPosition = new Vector3(c2.x, y + baseH - 0.03f - bb.max.y * sy, c2.y);
             var clam = new GameObject("Clam" + i).transform; clam.SetParent(cg, false);
             clam.localPosition = new Vector3(c2.x, y + baseH, c2.y);
             clam.localRotation = Quaternion.LookRotation(new Vector3(-side * r.x, 0, -side * r.y));   // +Z＝道を横切る向き
@@ -1425,10 +1433,6 @@ public static class FuwaCourse2_1Builder
             // 泡を出すタイミング：ふつうの貝は前と同じ（ふつうの貝どうしで 1 周を等分）。高い貝は両どなりのふつうの貝のまん中の、ちょうど半周ずらし
             //（2026-10-22 てじゃ「感覚はちょうど低いやつと逆になる感じ」：低いのが出ていない時に高いのが出る）
             phases[i] = ClamPhase(i);
-            // 反対側の滝：崖から道の方へ流れ出て、下の海へ落ちる（泡に運ばれたふわふわはここで押し落とされる）
-            float o = -side;
-            var fc = p + r * (o * (WalkHW + FallsOut));
-            FuwaStage2WaterTest.Waterfall(g, "SideFalls" + i, new Vector3(fc.x, 0, fc.y), y + 4.2f, -8f, 5f, new Vector3(-o * r.x, 0, -o * r.y));
         }
         // 泡（貝ごとに3つ）・割れた時の粒・音
         var bg = new GameObject("Bubbles").transform; bg.SetParent(g, false);
@@ -1480,6 +1484,197 @@ public static class FuwaCourse2_1Builder
         cb.bubbleRange = 2f * WalkHW + ClamOut + FallsOut - 0.2f;
         cb.popFx = pp; cb.popSound = Snd("PopSfx", "Assets/FuwaStage2/Audio/sfx_bubble_pop.wav"); cb.captureSound = Snd("CaptureSfx", "Assets/FuwaStage2/Audio/sfx_bubble_wrap.wav");
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); NoSync(cb);
+    }
+
+    // ---- 貝の道の両わきの岩の壁と、上の水・カーテンの滝（2026-10-25）----
+    // てじゃ「壁のうちがわ、全部まるっと滝にしちゃうとか」「壁は岩で」「上は一面水で、数カ所青いたま浮かせとこ」：
+    // 前は箱の崖＋貝の反対側だけ 5m の滝。今は浮島みたいに下がすぼまった岩の壁（土台と同じ色）の上が一面の水（道にそってゆるい坂、奥から手前へ流れる）で、
+    // 道の側のふちから全部カーテンの滝で落ちる。滝の中はふわふわを押し落とす（前の滝と同じ FuwaWaterfall を 2.5m ごと）。上に青い球をいくつか
+    // WallIn＝道の中心線から壁のふちまで、WallW＝壁の上の幅、WallSurf＝道からの水面の高さ、WallBottom＝滝の下のはし
+    public static float WallIn = 4.55f, WallW = 2.9f, WallSurf = 4.3f, WallBottom = -8f;
+    public static float WallFlow = 0.8f;
+    public static float[] WallOrbsL = { 0.22f, 0.7f }, WallOrbsR = { 0.45f, 0.92f };
+    static void ClamWall(Transform root, Transform g, float o)
+    {
+        string nm = o < 0 ? "WallL" : "WallR";
+        float s0 = sWalk0 + 0.3f, s1 = sWalk1 - 0.3f;
+        const float step = 0.5f;
+        var ss = new List<float>(); for (float s = s0; s < s1 - 1e-3f; s += step) ss.Add(s); ss.Add(s1);
+        int n = ss.Count;
+        float nOff = o < 0 ? 13.7f : 71.3f;
+        Func<float, float> surf = s => WalkH(Mathf.Clamp(s, sWalk0, sWalk1)) + WallSurf;
+        // 岩：断面（ふちから外へ d、水面からの高さ y）を中心線にそって並べる。最後の点のあと最初に戻って閉じる
+        var V = new List<Vector3>(); var T = new List<int>(); int cols = 0;
+        var cen = new List<Vector3>();
+        for (int i = 0; i < n; i++)
+        {
+            float s = ss[i]; Center(s, out var p, out var d); var r = Right(d) * o;
+            float sf = surf(s), w = WallW + 0.35f * (Mathf.PerlinNoise(nOff, s * 0.15f) - 0.5f), wy = WalkH(Mathf.Clamp(s, sWalk0, sWalk1));
+            bool cap = i == 0 || i == n - 1;   // 両はしは水をせき止める（上を平らに）
+            float fl = cap ? 0.25f : -0.3f, lip = cap ? 0.25f : -0.06f;
+            var prof = new List<Vector2>
+            {
+                new Vector2(0f, lip), new Vector2(0.25f, fl), new Vector2(w - 0.45f, fl), new Vector2(w - 0.4f, 0.25f), new Vector2(w, 0.3f),
+                new Vector2(w + 0.35f, -0.6f), new Vector2(w + 0.5f, -2.5f), new Vector2(w + 0.2f, wy - 5f - sf), new Vector2(w * 0.5f, wy - 11.5f - sf),
+                new Vector2(0.35f, WallBottom - 0.5f - sf), new Vector2(0.18f, -1.2f),
+            };
+            cols = prof.Count;
+            var c = Vector3.zero;
+            for (int k = 0; k < cols; k++)
+            {
+                var pr = prof[k];
+                bool fixedPt = k <= 4;   // 上（ふち・水の底・外のふち）はでこぼこさせない
+                float dd = pr.x + (fixedPt ? 0f : (Mathf.PerlinNoise(nOff + s * 0.5f, k * 1.9f) - 0.5f) * 0.5f);
+                float yy = pr.y + (fixedPt ? 0f : (Mathf.PerlinNoise(nOff + 30f + s * 0.4f, k * 2.7f) - 0.5f) * 0.6f);
+                var q = p + r * (WallIn + dd);
+                var v = new Vector3(q.x, sf + yy, q.y); V.Add(v); c += v;
+            }
+            cen.Add(c / cols);
+        }
+        for (int i = 0; i < n - 1; i++)
+            for (int k = 0; k < cols; k++)
+            {
+                int k2 = (k + 1) % cols;
+                int a = i * cols + k, b = a + cols, a2 = i * cols + k2, b2 = a2 + cols;
+                var mid = (cen[i] + cen[i + 1]) * 0.5f;
+                var want = (V[a] + V[a2] + V[b] + V[b2]) * 0.25f - mid;
+                AddTriDir(V, T, a, a2, b, want); AddTriDir(V, T, a2, b2, b, want);
+            }
+        foreach (int i in new[] { 0, n - 1 })
+        {
+            int ci = V.Count; V.Add(cen[i]);
+            var want = cen[i] - cen[i == 0 ? 1 : n - 2];
+            for (int k = 0; k < cols; k++) AddTriDir(V, T, ci, i * cols + k, i * cols + (k + 1) % cols, want);
+        }
+        var V2 = new List<Vector3>(); var T2 = new List<int>();
+        for (int i = 0; i < T.Count; i++) { V2.Add(V[T[i]]); T2.Add(i); }
+        var mesh = new Mesh { name = "Course2_1_Clam" + nm, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        mesh.SetVertices(V2); mesh.SetTriangles(T2, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        mesh = Save(mesh, MeshDir + "/Clam" + nm + ".asset");
+        var go = new GameObject(nm); go.transform.SetParent(g, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterial = RockBaseMat();
+        go.AddComponent<MeshCollider>().sharedMesh = mesh;
+
+        // 上の水面（見た目だけ）：ふちの少し外から外のふちの内側まで。流れは手前（s が減る＝下り）へ
+        float wa = s0 + step, wb = s1 - step;
+        {
+            var SV = new List<Vector3>(); var ST = new List<int>(); var U1 = new List<Vector4>(); var U2 = new List<Vector2>();
+            const int across = 6;
+            int m = Mathf.Max(1, Mathf.CeilToInt((wb - wa) / 0.25f));
+            for (int k = 0; k <= m; k++)
+            {
+                float s = Mathf.Lerp(wa, wb, k / (float)m); Center(s, out var p, out var d); var r = Right(d) * o;
+                float dA = -0.03f, dB = WallW - 0.42f, hw = (dB - dA) * 0.5f;
+                for (int i = 0; i <= across; i++)
+                {
+                    float dd = Mathf.Lerp(dA, dB, i / (float)across);
+                    var q = p + r * (WallIn + dd); SV.Add(new Vector3(q.x, surf(s), q.y));
+                    U1.Add(new Vector4(dd - (dA + hw), hw, s - wa, wb - s)); U2.Add(new Vector2(-s, 0));
+                }
+            }
+            for (int k = 0; k < m; k++)
+                for (int i = 0; i < across; i++)
+                {
+                    int a = k * (across + 1) + i, b = a + across + 1;
+                    AddTriDir(SV, ST, a, b, a + 1, Vector3.up); AddTriDir(SV, ST, a + 1, b, b + 1, Vector3.up);
+                }
+            var sm = new Mesh { name = "Course2_1_Clam" + nm + "_Water", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            sm.SetVertices(SV); sm.SetTriangles(ST, 0); sm.SetUVs(0, SV.Select(v => Vector2.zero).ToList()); sm.SetUVs(1, U1); sm.SetUVs(2, U2);
+            sm.normals = SV.Select(v => Vector3.up).ToArray(); sm.RecalculateBounds();
+            sm = Save(sm, MeshDir + "/Clam" + nm + "_Water.asset");
+            var wgo = new GameObject(nm + "_Water"); wgo.transform.SetParent(g, false);
+            wgo.AddComponent<MeshFilter>().sharedMesh = sm; wgo.AddComponent<MeshRenderer>().sharedMaterial = WaterMat(WallFlow, true);
+        }
+
+        // カーテンの滝：水面からふちを回りこんで、真下へ。断面（ふちからの d、水面からの y。NaN＝下のはし）
+        {
+            var prof = new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) };
+            int pc = prof.Count;
+            int m = Mathf.Max(1, Mathf.CeilToInt((wb - wa) / 0.4f));
+            var grid = new Vector3[m + 1, pc]; var lens = new float[m + 1, pc]; var along = new float[m + 1];
+            float maxLen = 0f; Vector3 prev = Vector3.zero;
+            for (int k = 0; k <= m; k++)
+            {
+                float s = Mathf.Lerp(wa, wb, k / (float)m); Center(s, out var p, out var d); var r = Right(d) * o;
+                float sf = surf(s);
+                for (int j = 0; j < pc; j++)
+                {
+                    var pr = prof[j]; float yy = float.IsNaN(pr.y) ? WallBottom - sf : pr.y;
+                    var q = p + r * (WallIn + pr.x); grid[k, j] = new Vector3(q.x, sf + yy, q.y);
+                }
+                // 横の長さ（ふちにそった m）
+                var lipP = grid[k, 1];
+                along[k] = k == 0 ? 0f : along[k - 1] + (lipP - prev).magnitude; prev = lipP;
+                lens[k, pc - 1] = 0f;
+                for (int j = pc - 2; j >= 0; j--) lens[k, j] = lens[k, j + 1] + (grid[k, j] - grid[k, j + 1]).magnitude;
+                maxLen = Mathf.Max(maxLen, lens[k, 0]);
+            }
+            var FV = new List<Vector3>(); var FT = new List<int>(); var F1 = new List<Vector2>(); var F2 = new List<Vector2>(); var FC = new List<Color>();
+            for (int k = 0; k <= m; k++)
+                for (int j = 0; j < pc; j++)
+                {
+                    FV.Add(grid[k, j]);
+                    // 下からの長さ：上（落ち口）を全体の長さにそろえる（落ち口の泡がどこも同じ太さに）
+                    F1.Add(new Vector2(along[k], maxLen - (lens[k, 0] - lens[k, j]))); F2.Add(new Vector2(along[m], maxLen)); FC.Add(Color.white);
+                }
+            for (int k = 0; k < m; k++)
+            {
+                float s = Mathf.Lerp(wa, wb, (k + 0.5f) / m); Center(s, out _, out var d); var r = Right(d) * o; var r3 = new Vector3(r.x, 0, r.y);
+                for (int j = 0; j < pc - 1; j++)
+                {
+                    int a = k * pc + j, b = a + pc;
+                    var t = prof[j + 1] - prof[j]; if (float.IsNaN(t.y)) t = new Vector2(t.x, -1f);
+                    var want = r3 * t.y + Vector3.up * -t.x;   // 断面の (dy, -dd)：道の側・上を向く面
+                    AddTriDir(FV, FT, a, b, a + 1, want); AddTriDir(FV, FT, a + 1, b, b + 1, want);
+                }
+            }
+            var fm = new Mesh { name = "Course2_1_Clam" + nm + "_Falls", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            fm.SetVertices(FV); fm.SetTriangles(FT, 0); fm.SetUVs(0, F1.Select(u => Vector2.zero).ToList()); fm.SetUVs(1, F1); fm.SetUVs(2, F2); fm.SetColors(FC);
+            fm.RecalculateNormals(); fm.RecalculateBounds();
+            fm = Save(fm, MeshDir + "/Clam" + nm + "_Falls.asset");
+            var fgo = new GameObject(nm + "_Falls"); fgo.transform.SetParent(g, false);
+            fgo.AddComponent<MeshFilter>().sharedMesh = fm;
+            var fr = fgo.AddComponent<MeshRenderer>(); fr.sharedMaterial = FuwaStage2WaterTest.WaterfallThickMat(true); fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        // 押す範囲：2.5m ごとの箱（前の滝と同じ。厚み 0.9m、水面の少し上から下のはしの 0.35m 上まで）
+        var pushes = new GameObject(nm + "_Push").transform; pushes.SetParent(g, false);
+        int nSeg = Mathf.Max(1, Mathf.CeilToInt((wb - wa) / 2.5f));
+        for (int k = 0; k < nSeg; k++)
+        {
+            float a = Mathf.Lerp(wa, wb, k / (float)nSeg), b = Mathf.Lerp(wa, wb, (k + 1) / (float)nSeg), mm = (a + b) * 0.5f;
+            Center(a, out var pa, out var da); Center(b, out var pb, out var db);
+            pa += Right(da) * o * (WallIn - 0.25f); pb += Right(db) * o * (WallIn - 0.25f);
+            Center(mm, out _, out var dm); var rm = Right(dm) * o;
+            float top = surf(mm) + 0.4f, bot = WallBottom + 0.35f;
+            var t = new GameObject("Push" + k); t.transform.SetParent(pushes, false); t.layer = 4;
+            var mid2 = (pa + pb) * 0.5f;
+            t.transform.localPosition = new Vector3(mid2.x, (top + bot) * 0.5f, mid2.y);
+            t.transform.localRotation = Quaternion.LookRotation(new Vector3(-rm.x, 0, -rm.y));   // +Z＝道の方（前の滝と同じ）
+            var bc = t.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3((pb - pa).magnitude + 0.05f, top - bot, 0.9f);
+            var wf = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaWaterfall>(t);
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(wf); NoSync(wf);
+        }
+
+        // 音（ふちにそって何か所か）
+        for (int k = 0; k < 3; k++)
+        {
+            float s = Mathf.Lerp(wa, wb, (k + 0.5f) / 3f); Center(s, out var p, out var d); var q = p + Right(d) * o * (WallIn - 0.3f);
+            var au = new GameObject(nm + "_Sound" + k); au.transform.SetParent(g, false); au.transform.localPosition = new Vector3(q.x, WalkH(s) + 0.5f, q.y);
+            var a = au.AddComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/sfx_waterfall_loop.wav");
+            a.loop = true; a.playOnAwake = true; a.spatialBlend = 1f; a.minDistance = 1.5f; a.maxDistance = 14f; a.rolloffMode = AudioRolloffMode.Linear; a.volume = 0.1f;
+        }
+
+        // 青い球（水面の上に浮かんで、水を落とす）。落ちる所は湧き水の波紋
+        foreach (float at in o < 0 ? WallOrbsL : WallOrbsR)
+        {
+            float s = Mathf.Lerp(wa, wb, at); Center(s, out var p, out var d); var q = p + Right(d) * o * (WallIn + WallW * 0.45f);
+            var pos = new Vector3(q.x, surf(s), q.y);
+            var sp = new GameObject(nm + "_Orb" + at.ToString("F2")).transform; sp.SetParent(g, false);
+            Spring(sp, pos);
+            WaterOrb(sp, pos, "WaterOrb", 2.0f, 0.36f, 0.24f);
+        }
     }
 
     // ---- ⑤ 滝の道（2026-10-21）----
