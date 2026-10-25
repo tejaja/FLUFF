@@ -758,7 +758,7 @@ public static class FuwaCourse2_1Builder
     // てじゃ「水の減速がけっこうなストレス」→「減速有りで飛び石かな」「ふわふわ当たってセーフなら」。
     // 切れた岸の道のはしから向こう岸の道のはしへ、川を斜めに横切って StoneCount 個。上の面は岸の道と同じ高さ、レイヤー0（ふわふわが当たっても乗ってもアウトにならない）。
     // from＝出発する岸（+1＝右岸、-1＝左岸）
-    public static int StoneCount = 3;
+    public static int StoneCount = 2;   // 3→2（てじゃ「石２個でいいかも」）
     public static float StoneR = 0.42f, StoneSpread = 0.5f;
     static void CrossingStones(Transform root, string name, float sc, float from)
     {
