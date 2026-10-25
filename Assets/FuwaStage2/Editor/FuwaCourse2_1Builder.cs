@@ -583,6 +583,18 @@ public static class FuwaCourse2_1Builder
             Object.DestroyImmediate(guard.GetComponent<Renderer>()); Object.DestroyImmediate(guard.GetComponent<MeshFilter>());
         }
 
+        // ---- チェックポイント（2026-10-25 てじゃ「チェックポイントおいてくかぁ」→ 4つ：魚の渡り場の先・蓮の池の先・貝の道の先・三連滝の先の踊り場）----
+        {
+            float s1 = sCross2 + CrossGap * 0.5f + 1.2f;
+            Checkpoints(root, new[]
+            {
+                (s1, RiverHW(s1) + RimW + 1.55f, 1.5f, BankTop),
+                (sWalk0 + 1.5f, 0f, WalkHW, WalkH(sWalk0 + 1.5f)),
+                (sF0 + 1.5f, 0f, RoadHW, FallsH),
+                (sF1 - 3.5f, 0f, RoadHW, FallsH),   // 踊り場の上だとキノコが左右の岩の壁にうまった→ 滝の道の終わりに（キノコは判定の約3m先に立つので、踊り場にかからないように）
+            });
+        }
+
         // ---- スタート・ゴール（2026-10-23 てじゃ「スタートはステージ1と同じように、ロビー戻りポータル島、スタート島、そこから洞窟に歩いて入っていく」
         //      「ゴールはとりあえず川の向こうに一旦ゴール島として浮かせてから考えよう」）----
         StartSet(root);
@@ -765,6 +777,50 @@ public static class FuwaCourse2_1Builder
         float m = (Low(a) + Low(b)) * 0.5f;
         return (m + ClamPeriod * 0.5f) % ClamPeriod;
     }
+    // ---- チェックポイント（2026-10-25）----
+    // ステージ1の FuwaCourse3/Checkpoint1（光るキノコ＋丸太が道の両わき、通り抜けの判定、戻る場所）を写す。使っていない門の柱・横木は消す。
+    // cps＝(中心線の位置 s, 横のずれ, 道の半分の幅, 道の上の面の高さ)。キノコは道のふちから CpOut 外。ふわふわの checkpoints にも登録（やり直しで光を消す）
+    public static float CpOut = 0.35f;
+    static void Checkpoints(Transform root, (float s, float lat, float hw, float h)[] cps)
+    {
+        var tmpl = GameObject.Find("FuwaCourse3/Checkpoint1");
+        if (tmpl == null) { Debug.LogWarning("[2–1] チェックポイントのお手本（FuwaCourse3/Checkpoint1）がない"); return; }
+        var g = new GameObject("Checkpoints").transform; g.SetParent(root, false);
+        var made = new List<FuwaCheckpoint>();
+        for (int i = 0; i < cps.Length; i++)
+        {
+            var (s, lat, hw, h) = cps[i];
+            Center(s, out var p, out var d); var q = p + Right(d) * lat;
+            var cp = Object.Instantiate(tmpl, g, false); cp.name = "Checkpoint" + (i + 1);
+            cp.transform.localPosition = new Vector3(q.x, h, q.y);
+            cp.transform.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y));
+            foreach (var n in new[] { "Post_L", "Post_R", "Bar" }) { var c = cp.transform.Find(n); if (c) Object.DestroyImmediate(c.gameObject); }
+            // 通り抜けの判定は道の幅いっぱい（＋少し）
+            var trig = cp.transform.Find("Trigger");
+            if (trig) trig.localScale = new Vector3(hw * 2f + 0.8f, trig.localScale.y, trig.localScale.z);
+            // キノコの群れ：道のふちの外（お手本は道の半分の幅 約1.6m・ふちから約0.35m 外）
+            var gm = cp.transform.Find("GlowMushrooms");
+            if (gm)
+                foreach (Transform cl in gm)
+                {
+                    float sx = Mathf.Sign(cl.localPosition.x);
+                    cl.localPosition = new Vector3(sx * (hw + CpOut), cl.localPosition.y, cl.localPosition.z);
+                }
+            var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
+            if (fc) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); NoSync(fc); made.Add(fc); }
+        }
+        // ふわふわの checkpoints に登録（作り直しで消えた古い物＝null は外す）
+        var ball = Object.FindObjectsOfType<FuwaBall>(true).FirstOrDefault();
+        if (ball)
+        {
+            var so = new SerializedObject(ball); var arr = so.FindProperty("checkpoints");
+            for (int k = arr.arraySize - 1; k >= 0; k--) if (arr.GetArrayElementAtIndex(k).objectReferenceValue == null) arr.DeleteArrayElementAtIndex(k);
+            foreach (var fc in made) { arr.arraySize++; arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = fc; }
+            so.ApplyModifiedProperties();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ball);
+        }
+    }
+
     // ---- 渡り場の飛び石（2026-10-25）----
     // てじゃ「水の減速がけっこうなストレス」→「減速有りで飛び石かな」「ふわふわ当たってセーフなら」。
     // 切れた岸の道のはしから向こう岸の道のはしへ、川を斜めに横切って StoneCount 個。上の面は岸の道と同じ高さ、レイヤー0（ふわふわが当たっても乗ってもアウトにならない）。
