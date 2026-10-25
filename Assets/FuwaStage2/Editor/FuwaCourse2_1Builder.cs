@@ -127,7 +127,7 @@ public static class FuwaCourse2_1Builder
     //  1回目：川の始まりから Cross1After m。右岸の道が川で切れていて、流れてきたふわふわを左岸の道へすくい上げる。人は川をじゃぶじゃぶ渡る
     //  2回目：川の終わりの Cross2Before m 手前。左岸の道が切れていて、空中で運んできたふわふわを右岸の道へ撃って渡す。川上へ跳ねる魚がじゃま（FuwaRiverFish）
     // 川の終わりは崖の滝で、その先は谷（GorgeLen m、落ちたらアウト）。右岸の道は谷を小さい橋で越える
-    public const float Cross1After = 6f, Cross2Before = 8f, CrossGap = 2.4f, GorgeLen = 5.5f, GorgeDrop = 10f;
+    public const float Cross1After = 6f, Cross2Before = 5f, CrossGap = 2.4f, GorgeLen = 5.5f, GorgeDrop = 10f;   // Cross2Before 8→5・川の終わり3m手前へ（2026-10-25 てじゃ「川のオワリの滝、もうちょい手前でいい」。2回目の渡り場の位置はそのまま）
     static float sCross1, sCross2;
     static float sPlaza0, sPlaza1, sPool1, sRiver1, sPond0, sPond1, sTer0, sGoal0, sEnd;
     static float[] terA = new float[3], terB = new float[3];
@@ -242,7 +242,7 @@ public static class FuwaCourse2_1Builder
         sEnd = SI(Ctrl.Length - 2);
         sPlaza0 = 0f; sPlaza1 = SI(2.0f);
         // 滝つぼ 2026-10-25 u3.8→3.1（約13m→約7m。てじゃ「滝壺がでかいのかな、待ち時間がやっぱながい」）
-        sPool1 = SI(3.1f); sRiver1 = SI(7.3f);
+        sPool1 = SI(3.1f); sRiver1 = SI(7.3f) - 3f;
         sCross1 = sPool1 + Cross1After; sCross2 = sRiver1 - Cross2Before;
         sPond0 = SI(8.9f); sPond1 = SI(10.9f);
         sTer0 = SI(11.8f);
