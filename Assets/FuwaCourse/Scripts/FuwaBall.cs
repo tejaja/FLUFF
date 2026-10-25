@@ -505,6 +505,13 @@ public class FuwaBall : UdonSharpBehaviour
         if (scale > 1f && !_waiting && !_hidden && _resetAt < 0f) SetGlow(tint, Vector3.down, 0.8f, 0.1f);
     }
 
+    // ほかの物から光らせる（貝の泡の無敵時間の点滅など、2026-10-25）
+    public void Glow(Color color, Vector3 dir, float amount, float hold)
+    {
+        if (_waiting || _hidden || _resetAt > 0f) return;
+        SetGlow(color, dir, amount, hold);
+    }
+
     // 光らせる（色・向き・強さ・保つ秒数）。発射台の光っている間は、弱い横風などで上書きしない
     private void SetGlow(Color color, Vector3 dir, float amount, float hold)
     {

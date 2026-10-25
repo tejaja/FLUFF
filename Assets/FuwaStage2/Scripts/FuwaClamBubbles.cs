@@ -63,6 +63,10 @@ public class FuwaClamBubbles : UdonSharpBehaviour
     [Range(0f, 1f)] public float shotDownScale = 0.3f;
     [Tooltip("割れたあと、また包まれるまでの秒数（泡に無敵）。2026-10-25 0.8→2（てじゃ「割れた後、また同じとこで捕まるのが理不尽だから、割れた後にちょっと泡無敵時間ほしい」）")]
     public float recaptureDelay = 2f;
+    [Tooltip("無敵のあいだ、ふわふわをうっすら点滅させる色・強さ・速さ（回/秒）。てじゃ「そのあいだちょっとうっすらふわふわに光が点滅してもいいかも」")]
+    public Color safeBlinkColor = new Color(0.6f, 0.85f, 1f, 1f);
+    public float safeBlinkAmount = 0.45f;
+    public float safeBlinkRate = 3f;   // 光は消える方がゆっくり（3/秒）なので、速すぎると点滅に見えない
 
     [Header("音・粒")]
     public ParticleSystem popFx;
@@ -162,6 +166,9 @@ public class FuwaClamBubbles : UdonSharpBehaviour
         int nb = _alive.Length;
         bool ballOk = ball != null && !ball.IsWaitingOrHidden() && ball.gameObject.activeInHierarchy;
         Vector3 bp = ballOk ? ball.transform.position : Vector3.zero;
+        // 割れたあとの無敵のあいだ、うっすら点滅（点いている半分だけ光らせる）
+        if (ballOk && _held < 0 && now < _noCatchUntil && Mathf.Repeat((_noCatchUntil - now) * safeBlinkRate, 1f) < 0.5f)
+            ball.Glow(safeBlinkColor, Vector3.up, safeBlinkAmount, 0.03f);
         for (int b = 0; b < nb; b++)
         {
             if (!_alive[b] || b == _held) continue;
