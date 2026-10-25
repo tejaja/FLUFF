@@ -821,6 +821,7 @@ public static class FuwaCourse2_1Builder
             if (c.name.StartsWith("CaveWall") || c.name.StartsWith("CaveBack") || c.name.StartsWith("CaveMouth") || c.name == "CaveRoof" || c.name == "CaveFloorCliff" || c.name == "CaveDoorSill")
             { var r = c.GetComponent<MeshRenderer>(); if (r) r.enabled = false; }
         Spring(terr, new Vector3(0f, SourceSurf, 1.6f));
+        WaterOrb(terr, new Vector3(0f, SourceSurf, 1.6f));
         // ロビー側の細い滝：溝の水（池のふちから岩山の後ろのはしまで）＋落ちる滝
         var mesh2 = mesh; var b = mesh2.bounds;
         foreach (var (x, floor) in BackFalls)
@@ -882,6 +883,54 @@ public static class FuwaCourse2_1Builder
         var bsz = bp.sizeOverLifetime; bsz.enabled = true; bsz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.6f), new Keyframe(0.8f, 1f), new Keyframe(1, 0f)));
         var br = b.GetComponent<ParticleSystemRenderer>(); br.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
         br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; br.receiveShadows = false;
+    }
+
+    // ふしぎな青い球（2026-10-25 てじゃ「この空間に水がわいてるの納得できんな、不思議パワーがほしい、謎の青い球でも浮かせて水おとすか」）：
+    // 池のまん中の上に光る青い球が浮かんで（FuwaHover でゆらゆら・くるくる）、球の下から水が池へ落ち続ける。落ちる所は湧き水の波紋（Spring）
+    public static float OrbHeight = 2.6f, OrbRadius = 0.45f, OrbStream = 0.32f;
+    static void WaterOrb(Transform terr, Vector3 pool)
+    {
+        var g = new GameObject("WaterOrb").transform; g.SetParent(terr, false); g.localPosition = pool + Vector3.up * OrbHeight;
+        var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere); orb.name = "Orb"; orb.transform.SetParent(g, false);
+        Object.DestroyImmediate(orb.GetComponent<Collider>());
+        orb.transform.localScale = Vector3.one * OrbRadius * 2f;
+        const string mp = "Assets/FuwaStage2/Materials/Stage2_WaterOrb.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!mat) { mat = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Lobby_Ring.mat")); AssetDatabase.CreateAsset(mat, mp); }
+        mat.SetColor("_Color", new Color(0.45f, 0.78f, 1f)); mat.SetColor("_EmissionColor", new Color(0.25f, 0.6f, 1f));
+        if (mat.HasProperty("_RimColor")) { mat.SetColor("_RimColor", new Color(0.85f, 0.97f, 1f)); mat.SetFloat("_RimStrength", 0.8f); }
+        EditorUtility.SetDirty(mat);
+        var r = orb.GetComponent<Renderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        var hv = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHover>(orb);
+        hv.amplitude = 0.15f; hv.period = 3.2f; hv.spinSpeed = 25f;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hv); NoSync(hv);
+        // まわりのぼんやりした光（やわらかい丸の粒）
+        var gl = new GameObject("Glow"); gl.transform.SetParent(orb.transform, false);
+        var gp = gl.AddComponent<ParticleSystem>();
+        var gm = gp.main; gm.loop = true; gm.playOnAwake = true; gm.prewarm = true; gm.simulationSpace = ParticleSystemSimulationSpace.Local;
+        gm.startLifetime = 1.6f; gm.startSpeed = 0f; gm.startSize = new ParticleSystem.MinMaxCurve(OrbRadius * 3.2f, OrbRadius * 4.2f); gm.maxParticles = 10;
+        gm.startColor = new Color(0.45f, 0.8f, 1f, 0.35f);
+        var ge = gp.emission; ge.rateOverTime = 5f;
+        var gs = gp.shape; gs.enabled = false;
+        var gc = gp.colorOverLifetime; gc.enabled = true;
+        var gg = new Gradient(); gg.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(Color.white, 1) }, new[] { new GradientAlphaKey(0f, 0), new GradientAlphaKey(1f, 0.4f), new GradientAlphaKey(0f, 1) });
+        gc.color = gg;
+        var gr = gl.GetComponent<ParticleSystemRenderer>(); gr.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        gr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; gr.receiveShadows = false;
+        // 球の下から池へ落ちる水（まるい断面の滝）
+        float len = OrbHeight - 0.02f;
+        string key = "OrbStream_" + len.ToString("F2") + "_" + OrbStream.ToString("F2");
+        var meshP = "Assets/FuwaStage2/Generated/Falls/" + key + ".asset";
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshP);
+        if (!mesh)
+        {
+            var cs = new List<Vector3> { Vector3.down * len, Vector3.zero };
+            mesh = FuwaStage2WaterTest.SweepFalls(key, cs, new List<Vector3> { Vector3.forward, Vector3.forward }, new List<Vector3> { Vector3.right, Vector3.right }, new List<float> { len, 0f }, len, OrbStream, OrbStream);
+            AssetDatabase.CreateAsset(mesh, meshP);
+        }
+        var st = new GameObject("Stream"); st.transform.SetParent(g, false);
+        st.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var sr = st.AddComponent<MeshRenderer>(); sr.sharedMaterial = FuwaStage2WaterTest.WaterfallThickMat(true); sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
     }
 
     // ---- BGM（2026-10-25 てじゃ「音楽先につくっちゃうか」→ 候補C「すいめんのひかり」の笛ひかえめ版 C3、Tools/audio/make_bgm_mizu.py の mizu_c_long）----
