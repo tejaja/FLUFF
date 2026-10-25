@@ -8,6 +8,8 @@ public class FuwaWaterFx : UdonSharpBehaviour
 {
     public ParticleSystem drops;
     public ParticleSystem ripple;
+    [Tooltip("落ちた時だけの大きい波紋（2026-10-25 てじゃ「着水の波紋を大きく・はっきり」）。なくてもOK")]
+    public ParticleSystem rippleBig;
     public AudioSource sound;
     [Tooltip("続けて鳴らさない間隔(秒)")]
     public float minInterval = 0.25f;
@@ -22,11 +24,24 @@ public class FuwaWaterFx : UdonSharpBehaviour
         _next = Time.time + minInterval;
         strength = Mathf.Clamp01(strength);
         Visual(p, strength);
+        if (rippleBig != null) rippleBig.Emit(1);
         if (sound != null && sound.clip != null)
         {
             sound.pitch = Random.Range(0.92f, 1.1f);
             sound.PlayOneShot(sound.clip, Mathf.Lerp(0.45f, 1f, strength));
         }
+    }
+
+    // 浮いている間ずっと、ふわふわのまわりに波紋（2026-10-25 てじゃ「水にふわふわがついたときに波紋だそ」「ついてるあいだずっと」）。FuwaWater から毎物理ステップ呼ばれる
+    [Tooltip("浮いている間の波紋の間隔(秒)")]
+    public float floatRippleInterval = 0.6f;
+    private float _nextFloat;
+    public void FloatRipple(Vector3 p)
+    {
+        if (ripple == null || Time.time < _nextFloat) return;
+        _nextFloat = Time.time + floatRippleInterval;
+        transform.position = p;
+        ripple.Emit(1);
     }
 
     // しぶきと波紋だけ（音は呼ぶ側で。プレイヤーが入った時の「じゃぶ」用、FuwaShallowWater）

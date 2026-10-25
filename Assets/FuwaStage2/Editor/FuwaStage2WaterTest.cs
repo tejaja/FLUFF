@@ -496,7 +496,7 @@ public static class FuwaStage2WaterTest
         var r = new GameObject("Ripple"); r.transform.SetParent(go.transform, false); r.transform.localRotation = Quaternion.Euler(90, 0, 0);
         var rp = r.AddComponent<ParticleSystem>(); rp.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         var rm = rp.main; rm.loop = false; rm.playOnAwake = false; rm.duration = 1f; rm.simulationSpace = ParticleSystemSimulationSpace.World;
-        rm.startLifetime = 1.0f; rm.startSpeed = 0f; rm.startSize = 0.35f; rm.maxParticles = 8; rm.startColor = new Color(1, 1, 1, 0.9f);
+        rm.startLifetime = 1.0f; rm.startSpeed = 0f; rm.startSize = 0.35f; rm.maxParticles = 24;   // 8→24（浮いている間の波紋・魚の合図も出すので） rm.startColor = new Color(1, 1, 1, 0.9f);
         var rem = rp.emission; rem.enabled = false;
         var rsh = rp.shape; rsh.enabled = false;
         var rsol = rp.sizeOverLifetime; rsol.enabled = true; rsol.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.3f), new Keyframe(1, 1f)));
@@ -506,11 +506,14 @@ public static class FuwaStage2WaterTest
         rm.startSize = 0.9f;
         var rr = r.GetComponent<ParticleSystemRenderer>(); rr.renderMode = ParticleSystemRenderMode.Billboard; rr.alignment = ParticleSystemRenderSpace.Local;
         rr.sharedMaterial = RippleMat(); rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; rr.receiveShadows = false;
+        // 落ちた時だけの大きい波紋（ふつうの波紋を写して、大きく・長く）
+        var rb = Object.Instantiate(r, go.transform, false); rb.name = "RippleBig";
+        var rbp = rb.GetComponent<ParticleSystem>(); var rbm = rbp.main; rbm.startSize = 1.8f; rbm.startLifetime = 1.4f; rbm.maxParticles = 8;
         // 音
         var a = go.AddComponent<AudioSource>(); a.playOnAwake = false; a.spatialBlend = 1f; a.minDistance = 2f; a.maxDistance = 25f; a.rolloffMode = AudioRolloffMode.Linear;
         a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/sfx_water_plop.wav");
         var fx = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaWaterFx>(go);
-        fx.drops = dp; fx.ripple = rp; fx.sound = a;
+        fx.drops = dp; fx.ripple = rp; fx.rippleBig = rbp; fx.sound = a;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fx); NoSync(fx);
         return fx;
     }

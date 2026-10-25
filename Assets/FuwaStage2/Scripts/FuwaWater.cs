@@ -81,6 +81,8 @@ public class FuwaWater : UdonSharpBehaviour
         // 玉の空気抵抗（Rigidbody.drag）が流れに逆らうので、水の中では横のぶんを打ち消して、流れの速さどおりに運ぶ
         Vector3 ah = ((flowVel - vh) * flowResponse + vh * ball.GetDrag()) * touch;
         ball.AddWater(new Vector3(ah.x, ay, ah.z));
+        // 水面に浮いている間は波紋（半分以上つかっている時）
+        if (fx != null && touch > 0.5f) fx.FloatRipple(new Vector3(p.x, sy + 0.015f, p.z));
     }
 }
 
