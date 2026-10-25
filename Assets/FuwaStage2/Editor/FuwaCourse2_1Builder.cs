@@ -1135,13 +1135,18 @@ public static class FuwaCourse2_1Builder
     // てじゃ「三連滝が地味」→「風でもふかせる」「ふわふわでいいかな」「ふいたりやんだりさせよう」「吹き流しもセットで」。
     // 滝ごとに、道の上を滝の側へ押す横風（FuwaWindArea、吹いたりやんだり、滝ごとに周期をずらす）。
     // 見た目はステージ1のかぜのみちの横風（G3_CrossRight の地面の＞＞＞と風の粒）を写す。道の内側のふちに吹き流し（Windsock4 を写す）
-    public static float FallsWindLen = 6f, FallsWindWidth = 7.5f, FallsWindStrength = 3.5f;   // 5 だと1回の強風で空中のふわふわが横に約5.3m流された（ClientSim）。3.5 で約3.7m の見込み
+    // 強さ：5 だと1回の強風で空中のふわふわが横に約5.3m流された（ClientSim）→3.5→2.6（てじゃ「風がややつよい」。1回で約2.8m の見込み）
+    public static float FallsWindLen = 6f, FallsWindWidth = 7.5f, FallsWindStrength = 2.6f;
+    // 吹き流しの浮島：道のふちから外へ（中心まで）、道の高さからの上下
+    public static float SockIsleOut = 2.2f, SockIsleUp = -0.4f;
     public static float FallsWindOn = 1.6f, FallsWindOff = 2.4f;
     public static float[] FallsWindPhase = { 0f, 1.3f, 2.6f };
     static void FallsWind(Transform root)
     {
         var tmplZone = Object.FindObjectsOfType<FuwaWindArea>(true).FirstOrDefault(w => w.transform.parent != null && w.transform.parent.name == "G3_CrossRight");
         var tmplSock = Object.FindObjectsOfType<FuwaWindDeco>(true).FirstOrDefault(d => d.name == "Windsock4");
+        var tmplIsle = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "TreeR" && t.parent != null && t.parent.name == "WebSupports" && t.Find("IslandUnder") != null && t.Find("IslandTop") != null);
+        var stage2Grass = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_LobbyGround.mat");
         if (tmplZone == null) { Debug.LogWarning("[2–1] 横風のお手本（G3_CrossRight）がない"); return; }
         var g = new GameObject("FallsWind").transform; g.SetParent(root, false);
         const string decalDir = "Assets/FuwaCourse/Generated/WindDecal";
@@ -1197,13 +1202,34 @@ public static class FuwaCourse2_1Builder
             }
             so.ApplyModifiedPropertiesWithoutUndo();
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(wa); NoSync(wa);
-            // 吹き流し：道の内側（滝と反対）のふち、滝の少し手前
+            // 吹き流し：道の内側（滝と反対）の外に浮かべた小さい浮島の上（道のふちに立てたら「邪魔」だった。2026-10-25 てじゃ「浮島つくってそこに浮かせよう」）。
+            // 浮島はクモの巣の木の小島（WebSupports/TreeR）の上の円盤と下の▼を写す。上の面はステージ2の芝の色
             if (tmplSock != null)
             {
-                Center(sc + 1.5f, out var sp, out var sd); var sr = Right(sd);
-                var q = sp + sr * (-o * (RoadHW - 0.25f));
-                var sock = Object.Instantiate(tmplSock.gameObject, set, false); sock.name = "Windsock";
-                sock.transform.localPosition = new Vector3(q.x, FallsH, q.y);
+                Center(sc, out var sp, out var sd); var sr = Right(sd);
+                var q = sp + sr * (-o * (RoadHW + SockIsleOut));
+                var isle = new GameObject("SockIsland").transform; isle.SetParent(set, false);
+                isle.localPosition = new Vector3(q.x, FallsH + SockIsleUp, q.y);
+                float topY = 0f;
+                if (tmplIsle != null)
+                {
+                    // 上の円盤の中心を浮島の原点に（お手本の木の原点は円盤からずれている）
+                    var off = tmplIsle.Find("IslandTop").localPosition;
+                    foreach (var part in new[] { "IslandTop", "IslandUnder" })
+                    {
+                        var srcT = tmplIsle.Find(part); if (srcT == null) continue;
+                        var c = Object.Instantiate(srcT.gameObject, isle, false); c.name = part;
+                        c.transform.localPosition = srcT.localPosition - off; c.transform.localRotation = srcT.localRotation; c.transform.localScale = srcT.localScale;
+                        GameObjectUtility.SetStaticEditorFlags(c, 0);
+                        if (part == "IslandTop")
+                        {
+                            var ir = c.GetComponent<Renderer>(); if (ir && stage2Grass) ir.sharedMaterial = stage2Grass;
+                            topY = ir ? ir.localBounds.max.y * srcT.localScale.y : 0f;
+                        }
+                    }
+                }
+                var sock = Object.Instantiate(tmplSock.gameObject, isle, false); sock.name = "Windsock";
+                sock.transform.localPosition = new Vector3(0f, topY, 0f);
                 var wd = sock.GetComponent<FuwaWindDeco>(); wd.wind = wa;
                 FuwaWindDecoBuilder.AlignSockArm(wd);
                 UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(wd); NoSync(wd);
