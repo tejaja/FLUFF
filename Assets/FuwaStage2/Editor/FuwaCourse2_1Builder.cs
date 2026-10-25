@@ -1495,9 +1495,13 @@ public static class FuwaCourse2_1Builder
     public static float WallFlow = 0.8f;
     // 球の高さ（水面から）。2.0 だと下の水の筋が街灯の柱みたいだった（2026-10-25 てじゃ）→ 1.0
     public static float WallOrbHeight = 1.0f;
-    public static float[] WallOrbsL = { 0.22f, 0.7f }, WallOrbsR = { 0.45f, 0.92f };
+    // 球の場所（壁の長さの割合）。WallDiv 番目の球の下が水の分かれ目（そこから両はしへ流れて、はしの切れ目から滝で落ちる）
+    public static float[] WallOrbsL = { 0.2f, 0.55f }, WallOrbsR = { 0.4f, 0.85f };
+    public static int WallDivL = 1, WallDivR = 0;
+    // はしの切れ目の滝の幅（壁の上の水の幅に対する割合）
+    public static float WallEndSpill = 0.8f;
     // 壁のはしの丸み（上から見て、はしから WallRoundLen m で四分円）。2026-10-25 てじゃ「壁のはしが縦長の柱っぽい」→ 丸くすぼめる
-    public static float WallRoundLen = 2f;
+    public static float WallRoundLen = 2f, WallTopMin = 0.55f;
     static float WallRound(float s, float s0, float s1)
     {
         float t = Mathf.Clamp01(Mathf.Min(s - s0, s1 - s) / WallRoundLen);
@@ -1519,7 +1523,8 @@ public static class FuwaCourse2_1Builder
         {
             float s = ss[i]; Center(s, out var p, out var d); var r = Right(d) * o;
             float sf = surf(s), w = WallW + 0.35f * (Mathf.PerlinNoise(nOff, s * 0.15f) - 0.5f), wy = WalkH(Mathf.Clamp(s, sWalk0, sWalk1));
-            bool cap = i == 0 || i == n - 1;   // 両はしは水をせき止める（上を平らに）
+            // 両はしは切れ目（せき止めず、上の水がそのまま滝でこぼれる）。2026-10-25 てじゃ「入口みたいに切れ目つけて垂らす？」
+            bool cap = false;
             float rf = WallRound(s, s0, s1);
             float fl = cap ? 0.25f : -0.3f, lip = cap ? 0.25f : -0.06f;
             var prof = new List<Vector2>
@@ -1537,7 +1542,8 @@ public static class FuwaCourse2_1Builder
                 float dd = pr.x + (fixedPt ? 0f : (Mathf.PerlinNoise(nOff + s * 0.5f, k * 1.9f) - 0.5f) * 0.5f);
                 float yy = pr.y + (fixedPt ? 0f : (Mathf.PerlinNoise(nOff + 30f + s * 0.4f, k * 2.7f) - 0.5f) * 0.6f);
                 // はしは丸くすぼめる：道の側のふちはそのまま、外へ出る分と下へ伸びる分を縮める
-                dd *= rf; if (k >= 5) yy *= Mathf.Lerp(0.3f, 1f, rf);
+                // 上（k 1〜4）は切れ目の水の幅を残す
+                dd *= k <= 4 ? Mathf.Max(rf, WallTopMin) : rf; if (k >= 5) yy *= Mathf.Lerp(0.3f, 1f, rf);
                 var q = p + r * (WallIn + dd);
                 var v = new Vector3(q.x, sf + yy, q.y); V.Add(v); c += v;
             }
@@ -1569,7 +1575,9 @@ public static class FuwaCourse2_1Builder
         go.AddComponent<MeshCollider>().sharedMesh = mesh;
 
         // 上の水面（見た目だけ）：ふちの少し外から外のふちの内側まで。流れは手前（s が減る＝下り）へ
-        float wa = s0 + step, wb = s1 - step;
+        float wa = s0, wb = s1;
+        float sDiv = Mathf.Lerp(wa, wb, (o < 0 ? WallOrbsL : WallOrbsR)[o < 0 ? WallDivL : WallDivR]);
+        Func<float, float> waterW = s => Mathf.Max(0.3f, (WallW - 0.45f) * Mathf.Max(WallRound(s, s0, s1), WallTopMin) - 0.05f);
         {
             var SV = new List<Vector3>(); var ST = new List<int>(); var U1 = new List<Vector4>(); var U2 = new List<Vector2>();
             const int across = 6;
@@ -1577,12 +1585,12 @@ public static class FuwaCourse2_1Builder
             for (int k = 0; k <= m; k++)
             {
                 float s = Mathf.Lerp(wa, wb, k / (float)m); Center(s, out var p, out var d); var r = Right(d) * o;
-                float dA = -0.03f, dB = Mathf.Max(0.3f, (WallW - 0.45f) * WallRound(s, s0, s1) - 0.05f), hw = (dB - dA) * 0.5f;
+                float dA = -0.03f, dB = waterW(s), hw = (dB - dA) * 0.5f;
                 for (int i = 0; i <= across; i++)
                 {
                     float dd = Mathf.Lerp(dA, dB, i / (float)across);
                     var q = p + r * (WallIn + dd); SV.Add(new Vector3(q.x, surf(s), q.y));
-                    U1.Add(new Vector4(dd - (dA + hw), hw, s - wa, wb - s)); U2.Add(new Vector2(-s, 0));
+                    U1.Add(new Vector4(dd - (dA + hw), hw, s - wa, wb - s)); U2.Add(new Vector2(Mathf.Abs(s - sDiv), 0));   // 分かれ目から両はしへ
                 }
             }
             for (int k = 0; k < m; k++)
@@ -1676,6 +1684,16 @@ public static class FuwaCourse2_1Builder
             var au = new GameObject(nm + "_Sound" + k); au.transform.SetParent(g, false); au.transform.localPosition = new Vector3(q.x, WalkH(s) + 0.5f, q.y);
             var a = au.AddComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/sfx_waterfall_loop.wav");
             a.loop = true; a.playOnAwake = true; a.spatialBlend = 1f; a.minDistance = 1.5f; a.maxDistance = 14f; a.rolloffMode = AudioRolloffMode.Linear; a.volume = 0.1f;
+        }
+
+        // はしの切れ目の滝（上の水がこぼれて、はしの岩の前を落ちる）
+        foreach (float se in new[] { s0, s1 })
+        {
+            Center(se, out var p, out var d); var r = Right(d) * o;
+            var outward = se == s0 ? -d : d;
+            float ww = waterW(se);
+            var q = p + r * (WallIn + ww * 0.5f) + outward * 0.05f;
+            FuwaStage2WaterTest.Waterfall(g, nm + "_EndFalls" + (se == s0 ? "0" : "1"), new Vector3(q.x, 0, q.y), surf(se) + 0.05f, WallBottom, ww * WallEndSpill, new Vector3(outward.x, 0, outward.y));
         }
 
         // 青い球（水面の上に浮かんで、水を落とす）。落ちる所は湧き水の波紋
