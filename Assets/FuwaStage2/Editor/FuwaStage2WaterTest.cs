@@ -513,7 +513,13 @@ public static class FuwaStage2WaterTest
         var a = go.AddComponent<AudioSource>(); a.playOnAwake = false; a.spatialBlend = 1f; a.minDistance = 2f; a.maxDistance = 25f; a.rolloffMode = AudioRolloffMode.Linear;
         a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/sfx_water_plop.wav");
         var fx = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaWaterFx>(go);
-        fx.drops = dp; fx.ripple = rp; fx.rippleBig = rbp; fx.sound = a;
+        // 浮いている間ずっと、ふわふわのまわりに出ている輪（波紋の絵を水面に寝かせた板。位置と大きさは FuwaWaterFx が動かす）
+        var ring = GameObject.CreatePrimitive(PrimitiveType.Quad); ring.name = "FloatRing"; ring.transform.SetParent(go.transform, false);
+        Object.DestroyImmediate(ring.GetComponent<Collider>());
+        ring.transform.localRotation = Quaternion.Euler(90, 0, 0);
+        var ringR = ring.GetComponent<Renderer>(); ringR.sharedMaterial = RippleMat(); ringR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; ringR.receiveShadows = false;
+        ring.SetActive(false);
+        fx.drops = dp; fx.ripple = rp; fx.rippleBig = rbp; fx.sound = a; fx.floatRing = ring.transform; fx.floatRingSize = 1.0f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fx); NoSync(fx);
         return fx;
     }

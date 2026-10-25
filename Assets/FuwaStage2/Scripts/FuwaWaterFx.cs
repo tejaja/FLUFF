@@ -36,8 +36,27 @@ public class FuwaWaterFx : UdonSharpBehaviour
     [Tooltip("浮いている間の波紋の間隔(秒)")]
     public float floatRippleInterval = 0.6f;
     private float _nextFloat;
+    [Tooltip("浮いている間、ふわふわのまわりにずっと出ている輪（水面に寝かせた板）。てじゃ「ふわふわの周りにもずっと出ててほしい」")]
+    public Transform floatRing;
+    public float floatRingSize = 1.0f;
+    private Vector3 _ringPos;
+    private float _ringSeen = -10f, _ringK;
+
+    private void Update()
+    {
+        if (floatRing == null) return;
+        bool on = Time.time - _ringSeen < 0.2f;
+        _ringK = Mathf.MoveTowards(_ringK, on ? 1f : 0f, Time.deltaTime * 5f);
+        if (_ringK <= 0.001f) { if (floatRing.gameObject.activeSelf) floatRing.gameObject.SetActive(false); return; }
+        if (!floatRing.gameObject.activeSelf) floatRing.gameObject.SetActive(true);
+        floatRing.position = _ringPos;
+        float s = floatRingSize * _ringK * (1f + 0.06f * Mathf.Sin(Time.time * 3f));
+        floatRing.localScale = new Vector3(s, s, s);
+    }
+
     public void FloatRipple(Vector3 p)
     {
+        _ringPos = p; _ringSeen = Time.time;
         if (ripple == null || Time.time < _nextFloat) return;
         _nextFloat = Time.time + floatRippleInterval;
         transform.position = p;
