@@ -1516,13 +1516,15 @@ public static class FuwaCourse2_1Builder
         int n = ss.Count;
         float nOff = o < 0 ? 13.7f : 71.3f;
         Func<float, float> surf = s => WalkH(Mathf.Clamp(s, sWalk0, sWalk1)) + WallSurf;
+        // 壁の上の幅（少しゆらす）。上の水・滝の幅も同じ値から（前は水だけゆらさない幅で、狭い所で滝のはしが外のふちの岩をつき抜けた）
+        Func<float, float> wNoise = s => WallW + 0.35f * (Mathf.PerlinNoise(nOff, s * 0.15f) - 0.5f);
         // 岩：断面（ふちから外へ d、水面からの高さ y）を中心線にそって並べる。最後の点のあと最初に戻って閉じる
         var V = new List<Vector3>(); var T = new List<int>(); int cols = 0;
         var cen = new List<Vector3>();
         for (int i = 0; i < n; i++)
         {
             float s = ss[i]; Center(s, out var p, out var d); var r = Right(d) * o;
-            float sf = surf(s), w = WallW + 0.35f * (Mathf.PerlinNoise(nOff, s * 0.15f) - 0.5f), wy = WalkH(Mathf.Clamp(s, sWalk0, sWalk1));
+            float sf = surf(s), w = wNoise(s), wy = WalkH(Mathf.Clamp(s, sWalk0, sWalk1));
             // 両はしは切れ目（せき止めず、上の水がそのまま滝でこぼれる）。2026-10-25 てじゃ「入口みたいに切れ目つけて垂らす？」
             bool cap = false;
             float rf = WallRound(s, s0, s1);
@@ -1579,7 +1581,7 @@ public static class FuwaCourse2_1Builder
         // 上の水面（見た目だけ）：ふちの少し外から外のふちの内側まで。流れは手前（s が減る＝下り）へ
         float wa = s0, wb = s1;
         float sDiv = Mathf.Lerp(wa, wb, (o < 0 ? WallOrbsL : WallOrbsR)[o < 0 ? WallDivL : WallDivR]);
-        Func<float, float> waterW = s => Mathf.Max(0.3f, (WallW - 0.45f) * Mathf.Max(WallRound(s, s0, s1), WallTopMin) - 0.05f);
+        Func<float, float> waterW = s => Mathf.Max(0.3f, (wNoise(s) - 0.45f) * Mathf.Max(WallRound(s, s0, s1), WallTopMin) - 0.08f);
         {
             var SV = new List<Vector3>(); var ST = new List<int>(); var U1 = new List<Vector4>(); var U2 = new List<Vector2>();
             const int across = 6;
