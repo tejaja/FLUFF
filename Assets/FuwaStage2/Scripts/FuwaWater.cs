@@ -82,7 +82,8 @@ public class FuwaWater : UdonSharpBehaviour
         Vector3 ah = ((flowVel - vh) * flowResponse + vh * ball.GetDrag()) * touch;
         ball.AddWater(new Vector3(ah.x, ay, ah.z));
         // 水面に浮いている間は波紋（半分以上つかっている時）
-        if (fx != null && touch > 0.5f) fx.FloatRipple(new Vector3(p.x, sy + 0.015f, p.z));
+        // 水面すれすれだとチカチカしたので少し上（2026-10-25 てじゃ「なんかチカチカしてる」）
+        if (fx != null && touch > 0.5f) fx.FloatRipple(new Vector3(p.x, sy + 0.04f, p.z));
     }
 }
 

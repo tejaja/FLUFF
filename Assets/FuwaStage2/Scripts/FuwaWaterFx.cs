@@ -32,31 +32,14 @@ public class FuwaWaterFx : UdonSharpBehaviour
         }
     }
 
-    // 浮いている間ずっと、ふわふわのまわりに波紋（2026-10-25 てじゃ「水にふわふわがついたときに波紋だそ」「ついてるあいだずっと」）。FuwaWater から毎物理ステップ呼ばれる
+    // 浮いている間ずっと、ふわふわから波紋が広がり続ける（2026-10-25 てじゃ「水にふわふわがついたときに波紋だそ」「ついてるあいだずっと」
+    // 「同じ丸が固定じゃなくてふわふわから波紋が広がる感じのをつづけてほしい」→ 一度入れた、ずっと出ている輪はやめた）。FuwaWater から毎物理ステップ呼ばれる
     [Tooltip("浮いている間の波紋の間隔(秒)")]
-    public float floatRippleInterval = 0.6f;
+    public float floatRippleInterval = 0.3f;
     private float _nextFloat;
-    [Tooltip("浮いている間、ふわふわのまわりにずっと出ている輪（水面に寝かせた板）。てじゃ「ふわふわの周りにもずっと出ててほしい」")]
-    public Transform floatRing;
-    public float floatRingSize = 1.0f;
-    private Vector3 _ringPos;
-    private float _ringSeen = -10f, _ringK;
-
-    private void Update()
-    {
-        if (floatRing == null) return;
-        bool on = Time.time - _ringSeen < 0.2f;
-        _ringK = Mathf.MoveTowards(_ringK, on ? 1f : 0f, Time.deltaTime * 5f);
-        if (_ringK <= 0.001f) { if (floatRing.gameObject.activeSelf) floatRing.gameObject.SetActive(false); return; }
-        if (!floatRing.gameObject.activeSelf) floatRing.gameObject.SetActive(true);
-        floatRing.position = _ringPos;
-        float s = floatRingSize * _ringK * (1f + 0.06f * Mathf.Sin(Time.time * 3f));
-        floatRing.localScale = new Vector3(s, s, s);
-    }
 
     public void FloatRipple(Vector3 p)
     {
-        _ringPos = p; _ringSeen = Time.time;
         if (ripple == null || Time.time < _nextFloat) return;
         _nextFloat = Time.time + floatRippleInterval;
         transform.position = p;
