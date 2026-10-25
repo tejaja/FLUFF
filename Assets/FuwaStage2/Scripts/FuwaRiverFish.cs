@@ -5,6 +5,7 @@ using VRC.SDKBase;
 // 川の2回目の渡り場の魚（コース2–1「みずのこみち」、2026-10-25）。サケの川のぼりのように、いつも川上へ向かって水面から跳ねる。
 // 空中で運んでいるふわふわに当たると、川上へ少し上向きにポーンと飛ばされて川に落ち、また流れて渡り場へ戻ってくる（すくい直せばいい）。
 // てじゃ「川下にふっとばすと理不尽感あるから、川上にジャンプしてる感じで当たると川上にふっとばされるのがいい」。
+// プレイヤーに当たっても川上へ吹き飛ばす（2026-10-25 てじゃ「プレイヤーもふきとばそう」）。
 // 跳ぶ前に水面にぶくぶく＋波紋（貝がパカッと開くのと同じ「来るよ」の合図）。
 // 跳ぶタイミングはサーバーの時刻でそろえる（みんな同じリズムに見える）。当たるのは自分のふわふわだけ（同期なし）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -23,8 +24,10 @@ public class FuwaRiverFish : UdonSharpBehaviour
     public float period = 3.2f;
     [Tooltip("跳んでいる時間（秒）")]
     public float jumpTime = 0.9f;
-    [Tooltip("いちばん高い所（水面から、m）")]
+    [Tooltip("いちばん高い所（水面から、m）。jumpHeights に魚ごとの値があればそっちを使う")]
     public float jumpHeight = 1.6f;
+    [Tooltip("魚ごとのいちばん高い所（2026-10-25 てじゃ「高さも３匹バラバラにしよ」）")]
+    public float[] jumpHeights;
     [Tooltip("跳ぶ前の合図（ぶくぶく・波紋）の長さ（秒）")]
     public float warnLead = 0.7f;
     public float warnInterval = 0.18f;
@@ -42,6 +45,14 @@ public class FuwaRiverFish : UdonSharpBehaviour
     [Tooltip("当たったあと、また当たるまで（秒）")]
     public float hitCooldown = 0.6f;
 
+    [Header("プレイヤーに当たった時（2026-10-25 てじゃ「プレイヤーもふきとばそう」）")]
+    [Tooltip("体（足から playerTop m までの縦の線）とこの距離まで近づいたら当たり")]
+    public float playerHitRadius = 0.75f;
+    public float playerTop = 1.5f;
+    [Tooltip("川上へ飛ばす速さ(m/s)・上へ(m/s)")]
+    public float playerKnockBack = 4.5f;
+    public float playerKnockUp = 4f;
+
     [Header("音")]
     public AudioSource jumpSound;
     public AudioSource hitSound;
@@ -49,7 +60,7 @@ public class FuwaRiverFish : UdonSharpBehaviour
     private int _n;
     private int[] _lastWarn;
     private bool[] _up;
-    private float _noHitUntil;
+    private float _noHitUntil, _noPlayerHitUntil;
 
     private void Start()
     {
@@ -71,6 +82,9 @@ public class FuwaRiverFish : UdonSharpBehaviour
         double server = Networking.GetServerTimeInSeconds();
         bool ballOk = ball != null && !ball.IsWaitingOrHidden() && ball.gameObject.activeInHierarchy;
         Vector3 bp = ballOk ? ball.transform.position : Vector3.zero;
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        bool playerOk = Utilities.IsValid(lp);
+        Vector3 pp = playerOk ? lp.GetPosition() : Vector3.zero;
         for (int i = 0; i < _n; i++)
         {
             if (fish[i] == null || jumpFrom[i] == null || jumpTo[i] == null) continue;
@@ -95,13 +109,21 @@ public class FuwaRiverFish : UdonSharpBehaviour
                 if (fx != null) fx.Visual(a + Vector3.up * 0.05f, 0.6f);
                 if (jumpSound != null) { jumpSound.transform.position = a; jumpSound.pitch = Random.Range(0.9f, 1.1f); jumpSound.Play(); }
             }
-            // 放物線：a → b、まん中で jumpHeight
-            Vector3 p = Vector3.Lerp(a, b, t) + Vector3.up * (4f * jumpHeight * t * (1f - t));
-            Vector3 tan = (b - a) + Vector3.up * (4f * jumpHeight * (1f - 2f * t));
+            // 放物線：a → b、まん中で jumpHeight（魚ごと）
+            float jh = jumpHeights != null && i < jumpHeights.Length ? jumpHeights[i] : jumpHeight;
+            Vector3 p = Vector3.Lerp(a, b, t) + Vector3.up * (4f * jh * t * (1f - t));
+            Vector3 tan = (b - a) + Vector3.up * (4f * jh * (1f - 2f * t));
             fish[i].position = p;
             if (tan.sqrMagnitude > 1e-4f) fish[i].rotation = Quaternion.LookRotation(tan.normalized, Vector3.up);
             // 水の上に出ている間だけ当たる
-            if (ballOk && t > 0.06f && t < 0.94f && Time.time >= _noHitUntil && (p - bp).magnitude < hitRadius) Knock(p);
+            if (t <= 0.06f || t >= 0.94f) continue;
+            if (ballOk && Time.time >= _noHitUntil && (p - bp).magnitude < hitRadius) Knock(p);
+            if (playerOk && Time.time >= _noPlayerHitUntil)
+            {
+                // 体の縦の線（足〜playerTop）でいちばん近い点
+                float y = Mathf.Clamp(p.y, pp.y, pp.y + playerTop);
+                if ((p - new Vector3(pp.x, y, pp.z)).magnitude < playerHitRadius) KnockPlayer(lp, p);
+            }
         }
     }
 
@@ -125,5 +147,14 @@ public class FuwaRiverFish : UdonSharpBehaviour
         }
         ball.LaunchTinted(v, knockGlow);
         if (hitSound != null) { hitSound.transform.position = at; hitSound.pitch = Random.Range(0.95f, 1.1f); hitSound.Play(); }
+    }
+
+    // プレイヤーも川上へ（少し上向きに）。自分のプレイヤーだけ
+    private void KnockPlayer(VRCPlayerApi lp, Vector3 at)
+    {
+        _noPlayerHitUntil = Time.time + hitCooldown;
+        Vector3 f = crossing != null ? crossing.forward : Vector3.forward; f.y = 0f; f.Normalize();
+        lp.SetVelocity(f * playerKnockBack + Vector3.up * playerKnockUp);
+        if (hitSound != null) { hitSound.transform.position = at; hitSound.pitch = Random.Range(0.8f, 0.9f); hitSound.Play(); }
     }
 }

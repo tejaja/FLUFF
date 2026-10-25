@@ -830,7 +830,9 @@ public static class FuwaCourse2_1Builder
     public static float[] FishLanes = { -1.0f, 0f, 1.0f };
     // 魚ごとのずらし（秒）：右から左へ波のように続けて跳んで、そのあと静かな間がある
     public static float[] FishPhases = { 0f, -0.35f, -0.7f };
-    public static float FishSpan = 1.7f, FishPeriod = 3.2f, FishDepth = 0.15f;
+    // 2026-10-25 てじゃ「魚がよわい、もっとでかくして幅をとりたい、高さも３匹バラバラに」→ 大きさ FishScale 倍・跳ぶ長さ 1.7→2.4・高さは魚ごと
+    public static float FishSpan = 2.4f, FishPeriod = 3.2f, FishDepth = 0.15f, FishScale = 2f, FishHit = 1.0f;
+    public static float[] FishHeights = { 1.3f, 2.4f, 1.8f };
     static void RiverFish(Transform root, FuwaWaterFx fx)
     {
         var g = new GameObject("RiverFish").transform; g.SetParent(root, false);
@@ -866,6 +868,7 @@ public static class FuwaCourse2_1Builder
             Part(PrimitiveType.Cube, "Dorsal", new Vector3(0, 0.13f, -0.02f), new Vector3(0.025f, 0.08f, 0.14f), new Vector3(-15, 0, 0), finMat);
             Part(PrimitiveType.Sphere, "EyeL", new Vector3(-0.09f, 0.04f, 0.17f), Vector3.one * 0.045f, Vector3.zero, eyeMat);
             Part(PrimitiveType.Sphere, "EyeR", new Vector3(0.09f, 0.04f, 0.17f), Vector3.one * 0.045f, Vector3.zero, eyeMat);
+            f.localScale = Vector3.one * FishScale;
             f.gameObject.SetActive(false);
             fish[i] = f;
         }
@@ -878,6 +881,7 @@ public static class FuwaCourse2_1Builder
         var rf = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaRiverFish>(g.gameObject);
         rf.ball = ballProxy; rf.fx = fx; rf.crossing = crossing;
         rf.fish = fish; rf.jumpFrom = from; rf.jumpTo = to; rf.phases = (float[])FishPhases.Clone(); rf.period = FishPeriod;
+        rf.jumpHeights = (float[])FishHeights.Clone(); rf.hitRadius = FishHit; rf.playerHitRadius = FishHit * 0.8f;
         rf.jumpSound = Snd("JumpSfx", "Assets/FuwaStage2/Audio/sfx_water_splash_soft.wav", 0.6f);
         rf.hitSound = Snd("HitSfx", "Assets/FuwaCourse/Audio/sfx_boing.wav", 0.8f);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(rf); NoSync(rf);
