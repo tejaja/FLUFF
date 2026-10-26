@@ -961,8 +961,17 @@ public static class FuwaCourse2_1Builder
         float gorge1 = sRiver1 + GorgeLen;
         RockBase(root, g, "BaseA", sPlaza1 - 0.4f, sRiver1 + 0.2f, 11);
         // 2026-10-25 貝の道の下まで続ける（貝の道の両わきを岩の壁にしたのにあわせて）
-        RockBase(root, g, "BaseB", gorge1 - 0.2f, sWalk1 + 0.2f, 23);
+        // 2026-10-26 滝の道（三連滝）の終わりまで続ける。水路の両はしは切れ目（breaks）にして、はばをまわりへ広げない
+        //（広げると水路の端の滝 EndFalls が岩につきささる）
+        var breaks = new List<float>();
+        for (int i = 0; i < setS.Length; i++) { ChannelRange(i, out var c0, out var c1); breaks.Add(c0); breaks.Add(c1); }
+        RockBase(root, g, "BaseB", gorge1 - 0.2f, sF1, 23, breaks);
         var wbase = root.Find("ClamWalk/WalkBase"); if (wbase && wbase.GetComponent<Renderer>()) wbase.GetComponent<Renderer>().enabled = false;
+        // 滝の道の青緑の箱の土台・水路の入れ物の見た目も消す（当たり判定は残す）
+        foreach (var nm in new[] { "FallsRoad/StraightBase", "FallsRoad/RoadBase" })
+        { var t = root.Find(nm); if (t && t.GetComponent<Renderer>()) t.GetComponent<Renderer>().enabled = false; }
+        for (int i = 0; i < setS.Length; i++)
+        { var t = root.Find("FallsRoad/Set" + i + "/Channel" + i + "/Body"); if (t && t.GetComponent<Renderer>()) t.GetComponent<Renderer>().enabled = false; }
         // 前の柱みたいな入れ物の見た目は消す（当たり判定は残す）
         foreach (var nm in new[] { "W1_Pool/Body", "W2_River/Body", "W3_LilyPond/Body", "W3_LilyPond/Body2", "W3_LilyPond/BodyL", "W3_LilyPond/BodyR", "W3_LilyPond/BodyHole" })
         { var t = root.Find("Water/" + nm); if (t && t.GetComponent<Renderer>()) t.GetComponent<Renderer>().enabled = false; }
@@ -986,10 +995,18 @@ public static class FuwaCourse2_1Builder
     };
     // 土台の厚み（ふちからとがりまで、m）。2026-10-25 てじゃ「分厚いと岩の道とかぶるから、かなり薄めにいこう」4.8〜6.6 → 1.6〜2.2
     public static float BaseDepth = 1.6f, BaseDepthVar = 0.6f;
-    static void RockBase(Transform root, Transform g, string name, float s0, float s1, int seed)
+    static void RockBase(Transform root, Transform g, string name, float s0, float s1, int seed, List<float> breaks = null)
     {
-        const float step = 0.5f, scanW = 14f, scanStep = 0.2f;
+        const float step = 0.5f, scanW = 14f, scanStep = 0.2f, brk = 0.05f;
         var ss = new List<float>(); for (float s = s0; s <= s1 + 1e-3f; s += step) ss.Add(s);
+        // 切れ目の前後にも測る所を足す（はばが切れ目でまっすぐ変わるように）
+        if (breaks != null)
+        {
+            foreach (var b in breaks) { if (b - brk > s0 && b - brk < s1) ss.Add(b - brk); if (b + brk > s0 && b + brk < s1) ss.Add(b + brk); }
+            ss.Sort();
+            for (int i = ss.Count - 1; i > 0; i--) if (ss[i] - ss[i - 1] < 0.02f) ss.RemoveAt(i);
+        }
+        bool Crosses(float a, float b) { if (breaks == null) return false; float lo = Mathf.Min(a, b), hi = Mathf.Max(a, b); foreach (var x in breaks) if (x > lo && x < hi) return true; return false; }
         int n = ss.Count;
         var L = new float[n]; var R = new float[n]; var yL = new float[n]; var yR = new float[n]; var ok = new bool[n];
         var yMin = new float[n];   // いちばん低い所（深い水の底）。土台はそれより下まで
@@ -1008,7 +1025,9 @@ public static class FuwaCourse2_1Builder
                     var t = h.collider.transform;
                     bool path = t.name == "PathMesh" && t.parent == root;
                     bool water = t.parent && t.parent.parent && t.parent.parent.name == "Water" && t.parent.parent.parent == root && t.parent.name != "W0_Source";
-                    if (!path && !water) continue;
+                    // 滝の道の水路（FallsRoad/SetN/ChannelN の底・ふち）
+                    bool chan = t.parent && t.parent.parent && t.parent.parent.parent && t.parent.parent.parent.name == "FallsRoad" && t.parent.parent.parent.parent == root && t.parent.name.StartsWith("Channel");
+                    if (!path && !water && !chan) continue;
                     float y = root.InverseTransformPoint(h.point).y;
                     ymin = Mathf.Min(ymin, y); yTop = Mathf.Max(yTop, y);
                 }
@@ -1021,7 +1040,7 @@ public static class FuwaCourse2_1Builder
         // 抜けた所は近くで埋める。はばは前後 2m の外側いっぱい（でこぼこしないように）
         for (int i = 0; i < n; i++) if (!ok[i]) { int j = i; while (j > 0 && !ok[j]) j--; if (!ok[j]) { j = i; while (j < n - 1 && !ok[j]) j++; } L[i] = L[j]; R[i] = R[j]; yL[i] = yL[j]; yR[i] = yR[j]; yMin[i] = yMin[j]; }
         var L2 = new float[n]; var R2 = new float[n];
-        for (int i = 0; i < n; i++) { L2[i] = L[i]; R2[i] = R[i]; for (int k = -4; k <= 4; k++) { int j = Mathf.Clamp(i + k, 0, n - 1); L2[i] = Mathf.Min(L2[i], L[j]); R2[i] = Mathf.Max(R2[i], R[j]); } }
+        for (int i = 0; i < n; i++) { L2[i] = L[i]; R2[i] = R[i]; for (int k = -4; k <= 4; k++) { int j = Mathf.Clamp(i + k, 0, n - 1); if (Crosses(ss[i], ss[j])) continue; L2[i] = Mathf.Min(L2[i], L[j]); R2[i] = Mathf.Max(R2[i], R[j]); } }
         var rng = new System.Random(seed);
         float nOff = (float)rng.NextDouble() * 100f;
         int cols = BaseProfile.Length * 2 + 1;
@@ -1755,6 +1774,13 @@ public static class FuwaCourse2_1Builder
         Center(s - 2f, out _, out var d1); Center(s + 2f, out _, out var d2);
         return d1.x * d2.y - d1.y * d2.x > 0f ? 1f : -1f;
     }
+    // i 番目の水路の中心線の範囲（c0 < c1）
+    static void ChannelRange(int i, out float c0, out float c1)
+    {
+        float fb = FallsFlowBack ? -1f : 1f;
+        c0 = setS[i] - fb * (NotchUp + 1.2f); c1 = setS[i] + fb * (NotchEnd + ChanAfter[i]);
+        if (c0 > c1) { float tmp = c0; c0 = c1; c1 = tmp; }
+    }
     static void FallsRoad(Transform root, Material ground, Material bedMat, FuwaWaterFx fx, AudioSource splash)
     {
         var g = new GameObject("FallsRoad").transform; g.SetParent(root, false);
@@ -1767,8 +1793,7 @@ public static class FuwaCourse2_1Builder
             float sc = setS[i], o = setO[i];
             // 流れの上流（滝より少し手前）から下流（滝のあと ChanAfter）まで。流れが逆向きなら前後反転
             float fb = FallsFlowBack ? -1f : 1f;
-            float c0 = sc - fb * (NotchUp + 1.2f), c1 = sc + fb * (NotchEnd + ChanAfter[i]);
-            if (c0 > c1) { float tmp = c0; c0 = c1; c1 = tmp; }
+            ChannelRange(i, out var c0, out var c1);
             var set = new GameObject("Set" + i).transform; set.SetParent(g, false);
             // 水路（道の側のふちなし＝道の土台のえぐれにそう、端は開いていて落ちる）
             Func<float, float> inner = s => RoadHW - Cut(s, o);
