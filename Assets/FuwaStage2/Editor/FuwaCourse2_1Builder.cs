@@ -1135,12 +1135,13 @@ public static class FuwaCourse2_1Builder
                 foreach (var h in Physics.RaycastAll(from, Vector3.down, 40f, ~0, QueryTriggerInteraction.Ignore))
                 {
                     var t = h.collider.transform;
-                    bool path = t.name == "PathMesh" && t.parent == root;
+                    // 2026-10-26 てじゃ「いまある青道の下の岩もとっちゃうか」：シマシマの道は測らない（水の下だけ岩）
+                    bool path = false;
                     bool water = t.parent && t.parent.parent && t.parent.parent.name == "Water" && t.parent.parent.parent == root && t.parent.name != "W0_Source";
                     // 滝の道の水路（FallsRoad/SetN/ChannelN の底・ふち）
                     bool chan = t.parent && t.parent.parent && t.parent.parent.parent && t.parent.parent.parent.name == "FallsRoad" && t.parent.parent.parent.parent == root && t.parent.name.StartsWith("Channel");
                     // ラストの川（Finale/W6_FinalRiver の底・ふち）と両岸
-                    bool fin = (t.parent && t.parent.name == "Finale" && t.parent.parent == root && (t.name == "RightBank" || t.name == "LeftBank" || t.name == "LeftBankBase"))
+                    bool fin = (t.parent && t.parent.name == "Finale" && t.parent.parent == root && (t.name == "RightBank" || t.name == "LeftBank"))
                         || (t.parent && t.parent.parent && t.parent.parent.name == "Finale" && t.parent.parent.parent == root && t.parent.name.StartsWith("W6_"));
                     if (!path && !water && !chan && !fin) continue;
                     float y = root.InverseTransformPoint(h.point).y;
@@ -1152,10 +1153,26 @@ public static class FuwaCourse2_1Builder
             }
             ok[i] = hi > lo; L[i] = lo; R[i] = hi; yL[i] = ylo; yR[i] = yhi; yMin[i] = ymin;
         }
-        // 抜けた所は近くで埋める。はばは前後 2m の外側いっぱい（でこぼこしないように）
-        for (int i = 0; i < n; i++) if (!ok[i]) { int j = i; while (j > 0 && !ok[j]) j--; if (!ok[j]) { j = i; while (j < n - 1 && !ok[j]) j++; } L[i] = L[j]; R[i] = R[j]; yL[i] = yL[j]; yR[i] = yR[j]; yMin[i] = yMin[j]; }
+        // 抜けた所：短い（1m まで）なら近くで埋める、長い所（水のない道だけの所）は岩を切る
+        var run = new int[n];   // 何番目の岩のかたまりか（-1＝岩なし）
+        {
+            int r = -1; bool inRun = false;
+            for (int i = 0; i < n; i++)
+            {
+                if (!ok[i])
+                {
+                    int j = i; while (j < n && !ok[j]) j++;
+                    bool shortGap = inRun && j < n && j - i <= 2;
+                    if (!shortGap) { for (int k = i; k < j; k++) run[k] = -1; inRun = false; i = j - 1; continue; }
+                    for (int k = i; k < j; k++) { run[k] = r; L[k] = L[i - 1]; R[k] = R[i - 1]; yL[k] = yL[i - 1]; yR[k] = yR[i - 1]; yMin[k] = yMin[i - 1]; }
+                    i = j - 1; continue;
+                }
+                if (!inRun) { r++; inRun = true; }
+                run[i] = r;
+            }
+        }
         var L2 = new float[n]; var R2 = new float[n];
-        for (int i = 0; i < n; i++) { L2[i] = L[i]; R2[i] = R[i]; for (int k = -4; k <= 4; k++) { int j = Mathf.Clamp(i + k, 0, n - 1); if (Crosses(ss[i], ss[j])) continue; L2[i] = Mathf.Min(L2[i], L[j]); R2[i] = Mathf.Max(R2[i], R[j]); } }
+        for (int i = 0; i < n; i++) { L2[i] = L[i]; R2[i] = R[i]; for (int k = -4; k <= 4; k++) { int j = Mathf.Clamp(i + k, 0, n - 1); if (Crosses(ss[i], ss[j]) || run[j] != run[i]) continue; L2[i] = Mathf.Min(L2[i], L[j]); R2[i] = Mathf.Max(R2[i], R[j]); } }
         var rng = new System.Random(seed);
         float nOff = (float)rng.NextDouble() * 100f;
         int cols = BaseProfile.Length * 2 + 1;
@@ -1164,14 +1181,16 @@ public static class FuwaCourse2_1Builder
         {
             float s = ss[i];
             Center(s, out var p, out var d); var r = Right(d);
-            float end = Smooth01(Mathf.Min(s - s0, s1 - s) / 2.5f);   // 両はしはすぼめて浅く
+            if (run[i] < 0) { for (int k = 0; k < cols; k++) V.Add(Vector3.zero); continue; }
+            int ra = i, rb = i; while (ra > 0 && run[ra - 1] == run[i]) ra--; while (rb < n - 1 && run[rb + 1] == run[i]) rb++;
+            float end = Smooth01(Mathf.Min(s - ss[ra], ss[rb] - s) / 2.5f);   // 両はしはすぼめて浅く
             float mid = (L2[i] + R2[i]) * 0.5f;
             // はばはすぼめない（すぼめると深い水の入れ物の壁がはみ出した）。両はしは浅くするだけ
             float l = L2[i], rr = R2[i];
             float top = Mathf.Min(yL[i], yR[i]);
             float depth = (BaseDepth + BaseDepthVar * Mathf.PerlinNoise(nOff, s * 0.08f)) * Mathf.Lerp(0.6f, 1f, end);
             // 深い水（滝つぼ・蓮の池の深い所）の底がはみ出さないように（前後 2m のいちばん深い所＋0.5m）
-            float deep = float.MaxValue; for (int k = -4; k <= 4; k++) deep = Mathf.Min(deep, yMin[Mathf.Clamp(i + k, 0, n - 1)]);
+            float deep = float.MaxValue; for (int k = -4; k <= 4; k++) { int j = Mathf.Clamp(i + k, 0, n - 1); if (run[j] == run[i]) deep = Mathf.Min(deep, yMin[j]); }
             depth = Mathf.Max(depth, top - deep + 0.5f);
             for (int k = 0; k < cols; k++)
             {
@@ -1199,13 +1218,18 @@ public static class FuwaCourse2_1Builder
             }
         }
         for (int i = 0; i < n - 1; i++)
+        {
+            if (run[i] < 0 || run[i + 1] != run[i]) continue;
             for (int k = 0; k < cols - 1; k++)
             {
                 int a = i * cols + k, b = a + cols;
                 T.AddRange(new[] { a, a + 1, b, a + 1, b + 1, b });
             }
-        // 両はしのふた（扇）
-        foreach (int i in new[] { 0, n - 1 })
+        }
+        // かたまりごとの両はしのふた（扇）
+        var caps = new List<int>();
+        for (int i = 0; i < n; i++) { if (run[i] < 0) continue; if (i == 0 || run[i - 1] != run[i]) caps.Add(i); if (i == n - 1 || run[i + 1] != run[i]) caps.Add(i); }
+        foreach (int i in caps)
         {
             var cen = Vector3.zero; for (int k = 0; k < cols; k++) cen += V[i * cols + k]; cen /= cols;
             int ci = V.Count; V.Add(cen);
