@@ -2065,19 +2065,28 @@ public static class FuwaCourse2_1Builder
         BasinWater(gate, "GateWaterR", r0s + 0.4f, r1s - 0.4f, s => InSlab(s) ? rin : rin + 0.3f, s => rin + (GateRightOut - rin) * GateRf(s, r0s, r1s) - 0.3f * GateRf(s, r0s, r1s), yTop, cs);
         BasinWater(gate, "GateWaterSlab", sl0, sl1, s => gIn, s => rin, yTop, 99f);
         // 前のふちから滝（川の水面まで）と、水がかかっている所の後ろ・下をつつむ膜
-        var lipF = new List<Vector3>(); var outF = new List<Vector3>(); var lipB = new List<Vector3>(); var outB = new List<Vector3>();
-        float la = gIn - 0.1f, lb = rin + 0.1f; int nLip = Mathf.CeilToInt((lb - la) / 0.3f);
+        var lipF = new List<Vector3>(); var outF = new List<Vector3>();
+        float la = gIn, lb = rin;   // 両わきの岩の面まで（はみ出すと岩の上に滝のはしが見えた）
+        int nLip = Mathf.CeilToInt((lb - la) / 0.3f);
         for (int k = 0; k <= nLip; k++)
         {
             float lat = Mathf.Lerp(la, lb, k / (float)nLip);
             Center(sl1, out var p1, out var d1); var q1 = p1 + Right(d1) * lat; lipF.Add(new Vector3(q1.x, yTop, q1.y)); outF.Add(new Vector3(d1.x, 0, d1.y));
-            Center(sl0, out var p0, out var d0); var q0 = p0 + Right(d0) * lat; lipB.Add(new Vector3(q0.x, yTop, q0.y)); outB.Add(-new Vector3(d0.x, 0, d0.y));
         }
         LipFalls(gate, "GateFalls", "GateFalls", lipF, outF, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, surf);
-        // 滝の裏の面（上流の踊り場から見える側）：水がかかっている所の下から川まで
-        LipFalls(gate, "GateFallsBack", "GateFallsBack", lipF, outF, new List<Vector2> { new Vector2(0.05f, -0.74f), new Vector2(0.03f, -1.5f), new Vector2(0.02f, float.NaN) }, surf, true);
-        LipFalls(gate, "GateSlabUnder", "GateSlabUnder", lipB, outB, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.15f, -0.2f), new Vector2(-0.12f, -0.5f),
-            new Vector2(0.15f, -0.68f), new Vector2(GateSlabLen * 0.5f, -0.74f), new Vector2(GateSlabLen - 0.05f, -0.74f) }, surf);
+        // 滝の裏の面（上流の踊り場から見える側）：岩の橋の中から川まで
+        LipFalls(gate, "GateFallsBack", "GateFallsBack", lipF, outF, new List<Vector2> { new Vector2(0.05f, -1.3f), new Vector2(0.03f, -2f), new Vector2(0.02f, float.NaN) }, surf, true);
+        // 真ん中の岩の橋（2026-10-26 てじゃ「最後の滝、だいぶ無理あるかたち」→ 前は水だけが空中にかかって、後ろ・下を水の膜で巻いていた）。
+        // 上は水の底（後ろのはしはせき止めるふち）、下はゆるいアーチ。左右のはしは両わきの岩にうめる
+        CragRock(gate, "GateBridge", sl0 - 0.3f, sl1, 733, (s, rf) =>
+        {
+            float top = Mathf.Lerp(yTop + GateRim, yTop - GateFloor, Smooth01((s - sl0 + 0.3f) / 0.7f)), mid = (gIn + rin) * 0.5f;
+            return new List<(float, float, bool)>
+            {
+                (gIn - 0.3f, top, false), (rin + 0.3f, top, false), (rin + 0.3f, yTop - 2.6f, false), (rin - 0.7f, yTop - 2.0f, true),
+                (mid, yTop - 1.5f, true), (gIn + 0.7f, yTop - 2.0f, true), (gIn - 0.3f, yTop - 2.6f, false),
+            };
+        }, 0f, false);
         // 青い球：左右のくぼみの上に1つずつ（球の下は湧き水）
         foreach (var (s, lat) in new[] { (cs + 0.2f, (gOut - GateLeftOut) * 0.5f), (cs + 2.6f, (rin + GateRightOut) * 0.5f) })
         {
@@ -2094,7 +2103,7 @@ public static class FuwaCourse2_1Builder
         return Mathf.Max(0.12f, Mathf.Sqrt(1f - (1f - t) * (1f - t)));
     }
     // 中心線にそったごつごつの岩。prof(s, はしの丸み)＝断面の点 (横, 高さ, でこぼこさせるか) を閉じた順に。side＝外の向き（-1＝左）
-    static void CragRock(Transform g, string name, float s0, float s1, int seed, Func<float, float, List<(float lat, float y, bool free)>> prof, float side)
+    static void CragRock(Transform g, string name, float s0, float s1, int seed, Func<float, float, List<(float lat, float y, bool free)>> prof, float side, bool round = true)
     {
         const float step = 0.4f;
         var ss = new List<float>(); for (float s = s0; s < s1 - 1e-3f; s += step) ss.Add(s); ss.Add(s1);
@@ -2104,7 +2113,7 @@ public static class FuwaCourse2_1Builder
         for (int i = 0; i < n; i++)
         {
             float s = ss[i]; Center(s, out var p, out var d); var r = Right(d); var r3 = new Vector3(r.x, 0, r.y);
-            float rf = GateRf(s, s0, s1);
+            float rf = round ? GateRf(s, s0, s1) : 1f;
             var pr = prof(s, rf); cols = pr.Count;
             var c = Vector3.zero; var p2 = new Vector2[cols];
             for (int k = 0; k < cols; k++)
