@@ -875,6 +875,13 @@ public static class FuwaCourse2_1Builder
         foreach (Transform c in terr)
             if (c.name.StartsWith("CaveWall") || c.name.StartsWith("CaveBack") || c.name.StartsWith("CaveMouth") || c.name == "CaveRoof" || c.name == "CaveFloorCliff" || c.name == "CaveDoorSill")
             { var r = c.GetComponent<MeshRenderer>(); if (r) r.enabled = false; }
+        // 水源の池の芝色の箱（入れ物・ふち）は見た目だけ消して、底は岩の色に（2026-10-26 てじゃ「ベースになった芝のブロックが、各所で邪魔してる」：溝の前に芝の箱が顔を出していた）
+        var src0 = terr.parent ? terr.parent.Find("Water/W0_Source") : null;
+        if (src0)
+        {
+            foreach (var nm in new[] { "Body", "RimL", "RimR", "RimStart" }) { var t = src0.Find(nm); if (t && t.GetComponent<Renderer>()) t.GetComponent<Renderer>().enabled = false; }
+            var bed0 = src0.Find("Bed"); if (bed0 && bed0.GetComponent<Renderer>()) bed0.GetComponent<Renderer>().sharedMaterial = RockBaseMat();
+        }
         Spring(terr, new Vector3(0f, SourceSurf, 1.6f));
         WaterOrb(terr, new Vector3(0f, SourceSurf, 1.6f));
         // ロビー側の細い滝：溝の水（池のふちから岩山の後ろのはしまで）＋落ちる滝
@@ -891,6 +898,12 @@ public static class FuwaCourse2_1Builder
             q.transform.localScale = new Vector3(0.5f, len, 1f);
             q.GetComponent<Renderer>().sharedMaterial = WaterMat(0.8f, false);
             FuwaStage2WaterTest.Waterfall(terr, "BackFall", new Vector3(x, 0, zBack), floor + 0.14f, -10f, 0.45f, Vector3.back);   // 下は岩山の下のとがりより下まで（空に落ちていく）
+            // 見た目は溝の水からそのままふちをこぼれる膜に（2026-10-26 てじゃ「入口の手前の滝、上からみるときれてる」→ 前の筒の滝は上が開いていて、溝の水と離れて見えた）。霧・音は残す
+            var bfs = terr.GetComponentsInChildren<Transform>(true).Where(t => t.name == "BackFall").ToList();
+            var bc = bfs.Count > 0 ? bfs[bfs.Count - 1].Find("Curtain") : null; if (bc && bc.GetComponent<Renderer>()) bc.GetComponent<Renderer>().enabled = false;
+            var lipB = new List<Vector3>(); var outB = new List<Vector3>();
+            for (int k = 0; k <= 4; k++) { lipB.Add(new Vector3(x + Mathf.Lerp(-0.25f, 0.25f, k / 4f), floor + 0.12f, zBack)); outB.Add(Vector3.back); }
+            LipFalls(terr, "BackFallLip" + (x < 0 ? "L" : "R"), "BackFallLip", lipB, outB, new List<Vector2> { new Vector2(0.25f, 0.01f), new Vector2(0.02f, 0.01f), new Vector2(-0.1f, -0.1f), new Vector2(-0.17f, -0.4f), new Vector2(-0.21f, -1.2f), new Vector2(-0.22f, float.NaN) }, -10f);
         }
     }
 
