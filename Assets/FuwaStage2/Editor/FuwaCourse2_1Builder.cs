@@ -308,7 +308,7 @@ public static class FuwaCourse2_1Builder
         // ---- 道 ----
         var pieces = new List<Piece>();
         // M1 スタートの台（幅6）
-        pieces.Add(new Piece { name = "M1_Start", s0 = sPlaza0 - 1.5f, s1 = sPlaza1, off = s => 0f, h = s => StartH, w = s => 6f, round0 = false });   // 後ろは洞窟の入口の敷居とつながる
+        pieces.Add(new Piece { name = "M1_Start", s0 = sPlaza0 - 1.5f, s1 = sPlaza1, off = s => 0f, h = s => StartH, w = s => s <= M1MouthS ? 6f : M1MouthW, round0 = false });   // 2026-10-27 てじゃ「青い床がはみでてる」：洞窟の前の出口（半分の幅 1.8m）では床も出口の幅に（6m のままだと岩の前の面から角が出ていた）   // 後ろは洞窟の入口の敷居とつながる
         // B1 右の岸の道：台の右半分から出て、滝をよけ、池・川の岸をくねっと下りて、渡り場で川にぶつかって終わる。
         // B2 左の岸の道：渡り場の向こう岸から、川の終わりの崖の滝の横を通って谷を小さい橋で越え、本道に合流。
         // ふわふわは滝→川で流される。人は右岸を追いかけて、渡り場で待ちかまえて、流れてきたふわふわを左岸の道の続きへ撃ってすくい上げる。
@@ -821,6 +821,7 @@ public static class FuwaCourse2_1Builder
     // スタート：コース1の Start を丸ごと（ロビーへ戻るポータルの島 → 木の橋 → キノコの島。エアガンの台つき）。
     // キノコの島から、もう1本の木の橋で洞窟の奥の壁の入口へ。人は歩いて洞窟に入って行く
     // 洞窟の奥の壁の入口（半分の幅・高さ）。2026-10-25 岩山のアーチ（Stage2_CaveRock の Cut_Arch：幅±2.6・天井まで）に合わせて 1.3/2.4 → 2.6/2.6
+    public static float M1MouthS = 5.5f, M1MouthW = 3.56f;   // 洞窟の前の出口の始まり（s）と、そこからの床の幅
     const float DoorHW = 2.25f, DoorH = 2.6f;   // 2026-10-27 2.6→2.25（岩山の入口のトンネルをせまくした。Tools/stage2_cave_rock.py の ARCH_HW と同じ）
     static float CaveBackS => sPlaza0 - 1.5f - 0.4f;   // 洞窟の奥の壁の外の面
     static void StartSet(Transform root)

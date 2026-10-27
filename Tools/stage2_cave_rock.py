@@ -144,6 +144,33 @@ bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 print('holes filled', len(holes), 'open edges left', sum(1 for e in bm.edges if e.is_boundary))
 bm.to_mesh(work.data); bm.free()
 
+# ---- 洞窟の中の天井をでこぼこに（2026-10-27 てじゃ「さいしょの洞窟の天井、なんか真っ二つにわれたような感じにみえる」）----
+# 前は Cut_Inside の上の面のまま、まっ平らな大きい多角形1枚で、三角形に分けた線が折れ目に見えた。
+# 天井の面を細かい三角形に分けて、上へだけ（岩の中へ）ノイズで持ち上げる（通り道はせまくならない）
+CEIL_AMP, CEIL_FREQ = 0.45, 0.9
+bm = bmesh.new(); bm.from_mesh(work.data)
+mb = bmesh.new(); mb.from_mesh(bpy.data.objects['Tmp_Cut_Inside'].data); in_tree = BVHTree.FromBMesh(mb); mb.free()
+def on_inside_ceil(f):
+    d = in_tree.find_nearest(f.calc_center_median())[3]
+    return f.normal.z < -0.7 and d is not None and d < 2e-3
+bm.normal_update()
+ceil = [f for f in bm.faces if on_inside_ceil(f)]
+print('inside ceiling faces', len(ceil), 'area', round(sum(f.calc_area() for f in ceil), 2))
+if ceil:
+    res = bmesh.ops.triangulate(bm, faces=ceil, quad_method='BEAUTY', ngon_method='BEAUTY')
+    for _ in range(4):
+        bm.normal_update()
+        ceil = [f for f in bm.faces if on_inside_ceil(f)]
+        edges = list({e for f in ceil for e in f.edges if e.calc_length() > 0.35})
+        if not edges: break
+        bmesh.ops.subdivide_edges(bm, edges=edges, cuts=1, use_grid_fill=True)
+        bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 3 and on_inside_ceil(f)])
+    bm.normal_update()
+    cv = {v for f in bm.faces if on_inside_ceil(f) for v in f.verts}
+    for v in cv: v.co.z += CEIL_AMP * (noise.noise(V3((v.co.x * CEIL_FREQ, v.co.y * CEIL_FREQ, 3.7))) * 0.5 + 0.5)
+    print('ceiling verts lifted', len(cv))
+bm.to_mesh(work.data); bm.free()
+
 # ---- 洞窟の口・溝の斜面に歪み（岩の中の向きへだけ。通り道はせまくならない）----
 bm = bmesh.new(); bm.from_mesh(work.data)
 mtrees = []
