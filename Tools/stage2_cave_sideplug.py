@@ -87,11 +87,7 @@ for sx in (1, -1):
     c = base.copy(); c.data = base.data.copy(); c.name = 'Plug_Corner' + str(sx); sc.collection.objects.link(c); c.hide_set(False)
     # 角の中には ほかの切り抜き（溝など）はかからないので、引き算はしない（溝の型とかすって形がこわれた）
     mm = c.modifiers.new('i', 'BOOLEAN'); mm.operation = 'INTERSECT'; mm.solver = 'EXACT'; mm.object = cc; apply(c, mm)
-    # ふたの横の面（角の外の四角の辺＝前の岩の中）は消す。丸い面・上の面は残す
-    cb = bmesh.new(); cb.from_mesh(c.data)
-    outer = [f for f in cb.faces if (abs(abs(f.calc_center_median().x) - (POOL_X + GROW)) < 1e-3 or abs(f.calc_center_median().y - (POOL_Y + GROW)) < 1e-3)]
-    bmesh.ops.delete(cb, geom=outer, context='FACES')
-    cb.to_mesh(c.data); cb.free(); c.data.update()
+    # ふたの横の面（角の外の四角の辺＝前の岩の中）は残す（消すと、ふたの上の面と前の岩の上の面のつなぎ目にすき間の線が見えた）
     cc.hide_set(True)
     # 前の岩の池の壁で、角の中（ふたの中）に入る所を消す。壁は大きな多角形なので、角の始まりの面で切ってから。床は残す（ふたの中にうまる）
     bm = bmesh.new(); bm.from_mesh(o.data)
@@ -136,6 +132,11 @@ for sx in (1, -1):
     print('exit', sx, 'fill verts', len(c.data.vertices))
     corners.append(c)
 
+# 角・出口のふたの上の面を少しだけ上げて、前の岩の上の面にかぶせる（同じ高さだと、つなぎ目にすき間の線が見えた）
+for c in corners:
+    for v in c.data.vertices:
+        if v.co.z > 6.0: v.co.z += 0.008
+    c.data.update()
 pl.data.materials.clear(); pl.data.materials.append(o.data.materials[0]); pl.data.materials.append(o.data.materials[1])
 for c in corners:
     c.data.materials.clear(); c.data.materials.append(o.data.materials[0]); c.data.materials.append(o.data.materials[1])
@@ -149,6 +150,33 @@ for x in sc.objects: x.select_set(False)
 for c in corners: c.select_set(True)
 pl.select_set(True); o.hide_set(False); o.select_set(True); bpy.context.view_layer.objects.active = o
 bpy.ops.object.join()
+# ---- 洞窟の口（滝側の出口 Cut_Mouth・脇道 Cut_Side・入口 Cut_Arch）のまっすぐな角の線に少し歪みをつける（2026-10-27 てじゃ「角っとしてるラインを、ちょっと歪みをつけていこう」）----
+# 口の面を細かく分けて、頂点を岩の中の向き（口が広がる向き）へだけノイズで動かす（通り道はせまくならない）
+from mathutils import noise, Vector as V3
+bm = bmesh.new(); bm.from_mesh(o.data)
+mtrees = []
+for n in ('Cut_Mouth', 'Cut_Arch'):   # 脇道（Cut_Side）は天井のふたとすき間ができるので動かさない
+    mb = bmesh.new(); mb.from_mesh(bpy.data.objects[n].data); mb.transform(bpy.data.objects[n].matrix_world); mtrees.append(BVHTree.FromBMesh(mb)); mb.free()
+def on_mouth(p): return any(t.find_nearest(p)[3] is not None and t.find_nearest(p)[3] < 2e-3 for t in mtrees)
+mf = [f for f in bm.faces if on_mouth(f.calc_center_median())]
+edges = list({e for f in mf for e in f.edges if e.calc_length() > 0.25})
+for _ in range(3):
+    if not edges: break
+    res = bmesh.ops.subdivide_edges(bm, edges=edges, cuts=1, use_grid_fill=False)
+    mf = [f for f in bm.faces if on_mouth(f.calc_center_median())]
+    edges = list({e for f in mf for e in f.edges if e.calc_length() > 0.25})
+bm.normal_update()
+mv = {}
+for f in bm.faces:
+    if on_mouth(f.calc_center_median()):
+        for v in f.verts: mv.setdefault(v, V3()); mv[v] -= f.normal   # 岩の中の向き（口の面は通り道の側を向いている）
+moved = 0
+for v, d in mv.items():
+    if d.length < 1e-6: continue
+    amt = 0.24 * (noise.noise(v.co * 1.8) * 0.5 + 0.5)
+    v.co += d.normalized() * amt; moved += 1
+bm.to_mesh(o.data); bm.free(); o.data.update()
+print('mouth verts moved', moved)
 # 面を材質の順に（FBX のサブメッシュの順番がずれないように）
 bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
 bpy.ops.mesh.sort_elements(type='MATERIAL', elements={'FACE'})

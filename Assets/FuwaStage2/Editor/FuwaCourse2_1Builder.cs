@@ -910,13 +910,18 @@ public static class FuwaCourse2_1Builder
         {
             // 岩山の後ろのはし（溝の所）：上から下へレイで探す代わりに、メッシュの頂点で一番後ろ（z が小さい）を見る
             float zBack = mesh2.vertices.Where(v => Mathf.Abs(v.x - x) < 0.35f && v.y > floor - 0.6f).Select(v => v.z).DefaultIfEmpty(b.min.z).Min();
-            var q = GameObject.CreatePrimitive(PrimitiveType.Quad); q.name = "BackFallChannel"; q.transform.SetParent(terr, false);
-            Object.DestroyImmediate(q.GetComponent<Collider>());
-            float z0 = -1.6f, len = z0 - zBack;
-            q.transform.localPosition = new Vector3(x, floor + 0.12f, (z0 + zBack) * 0.5f);
-            q.transform.localRotation = Quaternion.LookRotation(Vector3.down, Vector3.back);
-            q.transform.localScale = new Vector3(0.5f, len, 1f);
-            q.GetComponent<Renderer>().sharedMaterial = WaterMat(0.8f, false);
+            // 溝の水：池の側は池の水面のすぐ下から始めて（前は池の水面より上の高さで、池のはしで板のはしが浮いて見えた。2026-10-27 てじゃ）、
+            // 後ろのはし（こぼれる所）は溝の底の少し上へ下がる。幅も溝の形にあわせて、池の側は広く後ろは細く
+            var q = new GameObject("BackFallChannel"); q.transform.SetParent(terr, false);
+            float z0 = -1.45f, yA = SourceSurf - 0.005f, yB = floor + 0.12f;
+            var cm = new Mesh { name = "Course2_1_BackFallChannel" + (x < 0 ? "L" : "R") };
+            cm.SetVertices(new List<Vector3> { new Vector3(x - 0.45f, yA, z0), new Vector3(x + 0.45f, yA, z0), new Vector3(x + 0.25f, yB, zBack), new Vector3(x - 0.25f, yB, zBack) });
+            cm.SetUVs(0, new List<Vector2> { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) });
+            cm.SetTriangles(new[] { 0, 3, 2, 0, 2, 1 }, 0); cm.RecalculateNormals(); cm.RecalculateBounds();
+            if (Vector3.Dot(cm.normals[0], Vector3.up) < 0) { cm.SetTriangles(new[] { 0, 2, 3, 0, 1, 2 }, 0); cm.RecalculateNormals(); }
+            cm = Save(cm, MeshDir + "/BackFallChannel" + (x < 0 ? "L" : "R") + ".asset");
+            q.AddComponent<MeshFilter>().sharedMesh = cm;
+            q.AddComponent<MeshRenderer>().sharedMaterial = WaterMat(0.8f, false);
             FuwaStage2WaterTest.Waterfall(terr, "BackFall", new Vector3(x, 0, zBack), floor + 0.14f, -10f, 0.45f, Vector3.back);   // 下は岩山の下のとがりより下まで（空に落ちていく）
             // 見た目は溝の水からそのままふちをこぼれる膜に（2026-10-26 てじゃ「入口の手前の滝、上からみるときれてる」→ 前の筒の滝は上が開いていて、溝の水と離れて見えた）。霧・音は残す
             var bfs = terr.GetComponentsInChildren<Transform>(true).Where(t => t.name == "BackFall").ToList();
