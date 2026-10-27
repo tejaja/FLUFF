@@ -42,9 +42,15 @@ for n in [o.name for o in sc.objects if o.name.startswith(('Plug_', 'Corner_Cutt
     bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
 
 # ---- 型を直す ----
-side = copy_of('Cut_Side')
-low = prism('Tmp_SideLow', [(-20, -33), (20, -33), (20, 27), (-20, 27)], -10, CEIL)
-boolean(side, low, 'INTERSECT')
+# 脇道（ツタの穴）：橋の出ていく向き SIDE_D にまっすぐなめな穴（2026-10-27 てじゃ「穴とツタ自体を斜めに」）。前の Cut_Side（洞窟の向きの穴）は使わない。
+# Unity の (x, z)：ツタのまん中 SIDE_V、穴の向き SIDE_D、半分の幅 SIDE_HW（Unity の FuwaCourse2_1Builder.SideV / SideD / SideHW と同じ）。Blender は (-x, -z)
+SIDE_V, SIDE_D, SIDE_HW = (3.95, 3.89), (0.907, 0.422), 1.7
+_px, _pz = -SIDE_D[1], SIDE_D[0]
+def _u2b(x, z): return (-x, -z)
+_pin = (SIDE_V[0] - SIDE_D[0] * 5, SIDE_V[1] - SIDE_D[1] * 5); _pout = (SIDE_V[0] + SIDE_D[0] * 8, SIDE_V[1] + SIDE_D[1] * 8)
+side_ring = [_u2b(_pin[0] - _px * SIDE_HW, _pin[1] - _pz * SIDE_HW), _u2b(_pout[0] - _px * SIDE_HW, _pout[1] - _pz * SIDE_HW),
+             _u2b(_pout[0] + _px * SIDE_HW, _pout[1] + _pz * SIDE_HW), _u2b(_pin[0] + _px * SIDE_HW, _pin[1] + _pz * SIDE_HW)]
+side = prism('Tmp_Cut_Side', side_ring, 1.5, CEIL)
 
 pool = copy_of('Cut_Pool')
 for sx in (1, -1):

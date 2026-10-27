@@ -58,7 +58,7 @@ public static class FuwaCourse2_1Builder
     static float goalH, sBend0, sBend1, sFin1;   // ゴールの島の上の面、川のカーブの始まり・終わり、川の終わり（滝）
     static Vector2 goalC, goalD, walkP0; static float sWalkEnd;   // walkP0＝左岸の道のまっすぐな所の始まり（道の中心）、向きは goalD   // ゴールの島の中心・向き（入口の逆）、左岸の道の終わり
     // 洞窟：床＝StartH、天井の高さ CaveIn、壁の外側 CaveHW（道の幅6の外に厚み0.4）、口の半分の幅 MouthHW。上に屋根の板、その上が水源の池
-    public const float CaveIn = 2.6f, CaveHW = 3.4f, MouthHW = 1.7f, RoofT = 0.3f, SideGapLen = 3.4f, SideGapH = 2.4f;
+    public const float CaveIn = 2.6f, CaveHW = 3.4f, MouthHW = 1.7f, RoofT = 0.3f, SideGapLen = 4.03f, SideGapH = 2.4f;   // SideGapLen：右の壁の当たり判定のすき間（ななめの穴が壁を通る長さ。2026-10-27 3.4→4.03）
     public const float FallsReach = 1.6f;   // 滝が落ち口からどれだけ前に落ちるか(m)。2026-10-23 2.8→1.6（てじゃ「ちょと遠くてふわふわが届かないことがおおい」）
     public static float SourceSurf { get { return StartH + CaveIn + RoofT + 0.3f + WaterDepth; } }
 
@@ -144,7 +144,9 @@ public static class FuwaCourse2_1Builder
     static float b1WoodS0; static Func<float, float> b1OffF;
     // 迂回路の浮島：場所（中心線の s と横）、半径。BridgeIsland() で作る
     public static float BridgeIslandS = 8.0f, BridgeIslandLat = 9.6f, BridgeIslandR = 1.8f;   // 浮島（いまは使っていない）
-    public static float BridgeBendS = 9.0f, BridgeBendLat = 8.4f;   // 迂回路の木の橋の曲げ点（中心線の s と横）
+    public static float BridgeBendS = 9.5f, BridgeBendLat = 9.0f;
+    // ななめの脇道（ツタの穴）：ツタのまん中（root のローカル xz）、穴の向き、半分の幅。Tools/stage2_cave_rock.py の SIDE_V / SIDE_D / SIDE_HW と同じ
+    public static readonly Vector2 SideV = new Vector2(3.95f, 3.89f), SideD = new Vector2(0.907f, 0.422f).normalized; public const float SideHW = 1.7f;   // 迂回路の木の橋の曲げ点（中心線の s と横）
     static Vector2 bridgeIslandC; static float bridgeIslandH;
     static float sPlaza0, sPlaza1, sPool1, sRiver1, sPond0, sPond1, sTer0, sGoal0, sEnd;
     static float[] terA = new float[3], terB = new float[3];
@@ -167,6 +169,7 @@ public static class FuwaCourse2_1Builder
         public Func<float, float> woodAlign;
         // 板のはしを道のへりの線にそわせる（台形の板。曲がっている所で板のはしがギザギザに飛び出さない）
         public bool woodEdgeCut;
+        public bool collisionOnly;   // 当たり判定だけ（見た目は別に作る）
         // この横（中心線から）より内側には板を置かない（洞窟の床のはし。s が floorEdgeS1 より前だけ）
         public float floorEdge = float.NaN, floorEdgeS1;
         public float woodBeamS0 = float.NaN;
@@ -341,20 +344,23 @@ public static class FuwaCourse2_1Builder
         {
             float gA2 = sPlaza1 - 0.4f - SideGapLen;
             Vector2 CL2(float s, float lat) { Center(s, out var p, out var d); return p + Right(d) * lat; }
-            var A = CL2(gA2 + 0.3f, 1.5f); var Pm = CL2(BridgeBendS, BridgeBendLat);
+            // 2026-10-27 てじゃ「穴とツタ自体を斜めに」：橋はツタのカーテンの線（SideV、SideD に直角）からまっすぐ始まる。3次ベジェ（ツタ → SideD の向きに出る → 曲げ点 → E）
+            //「木の道も若干外よりに」→ 曲げ点を外へ
+            var A = SideV; var P1 = SideV + SideD * 2.5f; var Pm = CL2(BridgeBendS, BridgeBendLat);
             float sE = sCross1 - CrossGap * 0.5f; var E = CL2(sE, bankOff(sE));
-            Vector2 Bz(float t) => (1 - t) * (1 - t) * A + 2 * (1 - t) * t * Pm + t * t * E;
+            Vector2 Bz(float t) { float a = 1 - t; return a * a * a * A + 3 * a * a * t * P1 + 3 * a * t * t * Pm + t * t * t * E; }
             // 長さの表（u＝はじめからの長さ → t）
             var tu = new List<float> { 0f }; var tt = new List<float> { 0f };
             for (int k = 1; k <= 400; k++) { float t2 = k / 400f; tu.Add(tu[k - 1] + (Bz(t2) - Bz((k - 1) / 400f)).magnitude); tt.Add(t2); }
             float Lb = tu[400];
             Func<float, Vector2> At = u => { int k = 1; while (k < 400 && tu[k] < u) k++; return Bz(Mathf.Lerp(tt[k - 1], tt[k], Mathf.InverseLerp(tu[k - 1], tu[k], u))); };
-            // 高さ：洞窟を出るまでは床の高さ、そこから渡り場まで同じ傾き
-            float uOut = 0f; Center(sPlaza1, out var mp, out var md);
-            for (float u = 0f; u < Lb; u += 0.05f) if (Vector2.Dot(At(u) - mp, md) > 0.3f) { uOut = u; break; }
+            // 高さ：岩の穴を出るまで（ツタから 2.6m）は床の高さ、そこから渡り場まで同じ傾き
+            float uOut = 2.6f;
             float hA = StartH - 0.01f, hE = BankTop - 0.01f;
             pieces.Add(new Piece { name = "B1_Bridge", s0 = 0f, s1 = Lb, off = s => 0f, at = At, w = s => 3f, h = u => u <= uOut ? hA : Mathf.Lerp(hA, hE, (u - uOut) / (Lb - uOut)),
-                round0 = false, wood = true, woodEdgeCut = true, floorEdge = 3f, floorEdgeS1 = sPlaza1, woodBeamS0 = uOut + 1.2f });
+                round0 = false, wood = true, woodEdgeCut = true, woodBeamS0 = uOut + 1.2f });
+            // 洞窟の床からツタまでの当たり判定（見た目は SideAlcoveFloor）
+            pieces.Add(new Piece { name = "B1_Alcove", s0 = 0f, s1 = 2.4f, off = s => 0f, at = u => SideV - SideD * (2.4f - u), w = s => SideHW * 2f, h = s => StartH, round0 = false, round1 = false, collisionOnly = true });
         }
         pieces.Add(new Piece { name = "B2_Bank", s0 = sCross1 + CrossGap * 0.5f, s1 = sCross2 - CrossGap * 0.5f, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b3t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
@@ -400,7 +406,7 @@ public static class FuwaCourse2_1Builder
         var visPieces = new List<Piece>();
         foreach (var pc in pieces)
         {
-            if (pc.wood) continue;
+            if (pc.wood || pc.collisionOnly) continue;
             if (pc.name != "M1_Start" || true) { visPieces.Add(pc); continue; }   // 2026-10-27 床を切る案はやめ（木は床のはしの外だけ＝下の WoodWalk の floorEdge）
             float cut = b1WoodS0;
             // 木の道の内側のへり（道に直角の断面の -1.5 の点）を、中心線の (s, 横) にうつした表。床の右のへりをそれに合わせる
@@ -500,13 +506,12 @@ public static class FuwaCourse2_1Builder
         Sweep(terr, "CaveMouthL", gapB, sPlaza1, s => -3f, s => -MouthHW, s => wallB, s => cIn, ground, 0, true);
         Sweep(terr, "CaveMouthR", gapB, sPlaza1, s => MouthHW, s => CaveHW, s => wallB, s => cIn, ground, 0, true);
         Sweep(terr, "CaveRoof", cs0 - 0.4f, sPlaza1, s => -CaveHW, s => CaveHW, s => cIn, s => cIn + RoofT, ground, 0, true);
-        // 脇道のツタのカーテン：右の壁のすき間いっぱい（2026-10-22 てじゃ「入口のクモの巣もこれにすれば分かるか」→ ラストの滝の左とそろえる）
+        // 脇道のツタのカーテン：ななめの穴の中、橋の向き（SideD）に直角（2026-10-27 てじゃ「穴とツタ自体を斜めに」）
         {
-            float gm = (gapA + gapB) * 0.5f;
-            Center(gm, out var wp, out var wd); var wr = Right(wd);
-            var wq = wp + wr * (3f + (CaveHW - 3f) * 0.5f);
-            VineCurtain(root, "SideVines", new Vector3(wq.x, StartH + SideGapH, wq.y), new Vector3(wd.x, 0, wd.y), gapB - gapA, SideGapH, 2101);
+            var across = new Vector2(-SideD.y, SideD.x);
+            VineCurtain(root, "SideVines", new Vector3(SideV.x, StartH + SideGapH, SideV.y), new Vector3(across.x, 0, across.y), SideHW * 2f, SideGapH, 2101);
         }
+        SideAlcoveFloor(root, pathA, pathB);
         // 洞窟の見た目は Blender の岩山（箱の壁は当たり判定だけ残す）
         CaveRock(root, terr);
         // ① の滝：水源の池から、洞窟の口の前を下の池へ
@@ -2938,6 +2943,50 @@ public static class FuwaCourse2_1Builder
         var to = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaTopOut>(top); if (to) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(to); NoSync(to); }
         GameObjectUtility.SetStaticEditorFlags(top, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic);
         GameObjectUtility.SetStaticEditorFlags(under, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic);
+    }
+
+    // 洞窟の床のはし（横 3m）から、ななめの穴の中のツタの線までの青い床（見た目だけ。当たり判定は B1_Alcove）。縞は洞窟の床（M1）とそろえる
+    static void SideAlcoveFloor(Transform root, Material a, Material b)
+    {
+        var across = new Vector2(-SideD.y, SideD.x);
+        Vector2 back0 = SideV - across * SideHW, front0 = SideV + across * SideHW;
+        // 穴のへり（SideD の向きの線）と床のはし x=3 の交わり（ここは中心線が z 方向にまっすぐ＝横＝x）
+        Vector2 OnEdge(Vector2 q) => q + SideD * ((3f - q.x) / SideD.x);
+        var poly = new List<Vector2> { OnEdge(back0), back0, front0, OnEdge(front0) };
+        float s0 = sPlaza0 - 1.5f;
+        var V = new List<Vector3>(); var TA = new List<int>(); var TB = new List<int>();
+        float zMin = poly.Min(q => q.y), zMax = poly.Max(q => q.y);
+        int k0 = Mathf.FloorToInt((zMin - s0) / Stripe), k1 = Mathf.FloorToInt((zMax - s0) / Stripe);
+        for (int k = k0; k <= k1; k++)
+        {
+            float za = s0 + k * Stripe, zb = za + Stripe;
+            // 帯 za..zb で多角形を切る
+            var c = ClipZ(ClipZ(poly, za, true), zb, false);
+            if (c.Count < 3) continue;
+            int bi = V.Count; foreach (var q in c) V.Add(new Vector3(q.x, StartH, q.y));
+            var list = (k % 2 + 2) % 2 == 0 ? TA : TB;
+            for (int i = 1; i < c.Count - 1; i++) AddTriDir(V, list, bi, bi + i, bi + i + 1, Vector3.up);
+        }
+        var m = new Mesh { name = "Course2_1_SideAlcoveFloor" };
+        m.SetVertices(V); m.subMeshCount = 2; m.SetTriangles(TA, 0); m.SetTriangles(TB, 1);
+        m.SetUVs(0, V.Select(v => new Vector2(v.x, v.z)).ToList()); m.RecalculateNormals(); m.RecalculateBounds();
+        m = Save(m, MeshDir + "/SideAlcoveFloor.asset");
+        var go = new GameObject("SideAlcoveFloor"); go.transform.SetParent(root, false); go.layer = 11;
+        go.AddComponent<MeshFilter>().sharedMesh = m; go.AddComponent<MeshRenderer>().sharedMaterials = new[] { a, b };
+        GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic);
+    }
+    // 多角形を z = z0 の線で切る（keepAbove＝z0 より大きい側を残す）
+    static List<Vector2> ClipZ(List<Vector2> poly, float z0, bool keepAbove)
+    {
+        var o = new List<Vector2>();
+        for (int i = 0; i < poly.Count; i++)
+        {
+            var p = poly[i]; var q = poly[(i + 1) % poly.Count];
+            bool pin = keepAbove ? p.y >= z0 : p.y <= z0, qin = keepAbove ? q.y >= z0 : q.y <= z0;
+            if (pin) o.Add(p);
+            if (pin != qin) o.Add(Vector2.Lerp(p, q, (z0 - p.y) / (q.y - p.y)));
+        }
+        return o;
     }
 
     static void WoodWalk(Transform root, List<Piece> pieces)
