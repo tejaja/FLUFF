@@ -142,6 +142,9 @@ public static class FuwaCourse2_1Builder
     public const float Cross1After = 6f, Cross2Before = 5f, CrossGap = 2.4f, GorgeLen = 5.5f, GorgeDrop = 10f;   // Cross2Before 8→5・川の終わり3m手前へ（2026-10-25 てじゃ「川のオワリの滝、もうちょい手前でいい」。2回目の渡り場の位置はそのまま）
     static float sCross1, sCross2;
     static float b1WoodS0; static Func<float, float> b1OffF;
+    // 迂回路の浮島：場所（中心線の s と横）、半径。BridgeIsland() で作る
+    public static float BridgeIslandS = 8.0f, BridgeIslandLat = 9.6f, BridgeIslandR = 1.8f;   // 滝つぼのふくらみの外を通るように（橋の下に水が来ない）
+    static Vector2 bridgeIslandC; static float bridgeIslandH;
     static float sPlaza0, sPlaza1, sPool1, sRiver1, sPond0, sPond1, sTer0, sGoal0, sEnd;
     static float[] terA = new float[3], terB = new float[3];
 
@@ -331,15 +334,29 @@ public static class FuwaCourse2_1Builder
         Func<float, float> b1Env = s => { float m = float.MinValue; for (int i = 0; i <= 12; i++) m = Mathf.Max(m, b1t(s + Mathf.Lerp(-2.5f, 2.5f, i / 12f))); return m; };
         var b1Near = Smoothed(b1t, 0.6f); var b1Far = Smoothed(b1Env, 2.5f);
         Func<float, float> b1off = s => Mathf.Lerp(b1Near(s), b1Far(s), Smooth01((s - sPlaza1 - 1.6f) / 2f));
-        // 洞窟の床から斜めに分かれる所から全部 木の足場（2026-10-27 てじゃ「この道、木製にしてみよ」「洞窟の床から、斜めに伸びた床全てを完全に木に」）。
-        // 洞窟の中は、分かれ道の所だけ青い床の見た目をなくして、木の床が同じ高さでぴったりはまる（てじゃ「差し込んだ感じ」→A。M1 の見た目は下の visPieces で右を切る）
-        b1WoodS0 = sPlaza1 - 0.4f - SideGapLen - 1.0f; b1OffF = b1off;
-        pieces.Add(new Piece { name = "B1_BankWood", s0 = sPlaza1 - 4.6f, s1 = sCross1 - CrossGap * 0.5f, off = b1off, w = s => 3f, h = b1h, round0 = false, wood = true,
-            woodS0 = b1WoodS0, woodLift = s => (StartH - b1h(s)) * (1f - Smooth01((s - sPlaza1) / 1.5f)),
-            // 洞窟の中〜ツタのすき間は、板を洞窟の向きに直角にそろえる（ななめの道に直角だと、板のはしがギザギザに並んで差し込んだ感じになった。2026-10-27 てじゃ）。
-            // 板のはしは道のへりの線で切る（平行四辺形の板）。外に出たら 2m かけて道に直角へ。桁は外に出てから
-            woodBeamS0 = sPlaza1 + 0.5f, woodEdgeCut = true, floorEdge = 3f, floorEdgeS1 = sPlaza1 });
-        // 木は洞窟の床のはし（3m）の外だけ＝ツタのすき間の中から（2026-10-27 てじゃ「もっとツタギリギリまで」。床とは床のはしのまっすぐな線でつながる）   // 板を洞窟の向きにそろえる案（woodAlign）は てじゃ「さっきよりへんかも」でやめた
+        // 迂回路を作り直し（2026-10-27 てじゃ「この端自体ちょっとつくりなおそうか」「もっと直線ぎみ、途中に浮島経由して角度を変える」）：
+        // 洞窟の床（右半分）→ ツタのすき間 → まっすぐな木の橋 → 小さい浮島 → まっすぐな木の橋 → 1回目の渡り場（右岸の道のおわり）
+        b1OffF = b1off;
+        {
+            float gA2 = sPlaza1 - 0.4f - SideGapLen;
+            Vector2 CL2(float s, float lat) { Center(s, out var p, out var d); return p + Right(d) * lat; }
+            var A = CL2(gA2 + 0.3f, 1.5f);
+            Center(BridgeIslandS, out var ip, out var idir); var I = ip + Right(idir) * BridgeIslandLat;
+            float sE = sCross1 - CrossGap * 0.5f; var E = CL2(sE, bankOff(sE));
+            var d1 = (I - A).normalized; var d2 = (E - I).normalized;
+            float L1 = (I - A).magnitude - BridgeIslandR + 0.25f, L2 = (E - I).magnitude - BridgeIslandR + 0.25f;
+            var A2 = I + d2 * (BridgeIslandR - 0.25f);
+            // 高さ：洞窟を出るまでは床の高さ、そこから渡り場まで同じ傾きで下る（浮島は途中の高さ）
+            float uOut = 0f; for (float u = 0f; u < L1; u += 0.05f) { var q = A + d1 * u; Center(sPlaza1, out var mp, out var md); if (Vector2.Dot(q - mp, md) > 0.3f) { uOut = u; break; } }
+            float run = (L1 - uOut) + 2f * BridgeIslandR + L2, hA = StartH - 0.01f, hE = BankTop - 0.01f;
+            float H1(float u) => u <= uOut ? hA : Mathf.Lerp(hA, hE, (u - uOut) / run);
+            bridgeIslandC = I; bridgeIslandH = H1(L1 + 0.25f - BridgeIslandR + BridgeIslandR);   // 島のまん中の高さ
+            float hI0 = H1(L1), hI1 = Mathf.Lerp(hA, hE, (L1 - uOut + 2f * BridgeIslandR - 0.5f) / run);
+            bridgeIslandH = (hI0 + hI1) * 0.5f;
+            pieces.Add(new Piece { name = "B1_Bridge1", s0 = 0f, s1 = L1, off = s => 0f, at = u => A + d1 * u, w = s => 3f, h = u => H1(u), round0 = false, round1 = false, wood = true,
+                woodEdgeCut = true, floorEdge = 3f, floorEdgeS1 = sPlaza1, woodBeamS0 = uOut + 1.2f });
+            pieces.Add(new Piece { name = "B1_Bridge2", s0 = 0f, s1 = L2, off = s => 0f, at = u => A2 + d2 * u, w = s => 3f, h = u => Mathf.Lerp(hI1, hE, u / L2), round0 = false, wood = true });
+        }
         pieces.Add(new Piece { name = "B2_Bank", s0 = sCross1 + CrossGap * 0.5f, s1 = sCross2 - CrossGap * 0.5f, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b3t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         // M2 谷の向こう → 蓮の池の手前（本道は水のふちの外側にぴったりつける。端は丸めない）
@@ -717,6 +734,7 @@ public static class FuwaCourse2_1Builder
         //（2026-10-21 作り直したあとワープが効かず、キノコからふわふわが出なかった）
         // 道と水の下の岩の土台（浮島の形）。道・水がそろってから、上から測って作る
         WoodWalk(root, woodPieces);
+        BridgeIsland(root);
         RockBases(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
@@ -2907,6 +2925,23 @@ public static class FuwaCourse2_1Builder
     // 板の上の面は道の高さ（当たり判定は PathMesh のまま）。ゴールへの道の終わりは、見た目だけ島の橋の板の下までのばす（道のはしのままだと すき間が見えた）
     const float GoalWoodLap = 0.35f;
     const float PlankPitch = 0.32f, PlankT = 0.09f, BeamW = 0.16f, BeamH = 0.18f, BeamIn = 0.22f;
+    // 迂回路の浮島（ゴールの島と同じ作りの小さい版：芝の丸い台＋下の岩）。台の上はふわふわが乗るとアウト（道と同じ FuwaTopOut）
+    static void BridgeIsland(Transform root)
+    {
+        var goal = root.Find("Goal"); var gg = goal ? goal.Find("GoalGround") : null; var gu = goal ? goal.Find("IslandUnder") : null;
+        if (!gg || !gu) { Debug.LogWarning("[2–1] 浮島の元（Goal の GoalGround / IslandUnder）がない"); return; }
+        var isl = new GameObject("BridgeIsland").transform; isl.SetParent(root, false);
+        isl.localPosition = new Vector3(bridgeIslandC.x, bridgeIslandH + 0.02f, bridgeIslandC.y);
+        float k = BridgeIslandR * 2f / gg.localScale.x;
+        var top = Object.Instantiate(gg.gameObject, isl, false); top.name = "Ground";
+        top.transform.localPosition = gg.localPosition; top.transform.localScale = new Vector3(gg.localScale.x * k, gg.localScale.y, gg.localScale.z * k);
+        var under = Object.Instantiate(gu.gameObject, isl, false); under.name = "Under";
+        under.transform.localPosition = new Vector3(0f, gu.localPosition.y, 0f); under.transform.localScale = gu.localScale * k;
+        var to = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaTopOut>(top); if (to) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(to); NoSync(to); }
+        GameObjectUtility.SetStaticEditorFlags(top, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic);
+        GameObjectUtility.SetStaticEditorFlags(under, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic);
+    }
+
     static void WoodWalk(Transform root, List<Piece> pieces)
     {
         var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color32>(); var T = new List<int>();
@@ -2964,8 +2999,9 @@ public static class FuwaCourse2_1Builder
                     if (!float.IsNaN(pc.floorEdge))
                     {
                         // 中心線からの横の位置
-                        float CL(Vector3 q) { float sc = SAt(i * pitch + 0.5f * pitch); Center(sc, out var cp, out var cd); var dq = new Vector2(q.x, q.z) - cp; float s2 = sc + Vector2.Dot(dq, cd); Center(s2, out cp, out cd); return Vector2.Dot(new Vector2(q.x, q.z) - cp, Right(cd)); }
-                        float SC(Vector3 q) { float sc = SAt(i * pitch + 0.5f * pitch); Center(sc, out var cp, out var cd); return sc + Vector2.Dot(new Vector2(q.x, q.z) - cp, cd); }
+                        // 中心線の (s, 横) へ：近い s をくりかえし寄せる（at の道は s が中心線の s ではないので）
+                        float SC(Vector3 q) { float sc = 4f; for (int it2 = 0; it2 < 6; it2++) { Center(sc, out var cp, out var cd); sc += Vector2.Dot(new Vector2(q.x, q.z) - cp, cd); } return sc; }
+                        float CL(Vector3 q) { Center(SC(q), out var cp, out var cd); return Vector2.Dot(new Vector2(q.x, q.z) - cp, Right(cd)); }
                         float fe = pc.floorEdge + 0.005f;
                         bool Inside(Vector3 q) => SC(q) < pc.floorEdgeS1 && CL(q) < fe;
                         // 左（内側）のはしを、床のはしの線まで右へ寄せる
