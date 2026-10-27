@@ -114,7 +114,7 @@ Shader "FuwaStage2/Water"
                 }
                 else if (_Radial > 0.5)
                 {
-                    // 湧き水から外へ：広がっていく波の輪（ところどころ切れる）と、外へ流れていく放射状の筋
+                    // 湧き水から外へ広がっていく波の輪（ところどころ切れる）
                     float2 dv = i.wp.xz - _RadialCenter.xy;
                     float r = length(dv);
                     float ang = (atan2(dv.y, dv.x) / 6.2831853 + 0.5) * 24.0;   // 0〜24 のマス
@@ -122,12 +122,10 @@ Shader "FuwaStage2/Water"
                     float wob = (NoiseWrapX(float2(ang * 0.5, r * 0.6), 12.0) - 0.5) * 0.35;
                     float ph = frac((r + wob) * 0.85 - t * 0.85);
                     float ring = smoothstep(0.0, 0.04, ph) * (1 - smoothstep(0.04, 0.11, ph));
-                    ring *= smoothstep(0.35, 0.55, NoiseWrapX(float2(ang, r * 0.5 - t * 0.6), 24.0));
+                    ring *= smoothstep(0.2, 0.4, NoiseWrapX(float2(ang, r * 0.5 - t * 0.6), 24.0));
                     ring *= smoothstep(0.25, 0.9, r);   // まん中（湧き水のふくらみ）は出さない
-                    // 放射状の筋：角度に細かく、外へ長くのびて流れる
-                    float n = NoiseWrapX(float2(ang * 1.5, (r - t * 1.6) * 0.45), 36.0) * 0.6 + NoiseWrapX(float2(ang * 2.0 + 5.0, (r - t * 2.1) * 0.6), 48.0) * 0.4;
-                    float streak = smoothstep(0.64, 0.74, n) * smoothstep(0.5, 1.5, r);
-                    col = lerp(col, _Foam.rgb, saturate(ring * 0.8 + streak * 0.6) * _StreakStrength);
+                    // 放射状の筋もあったが、波紋だけに（2026-10-27 てじゃ「波紋だけでもいいかも？」）
+                    col = lerp(col, _Foam.rgb, saturate(ring) * min(1, _StreakStrength * 1.5));
                 }
                 else
                 {
