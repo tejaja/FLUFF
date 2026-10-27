@@ -330,7 +330,7 @@ public static class FuwaCourse2_1Builder
             woodS0 = sPlaza1 - 0.4f - SideGapLen + 0.9f, woodLift = s => (StartH + WoodLift - b1h(s)) * (1f - Smooth01((s - sPlaza1) / 1.5f)),
             // 洞窟の中〜ツタのすき間は、板を洞窟の向きに直角にそろえる（ななめの道に直角だと、板のはしがギザギザに並んで差し込んだ感じになった。2026-10-27 てじゃ）。
             // 板のはしは道のへりの線で切る（平行四辺形の板）。外に出たら 2m かけて道に直角へ。桁は外に出てから
-            woodAlign = s => 1f - Smooth01((s - (sPlaza1 - 0.2f)) / 2f), woodBeamS0 = sPlaza1 + 0.5f });
+            woodBeamS0 = sPlaza1 + 0.5f });   // 板を洞窟の向きにそろえる案（woodAlign）は てじゃ「さっきよりへんかも」でやめた
         pieces.Add(new Piece { name = "B2_Bank", s0 = sCross1 + CrossGap * 0.5f, s1 = sCross2 - CrossGap * 0.5f, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b3t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         // M2 谷の向こう → 蓮の池の手前（本道は水のふちの外側にぴったりつける。端は丸めない）
