@@ -42,6 +42,7 @@ public static class FuwaCourse2_1Builder
     // ⑥ ラスト（2026-10-22 てじゃ「3連滝のあとに、強制で滝にぶつかるゾーン→そのまま流されてく、川はゴール横を直進、途中で打ち上げてゴールへ、
     // プレイヤーは川岸を走って追いかける」）。位置は滝の道の終わり（sF1）からの距離、高さは滝の道（FallsH）からの高さ
     const float FinLand = 3f;                                  // 踊り場（滝の道のあと、広め）
+    const float FinRoadEnd = 3.5f, WoodGap = 0.02f;            // 青い道の終わり（滝の膜の中）、青い道と木の足場のすき間
     const float FinCurtain = 3.7f, FinCurtainTop = 7f;         // よけられない滝のカーテンの位置と落ち口の高さ
     const float FinRiver0 = 3.5f, FinRiverSurf = -3f, FinRiverHW = 2.2f, FinRiverFlow = 1.2f;   // 下の川
     const float FinAfterBend = 8f;                             // カーブのあとの川の長さ（その先は滝）
@@ -152,6 +153,8 @@ public static class FuwaCourse2_1Builder
         public bool centerLat;
         // 中心線にそわない道（null でなければ、off のかわりにこの位置。曲がる川からまっすぐ離れていく道など）
         public Func<float, Vector2> at;
+        // 木の足場（見た目は WoodWalk の板。当たり判定は道と同じ PathMesh）
+        public bool wood;
     }
     class Water
     {
@@ -331,17 +334,23 @@ public static class FuwaCourse2_1Builder
         GoalSpot();
         pieces.Add(new Piece { name = "M4_FallsRoad", s0 = sF0, s1 = sF1, off = s => (Cut(s, -1f) - Cut(s, 1f)) * 0.5f, w = s => RoadW(s) - Cut(s, -1f) - Cut(s, 1f), h = s => FallsH, round0 = false, round1 = false, centerLat = true });
         // M5 踊り場 → M6 左の坂（川岸へ下りる）→ M7 左岸の道（人が走って追いかける）。川が右へ曲がる所から先は、まっすぐゴールの島の入口へ
-        pieces.Add(new Piece { name = "M5_Landing", s0 = sF1, s1 = sF1 + FinLand, off = s => -2f, w = s => 8.4f, h = s => FallsH, round0 = false, round1 = false });
-        pieces.Add(new Piece { name = "M6_Down", s0 = sF1 + FinLand, s1 = sF1 + FinDownEnd, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false });
-        pieces.Add(new Piece { name = "M7_LeftBank", s0 = sF1 + FinDownEnd, s1 = sBend0, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false });
+        // 2026-10-27 てじゃ「青い道が滝にまっすぐ続き、滝で途切れる。左側はそのままゴールまで木製の足場でつなぐ」
+        // → 青い道は滝の道の幅のまま滝の膜の中まで（FinRoadEnd）。左へ分かれる人の道（踊り場の左半分・坂・川岸・ゴールへの道）は木の足場
+        pieces.Add(new Piece { name = "M5_Landing", s0 = sF1, s1 = sF1 + FinRoadEnd, off = s => 0f, w = s => RoadHW * 2f, h = s => FallsH, round0 = false, round1 = false });
+        {
+            float a = -RoadHW - WoodGap, b = -FinRiverHW - FinWalkW;   // 青い道の左のへり（少しすき間）〜人の道の左のへり
+            pieces.Add(new Piece { name = "W5_Deck", s0 = sF1, s1 = sF1 + FinLand, off = s => (a + b) * 0.5f, w = s => a - b, h = s => FallsH, round0 = false, round1 = false, wood = true });
+        }
+        pieces.Add(new Piece { name = "M6_Down", s0 = sF1 + FinLand, s1 = sF1 + FinDownEnd, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false, wood = true });
+        pieces.Add(new Piece { name = "M7_LeftBank", s0 = sF1 + FinDownEnd, s1 = sBend0, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false, wood = true });
         {
             Center(sBend0, out var wp, out var wd); var wq = wp + Right(wd) * (-FinRiverHW - FinWalkW * 0.5f); float ws = sBend0;
-            pieces.Add(new Piece { name = "M8_ToGoal", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = WalkToGoalH, round0 = false, round1 = false });
+            pieces.Add(new Piece { name = "M8_ToGoal", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = WalkToGoalH, round0 = false, round1 = false, wood = true });
         }
         // 右岸のゴールの広場（M8_GoalPlaza）は 2026-10-23 にやめて、ゴールの島（GoalSet）に
 
         var pm = new GameObject("PathMesh"); pm.transform.SetParent(root, false); pm.layer = pathLayer;
-        var vis = new Mesh { name = "Course2_1Path_Bevel" }; BuildPathVisual(vis, pieces);
+        var vis = new Mesh { name = "Course2_1Path_Bevel" }; BuildPathVisual(vis, pieces.FindAll(p => !p.wood));
         var col = new Mesh { name = "Course2_1Path" }; BuildPathCollider(col, pieces);
         vis = Save(vis, MeshDir + "/Course2_1Path_Bevel.asset"); col = Save(col, MeshDir + "/Course2_1Path.asset");
         pm.AddComponent<MeshFilter>().sharedMesh = vis;
@@ -350,6 +359,7 @@ public static class FuwaCourse2_1Builder
         // 道の横の面にふわふわが当たってもアウトにしない（上に乗ったらアウト）。川から撃ち上げる時に道のふちにかすってアウト、をなくす
         //（2026-10-23 てじゃ「川から脱出するときに道の縁にあたってアウトになることあるかも」）
         { var to = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaTopOut>(pm); if (to) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(to); NoSync(to); } }
+        WoodWalk(root, pieces.FindAll(p => p.wood));
 
         // ---- 水 ----
         var fx = FuwaStage2WaterTest.MakeFx(root);
@@ -2681,6 +2691,94 @@ public static class FuwaCourse2_1Builder
     {
         var n = Vector3.Cross(V[b] - V[a], V[c] - V[a]);
         if (Vector3.Dot(n, want) >= 0) T.AddRange(new[] { a, b, c }); else T.AddRange(new[] { a, c, b });
+    }
+
+    // ---- 木の足場（2026-10-27）：ゴールの島の橋（WoodVC）と同じ作り＝頂点カラーの板を並べて、下に2本の桁。材質も同じ Den_Twig ----
+    // 板の上の面は道の高さ（当たり判定は PathMesh のまま）。ゴールへの道の終わりは、見た目だけ島の橋の板の下までのばす（道のはしのままだと すき間が見えた）
+    const float GoalWoodLap = 0.35f;
+    const float PlankPitch = 0.32f, PlankT = 0.09f, BeamW = 0.16f, BeamH = 0.18f, BeamIn = 0.22f;
+    static void WoodWalk(Transform root, List<Piece> pieces)
+    {
+        var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color32>(); var T = new List<int>();
+        var rnd = new System.Random(2701);
+        float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+        Color32 Wood(float r, bool under) { float k = under ? 0.8f : 1f; return new Color32((byte)(r * k), (byte)(r * 0.71f * k), (byte)(r * 0.47f * k), (byte)(under ? 204 : 255)); }
+        void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 n, Color32 col)
+        {
+            int i = V.Count; V.Add(a); V.Add(b); V.Add(c); V.Add(d);
+            for (int k = 0; k < 4; k++) { N.Add(n); C.Add(col); }
+            AddTriDir(V, T, i, i + 1, i + 2, n); AddTriDir(V, T, i, i + 2, i + 3, n);
+        }
+        // 箱：中心 c、軸 x/y/z（単位）、半分の大きさ e
+        void Box(Vector3 c, Vector3 x, Vector3 y, Vector3 z, Vector3 e, float r)
+        {
+            Vector3 P(float sx, float sy, float sz) => c + x * (e.x * sx) + y * (e.y * sy) + z * (e.z * sz);
+            Quad(P(-1, 1, -1), P(1, 1, -1), P(1, 1, 1), P(-1, 1, 1), y, Wood(r, false));
+            Quad(P(-1, -1, -1), P(-1, -1, 1), P(1, -1, 1), P(1, -1, -1), -y, Wood(r, true));
+            Quad(P(-1, -1, -1), P(-1, 1, -1), P(-1, 1, 1), P(-1, -1, 1), -x, Wood(r, false));
+            Quad(P(1, -1, -1), P(1, -1, 1), P(1, 1, 1), P(1, 1, -1), x, Wood(r, false));
+            Quad(P(-1, -1, 1), P(-1, 1, 1), P(1, 1, 1), P(1, -1, 1), z, Wood(r, false));
+            Quad(P(-1, -1, -1), P(1, -1, -1), P(1, 1, -1), P(-1, 1, -1), -z, Wood(r, false));
+        }
+        foreach (var pc in pieces)
+        {
+            float s0 = pc.s0, s1 = pc.name == "M8_ToGoal" ? pc.s1 + GoalWoodLap : pc.s1;
+            bool keepRight = pc.name == "W5_Deck";   // 右は青い道と接するので、板をはみ出させない
+            // 坂も含めた長さで板を等間隔に
+            var ss = new List<float>(); var dd = new List<float>();
+            int n = Mathf.Max(2, Mathf.CeilToInt((s1 - s0) / 0.05f));
+            for (int k = 0; k <= n; k++)
+            {
+                float s = Mathf.Lerp(s0, s1, k / (float)n); ss.Add(s);
+                dd.Add(k == 0 ? 0f : dd[k - 1] + (Point(pc, s, 0, 0) - Point(pc, ss[k - 1], 0, 0)).magnitude);
+            }
+            float len = dd[n];
+            float SAt(float d) { int k = 1; while (k < n && dd[k] < d) k++; return Mathf.Lerp(ss[k - 1], ss[k], Mathf.InverseLerp(dd[k - 1], dd[k], d)); }
+            int np = Mathf.Max(1, Mathf.RoundToInt(len / PlankPitch)); float pitch = len / np;
+            for (int i = 0; i < np; i++)
+            {
+                float s = SAt((i + 0.5f) * pitch), w = pc.w(s);
+                var t = Tangent3(pc, s); var x = Normal(pc, s, 1, 0); var y = Normal(pc, s, 0, 1);
+                float yaw = R(-0.8f, 0.8f) * Mathf.Deg2Rad; var tz = (t * Mathf.Cos(yaw) + x * Mathf.Sin(yaw)).normalized; var tx = Vector3.Cross(y, tz).normalized;
+                if (Vector3.Dot(tx, x) < 0) tx = -tx;
+                float eL = R(-0.01f, 0.06f), eR = keepRight ? R(-0.05f, -0.01f) : R(-0.01f, 0.06f);
+                var c = Point(pc, s, (eR - eL) * 0.5f, -PlankT * 0.5f + R(-0.006f, 0.004f));
+                Box(c, tx, y, tz, new Vector3(w * 0.5f + (eL + eR) * 0.5f, PlankT * 0.5f, (pitch - 0.03f) * 0.5f - R(0f, 0.015f)), R(140f, 190f));
+            }
+            // 桁：板の下に2本（左右のへりから BeamIn 内側）
+            foreach (var side in new[] { -1f, 1f })
+            {
+                float br = R(90f, 105f);
+                int m = Mathf.Max(1, Mathf.CeilToInt((s1 - s0) / 0.25f));
+                Vector3[] Ring(float s)
+                {
+                    float lat = side * (pc.w(s) * 0.5f - BeamIn);
+                    return new[] { Point(pc, s, lat - BeamW * 0.5f, -PlankT), Point(pc, s, lat + BeamW * 0.5f, -PlankT), Point(pc, s, lat + BeamW * 0.5f, -PlankT - BeamH), Point(pc, s, lat - BeamW * 0.5f, -PlankT - BeamH) };
+                }
+                var prev = Ring(s0);
+                Quad(prev[0], prev[1], prev[2], prev[3], -Tangent3(pc, s0), Wood(br, false));
+                for (int k = 1; k <= m; k++)
+                {
+                    float s = Mathf.Lerp(s0, s1, k / (float)m); var cur = Ring(s);
+                    for (int f = 0; f < 4; f++)
+                    {
+                        int g = (f + 1) % 4; var mid = (prev[f] + prev[g] + cur[f] + cur[g]) * 0.25f;
+                        var ctr = (prev[0] + prev[2] + cur[0] + cur[2]) * 0.25f;
+                        Quad(prev[f], prev[g], cur[g], cur[f], (mid - ctr).normalized, Wood(br, f == 2));
+                    }
+                    prev = cur;
+                }
+                Quad(prev[0], prev[1], prev[2], prev[3], Tangent3(pc, s1), Wood(br, false));
+            }
+        }
+        var mesh = new Mesh { name = "Course2_1WoodWalk" };
+        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        mesh.SetVertices(V); mesh.SetNormals(N); mesh.SetColors(C); mesh.SetTriangles(T, 0); mesh.RecalculateBounds();
+        mesh = Save(mesh, MeshDir + "/Course2_1WoodWalk.asset");
+        var go = new GameObject("WoodWalk"); go.transform.SetParent(root, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Generated/Den/Den_Twig.mat");
+        GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ReflectionProbeStatic);
     }
 
     static void BuildPathVisual(Mesh mesh, List<Piece> pieces)
