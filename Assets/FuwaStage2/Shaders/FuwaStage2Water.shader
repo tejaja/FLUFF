@@ -25,6 +25,10 @@ Shader "FuwaStage2/Water"
         _OpenDeep ("Shallow Water Center Color", Color) = (0.26, 0.66, 0.86, 1)
         _OpenShallow ("Shallow Water Edge Color", Color) = (0.58, 0.88, 0.95, 1)
         _OpenDeepWidth ("Shallow Water Edge→Center Width (m)", Float) = 2.0
+        // 止まった水の模様を、湧き水（_RadialCenter、ワールドの xz）から外へ広がる輪と筋に（2026-10-27 てじゃ「上の池の模様も、中心から外に広がるかんじに」）
+        [Toggle] _Radial ("Radial From Spring", Float) = 0
+        _RadialCenter ("Spring Center (world x, z)", Vector) = (0, 0, 0, 0)
+        _RadialSpeed ("Radial Speed (m/s)", Float) = 0.45
     }
     SubShader
     {
@@ -39,7 +43,8 @@ Shader "FuwaStage2/Water"
             #include "UnityCG.cginc"
 
             fixed4 _Deep, _Shallow, _Foam, _OpenDeep, _OpenShallow;
-            float _FoamWidth, _DeepWidth, _FlowSpeed, _StreakScale, _StreakStrength, _Sparkle, _Ribbon, _OpenFade, _OpenDeepWidth;
+            float _FoamWidth, _DeepWidth, _FlowSpeed, _StreakScale, _StreakStrength, _Sparkle, _Ribbon, _OpenFade, _OpenDeepWidth, _Radial, _RadialSpeed;
+            float4 _RadialCenter;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float4 rib : TEXCOORD1; float2 rib2 : TEXCOORD2; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wp : TEXCOORD1; float4 frame : TEXCOORD2; float4 rib : TEXCOORD4; float2 rs : TEXCOORD5; UNITY_FOG_COORDS(3) };
@@ -66,6 +71,14 @@ Shader "FuwaStage2/Water"
                 float2 i = floor(p), f = frac(p);
                 float2 u = f * f * (3 - 2 * f);
                 return lerp(lerp(Hash(i), Hash(i + float2(1, 0)), u.x), lerp(Hash(i + float2(0, 1)), Hash(i + float2(1, 1)), u.x), u.y);
+            }
+            // x の向きに per マスでくり返すノイズ（角度でつかう。ぐるっと一周しても継ぎ目が出ない）
+            float NoiseWrapX(float2 p, float per)
+            {
+                float2 i = floor(p), f = frac(p);
+                float2 u = f * f * (3 - 2 * f);
+                float i0 = fmod(i.x + per * 100, per), i1 = fmod(i.x + 1 + per * 100, per);
+                return lerp(lerp(Hash(float2(i0, i.y)), Hash(float2(i1, i.y)), u.x), lerp(Hash(float2(i0, i.y + 1)), Hash(float2(i1, i.y + 1)), u.x), u.y);
             }
 
             fixed4 frag (v2f i) : SV_Target
@@ -98,6 +111,23 @@ Shader "FuwaStage2/Water"
                     float n = Noise(p1) * 0.6 + Noise(p2) * 0.4;
                     float streak = smoothstep(0.62, 0.72, n);
                     col = lerp(col, _Foam.rgb, streak * _StreakStrength);
+                }
+                else if (_Radial > 0.5)
+                {
+                    // 湧き水から外へ：広がっていく波の輪（ところどころ切れる）と、外へ流れていく放射状の筋
+                    float2 dv = i.wp.xz - _RadialCenter.xy;
+                    float r = length(dv);
+                    float ang = (atan2(dv.y, dv.x) / 6.2831853 + 0.5) * 24.0;   // 0〜24 のマス
+                    float t = _Time.y * _RadialSpeed;
+                    float wob = (NoiseWrapX(float2(ang * 0.5, r * 0.6), 12.0) - 0.5) * 0.35;
+                    float ph = frac((r + wob) * 0.85 - t * 0.85);
+                    float ring = smoothstep(0.0, 0.04, ph) * (1 - smoothstep(0.04, 0.11, ph));
+                    ring *= smoothstep(0.35, 0.55, NoiseWrapX(float2(ang, r * 0.5 - t * 0.6), 24.0));
+                    ring *= smoothstep(0.25, 0.9, r);   // まん中（湧き水のふくらみ）は出さない
+                    // 放射状の筋：角度に細かく、外へ長くのびて流れる
+                    float n = NoiseWrapX(float2(ang * 1.5, (r - t * 1.6) * 0.45), 36.0) * 0.6 + NoiseWrapX(float2(ang * 2.0 + 5.0, (r - t * 2.1) * 0.6), 48.0) * 0.4;
+                    float streak = smoothstep(0.64, 0.74, n) * smoothstep(0.5, 1.5, r);
+                    col = lerp(col, _Foam.rgb, saturate(ring * 0.8 + streak * 0.6) * _StreakStrength);
                 }
                 else
                 {

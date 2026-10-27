@@ -987,6 +987,20 @@ public static class FuwaCourse2_1Builder
             SourceSurfaceToBasin(src0, go.GetComponent<MeshCollider>());
         }
         Spring(terr, new Vector3(0f, SourceSurf, 1.6f));
+        // 水源の池の模様は、湧き水から外へ広がる輪と筋（2026-10-27 てじゃ「上の池の模様も、中心から外に広がるかんじに」）。ほかの止まった水と材質を分ける
+        var srcSurf = src0 ? src0.Find("Surface") : null;
+        if (srcSurf)
+        {
+            const string sp = "Assets/FuwaStage2/Materials/Stage2_WaterRibbon_SourceRadial.mat";
+            var baseM = WaterMat(0f, true, false);
+            var rm = AssetDatabase.LoadAssetAtPath<Material>(sp);
+            if (!rm) { rm = new Material(baseM); AssetDatabase.CreateAsset(rm, sp); }
+            rm.CopyPropertiesFromMaterial(baseM);
+            var wc = terr.TransformPoint(new Vector3(0f, SourceSurf, 1.6f));
+            rm.SetFloat("_Radial", 1f); rm.SetVector("_RadialCenter", new Vector4(wc.x, wc.z, 0, 0));
+            EditorUtility.SetDirty(rm);
+            srcSurf.GetComponent<MeshRenderer>().sharedMaterial = rm;
+        }
         WaterOrb(terr, new Vector3(0f, SourceSurf, 1.6f));
         // ロビー側の細い滝：溝の水（池のふちから岩山の後ろのはしまで）＋落ちる滝
         var mesh2 = mesh; var b = mesh2.bounds;
