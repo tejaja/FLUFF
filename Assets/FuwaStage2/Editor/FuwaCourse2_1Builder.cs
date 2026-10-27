@@ -316,7 +316,10 @@ public static class FuwaCourse2_1Builder
         Func<float, float> b1Env = s => { float m = float.MinValue; for (int i = 0; i <= 12; i++) m = Mathf.Max(m, b1t(s + Mathf.Lerp(-2.5f, 2.5f, i / 12f))); return m; };
         var b1Near = Smoothed(b1t, 0.6f); var b1Far = Smoothed(b1Env, 2.5f);
         Func<float, float> b1off = s => Mathf.Lerp(b1Near(s), b1Far(s), Smooth01((s - sPlaza1) / 2f));
-        pieces.Add(new Piece { name = "B1_Bank", s0 = sPlaza1 - 4.6f, s1 = sCross1 - CrossGap * 0.5f, off = b1off, w = s => 3f, h = b1h, round0 = false });
+        // 洞窟を出た所から先は木の足場（2026-10-27 てじゃ「この道、木製にしてみよ」）。洞窟の中〜ツタのすき間は青い道のまま（洞窟の床と重なるので）
+        float b1Wood = sPlaza1 + 0.3f;
+        pieces.Add(new Piece { name = "B1_Bank", s0 = sPlaza1 - 4.6f, s1 = b1Wood, off = b1off, w = s => 3f, h = b1h, round0 = false, round1 = false });
+        pieces.Add(new Piece { name = "B1_BankWood", s0 = b1Wood, s1 = sCross1 - CrossGap * 0.5f, off = b1off, w = s => 3f, h = b1h, round0 = false, wood = true });
         pieces.Add(new Piece { name = "B2_Bank", s0 = sCross1 + CrossGap * 0.5f, s1 = sCross2 - CrossGap * 0.5f, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b3t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         // M2 谷の向こう → 蓮の池の手前（本道は水のふちの外側にぴったりつける。端は丸めない）
