@@ -16,8 +16,8 @@ Shader "FuwaStage2/WaterDecal"
     }
     SubShader
     {
-        // 水面（不透明）のあと、滝の膜（Transparent）より前
-        Tags { "Queue" = "Transparent-20" "RenderType" = "Transparent" "IgnoreProjector" = "True" }
+        // 滝の膜（Transparent、深さを書く厚い滝）のあと。前は滝より先に描いていて、滝の上の平らな所で泡が上書きされて消え、池とのさかい目が見えた（2026-10-27）
+        Tags { "Queue" = "Transparent+10" "RenderType" = "Transparent" "IgnoreProjector" = "True" }
         Cull Off
         ZWrite Off
         Offset -1, -1
@@ -100,7 +100,7 @@ Shader "FuwaStage2/WaterDecal"
                     float bw = _Band + 0.25 * (Noise(float2(x * 1.3, t * 0.4)) - 0.5);
                     float band = (1 - smoothstep(bw - 0.1, bw + 0.9, z)) * 0.12;
                     col = lerp(_Aerated.rgb, _Foam.rgb, saturate(streak + glow * 0.35));
-                    a = saturate(max(band, streak * 0.85 + glow * 0.55 + near * 0.12)) * side;
+                    a = saturate(max(band, streak * 0.5 + glow * 0.45 + near * 0.08)) * side;
                 }
                 fixed4 c = fixed4(col, a);
                 UNITY_APPLY_FOG(i.fogCoord, c);

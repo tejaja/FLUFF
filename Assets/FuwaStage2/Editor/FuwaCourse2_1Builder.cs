@@ -1000,6 +1000,7 @@ public static class FuwaCourse2_1Builder
             rm.SetFloat("_Radial", 1f); rm.SetVector("_RadialCenter", new Vector4(wc.x, wc.z, 0, 0));
             EditorUtility.SetDirty(rm);
             srcSurf.GetComponent<MeshRenderer>().sharedMaterial = rm;
+            var ptm = AssetDatabase.LoadAssetAtPath<Material>(FallsPondTopMat); if (ptm) PondLookToFallsTop(ptm);
         }
         WaterOrb(terr, new Vector3(0f, SourceSurf, 1.6f));
         // ロビー側の細い滝：溝の水（池のふちから岩山の後ろのはしまで）＋落ちる滝
@@ -1017,9 +1018,13 @@ public static class FuwaCourse2_1Builder
             cm.SetUVs(0, new List<Vector2> { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) });
             cm.SetTriangles(new[] { 0, 3, 2, 0, 2, 1 }, 0); cm.RecalculateNormals(); cm.RecalculateBounds();
             if (Vector3.Dot(cm.normals[0], Vector3.up) < 0) { cm.SetTriangles(new[] { 0, 2, 3, 0, 1, 2 }, 0); cm.RecalculateNormals(); }
+            // 池の水面と同じ材質・同じ uv（ふちの泡なし・同じ色・同じ波紋）にして、池からそのまま続く水に（2026-10-27 てじゃ「滝と水面の境目、もっときっちり繋ぐ」「細い滝の方も」：
+            // 前は別の水の板で、色がちがって まわりに白いふちの線が出ていた）
+            cm.SetUVs(1, Enumerable.Repeat(new Vector4(0f, 99f, 99f, 99f), 4).ToList()); cm.SetUVs(2, Enumerable.Repeat(Vector2.zero, 4).ToList());
             cm = Save(cm, MeshDir + "/BackFallChannel" + (x < 0 ? "L" : "R") + ".asset");
             q.AddComponent<MeshFilter>().sharedMesh = cm;
-            q.AddComponent<MeshRenderer>().sharedMaterial = WaterMat(0.8f, false);
+            var srcSurfMat = src0 && src0.Find("Surface") ? src0.Find("Surface").GetComponent<MeshRenderer>().sharedMaterial : WaterMat(0f, true, false);
+            q.AddComponent<MeshRenderer>().sharedMaterial = srcSurfMat;
             FuwaStage2WaterTest.Waterfall(terr, "BackFall", new Vector3(x, 0, zBack), floor + 0.14f, -10f, 0.45f, Vector3.back);   // 下は岩山の下のとがりより下まで（空に落ちていく）
             // 見た目は溝の水からそのままふちをこぼれる膜に（2026-10-26 てじゃ「入口の手前の滝、上からみるときれてる」→ 前の筒の滝は上が開いていて、溝の水と離れて見えた）。霧・音は残す
             var bfs = terr.GetComponentsInChildren<Transform>(true).Where(t => t.name == "BackFall").ToList();
@@ -1042,7 +1047,18 @@ public static class FuwaCourse2_1Builder
             for (int k = prof.Count - 2; k >= 2; k--) prof[k] = new Vector2(Mathf.Min(prof[k].x, prof[k + 1].x * 0.85f + prof[k].x * 0.15f), prof[k].y);
             for (int k = 3; k < prof.Count; k++) prof[k] = new Vector2(Mathf.Min(prof[k].x, prof[k - 1].x), prof[k].y);
             prof.Add(new Vector2(prof[prof.Count - 1].x, float.NaN));
-            LipFalls(terr, "BackFallLip" + (x < 0 ? "L" : "R"), "BackFallLip", lipB, outB, prof, -10f);
+            var lf = LipFalls(terr, "BackFallLip" + (x < 0 ? "L" : "R"), "BackFallLip", lipB, outB, prof, -10f);
+            // 落ち口の手前（prof[0]→prof[1] の 0.23m）は池と同じ見た目（大きい滝の _PondTop と同じ材質）
+            var ptm = AssetDatabase.LoadAssetAtPath<Material>(FallsPondTopMat);
+            if (ptm)
+            {
+                const string bp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_PondTopThin.mat";
+                var bm = AssetDatabase.LoadAssetAtPath<Material>(bp);
+                if (!bm) { bm = new Material(ptm); AssetDatabase.CreateAsset(bm, bp); }
+                bm.CopyPropertiesFromMaterial(ptm); bm.SetFloat("_PondTop", (prof[0] - prof[1]).magnitude);
+                EditorUtility.SetDirty(bm);
+                lf.GetComponent<MeshRenderer>().sharedMaterial = bm;
+            }
         }
     }
 
@@ -2907,13 +2923,13 @@ public static class FuwaCourse2_1Builder
         if (flatBack > 0f)
         {
             // 落ち口の手前の平らな所は池の水の色に（池から落ち口まで同じ水に見えるように。2026-10-27 てじゃ「落ち口ちょっときになる」：池と滝の上の面のさかい目が線に見えた）
-            const string pp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_PondTop.mat";
+            const string pp = FallsPondTopMat;
             var pm = AssetDatabase.LoadAssetAtPath<Material>(pp);
             if (!pm) { pm = new Material(mat); AssetDatabase.CreateAsset(pm, pp); }
             pm.CopyPropertiesFromMaterial(mat);
-            var pond = WaterMat(0f, true, false);
-            pm.SetFloat("_PondTop", lipLen); pm.SetColor("_PondColor", pond.GetColor("_Deep"));
-            EditorUtility.SetDirty(pm); mat = pm;
+            pm.SetFloat("_PondTop", lipLen);
+            PondLookToFallsTop(pm);
+            mat = pm;
         }
         var mr = cur.AddComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         // 押す箱：放物線を 0.8m ごとに区切って、膜にそわせる（箱の +Z＝外向き＝FuwaWaterfall が前へ押す向き）。下は滝つぼの水面の 0.35m 上まで
@@ -2943,6 +2959,18 @@ public static class FuwaCourse2_1Builder
         WaterDecal(g0, "LipFoam", lip + Vector3.up * 0.012f, -f, -hw, hw, 0f, LipDecalReach + flatBack, 1, hw, LipDecalReach + flatBack, new Color(0.72f, 0.93f, 0.99f), flatBack);
         if (bottom > -1f)
             WaterDecal(g0, "PoolFoam", new Vector3(land.x, bottom + 0.012f, land.z), f, -hw - SplashReach, hw + SplashReach, -thick * 0.5f - 1.2f, SplashReach * 1.6f, 0, hw, SplashReach, new Color(0.45f, 0.78f, 0.95f));
+    }
+    const string FallsPondTopMat = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_PondTop.mat";
+    // 滝の上の平らな所を、水源の池の水面と同じ見た目に（色・波紋・きらめきの値を池の材質からうつす。2026-10-27 てじゃ「滝と水面の境目、もっときっちり繋ぐ方法」）
+    static void PondLookToFallsTop(Material pm)
+    {
+        var pond = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_WaterRibbon_SourceRadial.mat");
+        if (!pond) pond = WaterMat(0f, true, false);
+        pm.SetColor("_PondColor", pond.GetColor("_Deep")); pm.SetColor("_PondFoam", pond.GetColor("_Foam"));
+        pm.SetFloat("_PondStreak", pond.GetFloat("_StreakStrength")); pm.SetFloat("_PondSparkle", pond.GetFloat("_Sparkle"));
+        pm.SetFloat("_PondRadial", pond.HasProperty("_Radial") ? pond.GetFloat("_Radial") : 0f);
+        pm.SetVector("_RadialCenter", pond.GetVector("_RadialCenter")); pm.SetFloat("_RadialSpeed", pond.GetFloat("_RadialSpeed"));
+        EditorUtility.SetDirty(pm);
     }
     public static float SplashReach = 3.2f, LipDecalReach = 2.6f;
     public static int UnderSmoothIter = 120; public static float UnderSmoothBack = 1.0f;   // 落ち口の裏の面をならす回数（多いほど丸みが大きい）

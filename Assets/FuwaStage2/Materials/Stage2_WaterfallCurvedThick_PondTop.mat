@@ -32,7 +32,11 @@ Material:
     - _Curved: 1
     - _EdgeFoam: 0.8
     - _FallSpeed: 3
+    - _PondRadial: 1
+    - _PondSparkle: 0.5
+    - _PondStreak: 0.55
     - _PondTop: 1.2769773
+    - _RadialSpeed: 0.45
     - _SideFade: 0
     - _StreakScale: 1.6
     - _UseVColor: 1
@@ -41,5 +45,7 @@ Material:
     - _Bottom: {r: 0.3, g: 0.66, b: 0.9, a: 1}
     - _Foam: {r: 0.96999997, g: 1, b: 1, a: 1}
     - _PondColor: {r: 0.25999993, g: 0.65999997, b: 0.86, a: 1}
+    - _PondFoam: {r: 0.96, g: 1, b: 1, a: 1}
+    - _RadialCenter: {r: -2.380925, g: 15.884367, b: 0, a: 0}
     - _Top: {r: 0.5, g: 0.84, b: 0.96, a: 1}
   m_BuildTextureStacks: []

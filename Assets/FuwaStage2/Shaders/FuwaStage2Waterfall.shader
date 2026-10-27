@@ -20,6 +20,13 @@ Shader "FuwaStage2/Waterfall"
         // 上のはしから _PondTop m（落ち口）までは池の水の色（落ち口の手前の平らな所。2026-10-27）
         _PondTop ("Pond Part From Top (m, 0=none)", Float) = 0
         _PondColor ("Pond Color", Color) = (0.26, 0.66, 0.86, 1)
+        // 池と同じ波紋・きらめき（池の材質と同じ値を builder が入れる）
+        [Toggle] _PondRadial ("Pond Radial Ripple", Float) = 0
+        _RadialCenter ("Spring Center (world x, z)", Vector) = (0, 0, 0, 0)
+        _RadialSpeed ("Radial Speed (m/s)", Float) = 0.45
+        _PondFoam ("Pond Foam Color", Color) = (0.96, 1, 1, 1)
+        _PondStreak ("Pond Streak Strength", Float) = 0.55
+        _PondSparkle ("Pond Sparkle", Float) = 0.5
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 0
         [Enum(Off, 0, On, 1)] _ZWrite ("ZWrite", Float) = 0
     }
@@ -38,12 +45,15 @@ Shader "FuwaStage2/Waterfall"
             #pragma fragment frag
             #pragma multi_compile_fog
             #include "UnityCG.cginc"
+            #include "FuwaStage2WaterCommon.cginc"
 
-            fixed4 _Top, _Bottom, _Foam, _PondColor;
+            fixed4 _Top, _Bottom, _Foam, _PondColor, _PondFoam;
+            float4 _RadialCenter;
+            float _PondRadial, _RadialSpeed, _PondStreak, _PondSparkle;
             float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor, _PondTop;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; fixed4 color : COLOR; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; float ny : TEXCOORD4; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; float ny : TEXCOORD4; float3 wp : TEXCOORD5; };
 
             v2f vert (appdata v)
             {
@@ -56,16 +66,9 @@ Shader "FuwaStage2/Waterfall"
                 if (_Curved > 0.5) { o.size = v.tot; o.uv = v.m / max(v.tot, 0.001); }
                 o.color = _UseVColor > 0.5 ? v.color : fixed4(1, 1, 1, 1);
                 o.ny = UnityObjectToWorldNormal(v.normal).y;
+                o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
-            }
-
-            float Hash(float2 p) { return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
-            float Noise(float2 p)
-            {
-                float2 i = floor(p), f = frac(p);
-                float2 u = f * f * (3 - 2 * f);
-                return lerp(lerp(Hash(i), Hash(i + float2(1, 0)), u.x), lerp(Hash(i + float2(0, 1)), Hash(i + float2(1, 1)), u.x), u.y);
             }
 
             fixed4 frag (v2f i) : SV_Target
@@ -90,7 +93,11 @@ Shader "FuwaStage2/Waterfall"
                     float dT = (1 - i.uv.y) * i.size.y;
                     float pk = 1 - smoothstep(_PondTop - 0.1, _PondTop + 0.35, dT);
                     pk *= smoothstep(0.3, 0.7, i.ny);   // 上向きの面だけ（滝の裏から見える下向きの面は滝の色のまま。2026-10-27 てじゃ「滝の裏からみたとき上が違和感」）
-                    col = lerp(col, _PondColor.rgb, pk);
+                    // 池の水面と同じ計算の色（波紋・きらめき）。池の水面の続きに見えるように
+                    float3 pc = _PondColor.rgb;
+                    if (_PondRadial > 0.5) pc = lerp(pc, _PondFoam.rgb, RadialRipple(i.wp.xz, _RadialCenter.xy, _RadialSpeed) * min(1, _PondStreak * 1.5));
+                    pc = lerp(pc, _PondFoam.rgb, WaterSparkle(i.wp.xz) * _PondSparkle);
+                    col = lerp(col, pc, pk);
                     top = 0;
                 }
                 col = lerp(col, _Foam.rgb, saturate(top * 0.9 + bot));

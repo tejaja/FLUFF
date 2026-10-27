@@ -41,6 +41,7 @@ Shader "FuwaStage2/Water"
             #pragma fragment frag
             #pragma multi_compile_fog
             #include "UnityCG.cginc"
+            #include "FuwaStage2WaterCommon.cginc"
 
             fixed4 _Deep, _Shallow, _Foam, _OpenDeep, _OpenShallow;
             float _FoamWidth, _DeepWidth, _FlowSpeed, _StreakScale, _StreakStrength, _Sparkle, _Ribbon, _OpenFade, _OpenDeepWidth, _Radial, _RadialSpeed;
@@ -63,22 +64,6 @@ Shader "FuwaStage2/Water"
                 o.rib = v.rib; o.rs = v.rib2;
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
-            }
-
-            float Hash(float2 p) { return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
-            float Noise(float2 p)
-            {
-                float2 i = floor(p), f = frac(p);
-                float2 u = f * f * (3 - 2 * f);
-                return lerp(lerp(Hash(i), Hash(i + float2(1, 0)), u.x), lerp(Hash(i + float2(0, 1)), Hash(i + float2(1, 1)), u.x), u.y);
-            }
-            // x の向きに per マスでくり返すノイズ（角度でつかう。ぐるっと一周しても継ぎ目が出ない）
-            float NoiseWrapX(float2 p, float per)
-            {
-                float2 i = floor(p), f = frac(p);
-                float2 u = f * f * (3 - 2 * f);
-                float i0 = fmod(i.x + per * 100, per), i1 = fmod(i.x + 1 + per * 100, per);
-                return lerp(lerp(Hash(float2(i0, i.y)), Hash(float2(i1, i.y)), u.x), lerp(Hash(float2(i0, i.y + 1)), Hash(float2(i1, i.y + 1)), u.x), u.y);
             }
 
             fixed4 frag (v2f i) : SV_Target
@@ -115,16 +100,7 @@ Shader "FuwaStage2/Water"
                 else if (_Radial > 0.5)
                 {
                     // 湧き水から外へ広がっていく波の輪（ところどころ切れる）
-                    float2 dv = i.wp.xz - _RadialCenter.xy;
-                    float r = length(dv);
-                    float ang = (atan2(dv.y, dv.x) / 6.2831853 + 0.5) * 24.0;   // 0〜24 のマス
-                    float t = _Time.y * _RadialSpeed;
-                    float wob = (NoiseWrapX(float2(ang * 0.5, r * 0.6), 12.0) - 0.5) * 0.35;
-                    float ph = frac((r + wob) * 0.85 - t * 0.85);
-                    float ring = smoothstep(0.0, 0.04, ph) * (1 - smoothstep(0.04, 0.11, ph));
-                    ring *= smoothstep(0.2, 0.4, NoiseWrapX(float2(ang, r * 0.5 - t * 0.6), 24.0));
-                    ring *= smoothstep(0.25, 0.9, r);   // まん中（湧き水のふくらみ）は出さない
-                    // 放射状の筋もあったが、波紋だけに（2026-10-27 てじゃ「波紋だけでもいいかも？」）
+                    float ring = RadialRipple(i.wp.xz, _RadialCenter.xy, _RadialSpeed);
                     col = lerp(col, _Foam.rgb, saturate(ring) * min(1, _StreakStrength * 1.5));
                 }
                 else
@@ -136,11 +112,7 @@ Shader "FuwaStage2/Water"
                     col = lerp(col, _Foam.rgb, rip * _StreakStrength * 0.7);
                 }
                 // きらめき
-                float2 cell = floor(i.wp.xz * 5.0);
-                float h = Hash(cell);
-                float tw = saturate(sin(_Time.y * (1.5 + h * 2.0) + h * 40.0) * 8.0 - 7.0);
-                float2 f = frac(i.wp.xz * 5.0) - 0.5;
-                col = lerp(col, _Foam.rgb, tw * (1 - smoothstep(0.05, 0.2, length(f))) * _Sparkle * step(0.65, h));
+                col = lerp(col, _Foam.rgb, WaterSparkle(i.wp.xz) * _Sparkle);
                 // ふちの泡（場所と時間で太さがゆらぐ）
                 float fw = _FoamWidth * (0.7 + 0.3 * sin((along + across) * 3.0 + _Time.y * 1.2));
                 col = lerp(col, _Foam.rgb, 1 - smoothstep(fw * 0.5, fw, edge));
