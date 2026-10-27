@@ -530,7 +530,7 @@ public static class FuwaCourse2_1Builder
         { FuwaCourse2_1Builder.Center(sPlaza1, out var op, out var od); var olip = op + od * FallsReach;
           // 幅：上の平らな所が出口の壁から壁までになるように、丸い角のぶん外へふくらませる（角は壁の中にうまって、壁の下では外へ丸くふくらむ。
           // 2026-10-27 てじゃ「丸まってるのがいい、外側に膨らむように丸めて」。前は角が内側へ丸まって、角と壁のあいだにすき間が見えた）
-          CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.005f, 0f, startLipHW * 2f + 2f * Mathf.Min(startLipHW, 0.45f) * FuwaStage2WaterTest.FallsRound, Mathf.Max(0.5f, olip.y - startLipZ), 0.9f, new Vector2(0f, startLipZ), Vector2.up, startLipZ - startWaterEndZ); }   // 押す箱の幅も見た目の幅（はしに当てると押されずに岩に止まった。2026-10-27 てじゃ「ギリギリで当てると岩にあたって止まっちゃう」）   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
+          CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.005f, 0f, startLipHW * 2f + 2f * Mathf.Min(startLipHW, 0.45f) * FuwaStage2WaterTest.FallsRound, Mathf.Max(0.5f, olip.y - startLipZ), 0.9f, new Vector2(0f, startLipZ), Vector2.up, startLipZ - startWaterEndZ + 0.25f); }   // +0.25：滝の上の面を池の水面の下へ少し重ねる（さかい目にすき間の線が見えた。2026-10-27）   // 押す箱の幅も見た目の幅（はしに当てると押されずに岩に止まった。2026-10-27 てじゃ「ギリギリで当てると岩にあたって止まっちゃう」）   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
         // ⑥ ラスト：よけられない滝、下の川、右岸のゴールの広場
         Finale(root, terr, ground, bedMat, fx, splash);
 
@@ -2850,6 +2850,17 @@ public static class FuwaCourse2_1Builder
         var cur = new GameObject("Curtain"); cur.transform.SetParent(g0, false);
         cur.AddComponent<MeshFilter>().sharedMesh = mesh;
         var mat = FuwaStage2WaterTest.WaterfallThickMat(true);
+        if (flatBack > 0f)
+        {
+            // 落ち口の手前の平らな所は池の水の色に（池から落ち口まで同じ水に見えるように。2026-10-27 てじゃ「落ち口ちょっときになる」：池と滝の上の面のさかい目が線に見えた）
+            const string pp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_PondTop.mat";
+            var pm = AssetDatabase.LoadAssetAtPath<Material>(pp);
+            if (!pm) { pm = new Material(mat); AssetDatabase.CreateAsset(pm, pp); }
+            pm.CopyPropertiesFromMaterial(mat);
+            var pond = WaterMat(0f, true, false);
+            pm.SetFloat("_PondTop", vlen[2]); pm.SetColor("_PondColor", pond.GetColor("_Deep"));
+            EditorUtility.SetDirty(pm); mat = pm;
+        }
         var mr = cur.AddComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         // 押す箱：放物線を 0.8m ごとに区切って、膜にそわせる（箱の +Z＝外向き＝FuwaWaterfall が前へ押す向き）。下は滝つぼの水面の 0.35m 上まで
         float seg = 0.8f; int ns = Mathf.Max(1, Mathf.CeilToInt(total / seg));

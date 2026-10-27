@@ -17,6 +17,9 @@ Shader "FuwaStage2/Waterfall"
         // 前・後ろ・横の面で閉じた形を、透けさせず手前の面だけ描く（Cull Back・ZWrite On・Alpha 1）。横の面は頂点カラーで少し暗く
         _SideFade ("Side Edge Fade (m, 0=none)", Float) = 0.12
         [Toggle] _UseVColor ("Multiply Vertex Color", Float) = 0
+        // 上のはしから _PondTop m（落ち口）までは池の水の色（落ち口の手前の平らな所。2026-10-27）
+        _PondTop ("Pond Part From Top (m, 0=none)", Float) = 0
+        _PondColor ("Pond Color", Color) = (0.26, 0.66, 0.86, 1)
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 0
         [Enum(Off, 0, On, 1)] _ZWrite ("ZWrite", Float) = 0
     }
@@ -36,8 +39,8 @@ Shader "FuwaStage2/Waterfall"
             #pragma multi_compile_fog
             #include "UnityCG.cginc"
 
-            fixed4 _Top, _Bottom, _Foam;
-            float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor;
+            fixed4 _Top, _Bottom, _Foam, _PondColor;
+            float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor, _PondTop;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; };
@@ -80,6 +83,14 @@ Shader "FuwaStage2/Waterfall"
                 float botN = Noise(float2(m.x * 2.6, m.y * 1.4 - _Time.y * 2.2)) * 0.65 + Noise(float2(m.x * 5.3 + 2.0, m.y * 2.5 - _Time.y * 3.1)) * 0.35;
                 float bh = _EdgeFoam * 1.5 * (0.6 + 0.9 * botN);
                 float bot = 1 - smoothstep(bh * 0.55, bh, i.uv.y * i.size.y);
+                if (_PondTop > 0.001)
+                {
+                    // 落ち口の手前は池の色、落ち口へ近づくと白い筋の滝の色へ。上のはし（池の下へもぐる所）の泡は出さない
+                    float dT = (1 - i.uv.y) * i.size.y;
+                    float pk = 1 - smoothstep(_PondTop - 0.1, _PondTop + 0.35, dT);
+                    col = lerp(col, _PondColor.rgb, pk);
+                    top = 0;
+                }
                 col = lerp(col, _Foam.rgb, saturate(top * 0.9 + bot));
                 // 左右のふちは少し薄く（厚みのある滝は横の面があるので薄くしない）
                 float side = _SideFade > 0.0001 ? smoothstep(0, _SideFade, min(i.uv.x, 1 - i.uv.x) * i.size.x) : 1;

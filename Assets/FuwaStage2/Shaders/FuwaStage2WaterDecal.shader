@@ -98,7 +98,7 @@ Shader "FuwaStage2/WaterDecal"
                     float glow = 1 - smoothstep(0.0, lipW, z);
                     // 落ち口の手前の平らな所（滝の上の面）と池の水面のさかい目をぼかす：その帯は明るい水色でおおって、池の側へなだらかに消す
                     float bw = _Band + 0.25 * (Noise(float2(x * 1.3, t * 0.4)) - 0.5);
-                    float band = (1 - smoothstep(bw - 0.1, bw + 0.9, z)) * 0.7;
+                    float band = (1 - smoothstep(bw - 0.1, bw + 0.9, z)) * 0.12;
                     col = lerp(_Aerated.rgb, _Foam.rgb, saturate(streak + glow * 0.35));
                     a = saturate(max(band, streak * 0.85 + glow * 0.55 + near * 0.12)) * side;
                 }
