@@ -141,6 +141,7 @@ public static class FuwaCourse2_1Builder
     // 川の終わりは崖の滝で、その先は谷（GorgeLen m、落ちたらアウト）。右岸の道は谷を小さい橋で越える
     public const float Cross1After = 6f, Cross2Before = 5f, CrossGap = 2.4f, GorgeLen = 5.5f, GorgeDrop = 10f;   // Cross2Before 8→5・川の終わり3m手前へ（2026-10-25 てじゃ「川のオワリの滝、もうちょい手前でいい」。2回目の渡り場の位置はそのまま）
     static float sCross1, sCross2;
+    static float b1WoodS0; static Func<float, float> b1OffF;
     static float sPlaza0, sPlaza1, sPool1, sRiver1, sPond0, sPond1, sTer0, sGoal0, sEnd;
     static float[] terA = new float[3], terB = new float[3];
 
@@ -160,6 +161,8 @@ public static class FuwaCourse2_1Builder
         public float woodS0 = float.NaN;
         // 板の向き（null＝道に直角）。中心線の右向きとの混ぜ具合 0〜1（1＝洞窟の向きに直角＝板がそろう）。桁を出しはじめる所（NaN＝s0）
         public Func<float, float> woodAlign;
+        // 板のはしを道のへりの線にそわせる（台形の板。曲がっている所で板のはしがギザギザに飛び出さない）
+        public bool woodEdgeCut;
         public float woodBeamS0 = float.NaN;
     }
     class Water
@@ -311,7 +314,8 @@ public static class FuwaCourse2_1Builder
             //（2026-10-27 てじゃ「この道が岩からはみ出してる」：前はすき間の手前から曲がりはじめて、道のはしが洞窟の壁から突き出ていた）
             float gA = sPlaza1 - 0.4f - SideGapLen;
             // まっすぐななめに（木の板がそろうように。2026-10-27）
-            if (s < sPlaza1) return Mathf.Lerp(1.4f, 4.7f, Mathf.Clamp01((s - (gA + 0.9f)) / (sPlaza1 - gA - 0.9f)));
+            // 1.5＝洞窟の床（幅6）の右半分ぴったり。曲がりはじめを洞窟の中へ早めて、ゆるい S 字に（曲がりの半径が道の半分の幅より小さいと、木の板が内側で重なって飛び出した）
+            if (s < sPlaza1) return Mathf.Lerp(1.5f, 4.7f, Smooth01((s - (gA - 1.4f)) / (sPlaza1 + 0.6f - (gA - 1.4f))));
             return Mathf.Max(Mathf.Lerp(4.7f, 3.4f, Smooth01((s - sPlaza1) / 6f)), WaterHW(Mathf.Min(s, sRiver1)) + RimW + 1.55f);
         };
         // 2026-10-25 道は 右岸(B1) → 1回目の渡り場 → 左岸(B2) → 2回目の渡り場 → 右岸(B3) → 谷を越えて本道（前は右岸 → 渡り場1つ → 左岸）
@@ -324,13 +328,13 @@ public static class FuwaCourse2_1Builder
         var b1Near = Smoothed(b1t, 0.6f); var b1Far = Smoothed(b1Env, 2.5f);
         Func<float, float> b1off = s => Mathf.Lerp(b1Near(s), b1Far(s), Smooth01((s - sPlaza1) / 2f));
         // 洞窟の床から斜めに分かれる所から全部 木の足場（2026-10-27 てじゃ「この道、木製にしてみよ」「洞窟の床から、斜めに伸びた床全てを完全に木に」）。
-        // 洞窟の中では板を床（M1）の上に WoodLift だけ持ち上げてのせる（同じ高さだと床とちらつく）。洞窟を出たら 1.5m かけて道の高さへ
-        const float WoodLift = 0.04f;
+        // 洞窟の中は、分かれ道の所だけ青い床の見た目をなくして、木の床が同じ高さでぴったりはまる（てじゃ「差し込んだ感じ」→A。M1 の見た目は下の visPieces で右を切る）
+        b1WoodS0 = sPlaza1 - 0.4f - SideGapLen - 1.6f; b1OffF = b1off;
         pieces.Add(new Piece { name = "B1_BankWood", s0 = sPlaza1 - 4.6f, s1 = sCross1 - CrossGap * 0.5f, off = b1off, w = s => 3f, h = b1h, round0 = false, wood = true,
-            woodS0 = sPlaza1 - 0.4f - SideGapLen + 0.9f, woodLift = s => (StartH + WoodLift - b1h(s)) * (1f - Smooth01((s - sPlaza1) / 1.5f)),
+            woodS0 = b1WoodS0, woodLift = s => (StartH - b1h(s)) * (1f - Smooth01((s - sPlaza1) / 1.5f)),
             // 洞窟の中〜ツタのすき間は、板を洞窟の向きに直角にそろえる（ななめの道に直角だと、板のはしがギザギザに並んで差し込んだ感じになった。2026-10-27 てじゃ）。
             // 板のはしは道のへりの線で切る（平行四辺形の板）。外に出たら 2m かけて道に直角へ。桁は外に出てから
-            woodBeamS0 = sPlaza1 + 0.5f });   // 板を洞窟の向きにそろえる案（woodAlign）は てじゃ「さっきよりへんかも」でやめた
+            woodBeamS0 = sPlaza1 + 0.5f, woodEdgeCut = true });   // 板を洞窟の向きにそろえる案（woodAlign）は てじゃ「さっきよりへんかも」でやめた
         pieces.Add(new Piece { name = "B2_Bank", s0 = sCross1 + CrossGap * 0.5f, s1 = sCross2 - CrossGap * 0.5f, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b3t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         // M2 谷の向こう → 蓮の池の手前（本道は水のふちの外側にぴったりつける。端は丸めない）
@@ -371,7 +375,29 @@ public static class FuwaCourse2_1Builder
         // 右岸のゴールの広場（M8_GoalPlaza）は 2026-10-23 にやめて、ゴールの島（GoalSet）に
 
         var pm = new GameObject("PathMesh"); pm.transform.SetParent(root, false); pm.layer = pathLayer;
-        var vis = new Mesh { name = "Course2_1Path_Bevel" }; BuildPathVisual(vis, pieces.FindAll(p => !p.wood));
+        // 見た目用：洞窟の床（M1）は、木の分かれ道の所から右を分かれ道の内側のへりで切る（当たり判定は元の M1 のまま）
+        var visPieces = new List<Piece>();
+        foreach (var pc in pieces)
+        {
+            if (pc.wood) continue;
+            if (pc.name != "M1_Start") { visPieces.Add(pc); continue; }
+            float cut = b1WoodS0;
+            // 木の道の内側のへり（道に直角の断面の -1.5 の点）を、中心線の (s, 横) にうつした表。床の右のへりをそれに合わせる
+            var wp = pieces.Find(q => q.name == "B1_BankWood"); var tS = new List<float>(); var tL = new List<float>();
+            for (float s2 = cut - 1f; s2 <= pc.s1 + 1.5f; s2 += 0.05f)
+            {
+                var q3 = Point(wp, s2, -1.5f, 0); Center(s2, out var cp, out var cd);
+                var dq = new Vector2(q3.x, q3.z) - cp; tS.Add(s2 + Vector2.Dot(dq, cd)); tL.Add(Vector2.Dot(dq, Right(cd)));
+            }
+            Func<float, float> right = s =>
+            {
+                int k = 1; while (k < tS.Count - 1 && tS[k] < s) k++;
+                return Mathf.Min(3f, Mathf.Lerp(tL[k - 1], tL[k], Mathf.InverseLerp(tS[k - 1], tS[k], s)) - 0.005f);
+            };
+            visPieces.Add(new Piece { name = "M1_StartA", s0 = pc.s0, s1 = cut, off = pc.off, h = pc.h, w = pc.w, round0 = false, round1 = false });
+            visPieces.Add(new Piece { name = "M1_StartB", s0 = cut, s1 = pc.s1, off = s => (right(s) - 3f) * 0.5f, h = pc.h, w = s => right(s) + 3f, round0 = false, round1 = pc.round1, centerLat = true });
+        }
+        var vis = new Mesh { name = "Course2_1Path_Bevel" }; BuildPathVisual(vis, visPieces);
         var col = new Mesh { name = "Course2_1Path" }; BuildPathCollider(col, pieces);
         vis = Save(vis, MeshDir + "/Course2_1Path_Bevel.asset"); col = Save(col, MeshDir + "/Course2_1Path.asset");
         pm.AddComponent<MeshFilter>().sharedMesh = vis;
@@ -2921,6 +2947,36 @@ public static class FuwaCourse2_1Builder
             {
                 float s = SAt((i + 0.5f) * pitch), w = pc.w(s);
                 var t = Tangent3(pc, s); var x = Normal(pc, s, 1, 0); var y = Normal(pc, s, 0, 1);
+                if (pc.woodEdgeCut)
+                {
+                    // 前後のはしの線（s ± 板の半分）それぞれで、道のへり ±w/2 の点をつなぐ台形。上下に厚み
+                    float sa = SAt(i * pitch + 0.015f), sb = SAt((i + 1) * pitch - 0.015f);
+                    float r0 = R(140f, 190f); var col = Wood(r0, false);
+                    var yy = y * (PlankT * 0.5f);
+                    Vector3 Pt(float ss2, float lat) => Point(pc, ss2, lat, lift(ss2) - PlankT * 0.5f);
+                    float wa = pc.w(sa) * 0.5f, wb = pc.w(sb) * 0.5f;
+                    var fL = Pt(sa, -wa); var fR = Pt(sa, wa); var bR = Pt(sb, wb); var bL = Pt(sb, -wb);
+                    // 岩で切る（はしが岩にささらないように）
+                    if (rockCol != null)
+                    {
+                        Vector3 Clip(Vector3 from, Vector3 to)
+                        {
+                            var wo = root.TransformPoint(from + y * 0.02f); var dir = root.TransformDirection(to - from); float len2 = dir.magnitude;
+                            if (len2 > 1e-4f && rockCol.Raycast(new Ray(wo, dir / len2), out var hh, len2)) return from + (to - from) * Mathf.Max(0f, (hh.distance - 0.03f) / len2);
+                            return to;
+                        }
+                        var cf = (fL + fR) * 0.5f; var cb = (bL + bR) * 0.5f;
+                        fL = Clip(cf, fL); fR = Clip(cf, fR); bL = Clip(cb, bL); bR = Clip(cb, bR);
+                    }
+                    var tz2 = ((bL + bR) - (fL + fR)).normalized;
+                    Quad(fL + yy, fR + yy, bR + yy, bL + yy, y, col);
+                    Quad(fL - yy, bL - yy, bR - yy, fR - yy, -y, Wood(r0, true));
+                    Quad(fL - yy, fR - yy, fR + yy, fL + yy, -tz2, col);
+                    Quad(bL - yy, bL + yy, bR + yy, bR - yy, tz2, col);
+                    Quad(fL - yy, fL + yy, bL + yy, bL - yy, -x, col);
+                    Quad(fR - yy, bR - yy, bR + yy, fR + yy, x, col);
+                    continue;
+                }
                 float al = pc.woodAlign != null ? Mathf.Clamp01(pc.woodAlign(s)) : 0f;
                 if (al > 0f)
                 {
