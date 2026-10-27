@@ -105,6 +105,36 @@ for sx in (1, -1):
     bm.to_mesh(o.data); bm.free(); o.data.update()
     corners.append(c)
 
+# ---- 池の出口の両わきを埋めて、池から出口へなめらかにすぼまる壁に（2026-10-27 てじゃ「岩と水の間の隙間がおかしい」）----
+# 前は出口の両わきが水面より低く削れていたり（Cut_ExitTop）、上から下まで抜けたすき間（Cut_ExitFront）があったりした。
+# 壁の内側は Unity の z（＝Blender の -y）で EX_Z0 の池の幅 EX_W0 から、EX_Z1 で滝の幅 EX_W1 にすぼまり、落ち口 EX_LIP までまっすぐ
+EX_Z0, EX_W0, EX_Z1, EX_W1, EX_LIP, EX_OUT = 5.4, 2.3, 6.2, 1.70, 6.766, 3.8
+def smooth01(t): t = min(1.0, max(0.0, t)); return t * t * (3 - 2 * t)
+for sx in (1, -1):
+    for n in ['Plug_Exit' + str(sx), 'Exit_Cutter' + str(sx)]:
+        x = bpy.data.objects.get(n)
+        if x: bpy.data.objects.remove(x, do_unlink=True)
+    ring = []
+    for k in range(17):
+        z = EX_Z0 + (EX_LIP - EX_Z0) * k / 16
+        w = EX_W0 + (EX_W1 - EX_W0) * smooth01((z - EX_Z0) / (EX_Z1 - EX_Z0))
+        ring.append((sx * w, -z))
+    ring += [(sx * EX_OUT, -EX_LIP), (sx * EX_OUT, -EX_Z0)]
+    bm = bmesh.new()
+    lo = [bm.verts.new((x, y, 1.0)) for x, y in ring]; hi = [bm.verts.new((x, y, 7.5)) for x, y in ring]
+    m = len(ring)
+    for i in range(m):
+        j = (i + 1) % m; bm.faces.new([lo[i], lo[j], hi[j], hi[i]])
+    bm.faces.new(lo); bm.faces.new(list(reversed(hi)))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new('Exit_Cutter' + str(sx)); bm.to_mesh(me); bm.free()
+    ec = bpy.data.objects.new('Exit_Cutter' + str(sx), me); sc.collection.objects.link(ec)
+    c = base.copy(); c.data = base.data.copy(); c.name = 'Plug_Exit' + str(sx); sc.collection.objects.link(c); c.hide_set(False)
+    mm = c.modifiers.new('i', 'BOOLEAN'); mm.operation = 'INTERSECT'; mm.solver = 'EXACT'; mm.object = ec; apply(c, mm)
+    ec.hide_set(True)
+    print('exit', sx, 'fill verts', len(c.data.vertices))
+    corners.append(c)
+
 pl.data.materials.clear(); pl.data.materials.append(o.data.materials[0]); pl.data.materials.append(o.data.materials[1])
 for c in corners:
     c.data.materials.clear(); c.data.materials.append(o.data.materials[0]); c.data.materials.append(o.data.materials[1])

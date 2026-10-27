@@ -871,6 +871,7 @@ public static class FuwaCourse2_1Builder
     // 形は Blender（FLUFF_models.blend の Stage2Cave シーン、Stage2_CaveRock。CaveRock を Cut_* でくりぬく）で、座標はコースのローカルそのまま。
     // 箱の壁（CaveWall*・CaveBack*・CaveMouth*・CaveRoof・CaveFloorCliff・CaveDoorSill）は見た目だけ消して当たり判定は残す。岩山にも当たり判定（メッシュ）
     static float startLipZ, startLipHW = MouthHW, startWaterEndZ;
+    const float ExitStripZ0 = 4.6f, ExitWaterEndZ = 6.2f;   // 水源の池の出口の水面の帯の始まり、終わり（Blender の出口の壁がまっすぐになる所 EX_Z1 と同じ）
     const string CaveRockModel = "Assets/FuwaStage2/Models/Stage2_CaveRock.fbx";
     // ロビー側の細い滝（岩山のてっぺんの溝 Cut_FallL/R）：x・溝の底の高さ
     static readonly (float x, float floor)[] BackFalls = { (-1.45f, 5.45f), (1.8f, 5.55f) };
@@ -934,8 +935,9 @@ public static class FuwaCourse2_1Builder
         float y = ov[0].y; float zMin = ov.Min(v => v.z), zMax = ov.Max(v => v.z), zEnd = Mathf.Max(zMax, startLipZ);   // 水面は岩のふち（滝の落ち口）まで
         float exitHW = ov.Where(v => v.z > zMax - 0.3f).Max(v => Mathf.Abs(v.x));
         Physics.SyncTransforms();
-        // 出口の最後の 1m（落ち口まで）は水面を張らない（洞窟の前の滝の上の面が池の側へのびて、そこの水面のかわりになる）
-        const float cell = 0.1f; float x0 = -7f, z0 = zMin; int nx = Mathf.CeilToInt(14f / cell), nz = Mathf.FloorToInt((zEnd - 1f - zMin) / cell);
+        // 出口のあたり（ExitStripZ0 から先）はマス目でなく、1列ずつ岩のふちまでの幅をはかった帯（マス目だとふちがカクカク。2026-10-27 てじゃ「水面も綺麗に岩にそうように」）。
+        // 帯は ExitWaterEndZ まで。その先（落ち口まで）は洞窟の前の滝の上の面が池の側へのびて、水面のかわりになる
+        const float cell = 0.1f; float x0 = -7f, z0 = zMin; int nx = Mathf.CeilToInt(14f / cell), nz = Mathf.FloorToInt((ExitStripZ0 - zMin) / cell);
         float zGrid = z0 + nz * cell;
         var open = new bool[nx, nz]; var seen = new bool[nx, nz];
         bool Low(int i, int j)
@@ -977,7 +979,7 @@ public static class FuwaCourse2_1Builder
         float RowHW(float z, float sign)
         {
             float last = 0f;
-            for (float x = 0f; x <= exitHW + 0.05f; x += 0.01f)
+            for (float x = 0f; x <= 3.6f; x += 0.01f)
             {
                 var p = src.TransformPoint(new Vector3(sign * x, y + 5f, z));
                 if (!rock.Raycast(new Ray(p, Vector3.down), out var h, 20f) || src.InverseTransformPoint(h.point).y >= y - 0.01f) break;
@@ -986,7 +988,15 @@ public static class FuwaCourse2_1Builder
             return last + 0.05f;
         }
         startLipHW = (RowHW(zEnd - 0.3f, -1f) + RowHW(zEnd - 0.3f, 1f)) * 0.5f - 0.05f;   // 落ち口の手前の水の半分の幅（滝の幅をこれに合わせる）
-        startWaterEndZ = zGrid;   // 池の水面はここまで。その先（落ち口まで）は滝の上の面（Falls_Start の flatBack）
+        int nRow = Mathf.Max(1, Mathf.CeilToInt((ExitWaterEndZ - zGrid) / 0.05f)); int prevL = -1, prevR = -1;
+        for (int k = 0; k <= nRow; k++)
+        {
+            float z = Mathf.Min(zGrid + k * 0.05f, ExitWaterEndZ);
+            int l = V.Count; V.Add(new Vector3(-RowHW(z, -1f), y, z)); V.Add(new Vector3(RowHW(z, 1f), y, z));
+            if (prevL >= 0) T.AddRange(new[] { prevL, l, l + 1, prevL, l + 1, prevR });
+            prevL = l; prevR = l + 1;
+        }
+        startWaterEndZ = ExitWaterEndZ;   // 池の水面はここまで。その先（落ち口まで）は滝の上の面（Falls_Start の flatBack）
         var m = new Mesh { name = "Course2_1_W0_Source_Surface", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         m.SetVertices(V); m.SetTriangles(T, 0); m.SetUVs(0, V.Select(v => Vector2.zero).ToList());
         m.SetUVs(1, V.Select(v => new Vector4(0f, 99f, 99f, 99f)).ToList()); m.SetUVs(2, V.Select(v => new Vector2(v.z, 0f)).ToList());
