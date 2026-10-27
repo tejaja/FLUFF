@@ -124,7 +124,7 @@ bm.to_mesh(work.data); bm.free()
 # ---- 洞窟の口・溝の斜面に歪み（岩の中の向きへだけ。通り道はせまくならない）----
 bm = bmesh.new(); bm.from_mesh(work.data)
 mtrees = []
-for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.18), ('Tmp_Cut_Side', 0.2), ('Tmp_UnderCut', 0.14)):   # 溝の斜面は歪ませない（上の芝とのさかいに段の線が出た）
+for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.18), ('Tmp_Cut_Side', 0.2)):   # 落ち口の下の斜めのけずりは歪ませない（柱のかどで面の向きがまざって、とがったヒレが出た）   # 溝の斜面は歪ませない（上の芝とのさかいに段の線が出た）
     # 脇道（ツタ）の口も（2026-10-27 てじゃ「ツタがわの穴の壁のフチもパキッっとしすぎ」）。ただし天井（下向きの面）は動かさない（ツタの上のはしとすき間ができる）
     mb = bmesh.new(); mb.from_mesh(bpy.data.objects[n].data); mtrees.append((BVHTree.FromBMesh(mb), a, n == 'Tmp_Cut_Side')); mb.free()
 def amp_at(p, nz=0.0):
