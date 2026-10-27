@@ -747,6 +747,7 @@ public static class FuwaCourse2_1Builder
         WoodWalk(root, woodPieces);
         RockBases(root);
         PondSpillLipFalls(root);
+        PondSpringFalls(root);
         AirFallsFray(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
@@ -1356,6 +1357,82 @@ public static class FuwaCourse2_1Builder
         sm2.SetFloat("_PondRadial", 0f); sm2.SetFloat("_PondSparkle", pondM.GetFloat("_Sparkle"));
         EditorUtility.SetDirty(sm2);
         spillFalls.GetComponent<MeshRenderer>().sharedMaterial = sm2;
+    }
+    // 蓮の池の水源の岩の小さな滝（2026-10-27 てじゃ「ここの滝もきれいになおそう」：前は岩の前に置いた箱の形の滝で、岩の上と離れて見えた）。
+    // 上の青い球から落ちた水が、岩のまるい上の面をうすく広がって流れ、岩のかたからこぼれて池へ落ちる膜にする。
+    // 列ごとに岩の面を上から測って沿わせ（面から SpringFilm 浮かせる）、岩から離れたら岩のふくらみ（横から測る）より外を通って水面まで
+    public static float SpringFilm = 0.04f, SpringClear = 0.14f;
+    static void PondSpringFalls(Transform root)
+    {
+        var fs = root.Find("Falls_PondSpring"); var rv = root.Find("Terrain/PondSpringRockVisual"); if (!fs || !rv) return;
+        var cur = fs.Find("Curtain"); if (cur) cur.GetComponent<Renderer>().enabled = false;
+        var top = root.Find("Terrain/PondSpringTop"); if (top) top.GetComponent<Renderer>().enabled = false;   // 岩の上の面の下にうもれていた
+        var mc = rv.gameObject.AddComponent<MeshCollider>(); Physics.SyncTransforms();
+        var o = fs.position; var f = fs.forward; var r = fs.right; float y0 = root.position.y;   // 池の水面＝root の y 0
+        // 青い球の真下（岩の上）から、だんだん広がって岩のかたへ
+        const float dStart = 1.22f, xc = -0.15f; const int nc = 11;
+        float WidthAt(float d) { return Mathf.Lerp(0.6f, 0.16f, Mathf.InverseLerp(0.45f, dStart, d)); }
+        Vector3 At(float d, float x, float y) { return new Vector3(o.x, y, o.z) - f * d + r * x; }
+        var cols = new List<List<Vector3>>();
+        for (int k = 0; k < nc; k++)
+        {
+            float u = Mathf.Lerp(-1f, 1f, k / (float)(nc - 1));
+            var pts = new List<Vector3>();
+            float d = dStart; Vector3 last = Vector3.zero, tan = -f;
+            // 岩の上：0.06m ずつ外へ。面の向きが急になったら（または面がなくなったら）はなれる
+            while (d > -1.5f)
+            {
+                float x = xc + u * WidthAt(d);
+                if (!mc.Raycast(new Ray(At(d, x, y0 + 10f), Vector3.down), out var hit, 20f) || hit.normal.y < 0.55f) break;
+                var q = hit.point + hit.normal * SpringFilm;
+                if (pts.Count > 0) tan = (q - last).normalized;
+                pts.Add(q); last = q; d -= 0.06f;
+            }
+            // 空中：はなれた所の向きで放物線（少し外へ）。岩のふくらみ（横から測る）＋すき間より外
+            float vx = Mathf.Max(0.35f, Vector3.Dot(tan, f) * 1.6f), vy = Mathf.Min(0f, tan.y * 1.6f);
+            var rel = last - new Vector3(o.x, last.y, o.z);
+            float outD = Vector3.Dot(rel, f), xl = Vector3.Dot(rel, r);
+            float t = 0f, prevOut = outD, yFloor = y0 - 0.06f;
+            for (int it = 0; it < 400; it++)
+            {
+                t += 0.04f; float yy = last.y + vy * t - 4.9f * t * t; float od = outD + vx * t;
+                float hy = Mathf.Max(yy, yFloor);
+                var from = new Vector3(o.x, hy, o.z) + f * 3f + r * xl;
+                if (mc.Raycast(new Ray(from, -f), out var h2, 6f)) od = Mathf.Max(od, Vector3.Dot(h2.point - new Vector3(o.x, hy, o.z), f) + SpringClear);
+                od = Mathf.Max(od, prevOut); prevOut = od;
+                pts.Add(new Vector3(o.x, hy, o.z) + f * od + r * xl);
+                if (yy <= yFloor) break;
+            }
+            cols.Add(pts);
+        }
+        Object.DestroyImmediate(mc);
+        // 列ごとに点の数がちがうので、長さで同じ数に並べ直す（上→下。上のほう＝岩の上と落ち口を細かく）
+        const int rows = 48;
+        var grid = new Vector3[nc, rows];
+        for (int k = 0; k < nc; k++)
+        {
+            var pts = cols[k]; var cum = new float[pts.Count]; for (int i = 1; i < pts.Count; i++) cum[i] = cum[i - 1] + (pts[i] - pts[i - 1]).magnitude;
+            float tot = cum[pts.Count - 1];
+            for (int j = 0; j < rows; j++)
+            {
+                float a = j / (float)(rows - 1); float L = tot * (a * a * 0.35f + a * 0.65f);
+                int i = 1; while (i < pts.Count - 1 && cum[i] < L) i++;
+                float tt = Mathf.InverseLerp(cum[i - 1], cum[i], L);
+                grid[k, j] = root.InverseTransformPoint(Vector3.Lerp(pts[i - 1], pts[i], tt));
+            }
+        }
+        // 表＝岩から外（上・池の側）
+        var fl = root.InverseTransformDirection(f);
+        var spr = LipFallsMesh(root, "PondSpringFalls", "SpringFilm", grid, (k, j) =>
+        {
+            var n = Vector3.Cross(grid[k, j + 1] - grid[k, j], grid[k + 1, j] - grid[k, j]);
+            return Vector3.Dot(n, fl + Vector3.up) >= 0f ? n : -n;
+        });
+        spr.transform.SetParent(fs, true);
+        // 滝つぼ：着水点のしぶき（大きい滝の PoolFoam と同じ。小さい滝なので小さめ）
+        var land = fs.InverseTransformPoint(root.TransformPoint(grid[nc / 2, rows - 1]));
+        WaterDecal(fs, "PoolFoam", new Vector3(land.x, 0.012f, land.z), Vector3.forward, -1.6f, 1.6f, -0.4f, 1.9f, 0, 0.6f, 1.2f, new Color(0.45f, 0.78f, 0.95f));
+        var mist = fs.Find("Mist"); if (mist) mist.localPosition = new Vector3(land.x, 0.05f, land.z + 0.15f);
     }
     public static float AirFrayLen = 6f;
     static void AirFallsFray(Transform root)
@@ -2272,6 +2349,28 @@ public static class FuwaCourse2_1Builder
             for (int j = pc - 2; j >= 0; j--) lens[k, j] = lens[k, j + 1] + (grid[k, j] - grid[k, j + 1]).magnitude;
             maxLen = Mathf.Max(maxLen, lens[k, 0]);
         }
+        return LipFallsMesh(g, meshName, goName, grid, (k, j) =>
+        {
+            var ow = (outs[k] + outs[k + 1]).normalized;
+            var t = prof[j + 1] - prof[j]; if (float.IsNaN(t.y)) t = new Vector2(t.x, -1f);
+            var want = -ow * t.y + Vector3.up * -t.x;   // 断面の (dy, -dd)：外（水の落ちる側）・上を向く面
+            return flip ? -want : want;
+        });
+    }
+    // 格子の点（[横の列, 上→下]）から滝の膜のメッシュを作る。want(k, j)＝その四角の表の向き
+    static GameObject LipFallsMesh(Transform g, string meshName, string goName, Vector3[,] grid, System.Func<int, int, Vector3> want)
+    {
+        int nl = grid.GetLength(0), pc = grid.GetLength(1);
+        var lens = new float[nl, pc]; var along = new float[nl];
+        float maxLen = 0f; Vector3 prev = Vector3.zero;
+        for (int k = 0; k < nl; k++)
+        {
+            var lipP = grid[k, 1];
+            along[k] = k == 0 ? 0f : along[k - 1] + (lipP - prev).magnitude; prev = lipP;
+            lens[k, pc - 1] = 0f;
+            for (int j = pc - 2; j >= 0; j--) lens[k, j] = lens[k, j + 1] + (grid[k, j] - grid[k, j + 1]).magnitude;
+            maxLen = Mathf.Max(maxLen, lens[k, 0]);
+        }
         var FV = new List<Vector3>(); var FT = new List<int>(); var F1 = new List<Vector2>(); var F2 = new List<Vector2>(); var FC = new List<Color>();
         for (int k = 0; k < nl; k++)
             for (int j = 0; j < pc; j++)
@@ -2281,17 +2380,12 @@ public static class FuwaCourse2_1Builder
                 F1.Add(new Vector2(along[k], maxLen - (lens[k, 0] - lens[k, j]))); F2.Add(new Vector2(along[nl - 1], maxLen)); FC.Add(Color.white);
             }
         for (int k = 0; k < nl - 1; k++)
-        {
-            var ow = (outs[k] + outs[k + 1]).normalized;
             for (int j = 0; j < pc - 1; j++)
             {
                 int a = k * pc + j, b = a + pc;
-                var t = prof[j + 1] - prof[j]; if (float.IsNaN(t.y)) t = new Vector2(t.x, -1f);
-                var want = -ow * t.y + Vector3.up * -t.x;   // 断面の (dy, -dd)：外（水の落ちる側）・上を向く面
-                if (flip) want = -want;
-                AddTriDir(FV, FT, a, b, a + 1, want); AddTriDir(FV, FT, a + 1, b, b + 1, want);
+                var w = want(k, j);
+                AddTriDir(FV, FT, a, b, a + 1, w); AddTriDir(FV, FT, a + 1, b, b + 1, w);
             }
-        }
         var fm = new Mesh { name = "Course2_1_" + meshName, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         // uv0.x＝その列のいちばん下の「下からの長さ」（列ごとに長さがちがうので、下のはしの霧（_FrayLen）を列ごとの下はしから測る。2026-10-27 てじゃ「横長の滝、手前だけ先端が水平に切れてる」）
         var F0 = new List<Vector2>(); for (int k = 0; k < nl; k++) for (int j = 0; j < pc; j++) F0.Add(new Vector2(maxLen - lens[k, 0], 0f));
@@ -3724,7 +3818,7 @@ public static class FuwaCourse2_1Builder
         float bed = w.surf - w.depth;
         float bodyBot = Mathf.Min(w.bodyBottom, bed - 1.3f);
         // 水面
-        var V = new List<Vector3>(); var T = new List<int>(); var U1 = new List<Vector4>(); var U2 = new List<Vector2>();
+        var V = new List<Vector3>(); var T = new List<int>(); var U1 = new List<Vector4>(); var U2 = new List<Vector2>(); var U3 = new List<Vector2>();
         const float step = 0.25f; const int across = 8;
         int n = Mathf.Max(1, Mathf.CeilToInt((w.s1 - w.s0) / step));
         for (int k = 0; k <= n; k++)
@@ -3736,6 +3830,10 @@ public static class FuwaCourse2_1Builder
                 float lat = Mathf.Lerp(-hw, hw, i / (float)across);
                 var q = p + r * (lat + w.off(s)); V.Add(new Vector3(q.x, w.surf, q.y));
                 U1.Add(new Vector4(lat, hw, w.open0 ? 99f : s - w.s0, w.open1 ? 99f : w.s1 - s)); U2.Add(new Vector2(w.back ? -s : s, w.fade1 > 0f ? w.s1 - s : 99f));
+                // 左のふちの切れ目（あふれ口）では、ふちの泡を消す（水がそのまま滝へこぼれるので。はしは 0.3m でなだらかに戻す）
+                float nf = 0f;
+                if (w.gapL1 > w.gapL0 && lat < 0f) nf = Mathf.Clamp01(Mathf.Min(s - w.gapL0, w.gapL1 - s) / 0.3f);
+                U3.Add(new Vector2(nf, 0f));
             }
         }
         for (int k = 0; k < n; k++)
@@ -3745,7 +3843,7 @@ public static class FuwaCourse2_1Builder
                 AddTriDir(V, T, a, b, a + 1, Vector3.up); AddTriDir(V, T, a + 1, b, b + 1, Vector3.up);
             }
         var sm = new Mesh { name = "Course2_1_" + w.name + "_Surface", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-        sm.SetVertices(V); sm.SetTriangles(T, 0); sm.SetUVs(0, V.Select(v => Vector2.zero).ToList()); sm.SetUVs(1, U1); sm.SetUVs(2, U2);
+        sm.SetVertices(V); sm.SetTriangles(T, 0); sm.SetUVs(0, V.Select(v => Vector2.zero).ToList()); sm.SetUVs(1, U1); sm.SetUVs(2, U2); sm.SetUVs(3, U3);
         sm.normals = V.Select(v => Vector3.up).ToArray(); sm.RecalculateBounds();
         sm = Save(sm, MeshDir + "/" + w.name + "_Surface.asset");
         var surf = new GameObject("Surface"); surf.transform.SetParent(g, false);
@@ -3910,7 +4008,7 @@ public static class FuwaCourse2_1Builder
         if (old != null)
         {
             old.Clear(false); FuwaBevelTools.CopyInto(old, m);
-            for (int ch = 1; ch <= 2; ch++) { var u = new List<Vector4>(); m.GetUVs(ch, u); if (u.Count == m.vertexCount) old.SetUVs(ch, u); }   // CopyInto は uv0 だけ（水面の帯は uv1/uv2 を使う）
+            for (int ch = 1; ch <= 3; ch++) { var u = new List<Vector4>(); m.GetUVs(ch, u); if (u.Count == m.vertexCount) old.SetUVs(ch, u); }   // CopyInto は uv0 だけ（水面の帯は uv1/uv2、あふれ口の泡消しは uv3 を使う）
             old.UploadMeshData(false); EditorUtility.SetDirty(old); return old;
         }
         AssetDatabase.CreateAsset(m, path);

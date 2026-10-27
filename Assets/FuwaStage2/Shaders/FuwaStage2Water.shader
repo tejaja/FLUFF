@@ -47,8 +47,8 @@ Shader "FuwaStage2/Water"
             float _FoamWidth, _DeepWidth, _FlowSpeed, _StreakScale, _StreakStrength, _Sparkle, _Ribbon, _OpenFade, _OpenDeepWidth, _Radial, _RadialSpeed;
             float4 _RadialCenter;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float4 rib : TEXCOORD1; float2 rib2 : TEXCOORD2; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wp : TEXCOORD1; float4 frame : TEXCOORD2; float4 rib : TEXCOORD4; float2 rs : TEXCOORD5; UNITY_FOG_COORDS(3) };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float4 rib : TEXCOORD1; float2 rib2 : TEXCOORD2; float nofoam : TEXCOORD3; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wp : TEXCOORD1; float4 frame : TEXCOORD2; float4 rib : TEXCOORD4; float2 rs : TEXCOORD5; float nofoam : TEXCOORD6; UNITY_FOG_COORDS(3) };
 
             v2f vert (appdata v)
             {
@@ -61,7 +61,7 @@ Shader "FuwaStage2/Water"
                 float3 ay = mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0));
                 float2 fd = ay.xz; float fl = length(fd); fd = fl > 1e-4 ? fd / fl : float2(0, 1);
                 o.frame = float4(length(ax), length(ay), fd);
-                o.rib = v.rib; o.rs = v.rib2;
+                o.rib = v.rib; o.rs = v.rib2; o.nofoam = v.nofoam;
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -115,7 +115,8 @@ Shader "FuwaStage2/Water"
                 col = lerp(col, _Foam.rgb, WaterSparkle(i.wp.xz) * _Sparkle);
                 // ふちの泡（場所と時間で太さがゆらぐ）
                 float fw = _FoamWidth * (0.7 + 0.3 * sin((along + across) * 3.0 + _Time.y * 1.2));
-                col = lerp(col, _Foam.rgb, 1 - smoothstep(fw * 0.5, fw, edge));
+                // uv3.x＝ふちの泡を消す量（あふれ口：水がそのまま滝へこぼれる所は泡の線を出さない。2026-10-27 てじゃ「この滝のとこだけ白いフチけしたい」）
+                col = lerp(col, _Foam.rgb, (1 - smoothstep(fw * 0.5, fw, edge)) * (1 - saturate(i.nofoam)));
                 fixed4 c = fixed4(col, 1);
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;

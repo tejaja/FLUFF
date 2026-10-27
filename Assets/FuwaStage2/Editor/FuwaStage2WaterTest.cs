@@ -242,6 +242,17 @@ public static class FuwaStage2WaterTest
     }
 
     // 大きい蓮の花（花＋茎。Blender の Stage2Water → Models/Stage2Water.fbx）。茎は水の中へのびる（水面の板で隠れる）
+    // 蓮の茎は FBX の面が内向き（表裏が逆）だったので、三角形の向きと法線を裏返したコピーを使う（2026-10-27 てじゃ「蓮の茎がメッシュ裏かも」）
+    static Mesh FlippedStem(Mesh src)
+    {
+        const string p = "Assets/FuwaStage2/Generated/LotusStem_Flipped.asset";
+        var m = Object.Instantiate(src); m.name = "LotusStem_Flipped";
+        var t = m.triangles; for (int i = 0; i < t.Length; i += 3) { int a = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = a; }
+        m.triangles = t; m.normals = m.normals.Select(n => -n).ToArray();
+        var old = AssetDatabase.LoadAssetAtPath<Mesh>(p);
+        if (old) { EditorUtility.CopySerialized(m, old); Object.DestroyImmediate(m); return old; }
+        AssetDatabase.CreateAsset(m, p); return m;
+    }
     public static GameObject BigLotus(Transform parent, string name, Vector3 lp, float scale, float yaw)
     {
         var all = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2Water.fbx").OfType<Mesh>().ToList();
@@ -258,7 +269,7 @@ public static class FuwaStage2WaterTest
         if (stemMesh)
         {
             var s = new GameObject("Stem"); s.transform.SetParent(g.transform, false);
-            s.AddComponent<MeshFilter>().sharedMesh = stemMesh;
+            s.AddComponent<MeshFilter>().sharedMesh = FlippedStem(stemMesh);
             s.AddComponent<MeshRenderer>().sharedMaterial = ToonMat("Stage2_LotusStem", new Color(0.36f, 0.64f, 0.32f));
         }
         // ふわふわが当たっても跳ね返るだけの当たり（花の大きさの円柱。アウトにはしない）
