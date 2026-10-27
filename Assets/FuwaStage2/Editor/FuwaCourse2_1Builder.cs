@@ -409,6 +409,7 @@ public static class FuwaCourse2_1Builder
         CrossingStones(root, "Stones2", sCross2, -1f);
         StopRocks(root);
         RiverFish(root, fx);
+        GuardFish(root, fx);
         // ④ 貝の道
         ClamWalk(root, ground);
         // ⑤ 滝の道（＋滝の方へ押す横風と吹き流し）
@@ -1614,6 +1615,38 @@ public static class FuwaCourse2_1Builder
         rf.jumpSound = Snd("JumpSfx", "Assets/FuwaStage2/Audio/sfx_water_splash_soft.wav", 0.6f);
         rf.hitSound = Snd("HitSfx", "Assets/FuwaCourse/Audio/sfx_boing.wav", 0.8f);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(rf); NoSync(rf);
+    }
+
+    // ---- 1回目の渡り場の先の岩の列の番の魚（2026-10-27）----
+    // てじゃ「この岩、ふわふわ飛び越えて進めちゃう」「見通し悪くなるのやだなぁ　岩の上をふわふわが通ると魚が飛び出して押し返すとか」「プレイヤにあたってもいいかも」。
+    // 岩の列の上の空中を川下へ通ろうとするふわふわに、岩の下流側の水面から魚が飛び出して当たり、川上へ押し返す（FuwaGuardFish）。魚は2回目の渡り場と同じ見た目
+    static void GuardFish(Transform root, FuwaWaterFx fx)
+    {
+        var g = new GameObject("GuardFish").transform; g.SetParent(root, false);
+        float s = sCross1 + CrossGap * 0.5f + StopAfter;
+        Center(s, out var p, out var d);
+        var line = new GameObject("Line").transform; line.SetParent(g, false);
+        line.localPosition = new Vector3(p.x, 0f, p.y);
+        line.localRotation = Quaternion.LookRotation(new Vector3(-d.x, 0, -d.y));   // +Z＝川上
+        var fishMesh = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2_Fish.fbx").OfType<Mesh>().First();
+        var fishMats = new[] { FlatMat("Stage2_FishBody", new Color(0.98f, 0.56f, 0.45f)), FlatMat("Stage2_FishBelly", new Color(1f, 0.9f, 0.8f)),
+            FlatMat("Stage2_FishFin", new Color(0.9f, 0.42f, 0.36f)), FlatMat("Stage2_FishEye", new Color(0.12f, 0.12f, 0.16f)), FlatMat("Stage2_FishEyeHi", Color.white) };
+        var f = new GameObject("Fish").transform; f.SetParent(g, false);
+        f.gameObject.AddComponent<MeshFilter>().sharedMesh = fishMesh;
+        var fmr = f.gameObject.AddComponent<MeshRenderer>(); fmr.sharedMaterials = fishMats; fmr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        f.localScale = Vector3.one * FishScale; f.gameObject.SetActive(false);
+        AudioSource Snd(string name, string clip, float vol)
+        {
+            var go = new GameObject(name); go.transform.SetParent(g, false);
+            var a = go.AddComponent<AudioSource>(); a.playOnAwake = false; a.spatialBlend = 1f; a.minDistance = 2f; a.maxDistance = 20f; a.rolloffMode = AudioRolloffMode.Linear;
+            a.volume = vol; a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clip); return a;
+        }
+        var gf = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGuardFish>(g.gameObject);
+        gf.ball = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>(); gf.fx = fx; gf.fish = f; gf.line = line;
+        gf.halfWidth = RiverHW(s) + RimW; gf.minHeight = StopTop + 0.2f;
+        gf.jumpSound = Snd("JumpSfx", "Assets/FuwaStage2/Audio/sfx_water_splash_soft.wav", 0.6f);
+        gf.hitSound = Snd("HitSfx", "Assets/FuwaCourse/Audio/sfx_boing.wav", 0.8f);
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(gf); NoSync(gf);
     }
 
     static void ClamWalk(Transform root, Material ground)
