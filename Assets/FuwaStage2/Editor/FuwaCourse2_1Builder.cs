@@ -447,7 +447,9 @@ public static class FuwaCourse2_1Builder
         // 落ち口は岩山の本当のふち（startLipZ、まっすぐ +z 向き）。前は中心線の sPlaza1（ふちより 0.75m 手前・少しななめ）で、滝が岩の床にもぐって片側に岩のとがりが出ていた（2026-10-27 てじゃ「入口のウラの滝上、いろいろきたない」）。
         // 落ちる所（滝つぼの位置）は前と同じになるように、のびる長さを短く
         { FuwaCourse2_1Builder.Center(sPlaza1, out var op, out var od); var olip = op + od * FallsReach;
-          CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.005f, 0f, startLipHW * 2f + 0.1f, Mathf.Max(0.5f, olip.y - startLipZ), 0.9f, new Vector2(0f, startLipZ), Vector2.up, startLipZ - startWaterEndZ); }   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
+          // 幅：上の平らな所が出口の壁から壁までになるように、丸い角のぶん外へふくらませる（角は壁の中にうまって、壁の下では外へ丸くふくらむ。
+          // 2026-10-27 てじゃ「丸まってるのがいい、外側に膨らむように丸めて」。前は角が内側へ丸まって、角と壁のあいだにすき間が見えた）
+          CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.005f, 0f, startLipHW * 2f + 2f * Mathf.Min(startLipHW, 0.45f) * FuwaStage2WaterTest.FallsRound, Mathf.Max(0.5f, olip.y - startLipZ), 0.9f, new Vector2(0f, startLipZ), Vector2.up, startLipZ - startWaterEndZ); }   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
         // ⑥ ラスト：よけられない滝、下の川、右岸のゴールの広場
         Finale(root, terr, ground, bedMat, fx, splash);
 
@@ -2659,7 +2661,7 @@ public static class FuwaCourse2_1Builder
     }
 
     // 曲がった滝：落ち口(sLip, top)から水平に出て、放物線で reach m 先の bottom に落ちる。前後2枚の水の膜（厚み thick）＋放物線にそった押す箱
-    static void CurvedFalls(Transform root, string name, float sLip, float top, float bottom, float width, float reach, float thick, Vector2? lipAt = null, Vector2? lipDir = null, float flatBack = 0f, float flatSquareY = 1.3f)
+    static void CurvedFalls(Transform root, string name, float sLip, float top, float bottom, float width, float reach, float thick, Vector2? lipAt = null, Vector2? lipDir = null, float flatBack = 0f)
     {
         Center(sLip, out var lp2, out var ld2);
         if (lipAt.HasValue) { lp2 = lipAt.Value; ld2 = lipDir.Value; }
@@ -2689,8 +2691,6 @@ public static class FuwaCourse2_1Builder
             vlen = new float[vp.Count]; for (int i = 1; i < vp.Count; i++) vlen[i] = vlen[i - 1] + (vp[i] - vp[i - 1]).magnitude; vtotal = vlen[vp.Count - 1];
             vnrm = Enumerable.Range(0, vp.Count).Select(i => { var tg = (vp[Mathf.Min(i + 1, vp.Count - 1)] - vp[Mathf.Max(i - 1, 0)]).normalized; var n = Vector3.Cross(rgt, tg).normalized; if (Vector3.Dot(n, f) + n.y < 0) n = -n; return i == 1 ? Vector3.up : n; }).ToList();
             foreach (var q in vp) mid.Add(q + Vector3.down * (thick * 0.5f));
-            // 岩の壁にはさまれている高さ（flatSquareY より上）は断面の前の角を四角に（丸い角と壁のあいだにすき間が見えた。2026-10-27 てじゃ）。その下で 0.8m かけて丸く
-            frontK = vp.Select(q => Smooth01((flatSquareY - q.y) / 0.8f)).ToList();
         }
         else for (int i = 0; i < pts.Count; i++) mid.Add(pts[i] + Vector3.down * (thick * 0.5f + (i == 0 ? 0.15f : 0f)));
         var mesh = FuwaStage2WaterTest.SweepFalls("Course2_1_" + name, mid, vnrm, Enumerable.Repeat(rgt, mid.Count).ToList(), vlen, vtotal, width, thick, frontK);
