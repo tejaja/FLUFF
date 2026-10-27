@@ -450,7 +450,7 @@ public static class FuwaCourse2_1Builder
         { FuwaCourse2_1Builder.Center(sPlaza1, out var op, out var od); var olip = op + od * FallsReach;
           // 幅：上の平らな所が出口の壁から壁までになるように、丸い角のぶん外へふくらませる（角は壁の中にうまって、壁の下では外へ丸くふくらむ。
           // 2026-10-27 てじゃ「丸まってるのがいい、外側に膨らむように丸めて」。前は角が内側へ丸まって、角と壁のあいだにすき間が見えた）
-          CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.005f, 0f, startLipHW * 2f + 2f * Mathf.Min(startLipHW, 0.45f) * FuwaStage2WaterTest.FallsRound, Mathf.Max(0.5f, olip.y - startLipZ), 0.9f, new Vector2(0f, startLipZ), Vector2.up, startLipZ - startWaterEndZ, startLipHW * 2f); }   // 押す箱の幅は出口の幅のまま（見た目だけふくらませる）   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
+          CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.005f, 0f, startLipHW * 2f + 2f * Mathf.Min(startLipHW, 0.45f) * FuwaStage2WaterTest.FallsRound, Mathf.Max(0.5f, olip.y - startLipZ), 0.9f, new Vector2(0f, startLipZ), Vector2.up, startLipZ - startWaterEndZ); }   // 押す箱の幅も見た目の幅（はしに当てると押されずに岩に止まった。2026-10-27 てじゃ「ギリギリで当てると岩にあたって止まっちゃう」）   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
         // ⑥ ラスト：よけられない滝、下の川、右岸のゴールの広場
         Finale(root, terr, ground, bedMat, fx, splash);
 

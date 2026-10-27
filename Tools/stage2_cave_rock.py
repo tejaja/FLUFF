@@ -64,7 +64,7 @@ for sx in (1, -1):
         ring.append((sx * (EX_W0 + (EX_W1 - EX_W0) * smooth01((z - EX_Z0) / (EX_Z1 - EX_Z0))), -z))
     ring += [(sx * EX_OUT, -(EX_LIP + EX_FWD)), (sx * EX_OUT, -EX_Z0)]
     if sx < 0: ring = ring[::-1]
-    keeps.append(prism("Tmp_ExitKeep" + str(sx), ring, -8.0, 10.0))   # 下は岩山の下のとがりまで（Cut_UnderLip のすき間が下に残らないように）
+    keeps.append(prism("Tmp_ExitKeep" + str(sx), ring, 4.3, 10.0))   # 下は落ち口の床の少し下まで。その下は Cut_UnderLip で滝の横の岩をけずったまま（残すと滝の横に岩の棚ができて、ふわふわが止まった。2026-10-27 てじゃ）
 exit_cuts = []
 for n in ['Cut_PoolExit_Soft', 'Cut_ExitTop_L', 'Cut_ExitTop_R', 'Cut_ExitFront_L', 'Cut_ExitFront_R', 'Cut_UnderLip_L', 'Cut_UnderLip_R']:
     c = copy_of(n)
@@ -146,14 +146,20 @@ bb.free()
 # 芝の上の面の「スジ」をなくす（2026-10-27 てじゃ「まだスジがみえる」）：くり抜きでできた細い面がほんの少し傾いて、平らな芝の上に折れ目の線が見えた。
 # 芝の上向きの面を、となりと向きが FLAT_DEG 以内ならひとかたまりにして、かたまりごとに1枚の平面へ頂点を上下にだけ動かしてのせる（横の壁が少しのびちぢみするだけ）
 FLAT_DEG = 12.0
-bm = bmesh.new(); bm.from_mesh(me)
-# くり抜きのはしでできた、ほとんど同じ所にある頂点（2cm以内）をくっつけて、細い面・つぶれた面を消す（ちがう向きで光って細い線に見えた）
-nv0 = len(bm.verts)
-bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.02)
-bmesh.ops.dissolve_degenerate(bm, dist=0.005, edges=bm.edges)
-holes = [e for e in bm.edges if e.is_boundary]
-if holes: bmesh.ops.holes_fill(bm, edges=holes, sides=0)
-print('merge near verts', nv0, '->', len(bm.verts))
+# くり抜きのはしでできた、ほとんど同じ所にある頂点（2cm以内）をくっつけて、細い面・つぶれた面を消す（ちがう向きで光って細い線に見えた）。
+# くっつけて穴（ふさげないへり）ができたら、くっつける距離を小さくしてやり直す
+for dist in (0.02, 0.015, 0.01, 0.006, 0.0):
+    bm = bmesh.new(); bm.from_mesh(me)
+    nv0 = len(bm.verts)
+    if dist > 0:
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=dist)
+        bmesh.ops.dissolve_degenerate(bm, dist=0.005, edges=bm.edges)
+        holes = [e for e in bm.edges if e.is_boundary]
+        if holes: bmesh.ops.holes_fill(bm, edges=holes, sides=0)
+    left = sum(1 for e in bm.edges if e.is_boundary)
+    print('merge near verts', dist, nv0, '->', len(bm.verts), 'open', left)
+    if left == 0: break
+    bm.free()
 bm.faces.ensure_lookup_table(); bm.normal_update()
 top = {f for f in bm.faces if f.material_index == 1 and f.normal.z > 0.8}
 seen = set(); regions = []
