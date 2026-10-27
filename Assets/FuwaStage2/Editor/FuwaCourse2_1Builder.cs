@@ -1117,6 +1117,7 @@ public static class FuwaCourse2_1Builder
     };
     // 土台の厚み（ふちからとがりまで、m）。2026-10-25 てじゃ「分厚いと岩の道とかぶるから、かなり薄めにいこう」4.8〜6.6 → 1.6〜2.2
     public static float BaseDepth = 1.6f, BaseDepthVar = 0.6f;
+    public static float BaseTaperW = 0.45f, BaseTaperY = 0.6f;
     static void RockBase(Transform root, Transform g, string name, float s0, float s1, int seed, List<float> breaks = null)
     {
         const float step = 0.5f, scanW = 14f, scanStep = 0.2f, brk = 0.05f;
@@ -1181,17 +1182,31 @@ public static class FuwaCourse2_1Builder
                 run[i] = r;
             }
         }
-        var L2 = new float[n]; var R2 = new float[n];
-        for (int i = 0; i < n; i++) { L2[i] = L[i]; R2[i] = R[i]; for (int k = -4; k <= 4; k++) { int j = Mathf.Clamp(i + k, 0, n - 1); if (Crosses(ss[i], ss[j]) || run[j] != run[i]) continue; L2[i] = Mathf.Min(L2[i], L[j]); R2[i] = Mathf.Max(R2[i], R[j]); } }
+        // はばと深い所は、まわりから なだらかに（2026-10-27 てじゃ「岩の上が蓋が開いてるような感じ」：前は前後2mの箱で広げていて、
+        // 滝つぼ→川のように はば・深さが変わる所で土台が段になり、段の所で外の面が折れ返ってぱっくり割れて見えた）
+        // はばは 1m 進むごとに BaseTaperW、深さは BaseTaperY までしか変わらない（広い・深い所から離れるほど だんだん狭く・浅く）
+        var L2 = new float[n]; var R2 = new float[n]; var deepT = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            L2[i] = L[i]; R2[i] = R[i]; deepT[i] = yMin[i];
+            for (int j = 0; j < n; j++)
+            {
+                if (run[j] != run[i] || j == i) continue;
+                float ds = Mathf.Abs(ss[j] - ss[i]); if (ds > 10f) continue;
+                deepT[i] = Mathf.Min(deepT[i], yMin[j] + BaseTaperY * ds);
+                if (Crosses(ss[i], ss[j])) continue;
+                L2[i] = Mathf.Min(L2[i], L[j] + BaseTaperW * ds); R2[i] = Mathf.Max(R2[i], R[j] - BaseTaperW * ds);
+            }
+        }
         var rng = new System.Random(seed);
         float nOff = (float)rng.NextDouble() * 100f;
         int cols = BaseProfile.Length * 2 + 1;
         var V = new List<Vector3>(); var T = new List<int>();
+        var LA = new float[n, cols]; var YA = new float[n, cols];
         for (int i = 0; i < n; i++)
         {
             float s = ss[i];
-            Center(s, out var p, out var d); var r = Right(d);
-            if (run[i] < 0) { for (int k = 0; k < cols; k++) V.Add(Vector3.zero); continue; }
+            if (run[i] < 0) continue;
             int ra = i, rb = i; while (ra > 0 && run[ra - 1] == run[i]) ra--; while (rb < n - 1 && run[rb + 1] == run[i]) rb++;
             float end = Smooth01(Mathf.Min(s - ss[ra], ss[rb] - s) / 2.5f);   // 両はしはすぼめて浅く
             float mid = (L2[i] + R2[i]) * 0.5f;
@@ -1200,7 +1215,7 @@ public static class FuwaCourse2_1Builder
             float top = Mathf.Min(yL[i], yR[i]);
             float depth = (BaseDepth + BaseDepthVar * Mathf.PerlinNoise(nOff, s * 0.08f)) * Mathf.Lerp(0.6f, 1f, end);
             // 深い水（滝つぼ・蓮の池の深い所）の底がはみ出さないように（前後 2m のいちばん深い所＋0.5m）
-            float deep = float.MaxValue; for (int k = -4; k <= 4; k++) { int j = Mathf.Clamp(i + k, 0, n - 1); if (run[j] == run[i]) deep = Mathf.Min(deep, yMin[j]); }
+            float deep = deepT[i];
             depth = Mathf.Max(depth, top - deep + 0.5f);
             for (int k = 0; k < cols; k++)
             {
@@ -1211,20 +1226,51 @@ public static class FuwaCourse2_1Builder
                     bool right = k > BaseProfile.Length;
                     var pr = BaseProfile[right ? cols - 1 - k : k];
                     float edge = right ? rr : l, ey = right ? yR[i] : yL[i], outw = right ? 1f : -1f;
+                    // ふちのすぐ下は本当のふち（L/R）に。なだらかに広げた はば（L2/R2）は下の点から（ふちの点ごと広げると、ふちと土台のあいだの上が開いて中が見えた）
+                    float edge0 = right ? R[i] : L[i];
+                    if (k == 0 || k == cols - 1) edge = edge0; else if (k == 1 || k == cols - 2) edge = Mathf.Lerp(edge0, edge, 0.4f);
                     if (pr.fromEdge)
                     {
                         lat = edge - outw * pr.f;
                         y = k == 0 || k == cols - 1 ? ey - pr.down : Mathf.Min(ey - 0.3f, top - depth * pr.down);
                         if (k == 2 || k == cols - 3) y = Mathf.Min(y, deep - 0.2f);   // 外の面の下のはしは、深い水の底より下（入れ物の壁の角が出ないように）
                     }
-                    else { lat = edge + (mid - edge) * pr.f; y = top - depth * pr.down; }
+                    // 底の面も深い水の底より下（2026-10-27 滝つぼの終わりで、底の点が水の底より上にきて入れ物の底が突き出ていた）
+                    else { lat = edge + (mid - edge) * pr.f; y = Mathf.Min(top - depth * pr.down, deep - 0.4f); }
                     // ごつごつ：ふちのすぐ下以外はノイズで出し入れ
                     float amt = k == 0 || k == cols - 1 ? 0.05f : 0.3f;
                     lat += outw * (Mathf.PerlinNoise(nOff + s * 0.55f, k * 1.7f) - 0.5f) * amt * 2f;
                     y += (Mathf.PerlinNoise(nOff + 40f + s * 0.4f, k * 2.3f) - 0.5f) * (k == 0 || k == cols - 1 ? 0f : 0.35f);
                 }
-                var q = p + r * lat;
-                V.Add(new Vector3(q.x, y, q.y));
+                LA[i, k] = lat; YA[i, k] = y;
+            }
+        }
+        // ふちより下の点は、前後となじませる（外へ・下へだけ動かす＝くぼんだ折れ目を埋める。内へは動かさないので水の入れ物ははみ出さない）
+        //（2026-10-27 はば・深さが変わる所の折れ目がまだ谷になって見えた）
+        for (int it = 0; it < 4; it++)
+        {
+            var la2 = (float[,])LA.Clone(); var ya2 = (float[,])YA.Clone();
+            for (int i = 1; i < n - 1; i++)
+            {
+                if (run[i] < 0 || run[i - 1] != run[i] || run[i + 1] != run[i]) continue;
+                bool across = Crosses(ss[i - 1], ss[i + 1]);
+                for (int k = 1; k < cols - 1; k++)
+                {
+                    float y = (YA[i - 1, k] + 2f * YA[i, k] + YA[i + 1, k]) * 0.25f; ya2[i, k] = Mathf.Min(YA[i, k], y);
+                    if (across || k == BaseProfile.Length) continue;
+                    float lat = (LA[i - 1, k] + 2f * LA[i, k] + LA[i + 1, k]) * 0.25f;
+                    la2[i, k] = k < BaseProfile.Length ? Mathf.Min(LA[i, k], lat) : Mathf.Max(LA[i, k], lat);
+                }
+            }
+            LA = la2; YA = ya2;
+        }
+        for (int i = 0; i < n; i++)
+        {
+            Center(ss[i], out var p, out var d); var r = Right(d);
+            for (int k = 0; k < cols; k++)
+            {
+                if (run[i] < 0) { V.Add(Vector3.zero); continue; }
+                var q = p + r * LA[i, k]; V.Add(new Vector3(q.x, YA[i, k], q.y));
             }
         }
         for (int i = 0; i < n - 1; i++)
@@ -2528,7 +2574,9 @@ public static class FuwaCourse2_1Builder
         void Strand(float x, float z, float want)
         {
             float L = VineLens.OrderBy(l => Mathf.Abs(want / l - 1f)).First();
-            var src = fbx.OfType<Mesh>().FirstOrDefault(m => m.name == "Vine_" + Mathf.RoundToInt(L * 10f) + "_" + (rng.Next(2) == 0 ? "A" : "B"));
+            // 名前は先に決める（前は比べるたびに A/B を引き直していて、メッシュの並び順しだいで見つからず、ツタが何本か抜けていた）
+            string want2 = "Vine_" + Mathf.RoundToInt(L * 10f) + "_" + (rng.Next(2) == 0 ? "A" : "B");
+            var src = fbx.OfType<Mesh>().FirstOrDefault(m => m.name == want2);
             var mr = fbx.OfType<GameObject>().FirstOrDefault(o => src && o.name == src.name)?.GetComponent<MeshRenderer>();
             if (!src || !mr) { Debug.LogWarning("[2–1] ツタのメッシュがありません: Vine_" + Mathf.RoundToInt(L * 10f)); return; }
             var m4 = Matrix4x4.TRS(new Vector3(x, Rnd(-0.04f, 0f), z), Quaternion.Euler(0, Rnd(0f, 360f), 0), new Vector3(1f, want / L, 1f));
@@ -2949,6 +2997,7 @@ public static class FuwaCourse2_1Builder
         RockRimVis(parent, name + "_Rock", inner, outN, wid, top, bot, name.GetHashCode() & 0xffff, false);
         return box;
     }
+    const float RimRockDrop = 0.6f;
     static void RockRimVis(Transform parent, string name, List<Vector2> inner, List<Vector2> outN, List<float> wid, List<float> top, List<float> bot, int seed, bool low)
     {
         int n = inner.Count; float nOff = seed * 0.0137f;
@@ -2957,9 +3006,13 @@ public static class FuwaCourse2_1Builder
         {
             if (k > 0) along += (inner[k] - inner[k - 1]).magnitude;
             float N(int j) => Mathf.PerlinNoise(nOff + along * 0.9f, j * 1.37f + 3.1f) - 0.5f;   // -0.5〜0.5
-            float w = wid[k], yt = top[k], yb = bot[k];
+            // 下は RimRockDrop まで（2026-10-27 てじゃ「岩の上が蓋が開いてるような感じ」：深い水のふちの柱が土台の岩（RockBase）の下へつき出て、
+            // 水の切りかわり（滝つぼ→川など）で柱のはしの面がぱっくり見えていた。その下は RockBase がつつむ）
+            float w = wid[k], yt = top[k], yb = Mathf.Max(bot[k], yt - RimRockDrop);
             // 両はしは丸くすぼめる（つなぎ目でとがらないように、少し低く）
             float endK = Mathf.Clamp01(Mathf.Min(k, n - 1 - k) / 2f);
+            // 両はしは下も浅く（となりの浅い水のふちとつながる所で、深いふちのはしの面が下につき出ないように）
+            yb = Mathf.Max(yb, Mathf.Lerp(yt - 0.5f, yb, endK));
             float bump = low ? 0f : 0.06f;
             var pr = new (float x, float y)[]
             {
