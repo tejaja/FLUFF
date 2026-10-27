@@ -1060,7 +1060,7 @@ public static class FuwaCourse2_1Builder
                 const string bp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_PondTopThin.mat";
                 var bm = AssetDatabase.LoadAssetAtPath<Material>(bp);
                 if (!bm) { bm = new Material(ptm); AssetDatabase.CreateAsset(bm, bp); }
-                bm.CopyPropertiesFromMaterial(ptm); bm.SetFloat("_PondTop", (prof[0] - prof[1]).magnitude);
+                bm.CopyPropertiesFromMaterial(ptm); bm.SetFloat("_PondTop", (prof[0] - prof[1]).magnitude); bm.SetFloat("_StreakScale", SmallFallsStreak);   // 細い滝は筋を細かく（2026-10-27 てじゃ「白いすじがそのままだとデカすぎ」）
                 EditorUtility.SetDirty(bm);
                 lf.GetComponent<MeshRenderer>().sharedMaterial = bm;
             }
@@ -1361,7 +1361,7 @@ public static class FuwaCourse2_1Builder
     // 蓮の池の水源の岩の小さな滝（2026-10-27 てじゃ「ここの滝もきれいになおそう」：前は岩の前に置いた箱の形の滝で、岩の上と離れて見えた）。
     // 上の青い球から落ちた水が、岩のまるい上の面をうすく広がって流れ、岩のかたからこぼれて池へ落ちる膜にする。
     // 列ごとに岩の面を上から測って沿わせ（面から SpringFilm 浮かせる）、岩から離れたら岩のふくらみ（横から測る）より外を通って水面まで
-    public static float SpringFilm = 0.04f, SpringClear = 0.14f;
+    public static float SpringFilm = 0.04f, SpringClear = 0.14f, SmallFallsStreak = 0.7f, SmallFallsFoam = 0.35f;
     static void PondSpringFalls(Transform root)
     {
         var fs = root.Find("Falls_PondSpring"); var rv = root.Find("Terrain/PondSpringRockVisual"); if (!fs || !rv) return;
@@ -1429,6 +1429,13 @@ public static class FuwaCourse2_1Builder
             return Vector3.Dot(n, fl + Vector3.up) >= 0f ? n : -n;
         });
         spr.transform.SetParent(fs, true);
+        // 小さい滝なので白い筋を細かく（2026-10-27 てじゃ「白いすじがそのままだとデカすぎ」）
+        const string smp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_Small.mat";
+        var baseM = FuwaStage2WaterTest.WaterfallThickMat(true);
+        var smm = AssetDatabase.LoadAssetAtPath<Material>(smp);
+        if (!smm) { smm = new Material(baseM); AssetDatabase.CreateAsset(smm, smp); }
+        smm.CopyPropertiesFromMaterial(baseM); smm.SetFloat("_StreakScale", SmallFallsStreak); smm.SetFloat("_EdgeFoam", SmallFallsFoam); EditorUtility.SetDirty(smm);   // 滝つぼの泡も小さめ（0.8m だと滝の半分以上が白くなった）
+        spr.GetComponent<MeshRenderer>().sharedMaterial = smm;
         // 滝つぼ：着水点のしぶき（大きい滝の PoolFoam と同じ。小さい滝なので小さめ）
         var land = fs.InverseTransformPoint(root.TransformPoint(grid[nc / 2, rows - 1]));
         WaterDecal(fs, "PoolFoam", new Vector3(land.x, 0.012f, land.z), Vector3.forward, -1.6f, 1.6f, -0.4f, 1.9f, 0, 0.6f, 1.2f, new Color(0.45f, 0.78f, 0.95f));
