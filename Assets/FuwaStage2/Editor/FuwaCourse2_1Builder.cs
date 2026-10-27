@@ -158,6 +158,9 @@ public static class FuwaCourse2_1Builder
         // 木の板の見た目だけ持ち上げる高さ（洞窟の床の上にのせる所。null＝0）と、板を並べはじめる所（NaN＝s0）
         public Func<float, float> woodLift;
         public float woodS0 = float.NaN;
+        // 板の向き（null＝道に直角）。中心線の右向きとの混ぜ具合 0〜1（1＝洞窟の向きに直角＝板がそろう）。桁を出しはじめる所（NaN＝s0）
+        public Func<float, float> woodAlign;
+        public float woodBeamS0 = float.NaN;
     }
     class Water
     {
@@ -324,7 +327,10 @@ public static class FuwaCourse2_1Builder
         // 洞窟の中では板を床（M1）の上に WoodLift だけ持ち上げてのせる（同じ高さだと床とちらつく）。洞窟を出たら 1.5m かけて道の高さへ
         const float WoodLift = 0.04f;
         pieces.Add(new Piece { name = "B1_BankWood", s0 = sPlaza1 - 4.6f, s1 = sCross1 - CrossGap * 0.5f, off = b1off, w = s => 3f, h = b1h, round0 = false, wood = true,
-            woodS0 = sPlaza1 - 0.4f - SideGapLen + 1.0f, woodLift = s => (StartH + WoodLift - b1h(s)) * (1f - Smooth01((s - sPlaza1) / 1.5f)) });
+            woodS0 = sPlaza1 - 0.4f - SideGapLen + 0.9f, woodLift = s => (StartH + WoodLift - b1h(s)) * (1f - Smooth01((s - sPlaza1) / 1.5f)),
+            // 洞窟の中〜ツタのすき間は、板を洞窟の向きに直角にそろえる（ななめの道に直角だと、板のはしがギザギザに並んで差し込んだ感じになった。2026-10-27 てじゃ）。
+            // 板のはしは道のへりの線で切る（平行四辺形の板）。外に出たら 2m かけて道に直角へ。桁は外に出てから
+            woodAlign = s => 1f - Smooth01((s - (sPlaza1 - 0.2f)) / 2f), woodBeamS0 = sPlaza1 + 0.5f });
         pieces.Add(new Piece { name = "B2_Bank", s0 = sCross1 + CrossGap * 0.5f, s1 = sCross2 - CrossGap * 0.5f, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b3t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         // M2 谷の向こう → 蓮の池の手前（本道は水のふちの外側にぴったりつける。端は丸めない）
@@ -374,7 +380,7 @@ public static class FuwaCourse2_1Builder
         // 道の横の面にふわふわが当たってもアウトにしない（上に乗ったらアウト）。川から撃ち上げる時に道のふちにかすってアウト、をなくす
         //（2026-10-23 てじゃ「川から脱出するときに道の縁にあたってアウトになることあるかも」）
         { var to = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaTopOut>(pm); if (to) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(to); NoSync(to); } }
-        WoodWalk(root, pieces.FindAll(p => p.wood));
+        var woodPieces = pieces.FindAll(p => p.wood);   // 木の足場は岩山ができてから（板のはしを岩で切る）
 
         // ---- 水 ----
         var fx = FuwaStage2WaterTest.MakeFx(root);
@@ -679,6 +685,7 @@ public static class FuwaCourse2_1Builder
         // ロビーのワープ（WarpToCourse0）はスタートの BallStart/PlayerSpot を指しているので、作り直したらつなぎ直す
         //（2026-10-21 作り直したあとワープが効かず、キノコからふわふわが出なかった）
         // 道と水の下の岩の土台（浮島の形）。道・水がそろってから、上から測って作る
+        WoodWalk(root, woodPieces);
         RockBases(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
@@ -2872,6 +2879,8 @@ public static class FuwaCourse2_1Builder
     static void WoodWalk(Transform root, List<Piece> pieces)
     {
         var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color32>(); var T = new List<int>();
+        var rockCol = root.Find("Terrain/CaveRock")?.GetComponent<MeshCollider>();
+        Physics.SyncTransforms();
         var rnd = new System.Random(2701);
         float R(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
         Color32 Wood(float r, bool under) { float k = under ? 0.8f : 1f; return new Color32((byte)(r * k), (byte)(r * 0.71f * k), (byte)(r * 0.47f * k), (byte)(under ? 204 : 255)); }
@@ -2912,27 +2921,61 @@ public static class FuwaCourse2_1Builder
             {
                 float s = SAt((i + 0.5f) * pitch), w = pc.w(s);
                 var t = Tangent3(pc, s); var x = Normal(pc, s, 1, 0); var y = Normal(pc, s, 0, 1);
+                float al = pc.woodAlign != null ? Mathf.Clamp01(pc.woodAlign(s)) : 0f;
+                if (al > 0f)
+                {
+                    // 板の向きを洞窟の右向きに寄せ、はしは道のへりの線で切る（平行四辺形）
+                    Center(s, out _, out var cd); var cr3 = new Vector3(cd.y, 0, -cd.x);
+                    var dx = Vector3.Slerp(x, cr3, al).normalized; var dz = Vector3.Cross(dx, y).normalized; if (Vector3.Dot(dz, t) < 0) dz = -dz;
+                    float cosA = Mathf.Max(0.3f, Vector3.Dot(dx, x)), hl = w * 0.5f / cosA, hz = (pitch - 0.03f) * 0.5f, r0 = R(140f, 190f);
+                    var c = Point(pc, s, 0f, lift(s) - PlankT * 0.5f);
+                    // 前後のはしの線それぞれで、道のへり（x 方向に ±w/2）までの長さ：へりの線は道の向き t にそっているので、dz のずれぶん補正
+                    float slip = Vector3.Dot(dz, x) * hz / cosA;
+                    float uL = hl, uR = hl;
+                    // 岩で切る（板のはしが岩にささらないように）
+                    if (rockCol != null)
+                    {
+                        // メッシュは root のローカル。レイはワールドで
+                        var wo = root.TransformPoint(c + y * 0.02f); var wd = root.TransformDirection(dx);
+                        if (rockCol.Raycast(new Ray(wo, wd), out var hR, hl + 1f)) uR = Mathf.Min(uR, hR.distance - 0.03f);
+                        if (rockCol.Raycast(new Ray(wo, -wd), out var hL, hl + 1f)) uL = Mathf.Min(uL, hL.distance - 0.03f);
+                    }
+                    Vector3 Cn(float u, float zf) => c + dx * (u - zf * slip) + dz * (zf * hz);
+                    var tFL = Cn(-uL, -1f); var tFR = Cn(uR, -1f); var tBR = Cn(uR, 1f); var tBL = Cn(-uL, 1f);
+                    // はしが岩で切られた所は、前後とも同じ長さ（平行四辺形をやめる）
+                    if (uL < hl) { tFL = c - dx * uL - dz * hz; tBL = c - dx * uL + dz * hz; }
+                    if (uR < hl) { tFR = c + dx * uR - dz * hz; tBR = c + dx * uR + dz * hz; }
+                    var up = y * (PlankT * 0.5f); var col = Wood(r0, false);
+                    Quad(tFL + up, tFR + up, tBR + up, tBL + up, y, col);
+                    Quad(tFL - up, tBL - up, tBR - up, tFR - up, -y, Wood(r0, true));
+                    Quad(tFL - up, tFR - up, tFR + up, tFL + up, -dz, col);
+                    Quad(tBL - up, tBL + up, tBR + up, tBR - up, dz, col);
+                    Quad(tFL - up, tFL + up, tBL + up, tBL - up, -dx, col);
+                    Quad(tFR - up, tBR - up, tBR + up, tFR + up, dx, col);
+                    continue;
+                }
                 float yaw = R(-0.8f, 0.8f) * Mathf.Deg2Rad; var tz = (t * Mathf.Cos(yaw) + x * Mathf.Sin(yaw)).normalized; var tx = Vector3.Cross(y, tz).normalized;
                 if (Vector3.Dot(tx, x) < 0) tx = -tx;
                 float eL = R(-0.01f, 0.06f), eR = keepRight ? R(-0.05f, -0.01f) : R(-0.01f, 0.06f);
-                var c = Point(pc, s, (eR - eL) * 0.5f, lift(s) - PlankT * 0.5f + R(-0.006f, 0.004f));
-                Box(c, tx, y, tz, new Vector3(w * 0.5f + (eL + eR) * 0.5f, PlankT * 0.5f, (pitch - 0.03f) * 0.5f - R(0f, 0.015f)), R(140f, 190f));
+                var cc = Point(pc, s, (eR - eL) * 0.5f, lift(s) - PlankT * 0.5f + R(-0.006f, 0.004f));
+                Box(cc, tx, y, tz, new Vector3(w * 0.5f + (eL + eR) * 0.5f, PlankT * 0.5f, (pitch - 0.03f) * 0.5f - R(0f, 0.015f)), R(140f, 190f));
             }
             // 桁：板の下に2本（左右のへりから BeamIn 内側）
             foreach (var side in new[] { -1f, 1f })
             {
                 float br = R(90f, 105f);
-                int m = Mathf.Max(1, Mathf.CeilToInt((s1 - s0) / 0.25f));
+                float bs0 = float.IsNaN(pc.woodBeamS0) ? s0 : Mathf.Max(s0, pc.woodBeamS0);
+                int m = Mathf.Max(1, Mathf.CeilToInt((s1 - bs0) / 0.25f));
                 Vector3[] Ring(float s)
                 {
                     float lat = side * (pc.w(s) * 0.5f - BeamIn), l = lift(s);
                     return new[] { Point(pc, s, lat - BeamW * 0.5f, l - PlankT), Point(pc, s, lat + BeamW * 0.5f, l - PlankT), Point(pc, s, lat + BeamW * 0.5f, l - PlankT - BeamH), Point(pc, s, lat - BeamW * 0.5f, l - PlankT - BeamH) };
                 }
-                var prev = Ring(s0);
-                Quad(prev[0], prev[1], prev[2], prev[3], -Tangent3(pc, s0), Wood(br, false));
+                var prev = Ring(bs0);
+                Quad(prev[0], prev[1], prev[2], prev[3], -Tangent3(pc, bs0), Wood(br, false));
                 for (int k = 1; k <= m; k++)
                 {
-                    float s = Mathf.Lerp(s0, s1, k / (float)m); var cur = Ring(s);
+                    float s = Mathf.Lerp(bs0, s1, k / (float)m); var cur = Ring(s);
                     for (int f = 0; f < 4; f++)
                     {
                         int g = (f + 1) % 4; var mid = (prev[f] + prev[g] + cur[f] + cur[g]) * 0.25f;
