@@ -301,15 +301,22 @@ public static class FuwaCourse2_1Builder
         float bankOff(float s) => RiverHW(Mathf.Clamp(s, sPool1, sRiver1)) + RimW + 1.55f;
         Func<float, float> b1t = s =>
         {
-            // 洞窟の中（右半分）から右の壁の脇道を抜けて外へ
-            if (s < sPlaza1) return Mathf.Lerp(1.5f, 4.7f, Smooth01((s - (sPlaza1 - 4.6f)) / 4.1f));
+            // 洞窟の中（右半分）から右の壁の脇道を抜けて外へ。脇道のすき間（gapA〜）に入ってから外へ曲がる
+            //（2026-10-27 てじゃ「この道が岩からはみ出してる」：前はすき間の手前から曲がりはじめて、道のはしが洞窟の壁から突き出ていた）
+            float gA = sPlaza1 - 0.4f - SideGapLen;
+            if (s < sPlaza1) return Mathf.Lerp(1.4f, 4.7f, Smooth01((s - (gA + 0.9f)) / (sPlaza1 - gA - 0.9f)));
             return Mathf.Max(Mathf.Lerp(4.7f, 3.4f, Smooth01((s - sPlaza1) / 6f)), WaterHW(Mathf.Min(s, sRiver1)) + RimW + 1.55f);
         };
         // 2026-10-25 道は 右岸(B1) → 1回目の渡り場 → 左岸(B2) → 2回目の渡り場 → 右岸(B3) → 谷を越えて本道（前は右岸 → 渡り場1つ → 左岸）
         Func<float, float> b2t = s => -bankOff(s);
         Func<float, float> b3t = s => Mathf.Lerp(bankOff(s), 0f, Smooth01((s - mergeA) / (mergeB - mergeA)));
         Func<float, float> b1h = s => Ramp(s, sPlaza1 + 0.3f, sPlaza1 + 10f, StartH - 0.01f, BankTop - 0.01f);
-        pieces.Add(new Piece { name = "B1_Bank", s0 = sPlaza1 - 4.6f, s1 = sCross1 - CrossGap * 0.5f, off = Smoothed(b1t, 1.2f), w = s => 3f, h = b1h });
+        // 迂回路のカーブをゆるく（2026-10-27 てじゃ「もいちょい曲線をゆるく」）：洞窟を出たあとは、まわりの一番外（窓の中の最大）をなめらかにした線
+        //（ただ平均すると滝つぼのふくらみの所で道が水に寄るので、最大をとってから平均＝水からは前と同じかそれ以上はなれる）
+        Func<float, float> b1Env = s => { float m = float.MinValue; for (int i = 0; i <= 12; i++) m = Mathf.Max(m, b1t(s + Mathf.Lerp(-2.5f, 2.5f, i / 12f))); return m; };
+        var b1Near = Smoothed(b1t, 0.6f); var b1Far = Smoothed(b1Env, 2.5f);
+        Func<float, float> b1off = s => Mathf.Lerp(b1Near(s), b1Far(s), Smooth01((s - sPlaza1) / 2f));
+        pieces.Add(new Piece { name = "B1_Bank", s0 = sPlaza1 - 4.6f, s1 = sCross1 - CrossGap * 0.5f, off = b1off, w = s => 3f, h = b1h, round0 = false });
         pieces.Add(new Piece { name = "B2_Bank", s0 = sCross1 + CrossGap * 0.5f, s1 = sCross2 - CrossGap * 0.5f, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b3t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         // M2 谷の向こう → 蓮の池の手前（本道は水のふちの外側にぴったりつける。端は丸めない）
