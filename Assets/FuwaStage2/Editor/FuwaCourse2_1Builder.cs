@@ -180,7 +180,7 @@ public static class FuwaCourse2_1Builder
         public float woodBeamS0 = float.NaN;
         // 板をこの線で切る（root のローカル xz。点 woodClipP を通り、woodClipN の向きの側だけ残す。N＝0 なら切らない）。ほかの道の上にのせて横からつなぐ所
         public Vector2 woodClipP, woodClipN;
-        // 終わりを崩れた形に（ギザギザに欠けて、下に破片。見た目だけ。当たり判定は少し手前まで）
+        // 終わりを崩れた形に（ギザギザに欠ける。当たり判定は少し手前まで）
         public bool crumble1;
     }
     class Water
@@ -3361,44 +3361,8 @@ public static class FuwaCourse2_1Builder
         prof.InsertRange(top + 1, mid);
         return prof;
     }
-    // 崩れた終わりの破片：欠けのふちにひっかかって下へかたむいた かけら と、下へ落ちていく小さいかけら（見た目だけ）
-    public static int CrumbleTeeth = 9; public static float CrumbleDepth = 0.85f, CrumbleUnder = 0.22f, CrumbleCol = 0.3f;
-    static void CrumbleDebris(Piece pc, float sEnd, Func<float, float> crumbE, List<Vector3> V, List<Vector3> N, List<Vector2> UV, List<int> A, List<int> Bt)
-    {
-        var rr = new System.Random(4211); float Rn(float a, float b) => a + (float)rr.NextDouble() * (b - a);
-        float hw = pc.w(sEnd) * 0.5f;
-        void Chunk(Vector3 c, Quaternion q, Vector3 e, bool alt)
-        {
-            // ゆがんだ箱（角を少しずらす）
-            var cs = new Vector3[8];
-            for (int k = 0; k < 8; k++) { var o = new Vector3((k & 1) == 0 ? -e.x : e.x, (k & 2) == 0 ? -e.y : e.y, (k & 4) == 0 ? -e.z : e.z); o += new Vector3(Rn(-0.25f, 0.25f) * e.x, Rn(-0.15f, 0.15f) * e.y, Rn(-0.25f, 0.25f) * e.z); cs[k] = c + q * o; }
-            int[][] faces = { new[] { 0, 2, 3, 1 }, new[] { 4, 5, 7, 6 }, new[] { 0, 1, 5, 4 }, new[] { 2, 6, 7, 3 }, new[] { 0, 4, 6, 2 }, new[] { 1, 3, 7, 5 } };
-            var lst = alt ? Bt : A;
-            foreach (var f in faces)
-            {
-                var a = cs[f[0]]; var b = cs[f[1]]; var cc = cs[f[2]]; var d = cs[f[3]];
-                var ctr = (a + b + cc + d) * 0.25f; var nn = (ctr - c).normalized;
-                int i0 = V.Count; V.Add(a); V.Add(b); V.Add(cc); V.Add(d); for (int k = 0; k < 4; k++) { N.Add(nn); UV.Add(Vector2.zero); }
-                AddTriDir(V, lst, i0, i0 + 1, i0 + 2, nn); AddTriDir(V, lst, i0, i0 + 2, i0 + 3, nn);
-            }
-        }
-        var t = Tangent3(pc, sEnd); var up = Vector3.up; var side = Vector3.Cross(up, t).normalized;
-        // ふちにひっかかった板（上の面より下。ふちの下から外へ、下向きにかたむく）
-        foreach (var (lat, ang, len) in new[] { (-0.55f, 38f, 0.42f), (0.75f, 52f, 0.32f) })
-        {
-            float se = crumbE(lat) - 0.06f; var hinge = Point(pc, se, lat, -0.07f);
-            var q = Quaternion.AngleAxis(ang, side) * Quaternion.LookRotation(t, up);
-            Chunk(hinge + q * new Vector3(0f, -Thick * 0.45f, len * 0.5f), q, new Vector3(Rn(0.18f, 0.26f), Thick * 0.4f, len * 0.5f), rr.NextDouble() < 0.5);
-        }
-        // 下へ落ちていくかけら（遠いほど小さく、下へ）
-        for (int k = 0; k < 7; k++)
-        {
-            float lat = Rn(-hw * 0.8f, hw * 0.8f), fall = Mathf.Lerp(0.6f, 3.2f, k / 6f) + Rn(-0.2f, 0.2f), outD = Rn(0.15f, 0.7f) + k * 0.05f;
-            var c = Point(pc, crumbE(lat), lat, -fall) + t * outD;
-            float sz = Mathf.Lerp(0.16f, 0.06f, k / 6f) * Rn(0.8f, 1.2f);
-            Chunk(c, Quaternion.Euler(Rn(0f, 360f), Rn(0f, 360f), Rn(0f, 360f)), new Vector3(sz, sz * 0.7f, sz * 1.1f), k % 2 == 1);
-        }
-    }
+    // 崩れた終わり（2026-10-27 てじゃ「破片までは良いかな～もうちょいギザギザよわめで」：破片はなし、欠けは浅め）
+    public static int CrumbleTeeth = 9; public static float CrumbleDepth = 0.4f, CrumbleUnder = 0.12f, CrumbleCol = 0.2f;
     static void AddTriDir(List<Vector3> V, List<int> T, int a, int b, int c, Vector3 want)
     {
         var n = Vector3.Cross(V[b] - V[a], V[c] - V[a]);
@@ -3818,7 +3782,6 @@ public static class FuwaCourse2_1Builder
                     int w0 = V.Count; V.Add(a); V.Add(b2); V.Add(c); V.Add(d); for (int k = 0; k < 4; k++) { N.Add(n2); UV.Add(Vector2.zero); }
                     AddTriDir(V, lst, w0, w0 + 1, w0 + 2, n2); AddTriDir(V, lst, w0, w0 + 2, w0 + 3, n2);
                 }
-                CrumbleDebris(pc, sEnd, crumbE, V, N, UV, A, Bt);
             }
             foreach (var (ri, sign) in new[] { (0, -1f), (st.Count - 1, 1f) })
             {
