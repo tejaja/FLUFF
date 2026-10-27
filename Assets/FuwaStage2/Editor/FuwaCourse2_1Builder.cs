@@ -1643,7 +1643,7 @@ public static class FuwaCourse2_1Builder
         }
         var gf = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGuardFish>(g.gameObject);
         gf.ball = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>(); gf.fx = fx; gf.fish = f; gf.line = line;
-        gf.halfWidth = RiverHW(s) + RimW; gf.minHeight = StopTop + 0.2f;
+        gf.halfWidth = RiverHW(s) + RimW; gf.minHeight = StopTop + 0.2f; gf.rockTop = StopTop;
         gf.jumpSound = Snd("JumpSfx", "Assets/FuwaStage2/Audio/sfx_water_splash_soft.wav", 0.6f);
         gf.hitSound = Snd("HitSfx", "Assets/FuwaCourse/Audio/sfx_boing.wav", 0.8f);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(gf); NoSync(gf);

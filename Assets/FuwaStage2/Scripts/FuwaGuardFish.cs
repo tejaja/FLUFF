@@ -26,6 +26,11 @@ public class FuwaGuardFish : UdonSharpBehaviour
     [Tooltip("水面からの高さ：これより下は川に浮いているふわふわなので見ない")]
     public float minHeight = 0.9f;
     public float maxHeight = 14f;
+    // 岩の列：上の面の高さ（水面から）と、前後の半分の厚み(m)。岩の上に乗っているふわふわ（ゆっくり転がして越えようとする）は速さに関係なく見張る
+    //（2026-10-27 てじゃ「やさしく岩に乗せて転がして進めるとすり抜けられる」）。岩の川上がわのふち（rockOnTop より川上）にいる時は見ない（岩に止まったふわふわをすくい上げる時）
+    public float rockTop = 0.7f;
+    public float rockHalf = 0.45f;
+    public float rockOnTop = 0.15f;
 
     [Header("跳び方")]
     [Tooltip("魚が出てくる所：ふわふわの真下から川下へ何mずれた水面か")]
@@ -36,6 +41,9 @@ public class FuwaGuardFish : UdonSharpBehaviour
     public float fallTime = 0.8f;
     [Tooltip("跳ぶ前の合図（ぶくぶく）の長さ(秒)")]
     public float warnLead = 0.1f;
+
+    [Tooltip("魚の体の半分くらい（岩の上を通る時のすき間）")]
+    public float fishClear = 0.55f;
 
     [Header("当たった時")]
     public float hitRadius = 1.0f;
@@ -87,7 +95,9 @@ public class FuwaGuardFish : UdonSharpBehaviour
         _prev = bp; _hasPrev = ballOk;
         if (_state == 0)
         {
-            if (!ballOk || downSpeed < minDownSpeed || !InZone(bp, f, r)) return;
+            if (!ballOk) return;
+            bool overRocks = OnRocks(bp, f, r);
+            if (!overRocks && (downSpeed < minDownSpeed || !InZone(bp, f, r))) return;
             // 出てくる所：ふわふわの真下から川下へ、水面
             Vector3 d = bp - line.position;
             float lat = Mathf.Clamp(Vector3.Dot(d, r), -halfWidth + 0.3f, halfWidth - 0.3f);
@@ -112,7 +122,7 @@ public class FuwaGuardFish : UdonSharpBehaviour
             Vector3 target = ballOk && InZoneLoose(bp, f, r) ? bp : _from + Vector3.up * 2f - f * 0.5f;
             float t = Mathf.Clamp01((now - _t0) / riseTime);
             float e = 1f - (1f - t) * (1f - t);
-            Vector3 p = Vector3.Lerp(_from, target, e);
+            Vector3 p = AboveRocks(Vector3.Lerp(_from, target, e), f);
             Vector3 tan = target - _from;
             fish.position = p;
             if (tan.sqrMagnitude > 1e-4f) fish.rotation = Quaternion.LookRotation(tan.normalized, Vector3.up);
@@ -133,12 +143,34 @@ public class FuwaGuardFish : UdonSharpBehaviour
             }
             // 当たった所から、川上の水面へ弧をえがいて落ちる
             float h = 0.6f;
-            Vector3 p = Vector3.Lerp(_hitAt, _land, t) + Vector3.up * (4f * h * t * (1f - t));
+            Vector3 p = AboveRocks(Vector3.Lerp(_hitAt, _land, t) + Vector3.up * (4f * h * t * (1f - t)), f);
             Vector3 tan = (_land - _hitAt) + Vector3.up * (4f * h * (1f - 2f * t));
             fish.position = p;
             if (tan.sqrMagnitude > 1e-4f) fish.rotation = Quaternion.LookRotation(tan.normalized, Vector3.up);
             if (t < 0.9f) CheckPlayer(p, f);
         }
+    }
+
+    // 岩の上に乗っている・岩のすぐ上（川上がわのふちは除く）
+    private bool OnRocks(Vector3 p, Vector3 f, Vector3 r)
+    {
+        Vector3 d = p - line.position;
+        float along = Vector3.Dot(d, f), lat = Vector3.Dot(d, r);
+        return along < rockOnTop && along > -rockHalf - 0.6f && Mathf.Abs(lat) < halfWidth && d.y > rockTop - 0.1f && d.y < maxHeight;
+    }
+
+    // 魚が岩にめりこまないように、岩の列の上では岩の上の面より上を通す（2026-10-27 てじゃ「ギリギリを超えると岩に魚がめりこむ」）
+    private Vector3 AboveRocks(Vector3 p, Vector3 f)
+    {
+        Vector3 d = p - line.position;
+        float along = Mathf.Abs(Vector3.Dot(d, f));
+        float edge = rockHalf + fishClear;
+        if (along >= edge) return p;
+        // 岩のふちから外へなだらかに下げる
+        float k = along < rockHalf ? 1f : 1f - (along - rockHalf) / fishClear;
+        float minY = line.position.y + rockTop + fishClear * k;
+        if (p.y < minY) p.y = minY;
+        return p;
     }
 
     private bool InZone(Vector3 p, Vector3 f, Vector3 r)
