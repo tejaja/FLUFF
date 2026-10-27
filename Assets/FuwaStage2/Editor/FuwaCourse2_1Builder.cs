@@ -516,7 +516,7 @@ public static class FuwaCourse2_1Builder
             var across = new Vector2(-SideD.y, SideD.x);
             VineCurtain(root, "SideVines", new Vector3(SideV.x, StartH + SideGapH, SideV.y), new Vector3(across.x, 0, across.y), SideHW * 2f, SideGapH, 2101);
         }
-        SideAlcoveFloor(root, RockBaseMat(), RockBaseMat());   // 洞窟の床のはしからツタまでは岩の床（2026-10-27 てじゃ「洞窟側で床がなくなるなら岩の床で」）
+        // 洞窟の床のはしからツタまでは岩山の穴の床（岩）そのもの（2026-10-27 てじゃ「洞窟側で床がなくなるなら岩の床で」→ 板をのせると岩とめりこんだので、岩山の穴の床の高さを洞窟の床にそろえた）
         // 洞窟の見た目は Blender の岩山（箱の壁は当たり判定だけ残す）
         CaveRock(root, terr);
         // ① の滝：水源の池から、洞窟の口の前を下の池へ
@@ -3048,6 +3048,14 @@ public static class FuwaCourse2_1Builder
                     Vector3 Pt(float ss2, float lat) => Point(pc, ss2, lat, lift(ss2) - PlankT * 0.5f);
                     float wa = pc.w(sa) * 0.5f, wb = pc.w(sb) * 0.5f;
                     var fL = Pt(sa, -wa); var fR = Pt(sa, wa); var bR = Pt(sb, wb); var bL = Pt(sb, -wb);
+                    // 板ごとにはしの出っぱり・高さ・ねじれを少しずつ（2026-10-27 てじゃ「木の橋はちょっと凸凹感」）。はじめの板（ツタの線）ははしをそろえる
+                    if (i > 0)
+                    {
+                        var acr = (fR - fL).normalized; float jL = R(-0.05f, 0.09f), jR = R(-0.05f, 0.09f);
+                        fL -= acr * jL; bL -= acr * jL; fR += acr * jR; bR += acr * jR;
+                        var dy = y * R(-0.008f, 0.012f); var tw = y * R(-0.012f, 0.012f);
+                        fL += dy + tw; bL += dy + tw; fR += dy - tw; bR += dy - tw;
+                    }
                     if (!float.IsNaN(pc.floorEdge))
                     {
                         // 中心線からの横の位置

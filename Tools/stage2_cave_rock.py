@@ -50,7 +50,13 @@ def _u2b(x, z): return (-x, -z)
 _pin = (SIDE_V[0] - SIDE_D[0] * 5, SIDE_V[1] - SIDE_D[1] * 5); _pout = (SIDE_V[0] + SIDE_D[0] * 8, SIDE_V[1] + SIDE_D[1] * 8)
 side_ring = [_u2b(_pin[0] - _px * SIDE_HW, _pin[1] - _pz * SIDE_HW), _u2b(_pout[0] - _px * SIDE_HW, _pout[1] - _pz * SIDE_HW),
              _u2b(_pout[0] + _px * SIDE_HW, _pout[1] + _pz * SIDE_HW), _u2b(_pin[0] + _px * SIDE_HW, _pin[1] + _pz * SIDE_HW)]
-side = prism('Tmp_Cut_Side', side_ring, 1.5, CEIL)
+# 床：ツタの線までは洞窟の床（Cut_Inside の 2.15）と同じ高さの岩の床、ツタから外は木の橋の下なので少し低く（橋の板が岩にめりこまないように）
+side = prism('Tmp_Cut_Side', side_ring, 2.15, CEIL)
+_vx, _vz = SIDE_V
+side_out = [_u2b(_vx - _px * SIDE_HW, _vz - _pz * SIDE_HW), _u2b(_pout[0] - _px * SIDE_HW, _pout[1] - _pz * SIDE_HW),
+            _u2b(_pout[0] + _px * SIDE_HW, _pout[1] + _pz * SIDE_HW), _u2b(_vx + _px * SIDE_HW, _vz + _pz * SIDE_HW)]
+side2 = prism('Tmp_Cut_SideOut', side_out, 1.85, CEIL)
+boolean(side, side2, 'UNION')
 
 pool = copy_of('Cut_Pool')
 for sx in (1, -1):
@@ -136,7 +142,7 @@ for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.18), ('Tmp_Cut_Side', 0
 def amp_at(p, nz=0.0):
     best = 0.0
     for t, a, keep_ceil in mtrees:
-        if keep_ceil and nz < -0.7: continue
+        if keep_ceil and abs(nz) > 0.7: continue   # 脇道の天井（ツタの上）と床は動かさない
         d = t.find_nearest(p)[3]
         if d is not None and d < 2e-3: best = max(best, a)
     return best
