@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
@@ -1215,7 +1215,7 @@ public static class FuwaCourse2_1Builder
         var g = new GameObject("RockBase").transform; g.SetParent(root, false);
         Physics.SyncTransforms();
         float gorge1 = sRiver1 + GorgeLen;
-        RockBase(root, g, "BaseA", sPlaza1 - 0.4f, sRiver1 + 0.2f, 11);
+        RockBase(root, g, "BaseA", sPlaza1 - BaseAFront, sRiver1 + 0.2f, 11, null, BaseAFront);
         // 2026-10-25 貝の道の下まで続ける（貝の道の両わきを岩の壁にしたのにあわせて）
         // 2026-10-26 滝の道（三連滝）の終わりまで続ける。水路の両はしは切れ目（breaks）にして、はばをまわりへ広げない
         //（広げると水路の端の滝 EndFalls が岩につきささる）
@@ -1255,7 +1255,8 @@ public static class FuwaCourse2_1Builder
     // 土台の厚み（ふちからとがりまで、m）。2026-10-25 てじゃ「分厚いと岩の道とかぶるから、かなり薄めにいこう」4.8〜6.6 → 1.6〜2.2
     public static float BaseDepth = 1.6f, BaseDepthVar = 0.6f;
     public static float BaseTaperW = 0.45f, BaseTaperY = 0.6f;
-    static void RockBase(Transform root, Transform g, string name, float s0, float s1, int seed, List<float> breaks = null)
+    public static float BaseAFront = 1.5f;   // 滝つぼの下の土台を洞窟の岩の中へのばす長さ(m)
+    static void RockBase(Transform root, Transform g, string name, float s0, float s1, int seed, List<float> breaks = null, float frontFill = 0f)
     {
         const float step = 0.5f, scanW = 14f, scanStep = 0.2f, brk = 0.05f;
         var ss = new List<float>(); for (float s = s0; s <= s1 + 1e-3f; s += step) ss.Add(s);
@@ -1300,6 +1301,16 @@ public static class FuwaCourse2_1Builder
                 if (lat > hi) { hi = lat; yhi = yTop; }
             }
             ok[i] = hi > lo; L[i] = lo; R[i] = hi; yL[i] = ylo; yR[i] = yhi; yMin[i] = ymin;
+        }
+        // 前のはしをのばす（frontFill m）：滝つぼの前のはしは、底の板にしか当たらず（ふちがない）土台の上が底の高さになって、
+        // 洞窟の岩とのあいだにすき間があき、底の板の前のはしも顔を出していた（2026-10-27 てじゃ「滝の下あたり、底の土がはみだしてる」「穴もあいてる」）。
+        // ふちに当たった最初の所の はば・高さで、前（洞窟の岩の中）までのばす
+        if (frontFill > 0f)
+        {
+            int rf = -1;
+            for (int i = 0; i < n; i++) if (ok[i] && Mathf.Min(yL[i], yR[i]) > yMin[i] + 1f) { rf = i; break; }
+            if (rf > 0)
+                for (int i = 0; i < rf; i++) { ok[i] = true; L[i] = L[rf]; R[i] = R[rf]; yL[i] = yL[rf]; yR[i] = yR[rf]; yMin[i] = yMin[rf]; }
         }
         // 抜けた所：短い（1m まで）なら近くで埋める、長い所（水のない道だけの所）は岩を切る
         var run = new int[n];   // 何番目の岩のかたまりか（-1＝岩なし）
