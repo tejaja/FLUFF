@@ -132,9 +132,9 @@ arch = copy_of('Cut_Arch')
 for v in arch.data.vertices: v.co.x *= ARCH_HW / 2.6
 # 洞窟の出口のトンネルを落ち口の前の面までのばす（2026-10-27 てじゃ「滝裏に変な岩の線」：出口の天井の先と落ち口の下のけずり（UnderCut）のあいだに、
 # 下へたれたうすい岩のヒレが残って、滝の裏を横切る線に見えた）。幅は出口の壁の内がわ、天井は出口の天井の先の高さ
-MX_HW, MX_Z0, MX_Z1, MX_TOP = 1.72, 5.9, 7.3, 4.89
+MX_HW, MX_Z0, MX_Z1, MX_TOP = 1.72, 5.0, 7.3, 4.95   # 4.89（出口の天井と同じ高さ）だと面が重なってくり抜きがこわれ、出口がふさがった
 mouth_ext = prism('Tmp_Cut_MouthExt', [_u2b(-MX_HW, MX_Z0), _u2b(MX_HW, MX_Z0), _u2b(MX_HW, MX_Z1), _u2b(-MX_HW, MX_Z1)], 2.3, MX_TOP)   # 床は切らない
-cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, mouth_ext, pool,
+cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, mouth_ext, pool,   # mouth_ext の始まり（MX_Z0）は洞窟の中の空いた所に（5.9 だと始まりの面が出口のトンネルに壁で残って出口がふさがった）
         copy_of('Cut_FallL'), copy_of('Cut_FallR')] + soft + exit_cuts + [undercut]
 base = bpy.data.objects['CaveRock']
 work = temp('Tmp_Rock', base.data.copy()); work.matrix_world = base.matrix_world
@@ -143,7 +143,21 @@ for c in cuts:
     print(c.name, n0, '->', len(work.data.vertices))
 # くり抜きで穴になったへり（面が1枚だけの辺）があればふさぐ
 bm = bmesh.new(); bm.from_mesh(work.data)
-holes = [e for e in bm.edges if e.is_boundary]
+# 厚みゼロのうすい板（同じ所に裏表の面が2枚）を消す：mouth_ext の始まりの面が出口のトンネルの中に板で残って、出口がふさがった（2026-10-27 てじゃ「入口の滝埋まってる」）
+bm.normal_update()
+from collections import defaultdict
+key = defaultdict(list)
+for f in bm.faces:
+    c = f.calc_center_median(); key[(round(c.x, 3), round(c.y, 3), round(c.z, 3))].append(f)
+sheet = set()
+for fs in key.values():
+    for i in range(len(fs)):
+        for j in range(i + 1, len(fs)):
+            if fs[i].normal.dot(fs[j].normal) < -0.99: sheet.add(fs[i]); sheet.add(fs[j])
+if sheet: bmesh.ops.delete(bm, geom=list(sheet), context='FACES_ONLY')
+def on_plane(e): return False
+print('sheet faces removed', len(sheet))
+holes = [e for e in bm.edges if e.is_boundary and not on_plane(e)]
 if holes: bmesh.ops.holes_fill(bm, edges=holes, sides=0)
 bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 print('holes filled', len(holes), 'open edges left', sum(1 for e in bm.edges if e.is_boundary))
