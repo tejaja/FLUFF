@@ -2180,36 +2180,79 @@ public static class FuwaCourse2_1Builder
     {
         var gate = new GameObject("Gate").transform; gate.SetParent(g, false);
         float yTop = H + FinCurtainTop, sl0 = cs - GateSlabLen, sl1 = cs;
-        bool InSlab(float s) => s > sl0 - 0.05f && s < sl1 + 0.05f;
         float Floor(float s, float s0, float s1) => Mathf.Lerp(yTop + GateRim, yTop - GateFloor, Smooth01(Mathf.Min(s - s0, s1 - s) / 0.8f));
+        // 2026-10-27 てじゃ「アーチの上がガタガタ」「抜けた先の右の崖が真っ直ぐきれてて違和感、ツタの裏側もカクッと」→
+        // ・水がかかる所（Slab）の内側のふちの高さを段でなく なめらかに（橋のふちの上がり方とそろえる）
+        // ・ふちの上・内の面にでこぼこ（まっすぐな線をなくす）
+        // ・下流のはしは上から見て半円に丸める（内側も外側も。前は外側だけ細くなって、内側の面がまっすぐ切れていた）
+        // ・くぐり口の天井の角を丸く、口のはしは天井が上がって開く
+        float SlabW(float s) => s < sl0 ? Smooth01((s - sl0 + 0.3f) / 0.7f) : s <= sl1 ? 1f : 1f - Smooth01((s - sl1) / 0.5f);
+        float RimN(float s, float k) => Mathf.PerlinNoise(17.3f + s * 0.55f, k) * 0.3f;
+        float Calm(float s) => s < sl0 ? Smooth01((sl0 - 0.3f - s) / 1f) : s > sl1 ? Smooth01((s - sl1 - 0.5f) / 1f) : 0f;   // 橋のふちとつながる所はでこぼこなし
+        float Bump(float s) => Smooth01((s - sl1 - 0.8f) / 0.8f);   // 内の面のでこぼこ：滝のはしと接する所は平らのまま
+        float RfU(float s, float a) => Mathf.Max(0.12f, Quarter(Mathf.Clamp01((s - a) / GateEndRound)));
+        float RfD(float s, float b, float rad) => Mathf.Max(0.05f, Quarter(Mathf.Clamp01((b - s) / rad)));
         // 左：内側（川の側）gIn、くぐり口の壁 gOut、外のはし -GateLeftOut。断面は 上のくぼみ → 外の面 → 下のとがり → くぐり口の壁 → くぐり口の天井 → 内の面
-        float l0 = wa - GateLeftExtra, l1 = wb + GateLeftExtra;
+        // くぐり口より外の岩（gOut〜外のはし）のまん中 cS・半幅 hS で、下流のはしを半円に
+        float cS = (gOut - GateLeftOut) * 0.5f, hS = (gOut + GateLeftOut) * 0.5f;
+        float l0 = wa - GateLeftExtra, l1 = sl1 + 0.7f + hS;
+        float WallL(float s) => cS + hS * RfD(s, l1, hS);
+        float OutL(float s) => Mathf.Max(cS - hS * RfD(s, l1, hS), gOut + (-GateLeftOut - gOut) * RfU(s, l0));
+        float LintelL(float s) { float w = WallL(s); return w + (gIn - w) * RfD(s, l1, hS); }
+        float CeilL(float s) => gTop + 0.6f * (1f - RfD(s, l1, hS));
+        float RidgeL(float s) => Mathf.Min(0.3f, (LintelL(s) - OutL(s)) * 0.25f);
+        // 右：内側（川の側）FinRiverHW、外のはし GateRightOut。下のはしは川の底より下。下流のはしは右岸の地面の上で半円に
+        float rin = FinRiverHW, cR = (rin + GateRightOut) * 0.5f, hR = (GateRightOut - rin) * 0.5f;
+        float r0s = sF1 + 0.2f, r1s = r0 + FinCliffLen + hR;
+        float InR(float s) => cR - hR * RfD(s, r1s, hR);
+        float OutR(float s) => Mathf.Min(cR + hR * RfD(s, r1s, hR), rin + (GateRightOut - rin) * RfU(s, r0s));
+        float RidgeR(float s) => Mathf.Min(0.3f, (OutR(s) - InR(s)) * 0.25f);
+        // くぼみの水（ふちの内側）。滝の所は内側のふちまで（水がかかっている所とつながる）。はしの細い所は水なし
+        // （はしの丸い所まで水を張ると、まっすぐな水のはしが丸いふちから はみ出して見えた）
+        // 下流の半円のはしは、幅がほぼ全部ある所までで水を止める（半円はすぐ幅が戻るので、幅2.2mで止めると先っぽまで水が来た）
+        float WaterEnd(float s1, float dir, Func<float, float> width, float need) { float s = s1; while (Mathf.Abs(s - s1) < 6f && width(s) < need) s -= 0.05f * dir; return dir < 0f ? Mathf.Max(s, s1 + 0.4f) : Mathf.Min(s, s1 - 0.4f); }
+        float lw0 = WaterEnd(l0, -1f, s => LintelL(s) - OutL(s), 2.2f), lw1 = WaterEnd(l1, 1f, s => LintelL(s) - OutL(s), 0.85f * (gIn + GateLeftOut));
+        float rw0 = WaterEnd(r0s, -1f, s => OutR(s) - InR(s), 2.2f), rw1 = WaterEnd(r1s, 1f, s => OutR(s) - InR(s), 0.85f * (GateRightOut - rin));
+        // くぼみの底は水のはしの外では 両側のふちの高さの間まで上げる（丸めたはしの先で、水のない底がふちの切れ込みに見えた）
+        float Floor2(float s, float w0, float w1, float rimIn, float rimOut) => Mathf.Lerp((rimIn + rimOut) * 0.5f, yTop - GateFloor, Smooth01(Mathf.Min(s - w0, w1 - s) / 0.8f));
         CragRock(gate, "GateRockL", l0, l1, 311, (s, rf) =>
         {
-            float outL = gOut + (-GateLeftOut - gOut) * rf, fl = Floor(s, l0, l1);
-            return new List<(float, float, bool)>
+            float li = LintelL(s), wi = WallL(s), ol = OutL(s), ce = CeilL(s), sw = SlabW(s), rr = RidgeL(s), bp = Bump(s);
+            float it = Mathf.Lerp(yTop + GateRim + RimN(s, 0.4f) * Calm(s), yTop - 0.03f, sw), ot = yTop + GateRim + RimN(s, 3.1f);
+            float fl = Floor2(s, lw0 - 0.1f, lw1 + 0.1f, Mathf.Max(it, yTop + GateRim), ot);
+            float fy = LeftBankH(Mathf.Clamp(s, sF1, sF1 + FinDownEnd)) - 0.6f;
+            float fr = Mathf.Min(0.45f, (li - wi) * 0.35f), bv = Mathf.Min(0.3f, (li - wi) * 0.25f);
+            var pr = new List<(float, float, bool)>
             {
-                (gIn, InSlab(s) ? yTop - 0.03f : yTop + GateRim, false), (gIn - 0.3f, fl, false), (outL + 0.3f * rf, fl, false), (outL, yTop + GateRim, false),
+                (li, it, false), (li - rr, fl, false), (ol + rr, fl, false), (ol, ot, false),
                 // 下にいくほど細く（浮島みたいに。まっすぐ下までだと柱に見えた）
-                (outL + 0.15f, yTop - 1.5f, true), (gOut + (outL - gOut) * 0.85f, H - 1.5f, true), (gOut + (outL - gOut) * 0.55f, surf - 1f, true), (gOut + (outL - gOut) * 0.25f, surf - 4.5f, true),
-                (gOut, LeftBankH(Mathf.Clamp(s, sF1, sF1 + FinDownEnd)) - 0.6f, false), (gOut, gTop, false), (gIn, gTop, false),
+                (ol + 0.15f, yTop - 1.5f, true), (wi + (ol - wi) * 0.85f, H - 1.5f, true), (wi + (ol - wi) * 0.55f, surf - 1f, true), (wi + (ol - wi) * 0.25f, surf - 4.5f, true),
+                (wi, fy, false), (wi - RimN(s, 5.7f), Mathf.Lerp(fy + 0.6f, ce, 0.55f), false),
             };
-        }, -1f);
-        // 右：内側（川の側）FinRiverHW、外のはし GateRightOut。下のはしは川の底より下
-        float r0s = sF1 + 0.2f, r1s = r0 + FinCliffLen + 1f, rin = FinRiverHW;
+            // くぐり口の壁→天井の角は丸く（へこんだ角なので口の中に少し出るだけ）
+            for (int a = 0; a <= 4; a++) { float th = Mathf.PI * (1f - a / 8f); pr.Add((wi + fr + fr * Mathf.Cos(th), ce - fr + fr * Mathf.Sin(th), false)); }
+            pr.Add(((wi + fr + li - bv) * 0.5f, ce + RimN(s, 7.9f) * 0.4f, false));
+            // 天井→内の面の出っぱった角は削って丸く
+            pr.Add((li - bv, ce, false)); pr.Add((li - bv * 0.3f, ce + bv * 0.3f, false)); pr.Add((li, ce + bv, false));
+            pr.Add((li - bp * RimN(s, 9.2f) * 1.3f, Mathf.Lerp(ce + bv, it, 0.5f), false));
+            return pr;
+        }, -1f, false, 0.2f);
         CragRock(gate, "GateRockR", r0s, r1s, 517, (s, rf) =>
         {
-            float outR = rin + (GateRightOut - rin) * rf, fl = Floor(s, r0s, r1s);
+            float ir = InR(s), ro = OutR(s), sw = SlabW(s), rr = RidgeR(s), bp = Bump(s);
+            float it = Mathf.Lerp(yTop + GateRim + RimN(s, 1.3f) * Calm(s), yTop - 0.03f, sw), ot = yTop + GateRim + RimN(s, 4.4f);
+            float fl = Floor2(s, rw0 - 0.1f, rw1 + 0.1f, Mathf.Max(it, yTop + GateRim), ot);
             return new List<(float, float, bool)>
             {
-                (rin, InSlab(s) ? yTop - 0.03f : yTop + GateRim, false), (rin + 0.3f, fl, false), (outR - 0.3f * rf, fl, false), (outR, yTop + GateRim, false),
-                (outR - 0.15f, yTop - 1.5f, true), (rin + (outR - rin) * 0.85f, H - 1.5f, true), (rin + (outR - rin) * 0.55f, surf - 1f, true), (rin + (outR - rin) * 0.3f, surf - 4.5f, true),
-                (rin, surf - 2.5f, false),
+                (ir, it, false), (ir + rr, fl, false), (ro - rr, fl, false), (ro, ot, false),
+                (ro - 0.15f, yTop - 1.5f, true), (ir + (ro - ir) * 0.85f, H - 1.5f, true), (ir + (ro - ir) * 0.55f, surf - 1f, true), (ir + (ro - ir) * 0.3f, surf - 4.5f, true),
+                (ir, surf - 2.5f, false), (ir, surf + 0.3f, false),
+                // 川に面した内の面のでこぼこ（水ぎわは川のはしのまま、岩の中へ引っこむだけ）
+                (ir + bp * RimN(s, 6.6f) * 1.6f, Mathf.Lerp(surf + 0.3f, it, 0.35f), false), (ir + bp * RimN(s, 8.1f) * 1.6f, Mathf.Lerp(surf + 0.3f, it, 0.72f), false),
             };
-        }, 1f);
-        // くぼみの水（ふちの内側）。滝の所は内側のふちまで（水がかかっている所とつながる）
-        BasinWater(gate, "GateWaterL", l0 + 0.4f, l1 - 0.4f, s => InSlab(s) ? gIn : gIn - 0.3f, s => gOut + (-GateLeftOut - gOut) * GateRf(s, l0, l1) + 0.3f * GateRf(s, l0, l1), yTop, cs);
-        BasinWater(gate, "GateWaterR", r0s + 0.4f, r1s - 0.4f, s => InSlab(s) ? rin : rin + 0.3f, s => rin + (GateRightOut - rin) * GateRf(s, r0s, r1s) - 0.3f * GateRf(s, r0s, r1s), yTop, cs);
+        }, 1f, false, 0.2f);
+        BasinWater(gate, "GateWaterL", lw0, lw1, s => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f, gIn, SlabW(s)), s => OutL(s) + RidgeL(s) * 0.2f, yTop, cs);
+        BasinWater(gate, "GateWaterR", rw0, rw1, s => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f, rin, SlabW(s)), s => OutR(s) - RidgeR(s) * 0.2f, yTop, cs);
         BasinWater(gate, "GateWaterSlab", sl0, sl1, s => gIn, s => rin, yTop, 99f);
         // 前のふちから滝（川の水面まで）と、水がかかっている所の後ろ・下をつつむ膜
         var lipF = new List<Vector3>(); var outF = new List<Vector3>();
@@ -2243,6 +2286,7 @@ public static class FuwaCourse2_1Builder
             WaterOrb(sp, pos, "WaterOrb", WallOrbHeight, 0.36f, 0.24f);
         }
     }
+    static float Quarter(float t) => Mathf.Sqrt(1f - (1f - t) * (1f - t));
     // 岩のはしの丸み（上から見て四分円、0.12〜1）
     static float GateRf(float s, float s0, float s1)
     {
@@ -2250,9 +2294,8 @@ public static class FuwaCourse2_1Builder
         return Mathf.Max(0.12f, Mathf.Sqrt(1f - (1f - t) * (1f - t)));
     }
     // 中心線にそったごつごつの岩。prof(s, はしの丸み)＝断面の点 (横, 高さ, でこぼこさせるか) を閉じた順に。side＝外の向き（-1＝左）
-    static void CragRock(Transform g, string name, float s0, float s1, int seed, Func<float, float, List<(float lat, float y, bool free)>> prof, float side, bool round = true)
+    static void CragRock(Transform g, string name, float s0, float s1, int seed, Func<float, float, List<(float lat, float y, bool free)>> prof, float side, bool round = true, float step = 0.4f)
     {
-        const float step = 0.4f;
         var ss = new List<float>(); for (float s = s0; s < s1 - 1e-3f; s += step) ss.Add(s); ss.Add(s1);
         int n = ss.Count, cols = 0;
         float nOff = seed * 0.731f;
