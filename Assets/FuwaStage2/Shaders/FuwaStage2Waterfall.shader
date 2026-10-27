@@ -43,7 +43,7 @@ Shader "FuwaStage2/Waterfall"
             float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor, _PondTop;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; fixed4 color : COLOR; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; float ny : TEXCOORD4; };
 
             v2f vert (appdata v)
             {
@@ -55,6 +55,7 @@ Shader "FuwaStage2/Waterfall"
                 if (_UseVColor > 0.5 && abs(v.normal.x) > 0.5) o.size.x = length(mul((float3x3)unity_ObjectToWorld, float3(0, 0, 1)));
                 if (_Curved > 0.5) { o.size = v.tot; o.uv = v.m / max(v.tot, 0.001); }
                 o.color = _UseVColor > 0.5 ? v.color : fixed4(1, 1, 1, 1);
+                o.ny = UnityObjectToWorldNormal(v.normal).y;
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -88,6 +89,7 @@ Shader "FuwaStage2/Waterfall"
                     // 落ち口の手前は池の色、落ち口へ近づくと白い筋の滝の色へ。上のはし（池の下へもぐる所）の泡は出さない
                     float dT = (1 - i.uv.y) * i.size.y;
                     float pk = 1 - smoothstep(_PondTop - 0.1, _PondTop + 0.35, dT);
+                    pk *= smoothstep(0.3, 0.7, i.ny);   // 上向きの面だけ（滝の裏から見える下向きの面は滝の色のまま。2026-10-27 てじゃ「滝の裏からみたとき上が違和感」）
                     col = lerp(col, _PondColor.rgb, pk);
                     top = 0;
                 }
