@@ -447,7 +447,7 @@ public static class FuwaCourse2_1Builder
         // 落ち口は岩山の本当のふち（startLipZ、まっすぐ +z 向き）。前は中心線の sPlaza1（ふちより 0.75m 手前・少しななめ）で、滝が岩の床にもぐって片側に岩のとがりが出ていた（2026-10-27 てじゃ「入口のウラの滝上、いろいろきたない」）。
         // 落ちる所（滝つぼの位置）は前と同じになるように、のびる長さを短く
         { FuwaCourse2_1Builder.Center(sPlaza1, out var op, out var od); var olip = op + od * FallsReach;
-          CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.02f, 0f, MouthHW * 2f + 0.4f, Mathf.Max(0.5f, olip.y - startLipZ), 0.9f, new Vector2(0f, startLipZ), Vector2.up); }   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
+          CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.02f, 0f, startLipHW * 2f, Mathf.Max(0.5f, olip.y - startLipZ), 0.9f, new Vector2(0f, startLipZ), Vector2.up); }   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
         // ⑥ ラスト：よけられない滝、下の川、右岸のゴールの広場
         Finale(root, terr, ground, bedMat, fx, splash);
 
@@ -870,7 +870,7 @@ public static class FuwaCourse2_1Builder
     // てじゃ「岩ベースにはしたいけど、最初の洞窟みたいになってるとこがロビーからみてダサい」「滝みえてほしい」→ 岩山＋ロビー側は大きな岩のアーチ＋てっぺんの池から細い滝2本。
     // 形は Blender（FLUFF_models.blend の Stage2Cave シーン、Stage2_CaveRock。CaveRock を Cut_* でくりぬく）で、座標はコースのローカルそのまま。
     // 箱の壁（CaveWall*・CaveBack*・CaveMouth*・CaveRoof・CaveFloorCliff・CaveDoorSill）は見た目だけ消して当たり判定は残す。岩山にも当たり判定（メッシュ）
-    static float startLipZ;
+    static float startLipZ, startLipHW = MouthHW;
     const string CaveRockModel = "Assets/FuwaStage2/Models/Stage2_CaveRock.fbx";
     // ロビー側の細い滝（岩山のてっぺんの溝 Cut_FallL/R）：x・溝の底の高さ
     static readonly (float x, float floor)[] BackFalls = { (-1.45f, 5.45f), (1.8f, 5.55f) };
@@ -985,6 +985,7 @@ public static class FuwaCourse2_1Builder
             }
             return last + 0.05f;
         }
+        startLipHW = (RowHW(zEnd - 0.3f, -1f) + RowHW(zEnd - 0.3f, 1f)) * 0.5f - 0.05f;   // 落ち口の手前の水の半分の幅（滝の幅をこれに合わせる）
         int nRow = Mathf.Max(1, Mathf.CeilToInt((zEnd - zGrid) / 0.05f)); int prevL = -1, prevR = -1;
         for (int k = 0; k <= nRow; k++)
         {
