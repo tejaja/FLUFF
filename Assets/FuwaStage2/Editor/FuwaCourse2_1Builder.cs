@@ -2285,6 +2285,126 @@ public static class FuwaCourse2_1Builder
             Spring(sp, pos);
             WaterOrb(sp, pos, "WaterOrb", WallOrbHeight, 0.36f, 0.24f);
         }
+        // 見た目と当たり判定は Blender でひとつにした岩（Stage2_GateRock.fbx。FLUFF_models.blend の Stage2Gate シーン：Src_* をつないで Cut_* でくりぬく）。
+        // 上の Gate* の岩は型の元として作るだけで、見た目・当たり判定は消す
+        var gateModel = AssetDatabase.LoadAllAssetsAtPath(GateRockModel).OfType<Mesh>().FirstOrDefault();
+        if (gateModel)
+        {
+            foreach (var nm in new[] { "GateRockL", "GateRockR", "GateBridge" })
+            {
+                var t = gate.Find(nm); if (!t) continue;
+                if (t.GetComponent<Renderer>()) t.GetComponent<Renderer>().enabled = false;
+                if (t.GetComponent<Collider>()) t.GetComponent<Collider>().enabled = false;
+            }
+            var gr = new GameObject("GateRock"); gr.transform.SetParent(gate, false);
+            gr.AddComponent<MeshFilter>().sharedMesh = gateModel; gr.AddComponent<MeshRenderer>().sharedMaterial = RockBaseMat();
+            gr.AddComponent<MeshCollider>().sharedMesh = gateModel;
+        }
+        if (GateExportPath != null) ExportGateShapes(gate, GateExportPath, H, surf, yTop, sl0, sl1, gIn, gOut, rin, l0, l1, r0s, r1s, lw0, lw1, rw0, rw1,
+            WallL, CeilL, s => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f, gIn, SlabW(s)), s => OutL(s) + RidgeL(s) * 0.2f,
+            s => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f, rin, SlabW(s)), s => OutR(s) - RidgeR(s) * 0.2f);
+    }
+
+    // ---- ラストの滝の門を Blender でひとつの岩にするための型（2026-10-27 てじゃ「アーチで繫いでる岩がとってつけたような感じ」→ A：Blenderで作り直す）----
+    // 元の形（左右の岩・橋の土台）と、くりぬく型（Cut_*：岩のすき間＋アーチの下・くぐり口・上の水のくぼみ）をコースのローカル座標で JSON に書き出す。
+    // くりぬく型は今の当たり判定より外へしか広げない（でこぼこは岩の中へ引っこむ向きだけ）
+    public static string GateExportPath;
+    const string GateRockModel = "Assets/FuwaStage2/Models/Stage2_GateRock.fbx";
+    public static float GateArchTop = 1.5f, GateArchSpring = 3.3f;   // アーチの下：まん中は yTop-1.5、岩の面で yTop-3.3（面に沿って立ち上がる）
+    static void ExportGateShapes(Transform gate, string path, float H, float surf, float yTop, float sl0, float sl1, float gIn, float gOut, float rin,
+        float l0, float l1, float r0s, float r1s, float lw0, float lw1, float rw0, float rw1,
+        Func<float, float> wallL, Func<float, float> ceilL, Func<float, float> lInA, Func<float, float> lInB, Func<float, float> rInA, Func<float, float> rInB)
+    {
+        var sb = new System.Text.StringBuilder(); sb.Append("{\"objects\":[");
+        bool first = true;
+        void Emit(string name, List<Vector3> V, List<int> T)
+        {
+            if (!first) sb.Append(','); first = false;
+            sb.Append("{\"name\":\"").Append(name).Append("\",\"v\":[");
+            for (int i = 0; i < V.Count; i++) { if (i > 0) sb.Append(','); sb.Append(V[i].x.ToString("F4", System.Globalization.CultureInfo.InvariantCulture)).Append(',').Append(V[i].y.ToString("F4", System.Globalization.CultureInfo.InvariantCulture)).Append(',').Append(V[i].z.ToString("F4", System.Globalization.CultureInfo.InvariantCulture)); }
+            sb.Append("],\"t\":[").Append(string.Join(",", T)).Append("]}");
+        }
+        // 中心線にそって断面（横, 高さ）をつなぐ閉じた形（断面は反時計回りでも時計回りでもよい：向きは Blender 側で直す）
+        void Loft(string name, List<float> ss, Func<float, List<Vector2>> prof)
+        {
+            var V = new List<Vector3>(); var T = new List<int>(); int cols = 0;
+            foreach (var s in ss)
+            {
+                Center(s, out var p, out var d); var r = Right(d); var pr = prof(s); cols = pr.Count;
+                foreach (var q in pr) { var w = p + r * q.x; V.Add(new Vector3(w.x, q.y, w.y)); }
+            }
+            int n = ss.Count;
+            for (int i = 0; i < n - 1; i++)
+                for (int k = 0; k < cols; k++)
+                {
+                    int k2 = (k + 1) % cols, a = i * cols + k, b = a + cols, a2 = i * cols + k2, b2 = a2 + cols;
+                    T.AddRange(new[] { a, a2, b, a2, b2, b });
+                }
+            foreach (int i in new[] { 0, n - 1 })
+            {
+                var c = Vector3.zero; for (int k = 0; k < cols; k++) c += V[i * cols + k]; int ci = V.Count; V.Add(c / cols);
+                for (int k = 0; k < cols; k++) T.AddRange(i == 0 ? new[] { ci, i * cols + (k + 1) % cols, i * cols + k } : new[] { ci, i * cols + k, i * cols + (k + 1) % cols });
+            }
+            Emit(name, V, T);
+        }
+        List<float> Steps(float a, float b, float step, params float[] extra)
+        {
+            var l = new List<float>(); for (float s = a; s < b - 1e-3f; s += step) l.Add(s); l.Add(b);
+            foreach (var e in extra) if (e > a && e < b) { l.Add(e - 0.01f); l.Add(e); }
+            return l.Distinct().OrderBy(x => x).ToList();
+        }
+        float N(float s, float k) => Mathf.PerlinNoise(31.7f + s * 0.5f, k);
+        // 元の形：左右の岩はいまのメッシュそのまま
+        foreach (var nm in new[] { "GateRockL", "GateRockR" })
+        {
+            var m = gate.Find(nm).GetComponent<MeshFilter>().sharedMesh; Emit("Src_" + nm, m.vertices.ToList(), m.triangles.ToList());
+        }
+        // 橋の土台：箱（上はせき止めるふちの高さ、下はアーチの根元より下）。アーチは Cut_Gap でくりぬく
+        float bs0 = sl0 - 0.3f;
+        Loft("Src_Bridge", Steps(bs0, sl1, 0.2f), s => new List<Vector2> { new Vector2(gIn - 0.4f, yTop + GateRim), new Vector2(rin + 0.4f, yTop + GateRim), new Vector2(rin + 0.4f, yTop - GateArchSpring - 1f), new Vector2(gIn - 0.4f, yTop - GateArchSpring - 1f) });
+        // 岩のすき間（川・滝・踊り場の右の岩の面まで）。橋の所はアーチの下だけ。でこぼこは下流の川ぞいだけ（滝のはし・踊り場のふちは平らのまま）
+        float g0 = r0s - 2f, g1 = Mathf.Max(l1, r1s) + 3f, bA = bs0 - 0.4f, bB = sl1 - 0.02f;
+        Loft("Cut_Gap", Steps(g0, g1, 0.2f, bA, bB), s =>
+        {
+            // 上流（踊り場の横・アーチの下）もでこぼこ。平らのままは滝のはしが接する所（落ち口の前後）だけ。
+            // でこぼこは いちばん下の段（踊り場+1.3m くらい）より上で、上のふち（水のくぼみのへり）の手前まで
+            bool br = s >= bA && s <= bB; float nz = Mathf.Max(Smooth01((s - sl1 - 0.8f) / 0.8f), Smooth01((sl1 - 0.5f - s) / 0.6f));
+            float top = br ? yTop - GateArchSpring : yTop + 6f, fTop = br ? top - 0.4f : yTop - 1f, fEnd = br ? top - 0.15f : yTop - 0.2f;
+            float fLow = s > sl1 ? surf + 0.8f : H + 1.2f;   // 下流は川の水面の上から、上流は踊り場の上1.2mから
+            var pr = new List<Vector2> { new Vector2(gIn, surf - 12f), new Vector2(rin, surf - 12f), new Vector2(rin, surf + 0.3f), new Vector2(rin, fLow) };
+            for (int k = 1; k <= 3; k++) pr.Add(new Vector2(rin + nz * N(s, k) * 0.5f, Mathf.Lerp(fLow, fTop, k / 4f)));
+            pr.Add(new Vector2(rin, fEnd)); pr.Add(new Vector2(rin, top));
+            // 上の辺：橋の所はアーチ、ほかは空の高さ（点の数はどの断面も同じにする）
+            float mid = (gIn + rin) * 0.5f, hw = (rin - gIn) * 0.5f;
+            for (int k = 1; k < 12; k++)
+            {
+                float u = Mathf.Cos(Mathf.PI * k / 12f);   // 1 → -1（右 → 左）
+                pr.Add(br ? new Vector2(mid + hw * u, yTop - GateArchTop - (GateArchSpring - GateArchTop) * (1f - Mathf.Sqrt(1f - u * u)))
+                          : new Vector2(mid + hw * u, yTop + 6f));
+            }
+            pr.Add(new Vector2(gIn, top)); pr.Add(new Vector2(gIn, fEnd));
+            for (int k = 3; k >= 1; k--) pr.Add(new Vector2(gIn - nz * N(s, k + 7f) * 0.5f, Mathf.Lerp(fLow, fTop, k / 4f)));
+            pr.Add(new Vector2(gIn, fLow)); pr.Add(new Vector2(gIn, surf + 0.3f));
+            return pr;
+        });
+        // くぐり口（人の道）：壁→天井の角は丸く。壁・天井は岩の中へ少しでこぼこ
+        Loft("Cut_Walk", Steps(l0 - 3f, l1 + 3f, 0.2f), s =>
+        {
+            float wi = wallL(s), ce = ceilL(s), fy = LeftBankH(Mathf.Clamp(s, sF1, sF1 + FinDownEnd)) - 1.6f, fr = 0.45f;
+            var pr = new List<Vector2> { new Vector2(gIn + 0.5f, fy), new Vector2(gIn + 0.5f, ce + 0.3f), new Vector2((wi + gIn) * 0.5f, ce + N(s, 3f) * 0.15f) };
+            for (int a = 4; a >= 0; a--) { float th = Mathf.PI * (1f - a / 8f); pr.Add(new Vector2(wi + fr + fr * Mathf.Cos(th), ce - fr + fr * Mathf.Sin(th))); }
+            pr.Add(new Vector2(wi - N(s, 5f) * 0.3f, Mathf.Lerp(fy + 1f, ce, 0.5f)));
+            pr.Add(new Vector2(wi, fy));
+            return pr;
+        });
+        // 上の水のくぼみ：水面のはしより5cm内側（水のはしは岩の中にかくれる）、底は yTop-GateFloor
+        float fl = yTop - GateFloor;
+        Loft("Cut_BasinL", Steps(lw0, lw1, 0.2f), s => { float a = lInA(s), b = lInB(s); a = a >= gIn - 0.01f ? gIn + 0.3f : a - 0.05f; return new List<Vector2> { new Vector2(b + 0.05f, fl), new Vector2(a, fl), new Vector2(a, yTop + 5f), new Vector2(b + 0.05f, yTop + 5f) }; });
+        Loft("Cut_BasinR", Steps(rw0, rw1, 0.2f), s => { float a = rInA(s), b = rInB(s); a = a <= rin + 0.01f ? rin - 0.3f : a + 0.05f; return new List<Vector2> { new Vector2(a, fl), new Vector2(b - 0.05f, fl), new Vector2(b - 0.05f, yTop + 5f), new Vector2(a, yTop + 5f) }; });
+        Loft("Cut_Slab", Steps(sl0, sl1 + 0.5f, 0.2f), s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + 5f), new Vector2(gIn, yTop + 5f) });
+        sb.Append("]}");
+        System.IO.File.WriteAllText(path, sb.ToString());
+        Debug.Log("[2–1] 門の型を書き出し: " + path);
     }
     static float Quarter(float t) => Mathf.Sqrt(1f - (1f - t) * (1f - t));
     // 岩のはしの丸み（上から見て四分円、0.12〜1）
