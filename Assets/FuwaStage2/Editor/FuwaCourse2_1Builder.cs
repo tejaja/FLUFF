@@ -889,6 +889,8 @@ public static class FuwaCourse2_1Builder
             AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_LobbyGround.mat"),
         };
         go.AddComponent<MeshCollider>().sharedMesh = mesh;
+        // 影は両面で落とす（片面だと、くり抜いた薄い所・ふちから光がもれて、入口の橋の横にまだらの光の模様が出た。2026-10-27 てじゃ）
+        go.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.TwoSided;
         // 出口の本当のふち（池の床の高さの頂点で、いちばん前）
         startLipZ = mesh.vertices.Where(v => Mathf.Abs(v.x) < 1.2f && v.y < SourceSurf - 0.1f && v.y > SourceSurf - 1f).Select(v => v.z).DefaultIfEmpty(sPlaza1).Max();
         foreach (Transform c in terr)
