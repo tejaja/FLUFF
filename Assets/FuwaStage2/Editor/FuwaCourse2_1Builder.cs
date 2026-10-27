@@ -2459,11 +2459,12 @@ public static class FuwaCourse2_1Builder
     static float RoadW(float s) { return Mathf.Lerp(WalkHW * 2f, RoadHW * 2f, Smooth01((s - sF0) / 2f)); }
     // えぐれ（滝の中心からの距離 x）：上流は短く立ち上げ、下流は長くゆるく戻す（流されたふわふわが角に引っかからず外へすべるように）
     // 2026-10-27 てじゃ「滝裏、青床が近くてふわふわが叩きつけられる」：滝の押す範囲（幕の前後 0.45m＋前へ 0.3m）が上流側のえぐれのふちの道にかかっていた → NotchUp 0.6→1.5
-    const float NotchUp = 1.5f, NotchDown = 0.9f, NotchEnd = 2.1f;
+    //「広げたとこ角がカクっとしてるからすこし丸めて」→ 上流の立ち上がりを NotchUpRamp m でゆるく（深さいっぱいは NotchUp まで＝押す範囲＋30cm）
+    const float NotchUp = 1.35f, NotchUpRamp = 0.8f, NotchDown = 0.9f, NotchEnd = 2.1f;
     static float NotchShape(float x)
     {
-        if (x < -NotchUp - 0.25f || x > NotchEnd) return 0f;
-        return Mathf.Min(Smooth01((x + NotchUp + 0.25f) / 0.25f), 1f - Smooth01((x - NotchDown) / (NotchEnd - NotchDown)));
+        if (x < -NotchUp - NotchUpRamp || x > NotchEnd) return 0f;
+        return Mathf.Min(Smooth01((x + NotchUp + NotchUpRamp) / NotchUpRamp), 1f - Smooth01((x - NotchDown) / (NotchEnd - NotchDown)));
     }
     // side の側のえぐれの深さ
     static float Cut(float s, float side)
@@ -2483,7 +2484,7 @@ public static class FuwaCourse2_1Builder
     static void ChannelRange(int i, out float c0, out float c1)
     {
         float fb = FallsFlowBack ? -1f : 1f;
-        c0 = setS[i] - fb * (NotchUp + 1.2f); c1 = setS[i] + fb * (NotchEnd + ChanAfter[i]);
+        c0 = setS[i] - fb * (NotchUp + NotchUpRamp + 0.95f); c1 = setS[i] + fb * (NotchEnd + ChanAfter[i]);
         if (c0 > c1) { float tmp = c0; c0 = c1; c1 = tmp; }
     }
     static void FallsRoad(Transform root, Material ground, Material bedMat, FuwaWaterFx fx, AudioSource splash)
