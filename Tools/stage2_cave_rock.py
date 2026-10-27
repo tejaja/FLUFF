@@ -51,12 +51,11 @@ _pin = (SIDE_V[0] - SIDE_D[0] * 5, SIDE_V[1] - SIDE_D[1] * 5); _pout = (SIDE_V[0
 side_ring = [_u2b(_pin[0] - _px * SIDE_HW, _pin[1] - _pz * SIDE_HW), _u2b(_pout[0] - _px * SIDE_HW, _pout[1] - _pz * SIDE_HW),
              _u2b(_pout[0] + _px * SIDE_HW, _pout[1] + _pz * SIDE_HW), _u2b(_pin[0] + _px * SIDE_HW, _pin[1] + _pz * SIDE_HW)]
 # 床：ツタの線までは洞窟の床（Cut_Inside の 2.15）と同じ高さの岩の床、ツタから外は木の橋の下なので少し低く（橋の板が岩にめりこまないように）
-side = prism('Tmp_Cut_Side', side_ring, 2.15, CEIL)
+side = prism('Tmp_Cut_Side', side_ring, 2.18, CEIL)   # 2.15 だと洞窟の床の下の岩の上の面（Cut_Inside の底 2.15）と同じ高さで、くり抜きがこわれて穴があいた
 _vx, _vz = SIDE_V
 side_out = [_u2b(_vx - _px * SIDE_HW, _vz - _pz * SIDE_HW), _u2b(_pout[0] - _px * SIDE_HW, _pout[1] - _pz * SIDE_HW),
             _u2b(_pout[0] + _px * SIDE_HW, _pout[1] + _pz * SIDE_HW), _u2b(_vx + _px * SIDE_HW, _vz + _pz * SIDE_HW)]
-side2 = prism('Tmp_Cut_SideOut', side_out, 1.85, CEIL)
-boolean(side, side2, 'UNION')
+side2 = prism('Tmp_Cut_SideOut', side_out, 1.85, CEIL - 0.01)   # 別々にくり抜く（合体すると同じ面が重なって、床の面が裏返り穴に見えた）
 
 pool = copy_of('Cut_Pool')
 for sx in (1, -1):
@@ -118,7 +117,7 @@ undercut = temp('Tmp_UnderCut', me_uc)
 ARCH_HW = 2.25
 arch = copy_of('Cut_Arch')
 for v in arch.data.vertices: v.co.x *= ARCH_HW / 2.6
-cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, pool,
+cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, side2, pool,
         copy_of('Cut_FallL'), copy_of('Cut_FallR')] + soft + exit_cuts + [undercut]
 base = bpy.data.objects['CaveRock']
 work = temp('Tmp_Rock', base.data.copy()); work.matrix_world = base.matrix_world

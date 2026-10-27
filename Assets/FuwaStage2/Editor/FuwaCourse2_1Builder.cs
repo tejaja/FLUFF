@@ -3053,8 +3053,9 @@ public static class FuwaCourse2_1Builder
                     {
                         var acr = (fR - fL).normalized; float jL = R(-0.05f, 0.09f), jR = R(-0.05f, 0.09f);
                         fL -= acr * jL; bL -= acr * jL; fR += acr * jR; bR += acr * jR;
-                        var dy = y * R(-0.008f, 0.012f); var tw = y * R(-0.012f, 0.012f);
-                        fL += dy + tw; bL += dy + tw; fR += dy - tw; bR += dy - tw;
+                        // 極わずかな角度でガタつき（2026-10-27 てじゃ「木の板に極僅かに角度つけてガタツキ感」）：左右のねじれ ±1.5cm・前後の傾き ±1cm・高さ
+                        var dy = y * R(-0.008f, 0.014f); var tw = y * R(-0.015f, 0.015f); var pt = y * R(-0.01f, 0.01f);
+                        fL += dy + tw - pt; bL += dy + tw + pt; fR += dy - tw - pt; bR += dy - tw + pt;
                     }
                     if (!float.IsNaN(pc.floorEdge))
                     {
