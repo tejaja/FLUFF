@@ -3353,6 +3353,37 @@ public static class FuwaCourse2_1Builder
                 }
                 Quad(prev[0], prev[1], prev[2], prev[3], Tangent3(pc, s1), Wood(br, false));
             }
+            // 橋の先っぽをこわれて崩れた感じに（2026-10-27 てじゃ「最初の木の橋の先端、壊れて崩れたみたいにしたい」「足場は短くしたくないから追加する感じで」）：
+            // 橋の終わり（渡り場の手前）の先に、見た目だけの折れた板・たれ下がった板・折れた桁を足す（当たり判定なし。歩ける所は今のまま）
+            if (pc.name == "B1_Bridge")
+            {
+                var t = Tangent3(pc, s1); var x = Normal(pc, s1, 1, 0); var y = Normal(pc, s1, 0, 1);
+                float hw = pc.w(s1) * 0.5f, pp = PlankPitch, l = lift(s1);
+                var c0 = Point(pc, s1, 0f, l - PlankT * 0.5f);
+                // a から dir の向きに長さ len、幅 wid の板（side＝幅の向きの目安）
+                void Slab(Vector3 a, Vector3 dir, Vector3 side, float len, float wid, float th, float r)
+                {
+                    dir.Normalize(); var up = Vector3.Cross(dir, side).normalized; if (Vector3.Dot(up, y) < 0f) up = -up;
+                    var sd = Vector3.Cross(up, dir).normalized;
+                    Box(a + dir * (len * 0.5f), sd, up, dir, new Vector3(wid * 0.5f, th * 0.5f, len * 0.5f), r);
+                }
+                float bl = -hw + BeamIn, brt = hw - BeamIn, by = -PlankT - BeamH * 0.5f;
+                // 桁：左はもう少し先まで残って折れた先、右は根元で折れて下へ
+                Slab(c0 + x * bl + y * (by + PlankT * 0.5f) - t * 0.02f, t - y * 0.06f, x, 0.75f, BeamW, BeamH, 95f);
+                Slab(c0 + x * brt + y * (by + PlankT * 0.5f) - t * 0.02f, t * 0.45f - y, x, 0.55f, BeamW, BeamH, 92f);
+                // 1枚目：左から 2/3 だけ残った板（少し傾いて、右はしは折れて欠けた）
+                Slab(c0 + t * (pp * 0.5f) + x * (-hw - 0.04f) - y * 0.005f, x - y * 0.05f + t * 0.06f, t, hw * 2f * 0.68f, pp - 0.035f, PlankT, 165f);
+                // 2枚目：左の桁の上に短く残った板（先が下がる）
+                Slab(c0 + t * (pp * 1.5f + 0.01f) + x * (-hw + 0.02f) - y * 0.02f, x - y * 0.22f + t * 0.03f, t, 0.85f, pp - 0.04f, PlankT, 150f);
+                // 3枚目：1枚目の右の欠けた所から、右の折れた桁ぞいに垂れ下がる板
+                Slab(c0 + t * (pp * 0.6f) + x * (hw * 0.45f) - y * 0.03f, -y + x * 0.35f + t * 0.3f, t, 0.8f, pp - 0.04f, PlankT, 175f);
+                // 4枚目：2枚目の先からぶら下がる短い板
+                Slab(c0 + t * (pp * 1.6f) + x * (-hw + 0.8f) - y * 0.2f, -y + x * 0.15f + t * 0.45f, t, 0.55f, pp - 0.05f, PlankT, 140f);
+                // 折れ口のささくれ（細い木っ端）
+                Slab(c0 + t * (pp * 0.5f) + x * (-hw + hw * 2f * 0.66f) - y * 0.02f, x + t * 0.25f - y * 0.1f, t, 0.22f, 0.035f, PlankT * 0.7f, 185f);
+                Slab(c0 + t * (pp * 0.55f) + x * (-hw + hw * 2f * 0.64f) - y * 0.025f, x - t * 0.3f - y * 0.2f, t, 0.16f, 0.03f, PlankT * 0.6f, 170f);
+                Slab(c0 + t * (pp * 1.5f) + x * (-hw + 0.84f) - y * 0.2f, x * 0.6f - y + t * 0.2f, t, 0.14f, 0.03f, PlankT * 0.6f, 160f);
+            }
         }
         var mesh = new Mesh { name = "Course2_1WoodWalk" };
         mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
