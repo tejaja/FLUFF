@@ -315,8 +315,10 @@ public static class FuwaCourse2_1Builder
             float gA = sPlaza1 - 0.4f - SideGapLen;
             // まっすぐななめに（木の板がそろうように。2026-10-27）
             // 1.5＝洞窟の床（幅6）の右半分ぴったり。曲がりはじめを洞窟の中へ早めて、ゆるい S 字に（曲がりの半径が道の半分の幅より小さいと、木の板が内側で重なって飛び出した）
-            if (s < sPlaza1) return Mathf.Lerp(1.5f, 4.7f, Smooth01((s - (gA - 1.4f)) / (sPlaza1 + 0.6f - (gA - 1.4f))));
-            return Mathf.Max(Mathf.Lerp(4.7f, 3.4f, Smooth01((s - sPlaza1) / 6f)), WaterHW(Mathf.Min(s, sRiver1)) + RimW + 1.55f);
+            // 洞窟の中の木を短く（2026-10-27 てじゃ「洞窟内の木もっとみじかく」）：曲がりはじめを遅くして、曲がりおわりを洞窟の外へ（S字の長さはそのまま＝板が重ならない）
+            float r0 = gA - 0.4f, r1 = sPlaza1 + 1.6f;
+            if (s < r1) return Mathf.Lerp(1.5f, 4.7f, Smooth01((s - r0) / (r1 - r0)));
+            return Mathf.Max(Mathf.Lerp(4.7f, 3.4f, Smooth01((s - r1) / 6f)), WaterHW(Mathf.Min(s, sRiver1)) + RimW + 1.55f);
         };
         // 2026-10-25 道は 右岸(B1) → 1回目の渡り場 → 左岸(B2) → 2回目の渡り場 → 右岸(B3) → 谷を越えて本道（前は右岸 → 渡り場1つ → 左岸）
         Func<float, float> b2t = s => -bankOff(s);
@@ -326,10 +328,10 @@ public static class FuwaCourse2_1Builder
         //（ただ平均すると滝つぼのふくらみの所で道が水に寄るので、最大をとってから平均＝水からは前と同じかそれ以上はなれる）
         Func<float, float> b1Env = s => { float m = float.MinValue; for (int i = 0; i <= 12; i++) m = Mathf.Max(m, b1t(s + Mathf.Lerp(-2.5f, 2.5f, i / 12f))); return m; };
         var b1Near = Smoothed(b1t, 0.6f); var b1Far = Smoothed(b1Env, 2.5f);
-        Func<float, float> b1off = s => Mathf.Lerp(b1Near(s), b1Far(s), Smooth01((s - sPlaza1) / 2f));
+        Func<float, float> b1off = s => Mathf.Lerp(b1Near(s), b1Far(s), Smooth01((s - sPlaza1 - 1.6f) / 2f));
         // 洞窟の床から斜めに分かれる所から全部 木の足場（2026-10-27 てじゃ「この道、木製にしてみよ」「洞窟の床から、斜めに伸びた床全てを完全に木に」）。
         // 洞窟の中は、分かれ道の所だけ青い床の見た目をなくして、木の床が同じ高さでぴったりはまる（てじゃ「差し込んだ感じ」→A。M1 の見た目は下の visPieces で右を切る）
-        b1WoodS0 = sPlaza1 - 0.4f - SideGapLen - 1.6f; b1OffF = b1off;
+        b1WoodS0 = sPlaza1 - 0.4f - SideGapLen - 0.6f; b1OffF = b1off;
         pieces.Add(new Piece { name = "B1_BankWood", s0 = sPlaza1 - 4.6f, s1 = sCross1 - CrossGap * 0.5f, off = b1off, w = s => 3f, h = b1h, round0 = false, wood = true,
             woodS0 = b1WoodS0, woodLift = s => (StartH - b1h(s)) * (1f - Smooth01((s - sPlaza1) / 1.5f)),
             // 洞窟の中〜ツタのすき間は、板を洞窟の向きに直角にそろえる（ななめの道に直角だと、板のはしがギザギザに並んで差し込んだ感じになった。2026-10-27 てじゃ）。
