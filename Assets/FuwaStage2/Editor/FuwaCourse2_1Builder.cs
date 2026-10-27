@@ -180,6 +180,8 @@ public static class FuwaCourse2_1Builder
         public float woodBeamS0 = float.NaN;
         // 板をこの線で切る（root のローカル xz。点 woodClipP を通り、woodClipN の向きの側だけ残す。N＝0 なら切らない）。ほかの道の上にのせて横からつなぐ所
         public Vector2 woodClipP, woodClipN;
+        // 終わりを崩れた形に（ギザギザに欠けて、下に破片。見た目だけ。当たり判定は少し手前まで）
+        public bool crumble1;
     }
     class Water
     {
@@ -394,7 +396,7 @@ public static class FuwaCourse2_1Builder
             Vector2 DirAt(float u) { float a = AngAt(u); return T0 * Mathf.Cos(a) + R0 * Mathf.Sin(a); }
             Vector2 Ext(float u) { var q = A; int nn = Mathf.Max(1, Mathf.CeilToInt(u / 0.05f)); float du = u / nn; for (int i = 0; i < nn; i++) q += DirAt((i + 0.5f) * du) * du; return q; }
             Func<float, Vector2> b3at = s => s <= sRiver1 ? CL3(s, b3off(s)) : Ext(s - sRiver1);
-            pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = sRiver1 + B3Ext, off = s => 0f, at = b3at, w = s => 3f, h = s => BankTop - 0.01f });
+            pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = sRiver1 + B3Ext, off = s => 0f, at = b3at, w = s => 3f, h = s => BankTop - 0.01f, round1 = false, crumble1 = true });   // 2026-10-27 てじゃ「先端をちょっと崩そ」
             // 橋がつく所：青い道の先から BridgeJoinBack m 手前。橋のはじめは青い道の中（へりから 1.5m 内側＝まん中）、そこから池の入口へまっすぐ
             float uk = B3Ext - BridgeJoinBack;
             float sE = sPond0 - RimW; var E = CL3(sE, 0f); Center(sE, out _, out var De);
@@ -3350,6 +3352,53 @@ public static class FuwaCourse2_1Builder
         prof.Add(new Vector4(W, -Thick, 1, 0));
         return prof;
     }
+    // 上の面に横 dx ごとの点を足した断面（崩れた終わりのギザギザ用）
+    static List<Vector4> ProfileFine(float w, float dx)
+    {
+        var prof = Profile(w); int top = 1 + BevelSteps; float W = w * 0.5f;
+        float x0 = -W + Bevel, x1 = W - Bevel; int n = Mathf.Max(1, Mathf.CeilToInt((x1 - x0) / dx));
+        var mid = new List<Vector4>(); for (int k = 1; k < n; k++) mid.Add(new Vector4(Mathf.Lerp(x0, x1, k / (float)n), 0f, 0f, 1f));
+        prof.InsertRange(top + 1, mid);
+        return prof;
+    }
+    // 崩れた終わりの破片：欠けのふちにひっかかって下へかたむいた かけら と、下へ落ちていく小さいかけら（見た目だけ）
+    public static int CrumbleTeeth = 9; public static float CrumbleDepth = 0.85f, CrumbleUnder = 0.22f, CrumbleCol = 0.3f;
+    static void CrumbleDebris(Piece pc, float sEnd, Func<float, float> crumbE, List<Vector3> V, List<Vector3> N, List<Vector2> UV, List<int> A, List<int> Bt)
+    {
+        var rr = new System.Random(4211); float Rn(float a, float b) => a + (float)rr.NextDouble() * (b - a);
+        float hw = pc.w(sEnd) * 0.5f;
+        void Chunk(Vector3 c, Quaternion q, Vector3 e, bool alt)
+        {
+            // ゆがんだ箱（角を少しずらす）
+            var cs = new Vector3[8];
+            for (int k = 0; k < 8; k++) { var o = new Vector3((k & 1) == 0 ? -e.x : e.x, (k & 2) == 0 ? -e.y : e.y, (k & 4) == 0 ? -e.z : e.z); o += new Vector3(Rn(-0.25f, 0.25f) * e.x, Rn(-0.15f, 0.15f) * e.y, Rn(-0.25f, 0.25f) * e.z); cs[k] = c + q * o; }
+            int[][] faces = { new[] { 0, 2, 3, 1 }, new[] { 4, 5, 7, 6 }, new[] { 0, 1, 5, 4 }, new[] { 2, 6, 7, 3 }, new[] { 0, 4, 6, 2 }, new[] { 1, 3, 7, 5 } };
+            var lst = alt ? Bt : A;
+            foreach (var f in faces)
+            {
+                var a = cs[f[0]]; var b = cs[f[1]]; var cc = cs[f[2]]; var d = cs[f[3]];
+                var ctr = (a + b + cc + d) * 0.25f; var nn = (ctr - c).normalized;
+                int i0 = V.Count; V.Add(a); V.Add(b); V.Add(cc); V.Add(d); for (int k = 0; k < 4; k++) { N.Add(nn); UV.Add(Vector2.zero); }
+                AddTriDir(V, lst, i0, i0 + 1, i0 + 2, nn); AddTriDir(V, lst, i0, i0 + 2, i0 + 3, nn);
+            }
+        }
+        var t = Tangent3(pc, sEnd); var up = Vector3.up; var side = Vector3.Cross(up, t).normalized;
+        // ふちにひっかかった板（上の面より下。ふちの下から外へ、下向きにかたむく）
+        foreach (var (lat, ang, len) in new[] { (-0.55f, 38f, 0.42f), (0.75f, 52f, 0.32f) })
+        {
+            float se = crumbE(lat) - 0.06f; var hinge = Point(pc, se, lat, -0.07f);
+            var q = Quaternion.AngleAxis(ang, side) * Quaternion.LookRotation(t, up);
+            Chunk(hinge + q * new Vector3(0f, -Thick * 0.45f, len * 0.5f), q, new Vector3(Rn(0.18f, 0.26f), Thick * 0.4f, len * 0.5f), rr.NextDouble() < 0.5);
+        }
+        // 下へ落ちていくかけら（遠いほど小さく、下へ）
+        for (int k = 0; k < 7; k++)
+        {
+            float lat = Rn(-hw * 0.8f, hw * 0.8f), fall = Mathf.Lerp(0.6f, 3.2f, k / 6f) + Rn(-0.2f, 0.2f), outD = Rn(0.15f, 0.7f) + k * 0.05f;
+            var c = Point(pc, crumbE(lat), lat, -fall) + t * outD;
+            float sz = Mathf.Lerp(0.16f, 0.06f, k / 6f) * Rn(0.8f, 1.2f);
+            Chunk(c, Quaternion.Euler(Rn(0f, 360f), Rn(0f, 360f), Rn(0f, 360f)), new Vector3(sz, sz * 0.7f, sz * 1.1f), k % 2 == 1);
+        }
+    }
     static void AddTriDir(List<Vector3> V, List<int> T, int a, int b, int c, Vector3 want)
     {
         var n = Vector3.Cross(V[b] - V[a], V[c] - V[a]);
@@ -3687,7 +3736,25 @@ public static class FuwaCourse2_1Builder
         foreach (var pc in pieces)
         {
             float s0p = pc.s0, s1p = pc.s1;
-            bool b0 = pc.round0, b1 = pc.round1;
+            bool b0 = pc.round0, b1 = pc.round1 && !pc.crumble1;
+            // 崩れた終わり：横の位置ごとの欠けの深さ（ギザギザ）と、下ほど奥へえぐれる量
+            Func<float, float> crumbE = null, crumbU = null;
+            if (pc.crumble1)
+            {
+                var rr = new System.Random(pc.name.Length * 7919 + 17); float Rn(float a, float b2) => a + (float)rr.NextDouble() * (b2 - a);
+                int nk = CrumbleTeeth; var kl = new float[nk + 1]; var kd = new float[nk + 1]; var ku = new float[nk + 1];
+                for (int k = 0; k <= nk; k++)
+                {
+                    kl[k] = Mathf.Lerp(-1f, 1f, k / (float)nk) + (k > 0 && k < nk ? Rn(-0.35f, 0.35f) / nk : 0f);
+                    kd[k] = k % 2 == 0 ? Rn(CrumbleDepth * 0.45f, CrumbleDepth) : Rn(0.05f, CrumbleDepth * 0.35f);
+                    ku[k] = Rn(CrumbleUnder * 0.5f, CrumbleUnder);
+                }
+                float Kn(float[] arr, float x) { for (int k = 1; k <= nk; k++) if (x <= kl[k] || k == nk) return Mathf.Lerp(arr[k - 1], arr[k], Mathf.InverseLerp(kl[k - 1], kl[k], x)); return arr[nk]; }
+                float hw = pc.w(s1p) * 0.5f;
+                crumbE = lat => s1p - Kn(kd, Mathf.Clamp(lat / hw, -1f, 1f));
+                crumbU = lat => Kn(ku, Mathf.Clamp(lat / hw, -1f, 1f));
+            }
+            float SC(float s, float lat, float y) => crumbE == null ? s : Mathf.Min(s, crumbE(lat) - crumbU(lat) * Mathf.Clamp01(-y / Thick));
             var st = new List<Vector4>();
             if (b0) for (int k = BevelSteps; k >= 1; k--) { float th = (Mathf.PI / 2) * k / BevelSteps; st.Add(new Vector4(s0p + Bevel * (1 - Mathf.Sin(th)), Bevel * (1 - Mathf.Cos(th)), th, -1)); }
             float a0 = b0 ? s0p + Bevel : s0p, a1 = b1 ? s1p - Bevel : s1p;
@@ -3703,12 +3770,12 @@ public static class FuwaCourse2_1Builder
             {
                 var sv = st[r];
                 float s = sv.x, inset = sv.y, th = sv.z, dir = sv.w;
-                var prof = Profile(pc.w(s)); P = prof.Count;
+                var prof = pc.crumble1 ? ProfileFine(pc.w(s), 0.1f) : Profile(pc.w(s)); P = prof.Count;
                 var t3 = Tangent3(pc, s);
                 rings.Add(V.Count);
                 foreach (var q in prof)
                 {
-                    V.Add(Point(pc, s, q.x - q.z * inset, q.y - q.w * inset));
+                    V.Add(Point(pc, SC(s, q.x, q.y), q.x - q.z * inset, q.y - q.w * inset));
                     var nn = Normal(pc, s, q.z, q.w) * Mathf.Cos(th) + t3 * dir * Mathf.Sin(th);
                     N.Add(nn.normalized); UV.Add(new Vector2(q.x, dist[r]));
                 }
@@ -3718,6 +3785,15 @@ public static class FuwaCourse2_1Builder
                 var list = (Mathf.FloorToInt((dist[r] + 0.001f) / Stripe) % 2 == 0) ? A : Bt;
                 int ra = rings[r], rb = rings[r + 1];
                 for (int i = 0; i < P - 1; i++) { int x0 = ra + i, x1 = ra + i + 1, y0 = rb + i, y1 = rb + i + 1; list.AddRange(new[] { x0, y0, x1, x1, y0, y1 }); }
+                if (pc.crumble1)
+                {
+                    // 底も横の位置ごとに（欠けにそって切れるように）
+                    var prof = ProfileFine(pc.w(st[r].x), 0.1f); int bb2 = V.Count;
+                    foreach (var q in prof) { V.Add(Point(pc, SC(st[r].x, q.x, -Thick), q.x, -Thick)); N.Add(Vector3.down); UV.Add(Vector2.zero); }
+                    foreach (var q in prof) { V.Add(Point(pc, SC(st[r + 1].x, q.x, -Thick), q.x, -Thick)); N.Add(Vector3.down); UV.Add(Vector2.zero); }
+                    for (int i = 0; i < P - 1; i++) { AddTriDir(V, list, bb2 + i, bb2 + i + 1, bb2 + P + i, Vector3.down); AddTriDir(V, list, bb2 + i + 1, bb2 + P + i + 1, bb2 + P + i, Vector3.down); }
+                    continue;
+                }
                 int bb = V.Count;
                 foreach (var idx in new[] { ra, rb })
                 {
@@ -3726,8 +3802,27 @@ public static class FuwaCourse2_1Builder
                 }
                 AddTriDir(V, list, bb, bb + 1, bb + 2, Vector3.down); AddTriDir(V, list, bb + 1, bb + 3, bb + 2, Vector3.down);
             }
+            if (pc.crumble1)
+            {
+                // 欠けの壁：上の線（終わりの輪）と、同じ横の位置の底の線をつなぐ。色はその所の縞
+                float sEnd = st[st.Count - 1].x; var prof = ProfileFine(pc.w(sEnd), 0.1f); int lr = rings[st.Count - 1];
+                var tEnd = Tangent3(pc, sEnd);
+                for (int i = 0; i < P - 1; i++)
+                {
+                    var a = V[lr + i]; var b2 = V[lr + i + 1];
+                    var c = Point(pc, SC(sEnd, prof[i + 1].x, -Thick), prof[i + 1].x, -Thick); var d = Point(pc, SC(sEnd, prof[i].x, -Thick), prof[i].x, -Thick);
+                    var n2 = Vector3.Cross(b2 - a, d - a); if (n2.sqrMagnitude < 1e-10f) n2 = tEnd; n2.Normalize(); if (Vector3.Dot(n2, tEnd) < 0f) n2 = -n2;
+                    float sm = (SC(sEnd, prof[i].x, 0f) + SC(sEnd, prof[i + 1].x, 0f)) * 0.5f;
+                    float dm = dist[st.Count - 1] - (sEnd - sm);
+                    var lst = (Mathf.FloorToInt((dm + 0.001f) / Stripe) % 2 == 0) ? A : Bt;
+                    int w0 = V.Count; V.Add(a); V.Add(b2); V.Add(c); V.Add(d); for (int k = 0; k < 4; k++) { N.Add(n2); UV.Add(Vector2.zero); }
+                    AddTriDir(V, lst, w0, w0 + 1, w0 + 2, n2); AddTriDir(V, lst, w0, w0 + 2, w0 + 3, n2);
+                }
+                CrumbleDebris(pc, sEnd, crumbE, V, N, UV, A, Bt);
+            }
             foreach (var (ri, sign) in new[] { (0, -1f), (st.Count - 1, 1f) })
             {
+                if (pc.crumble1 && sign > 0f) continue;
                 int baseR = rings[ri]; float s = st[ri].x;
                 int cb = V.Count; var nrm = Tangent3(pc, s) * sign;
                 for (int i = 0; i < P; i++) { V.Add(V[baseR + i]); N.Add(nrm); UV.Add(Vector2.zero); }
@@ -3746,7 +3841,7 @@ public static class FuwaCourse2_1Builder
         const float step = 0.5f;
         foreach (var pc in pieces)
         {
-            float s0p = pc.s0, s1p = pc.s1;
+            float s0p = pc.s0, s1p = pc.crumble1 ? pc.s1 - CrumbleCol : pc.s1;
             int n = Mathf.CeilToInt((s1p - s0p) / step);
             int first = V.Count;
             for (int k = 0; k <= n; k++)
