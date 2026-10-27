@@ -12,7 +12,7 @@ from mathutils.bvhtree import BVHTree
 # 実行：Blender（FLUFF_models.blend）で exec(open(r"D:\UnityProject\FLUFF\Tools\stage2_cave_rock.py", encoding="utf-8").read())
 CEIL = 4.55                      # 脇道の天井（Unity の StartH + SideGapH = 4.6 のツタの上のはしが 5cm 岩にうまる）
 POOL_R, POOL_X, POOL_Y = 0.9, 3.48, 1.6   # 池の入口側の角（Blender の +y のはし）。溝のゆるい斜面（|x|<2.5）にかからない半径
-EX_Z0, EX_W0, EX_Z1, EX_W1, EX_LIP, EX_FWD, EX_OUT = 5.4, 2.3, 6.2, 1.70, 6.766, 0.9, 5.0   # 出口の壁（Unity の z＝Blender の -y）
+EX_Z0, EX_W0, EX_Z1, EX_W1, EX_LIP, EX_FWD, EX_OUT = 5.4, 2.3, 6.2, 1.70, 6.766, 2.5, 5.0   # 出口の壁（Unity の z＝Blender の -y）
 OUT = r"D:\UnityProject\FLUFF\Assets\FuwaStage2\Models\Stage2_CaveRock.fbx"
 sc = bpy.data.scenes['Stage2Cave']; bpy.context.window.scene = sc
 
