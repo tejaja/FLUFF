@@ -73,9 +73,17 @@ for n in ['Cut_PoolExit_Soft', 'Cut_ExitTop_L', 'Cut_ExitTop_R', 'Cut_ExitFront_
     exit_cuts.append(c)
 for k in keeps: boolean(pool, k, 'DIFFERENCE')
 
+# 裏の細い滝の溝のゆるい斜面の型：上のふちの丸み（z 6.3〜6.4 の点）が岩の上の面（≒6.25）とすれすれで交わって、幅2cmの細い面取りの帯ができ、芝の上の光るスジに見えた（2026-10-27）。
+# 丸みの点を上へ持ち上げて、斜面が上の面とはっきりした角度で交わるように
+soft = []
+for n in ('Cut_FallL_Soft', 'Cut_FallR_Soft'):
+    c = copy_of(n)
+    for v in c.data.vertices:
+        if 6.28 < v.co.z < 6.6: v.co.z = 6.6
+    soft.append(c)
 # ---- くり抜く ----
 cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), copy_of('Cut_Arch'), side, pool,
-        copy_of('Cut_FallL'), copy_of('Cut_FallR'), copy_of('Cut_FallL_Soft'), copy_of('Cut_FallR_Soft')] + exit_cuts
+        copy_of('Cut_FallL'), copy_of('Cut_FallR')] + soft + exit_cuts
 base = bpy.data.objects['CaveRock']
 work = temp('Tmp_Rock', base.data.copy()); work.matrix_world = base.matrix_world
 for c in cuts:
@@ -128,6 +136,45 @@ for p in me.polygons:
     else: p.material_index = 1 if (p.normal.z > 0.5 and p.center.z > 6.0) else 0
 for p in me.polygons: p.use_smooth = False
 bb.free()
+# 芝の上の面の「スジ」をなくす（2026-10-27 てじゃ「まだスジがみえる」）：くり抜きでできた細い面がほんの少し傾いて、平らな芝の上に折れ目の線が見えた。
+# 芝の上向きの面を、となりと向きが FLAT_DEG 以内ならひとかたまりにして、かたまりごとに1枚の平面へ頂点を上下にだけ動かしてのせる（横の壁が少しのびちぢみするだけ）
+FLAT_DEG = 12.0
+bm = bmesh.new(); bm.from_mesh(me)
+# くり抜きのはしでできた、ほとんど同じ所にある頂点（2cm以内）をくっつけて、細い面・つぶれた面を消す（ちがう向きで光って細い線に見えた）
+nv0 = len(bm.verts)
+bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.02)
+bmesh.ops.dissolve_degenerate(bm, dist=0.005, edges=bm.edges)
+holes = [e for e in bm.edges if e.is_boundary]
+if holes: bmesh.ops.holes_fill(bm, edges=holes, sides=0)
+print('merge near verts', nv0, '->', len(bm.verts))
+bm.faces.ensure_lookup_table(); bm.normal_update()
+top = {f for f in bm.faces if f.material_index == 1 and f.normal.z > 0.8}
+seen = set(); regions = []
+for f0 in top:
+    if f0 in seen: continue
+    st = [f0]; seen.add(f0); reg = []
+    while st:
+        f = st.pop(); reg.append(f)
+        for e in f.edges:
+            for g in e.link_faces:
+                if g in top and g not in seen and g.normal.dot(f.normal) > math.cos(math.radians(FLAT_DEG)): seen.add(g); st.append(g)
+    regions.append(reg)
+moved = 0; maxd = 0.0
+reg_set = {id(r): set(r) for r in regions}
+for reg in regions:
+    if len(reg) < 2: continue
+    n = V3(); c = V3(); A = 0.0
+    for f in reg: a = f.calc_area(); n += f.normal * a; c += f.calc_center_median() * a; A += a
+    n.normalize(); c /= A
+    for v in {v for f in reg for v in f.verts if all((g in reg_set[id(reg)]) or g.normal.z < 0.8 or g.material_index != 1 for g in v.link_faces)}:
+        # 平面上の高さ：n・(p - c) = 0 → z = c.z - (n.x (x-c.x) + n.y (y-c.y)) / n.z
+        z = c.z - (n.x * (v.co.x - c.x) + n.y * (v.co.y - c.y)) / n.z
+        d = z - v.co.z
+        if abs(d) < 0.15: v.co.z = z; moved += 1; maxd = max(maxd, abs(d))
+print('flatten regions', sum(1 for r in regions if len(r) > 1), 'verts moved', moved, 'max move', round(maxd, 3), 'open edges', sum(1 for e in bm.edges if e.is_boundary))
+bm.to_mesh(me); bm.free()
+# 芝の面だけなめらかに（スムーズ）：細い三角形が少しちがう向きで光ってスジに見えるのを、となりと同じ光り方にして消す。岩の面はカクカクのまま
+for p in me.polygons: p.use_smooth = (p.material_index == 1)
 old = o.data; o.data = me; me.name = 'Stage2_CaveRock'
 bpy.data.objects.remove(work, do_unlink=True)
 for n in [x.name for x in sc.objects if x.name.startswith('Tmp_')]: bpy.data.objects.remove(bpy.data.objects[n], do_unlink=True)
