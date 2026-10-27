@@ -60,7 +60,8 @@ bm.to_mesh(o.data); bm.free(); o.data.update()
 
 # ---- 池の入口側（スタートの島側＝Blender の +y、Cut_Pool の y=1.6 のはし）の角を丸く（2026-10-27 てじゃ「入口側がカクっとしてる」）----
 # 角の外側（四角の角 − 半径 POOL_R の円）を元の岩で埋めるふた。前の岩の池の壁（Cut_Pool の面の上）で、ふたの中に入る所は消す
-POOL_R, POOL_X, POOL_Y = 1.5, 3.48, 1.6
+# 半径は溝のゆるい斜面（Cut_FallL/R_Soft、|x|<2.5）にかからない大きさ（1.5 だと角の岩の後ろの面が斜面の上に板みたいに出た）
+POOL_R, POOL_X, POOL_Y = 0.9, 3.48, 1.6
 cp = bpy.data.objects['Cut_Pool']
 pb = bmesh.new(); pb.from_mesh(cp.data); ptree = BVHTree.FromBMesh(pb); pb.free()
 import math
@@ -154,10 +155,17 @@ bpy.ops.object.join()
 # 口の面を細かく分けて、頂点を岩の中の向き（口が広がる向き）へだけノイズで動かす（通り道はせまくならない）
 from mathutils import noise, Vector as V3
 bm = bmesh.new(); bm.from_mesh(o.data)
+# 裏の細い滝の溝のゆるい斜面（Cut_FallL/R_Soft）も：平らな斜めの面が板みたいに見えた（2026-10-27 てじゃ「まだへんな板あるよ」）。こっちは控えめに
 mtrees = []
-for n in ('Cut_Mouth', 'Cut_Arch'):   # 脇道（Cut_Side）は天井のふたとすき間ができるので動かさない
-    mb = bmesh.new(); mb.from_mesh(bpy.data.objects[n].data); mb.transform(bpy.data.objects[n].matrix_world); mtrees.append(BVHTree.FromBMesh(mb)); mb.free()
-def on_mouth(p): return any(t.find_nearest(p)[3] is not None and t.find_nearest(p)[3] < 2e-3 for t in mtrees)
+for n, a in (('Cut_Mouth', 0.24), ('Cut_Arch', 0.24), ('Cut_FallL_Soft', 0.12), ('Cut_FallR_Soft', 0.12)):   # 脇道（Cut_Side）は天井のふたとすき間ができるので動かさない
+    mb = bmesh.new(); mb.from_mesh(bpy.data.objects[n].data); mb.transform(bpy.data.objects[n].matrix_world); mtrees.append((BVHTree.FromBMesh(mb), a)); mb.free()
+def amp_at(p):
+    best = 0.0
+    for t, a in mtrees:
+        d = t.find_nearest(p)[3]
+        if d is not None and d < 2e-3: best = max(best, a)
+    return best
+def on_mouth(p): return amp_at(p) > 0
 mf = [f for f in bm.faces if on_mouth(f.calc_center_median())]
 edges = list({e for f in mf for e in f.edges if e.calc_length() > 0.25})
 for _ in range(3):
@@ -166,14 +174,15 @@ for _ in range(3):
     mf = [f for f in bm.faces if on_mouth(f.calc_center_median())]
     edges = list({e for f in mf for e in f.edges if e.calc_length() > 0.25})
 bm.normal_update()
-mv = {}
+mv = {}; ma = {}
 for f in bm.faces:
-    if on_mouth(f.calc_center_median()):
-        for v in f.verts: mv.setdefault(v, V3()); mv[v] -= f.normal   # 岩の中の向き（口の面は通り道の側を向いている）
+    a = amp_at(f.calc_center_median())
+    if a > 0:
+        for v in f.verts: mv.setdefault(v, V3()); mv[v] -= f.normal; ma[v] = max(ma.get(v, 0.0), a)   # 岩の中の向き（口の面は通り道の側を向いている）
 moved = 0
 for v, d in mv.items():
     if d.length < 1e-6: continue
-    amt = 0.24 * (noise.noise(v.co * 1.8) * 0.5 + 0.5)
+    amt = ma[v] * (noise.noise(v.co * 1.8) * 0.5 + 0.5)
     v.co += d.normalized() * amt; moved += 1
 bm.to_mesh(o.data); bm.free(); o.data.update()
 print('mouth verts moved', moved)
