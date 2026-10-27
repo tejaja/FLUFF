@@ -92,7 +92,7 @@ bm.to_mesh(work.data); bm.free()
 # ---- 洞窟の口・溝の斜面に歪み（岩の中の向きへだけ。通り道はせまくならない）----
 bm = bmesh.new(); bm.from_mesh(work.data)
 mtrees = []
-for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.24), ('Tmp_Cut_FallL_Soft', 0.12), ('Tmp_Cut_FallR_Soft', 0.12)):
+for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.24)):   # 溝の斜面は歪ませない（上の芝とのさかいに段の線が出た）
     mb = bmesh.new(); mb.from_mesh(bpy.data.objects[n].data); mtrees.append((BVHTree.FromBMesh(mb), a)); mb.free()
 def amp_at(p):
     best = 0.0
@@ -123,7 +123,8 @@ me = work.data; me.materials.clear()
 for m in mats: me.materials.append(m)
 for p in me.polygons:
     loc, nrm, idx, d = tree.find_nearest(p.center)
-    if d is not None and d < 0.05 and nrm.dot(p.normal) > 0.95: p.material_index = bb.faces[idx].material_index
+    if p.normal.z > 0.7 and p.center.z > 6.05: p.material_index = 1   # 上の面は必ず芝（前の岩で溝だった所が岩の色のままハゲていた）
+    elif d is not None and d < 0.05 and nrm.dot(p.normal) > 0.95: p.material_index = bb.faces[idx].material_index
     else: p.material_index = 1 if (p.normal.z > 0.5 and p.center.z > 6.0) else 0
 for p in me.polygons: p.use_smooth = False
 bb.free()
