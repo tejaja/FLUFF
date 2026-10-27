@@ -55,7 +55,7 @@ Shader "FuwaStage2/Waterfall"
             float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor, _PondTop, _FrayLen;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; fixed4 color : COLOR; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; float ny : TEXCOORD4; float3 wp : TEXCOORD5; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; float ny : TEXCOORD4; float3 wp : TEXCOORD5; float colBot : TEXCOORD6; };
 
             v2f vert (appdata v)
             {
@@ -65,7 +65,8 @@ Shader "FuwaStage2/Waterfall"
                 o.size = float2(length(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0))), length(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0))));
                 // 厚みのある滝の横の面（ローカル x 向きの面）は、横＝奥行き（z）の長さ（筋が横に詰まらないように）
                 if (_UseVColor > 0.5 && abs(v.normal.x) > 0.5) o.size.x = length(mul((float3x3)unity_ObjectToWorld, float3(0, 0, 1)));
-                if (_Curved > 0.5) { o.size = v.tot; o.uv = v.m / max(v.tot, 0.001); }
+                o.colBot = 0;
+                if (_Curved > 0.5) { o.size = v.tot; o.uv = v.m / max(v.tot, 0.001); o.colBot = v.uv.x; }   // colBot：曲がった滝で、その列の下はしの「下からの長さ」(m)
                 o.color = _UseVColor > 0.5 ? v.color : fixed4(1, 1, 1, 1);
                 o.ny = UnityObjectToWorldNormal(v.normal).y;
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
@@ -105,7 +106,7 @@ Shader "FuwaStage2/Waterfall"
                 if (_FrayLen > 0.001)
                 {
                     // 下のほう：だんだん白い霧になって、ちぎれて消える（下へ流れるノイズで穴をあける）
-                    float tf = 1 - saturate(i.uv.y * i.size.y / _FrayLen);   // 0＝霧の始まり 1＝いちばん下
+                    float tf = 1 - saturate((i.uv.y * i.size.y - i.colBot) / _FrayLen);   // 0＝霧の始まり 1＝いちばん下
                     float fy = m.y + _Time.y * _FallSpeed;
                     float fray = Noise(float2(m.x * 2.2 + 11, fy * 1.1)) * 0.6 + Noise(float2(m.x * 5.0, fy * 2.6 + 3)) * 0.4;
                     clip(fray - smoothstep(0.1, 1.0, tf) * 1.05 - 0.001);

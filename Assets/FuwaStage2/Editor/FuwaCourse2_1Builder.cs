@@ -746,6 +746,7 @@ public static class FuwaCourse2_1Builder
         // 道と水の下の岩の土台（浮島の形）。道・水がそろってから、上から測って作る
         WoodWalk(root, woodPieces);
         RockBases(root);
+        PondSpillLipFalls(root);
         AirFallsFray(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
@@ -1305,6 +1306,57 @@ public static class FuwaCourse2_1Builder
     // 空中に落ちていく滝（下に水も岩もない）の下のはしを、遠景の浮島の滝のように白い霧にしてちぎれて消えるように（2026-10-27 てじゃ
     //「空中におちてる滝（細いのも含む）の一番下、遠景の浮島の滝の末端みたいに散らしたい」）。いちばん下の頂点の真下を測って、何もなければ空中の滝。
     // 材質は元の材質のコピー（名前に _Air）に _FrayLen を入れる（滝つぼに落ちる滝は今のまま）
+    // 蓮の池のあふれ口の滝の見た目（岩の土台ができてから作る：土台の出っぱりをよけて落とすので）
+    static void PondSpillLipFalls(Transform root)
+    {
+        // 見た目は池の水からそのまま低いふちを越えてこぼれる膜に（2026-10-27 てじゃ「蓮池の滝の上もへんかな」：前は池の上に置いた四角い水の板で、
+        // まわりに白いふちの線が出て、滝と離れて見えた）。四角い板と前の滝の膜は見た目を消す（霧・音・押す箱は残す）
+        var lipW = root.Find("Terrain/PondSpillLip"); if (lipW) lipW.GetComponent<Renderer>().enabled = false;
+        float sg = PondSpill();
+        var oldCur = root.Find("Falls_PondSpill/Curtain"); if (oldCur && oldCur.GetComponent<Renderer>()) oldCur.GetComponent<Renderer>().enabled = false;
+        var lipS = new List<Vector3>(); var outS = new List<Vector3>();
+        for (int k = 0; k <= 10; k++)
+        {
+            float s = Mathf.Lerp(sg - 1.08f, sg + 1.08f, k / 10f);
+            Center(s, out var p4, out var d4); var r4 = Right(d4); var q4 = p4 - r4 * (PondHW(s) + RimW);
+            lipS.Add(new Vector3(q4.x, 0f, q4.y)); outS.Add(new Vector3(-r4.x, 0, -r4.y));
+        }
+        // 断面：池の中（ふちの内がわ 0.15m）の水面のすぐ下 → 低いふちの上をこえて → 外へ弧をえがいて落ちる
+        var profS = new List<Vector2> { new Vector2(RimW + 0.15f, -0.006f), new Vector2(0.02f, -0.006f), new Vector2(-0.1f, -0.08f) };
+        // 外へのずれ：下の岩の土台（RockBase。この時はまだ作っていないので、前の作り直しのメッシュ）の出っぱりより外を通る（2026-10-27 岩のトゲが滝を突きぬけた）。
+        // 深さごとに、あふれ口の幅の中で岩がいちばん外へ出ている所＋すき間。外へのずれは深さとともに増えるだけ
+        var baseMeshes = new List<Vector3>();
+        foreach (var nm in new[] { "RockBase/BaseA", "RockBase/BaseB" })
+        { var bt2 = root.Find(nm); var bmf = bt2 ? bt2.GetComponent<MeshFilter>() : null; if (bmf && bmf.sharedMesh) foreach (var v in bmf.sharedMesh.vertices) baseMeshes.Add(root.InverseTransformPoint(bt2.TransformPoint(v))); }
+        var lipMid = lipS[5]; var outMid = outS[5]; var alongMid = Vector3.Cross(Vector3.up, outMid).normalized;
+        float offS = 0.1f;
+        for (float d = 0.2f; d < 8f; d += d < 1.5f ? 0.2f : 0.5f)
+        {
+            float need = 0f;
+            foreach (var v in baseMeshes)
+            {
+                var dv = v - lipMid; if (Mathf.Abs(Vector3.Dot(dv, alongMid)) > 1.4f || Mathf.Abs(v.y - (-d)) > 0.5f) continue;
+                need = Mathf.Max(need, Vector3.Dot(dv, outMid) + 0.2f);
+            }
+            offS = Mathf.Max(offS, need, 0.1f + 0.15f * Mathf.Sqrt(d));
+            profS.Add(new Vector2(-offS, -d));
+        }
+        for (int k = profS.Count - 2; k >= 3; k--) profS[k] = new Vector2(Mathf.Min(profS[k].x, profS[k + 1].x * 0.85f + profS[k].x * 0.15f), profS[k].y);
+        profS.Add(new Vector2(profS[profS.Count - 1].x, float.NaN));
+        var spillFalls = LipFalls(root, "PondSpillLip", "SpillLip", lipS, outS, profS, -8f);
+        spillFalls.transform.SetParent(root.Find("Falls_PondSpill"), true);   // 点は root のローカルで作って、あとで滝の下へ（位置はそのまま）
+        // 落ち口の手前（池の中・ふちの上）は池のふちの水の色（大きい滝の _PondTop と同じしくみ）
+        const string spp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_PondSpill.mat";
+        var baseFm = FuwaStage2WaterTest.WaterfallThickMat(true);
+        var sm2 = AssetDatabase.LoadAssetAtPath<Material>(spp);
+        if (!sm2) { sm2 = new Material(baseFm); AssetDatabase.CreateAsset(sm2, spp); }
+        sm2.CopyPropertiesFromMaterial(baseFm);
+        var pondM = WaterMat(0f, true, false);
+        sm2.SetFloat("_PondTop", RimW + 0.13f); sm2.SetColor("_PondColor", pondM.GetColor("_Shallow")); sm2.SetColor("_PondFoam", pondM.GetColor("_Foam"));
+        sm2.SetFloat("_PondRadial", 0f); sm2.SetFloat("_PondSparkle", pondM.GetFloat("_Sparkle"));
+        EditorUtility.SetDirty(sm2);
+        spillFalls.GetComponent<MeshRenderer>().sharedMaterial = sm2;
+    }
     public static float AirFrayLen = 6f;
     static void AirFallsFray(Transform root)
     {
@@ -2241,7 +2293,9 @@ public static class FuwaCourse2_1Builder
             }
         }
         var fm = new Mesh { name = "Course2_1_" + meshName, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-        fm.SetVertices(FV); fm.SetTriangles(FT, 0); fm.SetUVs(0, F1.Select(u => Vector2.zero).ToList()); fm.SetUVs(1, F1); fm.SetUVs(2, F2); fm.SetColors(FC);
+        // uv0.x＝その列のいちばん下の「下からの長さ」（列ごとに長さがちがうので、下のはしの霧（_FrayLen）を列ごとの下はしから測る。2026-10-27 てじゃ「横長の滝、手前だけ先端が水平に切れてる」）
+        var F0 = new List<Vector2>(); for (int k = 0; k < nl; k++) for (int j = 0; j < pc; j++) F0.Add(new Vector2(maxLen - lens[k, 0], 0f));
+        fm.SetVertices(FV); fm.SetTriangles(FT, 0); fm.SetUVs(0, F0); fm.SetUVs(1, F1); fm.SetUVs(2, F2); fm.SetColors(FC);
         fm.RecalculateNormals(); fm.RecalculateBounds();
         fm = Save(fm, MeshDir + "/" + meshName + ".asset");
         var fgo = new GameObject(goName); fgo.transform.SetParent(g, false);
