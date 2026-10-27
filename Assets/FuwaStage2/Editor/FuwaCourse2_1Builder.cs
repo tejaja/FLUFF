@@ -143,7 +143,8 @@ public static class FuwaCourse2_1Builder
     static float sCross1, sCross2;
     static float b1WoodS0; static Func<float, float> b1OffF;
     // 迂回路の浮島：場所（中心線の s と横）、半径。BridgeIsland() で作る
-    public static float BridgeIslandS = 8.0f, BridgeIslandLat = 9.6f, BridgeIslandR = 1.8f;   // 滝つぼのふくらみの外を通るように（橋の下に水が来ない）
+    public static float BridgeIslandS = 8.0f, BridgeIslandLat = 9.6f, BridgeIslandR = 1.8f;   // 浮島（いまは使っていない）
+    public static float BridgeBendS = 9.0f, BridgeBendLat = 8.4f;   // 迂回路の木の橋の曲げ点（中心線の s と横）
     static Vector2 bridgeIslandC; static float bridgeIslandH;
     static float sPlaza0, sPlaza1, sPool1, sRiver1, sPond0, sPond1, sTer0, sGoal0, sEnd;
     static float[] terA = new float[3], terB = new float[3];
@@ -334,28 +335,26 @@ public static class FuwaCourse2_1Builder
         Func<float, float> b1Env = s => { float m = float.MinValue; for (int i = 0; i <= 12; i++) m = Mathf.Max(m, b1t(s + Mathf.Lerp(-2.5f, 2.5f, i / 12f))); return m; };
         var b1Near = Smoothed(b1t, 0.6f); var b1Far = Smoothed(b1Env, 2.5f);
         Func<float, float> b1off = s => Mathf.Lerp(b1Near(s), b1Far(s), Smooth01((s - sPlaza1 - 1.6f) / 2f));
-        // 迂回路を作り直し（2026-10-27 てじゃ「この端自体ちょっとつくりなおそうか」「もっと直線ぎみ、途中に浮島経由して角度を変える」）：
-        // 洞窟の床（右半分）→ ツタのすき間 → まっすぐな木の橋 → 小さい浮島 → まっすぐな木の橋 → 1回目の渡り場（右岸の道のおわり）
+        // 迂回路を作り直し（2026-10-27 てじゃ「この端自体ちょっとつくりなおそうか」→「浮島なしで、もっと直線より（ちょっと曲がる）」）：
+        // 洞窟の床（右半分）→ ツタのすき間 → ゆるく曲がる1本の木の橋 → 1回目の渡り場（右岸の道のおわり）。形は2次ベジェ（A → 曲げ点 → E）
         b1OffF = b1off;
         {
             float gA2 = sPlaza1 - 0.4f - SideGapLen;
             Vector2 CL2(float s, float lat) { Center(s, out var p, out var d); return p + Right(d) * lat; }
-            var A = CL2(gA2 + 0.3f, 1.5f);
-            Center(BridgeIslandS, out var ip, out var idir); var I = ip + Right(idir) * BridgeIslandLat;
+            var A = CL2(gA2 + 0.3f, 1.5f); var Pm = CL2(BridgeBendS, BridgeBendLat);
             float sE = sCross1 - CrossGap * 0.5f; var E = CL2(sE, bankOff(sE));
-            var d1 = (I - A).normalized; var d2 = (E - I).normalized;
-            float L1 = (I - A).magnitude - BridgeIslandR + 0.25f, L2 = (E - I).magnitude - BridgeIslandR + 0.25f;
-            var A2 = I + d2 * (BridgeIslandR - 0.25f);
-            // 高さ：洞窟を出るまでは床の高さ、そこから渡り場まで同じ傾きで下る（浮島は途中の高さ）
-            float uOut = 0f; for (float u = 0f; u < L1; u += 0.05f) { var q = A + d1 * u; Center(sPlaza1, out var mp, out var md); if (Vector2.Dot(q - mp, md) > 0.3f) { uOut = u; break; } }
-            float run = (L1 - uOut) + 2f * BridgeIslandR + L2, hA = StartH - 0.01f, hE = BankTop - 0.01f;
-            float H1(float u) => u <= uOut ? hA : Mathf.Lerp(hA, hE, (u - uOut) / run);
-            bridgeIslandC = I; bridgeIslandH = H1(L1 + 0.25f - BridgeIslandR + BridgeIslandR);   // 島のまん中の高さ
-            float hI0 = H1(L1), hI1 = Mathf.Lerp(hA, hE, (L1 - uOut + 2f * BridgeIslandR - 0.5f) / run);
-            bridgeIslandH = (hI0 + hI1) * 0.5f;
-            pieces.Add(new Piece { name = "B1_Bridge1", s0 = 0f, s1 = L1, off = s => 0f, at = u => A + d1 * u, w = s => 3f, h = u => H1(u), round0 = false, round1 = false, wood = true,
-                woodEdgeCut = true, floorEdge = 3f, floorEdgeS1 = sPlaza1, woodBeamS0 = uOut + 1.2f });
-            pieces.Add(new Piece { name = "B1_Bridge2", s0 = 0f, s1 = L2, off = s => 0f, at = u => A2 + d2 * u, w = s => 3f, h = u => Mathf.Lerp(hI1, hE, u / L2), round0 = false, wood = true });
+            Vector2 Bz(float t) => (1 - t) * (1 - t) * A + 2 * (1 - t) * t * Pm + t * t * E;
+            // 長さの表（u＝はじめからの長さ → t）
+            var tu = new List<float> { 0f }; var tt = new List<float> { 0f };
+            for (int k = 1; k <= 400; k++) { float t2 = k / 400f; tu.Add(tu[k - 1] + (Bz(t2) - Bz((k - 1) / 400f)).magnitude); tt.Add(t2); }
+            float Lb = tu[400];
+            Func<float, Vector2> At = u => { int k = 1; while (k < 400 && tu[k] < u) k++; return Bz(Mathf.Lerp(tt[k - 1], tt[k], Mathf.InverseLerp(tu[k - 1], tu[k], u))); };
+            // 高さ：洞窟を出るまでは床の高さ、そこから渡り場まで同じ傾き
+            float uOut = 0f; Center(sPlaza1, out var mp, out var md);
+            for (float u = 0f; u < Lb; u += 0.05f) if (Vector2.Dot(At(u) - mp, md) > 0.3f) { uOut = u; break; }
+            float hA = StartH - 0.01f, hE = BankTop - 0.01f;
+            pieces.Add(new Piece { name = "B1_Bridge", s0 = 0f, s1 = Lb, off = s => 0f, at = At, w = s => 3f, h = u => u <= uOut ? hA : Mathf.Lerp(hA, hE, (u - uOut) / (Lb - uOut)),
+                round0 = false, wood = true, woodEdgeCut = true, floorEdge = 3f, floorEdgeS1 = sPlaza1, woodBeamS0 = uOut + 1.2f });
         }
         pieces.Add(new Piece { name = "B2_Bank", s0 = sCross1 + CrossGap * 0.5f, s1 = sCross2 - CrossGap * 0.5f, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b3t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
@@ -734,7 +733,6 @@ public static class FuwaCourse2_1Builder
         //（2026-10-21 作り直したあとワープが効かず、キノコからふわふわが出なかった）
         // 道と水の下の岩の土台（浮島の形）。道・水がそろってから、上から測って作る
         WoodWalk(root, woodPieces);
-        BridgeIsland(root);
         RockBases(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
