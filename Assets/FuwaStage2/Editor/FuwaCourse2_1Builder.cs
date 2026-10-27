@@ -444,7 +444,10 @@ public static class FuwaCourse2_1Builder
         Center(sPlaza1, out var fp, out var fd);
         // 落ち口はRで前へ張り出して、洞窟の口から少し離れた所に落ちる（ふわふわが崖ぎわのふちに叩きつけられないように）。厚みもつける
         // 2026-10-19 てじゃ「滝にあたったふわふわが地面に激突するから、ちょっとRつけて遠くに落ちるように、厚みもほしい」
-        CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.02f, 0f, MouthHW * 2f + 0.4f, FallsReach, 0.9f);   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
+        // 落ち口は岩山の本当のふち（startLipZ、まっすぐ +z 向き）。前は中心線の sPlaza1（ふちより 0.75m 手前・少しななめ）で、滝が岩の床にもぐって片側に岩のとがりが出ていた（2026-10-27 てじゃ「入口のウラの滝上、いろいろきたない」）。
+        // 落ちる所（滝つぼの位置）は前と同じになるように、のびる長さを短く
+        { FuwaCourse2_1Builder.Center(sPlaza1, out var op, out var od); var olip = op + od * FallsReach;
+          CurvedFalls(root, "Falls_Start", sPlaza1, SourceSurf + 0.02f, 0f, MouthHW * 2f + 0.4f, Mathf.Max(0.5f, olip.y - startLipZ), 0.9f, new Vector2(0f, startLipZ), Vector2.up); }   // 厚み 0.45→0.9（てじゃ「太いっていうより２重ってかんじ」）
         // ⑥ ラスト：よけられない滝、下の川、右岸のゴールの広場
         Finale(root, terr, ground, bedMat, fx, splash);
 
@@ -867,6 +870,7 @@ public static class FuwaCourse2_1Builder
     // てじゃ「岩ベースにはしたいけど、最初の洞窟みたいになってるとこがロビーからみてダサい」「滝みえてほしい」→ 岩山＋ロビー側は大きな岩のアーチ＋てっぺんの池から細い滝2本。
     // 形は Blender（FLUFF_models.blend の Stage2Cave シーン、Stage2_CaveRock。CaveRock を Cut_* でくりぬく）で、座標はコースのローカルそのまま。
     // 箱の壁（CaveWall*・CaveBack*・CaveMouth*・CaveRoof・CaveFloorCliff・CaveDoorSill）は見た目だけ消して当たり判定は残す。岩山にも当たり判定（メッシュ）
+    static float startLipZ;
     const string CaveRockModel = "Assets/FuwaStage2/Models/Stage2_CaveRock.fbx";
     // ロビー側の細い滝（岩山のてっぺんの溝 Cut_FallL/R）：x・溝の底の高さ
     static readonly (float x, float floor)[] BackFalls = { (-1.45f, 5.45f), (1.8f, 5.55f) };
@@ -882,6 +886,8 @@ public static class FuwaCourse2_1Builder
             AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_LobbyGround.mat"),
         };
         go.AddComponent<MeshCollider>().sharedMesh = mesh;
+        // 出口の本当のふち（池の床の高さの頂点で、いちばん前）
+        startLipZ = mesh.vertices.Where(v => Mathf.Abs(v.x) < 1.2f && v.y < SourceSurf - 0.1f && v.y > SourceSurf - 1f).Select(v => v.z).DefaultIfEmpty(sPlaza1).Max();
         foreach (Transform c in terr)
             if (c.name.StartsWith("CaveWall") || c.name.StartsWith("CaveBack") || c.name.StartsWith("CaveMouth") || c.name == "CaveRoof" || c.name == "CaveFloorCliff" || c.name == "CaveDoorSill")
             { var r = c.GetComponent<MeshRenderer>(); if (r) r.enabled = false; }
@@ -925,10 +931,12 @@ public static class FuwaCourse2_1Builder
     {
         var surfT = src.Find("Surface"); if (!surfT || !rock) return;
         var old = surfT.GetComponent<MeshFilter>().sharedMesh; var ov = old.vertices;
-        float y = ov[0].y; float zMin = ov.Min(v => v.z), zMax = ov.Max(v => v.z);
+        float y = ov[0].y; float zMin = ov.Min(v => v.z), zMax = ov.Max(v => v.z), zEnd = Mathf.Max(zMax, startLipZ);   // 水面は岩のふち（滝の落ち口）まで
         float exitHW = ov.Where(v => v.z > zMax - 0.3f).Max(v => Mathf.Abs(v.x));
         Physics.SyncTransforms();
-        const float cell = 0.1f; float x0 = -7f, z0 = zMin; int nx = Mathf.CeilToInt(14f / cell), nz = Mathf.CeilToInt((zMax - zMin) / cell);
+        // 出口の最後の 1m（落ち口まで）はマス目でなく、1列ずつ岩のふちまでの幅をはかった帯にする（マス目だと岩の丸い角でギザギザが出た）
+        const float cell = 0.1f; float x0 = -7f, z0 = zMin; int nx = Mathf.CeilToInt(14f / cell), nz = Mathf.FloorToInt((zEnd - 1f - zMin) / cell);
+        float zGrid = z0 + nz * cell;
         var open = new bool[nx, nz]; var seen = new bool[nx, nz];
         bool Low(int i, int j)
         {
@@ -965,6 +973,26 @@ public static class FuwaCourse2_1Builder
         int Vid(int i, int j) { var k = new Vector2Int(i, j); if (!idx.TryGetValue(k, out var id)) { id = V.Count; idx[k] = id; V.Add(new Vector3(x0 + i * cell, y, z0 + j * cell)); } return id; }
         for (int i = 0; i < nx; i++) for (int j = 0; j < nz; j++)
             if (fill[i, j]) { int a = Vid(i, j), b = Vid(i + 1, j), c = Vid(i + 1, j + 1), d = Vid(i, j + 1); T.AddRange(new[] { a, d, c, a, c, b }); }
+        // 出口の帯：列ごとに、まん中から岩の上の面が水面より高くなる所（か岩がない所）まで。少し岩の下へ入れる
+        float RowHW(float z, float sign)
+        {
+            float last = 0f;
+            for (float x = 0f; x <= exitHW + 0.05f; x += 0.01f)
+            {
+                var p = src.TransformPoint(new Vector3(sign * x, y + 5f, z));
+                if (!rock.Raycast(new Ray(p, Vector3.down), out var h, 20f) || src.InverseTransformPoint(h.point).y >= y - 0.01f) break;
+                last = x;
+            }
+            return last + 0.05f;
+        }
+        int nRow = Mathf.Max(1, Mathf.CeilToInt((zEnd - zGrid) / 0.05f)); int prevL = -1, prevR = -1;
+        for (int k = 0; k <= nRow; k++)
+        {
+            float z = Mathf.Min(zGrid + k * 0.05f, zEnd - 0.01f);
+            int l = V.Count; V.Add(new Vector3(-RowHW(z, -1f), y, z)); V.Add(new Vector3(RowHW(z, 1f), y, z));
+            if (prevL >= 0) T.AddRange(new[] { prevL, l, l + 1, prevL, l + 1, prevR });
+            prevL = l; prevR = l + 1;
+        }
         var m = new Mesh { name = "Course2_1_W0_Source_Surface", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         m.SetVertices(V); m.SetTriangles(T, 0); m.SetUVs(0, V.Select(v => Vector2.zero).ToList());
         m.SetUVs(1, V.Select(v => new Vector4(0f, 99f, 99f, 99f)).ToList()); m.SetUVs(2, V.Select(v => new Vector2(v.z, 0f)).ToList());
@@ -2627,9 +2655,10 @@ public static class FuwaCourse2_1Builder
     }
 
     // 曲がった滝：落ち口(sLip, top)から水平に出て、放物線で reach m 先の bottom に落ちる。前後2枚の水の膜（厚み thick）＋放物線にそった押す箱
-    static void CurvedFalls(Transform root, string name, float sLip, float top, float bottom, float width, float reach, float thick)
+    static void CurvedFalls(Transform root, string name, float sLip, float top, float bottom, float width, float reach, float thick, Vector2? lipAt = null, Vector2? lipDir = null)
     {
         Center(sLip, out var lp2, out var ld2);
+        if (lipAt.HasValue) { lp2 = lipAt.Value; ld2 = lipDir.Value; }
         var f = new Vector3(ld2.x, 0, ld2.y); var rgt = new Vector3(ld2.y, 0, -ld2.x);
         var lip = new Vector3(lp2.x, top, lp2.y);
         float drop = top - bottom, g = 9.8f, tEnd = Mathf.Sqrt(2f * drop / g), v0 = reach / tEnd;
@@ -2647,7 +2676,7 @@ public static class FuwaCourse2_1Builder
         // 全体を厚みの半分だけ真下へ（上の面＝水面。落ちている所は横にずれないので、前の面は落ち口の岩より前のまま）。手前のはしは水の下へ
         //（落ち口の先で元の線へ戻すと外の面がこぶに、面の向きに内側へずらすと落ち口の岩が滝の前に出た）
         var mid = new List<Vector3>();
-        for (int i = 0; i < pts.Count; i++) mid.Add(pts[i] + Vector3.down * (thick * 0.5f + (i == 0 ? 0.06f : 0f)));
+        for (int i = 0; i < pts.Count; i++) mid.Add(pts[i] + Vector3.down * (thick * 0.5f + (i == 0 ? 0.15f : 0f)));
         var mesh = FuwaStage2WaterTest.SweepFalls("Course2_1_" + name, mid, nrms, Enumerable.Repeat(rgt, pts.Count).ToList(), len, total, width, thick);
         mesh = Save(mesh, MeshDir + "/" + name + ".asset");
         var g0 = new GameObject(name).transform; g0.SetParent(root, false);
