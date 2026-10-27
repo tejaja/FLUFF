@@ -739,7 +739,7 @@ public static class FuwaCourse2_1Builder
     // スタート：コース1の Start を丸ごと（ロビーへ戻るポータルの島 → 木の橋 → キノコの島。エアガンの台つき）。
     // キノコの島から、もう1本の木の橋で洞窟の奥の壁の入口へ。人は歩いて洞窟に入って行く
     // 洞窟の奥の壁の入口（半分の幅・高さ）。2026-10-25 岩山のアーチ（Stage2_CaveRock の Cut_Arch：幅±2.6・天井まで）に合わせて 1.3/2.4 → 2.6/2.6
-    const float DoorHW = 2.6f, DoorH = 2.6f;
+    const float DoorHW = 2.25f, DoorH = 2.6f;   // 2026-10-27 2.6→2.25（岩山の入口のトンネルをせまくした。Tools/stage2_cave_rock.py の ARCH_HW と同じ）
     static float CaveBackS => sPlaza0 - 1.5f - 0.4f;   // 洞窟の奥の壁の外の面
     static void StartSet(Transform root)
     {
@@ -928,7 +928,23 @@ public static class FuwaCourse2_1Builder
             var bc = bfs.Count > 0 ? bfs[bfs.Count - 1].Find("Curtain") : null; if (bc && bc.GetComponent<Renderer>()) bc.GetComponent<Renderer>().enabled = false;
             var lipB = new List<Vector3>(); var outB = new List<Vector3>();
             for (int k = 0; k <= 4; k++) { lipB.Add(new Vector3(x + Mathf.Lerp(-0.25f, 0.25f, k / 4f), floor + 0.12f, zBack)); outB.Add(Vector3.back); }
-            LipFalls(terr, "BackFallLip" + (x < 0 ? "L" : "R"), "BackFallLip", lipB, outB, new List<Vector2> { new Vector2(0.25f, 0.01f), new Vector2(0.02f, 0.01f), new Vector2(-0.1f, -0.1f), new Vector2(-0.17f, -0.4f), new Vector2(-0.21f, -1.2f), new Vector2(-0.22f, float.NaN) }, -10f);
+            // 落ちていく膜は、下でふくらんだ岩（入口のアーチの柱）より外を通るように、深さごとに岩のいちばん後ろ＋すき間ぶん外へ（2026-10-27 てじゃ「細い滝が岩貫通してる」）。
+            // 外へのずれは深さとともに増えるだけ（へらない）＝水が外へ弧をえがいて落ちる形
+            var verts = mesh2.vertices;
+            var prof = new List<Vector2> { new Vector2(0.25f, 0.01f), new Vector2(0.02f, 0.01f) };
+            float off = 0.1f;
+            for (float d = 0.1f; d < 13f; d += d < 1f ? 0.15f : 0.5f)
+            {
+                float y = floor + 0.12f - d, need = 0f;
+                foreach (var v in verts) if (Mathf.Abs(v.x - x) < 0.35f && Mathf.Abs(v.y - y) < 0.4f) need = Mathf.Max(need, zBack - v.z + 0.15f);
+                off = Mathf.Max(off, need, 0.1f + 0.12f * Mathf.Sqrt(d));
+                prof.Add(new Vector2(-off, -d));
+            }
+            // 段がつかないように、外へのずれを先読みでなめらかに（いちばん外へ出る所に向かって前からゆるく出していく）
+            for (int k = prof.Count - 2; k >= 2; k--) prof[k] = new Vector2(Mathf.Min(prof[k].x, prof[k + 1].x * 0.85f + prof[k].x * 0.15f), prof[k].y);
+            for (int k = 3; k < prof.Count; k++) prof[k] = new Vector2(Mathf.Min(prof[k].x, prof[k - 1].x), prof[k].y);
+            prof.Add(new Vector2(prof[prof.Count - 1].x, float.NaN));
+            LipFalls(terr, "BackFallLip" + (x < 0 ? "L" : "R"), "BackFallLip", lipB, outB, prof, -10f);
         }
     }
 

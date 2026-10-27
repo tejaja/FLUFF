@@ -81,16 +81,14 @@ for n in ('Cut_FallL_Soft', 'Cut_FallR_Soft'):
     for v in c.data.vertices:
         if 6.28 < v.co.z < 6.6: v.co.z = 6.6
     soft.append(c)
-# 裏の細い滝が落ちる所に、岩の後ろの面へ縦の溝（下の岩がふくらんで、まっすぐ落ちる滝が岩を突きぬけていた。2026-10-27 てじゃ）。
-# Unity の滝：x＝(-1.45, 1.8)（Blender x はその逆）、落ち口の z≒-3.08（Blender y≒+3.08）、溝の底の高さ（Unity y）5.45 / 5.55。溝は落ち口のすぐ下から
-grooves = []
-for ux, uy in ((-1.45, 5.45), (1.8, 5.55)):
-    bx = -ux; y0 = 3.08 - 0.12
-    g = prism('Tmp_BackGroove' + str(ux), [(bx - 0.36, y0), (bx + 0.36, y0), (bx + 0.5, 8.0), (bx - 0.5, 8.0)], -9.0, uy - 0.12)
-    grooves.append(g)
 # ---- くり抜く ----
-cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), copy_of('Cut_Arch'), side, pool,
-        copy_of('Cut_FallL'), copy_of('Cut_FallR')] + soft + grooves + exit_cuts
+# 入口のトンネルを少しせまく（半分の幅 2.6→ARCH_HW）。岩の後ろの面がトンネルの横で内へ入りこんでいて、壁の厚みが数cmしかなく、すき間が見えた（2026-10-27 てじゃ「入口の右側隙間だらけ」）。
+# Unity の入口の当たり判定（DoorHW）も同じ幅に
+ARCH_HW = 2.25
+arch = copy_of('Cut_Arch')
+for v in arch.data.vertices: v.co.x *= ARCH_HW / 2.6
+cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, pool,
+        copy_of('Cut_FallL'), copy_of('Cut_FallR')] + soft + exit_cuts
 base = bpy.data.objects['CaveRock']
 work = temp('Tmp_Rock', base.data.copy()); work.matrix_world = base.matrix_world
 for c in cuts:
@@ -107,7 +105,7 @@ bm.to_mesh(work.data); bm.free()
 # ---- 洞窟の口・溝の斜面に歪み（岩の中の向きへだけ。通り道はせまくならない）----
 bm = bmesh.new(); bm.from_mesh(work.data)
 mtrees = []
-for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.24)):   # 溝の斜面は歪ませない（上の芝とのさかいに段の線が出た）
+for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.18)):   # 溝の斜面は歪ませない（上の芝とのさかいに段の線が出た）
     mb = bmesh.new(); mb.from_mesh(bpy.data.objects[n].data); mtrees.append((BVHTree.FromBMesh(mb), a)); mb.free()
 def amp_at(p):
     best = 0.0
