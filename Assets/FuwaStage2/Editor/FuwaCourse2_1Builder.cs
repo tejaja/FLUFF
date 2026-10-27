@@ -2846,7 +2846,7 @@ public static class FuwaCourse2_1Builder
         // 断面のまん中が水面の高さだと、上の半分（厚みの半分）が水面から浮いて、裏から見ると水面と滝の上がずれて見えた（2026-10-27 てじゃ）。
         // 全体を厚みの半分だけ真下へ（上の面＝水面。落ちている所は横にずれないので、前の面は落ち口の岩より前のまま）。手前のはしは水の下へ
         //（落ち口の先で元の線へ戻すと外の面がこぶに、面の向きに内側へずらすと落ち口の岩が滝の前に出た）
-        var mid = new List<Vector3>(); var vnrm = nrms; var vlen = len; float vtotal = total; List<float> frontK = null;
+        var mid = new List<Vector3>(); var vnrm = nrms; var vlen = len; float vtotal = total; List<float> frontK = null; List<float> meshThicks = null; float lipLen = 0f;
         if (flatBack > 0f)
         {
             // 滝の上の面を池の側へ flatBack だけ平らにのばして、そこから先は池の水面のかわり（池の水面はその手前で終わる。2026-10-27 てじゃ「滝の上に池をかぶせたみたい」）。
@@ -2855,10 +2855,50 @@ public static class FuwaCourse2_1Builder
             for (int i = 1; i < pts.Count; i++) vp.Add(pts[i]);
             vlen = new float[vp.Count]; for (int i = 1; i < vp.Count; i++) vlen[i] = vlen[i - 1] + (vp[i] - vp[i - 1]).magnitude; vtotal = vlen[vp.Count - 1];
             vnrm = Enumerable.Range(0, vp.Count).Select(i => { var tg = (vp[Mathf.Min(i + 1, vp.Count - 1)] - vp[Mathf.Max(i - 1, 0)]).normalized; var n = Vector3.Cross(rgt, tg).normalized; if (Vector3.Dot(n, f) + n.y < 0) n = -n; return i == 1 ? Vector3.up : n; }).ToList();
-            foreach (var q in vp) mid.Add(q + Vector3.down * (thick * 0.5f));
+            // 落ち口の裏（下の面）をなだらかに（2026-10-27 てじゃ「滝の裏からみたとき上が違和感」「なだらかにしよう」）：
+            // 前は厚みが一定で、平らな所の下の面と落ちる所の裏の面が落ち口の下で角になり、裏から見ると平らな板の底に見えた。
+            // 線を細かく取りなおして、表の面（前と同じ所）はそのまま、裏の面の線だけならして丸める（落ち口の下で厚くなって、斜めのなだらかな面になる）
+            var rsP = new List<Vector3> { vp[0] };
+            for (int i = 1; i < vp.Count; i++)
+            {
+                int k = Mathf.Max(1, Mathf.CeilToInt((vp[i] - vp[i - 1]).magnitude / 0.08f));
+                for (int j = 1; j <= k; j++) rsP.Add(Vector3.Lerp(vp[i - 1], vp[i], j / (float)k));
+            }
+            int nr = rsP.Count;
+            var rn = new List<Vector3>();
+            for (int i = 0; i < nr; i++)
+            {
+                var tg = (rsP[Mathf.Min(i + 1, nr - 1)] - rsP[Mathf.Max(i - 1, 0)]).normalized; var n = Vector3.Cross(rgt, tg).normalized;
+                if (Vector3.Dot(n, f) + n.y < 0) n = -n;
+                rn.Add(n);
+            }
+            // 落ち口までの長さ（vp[2]＝落ち口）と、各点の長さ
+            lipLen = 0f; for (int i = 1; i < 3; i++) lipLen += (vp[i] - vp[i - 1]).magnitude;
+            var al = new float[nr]; for (int i = 1; i < nr; i++) al[i] = al[i - 1] + (rsP[i] - rsP[i - 1]).magnitude;
+            // 落ち口より手前（平らな所と、池の下へもぐる所）は断面を水平のまま（向きを変えると裏の面が折れ返った）
+            for (int i = 0; i < nr; i++) if (al[i] < lipLen - 0.02f) rn[i] = Vector3.up;
+            var outer = new List<Vector3>(); var inner = new List<Vector3>();
+            for (int i = 0; i < nr; i++) { var c = rsP[i] + Vector3.down * (thick * 0.5f); outer.Add(c + rn[i] * (thick * 0.5f)); inner.Add(c - rn[i] * (thick * 0.5f)); }
+            // ならすのは落ち口の手前 UnderSmoothBack m から先だけ（池の下の所は動かさない）
+            for (int it = 0; it < UnderSmoothIter; it++)
+            {
+                var nx = new List<Vector3>(inner);
+                for (int i = 1; i < nr - 1; i++) if (al[i] > lipLen - UnderSmoothBack) nx[i] = (inner[i - 1] + 2f * inner[i] + inner[i + 1]) * 0.25f;
+                inner = nx;
+            }
+            // 断面は 表の点 と ならした裏の点 を結ぶ向きに（表の面の向きのままだと、落ち口の曲がりで厚い所の断面どうしが交差して、裏に折れ目の線が出た）
+            var thicks = new List<float>(); mid.Clear(); vnrm = new List<Vector3>();
+            for (int i = 0; i < nr; i++)
+            {
+                var d = outer[i] - inner[i]; float tk = Mathf.Max(thick * 0.6f, d.magnitude);
+                var ax = d.magnitude > 1e-4f ? d / d.magnitude : rn[i];
+                thicks.Add(tk); vnrm.Add(ax); mid.Add(outer[i] - ax * (tk * 0.5f));
+            }
+            vlen = new float[nr]; for (int i = 1; i < nr; i++) vlen[i] = vlen[i - 1] + (rsP[i] - rsP[i - 1]).magnitude; vtotal = vlen[nr - 1];
+            meshThicks = thicks;
         }
         else for (int i = 0; i < pts.Count; i++) mid.Add(pts[i] + Vector3.down * (thick * 0.5f + (i == 0 ? 0.15f : 0f)));
-        var mesh = FuwaStage2WaterTest.SweepFalls("Course2_1_" + name, mid, vnrm, Enumerable.Repeat(rgt, mid.Count).ToList(), vlen, vtotal, width, thick, frontK);
+        var mesh = FuwaStage2WaterTest.SweepFalls("Course2_1_" + name, mid, vnrm, Enumerable.Repeat(rgt, mid.Count).ToList(), vlen, vtotal, width, thick, frontK, meshThicks);
         mesh = Save(mesh, MeshDir + "/" + name + ".asset");
         var g0 = new GameObject(name).transform; g0.SetParent(root, false);
         var cur = new GameObject("Curtain"); cur.transform.SetParent(g0, false);
@@ -2872,7 +2912,7 @@ public static class FuwaCourse2_1Builder
             if (!pm) { pm = new Material(mat); AssetDatabase.CreateAsset(pm, pp); }
             pm.CopyPropertiesFromMaterial(mat);
             var pond = WaterMat(0f, true, false);
-            pm.SetFloat("_PondTop", vlen[2]); pm.SetColor("_PondColor", pond.GetColor("_Deep"));
+            pm.SetFloat("_PondTop", lipLen); pm.SetColor("_PondColor", pond.GetColor("_Deep"));
             EditorUtility.SetDirty(pm); mat = pm;
         }
         var mr = cur.AddComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -2905,6 +2945,7 @@ public static class FuwaCourse2_1Builder
             WaterDecal(g0, "PoolFoam", new Vector3(land.x, bottom + 0.012f, land.z), f, -hw - SplashReach, hw + SplashReach, -thick * 0.5f - 1.2f, SplashReach * 1.6f, 0, hw, SplashReach, new Color(0.45f, 0.78f, 0.95f));
     }
     public static float SplashReach = 3.2f, LipDecalReach = 2.6f;
+    public static int UnderSmoothIter = 120; public static float UnderSmoothBack = 1.0f;   // 落ち口の裏の面をならす回数（多いほど丸みが大きい）
     // 平らな格子の板（uv＝ローカルの (x, z) m。+Z＝dir）。材質は FuwaStage2/WaterDecal
     static void WaterDecal(Transform parent, string name, Vector3 pos, Vector3 dir, float x0, float x1, float z0, float z1, int mode, float halfW, float reach, Color aerated, float band = 0f)
     {
