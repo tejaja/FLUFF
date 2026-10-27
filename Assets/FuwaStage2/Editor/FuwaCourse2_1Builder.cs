@@ -411,10 +411,8 @@ public static class FuwaCourse2_1Builder
             Func<float, Vector2> At = u => { int k = 1; while (k < nP && tu[k] < u) k++; return Vector2.Lerp(pl[k - 1], pl[k], Mathf.InverseLerp(tu[k - 1], tu[k], u)); };
             // 板を切る線：青い道の左のへりから BridgeOnto 内側（へりの線の向き＝その所の青い道の向き）
             var clipP = K + Lk * (1.5f - BridgeOnto);
-            // 青い道の外へ出る所（まん中の線で）から桁を出す
-            float uOut = BridgeOnto;
             pieces.Add(new Piece { name = "M2_Bridge", s0 = 0f, s1 = Lb, off = s => 0f, at = At, w = s => 3f, h = u => Mathf.Lerp(BankTop - 0.01f, BankTop, u / Lb),
-                round0 = false, round1 = false, wood = true, woodEdgeCut = true, woodLift = u => BridgeLift, woodBeamS0 = uOut + 0.8f, woodClipP = clipP, woodClipN = Lk });
+                round0 = false, round1 = false, wood = true, woodEdgeCut = true, woodLift = u => BridgeLift, woodBeamS0 = BridgeOnto - 0.06f /* 青い道の横っ腹に少しうめる */, woodClipP = clipP, woodClipN = Lk });
             m2BridgeA = A; m2BridgeE = E;
         }
         // M3 貝の道：蓮の池の向こうから、細い堤の道をゆるく登って大きな滝の登り坂へ（両わきは崖の外＝落ちたらアウト）
@@ -3361,7 +3359,7 @@ public static class FuwaCourse2_1Builder
     // ---- 木の足場（2026-10-27）：ゴールの島の橋（WoodVC）と同じ作り＝頂点カラーの板を並べて、下に2本の桁。材質も同じ Den_Twig ----
     // 板の上の面は道の高さ（当たり判定は PathMesh のまま）。ゴールへの道の終わりは、見た目だけ島の橋の板の下までのばす（道のはしのままだと すき間が見えた）
     const float GoalWoodLap = 0.35f;
-    const float PlankPitch = 0.32f, PlankT = 0.09f, BeamW = 0.16f, BeamH = 0.18f, BeamIn = 0.22f;
+    const float PlankPitch = 0.32f, PlankT = 0.09f, BeamW = 0.16f, BeamH = 0.18f, BeamIn = 0.22f, BeamEmbed = 0.08f;
     // 迂回路の浮島（ゴールの島と同じ作りの小さい版：芝の丸い台＋下の岩）。台の上はふわふわが乗るとアウト（道と同じ FuwaTopOut）
     static void BridgeIsland(Transform root)
     {
@@ -3602,12 +3600,28 @@ public static class FuwaCourse2_1Builder
             {
                 float br = R(90f, 105f);
                 float bs0 = float.IsNaN(pc.woodBeamS0) ? s0 : Mathf.Max(s0, pc.woodBeamS0);
-                int m = Mathf.Max(1, Mathf.CeilToInt((s1 - bs0) / 0.25f));
                 Vector3[] Ring(float s)
                 {
                     float lat = side * (pc.w(s) * 0.5f - BeamIn), l = lift(s);
                     return new[] { Point(pc, s, lat - BeamW * 0.5f, l - PlankT), Point(pc, s, lat + BeamW * 0.5f, l - PlankT), Point(pc, s, lat + BeamW * 0.5f, l - PlankT - BeamH), Point(pc, s, lat - BeamW * 0.5f, l - PlankT - BeamH) };
                 }
+                // 2026-10-27 てじゃ「下の支えの木がとどいてない」「可能な限り近くまで伸ばそう」：岩（洞窟の岩）に当たるまで桁をはじめの側へのばす（少しうめる）
+                if (rockCol != null && !float.IsNaN(pc.woodBeamS0))
+                {
+                    const float st = 0.04f; float sh = float.NaN;
+                    for (float s = bs0; s - st >= s0; s -= st)
+                    {
+                        var ra = Ring(s); var rb = Ring(s - st); float hitF = -1f;
+                        for (int f = 0; f < 4; f++)
+                        {
+                            var wo = root.TransformPoint(ra[f]); var dir = root.TransformDirection(rb[f] - ra[f]); float dl = dir.magnitude;
+                            if (dl > 1e-5f && rockCol.Raycast(new Ray(wo, dir / dl), out var hb, dl)) hitF = Mathf.Max(hitF, 1f - hb.distance / dl);
+                        }
+                        if (hitF >= 0f) { sh = s - st * (1f - hitF); break; }
+                    }
+                    if (!float.IsNaN(sh)) bs0 = Mathf.Max(s0, sh - BeamEmbed);   // 当たらなければそのまま
+                }
+                int m = Mathf.Max(1, Mathf.CeilToInt((s1 - bs0) / 0.25f));
                 var prev = Ring(bs0);
                 Quad(prev[0], prev[1], prev[2], prev[3], -Tangent3(pc, bs0), Wood(br, false));
                 for (int k = 1; k <= m; k++)
