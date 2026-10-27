@@ -746,6 +746,7 @@ public static class FuwaCourse2_1Builder
         // 道と水の下の岩の土台（浮島の形）。道・水がそろってから、上から測って作る
         WoodWalk(root, woodPieces);
         RockBases(root);
+        AirFallsFray(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
@@ -1300,6 +1301,45 @@ public static class FuwaCourse2_1Builder
         foreach (var nm in new[] { "W1_Pool/Body", "W2_River/Body", "W3_LilyPond/Body", "W3_LilyPond/Body2", "W3_LilyPond/BodyL", "W3_LilyPond/BodyR", "W3_LilyPond/BodyHole" })
         { var t = root.Find("Water/" + nm); if (t && t.GetComponent<Renderer>()) t.GetComponent<Renderer>().enabled = false; }
         var fc = root.Find("Gorge/FarCliff"); if (fc && fc.GetComponent<Renderer>()) fc.GetComponent<Renderer>().enabled = false;
+    }
+    // 空中に落ちていく滝（下に水も岩もない）の下のはしを、遠景の浮島の滝のように白い霧にしてちぎれて消えるように（2026-10-27 てじゃ
+    //「空中におちてる滝（細いのも含む）の一番下、遠景の浮島の滝の末端みたいに散らしたい」）。いちばん下の頂点の真下を測って、何もなければ空中の滝。
+    // 材質は元の材質のコピー（名前に _Air）に _FrayLen を入れる（滝つぼに落ちる滝は今のまま）
+    public static float AirFrayLen = 6f;
+    static void AirFallsFray(Transform root)
+    {
+        Physics.SyncTransforms();
+        foreach (var mr in root.GetComponentsInChildren<MeshRenderer>(true))
+        {
+            var m = mr.sharedMaterial; if (!m || m.shader.name != "FuwaStage2/Waterfall") continue;
+            if (m.name.EndsWith("_Air")) { var bp = AssetDatabase.GetAssetPath(m).Replace("_Air.mat", ".mat"); m = AssetDatabase.LoadAssetAtPath<Material>(bp); if (!m) continue; mr.sharedMaterial = m; }
+            var mf = mr.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue;
+            var low = Vector3.zero; float ly = float.MaxValue;
+            foreach (var v in mf.sharedMesh.vertices) { var w = mr.transform.TransformPoint(v); if (w.y < ly) { ly = w.y; low = w; } }
+            // 水面（トリガー）も「下に何かある」に数える。滝の押す箱（FuwaWaterfall）とその滝自身は数えない（ゲートの滝は水面に落ちていた）
+            bool below = false;
+            foreach (var h in Physics.RaycastAll(low + Vector3.up * 0.3f, Vector3.down, 6f, ~0, QueryTriggerInteraction.Collide))
+            {
+                if (h.collider.GetComponent<FuwaWaterfall>() || h.collider.transform.IsChildOf(mr.transform.parent)) continue;
+                // トリガーは水だけ（エリアの大きいトリガーは数えない）
+                if (h.collider.isTrigger && !(h.collider.GetComponent<FuwaWater>() || h.collider.GetComponentInParent<FuwaWater>())) continue;
+                below = true; break;
+            }
+            // いちばん下の点のすぐそば（水の入れ物・岩）にも何もないか（ゲートの滝は川のはしのすぐ外に落ちていて、真下だけ見ると空中になった）
+            foreach (var c in Physics.OverlapSphere(low, 1.0f, ~0, QueryTriggerInteraction.Collide))
+            {
+                if (c.GetComponent<FuwaWaterfall>() || c.transform.IsChildOf(mr.transform.parent)) continue;
+                if (c.isTrigger && !(c.GetComponent<FuwaWater>() || c.GetComponentInParent<FuwaWater>())) continue;
+                below = true; break;
+            }
+            if (below) continue;
+            string p = AssetDatabase.GetAssetPath(m); if (string.IsNullOrEmpty(p)) continue;
+            string ap = p.Replace(".mat", "_Air.mat");
+            var am = AssetDatabase.LoadAssetAtPath<Material>(ap);
+            if (!am) { am = new Material(m); AssetDatabase.CreateAsset(am, ap); }
+            am.CopyPropertiesFromMaterial(m); am.SetFloat("_FrayLen", AirFrayLen); EditorUtility.SetDirty(am);
+            mr.sharedMaterial = am;
+        }
     }
     static Material RockBaseMat()
     {

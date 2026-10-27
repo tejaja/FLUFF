@@ -27,6 +27,8 @@ Shader "FuwaStage2/Waterfall"
         _PondFoam ("Pond Foam Color", Color) = (0.96, 1, 1, 1)
         _PondStreak ("Pond Streak Strength", Float) = 0.55
         _PondSparkle ("Pond Sparkle", Float) = 0.5
+        // 下のはしから _FrayLen m を、白い霧にしてちぎれて消す（空中に落ちていく滝。遠景の浮島の滝 FuwaFarIsland と同じ見せ方。2026-10-27）
+        _FrayLen ("Bottom Fray Length (m, 0=off)", Float) = 0
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 0
         [Enum(Off, 0, On, 1)] _ZWrite ("ZWrite", Float) = 0
     }
@@ -50,7 +52,7 @@ Shader "FuwaStage2/Waterfall"
             fixed4 _Top, _Bottom, _Foam, _PondColor, _PondFoam;
             float4 _RadialCenter;
             float _PondRadial, _RadialSpeed, _PondStreak, _PondSparkle;
-            float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor, _PondTop;
+            float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor, _PondTop, _FrayLen;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; float ny : TEXCOORD4; float3 wp : TEXCOORD5; };
@@ -99,6 +101,16 @@ Shader "FuwaStage2/Waterfall"
                     pc = lerp(pc, _PondFoam.rgb, WaterSparkle(i.wp.xz) * _PondSparkle);
                     col = lerp(col, pc, pk);
                     top = 0;
+                }
+                if (_FrayLen > 0.001)
+                {
+                    // 下のほう：だんだん白い霧になって、ちぎれて消える（下へ流れるノイズで穴をあける）
+                    float tf = 1 - saturate(i.uv.y * i.size.y / _FrayLen);   // 0＝霧の始まり 1＝いちばん下
+                    float fy = m.y + _Time.y * _FallSpeed;
+                    float fray = Noise(float2(m.x * 2.2 + 11, fy * 1.1)) * 0.6 + Noise(float2(m.x * 5.0, fy * 2.6 + 3)) * 0.4;
+                    clip(fray - smoothstep(0.1, 1.0, tf) * 1.05 - 0.001);
+                    bot = 0;
+                    col = lerp(col, _Foam.rgb, smoothstep(0.05, 0.75, tf) * 0.85);
                 }
                 col = lerp(col, _Foam.rgb, saturate(top * 0.9 + bot));
                 // 左右のふちは少し薄く（厚みのある滝は横の面があるので薄くしない）
