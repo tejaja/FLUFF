@@ -148,7 +148,7 @@ public static class FuwaCourse2_1Builder
     // 谷の上の木の橋（M2_Bridge）：両はしで道の向きにそろえる長さ（橋の長さに対する割合。小さいほどまっすぐ）
     public static float BridgeEndPull = 0.12f, CpMushBack = 0.7f;
     // 右岸の道を川の終わりから谷の上へのばす長さ・木の橋が青い道の先っぽにのる長さ・その所の板の持ち上げ
-    public static float B3Ext = 7.5f, BridgeJoinBack = 3.0f, BridgeOnto = 0.3f, BridgeLift = 0.05f, B3ExtBend = 30f;
+    public static float B3Ext = 7.5f, BridgeJoinBack = 3.0f, BridgeOnto = 0.3f, BridgeLift = 0.05f, B3ExtBend = 70f, BridgeStraight0 = 2.7f, BridgeMidPull = 0.35f;
     static Vector2 m2BridgeA, m2BridgeE;
     // ななめの脇道（ツタの穴）：ツタのまん中（root のローカル xz）、穴の向き、半分の幅。Tools/stage2_cave_rock.py の SIDE_V / SIDE_D / SIDE_HW と同じ
     public static readonly Vector2 SideV = new Vector2(3.95f, 3.89f), SideD = new Vector2(0.907f, 0.422f).normalized; public const float SideHW = 1.7f;   // 迂回路の木の橋の曲げ点（中心線の s と横）
@@ -385,27 +385,34 @@ public static class FuwaCourse2_1Builder
         {
             Vector2 CL3(float s, float lat) { Center(s, out var p, out var d); return p + Right(d) * lat; }
             var A = CL3(sRiver1, b3off(sRiver1)); var T0 = (A - CL3(sRiver1 - 0.05f, b3off(sRiver1 - 0.05f))).normalized;
-            // 川の終わりまでは岸にそう線、その先は谷の上へ（s をそのまま m として）。1つの道なので縞もつながる。向きを (u/B3Ext)^2 で B3ExtBend 度まで右へ
+            // 川の終わりまでは岸にそう線、その先は谷の上へ（s をそのまま m として）。1つの道なので縞もつながる。向きを u/B3Ext に比例して B3ExtBend 度まで右へ（同じ丸さのカーブ）
             var R0 = Right(T0);
-            float AngAt(float u) { float x = u / B3Ext; return B3ExtBend * Mathf.Deg2Rad * x * x; }
+            // 2026-10-27 てじゃ「橋をすこし右に角度つけつつ、青い道ももっと曲げて橋を斜めに切らずにつなげられるように」：
+            //「木の橋も必要なら曲げ入ってもOK」：青い道を B3ExtBend 度まで曲げ、橋はへりに直角に出て（右へ角度がつく）、ゆるく曲がって池の入口へ
+            float bend = B3ExtBend;
+            float AngAt(float u) { return bend * Mathf.Deg2Rad * u / B3Ext; }
             Vector2 DirAt(float u) { float a = AngAt(u); return T0 * Mathf.Cos(a) + R0 * Mathf.Sin(a); }
             Vector2 Ext(float u) { var q = A; int nn = Mathf.Max(1, Mathf.CeilToInt(u / 0.05f)); float du = u / nn; for (int i = 0; i < nn; i++) q += DirAt((i + 0.5f) * du) * du; return q; }
             Func<float, Vector2> b3at = s => s <= sRiver1 ? CL3(s, b3off(s)) : Ext(s - sRiver1);
             pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = sRiver1 + B3Ext, off = s => 0f, at = b3at, w = s => 3f, h = s => BankTop - 0.01f });
             // 橋がつく所：青い道の先から BridgeJoinBack m 手前。橋のはじめは青い道の中（へりから 1.5m 内側＝まん中）、そこから池の入口へまっすぐ
-            float uk = B3Ext - BridgeJoinBack; var K = Ext(uk); var Lk = -Right(DirAt(uk));
+            float uk = B3Ext - BridgeJoinBack;
             float sE = sPond0 - RimW; var E = CL3(sE, 0f); Center(sE, out _, out var De);
-            float L0 = (E - K).magnitude;
-            var P1 = K + (E - K) * 0.33f; var P2 = E - De * L0 * BridgeEndPull;
-            Vector2 Bz(float t) { float a = 1 - t; return a * a * a * K + 3 * a * a * t * P1 + 3 * a * t * t * P2 + t * t * t * E; }
-            var tu = new List<float> { 0f }; var tt = new List<float> { 0f };
-            for (int k = 1; k <= 400; k++) { float t2 = k / 400f; tu.Add(tu[k - 1] + (Bz(t2) - Bz((k - 1) / 400f)).magnitude); tt.Add(t2); }
-            float Lb = tu[400];
-            Func<float, Vector2> At = u => { int k = 1; while (k < 400 && tu[k] < u) k++; return Bz(Mathf.Lerp(tt[k - 1], tt[k], Mathf.InverseLerp(tu[k - 1], tu[k], u))); };
+            var K = Ext(uk); var Lk = -Right(DirAt(uk));
+            // はじめは青い道のへりに直角（＝Lk の向き）にまっすぐ BridgeStraight0 m（青い道の外へ出るまで）。板の列がへりと平行になるので切り口がまっすぐ。
+            // そこからゆるく曲がって池の入口の向きへ
+            var K2 = K + Lk * BridgeStraight0; float L1 = (E - K2).magnitude;
+            var P1 = K2 + Lk * L1 * BridgeMidPull; var P2 = E - De * L1 * BridgeMidPull;
+            Vector2 Bz(float t) { float a = 1 - t; return a * a * a * K2 + 3 * a * a * t * P1 + 3 * a * t * t * P2 + t * t * t * E; }
+            // 板の列がへりの切り口から始まるように、橋のはじめは切る線の上（細い切れはしが出ない）
+            float bst0 = 1.5f - BridgeOnto; var pl = new List<Vector2>(); for (int k = 0; k < 40; k++) pl.Add(K + Lk * Mathf.Lerp(bst0, BridgeStraight0, k / 40f)); for (int k = 0; k <= 400; k++) pl.Add(Bz(k / 400f));
+            var tu = new List<float> { 0f }; for (int k = 1; k < pl.Count; k++) tu.Add(tu[k - 1] + (pl[k] - pl[k - 1]).magnitude);
+            int nP = pl.Count - 1; float Lb = tu[nP];
+            Func<float, Vector2> At = u => { int k = 1; while (k < nP && tu[k] < u) k++; return Vector2.Lerp(pl[k - 1], pl[k], Mathf.InverseLerp(tu[k - 1], tu[k], u)); };
             // 板を切る線：青い道の左のへりから BridgeOnto 内側（へりの線の向き＝その所の青い道の向き）
             var clipP = K + Lk * (1.5f - BridgeOnto);
             // 青い道の外へ出る所（まん中の線で）から桁を出す
-            float uOut = 0f; for (int k = 0; k <= 400; k++) if (Vector2.Dot(Bz(tt[k]) - (K + Lk * 1.5f), Lk) < 0f) uOut = tu[k];
+            float uOut = BridgeOnto;
             pieces.Add(new Piece { name = "M2_Bridge", s0 = 0f, s1 = Lb, off = s => 0f, at = At, w = s => 3f, h = u => Mathf.Lerp(BankTop - 0.01f, BankTop, u / Lb),
                 round0 = false, round1 = false, wood = true, woodEdgeCut = true, woodLift = u => BridgeLift, woodBeamS0 = uOut + 0.8f, woodClipP = clipP, woodClipN = Lk });
             m2BridgeA = A; m2BridgeE = E;
