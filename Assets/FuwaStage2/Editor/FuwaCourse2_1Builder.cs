@@ -997,6 +997,7 @@ public static class FuwaCourse2_1Builder
             if (!rm) { rm = new Material(baseM); AssetDatabase.CreateAsset(rm, sp); }
             rm.CopyPropertiesFromMaterial(baseM);
             var wc = terr.TransformPoint(new Vector3(0f, SourceSurf, 1.6f));
+            rm.SetFloat("_DeepWidth", 0.3f);   // かべの近くだけ少し明るく（広いと滝の上の面と色がずれる）
             rm.SetFloat("_Radial", 1f); rm.SetVector("_RadialCenter", new Vector4(wc.x, wc.z, RippleFadeR0, RippleFadeR1));   // zw＝波紋を消す半径（滝の口は中心から 4.8〜5.2m）
             EditorUtility.SetDirty(rm);
             srcSurf.GetComponent<MeshRenderer>().sharedMaterial = rm;
@@ -1125,18 +1126,49 @@ public static class FuwaCourse2_1Builder
             return last + 0.05f;
         }
         startLipHW = (RowHW(zEnd - 0.3f, -1f) + RowHW(zEnd - 0.3f, 1f)) * 0.5f - 0.05f;   // 落ち口の手前の水の半分の幅（滝の幅をこれに合わせる）
-        int nRow = Mathf.Max(1, Mathf.CeilToInt((ExitWaterEndZ - zGrid) / 0.05f)); int prevL = -1, prevR = -1;
+        // 帯は横に StripCols 列（ふちの泡を岩からの距離で出すので、横にも点が要る）
+        const int StripCols = 12;
+        int nRow = Mathf.Max(1, Mathf.CeilToInt((ExitWaterEndZ - zGrid) / 0.05f)); int prev = -1;
         for (int k = 0; k <= nRow; k++)
         {
             float z = Mathf.Min(zGrid + k * 0.05f, ExitWaterEndZ);
-            int l = V.Count; V.Add(new Vector3(-RowHW(z, -1f), y, z)); V.Add(new Vector3(RowHW(z, 1f), y, z));
-            if (prevL >= 0) T.AddRange(new[] { prevL, l, l + 1, prevL, l + 1, prevR });
-            prevL = l; prevR = l + 1;
+            float xl = -RowHW(z, -1f), xr = RowHW(z, 1f);
+            int l = V.Count; for (int c = 0; c <= StripCols; c++) V.Add(new Vector3(Mathf.Lerp(xl, xr, c / (float)StripCols), y, z));
+            if (prev >= 0) for (int c = 0; c < StripCols; c++) T.AddRange(new[] { prev + c, l + c, l + c + 1, prev + c, l + c + 1, prev + c + 1 });
+            prev = l;
+        }
+        // 岩のかべまでの距離（ふちの白い泡用。2026-10-27 てじゃ「地面と水の境界だけ白いふちみたいなのつけたい、他の水面みたいに」）。
+        // 5cm ごとに岩の上の面が水面より上の所（かべ）を集めて、点ごとにいちばん近いかべまでの距離。滝の口・細い溝の口はかべではないので泡なし
+        const float ws = 0.05f, wMax = 1.2f;
+        var wallSet = new HashSet<Vector2Int>();
+        float zw1 = ExitWaterEndZ + 0.3f;
+        for (float wx = -7f; wx <= 7f; wx += ws)
+            for (float wz = zMin - 0.6f; wz <= zw1; wz += ws)
+            {
+                var p = src.TransformPoint(new Vector3(wx, y + 5f, wz));
+                if (rock.Raycast(new Ray(p, Vector3.down), out var h, 20f) && src.InverseTransformPoint(h.point).y >= y - 0.01f)
+                    wallSet.Add(new Vector2Int(Mathf.RoundToInt(wx / ws), Mathf.RoundToInt(wz / ws)));
+            }
+        int rr = Mathf.CeilToInt(wMax / ws);
+        var wallD = new float[V.Count];
+        for (int vi = 0; vi < V.Count; vi++)
+        {
+            var c0 = new Vector2Int(Mathf.RoundToInt(V[vi].x / ws), Mathf.RoundToInt(V[vi].z / ws));
+            if (wallSet.Contains(c0)) { wallD[vi] = 0f; continue; }
+            float best = wMax;
+            for (int a2 = -rr; a2 <= rr; a2++) for (int b2 = -rr; b2 <= rr; b2++)
+            {
+                if (!wallSet.Contains(new Vector2Int(c0.x + a2, c0.y + b2))) continue;
+                float d = new Vector2(V[vi].x - (c0.x + a2) * ws, V[vi].z - (c0.y + b2) * ws).magnitude - ws * 0.5f;
+                if (d < best) best = d;
+            }
+            wallD[vi] = Mathf.Max(0f, best);
         }
         startWaterEndZ = ExitWaterEndZ;   // 池の水面はここまで。その先（落ち口まで）は滝の上の面（Falls_Start の flatBack）
         var m = new Mesh { name = "Course2_1_W0_Source_Surface", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         m.SetVertices(V); m.SetTriangles(T, 0); m.SetUVs(0, V.Select(v => Vector2.zero).ToList());
-        m.SetUVs(1, V.Select(v => new Vector4(0f, 99f, 99f, 99f)).ToList()); m.SetUVs(2, V.Select(v => new Vector2(v.z, 0f)).ToList());
+        // uv1.y＝かべまでの距離（シェーダーの edge＝uv1.y - |uv1.x|）。wMax で頭打ち
+        m.SetUVs(1, wallD.Select(d => new Vector4(0f, d, 99f, 99f)).ToList()); m.SetUVs(2, V.Select(v => new Vector2(v.z, 0f)).ToList());
         m.normals = V.Select(v => Vector3.up).ToArray(); m.RecalculateBounds();
         m = Save(m, MeshDir + "/W0_Source_Surface.asset");
         surfT.GetComponent<MeshFilter>().sharedMesh = m;
