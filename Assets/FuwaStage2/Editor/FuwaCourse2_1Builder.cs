@@ -2458,7 +2458,8 @@ public static class FuwaCourse2_1Builder
     // 水路は道のすぐ横（道の側のふちはなし＝道の土台が壁。ふちに乗るとアウトなので、滝に押された所にふちを置かない）
     static float RoadW(float s) { return Mathf.Lerp(WalkHW * 2f, RoadHW * 2f, Smooth01((s - sF0) / 2f)); }
     // えぐれ（滝の中心からの距離 x）：上流は短く立ち上げ、下流は長くゆるく戻す（流されたふわふわが角に引っかからず外へすべるように）
-    const float NotchUp = 0.6f, NotchDown = 0.9f, NotchEnd = 2.1f;
+    // 2026-10-27 てじゃ「滝裏、青床が近くてふわふわが叩きつけられる」：滝の押す範囲（幕の前後 0.45m＋前へ 0.3m）が上流側のえぐれのふちの道にかかっていた → NotchUp 0.6→1.5
+    const float NotchUp = 1.5f, NotchDown = 0.9f, NotchEnd = 2.1f;
     static float NotchShape(float x)
     {
         if (x < -NotchUp - 0.25f || x > NotchEnd) return 0f;
@@ -2515,7 +2516,8 @@ public static class FuwaCourse2_1Builder
             // 滝のカーテン：道を横切る向きで、外側から食い込む（幕の面は道の進む向きを向く）。押す厚み 0.9m がえぐれの中に収まるように少し手前に
             Center(sc - fb * 0.3f, out var fp, out var fd); var fr = Right(fd);
             // 幕の内側のはしは、えぐれのふちから OverFallsGap だけ水の上へ（ふちギリギリで当たると道に叩きつけられた。2026-10-23 てじゃ「余裕もたせよう」）
-            float ia = RoadHW - CutDepth[i] + OverFallsGap, width = outer - ia;
+            // 外のはしも、水路の外のふち（RimL/R）から OverFallsGap 内側まで（ふちの上で押されると叩きつけられる）
+            float ia = RoadHW - CutDepth[i] + OverFallsGap, width = outer - OverFallsGap - ia;
             var fc = fp + fr * (o * (ia + width * 0.5f));
             FuwaStage2WaterTest.Waterfall(set, "OverFalls", new Vector3(fc.x, 0, fc.y), FallsH + OverFallsH, surf, width, new Vector3(fd.x, 0, fd.y));
         }
