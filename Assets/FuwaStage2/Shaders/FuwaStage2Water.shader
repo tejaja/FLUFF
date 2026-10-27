@@ -1,4 +1,4 @@
-// ステージ2「みずのたに」の水面（2026-10-17）。ステージ1の温泉（FuwaCourse/HotSpring）と同じ、光を当てない明るいトゥーンの水
+﻿// ステージ2「みずのたに」の水面（2026-10-17）。ステージ1の温泉（FuwaCourse/HotSpring）と同じ、光を当てない明るいトゥーンの水
 // ・ふちほど明るい水色、まん中は濃い水色。ふちに白い泡の線（ゆらゆら太さが変わる）
 // ・流れのある水は、流れの向きに白い筋が流れていく（向き＝この板のローカル +Y を水平にしたもの。builder が向けて置く）
 // ・止まった水はゆっくり揺れるさざなみ。どちらもたまにきらっと光る
@@ -20,6 +20,11 @@ Shader "FuwaStage2/Water"
         _StreakStrength ("Streak Strength", Range(0, 1)) = 0.55
         _Sparkle ("Sparkle", Range(0, 1)) = 0.5
         [Toggle] _Ribbon ("Ribbon Mesh (uv1/uv2)", Float) = 0
+        // 深い水の終わりで次の浅い水の色へなだらかに（uv2.y＝終わりまでの距離 m。2026-10-27）
+        _OpenFade ("Fade To Shallow Length (m, 0=off)", Float) = 0
+        _OpenDeep ("Shallow Water Center Color", Color) = (0.26, 0.66, 0.86, 1)
+        _OpenShallow ("Shallow Water Edge Color", Color) = (0.58, 0.88, 0.95, 1)
+        _OpenDeepWidth ("Shallow Water Edge→Center Width (m)", Float) = 2.0
     }
     SubShader
     {
@@ -33,11 +38,11 @@ Shader "FuwaStage2/Water"
             #pragma multi_compile_fog
             #include "UnityCG.cginc"
 
-            fixed4 _Deep, _Shallow, _Foam;
-            float _FoamWidth, _DeepWidth, _FlowSpeed, _StreakScale, _StreakStrength, _Sparkle, _Ribbon;
+            fixed4 _Deep, _Shallow, _Foam, _OpenDeep, _OpenShallow;
+            float _FoamWidth, _DeepWidth, _FlowSpeed, _StreakScale, _StreakStrength, _Sparkle, _Ribbon, _OpenFade, _OpenDeepWidth;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float4 rib : TEXCOORD1; float2 rib2 : TEXCOORD2; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wp : TEXCOORD1; float4 frame : TEXCOORD2; float4 rib : TEXCOORD4; float rs : TEXCOORD5; UNITY_FOG_COORDS(3) };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wp : TEXCOORD1; float4 frame : TEXCOORD2; float4 rib : TEXCOORD4; float2 rs : TEXCOORD5; UNITY_FOG_COORDS(3) };
 
             v2f vert (appdata v)
             {
@@ -50,7 +55,7 @@ Shader "FuwaStage2/Water"
                 float3 ay = mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0));
                 float2 fd = ay.xz; float fl = length(fd); fd = fl > 1e-4 ? fd / fl : float2(0, 1);
                 o.frame = float4(length(ax), length(ay), fd);
-                o.rib = v.rib; o.rs = v.rib2.x;
+                o.rib = v.rib; o.rs = v.rib2;
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -72,10 +77,18 @@ Shader "FuwaStage2/Water"
                 float edge = min(d2.x, d2.y);
                 if (_Ribbon > 0.5) edge = min(i.rib.y - abs(i.rib.x), min(i.rib.z, i.rib.w));
                 float3 col = lerp(_Shallow.rgb, _Deep.rgb, smoothstep(0, _DeepWidth, edge));
+                if (_Ribbon > 0.5 && _OpenFade > 0.001)
+                {
+                    // 終わりに近いほど、浅い水と同じ色の付け方（横のふちからの距離だけ）へ。少しゆらがせて境目をまっすぐにしない
+                    float side = i.rib.y - abs(i.rib.x);
+                    float3 sc = lerp(_OpenShallow.rgb, _OpenDeep.rgb, smoothstep(0, _OpenDeepWidth, side));
+                    float wv = (Noise(float2(i.rib.x * 0.8, i.rs.x * 0.5 + _Time.y * 0.15)) - 0.5) * _OpenFade * 0.5;
+                    col = lerp(sc, col, smoothstep(0, _OpenFade, i.rs.y + wv));
+                }
                 // 流れの座標：along＝流れの向き、across＝横
                 float2 perp = float2(-fd.y, fd.x);
                 float along = dot(i.wp.xz, fd), across = dot(i.wp.xz, perp);
-                if (_Ribbon > 0.5) { along = i.rs; across = i.rib.x; }
+                if (_Ribbon > 0.5) { along = i.rs.x; across = i.rib.x; }
                 float s = _StreakScale;
                 if (_FlowSpeed > 0.001)
                 {

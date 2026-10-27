@@ -74,10 +74,13 @@ Shader "FuwaStage2/Waterfall"
                         + Noise(float2(m.x * 11.0 / s + 3.1, (m.y + _Time.y * _FallSpeed * 1.3) * 1.1 / s)) * 0.4;
                 col = lerp(col, _Foam.rgb, smoothstep(0.48, 0.62, n) * 0.85);
                 // 上のふち（落ち口）と下（滝つぼに当たる所）の泡
-                float top = 1 - smoothstep(0, _EdgeFoam, (1 - i.uv.y) * i.size.y);
-                float bot = 1 - smoothstep(0, _EdgeFoam * 1.5, i.uv.y * i.size.y);
-                float wob = 0.75 + 0.25 * Noise(float2(m.x * 2.0, _Time.y * 2.0));
-                col = lerp(col, _Foam.rgb, saturate((top + bot) * wob));
+                // 2026-10-27 まっすぐな帯に見えたので、ふちをノイズでぎざぎざに。下はわき上がるしぶき（上へ流れるノイズで高さがゆらぐ）
+                float topN = Noise(float2(m.x * 3.0, (m.y + _Time.y * _FallSpeed) * 1.2));
+                float top = 1 - smoothstep(0, _EdgeFoam * (0.45 + 0.7 * topN), (1 - i.uv.y) * i.size.y);
+                float botN = Noise(float2(m.x * 2.6, m.y * 1.4 - _Time.y * 2.2)) * 0.65 + Noise(float2(m.x * 5.3 + 2.0, m.y * 2.5 - _Time.y * 3.1)) * 0.35;
+                float bh = _EdgeFoam * 1.5 * (0.6 + 0.9 * botN);
+                float bot = 1 - smoothstep(bh * 0.55, bh, i.uv.y * i.size.y);
+                col = lerp(col, _Foam.rgb, saturate(top * 0.9 + bot));
                 // 左右のふちは少し薄く（厚みのある滝は横の面があるので薄くしない）
                 float side = _SideFade > 0.0001 ? smoothstep(0, _SideFade, min(i.uv.x, 1 - i.uv.x) * i.size.x) : 1;
                 col *= i.color.rgb;

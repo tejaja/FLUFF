@@ -29,6 +29,8 @@ Material:
     - _DeepWidth: 2
     - _FlowSpeed: 1.6
     - _FoamWidth: 0.18
+    - _OpenDeepWidth: 2
+    - _OpenFade: 0
     - _Ribbon: 1
     - _Sparkle: 0.5
     - _StreakScale: 1
@@ -36,5 +38,7 @@ Material:
     m_Colors:
     - _Deep: {r: 0.25999996, g: 0.65999997, b: 0.86, a: 1}
     - _Foam: {r: 0.96, g: 1, b: 1, a: 1}
+    - _OpenDeep: {r: 0.25999996, g: 0.65999997, b: 0.86, a: 1}
+    - _OpenShallow: {r: 0.58, g: 0.88, b: 0.95, a: 1}
     - _Shallow: {r: 0.58, g: 0.88, b: 0.95, a: 1}
   m_BuildTextureStacks: []

@@ -195,6 +195,8 @@ public static class FuwaCourse2_1Builder
         public Func<float, float> holeL, holeR;
         // 流れを中心線の逆向き（s が減る向き）に
         public bool back;
+        // 深い水の終わり（open1）で、色を次の浅い水の色へなだらかに変える長さ(m)。0＝変えない（2026-10-27 てじゃ「深いとこと浅いとこの境目をもっと見栄え良く」）
+        public float fade1;
     }
 
     static float Smooth01(float x) { x = Mathf.Clamp01(x); return x * x * (3 - 2 * x); }
@@ -452,7 +454,7 @@ public static class FuwaCourse2_1Builder
                 open1 = true, bodyBottom = StartH + CaveIn + RoofT,
                 hw = s => Mathf.Lerp(CaveHW - RimW, MouthHW, Smooth01((s - (sPlaza1 - 3.5f)) / 3.5f)) },
             // 流れ 2026-10-25 0.9→1.3→1.6、川 1.1→1.4→1.6（てじゃ「川で見てるのが長過ぎる」。人は浅瀬を歩かず岸の道を走るので速くしてよい）
-            new Water { name = "W1_Pool", s0 = sPlaza1, s1 = sPool1, surf = 0f, flow = 1.6f, hw = PoolHW, open0 = true, open1 = true, deep = true, depth = 2.5f },
+            new Water { name = "W1_Pool", s0 = sPlaza1, s1 = sPool1, surf = 0f, flow = 1.6f, hw = PoolHW, open0 = true, open1 = true, deep = true, depth = 2.5f, fade1 = 3.5f },
             // 終わりは崖の滝（open1）。下のかたまりを深くして、谷から見て崖に見えるように
             new Water { name = "W2_River", s0 = sPool1, s1 = sRiver1, surf = 0f, flow = 1.6f, hw = RiverHW, open0 = true, open1 = true, bodyBottom = -6f },
             new Water { name = "W3_LilyPond", s0 = sPond0, s1 = sPond1, surf = 0f, flow = 0f, hw = PondHW, gapL0 = PondSpill() - 1.1f, gapL1 = PondSpill() + 1.1f,
@@ -2870,6 +2872,47 @@ public static class FuwaCourse2_1Builder
         FuwaStage2WaterTest.Waterfall(g0, "Splash", new Vector3(land.x, 0, land.z), bottom + 0.1f, bottom, width, f);
         var sp = g0.Find("Splash");
         foreach (var n in new[] { "Curtain", "Push" }) { var c = sp.Find(n); if (c) Object.DestroyImmediate(c.gameObject); }
+        // 水面に重ねる泡（2026-10-27 てじゃ「滝と水面の境目をもっと見栄え良く」「滝が出来るほうもなんかいいかんじに」）：
+        // 落ち口の手前は 落ち口へ吸い寄せられる筋と きわの明るい帯、滝つぼ（下に水面がある滝だけ）は白い泡と泡立った水と広がる輪
+        float hw = width * 0.5f;
+        WaterDecal(g0, "LipFoam", lip + Vector3.up * 0.012f, -f, -hw, hw, 0f, LipDecalReach + flatBack, 1, hw, LipDecalReach + flatBack, new Color(0.72f, 0.93f, 0.99f), flatBack);
+        if (bottom > -1f)
+            WaterDecal(g0, "PoolFoam", new Vector3(land.x, bottom + 0.012f, land.z), f, -hw - SplashReach, hw + SplashReach, -thick * 0.5f - 1.2f, SplashReach * 1.6f, 0, hw, SplashReach, new Color(0.45f, 0.78f, 0.95f));
+    }
+    public static float SplashReach = 3.2f, LipDecalReach = 2.6f;
+    // 平らな格子の板（uv＝ローカルの (x, z) m。+Z＝dir）。材質は FuwaStage2/WaterDecal
+    static void WaterDecal(Transform parent, string name, Vector3 pos, Vector3 dir, float x0, float x1, float z0, float z1, int mode, float halfW, float reach, Color aerated, float band = 0f)
+    {
+        const float st = 0.25f;
+        int nx = Mathf.Max(1, Mathf.CeilToInt((x1 - x0) / st)), nz = Mathf.Max(1, Mathf.CeilToInt((z1 - z0) / st));
+        var V = new List<Vector3>(); var UV = new List<Vector2>(); var T = new List<int>();
+        for (int j = 0; j <= nz; j++)
+            for (int i = 0; i <= nx; i++)
+            {
+                float x = Mathf.Lerp(x0, x1, i / (float)nx), z = Mathf.Lerp(z0, z1, j / (float)nz);
+                V.Add(new Vector3(x, 0, z)); UV.Add(new Vector2(x, z));
+            }
+        for (int j = 0; j < nz; j++)
+            for (int i = 0; i < nx; i++)
+            {
+                int a = j * (nx + 1) + i, b = a + nx + 1;
+                T.AddRange(new[] { a, b, a + 1, a + 1, b, b + 1 });
+            }
+        var mesh = new Mesh { name = "Course2_1_" + parent.name + "_" + name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        mesh.SetVertices(V); mesh.SetUVs(0, UV); mesh.SetTriangles(T, 0);
+        mesh.normals = V.Select(v => Vector3.up).ToArray(); mesh.RecalculateBounds();
+        mesh = Save(mesh, MeshDir + "/" + parent.name + "_" + name + ".asset");
+        var go = new GameObject(name); go.transform.SetParent(parent, false);
+        go.transform.localPosition = pos; go.transform.localRotation = Quaternion.LookRotation(new Vector3(dir.x, 0, dir.z).normalized, Vector3.up);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var mr = go.AddComponent<MeshRenderer>(); mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+        string p = "Assets/FuwaStage2/Materials/Stage2_" + parent.name + "_" + name + ".mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        var sh = Shader.Find("FuwaStage2/WaterDecal");
+        if (!m) { m = new Material(sh); AssetDatabase.CreateAsset(m, p); }
+        m.shader = sh; m.SetFloat("_Mode", mode); m.SetFloat("_HalfW", halfW); m.SetFloat("_Reach", reach); m.SetColor("_Aerated", aerated); m.SetFloat("_Band", band);
+        EditorUtility.SetDirty(m);
+        mr.sharedMaterial = m;
     }
 
     // トゲの植物：川幅いっぱい、水面の下から上まで。見た目はまもののすのイバラのパッチを並べる。当たり（FuwaSpike）は1つ
@@ -3432,7 +3475,7 @@ public static class FuwaCourse2_1Builder
             {
                 float lat = Mathf.Lerp(-hw, hw, i / (float)across);
                 var q = p + r * (lat + w.off(s)); V.Add(new Vector3(q.x, w.surf, q.y));
-                U1.Add(new Vector4(lat, hw, w.open0 ? 99f : s - w.s0, w.open1 ? 99f : w.s1 - s)); U2.Add(new Vector2(w.back ? -s : s, 0));
+                U1.Add(new Vector4(lat, hw, w.open0 ? 99f : s - w.s0, w.open1 ? 99f : w.s1 - s)); U2.Add(new Vector2(w.back ? -s : s, w.fade1 > 0f ? w.s1 - s : 99f));
             }
         }
         for (int k = 0; k < n; k++)
@@ -3447,6 +3490,13 @@ public static class FuwaCourse2_1Builder
         sm = Save(sm, MeshDir + "/" + w.name + "_Surface.asset");
         var surf = new GameObject("Surface"); surf.transform.SetParent(g, false);
         surf.AddComponent<MeshFilter>().sharedMesh = sm; surf.AddComponent<MeshRenderer>().sharedMaterial = WaterMat(w.flow, true, w.deep);
+        if (w.deep)
+        {
+            // 浅い水の色（ふつうの水の材質と同じ）へ、終わりの fade1 m でなだらかに
+            var dm = surf.GetComponent<MeshRenderer>().sharedMaterial; var sh = WaterMat(w.flow, true, false);
+            dm.SetFloat("_OpenFade", w.fade1); dm.SetColor("_OpenDeep", sh.GetColor("_Deep")); dm.SetColor("_OpenShallow", sh.GetColor("_Shallow")); dm.SetFloat("_OpenDeepWidth", sh.GetFloat("_DeepWidth"));
+            EditorUtility.SetDirty(dm);
+        }
         // 底（地面＝ふわふわが触るとアウト）と、その下のかたまり（横に当たるだけ）
         var beds = new List<GameObject>();
         Func<float, float> bedA = s => w.off(s) - w.hw(s) - 0.01f, bedB = s => w.off(s) + w.hw(s) + 0.01f;
