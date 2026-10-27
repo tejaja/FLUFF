@@ -1552,7 +1552,8 @@ public static class FuwaCourse2_1Builder
     // 2回目の渡り場の飛び石1個につき1匹。横の筋は FishLanes（石の外側）のまま、前後は石と同じ所が跳ぶ頂点になるように、FishSpan m 下流から上流へ跳ねる
     //（てじゃ「ちょうど石の位置がジャンプの頂点になるくらいに調整、あともっと高く飛ばそう、間隔はいまのままで」「高さと前後のはなし」「ラインは石にあわせないで」）。
     // 仮の形（あとで Blender）。2026-10-25 3匹→2匹（「むずすぎる」「２匹でいいきがする」）。石の上に立っている間は当たらない（safeSpots）
-    public static float[] FishLanes = { -1.9f, 1.9f };   // ±1.0→±1.9（川を広げて、飛び石の外側を跳ぶ）。i 番目の魚が i 番目の石（左から）
+    public static float[] FishLanes = { -1.9f, 1.9f };
+    public static float FishEdgeClear = 0.75f;   // 魚が出る・もぐる所と川のふちとのすき間（魚の体の半分くらい）   // ±1.0→±1.9（川を広げて、飛び石の外側を跳ぶ）。i 番目の魚が i 番目の石（左から）
     // 魚ごとのずらし（秒）
     public static float[] FishPhases = { 0f, -0.7f };
     // 2026-10-25 てじゃ「魚がよわい、もっとでかくして幅をとりたい、高さも３匹バラバラに」→ 大きさ FishScale 倍・跳ぶ長さ 1.7→2.4・高さは魚ごと
@@ -1587,7 +1588,9 @@ public static class FuwaCourse2_1Builder
             float sTop = sCross2;
             if (i < StoneCount) StoneAt(sCross2, -1f, i, out sTop, out _);
             Center(sTop + FishSpan, out var pa, out var da); Center(sTop - FishSpan, out var pb, out var db);
-            var qa = pa + Right(da) * FishLanes[i]; var qb = pb + Right(db) * FishLanes[i];
+            // 出る所・もぐる所は、川のふちの岩から魚の体の半分以上はなす（川は渡り場の前後でせまくなるので、ふちにかすって痛そうだった。2026-10-27 てじゃ）
+            float LaneAt(float ss) => Mathf.Sign(FishLanes[i]) * Mathf.Min(Mathf.Abs(FishLanes[i]), RiverHW(ss) - FishEdgeClear);
+            var qa = pa + Right(da) * LaneAt(sTop + FishSpan); var qb = pb + Right(db) * LaneAt(sTop - FishSpan);
             var a = new GameObject("From" + i).transform; a.SetParent(g, false); a.localPosition = new Vector3(qa.x, -FishDepth, qa.y);
             var b = new GameObject("To" + i).transform; b.SetParent(g, false); b.localPosition = new Vector3(qb.x, -FishDepth, qb.y);
             from[i] = a; to[i] = b;
