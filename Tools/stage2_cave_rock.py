@@ -47,15 +47,27 @@ for n in [o.name for o in sc.objects if o.name.startswith(('Plug_', 'Corner_Cutt
 SIDE_V, SIDE_D, SIDE_HW = (3.95, 3.89), (0.907, 0.422), 1.7
 _px, _pz = -SIDE_D[1], SIDE_D[0]
 def _u2b(x, z): return (-x, -z)
-_pin = (SIDE_V[0] - SIDE_D[0] * 5, SIDE_V[1] - SIDE_D[1] * 5); _pout = (SIDE_V[0] + SIDE_D[0] * 8, SIDE_V[1] + SIDE_D[1] * 8)
-side_ring = [_u2b(_pin[0] - _px * SIDE_HW, _pin[1] - _pz * SIDE_HW), _u2b(_pout[0] - _px * SIDE_HW, _pout[1] - _pz * SIDE_HW),
-             _u2b(_pout[0] + _px * SIDE_HW, _pout[1] + _pz * SIDE_HW), _u2b(_pin[0] + _px * SIDE_HW, _pin[1] + _pz * SIDE_HW)]
-# 床：ツタの線までは洞窟の床（Cut_Inside の 2.15）と同じ高さの岩の床、ツタから外は木の橋の下なので少し低く（橋の板が岩にめりこまないように）
-side = prism('Tmp_Cut_Side', side_ring, 2.18, CEIL)   # 2.15 だと洞窟の床の下の岩の上の面（Cut_Inside の底 2.15）と同じ高さで、くり抜きがこわれて穴があいた
-_vx, _vz = SIDE_V
-side_out = [_u2b(_vx - _px * SIDE_HW, _vz - _pz * SIDE_HW), _u2b(_pout[0] - _px * SIDE_HW, _pout[1] - _pz * SIDE_HW),
-            _u2b(_pout[0] + _px * SIDE_HW, _pout[1] + _pz * SIDE_HW), _u2b(_vx + _px * SIDE_HW, _vz + _pz * SIDE_HW)]
-side2 = prism('Tmp_Cut_SideOut', side_out, 1.85, CEIL - 0.01)   # 別々にくり抜く（合体すると同じ面が重なって、床の面が裏返り穴に見えた）
+# 1本の型で：床はツタの線までは 2.18（洞窟の床の高さ。2.15 だと洞窟の床の下の岩の上の面と同じ高さで、くり抜きがこわれて穴があいた）、
+# ツタの線から SIDE_RAMP の間で 1.85 へ下がる（木の橋の下。橋の板が岩にめりこまないように。下がる所は橋の板の下でかくれる）。
+# 前は ツタの内/外で別の型2つにしていて、ツタの線に床の段と、壁の継ぎ目の折れ（縦の線）が出た（2026-10-27 てじゃ「このつなぎ目の岩がカクっとしてる」）。
+# 壁と床の角は SIDE_CW × SIDE_CH で斜めに落とす（直角の箱みたいに見えないように）
+SIDE_U0, SIDE_U1, SIDE_RAMP = -5.0, 8.0, 0.35
+SIDE_Z_IN, SIDE_Z_OUT, SIDE_CW, SIDE_CH = 2.18, 1.85, 0.3, 0.4
+def side_sweep(name):
+    bm = bmesh.new(); rings = []
+    us = [SIDE_U0, 0.0, SIDE_RAMP, SIDE_U1]
+    for u in us:
+        z0 = SIDE_Z_IN if u <= 0.0 else SIDE_Z_OUT
+        cx, cz = SIDE_V[0] + SIDE_D[0] * u, SIDE_V[1] + SIDE_D[1] * u
+        sec = [(-SIDE_HW, CEIL), (SIDE_HW, CEIL), (SIDE_HW, SIDE_Z_IN + SIDE_CH), (SIDE_HW - SIDE_CW, z0), (-SIDE_HW + SIDE_CW, z0), (-SIDE_HW, SIDE_Z_IN + SIDE_CH)]   # 角の上のはしは全部同じ高さ（壁に段ができないように）
+        rings.append([bm.verts.new((*_u2b(cx + _px * l, cz + _pz * l), h)) for l, h in sec])
+    for a, b in zip(rings, rings[1:]):
+        for i in range(6):
+            j = (i + 1) % 6; bm.faces.new([a[i], a[j], b[j], b[i]])
+    bm.faces.new(rings[0]); bm.faces.new(list(reversed(rings[-1])))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free(); return temp(name, me)
+side = side_sweep('Tmp_Cut_Side')
 
 pool = copy_of('Cut_Pool')
 for sx in (1, -1):
@@ -117,7 +129,7 @@ undercut = temp('Tmp_UnderCut', me_uc)
 ARCH_HW = 2.25
 arch = copy_of('Cut_Arch')
 for v in arch.data.vertices: v.co.x *= ARCH_HW / 2.6
-cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, side2, pool,
+cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, pool,
         copy_of('Cut_FallL'), copy_of('Cut_FallR')] + soft + exit_cuts + [undercut]
 base = bpy.data.objects['CaveRock']
 work = temp('Tmp_Rock', base.data.copy()); work.matrix_world = base.matrix_world
@@ -138,10 +150,11 @@ mtrees = []
 for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.18), ('Tmp_Cut_Side', 0.2)):   # 落ち口の下の斜めのけずりは歪ませない（柱のかどで面の向きがまざって、とがったヒレが出た）   # 溝の斜面は歪ませない（上の芝とのさかいに段の線が出た）
     # 脇道（ツタ）の口も（2026-10-27 てじゃ「ツタがわの穴の壁のフチもパキッっとしすぎ」）。ただし天井（下向きの面）は動かさない（ツタの上のはしとすき間ができる）
     mb = bmesh.new(); mb.from_mesh(bpy.data.objects[n].data); mtrees.append((BVHTree.FromBMesh(mb), a, n == 'Tmp_Cut_Side')); mb.free()
-def amp_at(p, nz=0.0):
+side_tree = next(t for t, a, k in mtrees if k)
+def amp_at(p, nz=0.0, nd=0.0):
     best = 0.0
     for t, a, keep_ceil in mtrees:
-        if keep_ceil and abs(nz) > 0.7: continue   # 脇道の天井（ツタの上）と床は動かさない
+        if keep_ceil and (abs(nz) > 0.7 or abs(nd) > 0.7): continue   # nd：脇道の向きの面（ツタの下の床の段）も動かさない（床の面にめりこんで床の三角形がこわれ、穴になった）   # 脇道の天井（ツタの上）と床は動かさない
         d = t.find_nearest(p)[3]
         if d is not None and d < 2e-3: best = max(best, a)
     return best
@@ -152,11 +165,15 @@ for _ in range(3):
 bm.normal_update()
 mv = {}; ma = {}
 for f in bm.faces:
-    a = amp_at(f.calc_center_median(), f.normal.z)
+    a = amp_at(f.calc_center_median(), f.normal.z, f.normal.x * -SIDE_D[0] + f.normal.y * -SIDE_D[1])
     if a > 0:
         for v in f.verts: mv.setdefault(v, V3()); mv[v] -= f.normal; ma[v] = max(ma.get(v, 0.0), a)
 for v, d in mv.items():
-    if d.length > 1e-6: v.co += d.normalized() * ma[v] * (noise.noise(v.co * 1.8) * 0.5 + 0.5)
+    if d.length < 1e-6: continue
+    dv = d.normalized() * ma[v] * (noise.noise(v.co * 1.8) * 0.5 + 0.5)
+    # 脇道の床・天井につながる頂点は横にだけ動かす（床・天井は平らのまま。ツタの上のはしと床の高さがずれない）
+    if any(abs(g.normal.z) > 0.7 and side_tree.find_nearest(g.calc_center_median())[3] is not None and side_tree.find_nearest(g.calc_center_median())[3] < 2e-3 for g in v.link_faces): dv.z = 0.0
+    v.co += dv
 bm.to_mesh(work.data); bm.free()
 
 # ---- 材質（芝/岩）：前の岩の同じ面の上ならそれ、ちがえば上向きで高い所＝芝 ----
@@ -215,6 +232,8 @@ for reg in regions:
         d = z - v.co.z
         if abs(d) < 0.15: v.co.z = z; moved += 1; maxd = max(maxd, abs(d))
 print('flatten regions', sum(1 for r in regions if len(r) > 1), 'verts moved', moved, 'max move', round(maxd, 3), 'open edges', sum(1 for e in bm.edges if e.is_boundary))
+# 多角形は Blender で三角形にしてから書き出す（Unity の読み込みで、へこんだ大きい多角形（ツタの穴の床）が三角形にできず、床が丸ごと消えた）
+bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 4], quad_method='BEAUTY', ngon_method='EAR_CLIP')
 bm.to_mesh(me); bm.free()
 # 芝の面だけなめらかに（スムーズ）：細い三角形が少しちがう向きで光ってスジに見えるのを、となりと同じ光り方にして消す。岩の面はカクカクのまま
 for p in me.polygons: p.use_smooth = (p.material_index == 1)
