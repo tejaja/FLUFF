@@ -144,7 +144,7 @@ public static class FuwaCourse2_1Builder
     static float b1WoodS0; static Func<float, float> b1OffF;
     // 迂回路の浮島：場所（中心線の s と横）、半径。BridgeIsland() で作る
     public static float BridgeIslandS = 8.0f, BridgeIslandLat = 9.6f, BridgeIslandR = 1.8f;   // 浮島（いまは使っていない）
-    public static float BridgeBendS = 9.5f, BridgeBendLat = 9.0f;
+    public static float BridgeBendS = 12.5f, BridgeBendLat = 9.0f, BridgeStraight = 4.5f;
     // ななめの脇道（ツタの穴）：ツタのまん中（root のローカル xz）、穴の向き、半分の幅。Tools/stage2_cave_rock.py の SIDE_V / SIDE_D / SIDE_HW と同じ
     public static readonly Vector2 SideV = new Vector2(3.95f, 3.89f), SideD = new Vector2(0.907f, 0.422f).normalized; public const float SideHW = 1.7f;   // 迂回路の木の橋の曲げ点（中心線の s と横）
     static Vector2 bridgeIslandC; static float bridgeIslandH;
@@ -346,14 +346,19 @@ public static class FuwaCourse2_1Builder
             Vector2 CL2(float s, float lat) { Center(s, out var p, out var d); return p + Right(d) * lat; }
             // 2026-10-27 てじゃ「穴とツタ自体を斜めに」：橋はツタのカーテンの線（SideV、SideD に直角）からまっすぐ始まる。3次ベジェ（ツタ → SideD の向きに出る → 曲げ点 → E）
             //「木の道も若干外よりに」→ 曲げ点を外へ
-            var A = SideV; var P1 = SideV + SideD * 2.5f; var Pm = CL2(BridgeBendS, BridgeBendLat);
+            //「こう繋がる感じに」→ ツタの穴からまっすぐ BridgeStraight m 出てから、ゆるく曲がって渡り場へ（まっすぐの所の続きの向きで曲がりはじめる）
+            var A = SideV + SideD * BridgeStraight; var P1 = A + SideD * 3f; var Pm = CL2(BridgeBendS, BridgeBendLat);
             float sE = sCross1 - CrossGap * 0.5f; var E = CL2(sE, bankOff(sE));
             Vector2 Bz(float t) { float a = 1 - t; return a * a * a * A + 3 * a * a * t * P1 + 3 * a * t * t * Pm + t * t * t * E; }
             // 長さの表（u＝はじめからの長さ → t）
             var tu = new List<float> { 0f }; var tt = new List<float> { 0f };
             for (int k = 1; k <= 400; k++) { float t2 = k / 400f; tu.Add(tu[k - 1] + (Bz(t2) - Bz((k - 1) / 400f)).magnitude); tt.Add(t2); }
-            float Lb = tu[400];
-            Func<float, Vector2> At = u => { int k = 1; while (k < 400 && tu[k] < u) k++; return Bz(Mathf.Lerp(tt[k - 1], tt[k], Mathf.InverseLerp(tu[k - 1], tu[k], u))); };
+            float Lb = tu[400] + BridgeStraight;
+            Func<float, Vector2> At = u =>
+            {
+                if (u <= BridgeStraight) return SideV + SideD * u;
+                float uc = u - BridgeStraight; int k = 1; while (k < 400 && tu[k] < uc) k++; return Bz(Mathf.Lerp(tt[k - 1], tt[k], Mathf.InverseLerp(tu[k - 1], tu[k], uc)));
+            };
             // 高さ：岩の穴を出るまで（ツタから 2.6m）は床の高さ、そこから渡り場まで同じ傾き
             float uOut = 2.6f;
             float hA = StartH - 0.01f, hE = BankTop - 0.01f;
@@ -511,7 +516,7 @@ public static class FuwaCourse2_1Builder
             var across = new Vector2(-SideD.y, SideD.x);
             VineCurtain(root, "SideVines", new Vector3(SideV.x, StartH + SideGapH, SideV.y), new Vector3(across.x, 0, across.y), SideHW * 2f, SideGapH, 2101);
         }
-        SideAlcoveFloor(root, pathA, pathB);
+        SideAlcoveFloor(root, RockBaseMat(), RockBaseMat());   // 洞窟の床のはしからツタまでは岩の床（2026-10-27 てじゃ「洞窟側で床がなくなるなら岩の床で」）
         // 洞窟の見た目は Blender の岩山（箱の壁は当たり判定だけ残す）
         CaveRock(root, terr);
         // ① の滝：水源の池から、洞窟の口の前を下の池へ
