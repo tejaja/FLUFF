@@ -76,7 +76,7 @@ Shader "FuwaStage2/Waterfall"
                 // 縦の白い筋：横に細かく、縦に長いノイズを下へ流す（2つ重ねて速さをずらす）
                 float n = Noise(float2(m.x * 7.0 / s, (m.y + _Time.y * _FallSpeed) * 0.8 / s)) * 0.6
                         + Noise(float2(m.x * 11.0 / s + 3.1, (m.y + _Time.y * _FallSpeed * 1.3) * 1.1 / s)) * 0.4;
-                col = lerp(col, _Foam.rgb, smoothstep(0.48, 0.62, n) * 0.85);
+                col = lerp(col, _Foam.rgb, smoothstep(0.55, 0.68, n) * 0.7);   // 2026-10-27 てじゃ「白い模様をすこし控えめに」0.48〜0.62×0.85 →
                 // 上のふち（落ち口）と下（滝つぼに当たる所）の泡
                 // 2026-10-27 まっすぐな帯に見えたので、ふちをノイズでぎざぎざに。下はわき上がるしぶき（上へ流れるノイズで高さがゆらぐ）
                 float topN = Noise(float2(m.x * 3.0, (m.y + _Time.y * _FallSpeed) * 1.2));
