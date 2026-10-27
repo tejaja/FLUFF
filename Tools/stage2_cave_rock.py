@@ -85,7 +85,7 @@ for n in ('Cut_FallL_Soft', 'Cut_FallR_Soft'):
     soft.append(c)
 # 落ち口の下の斜めのけずり：落ち口のふち（Blender y=-LIP_Y, 床の少し下 UC_TOP）から、下へ行くほど奥（+y）へ UC_SLOPE の割合で引っこみ、UC_BACK まで。
 # 幅も下へ行くほど少し広がる（四角く切った感じにしない。あとで面に歪みも）
-UC_TOP, UC_SLOPE, UC_BACK, UC_W0, UC_WS = 4.95, 0.5, 0.5, 2.4, 0.05   # 奥へは 0.5m まで（1.3 だと洞窟の口の横の壁を突きぬけて、中から大きな穴が見えた）
+UC_TOP, UC_SLOPE, UC_BACK, UC_W0, UC_WS = 4.95, 0.5, 0.5, 3.4, 0.0   # 奥へは 0.5m まで（1.3 だと洞窟の口の横の壁を突きぬけて、中から大きな穴が見えた）。幅は脇道の口まで（2.4 だと滝と脇道のあいだの柱の外のかどだけ残って、とがったヒレになった）
 LIP_Y = 6.766
 bm = bmesh.new(); rings = []
 for k in range(16):
