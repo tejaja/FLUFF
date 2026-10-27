@@ -2643,7 +2643,15 @@ public static class FuwaCourse2_1Builder
         // 厚みのある閉じた形（2026-10-25 てじゃ「最初の滝も、太いっていうより２重ってかんじ」。前は透ける膜が前後に2枚だけ）。
         // 断面は角の丸い形（「まるみつけられる？」、FuwaStage2WaterTest.FallsSection）を放物線にそって並べる
         var nrms = Enumerable.Range(0, pts.Count).Select(Nrm).ToList();
-        var mesh = FuwaStage2WaterTest.SweepFalls("Course2_1_" + name, pts, nrms, Enumerable.Repeat(rgt, pts.Count).ToList(), len, total, width, thick);
+        // 断面のまん中が水面の高さだと、上の半分（厚みの半分）が水面から浮いて、裏から見ると水面と滝の上がずれて見えた（2026-10-27 てじゃ）。
+        // 落ち口までは上の面＝水面、手前のはしは水の下へ。落ち口から先は 1.5m かけて元の線へ戻す
+        var mid = new List<Vector3>();
+        for (int i = 0; i < pts.Count; i++)
+        {
+            float w = 1f - Smooth01((len[i] - len[1]) / 1.5f);
+            mid.Add(pts[i] - nrms[i] * (thick * 0.5f * w) + (i == 0 ? Vector3.down * 0.06f : Vector3.zero));
+        }
+        var mesh = FuwaStage2WaterTest.SweepFalls("Course2_1_" + name, mid, nrms, Enumerable.Repeat(rgt, pts.Count).ToList(), len, total, width, thick);
         mesh = Save(mesh, MeshDir + "/" + name + ".asset");
         var g0 = new GameObject(name).transform; g0.SetParent(root, false);
         var cur = new GameObject("Curtain"); cur.transform.SetParent(g0, false);

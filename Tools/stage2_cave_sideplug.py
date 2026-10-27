@@ -57,13 +57,65 @@ up = [f for f in bm.faces if f.calc_center_median().z > CEIL + 1e-3 and stree.fi
 bmesh.ops.delete(bm, geom=up, context='FACES')
 print('slot walls removed', len(up))
 bm.to_mesh(o.data); bm.free(); o.data.update()
+
+# ---- 池の入口側（スタートの島側＝Blender の +y、Cut_Pool の y=1.6 のはし）の角を丸く（2026-10-27 てじゃ「入口側がカクっとしてる」）----
+# 角の外側（四角の角 − 半径 POOL_R の円）を元の岩で埋めるふた。前の岩の池の壁（Cut_Pool の面の上）で、ふたの中に入る所は消す
+POOL_R, POOL_X, POOL_Y = 1.5, 3.48, 1.6
+cp = bpy.data.objects['Cut_Pool']
+pb = bmesh.new(); pb.from_mesh(cp.data); ptree = BVHTree.FromBMesh(pb); pb.free()
+import math
+corners = []
+for sx in (1, -1):
+    for n in ['Plug_Corner' + str(sx), 'Corner_Cutter' + str(sx)]:
+        x = bpy.data.objects.get(n)
+        if x: bpy.data.objects.remove(x, do_unlink=True)
+    cx, cy = sx * (POOL_X - POOL_R), POOL_Y - POOL_R
+    ring = [(sx * (POOL_X + GROW), cy - GROW)]
+    for k in range(13):
+        a = math.radians(90 * k / 12)
+        ring.append((cx + sx * POOL_R * math.cos(a), cy + POOL_R * math.sin(a)))
+    ring += [(cx - sx * GROW, POOL_Y + GROW), (sx * (POOL_X + GROW), POOL_Y + GROW)]
+    bm = bmesh.new()
+    lo = [bm.verts.new((x, y, 4.9)) for x, y in ring]; hi = [bm.verts.new((x, y, 7.5)) for x, y in ring]
+    m = len(ring)
+    for i in range(m):
+        j = (i + 1) % m; bm.faces.new([lo[i], lo[j], hi[j], hi[i]])
+    bm.faces.new(lo); bm.faces.new(list(reversed(hi)))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new('Corner_Cutter' + str(sx)); bm.to_mesh(me); bm.free()
+    cc = bpy.data.objects.new('Corner_Cutter' + str(sx), me); sc.collection.objects.link(cc)
+    c = base.copy(); c.data = base.data.copy(); c.name = 'Plug_Corner' + str(sx); sc.collection.objects.link(c); c.hide_set(False)
+    # 角の中には ほかの切り抜き（溝など）はかからないので、引き算はしない（溝の型とかすって形がこわれた）
+    mm = c.modifiers.new('i', 'BOOLEAN'); mm.operation = 'INTERSECT'; mm.solver = 'EXACT'; mm.object = cc; apply(c, mm)
+    # ふたの横の面（角の外の四角の辺＝前の岩の中）は消す。丸い面・上の面は残す
+    cb = bmesh.new(); cb.from_mesh(c.data)
+    outer = [f for f in cb.faces if (abs(abs(f.calc_center_median().x) - (POOL_X + GROW)) < 1e-3 or abs(f.calc_center_median().y - (POOL_Y + GROW)) < 1e-3)]
+    bmesh.ops.delete(cb, geom=outer, context='FACES')
+    cb.to_mesh(c.data); cb.free(); c.data.update()
+    cc.hide_set(True)
+    # 前の岩の池の壁で、角の中（ふたの中）に入る所を消す。壁は大きな多角形なので、角の始まりの面で切ってから。床は残す（ふたの中にうまる）
+    bm = bmesh.new(); bm.from_mesh(o.data)
+    def walls(): return [f for f in bm.faces if abs(f.normal.z) < 0.5 and ptree.find_nearest(f.calc_center_median())[3] < 1e-3]
+    for co, no in (((cx, 0, 0), (1, 0, 0)), ((0, cy, 0), (0, 1, 0))):
+        w = walls(); geom = list({e for f in w for e in f.edges}) + w + list({v for f in w for v in f.verts})
+        bmesh.ops.bisect_plane(bm, geom=geom, plane_co=co, plane_no=no)
+    kill = [f for f in walls() if sx * f.calc_center_median().x > sx * cx + 1e-3 and f.calc_center_median().y > cy + 1e-3]
+    bmesh.ops.delete(bm, geom=kill, context='FACES')
+    print('corner', sx, 'walls removed', len(kill), 'fill verts', len(c.data.vertices))
+    bm.to_mesh(o.data); bm.free(); o.data.update()
+    corners.append(c)
+
 pl.data.materials.clear(); pl.data.materials.append(o.data.materials[0]); pl.data.materials.append(o.data.materials[1])
-for p in pl.data.polygons:
-    loc, nrm, idx, d = tree.find_nearest(p.center)
-    if d is not None and d < 0.05 and nrm.dot(p.normal) > 0.95: p.material_index = bb.faces[idx].material_index
-    else: p.material_index = 1 if (p.normal.z > 0.5 and p.center.z > 6.0) else 0
+for c in corners:
+    c.data.materials.clear(); c.data.materials.append(o.data.materials[0]); c.data.materials.append(o.data.materials[1])
+for ob in [pl] + corners:
+    for p in ob.data.polygons:
+        loc, nrm, idx, d = tree.find_nearest(p.center)
+        if d is not None and d < 0.05 and nrm.dot(p.normal) > 0.95: p.material_index = bb.faces[idx].material_index
+        else: p.material_index = 1 if (p.normal.z > 0.5 and p.center.z > 6.0) else 0
 bb.free()
 for x in sc.objects: x.select_set(False)
+for c in corners: c.select_set(True)
 pl.select_set(True); o.hide_set(False); o.select_set(True); bpy.context.view_layer.objects.active = o
 bpy.ops.object.join()
 # 面を材質の順に（FBX のサブメッシュの順番がずれないように）
