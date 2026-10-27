@@ -2900,7 +2900,7 @@ public static class FuwaCourse2_1Builder
         {
             // 滝の上の面を池の側へ flatBack だけ平らにのばして、そこから先は池の水面のかわり（池の水面はその手前で終わる。2026-10-27 てじゃ「滝の上に池をかぶせたみたい」）。
             // はしは水の下へもぐらせる（口のあいた断面が見えないように）
-            var vp = new List<Vector3> { lip - f * (flatBack + 0.3f) + Vector3.down * 0.35f, lip - f * flatBack };
+            var vp = new List<Vector3> { lip - f * (flatBack + 0.3f) + Vector3.down * 0.15f, lip - f * flatBack };   // もぐる深さ 0.35→0.15（平らな所を薄くしたので、深いと洞窟の出口の天井から下へ出た）
             for (int i = 1; i < pts.Count; i++) vp.Add(pts[i]);
             vlen = new float[vp.Count]; for (int i = 1; i < vp.Count; i++) vlen[i] = vlen[i - 1] + (vp[i] - vp[i - 1]).magnitude; vtotal = vlen[vp.Count - 1];
             vnrm = Enumerable.Range(0, vp.Count).Select(i => { var tg = (vp[Mathf.Min(i + 1, vp.Count - 1)] - vp[Mathf.Max(i - 1, 0)]).normalized; var n = Vector3.Cross(rgt, tg).normalized; if (Vector3.Dot(n, f) + n.y < 0) n = -n; return i == 1 ? Vector3.up : n; }).ToList();
@@ -2927,7 +2927,14 @@ public static class FuwaCourse2_1Builder
             // 落ち口より手前（平らな所と、池の下へもぐる所）は断面を水平のまま（向きを変えると裏の面が折れ返った）
             for (int i = 0; i < nr; i++) if (al[i] < lipLen - 0.02f) rn[i] = Vector3.up;
             var outer = new List<Vector3>(); var inner = new List<Vector3>();
-            for (int i = 0; i < nr; i++) { var c = rsP[i] + Vector3.down * (thick * 0.5f); outer.Add(c + rn[i] * (thick * 0.5f)); inner.Add(c - rn[i] * (thick * 0.5f)); }
+            // 落ち口より手前（岩の上を流れる平らな所）は薄く FlatThick（2026-10-27 てじゃ「滝裏に変な岩の線」：厚み 0.9m のままだと洞窟の出口の天井の岩（厚み 0.8m 弱）より下へ
+            // 滝の底がはみ出して、その手前を落ち口の岩のふちが横切って線に見えた）。落ち口の先は今まで通り thick
+            for (int i = 0; i < nr; i++)
+            {
+                var o = rsP[i] + Vector3.down * (thick * 0.5f) + rn[i] * (thick * 0.5f);
+                float tk = al[i] < lipLen - 0.02f ? FlatThick : thick;
+                outer.Add(o); inner.Add(o - rn[i] * tk);
+            }
             // ならすのは落ち口の手前 UnderSmoothBack m から先だけ（池の下の所は動かさない）
             for (int it = 0; it < UnderSmoothIter; it++)
             {
@@ -2939,7 +2946,7 @@ public static class FuwaCourse2_1Builder
             var thicks = new List<float>(); mid.Clear(); vnrm = new List<Vector3>();
             for (int i = 0; i < nr; i++)
             {
-                var d = outer[i] - inner[i]; float tk = Mathf.Max(thick * 0.6f, d.magnitude);
+                var d = outer[i] - inner[i]; float tk = Mathf.Max(FlatThick * 0.9f, d.magnitude);
                 var ax = d.magnitude > 1e-4f ? d / d.magnitude : rn[i];
                 thicks.Add(tk); vnrm.Add(ax); mid.Add(outer[i] - ax * (tk * 0.5f));
             }
@@ -3007,7 +3014,7 @@ public static class FuwaCourse2_1Builder
         EditorUtility.SetDirty(pm);
     }
     public static float SplashReach = 3.2f, LipDecalReach = 2.6f;
-    public static int UnderSmoothIter = 120; public static float UnderSmoothBack = 1.0f;   // 落ち口の裏の面をならす回数（多いほど丸みが大きい）
+    public static int UnderSmoothIter = 120; public static float UnderSmoothBack = 0.3f, FlatThick = 0.45f;   // 落ち口の裏の面をならす回数（多いほど丸みが大きい）
     // 平らな格子の板（uv＝ローカルの (x, z) m。+Z＝dir）。材質は FuwaStage2/WaterDecal
     static void WaterDecal(Transform parent, string name, Vector3 pos, Vector3 dir, float x0, float x1, float z0, float z1, int mode, float halfW, float reach, Color aerated, float band = 0f)
     {

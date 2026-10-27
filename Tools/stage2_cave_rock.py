@@ -110,11 +110,12 @@ for n in ('Cut_FallL_Soft', 'Cut_FallR_Soft'):
 # 幅も下へ行くほど少し広がる（四角く切った感じにしない。あとで面に歪みも）
 UC_TOP, UC_SLOPE, UC_BACK, UC_W0, UC_WS = 4.95, 0.5, 0.5, 3.4, 0.0   # 奥へは 0.5m まで（1.3 だと洞窟の口の横の壁を突きぬけて、中から大きな穴が見えた）。幅は脇道の口まで（2.4 だと滝と脇道のあいだの柱の外のかどだけ残って、とがったヒレになった）
 LIP_Y = 6.766
+UC_SHIFT = 0.0
 bm = bmesh.new(); rings = []
 for k in range(16):
     z = UC_TOP - k * 0.75
     rec = min((UC_TOP - z) * UC_SLOPE, UC_BACK); w = UC_W0 + (UC_TOP - z) * UC_WS
-    yb = -LIP_Y + rec
+    yb = -LIP_Y + UC_SHIFT + rec   # UC_SHIFT：落ち口より洞窟の側へずらす（洞窟の出口の天井と落ち口の下のけずりのあいだに、うすい岩のヒレが残って滝の裏に線に見えた。2026-10-27）
     rings.append([bm.verts.new(p) for p in ((-w, yb, z), (w, yb, z), (w, -14.0, z), (-w, -14.0, z))])
 for a, c in zip(rings, rings[1:]):
     for i in range(4):
@@ -129,7 +130,11 @@ undercut = temp('Tmp_UnderCut', me_uc)
 ARCH_HW = 2.25
 arch = copy_of('Cut_Arch')
 for v in arch.data.vertices: v.co.x *= ARCH_HW / 2.6
-cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, pool,
+# 洞窟の出口のトンネルを落ち口の前の面までのばす（2026-10-27 てじゃ「滝裏に変な岩の線」：出口の天井の先と落ち口の下のけずり（UnderCut）のあいだに、
+# 下へたれたうすい岩のヒレが残って、滝の裏を横切る線に見えた）。幅は出口の壁の内がわ、天井は出口の天井の先の高さ
+MX_HW, MX_Z0, MX_Z1, MX_TOP = 1.72, 5.9, 7.3, 4.89
+mouth_ext = prism('Tmp_Cut_MouthExt', [_u2b(-MX_HW, MX_Z0), _u2b(MX_HW, MX_Z0), _u2b(MX_HW, MX_Z1), _u2b(-MX_HW, MX_Z1)], 2.3, MX_TOP)   # 床は切らない
+cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, mouth_ext, pool,
         copy_of('Cut_FallL'), copy_of('Cut_FallR')] + soft + exit_cuts + [undercut]
 base = bpy.data.objects['CaveRock']
 work = temp('Tmp_Rock', base.data.copy()); work.matrix_world = base.matrix_world
