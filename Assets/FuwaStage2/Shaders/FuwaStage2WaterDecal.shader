@@ -93,14 +93,11 @@ Shader "FuwaStage2/WaterDecal"
                     float n = Noise(q1) * 0.6 + Noise(q2) * 0.4;
                     float near = 1 - smoothstep(0.0, _Reach, z);
                     float streak = smoothstep(0.66 - near * 0.12, 0.74 - near * 0.12, n) * near;
-                    // 落ち口のきわ：水が盛り上がって明るい帯（ゆらゆら）
-                    float lipW = 0.35 + 0.12 * sin(x * 2.3 + t * 1.7);
-                    float glow = 1 - smoothstep(0.0, lipW, z);
-                    // 落ち口の手前の平らな所（滝の上の面）と池の水面のさかい目をぼかす：その帯は明るい水色でおおって、池の側へなだらかに消す
-                    float bw = _Band + 0.25 * (Noise(float2(x * 1.3, t * 0.4)) - 0.5);
-                    float band = (1 - smoothstep(bw - 0.1, bw + 0.9, z)) * 0.12;
-                    col = lerp(_Aerated.rgb, _Foam.rgb, saturate(streak + glow * 0.35));
-                    a = saturate(max(band, streak * 0.5 + glow * 0.45 + near * 0.08)) * side;
+                    // 落ち口のきわの明るい帯・平らな所をおおう帯はやめた（帯のはし＝落ち口で板が切れて、白い線に見えた。2026-10-27 てじゃ「上の白いエフェクトの境目のせいで白い線」）。
+                    // 筋も落ち口の手前 0.5m でなだらかに消す（板のはしが見えないように）
+                    float lipFade = smoothstep(0.0, 0.5, z);
+                    col = lerp(_Aerated.rgb, _Foam.rgb, saturate(streak));
+                    a = saturate(streak * 0.5) * side * lipFade;
                 }
                 fixed4 c = fixed4(col, a);
                 UNITY_APPLY_FOG(i.fogCoord, c);

@@ -20,7 +20,8 @@ float NoiseWrapX(float2 p, float per)
     return lerp(lerp(Hash(float2(i0, i.y)), Hash(float2(i1, i.y)), u.x), lerp(Hash(float2(i0, i.y + 1)), Hash(float2(i1, i.y + 1)), u.x), u.y);
 }
 // 湧き水（center、ワールドの xz）から外へ広がっていく波の輪（ところどころ切れる）。0〜1
-float RadialRipple(float2 wxz, float2 center, float speed)
+// fadeR：この半径(m)の間で輪を消す（x から y にかけて）。池のはしの滝の口まで波紋が届かないように（2026-10-27 てじゃ「波紋が滝まで届いてるのがきになる」）
+float RadialRipple(float2 wxz, float2 center, float speed, float2 fadeR)
 {
     float2 dv = wxz - center;
     float r = length(dv);
@@ -31,6 +32,7 @@ float RadialRipple(float2 wxz, float2 center, float speed)
     float ring = smoothstep(0.0, 0.04, ph) * (1 - smoothstep(0.04, 0.11, ph));
     ring *= smoothstep(0.2, 0.4, NoiseWrapX(float2(ang, r * 0.5 - t * 0.6), 24.0));
     ring *= smoothstep(0.25, 0.9, r);   // まん中（湧き水のふくらみ）は出さない
+    ring *= 1 - smoothstep(fadeR.x, fadeR.y, r);
     return saturate(ring);
 }
 // 水面のきらめき（ワールドの xz の 20cm マスごとに、たまにきらっと）。0〜1

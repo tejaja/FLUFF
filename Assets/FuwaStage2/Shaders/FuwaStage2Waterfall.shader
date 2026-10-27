@@ -95,7 +95,7 @@ Shader "FuwaStage2/Waterfall"
                     pk *= smoothstep(0.3, 0.7, i.ny);   // 上向きの面だけ（滝の裏から見える下向きの面は滝の色のまま。2026-10-27 てじゃ「滝の裏からみたとき上が違和感」）
                     // 池の水面と同じ計算の色（波紋・きらめき）。池の水面の続きに見えるように
                     float3 pc = _PondColor.rgb;
-                    if (_PondRadial > 0.5) pc = lerp(pc, _PondFoam.rgb, RadialRipple(i.wp.xz, _RadialCenter.xy, _RadialSpeed) * min(1, _PondStreak * 1.5));
+                    if (_PondRadial > 0.5) pc = lerp(pc, _PondFoam.rgb, RadialRipple(i.wp.xz, _RadialCenter.xy, _RadialSpeed, _RadialCenter.zw) * min(1, _PondStreak * 1.5));
                     pc = lerp(pc, _PondFoam.rgb, WaterSparkle(i.wp.xz) * _PondSparkle);
                     col = lerp(col, pc, pk);
                     top = 0;

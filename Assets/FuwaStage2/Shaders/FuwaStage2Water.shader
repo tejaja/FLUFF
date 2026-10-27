@@ -100,7 +100,7 @@ Shader "FuwaStage2/Water"
                 else if (_Radial > 0.5)
                 {
                     // 湧き水から外へ広がっていく波の輪（ところどころ切れる）
-                    float ring = RadialRipple(i.wp.xz, _RadialCenter.xy, _RadialSpeed);
+                    float ring = RadialRipple(i.wp.xz, _RadialCenter.xy, _RadialSpeed, _RadialCenter.zw);
                     col = lerp(col, _Foam.rgb, saturate(ring) * min(1, _StreakStrength * 1.5));
                 }
                 else

@@ -997,7 +997,7 @@ public static class FuwaCourse2_1Builder
             if (!rm) { rm = new Material(baseM); AssetDatabase.CreateAsset(rm, sp); }
             rm.CopyPropertiesFromMaterial(baseM);
             var wc = terr.TransformPoint(new Vector3(0f, SourceSurf, 1.6f));
-            rm.SetFloat("_Radial", 1f); rm.SetVector("_RadialCenter", new Vector4(wc.x, wc.z, 0, 0));
+            rm.SetFloat("_Radial", 1f); rm.SetVector("_RadialCenter", new Vector4(wc.x, wc.z, RippleFadeR0, RippleFadeR1));   // zw＝波紋を消す半径（滝の口は中心から 4.8〜5.2m）
             EditorUtility.SetDirty(rm);
             srcSurf.GetComponent<MeshRenderer>().sharedMaterial = rm;
             var ptm = AssetDatabase.LoadAssetAtPath<Material>(FallsPondTopMat); if (ptm) PondLookToFallsTop(ptm);
@@ -2960,6 +2960,7 @@ public static class FuwaCourse2_1Builder
         if (bottom > -1f)
             WaterDecal(g0, "PoolFoam", new Vector3(land.x, bottom + 0.012f, land.z), f, -hw - SplashReach, hw + SplashReach, -thick * 0.5f - 1.2f, SplashReach * 1.6f, 0, hw, SplashReach, new Color(0.45f, 0.78f, 0.95f));
     }
+    public static float RippleFadeR0 = 2.8f, RippleFadeR1 = 4.2f;
     const string FallsPondTopMat = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_PondTop.mat";
     // 滝の上の平らな所を、水源の池の水面と同じ見た目に（色・波紋・きらめきの値を池の材質からうつす。2026-10-27 てじゃ「滝と水面の境目、もっときっちり繋ぐ方法」）
     static void PondLookToFallsTop(Material pm)
