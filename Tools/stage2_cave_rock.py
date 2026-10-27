@@ -66,7 +66,9 @@ for sx in (1, -1):
     if sx < 0: ring = ring[::-1]
     keeps.append(prism("Tmp_ExitKeep" + str(sx), ring, 4.3, 10.0))   # 下は落ち口の床の少し下まで。その下は Cut_UnderLip で滝の横の岩をけずったまま（残すと滝の横に岩の棚ができて、ふわふわが止まった。2026-10-27 てじゃ）
 exit_cuts = []
-for n in ['Cut_PoolExit_Soft', 'Cut_ExitTop_L', 'Cut_ExitTop_R', 'Cut_ExitFront_L', 'Cut_ExitFront_R', 'Cut_UnderLip_L', 'Cut_UnderLip_R']:
+# 出口の横・落ち口の下をけずる昔の型（Cut_ExitTop/ExitFront/UnderLip ×6）はやめた。重なって薄いヒレ・すき間ができ、滝の横に棚が残ってふわふわが止まった（2026-10-27 てじゃ「隙間とかおおい」「滝手前の岩、まだひっかかる　斜めにしちゃおう」）。
+# かわりに落ち口の下を「下へ行くほど奥へ引っこむ斜めの面」1つでけずる（Tmp_UnderCut、下の「くり抜く」で）
+for n in ['Cut_PoolExit_Soft']:
     c = copy_of(n)
     bm = bmesh.new(); bm.from_mesh(c.data); bmesh.ops.recalc_face_normals(bm, faces=bm.faces); bm.to_mesh(c.data); bm.free()
     for k in keeps: boolean(c, k, 'DIFFERENCE')
@@ -81,6 +83,23 @@ for n in ('Cut_FallL_Soft', 'Cut_FallR_Soft'):
     for v in c.data.vertices:
         if 6.28 < v.co.z < 6.6: v.co.z = 6.6
     soft.append(c)
+# 落ち口の下の斜めのけずり：落ち口のふち（Blender y=-LIP_Y, 床の少し下 UC_TOP）から、下へ行くほど奥（+y）へ UC_SLOPE の割合で引っこみ、UC_BACK まで。
+# 幅も下へ行くほど少し広がる（四角く切った感じにしない。あとで面に歪みも）
+UC_TOP, UC_SLOPE, UC_BACK, UC_W0, UC_WS = 4.95, 0.55, 1.3, 2.45, 0.18
+LIP_Y = 6.766
+bm = bmesh.new(); rings = []
+for k in range(16):
+    z = UC_TOP - k * 0.75
+    rec = min((UC_TOP - z) * UC_SLOPE, UC_BACK); w = UC_W0 + (UC_TOP - z) * UC_WS
+    yb = -LIP_Y + rec
+    rings.append([bm.verts.new(p) for p in ((-w, yb, z), (w, yb, z), (w, -14.0, z), (-w, -14.0, z))])
+for a, c in zip(rings, rings[1:]):
+    for i in range(4):
+        j = (i + 1) % 4; bm.faces.new([a[i], a[j], c[j], c[i]])
+bm.faces.new(rings[0]); bm.faces.new(list(reversed(rings[-1])))
+bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+me_uc = bpy.data.meshes.new('Tmp_UnderCut'); bm.to_mesh(me_uc); bm.free()
+undercut = temp('Tmp_UnderCut', me_uc)
 # ---- くり抜く ----
 # 入口のトンネルを少しせまく（半分の幅 2.6→ARCH_HW）。岩の後ろの面がトンネルの横で内へ入りこんでいて、壁の厚みが数cmしかなく、すき間が見えた（2026-10-27 てじゃ「入口の右側隙間だらけ」）。
 # Unity の入口の当たり判定（DoorHW）も同じ幅に
@@ -88,7 +107,7 @@ ARCH_HW = 2.25
 arch = copy_of('Cut_Arch')
 for v in arch.data.vertices: v.co.x *= ARCH_HW / 2.6
 cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, pool,
-        copy_of('Cut_FallL'), copy_of('Cut_FallR')] + soft + exit_cuts
+        copy_of('Cut_FallL'), copy_of('Cut_FallR')] + soft + exit_cuts + [undercut]
 base = bpy.data.objects['CaveRock']
 work = temp('Tmp_Rock', base.data.copy()); work.matrix_world = base.matrix_world
 for c in cuts:
@@ -105,7 +124,7 @@ bm.to_mesh(work.data); bm.free()
 # ---- 洞窟の口・溝の斜面に歪み（岩の中の向きへだけ。通り道はせまくならない）----
 bm = bmesh.new(); bm.from_mesh(work.data)
 mtrees = []
-for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.18), ('Tmp_Cut_Side', 0.2)):   # 溝の斜面は歪ませない（上の芝とのさかいに段の線が出た）
+for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.18), ('Tmp_Cut_Side', 0.2), ('Tmp_UnderCut', 0.14)):   # 溝の斜面は歪ませない（上の芝とのさかいに段の線が出た）
     # 脇道（ツタ）の口も（2026-10-27 てじゃ「ツタがわの穴の壁のフチもパキッっとしすぎ」）。ただし天井（下向きの面）は動かさない（ツタの上のはしとすき間ができる）
     mb = bmesh.new(); mb.from_mesh(bpy.data.objects[n].data); mtrees.append((BVHTree.FromBMesh(mb), a, n == 'Tmp_Cut_Side')); mb.free()
 def amp_at(p, nz=0.0):
