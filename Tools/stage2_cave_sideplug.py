@@ -108,7 +108,8 @@ for sx in (1, -1):
 # ---- 池の出口の両わきを埋めて、池から出口へなめらかにすぼまる壁に（2026-10-27 てじゃ「岩と水の間の隙間がおかしい」）----
 # 前は出口の両わきが水面より低く削れていたり（Cut_ExitTop）、上から下まで抜けたすき間（Cut_ExitFront）があったりした。
 # 壁の内側は Unity の z（＝Blender の -y）で EX_Z0 の池の幅 EX_W0 から、EX_Z1 で滝の幅 EX_W1 にすぼまり、落ち口 EX_LIP までまっすぐ
-EX_Z0, EX_W0, EX_Z1, EX_W1, EX_LIP, EX_OUT = 5.4, 2.3, 6.2, 1.70, 6.766, 3.8
+# 落ち口より先も EX_FWD だけ壁をのばして、滝の落ちはじめの横を岩ではさむ（前は落ち口で止まって、その先に前の削れの溝が残っていた）
+EX_Z0, EX_W0, EX_Z1, EX_W1, EX_LIP, EX_OUT = 5.4, 2.3, 6.2, 1.70, 6.766 + 0.9, 3.8
 def smooth01(t): t = min(1.0, max(0.0, t)); return t * t * (3 - 2 * t)
 for sx in (1, -1):
     for n in ['Plug_Exit' + str(sx), 'Exit_Cutter' + str(sx)]:

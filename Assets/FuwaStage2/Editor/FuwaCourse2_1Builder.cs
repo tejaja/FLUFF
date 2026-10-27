@@ -2659,7 +2659,7 @@ public static class FuwaCourse2_1Builder
     }
 
     // 曲がった滝：落ち口(sLip, top)から水平に出て、放物線で reach m 先の bottom に落ちる。前後2枚の水の膜（厚み thick）＋放物線にそった押す箱
-    static void CurvedFalls(Transform root, string name, float sLip, float top, float bottom, float width, float reach, float thick, Vector2? lipAt = null, Vector2? lipDir = null, float flatBack = 0f)
+    static void CurvedFalls(Transform root, string name, float sLip, float top, float bottom, float width, float reach, float thick, Vector2? lipAt = null, Vector2? lipDir = null, float flatBack = 0f, float flatSquareY = 1.3f)
     {
         Center(sLip, out var lp2, out var ld2);
         if (lipAt.HasValue) { lp2 = lipAt.Value; ld2 = lipDir.Value; }
@@ -2679,7 +2679,7 @@ public static class FuwaCourse2_1Builder
         // 断面のまん中が水面の高さだと、上の半分（厚みの半分）が水面から浮いて、裏から見ると水面と滝の上がずれて見えた（2026-10-27 てじゃ）。
         // 全体を厚みの半分だけ真下へ（上の面＝水面。落ちている所は横にずれないので、前の面は落ち口の岩より前のまま）。手前のはしは水の下へ
         //（落ち口の先で元の線へ戻すと外の面がこぶに、面の向きに内側へずらすと落ち口の岩が滝の前に出た）
-        var mid = new List<Vector3>(); var vnrm = nrms; var vlen = len; float vtotal = total;
+        var mid = new List<Vector3>(); var vnrm = nrms; var vlen = len; float vtotal = total; List<float> frontK = null;
         if (flatBack > 0f)
         {
             // 滝の上の面を池の側へ flatBack だけ平らにのばして、そこから先は池の水面のかわり（池の水面はその手前で終わる。2026-10-27 てじゃ「滝の上に池をかぶせたみたい」）。
@@ -2689,9 +2689,11 @@ public static class FuwaCourse2_1Builder
             vlen = new float[vp.Count]; for (int i = 1; i < vp.Count; i++) vlen[i] = vlen[i - 1] + (vp[i] - vp[i - 1]).magnitude; vtotal = vlen[vp.Count - 1];
             vnrm = Enumerable.Range(0, vp.Count).Select(i => { var tg = (vp[Mathf.Min(i + 1, vp.Count - 1)] - vp[Mathf.Max(i - 1, 0)]).normalized; var n = Vector3.Cross(rgt, tg).normalized; if (Vector3.Dot(n, f) + n.y < 0) n = -n; return i == 1 ? Vector3.up : n; }).ToList();
             foreach (var q in vp) mid.Add(q + Vector3.down * (thick * 0.5f));
+            // 岩の壁にはさまれている高さ（flatSquareY より上）は断面の前の角を四角に（丸い角と壁のあいだにすき間が見えた。2026-10-27 てじゃ）。その下で 0.8m かけて丸く
+            frontK = vp.Select(q => Smooth01((flatSquareY - q.y) / 0.8f)).ToList();
         }
         else for (int i = 0; i < pts.Count; i++) mid.Add(pts[i] + Vector3.down * (thick * 0.5f + (i == 0 ? 0.15f : 0f)));
-        var mesh = FuwaStage2WaterTest.SweepFalls("Course2_1_" + name, mid, vnrm, Enumerable.Repeat(rgt, mid.Count).ToList(), vlen, vtotal, width, thick);
+        var mesh = FuwaStage2WaterTest.SweepFalls("Course2_1_" + name, mid, vnrm, Enumerable.Repeat(rgt, mid.Count).ToList(), vlen, vtotal, width, thick, frontK);
         mesh = Save(mesh, MeshDir + "/" + name + ".asset");
         var g0 = new GameObject(name).transform; g0.SetParent(root, false);
         var cur = new GameObject("Curtain"); cur.transform.SetParent(g0, false);

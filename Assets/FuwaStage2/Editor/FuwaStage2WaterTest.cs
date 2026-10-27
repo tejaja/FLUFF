@@ -414,18 +414,20 @@ public static class FuwaStage2WaterTest
     public static float FallsRound = 0.9f;
     const int RoundSegs = 6;
     // 断面（角の丸い長方形、幅 width・厚み thick）のまわりの点（x＝横、y＝前後）と外向きの向き、まわりの長さ。最初の点を最後にもう一度入れて閉じる
-    public static void FallsSection(float width, float thick, out List<Vector2> pts, out List<Vector2> nrm, out List<float> arc)
+    // frontK：前の2つの角（外向き側）の丸みの割合（0＝四角。岩の壁にはさまれた所で、角と壁のすき間が出ないように）
+    public static void FallsSection(float width, float thick, out List<Vector2> pts, out List<Vector2> nrm, out List<float> arc, float frontK = 1f)
     {
-        float a = width * 0.5f, b = thick * 0.5f, r = Mathf.Min(a, b) * FallsRound;
+        float a = width * 0.5f, b = thick * 0.5f, r0 = Mathf.Min(a, b) * FallsRound, rf = Mathf.Max(0.001f, r0 * frontK);
         pts = new List<Vector2>(); nrm = new List<Vector2>(); arc = new List<float>();
         // 角の中心（右前・左前・左後ろ・右後ろ）と、それぞれの弧の始まりの角度
-        var cs = new[] { new Vector2(a - r, b - r), new Vector2(-(a - r), b - r), new Vector2(-(a - r), -(b - r)), new Vector2(a - r, -(b - r)) };
+        var rs = new[] { rf, rf, r0, r0 };
+        var cs = new[] { new Vector2(a - rs[0], b - rs[0]), new Vector2(-(a - rs[1]), b - rs[1]), new Vector2(-(a - rs[2]), -(b - rs[2])), new Vector2(a - rs[3], -(b - rs[3])) };
         for (int c = 0; c < 4; c++)
             for (int k = 0; k <= RoundSegs; k++)
             {
                 float ang = (c * 90f + 90f * k / RoundSegs) * Mathf.Deg2Rad;
                 var n = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
-                pts.Add(cs[c] + n * r); nrm.Add(n);
+                pts.Add(cs[c] + n * rs[c]); nrm.Add(n);
             }
         pts.Add(pts[0]); nrm.Add(nrm[0]);
         float L = 0f; arc.Add(0f);
@@ -434,13 +436,15 @@ public static class FuwaStage2WaterTest
 
     // 断面を線にそって並べた滝のメッシュ。center[i]＝i 段目の中心、fwd＝断面の前後（外向き）、right＝断面の横、fromTop＝落ち口からの長さ、total＝全体の長さ。
     // uv1＝(まわりの長さ m, 下からの長さ m)、uv2＝(まわり全体, 全体の長さ)＝シェーダーの _Curved。頂点カラー＝真横ほど暗く。三角形は外向き
-    public static Mesh SweepFalls(string name, IList<Vector3> center, IList<Vector3> fwd, IList<Vector3> right, IList<float> fromTop, float total, float width, float thick)
+    public static Mesh SweepFalls(string name, IList<Vector3> center, IList<Vector3> fwd, IList<Vector3> right, IList<float> fromTop, float total, float width, float thick, IList<float> frontK = null)
     {
         FallsSection(width, thick, out var sp, out var sn, out var sa);
         float per = sa[sa.Count - 1];
         int cols = sp.Count;
         var V = new List<Vector3>(); var N = new List<Vector3>(); var U1 = new List<Vector2>(); var U2 = new List<Vector2>(); var C = new List<Color>(); var T = new List<int>();
         for (int i = 0; i < center.Count; i++)
+        {
+            if (frontK != null) FallsSection(width, thick, out sp, out sn, out sa, frontK[i]);
             for (int j = 0; j < cols; j++)
             {
                 V.Add(center[i] + right[i] * sp[j].x + fwd[i] * sp[j].y);
@@ -449,6 +453,7 @@ public static class FuwaStage2WaterTest
                 float sh = Mathf.Lerp(SlabSideShade, 1f, Mathf.Abs(sn[j].y));
                 C.Add(new Color(sh, sh, sh, 1f));
             }
+        }
         for (int i = 0; i < center.Count - 1; i++)
             for (int j = 0; j < cols - 1; j++)
             {
