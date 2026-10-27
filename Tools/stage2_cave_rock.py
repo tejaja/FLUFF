@@ -105,11 +105,13 @@ bm.to_mesh(work.data); bm.free()
 # ---- 洞窟の口・溝の斜面に歪み（岩の中の向きへだけ。通り道はせまくならない）----
 bm = bmesh.new(); bm.from_mesh(work.data)
 mtrees = []
-for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.18)):   # 溝の斜面は歪ませない（上の芝とのさかいに段の線が出た）
-    mb = bmesh.new(); mb.from_mesh(bpy.data.objects[n].data); mtrees.append((BVHTree.FromBMesh(mb), a)); mb.free()
-def amp_at(p):
+for n, a in (('Tmp_Cut_Mouth', 0.24), ('Tmp_Cut_Arch', 0.18), ('Tmp_Cut_Side', 0.2)):   # 溝の斜面は歪ませない（上の芝とのさかいに段の線が出た）
+    # 脇道（ツタ）の口も（2026-10-27 てじゃ「ツタがわの穴の壁のフチもパキッっとしすぎ」）。ただし天井（下向きの面）は動かさない（ツタの上のはしとすき間ができる）
+    mb = bmesh.new(); mb.from_mesh(bpy.data.objects[n].data); mtrees.append((BVHTree.FromBMesh(mb), a, n == 'Tmp_Cut_Side')); mb.free()
+def amp_at(p, nz=0.0):
     best = 0.0
-    for t, a in mtrees:
+    for t, a, keep_ceil in mtrees:
+        if keep_ceil and nz < -0.7: continue
         d = t.find_nearest(p)[3]
         if d is not None and d < 2e-3: best = max(best, a)
     return best
@@ -120,7 +122,7 @@ for _ in range(3):
 bm.normal_update()
 mv = {}; ma = {}
 for f in bm.faces:
-    a = amp_at(f.calc_center_median())
+    a = amp_at(f.calc_center_median(), f.normal.z)
     if a > 0:
         for v in f.verts: mv.setdefault(v, V3()); mv[v] -= f.normal; ma[v] = max(ma.get(v, 0.0), a)
 for v, d in mv.items():
