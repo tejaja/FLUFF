@@ -163,6 +163,8 @@ public static class FuwaCourse2_1Builder
         public Func<float, float> woodAlign;
         // 板のはしを道のへりの線にそわせる（台形の板。曲がっている所で板のはしがギザギザに飛び出さない）
         public bool woodEdgeCut;
+        // この横（中心線から）より内側には板を置かない（洞窟の床のはし。s が floorEdgeS1 より前だけ）
+        public float floorEdge = float.NaN, floorEdgeS1;
         public float woodBeamS0 = float.NaN;
     }
     class Water
@@ -331,12 +333,13 @@ public static class FuwaCourse2_1Builder
         Func<float, float> b1off = s => Mathf.Lerp(b1Near(s), b1Far(s), Smooth01((s - sPlaza1 - 1.6f) / 2f));
         // 洞窟の床から斜めに分かれる所から全部 木の足場（2026-10-27 てじゃ「この道、木製にしてみよ」「洞窟の床から、斜めに伸びた床全てを完全に木に」）。
         // 洞窟の中は、分かれ道の所だけ青い床の見た目をなくして、木の床が同じ高さでぴったりはまる（てじゃ「差し込んだ感じ」→A。M1 の見た目は下の visPieces で右を切る）
-        b1WoodS0 = sPlaza1 - 0.4f - SideGapLen - 0.6f; b1OffF = b1off;
+        b1WoodS0 = sPlaza1 - 0.4f - SideGapLen - 1.0f; b1OffF = b1off;
         pieces.Add(new Piece { name = "B1_BankWood", s0 = sPlaza1 - 4.6f, s1 = sCross1 - CrossGap * 0.5f, off = b1off, w = s => 3f, h = b1h, round0 = false, wood = true,
             woodS0 = b1WoodS0, woodLift = s => (StartH - b1h(s)) * (1f - Smooth01((s - sPlaza1) / 1.5f)),
             // 洞窟の中〜ツタのすき間は、板を洞窟の向きに直角にそろえる（ななめの道に直角だと、板のはしがギザギザに並んで差し込んだ感じになった。2026-10-27 てじゃ）。
             // 板のはしは道のへりの線で切る（平行四辺形の板）。外に出たら 2m かけて道に直角へ。桁は外に出てから
-            woodBeamS0 = sPlaza1 + 0.5f, woodEdgeCut = true });   // 板を洞窟の向きにそろえる案（woodAlign）は てじゃ「さっきよりへんかも」でやめた
+            woodBeamS0 = sPlaza1 + 0.5f, woodEdgeCut = true, floorEdge = 3f, floorEdgeS1 = sPlaza1 });
+        // 木は洞窟の床のはし（3m）の外だけ＝ツタのすき間の中から（2026-10-27 てじゃ「もっとツタギリギリまで」。床とは床のはしのまっすぐな線でつながる）   // 板を洞窟の向きにそろえる案（woodAlign）は てじゃ「さっきよりへんかも」でやめた
         pieces.Add(new Piece { name = "B2_Bank", s0 = sCross1 + CrossGap * 0.5f, s1 = sCross2 - CrossGap * 0.5f, off = Smoothed(b2t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         pieces.Add(new Piece { name = "B3_Bank", s0 = sCross2 + CrossGap * 0.5f, s1 = mergeB, off = Smoothed(b3t, 1.0f), w = s => 3f, h = s => BankTop - 0.01f });
         // M2 谷の向こう → 蓮の池の手前（本道は水のふちの外側にぴったりつける。端は丸めない）
@@ -382,7 +385,7 @@ public static class FuwaCourse2_1Builder
         foreach (var pc in pieces)
         {
             if (pc.wood) continue;
-            if (pc.name != "M1_Start") { visPieces.Add(pc); continue; }
+            if (pc.name != "M1_Start" || true) { visPieces.Add(pc); continue; }   // 2026-10-27 床を切る案はやめ（木は床のはしの外だけ＝下の WoodWalk の floorEdge）
             float cut = b1WoodS0;
             // 木の道の内側のへり（道に直角の断面の -1.5 の点）を、中心線の (s, 横) にうつした表。床の右のへりをそれに合わせる
             var wp = pieces.Find(q => q.name == "B1_BankWood"); var tS = new List<float>(); var tL = new List<float>();
@@ -2958,6 +2961,26 @@ public static class FuwaCourse2_1Builder
                     Vector3 Pt(float ss2, float lat) => Point(pc, ss2, lat, lift(ss2) - PlankT * 0.5f);
                     float wa = pc.w(sa) * 0.5f, wb = pc.w(sb) * 0.5f;
                     var fL = Pt(sa, -wa); var fR = Pt(sa, wa); var bR = Pt(sb, wb); var bL = Pt(sb, -wb);
+                    if (!float.IsNaN(pc.floorEdge))
+                    {
+                        // 中心線からの横の位置
+                        float CL(Vector3 q) { float sc = SAt(i * pitch + 0.5f * pitch); Center(sc, out var cp, out var cd); var dq = new Vector2(q.x, q.z) - cp; float s2 = sc + Vector2.Dot(dq, cd); Center(s2, out cp, out cd); return Vector2.Dot(new Vector2(q.x, q.z) - cp, Right(cd)); }
+                        float SC(Vector3 q) { float sc = SAt(i * pitch + 0.5f * pitch); Center(sc, out var cp, out var cd); return sc + Vector2.Dot(new Vector2(q.x, q.z) - cp, cd); }
+                        float fe = pc.floorEdge + 0.005f;
+                        bool Inside(Vector3 q) => SC(q) < pc.floorEdgeS1 && CL(q) < fe;
+                        // 左（内側）のはしを、床のはしの線まで右へ寄せる
+                        Vector3 Pull(Vector3 l, Vector3 r)
+                        {
+                            if (!Inside(l)) return l;
+                            if (Inside(r)) return r;
+                            float a = 0f, c = 1f;
+                            for (int it = 0; it < 20; it++) { float m = (a + c) * 0.5f; if (Inside(Vector3.Lerp(l, r, m))) a = m; else c = m; }
+                            return Vector3.Lerp(l, r, c);
+                        }
+                        if (Inside(fR) && Inside(bR)) continue;
+                        fL = Pull(fL, fR); bL = Pull(bL, bR);
+                        if ((fR - fL).magnitude < 0.05f && (bR - bL).magnitude < 0.05f) continue;
+                    }
                     // 岩で切る（はしが岩にささらないように）
                     if (rockCol != null)
                     {
