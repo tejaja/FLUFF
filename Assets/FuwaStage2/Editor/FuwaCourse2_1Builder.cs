@@ -529,9 +529,9 @@ public static class FuwaCourse2_1Builder
                 open1 = true, bodyBottom = StartH + CaveIn + RoofT,
                 hw = s => Mathf.Lerp(CaveHW - RimW, MouthHW, Smooth01((s - (sPlaza1 - 3.5f)) / 3.5f)) },
             // 流れ 2026-10-25 0.9→1.3→1.6、川 1.1→1.4→1.6（てじゃ「川で見てるのが長過ぎる」。人は浅瀬を歩かず岸の道を走るので速くしてよい）
-            new Water { name = "W1_Pool", s0 = sPlaza1, s1 = sPool1, surf = 0f, flow = 1.6f, hw = PoolHW, open0 = true, open1 = true, deep = true, depth = 2.5f, fade1 = 3.5f },
+            new Water { name = "W1_Pool", s0 = sPlaza1, s1 = sPool1, surf = 0f, flow = RiverFlow, hw = PoolHW, open0 = true, open1 = true, deep = true, depth = 2.5f, fade1 = 3.5f },
             // 終わりは崖の滝（open1）。下のかたまりを深くして、谷から見て崖に見えるように
-            new Water { name = "W2_River", s0 = sPool1, s1 = sRiver1, surf = 0f, flow = 1.6f, hw = RiverHW, open0 = true, open1 = true, bodyBottom = -6f },
+            new Water { name = "W2_River", s0 = sPool1, s1 = sRiver1, surf = 0f, flow = RiverFlow, hw = RiverHW, open0 = true, open1 = true, bodyBottom = -6f },
             new Water { name = "W3_LilyPond", s0 = sPond0, s1 = sPond1, surf = 0f, flow = 0f, hw = PondHW, gapL0 = PondSpill() - 1.1f, gapL1 = PondSpill() + 1.1f,
                 hole0 = PondDeep0, hole1 = PondDeep1, holeL = PondDeepL, holeR = PondDeepR, holeBed = PondHoleBed },
         };
@@ -2043,6 +2043,8 @@ public static class FuwaCourse2_1Builder
     public static float FishSpan = 2.4f, FishPeriod = 3.2f, FishDepth = 0.15f, FishScale = 2f, FishHit = 1.0f;
     public static float[] FishHeights = { 2.4f, 3.0f };   // 1.3/1.8 → 2.4/3.0（「もっと高く」）
     // 魚ごとの周期（秒）。高い方が長い（「高いほど周期を長く」で 0.8＋高さ×1.4 にした値を、高さを上げた後もそのまま）
+    // 滝つぼ・川の流れ（2026-10-28 てじゃ「川でふわふわが流れる速度をほんのちょっとだけ遅く」1.6→1.45）
+    public static float RiverFlow = 1.45f;
     // 2026-10-28 てじゃ「飛ぶ速度をやや落として間隔も伸ばす」：周期 2.62/3.32 → ×1.3、ジャンプの時間 0.9 → 1.15 秒
     public static float[] FishPeriods = { 3.4f, 4.3f };
     public static float FishJumpTime = 1.15f;
