@@ -11,6 +11,8 @@ public class FuwaHover : UdonSharpBehaviour
     public float period = 3.2f;
     [Tooltip("回る速さ（度/秒、縦の軸）")]
     public float spinSpeed = 25f;
+    [Tooltip("ゆれのずらし（0〜1＝ひとゆれのどこから始めるか）。球ごとにずらしてそろって上下しないように（2026-10-28 てじゃ）")]
+    public float phase = 0f;
 
     private Vector3 _base;
     private Quaternion _rot;
@@ -23,8 +25,8 @@ public class FuwaHover : UdonSharpBehaviour
 
     private void Update()
     {
-        float a = Time.time / period * 2f * Mathf.PI;
+        float a = (Time.time / period + phase) * 2f * Mathf.PI;
         transform.localPosition = _base + Vector3.up * (Mathf.Sin(a) * amplitude);
-        transform.localRotation = _rot * Quaternion.Euler(0f, Time.time * spinSpeed, 0f);
+        transform.localRotation = _rot * Quaternion.Euler(0f, Time.time * spinSpeed + phase * 360f, 0f);
     }
 }

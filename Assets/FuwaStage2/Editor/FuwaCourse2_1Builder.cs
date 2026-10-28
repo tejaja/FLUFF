@@ -1289,7 +1289,9 @@ public static class FuwaCourse2_1Builder
         EditorUtility.SetDirty(mat);
         var r = orb.GetComponent<Renderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         var hv = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHover>(orb);
-        hv.amplitude = 0.15f; hv.period = 3.2f; hv.spinSpeed = 25f;
+        // 球ごとに位置からずらし・速さを決める（2026-10-28 てじゃ「球の浮き沈み、それぞれでズラしたい」）
+        float hh = Mathf.Abs(Mathf.Sin(pool.x * 12.9898f + pool.z * 78.233f) * 43758.5453f) % 1f;
+        hv.amplitude = 0.15f; hv.period = 3.2f * Mathf.Lerp(0.85f, 1.15f, (hh * 7.3f) % 1f); hv.spinSpeed = 25f * Mathf.Lerp(0.8f, 1.2f, (hh * 3.1f) % 1f); hv.phase = hh;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hv); NoSync(hv);
         // まわりのぼんやりした光（やわらかい丸の粒）
         var gl = new GameObject("Glow"); gl.transform.SetParent(orb.transform, false);
