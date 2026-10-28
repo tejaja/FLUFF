@@ -108,7 +108,7 @@ for n in ('Cut_FallL_Soft', 'Cut_FallR_Soft'):
     soft.append(c)
 # 落ち口の下の斜めのけずり：落ち口のふち（Blender y=-LIP_Y, 床の少し下 UC_TOP）から、下へ行くほど奥（+y）へ UC_SLOPE の割合で引っこみ、UC_BACK まで。
 # 幅も下へ行くほど少し広がる（四角く切った感じにしない。あとで面に歪みも）
-MX_R = 0.9
+MX_R, MX_BOT = 0.9, 1.94
 UC_TOP, UC_SLOPE, UC_BACK, UC_W0, UC_WS = 4.95, 0.5, 0.5, 3.4, 0.0   # 奥へは 0.5m まで（1.3 だと洞窟の口の横の壁を突きぬけて、中から大きな穴が見えた）。幅は脇道の口まで（2.4 だと滝と脇道のあいだの柱の外のかどだけ残って、とがったヒレになった）
 LIP_Y = 6.766
 UC_SHIFT = 0.0
@@ -141,7 +141,8 @@ MX_HW, MX_Z0, MX_Z1, MX_TOP = 1.72, 5.0, 7.3, 4.95   # 4.89（出口の天井と
 # 断面は上の両かどを半径 MX_R で丸めたトンネル（2026-10-28 てじゃ「最初の滝の裏のここがちょっとおかしい」：四角い箱のままで、滝の裏から見上げると
 # 平らな天井とまっすぐな壁の直角のかどが見えた。天井はすぐ上が池の底なので上げられない＝かどを岩で埋める向きに丸める）
 def mouth_sweep(name):
-    bm = bmesh.new(); prof = [(-MX_HW, 2.3), (MX_HW, 2.3)]
+    # 下は MX_BOT（床 2.0〜2.07 より少し下）。2.3 だと壁の足もとに 8cm の段が残った（2026-10-28 てじゃ「入口の滝裏のここ、変な削れ方」）
+    bm = bmesh.new(); prof = [(-MX_HW, MX_BOT), (MX_HW, MX_BOT)]
     for k in range(9):   # 右のかど（下→上）
         a = math.radians(90 * k / 8); prof.append((MX_HW - MX_R + MX_R * math.cos(a), MX_TOP - MX_R + MX_R * math.sin(a)))
     for k in range(9):   # 左のかど（上→下）
