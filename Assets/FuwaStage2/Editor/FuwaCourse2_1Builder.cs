@@ -2727,7 +2727,11 @@ public static class FuwaCourse2_1Builder
         float foamOut = 0.25f, foamIn = 0.55f;
         // WaterDecal はメッシュ・材質を親の名前で保存するので、柱ごとに別の親（同じ名前だと3つとも最後の柱の形になった）
         var fg = new GameObject("Splash" + i).transform; fg.SetParent(lg, false);
-        WaterDecal(fg, "PoolFoam", new Vector3(land.x, surf + 0.012f, land.y), new Vector3(-fd.x, 0f, -fd.y), -hw - (o > 0f ? foamIn : foamOut), hw + (o > 0f ? foamOut : foamIn), -0.05f, sr * 1.6f, 0, hw, sr, new Color(0.45f, 0.78f, 0.95f));
+        float fx0 = -hw - (o > 0f ? foamIn : foamOut), fx1 = hw + (o > 0f ? foamOut : foamIn);
+        WaterDecal(fg, "PoolFoam", new Vector3(land.x, surf + 0.012f, land.y), new Vector3(-fd.x, 0f, -fd.y), fx0, fx1, -0.05f, sr * 1.6f, 0, hw, sr, new Color(0.45f, 0.78f, 0.95f));
+        // 板の横のはしはなだらかに消す（2026-10-28 てじゃ「この端がきになる」：道の側で板のはしがまっすぐな線で見えた）
+        var pfm = fg.Find("PoolFoam").GetComponent<MeshRenderer>().sharedMaterial;
+        pfm.SetVector("_XFade", new Vector4(fx0, fx1, 0.45f, 0f)); EditorUtility.SetDirty(pfm);
         var mist = set.Find("OverFalls/Mist");
         if (mist) { mist.position = set.TransformPoint(new Vector3(land.x, surf + 0.05f, land.y)) - set.TransformDirection(new Vector3(fd.x, 0, fd.y)) * 0.25f; }
         EditorUtility.SetDirty(plm);

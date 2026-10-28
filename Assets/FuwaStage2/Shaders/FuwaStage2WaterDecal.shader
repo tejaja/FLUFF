@@ -13,6 +13,8 @@ Shader "FuwaStage2/WaterDecal"
         _Reach ("Reach (m)", Float) = 4
         _Speed ("Speed", Float) = 0.7
         _Band ("Lip: Flat Band Length (m)", Float) = 0
+        // 板の横のはし（x の範囲）でなだらかに消す（2026-10-28 柱の滝の滝つぼ：板のはしがまっすぐな線に見えた）。fade.x/y＝範囲、z＝消す長さ（0＝しない）
+        _XFade ("Side Fade (x0, x1, len)", Vector) = (0, 0, 0, 0)
     }
     SubShader
     {
@@ -32,6 +34,7 @@ Shader "FuwaStage2/WaterDecal"
 
             fixed4 _Foam, _Aerated;
             float _Mode, _HalfW, _Reach, _Speed, _Band;
+            float4 _XFade;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; UNITY_FOG_COORDS(1) };
@@ -98,6 +101,12 @@ Shader "FuwaStage2/WaterDecal"
                     float lipFade = smoothstep(0.0, 0.5, z);
                     col = lerp(_Aerated.rgb, _Foam.rgb, saturate(streak));
                     a = saturate(streak * 0.5) * side * lipFade;
+                }
+                if (_XFade.z > 0.001)
+                {
+                    // ふちを波打たせて消す（まっすぐな線にならないように）
+                    float w = _XFade.z * (0.6 + 0.8 * Noise(float2(z * 1.3 - t * 0.4, x * 0.3)));
+                    a *= smoothstep(0, w, min(x - _XFade.x, _XFade.y - x));
                 }
                 fixed4 c = fixed4(col, a);
                 UNITY_APPLY_FOG(i.fogCoord, c);
