@@ -2795,10 +2795,7 @@ public static class FuwaCourse2_1Builder
                 float e = Vector2.Dot(q2 - lip0, -fd) - RockE(yTop - q.y);
                 q2 -= -fd * (e * w); P[j, k] = new Vector3(q2.x, q.y, q2.y);
             }
-        for (int k = 0; k < nAround; k++)
-        {
-            var q = P[nRing - 1, k]; q.y = Mathf.Lerp(yTop, lipRim, FrontW(q, k)); P[nRing - 1, k] = q;
-        }
+        // てっぺんの輪の沈め（落ち口のふち）は、膜の幅が決まってから下の SinkW で
         // 2026-10-28 てじゃ「まだ貼り付けた感ある」→「がっつりつくりなおそ」：水たまりと膜を1枚の水にする。
         // てっぺんのくぼみは落ち口の幅の四角（横は膜の幅 hw、奥は奥のふちの PillarRimW 手前まで）、その中を1枚の水のメッシュが
         // 奥から落ち口まで平らに流れて、落ち口でまるく転がって柱の面ぞいに落ちる（材質は滝ひとつ、手前は _PondTop で池の色・波紋）
@@ -2820,6 +2817,15 @@ public static class FuwaCourse2_1Builder
         hwL = Mathf.Max(0.3f, hwL - 0.04f); hwR = Mathf.Max(0.3f, hwR - 0.04f);
         float hw = (hwL + hwR) * 0.5f;
         var lipMid = lip0 + lfr * ((hwR - hwL) * 0.5f) + fd * LipIn;   // 落ち口のまん中（てっぺんの手前のふち）
+        // 落ち口で沈めるふちの岩は、膜（水）がかかる幅の中だけ（2026-10-28 てじゃ「こんなかんじの隙間が各柱にある」「まだある」：
+        // 沈める範囲が柱の手前の面いっぱい（膜より片側 0.2〜0.4m 広い）で、水のかからない角の岩だけ一段へこんで隙間に見えた）
+        float SinkW(Vector3 q, int k)
+        {
+            float lat = Vector2.Dot(new Vector2(q.x, q.z) - lipMid, lfr);
+            float edge = lat < 0f ? -hwL - (hwR - hwL) * 0.5f : hwR - (hwR - hwL) * 0.5f;
+            return FrontW(q, k) * (1f - Smooth01((Mathf.Abs(lat) - Mathf.Abs(edge) + 0.16f) / 0.12f));   // 膜のはしの 4cm 内側で沈めは0
+        }
+        for (int k = 0; k < nAround; k++) { var q = P[nRing - 1, k]; q.y = Mathf.Lerp(yTop, lipRim, SinkW(q, k)); P[nRing - 1, k] = q; }
         // 奥行き：てっぺんの奥のふちから PillarRimW 手前まで
         // 池（くぼみ）は柱のてっぺんいっぱい（2026-10-28 てじゃ「上の池なくなってない？」：落ち口の幅の四角にしたら池が小さくなった）。
         // てっぺんのふちを PillarRimW 内側へ寄せた形、手前（落ち口の側）は落ち口の線まで。池の水は奥から落ち口の幅へだんだん集まって滝になる
@@ -2874,7 +2880,7 @@ public static class FuwaCourse2_1Builder
             }
             return best;
         }
-        Vector3 InnerPt(int k) { var bq = basin[k]; var r2 = lipMid + lfr * bq.x + fd * bq.y; return new Vector3(r2.x, Mathf.Lerp(yTop, lipRim, FrontW(P[nRing - 1, k], k)), r2.y); }
+        Vector3 InnerPt(int k) { var bq = basin[k]; var r2 = lipMid + lfr * bq.x + fd * bq.y; return new Vector3(r2.x, Mathf.Lerp(yTop, lipRim, SinkW(P[nRing - 1, k], k)), r2.y); }
         var V = new List<Vector3>(); var T = new List<int>();
         void Tri(Vector3 a, Vector3 b, Vector3 c, Vector3 want)
         {
