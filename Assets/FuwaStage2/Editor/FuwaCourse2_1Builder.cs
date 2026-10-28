@@ -3442,6 +3442,9 @@ public static class FuwaCourse2_1Builder
         Loft("Cut_BasinL", Steps(lw0, lw1, 0.05f), s => { float a = lInA(s), b = lInB(s); return new List<Vector2> { new Vector2(a, fl), new Vector2(b, fl), new Vector2(b, yTop + 5f), new Vector2(a, yTop + 5f) }; });
         // 案B：下流の面の横長の穴（水の出口）。上は水面の GateSlotH 上まで
         Loft("Cut_Slab", Steps(sl0, sl1 + GateFaceOut + 0.5f, 0.2f), s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + GateSlotH), new Vector2(gIn, yTop + GateSlotH) });
+        // 2026-10-28 てじゃ「アーチみたいなのないほうがいい」（3：上の穴と下のトンネルの出口のあいだの岩の帯をなくす）：落ち口の線より下流（面まで）を、
+        // トンネルの床の高さから穴の上まで 1つの縦長の開口にくりぬく。落ち口の後ろ（橋の上の水の下）の岩はそのまま
+        Loft("Cut_Face", Steps(sl1 + 0.03f, sl1 + GateFaceOut + 0.8f, 0.1f), s => new List<Vector2> { new Vector2(gIn, surf - 1f), new Vector2(rin, surf - 1f), new Vector2(rin, yTop + GateSlotH), new Vector2(gIn, yTop + GateSlotH) });
         sb.Append("]}");
         System.IO.File.WriteAllText(path, sb.ToString());
         Debug.Log("[2–1] 門の型を書き出し: " + path);

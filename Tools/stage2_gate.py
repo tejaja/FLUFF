@@ -70,7 +70,7 @@ def build():
     bpy.context.view_layer.objects.active = o; o.select_set(True)
     bpy.ops.object.quadriflow_remesh(target_faces=QF_FACES, use_preserve_sharp=False, use_preserve_boundary=False, preserve_attributes=False, smooth_normals=False, seed=7)
     m = o.modifiers.new("Tri", 'TRIANGULATE'); apply(o, m)
-    for n in ("Cut_Gap", "Cut_Walk", "Cut_Slab"):
+    for n in ("Cut_Gap", "Cut_Walk", "Cut_Slab", "Cut_Face"):
         m = o.modifiers.new("B_" + n, 'BOOLEAN'); m.operation = 'DIFFERENCE'; m.solver = 'EXACT'; m.object = sc.objects[n]; apply(o, m)
     # 2026-10-28 くぼみのくりぬきが1回目で効かないことがあった（右の池がまるごと埋まった）。くぼみのまん中を上から測って、底より上に岩があれば1回だけ くりぬき直す
     #（体積を見て何回もくりぬき直すと、こわれた面からトゲが何本も出た）
