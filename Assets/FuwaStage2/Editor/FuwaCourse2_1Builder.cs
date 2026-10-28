@@ -3068,7 +3068,7 @@ public static class FuwaCourse2_1Builder
     // その前のふちから道の幅いっぱいに滝がこぼれる。水がかかっている所の後ろ・下も水の膜でつつむ。水の上に青い球を2つ。
     // 岩は前の箱の当たり判定をつつむ形（内側＝川・くぐり口の面はまっすぐ、外の面だけでこぼこ）で、当たり判定も岩のメッシュ
     public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 0.3f,   // 1.0 だとくぼみの型のはしのふたが 1m の平らな壁になって見えた（2026-10-28 てじゃ「まっすぐ部分が直線すぎる」）
-        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f, GateBandDepth = 3.2f, GateBandRim = 0.35f, GateDomeH = 2.6f, GateFaceOut = 0.4f, GateSlotH = 0.8f, VineEmbed = 0.15f;
+        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f, GateBandDepth = 3.2f, GateBandRim = 0.35f, GateDomeH = 2.6f, GateFaceOut = 0.4f, GateSlotH = 0.8f, VineEmbed = 0.15f, GateFaceRound = 0.6f;
     public static float GateLeftOut = 9.8f, GateRightOut = 7.5f, GateLeftExtra = 1.3f;
     static void FinaleGate(Transform g, float H, float surf, float cs, float wa, float wb, float gIn, float gOut, float gTop, float r0)
     {
@@ -3441,10 +3441,19 @@ public static class FuwaCourse2_1Builder
         // 横長の池（GateWaterBand）のくぼみ：lw0/lw1 と lInA/lInB に池の範囲が入ってくる（案A。左右の池・角の型はやめた）
         Loft("Cut_BasinL", Steps(lw0, lw1, 0.05f), s => { float a = lInA(s), b = lInB(s); return new List<Vector2> { new Vector2(a, fl), new Vector2(b, fl), new Vector2(b, yTop + 5f), new Vector2(a, yTop + 5f) }; });
         // 案B：下流の面の横長の穴（水の出口）。上は水面の GateSlotH 上まで
-        Loft("Cut_Slab", Steps(sl0, sl1 + GateFaceOut + 0.5f, 0.2f), s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + GateSlotH), new Vector2(gIn, yTop + GateSlotH) });
+        Loft("Cut_Slab", Steps(sl0, sl1 + 0.1f, 0.2f),   // 面の開口の形は Cut_Face だけで決める（ここが面まで出ていると上の角が四角く残った）
+             s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + GateSlotH), new Vector2(gIn, yTop + GateSlotH) });
         // 2026-10-28 てじゃ「アーチみたいなのないほうがいい」（3：上の穴と下のトンネルの出口のあいだの岩の帯をなくす）：落ち口の線より下流（面まで）を、
         // トンネルの床の高さから穴の上まで 1つの縦長の開口にくりぬく。落ち口の後ろ（橋の上の水の下）の岩はそのまま
-        Loft("Cut_Face", Steps(sl1 + 0.03f, sl1 + GateFaceOut + 0.8f, 0.1f), s => new List<Vector2> { new Vector2(gIn, surf - 1f), new Vector2(rin, surf - 1f), new Vector2(rin, yTop + GateSlotH), new Vector2(gIn, yTop + GateSlotH) });
+        // 上の角は半径 GateFaceRound で丸める（てじゃ「上の角をちょいまるく」）
+        Loft("Cut_Face", Steps(sl1 + 0.03f, sl1 + GateFaceOut + 0.8f, 0.1f), s =>
+        {
+            float top = yTop + GateSlotH, r = Mathf.Min(GateFaceRound, (rin - gIn) * 0.5f);
+            var pr = new List<Vector2> { new Vector2(gIn, surf - 1f), new Vector2(rin, surf - 1f) };
+            for (int a = 0; a <= 6; a++) { float th = Mathf.PI * 0.5f * a / 6f; pr.Add(new Vector2(rin - r + r * Mathf.Cos(th), top - r + r * Mathf.Sin(th))); }
+            for (int a = 0; a <= 6; a++) { float th = Mathf.PI * 0.5f + Mathf.PI * 0.5f * a / 6f; pr.Add(new Vector2(gIn + r + r * Mathf.Cos(th), top - r + r * Mathf.Sin(th))); }
+            return pr;
+        });
         sb.Append("]}");
         System.IO.File.WriteAllText(path, sb.ToString());
         Debug.Log("[2–1] 門の型を書き出し: " + path);
