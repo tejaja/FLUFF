@@ -67,13 +67,13 @@ def build():
     m = o.modifiers.new("S2", 'SMOOTH'); m.factor = 0.6; m.iterations = 4; apply(o, m)
     m = o.modifiers.new("Dec", 'DECIMATE'); m.decimate_type = 'DISSOLVE'; m.angle_limit = DEC_ANGLE; apply(o, m)
     m = o.modifiers.new("Tri", 'TRIANGULATE'); apply(o, m)
-    for n in ("Cut_Gap", "Cut_Walk", "Cut_BasinL", "Cut_BasinR", "Cut_Slab", "Cut_SlabCornerL", "Cut_SlabCornerR"):
+    for n in ("Cut_Gap", "Cut_Walk", "Cut_BasinL", "Cut_Slab"):
         m = o.modifiers.new("B_" + n, 'BOOLEAN'); m.operation = 'DIFFERENCE'; m.solver = 'EXACT'; m.object = sc.objects[n]; apply(o, m)
     # 2026-10-28 くぼみのくりぬきが1回目で効かないことがあった（右の池がまるごと埋まった）。くぼみのまん中を上から測って、底より上に岩があれば1回だけ くりぬき直す
     #（体積を見て何回もくりぬき直すと、こわれた面からトゲが何本も出た）
     from mathutils import Vector
     from mathutils.bvhtree import BVHTree
-    for n in ("Cut_BasinL", "Cut_BasinR"):
+    for n in ("Cut_BasinL",):
         c = sc.objects[n]; vs = [v.co for v in c.data.vertices]
         zlo = min(v.z for v in vs); cen = sum(vs, Vector()) / len(vs)
         tr = BVHTree.FromObject(o, bpy.context.evaluated_depsgraph_get())
