@@ -4,6 +4,7 @@ import bpy, bmesh, json
 # 実行：Blender（FLUFF_models.blend）で exec(open(r"D:\UnityProject\FLUFF\Tools\stage2_gate.py", encoding="utf-8").read())
 P = r"D:\UnityProject\FLUFF\Tools\stage2_gate_shapes.json"
 OUT = r"D:\UnityProject\FLUFF\Assets\FuwaStage2\Models\Stage2_GateRock.fbx"
+R2_VOXEL, DEC_ANGLE = 0.22, 0.09   # 0.03 だと 79k 頂点（スマホに重い）
 sc = bpy.data.scenes.get("Stage2Gate") or bpy.data.scenes.new("Stage2Gate")
 bpy.context.window.scene = sc
 
@@ -57,8 +58,11 @@ def build():
     m = o.modifiers.new("D1", 'DISPLACE'); m.texture = t1; m.strength = 0.55; m.mid_level = 0.0; m.texture_coords = 'GLOBAL'; apply(o, m)   # 外へだけ
     t2 = bpy.data.textures.get("GateNoise2") or bpy.data.textures.new("GateNoise2", 'CLOUDS'); t2.noise_scale = 0.55; t2.noise_depth = 0
     m = o.modifiers.new("D2", 'DISPLACE'); m.texture = t2; m.strength = 0.25; m.mid_level = 0.0; m.texture_coords = 'GLOBAL'; apply(o, m)
-    m = o.modifiers.new("R2", 'REMESH'); m.mode = 'VOXEL'; m.voxel_size = 0.5; apply(o, m)   # ローポリのカクカク（スタートの岩山にそろえる）
-    m = o.modifiers.new("Dec", 'DECIMATE'); m.decimate_type = 'DISSOLVE'; m.angle_limit = 0.12; apply(o, m)
+    # 2026-10-28 てじゃ「岩もなんかカクカク」：前は 0.5 のボクセル＋平らな面をまとめる（ローポリのカクカク、スタートの岩山にそろえた）。
+    # 細かくして、面のまとめは弱く（なめらかな物を COLLAPSE で減らすとトゲになるので DISSOLVE のまま角度だけ小さく）
+    m = o.modifiers.new("R2", 'REMESH'); m.mode = 'VOXEL'; m.voxel_size = R2_VOXEL; apply(o, m)
+    m = o.modifiers.new("S2", 'SMOOTH'); m.factor = 0.6; m.iterations = 4; apply(o, m)
+    m = o.modifiers.new("Dec", 'DECIMATE'); m.decimate_type = 'DISSOLVE'; m.angle_limit = DEC_ANGLE; apply(o, m)
     m = o.modifiers.new("Tri", 'TRIANGULATE'); apply(o, m)
     for n in ("Cut_Gap", "Cut_Walk", "Cut_BasinL", "Cut_BasinR", "Cut_Slab"):
         m = o.modifiers.new("B_" + n, 'BOOLEAN'); m.operation = 'DIFFERENCE'; m.solver = 'EXACT'; m.object = sc.objects[n]; apply(o, m)
