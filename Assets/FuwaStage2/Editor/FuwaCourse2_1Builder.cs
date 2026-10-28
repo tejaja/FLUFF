@@ -2490,27 +2490,36 @@ public static class FuwaCourse2_1Builder
     // あふれた水が柱の手前の面をつたって滝になる。滝の幕（Curtain は落ち口から前へ -0.15〜0.45m）の奥半分は柱に埋める。
     // 断面は角の丸い四角（超楕円）をごつごつさせ、下ほど少し太く。下は岩の土台の中まで。ふわふわは跳ね返るだけ（Default、アウトにしない）
     //（前の案：滝の上の浮いた岩は、てじゃ「なんかちゃうな」）
-    // 奥行は道のえぐれが深いままの所（NotchUp）に収める（深くすると、えぐれが戻る所で柱の内側の角が道に食い込む）
-    public static float PillarDepth = 1.1f, PillarSide = 0.25f, PillarAbove = 0.0f, PillarBelow = 2.4f, PillarNoise = 0.12f;
-    static void FallsPillar(Transform set, int i, Vector2 fc, Vector2 fd, float width, float top, float surf)
+    // 2026-10-28 てじゃ「もっと岩の柱を奥側まで太くしよう、滝裏の水の部分まで全部柱でもいい」：柱は幕のまん中から、水路の上流のはし（奥のふちの岩）まで。
+    // 断面は中心線にそった（s, 横）の超楕円で、内側の面は道のふち＋OverFallsGap にそわせる（えぐれが戻る所で道に食い込まないように。道とのあいだは水のすき間）
+    public static float PillarSide = 0.25f, PillarAbove = 0.0f, PillarBelow = 2.4f, PillarNoise = 0.12f, PillarBackPad = 0.1f, PillarBowl = 0.5f;
+    static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf)
     {
-        var fr = Right(fd);
+        float fb = FallsFlowBack ? -1f : 1f;
         float yTop = top + PillarAbove, yBot = surf - PillarBelow;
-        var pc = fc + fd * (0.15f + PillarDepth * 0.5f);   // 手前の面が幕の厚みのまん中
-        float ha = width * 0.5f + PillarSide, hb = PillarDepth * 0.5f;
-        const int nAround = 28; const float ringStep = 0.45f; const float ex = 3.2f;   // 超楕円の丸さ（2＝楕円、大きいほど四角）
+        ChannelRange(i, out var c0, out var c1);
+        float sA = sc - fb * 0.3f + 0.15f;   // 幕の厚みのまん中（手前の面）
+        float sB = FallsFlowBack ? c1 + RimW + PillarBackPad : c0 - RimW - PillarBackPad;   // 水路の上流のはしのふちの岩まで
+        float outerL = RoadHW + ChanHW * 2f + PillarSide;
+        float Inner(float s) { return RoadHW - Cut(s, o) + OverFallsGap; }
+        const int nAround = 36; const float ringStep = 0.45f; const float ex = 3.2f;   // 超楕円の丸さ（2＝楕円、大きいほど四角）
         int nRing = Mathf.Max(2, Mathf.CeilToInt((yTop - yBot) / ringStep) + 1);
         float nOff = 31.7f * (i + 1);
-        Vector2 Ring(int k, float y, float shrink)
+        Vector3 RingPt(int k, float y, float shrink)
         {
-            float t = k / (float)nAround * Mathf.PI * 2f, c = Mathf.Cos(t), s = Mathf.Sin(t);
-            float x = Mathf.Sign(c) * Mathf.Pow(Mathf.Abs(c), 2f / ex) * ha, z = Mathf.Sign(s) * Mathf.Pow(Mathf.Abs(s), 2f / ex) * hb;
-            // 下ほど太く（てっぺんから下へ 0〜+12%）、ごつごつ（てっぺんのふちは平ら）
-            float grow = 1f + 0.12f * Mathf.InverseLerp(yTop, yBot, y);
+            float t = k / (float)nAround * Mathf.PI * 2f, c = Mathf.Cos(t), sn = Mathf.Sin(t);
+            float xn = Mathf.Sign(c) * Mathf.Pow(Mathf.Abs(c), 2f / ex), zn = Mathf.Sign(sn) * Mathf.Pow(Mathf.Abs(sn), 2f / ex);
+            // 水面より下は少し太く（下へ 0〜+12%）。水面より上は道に食い込まないようにそのまま
+            float g = (1f + 0.12f * Mathf.InverseLerp(surf - 0.3f, yBot, y)) * shrink;
+            float s = Mathf.Lerp(sA, sB, (zn * g + 1f) * 0.5f);
+            float lat = Mathf.Lerp(Inner(s), outerL, (xn * g + 1f) * 0.5f);
+            // ごつごつ：外向き（横・前後）に出し入れ。内側の面は道のふち＋すき間より道側へは出さない
             float n = (Mathf.PerlinNoise(nOff + k * 0.37f, y * 0.45f) - 0.5f) * 2f * PillarNoise;
-            var d = new Vector2(x, z); float len = d.magnitude;
-            d = d / Mathf.Max(len, 1e-4f) * (len * grow * shrink + n);
-            return pc + fr * d.x + fd * d.y;
+            var nd = new Vector2(xn, zn).normalized;
+            lat += nd.x * n; s += nd.y * n;
+            if (y > surf - 0.5f) lat = Mathf.Max(lat, Inner(s));
+            Center(s, out var p, out var d); var q = p + Right(d) * (o * lat);
+            return new Vector3(q.x, y, q.y);
         }
         // 側面（輪を縦に並べる）＋てっぺんのふた。角ばった面（三角形ごとに頂点を分ける）
         var P = new Vector3[nRing, nAround];
@@ -2518,7 +2527,7 @@ public static class FuwaCourse2_1Builder
         {
             float y = Mathf.Lerp(yBot, yTop, j / (float)(nRing - 1));
             float shrink = j == 0 ? 0.55f : 1f;   // いちばん下はすぼめる（土台の中）
-            for (int k = 0; k < nAround; k++) { var q = Ring(k, y, shrink); P[j, k] = new Vector3(q.x, y, q.y); }
+            for (int k = 0; k < nAround; k++) P[j, k] = RingPt(k, y, shrink);
         }
         var V = new List<Vector3>(); var T = new List<int>();
         void Tri(Vector3 a, Vector3 b, Vector3 c, Vector3 want)
@@ -2526,7 +2535,7 @@ public static class FuwaCourse2_1Builder
             int o = V.Count; V.Add(a); V.Add(b); V.Add(c);
             AddTriDir(V, T, o, o + 1, o + 2, want);
         }
-        var cen3 = new Vector3(pc.x, 0, pc.y);
+        var cen3 = Vector3.zero; for (int k = 0; k < nAround; k++) cen3 += P[nRing - 1, k]; cen3 /= nAround;
         for (int j = 0; j < nRing - 1; j++)
             for (int k = 0; k < nAround; k++)
             {
@@ -2535,25 +2544,41 @@ public static class FuwaCourse2_1Builder
                 var outw = (a + b + c + d) * 0.25f - new Vector3(cen3.x, (a.y + c.y) * 0.5f, cen3.z);
                 Tri(a, b, d, outw); Tri(a, d, c, outw);
             }
-        var topC = new Vector3(pc.x, yTop, pc.y);
-        for (int k = 0; k < nAround; k++) Tri(topC, P[nRing - 1, k], P[nRing - 1, (k + 1) % nAround], Vector3.up);
+        // てっぺんはくぼみ（ふち 0.8 の所から PillarBowl 下がる皿）。水たまりの水面はふちの少し下（浅いと全部が泡の白になった）
+        var topC = new Vector3(cen3.x, yTop - PillarBowl, cen3.z);
+        var inR = new Vector3[nAround];
+        for (int k = 0; k < nAround; k++) { var q = Vector3.Lerp(new Vector3(cen3.x, yTop, cen3.z), P[nRing - 1, k], 0.8f); inR[k] = new Vector3(q.x, yTop - PillarBowl, q.z); }
+        for (int k = 0; k < nAround; k++)
+        {
+            int k1 = (k + 1) % nAround;
+            Tri(P[nRing - 1, k], P[nRing - 1, k1], inR[k1], Vector3.up); Tri(P[nRing - 1, k], inR[k1], inR[k], Vector3.up);
+            Tri(topC, inR[k], inR[k1], Vector3.up);
+        }
         var m = new Mesh { name = "Course2_1_FallsPillar" + i, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         m.SetVertices(V); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
         m = Save(m, MeshDir + "/FallsPillar" + i + ".asset");
         var go = new GameObject("Pillar"); go.transform.SetParent(set, false);
         go.AddComponent<MeshFilter>().sharedMesh = m; go.AddComponent<MeshRenderer>().sharedMaterial = StoneMat();
         go.AddComponent<MeshCollider>().sharedMesh = m;
-        // てっぺんの水たまり（ふちから少し内側、面の 2cm 上）
-        var W = new List<Vector3>(); var WT = new List<int>();
-        W.Add(topC + Vector3.up * 0.02f);
-        for (int k = 0; k < nAround; k++) { var q = Vector3.Lerp(topC, P[nRing - 1, k], 0.8f); W.Add(new Vector3(q.x, yTop + 0.02f, q.z)); }
+        // てっぺんの水たまり（くぼみの中、ふちの 8cm 下）。水路と同じ帯の水の材質で、ふちの泡は uv1 の（横、半分の幅）＝（まん中からの距離、ふちまで）で
+        //（帯でない水の材質は、まわり全部が泡の白になった）
+        var W = new List<Vector3>(); var WT = new List<int>(); var WU1 = new List<Vector4>(); var WU2 = new List<Vector2>();
+        float poolY = yTop - 0.08f;
+        const float poolHW = 1f;
+        W.Add(new Vector3(topC.x, poolY, topC.z)); WU1.Add(new Vector4(0f, poolHW, 99f, 99f)); WU2.Add(new Vector2(0f, 99f));
+        for (int k = 0; k < nAround; k++)
+        {
+            var q = Vector3.Lerp(new Vector3(cen3.x, yTop, cen3.z), P[nRing - 1, k], 0.95f); W.Add(new Vector3(q.x, poolY, q.z));
+            WU1.Add(new Vector4(poolHW, poolHW, 99f, 99f)); WU2.Add(new Vector2(k * 0.3f, 99f));
+        }
         for (int k = 0; k < nAround; k++) AddTriDir(W, WT, 0, 1 + k, 1 + (k + 1) % nAround, Vector3.up);
         var wm = new Mesh { name = "Course2_1_FallsPillarPool" + i };
-        wm.SetVertices(W); wm.SetTriangles(WT, 0); wm.normals = W.Select(v => Vector3.up).ToArray(); wm.RecalculateBounds();
+        wm.SetVertices(W); wm.SetTriangles(WT, 0); wm.SetUVs(0, W.Select(v => Vector2.zero).ToList()); wm.SetUVs(1, WU1); wm.SetUVs(2, WU2); wm.SetUVs(3, W.Select(v => Vector2.zero).ToList());
+        wm.normals = W.Select(v => Vector3.up).ToArray(); wm.RecalculateBounds();
         wm = Save(wm, MeshDir + "/FallsPillarPool" + i + ".asset");
         var pool = new GameObject("PillarPool"); pool.transform.SetParent(set, false);
-        pool.AddComponent<MeshFilter>().sharedMesh = wm; pool.AddComponent<MeshRenderer>().sharedMaterial = WaterMat(0f, false);
-        WaterOrb(set, topC, "SourceOrb", 1.4f, 0.3f, 0.22f);
+        pool.AddComponent<MeshFilter>().sharedMesh = wm; pool.AddComponent<MeshRenderer>().sharedMaterial = WaterMat(0f, true);
+        WaterOrb(set, new Vector3(topC.x, poolY, topC.z), "SourceOrb", 1.5f, 0.3f, 0.22f);
     }
     // 落ち口の線（p を通り r にそう）の 5mm 外に、外（o）を向いた岩の板（見た目だけ。当たりなし）
     static void EndLipPlate(Transform g, string meshName, Vector2 p, Vector2 r, Vector2 o, float latA, float latB, float yBot, float yTop)
@@ -2642,7 +2667,7 @@ public static class FuwaCourse2_1Builder
             float ia = RoadHW - CutDepth[i] + OverFallsGap, width = outer - OverFallsGap - ia;
             var fc = fp + fr * (o * (ia + width * 0.5f));
             FuwaStage2WaterTest.Waterfall(set, "OverFalls", new Vector3(fc.x, 0, fc.y), FallsH + OverFallsH, surf, width, new Vector3(fd.x, 0, fd.y));
-            FallsPillar(set, i, fc, fd, width, FallsH + OverFallsH, surf);
+            FallsPillar(set, i, sc, o, width, FallsH + OverFallsH, surf);
         }
         // アウト判定：道の下（ふわふわ＝FuwaHazard、人＝FuwaPlayerCatcher）。4m ごと、道と水路より下
         var outs = new GameObject("Outs").transform; outs.SetParent(g, false);
