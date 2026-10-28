@@ -1272,8 +1272,11 @@ public static class FuwaCourse2_1Builder
     // 池のまん中の上に光る青い球が浮かんで（FuwaHover でゆらゆら・くるくる）、球の下から水が池へ落ち続ける。落ちる所は湧き水の波紋（Spring）
     public static float OrbHeight = 2.6f, OrbRadius = 0.45f, OrbStream = 0.32f;
     static void WaterOrb(Transform terr, Vector3 pool) { WaterOrb(terr, pool, "WaterOrb", OrbHeight, OrbRadius, OrbStream); }
+    // 球と水の柱の太さの倍率（2026-10-28 てじゃ「たま大きくして水も太くもしよう」）。全部の球にかかる
+    public static float OrbSizeK = 1.5f, OrbStreamK = 1.8f;
     static void WaterOrb(Transform terr, Vector3 pool, string name, float OrbHeight, float OrbRadius, float OrbStream)
     {
+        OrbRadius *= OrbSizeK; OrbStream *= OrbStreamK;
         var g = new GameObject(name).transform; g.SetParent(terr, false); g.localPosition = pool + Vector3.up * OrbHeight;
         var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere); orb.name = "Orb"; orb.transform.SetParent(g, false);
         Object.DestroyImmediate(orb.GetComponent<Collider>());
@@ -1314,7 +1317,21 @@ public static class FuwaCourse2_1Builder
         }
         var st = new GameObject("Stream"); st.transform.SetParent(g, false);
         st.AddComponent<MeshFilter>().sharedMesh = mesh;
-        var sr = st.AddComponent<MeshRenderer>(); sr.sharedMaterial = FuwaStage2WaterTest.WaterfallThickMat(true); sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        var sr = st.AddComponent<MeshRenderer>(); sr.sharedMaterial = OrbStreamMat(); sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+    }
+    // 青い球の下の水の柱の材質（2026-10-28 てじゃ「青いたまから落ちる水、白ばっかりで水にみえない」：大きい滝と同じ材質で、上下の泡（0.8m ずつ）と
+    // 筋が 1〜2m の短い柱をほとんど白にしていた）。泡は短く、筋は細かく少なめ
+    public static float OrbStreamFoam = 0.12f, OrbStreamStreak = 0.45f;
+    static Material OrbStreamMat()
+    {
+        const string p = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_OrbStream.mat";
+        var baseM = FuwaStage2WaterTest.WaterfallThickMat(true);
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (!m) { m = new Material(baseM); AssetDatabase.CreateAsset(m, p); }
+        m.CopyPropertiesFromMaterial(baseM);
+        m.SetFloat("_EdgeFoam", OrbStreamFoam); m.SetFloat("_StreakScale", OrbStreamStreak);
+        EditorUtility.SetDirty(m);
+        return m;
     }
 
     // ---- 道と水の下の岩の土台（2026-10-25 てじゃ「手前から順番にどんどんいこ」→ 滝つぼ〜川〜蓮の池）----
