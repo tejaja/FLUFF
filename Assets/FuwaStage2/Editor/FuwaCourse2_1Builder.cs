@@ -2500,7 +2500,7 @@ public static class FuwaCourse2_1Builder
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
     // 幕の上は柱のてっぺんより PillarLipDrop 下（膜の曲がる所の後ろに隠れる）
-    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f;
+    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
         float fb = FallsFlowBack ? -1f : 1f;
@@ -2719,6 +2719,17 @@ public static class FuwaCourse2_1Builder
         var wo = set.TransformPoint(orbAt);
         plm.SetFloat("_PondRadial", 1f); plm.SetVector("_RadialCenter", new Vector4(wo.x, wo.z, D * 0.9f, D * 1.4f));
         plm.SetFloat("_EdgeRim", PillarEdgeRim);   // 岩との境の白いふち
+        // 落ちた所（水路の水面）：最初の大きい滝（CurvedFalls）と同じ滝つぼの泡（白い泡・泡立った水・広がる輪）。2026-10-28 てじゃ「下に落ちたところも、最初の滝みたいにエフェクトほしい」
+        // 横は道の側だけ滝のはば＋0.55m（はしがまっすぐ切れて見えた。道は水面より上なので隠れる）、外の側は＋0.25。前は流れていく向き＝-fd へ。霧（OverFalls の Mist）も落ちた所へ
+        var land = lipMid - fd * (LipIn + PillarLipGap);
+        float sr = PillarSplashReach;
+        // 板のローカル +x＝Right(-fd)。外（島の外）は o>0 なら +x（撮って確かめた。外へ広げると柱の外の空中に泡が出た）
+        float foamOut = 0.25f, foamIn = 0.55f;
+        // WaterDecal はメッシュ・材質を親の名前で保存するので、柱ごとに別の親（同じ名前だと3つとも最後の柱の形になった）
+        var fg = new GameObject("Splash" + i).transform; fg.SetParent(lg, false);
+        WaterDecal(fg, "PoolFoam", new Vector3(land.x, surf + 0.012f, land.y), new Vector3(-fd.x, 0f, -fd.y), -hw - (o > 0f ? foamIn : foamOut), hw + (o > 0f ? foamOut : foamIn), -0.05f, sr * 1.6f, 0, hw, sr, new Color(0.45f, 0.78f, 0.95f));
+        var mist = set.Find("OverFalls/Mist");
+        if (mist) { mist.position = set.TransformPoint(new Vector3(land.x, surf + 0.05f, land.y)) - set.TransformDirection(new Vector3(fd.x, 0, fd.y)) * 0.25f; }
         EditorUtility.SetDirty(plm);
         sheet.GetComponent<MeshRenderer>().sharedMaterial = plm;
     }
