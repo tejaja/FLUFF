@@ -3073,19 +3073,22 @@ public static class FuwaCourse2_1Builder
         // 左：内側（川の側）gIn、くぐり口の壁 gOut、外のはし -GateLeftOut。断面は 上のくぼみ → 外の面 → 下のとがり → くぐり口の壁 → くぐり口の天井 → 内の面
         // くぐり口より外の岩（gOut〜外のはし）のまん中 cS・半幅 hS で、下流のはしを半円に
         float cS = (gOut - GateLeftOut) * 0.5f, hS = (gOut + GateLeftOut) * 0.5f;
-        // 下流のはしは、左右とも滝の落ち口の線（sl1）でそろえて切る（2026-10-28 てじゃ「ここのライン揃えたほうがいいかも、岩含めて」）。
-        // 前は左は sl1+0.7+半円、右は下流の崖まで続いていて、池と岩が落ち口の線から下流へでこぼこはみ出していた。角は GateFlushRound で丸める
-        float l0 = wa - GateLeftExtra, l1 = sl1 + GateFlushOut + GateFlushRound;
-        float WallL(float s) => cS + hS * RfD(s, l1, GateFlushRound);
-        float OutL(float s) => Mathf.Max(cS - hS * RfD(s, l1, GateFlushRound), gOut + (-GateLeftOut - gOut) * RfU(s, l0));
-        float LintelL(float s) { float w = WallL(s); return w + (gIn - w) * RfD(s, l1, GateFlushRound); }
-        float CeilL(float s) => gTop + 0.6f * (1f - RfD(s, l1, GateFlushRound));
+        // 下流のはしは、左右とも同じ所でそろえる（2026-10-28 てじゃ「ここのライン揃えたほうがいいかも、岩含めて」「赤い部分を切るイメージ」）。
+        // 前は左は sl1+0.7+半円、右は下流の崖（r0+FinCliffLen+半円）までで、はしがずれていた。短いほうはそのまま（丸いはしも元のまま）、
+        // 長いほうだけ短いほうのはしで切って、角は GateFlushRound で丸める
+        float endL = sl1 + 0.7f + hS, endR = r0 + FinCliffLen + (GateRightOut - FinRiverHW) * 0.5f, gEnd = Mathf.Min(endL, endR);
+        float lRound = endL <= endR ? hS : GateFlushRound, rRound = endR <= endL ? (GateRightOut - FinRiverHW) * 0.5f : GateFlushRound;
+        float l0 = wa - GateLeftExtra, l1 = gEnd;
+        float WallL(float s) => cS + hS * RfD(s, l1, lRound);
+        float OutL(float s) => Mathf.Max(cS - hS * RfD(s, l1, lRound), gOut + (-GateLeftOut - gOut) * RfU(s, l0));
+        float LintelL(float s) { float w = WallL(s); return w + (gIn - w) * RfD(s, l1, lRound); }
+        float CeilL(float s) => gTop + 0.6f * (1f - RfD(s, l1, lRound));
         float RidgeL(float s) => Mathf.Min(0.3f, (LintelL(s) - OutL(s)) * 0.25f);
         // 右：内側（川の側）FinRiverHW、外のはし GateRightOut。下のはしは川の底より下。下流のはしは右岸の地面の上で半円に
         float rin = FinRiverHW, cR = (rin + GateRightOut) * 0.5f, hR = (GateRightOut - rin) * 0.5f;
-        float r0s = sF1 + 0.2f, r1s = sl1 + GateFlushOut + GateFlushRound;
-        float InR(float s) => cR - hR * RfD(s, r1s, GateFlushRound);
-        float OutR(float s) => Mathf.Min(cR + hR * RfD(s, r1s, GateFlushRound), rin + (GateRightOut - rin) * RfU(s, r0s));
+        float r0s = sF1 + 0.2f, r1s = gEnd;
+        float InR(float s) => cR - hR * RfD(s, r1s, rRound);
+        float OutR(float s) => Mathf.Min(cR + hR * RfD(s, r1s, rRound), rin + (GateRightOut - rin) * RfU(s, r0s));
         float RidgeR(float s) => Mathf.Min(0.3f, (OutR(s) - InR(s)) * 0.25f);
         // くぼみの水（ふちの内側）。滝の所は内側のふちまで（水がかかっている所とつながる）。はしの細い所は水なし
         // （はしの丸い所まで水を張ると、まっすぐな水のはしが丸いふちから はみ出して見えた）
@@ -3376,8 +3379,9 @@ public static class FuwaCourse2_1Builder
         });
         // 上の水のくぼみ：水面のはしより5cm内側（水のはしは岩の中にかくれる）、底は yTop-GateFloor
         float fl = yTop - GateFloor;
-        Loft("Cut_BasinL", Steps(lw0, lw1, 0.1f), s => { float a = lInA(s), b = lInB(s); return new List<Vector2> { new Vector2(b + 0.05f, fl), new Vector2(a, fl), new Vector2(a, yTop + 5f), new Vector2(b + 0.05f, yTop + 5f) }; });
-        Loft("Cut_BasinR", Steps(rw0, rw1, 0.1f), s => { float a = rInA(s), b = rInB(s); return new List<Vector2> { new Vector2(a, fl), new Vector2(b - 0.05f, fl), new Vector2(b - 0.05f, yTop + 5f), new Vector2(a, yTop + 5f) }; });
+        // 細いはしでゆらぎのせいで左右が入れかわると、型がねじれて Blender のブーリアンが失敗し、池が丸ごと消えた → はばは 0.2m 以上に
+        Loft("Cut_BasinL", Steps(lw0, lw1, 0.1f), s => { float a = lInA(s), b = Mathf.Min(lInB(s), lInA(s) - 0.2f); return new List<Vector2> { new Vector2(b + 0.05f, fl), new Vector2(a, fl), new Vector2(a, yTop + 5f), new Vector2(b + 0.05f, yTop + 5f) }; });
+        Loft("Cut_BasinR", Steps(rw0, rw1, 0.1f), s => { float a = rInA(s), b = Mathf.Max(rInB(s), rInA(s) + 0.2f); return new List<Vector2> { new Vector2(a, fl), new Vector2(b - 0.05f, fl), new Vector2(b - 0.05f, yTop + 5f), new Vector2(a, yTop + 5f) }; });
         Loft("Cut_Slab", Steps(sl0, sl1 + 0.5f, 0.2f), s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + 5f), new Vector2(gIn, yTop + 5f) });
         sb.Append("]}");
         System.IO.File.WriteAllText(path, sb.ToString());

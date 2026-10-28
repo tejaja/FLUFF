@@ -40,6 +40,9 @@ def load():
             o = bpy.data.objects.new(n, bpy.data.meshes.new(n)); sc.collection.objects.link(o)
         bm.to_mesh(o.data); bm.free(); o.data.update(); o.hide_set(True)
 
+def vol(o):
+    bm = bmesh.new(); bm.from_mesh(o.data); v = bm.calc_volume(signed=True); bm.free(); return v
+
 def apply(o, m): bpy.context.view_layer.objects.active = o; bpy.ops.object.modifier_apply(modifier=m.name)
 
 def build():
@@ -66,6 +69,14 @@ def build():
     m = o.modifiers.new("Tri", 'TRIANGULATE'); apply(o, m)
     for n in ("Cut_Gap", "Cut_Walk", "Cut_BasinL", "Cut_BasinR", "Cut_Slab"):
         m = o.modifiers.new("B_" + n, 'BOOLEAN'); m.operation = 'DIFFERENCE'; m.solver = 'EXACT'; m.object = sc.objects[n]; apply(o, m)
+    # 2026-10-28 くぼみのくりぬきが1回目で効かないことがあった（右の池がまるごと埋まった）。けずれる量がなくなるまで もう一度
+    for n in ("Cut_BasinL", "Cut_BasinR", "Cut_Slab"):
+        for it in range(3):
+            v0 = vol(o)
+            m = o.modifiers.new("B2_" + n, 'BOOLEAN'); m.operation = 'DIFFERENCE'; m.solver = 'EXACT'; m.object = sc.objects[n]; apply(o, m)
+            d = v0 - vol(o)
+            print("recut", n, round(d, 2))
+            if d < 0.05: break
     for p in o.data.polygons: p.use_smooth = False
     mat = bpy.data.materials.get("Stage2_GateRock") or bpy.data.materials.new("Stage2_GateRock")
     o.data.materials.clear(); o.data.materials.append(mat)
