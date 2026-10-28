@@ -2002,6 +2002,34 @@ public static class FuwaCourse2_1Builder
         }
     }
 
+    // ---- ラストの川の飛び石（2026-10-28 てじゃ「このへんに飛び石を」：門の滝の下から川が曲がるあたりまで、ジグザグに3つ）----
+    // 位置は (川の始まり r0 → カーブの始まり sBend0 の割合 t, 横＝川の半分の幅に対する割合)。見た目・当たり判定は渡り場の飛び石と同じ（上の面＝岸の高さ、レイヤー0）
+    public static Vector2[] FinStones = { new Vector2(0.37f, 0.1f), new Vector2(0.72f, -0.62f), new Vector2(1.1f, -0.12f) };
+    static void FinalStones(Transform g, float r0, float surf)
+    {
+        var sg = new GameObject("FinalStones").transform; sg.SetParent(g, false);
+        var tmpCyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder); var cyl = tmpCyl.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(tmpCyl);
+        var rng = new System.Random(4411);
+        for (int i = 0; i < FinStones.Length; i++)
+        {
+            float s = Mathf.LerpUnclamped(r0, sBend0, FinStones[i].x), lat = FinStones[i].y * FinRiverHW;
+            Center(s, out var p, out var d); var q = p + Right(d) * lat;
+            float topY = surf + BankTop;
+            var st = new GameObject("Stone" + i); st.transform.SetParent(sg, false);
+            st.transform.localPosition = new Vector3(q.x, topY, q.y);
+            st.transform.localRotation = Quaternion.Euler(0, (float)rng.NextDouble() * 360f, 0);
+            var cg = new GameObject("Collider"); cg.transform.SetParent(st.transform, false);
+            float h = BankTop + WaterDepth + 0.1f;
+            cg.transform.localPosition = new Vector3(0, -h * 0.5f, 0); cg.transform.localScale = new Vector3(StoneR * 2f, h * 0.5f, StoneR * 2f);
+            cg.AddComponent<MeshCollider>().sharedMesh = cyl; cg.GetComponent<MeshCollider>().convex = true;
+            var v = new GameObject("Rock"); v.transform.SetParent(st.transform, false);
+            v.AddComponent<MeshFilter>().sharedMesh = BoulderMesh(i + 1, true);
+            v.AddComponent<MeshRenderer>().sharedMaterial = StoneMat();
+            float r = StoneR * (1.05f + 0.1f * (float)rng.NextDouble());
+            v.transform.localPosition = new Vector3(0, -0.135f, 0); v.transform.localScale = new Vector3(r * 2.1f, 0.42f, r * 1.9f);
+        }
+    }
+
     // ---- 川のまん中の岩（2026-10-28 てじゃ「この赤のあたりに岩を置く、飛び石より若干大きい、高さはちょっと高い」）----
     // 止める岩（StopRocks）と2回目の渡り場の飛び石のあいだ（MidRockAt：止める岩→渡り場の割合）、川のまん中。レイヤー0（当たるだけ・乗ってもアウトにならない）
     public static float MidRockAt = 0.65f, MidRockLat = 0f, MidRockR = 0.55f, MidRockUp = 0.3f, MidRockTip = 0.35f;   // MidRockUp＝肩の高さ（岸の道から）、MidRockTip＝そこからてっぺんまで
@@ -3161,6 +3189,7 @@ public static class FuwaCourse2_1Builder
         FuwaStage2WaterTest.Waterfall(g, "EndFalls", new Vector3(ep.x, 0, ep.y), surf + 0.02f, surf - 10f, FinRiverHW * 2f + 0.3f, new Vector3(ed.x, 0, ed.y));
         // 見た目はふちからこぼれる膜に（2026-10-26 てじゃ「木の板いらんよね」→ 前の箱の滝だと、落ち口と滝のすき間から川の底の切り口が板に見えた）。押す範囲・霧・音は残す
         EndLipFalls(g, "FinalEndFalls", ep, ed, Right(ed), FinRiverHW, surf, surf - 10f, FinRiverLook);
+        FinalStones(g, r0, surf);
         // 右岸：川ぞいの細い地面（ふわふわが乗るとアウト）
         // 始まりは川の始まり（門の岩山の中）から。前は右の崖（FinalCliffR、今はない）の分 FinCliffLen あとからで、岩山との間に川の底が見えていた（2026-10-28 てじゃ「岩とぎれて川底みえてる」）
         RockSweep(g, "RightBank", r0, r1, s => FinRiverHW, s => FinRiverHW + FinBankW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, 11, true);
