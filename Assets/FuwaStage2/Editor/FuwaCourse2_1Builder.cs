@@ -177,6 +177,8 @@ public static class FuwaCourse2_1Builder
         public bool collisionOnly;   // 当たり判定だけ（見た目は別に作る）
         // この横（中心線から）より内側には板を置かない（洞窟の床のはし。s が floorEdgeS1 より前だけ）
         public float floorEdge = float.NaN, floorEdgeS1;
+        // 縞をこの道の終わりから続ける（つなぎ目で縞が切れて太く見えないように）
+        public string stripeAfter;
         public float woodBeamS0 = float.NaN;
         // 板をこの線で切る（root のローカル xz。点 woodClipP を通り、woodClipN の向きの側だけ残す。N＝0 なら切らない）。ほかの道の上にのせて横からつなぐ所
         public Vector2 woodClipP, woodClipN;
@@ -448,7 +450,7 @@ public static class FuwaCourse2_1Builder
         pieces.Add(new Piece { name = "M7_LeftBank", s0 = sF1 + FinDownEnd, s1 = sBend0, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false });   // 2026-10-28 てじゃ「下り坂の先からゴールの橋の手前まで青い道に」（M7・M8。坂 M6 とゴールの島の橋は木のまま）
         {
             Center(sBend0, out var wp, out var wd); var wq = wp + Right(wd) * (-FinRiverHW - FinWalkW * 0.5f); float ws = sBend0;
-            pieces.Add(new Piece { name = "M8_ToGoal", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = WalkToGoalH, round0 = false, round1 = false });
+            pieces.Add(new Piece { name = "M8_ToGoal", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = WalkToGoalH, round0 = false, round1 = false, stripeAfter = "M7_LeftBank" });
         }
         // 右岸のゴールの広場（M8_GoalPlaza）は 2026-10-23 にやめて、ゴールの島（GoalSet）に
 
@@ -3048,7 +3050,8 @@ public static class FuwaCourse2_1Builder
         // 見た目はふちからこぼれる膜に（2026-10-26 てじゃ「木の板いらんよね」→ 前の箱の滝だと、落ち口と滝のすき間から川の底の切り口が板に見えた）。押す範囲・霧・音は残す
         EndLipFalls(g, "FinalEndFalls", ep, ed, Right(ed), FinRiverHW, surf, surf - 10f, FinRiverLook);
         // 右岸：川ぞいの細い地面（ふわふわが乗るとアウト）
-        RockSweep(g, "RightBank", r0 + FinCliffLen, r1, s => FinRiverHW, s => FinRiverHW + FinBankW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, 11, true);
+        // 始まりは川の始まり（門の岩山の中）から。前は右の崖（FinalCliffR、今はない）の分 FinCliffLen あとからで、岩山との間に川の底が見えていた（2026-10-28 てじゃ「岩とぎれて川底みえてる」）
+        RockSweep(g, "RightBank", r0, r1, s => FinRiverHW, s => FinRiverHW + FinBankW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, 11, true);
         // 左岸の道の下の土台（道と川のあいだのすき間を埋める）。カーブの始まりまで。その先の道は川から離れていく桟橋
         Sweep(g, "LeftBankBase", sF1 + FinLand, sBend0, s => -FinRiverHW - FinWalkW, s => -FinRiverHW, s => surf - WaterDepth - 1.5f, s => LeftBankH(s) - Thick - 0.01f, ground, 0, true);
         // カーブの外側の岸：右岸と同じ細い地面
@@ -4270,6 +4273,7 @@ public static class FuwaCourse2_1Builder
         var V = new List<Vector3>(); var N = new List<Vector3>(); var UV = new List<Vector2>();
         var A = new List<int>(); var Bt = new List<int>();
         const float step = 0.25f;
+        var stripeEnd = new Dictionary<string, float>();
         foreach (var pc in pieces)
         {
             float s0p = pc.s0, s1p = pc.s1;
@@ -4308,8 +4312,10 @@ public static class FuwaCourse2_1Builder
             if (b1) for (int k = 1; k <= BevelSteps; k++) { float th = (Mathf.PI / 2) * k / BevelSteps; st.Add(new Vector4(s1p - Bevel * (1 - Mathf.Sin(th)), Bevel * (1 - Mathf.Cos(th)), th, 1)); }
             // その道の実際の長さ（縞の間隔をそろえる）
             var dist = new float[st.Count];
+            if (pc.stripeAfter != null && stripeEnd.TryGetValue(pc.stripeAfter, out var d0)) dist[0] = d0;
             Vector2 DC(float s) { if (!pc.centerLat) return PieceC(pc, s); Center(s, out var p0, out _); return p0; }
             for (int r = 1; r < st.Count; r++) dist[r] = dist[r - 1] + (DC(st[r].x) - DC(st[r - 1].x)).magnitude;
+            stripeEnd[pc.name] = dist[st.Count - 1];
             var rings = new List<int>(); int P = 0;
             for (int r = 0; r < st.Count; r++)
             {
