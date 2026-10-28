@@ -1576,7 +1576,7 @@ public static class FuwaCourse2_1Builder
                     bool chan = t.parent && t.parent.parent && t.parent.parent.parent && t.parent.parent.parent.name == "FallsRoad" && t.parent.parent.parent.parent == root && t.parent.name.StartsWith("Channel");
                     // その水路の範囲の中の断面だけ（2026-10-28 カーブの内側へのびた断面が、となりのセットの水路まで届いて岩の棚が広がり、3つ目の端の滝を隠していた）
                     if (chan && int.TryParse(t.parent.name.Substring(7), out int ci) && ci < setS.Length)
-                    { ChannelRange(ci, out var cr0, out var cr1); if (ss[i] < cr0 - 0.5f || ss[i] > cr1 + 0.5f) chan = false; }
+                    { ChannelRange(ci, out var cr0, out var cr1); if (ss[i] < cr0 || ss[i] > cr1) chan = false; }
                     // ラストの川（Finale/W6_FinalRiver の底・ふち）と両岸
                     bool fin = (t.parent && t.parent.name == "Finale" && t.parent.parent == root && (t.name == "RightBank" || t.name == "LeftBank"))
                         || (t.parent && t.parent.parent && t.parent.parent.name == "Finale" && t.parent.parent.parent == root && t.parent.name.StartsWith("W6_"));
@@ -1609,7 +1609,9 @@ public static class FuwaCourse2_1Builder
                 if (!ok[i])
                 {
                     int j = i; while (j < n && !ok[j]) j++;
-                    bool shortGap = inRun && j < n && j - i <= 2;
+                    // 切れ目（水路のはし）をまたぐ抜けは埋めない（2026-10-28 2つ目の上流のはしと3つ目の下流のはしのあいだ 1.8m がつながって、
+                    // 反対側の水路の はば が道の下へはみ出していた）
+                    bool shortGap = inRun && j < n && j - i <= 2 && !Crosses(ss[i - 1], ss[j]);
                     if (!shortGap) { for (int k = i; k < j; k++) run[k] = -1; inRun = false; i = j - 1; continue; }
                     for (int k = i; k < j; k++) { run[k] = r; L[k] = L[i - 1]; R[k] = R[i - 1]; yL[k] = yL[i - 1]; yR[k] = yR[i - 1]; yMin[k] = yMin[i - 1]; }
                     i = j - 1; continue;
