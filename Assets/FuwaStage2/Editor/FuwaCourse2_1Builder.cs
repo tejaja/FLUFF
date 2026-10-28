@@ -3053,7 +3053,7 @@ public static class FuwaCourse2_1Builder
     // その前のふちから道の幅いっぱいに滝がこぼれる。水がかかっている所の後ろ・下も水の膜でつつむ。水の上に青い球を2つ。
     // 岩は前の箱の当たり判定をつつむ形（内側＝川・くぐり口の面はまっすぐ、外の面だけでこぼこ）で、当たり判定も岩のメッシュ
     public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 0.3f,   // 1.0 だとくぼみの型のはしのふたが 1m の平らな壁になって見えた（2026-10-28 てじゃ「まっすぐ部分が直線すぎる」）
-        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f, GateBandDepth = 3.2f, GateBandRim = 0.35f, GateDomeH = 2.6f;
+        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f, GateBandDepth = 3.2f, GateBandRim = 0.35f, GateDomeH = 2.6f, GateFaceOut = 0.4f, GateSlotH = 0.8f;
     public static float GateLeftOut = 9.8f, GateRightOut = 7.5f, GateLeftExtra = 1.3f;
     static void FinaleGate(Transform g, float H, float surf, float cs, float wa, float wb, float gIn, float gOut, float gTop, float r0)
     {
@@ -3081,6 +3081,9 @@ public static class FuwaCourse2_1Builder
         // 切った側の角も丸く（2026-10-28 てじゃ「下流側の真っ直ぐになってるのをもうちょいなめらかに」：0.6m の角丸だと四角い箱に見えた）。はばの半分の GateFlushRoundK 倍
         float hRr = (GateRightOut - FinRiverHW) * 0.5f;
         float lRound = endL <= endR ? hS : hS * GateFlushRoundK, rRound = endR <= endL ? hRr : hRr * GateFlushRoundK;
+        // 2026-10-28 案B（てじゃ「川+丸めの２つって時点でダメ」→「Bいいね」）：左右の岩と橋を1つの丸い岩山に。下流の面は落ち口（sl1）のすぐ先でそろえて、
+        // その面にあいた横長の穴（Cut_Slab）から滝のカーテンが落ちる。ふわふわの通路は岩山のトンネル（Cut_Gap をアーチの高さまでで止める）
+        gEnd = sl1 + GateFaceOut; lRound = GateFlushRound; rRound = GateFlushRound;
         float l0 = wa - GateLeftExtra, l1 = gEnd;
         float WallL(float s) => cS + hS * RfD(s, l1, lRound);
         float OutL(float s) => Mathf.Max(cS - hS * RfD(s, l1, lRound), gOut + (-GateLeftOut - gOut) * RfU(s, l0));
@@ -3205,7 +3208,7 @@ public static class FuwaCourse2_1Builder
         // 青い球：左右のくぼみの上に1つずつ（球の下は湧き水）
         // 池のまん中に（下流のはしを落ち口でそろえて池が短くなったので、前の場所 cs+2.6 だと右の球が岩の外の空中に出た）
         // 青い球は谷の水の上流のはしの上に1つ
-        foreach (var (s, lat) in new[] { (sl0 + 0.35f, (gIn + rin) * 0.5f) })
+        foreach (var (s, lat) in new (float, float)[0])   // 案B：水の出どころは岩山の中（球なし）
         {
             Center(s, out var p, out var d); var q = p + Right(d) * lat; var pos = new Vector3(q.x, yTop, q.y);
             var sp = new GameObject("GateOrb" + (lat < 0 ? "L" : "R")).transform; sp.SetParent(gate, false);
@@ -3226,8 +3229,7 @@ public static class FuwaCourse2_1Builder
             var gr = new GameObject("GateRock"); gr.transform.SetParent(gate, false);
             gr.AddComponent<MeshFilter>().sharedMesh = gateModel; gr.AddComponent<MeshRenderer>().sharedMaterial = RockBaseMat();
             gr.AddComponent<MeshCollider>().sharedMesh = gateModel;
-            GateWaterFitToRock(gate, gr.GetComponent<MeshCollider>(), yTop);
-            GateWaterFoamFromRock(gate, gr.GetComponent<MeshCollider>(), yTop);
+            // 案B：谷の水は岩山の穴の中なので、岩からの距離の泡・寄せはしない
         }
         if (GateExportPath != null) ExportGateShapes(gate, GateExportPath, H, surf, yTop, sl0, sl1, gIn, gOut, rin, l0, l1, r0s, r1s, bS0, bS1, rc0, rc1,
             WallL, CeilL, s => BandA(s) - 0.05f, s => BandB(s) + 0.05f, RAcut, RB);
@@ -3363,10 +3365,17 @@ public static class FuwaCourse2_1Builder
             var m = gate.Find(nm).GetComponent<MeshFilter>().sharedMesh; Emit("Src_" + nm, m.vertices.ToList(), m.triangles.ToList());
         }
         // 橋の土台：箱（上はせき止めるふちの高さ、下はアーチの根元より下）。アーチは Cut_Gap でくりぬく
-        float bs0 = sl0 - 0.3f;
-        Loft("Src_Bridge", Steps(bs0, sl1, 0.2f), s => new List<Vector2> { new Vector2(gIn - 0.4f, yTop + GateRim), new Vector2(rin + 0.4f, yTop + GateRim), new Vector2(rin + 0.4f, yTop - GateArchSpring - 1f), new Vector2(gIn - 0.4f, yTop - GateArchSpring - 1f) });
+        // 案B：橋の土台を岩山の上流のはしから下流の面まで、上は丸い屋根（左右の岩とつながる高さ）
+        // 岩山の上流のはしまで（Max だと上流側の谷が上から開いて水が見えた）。左右の岩と深く重ねて、真ん中を少し高く（細い橋に見えないように）
+        float bs0 = Mathf.Min(l0, r0s), be = l1;
+        Loft("Src_Bridge", Steps(bs0, be, 0.2f), s =>
+        {
+            float k = Mathf.Min(Smooth01((s - bs0) / GateEndRound), Smooth01((be - s) / GateFlushRound + 0.6f));
+            float top = yTop + GateRim + GateDomeH * k;
+            return new List<Vector2> { new Vector2(gIn - 1.8f, top - 0.3f), new Vector2((gIn + rin) * 0.5f, top + 0.6f * k), new Vector2(rin + 1.8f, top - 0.3f), new Vector2(rin + 1.8f, yTop - GateArchSpring - 1f), new Vector2(gIn - 1.8f, yTop - GateArchSpring - 1f) };
+        });
         // 岩のすき間（川・滝・踊り場の右の岩の面まで）。橋の所はアーチの下だけ。でこぼこは下流の川ぞいだけ（滝のはし・踊り場のふちは平らのまま）
-        float g0 = r0s - 2f, g1 = Mathf.Max(l1, r1s) + 3f, bA = bs0 - 0.4f, bB = sl1 - 0.02f;
+        float g0 = r0s - 2f, g1 = Mathf.Max(l1, r1s) + 3f, bA = g0 - 1f, bB = sl1 + GateFaceOut + 1f;   // 案B：岩山の中は全部アーチ（トンネル）
         Loft("Cut_Gap", Steps(g0, g1, 0.2f, bA, bB), s =>
         {
             // 上流（踊り場の横・アーチの下）もでこぼこ。平らのままは滝のはしが接する所（落ち口の前後）だけ。
@@ -3416,7 +3425,8 @@ public static class FuwaCourse2_1Builder
         }
         // 横長の池（GateWaterBand）のくぼみ：lw0/lw1 と lInA/lInB に池の範囲が入ってくる（案A。左右の池・角の型はやめた）
         Loft("Cut_BasinL", Steps(lw0, lw1, 0.05f), s => { float a = lInA(s), b = lInB(s); return new List<Vector2> { new Vector2(a, fl), new Vector2(b, fl), new Vector2(b, yTop + 5f), new Vector2(a, yTop + 5f) }; });
-        Loft("Cut_Slab", Steps(sl0, sl1 + 0.5f, 0.2f), s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + 5f), new Vector2(gIn, yTop + 5f) });
+        // 案B：下流の面の横長の穴（水の出口）。上は水面の GateSlotH 上まで
+        Loft("Cut_Slab", Steps(sl0, sl1 + GateFaceOut + 0.5f, 0.2f), s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + GateSlotH), new Vector2(gIn, yTop + GateSlotH) });
         sb.Append("]}");
         System.IO.File.WriteAllText(path, sb.ToString());
         Debug.Log("[2–1] 門の型を書き出し: " + path);
