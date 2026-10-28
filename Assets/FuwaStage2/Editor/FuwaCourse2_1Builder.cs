@@ -2541,7 +2541,11 @@ public static class FuwaCourse2_1Builder
         // 2026-10-28 てじゃ「全部上がずれてる、柱側であわせられないかな」：ふちを下げると、まわりのふち・水たまり・膜の上の高さがばらばらに見えた。
         // てっぺんのふちは全部同じ高さ（yTop）のまま、水たまりはふちすれすれまで満たして（あふれそうな水面）、膜もふちの高さからこぼす
         float poolY = yTop - 0.01f, lipRim = yTop;
-        var lip0 = fc + fd * 0.15f; var lfr = Right(fd); float lipHW = width * 0.5f + 0.03f;   // 幕（厚みのある箱）の横の面もおおう
+        // 落ち口（膜）は柱の手前の面の幅いっぱい・まん中に（2026-10-28 てじゃ「横にだいぶずれてる」：膜を幕の幅に合わせていたので、
+        // 柱が外側へ 0.65m はみ出して、膜が道側に寄って見えた）。幕（押す範囲）はそのまま
+        var lfr = Right(fd);
+        float pIn = Inner(sA), pMid = (pIn + outerL) * 0.5f, cMid = RoadHW - CutDepth[i] + OverFallsGap + width * 0.5f;
+        var lip0 = fc + fd * 0.15f + lfr * (o * (pMid - cMid)); float lipHW = (outerL - pIn) * 0.5f - 0.02f;
         float FrontW(Vector3 q, int k)
         {
             float sn = Mathf.Sin(k / (float)nAround * Mathf.PI * 2f), zn = Mathf.Sign(sn) * Mathf.Pow(Mathf.Abs(sn), 2f / ex);
