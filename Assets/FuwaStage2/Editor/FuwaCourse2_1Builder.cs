@@ -3052,7 +3052,7 @@ public static class FuwaCourse2_1Builder
     // 左の壁（人のくぐり口つき）と右の崖をごつごつの岩に。上はどちらも水をためたくぼみで、滝の所だけ岩と岩のあいだに水がかかって（Slab）、
     // その前のふちから道の幅いっぱいに滝がこぼれる。水がかかっている所の後ろ・下も水の膜でつつむ。水の上に青い球を2つ。
     // 岩は前の箱の当たり判定をつつむ形（内側＝川・くぐり口の面はまっすぐ、外の面だけでこぼこ）で、当たり判定も岩のメッシュ
-    public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 1.0f;
+    public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 1.0f, GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f;
     public static float GateLeftOut = 9.8f, GateRightOut = 7.5f, GateLeftExtra = 1.3f;
     static void FinaleGate(Transform g, float H, float surf, float cs, float wa, float wb, float gIn, float gOut, float gTop, float r0)
     {
@@ -3073,17 +3073,19 @@ public static class FuwaCourse2_1Builder
         // 左：内側（川の側）gIn、くぐり口の壁 gOut、外のはし -GateLeftOut。断面は 上のくぼみ → 外の面 → 下のとがり → くぐり口の壁 → くぐり口の天井 → 内の面
         // くぐり口より外の岩（gOut〜外のはし）のまん中 cS・半幅 hS で、下流のはしを半円に
         float cS = (gOut - GateLeftOut) * 0.5f, hS = (gOut + GateLeftOut) * 0.5f;
-        float l0 = wa - GateLeftExtra, l1 = sl1 + 0.7f + hS;
-        float WallL(float s) => cS + hS * RfD(s, l1, hS);
-        float OutL(float s) => Mathf.Max(cS - hS * RfD(s, l1, hS), gOut + (-GateLeftOut - gOut) * RfU(s, l0));
-        float LintelL(float s) { float w = WallL(s); return w + (gIn - w) * RfD(s, l1, hS); }
-        float CeilL(float s) => gTop + 0.6f * (1f - RfD(s, l1, hS));
+        // 下流のはしは、左右とも滝の落ち口の線（sl1）でそろえて切る（2026-10-28 てじゃ「ここのライン揃えたほうがいいかも、岩含めて」）。
+        // 前は左は sl1+0.7+半円、右は下流の崖まで続いていて、池と岩が落ち口の線から下流へでこぼこはみ出していた。角は GateFlushRound で丸める
+        float l0 = wa - GateLeftExtra, l1 = sl1 + GateFlushOut + GateFlushRound;
+        float WallL(float s) => cS + hS * RfD(s, l1, GateFlushRound);
+        float OutL(float s) => Mathf.Max(cS - hS * RfD(s, l1, GateFlushRound), gOut + (-GateLeftOut - gOut) * RfU(s, l0));
+        float LintelL(float s) { float w = WallL(s); return w + (gIn - w) * RfD(s, l1, GateFlushRound); }
+        float CeilL(float s) => gTop + 0.6f * (1f - RfD(s, l1, GateFlushRound));
         float RidgeL(float s) => Mathf.Min(0.3f, (LintelL(s) - OutL(s)) * 0.25f);
         // 右：内側（川の側）FinRiverHW、外のはし GateRightOut。下のはしは川の底より下。下流のはしは右岸の地面の上で半円に
         float rin = FinRiverHW, cR = (rin + GateRightOut) * 0.5f, hR = (GateRightOut - rin) * 0.5f;
-        float r0s = sF1 + 0.2f, r1s = r0 + FinCliffLen + hR;
-        float InR(float s) => cR - hR * RfD(s, r1s, hR);
-        float OutR(float s) => Mathf.Min(cR + hR * RfD(s, r1s, hR), rin + (GateRightOut - rin) * RfU(s, r0s));
+        float r0s = sF1 + 0.2f, r1s = sl1 + GateFlushOut + GateFlushRound;
+        float InR(float s) => cR - hR * RfD(s, r1s, GateFlushRound);
+        float OutR(float s) => Mathf.Min(cR + hR * RfD(s, r1s, GateFlushRound), rin + (GateRightOut - rin) * RfU(s, r0s));
         float RidgeR(float s) => Mathf.Min(0.3f, (OutR(s) - InR(s)) * 0.25f);
         // くぼみの水（ふちの内側）。滝の所は内側のふちまで（水がかかっている所とつながる）。はしの細い所は水なし
         // （はしの丸い所まで水を張ると、まっすぐな水のはしが丸いふちから はみ出して見えた）
@@ -3132,11 +3134,23 @@ public static class FuwaCourse2_1Builder
         // Blender の岩があるときは、水を岩の両はしまでのばして、あとで岩の外に出た所だけ岩の中へ寄せる（GateWaterFitToRock）。
         // 型のはしで水をまっすぐ止めると、丸い岩のくぼみの中で水のはしが直線に見えた（2026-10-28 てじゃ「丸い外周に対して水がぱきっと直線」）
         bool fitRock = AssetDatabase.LoadAllAssetsAtPath(GateRockModel).OfType<Mesh>().Any();
+        // くぼみ（と水）のふちの線（2026-10-28 てじゃ「奥側が真っ直ぐ」「つなぎ目が直角の角」）：
+        // ・真ん中の水へつながる所は SlabW（0.5〜0.7m で切りかわる）でなく GateBasinFillet m かけて丸く
+        // ・ふちは内側へだけ GateBasinWob m までゆらす（外へ出すと岩の外の面をつきぬける）。真ん中の水へつながる所はゆらさない
+        float SlabRound(float s) => s < sl0 ? Smooth01((s - sl0 + GateBasinFillet) / GateBasinFillet) : s <= sl1 ? 1f : 1f - Smooth01((s - sl1) / GateBasinFillet);
+        float Wob(float s, float k) => Mathf.PerlinNoise(53.1f + s * 0.45f, k) * GateBasinWob * (1f - SlabRound(s));
+        float LA(float s) => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f - Wob(s, 1.1f), gIn, SlabRound(s));
+        float LB(float s) => OutL(s) + RidgeL(s) * 0.2f + Wob(s, 2.3f);
+        float RA(float s) => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f + Wob(s, 3.7f), rin, SlabRound(s));
+        float RB(float s) => OutR(s) - RidgeR(s) * 0.2f - Wob(s, 4.9f);
+        // くりぬく型は、真ん中の水の所では水より 0.3m 真ん中へ入る（つながる所は丸く。前は gIn に着いたらいきなり gIn+0.3 で直角になった）
+        float LAcut(float s) => Mathf.Lerp(LA(s) - 0.05f, gIn + 0.3f, SlabRound(s));
+        float RAcut(float s) => Mathf.Lerp(RA(s) + 0.05f, rin - 0.3f, SlabRound(s));
         // くぼみ（Blender の Cut_Basin）も水も、丸いはしの先の はばが GateBasinEndW になる所まで（くぼみのはしが丸くなる）
         float lc0 = WaterEnd(l0, -1f, s => LintelL(s) - OutL(s), GateBasinEndW), lc1 = WaterEnd(l1, 1f, s => LintelL(s) - OutL(s), GateBasinEndW);
         float rc0 = WaterEnd(r0s, -1f, s => OutR(s) - InR(s), GateBasinEndW), rc1 = WaterEnd(r1s, 1f, s => OutR(s) - InR(s), GateBasinEndW);
-        BasinWater(gate, "GateWaterL", fitRock ? lc0 : lw0, fitRock ? lc1 : lw1, s => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f, gIn, SlabW(s)), s => OutL(s) + RidgeL(s) * 0.2f, yTop, cs, SlabW);
-        BasinWater(gate, "GateWaterR", fitRock ? rc0 : rw0, fitRock ? rc1 : rw1, s => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f, rin, SlabW(s)), s => OutR(s) - RidgeR(s) * 0.2f, yTop, cs, SlabW);
+        BasinWater(gate, "GateWaterL", fitRock ? lc0 : lw0, fitRock ? lc1 : lw1, LA, LB, yTop, cs, SlabRound);
+        BasinWater(gate, "GateWaterR", fitRock ? rc0 : rw0, fitRock ? rc1 : rw1, RA, RB, yTop, cs, SlabRound);
         BasinWater(gate, "GateWaterSlab", sl0, sl1, s => gIn, s => rin, yTop, 99f);
         // 前のふちから滝（川の水面まで）と、水がかかっている所の後ろ・下をつつむ膜
         var lipF = new List<Vector3>(); var outF = new List<Vector3>();
@@ -3165,7 +3179,9 @@ public static class FuwaCourse2_1Builder
             };
         }, 0f, false);
         // 青い球：左右のくぼみの上に1つずつ（球の下は湧き水）
-        foreach (var (s, lat) in new[] { (cs + 0.2f, (gOut - GateLeftOut) * 0.5f), (cs + 2.6f, (rin + GateRightOut) * 0.5f) })
+        // 池のまん中に（下流のはしを落ち口でそろえて池が短くなったので、前の場所 cs+2.6 だと右の球が岩の外の空中に出た）
+        float olS = (lc0 + lc1) * 0.5f, orS = (rc0 + rc1) * 0.5f;
+        foreach (var (s, lat) in new[] { (olS, (LA(olS) + LB(olS)) * 0.5f), (orS, (RA(orS) + RB(orS)) * 0.5f) })
         {
             Center(s, out var p, out var d); var q = p + Right(d) * lat; var pos = new Vector3(q.x, yTop, q.y);
             var sp = new GameObject("GateOrb" + (lat < 0 ? "L" : "R")).transform; sp.SetParent(gate, false);
@@ -3190,8 +3206,7 @@ public static class FuwaCourse2_1Builder
             GateWaterFoamFromRock(gate, gr.GetComponent<MeshCollider>(), yTop);
         }
         if (GateExportPath != null) ExportGateShapes(gate, GateExportPath, H, surf, yTop, sl0, sl1, gIn, gOut, rin, l0, l1, r0s, r1s, lc0, lc1, rc0, rc1,
-            WallL, CeilL, s => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f, gIn, SlabW(s)), s => OutL(s) + RidgeL(s) * 0.2f,
-            s => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f, rin, SlabW(s)), s => OutR(s) - RidgeR(s) * 0.2f);
+            WallL, CeilL, LAcut, LB, RAcut, RB);
     }
 
     // 水の点のうち岩の外（上から見て下に岩がない・ずっと下）に出た所を、列（横の並び）のまん中へ向かって岩の上か くぼみの中まで寄せる
@@ -3361,8 +3376,8 @@ public static class FuwaCourse2_1Builder
         });
         // 上の水のくぼみ：水面のはしより5cm内側（水のはしは岩の中にかくれる）、底は yTop-GateFloor
         float fl = yTop - GateFloor;
-        Loft("Cut_BasinL", Steps(lw0, lw1, 0.1f), s => { float a = lInA(s), b = lInB(s); a = a >= gIn - 0.01f ? gIn + 0.3f : a - 0.05f; return new List<Vector2> { new Vector2(b + 0.05f, fl), new Vector2(a, fl), new Vector2(a, yTop + 5f), new Vector2(b + 0.05f, yTop + 5f) }; });
-        Loft("Cut_BasinR", Steps(rw0, rw1, 0.1f), s => { float a = rInA(s), b = rInB(s); a = a <= rin + 0.01f ? rin - 0.3f : a + 0.05f; return new List<Vector2> { new Vector2(a, fl), new Vector2(b - 0.05f, fl), new Vector2(b - 0.05f, yTop + 5f), new Vector2(a, yTop + 5f) }; });
+        Loft("Cut_BasinL", Steps(lw0, lw1, 0.1f), s => { float a = lInA(s), b = lInB(s); return new List<Vector2> { new Vector2(b + 0.05f, fl), new Vector2(a, fl), new Vector2(a, yTop + 5f), new Vector2(b + 0.05f, yTop + 5f) }; });
+        Loft("Cut_BasinR", Steps(rw0, rw1, 0.1f), s => { float a = rInA(s), b = rInB(s); return new List<Vector2> { new Vector2(a, fl), new Vector2(b - 0.05f, fl), new Vector2(b - 0.05f, yTop + 5f), new Vector2(a, yTop + 5f) }; });
         Loft("Cut_Slab", Steps(sl0, sl1 + 0.5f, 0.2f), s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + 5f), new Vector2(gIn, yTop + 5f) });
         sb.Append("]}");
         System.IO.File.WriteAllText(path, sb.ToString());
