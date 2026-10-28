@@ -2381,7 +2381,7 @@ public static class FuwaCourse2_1Builder
     // 水の端の滝（Waterfall で作った g の "EndFalls"）の見た目を、ふちからこぼれる膜にする。押す範囲・霧・音は Waterfall のまま
     // （2026-10-26 前の箱の滝だと、落ち口と滝のすき間から底の切り口が板に見えた）。c＝落ち口のまん中、o＝落ちる向き、r＝横、hw＝半分の幅
     // 水路・川の水面の見えている色（帯の水の材質。はばが DeepWidth 2m より狭いので _Deep と _Shallow のまざり。真上から撮って測った値）
-    static readonly Color ChanWaterLook = new Color(116f / 255f, 199f / 255f, 231f / 255f), FinRiverLook = new Color(115f / 255f, 186f / 255f, 226f / 255f), GateWaterLook = new Color(66f / 255f, 168f / 255f, 219f / 255f);
+    static readonly Color ChanWaterLook = new Color(116f / 255f, 199f / 255f, 231f / 255f), FinRiverLook = new Color(115f / 255f, 186f / 255f, 226f / 255f), GateWaterLook = new Color(116f / 255f, 199f / 255f, 231f / 255f);   // 門：岩からの距離で泡・色を決めなおした後の落ち口の手前
     static void EndLipFalls(Transform g, string meshName, Vector2 c, Vector2 o, Vector2 r, float hw, float surf, float bottom, Color waterLook)
     {
         var cur = g.Find("EndFalls/Curtain"); if (cur && cur.GetComponent<Renderer>()) cur.GetComponent<Renderer>().enabled = false;
@@ -2526,7 +2526,7 @@ public static class FuwaCourse2_1Builder
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
     // 幕の上は柱のてっぺんより PillarLipDrop 下（膜の曲がる所の後ろに隠れる）
-    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f, WallRimFoamIn = 0.12f;
+    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f, WallRimFoamIn = 0.12f, GateRimFoamIn = 0.3f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
         float fb = FallsFlowBack ? -1f : 1f;
@@ -3129,8 +3129,8 @@ public static class FuwaCourse2_1Builder
                 (ir + bp * RimN(s, 6.6f) * 1.6f, Mathf.Lerp(surf + 0.3f, it, 0.35f), false), (ir + bp * RimN(s, 8.1f) * 1.6f, Mathf.Lerp(surf + 0.3f, it, 0.72f), false),
             };
         }, 1f, false, 0.2f);
-        BasinWater(gate, "GateWaterL", lw0, lw1, s => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f, gIn, SlabW(s)), s => OutL(s) + RidgeL(s) * 0.2f, yTop, cs);
-        BasinWater(gate, "GateWaterR", rw0, rw1, s => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f, rin, SlabW(s)), s => OutR(s) - RidgeR(s) * 0.2f, yTop, cs);
+        BasinWater(gate, "GateWaterL", lw0, lw1, s => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f, gIn, SlabW(s)), s => OutL(s) + RidgeL(s) * 0.2f, yTop, cs, SlabW);
+        BasinWater(gate, "GateWaterR", rw0, rw1, s => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f, rin, SlabW(s)), s => OutR(s) - RidgeR(s) * 0.2f, yTop, cs, SlabW);
         BasinWater(gate, "GateWaterSlab", sl0, sl1, s => gIn, s => rin, yTop, 99f);
         // 前のふちから滝（川の水面まで）と、水がかかっている所の後ろ・下をつつむ膜
         var lipF = new List<Vector3>(); var outF = new List<Vector3>();
@@ -3142,7 +3142,9 @@ public static class FuwaCourse2_1Builder
             Center(sl1, out var p1, out var d1); var q1 = p1 + Right(d1) * lat; lipF.Add(new Vector3(q1.x, yTop, q1.y)); outF.Add(new Vector3(d1.x, 0, d1.y));
         }
         var gateF = LipFalls(gate, "GateFalls", "GateFalls", lipF, outF, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, surf);
-        // 門の滝は落ち口の下が水面でなく岩の橋なので、BlendLipIntoWater（上のはしを透明に）だと白っぽい帯が広がった。形から直す（未）
+        // 落ち口の手前の平らな所は真ん中の水の見えている色で、上のはしの白い帯なし（2026-10-28 てじゃ「境目も全部消していきたい」）。
+        // 落ち口の下は水面でなく岩の橋なので、上のはしを透明にする（_TopFade）と白っぽい帯が広がった → 色だけ
+        { BlendLipIntoWater(gateF, GateWaterLook, 0.3f); var gm = gateF.GetComponent<MeshRenderer>().sharedMaterial; gm.SetFloat("_TopFade", 0f); EditorUtility.SetDirty(gm); }
         // 滝の裏の面（上流の踊り場から見える側）：岩の橋の中から川まで
         LipFalls(gate, "GateFallsBack", "GateFallsBack", lipF, outF, new List<Vector2> { new Vector2(0.05f, -1.3f), new Vector2(0.03f, -2f), new Vector2(0.02f, float.NaN) }, surf, true);
         // 真ん中の岩の橋（2026-10-26 てじゃ「最後の滝、だいぶ無理あるかたち」→ 前は水だけが空中にかかって、後ろ・下を水の膜で巻いていた）。
@@ -3178,10 +3180,44 @@ public static class FuwaCourse2_1Builder
             var gr = new GameObject("GateRock"); gr.transform.SetParent(gate, false);
             gr.AddComponent<MeshFilter>().sharedMesh = gateModel; gr.AddComponent<MeshRenderer>().sharedMaterial = RockBaseMat();
             gr.AddComponent<MeshCollider>().sharedMesh = gateModel;
+            GateWaterFoamFromRock(gate, gr.GetComponent<MeshCollider>(), yTop);
         }
         if (GateExportPath != null) ExportGateShapes(gate, GateExportPath, H, surf, yTop, sl0, sl1, gIn, gOut, rin, l0, l1, r0s, r1s, lw0, lw1, rw0, rw1,
             WallL, CeilL, s => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f, gIn, SlabW(s)), s => OutL(s) + RidgeL(s) * 0.2f,
             s => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f, rin, SlabW(s)), s => OutR(s) - RidgeR(s) * 0.2f);
+    }
+
+    // 門の上の水のふちの泡を、Blender の岩（GateRock）で本当に見えているふちから測りなおす（2026-10-28 てじゃ「最後のここの上もきれいに」：
+    // 水のはしは岩のふちの下にもぐっていて、型から決めた泡は全部岩の下に隠れていた）。各点から横・前後に歩いて、上から見て岩が水面より上にある所までの距離を uv1.z に
+    static void GateWaterFoamFromRock(Transform gate, MeshCollider rock, float yTop)
+    {
+        Physics.SyncTransforms();
+        // 真ん中の水（Slab）も同じ測り方で（両わきだけ変えると、ふちからの距離で決まる水の色が真ん中とずれて四角いさかい目が見えた）
+        foreach (var nm in new[] { "GateWaterL", "GateWaterR", "GateWaterSlab" })
+        {
+            var w = gate.Find(nm); if (!w) continue;
+            var mesh = w.GetComponent<MeshFilter>().sharedMesh; var vs = mesh.vertices;
+            var u1 = new List<Vector4>(); mesh.GetUVs(1, u1); var u3 = new List<Vector2>(); mesh.GetUVs(3, u3);
+            bool Covered(Vector3 lp)
+            {
+                var wp = w.TransformPoint(lp);
+                return !rock.Raycast(new Ray(wp + Vector3.up * 5f, Vector3.down), out var h, 10f) ? false : w.InverseTransformPoint(h.point).y > yTop + 0.01f;
+            }
+            for (int i = 0; i < vs.Length; i++)
+            {
+                float best = 2f;
+                if (Covered(vs[i])) best = 0f;
+                else
+                    for (int a = 0; a < 16 && best > 0f; a++)
+                    {
+                        float th = a * Mathf.PI / 8f; var dir = new Vector3(Mathf.Cos(th), 0, Mathf.Sin(th));
+                        for (float d = 0.05f; d < best; d += 0.05f) if (Covered(vs[i] + dir * d)) { best = d; break; }
+                    }
+                // 水どうしがつながる所は岩から遠いので、泡も色の段もでない
+                u1[i] = new Vector4(u1[i].x, 99f, best, 99f);
+            }
+            mesh.SetUVs(1, u1); EditorUtility.SetDirty(mesh);
+        }
     }
 
     // ---- ラストの滝の門を Blender でひとつの岩にするための型（2026-10-27 てじゃ「アーチで繫いでる岩がとってつけたような感じ」→ A：Blenderで作り直す）----
@@ -3346,9 +3382,10 @@ public static class FuwaCourse2_1Builder
         go.AddComponent<MeshCollider>().sharedMesh = mesh;
     }
     // くぼみの水面（見た目だけ）。横 latA〜latB、流れは sTo へ向かう（99＝前へ）
-    static void BasinWater(Transform g, string name, float s0, float s1, Func<float, float> latA, Func<float, float> latB, float y, float sTo)
+    // noFoamA＝latA の側のふちの泡を消す量（s ごと。真ん中の水がかかる所へつながる所は泡なし）
+    static void BasinWater(Transform g, string name, float s0, float s1, Func<float, float> latA, Func<float, float> latB, float y, float sTo, Func<float, float> noFoamA = null)
     {
-        var SV = new List<Vector3>(); var ST = new List<int>(); var U1 = new List<Vector4>(); var U2 = new List<Vector2>();
+        var SV = new List<Vector3>(); var ST = new List<int>(); var U1 = new List<Vector4>(); var U2 = new List<Vector2>(); var U3 = new List<Vector2>();
         const int across = 6;
         int m = Mathf.Max(1, Mathf.CeilToInt((s1 - s0) / 0.25f));
         for (int k = 0; k <= m; k++)
@@ -3360,7 +3397,10 @@ public static class FuwaCourse2_1Builder
                 float lat = Mathf.Lerp(a, b, i / (float)across);
                 var q = p + r * lat; SV.Add(new Vector3(q.x, y, q.y));
                 bool slab = sTo > 90f;
-                U1.Add(new Vector4(slab ? 0f : (i / (float)across - 0.5f) * 2f * hw, slab ? 99f : hw, slab ? 99f : s - s0, slab ? 99f : s1 - s)); U2.Add(new Vector2(slab ? s : -Mathf.Abs(s - sTo), 0));
+                // ふちの泡は GateRimFoamIn 内側から（水のはしはふちの岩の斜面の下にもぐっていて、泡が隠れた）
+                U1.Add(new Vector4(slab ? 0f : (i / (float)across - 0.5f) * 2f * (hw + GateRimFoamIn), slab ? 99f : hw, slab ? 99f : s - s0 - GateRimFoamIn, slab ? 99f : s1 - s - GateRimFoamIn)); U2.Add(new Vector2(slab ? s : -Mathf.Abs(s - sTo), 0));
+                // ふちの泡（2026-10-28 てじゃ「最後のここの上もきれいに」：uv3 が無くて岩とのふちの泡が全部消えていた）
+                U3.Add(new Vector2(i == 0 && noFoamA != null ? noFoamA(s) : 0f, 0f));
             }
         }
         for (int k = 0; k < m; k++)
@@ -3370,7 +3410,7 @@ public static class FuwaCourse2_1Builder
                 AddTriDir(SV, ST, a, b, a + 1, Vector3.up); AddTriDir(SV, ST, a + 1, b, b + 1, Vector3.up);
             }
         var sm = new Mesh { name = "Course2_1_" + name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-        sm.SetVertices(SV); sm.SetTriangles(ST, 0); sm.SetUVs(0, SV.Select(v => Vector2.zero).ToList()); sm.SetUVs(1, U1); sm.SetUVs(2, U2);
+        sm.SetVertices(SV); sm.SetTriangles(ST, 0); sm.SetUVs(0, SV.Select(v => Vector2.zero).ToList()); sm.SetUVs(1, U1); sm.SetUVs(2, U2); sm.SetUVs(3, U3);
         sm.normals = SV.Select(v => Vector3.up).ToArray(); sm.RecalculateBounds();
         sm = Save(sm, MeshDir + "/" + name + ".asset");
         var wgo = new GameObject(name); wgo.transform.SetParent(g, false);
