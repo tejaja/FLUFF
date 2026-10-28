@@ -3065,14 +3065,16 @@ public static class FuwaCourse2_1Builder
         // 回り込み防止：左は岩の壁（滝の落ち口より高い）。人の坂の所だけくぐり口をあけて、ツタのカーテン（人はすり抜け、ふわふわは跳ね返る）、右は崖
         // （2026-10-22 てじゃ「滝の左をふわふわを防がないとな」。前は見えないアウトだけだった）
         float wa = sF1 + FinCurtain - 0.2f, wb = sF1 + FinCurtain + 0.6f, wm = (wa + wb) * 0.5f;
-        float gIn = -(FinRiverHW + 0.25f), gOut = -(FinRiverHW + FinWalkW + 0.4f), gTop = LeftBankH(wm) + FinGateH;
+        // gIn（谷・滝の左のはし）は川のはしより 0.1m 内側（2026-10-28 てじゃ「最後の滝、橋にあたってる」：前は川より 0.25m 外で、滝の左はしが木の足場の上に落ちていた）
+        float gIn = -(FinRiverHW - 0.1f), gOut = -(FinRiverHW + FinWalkW + 0.4f), gTop = LeftBankH(wm) + FinGateH;
+        float vIn = -(FinRiverHW + 0.25f);   // ツタのカーテンの内のはしは前のまま（くぐり口の幅）
         // 2026-10-26 てじゃ「とりあえずA」：前の箱の壁・崖（FinalWallL・FinalWallL_Lintel・FinalCliffR）を、上が一面の水の岩に（FinaleGate）
         FinaleGate(g, H, surf, sF1 + FinCurtain, wa, wb, gIn, gOut, gTop, r0);
         var oldFalls = g.Find("ForcedFalls/Curtain"); if (oldFalls && oldFalls.GetComponent<Renderer>()) oldFalls.GetComponent<Renderer>().enabled = false;   // 見た目は FinaleGate の膜（押す範囲・霧・音は残す）
-        Center(wm, out var vp, out var vd); var vq = vp + Right(vd) * ((gIn + gOut) * 0.5f);
+        Center(wm, out var vp, out var vd); var vq = vp + Right(vd) * ((vIn + gOut) * 0.5f);
         // ツタの上は門の岩（Blender の GateRock）の天井の中へ、横は くぐり口の壁まで（2026-10-28 てじゃ「大改造したからツタがういちゃった」：
         // 岩を作り直してくぐり口の天井が上がり、ツタの上と岩のあいだにすき間）。天井・壁を岩に当てて測る
-        float vTop = gTop, vH = FinGateH, vW = gIn - gOut; var vqc = vq;
+        float vTop = gTop, vH = FinGateH, vW = vIn - gOut; var vqc = vq;
         var gateRockC = g.Find("Gate/GateRock") ? g.Find("Gate/GateRock").GetComponent<MeshCollider>() : null;
         if (gateRockC)
         {
@@ -3118,7 +3120,7 @@ public static class FuwaCourse2_1Builder
     // その前のふちから道の幅いっぱいに滝がこぼれる。水がかかっている所の後ろ・下も水の膜でつつむ。水の上に青い球を2つ。
     // 岩は前の箱の当たり判定をつつむ形（内側＝川・くぐり口の面はまっすぐ、外の面だけでこぼこ）で、当たり判定も岩のメッシュ
     public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 0.3f,   // 1.0 だとくぼみの型のはしのふたが 1m の平らな壁になって見えた（2026-10-28 てじゃ「まっすぐ部分が直線すぎる」）
-        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f, GateBandDepth = 3.2f, GateBandRim = 0.35f, GateDomeH = 2.6f, GateFaceOut = 0.4f, GateSlotH = 0.8f, VineEmbed = 0.15f, GateFaceRound = 0.6f;
+        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f, GateBandDepth = 3.2f, GateBandRim = 0.35f, GateDomeH = 2.6f, GateFaceOut = 0.4f, GateSlotH = 0.8f, VineEmbed = 0.15f, GateFaceRound = 0.6f, GateSplashAt = 0.35f;
     public static float GateLeftOut = 9.8f, GateRightOut = 7.5f, GateLeftExtra = 1.3f;
     static void FinaleGate(Transform g, float H, float surf, float cs, float wa, float wb, float gIn, float gOut, float gTop, float r0)
     {
@@ -3259,6 +3261,15 @@ public static class FuwaCourse2_1Builder
         { BlendLipIntoWater(gateF, GateWaterLook, 0.3f); var gm = gateF.GetComponent<MeshRenderer>().sharedMaterial; gm.SetFloat("_TopFade", 0f); EditorUtility.SetDirty(gm); }
         // 滝の裏の面（上流の踊り場から見える側）：岩の橋の中から川まで
         LipFalls(gate, "GateFallsBack", "GateFallsBack", lipF, outF, new List<Vector2> { new Vector2(0.05f, -1.3f), new Vector2(0.03f, -2f), new Vector2(0.02f, float.NaN) }, surf, true);
+        // 滝つぼ：落ちた所（川の水面）の泡。三連滝の Splash と同じ（2026-10-28 てじゃ「滝壺にエフェクト追加しよ」）。前は川の流れていく向き、横のはしはなだらかに消す
+        {
+            Center(sl1 + GateSplashAt, out var sp, out var sd); var sm = sp + Right(sd) * ((la + lb) * 0.5f);
+            float hw = (lb - la) * 0.5f, fx0 = -hw - 0.1f, fx1 = hw + 0.1f;
+            var fg = new GameObject("GateSplash").transform; fg.SetParent(gate, false);
+            WaterDecal(fg, "PoolFoam", new Vector3(sm.x, surf + 0.012f, sm.y), new Vector3(sd.x, 0f, sd.y), fx0, fx1, -0.3f, PillarSplashReach * 1.6f, 0, hw, PillarSplashReach, new Color(0.45f, 0.78f, 0.95f));
+            var pfm = fg.Find("PoolFoam").GetComponent<MeshRenderer>().sharedMaterial;
+            pfm.SetVector("_XFade", new Vector4(fx0, fx1, 0.45f, 0f)); EditorUtility.SetDirty(pfm);
+        }
         // 真ん中の岩の橋（2026-10-26 てじゃ「最後の滝、だいぶ無理あるかたち」→ 前は水だけが空中にかかって、後ろ・下を水の膜で巻いていた）。
         // 上は水の底（後ろのはしはせき止めるふち）、下はゆるいアーチ。左右のはしは両わきの岩にうめる
         CragRock(gate, "GateBridge", sl0 - 0.3f, sl1, 733, (s, rf) =>
