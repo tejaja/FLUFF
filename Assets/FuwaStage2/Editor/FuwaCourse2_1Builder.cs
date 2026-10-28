@@ -2485,6 +2485,48 @@ public static class FuwaCourse2_1Builder
         Center(s - 2f, out _, out var d1); Center(s + 2f, out _, out var d2);
         return d1.x * d2.y - d1.y * d2.x > 0f ? 1f : -1f;
     }
+    // 落ち口の線（p を通り r にそう）の 5mm 外に、外（o）を向いた岩の板（見た目だけ。当たりなし）
+    static void EndLipPlate(Transform g, string meshName, Vector2 p, Vector2 r, Vector2 o, float latA, float latB, float yBot, float yTop)
+    {
+        var V = new List<Vector3>(); var T = new List<int>();
+        int n = Mathf.Max(1, Mathf.CeilToInt((latB - latA) / 0.35f));
+        for (int k = 0; k <= n; k++)
+        {
+            var q = p + r * Mathf.Lerp(latA, latB, k / (float)n) + o * 0.005f;
+            V.Add(new Vector3(q.x, yBot, q.y)); V.Add(new Vector3(q.x, yTop, q.y));
+        }
+        var want = new Vector3(o.x, 0, o.y);
+        for (int k = 0; k < n; k++) { int a = k * 2; AddTriDir(V, T, a, a + 2, a + 1, want); AddTriDir(V, T, a + 1, a + 2, a + 3, want); }
+        var m = new Mesh { name = "Course2_1_" + meshName };
+        m.SetVertices(V); m.SetTriangles(T, 0); m.normals = V.Select(v => want).ToArray(); m.RecalculateBounds();
+        m = Save(m, MeshDir + "/" + meshName + ".asset");
+        var go = new GameObject("EndPlate"); go.transform.SetParent(g, false);
+        go.AddComponent<MeshFilter>().sharedMesh = m; go.AddComponent<MeshRenderer>().sharedMaterial = RockBaseMat();
+    }
+    // 水路の落ち口のはしを、落ち口の線（p を通り、流れ出る向き o に直角）でそろえる（2026-10-28 てじゃ「滝にちょっと切れ目、あと茶色がみえてる」：
+    // 道のカーブの向きが変わる所の落ち口では、カーブの内側になった断面が落ち口の線を越えて、水面・底・ふちが最大 13cm はみ出し、
+    // はみ出した水面が落ち口の幕の上を横切り、底の端（茶色）が幕の横から見えていた）
+    static void ClampToEndLine(Transform chan, Transform root, Vector2 p, Vector2 o)
+    {
+        if (!chan) return;
+        foreach (var mf in chan.GetComponentsInChildren<MeshFilter>(true))
+        {
+            var m = mf.sharedMesh; if (!m) continue;
+            var vs = m.vertices; bool moved = false;
+            // 水面・底は線の 2cm 手前まで（折り重なった所では、ふちの岩の切り口と同じ面になって茶色がちらつくので、岩の切り口を前に）
+            float inset = mf.name.StartsWith("Rim") ? 0f : 0.02f;
+            for (int k = 0; k < vs.Length; k++)
+            {
+                var l = root.InverseTransformPoint(mf.transform.TransformPoint(vs[k]));
+                var q = new Vector2(l.x, l.z); float e = Vector2.Dot(q - p, o) + inset;
+                if (e <= 1e-4f || (q - p).sqrMagnitude > 36f) continue;
+                q -= o * e; vs[k] = mf.transform.InverseTransformPoint(root.TransformPoint(new Vector3(q.x, l.y, q.y))); moved = true;
+            }
+            if (!moved) continue;
+            m.vertices = vs; m.RecalculateBounds(); EditorUtility.SetDirty(m);
+            var mc = mf.GetComponent<MeshCollider>(); if (mc) { mc.sharedMesh = null; mc.sharedMesh = m; }
+        }
+    }
     // i 番目の水路の中心線の範囲（c0 < c1）
     static void ChannelRange(int i, out float c0, out float c1)
     {
@@ -2515,10 +2557,14 @@ public static class FuwaCourse2_1Builder
             BuildWater(set, w, bedMat, ground, fx, splash);
             // 水路の端の滝（下は何もない → 落ちたらアウト）
             Center(FallsFlowBack ? c0 : c1, out var ep, out var ed); var er = Right(ed);
+            ClampToEndLine(set.Find("Channel" + i), root, ep, ed * fb);
             var ec = ep + er * (o * (RoadHW + ChanHW));
             var eo = ed * fb;   // 落ちる向き＝流れの向き
             FuwaStage2WaterTest.Waterfall(set, "EndFalls", new Vector3(ec.x, 0, ec.y), surf + 0.02f, -10f, ChanHW * 2f + 0.3f, new Vector3(eo.x, 0, eo.y));
             EndLipFalls(set, "Chan" + i + "_EndFalls", ec, eo, er, ChanHW, surf, -10f);
+            // 落ち口の下の切り口を岩の色の板でふさぐ（幕は前へ反っているので、ななめ横から幕のはしと ふちの岩のすき間に底の端（茶色）が見えた）
+            float ce = FallsFlowBack ? c0 : c1;
+            EndLipPlate(set, "Chan" + i + "_EndPlate", ep, er, eo, w.off(ce) - w.hw(ce) - 0.05f, w.off(ce) + w.hw(ce) + 0.05f, surf - ChanDepth - 0.3f, surf - 0.03f);
             // 滝のカーテン：道を横切る向きで、外側から食い込む（幕の面は道の進む向きを向く）。押す厚み 0.9m がえぐれの中に収まるように少し手前に
             Center(sc - fb * 0.3f, out var fp, out var fd); var fr = Right(fd);
             // 幕の内側のはしは、えぐれのふちから OverFallsGap だけ水の上へ（ふちギリギリで当たると道に叩きつけられた。2026-10-23 てじゃ「余裕もたせよう」）
