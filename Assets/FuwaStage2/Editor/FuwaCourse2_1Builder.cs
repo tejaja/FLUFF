@@ -2500,7 +2500,7 @@ public static class FuwaCourse2_1Builder
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
     // 幕の上は柱のてっぺんより PillarLipDrop 下（膜の曲がる所の後ろに隠れる）
-    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f;
+    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
         float fb = FallsFlowBack ? -1f : 1f;
@@ -2541,7 +2541,8 @@ public static class FuwaCourse2_1Builder
         // 横は幕の幅の中だけ（外のかどはふちを残して水たまりを囲む）
         // 2026-10-28 てじゃ「全部上がずれてる、柱側であわせられないかな」：ふちを下げると、まわりのふち・水たまり・膜の上の高さがばらばらに見えた。
         // てっぺんのふちは全部同じ高さ（yTop）のまま、水たまりはふちすれすれまで満たして（あふれそうな水面）、膜もふちの高さからこぼす
-        float lipRim = yTop;
+        // 落ち口のふちの岩の角は水の下へ PillarLipSink 沈める（2026-10-28 てじゃ「まだちょと岩の線がみえる」：ふちの角が水のすぐ下で細い線に見えた）
+        float lipRim = yTop - PillarLipSink;
         // 落ち口（膜）は柱の手前の面の幅いっぱい・まん中に（2026-10-28 てじゃ「横にだいぶずれてる」：膜を幕の幅に合わせていたので、
         // 柱が外側へ 0.65m はみ出して、膜が道側に寄って見えた）。幕（押す範囲）はそのまま
         var lfr = Right(fd);
@@ -2589,7 +2590,7 @@ public static class FuwaCourse2_1Builder
         // 奥から落ち口まで平らに流れて、落ち口でまるく転がって柱の面ぞいに落ちる（材質は滝ひとつ、手前は _PondTop で池の色・波紋）
         // 膜の横はば：てっぺんのふちが本当に落ち口の線（膜の裏）に乗っている所まで。水面より上の全段で、いちばん狭い所に
         float hwL = 99f, hwR = 99f;
-        for (int j = 1; j < nRing; j++)
+        for (int j = 1; j < nRing - 1; j++)   // てっぺんの輪は落ち口で沈めてあるので測らない（入れると滝が細くなった）
         {
             if (P[j, 0].y < surf) continue;
             float jl = 0f, jr = 0f;
@@ -2635,7 +2636,7 @@ public static class FuwaCourse2_1Builder
             float f2 = Smooth01((bq - 0.3f) / 0.6f);
             aL = Mathf.Lerp(-hw, Mathf.Min(aL, -0.05f), f2); aR = Mathf.Lerp(hw, Mathf.Max(aR, 0.05f), f2);
         }
-        Vector3 InnerPt(int k) { var bq = basin[k]; var r2 = lipMid + lfr * bq.x + fd * bq.y; return new Vector3(r2.x, yTop, r2.y); }
+        Vector3 InnerPt(int k) { var bq = basin[k]; var r2 = lipMid + lfr * bq.x + fd * bq.y; return new Vector3(r2.x, Mathf.Lerp(yTop, lipRim, FrontW(P[nRing - 1, k], k)), r2.y); }
         var V = new List<Vector3>(); var T = new List<int>();
         void Tri(Vector3 a, Vector3 b, Vector3 c, Vector3 want)
         {
