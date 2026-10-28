@@ -2572,7 +2572,7 @@ public static class FuwaCourse2_1Builder
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
     // 幕の上は柱のてっぺんより PillarLipDrop 下（膜の曲がる所の後ろに隠れる）
-    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f, WallRimFoamIn = 0.12f + 0.2f, WallWaterUnder = 0.2f, GateRimFoamIn = 0.3f;
+    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f, PillarLipAngle = 15f, WallRimFoamIn = 0.12f + 0.2f, WallWaterUnder = 0.2f, GateRimFoamIn = 0.3f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
         float fb = FallsFlowBack ? -1f : 1f;
@@ -2896,8 +2896,12 @@ public static class FuwaCourse2_1Builder
             float ia = RoadHW - CutDepth[i] + OverFallsGap, width = outer - OverFallsGap - ia;
             var fc = fp + fr * (o * (ia + width * 0.5f));
             // 幕の上は柱のてっぺんより PillarLipDrop 下まで（その上は柱の水たまりからこぼれる膜 PillarLip がおおう）
-            FuwaStage2WaterTest.Waterfall(set, "OverFalls", new Vector3(fc.x, 0, fc.y), FallsH + OverFallsH - PillarLipDrop, surf, width, new Vector3(fd.x, 0, fd.y));
-            FallsPillar(set, i, sc, o, width, FallsH + OverFallsH, surf, fc, fd);
+            // 落ち口の線を上から見て PillarLipAngle 度ななめに：道の側のはしが奥（柱の中＝+fd）へ、外のはしが手前へ（2026-10-28 てじゃ「3連滝、ちょっと角度つけたい」）。
+            // 幕（押す範囲）も柱の落ち口も同じ向き fdR で
+            float la = PillarLipAngle * Mathf.Deg2Rad; var outA = fr * o;
+            var fdR = (fd * Mathf.Cos(la) + outA * Mathf.Sin(la)).normalized;
+            FuwaStage2WaterTest.Waterfall(set, "OverFalls", new Vector3(fc.x, 0, fc.y), FallsH + OverFallsH - PillarLipDrop, surf, width, new Vector3(fdR.x, 0, fdR.y));
+            FallsPillar(set, i, sc, o, width, FallsH + OverFallsH, surf, fc, fdR);
         }
         // アウト判定：道の下（ふわふわ＝FuwaHazard、人＝FuwaPlayerCatcher）。4m ごと、道と水路より下
         var outs = new GameObject("Outs").transform; outs.SetParent(g, false);
