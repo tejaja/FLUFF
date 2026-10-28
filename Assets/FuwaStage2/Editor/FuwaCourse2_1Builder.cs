@@ -3052,7 +3052,7 @@ public static class FuwaCourse2_1Builder
     // 左の壁（人のくぐり口つき）と右の崖をごつごつの岩に。上はどちらも水をためたくぼみで、滝の所だけ岩と岩のあいだに水がかかって（Slab）、
     // その前のふちから道の幅いっぱいに滝がこぼれる。水がかかっている所の後ろ・下も水の膜でつつむ。水の上に青い球を2つ。
     // 岩は前の箱の当たり判定をつつむ形（内側＝川・くぐり口の面はまっすぐ、外の面だけでこぼこ）で、当たり判定も岩のメッシュ
-    public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f;
+    public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 1.0f;
     public static float GateLeftOut = 9.8f, GateRightOut = 7.5f, GateLeftExtra = 1.3f;
     static void FinaleGate(Transform g, float H, float surf, float cs, float wa, float wb, float gIn, float gOut, float gTop, float r0)
     {
@@ -3129,8 +3129,14 @@ public static class FuwaCourse2_1Builder
                 (ir + bp * RimN(s, 6.6f) * 1.6f, Mathf.Lerp(surf + 0.3f, it, 0.35f), false), (ir + bp * RimN(s, 8.1f) * 1.6f, Mathf.Lerp(surf + 0.3f, it, 0.72f), false),
             };
         }, 1f, false, 0.2f);
-        BasinWater(gate, "GateWaterL", lw0, lw1, s => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f, gIn, SlabW(s)), s => OutL(s) + RidgeL(s) * 0.2f, yTop, cs, SlabW);
-        BasinWater(gate, "GateWaterR", rw0, rw1, s => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f, rin, SlabW(s)), s => OutR(s) - RidgeR(s) * 0.2f, yTop, cs, SlabW);
+        // Blender の岩があるときは、水を岩の両はしまでのばして、あとで岩の外に出た所だけ岩の中へ寄せる（GateWaterFitToRock）。
+        // 型のはしで水をまっすぐ止めると、丸い岩のくぼみの中で水のはしが直線に見えた（2026-10-28 てじゃ「丸い外周に対して水がぱきっと直線」）
+        bool fitRock = AssetDatabase.LoadAllAssetsAtPath(GateRockModel).OfType<Mesh>().Any();
+        // くぼみ（Blender の Cut_Basin）も水も、丸いはしの先の はばが GateBasinEndW になる所まで（くぼみのはしが丸くなる）
+        float lc0 = WaterEnd(l0, -1f, s => LintelL(s) - OutL(s), GateBasinEndW), lc1 = WaterEnd(l1, 1f, s => LintelL(s) - OutL(s), GateBasinEndW);
+        float rc0 = WaterEnd(r0s, -1f, s => OutR(s) - InR(s), GateBasinEndW), rc1 = WaterEnd(r1s, 1f, s => OutR(s) - InR(s), GateBasinEndW);
+        BasinWater(gate, "GateWaterL", fitRock ? lc0 : lw0, fitRock ? lc1 : lw1, s => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f, gIn, SlabW(s)), s => OutL(s) + RidgeL(s) * 0.2f, yTop, cs, SlabW);
+        BasinWater(gate, "GateWaterR", fitRock ? rc0 : rw0, fitRock ? rc1 : rw1, s => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f, rin, SlabW(s)), s => OutR(s) - RidgeR(s) * 0.2f, yTop, cs, SlabW);
         BasinWater(gate, "GateWaterSlab", sl0, sl1, s => gIn, s => rin, yTop, 99f);
         // 前のふちから滝（川の水面まで）と、水がかかっている所の後ろ・下をつつむ膜
         var lipF = new List<Vector3>(); var outF = new List<Vector3>();
@@ -3180,13 +3186,50 @@ public static class FuwaCourse2_1Builder
             var gr = new GameObject("GateRock"); gr.transform.SetParent(gate, false);
             gr.AddComponent<MeshFilter>().sharedMesh = gateModel; gr.AddComponent<MeshRenderer>().sharedMaterial = RockBaseMat();
             gr.AddComponent<MeshCollider>().sharedMesh = gateModel;
+            GateWaterFitToRock(gate, gr.GetComponent<MeshCollider>(), yTop);
             GateWaterFoamFromRock(gate, gr.GetComponent<MeshCollider>(), yTop);
         }
-        if (GateExportPath != null) ExportGateShapes(gate, GateExportPath, H, surf, yTop, sl0, sl1, gIn, gOut, rin, l0, l1, r0s, r1s, lw0, lw1, rw0, rw1,
+        if (GateExportPath != null) ExportGateShapes(gate, GateExportPath, H, surf, yTop, sl0, sl1, gIn, gOut, rin, l0, l1, r0s, r1s, lc0, lc1, rc0, rc1,
             WallL, CeilL, s => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f, gIn, SlabW(s)), s => OutL(s) + RidgeL(s) * 0.2f,
             s => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f, rin, SlabW(s)), s => OutR(s) - RidgeR(s) * 0.2f);
     }
 
+    // 水の点のうち岩の外（上から見て下に岩がない・ずっと下）に出た所を、列（横の並び）のまん中へ向かって岩の上か くぼみの中まで寄せる
+    static void GateWaterFitToRock(Transform gate, MeshCollider rock, float yTop)
+    {
+        Physics.SyncTransforms();
+        const int across = 7;   // BasinWater の 1列の点の数（across 6 ＋1）
+        foreach (var nm in new[] { "GateWaterL", "GateWaterR" })
+        {
+            var w = gate.Find(nm); if (!w) continue;
+            var mesh = w.GetComponent<MeshFilter>().sharedMesh; var vs = mesh.vertices;
+            bool Outside(Vector3 lp)
+            {
+                var wp = w.TransformPoint(lp);
+                if (!rock.Raycast(new Ray(wp + Vector3.up * 5f, Vector3.down), out var h, 10f)) return true;
+                return w.InverseTransformPoint(h.point).y < yTop - GateFloor - 0.6f;
+            }
+            int rows = vs.Length / across;
+            // まん中が岩の外の列（はしの先）は、となりの中の列に重ねてつぶす（点をまん中に集めると、細長い三角形が泡の白で広く塗られた）
+            var bad = new bool[rows];
+            for (int r = 0; r < rows; r++) bad[r] = Outside((vs[r * across] + vs[r * across + across - 1]) * 0.5f);
+            int firstOk = System.Array.IndexOf(bad, false), lastOk = System.Array.LastIndexOf(bad, false);
+            if (firstOk < 0) continue;
+            for (int r = 0; r < rows; r++)
+            {
+                int src = r < firstOk ? firstOk : r > lastOk ? lastOk : r;
+                var mid = (vs[src * across] + vs[src * across + across - 1]) * 0.5f;
+                for (int i = 0; i < across; i++)
+                {
+                    var p = vs[src * across + i];
+                    // 外なら、まん中へ 5cm ずつ
+                    for (int it = 0; it < 80 && Outside(p); it++) p = Vector3.MoveTowards(p, mid, 0.05f);
+                    vs[r * across + i] = p;
+                }
+            }
+            mesh.vertices = vs; mesh.RecalculateBounds(); EditorUtility.SetDirty(mesh);
+        }
+    }
     // 門の上の水のふちの泡を、Blender の岩（GateRock）で本当に見えているふちから測りなおす（2026-10-28 てじゃ「最後のここの上もきれいに」：
     // 水のはしは岩のふちの下にもぐっていて、型から決めた泡は全部岩の下に隠れていた）。各点から横・前後に歩いて、上から見て岩が水面より上にある所までの距離を uv1.z に
     static void GateWaterFoamFromRock(Transform gate, MeshCollider rock, float yTop)
@@ -3214,7 +3257,11 @@ public static class FuwaCourse2_1Builder
                         for (float d = 0.05f; d < best; d += 0.05f) if (Covered(vs[i] + dir * d)) { best = d; break; }
                     }
                 // 水どうしがつながる所は岩から遠いので、泡も色の段もでない
-                u1[i] = new Vector4(u1[i].x, 99f, best, 99f);
+                // 横の位置（流れの筋の横の座標）：BasinWater は sTo（コースの s）が 90 より大きいと Slab あつかいで 0 になっていて、
+                // 筋が横いっぱいの帯（まっすぐなさかい目の白っぽい帯）になった。列の左はしからの長さで入れる
+                int row = i / 7, i0 = row * 7; float lat = 0f;
+                for (int k = i0 + 1; k <= i; k++) lat += (vs[k] - vs[k - 1]).magnitude;
+                u1[i] = new Vector4(lat, 99f, best, 99f);
             }
             mesh.SetUVs(1, u1); EditorUtility.SetDirty(mesh);
         }
@@ -3314,8 +3361,8 @@ public static class FuwaCourse2_1Builder
         });
         // 上の水のくぼみ：水面のはしより5cm内側（水のはしは岩の中にかくれる）、底は yTop-GateFloor
         float fl = yTop - GateFloor;
-        Loft("Cut_BasinL", Steps(lw0, lw1, 0.2f), s => { float a = lInA(s), b = lInB(s); a = a >= gIn - 0.01f ? gIn + 0.3f : a - 0.05f; return new List<Vector2> { new Vector2(b + 0.05f, fl), new Vector2(a, fl), new Vector2(a, yTop + 5f), new Vector2(b + 0.05f, yTop + 5f) }; });
-        Loft("Cut_BasinR", Steps(rw0, rw1, 0.2f), s => { float a = rInA(s), b = rInB(s); a = a <= rin + 0.01f ? rin - 0.3f : a + 0.05f; return new List<Vector2> { new Vector2(a, fl), new Vector2(b - 0.05f, fl), new Vector2(b - 0.05f, yTop + 5f), new Vector2(a, yTop + 5f) }; });
+        Loft("Cut_BasinL", Steps(lw0, lw1, 0.1f), s => { float a = lInA(s), b = lInB(s); a = a >= gIn - 0.01f ? gIn + 0.3f : a - 0.05f; return new List<Vector2> { new Vector2(b + 0.05f, fl), new Vector2(a, fl), new Vector2(a, yTop + 5f), new Vector2(b + 0.05f, yTop + 5f) }; });
+        Loft("Cut_BasinR", Steps(rw0, rw1, 0.1f), s => { float a = rInA(s), b = rInB(s); a = a <= rin + 0.01f ? rin - 0.3f : a + 0.05f; return new List<Vector2> { new Vector2(a, fl), new Vector2(b - 0.05f, fl), new Vector2(b - 0.05f, yTop + 5f), new Vector2(a, yTop + 5f) }; });
         Loft("Cut_Slab", Steps(sl0, sl1 + 0.5f, 0.2f), s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + 5f), new Vector2(gIn, yTop + 5f) });
         sb.Append("]}");
         System.IO.File.WriteAllText(path, sb.ToString());
