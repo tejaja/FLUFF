@@ -2538,7 +2538,9 @@ public static class FuwaCourse2_1Builder
         }
         // 手前（幕の側＝zn が -1 の側）のてっぺんのふちを水面の下まで下げる（まわりへはなだらかに）
         // 横は幕の幅の中だけ（外のかどはふちを残して水たまりを囲む）
-        float poolY = yTop - 0.08f, lipRim = poolY - 0.04f;
+        // 2026-10-28 てじゃ「全部上がずれてる、柱側であわせられないかな」：ふちを下げると、まわりのふち・水たまり・膜の上の高さがばらばらに見えた。
+        // てっぺんのふちは全部同じ高さ（yTop）のまま、水たまりはふちすれすれまで満たして（あふれそうな水面）、膜もふちの高さからこぼす
+        float poolY = yTop - 0.01f, lipRim = yTop;
         var lip0 = fc + fd * 0.15f; var lfr = Right(fd); float lipHW = width * 0.5f + 0.03f;   // 幕（厚みのある箱）の横の面もおおう
         float FrontW(Vector3 q, int k)
         {
@@ -2625,7 +2627,7 @@ public static class FuwaCourse2_1Builder
         for (int k = 0; k <= nl; k++)
         {
             var q = lip0 + fr * Mathf.Lerp(-hw, hw, k / (float)nl);
-            lip.Add(new Vector3(q.x, poolY, q.y)); outs.Add(new Vector3(-fd.x, 0f, -fd.y));
+            lip.Add(new Vector3(q.x, lipRim + 0.012f, q.y)); outs.Add(new Vector3(-fd.x, 0f, -fd.y));
         }
         // 幕（厚みのある箱）の見た目は消して、膜だけで柱の面の PillarLipGap 前を落とす（箱の横の面が膜のはしから白くのぞいていた）。押す範囲はそのまま
         var cur = set.Find("OverFalls/Curtain"); if (cur && cur.GetComponent<Renderer>()) cur.GetComponent<Renderer>().enabled = false;
