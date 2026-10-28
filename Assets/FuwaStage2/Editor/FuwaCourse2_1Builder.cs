@@ -1574,6 +1574,9 @@ public static class FuwaCourse2_1Builder
                     bool water = t.parent && t.parent.parent && t.parent.parent.name == "Water" && t.parent.parent.parent == root && t.parent.name != "W0_Source";
                     // 滝の道の水路（FallsRoad/SetN/ChannelN の底・ふち）
                     bool chan = t.parent && t.parent.parent && t.parent.parent.parent && t.parent.parent.parent.name == "FallsRoad" && t.parent.parent.parent.parent == root && t.parent.name.StartsWith("Channel");
+                    // その水路の範囲の中の断面だけ（2026-10-28 カーブの内側へのびた断面が、となりのセットの水路まで届いて岩の棚が広がり、3つ目の端の滝を隠していた）
+                    if (chan && int.TryParse(t.parent.name.Substring(7), out int ci) && ci < setS.Length)
+                    { ChannelRange(ci, out var cr0, out var cr1); if (ss[i] < cr0 - 0.5f || ss[i] > cr1 + 0.5f) chan = false; }
                     // ラストの川（Finale/W6_FinalRiver の底・ふち）と両岸
                     bool fin = (t.parent && t.parent.name == "Finale" && t.parent.parent == root && (t.name == "RightBank" || t.name == "LeftBank"))
                         || (t.parent && t.parent.parent && t.parent.parent.name == "Finale" && t.parent.parent.parent == root && t.parent.name.StartsWith("W6_"));
