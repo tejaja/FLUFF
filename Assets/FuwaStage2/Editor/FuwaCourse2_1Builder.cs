@@ -980,8 +980,9 @@ public static class FuwaCourse2_1Builder
     // 貝の道の長さに対する位置・置く側（-1＝左）・高い台か。ふつうの貝（左右交互）のあいだに、高い台の貝を足す
     // （2026-10-22 てじゃ「まだ上から回避できる」「各貝の間にさらに貝追加して、ぐっと高い位置を飛ぶ形に」「上回避するとそれにあたるみたいな」）
     public static float[] ClamAt = { 0.14f, 0.26f, 0.38f, 0.5f, 0.62f, 0.74f, 0.86f };   // 2026-10-23 0.1おき（約2.5m）→0.12おき（約3m）（てじゃ「貝は間隔ちょっと広げたい」）
-    public static float[] ClamSide = { -1f, 1f, 1f, -1f, -1f, 1f, 1f };
-    public static bool[] ClamHigh = { false, true, false, true, false, true, false };
+    // 2026-10-28 てじゃ「順番をかえたい：低左 低右 高左 低右 低左 高右 低左」
+    public static float[] ClamSide = { -1f, 1f, -1f, 1f, -1f, 1f, -1f };
+    public static bool[] ClamHigh = { false, false, true, false, false, true, false };
     public static float ClamPeriod = 2.8f;
     // 泡の大きさ（直径）と包む距離。0.62 だと上から軽く越えられそう（2026-10-21 てじゃ「あわはもっとデカくしよ」）→ 1.5 → 1.8（2026-10-22 てじゃ「ちょっとサイズアップ」）
     public static float ClamBubbleSize = 1.8f, ClamCapture = 1.05f;
