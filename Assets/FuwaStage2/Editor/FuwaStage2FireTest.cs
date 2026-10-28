@@ -45,14 +45,16 @@ public static class FuwaStage2FireTest
 
         // かがり火1：上の段の手前、低い道のはし
         Brazier(root, "Brazier1", new Vector3(6.5f, y0, 0f), heat, false);
+        // 回る羽根：上の段の入口。かがり火で浮かせて止めて、羽根のすき間をねらって撃つ（2026-10-28 てじゃ「とどまるのを利用、タイミング図るのムズイポイント」）
+        Fan(root, "Fan1", new Vector3(9.6f, y0 + up + 1.7f, 0f), 75f);   // 羽根の先が床にあたらない高さ（羽根の先まで 1.55m）
         // かがり火の輪：谷のまん中の空中
         Brazier(root, "FireRing", new Vector3(18f, y0 + up + 1.2f, 0f), heat, true);
 
         // テスト用のふわふわの台（公開前に消す）
         var spot = new GameObject("TestBallStart").transform; spot.SetParent(root, false); spot.localPosition = new Vector3(-3f, y0 + 1.2f, 0f);
         FuwaStage2WaterTest.BallStand(root, "BallStand_Fire", new Vector3(-4.5f, y0, -1.2f), spot, "ふわふわ：熱のテスト", new Color(1f, 0.55f, 0.2f));
-        var spot2 = new GameObject("TestBallUpper").transform; spot2.SetParent(root, false); spot2.localPosition = new Vector3(10.5f, y0 + up + 1.2f, 0f);
-        FuwaStage2WaterTest.BallStand(root, "BallStand_Upper", new Vector3(9.5f, y0 + up, -1.2f), spot2, "ふわふわ：上の段から", new Color(1f, 0.35f, 0.15f));
+        var spot2 = new GameObject("TestBallUpper").transform; spot2.SetParent(root, false); spot2.localPosition = new Vector3(13.5f, y0 + up + 1.2f, 0f);
+        FuwaStage2WaterTest.BallStand(root, "BallStand_Upper", new Vector3(13.5f, y0 + up, -1.2f), spot2, "ふわふわ：上の段から", new Color(1f, 0.35f, 0.15f));
 
         // ステージ2にいる時だけ表示
         var vis = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(m => m && m.gameObject.scene.IsValid() && m.GetType().Name == "FuwaAreaVisibility");
@@ -66,6 +68,27 @@ public static class FuwaStage2FireTest
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[熱のテスト場] " + root.position;
+    }
+
+    // 回る羽根：進む向き（+X）を軸に回る3枚羽根。羽根の当たりは跳ね返すだけ（アウトにしない）
+    static void Fan(Transform root, string name, Vector3 lp, float degPerSec)
+    {
+        var g = new GameObject(name).transform; g.SetParent(root, false); g.localPosition = lp;
+        var hub = GameObject.CreatePrimitive(PrimitiveType.Cylinder); hub.name = "Hub"; hub.transform.SetParent(g, false);
+        hub.transform.localRotation = Quaternion.Euler(0, 0, 90f); hub.transform.localScale = new Vector3(0.35f, 0.2f, 0.35f);
+        hub.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_FireTestRock", new Color(0.35f, 0.3f, 0.32f));
+        var rot = new GameObject("Rotor"); rot.transform.SetParent(g, false);
+        var rb = rot.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false; rb.interpolation = RigidbodyInterpolation.Interpolate;
+        for (int k = 0; k < 3; k++)
+        {
+            var b = GameObject.CreatePrimitive(PrimitiveType.Cube); b.name = "Blade" + k; b.transform.SetParent(rot.transform, false);
+            b.transform.localRotation = Quaternion.Euler(k * 120f, 0, 0);
+            b.transform.localPosition = b.transform.localRotation * new Vector3(0, 0.8f, 0);
+            b.transform.localScale = new Vector3(0.25f, 1.5f, 0.35f);
+            b.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_FireTestBlade", new Color(0.95f, 0.5f, 0.3f));
+        }
+        var sp = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSpinner>(rot); sp.axis = Vector3.right; sp.degPerSec = degPerSec;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp); FuwaStage2WaterTest.NoSync(sp);
     }
 
     // かがり火：台（輪なら台なし）＋炎の粒＋熱の範囲（トリガー、半径 1m・高さ 2m）
