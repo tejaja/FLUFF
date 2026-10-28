@@ -2485,6 +2485,24 @@ public static class FuwaCourse2_1Builder
         Center(s - 2f, out _, out var d1); Center(s + 2f, out _, out var d2);
         return d1.x * d2.y - d1.y * d2.x > 0f ? 1f : -1f;
     }
+    // 三連滝の水の出どころ（2026-10-28 てじゃ「滝が空中から出てるからなんとかしたい」→ 案A）：滝の真上に浮いた岩。蓮の池の水源とおそろいで、
+    // 上は平らなごつごつ岩（BoulderMesh の上が平らな形）、上に浮かぶ青い球から岩へ水が落ち、滝は岩の下からあふれ出る。
+    // 滝の幕（Curtain は落ち口から前へ -0.15〜0.45m）の上のはしは、岩のいちばんふくらんだ高さ（メッシュの y 0）に埋める
+    //（岩の後ろに置いて前のふちから落とす形は、上から見ると幕の上と水の膜が岩の前に棚のように出た）。見た目だけ（当たりなし）
+    // 岩は進む先（奥＝+fd）へ FallsRockBack 寄せる（てじゃ「奥に岩おこう」。来る側の手前に岩が出ると逆に見えた）
+    public static float FallsRockDepth = 3.0f, FallsRockH = 2.4f, FallsRockSide = 2.0f, FallsRockBack = 0.4f;
+    static void FallsSourceRock(Transform set, int i, Vector2 fc, Vector2 fd, float width, float top)
+    {
+        float sy = FallsRockH / 0.8f, rockTop = top + 0.3f * sy;   // メッシュは y -0.5〜0.3（上が平ら）
+        var rc = fc + fd * (0.15f + FallsRockBack);   // 幕の厚みのまん中から奥へ
+        var rv = new GameObject("SourceRock"); rv.transform.SetParent(set, false);
+        rv.AddComponent<MeshFilter>().sharedMesh = BoulderMesh(11 + i, true);
+        rv.AddComponent<MeshRenderer>().sharedMaterial = StoneMat();
+        rv.transform.localRotation = Quaternion.LookRotation(new Vector3(fd.x, 0, fd.y));
+        rv.transform.localScale = new Vector3(width + FallsRockSide, sy, FallsRockDepth);
+        rv.transform.localPosition = new Vector3(rc.x, top, rc.y);
+        WaterOrb(set, new Vector3(rc.x, rockTop, rc.y), "SourceOrb", 1.4f, 0.3f, 0.22f);
+    }
     // 落ち口の線（p を通り r にそう）の 5mm 外に、外（o）を向いた岩の板（見た目だけ。当たりなし）
     static void EndLipPlate(Transform g, string meshName, Vector2 p, Vector2 r, Vector2 o, float latA, float latB, float yBot, float yTop)
     {
@@ -2572,6 +2590,7 @@ public static class FuwaCourse2_1Builder
             float ia = RoadHW - CutDepth[i] + OverFallsGap, width = outer - OverFallsGap - ia;
             var fc = fp + fr * (o * (ia + width * 0.5f));
             FuwaStage2WaterTest.Waterfall(set, "OverFalls", new Vector3(fc.x, 0, fc.y), FallsH + OverFallsH, surf, width, new Vector3(fd.x, 0, fd.y));
+            FallsSourceRock(set, i, fc, fd, width, FallsH + OverFallsH);
         }
         // アウト判定：道の下（ふわふわ＝FuwaHazard、人＝FuwaPlayerCatcher）。4m ごと、道と水路より下
         var outs = new GameObject("Outs").transform; outs.SetParent(g, false);
