@@ -2710,225 +2710,190 @@ public static class FuwaCourse2_1Builder
     //（前の案：滝の上の浮いた岩は、てじゃ「なんかちゃうな」）
     // 2026-10-28 てじゃ「もっと岩の柱を奥側まで太くしよう、滝裏の水の部分まで全部柱でもいい」：柱は幕のまん中から、水路の上流のはし（奥のふちの岩）まで。
     // 断面は中心線にそった（s, 横）の超楕円で、内側の面は道のふち＋OverFallsGap にそわせる（えぐれが戻る所で道に食い込まないように。道とのあいだは水のすき間）
-    public static float PillarNotchSide = 0.35f;
     public static float PillarSide = 0.25f, PillarAbove = 0.0f, PillarBelow = 2.4f, PillarNoise = 0.12f, PillarBackPad = 0.1f, PillarBowl = 0.5f;
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
     // 幕の上は柱のてっぺんより PillarLipDrop 下（膜の曲がる所の後ろに隠れる）
-    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f, PillarLipAngle = 15f, WallRimFoamIn = 0.12f + 0.2f, WallWaterUnder = 0.2f, GateRimFoamIn = 0.3f;
+    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f, PillarLipAngle = 25f, WallRimFoamIn = 0.12f + 0.2f, WallWaterUnder = 0.2f, GateRimFoamIn = 0.3f;
+    // 2026-10-28 作り直し（てじゃ「だめだなおらんな、いっそ作り直そうか」「もうちょい角度つけたい」）：
+    // 前は道ぞいに曲がった柱に、あとからななめの落ち口をねじこんでいて、どこか直すと別の所（池のはみ出し・ふちの隙間・滝のはしの曲がり）がずれた。
+    // 今は全部を「落ち口の枠」（原点＝落ち口のまん中のてっぺん、v＝奥＝+fd、u＝横＝Right(fd)）で作る：
+    // ・柱の足あと：手前は落ち口の線より PillarCheekOut 前、奥は水路の上流のはし。横は道の側のふち（Inner）と水路の外のふち（outerL）の線を枠に写した間（道に食い込まない）
+    // ・てっぺん：ふちの岩をぐるっと PillarRimW。手前のまん中だけ滝の幅（±hw）でふちを切り欠く（水の出口）。切り欠きのふちは水の下に PillarLipSink 沈める
+    // ・水：池（ふちの内側）と滝を1枚で。池の手前の壁は v＝PillarPoolFront、そこから落ち口まで ±hw の水路
+    // ・手前の面は切り欠きの幅の中だけ滝の裏にそって削る。両わきは岩の「ほお」が滝のはしより前に出てはしを隠す
+    public static float PillarFrontReach = 0.6f, PillarNotchSide = 0.35f, PillarCheekOut = 0.45f, PillarPoolFront = 0.3f, PillarNotchFloor = 0.15f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
         float fb = FallsFlowBack ? -1f : 1f;
-        float yTop = top + PillarAbove, yBot = surf - PillarBelow;
+        float yTop = top + PillarAbove, yBot = surf - PillarBelow, lipRim = yTop - PillarLipSink;
         ChannelRange(i, out var c0, out var c1);
-        float sA = sc - fb * 0.3f + 0.15f;   // 幕の厚みのまん中（手前の面）
-        float sB = FallsFlowBack ? c1 + RimW + PillarBackPad : c0 - RimW - PillarBackPad;   // 水路の上流のはしのふちの岩まで
+        float sA = sc - fb * 0.3f + 0.15f;
+        float sB = FallsFlowBack ? c1 + RimW + PillarBackPad : c0 - RimW - PillarBackPad;
         float outerL = RoadHW + ChanHW * 2f + PillarSide;
         float Inner(float s) { return RoadHW - Cut(s, o) + OverFallsGap; }
-        const int nAround = 36; const float ringStep = 0.45f; const float ex = 3.2f;   // 超楕円の丸さ（2＝楕円、大きいほど四角）
-        int nRing = Mathf.Max(2, Mathf.CeilToInt((yTop - yBot) / ringStep) + 1);
-        float nOff = 31.7f * (i + 1);
-        // 柱を回す角度：道の向き（落ち口の向きに近い方）から fd まで。中心は落ち口のまん中 fc
-        Center(sc, out var rotP0, out var rotD0);
-        var fdNat = Vector2.Dot(rotD0, fd) >= 0f ? rotD0 : -rotD0;
-        float rotA = Vector2.SignedAngle(fdNat, fd) * Mathf.Deg2Rad, rotC = Mathf.Cos(rotA), rotS = Mathf.Sin(rotA);
-        var rotPivot = fc;
-        Vector2 Rot(Vector2 v) => new Vector2(v.x * rotC - v.y * rotS, v.x * rotS + v.y * rotC);
-        float rotK = Vector2.Dot(Rot(Right(fdNat)), fdNat) / Mathf.Max(0.2f, rotC);   // 横 1m あたりの前後のずれ（tan）
-        Vector3 RingPt(int k, float y, float shrink)
-        {
-            float t = k / (float)nAround * Mathf.PI * 2f, c = Mathf.Cos(t), sn = Mathf.Sin(t);
-            float xn = Mathf.Sign(c) * Mathf.Pow(Mathf.Abs(c), 2f / ex), zn = Mathf.Sign(sn) * Mathf.Pow(Mathf.Abs(sn), 2f / ex);
-            // 水面より下は少し太く（下へ 0〜+12%）。水面より上は道に食い込まないようにそのまま
-            float g = (1f + 0.12f * Mathf.InverseLerp(surf - 0.3f, yBot, y)) * shrink;
-            float s = Mathf.Lerp(sA, sB, (zn * g + 1f) * 0.5f);
-            float lat = Mathf.Lerp(Inner(s), outerL, (xn * g + 1f) * 0.5f);
-            // ごつごつ：外向き（横・前後）に出し入れ。内側の面は道のふち＋すき間より道側へは出さない
-            float n = (Mathf.PerlinNoise(nOff + k * 0.37f, y * 0.45f) - 0.5f) * 2f * PillarNoise;
-            var nd = new Vector2(xn, zn).normalized;
-            lat += nd.x * n; s += nd.y * n;
-            if (y > surf - 0.5f) lat = Mathf.Max(lat, Inner(s));
-            Center(s, out var p, out var d); var q = p + Right(d) * (o * lat);
-            // 柱ごと落ち口の向き（fd＝ななめ PillarLipAngle）へ回す（2026-10-28 てじゃ「滝が左にぐにゃって出てる」：落ち口だけななめで柱はまっすぐだったので、
-            // 手前の面を落ち口の線へ寄せると片側が前へ出て角のふちが消え、反対側は膜が柱の外へはみ出した）。回したあとも道へは食い込ませない
-            // 回すのでなく、手前ほど強く前後へずらす（手前の面だけななめに。回すと奥の道の側が道へ食い込んだ）
-            {
-                float L0 = Vector2.Dot(q - rotPivot, Right(fdNat));
-                float wF = 1f - Mathf.Clamp01((zn * g + 1f) * 0.5f);
-                q += fdNat * (L0 * rotK * wF);
-            }
-            return new Vector3(q.x, y, q.y);
-        }
-        // 側面（輪を縦に並べる）＋てっぺんのふた。角ばった面（三角形ごとに頂点を分ける）
-        var P = new Vector3[nRing, nAround];
-        for (int j = 0; j < nRing; j++)
-        {
-            float y = Mathf.Lerp(yBot, yTop, j / (float)(nRing - 1));
-            float shrink = j == 0 ? 0.55f : 1f;   // いちばん下はすぼめる（土台の中）
-            for (int k = 0; k < nAround; k++) P[j, k] = RingPt(k, y, shrink);
-        }
-        // 手前（幕の側＝zn が -1 の側）のてっぺんのふちを水面の下まで下げる（まわりへはなだらかに）
-        // 横は幕の幅の中だけ（外のかどはふちを残して水たまりを囲む）
-        // 2026-10-28 てじゃ「全部上がずれてる、柱側であわせられないかな」：ふちを下げると、まわりのふち・水たまり・膜の上の高さがばらばらに見えた。
-        // てっぺんのふちは全部同じ高さ（yTop）のまま、水たまりはふちすれすれまで満たして（あふれそうな水面）、膜もふちの高さからこぼす
-        // 落ち口のふちの岩の角は水の下へ PillarLipSink 沈める（2026-10-28 てじゃ「まだちょと岩の線がみえる」：ふちの角が水のすぐ下で細い線に見えた）
-        float lipRim = yTop - PillarLipSink;
-        // 落ち口（膜）は柱の手前の面の幅いっぱい・まん中に（2026-10-28 てじゃ「横にだいぶずれてる」：膜を幕の幅に合わせていたので、
-        // 柱が外側へ 0.65m はみ出して、膜が道側に寄って見えた）。幕（押す範囲）はそのまま
         var lfr = Right(fd);
-        float pIn = Inner(sA), pMid = (pIn + outerL) * 0.5f, cMid = RoadHW - CutDepth[i] + OverFallsGap + width * 0.5f;
-        // 落ち口は柱の手前の面より両わき PillarNotchSide せまく（2026-10-28 てじゃ「まだすきまある」「滝が左にぐにゃって出てる」：
-        // 落ち口が手前の面いっぱいだと、丸い角の所でふちの岩がなくなって水が外のはしまで来た・膜のはしが角の丸みにそって曲がった）。
-        // ふちの切れ目（水の出口）を作る形：両わきは岩のふちが残って、手前の面の両はしは岩の「ほお」が膜のはしをはさむ
-        var lip0 = fc + fd * 0.15f + lfr * (o * (pMid - cMid)); float lipHW = (outerL - pIn) * 0.5f - 0.02f - PillarNotchSide;
-        // 膜の断面（落ち口から内へ x、上へ y）。ほかの滝と同じ形
+        const float LipIn = 0.35f;
+        // 膜の断面（落ち口から奥へ x、上へ y）。ほかの滝と同じ形
         var LipProf = new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) };
-        const float LipIn = 0.35f + 0.0f;   // 落ち口の線を奥へ（膜のいちばん前＝-0.35 が元の線＋すき間）
-        // 深さ d での膜の前後の位置（元の線から手前が正）
-        float SheetE(float d)
+        // 深さ d での膜の奥行き（落ち口の線から奥が正）
+        float SheetV(float d)
         {
-            float x = LipProf[LipProf.Count - 2].x;
             for (int a = 1; a < LipProf.Count - 1; a++)
             {
                 float d0 = -LipProf[a].y, d1 = float.IsNaN(LipProf[a + 1].y) ? 999f : -LipProf[a + 1].y;
-                if (d <= d1) { x = Mathf.Lerp(LipProf[a].x, LipProf[a + 1].x, Mathf.InverseLerp(d0, d1, d)); break; }
+                if (d <= d1) return Mathf.Lerp(LipProf[a].x, LipProf[a + 1].x, Mathf.InverseLerp(d0, d1, d));
             }
-            return -LipIn - x;
+            return LipProf[LipProf.Count - 2].x;
         }
-        float RockE(float d) { return Mathf.Min(0f, SheetE(d) - PillarLipGap) - (d < 0.05f ? 0.02f : 0f); }
-        float FrontW(Vector3 q, int k)
+        // 枠：まず仮の原点（前と同じ落ち口の線の上）で、道の側・外の側のふちの線を写す
+        var org = fc + fd * (0.15f + LipIn);
+        Vector2 UV(Vector2 w) { var r = w - org; return new Vector2(Vector2.Dot(r, lfr), Vector2.Dot(r, fd)); }
+        var roadL = new List<Vector2>(); var outL = new List<Vector2>();
+        float s0 = Mathf.Min(sA, sB) - 4f, s1 = Mathf.Max(sA, sB) + 4f;
+        for (float s = s0; s <= s1; s += 0.05f)
         {
-            float sn = Mathf.Sin(k / (float)nAround * Mathf.PI * 2f), zn = Mathf.Sign(sn) * Mathf.Pow(Mathf.Abs(sn), 2f / ex);
-            float lat = Mathf.Abs(Vector2.Dot(new Vector2(q.x, q.z) - lip0, lfr));
-            return Smooth01((-zn - 0.35f) / 0.3f) * (1f - Smooth01((lat - lipHW - 0.05f) / 0.3f));
+            Center(s, out var p, out var d); var rr = Right(d) * o;
+            roadL.Add(UV(p + rr * Inner(s))); outL.Add(UV(p + rr * outerL));
         }
-        // 手前の面は幕の幅（＋まわり）で落ち口の線にそろえて平らに（2026-10-28 てじゃ「まだちょっとへん」：柱の手前の面がカーブとごつごつで
-        // 落ち口の線より前に出たりへこんだりして、膜のはしで岩のかどが膜より上に出ていた）
-        // 2026-10-28 てじゃ「最初の滝みたいに上の水面と綺麗につなげたい」：膜はほかの滝（EndLipFalls・門の滝）と同じ、水面がふくらんで前へまるく
-        // 転がり落ちる断面（LipProf）。落ち口の線はそのぶん LipIn 奥にして、岩の手前の面は膜の裏の PillarLipGap 奥にそわせる（てっぺんは丸く削れる）
+        roadL.Sort((a, b) => a.y.CompareTo(b.y)); outL.Sort((a, b) => a.y.CompareTo(b.y));
+        float UAt(List<Vector2> L, float v)
+        {
+            if (v <= L[0].y) return L[0].x; if (v >= L[L.Count - 1].y) return L[L.Count - 1].x;
+            int lo = 0, hi = L.Count - 1; while (hi - lo > 1) { int m = (lo + hi) / 2; if (L[m].y < v) lo = m; else hi = m; }
+            return Mathf.Lerp(L[lo].x, L[hi].x, Mathf.InverseLerp(L[lo].y, L[hi].y, v));
+        }
+        bool roadLow = UAt(roadL, 0f) < UAt(outL, 0f);
+        float ULo(float v) => Mathf.Min(UAt(roadL, v), UAt(outL, v));
+        float UHi(float v) => Mathf.Max(UAt(roadL, v), UAt(outL, v));
+        // 原点を落ち口の線のまん中へ
+        float uc = (ULo(0f) + UHi(0f)) * 0.5f;
+        org += lfr * uc;
+        for (int k = 0; k < roadL.Count; k++) roadL[k] -= new Vector2(uc, 0f);
+        for (int k = 0; k < outL.Count; k++) outL[k] -= new Vector2(uc, 0f);
+        float hw = 1f;   // 落ち口の半分の幅：柱の輪を作ってから、手前の面が本当に落ち口の線にのっている所で決める
+        float vF = -PillarCheekOut;
+        Center(sB, out var pB, out _); float vB = UV(pB).y + 0.0f;
+        Vector2 W2(float u, float v) => org + lfr * u + fd * v;
+        // ---- 柱の輪 ----
+        const int nAround = 40; const float ringStep = 0.45f; const float ex = 3.2f;
+        int nRing = Mathf.Max(2, Mathf.CeilToInt((yTop - yBot) / ringStep) + 1);
+        float nOff = 31.7f * (i + 1);
+        float FrontW(float zn) => Smooth01((-zn - 0.35f) / 0.3f);
+        float NotchW(float u, float soft) => 1f - Smooth01((Mathf.Abs(u) - hw + soft) / soft);
+        var PU = new Vector2[nRing, nAround]; var PY = new float[nRing]; var PZ = new float[nAround];
         for (int j = 0; j < nRing; j++)
+        {
+            float y = Mathf.Lerp(yBot, yTop, j / (float)(nRing - 1)); PY[j] = y;
+            float shrink = j == 0 ? 0.55f : 1f;
             for (int k = 0; k < nAround; k++)
             {
-                var q = P[j, k]; var q2 = new Vector2(q.x, q.z);
-                float w = FrontW(q, k); if (w <= 0f) continue;
-                float e = Vector2.Dot(q2 - lip0, -fd) - RockE(yTop - q.y);
-                q2 -= -fd * (e * w); P[j, k] = new Vector3(q2.x, q.y, q2.y);
+                float t = k / (float)nAround * Mathf.PI * 2f, c = Mathf.Cos(t), sn = Mathf.Sin(t);
+                float xn = Mathf.Sign(c) * Mathf.Pow(Mathf.Abs(c), 2f / ex), zn = Mathf.Sign(sn) * Mathf.Pow(Mathf.Abs(sn), 2f / ex);
+                PZ[k] = zn;
+                float g = (1f + 0.12f * Mathf.InverseLerp(surf - 0.3f, yBot, y)) * shrink;
+                // 足あとは道ぞい（s＝手前 sA〜奥 sB、横＝道の側のふち〜水路の外のふち）で作る（道に食い込まない）
+                float s = Mathf.Lerp(sA, sB, (zn * g + 1f) * 0.5f);
+                float lat = Mathf.Lerp(Inner(s), outerL, (xn * g + 1f) * 0.5f);
+                float nz = j == nRing - 1 ? 0f : (Mathf.PerlinNoise(nOff + k * 0.37f, y * 0.45f) - 0.5f) * 2f * PillarNoise;
+                var nd = new Vector2(xn, zn).normalized; lat += nd.x * nz; s += nd.y * nz * (1f - FrontW(zn));
+                if (y > surf - 0.5f) lat = Mathf.Max(lat, Inner(s));
+                // 手前の面を落ち口の線（の PillarCheekOut 前）にそろえる：横の位置（道・水路のふちの線）はそのまま、道ぞいに前後へ動かす
+                //（枠の前後へ動かすと、ななめの分だけ柱の横の面が水路のふちの線からずれて、膜が柱の横へはみ出した）
+                float wFr = FrontW(zn);
+                if (wFr > 0f)
+                    for (int it = 0; it < 4; it++)
+                    {
+                        Center(s, out var cp0, out var cd0); var uv0 = UV(cp0 + Right(cd0) * (o * lat));
+                        float dd = Vector2.Dot(cd0, fd); if (Mathf.Abs(dd) < 0.2f) break;
+                        s += Mathf.Clamp((vF - uv0.y) * wFr / dd, -0.3f, 0.3f);
+                    }
+                // とがった角（ななめの鋭い側）が長くのびないように、前後に動かすのは最大 PillarFrontReach まで
+                if (wFr > 0f) s = Mathf.Clamp(s, sA - PillarFrontReach, sA + PillarFrontReach);
+                if (y > surf - 0.5f) lat = Mathf.Max(lat, Inner(s));
+                Center(s, out var cp, out var cdir); var uv = UV(cp + Right(cdir) * (o * lat));
+                // 横は道の側のふち〜水路の外のふちの線の間から出さない（手前の角が横へとがって出た）
+                uv.x = Mathf.Clamp(uv.x, ULo(uv.y), UHi(uv.y));
+                PU[j, k] = uv;
             }
-        // てっぺんの輪の沈め（落ち口のふち）は、膜の幅が決まってから下の SinkW で
-        // 2026-10-28 てじゃ「まだ貼り付けた感ある」→「がっつりつくりなおそ」：水たまりと膜を1枚の水にする。
-        // てっぺんのくぼみは落ち口の幅の四角（横は膜の幅 hw、奥は奥のふちの PillarRimW 手前まで）、その中を1枚の水のメッシュが
-        // 奥から落ち口まで平らに流れて、落ち口でまるく転がって柱の面ぞいに落ちる（材質は滝ひとつ、手前は _PondTop で池の色・波紋）
-        // 膜の横はば：てっぺんのふちが本当に落ち口の線（膜の裏）に乗っている所まで。水面より上の全段で、いちばん狭い所に
-        float hwL = 99f, hwR = 99f;
-        for (int j = 1; j < nRing - 1; j++)   // てっぺんの輪は落ち口で沈めてあるので測らない（入れると滝が細くなった）
+        }
+        // 落ち口の幅：てっぺんの輪で、手前の面が落ち口の線（vF）にのっている所の横のはしから PillarNotchSide 内側。まん中は 0 のまま（左右せまい方に合わせる）
         {
-            if (P[j, 0].y < surf) continue;
-            float jl = 0f, jr = 0f;
+            float lo = 0f, hi = 0f;
+            for (int k = 0; k < nAround; k++) { var q = PU[nRing - 1, k]; if (FrontW(PZ[k]) < 0.95f || Mathf.Abs(q.y - vF) > 0.06f) continue; lo = Mathf.Min(lo, q.x); hi = Mathf.Max(hi, q.x); }
+            hw = Mathf.Max(0.5f, Mathf.Min(-lo, hi) - PillarNotchSide);
+        }
+        // 切り欠きの幅の中の手前の面は、滝の裏の PillarLipGap 奥まで削る
+        for (int j = 0; j < nRing; j++)
+        {
+            float y = PY[j]; if (y <= surf - 0.6f) continue;
+            float vr = j == nRing - 1 ? SheetV(0f) + PillarLipGap : SheetV(Mathf.Max(0f, yTop - y)) + PillarLipGap;
             for (int k = 0; k < nAround; k++)
             {
-                var q = new Vector2(P[j, k].x, P[j, k].z);
-                if (Mathf.Abs(Vector2.Dot(q - lip0, -fd) - RockE(yTop - P[j, k].y)) > 0.02f) continue;
-                float lat = Vector2.Dot(q - lip0, lfr);
-                if (lat < 0f) jl = Mathf.Max(jl, -lat); else jr = Mathf.Max(jr, lat);
+                var q = PU[j, k]; float w = FrontW(PZ[k]) * NotchW(q.x, 0.1f);
+                q.y = Mathf.Lerp(q.y, Mathf.Max(q.y, vr), w); PU[j, k] = q;
             }
-            hwL = Mathf.Min(hwL, jl); hwR = Mathf.Min(hwR, jr);
         }
-        hwL = Mathf.Max(0.3f, hwL - 0.04f); hwR = Mathf.Max(0.3f, hwR - 0.04f);
-        float hw = (hwL + hwR) * 0.5f;
-        var lipMid = lip0 + lfr * ((hwR - hwL) * 0.5f) + fd * LipIn;   // 落ち口のまん中（てっぺんの手前のふち）
-        // 落ち口で沈めるふちの岩は、膜（水）がかかる幅の中だけ（2026-10-28 てじゃ「こんなかんじの隙間が各柱にある」「まだある」：
-        // 沈める範囲が柱の手前の面いっぱい（膜より片側 0.2〜0.4m 広い）で、水のかからない角の岩だけ一段へこんで隙間に見えた）
-        float SinkW(Vector3 q, int k)
-        {
-            float lat = Vector2.Dot(new Vector2(q.x, q.z) - lipMid, lfr);
-            float edge = lat < 0f ? -hwL - (hwR - hwL) * 0.5f : hwR - (hwR - hwL) * 0.5f;
-            return FrontW(q, k) * (1f - Smooth01((Mathf.Abs(lat) - Mathf.Abs(edge) + 0.16f) / 0.12f));   // 膜のはしの 4cm 内側で沈めは0
-        }
-        for (int k = 0; k < nAround; k++) { var q = P[nRing - 1, k]; q.y = Mathf.Lerp(yTop, lipRim, SinkW(q, k)); P[nRing - 1, k] = q; }
-        // 奥行き：てっぺんの奥のふちから PillarRimW 手前まで
-        // 池（くぼみ）は柱のてっぺんいっぱい（2026-10-28 てじゃ「上の池なくなってない？」：落ち口の幅の四角にしたら池が小さくなった）。
-        // てっぺんのふちを PillarRimW 内側へ寄せた形、手前（落ち口の側）は落ち口の線まで。池の水は奥から落ち口の幅へだんだん集まって滝になる
-        var cenTop = Vector2.zero; for (int k = 0; k < nAround; k++) cenTop += new Vector2(P[nRing - 1, k].x, P[nRing - 1, k].z); cenTop /= nAround;
-        var basin = new Vector2[nAround];   // 落ち口のまん中からの（横 a、奥 b）
+        // てっぺんの外の輪の高さ：切り欠きの中だけ沈める（膜のはしの 4cm 内側で 0）
+        var topY = new float[nAround];
+        for (int k = 0; k < nAround; k++) topY[k] = Mathf.Lerp(yTop, lipRim, FrontW(PZ[k]) * NotchW(PU[nRing - 1, k].x - Mathf.Sign(PU[nRing - 1, k].x) * 0.04f, 0.06f));
+        // 内の輪（池のふち）：外の輪から直角に PillarRimW。切り欠きの中は v＝PillarNotchFloor、外は池の手前の壁 PillarPoolFront より奥
+        var IU = new Vector2[nAround]; var IY = new float[nAround];
+        var cenUV = Vector2.zero; for (int k = 0; k < nAround; k++) cenUV += PU[nRing - 1, k]; cenUV /= nAround;
         for (int k = 0; k < nAround; k++)
         {
-            var q = new Vector2(P[nRing - 1, k].x, P[nRing - 1, k].z);
-            // ふちの幅は外のふちに直角に PillarRimW（前はまん中へ向かって寄せていて、細長い柱の横・角でふちが細くなり、水が外のふちまで来て隙間に見えた。
-            // 2026-10-28 てじゃ「こんなかんじの隙間が各柱にある」）
-            var qp = new Vector2(P[nRing - 1, (k + nAround - 1) % nAround].x, P[nRing - 1, (k + nAround - 1) % nAround].z);
-            var qn = new Vector2(P[nRing - 1, (k + 1) % nAround].x, P[nRing - 1, (k + 1) % nAround].z);
-            var tg = (qn - qp).normalized; var nin = new Vector2(-tg.y, tg.x); if (Vector2.Dot(nin, cenTop - q) < 0f) nin = -nin;
+            var q = PU[nRing - 1, k]; var qp = PU[nRing - 1, (k + nAround - 1) % nAround]; var qn = PU[nRing - 1, (k + 1) % nAround];
+            var tg = (qn - qp).normalized; var nin = new Vector2(-tg.y, tg.x); if (Vector2.Dot(nin, cenUV - q) < 0f) nin = -nin;
             var qi = q + nin * PillarRimW;
-            var rel = qi - lipMid; float a = Vector2.Dot(rel, lfr), bb = Vector2.Dot(rel, fd);
-            // 落ち口の線まで前へ出すのは膜の幅の中の点だけ（幅の外の角の点まで前へ出すと、そこのふちの岩がなくなって水が柱の外のはしまで来た。
-            // 2026-10-28 てじゃ「まだあるなあ」）
-            float w = FrontW(P[nRing - 1, k], k) * (1f - Smooth01((Mathf.Abs(a) - hw + 0.05f) / 0.15f));
-            if (w > 0f) { bb = Mathf.Lerp(bb, 0f, w); a = Mathf.Lerp(a, Mathf.Clamp(a, -hw, hw), w); }
-            basin[k] = new Vector2(a, Mathf.Max(0f, bb));
+            float wN = FrontW(PZ[k]) * NotchW(q.x, 0.06f);
+            if (wN > 0.5f) { qi = new Vector2(Mathf.Clamp(q.x, -hw, hw), PillarNotchFloor); IY[k] = lipRim; }
+            else { qi.y = Mathf.Max(qi.y, PillarPoolFront); IY[k] = yTop; }
+            IU[k] = qi;
         }
-        float D = 0f; for (int k = 0; k < nAround; k++) D = Mathf.Max(D, basin[k].y);
-        // 奥 b での池の横のはば（池のふちの線と交わる所のいちばん左・右）。手前 0.3m は落ち口の幅
-        void BasinAt(float bq, out float aL, out float aR)
+        // 内の輪が外の輪の外へ出た所（とがった角）は、まん中へ寄せて中に入れる（外に出るとふちの三角が裏返って、薄い板が角から横へ出た）
+        bool InOuter(Vector2 pt)
         {
-            aL = 99f; aR = -99f;
-            for (int k = 0; k < nAround; k++)
-            {
-                var p0 = basin[k]; var p1 = basin[(k + 1) % nAround];
-                if ((p0.y - bq) * (p1.y - bq) > 0f) continue;
-                float t = Mathf.Abs(p1.y - p0.y) < 1e-5f ? 0.5f : (bq - p0.y) / (p1.y - p0.y);
-                float ax = Mathf.Lerp(p0.x, p1.x, t); aL = Mathf.Min(aL, ax); aR = Mathf.Max(aR, ax);
-            }
-            if (aL > aR) { aL = aR = 0f; }
-            float f2 = Smooth01((bq - 0.3f) / 0.6f);
-            aL = Mathf.Lerp(-hw, Mathf.Min(aL, -0.05f), f2); aR = Mathf.Lerp(hw, Mathf.Max(aR, 0.05f), f2);
-        }
-        Vector2 InsideBasin(Vector2 p)
-        {
-            if (p.y < 0.3f) return p;   // 落ち口の手前の所はそのまま
-            bool inside = false;
+            bool ins = false;
             for (int k = 0, k0 = nAround - 1; k < nAround; k0 = k++)
             {
-                var a = basin[k]; var b = basin[k0];
-                if ((a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+                var a = PU[nRing - 1, k]; var b = PU[nRing - 1, k0];
+                if ((a.y > pt.y) != (b.y > pt.y) && pt.x < (b.x - a.x) * (pt.y - a.y) / (b.y - a.y) + a.x) ins = !ins;
             }
-            if (inside) return p;
-            Vector2 best = p; float bd = float.MaxValue;
-            for (int k = 0; k < nAround; k++)
-            {
-                var a = basin[k]; var b = basin[(k + 1) % nAround]; var ab2 = b - a;
-                float t = Mathf.Clamp01(Vector2.Dot(p - a, ab2) / Mathf.Max(1e-6f, ab2.sqrMagnitude)); var q = a + ab2 * t;
-                if ((q - p).sqrMagnitude < bd) { bd = (q - p).sqrMagnitude; best = q; }
-            }
-            return best;
+            return ins;
         }
-        Vector3 InnerPt(int k) { var bq = basin[k]; var r2 = lipMid + lfr * bq.x + fd * bq.y; return new Vector3(r2.x, Mathf.Lerp(yTop, lipRim, SinkW(P[nRing - 1, k], k)), r2.y); }
-        var V = new List<Vector3>(); var T = new List<int>();
-        void Tri(Vector3 a, Vector3 b, Vector3 c, Vector3 want)
+        for (int k = 0; k < nAround; k++)
         {
-            int o = V.Count; V.Add(a); V.Add(b); V.Add(c);
-            AddTriDir(V, T, o, o + 1, o + 2, want);
+            if (IY[k] < yTop - 0.01f) continue;   // 切り欠きの点（落ち口の線上）はそのまま
+            var qi = IU[k]; int it = 0;
+            while (it++ < 30 && !InOuter(qi + (cenUV - qi).normalized * 0.08f)) qi = Vector2.Lerp(qi, cenUV, 0.08f);
+            IU[k] = qi;
         }
-        var cen3 = Vector3.zero; for (int k = 0; k < nAround; k++) cen3 += P[nRing - 1, k]; cen3 /= nAround;
+        // ---- メッシュ（側面・てっぺんのふち・池の壁と底）----
+        var V = new List<Vector3>(); var T = new List<int>();
+        void Tri(Vector3 a, Vector3 b, Vector3 c, Vector3 want) { int b0 = V.Count; V.Add(a); V.Add(b); V.Add(c); AddTriDir(V, T, b0, b0 + 1, b0 + 2, want); }
+        Vector3 P3(Vector2 uv, float y) { var w = W2(uv.x, uv.y); return new Vector3(w.x, y, w.y); }
+        var cen3 = P3(cenUV, 0f);
         for (int j = 0; j < nRing - 1; j++)
             for (int k = 0; k < nAround; k++)
             {
                 int k1 = (k + 1) % nAround;
-                Vector3 a = P[j, k], b = P[j, k1], c = P[j + 1, k], d = P[j + 1, k1];
+                float yb = PY[j], yt = j + 1 == nRing - 1 ? 0f : PY[j + 1];
+                Vector3 a = P3(PU[j, k], yb), b = P3(PU[j, k1], yb);
+                Vector3 c = P3(PU[j + 1, k], j + 1 == nRing - 1 ? topY[k] : PY[j + 1]), d = P3(PU[j + 1, k1], j + 1 == nRing - 1 ? topY[k1] : PY[j + 1]);
                 var outw = (a + b + c + d) * 0.25f - new Vector3(cen3.x, (a.y + c.y) * 0.5f, cen3.z);
                 Tri(a, b, d, outw); Tri(a, d, c, outw);
             }
-        // てっぺん：外のふち→四角のふち（平らなふち）、四角の内の壁（水の下へ）、くぼみの底
-        var inR = new Vector3[nAround]; for (int k = 0; k < nAround; k++) inR[k] = InnerPt(k);
-        var floorC = Vector2.zero; for (int k = 0; k < nAround; k++) floorC += new Vector2(inR[k].x, inR[k].z); floorC /= nAround;
-        var topC = new Vector3(floorC.x, yTop - PillarBowl, floorC.y);
+        var floorUV = Vector2.zero; for (int k = 0; k < nAround; k++) floorUV += IU[k]; floorUV /= nAround;
+        var floorC = P3(floorUV, yTop - PillarBowl);
         for (int k = 0; k < nAround; k++)
         {
             int k1 = (k + 1) % nAround;
-            Tri(P[nRing - 1, k], P[nRing - 1, k1], inR[k1], Vector3.up); Tri(P[nRing - 1, k], inR[k1], inR[k], Vector3.up);
-            Vector3 lo0 = inR[k] + Vector3.down * PillarBowl, lo1 = inR[k1] + Vector3.down * PillarBowl;
-            var inw = new Vector3(floorC.x, 0, floorC.y) - new Vector3((inR[k].x + inR[k1].x) * 0.5f, 0, (inR[k].z + inR[k1].z) * 0.5f);
-            Tri(inR[k], inR[k1], lo1, inw); Tri(inR[k], lo1, lo0, inw);
-            Tri(topC, lo0, lo1, Vector3.up);
+            Vector3 o0 = P3(PU[nRing - 1, k], topY[k]), o1 = P3(PU[nRing - 1, k1], topY[k1]), i0 = P3(IU[k], IY[k]), i1 = P3(IU[k1], IY[k1]);
+            Tri(o0, o1, i1, Vector3.up); Tri(o0, i1, i0, Vector3.up);
+            Vector3 l0 = P3(IU[k], yTop - PillarBowl), l1 = P3(IU[k1], yTop - PillarBowl);
+            var inw = new Vector3(floorC.x, 0, floorC.z) - new Vector3((i0.x + i1.x) * 0.5f, 0, (i0.z + i1.z) * 0.5f);
+            Tri(i0, i1, l1, inw); Tri(i0, l1, l0, inw);
+            Tri(floorC, l0, l1, Vector3.up);
         }
         var m = new Mesh { name = "Course2_1_FallsPillar" + i, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         m.SetVertices(V); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
@@ -2936,36 +2901,49 @@ public static class FuwaCourse2_1Builder
         var go = new GameObject("Pillar"); go.transform.SetParent(set, false);
         go.AddComponent<MeshFilter>().sharedMesh = m; go.AddComponent<MeshRenderer>().sharedMaterial = StoneMat();
         go.AddComponent<MeshCollider>().sharedMesh = m;
-        var orbAt = new Vector3(floorC.x, yTop - 0.004f, floorC.y);
+        // 青い球：池のまん中（切り欠きの点は数えない）
+        var poolC = Vector2.zero; int pn = 0; for (int k = 0; k < nAround; k++) if (IU[k].y >= PillarPoolFront - 0.01f) { poolC += IU[k]; pn++; }
+        poolC /= Mathf.Max(1, pn);
+        var orbW = W2(poolC.x, poolC.y); var orbAt = new Vector3(orbW.x, yTop - 0.004f, orbW.y);
         WaterOrb(set, orbAt, "SourceOrb", 1.5f, 0.3f, 0.22f);
-        // 1枚の水：奥（D）から落ち口まで平らに（ふちの 4mm 下）、落ち口でまるく転がって（LipProf）柱の面ぞいに水路の水面まで
+        // ---- 1枚の水：池（奥→池の手前の壁）＋ 切り欠きの水路（±hw）＋ 落ち口から先（LipProf）----
         var cur = set.Find("OverFalls/Curtain"); if (cur && cur.GetComponent<Renderer>()) cur.GetComponent<Renderer>().enabled = false;
-        // 格子：横 nl 列（池のはばを横に等分）、上から 池の平らな行（奥 D→落ち口）＋ 落ち口から先（LipProf）
+        float D = 0f; for (int k = 0; k < nAround; k++) D = Mathf.Max(D, IU[k].y);
+        // 奥 v での池のはば（内の輪と v の線の交わり）
+        void PoolAt(float v, out float aL, out float aR)
+        {
+            aL = 99f; aR = -99f;
+            for (int k = 0; k < nAround; k++)
+            {
+                var p0 = IU[k]; var p1 = IU[(k + 1) % nAround];
+                if ((p0.y - v) * (p1.y - v) > 0f) continue;
+                float t = Mathf.Abs(p1.y - p0.y) < 1e-5f ? 0.5f : (v - p0.y) / (p1.y - p0.y);
+                float ax = Mathf.Lerp(p0.x, p1.x, t); aL = Mathf.Min(aL, ax); aR = Mathf.Max(aR, ax);
+            }
+            if (aL > aR) { aL = -hw; aR = hw; }
+        }
         int nl = Mathf.Max(2, Mathf.CeilToInt(hw * 2f / 0.25f));
-        int nFlat = Mathf.Max(3, Mathf.CeilToInt(D / 0.2f));
+        float vPool0 = PillarPoolFront + 0.02f;
+        int nFlat = Mathf.Max(3, Mathf.CeilToInt((D - vPool0) / 0.2f) + 1);
         var curl = new List<Vector2>(); for (int k = 1; k < LipProf.Count; k++) curl.Add(LipProf[k]);
-        int pcR = nFlat + curl.Count;
+        int pcR = nFlat + 1 + curl.Count;
         var grid = new Vector3[nl + 1, pcR];
+        float yW = yTop + PillarWaterUp;
         for (int c = 0; c <= nl; c++)
         {
             float u = c / (float)nl;
             for (int j = 0; j < nFlat; j++)
             {
-                // いちばん奥の行は池のふちの一番奥の点ちょうどだと、ふちの線との交わりがとびとびになって、角が池の外へとがって出た
-                //（2026-10-28 てじゃ「3連滝に上の池のはみ出し」2つ目の柱）→ 少し手前から
-                float bq = Mathf.Lerp(D - 0.06f, 0.3f, j / (float)(nFlat - 1));
-                BasinAt(bq, out var aL, out var aR);
-                // 池のふち（basin の形）の外に出た点は、ふちの線のいちばん近い所へ（奥の角が柱のふちの外へとがって出た。てじゃ「なおってないで」）
-                var ab = InsideBasin(new Vector2(Mathf.Lerp(aL, aR, u), bq));
-                var q = lipMid + lfr * ab.x + fd * ab.y;
-                grid[c, j] = new Vector3(q.x, yTop + PillarWaterUp, q.y);   // ふちの 3mm 上（下だと落ち口のふちの角が細い線で見えた）
+                float v = Mathf.Lerp(D - 0.06f, vPool0, j / (float)(nFlat - 1));
+                PoolAt(v, out var aL, out var aR);
+                var w = W2(Mathf.Lerp(aL, aR, u), v); grid[c, j] = new Vector3(w.x, yW, w.y);
             }
             float al = Mathf.Lerp(-hw, hw, u);
+            { var w = W2(al, PillarPoolFront); grid[c, nFlat] = new Vector3(w.x, yW, w.y); }
             for (int j = 0; j < curl.Count; j++)
             {
                 var pr = curl[j]; float yy = float.IsNaN(pr.y) ? surf : yTop + pr.y;
-                var q = lipMid + lfr * al + fd * pr.x;
-                grid[c, nFlat + j] = new Vector3(q.x, j == 0 ? yTop + PillarWaterUp : yy, q.y);
+                var w = W2(al, pr.x); grid[c, nFlat + 1 + j] = new Vector3(w.x, j == 0 ? yW : yy, w.y);
             }
         }
         // 自分だけの親の下に（AirFallsFray は同じ親の下の物を「下にある物」に数えないので、set の下だと水路も柱も数えず空中の滝あつかいでほつれた）
@@ -2976,6 +2954,7 @@ public static class FuwaCourse2_1Builder
             var n = Vector3.Cross(grid[k, j + 1] - grid[k, j], grid[k + 1, j] - grid[k, j]);
             return Vector3.Dot(n, outW + Vector3.up) >= 0f ? n : -n;
         }, pcR - 1);
+        var lipMid = org;
         // 材質：手前（奥から落ち口まで D m）は池の色・波紋（青い球のまわりに広がる輪）・きらめき、落ち口から先は滝。柱ごとに波紋の中心がちがうので材質も柱ごと
         string plp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_PillarLip" + i + ".mat";
         var baseFm = FuwaStage2WaterTest.WaterfallThickMat(true);
