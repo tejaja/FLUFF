@@ -1273,7 +1273,7 @@ public static class FuwaCourse2_1Builder
     public static float OrbHeight = 2.6f, OrbRadius = 0.45f, OrbStream = 0.32f;
     static void WaterOrb(Transform terr, Vector3 pool) { WaterOrb(terr, pool, "WaterOrb", OrbHeight, OrbRadius, OrbStream); }
     // 球と水の柱の太さの倍率（2026-10-28 てじゃ「たま大きくして水も太くもしよう」）。全部の球にかかる
-    public static float OrbSizeK = 1.5f, OrbStreamK = 1.8f;
+    public static float OrbSizeK = 1.5f, OrbStreamK = 1.8f, OrbFlareK = 0.8f, OrbFlareLen = 0.5f;
     static void WaterOrb(Transform terr, Vector3 pool, string name, float OrbHeight, float OrbRadius, float OrbStream)
     {
         OrbRadius *= OrbSizeK; OrbStream *= OrbStreamK;
@@ -1306,13 +1306,27 @@ public static class FuwaCourse2_1Builder
         gr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; gr.receiveShadows = false;
         // 球の下から池へ落ちる水（まるい断面の滝）
         float len = OrbHeight - 0.02f;
-        string key = "OrbStream_" + len.ToString("F2") + "_" + OrbStream.ToString("F2");
+        // 球とつながる所はラッパのように広げる（2026-10-28 てじゃ「球と繋がってるとこ広げたらいい感じ」）：球の下のはし（-OrbRadius）の少し上で
+        // 球の半径の OrbFlareK 倍まで広がって、下へ OrbFlareLen ですぼまる。輪を細かく並べて、輪ごとに太さを変える
+        string key = "OrbStream2_" + len.ToString("F2") + "_" + OrbStream.ToString("F2") + "_" + OrbRadius.ToString("F2");
         var meshP = "Assets/FuwaStage2/Generated/Falls/" + key + ".asset";
         var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshP);
         if (!mesh)
         {
-            var cs = new List<Vector3> { Vector3.down * len, Vector3.zero };
-            mesh = FuwaStage2WaterTest.SweepFalls(key, cs, new List<Vector3> { Vector3.forward, Vector3.forward }, new List<Vector3> { Vector3.right, Vector3.right }, new List<float> { len, 0f }, len, OrbStream, OrbStream);
+            var cs = new List<Vector3>(); var fts = new List<float>();
+            int nr = Mathf.Max(8, Mathf.CeilToInt(len / 0.08f));
+            for (int i = 0; i <= nr; i++) { float y = -len + len * i / nr; cs.Add(Vector3.up * y); fts.Add(-y); }
+            mesh = FuwaStage2WaterTest.SweepFalls(key, cs, cs.Select(c => Vector3.forward).ToList(), cs.Select(c => Vector3.right).ToList(), fts, len, OrbStream, OrbStream);
+            float r0 = OrbStream * 0.5f, rTop = OrbRadius * OrbFlareK, yTop = -OrbRadius * 0.55f;
+            var vs = mesh.vertices; var ns = mesh.normals;
+            for (int k = 0; k < vs.Length; k++)
+            {
+                float y = vs[k].y, f;
+                if (y >= yTop) f = rTop / r0;
+                else { float u = Mathf.Clamp01((yTop - y) / OrbFlareLen); f = Mathf.Lerp(rTop / r0, 1f, 1f - (1f - u) * (1f - u)); }
+                vs[k] = new Vector3(vs[k].x * f, y, vs[k].z * f);
+            }
+            mesh.vertices = vs; mesh.RecalculateNormals(); mesh.RecalculateBounds();
             AssetDatabase.CreateAsset(mesh, meshP);
         }
         var st = new GameObject("Stream"); st.transform.SetParent(g, false);
