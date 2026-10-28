@@ -108,13 +108,18 @@ for n in ('Cut_FallL_Soft', 'Cut_FallR_Soft'):
     soft.append(c)
 # 落ち口の下の斜めのけずり：落ち口のふち（Blender y=-LIP_Y, 床の少し下 UC_TOP）から、下へ行くほど奥（+y）へ UC_SLOPE の割合で引っこみ、UC_BACK まで。
 # 幅も下へ行くほど少し広がる（四角く切った感じにしない。あとで面に歪みも）
+MX_R = 0.9
 UC_TOP, UC_SLOPE, UC_BACK, UC_W0, UC_WS = 4.95, 0.5, 0.5, 3.4, 0.0   # 奥へは 0.5m まで（1.3 だと洞窟の口の横の壁を突きぬけて、中から大きな穴が見えた）。幅は脇道の口まで（2.4 だと滝と脇道のあいだの柱の外のかどだけ残って、とがったヒレになった）
 LIP_Y = 6.766
 UC_SHIFT = 0.0
 bm = bmesh.new(); rings = []
-for k in range(16):
-    z = UC_TOP - k * 0.75
+# 上のかどは半径 MX_R で丸める（てじゃ「最初の滝の裏のここがちょっとおかしい」：上が平らな四角で、滝の裏から見上げると直角のかどが見えた）
+UC_DS = [0.0, 0.05, 0.15, 0.3, 0.5, 0.7, 0.9] + [0.9 + 0.75 * i for i in range(1, 15)]
+for d in UC_DS:
+    z = UC_TOP - d
     rec = min((UC_TOP - z) * UC_SLOPE, UC_BACK); w = UC_W0 + (UC_TOP - z) * UC_WS
+    if d < MX_R: w = w - MX_R + math.sqrt(max(0.0, MX_R * MX_R - (MX_R - d) * (MX_R - d)))
+    w = max(w, 0.3)
     yb = -LIP_Y + UC_SHIFT + rec   # UC_SHIFT：落ち口より洞窟の側へずらす（洞窟の出口の天井と落ち口の下のけずりのあいだに、うすい岩のヒレが残って滝の裏に線に見えた。2026-10-27）
     rings.append([bm.verts.new(p) for p in ((-w, yb, z), (w, yb, z), (w, -14.0, z), (-w, -14.0, z))])
 for a, c in zip(rings, rings[1:]):
@@ -133,7 +138,24 @@ for v in arch.data.vertices: v.co.x *= ARCH_HW / 2.6
 # 洞窟の出口のトンネルを落ち口の前の面までのばす（2026-10-27 てじゃ「滝裏に変な岩の線」：出口の天井の先と落ち口の下のけずり（UnderCut）のあいだに、
 # 下へたれたうすい岩のヒレが残って、滝の裏を横切る線に見えた）。幅は出口の壁の内がわ、天井は出口の天井の先の高さ
 MX_HW, MX_Z0, MX_Z1, MX_TOP = 1.72, 5.0, 7.3, 4.95   # 4.89（出口の天井と同じ高さ）だと面が重なってくり抜きがこわれ、出口がふさがった
-mouth_ext = prism('Tmp_Cut_MouthExt', [_u2b(-MX_HW, MX_Z0), _u2b(MX_HW, MX_Z0), _u2b(MX_HW, MX_Z1), _u2b(-MX_HW, MX_Z1)], 2.3, MX_TOP)   # 床は切らない
+# 断面は上の両かどを半径 MX_R で丸めたトンネル（2026-10-28 てじゃ「最初の滝の裏のここがちょっとおかしい」：四角い箱のままで、滝の裏から見上げると
+# 平らな天井とまっすぐな壁の直角のかどが見えた。天井はすぐ上が池の底なので上げられない＝かどを岩で埋める向きに丸める）
+def mouth_sweep(name):
+    bm = bmesh.new(); prof = [(-MX_HW, 2.3), (MX_HW, 2.3)]
+    for k in range(9):   # 右のかど（下→上）
+        a = math.radians(90 * k / 8); prof.append((MX_HW - MX_R + MX_R * math.cos(a), MX_TOP - MX_R + MX_R * math.sin(a)))
+    for k in range(9):   # 左のかど（上→下）
+        a = math.radians(90 + 90 * k / 8); prof.append((-MX_HW + MX_R + MX_R * math.cos(a), MX_TOP - MX_R + MX_R * math.sin(a)))
+    rings = []
+    for z in (MX_Z0, MX_Z1):
+        rings.append([bm.verts.new((*_u2b(x, z), h)) for x, h in prof])
+    n = len(prof)
+    for i in range(n):
+        j = (i + 1) % n; bm.faces.new([rings[0][i], rings[0][j], rings[1][j], rings[1][i]])
+    bm.faces.new(rings[0]); bm.faces.new(list(reversed(rings[1])))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    me = bpy.data.meshes.new(name); bm.to_mesh(me); bm.free(); return temp(name, me)
+mouth_ext = mouth_sweep('Tmp_Cut_MouthExt')   # 床は切らない
 cuts = [copy_of('Cut_Inside'), copy_of('Cut_Mouth'), arch, side, mouth_ext, pool,   # mouth_ext の始まり（MX_Z0）は洞窟の中の空いた所に（5.9 だと始まりの面が出口のトンネルに壁で残って出口がふさがった）
         copy_of('Cut_FallL'), copy_of('Cut_FallR')] + soft + exit_cuts + [undercut]
 base = bpy.data.objects['CaveRock']
@@ -166,7 +188,7 @@ bm.to_mesh(work.data); bm.free()
 # ---- 洞窟の中の天井をでこぼこに（2026-10-27 てじゃ「さいしょの洞窟の天井、なんか真っ二つにわれたような感じにみえる」）----
 # 前は Cut_Inside の上の面のまま、まっ平らな大きい多角形1枚で、三角形に分けた線が折れ目に見えた。
 # 天井の面を細かい三角形に分けて、上へだけ（岩の中へ）ノイズで持ち上げる（通り道はせまくならない）
-CEIL_AMP, CEIL_FREQ = 0.45, 0.9
+CEIL_AMP, CEIL_FREQ, CEIL_FADE = 0.45, 0.9, 2.0
 bm = bmesh.new(); bm.from_mesh(work.data)
 mb = bmesh.new(); mb.from_mesh(bpy.data.objects['Tmp_Cut_Inside'].data); in_tree = BVHTree.FromBMesh(mb); mb.free()
 def on_inside_ceil(f):
@@ -186,7 +208,11 @@ if ceil:
         bmesh.ops.triangulate(bm, faces=[f for f in bm.faces if len(f.verts) > 3 and on_inside_ceil(f)])
     bm.normal_update()
     cv = {v for f in bm.faces if on_inside_ceil(f) for v in f.verts}
-    for v in cv: v.co.z += CEIL_AMP * (noise.noise(V3((v.co.x * CEIL_FREQ, v.co.y * CEIL_FREQ, 3.7))) * 0.5 + 0.5)
+    # 出口のトンネル（MX_Z0 より外）の天井へは持ち上げを 0 へなだらかに（2026-10-28 てじゃ「最初の滝の裏のここがちょっとおかしい」：洞窟の天井だけ持ち上がって、
+    # 出口のトンネルの平らな天井とのあいだに まっすぐな段の壁ができ、滝の裏から見上げると四角い板に見えた）
+    def ceil_fade(y):
+        u = min(max((y - (-MX_Z0)) / CEIL_FADE, 0.0), 1.0); return u * u * (3 - 2 * u)
+    for v in cv: v.co.z += CEIL_AMP * ceil_fade(v.co.y) * (noise.noise(V3((v.co.x * CEIL_FREQ, v.co.y * CEIL_FREQ, 3.7))) * 0.5 + 0.5)
     print('ceiling verts lifted', len(cv))
 bm.to_mesh(work.data); bm.free()
 
