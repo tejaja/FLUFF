@@ -80,7 +80,8 @@ public static class FuwaStage2LobbyCourses
                 so.FindProperty("gunSpot").objectReferenceValue = stand ? stand.gunSpot : null;
                 so.FindProperty("lobbyReturnSpot").objectReferenceValue = null;
                 so.FindProperty("stage").intValue = 2;
-                so.FindProperty("timed").boolValue = false;   // ゴールができるまではタイムなし
+                // ゴール（FuwaGoal）ができたコースはタイムあり（ゴールでファンファーレ→ゴール後の曲もタイムありの時だけ）。2026-10-28 てじゃ「タイム入れよう」
+                so.FindProperty("timed").boolValue = course.GetComponentInChildren<FuwaGoal>(true) != null;
                 so.FindProperty("progressRing").objectReferenceValue = ring ? ring.GetComponent<Renderer>() : null;
                 so.FindProperty("progressVeil").objectReferenceValue = ring && ring.Find("WarpVeil") ? ring.Find("WarpVeil").GetComponent<Renderer>() : null;
                 so.FindProperty("gauge").objectReferenceValue = gauge.GetComponent<Renderer>();
