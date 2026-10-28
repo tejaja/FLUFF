@@ -3053,7 +3053,7 @@ public static class FuwaCourse2_1Builder
     // その前のふちから道の幅いっぱいに滝がこぼれる。水がかかっている所の後ろ・下も水の膜でつつむ。水の上に青い球を2つ。
     // 岩は前の箱の当たり判定をつつむ形（内側＝川・くぐり口の面はまっすぐ、外の面だけでこぼこ）で、当たり判定も岩のメッシュ
     public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 0.3f,   // 1.0 だとくぼみの型のはしのふたが 1m の平らな壁になって見えた（2026-10-28 てじゃ「まっすぐ部分が直線すぎる」）
-        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f, GateBandDepth = 3.2f, GateBandRim = 0.35f;
+        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f, GateBandDepth = 3.2f, GateBandRim = 0.35f, GateDomeH = 2.6f;
     public static float GateLeftOut = 9.8f, GateRightOut = 7.5f, GateLeftExtra = 1.3f;
     static void FinaleGate(Transform g, float H, float surf, float cs, float wa, float wb, float gIn, float gOut, float gTop, float r0)
     {
@@ -3101,16 +3101,19 @@ public static class FuwaCourse2_1Builder
         float rw0 = WaterEnd(r0s, -1f, s => OutR(s) - InR(s), 2.2f), rw1 = WaterEnd(r1s, 1f, s => OutR(s) - InR(s), 0.85f * (GateRightOut - rin));
         // くぼみの底は水のはしの外では 両側のふちの高さの間まで上げる（丸めたはしの先で、水のない底がふちの切れ込みに見えた）
         float Floor2(float s, float w0, float w1, float rimIn, float rimOut) => Mathf.Lerp((rimIn + rimOut) * 0.5f, yTop - GateFloor, Smooth01(Mathf.Min(s - w0, w1 - s) / 0.8f));
+        // 2026-10-28 てじゃ「全体的に変」→ 案A：池をやめて、左右の岩あわせて1つの丸い岩山に。上は切れ目（谷）の側がいちばん高く、外へなだらかに下がる。
+        // 両はしは低く（端の丸み k）。谷の底（真ん中の水）を川が流れて滝になる
+        float DomeK(float s, float a, float b, float rd) => Mathf.Min(RfU(s, a), RfD(s, b, rd));
         CragRock(gate, "GateRockL", l0, l1, 311, (s, rf) =>
         {
-            float li = LintelL(s), wi = WallL(s), ol = OutL(s), ce = CeilL(s), sw = SlabW(s), rr = RidgeL(s), bp = Bump(s);
-            float it = Mathf.Lerp(yTop + GateRim + RimN(s, 0.4f) * Calm(s), yTop - 0.03f, sw), ot = yTop + GateRim + RimN(s, 3.1f);
-            float fl = Floor2(s, lw0 - 0.1f, lw1 + 0.1f, Mathf.Max(it, yTop + GateRim), ot);
+            float li = LintelL(s), wi = WallL(s), ol = OutL(s), ce = CeilL(s), rr = RidgeL(s), bp = Bump(s), k = DomeK(s, l0, l1, lRound);
+            float it = yTop + GateRim + GateDomeH * k + RimN(s, 0.4f), ot = yTop + GateRim + GateDomeH * k * 0.1f + RimN(s, 3.1f);
+            float fl = yTop + GateRim + GateDomeH * k * 0.75f;
             float fy = LeftBankH(Mathf.Clamp(s, sF1, sF1 + FinDownEnd)) - 0.6f;
             float fr = Mathf.Min(0.45f, (li - wi) * 0.35f), bv = Mathf.Min(0.3f, (li - wi) * 0.25f);
             var pr = new List<(float, float, bool)>
             {
-                (li, it, false), (li - rr, fl, false), (ol + rr, fl, false), (ol, ot, false),
+                (li, it, false), (li - rr, it - 0.1f, false), ((li + ol) * 0.5f, fl, false), (ol + rr, ot + GateDomeH * k * 0.3f, false), (ol, ot, false),
                 // 下にいくほど細く（浮島みたいに。まっすぐ下までだと柱に見えた）
                 (ol + 0.15f, yTop - 1.5f, true), (wi + (ol - wi) * 0.85f, H - 1.5f, true), (wi + (ol - wi) * 0.55f, surf - 1f, true), (wi + (ol - wi) * 0.25f, surf - 4.5f, true),
                 (wi, fy, false), (wi - RimN(s, 5.7f), Mathf.Lerp(fy + 0.6f, ce, 0.55f), false),
@@ -3125,12 +3128,12 @@ public static class FuwaCourse2_1Builder
         }, -1f, false, 0.2f);
         CragRock(gate, "GateRockR", r0s, r1s, 517, (s, rf) =>
         {
-            float ir = InR(s), ro = OutR(s), sw = SlabW(s), rr = RidgeR(s), bp = Bump(s);
-            float it = Mathf.Lerp(yTop + GateRim + RimN(s, 1.3f) * Calm(s), yTop - 0.03f, sw), ot = yTop + GateRim + RimN(s, 4.4f);
-            float fl = Floor2(s, rw0 - 0.1f, rw1 + 0.1f, Mathf.Max(it, yTop + GateRim), ot);
+            float ir = InR(s), ro = OutR(s), rr = RidgeR(s), bp = Bump(s), k = DomeK(s, r0s, r1s, rRound);
+            float it = yTop + GateRim + GateDomeH * k + RimN(s, 1.3f), ot = yTop + GateRim + GateDomeH * k * 0.1f + RimN(s, 4.4f);
+            float fl = yTop + GateRim + GateDomeH * k * 0.75f;
             return new List<(float, float, bool)>
             {
-                (ir, it, false), (ir + rr, fl, false), (ro - rr, fl, false), (ro, ot, false),
+                (ir, it, false), (ir + rr, it - 0.1f, false), ((ir + ro) * 0.5f, fl, false), (ro - rr, ot + GateDomeH * k * 0.3f, false), (ro, ot, false),
                 (ro - 0.15f, yTop - 1.5f, true), (ir + (ro - ir) * 0.85f, H - 1.5f, true), (ir + (ro - ir) * 0.55f, surf - 1f, true), (ir + (ro - ir) * 0.3f, surf - 4.5f, true),
                 (ir, surf - 2.5f, false), (ir, surf + 0.3f, false),
                 // 川に面した内の面のでこぼこ（水ぎわは川のはしのまま、岩の中へ引っこむだけ）
@@ -3171,7 +3174,8 @@ public static class FuwaCourse2_1Builder
         }
         float BandA(float s) => BandEdge(s).Item1;
         float BandB(float s) => BandEdge(s).Item2;
-        BasinWater(gate, "GateWaterBand", bS0, bS1, BandA, BandB, yTop, 99f);
+        // 谷の底の水（岩の橋の上）。両わきは岩の壁
+        BasinWater(gate, "GateWaterSlab", sl0, sl1, s => gIn, s => rin, yTop, 99f);
         // 前のふちから滝（川の水面まで）と、水がかかっている所の後ろ・下をつつむ膜
         var lipF = new List<Vector3>(); var outF = new List<Vector3>();
         float la = gIn, lb = rin;   // 両わきの岩の面まで（はみ出すと岩の上に滝のはしが見えた）
@@ -3200,8 +3204,8 @@ public static class FuwaCourse2_1Builder
         }, 0f, false);
         // 青い球：左右のくぼみの上に1つずつ（球の下は湧き水）
         // 池のまん中に（下流のはしを落ち口でそろえて池が短くなったので、前の場所 cs+2.6 だと右の球が岩の外の空中に出た）
-        float bm = (bS0 + bS1) * 0.5f;
-        foreach (var (s, lat) in new[] { (bm, (BandA(bm) + gIn) * 0.5f), (bm, (rin + BandB(bm)) * 0.5f) })
+        // 青い球は谷の水の上流のはしの上に1つ
+        foreach (var (s, lat) in new[] { (sl0 + 0.35f, (gIn + rin) * 0.5f) })
         {
             Center(s, out var p, out var d); var q = p + Right(d) * lat; var pos = new Vector3(q.x, yTop, q.y);
             var sp = new GameObject("GateOrb" + (lat < 0 ? "L" : "R")).transform; sp.SetParent(gate, false);
@@ -3234,7 +3238,7 @@ public static class FuwaCourse2_1Builder
     {
         Physics.SyncTransforms();
         const int across = 7;   // BasinWater の 1列の点の数（across 6 ＋1）
-        foreach (var nm in new[] { "GateWaterBand" })
+        foreach (var nm in new[] { "GateWaterSlab" })
         {
             var w = gate.Find(nm); if (!w) continue;
             var mesh = w.GetComponent<MeshFilter>().sharedMesh; var vs = mesh.vertices;
@@ -3271,7 +3275,7 @@ public static class FuwaCourse2_1Builder
     {
         Physics.SyncTransforms();
         // 真ん中の水（Slab）も同じ測り方で（両わきだけ変えると、ふちからの距離で決まる水の色が真ん中とずれて四角いさかい目が見えた）
-        foreach (var nm in new[] { "GateWaterBand" })
+        foreach (var nm in new[] { "GateWaterSlab" })
         {
             var w = gate.Find(nm); if (!w) continue;
             var mesh = w.GetComponent<MeshFilter>().sharedMesh; var vs = mesh.vertices;
