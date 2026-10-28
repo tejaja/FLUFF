@@ -6,7 +6,7 @@ using UnityEngine;
 // 2026-10-28 てじゃ「推進力がないから活用がむずかしい」「とどまるのを利用する手もある、タイミング図るのムズイポイント」「冷めるのはいらんかも」
 // → 浮いて止まっている間に、向きを変えたり（曲がり角）タイミングを見て撃つ遊び。温まっている間はオレンジに光る。
 // てじゃ「あまりに長時間浮かせてると燃えるとかもおもろい、厳しすぎずに」「燃えてもすぐショットすれば消える」
-// → burnAfter 秒浮いていると燃えだす（赤く点滅＋炎）。burnGrace 秒以内に撃てば消える、撃たなければ燃え尽きてアウト
+// → burnAfter 秒浮いていると燃えだす（赤く点滅＋炎）。燃えたまま飛んでいく。burnGrace 秒以内に撃って消す（ためなし3回／半分ため2回／フルため1回）、消せないと燃え尽きてアウト
 // 1つだけ置いて、かがり火から Heat() を呼ぶ
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaHeat : UdonSharpBehaviour
@@ -29,7 +29,9 @@ public class FuwaHeat : UdonSharpBehaviour
     [Tooltip("この秒数浮いていると燃えだす")]
     public float burnAfter = 6f;
     [Tooltip("燃えだしてから燃え尽きる（アウト）までの秒数。この間に撃てば消える")]
-    public float burnGrace = 3f;
+    public float burnGrace = 3.5f;
+    [Tooltip("消すのに要る撃ちの量：ためなし1回の量（ためるほど 1 に近づく）。ためなし3回・半分ため2回・フルため1回で消える（てじゃ 2026-10-28）")]
+    public float douseTap = 0.34f, douseHalf = 0.5f;
     public Color glowColor = new Color(1f, 0.55f, 0.15f);
     public Color burnColor = new Color(1f, 0.15f, 0.05f);
     [Tooltip("燃えている時にふわふわについていく炎（なくてもOK）")]
@@ -37,8 +39,8 @@ public class FuwaHeat : UdonSharpBehaviour
     public AudioSource burnSound;
 
     private bool _hover, _burning;
-    private float _heatAt = -100f;
-    private Vector3 _anchor;
+    private float _heatAt = -100f, _burnAt = -100f, _douse, _lastShotT = -100f;
+    private Vector3 _anchor, _prevPos;
 
     public void Heat()
     {
@@ -50,14 +52,15 @@ public class FuwaHeat : UdonSharpBehaviour
     {
         if (ball == null || _hover) return;
         if (ball.LastShotAge() < reheatDelay) return;
-        _hover = true; _burning = false; _heatAt = Time.time;
+        _hover = true; _heatAt = Time.time;
         _anchor = anchor;
     }
     public bool IsHovering() { return _hover; }
+    public bool IsBurning() { return _burning; }
 
-    private void Stop()
+    private void StopBurn()
     {
-        _hover = false; _burning = false;
+        _burning = false;
         if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = 0f; }
     }
 
@@ -66,35 +69,63 @@ public class FuwaHeat : UdonSharpBehaviour
         if (burnFx != null && _burning && ball != null) burnFx.transform.position = ball.transform.position;
     }
 
+    // 溜め具合 → 消す量（0＝ためなし douseTap、0.5＝douseHalf、1＝1）
+    private float DouseOf(float charge)
+    {
+        return charge <= 0.5f ? Mathf.Lerp(douseTap, douseHalf, charge / 0.5f) : Mathf.Lerp(douseHalf, 1f, (charge - 0.5f) / 0.5f);
+    }
+
     private void FixedUpdate()
     {
-        if (ball == null || !_hover) return;
-        // 撃たれたら（温まったあとに撃った）おしまい＝燃えていても消える。はなれすぎてもおしまい
-        if (ball.LastShotAge() < Time.time - _heatAt - 0.05f) { Stop(); return; }
+        if (ball == null) return;
         Vector3 p = ball.transform.position;
-        if ((p - _anchor).magnitude > maxLeash) { Stop(); return; }
-        float age = Time.time - _heatAt;
-        // 燃える
-        if (age > burnAfter + burnGrace) { Stop(); ball.Fail(); return; }
-        if (age > burnAfter && !_burning)
+        // スタートやチェックポイントへ戻った（一瞬で大きく動いた）らおしまい
+        if ((p - _prevPos).sqrMagnitude > 25f) { _hover = false; StopBurn(); }
+        _prevPos = p;
+        float shotT = Time.time - ball.LastShotAge();
+        bool newShot = shotT > _lastShotT + 0.01f;
+        if (newShot) _lastShotT = shotT;
+
+        // 燃えている：撃たれるたびに消える量をためる。たまったら消える、時間切れで燃え尽きてアウト
+        if (_burning)
         {
-            _burning = true;
-            if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = 40f; burnFx.transform.position = p; }
-            if (burnSound != null && burnSound.clip != null) burnSound.PlayOneShot(burnSound.clip);
+            if (newShot)
+            {
+                _douse += DouseOf(ball.LastShotCharge());
+                if (_douse >= 0.999f) { StopBurn(); ball.Glow(new Color(0.85f, 0.9f, 1f), Vector3.up, 1f, 0.3f); }
+            }
+            if (_burning && Time.time - _burnAt > burnGrace) { _hover = false; StopBurn(); ball.Fail(); return; }
         }
-        Vector3 v = ball.GetVelocity();
-        float ty = _anchor.y + Mathf.Sin(age * Mathf.PI * 2f / Mathf.Max(0.1f, bobPeriod)) * bobAmp;
-        float ay = ball.GetFallAcceleration() + (ty - p.y) * spring - v.y * damping;
-        // 横も止まる所へ（ばねは縦より弱め）
-        Vector3 a = new Vector3((_anchor.x - p.x) * sideSpring - v.x * sideDamping, ay, (_anchor.z - p.z) * sideSpring - v.z * sideDamping);
-        ball.AddHeat(a);
+
+        if (_hover)
+        {
+            // 撃たれたら（温まったあとに撃った）浮くのはおしまい。はなれすぎてもおしまい
+            if (newShot && shotT > _heatAt + 0.05f) _hover = false;
+            else if ((p - _anchor).magnitude > maxLeash) _hover = false;
+        }
+        if (_hover)
+        {
+            float age = Time.time - _heatAt;
+            if (age > burnAfter && !_burning)
+            {
+                _burning = true; _burnAt = Time.time; _douse = 0f;
+                if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = 40f; burnFx.transform.position = p; }
+                if (burnSound != null && burnSound.clip != null) burnSound.PlayOneShot(burnSound.clip);
+            }
+            Vector3 v = ball.GetVelocity();
+            float ty = _anchor.y + Mathf.Sin(age * Mathf.PI * 2f / Mathf.Max(0.1f, bobPeriod)) * bobAmp;
+            float ay = ball.GetFallAcceleration() + (ty - p.y) * spring - v.y * damping;
+            // 横も止まる所へ（ばねは縦より弱め）
+            Vector3 a = new Vector3((_anchor.x - p.x) * sideSpring - v.x * sideDamping, ay, (_anchor.z - p.z) * sideSpring - v.z * sideDamping);
+            ball.AddHeat(a);
+        }
         if (_burning)
         {
             // 燃え尽きに近いほど速く点滅
-            float k = (age - burnAfter) / Mathf.Max(0.1f, burnGrace);
-            float blink = Mathf.Sin(age * Mathf.PI * 2f * Mathf.Lerp(3f, 9f, k)) * 0.5f + 0.5f;
+            float k = (Time.time - _burnAt) / Mathf.Max(0.1f, burnGrace);
+            float blink = Mathf.Sin(Time.time * Mathf.PI * 2f * Mathf.Lerp(3f, 9f, k)) * 0.5f + 0.5f;
             ball.Glow(Color.Lerp(glowColor, burnColor, blink), Vector3.up, 1f, 0.05f);
         }
-        else ball.Glow(glowColor, Vector3.up, 0.8f, 0.05f);
+        else if (_hover) ball.Glow(glowColor, Vector3.up, 0.8f, 0.05f);
     }
 }
