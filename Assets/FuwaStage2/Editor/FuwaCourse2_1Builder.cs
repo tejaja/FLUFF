@@ -2723,7 +2723,7 @@ public static class FuwaCourse2_1Builder
     // ・水：池（ふちの内側）と滝を1枚で。池の手前の壁は v＝PillarPoolFront、そこから落ち口まで ±hw の水路
     // ・手前の面は切り欠きの幅の中だけ滝の裏にそって削る。両わきは岩の「ほお」が滝のはしより前に出てはしを隠す
     const string PillarModel = "Assets/FuwaStage2/Models/Stage2_FallsPillars.fbx", PillarJsonDir = "D:/UnityProject/FLUFF/Tools";
-    public static float PillarFaceIn = -0.15f;   // 落ち口の下の岩の面（落ち口の線からの奥行き。膜は -0.18〜-0.35 を落ちる）
+    public static float PillarFaceIn = -0.15f, PillarNotchRound = 0.25f;   // 落ち口の下の岩の面（落ち口の線からの奥行き。膜は -0.18〜-0.35 を落ちる）
     public static float PillarFrontReach = 1.4f, PillarNotchSide = 0.5f, PillarCheekOut = 0.45f, PillarPoolFront = 0.3f, PillarNotchFloor = 0.15f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
@@ -2953,7 +2953,7 @@ public static class FuwaCourse2_1Builder
             js.Append("],\"inner\":[__INNER__");   // 池のくぼみ＝水の平らな所の外形そのもの（下で水の格子を作ってから入れる。2026-10-28 てじゃ「てっぺんの水面が岩の形とあってない」）
             float hwN = hw - 0.04f, vWallX = PillarPoolFront; for (int k = 0; k < nAround; k++) if (IY[k] >= yTop - 0.01f && FrontW(PZ[k]) > 0.3f) vWallX = Mathf.Max(vWallX, IU[k].y);
             // 切り欠き（ふちを lipRim まで切る）：落ち口の線より前から池の手前の壁まで
-            js.Append("],\"notch\":[" + Pt(new Vector2(un - hwN, vF - 1f)) + "," + Pt(new Vector2(un + hwN, vF - 1f)) + "," + Pt(new Vector2(un + hwN, vWallX + 0.05f)) + "," + Pt(new Vector2(un - hwN, vWallX + 0.05f)) + "]");
+            js.Append("],\"notch\":[__NOTCH__]");
             // 落ち口の下の面（滝の裏）：切り欠きの幅で、落ち口の線より PillarFaceIn 前まで垂直に削る
             js.Append(",\"face\":[" + Pt(new Vector2(un - hwN, vF - 1f)) + "," + Pt(new Vector2(un + hwN, vF - 1f)) + "," + Pt(new Vector2(un + hwN, PillarFaceIn)) + "," + Pt(new Vector2(un - hwN, PillarFaceIn)) + "]}");
             pillarJson = js.ToString();
@@ -2988,9 +2988,29 @@ public static class FuwaCourse2_1Builder
         // 池の手前の壁（なめらかにしたので 0.3 より少し奥の所もある）のいちばん奥から。手前だと池の横はばの行が壁の前のふちの上に出た
         float vWall = PillarPoolFront; for (int k = 0; k < nAround; k++) if (IY[k] >= yTop - 0.01f && FrontW(PZ[k]) > 0.3f) vWall = Mathf.Max(vWall, IU[k].y);
         float vPool0 = vWall + 0.02f;
-        int nFlat = Mathf.Max(3, Mathf.CeilToInt((D - vPool0) / 0.2f) + 1);
+        int nFlat = Mathf.Max(3, Mathf.CeilToInt((D - vPool0) / 0.1f) + 1);
         var curl = new List<Vector2>(); for (int k = 1; k < LipProf.Count; k++) curl.Add(LipProf[k]);
-        int pcR = nFlat + 1 + curl.Count;
+        // 池→切り欠きの角を丸める（2026-10-28 てじゃ「まるめたい」）：池の手前の壁の所から落ち口の側へ PillarNotchRound の間に、
+        // 横はばを池のはばから切り欠きのはばへ円弧で細くする。岩の切り欠き（Blender）も同じ線で切る
+        const int nRound = 7;
+        float rR = Mathf.Clamp(vWall - 0.06f, 0.05f, PillarNotchRound);
+        float cL = un - hw + 0.06f, cR = un + hw - 0.06f;   // 膜は切り欠きより片側 6cm せまく（はしが ほおの上にのって角が見えた）
+        // 水のふちの線（奥 v ごとの左右）：池は池のふち、池の手前の壁より前は切り欠きの幅。その線を ±rR でならして角を丸める（池の側は内へ寄るだけ）
+        void RawEdge(float v, out float l, out float r) { if (v <= vWall) { l = cL; r = cR; return; } PoolAt(Mathf.Max(v, vPool0), out l, out r); }
+        void Edge(float v, out float l, out float r)
+        {
+            float sl = 0f, sr = 0f; const int ns = 24;
+            for (int q = 0; q <= ns; q++) { RawEdge(Mathf.Min(D - 0.06f, v + rR * (q / (float)ns * 2f - 1f)), out var a, out var b); sl += a; sr += b; }
+            l = sl / (ns + 1); r = sr / (ns + 1);
+            RawEdge(v, out var la, out var ra); l = Mathf.Max(l, la); r = Mathf.Min(r, ra);   // 元の線より外へは出さない
+        }
+        var rowL = new float[nRound]; var rowR = new float[nRound]; var rowV = new float[nRound];
+        for (int r = 0; r < nRound; r++)
+        {
+            rowV[r] = Mathf.Lerp(vWall, vWall - rR, r / (float)(nRound - 1));
+            Edge(rowV[r], out rowL[r], out rowR[r]);
+        }
+        int pcR = nFlat + nRound + curl.Count;
         var grid = new Vector3[nl + 1, pcR];
         float yW = yTop + PillarWaterUp;
         for (int c = 0; c <= nl; c++)
@@ -2999,15 +3019,15 @@ public static class FuwaCourse2_1Builder
             for (int j = 0; j < nFlat; j++)
             {
                 float v = Mathf.Lerp(D - 0.06f, vPool0, j / (float)(nFlat - 1));
-                PoolAt(v, out var aL, out var aR);
+                Edge(v, out var aL, out var aR);
                 var w = W2(Mathf.Lerp(aL, aR, u), v); grid[c, j] = new Vector3(w.x, yW, w.y);
             }
-            float al = un + Mathf.Lerp(-hw + 0.06f, hw - 0.06f, u);   // 膜は切り欠きより片側 6cm せまく（はしが ほおの上にのって角が見えた）
-            { var w = W2(al, vWall); grid[c, nFlat] = new Vector3(w.x, yW, w.y); }
+            for (int r = 0; r < nRound; r++) { var w = W2(Mathf.Lerp(rowL[r], rowR[r], u), rowV[r]); grid[c, nFlat + r] = new Vector3(w.x, yW, w.y); }
+            float al = Mathf.Lerp(cL, cR, u);
             for (int j = 0; j < curl.Count; j++)
             {
                 var pr = curl[j]; float yy = float.IsNaN(pr.y) ? surf : yTop + pr.y;
-                var w = W2(al, pr.x); grid[c, nFlat + 1 + j] = new Vector3(w.x, j == 0 ? yW : yy, w.y);
+                var w = W2(al, pr.x); grid[c, nFlat + nRound + j] = new Vector3(w.x, j == 0 ? yW : yy, w.y);
             }
         }
         {
@@ -3015,7 +3035,13 @@ public static class FuwaCourse2_1Builder
             var inv2 = System.Globalization.CultureInfo.InvariantCulture; var ring = new List<string>();
             for (int j = 0; j <= nFlat; j++) ring.Add("[" + grid[nl, j].x.ToString("F4", inv2) + "," + grid[nl, j].z.ToString("F4", inv2) + "]");
             for (int j = nFlat; j >= 0; j--) ring.Add("[" + grid[0, j].x.ToString("F4", inv2) + "," + grid[0, j].z.ToString("F4", inv2) + "]");
-            System.IO.File.WriteAllText(PillarJsonDir + "/stage2_pillar" + i + ".json", pillarJson.Replace("__INNER__", string.Join(",", ring)));
+            // 切り欠き：丸めの線（水のはしより 2cm 外）→ 落ち口の前まで
+            string Q(float uu, float vv) { var w = W2(uu, vv); return "[" + w.x.ToString("F4", inv2) + "," + w.y.ToString("F4", inv2) + "]"; }
+            var notch = new List<string>();
+            for (int r = 0; r < nRound; r++) notch.Add(Q(rowR[r] + 0.02f, rowV[r]));
+            notch.Add(Q(cR + 0.02f, vF - 1f)); notch.Add(Q(cL - 0.02f, vF - 1f));
+            for (int r = nRound - 1; r >= 0; r--) notch.Add(Q(rowL[r] - 0.02f, rowV[r]));
+            System.IO.File.WriteAllText(PillarJsonDir + "/stage2_pillar" + i + ".json", pillarJson.Replace("__INNER__", string.Join(",", ring)).Replace("__NOTCH__", string.Join(",", notch)));
         }
         // 自分だけの親の下に（AirFallsFray は同じ親の下の物を「下にある物」に数えないので、set の下だと水路も柱も数えず空中の滝あつかいでほつれた）
         var lg = new GameObject("PillarLip").transform; lg.SetParent(set, false);
