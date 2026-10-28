@@ -74,7 +74,10 @@ public static class FuwaCourse2_1Builder
         for (int i = from; i < a.Length; i++) a[i] += d * lead;
         return a;
     }
-    static readonly Vector2[] Ctrl = ShiftFrom(ShiftFrom(new[]
+    const float FallsSqueeze = 9f;
+    // a[from] から先を y だけ dy 手前へ
+    static Vector2[] PullBack(Vector2[] a, int from, float dy) { for (int i = from; i < a.Length; i++) a[i].y -= dy; return a; }
+    static readonly Vector2[] Ctrl = PullBack(ShiftFrom(ShiftFrom(new[]
     {
         // 川（4〜8）は 2026-10-25 にまっすぐ寄りに（てじゃのスケッチ「赤が道、青が川、２回渡る」。前は (-6,20),(-5,28),(1,34),(7,40),(8,48) の大きいS字）
         new Vector2(0, -6), new Vector2(0, 0), new Vector2(0, 6), new Vector2(-2, 13), new Vector2(-4, 20), new Vector2(-3.5f, 28),
@@ -83,12 +86,13 @@ public static class FuwaCourse2_1Builder
         // ⑤ 滝の道（ぐねぐね。滝と水路は FallsSet0・FallsGap で置く）→ ⑥ ラスト
         // 2026-10-23 滝の道を短くしたので、(-1,116) から先はまっすぐ (0,136) へ（ラストの踊り場がカーブにかかって道が折れた。前は (4,122),(2,129)）
         // 同日 てじゃ「ラストの川の直線も短くしたい」：カーブから先を 7m 手前へ（約18m→約11m）
-        new Vector2(0, 103), new Vector2(-4, 109), new Vector2(-1, 116), new Vector2(-0.5f, 122.5f), new Vector2(0, 129),
+        // 2026-10-28 滝の道を約9m短く（103〜129 の 26m を 17m に、y を 0.654 倍）。その先（ラスト）は Squeeze で 9m 手前へ
+        new Vector2(0, 103), new Vector2(-4, 106.9f), new Vector2(-1, 111.5f), new Vector2(-0.5f, 115.75f), new Vector2(0, 120),
         // ⑥ ラスト：よけられない滝 → 下の川を流される。川は (0,136) から右へ半径6mで80°曲がって、まっすぐ滝へ。
         // 曲がった先の外側の岸にゴールの島（2026-10-23 てじゃのスケッチ「川を曲げる、島を曲がった先の川岸におく、川の先は滝」）
         new Vector2(0, 136), new Vector2(1.404f, 139.857f), new Vector2(4.958f, 141.909f),
         new Vector2(10.867f, 142.951f), new Vector2(16.776f, 143.993f), new Vector2(22.685f, 145.035f), new Vector2(28.594f, 146.077f),
-    }, 12, WalkLead), 15, FallsLead);
+    }, 12, WalkLead), 15, FallsLead), 21, FallsSqueeze);
     const int BendCtrl0 = 21, BendCtrl1 = 23;   // カーブの始まり・終わりの点（Ctrl の番号）
 
     // ---- 中心線 ----
@@ -238,7 +242,8 @@ public static class FuwaCourse2_1Builder
     // 滝の道：道の半分の幅、セットの場所（中心線の u＝カーブのあたり）
     public static float RoadHW = 1.5f;
     // 2026-10-23 てじゃ「三連滝の間隔をもっと狭めたい」：前は中心線の u＝カーブのあたり（15.1/17.05/19、間隔約15m）。今は滝の道の始まりから FallsSet0 m、FallsGap m おき（滝の道もそのぶん短い）
-    public static float FallsSet0 = 8f, FallsGap = 10f; const int FallsSets = 3;
+    // 2026-10-28 てじゃ「コースが長い」→案A：3つのまま間を詰める（8→5、10→7）。滝の道のぐねぐね（Ctrl 16〜20）も縦に FallsSqueeze m 縮めた
+    public static float FallsSet0 = 5f, FallsGap = 7f; const int FallsSets = 3;
     // 滝が道の外側から食い込む深さ（そこは道がえぐれて水路。残る道の幅＝2×RoadHW−これ）。後ろほど深く
     public static float[] CutDepth = { 1.6f, 1.9f, 2.2f };   // 2026-10-23 +0.4（幕をえぐれのふちから0.4m離したぶん、道を細く。てじゃ「もっと道細くても良い」）。残る道 1.4/1.1/0.8m
     // 水路の、滝より下流の長さ（ここで撃ってすくい上げる。滝の横ですくうと、また滝に当たって押し戻される）。後ろほど短く
@@ -2931,7 +2936,7 @@ public static class FuwaCourse2_1Builder
     // 滝ごとに、道の上を滝の側へ押す横風（FuwaWindArea、吹いたりやんだり、滝ごとに周期をずらす）。
     // 見た目はステージ1のかぜのみちの横風（G3_CrossRight の地面の＞＞＞と風の粒）を写す。道の内側のふちに吹き流し（Windsock4 を写す）
     // 強さ：5 だと1回の強風で空中のふわふわが横に約5.3m流された（ClientSim）→3.5→2.6（てじゃ「風がややつよい」。1回で約2.8m の見込み）
-    public static float FallsWindLen = 6f, FallsWindWidth = 7.5f, FallsWindStrength = 2.6f;
+    public static float FallsWindLen = 4.5f, FallsWindWidth = 7.5f, FallsWindStrength = 2.6f;
     // 吹き流しの浮島：道のふちから外へ（中心まで）、道の高さからの上下
     public static float SockIsleOut = 2.2f, SockIsleUp = -0.4f;
     public static float FallsWindOn = 1.6f, FallsWindOff = 2.4f;
