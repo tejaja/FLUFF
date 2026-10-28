@@ -172,7 +172,8 @@ public static class FuwaCourse2_1Builder
     // 谷の上の木の橋（M2_Bridge）：両はしで道の向きにそろえる長さ（橋の長さに対する割合。小さいほどまっすぐ）
     public static float BridgeEndPull = 0.12f, CpMushBack = 0.7f;
     // 右岸の道を川の終わりから谷の上へのばす長さ・木の橋が青い道の先っぽにのる長さ・その所の板の持ち上げ
-    public static float B3Ext = 7.5f, BridgeJoinBack = 3.0f, BridgeOnto = 0.3f, BridgeLift = 0.05f, B3ExtBend = 70f, BridgeStraight0 = 2.7f, BridgeMidPull = 0.35f;
+    // B3Ext 7.5→12（2026-10-28 てじゃ「川の先から無理やり木の橋にふわふわ飛ばせちゃいそう」→案B：橋の始まりを川から約5.6m→約10m に離す）
+    public static float B3Ext = 12f, BridgeJoinBack = 3.0f, BridgeOnto = 0.3f, BridgeLift = 0.05f, B3ExtBend = 70f, BridgeStraight0 = 2.7f, BridgeMidPull = 0.35f;
     static Vector2 m2BridgeA, m2BridgeE; static Func<float, Vector2> m2BridgeAt; static Func<float, float> m2BridgeH; static float m2BridgeLen;
     // ななめの脇道（ツタの穴）：ツタのまん中（root のローカル xz）、穴の向き、半分の幅。Tools/stage2_cave_rock.py の SIDE_V / SIDE_D / SIDE_HW と同じ
     public static readonly Vector2 SideV = new Vector2(3.95f, 3.89f), SideD = new Vector2(0.907f, 0.422f).normalized; public const float SideHW = 1.7f;   // 迂回路の木の橋の曲げ点（中心線の s と横）
@@ -1886,7 +1887,7 @@ public static class FuwaCourse2_1Builder
     public static float CpOut = 0.6f;   // 0.35→0.6（てじゃ「道にうまらないように」）
     // lat＝中心線からの横のずれ（s ごと）、hwL/hwR＝左右それぞれ、道（または水路）のふちまでの距離
     // first：1つ目を中心線でなく、この点・向きに置く（谷の上の木の橋の上。キノコは橋の板の上のはしに CpOnDeck m 内側）
-    const float CpOnDeck = 0.45f;
+    const float CpOnDeck = 0.3f;
     static void Checkpoints(Transform root, (float s, Func<float, float> lat, float hwL, float hwR, float h)[] cps, float[] mushMaxS = null, (Vector2 p, Vector2 d)? first = null)
     {
         var tmpl = GameObject.Find("FuwaCourse3/Checkpoint1");
@@ -1912,7 +1913,14 @@ public static class FuwaCourse2_1Builder
             if (gm)
                 foreach (Transform cl in gm)
                 {
-                    if (onDeck) { float sxd = Mathf.Sign(cl.localPosition.x); cl.localPosition = new Vector3(sxd * (hw - CpOnDeck), cl.localPosition.y, 0f); continue; }   // 橋の板の上、判定の横（先に立てると橋が曲がっていて板の外に出る）
+                    if (onDeck)
+                    {
+                        // 橋の板の上、判定の横（先に立てると橋が曲がっていて板の外に出る）。丸太は道のふちに半分うめる作りなので、板の上にのるように持ち上げる（板の下に丸太が突き出ていた）
+                        float sxd = Mathf.Sign(cl.localPosition.x); cl.localPosition = new Vector3(sxd * (hw - CpOnDeck), cl.localPosition.y, 0f);
+                        var bs = cl.Find("Base") ? cl.Find("Base").GetComponent<Renderer>() : null;
+                        if (bs) cl.position += Vector3.up * (root.TransformPoint(new Vector3(0, h, 0)).y - bs.bounds.min.y - 0.03f);
+                        continue;
+                    }
                     // 群れは判定の約3m先に立つので、その先の中心線（曲がっている所でも）にそって道のふちの外へ（2026-10-25 てじゃ「左が離れてて右がめり込んでる」）
                     float sx = Mathf.Sign(cl.localPosition.x), sc2 = s + cl.localPosition.z;
                     if (mushMaxS != null && i < mushMaxS.Length && sc2 > mushMaxS[i]) sc2 = mushMaxS[i];   // この先は道がない（橋になる）所は、手前の岸の上に
