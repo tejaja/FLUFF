@@ -3052,7 +3052,8 @@ public static class FuwaCourse2_1Builder
     // 左の壁（人のくぐり口つき）と右の崖をごつごつの岩に。上はどちらも水をためたくぼみで、滝の所だけ岩と岩のあいだに水がかかって（Slab）、
     // その前のふちから道の幅いっぱいに滝がこぼれる。水がかかっている所の後ろ・下も水の膜でつつむ。水の上に青い球を2つ。
     // 岩は前の箱の当たり判定をつつむ形（内側＝川・くぐり口の面はまっすぐ、外の面だけでこぼこ）で、当たり判定も岩のメッシュ
-    public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 1.0f, GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f;
+    public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 0.3f,   // 1.0 だとくぼみの型のはしのふたが 1m の平らな壁になって見えた（2026-10-28 てじゃ「まっすぐ部分が直線すぎる」）
+        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f;
     public static float GateLeftOut = 9.8f, GateRightOut = 7.5f, GateLeftExtra = 1.3f;
     static void FinaleGate(Transform g, float H, float surf, float cs, float wa, float wb, float gIn, float gOut, float gTop, float r0)
     {
@@ -3382,8 +3383,19 @@ public static class FuwaCourse2_1Builder
         // 上の水のくぼみ：水面のはしより5cm内側（水のはしは岩の中にかくれる）、底は yTop-GateFloor
         float fl = yTop - GateFloor;
         // 細いはしでゆらぎのせいで左右が入れかわると、型がねじれて Blender のブーリアンが失敗し、池が丸ごと消えた → はばは 0.2m 以上に
-        Loft("Cut_BasinL", Steps(lw0, lw1, 0.1f), s => { float a = lInA(s), b = Mathf.Min(lInB(s), lInA(s) - 0.2f); return new List<Vector2> { new Vector2(b + 0.05f, fl), new Vector2(a, fl), new Vector2(a, yTop + 5f), new Vector2(b + 0.05f, yTop + 5f) }; });
-        Loft("Cut_BasinR", Steps(rw0, rw1, 0.1f), s => { float a = rInA(s), b = Mathf.Max(rInB(s), rInA(s) + 0.2f); return new List<Vector2> { new Vector2(a, fl), new Vector2(b - 0.05f, fl), new Vector2(b - 0.05f, yTop + 5f), new Vector2(a, yTop + 5f) }; });
+        // はしは上から見て半円にすぼめる（2026-10-28 てじゃ「まっすぐ部分が直線すぎる」：はしの はば 2〜5m のまま平らなふたで切っていて、くぼみのはしが平らな壁になった）
+        (float, float) Tip(float s, float s0, float s1, float a, float b)
+        {
+            // 両はしの角を半径 GateBasinTipR で丸める（左右のふちを内へ e だけ寄せる）。真ん中の水（Slab）の横の所は内側（a）のふちは寄せない（つながる所に壁を作らない）
+            float r = Mathf.Min(GateBasinTipR, Mathf.Abs(a - b) * 0.5f - 0.05f), d = Mathf.Min(s - s0, s1 - s);
+            if (r <= 0f || d >= r) return (a, b);
+            float e = r - Mathf.Sqrt(Mathf.Max(0f, r * r - (r - d) * (r - d)));
+            float sg = Mathf.Sign(a - b);
+            bool nearSlab = s > sl0 - GateBasinFillet && s < sl1 + GateBasinFillet;
+            return (nearSlab ? a : a - sg * e, b + sg * e);
+        }
+        Loft("Cut_BasinL", Steps(lw0, lw1, 0.1f), s => { var (a, b) = Tip(s, lw0, lw1, lInA(s), Mathf.Min(lInB(s), lInA(s) - 0.2f)); return new List<Vector2> { new Vector2(b + 0.05f, fl), new Vector2(a, fl), new Vector2(a, yTop + 5f), new Vector2(b + 0.05f, yTop + 5f) }; });
+        Loft("Cut_BasinR", Steps(rw0, rw1, 0.1f), s => { var (a, b) = Tip(s, rw0, rw1, rInA(s), Mathf.Max(rInB(s), rInA(s) + 0.2f)); return new List<Vector2> { new Vector2(a, fl), new Vector2(b - 0.05f, fl), new Vector2(b - 0.05f, yTop + 5f), new Vector2(a, yTop + 5f) }; });
         Loft("Cut_Slab", Steps(sl0, sl1 + 0.5f, 0.2f), s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + 5f), new Vector2(gIn, yTop + 5f) });
         sb.Append("]}");
         System.IO.File.WriteAllText(path, sb.ToString());
