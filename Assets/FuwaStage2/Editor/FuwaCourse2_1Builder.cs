@@ -2841,7 +2841,9 @@ public static class FuwaCourse2_1Builder
             var tg = (qn - qp).normalized; var nin = new Vector2(-tg.y, tg.x); if (Vector2.Dot(nin, cenTop - q) < 0f) nin = -nin;
             var qi = q + nin * PillarRimW;
             var rel = qi - lipMid; float a = Vector2.Dot(rel, lfr), bb = Vector2.Dot(rel, fd);
-            float w = FrontW(P[nRing - 1, k], k);
+            // 落ち口の線まで前へ出すのは膜の幅の中の点だけ（幅の外の角の点まで前へ出すと、そこのふちの岩がなくなって水が柱の外のはしまで来た。
+            // 2026-10-28 てじゃ「まだあるなあ」）
+            float w = FrontW(P[nRing - 1, k], k) * (1f - Smooth01((Mathf.Abs(a) - hw + 0.05f) / 0.15f));
             if (w > 0f) { bb = Mathf.Lerp(bb, 0f, w); a = Mathf.Lerp(a, Mathf.Clamp(a, -hw, hw), w); }
             basin[k] = new Vector2(a, Mathf.Max(0f, bb));
         }
