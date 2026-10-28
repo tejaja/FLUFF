@@ -2499,7 +2499,9 @@ public static class FuwaCourse2_1Builder
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
     // 幕の上は柱のてっぺんより PillarLipDrop 下（膜の曲がる所の後ろに隠れる）
-    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f;
+    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarLipBack = 0.7f;
+    // 柱の上の水たまりの見えている色（_Deep と _Shallow のまざり。DeepWidth 2m が水たまりより広いので、真上から撮って測った値）
+    static readonly Color PillarPoolLook = new Color(116f / 255f, 199f / 255f, 231f / 255f);
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
         float fb = FallsFlowBack ? -1f : 1f;
@@ -2631,7 +2633,7 @@ public static class FuwaCourse2_1Builder
                 q2 = Vector2.Lerp(q2, tgt, front); q = new Vector3(q2.x, q.y, q2.y);
             }
             W.Add(new Vector3(q.x, poolY, q.z));
-            WU1.Add(new Vector4(Mathf.Lerp(poolHW, 0.4f * poolHW, front), poolHW, 99f, 99f)); WU2.Add(new Vector2(k * 0.3f, 99f));
+            WU1.Add(new Vector4(Mathf.Lerp(poolHW, 0f, front), poolHW, 99f, 99f)); WU2.Add(new Vector2(k * 0.3f, 99f));
         }
         for (int k = 0; k < nAround; k++) AddTriDir(W, WT, 0, 1 + k, 1 + (k + 1) % nAround, Vector3.up);
         var wm = new Mesh { name = "Course2_1_FallsPillarPool" + i };
@@ -2674,7 +2676,20 @@ public static class FuwaCourse2_1Builder
 
         // 自分だけの親の下に（AirFallsFray は同じ親の下の物を「下にある物」に数えないので、set の下だと水路も柱も数えず空中の滝あつかいでほつれた）
         var lg = new GameObject("PillarLip").transform; lg.SetParent(set, false);
-        LipFalls(lg, "FallsPillarLip" + i, "Sheet", lip, outs, LipProf, surf);
+        // つなぎ目を目立たなく（2026-10-28 てじゃ「つなぎ目を極力目立たなくしたい」）：膜の平らな所を池の中まで PillarLipBack のばして、
+        // そこは池の水と同じ色・泡（_PondTop。蓮の池のあふれ口 PondSpill と同じしくみ）。池のふちの泡は落ち口の側だけ消す
+        var prof = new List<Vector2>(LipProf); prof[0] = new Vector2(PillarLipBack, prof[0].y);
+        var sheet = LipFalls(lg, "FallsPillarLip" + i, "Sheet", lip, outs, prof, surf);
+        const string plp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_PillarLip.mat";
+        var baseFm = FuwaStage2WaterTest.WaterfallThickMat(true);
+        var plm = AssetDatabase.LoadAssetAtPath<Material>(plp);
+        if (!plm) { plm = new Material(baseFm); AssetDatabase.CreateAsset(plm, plp); }
+        plm.CopyPropertiesFromMaterial(baseFm);
+        var poolM = WaterMat(0f, true, false);
+        plm.SetFloat("_PondTop", PillarLipBack - prof[1].x + 0.05f); plm.SetColor("_PondColor", PillarPoolLook); plm.SetColor("_PondFoam", poolM.GetColor("_Foam"));
+        plm.SetFloat("_PondRadial", 0f); plm.SetFloat("_PondSparkle", poolM.GetFloat("_Sparkle"));
+        EditorUtility.SetDirty(plm);
+        sheet.GetComponent<MeshRenderer>().sharedMaterial = plm;
     }
     // 落ち口の線（p を通り r にそう）の 5mm 外に、外（o）を向いた岩の板（見た目だけ。当たりなし）
     static void EndLipPlate(Transform g, string meshName, Vector2 p, Vector2 r, Vector2 o, float latA, float latB, float yBot, float yTop)
