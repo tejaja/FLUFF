@@ -11,6 +11,8 @@ public class FuwaWindArea : UdonSharpBehaviour
     public float strength = 4f;
     [Tooltip("風下に行くほど弱くなる（上昇気流なら上ほど弱い）。0=一定、1=端でゼロ")]
     [Range(0f, 1f)] public float fadeAlongDirection = 0f;
+    [Tooltip("ふわふわが水に浮いている間の風の強さの倍率（1=そのまま）。2026-10-28 てじゃ「横風、水面にいるときは影響をかなり弱めたい」")]
+    [Range(0f, 1f)] public float waterScale = 1f;
 
     [Header("オン/オフの周期（offSeconds=0なら常に吹く）")]
     public float onSeconds = 2f;
@@ -370,6 +372,7 @@ public class FuwaWindArea : UdonSharpBehaviour
                 if (along > 0f) s *= Mathf.Clamp01((side - shelterRadius) / Mathf.Max(0.01f, shelterSoft));
             }
         }
+        if (waterScale < 1f && ball.IsInWater()) s *= waterScale;
         if (s <= 0f) return;
         // 周期で吹く風は、ふわふわの光を「この風の一番強い時＝1」の割合で出す（地面の帯の濃さと合わせる）
         // 光は見た目と同じく visualLead 秒先の強さで（風よけ・風下で弱まる分は今の割合をかける）

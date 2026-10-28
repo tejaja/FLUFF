@@ -434,6 +434,7 @@ public class FuwaBall : UdonSharpBehaviour
     // 最後に水に浮いていた時刻（水に浮いたまま道のふちに寄った時はアウトにしない）
     private float _waterAt = -10f;
     private bool InWaterNow() { return Time.time - _waterAt < 0.2f; }
+    public bool IsInWater() { return InWaterNow(); }
     public Vector3 GetVelocity() { return _rb != null ? _rb.velocity : Vector3.zero; }
     public float GetFallAcceleration() { return fallAcceleration; }
     public float GetDrag() { return _rb != null ? _rb.drag : airDrag; }

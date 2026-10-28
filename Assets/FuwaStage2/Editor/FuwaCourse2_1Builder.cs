@@ -3071,6 +3071,7 @@ public static class FuwaCourse2_1Builder
     // 滝ごとに、道の上を滝の側へ押す横風（FuwaWindArea、吹いたりやんだり、滝ごとに周期をずらす）。
     // 見た目はステージ1のかぜのみちの横風（G3_CrossRight の地面の＞＞＞と風の粒）を写す。道の内側のふちに吹き流し（Windsock4 を写す）
     // 強さ：5 だと1回の強風で空中のふわふわが横に約5.3m流された（ClientSim）→3.5→2.6（てじゃ「風がややつよい」。1回で約2.8m の見込み）
+    public static float FallsWindWater = 0.25f;
     public static float FallsWindLen = 4.5f, FallsWindWidth = 7.5f, FallsWindStrength = 2.6f;
     // 吹き流しの浮島：道のふちから外へ（中心まで）、道の高さからの上下
     public static float SockIsleOut = 2.2f, SockIsleUp = -0.4f;
@@ -3102,6 +3103,7 @@ public static class FuwaCourse2_1Builder
             var so = new SerializedObject(wa);
             so.FindProperty("localDirection").vector3Value = Vector3.forward;
             so.FindProperty("strength").floatValue = FallsWindStrength;
+            so.FindProperty("waterScale").floatValue = FallsWindWater;   // 水路に浮いている間はかなり弱く（てじゃ「水面にいるときは影響をかなり弱めたい」）
             so.FindProperty("onSeconds").floatValue = FallsWindOn;
             so.FindProperty("offSeconds").floatValue = FallsWindOff;
             so.FindProperty("phaseOffset").floatValue = FallsWindPhase[i % FallsWindPhase.Length];
