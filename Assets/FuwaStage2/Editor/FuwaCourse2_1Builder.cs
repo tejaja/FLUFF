@@ -3020,7 +3020,22 @@ public static class FuwaCourse2_1Builder
         FinaleGate(g, H, surf, sF1 + FinCurtain, wa, wb, gIn, gOut, gTop, r0);
         var oldFalls = g.Find("ForcedFalls/Curtain"); if (oldFalls && oldFalls.GetComponent<Renderer>()) oldFalls.GetComponent<Renderer>().enabled = false;   // 見た目は FinaleGate の膜（押す範囲・霧・音は残す）
         Center(wm, out var vp, out var vd); var vq = vp + Right(vd) * ((gIn + gOut) * 0.5f);
-        VineCurtain(g, "GateVines", new Vector3(vq.x, gTop, vq.y), new Vector3(Right(vd).x, 0, Right(vd).y), gIn - gOut, FinGateH, 2106);
+        // ツタの上は門の岩（Blender の GateRock）の天井の中へ、横は くぐり口の壁まで（2026-10-28 てじゃ「大改造したからツタがういちゃった」：
+        // 岩を作り直してくぐり口の天井が上がり、ツタの上と岩のあいだにすき間）。天井・壁を岩に当てて測る
+        float vTop = gTop, vH = FinGateH, vW = gIn - gOut; var vqc = vq;
+        var gateRockC = g.Find("Gate/GateRock") ? g.Find("Gate/GateRock").GetComponent<MeshCollider>() : null;
+        if (gateRockC)
+        {
+            Physics.SyncTransforms();
+            var rr = Right(vd); var rr3 = g.TransformDirection(new Vector3(rr.x, 0, rr.y));
+            var mid = g.TransformPoint(new Vector3(vq.x, gTop - FinGateH * 0.5f, vq.y));
+            if (gateRockC.Raycast(new Ray(mid, Vector3.up), out var hu, 6f)) { float ceil = g.InverseTransformPoint(hu.point).y; vTop = ceil + VineEmbed; vH = FinGateH + (vTop - gTop); }
+            float wl = vW * 0.5f, wr = vW * 0.5f;
+            if (gateRockC.Raycast(new Ray(mid, -rr3), out var hl, 4f)) wl = hl.distance;
+            if (gateRockC.Raycast(new Ray(mid, rr3), out var hr, 4f)) wr = hr.distance;
+            vW = wl + wr + VineEmbed * 2f; vqc = vq + rr * ((wr - wl) * 0.5f);
+        }
+        VineCurtain(g, "GateVines", new Vector3(vqc.x, vTop, vqc.y), new Vector3(Right(vd).x, 0, Right(vd).y), vW, vH, 2106);
         // 壁のさらに左（空中）を回り込むふわふわはアウト（ふつうは届かない保険）
         var by = new GameObject("BypassOut"); by.transform.SetParent(g, false); by.layer = 4;
         var bl = cp + cr * (-FinWallOut - 2.5f);
@@ -3053,7 +3068,7 @@ public static class FuwaCourse2_1Builder
     // その前のふちから道の幅いっぱいに滝がこぼれる。水がかかっている所の後ろ・下も水の膜でつつむ。水の上に青い球を2つ。
     // 岩は前の箱の当たり判定をつつむ形（内側＝川・くぐり口の面はまっすぐ、外の面だけでこぼこ）で、当たり判定も岩のメッシュ
     public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 0.3f,   // 1.0 だとくぼみの型のはしのふたが 1m の平らな壁になって見えた（2026-10-28 てじゃ「まっすぐ部分が直線すぎる」）
-        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f, GateBandDepth = 3.2f, GateBandRim = 0.35f, GateDomeH = 2.6f, GateFaceOut = 0.4f, GateSlotH = 0.8f;
+        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f, GateBandDepth = 3.2f, GateBandRim = 0.35f, GateDomeH = 2.6f, GateFaceOut = 0.4f, GateSlotH = 0.8f, VineEmbed = 0.15f;
     public static float GateLeftOut = 9.8f, GateRightOut = 7.5f, GateLeftExtra = 1.3f;
     static void FinaleGate(Transform g, float H, float surf, float cs, float wa, float wb, float gIn, float gOut, float gTop, float r0)
     {
