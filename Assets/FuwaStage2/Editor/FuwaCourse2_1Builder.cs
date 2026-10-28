@@ -2690,6 +2690,10 @@ public static class FuwaCourse2_1Builder
         plm.SetFloat("_PondRadial", 0f); plm.SetFloat("_PondSparkle", poolM.GetFloat("_Sparkle"));
         EditorUtility.SetDirty(plm);
         sheet.GetComponent<MeshRenderer>().sharedMaterial = plm;
+        // 2026-10-28 てじゃ「まだ貼り付けた感ある」：最初の大きい滝（CurvedFalls の LipFoam）と同じ、落ち口へ吸い寄せられる筋ときわの明るい帯を
+        // 水たまりと膜の平らな所の上にかぶせて、膜のうしろのはしの線をかくす（池の奥のほうまで）
+        var lipMid = lip0 + fd * LipIn; float reach = Mathf.Max(1.2f, Vector2.Dot(new Vector2(cen3.x, cen3.z) - lipMid, fd) * 2f - 0.3f);
+        WaterDecal(lg, "LipFoam", new Vector3(lipMid.x, lipRim + 0.016f, lipMid.y), new Vector3(fd.x, 0f, fd.y), -hw, hw, 0f, reach, 1, hw, reach, new Color(0.72f, 0.93f, 0.99f), PillarLipBack);
     }
     // 落ち口の線（p を通り r にそう）の 5mm 外に、外（o）を向いた岩の板（見た目だけ。当たりなし）
     static void EndLipPlate(Transform g, string meshName, Vector2 p, Vector2 r, Vector2 o, float latA, float latB, float yBot, float yTop)
