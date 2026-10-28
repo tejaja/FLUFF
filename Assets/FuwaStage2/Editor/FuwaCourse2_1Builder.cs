@@ -2500,7 +2500,7 @@ public static class FuwaCourse2_1Builder
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
     // 幕の上は柱のてっぺんより PillarLipDrop 下（膜の曲がる所の後ろに隠れる）
-    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f;
+    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
         float fb = FallsFlowBack ? -1f : 1f;
@@ -2718,6 +2718,7 @@ public static class FuwaCourse2_1Builder
         plm.SetColor("_PondColor", Color.Lerp(plm.GetColor("_PondColor"), plm.GetColor("_Top"), 0.55f));   // 池の濃い色だと落ち口で滝の色と段がついた
         var wo = set.TransformPoint(orbAt);
         plm.SetFloat("_PondRadial", 1f); plm.SetVector("_RadialCenter", new Vector4(wo.x, wo.z, D * 0.9f, D * 1.4f));
+        plm.SetFloat("_EdgeRim", PillarEdgeRim);   // 岩との境の白いふち
         EditorUtility.SetDirty(plm);
         sheet.GetComponent<MeshRenderer>().sharedMaterial = plm;
     }
