@@ -2900,7 +2900,9 @@ public static class FuwaCourse2_1Builder
             float u = c / (float)nl;
             for (int j = 0; j < nFlat; j++)
             {
-                float bq = Mathf.Lerp(D, 0.3f, j / (float)(nFlat - 1));
+                // いちばん奥の行は池のふちの一番奥の点ちょうどだと、ふちの線との交わりがとびとびになって、角が池の外へとがって出た
+                //（2026-10-28 てじゃ「3連滝に上の池のはみ出し」2つ目の柱）→ 少し手前から
+                float bq = Mathf.Lerp(D - 0.06f, 0.3f, j / (float)(nFlat - 1));
                 BasinAt(bq, out var aL, out var aR);
                 var q = lipMid + lfr * Mathf.Lerp(aL, aR, u) + fd * bq;
                 grid[c, j] = new Vector3(q.x, yTop + PillarWaterUp, q.y);   // ふちの 3mm 上（下だと落ち口のふちの角が細い線で見えた）
