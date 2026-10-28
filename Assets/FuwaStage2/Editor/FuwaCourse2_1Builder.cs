@@ -2722,6 +2722,8 @@ public static class FuwaCourse2_1Builder
     // ・てっぺん：ふちの岩をぐるっと PillarRimW。手前のまん中だけ滝の幅（±hw）でふちを切り欠く（水の出口）。切り欠きのふちは水の下に PillarLipSink 沈める
     // ・水：池（ふちの内側）と滝を1枚で。池の手前の壁は v＝PillarPoolFront、そこから落ち口まで ±hw の水路
     // ・手前の面は切り欠きの幅の中だけ滝の裏にそって削る。両わきは岩の「ほお」が滝のはしより前に出てはしを隠す
+    const string PillarModel = "Assets/FuwaStage2/Models/Stage2_FallsPillars.fbx", PillarJsonDir = "D:/UnityProject/FLUFF/Tools";
+    public static float PillarFaceIn = -0.15f;   // 落ち口の下の岩の面（落ち口の線からの奥行き。膜は -0.18〜-0.35 を落ちる）
     public static float PillarFrontReach = 1.4f, PillarNotchSide = 0.5f, PillarCheekOut = 0.45f, PillarPoolFront = 0.3f, PillarNotchFloor = 0.15f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
@@ -2938,7 +2940,27 @@ public static class FuwaCourse2_1Builder
         var m = new Mesh { name = "Course2_1_FallsPillar" + i, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         m.SetVertices(V); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
         m = Save(m, MeshDir + "/FallsPillar" + i + ".asset");
+        // 2026-10-28 てじゃ「全体的にあかん」→ 柱の見た目・当たりは Blender で作る（Tools/stage2_pillars.py、門の岩と同じやり方）。
+        // ここでは型（外の輪・池のふち・切り欠き）を JSON に書き出し、Blender の柱があればそれを使う（水は同じ型から作るので形がそろう）
+        {
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            var js = new System.Text.StringBuilder();
+            string F(float x) => x.ToString("F4", inv);
+            string Pt(Vector2 uv) { var w = W2(uv.x, uv.y); return "[" + F(w.x) + "," + F(w.y) + "]"; }   // set（の親）はコースの原点のまま＝コースのローカル
+            js.Append("{\"yTop\":" + F(yTop) + ",\"yBot\":" + F(yBot) + ",\"lipRim\":" + F(lipRim) + ",\"bowl\":" + F(PillarBowl) + ",\"surf\":" + F(surf) + ",\"outer\":[");
+            for (int k = 0; k < nAround; k++) js.Append((k > 0 ? "," : "") + Pt(PU[nRing - 1, k]));
+            js.Append("],\"inner\":[");
+            for (int k = 0; k < nAround; k++) js.Append((k > 0 ? "," : "") + Pt(IU[k]));
+            float hwN = hw - 0.04f, vWallX = PillarPoolFront; for (int k = 0; k < nAround; k++) if (IY[k] >= yTop - 0.01f && FrontW(PZ[k]) > 0.3f) vWallX = Mathf.Max(vWallX, IU[k].y);
+            // 切り欠き（ふちを lipRim まで切る）：落ち口の線より前から池の手前の壁まで
+            js.Append("],\"notch\":[" + Pt(new Vector2(un - hwN, vF - 1f)) + "," + Pt(new Vector2(un + hwN, vF - 1f)) + "," + Pt(new Vector2(un + hwN, vWallX + 0.05f)) + "," + Pt(new Vector2(un - hwN, vWallX + 0.05f)) + "]");
+            // 落ち口の下の面（滝の裏）：切り欠きの幅で、落ち口の線より PillarFaceIn 前まで垂直に削る
+            js.Append(",\"face\":[" + Pt(new Vector2(un - hwN, vF - 1f)) + "," + Pt(new Vector2(un + hwN, vF - 1f)) + "," + Pt(new Vector2(un + hwN, PillarFaceIn)) + "," + Pt(new Vector2(un - hwN, PillarFaceIn)) + "]}");
+            System.IO.File.WriteAllText(PillarJsonDir + "/stage2_pillar" + i + ".json", js.ToString());
+        }
         var go = new GameObject("Pillar"); go.transform.SetParent(set, false);
+        var bm = AssetDatabase.LoadAllAssetsAtPath(PillarModel).OfType<Mesh>().FirstOrDefault(x => x.name == "Stage2_FallsPillar" + i);
+        if (bm) m = bm;
         go.AddComponent<MeshFilter>().sharedMesh = m; go.AddComponent<MeshRenderer>().sharedMaterial = StoneMat();
         go.AddComponent<MeshCollider>().sharedMesh = m;
         // 青い球：池のまん中（切り欠きの点は数えない）
