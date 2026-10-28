@@ -3052,7 +3052,7 @@ public static class FuwaCourse2_1Builder
     // 左の壁（人のくぐり口つき）と右の崖をごつごつの岩に。上はどちらも水をためたくぼみで、滝の所だけ岩と岩のあいだに水がかかって（Slab）、
     // その前のふちから道の幅いっぱいに滝がこぼれる。水がかかっている所の後ろ・下も水の膜でつつむ。水の上に青い球を2つ。
     // 岩は前の箱の当たり判定をつつむ形（内側＝川・くぐり口の面はまっすぐ、外の面だけでこぼこ）で、当たり判定も岩のメッシュ
-    public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 1.0f, GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f;
+    public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 1.0f, GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f;
     public static float GateLeftOut = 9.8f, GateRightOut = 7.5f, GateLeftExtra = 1.3f;
     static void FinaleGate(Transform g, float H, float surf, float cs, float wa, float wb, float gIn, float gOut, float gTop, float r0)
     {
@@ -3077,7 +3077,9 @@ public static class FuwaCourse2_1Builder
         // 前は左は sl1+0.7+半円、右は下流の崖（r0+FinCliffLen+半円）までで、はしがずれていた。短いほうはそのまま（丸いはしも元のまま）、
         // 長いほうだけ短いほうのはしで切って、角は GateFlushRound で丸める
         float endL = sl1 + 0.7f + hS, endR = r0 + FinCliffLen + (GateRightOut - FinRiverHW) * 0.5f, gEnd = Mathf.Min(endL, endR);
-        float lRound = endL <= endR ? hS : GateFlushRound, rRound = endR <= endL ? (GateRightOut - FinRiverHW) * 0.5f : GateFlushRound;
+        // 切った側の角も丸く（2026-10-28 てじゃ「下流側の真っ直ぐになってるのをもうちょいなめらかに」：0.6m の角丸だと四角い箱に見えた）。はばの半分の GateFlushRoundK 倍
+        float hRr = (GateRightOut - FinRiverHW) * 0.5f;
+        float lRound = endL <= endR ? hS : hS * GateFlushRoundK, rRound = endR <= endL ? hRr : hRr * GateFlushRoundK;
         float l0 = wa - GateLeftExtra, l1 = gEnd;
         float WallL(float s) => cS + hS * RfD(s, l1, lRound);
         float OutL(float s) => Mathf.Max(cS - hS * RfD(s, l1, lRound), gOut + (-GateLeftOut - gOut) * RfU(s, l0));
