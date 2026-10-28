@@ -138,7 +138,7 @@ public static class FuwaStage2WaterTest
     }
 
     // 押すとふわふわが spot に出る台（テスト用）：細い柱＋上に色つきの玉。押す所は玉
-    static void BallStand(Transform root, string name, Vector3 lp, Transform spot, string label, Color col)
+    public static void BallStand(Transform root, string name, Vector3 lp, Transform spot, string label, Color col)
     {
         var g = new GameObject(name).transform; g.SetParent(root, false); g.localPosition = lp;
         var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post"; post.transform.SetParent(g, false);
@@ -156,13 +156,13 @@ public static class FuwaStage2WaterTest
     }
 
     // エディタから足した U# は同期が Continuous のままになる（memory の罠）→ 同期しないに
-    static void NoSync(UdonSharp.UdonSharpBehaviour b)
+    public static void NoSync(UdonSharp.UdonSharpBehaviour b)
     {
         var ub = UdonSharpEditor.UdonSharpEditorUtility.GetBackingUdonBehaviour(b);
         if (ub) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
     }
 
-    static GameObject Box(Transform p, string name, Vector3 lp, Vector3 size, Material m, int layer, bool trigger)
+    public static GameObject Box(Transform p, string name, Vector3 lp, Vector3 size, Material m, int layer, bool trigger)
     {
         var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = name; g.transform.SetParent(p, false);
         g.transform.localPosition = lp; g.transform.localScale = size; g.layer = layer;
@@ -329,7 +329,7 @@ public static class FuwaStage2WaterTest
     }
 
     // ステージ1と同じトゥーン（FuwaCourse/ToonLit）の単色の材質
-    static Material ToonMat(string name, Color c)
+    public static Material ToonMat(string name, Color c)
     {
         string p = "Assets/FuwaStage2/Materials/" + name + ".mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(p);

@@ -513,6 +513,13 @@ public class FuwaBall : UdonSharpBehaviour
         SetGlow(color, dir, amount, hold);
     }
 
+    // 熱（FuwaHeat、ステージ2 ほのおのやま）から：上向きの力。光は FuwaHeat の方で（2026-10-28 試作）
+    public void AddHeat(Vector3 acceleration)
+    {
+        if (_waiting || _resetAt > 0f || _stuck || _hidden) return;
+        _rb.AddForce(acceleration, ForceMode.Acceleration);
+    }
+
     // 光らせる（色・向き・強さ・保つ秒数）。発射台の光っている間は、弱い横風などで上書きしない
     private void SetGlow(Color color, Vector3 dir, float amount, float hold)
     {
