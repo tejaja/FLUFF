@@ -37,6 +37,9 @@ public class FuwaRecords : UdonSharpBehaviour
     [Tooltip("みんなでひろば：コースをクリアしたら、このインスタンスでそのコースのおもちゃを解放する（保存はしない）")]
     [UnityEngine.Serialization.FormerlySerializedAs("chill")] public FuwaPlaygroundSpawner playground;
 
+    [Tooltip("もう1枚の看板（ステージ2のロビーの看板など）。ゴールのタイム・言語の切り替えをそのまま回す（FuwaBall・FuwaLanguage は1枚目だけ知っていればいい）")]
+    public FuwaRecords next;
+
     [UdonSynced] private float[] _bestTimes = new float[0];
     [UdonSynced] private string[] _bestNames = new string[0];
     private float[] _myBest = new float[0];
@@ -64,6 +67,7 @@ public class FuwaRecords : UdonSharpBehaviour
     // ゴールした時にFuwaBallから呼ばれる
     public void ReportTime(Transform start, float time)
     {
+        if (next != null) next.ReportTime(start, time);
         Init();
         int i = IndexOf(start);
         if (i < 0 || time <= 0f) return;
@@ -147,6 +151,7 @@ public class FuwaRecords : UdonSharpBehaviour
     // 言語が切り替わった時にFuwaLanguageから呼ばれる
     public void Render()
     {
+        if (next != null) next.Render();
         if (boardText == null || courseStarts == null) return;
         bool en = language != null && language.IsEnglish();
         string s = "<align=center><size=150%><color=#FF6B5C>" + (en ? "Best Times" : "さいそくタイム") + "</color></size></align>\n";
