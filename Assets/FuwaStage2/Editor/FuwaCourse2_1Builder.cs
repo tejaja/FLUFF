@@ -2722,7 +2722,7 @@ public static class FuwaCourse2_1Builder
     // ・てっぺん：ふちの岩をぐるっと PillarRimW。手前のまん中だけ滝の幅（±hw）でふちを切り欠く（水の出口）。切り欠きのふちは水の下に PillarLipSink 沈める
     // ・水：池（ふちの内側）と滝を1枚で。池の手前の壁は v＝PillarPoolFront、そこから落ち口まで ±hw の水路
     // ・手前の面は切り欠きの幅の中だけ滝の裏にそって削る。両わきは岩の「ほお」が滝のはしより前に出てはしを隠す
-    public static float PillarFrontReach = 0.6f, PillarNotchSide = 0.35f, PillarCheekOut = 0.45f, PillarPoolFront = 0.3f, PillarNotchFloor = 0.15f;
+    public static float PillarFrontReach = 1.4f, PillarNotchSide = 0.5f, PillarCheekOut = 0.45f, PillarPoolFront = 0.3f, PillarNotchFloor = 0.15f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
         float fb = FallsFlowBack ? -1f : 1f;
@@ -2780,7 +2780,8 @@ public static class FuwaCourse2_1Builder
         int nRing = Mathf.Max(2, Mathf.CeilToInt((yTop - yBot) / ringStep) + 1);
         float nOff = 31.7f * (i + 1);
         float FrontW(float zn) => Smooth01((-zn - 0.35f) / 0.3f);
-        float NotchW(float u, float soft) => 1f - Smooth01((Mathf.Abs(u) - hw + soft) / soft);
+        float un = 0f;   // 切り欠き（落ち口）のまん中の横の位置：手前の面が落ち口の線にのっている所のまん中
+        float NotchW(float u, float soft) => 1f - Smooth01((Mathf.Abs(u - un) - hw + soft) / soft);
         var PU = new Vector2[nRing, nAround]; var PY = new float[nRing]; var PZ = new float[nAround];
         for (int j = 0; j < nRing; j++)
         {
@@ -2802,9 +2803,10 @@ public static class FuwaCourse2_1Builder
                 //（枠の前後へ動かすと、ななめの分だけ柱の横の面が水路のふちの線からずれて、膜が柱の横へはみ出した）
                 float wFr = FrontW(zn);
                 if (wFr > 0f)
-                    for (int it = 0; it < 4; it++)
+                    for (int it = 0; it < 8; it++)
                     {
-                        Center(s, out var cp0, out var cd0); var uv0 = UV(cp0 + Right(cd0) * (o * lat));
+                        float latI = y > surf - 0.5f ? Mathf.Max(lat, Inner(s)) : lat;
+                        Center(s, out var cp0, out var cd0); var uv0 = UV(cp0 + Right(cd0) * (o * latI));
                         float dd = Vector2.Dot(cd0, fd); if (Mathf.Abs(dd) < 0.2f) break;
                         s += Mathf.Clamp((vF - uv0.y) * wFr / dd, -0.3f, 0.3f);
                     }
@@ -2812,6 +2814,7 @@ public static class FuwaCourse2_1Builder
                 if (wFr > 0f) s = Mathf.Clamp(s, sA - PillarFrontReach, sA + PillarFrontReach);
                 if (y > surf - 0.5f) lat = Mathf.Max(lat, Inner(s));
                 Center(s, out var cp, out var cdir); var uv = UV(cp + Right(cdir) * (o * lat));
+                uv.y = Mathf.Lerp(uv.y, vF, wFr);   // 残りのずれ（道の曲がり・えぐれで数cm〜十数cm）は前後だけでそろえる
                 // 横は道の側のふち〜水路の外のふちの線の間から出さない（手前の角が横へとがって出た）
                 uv.x = Mathf.Clamp(uv.x, ULo(uv.y), UHi(uv.y));
                 PU[j, k] = uv;
@@ -2819,9 +2822,62 @@ public static class FuwaCourse2_1Builder
         }
         // 落ち口の幅：てっぺんの輪で、手前の面が落ち口の線（vF）にのっている所の横のはしから PillarNotchSide 内側。まん中は 0 のまま（左右せまい方に合わせる）
         {
-            float lo = 0f, hi = 0f;
+            float lo = 99f, hi = -99f;
             for (int k = 0; k < nAround; k++) { var q = PU[nRing - 1, k]; if (FrontW(PZ[k]) < 0.95f || Mathf.Abs(q.y - vF) > 0.06f) continue; lo = Mathf.Min(lo, q.x); hi = Mathf.Max(hi, q.x); }
-            hw = Mathf.Max(0.5f, Mathf.Min(-lo, hi) - PillarNotchSide);
+            if (lo > hi) { lo = -1f; hi = 1f; }
+            un = (lo + hi) * 0.5f; hw = Mathf.Max(0.5f, (hi - lo) * 0.5f - PillarNotchSide);
+        }
+        // 内の輪（池のふち）：外の輪から直角に PillarRimW。切り欠きの中は v＝PillarNotchFloor、外は池の手前の壁 PillarPoolFront より奥。
+        // 外の輪の外へ出た所・ふちが PillarRimW×0.85 より細い所は、まん中へ寄せる（ななめの鋭い角でふちが細くなった・裏返った）
+        var IU = new Vector2[nAround]; var IY = new float[nAround];
+        var cenUV = Vector2.zero; for (int k = 0; k < nAround; k++) cenUV += PU[nRing - 1, k]; cenUV /= nAround;
+        bool InOuter(Vector2 pt)
+        {
+            bool ins = false;
+            for (int k = 0, k0 = nAround - 1; k < nAround; k0 = k++)
+            {
+                var a = PU[nRing - 1, k]; var b = PU[nRing - 1, k0];
+                if ((a.y > pt.y) != (b.y > pt.y) && pt.x < (b.x - a.x) * (pt.y - a.y) / (b.y - a.y) + a.x) ins = !ins;
+            }
+            return ins;
+        }
+        float DistOuter(Vector2 pt)
+        {
+            float best = 99f;
+            for (int k = 0; k < nAround; k++)
+            {
+                var a = PU[nRing - 1, k]; var b = PU[nRing - 1, (k + 1) % nAround]; var ab = b - a;
+                float t = Mathf.Clamp01(Vector2.Dot(pt - a, ab) / Mathf.Max(1e-6f, ab.sqrMagnitude));
+                best = Mathf.Min(best, (a + ab * t - pt).magnitude);
+            }
+            return best;
+        }
+        void BuildInner(bool notch)
+        {
+            for (int k = 0; k < nAround; k++)
+            {
+                var q = PU[nRing - 1, k]; var qp = PU[nRing - 1, (k + nAround - 1) % nAround]; var qn = PU[nRing - 1, (k + 1) % nAround];
+                var tg = (qn - qp).normalized; var nin = new Vector2(-tg.y, tg.x); if (Vector2.Dot(nin, cenUV - q) < 0f) nin = -nin;
+                var qi = q + nin * PillarRimW;
+                float wN = notch ? FrontW(PZ[k]) * NotchW(q.x, 0.06f) : 0f;
+                if (wN > 0.5f) { IU[k] = new Vector2(Mathf.Clamp(q.x, un - hw, un + hw), PillarNotchFloor); IY[k] = lipRim; continue; }
+                qi.y = Mathf.Max(qi.y, PillarPoolFront); IY[k] = yTop;
+                int it = 0;
+                while (it++ < 40 && (!InOuter(qi) || DistOuter(qi) < PillarRimW * 0.85f)) qi = Vector2.Lerp(qi, cenUV, 0.06f);
+                IU[k] = qi;
+            }
+        }
+        // 切り欠き（落ち口）は池の手前の壁の内側に収める（切り欠きが池より広いと、膜の手前の角がふちの上へ出た。ななめの柱の鋭い側）
+        BuildInner(false);
+        {
+            float pL = -99f, pR = 99f;
+            for (int k = 0; k < nAround; k++)
+            {
+                var q = IU[k]; if (q.y > PillarPoolFront + 0.7f || FrontW(PZ[k]) > 0.5f) continue;   // 手前の面の点（落ち口の線の上）は数えない、横の面の点だけ
+                if (q.x < un) pL = Mathf.Max(pL, q.x); else pR = Mathf.Min(pR, q.x);
+            }
+            float a0 = Mathf.Max(un - hw, pL + 0.08f), a1 = Mathf.Min(un + hw, pR - 0.08f);
+            if (a1 - a0 > 1f) { un = (a0 + a1) * 0.5f; hw = (a1 - a0) * 0.5f; }
         }
         // 切り欠きの幅の中の手前の面は、滝の裏の PillarLipGap 奥まで削る
         for (int j = 0; j < nRing; j++)
@@ -2836,38 +2892,8 @@ public static class FuwaCourse2_1Builder
         }
         // てっぺんの外の輪の高さ：切り欠きの中だけ沈める（膜のはしの 4cm 内側で 0）
         var topY = new float[nAround];
-        for (int k = 0; k < nAround; k++) topY[k] = Mathf.Lerp(yTop, lipRim, FrontW(PZ[k]) * NotchW(PU[nRing - 1, k].x - Mathf.Sign(PU[nRing - 1, k].x) * 0.04f, 0.06f));
-        // 内の輪（池のふち）：外の輪から直角に PillarRimW。切り欠きの中は v＝PillarNotchFloor、外は池の手前の壁 PillarPoolFront より奥
-        var IU = new Vector2[nAround]; var IY = new float[nAround];
-        var cenUV = Vector2.zero; for (int k = 0; k < nAround; k++) cenUV += PU[nRing - 1, k]; cenUV /= nAround;
-        for (int k = 0; k < nAround; k++)
-        {
-            var q = PU[nRing - 1, k]; var qp = PU[nRing - 1, (k + nAround - 1) % nAround]; var qn = PU[nRing - 1, (k + 1) % nAround];
-            var tg = (qn - qp).normalized; var nin = new Vector2(-tg.y, tg.x); if (Vector2.Dot(nin, cenUV - q) < 0f) nin = -nin;
-            var qi = q + nin * PillarRimW;
-            float wN = FrontW(PZ[k]) * NotchW(q.x, 0.06f);
-            if (wN > 0.5f) { qi = new Vector2(Mathf.Clamp(q.x, -hw, hw), PillarNotchFloor); IY[k] = lipRim; }
-            else { qi.y = Mathf.Max(qi.y, PillarPoolFront); IY[k] = yTop; }
-            IU[k] = qi;
-        }
-        // 内の輪が外の輪の外へ出た所（とがった角）は、まん中へ寄せて中に入れる（外に出るとふちの三角が裏返って、薄い板が角から横へ出た）
-        bool InOuter(Vector2 pt)
-        {
-            bool ins = false;
-            for (int k = 0, k0 = nAround - 1; k < nAround; k0 = k++)
-            {
-                var a = PU[nRing - 1, k]; var b = PU[nRing - 1, k0];
-                if ((a.y > pt.y) != (b.y > pt.y) && pt.x < (b.x - a.x) * (pt.y - a.y) / (b.y - a.y) + a.x) ins = !ins;
-            }
-            return ins;
-        }
-        for (int k = 0; k < nAround; k++)
-        {
-            if (IY[k] < yTop - 0.01f) continue;   // 切り欠きの点（落ち口の線上）はそのまま
-            var qi = IU[k]; int it = 0;
-            while (it++ < 30 && !InOuter(qi + (cenUV - qi).normalized * 0.08f)) qi = Vector2.Lerp(qi, cenUV, 0.08f);
-            IU[k] = qi;
-        }
+        for (int k = 0; k < nAround; k++) topY[k] = Mathf.Lerp(yTop, lipRim, FrontW(PZ[k]) * NotchW(PU[nRing - 1, k].x - Mathf.Sign(PU[nRing - 1, k].x - un) * 0.04f, 0.06f));
+        BuildInner(true);
         // ---- メッシュ（側面・てっぺんのふち・池の壁と底）----
         var V = new List<Vector3>(); var T = new List<int>();
         void Tri(Vector3 a, Vector3 b, Vector3 c, Vector3 want) { int b0 = V.Count; V.Add(a); V.Add(b); V.Add(c); AddTriDir(V, T, b0, b0 + 1, b0 + 2, want); }
@@ -2920,7 +2946,7 @@ public static class FuwaCourse2_1Builder
                 float t = Mathf.Abs(p1.y - p0.y) < 1e-5f ? 0.5f : (v - p0.y) / (p1.y - p0.y);
                 float ax = Mathf.Lerp(p0.x, p1.x, t); aL = Mathf.Min(aL, ax); aR = Mathf.Max(aR, ax);
             }
-            if (aL > aR) { aL = -hw; aR = hw; }
+            if (aL > aR) { aL = un - hw; aR = un + hw; }
         }
         int nl = Mathf.Max(2, Mathf.CeilToInt(hw * 2f / 0.25f));
         float vPool0 = PillarPoolFront + 0.02f;
@@ -2938,7 +2964,7 @@ public static class FuwaCourse2_1Builder
                 PoolAt(v, out var aL, out var aR);
                 var w = W2(Mathf.Lerp(aL, aR, u), v); grid[c, j] = new Vector3(w.x, yW, w.y);
             }
-            float al = Mathf.Lerp(-hw, hw, u);
+            float al = un + Mathf.Lerp(-hw + 0.06f, hw - 0.06f, u);   // 膜は切り欠きより片側 6cm せまく（はしが ほおの上にのって角が見えた）
             { var w = W2(al, PillarPoolFront); grid[c, nFlat] = new Vector3(w.x, yW, w.y); }
             for (int j = 0; j < curl.Count; j++)
             {
@@ -2954,7 +2980,7 @@ public static class FuwaCourse2_1Builder
             var n = Vector3.Cross(grid[k, j + 1] - grid[k, j], grid[k + 1, j] - grid[k, j]);
             return Vector3.Dot(n, outW + Vector3.up) >= 0f ? n : -n;
         }, pcR - 1);
-        var lipMid = org;
+        var lipMid = org + lfr * un;
         // 材質：手前（奥から落ち口まで D m）は池の色・波紋（青い球のまわりに広がる輪）・きらめき、落ち口から先は滝。柱ごとに波紋の中心がちがうので材質も柱ごと
         string plp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_PillarLip" + i + ".mat";
         var baseFm = FuwaStage2WaterTest.WaterfallThickMat(true);
