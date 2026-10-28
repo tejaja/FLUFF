@@ -2828,7 +2828,12 @@ public static class FuwaCourse2_1Builder
         for (int k = 0; k < nAround; k++)
         {
             var q = new Vector2(P[nRing - 1, k].x, P[nRing - 1, k].z);
-            var qi = q + (cenTop - q).normalized * PillarRimW;
+            // ふちの幅は外のふちに直角に PillarRimW（前はまん中へ向かって寄せていて、細長い柱の横・角でふちが細くなり、水が外のふちまで来て隙間に見えた。
+            // 2026-10-28 てじゃ「こんなかんじの隙間が各柱にある」）
+            var qp = new Vector2(P[nRing - 1, (k + nAround - 1) % nAround].x, P[nRing - 1, (k + nAround - 1) % nAround].z);
+            var qn = new Vector2(P[nRing - 1, (k + 1) % nAround].x, P[nRing - 1, (k + 1) % nAround].z);
+            var tg = (qn - qp).normalized; var nin = new Vector2(-tg.y, tg.x); if (Vector2.Dot(nin, cenTop - q) < 0f) nin = -nin;
+            var qi = q + nin * PillarRimW;
             var rel = qi - lipMid; float a = Vector2.Dot(rel, lfr), bb = Vector2.Dot(rel, fd);
             float w = FrontW(P[nRing - 1, k], k);
             if (w > 0f) { bb = Mathf.Lerp(bb, 0f, w); a = Mathf.Lerp(a, Mathf.Clamp(a, -hw, hw), w); }
