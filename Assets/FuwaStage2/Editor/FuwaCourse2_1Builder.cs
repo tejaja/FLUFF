@@ -445,10 +445,10 @@ public static class FuwaCourse2_1Builder
             pieces.Add(new Piece { name = "W5_Deck", s0 = sF1, s1 = sF1 + FinLand, off = s => (a + b) * 0.5f, w = s => a - b, h = s => FallsH, round0 = false, round1 = false, wood = true });
         }
         pieces.Add(new Piece { name = "M6_Down", s0 = sF1 + FinLand, s1 = sF1 + FinDownEnd, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false, wood = true });
-        pieces.Add(new Piece { name = "M7_LeftBank", s0 = sF1 + FinDownEnd, s1 = sBend0, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false, wood = true });
+        pieces.Add(new Piece { name = "M7_LeftBank", s0 = sF1 + FinDownEnd, s1 = sBend0, off = s => -FinRiverHW - FinWalkW * 0.5f, w = s => FinWalkW, h = LeftBankH, round0 = false, round1 = false });   // 2026-10-28 てじゃ「下り坂の先からゴールの橋の手前まで青い道に」（M7・M8。坂 M6 とゴールの島の橋は木のまま）
         {
             Center(sBend0, out var wp, out var wd); var wq = wp + Right(wd) * (-FinRiverHW - FinWalkW * 0.5f); float ws = sBend0;
-            pieces.Add(new Piece { name = "M8_ToGoal", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = WalkToGoalH, round0 = false, round1 = false, wood = true });
+            pieces.Add(new Piece { name = "M8_ToGoal", s0 = ws, s1 = sWalkEnd, off = s => 0f, at = s => wq + wd * (s - ws), w = s => FinWalkW, h = WalkToGoalH, round0 = false, round1 = false });
         }
         // 右岸のゴールの広場（M8_GoalPlaza）は 2026-10-23 にやめて、ゴールの島（GoalSet）に
 
