@@ -1399,6 +1399,8 @@ public static class FuwaCourse2_1Builder
         var pondM = WaterMat(0f, true, false);
         sm2.SetFloat("_PondTop", RimW + 0.13f); sm2.SetColor("_PondColor", pondM.GetColor("_Shallow")); sm2.SetColor("_PondFoam", pondM.GetColor("_Foam"));
         sm2.SetFloat("_PondRadial", 0f); sm2.SetFloat("_PondSparkle", pondM.GetFloat("_Sparkle"));
+        // 上のはしは透明から池へとけこませる・岩との境に白いふち（2026-10-28 てじゃ「境目も全部消していきたい」：膜が四角く色ちがいに浮いて見えた）
+        sm2.SetFloat("_EdgeRim", PillarEdgeRim); sm2.SetFloat("_EdgeRimTop", 0f); sm2.SetFloat("_TopFade", (RimW + 0.13f) * 0.87f);
         EditorUtility.SetDirty(sm2);
         spillFalls.GetComponent<MeshRenderer>().sharedMaterial = sm2;
     }
@@ -2330,7 +2332,8 @@ public static class FuwaCourse2_1Builder
                 var q = p + r * WallIn; lip.Add(new Vector3(q.x, surf(s), q.y)); outs.Add(-new Vector3(r.x, 0, r.y));
             }
             Corner(wb, false); EndEdge(wb, false);
-            LipFalls(g, "Clam" + nm + "_Falls", nm + "_Falls", lip, outs, prof, WallBottom);
+            // 壁の上の水面にとけこませる（2026-10-28 てじゃ「境目も全部消していきたい」）
+            BlendLipIntoWater(LipFalls(g, "Clam" + nm + "_Falls", nm + "_Falls", lip, outs, prof, WallBottom), ChanWaterLook, 0.3f);
         }
 
         // 押す範囲：2.5m ごとの箱（前の滝と同じ。厚み 0.9m、水面の少し上から下のはしの 0.35m 上まで）
@@ -2375,7 +2378,7 @@ public static class FuwaCourse2_1Builder
     // 水の端の滝（Waterfall で作った g の "EndFalls"）の見た目を、ふちからこぼれる膜にする。押す範囲・霧・音は Waterfall のまま
     // （2026-10-26 前の箱の滝だと、落ち口と滝のすき間から底の切り口が板に見えた）。c＝落ち口のまん中、o＝落ちる向き、r＝横、hw＝半分の幅
     // 水路・川の水面の見えている色（帯の水の材質。はばが DeepWidth 2m より狭いので _Deep と _Shallow のまざり。真上から撮って測った値）
-    static readonly Color ChanWaterLook = new Color(116f / 255f, 199f / 255f, 231f / 255f), FinRiverLook = new Color(115f / 255f, 186f / 255f, 226f / 255f);
+    static readonly Color ChanWaterLook = new Color(116f / 255f, 199f / 255f, 231f / 255f), FinRiverLook = new Color(115f / 255f, 186f / 255f, 226f / 255f), GateWaterLook = new Color(66f / 255f, 168f / 255f, 219f / 255f);
     static void EndLipFalls(Transform g, string meshName, Vector2 c, Vector2 o, Vector2 r, float hw, float surf, float bottom, Color waterLook)
     {
         var cur = g.Find("EndFalls/Curtain"); if (cur && cur.GetComponent<Renderer>()) cur.GetComponent<Renderer>().enabled = false;
@@ -2383,19 +2386,24 @@ public static class FuwaCourse2_1Builder
         int n = Mathf.Max(2, Mathf.CeilToInt(hw * 2f / 0.3f));
         for (int k = 0; k <= n; k++) { var q = c + r * Mathf.Lerp(-hw, hw, k / (float)n); lip.Add(new Vector3(q.x, surf, q.y)); outs.Add(new Vector3(o.x, 0, o.y)); }
         var lf = LipFalls(g, meshName, "EndFallsLip", lip, outs, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, bottom);
-        // 水面とのつなぎ目（2026-10-28 てじゃ「ほかのこういう境目も全部消していきたい」：膜の上の平らな所が滝の色＋上のはしの白い帯で、水面との境が線に見えた）。
-        // 柱の滝と同じ：平らな所は水面の見えている色（_PondTop）、上のはしの泡なし、岩との境に白いふち。材質は水の色ごと
-        string mp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_EndLip_" + ColorUtility.ToHtmlStringRGB(waterLook) + ".mat";
+        BlendLipIntoWater(lf, waterLook, 0.3f);
+    }
+    // 水面の上に重なる膜の平らな所を、下の水面にとけこませる（2026-10-28 てじゃ「ほかのこういう境目も全部消していきたい」：
+    // 平らな所が滝の色＋上のはしの白い帯で、水面との境が線に見えた）。平らな所は水面の見えている色（_PondTop）、上のはしは透明から
+    // だんだん見える（_TopFade。1色だと水面のグラデーションと合わず線が残った）、岩との境（左右）に白いふち。材質は水の色・長さごと
+    static void BlendLipIntoWater(GameObject sheet, Color waterLook, float flatLen)
+    {
+        string mp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_Lip_" + ColorUtility.ToHtmlStringRGB(waterLook) + "_" + Mathf.RoundToInt(flatLen * 100) + ".mat";
         var baseFm = FuwaStage2WaterTest.WaterfallThickMat(true);
         var em = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (!em) { em = new Material(baseFm); AssetDatabase.CreateAsset(em, mp); }
         em.CopyPropertiesFromMaterial(baseFm);
-        em.SetFloat("_PondTop", 0.3f); em.SetColor("_PondColor", waterLook); em.SetColor("_PondFoam", WaterMat(0f, true, false).GetColor("_Foam"));
-        em.SetFloat("_PondRadial", 0f); em.SetFloat("_PondSparkle", WaterMat(0f, true, false).GetFloat("_Sparkle"));
-        // 上のはし（水面の中）は白いふちを出さずに、透明から水面へとけこませる（1色だと水面のグラデーションと合わず線が残った）
-        em.SetFloat("_EdgeRim", PillarEdgeRim); em.SetFloat("_EdgeRimTop", 0f); em.SetFloat("_TopFade", 0.26f);
+        var wm = WaterMat(0f, true, false);
+        em.SetFloat("_PondTop", flatLen); em.SetColor("_PondColor", waterLook); em.SetColor("_PondFoam", wm.GetColor("_Foam"));
+        em.SetFloat("_PondRadial", 0f); em.SetFloat("_PondSparkle", wm.GetFloat("_Sparkle"));
+        em.SetFloat("_EdgeRim", PillarEdgeRim); em.SetFloat("_EdgeRimTop", 0f); em.SetFloat("_TopFade", flatLen * 0.87f);
         EditorUtility.SetDirty(em);
-        lf.GetComponent<MeshRenderer>().sharedMaterial = em;
+        sheet.GetComponent<MeshRenderer>().sharedMaterial = em;
     }
 
     // ---- ふちからこぼれる水の膜（貝の道の壁・ラストの滝の門）----
@@ -3130,7 +3138,8 @@ public static class FuwaCourse2_1Builder
             float lat = Mathf.Lerp(la, lb, k / (float)nLip);
             Center(sl1, out var p1, out var d1); var q1 = p1 + Right(d1) * lat; lipF.Add(new Vector3(q1.x, yTop, q1.y)); outF.Add(new Vector3(d1.x, 0, d1.y));
         }
-        LipFalls(gate, "GateFalls", "GateFalls", lipF, outF, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, surf);
+        var gateF = LipFalls(gate, "GateFalls", "GateFalls", lipF, outF, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, surf);
+        // 門の滝は落ち口の下が水面でなく岩の橋なので、BlendLipIntoWater（上のはしを透明に）だと白っぽい帯が広がった。形から直す（未）
         // 滝の裏の面（上流の踊り場から見える側）：岩の橋の中から川まで
         LipFalls(gate, "GateFallsBack", "GateFallsBack", lipF, outF, new List<Vector2> { new Vector2(0.05f, -1.3f), new Vector2(0.03f, -2f), new Vector2(0.02f, float.NaN) }, surf, true);
         // 真ん中の岩の橋（2026-10-26 てじゃ「最後の滝、だいぶ無理あるかたち」→ 前は水だけが空中にかかって、後ろ・下を水の膜で巻いていた）。

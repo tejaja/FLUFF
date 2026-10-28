@@ -32,8 +32,8 @@ Material:
     - _Cull: 2
     - _Curved: 1
     - _EdgeFoam: 0.8
-    - _EdgeRim: 0
-    - _EdgeRimTop: 1
+    - _EdgeRim: 0.16
+    - _EdgeRimTop: 0
     - _FallSpeed: 3
     - _FrayLen: 6
     - _PondRadial: 0
@@ -43,7 +43,7 @@ Material:
     - _RadialSpeed: 0.45
     - _SideFade: 0
     - _StreakScale: 1.6
-    - _TopFade: 0
+    - _TopFade: 0.5046
     - _UseVColor: 1
     - _ZWrite: 1
     m_Colors:
