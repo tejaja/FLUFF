@@ -585,6 +585,7 @@ public static class FuwaCourse2_1Builder
         CrossingStones(root, "Stones1", sCross1, 1f);
         CrossingStones(root, "Stones2", sCross2, -1f);
         StopRocks(root);
+        MidRock(root);
         RiverFish(root, fx);
         GuardFish(root, fx);
         // ④ 貝の道
@@ -1999,6 +2000,29 @@ public static class FuwaCourse2_1Builder
             // 上の平らな面（メッシュの y 0.3×0.42≒0.13）が岸の道の高さ（＝当たり判定の上の面）にそろうように
             v.transform.localPosition = new Vector3(0, -0.135f, 0); v.transform.localScale = new Vector3(r * 2.1f, 0.42f, r * 1.9f);
         }
+    }
+
+    // ---- 川のまん中の岩（2026-10-28 てじゃ「この赤のあたりに岩を置く、飛び石より若干大きい、高さはちょっと高い」）----
+    // 止める岩（StopRocks）と2回目の渡り場の飛び石のあいだ（MidRockAt：止める岩→渡り場の割合）、川のまん中。レイヤー0（当たるだけ・乗ってもアウトにならない）
+    public static float MidRockAt = 0.65f, MidRockLat = 0f, MidRockR = 0.55f, MidRockUp = 0.3f;
+    static void MidRock(Transform root)
+    {
+        var g = new GameObject("MidRock").transform; g.SetParent(root, false);
+        float sStop = sCross1 + CrossGap * 0.5f + StopAfter, s = Mathf.Lerp(sStop, sCross2, MidRockAt);
+        Center(s, out var p, out var d); var q = p + Right(d) * MidRockLat;
+        float topY = BankTop + MidRockUp;
+        g.localPosition = new Vector3(q.x, topY, q.y); g.localRotation = Quaternion.Euler(0, 37f, 0);
+        var tmpCyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder); var cyl = tmpCyl.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(tmpCyl);
+        var cg = new GameObject("Collider"); cg.transform.SetParent(g, false);
+        float h = topY + WaterDepth + 0.1f;
+        cg.transform.localPosition = new Vector3(0, -h * 0.5f, 0); cg.transform.localScale = new Vector3(MidRockR * 2f, h * 0.5f, MidRockR * 2f);
+        cg.AddComponent<MeshCollider>().sharedMesh = cyl; cg.GetComponent<MeshCollider>().convex = true;
+        // 見た目は飛び石と同じ上の平たい岩を、高さのぶん縦にのばす（上の面＝当たり判定の上の面）
+        var v = new GameObject("Rock"); v.transform.SetParent(g, false);
+        v.AddComponent<MeshFilter>().sharedMesh = BoulderMesh(5, true);
+        v.AddComponent<MeshRenderer>().sharedMaterial = StoneMat();
+        float sy = 0.42f * (h / (BankTop + WaterDepth + 0.1f));
+        v.transform.localPosition = new Vector3(0, -0.3f * sy, 0); v.transform.localScale = new Vector3(MidRockR * 1.08f * 2.1f, sy, MidRockR * 1.08f * 1.9f);
     }
 
     // ---- 1回目の渡り場の先の岩（2026-10-25）----
