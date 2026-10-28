@@ -551,7 +551,8 @@ public static class FuwaCourse2_1Builder
             var lip = new List<Vector3>(); var outs = new List<Vector3>();
             int n = Mathf.Max(2, Mathf.CeilToInt(rhw * 2f / 0.3f));
             for (int k = 0; k <= n; k++) { var q = rp + rr * Mathf.Lerp(-rhw, rhw, k / (float)n); lip.Add(new Vector3(q.x, 0f, q.y)); outs.Add(new Vector3(rd.x, 0, rd.y)); }
-            var lf = LipFalls(fr, "RiverEndFalls", "RiverLip", lip, outs, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, -GorgeDrop);
+            // 平らな所は川の水面のはし（落ち口）より 4cm 先まで（0.02 から曲げると水面のはしの細い帯が膜の上に出て、白い線に見えた。てじゃ「まだ変な線」）
+            var lf = LipFalls(fr, "RiverEndFalls", "RiverLip", lip, outs, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(-0.04f, 0.012f), new Vector2(-0.2f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, -GorgeDrop);
             BlendLipIntoWater(lf, RiverEndLook, 0.3f);
             // 両わきのふちの岩は落ち口で四角く切れていた → ふちの岩が落ち口をこえて、滝のはしにそって下へ曲がって続く（見た目だけ）
             // 下ほど細く・薄くなって崖の中へ消える（ベルトみたいに四角く切れないように）
