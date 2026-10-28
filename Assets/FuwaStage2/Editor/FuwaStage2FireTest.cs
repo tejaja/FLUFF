@@ -60,8 +60,9 @@ public static class FuwaStage2FireTest
         var spot3 = new GameObject("TestBallFar").transform; spot3.SetParent(root, false); spot3.localPosition = new Vector3(26.5f, y0 + up + 1.7f, 0f);
         FuwaStage2WaterTest.BallStand(root, "BallStand_Far", new Vector3(26.5f, y0 + up + 0.5f, -1.2f), spot3, "ふわふわ：火柱の谷", new Color(1f, 0.25f, 0.1f));
         // 曲がり角（てじゃ「曲がり角おもろいね」）：End の先は空中、角に火の輪 → 止めて 90° 横（+Z）の段 Turn へ撃ち直す
-        Brazier(root, "CornerRing", new Vector3(46.5f, y0 + up + 1.6f, 0f), heat, true);
+        Brazier(root, "CornerRing", new Vector3(46.5f, y0 + up + 1.9f, 0f), heat, true);   // 輪の下が床から 0.3m 浮くように
         FuwaStage2WaterTest.Box(root, "Turn", new Vector3(46.5f, y0 + up + 0.5f - 0.25f, 8f), new Vector3(3f, 0.5f, 9f), path, 11, false);
+        FuwaStage2WaterTest.Box(root, "CornerFloor", new Vector3(46f, y0 + up + 0.5f - 0.25f, 0.75f), new Vector3(4f, 0.5f, 4.5f), path, 11, false);   // てじゃ「曲がり角、床がないと」：End から Turn まで床をつなげる（角の上に火の輪）
         var spot4 = new GameObject("TestBallEnd").transform; spot4.SetParent(root, false); spot4.localPosition = new Vector3(40f, y0 + up + 1.7f, 0f);
         FuwaStage2WaterTest.BallStand(root, "BallStand_Corner", new Vector3(40f, y0 + up + 0.5f, -1.2f), spot4, "ふわふわ：曲がり角", new Color(1f, 0.7f, 0.2f));
 
