@@ -2710,6 +2710,7 @@ public static class FuwaCourse2_1Builder
     //（前の案：滝の上の浮いた岩は、てじゃ「なんかちゃうな」）
     // 2026-10-28 てじゃ「もっと岩の柱を奥側まで太くしよう、滝裏の水の部分まで全部柱でもいい」：柱は幕のまん中から、水路の上流のはし（奥のふちの岩）まで。
     // 断面は中心線にそった（s, 横）の超楕円で、内側の面は道のふち＋OverFallsGap にそわせる（えぐれが戻る所で道に食い込まないように。道とのあいだは水のすき間）
+    public static float PillarNotchSide = 0.35f;
     public static float PillarSide = 0.25f, PillarAbove = 0.0f, PillarBelow = 2.4f, PillarNoise = 0.12f, PillarBackPad = 0.1f, PillarBowl = 0.5f;
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
@@ -2727,6 +2728,13 @@ public static class FuwaCourse2_1Builder
         const int nAround = 36; const float ringStep = 0.45f; const float ex = 3.2f;   // 超楕円の丸さ（2＝楕円、大きいほど四角）
         int nRing = Mathf.Max(2, Mathf.CeilToInt((yTop - yBot) / ringStep) + 1);
         float nOff = 31.7f * (i + 1);
+        // 柱を回す角度：道の向き（落ち口の向きに近い方）から fd まで。中心は落ち口のまん中 fc
+        Center(sc, out var rotP0, out var rotD0);
+        var fdNat = Vector2.Dot(rotD0, fd) >= 0f ? rotD0 : -rotD0;
+        float rotA = Vector2.SignedAngle(fdNat, fd) * Mathf.Deg2Rad, rotC = Mathf.Cos(rotA), rotS = Mathf.Sin(rotA);
+        var rotPivot = fc;
+        Vector2 Rot(Vector2 v) => new Vector2(v.x * rotC - v.y * rotS, v.x * rotS + v.y * rotC);
+        float rotK = Vector2.Dot(Rot(Right(fdNat)), fdNat) / Mathf.Max(0.2f, rotC);   // 横 1m あたりの前後のずれ（tan）
         Vector3 RingPt(int k, float y, float shrink)
         {
             float t = k / (float)nAround * Mathf.PI * 2f, c = Mathf.Cos(t), sn = Mathf.Sin(t);
@@ -2741,6 +2749,14 @@ public static class FuwaCourse2_1Builder
             lat += nd.x * n; s += nd.y * n;
             if (y > surf - 0.5f) lat = Mathf.Max(lat, Inner(s));
             Center(s, out var p, out var d); var q = p + Right(d) * (o * lat);
+            // 柱ごと落ち口の向き（fd＝ななめ PillarLipAngle）へ回す（2026-10-28 てじゃ「滝が左にぐにゃって出てる」：落ち口だけななめで柱はまっすぐだったので、
+            // 手前の面を落ち口の線へ寄せると片側が前へ出て角のふちが消え、反対側は膜が柱の外へはみ出した）。回したあとも道へは食い込ませない
+            // 回すのでなく、手前ほど強く前後へずらす（手前の面だけななめに。回すと奥の道の側が道へ食い込んだ）
+            {
+                float L0 = Vector2.Dot(q - rotPivot, Right(fdNat));
+                float wF = 1f - Mathf.Clamp01((zn * g + 1f) * 0.5f);
+                q += fdNat * (L0 * rotK * wF);
+            }
             return new Vector3(q.x, y, q.y);
         }
         // 側面（輪を縦に並べる）＋てっぺんのふた。角ばった面（三角形ごとに頂点を分ける）
@@ -2761,7 +2777,10 @@ public static class FuwaCourse2_1Builder
         // 柱が外側へ 0.65m はみ出して、膜が道側に寄って見えた）。幕（押す範囲）はそのまま
         var lfr = Right(fd);
         float pIn = Inner(sA), pMid = (pIn + outerL) * 0.5f, cMid = RoadHW - CutDepth[i] + OverFallsGap + width * 0.5f;
-        var lip0 = fc + fd * 0.15f + lfr * (o * (pMid - cMid)); float lipHW = (outerL - pIn) * 0.5f - 0.02f;
+        // 落ち口は柱の手前の面より両わき PillarNotchSide せまく（2026-10-28 てじゃ「まだすきまある」「滝が左にぐにゃって出てる」：
+        // 落ち口が手前の面いっぱいだと、丸い角の所でふちの岩がなくなって水が外のはしまで来た・膜のはしが角の丸みにそって曲がった）。
+        // ふちの切れ目（水の出口）を作る形：両わきは岩のふちが残って、手前の面の両はしは岩の「ほお」が膜のはしをはさむ
+        var lip0 = fc + fd * 0.15f + lfr * (o * (pMid - cMid)); float lipHW = (outerL - pIn) * 0.5f - 0.02f - PillarNotchSide;
         // 膜の断面（落ち口から内へ x、上へ y）。ほかの滝と同じ形
         var LipProf = new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) };
         const float LipIn = 0.35f + 0.0f;   // 落ち口の線を奥へ（膜のいちばん前＝-0.35 が元の線＋すき間）
