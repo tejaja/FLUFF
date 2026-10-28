@@ -2776,7 +2776,7 @@ public static class FuwaCourse2_1Builder
         Center(sB, out var pB, out _); float vB = UV(pB).y + 0.0f;
         Vector2 W2(float u, float v) => org + lfr * u + fd * v;
         // ---- 柱の輪 ----
-        const int nAround = 40; const float ringStep = 0.45f; const float ex = 3.2f;
+        const int nAround = 72; const float ringStep = 0.45f; const float ex = 3.2f;
         int nRing = Mathf.Max(2, Mathf.CeilToInt((yTop - yBot) / ringStep) + 1);
         float nOff = 31.7f * (i + 1);
         float FrontW(float zn) => Smooth01((-zn - 0.35f) / 0.3f);
@@ -2886,7 +2886,8 @@ public static class FuwaCourse2_1Builder
             float vr = j == nRing - 1 ? SheetV(0f) + PillarLipGap : SheetV(Mathf.Max(0f, yTop - y)) + PillarLipGap;
             for (int k = 0; k < nAround; k++)
             {
-                var q = PU[j, k]; float w = FrontW(PZ[k]) * NotchW(q.x, 0.1f);
+                // 削るのは膜の幅＋片側 2cm だけ（広く削ると膜のはしと ほおの間にすき間が見えた。てじゃ「隙間とガタツキがめだつ」）
+                var q = PU[j, k]; float w = FrontW(PZ[k]) * (1f - Smooth01((Mathf.Abs(q.x - un) - (hw - 0.04f)) / 0.03f));
                 q.y = Mathf.Lerp(q.y, Mathf.Max(q.y, vr), w); PU[j, k] = q;
             }
         }
@@ -2894,6 +2895,19 @@ public static class FuwaCourse2_1Builder
         var topY = new float[nAround];
         for (int k = 0; k < nAround; k++) topY[k] = Mathf.Lerp(yTop, lipRim, FrontW(PZ[k]) * NotchW(PU[nRing - 1, k].x - Mathf.Sign(PU[nRing - 1, k].x - un) * 0.04f, 0.06f));
         BuildInner(true);
+        // 池のふち（内の輪）をなめらかに（寄せたり押し戻したりでギザギザになった）。切り欠きの点と、そのとなりは動かさない
+        for (int it = 0; it < 6; it++)
+        {
+            var nxt = (Vector2[])IU.Clone();
+            for (int k = 0; k < nAround; k++)
+            {
+                int kp = (k + nAround - 1) % nAround, kn = (k + 1) % nAround;
+                if (IY[k] < yTop - 0.01f || IY[kp] < yTop - 0.01f || IY[kn] < yTop - 0.01f) continue;
+                var c = (IU[kp] + IU[k] * 2f + IU[kn]) * 0.25f; c.y = Mathf.Max(c.y, PillarPoolFront);
+                if (InOuter(c) && DistOuter(c) >= PillarRimW * 0.8f) nxt[k] = c;
+            }
+            IU = nxt;
+        }
         // ---- メッシュ（側面・てっぺんのふち・池の壁と底）----
         var V = new List<Vector3>(); var T = new List<int>();
         void Tri(Vector3 a, Vector3 b, Vector3 c, Vector3 want) { int b0 = V.Count; V.Add(a); V.Add(b); V.Add(c); AddTriDir(V, T, b0, b0 + 1, b0 + 2, want); }
@@ -2949,7 +2963,9 @@ public static class FuwaCourse2_1Builder
             if (aL > aR) { aL = un - hw; aR = un + hw; }
         }
         int nl = Mathf.Max(2, Mathf.CeilToInt(hw * 2f / 0.25f));
-        float vPool0 = PillarPoolFront + 0.02f;
+        // 池の手前の壁（なめらかにしたので 0.3 より少し奥の所もある）のいちばん奥から。手前だと池の横はばの行が壁の前のふちの上に出た
+        float vWall = PillarPoolFront; for (int k = 0; k < nAround; k++) if (IY[k] >= yTop - 0.01f && FrontW(PZ[k]) > 0.3f) vWall = Mathf.Max(vWall, IU[k].y);
+        float vPool0 = vWall + 0.02f;
         int nFlat = Mathf.Max(3, Mathf.CeilToInt((D - vPool0) / 0.2f) + 1);
         var curl = new List<Vector2>(); for (int k = 1; k < LipProf.Count; k++) curl.Add(LipProf[k]);
         int pcR = nFlat + 1 + curl.Count;
@@ -2965,7 +2981,7 @@ public static class FuwaCourse2_1Builder
                 var w = W2(Mathf.Lerp(aL, aR, u), v); grid[c, j] = new Vector3(w.x, yW, w.y);
             }
             float al = un + Mathf.Lerp(-hw + 0.06f, hw - 0.06f, u);   // 膜は切り欠きより片側 6cm せまく（はしが ほおの上にのって角が見えた）
-            { var w = W2(al, PillarPoolFront); grid[c, nFlat] = new Vector3(w.x, yW, w.y); }
+            { var w = W2(al, vWall); grid[c, nFlat] = new Vector3(w.x, yW, w.y); }
             for (int j = 0; j < curl.Count; j++)
             {
                 var pr = curl[j]; float yy = float.IsNaN(pr.y) ? surf : yTop + pr.y;
