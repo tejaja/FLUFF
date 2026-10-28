@@ -44,7 +44,7 @@ public static class FuwaCourse2_1Builder
     const float FinLand = 3f;                                  // 踊り場（滝の道のあと、広め）
     const float FinRoadEnd = 3.5f, WoodGap = 0.02f;            // 青い道の終わり（滝の膜の中）、青い道と木の足場のすき間
     const float FinCurtain = 3.7f, FinCurtainTop = 7f;         // よけられない滝のカーテンの位置と落ち口の高さ
-    const float FinRiver0 = 3.5f, FinRiverSurf = -3f, FinRiverHW = 2.2f, FinRiverFlow = 1.2f;   // 下の川
+    const float FinRiver0 = 3.5f, FinRiverSurf = -3f, FinRiverHW = 2.2f, FinRiverFlow = 1.1f;   // 2026-10-28 1.2→1.1（てじゃ「そっちも」ほんのちょっと遅く）   // 下の川
     const float FinAfterBend = 8f;                             // カーブのあとの川の長さ（その先は滝）
     const float FinCliffLen = 6f;                              // 川の始まりの右の崖（カーテンの右を回り込めないように）の長さ
     const float FinWalkW = 1.8f, FinDownEnd = 8f;              // 左岸の人の道の幅と、踊り場から下りきる所（2026-10-23 12→8、てじゃ「坂急にしてもいい」）
