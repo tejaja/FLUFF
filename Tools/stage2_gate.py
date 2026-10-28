@@ -4,7 +4,7 @@ import bpy, bmesh, json
 # 実行：Blender（FLUFF_models.blend）で exec(open(r"D:\UnityProject\FLUFF\Tools\stage2_gate.py", encoding="utf-8").read())
 P = r"D:\UnityProject\FLUFF\Tools\stage2_gate_shapes.json"
 OUT = r"D:\UnityProject\FLUFF\Assets\FuwaStage2\Models\Stage2_GateRock.fbx"
-R2_VOXEL, DEC_ANGLE = 0.22, 0.09   # 0.03 だと 79k 頂点（スマホに重い）
+R2_VOXEL, DEC_ANGLE, QF_FACES = 0.25, 0.16, 2500
 sc = bpy.data.scenes.get("Stage2Gate") or bpy.data.scenes.new("Stage2Gate")
 bpy.context.window.scene = sc
 
@@ -63,9 +63,12 @@ def build():
     m = o.modifiers.new("D2", 'DISPLACE'); m.texture = t2; m.strength = 0.25; m.mid_level = 0.0; m.texture_coords = 'GLOBAL'; apply(o, m)
     # 2026-10-28 てじゃ「岩もなんかカクカク」：前は 0.5 のボクセル＋平らな面をまとめる（ローポリのカクカク、スタートの岩山にそろえた）。
     # 細かくして、面のまとめは弱く（なめらかな物を COLLAPSE で減らすとトゲになるので DISSOLVE のまま角度だけ小さく）
+    # 2026-10-28 てじゃ「メッシュがリッチ、もっと削れるかな、綺麗にリトポしつつ」：ボクセル＋平らな面まとめ（三角形がばらばら）→ QuadriFlow で
+    # きれいな四角の面に貼りなおす（面の数 QF_FACES）。くりぬき（下のブーリアン）はそのあと
     m = o.modifiers.new("R2", 'REMESH'); m.mode = 'VOXEL'; m.voxel_size = R2_VOXEL; apply(o, m)
     m = o.modifiers.new("S2", 'SMOOTH'); m.factor = 0.6; m.iterations = 4; apply(o, m)
-    m = o.modifiers.new("Dec", 'DECIMATE'); m.decimate_type = 'DISSOLVE'; m.angle_limit = DEC_ANGLE; apply(o, m)
+    bpy.context.view_layer.objects.active = o; o.select_set(True)
+    bpy.ops.object.quadriflow_remesh(target_faces=QF_FACES, use_preserve_sharp=False, use_preserve_boundary=False, preserve_attributes=False, smooth_normals=False, seed=7)
     m = o.modifiers.new("Tri", 'TRIANGULATE'); apply(o, m)
     for n in ("Cut_Gap", "Cut_Walk", "Cut_Slab"):
         m = o.modifiers.new("B_" + n, 'BOOLEAN'); m.operation = 'DIFFERENCE'; m.solver = 'EXACT'; m.object = sc.objects[n]; apply(o, m)
