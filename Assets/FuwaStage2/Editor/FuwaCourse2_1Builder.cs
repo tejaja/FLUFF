@@ -553,6 +553,15 @@ public static class FuwaCourse2_1Builder
             for (int k = 0; k <= n; k++) { var q = rp + rr * Mathf.Lerp(-rhw, rhw, k / (float)n); lip.Add(new Vector3(q.x, 0f, q.y)); outs.Add(new Vector3(rd.x, 0, rd.y)); }
             var lf = LipFalls(fr, "RiverEndFalls", "RiverLip", lip, outs, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, -GorgeDrop);
             BlendLipIntoWater(lf, RiverEndLook, 0.3f);
+            // 両わきのふちの岩は落ち口で四角く切れていた → ふちの岩が落ち口をこえて、滝のはしにそって下へ曲がって続く（見た目だけ）
+            // 下ほど細く・薄くなって崖の中へ消える（ベルトみたいに四角く切れないように）
+            var path = new (float x, float y, float w)[] { (0.45f, RimUp, 1f), (0.15f, RimUp, 1f), (-0.08f, RimUp - 0.12f, 1f), (-0.24f, -0.45f, 0.95f), (-0.34f, -1.1f, 0.8f), (-0.38f, -1.8f, 0.55f), (-0.36f, -2.5f, 0.3f), (-0.3f, -3.1f, 0.08f) };
+            foreach (float sd in new[] { -1f, 1f })
+            {
+                var inner = new List<Vector2>(); var outN = new List<Vector2>(); var wid = new List<float>(); var top = new List<float>(); var bot = new List<float>();
+                foreach (var (x, y, wk) in path) { inner.Add(rp + rr * (sd * rhw) - rd * x); outN.Add(rr * sd); wid.Add(RimW * wk); top.Add(y); bot.Add(y - 0.7f * wk); }
+                RockRimVis(fr, "Cheek" + (sd < 0 ? "L" : "R"), inner, outN, wid, top, bot, sd < 0 ? 811 : 977, false);
+            }
         }
         {
             var gz = new GameObject("Gorge").transform; gz.SetParent(root, false);
