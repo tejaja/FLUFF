@@ -2627,7 +2627,19 @@ public static class FuwaCourse2_1Builder
         // こぼれる膜：幕の厚みのまん中（ローカル z 0.15）の線から、手前（-fd）へ。幕の手前の面（z -0.15）の PillarLipGap 前を水面まで
         var fr = lfr;
         var lip = new List<Vector3>(); var outs = new List<Vector3>();
-        float hw = lipHW; int nl = Mathf.Max(2, Mathf.CeilToInt(hw * 2f / 0.3f));
+        // 膜の横はばは、てっぺんのふちが本当に落ち口の線に乗っている所まで（柱の角は丸いので、lipHW のままだと膜が角から横へはみ出した。
+        // 2026-10-28 てじゃ「滝がはみ出てる感じにみえる」）。左右べつべつに測る
+        float hwL = 0f, hwR = 0f;
+        for (int k = 0; k < nAround; k++)
+        {
+            var q = new Vector2(P[nRing - 1, k].x, P[nRing - 1, k].z);
+            if (Mathf.Abs(Vector2.Dot(q - lip0, -fd)) > 0.02f) continue;
+            float lat = Vector2.Dot(q - lip0, lfr);
+            if (lat < 0f) hwL = Mathf.Max(hwL, -lat); else hwR = Mathf.Max(hwR, lat);
+        }
+        hwL = Mathf.Max(0.3f, hwL - 0.04f); hwR = Mathf.Max(0.3f, hwR - 0.04f);
+        float hw = (hwL + hwR) * 0.5f; lip0 += lfr * ((hwR - hwL) * 0.5f);
+        int nl = Mathf.Max(2, Mathf.CeilToInt(hw * 2f / 0.3f));
         for (int k = 0; k <= nl; k++)
         {
             var q = lip0 + fr * Mathf.Lerp(-hw, hw, k / (float)nl);
