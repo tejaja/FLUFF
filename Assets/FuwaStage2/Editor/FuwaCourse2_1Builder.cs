@@ -2043,7 +2043,9 @@ public static class FuwaCourse2_1Builder
     public static float FishSpan = 2.4f, FishPeriod = 3.2f, FishDepth = 0.15f, FishScale = 2f, FishHit = 1.0f;
     public static float[] FishHeights = { 2.4f, 3.0f };   // 1.3/1.8 → 2.4/3.0（「もっと高く」）
     // 魚ごとの周期（秒）。高い方が長い（「高いほど周期を長く」で 0.8＋高さ×1.4 にした値を、高さを上げた後もそのまま）
-    public static float[] FishPeriods = { 2.62f, 3.32f };
+    // 2026-10-28 てじゃ「飛ぶ速度をやや落として間隔も伸ばす」：周期 2.62/3.32 → ×1.3、ジャンプの時間 0.9 → 1.15 秒
+    public static float[] FishPeriods = { 3.4f, 4.3f };
+    public static float FishJumpTime = 1.15f;
     // 飛び石の場所（CrossingStones と同じ式）：sc＝渡り場、from＝出発する岸、i 番目の石の中心線の位置 s と横のずれ lat
     static void StoneAt(float sc, float from, int i, out float s, out float lat)
     {
@@ -2097,7 +2099,7 @@ public static class FuwaCourse2_1Builder
         // 飛び石の上は安全（てじゃ「魚、飛び石の上は安全な感じにしたい」）。CrossingStones を先に作っておく
         var stones2 = root.Find("Stones2");
         if (stones2) { rf.safeSpots = stones2.Cast<Transform>().ToArray(); rf.safeRadius = StoneR + 0.15f; }
-        rf.jumpHeights = (float[])FishHeights.Clone(); rf.periods = (float[])FishPeriods.Clone(); rf.hitRadius = FishHit; rf.playerHitRadius = FishHit * 0.8f;
+        rf.jumpHeights = (float[])FishHeights.Clone(); rf.periods = (float[])FishPeriods.Clone(); rf.jumpTime = FishJumpTime; rf.hitRadius = FishHit; rf.playerHitRadius = FishHit * 0.8f;
         rf.jumpSound = Snd("JumpSfx", "Assets/FuwaStage2/Audio/sfx_water_splash_soft.wav", 0.6f);
         rf.hitSound = Snd("HitSfx", "Assets/FuwaCourse/Audio/sfx_boing.wav", 0.8f);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(rf); NoSync(rf);
