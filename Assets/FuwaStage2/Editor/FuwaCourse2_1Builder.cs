@@ -81,10 +81,23 @@ public static class FuwaCourse2_1Builder
     // 2026-10-28 間を詰めたら滝とカーブの外側がずれて 右・右・左 になった（てじゃ「交互じゃなくなってない？」）。ふり幅 1.2m・6.5m おき（曲がりのきつさは前より少しゆるい）
     static Vector2[] FallsWiggle(Vector2[] a)
     {
-        a[15] = new Vector2(6.8f, 102.5f); a[16] = new Vector2(2.8f, 109f); a[17] = new Vector2(4.0f, 115.5f); a[18] = new Vector2(1.6f, 122f); a[19] = new Vector2(1.09f, 125.5f);
+        // 位置は1つ手前の点（a[i0-1]、滝の道の入口の直線の始まり）からの差で（蓮の池を消して後ろがまるごとずれても形はそのまま）
+        int i0 = 15 - PondCutN; var b = a[i0 - 1];
+        a[i0] = b + new Vector2(0.71f, 9.13f); a[i0 + 1] = b + new Vector2(-3.29f, 15.63f); a[i0 + 2] = b + new Vector2(-2.09f, 22.13f); a[i0 + 3] = b + new Vector2(-4.49f, 28.63f); a[i0 + 4] = b + new Vector2(-5.0f, 32.13f);
         return a;
     }
-    static readonly Vector2[] Ctrl = FallsWiggle(PullBack(ShiftFrom(ShiftFrom(new[]
+    // 蓮の池をなくす（2026-10-28 てじゃ「蓮の池カットして、川→泡は縮めて木の橋でつなぐ、チェックポイントは木の橋の真ん中1こに」）：
+    // Ctrl の 9・10 番（池）を消して、11 番から先を 9 番の所へ平行移動（貝の道から先の形はそのまま）。池の後ろのまっすぐな道（WalkLead）もなし
+    public const bool PondCut = true;
+    const int PondCutN = PondCut ? 2 : 0;
+    static Vector2[] CutPond(Vector2[] a)
+    {
+        if (!PondCut) return a;
+        var d = a[9] - a[11]; var r = new List<Vector2>();
+        for (int i = 0; i < a.Length; i++) { if (i == 9 || i == 10) continue; r.Add(i >= 11 ? a[i] + d : a[i]); }
+        return r.ToArray();
+    }
+    static readonly Vector2[] Ctrl = FallsWiggle(PullBack(ShiftFrom(ShiftFrom(CutPond(new[]
     {
         // 川（4〜8）は 2026-10-25 にまっすぐ寄りに（てじゃのスケッチ「赤が道、青が川、２回渡る」。前は (-6,20),(-5,28),(1,34),(7,40),(8,48) の大きいS字）
         new Vector2(0, -6), new Vector2(0, 0), new Vector2(0, 6), new Vector2(-2, 13), new Vector2(-4, 20), new Vector2(-3.5f, 28),
@@ -99,8 +112,8 @@ public static class FuwaCourse2_1Builder
         // 曲がった先の外側の岸にゴールの島（2026-10-23 てじゃのスケッチ「川を曲げる、島を曲がった先の川岸におく、川の先は滝」）
         new Vector2(0, 136), new Vector2(1.404f, 139.857f), new Vector2(4.958f, 141.909f),
         new Vector2(10.867f, 142.951f), new Vector2(16.776f, 143.993f), new Vector2(22.685f, 145.035f), new Vector2(28.594f, 146.077f),
-    }, 12, WalkLead), 15, FallsLead), 21, FallsSqueeze));
-    const int BendCtrl0 = 21, BendCtrl1 = 23;   // カーブの始まり・終わりの点（Ctrl の番号）
+    }), 12 - PondCutN, PondCut ? 0f : WalkLead), 15 - PondCutN, FallsLead), 21 - PondCutN, FallsSqueeze));
+    const int BendCtrl0 = 21 - PondCutN, BendCtrl1 = 23 - PondCutN;   // カーブの始まり・終わりの点（Ctrl の番号）
 
     // ---- 中心線 ----
     static List<float> _tu, _ts;
@@ -160,7 +173,7 @@ public static class FuwaCourse2_1Builder
     public static float BridgeEndPull = 0.12f, CpMushBack = 0.7f;
     // 右岸の道を川の終わりから谷の上へのばす長さ・木の橋が青い道の先っぽにのる長さ・その所の板の持ち上げ
     public static float B3Ext = 7.5f, BridgeJoinBack = 3.0f, BridgeOnto = 0.3f, BridgeLift = 0.05f, B3ExtBend = 70f, BridgeStraight0 = 2.7f, BridgeMidPull = 0.35f;
-    static Vector2 m2BridgeA, m2BridgeE;
+    static Vector2 m2BridgeA, m2BridgeE; static Func<float, Vector2> m2BridgeAt; static Func<float, float> m2BridgeH; static float m2BridgeLen;
     // ななめの脇道（ツタの穴）：ツタのまん中（root のローカル xz）、穴の向き、半分の幅。Tools/stage2_cave_rock.py の SIDE_V / SIDE_D / SIDE_HW と同じ
     public static readonly Vector2 SideV = new Vector2(3.95f, 3.89f), SideD = new Vector2(0.907f, 0.422f).normalized; public const float SideHW = 1.7f;   // 迂回路の木の橋の曲げ点（中心線の s と横）
     static Vector2 bridgeIslandC; static float bridgeIslandH;
@@ -301,8 +314,10 @@ public static class FuwaCourse2_1Builder
         // 滝つぼ 2026-10-25 u3.8→3.1（約13m→約7m。てじゃ「滝壺がでかいのかな、待ち時間がやっぱながい」）
         sPool1 = SI(3.1f); sRiver1 = SI(7.3f) - 3f;
         sCross1 = sPool1 + Cross1After; sCross2 = sRiver1 - Cross2Before;
-        sPond0 = SI(8.9f); sPond1 = SI(10.9f);
-        sTer0 = sPond1 + RimW + WalkLead + WalkToTer;   // 前は SI(11.8)。まっすぐな道を足したぶん後ろへ
+        sPond0 = SI(8.9f); sPond1 = PondCut ? sPond0 : SI(10.9f);
+        // 池をなくした時は、木の橋のおわり（sPond0 − RimW）からすぐ貝の道
+        sStraight0 = PondCut ? sPond0 - RimW : sPond1 + RimW;
+        sTer0 = sStraight0 + (PondCut ? 0f : WalkLead) + WalkToTer;   // 前は SI(11.8)。まっすぐな道を足したぶん後ろへ
         const float TerLen = 5.5f;
         for (int k = 0; k < 3; k++) { terA[k] = sTer0 + k * (TerLen + RimW); terB[k] = terA[k] + TerLen; }
         sGoal0 = SI(21.2f);
@@ -429,13 +444,13 @@ public static class FuwaCourse2_1Builder
             var clipP = K + Lk * (1.5f - BridgeOnto);
             pieces.Add(new Piece { name = "M2_Bridge", s0 = 0f, s1 = Lb, off = s => 0f, at = At, w = s => 3f, h = u => Mathf.Lerp(BankTop - 0.01f, BankTop, u / Lb),
                 round0 = false, round1 = false, wood = true, woodEdgeCut = true, woodLift = u => BridgeLift, woodBeamS0 = BridgeOnto - 0.06f /* 青い道の横っ腹に少しうめる */, woodClipP = clipP, woodClipN = Lk });
-            m2BridgeA = A; m2BridgeE = E;
+            m2BridgeA = A; m2BridgeE = E; m2BridgeAt = At; m2BridgeLen = Lb; m2BridgeH = u => Mathf.Lerp(BankTop - 0.01f, BankTop, u / Lb);
         }
         // M3 貝の道：蓮の池の向こうから、細い堤の道をゆるく登って大きな滝の登り坂へ（両わきは崖の外＝落ちたらアウト）
         float topSurf = 2 * TerraceStep;
-        sStraight0 = sPond1 + RimW; sWalk0 = sStraight0 + WalkLead; sWalk1 = b2 + RimW;
+        sWalk0 = sStraight0 + (PondCut ? 0f : WalkLead); sWalk1 = b2 + RimW;
         // M2b 蓮の池の出口から貝の道までのまっすぐな道（チェックポイント2の所）
-        pieces.Add(new Piece { name = "M2b_Straight", s0 = sStraight0, s1 = sWalk0, off = s => 0f, w = s => WalkHW * 2f, h = s => BankTop, round0 = false, round1 = false });
+        if (!PondCut) pieces.Add(new Piece { name = "M2b_Straight", s0 = sStraight0, s1 = sWalk0, off = s => 0f, w = s => WalkHW * 2f, h = s => BankTop, round0 = false, round1 = false });
         float walkTop = topSurf + BankTop;
         WalkH = s => Ramp(s, sWalk0 + 1.5f, sWalk1 - 1.5f, BankTop, walkTop);
         pieces.Add(new Piece { name = "M3_ClamWalk", s0 = sWalk0, s1 = sWalk1, off = s => 0f, w = s => WalkHW * 2f, h = WalkH, round0 = false, round1 = false });
@@ -520,6 +535,7 @@ public static class FuwaCourse2_1Builder
                 hole0 = PondDeep0, hole1 = PondDeep1, holeL = PondDeepL, holeR = PondDeepR, holeBed = PondHoleBed },
         };
         var wroot = new GameObject("Water").transform; wroot.SetParent(root, false);
+        if (PondCut) waters.RemoveAll(w => w.name == "W3_LilyPond");
         foreach (var w in waters) BuildWater(wroot, w, bedMat, ground, fx, splash);
 
         // 渡り場の石段は 2026-10-23 にやめた（浅くしてどこからでも上がれるようになった。てじゃ「ふわふわぶつかるトラップになってる」）
@@ -595,6 +611,7 @@ public static class FuwaCourse2_1Builder
         // ジグザグにばらけて、葉っぱのふちからふちまで LilyGapMin〜Max（走ってジャンプでギリ届く）。ところどころ深い所（濃い色、人は落ちたらアウト）。
         // 浅い所に落ちたら、出口のふちの内側の石段まで歩いて上がる（2026-10-20 てじゃ「もうちょいバラバラに配置、ギリ届くくらいにして　所々深い場所も作ろう」）。
         // まん中の深い所を蓮で突っ切ると速い、外周の浅瀬をじゃぶじゃぶ回ると遅いけど安全（てじゃ「外周の蓮なくてもいいかもね」→ 寄り道の葉っぱはなし）
+        if (!PondCut) {   // 蓮の池（なくした時は葉っぱ・深い所・水源・あふれ口ごとなし）
         var lilies = new GameObject("LilyPads").transform; lilies.SetParent(root, false);
         var pads = new List<Vector3>();   // x,z＝コースのローカル、y＝半径
         {
@@ -767,8 +784,23 @@ public static class FuwaCourse2_1Builder
             Object.DestroyImmediate(guard.GetComponent<Renderer>()); Object.DestroyImmediate(guard.GetComponent<MeshFilter>());
         }
 
+        }   // !PondCut
+
         // ---- チェックポイント（2026-10-25 てじゃ「チェックポイントおいてくかぁ」→ 4つ：魚の渡り場の先・蓮の池の先・貝の道の先・三連滝の先の踊り場）----
         {
+            // 池をなくした時（2026-10-28 てじゃ「チェックポイントは木の橋の真ん中1こに統一」）：魚の渡り場の先・池の先の2つをやめて、谷の上の木の橋のまん中に1つ。キノコは橋の板の上のはし
+            if (PondCut)
+            {
+                float um = m2BridgeLen * 0.5f; var bp = m2BridgeAt(um); var bd = (m2BridgeAt(um + 0.3f) - m2BridgeAt(um - 0.3f)).normalized;
+                Checkpoints(root, new[]
+                {
+                    (0f, (Func<float, float>)(s => 0f), 1.5f, 1.5f, m2BridgeH(um) + BridgeLift),
+                    (sWalk1 + 0.5f, (Func<float, float>)(s => 0f), WalkHW, WalkHW, FallsH),
+                    (sF1 - 3.5f, (Func<float, float>)(s => 0f), RoadHW, RoadHW, FallsH),
+                }, null, (bp, bd));
+            }
+            else
+            {
             float s1 = sCross2 + CrossGap * 0.5f + 2.3f;   // 2026-10-25 てじゃ「ちょっと奥に」+1.2→+2.3
             Checkpoints(root, new[]
             {
@@ -780,6 +812,7 @@ public static class FuwaCourse2_1Builder
             },
             // 1つ目のキノコは岸の道のおわり（川の終わりの崖）の手前まで。その先は谷の上の木の橋で、キノコが空中に浮いた（2026-10-27）
             new[] { sRiver1 - CpMushBack, float.MaxValue, float.MaxValue, float.MaxValue });
+            }
         }
 
         // ---- スタート・ゴール（2026-10-23 てじゃ「スタートはステージ1と同じように、ロビー戻りポータル島、スタート島、そこから洞窟に歩いて入っていく」
@@ -805,8 +838,7 @@ public static class FuwaCourse2_1Builder
         // 道と水の下の岩の土台（浮島の形）。道・水がそろってから、上から測って作る
         WoodWalk(root, woodPieces);
         RockBases(root);
-        PondSpillLipFalls(root);
-        PondSpringFalls(root);
+        if (!PondCut) { PondSpillLipFalls(root); PondSpringFalls(root); }
         AirFallsFray(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
@@ -1853,7 +1885,9 @@ public static class FuwaCourse2_1Builder
     // cps＝(中心線の位置 s, 横のずれ, 道の半分の幅, 道の上の面の高さ)。キノコは道のふちから CpOut 外。ふわふわの checkpoints にも登録（やり直しで光を消す）
     public static float CpOut = 0.6f;   // 0.35→0.6（てじゃ「道にうまらないように」）
     // lat＝中心線からの横のずれ（s ごと）、hwL/hwR＝左右それぞれ、道（または水路）のふちまでの距離
-    static void Checkpoints(Transform root, (float s, Func<float, float> lat, float hwL, float hwR, float h)[] cps, float[] mushMaxS = null)
+    // first：1つ目を中心線でなく、この点・向きに置く（谷の上の木の橋の上。キノコは橋の板の上のはしに CpOnDeck m 内側）
+    const float CpOnDeck = 0.45f;
+    static void Checkpoints(Transform root, (float s, Func<float, float> lat, float hwL, float hwR, float h)[] cps, float[] mushMaxS = null, (Vector2 p, Vector2 d)? first = null)
     {
         var tmpl = GameObject.Find("FuwaCourse3/Checkpoint1");
         if (tmpl == null) { Debug.LogWarning("[2–1] チェックポイントのお手本（FuwaCourse3/Checkpoint1）がない"); return; }
@@ -1864,6 +1898,8 @@ public static class FuwaCourse2_1Builder
             var (s, latF, hwL, hwR, h) = cps[i];
             float lat = latF(s), hw = Mathf.Min(hwL, hwR);
             Center(s, out var p, out var d); var q = p + Right(d) * lat;
+            bool onDeck = i == 0 && first.HasValue;
+            if (onDeck) { q = first.Value.p; d = first.Value.d; }
             var cp = Object.Instantiate(tmpl, g, false); cp.name = "Checkpoint" + (i + 1);
             cp.transform.localPosition = new Vector3(q.x, h, q.y);
             cp.transform.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y));
@@ -1876,6 +1912,7 @@ public static class FuwaCourse2_1Builder
             if (gm)
                 foreach (Transform cl in gm)
                 {
+                    if (onDeck) { float sxd = Mathf.Sign(cl.localPosition.x); cl.localPosition = new Vector3(sxd * (hw - CpOnDeck), cl.localPosition.y, 0f); continue; }   // 橋の板の上、判定の横（先に立てると橋が曲がっていて板の外に出る）
                     // 群れは判定の約3m先に立つので、その先の中心線（曲がっている所でも）にそって道のふちの外へ（2026-10-25 てじゃ「左が離れてて右がめり込んでる」）
                     float sx = Mathf.Sign(cl.localPosition.x), sc2 = s + cl.localPosition.z;
                     if (mushMaxS != null && i < mushMaxS.Length && sc2 > mushMaxS[i]) sc2 = mushMaxS[i];   // この先は道がない（橋になる）所は、手前の岸の上に
