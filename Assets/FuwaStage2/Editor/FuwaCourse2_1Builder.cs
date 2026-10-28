@@ -542,6 +542,18 @@ public static class FuwaCourse2_1Builder
         // 渡り場の石段は 2026-10-23 にやめた（浅くしてどこからでも上がれるようになった。てじゃ「ふわふわぶつかるトラップになってる」）
         // 川の終わりの崖の滝 → 谷（下は何もない。ふわふわも人も落ちたらアウト）
         CurvedFalls(root, "Falls_River", sRiver1, 0.02f, -GorgeDrop, RiverHW(sRiver1) * 2f + 0.4f, 1.6f, 0.8f);   // 厚み 0.4→0.8（2026-10-25 てじゃ「各種滝、太くしたい」）
+        // 見た目は川のふちからこぼれる膜に（ラストの川の終わり・門の滝と同じ。押す範囲・霧・音は CurvedFalls のまま）。
+        // 2026-10-28 てじゃ「そこの滝のつなぎ目もきれいに」「完全につなぎたい」：厚い滝と水面の境が線・帯に見えた
+        {
+            var fr = root.Find("Falls_River");
+            foreach (var nm in new[] { "Curtain", "LipFoam" }) { var c = fr.Find(nm); if (c && c.GetComponent<Renderer>()) c.GetComponent<Renderer>().enabled = false; }
+            Center(sRiver1, out var rp, out var rd); var rr = Right(rd); float rhw = RiverHW(sRiver1);
+            var lip = new List<Vector3>(); var outs = new List<Vector3>();
+            int n = Mathf.Max(2, Mathf.CeilToInt(rhw * 2f / 0.3f));
+            for (int k = 0; k <= n; k++) { var q = rp + rr * Mathf.Lerp(-rhw, rhw, k / (float)n); lip.Add(new Vector3(q.x, 0f, q.y)); outs.Add(new Vector3(rd.x, 0, rd.y)); }
+            var lf = LipFalls(fr, "RiverEndFalls", "RiverLip", lip, outs, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, -GorgeDrop);
+            BlendLipIntoWater(lf, RiverEndLook, 0.3f);
+        }
         {
             var gz = new GameObject("Gorge").transform; gz.SetParent(root, false);
             // 橋の下全体（川の終わりの崖 → 蓮の池の入口）。2026-10-27 谷の向こうの崖をなくして橋にしたので広げた
@@ -2485,7 +2497,8 @@ public static class FuwaCourse2_1Builder
     // 水の端の滝（Waterfall で作った g の "EndFalls"）の見た目を、ふちからこぼれる膜にする。押す範囲・霧・音は Waterfall のまま
     // （2026-10-26 前の箱の滝だと、落ち口と滝のすき間から底の切り口が板に見えた）。c＝落ち口のまん中、o＝落ちる向き、r＝横、hw＝半分の幅
     // 水路・川の水面の見えている色（帯の水の材質。はばが DeepWidth 2m より狭いので _Deep と _Shallow のまざり。真上から撮って測った値）
-    static readonly Color ChanWaterLook = new Color(116f / 255f, 199f / 255f, 231f / 255f), FinRiverLook = new Color(115f / 255f, 186f / 255f, 226f / 255f), GateWaterLook = new Color(116f / 255f, 199f / 255f, 231f / 255f);   // 門：岩からの距離で泡・色を決めなおした後の落ち口の手前
+    static Color RiverEndLook = new Color(115f / 255f, 186f / 255f, 226f / 255f);   // 川の終わりの落ち口の手前（仮。撮って測りなおす）
+    static readonly Color ChanWaterLook =new Color(116f / 255f, 199f / 255f, 231f / 255f), FinRiverLook = new Color(115f / 255f, 186f / 255f, 226f / 255f), GateWaterLook = new Color(116f / 255f, 199f / 255f, 231f / 255f);   // 門：岩からの距離で泡・色を決めなおした後の落ち口の手前
     static void EndLipFalls(Transform g, string meshName, Vector2 c, Vector2 o, Vector2 r, float hw, float surf, float bottom, Color waterLook)
     {
         var cur = g.Find("EndFalls/Curtain"); if (cur && cur.GetComponent<Renderer>()) cur.GetComponent<Renderer>().enabled = false;
@@ -3566,7 +3579,9 @@ public static class FuwaCourse2_1Builder
         // 2026-10-28 てじゃ「アーチみたいなのないほうがいい」（3：上の穴と下のトンネルの出口のあいだの岩の帯をなくす）：落ち口の線より下流（面まで）を、
         // トンネルの床の高さから穴の上まで 1つの縦長の開口にくりぬく。落ち口の後ろ（橋の上の水の下）の岩はそのまま
         // 上の角は半径 GateFaceRound で丸める（てじゃ「上の角をちょいまるく」）
-        Loft("Cut_Face", Steps(sl1 + 0.03f, sl1 + GateFaceOut + 0.8f, 0.1f), s =>
+        // 下流のはしは岩の外まで十分に（2026-10-28 滝の道を詰めたら岩の下流の面が型のはし sl1+1.2 より外に出て、開口の前に うすい岩の板が残り滝がふさがった。
+        // てじゃ「最後の滝の下流側埋まってる」）
+        Loft("Cut_Face", Steps(sl1 + 0.03f, sl1 + GateFaceOut + 4f, 0.1f), s =>
         {
             float top = yTop + GateSlotH, r = Mathf.Min(GateFaceRound, (rin - gIn) * 0.5f);
             var pr = new List<Vector2> { new Vector2(gIn, surf - 1f), new Vector2(rin, surf - 1f) };
