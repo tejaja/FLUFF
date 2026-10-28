@@ -2218,7 +2218,9 @@ public static class FuwaCourse2_1Builder
             // 両はしは切れ目（せき止めず、上の水がそのまま滝でこぼれる）。2026-10-25 てじゃ「入口みたいに切れ目つけて垂らす？」
             bool cap = false;
             float rf = WallRound(s, s0, s1);
-            float fl = cap ? 0.25f : -0.3f, lip = cap ? 0.25f : -0.06f;
+            // 底は水面の 0.7m 下（2026-10-28 てじゃ「滝の壁、左の上のほうに切れ目」：道が上り坂でカーブしている所は、断面の外のほうの点が水の行と別の s の高さになり、
+            // 0.3m 下だと底が水面をつき抜けて細いトゲに見えた）
+            float fl = cap ? 0.25f : -0.7f, lip = cap ? 0.25f : -0.06f;
             var prof = new List<Vector2>
             {
                 new Vector2(0f, lip), new Vector2(0.25f, fl), new Vector2(w - 0.45f, fl), new Vector2(w - 0.4f, 0.25f), new Vector2(w, 0.3f),
@@ -2242,6 +2244,18 @@ public static class FuwaCourse2_1Builder
                 var v = new Vector3(q.x, sf + yy, q.y); V.Add(v); c += v;
             }
             cen.Add(c / cols);
+        }
+        // 断面が前の断面を追いこさないように（2026-10-28 てじゃ「滝の壁、左の上のほうに切れ目」：カーブの内側で外の方の点が前の断面より手前に来て、
+        // 上り坂の段差で面が折り返し、底から細いトゲが水面をつき抜けた）。列ごとに、進む向きに 2cm 以上進んでいなければ前へ寄せる
+        for (int i = 1; i < n; i++)
+        {
+            Center(ss[i], out _, out var dI); var d3 = new Vector3(dI.x, 0, dI.y);
+            for (int k = 0; k < cols; k++)
+            {
+                var prev = V[(i - 1) * cols + k]; var cur = V[i * cols + k];
+                float adv = Vector3.Dot(cur - prev, d3);
+                if (adv < 0.02f) V[i * cols + k] = cur + d3 * (0.02f - adv);
+            }
         }
         for (int i = 0; i < n - 1; i++)
             for (int k = 0; k < cols; k++)
@@ -2279,7 +2293,8 @@ public static class FuwaCourse2_1Builder
             for (int k = 0; k <= m; k++)
             {
                 float s = Mathf.Lerp(wa, wb, k / (float)m); Center(s, out var p, out var d); var r = Right(d) * o;
-                float dA = -0.03f, dB = waterW(s), hw = (dB - dA) * 0.5f;
+                // 外のはしは外のふちの岩の下まで WallWaterUnder もぐらせる（2026-10-28 カーブで水のはしと岩のふちのあいだにトゲ形のすき間があき、下の底が見えた）
+                float dA = -0.03f, dB = waterW(s) + WallWaterUnder, hw = (dB - dA) * 0.5f;
                 for (int i = 0; i <= across; i++)
                 {
                     float dd = Mathf.Lerp(dA, dB, i / (float)across);
@@ -2287,6 +2302,17 @@ public static class FuwaCourse2_1Builder
                     // 外のふちの泡は WallRimFoamIn 内側から（水のはしは外の岩のふちの下にもぐっていて、白いふちが隠れて見えなかった。2026-10-28 てじゃ「ここの上も白フチほしい」）
                     U1.Add(new Vector4(dd - (dA + hw) + WallRimFoamIn * Mathf.InverseLerp(dA, dB, dd), hw, s - wa, wb - s)); U2.Add(new Vector2(Mathf.Abs(s - sDiv), 0));   // 分かれ目から両はしへ
                     U3.Add(new Vector2(i == 0 ? 1f : 0f, 0f));
+                }
+            }
+            // 行が前の行を追いこさないように（岩の断面と同じ。カーブの内側で折り返すと水に細い穴があいて下の岩が見えた）
+            for (int k = 1; k <= m; k++)
+            {
+                Center(Mathf.Lerp(wa, wb, k / (float)m), out _, out var dK); var d3 = new Vector3(dK.x, 0, dK.y);
+                for (int i = 0; i <= across; i++)
+                {
+                    int cI = k * (across + 1) + i, pI = cI - (across + 1);
+                    float adv = Vector3.Dot(SV[cI] - SV[pI], d3);
+                    if (adv < 0.02f) SV[cI] += d3 * (0.02f - adv);
                 }
             }
             for (int k = 0; k < m; k++)
@@ -2526,7 +2552,7 @@ public static class FuwaCourse2_1Builder
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
     // 幕の上は柱のてっぺんより PillarLipDrop 下（膜の曲がる所の後ろに隠れる）
-    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f, WallRimFoamIn = 0.12f, GateRimFoamIn = 0.3f;
+    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f, WallRimFoamIn = 0.12f + 0.2f, WallWaterUnder = 0.2f, GateRimFoamIn = 0.3f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
         float fb = FallsFlowBack ? -1f : 1f;
