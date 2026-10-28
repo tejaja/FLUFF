@@ -2273,7 +2273,7 @@ public static class FuwaCourse2_1Builder
         float sDiv = Mathf.Lerp(wa, wb, (o < 0 ? WallOrbsL : WallOrbsR)[o < 0 ? WallDivL : WallDivR]);
         Func<float, float> waterW = s => Mathf.Max(0.3f, (wNoise(s) - 0.45f) * Mathf.Max(WallRound(s, s0, s1), WallTopMin) - 0.08f);
         {
-            var SV = new List<Vector3>(); var ST = new List<int>(); var U1 = new List<Vector4>(); var U2 = new List<Vector2>();
+            var SV = new List<Vector3>(); var ST = new List<int>(); var U1 = new List<Vector4>(); var U2 = new List<Vector2>(); var U3 = new List<Vector2>();
             const int across = 6;
             int m = Mathf.Max(1, Mathf.CeilToInt((wb - wa) / 0.25f));
             for (int k = 0; k <= m; k++)
@@ -2284,7 +2284,9 @@ public static class FuwaCourse2_1Builder
                 {
                     float dd = Mathf.Lerp(dA, dB, i / (float)across);
                     var q = p + r * (WallIn + dd); SV.Add(new Vector3(q.x, surf(s), q.y));
-                    U1.Add(new Vector4(dd - (dA + hw), hw, s - wa, wb - s)); U2.Add(new Vector2(Mathf.Abs(s - sDiv), 0));   // 分かれ目から両はしへ
+                    // 外のふちの泡は WallRimFoamIn 内側から（水のはしは外の岩のふちの下にもぐっていて、白いふちが隠れて見えなかった。2026-10-28 てじゃ「ここの上も白フチほしい」）
+                    U1.Add(new Vector4(dd - (dA + hw) + WallRimFoamIn * Mathf.InverseLerp(dA, dB, dd), hw, s - wa, wb - s)); U2.Add(new Vector2(Mathf.Abs(s - sDiv), 0));   // 分かれ目から両はしへ
+                    U3.Add(new Vector2(i == 0 ? 1f : 0f, 0f));
                 }
             }
             for (int k = 0; k < m; k++)
@@ -2294,7 +2296,8 @@ public static class FuwaCourse2_1Builder
                     AddTriDir(SV, ST, a, b, a + 1, Vector3.up); AddTriDir(SV, ST, a + 1, b, b + 1, Vector3.up);
                 }
             var sm = new Mesh { name = "Course2_1_Clam" + nm + "_Water", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-            sm.SetVertices(SV); sm.SetTriangles(ST, 0); sm.SetUVs(0, SV.Select(v => Vector2.zero).ToList()); sm.SetUVs(1, U1); sm.SetUVs(2, U2);
+            // uv3（ふちの泡を消す量）：無いと泡が全部出なかった。道の側（滝の落ち口）は泡なし（膜へそのまま流れる。泡があると細い白い線になった）
+            sm.SetVertices(SV); sm.SetTriangles(ST, 0); sm.SetUVs(0, SV.Select(v => Vector2.zero).ToList()); sm.SetUVs(1, U1); sm.SetUVs(2, U2); sm.SetUVs(3, U3);
             sm.normals = SV.Select(v => Vector3.up).ToArray(); sm.RecalculateBounds();
             sm = Save(sm, MeshDir + "/Clam" + nm + "_Water.asset");
             var wgo = new GameObject(nm + "_Water"); wgo.transform.SetParent(g, false);
@@ -2523,7 +2526,7 @@ public static class FuwaCourse2_1Builder
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
     // 幕の上は柱のてっぺんより PillarLipDrop 下（膜の曲がる所の後ろに隠れる）
-    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f;
+    public static float PillarLipDrop = 0.8f, PillarLipGap = 0.03f, PillarRimW = 0.35f, PillarWaterUp = 0.003f, PillarLipSink = 0.12f, PillarEdgeRim = 0.16f, PillarSplashReach = 1.8f, WallRimFoamIn = 0.12f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
         float fb = FallsFlowBack ? -1f : 1f;
