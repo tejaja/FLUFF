@@ -6,6 +6,8 @@ using UnityEngine;
 public class FuwaHeatSource : UdonSharpBehaviour
 {
     public FuwaHeat heat;
+    [Tooltip("ふわふわが止まる所（なければ入った所の少し上）")]
+    public Transform hoverPoint;
     [Tooltip("温まった時の音（なくてもOK）")]
     public AudioSource heatSound;
     private float _lastSound = -10f;
@@ -17,7 +19,7 @@ public class FuwaHeatSource : UdonSharpBehaviour
     {
         if (heat == null || other == null) return;
         if (other.GetComponent<FuwaBall>() == null) return;
-        heat.Heat();
+        if (hoverPoint != null) heat.HeatAt(hoverPoint.position); else heat.Heat();
         if (enter && heatSound != null && heatSound.clip != null && Time.time - _lastSound > 0.5f) { _lastSound = Time.time; heatSound.PlayOneShot(heatSound.clip); }
     }
 }

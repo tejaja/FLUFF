@@ -18,6 +18,8 @@ public class FuwaHeat : UdonSharpBehaviour
     public float spring = 9f, damping = 4.5f;
     [Tooltip("横の動きをおさえる強さ（1/s）")]
     public float sideDamping = 3f;
+    [Tooltip("横に止まる所へ引っぱるばねの強さ")]
+    public float sideSpring = 4f;
     [Tooltip("ゆらゆら：上下の幅(m)と周期(秒)")]
     public float bobAmp = 0.08f, bobPeriod = 2.2f;
     [Tooltip("撃ってからこの秒数は温まり直さない（火の中から撃ってもすぐ止まらないように）")]
@@ -40,10 +42,16 @@ public class FuwaHeat : UdonSharpBehaviour
 
     public void Heat()
     {
+        if (ball == null) return;
+        HeatAt(ball.transform.position + Vector3.up * hoverRise);
+    }
+    // 止まる所を火の側で決める（2026-10-28 てじゃ「ホバーに入ったときの高さによってホバーする高さがかわるのが気になる」）
+    public void HeatAt(Vector3 anchor)
+    {
         if (ball == null || _hover) return;
         if (ball.LastShotAge() < reheatDelay) return;
         _hover = true; _burning = false; _heatAt = Time.time;
-        _anchor = ball.transform.position + Vector3.up * hoverRise;
+        _anchor = anchor;
     }
     public bool IsHovering() { return _hover; }
 
@@ -77,7 +85,8 @@ public class FuwaHeat : UdonSharpBehaviour
         Vector3 v = ball.GetVelocity();
         float ty = _anchor.y + Mathf.Sin(age * Mathf.PI * 2f / Mathf.Max(0.1f, bobPeriod)) * bobAmp;
         float ay = ball.GetFallAcceleration() + (ty - p.y) * spring - v.y * damping;
-        Vector3 a = new Vector3(-v.x * sideDamping, ay, -v.z * sideDamping);
+        // 横も止まる所へ（ばねは縦より弱め）
+        Vector3 a = new Vector3((_anchor.x - p.x) * sideSpring - v.x * sideDamping, ay, (_anchor.z - p.z) * sideSpring - v.z * sideDamping);
         ball.AddHeat(a);
         if (_burning)
         {

@@ -87,7 +87,7 @@ public static class FuwaStage2FireTest
     }
 
     // 火柱：下の噴き出し口（岩）＋ 炎の粒（吹いている時）＋ 前ぶれの粒 ＋ 柱のトリガー（高さ JetH）
-    const float JetH = 5f;
+    const float JetH = 5f, JetHover = 4.2f;   // JetHover：噴き出し口（道の 1m 下）から止まる所まで
     static void Jet(Transform root, string name, Vector3 lp, FuwaHeat heat, float phase)
     {
         var g = new GameObject(name).transform; g.SetParent(root, false); g.localPosition = lp;
@@ -98,7 +98,9 @@ public static class FuwaStage2FireTest
         var warn = FlamePS(g, "Warn", 0.3f, 1.2f, 0.5f, new Color(1f, 0.55f, 0.2f), new Color(0.5f, 0.2f, 0.1f));
         var z = new GameObject("JetZone"); z.transform.SetParent(g, false); z.transform.localPosition = new Vector3(0, JetH * 0.5f, 0); z.layer = 4;
         var bc = z.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(1.4f, JetH, 1.4f);
-        var j = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireJet>(z); j.heat = heat; j.phase = phase; j.flame = flame; j.warn = warn;
+        // 止まる所：火柱の中、道の高さ＋1.2m
+        var hp = new GameObject("HoverPoint").transform; hp.SetParent(g, false); hp.localPosition = new Vector3(0, JetHover, 0);
+        var j = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireJet>(z); j.heat = heat; j.hoverPoint = hp; j.phase = phase; j.flame = flame; j.warn = warn;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j); FuwaStage2WaterTest.NoSync(j);
     }
     static ParticleSystem FlamePS(Transform g, string name, float radius, float speed, float life, Color c0, Color c1)
@@ -177,7 +179,9 @@ public static class FuwaStage2FireTest
         z.transform.localPosition = new Vector3(0, ring ? 0f : 1.6f, 0);
         var bc = z.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = ring ? new Vector3(1.2f, 2.0f, 2.0f) : new Vector3(1.8f, 2.0f, 1.8f);
         z.layer = 4;
-        var hs = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHeatSource>(z); hs.heat = heat;
+        // 止まる所：かがり火は火の 1.8m 上、輪は輪のまん中
+        var hp = new GameObject("HoverPoint").transform; hp.SetParent(g, false); hp.localPosition = new Vector3(0, ring ? 0f : 2.2f, 0);
+        var hs = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHeatSource>(z); hs.heat = heat; hs.hoverPoint = hp;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hs); FuwaStage2WaterTest.NoSync(hs);
     }
 }

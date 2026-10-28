@@ -8,6 +8,8 @@ using UnityEngine;
 public class FuwaFireJet : UdonSharpBehaviour
 {
     public FuwaHeat heat;
+    [Tooltip("ふわふわが止まる所（なければ入った所の少し上）")]
+    public Transform hoverPoint;
     public float period = 3f, onTime = 1.2f, phase = 0f, warnTime = 0.6f;
     [Tooltip("吹いている間の炎")]
     public ParticleSystem flame;
@@ -37,6 +39,6 @@ public class FuwaFireJet : UdonSharpBehaviour
     {
         if (heat == null || other == null || !IsOn()) return;
         if (other.GetComponent<FuwaBall>() == null) return;
-        heat.Heat();
+        if (hoverPoint != null) heat.HeatAt(hoverPoint.position); else heat.Heat();
     }
 }
