@@ -2850,6 +2850,25 @@ public static class FuwaCourse2_1Builder
             float f2 = Smooth01((bq - 0.3f) / 0.6f);
             aL = Mathf.Lerp(-hw, Mathf.Min(aL, -0.05f), f2); aR = Mathf.Lerp(hw, Mathf.Max(aR, 0.05f), f2);
         }
+        Vector2 InsideBasin(Vector2 p)
+        {
+            if (p.y < 0.3f) return p;   // 落ち口の手前の所はそのまま
+            bool inside = false;
+            for (int k = 0, k0 = nAround - 1; k < nAround; k0 = k++)
+            {
+                var a = basin[k]; var b = basin[k0];
+                if ((a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+            }
+            if (inside) return p;
+            Vector2 best = p; float bd = float.MaxValue;
+            for (int k = 0; k < nAround; k++)
+            {
+                var a = basin[k]; var b = basin[(k + 1) % nAround]; var ab2 = b - a;
+                float t = Mathf.Clamp01(Vector2.Dot(p - a, ab2) / Mathf.Max(1e-6f, ab2.sqrMagnitude)); var q = a + ab2 * t;
+                if ((q - p).sqrMagnitude < bd) { bd = (q - p).sqrMagnitude; best = q; }
+            }
+            return best;
+        }
         Vector3 InnerPt(int k) { var bq = basin[k]; var r2 = lipMid + lfr * bq.x + fd * bq.y; return new Vector3(r2.x, Mathf.Lerp(yTop, lipRim, FrontW(P[nRing - 1, k], k)), r2.y); }
         var V = new List<Vector3>(); var T = new List<int>();
         void Tri(Vector3 a, Vector3 b, Vector3 c, Vector3 want)
@@ -2904,7 +2923,9 @@ public static class FuwaCourse2_1Builder
                 //（2026-10-28 てじゃ「3連滝に上の池のはみ出し」2つ目の柱）→ 少し手前から
                 float bq = Mathf.Lerp(D - 0.06f, 0.3f, j / (float)(nFlat - 1));
                 BasinAt(bq, out var aL, out var aR);
-                var q = lipMid + lfr * Mathf.Lerp(aL, aR, u) + fd * bq;
+                // 池のふち（basin の形）の外に出た点は、ふちの線のいちばん近い所へ（奥の角が柱のふちの外へとがって出た。てじゃ「なおってないで」）
+                var ab = InsideBasin(new Vector2(Mathf.Lerp(aL, aR, u), bq));
+                var q = lipMid + lfr * ab.x + fd * ab.y;
                 grid[c, j] = new Vector3(q.x, yTop + PillarWaterUp, q.y);   // ふちの 3mm 上（下だと落ち口のふちの角が細い線で見えた）
             }
             float al = Mathf.Lerp(-hw, hw, u);
