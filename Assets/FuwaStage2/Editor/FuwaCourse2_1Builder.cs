@@ -2539,13 +2539,23 @@ public static class FuwaCourse2_1Builder
         // 手前（幕の側＝zn が -1 の側）のてっぺんのふちを水面の下まで下げる（まわりへはなだらかに）
         // 横は幕の幅の中だけ（外のかどはふちを残して水たまりを囲む）
         float poolY = yTop - 0.08f, lipRim = poolY - 0.04f;
-        var lip0 = fc + fd * 0.15f; var lfr = Right(fd); float lipHW = width * 0.5f - 0.04f;
+        var lip0 = fc + fd * 0.15f; var lfr = Right(fd); float lipHW = width * 0.5f + 0.03f;   // 幕（厚みのある箱）の横の面もおおう
         float FrontW(Vector3 q, int k)
         {
             float sn = Mathf.Sin(k / (float)nAround * Mathf.PI * 2f), zn = Mathf.Sign(sn) * Mathf.Pow(Mathf.Abs(sn), 2f / ex);
             float lat = Mathf.Abs(Vector2.Dot(new Vector2(q.x, q.z) - lip0, lfr));
-            return Smooth01((-zn - 0.35f) / 0.3f) * (1f - Smooth01((lat - lipHW + 0.15f) / 0.3f));
+            return Smooth01((-zn - 0.35f) / 0.3f) * (1f - Smooth01((lat - lipHW - 0.05f) / 0.3f));
         }
+        // 手前の面は幕の幅（＋まわり）で落ち口の線にそろえて平らに（2026-10-28 てじゃ「まだちょっとへん」：柱の手前の面がカーブとごつごつで
+        // 落ち口の線より前に出たりへこんだりして、膜のはしで岩のかどが膜より上に出ていた）
+        for (int j = 0; j < nRing; j++)
+            for (int k = 0; k < nAround; k++)
+            {
+                var q = P[j, k]; var q2 = new Vector2(q.x, q.z);
+                float w = FrontW(q, k); if (w <= 0f) continue;
+                float e = Vector2.Dot(q2 - lip0, -fd);
+                q2 -= -fd * (e * w); P[j, k] = new Vector3(q2.x, q.y, q2.y);
+            }
         for (int k = 0; k < nAround; k++)
         {
             var q = P[nRing - 1, k]; q.y = Mathf.Lerp(yTop, lipRim, FrontW(q, k)); P[nRing - 1, k] = q;
@@ -2617,8 +2627,12 @@ public static class FuwaCourse2_1Builder
             var q = lip0 + fr * Mathf.Lerp(-hw, hw, k / (float)nl);
             lip.Add(new Vector3(q.x, poolY, q.y)); outs.Add(new Vector3(-fd.x, 0f, -fd.y));
         }
-        float xf = -(0.3f + PillarLipGap);
-        LipFalls(set, "FallsPillarLip" + i, "PillarLip", lip, outs, new List<Vector2> {
+        // 幕（厚みのある箱）の見た目は消して、膜だけで柱の面の PillarLipGap 前を落とす（箱の横の面が膜のはしから白くのぞいていた）。押す範囲はそのまま
+        var cur = set.Find("OverFalls/Curtain"); if (cur && cur.GetComponent<Renderer>()) cur.GetComponent<Renderer>().enabled = false;
+        float xf = -PillarLipGap;
+        // 自分だけの親の下に（AirFallsFray は同じ親の下の物を「下にある物」に数えないので、set の下だと水路も柱も数えず空中の滝あつかいでほつれた）
+        var lg = new GameObject("PillarLip").transform; lg.SetParent(set, false);
+        LipFalls(lg, "FallsPillarLip" + i, "Sheet", lip, outs, new List<Vector2> {
             new Vector2(0.08f, -0.004f), new Vector2(0f, -0.002f), new Vector2(xf * 0.35f, -0.05f), new Vector2(xf * 0.75f, -0.2f),
             new Vector2(xf * 0.95f, -0.5f), new Vector2(xf, -1.0f), new Vector2(xf, float.NaN) }, surf);
     }
