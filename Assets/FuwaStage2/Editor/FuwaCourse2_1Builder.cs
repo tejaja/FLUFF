@@ -77,7 +77,14 @@ public static class FuwaCourse2_1Builder
     const float FallsSqueeze = 9f;
     // a[from] から先を y だけ dy 手前へ
     static Vector2[] PullBack(Vector2[] a, int from, float dy) { for (int i = from; i < a.Length; i++) a[i].y -= dy; return a; }
-    static readonly Vector2[] Ctrl = PullBack(ShiftFrom(ShiftFrom(new[]
+    // 3連滝のぐねぐね（Ctrl 15〜19）を、滝の所（sF0+5, +12, +19）でちょうど 右・左・右 に曲がる形に置きかえる（シフトしたあとの座標）。
+    // 2026-10-28 間を詰めたら滝とカーブの外側がずれて 右・右・左 になった（てじゃ「交互じゃなくなってない？」）。ふり幅 1.2m・6.5m おき（曲がりのきつさは前より少しゆるい）
+    static Vector2[] FallsWiggle(Vector2[] a)
+    {
+        a[15] = new Vector2(6.8f, 102.5f); a[16] = new Vector2(2.8f, 109f); a[17] = new Vector2(4.0f, 115.5f); a[18] = new Vector2(1.6f, 122f); a[19] = new Vector2(1.09f, 125.5f);
+        return a;
+    }
+    static readonly Vector2[] Ctrl = FallsWiggle(PullBack(ShiftFrom(ShiftFrom(new[]
     {
         // 川（4〜8）は 2026-10-25 にまっすぐ寄りに（てじゃのスケッチ「赤が道、青が川、２回渡る」。前は (-6,20),(-5,28),(1,34),(7,40),(8,48) の大きいS字）
         new Vector2(0, -6), new Vector2(0, 0), new Vector2(0, 6), new Vector2(-2, 13), new Vector2(-4, 20), new Vector2(-3.5f, 28),
@@ -92,7 +99,7 @@ public static class FuwaCourse2_1Builder
         // 曲がった先の外側の岸にゴールの島（2026-10-23 てじゃのスケッチ「川を曲げる、島を曲がった先の川岸におく、川の先は滝」）
         new Vector2(0, 136), new Vector2(1.404f, 139.857f), new Vector2(4.958f, 141.909f),
         new Vector2(10.867f, 142.951f), new Vector2(16.776f, 143.993f), new Vector2(22.685f, 145.035f), new Vector2(28.594f, 146.077f),
-    }, 12, WalkLead), 15, FallsLead), 21, FallsSqueeze);
+    }, 12, WalkLead), 15, FallsLead), 21, FallsSqueeze));
     const int BendCtrl0 = 21, BendCtrl1 = 23;   // カーブの始まり・終わりの点（Ctrl の番号）
 
     // ---- 中心線 ----
@@ -437,7 +444,8 @@ public static class FuwaCourse2_1Builder
         // M3c 貝の道の終わりから三連滝の道までのまっすぐな道（チェックポイント3の所）
         pieces.Add(new Piece { name = "M3c_Straight", s0 = sWalk1, s1 = sF0, off = s => 0f, w = s => WalkHW * 2f, h = s => FallsH, round0 = false, round1 = false });
         setS = new float[FallsSets]; setO = new float[FallsSets];
-        for (int i = 0; i < FallsSets; i++) { setS[i] = sF0 + FallsSet0 + FallsGap * i; setO[i] = OuterSide(setS[i]); }
+        // 左右は1つ目のカーブの外側から交互（2026-10-28 間を詰めたらカーブの外側どうしが そろわなくなって 右・右・左 になった。てじゃ「交互じゃなくなってない？」）
+        for (int i = 0; i < FallsSets; i++) { setS[i] = sF0 + FallsSet0 + FallsGap * i; setO[i] = (i % 2 == 0 ? 1f : -1f) * OuterSide(setS[0]); }
         { int last = FallsSets - 1; sF1 = setS[last] + NotchEnd + ChanAfter[last] + 3f; }
         sGoal0 = sF1 + FinGoalOut; goalH = FallsH + FinRiverSurf + FinGoalUp;
         sBend0 = SI(BendCtrl0); sBend1 = SI(BendCtrl1); sFin1 = sBend1 + FinAfterBend;
