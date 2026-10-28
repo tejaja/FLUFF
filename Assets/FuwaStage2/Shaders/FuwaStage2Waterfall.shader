@@ -31,6 +31,9 @@ Shader "FuwaStage2/Waterfall"
         _FrayLen ("Bottom Fray Length (m, 0=off)", Float) = 0
         // 岩との境の白いふち（左右のはしと、_PondTop がある時は上のはし＝池の奥）。2026-10-28 てじゃ「岩との境界に白いフチがあればかんぺき」
         _EdgeRim ("Rock Edge Foam (m, 0=off)", Float) = 0
+        [Toggle] _EdgeRimTop ("Rock Edge Foam On Top Edge", Float) = 1
+        // 上のはしから _TopFade m を透明→不透明に（水面の上に重なる平らな所を、下の水面にとけこませる。2026-10-28）
+        _TopFade ("Top Fade In (m, 0=off)", Float) = 0
         [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 0
         [Enum(Off, 0, On, 1)] _ZWrite ("ZWrite", Float) = 0
     }
@@ -54,7 +57,7 @@ Shader "FuwaStage2/Waterfall"
             fixed4 _Top, _Bottom, _Foam, _PondColor, _PondFoam;
             float4 _RadialCenter;
             float _PondRadial, _RadialSpeed, _PondStreak, _PondSparkle;
-            float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor, _PondTop, _FrayLen, _EdgeRim;
+            float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor, _PondTop, _FrayLen, _EdgeRim, _EdgeRimTop, _TopFade;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; float ny : TEXCOORD4; float3 wp : TEXCOORD5; float colBot : TEXCOORD6; };
@@ -120,7 +123,7 @@ Shader "FuwaStage2/Waterfall"
                 {
                     // はしからの距離（m）。ぎざぎざにゆらして（池は止まった模様、落ちる所は下へ流れる）
                     float dS = min(i.uv.x, 1 - i.uv.x) * i.size.x;
-                    float dB = _PondTop > 0.001 ? (1 - i.uv.y) * i.size.y : 99;
+                    float dB = _PondTop > 0.001 && _EdgeRimTop > 0.5 ? (1 - i.uv.y) * i.size.y : 99;
                     float rn = Noise(float2(m.x * 4.0 + m.y * 0.7, (m.y + _Time.y * _FallSpeed * 0.5) * 2.0));
                     float w = _EdgeRim * (0.55 + 0.8 * rn);
                     float e = 1 - smoothstep(w * 0.45, w, min(dS, dB));
@@ -129,7 +132,14 @@ Shader "FuwaStage2/Waterfall"
                 // 左右のふちは少し薄く（厚みのある滝は横の面があるので薄くしない）
                 float side = _SideFade > 0.0001 ? smoothstep(0, _SideFade, min(i.uv.x, 1 - i.uv.x) * i.size.x) : 1;
                 col *= i.color.rgb;
-                fixed4 c = fixed4(col, _Alpha * side);
+                float topA = 1;
+                if (_TopFade > 0.001)
+                {
+                    // ゆらがせて、まっすぐな線にしない。上向きの面だけ（裏から見える面は消さない）
+                    float tfN = Noise(float2(m.x * 1.7, _Time.y * 0.2)) - 0.5;
+                    topA = lerp(1, smoothstep(0, _TopFade, (1 - i.uv.y) * i.size.y + tfN * _TopFade * 0.4), smoothstep(0.3, 0.7, i.ny));
+                }
+                fixed4 c = fixed4(col, _Alpha * side * topA);
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;
             }

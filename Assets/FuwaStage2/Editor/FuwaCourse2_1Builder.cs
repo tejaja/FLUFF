@@ -2374,13 +2374,28 @@ public static class FuwaCourse2_1Builder
 
     // 水の端の滝（Waterfall で作った g の "EndFalls"）の見た目を、ふちからこぼれる膜にする。押す範囲・霧・音は Waterfall のまま
     // （2026-10-26 前の箱の滝だと、落ち口と滝のすき間から底の切り口が板に見えた）。c＝落ち口のまん中、o＝落ちる向き、r＝横、hw＝半分の幅
-    static void EndLipFalls(Transform g, string meshName, Vector2 c, Vector2 o, Vector2 r, float hw, float surf, float bottom)
+    // 水路・川の水面の見えている色（帯の水の材質。はばが DeepWidth 2m より狭いので _Deep と _Shallow のまざり。真上から撮って測った値）
+    static readonly Color ChanWaterLook = new Color(116f / 255f, 199f / 255f, 231f / 255f), FinRiverLook = new Color(115f / 255f, 186f / 255f, 226f / 255f);
+    static void EndLipFalls(Transform g, string meshName, Vector2 c, Vector2 o, Vector2 r, float hw, float surf, float bottom, Color waterLook)
     {
         var cur = g.Find("EndFalls/Curtain"); if (cur && cur.GetComponent<Renderer>()) cur.GetComponent<Renderer>().enabled = false;
         var lip = new List<Vector3>(); var outs = new List<Vector3>();
         int n = Mathf.Max(2, Mathf.CeilToInt(hw * 2f / 0.3f));
         for (int k = 0; k <= n; k++) { var q = c + r * Mathf.Lerp(-hw, hw, k / (float)n); lip.Add(new Vector3(q.x, surf, q.y)); outs.Add(new Vector3(o.x, 0, o.y)); }
-        LipFalls(g, meshName, "EndFallsLip", lip, outs, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, bottom);
+        var lf = LipFalls(g, meshName, "EndFallsLip", lip, outs, new List<Vector2> { new Vector2(0.3f, 0.012f), new Vector2(0.02f, 0.012f), new Vector2(-0.18f, -0.15f), new Vector2(-0.3f, -0.6f), new Vector2(-0.34f, -1.5f), new Vector2(-0.35f, float.NaN) }, bottom);
+        // 水面とのつなぎ目（2026-10-28 てじゃ「ほかのこういう境目も全部消していきたい」：膜の上の平らな所が滝の色＋上のはしの白い帯で、水面との境が線に見えた）。
+        // 柱の滝と同じ：平らな所は水面の見えている色（_PondTop）、上のはしの泡なし、岩との境に白いふち。材質は水の色ごと
+        string mp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_EndLip_" + ColorUtility.ToHtmlStringRGB(waterLook) + ".mat";
+        var baseFm = FuwaStage2WaterTest.WaterfallThickMat(true);
+        var em = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!em) { em = new Material(baseFm); AssetDatabase.CreateAsset(em, mp); }
+        em.CopyPropertiesFromMaterial(baseFm);
+        em.SetFloat("_PondTop", 0.3f); em.SetColor("_PondColor", waterLook); em.SetColor("_PondFoam", WaterMat(0f, true, false).GetColor("_Foam"));
+        em.SetFloat("_PondRadial", 0f); em.SetFloat("_PondSparkle", WaterMat(0f, true, false).GetFloat("_Sparkle"));
+        // 上のはし（水面の中）は白いふちを出さずに、透明から水面へとけこませる（1色だと水面のグラデーションと合わず線が残った）
+        em.SetFloat("_EdgeRim", PillarEdgeRim); em.SetFloat("_EdgeRimTop", 0f); em.SetFloat("_TopFade", 0.26f);
+        EditorUtility.SetDirty(em);
+        lf.GetComponent<MeshRenderer>().sharedMaterial = em;
     }
 
     // ---- ふちからこぼれる水の膜（貝の道の壁・ラストの滝の門）----
@@ -2813,7 +2828,7 @@ public static class FuwaCourse2_1Builder
             var ec = ep + er * (o * (RoadHW + ChanHW));
             var eo = ed * fb;   // 落ちる向き＝流れの向き
             FuwaStage2WaterTest.Waterfall(set, "EndFalls", new Vector3(ec.x, 0, ec.y), surf + 0.02f, -10f, ChanHW * 2f + 0.3f, new Vector3(eo.x, 0, eo.y));
-            EndLipFalls(set, "Chan" + i + "_EndFalls", ec, eo, er, ChanHW, surf, -10f);
+            EndLipFalls(set, "Chan" + i + "_EndFalls", ec, eo, er, ChanHW, surf, -10f, ChanWaterLook);
             // 落ち口の下の切り口を岩の色の板でふさぐ（幕は前へ反っているので、ななめ横から幕のはしと ふちの岩のすき間に底の端（茶色）が見えた）
             float ce = FallsFlowBack ? c0 : c1;
             EndLipPlate(set, "Chan" + i + "_EndPlate", ep, er, eo, w.off(ce) - w.hw(ce) - 0.05f, w.off(ce) + w.hw(ce) + 0.05f, surf - ChanDepth - 0.3f, surf - 0.03f);
@@ -2970,7 +2985,7 @@ public static class FuwaCourse2_1Builder
         Center(r1, out var ep, out var ed);
         FuwaStage2WaterTest.Waterfall(g, "EndFalls", new Vector3(ep.x, 0, ep.y), surf + 0.02f, surf - 10f, FinRiverHW * 2f + 0.3f, new Vector3(ed.x, 0, ed.y));
         // 見た目はふちからこぼれる膜に（2026-10-26 てじゃ「木の板いらんよね」→ 前の箱の滝だと、落ち口と滝のすき間から川の底の切り口が板に見えた）。押す範囲・霧・音は残す
-        EndLipFalls(g, "FinalEndFalls", ep, ed, Right(ed), FinRiverHW, surf, surf - 10f);
+        EndLipFalls(g, "FinalEndFalls", ep, ed, Right(ed), FinRiverHW, surf, surf - 10f, FinRiverLook);
         // 右岸：川ぞいの細い地面（ふわふわが乗るとアウト）
         RockSweep(g, "RightBank", r0 + FinCliffLen, r1, s => FinRiverHW, s => FinRiverHW + FinBankW, s => surf - WaterDepth - 1.5f, s => surf + BankTop, 11, true);
         // 左岸の道の下の土台（道と川のあいだのすき間を埋める）。カーブの始まりまで。その先の道は川から離れていく桟橋
