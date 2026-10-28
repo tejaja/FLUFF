@@ -67,7 +67,7 @@ def build():
     m = o.modifiers.new("S2", 'SMOOTH'); m.factor = 0.6; m.iterations = 4; apply(o, m)
     m = o.modifiers.new("Dec", 'DECIMATE'); m.decimate_type = 'DISSOLVE'; m.angle_limit = DEC_ANGLE; apply(o, m)
     m = o.modifiers.new("Tri", 'TRIANGULATE'); apply(o, m)
-    for n in ("Cut_Gap", "Cut_Walk", "Cut_BasinL", "Cut_BasinR", "Cut_Slab"):
+    for n in ("Cut_Gap", "Cut_Walk", "Cut_BasinL", "Cut_BasinR", "Cut_Slab", "Cut_SlabCornerL", "Cut_SlabCornerR"):
         m = o.modifiers.new("B_" + n, 'BOOLEAN'); m.operation = 'DIFFERENCE'; m.solver = 'EXACT'; m.object = sc.objects[n]; apply(o, m)
     # 2026-10-28 くぼみのくりぬきが1回目で効かないことがあった（右の池がまるごと埋まった）。くぼみのまん中を上から測って、底より上に岩があれば1回だけ くりぬき直す
     #（体積を見て何回もくりぬき直すと、こわれた面からトゲが何本も出た）

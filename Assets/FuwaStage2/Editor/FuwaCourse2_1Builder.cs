@@ -3053,7 +3053,7 @@ public static class FuwaCourse2_1Builder
     // その前のふちから道の幅いっぱいに滝がこぼれる。水がかかっている所の後ろ・下も水の膜でつつむ。水の上に青い球を2つ。
     // 岩は前の箱の当たり判定をつつむ形（内側＝川・くぐり口の面はまっすぐ、外の面だけでこぼこ）で、当たり判定も岩のメッシュ
     public static float GateRim = 0.2f, GateFloor = 0.25f, GateSlabLen = 1.4f, GateEndRound = 2.5f, GateBasinEndW = 0.3f,   // 1.0 だとくぼみの型のはしのふたが 1m の平らな壁になって見えた（2026-10-28 てじゃ「まっすぐ部分が直線すぎる」）
-        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f;
+        GateBasinFillet = 1.4f, GateBasinWob = 0.45f, GateFlushOut = 0.05f, GateFlushRound = 0.6f, GateFlushRoundK = 0.8f, GateBasinTipR = 1.2f, GateSlabCornerR = 1.0f;
     public static float GateLeftOut = 9.8f, GateRightOut = 7.5f, GateLeftExtra = 1.3f;
     static void FinaleGate(Transform g, float H, float surf, float cs, float wa, float wb, float gIn, float gOut, float gTop, float r0)
     {
@@ -3145,9 +3145,12 @@ public static class FuwaCourse2_1Builder
         // ・ふちは内側へだけ GateBasinWob m までゆらす（外へ出すと岩の外の面をつきぬける）。真ん中の水へつながる所はゆらさない
         float SlabRound(float s) => s < sl0 ? Smooth01((s - sl0 + GateBasinFillet) / GateBasinFillet) : s <= sl1 ? 1f : 1f - Smooth01((s - sl1) / GateBasinFillet);
         float Wob(float s, float k) => Mathf.PerlinNoise(53.1f + s * 0.45f, k) * GateBasinWob * (1f - SlabRound(s));
-        float LA(float s) => Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f - Wob(s, 1.1f), gIn, SlabRound(s));
+        // 池と真ん中の水のつなぎ目の角（真ん中の水の後ろのふちの両はし）を半径 GateSlabCornerR で丸める（2026-10-28 てじゃ「隙間があるのと この角張」）。
+        // 型は Cut_SlabCornerL/R、水は池の内側のふちを角の丸みまでのばす
+        float CornerExt(float s) { float R = GateSlabCornerR, u = s - (sl0 - R); return u <= 0f ? 0f : s >= sl0 ? R : R - Mathf.Sqrt(Mathf.Max(0f, R * R - u * u)); }
+        float LA(float s) => Mathf.Max(Mathf.Lerp(LintelL(s) - RidgeL(s) * 0.2f - Wob(s, 1.1f), gIn, SlabRound(s)), s < sl0 ? gIn + CornerExt(s) : float.MinValue);
         float LB(float s) => OutL(s) + RidgeL(s) * 0.2f + Wob(s, 2.3f);
-        float RA(float s) => Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f + Wob(s, 3.7f), rin, SlabRound(s));
+        float RA(float s) => Mathf.Min(Mathf.Lerp(InR(s) + RidgeR(s) * 0.2f + Wob(s, 3.7f), rin, SlabRound(s)), s < sl0 ? rin - CornerExt(s) : float.MaxValue);
         float RB(float s) => OutR(s) - RidgeR(s) * 0.2f - Wob(s, 4.9f);
         // くりぬく型は、真ん中の水の所では水より 0.3m 真ん中へ入る（つながる所は丸く。前は gIn に着いたらいきなり gIn+0.3 で直角になった）
         float LAcut(float s) => Mathf.Lerp(LA(s) - 0.05f, gIn + 0.3f, SlabRound(s));
@@ -3280,8 +3283,10 @@ public static class FuwaCourse2_1Builder
                 // 水どうしがつながる所は岩から遠いので、泡も色の段もでない
                 // 横の位置（流れの筋の横の座標）：BasinWater は sTo（コースの s）が 90 より大きいと Slab あつかいで 0 になっていて、
                 // 筋が横いっぱいの帯（まっすぐなさかい目の白っぽい帯）になった。列の左はしからの長さで入れる
-                int row = i / 7, i0 = row * 7; float lat = 0f;
-                for (int k = i0 + 1; k <= i; k++) lat += (vs[k] - vs[k - 1]).magnitude;
+                // 列のまん中からの長さ（左はしからだと、角の丸めで左はしが動く所で筋がジグザグに折れた）
+                int row = i / 7, i0 = row * 7; float lat = 0f, rowLen = 0f;
+                for (int k = i0 + 1; k < i0 + 7; k++) { float d = (vs[k] - vs[k - 1]).magnitude; rowLen += d; if (k <= i) lat += d; }
+                lat -= rowLen * 0.5f;
                 u1[i] = new Vector4(lat, 99f, best, 99f);
             }
             mesh.SetUVs(1, u1); EditorUtility.SetDirty(mesh);
@@ -3397,6 +3402,13 @@ public static class FuwaCourse2_1Builder
         Loft("Cut_BasinL", Steps(lw0, lw1, 0.1f), s => { var (a, b) = Tip(s, lw0, lw1, lInA(s), Mathf.Min(lInB(s), lInA(s) - 0.2f)); return new List<Vector2> { new Vector2(b + 0.05f, fl), new Vector2(a, fl), new Vector2(a, yTop + 5f), new Vector2(b + 0.05f, yTop + 5f) }; });
         Loft("Cut_BasinR", Steps(rw0, rw1, 0.1f), s => { var (a, b) = Tip(s, rw0, rw1, rInA(s), Mathf.Max(rInB(s), rInA(s) + 0.2f)); return new List<Vector2> { new Vector2(a, fl), new Vector2(b - 0.05f, fl), new Vector2(b - 0.05f, yTop + 5f), new Vector2(a, yTop + 5f) }; });
         Loft("Cut_Slab", Steps(sl0, sl1 + 0.5f, 0.2f), s => new List<Vector2> { new Vector2(gIn, fl), new Vector2(rin, fl), new Vector2(rin, yTop + 5f), new Vector2(gIn, yTop + 5f) });
+        // 真ん中の水の後ろのふちの両はしの角（池とのつなぎ目）を丸くけずる型：角の点 (sl0, gIn/rin) から、半径 R の四分円の外側
+        {
+            float R = GateSlabCornerR;
+            float Ext(float s) { float u = s - (sl0 - R); return R - Mathf.Sqrt(Mathf.Max(0f, R * R - u * u)); }
+            Loft("Cut_SlabCornerL", Steps(sl0 - R, sl0 + 0.3f, 0.05f), s => { float e = Mathf.Max(0.02f, s >= sl0 ? R : Ext(s)); return new List<Vector2> { new Vector2(gIn - 0.3f, fl), new Vector2(gIn + e, fl), new Vector2(gIn + e, yTop + 5f), new Vector2(gIn - 0.3f, yTop + 5f) }; });
+            Loft("Cut_SlabCornerR", Steps(sl0 - R, sl0 + 0.3f, 0.05f), s => { float e = Mathf.Max(0.02f, s >= sl0 ? R : Ext(s)); return new List<Vector2> { new Vector2(rin - e, fl), new Vector2(rin + 0.3f, fl), new Vector2(rin + 0.3f, yTop + 5f), new Vector2(rin - e, yTop + 5f) }; });
+        }
         sb.Append("]}");
         System.IO.File.WriteAllText(path, sb.ToString());
         Debug.Log("[2–1] 門の型を書き出し: " + path);
