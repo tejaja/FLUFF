@@ -43,11 +43,13 @@ public class FuwaFireball : UdonSharpBehaviour
         Show(false);
     }
 
-    private int Hops() { return holes == null || holes.Length < 2 ? 0 : 2 * (holes.Length - 1); }
+    // 穴が1つなら真上に飛び上がって同じ穴に戻る（2026-10-29 てじゃ「垂直に飛び上がる穴を追加」）
+    private int Hops() { return holes == null || holes.Length == 0 ? 0 : holes.Length == 1 ? 1 : 2 * (holes.Length - 1); }
     // 往復の k 番目の飛びの出発・到着の穴
     private int HoleAt(int k)
     {
         int n = holes.Length;
+        if (n == 1) return 0;
         return k < n - 1 ? k : 2 * (n - 1) - k;
     }
 
@@ -67,6 +69,13 @@ public class FuwaFireball : UdonSharpBehaviour
         Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f;
         float v = 1f - u;
         return v * v * a + 2f * v * u * m + u * u * b;
+    }
+
+    private Vector3 Away(Vector3 hdir, bool vert, Vector3 target, Vector3 p)
+    {
+        if (!vert) return hdir;
+        Vector3 d = target - p; d.y = 0f;
+        return d.sqrMagnitude > 0.0001f ? d.normalized : transform.forward;
     }
 
     private void Show(bool on)
@@ -96,14 +105,14 @@ public class FuwaFireball : UdonSharpBehaviour
         Vector3 vel = At(a, b, Mathf.Min(1f, u + 0.02f)) - At(a, b, Mathf.Max(0f, u - 0.02f));
         transform.position = p;
         if (trail != null) trail.transform.position = p;
-        Vector3 hdir = new Vector3(vel.x, 0f, vel.z); hdir = hdir.sqrMagnitude > 0.0001f ? hdir.normalized : transform.forward;
+        Vector3 hdir = new Vector3(vel.x, 0f, vel.z); bool vert = hdir.sqrMagnitude <= 0.0001f; if (!vert) hdir = hdir.normalized;   // 真上に飛ぶ時は、当たった物を火の玉から離れる向きに
 
         // ふわふわ（当たり判定はトリガーの通知でなく距離で：動く物のトリガーは取りこぼしやすいので）
         if (!_hitBall && ball != null && !ball.IsWaitingOrHidden() && (ball.transform.position - p).magnitude < hitRadius + _ballRadius)
         {
             _hitBall = true;
             if (heat != null) heat.Ignite();
-            ball.Launch(hdir * ballKnock + Vector3.up * ballKnockUp);
+            ball.Launch(Away(hdir, vert, ball.transform.position, p) * ballKnock + Vector3.up * ballKnockUp);
         }
         // 人（自分だけ）
         VRCPlayerApi lp = Networking.LocalPlayer;
@@ -119,7 +128,7 @@ public class FuwaFireball : UdonSharpBehaviour
             {
                 _hitPlayer = true;
                 Vector3 v = lp.GetVelocity(); v.y = Mathf.Max(v.y, 0f);
-                lp.SetVelocity(v * 0.3f + hdir * playerKnock + Vector3.up * playerKnockUp);
+                lp.SetVelocity(v * 0.3f + Away(hdir, vert, f, p) * playerKnock + Vector3.up * playerKnockUp);
                 Debug.Log("[FuwaFireball] hit player " + gameObject.transform.parent.name);
             }
         }

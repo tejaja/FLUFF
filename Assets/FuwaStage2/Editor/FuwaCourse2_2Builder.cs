@@ -22,7 +22,7 @@ public static class FuwaCourse2_2Builder
     public static float SeedHover = 1.3f;                      // 火種の止まる所（地面から）
     public static float TailWindStrength = 3.5f;
     public static float VentAt = 2.4f, VentFwd = 6f, VentUp = 3.5f;   // 噴気孔：長い坂の角からの距離、打ち出しの水平・上の速さ（8.4m 先で）
-    public static float WideHW = 4.5f, WideEndHW = 3.2f, HoleR = 1.2f, LavaDepth = 0.9f, FireballTop = 1.8f, FireballSize = 1.3f;   // ② 広い道・溶岩の穴・火の玉（てっぺんの道からの高さ・大きさ）
+    public static float WideHW = 4.5f, WideEndHW = 3.2f, HoleR = 1.2f, LavaDepth = 0.9f, FireballTop = 1.8f, VertTop = 2.6f, FireballSize = 1.3f;   // ② 広い道・溶岩の穴・火の玉（てっぺんの道からの高さ・大きさ）
     public static float PadR = 3.4f, PadIn = 2.8f, PadDrop = 0.03f, ZigLeg = 10f, ZigRise = 1.1f;   // 踊り場の半径・板のはしが踊り場に入る深さ（60° の板どうしが踊り場の外で重ならない）
     public static float ArenaHW = 3f, ArenaLen = 16f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
     public static float FlamePeriod = 3.2f, FlameOn = 1.3f, SeedBefore = 3.5f;
@@ -89,7 +89,9 @@ public static class FuwaCourse2_2Builder
         var holeGroups = new[] {
             new[] { (z: 31.5f, x: 2.2f), (z: 36f, x: -2.0f) },
             new[] { (z: 42f, x: -2.6f), (z: 45f, x: 2.6f) },
-            new[] { (z: 50f, x: -2.6f), (z: 53f, x: 2.2f), (z: 56.5f, x: -2.0f) } };
+            new[] { (z: 53f, x: 2.2f), (z: 56.5f, x: -2.0f) },
+            // 真上に飛び上がる穴（てじゃ「思ったより簡単、垂直に飛び上がる穴を追加」「最後の3連がよわい、奥側で往復にして左手前の一個は垂直」）
+            new[] { (z: 50f, x: -2.6f) }, new[] { (z: 38.5f, x: 2.4f) }, new[] { (z: 47.5f, x: 0f) } };
         var holes = new List<Vector4>();
         var holePts = new List<List<Vector3>>();
         foreach (var grp in holeGroups)
@@ -124,9 +126,15 @@ public static class FuwaCourse2_2Builder
         }
         // 火の玉：穴から穴へ往復。だんだん難しく（速く・休みが短く・最後は3つの穴）。てっぺんは道の FireballTop 上
         {
-            var fbs = new[] { (fl: 1.3f, rest: 1.6f, ph: 0f), (fl: 1.1f, rest: 1.1f, ph: 0.7f), (fl: 1.0f, rest: 0.7f, ph: 1.9f) };
+            //  最後の往復は火の玉2つ（半歩ずらし＝同じ向きに続けて飛ぶ。1歩ずらしだと空中のまん中でぶつかった）で速く。真上のは道の VertTop 上まで
+            var fbs = new[] { (fl: 1.3f, rest: 1.6f, ph: 0f, top: FireballTop), (fl: 1.1f, rest: 1.1f, ph: 0.7f, top: FireballTop), (fl: 0.9f, rest: 0.45f, ph: 1.9f, top: FireballTop),
+                              (fl: 1.1f, rest: 0.6f, ph: 0.4f, top: VertTop), (fl: 1.3f, rest: 1.0f, ph: 1.3f, top: VertTop), (fl: 1.2f, rest: 0.8f, ph: 0.2f, top: VertTop) };
             for (int k = 0; k < holePts.Count; k++)
-                Fireball(fire, "Fireball" + k, holePts[k].Select(q => q + Vector3.down * LavaDepth).ToArray(), fbs[k].fl, fbs[k].rest, fbs[k].ph);
+            {
+                var hs = holePts[k].Select(q => q + Vector3.down * LavaDepth).ToArray();
+                Fireball(fire, "Fireball" + k, hs, fbs[k].fl, fbs[k].rest, fbs[k].ph, fbs[k].top);
+                if (k == 2) Fireball(fire, "Fireball" + k + "b", hs, fbs[k].fl, fbs[k].rest, fbs[k].ph + (fbs[k].fl + fbs[k].rest) * 0.5f, fbs[k].top);
+            }
         }
         Checkpoint(root, "Checkpoint1", new Vector3(0, yL, z0 + 59f), Vector3.forward, WideEndHW);
 
@@ -530,7 +538,7 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
-    static void Fireball(Transform parent, string name, Vector3[] hs, float flight, float rest, float phase)
+    static void Fireball(Transform parent, string name, Vector3[] hs, float flight, float rest, float phase, float top)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
         var ts = new Transform[hs.Length];
@@ -543,7 +551,7 @@ public static class FuwaCourse2_2Builder
         { var m = trail.main; m.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.9f); }
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireball>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail;
-        f.arcHeight = LavaDepth + FireballTop; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 3.2f; f.ballKnockUp = 1.5f; f.playerKnock = 6f; f.playerKnockUp = 4.5f;
+        f.arcHeight = LavaDepth + top; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 3.2f; f.ballKnockUp = 1.5f; f.playerKnock = 6f; f.playerKnockUp = 4.5f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
     // 穴の中の溶岩の面（丸い板）
