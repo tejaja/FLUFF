@@ -24,7 +24,7 @@ public static class FuwaCourse2_2Builder
     public static float VentAt = 2.4f, VentFwd = 6f, VentUp = 3.5f;   // 噴気孔：長い坂の角からの距離、打ち出しの水平・上の速さ（8.4m 先で）
     public static float WideHW = 4.5f, WideEndHW = 3.2f, HoleR = 1.2f, LavaDepth = 0.9f, FireballTop = 1.8f, VertTop = 2.6f, FireballSize = 1.3f;   // ② 広い道・溶岩の穴・火の玉（てっぺんの道からの高さ・大きさ）
     public static float ChanHW = 0.6f, ChanLavaDepth = 0.5f, LavaFallLen = 6f;   // 溝の幅の半分・溝のある穴の溶岩の深さ（道の下の岩 0.6 より上＝ふちからそのまま流れ出る）・垂れる溶岩の長さ
-    public static float PadR = 2.6f, PadIn = 2.5f, PadDrop = 0.03f, ZigLeg = 13f, ZigRise = 1.1f, ZigHW = 0.8f, ZigHeading = 70f, EndPadR = 3.4f, EndPadIn = 1.0f, FireWallH = 4.5f;   // 踊り場の半径・板のはしが踊り場に入る深さ（40° の板どうしが踊り場の外で重ならない：0.8*2/sin40=2.5）・板の長さ・上り・幅の半分・向き
+    public static float PadR = 2.6f, PadIn = 2.5f, PadDrop = 0.03f, ZigLeg = 13f, ZigRise = 1.1f, ZigHW = 0.8f, ZigHeading = 70f, EndPadR = 3.4f, EndPadIn = 1.0f, FireWallH = 4.5f, FireWallOut = 1.0f, FireWallIn = 5.5f;   // 踊り場の半径・板のはしが踊り場に入る深さ（40° の板どうしが踊り場の外で重ならない：0.8*2/sin40=2.5）・板の長さ・上り・幅の半分・向き
     // （2026-10-29 てじゃ「ジグザグ、ゆるすぎる」→ 細く（幅3m→1.6m）＋角を鋭く（120°→140° 曲がる）＋板を長く（10→13m）。ヘアピンの1本道も試したが、鋭い角を丸めると角が6mも内に入ってだめ）
     public static float ArenaHW = 3f, ArenaLen = 16f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
     public static float FlamePeriod = 3.2f, FlameOn = 1.3f, SeedBefore = 3.5f;
@@ -176,12 +176,15 @@ public static class FuwaCourse2_2Builder
             pads.Add((nx, k == 3 ? EndPadR : PadR));
             pad = nx;
         }
-        // 1個とばしで一直線に並んだ踊り場の間に炎の壁（ふわふわが入ると即黒焦げ）：飛ばし越すショートカットを防ぐ（てじゃ「ショートカット防止に炎の壁でも敷いとくか、即黒焦げの」）
+        // 1個とばしで並んだ踊り場のまん中を横切る炎の壁（ふわふわが入ると即黒焦げ）：飛ばし越すショートカットを防ぐ
+        //  （てじゃ「ショートカット防止に炎の壁でも敷いとくか、即黒焦げの」→ 踊り場の間に縦に置いたら「そこじゃなくてこの青ライン」＝V字のすき間を横切る向き）
+        //  踊り場の列の外（FireWallOut）から、板の V の内へ FireWallIn まで。板には触れない
         for (int k = 0; k + 2 < pads.Count; k++)
         {
-            Vector3 a = pads[k].c, b = pads[k + 2].c; var d = Flat(b - a).normalized;
-            Vector3 wa = a + d * (pads[k].r + 0.25f), wb = b - d * (pads[k + 2].r + 0.25f);
-            FireWall(fire, "FireWall" + k, wa, wb);
+            Vector3 a = pads[k].c, b = pads[k + 2].c, mid = (a + b) * 0.5f;
+            var d = Flat(b - a).normalized; var n = Vector3.Cross(Vector3.up, d);
+            if (Vector3.Dot(Flat(pads[k + 1].c - mid), n) < 0f) n = -n;   // n＝板の V の内向き
+            FireWall(fire, "FireWall" + k, mid - n * (PadR + FireWallOut), mid + n * FireWallIn);
         }
 
         // ④ ほのおのまもの：広い平らな所。両脇に水たまり（まものを落とすと倒れる・燃えたふわふわは消える）
