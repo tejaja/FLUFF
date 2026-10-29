@@ -2,33 +2,35 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
-// 溶岩溜まりから道を飛び越えて飛ぶ火の玉（2026-10-29 てじゃの 2–2「両脇に溶岩溜まり、火の玉が道を飛び越えて飛んでいる」）。
-// from → to へ決まった弧（てっぺんは from/to の高い方より arcHeight 上）を flightTime 秒で飛ぶ。period 秒ごと、phase でずらす。
+// 道にあいた溶岩の穴から穴へ、行ったり来たりする火の玉（2026-10-29 てじゃの 2–2 の案：「青◯を溶岩溜まりの穴、紫ラインを火球が往復、最後は3つの穴を行き来する」）。
+// holes[0] → [1] → … → [n-1] → … → [0] と往復。1回の飛び（flightTime 秒、てっぺんは高い方の穴より arcHeight 上）のあと、着いた穴の中で rest 秒休む。
 // 全員同じ時に飛ぶようにサーバー時刻で（タイミングは決まっていて覚えられる。てじゃ「タイミングは決まっててほしい」）。
-// ふわふわに当たる：燃えだす（FuwaHeat.Ignite、撃てば消える）＋飛ぶ向きに吹っ飛ぶ。人に当たる：ちょっと吹っ飛ぶ
+// ふわふわに当たる：燃えだす（FuwaHeat.Ignite、撃てば消える）＋飛ぶ向きにちょっと押される。人に当たる：ちょっと吹っ飛ぶ
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaFireball : UdonSharpBehaviour
 {
     public FuwaHeat heat;
     public FuwaBall ball;
-    public Transform from, to;
-    public float arcHeight = 2.5f, flightTime = 1.6f, period = 4f, phase = 0f;
+    [Tooltip("溶岩の穴（の溶岩の面）。この順に往復する")]
+    public Transform[] holes;
+    public float arcHeight = 2.5f, flightTime = 1.2f, rest = 1.2f, phase = 0f;
     [Tooltip("見た目（飛んでいない時は隠す）")]
     public GameObject visual;
     [Tooltip("尾を引く炎（なくてもOK）")]
     public ParticleSystem trail;
     public float trailRate = 40f;
     [Tooltip("当たり（球）の半径")]
-    public float hitRadius = 0.45f;
-    [Tooltip("ふわふわを吹っ飛ばす：飛ぶ向き（水平）× ballKnock ＋ 上 × ballKnockUp")]
-    public float ballKnock = 4f, ballKnockUp = 1.5f;
+    public float hitRadius = 0.7f;
+    [Tooltip("ふわふわを押す：飛ぶ向き（水平）× ballKnock ＋ 上 × ballKnockUp")]
+    public float ballKnock = 2f, ballKnockUp = 1f;
     [Tooltip("人を吹っ飛ばす")]
-    public float playerKnock = 3.5f, playerKnockUp = 2f;
+    public float playerKnock = 4f, playerKnockUp = 3.5f;
     [Tooltip("溶岩から出る時・入る時のしぶき（なくてもOK）")]
     public ParticleSystem splash;
     public AudioSource whoosh;
 
     private bool _flying, _hitBall, _hitPlayer;
+    private int _hop = -1;
     private float _ballRadius = 0.4f;
 
     private void Start()
@@ -39,23 +41,27 @@ public class FuwaFireball : UdonSharpBehaviour
             if (sc != null) _ballRadius = sc.radius * ball.transform.lossyScale.x;
         }
         Show(false);
-        // 実機での確かめ用（2026-10-29 VRChat でだけ溶岩の下を飛んだ）
-        if (from != null && to != null) Debug.Log("[FuwaFireball] " + gameObject.transform.parent.name + " from " + from.position + " to " + to.position + " sec " + Networking.GetServerTimeInSeconds() + " ms " + Networking.GetServerTimeInMilliseconds());
     }
 
-    // 周期の中の今の時刻（秒）。サーバー時刻の整数ミリ秒で割り算する（2026-10-29 VRChat でだけ火炎放射が止まらない・火の玉が変な所を飛んだ：
-    // 秒の double にずらしを足して割る方式だと実機で狂った。FuwaWhirlwind と同じミリ秒の方式に）
-    private float T()
+    private int Hops() { return holes == null || holes.Length < 2 ? 0 : 2 * (holes.Length - 1); }
+    // 往復の k 番目の飛びの出発・到着の穴
+    private int HoleAt(int k)
+    {
+        int n = holes.Length;
+        return k < n - 1 ? k : 2 * (n - 1) - k;
+    }
+
+    // 周期の中の今の時刻（秒）。サーバー時刻の整数ミリ秒で割り算する（2026-10-29 秒の double で割る方式は VRChat でだけ狂った。FuwaWhirlwind と同じ）
+    private float T(float period)
     {
         int per = Mathf.Max(1, Mathf.RoundToInt(period * 1000f));
-        int ms = (VRC.SDKBase.Networking.GetServerTimeInMilliseconds() + Mathf.RoundToInt(phase * 1000f)) % per;
+        int ms = (Networking.GetServerTimeInMilliseconds() + Mathf.RoundToInt(phase * 1000f)) % per;
         if (ms < 0) ms += per;
         return ms / 1000f;
     }
 
-    private Vector3 At(float u)
+    private Vector3 At(Vector3 a, Vector3 b, float u)
     {
-        Vector3 a = from.position, b = to.position;
         float top = Mathf.Max(a.y, b.y) + arcHeight;
         // 2次のベジェ（てっぺんが top になるように真ん中の点を 2*top - (a+b)/2）
         Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f;
@@ -71,19 +77,23 @@ public class FuwaFireball : UdonSharpBehaviour
 
     private void Update()
     {
-        if (from == null || to == null) return;
-        float t = T();
-        bool fly = t < flightTime;
-        if (fly != _flying)
+        int hops = Hops(); if (hops == 0) return;
+        float step = flightTime + rest;
+        float t = T(step * hops);
+        int k = Mathf.Min(hops - 1, Mathf.FloorToInt(t / step));
+        float tau = t - k * step;
+        bool fly = tau < flightTime;
+        Vector3 a = holes[HoleAt(k)].position, b = holes[HoleAt(k + 1)].position;
+        if (fly != _flying || (fly && k != _hop))
         {
-            _flying = fly; Show(fly);
-            if (splash != null) { splash.transform.position = fly ? from.position : to.position; splash.Play(); }
+            if (splash != null) { splash.transform.position = fly ? a : b; splash.Play(); }
             if (fly) { _hitBall = false; _hitPlayer = false; if (whoosh != null && whoosh.clip != null) whoosh.PlayOneShot(whoosh.clip); }
+            _flying = fly; _hop = k; Show(fly);
         }
         if (!fly) return;
-        float u = t / flightTime;
-        Vector3 p = At(u);
-        Vector3 vel = (At(Mathf.Min(1f, u + 0.02f)) - At(Mathf.Max(0f, u - 0.02f)));
+        float u = tau / flightTime;
+        Vector3 p = At(a, b, u);
+        Vector3 vel = At(a, b, Mathf.Min(1f, u + 0.02f)) - At(a, b, Mathf.Max(0f, u - 0.02f));
         transform.position = p;
         if (trail != null) trail.transform.position = p;
         Vector3 hdir = new Vector3(vel.x, 0f, vel.z); hdir = hdir.sqrMagnitude > 0.0001f ? hdir.normalized : transform.forward;
@@ -101,12 +111,16 @@ public class FuwaFireball : UdonSharpBehaviour
         {
             Vector3 f = lp.GetPosition();
             // 体を縦の線（足〜頭）として、線との距離
-            float y = Mathf.Clamp(p.y, f.y, f.y + 1.6f);
+            Vector3 head = lp.GetBonePosition(HumanBodyBones.Head);
+            float h = head == Vector3.zero ? 1.6f : Mathf.Clamp(head.y - f.y + 0.2f, 1f, 2.2f);
+            float y = Mathf.Clamp(p.y, f.y, f.y + h);
             Vector3 q = new Vector3(f.x, y, f.z);
-            if ((q - p).magnitude < hitRadius + 0.3f)
+            if ((q - p).magnitude < hitRadius + 0.35f)
             {
                 _hitPlayer = true;
-                lp.SetVelocity(hdir * playerKnock + Vector3.up * playerKnockUp);
+                Vector3 v = lp.GetVelocity(); v.y = Mathf.Max(v.y, 0f);
+                lp.SetVelocity(v * 0.3f + hdir * playerKnock + Vector3.up * playerKnockUp);
+                Debug.Log("[FuwaFireball] hit player " + gameObject.transform.parent.name);
             }
         }
     }
