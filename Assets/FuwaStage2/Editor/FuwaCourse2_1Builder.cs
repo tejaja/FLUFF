@@ -810,6 +810,30 @@ public static class FuwaCourse2_1Builder
 
         }   // !PondCut
 
+        // ---- スタート・ゴール（2026-10-23 てじゃ「スタートはステージ1と同じように、ロビー戻りポータル島、スタート島、そこから洞窟に歩いて入っていく」
+        //      「ゴールはとりあえず川の向こうに一旦ゴール島として浮かせてから考えよう」）----
+        StartSet(root);
+        RegisterBgm(root);
+        var goal = new GameObject("Goal").transform; goal.SetParent(root, false);
+        GoalSet(goal);
+
+        // ステージ2にいる時だけ表示
+        var visb = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(m => m && m.gameObject.scene.IsValid() && m.GetType().Name == "FuwaAreaVisibility");
+        if (visb)
+        {
+            var so = new SerializedObject(visb); var arr = so.FindProperty("stage2Objects");
+            bool has = false; for (int i = 0; i < arr.arraySize; i++) if (arr.GetArrayElementAtIndex(i).objectReferenceValue == root.gameObject) has = true;
+            for (int i = arr.arraySize - 1; i >= 0; i--) if (arr.GetArrayElementAtIndex(i).objectReferenceValue == null) arr.DeleteArrayElementAtIndex(i);
+            if (!has) { arr.arraySize++; arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = root.gameObject; }
+            so.ApplyModifiedProperties();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)visb);
+        }
+        // ロビーのワープ（WarpToCourse0）はスタートの BallStart/PlayerSpot を指しているので、作り直したらつなぎ直す
+        //（2026-10-21 作り直したあとワープが効かず、キノコからふわふわが出なかった）
+        // 道と水の下の岩の土台（浮島の形）。道・水がそろってから、上から測って作る
+        WoodWalk(root, woodPieces);
+        RockBases(root);
+        // チェックポイントは木の板の道・岩の土台のあと（キノコが木の板にかからないように測る。土台は上から測るのでキノコの丸太より先に。2026-10-29）
         // ---- チェックポイント（2026-10-25 てじゃ「チェックポイントおいてくかぁ」→ 4つ：魚の渡り場の先・蓮の池の先・貝の道の先・三連滝の先の踊り場）----
         {
             // 池をなくした時（2026-10-28 てじゃ「チェックポイントは木の橋の真ん中1こに統一」）：魚の渡り場の先・池の先の2つをやめて、谷の上の木の橋のまん中に1つ。キノコは橋の板の上のはし
@@ -838,30 +862,6 @@ public static class FuwaCourse2_1Builder
             new[] { sRiver1 - CpMushBack, float.MaxValue, float.MaxValue, float.MaxValue });
             }
         }
-
-        // ---- スタート・ゴール（2026-10-23 てじゃ「スタートはステージ1と同じように、ロビー戻りポータル島、スタート島、そこから洞窟に歩いて入っていく」
-        //      「ゴールはとりあえず川の向こうに一旦ゴール島として浮かせてから考えよう」）----
-        StartSet(root);
-        RegisterBgm(root);
-        var goal = new GameObject("Goal").transform; goal.SetParent(root, false);
-        GoalSet(goal);
-
-        // ステージ2にいる時だけ表示
-        var visb = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(m => m && m.gameObject.scene.IsValid() && m.GetType().Name == "FuwaAreaVisibility");
-        if (visb)
-        {
-            var so = new SerializedObject(visb); var arr = so.FindProperty("stage2Objects");
-            bool has = false; for (int i = 0; i < arr.arraySize; i++) if (arr.GetArrayElementAtIndex(i).objectReferenceValue == root.gameObject) has = true;
-            for (int i = arr.arraySize - 1; i >= 0; i--) if (arr.GetArrayElementAtIndex(i).objectReferenceValue == null) arr.DeleteArrayElementAtIndex(i);
-            if (!has) { arr.arraySize++; arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = root.gameObject; }
-            so.ApplyModifiedProperties();
-            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)visb);
-        }
-        // ロビーのワープ（WarpToCourse0）はスタートの BallStart/PlayerSpot を指しているので、作り直したらつなぎ直す
-        //（2026-10-21 作り直したあとワープが効かず、キノコからふわふわが出なかった）
-        // 道と水の下の岩の土台（浮島の形）。道・水がそろってから、上から測って作る
-        WoodWalk(root, woodPieces);
-        RockBases(root);
         if (!PondCut) { PondSpillLipFalls(root); PondSpringFalls(root); }
         AirFallsFray(root);
         FuwaStage2LobbyCourses.Run();
@@ -1916,7 +1916,7 @@ public static class FuwaCourse2_1Builder
         var tmpl = GameObject.Find("FuwaCourse3/Checkpoint1");
         if (tmpl == null) { Debug.LogWarning("[2–1] チェックポイントのお手本（FuwaCourse3/Checkpoint1）がない"); return; }
         var g = new GameObject("Checkpoints").transform; g.SetParent(root, false);
-        var made = new List<FuwaCheckpoint>();
+        var made = new List<FuwaCheckpoint>(); cpNoColTris = null;
         for (int i = 0; i < cps.Length; i++)
         {
             var (s, latF, hwL, hwR, h) = cps[i];
@@ -3370,8 +3370,27 @@ public static class FuwaCourse2_1Builder
             if (c.GetComponentInParent<FuwaWindArea>() || c.GetComponent<FuwaHazard>() || c.GetComponent<FuwaPlayerCatcher>() || c.GetComponentInParent<FuwaCheckpoint>() || c.GetComponentInParent<FuwaWindDeco>()) continue;
             return true;
         }
+        // 当たりのない見た目だけの物（木の板の道 WoodWalk）：三角形の箱が群れの箱にかかるか（2026-10-29 てじゃ「奥のやつ、木の足場にかぶってる」）
+        if (cpNoColTris == null)
+        {
+            cpNoColTris = new List<Bounds>();
+            foreach (var mf in self.root.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf.name != "WoodWalk" || mf.sharedMesh == null) continue;
+                var vs = mf.sharedMesh.vertices; var ts = mf.sharedMesh.triangles;
+                for (int k = 0; k < ts.Length; k += 3)
+                {
+                    var tb = new Bounds(mf.transform.TransformPoint(vs[ts[k]]), Vector3.zero);
+                    tb.Encapsulate(mf.transform.TransformPoint(vs[ts[k + 1]])); tb.Encapsulate(mf.transform.TransformPoint(vs[ts[k + 2]]));
+                    cpNoColTris.Add(tb);
+                }
+            }
+        }
+        var cb = new Bounds(w + Vector3.up * 0.4f, new Vector3(CpClusterR, 1.6f, CpClusterR) * 2f);
+        foreach (var tb in cpNoColTris) if (tb.Intersects(cb)) return true;
         return false;
     }
+    static List<Bounds> cpNoColTris;
 
     // ---- ⑥ ラスト（2026-10-22 てじゃ「3連滝のあとに、強制で滝にぶつかるゾーン作る→そのまま流されてく、川はゴール横を直進、
     //      途中で打ち上げてゴールへ　プレイヤーは川岸を走って追いかける」。前の試作＝段々の池＋泡の柱＋水車は「川を登らせるのは変」でやめた）----
