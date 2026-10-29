@@ -56,6 +56,8 @@ public class FuwaEnemy : UdonSharpBehaviour
     [Tooltip("跳べる高さの上限(m)。これより高いけだまには届かない")]
     public float maxHopHeight = 2.2f;
     public Color ballHitGlow = new Color(0.75f, 0.35f, 1f);
+    [Tooltip("ほのおのまもの（2026-10-29 2–2）：突進が当たったふわふわが燃えだす。水（FuwaWater）に入ると倒れる")]
+    public FuwaHeat igniteHeat;
     public float knockback = 7f;
     public float knockUp = 3f;
     [Tooltip("頭の上どこまで当たりにするか(m)")]
@@ -562,6 +564,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     {
         _hitBallThisDash = true;
         ball.LaunchTinted(_dashDir * ballKnockback + Vector3.up * ballKnockUp, ballHitGlow);
+        if (igniteHeat != null) igniteHeat.Ignite();
         _squashUntil = Time.time + 0.35f;
         if (hitSound != null) hitSound.Play();
     }
@@ -595,7 +598,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     private void OnTriggerStay(Collider other)
     {
         if (other == null || (_state != 2 && _state != 4)) return;
-        if (other.GetComponent<FuwaSpike>() == null) return;
+        if (other.GetComponent<FuwaSpike>() == null && (igniteHeat == null || other.GetComponent<FuwaWater>() == null)) return;
         if (popEffect != null)
         {
             popEffect.transform.position = transform.position + Vector3.up * 0.15f;

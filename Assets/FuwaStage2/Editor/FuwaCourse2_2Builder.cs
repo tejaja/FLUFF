@@ -3,25 +3,29 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-// ステージ2 コース2–2「ほのおのやま」ブロックアウト（2026-10-29 てじゃ「試しに作ってみよう」）。
-// 熱のテスト場（FuwaStage2FireTest）で決めた仕組み：火（かがり火・火の輪・火柱）を通るとふわふわが火の決まった所で止まって浮く／浮きすぎると燃える→撃って消す。
+// ステージ2 コース2–2「ほのおのやま」ブロックアウト（2026-10-29 てじゃ「試しに作ってみよう」→ 試して「しっくりこない、ちゃんとプロット決める」→ てじゃの流れで作り直し）。
+// 熱のしくみ（FuwaHeat）：火を通るとふわふわが火の決まった所で止まって浮く／浮きすぎると燃える→撃って消す／燃え尽きると黒焦げ→一瞬止まってアウト。
 // 流れ（ロビーの Slot1 方向に放射状、+Z が進む向き。y=0 がスタートの島の地面）：
-//  ① スタート（コース1のスタートの島を写す）→ まっすぐな道
-//  ② 火を知る所（2026-10-29 てじゃ「段を登ること自体微妙」「最初に火の特性を知るギミックを置きたい」→ 段々をやめた）：
-//     かがり火→すぐ先の低い柵を浮いた所から撃って越える／もう1つのかがり火→長めの平らな道（浮かせて待つと燃える→撃って消す、を試せる）
-//  ③ 火柱の谷：手前のふちすぐの火柱が吹いている時に入れると止まる → 真後ろ（手前の道）から撃って高い向こう岸へ。人は左の坂の橋
-//  ④ ジグザグ：角の上の火の輪で止めて、向きを変えて撃つ。Uターンあり
-// 2026-10-29 てじゃの試し：人が横の橋にいるとふわふわの後ろに立てず、浮いたふわふわを前に撃てない（詰む）→ 浮く所は必ず人が真後ろに立てる所に
-//  ⑤ （まだ）動く足場を待つ所。待ちすぎると燃える
-//  ⑥ 溶岩の川：空中の火の輪を飛び石みたいに渡る（溶岩に落ちたらアウト）。人は左の細い橋＋各輪の真後ろへの桟橋
+//  ① スタート → くねくねの細い上り坂。角の地面に火種2つ（1つ目は撃って当たる、2つ目は坂の追い風で運ばれて乗る→待つと燃える→撃って消す、を体験）
+//  ② 両脇に溶岩溜まりのある直線（ゆるく曲がる）。溶岩溜まりから火の玉が道を飛び越える（決まったタイミング、4か所でだんだん難しく）。当たると燃えて吹っ飛ぶ、人はちょっと吹っ飛ぶ
+//  ③ 鋭角のグネグネ（登り）：丸い踊り場の火種で止めて切り返す ×3
+//  ④ ほのおのまもの：ふつうのまものと同じ、体当たりで燃える。両脇の水たまりに落とすと倒せる（燃えたふわふわは水で消える）
+//  ⑤ くねくね道（一部坂）：横の岩の穴から火炎放射（当たると黒焦げアウト、人はちょっと吹っ飛ぶ）。手前の火種で浮かせて待てる
 //  ⑦ ゴール（コース1のゴールの島を写す）
-// 道はシマシマ（赤系、Course2_2_PathA/B）。人だけが通る坂・橋は上にふわふわが乗ったらアウト（FuwaTopOut）
+// 道はシマシマ（赤系、Course2_2_PathA/B）。くねくね道は1本のつなぎ目なしのメッシュ（Route/Ribbon）、ジグザグは板と丸い踊り場
 public static class FuwaCourse2_2Builder
 {
     const string RootName = "FuwaCourse2_2";
     const float SpokeR = 34.8f, StartBelow = 4f;
     public static float PathHW = 1.5f, StripeLen = 1.2f;
-    public static float FenceH = 1.0f;   // 火を知る所の柵の高さ（かがり火の止まる所は火の 2.2m 上＝柵より 1.2m 上）
+    public static float NarrowHW = 1.0f;                       // ① の細い坂の幅の半分
+    public static float SeedHover = 1.3f;                      // 火種の止まる所（地面から）
+    public static float TailWindStrength = 3.5f;
+    public static float LavaW = 16f, FireballReach = 5.5f, FireballFlight = 1.3f;
+    public static float PadR = 3.4f, PadIn = 2.8f, PadDrop = 0.03f, ZigLeg = 10f, ZigRise = 1.1f;   // 踊り場の半径・板のはしが踊り場に入る深さ（60° の板どうしが踊り場の外で重ならない）
+    public static float ArenaHW = 3f, ArenaLen = 16f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
+    public static float FlamePeriod = 3.2f, FlameOn = 1.3f, SeedBefore = 3.5f;
+    public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
     public static Color PathColA = new Color(1f, 0.56f, 0.50f), PathColB = new Color(0.94f, 0.44f, 0.38f);
     public static Color LavaCol = new Color(1f, 0.42f, 0.1f), RockCol = new Color(0.42f, 0.30f, 0.30f);
@@ -66,97 +70,109 @@ public static class FuwaCourse2_2Builder
         var path = new GameObject("Path").transform; path.SetParent(root, false);
         var walk = new GameObject("Walk").transform; walk.SetParent(root, false);
         var fire = new GameObject("Fire").transform; fire.SetParent(root, false);
-        float z = z0 - 0.5f, y = 0f;
-        Strip(path, "S1", new Vector3(0, y, z), Vector3.forward, 14.5f, PathHW); z += 14.5f;
+        var up = Vector3.up;
 
-        // ② 火を知る所：かがり火（道のまん中）→ 2.5m 先に柵（道の幅いっぱい、人は左の小道で回る）→ 10m 先にもう1つのかがり火 → 12m の平らな道
-        float xw = -(PathHW + WalkGap + WalkW * 0.5f);
-        FuwaStage2FireTest.Brazier(fire, "Brazier0", new Vector3(0, y, z + 3f), heat, false);
-        Strip(path, "Learn1", new Vector3(0, y, z), Vector3.forward, 10f, PathHW);
-        Box(path, "Fence", new Vector3(0, y + FenceH * 0.5f, z + 5.5f), new Vector3(PathHW * 2f, FenceH, 0.4f), rockMat, 0);
-        Strip(walk, "FenceWalk", new Vector3(xw, y, z + 4f), Vector3.forward, 3f, WalkW * 0.5f, true);
-        z += 10f;
-        FuwaStage2FireTest.Brazier(fire, "Brazier1", new Vector3(0, y, z + 2f), heat, false);
-        Strip(path, "Learn2", new Vector3(0, y, z), Vector3.forward, 16f, PathHW);
-        z += 16f;
-        Checkpoint(root, "Checkpoint1", new Vector3(0, y, z - 4f), Vector3.forward, PathHW);
+        // ①〜② くねくねの細い上り坂 → 両脇が溶岩溜まりの直線（1本のつなぎ目なしの道）。上から見た図：てじゃ 2026-10-29
+        //  橋 → 右ななめ上へ坂 → 角に火種1 → 北へ平ら → 左ななめ上へ長い坂（追い風が坂にそって吹き上げる）→ 角に火種2（風で運ばれて燃える→撃って消す）→ 右ななめ上へ坂 → 北へ平ら → 幅を広げて溶岩の直線
+        float yL = 4.6f;
+        var pts12 = new[] {
+            new Vector3(0, 0, z0 - 0.5f), new Vector3(0, 0, z0 + 1.5f), new Vector3(4.5f, 1.6f, z0 + 7f), new Vector3(4.5f, 1.6f, z0 + 11f),
+            new Vector3(-5f, 3.6f, z0 + 18f), new Vector3(-1f, yL, z0 + 22.5f), new Vector3(-1f, yL, z0 + 26f),
+            new Vector3(-1f, yL, z0 + 28.5f), new Vector3(1.2f, yL, z0 + 40f), new Vector3(-1f, yL, z0 + 51f), new Vector3(0f, yL, z0 + 60f) };
+        var hw12 = new[] { NarrowHW, NarrowHW, NarrowHW, NarrowHW, NarrowHW, NarrowHW, NarrowHW, PathHW, PathHW, PathHW, PathHW };
+        var rad12 = new[] { 0f, 2f, 2f, 2f, 2f, 2f, 0f, 0f, 12f, 12f, 0f };
+        var corners12 = new List<Vector3>();
+        var r12 = Route(pts12, rad12, corners12);
+        Ribbon(path, "Path12", r12, hw12, pts12);
+        // 火種1・2：角の丸みのまん中（corners12 は角ごと、[0] は橋の先のちょっとした角）
+        GroundFire(fire, "Seed1", corners12[1]);
+        GroundFire(fire, "Seed2", corners12[3]);
+        // 追い風：左ななめ上の坂（角の丸みのおわり → 火種2 の 1m 手前まで）、坂にそって上向きに
+        {
+            Vector3 a = Along(r12, pts12[3] + (pts12[4] - pts12[3]).normalized * 2.2f), b = corners12[3];
+            Vector3 d = (b - a); float len = d.magnitude - 1.0f; d.Normalize();
+            TailWind(path, "TailWind", a + d * len * 0.5f, d, len, NarrowHW * 2f + 0.4f);
+        }
+        // ② 溶岩溜まり：直線の両脇（道の 1m 下が溶岩の面）。落ちたら黒焦げ→アウト
+        float lz0 = z0 + 28.5f, lz1 = z0 + 60f;
+        {
+            var lvc = new Vector3(0, yL - 1.0f - 0.2f, (lz0 + lz1) * 0.5f);
+            var lava = Box(root, "Lava", lvc, new Vector3(LavaW, 0.4f, lz1 - lz0), lavaMat, 0);
+            Object.DestroyImmediate(lava.GetComponent<Collider>());
+            LavaBurn(root, "LavaBallOut", lvc + up * 0.1f, new Vector3(LavaW, 0.6f, lz1 - lz0));
+            Hazard(root, "LavaPlayerOut", lvc - up * 0.4f, new Vector3(LavaW, 1.2f, lz1 - lz0), true);
+        }
+        // 火の玉：溶岩溜まりから道を飛び越える。4か所、だんだん難しく（周期が短く・最後は2つ）。てっぺんは道の 1m 上
+        {
+            var fbs = new[] { (z: z0 + 32f, per: 4.0f, ph: 0f, rev: false, two: false), (z: z0 + 38.5f, per: 3.6f, ph: 1.8f, rev: true, two: false),
+                              (z: z0 + 45f, per: 3.0f, ph: 0.6f, rev: false, two: false), (z: z0 + 52f, per: 2.8f, ph: 2.0f, rev: true, two: true) };
+            for (int k = 0; k < fbs.Length; k++)
+            {
+                var f = fbs[k];
+                Frame(r12, f.z, out var c, out var t); var n = Vector3.Cross(up, t).normalized;
+                Vector3 a = c - n * FireballReach - up * 1.0f, b = c + n * FireballReach - up * 1.0f;
+                if (f.rev) { var tmp = a; a = b; b = tmp; }
+                Fireball(fire, "Fireball" + k, a, b, f.per, f.ph);
+                if (f.two) Fireball(fire, "Fireball" + k + "b", b, a, f.per, f.ph + f.per * 0.5f);
+            }
+        }
+        Checkpoint(root, "Checkpoint1", new Vector3(0, yL, z0 + 58f), Vector3.forward, PathHW);
 
-        // ③ 火柱の谷：7m の谷、手前のふちから 1.2m の所に火柱1本。止まる所は道の 2.4m 上（人が手前の道から真後ろで撃てる）。
-        //    向こう岸は 1.8m 高い（火なしで撃って越えられないように。てじゃ「橋通ればOK」）。噴き出し口の当たりはなし（落ちたら素直にアウト、口の上で詰まない）
-        float gap = 7f, farUp = 1.8f, jetHover = 2.4f;
-        FuwaStage2FireTest.Jet(fire, "Jet1", new Vector3(0, y + jetHover - 4.2f, z + 1.2f), heat, 0f);
-        Object.DestroyImmediate(fire.Find("Jet1/Mouth").GetComponent<Collider>());
-        Bridge(walk, "JetBridge", new Vector3(xw, y, z), new Vector3(xw, y + farUp, z + gap));
-        z += gap; y += farUp;
-        Strip(path, "JetFar", new Vector3(0, y, z), Vector3.forward, 8f, PathHW); z += 8f;
+        // ③ 鋭角のグネグネ（登り）：丸い踊り場（角）の火種で止めて切り返す。角は 120° 曲がる（道どうしが 60°）
+        var pad = new Vector3(0, yL, z0 + 60f + PadIn);
+        Pad(path, "Pad0", pad);
+        for (int k = 0; k < 4; k++)
+        {
+            float hd = (k % 2 == 0 ? 60f : -60f) * Mathf.Deg2Rad;
+            var d = new Vector3(Mathf.Sin(hd), 0, Mathf.Cos(hd));
+            var nx = pad + d * ZigLeg + up * ZigRise;
+            var a = pad + d * PadIn; var b = nx - d * PadIn;
+            Strip(path, "Zig" + k, a, (b - a).normalized, (b - a).magnitude, PathHW);
+            Pad(path, "Pad" + (k + 1), nx);
+            if (k < 3) GroundFire(fire, "ZigSeed" + k, nx);
+            pad = nx;
+        }
 
-        // ④ ジグザグ：L字の道、角の上に火の輪（輪の下が床から 0.3m）。右 → 前 → 左 → 前
-        var p = new Vector3(0, y, z);
-        // 右 → 前（2m だけ）→ 左（Uターン）→ 前 → 右 → 前へ出る。てじゃ「もっと急なカーブあってもいい」
-        var dirs = new[] { Vector3.right, Vector3.forward, Vector3.left, Vector3.forward, Vector3.right };
-        var lens = new[] { 7f, 2f, 10f, 6f, 3f };
-        var cur = Vector3.forward;
-        for (int k = 0; k < dirs.Length; k++)
-        {
-            // 角の床（3m 四方）と、その上の火の輪
-            var corner = p + cur * PathHW;
-            Strip(path, "Corner" + k, corner - cur * PathHW, cur, PathHW * 2f, PathHW);
-            var ring = corner + Vector3.up * 1.4f;
-            FuwaStage2FireTest.Brazier(fire, "CornerRing" + k, ring, heat, true);
-            fire.Find("CornerRing" + k).localRotation = Quaternion.LookRotation(Vector3.Cross(Vector3.up, cur).normalized);   // 輪の面を進む向きに向ける（輪は x 軸が穴の向き）
-            var nd = dirs[k];
-            p = corner + nd * PathHW;
-            Strip(path, "Zig" + k, p, nd, lens[k], PathHW);
-            p += nd * lens[k]; cur = nd;
-        }
-        // 最後の角のあと、まっすぐ前へ
-        {
-            var corner = p + cur * PathHW;
-            string cn = "Corner" + dirs.Length;
-            Strip(path, cn, corner - cur * PathHW, cur, PathHW * 2f, PathHW);
-            FuwaStage2FireTest.Brazier(fire, "CornerRing" + dirs.Length, corner + Vector3.up * 1.4f, heat, true);
-            fire.Find("CornerRing" + dirs.Length).localRotation = Quaternion.LookRotation(Vector3.Cross(Vector3.up, cur).normalized);
-            p = corner + Vector3.forward * PathHW; cur = Vector3.forward;
-        }
-        Strip(path, "ZigOut", p, Vector3.forward, 8f, PathHW);
-        Checkpoint(root, "Checkpoint2", p + Vector3.forward * 2.5f, Vector3.forward, PathHW);
-        p += Vector3.forward * 8f;
+        // ④ ほのおのまもの：広い平らな所。両脇に水たまり（まものを落とすと倒れる・燃えたふわふわは消える）
+        var ar = pad + Vector3.forward * PadIn;
+        Strip(path, "Arena", ar, Vector3.forward, ArenaLen, ArenaHW);
+        for (int s = -1; s <= 1; s += 2) Pond(path, "Pond" + (s < 0 ? "L" : "R"), ar + new Vector3(s * (ArenaHW + PondW * 0.5f), 0, 3f + PondLen * 0.5f), s);
+        FireMonster(root, "FireMonster", ar + Vector3.forward * (3f + PondLen * 0.5f));
+        var ae = ar + Vector3.forward * ArenaLen;
+        Checkpoint(root, "Checkpoint2", ae - Vector3.forward * 1.5f, Vector3.forward, ArenaHW);
 
-        // ⑥ 溶岩の川：幅 18m、空中の火の輪 3つ（5m おき、道より 1.6m 上）。向こう岸へ
-        float river = 18f;
-        var lava = Box(root, "Lava", p + new Vector3(0, -2.2f, river * 0.5f), new Vector3(14f, 0.4f, river), lavaMat, 0);
-        Object.DestroyImmediate(lava.GetComponent<Collider>());
-        Hazard(root, "LavaBallOut", p + new Vector3(0, -2.2f, river * 0.5f), new Vector3(14f, 1.2f, river), false);
-        Hazard(root, "LavaPlayerOut", p + new Vector3(0, -2.6f, river * 0.5f), new Vector3(14f, 1.2f, river), true);
-        for (int k = 0; k < 3; k++)
+        // ⑤ くねくね道（一部坂）：横の岩の穴から火炎放射（当たると黒焦げ→アウト、人はちょっと吹っ飛ぶ）。手前の火種で浮かせて待てる
+        var pts5 = new[] { ae, ae + new Vector3(0, 0, 3f), ae + new Vector3(4f, 0, 10f), ae + new Vector3(-3f, 1.5f, 18f), ae + new Vector3(3f, 3f, 26f), ae + new Vector3(0, 3f, 32f), ae + new Vector3(0, 3f, 35f) };
+        var hw5 = pts5.Select(_ => PathHW).ToArray();
+        var rad5 = new[] { 0f, 4f, 4f, 4f, 4f, 4f, 0f };
+        var r5 = Route(pts5, rad5, new List<Vector3>());
+        Ribbon(path, "Path5", r5, hw5, pts5);
         {
-            var rp = p + new Vector3(0, 1.6f, 4f + k * 5f);
-            FuwaStage2FireTest.Brazier(fire, "LavaRing" + k, rp, heat, true);
-            fire.Find("LavaRing" + k).localRotation = Quaternion.LookRotation(Vector3.right);
+            var fts = new[] { (z: ae.z + 9f, side: 1f, ph: 0f), (z: ae.z + 17.5f, side: -1f, ph: 1.0f), (z: ae.z + 25.5f, side: 1f, ph: 2.0f) };
+            for (int k = 0; k < fts.Length; k++)
+            {
+                Frame(r5, fts[k].z, out var c, out var t);
+                var n = Vector3.Cross(up, t).normalized * fts[k].side;
+                Flamethrower(fire, "Flamethrower" + k, c, -n, fts[k].ph);
+                Frame(r5, fts[k].z - SeedBefore, out var sc, out _);
+                GroundFire(fire, "FlameSeed" + k, sc);
+            }
         }
-        Bridge(walk, "LavaBridge", p + new Vector3(xw, 0, 0), p + new Vector3(xw, 0, river));
-        // 桟橋：橋から、2つ目・3つ目の輪の 2.5m 手前（真後ろ）へ。1つ目の輪へは岸から撃つ。輪の間を飛ぶふわふわは桟橋の 1.6m 上を通る
-        for (int k = 1; k < 3; k++)
-        {
-            float pz = 4f + k * 5f - 2.5f;
-            Bridge(walk, "LavaPier" + k, p + new Vector3(xw + WalkW * 0.5f, 0, pz), p + new Vector3(0.8f, 0, pz));
-        }
-        p += Vector3.forward * river;
-        Strip(path, "LavaFar", p, Vector3.forward, 6f, PathHW);
-        p += Vector3.forward * 6f;
+        var p = pts5[pts5.Length - 1];
 
         // ⑦ ゴール
         GoalSet(root, p);
 
         // アウト（下に落ちた）：コースの下（コースの向きの箱、まわり 10m）。ほかのコース（2–1）にかからないように大きくしすぎない
         var lb = new Bounds(Vector3.zero, Vector3.zero); bool first = true;
-        foreach (var bc in root.GetComponentsInChildren<BoxCollider>(true))
+        foreach (var col in root.GetComponentsInChildren<Collider>(true))
         {
-            if (bc.isTrigger) continue;
-            var t = bc.transform; var e = bc.size * 0.5f;
+            if (col.isTrigger) continue;
+            Bounds bb; if (col is BoxCollider bx) bb = new Bounds(bx.center, bx.size); else if (col is MeshCollider mc && mc.sharedMesh) bb = mc.sharedMesh.bounds; else continue;
+            var t = col.transform; var e = bb.extents;
             for (int k = 0; k < 8; k++)
             {
-                var c = bc.center + new Vector3((k & 1) == 0 ? -e.x : e.x, (k & 2) == 0 ? -e.y : e.y, (k & 4) == 0 ? -e.z : e.z);
+                var c = bb.center + new Vector3((k & 1) == 0 ? -e.x : e.x, (k & 2) == 0 ? -e.y : e.y, (k & 4) == 0 ? -e.z : e.z);
                 var lp = root.InverseTransformPoint(t.TransformPoint(c));
                 if (first) { lb = new Bounds(lp, Vector3.zero); first = false; } else lb.Encapsulate(lp);
             }
@@ -181,6 +197,334 @@ public static class FuwaCourse2_2Builder
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–2] ゴールまで " + p.z.ToString("F0") + "m、高さ " + p.y.ToString("F1") + "m";
+    }
+
+    // ---- つなぎ目なしの道：折れ線の角を丸めた中心線（Route）にそった帯のメッシュ（Ribbon） ----
+    struct RPt { public Vector3 p; public float u; }   // u：もとの折れ線にそった（水平の）長さ。高さ・幅は折れ線の点の値をこれで線形に
+    static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
+    static float[] Cum(Vector3[] pts) { var c = new float[pts.Length]; for (int i = 1; i < pts.Length; i++) c[i] = c[i - 1] + Flat(pts[i] - pts[i - 1]).magnitude; return c; }
+    static float AtU(Vector3[] pts, float[] vals, float u)
+    {
+        var c = Cum(pts);
+        for (int i = 1; i < pts.Length; i++) if (u <= c[i] || i == pts.Length - 1) return Mathf.Lerp(vals[i - 1], vals[i], Mathf.InverseLerp(c[i - 1], c[i], u));
+        return vals[vals.Length - 1];
+    }
+    // 角 i（両はし以外）を半径 rad[i] で丸める（短い辺に合わせて小さくする）。corners に角の丸みのまん中の点
+    static List<RPt> Route(Vector3[] pts, float[] rad, List<Vector3> corners, float step = 0.25f)
+    {
+        int n = pts.Length; var cum = Cum(pts); var ys = pts.Select(q => q.y).ToArray();
+        var res = new List<RPt>();
+        void Add(Vector3 q, float u) { q.y = AtU(pts, ys, u); res.Add(new RPt { p = q, u = u }); }
+        Vector3 cur = Flat(pts[0]); float cu = 0f;
+        for (int i = 1; i < n; i++)
+        {
+            Vector3 a = Flat(pts[i - 1]), b = Flat(pts[i]); Vector3 d0 = (b - a).normalized;
+            float tl = 0f, r = rad[i], th = 0f; Vector3 d1 = Vector3.zero;
+            if (i < n - 1 && r > 0f)
+            {
+                d1 = (Flat(pts[i + 1]) - b).normalized;
+                th = Vector3.Angle(d0, d1) * Mathf.Deg2Rad;
+                if (th > 0.01f)
+                {
+                    tl = r * Mathf.Tan(th * 0.5f);
+                    float lim = 0.45f * Mathf.Min((b - a).magnitude, (Flat(pts[i + 1]) - b).magnitude);
+                    if (tl > lim) { tl = lim; r = tl / Mathf.Tan(th * 0.5f); }
+                }
+            }
+            Vector3 e = b - d0 * tl; float eu = cum[i] - tl;
+            int m = Mathf.Max(1, Mathf.CeilToInt((e - cur).magnitude / step));
+            for (int k = res.Count == 0 ? 0 : 1; k <= m; k++) Add(Vector3.Lerp(cur, e, k / (float)m), Mathf.Lerp(cu, eu, k / (float)m));
+            cur = e; cu = eu;
+            if (tl > 0f)
+            {
+                var perp = (d1 - d0 * Vector3.Dot(d0, d1)).normalized;   // 曲がる内側
+                var O = e + perp * r; var v0 = e - O; var t1 = b + d1 * tl;
+                float sg = Mathf.Sign(Vector3.Cross(v0, t1 - O).y);
+                int am = Mathf.Max(2, Mathf.CeilToInt(r * th / step));
+                for (int k = 1; k <= am; k++)
+                {
+                    float f = k / (float)am;
+                    Add(O + Quaternion.AngleAxis(sg * th * f * Mathf.Rad2Deg, Vector3.up) * v0, Mathf.Lerp(eu, cum[i] + tl, f));
+                }
+                var mid = O + Quaternion.AngleAxis(sg * th * 0.5f * Mathf.Rad2Deg, Vector3.up) * v0; mid.y = AtU(pts, ys, cum[i]);
+                corners.Add(mid);
+                cur = t1; cu = cum[i] + tl;
+            }
+            else if (i < n - 1) { var q = b; q.y = pts[i].y; corners.Add(q); }
+        }
+        return res;
+    }
+    // 中心線のうち q にいちばん近い点
+    static Vector3 Along(List<RPt> r, Vector3 q) { return r.OrderBy(x => (Flat(x.p - q)).sqrMagnitude).First().p; }
+    // 中心線が奥行き z を越える所の点と、進む向き（水平）
+    static void Frame(List<RPt> r, float z, out Vector3 c, out Vector3 t)
+    {
+        int i = r.FindIndex(x => x.p.z >= z); if (i < 0) i = r.Count - 1; if (i < 1) i = 1;
+        c = r[i].p; t = Flat(r[Mathf.Min(i + 1, r.Count - 1)].p - r[i - 1].p).normalized;
+    }
+
+    // 面を足していくメッシュ（面ごとに頂点を分ける＝角がくっきり。表は Cross(b-a,c-a) の向き）
+    class MB
+    {
+        public List<Vector3> v = new List<Vector3>(); public List<int>[] t = { new List<int>(), new List<int>(), new List<int>() };
+        public void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 outward, int sub)
+        {
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a) + Vector3.Cross(c - a, d - a), outward) < 0f) { var x = b; b = d; d = x; }
+            int i = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d);
+            t[sub].AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
+        }
+        public Mesh Build(string name, int subs)
+        {
+            var m = new Mesh { name = name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            m.SetVertices(v); m.subMeshCount = subs;
+            for (int s = 0; s < subs; s++) m.SetTriangles(t[s], s);
+            m.RecalculateNormals(); m.RecalculateBounds();
+            return m;
+        }
+    }
+    const string MeshDir22 = "Assets/FuwaStage2/Generated/Course2_2";
+    static Mesh SaveMesh(Mesh m)
+    {
+        if (!AssetDatabase.IsValidFolder(MeshDir22)) AssetDatabase.CreateFolder("Assets/FuwaStage2/Generated", "Course2_2");
+        string p = MeshDir22 + "/" + m.name + ".asset";
+        var old = AssetDatabase.LoadAssetAtPath<Mesh>(p);
+        if (old == null) { AssetDatabase.CreateAsset(m, p); return m; }
+        old.Clear(false); old.indexFormat = m.indexFormat;
+        old.SetVertices(m.vertices); old.subMeshCount = m.subMeshCount;
+        for (int s = 0; s < m.subMeshCount; s++) old.SetTriangles(m.GetTriangles(s), s);
+        old.normals = m.normals; old.RecalculateBounds(); EditorUtility.SetDirty(old);
+        return old;
+    }
+    static GameObject MeshObj(Transform parent, string name, Mesh vis, Mesh col, Material[] mats)
+    {
+        var g = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)); g.transform.SetParent(parent, false); g.layer = pathLayer;
+        g.GetComponent<MeshFilter>().sharedMesh = SaveMesh(vis);
+        g.GetComponent<MeshRenderer>().sharedMaterials = mats;
+        if (col != null) g.AddComponent<MeshCollider>().sharedMesh = SaveMesh(col);
+        return g;
+    }
+
+    // 帯の道：上の面と横の帯（厚み T）はシマシマ、その下に岩（少し内側）。当たりは帯の部分だけ
+    static void Ribbon(Transform parent, string name, List<RPt> r, float[] hw, Vector3[] pts)
+    {
+        const float T = 0.6f, U = 1.5f, In = 0.1f;
+        int n = r.Count;
+        var L = new Vector3[n]; var R = new Vector3[n]; var Li = new Vector3[n]; var Ri = new Vector3[n]; var side = new Vector3[n]; var s = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            var t = Flat(r[Mathf.Min(i + 1, n - 1)].p - r[Mathf.Max(i - 1, 0)].p).normalized;
+            side[i] = Vector3.Cross(Vector3.up, t).normalized;
+            float w = AtU(pts, hw, r[i].u);
+            R[i] = r[i].p + side[i] * w; L[i] = r[i].p - side[i] * w;
+            Ri[i] = r[i].p + side[i] * (w - In); Li[i] = r[i].p - side[i] * (w - In);
+            if (i > 0) s[i] = s[i - 1] + Flat(r[i].p - r[i - 1].p).magnitude;
+        }
+        var vis = new MB(); var col = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
+        for (int i = 0; i < n - 1; i++)
+        {
+            int st = Mathf.FloorToInt((s[i] + s[i + 1]) * 0.5f / StripeLen) % 2;
+            foreach (var mb in new[] { vis, col })
+            {
+                int sub = mb == vis ? st : 0;
+                mb.Quad(L[i], L[i + 1], R[i + 1], R[i], Vector3.up, sub);
+                mb.Quad(R[i], R[i + 1], R[i + 1] + dn, R[i] + dn, side[i], sub);
+                mb.Quad(L[i], L[i + 1], L[i + 1] + dn, L[i] + dn, -side[i], sub);
+            }
+            col.Quad(L[i] + dn, L[i + 1] + dn, R[i + 1] + dn, R[i] + dn, Vector3.down, 0);
+            // 岩
+            vis.Quad(Ri[i] + dn, Ri[i + 1] + dn, Ri[i + 1] + du, Ri[i] + du, side[i], 2);
+            vis.Quad(Li[i] + dn, Li[i + 1] + dn, Li[i + 1] + du, Li[i] + du, -side[i], 2);
+            vis.Quad(Li[i] + du, Li[i + 1] + du, Ri[i + 1] + du, Ri[i] + du, Vector3.down, 2);
+        }
+        // はしのふた
+        for (int e = 0; e < 2; e++)
+        {
+            int i = e == 0 ? 0 : n - 1; var o = Flat(r[e == 0 ? 0 : n - 1].p - r[e == 0 ? 1 : n - 2].p).normalized;
+            int st = e == 0 ? 0 : Mathf.FloorToInt(s[n - 1] / StripeLen) % 2;
+            vis.Quad(L[i], R[i], R[i] + dn, L[i] + dn, o, st); col.Quad(L[i], R[i], R[i] + dn, L[i] + dn, o, 0);
+            vis.Quad(Li[i] + dn, Ri[i] + dn, Ri[i] + du, Li[i] + du, o, 2);
+        }
+        MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
+    }
+
+    // 丸い踊り場（ジグザグの角）。上の面は道より PadDrop 下（道の板のはしが乗る＝同じ高さで重ならない）
+    static void Pad(Transform parent, string name, Vector3 c)
+    {
+        const float T = 0.6f, U = 1.5f; const int N = 40;
+        c.y -= PadDrop;
+        var vis = new MB(); var col = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
+        for (int k = 0; k < N; k++)
+        {
+            float a0 = k * Mathf.PI * 2f / N, a1 = (k + 1) * Mathf.PI * 2f / N;
+            var o0 = new Vector3(Mathf.Cos(a0), 0, Mathf.Sin(a0)); var o1 = new Vector3(Mathf.Cos(a1), 0, Mathf.Sin(a1));
+            var p0 = c + o0 * PadR; var p1 = c + o1 * PadR; var q0 = c + o0 * (PadR - 0.1f); var q1 = c + o1 * (PadR - 0.1f);
+            var om = (o0 + o1).normalized;
+            foreach (var mb in new[] { vis, col })
+            {
+                mb.Quad(c, c, p1, p0, Vector3.up, 0);
+                mb.Quad(p0, p1, p1 + dn, p0 + dn, om, mb == vis ? 1 : 0);
+            }
+            col.Quad(c + dn, c + dn, p1 + dn, p0 + dn, Vector3.down, 0);
+            vis.Quad(q0 + dn, q1 + dn, q1 + du, q0 + du, om, 2);
+            vis.Quad(c + du, c + du, q1 + du, q0 + du, Vector3.down, 2);
+        }
+        MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
+    }
+
+    // 火種：地面の燃えさし＋炎＋熱の範囲（かがり火と同じ FuwaHeatSource、止まる所は地面の SeedHover 上）
+    static void GroundFire(Transform parent, string name, Vector3 lp)
+    {
+        var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = lp;
+        var ember = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ember.name = "Embers"; ember.transform.SetParent(g, false);
+        ember.transform.localPosition = new Vector3(0, 0.02f, 0); ember.transform.localScale = new Vector3(1.3f, 0.02f, 1.3f);
+        Object.DestroyImmediate(ember.GetComponent<Collider>());
+        ember.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_Embers", new Color(0.35f, 0.12f, 0.08f));
+        var ps = FuwaStage2FireTest.FlamePS(g, "Flame", 0.5f, 1.4f, 0.9f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.3f, 0.08f));
+        { var em = ps.emission; em.rateOverTime = 45f; var m = ps.main; m.startSize = new ParticleSystem.MinMaxCurve(0.3f, 0.6f); }
+        var z = new GameObject("HeatZone"); z.transform.SetParent(g, false); z.transform.localPosition = new Vector3(0, 0.9f, 0); z.layer = 4;
+        var bc = z.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(2.0f, 1.8f, 2.0f);
+        var hp = new GameObject("HoverPoint").transform; hp.SetParent(g, false); hp.localPosition = new Vector3(0, SeedHover, 0);
+        var hs = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHeatSource>(z); hs.heat = heat; hs.hoverPoint = hp;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hs); FuwaStage2WaterTest.NoSync(hs);
+    }
+
+    // 追い風（ステージ1の G3_CrossRight の風の箱を写す）：c を中心に、d の向き（坂にそって上向き）へ、長さ len・幅 w
+    static void TailWind(Transform parent, string name, Vector3 c, Vector3 d, float len, float w)
+    {
+        var tmpl = Object.FindObjectsOfType<FuwaWindArea>(true).FirstOrDefault(x => x.transform.parent != null && x.transform.parent.name == "G3_CrossRight");
+        if (!tmpl) { Debug.LogWarning("[2–2] 風のお手本（G3_CrossRight）がない"); return; }
+        var zone = Object.Instantiate(tmpl.gameObject, parent, false); zone.name = name;
+        float h = 2.5f;
+        zone.transform.localRotation = Quaternion.LookRotation(d);
+        zone.transform.localPosition = c + zone.transform.localRotation * Vector3.up * (h * 0.5f - 0.3f);
+        zone.transform.localScale = new Vector3(w, h, len);
+        var so = new SerializedObject(zone.GetComponent<FuwaWindArea>());
+        so.FindProperty("localDirection").vector3Value = Vector3.forward;
+        so.FindProperty("strength").floatValue = TailWindStrength;
+        so.FindProperty("onSeconds").floatValue = 1f; so.FindProperty("offSeconds").floatValue = 0f;
+        so.FindProperty("baseLevel").floatValue = 1f; so.FindProperty("warnSeconds").floatValue = 0f;
+        so.FindProperty("gustCurve").animationCurveValue = AnimationCurve.Constant(0f, 1f, 1f);
+        var decal = zone.transform.Find("WindDecal");
+        if (decal)
+        {
+            string mp = "Assets/FuwaCourse/Generated/WindDecal/WindDecal_Course2_2_" + name + ".mat";
+            var src = decal.GetComponent<Renderer>().sharedMaterial; var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, mp); }
+            m.CopyPropertiesFromMaterial(src); m.SetVector("_WindDir", new Vector4(0, 0, 1, 0)); EditorUtility.SetDirty(m);
+            decal.GetComponent<Renderer>().sharedMaterial = m;
+            so.FindProperty("groundHighlight").objectReferenceValue = decal.GetComponent<Renderer>();
+        }
+        so.ApplyModifiedProperties();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(zone.GetComponent<FuwaWindArea>());
+    }
+
+    // 溶岩：ふわふわが入ると黒焦げ→アウト（いつも吹いている火柱あつかい＝FuwaFireJet の deadly、炎の粒なし）
+    static void LavaBurn(Transform root, string name, Vector3 lp, Vector3 size)
+    {
+        var g = new GameObject(name); g.transform.SetParent(root, false); g.transform.localPosition = lp; g.layer = 4;
+        var bc = g.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = size;
+        var j = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireJet>(g); j.heat = heat; j.deadly = true; j.period = 10f; j.onTime = 11f; j.warnTime = 0f;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j); FuwaStage2WaterTest.NoSync(j);
+    }
+
+    // 火の玉：a（溶岩の面）から b へ、てっぺんが道の 1m 上の弧
+    static void Fireball(Transform parent, string name, Vector3 a, Vector3 b, float period, float phase)
+    {
+        var g = new GameObject(name).transform; g.SetParent(parent, false);
+        var fa = new GameObject("From").transform; fa.SetParent(g, false); fa.localPosition = a;
+        var fb = new GameObject("To").transform; fb.SetParent(g, false); fb.localPosition = b;
+        var mover = new GameObject("Ball").transform; mover.SetParent(g, false); mover.localPosition = a;
+        var vis = GameObject.CreatePrimitive(PrimitiveType.Sphere); vis.name = "Visual"; vis.transform.SetParent(mover, false); vis.transform.localScale = Vector3.one * 0.8f;
+        Object.DestroyImmediate(vis.GetComponent<Collider>());
+        vis.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_Fireball", new Color(1f, 0.55f, 0.15f));
+        var trail = FuwaStage2FireTest.FlamePS(g, "Trail", 0.25f, 0.4f, 0.6f, new Color(1f, 0.75f, 0.25f), new Color(0.9f, 0.2f, 0.05f));
+        var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireball>(mover.gameObject);
+        f.heat = heat; f.ball = ballProxy; f.from = fa; f.to = fb; f.visual = vis; f.trail = trail;
+        f.arcHeight = 2.0f; f.flightTime = FireballFlight; f.period = period; f.phase = phase;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
+    }
+
+    // 火炎放射：道の中心 c の横の岩の穴（口）から、dir（岩→道）の向きへ吹く
+    static void Flamethrower(Transform parent, string name, Vector3 c, Vector3 dir, float phase)
+    {
+        // 岩は道のふちにぴったり、道の下の岩の底（2.1m 下）から 2m 上まで。口は岩の面
+        var mouth = c - dir * (PathHW + 0.05f) + Vector3.up * 0.7f;
+        var rock = Box(parent, name + "_Rock", c - dir * (PathHW + 0.67f) + Vector3.up * -0.05f, new Vector3(2.6f, 4.1f, 1.3f), rockMat, 0);
+        rock.transform.localRotation = Quaternion.LookRotation(dir);
+        FuwaStage2FireTest.Jet(parent, name, mouth, heat, phase);
+        var g = parent.Find(name); g.localRotation = Quaternion.FromToRotation(Vector3.up, dir);
+        var m = g.Find("Mouth"); Object.DestroyImmediate(m.GetComponent<Collider>()); m.localPosition = new Vector3(0, -0.15f, 0);
+        var j = g.GetComponentInChildren<FuwaFireJet>(true);
+        j.deadly = true; j.playerPush = 3f; j.playerPushUp = 1.5f; j.period = FlamePeriod; j.onTime = FlameOn;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j);
+    }
+
+    // 水たまり：まものを落とすと倒れる・燃えたふわふわは消える。2–1 と同じ水（ふわふわは浮く・人は浅瀬で遅くなる）。s は外側の向き（-1 左、+1 右）
+    static void Pond(Transform parent, string name, Vector3 c, int s)
+    {
+        float y = c.y; var g = new GameObject(name).transform; g.SetParent(parent, false);
+        // 底（道の 0.45m 下）と、外側・前後のふち（道と同じ高さ）
+        var bed = Box(g, "Bed", new Vector3(c.x, y - 0.45f - 0.3f, c.z), new Vector3(PondW, 0.6f, PondLen), rockMat, pathLayer);
+        var rimO = Box(g, "RimOut", new Vector3(c.x + s * (PondW * 0.5f - 0.25f), y - 0.3f, c.z), new Vector3(0.5f, 0.6f, PondLen), rockMat, pathLayer);
+        Box(g, "RimFront", new Vector3(c.x - s * 0.25f, y - 0.3f, c.z - PondLen * 0.5f + 0.25f), new Vector3(PondW - 0.5f, 0.6f, 0.5f), rockMat, pathLayer);
+        Box(g, "RimBack", new Vector3(c.x - s * 0.25f, y - 0.3f, c.z + PondLen * 0.5f - 0.25f), new Vector3(PondW - 0.5f, 0.6f, 0.5f), rockMat, pathLayer);
+        var under = Box(g, "Under", new Vector3(c.x, y - 0.75f - 1.0f, c.z), new Vector3(PondW - 0.1f, 1.4f, PondLen - 0.1f), rockMat, 0); Object.DestroyImmediate(under.GetComponent<Collider>());
+        float wx = PondW - 0.5f, wz = PondLen - 1f; var wc = new Vector3(c.x - s * 0.25f, y, c.z);
+        var water = new GameObject("Water"); water.transform.SetParent(g, false); water.transform.localPosition = wc + Vector3.up * (PondSurface - 0.5f); water.layer = 4;
+        var bc = water.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(wx, 1.0f, wz);
+        var surf = GameObject.CreatePrimitive(PrimitiveType.Quad); surf.name = "Surface"; surf.transform.SetParent(water.transform, false);
+        surf.transform.localPosition = Vector3.up * 0.5f; surf.transform.localRotation = Quaternion.Euler(90f, 0, 0); surf.transform.localScale = new Vector3(wx, wz, 1f);
+        Object.DestroyImmediate(surf.GetComponent<Collider>());
+        surf.GetComponent<Renderer>().sharedMaterial = FuwaCourse2_1Builder.WaterMat(0f, false);
+        var w = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaWater>(water); w.surface = surf.transform; w.heat = heat;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(w); FuwaStage2WaterTest.NoSync(w);
+        var sw = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaShallowWater>(water);
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sw); FuwaStage2WaterTest.NoSync(sw);
+    }
+
+    // ほのおのまもの：コースのまもの（FuwaEnemy、寝てない・巣にかくれない物）を写して、赤く・炎をまとわせる。突進で燃える・水で倒れる
+    static void FireMonster(Transform root, string name, Vector3 lp)
+    {
+        var src = Object.FindObjectsOfType<FuwaEnemy>(true).FirstOrDefault(e => !e.sleeping && !e.hideInNest && e.transform.root.name.StartsWith("FuwaCourse") && !e.transform.root.name.StartsWith("FuwaCourse2") && e.ball != null);
+        if (!src) { Debug.LogWarning("[2–2] まもののお手本がない"); return; }
+        // お手本の足元の道からの高さ
+        float lift = 0.5f;
+        if (Physics.Raycast(src.transform.position + Vector3.up * 0.5f, Vector3.down, out var hit, 10f, 1 << 11, QueryTriggerInteraction.Ignore)) lift = src.transform.position.y - hit.point.y;
+        var g = Object.Instantiate(src.gameObject, root, false); g.name = name;
+        g.transform.localPosition = lp + Vector3.up * lift; g.transform.localRotation = Quaternion.LookRotation(Vector3.back);
+        g.transform.localScale = src.transform.lossyScale;
+        var e = g.GetComponent<FuwaEnemy>(); e.ball = ballProxy; e.igniteHeat = heat;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(e);
+        // 赤く
+        if (e.visual)
+            foreach (var r in e.visual.GetComponentsInChildren<Renderer>(true))
+            {
+                var ms = r.sharedMaterials;
+                for (int i = 0; i < ms.Length; i++)
+                {
+                    if (!ms[i] || !ms[i].shader.name.Contains("Fur")) continue;   // 毛だけ（足元の影などはそのまま）
+                    string mp = "Assets/FuwaStage2/Materials/Stage2_2_FireMonster_" + r.name + "_" + i + ".mat";
+                    var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+                    if (!m) { m = new Material(ms[i]); AssetDatabase.CreateAsset(m, mp); }
+                    else { m.shader = ms[i].shader; m.CopyPropertiesFromMaterial(ms[i]); }
+                    foreach (var prop in new[] { "_Color", "_MainColor", "_BaseColor" }) if (m.HasProperty(prop)) m.SetColor(prop, MonsterCol);
+                    if (m.HasProperty("_TipColor")) m.SetColor("_TipColor", MonsterTipCol);
+                    EditorUtility.SetDirty(m); ms[i] = m;
+                }
+                r.sharedMaterials = ms;
+            }
+        // 炎をまとう
+        var ps = FuwaStage2FireTest.FlamePS(e.visual ? e.visual : g.transform, "BodyFlame", 0.35f, 1.2f, 0.7f, new Color(1f, 0.75f, 0.25f), new Color(1f, 0.25f, 0.05f));
+        { var em = ps.emission; em.rateOverTime = 30f; var m = ps.main; m.startSize = new ParticleSystem.MinMaxCurve(0.25f, 0.5f); }
+        // ふわふわのまもの一覧に
+        var ball = Object.FindObjectsOfType<FuwaBall>(true).FirstOrDefault();
+        if (ball)
+        {
+            var so = new SerializedObject(ball); var arr = so.FindProperty("enemies");
+            for (int k = arr.arraySize - 1; k >= 0; k--) if (arr.GetArrayElementAtIndex(k).objectReferenceValue == null) arr.DeleteArrayElementAtIndex(k);
+            arr.arraySize++; arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = e;
+            so.ApplyModifiedProperties(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ball);
+        }
     }
 
     // ---- 部品 ----

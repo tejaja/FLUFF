@@ -697,6 +697,43 @@ public class FuwaBall : UdonSharpBehaviour
         SendCustomEventDelayedSeconds(nameof(SpikePop), spikeFreezeTime);
     }
 
+    [Header("燃え尽きた時（ステージ2 ほのおのやま）")]
+    [Tooltip("黒焦げになってから弾けるまで止まる秒数")]
+    public float charFreezeTime = 0.7f;
+    [Tooltip("黒焦げの色（毛の根元・先）")]
+    public Color charColor = new Color(0.07f, 0.05f, 0.05f, 1f), charTipColor = new Color(0.22f, 0.17f, 0.15f, 1f);
+    [Tooltip("「ぷすっ」の音（なくてもOK）")]
+    public AudioSource sfxChar;
+    private bool _charred;
+    private Color _preColor, _preTip;
+
+    // 燃え尽き・火炎放射から呼ばれる（2026-10-29 てじゃ「黒焦げになって一瞬停止してからアウト」）：黒くなって止まってから、弾けてアウト
+    public void FailByBurn()
+    {
+        if (_waiting || _finished || _resetAt > 0f || _spiking || _hidden) return;
+        _spiking = true;
+        PlaySfx(sfxChar);
+        _rb.velocity = Vector3.zero;
+        _rb.angularVelocity = Vector3.zero;
+        _rb.isKinematic = true;
+        _glowUntil = 0f; _glowLongUntil = 0f;
+        SetCharred(true);
+        SendCustomEventDelayedSeconds(nameof(SpikePop), charFreezeTime);
+    }
+    public bool IsCharring() { return _charred && _spiking; }
+
+    private void SetCharred(bool on)
+    {
+        if (_furMat == null || on == _charred) return;
+        if (on)
+        {
+            _preColor = _furMat.GetColor("_Color"); _preTip = _furMat.GetColor("_TipColor");
+            _furMat.SetColor("_Color", charColor); _furMat.SetColor("_TipColor", charTipColor);
+        }
+        else { _furMat.SetColor("_Color", _preColor); _furMat.SetColor("_TipColor", _preTip); }
+        _charred = on;
+    }
+
     public void SpikePop()
     {
         if (!_spiking) return;
@@ -1109,6 +1146,7 @@ public class FuwaBall : UdonSharpBehaviour
         _carried = false;
         _resetAt = -1f;
         _spiking = false;
+        SetCharred(false);
         _goalZone = null;
         _stuck = false;
         _glowUntil = 0f;

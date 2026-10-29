@@ -28,6 +28,8 @@ public class FuwaWater : UdonSharpBehaviour
 
     [Header("落ちた時の「ちゃぽん」（ステージ2で1つの FuwaWaterFx。なくてもOK）")]
     public FuwaWaterFx fx;
+    [Tooltip("ほのおのやま（2–2）の水たまり：燃えているふわふわが入ると消える（なくてもOK）")]
+    public FuwaHeat heat;
     [Tooltip("この速さ(m/s)以上で下向きに入った時だけ鳴らす")]
     public float splashMinSpeed = 0.15f;
 
@@ -62,6 +64,7 @@ public class FuwaWater : UdonSharpBehaviour
         if (other == null) return;
         FuwaBall ball = other.GetComponent<FuwaBall>();
         if (ball == null) return;
+        if (heat != null && (heat.IsBurning() || heat.IsHovering())) heat.Douse();
         float r = 0.3f;
         SphereCollider sc = other.GetComponent<SphereCollider>();
         if (sc != null) r = sc.radius * other.transform.lossyScale.x;

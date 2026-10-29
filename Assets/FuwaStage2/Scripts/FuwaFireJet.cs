@@ -17,7 +17,13 @@ public class FuwaFireJet : UdonSharpBehaviour
     public ParticleSystem warn;
     public float flameRate = 80f, warnRate = 25f;
     public AudioSource roar;
+    [Header("火炎放射（2026-10-29 てじゃの 2–2「横の岩の穴から吹き出す、当たるとアウト、人はちょっと吹っ飛ぶ」）")]
+    [Tooltip("当たったふわふわは黒焦げ→アウト（温めて浮かせるのではなく）")]
+    public bool deadly = false;
+    [Tooltip("吹いている間に入った人を、炎の向き（このトリガーの上向き）へ吹っ飛ばす（0なら何もしない）")]
+    public float playerPush = 0f, playerPushUp = 1.5f;
     private bool _wasOn;
+    private float _pushedAt = -10f;
 
     public bool IsOn() { return T() < onTime; }
     private float T()
@@ -33,12 +39,37 @@ public class FuwaFireJet : UdonSharpBehaviour
         if (warn != null) { var e = warn.emission; e.rateOverTime = w ? warnRate : 0f; }
         if (on && !_wasOn && roar != null && roar.clip != null) roar.PlayOneShot(roar.clip);
         _wasOn = on;
+        if (on) PushPlayer();
     }
 
     private void OnTriggerStay(Collider other)
     {
         if (heat == null || other == null || !IsOn()) return;
         if (other.GetComponent<FuwaBall>() == null) return;
+        if (deadly) { heat.BurnOut(); return; }
         if (hoverPoint != null) heat.HeatAt(hoverPoint.position); else heat.Heat();
+    }
+
+    // 人：トリガーの通知でなく毎フレーム位置で見る（レイヤーによっては人の通知が来ないので）
+    private BoxCollider _box;
+    private void PushPlayer()
+    {
+        if (playerPush <= 0f || Time.time - _pushedAt < 0.6f) return;
+        VRC.SDKBase.VRCPlayerApi lp = VRC.SDKBase.Networking.LocalPlayer;
+        if (lp == null) return;
+        if (_box == null) _box = GetComponent<BoxCollider>();
+        if (_box == null) return;
+        Vector3 f = lp.GetPosition();
+        bool inside = false;
+        for (int k = 0; k < 3 && !inside; k++)
+        {
+            Vector3 q = transform.InverseTransformPoint(f + Vector3.up * (0.2f + 0.6f * k)) - _box.center;
+            Vector3 e = _box.size * 0.5f;
+            inside = Mathf.Abs(q.x) < e.x && Mathf.Abs(q.y) < e.y && Mathf.Abs(q.z) < e.z;
+        }
+        if (!inside) return;
+        _pushedAt = Time.time;
+        Vector3 d = transform.up; d.y = 0f; d = d.sqrMagnitude > 0.0001f ? d.normalized : Vector3.zero;
+        lp.SetVelocity(d * playerPush + Vector3.up * playerPushUp);
     }
 }

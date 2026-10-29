@@ -7,6 +7,7 @@ using UnityEngine;
 // → 浮いて止まっている間に、向きを変えたり（曲がり角）タイミングを見て撃つ遊び。温まっている間はオレンジに光る。
 // てじゃ「あまりに長時間浮かせてると燃えるとかもおもろい、厳しすぎずに」「燃えてもすぐショットすれば消える」
 // → burnAfter 秒浮いていると燃えだす（赤く点滅＋炎）。燃えたまま飛んでいく。burnGrace 秒以内に撃って消す（ためなし3回／半分ため2回／フルため1回）、消せないと燃え尽きてアウト
+// 2026-10-29：燃え尽きたら黒焦げ→一瞬止まる→アウト（FuwaBall.FailByBurn）。火の玉・ほのおのまもの（Ignite）、水（Douse）、火炎放射（BurnOut）
 // 1つだけ置いて、かがり火から Heat() を呼ぶ
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaHeat : UdonSharpBehaviour
@@ -56,6 +57,42 @@ public class FuwaHeat : UdonSharpBehaviour
         _anchor = anchor;
     }
     public bool IsHovering() { return _hover; }
+
+    // 火の玉・ほのおのまものに当たった：浮かずに、すぐ燃えだす（撃てば消える。2026-10-29 てじゃの 2–2 の流れ）
+    public void Ignite()
+    {
+        if (ball == null || _burning || ball.IsWaitingOrHidden()) return;
+        StartBurn(ball.transform.position);
+    }
+    // 水に入った：燃えていたら消える（浮いているのもおしまい）
+    public void Douse()
+    {
+        _hover = false;
+        if (_burning) { StopBurn(); if (ball != null) ball.Glow(new Color(0.85f, 0.9f, 1f), Vector3.up, 1f, 0.3f); }
+    }
+    // 火炎放射に当たった：その場で黒焦げ→アウト
+    public void BurnOut()
+    {
+        if (ball == null || ball.IsWaitingOrHidden()) return;
+        _hover = false; StopBurn();
+        CharFx();
+        ball.FailByBurn();
+    }
+    private float _charUntil;
+    private void CharFx()
+    {
+        // 黒焦げの間は、黒い煙っぽく少しだけ炎を残す
+        if (burnFx == null || ball == null) return;
+        _charUntil = Time.time + ball.charFreezeTime + 0.2f;
+        var e = burnFx.emission; e.rateOverTime = 15f;
+        burnFx.transform.position = ball.transform.position;
+    }
+    private void StartBurn(Vector3 p)
+    {
+        _burning = true; _burnAt = Time.time; _douse = 0f;
+        if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = 40f; burnFx.transform.position = p; }
+        if (burnSound != null && burnSound.clip != null) burnSound.PlayOneShot(burnSound.clip);
+    }
     public bool IsBurning() { return _burning; }
 
     private void StopBurn()
@@ -66,7 +103,8 @@ public class FuwaHeat : UdonSharpBehaviour
 
     private void Update()
     {
-        if (burnFx != null && _burning && ball != null) burnFx.transform.position = ball.transform.position;
+        if (burnFx != null && (_burning || _charUntil > 0f) && ball != null) burnFx.transform.position = ball.transform.position;
+        if (_charUntil > 0f && Time.time > _charUntil) { _charUntil = 0f; if (!_burning && burnFx != null) { var e = burnFx.emission; e.rateOverTime = 0f; } }
     }
 
     // 溜め具合 → 消す量（0＝ためなし douseTap、0.5＝douseHalf、1＝1）
@@ -94,7 +132,7 @@ public class FuwaHeat : UdonSharpBehaviour
                 _douse += DouseOf(ball.LastShotCharge());
                 if (_douse >= 0.999f) { StopBurn(); ball.Glow(new Color(0.85f, 0.9f, 1f), Vector3.up, 1f, 0.3f); }
             }
-            if (_burning && Time.time - _burnAt > burnGrace) { _hover = false; StopBurn(); ball.Fail(); return; }
+            if (_burning && Time.time - _burnAt > burnGrace) { _hover = false; StopBurn(); CharFx(); ball.FailByBurn(); return; }
         }
 
         if (_hover)
@@ -106,12 +144,7 @@ public class FuwaHeat : UdonSharpBehaviour
         if (_hover)
         {
             float age = Time.time - _heatAt;
-            if (age > burnAfter && !_burning)
-            {
-                _burning = true; _burnAt = Time.time; _douse = 0f;
-                if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = 40f; burnFx.transform.position = p; }
-                if (burnSound != null && burnSound.clip != null) burnSound.PlayOneShot(burnSound.clip);
-            }
+            if (age > burnAfter && !_burning) StartBurn(p);
             Vector3 v = ball.GetVelocity();
             float ty = _anchor.y + Mathf.Sin(age * Mathf.PI * 2f / Mathf.Max(0.1f, bobPeriod)) * bobAmp;
             float ay = ball.GetFallAcceleration() + (ty - p.y) * spring - v.y * damping;

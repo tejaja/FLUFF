@@ -5102,7 +5102,7 @@ public static class FuwaCourse2_1Builder
     // 帯の水面（_Ribbon=1）は流れの速さごとに1つ。四角い板の水面（滝つぼ）は水のテスト場と同じ材質
     // 深い水（人は落ちたらアウト）は濃い色（2026-10-19 てじゃ「アウトのエリアの色を濃くしよう」）
     public static Color DeepCenter = new Color(0.07f, 0.30f, 0.62f), DeepEdge = new Color(0.20f, 0.50f, 0.80f);
-    static Material WaterMat(float flowSpeed, bool ribbon, bool deep = false)
+    internal static Material WaterMat(float flowSpeed, bool ribbon, bool deep = false)
     {
         string p = "Assets/FuwaStage2/Materials/Stage2_Water" + (ribbon ? "Ribbon_" : "_") + (deep ? "Deep_" : "") + (flowSpeed > 0.001f ? "Flow" + flowSpeed.ToString("0.0") : "Still") + ".mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(p);
