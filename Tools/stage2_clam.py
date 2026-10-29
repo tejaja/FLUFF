@@ -14,7 +14,7 @@ H_TOP, H_BOT = 0.20, 0.22
 THICK = 0.035
 N_TH, N_R, N_RI = 72, 9, 6
 EAR = []   # 耳（ホタテ用。シャコガイはなし）
-PEARL_R, PEARL_AT = 0.085, 0.42
+PEARL_R, PEARL_AT = 0.15, 0.42   # てじゃ「玉大きくしよう」0.085→0.15
 sc = bpy.data.scenes.get("Stage2Clam") or bpy.data.scenes.new("Stage2Clam")
 bpy.context.window.scene = sc
 
