@@ -39,12 +39,18 @@ public class FuwaFireball : UdonSharpBehaviour
             if (sc != null) _ballRadius = sc.radius * ball.transform.lossyScale.x;
         }
         Show(false);
+        // 実機での確かめ用（2026-10-29 VRChat でだけ溶岩の下を飛んだ）
+        if (from != null && to != null) Debug.Log("[FuwaFireball] " + gameObject.transform.parent.name + " from " + from.position + " to " + to.position + " sec " + Networking.GetServerTimeInSeconds() + " ms " + Networking.GetServerTimeInMilliseconds());
     }
 
+    // 周期の中の今の時刻（秒）。サーバー時刻の整数ミリ秒で割り算する（2026-10-29 VRChat でだけ火炎放射が止まらない・火の玉が変な所を飛んだ：
+    // 秒の double にずらしを足して割る方式だと実機で狂った。FuwaWhirlwind と同じミリ秒の方式に）
     private float T()
     {
-        double t = Networking.GetServerTimeInSeconds() + phase;
-        return (float)(t % period);
+        int per = Mathf.Max(1, Mathf.RoundToInt(period * 1000f));
+        int ms = (VRC.SDKBase.Networking.GetServerTimeInMilliseconds() + Mathf.RoundToInt(phase * 1000f)) % per;
+        if (ms < 0) ms += per;
+        return ms / 1000f;
     }
 
     private Vector3 At(float u)
