@@ -543,7 +543,7 @@ public static class FuwaCourse2_2Builder
         { var m = trail.main; m.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.9f); }
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireball>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail;
-        f.arcHeight = LavaDepth + FireballTop; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 3.2f; f.ballKnockUp = 1.5f;
+        f.arcHeight = LavaDepth + FireballTop; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 3.2f; f.ballKnockUp = 1.5f; f.playerKnock = 6f; f.playerKnockUp = 4.5f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
     // 穴の中の溶岩の面（丸い板）
