@@ -6,7 +6,7 @@ using UnityEngine;
 // ステージ2 コース2–2「ほのおのやま」ブロックアウト（2026-10-29 てじゃ「試しに作ってみよう」→ 試して「しっくりこない、ちゃんとプロット決める」→ てじゃの流れで作り直し）。
 // 熱のしくみ（FuwaHeat）：火を通るとふわふわが火の決まった所で止まって浮く／浮きすぎると燃える→撃って消す／燃え尽きると黒焦げ→一瞬止まってアウト。
 // 流れ（ロビーの Slot1 方向に放射状、+Z が進む向き。y=0 がスタートの島の地面）：
-//  ① スタート → くねくねの細い上り坂。角の地面に火種2つ（1つ目は撃って当たる、2つ目は坂の噴気孔の熱風で運ばれて乗る→待つと燃える→撃って消す、を体験）
+//  ① スタート → くねくねの細い上り坂。角の地面に火種2つ（1つ目は撃って当たる、2つ目は坂の入口の噴気孔に斜めに吹っ飛ばされて乗る→待つと燃える→撃って消す、を体験）
 //  ② 両脇に溶岩溜まりのある直線（ゆるく曲がる）。溶岩溜まりから火の玉が道を飛び越える（決まったタイミング、4か所でだんだん難しく）。当たると燃えて吹っ飛ぶ、人はちょっと吹っ飛ぶ
 //  ③ 鋭角のグネグネ（登り）：丸い踊り場の火種で止めて切り返す ×3
 //  ④ ほのおのまもの：ふつうのまものと同じ、体当たりで燃える。両脇の水たまりに落とすと倒せる（燃えたふわふわは水で消える）
@@ -21,6 +21,7 @@ public static class FuwaCourse2_2Builder
     public static float NarrowHW = 1.0f;                       // ① の細い坂の幅の半分
     public static float SeedHover = 1.3f;                      // 火種の止まる所（地面から）
     public static float TailWindStrength = 3.5f;
+    public static float VentAt = 2.4f, VentFwd = 6f, VentUp = 3.5f;   // 噴気孔：長い坂の角からの距離、打ち出しの水平・上の速さ（8.4m 先で）
     public static float LavaW = 16f, FireballReach = 5.5f, FireballFlight = 1.3f;
     public static float PadR = 3.4f, PadIn = 2.8f, PadDrop = 0.03f, ZigLeg = 10f, ZigRise = 1.1f;   // 踊り場の半径・板のはしが踊り場に入る深さ（60° の板どうしが踊り場の外で重ならない）
     public static float ArenaHW = 3f, ArenaLen = 16f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
@@ -87,13 +88,11 @@ public static class FuwaCourse2_2Builder
         // 火種1・2：角の丸みのまん中（corners12 は角ごと、[0] は橋の先のちょっとした角）
         GroundFire(fire, "Seed1", corners12[1]);
         GroundFire(fire, "Seed2", corners12[3]);
-        // 噴気孔の熱風：左ななめ上の坂（角の丸みのおわり → 火種2 の 1m 手前まで）。地面の割れ目から湯気が坂の上へ流れ、風も坂にそって吹き上げる
-        // （2026-10-29 てじゃ「中間だけ風あるのも不自然」→ 噴気孔に）
+        // 噴気孔：左ななめ上の長い坂の入口に1つ。ぶわーっと斜め上に吹き出していて、乗ったふわふわを火種2へ斜めに吹っ飛ばす（FuwaLaunchPad）
+        // （2026-10-29 てじゃ「中間だけ風あるのも不自然」→ 割れ目＋熱風 →「やっぱへん、ぶわーっと一個吹き出してるのを置いて斜めに吹っ飛ばす」）
         {
-            Vector3 a = Along(r12, pts12[3] + (pts12[4] - pts12[3]).normalized * 2.2f), b = corners12[3];
-            Vector3 d = (b - a); float len = d.magnitude - 1.0f; d.Normalize();
-            TailWind(path, "VentWind", a + d * len * 0.5f, d, len, NarrowHW * 2f + 0.4f);
-            for (int k = 0; k < 3; k++) Vent(fire, "Vent" + k, Along(r12, a + d * len * (0.08f + 0.36f * k)), d);
+            var at = Along(r12, pts12[3] + (pts12[4] - pts12[3]).normalized * VentAt);
+            BlastVent(fire, "Vent", at, corners12[3] + Vector3.up * 0.4f);
         }
         // ② 溶岩溜まり：直線の両脇（道の 1m 下が溶岩の面）。落ちたら黒焦げ→アウト
         float lz0 = z0 + 28.5f, lz1 = z0 + 60f;
@@ -414,28 +413,43 @@ public static class FuwaCourse2_2Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(zone.GetComponent<FuwaWindArea>());
     }
 
-    // 噴気孔：道を横切る地面の割れ目（黒い細い板、道の面から少し出る）＋ 坂の上（d）へ流れる湯気
-    static void Vent(Transform parent, string name, Vector3 at, Vector3 d)
+    // 噴気孔：道の面の黒い穴＋光るふち＋斜め上へ吹き出す湯気。ふわふわが入ると target（火種の上）へ斜めに打ち出す。
+    // 飛び方（重力 1.5・空気抵抗：打ち出しから 1 秒は 0.3、そのあと 1.2）を計算して、8.4m 先・1.6m 上の火種の熱の範囲の 0.8〜1.4m の高さを通る速さ（水平 6・上 3.5）。距離に合わせて水平の速さを伸ばす
+    static void BlastVent(Transform parent, string name, Vector3 at, Vector3 target)
     {
+        var d = Flat(target - at); float dist = d.magnitude; d /= Mathf.Max(0.01f, dist);
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = at; g.localRotation = Quaternion.LookRotation(d);
-        var crack = Box(g, "Crack", new Vector3(0, 0.01f, 0), new Vector3(NarrowHW * 1.6f, 0.04f, 0.22f), FuwaStage2WaterTest.ToonMat("Stage2_2_Crack", new Color(0.18f, 0.08f, 0.07f)), 0);
-        Object.DestroyImmediate(crack.GetComponent<Collider>());
-        var glow = Box(g, "Glow", new Vector3(0, 0.025f, 0), new Vector3(NarrowHW * 1.3f, 0.04f, 0.08f), FuwaStage2WaterTest.ToonMat("Stage2_2_CrackGlow", new Color(1f, 0.45f, 0.12f)), 0);
-        Object.DestroyImmediate(glow.GetComponent<Collider>());
+        var hole = GameObject.CreatePrimitive(PrimitiveType.Cylinder); hole.name = "Hole"; hole.transform.SetParent(g, false);
+        hole.transform.localPosition = new Vector3(0, 0.02f, 0); hole.transform.localScale = new Vector3(1.5f, 0.02f, 1.5f);
+        Object.DestroyImmediate(hole.GetComponent<Collider>());
+        hole.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_Crack", new Color(0.18f, 0.08f, 0.07f));
+        var rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder); rim.name = "Glow"; rim.transform.SetParent(g, false);
+        rim.transform.localPosition = new Vector3(0, 0.035f, 0); rim.transform.localScale = new Vector3(0.9f, 0.02f, 0.9f);
+        Object.DestroyImmediate(rim.GetComponent<Collider>());
+        rim.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_CrackGlow", new Color(1f, 0.45f, 0.12f));
+        Vector3 launch = new Vector3(0, VentUp, VentFwd * dist / 8.4f);
+        // 湯気（打ち出す向きへ）
         var fo = new GameObject("Steam"); fo.transform.SetParent(g, false); fo.transform.localPosition = new Vector3(0, 0.05f, 0);
+        fo.transform.localRotation = Quaternion.LookRotation(launch.normalized);
         var ps = fo.AddComponent<ParticleSystem>();
-        var main = ps.main; main.startLifetime = 1.8f; main.startSpeed = 0f; main.startSize = new ParticleSystem.MinMaxCurve(0.4f, 0.9f);
-        main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.95f, 0.9f, 0.5f), new Color(1f, 0.8f, 0.65f, 0.35f));
-        main.maxParticles = 100; main.simulationSpace = ParticleSystemSimulationSpace.Local;
-        var em = ps.emission; em.rateOverTime = 22f;
-        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(NarrowHW * 1.5f, 0.02f, 0.15f);
-        var vel = ps.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.Local;
-        vel.x = new ParticleSystem.MinMaxCurve(0f); vel.y = new ParticleSystem.MinMaxCurve(0.5f, 0.9f); vel.z = new ParticleSystem.MinMaxCurve(1.6f, 2.4f);
+        var main = ps.main; main.startLifetime = 1.1f; main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 6f); main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 1.0f);
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.97f, 0.92f, 0.7f), new Color(1f, 0.82f, 0.65f, 0.5f));
+        main.maxParticles = 200; main.simulationSpace = ParticleSystemSimulationSpace.World; main.gravityModifier = -0.05f;
+        var em = ps.emission; em.rateOverTime = 70f;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.35f;
+        var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 1.2f; lim.dampen = 0.08f;
         var col = ps.colorOverLifetime; col.enabled = true;
-        var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.6f, 0.15f), new GradientAlphaKey(0f, 1f) });
+        var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0.5f, 0.4f), new GradientAlphaKey(0f, 1f) });
         col.color = gr;
-        var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.6f), new Keyframe(1, 1.6f)));
+        var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.5f), new Keyframe(1, 2.2f)));
         fo.GetComponent<ParticleSystemRenderer>().sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        ps.Play();
+        // 打ち出し
+        var z = new GameObject("Blast"); z.transform.SetParent(g, false); z.transform.localPosition = new Vector3(0, 0.7f, 0); z.layer = 4;
+        var bc = z.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(NarrowHW * 2f, 1.4f, 1.4f);
+        var lp = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLaunchPad>(z);
+        lp.localDirection = launch; lp.speed = launch.magnitude; lp.cooldown = 1f; lp.flightSeconds = 1f; lp.flightDrag = 0.3f;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lp); FuwaStage2WaterTest.NoSync(lp);
     }
 
     // 溶岩：ふわふわが入ると黒焦げ→アウト（いつも吹いている火柱あつかい＝FuwaFireJet の deadly、炎の粒なし）
