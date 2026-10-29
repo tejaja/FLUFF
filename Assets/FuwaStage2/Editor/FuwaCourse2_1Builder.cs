@@ -2710,7 +2710,7 @@ public static class FuwaCourse2_1Builder
     //（前の案：滝の上の浮いた岩は、てじゃ「なんかちゃうな」）
     // 2026-10-28 てじゃ「もっと岩の柱を奥側まで太くしよう、滝裏の水の部分まで全部柱でもいい」：柱は幕のまん中から、水路の上流のはし（奥のふちの岩）まで。
     // 断面は中心線にそった（s, 横）の超楕円で、内側の面は道のふち＋OverFallsGap にそわせる（えぐれが戻る所で道に食い込まないように。道とのあいだは水のすき間）
-    public static float PillarSide = 0.25f, PillarAbove = 0.0f, PillarBelow = 2.4f, PillarNoise = 0.12f, PillarBackPad = 0.1f, PillarBowl = 0.5f;
+    public static float PillarSide = 0.55f, PillarAbove = 0.0f, PillarBelow = 2.4f, PillarNoise = 0.12f, PillarBackPad = 0.1f, PillarBowl = 0.5f;
     // 柱のてっぺんの水たまりから幕へ（2026-10-28 てじゃ「滝の上の部分をうまいこと上の池に綺麗につなごう」）：てっぺんの手前（幕の側）のふちを
     // 水たまりの水面の下まで下げて、水たまりの水がふちをこえてまるくこぼれ、幕の手前の面の PillarLipGap 前を下まで落ちる膜（PillarLip）にする。
     // 幕の上は柱のてっぺんより PillarLipDrop 下（膜の曲がる所の後ろに隠れる）
@@ -2724,6 +2724,9 @@ public static class FuwaCourse2_1Builder
     // ・手前の面は切り欠きの幅の中だけ滝の裏にそって削る。両わきは岩の「ほお」が滝のはしより前に出てはしを隠す
     const string PillarModel = "Assets/FuwaStage2/Models/Stage2_FallsPillars.fbx", PillarJsonDir = "D:/UnityProject/FLUFF/Tools";
     public static float PillarFaceIn = -0.15f, PillarNotchRound = 0.25f;   // 落ち口の下の岩の面（落ち口の線からの奥行き。膜は -0.18〜-0.35 を落ちる）
+    // 2026-10-29 てじゃ「滝が細くなったから風に煽られて滝にあたるというより岩の柱に当たる」：落ち口（見える滝）は押す範囲（幕）いっぱい＋片側 PillarNotchOver。
+    // そのぶん柱を外へ PillarSide 太らせ、道の側は えぐれのふちから PillarInnerGap（前は OverFallsGap 0.4 の水があいていた）
+    public static float PillarNotchOver = 0.12f, PillarInnerGap = -0.03f;
     public static float PillarFrontReach = 1.4f, PillarNotchSide = 0.5f, PillarCheekOut = 0.45f, PillarPoolFront = 0.3f, PillarNotchFloor = 0.15f;
     static void FallsPillar(Transform set, int i, float sc, float o, float width, float top, float surf, Vector2 fc, Vector2 fd)
     {
@@ -2733,7 +2736,7 @@ public static class FuwaCourse2_1Builder
         float sA = sc - fb * 0.3f + 0.15f;
         float sB = FallsFlowBack ? c1 + RimW + PillarBackPad : c0 - RimW - PillarBackPad;
         float outerL = RoadHW + ChanHW * 2f + PillarSide;
-        float Inner(float s) { return RoadHW - Cut(s, o) + OverFallsGap; }
+        float Inner(float s) { return RoadHW - Cut(s, o) + PillarInnerGap; }
         var lfr = Right(fd);
         const float LipIn = 0.35f;
         // 膜の断面（落ち口から奥へ x、上へ y）。ほかの滝と同じ形
@@ -2828,6 +2831,10 @@ public static class FuwaCourse2_1Builder
             for (int k = 0; k < nAround; k++) { var q = PU[nRing - 1, k]; if (FrontW(PZ[k]) < 0.95f || Mathf.Abs(q.y - vF) > 0.06f) continue; lo = Mathf.Min(lo, q.x); hi = Mathf.Max(hi, q.x); }
             if (lo > hi) { lo = -1f; hi = 1f; }
             un = (lo + hi) * 0.5f; hw = Mathf.Max(0.5f, (hi - lo) * 0.5f - PillarNotchSide);
+            // 押す範囲＋片側 PillarNotchOver にそろえる（手前の面の外へは出さない：ほおは最低 PillarRimW）
+            var bxc = UV(fc); float bl = Mathf.Max(bxc.x - width * 0.5f - PillarNotchOver, lo + PillarRimW), br = Mathf.Min(bxc.x + width * 0.5f + PillarNotchOver, hi - PillarRimW);
+            un = (bl + br) * 0.5f; hw = (br - bl) * 0.5f;   // 広すぎても押す範囲の外を通る滝に見えるので、押す範囲にそろえる
+            Debug.Log($"[2–1 柱{i}] 手前の面 {lo:F2}〜{hi:F2}  押す範囲 {bxc.x - width * 0.5f:F2}〜{bxc.x + width * 0.5f:F2}  落ち口 {un - hw:F2}〜{un + hw:F2}");
         }
         // 内の輪（池のふち）：外の輪から直角に PillarRimW。切り欠きの中は v＝PillarNotchFloor、外は池の手前の壁 PillarPoolFront より奥。
         // 外の輪の外へ出た所・ふちが PillarRimW×0.85 より細い所は、まん中へ寄せる（ななめの鋭い角でふちが細くなった・裏返った）
@@ -2880,6 +2887,7 @@ public static class FuwaCourse2_1Builder
             }
             float a0 = Mathf.Max(un - hw, pL + 0.08f), a1 = Mathf.Min(un + hw, pR - 0.08f);
             if (a1 - a0 > 1f) { un = (a0 + a1) * 0.5f; hw = (a1 - a0) * 0.5f; }
+            Debug.Log($"[2–1 柱{i}] 池の壁で {pL:F2}〜{pR:F2} → 落ち口 {un - hw:F2}〜{un + hw:F2}");
         }
         // 切り欠きの幅の中の手前の面は、滝の裏の PillarLipGap 奥まで削る
         for (int j = 0; j < nRing; j++)
