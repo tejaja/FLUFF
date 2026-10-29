@@ -1950,18 +1950,23 @@ public static class FuwaCourse2_1Builder
                     var w = root.TransformPoint(new Vector3(q2.x, h, q2.y));
                     // 水路・滝・岩にかかる所（2026-10-29 てじゃ「手前の川に浸かってるやつどうにかして」：3連滝の手前のキノコが水路の終わりの滝に乗っていた）は、
                     // かからない一番近い所（外へ・道ぞいに前後）を探す。水路の横なら水路のふちの外（てじゃ「川の右側でいい」）。浮島はなし（てじゃ「きのこに浮島いらん」）
-                    if (CpBlocked(w, cp.transform))
+                    // てじゃ「もうちょい道とか川ぎりぎりに寄せといて」：道のふちから外へ探して、道・水路のふちに CpGap まで寄せる
+                    // 足あとは丸太の当たりの箱（LogCollider）。群れ全体の箱だと丸太の角があいていて、道から 0.5m 離れた
+                    var logC = cl.GetComponentInChildren<BoxCollider>(true);
+                    var crot = logC ? logC.transform.rotation : cl.rotation;
+                    var chalf = logC ? Vector3.Scale(logC.size, logC.transform.lossyScale) * 0.5f : CpLogHalf;
+                    chalf.y = CpLogHalf.y; Physics.SyncTransforms();
                     {
                         float bestCost = float.MaxValue; var bestW = w;
-                        for (float dOut = 0f; dOut <= 3.01f; dOut += 0.25f)
-                            for (float ds = -3f; ds <= 3.01f; ds += 0.25f)
+                        for (float dOut = -CpOut; dOut <= 3.01f; dOut += 0.05f)
+                            for (float ds = -3f; ds <= 3.01f; ds += 0.1f)
                             {
-                                float cost = dOut + Mathf.Abs(ds); if (cost >= bestCost) continue;
+                                float cost = dOut + Mathf.Abs(ds) * 1.5f; if (cost >= bestCost) continue;
                                 float sc3 = sc2 + ds; if (mushMaxS != null && i < mushMaxS.Length && sc3 > mushMaxS[i]) continue;
                                 Center(sc3, out var p3, out var d3);
                                 var q3 = p3 + Right(d3) * (latF(sc3) + sx * ((sx > 0 ? hwR : hwL) + CpOut + dOut));
                                 var w3 = root.TransformPoint(new Vector3(q3.x, h, q3.y));
-                                if (!CpBlocked(w3, cp.transform)) { bestCost = cost; bestW = w3; }
+                                if (!CpBlocked(w3, crot, chalf, cp.transform)) { bestCost = cost; bestW = w3; }
                             }
                         if (bestCost == float.MaxValue) Debug.LogWarning($"[2–1] {cp.name}/{cl.name} のキノコの置き場所が見つからない");
                         w = bestW;
@@ -3357,16 +3362,18 @@ public static class FuwaCourse2_1Builder
             }
         }
     }
-    // キノコの群れ（丸太＋キノコ）が水路・滝・岩・ほかの浮島にかかるか（下は 1.2m まで見る＝水路の水の上も×）。道の面（PathMesh・RoadBase）と、判定・風・アウトの箱は数えない
-    public static float CpClusterR = 0.85f;
-    static bool CpBlocked(Vector3 w, Transform self)
+    // キノコの群れ（丸太＋キノコ）が道・水路・滝・岩・ほかの浮島にかかるか（丸太の底から上）。判定・風・アウトの箱は数えない。呼ぶ前に Physics.SyncTransforms
+    // 丸太の足あと（丸太の当たりの箱の向き・大きさ＋すき間 CpGap）で見る。CpLogHalf は当たりがない時の代わり
+    public static Vector3 CpLogHalf = new Vector3(0.83f, 1.4f, 0.67f);   // 高さは 丸太の底（道の0.8m下）〜2m上。下の土台は下ほど外へ広がっているので見ない（見ると道から離れた）
+    public static float CpGap = 0.06f;
+    static bool CpBlocked(Vector3 w, Quaternion rot, Vector3 half, Transform self)
     {
-        Physics.SyncTransforms();
-        foreach (var c in Physics.OverlapBox(w + Vector3.up * 0.4f, new Vector3(CpClusterR, 1.6f, CpClusterR), Quaternion.identity, ~0, QueryTriggerInteraction.Collide))
+        var he = half + new Vector3(CpGap, 0f, CpGap);
+        foreach (var c in Physics.OverlapBox(w + Vector3.up * 0.6f, he, rot, ~0, QueryTriggerInteraction.Collide))
         {
             if (c.transform.IsChildOf(self)) continue;
             string n = c.name;
-            if (n == "PathMesh" || n == "RoadBase" || n.Contains("FallCatcher")) continue;
+            if (n.Contains("FallCatcher")) continue;
             if (c.GetComponentInParent<FuwaWindArea>() || c.GetComponent<FuwaHazard>() || c.GetComponent<FuwaPlayerCatcher>() || c.GetComponentInParent<FuwaCheckpoint>() || c.GetComponentInParent<FuwaWindDeco>()) continue;
             return true;
         }
@@ -3386,7 +3393,9 @@ public static class FuwaCourse2_1Builder
                 }
             }
         }
-        var cb = new Bounds(w + Vector3.up * 0.4f, new Vector3(CpClusterR, 1.6f, CpClusterR) * 2f);
+        var cb = new Bounds(w + Vector3.up * 0.6f, Vector3.zero);
+        foreach (var sx in new[] { -1f, 1f }) foreach (var sz in new[] { -1f, 1f }) cb.Encapsulate(w + Vector3.up * 0.6f + rot * new Vector3(sx * he.x, 0f, sz * he.z));
+        cb.Expand(new Vector3(0f, he.y * 2f, 0f));
         foreach (var tb in cpNoColTris) if (tb.Intersects(cb)) return true;
         return false;
     }
