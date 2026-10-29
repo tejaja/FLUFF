@@ -22,7 +22,7 @@ public static class FuwaCourse2_2Builder
     public static float SeedHover = 1.3f;                      // 火種の止まる所（地面から）
     public static float TailWindStrength = 3.5f;
     public static float VentAt = 2.4f, VentFwd = 6f, VentUp = 3.5f;   // 噴気孔：長い坂の角からの距離、打ち出しの水平・上の速さ（8.4m 先で）
-    public static float WideHW = 4.5f, WideEndHW = 3.2f, HoleR = 1.2f, LavaDepth = 0.9f, FireballTop = 1.2f, FireballSize = 1.3f;   // ② 広い道・溶岩の穴・火の玉（てっぺんの道からの高さ・大きさ）
+    public static float WideHW = 4.5f, WideEndHW = 3.2f, HoleR = 1.2f, LavaDepth = 0.9f, FireballTop = 1.8f, FireballSize = 1.3f;   // ② 広い道・溶岩の穴・火の玉（てっぺんの道からの高さ・大きさ）
     public static float PadR = 3.4f, PadIn = 2.8f, PadDrop = 0.03f, ZigLeg = 10f, ZigRise = 1.1f;   // 踊り場の半径・板のはしが踊り場に入る深さ（60° の板どうしが踊り場の外で重ならない）
     public static float ArenaHW = 3f, ArenaLen = 16f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
     public static float FlamePeriod = 3.2f, FlameOn = 1.3f, SeedBefore = 3.5f;
@@ -543,7 +543,7 @@ public static class FuwaCourse2_2Builder
         { var m = trail.main; m.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.9f); }
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireball>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail;
-        f.arcHeight = LavaDepth + FireballTop; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f;
+        f.arcHeight = LavaDepth + FireballTop; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 3.2f; f.ballKnockUp = 1.5f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
     // 穴の中の溶岩の面（丸い板）

@@ -22,7 +22,7 @@ public class FuwaFireball : UdonSharpBehaviour
     [Tooltip("当たり（球）の半径")]
     public float hitRadius = 0.7f;
     [Tooltip("ふわふわを押す：飛ぶ向き（水平）× ballKnock ＋ 上 × ballKnockUp")]
-    public float ballKnock = 2f, ballKnockUp = 1f;
+    public float ballKnock = 3.2f, ballKnockUp = 1.5f;
     [Tooltip("人を吹っ飛ばす")]
     public float playerKnock = 4f, playerKnockUp = 3.5f;
     [Tooltip("溶岩から出る時・入る時のしぶき（なくてもOK）")]
