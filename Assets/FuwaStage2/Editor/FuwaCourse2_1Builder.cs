@@ -1948,6 +1948,24 @@ public static class FuwaCourse2_1Builder
                     Center(sc2, out var p2, out var d2);
                     var q2 = p2 + Right(d2) * (latF(sc2) + sx * ((sx > 0 ? hwR : hwL) + CpOut));
                     var w = root.TransformPoint(new Vector3(q2.x, h, q2.y));
+                    // 水路・滝・岩にかかる所（2026-10-29 てじゃ「手前の川に浸かってるやつどうにかして」：3連滝の手前のキノコが水路の終わりの滝に乗っていた）は、
+                    // かからない一番近い所（外へ・道ぞいに前後）を探す。水路の横なら水路のふちの外（てじゃ「川の右側でいい」）。浮島はなし（てじゃ「きのこに浮島いらん」）
+                    if (CpBlocked(w, cp.transform))
+                    {
+                        float bestCost = float.MaxValue; var bestW = w;
+                        for (float dOut = 0f; dOut <= 3.01f; dOut += 0.25f)
+                            for (float ds = -3f; ds <= 3.01f; ds += 0.25f)
+                            {
+                                float cost = dOut + Mathf.Abs(ds); if (cost >= bestCost) continue;
+                                float sc3 = sc2 + ds; if (mushMaxS != null && i < mushMaxS.Length && sc3 > mushMaxS[i]) continue;
+                                Center(sc3, out var p3, out var d3);
+                                var q3 = p3 + Right(d3) * (latF(sc3) + sx * ((sx > 0 ? hwR : hwL) + CpOut + dOut));
+                                var w3 = root.TransformPoint(new Vector3(q3.x, h, q3.y));
+                                if (!CpBlocked(w3, cp.transform)) { bestCost = cost; bestW = w3; }
+                            }
+                        if (bestCost == float.MaxValue) Debug.LogWarning($"[2–1] {cp.name}/{cl.name} のキノコの置き場所が見つからない");
+                        w = bestW;
+                    }
                     var lp2 = cp.transform.InverseTransformPoint(w);
                     cl.localPosition = new Vector3(lp2.x, cl.localPosition.y, lp2.z);
                 }
@@ -3216,6 +3234,33 @@ public static class FuwaCourse2_1Builder
     public static float SockIsleOut = 2.2f, SockIsleUp = -0.4f;
     public static float FallsWindOn = 1.6f, FallsWindOff = 2.4f;
     public static float[] FallsWindPhase = { 0f, 1.3f, 2.6f };
+    // 浮島の置き場所：道の内側（滝と反対）の SockIsleOut 外が基本。ぐねぐねで となりの水路・滝・柱が寄ってきて重なった所（2026-10-29 てじゃ「埋まってる浮島」）は、
+    // 重ならない一番近い所（外へ・道ぞいに前後）を探す。判定はコライダー（風の箱・アウト判定は除く）と、浮島の大きさ＋SockIsleClear
+    public static float SockIsleR = 1.35f, SockIsleClear = 0.4f;
+    static Vector2 SockIslePlace(Transform root, float sc, float o)
+    {
+        Physics.SyncTransforms();
+        Vector2 best = Vector2.zero; float bestCost = float.MaxValue;
+        for (float dOut = 0f; dOut <= 4.01f; dOut += 0.25f)
+            for (float ds = -3f; ds <= 3.01f; ds += 0.25f)
+            {
+                float cost = dOut + Mathf.Abs(ds) * 1.2f; if (cost >= bestCost) continue;
+                Center(sc + ds, out var p, out var d);
+                var q = p + Right(d) * (-o * (RoadHW + SockIsleOut + dOut));
+                var w = root.TransformPoint(new Vector3(q.x, FallsH + SockIsleUp - 0.3f, q.y));
+                var ext = new Vector3(SockIsleR + SockIsleClear, 2.2f, SockIsleR + SockIsleClear);
+                bool hit = false;
+                foreach (var c in Physics.OverlapBox(w, ext, Quaternion.identity, ~0, QueryTriggerInteraction.Collide))
+                {
+                    if (c.GetComponentInParent<FuwaWindArea>() || c.GetComponent<FuwaHazard>() || c.GetComponent<FuwaPlayerCatcher>()) continue;
+                    if (c.GetComponentInParent<FuwaWindDeco>()) continue;
+                    hit = true; break;
+                }
+                if (!hit) { best = q; bestCost = cost; }
+            }
+        if (bestCost == float.MaxValue) { Debug.LogWarning("[2–1] 吹き流しの浮島の置き場所が見つからない（いつもの所に置く）"); Center(sc, out var p0, out var d0); return p0 + Right(d0) * (-o * (RoadHW + SockIsleOut)); }
+        return best;
+    }
     static void FallsWind(Transform root)
     {
         var tmplZone = Object.FindObjectsOfType<FuwaWindArea>(true).FirstOrDefault(w => w.transform.parent != null && w.transform.parent.name == "G3_CrossRight");
@@ -3283,7 +3328,7 @@ public static class FuwaCourse2_1Builder
             if (tmplSock != null)
             {
                 Center(sc, out var sp, out var sd); var sr = Right(sd);
-                var q = sp + sr * (-o * (RoadHW + SockIsleOut));
+                var q = SockIslePlace(root, sc, o);
                 var isle = new GameObject("SockIsland").transform; isle.SetParent(set, false);
                 isle.localPosition = new Vector3(q.x, FallsH + SockIsleUp, q.y);
                 float topY = 0f;
@@ -3311,6 +3356,21 @@ public static class FuwaCourse2_1Builder
                 UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(wd); NoSync(wd);
             }
         }
+    }
+    // キノコの群れ（丸太＋キノコ）が水路・滝・岩・ほかの浮島にかかるか（下は 1.2m まで見る＝水路の水の上も×）。道の面（PathMesh・RoadBase）と、判定・風・アウトの箱は数えない
+    public static float CpClusterR = 0.85f;
+    static bool CpBlocked(Vector3 w, Transform self)
+    {
+        Physics.SyncTransforms();
+        foreach (var c in Physics.OverlapBox(w + Vector3.up * 0.4f, new Vector3(CpClusterR, 1.6f, CpClusterR), Quaternion.identity, ~0, QueryTriggerInteraction.Collide))
+        {
+            if (c.transform.IsChildOf(self)) continue;
+            string n = c.name;
+            if (n == "PathMesh" || n == "RoadBase" || n.Contains("FallCatcher")) continue;
+            if (c.GetComponentInParent<FuwaWindArea>() || c.GetComponent<FuwaHazard>() || c.GetComponent<FuwaPlayerCatcher>() || c.GetComponentInParent<FuwaCheckpoint>() || c.GetComponentInParent<FuwaWindDeco>()) continue;
+            return true;
+        }
+        return false;
     }
 
     // ---- ⑥ ラスト（2026-10-22 てじゃ「3連滝のあとに、強制で滝にぶつかるゾーン作る→そのまま流されてく、川はゴール横を直進、
