@@ -7,11 +7,13 @@ using UnityEngine;
 // 熱のテスト場（FuwaStage2FireTest）で決めた仕組み：火（かがり火・火の輪・火柱）を通るとふわふわが火の決まった所で止まって浮く／浮きすぎると燃える→撃って消す。
 // 流れ（ロビーの Slot1 方向に放射状、+Z が進む向き。y=0 がスタートの島の地面）：
 //  ① スタート（コース1のスタートの島を写す）→ まっすぐな道
-//  ② かがり火の段々：段のはしのかがり火で止めて、真上〜前へ撃って 2.5m 上の段へ ×3。人は左の坂
-//  ③ 火柱の谷：交互に噴く火柱が吹いている時に入れると止まる → 向こうの段。人は左の細い橋
-//  ④ ジグザグ：L字の角の上の火の輪で止めて、90° 向きを変えて撃つ ×3
+//  ② 火を知る所（2026-10-29 てじゃ「段を登ること自体微妙」「最初に火の特性を知るギミックを置きたい」→ 段々をやめた）：
+//     かがり火→すぐ先の低い柵を浮いた所から撃って越える／もう1つのかがり火→長めの平らな道（浮かせて待つと燃える→撃って消す、を試せる）
+//  ③ 火柱の谷：手前のふちすぐの火柱が吹いている時に入れると止まる → 真後ろ（手前の道）から撃って高い向こう岸へ。人は左の坂の橋
+//  ④ ジグザグ：角の上の火の輪で止めて、向きを変えて撃つ。Uターンあり
+// 2026-10-29 てじゃの試し：人が横の橋にいるとふわふわの後ろに立てず、浮いたふわふわを前に撃てない（詰む）→ 浮く所は必ず人が真後ろに立てる所に
 //  ⑤ （まだ）動く足場を待つ所。待ちすぎると燃える
-//  ⑥ 溶岩の川：空中の火の輪を飛び石みたいに渡る（溶岩に落ちたらアウト）。人は左の細い橋
+//  ⑥ 溶岩の川：空中の火の輪を飛び石みたいに渡る（溶岩に落ちたらアウト）。人は左の細い橋＋各輪の真後ろへの桟橋
 //  ⑦ ゴール（コース1のゴールの島を写す）
 // 道はシマシマ（赤系、Course2_2_PathA/B）。人だけが通る坂・橋は上にふわふわが乗ったらアウト（FuwaTopOut）
 public static class FuwaCourse2_2Builder
@@ -19,7 +21,7 @@ public static class FuwaCourse2_2Builder
     const string RootName = "FuwaCourse2_2";
     const float SpokeR = 34.8f, StartBelow = 4f;
     public static float PathHW = 1.5f, StripeLen = 1.2f;
-    public static float StepH = 2.5f, StepLen = 7f;
+    public static float FenceH = 1.0f;   // 火を知る所の柵の高さ（かがり火の止まる所は火の 2.2m 上＝柵より 1.2m 上）
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
     public static Color PathColA = new Color(1f, 0.56f, 0.50f), PathColB = new Color(0.94f, 0.44f, 0.38f);
     public static Color LavaCol = new Color(1f, 0.42f, 0.1f), RockCol = new Color(0.42f, 0.30f, 0.30f);
@@ -67,36 +69,34 @@ public static class FuwaCourse2_2Builder
         float z = z0 - 0.5f, y = 0f;
         Strip(path, "S1", new Vector3(0, y, z), Vector3.forward, 14.5f, PathHW); z += 14.5f;
 
-        // ② かがり火の段々：段のおわりの 1.7m 手前にかがり火、段のはしは次の段まで岩の壁
-        float walk0 = z - StepLen;   // 人の坂は 1段目の手前の段の途中から
-        for (int k = 0; k < 3; k++)
-        {
-            FuwaStage2FireTest.Brazier(fire, "Brazier" + k, new Vector3(0, y, z - 1.7f), heat, false);
-            Wall(path, "StepWall" + k, new Vector3(0, y, z), StepH, PathHW);
-            y += StepH;
-            Strip(path, "Step" + (k + 1), new Vector3(0, y, z), Vector3.forward, k < 2 ? StepLen : 9f, PathHW);
-            z += k < 2 ? StepLen : 9f;
-        }
-        // 人の坂：段々の左に1本（walk0 → 3段目のはじめまで、0 → 7.5m）
-        float zTop = z - 9f;
-        Ramp(walk, "StepRamp", new Vector3(-(PathHW + WalkGap + WalkW * 0.5f), 0f, walk0), new Vector3(-(PathHW + WalkGap + WalkW * 0.5f), y, zTop), WalkW);
-        Strip(walk, "StepRampTop", new Vector3(-(PathHW + WalkGap + WalkW * 0.5f), y, zTop), Vector3.forward, z - zTop, WalkW * 0.5f, true);
+        // ② 火を知る所：かがり火（道のまん中）→ 2.5m 先に柵（道の幅いっぱい、人は左の小道で回る）→ 10m 先にもう1つのかがり火 → 12m の平らな道
+        float xw = -(PathHW + WalkGap + WalkW * 0.5f);
+        FuwaStage2FireTest.Brazier(fire, "Brazier0", new Vector3(0, y, z + 3f), heat, false);
+        Strip(path, "Learn1", new Vector3(0, y, z), Vector3.forward, 10f, PathHW);
+        Box(path, "Fence", new Vector3(0, y + FenceH * 0.5f, z + 5.5f), new Vector3(PathHW * 2f, FenceH, 0.4f), rockMat, 0);
+        Strip(walk, "FenceWalk", new Vector3(xw, y, z + 4f), Vector3.forward, 3f, WalkW * 0.5f, true);
+        z += 10f;
+        FuwaStage2FireTest.Brazier(fire, "Brazier1", new Vector3(0, y, z + 2f), heat, false);
+        Strip(path, "Learn2", new Vector3(0, y, z), Vector3.forward, 16f, PathHW);
+        z += 16f;
         Checkpoint(root, "Checkpoint1", new Vector3(0, y, z - 4f), Vector3.forward, PathHW);
 
-        // ③ 火柱の谷：10m の谷、火柱2本（交互）。向こうの段は 0.5m 高い
-        float gap = 10f;
-        FuwaStage2FireTest.Jet(fire, "Jet1", new Vector3(0, y - 3.5f, z + 3f), heat, 0f);
-        FuwaStage2FireTest.Jet(fire, "Jet2", new Vector3(0, y - 3.5f, z + 7f), heat, 1.5f);
-        Bridge(walk, "JetBridge", new Vector3(-(PathHW + WalkGap + WalkW * 0.5f), y, z), new Vector3(-(PathHW + WalkGap + WalkW * 0.5f), y + 0.5f, z + gap));
-        z += gap; y += 0.5f;
+        // ③ 火柱の谷：7m の谷、手前のふちから 1.2m の所に火柱1本。止まる所は道の 2.4m 上（人が手前の道から真後ろで撃てる）。
+        //    向こう岸は 1.8m 高い（火なしで撃って越えられないように。てじゃ「橋通ればOK」）。噴き出し口の当たりはなし（落ちたら素直にアウト、口の上で詰まない）
+        float gap = 7f, farUp = 1.8f, jetHover = 2.4f;
+        FuwaStage2FireTest.Jet(fire, "Jet1", new Vector3(0, y + jetHover - 4.2f, z + 1.2f), heat, 0f);
+        Object.DestroyImmediate(fire.Find("Jet1/Mouth").GetComponent<Collider>());
+        Bridge(walk, "JetBridge", new Vector3(xw, y, z), new Vector3(xw, y + farUp, z + gap));
+        z += gap; y += farUp;
         Strip(path, "JetFar", new Vector3(0, y, z), Vector3.forward, 8f, PathHW); z += 8f;
 
         // ④ ジグザグ：L字の道、角の上に火の輪（輪の下が床から 0.3m）。右 → 前 → 左 → 前
         var p = new Vector3(0, y, z);
-        var dirs = new[] { Vector3.right, Vector3.forward, Vector3.left, Vector3.forward };
-        var lens = new[] { 7f, 7f, 7f, 0f };
+        // 右 → 前（2m だけ）→ 左（Uターン）→ 前 → 右 → 前へ出る。てじゃ「もっと急なカーブあってもいい」
+        var dirs = new[] { Vector3.right, Vector3.forward, Vector3.left, Vector3.forward, Vector3.right };
+        var lens = new[] { 7f, 2f, 10f, 6f, 3f };
         var cur = Vector3.forward;
-        for (int k = 0; k < 3; k++)
+        for (int k = 0; k < dirs.Length; k++)
         {
             // 角の床（3m 四方）と、その上の火の輪
             var corner = p + cur * PathHW;
@@ -112,9 +112,10 @@ public static class FuwaCourse2_2Builder
         // 最後の角のあと、まっすぐ前へ
         {
             var corner = p + cur * PathHW;
-            Strip(path, "Corner3", corner - cur * PathHW, cur, PathHW * 2f, PathHW);
-            FuwaStage2FireTest.Brazier(fire, "CornerRing3", corner + Vector3.up * 1.4f, heat, true);
-            fire.Find("CornerRing3").localRotation = Quaternion.LookRotation(Vector3.Cross(Vector3.up, cur).normalized);
+            string cn = "Corner" + dirs.Length;
+            Strip(path, cn, corner - cur * PathHW, cur, PathHW * 2f, PathHW);
+            FuwaStage2FireTest.Brazier(fire, "CornerRing" + dirs.Length, corner + Vector3.up * 1.4f, heat, true);
+            fire.Find("CornerRing" + dirs.Length).localRotation = Quaternion.LookRotation(Vector3.Cross(Vector3.up, cur).normalized);
             p = corner + Vector3.forward * PathHW; cur = Vector3.forward;
         }
         Strip(path, "ZigOut", p, Vector3.forward, 8f, PathHW);
@@ -133,7 +134,13 @@ public static class FuwaCourse2_2Builder
             FuwaStage2FireTest.Brazier(fire, "LavaRing" + k, rp, heat, true);
             fire.Find("LavaRing" + k).localRotation = Quaternion.LookRotation(Vector3.right);
         }
-        Bridge(walk, "LavaBridge", p + new Vector3(-(PathHW + WalkGap + WalkW * 0.5f), 0, 0), p + new Vector3(-(PathHW + WalkGap + WalkW * 0.5f), 0, river));
+        Bridge(walk, "LavaBridge", p + new Vector3(xw, 0, 0), p + new Vector3(xw, 0, river));
+        // 桟橋：橋から、2つ目・3つ目の輪の 2.5m 手前（真後ろ）へ。1つ目の輪へは岸から撃つ。輪の間を飛ぶふわふわは桟橋の 1.6m 上を通る
+        for (int k = 1; k < 3; k++)
+        {
+            float pz = 4f + k * 5f - 2.5f;
+            Bridge(walk, "LavaPier" + k, p + new Vector3(xw + WalkW * 0.5f, 0, pz), p + new Vector3(0.8f, 0, pz));
+        }
         p += Vector3.forward * river;
         Strip(path, "LavaFar", p, Vector3.forward, 6f, PathHW);
         p += Vector3.forward * 6f;
