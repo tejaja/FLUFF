@@ -1055,6 +1055,10 @@ public static class FuwaCourse2_1Builder
     public static float[] ClamSide = { -1f, 1f, -1f, 1f, -1f, 1f, -1f };
     public static bool[] ClamHigh = { false, false, true, false, false, true, false };
     public static float ClamPeriod = 2.8f;
+    // シャコガイのモデル（Tools/stage2_clam.py の HINGE_Y/HINGE_Z とそろえる）と色：外はクリーム色、中の身は青緑（てじゃ「遠目だとシャコガイのほうがめだつ」）
+    const string ClamModel = "Assets/FuwaStage2/Models/Stage2_Clam.fbx";
+    static readonly Vector3 ClamHinge = new Vector3(0f, 0.22f, -0.42f);
+    public static Color ClamShellColor = new Color(0.95f, 0.91f, 0.82f), ClamInnerColor = new Color(0.16f, 0.70f, 0.78f), ClamPearlColor = new Color(0.98f, 0.96f, 1f);
     // 泡の大きさ（直径）と包む距離。0.62 だと上から軽く越えられそう（2026-10-21 てじゃ「あわはもっとデカくしよ」）→ 1.5 → 1.8（2026-10-22 てじゃ「ちょっとサイズアップ」）
     public static float ClamBubbleSize = 1.8f, ClamCapture = 1.05f;
     // 貝の置き場所の高さ（道の上からの、貝の底の高さ）。前は道より 0.15m 低い岩の上で、泡の上を越えられそうだった（2026-10-22 てじゃ「貝をちょっと高い台に置く」）
@@ -2249,9 +2253,13 @@ public static class FuwaCourse2_1Builder
                 var pcc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(po); pcc.ball = ballProxy; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pcc); NoSync(pcc);
             }
         }
-        // 貝（仮：つぶした球の上下の殻。ふたは後ろのちょうつがいで開く）と、反対側の滝
-        var shellMat = FlatMat("Stage2_ClamShell", new Color(0.96f, 0.80f, 0.76f));
-        var innerMat = FlatMat("Stage2_ClamInner", new Color(0.98f, 0.95f, 0.97f));
+        // 貝（2026-10-29 シャコガイ型。Blender の Tools/stage2_clam.py → Models/Stage2_Clam.fbx：下の殻・ふた・真珠。ふたは後ろのちょうつがいで開く）と、反対側の滝。
+        // モデルがない時は前の仮（つぶした球）
+        var shellMat = FlatMat("Stage2_ClamShell", ClamShellColor);
+        var innerMat = FlatMat("Stage2_ClamInner", ClamInnerColor);
+        var pearlMat = FlatMat("Stage2_ClamPearl", ClamPearlColor);
+        var clamMeshes = AssetDatabase.LoadAllAssetsAtPath(ClamModel).OfType<Mesh>().ToDictionary(x => x.name, x => x);
+        bool clamModel = clamMeshes.ContainsKey("Stage2_ClamBottom") && clamMeshes.ContainsKey("Stage2_ClamTop");
         // 泡の材質：しゃぼんの虹色はやめて、全体をうっすら薄い青に（2026-10-22 てじゃ「しゃぼんっぽい虹色を消してもうちょい青っぽい」「全体的に薄青」「弱めの」）。
         // れんしゅう等の Bubble3D とは別の材質（無い時だけ作る。色はこの材質で調整）
         const string cbPath = "Assets/FuwaStage2/Materials/Stage2_ClamBubble.mat";
@@ -2289,6 +2297,22 @@ public static class FuwaCourse2_1Builder
             var clam = new GameObject("Clam" + i).transform; clam.SetParent(cg, false);
             clam.localPosition = new Vector3(c2.x, y + baseH, c2.y);
             clam.localRotation = Quaternion.LookRotation(new Vector3(-side * r.x, 0, -side * r.y));   // +Z＝道を横切る向き
+            Transform lid;
+            if (clamModel)
+            {
+                GameObject Part(string nm, string mesh, Transform parent, Vector3 pos, params Material[] mats)
+                {
+                    var go = new GameObject(nm); go.transform.SetParent(parent, false); go.transform.localPosition = pos;
+                    go.AddComponent<MeshFilter>().sharedMesh = clamMeshes[mesh]; go.AddComponent<MeshRenderer>().sharedMaterials = mats;
+                    return go;
+                }
+                Part("ShellBottom", "Stage2_ClamBottom", clam, Vector3.zero, shellMat, innerMat);
+                if (clamMeshes.ContainsKey("Stage2_ClamPearl")) Part("Pearl", "Stage2_ClamPearl", clam, Vector3.zero, pearlMat);
+                lid = new GameObject("LidHinge").transform; lid.SetParent(clam, false); lid.localPosition = ClamHinge;
+                Part("ShellTop", "Stage2_ClamTop", lid, -ClamHinge, shellMat, innerMat);
+            }
+            else
+            {
             var bot = GameObject.CreatePrimitive(PrimitiveType.Sphere); bot.name = "ShellBottom"; bot.transform.SetParent(clam, false);
             Object.DestroyImmediate(bot.GetComponent<Collider>());
             bot.transform.localPosition = new Vector3(0, 0.12f, 0); bot.transform.localScale = new Vector3(1.0f, 0.3f, 0.85f);
@@ -2297,11 +2321,12 @@ public static class FuwaCourse2_1Builder
             Object.DestroyImmediate(inner.GetComponent<Collider>());
             inner.transform.localPosition = new Vector3(0, 0.2f, 0.02f); inner.transform.localScale = new Vector3(0.82f, 0.12f, 0.68f);
             inner.GetComponent<Renderer>().sharedMaterial = innerMat;
-            var lid = new GameObject("LidHinge").transform; lid.SetParent(clam, false); lid.localPosition = new Vector3(0, 0.18f, -0.38f);
+            lid = new GameObject("LidHinge").transform; lid.SetParent(clam, false); lid.localPosition = new Vector3(0, 0.18f, -0.38f);
             var top = GameObject.CreatePrimitive(PrimitiveType.Sphere); top.name = "ShellTop"; top.transform.SetParent(lid, false);
             Object.DestroyImmediate(top.GetComponent<Collider>());
             top.transform.localPosition = new Vector3(0, 0.06f, 0.38f); top.transform.localScale = new Vector3(1.0f, 0.28f, 0.85f);
             top.GetComponent<Renderer>().sharedMaterial = shellMat;
+            }
             var mouth = new GameObject("Mouth").transform; mouth.SetParent(clam, false); mouth.localPosition = new Vector3(0, 0.95f, 0.75f);
             clams[i] = clam; lids[i] = lid; mouths[i] = mouth;
             // 泡を出すタイミング：ふつうの貝は前と同じ（ふつうの貝どうしで 1 周を等分）。高い貝は両どなりのふつうの貝のまん中の、ちょうど半周ずらし
