@@ -126,14 +126,13 @@ public static class FuwaCourse2_2Builder
         }
         // 火の玉：穴から穴へ往復。だんだん難しく（速く・休みが短く・最後は3つの穴）。てっぺんは道の FireballTop 上
         {
-            //  最後の往復は火の玉2つ（半歩ずらし＝同じ向きに続けて飛ぶ。1歩ずらしだと空中のまん中でぶつかった）で速く。真上のは道の VertTop 上まで
-            var fbs = new[] { (fl: 1.3f, rest: 1.6f, ph: 0f, top: FireballTop), (fl: 1.1f, rest: 1.1f, ph: 0.7f, top: FireballTop), (fl: 0.9f, rest: 0.45f, ph: 1.9f, top: FireballTop),
+            //  最後の往復もほかと同じ（火の玉2つ・速めにしたら「めちゃくちゃ球多い」「ほかといっしょでいいかも」）。真上のは道の VertTop 上まで
+            var fbs = new[] { (fl: 1.3f, rest: 1.6f, ph: 0f, top: FireballTop), (fl: 1.1f, rest: 1.1f, ph: 0.7f, top: FireballTop), (fl: 1.0f, rest: 1.0f, ph: 1.9f, top: FireballTop),
                               (fl: 1.1f, rest: 0.6f, ph: 0.4f, top: VertTop), (fl: 1.3f, rest: 1.0f, ph: 1.3f, top: VertTop), (fl: 1.2f, rest: 0.8f, ph: 0.2f, top: VertTop) };
             for (int k = 0; k < holePts.Count; k++)
             {
                 var hs = holePts[k].Select(q => q + Vector3.down * LavaDepth).ToArray();
                 Fireball(fire, "Fireball" + k, hs, fbs[k].fl, fbs[k].rest, fbs[k].ph, fbs[k].top);
-                if (k == 2) Fireball(fire, "Fireball" + k + "b", hs, fbs[k].fl, fbs[k].rest, fbs[k].ph + (fbs[k].fl + fbs[k].rest) * 0.5f, fbs[k].top);
             }
         }
         Checkpoint(root, "Checkpoint1", new Vector3(0, yL, z0 + 59f), Vector3.forward, WideEndHW);
