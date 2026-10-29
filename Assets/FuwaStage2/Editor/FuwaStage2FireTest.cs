@@ -88,7 +88,7 @@ public static class FuwaStage2FireTest
 
     // 火柱：下の噴き出し口（岩）＋ 炎の粒（吹いている時）＋ 前ぶれの粒 ＋ 柱のトリガー（高さ JetH）
     const float JetH = 5f, JetHover = 4.2f;   // JetHover：噴き出し口（道の 1m 下）から止まる所まで
-    static void Jet(Transform root, string name, Vector3 lp, FuwaHeat heat, float phase)
+    internal static void Jet(Transform root, string name, Vector3 lp, FuwaHeat heat, float phase)
     {
         var g = new GameObject(name).transform; g.SetParent(root, false); g.localPosition = lp;
         var mouth = GameObject.CreatePrimitive(PrimitiveType.Cylinder); mouth.name = "Mouth"; mouth.transform.SetParent(g, false);
@@ -103,7 +103,7 @@ public static class FuwaStage2FireTest
         var j = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireJet>(z); j.heat = heat; j.hoverPoint = hp; j.phase = phase; j.flame = flame; j.warn = warn;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j); FuwaStage2WaterTest.NoSync(j);
     }
-    static ParticleSystem FlamePS(Transform g, string name, float radius, float speed, float life, Color c0, Color c1)
+    internal static ParticleSystem FlamePS(Transform g, string name, float radius, float speed, float life, Color c0, Color c1)
     {
         var fo = new GameObject(name); fo.transform.SetParent(g, false); fo.transform.localRotation = Quaternion.Euler(-90f, 0, 0);
         var ps = fo.AddComponent<ParticleSystem>();
@@ -140,7 +140,7 @@ public static class FuwaStage2FireTest
     }
 
     // かがり火：台（輪なら台なし）＋炎の粒＋熱の範囲（トリガー、半径 1m・高さ 2m）
-    static void Brazier(Transform root, string name, Vector3 lp, FuwaHeat heat, bool ring)
+    internal static void Brazier(Transform root, string name, Vector3 lp, FuwaHeat heat, bool ring)
     {
         var g = new GameObject(name).transform; g.SetParent(root, false); g.localPosition = lp;
         var rock = FuwaStage2WaterTest.ToonMat("Stage2_FireTestRock", new Color(0.35f, 0.3f, 0.32f));

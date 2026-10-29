@@ -876,7 +876,7 @@ public static class FuwaCourse2_1Builder
     // 写した物の中の参照は写した物へ付け替え、ワープの戻り先はステージ2のロビー、日本語・英語の切り替えとエアガンの台も登録する
 
     // 写す元 src の子（names が null なら全部）を dst の下に写す。元の物 → 写した物 の対応表を map に足す
-    static void CopyChildren(Transform src, Transform dst, string[] names, Dictionary<Object, Object> map)
+    internal static void CopyChildren(Transform src, Transform dst, string[] names, Dictionary<Object, Object> map)
     {
         var list = names == null ? src.Cast<Transform>().ToList() : names.Select(n => src.Find(n)).Where(t => t).ToList();
         foreach (var s in list)
@@ -894,7 +894,7 @@ public static class FuwaCourse2_1Builder
     }
 
     // 写した物の U# の参照を付け替える。ロビーへのワープはステージ2のロビーへ。日本語・英語の文字とエアガンの台を FuwaLanguage に登録
-    static void FixCopied(Transform dst, Dictionary<Object, Object> map)
+    internal static void FixCopied(Transform dst, Dictionary<Object, Object> map)
     {
         var lobby2 = GameObject.Find("FuwaStage2/Lobby")?.transform;
         foreach (var mb in dst.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true))
@@ -1034,7 +1034,7 @@ public static class FuwaCourse2_1Builder
         Stage2Grass(goal);
     }
     // 島の芝をステージ2の青っぽい芝に（2026-10-26 てじゃ「ステージ２の芝は青っぽいのに統一」）
-    static void Stage2Grass(Transform t)
+    internal static void Stage2Grass(Transform t)
     {
         var g2 = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_LobbyGround.mat"); if (!g2) return;
         foreach (var r in t.GetComponentsInChildren<Renderer>(true))
@@ -5117,7 +5117,7 @@ public static class FuwaCourse2_1Builder
     // 作り直すと Udon の付いた物が消えて新しくなるので、シーンのネットワークIDに消えた物（InvalidObject）が残ってビルドが止まる
     //（2026-10-21「Build was blocked by the SDK callback」）。SDK のチェック（ConfigureNetworkIDs）を回すと消えた物を外して新しい物に番号をつける。
     // 1回目で直して、2回目でエラー0を確かめる
-    static void FixNetworkIDs()
+    internal static void FixNetworkIDs()
     {
         var desc = Object.FindObjectOfType<VRC.SDK3.Components.VRCSceneDescriptor>(); if (!desc) return;
         var t = AppDomain.CurrentDomain.GetAssemblies().Select(a => a.GetType("VRC.SDKBase.Network.NetworkIDAssignment")).FirstOrDefault(x => x != null); if (t == null) return;
