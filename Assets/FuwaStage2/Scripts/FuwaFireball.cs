@@ -28,7 +28,7 @@ public class FuwaFireball : UdonSharpBehaviour
     [Tooltip("溶岩から出る時・入る時のしぶき（なくてもOK）")]
     public ParticleSystem splash;
     public AudioSource whoosh;
-    [Tooltip("ふわふわの持ち主のアバターが eyeBase より背が高いぶん、弧を高くする（その差 × arcPerEye、最大 maxArcExtra m）。背が高いと銃口が高くてふわふわが上を越えられたので（2026-10-30 てじゃ）。低い背では下げない")]
+    [Tooltip("自分のアバターが eyeBase より背が高いぶん、弧を高くする（その差 × arcPerEye、最大 maxArcExtra m）。背が高いと銃口が高くてふわふわが上を越えられたので（2026-10-30 てじゃ）。低い背では下げない")]
     public float eyeBase = 1.6f, arcPerEye = 1f, maxArcExtra = 1.5f;
 
     private bool _flying, _hitBall, _hitPlayer;
@@ -81,13 +81,15 @@ public class FuwaFireball : UdonSharpBehaviour
         return d.sqrMagnitude > 0.0001f ? d.normalized : transform.forward;
     }
 
-    // 目の高さはVRChatが同期しているので、全員で同じ弧になる。飛んでいる途中で弧が変わらないよう、飛び出す時に決める
+    // 各自のローカルで自分の背に合わせる（人によって見える弧が違う。てじゃ「ローカルで各自でいい」）。飛んでいる途中で弧が変わらないよう、飛び出す時に決める
     private float ArcExtra()
     {
-        if (ball == null) return 0f;
-        VRCPlayerApi o = Networking.GetOwner(ball.gameObject);
+        VRCPlayerApi o = Networking.LocalPlayer;
         if (o == null || !o.IsValid()) return 0f;
-        return Mathf.Clamp((o.GetAvatarEyeHeightAsMeters() - eyeBase) * arcPerEye, 0f, maxArcExtra);
+        float eye = o.GetAvatarEyeHeightAsMeters();
+        float x = Mathf.Clamp((eye - eyeBase) * arcPerEye, 0f, maxArcExtra);
+        if (Mathf.Abs(x - _arcExtra) > 0.01f) Debug.Log("[FuwaFireball] eye=" + eye.ToString("F2") + " arcExtra=" + x.ToString("F2") + " " + transform.parent.name);
+        return x;
     }
 
     private void Show(bool on)
