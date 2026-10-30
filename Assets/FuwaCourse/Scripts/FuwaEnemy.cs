@@ -68,7 +68,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     public Renderer[] tintRenderers;
     public int[] tintSlots;
     public Material[] fireMats, plainMats;
-    public float floatSink = -0.03f, floatBob = 0.05f;   // 水面からの沈み（マイナスで浮く。体の中心が原点、半分ちょっと水の上）
+    public float floatSink = -0.03f, floatBob = 0.05f, floatTilt = 25f;   // 水面からの沈み（マイナスで浮く。体の中心が原点、半分ちょっと水の上）
     public float knockback = 7f;
     public float knockUp = 3f;
     [Tooltip("頭の上どこまで当たりにするか(m)")]
@@ -628,8 +628,7 @@ public class FuwaEnemy : UdonSharpBehaviour
         SetState(6);
     }
 
-    private float _floatY;
-    private Vector3 _floatSpin;
+    private float _floatY, _floatYaw, _floatSpin;
 
     // ジュッ：湯気＋音、炎を消して元の色に。水面まで沈んで、そこでぷかぷか
     private void Douse(FuwaWater w)
@@ -640,7 +639,9 @@ public class FuwaEnemy : UdonSharpBehaviour
         if (steamSound != null) steamSound.Play();
         if (windupSound != null) windupSound.Stop();
         SetFire(false);
-        _floatSpin = Random.value < 0.5f ? Vector3.up : Vector3.down;
+        SetEyesClosed(true);   // 気絶：目をつむる（てじゃ「少し上向きになって、目を瞑るように」）
+        _floatYaw = transform.eulerAngles.y;
+        _floatSpin = Random.value < 0.5f ? 25f : -25f;
         SetState(12);
     }
 
@@ -661,22 +662,21 @@ public class FuwaEnemy : UdonSharpBehaviour
 
     private void UpdateDoused(float dt)
     {
-        // 入った勢いは水の中ですぐ止まる。水面まで沈んで上下にぷかぷか、ゆっくり回る、目はぐるぐる
+        // 入った勢いは水の中ですぐ止まる。水面まで沈んで上下にぷかぷか、少し上を向いてゆっくり回る（目はつむってる）
         _vel.x *= Mathf.Exp(-4f * dt); _vel.z *= Mathf.Exp(-4f * dt);
         Vector3 p = transform.position + new Vector3(_vel.x, 0f, _vel.z) * dt;
         float goal = _floatY + Mathf.Sin(Time.time * 2.2f + _phase) * floatBob;
         p.y = Mathf.Lerp(p.y, goal, 1f - Mathf.Exp(-5f * dt));
         transform.position = p;
-        transform.Rotate(_floatSpin, 25f * dt, Space.World);
+        _floatYaw += _floatSpin * dt;
+        float tilt = floatTilt * Mathf.Clamp01(_stateTime / 0.6f);
+        transform.rotation = Quaternion.Euler(-tilt, _floatYaw, 0f);
         if (visual != null)
         {
             float w = Mathf.Sin(Time.time * 2.2f + _phase) * 0.05f;
             visual.localPosition = _visualBase;
             visual.localScale = new Vector3(_visualScale.x * (1f + w), _visualScale.y * (1f - w), _visualScale.z * (1f + w));
         }
-        _look = new Vector2(Mathf.Cos(Time.time * 7f), Mathf.Sin(Time.time * 7f)) * 0.85f;
-        if (pupilL != null) SetPupil(pupilL, _pupilBaseL);
-        if (pupilR != null) SetPupil(pupilR, _pupilBaseR);
     }
 
     // エアガンから呼ばれる。stun=false（溜めが足りない）なら、突進は止まらず少しずれるだけ
@@ -742,7 +742,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     private void Respawn()
     {
         transform.position = _home;
-        if (_state == 12) SetFire(true);
+        if (_state == 12) { SetFire(true); SetEyesClosed(false); transform.rotation = Quaternion.Euler(0f, transform.eulerAngles.y, 0f); }
         _vel = Vector3.zero;
         _airborne = false;
         _cooldownUntil = Time.time + cooldown;

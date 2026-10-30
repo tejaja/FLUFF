@@ -836,7 +836,7 @@ public static class FuwaCourse2_2Builder
             var em = st.emission; em.rateOverTime = 0f; em.SetBursts(new[] { new ParticleSystem.Burst(0f, 22), new ParticleSystem.Burst(0.15f, 10) });
             st.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
-        e.flameFx = ps; e.steamFx = st; e.floatSink = -0.03f; e.floatBob = 0.05f;
+        e.flameFx = ps; e.steamFx = st; e.floatSink = -0.03f; e.floatBob = 0.05f; e.floatTilt = 25f;
         e.tintRenderers = tR.ToArray(); e.tintSlots = tS.ToArray(); e.fireMats = tF.ToArray(); e.plainMats = tP.ToArray();
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(e);
         // ふわふわのまもの一覧に
