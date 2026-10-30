@@ -229,7 +229,7 @@ public static class FuwaCourse2_2Builder
         //  広い所と⑤のくねくね道は1本のつなぎ目なしの道。踊り場から広がって、出口で細くなる
         var ar = pad + Vector3.forward * EndPadIn;
         var ae = ar + Vector3.forward * ArenaLen;
-        var puddles = new[] { (x: -3.2f, z: 7f), (x: 2.8f, z: 9.5f), (x: -1.0f, z: 13.2f), (x: 3.5f, z: 16.8f), (x: -3.6f, z: 19f) };
+        var puddles = new[] { (x: 2.8f, z: 8.5f), (x: -3.2f, z: 13.5f), (x: 3.0f, z: 19f) };   // 5→3（てじゃ「水へらそ」）
         var monsters = new[] { (x: 0f, z: 6.5f), (x: -2.8f, z: 10.8f), (x: 2.6f, z: 13.5f), (x: 0.2f, z: 19.5f) };
 
         // ⑤ くねくね道（一部坂）：横の岩の穴から火炎放射（当たると黒焦げ→アウト、人はちょっと吹っ飛ぶ）。手前の火種で浮かせて待てる
