@@ -258,14 +258,12 @@ public static class FuwaCourse2_2Builder
         {
             var e0 = pl5[pl5.Count - 1]; float a1 = Th1 * Mathf.Deg2Rad; var tg = new Vector3(Mathf.Cos(a1), 0f, -Mathf.Sin(a1));
             var e1 = e0 + tg * 4f; var e2 = e1 + new Vector3(2f, 0f, 6f); var e3 = e2 + new Vector3(0f, 0f, 5f);
-            pl5.Add(e1); hl5.Add(PathHW); pl5.Add(e2); hl5.Add(PathHW); pl5.Add(e3); hl5.Add(PathHW);
+            // 曲がり角の内側の V を埋める：角までは広い道の幅のまま、曲がってから細く（2026-10-30 てじゃ「カーブのVをちょっと埋めよう」。切り返しの火種は「やっぱいらん」）
+            pl5.Add(e1); hl5.Add(FlameHW); pl5.Add(e2); hl5.Add((FlameHW + PathHW) * 0.5f); pl5.Add(e3); hl5.Add(PathHW);
         }
         var pts5 = pl5.ToArray(); var hw5 = hl5.ToArray();
-        var rad5 = new float[pts5.Length]; rad5[pts5.Length - 3] = 4f; rad5[pts5.Length - 2] = 4f;
-        var corners5 = new List<Vector3>();
-        var r5 = Route(pts5, rad5, corners5);
-        // 最後の右カーブ（山ぞいの道を抜けてゴールへ曲がる所）に切り返し用の火種（てじゃ「最後のカーブのとこにも切り返し用の火おいとこ」）
-        GroundFire(fire, "ExitSeed", corners5[pts5.Length - 4]);
+        var rad5 = new float[pts5.Length]; rad5[pts5.Length - 3] = 6f; rad5[pts5.Length - 2] = 5f;
+        var r5 = Route(pts5, rad5, new List<Vector3>());
         // 曲がった道の上の (x 横, z 奥行き) の所
         Vector3 OnArena(float x, float z) { Frame(r5, ar.z + z, out var c, out var t); return c + Vector3.Cross(Vector3.up, t).normalized * x; }
         var pholes = puddles.Select(q => { var c = OnArena(q.x, q.z); return new Vector4(c.x, c.y, c.z, PuddleR); }).ToList();
