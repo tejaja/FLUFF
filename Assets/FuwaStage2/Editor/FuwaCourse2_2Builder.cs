@@ -666,7 +666,7 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
-    public static float RockR = 0.9f, RockHop = 0.6f, RockPeriod = 4.5f;   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
+    public static float RockR = 0.9f, RockHop = 0.75f, RockPeriod = 5f;   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
     static void LavaRock(Transform parent, string name, Vector3[] ps, float phase)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
