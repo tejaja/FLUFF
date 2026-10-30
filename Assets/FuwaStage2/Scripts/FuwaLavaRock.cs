@@ -34,11 +34,15 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public float warnTime = 1.5f, warnFadeIn = 0.5f;
     public Color warnColor = new Color(1f, 0.5f, 0.15f, 1f);
     public int warnSamples = 14;
+    [Tooltip("点線が流れる速さ（m/秒、岩の進む向きへ）。てじゃ「一定速度でスクロールしてるような見た目」。dotPerM は材質の横の繰り返し（1m あたりの点の数）")]
+    public float warnScroll = 2.5f, dotPerM = 2.2f;
 
     private bool _flying, _hitBall, _hitPlayer;
     private int _hop = -1;
     private float _ballRadius = 0.4f;
     private Vector3[] _path;
+    private float[] _cum;
+    private Material _lineMat;
     private int _lineFrom = -1;
     private bool _lineOn;
 
@@ -57,6 +61,9 @@ public class FuwaLavaRock : UdonSharpBehaviour
             for (int k = 0; k < hops; k++)
                 for (int j = 0; j < warnSamples; j++) _path[k * warnSamples + j] = At(k, j / (float)warnSamples);
             _path[hops * warnSamples] = points[hops].position;
+            _cum = new float[_path.Length];
+            for (int i = 1; i < _path.Length; i++) _cum[i] = _cum[i - 1] + (_path[i] - _path[i - 1]).magnitude;
+            _lineMat = warnLine.material;
             warnLine.useWorldSpace = true;
             warnLine.enabled = false;
         }
@@ -107,6 +114,8 @@ public class FuwaLavaRock : UdonSharpBehaviour
         }
         Color c = warnColor; c.a = warnColor.a * a;
         warnLine.startColor = c; warnLine.endColor = c;
+        // 点を世界に対して一定の速さで流す。先頭を削っても点が飛ばないよう、削った長さぶん横のずれを足す
+        if (_lineMat != null) _lineMat.mainTextureOffset = new Vector2(Mathf.Repeat((_cum[from] - warnScroll * Time.time) * dotPerM, 1f), 0f);
     }
 
     private void Show(bool on)

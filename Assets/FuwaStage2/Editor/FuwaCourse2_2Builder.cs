@@ -736,7 +736,7 @@ public static class FuwaCourse2_2Builder
         lr.useWorldSpace = true; lr.widthMultiplier = 0.28f; lr.textureMode = LineTextureMode.Tile; lr.alignment = LineAlignment.View;
         lr.numCapVertices = 0; lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; lr.receiveShadows = false;
         lr.sharedMaterial = DotLineMat(); lr.positionCount = 0; lr.enabled = false;
-        f.warnLine = lr; f.warnTime = 1.2f; f.warnFadeIn = 0.4f;
+        f.warnLine = lr; f.warnTime = 1.2f; f.warnFadeIn = 0.4f; f.dotPerM = DotPerM; f.warnScroll = 2.5f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
 
