@@ -1911,6 +1911,7 @@ public static class FuwaCourse2_1Builder
     // ---- チェックポイント（2026-10-25）----
     // ステージ1の FuwaCourse3/Checkpoint1（光るキノコ＋丸太が道の両わき、通り抜けの判定、戻る場所）を写す。使っていない門の柱・横木は消す。
     // cps＝(中心線の位置 s, 横のずれ, 道の半分の幅, 道の上の面の高さ)。キノコは道のふちから CpOut 外。ふわふわの checkpoints にも登録（やり直しで光を消す）
+    public static float CpOnDeckBack = 1.5f;   // 橋の上のチェックポイントの判定を手前に寄せる量（お手本の判定は 1.5m 先）
     public static float CpOut = 0.6f;   // 0.35→0.6（てじゃ「道にうまらないように」）
     // lat＝中心線からの横のずれ（s ごと）、hwL/hwR＝左右それぞれ、道（または水路）のふちまでの距離
     // first：1つ目を中心線でなく、この点・向きに置く（谷の上の木の橋の上。キノコはほかの道と同じく橋のふちの CpOut 外。
@@ -1978,6 +1979,8 @@ public static class FuwaCourse2_1Builder
                     var lp2 = cp.transform.InverseTransformPoint(w);
                     cl.localPosition = new Vector3(lp2.x, cl.localPosition.y, lp2.z);
                 }
+            // 橋の上はキノコが判定の真横なので、判定（お手本は 1.5m 先）と戻る場所もキノコの位置まで手前に（2026-10-30 てじゃ「判定、きのこより奥すぎ」）
+            if (onDeck) foreach (var n in new[] { "Trigger", "RespawnPoint" }) { var c = cp.transform.Find(n); if (c) c.localPosition += Vector3.back * CpOnDeckBack; }
             var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
             if (fc) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); NoSync(fc); made.Add(fc); }
         }
