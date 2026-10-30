@@ -208,19 +208,20 @@ public static class FuwaCourse2_2Builder
         //  （2026-10-30 てじゃ「道に沿って落ちるとこの狭さじゃ回避できない、この方向に３個くらい列ずらしで落とす、ちょうどいい位置でバウンドして落ちてくる感じ」）
         {
             float x0 = legs[0].a.x, x1 = legs[0].b.x;
-            float[] cols = { 0.5f };   // 3列は「きついか…１列にしとこ」
+            float[] cols = { 0.3f, 0.5f, 0.7f };   // 3列（一度「きついか…１列にしとこ」→「やっぱ３列にして、むずくなるかわりに予告線」）
             for (int c = 0; c < cols.Length; c++)
             {
                 float cx = Mathf.Lerp(x0, x1, cols[c]);
-                var rp = new List<Vector3>();
+                var rp = new List<Vector3>(); var nrm = new List<Vector3>();
                 for (int k = legs.Count - 1; k >= 0; k--)
                 {
                     float t = (cx - legs[k].a.x) / (legs[k].b.x - legs[k].a.x);
                     rp.Add(Vector3.Lerp(legs[k].a, legs[k].b, t) + up * RockR);
+                    var ld = (legs[k].b - legs[k].a).normalized; nrm.Add(Vector3.Cross(ld, Vector3.Cross(up, ld)).normalized);   // 板の上の面の向き（坂）
                 }
-                rp.Insert(0, rp[0] + new Vector3(1f, 6f, 4f));   // 柱はまもののエリア（広い）にかからないよう少し横へ
+                rp.Insert(0, rp[0] + new Vector3(2.5f, 6f, 4f));   // 柱はまもののエリア（広い）にかからないよう横へ（3本並ぶ）
                 rp.Add(rp[rp.Count - 1] + new Vector3(0, -10f, -4f));
-                LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length);
+                LavaRock(fire, "LavaRock" + c, rp.ToArray(), nrm.ToArray(), c * RockPeriod / cols.Length);
                 RockPillar(fire, "RockPillar" + c, rp[0] + up * RockR);   // てじゃ「岩が出てるとこに岩柱でもつくるか」：岩は柱のてっぺんの溶岩から飛び出す
             }
         }
@@ -673,7 +674,7 @@ public static class FuwaCourse2_2Builder
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
     public static float RockR = 0.9f, RockHop = 0.75f, RockPeriod = 5.75f;   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
-    public static float PillarR = 1.7f, PillarH = 22f;
+    public static float PillarR = 1.2f, PillarH = 22f;
     // 岩の出てくる柱（ブロックアウト）：てっぺんは top、下は空へのびる。てっぺんに溶岩のくぼみ
     static void RockPillar(Transform parent, string name, Vector3 top)
     {
@@ -687,7 +688,8 @@ public static class FuwaCourse2_2Builder
         smoke.transform.localPosition = top; { var m = smoke.main; m.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.9f); var e = smoke.emission; e.rateOverTime = 12f; }
     }
 
-    static void LavaRock(Transform parent, string name, Vector3[] ps, float phase)
+    // nrm[i]：ps[i+1]（板の上のはねる所）の板の面の向き。そこに予告の印（平たい円盤、板の面から少し浮かせる）
+    static void LavaRock(Transform parent, string name, Vector3[] ps, Vector3[] nrm, float phase)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
         var ts = new Transform[ps.Length];
@@ -703,6 +705,19 @@ public static class FuwaCourse2_2Builder
         int hops = ps.Length - 1;
         f.hopTime = RockHop; f.hopUp = 1.2f; f.lastHopScale = 2f; f.rest = Mathf.Max(0.5f, RockPeriod - (hops - 1 + f.lastHopScale) * RockHop); f.phase = phase; f.hitRadius = RockR + 0.05f;
         f.ballKnock = 2.5f; f.ballKnockUp = 1.5f; f.playerKnock = 5f; f.playerKnockUp = 4f;
+        var wm = FuwaStage2WaterTest.ToonMat("Stage2_2_RockWarn", new Color(1f, 0.35f, 0.1f));
+        var ws = new GameObject[nrm.Length];
+        for (int i = 0; i < nrm.Length; i++)
+        {
+            var w = GameObject.CreatePrimitive(PrimitiveType.Cylinder); w.name = "Warn" + i; w.transform.SetParent(g, false);
+            Object.DestroyImmediate(w.GetComponent<Collider>());
+            w.transform.localPosition = ps[i + 1] - Vector3.up * RockR + nrm[i] * 0.04f;
+            w.transform.localRotation = Quaternion.FromToRotation(Vector3.up, nrm[i]);
+            w.transform.localScale = new Vector3(1.3f, 0.015f, 1.3f);
+            w.GetComponent<Renderer>().sharedMaterial = wm; w.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ws[i] = w;
+        }
+        f.warns = ws; f.warnTime = 1.5f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
 
