@@ -135,6 +135,10 @@ public class FuwaBall : UdonSharpBehaviour
     public float furDragMax = 0.12f;
     private Material _furMat;
     private Vector3 _furDrag;
+    [Tooltip("撃たれた顔 😣 を出しておく秒（顔の材質の _FaceHit。2026-10-30 顔をデフォにしたので FuwaSharedBall と同じく）")]
+    public float hitFaceTime = 0.6f;
+    private float _hitFaceUntil;
+    private bool _hitFaceShown;
 
     [Header("風などの影響を受けている間の光（毛玉シェーダー用）")]
     public Color windGlowColor = new Color(0.15f, 0.6f, 1f, 1f);   // 空の水色に溶けないよう濃いめの青
@@ -246,6 +250,8 @@ public class FuwaBall : UdonSharpBehaviour
             _furDrag = Vector3.Lerp(_furDrag, target, 1f - Mathf.Exp(-8f * Time.deltaTime));
             _furMat.SetVector("_Drag", new Vector4(_furDrag.x, _furDrag.y, _furDrag.z, 0f));
             UpdateGlow();
+            bool hit = Time.time < _hitFaceUntil;
+            if (hit != _hitFaceShown) { _hitFaceShown = hit; _furMat.SetFloat("_FaceHit", hit ? 1f : 0f); }
         }
         if (_stuck) UpdateStuckShake();
         UpdateAppear();
@@ -317,6 +323,7 @@ public class FuwaBall : UdonSharpBehaviour
 
         StartSquash(velocityChange);
         EmitShotPuff(velocityChange);
+        _hitFaceUntil = Time.time + hitFaceTime;
 
         // 吹かれた向きに転がるように回して、少しだけランダムにひねる
         Vector3 flat = new Vector3(velocityChange.x, 0f, velocityChange.z);
