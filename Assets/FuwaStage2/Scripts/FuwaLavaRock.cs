@@ -29,13 +29,14 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public float hitRadius = 0.5f;
     public float ballKnock = 2.5f, ballKnockUp = 1.5f;
     public float playerKnock = 5f, playerKnockUp = 4f;
-    [Tooltip("予告線（2026-10-30 てじゃ「着地点を見せるんじゃなくて、軌道を点線でフェードインアウトしながら」）：飛ぶ道すじ全部を点線で。飛び出す warnTime 秒前からふわっと出て、岩が通った所から消えていき、最後の落ちでフェードアウト")]
+    [Tooltip("予告線（2026-10-30 てじゃ「軌道を点線で」→「岩より先に点線が伸びながら落ちていく→岩がおいつくと消えてく」）：" +
+             "飛び出す warnTime 秒前に柱から点線がのび始め、岩の warnHeadSpeed 倍の速さで道すじを先に進む。岩が通った所から消える")]
     public LineRenderer warnLine;
-    public float warnTime = 1.5f, warnFadeIn = 0.5f;
+    public float warnTime = 1.2f, warnHeadSpeed = 1.6f;
     public Color warnColor = new Color(1f, 0.5f, 0.15f, 1f);
     public int warnSamples = 14;
-    [Tooltip("点線が流れる速さ（m/秒、岩の進む向きへ）。てじゃ「一定速度でスクロールしてるような見た目」。dotPerM は材質の横の繰り返し（1m あたりの点の数）")]
-    public float warnScroll = 2.5f, dotPerM = 2.2f;
+    [Tooltip("材質の横の繰り返し（1m あたりの点の数）。点は世界に対して止まって見えるように")]
+    public float dotPerM = 2.2f;
 
     private bool _flying, _hitBall, _hitPlayer;
     private int _hop = -1;
@@ -43,7 +44,6 @@ public class FuwaLavaRock : UdonSharpBehaviour
     private Vector3[] _path;
     private float[] _cum;
     private Material _lineMat;
-    private int _lineFrom = -1;
     private bool _lineOn;
 
     private void Start()
@@ -87,35 +87,37 @@ public class FuwaLavaRock : UdonSharpBehaviour
         return v * v * a + 2f * v * u * m + u * u * b;
     }
 
-    // 予告線：飛ぶ前は全部（だんだん濃く）、飛んでいる間は岩より先の所だけ。最後の落ちの間にうすくなって消える
-    private void UpdateWarnLine(bool flying, int k, float u, float untilLaunch, int hops)
+    // 飛び出してからの時間 tau（秒）→ 道すじの点の番号（小数）。最後の1回は長い
+    private float PathIndex(float tau, int hops)
+    {
+        if (tau <= 0f) return 0f;
+        float lastT = hopTime * lastHopScale;
+        int k; float u;
+        if (tau >= (hops - 1) * hopTime) { k = hops - 1; u = Mathf.Clamp01((tau - k * hopTime) / lastT); }
+        else { k = Mathf.FloorToInt(tau / hopTime); u = tau / hopTime - k; }
+        return (k + u) * warnSamples;
+    }
+
+    // 予告線：うしろ＝岩の位置（飛ぶ前は柱）、先＝岩より速く進む頭。頭は飛び出す warnTime 秒前に柱を出る
+    private void UpdateWarnLine(float tau, int hops)
     {
         if (warnLine == null || _path == null) return;
-        float a; int from;
-        if (flying)
-        {
-            from = Mathf.Min(_path.Length - 2, k * warnSamples + Mathf.FloorToInt(u * warnSamples) + 1);
-            a = k == hops - 1 ? 1f - u : 1f;
-        }
-        else
-        {
-            from = 0;
-            a = untilLaunch < warnTime ? Mathf.Clamp01((warnTime - untilLaunch) / Mathf.Max(0.01f, warnFadeIn)) : 0f;
-        }
-        bool on = a > 0.01f;
+        int last = _path.Length - 1;
+        float tail = Mathf.Min(PathIndex(tau, hops), last);
+        float head = tau > -warnTime ? Mathf.Min(PathIndex((tau + warnTime) * warnHeadSpeed, hops), last) : 0f;
+        bool on = head - tail > 0.05f;
         if (on != _lineOn) { _lineOn = on; warnLine.enabled = on; }
         if (!on) return;
-        if (from != _lineFrom)
-        {
-            _lineFrom = from;
-            int n = _path.Length - from;
-            warnLine.positionCount = n;
-            for (int i = 0; i < n; i++) warnLine.SetPosition(i, _path[from + i]);
-        }
-        Color c = warnColor; c.a = warnColor.a * a;
-        warnLine.startColor = c; warnLine.endColor = c;
-        // 点を世界に対して一定の速さで流す。先頭を削っても点が飛ばないよう、削った長さぶん横のずれを足す
-        if (_lineMat != null) _lineMat.mainTextureOffset = new Vector2(Mathf.Repeat((_cum[from] - warnScroll * Time.time) * dotPerM, 1f), 0f);
+        int i0 = Mathf.FloorToInt(tail), i1 = Mathf.Min(last, Mathf.CeilToInt(head));
+        int n = Mathf.Max(2, i1 - i0 + 1);
+        warnLine.positionCount = n;
+        for (int i = 0; i < n; i++) warnLine.SetPosition(i, _path[Mathf.Min(last, i0 + i)]);
+        // 先のはしは頭の位置まで（点と点の間）
+        int hb = Mathf.Min(last, Mathf.FloorToInt(head));
+        if (hb < last) warnLine.SetPosition(n - 1, Vector3.Lerp(_path[hb], _path[hb + 1], head - hb));
+        warnLine.startColor = warnColor; warnLine.endColor = warnColor;
+        // 点を世界に対して止めておく（うしろを削った長さぶん横のずれを足す）
+        if (_lineMat != null) _lineMat.mainTextureOffset = new Vector2(Mathf.Repeat(_cum[i0] * dotPerM, 1f), 0f);
     }
 
     private void Show(bool on)
@@ -144,9 +146,9 @@ public class FuwaLavaRock : UdonSharpBehaviour
             if (k > 0 && k < hops && bounce != null) { bounce.transform.position = points[k].position; bounce.Play(); }
             _hop = k;
         }
-        float u = flying ? Mathf.Clamp01((t - k * hopTime) / (k == hops - 1 ? lastT : hopTime)) : 0f;
-        UpdateWarnLine(flying, k, u, fly + rest - t, hops);
+        UpdateWarnLine(flying ? t : t - (fly + rest), hops);
         if (!flying) return;
+        float u = Mathf.Clamp01((t - k * hopTime) / (k == hops - 1 ? lastT : hopTime));
         Vector3 p = At(k, u);
         Vector3 vel = At(k, Mathf.Min(1f, u + 0.02f)) - At(k, Mathf.Max(0f, u - 0.02f));
         transform.position = p;
