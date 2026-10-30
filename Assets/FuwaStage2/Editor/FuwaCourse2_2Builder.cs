@@ -673,7 +673,32 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
-    public static float RockR = 0.9f, RockHop = 0.75f, RockPeriod = 5.75f;   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
+    public static float RockR = 0.9f, RockHop = 0.75f, RockPeriod = 6.5f;   // 休み2秒（予告線が出っぱなしにならないよう、予告 1.2 秒より長く）   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
+    // 点線の材質：丸い点が1つの透明な絵を、線の長さにそって並べる（Tile。点の間隔は 1/DotPerM m）
+    public static float DotPerM = 2.2f;
+    static Material DotLineMat()
+    {
+        const string tp = "Assets/FuwaStage2/Materials/Stage2_2_Dot.png", mp = "Assets/FuwaStage2/Materials/Stage2_2_RockWarnLine.mat";
+        if (!AssetDatabase.LoadAssetAtPath<Texture2D>(tp))
+        {
+            int W = 64, H = 32; var tx = new Texture2D(W, H, TextureFormat.RGBA32, false);
+            for (int y = 0; y < H; y++) for (int x = 0; x < W; x++)
+                {
+                    float d = new Vector2(x + 0.5f - H * 0.5f, y + 0.5f - H * 0.5f).magnitude;
+                    tx.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Clamp01((H * 0.42f - d) / 1.5f)));
+                }
+            System.IO.File.WriteAllBytes(tp, tx.EncodeToPNG()); Object.DestroyImmediate(tx);
+            AssetDatabase.ImportAsset(tp);
+            var ti = (TextureImporter)AssetImporter.GetAtPath(tp);
+            ti.textureType = TextureImporterType.Default; ti.alphaIsTransparency = true; ti.wrapMode = TextureWrapMode.Repeat; ti.mipmapEnabled = false; ti.SaveAndReimport();
+        }
+        var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!m) { m = new Material(Shader.Find("Sprites/Default")); AssetDatabase.CreateAsset(m, mp); }
+        m.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(tp); m.mainTextureScale = new Vector2(DotPerM, 1f);
+        m.renderQueue = 3000; EditorUtility.SetDirty(m);
+        return m;
+    }
+
     public static float PillarR = 1.7f, PillarH = 22f;
     // 岩の出てくる柱（ブロックアウト）：てっぺんは top、下は空へのびる。てっぺんに溶岩のくぼみ
     static void RockPillar(Transform parent, string name, Vector3 top)
@@ -705,19 +730,13 @@ public static class FuwaCourse2_2Builder
         int hops = ps.Length - 1;
         f.hopTime = RockHop; f.hopUp = 1.2f; f.lastHopScale = 2f; f.rest = Mathf.Max(0.5f, RockPeriod - (hops - 1 + f.lastHopScale) * RockHop); f.phase = phase; f.hitRadius = RockR + 0.05f;
         f.ballKnock = 2.5f; f.ballKnockUp = 1.5f; f.playerKnock = 5f; f.playerKnockUp = 4f;
-        var wm = FuwaStage2WaterTest.ToonMat("Stage2_2_RockWarn", new Color(1f, 0.35f, 0.1f));
-        var ws = new GameObject[nrm.Length];
-        for (int i = 0; i < nrm.Length; i++)
-        {
-            var w = GameObject.CreatePrimitive(PrimitiveType.Cylinder); w.name = "Warn" + i; w.transform.SetParent(g, false);
-            Object.DestroyImmediate(w.GetComponent<Collider>());
-            w.transform.localPosition = ps[i + 1] - Vector3.up * RockR + nrm[i] * 0.04f;
-            w.transform.localRotation = Quaternion.FromToRotation(Vector3.up, nrm[i]);
-            w.transform.localScale = new Vector3(1.3f, 0.015f, 1.3f);
-            w.GetComponent<Renderer>().sharedMaterial = wm; w.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            ws[i] = w;
-        }
-        f.warns = ws; f.warnTime = 1.5f;
+        // 予告線：飛ぶ道すじの点線（岩の中心の道すじ）
+        var lg = new GameObject("WarnLine"); lg.transform.SetParent(g, false);
+        var lr = lg.AddComponent<LineRenderer>();
+        lr.useWorldSpace = true; lr.widthMultiplier = 0.28f; lr.textureMode = LineTextureMode.Tile; lr.alignment = LineAlignment.View;
+        lr.numCapVertices = 0; lr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; lr.receiveShadows = false;
+        lr.sharedMaterial = DotLineMat(); lr.positionCount = 0; lr.enabled = false;
+        f.warnLine = lr; f.warnTime = 1.2f; f.warnFadeIn = 0.4f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
 

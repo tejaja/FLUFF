@@ -29,15 +29,18 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public float hitRadius = 0.5f;
     public float ballKnock = 2.5f, ballKnockUp = 1.5f;
     public float playerKnock = 5f, playerKnockUp = 4f;
-    [Tooltip("予告（2026-10-30 てじゃ「3列にして、むずくなるかわりに予告線でも出すか」）：はねる板の上の印。warns[i] は points[i+1] の印。飛び出す warnTime 秒前から、岩がそこを通りすぎるまで出す")]
-    public GameObject[] warns;
-    public float warnTime = 1.5f, warnPulse = 6f;
+    [Tooltip("予告線（2026-10-30 てじゃ「着地点を見せるんじゃなくて、軌道を点線でフェードインアウトしながら」）：飛ぶ道すじ全部を点線で。飛び出す warnTime 秒前からふわっと出て、岩が通った所から消えていき、最後の落ちでフェードアウト")]
+    public LineRenderer warnLine;
+    public float warnTime = 1.5f, warnFadeIn = 0.5f;
+    public Color warnColor = new Color(1f, 0.5f, 0.15f, 1f);
+    public int warnSamples = 14;
 
     private bool _flying, _hitBall, _hitPlayer;
     private int _hop = -1;
     private float _ballRadius = 0.4f;
-    private bool[] _warnOn;
-    private Vector3[] _warnScale;
+    private Vector3[] _path;
+    private int _lineFrom = -1;
+    private bool _lineOn;
 
     private void Start()
     {
@@ -47,10 +50,15 @@ public class FuwaLavaRock : UdonSharpBehaviour
             if (sc != null) _ballRadius = sc.radius * ball.transform.lossyScale.x;
         }
         Show(false);
-        if (warns != null)
+        if (warnLine != null && points != null && points.Length >= 2)
         {
-            _warnOn = new bool[warns.Length]; _warnScale = new Vector3[warns.Length];
-            for (int i = 0; i < warns.Length; i++) if (warns[i] != null) { _warnScale[i] = warns[i].transform.localScale; warns[i].SetActive(false); }
+            int hops = points.Length - 1;
+            _path = new Vector3[hops * warnSamples + 1];
+            for (int k = 0; k < hops; k++)
+                for (int j = 0; j < warnSamples; j++) _path[k * warnSamples + j] = At(k, j / (float)warnSamples);
+            _path[hops * warnSamples] = points[hops].position;
+            warnLine.useWorldSpace = true;
+            warnLine.enabled = false;
         }
     }
 
@@ -72,18 +80,33 @@ public class FuwaLavaRock : UdonSharpBehaviour
         return v * v * a + 2f * v * u * m + u * u * b;
     }
 
-    // 印 i（points[i+1]）：飛び出す前の warnTime 秒と、飛んでいて岩がまだ着いていない間。ドクドク脈打つ
-    private void UpdateWarns(bool flying, int k, float untilLaunch)
+    // 予告線：飛ぶ前は全部（だんだん濃く）、飛んでいる間は岩より先の所だけ。最後の落ちの間にうすくなって消える
+    private void UpdateWarnLine(bool flying, int k, float u, float untilLaunch, int hops)
     {
-        if (warns == null || _warnOn == null) return;
-        float pulse = 1f + 0.12f * Mathf.Sin(Time.time * warnPulse);
-        for (int i = 0; i < warns.Length; i++)
+        if (warnLine == null || _path == null) return;
+        float a; int from;
+        if (flying)
         {
-            if (warns[i] == null) continue;
-            bool on = flying ? k < i + 1 : untilLaunch < warnTime;
-            if (on != _warnOn[i]) { _warnOn[i] = on; warns[i].SetActive(on); }
-            if (on) warns[i].transform.localScale = new Vector3(_warnScale[i].x * pulse, _warnScale[i].y, _warnScale[i].z * pulse);
+            from = Mathf.Min(_path.Length - 2, k * warnSamples + Mathf.FloorToInt(u * warnSamples) + 1);
+            a = k == hops - 1 ? 1f - u : 1f;
         }
+        else
+        {
+            from = 0;
+            a = untilLaunch < warnTime ? Mathf.Clamp01((warnTime - untilLaunch) / Mathf.Max(0.01f, warnFadeIn)) : 0f;
+        }
+        bool on = a > 0.01f;
+        if (on != _lineOn) { _lineOn = on; warnLine.enabled = on; }
+        if (!on) return;
+        if (from != _lineFrom)
+        {
+            _lineFrom = from;
+            int n = _path.Length - from;
+            warnLine.positionCount = n;
+            for (int i = 0; i < n; i++) warnLine.SetPosition(i, _path[from + i]);
+        }
+        Color c = warnColor; c.a = warnColor.a * a;
+        warnLine.startColor = c; warnLine.endColor = c;
     }
 
     private void Show(bool on)
@@ -112,9 +135,9 @@ public class FuwaLavaRock : UdonSharpBehaviour
             if (k > 0 && k < hops && bounce != null) { bounce.transform.position = points[k].position; bounce.Play(); }
             _hop = k;
         }
-        UpdateWarns(flying, k, fly + rest - t);
+        float u = flying ? Mathf.Clamp01((t - k * hopTime) / (k == hops - 1 ? lastT : hopTime)) : 0f;
+        UpdateWarnLine(flying, k, u, fly + rest - t, hops);
         if (!flying) return;
-        float u = Mathf.Clamp01((t - k * hopTime) / (k == hops - 1 ? lastT : hopTime));
         Vector3 p = At(k, u);
         Vector3 vel = At(k, Mathf.Min(1f, u + 0.02f)) - At(k, Mathf.Max(0f, u - 0.02f));
         transform.position = p;
