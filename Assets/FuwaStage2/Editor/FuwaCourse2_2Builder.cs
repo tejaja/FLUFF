@@ -30,7 +30,8 @@ public static class FuwaCourse2_2Builder
     // ④ 2026-10-30 てじゃ「もうちょい広いエリア＋まものは4ひきくらい、周りに水じゃなくて所々に水たまり」→ 広い道の中に丸い水たまりの穴
     public static float PuddleR = 1.7f, MonsterFlameTouch = 0.95f;
     public static float ArenaHW = 6f, ArenaLen = 26f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
-    public static float FlamePeriod = 3.2f, FlameOn = 1.3f, SeedBefore = 3.5f;
+    public static float FlamePeriod = 3.2f, FlameOn = 1.3f, SeedBefore = 2.3f, FlameRockTop = 3.3f;   // 火種は火炎放射の 2.3m 手前（3.5 は「ちょっと遠い」2026-10-30）
+    public static float[] FlameMouths = { 0.7f, 2.1f };
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
     public static Color PathColA = new Color(1f, 0.56f, 0.50f), PathColB = new Color(0.94f, 0.44f, 0.38f);
@@ -739,16 +740,20 @@ public static class FuwaCourse2_2Builder
     // 火炎放射：道の中心 c の横の岩の穴（口）から、dir（岩→道）の向きへ吹く
     static void Flamethrower(Transform parent, string name, Vector3 c, Vector3 dir, float phase)
     {
-        // 岩は道のふちにぴったり、道の下の岩の底（2.1m 下）から 2m 上まで。口は岩の面
-        var mouth = c - dir * (PathHW + 0.05f) + Vector3.up * 0.7f;
-        var rock = Box(parent, name + "_Rock", c - dir * (PathHW + 0.67f) + Vector3.up * -0.05f, new Vector3(2.6f, 4.1f, 1.3f), rockMat, 0);
+        // 岩は道のふちにぴったり、道の下の岩の底（2.1m 下）から FlameRockTop まで。口は岩の面
+        // 口は FlameMouths の高さに縦に並べる（1本だと上ががら空きで越せた。2026-10-30 てじゃ「上ががら空きだからもう一本分くらい追加」）。炎の当たりは 1.4m 角なので 0.7・2.1 ですき間なく 0〜2.8m
+        var rock = Box(parent, name + "_Rock", c - dir * (PathHW + 0.67f) + Vector3.up * ((FlameRockTop - 2.1f) * 0.5f), new Vector3(2.6f, FlameRockTop + 2.1f, 1.3f), rockMat, 0);
         rock.transform.localRotation = Quaternion.LookRotation(dir);
-        FuwaStage2FireTest.Jet(parent, name, mouth, heat, phase);
-        var g = parent.Find(name); g.localRotation = Quaternion.FromToRotation(Vector3.up, dir);
-        var m = g.Find("Mouth"); Object.DestroyImmediate(m.GetComponent<Collider>()); m.localPosition = new Vector3(0, -0.15f, 0);
-        var j = g.GetComponentInChildren<FuwaFireJet>(true);
-        j.deadly = true; j.playerPush = 3f; j.playerPushUp = 1.5f; j.period = FlamePeriod; j.onTime = FlameOn;
-        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j);
+        for (int i = 0; i < FlameMouths.Length; i++)
+        {
+            string jn = i == 0 ? name : name + "_Hi" + i;
+            FuwaStage2FireTest.Jet(parent, jn, c - dir * (PathHW + 0.05f) + Vector3.up * FlameMouths[i], heat, phase);
+            var g = parent.Find(jn); g.localRotation = Quaternion.FromToRotation(Vector3.up, dir);
+            var m = g.Find("Mouth"); Object.DestroyImmediate(m.GetComponent<Collider>()); m.localPosition = new Vector3(0, -0.15f, 0);
+            var j = g.GetComponentInChildren<FuwaFireJet>(true);
+            j.deadly = true; j.playerPush = 3f; j.playerPushUp = 1.5f; j.period = FlamePeriod; j.onTime = FlameOn;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j);
+        }
     }
 
     // 水たまり：まものを落とすと倒れる・燃えたふわふわは消える。2–1 と同じ水（ふわふわは浮く・人は浅瀬で遅くなる）。s は外側の向き（-1 左、+1 右）
