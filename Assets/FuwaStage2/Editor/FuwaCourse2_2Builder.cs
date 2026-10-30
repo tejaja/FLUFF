@@ -30,8 +30,8 @@ public static class FuwaCourse2_2Builder
     // ④ 2026-10-30 てじゃ「もうちょい広いエリア＋まものは4ひきくらい、周りに水じゃなくて所々に水たまり」→ 広い道の中に丸い水たまりの穴
     public static float PuddleR = 1.7f, MonsterFlameTouch = 0.95f;
     public static float ArenaHW = 6f, ArenaLen = 26f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
-    public static float FlamePeriod = 3.2f, FlameOn = 1.3f, SeedBefore = 2.3f, FlameRockTop = 3.3f;   // 火種は火炎放射の 2.3m 手前（3.5 は「ちょっと遠い」2026-10-30）
-    public static float[] FlameMouths = { 0.7f, 2.1f };
+    public static float FlamePeriod = 3.2f, FlameOn = 1.3f;
+    public static float SlopeStart = 8f, SlopeLen = 32f, SlopeRise = 6f, SlopeHW = 3.5f, FloorJetLen = 4.5f, DiagJetLen = 6.5f, FlameKnock = 6f, FlameKnockUp = 6f;   // ⑤ 広い上り坂（まもののエリアの出口から SlopeStart 先）・炎の長さ・吹っ飛ばし
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
     public static Color PathColA = new Color(1f, 0.56f, 0.50f), PathColB = new Color(0.94f, 0.44f, 0.38f);
@@ -234,10 +234,12 @@ public static class FuwaCourse2_2Builder
         var puddles = new[] { (x: 2.8f, z: 8.5f), (x: -3.2f, z: 13.5f), (x: 3.0f, z: 19f) };   // 5→3（てじゃ「水へらそ」）
         var monsters = new[] { (x: 0f, z: 6.5f), (x: -2.8f, z: 10.8f), (x: 2.6f, z: 13.5f), (x: 0.2f, z: 19.5f) };
 
-        // ⑤ くねくね道（一部坂）：横の岩の穴から火炎放射（当たると黒焦げ→アウト、人はちょっと吹っ飛ぶ）。手前の火種で浮かせて待てる
-        var pts5 = new[] { ar, ar + Vector3.forward * 4.5f, ae - Vector3.forward * 4.5f, ae, ae + new Vector3(0, 0, 3f), ae + new Vector3(4f, 0, 10f), ae + new Vector3(-3f, 1.5f, 18f), ae + new Vector3(3f, 3f, 26f), ae + new Vector3(0, 3f, 32f), ae + new Vector3(0, 3f, 35f) };
-        var hw5 = pts5.Select(_ => PathHW).ToArray(); hw5[0] = EndPadR - 0.2f; hw5[1] = ArenaHW; hw5[2] = ArenaHW;
-        var rad5 = new[] { 0f, 0f, 0f, 0f, 4f, 4f, 4f, 4f, 4f, 0f };
+        // ⑤ 広い上り坂に火炎放射（2026-10-30 てじゃ「道を広めの上り坂に、各所に火炎放射、横だけじゃなくて下や斜めも。あたると即死じゃなくて大きく吹き飛び炎上、
+        //    飛ばされたら急いで拾わないと燃えちゃう」）。まもののエリアの出口で細くなって、少し先から広い坂（SlopeHW）。吹っ飛ぶ向きは坂の下（横だと道から落ちるので）
+        var pts5 = new[] { ar, ar + Vector3.forward * 4.5f, ae - Vector3.forward * 4.5f, ae, ae + new Vector3(0, 0, 3f), ae + new Vector3(0, 0, SlopeStart),
+            ae + new Vector3(1.5f, SlopeRise * 0.5f, SlopeStart + SlopeLen * 0.5f), ae + new Vector3(0, SlopeRise, SlopeStart + SlopeLen), ae + new Vector3(0, SlopeRise, SlopeStart + SlopeLen + 4f), ae + new Vector3(0, SlopeRise, SlopeStart + SlopeLen + 7f) };
+        var hw5 = pts5.Select(_ => PathHW).ToArray(); hw5[0] = EndPadR - 0.2f; hw5[1] = ArenaHW; hw5[2] = ArenaHW; hw5[5] = SlopeHW; hw5[6] = SlopeHW; hw5[7] = SlopeHW;
+        var rad5 = new[] { 0f, 0f, 0f, 0f, 0f, 3f, 6f, 3f, 0f, 0f };
         var r5 = Route(pts5, rad5, new List<Vector3>());
         var pholes = puddles.Select(q => new Vector4(ar.x + q.x, ar.y, ar.z + q.z, PuddleR)).ToList();
         Ribbon(path, "Path5", r5, hw5, pts5, pholes, pholes.Select(_ => 0).ToList());
@@ -245,15 +247,17 @@ public static class FuwaCourse2_2Builder
         for (int k = 0; k < monsters.Length; k++) FireMonster(root, "FireMonster" + k, ar + new Vector3(monsters[k].x, 0, monsters[k].z));
         Checkpoint(root, "Checkpoint2", ae + Vector3.forward * 1.5f, Vector3.forward, PathHW);
         {
-            var fts = new[] { (z: ae.z + 9f, side: 1f, ph: 0f), (z: ae.z + 17.5f, side: -1f, ph: 1.0f), (z: ae.z + 25.5f, side: 1f, ph: 2.0f) };
+            // 種類：0 横（道のふちの岩から向こう岸へ水平）、1 下（床の穴から真上）、2 斜め（ふちから向こうへ斜め上）。x は道の中心からの横（+右）、横・斜めは x の符号の側のふちから
+            var fts = new[] {
+                (z: 5f, kind: 0, x: 1f, ph: 0f),
+                (z: 9f, kind: 1, x: -1.6f, ph: 0.8f), (z: 9f, kind: 1, x: 1.6f, ph: 2.4f),
+                (z: 13.5f, kind: 2, x: -1f, ph: 1.2f),
+                (z: 17.5f, kind: 0, x: -1f, ph: 0.4f), (z: 18f, kind: 1, x: 1.2f, ph: 2.0f),
+                (z: 23f, kind: 2, x: 1f, ph: 0f), (z: 23f, kind: 2, x: -1f, ph: 1.6f),
+                (z: 27.5f, kind: 1, x: -2f, ph: 0.4f), (z: 27.5f, kind: 1, x: 0f, ph: 1.2f), (z: 27.5f, kind: 1, x: 2f, ph: 2.0f),
+            };
             for (int k = 0; k < fts.Length; k++)
-            {
-                Frame(r5, fts[k].z, out var c, out var t);
-                var n = Vector3.Cross(up, t).normalized * fts[k].side;
-                Flamethrower(fire, "Flamethrower" + k, c, -n, fts[k].ph);
-                Frame(r5, fts[k].z - SeedBefore, out var sc, out _);
-                GroundFire(fire, "FlameSeed" + k, sc);
-            }
+                Flamethrower(fire, "Flamethrower" + k, r5, ae.z + SlopeStart + fts[k].z, fts[k].kind, fts[k].x, fts[k].ph);
         }
         var p = pts5[pts5.Length - 1];
 
@@ -737,23 +741,59 @@ public static class FuwaCourse2_2Builder
         g.GetComponent<MeshRenderer>().sharedMaterial = lavaMat;
     }
 
-    // 火炎放射：道の中心 c の横の岩の穴（口）から、dir（岩→道）の向きへ吹く
-    static void Flamethrower(Transform parent, string name, Vector3 c, Vector3 dir, float phase)
+    // 火炎放射：奥行き z の所に、kind（0 横・1 下・2 斜め）の向きで吹く。当たると燃えて坂の下へ吹っ飛ぶ（FuwaFireJet.ballKnock）
+    static void Flamethrower(Transform parent, string name, List<RPt> r, float z, int kind, float x, float phase)
     {
-        // 岩は道のふちにぴったり、道の下の岩の底（2.1m 下）から FlameRockTop まで。口は岩の面
-        // 口は FlameMouths の高さに縦に並べる（1本だと上ががら空きで越せた。2026-10-30 てじゃ「上ががら空きだからもう一本分くらい追加」）。炎の当たりは 1.4m 角なので 0.7・2.1 ですき間なく 0〜2.8m
-        var rock = Box(parent, name + "_Rock", c - dir * (PathHW + 0.67f) + Vector3.up * ((FlameRockTop - 2.1f) * 0.5f), new Vector3(2.6f, FlameRockTop + 2.1f, 1.3f), rockMat, 0);
-        rock.transform.localRotation = Quaternion.LookRotation(dir);
-        for (int i = 0; i < FlameMouths.Length; i++)
+        Frame(r, z, out var c, out var t); Frame(r, z + 0.5f, out var c2, out _);
+        var n = Vector3.Cross(Vector3.up, t).normalized;
+        var slope = (c2 - c).normalized; var nrm = Vector3.Cross(slope, n).normalized;   // 坂の面の上向き
+        float side = Mathf.Sign(x);
+        Vector3 mouth, dir; float len;
+        if (kind == 1)
         {
-            string jn = i == 0 ? name : name + "_Hi" + i;
-            FuwaStage2FireTest.Jet(parent, jn, c - dir * (PathHW + 0.05f) + Vector3.up * FlameMouths[i], heat, phase);
-            var g = parent.Find(jn); g.localRotation = Quaternion.FromToRotation(Vector3.up, dir);
-            var m = g.Find("Mouth"); Object.DestroyImmediate(m.GetComponent<Collider>()); m.localPosition = new Vector3(0, -0.15f, 0);
-            var j = g.GetComponentInChildren<FuwaFireJet>(true);
-            j.deadly = true; j.playerPush = 3f; j.playerPushUp = 1.5f; j.period = FlamePeriod; j.onTime = FlameOn;
-            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j);
+            // 床の穴：道の面に低い噴き出し口（当たりなし。ふわふわは上を越える）
+            mouth = c + n * x; dir = Vector3.up; len = FloorJetLen;
+            var vent = GameObject.CreatePrimitive(PrimitiveType.Cylinder); vent.name = name + "_Vent"; vent.transform.SetParent(parent, false);
+            vent.transform.localPosition = mouth; vent.transform.localRotation = Quaternion.FromToRotation(Vector3.up, nrm); vent.transform.localScale = new Vector3(1.1f, 0.06f, 1.1f);
+            Object.DestroyImmediate(vent.GetComponent<Collider>());
+            vent.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_Embers", new Color(0.35f, 0.12f, 0.08f));
+            mouth += Vector3.up * 0.05f;
         }
+        else
+        {
+            // ふちの岩（道のふちにぴったり、道の下の岩の底 2.1m 下から）。横は高い岩の 0.8m の所、斜めは低い岩の根元から
+            var edge = c + n * side * SlopeHW;
+            dir = -n * side; if (kind == 2) dir = (dir + Vector3.up * 0.6f).normalized;
+            float top = kind == 0 ? 2.2f : 0.9f;
+            var rock = Box(parent, name + "_Rock", edge + n * side * 0.62f + Vector3.up * ((top - 2.1f) * 0.5f), new Vector3(2.0f, top + 2.1f, 1.2f), rockMat, 0);
+            rock.transform.localRotation = Quaternion.LookRotation(-n * side);
+            mouth = edge + n * side * 0.02f + Vector3.up * (kind == 0 ? 0.8f : 0.5f);
+            len = kind == 0 ? SlopeHW * 2f + 0.5f : DiagJetLen;
+        }
+
+        var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = mouth; g.localRotation = Quaternion.FromToRotation(Vector3.up, dir);
+        if (kind != 1)
+        {
+            var m = GameObject.CreatePrimitive(PrimitiveType.Cylinder); m.name = "Mouth"; m.transform.SetParent(g, false);
+            m.transform.localPosition = new Vector3(0, -0.12f, 0); m.transform.localScale = new Vector3(0.9f, 0.15f, 0.9f);
+            Object.DestroyImmediate(m.GetComponent<Collider>());
+            m.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_Embers", new Color(0.35f, 0.12f, 0.08f));
+        }
+        // 炎の粒は口から len 先まで（寿命 0.7 秒で届く速さ）
+        var flame = FuwaStage2FireTest.FlamePS(g, "Flame", 0.35f, len / 0.7f, 1.0f, new Color(1f, 0.8f, 0.25f), new Color(1f, 0.3f, 0.05f));
+        { var sh = flame.shape; sh.angle = 8f; }
+        var warn = FuwaStage2FireTest.FlamePS(g, "Warn", 0.3f, 1.2f, 0.5f, new Color(1f, 0.55f, 0.2f), new Color(0.5f, 0.2f, 0.1f));
+        var zone = new GameObject("JetZone"); zone.transform.SetParent(g, false); zone.transform.localPosition = new Vector3(0, len * 0.5f, 0); zone.layer = 4;
+        var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(1.3f, len, 1.3f);
+        var j = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireJet>(zone);
+        j.heat = heat; j.ball = ballProxy; j.phase = phase; j.flame = flame; j.warn = warn; j.period = FlamePeriod; j.onTime = FlameOn;
+        j.flameRate = 90f;
+        // 吹っ飛ぶ向き：坂の下 ＋ 炎の横向きを少し（ワールドの向きで入れる）
+        var hd = new Vector3(dir.x, 0f, dir.z);
+        j.knockDir = parent.TransformDirection((-t + hd * 0.25f).normalized);
+        j.ballKnock = FlameKnock; j.ballKnockUp = FlameKnockUp;
+        j.playerPush = kind == 1 ? 0.01f : 3f; j.playerPushUp = kind == 1 ? 5f : 2f;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j); FuwaStage2WaterTest.NoSync(j);
     }
 
     // 水たまり：まものを落とすと倒れる・燃えたふわふわは消える。2–1 と同じ水（ふわふわは浮く・人は浅瀬で遅くなる）。s は外側の向き（-1 左、+1 右）

@@ -22,7 +22,12 @@ public class FuwaFireJet : UdonSharpBehaviour
     public bool deadly = false;
     [Tooltip("吹いている間に入った人を、炎の向き（このトリガーの上向き）へ吹っ飛ばす（0なら何もしない）")]
     public float playerPush = 0f, playerPushUp = 1.5f;
-    private bool _wasOn;
+    [Header("吹っ飛ばし（2026-10-30 てじゃ「あたると即死じゃなくて大きく吹き飛び炎上、飛ばされたら急いで拾わないと燃えちゃう」）")]
+    [Tooltip("ballKnock > 0 なら、当たったふわふわを燃やして knockDir へ吹っ飛ばす（1回吹くごとに1回）。deadly より先")]
+    public FuwaBall ball;
+    public Vector3 knockDir = Vector3.back;
+    public float ballKnock = 0f, ballKnockUp = 5f, knockFlight = 0.8f, knockDrag = 0.4f;
+    private bool _wasOn, _blasted;
     private float _pushedAt = -10f;
 
     public bool IsOn() { return T() < onTime; }
@@ -41,7 +46,7 @@ public class FuwaFireJet : UdonSharpBehaviour
         float t = T(); bool on = t < onTime; bool w = !on && t > period - warnTime;
         if (flame != null) { var e = flame.emission; e.rateOverTime = on ? flameRate : 0f; }
         if (warn != null) { var e = warn.emission; e.rateOverTime = w ? warnRate : 0f; }
-        if (on && !_wasOn && roar != null && roar.clip != null) roar.PlayOneShot(roar.clip);
+        if (on && !_wasOn) { _blasted = false; if (roar != null && roar.clip != null) roar.PlayOneShot(roar.clip); }
         _wasOn = on;
         if (on) PushPlayer();
     }
@@ -50,6 +55,15 @@ public class FuwaFireJet : UdonSharpBehaviour
     {
         if (heat == null || other == null || !IsOn()) return;
         if (other.GetComponent<FuwaBall>() == null) return;
+        if (ballKnock > 0f && ball != null)
+        {
+            if (_blasted) return;
+            _blasted = true;
+            heat.Ignite();
+            Vector3 d = knockDir; d.y = 0f; d = d.sqrMagnitude > 0.0001f ? d.normalized : Vector3.zero;
+            ball.LaunchFlight(d * ballKnock + Vector3.up * ballKnockUp, knockFlight, knockDrag);
+            return;
+        }
         if (deadly) { heat.BurnOut(); return; }
         if (hoverPoint != null) heat.HeatAt(hoverPoint.position); else heat.Heat();
     }
