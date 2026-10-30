@@ -27,7 +27,9 @@ public static class FuwaCourse2_2Builder
     public static float PadR = 2.6f, PadIn = 1.6f, PadDrop = 0.03f, ZigLeg = 15f, ZigRise = 2.0f, ZigHW = 0.8f, ZigHeading = 71f, EndPadR = 3.4f, EndPadIn = 1.0f, FireWallH = 4.5f, FireWallOut = 1.0f, FireWallGap = 0.35f;   // 踊り場の半径・板のはしが踊り場に入る深さ（40° の板どうしが踊り場の外で重ならない：0.8*2/sin40=2.5）・板の長さ・上り・幅の半分・向き
     // （2026-10-30 てじゃ「もっと角度急に」→ 約155° 曲がる（道どうしが約26°）。板を踊り場の中心から通すと踊り場の外で重なるので、板の出る所は中心より前（+z）へ、着く所は後ろへ幅の半分ずらす（角で入る板と出る板が中心の前後に分かれる）。そのぶん板が寝るので向き ZigHeading は 71°。PadIn は板のはしが踊り場に入る深さ）
     // （2026-10-29 てじゃ「ジグザグ、ゆるすぎる」→ 細く（幅3m→1.6m）＋角を鋭く（120°→140° 曲がる）＋板を長く（10→13m）。ヘアピンの1本道も試したが、鋭い角を丸めると角が6mも内に入ってだめ）
-    public static float ArenaHW = 3f, ArenaLen = 16f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
+    // ④ 2026-10-30 てじゃ「もうちょい広いエリア＋まものは4ひきくらい、周りに水じゃなくて所々に水たまり」→ 広い道の中に丸い水たまりの穴
+    public static float PuddleR = 1.7f, MonsterFlameTouch = 0.95f;
+    public static float ArenaHW = 6f, ArenaLen = 26f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
     public static float FlamePeriod = 3.2f, FlameOn = 1.3f, SeedBefore = 3.5f;
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
@@ -216,27 +218,30 @@ public static class FuwaCourse2_2Builder
                     float t = (cx - legs[k].a.x) / (legs[k].b.x - legs[k].a.x);
                     rp.Add(Vector3.Lerp(legs[k].a, legs[k].b, t) + up * RockR);
                 }
-                rp.Insert(0, rp[0] + new Vector3(0, 6f, 4f));
+                rp.Insert(0, rp[0] + new Vector3(1f, 6f, 4f));   // 柱はまもののエリア（広い）にかからないよう少し横へ
                 rp.Add(rp[rp.Count - 1] + new Vector3(0, -10f, -4f));
                 LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length);
                 RockPillar(fire, "RockPillar" + c, rp[0] + up * RockR);   // てじゃ「岩が出てるとこに岩柱でもつくるか」：岩は柱のてっぺんの溶岩から飛び出す
             }
         }
 
-        // ④ ほのおのまもの：広い平らな所。両脇に水たまり（まものを落とすと倒れる・燃えたふわふわは消える）
+        // ④ ほのおのまもの：広い平らな所に まもの4ひき・ところどころに水たまり（まものを落とすと倒れる・燃えたふわふわは消える）
+        //  広い所と⑤のくねくね道は1本のつなぎ目なしの道。踊り場から広がって、出口で細くなる
         var ar = pad + Vector3.forward * EndPadIn;
-        Strip(path, "Arena", ar, Vector3.forward, ArenaLen, ArenaHW);
-        for (int s = -1; s <= 1; s += 2) Pond(path, "Pond" + (s < 0 ? "L" : "R"), ar + new Vector3(s * (ArenaHW + PondW * 0.5f), 0, 3f + PondLen * 0.5f), s);
-        FireMonster(root, "FireMonster", ar + Vector3.forward * (3f + PondLen * 0.5f));
         var ae = ar + Vector3.forward * ArenaLen;
-        Checkpoint(root, "Checkpoint2", ae - Vector3.forward * 1.5f, Vector3.forward, ArenaHW);
+        var puddles = new[] { (x: -3.2f, z: 7f), (x: 2.8f, z: 9.5f), (x: -1.0f, z: 13.2f), (x: 3.5f, z: 16.8f), (x: -3.6f, z: 19f) };
+        var monsters = new[] { (x: 0f, z: 6.5f), (x: -2.8f, z: 10.8f), (x: 2.6f, z: 13.5f), (x: 0.2f, z: 19.5f) };
 
         // ⑤ くねくね道（一部坂）：横の岩の穴から火炎放射（当たると黒焦げ→アウト、人はちょっと吹っ飛ぶ）。手前の火種で浮かせて待てる
-        var pts5 = new[] { ae, ae + new Vector3(0, 0, 3f), ae + new Vector3(4f, 0, 10f), ae + new Vector3(-3f, 1.5f, 18f), ae + new Vector3(3f, 3f, 26f), ae + new Vector3(0, 3f, 32f), ae + new Vector3(0, 3f, 35f) };
-        var hw5 = pts5.Select(_ => PathHW).ToArray();
-        var rad5 = new[] { 0f, 4f, 4f, 4f, 4f, 4f, 0f };
+        var pts5 = new[] { ar, ar + Vector3.forward * 4.5f, ae - Vector3.forward * 4.5f, ae, ae + new Vector3(0, 0, 3f), ae + new Vector3(4f, 0, 10f), ae + new Vector3(-3f, 1.5f, 18f), ae + new Vector3(3f, 3f, 26f), ae + new Vector3(0, 3f, 32f), ae + new Vector3(0, 3f, 35f) };
+        var hw5 = pts5.Select(_ => PathHW).ToArray(); hw5[0] = EndPadR - 0.2f; hw5[1] = ArenaHW; hw5[2] = ArenaHW;
+        var rad5 = new[] { 0f, 0f, 0f, 0f, 4f, 4f, 4f, 4f, 4f, 0f };
         var r5 = Route(pts5, rad5, new List<Vector3>());
-        Ribbon(path, "Path5", r5, hw5, pts5);
+        var pholes = puddles.Select(q => new Vector4(ar.x + q.x, ar.y, ar.z + q.z, PuddleR)).ToList();
+        Ribbon(path, "Path5", r5, hw5, pts5, pholes, pholes.Select(_ => 0).ToList());
+        for (int k = 0; k < pholes.Count; k++) Puddle(path, "Puddle" + k, (Vector3)pholes[k]);
+        for (int k = 0; k < monsters.Length; k++) FireMonster(root, "FireMonster" + k, ar + new Vector3(monsters[k].x, 0, monsters[k].z));
+        Checkpoint(root, "Checkpoint2", ae + Vector3.forward * 1.5f, Vector3.forward, PathHW);
         {
             var fts = new[] { (z: ae.z + 9f, side: 1f, ph: 0f), (z: ae.z + 17.5f, side: -1f, ph: 1.0f), (z: ae.z + 25.5f, side: 1f, ph: 2.0f) };
             for (int k = 0; k < fts.Length; k++)
@@ -768,6 +773,25 @@ public static class FuwaCourse2_2Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sw); FuwaStage2WaterTest.NoSync(sw);
     }
 
+    // 道にあいた丸い穴の水たまり（Ribbon の穴、壁は LavaDepth＋0.3 下まで）：底（道の 0.45 下）と水。2–1 と同じ水（ふわふわは浮く・人は浅瀬で遅くなる）
+    //  水の箱・面は四角で穴より大きいが、上は道より下なので道の下にかくれる（道のふちから PuddleR＋0.6 以上はなす）
+    static void Puddle(Transform parent, string name, Vector3 c)
+    {
+        var g = new GameObject(name).transform; g.SetParent(parent, false);
+        Box(g, "Bed", c + Vector3.down * (0.45f + 0.15f), new Vector3(PuddleR * 2f, 0.3f, PuddleR * 2f), rockMat, pathLayer);
+        float wx = PuddleR * 2f;
+        var water = new GameObject("Water"); water.transform.SetParent(g, false); water.transform.localPosition = c + Vector3.up * (PondSurface - 0.5f); water.layer = 4;
+        var bc = water.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(PuddleR * 1.8f, 1.0f, PuddleR * 1.8f);
+        var surf = GameObject.CreatePrimitive(PrimitiveType.Quad); surf.name = "Surface"; surf.transform.SetParent(water.transform, false);
+        surf.transform.localPosition = Vector3.up * 0.5f; surf.transform.localRotation = Quaternion.Euler(90f, 0, 0); surf.transform.localScale = new Vector3(wx, wx, 1f);
+        Object.DestroyImmediate(surf.GetComponent<Collider>());
+        surf.GetComponent<Renderer>().sharedMaterial = FuwaCourse2_1Builder.WaterMat(0f, false);
+        var w = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaWater>(water); w.surface = surf.transform; w.heat = heat;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(w); FuwaStage2WaterTest.NoSync(w);
+        var sw = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaShallowWater>(water);
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sw); FuwaStage2WaterTest.NoSync(sw);
+    }
+
     // ほのおのまもの：コースのまもの（FuwaEnemy、寝てない・巣にかくれない物）を写して、赤く・炎をまとわせる。突進で燃える・水で倒れる
     static void FireMonster(Transform root, string name, Vector3 lp)
     {
@@ -779,7 +803,7 @@ public static class FuwaCourse2_2Builder
         var g = Object.Instantiate(src.gameObject, root, false); g.name = name;
         g.transform.localPosition = lp + Vector3.up * lift; g.transform.localRotation = Quaternion.LookRotation(Vector3.back);
         g.transform.localScale = src.transform.lossyScale;
-        var e = g.GetComponent<FuwaEnemy>(); e.ball = ballProxy; e.igniteHeat = heat;
+        var e = g.GetComponent<FuwaEnemy>(); e.ball = ballProxy; e.igniteHeat = heat; e.flameTouchRadius = MonsterFlameTouch;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(e);
         // 赤く
         if (e.visual)

@@ -58,6 +58,8 @@ public class FuwaEnemy : UdonSharpBehaviour
     public Color ballHitGlow = new Color(0.75f, 0.35f, 1f);
     [Tooltip("ほのおのまもの（2026-10-29 2–2）：突進が当たったふわふわが燃えだす。水（FuwaWater）に入ると倒れる")]
     public FuwaHeat igniteHeat;
+    [Tooltip("ほのおのまもの：体のまわりの炎にふわふわがかすっただけで燃えだす（体の中心からの距離、0 で なし）。2026-10-30 てじゃ「まものの燃えてる炎にカスると炎上」")]
+    public float flameTouchRadius = 0f;
     public float knockback = 7f;
     public float knockUp = 3f;
     [Tooltip("頭の上どこまで当たりにするか(m)")]
@@ -298,6 +300,7 @@ public class FuwaEnemy : UdonSharpBehaviour
         // 黒目：近くにけだまがあればけだまを、なければ自分（プレイヤーの頭）を見る
         if (ballLive && toBall.magnitude < detectRange * 1.3f) UpdatePupils(_state != 10, ball.transform.position, dt);
         else UpdatePupils(_state != 10 && toPlayer.magnitude < detectRange * 1.3f, local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, dt);
+        if (flameTouchRadius > 0f && igniteHeat != null && ballLive && _state != 5 && _state != 6 && _state != 7 && _state != 9 && toBall.magnitude < flameTouchRadius) igniteHeat.Ignite();
         // 倒されたら、プレイヤーがやられる／リスポーンするまで復活しない（Revive()で戻る）
         if (_state == 6)
         {
