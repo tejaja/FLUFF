@@ -68,7 +68,9 @@ public class FuwaEnemy : UdonSharpBehaviour
     public Renderer[] tintRenderers;
     public int[] tintSlots;
     public Material[] fireMats, plainMats;
-    public float floatSink = -0.03f, floatBob = 0.05f, floatTilt = 25f;   // 水面からの沈み（マイナスで浮く。体の中心が原点、半分ちょっと水の上）
+    public float floatSink = -0.03f, floatBob = 0.05f, floatTilt = 25f;
+    [Tooltip("ぷかぷかしている間、水の当たりの箱の中心からこの距離より外にいたら内側へ寄る（ふちで落ちると壁に埋まったので。2026-10-30）")]
+    public float floatMaxR = 1.0f;   // 水面からの沈み（マイナスで浮く。体の中心が原点、半分ちょっと水の上）
     public float knockback = 7f;
     public float knockUp = 3f;
     [Tooltip("頭の上どこまで当たりにするか(m)")]
@@ -615,7 +617,7 @@ public class FuwaEnemy : UdonSharpBehaviour
         if (igniteHeat != null && tintRenderers != null && tintRenderers.Length > 0)
         {
             FuwaWater w = other.GetComponent<FuwaWater>();
-            if (w != null) { Douse(w); return; }
+            if (w != null) { Douse(w, other); return; }
         }
         if (other.GetComponent<FuwaSpike>() == null && (igniteHeat == null || other.GetComponent<FuwaWater>() == null)) return;
         if (popEffect != null)
@@ -629,10 +631,12 @@ public class FuwaEnemy : UdonSharpBehaviour
     }
 
     private float _floatY, _floatYaw, _floatSpin;
+    private Vector3 _floatCenter;
 
     // ジュッ：湯気＋音、炎を消して元の色に。水面まで沈んで、そこでぷかぷか
-    private void Douse(FuwaWater w)
+    private void Douse(FuwaWater w, Collider area)
     {
+        _floatCenter = area.bounds.center;
         _floatY = (w.surface != null ? w.surface.position.y : transform.position.y) - floatSink;
         _vel.y = 0f;
         if (steamFx != null) { steamFx.transform.position = transform.position + Vector3.up * 0.2f; steamFx.Play(); }
@@ -665,12 +669,17 @@ public class FuwaEnemy : UdonSharpBehaviour
         // 入った勢いは水の中ですぐ止まる。水面まで沈んで上下にぷかぷか、少し上を向いてゆっくり回る（目はつむってる）
         _vel.x *= Mathf.Exp(-4f * dt); _vel.z *= Mathf.Exp(-4f * dt);
         Vector3 p = transform.position + new Vector3(_vel.x, 0f, _vel.z) * dt;
+        // ゆらゆら流れる（てじゃ「ちょっとゆらゆら流れてもかわいい」）：水の中をゆっくりさまよう点へ寄っていく。外に出すぎたら強めに内へ
+        Vector3 drift = _floatCenter + new Vector3(Mathf.Sin(Time.time * 0.35f + _phase), 0f, Mathf.Sin(Time.time * 0.27f + _phase * 1.7f)) * (floatMaxR * 0.75f);
+        Vector3 off = p - _floatCenter; off.y = 0f;
+        float pull = off.magnitude > floatMaxR ? 3f : 0.5f;
+        p.x = Mathf.Lerp(p.x, drift.x, 1f - Mathf.Exp(-pull * dt)); p.z = Mathf.Lerp(p.z, drift.z, 1f - Mathf.Exp(-pull * dt));
         float goal = _floatY + Mathf.Sin(Time.time * 2.2f + _phase) * floatBob;
         p.y = Mathf.Lerp(p.y, goal, 1f - Mathf.Exp(-5f * dt));
         transform.position = p;
         _floatYaw += _floatSpin * dt;
         float tilt = floatTilt * Mathf.Clamp01(_stateTime / 0.6f);
-        transform.rotation = Quaternion.Euler(-tilt, _floatYaw, 0f);
+        transform.rotation = Quaternion.Euler(-tilt + Mathf.Sin(Time.time * 1.3f + _phase) * 4f, _floatYaw, Mathf.Sin(Time.time * 1.1f + _phase * 2f) * 6f);   // 波でゆらゆら
         if (visual != null)
         {
             float w = Mathf.Sin(Time.time * 2.2f + _phase) * 0.05f;

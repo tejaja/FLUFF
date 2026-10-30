@@ -782,7 +782,7 @@ public static class FuwaCourse2_2Builder
         Box(g, "Bed", c + Vector3.down * (0.45f + 0.15f), new Vector3(PuddleR * 2f, 0.3f, PuddleR * 2f), rockMat, pathLayer);
         float wx = PuddleR * 2f;
         var water = new GameObject("Water"); water.transform.SetParent(g, false); water.transform.localPosition = c + Vector3.up * (PondSurface - 0.5f); water.layer = 4;
-        var bc = water.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(PuddleR * 1.8f, 1.0f, PuddleR * 1.8f);
+        var bc = water.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(PuddleR * 1.4f, 1.0f, PuddleR * 1.4f);   // 四角の角が穴の円に入るくらい（1.8 だと角が穴の外で、ふちでまものが落ちて壁に埋まった）
         var surf = GameObject.CreatePrimitive(PrimitiveType.Quad); surf.name = "Surface"; surf.transform.SetParent(water.transform, false);
         surf.transform.localPosition = Vector3.up * 0.5f; surf.transform.localRotation = Quaternion.Euler(90f, 0, 0); surf.transform.localScale = new Vector3(wx, wx, 1f);
         Object.DestroyImmediate(surf.GetComponent<Collider>());
@@ -836,7 +836,7 @@ public static class FuwaCourse2_2Builder
             var em = st.emission; em.rateOverTime = 0f; em.SetBursts(new[] { new ParticleSystem.Burst(0f, 22), new ParticleSystem.Burst(0.15f, 10) });
             st.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
-        e.flameFx = ps; e.steamFx = st; e.floatSink = -0.03f; e.floatBob = 0.05f; e.floatTilt = 25f;
+        e.flameFx = ps; e.steamFx = st; e.floatSink = -0.03f; e.floatBob = 0.05f; e.floatTilt = 25f; e.floatMaxR = PuddleR - 0.65f;
         e.tintRenderers = tR.ToArray(); e.tintSlots = tS.ToArray(); e.fireMats = tF.ToArray(); e.plainMats = tP.ToArray();
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(e);
         // ふわふわのまもの一覧に
