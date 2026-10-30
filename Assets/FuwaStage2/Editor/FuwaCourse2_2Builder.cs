@@ -202,6 +202,26 @@ public static class FuwaCourse2_2Builder
             FireWall(fire, "FireWall" + k, mid - n * (PadR + FireWallOut), mid + n * s);
         }
 
+        // 火の岩：空から降ってきて、坂の下る向きに板を横切ってはねながら落ちる。板のまん中を1列
+        //  （2026-10-30 てじゃ「道に沿って落ちるとこの狭さじゃ回避できない、この方向に３個くらい列ずらしで落とす、ちょうどいい位置でバウンドして落ちてくる感じ」）
+        {
+            float x0 = legs[0].a.x, x1 = legs[0].b.x;
+            float[] cols = { 0.5f };   // 3列は「きついか…１列にしとこ」
+            for (int c = 0; c < cols.Length; c++)
+            {
+                float cx = Mathf.Lerp(x0, x1, cols[c]);
+                var rp = new List<Vector3>();
+                for (int k = legs.Count - 1; k >= 0; k--)
+                {
+                    float t = (cx - legs[k].a.x) / (legs[k].b.x - legs[k].a.x);
+                    rp.Add(Vector3.Lerp(legs[k].a, legs[k].b, t) + up * RockR);
+                }
+                rp.Insert(0, rp[0] + new Vector3(0, 7f, 4f));
+                rp.Add(rp[rp.Count - 1] + new Vector3(0, -12f, -6f));
+                LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length);
+            }
+        }
+
         // ④ ほのおのまもの：広い平らな所。両脇に水たまり（まものを落とすと倒れる・燃えたふわふわは消える）
         var ar = pad + Vector3.forward * EndPadIn;
         Strip(path, "Arena", ar, Vector3.forward, ArenaLen, ArenaHW);
@@ -646,6 +666,26 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
+    public static float RockR = 0.45f, RockHop = 0.6f, RockPeriod = 4.5f;   // 火の岩の半径・1回はねる時間・1周（降る〜休み）
+    static void LavaRock(Transform parent, string name, Vector3[] ps, float phase)
+    {
+        var g = new GameObject(name).transform; g.SetParent(parent, false);
+        var ts = new Transform[ps.Length];
+        for (int i = 0; i < ps.Length; i++) { ts[i] = new GameObject("P" + i).transform; ts[i].SetParent(g, false); ts[i].localPosition = ps[i]; }
+        var mover = new GameObject("Rock").transform; mover.SetParent(g, false); mover.localPosition = ps[0];
+        var vis = GameObject.CreatePrimitive(PrimitiveType.Sphere); vis.name = "Visual"; vis.transform.SetParent(mover, false); vis.transform.localScale = new Vector3(1f, 0.85f, 0.95f) * (RockR * 2f);
+        Object.DestroyImmediate(vis.GetComponent<Collider>());
+        vis.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_LavaRock", new Color(0.35f, 0.12f, 0.08f));
+        var trail = FuwaStage2FireTest.FlamePS(g, "Trail", 0.3f, 0.35f, 0.5f, new Color(1f, 0.7f, 0.2f), new Color(0.85f, 0.15f, 0.05f));
+        { var m = trail.main; m.startSize = new ParticleSystem.MinMaxCurve(0.4f, 0.7f); }
+        var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLavaRock>(mover.gameObject);
+        f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
+        int hops = ps.Length - 1;
+        f.hopTime = RockHop; f.hopUp = 1.2f; f.rest = Mathf.Max(0.5f, RockPeriod - hops * RockHop); f.phase = phase; f.hitRadius = RockR + 0.05f;
+        f.ballKnock = 2.5f; f.ballKnockUp = 1.5f; f.playerKnock = 5f; f.playerKnockUp = 4f;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
+    }
+
     static void Fireball(Transform parent, string name, Vector3[] hs, float flight, float rest, float phase, float top)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
