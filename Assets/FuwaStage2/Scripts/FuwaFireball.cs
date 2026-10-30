@@ -28,8 +28,11 @@ public class FuwaFireball : UdonSharpBehaviour
     [Tooltip("溶岩から出る時・入る時のしぶき（なくてもOK）")]
     public ParticleSystem splash;
     public AudioSource whoosh;
+    [Tooltip("ふわふわの持ち主のアバターが eyeBase より背が高いぶん、弧を高くする（その差 × arcPerEye、最大 maxArcExtra m）。背が高いと銃口が高くてふわふわが上を越えられたので（2026-10-30 てじゃ）。低い背では下げない")]
+    public float eyeBase = 1.6f, arcPerEye = 1f, maxArcExtra = 1.5f;
 
     private bool _flying, _hitBall, _hitPlayer;
+    private float _arcExtra;
     private int _hop = -1;
     private float _ballRadius = 0.4f;
 
@@ -64,7 +67,7 @@ public class FuwaFireball : UdonSharpBehaviour
 
     private Vector3 At(Vector3 a, Vector3 b, float u)
     {
-        float top = Mathf.Max(a.y, b.y) + arcHeight;
+        float top = Mathf.Max(a.y, b.y) + arcHeight + _arcExtra;
         // 2次のベジェ（てっぺんが top になるように真ん中の点を 2*top - (a+b)/2）
         Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f;
         float v = 1f - u;
@@ -76,6 +79,15 @@ public class FuwaFireball : UdonSharpBehaviour
         if (!vert) return hdir;
         Vector3 d = target - p; d.y = 0f;
         return d.sqrMagnitude > 0.0001f ? d.normalized : transform.forward;
+    }
+
+    // 目の高さはVRChatが同期しているので、全員で同じ弧になる。飛んでいる途中で弧が変わらないよう、飛び出す時に決める
+    private float ArcExtra()
+    {
+        if (ball == null) return 0f;
+        VRCPlayerApi o = Networking.GetOwner(ball.gameObject);
+        if (o == null || !o.IsValid()) return 0f;
+        return Mathf.Clamp((o.GetAvatarEyeHeightAsMeters() - eyeBase) * arcPerEye, 0f, maxArcExtra);
     }
 
     private void Show(bool on)
@@ -96,7 +108,7 @@ public class FuwaFireball : UdonSharpBehaviour
         if (fly != _flying || (fly && k != _hop))
         {
             if (splash != null) { splash.transform.position = fly ? a : b; splash.Play(); }
-            if (fly) { _hitBall = false; _hitPlayer = false; if (whoosh != null && whoosh.clip != null) whoosh.PlayOneShot(whoosh.clip); }
+            if (fly) { _arcExtra = ArcExtra(); _hitBall = false; _hitPlayer = false; if (whoosh != null && whoosh.clip != null) whoosh.PlayOneShot(whoosh.clip); }
             _flying = fly; _hop = k; Show(fly);
         }
         if (!fly) return;
