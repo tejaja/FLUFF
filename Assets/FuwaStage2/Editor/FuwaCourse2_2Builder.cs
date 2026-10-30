@@ -805,8 +805,8 @@ public static class FuwaCourse2_2Builder
         g.transform.localPosition = lp + Vector3.up * lift; g.transform.localRotation = Quaternion.LookRotation(Vector3.back);
         g.transform.localScale = src.transform.lossyScale;
         var e = g.GetComponent<FuwaEnemy>(); e.ball = ballProxy; e.igniteHeat = heat; e.flameTouchRadius = MonsterFlameTouch;
-        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(e);
-        // 赤く
+        // 赤く（水で消火されたら元の色に戻すので、差しかえた所と元の材質を覚える）
+        var tR = new List<Renderer>(); var tS = new List<int>(); var tF = new List<Material>(); var tP = new List<Material>();
         if (e.visual)
             foreach (var r in e.visual.GetComponentsInChildren<Renderer>(true))
             {
@@ -820,13 +820,25 @@ public static class FuwaCourse2_2Builder
                     else { m.shader = ms[i].shader; m.CopyPropertiesFromMaterial(ms[i]); }
                     foreach (var prop in new[] { "_Color", "_MainColor", "_BaseColor" }) if (m.HasProperty(prop)) m.SetColor(prop, MonsterCol);
                     if (m.HasProperty("_TipColor")) m.SetColor("_TipColor", MonsterTipCol);
-                    EditorUtility.SetDirty(m); ms[i] = m;
+                    EditorUtility.SetDirty(m);
+                    tR.Add(r); tS.Add(i); tF.Add(m); tP.Add(ms[i]);
+                    ms[i] = m;
                 }
                 r.sharedMaterials = ms;
             }
         // 炎をまとう
         var ps = FuwaStage2FireTest.FlamePS(e.visual ? e.visual : g.transform, "BodyFlame", 0.35f, 1.2f, 0.7f, new Color(1f, 0.75f, 0.25f), new Color(1f, 0.25f, 0.05f));
         { var em = ps.emission; em.rateOverTime = 30f; var m = ps.main; m.startSize = new ParticleSystem.MinMaxCurve(0.25f, 0.5f); }
+        // 水に落ちた時の「ジュッ」の湯気（1回だけぶわっ）
+        var st = FuwaStage2FireTest.FlamePS(g.transform, "Steam", 0.3f, 1.6f, 1.1f, new Color(1f, 1f, 1f, 0.9f), new Color(0.85f, 0.88f, 0.92f, 0f));
+        {
+            var m = st.main; m.loop = false; m.playOnAwake = false; m.startSize = new ParticleSystem.MinMaxCurve(0.35f, 0.7f); m.maxParticles = 40;
+            var em = st.emission; em.rateOverTime = 0f; em.SetBursts(new[] { new ParticleSystem.Burst(0f, 22), new ParticleSystem.Burst(0.15f, 10) });
+            st.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
+        e.flameFx = ps; e.steamFx = st; e.floatSink = -0.03f; e.floatBob = 0.05f;
+        e.tintRenderers = tR.ToArray(); e.tintSlots = tS.ToArray(); e.fireMats = tF.ToArray(); e.plainMats = tP.ToArray();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(e);
         // ふわふわのまもの一覧に
         var ball = Object.FindObjectsOfType<FuwaBall>(true).FirstOrDefault();
         if (ball)

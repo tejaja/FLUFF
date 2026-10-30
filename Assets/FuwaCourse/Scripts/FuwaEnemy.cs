@@ -60,6 +60,15 @@ public class FuwaEnemy : UdonSharpBehaviour
     public FuwaHeat igniteHeat;
     [Tooltip("ほのおのまもの：体のまわりの炎にふわふわがかすっただけで燃えだす（体の中心からの距離、0 で なし）。2026-10-30 てじゃ「まものの燃えてる炎にカスると炎上」")]
     public float flameTouchRadius = 0f;
+    [Tooltip("ほのおのまものが水に落ちた時（2026-10-30 てじゃ「ジュッて消火して元の姿にもどってプカプカ浮いて気絶」）：消えずに、炎が消えて元の色に戻り、水面でぷかぷか目を回す。" +
+             "tintRenderers[j] の tintSlots[j] 番目の材質を、燃えてる時 fireMats[j]／消えた後 plainMats[j] に")]
+    public ParticleSystem flameFx;
+    public ParticleSystem steamFx;
+    public AudioSource steamSound;
+    public Renderer[] tintRenderers;
+    public int[] tintSlots;
+    public Material[] fireMats, plainMats;
+    public float floatSink = -0.03f, floatBob = 0.05f;   // 水面からの沈み（マイナスで浮く。体の中心が原点、半分ちょっと水の上）
     public float knockback = 7f;
     public float knockUp = 3f;
     [Tooltip("頭の上どこまで当たりにするか(m)")]
@@ -135,7 +144,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     [Tooltip("道から落ちる時の「ヒューン」")]
     public AudioSource fallSound;
 
-    // 0=うろうろ 1=溜め 2=突進 3=戻る 4=ひるみ 5=落下中 6=消えてる 7=かくれてる 8=出てくる 9=もぐる 10=寝てる 11=起きた（！）
+    // 0=うろうろ 1=溜め 2=突進 3=戻る 4=ひるみ 5=落下中 6=消えてる 7=かくれてる 8=出てくる 9=もぐる 10=寝てる 11=起きた（！） 12=水で消火されてぷかぷか気絶
     private int _state;
     private float _stateTime;
     private float _cooldownUntil;
@@ -300,7 +309,8 @@ public class FuwaEnemy : UdonSharpBehaviour
         // 黒目：近くにけだまがあればけだまを、なければ自分（プレイヤーの頭）を見る
         if (ballLive && toBall.magnitude < detectRange * 1.3f) UpdatePupils(_state != 10, ball.transform.position, dt);
         else UpdatePupils(_state != 10 && toPlayer.magnitude < detectRange * 1.3f, local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, dt);
-        if (flameTouchRadius > 0f && igniteHeat != null && ballLive && _state != 5 && _state != 6 && _state != 7 && _state != 9 && toBall.magnitude < flameTouchRadius) igniteHeat.Ignite();
+        if (flameTouchRadius > 0f && igniteHeat != null && ballLive && _state != 5 && _state != 6 && _state != 7 && _state != 9 && _state != 12 && toBall.magnitude < flameTouchRadius) igniteHeat.Ignite();
+        if (_state == 12) { UpdateDoused(dt); return; }
         // 倒されたら、プレイヤーがやられる／リスポーンするまで復活しない（Revive()で戻る）
         if (_state == 6)
         {
@@ -589,7 +599,7 @@ public class FuwaEnemy : UdonSharpBehaviour
 
     private void OnPlayerTouch(VRCPlayerApi player)
     {
-        if (player == null || !player.isLocal || _state == 5 || _state == 6 || _state == 7) return;
+        if (player == null || !player.isLocal || _state == 5 || _state == 6 || _state == 7 || _state == 12) return;
         if (_state == 10) { Wake(); return; }
         if (_state == 2) DashHit(player);
         else Bump(player);
@@ -601,6 +611,12 @@ public class FuwaEnemy : UdonSharpBehaviour
     private void OnTriggerStay(Collider other)
     {
         if (other == null || (_state != 2 && _state != 4)) return;
+        // ほのおのまものが水に入った：消えずに、消火されてぷかぷか
+        if (igniteHeat != null && tintRenderers != null && tintRenderers.Length > 0)
+        {
+            FuwaWater w = other.GetComponent<FuwaWater>();
+            if (w != null) { Douse(w); return; }
+        }
         if (other.GetComponent<FuwaSpike>() == null && (igniteHeat == null || other.GetComponent<FuwaWater>() == null)) return;
         if (popEffect != null)
         {
@@ -612,11 +628,62 @@ public class FuwaEnemy : UdonSharpBehaviour
         SetState(6);
     }
 
+    private float _floatY;
+    private Vector3 _floatSpin;
+
+    // ジュッ：湯気＋音、炎を消して元の色に。水面まで沈んで、そこでぷかぷか
+    private void Douse(FuwaWater w)
+    {
+        _floatY = (w.surface != null ? w.surface.position.y : transform.position.y) - floatSink;
+        _vel.y = 0f;
+        if (steamFx != null) { steamFx.transform.position = transform.position + Vector3.up * 0.2f; steamFx.Play(); }
+        if (steamSound != null) steamSound.Play();
+        if (windupSound != null) windupSound.Stop();
+        SetFire(false);
+        _floatSpin = Random.value < 0.5f ? Vector3.up : Vector3.down;
+        SetState(12);
+    }
+
+    private void SetFire(bool on)
+    {
+        if (flameFx != null) { if (on) flameFx.Play(); else flameFx.Stop(); }
+        if (tintRenderers == null || tintSlots == null) return;
+        Material[] src = on ? fireMats : plainMats;
+        if (src == null) return;
+        for (int j = 0; j < tintRenderers.Length; j++)
+        {
+            Renderer r = tintRenderers[j];
+            if (r == null || j >= tintSlots.Length || j >= src.Length) continue;
+            Material[] ms = r.sharedMaterials;
+            if (tintSlots[j] < ms.Length) { ms[tintSlots[j]] = src[j]; r.sharedMaterials = ms; }
+        }
+    }
+
+    private void UpdateDoused(float dt)
+    {
+        // 入った勢いは水の中ですぐ止まる。水面まで沈んで上下にぷかぷか、ゆっくり回る、目はぐるぐる
+        _vel.x *= Mathf.Exp(-4f * dt); _vel.z *= Mathf.Exp(-4f * dt);
+        Vector3 p = transform.position + new Vector3(_vel.x, 0f, _vel.z) * dt;
+        float goal = _floatY + Mathf.Sin(Time.time * 2.2f + _phase) * floatBob;
+        p.y = Mathf.Lerp(p.y, goal, 1f - Mathf.Exp(-5f * dt));
+        transform.position = p;
+        transform.Rotate(_floatSpin, 25f * dt, Space.World);
+        if (visual != null)
+        {
+            float w = Mathf.Sin(Time.time * 2.2f + _phase) * 0.05f;
+            visual.localPosition = _visualBase;
+            visual.localScale = new Vector3(_visualScale.x * (1f + w), _visualScale.y * (1f - w), _visualScale.z * (1f + w));
+        }
+        _look = new Vector2(Mathf.Cos(Time.time * 7f), Mathf.Sin(Time.time * 7f)) * 0.85f;
+        if (pupilL != null) SetPupil(pupilL, _pupilBaseL);
+        if (pupilR != null) SetPupil(pupilR, _pupilBaseR);
+    }
+
     // エアガンから呼ばれる。stun=false（溜めが足りない）なら、突進は止まらず少しずれるだけ
     public void Blown(Vector3 impulse, bool stun)
     {
         // 落ちてる・消えてる・巣の床の下にかくれてる（もぐってる）時は効かない（前は床の下をすべって落ちていた）
-        if (_state == 5 || _state == 6 || _state == 7 || _state == 9) return;
+        if (_state == 5 || _state == 6 || _state == 7 || _state == 9 || _state == 12) return;
         if (blownSound != null && blownSound.clip != null)
         {
             // 強く押されたほど（溜め撃ち・近い）低く大きく
@@ -675,6 +742,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     private void Respawn()
     {
         transform.position = _home;
+        if (_state == 12) SetFire(true);
         _vel = Vector3.zero;
         _airborne = false;
         _cooldownUntil = Time.time + cooldown;
@@ -690,7 +758,7 @@ public class FuwaEnemy : UdonSharpBehaviour
         if (eyes != null) eyes.gameObject.SetActive(on);
     }
 
-    public bool IsActive() { return _state != 5 && _state != 6 && _state != 7; }
+    public bool IsActive() { return _state != 5 && _state != 6 && _state != 7 && _state != 12; }
 
     private Vector3 _pupilBaseL, _pupilBaseR;
     private Vector2 _look, _lookGoal;
