@@ -95,7 +95,8 @@ public static class FuwaCourse2_2Builder
             new[] { (z: 42f, x: -2.6f), (z: 45f, x: 2.6f) },
             new[] { (z: 53f, x: 2.2f), (z: 56.5f, x: -2.0f) },
             // 真上に飛び上がる穴（てじゃ「思ったより簡単、垂直に飛び上がる穴を追加」「最後の3連がよわい、奥側で往復にして左手前の一個は垂直」）
-            new[] { (z: 50f, x: -2.6f) }, new[] { (z: 38.5f, x: 2.4f) }, new[] { (z: 47.5f, x: 0f) } };
+            //  （2026-10-30 てじゃ「往復火の玉の外側を通れちゃう、垂直の穴を往復の外側の奥に」→ 往復が寄っていない側の道のふち寄りへ。てじゃの図から）
+            new[] { (z: 48.1f, x: 3.0f) }, new[] { (z: 34.6f, x: 3.0f) }, new[] { (z: 39.0f, x: -3.1f) } };
         // 往復の穴（2つのグループ）は近いほうの道のふちまで溝をつなげて、溶岩を道の外へ垂れ流す（てじゃ「往復してるとこの穴、道の外までつなげて溶岩を垂れ流そう」）
         var holes = new List<Vector4>(); var chan = new List<int>(); var holeSide = new List<Vector3>(); var holeEdge = new List<float>();
         var holePts = new List<List<Vector3>>();
