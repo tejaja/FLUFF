@@ -36,7 +36,8 @@ public static class FuwaCourse2_2Builder
     public static float VolcanoTopH = 16f, VolcanoTopR = 5f, VolcanoR0 = 12f, VolcanoBottom = -60f, RockFirstScale = 3f;   // 火口の高さ・半径、道の高さでの半径、すその下のはし、火口から飛んでくる1回の長さ（倍）
     // ⑤ 2026-10-30 てじゃ「まものからをもっと右に曲げて山に沿う感じに」「山から何個かさっきの火炎放射、あたれば炎上して飛ぶ、そのあとゴール」
     //   （火口のまわりの輪っかの道・マグマは「あんま面白くない」でやめた）。火山のまわりを右回りに沿う広めの道、山肌の岩から火炎放射
-    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = 1.4f, FlameLowH = 0.55f, FlameHighH = 1.75f, FlameSide = 2.5f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）、FlameSide：来た方へ足す速さ（「ふっ飛ばし力もうちょい」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
+    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = 1.4f, FlameLowH = 0.55f, FlameHighH = 2.95f, FlameSide = 2.5f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）、FlameSide：来た方へ足す速さ（「ふっ飛ばし力もうちょい」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
+    public const int FlameRows = 3;   // 炎の壁の縦の本数
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
     public static Color PathColA = new Color(1f, 0.56f, 0.50f), PathColB = new Color(0.94f, 0.44f, 0.38f);
@@ -284,7 +285,7 @@ public static class FuwaCourse2_2Builder
             float a0 = (Th0 + 2f) * Mathf.Deg2Rad;
             Checkpoint(root, "Checkpoint2", Around(Th0 + 2f, RoadR(Th0 + 2f, 0f), 0f), new Vector3(Mathf.Cos(a0), 0f, -Mathf.Sin(a0)), FlameHW);
         }
-        // 山肌から火炎の壁 3 枚（てじゃ「交互ばっかだとシステマチック」→ 周期・長さをばらばらに）。横（道を横切る）に上下 2 本いっしょに吹く。
+        // 山肌から火炎の壁 3 枚（てじゃ「交互ばっかだとシステマチック」→ 周期・長さをばらばらに）。横（道を横切る）に縦に並んだ炎がいっしょに吹く。
         //  2026-10-30 斜め下→「斜めいらんかも」、低い・高いの交互→「いまいち」「上下セットの壁を3枚って形がいいかな」
         var jets = new[] { (th: -30f, per: 3.4f, on: 1.4f, ph: 0f), (th: -8f, per: 3.0f, on: 1.2f, ph: 0.9f), (th: 14f, per: 3.8f, on: 1.6f, ph: 1.9f) };
         for (int k = 0; k < jets.Length; k++)
@@ -818,7 +819,8 @@ public static class FuwaCourse2_2Builder
         g.GetComponent<MeshRenderer>().sharedMaterial = lavaMat;
     }
 
-    // 山肌の火炎の壁：道の内側のふち edge（道の面の高さ）の所、火山から外向き。上下 2 本（FlameLowH・FlameHighH）がいっしょに吹いて、当たりは 1 つの縦長の箱。
+    // 山肌の火炎の壁：道の内側のふち edge（道の面の高さ）の所、火山から外向き。FlameLowH〜FlameHighH に縦に FlameRows 本ならんでいっしょに吹いて、当たりは 1 つの縦長の箱。
+    //  2026-10-30 上下 2 本→ てじゃ「もっと上まで炎あってもいいかも」で 3 本
     //  当たると燃えて外へ吹っ飛ぶ（FuwaFireJet.ballKnock）
     static void VolcanoJet(Transform parent, string name, Vector3 edge, float th, float period, float on, float phase)
     {
@@ -832,10 +834,10 @@ public static class FuwaCourse2_2Builder
         // g：上（y）が炎の向き o、前（z）がワールドの上
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = edge + o * 0.02f + Vector3.up * mid; g.localRotation = Quaternion.LookRotation(Vector3.up, o);
         var ember = FuwaStage2WaterTest.ToonMat("Stage2_2_Embers", new Color(0.35f, 0.12f, 0.08f));
-        var flames = new ParticleSystem[2]; var warns = new ParticleSystem[2];
-        for (int i = 0; i < 2; i++)
+        var flames = new ParticleSystem[FlameRows]; var warns = new ParticleSystem[FlameRows];
+        for (int i = 0; i < FlameRows; i++)
         {
-            var mt = new GameObject(i == 0 ? "Low" : "High").transform; mt.SetParent(g, false); mt.localPosition = new Vector3(0, 0, i == 0 ? -half : half);
+            var mt = new GameObject("Row" + i).transform; mt.SetParent(g, false); mt.localPosition = new Vector3(0, 0, Mathf.Lerp(-half, half, i / (FlameRows - 1f)));
             var m = GameObject.CreatePrimitive(PrimitiveType.Cylinder); m.name = "Mouth"; m.transform.SetParent(mt, false);
             m.transform.localPosition = new Vector3(0, -0.12f, 0); m.transform.localScale = new Vector3(0.9f, 0.15f, 0.9f);
             Object.DestroyImmediate(m.GetComponent<Collider>());
@@ -851,7 +853,7 @@ public static class FuwaCourse2_2Builder
         bc.center = new Vector3(0, 0, (FlameHighH + 0.6f - 0.05f) * 0.5f - mid);
         var j = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireJet>(zone);
         j.heat = heat; j.ball = ballProxy; j.phase = phase; j.period = period; j.onTime = on; j.flameRate = 110f;
-        j.flame = flames[0]; j.warn = warns[0]; j.flame2 = flames[1]; j.warn2 = warns[1];
+        j.flame = flames[0]; j.warn = warns[0]; j.moreFlames = flames.Skip(1).ToArray(); j.moreWarns = warns.Skip(1).ToArray();
         // 吹っ飛ぶ向き：外（山から離れる向き）、外のふちの FlameLand 手前より先へは飛ばさない（てじゃ「落ちないくらい外に吹っ飛ばす」）。
         //  ＋ 来た方へ FlameSide（ふちの制限なし。「ふっ飛ばし力もうちょい」）。ワールドの向きで入れる
         j.knockDir = parent.TransformDirection(o); j.knockSide = parent.TransformDirection(back * FlameSide);

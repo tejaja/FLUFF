@@ -16,8 +16,8 @@ public class FuwaFireJet : UdonSharpBehaviour
     [Tooltip("前ぶれ（吹く前のちらちら）")]
     public ParticleSystem warn;
     public float flameRate = 80f, warnRate = 25f;
-    [Tooltip("いっしょに吹く2本目の炎・前ぶれ（上下セットの壁など）")]
-    public ParticleSystem flame2, warn2;
+    [Tooltip("いっしょに吹くほかの炎・前ぶれ（縦に並べた炎の壁など）")]
+    public ParticleSystem[] moreFlames, moreWarns;
     public AudioSource roar;
     [Header("火炎放射（2026-10-29 てじゃの 2–2「横の岩の穴から吹き出す、当たるとアウト、人はちょっと吹っ飛ぶ」）")]
     [Tooltip("当たったふわふわは黒焦げ→アウト（温めて浮かせるのではなく）")]
@@ -58,8 +58,8 @@ public class FuwaFireJet : UdonSharpBehaviour
         float t = T(); bool on = t < onTime; bool w = !on && t > period - warnTime;
         if (flame != null) { var e = flame.emission; e.rateOverTime = on ? flameRate : 0f; }
         if (warn != null) { var e = warn.emission; e.rateOverTime = w ? warnRate : 0f; }
-        if (flame2 != null) { var e = flame2.emission; e.rateOverTime = on ? flameRate : 0f; }
-        if (warn2 != null) { var e = warn2.emission; e.rateOverTime = w ? warnRate : 0f; }
+        if (moreFlames != null) for (int i = 0; i < moreFlames.Length; i++) if (moreFlames[i] != null) { var e = moreFlames[i].emission; e.rateOverTime = on ? flameRate : 0f; }
+        if (moreWarns != null) for (int i = 0; i < moreWarns.Length; i++) if (moreWarns[i] != null) { var e = moreWarns[i].emission; e.rateOverTime = w ? warnRate : 0f; }
         if (on && !_wasOn) { _blasted = false; if (roar != null && roar.clip != null) roar.PlayOneShot(roar.clip); }
         _wasOn = on;
         if (on) PushPlayer();
