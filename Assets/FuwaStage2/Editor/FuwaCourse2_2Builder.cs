@@ -666,7 +666,7 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
-    public static float RockR = 0.45f, RockHop = 0.6f, RockPeriod = 4.5f;   // 火の岩の半径・1回はねる時間・1周（降る〜休み）
+    public static float RockR = 0.9f, RockHop = 0.6f, RockPeriod = 4.5f;   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
     static void LavaRock(Transform parent, string name, Vector3[] ps, float phase)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
@@ -676,8 +676,8 @@ public static class FuwaCourse2_2Builder
         var vis = GameObject.CreatePrimitive(PrimitiveType.Sphere); vis.name = "Visual"; vis.transform.SetParent(mover, false); vis.transform.localScale = new Vector3(1f, 0.85f, 0.95f) * (RockR * 2f);
         Object.DestroyImmediate(vis.GetComponent<Collider>());
         vis.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_LavaRock", new Color(0.35f, 0.12f, 0.08f));
-        var trail = FuwaStage2FireTest.FlamePS(g, "Trail", 0.3f, 0.35f, 0.5f, new Color(1f, 0.7f, 0.2f), new Color(0.85f, 0.15f, 0.05f));
-        { var m = trail.main; m.startSize = new ParticleSystem.MinMaxCurve(0.4f, 0.7f); }
+        var trail = FuwaStage2FireTest.FlamePS(g, "Trail", RockR * 0.7f, 0.35f, 0.5f, new Color(1f, 0.7f, 0.2f), new Color(0.85f, 0.15f, 0.05f));
+        { var m = trail.main; m.startSize = new ParticleSystem.MinMaxCurve(RockR * 0.9f, RockR * 1.6f); }
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLavaRock>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
         int hops = ps.Length - 1;
