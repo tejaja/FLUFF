@@ -136,7 +136,7 @@ public class FuwaBall : UdonSharpBehaviour
     private Material _furMat;
     private Vector3 _furDrag;
     [Tooltip("撃たれた顔 😣 を出しておく秒（顔の材質の _FaceHit。2026-10-30 顔をデフォにしたので FuwaSharedBall と同じく）")]
-    public float hitFaceTime = 0.6f;
+    public float hitFaceTime = 1.0f;   // 0.6→1.0（2026-10-30 てじゃ「＞＜の時間ちょっと伸ばしてもいい」）
     private float _hitFaceUntil;
     private bool _hitFaceShown;
 

@@ -74,7 +74,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     [Tooltip("毛オフの時の球のメッシュ（毛ありの玉のメッシュは粗くて、毛がないと輪郭がカクカクに見えるので細かい球に替える）。なければそのまま")]
     public Mesh plainMesh;
     [Tooltip("撃たれた時に顔が 😣（ぎゅっと閉じた目＋への字口）になっている秒数（顔を出している時だけ見える）")]
-    public float hitFaceTime = 0.6f;
+    public float hitFaceTime = 1.0f;   // 0.6→1.0（2026-10-30 てじゃ「＞＜の時間ちょっと伸ばしてもいい」）
     [Tooltip("遠くの玉は自動で毛オフ：自分の頭からの距離 ÷ 玉の直径 がこれを超えたら毛なし（0.3mの玉なら 27×0.3＝約8m。でっかい玉ほど遠くまで毛あり）。0=自動なし（2026-10-15 てじゃ「距離で自動切りかえ」）")]
     public float lodRatio = 27f;
 
