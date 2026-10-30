@@ -96,7 +96,8 @@ public static class FuwaCourse2_2Builder
             new[] { (z: 53f, x: 2.2f), (z: 56.5f, x: -2.0f) },
             // 真上に飛び上がる穴（てじゃ「思ったより簡単、垂直に飛び上がる穴を追加」「最後の3連がよわい、奥側で往復にして左手前の一個は垂直」）
             //  （2026-10-30 てじゃ「往復火の玉の外側を通れちゃう、垂直の穴を往復の外側の奥に」→ 往復が寄っていない側の道のふち寄りへ。てじゃの図から）
-            new[] { (z: 48.1f, x: 3.0f) }, new[] { (z: 34.6f, x: 3.0f) }, new[] { (z: 39.0f, x: -3.1f) } };
+            new[] { (z: 48.1f, x: 3.0f) }, new[] { (z: 34.6f, x: 3.0f) }, new[] { (z: 39.0f, x: -3.1f) },
+            new[] { (z: 51.5f, x: -3.1f) } };   // てじゃ「青◯に垂直を追加」：C の手前の穴の横、左のふち
         // 往復の穴（2つのグループ）は近いほうの道のふちまで溝をつなげて、溶岩を道の外へ垂れ流す（てじゃ「往復してるとこの穴、道の外までつなげて溶岩を垂れ流そう」）
         var holes = new List<Vector4>(); var chan = new List<int>(); var holeSide = new List<Vector3>(); var holeEdge = new List<float>();
         var holePts = new List<List<Vector3>>();
@@ -152,7 +153,7 @@ public static class FuwaCourse2_2Builder
         {
             //  最後の往復もほかと同じ（火の玉2つ・速めにしたら「めちゃくちゃ球多い」「ほかといっしょでいいかも」）。真上のは道の VertTop 上まで
             var fbs = new[] { (fl: 1.3f, rest: 1.6f, ph: 0f, top: FireballTop), (fl: 1.1f, rest: 1.1f, ph: 0.7f, top: FireballTop), (fl: 1.0f, rest: 1.0f, ph: 1.9f, top: FireballTop),
-                              (fl: 1.1f, rest: 0.6f, ph: 0.4f, top: VertTop), (fl: 1.3f, rest: 1.0f, ph: 1.3f, top: VertTop), (fl: 1.2f, rest: 0.8f, ph: 0.2f, top: VertTop) };
+                              (fl: 1.1f, rest: 0.6f, ph: 0.4f, top: VertTop), (fl: 1.3f, rest: 1.0f, ph: 1.3f, top: VertTop), (fl: 1.2f, rest: 0.8f, ph: 0.2f, top: VertTop), (fl: 1.2f, rest: 0.9f, ph: 0.9f, top: VertTop) };
             for (int k = 0; k < holePts.Count; k++)
             {
                 float ld = holePts[k].Count >= 2 ? ChanLavaDepth : LavaDepth;
