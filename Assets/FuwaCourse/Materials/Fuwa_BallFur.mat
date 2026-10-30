@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Fuwa_BallFur
-  m_Shader: {fileID: 4800000, guid: 36753ea547262b444b3c159969995c80, type: 3}
+  m_Shader: {fileID: 4800000, guid: 6cff778382aab63438483c4859d7f587, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -17,7 +17,7 @@ Material:
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 2450
   stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
@@ -30,11 +30,14 @@ Material:
     - _Density: 38
     - _EyeMinLen: 0
     - _EyeTint: 0
+    - _FaceCheekSize: 1
     - _FaceDepth: 0.5
+    - _FaceHit: 0
     - _FaceLift: 0.08
-    - _FaceMode: 0
+    - _FaceMode: 1
     - _FaceOn: 1
     - _FaceSize: 0.62
+    - _FaceStyle: 3
     - _FurLength: 0.2
     - _Gravity: 0.03
     - _RimPower: 2.5

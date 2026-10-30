@@ -54,7 +54,7 @@ public class FuwaPlaygroundSpawner : UdonSharpBehaviour
     [UdonSynced] private int _color = 0;
     [UdonSynced] private int _limit = 2;
     [UdonSynced] private bool _popGround = true;
-    [UdonSynced] private bool _face;
+    [UdonSynced] private bool _face = true;   // 2026-10-30 てじゃ「顔デフォでつけてみたい」
     private bool _plain;   // 毛オフ（自分の画面だけ）
     // おもちゃの解放（コース i をこのインスタンスで誰かがクリアしたら bit i）。保存はしない（2026-10-12 てじゃ「竜巻解放してくるわ、みたいなことが起こる」）
     [UdonSynced] private int _unlocked;

@@ -4,9 +4,10 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 
 // ふわふわの見た目の材質をそろえる。何度実行しても同じ結果
-// ・Fuwa_BallFur（自分のふわふわ・お手本・モニター）＝顔なし、ふつうの毛（FuwaCourse/Fur）
-//   （2026-10-15 てじゃ：こっちを向く顔は「こわい」、一緒に回る顔は「かわいいけど見えない」→ ふだんは顔なし）
-// ・Fuwa_BallFurFaceRot（あそびばのふわふわ）＝毛＋顔（FuwaCourse/FurFace、一緒に回る）。顔はあそびばの設定スイッチで出す（ふだんはオフ）
+// ・Fuwa_BallFur（自分のふわふわ・お手本・モニター）＝毛＋顔（FuwaCourse/FurFace、一緒に回る）
+//   （2026-10-15 てじゃ：こっちを向く顔は「こわい」、一緒に回る顔は「かわいいけど見えない」→ ふだんは顔なし。
+//    2026-10-30 てじゃ「ふわふわの顔、デフォでつけてみたい」→ 顔あり）
+// ・Fuwa_BallFurFaceRot（あそびばのふわふわ）＝毛＋顔（FuwaCourse/FurFace、一緒に回る）。顔はあそびばの設定スイッチで消せる（ふだんはあり）
 // ・Fuwa_BallFurPlain（あそびばの毛オフ）＝毛の層なしの球＋顔（FuwaCourse/FurPlain）。設定スイッチで切り替え
 public static class FuwaFaceSetup
 {
@@ -27,20 +28,23 @@ public static class FuwaFaceSetup
         if (furShader == null || faceShader == null || plainShader == null) { Debug.LogError("FuwaCourse/Fur・FurFace・FurPlain のどれかが見つからない"); return; }
 
         var ball = AssetDatabase.LoadAssetAtPath<Material>(BallMat);
-        ball.shader = furShader;
+        ball.shader = faceShader;
+        ball.SetFloat("_FaceOn", 1f);
+        ball.SetFloat("_FaceMode", 1f);
+        ball.SetFloat("_FaceStyle", FaceStyle);
         EditorUtility.SetDirty(ball);
 
         // すでにあれば中身だけそろえる（作り直すと参照が外れるので）
         var rot = Ensure(RotMat, ball);
         rot.shader = faceShader;
-        rot.SetFloat("_FaceOn", 0f);
+        rot.SetFloat("_FaceOn", 1f);
         rot.SetFloat("_FaceMode", 1f);
         rot.SetFloat("_FaceStyle", FaceStyle);
         EditorUtility.SetDirty(rot);
 
         var plain = Ensure(PlainMat, ball);
         plain.shader = plainShader;
-        plain.SetFloat("_FaceOn", 0f);
+        plain.SetFloat("_FaceOn", 1f);
         plain.SetFloat("_FaceMode", 1f);
         plain.SetFloat("_FaceStyle", FaceStyle);
         plain.SetFloat("_PlainH", PlainH);
