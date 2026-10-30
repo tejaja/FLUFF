@@ -36,7 +36,7 @@ public static class FuwaCourse2_2Builder
     public static float VolcanoTopH = 16f, VolcanoTopR = 5f, VolcanoR0 = 12f, VolcanoBottom = -60f, RockFirstScale = 3f;   // 火口の高さ・半径、道の高さでの半径、すその下のはし、火口から飛んでくる1回の長さ（倍）
     // ⑤ 2026-10-30 てじゃ「まものからをもっと右に曲げて山に沿う感じに」「山から何個かさっきの火炎放射、あたれば炎上して飛ぶ、そのあとゴール」
     //   （火口のまわりの輪っかの道・マグマは「あんま面白くない」でやめた）。火山のまわりを右回りに沿う広めの道、山肌の岩から火炎放射
-    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 6f, FlameLand = 1.2f;   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
+    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 3f, FlameLand = 1.2f;   // 上 6→3（てじゃ「上に飛ばしすぎかな」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
     public static Color PathColA = new Color(1f, 0.56f, 0.50f), PathColB = new Color(0.94f, 0.44f, 0.38f);
@@ -847,7 +847,7 @@ public static class FuwaCourse2_2Builder
         j.knockDir = parent.TransformDirection((o + back * 0.3f).normalized);
         j.ballKnock = FlameKnock; j.ballKnockUp = FlameKnockUp;
         var ko = new GameObject("KnockOrigin").transform; ko.SetParent(parent, false); ko.localPosition = edge; ko.SetParent(g, true);
-        j.knockOrigin = ko; j.knockReach = FlameHW * 2f - FlameLand; j.knockPerMeter = 0.7f;   // 試したら 1m/s で 1.4m くらい飛んだ
+        j.knockOrigin = ko; j.knockReach = FlameHW * 2f - FlameLand; j.knockPerMeter = 0.8f;   // 試したら（上 3 で）1m/s で 1.25m くらい飛んだ
         // 人：地面に立っていると横の速さは地面に消されるので、しっかり上へ浮かせて飛ばす（2026-10-30 てじゃ「地面にたってるとプレイヤーがほとんど飛ばされない」）。
         //  向きは来た方（外だと道から落ちる）
         j.playerPush = 5f; j.playerPushUp = 4.5f; j.playerPushDir = parent.TransformDirection((back + o * 0.2f).normalized);
