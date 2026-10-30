@@ -43,7 +43,7 @@ MonoBehaviour:
       Data: 
     - Name: 
       Entry: 12
-      Data: 33
+      Data: 34
     - Name: 
       Entry: 7
       Data: 
@@ -1055,8 +1055,9 @@ MonoBehaviour:
     - Name: tooltip
       Entry: 1
       Data: "\u4E88\u544A\u7DDA\uFF082026-10-30 \u3066\u3058\u3083\u300C\u8ECC\u9053\u3092\u70B9\u7DDA\u3067\u300D\u2192\u300C\u5CA9\u3088\u308A\u5148\u306B\u70B9\u7DDA\u304C\u4F38\u3073\u306A\u304C\u3089\u843D\u3061\u3066\u3044\u304F\u2192\u5CA9\u304C\u304A\u3044\u3064\u304F\u3068\u6D88\u3048\u3066\u304F\u300D\uFF09\uFF1A\u98DB\u3073\u51FA\u3059
-        warnTime \u79D2\u524D\u306B\u67F1\u304B\u3089\u70B9\u7DDA\u304C\u306E\u3073\u59CB\u3081\u3001\u5CA9\u306E
-        warnHeadSpeed \u500D\u306E\u901F\u3055\u3067\u9053\u3059\u3058\u3092\u5148\u306B\u9032\u3080\u3002\u5CA9\u304C\u901A\u3063\u305F\u6240\u304B\u3089\u6D88\u3048\u308B"
+        warnTime \u79D2\u524D\u306B\u67F1\u304B\u3089\u70B9\u7DDA\u304C\u306E\u3073\u59CB\u3081\u3001\u4E00\u5B9A\u306E\u901F\u3055\u3067\u9053\u3059\u3058\u3092\u5148\u306B\u9032\u3080\uFF08\u5CA9\u304C\u98DB\u3093\u3067\u3044\u308B\u6642\u9593\u306E
+        warnHeadSpeed \u500D\u306E\u6642\u70B9\u3067\u4E0B\u306B\u7740\u304F\u901F\u3055\uFF09\u3002\u5CA9\u304C\u901A\u3063\u305F\u6240\u304B\u3089\u6D88\u3048\u308B\u3002\uFF08\u5CA9\u306E\u6642\u9593\u306B\u5408\u308F\u305B\u3066\u306E\u3070\u3057\u305F\u3089\u300C\u901F\u5EA6\u4E0D\u5B9A\u300D\u2192
+        \u9577\u3055\u3067\u4E00\u5B9A\u306B\uFF09"
     - Name: 
       Entry: 8
       Data: 
@@ -1774,6 +1775,54 @@ MonoBehaviour:
     - Name: _fieldAttributes
       Entry: 7
       Data: 89|System.Collections.Generic.List`1[[System.Attribute, mscorlib]], mscorlib
+    - Name: 
+      Entry: 12
+      Data: 0
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: _headV
+    - Name: $v
+      Entry: 7
+      Data: 90|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
+    - Name: <Name>k__BackingField
+      Entry: 1
+      Data: _headV
+    - Name: <UserType>k__BackingField
+      Entry: 9
+      Data: 14
+    - Name: <SystemType>k__BackingField
+      Entry: 9
+      Data: 14
+    - Name: <SyncMode>k__BackingField
+      Entry: 7
+      Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
+    - Name: 
+      Entry: 6
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: <IsSerialized>k__BackingField
+      Entry: 5
+      Data: false
+    - Name: _fieldAttributes
+      Entry: 7
+      Data: 91|System.Collections.Generic.List`1[[System.Attribute, mscorlib]], mscorlib
     - Name: 
       Entry: 12
       Data: 0

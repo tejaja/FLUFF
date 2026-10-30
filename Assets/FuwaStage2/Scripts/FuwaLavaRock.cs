@@ -30,9 +30,10 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public float ballKnock = 2.5f, ballKnockUp = 1.5f;
     public float playerKnock = 5f, playerKnockUp = 4f;
     [Tooltip("予告線（2026-10-30 てじゃ「軌道を点線で」→「岩より先に点線が伸びながら落ちていく→岩がおいつくと消えてく」）：" +
-             "飛び出す warnTime 秒前に柱から点線がのび始め、岩の warnHeadSpeed 倍の速さで道すじを先に進む。岩が通った所から消える")]
+             "飛び出す warnTime 秒前に柱から点線がのび始め、一定の速さで道すじを先に進む（岩が飛んでいる時間の warnHeadSpeed 倍の時点で下に着く速さ）。岩が通った所から消える。" +
+             "（岩の時間に合わせてのばしたら「速度不定」→ 長さで一定に）")]
     public LineRenderer warnLine;
-    public float warnTime = 1.2f, warnHeadSpeed = 1.6f;
+    public float warnTime = 1.2f, warnHeadSpeed = 0.55f;
     public Color warnColor = new Color(1f, 0.5f, 0.15f, 1f);
     public int warnSamples = 14;
     [Tooltip("材質の横の繰り返し（1m あたりの点の数）。点は世界に対して止まって見えるように")]
@@ -45,6 +46,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
     private float[] _cum;
     private Material _lineMat;
     private bool _lineOn;
+    private float _headV;
 
     private void Start()
     {
@@ -64,6 +66,8 @@ public class FuwaLavaRock : UdonSharpBehaviour
             _cum = new float[_path.Length];
             for (int i = 1; i < _path.Length; i++) _cum[i] = _cum[i - 1] + (_path[i] - _path[i - 1]).magnitude;
             _lineMat = warnLine.material;
+            float flyT = (hops - 1) * hopTime + hopTime * lastHopScale;
+            _headV = _cum[_cum.Length - 1] / Mathf.Max(0.1f, warnTime + flyT * warnHeadSpeed);
             warnLine.useWorldSpace = true;
             warnLine.enabled = false;
         }
@@ -98,13 +102,24 @@ public class FuwaLavaRock : UdonSharpBehaviour
         return (k + u) * warnSamples;
     }
 
+    // 道すじにそった長さ d → 点の番号（小数）
+    private float DistIndex(float d)
+    {
+        int last = _cum.Length - 1;
+        if (d <= 0f) return 0f;
+        if (d >= _cum[last]) return last;
+        int i = 1; while (i < last && _cum[i] < d) i++;
+        float seg = _cum[i] - _cum[i - 1];
+        return (i - 1) + (seg > 0.0001f ? (d - _cum[i - 1]) / seg : 0f);
+    }
+
     // 予告線：うしろ＝岩の位置（飛ぶ前は柱）、先＝岩より速く進む頭。頭は飛び出す warnTime 秒前に柱を出る
     private void UpdateWarnLine(float tau, int hops)
     {
         if (warnLine == null || _path == null) return;
         int last = _path.Length - 1;
         float tail = Mathf.Min(PathIndex(tau, hops), last);
-        float head = tau > -warnTime ? Mathf.Min(PathIndex((tau + warnTime) * warnHeadSpeed, hops), last) : 0f;
+        float head = tau > -warnTime ? DistIndex((tau + warnTime) * _headV) : 0f;
         bool on = head - tail > 0.05f;
         if (on != _lineOn) { _lineOn = on; warnLine.enabled = on; }
         if (!on) return;
