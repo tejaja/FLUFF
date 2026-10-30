@@ -24,7 +24,8 @@ public static class FuwaCourse2_2Builder
     public static float VentAt = 2.4f, VentFwd = 6f, VentUp = 3.5f;   // 噴気孔：長い坂の角からの距離、打ち出しの水平・上の速さ（8.4m 先で）
     public static float WideHW = 4.5f, WideEndHW = 3.2f, HoleR = 1.2f, LavaDepth = 0.9f, FireballTop = 2.3f, VertTop = 2.6f, FireballSize = 1.3f;   // ② 広い道・溶岩の穴・火の玉（てっぺんの道からの高さ・大きさ）
     public static float ChanHW = 0.6f, ChanLavaDepth = 0.5f, LavaFallLen = 6f;   // 溝の幅の半分・溝のある穴の溶岩の深さ（道の下の岩 0.6 より上＝ふちからそのまま流れ出る）・垂れる溶岩の長さ
-    public static float PadR = 2.6f, PadIn = 2.5f, PadDrop = 0.03f, ZigLeg = 13f, ZigRise = 1.1f, ZigHW = 0.8f, ZigHeading = 70f, EndPadR = 3.4f, EndPadIn = 1.0f, FireWallH = 4.5f, FireWallOut = 1.0f, FireWallGap = 0.35f;   // 踊り場の半径・板のはしが踊り場に入る深さ（40° の板どうしが踊り場の外で重ならない：0.8*2/sin40=2.5）・板の長さ・上り・幅の半分・向き
+    public static float PadR = 2.6f, PadIn = 1.6f, PadDrop = 0.03f, ZigLeg = 15f, ZigRise = 1.1f, ZigHW = 0.8f, ZigHeading = 71f, EndPadR = 3.4f, EndPadIn = 1.0f, FireWallH = 4.5f, FireWallOut = 1.0f, FireWallGap = 0.35f;   // 踊り場の半径・板のはしが踊り場に入る深さ（40° の板どうしが踊り場の外で重ならない：0.8*2/sin40=2.5）・板の長さ・上り・幅の半分・向き
+    // （2026-10-30 てじゃ「もっと角度急に」→ 約155° 曲がる（道どうしが約26°）。板を踊り場の中心から通すと踊り場の外で重なるので、板の出る所は中心より前（+z）へ、着く所は後ろへ幅の半分ずらす（角で入る板と出る板が中心の前後に分かれる）。そのぶん板が寝るので向き ZigHeading は 71°。PadIn は板のはしが踊り場に入る深さ）
     // （2026-10-29 てじゃ「ジグザグ、ゆるすぎる」→ 細く（幅3m→1.6m）＋角を鋭く（120°→140° 曲がる）＋板を長く（10→13m）。ヘアピンの1本道も試したが、鋭い角を丸めると角が6mも内に入ってだめ）
     public static float ArenaHW = 3f, ArenaLen = 16f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
     public static float FlamePeriod = 3.2f, FlameOn = 1.3f, SeedBefore = 3.5f;
@@ -159,17 +160,21 @@ public static class FuwaCourse2_2Builder
         }
         Checkpoint(root, "Checkpoint1", new Vector3(0, yL, z0 + 59f), Vector3.forward, WideEndHW);
 
-        // ③ 鋭角のグネグネ（登り）：丸い踊り場（角）の火種で止めて切り返す。角は 140° 曲がる（道どうしが 40°）
+        // ③ 鋭角のグネグネ（登り）：丸い踊り場（角）の火種で止めて切り返す。角は約155° 曲がる（道どうしが約26°）
         //  はしの踊り場（Pad0・Pad4）は広い道がつながるので大きく（EndPadR）、広い道のはしが踊り場の中におさまる所に
         var pad = new Vector3(0, yL, z0 + 60f + EndPadIn);
         Pad(path, "Pad0", pad, EndPadR);
         var pads = new List<(Vector3 c, float r)> { (pad, EndPadR) };
+        var legs = new List<(Vector3 a, Vector3 b)>();
         for (int k = 0; k < 4; k++)
         {
             float hd = (k % 2 == 0 ? ZigHeading : -ZigHeading) * Mathf.Deg2Rad;
             var d = new Vector3(Mathf.Sin(hd), 0, Mathf.Cos(hd));
             var nx = pad + d * ZigLeg + up * ZigRise;
-            var a = pad + d * PadIn; var b = nx - d * PadIn;
+            var sh = Vector3.forward * (ZigHW * 1.05f);
+            var a0 = pad + sh; var b0 = nx - sh; var ld = (b0 - a0).normalized;
+            var a = a0 + ld * PadIn; var b = b0 - ld * PadIn;
+            legs.Add((a0, b0));
             Strip(path, "Zig" + k, a, (b - a).normalized, (b - a).magnitude, ZigHW);
             Pad(path, "Pad" + (k + 1), nx, k == 3 ? EndPadR : PadR);
             if (k < 3) GroundFire(fire, "ZigSeed" + k, nx);
@@ -188,7 +193,7 @@ public static class FuwaCourse2_2Builder
             while (s < 30f)
             {
                 var e = Flat(mid + n * (s + 0.05f));
-                if (SegDist(e, Flat(a), Flat(c)) < ZigHW + lim || SegDist(e, Flat(c), Flat(b)) < ZigHW + lim || (e - Flat(c)).magnitude < PadR + lim) break;
+                if (SegDist(e, Flat(legs[k].a), Flat(legs[k].b)) < ZigHW + lim || SegDist(e, Flat(legs[k + 1].a), Flat(legs[k + 1].b)) < ZigHW + lim || (e - Flat(c)).magnitude < PadR + lim) break;
                 s += 0.05f;
             }
             FireWall(fire, "FireWall" + k, mid - n * (PadR + FireWallOut), mid + n * s);
