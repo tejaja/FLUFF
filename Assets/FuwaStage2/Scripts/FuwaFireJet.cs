@@ -16,6 +16,8 @@ public class FuwaFireJet : UdonSharpBehaviour
     [Tooltip("前ぶれ（吹く前のちらちら）")]
     public ParticleSystem warn;
     public float flameRate = 80f, warnRate = 25f;
+    [Tooltip("いっしょに吹く2本目の炎・前ぶれ（上下セットの壁など）")]
+    public ParticleSystem flame2, warn2;
     public AudioSource roar;
     [Header("火炎放射（2026-10-29 てじゃの 2–2「横の岩の穴から吹き出す、当たるとアウト、人はちょっと吹っ飛ぶ」）")]
     [Tooltip("当たったふわふわは黒焦げ→アウト（温めて浮かせるのではなく）")]
@@ -32,6 +34,11 @@ public class FuwaFireJet : UdonSharpBehaviour
     [Tooltip("あれば、ここから knockDir へ knockReach m の所より先へは飛ばさない（道から落ちないくらい外へ。2026-10-30 てじゃ「落ちないくらい外に吹っ飛ばす」）。残りの距離 × knockPerMeter が横の速さの上限")]
     public Transform knockOrigin;
     public float knockReach = 0f, knockPerMeter = 0.8f;
+    [Tooltip("ふちの制限なしで足す横の速さ（ワールド、道にそって来た方など。2026-10-30 てじゃ「ふっ飛ばし力もうちょい」）")]
+    public Vector3 knockSide = Vector3.zero;
+    [Tooltip("人も knockOrigin から playerPushDir へ knockReach m より先へは飛ばさない。残りの距離 × playerPerMeter が横の速さの上限（0 なら制限なし）")]
+    public float playerPerMeter = 0f;
+    public Vector3 playerSide = Vector3.zero;
     private bool _wasOn, _blasted;
     private float _pushedAt = -10f;
 
@@ -51,6 +58,8 @@ public class FuwaFireJet : UdonSharpBehaviour
         float t = T(); bool on = t < onTime; bool w = !on && t > period - warnTime;
         if (flame != null) { var e = flame.emission; e.rateOverTime = on ? flameRate : 0f; }
         if (warn != null) { var e = warn.emission; e.rateOverTime = w ? warnRate : 0f; }
+        if (flame2 != null) { var e = flame2.emission; e.rateOverTime = on ? flameRate : 0f; }
+        if (warn2 != null) { var e = warn2.emission; e.rateOverTime = w ? warnRate : 0f; }
         if (on && !_wasOn) { _blasted = false; if (roar != null && roar.clip != null) roar.PlayOneShot(roar.clip); }
         _wasOn = on;
         if (on) PushPlayer();
@@ -72,7 +81,7 @@ public class FuwaFireJet : UdonSharpBehaviour
                 Vector3 off = ball.transform.position - knockOrigin.position; off.y = 0f;
                 sp = Mathf.Min(sp, Mathf.Max(0f, knockReach - Vector3.Dot(off, d)) * knockPerMeter);
             }
-            ball.LaunchFlight(d * sp + Vector3.up * ballKnockUp, knockFlight, knockDrag);
+            ball.LaunchFlight(d * sp + knockSide + Vector3.up * ballKnockUp, knockFlight, knockDrag);
             return;
         }
         if (deadly) { heat.BurnOut(); return; }
@@ -99,6 +108,12 @@ public class FuwaFireJet : UdonSharpBehaviour
         if (!inside) return;
         _pushedAt = Time.time;
         Vector3 d = playerPushDir.sqrMagnitude > 0.0001f ? playerPushDir : transform.up; d.y = 0f; d = d.sqrMagnitude > 0.0001f ? d.normalized : Vector3.zero;
-        lp.SetVelocity(d * playerPush + Vector3.up * playerPushUp);
+        float sp = playerPush;
+        if (playerPerMeter > 0f && knockOrigin != null && knockReach > 0f)
+        {
+            Vector3 off = f - knockOrigin.position; off.y = 0f;
+            sp = Mathf.Min(sp, Mathf.Max(0f, knockReach - Vector3.Dot(off, d)) * playerPerMeter);
+        }
+        lp.SetVelocity(d * sp + playerSide + Vector3.up * playerPushUp);
     }
 }
