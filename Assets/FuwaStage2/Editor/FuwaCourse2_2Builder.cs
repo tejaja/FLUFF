@@ -216,9 +216,10 @@ public static class FuwaCourse2_2Builder
                     float t = (cx - legs[k].a.x) / (legs[k].b.x - legs[k].a.x);
                     rp.Add(Vector3.Lerp(legs[k].a, legs[k].b, t) + up * RockR);
                 }
-                rp.Insert(0, rp[0] + new Vector3(0, 7f, 4f));
+                rp.Insert(0, rp[0] + new Vector3(0, 6f, 4f));
                 rp.Add(rp[rp.Count - 1] + new Vector3(0, -10f, -4f));
                 LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length);
+                RockPillar(fire, "RockPillar" + c, rp[0] + up * RockR);   // てじゃ「岩が出てるとこに岩柱でもつくるか」：岩は柱のてっぺんの溶岩から飛び出す
             }
         }
 
@@ -667,6 +668,20 @@ public static class FuwaCourse2_2Builder
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
     public static float RockR = 0.9f, RockHop = 0.75f, RockPeriod = 5.75f;   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
+    public static float PillarR = 1.7f, PillarH = 22f;
+    // 岩の出てくる柱（ブロックアウト）：てっぺんは top、下は空へのびる。てっぺんに溶岩のくぼみ
+    static void RockPillar(Transform parent, string name, Vector3 top)
+    {
+        var g = new GameObject(name).transform; g.SetParent(parent, false);
+        var col = GameObject.CreatePrimitive(PrimitiveType.Cylinder); col.name = "Pillar"; col.transform.SetParent(g, false);
+        col.transform.localPosition = top + Vector3.down * (PillarH * 0.5f); col.transform.localScale = new Vector3(PillarR * 2f, PillarH * 0.5f, PillarR * 2f);
+        Object.DestroyImmediate(col.GetComponent<Collider>());
+        col.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_PillarRock", new Color(0.45f, 0.3f, 0.27f));
+        LavaDisk(g, "Lava", top + Vector3.down * 0.05f, PillarR - 0.35f);
+        var smoke = FuwaStage2FireTest.FlamePS(g, "Glow", PillarR * 0.6f, 0.6f, 0.8f, new Color(1f, 0.6f, 0.2f), new Color(0.6f, 0.15f, 0.05f));
+        smoke.transform.localPosition = top; { var m = smoke.main; m.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.9f); var e = smoke.emission; e.rateOverTime = 12f; }
+    }
+
     static void LavaRock(Transform parent, string name, Vector3[] ps, float phase)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);

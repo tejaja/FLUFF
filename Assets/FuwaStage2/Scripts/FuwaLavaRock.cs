@@ -17,6 +17,8 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public float hopTime = 0.6f, hopUp = 1.2f, rest = 3f, phase = 0f;
     [Tooltip("最後（板から下の外へ落ちる）の1回だけ hopTime の何倍かける。同じ時間だと距離が長くて速く見えた（2026-10-30 てじゃ「最後のバウンドがはやく感じる」）")]
     public float lastHopScale = 2f;
+    [Tooltip("最初（[0] から出る）の1回の、高い方の点より上がる高さ。柱のてっぺんの溶岩から飛び出す（2026-10-30 岩柱）")]
+    public float firstUp = 1.5f;
     [Tooltip("見た目（飛んでいない時は隠す）")]
     public GameObject visual;
     [Tooltip("尾を引く炎（なくてもOK）")]
@@ -50,11 +52,11 @@ public class FuwaLavaRock : UdonSharpBehaviour
         return ms / 1000f;
     }
 
-    // 1回のはね。最初（空から）は上がらずにそのまま落ちる
+    // 1回のはね。最初は柱のてっぺんから firstUp 飛び出す
     private Vector3 At(int k, float u)
     {
         Vector3 a = points[k].position, b = points[k + 1].position;
-        float top = Mathf.Max(a.y, b.y) + (k == 0 ? 0f : hopUp);
+        float top = Mathf.Max(a.y, b.y) + (k == 0 ? firstUp : hopUp);
         Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f;
         float v = 1f - u;
         return v * v * a + 2f * v * u * m + u * u * b;
