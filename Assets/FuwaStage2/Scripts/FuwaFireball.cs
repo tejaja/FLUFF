@@ -28,8 +28,8 @@ public class FuwaFireball : UdonSharpBehaviour
     [Tooltip("溶岩から出る時・入る時のしぶき（なくてもOK）")]
     public ParticleSystem splash;
     public AudioSource whoosh;
-    [Tooltip("自分のアバターが eyeBase より背が高いぶん、弧を高くする（その差 × arcPerEye、最大 maxArcExtra m）。背が高いと銃口が高くてふわふわが上を越えられたので（2026-10-30 てじゃ）。低い背では下げない")]
-    public float eyeBase = 1.6f, arcPerEye = 1f, maxArcExtra = 1.5f;
+    [Tooltip("自分のアバターの目の高さと eyeBase の差 × arcPerEye だけ弧を上げ下げする（-maxArcLower 〜 +maxArcExtra m）。背が高いとふわふわが上を越え、低いと下をくぐれたので（2026-10-30 てじゃ）")]
+    public float eyeBase = 1.6f, arcPerEye = 1f, maxArcExtra = 1.5f, maxArcLower = 1.3f;
 
     private bool _flying, _hitBall, _hitPlayer;
     private float _arcExtra;
@@ -87,7 +87,7 @@ public class FuwaFireball : UdonSharpBehaviour
         VRCPlayerApi o = Networking.LocalPlayer;
         if (o == null || !o.IsValid()) return 0f;
         float eye = o.GetAvatarEyeHeightAsMeters();
-        float x = Mathf.Clamp((eye - eyeBase) * arcPerEye, 0f, maxArcExtra);
+        float x = Mathf.Clamp((eye - eyeBase) * arcPerEye, -maxArcLower, maxArcExtra);
         if (Mathf.Abs(x - _arcExtra) > 0.01f) Debug.Log("[FuwaFireball] eye=" + eye.ToString("F2") + " arcExtra=" + x.ToString("F2") + " " + transform.parent.name);
         return x;
     }
