@@ -270,6 +270,16 @@ public static class FuwaCourse2_2Builder
         Ribbon(path, "Path5", r5, hw5, pts5, pholes, pholes.Select(_ => 0).ToList());
         for (int k = 0; k < pholes.Count; k++) Puddle(path, "Puddle" + k, (Vector3)pholes[k]);
         for (int k = 0; k < monsters.Length; k++) FireMonster(root, "FireMonster" + k, OnArena(monsters[k].x, monsters[k].z));
+        // 火口からまもののエリアにも岩を1個（てじゃ「一個まものエリアにも落とそうか、まものも当たったら一応飛ぶ」）：山側から飛んできて2回はねて、外のふちから落ちる
+        {
+            var up1 = Vector3.up * RockR;
+            var l3 = OnArena(-4.6f, 14.2f); Frame(r5, ar.z + 14.2f, out _, out var t3); var outw = -Vector3.Cross(Vector3.up, t3).normalized;
+            var ps = new[] { vtop, OnArena(3.4f, 11.8f) + up1, OnArena(-0.6f, 13f) + up1, l3 + up1, l3 + outw * 4f + Vector3.down * 10f };
+            LavaRock(fire, "LavaRockArena", ps, 4.1f, 6.7f, 2.4f, 2f, vfx);
+            var lr = fire.Find("LavaRockArena").GetComponentInChildren<FuwaLavaRock>();
+            lr.enemies = Enumerable.Range(0, monsters.Length).Select(k => root.Find("FireMonster" + k).GetComponent<FuwaEnemy>()).ToArray();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lr);
+        }
         {
             float a0 = (Th0 + 2f) * Mathf.Deg2Rad;
             Checkpoint(root, "Checkpoint2", Around(Th0 + 2f, RoadR(Th0 + 2f, 0f), 0f), new Vector3(Mathf.Cos(a0), 0f, -Mathf.Sin(a0)), FlameHW);

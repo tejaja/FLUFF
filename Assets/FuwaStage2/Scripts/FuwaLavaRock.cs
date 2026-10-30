@@ -33,8 +33,12 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public float hitRadius = 0.5f;
     public float ballKnock = 2.5f, ballKnockUp = 1.5f;
     public float playerKnock = 5f, playerKnockUp = 4f;
+    [Tooltip("当たったら飛ぶまもの（なくてもOK。2026-10-30 てじゃ「まものも当たったら一応飛ぶ」）")]
+    public FuwaEnemy[] enemies;
+    public float enemyRadius = 0.7f, enemyKnock = 3.4f;
 
     private bool _flying, _hitBall, _hitPlayer;
+    private bool[] _hitEnemy;
     private int _hop = -1;
     private float _ballRadius = 0.4f;
 
@@ -45,6 +49,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
             SphereCollider sc = ball.GetComponent<SphereCollider>();
             if (sc != null) _ballRadius = sc.radius * ball.transform.lossyScale.x;
         }
+        _hitEnemy = new bool[enemies == null ? 0 : enemies.Length];
         Show(false);
     }
 
@@ -97,7 +102,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
         }
         if (flying != _flying)
         {
-            if (flying) { _hitBall = false; _hitPlayer = false; }
+            if (flying) { _hitBall = false; _hitPlayer = false; for (int i = 0; i < _hitEnemy.Length; i++) _hitEnemy[i] = false; }
             _flying = flying; Show(flying);
         }
         if (k != _hop)
@@ -122,6 +127,12 @@ public class FuwaLavaRock : UdonSharpBehaviour
             _hitBall = true;
             if (heat != null) heat.Ignite();
             ball.Launch(hdir * ballKnock + Vector3.up * ballKnockUp);
+        }
+        for (int i = 0; i < _hitEnemy.Length; i++)
+        {
+            FuwaEnemy e = enemies[i];
+            if (_hitEnemy[i] || e == null || !e.IsActive()) continue;
+            if ((e.transform.position - p).magnitude < hitRadius + enemyRadius) { _hitEnemy[i] = true; e.Blown(hdir * enemyKnock, true); }
         }
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (!_hitPlayer && lp != null)
