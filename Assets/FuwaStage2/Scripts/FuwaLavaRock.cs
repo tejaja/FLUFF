@@ -17,8 +17,12 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public float hopTime = 0.6f, hopUp = 1.2f, rest = 3f, phase = 0f;
     [Tooltip("最後（板から下の外へ落ちる）の1回だけ hopTime の何倍かける。同じ時間だと距離が長くて速く見えた（2026-10-30 てじゃ「最後のバウンドがはやく感じる」）")]
     public float lastHopScale = 2f;
-    [Tooltip("最初（[0] から出る）の1回の、高い方の点より上がる高さ。柱のてっぺんの溶岩から飛び出す（2026-10-30 岩柱）")]
+    [Tooltip("最初（[0] から出る）の1回の、高い方の点より上がる高さ。火山の火口から飛び出す（2026-10-30 岩柱→コースの外の浮いてる火山）")]
     public float firstUp = 1.5f;
+    [Tooltip("最初（火口から飛んでくる）の1回だけ hopTime の何倍かける（遠いので）")]
+    public float firstHopScale = 1f;
+    [Tooltip("火口から飛び出す時の火の粉（なくてもOK）")]
+    public ParticleSystem launchFx;
     [Tooltip("見た目（飛んでいない時は隠す）")]
     public GameObject visual;
     [Tooltip("尾を引く炎（なくてもOK）")]
@@ -42,6 +46,15 @@ public class FuwaLavaRock : UdonSharpBehaviour
             if (sc != null) _ballRadius = sc.radius * ball.transform.lossyScale.x;
         }
         Show(false);
+    }
+
+    // k 回目のはねの長さ（最初・最後だけ長い。1回だけなら両方）
+    private float Dur(int k, int hops)
+    {
+        float d = hopTime;
+        if (k == 0) d *= firstHopScale;
+        if (k == hops - 1) d *= lastHopScale;
+        return d;
     }
 
     private float T(float period)
@@ -72,11 +85,16 @@ public class FuwaLavaRock : UdonSharpBehaviour
     {
         if (points == null || points.Length < 2) return;
         int hops = points.Length - 1;
-        float lastT = hopTime * lastHopScale;
-        float fly = (hops - 1) * hopTime + lastT;
+        float fly = 0f;
+        for (int i = 0; i < hops; i++) fly += Dur(i, hops);
         float t = T(fly + rest);
         bool flying = t < fly;
-        int k = flying ? Mathf.Min(hops - 1, Mathf.FloorToInt(t / hopTime)) : -1;
+        int k = -1; float t0 = 0f;
+        if (flying)
+        {
+            k = 0;
+            while (k < hops - 1 && t >= t0 + Dur(k, hops)) { t0 += Dur(k, hops); k++; }
+        }
         if (flying != _flying)
         {
             if (flying) { _hitBall = false; _hitPlayer = false; }
@@ -86,10 +104,11 @@ public class FuwaLavaRock : UdonSharpBehaviour
         {
             // 板に着いた所で火の粉（最初の空と最後の外は除く）
             if (k > 0 && k < hops && bounce != null) { bounce.transform.position = points[k].position; bounce.Play(); }
+            if (k == 0 && launchFx != null) launchFx.Play();
             _hop = k;
         }
         if (!flying) return;
-        float u = Mathf.Clamp01((t - k * hopTime) / (k == hops - 1 ? lastT : hopTime));
+        float u = Mathf.Clamp01((t - t0) / Dur(k, hops));
         Vector3 p = At(k, u);
         Vector3 vel = At(k, Mathf.Min(1f, u + 0.02f)) - At(k, Mathf.Max(0f, u - 0.02f));
         transform.position = p;

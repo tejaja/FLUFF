@@ -29,9 +29,11 @@ public static class FuwaCourse2_2Builder
     // （2026-10-29 てじゃ「ジグザグ、ゆるすぎる」→ 細く（幅3m→1.6m）＋角を鋭く（120°→140° 曲がる）＋板を長く（10→13m）。ヘアピンの1本道も試したが、鋭い角を丸めると角が6mも内に入ってだめ）
     // ④ 2026-10-30 てじゃ「もうちょい広いエリア＋まものは4ひきくらい、周りに水じゃなくて所々に水たまり」→ 広い道の中に丸い水たまりの穴
     public static float PuddleR = 1.7f, MonsterFlameTouch = 0.95f;
-    public static float ArenaHW = 6f, ArenaLen = 26f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
+    public static float ArenaHW = 6f, ArenaLen = 27f, ArenaShift = 6.5f, PondW = 3.5f, PondLen = 10f, PondSurface = -0.2f;
     // ⑤ 2026-10-30 てじゃ「最後はみじかめ、ちょっとの坂→火口→火口の周りに道、左右どっちから進んでもok。火口からは一定間隔でマグマが吹き出て道の一部にながれてくる、
     //    タイミングを見て進む。最後は道が合流してゴール」「マグマは即死」。火炎放射の坂（横・下・斜め、当たると吹っ飛んで炎上）は「びみょう」でやめた
+    public static Vector3 VolcanoAt = new Vector3(12f, 0f, 13f);   // 火山の中心（ジグザグのてっぺんの踊り場から）
+    public static float VolcanoTopH = 14f, VolcanoTopR = 4f, VolcanoR0 = 8.5f, VolcanoBottom = -60f, RockFirstScale = 2.6f;   // 火口の高さ・半径、道の高さでの半径、すその下のはし、火口から飛んでくる1回の長さ（倍）
     public static float SlopeStart = 5f, SlopeLen = 12f, SlopeRise = 3f, RingR = 8f, RingHW = 1.6f, ExitLen = 4f;
     public static float CraterH = 5.5f, CraterTopR = 2.6f, MagmaPeriod = 6f;
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
@@ -207,7 +209,9 @@ public static class FuwaCourse2_2Builder
             FireWall(fire, "FireWall" + k, mid - n * (PadR + FireWallOut), mid + n * s);
         }
 
-        // 火の岩：空から降ってきて、坂の下る向きに板を横切ってはねながら落ちる。板のまん中を1列
+        // 火の岩：コースの外の火山（ジグザグのてっぺんの右奥に、下からそびえる）の火口から飛んできて、坂の下る向きに板を横切ってはねながら落ちる。板のまん中を1列
+        var vc = pad + VolcanoAt; var vtop = vc + up * (VolcanoTopH - 0.6f);
+        var vfx = Volcano(fire, vc);
         //  （2026-10-30 てじゃ「道に沿って落ちるとこの狭さじゃ回避できない、この方向に３個くらい列ずらしで落とす、ちょうどいい位置でバウンドして落ちてくる感じ」）
         {
             float x0 = legs[0].a.x, x1 = legs[0].b.x;
@@ -222,17 +226,21 @@ public static class FuwaCourse2_2Builder
                     rp.Add(Vector3.Lerp(legs[k].a, legs[k].b, t) + up * RockR);
                    
                 }
-                rp.Insert(0, rp[0] + new Vector3(2.5f, 6f, 4f));   // 柱はまもののエリア（広い）にかからないよう横へ（3本並ぶ）
+                rp.Insert(0, vtop);   // 火山の火口から飛んでくる（岩柱→2026-10-30 てじゃ「コース外にある火山から飛んでくる感じに」）
                 rp.Add(rp[rp.Count - 1] + new Vector3(0, -10f, -4f));
-                LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length);
-                RockPillar(fire, "RockPillar" + c, rp[0] + up * RockR);   // てじゃ「岩が出てるとこに岩柱でもつくるか」：岩は柱のてっぺんの溶岩から飛び出す
+                LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length, RockPeriod, RockFirstScale, 1.5f, vfx);
             }
+            // 関係ない方へ飛んでって落ちていく岩 ×2（てじゃ「コースにいくのが一個、関係ないとこに飛んでくのが２個」）。周期をずらしてばらばらに見えるように
+            LavaRock(fire, "LavaRockAway0", new[] { vtop, vtop + new Vector3(22f, -45f, 8f) }, 1.7f, 4.6f, 3.2f, 6f, vfx);
+            LavaRock(fire, "LavaRockAway1", new[] { vtop, vtop + new Vector3(16f, -45f, -14f) }, 3.4f, 7.3f, 3.6f, 7f, vfx);
         }
 
         // ④ ほのおのまもの：広い平らな所に まもの4ひき・ところどころに水たまり（まものを落とすと倒れる・燃えたふわふわは消える）
         //  広い所と⑤のくねくね道は1本のつなぎ目なしの道。踊り場から広がって、出口で細くなる
         var ar = pad + Vector3.forward * EndPadIn;
-        var ae = ar + Vector3.forward * ArenaLen;
+        //  2026-10-30 てじゃ「ジグザグが終わってからの流れを左にずらす」「まものエリアは山に沿うような感じにちょと曲げる」→ 右の火山をよけて左へふくらむ
+        var arenaPts = new[] { ar, ar + new Vector3(-2.5f, 0, 5.5f), ar + new Vector3(-6f, 0, 12.5f), ar + new Vector3(-ArenaShift, 0, ArenaLen - 5.5f) };
+        var ae = ar + new Vector3(-ArenaShift, 0, ArenaLen);
         var puddles = new[] { (x: 2.8f, z: 8.5f), (x: -3.2f, z: 13.5f), (x: 3.0f, z: 19f) };   // 5→3（てじゃ「水へらそ」）
         var monsters = new[] { (x: 0f, z: 6.5f), (x: -2.8f, z: 10.8f), (x: 2.6f, z: 13.5f), (x: 0.2f, z: 19.5f) };
 
@@ -241,8 +249,8 @@ public static class FuwaCourse2_2Builder
         float ro = RingR + RingHW;
         var s1 = ae + new Vector3(0, SlopeRise, SlopeStart + SlopeLen);
         var cc = s1 + Vector3.forward * (ro + 0.5f);
-        var pl5 = new List<Vector3> { ar, ar + Vector3.forward * 4.5f, ae - Vector3.forward * 4.5f, ae, ae + new Vector3(0, 0, 3f), ae + new Vector3(0, 0, SlopeStart), s1 };
-        var hl5 = new List<float> { EndPadR - 0.2f, ArenaHW, ArenaHW, PathHW, PathHW, PathHW, PathHW };
+        var pl5 = new List<Vector3>(arenaPts) { ae, ae + new Vector3(0, 0, 3f), ae + new Vector3(0, 0, SlopeStart), s1 };
+        var hl5 = new List<float> { EndPadR - 0.2f, ArenaHW, ArenaHW, ArenaHW, PathHW, PathHW, PathHW, PathHW };
         const int RingSteps = 36;
         for (int k = 0; k <= RingSteps; k++)
         {
@@ -252,11 +260,14 @@ public static class FuwaCourse2_2Builder
         pl5.Add(cc + Vector3.forward * (ro + 0.5f)); hl5.Add(PathHW);
         pl5.Add(cc + Vector3.forward * (ro + 0.5f + ExitLen)); hl5.Add(PathHW);
         var pts5 = pl5.ToArray(); var hw5 = hl5.ToArray();
-        var r5 = Route(pts5, new float[pts5.Length], new List<Vector3>());
-        var pholes = puddles.Select(q => new Vector4(ar.x + q.x, ar.y, ar.z + q.z, PuddleR)).ToList();
+        var rad5 = new float[pts5.Length]; rad5[1] = 6f; rad5[2] = 8f; rad5[3] = 6f;
+        var r5 = Route(pts5, rad5, new List<Vector3>());
+        // 曲がった道の上の (x 横, z 奥行き) の所
+        Vector3 OnArena(float x, float z) { Frame(r5, ar.z + z, out var c, out var t); return c + Vector3.Cross(Vector3.up, t).normalized * x; }
+        var pholes = puddles.Select(q => { var c = OnArena(q.x, q.z); return new Vector4(c.x, c.y, c.z, PuddleR); }).ToList();
         Ribbon(path, "Path5", r5, hw5, pts5, pholes, pholes.Select(_ => 0).ToList());
         for (int k = 0; k < pholes.Count; k++) Puddle(path, "Puddle" + k, (Vector3)pholes[k]);
-        for (int k = 0; k < monsters.Length; k++) FireMonster(root, "FireMonster" + k, ar + new Vector3(monsters[k].x, 0, monsters[k].z));
+        for (int k = 0; k < monsters.Length; k++) FireMonster(root, "FireMonster" + k, OnArena(monsters[k].x, monsters[k].z));
         Checkpoint(root, "Checkpoint2", ae + Vector3.forward * 1.5f, Vector3.forward, PathHW);
         Crater(fire, cc);
         var p = pts5[pts5.Length - 1];
@@ -268,7 +279,7 @@ public static class FuwaCourse2_2Builder
         var lb = new Bounds(Vector3.zero, Vector3.zero); bool first = true;
         foreach (var col in root.GetComponentsInChildren<Collider>(true))
         {
-            if (col.isTrigger) continue;
+            if (col.isTrigger || col.name == "VolcanoBody") continue;   // 火山（すそが深くて大きい）は入れない
             Bounds bb; if (col is BoxCollider bx) bb = new Bounds(bx.center, bx.size); else if (col is MeshCollider mc && mc.sharedMesh) bb = mc.sharedMesh.bounds; else continue;
             var t = col.transform; var e = bb.extents;
             for (int k = 0; k < 8; k++)
@@ -679,21 +690,62 @@ public static class FuwaCourse2_2Builder
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
     public static float RockR = 0.9f, RockHop = 0.75f, RockPeriod = 5.75f;   // 予告線（点線）は試したけど「びみょう、やっぱなしに」（2026-10-30）   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
-    public static float PillarR = 1.7f, PillarH = 22f;
-    // 岩の出てくる柱（ブロックアウト）：てっぺんは top、下は空へのびる。てっぺんに溶岩のくぼみ
-    static void RockPillar(Transform parent, string name, Vector3 top)
+    // コースの外の火山（2026-10-30 てじゃ「いまの岩の出る柱のちょい奥くらいにデカい火山」「下から浮いてる感じに」）：c（道の高さ）を中心に、
+    //  すそは下の雲の中（VolcanoBottom）まで続いて、火口は道の VolcanoTopH 上。道の高さでの半径 VolcanoR0。形は仮（いずれ Blender）。
+    //  火口から岩が飛び出す時の火の粉を返す。のちのち「その山を登って通り過ぎてゴール」にしたい（途中は未定）
+    static float VolcanoRAt(float h, float a)
     {
-        var g = new GameObject(name).transform; g.SetParent(parent, false);
-        var col = GameObject.CreatePrimitive(PrimitiveType.Cylinder); col.name = "Pillar"; col.transform.SetParent(g, false);
-        col.transform.localPosition = top + Vector3.down * (PillarH * 0.5f); col.transform.localScale = new Vector3(PillarR * 2f, PillarH * 0.5f, PillarR * 2f);
-        Object.DestroyImmediate(col.GetComponent<Collider>());
-        col.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_PillarRock", new Color(0.45f, 0.3f, 0.27f));
-        LavaDisk(g, "Lava", top + Vector3.down * 0.05f, PillarR - 0.35f);
-        var smoke = FuwaStage2FireTest.FlamePS(g, "Glow", PillarR * 0.6f, 0.6f, 0.8f, new Color(1f, 0.6f, 0.2f), new Color(0.6f, 0.15f, 0.05f));
-        smoke.transform.localPosition = top; { var m = smoke.main; m.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.9f); var e = smoke.emission; e.rateOverTime = 12f; }
+        float p = 0.85f, k = (VolcanoR0 - VolcanoTopR) / Mathf.Pow(VolcanoTopH, p);
+        float r = VolcanoTopR + k * Mathf.Pow(Mathf.Max(0f, VolcanoTopH - h), p);
+        float n = Mathf.PerlinNoise(a * 1.6f + 3.1f, h * 0.08f + 7.3f) - 0.5f;
+        return r * (1f + 0.16f * n + 0.04f * Mathf.Sin(5f * a + h * 0.2f));
+    }
+    static ParticleSystem Volcano(Transform parent, Vector3 c)
+    {
+        var g = new GameObject("Volcano").transform; g.SetParent(parent, false); g.localPosition = c;
+        const int N = 56;
+        // 輪の高さ：下はまばら、上ほど細かく
+        var hs = new List<float>();
+        for (float h = VolcanoBottom; h < VolcanoTopH - 0.01f; h += Mathf.Lerp(6f, 1.2f, Mathf.InverseLerp(VolcanoBottom, VolcanoTopH, h))) hs.Add(h);
+        hs.Add(VolcanoTopH);
+        Vector3 P(float a, float r, float y) => new Vector3(Mathf.Sin(a) * r, y, Mathf.Cos(a) * r);
+        var mb = new MB();
+        for (int i = 0; i < N; i++)
+        {
+            float a0 = Mathf.PI * 2f * i / N, a1 = Mathf.PI * 2f * (i + 1) / N;
+            var o = P((a0 + a1) * 0.5f, 1f, 0f);
+            // すその下のはし：下へとがって閉じる（浮いている島の底のように）
+            mb.Quad(P(a0, VolcanoRAt(hs[0], a0), hs[0]), P(a1, VolcanoRAt(hs[0], a1), hs[0]), Vector3.up * (VolcanoBottom - 14f), Vector3.up * (VolcanoBottom - 14f), o + Vector3.down, 0);
+            for (int j = 0; j + 1 < hs.Count; j++)
+                mb.Quad(P(a0, VolcanoRAt(hs[j], a0), hs[j]), P(a1, VolcanoRAt(hs[j], a1), hs[j]), P(a1, VolcanoRAt(hs[j + 1], a1), hs[j + 1]), P(a0, VolcanoRAt(hs[j + 1], a0), hs[j + 1]), o + Vector3.up * 0.4f, 0);
+            // 火口：ふち → 内側の壁 → 溶岩の池
+            float t0 = VolcanoRAt(VolcanoTopH, a0), t1 = VolcanoRAt(VolcanoTopH, a1);
+            float ih = VolcanoTopH - 0.3f, ph = VolcanoTopH - 1.6f;
+            mb.Quad(P(a0, t0, VolcanoTopH), P(a1, t1, VolcanoTopH), P(a1, t1 - 0.5f, ih), P(a0, t0 - 0.5f, ih), Vector3.up, 0);
+            mb.Quad(P(a0, t0 - 0.5f, ih), P(a1, t1 - 0.5f, ih), P(a1, t1 - 1.3f, ph - 0.4f), P(a0, t0 - 1.3f, ph - 0.4f), -o, 0);
+            float q0 = Mathf.Lerp(t0 - 0.5f, t0 - 1.3f, (ih - ph) / (ih - ph + 0.4f)) + 0.05f, q1 = Mathf.Lerp(t1 - 0.5f, t1 - 1.3f, (ih - ph) / (ih - ph + 0.4f)) + 0.05f;
+            var pc = Vector3.up * ph;
+            mb.Quad(pc, pc + (P(a1, q1, ph) - pc) * 0.001f, P(a1, q1, ph), P(a0, q0, ph), Vector3.up, 1);
+        }
+        var body = new GameObject("VolcanoBody", typeof(MeshFilter), typeof(MeshRenderer)); body.transform.SetParent(g, false);
+        var mesh = SaveMesh(mb.Build("Course2_2_Volcano", 2));
+        body.GetComponent<MeshFilter>().sharedMesh = mesh;
+        body.GetComponent<MeshRenderer>().sharedMaterials = new[] { FuwaStage2WaterTest.ToonMat("Stage2_2_PillarRock", new Color(0.45f, 0.3f, 0.27f)), lavaMat };
+        body.AddComponent<MeshCollider>().sharedMesh = mesh;
+        // 火口：いつもの赤い湯気と、岩が飛び出す時の火の粉
+        var top = new GameObject("Crater").transform; top.SetParent(g, false); top.localPosition = Vector3.up * (VolcanoTopH - 1.5f);
+        var glow = FuwaStage2FireTest.FlamePS(top, "Glow", VolcanoTopR * 0.6f, 1.2f, 1.6f, new Color(1f, 0.6f, 0.2f, 0.8f), new Color(0.45f, 0.2f, 0.12f, 0f));
+        { var m = glow.main; m.startSize = new ParticleSystem.MinMaxCurve(1.2f, 2.2f); var e = glow.emission; e.rateOverTime = 10f; }
+        var fx = FuwaStage2FireTest.FlamePS(top, "Launch", VolcanoTopR * 0.4f, 7f, 1.0f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.25f, 0.05f));
+        {
+            var m = fx.main; m.loop = false; m.duration = 0.5f; m.playOnAwake = false; m.startSize = new ParticleSystem.MinMaxCurve(0.6f, 1.2f); m.gravityModifier = 0.8f;
+            var sh = fx.shape; sh.angle = 30f; var e = fx.emission; e.SetBursts(new[] { new ParticleSystem.Burst(0f, 35) });
+        }
+        return fx;
     }
 
-    static void LavaRock(Transform parent, string name, Vector3[] ps, float phase)
+    // period：1周の秒（飛んでる間＋休み）。first：最初（火口から）の1回の長さの倍率、firstUp：その1回の高さ。launch：火口で出す火の粉
+    static void LavaRock(Transform parent, string name, Vector3[] ps, float phase, float period, float first, float firstUp, ParticleSystem launch)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
         var ts = new Transform[ps.Length];
@@ -707,7 +759,9 @@ public static class FuwaCourse2_2Builder
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLavaRock>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
         int hops = ps.Length - 1;
-        f.hopTime = RockHop; f.hopUp = 1.2f; f.lastHopScale = 2f; f.rest = Mathf.Max(0.5f, RockPeriod - (hops - 1 + f.lastHopScale) * RockHop); f.phase = phase; f.hitRadius = RockR + 0.05f;
+        f.hopTime = RockHop; f.hopUp = 1.2f; f.lastHopScale = hops > 1 ? 2f : 1f; f.firstHopScale = first; f.firstUp = firstUp; f.launchFx = launch;
+        float fly = 0f; for (int k = 0; k < hops; k++) fly += RockHop * (k == 0 ? first : 1f) * (k == hops - 1 ? f.lastHopScale : 1f);
+        f.rest = Mathf.Max(0.5f, period - fly); f.phase = phase; f.hitRadius = RockR + 0.05f;
         f.ballKnock = 2.5f; f.ballKnockUp = 1.5f; f.playerKnock = 5f; f.playerKnockUp = 4f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
