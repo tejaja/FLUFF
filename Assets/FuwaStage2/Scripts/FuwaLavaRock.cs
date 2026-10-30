@@ -15,6 +15,8 @@ public class FuwaLavaRock : UdonSharpBehaviour
     [Tooltip("はねる点。[0] は空（降ってくる所）、最後は下の外（消える所）")]
     public Transform[] points;
     public float hopTime = 0.6f, hopUp = 1.2f, rest = 3f, phase = 0f;
+    [Tooltip("最後（板から下の外へ落ちる）の1回だけ hopTime の何倍かける。同じ時間だと距離が長くて速く見えた（2026-10-30 てじゃ「最後のバウンドがはやく感じる」）")]
+    public float lastHopScale = 2f;
     [Tooltip("見た目（飛んでいない時は隠す）")]
     public GameObject visual;
     [Tooltip("尾を引く炎（なくてもOK）")]
@@ -68,7 +70,8 @@ public class FuwaLavaRock : UdonSharpBehaviour
     {
         if (points == null || points.Length < 2) return;
         int hops = points.Length - 1;
-        float fly = hops * hopTime;
+        float lastT = hopTime * lastHopScale;
+        float fly = (hops - 1) * hopTime + lastT;
         float t = T(fly + rest);
         bool flying = t < fly;
         int k = flying ? Mathf.Min(hops - 1, Mathf.FloorToInt(t / hopTime)) : -1;
@@ -84,7 +87,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
             _hop = k;
         }
         if (!flying) return;
-        float u = (t - k * hopTime) / hopTime;
+        float u = Mathf.Clamp01((t - k * hopTime) / (k == hops - 1 ? lastT : hopTime));
         Vector3 p = At(k, u);
         Vector3 vel = At(k, Mathf.Min(1f, u + 0.02f)) - At(k, Mathf.Max(0f, u - 0.02f));
         transform.position = p;

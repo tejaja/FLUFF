@@ -217,7 +217,7 @@ public static class FuwaCourse2_2Builder
                     rp.Add(Vector3.Lerp(legs[k].a, legs[k].b, t) + up * RockR);
                 }
                 rp.Insert(0, rp[0] + new Vector3(0, 7f, 4f));
-                rp.Add(rp[rp.Count - 1] + new Vector3(0, -12f, -6f));
+                rp.Add(rp[rp.Count - 1] + new Vector3(0, -10f, -4f));
                 LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length);
             }
         }
@@ -666,7 +666,7 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
-    public static float RockR = 0.9f, RockHop = 0.75f, RockPeriod = 5f;   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
+    public static float RockR = 0.9f, RockHop = 0.75f, RockPeriod = 5.75f;   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
     static void LavaRock(Transform parent, string name, Vector3[] ps, float phase)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
@@ -681,7 +681,7 @@ public static class FuwaCourse2_2Builder
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLavaRock>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
         int hops = ps.Length - 1;
-        f.hopTime = RockHop; f.hopUp = 1.2f; f.rest = Mathf.Max(0.5f, RockPeriod - hops * RockHop); f.phase = phase; f.hitRadius = RockR + 0.05f;
+        f.hopTime = RockHop; f.hopUp = 1.2f; f.lastHopScale = 2f; f.rest = Mathf.Max(0.5f, RockPeriod - (hops - 1 + f.lastHopScale) * RockHop); f.phase = phase; f.hitRadius = RockR + 0.05f;
         f.ballKnock = 2.5f; f.ballKnockUp = 1.5f; f.playerKnock = 5f; f.playerKnockUp = 4f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
