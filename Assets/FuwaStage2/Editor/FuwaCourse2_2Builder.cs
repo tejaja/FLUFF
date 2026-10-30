@@ -719,7 +719,8 @@ public static class FuwaCourse2_2Builder
     {
         float p = 0.85f, k = (VolcanoR0 - VolcanoTopR) / Mathf.Pow(VolcanoTopH, p);
         float r = VolcanoTopR + k * Mathf.Pow(Mathf.Max(0f, VolcanoTopH - h), p);
-        float n = Mathf.PerlinNoise(a * 1.6f + 3.1f, h * 0.08f + 7.3f) - 0.5f;
+        // ノイズは円の上で取る（角度そのままだと 0° と 360° で値がちがって縦に割れ目が出た）
+        float n = Mathf.PerlinNoise(Mathf.Cos(a) * 1.6f + 3.1f + h * 0.05f, Mathf.Sin(a) * 1.6f + 7.3f + h * 0.06f) - 0.5f;
         return r * (1f + 0.16f * n + 0.04f * Mathf.Sin(5f * a + h * 0.2f));
     }
     static ParticleSystem Volcano(Transform parent, Vector3 c)
