@@ -208,7 +208,7 @@ public static class FuwaCourse2_2Builder
         //  （2026-10-30 てじゃ「道に沿って落ちるとこの狭さじゃ回避できない、この方向に３個くらい列ずらしで落とす、ちょうどいい位置でバウンドして落ちてくる感じ」）
         {
             float x0 = legs[0].a.x, x1 = legs[0].b.x;
-            float[] cols = { 0.3f, 0.5f, 0.7f };   // 3列（一度「きついか…１列にしとこ」→「やっぱ３列にして、むずくなるかわりに予告線」）
+            float[] cols = { 0.5f };   // 1列（3列は「きついか」→「やっぱ３列＋予告線」→「やっぱむずすぎる、３列やめとこう」）。予告の印は残す
             for (int c = 0; c < cols.Length; c++)
             {
                 float cx = Mathf.Lerp(x0, x1, cols[c]);
@@ -674,7 +674,7 @@ public static class FuwaCourse2_2Builder
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
     public static float RockR = 0.9f, RockHop = 0.75f, RockPeriod = 5.75f;   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
-    public static float PillarR = 1.2f, PillarH = 22f;
+    public static float PillarR = 1.7f, PillarH = 22f;
     // 岩の出てくる柱（ブロックアウト）：てっぺんは top、下は空へのびる。てっぺんに溶岩のくぼみ
     static void RockPillar(Transform parent, string name, Vector3 top)
     {
