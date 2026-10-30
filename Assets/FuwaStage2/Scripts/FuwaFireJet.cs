@@ -22,11 +22,16 @@ public class FuwaFireJet : UdonSharpBehaviour
     public bool deadly = false;
     [Tooltip("吹いている間に入った人を、炎の向き（このトリガーの上向き）へ吹っ飛ばす（0なら何もしない）")]
     public float playerPush = 0f, playerPushUp = 1.5f;
+    [Tooltip("人を飛ばす向き（ワールド、水平）。ゼロなら炎の向き")]
+    public Vector3 playerPushDir = Vector3.zero;
     [Header("吹っ飛ばし（2026-10-30 てじゃ「あたると即死じゃなくて大きく吹き飛び炎上、飛ばされたら急いで拾わないと燃えちゃう」）")]
     [Tooltip("ballKnock > 0 なら、当たったふわふわを燃やして knockDir へ吹っ飛ばす（1回吹くごとに1回）。deadly より先")]
     public FuwaBall ball;
     public Vector3 knockDir = Vector3.back;
     public float ballKnock = 0f, ballKnockUp = 5f, knockFlight = 0.8f, knockDrag = 0.4f;
+    [Tooltip("あれば、ここから knockDir へ knockReach m の所より先へは飛ばさない（道から落ちないくらい外へ。2026-10-30 てじゃ「落ちないくらい外に吹っ飛ばす」）。残りの距離 × knockPerMeter が横の速さの上限")]
+    public Transform knockOrigin;
+    public float knockReach = 0f, knockPerMeter = 0.8f;
     private bool _wasOn, _blasted;
     private float _pushedAt = -10f;
 
@@ -61,7 +66,13 @@ public class FuwaFireJet : UdonSharpBehaviour
             _blasted = true;
             heat.Ignite();
             Vector3 d = knockDir; d.y = 0f; d = d.sqrMagnitude > 0.0001f ? d.normalized : Vector3.zero;
-            ball.LaunchFlight(d * ballKnock + Vector3.up * ballKnockUp, knockFlight, knockDrag);
+            float sp = ballKnock;
+            if (knockOrigin != null && knockReach > 0f)
+            {
+                Vector3 off = ball.transform.position - knockOrigin.position; off.y = 0f;
+                sp = Mathf.Min(sp, Mathf.Max(0f, knockReach - Vector3.Dot(off, d)) * knockPerMeter);
+            }
+            ball.LaunchFlight(d * sp + Vector3.up * ballKnockUp, knockFlight, knockDrag);
             return;
         }
         if (deadly) { heat.BurnOut(); return; }
@@ -87,7 +98,7 @@ public class FuwaFireJet : UdonSharpBehaviour
         }
         if (!inside) return;
         _pushedAt = Time.time;
-        Vector3 d = transform.up; d.y = 0f; d = d.sqrMagnitude > 0.0001f ? d.normalized : Vector3.zero;
+        Vector3 d = playerPushDir.sqrMagnitude > 0.0001f ? playerPushDir : transform.up; d.y = 0f; d = d.sqrMagnitude > 0.0001f ? d.normalized : Vector3.zero;
         lp.SetVelocity(d * playerPush + Vector3.up * playerPushUp);
     }
 }
