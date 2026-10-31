@@ -216,6 +216,7 @@ public static class FuwaCourse2_2Builder
         var vc = pad + VolcanoAt; var vtop = vc + up * (VolcanoTopH - 0.6f);
         var vfx = Volcano(fire, vc);
         CourseEmbers(fire, lavaRoot, pad, vc);
+        BurntIsles(fire, lavaRoot);
         //  （2026-10-30 てじゃ「道に沿って落ちるとこの狭さじゃ回避できない、この方向に３個くらい列ずらしで落とす、ちょうどいい位置でバウンドして落ちてくる感じ」）
         {
             float x0 = legs[0].a.x, x1 = legs[0].b.x;
@@ -774,6 +775,45 @@ public static class FuwaCourse2_2Builder
         gr.SetKeys(new[] { new GradientColorKey(new Color(1f, 0.72f, 0.25f), 0f), new GradientColorKey(new Color(1f, 0.3f, 0.06f), 1f) }, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
         c2.color = gr;
         ps.Play();
+    }
+    // コースの前半のまわりに浮かべる、黒焦げの木の小さな浮島（Tools/stage2_burntisle.py。2026-10-31）。遠くの飾りなので当たりなし・影なし。
+    //  色は FuwaCourse/LavaRock を暗くして割れ目を細く。オブジェクト座標の材質なので Static にしない
+    public static readonly (float x, float y, float z, float scale, int tree, int isle, float yaw, bool fire)[] BurntIsleSpots =
+    {
+        (-22f, -3f, -16f, 1.0f, 0, 0, 20f, true), (-30f, 3f, 2f, 1.25f, 1, 1, 130f, false), (-20f, -7f, 20f, 0.85f, 1, 0, 250f, true),
+        (24f, 1f, -24f, 1.15f, 1, 1, 70f, true), (31f, -5f, -7f, 0.9f, 0, 0, 200f, false), (22f, 4f, 10f, 1.05f, 0, 1, 310f, true),
+    };
+    public static void BurntIsles(Transform fire, Transform lavaRoot)
+    {
+        var old = fire.Find("BurntIsles"); if (old) Object.DestroyImmediate(old.gameObject);
+        var meshes = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2_BurntIsle.fbx").OfType<Mesh>().ToArray();
+        if (meshes.Length == 0) return;
+        Mesh M(string n) => meshes.First(x => x.name == n);
+        var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_BurntIsle", new Color(0.1f, 0.08f, 0.09f));
+        mat.shader = Shader.Find("FuwaCourse/LavaRock"); mat.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png"));
+        mat.SetColor("_Rock", new Color(0.13f, 0.095f, 0.105f)); mat.SetFloat("_Width", 0.2f); mat.SetFloat("_Scale", 0.42f); mat.SetFloat("_Under", 0.35f); mat.SetColor("_RimGlow", new Color(0.26f, 0.06f, 0.025f)); EditorUtility.SetDirty(mat);
+        var g = new GameObject("BurntIsles").transform; g.SetParent(fire, false);
+        var h = Vector3.zero; int n = 0; foreach (Transform c in lavaRoot) { h += c.localPosition; n++; } if (n > 0) h /= n;
+        for (int i = 0; i < BurntIsleSpots.Length; i++)
+        {
+            var s = BurntIsleSpots[i];
+            var isle = new GameObject("Isle" + i).transform; isle.SetParent(g, false); isle.localPosition = h + new Vector3(s.x, s.y, s.z); isle.localRotation = Quaternion.Euler(0f, s.yaw, 0f); isle.localScale = Vector3.one * s.scale;
+            void Part(string name, string mesh)
+            {
+                var o = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(isle, false);
+                o.GetComponent<MeshFilter>().sharedMesh = M(mesh);
+                var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            }
+            Part("Ground", "Stage2_BurntIsle" + s.isle); Part("Tree", "Stage2_BurntTree" + s.tree);
+            if (s.fire)
+            {
+                var ps = FuwaStage2FireTest.FlamePS(isle, "Flame", 0.35f, 1.1f, 0.8f, new Color(1f, 0.72f, 0.2f), new Color(1f, 0.2f, 0.05f));
+                ps.transform.localPosition = new Vector3(0f, 0.8f, 0f);
+                var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.45f, 0.95f); m.maxParticles = 24;
+                var em = ps.emission; em.rateOverTime = 14f;
+                ps.Play();
+            }
+        }
     }
     // 空を舞う火の粉：ホール・ジグザグ・火山のまわりの 3 か所。光の粒だけなので当たりなし
     public static void CourseEmbers(Transform fire, Transform lavaRoot, Vector3 pad, Vector3 vc)
