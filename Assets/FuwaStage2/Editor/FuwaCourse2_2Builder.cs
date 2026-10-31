@@ -977,12 +977,24 @@ public static class FuwaCourse2_2Builder
         float zB = Pt(SGround(0, Rin), 0, Rin).z, zF = Pt(SGround(N / 2, Rin), N / 2, Rin).z;
         float PlaneGap(Vector3 q) => q.y - Mathf.Lerp(LipY, BrowH, (zF - q.z) / (zF - zB));
         float SCut(int k, float rr) { float g0 = PlaneGap(Pt(0f, k, rr)), g1 = PlaneGap(Pt(1f, k, rr)); return -g0 / (g1 - g0); }
+        // 筒の線が実際の道の面と交わる所。道は平面でないので、平面で計算すると斜めの筒では数 cm ずれて口と壁のあいだに道がのぞいた
+        float SRoad(int k, float rr)
+        {
+            float sv = SGround(k, rr);
+            for (int it = 0; it < 4; it++)
+            {
+                var q = Pt(sv, k, rr);
+                if (!Physics.Raycast(c.TransformPoint(q) + Vector3.up, Vector3.down, out var rh, 2f, 1 << 11, QueryTriggerInteraction.Ignore)) break;
+                sv += (c.InverseTransformPoint(rh.point).y - q.y) / L.y;
+            }
+            return sv;
+        }
         float Rock(int k) { float a = k * Mathf.PI * 2f / N; return 1f + 0.05f * Mathf.Sin(3f * a + 0.7f) + 0.03f * Mathf.Sin(5f * a + 1.2f); }
         // 内側のふち：道の折れ目で道より下にならないように（口とのあいだに道がのぞいた）
         Vector3 InRim(int k)
         {
             var q = Pt(SCut(k, Rin), k, Rin);
-            if (Physics.Raycast(c.TransformPoint(q) + Vector3.up, Vector3.down, out var rh, 2f, 1 << 11, QueryTriggerInteraction.Ignore)) q.y = Mathf.Max(q.y, c.InverseTransformPoint(rh.point).y + 0.02f);
+            if (Physics.Raycast(c.TransformPoint(q) + Vector3.up, Vector3.down, out var rh, 2f, 1 << 11, QueryTriggerInteraction.Ignore)) q.y = Mathf.Max(q.y, c.InverseTransformPoint(rh.point).y + 0.03f);
             return q;
         }
         var mb = new MB();
@@ -992,7 +1004,7 @@ public static class FuwaCourse2_2Builder
             float Ro(int n) => Rout * Rock(n);
             mb.Quad(Pt(SCut(k, Ro(k)), k, Ro(k)), Pt(SCut(k + 1, Ro(k + 1)), k + 1, Ro(k + 1)), Pt(SCut(k + 1, Ro(k + 1)) - 1.2f, k + 1, Ro(k + 1)), Pt(SCut(k, Ro(k)) - 1.2f, k, Ro(k)), ra, 0);   // 外側（ほとんど道の下）
             mb.Quad(InRim(k), InRim(k + 1), Pt(SCut(k + 1, Ro(k + 1)), k + 1, Ro(k + 1)), Pt(SCut(k, Ro(k)), k, Ro(k)), Vector3.up, 0);   // ふちの上面
-            mb.Quad(InRim(k), InRim(k + 1), Pt(SGround(k + 1, Rin) - 0.1f, k + 1, Rin), Pt(SGround(k, Rin) - 0.1f, k, Rin), -ra, 1);   // 内側（道の上の分）
+            mb.Quad(InRim(k), InRim(k + 1), Pt(SRoad(k + 1, Rin) - 0.15f, k + 1, Rin), Pt(SRoad(k, Rin) - 0.15f, k, Rin), -ra, 1);   // 内側（道の上の分）
         }
         c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_VentCrater", 2));
         const string innerPath = "Assets/FuwaStage2/Materials/Stage2_2_VentInner.mat";
@@ -1002,11 +1014,13 @@ public static class FuwaCourse2_2Builder
         inner.SetColor("_Color", new Color(0.09f, 0.04f, 0.04f)); EditorUtility.SetDirty(inner);
         cr.sharedMaterials = new[] { rockMat, inner };
         // 道の面の口：筒と道の交わり。少し大きくして、内側の壁とのあいだに道を残さない（外へはみ出した分はふちと壁に隠れる）
-        const float MaskR = Rin * 1.01f;
+        const float MaskR = Rin * 1.02f;
         var mv = new List<Vector3> { Vector3.zero }; var mt = new List<int>(); float top = float.NegativeInfinity, cz = 0f;
         for (int k = 0; k < N; k++)
         {
-            var q = Pt(SGround(k, MaskR), k, MaskR); q.y = 0f; cz += q.z / N;
+            var q = Pt(SRoad(k, MaskR), k, MaskR); q.y = 0f;
+            var qr = Pt(SCut(k, MaskR), k, MaskR); if (qr.z > q.z && Mathf.Cos(k * Mathf.PI * 2f / N) < 0f) q.z = qr.z;   // 前側の壁は道の上で前へ傾くので、ふちの真下まで口を広げる（壁の裏は見えず、すき間に道がのぞいた）
+            cz += q.z / N;
             if (Physics.Raycast(c.TransformPoint(q) + Vector3.up, Vector3.down, out var hit, 2f, 1 << 11, QueryTriggerInteraction.Ignore)) q.y = c.InverseTransformPoint(hit.point).y;
             q.y += 0.012f; top = Mathf.Max(top, q.y); mv.Add(q);
         }
@@ -1017,7 +1031,7 @@ public static class FuwaCourse2_2Builder
         // 道の下へ続く筒の内側とつきあたり
         const float SDeep = -2.2f; const int SR = 6;
         var sv = new List<Vector3>(); var suv = new List<Vector2>(); var st = new List<int>();
-        for (int k = 0; k <= N; k++) for (int j = 0; j <= SR; j++) { float t = j / (float)SR; sv.Add(Pt(Mathf.Lerp(SGround(k, Rin) + 0.05f, SDeep, t), k, Rin)); suv.Add(new Vector2(0f, t)); }
+        for (int k = 0; k <= N; k++) for (int j = 0; j <= SR; j++) { float t = j / (float)SR; sv.Add(Pt(Mathf.Lerp(SRoad(k, Rin) + 0.05f, SDeep, t), k, Rin)); suv.Add(new Vector2(0f, t)); }
         bool sf = Vector3.Dot(Vector3.Cross(sv[SR + 1] - sv[0], sv[1] - sv[0]), sv[0] - (A + L * Vector3.Dot(sv[0] - A, L))) < 0f;   // 内向きが表
         for (int k = 0; k < N; k++) for (int j = 0; j < SR; j++) { int a0 = k * (SR + 1) + j, a1 = a0 + SR + 1; st.AddRange(sf ? new[] { a0, a1, a1 + 1, a0, a1 + 1, a0 + 1 } : new[] { a0, a0 + 1, a1 + 1, a0, a1 + 1, a1 }); }
         int cc = sv.Count; sv.Add(A + L * SDeep); suv.Add(new Vector2(0f, 1f));
