@@ -1215,14 +1215,16 @@ public static class FuwaCourse2_2Builder
         Vector3[] Ring(int i)
         {
             float x = Mathf.Lerp(x0, x1, i / (float)nx) + (i > 0 && i < nx ? (Rnd(i) - 0.5f) * 0.14f : 0f), e = Mathf.Clamp01((x1 - x) / 2.4f), root = Mathf.Clamp01((-len * 0.5f + 0.6f - x) / 2.8f);   // e：外のはしへ細く、root：V の根元で道の下へもぐる
-            float w = (0.72f + 0.12f * Mathf.Sin(x * 0.8f + 1f)) * Mathf.Lerp(0.08f, 1f, Mathf.SmoothStep(0f, 1f, e)), drop = (1f - e) * 1.1f, rise = Mathf.SmoothStep(0f, 1f, root) * 1.9f;
+            float w = (0.72f + 0.12f * Mathf.Sin(x * 0.8f + 1f)) * Mathf.Lerp(0.015f, 1f, Mathf.SmoothStep(0f, 1f, e)), drop = (1f - e) * 1.1f, rise = Mathf.SmoothStep(0f, 1f, root) * 1.9f;
             float SpikeL = Mathf.Pow(Rnd(i * 1.3f + 3f), 2.2f) * 0.75f * e, SpikeR = Mathf.Pow(Rnd(i * 1.7f + 11f), 2.2f) * 0.75f * e;
             float top = FireWallRockTop - drop + rise, depth = Mathf.Lerp(1.3f, 4.4f, Mathf.InverseLerp(x1, x0, x)) * (0.82f + 0.14f * Mathf.Sin(x * 0.9f + 0.4f) + 0.08f * Mathf.Sin(x * 2.3f)) * Mathf.Lerp(0.12f, 1f, Mathf.SmoothStep(0f, 1f, e));
             if (Rnd(Mathf.Floor(i / 3f) + 40f) > 0.68f && i % 3 == 1) depth += 0.7f * e;   // ときどき長いトゲ
-            float bottom = top - depth - 0.1f, flank = top - Mathf.Min(1.2f, depth * 0.55f);
             float lava = Mathf.Min(FireWallLava, top - 0.25f);
             if (root > 0.01f) lava = Mathf.Max(lava, top - 0.45f);
-            return new[] { new Vector3(x, bottom, 0.25f * Mathf.Sin(x * 1.1f)), new Vector3(x, flank, -w * (1.2f + 0.16f * Rnd(i * 2.1f))), new Vector3(x, top + SpikeL, -w), new Vector3(x, lava + 0.1f, -w * 0.58f), new Vector3(x, lava, -w * 0.55f), new Vector3(x, lava, w * 0.55f), new Vector3(x, lava + 0.1f, w * 0.58f), new Vector3(x, top + SpikeR, w), new Vector3(x, flank, w * (1.2f + 0.16f * Rnd(i * 2.7f))) };
+            float slit = Mathf.SmoothStep(0f, 1f, e / 0.35f);   // 炎のない外のはしは割れ目を閉じる（溶岩が岩の底より下へ抜けて、裏返って見えた。2026-10-31 てじゃ「端っこがぬけてる」）
+            lava = Mathf.Lerp(top, lava, slit);
+            float bottom = Mathf.Min(top - depth * Mathf.Lerp(0.15f, 1f, e) - 0.04f, lava - 0.3f * slit - 0.03f), flank = Mathf.Min(top - Mathf.Min(1.2f, depth * 0.55f) * Mathf.Lerp(0.15f, 1f, e), lava - 0.1f * slit - 0.015f);
+            return new[] { new Vector3(x, bottom, 0.25f * Mathf.Sin(x * 1.1f)), new Vector3(x, flank, -w * (1.2f + 0.16f * Rnd(i * 2.1f))), new Vector3(x, top + SpikeL, -w), new Vector3(x, lava + 0.1f * slit, -w * 0.58f * slit), new Vector3(x, lava, -w * 0.55f * slit), new Vector3(x, lava, w * 0.55f * slit), new Vector3(x, lava + 0.1f * slit, w * 0.58f * slit), new Vector3(x, top + SpikeR, w), new Vector3(x, flank, w * (1.2f + 0.16f * Rnd(i * 2.7f))) };
         }
         var outs = new[] { new Vector3(0, -1, -1), new Vector3(0, 0.3f, -1), new Vector3(0, 0.6f, 1), new Vector3(0, 0.6f, 1), new Vector3(0, 1, 0), new Vector3(0, 0.6f, -1), new Vector3(0, 0.6f, -1), new Vector3(0, 0.3f, 1), new Vector3(0, -1, 1) };
         for (int i = 0; i < nx; i++)
@@ -1231,7 +1233,7 @@ public static class FuwaCourse2_2Builder
             for (int k = 0; k < a.Length; k++) { int n = (k + 1) % a.Length; mb.Quad(a[k], b[k], b[n], a[n], outs[k], k == 4 ? 1 : 0); }
         }
         foreach (var (rg, xo) in new[] { (Ring(0), -1f), (Ring(nx), 1f) })
-            for (int k = 0; k < rg.Length; k++) { int n = (k + 1) % rg.Length; var c = new Vector3(rg[0].x, FireWallRockTop - 1f, 0f); mb.Quad(rg[k], rg[n], c, c, new Vector3(xo, 0, 0), 0); }
+            for (int k = 0; k < rg.Length; k++) { int n = (k + 1) % rg.Length; var c = rg.Aggregate(Vector3.zero, (q, v) => q + v) / rg.Length; mb.Quad(rg[k], rg[n], c, c, new Vector3(xo, 0, 0), 0); }
         var o = new GameObject("Rock", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false);
         o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_" + name + "_Rock", 2));
         var r = o.GetComponent<MeshRenderer>(); r.sharedMaterials = new[] { rockMat, FlowLavaMat() }; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
