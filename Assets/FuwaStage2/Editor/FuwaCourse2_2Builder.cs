@@ -137,8 +137,8 @@ public static class FuwaCourse2_2Builder
         Ribbon(path, "Path12", r12, hw12, pts12, pools, lavaRoot, false, null, s12);
 
         // 火種1・2：角の丸みのまん中（corners12 は角ごと、[0] は橋の先のちょっとした角）
-        GroundFire(fire, "Seed1", corners12[1]);
-        GroundFire(fire, "Seed2", corners12[3]);
+        GroundFire(fire, "Seed1", corners12[1], (Flat(pts12[2] - pts12[1]).normalized - Flat(pts12[3] - pts12[2]).normalized).normalized);
+        GroundFire(fire, "Seed2", corners12[3], (Flat(pts12[4] - pts12[3]).normalized - Flat(pts12[5] - pts12[4]).normalized).normalized);
         // 噴気孔：左ななめ上の長い坂の入口に1つ。ぶわーっと斜め上に吹き出していて、乗ったふわふわを火種2へ斜めに吹っ飛ばす（FuwaLaunchPad）
         // （2026-10-29 てじゃ「中間だけ風あるのも不自然」→ 割れ目＋熱風 →「やっぱへん、ぶわーっと一個吹き出してるのを置いて斜めに吹っ飛ばす」）
         {
@@ -206,7 +206,7 @@ public static class FuwaCourse2_2Builder
             {
                 // 火種は折り返しの内側の角から外へ（角の真上だと道からはみ出した）
                 float hd2 = (k % 2 == 0 ? -ZigHeading : ZigHeading) * Mathf.Deg2Rad; var dn2 = new Vector3(Mathf.Sin(hd2), 0, Mathf.Cos(hd2));
-                GroundFire(fire, "ZigSeed" + k, nx + (d - dn2).normalized * ZigSeedOut);
+                GroundFire(fire, "ZigSeed" + k, nx + (d - dn2).normalized * ZigSeedOut, (d - dn2).normalized);
             }
             pads.Add((nx, k == 3 ? EndPadR : PadR));
             pad = nx;
@@ -850,10 +850,10 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火種：地面の燃えさし＋炎＋熱の範囲（かがり火と同じ FuwaHeatSource、止まる所は地面の SeedHover 上）
-    static void GroundFire(Transform parent, string name, Vector3 lp)
+    static void GroundFire(Transform parent, string name, Vector3 lp, Vector3 outward)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = lp;
-        SeedLook(g);
+        SeedLook(g, outward);
         var z = new GameObject("HeatZone"); z.transform.SetParent(g, false); z.transform.localPosition = new Vector3(0, 0.9f, 0); z.layer = 4;
         var bc = z.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(2.0f, 1.8f, 2.0f);
         var hp = new GameObject("HoverPoint").transform; hp.SetParent(g, false); hp.localPosition = new Vector3(0, SeedHover, 0);
@@ -878,13 +878,15 @@ public static class FuwaCourse2_2Builder
         var r = c.GetComponent<MeshRenderer>(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
         return c;
     }
-    // 火種：石の輪の中におき火。炎はふわふわの止まる高さ（SeedHover）より低く（ふわふわが炎に隠れないように）
-    static void SeedLook(Transform g)
+    // 火種：角の外側にだけ低い石、平らなおき火。炎はふわふわの止まる高さ（SeedHover）より低く（ふわふわが炎に隠れないように）。
+    //  石の輪は道をふさいで通れなさそうに見えた（2026-10-31 てじゃ）ので、進む向きはあける。outward は角の外向き（Fire の座標）
+    static void SeedLook(Transform g, Vector3 outward)
     {
         var mb = new MB();
-        for (int i = 0; i < 9; i++)
+        var b0 = OnSurface(g, "Base"); var ol = b0.InverseTransformDirection(g.TransformDirection(outward)); ol.y = 0f; float a00 = Mathf.Atan2(ol.z, ol.x);
+        for (int i = 0; i < 5; i++)
         {
-            float a = i * Mathf.PI * 2f / 9f + 0.3f * Mathf.Sin(i * 2.4f), dist = 0.74f + 0.05f * Mathf.Sin(i * 1.7f), rad = 0.17f + 0.04f * Mathf.Sin(i * 3.1f), hgt = 0.2f + 0.06f * Mathf.Sin(i * 4.3f);
+            float a = a00 + (i - 2) * 0.72f + 0.1f * Mathf.Sin(i * 2.4f), dist = 0.72f + 0.04f * Mathf.Sin(i * 1.7f), rad = 0.13f + 0.03f * Mathf.Sin(i * 3.1f), hgt = 0.1f + 0.03f * Mathf.Sin(i * 4.3f);
             var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * dist; const int N = 6;
             Vector3 P(int k, float rr, float y) { float b = k * Mathf.PI * 2f / N + i; return o + new Vector3(Mathf.Cos(b) * rr * 1.25f, y, Mathf.Sin(b) * rr); }
             for (int k = 0; k < N; k++)
@@ -894,35 +896,35 @@ public static class FuwaCourse2_2Builder
             }
         }
         // おき火：低い山。まん中が高い
-        const int Seg = 24; var rs = new[] { (r: 0.66f, y: -0.03f), (r: 0.5f, y: 0.07f), (r: 0.26f, y: 0.13f) };
+        const int Seg = 24; var rs = new[] { (r: 0.62f, y: -0.01f), (r: 0.48f, y: 0.025f), (r: 0.24f, y: 0.045f) };
         for (int k = 0; k < Seg; k++)
         {
             float a0 = k * Mathf.PI * 2f / Seg, a1 = (k + 1) * Mathf.PI * 2f / Seg; Vector3 Q(float a, float r, float y) => new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r);
             for (int j = 0; j + 1 < rs.Length; j++) mb.Quad(Q(a0, rs[j].r, rs[j].y), Q(a1, rs[j].r, rs[j].y), Q(a1, rs[j + 1].r, rs[j + 1].y), Q(a0, rs[j + 1].r, rs[j + 1].y), Vector3.up, 1);
-            mb.Quad(Q(a0, rs[2].r, rs[2].y), Q(a1, rs[2].r, rs[2].y), Vector3.up * 0.15f, Vector3.up * 0.15f, Vector3.up, 1);
+            mb.Quad(Q(a0, rs[2].r, rs[2].y), Q(a1, rs[2].r, rs[2].y), Vector3.up * 0.05f, Vector3.up * 0.05f, Vector3.up, 1);
         }
-        var b0 = OnSurface(g, "Base"); b0.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_SeedBase", 2));
+        b0.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_SeedBase_" + g.name, 2));
         b0.GetComponent<MeshRenderer>().sharedMaterials = new[] { rockMat, FlowLavaMat() };
         var fl = new GameObject("Flames", typeof(MeshFilter), typeof(MeshRenderer)).transform; fl.SetParent(b0, false); fl.localScale = new Vector3(0.55f, 0.36f, 0.55f); fl.localPosition = Vector3.up * 0.05f;
         fl.GetComponent<MeshFilter>().sharedMesh = IsleFlameMesh(); var fr = fl.GetComponent<MeshRenderer>(); fr.sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_IsleFlame", Color.white); fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; fr.receiveShadows = false;
         var ps = FuwaStage2FireTest.FlamePS(g, "Sparks", 0.35f, 1.5f, 1.2f, new Color(1f, 0.85f, 0.35f), new Color(1f, 0.32f, 0.06f));
         var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f); m.maxParticles = 12; var em = ps.emission; em.rateOverTime = 5f; ps.Play();
     }
-    // 噴気孔：盛り上がった火口の輪と、中の溶岩
+    // 噴気孔：道にあいた穴に見えるように、低い焦げたふち（盛り上がった火口は道をふさいで見えた。2026-10-31 てじゃ）と、中の溶岩
     static void VentLook(Transform g)
     {
-        var mb = new MB(); const int N = 28; var pr = new[] { (r: 0.92f, y: -0.08f), (r: 0.8f, y: 0.13f), (r: 0.64f, y: 0.25f), (r: 0.5f, y: 0.2f), (r: 0.42f, y: 0.02f) };
+        var mb = new MB(); const int N = 28; var pr = new[] { (r: 0.86f, y: -0.02f), (r: 0.74f, y: 0.05f), (r: 0.62f, y: 0.06f), (r: 0.54f, y: 0.02f), (r: 0.4f, y: 0.02f) };
         for (int k = 0; k < N; k++)
         {
             float a0 = k * Mathf.PI * 2f / N, a1 = (k + 1) * Mathf.PI * 2f / N;
             float W(float a) => 1f + 0.06f * Mathf.Sin(3f * a + 0.8f) + 0.04f * Mathf.Sin(7f * a);
-            Vector3 Q(float a, float r, float y) => new Vector3(Mathf.Cos(a) * r * W(a), y * (1f + 0.25f * Mathf.Sin(5f * a + 1.3f) * Mathf.Clamp01(y * 5f)), Mathf.Sin(a) * r * W(a));
+            Vector3 Q(float a, float r, float y) => new Vector3(Mathf.Cos(a) * r * W(a), y * (1f + 0.3f * Mathf.Sin(5f * a + 1.3f) * Mathf.Clamp01(y * 25f - 0.5f)), Mathf.Sin(a) * r * W(a));
             for (int j = 0; j + 1 < pr.Length; j++)
             {
                 var dirO = new Vector3(Mathf.Cos(a0 + 0.1f), 0f, Mathf.Sin(a0 + 0.1f)); var o = j < 2 ? dirO + Vector3.up : j == 2 ? Vector3.up : -dirO + Vector3.up;
                 mb.Quad(Q(a0, pr[j].r, pr[j].y), Q(a1, pr[j].r, pr[j].y), Q(a1, pr[j + 1].r, pr[j + 1].y), Q(a0, pr[j + 1].r, pr[j + 1].y), o, 0);
             }
-            mb.Quad(Q(a0, 0.45f, 0.05f), Q(a1, 0.45f, 0.05f), Vector3.up * 0.05f, Vector3.up * 0.05f, Vector3.up, 1);
+            mb.Quad(Q(a0, 0.42f, 0.03f), Q(a1, 0.42f, 0.03f), Vector3.up * 0.03f, Vector3.up * 0.03f, Vector3.up, 1);
         }
         var c = OnSurface(g, "Crater"); c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_VentCrater", 2));
         c.GetComponent<MeshRenderer>().sharedMaterials = new[] { rockMat, FlowLavaMat() };
