@@ -25,6 +25,7 @@ Shader "FuwaCourse/Lava"
             #pragma fragment frag
             #pragma multi_compile_fog
             #include "UnityCG.cginc"
+            #include "FuwaFireFar.cginc"
 
             sampler2D _FlowTex;
             half4 _LavaHot, _LavaMid, _LavaDark;
@@ -68,6 +69,7 @@ Shader "FuwaCourse/Lava"
                 half3 c = h2 < 0.5 ? lerp(_LavaDark.rgb, _LavaMid.rgb, h2 * 2) : lerp(_LavaMid.rgb, _LavaHot.rgb, (h2 - 0.5) * 2);
                 half crust = up * smoothstep(0.5, 0.65, f1.b) * smoothstep(0.62, 0.42, f1.r) * (1 - f2.g);
                 c = lerp(c, _CrustColor.rgb, crust * _Crust);
+                c = FuwaFireCalm(c, FuwaFireFar(i.wp));
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
                 return o;

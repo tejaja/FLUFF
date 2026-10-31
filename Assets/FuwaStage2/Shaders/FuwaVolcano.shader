@@ -46,6 +46,7 @@ Shader "FuwaCourse/Volcano"
             #pragma multi_compile_fwdbase
             #pragma multi_compile_fog
             #include "UnityCG.cginc"
+            #include "FuwaFireFar.cginc"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
 
@@ -105,7 +106,8 @@ Shader "FuwaCourse/Volcano"
                 // 割れ目・焼けた所：ゆっくり明滅（場所で少しずらす）
                 half glow = smoothstep(0.18, 0.7, tex.a);
                 half pulse = 0.82 + 0.18 * sin(t * _PulseSpeed + i.op.y * 0.35 + i.op.x * 0.2);
-                c += _CrackColor.rgb * glow * glow * pulse;
+                half fireFar = FuwaFireFar(i.wp) * 0.6;   // 火山はコースの目玉で、遠くから見るのがふつうなので控えめに
+                c += _CrackColor.rgb * glow * glow * pulse * (1 - fireFar * 0.6);
 
                 // 溶岩
                 // 遠くの小さいミップは圧縮ブロックで階段になるので、そこではふちをなめらかに
@@ -133,7 +135,7 @@ Shader "FuwaCourse/Volcano"
                     // かさぶた：池に浮かぶ大きい板だけ。筋（f2.g）は光らせて割れ目に見せる
                     half crust = pond * smoothstep(0.5, 0.65, f1.b) * smoothstep(0.62, 0.42, f1.r) * (1 - f2.g);
                     lc = lerp(lc, _CrustColor.rgb, crust * 0.9);
-                    c = lerp(c, lc, lava);
+                    c = lerp(c, FuwaFireCalm(lc, fireFar), lava);
                 }
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);

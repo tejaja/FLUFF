@@ -24,6 +24,7 @@ Shader "FuwaCourse/Fireball"
             #pragma fragment frag
             #pragma multi_compile_fog
             #include "UnityCG.cginc"
+            #include "FuwaFireFar.cginc"
 
             sampler2D _FlowTex;
             half4 _Hot, _Mid, _Edge;
@@ -66,6 +67,7 @@ Shader "FuwaCourse/Fireball"
                 // まん中ほど熱い
                 half k = saturate(pow(facing, _Fresnel) * 1.1 + (h - 0.5) * 0.7);
                 half3 c = k < 0.5 ? lerp(_Edge.rgb, _Mid.rgb, k * 2) : lerp(_Mid.rgb, _Hot.rgb, (k - 0.5) * 2);
+                c = FuwaFireCalm(c, FuwaFireFar(i.wp));
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
                 return o;

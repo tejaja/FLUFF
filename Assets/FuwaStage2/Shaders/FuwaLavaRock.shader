@@ -25,6 +25,7 @@ Shader "FuwaCourse/LavaRock"
             #pragma fragment frag
             #pragma multi_compile_fog
             #include "UnityCG.cginc"
+            #include "FuwaFireFar.cginc"
             #include "Lighting.cginc"
 
             sampler2D _FlowTex;
@@ -68,6 +69,7 @@ Shader "FuwaCourse/LavaRock"
                 half core = smoothstep(th + 0.14, th + 0.3, g);
                 half pulse = 0.85 + 0.15 * sin(_Time.y * 2.6 + i.op.x * 5);
                 c = lerp(c, lerp(_Crack.rgb, _CrackHot.rgb, core) * pulse, crack);
+                c = FuwaFireCalm(c, FuwaFireFar(i.wp));
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
                 return o;
