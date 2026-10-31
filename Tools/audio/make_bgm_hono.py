@@ -274,7 +274,7 @@ def hono_e3_long(path=None):
         if bar in (31, 47):
             for j, f in enumerate((130, 130, 110, 110, 90, 90, 74, 74)):
                 m.add(tom2(f, m.vel(0.42 + j * 0.03), skin=0.6), bar * 4 + 2 + j * 0.25, pan=-0.3 + j * 0.08, rev=0.16, gain=0.42 if bar == 47 else 0.34, humanize=0.002)
-    st = master(m, rt60=1.8, rev_level=0.32, damp=0.65, lowcut=24, warmth_db=0.6, air_db=0.0, comp_thresh=-14, comp_ratio=1.4, target_rms_db=-15.0)
+    st = master(m, rt60=1.8, rev_level=0.32, damp=0.65, lowcut=24, warmth_db=0.6, air_db=0.0, comp_thresh=-14, comp_ratio=1.4, target_rms_db=-12.0)
     save(st, path or os.path.join(OUT, "bgm_hono_long2.wav"))
 
 if __name__ == '__main__':
