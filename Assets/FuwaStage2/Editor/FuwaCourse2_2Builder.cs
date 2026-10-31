@@ -782,12 +782,37 @@ public static class FuwaCourse2_2Builder
         (-22f, -3f, -16f, 1.6f, 20f, true), (-30f, 3f, 2f, 2f, 130f, false), (-20f, -7f, 20f, 1.4f, 250f, true),
         (24f, 1f, -24f, 1.8f, 70f, true), (31f, -5f, -7f, 1.5f, 200f, false), (22f, 4f, 10f, 1.7f, 310f, true),
     };
+    // やみのもりの枯れ木のコピーで、蜘蛛の巣用に横へ長くのびた枝だけ短くする（2026-10-31 てじゃ「ちょうどいい長さに」）。太さと曲がりはそのまま、のびる向きだけ縮める
+    public const float BurntBranchLength = 0.72f;
+    public static Mesh BurntTreeMesh(Mesh src)
+    {
+        const string path = "Assets/FuwaStage2/Generated/Course2_2/Course2_2_BurntTree.asset";
+        var vs = src.vertices; var tr = src.triangles;
+        var p = new int[vs.Length]; for (int i = 0; i < p.Length; i++) p[i] = i;
+        int F(int a) { while (p[a] != a) { p[a] = p[p[a]]; a = p[a]; } return a; }
+        for (int i = 0; i < tr.Length; i += 3) { p[F(tr[i])] = F(tr[i + 1]); p[F(tr[i])] = F(tr[i + 2]); }
+        // 枝は x が幹（-1.4 くらいまで）を大きく越えてのびた部品
+        var maxX = new Dictionary<int, float>();
+        for (int i = 0; i < vs.Length; i++) { int r = F(i); maxX[r] = maxX.TryGetValue(r, out var x) ? Mathf.Max(x, vs[i].x) : vs[i].x; }
+        var branch = new List<int>(); for (int i = 0; i < vs.Length; i++) if (maxX[F(i)] > -0.5f) branch.Add(i);
+        var from = Vector3.zero; var to = Vector3.zero; int nf = 0, nt = 0;
+        foreach (int i in branch) { if (vs[i].x < -1.5f) { from += vs[i]; nf++; } else if (vs[i].x > -0.05f) { to += vs[i]; nt++; } }
+        from /= Mathf.Max(nf, 1); to /= Mathf.Max(nt, 1);
+        var d = (to - from).normalized; float k = BurntBranchLength / (to - from).magnitude;
+        foreach (int i in branch) { var o = vs[i] - from; float a = Vector3.Dot(o, d); if (a > 0f) vs[i] += d * (a * k - a); }
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path); bool isNew = !mesh;
+        if (isNew) mesh = new Mesh { name = "Course2_2_BurntTree" }; else mesh.Clear(false);
+        mesh.SetVertices(vs); mesh.SetNormals(src.normals); mesh.SetUVs(0, src.uv); mesh.SetTriangles(tr, 0); mesh.RecalculateBounds();
+        if (isNew) AssetDatabase.CreateAsset(mesh, path); else EditorUtility.SetDirty(mesh);
+        return mesh;
+    }
     public static void BurntIsles(Transform fire, Transform lavaRoot)
     {
         var old = fire.Find("BurntIsles"); if (old) Object.DestroyImmediate(old.gameObject);
         Mesh M(string p) => AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/" + p + ".asset");
         var deadTree = M("Generated/Lite/YamiDeadTree_Lite"); var disc = M("Meshes/IslandDisc/IslandDisc_r64"); var under = M("Meshes/FarIslands/IslandUnderLow_2");
         if (!deadTree || !disc || !under) return;
+        deadTree = BurntTreeMesh(deadTree);
         var bark = FuwaStage2WaterTest.ToonMat("Stage2_2_BurntBark", new Color(0.2f, 0.15f, 0.15f));
         // 上の面は他のコースの芝（Goal_Ground）の色ちがいで、枯れた芝の色
         const string topPath = "Assets/FuwaStage2/Materials/Stage2_2_DryGrass.mat";
