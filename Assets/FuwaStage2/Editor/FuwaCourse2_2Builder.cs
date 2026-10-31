@@ -1109,19 +1109,30 @@ public static class FuwaCourse2_2Builder
         var fo = new GameObject("Steam"); fo.transform.SetParent(g, false); fo.transform.localPosition = ventMouth;
         fo.transform.localRotation = Quaternion.LookRotation(launch.normalized);
         var ps = fo.AddComponent<ParticleSystem>();
-        var main = ps.main; main.startLifetime = 1.1f; main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 6f); main.startSize = new ParticleSystem.MinMaxCurve(0.4f, 0.8f); main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        var main = ps.main; main.startLifetime = 0.9f; main.startSpeed = new ParticleSystem.MinMaxCurve(9f, 14f); main.startSize = new ParticleSystem.MinMaxCurve(0.35f, 0.75f);   // 吹っ飛ぶ威力に見えるように激しく（2026-10-31 てじゃ） main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.98f, 0.94f, 0.9f), new Color(1f, 0.88f, 0.76f, 0.8f));
-        main.maxParticles = 60; main.simulationSpace = ParticleSystemSimulationSpace.World; main.gravityModifier = -0.05f;
-        var em = ps.emission; em.rateOverTime = 26f;
-        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.18f;
-        var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 1.2f; lim.dampen = 0.08f;
+        main.maxParticles = 90; main.simulationSpace = ParticleSystemSimulationSpace.World; main.gravityModifier = -0.05f;
+        var em = ps.emission; em.rateOverTime = 70f; em.SetBursts(new[] { new ParticleSystem.Burst(0f, 10, 10, 0, 0.9f) });   // ときどき ぶわっ
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 7f; sh.radius = 0.18f;
+        var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 3.5f; lim.dampen = 0.08f;
         var col = ps.colorOverLifetime; col.enabled = true;
         var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0.5f, 0.4f), new GradientAlphaKey(0f, 1f) });
         col.color = gr;
-        var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.5f), new Keyframe(1, 2.2f)));
+        var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.7f), new Keyframe(1, 1.9f)));
         var ts = ps.textureSheetAnimation; ts.enabled = true; ts.numTilesX = 4; ts.numTilesY = 4; ts.animation = ParticleSystemAnimationType.WholeSheet; ts.frameOverTime = new ParticleSystem.MinMaxCurve(0f); ts.startFrame = new ParticleSystem.MinMaxCurve(0f, 15f / 16f);
         fo.GetComponent<ParticleSystemRenderer>().sharedMaterial = SteamMat();   // ぼやけた丸→もくもく
         ps.Play();
+        // 芯の勢い：細く伸びた速い筋
+        var jo = new GameObject("SteamJet"); jo.transform.SetParent(g, false); jo.transform.localPosition = ventMouth; jo.transform.localRotation = fo.transform.localRotation;
+        var js = jo.AddComponent<ParticleSystem>();
+        var jm = js.main; jm.startLifetime = new ParticleSystem.MinMaxCurve(0.3f, 0.5f); jm.startSpeed = new ParticleSystem.MinMaxCurve(12f, 18f); jm.startSize = new ParticleSystem.MinMaxCurve(0.07f, 0.15f); jm.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        jm.startColor = new Color(1f, 0.97f, 0.92f, 0.85f); jm.maxParticles = 45; jm.simulationSpace = ParticleSystemSimulationSpace.World;
+        var je = js.emission; je.rateOverTime = 90f;
+        var jh = js.shape; jh.shapeType = ParticleSystemShapeType.Cone; jh.angle = 4f; jh.radius = 0.14f;
+        var jc = js.colorOverLifetime; jc.enabled = true; var jg = new Gradient(); jg.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0f, 1f) }); jc.color = jg;
+        var jt = js.textureSheetAnimation; jt.enabled = true; jt.numTilesX = 4; jt.numTilesY = 4; jt.animation = ParticleSystemAnimationType.WholeSheet; jt.frameOverTime = new ParticleSystem.MinMaxCurve(0f); jt.startFrame = new ParticleSystem.MinMaxCurve(0f, 15f / 16f);
+        var jr = jo.GetComponent<ParticleSystemRenderer>(); jr.sharedMaterial = SteamMat(); jr.renderMode = ParticleSystemRenderMode.Stretch; jr.lengthScale = 9f; jr.velocityScale = 0f;
+        js.Play();
         // 打ち出し
         var z = new GameObject("Blast"); z.transform.SetParent(g, false); z.transform.localPosition = new Vector3(0, 0.7f, 0); z.layer = 4;
         var bc = z.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(NarrowHW * 2f, 1.4f, 1.4f);
