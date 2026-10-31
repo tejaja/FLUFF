@@ -20,6 +20,14 @@ Shader "FuwaCourse/FlameCurtain"
         _LowScale ("下のはしの舌の長さ", Range(0,1)) = 1
         _BandSoft ("色の境目のぼかし（2026-10-31 てじゃ「境目がパッキリ」）", Range(0.001,0.4)) = 0.001
         _Rim ("炎の形にそった外のふちの太さ（高さの割合。頂点カラー G が 1 の帯だけ）", Range(0,0.2)) = 0
+        [NoScaleOffset] _FlowTex ("上へ流す模様（R）", 2D) = "gray" {}
+        _Flow ("模様を上へ流して形を削る（2026-11-01 てじゃ「揺れるだけじゃ違和感」）", Range(0,1)) = 0
+        _FlowSpeed ("流れる速さ", Float) = 0.45
+        _FlowX ("模様の細かさ 横", Float) = 0.4
+        _FlowY ("模様の細かさ 縦", Float) = 2
+        _FlowBody ("炎の体の濃さ（大きいほど上まで埋まる）", Float) = 1.25
+        _FlowAmp ("削り方の強さ", Float) = 2
+        _FlowCore ("内側の色の深さ", Float) = 1
         _BandSelf ("色の帯を炎の形に合わせる（動いても外のふちの色が切れない。板の炎の縦線が気にならない物だけ）", Range(0,1)) = 0
     }
     SubShader
@@ -38,7 +46,8 @@ Shader "FuwaCourse/FlameCurtain"
             #include "FuwaFireFar.cginc"
 
             half4 _Hot, _Mid, _Tip;
-            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim, _LowScale, _Lean;
+            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim, _LowScale, _Lean, _Flow, _FlowSpeed, _FlowX, _FlowY, _FlowBody, _FlowAmp, _FlowCore;
+            sampler2D _FlowTex;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; float3 wp : TEXCOORD4; float rim : TEXCOORD5; UNITY_FOG_COORDS(1) };
@@ -76,6 +85,23 @@ Shader "FuwaCourse/FlameCurtain"
                 // 下のはしも舌の形で切る（まっすぐ切れて板に見えないように）
                 float low = (0.09 * (1.0 - abs(sin(x * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(x * 4.7 + t)))) * _LowScale + 0.005;
                 float dLow = y - low; alpha = min(alpha, saturate(dLow / max(fwidth(dLow), 0.0001) + 0.5));
+                if (_Flow > 0.5)
+                {
+                    // 模様が下から上へ流れて形を削る。先はちぎれて、色の境目も形といっしょに上がっていく
+                    float px = x * _FlowX, py = y * _FlowY;
+                    float n = tex2D(_FlowTex, float2(px * 0.35, py * 0.35 - t * _FlowSpeed)).r * 0.65 + tex2D(_FlowTex, float2(px * 0.9 + 0.37, py * 0.9 - t * _FlowSpeed * 1.7)).r * 0.35;
+                    float e = y / max(i.h * _Height, 0.01);
+                    float v = (1.0 - e) * _FlowBody + (n - 0.5) * _FlowAmp * (0.2 + e * 1.15) * (1.0 - far * 0.6) - smoothstep(0.85, 1.0, y) * 1.5;
+                    float fa = saturate(v / max(fwidth(v), 0.0001) + 0.5); fa = min(fa, saturate(dLow / max(fwidth(dLow), 0.0001) + 0.5));
+                    clip(fa - 0.01);
+                    float fu = 1.0 - saturate(v / _FlowCore);
+                    half3 fc = lerp(_Hot.rgb, _Mid.rgb, smoothstep(_BandHot - _BandSoft, _BandHot + _BandSoft, fu));
+                    fc = lerp(fc, _Tip.rgb, smoothstep(_BandMid - _BandSoft, _BandMid + _BandSoft, fu));
+                    fc = FuwaFireCalm(fc, far);
+                    fixed4 fo = fixed4(fc, fa);
+                    UNITY_APPLY_FOG(i.fogCoord, fo);
+                    return fo;
+                }
                 clip(alpha - 0.01);
                 // 色の帯：内側が熱い。下のはしは赤。全部の帯で同じ形にする（壁の長さの向きの位置で決める）。
                 //  帯ごとの形で色を決めると、横切る帯が細いオレンジの縦線に見えた（2026-10-31 てじゃ）

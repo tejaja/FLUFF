@@ -73,9 +73,9 @@ Material:
     - _BakedGlow: 0
     - _BakedGlowFloor: 0.25
     - _BandByH: 0
-    - _BandHot: 0.5
+    - _BandHot: 0.45
     - _BandLow: 0.04
-    - _BandMid: 2
+    - _BandMid: 0.8
     - _BandScale: 1
     - _BandSelf: 0
     - _BandSoft: 0.1
@@ -90,6 +90,13 @@ Material:
     - _EmissionFull: 1.6
     - _EmissionGradient: 0
     - _Facet: 0
+    - _Flow: 1
+    - _FlowAmp: 3.2
+    - _FlowBody: 1
+    - _FlowCore: 1
+    - _FlowSpeed: 0.4
+    - _FlowX: 1.1
+    - _FlowY: 1.5
     - _GlossMapScale: 1
     - _Glossiness: 0.1
     - _GlossyReflections: 1
@@ -102,6 +109,7 @@ Material:
     - _GroundPatchScale: 11
     - _GroundSteps: 0
     - _Height: 1
+    - _Lean: 0
     - _LowScale: 0.25
     - _Metallic: 0
     - _Mode: 0

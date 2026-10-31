@@ -43,6 +43,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _FlowTex:
+        m_Texture: {fileID: 2800000, guid: 92152d6153aaa414cb4338411228aee4, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _GroundTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -71,7 +75,7 @@ Material:
     - _BandByH: 1
     - _BandHot: 0.45
     - _BandLow: 0.04
-    - _BandMid: 0.7
+    - _BandMid: 0.8
     - _BandScale: 2.2
     - _BandSelf: 1
     - _BandSoft: 0.1
@@ -86,6 +90,13 @@ Material:
     - _EmissionFull: 1.6
     - _EmissionGradient: 0
     - _Facet: 0
+    - _Flow: 1
+    - _FlowAmp: 2
+    - _FlowBody: 1.25
+    - _FlowCore: 1
+    - _FlowSpeed: 0.55
+    - _FlowX: 0.3
+    - _FlowY: 1.1
     - _GlossMapScale: 1
     - _Glossiness: 0.1
     - _GlossyReflections: 1
