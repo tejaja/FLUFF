@@ -98,10 +98,10 @@ Shader "FuwaCourse/FlameCurtain"
                 if (_Flow > 0.5)
                 {
                     // 模様が下から上へ流れて形を削る。先はちぎれて、色の境目も形といっしょに上がっていく
-                    float px = x * _FlowX, py = y * _FlowY;
+                    float px = i.uv.x * _FlowX, py = y * _FlowY;   // うねりは足さない（てじゃ「うねうねしてる毛みたい」）。模様は縦横の大きさをそろえて細い筋にしない
                     // 場所ごとに流れを前後させて、全体がそろって動かないように（てじゃ「動きが揃ってて怖い」）
-                    float ph = sin(t * 0.6 + x * 0.7) * 0.35 + sin(t * 1.13 + x * 1.9) * 0.18;
-                    float n = tex2D(_FlowTex, float2(px * 0.35 + sin(t * 0.4 + y * 3.0) * 0.05, py * 0.35 - t * _FlowSpeed + ph)).r * 0.65 + tex2D(_FlowTex, float2(px * 0.9 + 0.37, py * 0.9 - t * _FlowSpeed * 1.7 + ph * 1.6)).r * 0.35;
+                    float ph = sin(t * 0.6 + i.uv.x * 0.7) * 0.2 + sin(t * 1.13 + i.uv.x * 1.9) * 0.1;
+                    float n = tex2D(_FlowTex, float2(px * 0.35, py * 0.35 - t * _FlowSpeed + ph)).r * 0.82 + tex2D(_FlowTex, float2(px * 0.9 + 0.37, py * 0.9 - t * _FlowSpeed * 1.5 + ph)).r * 0.18;
                     float tv = 1.0 - _FlowTop * (0.5 + 0.5 * sin(x * 0.83 + t * 0.31 + 2.0 * sin(x * 0.29 - t * 0.13)));
                     float e = y / max(i.h * _Height * tv, 0.01);
                     float v = (1.0 - e) * _FlowBody + (n - 0.5) * _FlowAmp * (0.2 + e * 1.15) * (1.0 - far * 0.6) - smoothstep(0.85, 1.0, y) * 1.5 - smoothstep(y - 0.15, y + 0.15, _Burn * 1.3) * 2.0 - _Burn * 0.8;

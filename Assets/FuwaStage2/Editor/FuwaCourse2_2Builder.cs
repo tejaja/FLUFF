@@ -1005,8 +1005,8 @@ public static class FuwaCourse2_2Builder
     static Material SeedFlameMat()
     {
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_SeedFlame", Color.white); m.shader = Shader.Find("FuwaCourse/FlameCurtain");
-        m.SetFloat("_Base", 0.5f); m.SetFloat("_BandScale", 2.2f); m.SetFloat("_BandByH", 1f); m.SetFloat("_Sway", 0.2f); m.SetFloat("_Lean", 0.13f);
-        m.SetFloat("_BandLow", 0.04f); m.SetFloat("_BandHot", 0.45f); m.SetFloat("_BandMid", 0.7f); m.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); m.SetFloat("_BandSelf", 1f); m.SetFloat("_BandSoft", 0.1f); FlameFlow(m, 0.3f, 1.1f, 0.55f, 0.45f, 0.8f); m.SetFloat("_Billboard", 1f); EditorUtility.SetDirty(m);   // 外のふちは細い赤、オレンジはその内側まで（2026-10-31 てじゃ「オレンジが外側までいく」）
+        m.SetFloat("_Base", 0.5f); m.SetFloat("_BandScale", 2.2f); m.SetFloat("_BandByH", 1f); m.SetFloat("_Sway", 0.2f); m.SetFloat("_Lean", 0.05f);
+        m.SetFloat("_BandLow", 0.04f); m.SetFloat("_BandHot", 0.45f); m.SetFloat("_BandMid", 0.7f); m.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); m.SetFloat("_BandSelf", 1f); m.SetFloat("_BandSoft", 0.1f); FlameFlow(m, 0.12f, 1f, 0.55f, 0.45f, 0.8f); m.SetFloat("_Billboard", 1f); EditorUtility.SetDirty(m);   // 外のふちは細い赤、オレンジはその内側まで（2026-10-31 てじゃ「オレンジが外側までいく」）
         return m;
     }
     // 穴の中に描く物は縦穴（Geometry+11）のあとに描く
@@ -1348,7 +1348,7 @@ public static class FuwaCourse2_2Builder
         }
         m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_FlameCurtain", Color.white);
-        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.5f); mat.SetFloat("_BandMid", 2f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 0f); mat.SetFloat("_Rim", 0.11f); mat.SetFloat("_LowScale", 0.25f); mat.SetFloat("_BandSoft", 0.1f); FlameFlow(mat, 1.1f, 1.5f, 0.4f, 0.45f, 0.8f); mat.SetFloat("_FlowBody", 1f); mat.SetFloat("_FlowAmp", 3.2f); mat.SetFloat("_FlowTop", 0.42f);   // 壁は細かい舌が立つように EditorUtility.SetDirty(mat);   // 外のふちは細い赤（2026-10-31 てじゃ）。_BandSelf は横切る帯の縦線が戻るので使わない
+        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.5f); mat.SetFloat("_BandMid", 2f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 0f); mat.SetFloat("_Rim", 0.11f); mat.SetFloat("_LowScale", 0.25f); mat.SetFloat("_BandSoft", 0.1f); FlameFlow(mat, 0.55f, 2.8f, 0.4f, 0.45f, 0.8f); mat.SetFloat("_FlowBody", 1.2f); mat.SetFloat("_FlowAmp", 1.9f); mat.SetFloat("_FlowTop", 0.42f);   // 壁は細かい舌が立つように EditorUtility.SetDirty(mat);   // 外のふちは細い赤（2026-10-31 てじゃ）。_BandSelf は横切る帯の縦線が戻るので使わない
         var c = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c.transform.SetParent(g, false);
         c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m);
         var r = c.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
@@ -1737,7 +1737,7 @@ public static class FuwaCourse2_2Builder
             }
         var m = new Mesh { name = "Course2_2_" + name + "_Body" }; m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_JetFlame", Color.white); mat.shader = Shader.Find("FuwaCourse/FlameCurtain");
-        mat.SetFloat("_Base", 0.78f); mat.SetFloat("_BandScale", 1.5f); mat.SetFloat("_BandByH", 1f); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_Speed", 1.6f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.45f); mat.SetFloat("_BandMid", 0.8f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 1f); mat.SetFloat("_BandSoft", 0.08f); FlameFlow(mat, 0.4f, 2f, 0.7f, 0.45f, 0.8f); EditorUtility.SetDirty(mat);
+        mat.SetFloat("_Base", 0.78f); mat.SetFloat("_BandScale", 1.5f); mat.SetFloat("_BandByH", 1f); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_Speed", 1.6f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.45f); mat.SetFloat("_BandMid", 0.8f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 1f); mat.SetFloat("_BandSoft", 0.08f); FlameFlow(mat, 0.2f, 3f, 0.7f, 0.45f, 0.8f); EditorUtility.SetDirty(mat);
         var o = new GameObject("FlameBody", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.transform.localPosition = Vector3.down * maxBack;
         o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m); var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         o.SetActive(false);
