@@ -935,8 +935,8 @@ public static class FuwaCourse2_2Builder
     // コースの前半のまわりに浮かべる、焦げた木の丸い浮島（2026-10-31 てじゃ「他のコースと統一感」→ やみのもりの木と同じメッシュ、丸い浮島、上は枯れた芝の色）。遠くの飾りなので当たりなし・影なし
     public static readonly (float x, float y, float z, float scale, float yaw, bool fire)[] BurntIsleSpots =
     {
-        (-22f, -3f, -16f, 1.6f, 20f, true), (-30f, 3f, 2f, 2f, 130f, false), (-20f, -7f, 20f, 1.4f, 250f, true),
-        (24f, 1f, -24f, 1.8f, 70f, true), (31f, -5f, -7f, 1.5f, 200f, false), (22f, 4f, 10f, 1.7f, 310f, true),
+        (-22f, -3f, -16f, 1.6f, 20f, false), (-30f, 3f, 2f, 2f, 130f, true), (-20f, -7f, 20f, 1.4f, 250f, false),
+        (24f, 1f, -24f, 1.8f, 70f, true), (31f, -5f, -7f, 1.5f, 200f, false), (22f, 4f, 10f, 1.7f, 310f, true),   // fire：木の代わりに燃えている島（2026-10-31 てじゃ「全部木じゃなくて燃えてる島も混ぜよ」）
     };
     // やみのもりの枯れ木のコピーで、蜘蛛の巣用に横へ長くのびた枝だけ短くする（2026-10-31 てじゃ「ちょうどいい長さに」）。太さと曲がりはそのまま、のびる向きだけ縮める
     public const float BurntBranchLength = 0.72f;
@@ -962,6 +962,30 @@ public static class FuwaCourse2_2Builder
         if (isNew) AssetDatabase.CreateAsset(mesh, path); else EditorUtility.SetDirty(mesh);
         return mesh;
     }
+    // 島の上で燃える炎：輪にした帯を半径を変えて重ねる。帯のはしは低くして切り口を見せない。下のはしは島の中へもぐらせる
+    static Mesh IsleFlameMesh()
+    {
+        const float H = 3.2f, Sink = 0.18f, TopK = 0.3f;   // 上ほどすぼまる（まっすぐ立てるとケーキに見えた）
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
+        var arcs = new[] { (r: 0.85f, a0: 0f, a1: 190f, hh: 0.55f), (r: 0.8f, a0: 165f, a1: 375f, hh: 0.62f), (r: 0.5f, a0: 70f, a1: 310f, hh: 0.8f), (r: 0.25f, a0: -40f, a1: 220f, hh: 1f) };   // 外の帯が広いと、下のはしが島の下の面から突き出た
+        for (int s = 0; s < arcs.Length; s++)
+        {
+            var q = arcs[s]; int b = v.Count; const int N = 20;
+            for (int k = 0; k <= N; k++)
+            {
+                float t = k / (float)N, a = Mathf.Lerp(q.a0, q.a1, t) * Mathf.Deg2Rad, h = Mathf.Lerp(0.2f, q.hh, Mathf.Clamp01(Mathf.Min(t, 1f - t) * 5f));
+                float u = (a * q.r) * 3f + s * 4.3f;
+                foreach (var e in new[] { 0f, 1f })
+                {
+                    float rr = q.r * Mathf.Lerp(1f, TopK, e); v.Add(new Vector3(Mathf.Cos(a) * rr, Mathf.Lerp(-Sink, H, e), Mathf.Sin(a) * rr)); uv.Add(new Vector2(u, e)); col.Add(new Color(h, 0f, 0f));
+                }
+            }
+            for (int k = 0; k < N; k++) { int a = b + k * 2; tr.AddRange(new[] { a, a + 2, a + 3, a, a + 3, a + 1 }); }
+        }
+        var m = new Mesh { name = "Course2_2_IsleFlame" };
+        m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        return SaveMesh(m);
+    }
     public static void BurntIsles(Transform fire, Transform lavaRoot)
     {
         var old = fire.Find("BurntIsles"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -975,6 +999,12 @@ public static class FuwaCourse2_2Builder
         var top = AssetDatabase.LoadAssetAtPath<Material>(topPath);
         if (!top) { top = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Goal_Ground.mat")); AssetDatabase.CreateAsset(top, topPath); }
         top.SetColor("_Color", new Color(0.72f, 0.6f, 0.34f)); EditorUtility.SetDirty(top);
+        // 燃えている島の上：焦げた芝
+        const string scorchedPath = "Assets/FuwaStage2/Materials/Stage2_2_ScorchedGrass.mat";
+        var scorched = AssetDatabase.LoadAssetAtPath<Material>(scorchedPath);
+        if (!scorched) { scorched = new Material(top); AssetDatabase.CreateAsset(scorched, scorchedPath); }
+        scorched.SetColor("_Color", new Color(0.3f, 0.2f, 0.17f)); EditorUtility.SetDirty(scorched);
+        var isleFlame = IsleFlameMesh(); var flameMat = FuwaStage2WaterTest.ToonMat("Stage2_2_IsleFlame", Color.white); flameMat.shader = Shader.Find("FuwaCourse/FlameCurtain"); flameMat.SetFloat("_Base", 0.22f); flameMat.SetFloat("_BandScale", 2.6f); flameMat.SetFloat("_BandByH", 1f); flameMat.SetFloat("_Sway", 0.3f); EditorUtility.SetDirty(flameMat);
         var underMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/IslandUnder.mat");
         var g = new GameObject("BurntIsles").transform; g.SetParent(fire, false);
         var h = Vector3.zero; int n = 0; foreach (Transform c in lavaRoot) { h += c.localPosition; n++; } if (n > 0) h /= n;
@@ -992,15 +1022,16 @@ public static class FuwaCourse2_2Builder
                 var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
                 return o.transform;
             }
-            Part("Tree", deadTree, bark, Vector3.zero, Quaternion.identity, Vector3.one);
-            Part("IslandTop", disc, top, ground, Quaternion.identity, new Vector3(1.9f, 1f, 1.9f));
+            if (!s.fire) Part("Tree", deadTree, bark, Vector3.zero, Quaternion.identity, Vector3.one);
+            Part("IslandTop", disc, s.fire ? scorched : top, ground, Quaternion.identity, new Vector3(1.9f, 1f, 1.9f));
             Part("IslandUnder", under, underMat, ground, Quaternion.Euler(0f, 199f, 0f), new Vector3(1.2f, 1.1f, 1.2f));
             if (s.fire)
             {
-                var ps = FuwaStage2FireTest.FlamePS(isle, "Flame", 0.22f, 0.8f, 0.7f, new Color(1f, 0.72f, 0.2f), new Color(1f, 0.2f, 0.05f));
-                ps.transform.localPosition = ground + new Vector3(0.6f, 0.05f, 0.35f);
-                var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.3f, 0.6f); m.maxParticles = 24;
-                var em = ps.emission; em.rateOverTime = 12f;
+                Part("Flames", isleFlame, flameMat, ground, Quaternion.identity, Vector3.one);
+                var ps = FuwaStage2FireTest.FlamePS(isle, "Embers", 0.6f, 1.2f, 1.6f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.28f, 0.05f));
+                ps.transform.localPosition = ground + Vector3.up * 0.3f;
+                var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.16f); m.maxParticles = 10;
+                var em = ps.emission; em.rateOverTime = 4f;
                 ps.Play();
             }
         }

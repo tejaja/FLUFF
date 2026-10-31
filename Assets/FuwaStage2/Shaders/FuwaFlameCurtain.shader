@@ -10,6 +10,9 @@ Shader "FuwaCourse/FlameCurtain"
         _Speed ("動きの速さ", Float) = 1
         _Height ("炎の高さの割合", Range(0.3,1)) = 1
         _Sway ("ゆらぎ", Range(0,1)) = 0.35
+        _Base ("舌の谷の高さ（小さいほど舌が長い）", Range(0,1)) = 0.64
+        _BandScale ("色の境目の波の細かさ", Float) = 1
+        _BandByH ("色の帯も帯ごとの高さに合わせる（縦線が気にならない物だけ）", Range(0,1)) = 0
     }
     SubShader
     {
@@ -25,7 +28,7 @@ Shader "FuwaCourse/FlameCurtain"
             #include "UnityCG.cginc"
 
             half4 _Hot, _Mid, _Tip;
-            float _Speed, _Height, _Sway;
+            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; UNITY_FOG_COORDS(1) };
@@ -48,16 +51,16 @@ Shader "FuwaCourse/FlameCurtain"
                 float x = i.uv.x + (sin(y * 8.0 - t * 5.0 + i.uv.x * 1.1) * 0.55 + sin(y * 15.0 - t * 8.0 + i.uv.x * 2.3) * 0.22) * _Sway * (0.2 + y * 2.0);
                 // 炎の舌：|sin| の山をかさねた高さ（テクスチャを使わないのでふちがなめらか）
                 float a = 1.0 - abs(sin(x * 1.25 + t * 0.9)), b = 1.0 - abs(sin(x * 2.9 - t * 1.4 + 1.3)), c3 = 1.0 - abs(sin(x * 6.1 + t * 2.1 + 2.7));
-                float top = (0.64 + 0.22 * a * a + 0.1 * b + 0.04 * c3) * _Height * i.h;   // 低い所でも当たりの高さの 2/3 近くまで（低くすると、炎の上の何もない所でアウトになって見える）
+                float top = (_Base + (1.0 - _Base) * (0.6 * a * a + 0.28 * b + 0.12 * c3)) * _Height * i.h;   // 低い所でも当たりの高さの 2/3 近くまで（低くすると、炎の上の何もない所でアウトになって見える）
                 clip(top - y);
                 // 下のはしも舌の形で切る（まっすぐ切れて板に見えないように）
                 float low = 0.09 * (1.0 - abs(sin(x * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(x * 4.7 + t))) + 0.005;
                 clip(y - low);
                 // 色の帯：内側が熱い。下のはしは赤。全部の帯で同じ形にする（壁の長さの向きの位置で決める）。
                 //  帯ごとの形で色を決めると、横切る帯が細いオレンジの縦線に見えた（2026-10-31 てじゃ）
-                float bx = i.lx + (sin(y * 8.0 - t * 5.0 + i.lx * 1.1) * 0.55 + sin(y * 15.0 - t * 8.0 + i.lx * 2.3)  * 0.22) * _Sway * (0.2 + y * 2.0);
+                float lx = i.lx * _BandScale; float bx = lx + (sin(y * 8.0 - t * 5.0 + lx * 1.1) * 0.55 + sin(y * 15.0 - t * 8.0 + lx * 2.3) * 0.22) * _Sway * (0.2 + y * 2.0);
                 float ba = 1.0 - abs(sin(bx * 1.25 + t * 0.9)), bb = 1.0 - abs(sin(bx * 2.9 - t * 1.4 + 1.3)), bc = 1.0 - abs(sin(bx * 6.1 + t * 2.1 + 2.7));
-                float btop = (0.64 + 0.22 * ba * ba + 0.1 * bb + 0.04 * bc) * _Height;
+                float btop = (_Base + (1.0 - _Base) * (0.6 * ba * ba + 0.28 * bb + 0.12 * bc)) * _Height * lerp(1.0, i.h, _BandByH);
                 float blow = 0.09 * (1.0 - abs(sin(bx * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(bx * 4.7 + t))) + 0.005;
                 float u = (y - blow) / max(btop - blow, 0.01);
                 half3 c = u < 0.1 ? _Tip.rgb : (u < 0.42 ? _Hot.rgb : (u < 0.74 ? _Mid.rgb : _Tip.rgb));
