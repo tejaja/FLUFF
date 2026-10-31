@@ -133,6 +133,7 @@ public static class FuwaCourse2_2Builder
         var pools = poolHoles.Select((g, pi) => new HolePool {
             c = g.Select(k => (Vector3)holes[k]).ToList(), rr = HoleR, amp = PoolWobble, ld = ChanLavaDepth, seed = pi * 1.7f + 0.4f, sx = chan[g.First(k => chan[k] != 0)],
             chanAt = g.Where(k => chan[k] != 0).Select(k => (Vector3)holes[k]).ToList() }).ToList();
+        BlendToPad(r12, pts12, hw12, new Vector3(0, yL, z0 + 60f + EndPadIn), EndPadR);
         Ribbon(path, "Path12", r12, hw12, pts12, pools, lavaRoot);
 
         // 火種1・2：角の丸みのまん中（corners12 は角ごと、[0] は橋の先のちょっとした角）
@@ -285,6 +286,7 @@ public static class FuwaCourse2_2Builder
         // 曲がった道の上の (x 横, z 奥行き) の所
         Vector3 OnArena(float x, float z) { Frame(r5, ar.z + z, out var c, out var t); return c + Vector3.Cross(Vector3.up, t).normalized * x; }
         var pholes = puddles.Select(q => { var c = OnArena(q.x, q.z); return new Vector4(c.x, c.y, c.z, PuddleR); }).ToList();
+        BlendToPad(r5, pts5, hw5, pad, EndPadR);
         Ribbon(path, "Path5", r5, hw5, pts5, pholes.Select((v, pi) => new HolePool { c = new List<Vector3> { (Vector3)v }, rr = v.w, ld = LavaDepth, amp = PuddleWobble, seed = pi * 2.3f + 1.1f }).ToList(), null, true);
         for (int k = 0; k < pholes.Count; k++) Puddle(path, "Puddle" + k, (Vector3)pholes[k]);
         ArenaDeco(path, OnArena, pholes, vc);
@@ -438,6 +440,25 @@ public static class FuwaCourse2_2Builder
                 r.Insert(i + 1, new RPt { p = Vector3.Lerp(r[i].p, r[i + 1].p, f), u = Mathf.Lerp(r[i].u, r[i + 1].u, f) });
                 return;
             }
+        }
+    }
+
+    // 広い道と踊り場のつなぎ目（2026-10-31 てじゃ「入るところの段差」）：道のはしが踊り場に 3cm の段で乗っていた。踊り場の外へ出る所まで踊り場の面のすぐ下の高さにして、そこからゆるく道の高さへ。
+    //  踊り場に全部かくれる線は消す（重なったままだと遠くでちらつく）
+    static void BlendToPad(List<RPt> r, Vector3[] pts, float[] hw, Vector3 c, float rad)
+    {
+        const float Ease = 1.4f;
+        float low = c.y - PadDrop - 0.005f;
+        float Reach(RPt q, Vector3 side, float w) { float m = 0f; foreach (var x in new[] { -w, 0f, w }) m = Mathf.Max(m, Flat(q.p + side * x - c).magnitude); return m; }
+        for (int i = r.Count - 1; i >= 0; i--)
+        {
+            var q = r[i]; var t = Flat(r[Mathf.Min(i + 1, r.Count - 1)].p - r[Mathf.Max(i - 1, 0)].p).normalized; var side = Vector3.Cross(Vector3.up, t).normalized; float w = WAt(pts, hw, q.u);
+            float reach = Reach(q, side, w), past = reach - rad;
+            if (past >= Ease) continue;
+            bool neighborHidden = i > 0 && i + 1 < r.Count && Flat(r[i - 1].p - c).magnitude < rad - 0.3f && Flat(r[i + 1].p - c).magnitude < rad - 0.3f;
+            if (reach < rad - 0.3f && neighborHidden) { r.RemoveAt(i); continue; }
+            float f = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(past / Ease));
+            q.p.y = Mathf.Lerp(low, q.p.y, f); r[i] = q;
         }
     }
 
