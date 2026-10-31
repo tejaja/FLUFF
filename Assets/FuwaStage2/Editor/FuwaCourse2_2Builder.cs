@@ -65,7 +65,7 @@ public static class FuwaCourse2_2Builder
         root.position = new Vector3(lc.x, floorY - StartBelow, lc.z) + spoke * SpokeR;
 
         pathA = PathMat("Course2_2_PathA", PathColA); pathB = PathMat("Course2_2_PathB", PathColB);
-        rockMat = FuwaStage2WaterTest.ToonMat("Stage2_2_Rock", RockCol);
+        rockMat = PathSideMat();
         lavaMat = FlowLavaMat();
         var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
         ballProxy = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
@@ -155,6 +155,7 @@ public static class FuwaCourse2_2Builder
             strip.transform.localRotation = rot; Object.DestroyImmediate(strip.GetComponent<Collider>());
             var fall = Box(lavaRoot, "LavaFall" + k, hc + od * (len + 0.03f) + Vector3.down * (ld + LavaFallLen * 0.5f - 0.02f), new Vector3(ChanHW * 2f, LavaFallLen, 0.06f), lavaMat, 0);
             fall.transform.localRotation = rot; Object.DestroyImmediate(fall.GetComponent<Collider>());
+            LavaFallLook(fall);
             LavaBurn(lavaRoot, "LavaChannelBallOut" + k, cm + Vector3.down * 0.1f, new Vector3(ChanHW * 2f, 0.6f, len), rot);
             Hazard(lavaRoot, "LavaChannelPlayerOut" + k, cm + Vector3.down * 0.5f, new Vector3(ChanHW * 2f, 1.2f, len), true, rot);
         }
@@ -214,6 +215,7 @@ public static class FuwaCourse2_2Builder
         // 火の岩：コースの外の火山（ジグザグのてっぺんの右奥に、下からそびえる）の火口から飛んできて、坂の下る向きに板を横切ってはねながら落ちる。板のまん中を1列
         var vc = pad + VolcanoAt; var vtop = vc + up * (VolcanoTopH - 0.6f);
         var vfx = Volcano(fire, vc);
+        CourseEmbers(fire, lavaRoot, pad, vc);
         //  （2026-10-30 てじゃ「道に沿って落ちるとこの狭さじゃ回避できない、この方向に３個くらい列ずらしで落とす、ちょうどいい位置でバウンドして落ちてくる感じ」）
         {
             float x0 = legs[0].a.x, x1 = legs[0].b.x;
@@ -723,6 +725,82 @@ public static class FuwaCourse2_2Builder
         // ノイズは円の上で取る（角度そのままだと 0° と 360° で値がちがって縦に割れ目が出た）
         float n = Mathf.PerlinNoise(Mathf.Cos(a) * 1.6f + 3.1f + h * 0.05f, Mathf.Sin(a) * 1.6f + 7.3f + h * 0.06f) - 0.5f;
         return r * (1f + 0.16f * n + 0.04f * Mathf.Sin(5f * a + h * 0.2f));
+    }
+    // 道の側面：下のほうが溶岩の照り返しで赤く光る（2026-10-31 てじゃ「岩はほどほどにしつつ盛っていこう」。シマシマの上の面はそのまま）
+    public static Material PathSideMat()
+    {
+        var m = FuwaStage2WaterTest.ToonMat("Stage2_2_Rock", RockCol);
+        m.SetFloat("_EmissionGradient", 1f); m.SetColor("_EmissionColor", new Color(0.95f, 0.2f, 0.05f)); m.SetFloat("_EmissionFull", 2.4f);
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+    // 道から落ちる溶岩：ただの板で途中で切れて見えたので、うねりながら細くなって先がとがる形に。先からしずくが落ちる（当たりはもともとなし）
+    public static void LavaFallLook(GameObject fall)
+    {
+        const string path = "Assets/FuwaStage2/Generated/Course2_2/Course2_2_LavaFall.asset";
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        bool isNew = !mesh;
+        {
+            const int Rows = 14, Sides = 12;
+            var v = new List<Vector3>(); var tr = new List<int>();
+            for (int j = 0; j <= Rows; j++)
+            {
+                float t = j / (float)Rows;
+                float w = 0.5f * (1f - Mathf.Pow(t, 2.4f)) * (0.88f + 0.12f * Mathf.Sin(t * 13f + 0.6f));
+                float off = 0.07f * Mathf.Sin(t * 7.5f) * t;
+                for (int i = 0; i < Sides; i++) { float a = i * Mathf.PI * 2f / Sides; v.Add(new Vector3(off + Mathf.Cos(a) * w, 0.5f - t, Mathf.Sin(a) * 0.5f * (1f - t * t))); }
+            }
+            for (int j = 0; j < Rows; j++) for (int i = 0; i < Sides; i++)
+            {
+                int a = j * Sides + i, b = j * Sides + (i + 1) % Sides, c = a + Sides, d = b + Sides;
+                tr.AddRange(new[] { a, b, c, b, d, c });
+            }
+            // 上にふた（上からのぞくと中を通して空が見えた）
+            int top = v.Count; v.Add(new Vector3(0f, 0.5f, 0f));
+            for (int i = 0; i < Sides; i++) tr.AddRange(new[] { top, (i + 1) % Sides, i });
+            if (isNew) mesh = new Mesh { name = "Course2_2_LavaFall" }; else mesh.Clear(false);
+            mesh.SetVertices(v); mesh.SetTriangles(tr, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+            if (isNew) AssetDatabase.CreateAsset(mesh, path); else EditorUtility.SetDirty(mesh);
+        }
+        fall.GetComponent<MeshFilter>().sharedMesh = mesh;
+        var s = fall.transform.localScale; const float Thick = 0.35f;
+        fall.transform.localScale = new Vector3(s.x, s.y, Thick);
+        var old = fall.transform.parent.Find(fall.name + "_Drips"); if (old) Object.DestroyImmediate(old.gameObject);
+        var ps = FuwaStage2FireTest.FlamePS(fall.transform.parent, fall.name + "_Drips", 0.08f, 0.1f, 2f, new Color(1f, 0.7f, 0.2f), new Color(1f, 0.3f, 0.06f));
+        ps.transform.position = fall.transform.TransformPoint(0.05f, -0.48f, 0f); ps.transform.rotation = Quaternion.LookRotation(Vector3.down);
+        var m = ps.main; m.startColor = Color.white; m.startSpeed = 0.2f; m.startLifetime = 1.6f; m.startSize = new ParticleSystem.MinMaxCurve(0.14f, 0.3f); m.gravityModifier = 0.45f; m.maxParticles = 8;
+        var em = ps.emission; em.rateOverTime = 3f;
+        var c2 = ps.colorOverLifetime; c2.enabled = true; var gr = new Gradient();
+        gr.SetKeys(new[] { new GradientColorKey(new Color(1f, 0.72f, 0.25f), 0f), new GradientColorKey(new Color(1f, 0.3f, 0.06f), 1f) }, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
+        c2.color = gr;
+        ps.Play();
+    }
+    // 空を舞う火の粉：ホール・ジグザグ・火山のまわりの 3 か所。光の粒だけなので当たりなし
+    public static void CourseEmbers(Transform fire, Transform lavaRoot, Vector3 pad, Vector3 vc)
+    {
+        var old = fire.Find("Embers"); if (old) Object.DestroyImmediate(old.gameObject);
+        var g = new GameObject("Embers").transform; g.SetParent(fire, false);
+        var holes = Vector3.zero; int n = 0;
+        foreach (Transform c in lavaRoot) { holes += c.localPosition; n++; }
+        holes = n > 0 ? holes / n : pad;
+        void Add(string name, Vector3 c, Vector3 size, float rate)
+        {
+            var ps = FuwaStage2FireTest.FlamePS(g, name, 1f, 0.5f, 6f, new Color(1f, 0.78f, 0.3f), new Color(1f, 0.32f, 0.06f));
+            ps.transform.localPosition = c;
+            var m = ps.main; m.startColor = Color.white; m.startLifetime = new ParticleSystem.MinMaxCurve(4.5f, 8f); m.startSpeed = 0f; m.startSize = new ParticleSystem.MinMaxCurve(0.16f, 0.36f); m.maxParticles = Mathf.CeilToInt(rate * 8f); m.prewarm = true; m.gravityModifier = -0.012f;
+            var em = ps.emission; em.rateOverTime = rate;
+            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(size.x, size.z, size.y);
+            var col = ps.colorOverLifetime; col.enabled = true; var gr = new Gradient();
+            gr.SetKeys(new[] { new GradientColorKey(new Color(1f, 0.85f, 0.4f), 0f), new GradientColorKey(new Color(1f, 0.42f, 0.08f), 0.6f), new GradientColorKey(new Color(0.8f, 0.14f, 0.04f), 1f) },
+                       new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.12f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
+            col.color = gr;
+            var vl = ps.velocityOverLifetime; vl.enabled = true; vl.space = ParticleSystemSimulationSpace.World;
+            vl.x = new ParticleSystem.MinMaxCurve(-0.45f, 0.45f); vl.y = new ParticleSystem.MinMaxCurve(0.25f, 0.8f); vl.z = new ParticleSystem.MinMaxCurve(-0.45f, 0.45f);
+            ps.Play();
+        }
+        Add("Holes", holes + Vector3.up * 3f, new Vector3(26f, 9f, 34f), 16f);
+        Add("Zig", pad + Vector3.up * 2f + new Vector3(-6f, 0f, -8f), new Vector3(26f, 14f, 26f), 14f);
+        Add("Volcano", vc + Vector3.up * 3f, new Vector3(48f, 20f, 48f), 26f);
     }
     // 火山の岩：丸くて暗い玉 → 角ばった溶岩の岩（Tools/stage2_lavarock.py、FuwaCourse/LavaRock。2026-10-31）。当たりは今まで通りスクリプトの球
     // 火の玉と同じ見た目は試して「ちょっと差がないとびみょう」（2026-10-31）→ 形は角ばった岩のまま、割れ目を太く・ふちを光らせて燃えている岩に
