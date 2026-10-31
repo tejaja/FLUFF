@@ -960,24 +960,82 @@ public static class FuwaCourse2_2Builder
         mat.SetColor("_Top", new Color(0.24f, 0.13f, 0.13f)); mat.SetColor("_Bottom", new Color(0.16f, 0.05f, 0.03f)); mat.SetFloat("_Falloff", 1.2f); EditorUtility.SetDirty(mat);
         return mat;
     }
-    // 噴気孔：道にあいた穴に見えるように、低い焦げたふち（盛り上がった火口は道をふさいで見えた。2026-10-31 てじゃ）と、中の溶岩
-    static void VentLook(Transform g)
+    // 噴気孔：打ち出す向きに傾いた筒を道に埋めた、斜めの穴（2026-10-31 てじゃ「真っ直ぐなのに斜めに出るのへん、すこし埋めて斜めに吹き出す穴に」）。
+    //  筒を丸ごと出すと道をふさいだので、道の上は後ろが少し高い低いふちだけ。奥は火種の穴と同じステンシルで見せる。当たりは道のまま。戻り値は湯気の出る所（g の座標）
+    static Vector3 VentLook(Transform g, Vector3 launch)
     {
-        var mb = new MB(); const int N = 28; var pr = new[] { (r: 0.86f, y: -0.02f), (r: 0.74f, y: 0.05f), (r: 0.62f, y: 0.06f), (r: 0.54f, y: 0.02f), (r: 0.4f, y: 0.02f) };
+        Physics.SyncTransforms();
+        var c = new GameObject("Crater", typeof(MeshFilter), typeof(MeshRenderer)).transform; c.SetParent(g, false);
+        c.rotation = Physics.Raycast(g.position + Vector3.up, Vector3.down, out var gh, 2f, 1 << 11, QueryTriggerInteraction.Ignore) ? Quaternion.LookRotation(Vector3.ProjectOnPlane(g.forward, gh.normal), gh.normal) : g.rotation;
+        var cr = c.GetComponent<MeshRenderer>(); cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; cr.receiveShadows = false;
+        var L = c.InverseTransformDirection(g.TransformDirection(launch)).normalized; var X = Vector3.Cross(Vector3.up, L).normalized; var U = Vector3.Cross(L, X).normalized; if (U.y < 0f) U = -U;
+        const float Rin = 0.4f, Rout = 0.5f, BrowH = 0.18f, LipY = 0.02f; const int N = 28;
+        var A = new Vector3(0f, 0f, 0.15f);   // 筒の軸が道の面を通る所
+        Vector3 Pt(float sv, int k, float rr) { float a = k * Mathf.PI * 2f / N; return A + L * sv + (U * Mathf.Cos(a) + X * Mathf.Sin(a)) * rr; }
+        float SGround(int k, float rr) => -(rr * Mathf.Cos(k * Mathf.PI * 2f / N) * U.y) / L.y;
+        // ふちを切る面：内側の穴の前のはしで LipY、後ろのはしで BrowH。前が低く後ろが高い
+        float zB = Pt(SGround(0, Rin), 0, Rin).z, zF = Pt(SGround(N / 2, Rin), N / 2, Rin).z;
+        float PlaneGap(Vector3 q) => q.y - Mathf.Lerp(LipY, BrowH, (zF - q.z) / (zF - zB));
+        float SCut(int k, float rr) { float g0 = PlaneGap(Pt(0f, k, rr)), g1 = PlaneGap(Pt(1f, k, rr)); return -g0 / (g1 - g0); }
+        float Rock(int k) { float a = k * Mathf.PI * 2f / N; return 1f + 0.05f * Mathf.Sin(3f * a + 0.7f) + 0.03f * Mathf.Sin(5f * a + 1.2f); }
+        // 内側のふち：道の折れ目で道より下にならないように（口とのあいだに道がのぞいた）
+        Vector3 InRim(int k)
+        {
+            var q = Pt(SCut(k, Rin), k, Rin);
+            if (Physics.Raycast(c.TransformPoint(q) + Vector3.up, Vector3.down, out var rh, 2f, 1 << 11, QueryTriggerInteraction.Ignore)) q.y = Mathf.Max(q.y, c.InverseTransformPoint(rh.point).y + 0.02f);
+            return q;
+        }
+        var mb = new MB();
         for (int k = 0; k < N; k++)
         {
-            float a0 = k * Mathf.PI * 2f / N, a1 = (k + 1) * Mathf.PI * 2f / N;
-            float W(float a) => 1f + 0.06f * Mathf.Sin(3f * a + 0.8f) + 0.04f * Mathf.Sin(7f * a);
-            Vector3 Q(float a, float r, float y) => new Vector3(Mathf.Cos(a) * r * W(a), y * (1f + 0.3f * Mathf.Sin(5f * a + 1.3f) * Mathf.Clamp01(y * 25f - 0.5f)), Mathf.Sin(a) * r * W(a));
-            for (int j = 0; j + 1 < pr.Length; j++)
-            {
-                var dirO = new Vector3(Mathf.Cos(a0 + 0.1f), 0f, Mathf.Sin(a0 + 0.1f)); var o = j < 2 ? dirO + Vector3.up : j == 2 ? Vector3.up : -dirO + Vector3.up;
-                mb.Quad(Q(a0, pr[j].r, pr[j].y), Q(a1, pr[j].r, pr[j].y), Q(a1, pr[j + 1].r, pr[j + 1].y), Q(a0, pr[j + 1].r, pr[j + 1].y), o, 0);
-            }
-            mb.Quad(Q(a0, 0.42f, 0.03f), Q(a1, 0.42f, 0.03f), Vector3.up * 0.03f, Vector3.up * 0.03f, Vector3.up, 1);
+            var ra = Pt(0f, k, 1f) + Pt(0f, k + 1, 1f) - A * 2f;
+            float Ro(int n) => Rout * Rock(n);
+            mb.Quad(Pt(SCut(k, Ro(k)), k, Ro(k)), Pt(SCut(k + 1, Ro(k + 1)), k + 1, Ro(k + 1)), Pt(SCut(k + 1, Ro(k + 1)) - 1.2f, k + 1, Ro(k + 1)), Pt(SCut(k, Ro(k)) - 1.2f, k, Ro(k)), ra, 0);   // 外側（ほとんど道の下）
+            mb.Quad(InRim(k), InRim(k + 1), Pt(SCut(k + 1, Ro(k + 1)), k + 1, Ro(k + 1)), Pt(SCut(k, Ro(k)), k, Ro(k)), Vector3.up, 0);   // ふちの上面
+            mb.Quad(InRim(k), InRim(k + 1), Pt(SGround(k + 1, Rin) - 0.1f, k + 1, Rin), Pt(SGround(k, Rin) - 0.1f, k, Rin), -ra, 1);   // 内側（道の上の分）
         }
-        var c = OnSurface(g, "Crater"); c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_VentCrater", 2));
-        c.GetComponent<MeshRenderer>().sharedMaterials = new[] { rockMat, FlowLavaMat() };
+        c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_VentCrater", 2));
+        const string innerPath = "Assets/FuwaStage2/Materials/Stage2_2_VentInner.mat";
+        var inner = AssetDatabase.LoadAssetAtPath<Material>(innerPath);
+        if (inner && inner.shader != Shader.Find("Unlit/Color")) inner.shader = Shader.Find("Unlit/Color");   // Toon だと暗い色でも光って灰色に見えた
+        if (!inner) { inner = new Material(Shader.Find("Unlit/Color")); AssetDatabase.CreateAsset(inner, innerPath); }
+        inner.SetColor("_Color", new Color(0.09f, 0.04f, 0.04f)); EditorUtility.SetDirty(inner);
+        cr.sharedMaterials = new[] { rockMat, inner };
+        // 道の面の口：筒と道の交わり。少し大きくして、内側の壁とのあいだに道を残さない（外へはみ出した分はふちと壁に隠れる）
+        const float MaskR = Rin * 1.01f;
+        var mv = new List<Vector3> { Vector3.zero }; var mt = new List<int>(); float top = float.NegativeInfinity, cz = 0f;
+        for (int k = 0; k < N; k++)
+        {
+            var q = Pt(SGround(k, MaskR), k, MaskR); q.y = 0f; cz += q.z / N;
+            if (Physics.Raycast(c.TransformPoint(q) + Vector3.up, Vector3.down, out var hit, 2f, 1 << 11, QueryTriggerInteraction.Ignore)) q.y = c.InverseTransformPoint(hit.point).y;
+            q.y += 0.012f; top = Mathf.Max(top, q.y); mv.Add(q);
+        }
+        mv[0] = new Vector3(0f, top, cz);
+        bool flip = Vector3.Cross(mv[2] - mv[0], mv[1] - mv[0]).y < 0f;   // 上から見て表になる向きに
+        for (int k = 0; k < N; k++) { int k0 = k + 1, k1 = (k + 1) % N + 1; mt.AddRange(flip ? new[] { 0, k0, k1 } : new[] { 0, k1, k0 }); }
+        var mouth = new Mesh { name = "Course2_2_VentMouth" }; mouth.SetVertices(mv); mouth.SetTriangles(mt, 0); mouth.RecalculateNormals(); mouth.RecalculateBounds();
+        // 道の下へ続く筒の内側とつきあたり
+        const float SDeep = -2.2f; const int SR = 6;
+        var sv = new List<Vector3>(); var suv = new List<Vector2>(); var st = new List<int>();
+        for (int k = 0; k <= N; k++) for (int j = 0; j <= SR; j++) { float t = j / (float)SR; sv.Add(Pt(Mathf.Lerp(SGround(k, Rin) + 0.05f, SDeep, t), k, Rin)); suv.Add(new Vector2(0f, t)); }
+        bool sf = Vector3.Dot(Vector3.Cross(sv[SR + 1] - sv[0], sv[1] - sv[0]), sv[0] - (A + L * Vector3.Dot(sv[0] - A, L))) < 0f;   // 内向きが表
+        for (int k = 0; k < N; k++) for (int j = 0; j < SR; j++) { int a0 = k * (SR + 1) + j, a1 = a0 + SR + 1; st.AddRange(sf ? new[] { a0, a1, a1 + 1, a0, a1 + 1, a0 + 1 } : new[] { a0, a0 + 1, a1 + 1, a0, a1 + 1, a1 }); }
+        int cc = sv.Count; sv.Add(A + L * SDeep); suv.Add(new Vector2(0f, 1f));
+        bool cf = Vector3.Dot(Vector3.Cross(sv[2 * SR + 1] - sv[cc], sv[SR] - sv[cc]), L) < 0f;   // 口の向きが表
+        for (int k = 0; k < N; k++) { int e0 = k * (SR + 1) + SR, e1 = e0 + SR + 1; st.AddRange(cf ? new[] { cc, e0, e1 } : new[] { cc, e1, e0 }); }
+        var shaft = new Mesh { name = "Course2_2_VentPit" }; shaft.SetVertices(sv); shaft.SetUVs(0, suv); shaft.SetTriangles(st, 0); shaft.RecalculateNormals(); shaft.RecalculateBounds();
+        const string pitPath = "Assets/FuwaStage2/Materials/Stage2_2_VentPit.mat";
+        var pit = AssetDatabase.LoadAssetAtPath<Material>(pitPath);
+        if (!pit) { pit = new Material(Shader.Find("FuwaCourse/VentShaft")); AssetDatabase.CreateAsset(pit, pitPath); }
+        pit.SetColor("_Top", new Color(0.09f, 0.04f, 0.04f)); pit.SetColor("_Bottom", new Color(0.02f, 0.01f, 0.01f)); pit.SetFloat("_Falloff", 1.2f); pit.SetFloat("_Facet", 0f); EditorUtility.SetDirty(pit);
+        void Part(string nm, Mesh me, Material ma)
+        {
+            var o = new GameObject(nm, typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(c, false); o.GetComponent<MeshFilter>().sharedMesh = me;
+            var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = ma; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        }
+        Part("Mouth", SaveMesh(mouth), AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/VentHoleMask.mat"));
+        Part("Pit", SaveMesh(shaft), pit);
+        return g.InverseTransformPoint(c.TransformPoint(A));
     }
 
     // 追い風（ステージ1の G3_CrossRight の風の箱を写す）：c を中心に、d の向き（坂にそって上向き）へ、長さ len・幅 w
@@ -1004,23 +1062,23 @@ public static class FuwaCourse2_2Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(zone.GetComponent<FuwaWindArea>());
     }
 
-    // 噴気孔：道の面の黒い穴＋光るふち＋斜め上へ吹き出す湯気。ふわふわが入ると target（火種の上）へ斜めに打ち出す。
+    // 噴気孔：道に半分埋まった斜めの岩の筒＋斜め上へ吹き出す湯気。ふわふわが入ると target（火種の上）へ斜めに打ち出す。
     // 飛び方（重力 1.5・空気抵抗：打ち出しから 1 秒は 0.3、そのあと 1.2）を計算して、8.4m 先・1.6m 上の火種の熱の範囲の 0.8〜1.4m の高さを通る速さ（水平 6・上 3.5）。距離に合わせて水平の速さを伸ばす
     static void BlastVent(Transform parent, string name, Vector3 at, Vector3 target)
     {
         var d = Flat(target - at); float dist = d.magnitude; d /= Mathf.Max(0.01f, dist);
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = at; g.localRotation = Quaternion.LookRotation(d);
-        VentLook(g);
         Vector3 launch = new Vector3(0, VentUp, VentFwd * dist / 8.4f);
+        var ventMouth = VentLook(g, launch);
         // 湯気（打ち出す向きへ）
-        var fo = new GameObject("Steam"); fo.transform.SetParent(g, false); fo.transform.localPosition = new Vector3(0, 0.05f, 0);
+        var fo = new GameObject("Steam"); fo.transform.SetParent(g, false); fo.transform.localPosition = ventMouth;
         fo.transform.localRotation = Quaternion.LookRotation(launch.normalized);
         var ps = fo.AddComponent<ParticleSystem>();
         var main = ps.main; main.startLifetime = 1.1f; main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 6f); main.startSize = new ParticleSystem.MinMaxCurve(0.55f, 1.0f); main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.98f, 0.94f, 0.9f), new Color(1f, 0.88f, 0.76f, 0.8f));
         main.maxParticles = 60; main.simulationSpace = ParticleSystemSimulationSpace.World; main.gravityModifier = -0.05f;
         var em = ps.emission; em.rateOverTime = 26f;
-        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.35f;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.28f;
         var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 1.2f; lim.dampen = 0.08f;
         var col = ps.colorOverLifetime; col.enabled = true;
         var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0.5f, 0.4f), new GradientAlphaKey(0f, 1f) });
