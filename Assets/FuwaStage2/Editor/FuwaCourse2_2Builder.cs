@@ -714,7 +714,7 @@ public static class FuwaCourse2_2Builder
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
     public static float RockR = 0.9f, RockHop = 0.75f, RockPeriod = 5.75f;   // 予告線（点線）は試したけど「びみょう、やっぱなしに」（2026-10-30）   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
     // コースの外の火山（2026-10-30 てじゃ「いまの岩の出る柱のちょい奥くらいにデカい火山」「下から浮いてる感じに」）：c（道の高さ）を中心に、
-    //  すそは下の雲の中（VolcanoBottom）まで続いて、火口は道の VolcanoTopH 上。道の高さでの半径 VolcanoR0。形は仮（いずれ Blender）。
+    //  すそは下の雲の中（VolcanoBottom）まで続いて、火口は道の VolcanoTopH 上。道の高さでの半径 VolcanoR0。VolcanoRAt は道の計算と Blender の形の土台（Tools/stage2_volcano.json）。変えたら JSON も書き出し直す。
     //  火口から岩が飛び出す時の火の粉を返す。のちのち「その山を登って通り過ぎてゴール」にしたい（途中は未定）
     static float VolcanoRAt(float h, float a)
     {
@@ -723,6 +723,39 @@ public static class FuwaCourse2_2Builder
         // ノイズは円の上で取る（角度そのままだと 0° と 360° で値がちがって縦に割れ目が出た）
         float n = Mathf.PerlinNoise(Mathf.Cos(a) * 1.6f + 3.1f + h * 0.05f, Mathf.Sin(a) * 1.6f + 7.3f + h * 0.06f) - 0.5f;
         return r * (1f + 0.16f * n + 0.04f * Mathf.Sin(5f * a + h * 0.2f));
+    }
+    const string VolcanoModel = "Assets/FuwaStage2/Models/Stage2_Volcano.fbx", VolcanoMat = "Assets/FuwaStage2/Materials/Stage2_2_Volcano.mat";
+    // 噴煙：蒸気のもくもく（FuwaCourse/SteamPuff、ソフトパーティクルなし）を暗くして大きく。下は火口の熱で赤く、上へ行くほど灰色で消える
+    public static ParticleSystem VolcanoSmoke(Transform top)
+    {
+        const string mp = "Assets/FuwaStage2/Materials/Stage2_2_VolcanoSmoke.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!mat) { mat = new Material(Shader.Find("FuwaCourse/SteamPuff")); AssetDatabase.CreateAsset(mat, mp); }
+        mat.shader = Shader.Find("FuwaCourse/SteamPuff");
+        mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaCourse/Textures/SteamPuffSheet.png");
+        mat.SetColor("_Color", Color.white); mat.SetColor("_ShadeColor", new Color(0.7f, 0.66f, 0.72f));
+        EditorUtility.SetDirty(mat);
+        var old = top.Find("Smoke"); if (old) Object.DestroyImmediate(old.gameObject);
+        var ps = FuwaStage2FireTest.FlamePS(top, "Smoke", 2.2f, 3.4f, 13f, new Color(0.5f, 0.42f, 0.44f), new Color(0.72f, 0.68f, 0.72f));
+        var m = ps.main; m.startLifetime = new ParticleSystem.MinMaxCurve(8f, 11f); m.startSpeed = new ParticleSystem.MinMaxCurve(2.6f, 3.8f); m.startSize = new ParticleSystem.MinMaxCurve(6f, 8.5f);
+        m.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f); m.maxParticles = 90; m.prewarm = true; m.gravityModifier = -0.012f;
+        var em = ps.emission; em.rateOverTime = 8f;
+        var sh = ps.shape; sh.angle = 13f; sh.radius = 2.2f;
+        var col = ps.colorOverLifetime; col.enabled = true;
+        var gr = new Gradient();
+        gr.SetKeys(new[] { new GradientColorKey(new Color(1f, 0.5f, 0.28f), 0f), new GradientColorKey(new Color(0.66f, 0.58f, 0.62f), 0.14f), new GradientColorKey(new Color(0.93f, 0.9f, 0.93f), 1f) },
+                   new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.8f, 0.08f), new GradientAlphaKey(0.62f, 0.55f), new GradientAlphaKey(0f, 1f) });
+        col.color = gr;
+        var so = ps.sizeOverLifetime; so.enabled = true; so.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.7f), new Keyframe(0.5f, 1.5f), new Keyframe(1f, 2.4f)));
+        // 上へ行くと少し風に流れる（全部まっすぐだと柱に見える）
+        var vl = ps.velocityOverLifetime; vl.enabled = true; vl.space = ParticleSystemSimulationSpace.World;
+        vl.x = new ParticleSystem.MinMaxCurve(0.9f, new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1.4f))); vl.y = new ParticleSystem.MinMaxCurve(0f, new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 0f))); vl.z = new ParticleSystem.MinMaxCurve(0.45f, new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(1f, 1.4f)));
+        var rl = ps.rotationOverLifetime; rl.enabled = true; rl.z = new ParticleSystem.MinMaxCurve(-0.14f, 0.14f);
+        var ts = ps.textureSheetAnimation; ts.enabled = true; ts.numTilesX = 4; ts.numTilesY = 4; ts.animation = ParticleSystemAnimationType.WholeSheet;
+        ts.frameOverTime = new ParticleSystem.MinMaxCurve(0f); ts.startFrame = new ParticleSystem.MinMaxCurve(0f, 15f / 16f); ts.cycleCount = 1;
+        var r = ps.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = mat; r.sortMode = ParticleSystemSortMode.YoungestInFront; r.maxParticleSize = 4f;
+        ps.Play();
+        return ps;
     }
     static ParticleSystem Volcano(Transform parent, Vector3 c)
     {
@@ -752,12 +785,16 @@ public static class FuwaCourse2_2Builder
             mb.Quad(pc, pc + (P(a1, q1, ph) - pc) * 0.001f, P(a1, q1, ph), P(a0, q0, ph), Vector3.up, 1);
         }
         var body = new GameObject("VolcanoBody", typeof(MeshFilter), typeof(MeshRenderer)); body.transform.SetParent(g, false);
-        var mesh = SaveMesh(mb.Build("Course2_2_Volcano", 2));
+        // 本番の形は Blender（Tools/stage2_volcano.py → Models/Stage2_Volcano.fbx。2026-10-31 てじゃ「目玉からいこ」）。材質のオブジェクト座標を使うので Static にしない
+        var model = AssetDatabase.LoadAssetAtPath<Mesh>(VolcanoModel);
+        var vmat = AssetDatabase.LoadAssetAtPath<Material>(VolcanoMat);
+        var mesh = model && vmat ? model : SaveMesh(mb.Build("Course2_2_Volcano", 2));
         body.GetComponent<MeshFilter>().sharedMesh = mesh;
-        body.GetComponent<MeshRenderer>().sharedMaterials = new[] { FuwaStage2WaterTest.ToonMat("Stage2_2_PillarRock", new Color(0.45f, 0.3f, 0.27f)), lavaMat };
+        body.GetComponent<MeshRenderer>().sharedMaterials = model && vmat ? new[] { vmat } : new[] { FuwaStage2WaterTest.ToonMat("Stage2_2_PillarRock", new Color(0.45f, 0.3f, 0.27f)), lavaMat };
         body.AddComponent<MeshCollider>().sharedMesh = mesh;
         // 火口：いつもの赤い湯気と、岩が飛び出す時の火の粉
         var top = new GameObject("Crater").transform; top.SetParent(g, false); top.localPosition = Vector3.up * (VolcanoTopH - 1.5f);
+        VolcanoSmoke(top);
         var glow = FuwaStage2FireTest.FlamePS(top, "Glow", VolcanoTopR * 0.6f, 1.2f, 1.6f, new Color(1f, 0.6f, 0.2f, 0.8f), new Color(0.45f, 0.2f, 0.12f, 0f));
         { var m = glow.main; m.startSize = new ParticleSystem.MinMaxCurve(1.2f, 2.2f); var e = glow.emission; e.rateOverTime = 10f; }
         var fx = FuwaStage2FireTest.FlamePS(top, "Launch", VolcanoTopR * 0.4f, 7f, 1.0f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.25f, 0.05f));
