@@ -971,8 +971,9 @@ public static class FuwaCourse2_2Builder
         var L = c.InverseTransformDirection(g.TransformDirection(launch)).normalized; var X = Vector3.Cross(Vector3.up, L).normalized; var U = Vector3.Cross(L, X).normalized; if (U.y < 0f) U = -U;
         const float Rin = 0.2f, Rout = 0.27f, BrowH = 0.1f, LipY = 0.02f; const int N = 28;
         var A = new Vector3(0f, 0f, 0.15f);   // 筒の軸が道の面を通る所
-        Vector3 Pt(float sv, int k, float rr) { float a = k * Mathf.PI * 2f / N; return A + L * sv + (U * Mathf.Cos(a) + X * Mathf.Sin(a)) * rr; }
-        float SGround(int k, float rr) => -(rr * Mathf.Cos(k * Mathf.PI * 2f / N) * U.y) / L.y;
+        float Warp(int k) { float a = k * Mathf.PI * 2f / N; return 1f + 0.08f * Mathf.Sin(2f * a + 0.9f) + 0.06f * Mathf.Sin(3f * a + 2.1f) + 0.025f * Mathf.Sin(5f * a + 0.4f); }   // 穴の形のゆがみ（2026-10-31 てじゃ「ちょっと形をゆがませて」）
+        Vector3 Pt(float sv, int k, float rr) { float a = k * Mathf.PI * 2f / N; return A + L * sv + (U * Mathf.Cos(a) + X * Mathf.Sin(a)) * rr * Warp(k); }
+        float SGround(int k, float rr) => -(rr * Warp(k) * Mathf.Cos(k * Mathf.PI * 2f / N) * U.y) / L.y;
         // ふちを切る面：内側の穴の前のはしで LipY、後ろのはしで BrowH。前が低く後ろが高い
         float zB = Pt(SGround(0, Rin), 0, Rin).z, zF = Pt(SGround(N / 2, Rin), N / 2, Rin).z;
         float PlaneGap(Vector3 q) => q.y - Mathf.Lerp(LipY, BrowH, (zF - q.z) / (zF - zB));
@@ -989,7 +990,7 @@ public static class FuwaCourse2_2Builder
             }
             return sv;
         }
-        float Rock(int k) { float a = k * Mathf.PI * 2f / N; return 1f + 0.05f * Mathf.Sin(3f * a + 0.7f) + 0.03f * Mathf.Sin(5f * a + 1.2f); }
+        float Rock(int k) { float a = k * Mathf.PI * 2f / N; return 1f + 0.06f * Mathf.Sin(2f * a + 0.7f) + 0.035f * Mathf.Sin(3f * a + 1.2f); }
         // 内側のふち：道の折れ目で道より下にならないように（口とのあいだに道がのぞいた）
         Vector3 InRim(int k)
         {
