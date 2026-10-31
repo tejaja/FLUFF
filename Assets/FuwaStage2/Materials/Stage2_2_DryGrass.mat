@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Stage2_2_BurntIsle
-  m_Shader: {fileID: 4800000, guid: ebf4635f7ce66b34fa240f2ab36a5745, type: 3}
+  m_Name: Stage2_2_DryGrass
+  m_Shader: {fileID: 4800000, guid: 479f9293c081209499a90cdeb4d9a7be, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -43,12 +43,8 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
-    - _FlowTex:
-        m_Texture: {fileID: 2800000, guid: 92152d6153aaa414cb4338411228aee4, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
     - _GroundTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 3f4ae8241fd746d4ba74a7483e95d745, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -83,16 +79,16 @@ Material:
     - _EmissionGradient: 0
     - _Facet: 0
     - _GlossMapScale: 1
-    - _Glossiness: 0.1
+    - _Glossiness: 0.5
     - _GlossyReflections: 1
-    - _GroundFine: 0
-    - _GroundFineCrisp: 0
-    - _GroundFineFade: 18
-    - _GroundFineScale: 0.9
-    - _GroundMidScale: 3.2
+    - _GroundFine: 0.4
+    - _GroundFineCrisp: 1
+    - _GroundFineFade: 30
+    - _GroundFineScale: 13
+    - _GroundMidScale: 2.6
     - _GroundPatch: 0
-    - _GroundPatchScale: 11
-    - _GroundSteps: 0
+    - _GroundPatchScale: 9
+    - _GroundSteps: 3
     - _Metallic: 0
     - _Mode: 0
     - _NoiseScale: 0.6
@@ -104,7 +100,6 @@ Material:
     - _PatternFromBase: 0
     - _RimPower: 3
     - _RimStrength: 0.25
-    - _Scale: 0.42
     - _ShadowStrength: 0.75
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
@@ -115,24 +110,18 @@ Material:
     - _TopMin: 0.55
     - _TopStrength: 0
     - _UVSec: 0
-    - _Under: 0.35
     - _UnderGrad: 0
     - _UnderStrength: 0
-    - _Width: 0.2
     - _Wrap: 0.35
     - _ZWrite: 1
     m_Colors:
     - _BaseFadeColor: {r: 0.65999997, g: 0.6, b: 0.68, a: 1}
-    - _Color: {r: 0.1, g: 0.08, b: 0.09, a: 1}
-    - _Crack: {r: 1.45, g: 0.55, b: 0.09, a: 1}
-    - _CrackHot: {r: 1.4, g: 1, b: 0.4, a: 1}
+    - _Color: {r: 0.72, g: 0.6, b: 0.34, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
-    - _GroundTintA: {r: 1.1, g: 1.08, b: 0.86, a: 1}
-    - _GroundTintB: {r: 0.8, g: 0.92, b: 0.8399999, a: 1}
+    - _GroundTintA: {r: 1.08, g: 1.09, b: 0.93, a: 1}
+    - _GroundTintB: {r: 0.72, g: 0.86, b: 0.78, a: 1}
     - _RimColor: {r: 1, g: 0.96999997, b: 0.92, a: 1}
-    - _RimGlow: {r: 0.26, g: 0.06, b: 0.025, a: 1}
-    - _Rock: {r: 0.13, g: 0.095, b: 0.105, a: 1}
-    - _ShadowTint: {r: 0.54999995, g: 0.47999996, b: 0.75, a: 1}
+    - _ShadowTint: {r: 0.55, g: 0.48, b: 0.75, a: 1}
     - _StrataA: {r: 1.06, g: 0.97999996, b: 0.94, a: 1}
     - _StrataB: {r: 0.93, g: 0.95, b: 1.06, a: 1}
     - _StrataC: {r: 0.9, g: 0.87, b: 0.93, a: 1}

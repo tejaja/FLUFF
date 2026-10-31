@@ -776,41 +776,50 @@ public static class FuwaCourse2_2Builder
         c2.color = gr;
         ps.Play();
     }
-    // コースの前半のまわりに浮かべる、黒焦げの木の小さな浮島（Tools/stage2_burntisle.py。2026-10-31）。遠くの飾りなので当たりなし・影なし。
-    //  色は FuwaCourse/LavaRock を暗くして割れ目を細く。オブジェクト座標の材質なので Static にしない
-    public static readonly (float x, float y, float z, float scale, int tree, int isle, float yaw, bool fire)[] BurntIsleSpots =
+    // コースの前半のまわりに浮かべる、焦げた木の丸い浮島（2026-10-31 てじゃ「他のコースと統一感」→ やみのもりの木と同じメッシュ、丸い浮島、上は枯れた芝の色）。遠くの飾りなので当たりなし・影なし
+    public static readonly (float x, float y, float z, float scale, float yaw, bool fire)[] BurntIsleSpots =
     {
-        (-22f, -3f, -16f, 1.0f, 0, 0, 20f, true), (-30f, 3f, 2f, 1.25f, 1, 1, 130f, false), (-20f, -7f, 20f, 0.85f, 1, 0, 250f, true),
-        (24f, 1f, -24f, 1.15f, 1, 1, 70f, true), (31f, -5f, -7f, 0.9f, 0, 0, 200f, false), (22f, 4f, 10f, 1.05f, 0, 1, 310f, true),
+        (-22f, -3f, -16f, 1.6f, 20f, true), (-30f, 3f, 2f, 2f, 130f, false), (-20f, -7f, 20f, 1.4f, 250f, true),
+        (24f, 1f, -24f, 1.8f, 70f, true), (31f, -5f, -7f, 1.5f, 200f, false), (22f, 4f, 10f, 1.7f, 310f, true),
     };
     public static void BurntIsles(Transform fire, Transform lavaRoot)
     {
         var old = fire.Find("BurntIsles"); if (old) Object.DestroyImmediate(old.gameObject);
-        var meshes = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2_BurntIsle.fbx").OfType<Mesh>().ToArray();
-        if (meshes.Length == 0) return;
-        Mesh M(string n) => meshes.First(x => x.name == n);
-        var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_BurntIsle", new Color(0.1f, 0.08f, 0.09f));
-        mat.shader = Shader.Find("FuwaCourse/LavaRock"); mat.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png"));
-        mat.SetColor("_Rock", new Color(0.13f, 0.095f, 0.105f)); mat.SetFloat("_Width", 0.2f); mat.SetFloat("_Scale", 0.42f); mat.SetFloat("_Under", 0.35f); mat.SetColor("_RimGlow", new Color(0.26f, 0.06f, 0.025f)); EditorUtility.SetDirty(mat);
+        Mesh M(string p) => AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/" + p + ".asset");
+        var deadTree = M("Generated/Lite/YamiDeadTree_Lite"); var disc = M("Meshes/IslandDisc/IslandDisc_r64"); var under = M("Meshes/FarIslands/IslandUnderLow_2");
+        if (!deadTree || !disc || !under) return;
+        var bark = FuwaStage2WaterTest.ToonMat("Stage2_2_BurntBark", new Color(0.2f, 0.15f, 0.15f));
+        // 上の面は他のコースの芝（Goal_Ground）の色ちがいで、枯れた芝の色
+        const string topPath = "Assets/FuwaStage2/Materials/Stage2_2_DryGrass.mat";
+        var top = AssetDatabase.LoadAssetAtPath<Material>(topPath);
+        if (!top) { top = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Goal_Ground.mat")); AssetDatabase.CreateAsset(top, topPath); }
+        top.SetColor("_Color", new Color(0.72f, 0.6f, 0.34f)); EditorUtility.SetDirty(top);
+        var underMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/IslandUnder.mat");
         var g = new GameObject("BurntIsles").transform; g.SetParent(fire, false);
         var h = Vector3.zero; int n = 0; foreach (Transform c in lavaRoot) { h += c.localPosition; n++; } if (n > 0) h /= n;
         for (int i = 0; i < BurntIsleSpots.Length; i++)
         {
             var s = BurntIsleSpots[i];
             var isle = new GameObject("Isle" + i).transform; isle.SetParent(g, false); isle.localPosition = h + new Vector3(s.x, s.y, s.z); isle.localRotation = Quaternion.Euler(0f, s.yaw, 0f); isle.localScale = Vector3.one * s.scale;
-            void Part(string name, string mesh)
+            // やみのもりの ForestTree と同じ組み立て（木の根元の高さ・島の位置はメッシュごとに決まっている）
+            //  葉のある木（YamiTree）は色を焦がすと黒いかたまりに見えたので、枯れ木（YamiDeadTree）だけ。島はやみのもりより広く（細い木に小さい島で棒に見えた）
+            var ground = new Vector3(-1.6f, -1.38f, 0f);
+            Transform Part(string name, Mesh mesh, Material mat, Vector3 lp, Quaternion lr, Vector3 ls)
             {
-                var o = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(isle, false);
-                o.GetComponent<MeshFilter>().sharedMesh = M(mesh);
+                var o = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(isle, false); o.transform.localPosition = lp; o.transform.localRotation = lr; o.transform.localScale = ls;
+                o.GetComponent<MeshFilter>().sharedMesh = mesh;
                 var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+                return o.transform;
             }
-            Part("Ground", "Stage2_BurntIsle" + s.isle); Part("Tree", "Stage2_BurntTree" + s.tree);
+            Part("Tree", deadTree, bark, Vector3.zero, Quaternion.identity, Vector3.one);
+            Part("IslandTop", disc, top, ground, Quaternion.identity, new Vector3(1.9f, 1f, 1.9f));
+            Part("IslandUnder", under, underMat, ground, Quaternion.Euler(0f, 199f, 0f), new Vector3(1.2f, 1.1f, 1.2f));
             if (s.fire)
             {
-                var ps = FuwaStage2FireTest.FlamePS(isle, "Flame", 0.35f, 1.1f, 0.8f, new Color(1f, 0.72f, 0.2f), new Color(1f, 0.2f, 0.05f));
-                ps.transform.localPosition = new Vector3(0f, 0.8f, 0f);
-                var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.45f, 0.95f); m.maxParticles = 24;
-                var em = ps.emission; em.rateOverTime = 14f;
+                var ps = FuwaStage2FireTest.FlamePS(isle, "Flame", 0.22f, 0.8f, 0.7f, new Color(1f, 0.72f, 0.2f), new Color(1f, 0.2f, 0.05f));
+                ps.transform.localPosition = ground + new Vector3(0.6f, 0.05f, 0.35f);
+                var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.3f, 0.6f); m.maxParticles = 24;
+                var em = ps.emission; em.rateOverTime = 12f;
                 ps.Play();
             }
         }
