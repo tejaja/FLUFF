@@ -17,11 +17,15 @@ BOTTOM_H, TIP_H = -60.0, -74.0
 # 道の高さの帯：ここでは土台の半径からあまり出ない（道・まもののエリアに当たらない）
 BAND_LO, BAND_HI, BAND_OUT = -6.0, 10.0, 0.55
 BAND_SINK = 0.95   # 帯の中は全体を内側へ（出っぱりが頭打ちで平らにならないように）
-JETS = [-30.0, -8.0, 14.0]   # 炎の岩の角度（ここは山肌を引っこめない）
+# 炎の亀裂（2026-10-31 てじゃ「山に亀裂いれてそっからふきだす」）：角度・その場所の道の高さ（FuwaCourse2_2Builder の jets と RoadY に合わせる）
+JETS = [(-30.0, 0.55), (-8.0, 1.97), (14.0, 2.96)]
+CRACK_Y = [-2.2, -0.6, 0.55, 1.75, 2.95, 4.1, 5.0, 6.4]        # 道からの高さ
+CRACK_W = [0.02, 0.42, 0.62, 0.68, 0.60, 0.26, 0.09, 0.02]     # 半分の幅（m）
+CRACK_DEPTH = 1.0
 # ⑤の道（山ぞい）の角度。炎の岩が山肌から離れないように、ここでは土台より引っこみすぎない
 ROAD_TH0, ROAD_TH1, ROAD_IN = -52.0, 30.0, 1.5
 # 溶岩の川（度、太さ m、終わる高さ、うねりの大きさ度）。-128 がジグザグ側で一番太い。⑤の道の後ろは細く
-STREAMS = [(-128.0, 1.4, -58.0, 13.0), (-70.0, 0.8, -22.0, 9.0), (-14.0, 0.7, -14.0, 7.0), (62.0, 1.1, -40.0, 11.0), (158.0, 0.9, -30.0, 10.0)]
+STREAMS = [(-128.0, 1.4, -58.0, 13.0), (-70.0, 0.8, -22.0, 9.0), (-19.0, 0.6, -14.0, 3.0), (62.0, 1.1, -40.0, 11.0), (158.0, 0.9, -30.0, 10.0)]
 # v の割り当て：池 → 内壁 → ふち → すそ（道より下まで）→ 下
 V_POND, V_RIM, V_LOW = 0.07, 0.13, 0.86
 LOW_H = -22.0
@@ -117,6 +121,22 @@ def stream_field(a, y, r):
         best = np.where(better, dist, best); width = np.where(better, w1, width); life = np.where(better, l, life)
     return best, width, life
 
+def crack_field(a, y, r):
+    # いちばん近い炎の亀裂までの距離を、その高さの幅で割った値（1 がふち）
+    best = np.full_like(a, 99.0)
+    for i, (th, base) in enumerate(JETS):
+        rr = np.random.RandomState(40 + i)
+        ys = np.arange(-3.0, 8.0, 0.62) + rr.uniform(-0.14, 0.14, 18)
+        xs = rr.uniform(-1.0, 1.0, 18) * np.linspace(0.16, 0.34, 18)   # ギザギザ（上の細い所ほど大きく）
+        h = y - base
+        off = np.interp(h, ys, xs)
+        w = np.interp(h, CRACK_Y, CRACK_W, left=0.0, right=0.0)
+        dx = wrap_pi(a - math.radians(th)) * np.maximum(r, 0.5) - off
+        nd = np.abs(dx) / np.maximum(w, 0.015)
+        nd = np.where(w <= 0.0, 99.0, nd)
+        best = np.minimum(best, nd)
+    return best
+
 def surface(a, v):
     # 出っぱりを足した形と、色に使う値を返す（メッシュとテクスチャで同じ計算）
     r0, y0 = nominal(a, v)
@@ -156,9 +176,15 @@ def surface(a, v):
     thd = np.degrees(wrap_pi(a))
     road = sstep(ROAD_TH0 - 4, ROAD_TH0, thd) * (1 - sstep(ROAD_TH1, ROAD_TH1 + 4, thd)) * band
     near_jet = np.zeros_like(thd)
-    for j in JETS: near_jet = np.maximum(near_jet, 1 - sstep(5.0, 10.0, np.abs(thd - j)))
-    r = np.where(road > 0.01, np.maximum(r, rb - (ROAD_IN * (1 - near_jet) + 0.35 * near_jet) * road - 40.0 * (1 - road)), r)
-    return dict(r=r, y=y0, r0=r0, ridge=ridge, ridge2=ridge2, lump=lump, ledge=ledge, nd=nd, sl=sl, sw=sw, flank=flank, px=px, pz=pz, channel=channel)
+    for j, _ in JETS: near_jet = np.maximum(near_jet, 1 - sstep(4.0, 8.0, np.abs(thd - j)))
+    r = np.where(road > 0.01, np.maximum(r, rb - ROAD_IN * road - 40.0 * (1 - road)), r)
+    # 炎の亀裂：ギザギザの線にそって深くへこませ、両わきを少し盛り上げる
+    crk = crack_field(a, y0, r0)
+    lip = np.exp(-((crk - 1.5) / 0.6) ** 2) * flank * band
+    inner = (1 - sstep(0.7, 1.15, crk)) * flank
+    r = r + lip * 0.16 - inner * CRACK_DEPTH
+    r = np.where(flank > 0, np.minimum(r, rb - 0.14 + BAND_OUT * (1 - road0) + (1 - band) * 40.0), r)
+    return dict(crk=crk, r=r, y=y0, r0=r0, ridge=ridge, ridge2=ridge2, lump=lump, ledge=ledge, nd=nd, sl=sl, sw=sw, flank=flank, px=px, pz=pz, channel=channel)
 
 # ---- テクスチャ ----
 def build_texture():
@@ -199,11 +225,19 @@ def build_texture():
     line = np.abs(cn - 0.5) / np.maximum(np.sqrt(gx * gx + gy * gy), 1e-5)   # 線までの距離（ピクセル）
     wid = (0.5 + 0.5 * sstep(-12.0, 12.0, y)) * (0.5 + 0.9 * fbm(px * 0.2 + 15.0, y * 0.45, pz * 0.2, 2))
     keep = sstep(0.54, 0.62, fbm(px * 0.22 + 90.0, y * 0.2, pz * 0.22, 2) + 0.05 * sstep(-20.0, 14.0, y))
-    near_hot = np.maximum(np.exp(-(nd / 4.5) ** 2) * sl, sstep(8.0, 14.0, y))   # 川のそばとふちの近くだけ（山肌のまん中に出すと落書きに見えた）
+    crk = s["crk"]
+    near_hot = np.maximum(np.maximum(np.exp(-(nd / 4.5) ** 2) * sl, sstep(8.0, 14.0, y)), np.exp(-(crk / 7.0) ** 2))   # 川のそばとふちの近くだけ（山肌のまん中に出すと落書きに見えた）
     crack = (1 - sstep(wid * 0.7, wid * 1.5, line)) * keep * flank * sstep(-8.0, 0.0, y) * near_hot
     # 割れ目の色：岩をくらくして光
     col = col * (1 - 0.85 * crack[..., None])
     glow = np.maximum(glow, crack * (0.34 + 0.28 * sstep(-20.0, 13.0, y)))
+    # 炎の亀裂：奥は暗く赤く光る、ふちは焼けて黒い
+    burn = np.exp(-(np.maximum(crk - 0.9, 0) / 1.5) ** 2) * flank
+    col = col * (1 - 0.72 * burn[..., None]) + np.array([0.09, 0.035, 0.04])[None, None, :] * 0.72 * burn[..., None]
+    glow = np.maximum(glow, burn * 0.3)
+    cin = (1 - sstep(0.62, 1.05, crk)) * flank
+    glow = np.maximum(glow, cin * 0.66)
+    col = col * (1 - cin[..., None]) + np.array([0.28, 0.05, 0.02])[None, None, :] * cin[..., None]
     # 川の両わき：岩が焼けて熱い
     lavazone = (V >= V_POND) * 1.0
     hot = np.exp(-(np.maximum(nd - 0.9, 0) / 0.5) ** 2) * sl * lavazone
@@ -275,7 +309,14 @@ def B(x, y, z): return (-x, -z, y)   # Unity (x,y,z) → Blender (-x,-z,y)
 
 def build_mesh(sc):
     rows = v_rows(); nr = len(rows); N = COLS
-    aa = np.arange(N) / N * 2 * np.pi
+    # 列の角度：亀裂のまわりだけ細かく（亀裂の幅 1.3m に対して、ふつうの間隔は 0.5m で足りない）
+    deg = []
+    t = -180.0
+    while t < 180.0 - 1e-6:
+        deg.append(t)
+        d = min(abs(wrap_pi(math.radians(t - j)) * 180 / math.pi) for j, _ in JETS)
+        t += 0.75 if d < 7.0 else 2.5
+    aa = np.radians(np.array(deg)) % (2 * np.pi); aa = np.sort(aa); N = len(aa)
     AA, VV = np.meshgrid(aa, np.array(rows))
     s = surface(AA, VV)
     r, y = s["r"], s["y"]
@@ -293,7 +334,7 @@ def build_mesh(sc):
         for l, q in zip(f.loops, uvs): l[uvl].uv = (q[0], 1.0 - q[1])
         f.smooth = True
     for i in range(N):
-        i1 = (i + 1) % N; u0 = i / N; u1 = (i + 1) / N
+        i1 = (i + 1) % N; u0 = aa[i] / (2 * np.pi); u1 = (aa[i1] / (2 * np.pi)) if i1 > 0 else 1.0
         face([c, vs[0][i], vs[0][i1]], [((u0 + u1) / 2, 0.0), (u0, rows[0]), (u1, rows[0])])
         for j in range(nr - 1):
             face([vs[j][i], vs[j + 1][i], vs[j + 1][i1], vs[j][i1]], [(u0, rows[j]), (u0, rows[j + 1]), (u1, rows[j + 1]), (u1, rows[j])])

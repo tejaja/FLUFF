@@ -291,7 +291,7 @@ public static class FuwaCourse2_2Builder
         for (int k = 0; k < jets.Length; k++)
         {
             var jt = jets[k]; float y = RoadY(jt.th);
-            VolcanoJet(fire, "Flamethrower" + k, Around(jt.th, RoadR(jt.th, y) - FlameHW, y), jt.th, jt.per, jt.on, jt.ph);
+            VolcanoJet(fire, "Flamethrower" + k, Around(jt.th, RoadR(jt.th, y) - FlameHW, y), RoadR(jt.th, y) - FlameHW, y, jt.th, jt.per, jt.on, jt.ph);
         }
         var p = pts5[pts5.Length - 1];
 
@@ -859,49 +859,44 @@ public static class FuwaCourse2_2Builder
     // 山肌の火炎の壁：道の内側のふち edge（道の面の高さ）の所、火山から外向き。FlameLowH〜FlameHighH に縦に FlameRows 本ならんでいっしょに吹いて、当たりは 1 つの縦長の箱。
     //  2026-10-30 上下 2 本→ てじゃ「もっと上まで炎あってもいいかも」で 3 本
     //  当たると燃えて外へ吹っ飛ぶ（FuwaFireJet.ballKnock）
-    const string JetRockModel = "Assets/FuwaStage2/Models/Stage2_JetRock.fbx";
-    static Material JetEmberMat() { var m = FuwaStage2WaterTest.ToonMat("Stage2_2_JetEmber", new Color(0.3f, 0.09f, 0.05f)); m.SetColor("_EmissionColor", new Color(0.36f, 0.075f, 0.03f)); EditorUtility.SetDirty(m); return m; }
-    // 炎の岩の見た目（名前の番号で 3 つの形を使い分け）。穴の奥に赤く光る炎の口を沈める
-    public static void JetRockMesh(GameObject rock, string jetName)
+    // 炎の亀裂（2026-10-31 てじゃ「山に亀裂いれてそっからふきだす」）：形は Tools/stage2_volcano.py の JETS（角度と道の高さをここと合わせる）。
+    //  亀裂の奥の半径をメッシュから読んで、そこから炎を出す。当たりの箱と吹っ飛び方は道のふちからのまま
+    public static float VolcanoCrackR(float th, float y)
     {
-        int k = 0; int.TryParse(new string(jetName.Where(char.IsDigit).ToArray()), out k);
-        var mesh = AssetDatabase.LoadAllAssetsAtPath(JetRockModel).OfType<Mesh>().FirstOrDefault(x => x.name == "Stage2_JetRock" + (k % 3));
-        if (!mesh) return;
-        rock.GetComponent<MeshFilter>().sharedMesh = mesh;
-        var rm = FuwaStage2WaterTest.ToonMat("Stage2_2_JetRock", new Color(0.56f, 0.29f, 0.25f));
-        rm.SetFloat("_NoiseStrength", 0.2f); rm.SetFloat("_NoiseScale", 1.3f); rm.SetFloat("_StrataStrength", 0.2f); rm.SetFloat("_StrataScale", 1.6f); rm.SetFloat("_Facet", 0.8f); rm.SetFloat("_RimStrength", 0.1f); EditorUtility.SetDirty(rm);
-        var hm = FuwaStage2WaterTest.ToonMat("Stage2_2_JetHole", new Color(0.16f, 0.05f, 0.05f)); hm.SetColor("_EmissionColor", new Color(0.32f, 0.07f, 0.03f)); EditorUtility.SetDirty(hm);
-        rock.GetComponent<MeshRenderer>().sharedMaterials = new[] { rm, hm };
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(VolcanoModel);
+        if (!mesh) return -1f;
+        float best = -1f;
+        foreach (var v in mesh.vertices)
+        {
+            if (Mathf.Abs(v.y - y) > 0.8f) continue;
+            if (Mathf.Abs(Mathf.DeltaAngle(Mathf.Atan2(v.x, v.z) * Mathf.Rad2Deg, th)) > 1.2f) continue;
+            float r = new Vector2(v.x, v.z).magnitude;
+            if (best < 0f || r < best) best = r;
+        }
+        return best;
     }
-    // 炎の口：穴の奥へ（箱の時は前の面に貼ってあった）
-    public static void JetMouthLook(Transform mouth) { mouth.localPosition = new Vector3(0, -0.36f, 0); mouth.GetComponent<Renderer>().sharedMaterial = JetEmberMat(); }
-    static void VolcanoJet(Transform parent, string name, Vector3 edge, float th, float period, float on, float phase)
+    public static void JetFromCrack(ParticleSystem flame, ParticleSystem warn, float back, float len)
+    {
+        flame.transform.localPosition = new Vector3(0f, -back, 0f); warn.transform.localPosition = new Vector3(0f, -back, 0f);
+        var m = flame.main; m.startSpeed = (len + back) / 0.7f;
+    }
+    static void VolcanoJet(Transform parent, string name, Vector3 edge, float edgeR, float roadY, float th, float period, float on, float phase)
     {
         float a = th * Mathf.Deg2Rad;
         var o = new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)); var back = -new Vector3(Mathf.Cos(a), 0f, -Mathf.Sin(a));
         float len = FlameHW * 2f + 0.5f, top = FlameHighH + 1.4f, mid = (FlameLowH + FlameHighH) * 0.5f, half = (FlameHighH - FlameLowH) * 0.5f;
-        // 山肌から出っぱった岩（道のふちから山の中まで）
-        var rock = Box(parent, name + "_Rock", edge - o * ((FlameGap + 1.6f) * 0.5f) + Vector3.up * ((top - 2.1f) * 0.5f), new Vector3(2.2f, top + 2.1f, FlameGap + 1.6f), rockMat, 0);
-        rock.transform.localRotation = Quaternion.LookRotation(o);
-        // 見た目は Blender の岩（Tools/stage2_jetrock.py）。当たりは箱のまま
-        JetRockMesh(rock, name);
-
         // g：上（y）が炎の向き o、前（z）がワールドの上
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = edge + o * 0.02f + Vector3.up * mid; g.localRotation = Quaternion.LookRotation(Vector3.up, o);
-        var ember = FuwaStage2WaterTest.ToonMat("Stage2_2_Embers", new Color(0.35f, 0.12f, 0.08f));
         var flames = new ParticleSystem[FlameRows]; var warns = new ParticleSystem[FlameRows];
         for (int i = 0; i < FlameRows; i++)
         {
             var mt = new GameObject("Row" + i).transform; mt.SetParent(g, false); mt.localPosition = new Vector3(0, 0, Mathf.Lerp(-half, half, i / (FlameRows - 1f)));
-            var m = GameObject.CreatePrimitive(PrimitiveType.Cylinder); m.name = "Mouth"; m.transform.SetParent(mt, false);
-            m.transform.localPosition = new Vector3(0, -0.12f, 0); m.transform.localScale = new Vector3(0.9f, 0.15f, 0.9f);
-            Object.DestroyImmediate(m.GetComponent<Collider>());
-            m.GetComponent<Renderer>().sharedMaterial = ember;
-            JetMouthLook(m.transform);
             // 炎の粒は口から len 先まで（寿命 0.7 秒で届く速さ）
             flames[i] = FuwaStage2FireTest.FlamePS(mt, "Flame", 0.4f, len / 0.7f, 1.0f, new Color(1f, 0.8f, 0.25f), new Color(1f, 0.3f, 0.05f));
             { var sh = flames[i].shape; sh.angle = 9f; var mm = flames[i].main; mm.startSize = new ParticleSystem.MinMaxCurve(0.7f, 1.3f); }
             warns[i] = FuwaStage2FireTest.FlamePS(mt, "Warn", 0.3f, 1.2f, 0.5f, new Color(1f, 0.55f, 0.2f), new Color(0.5f, 0.2f, 0.1f));
+            float cr = VolcanoCrackR(th, roadY + Mathf.Lerp(FlameLowH, FlameHighH, i / (FlameRows - 1f)));
+            JetFromCrack(flames[i], warns[i], cr > 0f ? Mathf.Clamp(edgeR - cr + 0.1f, 0.3f, 4f) : FlameGap, len);
         }
         // 当たり：道の面の少し下から上の炎の 0.6 上まで
         var zone = new GameObject("JetZone"); zone.transform.SetParent(g, false); zone.transform.localPosition = new Vector3(0, len * 0.5f, 0); zone.layer = 4;
