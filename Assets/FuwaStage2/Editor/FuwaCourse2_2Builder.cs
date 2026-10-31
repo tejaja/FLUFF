@@ -725,8 +725,16 @@ public static class FuwaCourse2_2Builder
         return r * (1f + 0.16f * n + 0.04f * Mathf.Sin(5f * a + h * 0.2f));
     }
     // 火山の岩：丸くて暗い玉 → 角ばった溶岩の岩（Tools/stage2_lavarock.py、FuwaCourse/LavaRock。2026-10-31）。当たりは今まで通りスクリプトの球
+    // 試し（2026-10-31 てじゃ「手前の飛び出す溶岩と同じみためだとどうなるかな」）：火の玉と同じ見た目。true で角ばった岩に戻る
+    const bool LavaRockAngular = false;
     public static void LavaRockLook(GameObject vis, string name)
     {
+        if (!LavaRockAngular)
+        {
+            vis.GetComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Sphere.fbx");
+            vis.GetComponent<Renderer>().sharedMaterial = FireballMat();
+            return;
+        }
         var mesh = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2_LavaRock.fbx").OfType<Mesh>().FirstOrDefault(x => x.name == "Stage2_LavaRock" + (name.EndsWith("1") ? 1 : 0));
         if (mesh) vis.GetComponent<MeshFilter>().sharedMesh = mesh;
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_LavaRock", new Color(0.35f, 0.12f, 0.08f));
@@ -754,6 +762,12 @@ public static class FuwaCourse2_2Builder
         col.color = gr;
     }
     const float FireballTrailRate = 95f;
+    // 岩の尾：火の玉と同じ色の変わり方で、岩の大きさに合わせる（前の太さは近くで赤いもやが岩より目立った）
+    public static void LavaRockTrail(ParticleSystem trail)
+    {
+        FireballTrail(trail);
+        var m = trail.main; m.startSize = new ParticleSystem.MinMaxCurve(RockR * 0.75f, RockR * 1.25f);
+    }
     // 穴・みぞの溶岩：火山と同じ流れる溶岩（2026-10-31、前はベタ塗りのオレンジ）
     public static Material FlowLavaMat()
     {
@@ -854,7 +868,7 @@ public static class FuwaCourse2_2Builder
         Object.DestroyImmediate(vis.GetComponent<Collider>());
         LavaRockLook(vis, name);
         var trail = FuwaStage2FireTest.FlamePS(g, "Trail", RockR * 0.7f, 0.35f, 0.5f, new Color(1f, 0.7f, 0.2f), new Color(0.85f, 0.15f, 0.05f));
-        { var m = trail.main; m.startSize = new ParticleSystem.MinMaxCurve(RockR * 0.9f, RockR * 1.6f); }
+        LavaRockTrail(trail);
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLavaRock>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
         int hops = ps.Length - 1;
