@@ -202,7 +202,7 @@ public static class FuwaCourse2_2Builder
             var a0 = pad + sh; var b0 = nx - sh; var ld = (b0 - a0).normalized;
             var a = a0 + ld * PadIn; var b = b0 - ld * PadIn;
             legs.Add((a0, b0));
-            Strip(path, "Zig" + k, a, (b - a).normalized, (b - a).magnitude, ZigHW);
+            ZigBoard(path, "Zig" + k, a0, b0, pad, k == 0 ? EndPadR : PadR, nx, k == 3 ? EndPadR : PadR, ZigHW);
             Pad(path, "Pad" + (k + 1), nx, k == 3 ? EndPadR : PadR);
             if (k < 3) GroundFire(fire, "ZigSeed" + k, nx);
             pads.Add((nx, k == 3 ? EndPadR : PadR));
@@ -701,8 +701,54 @@ public static class FuwaCourse2_2Builder
                 mb.Quad(p0, p1, p1 + dn, p0 + dn, om, mb == vis ? 1 : 0);
             }
             col.Quad(c + dn, c + dn, p1 + dn, p0 + dn, Vector3.down, 0);
-            vis.Quad(q0 + dn, q1 + dn, q1 + du, q0 + du, om, 2);
-            vis.Quad(c + du, c + du, q1 + du, q0 + du, Vector3.down, 2);
+            vis.Quad(c + dn, c + dn, p1 + dn, p0 + dn, Vector3.down, 2);
+        }
+        var g = MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
+        // 下は他のコースと同じ浮島の形（2026-10-31、前はただの筒）。見た目だけ
+        var under = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FarIslands/IslandUnderLow_2.asset");
+        if (under)
+        {
+            var u = new GameObject("Under", typeof(MeshFilter), typeof(MeshRenderer)).transform; u.SetParent(g.transform, false);
+            float sx = (PadR - 0.08f) * 2f / Mathf.Max(under.bounds.size.x, under.bounds.size.z), depth = PadR * 0.85f, sy = depth / under.bounds.size.y;
+            u.localScale = new Vector3(sx, sy, sx); u.localRotation = Quaternion.Euler(0f, name.GetHashCode() % 360, 0f);
+            u.localPosition = new Vector3(c.x, c.y - T + 0.02f - under.bounds.max.y * sy, c.z);
+            u.GetComponent<MeshFilter>().sharedMesh = under; u.GetComponent<MeshRenderer>().sharedMaterial = rockMat;
+        }
+    }
+    // ジグザグの板（2026-10-31、前は箱を踊り場に乗せただけで段があった）：両はしは踊り場の上の面の高さで平らに中まで入り、踊り場のふちから先だけ坂。角はなめらか
+    static void ZigBoard(Transform parent, string name, Vector3 a0, Vector3 b0, Vector3 ca, float ra, Vector3 cb, float rb, float hw)
+    {
+        const float T = 0.6f, U = 1.5f, In = 0.1f, Down = 0.005f, Ease = 1.2f;
+        var d = Flat(b0 - a0); float len = d.magnitude; d /= len; var side = Vector3.Cross(Vector3.up, d).normalized; var o = Flat(a0);
+        float sA = 0f, sB = len;
+        while (sA < len && Flat(o + d * sA - ca).magnitude < ra) sA += 0.02f;
+        while (sB > 0f && Flat(o + d * sB - cb).magnitude < rb) sB -= 0.02f;
+        float yA = ca.y - PadDrop - Down, yB = cb.y - PadDrop - Down, span = sB - sA, e = Mathf.Min(Ease / span, 0.3f), peak = 1f / (1f - e);
+        float Y(float s)
+        {
+            float t = Mathf.Clamp01((s - sA) / span);
+            float f = t < e ? peak * t * t / (2f * e) : t > 1f - e ? 1f - peak * (1f - t) * (1f - t) / (2f * e) : peak * (t - e * 0.5f);
+            return Mathf.Lerp(yA, yB, f);
+        }
+        float s0 = sA - hw * 1.3f, s1 = sB + hw * 1.3f; int n = Mathf.CeilToInt((s1 - s0) / (StripeLen * 0.25f));
+        var vis = new MB(); var col = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
+        for (int i = 0; i < n; i++)
+        {
+            float a = Mathf.Lerp(s0, s1, i / (float)n), b = Mathf.Lerp(s0, s1, (i + 1) / (float)n);
+            Vector3 P(float s, float x) { var q = o + d * s + side * x; q.y = Y(s); return q; }
+            int st = Mathf.Abs(Mathf.FloorToInt((a + b) * 0.5f / StripeLen)) % 2;
+            foreach (var mb in new[] { vis, col })
+            {
+                int sub = mb == vis ? st : 0;
+                mb.Quad(P(a, -hw), P(b, -hw), P(b, hw), P(a, hw), Vector3.up, sub);
+                mb.Quad(P(a, hw), P(b, hw), P(b, hw) + dn, P(a, hw) + dn, side, sub);
+                mb.Quad(P(a, -hw), P(b, -hw), P(b, -hw) + dn, P(a, -hw) + dn, -side, sub);
+            }
+            col.Quad(P(a, -hw) + dn, P(b, -hw) + dn, P(b, hw) + dn, P(a, hw) + dn, Vector3.down, 0);
+            float w = hw - In;
+            vis.Quad(P(a, w) + dn, P(b, w) + dn, P(b, w) + du, P(a, w) + du, side, 2);
+            vis.Quad(P(a, -w) + dn, P(b, -w) + dn, P(b, -w) + du, P(a, -w) + du, -side, 2);
+            vis.Quad(P(a, -w) + du, P(b, -w) + du, P(b, w) + du, P(a, w) + du, Vector3.down, 2);
         }
         MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
     }
