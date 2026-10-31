@@ -831,7 +831,8 @@ public static class FuwaCourse2_2Builder
             {
                 Vector3 O = lg.outerL ? L[i] : R[i], I = lg.outerL ? R[i] : L[i], D = Flat(O - I).normalized, down = Vector3.down; float tp = Taper(i);
                 float w = ZigLedge * tp * (0.72f + 0.56f * Mathf.PerlinNoise(O.x * 0.9f + 3f, O.z * 0.9f + 8f));
-                var t0 = O + BevelDown; var t1 = t0 + D * w + down * (Slope * tp); var rm = t1 + (D + down) * (Rim * tp);
+                // 岩の上のふちは、はしでは道の側面の下から出て、だんだんベベルの下まで上がる（上から出すと下にピンクの三角が残って切れ目に見えた。2026-10-31 てじゃ）
+                var t0 = O + down * Mathf.Lerp(T, Bevel, Mathf.SmoothStep(0f, 1f, tp / 0.7f)); var t1 = t0 + D * w + down * (Slope * tp); var rm = t1 + (D + down) * (Rim * tp);
                 // 下へ内側へすぼめて、深さもでこぼこに（まっすぐの壁だと箱に見えた）
                 float nz = Mathf.PerlinNoise(O.x * 1.3f + 11f, O.z * 1.3f + 2f); var md = O + D * (w * (0.15f + 0.35f * nz) - 0.02f * (1f - tp)) + down * (T + (0.25f + w * (0.45f + 0.7f * nz)) * tp);
                 Vector3 li = O - D * In + dn, ri = I + D * In + dn;
