@@ -878,54 +878,87 @@ public static class FuwaCourse2_2Builder
         var r = c.GetComponent<MeshRenderer>(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
         return c;
     }
-    // 火種：焚き火。角の外側にだけ低い石、焦げ跡、組んだまき。炎はふわふわの止まる高さ（SeedHover）より低く（ふわふわが炎に隠れないように）。
-    //  石の輪は道をふさいで通れなさそうに見えた（2026-10-31 てじゃ）ので、進む向きはあける。outward は角の外向き（Fire の座標）
+    // 火種：道にあけた穴の中の焚き火。炎はふわふわの止まる高さ（SeedHover）より低く（ふわふわが炎に隠れないように）。
+    //  石やまきが道の上にあると障害物に見えた（2026-10-31 てじゃ「穴あけてそこで燃やす」）ので、道の上は低いふちだけ。穴は噴気孔の縦穴と同じステンシルで見せる（当たりは道のまま）
+    public const float SeedPitDepth = 0.5f;
     static void SeedLook(Transform g, Vector3 outward)
     {
-        var mb = new MB();
         var b0 = OnSurface(g, "Base"); var ol = b0.InverseTransformDirection(g.TransformDirection(outward)); ol.y = 0f; float a00 = Mathf.Atan2(ol.z, ol.x);
-        for (int i = 0; i < 5; i++)
+        const int Seg = 32; const float MouthY = 0.025f;
+        float R(int n) { float t = n * Mathf.PI * 2f / Seg; return 0.5f + 0.03f * Mathf.Sin(3f * t + 1f) + 0.018f * Mathf.Sin(7f * t); }   // 一周でつながるよう整数倍の波
+        Vector3 Q(int n, float r, float y)   // y は道の面からの高さ（角や坂の折れ目で道が平らでなく、ふちが浮いた）
         {
-            float a = a00 + (i - 2) * 0.72f + 0.1f * Mathf.Sin(i * 2.4f), dist = 0.72f + 0.04f * Mathf.Sin(i * 1.7f), rad = 0.13f + 0.03f * Mathf.Sin(i * 3.1f), hgt = 0.1f + 0.03f * Mathf.Sin(i * 4.3f);
-            var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * dist; const int N = 6;
-            Vector3 P(int k, float rr, float y) { float b = k * Mathf.PI * 2f / N + i; return o + new Vector3(Mathf.Cos(b) * rr * 1.25f, y, Mathf.Sin(b) * rr); }
-            for (int k = 0; k < N; k++)
-            {
-                mb.Quad(P(k, rad, -0.04f), P(k + 1, rad, -0.04f), P(k + 1, rad * 0.62f, hgt), P(k, rad * 0.62f, hgt), P(k, 1f, 0f) + P(k + 1, 1f, 0f) - o * 2f, 0);
-                mb.Quad(o + Vector3.up * (hgt + 0.03f), o + Vector3.up * (hgt + 0.03f), P(k + 1, rad * 0.62f, hgt), P(k, rad * 0.62f, hgt), Vector3.up, 0);
-            }
+            float t = n * Mathf.PI * 2f / Seg; var lp = new Vector3(Mathf.Cos(t) * r, 0f, Mathf.Sin(t) * r);
+            if (Physics.Raycast(b0.TransformPoint(lp) + Vector3.up, Vector3.down, out var hit, 2f, 1 << 11, QueryTriggerInteraction.Ignore)) lp.y = b0.InverseTransformPoint(hit.point).y;
+            lp.y += y; return lp;
         }
-        // 焦げ跡：ふちがでこぼこの低い円。おき火の溶岩はやめた（2026-10-31 てじゃ「焚き火みたいに」）
-        const int Seg = 24;
+        // ふち：道の上は低い焦げた輪だけ
+        var mb = new MB();
         for (int k = 0; k < Seg; k++)
         {
-            float R(int n) { float t = n * Mathf.PI * 2f / Seg; return 0.5f + 0.04f * Mathf.Sin(3f * t + 1f) + 0.025f * Mathf.Sin(7f * t); }   // 一周でつながるよう整数倍の波
-            float a0 = k * Mathf.PI * 2f / Seg, a1 = (k + 1) * Mathf.PI * 2f / Seg; Vector3 Q(float a, float r, float y) => new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r);
-            mb.Quad(Q(a0, R(k), -0.01f), Q(a1, R(k + 1), -0.01f), Q(a1, R(k + 1) * 0.7f, 0.02f), Q(a0, R(k) * 0.7f, 0.02f), Vector3.up, 0);
-            mb.Quad(Q(a0, R(k) * 0.7f, 0.02f), Q(a1, R(k + 1) * 0.7f, 0.02f), Vector3.up * 0.025f, Vector3.up * 0.025f, Vector3.up, 0);
+            mb.Quad(Q(k, R(k) * 1.26f, -0.02f), Q(k + 1, R(k + 1) * 1.26f, -0.02f), Q(k + 1, R(k + 1) * 1.1f, 0.035f), Q(k, R(k) * 1.1f, 0.035f), Vector3.up, 0);
+            mb.Quad(Q(k, R(k) * 1.1f, 0.035f), Q(k + 1, R(k + 1) * 1.1f, 0.035f), Q(k + 1, R(k + 1), MouthY), Q(k, R(k), MouthY), Vector3.up, 0);
         }
-        // まき：根元は地面につけて、先を炎の中で寄りかからせる。炎に近い側は焦げ色、切り口は明るい木の色
-        const int Logs = 5, LogN = 7;
+        b0.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_SeedBase_" + g.name, 1));
+        b0.GetComponent<MeshRenderer>().sharedMaterial = rockMat;
+        // 穴の口と内側。ふちと同じ点でつなぐ
+        var mv = new List<Vector3> { Vector3.zero }; var mt = new List<int>();
+        var sv = new List<Vector3>(); var suv = new List<Vector2>(); var st = new List<int>();
+        var rings = new[] { (k: 1f, y: MouthY, d: 0f), (k: 0.95f, y: -SeedPitDepth * 0.5f, d: 0.5f), (k: 0.86f, y: -SeedPitDepth, d: 1f) };
+        for (int k = 0; k <= Seg; k++)
+        {
+            mv.Add(Q(k, R(k), MouthY)); mv[0] = Vector3.up * Mathf.Max(k == 0 ? float.NegativeInfinity : mv[0].y, mv[k + 1].y);   // 口のまん中はふちの一番高い所に（道の折れ目が口を突き抜けないように）
+            foreach (var q in rings) { sv.Add(Q(k, R(k) * q.k, q.y)); suv.Add(new Vector2(0f, q.d)); }
+        }
+        for (int k = 0; k < Seg; k++)
+        {
+            mt.AddRange(new[] { 0, k + 2, k + 1 });
+            for (int j = 0; j + 1 < rings.Length; j++) { int a = k * rings.Length + j, n = rings.Length; st.AddRange(new[] { a, a + 1, a + n + 1, a, a + n + 1, a + n }); }
+        }
+        int fc = sv.Count; sv.Add(Vector3.down * SeedPitDepth); suv.Add(new Vector2(0f, 1f)); int fb = sv.Count;   // 底
+        for (int k = 0; k <= Seg; k++) { sv.Add(Q(k, R(k) * 0.86f, -SeedPitDepth)); suv.Add(new Vector2(0f, 1f)); }
+        for (int k = 0; k < Seg; k++) st.AddRange(new[] { fc, fb + k + 1, fb + k });
+        Transform Part(string nm, Mesh me, params Material[] ms)
+        {
+            var c = new GameObject(nm, typeof(MeshFilter), typeof(MeshRenderer)).transform; c.SetParent(b0, false);
+            c.GetComponent<MeshFilter>().sharedMesh = me; var r = c.GetComponent<MeshRenderer>(); r.sharedMaterials = ms; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            return c;
+        }
+        var mouth = new Mesh { name = "Course2_2_SeedMouth_" + g.name }; mouth.SetVertices(mv); mouth.SetTriangles(mt, 0); mouth.RecalculateNormals(); mouth.RecalculateBounds();
+        Part("Mouth", SaveMesh(mouth), AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/VentHoleMask.mat"));
+        var shaft = new Mesh { name = "Course2_2_SeedPit_" + g.name }; shaft.SetVertices(sv); shaft.SetUVs(0, suv); shaft.SetTriangles(st, 0); shaft.RecalculateNormals(); shaft.RecalculateBounds();
+        Part("Pit", SaveMesh(shaft), SeedPitMat());
+        // まき：穴の底で組んで、先は道の面まで。炎に近い側は焦げ色、切り口は明るい木の色
+        var lb = new MB(); const int Logs = 5, LogN = 7;
         for (int i = 0; i < Logs; i++)
         {
-            float a = a00 + 0.4f + i * Mathf.PI * 2f / Logs + 0.12f * Mathf.Sin(i * 2.3f), reach = 0.56f + 0.05f * Mathf.Sin(i * 3.7f);
-            var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var foot = dir * reach + Vector3.up * 0.065f; var tip = dir * 0.07f + Vector3.up * (0.42f + 0.05f * Mathf.Sin(i * 5.1f));
+            float a = a00 + 0.4f + i * Mathf.PI * 2f / Logs + 0.12f * Mathf.Sin(i * 2.3f), reach = 0.4f + 0.02f * Mathf.Sin(i * 3.7f);
+            var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var foot = dir * reach + Vector3.down * (SeedPitDepth - 0.06f); var tip = dir * 0.06f + Vector3.down * (0.05f + 0.03f * Mathf.Sin(i * 5.1f));
             var ax = (tip - foot).normalized; var s1 = Vector3.Cross(ax, dir).normalized; var s2 = Vector3.Cross(ax, s1);
-            Vector3 Ring(float t, int k) { float b = k * Mathf.PI * 2f / LogN; return Vector3.Lerp(foot, tip, t) + (s1 * Mathf.Cos(b) + s2 * Mathf.Sin(b)) * Mathf.Lerp(0.065f, 0.04f, t); }
-            var bands = new[] { (t0: 0f, t1: 0.55f, sub: 1), (t0: 0.55f, t1: 1f, sub: 0) };
+            Vector3 Ring(float t, int k) { float b = k * Mathf.PI * 2f / LogN; return Vector3.Lerp(foot, tip, t) + (s1 * Mathf.Cos(b) + s2 * Mathf.Sin(b)) * Mathf.Lerp(0.06f, 0.04f, t); }
+            var bands = new[] { (t0: 0f, t1: 0.55f, sub: 0), (t0: 0.55f, t1: 1f, sub: 1) };
             for (int k = 0; k < LogN; k++)
             {
-                foreach (var bd in bands) mb.Quad(Ring(bd.t0, k), Ring(bd.t0, k + 1), Ring(bd.t1, k + 1), Ring(bd.t1, k), Ring(bd.t0, k) + Ring(bd.t0, k + 1) - foot * 2f, bd.sub);
-                mb.Quad(Ring(0f, k), Ring(0f, k + 1), foot, foot, -ax, 2);
-                mb.Quad(Ring(1f, k), Ring(1f, k + 1), tip, tip, ax, 0);
+                foreach (var bd in bands) lb.Quad(Ring(bd.t0, k), Ring(bd.t0, k + 1), Ring(bd.t1, k + 1), Ring(bd.t1, k), Ring(bd.t0, k) + Ring(bd.t0, k + 1) - foot * 2f, bd.sub);
+                lb.Quad(Ring(0f, k), Ring(0f, k + 1), foot, foot, -ax, 2);
+                lb.Quad(Ring(1f, k), Ring(1f, k + 1), tip, tip, ax, 1);
             }
         }
-        b0.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_SeedBase_" + g.name, 3));
-        b0.GetComponent<MeshRenderer>().sharedMaterials = new[] { rockMat, FuwaStage2WaterTest.ToonMat("Stage2_2_FireLog", new Color(0.4f, 0.25f, 0.16f)), FuwaStage2WaterTest.ToonMat("Stage2_2_Wood", new Color(0.62f, 0.45f, 0.32f)) };
-        var fl = new GameObject("Flames", typeof(MeshFilter), typeof(MeshRenderer)).transform; fl.SetParent(b0, false); fl.localScale = new Vector3(0.36f, 0.36f, 0.36f); fl.localPosition = Vector3.up * 0.05f;   // まきが見えるよう炎は細く
+        Part("Logs", SaveMesh(lb.Build("Course2_2_SeedLogs_" + g.name, 3)), SeedPitToon("Stage2_2_FireLog", new Color(0.4f, 0.25f, 0.16f)), SeedPitToon("Stage2_2_FireLogChar", new Color(0.2f, 0.11f, 0.1f)), SeedPitToon("Stage2_2_FireLogEnd", new Color(0.62f, 0.45f, 0.32f)));
+        var fl = new GameObject("Flames", typeof(MeshFilter), typeof(MeshRenderer)).transform; fl.SetParent(b0, false); fl.localScale = new Vector3(0.36f, 0.5f, 0.36f); fl.localPosition = Vector3.down * (SeedPitDepth - 0.1f);   // 穴の底から道の上 1.2m ほどまで
         fl.GetComponent<MeshFilter>().sharedMesh = IsleFlameMesh(); var fr = fl.GetComponent<MeshRenderer>(); fr.sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_IsleFlame", Color.white); fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; fr.receiveShadows = false;
         var ps = FuwaStage2FireTest.FlamePS(g, "Sparks", 0.35f, 1.5f, 1.2f, new Color(1f, 0.85f, 0.35f), new Color(1f, 0.32f, 0.06f));
         var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f); m.maxParticles = 12; var em = ps.emission; em.rateOverTime = 5f; ps.Play();
+    }
+    // 穴の中に描く物は縦穴（Geometry+11）のあとに描く
+    static Material SeedPitToon(string name, Color c) { var m = FuwaStage2WaterTest.ToonMat(name, c); m.renderQueue = 2012; EditorUtility.SetDirty(m); return m; }
+    static Material SeedPitMat()
+    {
+        const string mp = "Assets/FuwaStage2/Materials/Stage2_2_FirePit.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!mat) { mat = new Material(Shader.Find("FuwaCourse/VentShaft")); AssetDatabase.CreateAsset(mat, mp); }
+        mat.SetColor("_Top", new Color(0.24f, 0.13f, 0.13f)); mat.SetColor("_Bottom", new Color(0.16f, 0.05f, 0.03f)); mat.SetFloat("_Falloff", 1.2f); EditorUtility.SetDirty(mat);
+        return mat;
     }
     // 噴気孔：道にあいた穴に見えるように、低い焦げたふち（盛り上がった火口は道をふさいで見えた。2026-10-31 てじゃ）と、中の溶岩
     static void VentLook(Transform g)
