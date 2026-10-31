@@ -846,7 +846,7 @@ public static class FuwaCourse2_2Builder
 
     // BGM（2026-11-01 てじゃ E「ようがんのこどう」、Tools/audio/make_bgm_hono.py の hono_e_long）。2–1 と同じく FuwaSystem/BGM に足して、作り直すたびに BallStart をつなぎ直す
     const string BgmClip = "Assets/FuwaStage2/Audio/bgm_hono_long2.wav";   // E に参考曲の帯域と強弱を寄せた hono_e3_long。E は bgm_hono_long
-    const float BgmGain = 1.6f;
+    const float BgmGain = 2f;
     static void RegisterBgm(Transform root)
     {
         var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault(); if (!bgm) return;
