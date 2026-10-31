@@ -469,7 +469,8 @@ public static class FuwaCourse2_2Builder
         old.Clear(false); old.indexFormat = m.indexFormat;
         old.SetVertices(m.vertices); old.subMeshCount = m.subMeshCount;
         for (int s = 0; s < m.subMeshCount; s++) old.SetTriangles(m.GetTriangles(s), s);
-        old.normals = m.normals; old.RecalculateBounds(); EditorUtility.SetDirty(old);
+        old.normals = m.normals; if (m.uv.Length > 0) old.uv = m.uv;   // UV も入れ直す（消えると炎の板が全部切り抜かれて見えなくなった）
+        old.RecalculateBounds(); EditorUtility.SetDirty(old);
         return old;
     }
     static GameObject MeshObj(Transform parent, string name, Mesh vis, Mesh col, Material[] mats)
