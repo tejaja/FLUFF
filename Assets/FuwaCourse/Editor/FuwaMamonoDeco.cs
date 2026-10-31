@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -478,6 +478,29 @@ public static class FuwaMamonoDeco
         }
         finally { Object.DestroyImmediate(tgo); }
         return l;
+    }
+
+    // 卵セットをほかのコースでも使う（2026-10-31 2–2）。pos は置く物の親のローカル座標、色はセットごと。当たりなし
+    public static Mesh EggSets(IList<Vector3> pos, IList<Color> colors, string assetPath)
+    {
+        var rnd = new System.Random(1031); float R(float a, float b) { return a + (float)rnd.NextDouble() * (b - a); }
+        var eggs = new MB();
+        for (int s = 0; s < pos.Count; s++)
+        {
+            float er = R(0.2f, 0.26f), d = er * 1.18f, a0 = R(0, 360);
+            Bedding(eggs, pos[s], d + er * 0.95f, er, rnd);
+            for (int k = 0; k < 3; k++)
+            {
+                var outDir = Quaternion.Euler(0, a0 + k * 120 + R(-10, 10), 0) * Vector3.forward;
+                var tilt = Quaternion.AngleAxis(R(8, 16), Vector3.Cross(Vector3.up, outDir)) * Quaternion.Euler(0, R(0, 360), 0);
+                Shell(eggs, Matrix4x4.TRS(pos[s] + outDir * d + Vector3.up * er * 0.85f, tilt, Vector3.one), er, er * 1.3f, 0f, Mathf.PI, colors[s % colors.Count], rnd);
+            }
+        }
+        var m = AssetDatabase.LoadAssetAtPath<Mesh>(assetPath); bool isNew = m == null;
+        if (isNew) m = new Mesh { name = System.IO.Path.GetFileNameWithoutExtension(assetPath), indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; else m.Clear(false);
+        m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; m.SetVertices(eggs.V); m.SetNormals(eggs.N); m.SetColors(eggs.C); m.SetTriangles(eggs.T, 0); m.RecalculateBounds();
+        if (isNew) AssetDatabase.CreateAsset(m, assetPath); else EditorUtility.SetDirty(m);
+        return m;
     }
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/ママの巣のポケットのタマゴを作る")]

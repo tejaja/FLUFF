@@ -234,7 +234,7 @@ public static class FuwaCourse2_2Builder
         //  （2026-10-30 てじゃ「道に沿って落ちるとこの狭さじゃ回避できない、この方向に３個くらい列ずらしで落とす、ちょうどいい位置でバウンドして落ちてくる感じ」）
         {
             float x0 = legs[0].a.x, x1 = legs[0].b.x;
-            float[] cols = { 0.5f };   // 1列（3列は「きついか」→「やっぱ３列＋予告線」→「やっぱむずすぎる、３列やめとこう」）。予告（印・点線）は「びみょう」でなし
+            float[] cols = { 0.33f, 0.67f };   // 2列を半周期ずらし（2026-10-31 てじゃ「2ラインあってもいいかも」。前は1列。3列は「きついか」→「やっぱ３列＋予告線」→「やっぱむずすぎる、３列やめとこう」）。予告（印・点線）は「びみょう」でなし
             for (int c = 0; c < cols.Length; c++)
             {
                 float cx = Mathf.Lerp(x0, x1, cols[c]);
@@ -285,8 +285,9 @@ public static class FuwaCourse2_2Builder
         // 曲がった道の上の (x 横, z 奥行き) の所
         Vector3 OnArena(float x, float z) { Frame(r5, ar.z + z, out var c, out var t); return c + Vector3.Cross(Vector3.up, t).normalized * x; }
         var pholes = puddles.Select(q => { var c = OnArena(q.x, q.z); return new Vector4(c.x, c.y, c.z, PuddleR); }).ToList();
-        Ribbon(path, "Path5", r5, hw5, pts5, pholes.Select(v => new HolePool { c = new List<Vector3> { (Vector3)v }, rr = v.w, ld = LavaDepth }).ToList());
+        Ribbon(path, "Path5", r5, hw5, pts5, pholes.Select((v, pi) => new HolePool { c = new List<Vector3> { (Vector3)v }, rr = v.w, ld = LavaDepth, amp = PuddleWobble, seed = pi * 2.3f + 1.1f }).ToList(), null, true);
         for (int k = 0; k < pholes.Count; k++) Puddle(path, "Puddle" + k, (Vector3)pholes[k]);
+        ArenaDeco(path, OnArena, pholes, vc);
         for (int k = 0; k < monsters.Length; k++) FireMonster(root, "FireMonster" + k, OnArena(monsters[k].x, monsters[k].z));
         // 火口からまもののエリアにも岩を1個（てじゃ「一個まものエリアにも落とそうか、まものも当たったら一応飛ぶ」）：山側から飛んできて2回はねて、外のふちから落ちる
         {
@@ -567,7 +568,7 @@ public static class FuwaCourse2_2Builder
         var c = (l + r) * 0.5f; var fs = new[] { 0f, 0.4f, 0.75f, 1f };
         for (int k = 0; k + 1 < fs.Length; k++) mb.Quad(SkirtPoint(l, c, fs[k]), SkirtPoint(r, c, fs[k]), SkirtPoint(r, c, fs[k + 1]), SkirtPoint(l, c, fs[k + 1]), o, 2);
     }
-    static void Ribbon(Transform parent, string name, List<RPt> r, float[] hw, Vector3[] pts, List<HolePool> holes = null, Transform lavaParent = null)
+    static void Ribbon(Transform parent, string name, List<RPt> r, float[] hw, Vector3[] pts, List<HolePool> holes = null, Transform lavaParent = null, bool smoothSides = false)
     {
         const float T = 0.6f, U = 1.5f, In = 0.1f;
         int n = r.Count;
@@ -575,12 +576,23 @@ public static class FuwaCourse2_2Builder
         for (int i = 0; i < n; i++)
         {
             var t = Flat(r[Mathf.Min(i + 1, n - 1)].p - r[Mathf.Max(i - 1, 0)].p).normalized;
-            side[i] = Vector3.Cross(Vector3.up, t).normalized;
             float w = WAt(pts, hw, r[i].u);
+            // 幅が広い所の角で、道を横切る線どうしが内側で交差して面が折り重なった（2026-10-31）。線の向きを前後 w の範囲の平均にして交差しないように
+            if (smoothSides)
+            {
+                float sum = 0f; var avg = Vector3.zero;
+                for (int j = i - 1; j >= 0 && sum < w * 1.5f; j--) { var d = Flat(r[j + 1].p - r[j].p); avg += d; sum += d.magnitude; }
+                sum = 0f;
+                for (int j = i; j + 1 < n && sum < w * 1.5f; j++) { var d = Flat(r[j + 1].p - r[j].p); avg += d; sum += d.magnitude; }
+                if (avg.sqrMagnitude > 1e-6f) t = avg.normalized;
+            }
+            side[i] = Vector3.Cross(Vector3.up, t).normalized;
             R[i] = r[i].p + side[i] * w; L[i] = r[i].p - side[i] * w;
             Ri[i] = r[i].p + side[i] * (w - In); Li[i] = r[i].p - side[i] * (w - In);
             if (i > 0) s[i] = s[i - 1] + Flat(r[i].p - r[i - 1].p).magnitude;
         }
+        int folds = 0; string foldAt = ""; for (int i = 0; i + 1 < n; i++) { var f = Flat(r[i + 1].p - r[i].p); if (Vector3.Dot(R[i + 1] - R[i], f) <= 0f || Vector3.Dot(L[i + 1] - L[i], f) <= 0f) { folds++; foldAt += " #" + i + "/" + n + r[i].p.ToString("F1") + " f=" + f.magnitude.ToString("F3"); } }
+        if (folds > 0) Debug.LogWarning("[2–2] " + name + " 道の面の折り重なり " + folds + " か所" + foldAt);
         var vis = new MB(); var col = new MB(); var lava = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
         for (int i = 0; i < n - 1; i++)
         {
@@ -1426,10 +1438,10 @@ public static class FuwaCourse2_2Builder
     static void Puddle(Transform parent, string name, Vector3 c)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
-        Box(g, "Bed", c + Vector3.down * (0.45f + 0.15f), new Vector3(PuddleR * 2f, 0.3f, PuddleR * 2f), rockMat, pathLayer);
-        float wx = PuddleR * 2f;
+        Box(g, "Bed", c + Vector3.down * (0.45f + 0.15f), new Vector3((PuddleR + PuddleWobble) * 2f + 0.1f, 0.3f, (PuddleR + PuddleWobble) * 2f + 0.1f), rockMat, pathLayer);
+        float wx = (PuddleR + PuddleWobble) * 2f + 0.1f;   // ふちのふくらみまで
         var water = new GameObject("Water"); water.transform.SetParent(g, false); water.transform.localPosition = c + Vector3.up * (PondSurface - 0.5f); water.layer = 4;
-        var bc = water.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(PuddleR * 1.4f, 1.0f, PuddleR * 1.4f);   // 四角の角が穴の円に入るくらい（1.8 だと角が穴の外で、ふちでまものが落ちて壁に埋まった）
+        var bc = water.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(PuddleR * 1.25f, 1.0f, PuddleR * 1.25f);   // 四角の角が穴に入るくらい（1.8 だと角が穴の外で、ふちでまものが落ちて壁に埋まった。ふちをでこぼこにしたので 1.4→1.25）
         var surf = GameObject.CreatePrimitive(PrimitiveType.Quad); surf.name = "Surface"; surf.transform.SetParent(water.transform, false);
         surf.transform.localPosition = Vector3.up * 0.5f; surf.transform.localRotation = Quaternion.Euler(90f, 0, 0); surf.transform.localScale = new Vector3(wx, wx, 1f);
         Object.DestroyImmediate(surf.GetComponent<Collider>());
@@ -1438,6 +1450,46 @@ public static class FuwaCourse2_2Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(w); FuwaStage2WaterTest.NoSync(w);
         var sw = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaShallowWater>(water);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sw); FuwaStage2WaterTest.NoSync(sw);
+        PuddleSteam(g, c + Vector3.up * PondSurface);
+    }
+    public const float PuddleWobble = 0.18f;
+    // まもののエリアの飾り（2026-10-31）：ふちに卵と枯れ木。床の焦げ跡と割れ目は試して「いらんかも」でやめた。
+    //  床の火は置かない（このコースの床の火は火種＝ギミックなので、まぎらわしい）
+    static void ArenaDeco(Transform path, System.Func<float, float, Vector3> onArena, List<Vector4> holes, Vector3 volcano)
+    {
+        float sg = Vector3.Dot(Flat(onArena(1f, 10f) - onArena(0f, 10f)), Flat(volcano - onArena(0f, 10f))) > 0f ? 1f : -1f;   // 山側
+        // 外のふちの枯れ木（当たりなし）
+        var src = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Generated/Lite/YamiDeadTree_Lite.asset"); if (!src) return;
+        var tree = BurntTreeMesh(src); var bark = FuwaStage2WaterTest.ToonMat("Stage2_2_BurntBark", new Color(0.2f, 0.15f, 0.15f));
+        // 外のふちの卵（2026-10-31 てじゃ「コースの端に卵とか置いとくか、ちょっと色変えて」）：まもののすと同じ巣の卵セットの色ちがい。手前の枯れ木は画面のまん中で目立ちすぎたのでやめた
+        var eggMesh = FuwaMamonoDeco.EggSets(new[] { onArena(-sg * 5f, 8.2f), onArena(-sg * 4.9f, 14.6f), onArena(sg * 4.9f, 13.7f) }, new[] { new Color(0.95f, 0.45f, 0.22f), new Color(0.98f, 0.7f, 0.28f), new Color(0.72f, 0.2f, 0.16f) }, MeshDir22 + "/Course2_2_ArenaEggs.asset");
+        var eg = new GameObject("ArenaEggs", typeof(MeshFilter), typeof(MeshRenderer)); eg.transform.SetParent(path, false); eg.GetComponent<MeshFilter>().sharedMesh = eggMesh;
+        var er = eg.GetComponent<MeshRenderer>(); er.sharedMaterial = AssetDatabase.FindAssets("Den_Twig t:Material").Select(g2 => AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(g2))).First(m => m.name == "Den_Twig"); er.receiveShadows = false;
+        foreach (var q in new[] { (z: 21f, yaw: 200f, s: 0.95f) })
+        {
+            var o = new GameObject("ArenaTree", typeof(MeshFilter), typeof(MeshRenderer)).transform; o.SetParent(path, false);
+            o.localScale = Vector3.one * q.s; o.localRotation = Quaternion.Euler(0f, q.yaw, 0f);
+            o.localPosition = onArena(-sg * 5.35f, q.z) - o.localRotation * (new Vector3(-1.6f, -1.42f, 0f) * q.s);
+            o.GetComponent<MeshFilter>().sharedMesh = tree; var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = bark; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+    }
+    // 水たまりの湯気：火山のそばの水なので、白いもくもくを少しだけ
+    public static void PuddleSteam(Transform g, Vector3 at)
+    {
+        var ps = FuwaStage2FireTest.FlamePS(g, "Steam", PuddleR * 0.6f, 0.5f, 2.6f, Color.white, Color.white);
+        ps.transform.localPosition = at;
+        var m = ps.main; m.startColor = new Color(1f, 1f, 1f, 0.55f); m.startLifetime = new ParticleSystem.MinMaxCurve(1.8f, 3f); m.startSpeed = new ParticleSystem.MinMaxCurve(0.25f, 0.6f); m.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.95f); m.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f); m.maxParticles = 10; m.prewarm = true;
+        var em = ps.emission; em.rateOverTime = 3f;
+        var sh = ps.shape; sh.angle = 18f;
+        var col = ps.colorOverLifetime; col.enabled = true; var gr = new Gradient();
+        gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(0.6f, 0.25f), new GradientAlphaKey(0f, 1f) });
+        col.color = gr;
+        var so = ps.sizeOverLifetime; so.enabled = true; so.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(1f, 1.5f)));
+        var ts = ps.textureSheetAnimation; ts.enabled = true; ts.numTilesX = 4; ts.numTilesY = 4; ts.animation = ParticleSystemAnimationType.WholeSheet; ts.frameOverTime = new ParticleSystem.MinMaxCurve(0f); ts.startFrame = new ParticleSystem.MinMaxCurve(0f, 15f / 16f);
+        var r = ps.GetComponent<ParticleSystemRenderer>(); var mat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_2_VolcanoSteam.mat");
+        if (!mat) { mat = new Material(Shader.Find("FuwaCourse/SteamPuff")); mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaCourse/Textures/SteamPuffSheet.png"); AssetDatabase.CreateAsset(mat, "Assets/FuwaStage2/Materials/Stage2_2_VolcanoSteam.mat"); }
+        r.sharedMaterial = mat;
+        ps.Play();
     }
 
     // ほのおのまもの：コースのまもの（FuwaEnemy、寝てない・巣にかくれない物）を写して、赤く・炎をまとわせる。突進で燃える・水で倒れる
