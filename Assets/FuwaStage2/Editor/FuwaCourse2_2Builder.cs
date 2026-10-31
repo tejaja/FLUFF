@@ -971,11 +971,11 @@ public static class FuwaCourse2_2Builder
         c.rotation = Physics.Raycast(g.position + Vector3.up, Vector3.down, out var gh, 2f, 1 << 11, QueryTriggerInteraction.Ignore) ? Quaternion.LookRotation(Vector3.ProjectOnPlane(g.forward, gh.normal), gh.normal) : g.rotation;
         var cr = c.GetComponent<MeshRenderer>(); cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; cr.receiveShadows = false;
         var L = c.InverseTransformDirection(g.TransformDirection(launch)).normalized; var X = Vector3.Cross(Vector3.up, L).normalized; var U = Vector3.Cross(L, X).normalized; if (U.y < 0f) U = -U;
-        const float Rin = 0.2f, Rout = 0.27f, BrowH = 0.1f, LipY = 0.02f; const int N = 28;
+        const float Rin = 0.28f, Rout = 0.36f, BrowH = 0.08f, LipY = 0.02f; const int N = 28; float kU = L.y * 1.08f;   // 筒の断面を上下につぶして、道の面での穴を丸く（まん丸の筒だと斜めに切れて縦長でとがって見えた。2026-10-31 てじゃ）
         var A = new Vector3(0f, 0f, 0.15f);   // 筒の軸が道の面を通る所
         float Warp(int k) { float a = k * Mathf.PI * 2f / N; return 1f + 0.08f * Mathf.Sin(2f * a + 0.9f) + 0.06f * Mathf.Sin(3f * a + 2.1f) + 0.025f * Mathf.Sin(5f * a + 0.4f); }   // 穴の形のゆがみ（2026-10-31 てじゃ「ちょっと形をゆがませて」）
-        Vector3 Pt(float sv, int k, float rr) { float a = k * Mathf.PI * 2f / N; return A + L * sv + (U * Mathf.Cos(a) + X * Mathf.Sin(a)) * rr * Warp(k); }
-        float SGround(int k, float rr) => -(rr * Warp(k) * Mathf.Cos(k * Mathf.PI * 2f / N) * U.y) / L.y;
+        Vector3 Pt(float sv, int k, float rr) { float a = k * Mathf.PI * 2f / N; return A + L * sv + (U * Mathf.Cos(a) * kU + X * Mathf.Sin(a)) * rr * Warp(k); }
+        float SGround(int k, float rr) => -(rr * Warp(k) * kU * Mathf.Cos(k * Mathf.PI * 2f / N) * U.y) / L.y;
         // ふちを切る面：内側の穴の前のはしで LipY、後ろのはしで BrowH。前が低く後ろが高い
         float zB = Pt(SGround(0, Rin), 0, Rin).z, zF = Pt(SGround(N / 2, Rin), N / 2, Rin).z;
         float PlaneGap(Vector3 q) => q.y - Mathf.Lerp(LipY, BrowH, (zF - q.z) / (zF - zB));
@@ -1014,12 +1014,15 @@ public static class FuwaCourse2_2Builder
         Vector3 SoilPt(int k, float t, float yUp)
         {
             float a = k * Mathf.PI * 2f / N, ro = Rout * Rock(k); var q = Pt(SRoad(k, ro), k, ro); var d = new Vector3(q.x - A.x, 0f, q.z - A.z).normalized;
-            float w = (0.1f + 0.34f * Mathf.Abs(d.x)) * (1f + 0.22f * Mathf.Sin(2f * a + 1f) + 0.14f * Mathf.Sin(3f * a + 0.3f));
+            float w = 0.24f * (1f + 0.2f * Mathf.Sin(2f * a + 1f) + 0.12f * Mathf.Sin(3f * a + 0.3f));
             if (Mathf.Abs(d.x) > 0.01f) w = Mathf.Min(w, Mathf.Max(0f, NarrowHW - 0.1f - Mathf.Abs(q.x)) / Mathf.Abs(d.x));
-            q += t > 0f ? d * w * t : -d * (0.05f + 0.08f * Mathf.Max(0f, -d.z)); q.y = RoadY(q) + yUp; return q;   // 内のはしはふちの下へ入れる（筒の外側とのあいだに道がのぞいた）
+            q += d * w * t; q.y = RoadY(q) + yUp; return q;
         }
+        // 内のはしは穴のふちまで。筒の上の面は低くて折れやすく、土を筒の外側で止めるとあいだに道がのぞいた
+        Vector3 SoilIn(int k) { var q = Pt(SRoad(k, Rin), k, Rin); q.y = RoadY(q) + 0.03f; return q; }
         for (int k = 0; k < N; k++)
         {
+            mb.Quad(SoilIn(k), SoilIn(k + 1), SoilPt(k + 1, 0f, 0.03f), SoilPt(k, 0f, 0.03f), Vector3.up, 0);
             mb.Quad(SoilPt(k, 0f, 0.03f), SoilPt(k + 1, 0f, 0.03f), SoilPt(k + 1, 0.55f, 0.022f), SoilPt(k, 0.55f, 0.022f), Vector3.up, 0);
             mb.Quad(SoilPt(k, 0.55f, 0.022f), SoilPt(k + 1, 0.55f, 0.022f), SoilPt(k + 1, 1f, -0.012f), SoilPt(k, 1f, -0.012f), Vector3.up, 0);
         }
@@ -1110,7 +1113,7 @@ public static class FuwaCourse2_2Builder
         main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.98f, 0.94f, 0.9f), new Color(1f, 0.88f, 0.76f, 0.8f));
         main.maxParticles = 60; main.simulationSpace = ParticleSystemSimulationSpace.World; main.gravityModifier = -0.05f;
         var em = ps.emission; em.rateOverTime = 26f;
-        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.14f;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.18f;
         var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 1.2f; lim.dampen = 0.08f;
         var col = ps.colorOverLifetime; col.enabled = true;
         var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0.5f, 0.4f), new GradientAlphaKey(0f, 1f) });
