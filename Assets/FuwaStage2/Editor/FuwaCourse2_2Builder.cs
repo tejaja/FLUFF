@@ -725,21 +725,14 @@ public static class FuwaCourse2_2Builder
         return r * (1f + 0.16f * n + 0.04f * Mathf.Sin(5f * a + h * 0.2f));
     }
     // 火山の岩：丸くて暗い玉 → 角ばった溶岩の岩（Tools/stage2_lavarock.py、FuwaCourse/LavaRock。2026-10-31）。当たりは今まで通りスクリプトの球
-    // 試し（2026-10-31 てじゃ「手前の飛び出す溶岩と同じみためだとどうなるかな」）：火の玉と同じ見た目。true で角ばった岩に戻る
-    const bool LavaRockAngular = false;
+    // 火の玉と同じ見た目は試して「ちょっと差がないとびみょう」（2026-10-31）→ 形は角ばった岩のまま、割れ目を太く・ふちを光らせて燃えている岩に
     public static void LavaRockLook(GameObject vis, string name)
     {
-        if (!LavaRockAngular)
-        {
-            vis.GetComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Sphere.fbx");
-            vis.GetComponent<Renderer>().sharedMaterial = FireballMat();
-            return;
-        }
         var mesh = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2_LavaRock.fbx").OfType<Mesh>().FirstOrDefault(x => x.name == "Stage2_LavaRock" + (name.EndsWith("1") ? 1 : 0));
         if (mesh) vis.GetComponent<MeshFilter>().sharedMesh = mesh;
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_LavaRock", new Color(0.35f, 0.12f, 0.08f));
         var sh = Shader.Find("FuwaCourse/LavaRock");
-        if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); EditorUtility.SetDirty(m); }
+        if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); m.SetFloat("_Width", 0.42f); EditorUtility.SetDirty(m); }
         vis.GetComponent<Renderer>().sharedMaterial = m;
     }
     // 火の玉：のっぺりしたオレンジ→メラメラ（FuwaCourse/Fireball、2026-10-31）。尾は太く長く

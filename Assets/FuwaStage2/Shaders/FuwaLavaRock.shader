@@ -11,6 +11,8 @@ Shader "FuwaCourse/LavaRock"
         _Scale ("割れ目の細かさ（球の直径あたり）", Float) = 0.55
         _Width ("割れ目の太さ", Range(0.05,0.6)) = 0.32
         _Under ("下側の赤い照り返し", Range(0,1)) = 0.5
+        [HDR] _RimGlow ("ふちの熱の光", Color) = (1.3, 0.34, 0.05, 1)
+        _RimPower ("ふちの光の細さ", Range(0.5,6)) = 2.2
     }
     SubShader
     {
@@ -29,10 +31,11 @@ Shader "FuwaCourse/LavaRock"
             fixed4 _Rock;
             half4 _Crack, _CrackHot;
             float _Scale;
-            half _Width, _Under;
+            half _Width, _Under, _RimPower;
+            half4 _RimGlow;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; };
-            struct v2f { float4 pos : SV_POSITION; float3 op : TEXCOORD0; float3 wn : TEXCOORD1; half3 amb : TEXCOORD2; UNITY_FOG_COORDS(3) };
+            struct v2f { float4 pos : SV_POSITION; float3 op : TEXCOORD0; float3 wn : TEXCOORD1; half3 amb : TEXCOORD2; float3 wp : TEXCOORD4; UNITY_FOG_COORDS(3) };
 
             v2f vert (appdata v)
             {
@@ -41,6 +44,7 @@ Shader "FuwaCourse/LavaRock"
                 o.op = v.vertex.xyz;
                 o.wn = UnityObjectToWorldNormal(v.normal);
                 o.amb = ShadeSH9(float4(o.wn, 1));
+                o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -52,6 +56,8 @@ Shader "FuwaCourse/LavaRock"
                 half3 c = _Rock.rgb * (_LightColor0.rgb * wrap + i.amb * 0.6);
                 // 下側は溶岩の照り返しで赤く
                 c += _Crack.rgb * _Under * 0.22 * saturate(-n.y * 0.8 + 0.1);
+                // ふちが熱で赤く光る（暗い空でも空の前でも、燃えている岩に見えるように）
+                c += _RimGlow.rgb * pow(1 - saturate(dot(n, normalize(_WorldSpaceCameraPos - i.wp))), _RimPower);
 
                 // 割れ目：3 方向から取った筋（どの面でも切れないように）
                 float3 an = abs(normalize(i.op)); an = an * an; an /= an.x + an.y + an.z;
