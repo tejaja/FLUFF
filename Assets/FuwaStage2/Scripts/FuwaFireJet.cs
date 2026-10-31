@@ -19,6 +19,9 @@ public class FuwaFireJet : UdonSharpBehaviour
     [Tooltip("いっしょに吹くほかの炎・前ぶれ（縦に並べた炎の壁など）")]
     public ParticleSystem[] moreFlames, moreWarns;
     public AudioSource roar;
+    [Tooltip("噴くと伸びる炎の本体（上向きが炎の向き）。前ぶれで少し出て、止まると引っ込む（2026-10-31）")]
+    public Transform flameBody;
+    public float bodyWarn = 0.16f, bodySpeed = 7f;
     [Header("火炎放射（2026-10-29 てじゃの 2–2「横の岩の穴から吹き出す、当たるとアウト、人はちょっと吹っ飛ぶ」）")]
     [Tooltip("当たったふわふわは黒焦げ→アウト（温めて浮かせるのではなく）")]
     public bool deadly = false;
@@ -40,7 +43,7 @@ public class FuwaFireJet : UdonSharpBehaviour
     public float playerPerMeter = 0f;
     public Vector3 playerSide = Vector3.zero;
     private bool _wasOn, _blasted;
-    private float _pushedAt = -10f;
+    private float _pushedAt = -10f, _body;
 
     public bool IsOn() { return T() < onTime; }
     // 周期の中の今の時刻（秒）。サーバー時刻の整数ミリ秒で割り算する（2026-10-29 VRChat でだけ火炎放射が止まらない・火の玉が変な所を飛んだ：
@@ -60,6 +63,13 @@ public class FuwaFireJet : UdonSharpBehaviour
         if (warn != null) { var e = warn.emission; e.rateOverTime = w ? warnRate : 0f; }
         if (moreFlames != null) for (int i = 0; i < moreFlames.Length; i++) if (moreFlames[i] != null) { var e = moreFlames[i].emission; e.rateOverTime = on ? flameRate : 0f; }
         if (moreWarns != null) for (int i = 0; i < moreWarns.Length; i++) if (moreWarns[i] != null) { var e = moreWarns[i].emission; e.rateOverTime = w ? warnRate : 0f; }
+        if (flameBody != null)
+        {
+            _body = Mathf.MoveTowards(_body, on ? 1f : (w ? bodyWarn : 0f), bodySpeed * Time.deltaTime);
+            bool show = _body > 0.001f;
+            if (flameBody.gameObject.activeSelf != show) flameBody.gameObject.SetActive(show);
+            if (show) flameBody.localScale = new Vector3(Mathf.Lerp(0.6f, 1f, _body), _body, Mathf.Lerp(0.6f, 1f, _body));
+        }
         if (on && !_wasOn) { _blasted = false; if (roar != null && roar.clip != null) roar.PlayOneShot(roar.clip); }
         _wasOn = on;
         if (on) PushPlayer();
