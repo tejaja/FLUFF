@@ -137,6 +137,7 @@ public class FuwaBall : UdonSharpBehaviour
     private Vector3 _furDrag;
     [Tooltip("撃たれた顔 😣 を出しておく秒（顔の材質の _FaceHit。2026-10-30 顔をデフォにしたので FuwaSharedBall と同じく）")]
     public float hitFaceTime = 1.0f;   // 0.6→1.0（2026-10-30 てじゃ「＞＜の時間ちょっと伸ばしてもいい」）
+    private const float HitFaceLaunchSpeed = 2.5f;   // これより速く打ち出されたら 😣（いちばん弱い火の岩の押しで約 2.9）
     private float _hitFaceUntil;
     private bool _hitFaceShown;
 
@@ -250,7 +251,7 @@ public class FuwaBall : UdonSharpBehaviour
             _furDrag = Vector3.Lerp(_furDrag, target, 1f - Mathf.Exp(-8f * Time.deltaTime));
             _furMat.SetVector("_Drag", new Vector4(_furDrag.x, _furDrag.y, _furDrag.z, 0f));
             UpdateGlow();
-            bool hit = Time.time < _hitFaceUntil;
+            bool hit = Time.time < _hitFaceUntil || _resetAt > 0f || _spiking;   // アウトになってから戻るまでも 😣（2026-10-31 てじゃ）
             if (hit != _hitFaceShown) { _hitFaceShown = hit; _furMat.SetFloat("_FaceHit", hit ? 1f : 0f); }
         }
         if (_stuck) UpdateStuckShake();
@@ -480,6 +481,7 @@ public class FuwaBall : UdonSharpBehaviour
         if (_waiting || _resetAt > 0f || _finished || _stuck) return;
         _rb.velocity = velocity;
         _flightUntil = 0f;
+        if (velocity.sqrMagnitude > HitFaceLaunchSpeed * HitFaceLaunchSpeed) _hitFaceUntil = Time.time + hitFaceTime;   // 強く吹っ飛んだ時も 😣（2026-10-31 てじゃ）
         if (velocity.sqrMagnitude > 0.0001f) { _launchGlow = false; SetGlow(glow, velocity.normalized, 1f, launchGlowTime); _launchGlow = true; }
     }
 
