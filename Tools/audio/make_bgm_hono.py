@@ -241,8 +241,8 @@ def hono_e3_long(path=None):
         m.add(sub_bass(midi_hz(rumble), 4 * m.beat + 0.05, 0.3), bar * 4, rev=0.02, gain=0.75 + 0.25 * g, humanize=0)
         # 中音の芯：声とやわらかいパッド（速い動きはしない）
         for q in sorted(old.nearest(74 + (x - 74) % 12, [x], 69, 81) for x in cps):
-            m.add(choir(midi_hz(q), 4 * m.beat + 0.3, 0.3, vowel='a'), bar * 4, pan=-0.12, rev=0.4, gain=0.55 + 0.75 * g, humanize=0)
-            m.add(warm_pad(midi_hz(q), 4 * m.beat + 0.3, 0.3, bright=0.25), bar * 4, pan=0.12, rev=0.4, gain=0.45 + 0.65 * g, humanize=0)
+            m.add(choir(midi_hz(q), 4 * m.beat + 0.3, 0.3, vowel='a'), bar * 4, pan=-0.12, rev=0.4, gain=0.16 + 0.22 * g, humanize=0)   # 声はうっすら（てじゃ「声がつよい」）
+            m.add(warm_pad(midi_hz(q), 4 * m.beat + 0.3, 0.3, bright=0.25), bar * 4, pan=0.12, rev=0.4, gain=0.6 + 0.85 * g, humanize=0)
         for beat, iv, v in (thin if quiet else riff):
             d = (1.2 if quiet else 0.4) * m.beat
             m.add(power2(midi_hz(root + iv + 12), d, m.vel(v), drive=3.0), bar * 4 + beat, pan=-0.12, rev=0.08, gain=0.6 * g, humanize=0.003)
