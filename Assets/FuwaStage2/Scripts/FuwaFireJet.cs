@@ -45,7 +45,9 @@ public class FuwaFireJet : UdonSharpBehaviour
     private bool _wasOn, _blasted;
     private float _pushedAt = -10f, _body;
 
-    public bool IsOn() { return T() < onTime; }
+    // ずっと燃えているだけの物（溶岩・炎の壁）は毎フレームの処理をしない（2026-11-01 負荷対策）
+    private bool _idleChecked, _idle;
+    public bool IsOn() { return onTime >= period || T() < onTime; }
     // 周期の中の今の時刻（秒）。サーバー時刻の整数ミリ秒で割り算する（2026-10-29 VRChat でだけ火炎放射が止まらない・火の玉が変な所を飛んだ：
     // 秒の double にずらしを足して割る方式だと実機で狂った。FuwaWhirlwind と同じミリ秒の方式に）
     private float T()
@@ -58,6 +60,8 @@ public class FuwaFireJet : UdonSharpBehaviour
 
     private void Update()
     {
+        if (!_idleChecked) { _idleChecked = true; _idle = onTime >= period && flame == null && warn == null && flameBody == null && roar == null && playerPush <= 0f && (moreFlames == null || moreFlames.Length == 0) && (moreWarns == null || moreWarns.Length == 0); }
+        if (_idle) return;
         float t = T(); bool on = t < onTime; bool w = !on && t > period - warnTime;
         if (flame != null) { var e = flame.emission; e.rateOverTime = on ? flameRate : 0f; }
         if (warn != null) { var e = warn.emission; e.rateOverTime = w ? warnRate : 0f; }

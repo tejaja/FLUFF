@@ -347,6 +347,7 @@ public static class FuwaCourse2_2Builder
         }
         FuwaStage2LobbyCourses.Run();
         FuwaCourse2_1Builder.FixNetworkIDs();
+        FuwaStage2Static.Apply(root);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–2] ゴールまで " + p.z.ToString("F0") + "m、高さ " + p.y.ToString("F1") + "m";
     }
