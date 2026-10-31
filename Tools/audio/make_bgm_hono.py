@@ -218,6 +218,51 @@ def hono_e_long(path=None):
     st = master(m, rt60=1.5, rev_level=0.3, damp=0.6, lowcut=30, warmth_db=0.8, air_db=0.3, comp_thresh=-17, comp_ratio=2.2, target_rms_db=-14.0)
     save(st, path or os.path.join(OUT, "bgm_hono_long.wav"))
 
+def hono_e3_long(path=None):
+    """E の長い版に、てじゃの参考曲の帯域と強弱を寄せた版（2026-11-01）。リフは同じ。地鳴りの低音（40Hz あたり）と、声とやわらかいパッドの中音の芯（500〜1000Hz）を足す。
+    高音は足さない（E2 は高音まで増えて不採用）。静かな所と大きい所の差をつける：A 少しおさえる → B 前半ぐっと静か → B 後半だんだん大きく → A' 一番大きい"""
+    m = Mix(100, 48, tail=3.0, seed=65)
+    progA = ['Em', 'Em', 'C', 'Em', 'Em', 'Em', 'Am', 'B', 'Em', 'Em', 'C', 'Em', 'Am', 'C', 'B', 'B']
+    progB = ['C', 'C', 'Am', 'Am', 'C', 'C', 'B', 'B', 'Em', 'Em', 'C', 'C', 'Am', 'Am', 'B', 'B']
+    prog = progA + progB + progA
+    riff = ((0, 0, 0.75), (0.75, 0, 0.5), (1.5, 0, 0.6), (2, 3, 0.55), (2.5, 0, 0.5), (3, 7, 0.55), (3.5, 6, 0.5))
+    thin = ((0, 0, 0.75), (2, 0, 0.55), (3.5, 6, 0.42))
+    def level(bar):
+        if bar < 16: return 0.72
+        if bar < 24: return 0.3
+        if bar < 32: return 0.42 + 0.55 * (bar - 24) / 7.0
+        return 1.0
+    for bar, cn in enumerate(prog):
+        r, cps = old.chord(cn)
+        root = old.nearest(40, [r], 35, 46)
+        quiet = 16 <= bar < 24; last = bar >= 32; g = level(bar)
+        # 地鳴り：リフの 1 オクターブ下を長く
+        rumble = root - 12 if root - 12 >= 26 else root
+        m.add(sub_bass(midi_hz(rumble), 4 * m.beat + 0.05, 0.3), bar * 4, rev=0.02, gain=0.75 + 0.25 * g, humanize=0)
+        # 中音の芯：声とやわらかいパッド（速い動きはしない）
+        for q in sorted(old.nearest(74 + (x - 74) % 12, [x], 69, 81) for x in cps):
+            m.add(choir(midi_hz(q), 4 * m.beat + 0.3, 0.3, vowel='a'), bar * 4, pan=-0.12, rev=0.4, gain=0.55 + 0.75 * g, humanize=0)
+            m.add(warm_pad(midi_hz(q), 4 * m.beat + 0.3, 0.3, bright=0.25), bar * 4, pan=0.12, rev=0.4, gain=0.45 + 0.65 * g, humanize=0)
+        for beat, iv, v in (thin if quiet else riff):
+            d = (1.2 if quiet else 0.4) * m.beat
+            m.add(power2(midi_hz(root + iv + 12), d, m.vel(v), drive=3.0), bar * 4 + beat, pan=-0.12, rev=0.08, gain=0.6 * g, humanize=0.003)
+            m.add(finger_bass(midi_hz(root + iv), d, m.vel(v, 0.04), tone=0.5), bar * 4 + beat, rev=0.03, gain=0.26 * g, humanize=0.003)
+        drums = ((0, 66, 0.85), (2, 66, 0.6)) if quiet else ((0, 66, 0.85), (1.5, 66, 0.6), (2, 88, 0.6), (3, 66, 0.7), (3.5, 88, 0.5))
+        for beat, f, v in drums:
+            m.add(tom2(f, m.vel(v), skin=0.6), bar * 4 + beat, pan=(beat - 2) * 0.08, rev=0.18, gain=0.36 * g + 0.04, humanize=0.003)
+        if not quiet:
+            for k in range(4): m.add(anvil(midi_hz(old.nearest(76, [r], 71, 83)), m.vel(0.2 if k % 2 == 0 else 0.13)), bar * 4 + k + 0.5, pan=0.32, rev=0.25, gain=0.75 * g, humanize=0.003)
+        elif bar % 2 == 1:
+            m.add(anvil(midi_hz(old.nearest(76, [r], 71, 83)), m.vel(0.24)), bar * 4 + 3, pan=0.32, rev=0.5, gain=0.7, humanize=0.002)
+        if bar % 4 == 0 or (last and bar % 2 == 0):
+            m.add(brass2(midi_hz(root + 12), 3.6 * m.beat, m.vel(0.42), bright=0.3, att=0.6), bar * 4, pan=0.2, rev=0.35, gain=g, humanize=0.004)
+            if last: m.add(brass2(midi_hz(root + 19), 3.6 * m.beat, m.vel(0.34), bright=0.3, att=0.6), bar * 4, pan=-0.2, rev=0.35, humanize=0.004)
+        if bar in (31, 47):
+            for j, f in enumerate((130, 130, 110, 110, 90, 90, 74, 74)):
+                m.add(tom2(f, m.vel(0.42 + j * 0.03), skin=0.6), bar * 4 + 2 + j * 0.25, pan=-0.3 + j * 0.08, rev=0.16, gain=0.42 if bar == 47 else 0.34, humanize=0.002)
+    st = master(m, rt60=1.8, rev_level=0.32, damp=0.65, lowcut=24, warmth_db=0.6, air_db=0.0, comp_thresh=-14, comp_ratio=1.4, target_rms_db=-15.0)
+    save(st, path or os.path.join(OUT, "bgm_hono_long2.wav"))
+
 if __name__ == '__main__':
     args = sys.argv[1:]
     out = None
