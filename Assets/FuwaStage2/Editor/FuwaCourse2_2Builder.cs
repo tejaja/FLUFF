@@ -980,7 +980,7 @@ public static class FuwaCourse2_2Builder
     {
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_SeedFlame", Color.white); m.shader = Shader.Find("FuwaCourse/FlameCurtain");
         m.SetFloat("_Base", 0.5f); m.SetFloat("_BandScale", 2.2f); m.SetFloat("_BandByH", 1f); m.SetFloat("_Sway", 0.12f);
-        m.SetFloat("_BandLow", 0.04f); m.SetFloat("_BandHot", 0.45f); m.SetFloat("_BandMid", 0.7f); m.SetColor("_Tip", new Color(0.95f, 0.14f, 0.045f)); m.SetFloat("_BandSelf", 1f); m.SetFloat("_BandSoft", 0.1f); EditorUtility.SetDirty(m);   // 外のふちは細い赤、オレンジはその内側まで（2026-10-31 てじゃ「オレンジが外側までいく」）
+        m.SetFloat("_BandLow", 0.04f); m.SetFloat("_BandHot", 0.45f); m.SetFloat("_BandMid", 0.7f); m.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); m.SetFloat("_BandSelf", 1f); m.SetFloat("_BandSoft", 0.1f); EditorUtility.SetDirty(m);   // 外のふちは細い赤、オレンジはその内側まで（2026-10-31 てじゃ「オレンジが外側までいく」）
         return m;
     }
     // 穴の中に描く物は縦穴（Geometry+11）のあとに描く
@@ -1249,7 +1249,7 @@ public static class FuwaCourse2_2Builder
         }
         m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_FlameCurtain", Color.white);
-        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.5f); mat.SetFloat("_BandMid", 2f); mat.SetColor("_Tip", new Color(0.95f, 0.14f, 0.045f)); mat.SetFloat("_BandSelf", 0f); mat.SetFloat("_Rim", 0.11f); mat.SetFloat("_BandSoft", 0.1f); EditorUtility.SetDirty(mat);   // 外のふちは細い赤（2026-10-31 てじゃ）。_BandSelf は横切る帯の縦線が戻るので使わない
+        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.5f); mat.SetFloat("_BandMid", 2f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 0f); mat.SetFloat("_Rim", 0.11f); mat.SetFloat("_BandSoft", 0.1f); EditorUtility.SetDirty(mat);   // 外のふちは細い赤（2026-10-31 てじゃ）。_BandSelf は横切る帯の縦線が戻るので使わない
         var c = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c.transform.SetParent(g, false);
         c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m);
         var r = c.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
