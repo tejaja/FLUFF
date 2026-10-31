@@ -66,7 +66,7 @@ public static class FuwaCourse2_2Builder
 
         pathA = PathMat("Course2_2_PathA", PathColA); pathB = PathMat("Course2_2_PathB", PathColB);
         rockMat = FuwaStage2WaterTest.ToonMat("Stage2_2_Rock", RockCol);
-        lavaMat = FuwaStage2WaterTest.ToonMat("Stage2_2_Lava", LavaCol);
+        lavaMat = FlowLavaMat();
         var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
         ballProxy = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
         cps.Clear();
@@ -724,7 +724,15 @@ public static class FuwaCourse2_2Builder
         float n = Mathf.PerlinNoise(Mathf.Cos(a) * 1.6f + 3.1f + h * 0.05f, Mathf.Sin(a) * 1.6f + 7.3f + h * 0.06f) - 0.5f;
         return r * (1f + 0.16f * n + 0.04f * Mathf.Sin(5f * a + h * 0.2f));
     }
-    const string VolcanoModel = "Assets/FuwaStage2/Models/Stage2_Volcano.fbx", VolcanoMat = "Assets/FuwaStage2/Materials/Stage2_2_Volcano.mat";
+    // 穴・みぞの溶岩：火山と同じ流れる溶岩（2026-10-31、前はベタ塗りのオレンジ）
+    public static Material FlowLavaMat()
+    {
+        var m = FuwaStage2WaterTest.ToonMat("Stage2_2_Lava", LavaCol);
+        var sh = Shader.Find("FuwaCourse/Lava");
+        if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); EditorUtility.SetDirty(m); }
+        return m;
+    }
+    const string VolcanoModel ="Assets/FuwaStage2/Models/Stage2_Volcano.fbx", VolcanoMat = "Assets/FuwaStage2/Materials/Stage2_2_Volcano.mat";
     // 噴煙：蒸気のもくもく（FuwaCourse/SteamPuff、ソフトパーティクルなし）を暗くして大きく。下は火口の熱で赤く、上へ行くほど灰色で消える
     public static ParticleSystem VolcanoSmoke(Transform top)
     {
