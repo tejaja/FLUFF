@@ -165,9 +165,9 @@ public static class FuwaCourse2_2Builder
             var od = holeSide[k] * chan[k]; float len = holeEdge[k] + 0.06f;
             var rot = Quaternion.LookRotation(od);
             var cm = hc + od * (len * 0.5f) + Vector3.down * ld;
-            var strip = Box(lavaRoot, "LavaChannel" + k, cm + Vector3.down * 0.02f, new Vector3(ChanHW * 2f + 0.04f, 0.04f, len), lavaMat, 0);
+            var strip = Box(lavaRoot, "LavaChannel" + k, cm - od * 0.1f + Vector3.down * 0.02f, new Vector3(ChanHW * 2f + 0.04f, 0.04f, len - 0.2f), lavaMat, 0);   // 道のふちより手前まで（道のふちは斜めなので、箱の角が道の外へ板のように出た）
             strip.transform.localRotation = rot; Object.DestroyImmediate(strip.GetComponent<Collider>());
-            var fall = Box(lavaRoot, "LavaFall" + k, hc + od * (len + 0.03f) + Vector3.down * (ld + LavaFallLen * 0.5f + 0.04f), new Vector3(ChanHW * 2f, LavaFallLen, 0.06f), lavaMat, 0);   // 上のふたは溝の溶岩の下へ（上に出ると段に見えた）
+            var fall = Box(lavaRoot, "LavaFall" + k, hc + od * (len - 0.12f) + Vector3.down * (ld + LavaFallLen * 0.5f + 0.04f), new Vector3(ChanHW * 2f, LavaFallLen, 0.06f), lavaMat, 0);   // 上のふたは溝の溶岩の下へ（上に出ると段に見えた）
             fall.transform.localRotation = rot; Object.DestroyImmediate(fall.GetComponent<Collider>());
             LavaFallLook(fall);
             LavaBurn(lavaRoot, "LavaChannelBallOut" + k, cm + Vector3.down * (BurnSink + 0.5f), new Vector3(ChanHW * 2f, 1f, len), rot);
@@ -534,6 +534,39 @@ public static class FuwaCourse2_2Builder
         }
         return e;
     }
+    // ふちのベベル（2 段で丸く）。e0, e1 は角の線、o0, o1 は外向き。面の内側は Bevel 内まで上の面のまま
+    public const float Bevel = 0.09f; static readonly Vector3 BevelDown = Vector3.down * Bevel;
+    static void BevelEdge(MB mb, Vector3 e0, Vector3 e1, Vector3 o0, Vector3 o1, int sub)
+    {
+        var in0 = e0 - o0 * Bevel; var in1 = e1 - o1 * Bevel;
+        var mid0 = e0 - o0 * Bevel * 0.3f + BevelDown * 0.3f; var mid1 = e1 - o1 * Bevel * 0.3f + BevelDown * 0.3f;
+        mb.Quad(in0, in1, mid1, mid0, o0 + Vector3.up * 1.6f, sub);
+        mb.Quad(mid0, mid1, e1 + BevelDown, e0 + BevelDown, o0 + Vector3.up * 0.5f, sub);
+    }
+    // 道の下の岩：上は道の下のふち、下へ行くほど内側へ。深さは場所のノイズ（同じ位置は同じ深さなので、となりの帯とつながる）
+    static Vector3 SkirtPoint(Vector3 p, Vector3 center, float f)
+    {
+        float d = 1.0f + 1.5f * Mathf.PerlinNoise(p.x * 0.33f + 9f, p.z * 0.33f + 4f) + 0.5f * Mathf.PerlinNoise(p.x * 1.2f + 2f, p.z * 1.2f + 7f);
+        var inw = Flat(center - p); float room = inw.magnitude; if (room > 1e-4f) inw /= room;
+        float inset = Mathf.Min(room * 0.8f, d * 0.55f);
+        float wob = (Mathf.PerlinNoise(p.x * 1.7f + 5f, p.z * 1.7f + 1f) - 0.5f) * 0.3f * Mathf.Sin(f * Mathf.PI);
+        return p + inw * (inset * f + wob) + Vector3.down * (d * f);
+    }
+    static void Skirt(MB mb, Vector3 r0, Vector3 r1, Vector3 l0, Vector3 l1, Vector3 outward)
+    {
+        var c0 = (r0 + l0) * 0.5f; var c1 = (r1 + l1) * 0.5f; var fs = new[] { 0f, 0.4f, 0.75f, 1f };
+        for (int k = 0; k + 1 < fs.Length; k++)
+        {
+            mb.Quad(SkirtPoint(r0, c0, fs[k]), SkirtPoint(r1, c1, fs[k]), SkirtPoint(r1, c1, fs[k + 1]), SkirtPoint(r0, c0, fs[k + 1]), outward + Vector3.down * 0.2f, 2);
+            mb.Quad(SkirtPoint(l0, c0, fs[k]), SkirtPoint(l1, c1, fs[k]), SkirtPoint(l1, c1, fs[k + 1]), SkirtPoint(l0, c0, fs[k + 1]), -outward + Vector3.down * 0.2f, 2);
+        }
+        mb.Quad(SkirtPoint(l0, c0, 1f), SkirtPoint(l1, c1, 1f), SkirtPoint(r1, c1, 1f), SkirtPoint(r0, c0, 1f), Vector3.down, 2);
+    }
+    static void SkirtEnd(MB mb, Vector3 l, Vector3 r, Vector3 o)
+    {
+        var c = (l + r) * 0.5f; var fs = new[] { 0f, 0.4f, 0.75f, 1f };
+        for (int k = 0; k + 1 < fs.Length; k++) mb.Quad(SkirtPoint(l, c, fs[k]), SkirtPoint(r, c, fs[k]), SkirtPoint(r, c, fs[k + 1]), SkirtPoint(l, c, fs[k + 1]), o, 2);
+    }
     static void Ribbon(Transform parent, string name, List<RPt> r, float[] hw, Vector3[] pts, List<HolePool> holes = null, Transform lavaParent = null)
     {
         const float T = 0.6f, U = 1.5f, In = 0.1f;
@@ -598,7 +631,8 @@ public static class FuwaCourse2_2Builder
                 int sub = mb == vis ? st : 0;
                 void Top(float a0, float a1, float b0, float b1) { if (b0 - a0 > 1e-4f || b1 - a1 > 1e-4f) mb.Quad(P0(a0), P1(a1), P1(b1), P0(b0), Vector3.up, sub); }
                 // 上の面：穴と穴の間を区切って（溝の帯は穴からふちまで切れている）
-                float xa0 = -w0, xa1 = -w1;
+                float bl = mb == vis && !openL ? Bevel : 0f, br = mb == vis && !openR ? Bevel : 0f;   // ベベルは見た目だけ（当たりは今まで通りの角）
+                float xa0 = -w0 + bl, xa1 = -w1 + bl;
                 foreach (var h in cut)
                 {
                     bool open = h.ch0 && h.ch1;
@@ -606,9 +640,17 @@ public static class FuwaCourse2_2Builder
                     Top(xa0, xa1, l0, l1);
                     xa0 = open && h.sx > 0 ? w0 : h.c0 + h.hr0; xa1 = open && h.sx > 0 ? w1 : h.c1 + h.hr1;
                 }
-                Top(xa0, xa1, w0, w1);
-                if (!openR) mb.Quad(R[i], R[i + 1], R[i + 1] + dn, R[i] + dn, side[i], sub);
-                if (!openL) mb.Quad(L[i], L[i + 1], L[i + 1] + dn, L[i] + dn, -side[i], sub);
+                Top(xa0, xa1, w0 - br, w1 - br);
+                if (mb == vis)
+                {
+                    if (!openR) { BevelEdge(vis, R[i], R[i + 1], side[i], side[i + 1], sub); vis.Quad(R[i] + BevelDown, R[i + 1] + BevelDown, R[i + 1] + dn, R[i] + dn, side[i], sub); }
+                    if (!openL) { BevelEdge(vis, L[i], L[i + 1], -side[i], -side[i + 1], sub); vis.Quad(L[i] + BevelDown, L[i + 1] + BevelDown, L[i + 1] + dn, L[i] + dn, -side[i], sub); }
+                }
+                else
+                {
+                    if (!openR) mb.Quad(R[i], R[i + 1], R[i + 1] + dn, R[i] + dn, side[i], sub);
+                    if (!openL) mb.Quad(L[i], L[i + 1], L[i + 1] + dn, L[i] + dn, -side[i], sub);
+                }
                 // 穴の前後のはし：縮んだ点 c と、はしの点 m・反対の線のふち2点の間を三角でうめる
                 foreach (var h in cut)
                 {
@@ -637,11 +679,20 @@ public static class FuwaCourse2_2Builder
                         Vector3 a = atI ? P0(h.c0 + (h.sx < 0 ? -h.hl0 : h.hr0)) : P1(h.c1 + (h.sx < 0 ? -h.hl1 : h.hr1)), b = atI ? P0(h.sx * w0) : P1(h.sx * w1);
                         var inward = atI ? Flat(r[i].p - r[i + 1].p) : Flat(r[i + 1].p - r[i].p);   // 溝の中へ
                         // 上の面は a–b まであるので、その先に a からの扇で足す（a–b の線に頂点を足さないのでつなぎ目ができない）。岩を足すふたにはしない
+                        // ベベルの所は上の面がベベルの内側までなので、扇もそこまで。残りはベベルの形の壁でふさぐ（ななめに下げると上の面との間にすき間が出た）
+                        float wr = atI ? w0 : w1; Vector3 Row(float x) => atI ? P0(x) : P1(x);
+                        if (mb == vis) b = Row(h.sx * (wr - Bevel));
                         var e = ChanEdge(a, b, inward, b.x * 3.7f + b.z * 1.3f);
                         for (int q = 0; q < e.Length - 1; q++)
                         {
                             mb.Quad(a, e[q], e[q + 1], e[q + 1], Vector3.up, sub);
                             mb.Quad(e[q], e[q + 1], e[q + 1] + pd, e[q] + pd, inward, mb == vis ? 2 : 0);
+                        }
+                        if (mb == vis)
+                        {
+                            var m0 = Row(h.sx * (wr - Bevel * 0.3f)) + BevelDown * 0.3f; var m1 = Row(h.sx * wr) + BevelDown;
+                            mb.Quad(b, m0, m0 + pd, b + pd, inward, 2);
+                            mb.Quad(m0, m1, m1 + pd, m0 + pd, inward, 2);
                         }
                     }
                 }
@@ -656,18 +707,19 @@ public static class FuwaCourse2_2Builder
                     lava.Quad(e0 + ld, h.m + ld, e1 + ld, e1 + ld, Vector3.up, 0);
                 }
             if (cut.Count == 0) col.Quad(L[i] + dn, L[i + 1] + dn, R[i + 1] + dn, R[i] + dn, Vector3.down, 0);
-            // 岩
-            vis.Quad(Ri[i] + dn, Ri[i + 1] + dn, Ri[i + 1] + du, Ri[i] + du, side[i], 2);
-            vis.Quad(Li[i] + dn, Li[i + 1] + dn, Li[i + 1] + du, Li[i] + du, -side[i], 2);
-            vis.Quad(Li[i] + du, Li[i + 1] + du, Ri[i + 1] + du, Ri[i] + du, Vector3.down, 2);
+            // 下の岩：でこぼこにすぼまる（2026-10-31 てじゃ「下の土みたいなやつがぱっとしない」）
+            Skirt(vis, Ri[i] + dn, Ri[i + 1] + dn, Li[i] + dn, Li[i + 1] + dn, side[i]);
+            // 帯の下のはしと岩の間をふさぐ（下から空が線に見えた）
+            vis.Quad(R[i] + dn, R[i + 1] + dn, Ri[i + 1] + dn, Ri[i] + dn, Vector3.down, 2);
+            vis.Quad(L[i] + dn, L[i + 1] + dn, Li[i + 1] + dn, Li[i] + dn, Vector3.down, 2);
         }
         // はしのふた
         for (int e = 0; e < 2; e++)
         {
             int i = e == 0 ? 0 : n - 1; var o = Flat(r[e == 0 ? 0 : n - 1].p - r[e == 0 ? 1 : n - 2].p).normalized;
             int st = e == 0 ? 0 : Mathf.FloorToInt(s[n - 1] / StripeLen) % 2;
-            vis.Quad(L[i], R[i], R[i] + dn, L[i] + dn, o, st); col.Quad(L[i], R[i], R[i] + dn, L[i] + dn, o, 0);
-            vis.Quad(Li[i] + dn, Ri[i] + dn, Ri[i] + du, Li[i] + du, o, 2);
+            vis.Quad(L[i] + side[i] * Bevel, R[i] - side[i] * Bevel, R[i] + dn, L[i] + dn, o, st); col.Quad(L[i], R[i], R[i] + dn, L[i] + dn, o, 0);
+            SkirtEnd(vis, Li[i] + dn, Ri[i] + dn, o);
         }
         MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
         if (lavaParent != null)
@@ -697,8 +749,16 @@ public static class FuwaCourse2_2Builder
             var om = (o0 + o1).normalized;
             foreach (var mb in new[] { vis, col })
             {
+                if (mb == vis)
+                {
+                    float kb = (PadR - Bevel) / PadR; var i0 = c + (p0 - c) * kb; var i1 = c + (p1 - c) * kb;
+                    mb.Quad(c, c, i1, i0, Vector3.up, 0);
+                    BevelEdge(mb, p0, p1, o0, o1, 1);
+                    mb.Quad(p0 + BevelDown, p1 + BevelDown, p1 + dn, p0 + dn, om, 1);
+                    continue;
+                }
                 mb.Quad(c, c, p1, p0, Vector3.up, 0);
-                mb.Quad(p0, p1, p1 + dn, p0 + dn, om, mb == vis ? 1 : 0);
+                mb.Quad(p0, p1, p1 + dn, p0 + dn, om, 0);
             }
             col.Quad(c + dn, c + dn, p1 + dn, p0 + dn, Vector3.down, 0);
             vis.Quad(c + dn, c + dn, p1 + dn, p0 + dn, Vector3.down, 2);
@@ -718,7 +778,7 @@ public static class FuwaCourse2_2Builder
     // ジグザグの板（2026-10-31、前は箱を踊り場に乗せただけで段があった）：両はしは踊り場の上の面の高さで平らに中まで入り、踊り場のふちから先だけ坂。角はなめらか
     static void ZigBoard(Transform parent, string name, Vector3 a0, Vector3 b0, Vector3 ca, float ra, Vector3 cb, float rb, float hw)
     {
-        const float T = 0.6f, U = 1.5f, In = 0.1f, Down = 0.005f, Ease = 1.2f;
+        const float T = 0.6f, In = 0.1f, Down = 0.005f, Ease = 1.2f;
         var d = Flat(b0 - a0); float len = d.magnitude; d /= len; var side = Vector3.Cross(Vector3.up, d).normalized; var o = Flat(a0);
         float sA = 0f, sB = len;
         while (sA < len && Flat(o + d * sA - ca).magnitude < ra) sA += 0.02f;
@@ -731,24 +791,24 @@ public static class FuwaCourse2_2Builder
             return Mathf.Lerp(yA, yB, f);
         }
         float s0 = sA - hw * 1.3f, s1 = sB + hw * 1.3f; int n = Mathf.CeilToInt((s1 - s0) / (StripeLen * 0.25f));
-        var vis = new MB(); var col = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
+        var vis = new MB(); var col = new MB(); var dn = Vector3.down * T;
         for (int i = 0; i < n; i++)
         {
             float a = Mathf.Lerp(s0, s1, i / (float)n), b = Mathf.Lerp(s0, s1, (i + 1) / (float)n);
             Vector3 P(float s, float x) { var q = o + d * s + side * x; q.y = Y(s); return q; }
             int st = Mathf.Abs(Mathf.FloorToInt((a + b) * 0.5f / StripeLen)) % 2;
-            foreach (var mb in new[] { vis, col })
-            {
-                int sub = mb == vis ? st : 0;
-                mb.Quad(P(a, -hw), P(b, -hw), P(b, hw), P(a, hw), Vector3.up, sub);
-                mb.Quad(P(a, hw), P(b, hw), P(b, hw) + dn, P(a, hw) + dn, side, sub);
-                mb.Quad(P(a, -hw), P(b, -hw), P(b, -hw) + dn, P(a, -hw) + dn, -side, sub);
-            }
+            col.Quad(P(a, -hw), P(b, -hw), P(b, hw), P(a, hw), Vector3.up, 0);
+            col.Quad(P(a, hw), P(b, hw), P(b, hw) + dn, P(a, hw) + dn, side, 0);
+            col.Quad(P(a, -hw), P(b, -hw), P(b, -hw) + dn, P(a, -hw) + dn, -side, 0);
             col.Quad(P(a, -hw) + dn, P(b, -hw) + dn, P(b, hw) + dn, P(a, hw) + dn, Vector3.down, 0);
+            vis.Quad(P(a, -hw + Bevel), P(b, -hw + Bevel), P(b, hw - Bevel), P(a, hw - Bevel), Vector3.up, st);
+            BevelEdge(vis, P(a, hw), P(b, hw), side, side, st); BevelEdge(vis, P(a, -hw), P(b, -hw), -side, -side, st);
+            vis.Quad(P(a, hw) + BevelDown, P(b, hw) + BevelDown, P(b, hw) + dn, P(a, hw) + dn, side, st);
+            vis.Quad(P(a, -hw) + BevelDown, P(b, -hw) + BevelDown, P(b, -hw) + dn, P(a, -hw) + dn, -side, st);
             float w = hw - In;
-            vis.Quad(P(a, w) + dn, P(b, w) + dn, P(b, w) + du, P(a, w) + du, side, 2);
-            vis.Quad(P(a, -w) + dn, P(b, -w) + dn, P(b, -w) + du, P(a, -w) + du, -side, 2);
-            vis.Quad(P(a, -w) + du, P(b, -w) + du, P(b, w) + du, P(a, w) + du, Vector3.down, 2);
+            Skirt(vis, P(a, w) + dn, P(b, w) + dn, P(a, -w) + dn, P(b, -w) + dn, side);
+            vis.Quad(P(a, hw) + dn, P(b, hw) + dn, P(b, w) + dn, P(a, w) + dn, Vector3.down, 2);
+            vis.Quad(P(a, -hw) + dn, P(b, -hw) + dn, P(b, -w) + dn, P(a, -w) + dn, Vector3.down, 2);
         }
         MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
     }
@@ -933,7 +993,10 @@ public static class FuwaCourse2_2Builder
     public static Material PathSideMat()
     {
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_Rock", RockCol);
-        m.SetFloat("_EmissionGradient", 1f); m.SetColor("_EmissionColor", new Color(0.95f, 0.2f, 0.05f)); m.SetFloat("_EmissionFull", 2.4f);
+        // 火山と同じ暗い赤茶。下ほど少し溶岩の赤。段の模様と面のカクカクで岩らしく（2026-10-31）
+        m.SetColor("_Color", new Color(0.3f, 0.17f, 0.17f)); m.SetFloat("_EmissionGradient", 0f); m.SetColor("_EmissionColor", Color.black);
+        m.SetFloat("_NoiseStrength", 0.25f); m.SetFloat("_NoiseScale", 0.8f); m.SetFloat("_StrataStrength", 0.45f); m.SetFloat("_StrataScale", 1.5f); m.SetFloat("_Facet", 0.7f); m.SetFloat("_RimStrength", 0.06f);
+        m.SetColor("_UnderColor", new Color(1.5f, 0.75f, 0.55f)); m.SetFloat("_UnderStrength", 0.7f);
         EditorUtility.SetDirty(m);
         return m;
     }
