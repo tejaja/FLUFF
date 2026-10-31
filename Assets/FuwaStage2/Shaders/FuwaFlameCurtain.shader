@@ -16,6 +16,7 @@ Shader "FuwaCourse/FlameCurtain"
         _BandLow ("下のふちの色の広さ", Range(0,0.5)) = 0.1
         _BandHot ("内側の色の上のはし", Range(0,1)) = 0.42
         _BandMid ("まん中の色の上のはし", Range(0,2)) = 0.74
+        _Lean ("上のほうが左右にゆれる大きさ（オブジェクトの長さ。2026-11-01 てじゃ「上下ゆれしかない」）", Range(0,1)) = 0
         _LowScale ("下のはしの舌の長さ", Range(0,1)) = 1
         _BandSoft ("色の境目のぼかし（2026-10-31 てじゃ「境目がパッキリ」）", Range(0.001,0.4)) = 0.001
         _Rim ("炎の形にそった外のふちの太さ（高さの割合。頂点カラー G が 1 の帯だけ）", Range(0,0.2)) = 0
@@ -37,7 +38,7 @@ Shader "FuwaCourse/FlameCurtain"
             #include "FuwaFireFar.cginc"
 
             half4 _Hot, _Mid, _Tip;
-            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim, _LowScale;
+            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim, _LowScale, _Lean;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; float3 wp : TEXCOORD4; float rim : TEXCOORD5; UNITY_FOG_COORDS(1) };
@@ -45,6 +46,13 @@ Shader "FuwaCourse/FlameCurtain"
             v2f vert (appdata v)
             {
                 v2f o;
+                // 炎の形（舌）は上下にしか動かないので、形ごと左右へゆらす。根元は動かず上ほど大きく。帯ごとにずらしてばらばらに
+                if (_Lean > 0.0)
+                {
+                    float lt = _Time.y * _Speed, ph = v.uv.x * 0.35, hh = v.uv.y * v.uv.y;
+                    v.vertex.x += (sin(lt * 1.9 + ph) + 0.55 * sin(lt * 4.3 + ph * 2.3 + 1.1)) * _Lean * hh;
+                    v.vertex.z += (sin(lt * 1.5 + ph * 1.4 + 2.0) + 0.55 * sin(lt * 3.7 + ph * 1.9)) * _Lean * hh;
+                }
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
                 o.rim = v.color.g;
