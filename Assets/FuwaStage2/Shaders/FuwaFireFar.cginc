@@ -10,4 +10,10 @@ inline half3 FuwaFireCalm(half3 c, half far)
     c = lerp(c, half3(0.72, 0.3, 0.16), far * 0.8);
     return lerp(c, unity_FogColor.rgb, far * 0.12);
 }
+// 溶岩は炎より赤く（2026-10-31 てじゃ「溶岩もっと赤っぽく」）
+inline half3 FuwaLavaCalm(half3 c, half far)
+{
+    c = lerp(c, half3(0.6, 0.07, 0.04), far * 0.8);
+    return lerp(c, unity_FogColor.rgb, far * 0.12);
+}
 #endif

@@ -5,9 +5,9 @@ Shader "FuwaCourse/Lava"
     Properties
     {
         [NoScaleOffset] _FlowTex ("溶岩の模様 (R 明暗 G 筋 B かさぶた、継ぎ目なし)", 2D) = "gray" {}
-        [HDR] _LavaHot ("いちばん熱い色", Color) = (1.3, 0.92, 0.32, 1)
-        [HDR] _LavaMid ("ふつうの色", Color) = (1.15, 0.42, 0.07, 1)
-        [HDR] _LavaDark ("暗い色", Color) = (0.78, 0.15, 0.04, 1)
+        [HDR] _LavaHot ("いちばん熱い色", Color) = (1.2, 0.3, 0.06, 1)
+        [HDR] _LavaMid ("ふつうの色", Color) = (1.0, 0.085, 0.02, 1)
+        [HDR] _LavaDark ("暗い色", Color) = (0.5, 0.025, 0.012, 1)
         _CrustColor ("かさぶたの色", Color) = (0.2, 0.07, 0.06, 1)
         _Crust ("かさぶたの濃さ（上向きの面だけ）", Range(0,1)) = 0.9
         _Scale ("模様の数（/m）", Float) = 0.28
@@ -69,7 +69,7 @@ Shader "FuwaCourse/Lava"
                 half3 c = h2 < 0.5 ? lerp(_LavaDark.rgb, _LavaMid.rgb, h2 * 2) : lerp(_LavaMid.rgb, _LavaHot.rgb, (h2 - 0.5) * 2);
                 half crust = up * smoothstep(0.5, 0.65, f1.b) * smoothstep(0.62, 0.42, f1.r) * (1 - f2.g);
                 c = lerp(c, _CrustColor.rgb, crust * _Crust);
-                c = FuwaFireCalm(c, FuwaFireFar(i.wp));
+                c = FuwaLavaCalm(c, FuwaFireFar(i.wp));
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
                 return o;

@@ -9,9 +9,9 @@ Shader "FuwaCourse/Volcano"
         _Color ("Color", Color) = (1,1,1,1)
         [NoScaleOffset] _FlowTex ("溶岩の模様 (R 明暗 G 筋 B かさぶた、継ぎ目なし)", 2D) = "gray" {}
         [Header(Lava)]
-        [HDR] _LavaHot ("溶岩：いちばん熱い色", Color) = (1.3, 0.92, 0.32, 1)
-        [HDR] _LavaMid ("溶岩：ふつうの色", Color) = (1.15, 0.42, 0.07, 1)
-        [HDR] _LavaDark ("溶岩：暗い色", Color) = (0.78, 0.15, 0.04, 1)
+        [HDR] _LavaHot ("溶岩：いちばん熱い色", Color) = (1.2, 0.3, 0.06, 1)
+        [HDR] _LavaMid ("溶岩：ふつうの色", Color) = (1.0, 0.085, 0.02, 1)
+        [HDR] _LavaDark ("溶岩：暗い色", Color) = (0.5, 0.025, 0.012, 1)
         _CrustColor ("かさぶたの色", Color) = (0.2, 0.07, 0.06, 1)
         _FlowU ("模様の数（角度 1 周）", Float) = 34
         _FlowV ("模様の数（v 1）", Float) = 7
@@ -135,7 +135,7 @@ Shader "FuwaCourse/Volcano"
                     // かさぶた：池に浮かぶ大きい板だけ。筋（f2.g）は光らせて割れ目に見せる
                     half crust = pond * smoothstep(0.5, 0.65, f1.b) * smoothstep(0.62, 0.42, f1.r) * (1 - f2.g);
                     lc = lerp(lc, _CrustColor.rgb, crust * 0.9);
-                    c = lerp(c, FuwaFireCalm(lc, fireFar), lava);
+                    c = lerp(c, FuwaLavaCalm(lc, fireFar), lava);
                 }
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
