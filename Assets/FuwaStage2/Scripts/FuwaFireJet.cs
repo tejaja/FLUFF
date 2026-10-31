@@ -22,6 +22,9 @@ public class FuwaFireJet : UdonSharpBehaviour
     [Tooltip("噴くと伸びる炎の本体（上向きが炎の向き）。前ぶれで少し出て、止まると引っ込む（2026-10-31）")]
     public Transform flameBody;
     public float bodyWarn = 0.16f, bodySpeed = 7f;
+    [Tooltip("止まった後、炎が根元から燃えつきて消えるまでの秒数（棒が引っ込むように見えた。2026-11-01 てじゃ）")]
+    public float bodyAfter = 0.8f;
+    private float _burn = 1f; private Material _bodyMat;
     [Header("火炎放射（2026-10-29 てじゃの 2–2「横の岩の穴から吹き出す、当たるとアウト、人はちょっと吹っ飛ぶ」）")]
     [Tooltip("当たったふわふわは黒焦げ→アウト（温めて浮かせるのではなく）")]
     public bool deadly = false;
@@ -69,10 +72,17 @@ public class FuwaFireJet : UdonSharpBehaviour
         if (moreWarns != null) for (int i = 0; i < moreWarns.Length; i++) if (moreWarns[i] != null) { var e = moreWarns[i].emission; e.rateOverTime = w ? warnRate : 0f; }
         if (flameBody != null)
         {
-            _body = Mathf.MoveTowards(_body, on ? 1f : (w ? bodyWarn : 0f), bodySpeed * Time.deltaTime);
+            if (on) { _body = Mathf.MoveTowards(_body, 1f, bodySpeed * Time.deltaTime); _burn = 0f; }
+            else if (_burn < 1f && _body > bodyWarn + 0.01f) { _burn = Mathf.Min(1f, _burn + Time.deltaTime / Mathf.Max(0.05f, bodyAfter)); if (_burn >= 1f) _body = 0f; }   // 長さはそのまま、根元から燃えつきる
+            else { _body = w ? Mathf.MoveTowards(_body, bodyWarn, bodySpeed * Time.deltaTime) : 0f; _burn = w ? 0f : 1f; }
             bool show = _body > 0.001f;
             if (flameBody.gameObject.activeSelf != show) flameBody.gameObject.SetActive(show);
-            if (show) flameBody.localScale = new Vector3(Mathf.Lerp(0.6f, 1f, _body), _body, Mathf.Lerp(0.6f, 1f, _body));
+            if (show)
+            {
+                flameBody.localScale = new Vector3(Mathf.Lerp(0.6f, 1f, _body), _body, Mathf.Lerp(0.6f, 1f, _body));
+                if (_bodyMat == null) _bodyMat = flameBody.GetComponent<Renderer>().material;
+                _bodyMat.SetFloat("_Burn", _burn);
+            }
         }
         if (on && !_wasOn) { _blasted = false; if (roar != null && roar.clip != null) roar.PlayOneShot(roar.clip); }
         _wasOn = on;

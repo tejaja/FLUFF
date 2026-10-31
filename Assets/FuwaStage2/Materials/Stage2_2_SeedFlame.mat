@@ -82,7 +82,9 @@ Material:
     - _Base: 0.5
     - _BaseFadeLength: 0
     - _BaseFadeNormal: 1
+    - _Billboard: 1
     - _BumpScale: 1
+    - _Burn: 0
     - _Cull: 2
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
@@ -95,6 +97,7 @@ Material:
     - _FlowBody: 1.25
     - _FlowCore: 1
     - _FlowSpeed: 0.55
+    - _FlowTop: 0
     - _FlowX: 0.3
     - _FlowY: 1.1
     - _GlossMapScale: 1

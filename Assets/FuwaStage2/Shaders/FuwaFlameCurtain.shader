@@ -28,6 +28,9 @@ Shader "FuwaCourse/FlameCurtain"
         _FlowBody ("炎の体の濃さ（大きいほど上まで埋まる）", Float) = 1.25
         _FlowAmp ("削り方の強さ", Float) = 2
         _FlowCore ("内側の色の深さ", Float) = 1
+        _FlowTop ("上のふちの大きな波（0〜1。てじゃ「上辺が平らすぎる」）", Range(0,1)) = 0
+        _Billboard ("板をカメラへ向ける（uv2 が板の中心 xz、uv3.x が横の位置。てじゃ「板がクロスして見える」）", Range(0,1)) = 0
+        _Burn ("根元から燃えつきる（0 ふつう〜1 消える。火炎放射の余韻）", Range(0,1)) = 0
         _BandSelf ("色の帯を炎の形に合わせる（動いても外のふちの色が切れない。板の炎の縦線が気にならない物だけ）", Range(0,1)) = 0
     }
     SubShader
@@ -46,15 +49,22 @@ Shader "FuwaCourse/FlameCurtain"
             #include "FuwaFireFar.cginc"
 
             half4 _Hot, _Mid, _Tip;
-            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim, _LowScale, _Lean, _Flow, _FlowSpeed, _FlowX, _FlowY, _FlowBody, _FlowAmp, _FlowCore;
+            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim, _LowScale, _Lean, _Flow, _FlowSpeed, _FlowX, _FlowY, _FlowBody, _FlowAmp, _FlowCore, _FlowTop, _Billboard, _Burn;
             sampler2D _FlowTex;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float2 uv2 : TEXCOORD1; float2 uv3 : TEXCOORD2; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; float3 wp : TEXCOORD4; float rim : TEXCOORD5; UNITY_FOG_COORDS(1) };
 
             v2f vert (appdata v)
             {
                 v2f o;
+                if (_Billboard > 0.5)
+                {
+                    // 高さはそのまま、横の向きだけカメラへ
+                    float2 toCam = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1)).xz - v.uv2;
+                    float2 side = normalize(float2(toCam.y, -toCam.x) + float2(0.0001, 0));
+                    v.vertex.xz = v.uv2 + side * v.uv3.x;
+                }
                 // 炎の形（舌）は上下にしか動かないので、形ごと左右へゆらす。根元は動かず上ほど大きく。帯ごとにずらしてばらばらに
                 if (_Lean > 0.0)
                 {
@@ -89,9 +99,12 @@ Shader "FuwaCourse/FlameCurtain"
                 {
                     // 模様が下から上へ流れて形を削る。先はちぎれて、色の境目も形といっしょに上がっていく
                     float px = x * _FlowX, py = y * _FlowY;
-                    float n = tex2D(_FlowTex, float2(px * 0.35, py * 0.35 - t * _FlowSpeed)).r * 0.65 + tex2D(_FlowTex, float2(px * 0.9 + 0.37, py * 0.9 - t * _FlowSpeed * 1.7)).r * 0.35;
-                    float e = y / max(i.h * _Height, 0.01);
-                    float v = (1.0 - e) * _FlowBody + (n - 0.5) * _FlowAmp * (0.2 + e * 1.15) * (1.0 - far * 0.6) - smoothstep(0.85, 1.0, y) * 1.5;
+                    // 場所ごとに流れを前後させて、全体がそろって動かないように（てじゃ「動きが揃ってて怖い」）
+                    float ph = sin(t * 0.6 + x * 0.7) * 0.35 + sin(t * 1.13 + x * 1.9) * 0.18;
+                    float n = tex2D(_FlowTex, float2(px * 0.35 + sin(t * 0.4 + y * 3.0) * 0.05, py * 0.35 - t * _FlowSpeed + ph)).r * 0.65 + tex2D(_FlowTex, float2(px * 0.9 + 0.37, py * 0.9 - t * _FlowSpeed * 1.7 + ph * 1.6)).r * 0.35;
+                    float tv = 1.0 - _FlowTop * (0.5 + 0.5 * sin(x * 0.83 + t * 0.31 + 2.0 * sin(x * 0.29 - t * 0.13)));
+                    float e = y / max(i.h * _Height * tv, 0.01);
+                    float v = (1.0 - e) * _FlowBody + (n - 0.5) * _FlowAmp * (0.2 + e * 1.15) * (1.0 - far * 0.6) - smoothstep(0.85, 1.0, y) * 1.5 - smoothstep(y - 0.15, y + 0.15, _Burn * 1.3) * 2.0 - _Burn * 0.8;
                     float fa = saturate(v / max(fwidth(v), 0.0001) + 0.5); fa = min(fa, saturate(dLow / max(fwidth(dLow), 0.0001) + 0.5));
                     clip(fa - 0.01);
                     float fu = 1.0 - saturate(v / _FlowCore);

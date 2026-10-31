@@ -471,7 +471,7 @@ public static class FuwaCourse2_2Builder
         old.Clear(false); old.indexFormat = m.indexFormat;
         old.SetVertices(m.vertices); old.subMeshCount = m.subMeshCount;
         for (int s = 0; s < m.subMeshCount; s++) old.SetTriangles(m.GetTriangles(s), s);
-        old.normals = m.normals; if (m.uv.Length > 0) old.uv = m.uv; if (m.colors.Length > 0) old.colors = m.colors;   // UV と色も入れ直す（消えると炎の板が全部切り抜かれて見えなくなった）
+        old.normals = m.normals; if (m.uv.Length > 0) old.uv = m.uv; if (m.uv2.Length > 0) old.uv2 = m.uv2; if (m.uv3.Length > 0) old.uv3 = m.uv3; if (m.colors.Length > 0) old.colors = m.colors;   // UV と色も入れ直す（消えると炎の板が全部切り抜かれて見えなくなった）
         old.RecalculateBounds(); EditorUtility.SetDirty(old);
         return old;
     }
@@ -976,8 +976,8 @@ public static class FuwaCourse2_2Builder
     static Mesh SeedFlameMesh()
     {
         const float H = 1.5f; const int Rows = 6, Cols = 16;
-        var pl = new[] { (x: 0f, z: 0f, ang: 20f, w: 0.28f, h: 1f), (x: 0f, z: 0f, ang: 100f, w: 0.26f, h: 0.86f), (x: 0.17f, z: 0.05f, ang: 60f, w: 0.2f, h: 0.62f), (x: -0.15f, z: 0.1f, ang: 140f, w: 0.2f, h: 0.68f), (x: 0.02f, z: -0.18f, ang: 10f, w: 0.2f, h: 0.56f), (x: -0.08f, z: -0.1f, ang: 75f, w: 0.17f, h: 0.5f) };
-        var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
+        var pl = new[] { (x: 0.03f, z: -0.02f, ang: 20f, w: 0.28f, h: 1f), (x: -0.03f, z: 0.04f, ang: 100f, w: 0.26f, h: 0.86f), (x: 0.17f, z: 0.05f, ang: 60f, w: 0.2f, h: 0.62f), (x: -0.15f, z: 0.1f, ang: 140f, w: 0.2f, h: 0.68f), (x: 0.02f, z: -0.18f, ang: 10f, w: 0.2f, h: 0.56f), (x: -0.08f, z: -0.1f, ang: 75f, w: 0.17f, h: 0.5f) };
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var uv2 = new List<Vector2>(); var uv3 = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
         for (int p = 0; p < pl.Length; p++)
         {
             float ang = pl[p].ang * Mathf.Deg2Rad; var dir = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)); var o = new Vector3(pl[p].x, 0f, pl[p].z); int b = v.Count;
@@ -987,13 +987,13 @@ public static class FuwaCourse2_2Builder
                 for (int k = 0; k <= Cols; k++)
                 {
                     float u = k * 2f / Cols - 1f;
-                    v.Add(o + dir * (u * w) + Vector3.up * (H * t)); uv.Add(new Vector2(u * pl[p].w * 9f + p * 4.3f, t)); col.Add(new Color(Mathf.Lerp(0.4f, 1f, 1f - u * u) * pl[p].h, 0f, 0f));
+                    v.Add(o + dir * (u * w) + Vector3.up * (H * t)); uv.Add(new Vector2(u * pl[p].w * 9f + p * 4.3f, t)); uv2.Add(new Vector2(o.x, o.z)); uv3.Add(new Vector2(u * w, 0f)); col.Add(new Color(Mathf.Lerp(0.4f, 1f, 1f - u * u) * pl[p].h, 0f, 0f));
                 }
             }
             for (int j = 0; j < Rows; j++) for (int k = 0; k < Cols; k++) { int a = b + j * (Cols + 1) + k, c = a + Cols + 1; tr.AddRange(new[] { a, c, c + 1, a, c + 1, a + 1 }); }
         }
         var m = new Mesh { name = "Course2_2_SeedFlame" };
-        m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        m.SetVertices(v); m.SetUVs(0, uv); m.SetUVs(1, uv2); m.SetUVs(2, uv3); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         return SaveMesh(m);
     }
     // 炎を「形がゆれる」から「模様が上へ流れて削る」に（2026-11-01 てじゃ「揺れるだけじゃ違和感」）
@@ -1006,7 +1006,7 @@ public static class FuwaCourse2_2Builder
     {
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_SeedFlame", Color.white); m.shader = Shader.Find("FuwaCourse/FlameCurtain");
         m.SetFloat("_Base", 0.5f); m.SetFloat("_BandScale", 2.2f); m.SetFloat("_BandByH", 1f); m.SetFloat("_Sway", 0.2f); m.SetFloat("_Lean", 0.13f);
-        m.SetFloat("_BandLow", 0.04f); m.SetFloat("_BandHot", 0.45f); m.SetFloat("_BandMid", 0.7f); m.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); m.SetFloat("_BandSelf", 1f); m.SetFloat("_BandSoft", 0.1f); FlameFlow(m, 0.3f, 1.1f, 0.55f, 0.45f, 0.8f); EditorUtility.SetDirty(m);   // 外のふちは細い赤、オレンジはその内側まで（2026-10-31 てじゃ「オレンジが外側までいく」）
+        m.SetFloat("_BandLow", 0.04f); m.SetFloat("_BandHot", 0.45f); m.SetFloat("_BandMid", 0.7f); m.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); m.SetFloat("_BandSelf", 1f); m.SetFloat("_BandSoft", 0.1f); FlameFlow(m, 0.3f, 1.1f, 0.55f, 0.45f, 0.8f); m.SetFloat("_Billboard", 1f); EditorUtility.SetDirty(m);   // 外のふちは細い赤、オレンジはその内側まで（2026-10-31 てじゃ「オレンジが外側までいく」）
         return m;
     }
     // 穴の中に描く物は縦穴（Geometry+11）のあとに描く
@@ -1348,7 +1348,7 @@ public static class FuwaCourse2_2Builder
         }
         m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_FlameCurtain", Color.white);
-        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.5f); mat.SetFloat("_BandMid", 2f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 0f); mat.SetFloat("_Rim", 0.11f); mat.SetFloat("_LowScale", 0.25f); mat.SetFloat("_BandSoft", 0.1f); FlameFlow(mat, 1.1f, 1.5f, 0.4f, 0.45f, 0.8f); mat.SetFloat("_FlowBody", 1f); mat.SetFloat("_FlowAmp", 3.2f);   // 壁は細かい舌が立つように EditorUtility.SetDirty(mat);   // 外のふちは細い赤（2026-10-31 てじゃ）。_BandSelf は横切る帯の縦線が戻るので使わない
+        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.5f); mat.SetFloat("_BandMid", 2f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 0f); mat.SetFloat("_Rim", 0.11f); mat.SetFloat("_LowScale", 0.25f); mat.SetFloat("_BandSoft", 0.1f); FlameFlow(mat, 1.1f, 1.5f, 0.4f, 0.45f, 0.8f); mat.SetFloat("_FlowBody", 1f); mat.SetFloat("_FlowAmp", 3.2f); mat.SetFloat("_FlowTop", 0.42f);   // 壁は細かい舌が立つように EditorUtility.SetDirty(mat);   // 外のふちは細い赤（2026-10-31 てじゃ）。_BandSelf は横切る帯の縦線が戻るので使わない
         var c = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c.transform.SetParent(g, false);
         c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m);
         var r = c.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
