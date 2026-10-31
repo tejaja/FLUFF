@@ -150,15 +150,15 @@ public static class FuwaCourse2_2Builder
             for (int s = 0; s + 1 < pl.c.Count; s++)
             {
                 var mid = (pl.c[s] + pl.c[s + 1]) * 0.5f; var seg = Flat(pl.c[s + 1] - pl.c[s]); var rs = Quaternion.LookRotation(seg); float wn = (HoleR + PoolWobble) * 2f;
-                LavaBurn(lavaRoot, "LavaNeckBallOut" + pools.IndexOf(pl) + "_" + s, mid + Vector3.down * 0.45f, new Vector3(wn, 0.6f, seg.magnitude), rs);
+                LavaBurn(lavaRoot, "LavaNeckBallOut" + pools.IndexOf(pl) + "_" + s, mid + Vector3.down * (ChanLavaDepth + BurnSink + 0.5f), new Vector3(wn, 1f, seg.magnitude), rs);
                 Hazard(lavaRoot, "LavaNeckPlayerOut" + pools.IndexOf(pl) + "_" + s, mid + Vector3.down * (ChanLavaDepth + 0.5f), new Vector3(wn, 1.2f, seg.magnitude), true, rs);
             }
         for (int k = 0; k < holes.Count; k++)
         {
             var hc = (Vector3)holes[k]; float ld = ChanLavaDepth;
             float holeOut = HoleR + PoolWobble;   // ふちがいちばんふくらんだ所まで
-            LavaBurn(lavaRoot, "LavaBallOut" + k, hc + Vector3.down * Mathf.Max(ld - 0.1f, 0.45f),   // 箱の角は穴の外にはみ出すので、上の面は道の 0.15 下より上にしない
-                 new Vector3(holeOut * 2f, 0.6f, holeOut * 2f));
+            LavaBurn(lavaRoot, "LavaBallOut" + k, hc + Vector3.down * (ld + BurnSink + 0.5f),
+                 new Vector3(holeOut * 2f, 1f, holeOut * 2f));
             Hazard(lavaRoot, "LavaPlayerOut" + k, hc + Vector3.down * (ld + 0.5f), new Vector3(holeOut * 2f, 1.2f, holeOut * 2f), true);
             if (chan[k] == 0) continue;
             // 溝の溶岩（穴の中心→ふちの少し外）と、道の横に垂れる溶岩（仮：板）
@@ -170,7 +170,7 @@ public static class FuwaCourse2_2Builder
             var fall = Box(lavaRoot, "LavaFall" + k, hc + od * (len + 0.03f) + Vector3.down * (ld + LavaFallLen * 0.5f + 0.04f), new Vector3(ChanHW * 2f, LavaFallLen, 0.06f), lavaMat, 0);   // 上のふたは溝の溶岩の下へ（上に出ると段に見えた）
             fall.transform.localRotation = rot; Object.DestroyImmediate(fall.GetComponent<Collider>());
             LavaFallLook(fall);
-            LavaBurn(lavaRoot, "LavaChannelBallOut" + k, cm + Vector3.down * 0.1f, new Vector3(ChanHW * 2f, 0.6f, len), rot);
+            LavaBurn(lavaRoot, "LavaChannelBallOut" + k, cm + Vector3.down * (BurnSink + 0.5f), new Vector3(ChanHW * 2f, 1f, len), rot);
             Hazard(lavaRoot, "LavaChannelPlayerOut" + k, cm + Vector3.down * 0.5f, new Vector3(ChanHW * 2f, 1.2f, len), true, rot);
         }
         // 火の玉：穴から穴へ往復。だんだん難しく（速く・休みが短く・最後は3つの穴）。てっぺんは道の FireballTop 上
@@ -486,6 +486,7 @@ public static class FuwaCourse2_2Builder
     // 道にあける穴（2026-10-31 てじゃ「穴と溝が円と直線すぎる」「赤丸で繋がった溶岩池に」）：穴の中心をつないだ線のまわりの形。ふちはでこぼこ、穴と穴の間は少し細い。
     //  道の線ごとに「穴の左はし・右はし」を求めて作る（ふちの点は線の上だけ。線から外すと、となりの帯の長い辺とずれて道に切れ目が出た）
     public static float PoolWobble = 0.2f, PoolNeck = 0.3f;
+    public const float BurnSink = 0.2f;   // ふわふわが黒焦げになる高さ：溶岩の面からこれだけ下に玉の底が入った時（2026-10-31 てじゃ「やたら高い位置でアウト」。前は道の 0.15 下＝溶岩の 0.2 上だった）
     class HolePool
     {
         public List<Vector3> c = new List<Vector3>(); public float rr, amp, ld, seed; public int sx; public List<Vector3> chanAt = new List<Vector3>();

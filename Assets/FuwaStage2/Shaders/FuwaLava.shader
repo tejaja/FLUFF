@@ -74,6 +74,8 @@ Shader "FuwaCourse/Lava"
             }
             ENDCG
         }
+        // 深度テクスチャに入れる（入らないと、深度で描くふわふわのウソ影が溶岩の上に出ない。2026-10-31 てじゃ「影がないから高く見える」）
+        UsePass "FuwaCourse/ToonLit/SHADOWCASTER"
     }
     FallBack Off
 }
