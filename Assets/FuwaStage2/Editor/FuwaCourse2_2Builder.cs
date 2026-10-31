@@ -825,7 +825,7 @@ public static class FuwaCourse2_2Builder
         {
             const float Drop = 0.14f, Rim = 0.08f;
             Vector3 Out(int j) => Flat(lg.e[j] - lg.pivot).normalized;
-            float W(int j) { float t = j / (float)(lg.e.Count - 1); var q = lg.e[j]; return ZigLedge * Mathf.Pow(Mathf.Sin(t * Mathf.PI), 0.7f) * (0.72f + 0.56f * Mathf.PerlinNoise(q.x * 0.9f + 3f, q.z * 0.9f + 8f)); }
+            float W(int j) { float t = j / (float)(lg.e.Count - 1); var q = lg.e[j]; return ZigLedge * Mathf.Pow(Mathf.Max(0f, Mathf.Sin(t * Mathf.PI)), 0.7f) * (0.72f + 0.56f * Mathf.PerlinNoise(q.x * 0.9f + 3f, q.z * 0.9f + 8f)); }
             for (int j = 0; j + 1 < lg.e.Count; j++)
             {
                 Vector3 Y(Vector3 q, float d) { q.y = lg.y - d; return q; }
