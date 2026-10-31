@@ -755,7 +755,7 @@ public static class FuwaCourse2_2Builder
 
     // ジグザグの 1 本道：折り返しは内側の角（板の内側のふちの交点）を軸に道を扇のように回して、外側がふくらむ。シマシマはつながり、下の岩も道と同じ。
     //  当たりも同じ形。折り返しの間は平らで、板の部分だけ坂（前の板より少し急）
-    public static float ZigBulge = 2.9f, ZigSeedOut = 1.35f;
+    public static float ZigBulge = 2.9f, ZigSeedOut = 1.35f, ZigLedge = 1.15f;   // 折り返しの外の岩の足場の幅（2026-10-31 てじゃ「頂点の先ちょっとだけ広く」「道の周りに岩の足場みたいなの」）
     static void ZigPath(Transform parent, Vector3 startL, Vector3 startR, Vector3 startDir, List<(Vector3 a, Vector3 b)> legs, List<Vector3> nodes, Vector3 endL, Vector3 endR, Vector3 endDir)
     {
         const float T = 0.6f, In = 0.1f, Ease = 1.2f, FanS = 4f; float hw = ZigHW; int n = legs.Count;
@@ -770,7 +770,7 @@ public static class FuwaCourse2_2Builder
             float u = ((q.x - p.x) * dirs[k + 1].z - (q.z - p.z) * dirs[k + 1].x) / den;
             pivot[k] = p + dirs[k] * u; sEnd[k] = u; sStart[k + 1] = Vector3.Dot(pivot[k] - Flat(legs[k + 1].a), dirs[k + 1]);
         }
-        var L = new List<Vector3>(); var R = new List<Vector3>();
+        var L = new List<Vector3>(); var R = new List<Vector3>(); var ledges = new List<(List<Vector3> e, Vector3 pivot, float y)>();
         void Row(Vector3 l, Vector3 r, float y) { l.y = y; r.y = y; L.Add(l); R.Add(r); }
         Vector3 Bz(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float t) { float v = 1f - t; return v * v * v * a + 3f * v * v * t * b + 3f * v * t * t * c + t * t * t * d; }
         void Blend(Vector3 l0, Vector3 r0, Vector3 d0, Vector3 l1, Vector3 r1, Vector3 d1, float y, int m)
@@ -793,12 +793,13 @@ public static class FuwaCourse2_2Builder
             // 折り返し：内側は軸の 1 点、外側はふくらむ曲線（まん中が火種から ZigBulge の所）
             float ik = inner[k]; Vector3 o0 = At(k, sEnd[k], -ik * hw), o1 = At(k + 1, sStart[k + 1], -ik * hw), c = Flat(nodes[k + 1]);
             float lo = 0.2f, hi = 12f; for (int q = 0; q < 24; q++) { float mid = (lo + hi) * 0.5f; if ((Bz(o0, o0 + dirs[k] * mid, o1 - dirs[k + 1] * mid, o1, 0.5f) - c).magnitude < ZigBulge) lo = mid; else hi = mid; }
-            const int Fan = 28;
+            const int Fan = 28; var edge = new List<Vector3> { o0 };
             for (int i = 1; i < Fan; i++)
             {
-                var oe = Bz(o0, o0 + dirs[k] * lo, o1 - dirs[k + 1] * lo, o1, i / (float)Fan);
+                var oe = Bz(o0, o0 + dirs[k] * lo, o1 - dirs[k + 1] * lo, o1, i / (float)Fan); edge.Add(oe);
                 if (ik > 0f) Row(oe, pivot[k], y1); else Row(pivot[k], oe, y1);
             }
+            edge.Add(o1); ledges.Add((edge, pivot[k], y1));
         }
         Blend(At(n - 1, sEnd[n - 1], -hw), At(n - 1, sEnd[n - 1], hw), dirs[n - 1], Flat(endL), Flat(endR), endDir, nodes[n].y, 16);
         Row(endL, endR, endL.y);
@@ -819,6 +820,24 @@ public static class FuwaCourse2_2Builder
             Skirt(vis, ri0, ri1, li0, li1, -o0);
         }
         if (folds > 0) Debug.LogWarning("[2–2] ZigPath 道の面の折り重なり " + folds + " か所");
+        // 折り返しの外の岩の足場：道より少し低い段。乗れる（当たりあり）。両はしは幅 0 にして道の横へなじませる
+        foreach (var lg in ledges)
+        {
+            const float Drop = 0.14f, Rim = 0.08f;
+            Vector3 Out(int j) => Flat(lg.e[j] - lg.pivot).normalized;
+            float W(int j) { float t = j / (float)(lg.e.Count - 1); var q = lg.e[j]; return ZigLedge * Mathf.Pow(Mathf.Sin(t * Mathf.PI), 0.7f) * (0.72f + 0.56f * Mathf.PerlinNoise(q.x * 0.9f + 3f, q.z * 0.9f + 8f)); }
+            for (int j = 0; j + 1 < lg.e.Count; j++)
+            {
+                Vector3 Y(Vector3 q, float d) { q.y = lg.y - d; return q; }
+                Vector3 a0 = Y(lg.e[j], Drop), a1 = Y(lg.e[j + 1], Drop), b0 = Y(lg.e[j] + Out(j) * W(j), Drop), b1 = Y(lg.e[j + 1] + Out(j + 1) * W(j + 1), Drop);
+                Vector3 c0 = Y(lg.e[j] + Out(j) * (W(j) + Rim), Drop + Rim), c1 = Y(lg.e[j + 1] + Out(j + 1) * (W(j + 1) + Rim), Drop + Rim);
+                float dep0 = 0.75f + W(j) * 0.9f, dep1 = 0.75f + W(j + 1) * 0.9f;
+                Vector3 d0 = Y(lg.e[j] + Out(j) * W(j) * 0.55f, Drop + dep0), d1 = Y(lg.e[j + 1] + Out(j + 1) * W(j + 1) * 0.55f, Drop + dep1);
+                Vector3 f0 = Y(lg.e[j], Drop + dep0 + 0.2f), f1 = Y(lg.e[j + 1], Drop + dep1 + 0.2f), oj = Out(j);
+                vis.Quad(a0, a1, b1, b0, Vector3.up, 2); vis.Quad(b0, b1, c1, c0, oj + Vector3.up, 2); vis.Quad(c0, c1, d1, d0, oj, 2); vis.Quad(d0, d1, f1, f0, Vector3.down, 2);
+                col.Quad(a0, a1, b1, b0, Vector3.up, 0); col.Quad(b0, b1, d1, d0, oj, 0); col.Quad(d0, d1, f1, f0, Vector3.down, 0);
+            }
+        }
         MeshObj(parent, "ZigPath", vis.Build("Course2_2_ZigPath", 3), col.Build("Course2_2_ZigPath_Col", 1), new[] { pathA, pathB, rockMat });
     }
 
