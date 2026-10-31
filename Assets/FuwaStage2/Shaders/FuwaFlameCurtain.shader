@@ -16,6 +16,7 @@ Shader "FuwaCourse/FlameCurtain"
         _BandLow ("下のふちの色の広さ", Range(0,0.5)) = 0.1
         _BandHot ("内側の色の上のはし", Range(0,1)) = 0.42
         _BandMid ("まん中の色の上のはし", Range(0,2)) = 0.74
+        _BandSoft ("色の境目のぼかし（2026-10-31 てじゃ「境目がパッキリ」）", Range(0.001,0.4)) = 0.001
         _Rim ("炎の形にそった外のふちの太さ（高さの割合。頂点カラー G が 1 の帯だけ）", Range(0,0.2)) = 0
         _BandSelf ("色の帯を炎の形に合わせる（動いても外のふちの色が切れない。板の炎の縦線が気にならない物だけ）", Range(0,1)) = 0
     }
@@ -35,7 +36,7 @@ Shader "FuwaCourse/FlameCurtain"
             #include "FuwaFireFar.cginc"
 
             half4 _Hot, _Mid, _Tip;
-            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _Rim;
+            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; float3 wp : TEXCOORD4; float rim : TEXCOORD5; UNITY_FOG_COORDS(1) };
@@ -75,10 +76,12 @@ Shader "FuwaCourse/FlameCurtain"
                 float blow = 0.09 * (1.0 - abs(sin(bx * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(bx * 4.7 + t))) + 0.005;
                 btop = lerp(btop, top, _BandSelf); blow = lerp(blow, low, _BandSelf);
                 float u = (y - blow) / max(btop - blow, 0.01);
-                half3 c = u < _BandLow ? _Tip.rgb : (u < _BandHot ? _Hot.rgb : (u < _BandMid ? _Mid.rgb : _Tip.rgb));
+                half3 c = lerp(_Hot.rgb, _Mid.rgb, smoothstep(_BandHot - _BandSoft, _BandHot + _BandSoft, u));
+                c = lerp(c, _Tip.rgb, smoothstep(_BandMid - _BandSoft, _BandMid + _BandSoft, u));
+                c = lerp(_Tip.rgb, c, smoothstep(_BandLow - _BandSoft, _BandLow + _BandSoft, u));
                 // 外のふち：色の帯とは別に炎の形にそって塗る。帯は壁の線の位置で決めているので（縦線よけ）、動くと帯がふちまで出ることがある。
                 //  横切る帯は G=0 で塗らない（塗ると低い帯のふちが赤い縦線に見えた）。fwidth で太さをそろえるとギザギザになった
-                if (i.rim > 0.5 && dTop < _Rim) c = _Tip.rgb;
+                if (i.rim > 0.5) c = lerp(_Tip.rgb, c, smoothstep(_Rim * 0.4, _Rim * 1.6, dTop));
                 c = FuwaFireCalm(c, far);
                 fixed4 o = fixed4(c, alpha);
                 UNITY_APPLY_FOG(i.fogCoord, o);
