@@ -1196,6 +1196,7 @@ public static class FuwaCourse2_2Builder
         g.localPosition = (a + b) * 0.5f; g.localRotation = Quaternion.LookRotation(Vector3.Cross(Vector3.up, d.normalized));   // forward＝壁の厚みの向き、right＝壁の長さの向き
         LavaBurn(g, "Burn", new Vector3(0, FireWallH * 0.5f - 1f - ZigRise, 0), new Vector3(len, FireWallH + ZigRise, 0.5f));   // 下は1個とばしの低い方の踊り場（ZigRise 下）まで
         FlameCurtain(g, name, len);
+        FireWallRock(g, name, len);
         // 火の粉だけ粒で（前は太い粒のかたまりで炎を作っていて、ぼやけて赤いもやに見えた。2026-10-31）
         var ps = FuwaStage2FireTest.FlamePS(g, "Flame", 0.2f, 2.6f, 1.3f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.28f, 0.05f));
         ps.transform.localPosition = new Vector3(0, -0.8f, 0);
@@ -1204,10 +1205,42 @@ public static class FuwaCourse2_2Builder
         var main = ps.main; main.startColor = Color.white; main.maxParticles = Mathf.CeilToInt(5f * len); main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.22f); main.startSpeed = new ParticleSystem.MinMaxCurve(1.6f, 3.2f);
         ps.Play();
     }
+    // 炎の壁の下の岩（2026-10-31 てじゃ「炎の下がぶら下がってる、岩を伸ばす？でも歩けちゃだめ」）。上がとがった尾根で、まん中の割れ目の溶岩から炎が立つ。
+    //  いちばん低い道（g の -ZigRise）より 1m 以上低く、当たりなし。-x がジグザグの V の根元で、そちらは道の下にもぐる
+    const float FireWallRockTop = -3.4f, FireWallLava = -3.8f;
+    static void FireWallRock(Transform g, string name, float len)
+    {
+        var mb = new MB(); float x0 = -len * 0.5f - 2.2f, x1 = len * 0.5f + 1f; int nx = Mathf.Max(4, Mathf.CeilToInt((x1 - x0) / 0.32f));
+        float Rnd(float n) { float v = Mathf.Sin(n * 12.9898f + name.Length * 7.1f + name[name.Length - 1] * 3.3f) * 43758.5453f; return v - Mathf.Floor(v); }
+        Vector3[] Ring(int i)
+        {
+            float x = Mathf.Lerp(x0, x1, i / (float)nx) + (i > 0 && i < nx ? (Rnd(i) - 0.5f) * 0.14f : 0f), e = Mathf.Clamp01((x1 - x) / 2.4f), root = Mathf.Clamp01((-len * 0.5f + 0.6f - x) / 2.8f);   // e：外のはしへ細く、root：V の根元で道の下へもぐる
+            float w = (0.72f + 0.12f * Mathf.Sin(x * 0.8f + 1f)) * Mathf.Lerp(0.08f, 1f, Mathf.SmoothStep(0f, 1f, e)), drop = (1f - e) * 1.1f, rise = Mathf.SmoothStep(0f, 1f, root) * 1.9f;
+            float SpikeL = Mathf.Pow(Rnd(i * 1.3f + 3f), 2.2f) * 0.75f * e, SpikeR = Mathf.Pow(Rnd(i * 1.7f + 11f), 2.2f) * 0.75f * e;
+            float top = FireWallRockTop - drop + rise, depth = Mathf.Lerp(1.3f, 4.4f, Mathf.InverseLerp(x1, x0, x)) * (0.82f + 0.14f * Mathf.Sin(x * 0.9f + 0.4f) + 0.08f * Mathf.Sin(x * 2.3f)) * Mathf.Lerp(0.12f, 1f, Mathf.SmoothStep(0f, 1f, e));
+            if (Rnd(Mathf.Floor(i / 3f) + 40f) > 0.68f && i % 3 == 1) depth += 0.7f * e;   // ときどき長いトゲ
+            float bottom = top - depth - 0.1f, flank = top - Mathf.Min(1.2f, depth * 0.55f);
+            float lava = Mathf.Min(FireWallLava, top - 0.25f);
+            if (root > 0.01f) lava = Mathf.Max(lava, top - 0.45f);
+            return new[] { new Vector3(x, bottom, 0.25f * Mathf.Sin(x * 1.1f)), new Vector3(x, flank, -w * (1.2f + 0.16f * Rnd(i * 2.1f))), new Vector3(x, top + SpikeL, -w), new Vector3(x, lava + 0.1f, -w * 0.58f), new Vector3(x, lava, -w * 0.55f), new Vector3(x, lava, w * 0.55f), new Vector3(x, lava + 0.1f, w * 0.58f), new Vector3(x, top + SpikeR, w), new Vector3(x, flank, w * (1.2f + 0.16f * Rnd(i * 2.7f))) };
+        }
+        var outs = new[] { new Vector3(0, -1, -1), new Vector3(0, 0.3f, -1), new Vector3(0, 0.6f, 1), new Vector3(0, 0.6f, 1), new Vector3(0, 1, 0), new Vector3(0, 0.6f, -1), new Vector3(0, 0.6f, -1), new Vector3(0, 0.3f, 1), new Vector3(0, -1, 1) };
+        for (int i = 0; i < nx; i++)
+        {
+            var a = Ring(i); var b = Ring(i + 1);
+            for (int k = 0; k < a.Length; k++) { int n = (k + 1) % a.Length; mb.Quad(a[k], b[k], b[n], a[n], outs[k], k == 4 ? 1 : 0); }
+        }
+        foreach (var (rg, xo) in new[] { (Ring(0), -1f), (Ring(nx), 1f) })
+            for (int k = 0; k < rg.Length; k++) { int n = (k + 1) % rg.Length; var c = new Vector3(rg[0].x, FireWallRockTop - 1f, 0f); mb.Quad(rg[k], rg[n], c, c, new Vector3(xo, 0, 0), 0); }
+        var o = new GameObject("Rock", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false);
+        o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_" + name + "_Rock", 2));
+        var r = o.GetComponent<MeshRenderer>(); r.sharedMaterials = new[] { rockMat, FlowLavaMat() }; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        GameObjectUtility.SetStaticEditorFlags(o, StaticEditorFlags.BatchingStatic);
+    }
     // 炎の板：長さ len、高さは当たりと同じ。少しずらして 2 枚（前後で模様をずらして厚みを出す）
     public static void FlameCurtain(Transform g, string name, float len)
     {
-        float y0 = FireWallH * 0.5f - 1f - ZigRise - (FireWallH + ZigRise) * 0.5f, y1 = y0 + FireWallH + ZigRise;   // Burn の箱と同じ高さの範囲
+        float y1 = FireWallH * 0.5f - 1f - ZigRise + (FireWallH + ZigRise) * 0.5f, y0 = FireWallLava - 0.45f;   // 上は Burn の箱と同じ。下は岩の割れ目の中まで（当たりより低いが、そこに道はない）
         var m = new Mesh { name = "Course2_2_" + name + "_Curtain" };
         var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
         // 縦に立てた帯を 1 枚足す。pts は上から見た線、h はその点の炎の高さの割合（はしを低くして板の切り口を見せない）
@@ -1249,7 +1282,7 @@ public static class FuwaCourse2_2Builder
         }
         m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_FlameCurtain", Color.white);
-        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.5f); mat.SetFloat("_BandMid", 2f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 0f); mat.SetFloat("_Rim", 0.11f); mat.SetFloat("_BandSoft", 0.1f); EditorUtility.SetDirty(mat);   // 外のふちは細い赤（2026-10-31 てじゃ）。_BandSelf は横切る帯の縦線が戻るので使わない
+        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.5f); mat.SetFloat("_BandMid", 2f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 0f); mat.SetFloat("_Rim", 0.11f); mat.SetFloat("_LowScale", 0.25f); mat.SetFloat("_BandSoft", 0.1f); EditorUtility.SetDirty(mat);   // 外のふちは細い赤（2026-10-31 てじゃ）。_BandSelf は横切る帯の縦線が戻るので使わない
         var c = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c.transform.SetParent(g, false);
         c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m);
         var r = c.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;

@@ -16,6 +16,7 @@ Shader "FuwaCourse/FlameCurtain"
         _BandLow ("下のふちの色の広さ", Range(0,0.5)) = 0.1
         _BandHot ("内側の色の上のはし", Range(0,1)) = 0.42
         _BandMid ("まん中の色の上のはし", Range(0,2)) = 0.74
+        _LowScale ("下のはしの舌の長さ", Range(0,1)) = 1
         _BandSoft ("色の境目のぼかし（2026-10-31 てじゃ「境目がパッキリ」）", Range(0.001,0.4)) = 0.001
         _Rim ("炎の形にそった外のふちの太さ（高さの割合。頂点カラー G が 1 の帯だけ）", Range(0,0.2)) = 0
         _BandSelf ("色の帯を炎の形に合わせる（動いても外のふちの色が切れない。板の炎の縦線が気にならない物だけ）", Range(0,1)) = 0
@@ -36,7 +37,7 @@ Shader "FuwaCourse/FlameCurtain"
             #include "FuwaFireFar.cginc"
 
             half4 _Hot, _Mid, _Tip;
-            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim;
+            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim, _LowScale;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; float3 wp : TEXCOORD4; float rim : TEXCOORD5; UNITY_FOG_COORDS(1) };
@@ -65,7 +66,7 @@ Shader "FuwaCourse/FlameCurtain"
                 float top = (_Base + (1.0 - _Base) * (0.6 * a * a + (0.28 * b + 0.12 * c3) * detail + 0.2 * (1.0 - detail))) * _Height * i.h;   // 低い所でも当たりの高さの 2/3 近くまで（低くすると、炎の上の何もない所でアウトになって見える）
                 float dTop = top - y; half alpha = saturate(dTop / max(fwidth(dTop), 0.0001) + 0.5);
                 // 下のはしも舌の形で切る（まっすぐ切れて板に見えないように）
-                float low = 0.09 * (1.0 - abs(sin(x * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(x * 4.7 + t))) + 0.005;
+                float low = (0.09 * (1.0 - abs(sin(x * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(x * 4.7 + t)))) * _LowScale + 0.005;
                 float dLow = y - low; alpha = min(alpha, saturate(dLow / max(fwidth(dLow), 0.0001) + 0.5));
                 clip(alpha - 0.01);
                 // 色の帯：内側が熱い。下のはしは赤。全部の帯で同じ形にする（壁の長さの向きの位置で決める）。
@@ -73,7 +74,7 @@ Shader "FuwaCourse/FlameCurtain"
                 float lx = i.lx * _BandScale; float bx = lx + (sin(y * 6.0 - t * 3.2 + lx * 1.1) * 0.55 + sin(y * 11.0 - t * 5.0 + lx * 2.3) * 0.22) * _Sway * (0.2 + y * 2.0);
                 float ba = 1.0 - abs(sin(bx * 1.25 + t * 0.9)), bb = 1.0 - abs(sin(bx * 2.9 - t * 1.4 + 1.3)), bc = 1.0 - abs(sin(bx * 6.1 + t * 2.1 + 2.7));
                 float btop = (_Base + (1.0 - _Base) * (0.6 * ba * ba + 0.28 * bb + 0.12 * bc)) * _Height * lerp(1.0, i.h, _BandByH);
-                float blow = 0.09 * (1.0 - abs(sin(bx * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(bx * 4.7 + t))) + 0.005;
+                float blow = (0.09 * (1.0 - abs(sin(bx * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(bx * 4.7 + t)))) * _LowScale + 0.005;
                 btop = lerp(btop, top, _BandSelf); blow = lerp(blow, low, _BandSelf);
                 float u = (y - blow) / max(btop - blow, 0.01);
                 half3 c = lerp(_Hot.rgb, _Mid.rgb, smoothstep(_BandHot - _BandSoft, _BandHot + _BandSoft, u));
