@@ -226,16 +226,17 @@ def hono_e3_long(path=None):
     progB = ['C', 'C', 'Am', 'Am', 'C', 'C', 'B', 'B', 'Em', 'Em', 'C', 'C', 'Am', 'Am', 'B', 'B']
     prog = progA + progB + progA
     riff = ((0, 0, 0.75), (0.75, 0, 0.5), (1.5, 0, 0.6), (2, 3, 0.55), (2.5, 0, 0.5), (3, 7, 0.55), (3.5, 6, 0.5))
-    thin = ((0, 0, 0.75), (2, 0, 0.55), (3.5, 6, 0.42))
+    thin = ((0, 0, 0.75), (0.75, 0, 0.45), (1.5, 0, 0.5), (2, 3, 0.5), (3, 7, 0.5), (3.5, 6, 0.42))
     def level(bar):
         if bar < 16: return 0.72
-        if bar < 24: return 0.3
-        if bar < 32: return 0.42 + 0.55 * (bar - 24) / 7.0
+        if bar < 20: return 0.45
+        if bar < 32: return 0.5 + 0.48 * (bar - 20) / 11.0
         return 1.0
     for bar, cn in enumerate(prog):
         r, cps = old.chord(cn)
         root = old.nearest(40, [r], 35, 46)
-        quiet = 16 <= bar < 24; last = bar >= 32; g = level(bar)
+        quiet = 16 <= bar < 20; last = bar >= 32;   # 静かな所は短く、リフも減らしすぎない（2026-11-01 てじゃ「静かなパートが淋しい」）
+        g = level(bar)
         # 地鳴り：リフの 1 オクターブ下を長く
         rumble = root - 12 if root - 12 >= 26 else root
         m.add(sub_bass(midi_hz(rumble), 4 * m.beat + 0.05, 0.3), bar * 4, rev=0.02, gain=1.2 + 0.5 * g, humanize=0)
@@ -243,7 +244,7 @@ def hono_e3_long(path=None):
         for q in sorted(old.nearest(62 + (x - 62) % 12, [x], 57, 69) for x in cps):   # 声はやめて、低めのパッドだけ（てじゃ「やっぱ声つよい」。高い所のパッドも声っぽく聞こえるかもしれないので下げた）
             m.add(warm_pad(midi_hz(q), 4 * m.beat + 0.3, 0.3, bright=0.2), bar * 4, pan=0.12, rev=0.35, gain=0.35 + 0.45 * g, humanize=0)
         for beat, iv, v in (thin if quiet else riff):
-            d = (1.2 if quiet else 0.4) * m.beat
+            d = (0.6 if quiet else 0.4) * m.beat
             m.add(power2(midi_hz(root + iv + 12), d, m.vel(v), drive=3.0), bar * 4 + beat, pan=-0.12, rev=0.08, gain=0.6 * g, humanize=0.003)
             m.add(finger_bass(midi_hz(root + iv), d, m.vel(v, 0.04), tone=0.5), bar * 4 + beat, rev=0.03, gain=0.5 * g, humanize=0.003)
         drums = ((0, 66, 0.85), (2, 66, 0.6)) if quiet else ((0, 66, 0.85), (1.5, 66, 0.6), (2, 88, 0.6), (3, 66, 0.7), (3.5, 88, 0.5))
@@ -253,6 +254,8 @@ def hono_e3_long(path=None):
         if quiet:
             for beat in (1, 3):
                 m.add(tom2(100, m.vel(0.4), skin=0.7), bar * 4 + beat, pan=0.15, rev=0.2, gain=0.42, humanize=0.003)
+            for k, (beat, f0) in enumerate(((0.5, 74), (1.5, 88), (2.5, 74), (3.25, 88), (3.5, 74), (3.75, 100))):   # 遠くで鳴る太鼓：響きを多めに
+                m.add(tom2(f0, m.vel(0.42), skin=0.6), bar * 4 + beat, pan=-0.4 + k * 0.16, rev=0.55, gain=0.4, humanize=0.004)
         else:
             for beat, v in ((0, 0.85), (1.5, 0.6), (2, 0.72), (3.5, 0.6)):
                 m.add(kick2(m.vel(v, 0.04), punch=0.6, low=0.6), bar * 4 + beat, rev=0.02, gain=0.72 * g, humanize=0.002)
