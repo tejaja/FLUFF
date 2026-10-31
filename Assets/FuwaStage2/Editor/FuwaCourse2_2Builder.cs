@@ -859,6 +859,22 @@ public static class FuwaCourse2_2Builder
     // 山肌の火炎の壁：道の内側のふち edge（道の面の高さ）の所、火山から外向き。FlameLowH〜FlameHighH に縦に FlameRows 本ならんでいっしょに吹いて、当たりは 1 つの縦長の箱。
     //  2026-10-30 上下 2 本→ てじゃ「もっと上まで炎あってもいいかも」で 3 本
     //  当たると燃えて外へ吹っ飛ぶ（FuwaFireJet.ballKnock）
+    const string JetRockModel = "Assets/FuwaStage2/Models/Stage2_JetRock.fbx";
+    static Material JetEmberMat() { var m = FuwaStage2WaterTest.ToonMat("Stage2_2_JetEmber", new Color(0.3f, 0.09f, 0.05f)); m.SetColor("_EmissionColor", new Color(0.36f, 0.075f, 0.03f)); EditorUtility.SetDirty(m); return m; }
+    // 炎の岩の見た目（名前の番号で 3 つの形を使い分け）。穴の奥に赤く光る炎の口を沈める
+    public static void JetRockMesh(GameObject rock, string jetName)
+    {
+        int k = 0; int.TryParse(new string(jetName.Where(char.IsDigit).ToArray()), out k);
+        var mesh = AssetDatabase.LoadAllAssetsAtPath(JetRockModel).OfType<Mesh>().FirstOrDefault(x => x.name == "Stage2_JetRock" + (k % 3));
+        if (!mesh) return;
+        rock.GetComponent<MeshFilter>().sharedMesh = mesh;
+        var rm = FuwaStage2WaterTest.ToonMat("Stage2_2_JetRock", new Color(0.56f, 0.29f, 0.25f));
+        rm.SetFloat("_NoiseStrength", 0.2f); rm.SetFloat("_NoiseScale", 1.3f); rm.SetFloat("_StrataStrength", 0.2f); rm.SetFloat("_StrataScale", 1.6f); rm.SetFloat("_Facet", 0.8f); rm.SetFloat("_RimStrength", 0.1f); EditorUtility.SetDirty(rm);
+        var hm = FuwaStage2WaterTest.ToonMat("Stage2_2_JetHole", new Color(0.16f, 0.05f, 0.05f)); hm.SetColor("_EmissionColor", new Color(0.32f, 0.07f, 0.03f)); EditorUtility.SetDirty(hm);
+        rock.GetComponent<MeshRenderer>().sharedMaterials = new[] { rm, hm };
+    }
+    // 炎の口：穴の奥へ（箱の時は前の面に貼ってあった）
+    public static void JetMouthLook(Transform mouth) { mouth.localPosition = new Vector3(0, -0.36f, 0); mouth.GetComponent<Renderer>().sharedMaterial = JetEmberMat(); }
     static void VolcanoJet(Transform parent, string name, Vector3 edge, float th, float period, float on, float phase)
     {
         float a = th * Mathf.Deg2Rad;
@@ -867,6 +883,8 @@ public static class FuwaCourse2_2Builder
         // 山肌から出っぱった岩（道のふちから山の中まで）
         var rock = Box(parent, name + "_Rock", edge - o * ((FlameGap + 1.6f) * 0.5f) + Vector3.up * ((top - 2.1f) * 0.5f), new Vector3(2.2f, top + 2.1f, FlameGap + 1.6f), rockMat, 0);
         rock.transform.localRotation = Quaternion.LookRotation(o);
+        // 見た目は Blender の岩（Tools/stage2_jetrock.py）。当たりは箱のまま
+        JetRockMesh(rock, name);
 
         // g：上（y）が炎の向き o、前（z）がワールドの上
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = edge + o * 0.02f + Vector3.up * mid; g.localRotation = Quaternion.LookRotation(Vector3.up, o);
@@ -879,6 +897,7 @@ public static class FuwaCourse2_2Builder
             m.transform.localPosition = new Vector3(0, -0.12f, 0); m.transform.localScale = new Vector3(0.9f, 0.15f, 0.9f);
             Object.DestroyImmediate(m.GetComponent<Collider>());
             m.GetComponent<Renderer>().sharedMaterial = ember;
+            JetMouthLook(m.transform);
             // 炎の粒は口から len 先まで（寿命 0.7 秒で届く速さ）
             flames[i] = FuwaStage2FireTest.FlamePS(mt, "Flame", 0.4f, len / 0.7f, 1.0f, new Color(1f, 0.8f, 0.25f), new Color(1f, 0.3f, 0.05f));
             { var sh = flames[i].shape; sh.angle = 9f; var mm = flames[i].main; mm.startSize = new ParticleSystem.MinMaxCurve(0.7f, 1.3f); }
