@@ -878,7 +878,7 @@ public static class FuwaCourse2_2Builder
         var r = c.GetComponent<MeshRenderer>(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
         return c;
     }
-    // 火種：角の外側にだけ低い石、平らなおき火。炎はふわふわの止まる高さ（SeedHover）より低く（ふわふわが炎に隠れないように）。
+    // 火種：焚き火。角の外側にだけ低い石、焦げ跡、組んだまき。炎はふわふわの止まる高さ（SeedHover）より低く（ふわふわが炎に隠れないように）。
     //  石の輪は道をふさいで通れなさそうに見えた（2026-10-31 てじゃ）ので、進む向きはあける。outward は角の外向き（Fire の座標）
     static void SeedLook(Transform g, Vector3 outward)
     {
@@ -895,17 +895,34 @@ public static class FuwaCourse2_2Builder
                 mb.Quad(o + Vector3.up * (hgt + 0.03f), o + Vector3.up * (hgt + 0.03f), P(k + 1, rad * 0.62f, hgt), P(k, rad * 0.62f, hgt), Vector3.up, 0);
             }
         }
-        // おき火：低い山。まん中が高い
-        const int Seg = 24; var rs = new[] { (r: 0.62f, y: -0.01f), (r: 0.48f, y: 0.025f), (r: 0.24f, y: 0.045f) };
+        // 焦げ跡：ふちがでこぼこの低い円。おき火の溶岩はやめた（2026-10-31 てじゃ「焚き火みたいに」）
+        const int Seg = 24;
         for (int k = 0; k < Seg; k++)
         {
+            float R(int n) { float t = n * Mathf.PI * 2f / Seg; return 0.5f + 0.04f * Mathf.Sin(3f * t + 1f) + 0.025f * Mathf.Sin(7f * t); }   // 一周でつながるよう整数倍の波
             float a0 = k * Mathf.PI * 2f / Seg, a1 = (k + 1) * Mathf.PI * 2f / Seg; Vector3 Q(float a, float r, float y) => new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r);
-            for (int j = 0; j + 1 < rs.Length; j++) mb.Quad(Q(a0, rs[j].r, rs[j].y), Q(a1, rs[j].r, rs[j].y), Q(a1, rs[j + 1].r, rs[j + 1].y), Q(a0, rs[j + 1].r, rs[j + 1].y), Vector3.up, 1);
-            mb.Quad(Q(a0, rs[2].r, rs[2].y), Q(a1, rs[2].r, rs[2].y), Vector3.up * 0.05f, Vector3.up * 0.05f, Vector3.up, 1);
+            mb.Quad(Q(a0, R(k), -0.01f), Q(a1, R(k + 1), -0.01f), Q(a1, R(k + 1) * 0.7f, 0.02f), Q(a0, R(k) * 0.7f, 0.02f), Vector3.up, 0);
+            mb.Quad(Q(a0, R(k) * 0.7f, 0.02f), Q(a1, R(k + 1) * 0.7f, 0.02f), Vector3.up * 0.025f, Vector3.up * 0.025f, Vector3.up, 0);
         }
-        b0.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_SeedBase_" + g.name, 2));
-        b0.GetComponent<MeshRenderer>().sharedMaterials = new[] { rockMat, FlowLavaMat() };
-        var fl = new GameObject("Flames", typeof(MeshFilter), typeof(MeshRenderer)).transform; fl.SetParent(b0, false); fl.localScale = new Vector3(0.55f, 0.36f, 0.55f); fl.localPosition = Vector3.up * 0.05f;
+        // まき：根元は地面につけて、先を炎の中で寄りかからせる。炎に近い側は焦げ色、切り口は明るい木の色
+        const int Logs = 5, LogN = 7;
+        for (int i = 0; i < Logs; i++)
+        {
+            float a = a00 + 0.4f + i * Mathf.PI * 2f / Logs + 0.12f * Mathf.Sin(i * 2.3f), reach = 0.56f + 0.05f * Mathf.Sin(i * 3.7f);
+            var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var foot = dir * reach + Vector3.up * 0.065f; var tip = dir * 0.07f + Vector3.up * (0.42f + 0.05f * Mathf.Sin(i * 5.1f));
+            var ax = (tip - foot).normalized; var s1 = Vector3.Cross(ax, dir).normalized; var s2 = Vector3.Cross(ax, s1);
+            Vector3 Ring(float t, int k) { float b = k * Mathf.PI * 2f / LogN; return Vector3.Lerp(foot, tip, t) + (s1 * Mathf.Cos(b) + s2 * Mathf.Sin(b)) * Mathf.Lerp(0.065f, 0.04f, t); }
+            var bands = new[] { (t0: 0f, t1: 0.55f, sub: 1), (t0: 0.55f, t1: 1f, sub: 0) };
+            for (int k = 0; k < LogN; k++)
+            {
+                foreach (var bd in bands) mb.Quad(Ring(bd.t0, k), Ring(bd.t0, k + 1), Ring(bd.t1, k + 1), Ring(bd.t1, k), Ring(bd.t0, k) + Ring(bd.t0, k + 1) - foot * 2f, bd.sub);
+                mb.Quad(Ring(0f, k), Ring(0f, k + 1), foot, foot, -ax, 2);
+                mb.Quad(Ring(1f, k), Ring(1f, k + 1), tip, tip, ax, 0);
+            }
+        }
+        b0.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_SeedBase_" + g.name, 3));
+        b0.GetComponent<MeshRenderer>().sharedMaterials = new[] { rockMat, FuwaStage2WaterTest.ToonMat("Stage2_2_FireLog", new Color(0.4f, 0.25f, 0.16f)), FuwaStage2WaterTest.ToonMat("Stage2_2_Wood", new Color(0.62f, 0.45f, 0.32f)) };
+        var fl = new GameObject("Flames", typeof(MeshFilter), typeof(MeshRenderer)).transform; fl.SetParent(b0, false); fl.localScale = new Vector3(0.36f, 0.36f, 0.36f); fl.localPosition = Vector3.up * 0.05f;   // まきが見えるよう炎は細く
         fl.GetComponent<MeshFilter>().sharedMesh = IsleFlameMesh(); var fr = fl.GetComponent<MeshRenderer>(); fr.sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_IsleFlame", Color.white); fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; fr.receiveShadows = false;
         var ps = FuwaStage2FireTest.FlamePS(g, "Sparks", 0.35f, 1.5f, 1.2f, new Color(1f, 0.85f, 0.35f), new Color(1f, 0.32f, 0.06f));
         var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f); m.maxParticles = 12; var em = ps.emission; em.rateOverTime = 5f; ps.Play();
