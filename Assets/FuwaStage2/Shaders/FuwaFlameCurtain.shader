@@ -28,7 +28,7 @@ Shader "FuwaCourse/FlameCurtain"
             float _Speed, _Height, _Sway;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; UNITY_FOG_COORDS(1) };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; UNITY_FOG_COORDS(1) };
 
             v2f vert (appdata v)
             {
@@ -36,6 +36,7 @@ Shader "FuwaCourse/FlameCurtain"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
                 o.h = v.color.r;   // その場所の炎の高さの割合（帯のはしは低い）
+                o.lx = v.vertex.x;
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -52,8 +53,13 @@ Shader "FuwaCourse/FlameCurtain"
                 // 下のはしも舌の形で切る（まっすぐ切れて板に見えないように）
                 float low = 0.09 * (1.0 - abs(sin(x * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(x * 4.7 + t))) + 0.005;
                 clip(y - low);
-                // 舌の形に合わせた帯：内側が熱い。下のはしは赤
-                float u = (y - low) / max(top - low, 0.01);
+                // 色の帯：内側が熱い。下のはしは赤。全部の帯で同じ形にする（壁の長さの向きの位置で決める）。
+                //  帯ごとの形で色を決めると、横切る帯が細いオレンジの縦線に見えた（2026-10-31 てじゃ）
+                float bx = i.lx + (sin(y * 8.0 - t * 5.0 + i.lx * 1.1) * 0.55 + sin(y * 15.0 - t * 8.0 + i.lx * 2.3)  * 0.22) * _Sway * (0.2 + y * 2.0);
+                float ba = 1.0 - abs(sin(bx * 1.25 + t * 0.9)), bb = 1.0 - abs(sin(bx * 2.9 - t * 1.4 + 1.3)), bc = 1.0 - abs(sin(bx * 6.1 + t * 2.1 + 2.7));
+                float btop = (0.64 + 0.22 * ba * ba + 0.1 * bb + 0.04 * bc) * _Height;
+                float blow = 0.09 * (1.0 - abs(sin(bx * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(bx * 4.7 + t))) + 0.005;
+                float u = (y - blow) / max(btop - blow, 0.01);
                 half3 c = u < 0.1 ? _Tip.rgb : (u < 0.42 ? _Hot.rgb : (u < 0.74 ? _Mid.rgb : _Tip.rgb));
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
