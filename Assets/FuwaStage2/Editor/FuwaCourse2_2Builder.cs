@@ -894,9 +894,11 @@ public static class FuwaCourse2_2Builder
         }
         // ふち：道の上は低い焦げた輪だけ
         var mb = new MB();
+        float Soil(int n) { float t = n * Mathf.PI * 2f / Seg; return Mathf.Min(R(n) * 1.26f + 0.17f + 0.07f * Mathf.Sin(2f * t + 0.5f) + 0.04f * Mathf.Sin(5f * t + 1.3f), 0.95f); }   // 土は穴より広く（2026-10-31 てじゃ「土をもっと横とかにも広げて」）
         for (int k = 0; k < Seg; k++)
         {
-            mb.Quad(Q(k, R(k) * 1.26f, -0.02f), Q(k + 1, R(k + 1) * 1.26f, -0.02f), Q(k + 1, R(k + 1) * 1.1f, 0.035f), Q(k, R(k) * 1.1f, 0.035f), Vector3.up, 0);
+            mb.Quad(Q(k, Soil(k), -0.012f), Q(k + 1, Soil(k + 1), -0.012f), Q(k + 1, R(k + 1) * 1.26f, 0.02f), Q(k, R(k) * 1.26f, 0.02f), Vector3.up, 0);
+            mb.Quad(Q(k, R(k) * 1.26f, 0.02f), Q(k + 1, R(k + 1) * 1.26f, 0.02f), Q(k + 1, R(k + 1) * 1.1f, 0.035f), Q(k, R(k) * 1.1f, 0.035f), Vector3.up, 0);
             mb.Quad(Q(k, R(k) * 1.1f, 0.035f), Q(k + 1, R(k + 1) * 1.1f, 0.035f), Q(k + 1, R(k + 1), MouthY), Q(k, R(k), MouthY), Vector3.up, 0);
         }
         b0.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_SeedBase_" + g.name, 1));
@@ -957,7 +959,7 @@ public static class FuwaCourse2_2Builder
         const string mp = "Assets/FuwaStage2/Materials/Stage2_2_FirePit.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (!mat) { mat = new Material(Shader.Find("FuwaCourse/VentShaft")); AssetDatabase.CreateAsset(mat, mp); }
-        mat.SetColor("_Top", new Color(0.24f, 0.13f, 0.13f)); mat.SetColor("_Bottom", new Color(0.16f, 0.05f, 0.03f)); mat.SetFloat("_Falloff", 1.2f); EditorUtility.SetDirty(mat);
+        mat.SetColor("_Top", new Color(0.33f, 0.2f, 0.19f)); mat.SetColor("_Bottom", new Color(0.09f, 0.03f, 0.02f)); mat.SetFloat("_Falloff", 1.3f);   // 口はふちと同じ色、奥へ暗く EditorUtility.SetDirty(mat);
         return mat;
     }
     // 噴気孔：打ち出す向きに傾いた筒を道に埋めた、斜めの穴（2026-10-31 てじゃ「真っ直ぐなのに斜めに出るのへん、すこし埋めて斜めに吹き出す穴に」）。
@@ -1007,12 +1009,27 @@ public static class FuwaCourse2_2Builder
             mb.Quad(InRim(k), InRim(k + 1), Pt(SCut(k + 1, Ro(k + 1)), k + 1, Ro(k + 1)), Pt(SCut(k, Ro(k)), k, Ro(k)), Vector3.up, 0);   // ふちの上面
             mb.Quad(InRim(k), InRim(k + 1), Pt(SRoad(k + 1, Rin) - 0.15f, k + 1, Rin), Pt(SRoad(k, Rin) - 0.15f, k, Rin), -ra, 1);   // 内側（道の上の分）
         }
+        // 土：ふちのまわりの道の上に広げる。横へ広く、前後は短く。道の面に沿わせて、はしは道にもぐらせる
+        float RoadY(Vector3 q) => Physics.Raycast(c.TransformPoint(new Vector3(q.x, 0f, q.z)) + Vector3.up, Vector3.down, out var sh, 2f, 1 << 11, QueryTriggerInteraction.Ignore) ? c.InverseTransformPoint(sh.point).y : 0f;
+        Vector3 SoilPt(int k, float t, float yUp)
+        {
+            float a = k * Mathf.PI * 2f / N, ro = Rout * Rock(k); var q = Pt(SRoad(k, ro), k, ro); var d = new Vector3(q.x - A.x, 0f, q.z - A.z).normalized;
+            float w = (0.1f + 0.34f * Mathf.Abs(d.x)) * (1f + 0.22f * Mathf.Sin(2f * a + 1f) + 0.14f * Mathf.Sin(3f * a + 0.3f));
+            if (Mathf.Abs(d.x) > 0.01f) w = Mathf.Min(w, Mathf.Max(0f, NarrowHW - 0.1f - Mathf.Abs(q.x)) / Mathf.Abs(d.x));
+            q += t > 0f ? d * w * t : -d * (0.05f + 0.08f * Mathf.Max(0f, -d.z)); q.y = RoadY(q) + yUp; return q;   // 内のはしはふちの下へ入れる（筒の外側とのあいだに道がのぞいた）
+        }
+        for (int k = 0; k < N; k++)
+        {
+            mb.Quad(SoilPt(k, 0f, 0.03f), SoilPt(k + 1, 0f, 0.03f), SoilPt(k + 1, 0.55f, 0.022f), SoilPt(k, 0.55f, 0.022f), Vector3.up, 0);
+            mb.Quad(SoilPt(k, 0.55f, 0.022f), SoilPt(k + 1, 0.55f, 0.022f), SoilPt(k + 1, 1f, -0.012f), SoilPt(k, 1f, -0.012f), Vector3.up, 0);
+        }
         c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_VentCrater", 2));
         const string innerPath = "Assets/FuwaStage2/Materials/Stage2_2_VentInner.mat";
         var inner = AssetDatabase.LoadAssetAtPath<Material>(innerPath);
         if (inner && inner.shader != Shader.Find("Unlit/Color")) inner.shader = Shader.Find("Unlit/Color");   // Toon だと暗い色でも光って灰色に見えた
         if (!inner) { inner = new Material(Shader.Find("Unlit/Color")); AssetDatabase.CreateAsset(inner, innerPath); }
-        inner.SetColor("_Color", new Color(0.09f, 0.04f, 0.04f)); EditorUtility.SetDirty(inner);
+        inner.SetColor("_Color", new Color(0.33f, 0.2f, 0.19f));   // ステンシルの奥の口の色とそろえる
+        EditorUtility.SetDirty(inner);
         cr.sharedMaterials = new[] { rockMat, inner };
         // 道の面の口：筒と道の交わり。少し大きくして、内側の壁とのあいだに道を残さない（外へはみ出した分はふちと壁に隠れる）
         const float MaskR = Rin * 1.02f;
@@ -1042,7 +1059,7 @@ public static class FuwaCourse2_2Builder
         const string pitPath = "Assets/FuwaStage2/Materials/Stage2_2_VentPit.mat";
         var pit = AssetDatabase.LoadAssetAtPath<Material>(pitPath);
         if (!pit) { pit = new Material(Shader.Find("FuwaCourse/VentShaft")); AssetDatabase.CreateAsset(pit, pitPath); }
-        pit.SetColor("_Top", new Color(0.09f, 0.04f, 0.04f)); pit.SetColor("_Bottom", new Color(0.02f, 0.01f, 0.01f)); pit.SetFloat("_Falloff", 1.2f); pit.SetFloat("_Facet", 0f); EditorUtility.SetDirty(pit);
+        pit.SetColor("_Top", new Color(0.33f, 0.2f, 0.19f)); pit.SetColor("_Bottom", new Color(0.015f, 0.008f, 0.008f)); pit.SetFloat("_Falloff", 1.5f);   // 口はふちと同じ色、奥へ暗く pit.SetFloat("_Facet", 0f); EditorUtility.SetDirty(pit);
         void Part(string nm, Mesh me, Material ma)
         {
             var o = new GameObject(nm, typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(c, false); o.GetComponent<MeshFilter>().sharedMesh = me;
