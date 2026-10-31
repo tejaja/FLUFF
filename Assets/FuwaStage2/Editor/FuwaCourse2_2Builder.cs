@@ -213,20 +213,13 @@ public static class FuwaCourse2_2Builder
         }
         // 1個とばしで並んだ踊り場のまん中を横切る炎の壁（ふわふわが入ると即黒焦げ）：飛ばし越すショートカットを防ぐ
         //  （てじゃ「ショートカット防止に炎の壁でも敷いとくか、即黒焦げの」→ 踊り場の間に縦に置いたら「そこじゃなくてこの青ライン」＝V字のすき間を横切る向き）
-        //  踊り場の列の外（FireWallOut）から、板の V の根元ギリギリ（板・踊り場のふちまで FireWallGap）まで（てじゃ「もっとV字の根本ギリまでせめても」）
+        //  V の根元から両側の道のそばを 2 列で走り（FireStripGap、てじゃ「炎の壁がジグザグから遠すぎる」2026-10-31）、口で 1 本にまとめて列の外（FireWallOut）まで
         for (int k = 0; k + 2 < pads.Count; k++)
         {
             Vector3 a = pads[k].c, b = pads[k + 2].c, c = pads[k + 1].c, mid = (a + b) * 0.5f;
             var d = Flat(b - a).normalized; var n = Vector3.Cross(Vector3.up, d);
             if (Vector3.Dot(Flat(c - mid), n) < 0f) n = -n;   // n＝板の V の内向き
-            float lim = 0.25f + FireWallGap, s = 0f;   // 0.25＝燃える箱の厚みの半分
-            while (s < 30f)
-            {
-                var e = Flat(mid + n * (s + 0.05f));
-                if (SegDist(e, Flat(legs[k].a), Flat(legs[k].b)) < ZigHW + lim || SegDist(e, Flat(legs[k + 1].a), Flat(legs[k + 1].b)) < ZigHW + lim || (e - Flat(c)).magnitude < PadR + lim) break;
-                s += 0.05f;
-            }
-            FireWall(fire, "FireWall" + k, mid - n * (PadR + FireWallOut), mid + n * s);
+            FireWall(fire, "FireWall" + k, legs[k], legs[k + 1], mid, n, mid - n * (PadR + FireWallOut));
         }
 
         // 火の岩：コースの外の火山（ジグザグのてっぺんの右奥に、下からそびえる）の火口から飛んできて、坂の下る向きに板を横切ってはねながら落ちる。板のまん中を1列
@@ -1189,42 +1182,78 @@ public static class FuwaCourse2_2Builder
         return (p - (a + ab * t)).magnitude;
     }
 
-    static void FireWall(Transform parent, string name, Vector3 a, Vector3 b)
+    public static float FireStripGap = 0.75f;   // 炎の列から道のふちまで
+    public struct WallPt { public Vector3 p; public float low, floor, top; }
+    // 線 pts（x の小さい順）の x の所。前後の平均で角を丸める
+    static WallPt WallAt(List<WallPt> pts, float x)
     {
-        var d = Flat(b - a); float len = d.magnitude; if (len < 0.5f) return;
+        WallPt At(float q)
+        {
+            q = Mathf.Clamp(q, pts[0].p.x, pts[pts.Count - 1].p.x); int i = 0; while (i + 2 < pts.Count && q > pts[i + 1].p.x) i++;
+            float t = Mathf.InverseLerp(pts[i].p.x, pts[i + 1].p.x, q);
+            return new WallPt { p = Vector3.Lerp(pts[i].p, pts[i + 1].p, t), low = Mathf.Lerp(pts[i].low, pts[i + 1].low, t), floor = Mathf.Lerp(pts[i].floor, pts[i + 1].floor, t), top = Mathf.Lerp(pts[i].top, pts[i + 1].top, t) };
+        }
+        WallPt a = At(x - 0.7f), b = At(x), c = At(x + 0.7f);
+        return new WallPt { p = new Vector3(x, 0f, (a.p.z + b.p.z + c.p.z) / 3f), low = b.low, floor = (a.floor + b.floor + c.floor) / 3f, top = (a.top + b.top + c.top) / 3f };
+    }
+    // legA は根元へ向かう足（a が外）、legB は根元から出る足（b が外）。ふわふわが入ると即黒焦げ（いつも吹いている火柱あつかい）。人は素通り
+    static void FireWall(Transform parent, string name, (Vector3 a, Vector3 b) legA, (Vector3 a, Vector3 b) legB, Vector3 mid, Vector3 n, Vector3 tail)
+    {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
-        g.localPosition = (a + b) * 0.5f; g.localRotation = Quaternion.LookRotation(Vector3.Cross(Vector3.up, d.normalized));   // forward＝壁の厚みの向き、right＝壁の長さの向き
-        LavaBurn(g, "Burn", new Vector3(0, FireWallH * 0.5f - 1f - ZigRise, 0), new Vector3(len, FireWallH + ZigRise, 0.5f));   // 下は1個とばしの低い方の踊り場（ZigRise 下）まで
-        FlameCurtain(g, name, len);
-        FireWallRock(g, name, len);
+        g.localPosition = mid; g.localRotation = Quaternion.LookRotation(Vector3.Cross(Vector3.up, n));   // +x が口の向き、-x が V の根元
+        Vector3 fa = Flat(legA.a), na = Flat(legA.b), nb = Flat(legB.a), fb = Flat(legB.b), da = (fa - na).normalized, db = (fb - nb).normalized;
+        Vector3 pa = Vector3.Cross(Vector3.up, da), pb = Vector3.Cross(Vector3.up, db); if (Vector3.Dot(pa, fb - fa) < 0f) pa = -pa; if (Vector3.Dot(pb, fa - fb) < 0f) pb = -pb;
+        float off = ZigHW + FireStripGap, clear = ZigBulge + ZigLedge + 0.5f;
+        Vector3 la = na + pa * off, lb = nb + pb * off;
+        float den = da.x * db.z - da.z * db.x, ta = ((lb.x - la.x) * db.z - (lb.z - la.z) * db.x) / den;   // 2 列がぶつかる所＝根元
+        Vector3 root = la + da * ta, ea = fa - da * clear + pa * off, eb = fb - db * clear + pb * off;
+        float RoadA(Vector3 q) => Mathf.Lerp(legA.b.y, legA.a.y, Mathf.Clamp01(Vector3.Dot(q - na, da) / Vector3.Distance(fa, na)));
+        float RoadB(Vector3 q) => Mathf.Lerp(legB.a.y, legB.b.y, Mathf.Clamp01(Vector3.Dot(q - nb, db) / Vector3.Distance(fb, nb)));
+        var fork = Flat(mid) + n * (Vector3.Dot((ea + eb) * 0.5f - Flat(mid), n) - 1.8f);
+        var inv = Quaternion.Inverse(g.localRotation); var o = Flat(mid);
+        WallPt OnRoad(Vector3 q, float r) => new WallPt { p = inv * (q - o), low = r - 1f - mid.y, floor = r - 1.8f - mid.y, top = r + 3.2f - mid.y };
+        // 口は 1 個とばしの踊り場の両方を守る高さ
+        WallPt OnStem(Vector3 q) => new WallPt { p = inv * (q - o), low = -1f - ZigRise, floor = -3.8f, top = FireWallH - 1f };
+        var ptsA = new List<WallPt> { OnRoad(root, RoadA(root)), OnRoad(ea, RoadA(ea)), OnStem(fork), OnStem(Flat(tail)) };
+        var ptsB = new List<WallPt> { OnRoad(root, RoadB(root)), OnRoad(eb, RoadB(eb)), OnStem(fork) };
+        int bi = 0;
+        foreach (var pts in new[] { ptsA, ptsB })
+            for (int i = 0; i + 1 < pts.Count; i++)
+            {
+                WallPt u = pts[i], w = pts[i + 1]; var pu = new Vector3(u.p.x, (u.low + u.top) * 0.5f, u.p.z); var pw = new Vector3(w.p.x, (w.low + w.top) * 0.5f, w.p.z); var dir = (pw - pu).normalized; var fw = Vector3.Cross(dir, Vector3.up).normalized;
+                LavaBurn(g, "Burn" + bi++, (pu + pw) * 0.5f, new Vector3((pw - pu).magnitude + 0.2f, Mathf.Max(u.top - u.low, w.top - w.low), 0.4f), Quaternion.LookRotation(fw, Vector3.Cross(fw, dir)));
+            }
+        FlameCurtain(g, name, ptsA, ptsB);
+        FireWallRock(g, name, ptsA, ptsB);
         // 火の粉だけ粒で（前は太い粒のかたまりで炎を作っていて、ぼやけて赤いもやに見えた。2026-10-31）
+        float x0 = ptsA[0].p.x, x1 = ptsA[3].p.x, len = x1 - x0;
         var ps = FuwaStage2FireTest.FlamePS(g, "Flame", 0.2f, 2.6f, 1.3f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.28f, 0.05f));
-        ps.transform.localPosition = new Vector3(0, -0.8f, 0);
-        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(len, 0.15f, 0.25f);
+        ps.transform.localPosition = new Vector3((x0 + x1) * 0.5f, -1.2f, 0);
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(len, 2f, 0.25f);
         var em = ps.emission; em.rateOverTime = 2.4f * len;
         var main = ps.main; main.startColor = Color.white; main.maxParticles = Mathf.CeilToInt(5f * len); main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.22f); main.startSpeed = new ParticleSystem.MinMaxCurve(1.6f, 3.2f);
         ps.Play();
     }
-    // 炎の壁の下の岩（2026-10-31 てじゃ「炎の下がぶら下がってる、岩を伸ばす？でも歩けちゃだめ」）。上がとがった尾根で、まん中の割れ目の溶岩から炎が立つ。
-    //  いちばん低い道（g の -ZigRise）より 1m 以上低く、当たりなし。-x がジグザグの V の根元で、そちらは道の下にもぐる
-    const float FireWallRockTop = -3.4f, FireWallLava = -3.8f;
-    static void FireWallRock(Transform g, string name, float len)
+    // 炎の壁の下の岩（2026-10-31 てじゃ「炎の下がぶら下がってる、岩を伸ばす？でも歩けちゃだめ」）。V のすき間を埋める 1 つのかたまりで、まん中は溶岩、ふちはとがった岩。炎は溶岩から立つ。
+    //  当たりなし。-x がジグザグの V の根元で、そちらは道の下にもぐる
+    static void FireWallRock(Transform g, string name, List<WallPt> ptsA, List<WallPt> ptsB)
     {
-        var mb = new MB(); float x0 = -len * 0.5f - 2.2f, x1 = len * 0.5f + 1f; int nx = Mathf.Max(4, Mathf.CeilToInt((x1 - x0) / 0.32f));
+        float xRoot = ptsA[0].p.x, xFork = ptsB[ptsB.Count - 1].p.x;
+        var mb = new MB(); float x0 = xRoot - 1.1f, x1 = ptsA[ptsA.Count - 1].p.x + 1.8f; int nx = Mathf.Max(4, Mathf.CeilToInt((x1 - x0) / 0.32f));
         float Rnd(float n) { float v = Mathf.Sin(n * 12.9898f + name.Length * 7.1f + name[name.Length - 1] * 3.3f) * 43758.5453f; return v - Mathf.Floor(v); }
         Vector3[] Ring(int i)
         {
-            float x = Mathf.Lerp(x0, x1, i / (float)nx) + (i > 0 && i < nx ? (Rnd(i) - 0.5f) * 0.14f : 0f), e = Mathf.Clamp01((x1 - x) / 2.4f), root = Mathf.Clamp01((-len * 0.5f + 0.6f - x) / 2.8f);   // e：外のはしへ細く、root：V の根元で道の下へもぐる
-            float w = (0.72f + 0.12f * Mathf.Sin(x * 0.8f + 1f)) * Mathf.Lerp(0.015f, 1f, Mathf.SmoothStep(0f, 1f, e)), drop = (1f - e) * 1.1f, rise = Mathf.SmoothStep(0f, 1f, root) * 1.9f;
-            float SpikeL = Mathf.Pow(Rnd(i * 1.3f + 3f), 2.2f) * 0.75f * e, SpikeR = Mathf.Pow(Rnd(i * 1.7f + 11f), 2.2f) * 0.75f * e;
-            float top = FireWallRockTop - drop + rise, depth = Mathf.Lerp(1.3f, 4.4f, Mathf.InverseLerp(x1, x0, x)) * (0.82f + 0.14f * Mathf.Sin(x * 0.9f + 0.4f) + 0.08f * Mathf.Sin(x * 2.3f)) * Mathf.Lerp(0.12f, 1f, Mathf.SmoothStep(0f, 1f, e));
+            float x = Mathf.Lerp(x0, x1, i / (float)nx) + (i > 0 && i < nx ? (Rnd(i) - 0.5f) * 0.14f : 0f), e = Mathf.Clamp01((x1 - x) / 2.4f), root = Mathf.Clamp01((xRoot + 1f - x) / 2.1f);   // e：外のはしへ細く、root：V の根元で道の下へもぐる
+            WallPt a = WallAt(ptsA, x), b = x < xFork ? WallAt(ptsB, x) : a; bool aLow = a.p.z <= b.p.z; WallPt lo = aLow ? a : b, hi = aLow ? b : a;
+            float zc = (lo.p.z + hi.p.z) * 0.5f, half = (hi.p.z - lo.p.z) * 0.5f, t = Mathf.Lerp(0.015f, 1f, Mathf.SmoothStep(0f, 1f, e)), slit = Mathf.SmoothStep(0f, 1f, e / 0.35f);   // 炎のない外のはしは割れ目を閉じる（溶岩が岩の底より下へ抜けて、裏返って見えた。2026-10-31 てじゃ「端っこがぬけてる」）
+            float w = (half + 0.5f + 0.08f * Mathf.Sin(x * 0.8f + 1f)) * t, lw = (half + 0.3f) * t * slit, rise = Mathf.SmoothStep(0f, 1f, root) * 0.6f, drop = (1f - e) * 1.1f;
+            float topLo = lo.floor + 0.4f + rise - drop, topHi = hi.floor + 0.4f + rise - drop, lavaLo = Mathf.Lerp(topLo, lo.floor + rise, slit), lavaHi = Mathf.Lerp(topHi, hi.floor + rise, slit);
+            float SpikeL = Mathf.Pow(Rnd(i * 1.3f + 3f), 2.2f) * 0.55f * e * (1f - root), SpikeR = Mathf.Pow(Rnd(i * 1.7f + 11f), 2.2f) * 0.55f * e * (1f - root);   // 根元のトゲは道を突き抜けた
+            float depth = Mathf.Lerp(1.3f, 4.4f, Mathf.InverseLerp(x1, x0, x)) * (0.82f + 0.14f * Mathf.Sin(x * 0.9f + 0.4f) + 0.08f * Mathf.Sin(x * 2.3f)) * Mathf.Lerp(0.12f, 1f, Mathf.SmoothStep(0f, 1f, e));
             if (Rnd(Mathf.Floor(i / 3f) + 40f) > 0.68f && i % 3 == 1) depth += 0.7f * e;   // ときどき長いトゲ
-            float lava = Mathf.Min(FireWallLava, top - 0.25f);
-            if (root > 0.01f) lava = Mathf.Max(lava, top - 0.45f);
-            float slit = Mathf.SmoothStep(0f, 1f, e / 0.35f);   // 炎のない外のはしは割れ目を閉じる（溶岩が岩の底より下へ抜けて、裏返って見えた。2026-10-31 てじゃ「端っこがぬけてる」）
-            lava = Mathf.Lerp(top, lava, slit);
-            float bottom = Mathf.Min(top - depth * Mathf.Lerp(0.15f, 1f, e) - 0.04f, lava - 0.3f * slit - 0.03f), flank = Mathf.Min(top - Mathf.Min(1.2f, depth * 0.55f) * Mathf.Lerp(0.15f, 1f, e), lava - 0.1f * slit - 0.015f);
-            return new[] { new Vector3(x, bottom, 0.25f * Mathf.Sin(x * 1.1f)), new Vector3(x, flank, -w * (1.2f + 0.16f * Rnd(i * 2.1f))), new Vector3(x, top + SpikeL, -w), new Vector3(x, lava + 0.1f * slit, -w * 0.58f * slit), new Vector3(x, lava, -w * 0.55f * slit), new Vector3(x, lava, w * 0.55f * slit), new Vector3(x, lava + 0.1f * slit, w * 0.58f * slit), new Vector3(x, top + SpikeR, w), new Vector3(x, flank, w * (1.2f + 0.16f * Rnd(i * 2.7f))) };
+            float minTop = Mathf.Min(topLo, topHi), minLava = Mathf.Min(lavaLo, lavaHi);
+            float bottom = Mathf.Min(minTop - depth * Mathf.Lerp(0.15f, 1f, e) - 0.04f, minLava - 0.3f * slit - 0.03f), flank = Mathf.Min(minTop - Mathf.Min(1.2f, depth * 0.55f) * Mathf.Lerp(0.15f, 1f, e), minLava - 0.1f * slit - 0.015f);
+            return new[] { new Vector3(x, bottom, zc + 0.25f * Mathf.Sin(x * 1.1f) * t), new Vector3(x, flank, zc - w * (1.2f + 0.16f * Rnd(i * 2.1f))), new Vector3(x, topLo + SpikeL, zc - w), new Vector3(x, lavaLo + 0.1f * slit, zc - lw * 1.05f), new Vector3(x, lavaLo, zc - lw), new Vector3(x, lavaHi, zc + lw), new Vector3(x, lavaHi + 0.1f * slit, zc + lw * 1.05f), new Vector3(x, topHi + SpikeR, zc + w), new Vector3(x, flank, zc + w * (1.2f + 0.16f * Rnd(i * 2.7f))) };
         }
         var outs = new[] { new Vector3(0, -1, -1), new Vector3(0, 0.3f, -1), new Vector3(0, 0.6f, 1), new Vector3(0, 0.6f, 1), new Vector3(0, 1, 0), new Vector3(0, 0.6f, -1), new Vector3(0, 0.6f, -1), new Vector3(0, 0.3f, 1), new Vector3(0, -1, 1) };
         for (int i = 0; i < nx; i++)
@@ -1239,48 +1268,50 @@ public static class FuwaCourse2_2Builder
         var r = o.GetComponent<MeshRenderer>(); r.sharedMaterials = new[] { rockMat, FlowLavaMat() }; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         GameObjectUtility.SetStaticEditorFlags(o, StaticEditorFlags.BatchingStatic);
     }
-    // 炎の板：長さ len、高さは当たりと同じ。少しずらして 2 枚（前後で模様をずらして厚みを出す）
-    public static void FlameCurtain(Transform g, string name, float len)
+    // 炎の板：線 ptsA（根元→口の先）と ptsB（根元→合流）にそって立てる。高さは道にそって上る
+    public static void FlameCurtain(Transform g, string name, List<WallPt> ptsA, List<WallPt> ptsB)
     {
-        float y1 = FireWallH * 0.5f - 1f - ZigRise + (FireWallH + ZigRise) * 0.5f, y0 = FireWallLava - 0.45f;   // 上は Burn の箱と同じ。下は岩の割れ目の中まで（当たりより低いが、そこに道はない）
         var m = new Mesh { name = "Course2_2_" + name + "_Curtain" };
         var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
-        // 縦に立てた帯を 1 枚足す。pts は上から見た線、h はその点の炎の高さの割合（はしを低くして板の切り口を見せない）
-        void Sheet(List<Vector2> pts, List<float> h, List<float> us, float rim)
+        // 縦に立てた帯を 1 枚足す。y0・y1 はその点の下と上、h はその点の炎の高さの割合（はしを低くして板の切り口を見せない）
+        void Sheet(List<Vector2> pts, List<float> y0, List<float> y1, List<float> h, List<float> us, float rim)
         {
             int b = v.Count;
             for (int k = 0; k < pts.Count; k++)
             {
-                v.Add(new Vector3(pts[k].x, y0, pts[k].y)); uv.Add(new Vector2(us[k], 0f)); col.Add(new Color(h[k], rim, 0f));
-                v.Add(new Vector3(pts[k].x, y1, pts[k].y)); uv.Add(new Vector2(us[k], 1f)); col.Add(new Color(h[k], rim, 0f));
+                v.Add(new Vector3(pts[k].x, y0[k], pts[k].y)); uv.Add(new Vector2(us[k], 0f)); col.Add(new Color(h[k], rim, 0f));
+                v.Add(new Vector3(pts[k].x, y1[k], pts[k].y)); uv.Add(new Vector2(us[k], 1f)); col.Add(new Color(h[k], rim, 0f));
             }
             for (int k = 0; k + 1 < pts.Count; k++) { int a = b + k * 2; tr.AddRange(new[] { a, a + 2, a + 3, a, a + 3, a + 1 }); }
         }
-        // 長い帯 3 枚：奥行きをずらして、くねらせる（2026-10-31 てじゃ「横からみたとき板すぎる」）
-        int sn = 0;
-        foreach (var z0 in new[] { -0.2f, 0f, 0.2f })
+        int sn = 0, ci = 0; float xTail = ptsA[ptsA.Count - 1].p.x;
+        foreach (var line in new[] { ptsA, ptsB })
         {
-            var pts = new List<Vector2>(); var h = new List<float>(); var us = new List<float>();
-            int nx = Mathf.Max(2, Mathf.CeilToInt(len / 0.35f));
-            for (int k = 0; k <= nx; k++)
+            float x0 = line[0].p.x, x1 = line[line.Count - 1].p.x; int nx = Mathf.Max(2, Mathf.CeilToInt((x1 - x0) / 0.35f));
+            // 長い帯 3 枚：奥行きをずらして、くねらせる（2026-10-31 てじゃ「横からみたとき板すぎる」）
+            foreach (var z0 in new[] { -0.12f, 0f, 0.12f })
             {
-                float x = Mathf.Lerp(-len * 0.5f, len * 0.5f, k / (float)nx), end = len * 0.5f - Mathf.Abs(x);
-                pts.Add(new Vector2(x, z0 + 0.13f * Mathf.Sin(x * 2.1f + sn * 2f) + 0.06f * Mathf.Sin(x * 4.7f + sn)));
-                h.Add(Mathf.Lerp(0.2f, 1f, Mathf.Clamp01(end / 0.8f))); us.Add(x + sn * 3.7f);
+                var pts = new List<Vector2>(); var y0 = new List<float>(); var y1 = new List<float>(); var h = new List<float>(); var us = new List<float>();
+                for (int k = 0; k <= nx; k++)
+                {
+                    float x = Mathf.Lerp(x0, x1, k / (float)nx); var q = WallAt(line, x);
+                    pts.Add(new Vector2(x, q.p.z + z0 + 0.07f * Mathf.Sin(x * 2.1f + sn * 2f) + 0.04f * Mathf.Sin(x * 4.7f + sn)));
+                    y0.Add(q.floor - 0.4f); y1.Add(q.top); h.Add(Mathf.Lerp(0.2f, 1f, Mathf.Clamp01((xTail - x) / 0.8f))); us.Add(x + sn * 3.7f);
+                }
+                Sheet(pts, y0, y1, h, us, 1f); sn++;
             }
-            Sheet(pts, h, us, 1f); sn++;
-        }
-        // 横切る短い帯：横から見ても炎の幅が見える。外へいくほど低い
-        const float CrossHW = 0.5f; int ci = 0;
-        for (float x = -len * 0.5f + 0.5f; x < len * 0.5f - 0.3f; x += 1.2f, ci++)
-        {
-            var pts = new List<Vector2>(); var h = new List<float>(); var us = new List<float>();
-            for (int k = 0; k <= 8; k++)
+            // 横切る短い帯：横から見ても炎の幅が見える。外へいくほど低い
+            const float CrossHW = 0.28f;
+            for (float x = x0 + 0.4f; x < x1 - 0.3f; x += 1.4f, ci++)
             {
-                float w = Mathf.Lerp(-CrossHW, CrossHW, k / 8f), f = w / CrossHW;
-                pts.Add(new Vector2(x + 0.12f * Mathf.Sin(w * 5f + ci), w)); h.Add(Mathf.Lerp(0.15f, 0.92f, 1f - f * f)); us.Add(w * 2.6f + ci * 5.3f);
+                var q = WallAt(line, x); var pts = new List<Vector2>(); var y0 = new List<float>(); var y1 = new List<float>(); var h = new List<float>(); var us = new List<float>();
+                for (int k = 0; k <= 8; k++)
+                {
+                    float w = Mathf.Lerp(-CrossHW, CrossHW, k / 8f), f = w / CrossHW;
+                    pts.Add(new Vector2(x + 0.08f * Mathf.Sin(w * 9f + ci), q.p.z + w)); y0.Add(q.floor - 0.4f); y1.Add(q.top); h.Add(Mathf.Lerp(0.15f, 0.92f, 1f - f * f)); us.Add(w * 2.6f + ci * 5.3f);
+                }
+                Sheet(pts, y0, y1, h, us, 0f);
             }
-            Sheet(pts, h, us, 0f);
         }
         m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_FlameCurtain", Color.white);
