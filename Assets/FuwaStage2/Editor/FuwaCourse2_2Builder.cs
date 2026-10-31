@@ -127,7 +127,14 @@ public static class FuwaCourse2_2Builder
         }
         for (int k = 0; k < holes.Count; k++)
             if (chan[k] != 0) foreach (var sg in new[] { -1f, 1f }) InsertRow(r12, (Vector3)holes[k], sg * ChanHW);
-        Ribbon(path, "Path12", r12, hw12, pts12, holes, chan);
+        // 穴をつないだ溶岩池（2026-10-31 てじゃの図「赤丸で繋がった溶岩池に」）。火の玉の出る穴の位置はそのまま。道の並び順に、z の小さい順
+        var lavaRoot = new GameObject("LavaHoles").transform; lavaRoot.SetParent(root, false);
+        var poolHoles = new[] { new[] { 0, 7 }, new[] { 1, 8, 2 }, new[] { 3, 6, 4 }, new[] { 9, 5 } };
+        var pools = poolHoles.Select((g, pi) => new HolePool {
+            c = g.Select(k => (Vector3)holes[k]).ToList(), rr = HoleR, amp = PoolWobble, ld = ChanLavaDepth, seed = pi * 1.7f + 0.4f, sx = chan[g.First(k => chan[k] != 0)],
+            chanAt = g.Where(k => chan[k] != 0).Select(k => (Vector3)holes[k]).ToList() }).ToList();
+        Ribbon(path, "Path12", r12, hw12, pts12, pools, lavaRoot);
+
         // 火種1・2：角の丸みのまん中（corners12 は角ごと、[0] は橋の先のちょっとした角）
         GroundFire(fire, "Seed1", corners12[1]);
         GroundFire(fire, "Seed2", corners12[3]);
@@ -138,14 +145,21 @@ public static class FuwaCourse2_2Builder
             BlastVent(fire, "Vent", at, corners12[3] + Vector3.up * 0.4f);
         }
         // 穴の溶岩（面・ふわふわの黒焦げ・人のアウト）
-        var lavaRoot = new GameObject("LavaHoles").transform; lavaRoot.SetParent(root, false);
+        // 穴と穴の間の細い所の当たり
+        foreach (var pl in pools)
+            for (int s = 0; s + 1 < pl.c.Count; s++)
+            {
+                var mid = (pl.c[s] + pl.c[s + 1]) * 0.5f; var seg = Flat(pl.c[s + 1] - pl.c[s]); var rs = Quaternion.LookRotation(seg); float wn = (HoleR + PoolWobble) * 2f;
+                LavaBurn(lavaRoot, "LavaNeckBallOut" + pools.IndexOf(pl) + "_" + s, mid + Vector3.down * 0.45f, new Vector3(wn, 0.6f, seg.magnitude), rs);
+                Hazard(lavaRoot, "LavaNeckPlayerOut" + pools.IndexOf(pl) + "_" + s, mid + Vector3.down * (ChanLavaDepth + 0.5f), new Vector3(wn, 1.2f, seg.magnitude), true, rs);
+            }
         for (int k = 0; k < holes.Count; k++)
         {
-            var hc = (Vector3)holes[k]; float ld = chan[k] != 0 ? ChanLavaDepth : LavaDepth;
-            LavaDisk(lavaRoot, "Lava" + k, hc + Vector3.down * ld, HoleR + 0.02f);
+            var hc = (Vector3)holes[k]; float ld = ChanLavaDepth;
+            float holeOut = HoleR + PoolWobble;   // ふちがいちばんふくらんだ所まで
             LavaBurn(lavaRoot, "LavaBallOut" + k, hc + Vector3.down * Mathf.Max(ld - 0.1f, 0.45f),   // 箱の角は穴の外にはみ出すので、上の面は道の 0.15 下より上にしない
-                 new Vector3(HoleR * 2f, 0.6f, HoleR * 2f));
-            Hazard(lavaRoot, "LavaPlayerOut" + k, hc + Vector3.down * (ld + 0.5f), new Vector3(HoleR * 2f, 1.2f, HoleR * 2f), true);
+                 new Vector3(holeOut * 2f, 0.6f, holeOut * 2f));
+            Hazard(lavaRoot, "LavaPlayerOut" + k, hc + Vector3.down * (ld + 0.5f), new Vector3(holeOut * 2f, 1.2f, holeOut * 2f), true);
             if (chan[k] == 0) continue;
             // 溝の溶岩（穴の中心→ふちの少し外）と、道の横に垂れる溶岩（仮：板）
             var od = holeSide[k] * chan[k]; float len = holeEdge[k] + 0.06f;
@@ -153,7 +167,7 @@ public static class FuwaCourse2_2Builder
             var cm = hc + od * (len * 0.5f) + Vector3.down * ld;
             var strip = Box(lavaRoot, "LavaChannel" + k, cm + Vector3.down * 0.02f, new Vector3(ChanHW * 2f + 0.04f, 0.04f, len), lavaMat, 0);
             strip.transform.localRotation = rot; Object.DestroyImmediate(strip.GetComponent<Collider>());
-            var fall = Box(lavaRoot, "LavaFall" + k, hc + od * (len + 0.03f) + Vector3.down * (ld + LavaFallLen * 0.5f - 0.02f), new Vector3(ChanHW * 2f, LavaFallLen, 0.06f), lavaMat, 0);
+            var fall = Box(lavaRoot, "LavaFall" + k, hc + od * (len + 0.03f) + Vector3.down * (ld + LavaFallLen * 0.5f + 0.04f), new Vector3(ChanHW * 2f, LavaFallLen, 0.06f), lavaMat, 0);   // 上のふたは溝の溶岩の下へ（上に出ると段に見えた）
             fall.transform.localRotation = rot; Object.DestroyImmediate(fall.GetComponent<Collider>());
             LavaFallLook(fall);
             LavaBurn(lavaRoot, "LavaChannelBallOut" + k, cm + Vector3.down * 0.1f, new Vector3(ChanHW * 2f, 0.6f, len), rot);
@@ -166,7 +180,7 @@ public static class FuwaCourse2_2Builder
                               (fl: 1.1f, rest: 0.6f, ph: 0.4f, top: VertTop), (fl: 1.3f, rest: 1.0f, ph: 1.3f, top: VertTop), (fl: 1.2f, rest: 0.8f, ph: 0.2f, top: VertTop), (fl: 1.2f, rest: 0.9f, ph: 0.9f, top: VertTop) };
             for (int k = 0; k < holePts.Count; k++)
             {
-                float ld = holePts[k].Count >= 2 ? ChanLavaDepth : LavaDepth;
+                float ld = ChanLavaDepth;
                 var hs = holePts[k].Select(q => q + Vector3.down * ld).ToArray();
                 Fireball(fire, "Fireball" + k, hs, fbs[k].fl, fbs[k].rest, fbs[k].ph, ld + fbs[k].top);
             }
@@ -271,7 +285,7 @@ public static class FuwaCourse2_2Builder
         // 曲がった道の上の (x 横, z 奥行き) の所
         Vector3 OnArena(float x, float z) { Frame(r5, ar.z + z, out var c, out var t); return c + Vector3.Cross(Vector3.up, t).normalized * x; }
         var pholes = puddles.Select(q => { var c = OnArena(q.x, q.z); return new Vector4(c.x, c.y, c.z, PuddleR); }).ToList();
-        Ribbon(path, "Path5", r5, hw5, pts5, pholes, pholes.Select(_ => 0).ToList());
+        Ribbon(path, "Path5", r5, hw5, pts5, pholes.Select(v => new HolePool { c = new List<Vector3> { (Vector3)v }, rr = v.w, ld = LavaDepth }).ToList());
         for (int k = 0; k < pholes.Count; k++) Puddle(path, "Puddle" + k, (Vector3)pholes[k]);
         for (int k = 0; k < monsters.Length; k++) FireMonster(root, "FireMonster" + k, OnArena(monsters[k].x, monsters[k].z));
         // 火口からまもののエリアにも岩を1個（てじゃ「一個まものエリアにも落とそうか、まものも当たったら一応飛ぶ」）：山側から飛んできて2回はねて、外のふちから落ちる
@@ -469,7 +483,55 @@ public static class FuwaCourse2_2Builder
 
     // 帯の道：上の面と横の帯（厚み T）はシマシマ、その下に岩（少し内側）。当たりは帯の部分だけ
     // holes：上の面にあける丸い穴（xyz＝上の面の中心、w＝半径。道のふちからはみ出さないこと）。穴の壁（岩）は LavaDepth＋0.3 下まで
-    static void Ribbon(Transform parent, string name, List<RPt> r, float[] hw, Vector3[] pts, List<Vector4> holes = null, List<int> chan = null)
+    // 道にあける穴（2026-10-31 てじゃ「穴と溝が円と直線すぎる」「赤丸で繋がった溶岩池に」）：穴の中心をつないだ線のまわりの形。ふちはでこぼこ、穴と穴の間は少し細い。
+    //  道の線ごとに「穴の左はし・右はし」を求めて作る（ふちの点は線の上だけ。線から外すと、となりの帯の長い辺とずれて道に切れ目が出た）
+    public static float PoolWobble = 0.2f, PoolNeck = 0.3f;
+    class HolePool
+    {
+        public List<Vector3> c = new List<Vector3>(); public float rr, amp, ld, seed; public int sx; public List<Vector3> chanAt = new List<Vector3>();
+        public float Sd(Vector3 p)
+        {
+            float best = float.MaxValue;
+            if (c.Count == 1) best = Flat(p - c[0]).magnitude - rr;
+            for (int k = 0; k + 1 < c.Count; k++)
+            {
+                var ab = Flat(c[k + 1] - c[k]); float t = Mathf.Clamp01(Vector3.Dot(Flat(p - c[k]), ab) / ab.sqrMagnitude);
+                best = Mathf.Min(best, Flat(p - c[k] - ab * t).magnitude - rr * (1f - PoolNeck * Mathf.Sin(t * Mathf.PI)));
+            }
+            if (amp <= 0f) return best;
+            return best - amp * (0.5f * Mathf.Sin(1.6f * p.x + 0.7f * p.z + seed) + 0.3f * Mathf.Sin(-2.7f * p.x + 2.1f * p.z + seed * 2f) + 0.2f * Mathf.Sin(4.3f * p.x + 3.7f * p.z + seed * 3f));
+        }
+        // 線（中心 o、横の向き side、幅の半分 w）が穴を切る左はし・右はし。道のふちを少し残す
+        public bool Span(Vector3 o, Vector3 side, float w, out float l, out float r)
+        {
+            l = r = 0f; float lim = w - 0.12f, x0 = float.NaN, x1 = float.NaN;
+            for (float x = -lim; x <= lim; x += 0.05f) if (Sd(o + side * x) < 0f) { if (float.IsNaN(x0)) x0 = x; x1 = x; }
+            if (float.IsNaN(x0)) return false;
+            l = Edge(o, side, Mathf.Max(x0 - 0.05f, -lim), x0); r = Edge(o, side, Mathf.Min(x1 + 0.05f, lim), x1);
+            return true;
+        }
+        float Edge(Vector3 o, Vector3 side, float outX, float inX)
+        {
+            if (Sd(o + side * outX) < 0f) return outX;
+            for (int k = 0; k < 8; k++) { float m = (outX + inX) * 0.5f; if (Sd(o + side * m) < 0f) inX = m; else outX = m; }
+            return inX;
+        }
+    }
+    // 溝のふち：a（穴のふち）から b（道のふち）を折れ線にして、溝の中へでこぼこ出す。両はしは動かさない。道の幅は広がらない
+    public static float ChanWobble = 0.24f;
+    static Vector3[] ChanEdge(Vector3 a, Vector3 b, Vector3 inward, float seed)
+    {
+        const int N = 12;
+        var e = new Vector3[N + 1]; var d = inward.normalized;
+        for (int i = 0; i <= N; i++)
+        {
+            float t = i / (float)N, x = t * (b - a).magnitude;
+            float n = 0.5f + 0.5f * (0.55f * Mathf.Sin(x * 2.3f + seed) + 0.3f * Mathf.Sin(x * 5.1f + seed * 1.9f) + 0.15f * Mathf.Sin(x * 11f + seed * 3.3f));
+            e[i] = Vector3.Lerp(a, b, t) + d * (ChanWobble * n * Mathf.Sin(t * Mathf.PI));
+        }
+        return e;
+    }
+    static void Ribbon(Transform parent, string name, List<RPt> r, float[] hw, Vector3[] pts, List<HolePool> holes = null, Transform lavaParent = null)
     {
         const float T = 0.6f, U = 1.5f, In = 0.1f;
         int n = r.Count;
@@ -483,32 +545,45 @@ public static class FuwaCourse2_2Builder
             Ri[i] = r[i].p + side[i] * (w - In); Li[i] = r[i].p - side[i] * (w - In);
             if (i > 0) s[i] = s[i - 1] + Flat(r[i].p - r[i - 1].p).magnitude;
         }
-        var vis = new MB(); var col = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
+        var vis = new MB(); var col = new MB(); var lava = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
         for (int i = 0; i < n - 1; i++)
         {
             int st = Mathf.FloorToInt((s[i] + s[i + 1]) * 0.5f / StripeLen) % 2;
             // この帯にかかる穴：帯の手前と奥の線それぞれで、穴の中心の横の位置 c と、穴が線を切る半分の長さ h（線にかからなければ 0）
             // tip：穴の前後のはし（線にかからない側の線ではふちが1点 c に縮むので、本当のはしの点 m まで三角でうめる。うめないと帯の幅ぶんのトゲが出た）
             // ch：溝（穴から道のふち sx の側へ、幅 ChanHW*2）。溝の両はしの線は道の点の列に入れてある（InsertRows）ので、帯ごとに「溝の中か」で決まる
-            var cut = new List<(float c0, float h0, float c1, float h1, Vector3 o, int tip, Vector3 m, int sx, bool ch0, bool ch1, float wd)>();
+            var cut = new List<(float c0, float hl0, float hr0, float c1, float hl1, float hr1, Vector3 o, int tip, Vector3 m, int sx, bool ch0, bool ch1, float wd)>();
             if (holes != null)
                 for (int hi = 0; hi < holes.Count; hi++)
                 {
-                    var hv = holes[hi];
-                    var o = (Vector3)hv; float rr = hv.w; int sx = chan != null ? chan[hi] : 0;
+                    var pool = holes[hi]; int sx = pool.sx;
                     // 線（side の向き）に直角な向きで測る（帯ごとの進む向きで測ると、となりの帯と穴のふちの点がずれて壁にすき間ができた）
                     var T0 = Vector3.Cross(side[i], Vector3.up); var T1 = Vector3.Cross(side[i + 1], Vector3.up);
-                    float d0 = Vector3.Dot(Flat(o - r[i].p), T0);
-                    float d1 = Vector3.Dot(Flat(o - r[i + 1].p), T1);
-                    if (!(Mathf.Abs(d0) < rr || Mathf.Abs(d1) < rr)) continue;
-                    int tip = Mathf.Abs(d0) >= rr ? 0 : Mathf.Abs(d1) >= rr ? 1 : -1;
+                    float w0h = WAt(pts, hw, r[i].u), w1h = WAt(pts, hw, r[i + 1].u);
+                    bool in0 = pool.Span(r[i].p, side[i], w0h, out float l0h, out float r0h), in1 = pool.Span(r[i + 1].p, side[i + 1], w1h, out float l1h, out float r1h);
+                    if (!in0 && !in1) continue;
+                    int tip = !in0 ? 0 : !in1 ? 1 : -1;
+                    float c0 = (l0h + r0h) * 0.5f, c1 = (l1h + r1h) * 0.5f, h0 = (r0h - l0h) * 0.5f, h1 = (r1h - l1h) * 0.5f;
                     var m = Vector3.zero;
-                    if (tip == 0) { m = o - T0 * rr * Mathf.Sign(d0); m.y = r[i].p.y; }
-                    if (tip == 1) { m = o - T1 * rr * Mathf.Sign(d1); m.y = r[i + 1].p.y; }
-                    bool ch0 = sx != 0 && Mathf.Abs(d0) <= ChanHW + 0.06f, ch1 = sx != 0 && Mathf.Abs(d1) <= ChanHW + 0.06f;   // 足した線は進む向きの測り方が少しちがうので余裕を（0.02 だと外れて上の面がかけらになった）
-                    cut.Add((Vector3.Dot(Flat(o - r[i].p), side[i]), Mathf.Sqrt(Mathf.Max(rr * rr - d0 * d0, 0f)),
-                             Vector3.Dot(Flat(o - r[i + 1].p), side[i + 1]), Mathf.Sqrt(Mathf.Max(rr * rr - d1 * d1, 0f)), o, tip, m,
-                             sx, ch0, ch1, (sx != 0 ? ChanLavaDepth : LavaDepth) + 0.3f));
+                    if (tip >= 0)
+                    {
+                        // はしの点 m：穴が切れている線のまん中から、切れていない線へ向かって、ふちになる所。反対の線は越えない（越えると面が折り返す）
+                        var from = tip == 0 ? r[i + 1].p + side[i + 1] * c1 : r[i].p + side[i] * c0;
+                        var op = tip == 0 ? r[i].p : r[i + 1].p; var os = tip == 0 ? side[i] : side[i + 1];
+                        float cOut = Vector3.Dot(Flat(from - op), os); var to = op + os * cOut;
+                        float a = 0f, b = 1f; for (int q = 0; q < 8; q++) { float f = (a + b) * 0.5f; if (pool.Sd(Vector3.Lerp(from, to, f)) < 0f) a = f; else b = f; }
+                        m = Vector3.Lerp(from, to, Mathf.Min(a, 0.96f)); m.y = op.y;
+                        if (tip == 0) { c0 = cOut; h0 = 0f; } else { c1 = cOut; h1 = 0f; }
+                    }
+                    bool ch0 = false, ch1 = false;
+                    foreach (var ca in pool.chanAt)
+                    {
+                        ch0 |= Mathf.Abs(Vector3.Dot(Flat(ca - r[i].p), T0)) <= ChanHW + 0.06f;   // 足した線は進む向きの測り方が少しちがうので余裕を（0.02 だと外れて上の面がかけらになった）
+                        ch1 |= Mathf.Abs(Vector3.Dot(Flat(ca - r[i + 1].p), T1)) <= ChanHW + 0.06f;
+                    }
+                    // 壁の内向きはこの帯の穴のまん中へ（細長い穴なので全体の中心だと向きをまちがえる）。はしの帯は切れている線のまん中（はしの点 m より外を指すと壁が裏返って抜けた）
+                    var o = tip == 0 ? r[i + 1].p + side[i + 1] * c1 : tip == 1 ? r[i].p + side[i] * c0 : (r[i].p + side[i] * c0 + r[i + 1].p + side[i + 1] * c1) * 0.5f;
+                    cut.Add((c0, h0, h0, c1, h1, h1, o, tip, m, sx, ch0, ch1, pool.ld + 0.3f));
                 }
             cut.Sort((x, y) => x.c0.CompareTo(y.c0));
             Vector3 P0(float x) => r[i].p + side[i] * x;
@@ -524,9 +599,9 @@ public static class FuwaCourse2_2Builder
                 foreach (var h in cut)
                 {
                     bool open = h.ch0 && h.ch1;
-                    float l0 = open && h.sx < 0 ? -w0 : h.c0 - h.h0, l1 = open && h.sx < 0 ? -w1 : h.c1 - h.h1;
+                    float l0 = open && h.sx < 0 ? -w0 : h.c0 - h.hl0, l1 = open && h.sx < 0 ? -w1 : h.c1 - h.hl1;
                     Top(xa0, xa1, l0, l1);
-                    xa0 = open && h.sx > 0 ? w0 : h.c0 + h.h0; xa1 = open && h.sx > 0 ? w1 : h.c1 + h.h1;
+                    xa0 = open && h.sx > 0 ? w0 : h.c0 + h.hr0; xa1 = open && h.sx > 0 ? w1 : h.c1 + h.hr1;
                 }
                 Top(xa0, xa1, w0, w1);
                 if (!openR) mb.Quad(R[i], R[i + 1], R[i + 1] + dn, R[i] + dn, side[i], sub);
@@ -536,7 +611,7 @@ public static class FuwaCourse2_2Builder
                 {
                     if (h.tip < 0) continue;
                     Vector3 c = h.tip == 0 ? P0(h.c0) : P1(h.c1);
-                    Vector3 e0 = h.tip == 0 ? P1(h.c1 - h.h1) : P0(h.c0 - h.h0), e1 = h.tip == 0 ? P1(h.c1 + h.h1) : P0(h.c0 + h.h0);
+                    Vector3 e0 = h.tip == 0 ? P1(h.c1 - h.hl1) : P0(h.c0 - h.hl0), e1 = h.tip == 0 ? P1(h.c1 + h.hr1) : P0(h.c0 + h.hr0);
                     mb.Quad(c, e0, h.m, h.m, Vector3.up, sub);
                     mb.Quad(c, h.m, e1, e1, Vector3.up, sub);
                 }
@@ -547,7 +622,7 @@ public static class FuwaCourse2_2Builder
                     foreach (var sg in new[] { -1f, 1f })
                     {
                         if (h.ch0 && h.ch1 && sg == h.sx) continue;
-                        Vector3 a = P0(h.c0 + sg * h.h0), b = P1(h.c1 + sg * h.h1);
+                        Vector3 a = P0(h.c0 + (sg < 0f ? -h.hl0 : h.hr0)), b = P1(h.c1 + (sg < 0f ? -h.hl1 : h.hr1));
                         if (h.tip == 0) a = h.m; if (h.tip == 1) b = h.m;
                         if ((a - b).sqrMagnitude < 1e-6f) continue;
                         mb.Quad(a, b, b + pd, a + pd, Flat(h.o - (a + b) * 0.5f), mb == vis ? 2 : 0);
@@ -556,12 +631,27 @@ public static class FuwaCourse2_2Builder
                     if (h.ch0 != h.ch1)
                     {
                         bool atI = h.ch0;   // 溝のはしの線が i の側
-                        Vector3 a = atI ? P0(h.c0 + h.sx * h.h0) : P1(h.c1 + h.sx * h.h1), b = atI ? P0(h.sx * w0) : P1(h.sx * w1);
+                        Vector3 a = atI ? P0(h.c0 + (h.sx < 0 ? -h.hl0 : h.hr0)) : P1(h.c1 + (h.sx < 0 ? -h.hl1 : h.hr1)), b = atI ? P0(h.sx * w0) : P1(h.sx * w1);
                         var inward = atI ? Flat(r[i].p - r[i + 1].p) : Flat(r[i + 1].p - r[i].p);   // 溝の中へ
-                        mb.Quad(a, b, b + pd, a + pd, inward, mb == vis ? 2 : 0);
+                        // 上の面は a–b まであるので、その先に a からの扇で足す（a–b の線に頂点を足さないのでつなぎ目ができない）。岩を足すふたにはしない
+                        var e = ChanEdge(a, b, inward, b.x * 3.7f + b.z * 1.3f);
+                        for (int q = 0; q < e.Length - 1; q++)
+                        {
+                            mb.Quad(a, e[q], e[q + 1], e[q + 1], Vector3.up, sub);
+                            mb.Quad(e[q], e[q + 1], e[q + 1] + pd, e[q] + pd, inward, mb == vis ? 2 : 0);
+                        }
                     }
                 }
             }
+            // 穴の中の溶岩の面（穴の形そのまま。壁の中へ少しもぐらせる）
+            if (lavaParent != null)
+                foreach (var h in cut)
+                {
+                    var ld = Vector3.down * (h.wd - 0.3f); const float Over = 0.03f;
+                    if (h.tip < 0) { lava.Quad(P0(h.c0 - h.hl0 - Over) + ld, P1(h.c1 - h.hl1 - Over) + ld, P1(h.c1 + h.hr1 + Over) + ld, P0(h.c0 + h.hr0 + Over) + ld, Vector3.up, 0); continue; }
+                    var e0 = h.tip == 0 ? P1(h.c1 - h.hl1 - Over) : P0(h.c0 - h.hl0 - Over); var e1 = h.tip == 0 ? P1(h.c1 + h.hr1 + Over) : P0(h.c0 + h.hr0 + Over);
+                    lava.Quad(e0 + ld, h.m + ld, e1 + ld, e1 + ld, Vector3.up, 0);
+                }
             if (cut.Count == 0) col.Quad(L[i] + dn, L[i + 1] + dn, R[i + 1] + dn, R[i] + dn, Vector3.down, 0);
             // 岩
             vis.Quad(Ri[i] + dn, Ri[i + 1] + dn, Ri[i + 1] + du, Ri[i] + du, side[i], 2);
@@ -577,6 +667,7 @@ public static class FuwaCourse2_2Builder
             vis.Quad(Li[i] + dn, Ri[i] + dn, Ri[i] + du, Li[i] + du, o, 2);
         }
         MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
+        if (lavaParent != null) MeshObj(lavaParent, "LavaPools", lava.Build("Course2_2_LavaPools", 1), null, new[] { lavaMat }).layer = 0;
     }
 
     // 丸い踊り場（ジグザグの角）。上の面は道より PadDrop 下（道の板のはしが乗る＝同じ高さで重ならない）
@@ -1039,18 +1130,6 @@ public static class FuwaCourse2_2Builder
         f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail; f.trailRate = FireballTrailRate;
         f.arcHeight = top; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 3.2f; f.ballKnockUp = 1.5f; f.playerKnock = 6f; f.playerKnockUp = 4.5f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
-    }
-    // 穴の中の溶岩の面（丸い板）
-    static void LavaDisk(Transform parent, string name, Vector3 c, float r)
-    {
-        const int N = 40;
-        var v = new List<Vector3> { Vector3.zero }; var tr = new List<int>();
-        for (int k = 0; k <= N; k++) { float a = k * Mathf.PI * 2f / N; v.Add(new Vector3(Mathf.Sin(a) * r, 0, Mathf.Cos(a) * r)); }
-        for (int k = 1; k <= N; k++) tr.AddRange(new[] { 0, k, k + 1 });   // 上から見て時計回り＝上向き
-        var m = new Mesh { name = "Course2_2_LavaDisk" }; m.SetVertices(v); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
-        var g = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)); g.transform.SetParent(parent, false); g.transform.localPosition = c;
-        g.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m);
-        g.GetComponent<MeshRenderer>().sharedMaterial = lavaMat;
     }
 
     // 山肌の火炎の壁：道の内側のふち edge（道の面の高さ）の所、火山から外向き。FlameLowH〜FlameHighH に縦に FlameRows 本ならんでいっしょに吹いて、当たりは 1 つの縦長の箱。
