@@ -1218,7 +1218,7 @@ public static class FuwaCourse2_2Builder
         }
         m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_FlameCurtain", Color.white);
-        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); EditorUtility.SetDirty(mat);
+        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); EditorUtility.SetDirty(mat);
         var c = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c.transform.SetParent(g, false);
         c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m);
         var r = c.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
@@ -1361,7 +1361,7 @@ public static class FuwaCourse2_2Builder
         var scorched = AssetDatabase.LoadAssetAtPath<Material>(scorchedPath);
         if (!scorched) { scorched = new Material(top); AssetDatabase.CreateAsset(scorched, scorchedPath); }
         scorched.SetColor("_Color", new Color(0.3f, 0.2f, 0.17f)); EditorUtility.SetDirty(scorched);
-        var isleFlame = IsleFlameMesh(); var flameMat = FuwaStage2WaterTest.ToonMat("Stage2_2_IsleFlame", Color.white); flameMat.shader = Shader.Find("FuwaCourse/FlameCurtain"); flameMat.SetFloat("_Base", 0.22f); flameMat.SetFloat("_BandScale", 2.6f); flameMat.SetFloat("_BandByH", 1f); flameMat.SetFloat("_Sway", 0.3f); EditorUtility.SetDirty(flameMat);
+        var isleFlame = IsleFlameMesh(); var flameMat = FuwaStage2WaterTest.ToonMat("Stage2_2_IsleFlame", Color.white); flameMat.shader = Shader.Find("FuwaCourse/FlameCurtain"); flameMat.SetFloat("_Base", 0.22f); flameMat.SetFloat("_BandScale", 2.6f); flameMat.SetFloat("_BandByH", 1f); flameMat.SetFloat("_Sway", 0.17f); EditorUtility.SetDirty(flameMat);
         var underMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/IslandUnder.mat");
         var g = new GameObject("BurntIsles").transform; g.SetParent(fire, false);
         var h = Vector3.zero; int n = 0; foreach (Transform c in lavaRoot) { h += c.localPosition; n++; } if (n > 0) h /= n;

@@ -51,7 +51,7 @@ Shader "FuwaCourse/FlameCurtain"
             {
                 float t = _Time.y * _Speed; float y = i.uv.y; half far = FuwaFireFar(i.wp);
                 // 上へ流れるうねり（上ほど大きく）
-                float x = i.uv.x + (sin(y * 8.0 - t * 5.0 + i.uv.x * 1.1) * 0.55 + sin(y * 15.0 - t * 8.0 + i.uv.x * 2.3) * 0.22) * _Sway * (0.2 + y * 2.0);
+                float x = i.uv.x + (sin(y * 6.0 - t * 3.2 + i.uv.x * 1.1) * 0.55 + sin(y * 11.0 - t * 5.0 + i.uv.x * 2.3) * 0.22) * _Sway * (0.2 + y * 2.0);   // ゆらぎはゆっくり控えめに（2026-10-31 てじゃ「ゆらゆらがくどい」）
                 // 炎の舌：|sin| の山をかさねた高さ（テクスチャを使わないのでふちがなめらか）
                 float a = 1.0 - abs(sin(x * 1.25 + t * 0.9)), b = 1.0 - abs(sin(x * 2.9 - t * 1.4 + 1.3)), c3 = 1.0 - abs(sin(x * 6.1 + t * 2.1 + 2.7));
                 float detail = 1.0 - far * 0.85;   // 遠いほど細かい舌をなくす
@@ -63,7 +63,7 @@ Shader "FuwaCourse/FlameCurtain"
                 clip(alpha - 0.01);
                 // 色の帯：内側が熱い。下のはしは赤。全部の帯で同じ形にする（壁の長さの向きの位置で決める）。
                 //  帯ごとの形で色を決めると、横切る帯が細いオレンジの縦線に見えた（2026-10-31 てじゃ）
-                float lx = i.lx * _BandScale; float bx = lx + (sin(y * 8.0 - t * 5.0 + lx * 1.1) * 0.55 + sin(y * 15.0 - t * 8.0 + lx * 2.3) * 0.22) * _Sway * (0.2 + y * 2.0);
+                float lx = i.lx * _BandScale; float bx = lx + (sin(y * 6.0 - t * 3.2 + lx * 1.1) * 0.55 + sin(y * 11.0 - t * 5.0 + lx * 2.3) * 0.22) * _Sway * (0.2 + y * 2.0);
                 float ba = 1.0 - abs(sin(bx * 1.25 + t * 0.9)), bb = 1.0 - abs(sin(bx * 2.9 - t * 1.4 + 1.3)), bc = 1.0 - abs(sin(bx * 6.1 + t * 2.1 + 2.7));
                 float btop = (_Base + (1.0 - _Base) * (0.6 * ba * ba + 0.28 * bb + 0.12 * bc)) * _Height * lerp(1.0, i.h, _BandByH);
                 float blow = 0.09 * (1.0 - abs(sin(bx * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(bx * 4.7 + t))) + 0.005;
