@@ -471,7 +471,7 @@ public static class FuwaCourse2_2Builder
         old.Clear(false); old.indexFormat = m.indexFormat;
         old.SetVertices(m.vertices); old.subMeshCount = m.subMeshCount;
         for (int s = 0; s < m.subMeshCount; s++) old.SetTriangles(m.GetTriangles(s), s);
-        old.normals = m.normals; if (m.uv.Length > 0) old.uv = m.uv; if (m.uv2.Length > 0) old.uv2 = m.uv2; if (m.uv3.Length > 0) old.uv3 = m.uv3; if (m.colors.Length > 0) old.colors = m.colors;   // UV と色も入れ直す（消えると炎の板が全部切り抜かれて見えなくなった）
+        old.normals = m.normals; if (m.uv.Length > 0) old.uv = m.uv; if (m.colors.Length > 0) old.colors = m.colors;   // UV と色も入れ直す（消えると炎の板が全部切り抜かれて見えなくなった）
         old.RecalculateBounds(); EditorUtility.SetDirty(old);
         return old;
     }
@@ -972,28 +972,31 @@ public static class FuwaCourse2_2Builder
         var ps = FuwaStage2FireTest.FlamePS(g, "Sparks", 0.35f, 1.5f, 1.2f, new Color(1f, 0.85f, 0.35f), new Color(1f, 0.32f, 0.06f));
         var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f); m.maxParticles = 12; var em = ps.emission; em.rateOverTime = 5f; ps.Play();
     }
-    // 焚き火の炎：高さのちがう板を寄せた小さいかたまり。まん中が高く、まわりに低い舌（島の炎を縮めると針の束と筒に見えた。1 本の大きい炎も単調だった。2026-10-31 てじゃ「焚き火に違和感」）
+    // 焚き火の炎：まん中の芯のまわりに、外へふくらんだ曲がった板を花びらのように並べる。板どうしが中心で交わらないので、どこから見ても × に見えにくい
+    //  （島の炎を縮めると針の束と筒に見えた。まっすぐの板を交差させると × が見えた。カメラに向けるのは VR で気持ち悪い。2026-11-01 てじゃ）
     static Mesh SeedFlameMesh()
     {
         const float H = 1.5f; const int Rows = 6, Cols = 16;
-        var pl = new[] { (x: 0.03f, z: -0.02f, ang: 20f, w: 0.28f, h: 1f), (x: -0.03f, z: 0.04f, ang: 100f, w: 0.26f, h: 0.86f), (x: 0.17f, z: 0.05f, ang: 60f, w: 0.2f, h: 0.62f), (x: -0.15f, z: 0.1f, ang: 140f, w: 0.2f, h: 0.68f), (x: 0.02f, z: -0.18f, ang: 10f, w: 0.2f, h: 0.56f), (x: -0.08f, z: -0.1f, ang: 75f, w: 0.17f, h: 0.5f) };
-        var v = new List<Vector3>(); var uv = new List<Vector2>(); var uv2 = new List<Vector2>(); var uv3 = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
+        // ang：置く向き（度）、r：中心からの距離、w：半分の幅、h：高さの割合
+        var pl = new[] { (ang: 15f, r: 0.05f, w: 0.2f, h: 1f), (ang: 140f, r: 0.06f, w: 0.19f, h: 0.9f), (ang: 255f, r: 0.05f, w: 0.19f, h: 0.84f),
+                         (ang: 70f, r: 0.17f, w: 0.19f, h: 0.66f), (ang: 145f, r: 0.18f, w: 0.17f, h: 0.56f), (ang: 215f, r: 0.17f, w: 0.2f, h: 0.68f), (ang: 290f, r: 0.18f, w: 0.17f, h: 0.58f), (ang: 355f, r: 0.17f, w: 0.19f, h: 0.62f) };
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
         for (int p = 0; p < pl.Length; p++)
         {
-            float ang = pl[p].ang * Mathf.Deg2Rad; var dir = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)); var o = new Vector3(pl[p].x, 0f, pl[p].z); int b = v.Count;
+            float ang = pl[p].ang * Mathf.Deg2Rad; var o = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)); var dir = new Vector3(-o.z, 0f, o.x); int b = v.Count;
             for (int j = 0; j <= Rows; j++)
             {
                 float t = j / (float)Rows, w = pl[p].w * Mathf.Pow(1f - t * 0.85f, 0.8f) * (0.72f + 0.28f * Mathf.Sin(Mathf.Min(1f, t * 3f) * Mathf.PI * 0.5f));
                 for (int k = 0; k <= Cols; k++)
                 {
-                    float u = k * 2f / Cols - 1f;
-                    v.Add(o + dir * (u * w) + Vector3.up * (H * t)); uv.Add(new Vector2(u * pl[p].w * 9f + p * 4.3f, t)); uv2.Add(new Vector2(o.x, o.z)); uv3.Add(new Vector2(u * w, 0f)); col.Add(new Color(Mathf.Lerp(0.4f, 1f, 1f - u * u) * pl[p].h, 0f, 0f));
+                    float u = k * 2f / Cols - 1f, bulge = 0.5f * w * (1f - u * u);
+                    v.Add(o * (pl[p].r * (1f - t * 0.6f) + bulge) + dir * (u * w) + Vector3.up * (H * t)); uv.Add(new Vector2(u * pl[p].w * 9f + p * 4.3f, t)); col.Add(new Color(Mathf.Lerp(0.4f, 1f, 1f - u * u) * pl[p].h, 0f, 0f));
                 }
             }
             for (int j = 0; j < Rows; j++) for (int k = 0; k < Cols; k++) { int a = b + j * (Cols + 1) + k, c = a + Cols + 1; tr.AddRange(new[] { a, c, c + 1, a, c + 1, a + 1 }); }
         }
         var m = new Mesh { name = "Course2_2_SeedFlame" };
-        m.SetVertices(v); m.SetUVs(0, uv); m.SetUVs(1, uv2); m.SetUVs(2, uv3); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         return SaveMesh(m);
     }
     // 炎を「形がゆれる」から「模様が上へ流れて削る」に（2026-11-01 てじゃ「揺れるだけじゃ違和感」）
@@ -1006,7 +1009,7 @@ public static class FuwaCourse2_2Builder
     {
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_SeedFlame", Color.white); m.shader = Shader.Find("FuwaCourse/FlameCurtain");
         m.SetFloat("_Base", 0.5f); m.SetFloat("_BandScale", 2.2f); m.SetFloat("_BandByH", 1f); m.SetFloat("_Sway", 0.2f); m.SetFloat("_Lean", 0.05f);
-        m.SetFloat("_BandLow", 0.04f); m.SetFloat("_BandHot", 0.45f); m.SetFloat("_BandMid", 0.7f); m.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); m.SetFloat("_BandSelf", 1f); m.SetFloat("_BandSoft", 0.1f); FlameFlow(m, 0.12f, 1f, 0.55f, 0.45f, 0.8f); m.SetFloat("_Billboard", 1f); EditorUtility.SetDirty(m);   // 外のふちは細い赤、オレンジはその内側まで（2026-10-31 てじゃ「オレンジが外側までいく」）
+        m.SetFloat("_BandLow", 0.04f); m.SetFloat("_BandHot", 0.45f); m.SetFloat("_BandMid", 0.7f); m.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); m.SetFloat("_BandSelf", 1f); m.SetFloat("_BandSoft", 0.1f); FlameFlow(m, 0.12f, 1f, 0.55f, 0.45f, 0.8f); EditorUtility.SetDirty(m);   // 外のふちは細い赤、オレンジはその内側まで（2026-10-31 てじゃ「オレンジが外側までいく」）
         return m;
     }
     // 穴の中に描く物は縦穴（Geometry+11）のあとに描く

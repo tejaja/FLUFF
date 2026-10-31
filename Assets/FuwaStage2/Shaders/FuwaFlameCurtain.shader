@@ -29,7 +29,6 @@ Shader "FuwaCourse/FlameCurtain"
         _FlowAmp ("削り方の強さ", Float) = 2
         _FlowCore ("内側の色の深さ", Float) = 1
         _FlowTop ("上のふちの大きな波（0〜1。てじゃ「上辺が平らすぎる」）", Range(0,1)) = 0
-        _Billboard ("板をカメラへ向ける（uv2 が板の中心 xz、uv3.x が横の位置。てじゃ「板がクロスして見える」）", Range(0,1)) = 0
         _Burn ("根元から燃えつきる（0 ふつう〜1 消える。火炎放射の余韻）", Range(0,1)) = 0
         _BandSelf ("色の帯を炎の形に合わせる（動いても外のふちの色が切れない。板の炎の縦線が気にならない物だけ）", Range(0,1)) = 0
     }
@@ -49,26 +48,15 @@ Shader "FuwaCourse/FlameCurtain"
             #include "FuwaFireFar.cginc"
 
             half4 _Hot, _Mid, _Tip;
-            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim, _LowScale, _Lean, _Flow, _FlowSpeed, _FlowX, _FlowY, _FlowBody, _FlowAmp, _FlowCore, _FlowTop, _Billboard, _Burn;
+            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim, _LowScale, _Lean, _Flow, _FlowSpeed, _FlowX, _FlowY, _FlowBody, _FlowAmp, _FlowCore, _FlowTop, _Burn;
             sampler2D _FlowTex;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float2 uv2 : TEXCOORD1; float2 uv3 : TEXCOORD2; fixed4 color : COLOR; };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; float3 wp : TEXCOORD4; float rim : TEXCOORD5; UNITY_FOG_COORDS(1) };
 
             v2f vert (appdata v)
             {
                 v2f o;
-                if (_Billboard > 0.5)
-                {
-                    // 高さはそのまま、横の向きだけカメラへ
-                    float3 camW = _WorldSpaceCameraPos;
-                    #if defined(USING_STEREO_MATRICES)
-                    camW = (unity_StereoWorldSpaceCameraPos[0] + unity_StereoWorldSpaceCameraPos[1]) * 0.5;   // VR は両目のまん中へ向ける（目ごとに違う向きになると立体がずれる）
-                    #endif
-                    float2 toCam = mul(unity_WorldToObject, float4(camW, 1)).xz - v.uv2;
-                    float2 side = normalize(float2(toCam.y, -toCam.x) + float2(0.0001, 0));
-                    v.vertex.xz = v.uv2 + side * v.uv3.x;
-                }
                 // 炎の形（舌）は上下にしか動かないので、形ごと左右へゆらす。根元は動かず上ほど大きく。帯ごとにずらしてばらばらに
                 if (_Lean > 0.0)
                 {
