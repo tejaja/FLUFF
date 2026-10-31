@@ -249,6 +249,21 @@ def hono_e3_long(path=None):
         drums = ((0, 66, 0.85), (2, 66, 0.6)) if quiet else ((0, 66, 0.85), (1.5, 66, 0.6), (2, 88, 0.6), (3, 66, 0.7), (3.5, 88, 0.5))
         for beat, f, v in drums:
             m.add(tom2(f, m.vel(v), skin=0.6), bar * 4 + beat, pan=(beat - 2) * 0.08, rev=0.18, gain=0.5 * g + 0.05, humanize=0.003)
+        # 打楽器を足す（2026-11-01 てじゃ「打楽器をもっとふやそ」）：キック、低いスネア、タムの細かい刻み、2小節ごとのフィル。静かな所は小さいタムだけ
+        if quiet:
+            for beat in (1, 3):
+                m.add(tom2(100, m.vel(0.4), skin=0.7), bar * 4 + beat, pan=0.15, rev=0.2, gain=0.42, humanize=0.003)
+        else:
+            for beat, v in ((0, 0.85), (1.5, 0.6), (2, 0.72), (3.5, 0.6)):
+                m.add(kick2(m.vel(v, 0.04), punch=0.6, low=0.6), bar * 4 + beat, rev=0.02, gain=0.72 * g, humanize=0.002)
+            for beat in (1, 3):
+                m.add(snare2(m.vel(0.55), tone=0.25, snap=0.35), bar * 4 + beat, pan=0.05, rev=0.16, gain=0.72 * g, humanize=0.003)
+            for k in range(16):
+                if k % 4 == 0: continue
+                m.add(tom2(128 if k % 2 else 110, m.vel(0.26 if k % 2 else 0.34), skin=0.85), bar * 4 + k * 0.25, pan=-0.25 if k % 2 else 0.25, rev=0.1, gain=0.42 * g, humanize=0.003)
+            if bar % 2 == 1 and bar not in (31, 47):
+                for j, f in enumerate((150, 130, 110, 90)):
+                    m.add(tom2(f, m.vel(0.5 + j * 0.05), skin=0.75), bar * 4 + 3 + j * 0.25, pan=-0.2 + j * 0.14, rev=0.14, gain=0.5 * g, humanize=0.002)
         if not quiet:
             for k in range(4): m.add(anvil(midi_hz(old.nearest(76, [r], 71, 83)), m.vel(0.2 if k % 2 == 0 else 0.13)), bar * 4 + k + 0.5, pan=0.32, rev=0.25, gain=0.75 * g, humanize=0.003)
         elif bar % 2 == 1:
