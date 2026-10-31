@@ -486,7 +486,8 @@ public static class FuwaCourse2_2Builder
     // 道にあける穴（2026-10-31 てじゃ「穴と溝が円と直線すぎる」「赤丸で繋がった溶岩池に」）：穴の中心をつないだ線のまわりの形。ふちはでこぼこ、穴と穴の間は少し細い。
     //  道の線ごとに「穴の左はし・右はし」を求めて作る（ふちの点は線の上だけ。線から外すと、となりの帯の長い辺とずれて道に切れ目が出た）
     public static float PoolWobble = 0.2f, PoolNeck = 0.3f;
-    public const float BurnSink = 0.2f;   // ふわふわが黒焦げになる高さ：溶岩の面からこれだけ下に玉の底が入った時（2026-10-31 てじゃ「やたら高い位置でアウト」。前は道の 0.15 下＝溶岩の 0.2 上だった）
+    const int LavaShadowLayer = 14;   // PickupNoEnvironment：ふわふわ（17）・人（9, 10）と当たらない
+    public const float BurnSink = 0.1f;   // ふわふわが黒焦げになる高さ：溶岩の面からこれだけ下に玉の底が入った時（2026-10-31 てじゃ「やたら高い位置でアウト」で 0.2 に→「ちょっぴり上げても」で 0.1。前は溶岩の 0.2 上だった）
     class HolePool
     {
         public List<Vector3> c = new List<Vector3>(); public float rr, amp, ld, seed; public int sx; public List<Vector3> chanAt = new List<Vector3>();
@@ -668,7 +669,17 @@ public static class FuwaCourse2_2Builder
             vis.Quad(Li[i] + dn, Ri[i] + dn, Ri[i] + du, Li[i] + du, o, 2);
         }
         MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
-        if (lavaParent != null) MeshObj(lavaParent, "LavaPools", lava.Build("Course2_2_LavaPools", 1), null, new[] { lavaMat }).layer = 0;
+        if (lavaParent != null)
+        {
+            // うその影（FuwaGroundMarker）は真下へ線を飛ばすので、溶岩にも当たりがいる（無いと穴の上で影が消える）。ふわふわも人も通りぬけるレイヤーにする
+            var lp = MeshObj(lavaParent, "LavaPools", lava.Build("Course2_2_LavaPools", 1), lava.Build("Course2_2_LavaPools_Col", 1), new[] { lavaMat });
+            lp.layer = LavaShadowLayer;
+            foreach (var mk in Object.FindObjectsOfType<FuwaGroundMarker>(true))
+            {
+                mk.groundMask |= 1 << LavaShadowLayer; EditorUtility.SetDirty(mk);
+                UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mk);
+            }
+        }
     }
 
     // 丸い踊り場（ジグザグの角）。上の面は道より PadDrop 下（道の板のはしが乗る＝同じ高さで重ならない）
