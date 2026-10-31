@@ -27,14 +27,15 @@ Shader "FuwaCourse/FlameCurtain"
             half4 _Hot, _Mid, _Tip;
             float _Speed, _Height, _Sway;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; UNITY_FOG_COORDS(1) };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; UNITY_FOG_COORDS(1) };
 
             v2f vert (appdata v)
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
+                o.h = v.color.r;   // その場所の炎の高さの割合（帯のはしは低い）
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -46,7 +47,7 @@ Shader "FuwaCourse/FlameCurtain"
                 float x = i.uv.x + (sin(y * 8.0 - t * 5.0 + i.uv.x * 1.1) * 0.55 + sin(y * 15.0 - t * 8.0 + i.uv.x * 2.3) * 0.22) * _Sway * (0.2 + y * 2.0);
                 // 炎の舌：|sin| の山をかさねた高さ（テクスチャを使わないのでふちがなめらか）
                 float a = 1.0 - abs(sin(x * 1.25 + t * 0.9)), b = 1.0 - abs(sin(x * 2.9 - t * 1.4 + 1.3)), c3 = 1.0 - abs(sin(x * 6.1 + t * 2.1 + 2.7));
-                float top = (0.64 + 0.22 * a * a + 0.1 * b + 0.04 * c3) * _Height;   // 低い所でも当たりの高さの 2/3 近くまで（低くすると、炎の上の何もない所でアウトになって見える）
+                float top = (0.64 + 0.22 * a * a + 0.1 * b + 0.04 * c3) * _Height * i.h;   // 低い所でも当たりの高さの 2/3 近くまで（低くすると、炎の上の何もない所でアウトになって見える）
                 clip(top - y);
                 // 下のはしも舌の形で切る（まっすぐ切れて板に見えないように）
                 float low = 0.09 * (1.0 - abs(sin(x * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(x * 4.7 + t))) + 0.005;

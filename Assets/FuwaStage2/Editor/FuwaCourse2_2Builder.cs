@@ -469,7 +469,7 @@ public static class FuwaCourse2_2Builder
         old.Clear(false); old.indexFormat = m.indexFormat;
         old.SetVertices(m.vertices); old.subMeshCount = m.subMeshCount;
         for (int s = 0; s < m.subMeshCount; s++) old.SetTriangles(m.GetTriangles(s), s);
-        old.normals = m.normals; if (m.uv.Length > 0) old.uv = m.uv;   // UV も入れ直す（消えると炎の板が全部切り抜かれて見えなくなった）
+        old.normals = m.normals; if (m.uv.Length > 0) old.uv = m.uv; if (m.colors.Length > 0) old.colors = m.colors;   // UV と色も入れ直す（消えると炎の板が全部切り抜かれて見えなくなった）
         old.RecalculateBounds(); EditorUtility.SetDirty(old);
         return old;
     }
@@ -822,17 +822,47 @@ public static class FuwaCourse2_2Builder
     // 炎の板：長さ len、高さは当たりと同じ。少しずらして 2 枚（前後で模様をずらして厚みを出す）
     public static void FlameCurtain(Transform g, string name, float len)
     {
-        float y0 = FireWallH * 0.5f - 1f - ZigRise - (FireWallH + ZigRise) * 0.5f, y1 = y0 + FireWallH + ZigRise; const float Gap = 0.1f;   // Burn の箱と同じ高さの範囲
+        float y0 = FireWallH * 0.5f - 1f - ZigRise - (FireWallH + ZigRise) * 0.5f, y1 = y0 + FireWallH + ZigRise;   // Burn の箱と同じ高さの範囲
         var m = new Mesh { name = "Course2_2_" + name + "_Curtain" };
-        var v = new List<Vector3>(); var uv = new List<Vector2>(); var tr = new List<int>();
-        foreach (var z in new[] { -Gap, Gap })
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
+        // 縦に立てた帯を 1 枚足す。pts は上から見た線、h はその点の炎の高さの割合（はしを低くして板の切り口を見せない）
+        void Sheet(List<Vector2> pts, List<float> h, List<float> us)
         {
-            int i = v.Count; float off = z > 0f ? 3.7f : 0f;
-            v.Add(new Vector3(-len * 0.5f, y0, z)); v.Add(new Vector3(len * 0.5f, y0, z)); v.Add(new Vector3(len * 0.5f, y1, z)); v.Add(new Vector3(-len * 0.5f, y1, z));
-            uv.Add(new Vector2(off, 0f)); uv.Add(new Vector2(off + len, 0f)); uv.Add(new Vector2(off + len, 1f)); uv.Add(new Vector2(off, 1f));
-            tr.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
+            int b = v.Count;
+            for (int k = 0; k < pts.Count; k++)
+            {
+                v.Add(new Vector3(pts[k].x, y0, pts[k].y)); uv.Add(new Vector2(us[k], 0f)); col.Add(new Color(h[k], 0f, 0f));
+                v.Add(new Vector3(pts[k].x, y1, pts[k].y)); uv.Add(new Vector2(us[k], 1f)); col.Add(new Color(h[k], 0f, 0f));
+            }
+            for (int k = 0; k + 1 < pts.Count; k++) { int a = b + k * 2; tr.AddRange(new[] { a, a + 2, a + 3, a, a + 3, a + 1 }); }
         }
-        m.SetVertices(v); m.SetUVs(0, uv); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        // 長い帯 3 枚：奥行きをずらして、くねらせる（2026-10-31 てじゃ「横からみたとき板すぎる」）
+        int sn = 0;
+        foreach (var z0 in new[] { -0.2f, 0f, 0.2f })
+        {
+            var pts = new List<Vector2>(); var h = new List<float>(); var us = new List<float>();
+            int nx = Mathf.Max(2, Mathf.CeilToInt(len / 0.35f));
+            for (int k = 0; k <= nx; k++)
+            {
+                float x = Mathf.Lerp(-len * 0.5f, len * 0.5f, k / (float)nx), end = len * 0.5f - Mathf.Abs(x);
+                pts.Add(new Vector2(x, z0 + 0.13f * Mathf.Sin(x * 2.1f + sn * 2f) + 0.06f * Mathf.Sin(x * 4.7f + sn)));
+                h.Add(Mathf.Lerp(0.2f, 1f, Mathf.Clamp01(end / 0.8f))); us.Add(x + sn * 3.7f);
+            }
+            Sheet(pts, h, us); sn++;
+        }
+        // 横切る短い帯：横から見ても炎の幅が見える。外へいくほど低い
+        const float CrossHW = 0.5f; int ci = 0;
+        for (float x = -len * 0.5f + 0.5f; x < len * 0.5f - 0.3f; x += 1.2f, ci++)
+        {
+            var pts = new List<Vector2>(); var h = new List<float>(); var us = new List<float>();
+            for (int k = 0; k <= 8; k++)
+            {
+                float w = Mathf.Lerp(-CrossHW, CrossHW, k / 8f), f = w / CrossHW;
+                pts.Add(new Vector2(x + 0.12f * Mathf.Sin(w * 5f + ci), w)); h.Add(Mathf.Lerp(0.15f, 0.92f, 1f - f * f)); us.Add(w * 2.6f + ci * 5.3f);
+            }
+            Sheet(pts, h, us);
+        }
+        m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_FlameCurtain", Color.white);
         mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); EditorUtility.SetDirty(mat);
         var c = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c.transform.SetParent(g, false);
