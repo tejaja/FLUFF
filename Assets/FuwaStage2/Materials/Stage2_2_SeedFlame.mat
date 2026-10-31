@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Stage2_2_SeedFlame
-  m_Shader: {fileID: 4800000, guid: d961671b34e065d43b9630255526715b, type: 3}
+  m_Shader: {fileID: 4800000, guid: a7a61e409340caf499e3a3caafdec3e9, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -83,6 +83,7 @@ Material:
     - _BaseFadeLength: 0
     - _BaseFadeNormal: 1
     - _Billboard: 1
+    - _Bulge: 0.1
     - _BumpScale: 1
     - _Burn: 0
     - _Cull: 2
@@ -96,10 +97,12 @@ Material:
     - _FlowAmp: 2
     - _FlowBody: 1.25
     - _FlowCore: 1
+    - _FlowScale: 0.9
     - _FlowSpeed: 0.55
     - _FlowTop: 0
     - _FlowX: 0.12
     - _FlowY: 1
+    - _Fresnel: 1.6
     - _GlossMapScale: 1
     - _Glossiness: 0.1
     - _GlossyReflections: 1
@@ -128,18 +131,21 @@ Material:
     - _RimStrength: 0.25
     - _ShadowStrength: 0.75
     - _SmoothnessTextureChannel: 0
+    - _Soft: 0.06
     - _SpecularHighlights: 1
     - _Speed: 1
     - _SrcBlend: 1
     - _Steps: 0.75
     - _StrataScale: 1.2
     - _StrataStrength: 0
+    - _Stretch: 0.14
     - _Sway: 0.2
     - _TopMin: 0.55
     - _TopStrength: 0
     - _UVSec: 0
     - _UnderGrad: 0
     - _UnderStrength: 0
+    - _Wag: 0.1
     - _Wrap: 0.35
     - _ZWrite: 1
     m_Colors:
