@@ -809,12 +809,34 @@ public static class FuwaCourse2_2Builder
         var g = new GameObject(name).transform; g.SetParent(parent, false);
         g.localPosition = (a + b) * 0.5f; g.localRotation = Quaternion.LookRotation(Vector3.Cross(Vector3.up, d.normalized));   // forward＝壁の厚みの向き、right＝壁の長さの向き
         LavaBurn(g, "Burn", new Vector3(0, FireWallH * 0.5f - 1f - ZigRise, 0), new Vector3(len, FireWallH + ZigRise, 0.5f));   // 下は1個とばしの低い方の踊り場（ZigRise 下）まで
-        var ps = FuwaStage2FireTest.FlamePS(g, "Flame", 0.2f, 3.4f, 1.8f, new Color(1f, 0.75f, 0.25f), new Color(0.9f, 0.15f, 0.05f));
+        FlameCurtain(g, name, len);
+        // 火の粉だけ粒で（前は太い粒のかたまりで炎を作っていて、ぼやけて赤いもやに見えた。2026-10-31）
+        var ps = FuwaStage2FireTest.FlamePS(g, "Flame", 0.2f, 2.6f, 1.3f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.28f, 0.05f));
         ps.transform.localPosition = new Vector3(0, -0.8f, 0);
-        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(len, 0.15f, 0.1f);
-        var em = ps.emission; em.rateOverTime = 55f * len;
-        var main = ps.main; main.maxParticles = Mathf.CeilToInt(90f * len); main.startSize = new ParticleSystem.MinMaxCurve(0.8f, 1.5f);
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(len, 0.15f, 0.25f);
+        var em = ps.emission; em.rateOverTime = 2.4f * len;
+        var main = ps.main; main.startColor = Color.white; main.maxParticles = Mathf.CeilToInt(5f * len); main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.22f); main.startSpeed = new ParticleSystem.MinMaxCurve(1.6f, 3.2f);
         ps.Play();
+    }
+    // 炎の板：長さ len、高さは当たりと同じ。少しずらして 2 枚（前後で模様をずらして厚みを出す）
+    public static void FlameCurtain(Transform g, string name, float len)
+    {
+        float y0 = FireWallH * 0.5f - 1f - ZigRise - (FireWallH + ZigRise) * 0.5f, y1 = y0 + FireWallH + ZigRise; const float Gap = 0.1f;   // Burn の箱と同じ高さの範囲
+        var m = new Mesh { name = "Course2_2_" + name + "_Curtain" };
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var tr = new List<int>();
+        foreach (var z in new[] { -Gap, Gap })
+        {
+            int i = v.Count; float off = z > 0f ? 3.7f : 0f;
+            v.Add(new Vector3(-len * 0.5f, y0, z)); v.Add(new Vector3(len * 0.5f, y0, z)); v.Add(new Vector3(len * 0.5f, y1, z)); v.Add(new Vector3(-len * 0.5f, y1, z));
+            uv.Add(new Vector2(off, 0f)); uv.Add(new Vector2(off + len, 0f)); uv.Add(new Vector2(off + len, 1f)); uv.Add(new Vector2(off, 1f));
+            tr.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
+        }
+        m.SetVertices(v); m.SetUVs(0, uv); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_FlameCurtain", Color.white);
+        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); EditorUtility.SetDirty(mat);
+        var c = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c.transform.SetParent(g, false);
+        c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m);
+        var r = c.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
