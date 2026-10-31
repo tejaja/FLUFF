@@ -979,7 +979,8 @@ public static class FuwaCourse2_2Builder
     static Material SeedFlameMat()
     {
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_SeedFlame", Color.white); m.shader = Shader.Find("FuwaCourse/FlameCurtain");
-        m.SetFloat("_Base", 0.5f); m.SetFloat("_BandScale", 2.2f); m.SetFloat("_BandByH", 1f); m.SetFloat("_Sway", 0.12f); EditorUtility.SetDirty(m);
+        m.SetFloat("_Base", 0.5f); m.SetFloat("_BandScale", 2.2f); m.SetFloat("_BandByH", 1f); m.SetFloat("_Sway", 0.12f);
+        m.SetFloat("_BandLow", 0.04f); m.SetFloat("_BandHot", 0.55f); m.SetFloat("_BandMid", 0.86f); m.SetColor("_Tip", new Color(0.85f, 0.05f, 0.02f)); m.SetFloat("_BandSelf", 1f); EditorUtility.SetDirty(m);   // 外のふちは細い赤、オレンジはその内側まで（2026-10-31 てじゃ「オレンジが外側までいく」）
         return m;
     }
     // 穴の中に描く物は縦穴（Geometry+11）のあとに描く
@@ -1210,13 +1211,13 @@ public static class FuwaCourse2_2Builder
         var m = new Mesh { name = "Course2_2_" + name + "_Curtain" };
         var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
         // 縦に立てた帯を 1 枚足す。pts は上から見た線、h はその点の炎の高さの割合（はしを低くして板の切り口を見せない）
-        void Sheet(List<Vector2> pts, List<float> h, List<float> us)
+        void Sheet(List<Vector2> pts, List<float> h, List<float> us, float rim)
         {
             int b = v.Count;
             for (int k = 0; k < pts.Count; k++)
             {
-                v.Add(new Vector3(pts[k].x, y0, pts[k].y)); uv.Add(new Vector2(us[k], 0f)); col.Add(new Color(h[k], 0f, 0f));
-                v.Add(new Vector3(pts[k].x, y1, pts[k].y)); uv.Add(new Vector2(us[k], 1f)); col.Add(new Color(h[k], 0f, 0f));
+                v.Add(new Vector3(pts[k].x, y0, pts[k].y)); uv.Add(new Vector2(us[k], 0f)); col.Add(new Color(h[k], rim, 0f));
+                v.Add(new Vector3(pts[k].x, y1, pts[k].y)); uv.Add(new Vector2(us[k], 1f)); col.Add(new Color(h[k], rim, 0f));
             }
             for (int k = 0; k + 1 < pts.Count; k++) { int a = b + k * 2; tr.AddRange(new[] { a, a + 2, a + 3, a, a + 3, a + 1 }); }
         }
@@ -1232,7 +1233,7 @@ public static class FuwaCourse2_2Builder
                 pts.Add(new Vector2(x, z0 + 0.13f * Mathf.Sin(x * 2.1f + sn * 2f) + 0.06f * Mathf.Sin(x * 4.7f + sn)));
                 h.Add(Mathf.Lerp(0.2f, 1f, Mathf.Clamp01(end / 0.8f))); us.Add(x + sn * 3.7f);
             }
-            Sheet(pts, h, us); sn++;
+            Sheet(pts, h, us, 1f); sn++;
         }
         // 横切る短い帯：横から見ても炎の幅が見える。外へいくほど低い
         const float CrossHW = 0.5f; int ci = 0;
@@ -1244,11 +1245,11 @@ public static class FuwaCourse2_2Builder
                 float w = Mathf.Lerp(-CrossHW, CrossHW, k / 8f), f = w / CrossHW;
                 pts.Add(new Vector2(x + 0.12f * Mathf.Sin(w * 5f + ci), w)); h.Add(Mathf.Lerp(0.15f, 0.92f, 1f - f * f)); us.Add(w * 2.6f + ci * 5.3f);
             }
-            Sheet(pts, h, us);
+            Sheet(pts, h, us, 0f);
         }
         m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_FlameCurtain", Color.white);
-        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); EditorUtility.SetDirty(mat);
+        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.5f); mat.SetFloat("_BandMid", 2f); mat.SetColor("_Tip", new Color(0.85f, 0.05f, 0.02f)); mat.SetFloat("_BandSelf", 0f); mat.SetFloat("_Rim", 0.05f); EditorUtility.SetDirty(mat);   // 外のふちは細い赤（2026-10-31 てじゃ）。_BandSelf は横切る帯の縦線が戻るので使わない
         var c = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c.transform.SetParent(g, false);
         c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m);
         var r = c.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;

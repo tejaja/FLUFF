@@ -13,6 +13,11 @@ Shader "FuwaCourse/FlameCurtain"
         _Base ("舌の谷の高さ（小さいほど舌が長い）", Range(0,1)) = 0.64
         _BandScale ("色の境目の波の細かさ", Float) = 1
         _BandByH ("色の帯も帯ごとの高さに合わせる（縦線が気にならない物だけ）", Range(0,1)) = 0
+        _BandLow ("下のふちの色の広さ", Range(0,0.5)) = 0.1
+        _BandHot ("内側の色の上のはし", Range(0,1)) = 0.42
+        _BandMid ("まん中の色の上のはし", Range(0,2)) = 0.74
+        _Rim ("炎の形にそった外のふちの太さ（高さの割合。頂点カラー G が 1 の帯だけ）", Range(0,0.2)) = 0
+        _BandSelf ("色の帯を炎の形に合わせる（動いても外のふちの色が切れない。板の炎の縦線が気にならない物だけ）", Range(0,1)) = 0
     }
     SubShader
     {
@@ -30,16 +35,17 @@ Shader "FuwaCourse/FlameCurtain"
             #include "FuwaFireFar.cginc"
 
             half4 _Hot, _Mid, _Tip;
-            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH;
+            float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _Rim;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; float3 wp : TEXCOORD4; UNITY_FOG_COORDS(1) };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; float3 wp : TEXCOORD4; float rim : TEXCOORD5; UNITY_FOG_COORDS(1) };
 
             v2f vert (appdata v)
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
+                o.rim = v.color.g;
                 o.h = v.color.r;   // その場所の炎の高さの割合（帯のはしは低い）
                 o.lx = v.vertex.x;
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
@@ -67,8 +73,12 @@ Shader "FuwaCourse/FlameCurtain"
                 float ba = 1.0 - abs(sin(bx * 1.25 + t * 0.9)), bb = 1.0 - abs(sin(bx * 2.9 - t * 1.4 + 1.3)), bc = 1.0 - abs(sin(bx * 6.1 + t * 2.1 + 2.7));
                 float btop = (_Base + (1.0 - _Base) * (0.6 * ba * ba + 0.28 * bb + 0.12 * bc)) * _Height * lerp(1.0, i.h, _BandByH);
                 float blow = 0.09 * (1.0 - abs(sin(bx * 1.9 - t * 0.7))) + 0.05 * (1.0 - abs(sin(bx * 4.7 + t))) + 0.005;
+                btop = lerp(btop, top, _BandSelf); blow = lerp(blow, low, _BandSelf);
                 float u = (y - blow) / max(btop - blow, 0.01);
-                half3 c = u < 0.1 ? _Tip.rgb : (u < 0.42 ? _Hot.rgb : (u < 0.74 ? _Mid.rgb : _Tip.rgb));
+                half3 c = u < _BandLow ? _Tip.rgb : (u < _BandHot ? _Hot.rgb : (u < _BandMid ? _Mid.rgb : _Tip.rgb));
+                // 外のふち：色の帯とは別に炎の形にそって塗る。帯は壁の線の位置で決めているので（縦線よけ）、動くと帯がふちまで出ることがある。
+                //  横切る帯は G=0 で塗らない（塗ると低い帯のふちが赤い縦線に見えた）。fwidth で太さをそろえるとギザギザになった
+                if (i.rim > 0.5 && dTop < _Rim) c = _Tip.rgb;
                 c = FuwaFireCalm(c, far);
                 fixed4 o = fixed4(c, alpha);
                 UNITY_APPLY_FOG(i.fogCoord, o);
