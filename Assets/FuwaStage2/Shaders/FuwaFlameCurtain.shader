@@ -61,7 +61,11 @@ Shader "FuwaCourse/FlameCurtain"
                 if (_Billboard > 0.5)
                 {
                     // 高さはそのまま、横の向きだけカメラへ
-                    float2 toCam = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1)).xz - v.uv2;
+                    float3 camW = _WorldSpaceCameraPos;
+                    #if defined(USING_STEREO_MATRICES)
+                    camW = (unity_StereoWorldSpaceCameraPos[0] + unity_StereoWorldSpaceCameraPos[1]) * 0.5;   // VR は両目のまん中へ向ける（目ごとに違う向きになると立体がずれる）
+                    #endif
+                    float2 toCam = mul(unity_WorldToObject, float4(camW, 1)).xz - v.uv2;
                     float2 side = normalize(float2(toCam.y, -toCam.x) + float2(0.0001, 0));
                     v.vertex.xz = v.uv2 + side * v.uv3.x;
                 }
