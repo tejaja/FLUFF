@@ -238,18 +238,17 @@ def hono_e3_long(path=None):
         quiet = 16 <= bar < 24; last = bar >= 32; g = level(bar)
         # 地鳴り：リフの 1 オクターブ下を長く
         rumble = root - 12 if root - 12 >= 26 else root
-        m.add(sub_bass(midi_hz(rumble), 4 * m.beat + 0.05, 0.3), bar * 4, rev=0.02, gain=0.75 + 0.25 * g, humanize=0)
+        m.add(sub_bass(midi_hz(rumble), 4 * m.beat + 0.05, 0.3), bar * 4, rev=0.02, gain=1.2 + 0.5 * g, humanize=0)
         # 中音の芯：声とやわらかいパッド（速い動きはしない）
-        for q in sorted(old.nearest(74 + (x - 74) % 12, [x], 69, 81) for x in cps):
-            m.add(choir(midi_hz(q), 4 * m.beat + 0.3, 0.3, vowel='a'), bar * 4, pan=-0.12, rev=0.4, gain=0.16 + 0.22 * g, humanize=0)   # 声はうっすら（てじゃ「声がつよい」）
-            m.add(warm_pad(midi_hz(q), 4 * m.beat + 0.3, 0.3, bright=0.25), bar * 4, pan=0.12, rev=0.4, gain=0.6 + 0.85 * g, humanize=0)
+        for q in sorted(old.nearest(62 + (x - 62) % 12, [x], 57, 69) for x in cps):   # 声はやめて、低めのパッドだけ（てじゃ「やっぱ声つよい」。高い所のパッドも声っぽく聞こえるかもしれないので下げた）
+            m.add(warm_pad(midi_hz(q), 4 * m.beat + 0.3, 0.3, bright=0.2), bar * 4, pan=0.12, rev=0.35, gain=0.35 + 0.45 * g, humanize=0)
         for beat, iv, v in (thin if quiet else riff):
             d = (1.2 if quiet else 0.4) * m.beat
             m.add(power2(midi_hz(root + iv + 12), d, m.vel(v), drive=3.0), bar * 4 + beat, pan=-0.12, rev=0.08, gain=0.6 * g, humanize=0.003)
-            m.add(finger_bass(midi_hz(root + iv), d, m.vel(v, 0.04), tone=0.5), bar * 4 + beat, rev=0.03, gain=0.26 * g, humanize=0.003)
+            m.add(finger_bass(midi_hz(root + iv), d, m.vel(v, 0.04), tone=0.5), bar * 4 + beat, rev=0.03, gain=0.5 * g, humanize=0.003)
         drums = ((0, 66, 0.85), (2, 66, 0.6)) if quiet else ((0, 66, 0.85), (1.5, 66, 0.6), (2, 88, 0.6), (3, 66, 0.7), (3.5, 88, 0.5))
         for beat, f, v in drums:
-            m.add(tom2(f, m.vel(v), skin=0.6), bar * 4 + beat, pan=(beat - 2) * 0.08, rev=0.18, gain=0.36 * g + 0.04, humanize=0.003)
+            m.add(tom2(f, m.vel(v), skin=0.6), bar * 4 + beat, pan=(beat - 2) * 0.08, rev=0.18, gain=0.5 * g + 0.05, humanize=0.003)
         if not quiet:
             for k in range(4): m.add(anvil(midi_hz(old.nearest(76, [r], 71, 83)), m.vel(0.2 if k % 2 == 0 else 0.13)), bar * 4 + k + 0.5, pan=0.32, rev=0.25, gain=0.75 * g, humanize=0.003)
         elif bar % 2 == 1:
