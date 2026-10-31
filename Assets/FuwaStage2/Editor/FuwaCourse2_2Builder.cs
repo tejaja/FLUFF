@@ -969,7 +969,7 @@ public static class FuwaCourse2_2Builder
         c.rotation = Physics.Raycast(g.position + Vector3.up, Vector3.down, out var gh, 2f, 1 << 11, QueryTriggerInteraction.Ignore) ? Quaternion.LookRotation(Vector3.ProjectOnPlane(g.forward, gh.normal), gh.normal) : g.rotation;
         var cr = c.GetComponent<MeshRenderer>(); cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; cr.receiveShadows = false;
         var L = c.InverseTransformDirection(g.TransformDirection(launch)).normalized; var X = Vector3.Cross(Vector3.up, L).normalized; var U = Vector3.Cross(L, X).normalized; if (U.y < 0f) U = -U;
-        const float Rin = 0.4f, Rout = 0.5f, BrowH = 0.18f, LipY = 0.02f; const int N = 28;
+        const float Rin = 0.2f, Rout = 0.27f, BrowH = 0.1f, LipY = 0.02f; const int N = 28;
         var A = new Vector3(0f, 0f, 0.15f);   // 筒の軸が道の面を通る所
         Vector3 Pt(float sv, int k, float rr) { float a = k * Mathf.PI * 2f / N; return A + L * sv + (U * Mathf.Cos(a) + X * Mathf.Sin(a)) * rr; }
         float SGround(int k, float rr) => -(rr * Mathf.Cos(k * Mathf.PI * 2f / N) * U.y) / L.y;
@@ -1029,7 +1029,7 @@ public static class FuwaCourse2_2Builder
         for (int k = 0; k < N; k++) { int k0 = k + 1, k1 = (k + 1) % N + 1; mt.AddRange(flip ? new[] { 0, k0, k1 } : new[] { 0, k1, k0 }); }
         var mouth = new Mesh { name = "Course2_2_VentMouth" }; mouth.SetVertices(mv); mouth.SetTriangles(mt, 0); mouth.RecalculateNormals(); mouth.RecalculateBounds();
         // 道の下へ続く筒の内側とつきあたり
-        const float SDeep = -2.2f; const int SR = 6;
+        const float SDeep = -1.4f; const int SR = 6;
         var sv = new List<Vector3>(); var suv = new List<Vector2>(); var st = new List<int>();
         for (int k = 0; k <= N; k++) for (int j = 0; j <= SR; j++) { float t = j / (float)SR; sv.Add(Pt(Mathf.Lerp(SRoad(k, Rin) + 0.05f, SDeep, t), k, Rin)); suv.Add(new Vector2(0f, t)); }
         bool sf = Vector3.Dot(Vector3.Cross(sv[SR + 1] - sv[0], sv[1] - sv[0]), sv[0] - (A + L * Vector3.Dot(sv[0] - A, L))) < 0f;   // 内向きが表
@@ -1088,11 +1088,11 @@ public static class FuwaCourse2_2Builder
         var fo = new GameObject("Steam"); fo.transform.SetParent(g, false); fo.transform.localPosition = ventMouth;
         fo.transform.localRotation = Quaternion.LookRotation(launch.normalized);
         var ps = fo.AddComponent<ParticleSystem>();
-        var main = ps.main; main.startLifetime = 1.1f; main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 6f); main.startSize = new ParticleSystem.MinMaxCurve(0.55f, 1.0f); main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        var main = ps.main; main.startLifetime = 1.1f; main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 6f); main.startSize = new ParticleSystem.MinMaxCurve(0.4f, 0.8f); main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
         main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.98f, 0.94f, 0.9f), new Color(1f, 0.88f, 0.76f, 0.8f));
         main.maxParticles = 60; main.simulationSpace = ParticleSystemSimulationSpace.World; main.gravityModifier = -0.05f;
         var em = ps.emission; em.rateOverTime = 26f;
-        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.28f;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.14f;
         var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 1.2f; lim.dampen = 0.08f;
         var col = ps.colorOverLifetime; col.enabled = true;
         var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0.5f, 0.4f), new GradientAlphaKey(0f, 1f) });
