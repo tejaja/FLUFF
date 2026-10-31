@@ -347,6 +347,7 @@ public static class FuwaCourse2_2Builder
         }
         FuwaStage2LobbyCourses.Run();
         FuwaCourse2_1Builder.FixNetworkIDs();
+        RegisterBgm(root);
         FuwaStage2Static.Apply(root);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–2] ゴールまで " + p.z.ToString("F0") + "m、高さ " + p.y.ToString("F1") + "m";
@@ -841,6 +842,27 @@ public static class FuwaCourse2_2Builder
             }
         }
         MeshObj(parent, "ZigPath", vis.Build("Course2_2_ZigPath", 3), col.Build("Course2_2_ZigPath_Col", 1), new[] { pathA, pathB, rockMat });
+    }
+
+    // BGM（2026-11-01 てじゃ E「ようがんのこどう」、Tools/audio/make_bgm_hono.py の hono_e_long）。2–1 と同じく FuwaSystem/BGM に足して、作り直すたびに BallStart をつなぎ直す
+    const string BgmClip = "Assets/FuwaStage2/Audio/bgm_hono_long.wav";
+    static void RegisterBgm(Transform root)
+    {
+        var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault(); if (!bgm) return;
+        var start = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BallStart"); if (!start) return;
+        var src = bgm.transform.Find("BGM_course2_1"); if (!src) return;
+        var tr = bgm.transform.Find("BGM_course2_2");
+        if (!tr) { tr = Object.Instantiate(src.gameObject, bgm.transform, false).transform; tr.name = "BGM_course2_2"; }
+        var a = tr.GetComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(BgmClip); EditorUtility.SetDirty(a);
+        var so = new SerializedObject(bgm);
+        var tracks = so.FindProperty("tracks"); var starts = so.FindProperty("starts");
+        int idx = -1;
+        for (int i = 0; i < tracks.arraySize; i++) if (tracks.GetArrayElementAtIndex(i).objectReferenceValue == a) idx = i;
+        if (idx < 0) { idx = tracks.arraySize; tracks.arraySize++; tracks.GetArrayElementAtIndex(idx).objectReferenceValue = a; }
+        while (starts.arraySize <= idx) { starts.arraySize++; starts.GetArrayElementAtIndex(starts.arraySize - 1).objectReferenceValue = null; }
+        starts.GetArrayElementAtIndex(idx).objectReferenceValue = start;
+        so.ApplyModifiedProperties();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bgm);
     }
 
     // 火種：地面の燃えさし＋炎＋熱の範囲（かがり火と同じ FuwaHeatSource、止まる所は地面の SeedHover 上）
