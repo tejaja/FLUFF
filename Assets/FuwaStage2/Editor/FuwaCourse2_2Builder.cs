@@ -724,6 +724,26 @@ public static class FuwaCourse2_2Builder
         float n = Mathf.PerlinNoise(Mathf.Cos(a) * 1.6f + 3.1f + h * 0.05f, Mathf.Sin(a) * 1.6f + 7.3f + h * 0.06f) - 0.5f;
         return r * (1f + 0.16f * n + 0.04f * Mathf.Sin(5f * a + h * 0.2f));
     }
+    // 火の玉：のっぺりしたオレンジ→メラメラ（FuwaCourse/Fireball、2026-10-31）。尾は太く長く
+    public static Material FireballMat()
+    {
+        var m = FuwaStage2WaterTest.ToonMat("Stage2_2_Fireball", new Color(1f, 0.55f, 0.15f));
+        var sh = Shader.Find("FuwaCourse/Fireball");
+        if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); EditorUtility.SetDirty(m); }
+        return m;
+    }
+    public static void FireballTrail(ParticleSystem trail)
+    {
+        var m = trail.main; m.startSize = new ParticleSystem.MinMaxCurve(0.75f, 1.25f); m.startLifetime = new ParticleSystem.MinMaxCurve(0.45f, 0.8f); m.maxParticles = 80;
+        var sh = trail.shape; sh.radius = 0.5f;
+        var so = trail.sizeOverLifetime; so.enabled = true; so.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0.25f)));
+        // 尾：はじめは火の玉と同じ明るいオレンジのまま（すぐ赤く薄くなると、空の前でピンクの点に見えた）
+        var col = trail.colorOverLifetime; col.enabled = true; var gr = new Gradient();
+        gr.SetKeys(new[] { new GradientColorKey(new Color(1f, 0.82f, 0.35f), 0f), new GradientColorKey(new Color(1f, 0.5f, 0.1f), 0.5f), new GradientColorKey(new Color(0.9f, 0.2f, 0.05f), 1f) },
+                   new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0.9f, 0.55f), new GradientAlphaKey(0f, 1f) });
+        col.color = gr;
+    }
+    const float FireballTrailRate = 95f;
     // 穴・みぞの溶岩：火山と同じ流れる溶岩（2026-10-31、前はベタ塗りのオレンジ）
     public static Material FlowLavaMat()
     {
@@ -843,11 +863,11 @@ public static class FuwaCourse2_2Builder
         var mover = new GameObject("Ball").transform; mover.SetParent(g, false); mover.localPosition = hs[0];
         var vis = GameObject.CreatePrimitive(PrimitiveType.Sphere); vis.name = "Visual"; vis.transform.SetParent(mover, false); vis.transform.localScale = Vector3.one * FireballSize;
         Object.DestroyImmediate(vis.GetComponent<Collider>());
-        vis.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_Fireball", new Color(1f, 0.55f, 0.15f));
+        vis.GetComponent<Renderer>().sharedMaterial = FireballMat();
         var trail = FuwaStage2FireTest.FlamePS(g, "Trail", 0.4f, 0.4f, 0.6f, new Color(1f, 0.75f, 0.25f), new Color(0.9f, 0.2f, 0.05f));
-        { var m = trail.main; m.startSize = new ParticleSystem.MinMaxCurve(0.5f, 0.9f); }
+        FireballTrail(trail);
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireball>(mover.gameObject);
-        f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail;
+        f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail; f.trailRate = FireballTrailRate;
         f.arcHeight = top; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 3.2f; f.ballKnockUp = 1.5f; f.playerKnock = 6f; f.playerKnockUp = 4.5f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
