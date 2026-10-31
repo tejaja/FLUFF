@@ -133,8 +133,8 @@ public static class FuwaCourse2_2Builder
         var pools = poolHoles.Select((g, pi) => new HolePool {
             c = g.Select(k => (Vector3)holes[k]).ToList(), rr = HoleR, amp = PoolWobble, ld = ChanLavaDepth, seed = pi * 1.7f + 0.4f, sx = chan[g.First(k => chan[k] != 0)],
             chanAt = g.Where(k => chan[k] != 0).Select(k => (Vector3)holes[k]).ToList() }).ToList();
-        BlendToPad(r12, pts12, hw12, new Vector3(0, yL, z0 + 60f + EndPadIn), EndPadR);
-        Ribbon(path, "Path12", r12, hw12, pts12, pools, lavaRoot);
+        var d12 = Flat(r12[r12.Count - 1].p - r12[r12.Count - 2].p).normalized; var s12 = Vector3.Cross(Vector3.up, d12).normalized;   // 出口の線はジグザグの道の入口とぴったり合わせる
+        Ribbon(path, "Path12", r12, hw12, pts12, pools, lavaRoot, false, null, s12);
 
         // 火種1・2：角の丸みのまん中（corners12 は角ごと、[0] は橋の先のちょっとした角）
         GroundFire(fire, "Seed1", corners12[1]);
@@ -191,7 +191,6 @@ public static class FuwaCourse2_2Builder
         // ③ 鋭角のグネグネ（登り）：丸い踊り場（角）の火種で止めて切り返す。角は約155° 曲がる（道どうしが約26°）
         //  はしの踊り場（Pad0・Pad4）は広い道がつながるので大きく（EndPadR）、広い道のはしが踊り場の中におさまる所に
         var pad = new Vector3(0, yL, z0 + 60f + EndPadIn);
-        Pad(path, "Pad0", pad, EndPadR);
         var pads = new List<(Vector3 c, float r)> { (pad, EndPadR) };
         var legs = new List<(Vector3 a, Vector3 b)>();
         for (int k = 0; k < 4; k++)
@@ -203,9 +202,12 @@ public static class FuwaCourse2_2Builder
             var a0 = pad + sh; var b0 = nx - sh; var ld = (b0 - a0).normalized;
             var a = a0 + ld * PadIn; var b = b0 - ld * PadIn;
             legs.Add((a0, b0));
-            ZigBoard(path, "Zig" + k, a0, b0, pad, k == 0 ? EndPadR : PadR, nx, k == 3 ? EndPadR : PadR, ZigHW);
-            Pad(path, "Pad" + (k + 1), nx, k == 3 ? EndPadR : PadR);
-            if (k < 3) GroundFire(fire, "ZigSeed" + k, nx);
+            if (k < 3)
+            {
+                // 火種は折り返しの内側の角から外へ（角の真上だと道からはみ出した）
+                float hd2 = (k % 2 == 0 ? -ZigHeading : ZigHeading) * Mathf.Deg2Rad; var dn2 = new Vector3(Mathf.Sin(hd2), 0, Mathf.Cos(hd2));
+                GroundFire(fire, "ZigSeed" + k, nx + (d - dn2).normalized * ZigSeedOut);
+            }
             pads.Add((nx, k == 3 ? EndPadR : PadR));
             pad = nx;
         }
@@ -286,8 +288,10 @@ public static class FuwaCourse2_2Builder
         // 曲がった道の上の (x 横, z 奥行き) の所
         Vector3 OnArena(float x, float z) { Frame(r5, ar.z + z, out var c, out var t); return c + Vector3.Cross(Vector3.up, t).normalized * x; }
         var pholes = puddles.Select(q => { var c = OnArena(q.x, q.z); return new Vector4(c.x, c.y, c.z, PuddleR); }).ToList();
-        BlendToPad(r5, pts5, hw5, pad, EndPadR);
-        Ribbon(path, "Path5", r5, hw5, pts5, pholes.Select((v, pi) => new HolePool { c = new List<Vector3> { (Vector3)v }, rr = v.w, ld = LavaDepth, amp = PuddleWobble, seed = pi * 2.3f + 1.1f }).ToList(), null, true);
+        // ジグザグ全体を 1 本の道に（2026-10-31 てじゃ「丸い部分なんか変えるか、ジグザグもふくめて」→ 案 A。丸い踊り場と板をやめた）
+        var r12End = r12[r12.Count - 1].p; var d5 = Flat(r5[1].p - r5[0].p).normalized; var s5 = Vector3.Cross(Vector3.up, d5).normalized; float w5 = WAt(pts5, hw5, r5[0].u);
+        ZigPath(path, r12End - s12 * WideEndHW, r12End + s12 * WideEndHW, d12, legs, pads.Select(q => q.c).ToList(), r5[0].p - s5 * w5, r5[0].p + s5 * w5, d5);
+        Ribbon(path, "Path5", r5, hw5, pts5, pholes.Select((v, pi) => new HolePool { c = new List<Vector3> { (Vector3)v }, rr = v.w, ld = LavaDepth, amp = PuddleWobble, seed = pi * 2.3f + 1.1f }).ToList(), null, true, s5);
         for (int k = 0; k < pholes.Count; k++) Puddle(path, "Puddle" + k, (Vector3)pholes[k]);
         ArenaDeco(path, OnArena, pholes, vc);
         for (int k = 0; k < monsters.Length; k++) FireMonster(root, "FireMonster" + k, OnArena(monsters[k].x, monsters[k].z));
@@ -443,25 +447,6 @@ public static class FuwaCourse2_2Builder
         }
     }
 
-    // 広い道と踊り場のつなぎ目（2026-10-31 てじゃ「入るところの段差」）：道のはしが踊り場に 3cm の段で乗っていた。踊り場の外へ出る所まで踊り場の面のすぐ下の高さにして、そこからゆるく道の高さへ。
-    //  踊り場に全部かくれる線は消す（重なったままだと遠くでちらつく）
-    static void BlendToPad(List<RPt> r, Vector3[] pts, float[] hw, Vector3 c, float rad)
-    {
-        const float Ease = 1.4f;
-        float low = c.y - PadDrop - 0.005f;
-        float Reach(RPt q, Vector3 side, float w) { float m = 0f; foreach (var x in new[] { -w, 0f, w }) m = Mathf.Max(m, Flat(q.p + side * x - c).magnitude); return m; }
-        for (int i = r.Count - 1; i >= 0; i--)
-        {
-            var q = r[i]; var t = Flat(r[Mathf.Min(i + 1, r.Count - 1)].p - r[Mathf.Max(i - 1, 0)].p).normalized; var side = Vector3.Cross(Vector3.up, t).normalized; float w = WAt(pts, hw, q.u);
-            float reach = Reach(q, side, w), past = reach - rad;
-            if (past >= Ease) continue;
-            bool neighborHidden = i > 0 && i + 1 < r.Count && Flat(r[i - 1].p - c).magnitude < rad - 0.3f && Flat(r[i + 1].p - c).magnitude < rad - 0.3f;
-            if (reach < rad - 0.3f && neighborHidden) { r.RemoveAt(i); continue; }
-            float f = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(past / Ease));
-            q.p.y = Mathf.Lerp(low, q.p.y, f); r[i] = q;
-        }
-    }
-
     // 面を足していくメッシュ（面ごとに頂点を分ける＝角がくっきり。表は Cross(b-a,c-a) の向き）
     class MB
     {
@@ -589,7 +574,7 @@ public static class FuwaCourse2_2Builder
         var c = (l + r) * 0.5f; var fs = new[] { 0f, 0.4f, 0.75f, 1f };
         for (int k = 0; k + 1 < fs.Length; k++) mb.Quad(SkirtPoint(l, c, fs[k]), SkirtPoint(r, c, fs[k]), SkirtPoint(r, c, fs[k + 1]), SkirtPoint(l, c, fs[k + 1]), o, 2);
     }
-    static void Ribbon(Transform parent, string name, List<RPt> r, float[] hw, Vector3[] pts, List<HolePool> holes = null, Transform lavaParent = null, bool smoothSides = false)
+    static void Ribbon(Transform parent, string name, List<RPt> r, float[] hw, Vector3[] pts, List<HolePool> holes = null, Transform lavaParent = null, bool smoothSides = false, Vector3? firstSide = null, Vector3? lastSide = null)
     {
         const float T = 0.6f, U = 1.5f, In = 0.1f;
         int n = r.Count;
@@ -607,7 +592,7 @@ public static class FuwaCourse2_2Builder
                 for (int j = i; j + 1 < n && sum < w * 1.5f; j++) { var d = Flat(r[j + 1].p - r[j].p); avg += d; sum += d.magnitude; }
                 if (avg.sqrMagnitude > 1e-6f) t = avg.normalized;
             }
-            side[i] = Vector3.Cross(Vector3.up, t).normalized;
+            side[i] = i == 0 && firstSide.HasValue ? firstSide.Value : i == n - 1 && lastSide.HasValue ? lastSide.Value : Vector3.Cross(Vector3.up, t).normalized;
             R[i] = r[i].p + side[i] * w; L[i] = r[i].p - side[i] * w;
             Ri[i] = r[i].p + side[i] * (w - In); Li[i] = r[i].p - side[i] * (w - In);
             if (i > 0) s[i] = s[i - 1] + Flat(r[i].p - r[i - 1].p).magnitude;
@@ -768,82 +753,73 @@ public static class FuwaCourse2_2Builder
         }
     }
 
-    // 丸い踊り場（ジグザグの角）。上の面は道より PadDrop 下（道の板のはしが乗る＝同じ高さで重ならない）
-    static void Pad(Transform parent, string name, Vector3 c, float PadR)
+    // ジグザグの 1 本道：折り返しは内側の角（板の内側のふちの交点）を軸に道を扇のように回して、外側がふくらむ。シマシマはつながり、下の岩も道と同じ。
+    //  当たりも同じ形。折り返しの間は平らで、板の部分だけ坂（前の板より少し急）
+    public static float ZigBulge = 2.9f, ZigSeedOut = 1.35f;
+    static void ZigPath(Transform parent, Vector3 startL, Vector3 startR, Vector3 startDir, List<(Vector3 a, Vector3 b)> legs, List<Vector3> nodes, Vector3 endL, Vector3 endR, Vector3 endDir)
     {
-        const float T = 0.6f, U = 1.5f; const int N = 40;
-        c.y -= PadDrop;
-        var vis = new MB(); var col = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
-        for (int k = 0; k < N; k++)
+        const float T = 0.6f, In = 0.1f, Ease = 1.2f, FanS = 4f; float hw = ZigHW; int n = legs.Count;
+        var dirs = legs.Select(l => Flat(l.b - l.a).normalized).ToArray(); var sides = dirs.Select(d => Vector3.Cross(Vector3.up, d).normalized).ToArray(); var lens = legs.Select(l => Flat(l.b - l.a).magnitude).ToArray();
+        Vector3 At(int k, float s, float x) { var q = Flat(legs[k].a) + dirs[k] * s + sides[k] * x; return q; }
+        var sStart = new float[n]; var sEnd = new float[n]; var pivot = new Vector3[n - 1]; var inner = new float[n - 1];
+        sStart[0] = FanS; sEnd[n - 1] = lens[n - 1] - FanS;
+        for (int k = 0; k + 1 < n; k++)
         {
-            float a0 = k * Mathf.PI * 2f / N, a1 = (k + 1) * Mathf.PI * 2f / N;
-            var o0 = new Vector3(Mathf.Cos(a0), 0, Mathf.Sin(a0)); var o1 = new Vector3(Mathf.Cos(a1), 0, Mathf.Sin(a1));
-            var p0 = c + o0 * PadR; var p1 = c + o1 * PadR; var q0 = c + o0 * (PadR - 0.1f); var q1 = c + o1 * (PadR - 0.1f);
-            var om = (o0 + o1).normalized;
-            foreach (var mb in new[] { vis, col })
+            inner[k] = Vector3.Cross(dirs[k], dirs[k + 1]).y > 0f ? 1f : -1f;   // 右へ折り返すなら右が内側
+            Vector3 p = At(k, 0f, inner[k] * hw), q = At(k + 1, 0f, inner[k] * hw); float den = dirs[k].x * dirs[k + 1].z - dirs[k].z * dirs[k + 1].x;
+            float u = ((q.x - p.x) * dirs[k + 1].z - (q.z - p.z) * dirs[k + 1].x) / den;
+            pivot[k] = p + dirs[k] * u; sEnd[k] = u; sStart[k + 1] = Vector3.Dot(pivot[k] - Flat(legs[k + 1].a), dirs[k + 1]);
+        }
+        var L = new List<Vector3>(); var R = new List<Vector3>();
+        void Row(Vector3 l, Vector3 r, float y) { l.y = y; r.y = y; L.Add(l); R.Add(r); }
+        Vector3 Bz(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float t) { float v = 1f - t; return v * v * v * a + 3f * v * v * t * b + 3f * v * t * t * c + t * t * t * d; }
+        void Blend(Vector3 l0, Vector3 r0, Vector3 d0, Vector3 l1, Vector3 r1, Vector3 d1, float y, int m)
+        {
+            float lenL = (Flat(l1 - l0)).magnitude * 0.4f, lenR = (Flat(r1 - r0)).magnitude * 0.4f;
+            for (int i = 1; i < m; i++) { float t = i / (float)m; Row(Bz(l0, l0 + d0 * lenL, l1 - d1 * lenL, l1, t), Bz(r0, r0 + d0 * lenR, r1 - d1 * lenR, r1, t), y); }
+        }
+        Row(startL, startR, startL.y);
+        Blend(Flat(startL), Flat(startR), startDir, At(0, sStart[0], -hw), At(0, sStart[0], hw), dirs[0], startL.y, 16);
+        for (int k = 0; k < n; k++)
+        {
+            float y0 = nodes[k].y, y1 = nodes[k + 1].y, span = sEnd[k] - sStart[k], e = Mathf.Min(Ease / span, 0.3f), peak = 1f / (1f - e);
+            int m = Mathf.CeilToInt(span / 0.3f);
+            for (int i = 0; i <= m; i++)
             {
-                if (mb == vis)
-                {
-                    float kb = (PadR - Bevel) / PadR; var i0 = c + (p0 - c) * kb; var i1 = c + (p1 - c) * kb;
-                    mb.Quad(c, c, i1, i0, Vector3.up, 0);
-                    BevelEdge(mb, p0, p1, o0, o1, 1);
-                    mb.Quad(p0 + BevelDown, p1 + BevelDown, p1 + dn, p0 + dn, om, 1);
-                    continue;
-                }
-                mb.Quad(c, c, p1, p0, Vector3.up, 0);
-                mb.Quad(p0, p1, p1 + dn, p0 + dn, om, 0);
+                float t = i / (float)m, f = t < e ? peak * t * t / (2f * e) : t > 1f - e ? 1f - peak * (1f - t) * (1f - t) / (2f * e) : peak * (t - e * 0.5f), s = Mathf.Lerp(sStart[k], sEnd[k], t);
+                Row(At(k, s, -hw), At(k, s, hw), Mathf.Lerp(y0, y1, f));
             }
-            col.Quad(c + dn, c + dn, p1 + dn, p0 + dn, Vector3.down, 0);
-            vis.Quad(c + dn, c + dn, p1 + dn, p0 + dn, Vector3.down, 2);
+            if (k + 1 >= n) break;
+            // 折り返し：内側は軸の 1 点、外側はふくらむ曲線（まん中が火種から ZigBulge の所）
+            float ik = inner[k]; Vector3 o0 = At(k, sEnd[k], -ik * hw), o1 = At(k + 1, sStart[k + 1], -ik * hw), c = Flat(nodes[k + 1]);
+            float lo = 0.2f, hi = 12f; for (int q = 0; q < 24; q++) { float mid = (lo + hi) * 0.5f; if ((Bz(o0, o0 + dirs[k] * mid, o1 - dirs[k + 1] * mid, o1, 0.5f) - c).magnitude < ZigBulge) lo = mid; else hi = mid; }
+            const int Fan = 28;
+            for (int i = 1; i < Fan; i++)
+            {
+                var oe = Bz(o0, o0 + dirs[k] * lo, o1 - dirs[k + 1] * lo, o1, i / (float)Fan);
+                if (ik > 0f) Row(oe, pivot[k], y1); else Row(pivot[k], oe, y1);
+            }
         }
-        var g = MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
-        // 下は他のコースと同じ浮島の形（2026-10-31、前はただの筒）。見た目だけ
-        var under = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FarIslands/IslandUnderLow_2.asset");
-        if (under)
+        Blend(At(n - 1, sEnd[n - 1], -hw), At(n - 1, sEnd[n - 1], hw), dirs[n - 1], Flat(endL), Flat(endR), endDir, nodes[n].y, 16);
+        Row(endL, endR, endL.y);
+        var vis = new MB(); var col = new MB(); var dn = Vector3.down * T; int folds = 0; float sAcc = 0f;
+        for (int i = 0; i + 1 < L.Count; i++)
         {
-            var u = new GameObject("Under", typeof(MeshFilter), typeof(MeshRenderer)).transform; u.SetParent(g.transform, false);
-            float sx = (PadR - 0.08f) * 2f / Mathf.Max(under.bounds.size.x, under.bounds.size.z), depth = PadR * 0.85f, sy = depth / under.bounds.size.y;
-            u.localScale = new Vector3(sx, sy, sx); u.localRotation = Quaternion.Euler(0f, name.GetHashCode() % 360, 0f);
-            u.localPosition = new Vector3(c.x, c.y - T + 0.02f - under.bounds.max.y * sy, c.z);
-            u.GetComponent<MeshFilter>().sharedMesh = under; u.GetComponent<MeshRenderer>().sharedMaterial = rockMat;
+            Vector3 l0 = L[i], l1 = L[i + 1], r0 = R[i], r1 = R[i + 1], m0 = (l0 + r0) * 0.5f, m1 = (l1 + r1) * 0.5f, f = Flat(m1 - m0); float seg = f.magnitude;
+            if (Vector3.Dot(l1 - l0, f) < -1e-4f || Vector3.Dot(r1 - r0, f) < -1e-4f) folds++;
+            int st = Mathf.FloorToInt((sAcc + seg * 0.5f) / StripeLen) % 2; sAcc += seg;
+            Vector3 o0 = Flat(l0 - r0).normalized, o1 = Flat(l1 - r1).normalized;
+            col.Quad(l0, l1, r1, r0, Vector3.up, 0); col.Quad(l0 + dn, l1 + dn, r1 + dn, r0 + dn, Vector3.down, 0);
+            col.Quad(l0, l1, l1 + dn, l0 + dn, o0, 0); col.Quad(r0, r1, r1 + dn, r0 + dn, -o0, 0);
+            vis.Quad(l0 - o0 * Bevel, l1 - o1 * Bevel, r1 + o1 * Bevel, r0 + o0 * Bevel, Vector3.up, st);
+            BevelEdge(vis, l0, l1, o0, o1, st); BevelEdge(vis, r0, r1, -o0, -o1, st);
+            vis.Quad(l0 + BevelDown, l1 + BevelDown, l1 + dn, l0 + dn, o0, st); vis.Quad(r0 + BevelDown, r1 + BevelDown, r1 + dn, r0 + dn, -o0, st);
+            Vector3 li0 = l0 - o0 * In + dn, li1 = l1 - o1 * In + dn, ri0 = r0 + o0 * In + dn, ri1 = r1 + o1 * In + dn;
+            vis.Quad(l0 + dn, l1 + dn, li1, li0, Vector3.down, 2); vis.Quad(r0 + dn, r1 + dn, ri1, ri0, Vector3.down, 2);
+            Skirt(vis, ri0, ri1, li0, li1, -o0);
         }
-    }
-    // ジグザグの板（2026-10-31、前は箱を踊り場に乗せただけで段があった）：両はしは踊り場の上の面の高さで平らに中まで入り、踊り場のふちから先だけ坂。角はなめらか
-    static void ZigBoard(Transform parent, string name, Vector3 a0, Vector3 b0, Vector3 ca, float ra, Vector3 cb, float rb, float hw)
-    {
-        const float T = 0.6f, In = 0.1f, Down = 0.005f, Ease = 1.2f;
-        var d = Flat(b0 - a0); float len = d.magnitude; d /= len; var side = Vector3.Cross(Vector3.up, d).normalized; var o = Flat(a0);
-        float sA = 0f, sB = len;
-        while (sA < len && Flat(o + d * sA - ca).magnitude < ra) sA += 0.02f;
-        while (sB > 0f && Flat(o + d * sB - cb).magnitude < rb) sB -= 0.02f;
-        float yA = ca.y - PadDrop - Down, yB = cb.y - PadDrop - Down, span = sB - sA, e = Mathf.Min(Ease / span, 0.3f), peak = 1f / (1f - e);
-        float Y(float s)
-        {
-            float t = Mathf.Clamp01((s - sA) / span);
-            float f = t < e ? peak * t * t / (2f * e) : t > 1f - e ? 1f - peak * (1f - t) * (1f - t) / (2f * e) : peak * (t - e * 0.5f);
-            return Mathf.Lerp(yA, yB, f);
-        }
-        float s0 = sA - hw * 1.3f, s1 = sB + hw * 1.3f; int n = Mathf.CeilToInt((s1 - s0) / (StripeLen * 0.25f));
-        var vis = new MB(); var col = new MB(); var dn = Vector3.down * T;
-        for (int i = 0; i < n; i++)
-        {
-            float a = Mathf.Lerp(s0, s1, i / (float)n), b = Mathf.Lerp(s0, s1, (i + 1) / (float)n);
-            Vector3 P(float s, float x) { var q = o + d * s + side * x; q.y = Y(s); return q; }
-            int st = Mathf.Abs(Mathf.FloorToInt((a + b) * 0.5f / StripeLen)) % 2;
-            col.Quad(P(a, -hw), P(b, -hw), P(b, hw), P(a, hw), Vector3.up, 0);
-            col.Quad(P(a, hw), P(b, hw), P(b, hw) + dn, P(a, hw) + dn, side, 0);
-            col.Quad(P(a, -hw), P(b, -hw), P(b, -hw) + dn, P(a, -hw) + dn, -side, 0);
-            col.Quad(P(a, -hw) + dn, P(b, -hw) + dn, P(b, hw) + dn, P(a, hw) + dn, Vector3.down, 0);
-            vis.Quad(P(a, -hw + Bevel), P(b, -hw + Bevel), P(b, hw - Bevel), P(a, hw - Bevel), Vector3.up, st);
-            BevelEdge(vis, P(a, hw), P(b, hw), side, side, st); BevelEdge(vis, P(a, -hw), P(b, -hw), -side, -side, st);
-            vis.Quad(P(a, hw) + BevelDown, P(b, hw) + BevelDown, P(b, hw) + dn, P(a, hw) + dn, side, st);
-            vis.Quad(P(a, -hw) + BevelDown, P(b, -hw) + BevelDown, P(b, -hw) + dn, P(a, -hw) + dn, -side, st);
-            float w = hw - In;
-            Skirt(vis, P(a, w) + dn, P(b, w) + dn, P(a, -w) + dn, P(b, -w) + dn, side);
-            vis.Quad(P(a, hw) + dn, P(b, hw) + dn, P(b, w) + dn, P(a, w) + dn, Vector3.down, 2);
-            vis.Quad(P(a, -hw) + dn, P(b, -hw) + dn, P(b, -w) + dn, P(a, -w) + dn, Vector3.down, 2);
-        }
-        MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
+        if (folds > 0) Debug.LogWarning("[2–2] ZigPath 道の面の折り重なり " + folds + " か所");
+        MeshObj(parent, "ZigPath", vis.Build("Course2_2_ZigPath", 3), col.Build("Course2_2_ZigPath_Col", 1), new[] { pathA, pathB, rockMat });
     }
 
     // 火種：地面の燃えさし＋炎＋熱の範囲（かがり火と同じ FuwaHeatSource、止まる所は地面の SeedHover 上）
