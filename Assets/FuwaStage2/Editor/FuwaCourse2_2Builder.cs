@@ -934,10 +934,10 @@ public static class FuwaCourse2_2Builder
         var lb = new MB(); const int Logs = 5, LogN = 7;
         for (int i = 0; i < Logs; i++)
         {
-            float a = a00 + 0.4f + i * Mathf.PI * 2f / Logs + 0.12f * Mathf.Sin(i * 2.3f), reach = 0.4f + 0.02f * Mathf.Sin(i * 3.7f);
+            float a = a00 + 0.4f + i * Mathf.PI * 2f / Logs + 0.12f * Mathf.Sin(i * 2.3f), reach = 0.43f + 0.02f * Mathf.Sin(i * 3.7f);
             var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var foot = dir * reach + Vector3.down * (SeedPitDepth - 0.06f); var tip = dir * 0.06f + Vector3.down * (0.05f + 0.03f * Mathf.Sin(i * 5.1f));
             var ax = (tip - foot).normalized; var s1 = Vector3.Cross(ax, dir).normalized; var s2 = Vector3.Cross(ax, s1);
-            Vector3 Ring(float t, int k) { float b = k * Mathf.PI * 2f / LogN; return Vector3.Lerp(foot, tip, t) + (s1 * Mathf.Cos(b) + s2 * Mathf.Sin(b)) * Mathf.Lerp(0.06f, 0.04f, t); }
+            Vector3 Ring(float t, int k) { float b = k * Mathf.PI * 2f / LogN; return Vector3.Lerp(foot, tip, t) + (s1 * Mathf.Cos(b) + s2 * Mathf.Sin(b)) * Mathf.Lerp(0.075f, 0.05f, t); }
             var bands = new[] { (t0: 0f, t1: 0.55f, sub: 0), (t0: 0.55f, t1: 1f, sub: 1) };
             for (int k = 0; k < LogN; k++)
             {
@@ -946,11 +946,41 @@ public static class FuwaCourse2_2Builder
                 lb.Quad(Ring(1f, k), Ring(1f, k + 1), tip, tip, ax, 1);
             }
         }
-        Part("Logs", SaveMesh(lb.Build("Course2_2_SeedLogs_" + g.name, 3)), SeedPitToon("Stage2_2_FireLog", new Color(0.4f, 0.25f, 0.16f)), SeedPitToon("Stage2_2_FireLogChar", new Color(0.2f, 0.11f, 0.1f)), SeedPitToon("Stage2_2_FireLogEnd", new Color(0.62f, 0.45f, 0.32f)));
-        var fl = new GameObject("Flames", typeof(MeshFilter), typeof(MeshRenderer)).transform; fl.SetParent(b0, false); fl.localScale = new Vector3(0.36f, 0.5f, 0.36f); fl.localPosition = Vector3.down * (SeedPitDepth - 0.1f);   // 穴の底から道の上 1.2m ほどまで
-        fl.GetComponent<MeshFilter>().sharedMesh = IsleFlameMesh(); var fr = fl.GetComponent<MeshRenderer>(); fr.sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_IsleFlame", Color.white); fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; fr.receiveShadows = false;
+        Part("Logs", SaveMesh(lb.Build("Course2_2_SeedLogs_" + g.name, 3)), SeedPitToon("Stage2_2_FireLog", new Color(0.52f, 0.32f, 0.2f)), SeedPitToon("Stage2_2_FireLogChar", new Color(0.26f, 0.13f, 0.11f)), SeedPitToon("Stage2_2_FireLogEnd", new Color(0.62f, 0.45f, 0.32f)));
+        var fl = new GameObject("Flames", typeof(MeshFilter), typeof(MeshRenderer)).transform; fl.SetParent(b0, false); fl.localPosition = Vector3.down * (SeedPitDepth - 0.1f);   // 穴の底から道の上 1.1m ほどまで
+        fl.GetComponent<MeshFilter>().sharedMesh = SeedFlameMesh(); var fr = fl.GetComponent<MeshRenderer>(); fr.sharedMaterial = SeedFlameMat(); fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; fr.receiveShadows = false;
         var ps = FuwaStage2FireTest.FlamePS(g, "Sparks", 0.35f, 1.5f, 1.2f, new Color(1f, 0.85f, 0.35f), new Color(1f, 0.32f, 0.06f));
         var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f); m.maxParticles = 12; var em = ps.emission; em.rateOverTime = 5f; ps.Play();
+    }
+    // 焚き火の炎：高さのちがう板を寄せた小さいかたまり。まん中が高く、まわりに低い舌（島の炎を縮めると針の束と筒に見えた。1 本の大きい炎も単調だった。2026-10-31 てじゃ「焚き火に違和感」）
+    static Mesh SeedFlameMesh()
+    {
+        const float H = 1.5f; const int Rows = 6, Cols = 16;
+        var pl = new[] { (x: 0f, z: 0f, ang: 20f, w: 0.28f, h: 1f), (x: 0f, z: 0f, ang: 100f, w: 0.26f, h: 0.86f), (x: 0.17f, z: 0.05f, ang: 60f, w: 0.2f, h: 0.62f), (x: -0.15f, z: 0.1f, ang: 140f, w: 0.2f, h: 0.68f), (x: 0.02f, z: -0.18f, ang: 10f, w: 0.2f, h: 0.56f), (x: -0.08f, z: -0.1f, ang: 75f, w: 0.17f, h: 0.5f) };
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
+        for (int p = 0; p < pl.Length; p++)
+        {
+            float ang = pl[p].ang * Mathf.Deg2Rad; var dir = new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)); var o = new Vector3(pl[p].x, 0f, pl[p].z); int b = v.Count;
+            for (int j = 0; j <= Rows; j++)
+            {
+                float t = j / (float)Rows, w = pl[p].w * Mathf.Pow(1f - t * 0.85f, 0.8f) * (0.72f + 0.28f * Mathf.Sin(Mathf.Min(1f, t * 3f) * Mathf.PI * 0.5f));
+                for (int k = 0; k <= Cols; k++)
+                {
+                    float u = k * 2f / Cols - 1f;
+                    v.Add(o + dir * (u * w) + Vector3.up * (H * t)); uv.Add(new Vector2(u * pl[p].w * 9f + p * 4.3f, t)); col.Add(new Color(Mathf.Lerp(0.4f, 1f, 1f - u * u) * pl[p].h, 0f, 0f));
+                }
+            }
+            for (int j = 0; j < Rows; j++) for (int k = 0; k < Cols; k++) { int a = b + j * (Cols + 1) + k, c = a + Cols + 1; tr.AddRange(new[] { a, c, c + 1, a, c + 1, a + 1 }); }
+        }
+        var m = new Mesh { name = "Course2_2_SeedFlame" };
+        m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        return SaveMesh(m);
+    }
+    static Material SeedFlameMat()
+    {
+        var m = FuwaStage2WaterTest.ToonMat("Stage2_2_SeedFlame", Color.white); m.shader = Shader.Find("FuwaCourse/FlameCurtain");
+        m.SetFloat("_Base", 0.5f); m.SetFloat("_BandScale", 2.2f); m.SetFloat("_BandByH", 1f); m.SetFloat("_Sway", 0.12f); EditorUtility.SetDirty(m);
+        return m;
     }
     // 穴の中に描く物は縦穴（Geometry+11）のあとに描く
     static Material SeedPitToon(string name, Color c) { var m = FuwaStage2WaterTest.ToonMat(name, c); m.renderQueue = 2012; EditorUtility.SetDirty(m); return m; }
@@ -959,7 +989,7 @@ public static class FuwaCourse2_2Builder
         const string mp = "Assets/FuwaStage2/Materials/Stage2_2_FirePit.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (!mat) { mat = new Material(Shader.Find("FuwaCourse/VentShaft")); AssetDatabase.CreateAsset(mat, mp); }
-        mat.SetColor("_Top", new Color(0.33f, 0.2f, 0.19f)); mat.SetColor("_Bottom", new Color(0.09f, 0.03f, 0.02f)); mat.SetFloat("_Falloff", 1.3f);   // 口はふちと同じ色、奥へ暗く EditorUtility.SetDirty(mat);
+        mat.SetColor("_Top", new Color(0.33f, 0.2f, 0.19f)); mat.SetColor("_Bottom", new Color(0.42f, 0.09f, 0.03f)); mat.SetFloat("_Falloff", 1.1f);   // 口はふちと同じ色、底は火に照らされて赤く EditorUtility.SetDirty(mat);
         return mat;
     }
     // 噴気孔：打ち出す向きに傾いた筒を道に埋めた、斜めの穴（2026-10-31 てじゃ「真っ直ぐなのに斜めに出るのへん、すこし埋めて斜めに吹き出す穴に」）。
@@ -1319,30 +1349,6 @@ public static class FuwaCourse2_2Builder
         if (isNew) AssetDatabase.CreateAsset(mesh, path); else EditorUtility.SetDirty(mesh);
         return mesh;
     }
-    // 島の上で燃える炎：輪にした帯を半径を変えて重ねる。帯のはしは低くして切り口を見せない。下のはしは島の中へもぐらせる
-    static Mesh IsleFlameMesh()
-    {
-        const float H = 3.2f, Sink = 0.18f, TopK = 0.3f;   // 上ほどすぼまる（まっすぐ立てるとケーキに見えた）
-        var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
-        var arcs = new[] { (r: 0.85f, a0: 0f, a1: 190f, hh: 0.55f), (r: 0.8f, a0: 165f, a1: 375f, hh: 0.62f), (r: 0.5f, a0: 70f, a1: 310f, hh: 0.8f), (r: 0.25f, a0: -40f, a1: 220f, hh: 1f) };   // 外の帯が広いと、下のはしが島の下の面から突き出た
-        for (int s = 0; s < arcs.Length; s++)
-        {
-            var q = arcs[s]; int b = v.Count; const int N = 20;
-            for (int k = 0; k <= N; k++)
-            {
-                float t = k / (float)N, a = Mathf.Lerp(q.a0, q.a1, t) * Mathf.Deg2Rad, h = Mathf.Lerp(0.2f, q.hh, Mathf.Clamp01(Mathf.Min(t, 1f - t) * 5f));
-                float u = (a * q.r) * 3f + s * 4.3f;
-                foreach (var e in new[] { 0f, 1f })
-                {
-                    float rr = q.r * Mathf.Lerp(1f, TopK, e); v.Add(new Vector3(Mathf.Cos(a) * rr, Mathf.Lerp(-Sink, H, e), Mathf.Sin(a) * rr)); uv.Add(new Vector2(u, e)); col.Add(new Color(h, 0f, 0f));
-                }
-            }
-            for (int k = 0; k < N; k++) { int a = b + k * 2; tr.AddRange(new[] { a, a + 2, a + 3, a, a + 3, a + 1 }); }
-        }
-        var m = new Mesh { name = "Course2_2_IsleFlame" };
-        m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
-        return SaveMesh(m);
-    }
     public static void BurntIsles(Transform fire, Transform lavaRoot)
     {
         var old = fire.Find("BurntIsles"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -1361,7 +1367,7 @@ public static class FuwaCourse2_2Builder
         var scorched = AssetDatabase.LoadAssetAtPath<Material>(scorchedPath);
         if (!scorched) { scorched = new Material(top); AssetDatabase.CreateAsset(scorched, scorchedPath); }
         scorched.SetColor("_Color", new Color(0.3f, 0.2f, 0.17f)); EditorUtility.SetDirty(scorched);
-        var isleFlame = IsleFlameMesh(); var flameMat = FuwaStage2WaterTest.ToonMat("Stage2_2_IsleFlame", Color.white); flameMat.shader = Shader.Find("FuwaCourse/FlameCurtain"); flameMat.SetFloat("_Base", 0.22f); flameMat.SetFloat("_BandScale", 2.6f); flameMat.SetFloat("_BandByH", 1f); flameMat.SetFloat("_Sway", 0.17f); EditorUtility.SetDirty(flameMat);
+        var isleFlame = SeedFlameMesh(); var flameMat = SeedFlameMat();   // 焚き火と同じ炎を大きくして使う
         var underMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/IslandUnder.mat");
         var g = new GameObject("BurntIsles").transform; g.SetParent(fire, false);
         var h = Vector3.zero; int n = 0; foreach (Transform c in lavaRoot) { h += c.localPosition; n++; } if (n > 0) h /= n;
@@ -1384,7 +1390,7 @@ public static class FuwaCourse2_2Builder
             Part("IslandUnder", under, underMat, ground, Quaternion.Euler(0f, 199f, 0f), new Vector3(1.2f, 1.1f, 1.2f));
             if (s.fire)
             {
-                Part("Flames", isleFlame, flameMat, ground, Quaternion.identity, Vector3.one);
+                Part("Flames", isleFlame, flameMat, ground + Vector3.down * 0.32f, Quaternion.identity, new Vector3(2.3f, 1.7f, 2.3f));
                 var ps = FuwaStage2FireTest.FlamePS(isle, "Embers", 0.6f, 1.2f, 1.6f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.28f, 0.05f));
                 ps.transform.localPosition = ground + Vector3.up * 0.3f;
                 var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.16f); m.maxParticles = 10;
