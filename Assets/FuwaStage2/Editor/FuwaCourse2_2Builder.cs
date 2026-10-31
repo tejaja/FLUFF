@@ -853,17 +853,79 @@ public static class FuwaCourse2_2Builder
     static void GroundFire(Transform parent, string name, Vector3 lp)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = lp;
-        var ember = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ember.name = "Embers"; ember.transform.SetParent(g, false);
-        ember.transform.localPosition = new Vector3(0, 0.02f, 0); ember.transform.localScale = new Vector3(1.3f, 0.02f, 1.3f);
-        Object.DestroyImmediate(ember.GetComponent<Collider>());
-        ember.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_Embers", new Color(0.35f, 0.12f, 0.08f));
-        var ps = FuwaStage2FireTest.FlamePS(g, "Flame", 0.5f, 1.4f, 0.9f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.3f, 0.08f));
-        { var em = ps.emission; em.rateOverTime = 45f; var m = ps.main; m.startSize = new ParticleSystem.MinMaxCurve(0.3f, 0.6f); }
+        SeedLook(g);
         var z = new GameObject("HeatZone"); z.transform.SetParent(g, false); z.transform.localPosition = new Vector3(0, 0.9f, 0); z.layer = 4;
         var bc = z.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(2.0f, 1.8f, 2.0f);
         var hp = new GameObject("HoverPoint").transform; hp.SetParent(g, false); hp.localPosition = new Vector3(0, SeedHover, 0);
         var hs = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHeatSource>(z); hs.heat = heat; hs.hoverPoint = hp;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hs); FuwaStage2WaterTest.NoSync(hs);
+    }
+
+    // 火種と噴気孔の見た目（2026-10-31 てじゃ「火種と噴気孔をきれいに」。前は平らな円盤とぼやけた粒）。当たりも遊びも変えない
+    public static Material SteamMat()
+    {
+        const string mp = "Assets/FuwaStage2/Materials/Stage2_2_VolcanoSteam.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!mat) { mat = new Material(Shader.Find("FuwaCourse/SteamPuff")); mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaCourse/Textures/SteamPuffSheet.png"); AssetDatabase.CreateAsset(mat, mp); }
+        return mat;
+    }
+    // 道の面の向きに合わせる（坂の上で平らな物を置くと半分うまった）。道の当たりがまだ無い所は上向き
+    static Transform OnSurface(Transform g, string name)
+    {
+        var c = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)).transform; c.SetParent(g, false);
+        Physics.SyncTransforms();
+        c.rotation = Physics.Raycast(g.position + Vector3.up, Vector3.down, out var hit, 2f, 1 << 11, QueryTriggerInteraction.Ignore) ? Quaternion.FromToRotation(Vector3.up, hit.normal) : Quaternion.identity;
+        var r = c.GetComponent<MeshRenderer>(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        return c;
+    }
+    // 火種：石の輪の中におき火。炎はふわふわの止まる高さ（SeedHover）より低く（ふわふわが炎に隠れないように）
+    static void SeedLook(Transform g)
+    {
+        var mb = new MB();
+        for (int i = 0; i < 9; i++)
+        {
+            float a = i * Mathf.PI * 2f / 9f + 0.3f * Mathf.Sin(i * 2.4f), dist = 0.74f + 0.05f * Mathf.Sin(i * 1.7f), rad = 0.17f + 0.04f * Mathf.Sin(i * 3.1f), hgt = 0.2f + 0.06f * Mathf.Sin(i * 4.3f);
+            var o = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * dist; const int N = 6;
+            Vector3 P(int k, float rr, float y) { float b = k * Mathf.PI * 2f / N + i; return o + new Vector3(Mathf.Cos(b) * rr * 1.25f, y, Mathf.Sin(b) * rr); }
+            for (int k = 0; k < N; k++)
+            {
+                mb.Quad(P(k, rad, -0.04f), P(k + 1, rad, -0.04f), P(k + 1, rad * 0.62f, hgt), P(k, rad * 0.62f, hgt), P(k, 1f, 0f) + P(k + 1, 1f, 0f) - o * 2f, 0);
+                mb.Quad(o + Vector3.up * (hgt + 0.03f), o + Vector3.up * (hgt + 0.03f), P(k + 1, rad * 0.62f, hgt), P(k, rad * 0.62f, hgt), Vector3.up, 0);
+            }
+        }
+        // おき火：低い山。まん中が高い
+        const int Seg = 24; var rs = new[] { (r: 0.66f, y: -0.03f), (r: 0.5f, y: 0.07f), (r: 0.26f, y: 0.13f) };
+        for (int k = 0; k < Seg; k++)
+        {
+            float a0 = k * Mathf.PI * 2f / Seg, a1 = (k + 1) * Mathf.PI * 2f / Seg; Vector3 Q(float a, float r, float y) => new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r);
+            for (int j = 0; j + 1 < rs.Length; j++) mb.Quad(Q(a0, rs[j].r, rs[j].y), Q(a1, rs[j].r, rs[j].y), Q(a1, rs[j + 1].r, rs[j + 1].y), Q(a0, rs[j + 1].r, rs[j + 1].y), Vector3.up, 1);
+            mb.Quad(Q(a0, rs[2].r, rs[2].y), Q(a1, rs[2].r, rs[2].y), Vector3.up * 0.15f, Vector3.up * 0.15f, Vector3.up, 1);
+        }
+        var b0 = OnSurface(g, "Base"); b0.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_SeedBase", 2));
+        b0.GetComponent<MeshRenderer>().sharedMaterials = new[] { rockMat, FlowLavaMat() };
+        var fl = new GameObject("Flames", typeof(MeshFilter), typeof(MeshRenderer)).transform; fl.SetParent(b0, false); fl.localScale = new Vector3(0.55f, 0.36f, 0.55f); fl.localPosition = Vector3.up * 0.05f;
+        fl.GetComponent<MeshFilter>().sharedMesh = IsleFlameMesh(); var fr = fl.GetComponent<MeshRenderer>(); fr.sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_IsleFlame", Color.white); fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; fr.receiveShadows = false;
+        var ps = FuwaStage2FireTest.FlamePS(g, "Sparks", 0.35f, 1.5f, 1.2f, new Color(1f, 0.85f, 0.35f), new Color(1f, 0.32f, 0.06f));
+        var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f); m.maxParticles = 12; var em = ps.emission; em.rateOverTime = 5f; ps.Play();
+    }
+    // 噴気孔：盛り上がった火口の輪と、中の溶岩
+    static void VentLook(Transform g)
+    {
+        var mb = new MB(); const int N = 28; var pr = new[] { (r: 0.92f, y: -0.08f), (r: 0.8f, y: 0.13f), (r: 0.64f, y: 0.25f), (r: 0.5f, y: 0.2f), (r: 0.42f, y: 0.02f) };
+        for (int k = 0; k < N; k++)
+        {
+            float a0 = k * Mathf.PI * 2f / N, a1 = (k + 1) * Mathf.PI * 2f / N;
+            float W(float a) => 1f + 0.06f * Mathf.Sin(3f * a + 0.8f) + 0.04f * Mathf.Sin(7f * a);
+            Vector3 Q(float a, float r, float y) => new Vector3(Mathf.Cos(a) * r * W(a), y * (1f + 0.25f * Mathf.Sin(5f * a + 1.3f) * Mathf.Clamp01(y * 5f)), Mathf.Sin(a) * r * W(a));
+            for (int j = 0; j + 1 < pr.Length; j++)
+            {
+                var dirO = new Vector3(Mathf.Cos(a0 + 0.1f), 0f, Mathf.Sin(a0 + 0.1f)); var o = j < 2 ? dirO + Vector3.up : j == 2 ? Vector3.up : -dirO + Vector3.up;
+                mb.Quad(Q(a0, pr[j].r, pr[j].y), Q(a1, pr[j].r, pr[j].y), Q(a1, pr[j + 1].r, pr[j + 1].y), Q(a0, pr[j + 1].r, pr[j + 1].y), o, 0);
+            }
+            mb.Quad(Q(a0, 0.45f, 0.05f), Q(a1, 0.45f, 0.05f), Vector3.up * 0.05f, Vector3.up * 0.05f, Vector3.up, 1);
+        }
+        var c = OnSurface(g, "Crater"); c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_VentCrater", 2));
+        c.GetComponent<MeshRenderer>().sharedMaterials = new[] { rockMat, FlowLavaMat() };
     }
 
     // 追い風（ステージ1の G3_CrossRight の風の箱を写す）：c を中心に、d の向き（坂にそって上向き）へ、長さ len・幅 w
@@ -896,30 +958,24 @@ public static class FuwaCourse2_2Builder
     {
         var d = Flat(target - at); float dist = d.magnitude; d /= Mathf.Max(0.01f, dist);
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = at; g.localRotation = Quaternion.LookRotation(d);
-        var hole = GameObject.CreatePrimitive(PrimitiveType.Cylinder); hole.name = "Hole"; hole.transform.SetParent(g, false);
-        hole.transform.localPosition = new Vector3(0, 0.02f, 0); hole.transform.localScale = new Vector3(1.5f, 0.02f, 1.5f);
-        Object.DestroyImmediate(hole.GetComponent<Collider>());
-        hole.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_Crack", new Color(0.18f, 0.08f, 0.07f));
-        var rim = GameObject.CreatePrimitive(PrimitiveType.Cylinder); rim.name = "Glow"; rim.transform.SetParent(g, false);
-        rim.transform.localPosition = new Vector3(0, 0.035f, 0); rim.transform.localScale = new Vector3(0.9f, 0.02f, 0.9f);
-        Object.DestroyImmediate(rim.GetComponent<Collider>());
-        rim.GetComponent<Renderer>().sharedMaterial = FuwaStage2WaterTest.ToonMat("Stage2_2_CrackGlow", new Color(1f, 0.45f, 0.12f));
+        VentLook(g);
         Vector3 launch = new Vector3(0, VentUp, VentFwd * dist / 8.4f);
         // 湯気（打ち出す向きへ）
         var fo = new GameObject("Steam"); fo.transform.SetParent(g, false); fo.transform.localPosition = new Vector3(0, 0.05f, 0);
         fo.transform.localRotation = Quaternion.LookRotation(launch.normalized);
         var ps = fo.AddComponent<ParticleSystem>();
-        var main = ps.main; main.startLifetime = 1.1f; main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 6f); main.startSize = new ParticleSystem.MinMaxCurve(0.5f, 1.0f);
-        main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.97f, 0.92f, 0.7f), new Color(1f, 0.82f, 0.65f, 0.5f));
-        main.maxParticles = 200; main.simulationSpace = ParticleSystemSimulationSpace.World; main.gravityModifier = -0.05f;
-        var em = ps.emission; em.rateOverTime = 70f;
+        var main = ps.main; main.startLifetime = 1.1f; main.startSpeed = new ParticleSystem.MinMaxCurve(4f, 6f); main.startSize = new ParticleSystem.MinMaxCurve(0.55f, 1.0f); main.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.98f, 0.94f, 0.9f), new Color(1f, 0.88f, 0.76f, 0.8f));
+        main.maxParticles = 60; main.simulationSpace = ParticleSystemSimulationSpace.World; main.gravityModifier = -0.05f;
+        var em = ps.emission; em.rateOverTime = 26f;
         var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 10f; sh.radius = 0.35f;
         var lim = ps.limitVelocityOverLifetime; lim.enabled = true; lim.limit = 1.2f; lim.dampen = 0.08f;
         var col = ps.colorOverLifetime; col.enabled = true;
         var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0.9f, 0f), new GradientAlphaKey(0.5f, 0.4f), new GradientAlphaKey(0f, 1f) });
         col.color = gr;
         var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0, 0.5f), new Keyframe(1, 2.2f)));
-        fo.GetComponent<ParticleSystemRenderer>().sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
+        var ts = ps.textureSheetAnimation; ts.enabled = true; ts.numTilesX = 4; ts.numTilesY = 4; ts.animation = ParticleSystemAnimationType.WholeSheet; ts.frameOverTime = new ParticleSystem.MinMaxCurve(0f); ts.startFrame = new ParticleSystem.MinMaxCurve(0f, 15f / 16f);
+        fo.GetComponent<ParticleSystemRenderer>().sharedMaterial = SteamMat();   // ぼやけた丸→もくもく
         ps.Play();
         // 打ち出し
         var z = new GameObject("Blast"); z.transform.SetParent(g, false); z.transform.localPosition = new Vector3(0, 0.7f, 0); z.layer = 4;
@@ -1510,9 +1566,7 @@ public static class FuwaCourse2_2Builder
         col.color = gr;
         var so = ps.sizeOverLifetime; so.enabled = true; so.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.6f), new Keyframe(1f, 1.5f)));
         var ts = ps.textureSheetAnimation; ts.enabled = true; ts.numTilesX = 4; ts.numTilesY = 4; ts.animation = ParticleSystemAnimationType.WholeSheet; ts.frameOverTime = new ParticleSystem.MinMaxCurve(0f); ts.startFrame = new ParticleSystem.MinMaxCurve(0f, 15f / 16f);
-        var r = ps.GetComponent<ParticleSystemRenderer>(); var mat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_2_VolcanoSteam.mat");
-        if (!mat) { mat = new Material(Shader.Find("FuwaCourse/SteamPuff")); mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaCourse/Textures/SteamPuffSheet.png"); AssetDatabase.CreateAsset(mat, "Assets/FuwaStage2/Materials/Stage2_2_VolcanoSteam.mat"); }
-        r.sharedMaterial = mat;
+        ps.GetComponent<ParticleSystemRenderer>().sharedMaterial = SteamMat();
         ps.Play();
     }
 
