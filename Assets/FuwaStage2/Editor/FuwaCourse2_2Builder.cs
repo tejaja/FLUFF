@@ -846,6 +846,7 @@ public static class FuwaCourse2_2Builder
 
     // BGM（2026-11-01 てじゃ E「ようがんのこどう」、Tools/audio/make_bgm_hono.py の hono_e_long）。2–1 と同じく FuwaSystem/BGM に足して、作り直すたびに BallStart をつなぎ直す
     const string BgmClip = "Assets/FuwaStage2/Audio/bgm_hono_long2.wav";   // E に参考曲の帯域と強弱を寄せた hono_e3_long。E は bgm_hono_long
+    const float BgmGain = 1.6f;
     static void RegisterBgm(Transform root)
     {
         var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault(); if (!bgm) return;
@@ -861,6 +862,9 @@ public static class FuwaCourse2_2Builder
         if (idx < 0) { idx = tracks.arraySize; tracks.arraySize++; tracks.GetArrayElementAtIndex(idx).objectReferenceValue = a; }
         while (starts.arraySize <= idx) { starts.arraySize++; starts.GetArrayElementAtIndex(starts.arraySize - 1).objectReferenceValue = null; }
         starts.GetArrayElementAtIndex(idx).objectReferenceValue = start;
+        var gains = so.FindProperty("trackGains");   // てじゃ「もっと大きくて良い」。音源を上げるとつぶれるので再生の倍率で
+        while (gains.arraySize <= idx) { gains.arraySize++; gains.GetArrayElementAtIndex(gains.arraySize - 1).floatValue = 1f; }
+        gains.GetArrayElementAtIndex(idx).floatValue = BgmGain;
         so.ApplyModifiedProperties();
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bgm);
     }

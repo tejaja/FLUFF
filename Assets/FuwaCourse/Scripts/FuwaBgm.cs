@@ -92,6 +92,9 @@ public class FuwaBgm : UdonSharpBehaviour
 
     // 実際の音量（基準の音量 × 音量バー）
     private float Vol() { return volume * _userPercent / 100f; }
+    [Tooltip("曲ごとの音量の倍率（tracks と同じ順。無い・0 以下は 1 倍）。低音が多い曲は小さく聞こえるので（2026-11-01 2–2）")]
+    public float[] trackGains;
+    private float VolOf(int i) { return Mathf.Clamp01(Vol() * (trackGains != null && i < trackGains.Length && trackGains[i] > 0f ? trackGains[i] : 1f)); }
 
     // 音量バーが動かされた時に呼ばれる（どのバーかは、今の値と違うものを探す）
     public void OnVolumeSlider()
@@ -206,7 +209,7 @@ public class FuwaBgm : UdonSharpBehaviour
                     AudioSource s = tracks[i];
                     if (s == null) continue;
                     _vol[i] = Mathf.MoveTowards(_vol[i], 0f, fstep);
-                    s.volume = _vol[i] * _vol[i] * Vol();
+                    s.volume = _vol[i] * _vol[i] * VolOf(i);
                     if (_vol[i] <= 0f && s.isPlaying) s.Stop();
                 }
                 return;
@@ -232,12 +235,12 @@ public class FuwaBgm : UdonSharpBehaviour
             {
                 if (Time.time < _startAt) continue;
                 _vol[i] = 1f;
-                s.volume = Vol();
+                s.volume = VolOf(i);
                 s.Play();
             }
             float goal = (i == _current && !_muted && !externalSilence) ? 1f : 0f;
             _vol[i] = Mathf.MoveTowards(_vol[i], goal, step);
-            s.volume = _vol[i] * _vol[i] * Vol();   // 2乗で聞こえ方の変化をなめらかに
+            s.volume = _vol[i] * _vol[i] * VolOf(i);   // 2乗で聞こえ方の変化をなめらかに
             if (_vol[i] <= 0f && s.isPlaying) s.Stop();
         }
     }
