@@ -21,6 +21,8 @@ Shader "FuwaCourse/FlameMesh"
         _Burn ("根元から燃えつきる（火炎放射）", Range(0,1)) = 0
         _Pulse ("かたまりごとの伸び縮み（オブジェクトの長さ）", Float) = 0
         _TimeAdd ("時間を足す（撮影用）", Float) = 0
+        _Wave ("上のふちの大きなうねり（オブジェクトの長さ）", Float) = 0
+        _WaveScale ("うねりの細かさ（タイル／オブジェクトの長さ）", Float) = 0.09
     }
     SubShader
     {
@@ -42,7 +44,7 @@ Shader "FuwaCourse/FlameMesh"
 
             sampler3D _Noise;
             half4 _Orange, _Yellow;
-            float _Speed, _FlowSpeed, _NoiseScale, _AmpBase, _AmpTop, _Tear, _Sway, _BlobRise, _BlobSize, _Bias, _Burn, _Pulse, _TimeAdd;
+            float _Speed, _FlowSpeed, _NoiseScale, _AmpBase, _AmpTop, _Tear, _Sway, _BlobRise, _BlobSize, _Bias, _Burn, _Pulse, _TimeAdd, _Wave, _WaveScale;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f
@@ -90,6 +92,16 @@ Shader "FuwaCourse/FlameMesh"
                 {
                     p.xz += sway * k;
                     p.y += k * _Pulse * (sin(t * (2.1 + seed * 1.7) + seed * 40.0) + 0.5 * sin(t * (3.7 + seed) + seed * 17.0)) * step(0.001, seed);
+                    if (_Wave > 0.001)
+                    {
+                        // 横に広い炎：場所ごとに大きく伸び縮みして、先は横へも流れる
+                        float3 wa = float3(p.x * _WaveScale + frac(t * 0.05), frac(t * 0.13), p.z * _WaveScale);
+                        float wn = (tex3Dlod(_Noise, float4(wa, 0)).r - 0.5) * 2.0;
+                        float wn2 = (tex3Dlod(_Noise, float4(wa.yzx + float3(0.31, 0.57, 0.11), 0)).r - 0.5) * 2.0;
+                        float kw = k * k;
+                        p.y += kw * _Wave * wn;
+                        p.x += kw * _Wave * 0.5 * wn2;
+                    }
                     float amp = lerp(_AmpBase, _AmpTop, k) * (yellow > 0.5 ? 0.9 : 1.0);
                     p += nor * NoiseAt(p, t) * amp;
                     o.tear = yellow > 0.5 ? 0 : smoothstep(0.42, 0.95, k) * _Tear;

@@ -1363,28 +1363,44 @@ public static class FuwaCourse2_2Builder
         var r = o.GetComponent<MeshRenderer>(); r.sharedMaterials = new[] { rockMat, FlowLavaMat() }; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         GameObjectUtility.SetStaticEditorFlags(o, StaticEditorFlags.BatchingStatic);
     }
-    // 炎の壁：線 ptsA（根元→口の先）と ptsB（根元→合流）にそって、細長いたまご（FlameMesh）を重ねて並べる（焚き火と同じ作り、2026-11-01 てじゃ「かわいくていいね」）。
-    //  1 枚の筒だと大きな板に見えて動きも出なかった。たまごごとに高さと伸び縮みをずらす。高さは道にそって上る。下は岩の中
+    // 炎の壁：線 ptsA（根元→口の先）と ptsB（根元→合流）にそった横に広い 1 つの炎（FlameMesh、2026-11-01 てじゃ「横に広いデカい一つの炎」）。
+    //  上のふちの大きなうねりはシェーダーの _Wave。高さは道にそって上る。下は岩の中で開いている
     public static void FlameCurtain(Transform g, string name, List<WallPt> ptsA, List<WallPt> ptsB)
     {
-        var f = new FlameMeshB(); float xTail = ptsA[ptsA.Count - 1].p.x; int n = 0;
+        var f = new FlameMeshB(); float xTail = ptsA[ptsA.Count - 1].p.x; int blobN = 0;
+        void Tube(List<WallPt> line, float layer, float step, float width, float heightFrac, float[] ks)
+        {
+            float x0 = line[0].p.x, x1 = line[line.Count - 1].p.x; int nx = Mathf.Max(2, Mathf.CeilToInt((x1 - x0) / step));
+            for (int j = 0; j <= nx; j++)
+            {
+                float x = Mathf.Lerp(x0, x1, j / (float)nx); var q = WallAt(line, x);
+                float lobe = layer < 0.5f ? 1f : 0.62f + 0.38f * (0.5f + 0.5f * Mathf.Sin(x * 1.1f + 1.9f));   // 黄色は高低差をつける
+                float y0 = q.floor - 0.4f, h = (q.top - y0) * heightFrac * lobe * Mathf.Lerp(0.25f, 1f, Mathf.Clamp01((xTail - x) / 1f));
+                float w = width * Mathf.Clamp01(Mathf.Min(x - x0, x1 - x) / 0.7f + 0.12f);
+                for (int c = 0; c < ks.Length; c++)
+                {
+                    float kk = ks[c], sgn = c * 2 < ks.Length - 1 ? 1f : (c * 2 == ks.Length - 1 ? 0f : -1f), ny = kk * kk * kk * kk;
+                    // 横へのでこぼこは小さく（道へはみ出さない）、上は大きく
+                    f.Add(new Vector3(x, y0 + h * kk, q.p.z + sgn * w * (1f - ny * 0.8f)), new Vector3(0f, ny, sgn * (1f - ny) * 0.45f), layer, 0f, kk * heightFrac);
+                }
+            }
+            f.Grid(nx, ks.Length - 1);
+        }
+        var body = new[] { 0f, 0.35f, 0.65f, 0.85f, 1f, 0.85f, 0.65f, 0.35f, 0f };
+        var core = new[] { 0f, 0.5f, 1f, 0.5f, 0f };
         foreach (var line in new[] { ptsA, ptsB })
         {
-            float x0 = line[0].p.x, x1 = line[line.Count - 1].p.x;
-            for (float x = x0 + 0.3f; x < x1; x += 1f, n++)
+            Tube(line, 0f, 0.25f, 0.42f, 0.82f, body);
+            Tube(line, 1f, 0.6f, 0.2f, 0.5f, core);
+            for (float x = line[0].p.x + 0.8f; x < line[line.Count - 1].p.x - 0.4f; x += 3.2f, blobN++)
             {
-                var q = WallAt(line, x); float seed = Mathf.Repeat((n + 0.37f) * 0.618f, 1f), tailK = Mathf.Lerp(0.3f, 1f, Mathf.Clamp01((xTail - x) / 1.2f));
-                float y0 = q.floor - 0.4f, top = q.top - y0, h = top * Mathf.Lerp(0.78f, 1.04f, seed) * tailK, cy = y0 + h * 0.38f;
-                var c = new Vector3(x, 0f, q.p.z + (n % 2 == 0 ? 0.08f : -0.08f));
-                const float R = 0.68f;
-                f.Egg(0f, c, cy, R, (y0 + h - cy) / R, (cy - y0) / R, 8, 6, y0, h, 0.62f, 0.45f, seed + 0.01f, 1.15f);
-                if (n % 3 == 0) { float hc = h * Mathf.Lerp(0.42f, 0.62f, seed), rc = 0.5f; f.Egg(1f, c, cy, rc, (y0 + hc - cy) / rc, (cy - y0) / rc, 6, 6, y0, h, 0.62f, 0.45f, seed + 0.01f, 1.15f); }
-                if (n % 4 == 1) f.Blob(new Vector3(x, y0 + h - 0.7f, q.p.z), Mathf.Repeat(seed * 7.3f, 1f), 0.8f);
+                var q = WallAt(line, x); float seed = Mathf.Repeat((blobN + 0.37f) * 0.618f, 1f);
+                f.Blob(new Vector3(x, q.top - 1.2f, q.p.z), seed, 0.8f);
             }
         }
-        var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 1f, 0.35f, 0.18f, 2.4f, 3.6f, 1f); mat.SetFloat("_Pulse", 0.85f); EditorUtility.SetDirty(mat);
+        var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 0.6f, 0.35f, 0.18f, 2.8f, 3.6f, 1f); mat.SetFloat("_Pulse", 0f); mat.SetFloat("_Wave", 2.6f); mat.SetFloat("_WaveScale", 0.09f); EditorUtility.SetDirty(mat);
         var c2 = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c2.transform.SetParent(g, false);
-        c2.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Curtain", 3f);
+        c2.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Curtain", 4f);
         var r = c2.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
     }
 
