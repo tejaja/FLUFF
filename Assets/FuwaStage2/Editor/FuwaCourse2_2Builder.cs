@@ -2122,9 +2122,33 @@ public static class FuwaCourse2_2Builder
         if (trig) trig.localScale = new Vector3(hw * 2f + 0.8f, trig.localScale.y, trig.localScale.z);
         var gm = cp.transform.Find("GlowMushrooms");
         if (gm) foreach (Transform cl in gm) cl.localPosition = new Vector3(Mathf.Sign(cl.localPosition.x) * (hw + 0.55f), cl.localPosition.y, 1.5f);
+        // てじゃが手で置いた位置（2026-11-01）。判定はキノコの位置に合わせる
+        if (CpHand.TryGetValue(name, out var hand)) { if (hand.pos.HasValue) cp.transform.localPosition = hand.pos.Value; FitCheckpoint(cp.transform, hand.l, hand.r); }
         var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
         if (fc) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); FuwaStage2WaterTest.NoSync(fc); cps.Add(fc); }
     }
+    static readonly Dictionary<string, (Vector3? pos, Vector2 l, Vector2 r)> CpHand = new Dictionary<string, (Vector3? pos, Vector2 l, Vector2 r)> {
+        { "Checkpoint1", (new Vector3(-1.13f, 4.6f, 30.75f), new Vector2(-3.04f, 1.25f), new Vector2(3.13f, 1.17f)) },
+        { "Checkpoint3", (new Vector3(0.626f, 12.6f, 86.647f), new Vector2(-4.215f, 1.618f), new Vector2(3.793f, 1.355f)) },
+        { "Checkpoint4", (null, new Vector2(-3.44f, 1.46f), new Vector2(3.704f, 0.868f)) } };
+    // 左右のキノコ（x, z）の位置に、判定の位置・幅・向きと再開位置を合わせる。幅はキノコの間 - 0.3（ほかのチェックポイントと同じ割合）
+    public static void FitCheckpoint(Transform cp, Vector2 l, Vector2 r)
+    {
+        var gm = cp.Find("GlowMushrooms");
+        if (gm) { var a = gm.Find("ClusterL"); var b = gm.Find("ClusterR"); if (a) a.localPosition = new Vector3(l.x, a.localPosition.y, l.y); if (b) b.localPosition = new Vector3(r.x, b.localPosition.y, r.y); }
+        var mid = (l + r) * 0.5f; var d = r - l;
+        var trig = cp.Find("Trigger");
+        if (trig)
+        {
+            trig.localPosition = new Vector3(mid.x, trig.localPosition.y, mid.y);
+            trig.localRotation = Quaternion.Euler(0f, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0f);
+            trig.localScale = new Vector3(d.magnitude - 0.3f, trig.localScale.y, trig.localScale.z);
+            EditorUtility.SetDirty(trig);
+        }
+        var rp = cp.Find("RespawnPoint");
+        if (rp) { rp.localPosition = new Vector3(mid.x - 0.02f, rp.localPosition.y, mid.y - 0.6f); EditorUtility.SetDirty(rp); }
+    }
+    public static void FitHandPlacedCheckpoints(Transform cps) { foreach (var kv in CpHand) { var cp = cps.Find(kv.Key); if (cp) FitCheckpoint(cp, kv.Value.l, kv.Value.r); } }
     static void RegisterCheckpoints()
     {
         var ball = Object.FindObjectsOfType<FuwaBall>(true).FirstOrDefault(); if (!ball) return;
