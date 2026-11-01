@@ -214,6 +214,102 @@ def looplava_2b():
     return np.tanh(y * 1.5)
 
 
+# ---- 2 回目：火の玉・炎上・浮く音・焚き火のループ（1 回目はピンと来なかったので、ゲームらしい音を増やす）----
+def whoosh2_1():   # ボウッ：火が丸ごと飛ぶ太い音
+    t = tt(0.8); fc = 180 + 700 * np.sin(np.pi * np.clip(t / 0.6, 0, 1))
+    return np.tanh((sweep_noise(len(t), fc, None, 201, 0.35) * 1.2 + tone(90 + 90 * np.sin(np.pi * np.clip(t / 0.6, 0, 1)), t) * 0.5) * att(t, 0.03) * np.minimum(1, (0.8 - t) / 0.35) * 1.5)
+def whoosh2_2():   # ぴゅーん：上がる音程（ゲームっぽい）
+    t = tt(0.7); f = 260 * 2.6 ** np.clip(t / 0.45, 0, 1)
+    return (tone(f, t) * 0.7 + 0.25 * tone(f * 2, t)) * att(t, 0.01) * np.minimum(1, (0.7 - t) / 0.3) + sweep_noise(len(t), f * 1.5, None, 202) * 0.3 * dec(t, 0.3)
+def whoosh2_3():   # ぼよん：飛び出してはずむ（かわいい）
+    t = tt(0.5); f = 170 + 330 * (1 - np.exp(-t / 0.05)) - 180 * np.clip((t - 0.12) / 0.3, 0, 1)
+    return (tone(f, t) + 0.4 * tone(f * 2, t)) * att(t, 0.005) * dec(t, 0.14)
+def whoosh2_4():   # ふぉわっ：炎が上がる（やわらかい風）
+    t = tt(0.7); fc = 350 + 1100 * np.clip(t / 0.25, 0, 1) - 800 * np.clip((t - 0.25) / 0.45, 0, 1)
+    return sweep_noise(len(t), fc, None, 204, 0.5) * att(t, 0.06) * np.minimum(1, (0.7 - t) / 0.4)
+
+def burn2_1():     # ボワッ：一気に燃え上がる（太い）
+    t = tt(0.8)
+    return np.tanh((thump(t, 260, 100, 0.1) * 0.8 + band(len(t), 300, 3000, 211, 0.6) * att(t, 0.01) * dec(t, 0.28)) * 1.6)
+def burn2_2():     # ぽっ：ちいさく火がつく（かわいい）
+    t = tt(0.4); f = 500 + 500 * np.exp(-t / 0.02)
+    return tone(f, t) * att(t, 0.002) * dec(t, 0.06) + band(len(t), 800, 5000, 212, 0.5) * dec(t, 0.03) * 0.4
+def burn2_3():     # メラッ：上がる音程＋炎
+    t = tt(0.7); f = 200 * 2.2 ** np.clip(t / 0.2, 0, 1)
+    return tone(f, t) * att(t, 0.01) * dec(t, 0.15) * 0.8 + band(len(t), 500, 3500, 213, 0.5) * att(t, 0.04) * dec(t, 0.22) * 0.7
+def burn2_4():     # 警告っぽい「ピピッ」＋ボッ（燃えたのに気づく）
+    t = tt(0.6); e = dec(t, 0.04) + dec(t, 0.04, 0.09)
+    return tone(1150, t) * e * 0.5 + thump(t, 220, 90, 0.1, 0.16) + band(len(t), 400, 2500, 214, 0.6) * dec(t, 0.12, 0.16) * 0.5
+
+def heat2_1():     # ほわぁん：あったかい和音がふくらむ
+    t = tt(1.0); e = att(t, 0.12) * np.minimum(1, (1.0 - t) / 0.55)
+    return (tone(330, t) + 0.8 * tone(495, t) + 0.5 * tone(660, t)) * e
+def heat2_2():     # ぷわん：下から持ち上がる
+    t = tt(0.6); f = 240 + 360 * np.clip(t / 0.18, 0, 1) ** 0.6
+    return (tone(f, t) + 0.3 * tone(f * 2, t)) * att(t, 0.02) * dec(t, 0.18, 0.1)
+def heat2_3():     # しゅわん：泡がのぼる
+    t = tt(0.8); r = np.random.default_rng(223); y = np.zeros(len(t))
+    for k in range(7):
+        st = 0.02 + k * 0.08 + r.uniform(0, 0.03); f = 420 + k * 110 + r.uniform(-30, 30)
+        tk = np.clip(t - st, 0, None); y += np.sin(2 * np.pi * (f * tk + 0.5 * 500 * tk * tk)) * np.exp(-tk / 0.05) * (t > st) * 0.6
+    return y
+def heat2_4():     # ふぉーん：息を吹き込むような音（音程なし）
+    t = tt(0.9)
+    return sweep_noise(len(t), 300 + 500 * np.clip(t / 0.5, 0, 1), None, 224, 0.25) * att(t, 0.15) * np.minimum(1, (0.9 - t) / 0.45)
+
+def loopfire2_1(): # ぼーっ：中くらいの炎（パチパチなし）
+    t = tt(4)
+    return band(len(t), 120, 1100, 231, 1.0) * wob(t, 0.7, 0.45)
+def loopfire2_2(): # ごぉー：低めで静か
+    t = tt(4)
+    return band(len(t), 80, 650, 232, 1.0) * wob(t, 1.9, 0.35)
+def loopfire2_3(): # ふぁさふぁさ：炎がゆれる（ゆらぎ大きめ）
+    t = tt(4); e = 0.55 + 0.45 * (np.sin(2 * np.pi * 3 * t / 4.0 + 0.7) * 0.6 + np.sin(2 * np.pi * 5 * t / 4.0 + 2.1) * 0.4)
+    return band(len(t), 250, 2000, 233, 0.9) * e
+
+
+# 3 回目：火の玉は「ボフッ」（てじゃ）。噴気孔の vent_3 と同じ系統で、ゲームで聞こえるよう中音を足す
+def whoosh3_1():   # ボフッ：標準
+    t = tt(0.5)
+    return np.tanh((thump(t, 170, 75, 0.1) * 0.9 + band(len(t), 200, 1500, 241, 0.9) * att(t, 0.004) * dec(t, 0.09) * 0.9) * 1.6)
+def whoosh3_2():   # ボフッ：低く重い
+    t = tt(0.6)
+    return np.tanh((thump(t, 125, 55, 0.15) * 1.0 + band(len(t), 130, 900, 242, 1.0) * att(t, 0.006) * dec(t, 0.13) * 0.8) * 1.7)
+def whoosh3_3():   # ボフッ：軽くて短い
+    t = tt(0.35)
+    return np.tanh((thump(t, 240, 120, 0.05) * 0.8 + band(len(t), 300, 2200, 243, 0.8) * att(t, 0.003) * dec(t, 0.05) * 1.0) * 1.5)
+def whoosh3_4():   # ボフッ＋ふぁさ：空気が抜ける余韻つき
+    t = tt(0.7)
+    return np.tanh((thump(t, 170, 70, 0.1) * 0.9 + band(len(t), 180, 1200, 244, 0.9) * dec(t, 0.08) * 0.8 + band(len(t), 500, 3000, 245, 0.6) * att(t, 0.04) * dec(t, 0.22) * 0.35) * 1.6)
+
+
+# 炎上は「ボウッ」（てじゃ）：頭は少しやわらかく、炎が広がって消える。低音に中音を重ねる
+def burn3_1():     # ボウッ：標準
+    t = tt(0.8)
+    return np.tanh((band(len(t), 120, 1200, 251, 1.0) * att(t, 0.025) * dec(t, 0.22) * 1.2 + thump(t, 130, 75, 0.14) * 0.5) * 1.6)
+def burn3_2():     # ボウッ：太くて長め
+    t = tt(1.1)
+    return np.tanh((band(len(t), 80, 800, 252, 1.0) * att(t, 0.04) * dec(t, 0.36) * 1.3 + thump(t, 100, 55, 0.22) * 0.6) * 1.7)
+def burn3_3():     # ボウッ：明るい炎（少し高め）
+    t = tt(0.7)
+    return np.tanh((band(len(t), 220, 2400, 253, 0.8) * att(t, 0.02) * dec(t, 0.18) * 1.3 + thump(t, 180, 100, 0.09) * 0.4) * 1.5)
+def burn3_4():     # ボッ→ウゥ：頭に一発、そのあと炎がふくらむ
+    t = tt(0.9); fc = 260 + 650 * np.clip((t - 0.03) / 0.18, 0, 1) - 450 * np.clip((t - 0.2) / 0.7, 0, 1)
+    return np.tanh((thump(t, 170, 85, 0.07) * 0.8 + sweep_noise(len(t), fc, None, 254, 0.45) * att(t, 0.03) * dec(t, 0.26) * 1.0) * 1.6)
+
+
+# burn3_1 は近いが「硬い音がきこえる」→ 頭の一発（thump）と強い歪み（tanh）が原因とみて外す／やわらげる
+def burn4_1():     # 一発なし・歪みなし、頭 40ms で立ち上がる
+    t = tt(0.8)
+    return band(len(t), 120, 1200, 251, 1.0) * att(t, 0.04) * dec(t, 0.22)
+def burn4_2():     # 上の高さを切ってさらにやわらかく（900Hz まで）
+    t = tt(0.8)
+    return band(len(t), 110, 900, 251, 1.0) * att(t, 0.05) * dec(t, 0.24)
+def burn4_3():     # 低音は残す：頭のやわらかい低音を足す
+    t = tt(0.8)
+    return band(len(t), 120, 1100, 251, 1.0) * att(t, 0.04) * dec(t, 0.22) + tone(95, t) * att(t, 0.05) * dec(t, 0.16) * 0.5
+
+
 GROUPS = [
     ('roar', [roar_1, roar_2, roar_3, roar_4]),
     ('whoosh', [whoosh_1, whoosh_2, whoosh_3]),
@@ -228,6 +324,13 @@ GROUPS = [
     ('loopfire', [loopfire_1, loopfire_2]),
     ('loopwall', [loopwall_1, loopwall_2]),
     ('fix', [rocklaunch_2b, rockbounce_2b, looplava_2b]),
+    ('whoosh2', [whoosh2_1, whoosh2_2, whoosh2_3, whoosh2_4]),
+    ('whoosh3', [whoosh3_1, whoosh3_2, whoosh3_3, whoosh3_4]),
+    ('burn2', [burn2_1, burn2_2, burn2_3, burn2_4]),
+    ('burn3', [burn3_1, burn3_2, burn3_3, burn3_4]),
+    ('burn4', [burn4_1, burn4_2, burn4_3]),
+    ('heat2', [heat2_1, heat2_2, heat2_3, heat2_4]),
+    ('loopfire2', [loopfire2_1, loopfire2_2, loopfire2_3]),
 ]
 
 if __name__ == '__main__':

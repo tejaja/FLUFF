@@ -91,7 +91,7 @@ public class FuwaHeat : UdonSharpBehaviour
     {
         _burning = true; _burnAt = Time.time; _douse = 0f;
         if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = 40f; burnFx.transform.position = p; }
-        if (burnSound != null && burnSound.clip != null) burnSound.PlayOneShot(burnSound.clip);
+        if (burnSound != null && burnSound.clip != null) { burnSound.transform.position = p; burnSound.PlayOneShot(burnSound.clip); }   // ふわふわの場所で鳴らす
     }
     public bool IsBurning() { return _burning; }
 

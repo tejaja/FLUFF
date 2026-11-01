@@ -74,6 +74,7 @@ public static class FuwaCourse2_2Builder
         // 熱（このコースに1つ）
         var hg = new GameObject("Heat"); hg.transform.SetParent(root, false);
         heat = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHeat>(hg); heat.ball = ballProxy;
+        heat.burnSound = Sfx(hg.transform, "BurnSfx", "sfx_burn_start", Vector3.zero, 5f, 40f, 1f, false, 8f);
         heat.sideSpring = 1.6f;   // 横に引っぱるばねを弱く（2026-11-01 てじゃ「露骨に吸い寄せすぎる」、前は 4）
         heat.burnAfter = 4f;   // 浮いてから燃えだすまで（6→4、てじゃ「燃えるまでの時間も入り口付近のも含めてもうちょい短く」）
         heat.burnFx = FuwaStage2FireTest.FlamePS(hg.transform, "BurnFx", 0.25f, 1.5f, 0.6f, new Color(1f, 0.6f, 0.15f), new Color(0.9f, 0.15f, 0.05f));
@@ -1767,6 +1768,7 @@ public static class FuwaCourse2_2Builder
         var trail = FuwaStage2FireTest.FlamePS(g, "Trail", 0.4f, 0.4f, 0.6f, new Color(1f, 0.75f, 0.25f), new Color(0.9f, 0.2f, 0.05f));
         FireballTrail(trail);
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireball>(mover.gameObject);
+        f.whoosh = Sfx(mover, "WhooshSfx", "sfx_fireball_bofu", Vector3.zero, 3f, 25f, 0.9f);
         f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail; f.trailRate = FireballTrailRate;
         f.arcHeight = top; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 3.2f; f.ballKnockUp = 1.5f; f.playerKnock = 6f; f.playerKnockUp = 4.5f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
