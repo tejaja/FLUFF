@@ -310,6 +310,12 @@ def burn4_3():     # 低音は残す：頭のやわらかい低音を足す
     return band(len(t), 120, 1100, 251, 1.0) * att(t, 0.04) * dec(t, 0.22) + tone(95, t) * att(t, 0.05) * dec(t, 0.16) * 0.5
 
 
+# 火の玉 whoosh3_2 は「聞こえたり聞こえなかったり」→ 中音が 9% しかなく BGM の低音に負ける時があるとみて、ボフッのまま中音を足す
+def whoosh3_2b():
+    t = tt(0.6)
+    return np.tanh((thump(t, 125, 55, 0.15) * 0.65 + band(len(t), 130, 900, 242, 1.0) * att(t, 0.006) * dec(t, 0.13) * 0.8 + band(len(t), 280, 1300, 246, 0.8) * att(t, 0.006) * dec(t, 0.1) * 1.0) * 1.7)
+
+
 GROUPS = [
     ('roar', [roar_1, roar_2, roar_3, roar_4]),
     ('whoosh', [whoosh_1, whoosh_2, whoosh_3]),
@@ -326,6 +332,7 @@ GROUPS = [
     ('fix', [rocklaunch_2b, rockbounce_2b, looplava_2b]),
     ('whoosh2', [whoosh2_1, whoosh2_2, whoosh2_3, whoosh2_4]),
     ('whoosh3', [whoosh3_1, whoosh3_2, whoosh3_3, whoosh3_4]),
+    ('whoosh3b', [whoosh3_2b]),
     ('burn2', [burn2_1, burn2_2, burn2_3, burn2_4]),
     ('burn3', [burn3_1, burn3_2, burn3_3, burn3_4]),
     ('burn4', [burn4_1, burn4_2, burn4_3]),
