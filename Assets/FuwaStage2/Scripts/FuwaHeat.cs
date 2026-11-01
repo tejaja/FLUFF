@@ -37,6 +37,11 @@ public class FuwaHeat : UdonSharpBehaviour
     public Color burnColor = new Color(1f, 0.15f, 0.05f);
     [Tooltip("燃えている時にふわふわについていく炎（なくてもOK）")]
     public ParticleSystem burnFx;
+    [Tooltip("燃えている間だけふわふわについていく炎のメッシュ（なくてもOK）。玉の中心からのずれ")]
+    public GameObject burnMesh;
+    public Vector3 burnMeshOffset;
+    [Tooltip("燃えている時の粒の数（毎秒）")]
+    public float burnRate = 12f;
     public AudioSource burnSound;
 
     private bool _hover, _burning;
@@ -90,7 +95,8 @@ public class FuwaHeat : UdonSharpBehaviour
     private void StartBurn(Vector3 p)
     {
         _burning = true; _burnAt = Time.time; _douse = 0f;
-        if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = 40f; burnFx.transform.position = p; }
+        if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = burnRate; burnFx.transform.position = p; }
+        if (burnMesh != null) { burnMesh.transform.position = p + burnMeshOffset; burnMesh.SetActive(true); }
         if (burnSound != null && burnSound.clip != null) { burnSound.transform.position = p; burnSound.PlayOneShot(burnSound.clip); }   // ふわふわの場所で鳴らす
     }
     public bool IsBurning() { return _burning; }
@@ -99,11 +105,20 @@ public class FuwaHeat : UdonSharpBehaviour
     {
         _burning = false;
         if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = 0f; }
+        if (burnMesh != null) burnMesh.SetActive(false);
     }
 
     private void Update()
     {
         if (burnFx != null && (_burning || _charUntil > 0f) && ball != null) burnFx.transform.position = ball.transform.position;
+        if (burnMesh != null && _burning && ball != null)
+        {
+            burnMesh.transform.position = ball.transform.position + burnMeshOffset;
+            // ふわふわが割れて消えている間は炎だけ残さない
+            bool show = !ball.IsWaitingOrHidden();
+            if (burnMesh.activeSelf != show) burnMesh.SetActive(show);
+            if (burnFx != null) { var em = burnFx.emission; em.rateOverTime = show ? burnRate : 0f; }
+        }
         if (_charUntil > 0f && Time.time > _charUntil) { _charUntil = 0f; if (!_burning && burnFx != null) { var e = burnFx.emission; e.rateOverTime = 0f; } }
     }
 

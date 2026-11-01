@@ -63,6 +63,8 @@ public class FuwaEnemy : UdonSharpBehaviour
     [Tooltip("ほのおのまものが水に落ちた時（2026-10-30 てじゃ「ジュッて消火して元の姿にもどってプカプカ浮いて気絶」）：消えずに、炎が消えて元の色に戻り、水面でぷかぷか目を回す。" +
              "tintRenderers[j] の tintSlots[j] 番目の材質を、燃えてる時 fireMats[j]／消えた後 plainMats[j] に")]
     public ParticleSystem flameFx;
+    [Tooltip("燃えている間だけ出す炎のメッシュ（なくてもOK）")]
+    public GameObject flameMesh;
     public ParticleSystem steamFx;
     public AudioSource steamSound;
     public Renderer[] tintRenderers;
@@ -652,6 +654,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     private void SetFire(bool on)
     {
         if (flameFx != null) { if (on) flameFx.Play(); else flameFx.Stop(); }
+        if (flameMesh != null) flameMesh.SetActive(on);
         if (tintRenderers == null || tintSlots == null) return;
         Material[] src = on ? fireMats : plainMats;
         if (src == null) return;

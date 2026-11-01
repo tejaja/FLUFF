@@ -77,8 +77,7 @@ public static class FuwaCourse2_2Builder
         heat.burnSound = Sfx(hg.transform, "BurnSfx", "sfx_burn_start", Vector3.zero, 5f, 40f, 1f, false, 8f);
         heat.sideSpring = 1.6f;   // 横に引っぱるばねを弱く（2026-11-01 てじゃ「露骨に吸い寄せすぎる」、前は 4）
         heat.burnAfter = 4f;   // 浮いてから燃えだすまで（6→4、てじゃ「燃えるまでの時間も入り口付近のも含めてもうちょい短く」）
-        heat.burnFx = FuwaStage2FireTest.FlamePS(hg.transform, "BurnFx", 0.25f, 1.5f, 0.6f, new Color(1f, 0.6f, 0.15f), new Color(0.9f, 0.15f, 0.05f));
-        { var m = heat.burnFx.main; m.startSize = new ParticleSystem.MinMaxCurve(0.3f, 0.55f); }
+        BallBurnLook(hg.transform, heat);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(heat); FuwaStage2WaterTest.NoSync(heat);
 
         // ① スタート
@@ -1019,6 +1018,72 @@ public static class FuwaCourse2_2Builder
     }
     // 焚き火と燃える島の炎：FuwaCourse/FlameMesh（2026-11-01 てじゃの参考 GIF）。外のたまご＋中の黄色＋ちぎれて飛ぶかたまり。動きはシェーダーの頂点で作る
     //  レイで見る FlameVolume は見た目はよかったが、近づくと前の炎の 5〜6 倍重かった（てじゃ「重くなるのはやだ」）
+    // 炎上の見た目（2026-11-01 てじゃ「フワフワの炎上とまものの炎上Particle、もうちょいいい感じに」→ 比較して案2）：
+    // 焚き火と同じ炎のメッシュを頭の上に大きめに＋ふちのくっきりした粒。顔は隠さない。s は体の大きさ(m)
+    public const float BallBurnS = 0.3f, MonsterBurnS = 0.46f;
+    static ParticleSystem BurnBlobs(Transform parent, string name, float s, float rate)
+    {
+        var fo = new GameObject(name); fo.transform.SetParent(parent, false); fo.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+        var ps = fo.AddComponent<ParticleSystem>(); ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var m = ps.main; m.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.65f); m.startSpeed = new ParticleSystem.MinMaxCurve(s * 1.2f, s * 2.4f);
+        m.startSize = new ParticleSystem.MinMaxCurve(s * 0.21f, s * 0.49f); m.startColor = Color.white; m.simulationSpace = ParticleSystemSimulationSpace.World; m.gravityModifier = -0.05f; m.maxParticles = 30;
+        var em = ps.emission; em.rateOverTime = rate;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 14f; sh.radius = s * 0.35f; sh.position = new Vector3(0f, 0f, s * 0.6f);
+        var col = ps.colorOverLifetime; col.enabled = true;
+        var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(new Color32(0xFF, 0xE2, 0x7A, 0xFF), 0f), new GradientColorKey(new Color32(0xFF, 0xA1, 0x4D, 0xFF), 0.35f), new GradientColorKey(new Color32(0xF2, 0x60, 0x3A, 0xFF), 1f) }, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 1f) });
+        col.color = gr;
+        var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.EaseInOut(0f, 1f, 1f, 0f));
+        var pr = fo.GetComponent<ParticleSystemRenderer>(); pr.sharedMaterial = FlameBlobMat(); pr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; pr.receiveShadows = false;
+        return ps;
+    }
+    static Material FlameBlobMat()
+    {
+        const string p = "Assets/FuwaStage2/Materials/Stage2_2_FlameBlob.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (!m) { m = new Material(Shader.Find("FuwaCourse/FlameBlob")); AssetDatabase.CreateAsset(m, p); }
+        return m;
+    }
+    static GameObject BurnFlame(Transform parent, string name, float s)
+    {
+        var o = new GameObject(name, typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(parent, false);
+        o.transform.localPosition = Vector3.down * (s * 0.05f);
+        var ls = parent.lossyScale; o.transform.localScale = new Vector3(s * 0.95f / ls.x, s * 0.95f / ls.y, s * 0.95f / ls.z);
+        o.GetComponent<MeshFilter>().sharedMesh = IsleFlameMesh();
+        var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = SeedFlameMat(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        return o;
+    }
+    static void BallBurnLook(Transform hg, FuwaHeat h)
+    {
+        h.burnFx = BurnBlobs(hg, "BurnFx", BallBurnS, 0f); { var m = h.burnFx.main; m.playOnAwake = true; } h.burnFx.Play();
+        h.burnRate = 12f;
+        h.burnMesh = BurnFlame(hg, "BurnFlame", BallBurnS); h.burnMesh.SetActive(false);
+        h.burnMeshOffset = Vector3.down * (BallBurnS * 0.05f);
+    }
+    static ParticleSystem MonsterBurnLook(FuwaEnemy e, Transform g)
+    {
+        var parent = e.visual ? e.visual : g;
+        var ps = BurnBlobs(parent, "BodyFlame", MonsterBurnS, 12f); { var m = ps.main; m.playOnAwake = true; }
+        e.flameMesh = BurnFlame(parent, "BodyFlameMesh", MonsterBurnS);
+        return ps;
+    }
+    // シーンの今の 2–2 の炎上の見た目だけ差し替える（作り直さずに）
+    public static string ApplyBurnLook(Transform root)
+    {
+        var log = "";
+        var h = root.GetComponentInChildren<FuwaHeat>(true);
+        foreach (var n in new[] { "BurnFx", "BurnFlame" }) { var o = h.transform.Find(n); if (o) Object.DestroyImmediate(o.gameObject); }
+        BallBurnLook(h.transform, h);
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(h);
+        foreach (var e in root.GetComponentsInChildren<FuwaEnemy>(true))
+        {
+            var parent = e.visual ? e.visual : e.transform;
+            foreach (var n in new[] { "BodyFlame", "BodyFlameMesh" }) { var o = parent.Find(n); if (o) Object.DestroyImmediate(o.gameObject); }
+            e.flameFx = MonsterBurnLook(e, e.transform);
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(e);
+            log += e.name + " ";
+        }
+        return log;
+    }
     public const float SeedFlameScale = 0.7f;   // 焚き火の炎の大きさ（2026-11-01 てじゃ「通れなさそうにみえる」）。島の炎は別
     public static Mesh SeedFlameMesh()
     {
@@ -2025,8 +2090,7 @@ public static class FuwaCourse2_2Builder
                 r.sharedMaterials = ms;
             }
         // 炎をまとう
-        var ps = FuwaStage2FireTest.FlamePS(e.visual ? e.visual : g.transform, "BodyFlame", 0.35f, 1.2f, 0.7f, new Color(1f, 0.75f, 0.25f), new Color(1f, 0.25f, 0.05f));
-        { var em = ps.emission; em.rateOverTime = 30f; var m = ps.main; m.startSize = new ParticleSystem.MinMaxCurve(0.25f, 0.5f); }
+        var ps = MonsterBurnLook(e, g.transform);
         // 水に落ちた時の「ジュッ」の湯気（1回だけぶわっ）
         var st = FuwaStage2FireTest.FlamePS(g.transform, "Steam", 0.3f, 1.6f, 1.1f, new Color(1f, 1f, 1f, 0.9f), new Color(0.85f, 0.88f, 0.92f, 0f));
         {
