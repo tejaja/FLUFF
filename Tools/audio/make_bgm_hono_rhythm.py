@@ -15,7 +15,16 @@ def sec(bars, prog, level, riff=None, kicks=(), snares=(), toms=(), ticks=(), fi
     return dict(bars=bars, prog=prog, level=level, riff=riff, kicks=kicks, snares=snares, toms=toms, ticks=ticks, fill=fill, brass=brass, bell=bell, pad=pad, rumble=rumble, rev=rev, bass_only=bass_only)
 
 
-def render(path, bpm, bar_beats, sections, seed=65, hits=()):
+# E 短調の音に寄せる（2026-11-01 てじゃ「25〜28秒あたり音程ズレてる」）。リフはどのコードでも同じ度数で弾いていて、長三和音（C、B）の上で短3度がぶつかり、E の上の 6（Bb）も音階の外だった
+E_MINOR = {4, 6, 7, 9, 11, 0, 2}   # E F# G A B C D（ピッチクラス）
+def fit_riff(cn, root, iv):
+    if cn in ('C', 'B') and iv == 3: iv = 4
+    allowed = E_MINOR | ({3} if cn == 'B' else set())
+    while (root + iv) % 12 not in allowed and iv > 0: iv -= 1
+    return iv
+
+
+def render(path, bpm, bar_beats, sections, seed=65, hits=(), in_key=False):
     total = sum(s['bars'] for s in sections) * bar_beats
     assert abs(total / 4.0 - round(total / 4.0)) < 1e-6, total
     m = Mix(bpm, int(round(total / 4.0)), tail=3.0, seed=seed)
@@ -37,6 +46,7 @@ def render(path, bpm, bar_beats, sections, seed=65, hits=()):
             rf = s['riff'](b) if callable(s['riff']) else s['riff']
             if rf:
                 for beat, iv, v, d in rf:
+                    if in_key: iv = fit_riff(cn, root, iv)
                     dur = d * m.beat
                     if not s['bass_only']: m.add(power2(midi_hz(root + iv + 12), dur, m.vel(v), drive=3.0), pos + beat, pan=-0.12, rev=0.08 + s['rev'], gain=0.6 * g, humanize=0.003)
                     m.add(finger_bass(midi_hz(root + iv), dur, m.vel(v, 0.04), tone=0.5), pos + beat, rev=0.03, gain=0.5 * g, humanize=0.003)
@@ -127,7 +137,7 @@ def march(path):
         # 終わり：全員で E を長く鳴らす → 余韻の上で太鼓が下りて、頭の太鼓へ
         sec(1, ['Em'], 1.0, R((0, 0, .95), d=3.8), ((0, 1.0),), (), (), (), brass=1, rev=.15),
         sec(1, ['Em'], .55, None, ((0, .7),), (), ((2, 110, .55, -.25), (2.5, 100, .55, .25), (3, 88, .6, -.25), (3.5, 74, .65, .25)), (), pad=1.1),
-    ], hits=((38 * 4, 1.0), (46 * 4, 1.0)))   # 連打のあとと、終わりの一撃
+    ], hits=((38 * 4, 1.0), (46 * 4, 1.0)), in_key=True)   # 連打のあとと、終わりの一撃
 
 
 def seven(path):

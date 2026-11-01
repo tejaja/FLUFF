@@ -857,7 +857,7 @@ public static class FuwaCourse2_2Builder
     }
 
     // BGM（2026-11-01 てじゃ E「ようがんのこどう」、Tools/audio/make_bgm_hono.py の hono_e_long）。2–1 と同じく FuwaSystem/BGM に足して、作り直すたびに BallStart をつなぎ直す
-    const string BgmClip = "Assets/FuwaStage2/Audio/bgm_hono_march3.wav";   // 太鼓と小さいベースで開始→重い行進→倍の速さ→太鼓の連打→行進→ちゃんと終わる（Tools/audio/make_bgm_hono_rhythm.py の march、2026-11-01）。前は bgm_hono_march、bgm_hono_long2、bgm_hono_long
+    const string BgmClip = "Assets/FuwaStage2/Audio/bgm_hono_march4.wav";   // 太鼓と小さいベースで開始→重い行進→倍の速さ→太鼓の連打→行進→ちゃんと終わる（Tools/audio/make_bgm_hono_rhythm.py の march、2026-11-01）。前は bgm_hono_march、bgm_hono_long2、bgm_hono_long
     const float BgmGain = 2.5f;
     static void RegisterBgm(Transform root)
     {
