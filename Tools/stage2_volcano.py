@@ -13,7 +13,9 @@ TW, TH = 2048, 1024
 COLS = 144
 POND_Y = 14.4
 TOP_H = 16.0
-BOTTOM_H, TIP_H = -60.0, -74.0
+# 下は浮島の形（2026-11-01 てじゃ「山の下を浮島形状にしようとおもってた」）：道より下の LIP_H で少し張り出したふちを作り、そこから下はとがって細くなる
+BOTTOM_H, TIP_H = -58.0, -64.0
+LIP_H, LIP_OUT, FLARE_TOP = -24.0, 3.5, -12.0
 # 道の高さの帯：ここでは土台の半径からあまり出ない（道・まもののエリアに当たらない）
 BAND_LO, BAND_HI, BAND_OUT = -6.0, 10.0, 0.55
 BAND_SINK = 0.95   # 帯の中は全体を内側へ（出っぱりが頭打ちで平らにならないように）
@@ -25,7 +27,7 @@ CRACK_DEPTH = 1.0
 # ⑤の道（山ぞい）の角度。炎の岩が山肌から離れないように、ここでは土台より引っこみすぎない
 ROAD_TH0, ROAD_TH1, ROAD_IN = -52.0, 30.0, 1.5
 # 溶岩の川（度、太さ m、終わる高さ、うねりの大きさ度）。-128 がジグザグ側で一番太い。⑤の道の後ろは細く
-STREAMS = [(-128.0, 1.4, -58.0, 13.0), (-70.0, 0.8, -22.0, 9.0), (-47.0, 0.6, -14.0, 3.0), (62.0, 1.1, -40.0, 11.0), (158.0, 0.9, -30.0, 10.0)]
+STREAMS = [(-128.0, 1.4, -25.0, 13.0), (-70.0, 0.8, -22.0, 9.0), (-47.0, 0.6, -14.0, 3.0), (62.0, 1.1, -25.0, 11.0), (158.0, 0.9, -25.0, 10.0)]
 # v の割り当て：池 → 内壁 → ふち → すそ（道より下まで）→ 下
 V_POND, V_RIM, V_LOW = 0.07, 0.13, 0.86
 LOW_H = -22.0
@@ -69,6 +71,15 @@ def sstep(a, b, x):
 
 def wrap_pi(a): return (a + np.pi) % (2 * np.pi) - np.pi
 
+def risle(a, h):
+    # 土台の半径（rbase）＋浮島の形：FLARE_TOP から LIP_H まで少しずつ張り出し、下はとがる
+    a = np.asarray(a, dtype=np.float64); h = np.asarray(h, dtype=np.float64)
+    above = rbase(a, np.maximum(h, LIP_H)) + LIP_OUT * sstep(FLARE_TOP, LIP_H, h)
+    rlip = rbase(a, np.full_like(a, LIP_H)) + LIP_OUT
+    t = np.clip((LIP_H - h) / (LIP_H - TIP_H), 0, 1)
+    below = rlip * (1 - t) ** 0.62
+    return np.where(h >= LIP_H, above, below)
+
 def rim_height(a):
     # ふちの高さ：ゆるく上下して、川の始まりは池の少し上まで欠ける
     y = TOP_H + 0.75 * (2 * fbm(np.sin(a) * 1.7 + 4.0, np.cos(a) * 1.7 + 9.0, np.zeros_like(a), 3) - 1)
@@ -98,11 +109,11 @@ def nominal(a, v):
     m = (v >= V_RIM) & (v < V_LOW)
     t = np.clip((v - V_RIM) / (V_LOW - V_RIM), 0, 1)
     hf = flank_h(a, t, yr)
-    r = np.where(m, rbase(a, hf), r); y = np.where(m, hf, y)
+    r = np.where(m, risle(a, hf), r); y = np.where(m, hf, y)
     m = v >= V_LOW
     t = np.clip((v - V_LOW) / (1 - V_LOW), 0, 1)
     h1 = LOW_H + (BOTTOM_H - LOW_H) * np.minimum(t / 0.9, 1)
-    rl = rbase(a, h1)
+    rl = risle(a, h1)
     tip = np.clip((t - 0.9) / 0.1, 0, 1)
     r = np.where(m, rl * (1 - tip), r); y = np.where(m, h1 + (TIP_H - BOTTOM_H) * tip, y)
     return r, y
@@ -164,6 +175,7 @@ def surface(a, v):
     channel = (1 - sstep(0.55, 1.25, nd)) * sl * flank
     levee = np.exp(-((nd - 1.65) / 0.55) ** 2) * sl * flank
     dsp = dsp * (1 - 0.75 * channel) - channel * 0.30 + levee * 0.22
+    dsp = dsp * sstep(0.0, 9.0, r0)   # 浮島の下のとがりでは凹凸を小さく（細い所でトゲにならない）
     band0 = sstep(BAND_LO - 3, BAND_LO, y0) * (1 - sstep(BAND_HI, BAND_HI + 3, y0))
     # ⑤の道の後ろは土台の半径より外へ出さない（道の板の下のほうは山肌の近くを通っている。+0.55 だと道に 0.66m 食い込んだ）
     thd0 = np.degrees(wrap_pi(a))
@@ -302,7 +314,7 @@ def v_rows():
     r += [V_POND + (V_RIM - V_POND) * (i + 1) / 7 for i in range(7)]
     # 上ほど細かく（t^1.25）
     r += [V_RIM + (V_LOW - V_RIM) * ((i + 1) / 58) ** 1.2 for i in range(58)]
-    r += [V_LOW + (1 - V_LOW) * (i + 1) / 10 for i in range(9)]
+    r += [V_LOW + (1 - V_LOW) * (i + 1) / 18 for i in range(17)]
     return r
 
 def B(x, y, z): return (-x, -z, y)   # Unity (x,y,z) → Blender (-x,-z,y)
