@@ -59,12 +59,14 @@ Shader "FuwaStage2/Waterfall"
             float _PondRadial, _RadialSpeed, _PondStreak, _PondSparkle;
             float _Alpha, _FallSpeed, _StreakScale, _EdgeFoam, _Curved, _SideFade, _UseVColor, _PondTop, _FrayLen, _EdgeRim, _EdgeRimTop, _TopFade;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; fixed4 color : COLOR; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; float ny : TEXCOORD4; float3 wp : TEXCOORD5; float colBot : TEXCOORD6; };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 m : TEXCOORD1; float2 tot : TEXCOORD2; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float2 size : TEXCOORD1; UNITY_FOG_COORDS(2) fixed4 color : TEXCOORD3; float ny : TEXCOORD4; float3 wp : TEXCOORD5; float colBot : TEXCOORD6; UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
                 o.size = float2(length(mul((float3x3)unity_ObjectToWorld, float3(1, 0, 0))), length(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0))));
@@ -81,6 +83,7 @@ Shader "FuwaStage2/Waterfall"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float2 m = i.uv * i.size;   // メートル
                 float s = _StreakScale;
                 float3 col = lerp(_Bottom.rgb, _Top.rgb, i.uv.y);

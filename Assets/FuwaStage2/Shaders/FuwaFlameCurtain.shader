@@ -51,12 +51,14 @@ Shader "FuwaCourse/FlameCurtain"
             float _Speed, _Height, _Sway, _Base, _BandScale, _BandByH, _BandLow, _BandHot, _BandMid, _BandSelf, _BandSoft, _Rim, _LowScale, _Lean, _Flow, _FlowSpeed, _FlowX, _FlowY, _FlowBody, _FlowAmp, _FlowCore, _FlowTop, _Burn;
             sampler2D _FlowTex;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; float3 wp : TEXCOORD4; float rim : TEXCOORD5; UNITY_FOG_COORDS(1) };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float h : TEXCOORD2; float lx : TEXCOORD3; float3 wp : TEXCOORD4; float rim : TEXCOORD5; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 // 炎の形（舌）は上下にしか動かないので、形ごと左右へゆらす。根元は動かず上ほど大きく。帯ごとにずらしてばらばらに
                 if (_Lean > 0.0)
                 {
@@ -76,6 +78,7 @@ Shader "FuwaCourse/FlameCurtain"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float t = _Time.y * _Speed; float y = i.uv.y; half far = FuwaFireFar(i.wp);
                 // 上へ流れるうねり（上ほど大きく）
                 float x = i.uv.x + (sin(y * 6.0 - t * 3.2 + i.uv.x * 1.1) * 0.55 + sin(y * 11.0 - t * 5.0 + i.uv.x * 2.3) * 0.22) * _Sway * (0.2 + y * 2.0);   // ゆらぎはゆっくり控えめに（2026-10-31 てじゃ「ゆらゆらがくどい」）

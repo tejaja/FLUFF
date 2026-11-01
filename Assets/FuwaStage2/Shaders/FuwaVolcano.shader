@@ -56,7 +56,7 @@ Shader "FuwaCourse/Volcano"
             float _FlowU, _FlowV, _FlowSpeed, _PondScale, _PondV, _PulseSpeed;
             half _ShadowStrength, _Wrap, _Steps, _AmbientStrength, _RimStrength, _RimPower;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f
             {
                 float4 pos : SV_POSITION;
@@ -67,11 +67,14 @@ Shader "FuwaCourse/Volcano"
                 UNITY_SHADOW_COORDS(4)
                 UNITY_FOG_COORDS(5)
                 float3 op : TEXCOORD6;
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             v2f vert (appdata v)
             {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 o.wn = UnityObjectToWorldNormal(v.normal);
@@ -85,6 +88,7 @@ Shader "FuwaCourse/Volcano"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 fixed4 tex = tex2D(_MainTex, i.uv);
                 fixed3 col = tex.rgb * _Color.rgb;
                 float3 n = normalize(i.wn);

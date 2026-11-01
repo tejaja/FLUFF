@@ -31,12 +31,14 @@ Shader "FuwaCourse/Fireball"
             float _Scale, _Speed, _Wobble;
             half _Fresnel;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; };
-            struct v2f { float4 pos : SV_POSITION; float3 op : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; UNITY_FOG_COORDS(3) };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float3 op : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; UNITY_FOG_COORDS(3) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float t = _Time.y;
                 float2 a = float2(v.vertex.x + v.vertex.z * 0.7, v.vertex.y) * _Scale + float2(0.13, -t * _Speed * 0.6);
                 float n = tex2Dlod(_FlowTex, float4(a, 0, 0)).r;
@@ -53,6 +55,7 @@ Shader "FuwaCourse/Fireball"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float t = _Time.y;
                 // 2 方向から取って混ぜる（球のどこでも模様がのびない）
                 float3 an = abs(normalize(i.op)); an = an / (an.x + an.y + an.z);

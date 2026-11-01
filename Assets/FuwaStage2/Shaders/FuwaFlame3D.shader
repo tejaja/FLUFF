@@ -36,12 +36,14 @@ Shader "FuwaCourse/Flame3D"
             float _Speed, _FlowSpeed, _FlowScale, _Bulge, _Wag, _Stretch;
             half _Soft, _Fresnel;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; };
-            struct v2f { float4 pos : SV_POSITION; float y : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; float n : TEXCOORD3; UNITY_FOG_COORDS(4) };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float y : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; float n : TEXCOORD3; UNITY_FOG_COORDS(4) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float t = _Time.y * _Speed, y = v.uv.y, ph = v.uv.x;
                 float2 a = float2(v.vertex.x + v.vertex.z * 0.7 + ph, v.vertex.y) * _FlowScale + float2(0, -t * _FlowSpeed);
                 float n = tex2Dlod(_FlowTex, float4(a, 0, 0)).r;
@@ -60,6 +62,7 @@ Shader "FuwaCourse/Flame3D"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 half facing = saturate(dot(normalize(i.wn), normalize(_WorldSpaceCameraPos - i.wp)));
                 // 正面ほど熱く、上ほど赤く
                 half k = pow(facing, _Fresnel) * 1.15 + (i.n - 0.5) * 0.5 - i.y * 0.55;

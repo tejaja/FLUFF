@@ -47,12 +47,14 @@ Shader "FuwaStage2/Water"
             float _FoamWidth, _DeepWidth, _FlowSpeed, _StreakScale, _StreakStrength, _Sparkle, _Ribbon, _OpenFade, _OpenDeepWidth, _Radial, _RadialSpeed;
             float4 _RadialCenter;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float4 rib : TEXCOORD1; float2 rib2 : TEXCOORD2; float nofoam : TEXCOORD3; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wp : TEXCOORD1; float4 frame : TEXCOORD2; float4 rib : TEXCOORD4; float2 rs : TEXCOORD5; float nofoam : TEXCOORD6; UNITY_FOG_COORDS(3) };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float4 rib : TEXCOORD1; float2 rib2 : TEXCOORD2; float nofoam : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wp : TEXCOORD1; float4 frame : TEXCOORD2; float4 rib : TEXCOORD4; float2 rs : TEXCOORD5; float nofoam : TEXCOORD6; UNITY_FOG_COORDS(3) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
@@ -68,6 +70,7 @@ Shader "FuwaStage2/Water"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float2 size = i.frame.xy;
                 float2 fd = i.frame.zw;
                 // ふちからの距離(m)
