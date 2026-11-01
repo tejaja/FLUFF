@@ -50601,7 +50601,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 93882133}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1001 &93966545
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -50649,6 +50649,10 @@ PrefabInstance:
     - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
       propertyPath: NoiseModule.strength.scalar
       value: 0.12
+      objectReference: {fileID: 0}
+    - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
       objectReference: {fileID: 0}
     - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
       propertyPath: InitialModule.maxNumParticles
@@ -96638,6 +96642,10 @@ PrefabInstance:
       value: 0.12
       objectReference: {fileID: 0}
     - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 60
       objectReference: {fileID: 0}
@@ -123571,6 +123579,10 @@ PrefabInstance:
       value: 0.12
       objectReference: {fileID: 0}
     - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 60
       objectReference: {fileID: 0}
@@ -139734,7 +139746,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 304985837}
-  m_Mesh: {fileID: 4300000, guid: 000c31e77eedb004a8970d1806f3d1c1, type: 2}
+  m_Mesh: {fileID: 4300000, guid: fdb16bf5eb8d82d4c926631dd51e6a71, type: 2}
 --- !u!1 &305013926
 GameObject:
   m_ObjectHideFlags: 0
@@ -174842,7 +174854,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 389998600}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1001 &390123548
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -205324,6 +205336,10 @@ PrefabInstance:
       value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 3127692950910781262, guid: c5cf3193e072cbf4ba55169913a8ac3a, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 3127692950910781262, guid: c5cf3193e072cbf4ba55169913a8ac3a, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 73
       objectReference: {fileID: 0}
@@ -210594,7 +210610,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 452072543}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &452518154
 GameObject:
   m_ObjectHideFlags: 0
@@ -213706,7 +213722,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 462832641}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &462863739
 GameObject:
   m_ObjectHideFlags: 0
@@ -231671,7 +231687,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 500821899}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &500924468
 GameObject:
   m_ObjectHideFlags: 0
@@ -253018,7 +253034,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 551897026}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &552051504
 GameObject:
   m_ObjectHideFlags: 0
@@ -273880,7 +273896,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 611096226}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &611199732
 GameObject:
   m_ObjectHideFlags: 0
@@ -296241,6 +296257,10 @@ PrefabInstance:
       value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 3127692950910781262, guid: c5cf3193e072cbf4ba55169913a8ac3a, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 3127692950910781262, guid: c5cf3193e072cbf4ba55169913a8ac3a, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 73
       objectReference: {fileID: 0}
@@ -311949,6 +311969,10 @@ PrefabInstance:
       value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 80
       objectReference: {fileID: 0}
@@ -318448,7 +318472,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 707418287}
-  m_Mesh: {fileID: 4300000, guid: 000c31e77eedb004a8970d1806f3d1c1, type: 2}
+  m_Mesh: {fileID: 4300000, guid: fdb16bf5eb8d82d4c926631dd51e6a71, type: 2}
 --- !u!1 &707555139
 GameObject:
   m_ObjectHideFlags: 0
@@ -341748,6 +341772,10 @@ PrefabInstance:
     - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
       propertyPath: NoiseModule.strength.scalar
       value: 0.12
+      objectReference: {fileID: 0}
+    - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
       objectReference: {fileID: 0}
     - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
       propertyPath: InitialModule.maxNumParticles
@@ -369764,6 +369792,10 @@ PrefabInstance:
     - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
       propertyPath: NoiseModule.strength.scalar
       value: 0.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
       objectReference: {fileID: 0}
     - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
       propertyPath: InitialModule.maxNumParticles
@@ -413871,7 +413903,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 894316675}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &894577824
 GameObject:
   m_ObjectHideFlags: 0
@@ -488727,6 +488759,10 @@ PrefabInstance:
       value: 0.12
       objectReference: {fileID: 0}
     - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 60
       objectReference: {fileID: 0}
@@ -504051,6 +504087,10 @@ PrefabInstance:
       value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 80
       objectReference: {fileID: 0}
@@ -505332,6 +505372,10 @@ PrefabInstance:
     - target: {fileID: 3127692950910781262, guid: c5cf3193e072cbf4ba55169913a8ac3a, type: 3}
       propertyPath: ShapeModule.radius.value
       value: 0.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 3127692950910781262, guid: c5cf3193e072cbf4ba55169913a8ac3a, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
       objectReference: {fileID: 0}
     - target: {fileID: 3127692950910781262, guid: c5cf3193e072cbf4ba55169913a8ac3a, type: 3}
       propertyPath: InitialModule.maxNumParticles
@@ -555804,6 +555848,10 @@ PrefabInstance:
       value: 0.12
       objectReference: {fileID: 0}
     - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 60
       objectReference: {fileID: 0}
@@ -557580,7 +557628,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1210380790}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &1210566684
 GameObject:
   m_ObjectHideFlags: 0
@@ -596348,6 +596396,10 @@ PrefabInstance:
       value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 80
       objectReference: {fileID: 0}
@@ -601587,7 +601639,7 @@ ParticleSystem:
           m_PostInfinity: 2
           m_RotationOrder: 4
       cycleCount: 1
-      repeatInterval: 0.0001
+      repeatInterval: 0.01
       probability: 1
   SizeModule:
     enabled: 0
@@ -631526,6 +631578,10 @@ PrefabInstance:
       value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 80
       objectReference: {fileID: 0}
@@ -639742,7 +639798,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1369616686}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &1369725155
 GameObject:
   m_ObjectHideFlags: 0
@@ -656465,7 +656521,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1420032092}
-  m_Mesh: {fileID: 4300000, guid: 000c31e77eedb004a8970d1806f3d1c1, type: 2}
+  m_Mesh: {fileID: 4300000, guid: fdb16bf5eb8d82d4c926631dd51e6a71, type: 2}
 --- !u!1 &1420161443
 GameObject:
   m_ObjectHideFlags: 0
@@ -685886,6 +685942,10 @@ PrefabInstance:
       value: 0.12
       objectReference: {fileID: 0}
     - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 60
       objectReference: {fileID: 0}
@@ -696999,7 +697059,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1524230557}
-  m_Mesh: {fileID: 4300000, guid: 000c31e77eedb004a8970d1806f3d1c1, type: 2}
+  m_Mesh: {fileID: 4300000, guid: fdb16bf5eb8d82d4c926631dd51e6a71, type: 2}
 --- !u!1001 &1524508887
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -700519,6 +700579,10 @@ PrefabInstance:
       value: 0.12
       objectReference: {fileID: 0}
     - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 257833158303234719, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 60
       objectReference: {fileID: 0}
@@ -701613,7 +701677,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1536395323}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &1536586280
 GameObject:
   m_ObjectHideFlags: 0
@@ -703735,7 +703799,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1542665925}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &1542669030
 GameObject:
   m_ObjectHideFlags: 0
@@ -804751,6 +804815,10 @@ PrefabInstance:
       value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 80
       objectReference: {fileID: 0}
@@ -863737,6 +863805,10 @@ PrefabInstance:
       value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
       propertyPath: InitialModule.maxNumParticles
       value: 80
       objectReference: {fileID: 0}
@@ -918712,7 +918784,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1981516381}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &1981662951
 GameObject:
   m_ObjectHideFlags: 0
@@ -920005,7 +920077,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1985291210}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &1985326942
 GameObject:
   m_ObjectHideFlags: 0
@@ -922747,7 +922819,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1993166103}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &1993778772
 GameObject:
   m_ObjectHideFlags: 0
@@ -946456,7 +946528,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2019498236}
-  m_Mesh: {fileID: 10207, guid: 0000000000000000e000000000000000, type: 0}
+  m_Mesh: {fileID: 4300000, guid: f9edf5bb32930d34295e90f04ebd6038, type: 2}
 --- !u!1 &2019589129
 GameObject:
   m_ObjectHideFlags: 0
@@ -973135,7 +973207,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2059761781}
-  m_Mesh: {fileID: 4300000, guid: 000c31e77eedb004a8970d1806f3d1c1, type: 2}
+  m_Mesh: {fileID: 4300000, guid: fdb16bf5eb8d82d4c926631dd51e6a71, type: 2}
 --- !u!1 &2059832053
 GameObject:
   m_ObjectHideFlags: 0
@@ -989197,6 +989269,10 @@ PrefabInstance:
     - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
       propertyPath: NoiseModule.strength.scalar
       value: 0.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
+      propertyPath: ShapeModule.radiusThickness
+      value: 1.0000
       objectReference: {fileID: 0}
     - target: {fileID: 8329491147291430657, guid: ec4da1b21de21bb43ad71157e2dbcf23, type: 3}
       propertyPath: InitialModule.maxNumParticles
@@ -1015432,7 +1015508,7 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2142050482}
-  m_Mesh: {fileID: 4300000, guid: 000c31e77eedb004a8970d1806f3d1c1, type: 2}
+  m_Mesh: {fileID: 4300000, guid: fdb16bf5eb8d82d4c926631dd51e6a71, type: 2}
 --- !u!4 &2142147260 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3288137232651019598, guid: 5f6b4b79ecb97c646b2ef6945d48e572, type: 3}

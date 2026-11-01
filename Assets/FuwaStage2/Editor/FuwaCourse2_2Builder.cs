@@ -995,6 +995,15 @@ public static class FuwaCourse2_2Builder
         for (int n = 0; n < 5; n++) { float seed = (n + 0.37f) * 0.19f; f.Blob(new Vector3(Mathf.Sin(seed * 41f) * 0.14f, 0.92f, Mathf.Cos(seed * 29f) * 0.14f), seed, 0.6f); }
         return f.Build("Course2_2_FlameMesh", 0.7f);
     }
+    // 燃える島の炎：焚き火と同じ形を粗く（2026-11-01 てじゃ「無駄なハイポリ」。島は道から遠いので 1836→約970 三角形）
+    public static Mesh IsleFlameMesh()
+    {
+        var f = new FlameMeshB();
+        f.Egg(0f, Vector3.zero, 0.42f, 0.29f, 2.5f, 0.95f, 16, 16, 0f, 1.6f);
+        f.Egg(1f, Vector3.zero, 0.38f, 0.17f, 1.8f, 0.9f, 8, 10, 0f, 1.6f);
+        for (int n = 0; n < 5; n++) { float seed = (n + 0.37f) * 0.19f; f.Blob(new Vector3(Mathf.Sin(seed * 41f) * 0.14f, 0.92f, Mathf.Cos(seed * 29f) * 0.14f), seed, 0.6f); }
+        return f.Build("Course2_2_IsleFlameMesh", 0.7f);
+    }
     // FlameMesh の材質。ノイズは使い回し、形の数字だけ変える
     static Material FlameMeshMat(string name, float noiseScale, float flow, float ampBase, float ampTop, float tear, float sway, float blobRise, float blobSize, float bias)
     {
@@ -1552,7 +1561,7 @@ public static class FuwaCourse2_2Builder
         var scorched = AssetDatabase.LoadAssetAtPath<Material>(scorchedPath);
         if (!scorched) { scorched = new Material(top); AssetDatabase.CreateAsset(scorched, scorchedPath); }
         scorched.SetColor("_Color", new Color(0.3f, 0.2f, 0.17f)); EditorUtility.SetDirty(scorched);
-        var isleFlame = SeedFlameMesh(); var flameMat = SeedFlameMat();   // 焚き火と同じ炎を大きくして使う
+        var isleFlame = IsleFlameMesh(); var flameMat = SeedFlameMat();   // 焚き火と同じ炎を粗くして大きくして使う
         var underMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/IslandUnder.mat");
         var g = new GameObject("BurntIsles").transform; g.SetParent(fire, false);
         var h = Vector3.zero; int n = 0; foreach (Transform c in lavaRoot) { h += c.localPosition; n++; } if (n > 0) h /= n;
@@ -1942,6 +1951,13 @@ public static class FuwaCourse2_2Builder
     }
 
     // ほのおのまもの：コースのまもの（FuwaEnemy、寝てない・巣にかくれない物）を写して、赤く・炎をまとわせる。突進で燃える・水で倒れる
+    // まものの目は 6〜9cm の球なので軽い球に（2026-11-01 てじゃ「無駄なハイポリ」。768→224 三角形）
+    public static void LowEyes(Transform monster)
+    {
+        var low = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/LowSphere.asset"); if (!low) return;
+        foreach (var mf in monster.GetComponentsInChildren<MeshFilter>(true))
+            if ((mf.name == "EyeWhite" || mf.name == "Pupil") && mf.sharedMesh && mf.sharedMesh.name == "Sphere") mf.sharedMesh = low;
+    }
     static void FireMonster(Transform root, string name, Vector3 lp)
     {
         var src = Object.FindObjectsOfType<FuwaEnemy>(true).FirstOrDefault(e => !e.sleeping && !e.hideInNest && e.transform.root.name.StartsWith("FuwaCourse") && !e.transform.root.name.StartsWith("FuwaCourse2") && e.ball != null);
@@ -1950,6 +1966,7 @@ public static class FuwaCourse2_2Builder
         float lift = 0.5f;
         if (Physics.Raycast(src.transform.position + Vector3.up * 0.5f, Vector3.down, out var hit, 10f, 1 << 11, QueryTriggerInteraction.Ignore)) lift = src.transform.position.y - hit.point.y;
         var g = Object.Instantiate(src.gameObject, root, false); g.name = name;
+        LowEyes(g.transform);
         g.transform.localPosition = lp + Vector3.up * lift; g.transform.localRotation = Quaternion.LookRotation(Vector3.back);
         g.transform.localScale = src.transform.lossyScale;
         var e = g.GetComponent<FuwaEnemy>(); e.ball = ballProxy; e.igniteHeat = heat; e.flameTouchRadius = MonsterFlameTouch;

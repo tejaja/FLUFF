@@ -4025,6 +4025,61 @@ public static class FuwaCourse2_1Builder
     // 見た目は Stage2Water.fbx の Vine_<長さ×10>_<A/B>（Blenderで作った1本のツタ。上が原点で下へ垂れる）を並べて1つのメッシュにまとめる。
     // top＝カーテンの上の辺のまん中（parent のローカル）、across＝横の向き
     static readonly float[] VineLens = { 0.8f, 1.1f, 1.6f, 2.2f, 2.8f, 3.4f };
+    // ツタ1本のサブメッシュから、使う頂点だけ取り出す。leaves なら葉を1枚ずつ 24→8 三角形に：葉は表裏2枚の閉じた形なので、
+    // 付け根・先・左右のはし・中央の5点で表4枚＋裏4枚に作り直す（シルエットと中央の折れは残る。大きさ16cmくらいで1m以上はなれて見る物）
+    static (List<Vector3> v, List<Vector3> n, List<int> t) VineLow(Mesh src, int sm, bool leaves)
+    {
+        var vs = src.vertices; var ns = src.normals; var tr = src.GetTriangles(sm);
+        var ov = new List<Vector3>(); var on = new List<Vector3>(); var ot = new List<int>();
+        if (!leaves)
+        {
+            var map = new Dictionary<int, int>();
+            foreach (var i in tr) { if (!map.TryGetValue(i, out var j)) { j = ov.Count; map[i] = j; ov.Add(vs[i]); on.Add(ns[i]); } ot.Add(j); }
+            return (ov, on, ot);
+        }
+        // 同じ位置の頂点をまとめて、つながっている葉ごとに分ける
+        var ids = new Dictionary<Vector3Int, int>(); var parent = new List<int>();
+        int Id(int i) { var q = vs[i] * 5000f; var key = new Vector3Int(Mathf.RoundToInt(q.x), Mathf.RoundToInt(q.y), Mathf.RoundToInt(q.z)); if (!ids.TryGetValue(key, out var id)) { id = parent.Count; ids[key] = id; parent.Add(id); } return id; }
+        int Root(int a) { while (parent[a] != a) a = parent[a] = parent[parent[a]]; return a; }
+        var triId = new int[tr.Length];
+        for (int i = 0; i < tr.Length; i++) triId[i] = Id(tr[i]);
+        for (int i = 0; i < tr.Length; i += 3) { parent[Root(triId[i + 1])] = Root(triId[i]); parent[Root(triId[i + 2])] = Root(triId[i]); }
+        var isles = new Dictionary<int, List<int>>();
+        for (int i = 0; i < tr.Length; i += 3) { int r = Root(triId[i]); if (!isles.TryGetValue(r, out var l)) isles[r] = l = new List<int>(); l.Add(i); }
+        foreach (var tris in isles.Values)
+        {
+            var idx = new List<int>(); foreach (var i in tris) { idx.Add(tr[i]); idx.Add(tr[i + 1]); idx.Add(tr[i + 2]); }
+            idx = idx.Distinct().ToList();
+            // 付け根と先＝いちばん遠い2点
+            Vector3 a = vs[idx[0]], b = a; float best = -1f;
+            foreach (var p in idx) foreach (var q in idx) { float d = (vs[p] - vs[q]).sqrMagnitude; if (d > best) { best = d; a = vs[p]; b = vs[q]; } }
+            var axis = (b - a).normalized;
+            Vector3 Off(Vector3 p) { var w = p - a; return w - axis * Vector3.Dot(w, axis); }
+            // 左右のはし
+            Vector3 l2 = a; float lw = -1f; foreach (var p in idx) { float d = Off(vs[p]).sqrMagnitude; if (d > lw) { lw = d; l2 = vs[p]; } }
+            var side = Off(l2).normalized;
+            Vector3 r2 = a; float rw = 1e9f; foreach (var p in idx) { float d = Vector3.Dot(Off(vs[p]), side); if (d < rw) { rw = d; r2 = vs[p]; } }
+            // 中央：軸のまん中にいちばん近い2点（表と裏）の平均
+            var mid = (a + b) * 0.5f; var near = idx.OrderBy(p => (vs[p] - mid).sqrMagnitude).Take(2).ToList();
+            var c = (vs[near[0]] + vs[near[1]]) * 0.5f;
+            var nrm = Vector3.Cross(axis, side).normalized; if (nrm == Vector3.zero) nrm = Vector3.up;
+            Vector3 up = Vector3.zero, dn = Vector3.zero;
+            foreach (var p in idx) { if (Vector3.Dot(ns[p], nrm) > 0f) up += ns[p]; else dn += ns[p]; }
+            up = up == Vector3.zero ? nrm : up.normalized; dn = dn == Vector3.zero ? -nrm : dn.normalized;
+            foreach (var f in new[] { up, dn })
+            {
+                int s = ov.Count; ov.AddRange(new[] { a, l2, b, r2, c }); for (int k = 0; k < 5; k++) on.Add(f);
+                for (int k = 0; k < 4; k++)
+                {
+                    int p0 = s + k, p1 = s + (k + 1) % 4, p2 = s + 4;
+                    // 表の向き＝Cross(b-a,c-a)（Unity の三角形の表裏）
+                    if (Vector3.Dot(Vector3.Cross(ov[p1] - ov[p0], ov[p2] - ov[p0]), f) < 0f) { int w = p1; p1 = p2; p2 = w; }
+                    ot.Add(p0); ot.Add(p1); ot.Add(p2);
+                }
+            }
+        }
+        return (ov, on, ot);
+    }
     static GameObject VineCurtain(Transform parent, string name, Vector3 top, Vector3 across, float width, float height, int seed)
     {
         across = across.normalized;
@@ -4046,13 +4101,16 @@ public static class FuwaCourse2_1Builder
             var mr = fbx.OfType<GameObject>().FirstOrDefault(o => src && o.name == src.name)?.GetComponent<MeshRenderer>();
             if (!src || !mr) { Debug.LogWarning("[2–1] ツタのメッシュがありません: Vine_" + Mathf.RoundToInt(L * 10f)); return; }
             var m4 = Matrix4x4.TRS(new Vector3(x, Rnd(-0.04f, 0f), z), Quaternion.Euler(0, Rnd(0f, 360f), 0), new Vector3(1f, want / L, 1f));
-            int b = V.Count;
-            foreach (var v in src.vertices) V.Add(m4.MultiplyPoint3x4(v));
-            foreach (var nn in src.normals) N.Add(m4.inverse.transpose.MultiplyVector(nn).normalized);
+            var nm4 = m4.inverse.transpose;
             for (int sm = 0; sm < src.subMeshCount; sm++)
             {
                 int k = Array.IndexOf(matNames, mr.sharedMaterials[sm].name); if (k < 0) k = 1;
-                foreach (var t in src.GetTriangles(sm)) T[k].Add(b + t);
+                // 葉（1枚24三角形）は軽い形に（2026-11-01 てじゃ「無駄なハイポリ」）。茎はそのまま
+                var low = VineLow(src, sm, k > 0);
+                int b = V.Count;
+                foreach (var v in low.v) V.Add(m4.MultiplyPoint3x4(v));
+                foreach (var nn in low.n) N.Add(nm4.MultiplyVector(nn).normalized);
+                foreach (var t in low.t) T[k].Add(b + t);
             }
         }
         // 長いツタ：10cmおきに前後2列、地面にはつかない長さ（すき間から向こうが少し見える）。上のふちには短いツタをもう1段かさねて葉っぱを茂らせる
