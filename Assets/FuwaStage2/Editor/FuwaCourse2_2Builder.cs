@@ -146,8 +146,6 @@ public static class FuwaCourse2_2Builder
             var at = Along(r12, pts12[3] + (pts12[4] - pts12[3]).normalized * VentAt);
             BlastVent(fire, "Vent", at, corners12[3] + Vector3.up * 0.4f);
         }
-        // 溶岩の音。LavaHoles の子にしない（子の位置の平均を、燃える島と火の粉の配置に使っている）
-        foreach (var pl in pools) Sfx(fire, "LavaLoop" + pools.IndexOf(pl), "sfx_loop_lava2", pl.c.Aggregate(Vector3.zero, (sumP, nextP) => sumP + nextP) / pl.c.Count, 4f, 15f, 0.8f, true, 10f);
         // 穴の溶岩（面・ふわふわの黒焦げ・人のアウト）
         // 穴と穴の間の細い所の当たり
         foreach (var pl in pools)
