@@ -972,15 +972,32 @@ public static class FuwaCourse2_2Builder
         var ps = FuwaStage2FireTest.FlamePS(g, "Sparks", 0.35f, 1.5f, 1.2f, new Color(1f, 0.85f, 0.35f), new Color(1f, 0.32f, 0.06f));
         var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f); m.maxParticles = 12; var em = ps.emission; em.rateOverTime = 5f; ps.Play();
     }
-    // 焚き火と燃える島の炎：箱の中の立体ノイズをレイで見る FuwaCourse/FlameVolume（2026-11-01 てじゃの参考 GIF）。箱は x,z ±0.5、y 0〜1.6
+    // 焚き火と燃える島の炎：立体ノイズをレイで見る FuwaCourse/FlameVolume（2026-11-01 てじゃの参考 GIF）。入れ物は炎に沿った八角の筒（炎のない所を計算しないため。箱の半分くらい）
     public static Mesh SeedFlameMesh()
     {
-        var v = new[] { new Vector3(-0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, 0.5f), new Vector3(-0.5f, 0f, 0.5f),
-                        new Vector3(-0.5f, 1.6f, -0.5f), new Vector3(0.5f, 1.6f, -0.5f), new Vector3(0.5f, 1.6f, 0.5f), new Vector3(-0.5f, 1.6f, 0.5f) };
-        // 表が外を向く並び（シェーダーは裏面を描く）
-        var tr = new[] { 0, 1, 2, 0, 2, 3,  4, 6, 5, 4, 7, 6,  0, 4, 5, 0, 5, 1,  1, 5, 6, 1, 6, 2,  2, 6, 7, 2, 7, 3,  3, 7, 4, 3, 4, 0 };
+        const int Seg = 8;
+        var rings = new[] { (y: 0f, r: 0.42f), (y: 0.5f, r: 0.5f), (y: 1.15f, r: 0.46f), (y: 1.6f, r: 0.2f) };   // r は辺までの距離
+        var v = new List<Vector3>(); var tr = new List<int>();
+        foreach (var ring in rings) for (int k = 0; k < Seg; k++)
+        {
+            float a = (k + 0.5f) * Mathf.PI * 2f / Seg, rc = ring.r / Mathf.Cos(Mathf.PI / Seg);
+            v.Add(new Vector3(Mathf.Cos(a) * rc, ring.y, Mathf.Sin(a) * rc));
+        }
+        void Tri(int a, int b, int c, Vector3 outward)   // 表が外を向くように（シェーダーは裏面を描く）
+        {
+            if (Vector3.Dot(Vector3.Cross(v[b] - v[a], v[c] - v[a]), outward) < 0f) { int t = b; b = c; c = t; }
+            tr.Add(a); tr.Add(b); tr.Add(c);
+        }
+        for (int j = 0; j < rings.Length - 1; j++) for (int k = 0; k < Seg; k++)
+        {
+            int q = j * Seg + k, q2 = j * Seg + (k + 1) % Seg, u = q + Seg, u2 = q2 + Seg;
+            var o = v[q] + v[q2]; o.y = 0f;
+            Tri(q, u, u2, o); Tri(q, u2, q2, o);
+        }
+        int top = (rings.Length - 1) * Seg;
+        for (int k = 1; k < Seg - 1; k++) { Tri(0, k, k + 1, Vector3.down); Tri(top, top + k, top + k + 1, Vector3.up); }
         var m = new Mesh { name = "Course2_2_FlameBox" };
-        m.vertices = v; m.triangles = tr; m.RecalculateNormals(); m.RecalculateBounds();
+        m.SetVertices(v); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
         return SaveMesh(m);
     }
     // タイルする立体ノイズ（Perlin 2 段）。炎のかたまりの元。1 回作ったら使い回す

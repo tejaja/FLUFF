@@ -40,11 +40,15 @@ Shader "FuwaCourse/FlameVolume"
 
             #if defined(SHADER_API_MOBILE) || defined(_FLAME_LITE)
                 #define FLAME_LITE 1
-                #define TRACE_STEPS 11
-                #define COLOR_STEPS 5
+                #define TRACE_STEPS 9
+                #define COLOR_STEPS 4
+                #define STEP_K 0.32     // 回数が少ないぶん大またで（足りないと炎の中に穴があく）
+                #define STEP_MIN 0.035
             #else
                 #define TRACE_STEPS 20
                 #define COLOR_STEPS 9
+                #define STEP_K 0.2
+                #define STEP_MIN 0.015
             #endif
             #define BOX_H 1.6
 
@@ -58,7 +62,8 @@ Shader "FuwaCourse/FlameVolume"
                 float4 pos : SV_POSITION;
                 float3 op : TEXCOORD0;      // 箱の面（オブジェクト座標）
                 float3 oc : TEXCOORD1;      // カメラ（オブジェクト座標）。目ごとに違う
-                UNITY_FOG_COORDS(2)
+                float3 sway : TEXCOORD2;    // xz：ゆれ（毎回 sin を計算しない）、y：時間
+                UNITY_FOG_COORDS(3)
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
@@ -73,28 +78,37 @@ Shader "FuwaCourse/FlameVolume"
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.op = v.vertex.xyz;
                 o.oc = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1)).xyz;
+                float t = _Time.y * _Speed;
+                o.sway = float3((sin(t * 2.3) + 0.5 * sin(t * 3.9)) * 0.05, t, (sin(t * 1.9 + 2.0) + 0.5 * sin(t * 3.3)) * 0.05);
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
 
-            // 0 より大きいと炎の中。_YellowAt より大きいと黄色
-            float Field(float3 p, float t)
+            // 炎の濃さ = Body + Noise × amp。0 より大きいと炎の中、_YellowAt より大きいと黄色
+            // テクスチャを読まずに Body + amp × NOISE_MAX で上限がわかるので、炎が来ない所はノイズを読まない（負荷の大半はここ）
+            #define NOISE_MAX 0.75
+            float Body(float3 p, float2 sway, out float3 w, out float amp)
             {
                 float k = saturate(p.y / BOX_H);
-                float3 w = p;
-                w.x += (sin(t * 2.3 + p.y * 3.1) + 0.5 * sin(t * 3.9 + p.y * 5.3)) * 0.05 * k;   // 上ほど大きくゆれる
-                w.z += (sin(t * 1.9 + p.y * 2.7 + 2.0) + 0.5 * sin(t * 3.3 + p.y * 4.7)) * 0.05 * k;
+                w = p;
+                w.xz += sway * k;   // 上ほど大きくゆれる
                 float3 q = w - float3(0, _EggY, 0);
                 q.y /= q.y > 0 ? _EggUp : _EggDown;
-                float body = 1.0 - length(q) / _EggR - smoothstep(0.62, 1.0, k) * 1.1;   // 箱のてっぺんで切れないように消す
+                amp = lerp(_AmpBase, _AmpTop, k);
+                return 1.0 - length(q) / _EggR - smoothstep(0.62, 1.0, k) * 1.1;   // 箱のてっぺんで切れないように消す
+            }
+            float Noise(float3 w, float t)
+            {
                 float3 a = w * _NoiseScale; a.y -= frac(t * _FlowSpeed);
                 float n = tex3Dlod(_Noise, float4(a, 0)).r;
-                #if !defined(FLAME_LITE)
+                #if defined(FLAME_LITE)
+                    return (n - 0.5) * 1.55;   // 1 枚だと振れ幅が大きくてちぎれすぎるので、2 枚混ぜた時に合わせる
+                #else
                     // 速さのちがう 2 枚目を混ぜて、ただ流れるだけに見えないようにする
                     float3 b = w * _NoiseScale * 1.7 + float3(0.37, 0, 0.61); b.y -= frac(t * _FlowSpeed * 1.45);
                     n = n * 0.66 + tex3Dlod(_Noise, float4(b, 0)).r * 0.34;
+                    return (n - 0.5) * 2.0;
                 #endif
-                return body + (n - 0.5) * 2.0 * lerp(_AmpBase, _AmpTop, k);
             }
 
             struct FOut { fixed4 c : SV_Target; float d : SV_Depth; };
@@ -112,14 +126,18 @@ Shader "FuwaCourse/FlameVolume"
                 float3 tn = min(t0, t1), tf = max(t0, t1);
                 float s = max(max(tn.x, max(tn.y, tn.z)), 0.0), sEnd = min(tf.x, min(tf.y, tf.z));
 
-                float t = _Time.y * _Speed, best = -1e5, sBest = s;
+                float t = i.sway.y, best = -1e5, sBest = s;
                 bool hit = false;
                 for (int k2 = 0; k2 < TRACE_STEPS && s < sEnd; k2++)
                 {
-                    float d = Field(ro + rd * s, t);
+                    float3 w; float amp;
+                    float body = Body(ro + rd * s, i.sway.xz, w, amp);
+                    float hi = body + amp * NOISE_MAX;
+                    if (hi < 0.0) { s += clamp(-hi * 0.25, 0.02, 0.2); continue; }   // ここに炎は来ない
+                    float d = body + Noise(w, t) * amp;
                     if (d > best) { best = d; sBest = s; }
                     if (d > 0.0) { hit = true; break; }
-                    s += clamp(-d * 0.2, 0.015, 0.14);
+                    s += clamp(-d * STEP_K, STEP_MIN, 0.14);
                 }
                 // ふちはピクセルの半分だけ外まで少しずつ（AlphaToMask でなめらかに）
                 float e = max(pixel * sBest * 4.0, 1e-4);
@@ -133,7 +151,10 @@ Shader "FuwaCourse/FlameVolume"
                 {
                     q += dq;
                     if (q >= sEnd) break;
-                    top = max(top, Field(ro + rd * q, t));
+                    float3 w2; float amp2;
+                    float body2 = Body(ro + rd * q, i.sway.xz, w2, amp2);
+                    if (body2 + amp2 * NOISE_MAX < _YellowAt - e) continue;   // ここは黄色にならない
+                    top = max(top, body2 + Noise(w2, t) * amp2);
                 }
                 half3 c = lerp(_Orange.rgb, _Yellow.rgb, smoothstep(_YellowAt - e, _YellowAt + e, top));
 
