@@ -189,8 +189,9 @@ public static class FuwaCourse2_2Builder
         }
         // 火の玉の手前（2026-11-01 てじゃ「火球エリアの前、まものエリアの前」）。最初の穴は z0 + 31.5
         {
-            Frame(r12, z0 + 26f, out var cc, out var ct); var nn = r12.OrderBy(x => Flat(x.p - cc).sqrMagnitude).First();
-            Checkpoint(root, "Checkpoint1", cc, Flat(ct).normalized, WAt(pts12, hw12, nn.u));
+            // キノコは判定の 1.5m 先に並ぶので、その場所の道の中心と幅で置く（道が広がる所なので、手前の幅だと道に埋まった。2026-11-01 てじゃ「道に埋めたくない」）
+            Frame(r12, z0 + 27.5f, out var cc, out var ct); var nn = r12.OrderBy(x => Flat(x.p - cc).sqrMagnitude).First(); var cd = Flat(ct).normalized;
+            Checkpoint(root, "Checkpoint1", cc - cd * 1.5f, cd, WAt(pts12, hw12, nn.u));
         }
         Checkpoint(root, "Checkpoint2", new Vector3(0, yL, z0 + 59f), Vector3.forward, WideEndHW);
 
@@ -287,8 +288,8 @@ public static class FuwaCourse2_2Builder
         // 曲がった道の上の (x 横, z 奥行き) の所
         Vector3 OnArena(float x, float z) { Frame(r5, ar.z + z, out var c, out var t); return c + Vector3.Cross(Vector3.up, t).normalized * x; }
         {   // まものの手前（最初のまものは z 5.5）
-            Frame(r5, ar.z + 1.5f, out var cc, out var ct); var nn = r5.OrderBy(x => Flat(x.p - cc).sqrMagnitude).First();
-            Checkpoint(root, "Checkpoint3", cc, Flat(ct).normalized, WAt(pts5, hw5, nn.u));
+            Frame(r5, ar.z + 3f, out var cc, out var ct); var nn = r5.OrderBy(x => Flat(x.p - cc).sqrMagnitude).First(); var cd = Flat(ct).normalized;
+            Checkpoint(root, "Checkpoint3", cc - cd * 1.5f, cd, WAt(pts5, hw5, nn.u));
         }
         var pholes = puddles.Select(q => { var c = OnArena(q.x, q.z); return new Vector4(c.x, c.y, c.z, PuddleR); }).ToList();
         // ジグザグ全体を 1 本の道に（2026-10-31 てじゃ「丸い部分なんか変えるか、ジグザグもふくめて」→ 案 A。丸い踊り場と板をやめた）
