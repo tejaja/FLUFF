@@ -863,10 +863,10 @@ public static class FuwaCourse2_1Builder
             }
         }
         if (!PondCut) { PondSpillLipFalls(root); PondSpringFalls(root); }
+        FloatOrbs(root);
         AirFallsFray(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
-        OuterIsles(root);
         FuwaStage2Static.Apply(root);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–1] 長さ " + sEnd.ToString("F0") + "m  台→池 " + sPlaza1.ToString("F1") + " 川 " + sPool1.ToString("F1") + "–" + sRiver1.ToString("F1")
@@ -4351,27 +4351,27 @@ public static class FuwaCourse2_1Builder
     // 板の上の面は道の高さ（当たり判定は PathMesh のまま）。ゴールへの道の終わりは、見た目だけ島の橋の板の下までのばす（道のはしのままだと すき間が見えた）
     const float GoalWoodLap = 0.35f;
     const float PlankPitch = 0.32f, PlankT = 0.09f, BeamW = 0.16f, BeamH = 0.18f, BeamIn = 0.22f, BeamEmbed = 0.08f;
-    // まわりに浮かぶ小さい島（2026-11-01 てじゃ「2-1のまわりなんもういてなかった」）。遠景の滝つきの島（FarIslands）を小さくして使う。当たりなし。道から 11〜19m はなれた所
-    static readonly (float x, float y, float z, float scale, float yaw, int kind)[] OuterIsleSpots =
+    // まわりに浮かぶ、水の玉＋空中へ落ちる滝（2026-11-01 てじゃ「2-1のまわりなんもういてなかった」→ 遠景の島を近くに置いたら「やだ」→「浮島なくして、数は少なくていいから玉からおちる滝を浮かそう」）
+    // コースの中の玉と同じ作りを大きくしたもの。当たりなし。道から 11〜19m はなれた所。x,y,z は玉の位置、fall は滝の長さ（下のはしは霧になって消える）
+    static readonly (float x, float y, float z, float fall)[] FloatOrbSpots =
     {
-        (-22f, 7f, -1f, 3.4f, 20f, 0), (20f, 5f, 17f, 2.8f, 130f, 1), (-28f, 3f, 23f, 4f, 250f, 2), (26f, 9f, 41f, 3.4f, 70f, 0),
-        (-22f, -2f, 47f, 3f, 200f, 1), (32f, 7f, 65f, 3.6f, 310f, 2), (-16f, 10f, 71f, 2.8f, 40f, 0), (32f, 2f, 89f, 3.2f, 160f, 1),
-        (-10f, 18f, 95f, 3f, 280f, 2), (32f, 8f, 113f, 3.6f, 90f, 0), (-16f, 16f, 119f, 3.2f, 330f, 1), (32f, 4f, 137f, 3f, 220f, 2), (14f, 10f, 149f, 3.4f, 15f, 0),
+        (-22f, 9f, 8f, 20f), (26f, 11f, 41f, 22f), (-16f, 12f, 71f, 20f), (32f, 10f, 100f, 24f), (-16f, 18f, 125f, 24f),
     };
-    public static void OuterIsles(Transform root)
+    public static float FloatOrbRadius = 0.8f, FloatOrbStream = 0.5f;
+    public static void FloatOrbs(Transform root)
     {
-        var old = root.Find("OuterIsles"); if (old) Object.DestroyImmediate(old.gameObject);
-        var src = GameObject.Find("FarIslands/FarIslands_Main"); if (!src) { Debug.LogWarning("[2–1] 遠景の島（FarIslands_Main）がない"); return; }
-        // 形のちがう 3 種類（FarIsland_A / B / C）を遠景から写す
-        var kinds = new Transform[3]; string[] meshes = { "FarIsland_A", "FarIsland_B", "FarIsland_C" };
-        foreach (Transform t in src.transform) { var mf = t.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue; for (int k = 0; k < 3; k++) if (!kinds[k] && mf.sharedMesh.name == meshes[k]) kinds[k] = t; }
-        var g = new GameObject("OuterIsles").transform; g.SetParent(root, false);
-        for (int i = 0; i < OuterIsleSpots.Length; i++)
+        var old = root.Find("FloatOrbs"); if (old) Object.DestroyImmediate(old.gameObject);
+        var g = new GameObject("FloatOrbs").transform; g.SetParent(root, false);
+        const string ap = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_OrbStream_Air.mat";
+        var baseM = OrbStreamMat();
+        var am = AssetDatabase.LoadAssetAtPath<Material>(ap);
+        if (!am) { am = new Material(baseM); AssetDatabase.CreateAsset(am, ap); }
+        am.CopyPropertiesFromMaterial(baseM); am.SetFloat("_FrayLen", AirFrayLen); EditorUtility.SetDirty(am);
+        for (int i = 0; i < FloatOrbSpots.Length; i++)
         {
-            var s = OuterIsleSpots[i]; var k = kinds[s.kind] ? kinds[s.kind] : kinds[0]; if (!k) return;
-            var o = Object.Instantiate(k.gameObject, g, false); o.name = "Isle" + i;
-            o.transform.localPosition = new Vector3(s.x, s.y, s.z); o.transform.localRotation = Quaternion.Euler(0f, s.yaw, 0f); o.transform.localScale = Vector3.one * s.scale;
-            foreach (var c in o.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(c.GetType() == typeof(MeshCollider) && c.transform != o.transform ? (Object)c.gameObject : c);   // 飾りなので当たりはなし
+            var s = FloatOrbSpots[i];
+            WaterOrb(g, new Vector3(s.x, s.y - s.fall, s.z), "Orb" + i, s.fall, FloatOrbRadius, FloatOrbStream);
+            g.Find("Orb" + i + "/Stream").GetComponent<Renderer>().sharedMaterial = am;
         }
     }
 
