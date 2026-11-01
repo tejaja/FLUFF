@@ -13,10 +13,30 @@ Shader "FuwaCourse/LavaRock"
         _Under ("下側の赤い照り返し", Range(0,1)) = 0.5
         [HDR] _RimGlow ("ふちの熱の光", Color) = (1.3, 0.34, 0.05, 1)
         _RimPower ("ふちの光の細さ", Range(0.5,6)) = 2.2
+        _Shade ("炎越しの影の色", Color) = (0.65, 0.24, 0.14, 1)
     }
     SubShader
     {
         Tags { "RenderType"="Opaque" "Queue"="Geometry" "DisableBatching"="True" }
+        // 炎の壁（FlameMesh の印 32）の奥にいる時は影として映す（2026-11-01 てじゃ「炎越しは影っぽく」）。手前なら次のパスが上に描く
+        Pass
+        {
+            Tags { "LightMode"="ForwardBase" }
+            ZTest Always
+            ZWrite Off
+            Stencil { Ref 32 ReadMask 32 Comp Equal }
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_instancing
+            #include "UnityCG.cginc"
+            half4 _Shade;
+            struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; UNITY_VERTEX_OUTPUT_STEREO };
+            v2f vert (appdata v) { v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o); o.pos = UnityObjectToClipPos(v.vertex); return o; }
+            fixed4 frag (v2f i) : SV_Target { return fixed4(_Shade.rgb, 1); }
+            ENDCG
+        }
         Pass
         {
             Tags { "LightMode"="ForwardBase" }
@@ -24,6 +44,7 @@ Shader "FuwaCourse/LavaRock"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fog
+            #pragma multi_compile_instancing
             #include "UnityCG.cginc"
             #include "FuwaFireFar.cginc"
             #include "Lighting.cginc"
@@ -35,12 +56,14 @@ Shader "FuwaCourse/LavaRock"
             half _Width, _Under, _RimPower;
             half4 _RimGlow;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; };
-            struct v2f { float4 pos : SV_POSITION; float3 op : TEXCOORD0; float3 wn : TEXCOORD1; half3 amb : TEXCOORD2; float3 wp : TEXCOORD4; UNITY_FOG_COORDS(3) };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float3 op : TEXCOORD0; float3 wn : TEXCOORD1; half3 amb : TEXCOORD2; float3 wp : TEXCOORD4; UNITY_FOG_COORDS(3) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
                 v2f o;
+                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.op = v.vertex.xyz;
                 o.wn = UnityObjectToWorldNormal(v.normal);
@@ -52,6 +75,7 @@ Shader "FuwaCourse/LavaRock"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float3 n = normalize(i.wn);
                 half wrap = saturate((dot(n, normalize(_WorldSpaceLightPos0.xyz)) + 0.5) / 1.5);
                 half3 c = _Rock.rgb * (_LightColor0.rgb * wrap + i.amb * 0.6);

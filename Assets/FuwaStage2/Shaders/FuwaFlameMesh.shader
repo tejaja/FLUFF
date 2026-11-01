@@ -9,6 +9,7 @@ Shader "FuwaCourse/FlameMesh"
         _Orange ("外の色", Color) = (0.93, 0.43, 0, 1)
         _OrangeTop ("外の色（先）", Color) = (0.93, 0.43, 0, 1)
         _Yellow ("中の色", Color) = (0.98, 1, 0.04, 1)
+        [Enum(UnityEngine.Rendering.StencilOp)] _StencilPass ("炎の場所の印（岩の影用、Replace で付ける）", Float) = 0
         _CoreSoft ("中の色のふちをぼかす（頂点で計算、透明にしない）", Range(0,1)) = 0
         _Speed ("動きの速さ", Float) = 1
         _FlowSpeed ("模様が上へ流れる速さ（タイル／秒）", Float) = 0.75
@@ -35,6 +36,7 @@ Shader "FuwaCourse/FlameMesh"
             Cull Off
             ZWrite On
             AlphaToMask On
+            Stencil { Ref 32 WriteMask 32 Comp Always Pass [_StencilPass] }
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag

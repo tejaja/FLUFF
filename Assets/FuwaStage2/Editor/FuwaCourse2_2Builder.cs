@@ -1400,7 +1400,9 @@ public static class FuwaCourse2_2Builder
                 f.Blob(new Vector3(x, q.top - 1.2f, q.p.z), seed, 0.8f);
             }
         }
-        var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 0.6f, 0.35f, 0.18f, 2.8f, 3.6f, 1f); mat.SetFloat("_Pulse", 0f); mat.SetFloat("_Wave", 2.2f); mat.SetFloat("_WaveScale", 0.09f); EditorUtility.SetDirty(mat);
+        var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 0.6f, 0.35f, 0.18f, 2.8f, 3.6f, 1f); mat.SetFloat("_Pulse", 0f); mat.SetFloat("_Wave", 2.2f); mat.SetFloat("_WaveScale", 0.09f);
+        mat.SetFloat("_StencilPass", (float)UnityEngine.Rendering.StencilOp.Replace); mat.renderQueue = 2010;   // 岩の影用の印。ほかの物のあとに描いて、隠れた所には印を付けない
+        EditorUtility.SetDirty(mat);
         var c2 = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c2.transform.SetParent(g, false);
         c2.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Curtain", 4f);
         var r = c2.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
@@ -1586,7 +1588,7 @@ public static class FuwaCourse2_2Builder
         if (mesh) vis.GetComponent<MeshFilter>().sharedMesh = mesh;
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_LavaRock", new Color(0.35f, 0.12f, 0.08f));
         var sh = Shader.Find("FuwaCourse/LavaRock");
-        if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); m.SetFloat("_Width", 0.42f); EditorUtility.SetDirty(m); }
+        if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); m.SetFloat("_Width", 0.42f); m.renderQueue = 2014; EditorUtility.SetDirty(m); }   // 炎の壁のあと（炎越しの影のため）
         vis.GetComponent<Renderer>().sharedMaterial = m;
     }
     // 火の玉：のっぺりしたオレンジ→メラメラ（FuwaCourse/Fireball、2026-10-31）。尾は太く長く
