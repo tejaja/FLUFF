@@ -9,16 +9,17 @@ using UnityEngine;
 // ・ライトマップ用UV（UV2）が無いメッシュには作る（.asset は直接、FBX はインポート設定で）
 public static class FuwaBakeSetup
 {
-    static readonly string[] Roots = { "FuwaCourse0", "FuwaCourse", "FuwaCourse2", "FuwaCourse3", "FuwaCourse4", "FuwaCourse5", "FuwaLobby" };
+    static readonly string[] Roots = { "FuwaCourse0", "FuwaCourse", "FuwaCourse2", "FuwaCourse3", "FuwaCourse4", "FuwaCourse5", "FuwaLobby", "FuwaStage2", "FuwaCourse2_1", "FuwaCourse2_2" };
     static readonly HashSet<string> BakeShaders = new HashSet<string> { "FuwaCourse/ToonLit", "FuwaCourse/InkCap" };
     // 物を動かすスクリプト（自分とその下、参照している物を Static にしない）
     static readonly HashSet<string> MovingTypes = new HashSet<string> {
         "FuwaBall", "FuwaBlower", "FuwaBoulder", "FuwaEnemy", "FuwaFacePlayer", "FuwaGoal", "FuwaGoalMarker",
-        "FuwaJumpBoost", "FuwaMama", "FuwaSharedBall", "FuwaStartMushroom", "FuwaWebHole", "FuwaWindDeco" };
+        "FuwaJumpBoost", "FuwaMama", "FuwaSharedBall", "FuwaStartMushroom", "FuwaWebHole", "FuwaWindDeco",
+        "FuwaLavaRock", "FuwaFireball", "FuwaHover", "FuwaClamBubbles", "FuwaRiverFish", "FuwaGuardFish" };   // ステージ2
     // 自分は動かず、参照している物（輪っか等）だけ動かすスクリプト
     static readonly HashSet<string> RefOnlyTypes = new HashSet<string> { "FuwaWebHole" };
     const float FarScale = 0.25f;
-    static readonly string[] SmallDecoMeshes = { "Practice_EdgeProps", "PracticeProp_", "Mamono_", "Kaze_", "Deco_" };   // PracticeProp_：チュートリアルの本番の道のマシュマロ等（EdgeProps を1個ずつに分けた物。焼くとムラになった 2026-10-09）
+    static readonly string[] SmallDecoMeshes = { "Practice_EdgeProps", "PracticeProp_", "Mamono_", "Kaze_", "Deco_", "Course2_1_GateVines", "Course2_1_SideVines" };   // PracticeProp_：チュートリアルの本番の道のマシュマロ等（EdgeProps を1個ずつに分けた物。焼くとムラになった 2026-10-09）
 
     [MenuItem("FuwaCourse/よく使う/ベイクの準備（Static・ライトマップUV）")]
     public static void RunMenu() { Debug.Log(Run()); }
