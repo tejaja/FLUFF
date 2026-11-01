@@ -36,7 +36,7 @@ public static class FuwaCourse2_2Builder
     public static float VolcanoTopH = 16f, VolcanoTopR = 5f, VolcanoR0 = 12f, VolcanoBottom = -60f, RockFirstScale = 3f;   // 火口の高さ・半径、道の高さでの半径、すその下のはし、火口から飛んでくる1回の長さ（倍）
     // ⑤ 2026-10-30 てじゃ「まものからをもっと右に曲げて山に沿う感じに」「山から何個かさっきの火炎放射、あたれば炎上して飛ぶ、そのあとゴール」
     //   （火口のまわりの輪っかの道・マグマは「あんま面白くない」でやめた）。火山のまわりを右回りに沿う広めの道、山肌の岩から火炎放射
-    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = 1.2f, FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
+    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = -0.27f,FlamePlayerLand = 1.2f, FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
     public const int FlameRows = 3;   // 炎の壁の縦の本数
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
@@ -1957,6 +1957,7 @@ public static class FuwaCourse2_2Builder
         j.heat = heat; j.ball = ballProxy; j.phase = phase; j.period = period; j.onTime = on; j.flameRate = 14f; j.flameBody = JetBody(g, name, backs, rowZ, len);
         j.flame = flames[0]; j.warn = warns[0]; j.moreFlames = flames.Skip(1).ToArray(); j.moreWarns = warns.Skip(1).ToArray();
         // 吹っ飛ぶ向き：外（山から離れる向き）、外のふちの FlameLand 手前より先へは飛ばさない（てじゃ「落ちないくらい外に吹っ飛ばす」）。
+        //  2026-11-01 てじゃ「3連炎が弱い」「あたるとコースのフチからちょっぴり出るくらいのとこに飛ばそう」→ FlameLand をマイナスに（ふちの 0.25〜0.7m 外に落ちる。Play で測った式：最遠＝off＋1.07×(reach−off)。人は今までどおりふちの手前）
         //  来た方へ足すのは「やっぱ手前に飛ばされるなぁ」でやめて、「ほんのちょっとだけ手前の角度も」で外向きを来た方へ 8° くらいかたむける（2026-10-30）。ワールドの向きで入れる
         j.knockDir = parent.TransformDirection((o + back * 0.14f).normalized);
         j.ballKnock = FlameKnock; j.ballKnockUp = FlameKnockUp;
@@ -1964,7 +1965,7 @@ public static class FuwaCourse2_2Builder
         j.knockOrigin = ko; j.knockReach = FlameHW * 2f - FlameLand; j.knockPerMeter = 0.85f;   // 試したら（上 1.5 で）1m/s で 1.15m くらい飛んだ
         // 人：地面に立っていると横の速さは地面に消されるので、しっかり上へ浮かせて飛ばす（2026-10-30 てじゃ「地面にたってるとプレイヤーがほとんど飛ばされない」）。
         //  向きは外（「プレイヤも横に飛ばしたい」）、ふわふわと同じくふちの手前まで
-        j.playerPush = 6f; j.playerPushUp = 4.5f; j.playerPushDir = parent.TransformDirection((o + back * 0.14f).normalized); j.playerPerMeter = 1.0f;
+        j.playerPush = 6f; j.playerPushUp = 4.5f; j.playerPushDir = parent.TransformDirection((o + back * 0.14f).normalized); j.playerPerMeter = 1.0f; j.playerReach = FlameHW * 2f - FlamePlayerLand;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j); FuwaStage2WaterTest.NoSync(j);
     }
 
