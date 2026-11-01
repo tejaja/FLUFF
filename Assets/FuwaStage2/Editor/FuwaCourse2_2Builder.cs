@@ -1746,7 +1746,7 @@ public static class FuwaCourse2_2Builder
         LavaRockTrail(trail);
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLavaRock>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
-        f.launchSound = Sfx(g, "LaunchSfx", "sfx_rock_launch3", ps[0], 45f, 170f, 1f, false, 12f);
+        f.launchSound = Sfx(g, "LaunchSfx", "sfx_rock_launch3", ps[0], 30f, 170f, 0.6f, false, 6f);
         f.bounceSound = Sfx(mover, "BounceSfx", "sfx_rock_bounce2", Vector3.zero, 8f, 45f, 1f, false, 12f);
         int hops = ps.Length - 1;
         f.hopTime = RockHop; f.hopUp = 1.2f; f.lastHopScale = hops > 1 ? 2f : 1f; f.firstHopScale = first; f.firstUp = firstUp; f.launchFx = launch;
