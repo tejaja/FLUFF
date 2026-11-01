@@ -1375,7 +1375,7 @@ public static class FuwaCourse2_2Builder
             {
                 float x = Mathf.Lerp(x0, x1, j / (float)nx); var q = WallAt(line, x);
                 float lobe = layer < 0.5f ? 1f : 0.62f + 0.38f * (0.5f + 0.5f * Mathf.Sin(x * 1.1f + 1.9f));   // 黄色は高低差をつける
-                float y0 = q.floor - 0.4f, h = (q.top - y0) * heightFrac * lobe * Mathf.Lerp(0.25f, 1f, Mathf.Clamp01((xTail - x) / 1f));
+                float y0 = q.floor - 0.4f, endK = Mathf.Clamp01(Mathf.Min(x - x0, x1 - x) / 1.4f), h = (q.top - y0) * heightFrac * lobe * Mathf.Lerp(0.25f, 1f, Mathf.Clamp01((xTail - x) / 1f)) * Mathf.Lerp(0.3f, 1f, Mathf.SmoothStep(0f, 1f, endK));   // はしは低く丸める（縦に切れて見えた）
                 float w = width * Mathf.Clamp01(Mathf.Min(x - x0, x1 - x) / 0.7f + 0.12f);
                 for (int c = 0; c < ks.Length; c++)
                 {
@@ -1390,7 +1390,7 @@ public static class FuwaCourse2_2Builder
         var core = new[] { 0f, 0.5f, 1f, 0.5f, 0f };
         foreach (var line in new[] { ptsA, ptsB })
         {
-            Tube(line, 0f, 0.25f, 0.42f, 0.82f, body);
+            Tube(line, 0f, 0.25f, 0.42f, 0.95f, body);
             Tube(line, 1f, 0.6f, 0.2f, 0.5f, core);
             for (float x = line[0].p.x + 0.8f; x < line[line.Count - 1].p.x - 0.4f; x += 3.2f, blobN++)
             {
@@ -1398,7 +1398,7 @@ public static class FuwaCourse2_2Builder
                 f.Blob(new Vector3(x, q.top - 1.2f, q.p.z), seed, 0.8f);
             }
         }
-        var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 0.6f, 0.35f, 0.18f, 2.8f, 3.6f, 1f); mat.SetFloat("_Pulse", 0f); mat.SetFloat("_Wave", 2.6f); mat.SetFloat("_WaveScale", 0.09f); EditorUtility.SetDirty(mat);
+        var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 0.6f, 0.35f, 0.18f, 2.8f, 3.6f, 1f); mat.SetFloat("_Pulse", 0f); mat.SetFloat("_Wave", 2.2f); mat.SetFloat("_WaveScale", 0.09f); EditorUtility.SetDirty(mat);
         var c2 = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c2.transform.SetParent(g, false);
         c2.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Curtain", 4f);
         var r = c2.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
