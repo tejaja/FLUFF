@@ -81,21 +81,12 @@ public class FuwaHeat : UdonSharpBehaviour
     {
         if (ball == null || ball.IsWaitingOrHidden()) return;
         _hover = false; StopBurn();
-        CharFx();
         ball.FailByBurn();
-    }
-    private float _charUntil;
-    private void CharFx()
-    {
-        // 黒焦げの間は、黒い煙っぽく少しだけ炎を残す
-        if (burnFx == null || ball == null) return;
-        _charUntil = Time.time + ball.charFreezeTime + 0.2f;
-        var e = burnFx.emission; e.rateOverTime = 15f;
-        burnFx.transform.position = ball.transform.position;
     }
     private void StartBurn(Vector3 p)
     {
         _burning = true; _burnAt = Time.time; _douse = 0f;
+        if (ball != null) ball.SetBurnFace(true);
         if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = burnRate; burnFx.transform.position = p; }
         if (burnMesh != null) { burnMesh.transform.position = p + burnMeshOffset; burnMesh.SetActive(true); }
         if (burnSound != null && burnSound.clip != null) { burnSound.transform.position = p; burnSound.PlayOneShot(burnSound.clip); }   // ふわふわの場所で鳴らす
@@ -105,13 +96,14 @@ public class FuwaHeat : UdonSharpBehaviour
     private void StopBurn()
     {
         _burning = false;
+        if (ball != null) ball.SetBurnFace(false);
         if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = 0f; }
         if (burnMesh != null) burnMesh.SetActive(false);
     }
 
     private void Update()
     {
-        if (burnFx != null && (_burning || _charUntil > 0f) && ball != null) burnFx.transform.position = ball.transform.position;
+        if (burnFx != null && _burning && ball != null) burnFx.transform.position = ball.transform.position;
         if (burnMesh != null && _burning && ball != null)
         {
             burnMesh.transform.position = ball.transform.position + burnMeshOffset;
@@ -120,7 +112,6 @@ public class FuwaHeat : UdonSharpBehaviour
             if (burnMesh.activeSelf != show) burnMesh.SetActive(show);
             if (burnFx != null) { var em = burnFx.emission; em.rateOverTime = show ? burnRate : 0f; }
         }
-        if (_charUntil > 0f && Time.time > _charUntil) { _charUntil = 0f; if (!_burning && burnFx != null) { var e = burnFx.emission; e.rateOverTime = 0f; } }
     }
 
     // 溜め具合 → 消す量（0＝ためなし douseTap、0.5＝douseHalf、1＝1）
@@ -148,7 +139,7 @@ public class FuwaHeat : UdonSharpBehaviour
                 _douse += DouseOf(ball.LastShotCharge());
                 if (_douse >= 0.999f) { StopBurn(); ball.Glow(new Color(0.85f, 0.9f, 1f), Vector3.up, 1f, 0.3f); }
             }
-            if (_burning && Time.time - _burnAt > burnGrace) { _hover = false; StopBurn(); CharFx(); ball.FailByBurn(); return; }
+            if (_burning && Time.time - _burnAt > burnGrace) { _hover = false; StopBurn(); ball.FailByBurn(); return; }
         }
 
         if (_hover)

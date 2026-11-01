@@ -76,6 +76,7 @@ public static class FuwaCourse2_2Builder
         heat = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHeat>(hg); heat.ball = ballProxy;
         heat.burnSound = Sfx(hg.transform, "BurnSfx", "sfx_burn_start", Vector3.zero, 5f, 40f, 1f, false, 8f);
         heat.sideSpring = 1.6f;   // 横に引っぱるばねを弱く（2026-11-01 てじゃ「露骨に吸い寄せすぎる」、前は 4）
+        heat.burnGrace = BurnGrace;
         heat.burnAfter = 4f;   // 浮いてから燃えだすまで（6→4、てじゃ「燃えるまでの時間も入り口付近のも含めてもうちょい短く」）
         BallBurnLook(hg.transform, heat);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(heat); FuwaStage2WaterTest.NoSync(heat);
@@ -1021,6 +1022,7 @@ public static class FuwaCourse2_2Builder
     //  レイで見る FlameVolume は見た目はよかったが、近づくと前の炎の 5〜6 倍重かった（てじゃ「重くなるのはやだ」）
     // 炎上の見た目（2026-11-01 てじゃ「フワフワの炎上とまものの炎上Particle、もうちょいいい感じに」→ 比較して案2）：
     // 焚き火と同じ炎のメッシュを頭の上に大きめに＋ふちのくっきりした粒。顔は隠さない。s は体の大きさ(m)
+    public static float BurnGrace = 3f;   // 燃えてからアウトまで 3.5→3（てじゃ「ちょっとだけ短く」）
     public const float BallBurnS = 0.3f, MonsterBurnS = 0.46f;
     static ParticleSystem BurnBlobs(Transform parent, string name, float s, float rate)
     {

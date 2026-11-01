@@ -251,7 +251,7 @@ public class FuwaBall : UdonSharpBehaviour
             _furDrag = Vector3.Lerp(_furDrag, target, 1f - Mathf.Exp(-8f * Time.deltaTime));
             _furMat.SetVector("_Drag", new Vector4(_furDrag.x, _furDrag.y, _furDrag.z, 0f));
             UpdateGlow();
-            bool hit = Time.time < _hitFaceUntil || _resetAt > 0f || _spiking;   // アウトになってから戻るまでも 😣（2026-10-31 てじゃ）
+            bool hit = _burnFace || Time.time < _hitFaceUntil || _resetAt > 0f || _spiking;   // アウトになってから戻るまでも 😣（2026-10-31 てじゃ）
             if (hit != _hitFaceShown) { _hitFaceShown = hit; _furMat.SetFloat("_FaceHit", hit ? 1f : 0f); }
         }
         if (_stuck) UpdateStuckShake();
@@ -547,8 +547,14 @@ public class FuwaBall : UdonSharpBehaviour
     }
 
     // 影響がある間はすっと光り、終わったらゆっくり消える
+    // 燃えている間も 😣（2026-11-01 てじゃ「炎上中に表情変えるのも追加で」）
+    private bool _burnFace;
+    public void SetBurnFace(bool on) { _burnFace = on; }
+
     private void UpdateGlow()
     {
+        // 黒焦げの間は光らせない（2026-11-01 てじゃ「黒焦げなったらふわふわのグラデーションエフェクトとか消したい」）
+        if (_charred) { _glowAmount = 0f; _furMat.SetColor("_GlowColor", new Color(0f, 0f, 0f, 0f)); return; }
         float target = Time.time < _glowUntil && !_hidden ? _glowTarget : 0f;
         // 溜めて撃って風の効きが弱まっている間は、黄色く光る（撃った向きに光の帯が流れる）。
         // 撃った瞬間が一番明るく、(1-u)^2 でなめらかに消える（終わりぎわがパッと消えないように）
