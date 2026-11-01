@@ -977,8 +977,8 @@ public static class FuwaCourse2_2Builder
     public static Mesh SeedFlameMesh()
     {
         var f = new FlameMeshB();
-        f.Egg(0f, Vector3.zero, 0.42f, 0.29f, 2.5f, 0.95f, 34, 36, 0f, 1.6f);
-        f.Egg(1f, Vector3.zero, 0.38f, 0.17f, 1.8f, 0.9f, 20, 26, 0f, 1.6f);
+        f.Egg(0f, Vector3.zero, 0.42f, 0.29f, 2.5f, 0.95f, 24, 24, 0f, 1.6f);
+        f.Egg(1f, Vector3.zero, 0.38f, 0.17f, 1.8f, 0.9f, 12, 16, 0f, 1.6f);
         for (int n = 0; n < 5; n++) { float seed = (n + 0.37f) * 0.19f; f.Blob(new Vector3(Mathf.Sin(seed * 41f) * 0.14f, 0.92f, Mathf.Cos(seed * 29f) * 0.14f), seed, 0.6f); }
         return f.Build("Course2_2_FlameMesh", 0.7f);
     }
@@ -1012,7 +1012,7 @@ public static class FuwaCourse2_2Builder
         }
         public void Blob(Vector3 anchor, float seed, float k)
         {
-            const int Rows = 7, Seg = 12;
+            const int Rows = 5, Seg = 6;
             for (int j = 0; j <= Rows; j++)
             {
                 float th = Mathf.Lerp(-90f, 90f, j / (float)Rows) * Mathf.Deg2Rad;
@@ -1371,15 +1371,15 @@ public static class FuwaCourse2_2Builder
         foreach (var line in new[] { ptsA, ptsB })
         {
             float x0 = line[0].p.x, x1 = line[line.Count - 1].p.x;
-            for (float x = x0 + 0.3f; x < x1; x += 0.85f, n++)
+            for (float x = x0 + 0.3f; x < x1; x += 1f, n++)
             {
                 var q = WallAt(line, x); float seed = Mathf.Repeat((n + 0.37f) * 0.618f, 1f), tailK = Mathf.Lerp(0.3f, 1f, Mathf.Clamp01((xTail - x) / 1.2f));
                 float y0 = q.floor - 0.4f, top = q.top - y0, h = top * Mathf.Lerp(0.78f, 1.04f, seed) * tailK, cy = y0 + h * 0.38f;
                 var c = new Vector3(x, 0f, q.p.z + (n % 2 == 0 ? 0.08f : -0.08f));
                 const float R = 0.68f;
-                f.Egg(0f, c, cy, R, (y0 + h - cy) / R, (cy - y0) / R, 12, 8, y0, h, 0.62f, 0.45f, seed + 0.01f, 1.15f);
-                if (n % 2 == 0) { float hc = h * Mathf.Lerp(0.42f, 0.62f, seed), rc = 0.5f; f.Egg(1f, c, cy, rc, (y0 + hc - cy) / rc, (cy - y0) / rc, 8, 8, y0, h, 0.62f, 0.45f, seed + 0.01f, 1.15f); }
-                if (n % 3 == 0) f.Blob(new Vector3(x, y0 + h - 0.7f, q.p.z), Mathf.Repeat(seed * 7.3f, 1f), 0.8f);
+                f.Egg(0f, c, cy, R, (y0 + h - cy) / R, (cy - y0) / R, 8, 6, y0, h, 0.62f, 0.45f, seed + 0.01f, 1.15f);
+                if (n % 3 == 0) { float hc = h * Mathf.Lerp(0.42f, 0.62f, seed), rc = 0.5f; f.Egg(1f, c, cy, rc, (y0 + hc - cy) / rc, (cy - y0) / rc, 6, 6, y0, h, 0.62f, 0.45f, seed + 0.01f, 1.15f); }
+                if (n % 4 == 1) f.Blob(new Vector3(x, y0 + h - 0.7f, q.p.z), Mathf.Repeat(seed * 7.3f, 1f), 0.8f);
             }
         }
         var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 1f, 0.35f, 0.18f, 2.4f, 3.6f, 1f); mat.SetFloat("_Pulse", 0.85f); EditorUtility.SetDirty(mat);
@@ -1758,9 +1758,9 @@ public static class FuwaCourse2_2Builder
         {
             float y0 = maxBack - backs[r] - 1f, h = L - y0, cy = y0 + h * 0.2f; var c = new Vector3(0f, 0f, rowZ[r]);
             const float R = 0.56f, RCore = 0.28f;
-            f.Egg(0f, c, cy, R, (L - cy) / R, (cy - y0) / R, 22, 14, y0, h);
-            f.Egg(1f, c, cy, RCore, h * 0.5f / RCore, (cy - y0) * 0.7f / RCore, 10, 10, y0, h);
-            for (int b = 0; b < 3; b++) { float seed = (r * 3 + b + 0.37f) * 0.137f; f.Blob(c + Vector3.up * (L - 1.6f), seed, 0.85f); }
+            f.Egg(0f, c, cy, R, (L - cy) / R, (cy - y0) / R, 16, 10, y0, h);
+            f.Egg(1f, c, cy, RCore, h * 0.5f / RCore, (cy - y0) * 0.7f / RCore, 8, 8, y0, h);
+            for (int b = 0; b < 2; b++) { float seed = (r * 3 + b + 0.37f) * 0.137f; f.Blob(c + Vector3.up * (L - 1.6f), seed, 0.85f); }
         }
         var mat = FlameMeshMat("Stage2_2_JetFlame", 0.33f, 1.1f, 0.1f, 0.5f, 0.45f, 0.1f, 2.6f, 3.2f, 1.3f);
         var o = new GameObject("FlameBody", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.transform.localPosition = Vector3.down * maxBack;
