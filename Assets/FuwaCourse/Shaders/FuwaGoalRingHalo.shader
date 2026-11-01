@@ -25,19 +25,19 @@ Shader "FuwaCourse/GoalRingHalo"
             fixed4 _Color;
             half _Glow;
 
-            struct appdata { float4 vertex : POSITION; fixed4 color : COLOR; };
-            struct v2f { float4 pos : SV_POSITION; fixed a : TEXCOORD0; UNITY_FOG_COORDS(1) };
+            struct appdata { float4 vertex : POSITION; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; fixed a : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
-                v2f o;
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.a = v.color.a;
                 UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
 
             fixed4 frag (v2f i) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 half a = i.a * i.a * _Glow * 0.5;
                 { fixed4 fogc__ = fixed4(_Color.rgb * a, 0); UNITY_APPLY_FOG_COLOR(i.fogCoord, fogc__, fixed4(0,0,0,0)); return fogc__; }
             }

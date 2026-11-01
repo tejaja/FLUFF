@@ -28,11 +28,11 @@ Shader "FuwaCourse/Bubble"
             half _RimWidth, _RimAlpha, _FillAlpha, _Iris, _Highlight;
             half4 _Tint;
             half _Upright;
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; float4 rnd : TEXCOORD1; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; float seed : TEXCOORD1; UNITY_FOG_COORDS(2) };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; float4 rnd : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; float seed : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata v)
             {
-                v2f o; o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.uv; o.color = v.color;
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o); o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.uv; o.color = v.color;
                 if (_Upright > 0.5)
                 {
                     // ビルボードは画面に合わせて回るので（VRで首をかしげると一緒に回る）、模様の向きを世界の上向きにそろえる
@@ -47,7 +47,7 @@ Shader "FuwaCourse/Bubble"
             }
             half3 Hue(half h) { h = frac(h); return saturate(abs(frac(h + half3(0, 0.6667, 0.3333)) * 6 - 3) - 1); }
             fixed4 frag (v2f i) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float2 p = i.uv * 2 - 1;
                 float r = length(p);
                 if (r > 1) discard;

@@ -29,19 +29,19 @@ Shader "FuwaCourse/GoalRing"
             half _Glow;
             half _Alpha;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; };
-            struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; UNITY_FOG_COORDS(1) };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
-                v2f o;
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.n = UnityObjectToWorldNormal(v.normal);
                 UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
 
             fixed4 frag (v2f i) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 // 上から光が当たった程度のやわらかい陰影
                 half shade = 0.7 + 0.3 * saturate(normalize(i.n).y * 0.5 + 0.5);
                 half3 c = _Color.rgb * (shade + _Emission);

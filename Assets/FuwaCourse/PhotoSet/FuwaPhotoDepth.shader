@@ -6,10 +6,10 @@ Shader "Hidden/FuwaPhotoDepth"
     CGINCLUDE
     #include "UnityCG.cginc"
     sampler2D _MainTex; float4 _MainTex_ST; float _Cutoff;
-    struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float z : TEXCOORD1; };
-    v2f vert (appdata_base v) { v2f o; o.pos = UnityObjectToClipPos(v.vertex); o.uv = TRANSFORM_TEX(v.texcoord, _MainTex); o.z = -UnityObjectToViewPos(v.vertex).z; return o; }
-    float4 fragOpaque (v2f i) : SV_Target { return i.z; }
-    float4 fragCut (v2f i) : SV_Target { clip(tex2D(_MainTex, i.uv).a - _Cutoff); return i.z; }
+    struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float z : TEXCOORD1; UNITY_VERTEX_OUTPUT_STEREO };
+    v2f vert (appdata_base v) { v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o); o.pos = UnityObjectToClipPos(v.vertex); o.uv = TRANSFORM_TEX(v.texcoord, _MainTex); o.z = -UnityObjectToViewPos(v.vertex).z; return o; }
+    float4 fragOpaque (v2f i) : SV_Target { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i); return i.z; }
+    float4 fragCut (v2f i) : SV_Target { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i); clip(tex2D(_MainTex, i.uv).a - _Cutoff); return i.z; }
     ENDCG
     SubShader { Tags { "RenderType"="Opaque" } Pass { CGPROGRAM
         #pragma vertex vert

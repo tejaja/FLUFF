@@ -133,12 +133,13 @@ Shader "FuwaCourse/ToonLit"
                 float3 pp : TEXCOORD7;   // 色ムラ・層の模様を取る位置（つららは根元＝天井の位置で取って、天井と同じ層の色にする）
                 FUWA_BAKED_COORDS(8)
                 UNITY_VERTEX_INPUT_INSTANCE_ID
+                UNITY_VERTEX_OUTPUT_STEREO
             };
 
             v2f vert (appdata v)
             {
                 v2f o;
-                UNITY_SETUP_INSTANCE_ID(v);
+                UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 UNITY_TRANSFER_INSTANCE_ID(v, o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
@@ -161,7 +162,7 @@ Shader "FuwaCourse/ToonLit"
             }
 
             fixed4 frag (v2f i, fixed facing : VFACE) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 UNITY_SETUP_INSTANCE_ID(i);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
@@ -301,10 +302,10 @@ Shader "FuwaCourse/ToonLit"
                 UNITY_DEFINE_INSTANCED_PROP(fixed4, _Color)
             UNITY_INSTANCING_BUFFER_END(Props)
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; half fade : TEXCOORD3; UNITY_SHADOW_COORDS(4) UNITY_FOG_COORDS(5) UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; half fade : TEXCOORD3; UNITY_SHADOW_COORDS(4) UNITY_FOG_COORDS(5) UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata v)
             {
-                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_TRANSFER_INSTANCE_ID(v, o);
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o); UNITY_TRANSFER_INSTANCE_ID(v, o);
                 o.pos = UnityObjectToClipPos(v.vertex); o.uv = TRANSFORM_TEX(v.uv, _MainTex);
                 o.wn = UnityObjectToWorldNormal(v.normal);
                 o.fade = _BaseFadeLength > 0 ? smoothstep(-_BaseFadeLength, 0, v.vertex.y) : 0;
@@ -314,7 +315,7 @@ Shader "FuwaCourse/ToonLit"
                 return o;
             }
             fixed4 frag (v2f i) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 UNITY_SETUP_INSTANCE_ID(i);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);

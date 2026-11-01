@@ -26,12 +26,12 @@ Shader "FuwaCourse/RingSprite"
             fixed4 _Color;
             float _Radius, _Width, _Glow;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_FOG_COORDS(1) };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
-                v2f o;
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
                 o.color = v.color * _Color;
@@ -40,7 +40,7 @@ Shader "FuwaCourse/RingSprite"
             }
 
             fixed4 frag (v2f i) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float d = length(i.uv - 0.5);
                 half band = saturate(1 - abs(d - _Radius) / _Width);
                 band = band * band * (3 - 2 * band);

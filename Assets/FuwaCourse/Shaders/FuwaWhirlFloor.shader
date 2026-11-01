@@ -34,12 +34,12 @@ Shader "FuwaCourse/WhirlFloor"
             fixed4 _Color;
             half _Alpha, _Arms, _Curl, _Spin, _Sharp, _Inner, _Edge, _SpinDir, _FadeStart, _RingAlpha;
 
-            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_FOG_COORDS(1) };
+            struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; fixed4 color : COLOR; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
-                v2f o;
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
                 o.color = v.color;   // 頂点アルファ＝道のふちでぼかす分（ふつうの板は白）
@@ -48,7 +48,7 @@ Shader "FuwaCourse/WhirlFloor"
             }
 
             fixed4 frag (v2f i) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float2 p = i.uv - 0.5;
                 float r = length(p) * 2;                 // 0（中心）〜1（ふち）
                 float a = atan2(p.y, p.x) / 6.2832;      // -0.5〜0.5

@@ -32,7 +32,7 @@ float sdCapsuleY(float2 p, float halfLen, float r)
 }
 
 fixed4 fragFace (v2f i) : SV_Target
-{
+{ UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
     if (_FaceOn < 0.5) discard;
     float3 center = unity_ObjectToWorld._m03_m13_m23;
     // 描く板は毛先の外側だけど、絵は見た目の毛玉のふくらみ（内側の球）に貼ってあるように見せる：

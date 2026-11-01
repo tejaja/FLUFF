@@ -27,12 +27,12 @@ Shader "FuwaCourse/RainbowRim"
 
             float _Sat, _Val, _Speed, _HueOffset, _Shade, _Under, _UnderGrad, _HalfH;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; };
-            struct v2f { float4 pos : SV_POSITION; float3 op : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float3 op : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
-                v2f o;
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.op = v.vertex.xyz;
                 o.wn = UnityObjectToWorldNormal(v.normal);
@@ -43,7 +43,7 @@ Shader "FuwaCourse/RainbowRim"
             float3 Hue(float h) { float3 k = abs(frac(h + float3(0, 2.0 / 3.0, 1.0 / 3.0)) * 6 - 3) - 1; return saturate(k); }
 
             fixed4 frag (v2f i) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float ang = atan2(i.op.y, i.op.x) / 6.28318 + 0.5;
                 float3 col = lerp(1, Hue(ang + _HueOffset + _Time.y * _Speed), _Sat) * _Val;
                 float ndl = dot(normalize(i.wn), normalize(_WorldSpaceLightPos0.xyz)) * 0.5 + 0.5;

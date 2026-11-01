@@ -21,14 +21,14 @@ Shader "FuwaCourse/CaveInner"
             #pragma multi_compile_fog
             #include "UnityCG.cginc"
             fixed4 _MouthColor, _DeepColor; float4 _MouthPos, _InDir; float _Depth;
-            struct v2f { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) };
+            struct v2f { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata_base v)
             {
-                v2f o; o.pos = UnityObjectToClipPos(v.vertex); o.wp = mul(unity_ObjectToWorld, v.vertex).xyz; o.wn = UnityObjectToWorldNormal(v.normal);
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o); o.pos = UnityObjectToClipPos(v.vertex); o.wp = mul(unity_ObjectToWorld, v.vertex).xyz; o.wn = UnityObjectToWorldNormal(v.normal);
                 UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
             fixed4 frag (v2f i) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float d = dot(i.wp - _MouthPos.xyz, normalize(_InDir.xyz));
                 float k = smoothstep(-0.3, _Depth, d);
                 // 面の向きでほんの少し明暗（のっぺり防止）

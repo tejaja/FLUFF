@@ -25,12 +25,12 @@ Shader "FuwaCourse/GunMarker"
             half _Emission;
             float _BobHeight, _BobSpeed, _SpinSpeed;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; };
-            struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; UNITY_FOG_COORDS(1) };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
-                v2f o;
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float a = _Time.y * _SpinSpeed;
                 float s = sin(a), c = cos(a);
                 float3 p = v.vertex.xyz;
@@ -45,7 +45,7 @@ Shader "FuwaCourse/GunMarker"
             }
 
             fixed4 frag (v2f i) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 // 面ごとに少し明るさを変えて、立体に見えるように
                 float3 n = normalize(i.n);
                 half shade = 0.62 + 0.38 * saturate(dot(n, normalize(float3(0.4, 0.8, 0.3))) * 0.5 + 0.5);

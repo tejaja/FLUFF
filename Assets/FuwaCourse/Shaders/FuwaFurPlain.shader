@@ -45,7 +45,7 @@
         #define FUR_H _PlainH
         #include "FuwaFur.cginc"
         fixed4 fragPlain (v2f i) : SV_Target
-        {
+        { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
             float3 n = normalize(i.worldNormal);
             float3 l = normalize(_WorldSpaceLightPos0.xyz);
             float ndl = saturate(dot(n, l) * 0.6 + 0.4);

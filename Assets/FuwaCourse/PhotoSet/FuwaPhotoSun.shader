@@ -28,14 +28,14 @@ Shader "FuwaCourse/PhotoSun"
             fixed4 _SunColor, _DiscColor, _RayColor, _EyeColor, _CheekColor;
             float _Spin, _Shade;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv1 : TEXCOORD1; };
-            struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; float3 objN : TEXCOORD1; float3 wpos : TEXCOORD2; float part : TEXCOORD3; };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv1 : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float3 n : TEXCOORD0; float3 objN : TEXCOORD1; float3 wpos : TEXCOORD2; float part : TEXCOORD3; UNITY_VERTEX_OUTPUT_STEREO };
 
             float2 rot(float2 p, float a) { float s, c; sincos(a, s, c); return float2(p.x * c - p.y * s, p.x * s + p.y * c); }
 
             v2f vert (appdata v)
             {
-                v2f o;
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float3 p = v.vertex.xyz, n = v.normal;
                 if (v.uv1.x > 0.5) { p.xy = rot(p.xy, _Spin); n.xy = rot(n.xy, _Spin); }
                 o.pos = UnityObjectToClipPos(float4(p, 1));
@@ -47,7 +47,7 @@ Shader "FuwaCourse/PhotoSun"
             }
 
             fixed4 frag (v2f i) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float3 n = normalize(i.n);
                 float3 v = normalize(_WorldSpaceCameraPos - i.wpos);
                 float3 L = dot(_WorldSpaceLightPos0.xyz, _WorldSpaceLightPos0.xyz) > 1e-4 ? normalize(_WorldSpaceLightPos0.xyz) : float3(0, 1, 0);

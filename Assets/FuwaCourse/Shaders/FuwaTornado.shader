@@ -41,12 +41,12 @@ Shader "FuwaCourse/Tornado"
             float _SwayAmp, _SwaySpeed, _NearDist, _FarDist;
             half _FarAlpha;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; UNITY_FOG_COORDS(3) };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; UNITY_FOG_COORDS(3) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
-                v2f o;
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 float h = v.uv.y;
                 float t = _Time.y * _SwaySpeed;
                 // 上ほど大きく、2つの周期を重ねたくねくね（根元はほぼ動かない）
@@ -65,7 +65,7 @@ Shader "FuwaCourse/Tornado"
             }
 
             fixed4 frag (v2f i, fixed facing : VFACE) : SV_Target
-            {
+            { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float h = i.uv.y;
                 // ねじれた筋：まわりの角度に、高さに比例したねじれと時間の回転・上昇を足す
                 float a = i.uv.x * _Bands + h * _Twist * _Bands - _Time.y * _Spin * _Bands * 0.25 - _Time.y * _Rise;
