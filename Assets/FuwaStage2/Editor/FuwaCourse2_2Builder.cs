@@ -141,6 +141,8 @@ public static class FuwaCourse2_2Builder
         // 火種1・2：角の丸みのまん中（corners12 は角ごと、[0] は橋の先のちょっとした角）
         GroundFire(fire, "Seed1", corners12[1], (Flat(pts12[2] - pts12[1]).normalized - Flat(pts12[3] - pts12[2]).normalized).normalized);
         GroundFire(fire, "Seed2", corners12[3], (Flat(pts12[4] - pts12[3]).normalized - Flat(pts12[5] - pts12[4]).normalized).normalized);
+        // 広い道の溶岩池の横の焚き火（2026-11-01 てじゃの図「赤◯に焚き火ほしい」）
+        for (int k = 0; k < WideSeedSpots.Length; k++) { var q = WideSeedSpots[k]; GroundFire(fire, "WideSeed" + k, new Vector3(q.x, Along(r12, q).y, q.z), new Vector3(Mathf.Sign(q.x), 0f, 0f)); }
         // 噴気孔：左ななめ上の長い坂の入口に1つ。ぶわーっと斜め上に吹き出していて、乗ったふわふわを火種2へ斜めに吹っ飛ばす（FuwaLaunchPad）
         // （2026-10-29 てじゃ「中間だけ風あるのも不自然」→ 割れ目＋熱風 →「やっぱへん、ぶわーっと一個吹き出してるのを置いて斜めに吹っ飛ばす」）
         {
@@ -895,6 +897,24 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火種：地面の燃えさし＋炎＋熱の範囲（かがり火と同じ FuwaHeatSource、止まる所は地面の SeedHover 上）
+    public static readonly Vector3[] WideSeedSpots = { new Vector3(-3.39f, 0f, 38.62f), new Vector3(3.93f, 0f, 47.23f) };
+    // シーンの今の 2–2 に広い道の焚き火だけ足す（作り直さずに）
+    public static string AddWideSeeds(Transform root)
+    {
+        var fire = root.Find("Fire"); heat = root.GetComponentInChildren<FuwaHeat>(true); rockMat = PathSideMat();
+        var log = "";
+        for (int k = 0; k < WideSeedSpots.Length; k++)
+        {
+            var old = fire.Find("WideSeed" + k); if (old) Object.DestroyImmediate(old.gameObject);
+            var q = WideSeedSpots[k]; Physics.SyncTransforms();
+            var from = root.TransformPoint(new Vector3(q.x, 20f, q.z));
+            if (!Physics.Raycast(from, Vector3.down, out var hit, 40f, 1 << 11, QueryTriggerInteraction.Ignore)) { log += "道がない " + k + "\n"; continue; }
+            var y = root.InverseTransformPoint(hit.point).y;
+            GroundFire(fire, "WideSeed" + k, new Vector3(q.x, y, q.z), new Vector3(Mathf.Sign(q.x), 0f, 0f));
+            log += "WideSeed" + k + " y=" + y.ToString("F2") + " 当たり=" + hit.collider.name + "\n";
+        }
+        return log;
+    }
     static void GroundFire(Transform parent, string name, Vector3 lp, Vector3 outward)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = lp;
