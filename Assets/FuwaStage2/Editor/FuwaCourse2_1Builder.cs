@@ -866,6 +866,7 @@ public static class FuwaCourse2_1Builder
         AirFallsFray(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
+        OuterIsles(root);
         FuwaStage2Static.Apply(root);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–1] 長さ " + sEnd.ToString("F0") + "m  台→池 " + sPlaza1.ToString("F1") + " 川 " + sPool1.ToString("F1") + "–" + sRiver1.ToString("F1")
@@ -4350,6 +4351,30 @@ public static class FuwaCourse2_1Builder
     // 板の上の面は道の高さ（当たり判定は PathMesh のまま）。ゴールへの道の終わりは、見た目だけ島の橋の板の下までのばす（道のはしのままだと すき間が見えた）
     const float GoalWoodLap = 0.35f;
     const float PlankPitch = 0.32f, PlankT = 0.09f, BeamW = 0.16f, BeamH = 0.18f, BeamIn = 0.22f, BeamEmbed = 0.08f;
+    // まわりに浮かぶ小さい島（2026-11-01 てじゃ「2-1のまわりなんもういてなかった」）。遠景の滝つきの島（FarIslands）を小さくして使う。当たりなし。道から 11〜19m はなれた所
+    static readonly (float x, float y, float z, float scale, float yaw, int kind)[] OuterIsleSpots =
+    {
+        (-22f, 7f, -1f, 3.4f, 20f, 0), (20f, 5f, 17f, 2.8f, 130f, 1), (-28f, 3f, 23f, 4f, 250f, 2), (26f, 9f, 41f, 3.4f, 70f, 0),
+        (-22f, -2f, 47f, 3f, 200f, 1), (32f, 7f, 65f, 3.6f, 310f, 2), (-16f, 10f, 71f, 2.8f, 40f, 0), (32f, 2f, 89f, 3.2f, 160f, 1),
+        (-10f, 18f, 95f, 3f, 280f, 2), (32f, 8f, 113f, 3.6f, 90f, 0), (-16f, 16f, 119f, 3.2f, 330f, 1), (32f, 4f, 137f, 3f, 220f, 2), (14f, 10f, 149f, 3.4f, 15f, 0),
+    };
+    public static void OuterIsles(Transform root)
+    {
+        var old = root.Find("OuterIsles"); if (old) Object.DestroyImmediate(old.gameObject);
+        var src = GameObject.Find("FarIslands/FarIslands_Main"); if (!src) { Debug.LogWarning("[2–1] 遠景の島（FarIslands_Main）がない"); return; }
+        // 形のちがう 3 種類（FarIsland_A / B / C）を遠景から写す
+        var kinds = new Transform[3]; string[] meshes = { "FarIsland_A", "FarIsland_B", "FarIsland_C" };
+        foreach (Transform t in src.transform) { var mf = t.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue; for (int k = 0; k < 3; k++) if (!kinds[k] && mf.sharedMesh.name == meshes[k]) kinds[k] = t; }
+        var g = new GameObject("OuterIsles").transform; g.SetParent(root, false);
+        for (int i = 0; i < OuterIsleSpots.Length; i++)
+        {
+            var s = OuterIsleSpots[i]; var k = kinds[s.kind] ? kinds[s.kind] : kinds[0]; if (!k) return;
+            var o = Object.Instantiate(k.gameObject, g, false); o.name = "Isle" + i;
+            o.transform.localPosition = new Vector3(s.x, s.y, s.z); o.transform.localRotation = Quaternion.Euler(0f, s.yaw, 0f); o.transform.localScale = Vector3.one * s.scale;
+            foreach (var c in o.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(c.GetType() == typeof(MeshCollider) && c.transform != o.transform ? (Object)c.gameObject : c);   // 飾りなので当たりはなし
+        }
+    }
+
     // 迂回路の浮島（ゴールの島と同じ作りの小さい版：芝の丸い台＋下の岩）。台の上はふわふわが乗るとアウト（道と同じ FuwaTopOut）
     static void BridgeIsland(Transform root)
     {
