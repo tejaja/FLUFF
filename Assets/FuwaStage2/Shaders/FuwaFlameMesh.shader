@@ -1,5 +1,5 @@
 // 2–2 の焚き火と燃える島の炎（2026-11-01）。FlameVolume の見た目のまま軽くした版（てじゃ「重くなるのはやだ」）。ふつうのメッシュを頂点で動かすだけで、色はオレンジと黄色の 2 色
-// uv.x：0 = 外のたまご、1 = 中の黄色、2 = ちぎれて飛ぶかたまり。uv.y：かたまりごとのずれ。ノイズを読むのは頂点だけ（上のほうだけピクセルで 1 回、穴をあける）
+// uv.x：0 = 外、1 = 中の黄色、2 = ちぎれて飛ぶかたまり（頂点が出る場所、法線が玉の形）。uv.y：かたまりごとのずれ。色 r：根元 0〜先 1。ノイズを読むのは頂点だけ（上のほうだけピクセルで 1 回、穴をあける）
 // 黄色は深さだけ手前にずらして外から透けて見せる（描く位置は変えない）
 Shader "FuwaCourse/FlameMesh"
 {
@@ -14,6 +14,13 @@ Shader "FuwaCourse/FlameMesh"
         _AmpBase ("根元のでこぼこ", Float) = 0.1
         _AmpTop ("先のでこぼこ", Float) = 0.42
         _Tear ("先の穴のあき具合", Range(0,1.5)) = 0.75
+        _Sway ("ゆれ（オブジェクトの長さ）", Float) = 0.05
+        _BlobRise ("飛ぶかたまりの上がる高さ", Float) = 0.58
+        _BlobSize ("飛ぶかたまりの大きさ", Float) = 1
+        _Bias ("黄色を手前にずらす量", Float) = 1
+        _Burn ("根元から燃えつきる（火炎放射）", Range(0,1)) = 0
+        _Pulse ("かたまりごとの伸び縮み（オブジェクトの長さ）", Float) = 0
+        _TimeAdd ("時間を足す（撮影用）", Float) = 0
     }
     SubShader
     {
@@ -32,20 +39,20 @@ Shader "FuwaCourse/FlameMesh"
             #pragma target 3.5
             #include "UnityCG.cginc"
             #include "FuwaFireFar.cginc"
-            #define BOX_H 1.6
 
             sampler3D _Noise;
             half4 _Orange, _Yellow;
-            float _Speed, _FlowSpeed, _NoiseScale, _AmpBase, _AmpTop, _Tear;
+            float _Speed, _FlowSpeed, _NoiseScale, _AmpBase, _AmpTop, _Tear, _Sway, _BlobRise, _BlobSize, _Bias, _Burn, _Pulse, _TimeAdd;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f
             {
                 float4 pos : SV_POSITION;
                 float3 np : TEXCOORD0;     // 穴をあけるノイズの座標（流れ込み）
                 half3 col : TEXCOORD1;
                 half tear : TEXCOORD2;     // 0 なら穴なし
-                UNITY_FOG_COORDS(3)
+                half k : TEXCOORD3;        // 根元 0〜先 1
+                UNITY_FOG_COORDS(4)
                 UNITY_VERTEX_OUTPUT_STEREO
             };
 
@@ -63,24 +70,26 @@ Shader "FuwaCourse/FlameMesh"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_OUTPUT(v2f, o);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-                float t = _Time.y * _Speed, layer = v.uv.x, seed = v.uv.y;
-                float2 sway = float2((sin(t * 2.3) + 0.5 * sin(t * 3.9)) * 0.05, (sin(t * 1.9 + 2.0) + 0.5 * sin(t * 3.3)) * 0.05);
+                float t = _Time.y * _Speed + _TimeAdd, layer = v.uv.x, seed = v.uv.y;
+                float k = v.color.r;
+                o.k = k;
+                float2 sway = float2(sin(t * 2.3) + 0.5 * sin(t * 3.9), sin(t * 1.9 + 2.0) + 0.5 * sin(t * 3.3)) * _Sway;
                 float3 p = v.vertex.xyz, nor = v.normal;
                 float yellow = layer > 0.5 && layer < 1.5 ? 1 : 0;
                 if (layer > 1.5)
                 {
                     // ちぎれて飛ぶかたまり：上がりながらふくらんで、消える
                     float ph = frac(t * (0.55 + seed * 0.35) + seed * 7.13);
-                    float size = (0.05 + 0.055 * frac(seed * 3.7)) * pow(sin(ph * 3.14159), 0.7);
-                    float3 c = float3(sin(seed * 41.0) * 0.14, lerp(0.92, 1.5, ph), cos(seed * 29.0) * 0.14);
-                    c.xz += sway * c.y / BOX_H * 1.6 + float2(sin(ph * 4.0 + seed * 9.0), cos(ph * 3.3 + seed * 5.0)) * 0.05;
-                    float n = NoiseAt(c + p * 0.2, t);
-                    p = c + p * size * (1.0 + n * 0.7);
+                    float size = (0.05 + 0.055 * frac(seed * 3.7)) * _BlobSize * pow(sin(ph * 3.14159), 0.7);
+                    float3 c = p + float3(0, _BlobRise * ph, 0);
+                    c.xz += sway * k + float2(sin(ph * 4.0 + seed * 9.0), cos(ph * 3.3 + seed * 5.0)) * 0.05 * _BlobSize;
+                    float n = NoiseAt(c + nor * 0.2, t);
+                    p = c + nor * size * (1.0 + n * 0.7);
                 }
                 else
                 {
-                    float k = saturate(p.y / BOX_H);
                     p.xz += sway * k;
+                    p.y += k * _Pulse * (sin(t * (2.1 + seed * 1.7) + seed * 40.0) + 0.5 * sin(t * (3.7 + seed) + seed * 17.0)) * step(0.001, seed);
                     float amp = lerp(_AmpBase, _AmpTop, k) * (yellow > 0.5 ? 0.9 : 1.0);
                     p += nor * NoiseAt(p, t) * amp;
                     o.tear = yellow > 0.5 ? 0 : smoothstep(0.42, 0.95, k) * _Tear;
@@ -91,7 +100,7 @@ Shader "FuwaCourse/FlameMesh"
                 {
                     // 深さだけ手前へ（根元は少しだけ。多いと穴のふちを越えて見える）
                     float len = length(unity_ObjectToWorld[0].xyz);
-                    float bias = lerp(0.12, 0.46, saturate(p.y / 0.42)) * len;
+                    float bias = lerp(0.12, 0.46, saturate(k / 0.26)) * len * _Bias;
                     float4 near = UnityWorldToClipPos(wp + normalize(_WorldSpaceCameraPos - wp) * bias);
                     o.pos.z = near.z / near.w * o.pos.w;
                 }
@@ -106,9 +115,11 @@ Shader "FuwaCourse/FlameMesh"
             fixed4 frag (v2f i) : SV_Target
             {
                 half cover = 1;
-                if (i.tear > 0.001)
+                if (i.tear > 0.001 || _Burn > 0.001)
                 {
-                    float d = tex3D(_Noise, i.np).r - i.tear * 0.5;   // tear が大きいほど穴が増える
+                    float n = tex3Dlod(_Noise, float4(i.np, 0)).r;
+                    float d = i.tear > 0.001 ? n - i.tear * 0.5 : 1.0;   // tear が大きいほど穴が増える
+                    if (_Burn > 0.001) d = min(d, i.k + (n - 0.5) * 0.25 - _Burn * 1.15);   // 根元から消える
                     cover = saturate(d / max(fwidth(d), 1e-4) + 0.5);
                     clip(cover - 0.01);
                 }

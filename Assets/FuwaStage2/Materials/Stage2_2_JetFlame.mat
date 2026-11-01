@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Stage2_2_JetFlame
-  m_Shader: {fileID: 4800000, guid: d961671b34e065d43b9630255526715b, type: 3}
+  m_Shader: {fileID: 4800000, guid: f42cfdd947a4fd243b2ccb95e1a13f14, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -27,8 +27,14 @@ Material:
         m_Texture: {fileID: 2800000, guid: 92152d6153aaa414cb4338411228aee4, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _Noise:
+        m_Texture: {fileID: 11700000, guid: 44569209c695106409f94d8270bf6e1f, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AmpBase: 0.1
+    - _AmpTop: 0.5
     - _BandByH: 1
     - _BandHot: 0.45
     - _BandLow: 0.04
@@ -37,24 +43,33 @@ Material:
     - _BandSelf: 1
     - _BandSoft: 0.08
     - _Base: 0.78
+    - _Bias: 1.3
     - _Billboard: 0
+    - _BlobRise: 2.6
+    - _BlobSize: 3.2
     - _Burn: 0
     - _Flow: 1
     - _FlowAmp: 2
     - _FlowBody: 1.25
     - _FlowCore: 1
-    - _FlowSpeed: 0.7
+    - _FlowSpeed: 1.1
     - _FlowTop: 0
     - _FlowX: 0.2
     - _FlowY: 3
     - _Height: 1
     - _Lean: 0
     - _LowScale: 1
+    - _NoiseScale: 0.33
+    - _Pulse: 0
     - _Rim: 0
-    - _Speed: 1.6
-    - _Sway: 0.2
+    - _Speed: 1
+    - _Sway: 0.1
+    - _Tear: 0.45
+    - _TimeAdd: 0
     m_Colors:
     - _Hot: {r: 1.2, g: 0.86, b: 0.3, a: 1}
     - _Mid: {r: 1.2, g: 0.46, b: 0.07, a: 1}
+    - _Orange: {r: 0.93, g: 0.42999998, b: 0, a: 1}
     - _Tip: {r: 1, g: 0.21, b: 0.055, a: 1}
+    - _Yellow: {r: 0.97999996, g: 1, b: 0.04, a: 1}
   m_BuildTextureStacks: []

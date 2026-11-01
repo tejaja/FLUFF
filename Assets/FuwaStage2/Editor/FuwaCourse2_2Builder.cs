@@ -976,42 +976,58 @@ public static class FuwaCourse2_2Builder
     //  レイで見る FlameVolume は見た目はよかったが、近づくと前の炎の 5〜6 倍重かった（てじゃ「重くなるのはやだ」）
     public static Mesh SeedFlameMesh()
     {
-        var v = new List<Vector3>(); var nor = new List<Vector3>(); var uv = new List<Vector2>(); var tr = new List<int>();
-        void Egg(float layer, float cy, float r, float up, float down, int rows, int seg)
+        var f = new FlameMeshB();
+        f.Egg(0f, Vector3.zero, 0.42f, 0.29f, 2.5f, 0.95f, 34, 36, 0f, 1.6f);
+        f.Egg(1f, Vector3.zero, 0.38f, 0.17f, 1.8f, 0.9f, 20, 26, 0f, 1.6f);
+        for (int n = 0; n < 5; n++) { float seed = (n + 0.37f) * 0.19f; f.Blob(new Vector3(Mathf.Sin(seed * 41f) * 0.14f, 0.92f, Mathf.Cos(seed * 29f) * 0.14f), seed, 0.6f); }
+        return f.Build("Course2_2_FlameMesh", 0.7f);
+    }
+    // FlameMesh の材質。ノイズは使い回し、形の数字だけ変える
+    static Material FlameMeshMat(string name, float noiseScale, float flow, float ampBase, float ampTop, float tear, float sway, float blobRise, float blobSize, float bias)
+    {
+        var m = FuwaStage2WaterTest.ToonMat(name, Color.white); m.shader = Shader.Find("FuwaCourse/FlameMesh");
+        m.SetTexture("_Noise", FlameNoise3D()); m.SetFloat("_Speed", 1f); m.SetFloat("_NoiseScale", noiseScale); m.SetFloat("_FlowSpeed", flow); m.SetFloat("_AmpBase", ampBase); m.SetFloat("_AmpTop", ampTop);
+        m.SetFloat("_Tear", tear); m.SetFloat("_Sway", sway); m.SetFloat("_BlobRise", blobRise); m.SetFloat("_BlobSize", blobSize); m.SetFloat("_Bias", bias); EditorUtility.SetDirty(m);
+        return m;
+    }
+    // FlameMesh の形を組み立てる。uv.x：0 外、1 黄色、2 飛ぶ玉。色 r：根元 0〜先 1。飛ぶ玉は頂点＝出る場所、法線＝玉の形
+    class FlameMeshB
+    {
+        public List<Vector3> v = new List<Vector3>(), nor = new List<Vector3>(); public List<Vector2> uv = new List<Vector2>(); public List<Color> col = new List<Color>(); public List<int> tr = new List<int>();
+        public void Grid(int rows, int cols) { int b = v.Count - (rows + 1) * (cols + 1); for (int j = 0; j < rows; j++) for (int k = 0; k < cols; k++) { int q = b + j * (cols + 1) + k, u = q + cols + 1; tr.AddRange(new[] { q, u + 1, u, q, q + 1, u + 1 }); } }
+        public void Add(Vector3 p, Vector3 n, float layer, float seed, float k) { v.Add(p); nor.Add(n); uv.Add(new Vector2(layer, seed)); col.Add(new Color(k, 0f, 0f)); }
+        public void Egg(float layer, Vector3 c, float cy, float r, float up, float down, int rows, int seg, float y0, float h, float zScale = 1f, float nz = 1f, float seed = 0f, float taper = 1.7f)
         {
-            int b = v.Count;
             for (int j = 0; j <= rows; j++)
             {
-                float th = Mathf.Lerp(-90f, 90f, j / (float)rows) * Mathf.Deg2Rad, s = Mathf.Sin(th), c = Mathf.Cos(th);
-                float y = cy + r * s * (s > 0f ? up : down), rad = r * (s > 0f ? Mathf.Pow(Mathf.Max(0f, c), 1.7f) : c);
+                float th = Mathf.Lerp(-90f, 90f, j / (float)rows) * Mathf.Deg2Rad, s = Mathf.Sin(th), co = Mathf.Cos(th);
+                float y = cy + r * s * (s > 0f ? up : down), rad = r * (s > 0f ? Mathf.Pow(Mathf.Max(0f, co), taper) : co);
                 for (int k = 0; k <= seg; k++)
                 {
                     float a = k * Mathf.PI * 2f / seg; var d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-                    v.Add(new Vector3(0f, y, 0f) + d * rad); nor.Add((d * c + Vector3.up * s).normalized); uv.Add(new Vector2(layer, 0f));
+                    var nn = (d * co + Vector3.up * s).normalized; nn.z *= nz; Add(c + new Vector3(d.x * rad, y, d.z * rad * zScale), nn, layer, seed, Mathf.Clamp01((y - y0) / h));
                 }
             }
-            for (int j = 0; j < rows; j++) for (int k = 0; k < seg; k++) { int q = b + j * (seg + 1) + k, u = q + seg + 1; tr.AddRange(new[] { q, u + 1, u, q, q + 1, u + 1 }); }
+            Grid(rows, seg);
         }
-        Egg(0f, 0.42f, 0.29f, 2.5f, 0.95f, 34, 36);
-        Egg(1f, 0.38f, 0.17f, 1.8f, 0.9f, 20, 26);
-        for (int n = 0; n < 5; n++)   // ちぎれて飛ぶかたまり（丸い玉。大きさと位置はシェーダーで）
+        public void Blob(Vector3 anchor, float seed, float k)
         {
-            int b = v.Count; float seed = (n + 0.37f) * 0.19f; const int Rows = 7, Seg = 12;
+            const int Rows = 7, Seg = 12;
             for (int j = 0; j <= Rows; j++)
             {
                 float th = Mathf.Lerp(-90f, 90f, j / (float)Rows) * Mathf.Deg2Rad;
-                for (int k = 0; k <= Seg; k++)
-                {
-                    float a = k * Mathf.PI * 2f / Seg; var d = new Vector3(Mathf.Cos(a) * Mathf.Cos(th), Mathf.Sin(th), Mathf.Sin(a) * Mathf.Cos(th));
-                    v.Add(d); nor.Add(d); uv.Add(new Vector2(2f, seed));
-                }
+                for (int q = 0; q <= Seg; q++) { float a = q * Mathf.PI * 2f / Seg; Add(anchor, new Vector3(Mathf.Cos(a) * Mathf.Cos(th), Mathf.Sin(th), Mathf.Sin(a) * Mathf.Cos(th)), 2f, seed, k); }
             }
-            for (int j = 0; j < Rows; j++) for (int k = 0; k < Seg; k++) { int q = b + j * (Seg + 1) + k, u = q + Seg + 1; tr.AddRange(new[] { q, u + 1, u, q, q + 1, u + 1 }); }
+            Grid(Rows, Seg);
         }
-        var m = new Mesh { name = "Course2_2_FlameMesh" };
-        m.SetVertices(v); m.SetNormals(nor); m.SetUVs(0, uv); m.SetTriangles(tr, 0);
-        m.bounds = new Bounds(new Vector3(0f, 0.8f, 0f), new Vector3(1.1f, 1.7f, 1.1f));
-        return SaveMesh(m);
+        // 頂点はシェーダーで動くので、そのぶん大きさの箱を広げる
+        public Mesh Build(string name, float pad)
+        {
+            var m = new Mesh { name = name, indexFormat = v.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16 };
+            m.SetVertices(v); m.SetNormals(nor); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateBounds();
+            var s = SaveMesh(m); var b = s.bounds; b.Expand(pad * 2f); s.bounds = b; EditorUtility.SetDirty(s);
+            return s;
+        }
     }
     // タイルする立体ノイズ（Perlin 2 段）。炎のかたまりの元。1 回作ったら使い回す
     public static Texture3D FlameNoise3D()
@@ -1051,9 +1067,8 @@ public static class FuwaCourse2_2Builder
     }
     public static Material SeedFlameMat()
     {
-        var m = FuwaStage2WaterTest.ToonMat("Stage2_2_SeedFlame", Color.white); m.shader = Shader.Find("FuwaCourse/FlameMesh");
-        m.SetTexture("_Noise", FlameNoise3D()); m.renderQueue = 2012;   // 穴の中に見えるように縦穴のあと
-        m.SetFloat("_AmpBase", 0.1f); m.SetFloat("_AmpTop", 0.42f); m.SetFloat("_NoiseScale", 0.75f); m.SetFloat("_FlowSpeed", 0.75f); EditorUtility.SetDirty(m);
+        var m = FlameMeshMat("Stage2_2_SeedFlame", 0.75f, 0.75f, 0.1f, 0.42f, 0.75f, 0.05f, 0.58f, 1f, 1f);
+        m.renderQueue = 2012; EditorUtility.SetDirty(m);   // 穴の中に見えるように縦穴のあと
         return m;
     }
     // 穴の中に描く物は縦穴（Geometry+11）のあとに描く
@@ -1348,57 +1363,29 @@ public static class FuwaCourse2_2Builder
         var r = o.GetComponent<MeshRenderer>(); r.sharedMaterials = new[] { rockMat, FlowLavaMat() }; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         GameObjectUtility.SetStaticEditorFlags(o, StaticEditorFlags.BatchingStatic);
     }
-    // 炎の板：線 ptsA（根元→口の先）と ptsB（根元→合流）にそって立てる。高さは道にそって上る
+    // 炎の壁：線 ptsA（根元→口の先）と ptsB（根元→合流）にそって、細長いたまご（FlameMesh）を重ねて並べる（焚き火と同じ作り、2026-11-01 てじゃ「かわいくていいね」）。
+    //  1 枚の筒だと大きな板に見えて動きも出なかった。たまごごとに高さと伸び縮みをずらす。高さは道にそって上る。下は岩の中
     public static void FlameCurtain(Transform g, string name, List<WallPt> ptsA, List<WallPt> ptsB)
     {
-        var m = new Mesh { name = "Course2_2_" + name + "_Curtain" };
-        var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
-        // 縦に立てた帯を 1 枚足す。y0・y1 はその点の下と上、h はその点の炎の高さの割合（はしを低くして板の切り口を見せない）
-        void Sheet(List<Vector2> pts, List<float> y0, List<float> y1, List<float> h, List<float> us, float rim)
-        {
-            int b = v.Count;
-            for (int k = 0; k < pts.Count; k++)
-            {
-                v.Add(new Vector3(pts[k].x, y0[k], pts[k].y)); uv.Add(new Vector2(us[k], 0f)); col.Add(new Color(h[k], rim, 0f));
-                v.Add(new Vector3(pts[k].x, y1[k], pts[k].y)); uv.Add(new Vector2(us[k], 1f)); col.Add(new Color(h[k], rim, 0f));
-            }
-            for (int k = 0; k + 1 < pts.Count; k++) { int a = b + k * 2; tr.AddRange(new[] { a, a + 2, a + 3, a, a + 3, a + 1 }); }
-        }
-        int sn = 0, ci = 0; float xTail = ptsA[ptsA.Count - 1].p.x;
+        var f = new FlameMeshB(); float xTail = ptsA[ptsA.Count - 1].p.x; int n = 0;
         foreach (var line in new[] { ptsA, ptsB })
         {
-            float x0 = line[0].p.x, x1 = line[line.Count - 1].p.x; int nx = Mathf.Max(2, Mathf.CeilToInt((x1 - x0) / 0.35f));
-            // 長い帯 3 枚：奥行きをずらして、くねらせる（2026-10-31 てじゃ「横からみたとき板すぎる」）
-            foreach (var z0 in new[] { -0.12f, 0f, 0.12f })
+            float x0 = line[0].p.x, x1 = line[line.Count - 1].p.x;
+            for (float x = x0 + 0.3f; x < x1; x += 0.85f, n++)
             {
-                var pts = new List<Vector2>(); var y0 = new List<float>(); var y1 = new List<float>(); var h = new List<float>(); var us = new List<float>();
-                for (int k = 0; k <= nx; k++)
-                {
-                    float x = Mathf.Lerp(x0, x1, k / (float)nx); var q = WallAt(line, x);
-                    pts.Add(new Vector2(x, q.p.z + z0 + 0.07f * Mathf.Sin(x * 2.1f + sn * 2f) + 0.04f * Mathf.Sin(x * 4.7f + sn)));
-                    y0.Add(q.floor - 0.4f); y1.Add(q.top); h.Add(Mathf.Lerp(0.2f, 1f, Mathf.Clamp01((xTail - x) / 0.8f))); us.Add(x + sn * 3.7f);
-                }
-                Sheet(pts, y0, y1, h, us, 1f); sn++;
-            }
-            // 横切る短い帯：横から見ても炎の幅が見える。外へいくほど低い
-            const float CrossHW = 0.28f;
-            for (float x = x0 + 0.4f; x < x1 - 0.3f; x += 1.4f, ci++)
-            {
-                var q = WallAt(line, x); var pts = new List<Vector2>(); var y0 = new List<float>(); var y1 = new List<float>(); var h = new List<float>(); var us = new List<float>();
-                for (int k = 0; k <= 8; k++)
-                {
-                    float w = Mathf.Lerp(-CrossHW, CrossHW, k / 8f), f = w / CrossHW;
-                    pts.Add(new Vector2(x + 0.08f * Mathf.Sin(w * 9f + ci), q.p.z + w)); y0.Add(q.floor - 0.4f); y1.Add(q.top); h.Add(Mathf.Lerp(0.15f, 0.92f, 1f - f * f)); us.Add(w * 2.6f + ci * 5.3f);
-                }
-                Sheet(pts, y0, y1, h, us, 0f);
+                var q = WallAt(line, x); float seed = Mathf.Repeat((n + 0.37f) * 0.618f, 1f), tailK = Mathf.Lerp(0.3f, 1f, Mathf.Clamp01((xTail - x) / 1.2f));
+                float y0 = q.floor - 0.4f, top = q.top - y0, h = top * Mathf.Lerp(0.78f, 1.04f, seed) * tailK, cy = y0 + h * 0.38f;
+                var c = new Vector3(x, 0f, q.p.z + (n % 2 == 0 ? 0.08f : -0.08f));
+                const float R = 0.68f;
+                f.Egg(0f, c, cy, R, (y0 + h - cy) / R, (cy - y0) / R, 12, 8, y0, h, 0.62f, 0.45f, seed + 0.01f, 1.15f);
+                if (n % 2 == 0) { float hc = h * Mathf.Lerp(0.42f, 0.62f, seed), rc = 0.5f; f.Egg(1f, c, cy, rc, (y0 + hc - cy) / rc, (cy - y0) / rc, 8, 8, y0, h, 0.62f, 0.45f, seed + 0.01f, 1.15f); }
+                if (n % 3 == 0) f.Blob(new Vector3(x, y0 + h - 0.7f, q.p.z), Mathf.Repeat(seed * 7.3f, 1f), 0.8f);
             }
         }
-        m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
-        var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_FlameCurtain", Color.white);
-        mat.shader = Shader.Find("FuwaCourse/FlameCurtain"); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.5f); mat.SetFloat("_BandMid", 2f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 0f); mat.SetFloat("_Rim", 0.11f); mat.SetFloat("_LowScale", 0.25f); mat.SetFloat("_BandSoft", 0.1f); FlameFlow(mat, 0.55f, 2.8f, 0.4f, 0.45f, 0.8f); mat.SetFloat("_FlowBody", 1.2f); mat.SetFloat("_FlowAmp", 1.9f); mat.SetFloat("_FlowTop", 0.42f);   // 壁は細かい舌が立つように EditorUtility.SetDirty(mat);   // 外のふちは細い赤（2026-10-31 てじゃ）。_BandSelf は横切る帯の縦線が戻るので使わない
-        var c = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c.transform.SetParent(g, false);
-        c.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m);
-        var r = c.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 1f, 0.35f, 0.18f, 2.4f, 3.6f, 1f); mat.SetFloat("_Pulse", 0.85f); EditorUtility.SetDirty(mat);
+        var c2 = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c2.transform.SetParent(g, false);
+        c2.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Curtain", 3f);
+        var r = c2.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
@@ -1762,31 +1749,22 @@ public static class FuwaCourse2_2Builder
         flame.transform.localPosition = new Vector3(0f, -back, 0f); warn.transform.localPosition = new Vector3(0f, -back, 0f);
         var m = flame.main; m.startSpeed = (len + back) / 0.7f;
     }
-    // 火炎放射の炎：亀裂から伸びる板（FlameCurtain）を行ごとに3枚交差。粒はぼやけて浮いて、舌の形に切り抜くとポップコーンに見えた（2026-10-31 てじゃ）。y が炎の向き、下のはしは亀裂の中
+    // 火炎放射の炎：亀裂から伸びる細長いたまご（FlameMesh）を行ごとに 1 本。y が炎の向き。止まると FuwaFireJet の _Burn で根元から燃えつきる
     static Transform JetBody(Transform g, string name, float[] backs, float[] rowZ, float len)
     {
-        float maxBack = backs.Max(), L = maxBack + len; const int Across = 8, Along = 10;
-        var v = new List<Vector3>(); var uv = new List<Vector2>(); var col = new List<Color>(); var tr = new List<int>();
+        float maxBack = backs.Max(), L = maxBack + len;
+        var f = new FlameMeshB();
         for (int r = 0; r < backs.Length; r++)
-            for (int sh = 0; sh < 3; sh++)
-            {
-                float ang = (sh * 60f + 15f + r * 20f) * Mathf.Deg2Rad; var dir = new Vector3(Mathf.Cos(ang) * 0.62f, 0f, Mathf.Sin(ang) * 0.72f); int b = v.Count;
-                for (int j = 0; j <= Along; j++)
-                {
-                    float t = j / (float)Along, w = Mathf.Lerp(0.55f, 1f, Mathf.SmoothStep(0f, 1f, t / 0.45f)), y = Mathf.Lerp(maxBack - backs[r] - 1f, L, t);   // 下のはしは舌の形で切れるので、亀裂のさらに奥から
-                    for (int k = 0; k <= Across; k++)
-                    {
-                        float f = k * 2f / Across - 1f;
-                        v.Add(new Vector3(0f, y, rowZ[r]) + dir * (f * w)); uv.Add(new Vector2(f * 1.5f + r * 3.1f + sh * 4.3f, t));   // 長い炎なので舌は太く（細いと羽毛のような筋になった） col.Add(new Color(Mathf.Lerp(0.72f, 1f, 1f - f * f), 0f, 0f));
-                    }
-                }
-                for (int j = 0; j < Along; j++) for (int k = 0; k < Across; k++) { int a = b + j * (Across + 1) + k, c = a + Across + 1; tr.AddRange(new[] { a, c, c + 1, a, c + 1, a + 1 }); }
-            }
-        var m = new Mesh { name = "Course2_2_" + name + "_Body" }; m.SetVertices(v); m.SetUVs(0, uv); m.SetColors(col); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
-        var mat = FuwaStage2WaterTest.ToonMat("Stage2_2_JetFlame", Color.white); mat.shader = Shader.Find("FuwaCourse/FlameCurtain");
-        mat.SetFloat("_Base", 0.78f); mat.SetFloat("_BandScale", 1.5f); mat.SetFloat("_BandByH", 1f); mat.SetFloat("_Sway", 0.2f); mat.SetFloat("_Speed", 1.6f); mat.SetFloat("_BandLow", 0.04f); mat.SetFloat("_BandHot", 0.45f); mat.SetFloat("_BandMid", 0.8f); mat.SetColor("_Tip", new Color(1f, 0.21f, 0.055f)); mat.SetFloat("_BandSelf", 1f); mat.SetFloat("_BandSoft", 0.08f); FlameFlow(mat, 0.2f, 3f, 0.7f, 0.45f, 0.8f); EditorUtility.SetDirty(mat);
+        {
+            float y0 = maxBack - backs[r] - 1f, h = L - y0, cy = y0 + h * 0.2f; var c = new Vector3(0f, 0f, rowZ[r]);
+            const float R = 0.56f, RCore = 0.28f;
+            f.Egg(0f, c, cy, R, (L - cy) / R, (cy - y0) / R, 22, 14, y0, h);
+            f.Egg(1f, c, cy, RCore, h * 0.5f / RCore, (cy - y0) * 0.7f / RCore, 10, 10, y0, h);
+            for (int b = 0; b < 3; b++) { float seed = (r * 3 + b + 0.37f) * 0.137f; f.Blob(c + Vector3.up * (L - 1.6f), seed, 0.85f); }
+        }
+        var mat = FlameMeshMat("Stage2_2_JetFlame", 0.33f, 1.1f, 0.1f, 0.5f, 0.45f, 0.1f, 2.6f, 3.2f, 1.3f);
         var o = new GameObject("FlameBody", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.transform.localPosition = Vector3.down * maxBack;
-        o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m); var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+        o.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Body", 3f); var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         o.SetActive(false);
         return o.transform;
     }

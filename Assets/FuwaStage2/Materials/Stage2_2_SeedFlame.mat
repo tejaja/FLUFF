@@ -88,7 +88,10 @@ Material:
     - _Base: 0.5
     - _BaseFadeLength: 0
     - _BaseFadeNormal: 1
+    - _Bias: 1
     - _Billboard: 1
+    - _BlobRise: 0.58
+    - _BlobSize: 1
     - _Bulge: 0.1
     - _BumpScale: 1
     - _Burn: 0
@@ -136,6 +139,7 @@ Material:
     - _OffsetUnits: 0
     - _Parallax: 0.02
     - _PatternFromBase: 0
+    - _Pulse: 0
     - _Rim: 0
     - _RimPower: 3
     - _RimStrength: 0.25
@@ -149,8 +153,9 @@ Material:
     - _StrataScale: 1.2
     - _StrataStrength: 0
     - _Stretch: 0.14
-    - _Sway: 0.2
+    - _Sway: 0.05
     - _Tear: 0.75
+    - _TimeAdd: 0
     - _TopMin: 0.55
     - _TopStrength: 0
     - _UVSec: 0
