@@ -604,6 +604,19 @@ public static class FuwaCourse2_2Builder
             Ri[i] = r[i].p + side[i] * (w - In); Li[i] = r[i].p - side[i] * (w - In);
             if (i > 0) s[i] = s[i - 1] + Flat(r[i].p - r[i - 1].p).magnitude;
         }
+        // ふちの線が急に折れ返る点をならす（2026-11-01 てじゃ「ゴールまえのカーブに隙間」：内側のふちが 5cm 逆に戻って、そこの壁の面が裏返って空が見えた）
+        void SmoothKinks(Vector3[] e, Vector3[] ei)
+        {
+            for (int pass = 0; pass < 4; pass++)
+                for (int i = 1; i + 1 < n; i++)
+                {
+                    var a = Flat(e[i] - e[i - 1]); var b = Flat(e[i + 1] - e[i]);
+                    if (a.sqrMagnitude < 1e-6f || b.sqrMagnitude < 1e-6f || Vector3.Angle(a, b) < 50f) continue;
+                    var d = (e[i - 1] + e[i + 1]) * 0.5f - e[i]; d.y = 0f;
+                    e[i] += d; ei[i] += d;
+                }
+        }
+        SmoothKinks(R, Ri); SmoothKinks(L, Li);
         int folds = 0; string foldAt = ""; for (int i = 0; i + 1 < n; i++) { var f = Flat(r[i + 1].p - r[i].p); if (Vector3.Dot(R[i + 1] - R[i], f) <= 0f || Vector3.Dot(L[i + 1] - L[i], f) <= 0f) { folds++; foldAt += " #" + i + "/" + n + r[i].p.ToString("F1") + " f=" + f.magnitude.ToString("F3"); } }
         if (folds > 0) Debug.LogWarning("[2–2] " + name + " 道の面の折り重なり " + folds + " か所" + foldAt);
         var vis = new MB(); var col = new MB(); var lava = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
