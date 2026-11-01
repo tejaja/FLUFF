@@ -358,6 +358,7 @@ public static class FuwaCourse2_2Builder
             so.ApplyModifiedProperties();
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)visb);
         }
+        ApplyMonsterAvoid(root);   // チェックポイントを作ったあとで
         FuwaStage2LobbyCourses.Run();
         FuwaCourse2_1Builder.FixNetworkIDs();
         RegisterBgm(root);
@@ -1065,6 +1066,23 @@ public static class FuwaCourse2_2Builder
         var ps = BurnBlobs(parent, "BodyFlame", MonsterBurnS, 12f); { var m = ps.main; m.playOnAwake = true; }
         e.flameMesh = BurnFlame(parent, "BodyFlameMesh", MonsterBurnS);
         return ps;
+    }
+    public static float MonsterChase = 11f;   // 気づいた後に追い続ける距離（前は 6.5）
+    public static float MonsterLeash = 14f;   // 5.5→14（てじゃ「もっと追いかけても良いかも」）
+    // ほのおのまものは家へ戻る時に水たまりをよける
+    public static int ApplyMonsterAvoid(Transform root)
+    {
+        var zones = root.GetComponentsInChildren<FuwaWater>(true).Select(w => w.GetComponent<Collider>()).Where(c => c != null).ToArray();
+        var cps = root.Find("Checkpoints");
+        foreach (var e in root.GetComponentsInChildren<FuwaEnemy>(true))
+        {
+            e.avoidZones = zones;
+            e.leashRange = MonsterLeash; e.chaseRange = MonsterChase;
+            // 追いかけるのはチェックポイント3と4のあいだだけ（てじゃ「チェックポイント以降はダメ」）
+            if (cps) { e.chaseLimitBack = cps.Find("Checkpoint3"); e.chaseLimit = cps.Find("Checkpoint4"); }
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(e);
+        }
+        return zones.Length;
     }
     // シーンの今の 2–2 の炎上の見た目だけ差し替える（作り直さずに）
     public static string ApplyBurnLook(Transform root)

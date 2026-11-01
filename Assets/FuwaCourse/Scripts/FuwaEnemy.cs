@@ -65,6 +65,13 @@ public class FuwaEnemy : UdonSharpBehaviour
     public ParticleSystem flameFx;
     [Tooltip("燃えている間だけ出す炎のメッシュ（なくてもOK）")]
     public GameObject flameMesh;
+    [Tooltip("家へ戻る時によける場所（水たまりなど）。まん中のまわりを横幅の半分＋avoidMargin よけて回りこむ（2026-11-01 てじゃ「定位置にもどるときに水面の上を素通り」）")]
+    public Collider[] avoidZones;
+    public float avoidMargin = 0.5f;
+    [Tooltip("追いかけてよい範囲（2026-11-01 てじゃ「もっと追いかけても良い」「チェックポイント以降はダメ」）。chaseLimit の forward より先、chaseLimitBack の forward より手前のふわふわは狙わず、そこへは跳ばない")]
+    public Transform chaseLimit, chaseLimitBack;
+    [Tooltip("一度気づいたら、ふわふわがこの距離の中にいる間は追い続ける（0 なら detectRange の 1.3 倍）")]
+    public float chaseRange = 0f;
     public ParticleSystem steamFx;
     public AudioSource steamSound;
     public Renderer[] tintRenderers;
@@ -307,7 +314,7 @@ public class FuwaEnemy : UdonSharpBehaviour
         Vector3 toPlayer = chest - transform.position;
         // 狙うのはけだま（運んでる最中だけ。待ってる・かくれてる・持ってる・ゴール後は狙わない）
         // 水に落ちている間も狙わない（2026-11-01 てじゃ「池に落ちた時にタックルされると炎上SEが多重＋アウト」「池に落ちてるときは狙われないように」）
-        bool ballLive = ball != null && !ball.IsWaitingOrHidden() && !ball.IsCarried() && !ball.IsFinished() && !ball.IsInWater();
+        bool ballLive = ball != null && !ball.IsWaitingOrHidden() && !ball.IsCarried() && !ball.IsFinished() && !ball.IsInWater() && !PastLimit(ball.transform.position);
         Vector3 toBall = ballLive ? ball.transform.position - (transform.position + Vector3.up * bodyCenterUp) : Vector3.one * 9999f;
         Vector3 toBallFlat = toBall; toBallFlat.y = 0f;
 
@@ -405,13 +412,22 @@ public class FuwaEnemy : UdonSharpBehaviour
         }
         else if (_state == 1) // 溜め
         {
-            if (!ballLive || toBallFlat.magnitude > detectRange * 1.3f) { SetState(0); }
+            if (!ballLive || toBallFlat.magnitude > ChaseRange()) { SetState(0); }
             else if (_stateTime > windupTime)
             {
                 // 向きは溜め始めに決めた向き。跳ぶ長さは、今のけだまのその向きの距離より少し先まで
                 _dashDir = _lockDir;
                 float along = Mathf.Max(0.5f, Vector3.Dot(toBallFlat, _lockDir));
-                _dashDuration = Mathf.Clamp((along + ballOvershoot) / dashSpeed, 0.3f, dashTime);
+                // 範囲の外へは跳ばない：着地点が外なら短くして、それでも外ならやめて戻る
+                float reach = along + ballOvershoot;
+                if (chaseLimit != null || chaseLimitBack != null)
+                {
+                    float minReach = dashSpeed * 0.3f;   // 突進はいちばん短くても 0.3 秒ぶん進む
+                    for (int k = 0; k < 8 && reach > minReach && PastLimit(transform.position + _dashDir * reach); k++) reach *= 0.75f;
+                    reach = Mathf.Max(reach, minReach);
+                    if (PastLimit(transform.position + _dashDir * reach)) { _cooldownUntil = Time.time + cooldown; SetState(3); return; }
+                }
+                _dashDuration = Mathf.Clamp(reach / dashSpeed, 0.3f, dashTime);
                 _groundY = transform.position.y;
                 // 跳ねの高さ：けだまの所を通る時に、けだまの高さになるように（高すぎるけだまには届かない）
                 float xb = Mathf.Clamp(along / (dashSpeed * _dashDuration), 0.2f, 0.9f);
@@ -445,14 +461,14 @@ public class FuwaEnemy : UdonSharpBehaviour
             // けだまに気づいている間は戻らずにその場で待って、間が空いたらまた溜める（2026-10-08 てじゃ：弱めたので少し強化）。
             // ただし家から leashRange 以上離れたら、追うのをやめて戻る
             Vector3 fromHome = transform.position - _home; fromHome.y = 0f;
-            bool chasing = ballLive && toBallFlat.magnitude < detectRange * 1.3f && fromHome.magnitude < leashRange;
+            bool chasing = ballLive && toBallFlat.magnitude < ChaseRange() && fromHome.magnitude < leashRange;
             if (chasing)
             {
                 if (Time.time > _cooldownUntil && HasGroundBelow()) SetState(1);
             }
             else
             {
-                transform.position = Vector3.MoveTowards(transform.position, _home, returnSpeed * dt);
+                transform.position = ReturnStep(returnSpeed * dt);
                 if ((transform.position - _home).sqrMagnitude < 0.04f) SetState(0);
             }
         }
@@ -566,6 +582,40 @@ public class FuwaEnemy : UdonSharpBehaviour
         if (headY < 0.5f) headY = 1.2f;
         Vector3 flat = p - feet; float dy = flat.y; flat.y = 0f;
         if (flat.magnitude < playerHitRadius && dy > -0.3f && dy < headY + hitAboveHead) DashHit(local);
+    }
+
+    private float ChaseRange() { return chaseRange > 0f ? chaseRange : detectRange * 1.3f; }
+
+    private bool PastLimit(Vector3 p)
+    {
+        if (chaseLimit != null && Vector3.Dot(p - chaseLimit.position, chaseLimit.forward) > 0f) return true;
+        if (chaseLimitBack != null && Vector3.Dot(p - chaseLimitBack.position, chaseLimitBack.forward) < 0f) return true;
+        return false;
+    }
+
+    // 家へ1歩。よける場所に入りそうなら、ふちにそって家の方へ回りこむ
+    private Vector3 ReturnStep(float step)
+    {
+        Vector3 pos = transform.position;
+        Vector3 next = Vector3.MoveTowards(pos, _home, step);
+        if (avoidZones == null) return next;
+        for (int i = 0; i < avoidZones.Length; i++)
+        {
+            Collider z = avoidZones[i];
+            if (z == null) continue;
+            Vector3 c = z.bounds.center;
+            float r = Mathf.Max(z.bounds.extents.x, z.bounds.extents.z) + avoidMargin;
+            Vector3 d = next - c; d.y = 0f;
+            float m = d.magnitude;
+            if (m >= r) continue;
+            Vector3 o = m > 0.001f ? d / m : transform.right;
+            Vector3 toHome = _home - pos; toHome.y = 0f;
+            Vector3 tan = new Vector3(-o.z, 0f, o.x);
+            if (Vector3.Dot(tan, toHome) < 0f) tan = -tan;
+            Vector3 goal = c + o * r + tan * step * 2f; goal.y = pos.y;
+            return Vector3.MoveTowards(pos, goal, step);
+        }
+        return next;
     }
 
     private void DashHit(VRCPlayerApi local)
