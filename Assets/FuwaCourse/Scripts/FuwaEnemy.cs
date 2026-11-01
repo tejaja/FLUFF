@@ -306,7 +306,8 @@ public class FuwaEnemy : UdonSharpBehaviour
         Vector3 chest = local.GetPosition() + Vector3.up * 1.0f;
         Vector3 toPlayer = chest - transform.position;
         // 狙うのはけだま（運んでる最中だけ。待ってる・かくれてる・持ってる・ゴール後は狙わない）
-        bool ballLive = ball != null && !ball.IsWaitingOrHidden() && !ball.IsCarried() && !ball.IsFinished();
+        // 水に落ちている間も狙わない（2026-11-01 てじゃ「池に落ちた時にタックルされると炎上SEが多重＋アウト」「池に落ちてるときは狙われないように」）
+        bool ballLive = ball != null && !ball.IsWaitingOrHidden() && !ball.IsCarried() && !ball.IsFinished() && !ball.IsInWater();
         Vector3 toBall = ballLive ? ball.transform.position - (transform.position + Vector3.up * bodyCenterUp) : Vector3.one * 9999f;
         Vector3 toBallFlat = toBall; toBallFlat.y = 0f;
 

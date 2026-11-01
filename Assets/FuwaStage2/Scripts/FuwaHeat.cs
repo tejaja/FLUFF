@@ -66,7 +66,8 @@ public class FuwaHeat : UdonSharpBehaviour
     // 火の玉・ほのおのまものに当たった：浮かずに、すぐ燃えだす（撃てば消える。2026-10-29 てじゃの 2–2 の流れ）
     public void Ignite()
     {
-        if (ball == null || _burning || ball.IsWaitingOrHidden()) return;
+        // 水の中では燃えない（水が毎フレーム消す→すぐ点く、のくり返しで炎上の音が何重にも鳴った）
+        if (ball == null || _burning || ball.IsWaitingOrHidden() || ball.IsInWater()) return;
         StartBurn(ball.transform.position);
     }
     // 水に入った：燃えていたら消える（浮いているのもおしまい）
