@@ -863,7 +863,7 @@ public static class FuwaCourse2_1Builder
             }
         }
         if (!PondCut) { PondSpillLipFalls(root); PondSpringFalls(root); }
-        FloatOrbs(root);
+        FloatIsles(root);
         AirFallsFray(root);
         FuwaStage2LobbyCourses.Run();
         FixNetworkIDs();
@@ -4351,27 +4351,159 @@ public static class FuwaCourse2_1Builder
     // 板の上の面は道の高さ（当たり判定は PathMesh のまま）。ゴールへの道の終わりは、見た目だけ島の橋の板の下までのばす（道のはしのままだと すき間が見えた）
     const float GoalWoodLap = 0.35f;
     const float PlankPitch = 0.32f, PlankT = 0.09f, BeamW = 0.16f, BeamH = 0.18f, BeamIn = 0.22f, BeamEmbed = 0.08f;
-    // まわりに浮かぶ、水の玉＋空中へ落ちる滝（2026-11-01 てじゃ「2-1のまわりなんもういてなかった」→ 遠景の島を近くに置いたら「やだ」→「浮島なくして、数は少なくていいから玉からおちる滝を浮かそう」）
-    // コースの中の玉と同じ作りを大きくしたもの。当たりなし。道から 11〜19m はなれた所。x,y,z は玉の位置、fall は滝の長さ（下のはしは霧になって消える）
-    static readonly (float x, float y, float z, float fall)[] FloatOrbSpots =
+    // まわりに浮かぶ専用の浮島（2026-11-01 てじゃ「2-1のまわりなんもういてなかった」→ 遠景の島は「近くにあるのやだ」→ 水の玉も「微妙」→「ここ専用の浮島作って、水場と滝をつけよう 2、3個でいい」）
+    // 上は草の土手にかこまれた水場、ふちの切れ目（spills）から水がこぼれて空中へ落ちる滝。下はコースの岩と同じ材質でとがる。当たりなし
+    // c＝水面の位置、R＝島の半径、spills＝切れ目の向き（度。x+ が 0、z+ が 90）
+    static readonly (Vector3 c, float R, float[] spills, float halfArc, float fall, int seed)[] FloatIsleSpots =
     {
-        (-22f, 9f, 8f, 20f), (26f, 11f, 41f, 22f), (-16f, 12f, 71f, 20f), (32f, 10f, 100f, 24f), (-16f, 18f, 125f, 24f),
+        (new Vector3(-29f, 3f, 16f), 5.5f, new[] { -20f }, 20f, 19f, 3),
+        (new Vector3(33f, 7f, 62f), 4.6f, new[] { 205f }, 22f, 20f, 8),
+        (new Vector3(-23f, 15f, 120f), 6.2f, new[] { 10f, 100f }, 15f, 23f, 14),
     };
-    public static float FloatOrbRadius = 0.8f, FloatOrbStream = 0.5f;
-    public static void FloatOrbs(Transform root)
+    public static void FloatIsles(Transform root)
     {
-        var old = root.Find("FloatOrbs"); if (old) Object.DestroyImmediate(old.gameObject);
-        var g = new GameObject("FloatOrbs").transform; g.SetParent(root, false);
-        const string ap = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_OrbStream_Air.mat";
-        var baseM = OrbStreamMat();
+        var old = root.Find("FloatIsles"); if (old) Object.DestroyImmediate(old.gameObject);
+        var g = new GameObject("FloatIsles").transform; g.SetParent(root, false);
+        var spillMat = IsleSpillMat();
+        for (int i = 0; i < FloatIsleSpots.Length; i++) FloatIsle(g, i, FloatIsleSpots[i].c, FloatIsleSpots[i].R, FloatIsleSpots[i].spills, FloatIsleSpots[i].halfArc, FloatIsleSpots[i].fall, FloatIsleSpots[i].seed, spillMat);
+    }
+    // こぼれる滝の材質（蓮の池のあふれ口と同じ作り＋下のはしの霧）。AirFallsFray の決まりどおり 元＋_Air の組
+    static Material IsleSpillMat()
+    {
+        const string bp = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_IsleSpill.mat", ap = "Assets/FuwaStage2/Materials/Stage2_WaterfallCurvedThick_IsleSpill_Air.mat";
+        var baseFm = FuwaStage2WaterTest.WaterfallThickMat(true); var pondM = WaterMat(0f, true, false);
+        var m = AssetDatabase.LoadAssetAtPath<Material>(bp);
+        if (!m) { m = new Material(baseFm); AssetDatabase.CreateAsset(m, bp); }
+        m.CopyPropertiesFromMaterial(baseFm);
+        m.SetFloat("_PondTop", IsleLipIn + 0.02f); m.SetColor("_PondColor", pondM.GetColor("_Shallow")); m.SetColor("_PondFoam", pondM.GetColor("_Foam"));
+        m.SetFloat("_PondRadial", 0f); m.SetFloat("_PondSparkle", pondM.GetFloat("_Sparkle"));
+        m.SetFloat("_EdgeRim", PillarEdgeRim); m.SetFloat("_EdgeRimTop", 0f); m.SetFloat("_TopFade", IsleLipIn * 0.87f);
+        EditorUtility.SetDirty(m);
         var am = AssetDatabase.LoadAssetAtPath<Material>(ap);
-        if (!am) { am = new Material(baseM); AssetDatabase.CreateAsset(am, ap); }
-        am.CopyPropertiesFromMaterial(baseM); am.SetFloat("_FrayLen", AirFrayLen); EditorUtility.SetDirty(am);
-        for (int i = 0; i < FloatOrbSpots.Length; i++)
+        if (!am) { am = new Material(m); AssetDatabase.CreateAsset(am, ap); }
+        am.CopyPropertiesFromMaterial(m); am.SetFloat("_FrayLen", AirFrayLen); EditorUtility.SetDirty(am);
+        return am;
+    }
+    const float IsleLipIn = 0.3f;
+    static void FloatIsle(Transform parent, int index, Vector3 c, float R, float[] spills, float halfArc, float fall, int seed, Material spillMat)
+    {
+        var g = new GameObject("Isle" + index).transform; g.SetParent(parent, false); g.localPosition = c;
+        const int N = 72; const float blendArc = 16f;
+        float nOff = seed * 7.13f;
+        // 角度をまたいでもつながるノイズ（円の上を測る）
+        float Ns(float th, float freq, float off) { return Mathf.PerlinNoise(nOff + off + Mathf.Cos(th) * freq + 5f, nOff * 0.5f + off + Mathf.Sin(th) * freq + 5f); }
+        float Mask(float th)
         {
-            var s = FloatOrbSpots[i];
-            WaterOrb(g, new Vector3(s.x, s.y - s.fall, s.z), "Orb" + i, s.fall, FloatOrbRadius, FloatOrbStream);
-            g.Find("Orb" + i + "/Stream").GetComponent<Renderer>().sharedMaterial = am;
+            float best = 0f; float deg = th * Mathf.Rad2Deg;
+            foreach (var sp in spills) { float d = Mathf.Abs(Mathf.DeltaAngle(deg, sp)); best = Mathf.Max(best, 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(halfArc, halfArc + blendArc, d))); }
+            return best;
+        }
+        float Ro(float th) { return R * (0.86f + 0.3f * Ns(th, 1.3f, 0f)); }
+        float Rp(float th) { return Mathf.Lerp(R * (0.5f + 0.24f * Ns(th, 1.1f, 20f)), Ro(th) - 0.5f, Mask(th)); }
+        float Top(float th) { return Mathf.Lerp(0.34f + 0.4f * Ns(th, 2.2f, 40f), -0.08f, Mask(th)); }
+        float Rim(float th) { return Mathf.Lerp(0.2f, -0.08f, Mask(th)); }
+        float WaterR(float th) { return Mathf.Lerp(Rp(th) + 0.12f, Ro(th), Mask(th)); }
+        Vector3 P(float th, float r, float y) { return new Vector3(Mathf.Cos(th) * r, y, Mathf.Sin(th) * r); }
+        float Th(int k) { return (k % N) * Mathf.PI * 2f / N; }
+        // ---- 草の土手（なめらか）と岩（角ばった面）。岩は 1 三角形ごとに頂点を分ける ----
+        var V = new List<Vector3>(); var Tg = new List<int>(); var Tr = new List<int>();
+        void RockTri(Vector3 a, Vector3 b, Vector3 d, Vector3 want) { int s = V.Count; V.Add(a); V.Add(b); V.Add(d); AddTriDir(V, Tr, s, s + 1, s + 2, want); }
+        void RockQuad(Vector3 a, Vector3 b, Vector3 d, Vector3 e, Vector3 want) { RockTri(a, b, d, want); RockTri(b, e, d, want); }
+        // 草：岩のふち → 土手の上 → 外のふち
+        var grassRings = new System.Func<float, Vector3>[]
+        {
+            th => P(th, Rp(th) + 0.22f, Rim(th)),
+            th => P(th, Mathf.Lerp(Rp(th) + 0.22f, Ro(th), 0.45f), Top(th)),
+            th => P(th, Ro(th) - 0.12f, Top(th) * 0.92f),
+            th => P(th, Ro(th), Top(th) - 0.12f),
+        };
+        int gBase = V.Count;
+        foreach (var ring in grassRings) for (int k = 0; k < N; k++) V.Add(ring(Th(k)));
+        for (int j = 0; j < grassRings.Length - 1; j++)
+            for (int k = 0; k < N; k++)
+            {
+                int a = gBase + j * N + k, b = gBase + j * N + (k + 1) % N, d = a + N, e = b + N;
+                AddTriDir(V, Tg, a, b, d, Vector3.up); AddTriDir(V, Tg, b, e, d, Vector3.up);
+            }
+        // 水の下：底 → 岩のふち（水面をこえて草の始まりまで）
+        var basin = new System.Func<float, Vector3>[]
+        {
+            th => P(th, Rp(th) * 0.72f, -0.8f),
+            th => P(th, Rp(th), -0.12f),
+            th => P(th, Rp(th) + 0.22f, Rim(th)),
+        };
+        for (int k = 0; k < N; k++)
+        {
+            float t0 = Th(k), t1 = Th(k + 1);
+            RockTri(Vector3.down * 0.9f, basin[0](t0), basin[0](t1), Vector3.up);
+            for (int j = 0; j < basin.Length - 1; j++) RockQuad(basin[j](t0), basin[j](t1), basin[j + 1](t0), basin[j + 1](t1), Vector3.up);
+        }
+        // 下の岩：草の外のふちから、とがった先まで（切れ目の下は外へ出さない＝滝が突きぬけない）
+        (float f, float d)[] prof = { (1.04f, 0.45f), (1.02f, 1.2f), (0.88f, 2.2f), (0.68f, 3.3f), (0.46f, 4.5f), (0.25f, 5.6f) };
+        float depthK = R / 5.5f;
+        Vector3 Under(int j, int k)
+        {
+            float th = Th(k); float m = Mathf.Clamp01(Mask(th) * 1.5f);
+            if (j < 0) return P(th, Ro(th), Top(th) - 0.12f);
+            var pr = prof[j];
+            float wob = 1f + (Mathf.PerlinNoise(nOff + 60f + k * 0.55f, j * 1.7f + nOff) - 0.5f) * 0.3f;
+            // 始まりと終わりをつなげるので k の折り返しの近くはノイズを弱める
+            float wrap = Mathf.Min(Mathf.Min(k % N, N - (k % N)) / 4f, 1f); wob = Mathf.Lerp(1f, wob, wrap);
+            float f = pr.f * wob; f = Mathf.Lerp(f, Mathf.Min(f, 0.96f - j * 0.02f), m);
+            float y = -pr.d * depthK * (1f + (Mathf.PerlinNoise(nOff + 90f + k * 0.8f, j * 2.3f) - 0.5f) * 0.25f * wrap) - 0.1f;
+            return P(th, Ro(th) * f, y);
+        }
+        var tip = new Vector3(R * 0.06f, -7f * depthK, -R * 0.04f);
+        for (int k = 0; k < N; k++)
+        {
+            var o = P(Th(k), 1f, 0f);
+            for (int j = -1; j < prof.Length - 1; j++) RockQuad(Under(j, k), Under(j, k + 1), Under(j + 1, k), Under(j + 1, k + 1), o);
+            RockTri(Under(prof.Length - 1, k), Under(prof.Length - 1, k + 1), tip, o + Vector3.down);
+        }
+        var uv = new List<Vector2>(); foreach (var v in V) uv.Add(new Vector2(v.x, v.z) * 0.5f);
+        var mesh = new Mesh { name = "Course2_1_FloatIsle" + index, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32, subMeshCount = 2 };
+        mesh.SetVertices(V); mesh.SetUVs(0, uv); mesh.SetTriangles(Tr, 0); mesh.SetTriangles(Tg, 1); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        mesh = Save(mesh, MeshDir + "/FloatIsle" + index + ".asset");
+        var body = new GameObject("Body"); body.transform.SetParent(g, false);
+        body.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var br = body.AddComponent<MeshRenderer>(); br.sharedMaterials = new[] { RockBaseMat(), AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_LobbyGround.mat") };
+        br.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        // ---- 水面：中心 → 岸まで。uv1＝ふちからの距離（泡）、uv3＝泡を消す量（切れ目）----
+        float[] rings = { 0f, 0.35f, 0.65f, 0.85f, 1f };
+        var WV = new List<Vector3>(); var WT = new List<int>(); var W1 = new List<Vector4>(); var W2 = new List<Vector2>(); var W3 = new List<Vector2>();
+        for (int j = 0; j < rings.Length; j++)
+            for (int k = 0; k < N; k++)
+            {
+                float th = Th(k), wr = WaterR(th), r = wr * rings[j];
+                WV.Add(P(th, r, 0f)); W1.Add(new Vector4(0f, wr - r, 99f, 99f)); W2.Add(Vector2.zero); W3.Add(new Vector2(Mask(th), 0f));
+            }
+        for (int j = 0; j < rings.Length - 1; j++)
+            for (int k = 0; k < N; k++)
+            {
+                int a = j * N + k, b = j * N + (k + 1) % N, d = a + N, e = b + N;
+                AddTriDir(WV, WT, a, b, d, Vector3.up); AddTriDir(WV, WT, b, e, d, Vector3.up);
+            }
+        var wm = new Mesh { name = "Course2_1_FloatIsleWater" + index, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        wm.SetVertices(WV); wm.SetTriangles(WT, 0); wm.SetUVs(1, W1); wm.SetUVs(2, W2); wm.SetUVs(3, W3); wm.SetNormals(WV.Select(_ => Vector3.up).ToList()); wm.RecalculateBounds();
+        wm = Save(wm, MeshDir + "/FloatIsleWater" + index + ".asset");
+        var water = new GameObject("Water"); water.transform.SetParent(g, false);
+        water.AddComponent<MeshFilter>().sharedMesh = wm;
+        var wr2 = water.AddComponent<MeshRenderer>(); wr2.sharedMaterial = WaterMat(0f, true, false); wr2.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; wr2.receiveShadows = false;
+        // ---- こぼれる滝 ----
+        var profF = new List<Vector2> { new Vector2(IsleLipIn, -0.006f), new Vector2(0.02f, -0.006f), new Vector2(-0.1f, -0.08f) };
+        foreach (var d in new[] { 0.2f, 0.4f, 0.7f, 1.1f, 1.6f, 2.3f, 3.2f, 4.3f, 5.6f, 7.2f, 9f, 11.5f, 14f, 17f }) if (d < fall) profF.Add(new Vector2(-(0.1f + 0.34f * Mathf.Sqrt(d)), -d));
+        profF.Add(new Vector2(profF[profF.Count - 1].x, float.NaN));
+        for (int s = 0; s < spills.Length; s++)
+        {
+            var lip = new List<Vector3>(); var outs = new List<Vector3>();
+            const int nl = 16;
+            for (int k = 0; k <= nl; k++)
+            {
+                float deg = spills[s] + Mathf.Lerp(-1f, 1f, k / (float)nl) * (halfArc + blendArc * 0.2f); float th = deg * Mathf.Deg2Rad;
+                lip.Add(P(th, Ro(th), 0f)); outs.Add(P(th, 1f, 0f));
+            }
+            var f = LipFalls(g, "FloatIsleFall" + index + "_" + s, "Fall" + s, lip, outs, profF, -fall);
+            f.GetComponent<MeshRenderer>().sharedMaterial = spillMat;
         }
     }
 
