@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Stage2_2_SeedFlame
-  m_Shader: {fileID: 4800000, guid: fda662bbc28e85f49b098e95797317f6, type: 3}
+  m_Shader: {fileID: 4800000, guid: f42cfdd947a4fd243b2ccb95e1a13f14, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -74,8 +74,8 @@ Material:
     m_Ints: []
     m_Floats:
     - _AmbientStrength: 0.55
-    - _AmpBase: 0.3
-    - _AmpTop: 1.55
+    - _AmpBase: 0.1
+    - _AmpTop: 0.42
     - _BakedGlow: 0
     - _BakedGlowFloor: 0.25
     - _BandByH: 1
@@ -108,7 +108,7 @@ Material:
     - _FlowBody: 1.25
     - _FlowCore: 1
     - _FlowScale: 0.9
-    - _FlowSpeed: 0.55
+    - _FlowSpeed: 0.75
     - _FlowTop: 0
     - _FlowX: 0.12
     - _FlowY: 1
@@ -150,6 +150,7 @@ Material:
     - _StrataStrength: 0
     - _Stretch: 0.14
     - _Sway: 0.2
+    - _Tear: 0.75
     - _TopMin: 0.55
     - _TopStrength: 0
     - _UVSec: 0
