@@ -967,13 +967,14 @@ public static class FuwaCourse2_2Builder
             }
         }
         Part("Logs", SaveMesh(lb.Build("Course2_2_SeedLogs_" + g.name, 3)), SeedPitToon("Stage2_2_FireLog", new Color(0.52f, 0.32f, 0.2f)), SeedPitToon("Stage2_2_FireLogChar", new Color(0.26f, 0.13f, 0.11f)), SeedPitToon("Stage2_2_FireLogEnd", new Color(0.62f, 0.45f, 0.32f)));
-        var fl = new GameObject("Flames", typeof(MeshFilter), typeof(MeshRenderer)).transform; fl.SetParent(b0, false); fl.localPosition = Vector3.down * (SeedPitDepth - 0.1f);   // 穴の底から道の上 1.1m ほどまで
+        var fl = new GameObject("Flames", typeof(MeshFilter), typeof(MeshRenderer)).transform; fl.SetParent(b0, false); fl.localPosition = Vector3.down * (SeedPitDepth - 0.1f); fl.localScale = Vector3.one * SeedFlameScale;   // 穴の底から道の上 1.1m ほどまで
         fl.GetComponent<MeshFilter>().sharedMesh = SeedFlameMesh(); var fr = fl.GetComponent<MeshRenderer>(); fr.sharedMaterial = SeedFlameMat(); fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; fr.receiveShadows = false;
         var ps = FuwaStage2FireTest.FlamePS(g, "Sparks", 0.35f, 1.5f, 1.2f, new Color(1f, 0.85f, 0.35f), new Color(1f, 0.32f, 0.06f));
         var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f); m.maxParticles = 12; var em = ps.emission; em.rateOverTime = 5f; ps.Play();
     }
     // 焚き火と燃える島の炎：FuwaCourse/FlameMesh（2026-11-01 てじゃの参考 GIF）。外のたまご＋中の黄色＋ちぎれて飛ぶかたまり。動きはシェーダーの頂点で作る
     //  レイで見る FlameVolume は見た目はよかったが、近づくと前の炎の 5〜6 倍重かった（てじゃ「重くなるのはやだ」）
+    public const float SeedFlameScale = 0.7f;   // 焚き火の炎の大きさ（2026-11-01 てじゃ「通れなさそうにみえる」）。島の炎は別
     public static Mesh SeedFlameMesh()
     {
         var f = new FlameMeshB();
