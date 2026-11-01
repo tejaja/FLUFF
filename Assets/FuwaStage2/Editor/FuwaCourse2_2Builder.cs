@@ -972,32 +972,46 @@ public static class FuwaCourse2_2Builder
         var ps = FuwaStage2FireTest.FlamePS(g, "Sparks", 0.35f, 1.5f, 1.2f, new Color(1f, 0.85f, 0.35f), new Color(1f, 0.32f, 0.06f));
         var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.12f); m.maxParticles = 12; var em = ps.emission; em.rateOverTime = 5f; ps.Play();
     }
-    // 焚き火と燃える島の炎：しずく形のかたまりを高さを変えて重ねた立体（FuwaCourse/Flame3D）。板はどう並べても板に見えた（2026-11-01 てじゃ）
-    static Mesh SeedFlameMesh()
+    // 焚き火と燃える島の炎：箱の中の立体ノイズをレイで見る FuwaCourse/FlameVolume（2026-11-01 てじゃの参考 GIF）。箱は x,z ±0.5、y 0〜1.6
+    public static Mesh SeedFlameMesh()
     {
-        const int Rows = 12, Seg = 12;
-        // x,z：位置、r：太さ、h：高さ、lean：外へ傾く量
-        var blobs = new[] { (x: 0f, z: 0f, r: 0.25f, h: 1.5f, lean: 0f), (x: 0.17f, z: 0.07f, r: 0.17f, h: 1.05f, lean: 0.08f), (x: -0.15f, z: 0.12f, r: 0.18f, h: 1.15f, lean: 0.08f),
-                            (x: 0.03f, z: -0.2f, r: 0.17f, h: 0.95f, lean: 0.08f), (x: -0.13f, z: -0.13f, r: 0.13f, h: 0.8f, lean: 0.1f), (x: 0.18f, z: -0.12f, r: 0.12f, h: 0.75f, lean: 0.1f) };
-        var v = new List<Vector3>(); var uv = new List<Vector2>(); var nor = new List<Vector3>(); var tr = new List<int>();
-        for (int bi = 0; bi < blobs.Length; bi++)
-        {
-            var bl = blobs[bi]; int b = v.Count; float ph = bi * 2.37f; var outDir = new Vector3(bl.x, 0f, bl.z); if (outDir.sqrMagnitude > 0f) outDir.Normalize();
-            float Rad(float t) => bl.r * Mathf.Pow(Mathf.Max(0f, Mathf.Sin(Mathf.PI * Mathf.Pow(Mathf.Clamp01(t * 0.97f + 0.03f), 0.5f))), 0.85f);   // 下がふくらんで、先がとがる
-            for (int j = 0; j <= Rows; j++)
-            {
-                float t = j / (float)Rows, r = Rad(t), slope = (Rad(Mathf.Min(1f, t + 0.02f)) - Rad(Mathf.Max(0f, t - 0.02f))) / (Mathf.Min(1f, t + 0.02f) - Mathf.Max(0f, t - 0.02f)) / bl.h;
-                for (int k = 0; k <= Seg; k++)
-                {
-                    float a = k * Mathf.PI * 2f / Seg + ph; var d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-                    v.Add(new Vector3(bl.x, bl.h * t, bl.z) + d * r + outDir * bl.lean * t * t); uv.Add(new Vector2(ph, t)); nor.Add((d - Vector3.up * slope).normalized);
-                }
-            }
-            for (int j = 0; j < Rows; j++) for (int k = 0; k < Seg; k++) { int q = b + j * (Seg + 1) + k, c = q + Seg + 1; tr.AddRange(new[] { q, c, c + 1, q, c + 1, q + 1 }); }
-        }
-        var m = new Mesh { name = "Course2_2_SeedFlame" };
-        m.SetVertices(v); m.SetUVs(0, uv); m.SetNormals(nor); m.SetTriangles(tr, 0); m.RecalculateBounds();
+        var v = new[] { new Vector3(-0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, -0.5f), new Vector3(0.5f, 0f, 0.5f), new Vector3(-0.5f, 0f, 0.5f),
+                        new Vector3(-0.5f, 1.6f, -0.5f), new Vector3(0.5f, 1.6f, -0.5f), new Vector3(0.5f, 1.6f, 0.5f), new Vector3(-0.5f, 1.6f, 0.5f) };
+        // 表が外を向く並び（シェーダーは裏面を描く）
+        var tr = new[] { 0, 1, 2, 0, 2, 3,  4, 6, 5, 4, 7, 6,  0, 4, 5, 0, 5, 1,  1, 5, 6, 1, 6, 2,  2, 6, 7, 2, 7, 3,  3, 7, 4, 3, 4, 0 };
+        var m = new Mesh { name = "Course2_2_FlameBox" };
+        m.vertices = v; m.triangles = tr; m.RecalculateNormals(); m.RecalculateBounds();
         return SaveMesh(m);
+    }
+    // タイルする立体ノイズ（Perlin 2 段）。炎のかたまりの元。1 回作ったら使い回す
+    public static Texture3D FlameNoise3D()
+    {
+        const string p = "Assets/FuwaStage2/Textures/Stage2_FlameNoise3D.asset"; const int N = 64;
+        var tex = AssetDatabase.LoadAssetAtPath<Texture3D>(p);
+        if (tex) return tex;
+        var rnd = new System.Random(20261101); const int G = 8;
+        var grad = new Vector3[G * G * G];
+        for (int i = 0; i < grad.Length; i++) grad[i] = new Vector3((float)rnd.NextDouble() - 0.5f, (float)rnd.NextDouble() - 0.5f, (float)rnd.NextDouble() - 0.5f).normalized;
+        float Fade(float t) => t * t * t * (t * (t * 6f - 15f) + 10f);
+        float Perlin(Vector3 q, int f)   // f は 1 タイルのマス数（G の約数）
+        {
+            int s = G / f; int x = Mathf.FloorToInt(q.x), y = Mathf.FloorToInt(q.y), z = Mathf.FloorToInt(q.z); float dx = q.x - x, dy = q.y - y, dz = q.z - z;
+            float Dot(int a, int b, int c) { var g = grad[((x + a) % f * s) + ((y + b) % f * s) * G + ((z + c) % f * s) * G * G + 0]; return g.x * (dx - a) + g.y * (dy - b) + g.z * (dz - c); }
+            float u = Fade(dx), w = Fade(dy), r = Fade(dz);
+            return Mathf.Lerp(Mathf.Lerp(Mathf.Lerp(Dot(0, 0, 0), Dot(1, 0, 0), u), Mathf.Lerp(Dot(0, 1, 0), Dot(1, 1, 0), u), w),
+                              Mathf.Lerp(Mathf.Lerp(Dot(0, 0, 1), Dot(1, 0, 1), u), Mathf.Lerp(Dot(0, 1, 1), Dot(1, 1, 1), u), w), r);
+        }
+        var d = new float[N * N * N]; float lo = 1e9f, hi = -1e9f;
+        for (int z = 0; z < N; z++) for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+        {
+            var q = new Vector3(x, y, z) / N; float n = Perlin(q * 4f, 4) + 0.45f * Perlin(q * 8f, 8);
+            d[x + y * N + z * N * N] = n; lo = Mathf.Min(lo, n); hi = Mathf.Max(hi, n);
+        }
+        var col = new byte[d.Length]; for (int i = 0; i < d.Length; i++) col[i] = (byte)Mathf.RoundToInt(255f * (d[i] - lo) / (hi - lo));
+        tex = new Texture3D(N, N, N, TextureFormat.R8, false) { wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, name = "Stage2_FlameNoise3D" };
+        tex.SetPixelData(col, 0); tex.Apply(false, false);
+        AssetDatabase.CreateAsset(tex, p);
+        return tex;
     }
     // 炎を「形がゆれる」から「模様が上へ流れて削る」に（2026-11-01 てじゃ「揺れるだけじゃ違和感」）
     static void FlameFlow(Material m, float fx, float fy, float speed, float hot, float mid)
@@ -1005,10 +1019,11 @@ public static class FuwaCourse2_2Builder
         m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png"));
         m.SetFloat("_Flow", 1f); m.SetFloat("_FlowX", fx); m.SetFloat("_FlowY", fy); m.SetFloat("_FlowSpeed", speed); m.SetFloat("_BandHot", hot); m.SetFloat("_BandMid", mid); EditorUtility.SetDirty(m);
     }
-    static Material SeedFlameMat()
+    public static Material SeedFlameMat()
     {
-        var m = FuwaStage2WaterTest.ToonMat("Stage2_2_SeedFlame", Color.white); m.shader = Shader.Find("FuwaCourse/Flame3D");
-        m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); EditorUtility.SetDirty(m);
+        var m = FuwaStage2WaterTest.ToonMat("Stage2_2_SeedFlame", Color.white); m.shader = Shader.Find("FuwaCourse/FlameVolume");
+        m.SetTexture("_Noise", FlameNoise3D()); m.renderQueue = 2012;   // 穴の中に見えるように縦穴のあと
+        m.SetFloat("_EggR", 0.28f); m.SetFloat("_EggUp", 2.2f); m.SetFloat("_YellowAt", 0.55f); m.SetFloat("_AmpTop", 1.55f); m.SetFloat("_NoiseScale", 0.75f); EditorUtility.SetDirty(m);
         return m;
     }
     // 穴の中に描く物は縦穴（Geometry+11）のあとに描く
@@ -1492,7 +1507,7 @@ public static class FuwaCourse2_2Builder
             Part("IslandUnder", under, underMat, ground, Quaternion.Euler(0f, 199f, 0f), new Vector3(1.2f, 1.1f, 1.2f));
             if (s.fire)
             {
-                Part("Flames", isleFlame, flameMat, ground + Vector3.down * 0.32f, Quaternion.identity, new Vector3(2.3f, 1.7f, 2.3f));
+                Part("Flames", isleFlame, flameMat, ground + Vector3.down * 0.32f, Quaternion.identity, new Vector3(2.1f, 2.1f, 2.1f));
                 var ps = FuwaStage2FireTest.FlamePS(isle, "Embers", 0.6f, 1.2f, 1.6f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.28f, 0.05f));
                 ps.transform.localPosition = ground + Vector3.up * 0.3f;
                 var m = ps.main; m.startColor = Color.white; m.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.16f); m.maxParticles = 10;

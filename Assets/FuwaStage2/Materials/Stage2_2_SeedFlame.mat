@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Stage2_2_SeedFlame
-  m_Shader: {fileID: 4800000, guid: a7a61e409340caf499e3a3caafdec3e9, type: 3}
+  m_Shader: {fileID: 4800000, guid: fda662bbc28e85f49b098e95797317f6, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -16,7 +16,7 @@ Material:
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 2012
   stringTagMap: {}
   disabledShaderPasses: []
   m_LockedProperties: 
@@ -59,6 +59,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _Noise:
+        m_Texture: {fileID: 11700000, guid: 44569209c695106409f94d8270bf6e1f, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -70,6 +74,8 @@ Material:
     m_Ints: []
     m_Floats:
     - _AmbientStrength: 0.55
+    - _AmpBase: 0.3
+    - _AmpTop: 1.55
     - _BakedGlow: 0
     - _BakedGlowFloor: 0.25
     - _BandByH: 1
@@ -90,6 +96,10 @@ Material:
     - _Cutoff: 0.5
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
+    - _EggDown: 0.95
+    - _EggR: 0.28
+    - _EggUp: 2.2
+    - _EggY: 0.42
     - _EmissionFull: 1.6
     - _EmissionGradient: 0
     - _Facet: 0
@@ -119,7 +129,7 @@ Material:
     - _LowScale: 1
     - _Metallic: 0
     - _Mode: 0
-    - _NoiseScale: 0.6
+    - _NoiseScale: 0.75
     - _NoiseStrength: 0
     - _OcclusionStrength: 1
     - _OffsetFactor: 0
@@ -147,6 +157,7 @@ Material:
     - _UnderStrength: 0
     - _Wag: 0.1
     - _Wrap: 0.35
+    - _YellowAt: 0.55
     - _ZWrite: 1
     m_Colors:
     - _BaseFadeColor: {r: 0.65999997, g: 0.6, b: 0.68, a: 1}
@@ -156,6 +167,7 @@ Material:
     - _GroundTintB: {r: 0.8, g: 0.92, b: 0.8399999, a: 1}
     - _Hot: {r: 1.2, g: 0.86, b: 0.3, a: 1}
     - _Mid: {r: 1.2, g: 0.46, b: 0.07, a: 1}
+    - _Orange: {r: 0.93, g: 0.42999998, b: 0, a: 1}
     - _RimColor: {r: 1, g: 0.96999997, b: 0.92, a: 1}
     - _ShadowTint: {r: 0.54999995, g: 0.47999996, b: 0.75, a: 1}
     - _StrataA: {r: 1.06, g: 0.97999996, b: 0.94, a: 1}
@@ -164,4 +176,5 @@ Material:
     - _Tip: {r: 1, g: 0.21, b: 0.055, a: 1}
     - _TopColor: {r: 0.62, g: 0.72, b: 0.52, a: 1}
     - _UnderColor: {r: 0.72, g: 0.8399999, b: 1, a: 1}
+    - _Yellow: {r: 0.97999996, g: 1, b: 0.04, a: 1}
   m_BuildTextureStacks: []
