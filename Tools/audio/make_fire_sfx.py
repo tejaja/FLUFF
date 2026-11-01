@@ -197,6 +197,23 @@ def loopwall_2():
     return band(len(t), 150, 2200, 122, 0.9) * wob(t, 1.7, 0.6)
 
 
+# ---- ゲームで聞こえなかった物の直し（低音だけだとスピーカーと BGM に負ける。2026-11-01 てじゃ「岩、溶岩 きこえない」）----
+def rocklaunch_2b():
+    t = tt(1.4)
+    y = thump(t, 90, 34, 0.45) * 0.5 + band(len(t), 40, 350, 82, 0.6) * att(t, 0.03) * dec(t, 0.55) * 0.35
+    y += thump(t, 230, 120, 0.25) * 0.9 + band(len(t), 220, 1800, 84, 0.5) * att(t, 0.01) * dec(t, 0.4) * 1.1
+    return np.tanh(y * 1.8)
+def rockbounce_2b():
+    t = tt(0.6)
+    y = thump(t, 95, 45, 0.15) * 0.8 + band(len(t), 90, 700, 92, 1) * dec(t, 0.07) * 0.5
+    y += thump(t, 240, 130, 0.06) * 0.7 + band(len(t), 400, 2400, 94, 0.6) * dec(t, 0.035) * 0.6
+    return np.tanh(y * 1.8)
+def looplava_2b():
+    t = tt(4)
+    y = band(len(t), 30, 180, 102, 0.7) * wob(t, 1.3, 0.45) * 0.8 + band(len(t), 140, 650, 103, 0.8) * wob(t, 2.4, 0.5) * 0.55
+    return np.tanh(y * 1.5)
+
+
 GROUPS = [
     ('roar', [roar_1, roar_2, roar_3, roar_4]),
     ('whoosh', [whoosh_1, whoosh_2, whoosh_3]),
@@ -210,6 +227,7 @@ GROUPS = [
     ('looplava', [looplava_1, looplava_2]),
     ('loopfire', [loopfire_1, loopfire_2]),
     ('loopwall', [loopwall_1, loopwall_2]),
+    ('fix', [rocklaunch_2b, rockbounce_2b, looplava_2b]),
 ]
 
 if __name__ == '__main__':
@@ -218,7 +236,7 @@ if __name__ == '__main__':
     for name, fns in GROUPS:
         parts = []
         for k, fn in enumerate(fns):
-            y = tail(fn(), 0.02) if not name.startswith('loop') else fn()
+            y = tail(fn(), 0.02) if not (name.startswith('loop') or fn is looplava_2b) else fn()
             y = y / (np.max(np.abs(y)) + 1e-9) * 0.85
             save(y, os.path.join(out, f"{name}_{k + 1}.wav"))
             parts += [y, np.zeros(int(0.9 * SR))]

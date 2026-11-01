@@ -147,7 +147,7 @@ public static class FuwaCourse2_2Builder
             BlastVent(fire, "Vent", at, corners12[3] + Vector3.up * 0.4f);
         }
         // 溶岩の音。LavaHoles の子にしない（子の位置の平均を、燃える島と火の粉の配置に使っている）
-        foreach (var pl in pools) Sfx(fire, "LavaLoop" + pools.IndexOf(pl), "sfx_loop_lava", pl.c.Aggregate(Vector3.zero, (sumP, nextP) => sumP + nextP) / pl.c.Count, 2f, 11f, 0.5f, true);
+        foreach (var pl in pools) Sfx(fire, "LavaLoop" + pools.IndexOf(pl), "sfx_loop_lava2", pl.c.Aggregate(Vector3.zero, (sumP, nextP) => sumP + nextP) / pl.c.Count, 4f, 15f, 0.8f, true, 10f);
         // 穴の溶岩（面・ふわふわの黒焦げ・人のアウト）
         // 穴と穴の間の細い所の当たり
         foreach (var pl in pools)
@@ -1748,8 +1748,8 @@ public static class FuwaCourse2_2Builder
         LavaRockTrail(trail);
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLavaRock>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
-        f.launchSound = Sfx(g, "LaunchSfx", "sfx_rock_launch", ps[0], 25f, 130f, 0.8f);
-        f.bounceSound = Sfx(mover, "BounceSfx", "sfx_rock_bounce", Vector3.zero, 4f, 32f, 0.9f);
+        f.launchSound = Sfx(g, "LaunchSfx", "sfx_rock_launch3", ps[0], 45f, 170f, 1f, false, 12f);
+        f.bounceSound = Sfx(mover, "BounceSfx", "sfx_rock_bounce2", Vector3.zero, 8f, 45f, 1f, false, 12f);
         int hops = ps.Length - 1;
         f.hopTime = RockHop; f.hopUp = 1.2f; f.lastHopScale = hops > 1 ? 2f : 1f; f.firstHopScale = first; f.firstUp = firstUp; f.launchFx = launch;
         float fly = 0f; for (int k = 0; k < hops; k++) fly += RockHop * (k == 0 ? first : 1f) * (k == hops - 1 ? f.lastHopScale : 1f);
