@@ -987,7 +987,9 @@ public static class FuwaCourse2_2Builder
     {
         var m = FuwaStage2WaterTest.ToonMat(name, Color.white); m.shader = Shader.Find("FuwaCourse/FlameMesh");
         m.SetTexture("_Noise", FlameNoise3D()); m.SetFloat("_Speed", 1f); m.SetFloat("_NoiseScale", noiseScale); m.SetFloat("_FlowSpeed", flow); m.SetFloat("_AmpBase", ampBase); m.SetFloat("_AmpTop", ampTop);
-        m.SetFloat("_Tear", tear); m.SetFloat("_Sway", sway); m.SetFloat("_BlobRise", blobRise); m.SetFloat("_BlobSize", blobSize); m.SetFloat("_Bias", bias); EditorUtility.SetDirty(m);
+        m.SetFloat("_Tear", tear); m.SetFloat("_Sway", sway); m.SetFloat("_BlobRise", blobRise); m.SetFloat("_BlobSize", blobSize); m.SetFloat("_Bias", bias);
+        // まわりの淡い色になじませる（2026-11-01 てじゃ「炎だけタッチが違う」→淡い色、先へ赤く、中の色のふちをぼかす）
+        m.SetColor("_Orange", new Color32(0xFF, 0xA1, 0x4D, 0xFF)); m.SetColor("_OrangeTop", new Color32(0xF2, 0x60, 0x3A, 0xFF)); m.SetColor("_Yellow", new Color32(0xFF, 0xE2, 0x7A, 0xFF)); m.SetFloat("_CoreSoft", 1f); EditorUtility.SetDirty(m);
         return m;
     }
     // FlameMesh の形を組み立てる。uv.x：0 外、1 黄色、2 飛ぶ玉。色 r：根元 0〜先 1。飛ぶ玉は頂点＝出る場所、法線＝玉の形

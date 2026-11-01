@@ -7,7 +7,9 @@ Shader "FuwaCourse/FlameMesh"
     {
         [NoScaleOffset] _Noise ("立体ノイズ（R、タイル）", 3D) = "gray" {}
         _Orange ("外の色", Color) = (0.93, 0.43, 0, 1)
+        _OrangeTop ("外の色（先）", Color) = (0.93, 0.43, 0, 1)
         _Yellow ("中の色", Color) = (0.98, 1, 0.04, 1)
+        _CoreSoft ("中の色のふちをぼかす（頂点で計算、透明にしない）", Range(0,1)) = 0
         _Speed ("動きの速さ", Float) = 1
         _FlowSpeed ("模様が上へ流れる速さ（タイル／秒）", Float) = 0.75
         _NoiseScale ("模様の細かさ（タイル／オブジェクトの長さ）", Float) = 0.75
@@ -43,7 +45,8 @@ Shader "FuwaCourse/FlameMesh"
             #include "FuwaFireFar.cginc"
 
             sampler3D _Noise;
-            half4 _Orange, _Yellow;
+            half4 _Orange, _OrangeTop, _Yellow;
+            float _CoreSoft;
             float _Speed, _FlowSpeed, _NoiseScale, _AmpBase, _AmpTop, _Tear, _Sway, _BlobRise, _BlobSize, _Bias, _Burn, _Pulse, _TimeAdd, _Wave, _WaveScale;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -118,7 +121,15 @@ Shader "FuwaCourse/FlameMesh"
                 }
                 float3 a = p * _NoiseScale * 1.35; a.y -= frac(t * _FlowSpeed * 1.2);
                 o.np = a;
-                half3 c = yellow > 0.5 ? _Yellow.rgb : _Orange.rgb;
+                half3 outer = lerp(_Orange.rgb, _OrangeTop.rgb, smoothstep(0.3, 0.95, k));
+                half3 c = outer;
+                if (yellow > 0.5)
+                {
+                    // 正面ほど中の色、ふちは外の色へ。透明にしないのでピクセルの負荷は増えない
+                    float3 wn = normalize(UnityObjectToWorldNormal(nor));
+                    float facing = abs(dot(wn, normalize(_WorldSpaceCameraPos - wp)));
+                    c = lerp(_Yellow.rgb, outer, _CoreSoft * (1.0 - smoothstep(0.1, 0.8, facing)));
+                }
                 o.col = FuwaFireCalm(c, FuwaFireFar(wp));
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
