@@ -146,6 +146,8 @@ public static class FuwaCourse2_2Builder
             var at = Along(r12, pts12[3] + (pts12[4] - pts12[3]).normalized * VentAt);
             BlastVent(fire, "Vent", at, corners12[3] + Vector3.up * 0.4f);
         }
+        // 溶岩の音。LavaHoles の子にしない（子の位置の平均を、燃える島と火の粉の配置に使っている）
+        foreach (var pl in pools) Sfx(fire, "LavaLoop" + pools.IndexOf(pl), "sfx_loop_lava", pl.c.Aggregate(Vector3.zero, (sumP, nextP) => sumP + nextP) / pl.c.Count, 2f, 11f, 0.5f, true);
         // 穴の溶岩（面・ふわふわの黒焦げ・人のアウト）
         // 穴と穴の間の細い所の当たり
         foreach (var pl in pools)
@@ -1232,6 +1234,17 @@ public static class FuwaCourse2_2Builder
 
     // 噴気孔：道に半分埋まった斜めの岩の筒＋斜め上へ吹き出す湯気。ふわふわが入ると target（火種の上）へ斜めに打ち出す。
     // 飛び方（重力 1.5・空気抵抗：打ち出しから 1 秒は 0.3、そのあと 1.2）を計算して、8.4m 先・1.6m 上の火種の熱の範囲の 0.8〜1.4m の高さを通る速さ（水平 6・上 3.5）。距離に合わせて水平の速さを伸ばす
+    // 効果音の AudioSource（2026-11-01 てじゃ「SEをふやそう」。音は Tools/audio/make_fire_sfx.py）。near まではそのままの音量、far で聞こえなくなる
+    static AudioSource Sfx(Transform parent, string name, string clip, Vector3 lp, float near, float far, float volume, bool loop = false, float gain = 6f)
+    {
+        var o = new GameObject(name); o.transform.SetParent(parent, false); o.transform.localPosition = lp;
+        var a = o.AddComponent<AudioSource>();
+        a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/" + clip + ".wav");
+        a.loop = loop; a.playOnAwake = loop; a.spatialBlend = 1f; a.dopplerLevel = 0f; a.volume = volume; a.minDistance = near; a.maxDistance = far; a.rolloffMode = AudioRolloffMode.Linear;
+        var sp = o.AddComponent<VRC.SDK3.Components.VRCSpatialAudioSource>();
+        sp.Gain = gain; sp.Near = near; sp.Far = far; sp.EnableSpatialization = true; sp.UseAudioSourceVolumeCurve = false;
+        return a;
+    }
     static void BlastVent(Transform parent, string name, Vector3 at, Vector3 target)
     {
         var d = Flat(target - at); float dist = d.magnitude; d /= Mathf.Max(0.01f, dist);
@@ -1270,6 +1283,7 @@ public static class FuwaCourse2_2Builder
         var z = new GameObject("Blast"); z.transform.SetParent(g, false); z.transform.localPosition = new Vector3(0, 0.7f, 0); z.layer = 4;
         var bc = z.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(NarrowHW * 2f, 1.4f, 1.4f);
         var lp = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLaunchPad>(z);
+        lp.launchSound = Sfx(g, "VentSfx", "sfx_vent_puff", Vector3.zero, 3f, 25f, 0.9f);
         lp.localDirection = launch; lp.speed = launch.magnitude; lp.cooldown = 1f; lp.flightSeconds = 1f; lp.flightDrag = 0.3f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lp); FuwaStage2WaterTest.NoSync(lp);
     }
@@ -1334,6 +1348,7 @@ public static class FuwaCourse2_2Builder
             }
         FlameCurtain(g, name, ptsA, ptsB);
         FireWallRock(g, name, ptsA, ptsB);
+        Sfx(g, "WallLoop", "sfx_loop_firewall", new Vector3((ptsA[0].p.x + ptsA[ptsA.Count - 1].p.x) * 0.5f, 1f, 0f), 4f, 20f, 0.55f, true);
         // 火の粉だけ粒で（前は太い粒のかたまりで炎を作っていて、ぼやけて赤いもやに見えた。2026-10-31）
         float x0 = ptsA[0].p.x, x1 = ptsA[3].p.x, len = x1 - x0;
         var ps = FuwaStage2FireTest.FlamePS(g, "Flame", 0.2f, 2.6f, 1.3f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.28f, 0.05f));
@@ -1733,6 +1748,8 @@ public static class FuwaCourse2_2Builder
         LavaRockTrail(trail);
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLavaRock>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
+        f.launchSound = Sfx(g, "LaunchSfx", "sfx_rock_launch", ps[0], 25f, 130f, 0.8f);
+        f.bounceSound = Sfx(mover, "BounceSfx", "sfx_rock_bounce", Vector3.zero, 4f, 32f, 0.9f);
         int hops = ps.Length - 1;
         f.hopTime = RockHop; f.hopUp = 1.2f; f.lastHopScale = hops > 1 ? 2f : 1f; f.firstHopScale = first; f.firstUp = firstUp; f.launchFx = launch;
         float fly = 0f; for (int k = 0; k < hops; k++) fly += RockHop * (k == 0 ? first : 1f) * (k == hops - 1 ? f.lastHopScale : 1f);
@@ -1826,6 +1843,7 @@ public static class FuwaCourse2_2Builder
         var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(1.2f, len, FlameHighH + 0.6f + 0.05f);
         bc.center = new Vector3(0, 0, (FlameHighH + 0.6f - 0.05f) * 0.5f - mid);
         var j = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireJet>(zone);
+        j.roar = Sfx(g, "RoarSfx", "sfx_fire_roar", new Vector3(0f, len * 0.5f, 0f), 4f, 32f, 0.9f);
         j.heat = heat; j.ball = ballProxy; j.phase = phase; j.period = period; j.onTime = on; j.flameRate = 14f; j.flameBody = JetBody(g, name, backs, rowZ, len);
         j.flame = flames[0]; j.warn = warns[0]; j.moreFlames = flames.Skip(1).ToArray(); j.moreWarns = warns.Skip(1).ToArray();
         // 吹っ飛ぶ向き：外（山から離れる向き）、外のふちの FlameLand 手前より先へは飛ばさない（てじゃ「落ちないくらい外に吹っ飛ばす」）。
@@ -1963,6 +1981,7 @@ public static class FuwaCourse2_2Builder
             var em = st.emission; em.rateOverTime = 0f; em.SetBursts(new[] { new ParticleSystem.Burst(0f, 22), new ParticleSystem.Burst(0.15f, 10) });
             st.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
         }
+        e.steamSound = Sfx(g.transform, "SteamSfx", "sfx_enemy_steam", Vector3.zero, 3f, 30f, 0.9f);
         e.flameFx = ps; e.steamFx = st; e.floatSink = -0.03f; e.floatBob = 0.05f; e.floatTilt = 25f; e.floatMaxR = PuddleR - 0.65f;
         e.tintRenderers = tR.ToArray(); e.tintSlots = tS.ToArray(); e.fireMats = tF.ToArray(); e.plainMats = tP.ToArray();
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(e);

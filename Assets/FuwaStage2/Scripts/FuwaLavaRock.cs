@@ -23,6 +23,8 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public float firstHopScale = 1f;
     [Tooltip("火口から飛び出す時の火の粉（なくてもOK）")]
     public ParticleSystem launchFx;
+    public AudioSource launchSound;
+    public AudioSource bounceSound;
     [Tooltip("見た目（飛んでいない時は隠す）")]
     public GameObject visual;
     [Tooltip("尾を引く炎（なくてもOK）")]
@@ -109,7 +111,9 @@ public class FuwaLavaRock : UdonSharpBehaviour
         {
             // 板に着いた所で火の粉（最初の空と最後の外は除く）
             if (k > 0 && k < hops && bounce != null) { bounce.transform.position = points[k].position; bounce.Play(); }
+            if (k > 0 && k < hops && bounceSound != null) bounceSound.Play();
             if (k == 0 && launchFx != null) launchFx.Play();
+            if (k == 0 && launchSound != null) launchSound.Play();
             _hop = k;
         }
         if (!flying) return;
