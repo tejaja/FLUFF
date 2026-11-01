@@ -1069,6 +1069,8 @@ public static class FuwaCourse2_2Builder
         e.flameMesh = BurnFlame(parent, "BodyFlameMesh", MonsterBurnS);
         return ps;
     }
+    // ふっ飛ばし（てじゃ「ここのまもののふっ飛ばし力アップ、ふわふわもプレイヤも」）。前はふわふわ 3.2 / 上 0.8、人 3.6 / 上 4
+    public static float MonsterBallKnock = 5f, MonsterBallKnockUp = 1.1f, MonsterPlayerKnock = 5.4f, MonsterPlayerKnockUp = 4.5f;
     public static float MonsterChase = 11f;   // 気づいた後に追い続ける距離（前は 6.5）
     public static float MonsterLeash = 14f;   // 5.5→14（てじゃ「もっと追いかけても良いかも」）
     // ほのおのまものは家へ戻る時に水たまりをよける
@@ -1080,6 +1082,7 @@ public static class FuwaCourse2_2Builder
         {
             e.avoidZones = zones;
             e.leashRange = MonsterLeash; e.chaseRange = MonsterChase;
+            e.ballKnockback = MonsterBallKnock; e.ballKnockUp = MonsterBallKnockUp; e.knockback = MonsterPlayerKnock; e.knockUp = MonsterPlayerKnockUp;
             // 追いかけるのはチェックポイント3と4のあいだだけ（てじゃ「チェックポイント以降はダメ」）
             if (cps) { e.chaseLimitBack = cps.Find("Checkpoint3"); e.chaseLimit = cps.Find("Checkpoint4"); }
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(e);
