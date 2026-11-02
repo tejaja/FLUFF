@@ -38,7 +38,7 @@ public static class FuwaCourse2_2Builder
     //   （火口のまわりの輪っかの道・マグマは「あんま面白くない」でやめた）。火山のまわりを右回りに沿う広めの道、山肌の岩から火炎放射
     public static float FlameExtraOff = 1.2f;
     public static float FlameKnockMin = 1.6f;   // 先端に当たっても最低これだけ横へ飛ばす（2026-11-02。2 だと Play で道のふちの 2.2m 外まで飛んだ）
-    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = -0.27f,FlamePlayerLand = 1.2f, FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
+    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = -0.27f,FlamePlayerLand = 0.8f, FlamePlayerPush = 8.5f, FlamePlayerPushUp = 5.5f, FlamePlayerPerMeter = 0f,   /* 0＝ふちの制限なし。人も落ちていい（2026-11-02 てじゃ「落ちるくらいでいいよ」） */ FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
     public const int FlameRows = 3;   // 炎の壁の縦の本数
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
@@ -1617,7 +1617,7 @@ public static class FuwaCourse2_2Builder
         {
             if (j.ballKnock <= 0f || j.knockOrigin == null) continue;
             var g = j.transform.parent; var old = g.Find("WarnArea"); if (old) Object.DestroyImmediate(old.gameObject);
-            var bc = j.GetComponent<BoxCollider>(); const int NL = 26, NW = 5; const float W = 1.5f;
+            var bc = j.GetComponent<BoxCollider>(); const int NL = 26, NW = 7; float W = JetWarnW;
             var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var idx = new List<int>(); var id = new int[NL + 1, NW + 1];
             float fromY = j.knockOrigin.position.y;
             for (int l = 0; l <= NL; l++) for (int w = 0; w <= NW; w++)
@@ -2133,6 +2133,8 @@ public static class FuwaCourse2_2Builder
         var m = flame.main; m.startSpeed = (len + back) / 0.7f;
     }
     // 火炎放射の炎：亀裂から伸びる細長いたまご（FlameMesh）を行ごとに 1 本。y が炎の向き。止まると FuwaFireJet の _Burn で根元から燃えつきる
+    // 炎の奥行き（2026-11-02 てじゃ「もっと火の奥行きあってもいい」）：道ぞいの向きに各列を太らせて、前後にずらす。当たりと予兆の幅もそれに合わせる
+    public static float JetDepthScale = 1.35f, JetZoneW = 2f, JetWarnW = 2.2f; static readonly float[] JetRowX = { -0.28f, 0.26f, -0.08f };
     public static float JetRowDelay = 0.07f;   // 上下 3 本の炎の出るタイミングのずれ（2026-11-02 てじゃ「ほんのちょっと」）。下から順に
     // 炎の本体（全部の列が 1 つのメッシュ）を列ごとに分ける。形はそのまま、三角形を近い列へ振り分けるだけ。作り直さずシーンだけ直す時もこれを呼ぶ（rowZ は null なら Row* の位置から）
     public static string SplitJetBody(FuwaFireJet j, float[] rowZ = null)
@@ -2151,11 +2153,13 @@ public static class FuwaCourse2_2Builder
         var more = new List<Transform>();
         for (int r = 0; r < rowZ.Length; r++)
         {
-            var m = Object.Instantiate(src); m.name = baseName + "_Row" + r; m.SetTriangles(lists[r], 0, false); m = SaveMesh(m); m.bounds = src.bounds; EditorUtility.SetDirty(m);   // SaveMesh は bounds を計算し直すので、炎のゆらぎの余白を戻す
+            var m = Object.Instantiate(src); m.name = baseName + "_Row" + r; float rx = JetRowX[r % JetRowX.Length]; var moved = (Vector3[])verts.Clone(); for (int vi = 0; vi < moved.Length; vi++) moved[vi].x = moved[vi].x * JetDepthScale + rx; m.vertices = moved; m.SetTriangles(lists[r], 0, false); m = SaveMesh(m); var wide = src.bounds; wide.Expand(new Vector3(1.4f, 0f, 0f)); m.bounds = wide; EditorUtility.SetDirty(m);   // SaveMesh は bounds を計算し直すので、炎のゆらぎの余白を戻す
+            var rowT = g.Find("Row" + r); if (rowT) { var rp = rowT.localPosition; rp.x = rx; rowT.localPosition = rp; }
             if (r == 0) { mf.sharedMesh = m; continue; }
             var o = Object.Instantiate(body.gameObject, g); o.name = "FlameBody" + r; o.transform.localPosition = body.localPosition; o.transform.localRotation = body.localRotation; o.transform.localScale = Vector3.one; o.GetComponent<MeshFilter>().sharedMesh = m; o.SetActive(false); more.Add(o.transform);
         }
         j.moreBodies = more.ToArray(); j.rowDelay = JetRowDelay;
+        var zone = j.GetComponent<BoxCollider>(); var zs = zone.size; zs.x = JetZoneW; zone.size = zs; EditorUtility.SetDirty(zone);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j); EditorUtility.SetDirty(j);
         return g.name + " 列" + rowZ.Length + " 三角形" + string.Join("/", lists.Select(l => l.Count / 3));
     }
@@ -2214,7 +2218,7 @@ public static class FuwaCourse2_2Builder
         j.knockOrigin = ko; j.knockReach = FlameHW * 2f - FlameLand; j.knockPerMeter = 0.85f; j.knockMin = FlameKnockMin;   // 試したら（上 1.5 で）1m/s で 1.15m くらい飛んだ
         // 人：地面に立っていると横の速さは地面に消されるので、しっかり上へ浮かせて飛ばす（2026-10-30 てじゃ「地面にたってるとプレイヤーがほとんど飛ばされない」）。
         //  向きは外（「プレイヤも横に飛ばしたい」）、ふわふわと同じくふちの手前まで
-        j.playerPush = 6f; j.playerPushUp = 4.5f; j.playerPushDir = parent.TransformDirection((o + back * 0.14f).normalized); j.playerPerMeter = 1.0f; j.playerReach = FlameHW * 2f - FlamePlayerLand;
+        j.playerPush = FlamePlayerPush; j.playerPushUp = FlamePlayerPushUp; j.playerPushDir = parent.TransformDirection((o + back * 0.14f).normalized); j.playerPerMeter = FlamePlayerPerMeter; j.playerReach = FlameHW * 2f - FlamePlayerLand;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j); FuwaStage2WaterTest.NoSync(j);
     }
 
