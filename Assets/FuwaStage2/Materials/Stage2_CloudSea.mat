@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Stage2_CloudSea
-  m_Shader: {fileID: 4800000, guid: 07bd85c60605d6c498ed6c3d070a47a2, type: 3}
+  m_Shader: {fileID: 4800000, guid: 2f52e204ae0c9e44b925c1d653352091, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -34,6 +34,9 @@ Material:
     - _HazeStart: 180
     - _Rim: 0.12
     - _ShadeContrast: 5
+    - _WaveHeight: 7
+    - _WaveLength: 150
+    - _WaveSpeed: 0.28
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _Haze: {r: 0.6, g: 0.83, b: 1, a: 1}
