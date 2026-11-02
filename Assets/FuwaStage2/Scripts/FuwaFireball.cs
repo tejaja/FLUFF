@@ -16,8 +16,6 @@ public class FuwaFireball : UdonSharpBehaviour
     public float arcHeight = 2.5f, flightTime = 1.2f, rest = 1.2f, phase = 0f;
     [Tooltip("ON なら往復せず、最後の穴（奥）から最初の穴（手前）へ飛ぶだけ（2026-11-03 てじゃ「奥側から手前に飛ぶオンリーにしたい」）。飛ぶ間隔は flightTime + rest のまま")]
     public bool oneWay = false;
-    [Tooltip("着く所が道の外の空中の時は ON（着いた時のしぶきを出さない）")]
-    public bool noLandSplash = false;
     [Tooltip("見た目（飛んでいない時は隠す）")]
     public GameObject visual;
     [Tooltip("尾を引く炎（なくてもOK）")]
@@ -130,7 +128,7 @@ public class FuwaFireball : UdonSharpBehaviour
         Vector3 a = holes[HoleAt(k)].position, b = holes[HoleAt(k + 1)].position;
         if (fly != _flying || (fly && k != _hop))
         {
-            if (splash != null && (fly || !noLandSplash)) { splash.transform.position = fly ? a : b; splash.Play(); }
+            if (splash != null) { splash.transform.position = fly ? a : b; splash.Play(); }
             if (fly) { _arcExtra = ArcExtra(); _hitBall = false; _hitPlayer = false; if (whoosh != null && whoosh.clip != null) whoosh.PlayOneShot(whoosh.clip); }
             _flying = fly; _hop = k; Show(fly);
         }

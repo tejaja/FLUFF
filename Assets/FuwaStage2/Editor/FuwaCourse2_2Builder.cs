@@ -182,9 +182,6 @@ public static class FuwaCourse2_2Builder
             var cm = hc + od * (len * 0.5f) + Vector3.down * ld;
             var strip = Box(lavaRoot, "LavaChannel" + k, cm - od * 0.1f + Vector3.down * 0.02f, new Vector3(ChanHW * 2f + 0.04f, 0.04f, len - 0.2f), lavaMat, 0);   // 道のふちより手前まで（道のふちは斜めなので、箱の角が道の外へ板のように出た）
             strip.transform.localRotation = rot; Object.DestroyImmediate(strip.GetComponent<Collider>());
-            var fall = Box(lavaRoot, "LavaFall" + k, hc + od * (len - 0.12f) + Vector3.down * (ld + LavaFallLen * 0.5f + 0.04f), new Vector3(ChanHW * 2f, LavaFallLen, 0.06f), lavaMat, 0);   // 上のふたは溝の溶岩の下へ（上に出ると段に見えた）
-            fall.transform.localRotation = rot; Object.DestroyImmediate(fall.GetComponent<Collider>());
-            LavaFallLook(fall);
             LavaBurn(lavaRoot, "LavaChannelBallOut" + k, cm + Vector3.down * (BurnSink + 0.5f), new Vector3(ChanHW * 2f, 1f, len), rot);
             Hazard(lavaRoot, "LavaChannelPlayerOut" + k, cm + Vector3.down * 0.5f, new Vector3(ChanHW * 2f, 1.2f, len), true, rot);
         }
@@ -336,7 +333,6 @@ public static class FuwaCourse2_2Builder
             VolcanoJet(fire, "Flamethrower" + k, Around(jt.th, RoadR(jt.th, y) - FlameHW, y), RoadR(jt.th, y) - FlameHW, y, jt.th, jt.per, jt.on, jt.ph);
         }
         JetWarnAreas(fire);
-        FireballSideFalls(fire);
         var p = pts5[pts5.Length - 1];
 
         // ⑦ ゴール
@@ -517,7 +513,7 @@ public static class FuwaCourse2_2Builder
     // holes：上の面にあける丸い穴（xyz＝上の面の中心、w＝半径。道のふちからはみ出さないこと）。穴の壁（岩）は LavaDepth＋0.3 下まで
     // 道にあける穴（2026-10-31 てじゃ「穴と溝が円と直線すぎる」「赤丸で繋がった溶岩池に」）：穴の中心をつないだ線のまわりの形。ふちはでこぼこ、穴と穴の間は少し細い。
     //  道の線ごとに「穴の左はし・右はし」を求めて作る（ふちの点は線の上だけ。線から外すと、となりの帯の長い辺とずれて道に切れ目が出た）
-    public static float PoolWobble = 0.2f, PoolNeck = 0.3f, PoolThinGap = 1.2f, PoolEdgeDrop = 1.2f, PoolBulgeR = 1.9f;   // PoolBulgeR：真ん中の 2 つの池のくびれを直径 3.8m に（2026-11-03 てじゃ「このルートでいけちゃうのを潰したい」。くびれは約 1.7m でジャンプで越せた）
+    public static float PoolWobble = 0.2f, PoolNeck = 0.3f, PoolThinGap = 1.2f, PoolBulgeR = 1.9f;   // PoolBulgeR：真ん中の 2 つの池のくびれを直径 3.8m に（2026-11-03 てじゃ「このルートでいけちゃうのを潰したい」。くびれは約 1.7m でジャンプで越せた）
     const int LavaShadowLayer = 14;   // PickupNoEnvironment：ふわふわ（17）・人（9, 10）と当たらない
     public const float BurnSink = 0.1f;   // ふわふわが黒焦げになる高さ：溶岩の面からこれだけ下に玉の底が入った時（2026-10-31 てじゃ「やたら高い位置でアウト」で 0.2 に→「ちょっぴり上げても」で 0.1。前は溶岩の 0.2 上だった）
     class HolePool
@@ -551,6 +547,39 @@ public static class FuwaCourse2_2Builder
             if (Sd(o + side * outX) < 0f) return outX;
             for (int k = 0; k < 8; k++) { float m = (outX + inX) * 0.5f; if (Sd(o + side * m) < 0f) inX = m; else outX = m; }
             return inX;
+        }
+    }
+    // 道のふちから垂れる溶岩（2026-11-03 てじゃ「横の垂れてる溶岩が辻褄合わなく」）：開いたふちの端から端まで続く 1 枚。下のはしは長い舌と短い所がまじって、両はしは短くなる。裏からも見える
+    public static float CurtainMin = 0.5f, CurtainTongue = 5f; const int CurtainRows = 6;
+    static void LavaCurtains(MB lava, List<RPt> r, Vector3[] side, float[] s, Vector3[] pts, float[] hw, List<(int i, int sx, float ld)> open)
+    {
+        foreach (var sx in new[] { -1, 1 })
+        {
+            var rows = open.Where(o => o.sx == sx).OrderBy(o => o.i).ToList();
+            for (int a = 0; a < rows.Count;)
+            {
+                int b = a; while (b + 1 < rows.Count && rows[b + 1].i == rows[b].i + 1) b++;
+                int i0 = rows[a].i, i1 = rows[b].i + 1; float s0 = s[i0], s1 = s[i1], ld = rows[a].ld, seed = s0 * 0.37f + sx;
+                Vector3 Col(int j, float t, out float len)
+                {
+                    float d = Mathf.Min(s[j] - s0, s1 - s[j]), taper = Mathf.SmoothStep(0.25f, 1f, Mathf.Clamp01(d / 1.2f));
+                    float big = Mathf.PerlinNoise(s[j] * 0.75f + seed, seed * 1.3f), fine = Mathf.PerlinNoise(s[j] * 2.3f + seed * 2f, 7.1f);
+                    len = taper * (CurtainMin + 0.6f * fine + CurtainTongue * Mathf.Pow(big, 3f) * 2.2f);
+                    float w = WAt(pts, hw, r[j].u);
+                    var top = r[j].p + side[j] * (sx * w) + Vector3.down * ld;
+                    float wob = 0.12f * t * Mathf.Sin(s[j] * 2.1f + t * 5f + seed);
+                    return top + side[j] * (sx * (-0.02f + 0.12f * Mathf.Sin(t * Mathf.PI) + wob)) + Vector3.down * (len * t);
+                }
+                for (int j = i0; j < i1; j++)
+                    for (int k = 0; k < CurtainRows; k++)
+                    {
+                        float t0 = k / (float)CurtainRows, t1 = (k + 1f) / CurtainRows;
+                        var p00 = Col(j, t0, out _); var p01 = Col(j, t1, out _); var p10 = Col(j + 1, t0, out _); var p11 = Col(j + 1, t1, out _);
+                        lava.Quad(p00, p10, p11, p01, side[j] * sx, 0);
+                        lava.Quad(p00, p10, p11, p01, -side[j] * sx, 0);
+                    }
+                a = b + 1;
+            }
         }
     }
     // 溝のふち：a（穴のふち）から b（道のふち）を折れ線にして、溝の中へでこぼこ出す。両はしは動かさない。道の幅は広がらない
@@ -639,6 +668,7 @@ public static class FuwaCourse2_2Builder
         int folds = 0; string foldAt = ""; for (int i = 0; i + 1 < n; i++) { var f = Flat(r[i + 1].p - r[i].p); if (Vector3.Dot(R[i + 1] - R[i], f) <= 0f || Vector3.Dot(L[i + 1] - L[i], f) <= 0f) { folds++; foldAt += " #" + i + "/" + n + r[i].p.ToString("F1") + " f=" + f.magnitude.ToString("F3"); } }
         if (folds > 0) Debug.LogWarning("[2–2] " + name + " 道の面の折り重なり " + folds + " か所" + foldAt);
         var vis = new MB(); var col = new MB(); var lava = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
+        var openEdge = new List<(int i, int sx, float ld)>();
         for (int i = 0; i < n - 1; i++)
         {
             int st = Mathf.FloorToInt((s[i] + s[i + 1]) * 0.5f / StripeLen) % 2;
@@ -770,10 +800,9 @@ public static class FuwaCourse2_2Builder
                         float lx0 = h.c0 - h.hl0 - Over, lx1 = h.c1 - h.hl1 - Over, rx0 = h.c0 + h.hr0 + Over, rx1 = h.c1 + h.hr1 + Over;
                         if (h.ch0 && h.ch1)
                         {
-                            // 道のふちまで開いている帯：溶岩をふちまで広げて、ふちから少し垂らす
+                            // 道のふちまで開いている帯：溶岩をふちまで広げる。垂れる溶岩はあとでふちの端から端まで続けて作る
                             if (h.sx > 0) { rx0 = w0; rx1 = w1; } else { lx0 = -w0; lx1 = -w1; }
-                            Vector3 a = P0(h.sx > 0 ? w0 : -w0) + ld, b = P1(h.sx > 0 ? w1 : -w1) + ld, drop = Vector3.down * PoolEdgeDrop;
-                            lava.Quad(a, b, b + drop, a + drop, side[i] * h.sx, 0);
+                            openEdge.Add((i, h.sx, h.wd - 0.3f));
                         }
                         lava.Quad(P0(lx0) + ld, P1(lx1) + ld, P1(rx1) + ld, P0(rx0) + ld, Vector3.up, 0); continue;
                     }
@@ -795,6 +824,7 @@ public static class FuwaCourse2_2Builder
             vis.Quad(L[i] + side[i] * Bevel, R[i] - side[i] * Bevel, R[i] + dn, L[i] + dn, o, st); col.Quad(L[i], R[i], R[i] + dn, L[i] + dn, o, 0);
             SkirtEnd(vis, Li[i] + dn, Ri[i] + dn, o);
         }
+        LavaCurtains(lava, r, side, s, pts, hw, openEdge);
         MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
         if (lavaParent != null)
         {
@@ -1722,46 +1752,6 @@ public static class FuwaCourse2_2Builder
         }
         foreach (var c in temps) Object.DestroyImmediate(c);
         return "予兆エリア " + made + " 個, 三角形 " + tris;
-    }
-
-    // 真上に飛んでいた火球を、いちばん近い道のふちの外へ、ふちギリギリを通って落とす（2026-11-03 てじゃ「真横のコース外に落ちる感じ」「ギリギリで落ちる感じ」）。
-    // 道の高さを通る時に火球の端が道のふちから FireballEdgeGap だけ外。道の高さまでは今までと同じ秒数で、そのぶん飛ぶ秒数を足し、飛ぶ間隔はなるべく今のまま。すでに直した火球は飛ばす
-    public static float FireballEdgeGap = 0.1f, FireballFallBelow = 5f;
-    public static string FireballSideFalls(Transform fire)
-    {
-        var course = fire.root; var temps = new List<MeshCollider>();
-        foreach (var n in new[] { "ZigPath", "Path12", "Path5" })
-            foreach (var t in course.GetComponentsInChildren<Transform>(true))
-                if (t.name == n && t.GetComponent<MeshFilter>()) { var c = t.gameObject.AddComponent<MeshCollider>(); c.sharedMesh = t.GetComponent<MeshFilter>().sharedMesh; temps.Add(c); }
-        Physics.SyncTransforms();
-        var log = new List<string>();
-        foreach (var f in fire.GetComponentsInChildren<FuwaFireball>(true))
-        {
-            if (f.holes.Length != 1) continue;
-            var hole = f.holes[0]; var a = hole.position; float edge = float.MaxValue, roadY = a.y; var dir = Vector3.forward;
-            for (int k = 0; k < 72; k++)
-            {
-                float an = k * 5f * Mathf.Deg2Rad; var d = new Vector3(Mathf.Sin(an), 0f, Mathf.Cos(an)); float last = -1f, y = a.y, none = 0f;
-                for (float s = 0f; s < 12f; s += 0.05f)
-                {
-                    var q = a + d * s; bool hit = false; float hy = 0f;
-                    foreach (var c in temps) if (c.Raycast(new Ray(new Vector3(q.x, a.y + 3f, q.z), Vector3.down), out var h, 6f) && h.normal.y > 0.5f) { hit = true; hy = h.point.y; break; }
-                    if (hit) { last = s; y = hy; none = 0f; } else if (last >= 0f) { none += 0.05f; if (none > 1.5f) break; }
-                }
-                if (last > 0f && last < edge) { edge = last; dir = d; roadY = y; }
-            }
-            // ベジェで道の高さを通る u を出して、その時の横の距離がふちの外になるように着く所を決める
-            float toY = roadY - FireballFallBelow, top = Mathf.Max(a.y, toY) + f.arcHeight, midY = 2f * top - (a.y + toY) * 0.5f, uRoad = 1f;
-            for (float u = 0.5f; u <= 1f; u += 0.002f) { float v = 1f - u, y = v * v * a.y + 2f * v * u * midY + u * u * toY; if (y <= roadY) { uRoad = u; break; } }
-            float reach = edge + FireballSize * 0.5f + FireballEdgeGap, dist = reach / uRoad;
-            var to = new GameObject("FallTo").transform; to.SetParent(f.transform.parent, false); to.position = a + dir * dist + Vector3.up * (toY - a.y);
-            float step = f.flightTime + f.rest, flight = f.flightTime / uRoad;
-            f.holes = new[] { to, hole }; f.oneWay = true; f.noLandSplash = true; f.flightTime = flight; f.rest = Mathf.Max(0.15f, step - flight);
-            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); EditorUtility.SetDirty(f);
-            log.Add(f.transform.parent.name + " ふち " + edge.ToString("F2") + "m 向き " + dir.ToString("F2") + " 着く距離 " + dist.ToString("F2") + "m 飛ぶ " + flight.ToString("F2") + "s 休み " + f.rest.ToString("F2") + "s（間隔 " + step.ToString("F2") + "→" + (flight + f.rest).ToString("F2") + "）");
-        }
-        foreach (var c in temps) Object.DestroyImmediate(c);
-        return string.Join(" / ", log);
     }
 
     // 炎の壁の音は全部の壁で 1 つ。壁の当たり（Burn の箱）の線の上で、聞く人にいちばん近い所から鳴る（FuwaLineSound）。作り直さずシーンだけ直す時もこれを呼ぶ
