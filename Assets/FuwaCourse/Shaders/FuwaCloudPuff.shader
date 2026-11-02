@@ -7,6 +7,7 @@ Shader "FuwaCourse/CloudPuff"
         _Color ("Lit Color", Color) = (1, 1, 1, 1)
         _Shade ("Shade Color", Color) = (0.72, 0.83, 0.97, 1)
         _Rim ("Rim", Range(0, 1)) = 0.35
+        _ShadeContrast ("陰影のはっきりさ（1=ふつう。真上からの光でも丘の形を見せたい雲海用）", Range(1, 12)) = 1
         _Drift ("Drift Distance (m)", Float) = 3
         _DriftSpeed ("Drift Speed", Float) = 0.04
         _Bob ("Bob Height (m)", Float) = 0.4
@@ -33,7 +34,7 @@ Shader "FuwaCourse/CloudPuff"
             fixed4 _Color, _Shade, _LightColor0, _Haze;
             float _UdonSkyDim;
             float _FogMax;   // シーンの霧（Lighting の Linear 霧・やみのもりの霧）をどれだけかけるか   // グローバル：やみのもりにいる間、空と一緒に暗くする（FuwaAreaFog）
-            float _Rim, _Drift, _DriftSpeed, _Bob, _HazeStart, _HazeEnd, _HazeMax;
+            float _ShadeContrast; float _Rim, _Drift, _DriftSpeed, _Bob, _HazeStart, _HazeEnd, _HazeMax;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float3 wn : TEXCOORD0; float3 wv : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
@@ -60,6 +61,7 @@ Shader "FuwaCourse/CloudPuff"
                 float3 n = normalize(i.wn);
                 float3 l = normalize(_WorldSpaceLightPos0.xyz);
                 float d = saturate((dot(n, l) + 0.5) / 1.5);
+                d = pow(d, _ShadeContrast);
                 float3 col = lerp(_Shade.rgb, _Color.rgb, d);
                 float rim = pow(1 - saturate(dot(n, normalize(i.wv))), 3) * _Rim;
                 col += rim;
