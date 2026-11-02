@@ -18,6 +18,7 @@ Shader "FuwaCourse/Lava"
         _WaveTop ("ゆれの根元の高さ（ワールド y）", Float) = 0
         _Fray ("先のこの割合でちぎれて消える（uv.x が根元 0〜先 1、uv.y がふちにそった長さ m。0 でなし）", Range(0,1)) = 0
         _FrayColor ("ちぎれる所の色", Color) = (1, 0.6, 0.2, 1)
+        _TimeAdd ("時間を足す（撮影用）", Float) = 0
     }
     SubShader
     {
@@ -38,6 +39,7 @@ Shader "FuwaCourse/Lava"
             half _Crust;
             float _Scale, _PoolSpeed, _FallSpeed, _Wave, _WaveSpeed, _WaveTop, _Fray;
             fixed4 _FrayColor;
+            float _TimeAdd;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) float2 fray : TEXCOORD3; UNITY_VERTEX_OUTPUT_STEREO };
@@ -67,7 +69,7 @@ Shader "FuwaCourse/Lava"
             fixed4 frag (v2f i) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-                float t = _Time.y;
+                float t = _Time.y + _TimeAdd;
                 half up = step(0.5, abs(normalize(i.wn).y));
                 fixed4 f1, f2;
                 if (up > 0.5)
@@ -91,10 +93,10 @@ Shader "FuwaCourse/Lava"
                 if (_Fray > 0.001)
                 {
                     // 水の滝（FuwaStage2/Waterfall の _FrayLen）と同じ消え方を、粘り気のある大きなかたまりで（2026-11-03 てじゃ「もっと荒くしてトゲを滑らかな感じにして粘度たかそうに」）。
-                    // ぼかした段のテクスチャを低い周波数で読むので、ふちが丸くなる。R は 0.3〜0.7 くらいなので広げて使う。下へ約 0.3m/s
+                    // ぼかした段のテクスチャを低い周波数で読むので、ふちが丸くなる。R は 0.3〜0.7 くらいなので広げて使う。かたまりが下へ約 0.6m/s で流れて、先へ行くほど細って消える（てじゃ「垂れて下に消える感じがしない」）
                     float tf = saturate((i.fray.x - (1 - _Fray)) / _Fray);
-                    float n1 = tex2Dlod(_FlowTex, float4(i.fray.y * 0.2, i.wp.y * 0.04 + t * _FallSpeed * 0.12, 0, 4)).r;
-                    float n2 = tex2Dlod(_FlowTex, float4(i.fray.y * 0.45 + 0.37, i.wp.y * 0.07 + t * _FallSpeed * 0.21, 0, 4)).r;
+                    float n1 = tex2Dlod(_FlowTex, float4(i.fray.y * 0.3, i.wp.y * 0.17 + t * _FallSpeed * 1.0, 0, 3)).r;
+                    float n2 = tex2Dlod(_FlowTex, float4(i.fray.y * 0.7 + 0.37, i.wp.y * 0.25 + t * _FallSpeed * 1.5, 0, 3)).r;
                     float nf = saturate((n1 * 0.65 + n2 * 0.35 - 0.37) / 0.26);
                     clip(nf - smoothstep(0.1, 1.0, tf) * 1.05 + 0.001);   // + にしないと、消え始める前の所にも点の穴があいた
                     c = lerp(c, _FrayColor.rgb, smoothstep(0.05, 0.75, tf) * 0.85);

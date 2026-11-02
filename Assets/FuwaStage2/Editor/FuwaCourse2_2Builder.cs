@@ -561,7 +561,7 @@ public static class FuwaCourse2_2Builder
         }
     }
     // 道のふちから垂れる溶岩：前の細い滝（LavaFallLook、下へ細くなって消える形）を、開いたふちの幅いっぱいに横へ引き伸ばした形（2026-11-03 てじゃ「最初の細くて消えてくかんじのやつを横に引き伸ばしたら」）。裏からも見える
-    const int CurtainRows = 8;
+    public static float CurtainLen = 5f; const int CurtainRows = 8;
     static void LavaCurtains(MB lava, List<RPt> r, Vector3[] side, float[] s, Vector3[] pts, float[] hw, List<(int i, int sx, float ld)> open)
     {
         foreach (var sx in new[] { -1, 1 })
@@ -570,11 +570,11 @@ public static class FuwaCourse2_2Builder
             for (int a = 0; a < rows.Count;)
             {
                 int b = a; while (b + 1 < rows.Count && rows[b + 1].i == rows[b].i + 1) b++;
-                int i0 = rows[a].i, i1 = rows[b].i + 1; float s0 = s[i0], s1 = s[i1], ld = rows[a].ld, mid = (s0 + s1) * 0.5f, half = Mathf.Max(0.01f, (s1 - s0) * 0.5f);
+                int i0 = rows[a].i, i1 = rows[b].i + 1; float s0 = s[i0], s1 = s[i1], ld = rows[a].ld;
                 Vector3 Col(int j, float t)
                 {
-                    // 前の滝の幅 (1 - t^2.4) を逆にして、横の位置 x での長さにする
-                    float x = Mathf.Clamp01(Mathf.Abs(s[j] - mid) / half), len = LavaFallLen * Mathf.Pow(1f - x, 1f / 2.4f) * (0.95f + 0.05f * Mathf.Sin(s[j] * 3.1f + s0));
+                    // 2–1 の滝のように幅いっぱいでまっすぐ落ちる（てじゃ「2-1の滝みたいなの」）。両はしだけ短くして、ふちの角につなげる
+                    float edge = Mathf.Min(s[j] - s0, s1 - s[j]), len = CurtainLen * (0.15f + 0.85f * Mathf.Sqrt(Mathf.Clamp01(edge / 1.2f))) * (0.96f + 0.04f * Mathf.Sin(s[j] * 1.7f + s0));
                     var top = r[j].p + side[j] * (sx * WAt(pts, hw, r[j].u)) + Vector3.down * ld;
                     float bulge = 0.14f * Mathf.Sin(Mathf.Min(t * 3f, 1f) * Mathf.PI * 0.5f) * (1f - t * t) + 0.07f * Mathf.Sin(t * 7.5f) * t;
                     return top + side[j] * (sx * (-0.02f + bulge)) + Vector3.down * (len * t);
@@ -2096,7 +2096,7 @@ public static class FuwaCourse2_2Builder
         if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); EditorUtility.SetDirty(m); }
         return m;
     }
-    public static float CurtainWave = 0.03f, CurtainWaveSpeed = 0.7f, CurtainFallSpeed = 0.1f, CurtainFray = 0.55f;   // Fray：先のこの割合で、水の滝みたいにちぎれて消える（2026-11-03 てじゃ「ポタポタなくして」「先を水の滝みたいに消える感じ」「速度はゆっくりめ」）
+    public static float CurtainWave = 0.03f, CurtainWaveSpeed = 0.7f, CurtainFallSpeed = 0.1f, CurtainFray = 0.6f;   // Fray：先のこの割合で、水の滝みたいにちぎれて消える（2026-11-03 てじゃ「ポタポタなくして」「先を水の滝みたいに消える感じ」「速度はゆっくりめ」）
     public static Material LavaCurtainMat(float topY)
     {
         const string mp = "Assets/FuwaStage2/Materials/Stage2_2_LavaCurtain.mat";
