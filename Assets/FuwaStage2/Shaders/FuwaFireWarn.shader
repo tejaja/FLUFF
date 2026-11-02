@@ -5,8 +5,13 @@ Shader "FuwaCourse/FireWarn"
     Properties
     {
         _Color ("色", Color) = (1, 0.1, 0.05, 1)
-        _Root ("根元の濃さ", Range(0,1)) = 0.75
-        _Tip ("先の濃さ", Range(0,1)) = 0.4
+        _Root ("根元の濃さ", Range(0,1)) = 1
+        _Tip ("先の濃さ", Range(0,1)) = 0.8
+        _Length ("エリアの長さ(m)", Float) = 6.5
+        _Wavelength ("帯の間隔(m)", Float) = 1.8
+        _Speed ("流れる速さ(m/s)。風の地面は 3.5", Float) = 10
+        _Base ("帯の間の薄さ(0-1)", Range(0,1)) = 0.3
+        _Sharp ("帯のくっきりさ", Range(1,8)) = 2.5
         _Alpha ("出ている量（スクリプトが動かす）", Range(0,1)) = 1
     }
     SubShader
@@ -27,6 +32,7 @@ Shader "FuwaCourse/FireWarn"
 
             fixed4 _Color;
             half _Root, _Tip, _Alpha;
+            float _Length, _Wavelength, _Speed, _Base, _Sharp;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
@@ -46,7 +52,10 @@ Shader "FuwaCourse/FireWarn"
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 half side = 1 - abs(i.uv.x * 2 - 1);
-                half a = smoothstep(0, 0.55, side) * lerp(_Root, _Tip, i.uv.y) * smoothstep(1, 0.88, i.uv.y) * _Alpha;
+                // 風の地面（Fuwa/GroundHighlight）と同じ帯が、炎の向きへ流れる。前側がくっきり、後ろがなだらか
+                float saw = frac(i.uv.y * _Length / _Wavelength - _Time.y * _Speed / _Wavelength);
+                half band = pow(saw, _Sharp) * smoothstep(1.0, 0.72, saw);
+                half a = smoothstep(0, 0.55, side) * lerp(_Root, _Tip, i.uv.y) * smoothstep(1, 0.88, i.uv.y) * lerp(_Base, 1, band) * _Alpha;
                 fixed4 c = fixed4(_Color.rgb, a);
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;

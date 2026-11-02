@@ -1624,9 +1624,20 @@ public static class FuwaCourse2_2Builder
             {
                 float v = l / (float)NL, u = w / (float)NW;
                 var q = j.transform.TransformPoint(bc.center + new Vector3((u - 0.5f) * W, (v - 0.5f) * bc.size.y, 0f)); id[l, w] = -1;
-                float best = float.MaxValue; bool ok = false; Vector3 hit = q; var ray = new Ray(new Vector3(q.x, fromY + 1.5f, q.z), Vector3.down);
-                foreach (var c in temps) if (c.Raycast(ray, out var h, 4f) && h.distance < best && h.normal.y > 0.5f) { best = h.distance; hit = h.point; ok = true; }
-                if (!ok) continue;
+                // 道の外の点は、エリアのまん中へ向かって道のふちまで引き戻す（落とすと端がギザギザに切れた。2026-11-02 てじゃ）
+                bool Down(Vector3 at, out Vector3 got)
+                {
+                    float best = float.MaxValue; bool found = false; got = at; var ray = new Ray(new Vector3(at.x, fromY + 1.5f, at.z), Vector3.down);
+                    foreach (var c in temps) if (c.Raycast(ray, out var h, 4f) && h.distance < best && h.normal.y > 0.5f) { best = h.distance; got = h.point; found = true; }
+                    return found;
+                }
+                bool ok = Down(q, out var hit);
+                if (!ok)
+                {
+                    var mid = j.transform.TransformPoint(bc.center); float lo = 0f, hi = 1f;   // lo：道の外、hi：まん中
+                    if (!Down(mid, out var midHit)) continue;
+                    hit = midHit; for (int it = 0; it < 7; it++) { float m = (lo + hi) * 0.5f; if (Down(Vector3.Lerp(q, mid, m), out var mh)) { hi = m; hit = mh; } else lo = m; }
+                }
                 id[l, w] = verts.Count; verts.Add(g.InverseTransformPoint(hit + Vector3.up * 0.015f)); uvs.Add(new Vector2(u, v));
             }
             void Tri(int a, int b, int c)
