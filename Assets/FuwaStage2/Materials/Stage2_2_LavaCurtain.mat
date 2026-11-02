@@ -83,7 +83,8 @@ Material:
     - _EmissionFull: 1.6
     - _EmissionGradient: 0
     - _Facet: 0
-    - _FallSpeed: 0.2
+    - _FallSpeed: 0.1
+    - _Fray: 0.55
     - _GlossMapScale: 1
     - _Glossiness: 0.1
     - _GlossyReflections: 1
@@ -130,6 +131,7 @@ Material:
     - _Color: {r: 1, g: 0.42, b: 0.1, a: 1}
     - _CrustColor: {r: 0.19999996, g: 0.06999998, b: 0.059999965, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _FrayColor: {r: 1, g: 0.6, b: 0.19999996, a: 1}
     - _GroundTintA: {r: 1.1, g: 1.08, b: 0.86, a: 1}
     - _GroundTintB: {r: 0.8, g: 0.92, b: 0.8399999, a: 1}
     - _LavaDark: {r: 0.5, g: 0.025, b: 0.012, a: 1}

@@ -16,6 +16,8 @@ Shader "FuwaCourse/Lava"
         _Wave ("垂れる溶岩のゆれ（0 でなし。_WaveTop からの深さに比例）", Float) = 0
         _WaveSpeed ("ゆれの速さ", Float) = 0.9
         _WaveTop ("ゆれの根元の高さ（ワールド y）", Float) = 0
+        _Fray ("先のこの割合でちぎれて消える（uv.x が根元 0〜先 1。0 でなし）", Range(0,1)) = 0
+        _FrayColor ("ちぎれる所の色", Color) = (1, 0.6, 0.2, 1)
     }
     SubShader
     {
@@ -34,16 +36,18 @@ Shader "FuwaCourse/Lava"
             half4 _LavaHot, _LavaMid, _LavaDark;
             fixed4 _CrustColor;
             half _Crust;
-            float _Scale, _PoolSpeed, _FallSpeed, _Wave, _WaveSpeed, _WaveTop;
+            float _Scale, _PoolSpeed, _FallSpeed, _Wave, _WaveSpeed, _WaveTop, _Fray;
+            fixed4 _FrayColor;
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) float fray : TEXCOORD3; UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
                 v2f o;
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                o.fray = v.uv.x;
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 if (_Wave > 0.0001)
                 {
@@ -84,6 +88,16 @@ Shader "FuwaCourse/Lava"
                 half3 c = h2 < 0.5 ? lerp(_LavaDark.rgb, _LavaMid.rgb, h2 * 2) : lerp(_LavaMid.rgb, _LavaHot.rgb, (h2 - 0.5) * 2);
                 half crust = up * smoothstep(0.5, 0.65, f1.b) * smoothstep(0.62, 0.42, f1.r) * (1 - f2.g);
                 c = lerp(c, _CrustColor.rgb, crust * _Crust);
+                if (_Fray > 0.001)
+                {
+                    // 水の滝（FuwaStage2/Waterfall の _FrayLen）と同じ消え方：先へ行くほど色が変わって、下へ流れるノイズで穴があいてちぎれる。テクスチャの R は 0.3〜0.7 くらいなので広げて使う
+                    float tf = saturate((i.fray - (1 - _Fray)) / _Fray);
+                    float h3 = (i.wp.x + i.wp.z) * _Scale * 7.0;
+                    fixed4 f3 = tex2D(_FlowTex, float2(h3, i.wp.y * _Scale * 1.2 + t * _FallSpeed * 1.3));
+                    float nf = saturate((f1.r * 0.45 + f2.r * 0.25 + f3.r * 0.3 - 0.33) / 0.34);
+                    clip(nf - smoothstep(0.1, 1.0, tf) * 1.05 + 0.001);   // + にしないと、消え始める前の所にも点の穴があいた
+                    c = lerp(c, _FrayColor.rgb, smoothstep(0.05, 0.75, tf) * 0.85);
+                }
                 c = FuwaLavaCalm(c, FuwaFireFar(i.wp));
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);

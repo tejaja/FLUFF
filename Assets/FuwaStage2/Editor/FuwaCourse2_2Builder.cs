@@ -478,10 +478,20 @@ public static class FuwaCourse2_2Builder
             int i = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d);
             t[sub].AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
         }
+        // uv つき（垂れる溶岩の、列の根元 0〜先 1）
+        public List<Vector2> uv = new List<Vector2>();
+        public void QuadUv(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float ua, float ub, float uc, float ud, Vector3 outward, int sub)
+        {
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a) + Vector3.Cross(c - a, d - a), outward) < 0f) { var x = b; b = d; d = x; var y = ub; ub = ud; ud = y; }
+            int i = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d);
+            uv.Add(new Vector2(ua, 0f)); uv.Add(new Vector2(ub, 0f)); uv.Add(new Vector2(uc, 0f)); uv.Add(new Vector2(ud, 0f));
+            t[sub].AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
+        }
         public Mesh Build(string name, int subs)
         {
             var m = new Mesh { name = name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             m.SetVertices(v); m.subMeshCount = subs;
+            if (uv.Count == v.Count && uv.Count > 0) m.SetUVs(0, uv);
             for (int s = 0; s < subs; s++) m.SetTriangles(t[s], s);
             m.RecalculateNormals(); m.RecalculateBounds();
             return m;
@@ -551,7 +561,7 @@ public static class FuwaCourse2_2Builder
         }
     }
     // 道のふちから垂れる溶岩：前の細い滝（LavaFallLook、下へ細くなって消える形）を、開いたふちの幅いっぱいに横へ引き伸ばした形（2026-11-03 てじゃ「最初の細くて消えてくかんじのやつを横に引き伸ばしたら」）。裏からも見える
-    const int CurtainRows = 8; public static readonly List<(Vector3 a, Vector3 b)> CurtainSpans = new List<(Vector3, Vector3)>();
+    const int CurtainRows = 8;
     static void LavaCurtains(MB lava, List<RPt> r, Vector3[] side, float[] s, Vector3[] pts, float[] hw, List<(int i, int sx, float ld)> open)
     {
         foreach (var sx in new[] { -1, 1 })
@@ -569,19 +579,13 @@ public static class FuwaCourse2_2Builder
                     float bulge = 0.14f * Mathf.Sin(Mathf.Min(t * 3f, 1f) * Mathf.PI * 0.5f) * (1f - t * t) + 0.07f * Mathf.Sin(t * 7.5f) * t;
                     return top + side[j] * (sx * (-0.02f + bulge)) + Vector3.down * (len * t);
                 }
-                // ポタポタの粒は先っぽから 1 か所
-                {
-                    int jm = i0; for (int j = i0; j <= i1; j++) if (Mathf.Abs(s[j] - mid) < Mathf.Abs(s[jm] - mid)) jm = j;
-                    int jn = Mathf.Min(jm + 1, i1), jp = Mathf.Max(jn - 1, i0); var along = Flat(r[jn].p - r[jp].p).normalized; var tip = Col(jm, 1f);
-                    CurtainSpans.Add((tip - along * 0.15f, tip + along * 0.15f));
-                }
                 for (int j = i0; j < i1; j++)
                     for (int k = 0; k < CurtainRows; k++)
                     {
                         float t0 = k / (float)CurtainRows, t1 = (k + 1f) / CurtainRows;
                         var p00 = Col(j, t0); var p01 = Col(j, t1); var p10 = Col(j + 1, t0); var p11 = Col(j + 1, t1);
-                        lava.Quad(p00, p10, p11, p01, side[j] * sx, 0);
-                        lava.Quad(p00, p10, p11, p01, -side[j] * sx, 0);
+                        lava.QuadUv(p00, p10, p11, p01, t0, t0, t1, t1, side[j] * sx, 0);
+                        lava.QuadUv(p00, p10, p11, p01, t0, t0, t1, t1, -side[j] * sx, 0);
                     }
                 a = b + 1;
             }
@@ -829,7 +833,6 @@ public static class FuwaCourse2_2Builder
             vis.Quad(L[i] + side[i] * Bevel, R[i] - side[i] * Bevel, R[i] + dn, L[i] + dn, o, st); col.Quad(L[i], R[i], R[i] + dn, L[i] + dn, o, 0);
             SkirtEnd(vis, Li[i] + dn, Ri[i] + dn, o);
         }
-        if (lavaParent != null) CurtainSpans.Clear();
         LavaCurtains(curtain, r, side, s, pts, hw, openEdge);
         MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
         if (lavaParent != null)
@@ -842,7 +845,6 @@ public static class FuwaCourse2_2Builder
                 // 垂れる溶岩は別の物にして、ゆっくり波打たせる。流れも遅く（2026-11-03 てじゃ「カチッと固まってるの違和感」「表面の流れが早いかも」）
                 var cg = MeshObj(lavaParent, "LavaCurtains", curtain.Build("Course2_2_LavaCurtains", 1), null, new[] { LavaCurtainMat(lavaParent.TransformPoint(r[openEdge[0].i].p + Vector3.down * openEdge[0].ld).y) });
                 cg.layer = LavaShadowLayer; var cr = cg.GetComponent<MeshRenderer>(); cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; cr.receiveShadows = false;
-                LavaDrips(lavaParent);
             }
             foreach (var mk in Object.FindObjectsOfType<FuwaGroundMarker>(true))
             {
@@ -2093,33 +2095,13 @@ public static class FuwaCourse2_2Builder
         if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); EditorUtility.SetDirty(m); }
         return m;
     }
-    public static float CurtainWave = 0.03f, CurtainWaveSpeed = 0.7f, CurtainFallSpeed = 0.2f;
-    // 垂れる溶岩の先から落ちるポタポタの粒（CurtainSpans ごと。lavaRoot の座標）。前の滝の粒と同じ色と大きさ
-    public static int LavaDrips(Transform lavaRoot)
-    {
-        for (int i = lavaRoot.childCount - 1; i >= 0; i--) if (lavaRoot.GetChild(i).name.StartsWith("LavaDrips")) Object.DestroyImmediate(lavaRoot.GetChild(i).gameObject);
-        int n = 0;
-        foreach (var sp in CurtainSpans)
-        {
-            var ps = FuwaStage2FireTest.FlamePS(lavaRoot, "LavaDrips" + n, 0.08f, 0.1f, 2f, new Color(1f, 0.7f, 0.2f), new Color(1f, 0.3f, 0.06f));
-            var a = lavaRoot.TransformPoint(sp.a); var b = lavaRoot.TransformPoint(sp.b); var chord = b - a; float len = chord.magnitude;
-            ps.transform.position = (a + b) * 0.5f; ps.transform.rotation = Quaternion.LookRotation(Vector3.down, chord / Mathf.Max(0.01f, len));
-            var m = ps.main; m.startColor = Color.white; m.startSpeed = 0.2f; m.startLifetime = 1.6f; m.startSize = new ParticleSystem.MinMaxCurve(0.14f, 0.3f); m.gravityModifier = 0.45f; m.maxParticles = 8;
-            var em = ps.emission; em.rateOverTime = 3f;
-            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(0.1f, len, 0.05f);
-            var c2 = ps.colorOverLifetime; c2.enabled = true; var gr = new Gradient();
-            gr.SetKeys(new[] { new GradientColorKey(new Color(1f, 0.72f, 0.25f), 0f), new GradientColorKey(new Color(1f, 0.3f, 0.06f), 1f) }, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
-            c2.color = gr;
-            ps.Play(); n++;
-        }
-        return n;
-    }
+    public static float CurtainWave = 0.03f, CurtainWaveSpeed = 0.7f, CurtainFallSpeed = 0.1f, CurtainFray = 0.55f;   // Fray：先のこの割合で、水の滝みたいにちぎれて消える（2026-11-03 てじゃ「ポタポタなくして」「先を水の滝みたいに消える感じ」「速度はゆっくりめ」）
     public static Material LavaCurtainMat(float topY)
     {
         const string mp = "Assets/FuwaStage2/Materials/Stage2_2_LavaCurtain.mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (!m) { m = new Material(FlowLavaMat()); AssetDatabase.CreateAsset(m, mp); }
-        m.SetFloat("_Wave", CurtainWave); m.SetFloat("_WaveSpeed", CurtainWaveSpeed); m.SetFloat("_WaveTop", topY); m.SetFloat("_FallSpeed", CurtainFallSpeed); EditorUtility.SetDirty(m);
+        m.SetFloat("_Wave", CurtainWave); m.SetFloat("_WaveSpeed", CurtainWaveSpeed); m.SetFloat("_WaveTop", topY); m.SetFloat("_FallSpeed", CurtainFallSpeed); m.SetFloat("_Fray", CurtainFray); EditorUtility.SetDirty(m);
         return m;
     }
     const string VolcanoModel ="Assets/FuwaStage2/Models/Stage2_Volcano.fbx", VolcanoMat = "Assets/FuwaStage2/Materials/Stage2_2_Volcano.mat";
