@@ -8,49 +8,46 @@ public static class FuwaStage2Far
 {
     const string MeshPath = "Assets/FuwaStage2/Generated/Stage2_CloudSea.asset";
     const string MatPath = "Assets/FuwaStage2/Materials/Stage2_CloudSea.mat";
-    public static Vector3 Center = new Vector3(25f, -245f, 50f);   // いちばん高い所でも道の下（約 -185）に届かない高さ。-205 だとスタートが埋まった
+    public static Vector3 Center = new Vector3(25f, -258f, 50f);   // いちばん高い所でも道の下（約 -185）に届かない高さ。-205 だとスタートが埋まった
     public const float Radius = 1100f;
-    const int Rings = 56, Seg = 94;
+    const int Grid = 82;
 
-    // 大きいもこもこ＋小さいもこもこ。セルごとに置いた丸の高さの最大（なめらかな丘が並ぶ形）
+    // 大きいもこもこ＋小さいもこもこ。セルごとに置いた丸い丘を足し合わせる（最大を取ると丘の間が V の字に折れてベコッとへこんで見えた）
     static float Bumps(float x, float z, float cell, int seed)
     {
-        int cx = Mathf.FloorToInt(x / cell), cz = Mathf.FloorToInt(z / cell); float best = 0f;
-        for (int i = cx - 1; i <= cx + 1; i++) for (int j = cz - 1; j <= cz + 1; j++)
+        int cx = Mathf.FloorToInt(x / cell), cz = Mathf.FloorToInt(z / cell); float sum = 0f;
+        for (int i = cx - 2; i <= cx + 2; i++) for (int j = cz - 2; j <= cz + 2; j++)
         {
             var rnd = new System.Random(i * 73856093 ^ j * 19349663 ^ seed);
-            float px = (i + (float)rnd.NextDouble()) * cell, pz = (j + (float)rnd.NextDouble()) * cell, r = cell * (0.55f + 0.5f * (float)rnd.NextDouble()), h = 0.55f + 0.45f * (float)rnd.NextDouble();
-            float d = Mathf.Sqrt((x - px) * (x - px) + (z - pz) * (z - pz)) / r;
-            if (d < 1f) best = Mathf.Max(best, h * Mathf.Sqrt(1f - d * d));
+            float px = (i + (float)rnd.NextDouble()) * cell, pz = (j + (float)rnd.NextDouble()) * cell, r = cell * (0.55f + 0.45f * (float)rnd.NextDouble()), h = 0.5f + 0.5f * (float)rnd.NextDouble();
+            float d2 = ((x - px) * (x - px) + (z - pz) * (z - pz)) / (r * r);
+            sum += h * Mathf.Exp(-d2 * 1.6f);
         }
-        return best;
+        return sum;
     }
     static float Height(float x, float z)
     {
         // ゆるい大きなうねり＋もこもこ
         float swell = (Mathf.PerlinNoise(x * 0.004f + 11f, z * 0.004f + 7f) - 0.5f) * 26f;
-        return swell + Bumps(x, z, 70f, 11) * 26f + Bumps(x, z, 26f, 29) * 10f;
+        return swell + Bumps(x, z, 74f, 11) * 24f + Bumps(x, z, 30f, 29) * 8f;
     }
 
     public static Mesh BuildMesh()
     {
-        var verts = new List<Vector3>(); var tris = new List<int>();
-        verts.Add(new Vector3(0f, Height(Center.x, Center.z), 0f));
-        for (int r = 1; r <= Rings; r++)
+        // 正方形の格子を、まん中が細かくなるようにゆがめる。円形の格子だと中心に放射状の線と尖りが出た（2026-11-02 てじゃ「ベコッとへこんで気になる」）。隅は丸く切る
+        var verts = new List<Vector3>(); var tris = new List<int>(); int N = Grid; var id = new int[N + 1, N + 1];
+        for (int gx = 0; gx <= N; gx++) for (int gz = 0; gz <= N; gz++)
         {
-            float k = r / (float)Rings, rad = Radius * (k * k * 0.82f + k * 0.18f);   // 近くは細かく、遠くは粗く
+            float u = gx / (float)N * 2f - 1f, v = gz / (float)N * 2f - 1f;
+            float x = Radius * (0.28f * u + 0.72f * u * u * u), z = Radius * (0.28f * v + 0.72f * v * v * v), rad = Mathf.Sqrt(x * x + z * z);
+            id[gx, gz] = -1; if (rad > Radius * 1.02f) continue;
             float edge = Mathf.Clamp01((Radius - rad) / 220f);
-            for (int s = 0; s < Seg; s++)
-            {
-                float a = s * Mathf.PI * 2f / Seg, x = Mathf.Cos(a) * rad, z = Mathf.Sin(a) * rad;
-                verts.Add(new Vector3(x, Height(Center.x + x, Center.z + z) * edge - (1f - edge) * 30f, z));
-            }
+            id[gx, gz] = verts.Count; verts.Add(new Vector3(x, Height(Center.x + x, Center.z + z) * edge - (1f - edge) * 30f, z));
         }
-        for (int s = 0; s < Seg; s++) { int a = 1 + s, b = 1 + (s + 1) % Seg; tris.AddRange(new[] { 0, b, a }); }
-        for (int r = 0; r < Rings - 1; r++) for (int s = 0; s < Seg; s++)
+        for (int gx = 0; gx < N; gx++) for (int gz = 0; gz < N; gz++)
         {
-            int a = 1 + r * Seg + s, b = 1 + r * Seg + (s + 1) % Seg, c = a + Seg, d = b + Seg;
-            tris.AddRange(new[] { a, b, c, b, d, c });
+            int a = id[gx, gz], b = id[gx + 1, gz], c = id[gx, gz + 1], d = id[gx + 1, gz + 1]; if (a < 0 || b < 0 || c < 0 || d < 0) continue;
+            tris.AddRange(new[] { a, c, b, b, c, d });
         }
         var m = new Mesh { name = "Stage2_CloudSea", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
         m.SetVertices(verts); m.SetTriangles(tris, 0); m.RecalculateNormals(); m.RecalculateBounds();
@@ -95,7 +92,7 @@ public static class FuwaStage2Far
             if (!meshes.TryGetValue(it.kind, out var m)) continue;
             float a = it.ang * Mathf.Deg2Rad;
             var o = new GameObject("Island" + n++, typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(parent, false);
-            o.transform.position = new Vector3(Center.x + Mathf.Sin(a) * it.dist, it.y - 28f, Center.z + Mathf.Cos(a) * it.dist);
+            o.transform.position = new Vector3(Center.x + Mathf.Sin(a) * it.dist, it.y - 38f, Center.z + Mathf.Cos(a) * it.dist);
             o.transform.rotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f); o.transform.localScale = Vector3.one * it.scale;
             o.GetComponent<MeshFilter>().sharedMesh = m; var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
         }
