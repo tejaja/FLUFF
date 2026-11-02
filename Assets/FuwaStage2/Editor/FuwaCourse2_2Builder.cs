@@ -2117,7 +2117,7 @@ public static class FuwaCourse2_2Builder
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireball>(mover.gameObject);
         f.whoosh = Sfx(mover, "WhooshSfx", "sfx_fireball_bofu2", Vector3.zero, 8f, 30f, 1f, false, 10f);
         f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail; f.trailRate = FireballTrailRate; FireballAura(f);
-        f.arcHeight = top; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 4.2f; f.ballKnockUp = 1.8f; f.playerKnock = 7.5f; f.playerKnockUp = 5f;   // 2026-11-02 てじゃ「もうちょいつよくていいかも」
+        f.arcHeight = top; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 4.8f; f.ballKnockUp = 2f; f.playerKnock = 6.8f; f.playerKnockUp = 4.7f;   // 2026-11-02 てじゃ「もうちょいつよくていいかも」
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
 
