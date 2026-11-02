@@ -550,9 +550,8 @@ public static class FuwaCourse2_2Builder
             return inX;
         }
     }
-    // 道のふちから垂れる溶岩（2026-11-03 てじゃ「横の垂れてる溶岩が辻褄合わなく」）：開いたふちの端から端まで続く 1 枚。下のはしは長い舌と短い所がまじって、両はしは短くなる。裏からも見える
-    public static float CurtainMin = 0.7f, CurtainWaveLen = 0.5f; const int CurtainRows = 6;   // 長い舌は「触手みたい」でやめて、短めになだらかに波打つ形に（2026-11-03 てじゃ「もっとふわっと垂れさせて」）
-    public static float DripSpan = 3f, DripBelow = 1.05f; public static readonly List<(Vector3 a, Vector3 b)> CurtainSpans = new List<(Vector3, Vector3)>();
+    // 道のふちから垂れる溶岩：前の細い滝（LavaFallLook、下へ細くなって消える形）を、開いたふちの幅いっぱいに横へ引き伸ばした形（2026-11-03 てじゃ「最初の細くて消えてくかんじのやつを横に引き伸ばしたら」）。裏からも見える
+    const int CurtainRows = 8; public static readonly List<(Vector3 a, Vector3 b)> CurtainSpans = new List<(Vector3, Vector3)>();
     static void LavaCurtains(MB lava, List<RPt> r, Vector3[] side, float[] s, Vector3[] pts, float[] hw, List<(int i, int sx, float ld)> open)
     {
         foreach (var sx in new[] { -1, 1 })
@@ -561,33 +560,26 @@ public static class FuwaCourse2_2Builder
             for (int a = 0; a < rows.Count;)
             {
                 int b = a; while (b + 1 < rows.Count && rows[b + 1].i == rows[b].i + 1) b++;
-                int i0 = rows[a].i, i1 = rows[b].i + 1; float s0 = s[i0], s1 = s[i1], ld = rows[a].ld, seed = s0 * 0.37f + sx;
-                Vector3 Col(int j, float t, out float len)
+                int i0 = rows[a].i, i1 = rows[b].i + 1; float s0 = s[i0], s1 = s[i1], ld = rows[a].ld, mid = (s0 + s1) * 0.5f, half = Mathf.Max(0.01f, (s1 - s0) * 0.5f);
+                Vector3 Col(int j, float t)
                 {
-                    float d = Mathf.Min(s[j] - s0, s1 - s[j]), taper = Mathf.SmoothStep(0.25f, 1f, Mathf.Clamp01(d / 1.2f));
-                    float big = Mathf.PerlinNoise(s[j] * 0.75f + seed, seed * 1.3f), fine = Mathf.PerlinNoise(s[j] * 2.3f + seed * 2f, 7.1f);
-                    len = taper * (CurtainMin + CurtainWaveLen * big + 0.2f * fine);
-                    float w = WAt(pts, hw, r[j].u);
-                    var top = r[j].p + side[j] * (sx * w) + Vector3.down * ld;
-                    float wob = 0.12f * t * Mathf.Sin(s[j] * 2.1f + t * 5f + seed);
-                    return top + side[j] * (sx * (-0.02f + 0.12f * Mathf.Sin(t * Mathf.PI) + wob)) + Vector3.down * (len * t);
+                    // 前の滝の幅 (1 - t^2.4) を逆にして、横の位置 x での長さにする
+                    float x = Mathf.Clamp01(Mathf.Abs(s[j] - mid) / half), len = LavaFallLen * Mathf.Pow(1f - x, 1f / 2.4f) * (0.95f + 0.05f * Mathf.Sin(s[j] * 3.1f + s0));
+                    var top = r[j].p + side[j] * (sx * WAt(pts, hw, r[j].u)) + Vector3.down * ld;
+                    float bulge = 0.14f * Mathf.Sin(Mathf.Min(t * 3f, 1f) * Mathf.PI * 0.5f) * (1f - t * t) + 0.07f * Mathf.Sin(t * 7.5f) * t;
+                    return top + side[j] * (sx * (-0.02f + bulge)) + Vector3.down * (len * t);
                 }
-                // ポタポタの粒を出す区間：ふちにそって DripSpan m ごと
+                // ポタポタの粒は先っぽから 1 か所
                 {
-                    int from = i0;
-                    for (int j = i0 + 1; j <= i1; j++)
-                        if (s[j] - s[from] >= DripSpan || j == i1)
-                        {
-                            Vector3 Edge(int q) => r[q].p + side[q] * (sx * (WAt(pts, hw, r[q].u) + 0.08f)) + Vector3.down * (ld + DripBelow);
-                            if (s[j] - s[from] > 0.4f) CurtainSpans.Add((Edge(from), Edge(j)));
-                            from = j;
-                        }
+                    int jm = i0; for (int j = i0; j <= i1; j++) if (Mathf.Abs(s[j] - mid) < Mathf.Abs(s[jm] - mid)) jm = j;
+                    int jn = Mathf.Min(jm + 1, i1), jp = Mathf.Max(jn - 1, i0); var along = Flat(r[jn].p - r[jp].p).normalized; var tip = Col(jm, 1f);
+                    CurtainSpans.Add((tip - along * 0.15f, tip + along * 0.15f));
                 }
                 for (int j = i0; j < i1; j++)
                     for (int k = 0; k < CurtainRows; k++)
                     {
                         float t0 = k / (float)CurtainRows, t1 = (k + 1f) / CurtainRows;
-                        var p00 = Col(j, t0, out _); var p01 = Col(j, t1, out _); var p10 = Col(j + 1, t0, out _); var p11 = Col(j + 1, t1, out _);
+                        var p00 = Col(j, t0); var p01 = Col(j, t1); var p10 = Col(j + 1, t0); var p11 = Col(j + 1, t1);
                         lava.Quad(p00, p10, p11, p01, side[j] * sx, 0);
                         lava.Quad(p00, p10, p11, p01, -side[j] * sx, 0);
                     }
@@ -2101,8 +2093,8 @@ public static class FuwaCourse2_2Builder
         if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); EditorUtility.SetDirty(m); }
         return m;
     }
-    public static float CurtainWave = 0.06f, CurtainWaveSpeed = 0.7f, CurtainFallSpeed = 0.2f;
-    // 垂れる溶岩のふちから落ちるポタポタの粒（CurtainSpans の区間ごと。lavaRoot の座標）。前の滝の粒と同じ色と大きさ
+    public static float CurtainWave = 0.03f, CurtainWaveSpeed = 0.7f, CurtainFallSpeed = 0.2f;
+    // 垂れる溶岩の先から落ちるポタポタの粒（CurtainSpans ごと。lavaRoot の座標）。前の滝の粒と同じ色と大きさ
     public static int LavaDrips(Transform lavaRoot)
     {
         for (int i = lavaRoot.childCount - 1; i >= 0; i--) if (lavaRoot.GetChild(i).name.StartsWith("LavaDrips")) Object.DestroyImmediate(lavaRoot.GetChild(i).gameObject);
@@ -2112,8 +2104,8 @@ public static class FuwaCourse2_2Builder
             var ps = FuwaStage2FireTest.FlamePS(lavaRoot, "LavaDrips" + n, 0.08f, 0.1f, 2f, new Color(1f, 0.7f, 0.2f), new Color(1f, 0.3f, 0.06f));
             var a = lavaRoot.TransformPoint(sp.a); var b = lavaRoot.TransformPoint(sp.b); var chord = b - a; float len = chord.magnitude;
             ps.transform.position = (a + b) * 0.5f; ps.transform.rotation = Quaternion.LookRotation(Vector3.down, chord / Mathf.Max(0.01f, len));
-            var m = ps.main; m.startColor = Color.white; m.startSpeed = 0.2f; m.startLifetime = 1.6f; m.startSize = new ParticleSystem.MinMaxCurve(0.1f, 0.24f); m.gravityModifier = 0.45f; m.maxParticles = 8;
-            var em = ps.emission; em.rateOverTime = 1f + len * 0.6f;
+            var m = ps.main; m.startColor = Color.white; m.startSpeed = 0.2f; m.startLifetime = 1.6f; m.startSize = new ParticleSystem.MinMaxCurve(0.14f, 0.3f); m.gravityModifier = 0.45f; m.maxParticles = 8;
+            var em = ps.emission; em.rateOverTime = 3f;
             var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(0.1f, len, 0.05f);
             var c2 = ps.colorOverLifetime; c2.enabled = true; var gr = new Gradient();
             gr.SetKeys(new[] { new GradientColorKey(new Color(1f, 0.72f, 0.25f), 0f), new GradientColorKey(new Color(1f, 0.3f, 0.06f), 1f) }, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
