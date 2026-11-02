@@ -3296,6 +3296,32 @@ public static class FuwaCourse2_1Builder
         if (bestCost == float.MaxValue) { Debug.LogWarning("[2–1] 吹き流しの浮島の置き場所が見つからない（いつもの所に置く）"); Center(sc, out var p0, out var d0); return p0 + Right(d0) * (-o * (RoadHW + SockIsleOut)); }
         return best;
     }
+    // 風の箱の奥側（道を進む先の岩の側）のはし。箱の中心線からの m（風のローカル x）。ここより奥の風は手前の岩に当てるだけなので吹かせない（2026-11-03 てじゃ「どうしても岩にあたる」「奥側だけちょっと削る」）。
+    // 風で滝に押し当てるギミックなので、向きと長さと手前側は変えない。値は風下へ飛ばして、滝より先に岩に当たる列を測って決めた
+    public static readonly float[] FallsWindOkuEdge = { -0.88f, 1.13f, -1.13f };
+    // 箱・地面の帯・風の粒を奥側のはしに合わせて削る。何回呼んでも同じ結果
+    public static string TrimFallsWindOku(FuwaWindArea wa, int i)
+    {
+        var t = wa.transform; float full = FallsWindLen, edge = FallsWindOkuEdge[i % FallsWindOkuEdge.Length], sx = t.localScale.x;
+        float min = edge < 0f ? edge : -full * 0.5f, max = edge < 0f ? full * 0.5f : edge, w = max - min, mid = (min + max) * 0.5f;
+        var box = wa.GetComponent<BoxCollider>();
+        var bc = box.center; bc.x = mid / sx; box.center = bc; var bs = box.size; bs.x = w / sx; box.size = bs; EditorUtility.SetDirty(box);
+        var decal = t.Find("WindDecal");
+        if (decal != null)
+        {
+            var lp = decal.localPosition; lp.x = mid / sx; decal.localPosition = lp;
+            var ls = decal.localScale; ls.x = w / sx; decal.localScale = ls; EditorUtility.SetDirty(decal);
+        }
+        var ps = wa.visual != null ? wa.visual.GetComponent<ParticleSystem>() : null;
+        if (ps != null)
+        {
+            // 粒も削った箱の幅から出す。お手本の -3m のずれが残っていて、粒が箱の横から出ていたので直す。密度はそのまま
+            var sh = ps.shape; var sp = sh.position; var ss = sh.scale; float oldW = ss.x;
+            sp.x = mid; ss.x = w; sh.position = sp; sh.scale = ss;
+            var em = ps.emission; em.rateOverTimeMultiplier *= w / oldW; EditorUtility.SetDirty(ps);
+        }
+        return wa.transform.parent.name + " 幅 " + w.ToString("F2") + "m 中心 " + mid.ToString("F2") + "m";
+    }
     static void FallsWind(Transform root)
     {
         var tmplZone = Object.FindObjectsOfType<FuwaWindArea>(true).FirstOrDefault(w => w.transform.parent != null && w.transform.parent.name == "G3_CrossRight");
@@ -3357,6 +3383,7 @@ public static class FuwaCourse2_1Builder
                 so.FindProperty("visual").objectReferenceValue = vis;
             }
             so.ApplyModifiedPropertiesWithoutUndo();
+            TrimFallsWindOku(wa, i);
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(wa); NoSync(wa);
             // 吹き流し：道の内側（滝と反対）の外に浮かべた小さい浮島の上（道のふちに立てたら「邪魔」だった。2026-10-25 てじゃ「浮島つくってそこに浮かせよう」）。
             // 浮島はクモの巣の木の小島（WebSupports/TreeR）の上の円盤と下の▼を写す。上の面はステージ2の芝の色

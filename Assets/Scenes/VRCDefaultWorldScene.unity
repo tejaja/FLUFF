@@ -11126,7 +11126,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Scale.x
-      value: 4.5
+      value: 3.38
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Scale.y
@@ -11142,7 +11142,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Position.x
-      value: -3.0029995
+      value: 0.56
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Position.y
@@ -11166,7 +11166,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: EmissionModule.rateOverTime.scalar
-      value: 10.525217
+      value: 7.9056077
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: InitialModule.startLifetime.scalar
@@ -78521,8 +78521,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1.8818899}
-  m_Center: {x: 0, y: 0, z: -0.16929136}
+  m_Size: {x: 0.75111115, y: 1, z: 1.8818899}
+  m_Center: {x: -0.12444445, y: 0, z: -0.16929136}
 --- !u!33 &150799008
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -176575,8 +176575,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1.8818899}
-  m_Center: {x: 0, y: 0, z: -0.16929136}
+  m_Size: {x: 0.75111115, y: 1, z: 1.8818899}
+  m_Center: {x: 0.12444445, y: 0, z: -0.16929136}
 --- !u!33 &390164579
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -490990,8 +490990,8 @@ Transform:
   m_GameObject: {fileID: 1084952266}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.47, z: 0}
-  m_LocalScale: {x: 1, y: 0.3, z: 1}
+  m_LocalPosition: {x: -0.12444445, y: -0.47, z: 0}
+  m_LocalScale: {x: 0.75111115, y: 0.3, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 150799009}
@@ -653702,8 +653702,8 @@ Transform:
   m_GameObject: {fileID: 1398320809}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.47, z: 0}
-  m_LocalScale: {x: 1, y: 0.3, z: 1}
+  m_LocalPosition: {x: 0.15222222, y: -0.47, z: 0}
+  m_LocalScale: {x: 0.69555557, y: 0.3, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 1398363379}
@@ -653992,8 +653992,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1.8818899}
-  m_Center: {x: 0, y: 0, z: -0.16929136}
+  m_Size: {x: 0.69555557, y: 1, z: 1.8818899}
+  m_Center: {x: 0.15222222, y: 0, z: -0.16929136}
 --- !u!33 &1398363378
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -683417,8 +683417,8 @@ Transform:
   m_GameObject: {fileID: 1472659732}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.47, z: 0}
-  m_LocalScale: {x: 1, y: 0.3, z: 1}
+  m_LocalPosition: {x: 0.12444445, y: -0.47, z: 0}
+  m_LocalScale: {x: 0.75111115, y: 0.3, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 390164580}
@@ -714576,7 +714576,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Scale.x
-      value: 4.5
+      value: 3.13
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Scale.y
@@ -714592,7 +714592,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Position.x
-      value: -3.0029995
+      value: 0.685
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Position.y
@@ -714616,7 +714616,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: EmissionModule.rateOverTime.scalar
-      value: 10.525217
+      value: 7.3208733
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: InitialModule.startLifetime.scalar
@@ -751845,7 +751845,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Scale.x
-      value: 4.5
+      value: 3.38
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Scale.y
@@ -751861,7 +751861,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Position.x
-      value: -3.0029995
+      value: -0.56
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: ShapeModule.m_Position.y
@@ -751885,7 +751885,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: EmissionModule.rateOverTime.scalar
-      value: 10.525217
+      value: 7.9056077
       objectReference: {fileID: 0}
     - target: {fileID: 3710094804814158711, guid: de85668e2cbb031489be8c04d630e6db, type: 3}
       propertyPath: InitialModule.startLifetime.scalar
