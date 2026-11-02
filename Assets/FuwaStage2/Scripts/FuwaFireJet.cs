@@ -22,6 +22,10 @@ public class FuwaFireJet : UdonSharpBehaviour
     [Tooltip("噴くと伸びる炎の本体（上向きが炎の向き）。前ぶれで少し出て、止まると引っ込む（2026-10-31）")]
     public Transform flameBody;
     public float bodyWarn = 0.16f, bodySpeed = 7f;
+    [Tooltip("いっしょに噴く列の炎の本体（下から順）。flameBody の次の列から。rowDelay 秒ずつ遅れて出る（2026-11-02 てじゃ「3本の出るタイミングほんのちょっとずらそう」）")]
+    public Transform[] moreBodies;
+    public float rowDelay = 0f;
+    private float[] _bodies, _burns; private Material[] _bodyMats;
     [Tooltip("止まった後、炎が根元から燃えつきて消えるまでの秒数（棒が引っ込むように見えた。2026-11-01 てじゃ）")]
     public float bodyAfter = 0.8f;
     private float _burn = 1f; private Material _bodyMat;
@@ -77,7 +81,7 @@ public class FuwaFireJet : UdonSharpBehaviour
         float t = T(); bool on = t < onTime; bool w = !on && t > period - warnTime;
         if (flame != null) { var e = flame.emission; e.rateOverTime = on ? flameRate : 0f; }
         if (warn != null) { var e = warn.emission; e.rateOverTime = w ? warnRate : 0f; }
-        if (moreFlames != null) for (int i = 0; i < moreFlames.Length; i++) if (moreFlames[i] != null) { var e = moreFlames[i].emission; e.rateOverTime = on ? flameRate : 0f; }
+        if (moreFlames != null) for (int i = 0; i < moreFlames.Length; i++) if (moreFlames[i] != null) { var e = moreFlames[i].emission; e.rateOverTime = RowOn(t, i + 1) ? flameRate : 0f; }
         if (moreWarns != null) for (int i = 0; i < moreWarns.Length; i++) if (moreWarns[i] != null) { var e = moreWarns[i].emission; e.rateOverTime = w ? warnRate : 0f; }
         if (flameBody != null)
         {
@@ -91,6 +95,27 @@ public class FuwaFireJet : UdonSharpBehaviour
                 flameBody.localScale = new Vector3(Mathf.Lerp(0.6f, 1f, _body), _body, Mathf.Lerp(0.6f, 1f, _body));
                 if (_bodyMat == null) _bodyMat = flameBody.GetComponent<Renderer>().material;
                 _bodyMat.SetFloat("_Burn", _burn);
+            }
+            if (moreBodies != null && moreBodies.Length > 0)
+            {
+                if (_bodies == null) { _bodies = new float[moreBodies.Length]; _burns = new float[moreBodies.Length]; _bodyMats = new Material[moreBodies.Length]; for (int i = 0; i < _burns.Length; i++) _burns[i] = 1f; }
+                for (int i = 0; i < moreBodies.Length; i++)
+                {
+                    Transform b = moreBodies[i]; if (b == null) continue;
+                    float tr = RowT(t, i + 1); bool ron = tr < onTime, rw = !ron && tr > period - warnTime;
+                    if (ron) { _bodies[i] = Mathf.MoveTowards(_bodies[i], 1f, bodySpeed * Time.deltaTime); _burns[i] = 0f; }
+                    else if (_burns[i] < 1f && _bodies[i] > bodyWarn + 0.01f) { _burns[i] = Mathf.Min(1f, _burns[i] + Time.deltaTime / Mathf.Max(0.05f, bodyAfter)); if (_burns[i] >= 1f) _bodies[i] = 0f; }
+                    else { _bodies[i] = rw ? Mathf.MoveTowards(_bodies[i], bodyWarn, bodySpeed * Time.deltaTime) : 0f; _burns[i] = rw ? 0f : 1f; }
+                    bool rshow = _bodies[i] > 0.001f;
+                    if (b.gameObject.activeSelf != rshow) b.gameObject.SetActive(rshow);
+                    if (rshow)
+                    {
+                        float s = Mathf.Lerp(0.6f, 1f, _bodies[i]);
+                        b.localScale = new Vector3(s, _bodies[i], s);
+                        if (_bodyMats[i] == null) _bodyMats[i] = b.GetComponent<Renderer>().material;
+                        _bodyMats[i].SetFloat("_Burn", _burns[i]);
+                    }
+                }
             }
         }
         if (warnArea != null)
@@ -109,6 +134,14 @@ public class FuwaFireJet : UdonSharpBehaviour
         _wasOn = on;
         if (on) PushPlayer();
     }
+
+    // row 列目（0 が先頭）の周期の中の時刻。rowDelay 秒ずつ遅れる
+    private float RowT(float t, int row)
+    {
+        float r = t - row * rowDelay;
+        return r < 0f ? r + period : r;
+    }
+    private bool RowOn(float t, int row) { return RowT(t, row) < onTime; }
 
     private void OnTriggerStay(Collider other)
     {

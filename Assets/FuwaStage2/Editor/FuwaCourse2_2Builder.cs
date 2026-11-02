@@ -2133,6 +2133,32 @@ public static class FuwaCourse2_2Builder
         var m = flame.main; m.startSpeed = (len + back) / 0.7f;
     }
     // 火炎放射の炎：亀裂から伸びる細長いたまご（FlameMesh）を行ごとに 1 本。y が炎の向き。止まると FuwaFireJet の _Burn で根元から燃えつきる
+    public static float JetRowDelay = 0.07f;   // 上下 3 本の炎の出るタイミングのずれ（2026-11-02 てじゃ「ほんのちょっと」）。下から順に
+    // 炎の本体（全部の列が 1 つのメッシュ）を列ごとに分ける。形はそのまま、三角形を近い列へ振り分けるだけ。作り直さずシーンだけ直す時もこれを呼ぶ（rowZ は null なら Row* の位置から）
+    public static string SplitJetBody(FuwaFireJet j, float[] rowZ = null)
+    {
+        var body = j.flameBody; var g = body.parent; if (rowZ == null) { var rows = new List<float>(); for (int i = 0; i < g.childCount; i++) if (g.GetChild(i).name.StartsWith("Row")) rows.Add(g.GetChild(i).localPosition.z); rowZ = rows.OrderBy(z => z).ToArray(); }
+        for (int i = g.childCount - 1; i >= 0; i--) if (System.Text.RegularExpressions.Regex.IsMatch(g.GetChild(i).name, @"^FlameBody\d+$")) Object.DestroyImmediate(g.GetChild(i).gameObject);
+        var mf = body.GetComponent<MeshFilter>(); var full = mf.sharedMesh; string baseName = full.name.Replace("_Row0", "");
+        string sourcePath = "Assets/FuwaStage2/Generated/Course2_2/" + baseName + ".asset"; var src = AssetDatabase.LoadAssetAtPath<Mesh>(sourcePath) ?? full;   // 元の全部入りから分ける
+        var verts = src.vertices; var tris = src.triangles; var lists = new List<int>[rowZ.Length]; for (int i = 0; i < lists.Length; i++) lists[i] = new List<int>();
+        for (int t = 0; t + 2 < tris.Length; t += 3)
+        {
+            float z = (verts[tris[t]].z + verts[tris[t + 1]].z + verts[tris[t + 2]].z) / 3f; int best = 0; float bd = float.MaxValue;
+            for (int r = 0; r < rowZ.Length; r++) { float d = Mathf.Abs(z - rowZ[r]); if (d < bd) { bd = d; best = r; } }
+            lists[best].AddRange(new[] { tris[t], tris[t + 1], tris[t + 2] });
+        }
+        var more = new List<Transform>();
+        for (int r = 0; r < rowZ.Length; r++)
+        {
+            var m = Object.Instantiate(src); m.name = baseName + "_Row" + r; m.SetTriangles(lists[r], 0, false); m = SaveMesh(m); m.bounds = src.bounds; EditorUtility.SetDirty(m);   // SaveMesh は bounds を計算し直すので、炎のゆらぎの余白を戻す
+            if (r == 0) { mf.sharedMesh = m; continue; }
+            var o = Object.Instantiate(body.gameObject, g); o.name = "FlameBody" + r; o.transform.localPosition = body.localPosition; o.transform.localRotation = body.localRotation; o.transform.localScale = Vector3.one; o.GetComponent<MeshFilter>().sharedMesh = m; o.SetActive(false); more.Add(o.transform);
+        }
+        j.moreBodies = more.ToArray(); j.rowDelay = JetRowDelay;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j); EditorUtility.SetDirty(j);
+        return g.name + " 列" + rowZ.Length + " 三角形" + string.Join("/", lists.Select(l => l.Count / 3));
+    }
     static Transform JetBody(Transform g, string name, float[] backs, float[] rowZ, float len)
     {
         float maxBack = backs.Max(), L = maxBack + len;
@@ -2177,7 +2203,7 @@ public static class FuwaCourse2_2Builder
         bc.center = new Vector3(0, 0, (FlameHighH + 0.6f - 0.05f) * 0.5f - mid);
         var j = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireJet>(zone);
         j.roar = Sfx(g, "RoarSfx", "sfx_fire_roar", new Vector3(0f, len * 0.5f, 0f), 8f, 45f, 1f, false, 12f);   // 近くでしか聞こえなかったので、岩のはねる音と同じ広さに（2026-11-02 てじゃ）
-        j.heat = heat; j.ball = ballProxy; j.phase = phase; j.period = period; j.onTime = on; j.flameRate = 14f; j.flameBody = JetBody(g, name, backs, rowZ, len);
+        j.heat = heat; j.ball = ballProxy; j.phase = phase; j.period = period; j.onTime = on; j.flameRate = 14f; j.flameBody = JetBody(g, name, backs, rowZ, len); SplitJetBody(j, rowZ);
         j.flame = flames[0]; j.warn = warns[0]; j.moreFlames = flames.Skip(1).ToArray(); j.moreWarns = warns.Skip(1).ToArray();
         // 吹っ飛ぶ向き：外（山から離れる向き）、外のふちの FlameLand 手前より先へは飛ばさない（てじゃ「落ちないくらい外に吹っ飛ばす」）。
         //  2026-11-01 てじゃ「3連炎が弱い」「あたるとコースのフチからちょっぴり出るくらいのとこに飛ばそう」→ FlameLand をマイナスに（ふちの 0.25〜0.7m 外に落ちる。Play で測った式：最遠＝off＋1.07×(reach−off)。人は今までどおりふちの手前）
