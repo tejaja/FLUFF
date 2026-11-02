@@ -22,7 +22,7 @@ public static class FuwaCourse2_2Builder
     public static float SeedHover = 1.3f;                      // 火種の止まる所（地面から）
     public static float TailWindStrength = 3.5f;
     public static float VentAt = 2.4f, VentFwd = 6f, VentUp = 3.5f;   // 噴気孔：長い坂の角からの距離、打ち出しの水平・上の速さ（8.4m 先で）
-    public static float WideHW = 4.5f, WideEndHW = 3.2f, HoleR = 1.2f, LavaDepth = 0.45f, FireballTop = 2.7f, VertTop = 2.6f, FireballSize = 1.3f;   // ② 広い道・溶岩の穴・火の玉（てっぺんの道からの高さ・大きさ）。2026-10-30 てじゃ「穴の溶岩もうちょい上に」→ 0.9/0.5 → 0.45/0.35（火の玉のてっぺんは道からの高さで据え置き）
+    public static float WideHW = 4.5f, WideEndHW = 3.2f, HoleR = 1.2f, LavaDepth = 0.45f, FireballTop = 2.45f, VertTop = 2.45f, FireballSize = 1.3f;   // ② 広い道・溶岩の穴・火の玉（てっぺんの道からの高さ・大きさ）。2026-10-30 てじゃ「穴の溶岩もうちょい上に」→ 0.9/0.5 → 0.45/0.35（火の玉のてっぺんは道からの高さで据え置き）
     public static float ChanHW = 0.6f, ChanLavaDepth = 0.35f, LavaFallLen = 6f;   // 溝の幅の半分・溝のある穴の溶岩の深さ（道の下の岩 0.6 より上＝ふちからそのまま流れ出る）・垂れる溶岩の長さ
     public static float PadR = 2.6f, PadIn = 1.6f, PadDrop = 0.03f, ZigLeg = 15f, ZigRise = 2.0f, ZigHW = 0.8f, ZigHeading = 71f, EndPadR = 3.4f, EndPadIn = 1.0f, FireWallH = 4.5f, FireWallOut = 1.0f, FireWallGap = 0.35f;   // 踊り場の半径・板のはしが踊り場に入る深さ（40° の板どうしが踊り場の外で重ならない：0.8*2/sin40=2.5）・板の長さ・上り・幅の半分・向き
     // （2026-10-30 てじゃ「もっと角度急に」→ 約155° 曲がる（道どうしが約26°）。板を踊り場の中心から通すと踊り場の外で重なるので、板の出る所は中心より前（+z）へ、着く所は後ろへ幅の半分ずらす（角で入る板と出る板が中心の前後に分かれる）。そのぶん板が寝るので向き ZigHeading は 71°。PadIn は板のはしが踊り場に入る深さ）
@@ -2090,6 +2090,26 @@ public static class FuwaCourse2_2Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
 
+    // 火のオーラ（2026-11-02 てじゃ）：火球の上に立つ炎。火球は見せたいので上半分だけに立てる。高さは最高点で FireballAuraH まで（当たりも FuwaFireball がこの高さまで見る）
+    //  最高点の火球の下側が「目の高さ＋0.2m」になるのは FireballTop（半径 0.65＋0.2＋基準の目の高さ 1.6）。作り直さずシーンだけ直す時もこれを呼ぶ
+    public static float FireballAuraH = 2f;
+    public static void FireballAura(FuwaFireball f)
+    {
+        var mover = f.transform; var old = mover.Find("Aura"); if (old) Object.DestroyImmediate(old.gameObject);
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir22 + "/Course2_2_FireballAura.asset");
+        if (!mesh)
+        {
+            var b = new FlameMeshB(); float top = FireballAuraH, r = 0.74f, cy = 0.02f;
+            b.Egg(0f, Vector3.zero, cy, r, (top - cy) / r, 0.2f, 16, 14, cy - r * 0.2f, top, 1f, 1f, 0f, 1.4f);
+            b.Egg(1f, Vector3.zero, cy, r * 0.5f, (top * 0.55f - cy) / (r * 0.5f), 0.2f, 8, 10, cy - r * 0.1f, top, 1f, 1f, 0f, 1.4f);
+            for (int n = 0; n < 3; n++) { float seed = (n + 0.37f) * 0.29f; b.Blob(new Vector3(Mathf.Sin(seed * 41f) * 0.18f, top * 0.86f, Mathf.Cos(seed * 29f) * 0.18f), seed, 0.7f); }
+            mesh = b.Build("Course2_2_FireballAura", 0.8f);
+        }
+        var o = new GameObject("Aura", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(mover, false); o.GetComponent<MeshFilter>().sharedMesh = mesh;
+        var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = FlameMeshMat("Stage2_2_FireballAura", 0.5f, 1.2f, 0.1f, 0.42f, 0.5f, 0.08f, 1.8f, 2.2f, 1.1f); mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+        o.SetActive(false);
+        f.aura = o; f.auraHeight = FireballAuraH; f.auraTopRadius = 0.25f;
+    }
     static void Fireball(Transform parent, string name, Vector3[] hs, float flight, float rest, float phase, float top)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
@@ -2103,7 +2123,7 @@ public static class FuwaCourse2_2Builder
         FireballTrail(trail);
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireball>(mover.gameObject);
         f.whoosh = Sfx(mover, "WhooshSfx", "sfx_fireball_bofu2", Vector3.zero, 8f, 30f, 1f, false, 10f);
-        f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail; f.trailRate = FireballTrailRate;
+        f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail; f.trailRate = FireballTrailRate; FireballAura(f);
         f.arcHeight = top; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 3.2f; f.ballKnockUp = 1.5f; f.playerKnock = 6f; f.playerKnockUp = 4.5f;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }

@@ -31,6 +31,15 @@ public class FuwaFireball : UdonSharpBehaviour
     [Tooltip("自分のアバターの目の高さと eyeBase の差 × arcPerEye だけ弧を上げ下げする（-maxArcLower 〜 +maxArcExtra m）。背が高いとふわふわが上を越え、低いと下をくぐれたので（2026-10-30 てじゃ）")]
     public float eyeBase = 1.6f, arcPerEye = 1f, maxArcExtra = 1.5f, maxArcLower = 1.3f;
 
+    [Header("火のオーラ（2026-11-02 てじゃ「ふわふわを上に無理やり通すのも妨害したい」「火のオーラでも足すか」）")]
+    [Tooltip("火球の上に立つ炎。飛びはじめと終わりは低く、最高点で auraHeight まで伸びる")]
+    public GameObject aura;
+    [Tooltip("オーラのてっぺんまでの高さ（火球の中心から）。当たりも同じ高さまで")]
+    public float auraHeight = 0f;
+    [Tooltip("オーラのてっぺんの当たりの半径。根元は hitRadius")]
+    public float auraTopRadius = 0.25f;
+    private float _auraNow;
+
     private bool _flying, _hitBall, _hitPlayer;
     private float _arcExtra;
     private int _hop = -1;
@@ -95,6 +104,7 @@ public class FuwaFireball : UdonSharpBehaviour
     private void Show(bool on)
     {
         if (visual != null) visual.SetActive(on);
+        if (aura != null) aura.SetActive(on);
         if (trail != null) { var e = trail.emission; e.rateOverTime = on ? trailRate : 0f; }
     }
 
@@ -121,8 +131,21 @@ public class FuwaFireball : UdonSharpBehaviour
         if (trail != null) trail.transform.position = p;
         Vector3 hdir = new Vector3(vel.x, 0f, vel.z); bool vert = hdir.sqrMagnitude <= 0.0001f; if (!vert) hdir = hdir.normalized;   // 真上に飛ぶ時は、当たった物を火の玉から離れる向きに
 
+        // オーラの高さ：穴の近くは低く、最高点でいちばん高い
+        _auraNow = auraHeight * Mathf.Lerp(0.4f, 1f, Mathf.Sin(u * Mathf.PI));
+        if (aura != null) aura.transform.localScale = new Vector3(1f, auraHeight > 0.01f ? _auraNow / auraHeight : 1f, 1f);
+
         // ふわふわ（当たり判定はトリガーの通知でなく距離で：動く物のトリガーは取りこぼしやすいので）
-        if (!_hitBall && ball != null && !ball.IsWaitingOrHidden() && (ball.transform.position - p).magnitude < hitRadius + _ballRadius)
+        // 火球の中心から上へ _auraNow の縦の線との距離で見る。上へ行くほど細い
+        bool ballHit = false;
+        if (!_hitBall && ball != null && !ball.IsWaitingOrHidden())
+        {
+            Vector3 bp = ball.transform.position;
+            float upY = _auraNow > 0.01f ? Mathf.Clamp(bp.y - p.y, 0f, _auraNow) : 0f;
+            float r = _auraNow > 0.01f ? Mathf.Lerp(hitRadius, auraTopRadius, upY / _auraNow) : hitRadius;
+            ballHit = (bp - (p + Vector3.up * upY)).magnitude < r + _ballRadius;
+        }
+        if (ballHit)
         {
             _hitBall = true;
             if (heat != null) heat.Ignite();
