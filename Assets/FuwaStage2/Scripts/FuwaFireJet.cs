@@ -40,6 +40,8 @@ public class FuwaFireJet : UdonSharpBehaviour
     [Tooltip("あれば、ここから knockDir へ knockReach m の所より先へは飛ばさない（道から落ちないくらい外へ。2026-10-30 てじゃ「落ちないくらい外に吹っ飛ばす」）。残りの距離 × knockPerMeter が横の速さの上限")]
     public Transform knockOrigin;
     public float knockReach = 0f, knockPerMeter = 0.8f;
+    [Tooltip("ふちまでの残りが少なくても、これだけの横の速さでは飛ばす（2026-11-02 てじゃ「先端に当たった時のふっ飛ばしがヨワすぎる」。先端では残り距離の計算で 0.2m/s しかなかった）")]
+    public float knockMin = 0f;
     [Tooltip("ふちの制限なしで足す横の速さ（ワールド、道にそって来た方など。2026-10-30 てじゃ「ふっ飛ばし力もうちょい」）")]
     public Vector3 knockSide = Vector3.zero;
     [Tooltip("人も knockOrigin から playerPushDir へ knockReach m より先へは飛ばさない。残りの距離 × playerPerMeter が横の速さの上限（0 なら制限なし）")]
@@ -105,7 +107,7 @@ public class FuwaFireJet : UdonSharpBehaviour
             if (knockOrigin != null && knockReach > 0f)
             {
                 Vector3 off = ball.transform.position - knockOrigin.position; off.y = 0f;
-                sp = Mathf.Min(sp, Mathf.Max(0f, knockReach - Vector3.Dot(off, d)) * knockPerMeter);
+                sp = Mathf.Max(knockMin, Mathf.Min(sp, Mathf.Max(0f, knockReach - Vector3.Dot(off, d)) * knockPerMeter));
             }
             ball.LaunchFlight(d * sp + knockSide + Vector3.up * ballKnockUp, knockFlight, knockDrag);
             return;

@@ -39,7 +39,8 @@ public class FuwaDemoMonster : UdonSharpBehaviour
     public float hopHeight = 1f;
     public float maxHopHeight = 2.2f;
     public float ballOvershoot = 0.6f;
-    public float ballHitRadius = 0.5f;
+    public float ballHitRadius = 0.7f;
+    public float ballHitHeight = 0.9f;
     public float ballKnockback = 5.5f;
     public float ballKnockUp = 1.2f;
     public Color ballHitGlow = new Color(0.75f, 0.35f, 1f);
@@ -151,7 +152,9 @@ public class FuwaDemoMonster : UdonSharpBehaviour
                 // 体当たり（ぴょんと跳んで、ふわふわの少し先に着地）。当たったらふわふわを吹っ飛ばす
                 float k = Mathf.Clamp01((Time.time - _stateTime) / _dashTime);
                 _pos = Vector3.Lerp(_dashFrom, _dashTo, k) + Vector3.up * (_dashHop * 4f * k * (1f - k));
-                if (!_hit && stand.ball != null && (stand.ball.position - _pos).magnitude < ballHitRadius)
+                Vector3 toDemoBall = stand.ball != null ? stand.ball.position - _pos : Vector3.one * 9999f;
+                float demoDy = Mathf.Abs(toDemoBall.y); toDemoBall.y = 0f;
+                if (!_hit && stand.ball != null && toDemoBall.magnitude < ballHitRadius && demoDy < ballHitHeight)
                 {
                     _hit = true;
                     Vector3 dir = _dashTo - _dashFrom; dir.y = 0f; dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : transform.forward;

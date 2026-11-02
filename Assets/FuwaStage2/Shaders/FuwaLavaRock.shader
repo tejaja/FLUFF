@@ -14,6 +14,7 @@ Shader "FuwaCourse/LavaRock"
         [HDR] _RimGlow ("ふちの熱の光", Color) = (1.3, 0.34, 0.05, 1)
         _RimPower ("ふちの光の細さ", Range(0.5,6)) = 2.2
         _Shade ("炎越しの影の色", Color) = (0.65, 0.24, 0.14, 1)
+        [Enum(UnityEngine.Rendering.CompareFunction)] _ShadeComp ("炎越しの影（Equal=出す、Never=出さない）", Int) = 3
     }
     SubShader
     {
@@ -24,7 +25,7 @@ Shader "FuwaCourse/LavaRock"
             Tags { "LightMode"="ForwardBase" }
             ZTest Always
             ZWrite Off
-            Stencil { Ref 32 ReadMask 32 Comp Equal }
+            Stencil { Ref 32 ReadMask 32 Comp [_ShadeComp] }
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag

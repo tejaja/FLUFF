@@ -36,6 +36,7 @@ public static class FuwaCourse2_2Builder
     public static float VolcanoTopH = 16f, VolcanoTopR = 5f, VolcanoR0 = 12f, VolcanoBottom = -60f, RockFirstScale = 3f;   // 火口の高さ・半径、道の高さでの半径、すその下のはし、火口から飛んでくる1回の長さ（倍）
     // ⑤ 2026-10-30 てじゃ「まものからをもっと右に曲げて山に沿う感じに」「山から何個かさっきの火炎放射、あたれば炎上して飛ぶ、そのあとゴール」
     //   （火口のまわりの輪っかの道・マグマは「あんま面白くない」でやめた）。火山のまわりを右回りに沿う広めの道、山肌の岩から火炎放射
+    public static float FlameKnockMin = 1.6f;   // 先端に当たっても最低これだけ横へ飛ばす（2026-11-02。2 だと Play で道のふちの 2.2m 外まで飛んだ）
     public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = -0.27f,FlamePlayerLand = 1.2f, FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
     public const int FlameRows = 3;   // 炎の壁の縦の本数
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
@@ -231,6 +232,7 @@ public static class FuwaCourse2_2Builder
             if (Vector3.Dot(Flat(c - mid), n) < 0f) n = -n;   // n＝板の V の内向き
             FireWall(fire, "FireWall" + k, legs[k], legs[k + 1], mid, n, mid - n * (PadR + FireWallOut));
         }
+        FireWallSound(fire);
 
         // 火の岩：コースの外の火山（ジグザグのてっぺんの右奥に、下からそびえる）の火口から飛んできて、坂の下る向きに板を横切ってはねながら落ちる。板のまん中を1列
         var vc = pad + VolcanoAt; var vtop = vc + up * (VolcanoTopH - 0.6f);
@@ -364,6 +366,7 @@ public static class FuwaCourse2_2Builder
         FuwaCourse2_1Builder.FixNetworkIDs();
         RegisterBgm(root);
         FuwaStage2Static.Apply(root);
+        RockCracks(fire);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–2] ゴールまで " + p.z.ToString("F0") + "m、高さ " + p.y.ToString("F1") + "m";
     }
@@ -1477,7 +1480,6 @@ public static class FuwaCourse2_2Builder
             }
         FlameCurtain(g, name, ptsA, ptsB);
         FireWallRock(g, name, ptsA, ptsB);
-        Sfx(g, "WallLoop", "sfx_loop_firewall", new Vector3((ptsA[0].p.x + ptsA[ptsA.Count - 1].p.x) * 0.5f, 1f, 0f), 4f, 20f, 0.55f, true);
         // 火の粉だけ粒で（前は太い粒のかたまりで炎を作っていて、ぼやけて赤いもやに見えた。2026-10-31）
         float x0 = ptsA[0].p.x, x1 = ptsA[3].p.x, len = x1 - x0;
         var ps = FuwaStage2FireTest.FlamePS(g, "Flame", 0.2f, 2.6f, 1.3f, new Color(1f, 0.8f, 0.3f), new Color(1f, 0.28f, 0.05f));
@@ -1487,6 +1489,143 @@ public static class FuwaCourse2_2Builder
         var main = ps.main; main.startColor = Color.white; main.maxParticles = Mathf.CeilToInt(5f * len); main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.22f); main.startSpeed = new ParticleSystem.MinMaxCurve(1.6f, 3.2f);
         ps.Play();
     }
+    // 岩がはねる場所のヒビ（2026-11-02 てじゃ）。LavaRock* の P1〜（最後は道の外なので除く）の真下の道に、道の見た目のメッシュの高さへ沿わせて貼る。1 枚にまとめて描画 1 回。
+    //  道のはしからはみ出す所は面を作らない。作り直さずシーンだけ直す時もこれを呼ぶ
+    public static float RockCrackSize = 2.6f, RockCrackLift = 0.012f; public const int RockCrackGrid = 14;
+    public static string RockCracks(Transform fire)
+    {
+        var old = fire.Find("RockCracks"); if (old) Object.DestroyImmediate(old.gameObject);
+        var course = fire.root;
+        var temps = new List<MeshCollider>();
+        foreach (var n in new[] { "ZigPath", "Path12", "Path5" })
+            foreach (var t in course.GetComponentsInChildren<Transform>(true))
+                if (t.name == n && t.GetComponent<MeshFilter>()) { var c = t.gameObject.AddComponent<MeshCollider>(); c.sharedMesh = t.GetComponent<MeshFilter>().sharedMesh; temps.Add(c); }
+        Physics.SyncTransforms();
+        bool RoadY(Vector3 q, float from, out float y)
+        {
+            y = 0f; float best = float.MaxValue; bool ok = false;
+            var ray = new Ray(new Vector3(q.x, from + 1.2f, q.z), Vector3.down);
+            foreach (var c in temps) if (c.Raycast(ray, out var h, 4f) && h.distance < best) { best = h.distance; y = h.point.y; ok = true; }
+            return ok;
+        }
+        var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var tris = new List<int>(); int count = 0; var rnd = new System.Random(2202);
+        foreach (var rock in fire.GetComponentsInChildren<FuwaLavaRock>(true))
+        {
+            for (int i = 1; i + 1 < rock.points.Length; i++)
+            {
+                var p = rock.points[i].position; float a = (float)(rnd.NextDouble() * Mathf.PI * 2f), ca = Mathf.Cos(a), sa = Mathf.Sin(a);
+                if (!RoadY(p, p.y, out _)) continue;
+                int[,] id = new int[RockCrackGrid + 1, RockCrackGrid + 1];
+                for (int gx = 0; gx <= RockCrackGrid; gx++) for (int gz = 0; gz <= RockCrackGrid; gz++)
+                {
+                    float lx = (gx / (float)RockCrackGrid - 0.5f) * RockCrackSize, lz = (gz / (float)RockCrackGrid - 0.5f) * RockCrackSize;
+                    var q = new Vector3(p.x + lx, p.y, p.z + lz); id[gx, gz] = -1;
+                    if (!RoadY(q, p.y, out var y)) continue;
+                    id[gx, gz] = verts.Count; verts.Add(fire.InverseTransformPoint(new Vector3(q.x, y + RockCrackLift, q.z)));
+                    float ux = lx / RockCrackSize, uz = lz / RockCrackSize; uvs.Add(new Vector2(ux * ca - uz * sa + 0.5f, ux * sa + uz * ca + 0.5f));
+                }
+                for (int gx = 0; gx < RockCrackGrid; gx++) for (int gz = 0; gz < RockCrackGrid; gz++)
+                {
+                    int v0 = id[gx, gz], v1 = id[gx, gz + 1], v2 = id[gx + 1, gz + 1], v3 = id[gx + 1, gz];
+                    if (v0 < 0 || v1 < 0 || v2 < 0 || v3 < 0) continue;
+                    tris.AddRange(new[] { v0, v1, v2, v0, v2, v3 });
+                }
+                count++;
+            }
+        }
+        foreach (var c in temps) Object.DestroyImmediate(c);
+        var mesh = new Mesh { name = "Course2_2_RockCracks", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        mesh.SetVertices(verts); mesh.SetUVs(0, uvs); mesh.SetTriangles(tris, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        var o = new GameObject("RockCracks", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(fire, false);
+        o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mesh);
+        var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = RockCrackMat(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        return "ヒビ " + count + " か所, 三角形 " + tris.Count / 3;
+    }
+    static Material RockCrackMat()
+    {
+        string p = "Assets/FuwaStage2/Materials/Stage2_2_RockCrack.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (!m) { m = new Material(Shader.Find("FuwaCourse/RockCrack")); AssetDatabase.CreateAsset(m, p); }
+        m.SetTexture("_MainTex", RockCrackTex()); EditorUtility.SetDirty(m);
+        return m;
+    }
+    // ヒビの絵：まん中から枝分かれして広がる線。R が濃さ、G が熱いまん中（線の芯とまん中ほど強い）
+    static Texture2D RockCrackTex()
+    {
+        string path = "Assets/FuwaStage2/Textures/Stage2_RockCrack.png";
+        const int S = 512; var mask = new float[S * S]; var rnd = new System.Random(77);
+        float R() => (float)rnd.NextDouble();
+        void Line(Vector2 a, Vector2 b, float w)
+        {
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(a.x, b.x) - w - 2)), x1 = Mathf.Min(S - 1, Mathf.CeilToInt(Mathf.Max(a.x, b.x) + w + 2));
+            int y0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(a.y, b.y) - w - 2)), y1 = Mathf.Min(S - 1, Mathf.CeilToInt(Mathf.Max(a.y, b.y) + w + 2));
+            var ab = b - a; float l2 = Mathf.Max(0.001f, ab.sqrMagnitude);
+            for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++)
+            {
+                var q = new Vector2(x, y); float d = (q - (a + ab * Mathf.Clamp01(Vector2.Dot(q - a, ab) / l2))).magnitude;
+                mask[y * S + x] = Mathf.Max(mask[y * S + x], Mathf.Clamp01(1f - (d - w) / 2.5f) * 0.5f + Mathf.Clamp01(1f - d / Mathf.Max(0.5f, w)) * 0.5f);
+            }
+        }
+        void Branch(Vector2 p, float ang, float len, float w, int depth)
+        {
+            // 枝やひびの根っこに見えないよう、長い直線をカクッと折り、先へ行くほど細くする（木の枝みたいと判断して作り直し）
+            float left = len, w0 = w, sign = R() < 0.5f ? 1f : -1f, baseAng = ang;
+            while (left > 0f)
+            {
+                float step = Mathf.Lerp(34f, 62f, R()); sign = -sign;
+                ang = baseAng + sign * Mathf.Lerp(0.12f, 0.5f, R());
+                var n = p + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * step;
+                float w1 = w0 * Mathf.Clamp01((left - step) / len);
+                int seg = 6; for (int k = 0; k < seg; k++) Line(Vector2.Lerp(p, n, k / (float)seg), Vector2.Lerp(p, n, (k + 1f) / seg), Mathf.Lerp(w, w1, (k + 0.5f) / seg));
+                p = n; left -= step; w = w1;
+                if (depth > 0 && left > 45f && R() < 0.3f) Branch(p, ang + (R() < 0.5f ? 1f : -1f) * Mathf.Lerp(0.55f, 0.95f, R()), left * Mathf.Lerp(0.45f, 0.75f, R()), w * 0.75f, depth - 1);
+            }
+        }
+        var center = new Vector2(S * 0.5f, S * 0.5f); int arms = 6;
+        // まん中：ぶつかって砕けた跡（太い線の多角形）から放射状に割れる
+        var ring = new Vector2[arms];
+        for (int i = 0; i < arms; i++) { float a = (i + (R() - 0.5f) * 0.5f) / arms * Mathf.PI * 2f; ring[i] = center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * Mathf.Lerp(38f, 62f, R()); }
+        for (int i = 0; i < arms; i++) { Line(ring[i], ring[(i + 1) % arms], 5f); Line(center + (ring[i] - center) * 0.25f, ring[i], 6f); }
+        for (int i = 0; i < arms; i++) Branch(ring[i], Mathf.Atan2(ring[i].y - center.y, ring[i].x - center.x), Mathf.Lerp(120f, 190f, R()), Mathf.Lerp(8f, 11f, R()), 1);
+        var t = new Texture2D(S, S, TextureFormat.RGB24, false, true); var px = new Color32[S * S];
+        for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
+        {
+            float m = mask[y * S + x], dist = (new Vector2(x, y) - center).magnitude / (S * 0.5f);
+            m *= Mathf.Clamp01((1f - dist) * 8f);   // 板のふちで必ず切れる
+            float hot = Mathf.Clamp01((m - 0.7f) * 4f) * Mathf.Clamp01(1.1f - dist * 1.9f);   // 熱いのはまん中の近くだけ。外は暗い割れ目
+            px[y * S + x] = new Color32((byte)(m * 255f), (byte)(hot * 255f), 0, 255);
+        }
+        t.SetPixels32(px); t.Apply(); System.IO.File.WriteAllBytes(path, t.EncodeToPNG()); Object.DestroyImmediate(t);
+        AssetDatabase.ImportAsset(path);
+        var ti = (TextureImporter)AssetImporter.GetAtPath(path); ti.sRGBTexture = false; ti.wrapMode = TextureWrapMode.Clamp; ti.mipmapEnabled = true; ti.SaveAndReimport();
+        return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+    }
+
+    // 炎の壁の音は全部の壁で 1 つ。壁の当たり（Burn の箱）の線の上で、聞く人にいちばん近い所から鳴る（FuwaLineSound）。作り直さずシーンだけ直す時もこれを呼ぶ
+    public static void FireWallSound(Transform parent)
+    {
+        for (int i = parent.childCount - 1; i >= 0; i--)
+        {
+            var c = parent.GetChild(i);
+            if (c.name == "FireWallLoop") Object.DestroyImmediate(c.gameObject);
+            else if (c.name.StartsWith("FireWall")) { var old = c.Find("WallLoop"); if (old) Object.DestroyImmediate(old.gameObject); }
+        }
+        var a = new List<Vector3>(); var b = new List<Vector3>();
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            var w = parent.GetChild(i); if (!w.name.StartsWith("FireWall")) continue;
+            foreach (var bc in w.GetComponentsInChildren<BoxCollider>(true))
+            {
+                if (!bc.name.StartsWith("Burn")) continue;
+                var half = bc.transform.right * bc.size.x * 0.5f;
+                a.Add(parent.InverseTransformPoint(bc.transform.position - half)); b.Add(parent.InverseTransformPoint(bc.transform.position + half));
+            }
+        }
+        var src = Sfx(parent, "FireWallLoop", "sfx_loop_firewall", a.Count > 0 ? a[0] : Vector3.zero, 4f, 20f, 0.55f, true);
+        var ls = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLineSound>(src.gameObject); ls.segA = a.ToArray(); ls.segB = b.ToArray();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ls); FuwaStage2WaterTest.NoSync(ls);
+    }
+
     // 炎の壁の下の岩（2026-10-31 てじゃ「炎の下がぶら下がってる、岩を伸ばす？でも歩けちゃだめ」）。V のすき間を埋める 1 つのかたまりで、まん中は溶岩、ふちはとがった岩。炎は溶岩から立つ。
     //  当たりなし。-x がジグザグの V の根元で、そちらは道の下にもぐる
     static void FireWallRock(Transform g, string name, List<WallPt> ptsA, List<WallPt> ptsB)
@@ -1747,9 +1886,11 @@ public static class FuwaCourse2_2Builder
     {
         var mesh = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2_LavaRock.fbx").OfType<Mesh>().FirstOrDefault(x => x.name == "Stage2_LavaRock" + (name.EndsWith("1") ? 1 : 0));
         if (mesh) vis.GetComponent<MeshFilter>().sharedMesh = mesh;
-        var m = FuwaStage2WaterTest.ToonMat("Stage2_2_LavaRock", new Color(0.35f, 0.12f, 0.08f));
+        // 炎越しの影はジグザグに飛んでくる 2 個だけ（2026-11-02 てじゃ「影でみえるのはジグザグに影響する２個だけにしたい」）
+        bool zigRock = name == "LavaRock0" || name == "LavaRock1";
+        var m = FuwaStage2WaterTest.ToonMat(zigRock ? "Stage2_2_LavaRock" : "Stage2_2_LavaRockNoShade", new Color(0.35f, 0.12f, 0.08f));
         var sh = Shader.Find("FuwaCourse/LavaRock");
-        if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); m.SetFloat("_Width", 0.42f); m.renderQueue = 2014; EditorUtility.SetDirty(m); }   // 炎の壁のあと（炎越しの影のため）
+        if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); m.SetFloat("_Width", 0.42f); m.SetInt("_ShadeComp", (int)(zigRock ? UnityEngine.Rendering.CompareFunction.Equal : UnityEngine.Rendering.CompareFunction.Never)); m.renderQueue = 2014; EditorUtility.SetDirty(m); }   // 炎の壁のあと（炎越しの影のため）
         vis.GetComponent<Renderer>().sharedMaterial = m;
     }
     // 火の玉：のっぺりしたオレンジ→メラメラ（FuwaCourse/Fireball、2026-10-31）。尾は太く長く
@@ -1985,7 +2126,7 @@ public static class FuwaCourse2_2Builder
         j.knockDir = parent.TransformDirection((o + back * 0.14f).normalized);
         j.ballKnock = FlameKnock; j.ballKnockUp = FlameKnockUp;
         var ko = new GameObject("KnockOrigin").transform; ko.SetParent(parent, false); ko.localPosition = edge; ko.SetParent(g, true);
-        j.knockOrigin = ko; j.knockReach = FlameHW * 2f - FlameLand; j.knockPerMeter = 0.85f;   // 試したら（上 1.5 で）1m/s で 1.15m くらい飛んだ
+        j.knockOrigin = ko; j.knockReach = FlameHW * 2f - FlameLand; j.knockPerMeter = 0.85f; j.knockMin = FlameKnockMin;   // 試したら（上 1.5 で）1m/s で 1.15m くらい飛んだ
         // 人：地面に立っていると横の速さは地面に消されるので、しっかり上へ浮かせて飛ばす（2026-10-30 てじゃ「地面にたってるとプレイヤーがほとんど飛ばされない」）。
         //  向きは外（「プレイヤも横に飛ばしたい」）、ふわふわと同じくふちの手前まで
         j.playerPush = 6f; j.playerPushUp = 4.5f; j.playerPushDir = parent.TransformDirection((o + back * 0.14f).normalized); j.playerPerMeter = 1.0f; j.playerReach = FlameHW * 2f - FlamePlayerLand;
@@ -2044,7 +2185,7 @@ public static class FuwaCourse2_2Builder
         var src = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Generated/Lite/YamiDeadTree_Lite.asset"); if (!src) return;
         var tree = BurntTreeMesh(src); var bark = FuwaStage2WaterTest.ToonMat("Stage2_2_BurntBark", new Color(0.2f, 0.15f, 0.15f));
         // 外のふちの卵（2026-10-31 てじゃ「コースの端に卵とか置いとくか、ちょっと色変えて」）：まもののすと同じ巣の卵セットの色ちがい。手前の枯れ木は画面のまん中で目立ちすぎたのでやめた
-        var eggMesh = FuwaMamonoDeco.EggSets(new[] { onArena(-sg * 5f, 8.2f), onArena(-sg * 4.9f, 14.6f), onArena(sg * 4.9f, 13.7f) }, new[] { new Color(0.95f, 0.45f, 0.22f), new Color(0.98f, 0.7f, 0.28f), new Color(0.72f, 0.2f, 0.16f) }, MeshDir22 + "/Course2_2_ArenaEggs.asset");
+        var eggMesh = FuwaMamonoDeco.EggSets(new[] { onArena(-sg * 5f, 8.2f), onArena(-sg * 5.2f, 11f), onArena(sg * 4.9f, 13.7f) } /* 2つ目は岩のはねる所から離した（2026-11-02 てじゃ「岩が卵に直撃してる」。前は -4.9, 14.6） */, new[] { new Color(0.95f, 0.45f, 0.22f), new Color(0.98f, 0.7f, 0.28f), new Color(0.72f, 0.2f, 0.16f) }, MeshDir22 + "/Course2_2_ArenaEggs.asset");
         var eg = new GameObject("ArenaEggs", typeof(MeshFilter), typeof(MeshRenderer)); eg.transform.SetParent(path, false); eg.GetComponent<MeshFilter>().sharedMesh = eggMesh;
         var er = eg.GetComponent<MeshRenderer>(); er.sharedMaterial = AssetDatabase.FindAssets("Den_Twig t:Material").Select(g2 => AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(g2))).First(m => m.name == "Den_Twig"); er.receiveShadows = false;
         foreach (var q in new[] { (z: 21f, yaw: 200f, s: 0.95f) })

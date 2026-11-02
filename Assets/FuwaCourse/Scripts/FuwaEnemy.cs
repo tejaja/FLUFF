@@ -44,8 +44,10 @@ public class FuwaEnemy : UdonSharpBehaviour
 
     [Header("当たった時")]
     public float playerHitRadius = 0.75f;
-    [Tooltip("けだまに当たる距離（体の中心からけだまの中心まで）")]
-    public float ballHitRadius = 0.6f;
+    [Tooltip("けだまに当たる横の距離（体の中心からけだまの中心まで）。2026-11-02 てじゃ「当たり判定が小さすぎる」")]
+    public float ballHitRadius = 0.7f;
+    [Tooltip("けだまに当たる上下の差。突進は最低でも少し跳ねるので、3D の距離で見ると地面のけだまの上を素通りしていた")]
+    public float ballHitHeight = 0.9f;
     [Tooltip("体の中心の高さ（足元から）")]
     public float bodyCenterUp = 0.3f;
     [Tooltip("けだまを吹っ飛ばす速さ（横・上）")]
@@ -448,7 +450,13 @@ public class FuwaEnemy : UdonSharpBehaviour
             p.y = _groundY + _dashHop * 4f * x * (1f - x);
             transform.position = p;
             if (!_hitThisDash) CheckHits(local);
-            if (!_hitBallThisDash && ballLive && toBall.magnitude < ballHitRadius) HitBall();
+            if (!_hitBallThisDash && ballLive)
+            {
+                // 動いた後の位置で見る（toBall はこのフレームの動く前の値）
+                Vector3 hit = ball.transform.position - (transform.position + Vector3.up * bodyCenterUp);
+                float hitDy = Mathf.Abs(hit.y); hit.y = 0f;
+                if (hit.magnitude < ballHitRadius && hitDy < ballHitHeight) HitBall();
+            }
             if (_stateTime > _dashDuration)
             {
                 // 着地先に道がなければ落ちる
