@@ -141,10 +141,7 @@ public class FuwaFireball : UdonSharpBehaviour
         _auraNow = auraHeight * Mathf.Lerp(0.4f, 1f, Mathf.Sin(u * Mathf.PI));
         // 進む向きと逆へ倒す（真上に飛ぶ時はまっすぐ）
         Vector3 auraDir = vert ? Vector3.up : (Vector3.up - hdir * auraLean).normalized;
-        // 見た目は当たりと別：飛んでいる向きのま後ろへのびる（2026-11-02 てじゃ「ちゃんと球の後ろにこのエフェクトがのびる」）
-        Vector3 behind = vel.sqrMagnitude > 0.000001f ? -vel.normalized : Vector3.up;
-        if (aura != null) aura.transform.rotation = Quaternion.FromToRotation(Vector3.up, behind);
-        if (auraFx != null) auraFx.transform.rotation = Quaternion.LookRotation(behind);
+        // 見た目は当たりと別：粒はワールド座標に置いていかれるので、飛んだ後ろに自然に残る（2026-11-02 てじゃ「板が角度を変えてついてきてる」「粒が出る形のほうがきれい」でメッシュの炎はやめた）
 
         // ふわふわ（当たり判定はトリガーの通知でなく距離で：動く物のトリガーは取りこぼしやすいので）
         // 火球の中心からオーラの向きへ _auraNow の線との距離で見る。先へ行くほど細い
