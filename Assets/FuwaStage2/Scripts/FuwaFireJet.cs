@@ -57,6 +57,8 @@ public class FuwaFireJet : UdonSharpBehaviour
     public float playerPerMeter = 0f;
     [Tooltip("人だけ別の到達距離（0 なら knockReach）。ふわふわはふちの外まで飛ばしても、人は落とさない")]
     public float playerReach = 0f;
+    [Tooltip("人の横の速さの下限（先端で当たっても、これだけは飛ぶ）")]
+    public float playerMin = 0f;
     public Vector3 playerSide = Vector3.zero;
     private bool _wasOn, _blasted;
     private float _pushedAt = -10f, _body;
@@ -190,7 +192,7 @@ public class FuwaFireJet : UdonSharpBehaviour
         if (playerPerMeter > 0f && knockOrigin != null && knockReach > 0f)
         {
             Vector3 off = f - knockOrigin.position; off.y = 0f;
-            sp = Mathf.Min(sp, Mathf.Max(0f, (playerReach > 0f ? playerReach : knockReach) - Vector3.Dot(off, d)) * playerPerMeter);
+            sp = Mathf.Max(playerMin, Mathf.Min(sp, Mathf.Max(0f, (playerReach > 0f ? playerReach : knockReach) - Vector3.Dot(off, d)) * playerPerMeter));
         }
         lp.SetVelocity(d * sp + playerSide + Vector3.up * playerPushUp);
     }
