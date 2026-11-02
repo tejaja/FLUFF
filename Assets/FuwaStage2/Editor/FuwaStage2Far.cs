@@ -119,6 +119,11 @@ public static class FuwaStage2Far
         var sky = RenderSettings.skybox; s.sky = sky; s.area = Object.FindObjectOfType<FuwaAreaVisibility>(true);
         s.normalTop = sky.GetColor("_TopColor"); s.normalHorizon = sky.GetColor("_HorizonColor"); s.normalBottom = sky.GetColor("_BottomColor"); s.normalFog = RenderSettings.fogColor;
         s.stage2Top = Stage2Top; s.stage2Horizon = Stage2Horizon; s.stage2Bottom = Stage2Bottom; s.stage2Fog = Stage2Horizon;
+        // 2–2 の中は白っぽく。箱は 2–2 の地面（x 23〜115、z 7〜131）を囲む。2–1（x 14 まで）とロビー（z -8 まで）にかからない
+        s.whiteMin = new Vector3(20f, -300f, 3f); s.whiteMax = new Vector3(155f, -60f, 165f); s.whiteBlend = 5f;
+        s.whiteTop = new Color(0.55f, 0.74f, 0.96f); s.whiteHorizon = new Color(0.90f, 0.95f, 1f); s.whiteBottom = new Color(0.78f, 0.87f, 0.98f); s.whiteFog = s.whiteHorizon;
+        s.cloudSea = AssetDatabase.LoadAssetAtPath<Material>(MatPath); s.farIsland = AssetDatabase.LoadAssetAtPath<Material>(IslandMat);
+        s.seaShade = new Color(0.55f, 0.72f, 0.95f); s.seaHaze = Stage2Horizon; s.whiteSeaShade = new Color(0.86f, 0.90f, 0.97f); s.whiteSeaHaze = s.whiteHorizon;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(s); FuwaStage2WaterTest.NoSync(s);
         // 遠くの雲と島のかすみも濃い空に合わせる（どちらもステージ2でしか見えない）
         foreach (var path in new[] { MatPath, IslandMat }) { var m = AssetDatabase.LoadAssetAtPath<Material>(path); if (m) { m.SetColor("_Haze", Stage2Horizon); EditorUtility.SetDirty(m); } }
