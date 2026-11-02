@@ -63,7 +63,7 @@ public static class FuwaStage2Far
         if (!m) { m = new Material(Shader.Find("FuwaCourse/CloudSea")); AssetDatabase.CreateAsset(m, MatPath); }
         m.shader = Shader.Find("FuwaCourse/CloudSea");   // うねる雲（2026-11-02 てじゃ「ちょっとうねうね」）
         m.SetColor("_Color", Color.white); m.SetColor("_Shade", new Color(0.55f, 0.72f, 0.95f)); m.SetFloat("_Rim", 0.12f); m.SetFloat("_ShadeContrast", 5f);
-        m.SetColor("_Haze", new Color(0.6f, 0.83f, 1f)); m.SetFloat("_HazeStart", 180f); m.SetFloat("_HazeEnd", 1000f); m.SetFloat("_HazeMax", 0.9f);
+        m.SetColor("_Haze", Stage2Horizon); m.SetFloat("_HazeStart", 180f); m.SetFloat("_HazeEnd", 1000f); m.SetFloat("_HazeMax", 0.9f);
         EditorUtility.SetDirty(m);
         return m;
     }
@@ -85,7 +85,7 @@ public static class FuwaStage2Far
         foreach (var a in AssetDatabase.LoadAllAssetsAtPath(IslandFbx)) if (a is Mesh me) for (int k = 0; k < 3; k++) if (me.name.EndsWith("Island" + k)) meshes[k] = me;
         var mat = AssetDatabase.LoadAssetAtPath<Material>(IslandMat);
         if (!mat) { mat = new Material(Shader.Find("FuwaCourse/FarIsland")); AssetDatabase.CreateAsset(mat, IslandMat); }
-        mat.SetFloat("_HazeStart", 150f); mat.SetFloat("_HazeEnd", 900f); mat.SetFloat("_HazeMax", 0.7f); mat.SetFloat("_Bob", 1.6f); mat.SetFloat("_FogMax", 0f); EditorUtility.SetDirty(mat);
+        mat.SetColor("_Haze", Stage2Horizon); mat.SetFloat("_HazeStart", 150f); mat.SetFloat("_HazeEnd", 900f); mat.SetFloat("_HazeMax", 0.7f); mat.SetFloat("_Bob", 1.6f); mat.SetFloat("_FogMax", 0f); EditorUtility.SetDirty(mat);
         var rnd = new System.Random(41); int n = 0;
         foreach (var it in Islands)
         {
@@ -103,6 +103,27 @@ public static class FuwaStage2Far
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         Debug.Log("[FuwaStage2Far] 島 " + n + " 個");
+    }
+
+    // ステージ2の空の濃さ（ためしに 2026-11-02 の 1 番）。normal は今の空のマテリアルの色
+    public static Color Stage2Top = new Color(0.04f, 0.26f, 0.80f), Stage2Horizon = new Color(0.36f, 0.68f, 1f), Stage2Bottom = new Color(0.20f, 0.48f, 0.90f);
+    [MenuItem("FuwaCourse/ステージ2/ステージ2の空を設定")]
+    public static string BuildSky()
+    {
+        const string ScriptPath = "Assets/FuwaStage2/Scripts/FuwaStageSky.cs", ProgramPath = "Assets/FuwaStage2/Scripts/FuwaStageSky.asset";
+        if (AssetDatabase.LoadAssetAtPath<UdonSharp.UdonSharpProgramAsset>(ProgramPath) == null) return "プログラムアセットが先に要る";
+        var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+        var sys = GameObject.Find("FuwaSystem"); var old = sys.transform.Find("StageSky"); if (old) Object.DestroyImmediate(old.gameObject);
+        var o = new GameObject("StageSky"); o.transform.SetParent(sys.transform, false);
+        var s = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaStageSky>(o);
+        var sky = RenderSettings.skybox; s.sky = sky; s.area = Object.FindObjectOfType<FuwaAreaVisibility>(true);
+        s.normalTop = sky.GetColor("_TopColor"); s.normalHorizon = sky.GetColor("_HorizonColor"); s.normalBottom = sky.GetColor("_BottomColor"); s.normalFog = RenderSettings.fogColor;
+        s.stage2Top = Stage2Top; s.stage2Horizon = Stage2Horizon; s.stage2Bottom = Stage2Bottom; s.stage2Fog = Stage2Horizon;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(s); FuwaStage2WaterTest.NoSync(s);
+        // 遠くの雲と島のかすみも濃い空に合わせる（どちらもステージ2でしか見えない）
+        foreach (var path in new[] { MatPath, IslandMat }) { var m = AssetDatabase.LoadAssetAtPath<Material>(path); if (m) { m.SetColor("_Haze", Stage2Horizon); EditorUtility.SetDirty(m); } }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
+        return "空 OK area=" + (s.area != null);
     }
 
     [MenuItem("FuwaCourse/ステージ2/遠景の雲海を作り直す")]
