@@ -930,6 +930,22 @@ public static class FuwaCourse2_2Builder
         var hp = new GameObject("HoverPoint").transform; hp.SetParent(g, false); hp.localPosition = new Vector3(0, SeedHover, 0);
         var hs = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHeatSource>(z); hs.heat = heat; hs.hoverPoint = hp;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hs); FuwaStage2WaterTest.NoSync(hs);
+        HeatWisp(g);
+    }
+    // 焚き火の上に立ちのぼる、ごく控えめな風の筋（2026-11-03 てじゃ「ささやかな風エフェクト」「ほんとちょっとね」）。噴気孔の SteamJet と同じ材質の細い筋。何回呼んでも同じ結果
+    public static void HeatWisp(Transform g)
+    {
+        var old = g.Find("HeatWisp"); if (old) Object.DestroyImmediate(old.gameObject);
+        var o = new GameObject("HeatWisp"); o.transform.SetParent(g, false); o.transform.localPosition = new Vector3(0f, 0.8f, 0f); o.transform.rotation = Quaternion.LookRotation(Vector3.up);
+        var ps = o.AddComponent<ParticleSystem>();
+        var m = ps.main; m.startLifetime = new ParticleSystem.MinMaxCurve(0.6f, 0.9f); m.startSpeed = new ParticleSystem.MinMaxCurve(1.6f, 2.2f); m.startSize = new ParticleSystem.MinMaxCurve(0.06f, 0.1f); m.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f);
+        m.startColor = new Color(1f, 0.97f, 0.92f, 0.6f); m.maxParticles = 12; m.simulationSpace = ParticleSystemSimulationSpace.World;
+        var e = ps.emission; e.rateOverTime = 8f;
+        var s = ps.shape; s.shapeType = ParticleSystemShapeType.Cone; s.angle = 5f; s.radius = 0.35f;
+        var c = ps.colorOverLifetime; c.enabled = true; var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.25f), new GradientAlphaKey(0f, 1f) }); c.color = gr;
+        var t = ps.textureSheetAnimation; t.enabled = true; t.numTilesX = 4; t.numTilesY = 4; t.animation = ParticleSystemAnimationType.WholeSheet; t.frameOverTime = new ParticleSystem.MinMaxCurve(0f); t.startFrame = new ParticleSystem.MinMaxCurve(0f, 15f / 16f);
+        var r = o.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = SteamMat(); r.renderMode = ParticleSystemRenderMode.Stretch; r.lengthScale = 9f; r.velocityScale = 0f; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        ps.Play();
     }
 
     // 火種と噴気孔の見た目（2026-10-31 てじゃ「火種と噴気孔をきれいに」。前は平らな円盤とぼやけた粒）。当たりも遊びも変えない
