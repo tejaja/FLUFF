@@ -2176,7 +2176,7 @@ public static class FuwaCourse2_2Builder
         var bc = zone.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(1.2f, len, FlameHighH + 0.6f + 0.05f);
         bc.center = new Vector3(0, 0, (FlameHighH + 0.6f - 0.05f) * 0.5f - mid);
         var j = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireJet>(zone);
-        j.roar = Sfx(g, "RoarSfx", "sfx_fire_roar", new Vector3(0f, len * 0.5f, 0f), 4f, 32f, 0.9f);
+        j.roar = Sfx(g, "RoarSfx", "sfx_fire_roar", new Vector3(0f, len * 0.5f, 0f), 8f, 45f, 1f, false, 12f);   // 近くでしか聞こえなかったので、岩のはねる音と同じ広さに（2026-11-02 てじゃ）
         j.heat = heat; j.ball = ballProxy; j.phase = phase; j.period = period; j.onTime = on; j.flameRate = 14f; j.flameBody = JetBody(g, name, backs, rowZ, len);
         j.flame = flames[0]; j.warn = warns[0]; j.moreFlames = flames.Skip(1).ToArray(); j.moreWarns = warns.Skip(1).ToArray();
         // 吹っ飛ぶ向き：外（山から離れる向き）、外のふちの FlameLand 手前より先へは飛ばさない（てじゃ「落ちないくらい外に吹っ飛ばす」）。
