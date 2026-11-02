@@ -14,6 +14,8 @@ public class FuwaFireball : UdonSharpBehaviour
     [Tooltip("溶岩の穴（の溶岩の面）。この順に往復する")]
     public Transform[] holes;
     public float arcHeight = 2.5f, flightTime = 1.2f, rest = 1.2f, phase = 0f;
+    [Tooltip("ON なら往復せず、最後の穴（奥）から最初の穴（手前）へ飛ぶだけ（2026-11-03 てじゃ「奥側から手前に飛ぶオンリーにしたい」）。飛ぶ間隔は flightTime + rest のまま")]
+    public bool oneWay = false;
     [Tooltip("見た目（飛んでいない時は隠す）")]
     public GameObject visual;
     [Tooltip("尾を引く炎（なくてもOK）")]
@@ -61,12 +63,13 @@ public class FuwaFireball : UdonSharpBehaviour
     }
 
     // 穴が1つなら真上に飛び上がって同じ穴に戻る（2026-10-29 てじゃ「垂直に飛び上がる穴を追加」）
-    private int Hops() { return holes == null || holes.Length == 0 ? 0 : holes.Length == 1 ? 1 : 2 * (holes.Length - 1); }
+    private int Hops() { return holes == null || holes.Length == 0 ? 0 : holes.Length == 1 || oneWay ? 1 : 2 * (holes.Length - 1); }
     // 往復の k 番目の飛びの出発・到着の穴
     private int HoleAt(int k)
     {
         int n = holes.Length;
         if (n == 1) return 0;
+        if (oneWay) return k == 0 ? n - 1 : 0;
         return k < n - 1 ? k : 2 * (n - 1) - k;
     }
 
