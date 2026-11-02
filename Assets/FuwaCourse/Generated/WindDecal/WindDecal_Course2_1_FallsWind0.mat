@@ -26,7 +26,7 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _Base: 0.2
+    - _Base: 0.1
     - _ChevPeriod: 6
     - _ChevSlope: 0.6
     - _Chevron: 0
@@ -37,14 +37,14 @@ Material:
     - _FlowDir: 1
     - _Phase: 0
     - _ScriptPhase: 1
-    - _Sharp: 2
+    - _Sharp: 1
     - _Soft: 0.45
     - _Speed: 3.5
     - _Stroke: 0.25
     - _Taper: 0
     - _Wavelength: 2.6
     m_Colors:
-    - _Color: {r: 0.39999926, g: 0.78, b: 1, a: 0.3}
+    - _Color: {r: 1, g: 1, b: 1, a: 0.3}
     - _CutBack: {r: 0, g: 0, b: 0, a: 0}
     - _CutFront: {r: 0, g: 0, b: 0, a: 0}
     - _WindDir: {r: 0, g: 0, b: 1, a: 0}

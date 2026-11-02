@@ -3364,7 +3364,7 @@ public static class FuwaCourse2_1Builder
                 string mp = decalDir + "/WindDecal_Course2_1_FallsWind" + i + ".mat";
                 var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
                 if (m == null) { m = new Material(src); AssetDatabase.CreateAsset(m, mp); }
-                m.CopyPropertiesFromMaterial(src); m.SetVector("_WindDir", new Vector4(0, 0, 1, 0)); EditorUtility.SetDirty(m);
+                m.CopyPropertiesFromMaterial(src); m.SetVector("_WindDir", new Vector4(0, 0, 1, 0)); var dc = Color.white; dc.a = src.color.a; m.color = dc; m.SetFloat("_Sharp", 1f); m.SetFloat("_Base", 0.1f); EditorUtility.SetDirty(m);   // 白いグラデの帯。水色だと青い道に溶けた（2026-11-03 てじゃ「もっと目立たせたい」）
                 decal.GetComponent<Renderer>().sharedMaterial = m;
                 so.FindProperty("groundHighlight").objectReferenceValue = decal.GetComponent<Renderer>();
             }
