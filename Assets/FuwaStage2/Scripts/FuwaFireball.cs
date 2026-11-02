@@ -38,6 +38,8 @@ public class FuwaFireball : UdonSharpBehaviour
     public float auraHeight = 0f;
     [Tooltip("オーラのてっぺんの当たりの半径。根元は hitRadius")]
     public float auraTopRadius = 0.25f;
+    [Tooltip("オーラを進む向きと逆へ倒す強さ（0 で真上。2026-11-02 てじゃ「垂直に燃えて飛んでくの違和感」）。当たりも同じ向き")]
+    public float auraLean = 0.75f;
     private float _auraNow;
 
     private bool _flying, _hitBall, _hitPlayer;
@@ -133,17 +135,23 @@ public class FuwaFireball : UdonSharpBehaviour
 
         // オーラの高さ：穴の近くは低く、最高点でいちばん高い
         _auraNow = auraHeight * Mathf.Lerp(0.4f, 1f, Mathf.Sin(u * Mathf.PI));
-        if (aura != null) aura.transform.localScale = new Vector3(1f, auraHeight > 0.01f ? _auraNow / auraHeight : 1f, 1f);
+        // 進む向きと逆へ倒す（真上に飛ぶ時はまっすぐ）
+        Vector3 auraDir = vert ? Vector3.up : (Vector3.up - hdir * auraLean).normalized;
+        if (aura != null)
+        {
+            aura.transform.localScale = new Vector3(1f, auraHeight > 0.01f ? _auraNow / auraHeight : 1f, 1f);
+            aura.transform.rotation = Quaternion.FromToRotation(Vector3.up, auraDir);
+        }
 
         // ふわふわ（当たり判定はトリガーの通知でなく距離で：動く物のトリガーは取りこぼしやすいので）
-        // 火球の中心から上へ _auraNow の縦の線との距離で見る。上へ行くほど細い
+        // 火球の中心からオーラの向きへ _auraNow の線との距離で見る。先へ行くほど細い
         bool ballHit = false;
         if (!_hitBall && ball != null && !ball.IsWaitingOrHidden())
         {
             Vector3 bp = ball.transform.position;
-            float upY = _auraNow > 0.01f ? Mathf.Clamp(bp.y - p.y, 0f, _auraNow) : 0f;
+            float upY = _auraNow > 0.01f ? Mathf.Clamp(Vector3.Dot(bp - p, auraDir), 0f, _auraNow) : 0f;
             float r = _auraNow > 0.01f ? Mathf.Lerp(hitRadius, auraTopRadius, upY / _auraNow) : hitRadius;
-            ballHit = (bp - (p + Vector3.up * upY)).magnitude < r + _ballRadius;
+            ballHit = (bp - (p + auraDir * upY)).magnitude < r + _ballRadius;
         }
         if (ballHit)
         {
