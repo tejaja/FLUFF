@@ -517,7 +517,7 @@ public static class FuwaCourse2_2Builder
     // holes：上の面にあける丸い穴（xyz＝上の面の中心、w＝半径。道のふちからはみ出さないこと）。穴の壁（岩）は LavaDepth＋0.3 下まで
     // 道にあける穴（2026-10-31 てじゃ「穴と溝が円と直線すぎる」「赤丸で繋がった溶岩池に」）：穴の中心をつないだ線のまわりの形。ふちはでこぼこ、穴と穴の間は少し細い。
     //  道の線ごとに「穴の左はし・右はし」を求めて作る（ふちの点は線の上だけ。線から外すと、となりの帯の長い辺とずれて道に切れ目が出た）
-    public static float PoolWobble = 0.2f, PoolNeck = 0.3f, PoolBulgeR = 1.9f;   // PoolBulgeR：真ん中の 2 つの池のくびれを直径 3.8m に（2026-11-03 てじゃ「このルートでいけちゃうのを潰したい」。くびれは約 1.7m でジャンプで越せた）
+    public static float PoolWobble = 0.2f, PoolNeck = 0.3f, PoolThinGap = 1.2f, PoolEdgeDrop = 1.2f, PoolBulgeR = 1.9f;   // PoolBulgeR：真ん中の 2 つの池のくびれを直径 3.8m に（2026-11-03 てじゃ「このルートでいけちゃうのを潰したい」。くびれは約 1.7m でジャンプで越せた）
     const int LavaShadowLayer = 14;   // PickupNoEnvironment：ふわふわ（17）・人（9, 10）と当たらない
     public const float BurnSink = 0.1f;   // ふわふわが黒焦げになる高さ：溶岩の面からこれだけ下に玉の底が入った時（2026-10-31 てじゃ「やたら高い位置でアウト」で 0.2 に→「ちょっぴり上げても」で 0.1。前は溶岩の 0.2 上だった）
     class HolePool
@@ -674,6 +674,12 @@ public static class FuwaCourse2_2Builder
                         ch0 |= Mathf.Abs(Vector3.Dot(Flat(ca - r[i].p), T0)) <= ChanHW + 0.06f;   // 足した線は進む向きの測り方が少しちがうので余裕を（0.02 だと外れて上の面がかけらになった）
                         ch1 |= Mathf.Abs(Vector3.Dot(Flat(ca - r[i + 1].p), T1)) <= ChanHW + 0.06f;
                     }
+                    // 池と道のふちの間の細い地面はなくして、溶岩を道のふちまでつなげる（2026-11-03 てじゃ「この青いところの細い地面全部いらんかも」）
+                    if (sx != 0)
+                    {
+                        if (in0 && (sx > 0 ? w0h - r0h : w0h + l0h) <= PoolThinGap) ch0 = true;
+                        if (in1 && (sx > 0 ? w1h - r1h : w1h + l1h) <= PoolThinGap) ch1 = true;
+                    }
                     // 壁の内向きはこの帯の穴のまん中へ（細長い穴なので全体の中心だと向きをまちがえる）。はしの帯は切れている線のまん中（はしの点 m より外を指すと壁が裏返って抜けた）
                     var o = tip == 0 ? r[i + 1].p + side[i + 1] * c1 : tip == 1 ? r[i].p + side[i] * c0 : (r[i].p + side[i] * c0 + r[i + 1].p + side[i + 1] * c1) * 0.5f;
                     cut.Add((c0, h0, h0, c1, h1, h1, o, tip, m, sx, ch0, ch1, pool.ld + 0.3f));
@@ -759,7 +765,18 @@ public static class FuwaCourse2_2Builder
                 foreach (var h in cut)
                 {
                     var ld = Vector3.down * (h.wd - 0.3f); const float Over = 0.03f;
-                    if (h.tip < 0) { lava.Quad(P0(h.c0 - h.hl0 - Over) + ld, P1(h.c1 - h.hl1 - Over) + ld, P1(h.c1 + h.hr1 + Over) + ld, P0(h.c0 + h.hr0 + Over) + ld, Vector3.up, 0); continue; }
+                    if (h.tip < 0)
+                    {
+                        float lx0 = h.c0 - h.hl0 - Over, lx1 = h.c1 - h.hl1 - Over, rx0 = h.c0 + h.hr0 + Over, rx1 = h.c1 + h.hr1 + Over;
+                        if (h.ch0 && h.ch1)
+                        {
+                            // 道のふちまで開いている帯：溶岩をふちまで広げて、ふちから少し垂らす
+                            if (h.sx > 0) { rx0 = w0; rx1 = w1; } else { lx0 = -w0; lx1 = -w1; }
+                            Vector3 a = P0(h.sx > 0 ? w0 : -w0) + ld, b = P1(h.sx > 0 ? w1 : -w1) + ld, drop = Vector3.down * PoolEdgeDrop;
+                            lava.Quad(a, b, b + drop, a + drop, side[i] * h.sx, 0);
+                        }
+                        lava.Quad(P0(lx0) + ld, P1(lx1) + ld, P1(rx1) + ld, P0(rx0) + ld, Vector3.up, 0); continue;
+                    }
                     var e0 = h.tip == 0 ? P1(h.c1 - h.hl1 - Over) : P0(h.c0 - h.hl0 - Over); var e1 = h.tip == 0 ? P1(h.c1 + h.hr1 + Over) : P0(h.c0 + h.hr0 + Over);
                     lava.Quad(e0 + ld, h.m + ld, e1 + ld, e1 + ld, Vector3.up, 0);
                 }
