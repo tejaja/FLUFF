@@ -22,7 +22,7 @@ public static class FuwaCourse2_2Builder
     public static float SeedHover = 1.3f;                      // 火種の止まる所（地面から）
     public static float TailWindStrength = 3.5f;
     public static float VentAt = 2.4f, VentFwd = 6f, VentUp = 3.5f;   // 噴気孔：長い坂の角からの距離、打ち出しの水平・上の速さ（8.4m 先で）
-    public static float WideHW = 4.5f, WideEndHW = 3.2f, HoleR = 1.2f, LavaDepth = 0.45f, FireballTop = 2.7f, VertTop = 2.6f, FireballSize = 1.3f;   // ② 広い道・溶岩の穴・火の玉（てっぺんの道からの高さ・大きさ）。2026-10-30 てじゃ「穴の溶岩もうちょい上に」→ 0.9/0.5 → 0.45/0.35（火の玉のてっぺんは道からの高さで据え置き）
+    public static float WideHW = 4.5f, WideEndHW = 3.2f, HoleR = 1.2f, LavaDepth = 0.45f, FireballTop = 3.1f, VertTop = 2.6f, FireballSize = 1.3f;   // ② 広い道・溶岩の穴・火の玉（てっぺんの道からの高さ・大きさ）。2026-10-30 てじゃ「穴の溶岩もうちょい上に」→ 0.9/0.5 → 0.45/0.35（火の玉のてっぺんは道からの高さで据え置き）
     public static float ChanHW = 0.6f, ChanLavaDepth = 0.35f, LavaFallLen = 6f;   // 溝の幅の半分・溝のある穴の溶岩の深さ（道の下の岩 0.6 より上＝ふちからそのまま流れ出る）・垂れる溶岩の長さ
     public static float PadR = 2.6f, PadIn = 1.6f, PadDrop = 0.03f, ZigLeg = 15f, ZigRise = 2.0f, ZigHW = 0.8f, ZigHeading = 71f, EndPadR = 3.4f, EndPadIn = 1.0f, FireWallH = 4.5f, FireWallOut = 1.0f, FireWallGap = 0.35f;   // 踊り場の半径・板のはしが踊り場に入る深さ（40° の板どうしが踊り場の外で重ならない：0.8*2/sin40=2.5）・板の長さ・上り・幅の半分・向き
     // （2026-10-30 てじゃ「もっと角度急に」→ 約155° 曲がる（道どうしが約26°）。板を踊り場の中心から通すと踊り場の外で重なるので、板の出る所は中心より前（+z）へ、着く所は後ろへ幅の半分ずらす（角で入る板と出る板が中心の前後に分かれる）。そのぶん板が寝るので向き ZigHeading は 71°。PadIn は板のはしが踊り場に入る深さ）

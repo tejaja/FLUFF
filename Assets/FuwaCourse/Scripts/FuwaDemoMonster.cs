@@ -41,6 +41,7 @@ public class FuwaDemoMonster : UdonSharpBehaviour
     public float ballOvershoot = 0.6f;
     public float ballHitRadius = 0.7f;
     public float ballHitHeight = 0.9f;
+    public float ballHitSide = 0.9f;
     public float ballKnockback = 5.5f;
     public float ballKnockUp = 1.2f;
     public Color ballHitGlow = new Color(0.75f, 0.35f, 1f);
@@ -154,7 +155,10 @@ public class FuwaDemoMonster : UdonSharpBehaviour
                 _pos = Vector3.Lerp(_dashFrom, _dashTo, k) + Vector3.up * (_dashHop * 4f * k * (1f - k));
                 Vector3 toDemoBall = stand.ball != null ? stand.ball.position - _pos : Vector3.one * 9999f;
                 float demoDy = Mathf.Abs(toDemoBall.y); toDemoBall.y = 0f;
-                if (!_hit && stand.ball != null && toDemoBall.magnitude < ballHitRadius && demoDy < ballHitHeight)
+                Vector3 demoDir = _dashTo - _dashFrom; demoDir.y = 0f; demoDir = demoDir.sqrMagnitude > 0.0001f ? demoDir.normalized : transform.forward;
+                float demoAlong = Vector3.Dot(toDemoBall, demoDir) / Mathf.Max(0.01f, ballHitRadius);
+                float demoSide = (toDemoBall - demoDir * Vector3.Dot(toDemoBall, demoDir)).magnitude / Mathf.Max(0.01f, ballHitSide);
+                if (!_hit && stand.ball != null && demoAlong * demoAlong + demoSide * demoSide < 1f && demoDy < ballHitHeight)
                 {
                     _hit = true;
                     Vector3 dir = _dashTo - _dashFrom; dir.y = 0f; dir = dir.sqrMagnitude > 0.0001f ? dir.normalized : transform.forward;
