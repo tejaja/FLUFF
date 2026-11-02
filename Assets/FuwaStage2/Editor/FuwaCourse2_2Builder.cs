@@ -478,13 +478,13 @@ public static class FuwaCourse2_2Builder
             int i = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d);
             t[sub].AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
         }
-        // uv つき（垂れる溶岩の、列の根元 0〜先 1）
+        // uv つき（垂れる溶岩の x：列の根元 0〜先 1、y：ふちにそった長さ m）
         public List<Vector2> uv = new List<Vector2>();
-        public void QuadUv(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float ua, float ub, float uc, float ud, Vector3 outward, int sub)
+        public void QuadUv(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector2 ua, Vector2 ub, Vector2 uc, Vector2 ud, Vector3 outward, int sub)
         {
             if (Vector3.Dot(Vector3.Cross(b - a, c - a) + Vector3.Cross(c - a, d - a), outward) < 0f) { var x = b; b = d; d = x; var y = ub; ub = ud; ud = y; }
             int i = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d);
-            uv.Add(new Vector2(ua, 0f)); uv.Add(new Vector2(ub, 0f)); uv.Add(new Vector2(uc, 0f)); uv.Add(new Vector2(ud, 0f));
+            uv.Add(ua); uv.Add(ub); uv.Add(uc); uv.Add(ud);
             t[sub].AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 });
         }
         public Mesh Build(string name, int subs)
@@ -584,8 +584,9 @@ public static class FuwaCourse2_2Builder
                     {
                         float t0 = k / (float)CurtainRows, t1 = (k + 1f) / CurtainRows;
                         var p00 = Col(j, t0); var p01 = Col(j, t1); var p10 = Col(j + 1, t0); var p11 = Col(j + 1, t1);
-                        lava.QuadUv(p00, p10, p11, p01, t0, t0, t1, t1, side[j] * sx, 0);
-                        lava.QuadUv(p00, p10, p11, p01, t0, t0, t1, t1, -side[j] * sx, 0);
+                        Vector2 u00 = new Vector2(t0, s[j]), u10 = new Vector2(t0, s[j + 1]), u11 = new Vector2(t1, s[j + 1]), u01 = new Vector2(t1, s[j]);
+                        lava.QuadUv(p00, p10, p11, p01, u00, u10, u11, u01, side[j] * sx, 0);
+                        lava.QuadUv(p00, p10, p11, p01, u00, u10, u11, u01, -side[j] * sx, 0);
                     }
                 a = b + 1;
             }
