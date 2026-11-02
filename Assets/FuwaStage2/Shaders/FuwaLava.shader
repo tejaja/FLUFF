@@ -13,6 +13,9 @@ Shader "FuwaCourse/Lava"
         _Scale ("模様の数（/m）", Float) = 0.28
         _PoolSpeed ("上向きの面の動き", Float) = 0.016
         _FallSpeed ("横向きの面の流れる速さ（模様 / 秒）", Float) = 0.5
+        _Wave ("垂れる溶岩のゆれ（0 でなし。_WaveTop からの深さに比例）", Float) = 0
+        _WaveSpeed ("ゆれの速さ", Float) = 0.9
+        _WaveTop ("ゆれの根元の高さ（ワールド y）", Float) = 0
     }
     SubShader
     {
@@ -31,7 +34,7 @@ Shader "FuwaCourse/Lava"
             half4 _LavaHot, _LavaMid, _LavaDark;
             fixed4 _CrustColor;
             half _Crust;
-            float _Scale, _PoolSpeed, _FallSpeed;
+            float _Scale, _PoolSpeed, _FallSpeed, _Wave, _WaveSpeed, _WaveTop;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float3 wn : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
@@ -41,8 +44,17 @@ Shader "FuwaCourse/Lava"
                 v2f o;
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-                o.pos = UnityObjectToClipPos(v.vertex);
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
+                if (_Wave > 0.0001)
+                {
+                    // 根元は動かず、先へ行くほどゆっくり伸び縮みして横へゆれる。表と裏で同じだけ動くように法線は使わない
+                    float d = max(0.0, _WaveTop - o.wp.y), t = _Time.y * _WaveSpeed;
+                    float a = (o.wp.x + o.wp.z) * 0.9;
+                    o.wp.y -= d * _Wave * (0.5 + 0.5 * sin(t + a));
+                    o.wp.x += d * _Wave * 0.35 * sin(t * 1.7 + a * 1.8 + d * 1.2);
+                    o.wp.z += d * _Wave * 0.35 * sin(t * 1.3 - a * 1.4 + d * 0.9);
+                }
+                o.pos = UnityWorldToClipPos(o.wp);
                 o.wn = UnityObjectToWorldNormal(v.normal);
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;

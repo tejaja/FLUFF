@@ -295,6 +295,7 @@ public static class FuwaCourse2_2Builder
         }
         var pts5 = pl5.ToArray(); var hw5 = hl5.ToArray();
         var rad5 = new float[pts5.Length]; rad5[pts5.Length - 3] = 6f; rad5[pts5.Length - 2] = 5f;
+        rad5[4] = 3f; rad5[5] = 3f;   // まものエリアの終わりの折れ目。丸めないと内側のふちに切れ目が出た（2026-11-03 てじゃ「道の端にスキマ」）
         var r5 = Route(pts5, rad5, new List<Vector3>());
         // 曲がった道の上の (x 横, z 奥行き) の所
         Vector3 OnArena(float x, float z) { Frame(r5, ar.z + z, out var c, out var t); return c + Vector3.Cross(Vector3.up, t).normalized * x; }
@@ -668,7 +669,7 @@ public static class FuwaCourse2_2Builder
         int folds = 0; string foldAt = ""; for (int i = 0; i + 1 < n; i++) { var f = Flat(r[i + 1].p - r[i].p); if (Vector3.Dot(R[i + 1] - R[i], f) <= 0f || Vector3.Dot(L[i + 1] - L[i], f) <= 0f) { folds++; foldAt += " #" + i + "/" + n + r[i].p.ToString("F1") + " f=" + f.magnitude.ToString("F3"); } }
         if (folds > 0) Debug.LogWarning("[2–2] " + name + " 道の面の折り重なり " + folds + " か所" + foldAt);
         var vis = new MB(); var col = new MB(); var lava = new MB(); var dn = Vector3.down * T; var du = Vector3.down * (T + U);
-        var openEdge = new List<(int i, int sx, float ld)>();
+        var openEdge = new List<(int i, int sx, float ld)>(); var curtain = new MB();
         for (int i = 0; i < n - 1; i++)
         {
             int st = Mathf.FloorToInt((s[i] + s[i + 1]) * 0.5f / StripeLen) % 2;
@@ -824,13 +825,19 @@ public static class FuwaCourse2_2Builder
             vis.Quad(L[i] + side[i] * Bevel, R[i] - side[i] * Bevel, R[i] + dn, L[i] + dn, o, st); col.Quad(L[i], R[i], R[i] + dn, L[i] + dn, o, 0);
             SkirtEnd(vis, Li[i] + dn, Ri[i] + dn, o);
         }
-        LavaCurtains(lava, r, side, s, pts, hw, openEdge);
+        LavaCurtains(curtain, r, side, s, pts, hw, openEdge);
         MeshObj(parent, name, vis.Build("Course2_2_" + name, 3), col.Build("Course2_2_" + name + "_Col", 1), new[] { pathA, pathB, rockMat });
         if (lavaParent != null)
         {
             // うその影（FuwaGroundMarker）は真下へ線を飛ばすので、溶岩にも当たりがいる（無いと穴の上で影が消える）。ふわふわも人も通りぬけるレイヤーにする
             var lp = MeshObj(lavaParent, "LavaPools", lava.Build("Course2_2_LavaPools", 1), lava.Build("Course2_2_LavaPools_Col", 1), new[] { lavaMat });
             lp.layer = LavaShadowLayer;
+            if (openEdge.Count > 0)
+            {
+                // 垂れる溶岩は別の物にして、ゆっくり波打たせる。流れも遅く（2026-11-03 てじゃ「カチッと固まってるの違和感」「表面の流れが早いかも」）
+                var cg = MeshObj(lavaParent, "LavaCurtains", curtain.Build("Course2_2_LavaCurtains", 1), null, new[] { LavaCurtainMat(lavaParent.TransformPoint(r[openEdge[0].i].p + Vector3.down * openEdge[0].ld).y) });
+                cg.layer = LavaShadowLayer; var cr = cg.GetComponent<MeshRenderer>(); cr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; cr.receiveShadows = false;
+            }
             foreach (var mk in Object.FindObjectsOfType<FuwaGroundMarker>(true))
             {
                 mk.groundMask |= 1 << LavaShadowLayer; EditorUtility.SetDirty(mk);
@@ -1927,7 +1934,7 @@ public static class FuwaCourse2_2Builder
     {
         // 道に近づけた（x を 0.7 倍。2026-11-01 てじゃ「周りの浮島ちょっと遠い」）
         (-15.4f, -3f, -16f, 1.6f, 20f, false), (-21f, 3f, 2f, 2f, 130f, true), (-14f, -7f, 20f, 1.4f, 250f, false),
-        (16.8f, 1f, -24f, 1.8f, 70f, true), (21.7f, -5f, -7f, 1.5f, 200f, false), (15.4f, 4f, 10f, 1.7f, 310f, true),
+        (21.78f, 1f, -24.43f, 1.8f, 70f, true) /* 外周の 1 番目の火の島。道から 5m 離した（2026-11-03 てじゃ「ちょっと遠くに」） */, (21.7f, -5f, -7f, 1.5f, 200f, false), (15.4f, 4f, 10f, 1.7f, 310f, true),
         // まものエリアから先にも足す（てじゃ「最後の火炎放射を超えた先が見た目が寂しい」）
         (46f, 9f, 59f, 1.8f, 40f, false), (52f, 15f, 79f, 2f, 160f, true), (40f, 5f, 99f, 1.6f, 280f, false), (16f, 17f, 97f, 1.7f, 90f, true),
         (-24f, 7f, 43f, 1.7f, 200f, false), (-26f, 11f, 69f, 1.8f, 330f, true),   // fire：木の代わりに燃えている島（2026-10-31 てじゃ「全部木じゃなくて燃えてる島も混ぜよ」）
@@ -2078,6 +2085,15 @@ public static class FuwaCourse2_2Builder
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_Lava", LavaCol);
         var sh = Shader.Find("FuwaCourse/Lava");
         if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); EditorUtility.SetDirty(m); }
+        return m;
+    }
+    public static float CurtainWave = 0.1f, CurtainWaveSpeed = 0.9f, CurtainFallSpeed = 0.2f;
+    public static Material LavaCurtainMat(float topY)
+    {
+        const string mp = "Assets/FuwaStage2/Materials/Stage2_2_LavaCurtain.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!m) { m = new Material(FlowLavaMat()); AssetDatabase.CreateAsset(m, mp); }
+        m.SetFloat("_Wave", CurtainWave); m.SetFloat("_WaveSpeed", CurtainWaveSpeed); m.SetFloat("_WaveTop", topY); m.SetFloat("_FallSpeed", CurtainFallSpeed); EditorUtility.SetDirty(m);
         return m;
     }
     const string VolcanoModel ="Assets/FuwaStage2/Models/Stage2_Volcano.fbx", VolcanoMat = "Assets/FuwaStage2/Materials/Stage2_2_Volcano.mat";
