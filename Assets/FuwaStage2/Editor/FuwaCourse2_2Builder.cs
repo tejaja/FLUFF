@@ -1492,7 +1492,7 @@ public static class FuwaCourse2_2Builder
     // 岩がはねる場所のヒビ（2026-11-02 てじゃ「もちょいシンプルな見た目」「メッシュで割りたい」）。太い割れ目が 3〜4 本だけ。
     //  道のメッシュは切らず、噴気孔と同じステンシルで見せる：Mouth（道の上の割れ目の形。VentHoleMask）＋ Shaft（その下の壁と底。VentShaft）。当たりは平らな道のまま、焼き直しもいらない。
     //  道のはしで切れる腕はそこで止める。LavaRock* の P1〜（最後は道の外なので除く）の真下に作る。作り直さずシーンだけ直す時もこれを呼ぶ
-    public static float RockCrackDepth = 0.35f, RockCrackLift = 0.015f;
+    public static float RockCrackDepth = 0.35f, RockCrackLift = 0.015f, RockBounceH = 0.74f;   // RockBounceH：はねる時の岩の中心の、道からの高さ（岩の下の半径 0.78。少しめりこむくらい）
     public static string RockCracks(Transform fire)
     {
         var old = fire.Find("RockCracks"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -1512,18 +1512,25 @@ public static class FuwaCourse2_2Builder
         var mv = new List<Vector3>(); var mt = new List<int>(); var sv = new List<Vector3>(); var suv = new List<Vector2>(); var st = new List<int>();
         void Tri(List<Vector3> vs, List<int> ts, int a, int b, int c, Vector3 want) { if (Vector3.Dot(Vector3.Cross(vs[b] - vs[a], vs[c] - vs[a]), want) >= 0f) ts.AddRange(new[] { a, b, c }); else ts.AddRange(new[] { a, c, b }); }
         int count = 0; var rnd = new System.Random(2202); float R() => (float)rnd.NextDouble();
+        // はねる点を今の道の高さにそろえる（板の線の計算だと道から 0.3〜1.5m ずれて、浮いて見えた。2026-11-02 てじゃ）
+        foreach (var rock in fire.GetComponentsInChildren<FuwaLavaRock>(true))
+            for (int pi = 1; pi + 1 < rock.points.Length; pi++)
+                if (OnRoad(rock.points[pi].position, rock.points[pi].position.y, out var ground)) { var bp = rock.points[pi].position; bp.y = ground.y - RockCrackLift + RockBounceH; rock.points[pi].position = bp; }
         foreach (var rock in fire.GetComponentsInChildren<FuwaLavaRock>(true))
         {
             for (int pi = 1; pi + 1 < rock.points.Length; pi++)
             {
                 var p = rock.points[pi].position; if (!OnRoad(p, p.y, out var center)) continue;
-                int arms = R() < 0.5f ? 3 : 4; float a0 = R() * Mathf.PI * 2f; var loop = new List<Vector3>(); var hub = new List<Vector3>();
+                // 3 パターンを順番に：0 長い 3 本、1 短い 4 本、2 長い 2 本＋短い枝 1 本（2026-11-02 てじゃ「長さとか角度とか変えて３パターンくらい」）
+                int pat = count % 3, arms = pat == 1 ? 4 : 3; float a0 = R() * Mathf.PI * 2f; var loop = new List<Vector3>(); var hub = new List<Vector3>();
                 for (int ai = 0; ai < arms; ai++)
                 {
-                    float ang = a0 + (ai + (R() - 0.5f) * 0.45f) / arms * Mathf.PI * 2f, len = Mathf.Lerp(0.75f, 1.2f, R()), hw0 = Mathf.Lerp(0.085f, 0.115f, R());
-                    int segs = 4; var line = new List<Vector3>(); var q = p; float sign = R() < 0.5f ? 1f : -1f;
+                    float ang = pat == 2 ? a0 + (ai == 0 ? 0f : ai == 1 ? 1.5f + R() * 0.5f : Mathf.PI + (R() - 0.5f) * 0.5f) : a0 + (ai + (R() - 0.5f) * 0.45f) / arms * Mathf.PI * 2f;
+                    float len = pat == 0 ? Mathf.Lerp(1.0f, 1.35f, R()) : pat == 1 ? Mathf.Lerp(0.55f, 0.8f, R()) : (ai == 1 ? Mathf.Lerp(0.5f, 0.75f, R()) : Mathf.Lerp(1.25f, 1.5f, R()));
+                    float hw0 = pat == 0 ? Mathf.Lerp(0.105f, 0.13f, R()) : pat == 1 ? Mathf.Lerp(0.075f, 0.095f, R()) : (ai == 1 ? 0.07f : Mathf.Lerp(0.095f, 0.115f, R()));
+                    int segs = pat == 1 ? 3 : pat == 2 ? 5 : 4; float jag = pat == 2 ? 0.6f : 0.42f; var line = new List<Vector3>(); var q = p; float sign = R() < 0.5f ? 1f : -1f;
                     line.Add(p + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * 0.1f);
-                    for (int s = 0; s < segs; s++) { sign = -sign; float g = ang + sign * Mathf.Lerp(0.2f, 0.5f, R()); line.Add(line[line.Count - 1] + new Vector3(Mathf.Cos(g), 0f, Mathf.Sin(g)) * (len / segs)); }
+                    for (int s = 0; s < segs; s++) { sign = -sign; float g = ang + sign * Mathf.Lerp(0.18f, jag, R()); line.Add(line[line.Count - 1] + new Vector3(Mathf.Cos(g), 0f, Mathf.Sin(g)) * (len / segs)); }
                     var lefts = new List<Vector3>(); var rights = new List<Vector3>();
                     for (int s = 0; s < line.Count; s++)
                     {
