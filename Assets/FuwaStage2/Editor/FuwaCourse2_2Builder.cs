@@ -36,6 +36,7 @@ public static class FuwaCourse2_2Builder
     public static float VolcanoTopH = 16f, VolcanoTopR = 5f, VolcanoR0 = 12f, VolcanoBottom = -60f, RockFirstScale = 3f;   // 火口の高さ・半径、道の高さでの半径、すその下のはし、火口から飛んでくる1回の長さ（倍）
     // ⑤ 2026-10-30 てじゃ「まものからをもっと右に曲げて山に沿う感じに」「山から何個かさっきの火炎放射、あたれば炎上して飛ぶ、そのあとゴール」
     //   （火口のまわりの輪っかの道・マグマは「あんま面白くない」でやめた）。火山のまわりを右回りに沿う広めの道、山肌の岩から火炎放射
+    public static float FlameExtraOff = 1.2f;
     public static float FlameKnockMin = 1.6f;   // 先端に当たっても最低これだけ横へ飛ばす（2026-11-02。2 だと Play で道のふちの 2.2m 外まで飛んだ）
     public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = -0.27f,FlamePlayerLand = 1.2f, FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
     public const int FlameRows = 3;   // 炎の壁の縦の本数
@@ -320,12 +321,13 @@ public static class FuwaCourse2_2Builder
         }
         // 山肌から火炎の壁 3 枚（てじゃ「交互ばっかだとシステマチック」→ 周期・長さをばらばらに）。横（道を横切る）に縦に並んだ炎がいっしょに吹く。
         //  2026-10-30 斜め下→「斜めいらんかも」、低い・高いの交互→「いまいち」「上下セットの壁を3枚って形がいいかな」
-        var jets = new[] { (th: -30f, per: 3.4f, on: 1.4f, ph: 0f), (th: -8f, per: 3.0f, on: 1.2f, ph: 0.9f), (th: 14f, per: 3.8f, on: 1.6f, ph: 1.9f) };
+        var jets = new[] { (th: -30f, per: 3.4f + FlameExtraOff, on: 1.4f, ph: 0f), (th: -8f, per: 3.0f + FlameExtraOff, on: 1.2f, ph: 0.9f), (th: 14f, per: 3.8f + FlameExtraOff, on: 1.6f, ph: 1.9f) };   // FlameExtraOff：根元で飛ばされて落ちてくるまでに 2 回目を食らわないように止まっている時間を長く（2026-11-02 てじゃ）
         for (int k = 0; k < jets.Length; k++)
         {
             var jt = jets[k]; float y = RoadY(jt.th);
             VolcanoJet(fire, "Flamethrower" + k, Around(jt.th, RoadR(jt.th, y) - FlameHW, y), RoadR(jt.th, y) - FlameHW, y, jt.th, jt.per, jt.on, jt.ph);
         }
+        JetWarnAreas(fire);
         var p = pts5[pts5.Length - 1];
 
         // ⑦ ゴール
@@ -1073,7 +1075,7 @@ public static class FuwaCourse2_2Builder
         return ps;
     }
     // ふっ飛ばし（てじゃ「ここのまもののふっ飛ばし力アップ、ふわふわもプレイヤも」）。前はふわふわ 3.2 / 上 0.8、人 3.6 / 上 4
-    public static float MonsterBallKnock = 5f, MonsterBallKnockUp = 1.1f, MonsterPlayerKnock = 5.4f, MonsterPlayerKnockUp = 4.5f;
+    public static float MonsterBallKnock = 3.2f, MonsterBallKnockUp = 0.8f, MonsterPlayerKnock = 3.6f, MonsterPlayerKnockUp = 4f;   // 2026-11-01 に 1.5 倍にしたけど、当たり判定を広げたらエグいので戻した（2026-11-02 てじゃ）
     public static float MonsterChase = 11f;   // 気づいた後に追い続ける距離（前は 6.5）
     public static float MonsterLeash = 14f;   // 5.5→14（てじゃ「もっと追いかけても良いかも」）
     // ほのおのまものは家へ戻る時に水たまりをよける
@@ -1600,6 +1602,53 @@ public static class FuwaCourse2_2Builder
         return "ヒビ " + count + " か所, 口の三角形 " + mt.Count / 3 + ", 中の三角形 " + st.Count / 3;
     }
 
+    // 火炎放射が当たる所の予兆：地面の赤いグラデ（FuwaFireJet.warnArea）。道の見た目のメッシュに沿わせて、道の外は作らない。作り直さずシーンだけ直す時もこれを呼ぶ
+    public static string JetWarnAreas(Transform fire)
+    {
+        var course = fire.root; var temps = new List<MeshCollider>();
+        foreach (var n in new[] { "ZigPath", "Path12", "Path5" })
+            foreach (var t in course.GetComponentsInChildren<Transform>(true))
+                if (t.name == n && t.GetComponent<MeshFilter>()) { var c = t.gameObject.AddComponent<MeshCollider>(); c.sharedMesh = t.GetComponent<MeshFilter>().sharedMesh; temps.Add(c); }
+        Physics.SyncTransforms();
+        string mp = "Assets/FuwaStage2/Materials/Stage2_2_FireWarn.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/FireWarn")); AssetDatabase.CreateAsset(mat, mp); }
+        int made = 0, tris = 0;
+        foreach (var j in fire.GetComponentsInChildren<FuwaFireJet>(true))
+        {
+            if (j.ballKnock <= 0f || j.knockOrigin == null) continue;
+            var g = j.transform.parent; var old = g.Find("WarnArea"); if (old) Object.DestroyImmediate(old.gameObject);
+            var bc = j.GetComponent<BoxCollider>(); const int NL = 26, NW = 5; const float W = 1.5f;
+            var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var idx = new List<int>(); var id = new int[NL + 1, NW + 1];
+            float fromY = j.knockOrigin.position.y;
+            for (int l = 0; l <= NL; l++) for (int w = 0; w <= NW; w++)
+            {
+                float v = l / (float)NL, u = w / (float)NW;
+                var q = j.transform.TransformPoint(bc.center + new Vector3((u - 0.5f) * W, (v - 0.5f) * bc.size.y, 0f)); id[l, w] = -1;
+                float best = float.MaxValue; bool ok = false; Vector3 hit = q; var ray = new Ray(new Vector3(q.x, fromY + 1.5f, q.z), Vector3.down);
+                foreach (var c in temps) if (c.Raycast(ray, out var h, 4f) && h.distance < best && h.normal.y > 0.5f) { best = h.distance; hit = h.point; ok = true; }
+                if (!ok) continue;
+                id[l, w] = verts.Count; verts.Add(g.InverseTransformPoint(hit + Vector3.up * 0.015f)); uvs.Add(new Vector2(u, v));
+            }
+            void Tri(int a, int b, int c)
+            {
+                var ab = g.TransformPoint(verts[b]) - g.TransformPoint(verts[a]); var ac = g.TransformPoint(verts[c]) - g.TransformPoint(verts[a]);
+                if (Vector3.Cross(ab, ac).y >= 0f) idx.AddRange(new[] { a, b, c }); else idx.AddRange(new[] { a, c, b });
+            }
+            for (int l = 0; l < NL; l++) for (int w = 0; w < NW; w++)
+            {
+                int a = id[l, w], b = id[l + 1, w], c = id[l + 1, w + 1], d = id[l, w + 1]; if (a < 0 || b < 0 || c < 0 || d < 0) continue;
+                Tri(a, b, c); Tri(a, c, d);
+            }
+            var mesh = new Mesh { name = "Course2_2_" + g.name + "_WarnArea" }; mesh.SetVertices(verts); mesh.SetUVs(0, uvs); mesh.SetTriangles(idx, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+            var o = new GameObject("WarnArea", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mesh);
+            var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; r.enabled = false;
+            j.warnArea = r; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j); EditorUtility.SetDirty(j);
+            made++; tris += idx.Count / 3;
+        }
+        foreach (var c in temps) Object.DestroyImmediate(c);
+        return "予兆エリア " + made + " 個, 三角形 " + tris;
+    }
+
     // 炎の壁の音は全部の壁で 1 つ。壁の当たり（Burn の箱）の線の上で、聞く人にいちばん近い所から鳴る（FuwaLineSound）。作り直さずシーンだけ直す時もこれを呼ぶ
     public static void FireWallSound(Transform parent)
     {
@@ -2087,7 +2136,7 @@ public static class FuwaCourse2_2Builder
         }
         var mat = FlameMeshMat("Stage2_2_JetFlame", 0.33f, 1.1f, 0.1f, 0.5f, 0.45f, 0.1f, 2.6f, 3.2f, 1.3f);
         var o = new GameObject("FlameBody", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.transform.localPosition = Vector3.down * maxBack;
-        o.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Body", 3f); var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+        o.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Body", 3f); var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; mr.receiveShadows = false;
         o.SetActive(false);
         return o.transform;
     }

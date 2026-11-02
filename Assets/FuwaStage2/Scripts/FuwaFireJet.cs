@@ -25,6 +25,11 @@ public class FuwaFireJet : UdonSharpBehaviour
     [Tooltip("止まった後、炎が根元から燃えつきて消えるまでの秒数（棒が引っ込むように見えた。2026-11-01 てじゃ）")]
     public float bodyAfter = 0.8f;
     private float _burn = 1f; private Material _bodyMat;
+    [Header("予兆（2026-11-02 てじゃ「当たるエリアを地面に予兆として見せたい、赤いグラデ」）")]
+    [Tooltip("地面の赤いエリア。吹く areaLead 秒前から出て、止まると消える")]
+    public Renderer warnArea;
+    public float areaLead = 1.2f, areaFade = 0.25f;
+    private float _area; private Material _areaMat;
     [Header("火炎放射（2026-10-29 てじゃの 2–2「横の岩の穴から吹き出す、当たるとアウト、人はちょっと吹っ飛ぶ」）")]
     [Tooltip("当たったふわふわは黒焦げ→アウト（温めて浮かせるのではなく）")]
     public bool deadly = false;
@@ -86,6 +91,18 @@ public class FuwaFireJet : UdonSharpBehaviour
                 flameBody.localScale = new Vector3(Mathf.Lerp(0.6f, 1f, _body), _body, Mathf.Lerp(0.6f, 1f, _body));
                 if (_bodyMat == null) _bodyMat = flameBody.GetComponent<Renderer>().material;
                 _bodyMat.SetFloat("_Burn", _burn);
+            }
+        }
+        if (warnArea != null)
+        {
+            float want = on || t > period - areaLead ? 1f : 0f;
+            if (_area != want)
+            {
+                _area = Mathf.MoveTowards(_area, want, Time.deltaTime / Mathf.Max(0.05f, areaFade));
+                bool showArea = _area > 0.001f;
+                if (warnArea.enabled != showArea) warnArea.enabled = showArea;
+                if (_areaMat == null) _areaMat = warnArea.material;
+                _areaMat.SetFloat("_Alpha", _area);
             }
         }
         if (on && !_wasOn) { _blasted = false; if (roar != null && roar.clip != null) roar.PlayOneShot(roar.clip); }
