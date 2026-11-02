@@ -1594,7 +1594,7 @@ public static class FuwaCourse2_2Builder
         }
         string shaftPath = "Assets/FuwaStage2/Materials/Stage2_2_RockCrackShaft.mat";
         var sm = AssetDatabase.LoadAssetAtPath<Material>(shaftPath); if (!sm) { sm = new Material(Shader.Find("FuwaCourse/VentShaft")); AssetDatabase.CreateAsset(sm, shaftPath); }
-        sm.SetColor("_Top", new Color(0.27f, 0.13f, 0.12f)); sm.SetColor("_Bottom", new Color(0.05f, 0.02f, 0.02f)); sm.SetFloat("_Falloff", 2.2f); sm.SetFloat("_Facet", 0.25f); EditorUtility.SetDirty(sm);
+        sm.SetColor("_Top", new Color(0.82f, 0.43f, 0.4f)); sm.SetColor("_Bottom", new Color(0.5f, 0.22f, 0.22f)); sm.SetFloat("_Falloff", 1.2f);   /* 2026-11-02 てじゃ「ちょっと淡く」「道の素材に近づけたい」 */ sm.SetFloat("_Facet", 0.25f); EditorUtility.SetDirty(sm);
         Part("Mouth", mouth, AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/VentHoleMask.mat"));
         Part("Shaft", shaft, sm);
         return "ヒビ " + count + " か所, 口の三角形 " + mt.Count / 3 + ", 中の三角形 " + st.Count / 3;
