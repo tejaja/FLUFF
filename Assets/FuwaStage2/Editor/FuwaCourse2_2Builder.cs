@@ -79,7 +79,7 @@ public static class FuwaCourse2_2Builder
         heat.burnSound = Sfx(hg.transform, "BurnSfx", "sfx_burn_start", Vector3.zero, 5f, 40f, 1f, false, 8f);
         heat.sideSpring = 1.6f;   // 横に引っぱるばねを弱く（2026-11-01 てじゃ「露骨に吸い寄せすぎる」、前は 4）
         heat.burnGrace = BurnGrace;
-        heat.burnAfter = 4f;   // 浮いてから燃えだすまで（6→4、てじゃ「燃えるまでの時間も入り口付近のも含めてもうちょい短く」）
+        heat.burnAfter = 3f;   // 浮いてから燃えだすまで（6→4→3、2026-11-03 てじゃ「３秒でもいいかも」。てじゃ「燃えるまでの時間も入り口付近のも含めてもうちょい短く」）
         BallBurnLook(hg.transform, heat);
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(heat); FuwaStage2WaterTest.NoSync(heat);
 
