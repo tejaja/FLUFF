@@ -38,7 +38,7 @@ public static class FuwaCourse2_2Builder
     //   （火口のまわりの輪っかの道・マグマは「あんま面白くない」でやめた）。火山のまわりを右回りに沿う広めの道、山肌の岩から火炎放射
     public static float FlameExtraOff = 1.2f;
     public static float FlameKnockMin = 0.8f;   // 先端に当たっても最低これだけ横へ飛ばす（2026-11-02。2 だと Play で道のふちの 2.2m 外まで飛んだ）
-    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = -1.13f, FlameBallPerMeter = 0.755f,FlamePlayerLand = -1.14f, FlamePlayerPush = 8.5f, FlamePlayerPushUp = 5.5f, FlamePlayerPerMeter = 0.79f, FlamePlayerMin = 0.9f,   /* 根元ほど強く、先ほど弱く。どこで当たっても道のふちくらいまで飛ぶ＝落ちることもある（2026-11-02 てじゃ「落ちるくらいでいいよ」「位置で強弱」） */ FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
+    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = -1.13f, FlameBallPerMeter = 0.755f,FlamePlayerLand = -1.14f, FlamePlayerPush = 7.5f, FlamePlayerPushUp = 5f, FlamePlayerPerMeter = 0.72f, FlamePlayerMin = 0.8f,   /* 根元ほど強く、先ほど弱く。どこで当たっても道のふちくらいまで飛ぶ＝落ちることもある（2026-11-02 てじゃ「落ちるくらいでいいよ」「位置で強弱」） */ FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
     public const int FlameRows = 3;   // 炎の壁の縦の本数
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
@@ -2117,7 +2117,7 @@ public static class FuwaCourse2_2Builder
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireball>(mover.gameObject);
         f.whoosh = Sfx(mover, "WhooshSfx", "sfx_fireball_bofu2", Vector3.zero, 8f, 30f, 1f, false, 10f);
         f.heat = heat; f.ball = ballProxy; f.holes = ts; f.visual = vis; f.trail = trail; f.trailRate = FireballTrailRate; FireballAura(f);
-        f.arcHeight = top; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 4.8f; f.ballKnockUp = 2f; f.playerKnock = 6.8f; f.playerKnockUp = 4.7f;   // 2026-11-02 てじゃ「もうちょいつよくていいかも」
+        f.arcHeight = top; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 4.8f; f.ballKnockUp = 2f; f.playerKnock = 6f; f.playerKnockUp = 4.3f;   // 2026-11-02 てじゃ「もうちょいつよくていいかも」
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
 
