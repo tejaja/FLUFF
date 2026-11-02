@@ -2092,14 +2092,14 @@ public static class FuwaCourse2_2Builder
 
     // 火のオーラ（2026-11-02 てじゃ）：火球の上に立つ炎。火球は見せたいので上半分だけに立てる。高さは最高点で FireballAuraH まで（当たりも FuwaFireball がこの高さまで見る）
     //  最高点の火球の下側が「目の高さ＋0.2m」になるのは FireballTop（半径 0.65＋0.2＋基準の目の高さ 1.6）。作り直さずシーンだけ直す時もこれを呼ぶ
-    public static float FireballAuraH = 2f;
+    public static float FireballAuraH = 1.8f, FireballAuraMeshH = 1.15f;   // 当たりの高さ・メッシュの炎の高さ（上は粒が立ちのぼる）
     public static void FireballAura(FuwaFireball f)
     {
-        var mover = f.transform; var old = mover.Find("Aura"); if (old) Object.DestroyImmediate(old.gameObject);
+        var mover = f.transform; var old = mover.Find("Aura"); if (old) Object.DestroyImmediate(old.gameObject); var oldFx = mover.Find("AuraFx"); if (oldFx) Object.DestroyImmediate(oldFx.gameObject);
         var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir22 + "/Course2_2_FireballAura.asset");
         if (!mesh)
         {
-            var b = new FlameMeshB(); float top = FireballAuraH, r = 0.74f, cy = 0.02f;
+            var b = new FlameMeshB(); float top = FireballAuraMeshH, r = 0.74f, cy = 0.02f;
             b.Egg(0f, Vector3.zero, cy, r, (top - cy) / r, 0.2f, 16, 14, cy - r * 0.2f, top, 1f, 1f, 0f, 1.4f);
             b.Egg(1f, Vector3.zero, cy, r * 0.5f, (top * 0.55f - cy) / (r * 0.5f), 0.2f, 8, 10, cy - r * 0.1f, top, 1f, 1f, 0f, 1.4f);
             for (int n = 0; n < 3; n++) { float seed = (n + 0.37f) * 0.29f; b.Blob(new Vector3(Mathf.Sin(seed * 41f) * 0.18f, top * 0.86f, Mathf.Cos(seed * 29f) * 0.18f), seed, 0.7f); }
@@ -2108,7 +2108,9 @@ public static class FuwaCourse2_2Builder
         var o = new GameObject("Aura", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(mover, false); o.GetComponent<MeshFilter>().sharedMesh = mesh;
         var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = FlameMeshMat("Stage2_2_FireballAura", 0.5f, 1.2f, 0.1f, 0.42f, 0.5f, 0.08f, 1.8f, 2.2f, 1.1f); mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         o.SetActive(false);
-        f.aura = o; f.auraHeight = FireballAuraH; f.auraTopRadius = 0.25f;
+        var fx = BurnBlobs(mover, "AuraFx", 1.3f, 0f); var fm = fx.main; fm.startLifetime = new ParticleSystem.MinMaxCurve(0.55f, 0.95f); fm.startSpeed = new ParticleSystem.MinMaxCurve(1.1f, 2.1f); fm.startSize = new ParticleSystem.MinMaxCurve(0.22f, 0.5f); fm.maxParticles = 36; var fs = fx.shape; fs.angle = 12f; fs.radius = 0.5f; fs.position = new Vector3(0f, 0f, 0.5f);
+        var fem = fx.emission; fem.rateOverTime = 0f; fx.Play();
+        f.aura = o; f.auraFx = fx; f.auraHeight = FireballAuraH; f.auraTopRadius = 0.25f;
     }
     static void Fireball(Transform parent, string name, Vector3[] hs, float flight, float rest, float phase, float top)
     {

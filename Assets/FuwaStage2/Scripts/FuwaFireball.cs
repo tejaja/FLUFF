@@ -40,6 +40,9 @@ public class FuwaFireball : UdonSharpBehaviour
     public float auraTopRadius = 0.25f;
     [Tooltip("オーラを進む向きと逆へ倒す強さ（0 で真上。2026-11-02 てじゃ「垂直に燃えて飛んでくの違和感」）。当たりも同じ向き")]
     public float auraLean = 0.75f;
+    [Tooltip("空中に置いていかれて立ちのぼる炎のかたまり（ワールド座標の粒。2026-11-02 てじゃ「粒子みたいなのが立ち上ってるはずなのに全部くっついてる」）")]
+    public ParticleSystem auraFx;
+    public float auraFxRate = 28f;
     private float _auraNow;
 
     private bool _flying, _hitBall, _hitPlayer;
@@ -107,6 +110,7 @@ public class FuwaFireball : UdonSharpBehaviour
     {
         if (visual != null) visual.SetActive(on);
         if (aura != null) aura.SetActive(on);
+        if (auraFx != null) { var fx = auraFx.emission; fx.rateOverTime = on ? auraFxRate : 0f; }
         if (trail != null) { var e = trail.emission; e.rateOverTime = on ? trailRate : 0f; }
     }
 
