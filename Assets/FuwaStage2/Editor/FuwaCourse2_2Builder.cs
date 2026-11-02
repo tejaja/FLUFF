@@ -1688,7 +1688,7 @@ public static class FuwaCourse2_2Builder
             }
         }
         var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 0.6f, 0.35f, 0.18f, 2.8f, 3.6f, 1f); mat.SetFloat("_Pulse", 0f); mat.SetFloat("_Wave", 2.2f); mat.SetFloat("_WaveScale", 0.09f);
-        mat.SetFloat("_StencilPass", (float)UnityEngine.Rendering.StencilOp.Replace); mat.renderQueue = 2010;   // 岩の影用の印。ほかの物のあとに描いて、隠れた所には印を付けない
+        mat.SetFloat("_StencilPass", (float)UnityEngine.Rendering.StencilOp.Replace); mat.renderQueue = 2013;   // 岩の影用の印。ほかの物のあとに描いて、隠れた所には印を付けない。穴やヒビ（2010〜2012）より後（2026-11-02 炎の向こうのヒビが見えた）、岩（2014）より前
         EditorUtility.SetDirty(mat);
         var c2 = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c2.transform.SetParent(g, false);
         c2.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Curtain", 4f);
