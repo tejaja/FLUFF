@@ -154,8 +154,6 @@ Shader "FuwaCourse/FlameMesh"
             }
             ENDCG
         }
-        // 火炎放射の影（2026-11-02 てじゃ）。影を落とすのはレンダラーの Cast Shadows が On の物だけ（炎の壁や火種は Off）
-        UsePass "FuwaCourse/ToonLit/SHADOWCASTER"
     }
     FallBack Off
 }

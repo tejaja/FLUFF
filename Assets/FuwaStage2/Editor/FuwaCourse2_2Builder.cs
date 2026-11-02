@@ -2147,7 +2147,7 @@ public static class FuwaCourse2_2Builder
         }
         var mat = FlameMeshMat("Stage2_2_JetFlame", 0.33f, 1.1f, 0.1f, 0.5f, 0.45f, 0.1f, 2.6f, 3.2f, 1.3f);
         var o = new GameObject("FlameBody", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.transform.localPosition = Vector3.down * maxBack;
-        o.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Body", 3f); var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; mr.receiveShadows = false;
+        o.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Body", 3f); var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;   /* 影は赤い予兆があるのでなし（2026-11-02 てじゃ） */
         o.SetActive(false);
         return o.transform;
     }
