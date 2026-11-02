@@ -1380,7 +1380,7 @@ public static class FuwaCourse2_2Builder
         return a;
     }
     // 吹き出しの見える所ぜんぶを当たりに（2026-11-03 てじゃ「風があるエリアにふわふわが当たれば飛ぶように」「どこであたっても最終的に焚き火あたりに」）。
-    // 当たりは打ち出す向きへ伸びる四角すい台（道の外まで）。蒸気も同じ形に広げる。落ちる先は FuwaLaunchPad.target で計算する。何回呼んでも同じ結果
+    // 当たりは打ち出す向きへ伸びる四角すい台（道の外まで）。蒸気の見た目は広げない（てじゃ「エフェクトはまえのままでいいかも」）。落ちる先は FuwaLaunchPad.target で計算する。何回呼んでも同じ結果
     public static float VentZoneLen = 5.5f, VentZoneBackZ = -0.8f, VentZoneBaseY = 0.6f, VentZoneBaseHW = 1.3f, VentZoneBaseHT = 0.8f, VentZoneTopHW = 2.6f, VentZoneTopHT = 2f;
     public static void VentBlastZone(FuwaLaunchPad lp, Vector3 targetWorld)
     {
@@ -1396,13 +1396,6 @@ public static class FuwaCourse2_2Builder
         var mc = z.gameObject.AddComponent<MeshCollider>(); mc.sharedMesh = m; mc.convex = true; mc.isTrigger = true;
         var tgt = g.Find("LandAt"); if (tgt == null) { tgt = new GameObject("LandAt").transform; tgt.SetParent(g, false); }
         tgt.position = targetWorld; lp.target = tgt;
-        foreach (var ps in g.GetComponentsInChildren<ParticleSystem>(true))
-        {
-            var sh = ps.shape; var main = ps.main; var em = ps.emission;
-            if (ps.name == "Steam") { sh.radius = 0.5f; sh.scale = new Vector3(2.4f, 1f, 1f); sh.angle = 12f; main.maxParticles = 220; em.rateOverTime = 175f; em.SetBursts(new[] { new ParticleSystem.Burst(0f, 25, 25, 0, 0.9f) }); }
-            else if (ps.name == "SteamJet") { sh.radius = 0.4f; sh.scale = new Vector3(3f, 1f, 1f); sh.angle = 8f; main.maxParticles = 100; em.rateOverTime = 200f; }
-            EditorUtility.SetDirty(ps);
-        }
         EditorUtility.SetDirty(z.gameObject);
     }
     static void BlastVent(Transform parent, string name, Vector3 at, Vector3 target)
