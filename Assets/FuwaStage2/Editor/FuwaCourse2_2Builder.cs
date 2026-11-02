@@ -328,6 +328,7 @@ public static class FuwaCourse2_2Builder
             VolcanoJet(fire, "Flamethrower" + k, Around(jt.th, RoadR(jt.th, y) - FlameHW, y), RoadR(jt.th, y) - FlameHW, y, jt.th, jt.per, jt.on, jt.ph);
         }
         JetWarnAreas(fire);
+        FireballSideFalls(fire);
         var p = pts5[pts5.Length - 1];
 
         // ⑦ ゴール
@@ -1694,6 +1695,46 @@ public static class FuwaCourse2_2Builder
         }
         foreach (var c in temps) Object.DestroyImmediate(c);
         return "予兆エリア " + made + " 個, 三角形 " + tris;
+    }
+
+    // 真上に飛んでいた火球を、いちばん近い道のふちの外へ、ふちギリギリを通って落とす（2026-11-03 てじゃ「真横のコース外に落ちる感じ」「ギリギリで落ちる感じ」）。
+    // 道の高さを通る時に火球の端が道のふちから FireballEdgeGap だけ外。道の高さまでは今までと同じ秒数で、そのぶん飛ぶ秒数を足し、飛ぶ間隔はなるべく今のまま。すでに直した火球は飛ばす
+    public static float FireballEdgeGap = 0.1f, FireballFallBelow = 5f;
+    public static string FireballSideFalls(Transform fire)
+    {
+        var course = fire.root; var temps = new List<MeshCollider>();
+        foreach (var n in new[] { "ZigPath", "Path12", "Path5" })
+            foreach (var t in course.GetComponentsInChildren<Transform>(true))
+                if (t.name == n && t.GetComponent<MeshFilter>()) { var c = t.gameObject.AddComponent<MeshCollider>(); c.sharedMesh = t.GetComponent<MeshFilter>().sharedMesh; temps.Add(c); }
+        Physics.SyncTransforms();
+        var log = new List<string>();
+        foreach (var f in fire.GetComponentsInChildren<FuwaFireball>(true))
+        {
+            if (f.holes.Length != 1) continue;
+            var hole = f.holes[0]; var a = hole.position; float edge = float.MaxValue, roadY = a.y; var dir = Vector3.forward;
+            for (int k = 0; k < 72; k++)
+            {
+                float an = k * 5f * Mathf.Deg2Rad; var d = new Vector3(Mathf.Sin(an), 0f, Mathf.Cos(an)); float last = -1f, y = a.y, none = 0f;
+                for (float s = 0f; s < 12f; s += 0.05f)
+                {
+                    var q = a + d * s; bool hit = false; float hy = 0f;
+                    foreach (var c in temps) if (c.Raycast(new Ray(new Vector3(q.x, a.y + 3f, q.z), Vector3.down), out var h, 6f) && h.normal.y > 0.5f) { hit = true; hy = h.point.y; break; }
+                    if (hit) { last = s; y = hy; none = 0f; } else if (last >= 0f) { none += 0.05f; if (none > 1.5f) break; }
+                }
+                if (last > 0f && last < edge) { edge = last; dir = d; roadY = y; }
+            }
+            // ベジェで道の高さを通る u を出して、その時の横の距離がふちの外になるように着く所を決める
+            float toY = roadY - FireballFallBelow, top = Mathf.Max(a.y, toY) + f.arcHeight, midY = 2f * top - (a.y + toY) * 0.5f, uRoad = 1f;
+            for (float u = 0.5f; u <= 1f; u += 0.002f) { float v = 1f - u, y = v * v * a.y + 2f * v * u * midY + u * u * toY; if (y <= roadY) { uRoad = u; break; } }
+            float reach = edge + FireballSize * 0.5f + FireballEdgeGap, dist = reach / uRoad;
+            var to = new GameObject("FallTo").transform; to.SetParent(f.transform.parent, false); to.position = a + dir * dist + Vector3.up * (toY - a.y);
+            float step = f.flightTime + f.rest, flight = f.flightTime / uRoad;
+            f.holes = new[] { to, hole }; f.oneWay = true; f.noLandSplash = true; f.flightTime = flight; f.rest = Mathf.Max(0.15f, step - flight);
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); EditorUtility.SetDirty(f);
+            log.Add(f.transform.parent.name + " ふち " + edge.ToString("F2") + "m 向き " + dir.ToString("F2") + " 着く距離 " + dist.ToString("F2") + "m 飛ぶ " + flight.ToString("F2") + "s 休み " + f.rest.ToString("F2") + "s（間隔 " + step.ToString("F2") + "→" + (flight + f.rest).ToString("F2") + "）");
+        }
+        foreach (var c in temps) Object.DestroyImmediate(c);
+        return string.Join(" / ", log);
     }
 
     // 炎の壁の音は全部の壁で 1 つ。壁の当たり（Burn の箱）の線の上で、聞く人にいちばん近い所から鳴る（FuwaLineSound）。作り直さずシーンだけ直す時もこれを呼ぶ
