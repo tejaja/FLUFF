@@ -1612,6 +1612,7 @@ public static class FuwaCourse2_2Builder
         Physics.SyncTransforms();
         string mp = "Assets/FuwaStage2/Materials/Stage2_2_FireWarn.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/FireWarn")); AssetDatabase.CreateAsset(mat, mp); }
+        mat.SetColor("_Color", new Color(1f, 0.82f, 0.1f, 1f)); mat.SetFloat("_Base", 0.5f); mat.SetFloat("_Sharp", 1.5f); EditorUtility.SetDirty(mat);   // 山吹色。赤だと赤い道に溶けた（2026-11-03 てじゃ「もっと目立たせたい」）
         int made = 0, tris = 0;
         foreach (var j in fire.GetComponentsInChildren<FuwaFireJet>(true))
         {
