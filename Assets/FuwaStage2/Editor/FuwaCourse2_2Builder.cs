@@ -2148,6 +2148,7 @@ public static class FuwaCourse2_2Builder
     // 火炎放射の炎：亀裂から伸びる細長いたまご（FlameMesh）を行ごとに 1 本。y が炎の向き。止まると FuwaFireJet の _Burn で根元から燃えつきる
     // 炎の奥行き（2026-11-02 てじゃ「もっと火の奥行きあってもいい」）：道ぞいの向きに各列を太らせて、前後にずらす。当たりと予兆の幅もそれに合わせる
     public static float JetDepthScale = 1.35f, JetZoneW = 1.6f, JetWarnW = 2f; static readonly float[] JetRowX = { 0f, 0f, 0f };   // 太さだけ 1.35 倍、前後ずらしはなし（2026-11-02 てじゃ「前後ずらしなしで太さだけ」）
+    public static float JetShadeRound = 0.7f, JetShadeBump = 0.7f;   // 外のオレンジの陰影。VR で遠近感を出す（2026-11-02 てじゃ）
     public static float JetRowDelay = 0.07f;   // 上下 3 本の炎の出るタイミングのずれ（2026-11-02 てじゃ「ほんのちょっと」）。下から順に
     // 炎の本体（全部の列が 1 つのメッシュ）を列ごとに分ける。形はそのまま、三角形を近い列へ振り分けるだけ。作り直さずシーンだけ直す時もこれを呼ぶ（rowZ は null なら Row* の位置から）
     public static string SplitJetBody(FuwaFireJet j, float[] rowZ = null)
@@ -2189,6 +2190,7 @@ public static class FuwaCourse2_2Builder
             for (int b = 0; b < 2; b++) { float seed = (r * 3 + b + 0.37f) * 0.137f; f.Blob(c + Vector3.up * (L - 1.6f), seed, 0.85f); }
         }
         var mat = FlameMeshMat("Stage2_2_JetFlame", 0.33f, 1.1f, 0.1f, 0.5f, 0.45f, 0.1f, 2.6f, 3.2f, 1.3f);
+        mat.SetFloat("_ShadeRound", JetShadeRound); mat.SetFloat("_ShadeBump", JetShadeBump); EditorUtility.SetDirty(mat);
         var o = new GameObject("FlameBody", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.transform.localPosition = Vector3.down * maxBack;
         o.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Body", 3f); var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;   /* 影は赤い予兆があるのでなし（2026-11-02 てじゃ） */
         o.SetActive(false);

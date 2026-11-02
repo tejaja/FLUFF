@@ -11,6 +11,9 @@ Shader "FuwaCourse/FlameMesh"
         _Yellow ("中の色", Color) = (0.98, 1, 0.04, 1)
         [Enum(UnityEngine.Rendering.StencilOp)] _StencilPass ("炎の場所の印（岩の影用、Replace で付ける）", Float) = 0
         _CoreSoft ("中の色のふちをぼかす（頂点で計算、透明にしない）", Range(0,1)) = 0
+        _ShadeRound ("丸みの陰影（ふちほど濃い色、頂点で計算）", Range(0,1)) = 0
+        _ShadeBump ("でこぼこの陰影（ノイズで明暗、頂点で計算）", Range(0,1)) = 0
+        _ShadeDeep ("陰影の濃い色", Color) = (0.85, 0.23, 0.12, 1)
         _Speed ("動きの速さ", Float) = 1
         _FlowSpeed ("模様が上へ流れる速さ（タイル／秒）", Float) = 0.75
         _NoiseScale ("模様の細かさ（タイル／オブジェクトの長さ）", Float) = 0.75
@@ -48,7 +51,8 @@ Shader "FuwaCourse/FlameMesh"
 
             sampler3D _Noise;
             half4 _Orange, _OrangeTop, _Yellow;
-            float _CoreSoft;
+            float _CoreSoft, _ShadeRound, _ShadeBump;
+            half4 _ShadeDeep;
             float _Speed, _FlowSpeed, _NoiseScale, _AmpBase, _AmpTop, _Tear, _Sway, _BlobRise, _BlobSize, _Bias, _Burn, _Pulse, _TimeAdd, _Wave, _WaveScale;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -83,6 +87,7 @@ Shader "FuwaCourse/FlameMesh"
                 float2 sway = float2(sin(t * 2.3) + 0.5 * sin(t * 3.9), sin(t * 1.9 + 2.0) + 0.5 * sin(t * 3.3)) * _Sway;
                 float3 p = v.vertex.xyz, nor = v.normal;
                 float yellow = layer > 0.5 && layer < 1.5 ? 1 : 0;
+                float bumpN = 0;
                 if (layer > 1.5)
                 {
                     // ちぎれて飛ぶかたまり：上がりながらふくらんで、消える
@@ -91,6 +96,7 @@ Shader "FuwaCourse/FlameMesh"
                     float3 c = p + float3(0, _BlobRise * ph, 0);
                     c.xz += sway * k + float2(sin(ph * 4.0 + seed * 9.0), cos(ph * 3.3 + seed * 5.0)) * 0.05 * _BlobSize;
                     float n = NoiseAt(c + nor * 0.2, t);
+                    bumpN = n;
                     p = c + nor * size * (1.0 + n * 0.7);
                 }
                 else
@@ -108,7 +114,8 @@ Shader "FuwaCourse/FlameMesh"
                         p.x += kw * _Wave * 0.5 * wn2;
                     }
                     float amp = lerp(_AmpBase, _AmpTop, k) * (yellow > 0.5 ? 0.9 : 1.0);
-                    p += nor * NoiseAt(p, t) * amp;
+                    bumpN = NoiseAt(p, t);
+                    p += nor * bumpN * amp;
                     o.tear = yellow > 0.5 ? 0 : smoothstep(0.42, 0.95, k) * _Tear;
                 }
                 float3 wp = mul(unity_ObjectToWorld, float4(p, 1)).xyz;
@@ -131,6 +138,15 @@ Shader "FuwaCourse/FlameMesh"
                     float3 wn = normalize(UnityObjectToWorldNormal(nor));
                     float facing = abs(dot(wn, normalize(_WorldSpaceCameraPos - wp)));
                     c = lerp(_Yellow.rgb, outer, _CoreSoft * (1.0 - smoothstep(0.1, 0.8, facing)));
+                }
+                else if (_ShadeRound + _ShadeBump > 0.001)
+                {
+                    // VR で遠近感を出す陰影（2026-11-02 てじゃ「遠近感が分かりづらい」）。ふちとへこみは濃く、出っぱりは明るく。頂点だけで計算する
+                    float3 wn = normalize(UnityObjectToWorldNormal(nor));
+                    float facing = abs(dot(wn, normalize(_WorldSpaceCameraPos - wp)));
+                    float dark = _ShadeRound * (1.0 - smoothstep(0.15, 0.9, facing)) + _ShadeBump * saturate(-bumpN * 2.0);
+                    c = lerp(outer, _ShadeDeep.rgb, saturate(dark));
+                    c = lerp(c, _Yellow.rgb, _ShadeBump * saturate(bumpN * 2.0) * 0.5);
                 }
                 o.col = FuwaFireCalm(c, FuwaFireFar(wp));
                 UNITY_TRANSFER_FOG(o, o.pos);
