@@ -1617,7 +1617,7 @@ public static class FuwaCourse2_2Builder
         {
             if (j.ballKnock <= 0f || j.knockOrigin == null) continue;
             var g = j.transform.parent; var old = g.Find("WarnArea"); if (old) Object.DestroyImmediate(old.gameObject);
-            var bc = j.GetComponent<BoxCollider>(); const int NL = 26, NW = 5; float W = JetWarnW;
+            var bc = j.GetComponent<BoxCollider>(); const int NL = 26, NW = 7; float W = JetWarnW;
             var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var idx = new List<int>(); var id = new int[NL + 1, NW + 1];
             float fromY = j.knockOrigin.position.y;
             for (int l = 0; l <= NL; l++) for (int w = 0; w <= NW; w++)
@@ -2147,7 +2147,7 @@ public static class FuwaCourse2_2Builder
     }
     // 火炎放射の炎：亀裂から伸びる細長いたまご（FlameMesh）を行ごとに 1 本。y が炎の向き。止まると FuwaFireJet の _Burn で根元から燃えつきる
     // 炎の奥行き（2026-11-02 てじゃ「もっと火の奥行きあってもいい」）：道ぞいの向きに各列を太らせて、前後にずらす。当たりと予兆の幅もそれに合わせる
-    public static float JetDepthScale = 1f, JetZoneW = 1.2f, JetWarnW = 1.5f; static readonly float[] JetRowX = { 0f, 0f, 0f };   // 太く(1.35倍・幅2m・予兆2.2m・列ずらし)したのは戻した（2026-11-02 てじゃ「奥行き、戻そう」）
+    public static float JetDepthScale = 1.35f, JetZoneW = 1.6f, JetWarnW = 2f; static readonly float[] JetRowX = { 0f, 0f, 0f };   // 太さだけ 1.35 倍、前後ずらしはなし（2026-11-02 てじゃ「前後ずらしなしで太さだけ」）
     public static float JetRowDelay = 0.07f;   // 上下 3 本の炎の出るタイミングのずれ（2026-11-02 てじゃ「ほんのちょっと」）。下から順に
     // 炎の本体（全部の列が 1 つのメッシュ）を列ごとに分ける。形はそのまま、三角形を近い列へ振り分けるだけ。作り直さずシーンだけ直す時もこれを呼ぶ（rowZ は null なら Row* の位置から）
     public static string SplitJetBody(FuwaFireJet j, float[] rowZ = null)
