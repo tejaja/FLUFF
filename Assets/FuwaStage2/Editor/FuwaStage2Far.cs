@@ -10,7 +10,7 @@ public static class FuwaStage2Far
     const string MatPath = "Assets/FuwaStage2/Materials/Stage2_CloudSea.mat";
     public static Vector3 Center = new Vector3(25f, -205f, 50f);
     public const float Radius = 1100f;
-    const int Rings = 80, Seg = 132;
+    const int Rings = 56, Seg = 94;
 
     // 大きいもこもこ＋小さいもこもこ。セルごとに置いた丸の高さの最大（なめらかな丘が並ぶ形）
     static float Bumps(float x, float z, float cell, int seed)
