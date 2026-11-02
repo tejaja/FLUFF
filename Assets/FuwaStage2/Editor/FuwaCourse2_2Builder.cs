@@ -137,6 +137,7 @@ public static class FuwaCourse2_2Builder
         var pools = poolHoles.Select((g, pi) => new HolePool {
             c = g.Select(k => (Vector3)holes[k]).ToList(), rr = HoleR, amp = PoolWobble, ld = ChanLavaDepth, seed = pi * 1.7f + 0.4f, sx = chan[g.First(k => chan[k] != 0)],
             chanAt = g.Where(k => chan[k] != 0).Select(k => (Vector3)holes[k]).ToList() }).ToList();
+        pools[1].bulge.Add(((Vector3)holes[1] + (Vector3)holes[8]) * 0.5f); pools[2].bulge.Add(((Vector3)holes[3] + (Vector3)holes[6]) * 0.5f);
         var d12 = Flat(r12[r12.Count - 1].p - r12[r12.Count - 2].p).normalized; var s12 = Vector3.Cross(Vector3.up, d12).normalized;   // 出口の線はジグザグの道の入口とぴったり合わせる
         Ribbon(path, "Path12", r12, hw12, pts12, pools, lavaRoot, false, null, s12);
 
@@ -159,6 +160,13 @@ public static class FuwaCourse2_2Builder
                 var mid = (pl.c[s] + pl.c[s + 1]) * 0.5f; var seg = Flat(pl.c[s + 1] - pl.c[s]); var rs = Quaternion.LookRotation(seg); float wn = (HoleR + PoolWobble) * 2f;
                 LavaBurn(lavaRoot, "LavaNeckBallOut" + pools.IndexOf(pl) + "_" + s, mid + Vector3.down * (ChanLavaDepth + BurnSink + 0.5f), new Vector3(wn, 1f, seg.magnitude), rs);
                 Hazard(lavaRoot, "LavaNeckPlayerOut" + pools.IndexOf(pl) + "_" + s, mid + Vector3.down * (ChanLavaDepth + 0.5f), new Vector3(wn, 1.2f, seg.magnitude), true, rs);
+            }
+        foreach (var pl in pools)
+            for (int s = 0; s < pl.bulge.Count; s++)
+            {
+                float bo = (PoolBulgeR + PoolWobble) * 2f;
+                LavaBurn(lavaRoot, "LavaBulgeBallOut" + pools.IndexOf(pl) + "_" + s, pl.bulge[s] + Vector3.down * (ChanLavaDepth + BurnSink + 0.5f), new Vector3(bo, 1f, bo));
+                Hazard(lavaRoot, "LavaBulgePlayerOut" + pools.IndexOf(pl) + "_" + s, pl.bulge[s] + Vector3.down * (ChanLavaDepth + 0.5f), new Vector3(bo, 1.2f, bo), true);
             }
         for (int k = 0; k < holes.Count; k++)
         {
@@ -509,12 +517,13 @@ public static class FuwaCourse2_2Builder
     // holes：上の面にあける丸い穴（xyz＝上の面の中心、w＝半径。道のふちからはみ出さないこと）。穴の壁（岩）は LavaDepth＋0.3 下まで
     // 道にあける穴（2026-10-31 てじゃ「穴と溝が円と直線すぎる」「赤丸で繋がった溶岩池に」）：穴の中心をつないだ線のまわりの形。ふちはでこぼこ、穴と穴の間は少し細い。
     //  道の線ごとに「穴の左はし・右はし」を求めて作る（ふちの点は線の上だけ。線から外すと、となりの帯の長い辺とずれて道に切れ目が出た）
-    public static float PoolWobble = 0.2f, PoolNeck = 0.3f;
+    public static float PoolWobble = 0.2f, PoolNeck = 0.3f, PoolBulgeR = 1.9f;   // PoolBulgeR：真ん中の 2 つの池のくびれを直径 3.8m に（2026-11-03 てじゃ「このルートでいけちゃうのを潰したい」。くびれは約 1.7m でジャンプで越せた）
     const int LavaShadowLayer = 14;   // PickupNoEnvironment：ふわふわ（17）・人（9, 10）と当たらない
     public const float BurnSink = 0.1f;   // ふわふわが黒焦げになる高さ：溶岩の面からこれだけ下に玉の底が入った時（2026-10-31 てじゃ「やたら高い位置でアウト」で 0.2 に→「ちょっぴり上げても」で 0.1。前は溶岩の 0.2 上だった）
     class HolePool
     {
         public List<Vector3> c = new List<Vector3>(); public float rr, amp, ld, seed; public int sx; public List<Vector3> chanAt = new List<Vector3>();
+        public List<Vector3> bulge = new List<Vector3>();   // ジャンプで越せないようにふくらませる所（半径 PoolBulgeR）
         public float Sd(Vector3 p)
         {
             float best = float.MaxValue;
@@ -524,6 +533,7 @@ public static class FuwaCourse2_2Builder
                 var ab = Flat(c[k + 1] - c[k]); float t = Mathf.Clamp01(Vector3.Dot(Flat(p - c[k]), ab) / ab.sqrMagnitude);
                 best = Mathf.Min(best, Flat(p - c[k] - ab * t).magnitude - rr * (1f - PoolNeck * Mathf.Sin(t * Mathf.PI)));
             }
+            foreach (var b in bulge) best = Mathf.Min(best, Flat(p - b).magnitude - PoolBulgeR);
             if (amp <= 0f) return best;
             return best - amp * (0.5f * Mathf.Sin(1.6f * p.x + 0.7f * p.z + seed) + 0.3f * Mathf.Sin(-2.7f * p.x + 2.1f * p.z + seed * 2f) + 0.2f * Mathf.Sin(4.3f * p.x + 3.7f * p.z + seed * 3f));
         }
