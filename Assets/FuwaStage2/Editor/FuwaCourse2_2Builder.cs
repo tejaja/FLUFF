@@ -1489,9 +1489,10 @@ public static class FuwaCourse2_2Builder
         var main = ps.main; main.startColor = Color.white; main.maxParticles = Mathf.CeilToInt(5f * len); main.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.22f); main.startSpeed = new ParticleSystem.MinMaxCurve(1.6f, 3.2f);
         ps.Play();
     }
-    // 岩がはねる場所のヒビ（2026-11-02 てじゃ）。LavaRock* の P1〜（最後は道の外なので除く）の真下の道に、道の見た目のメッシュの高さへ沿わせて貼る。1 枚にまとめて描画 1 回。
-    //  道のはしからはみ出す所は面を作らない。作り直さずシーンだけ直す時もこれを呼ぶ
-    public static float RockCrackSize = 2.6f, RockCrackLift = 0.012f; public const int RockCrackGrid = 14;
+    // 岩がはねる場所のヒビ（2026-11-02 てじゃ「もちょいシンプルな見た目」「メッシュで割りたい」）。太い割れ目が 3〜4 本だけ。
+    //  道のメッシュは切らず、噴気孔と同じステンシルで見せる：Mouth（道の上の割れ目の形。VentHoleMask）＋ Shaft（その下の壁と底。VentShaft）。当たりは平らな道のまま、焼き直しもいらない。
+    //  道のはしで切れる腕はそこで止める。LavaRock* の P1〜（最後は道の外なので除く）の真下に作る。作り直さずシーンだけ直す時もこれを呼ぶ
+    public static float RockCrackDepth = 0.35f, RockCrackLift = 0.015f;
     public static string RockCracks(Transform fire)
     {
         var old = fire.Find("RockCracks"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -1501,104 +1502,95 @@ public static class FuwaCourse2_2Builder
             foreach (var t in course.GetComponentsInChildren<Transform>(true))
                 if (t.name == n && t.GetComponent<MeshFilter>()) { var c = t.gameObject.AddComponent<MeshCollider>(); c.sharedMesh = t.GetComponent<MeshFilter>().sharedMesh; temps.Add(c); }
         Physics.SyncTransforms();
-        bool RoadY(Vector3 q, float from, out float y)
+        bool OnRoad(Vector3 q, float from, out Vector3 hit)
         {
-            y = 0f; float best = float.MaxValue; bool ok = false;
+            hit = q; float best = float.MaxValue; bool ok = false;
             var ray = new Ray(new Vector3(q.x, from + 1.2f, q.z), Vector3.down);
-            foreach (var c in temps) if (c.Raycast(ray, out var h, 4f) && h.distance < best) { best = h.distance; y = h.point.y; ok = true; }
+            foreach (var c in temps) if (c.Raycast(ray, out var h, 4f) && h.distance < best && h.normal.y > 0.5f) { best = h.distance; hit = h.point + Vector3.up * RockCrackLift; ok = true; }
             return ok;
         }
-        var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var tris = new List<int>(); int count = 0; var rnd = new System.Random(2202);
+        var mv = new List<Vector3>(); var mt = new List<int>(); var sv = new List<Vector3>(); var suv = new List<Vector2>(); var st = new List<int>();
+        void Tri(List<Vector3> vs, List<int> ts, int a, int b, int c, Vector3 want) { if (Vector3.Dot(Vector3.Cross(vs[b] - vs[a], vs[c] - vs[a]), want) >= 0f) ts.AddRange(new[] { a, b, c }); else ts.AddRange(new[] { a, c, b }); }
+        int count = 0; var rnd = new System.Random(2202); float R() => (float)rnd.NextDouble();
         foreach (var rock in fire.GetComponentsInChildren<FuwaLavaRock>(true))
         {
-            for (int i = 1; i + 1 < rock.points.Length; i++)
+            for (int pi = 1; pi + 1 < rock.points.Length; pi++)
             {
-                var p = rock.points[i].position; float a = (float)(rnd.NextDouble() * Mathf.PI * 2f), ca = Mathf.Cos(a), sa = Mathf.Sin(a);
-                if (!RoadY(p, p.y, out _)) continue;
-                int[,] id = new int[RockCrackGrid + 1, RockCrackGrid + 1];
-                for (int gx = 0; gx <= RockCrackGrid; gx++) for (int gz = 0; gz <= RockCrackGrid; gz++)
+                var p = rock.points[pi].position; if (!OnRoad(p, p.y, out var center)) continue;
+                int arms = R() < 0.5f ? 3 : 4; float a0 = R() * Mathf.PI * 2f; var loop = new List<Vector3>(); var hub = new List<Vector3>();
+                for (int ai = 0; ai < arms; ai++)
                 {
-                    float lx = (gx / (float)RockCrackGrid - 0.5f) * RockCrackSize, lz = (gz / (float)RockCrackGrid - 0.5f) * RockCrackSize;
-                    var q = new Vector3(p.x + lx, p.y, p.z + lz); id[gx, gz] = -1;
-                    if (!RoadY(q, p.y, out var y)) continue;
-                    id[gx, gz] = verts.Count; verts.Add(fire.InverseTransformPoint(new Vector3(q.x, y + RockCrackLift, q.z)));
-                    float ux = lx / RockCrackSize, uz = lz / RockCrackSize; uvs.Add(new Vector2(ux * ca - uz * sa + 0.5f, ux * sa + uz * ca + 0.5f));
+                    float ang = a0 + (ai + (R() - 0.5f) * 0.45f) / arms * Mathf.PI * 2f, len = Mathf.Lerp(0.75f, 1.2f, R()), hw0 = Mathf.Lerp(0.085f, 0.115f, R());
+                    int segs = 4; var line = new List<Vector3>(); var q = p; float sign = R() < 0.5f ? 1f : -1f;
+                    line.Add(p + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * 0.1f);
+                    for (int s = 0; s < segs; s++) { sign = -sign; float g = ang + sign * Mathf.Lerp(0.2f, 0.5f, R()); line.Add(line[line.Count - 1] + new Vector3(Mathf.Cos(g), 0f, Mathf.Sin(g)) * (len / segs)); }
+                    var lefts = new List<Vector3>(); var rights = new List<Vector3>();
+                    for (int s = 0; s < line.Count; s++)
+                    {
+                        var dir = (s + 1 < line.Count ? line[s + 1] - line[s] : line[s] - line[s - 1]).normalized; var side = new Vector3(-dir.z, 0f, dir.x);
+                        float hw = hw0 * (1f - s / (float)(line.Count - 1));
+                        if (!OnRoad(line[s] + side * Mathf.Max(hw, 0.02f), p.y, out var l) || !OnRoad(line[s] - side * Mathf.Max(hw, 0.02f), p.y, out var r)) break;
+                        if (hw <= 0f) { OnRoad(line[s], p.y, out l); r = l; }
+                        lefts.Add(l); rights.Add(r);
+                    }
+                    if (lefts.Count < 2) continue;
+                    // 道のはしで止まった腕も先をとがらせる
+                    int last = lefts.Count - 1; var tip = (lefts[last] + rights[last]) * 0.5f; lefts[last] = tip; rights[last] = tip;
+                    for (int s = 0; s < last; s++)
+                    {
+                        int b = mv.Count; mv.Add(lefts[s]); mv.Add(rights[s]); mv.Add(rights[s + 1]); mv.Add(lefts[s + 1]);
+                        Tri(mv, mt, b, b + 1, b + 2, Vector3.up); Tri(mv, mt, b, b + 2, b + 3, Vector3.up);
+                        int f = sv.Count; var down = Vector3.down * RockCrackDepth; sv.Add(lefts[s] + down); sv.Add(rights[s] + down); sv.Add(rights[s + 1] + down); sv.Add(lefts[s + 1] + down);
+                        for (int k = 0; k < 4; k++) suv.Add(new Vector2(0f, 1f));
+                        Tri(sv, st, f, f + 1, f + 2, Vector3.up); Tri(sv, st, f, f + 2, f + 3, Vector3.up);
+                    }
+                    // 外周：右レールを先まで行って左レールで戻る。次の腕（角度が大きい方）の右レールへつなぐと交差しない
+                    for (int s = 0; s <= last; s++) loop.Add(rights[s]);
+                    for (int s = last - 1; s >= 0; s--) loop.Add(lefts[s]);
+                    hub.Add(rights[0]); hub.Add(lefts[0]);
                 }
-                for (int gx = 0; gx < RockCrackGrid; gx++) for (int gz = 0; gz < RockCrackGrid; gz++)
+                if (loop.Count < 3) continue;
+                // まん中：腕の根元をつなぐ多角形
+                int firstCenter = mv.Count; mv.Add(center);
+                for (int i = 0; i < hub.Count; i++)
                 {
-                    int v0 = id[gx, gz], v1 = id[gx, gz + 1], v2 = id[gx + 1, gz + 1], v3 = id[gx + 1, gz];
-                    if (v0 < 0 || v1 < 0 || v2 < 0 || v3 < 0) continue;
-                    tris.AddRange(new[] { v0, v1, v2, v0, v2, v3 });
+                    int b = mv.Count; mv.Add(hub[i]); mv.Add(hub[(i + 1) % hub.Count]); Tri(mv, mt, firstCenter, b, b + 1, Vector3.up);
+                    int f = sv.Count; var down = Vector3.down * RockCrackDepth; sv.Add(center + down); sv.Add(hub[i] + down); sv.Add(hub[(i + 1) % hub.Count] + down); for (int k = 0; k < 3; k++) suv.Add(new Vector2(0f, 1f)); Tri(sv, st, f, f + 1, f + 2, Vector3.up);
+                }
+                // 壁：腕の外周。内向きに面を向ける（口の中から見える）。となりの腕の根元どうしの間も閉じる
+                void Wall(Vector3 u, Vector3 w, Vector3 inward)
+                {
+                    int b = sv.Count; var down = Vector3.down * RockCrackDepth; sv.Add(u); sv.Add(w); sv.Add(w + down); sv.Add(u + down);
+                    suv.Add(new Vector2(0f, 0f)); suv.Add(new Vector2(0f, 0f)); suv.Add(new Vector2(0f, 1f)); suv.Add(new Vector2(0f, 1f));
+                    Tri(sv, st, b, b + 1, b + 2, inward); Tri(sv, st, b, b + 2, b + 3, inward);
+                }
+                for (int i = 0; i < loop.Count; i++)
+                {
+                    var u = loop[i]; var w = loop[(i + 1) % loop.Count]; var mid = (u + w) * 0.5f; var e = w - u; e.y = 0f; if (e.sqrMagnitude < 0.000001f) continue;
+                    var nrm = new Vector3(-e.z, 0f, e.x).normalized; var toC = center - mid; toC.y = 0f;
+                    // 腕の中に向く側を選ぶ：外周の点列は左レール→先→右レールの順なので、向きは腕ごとに同じ（根元の間も同じ回り）
+                    float area = 0f; for (int j = 0; j < loop.Count; j++) { var a = loop[j]; var c = loop[(j + 1) % loop.Count]; area += a.x * c.z - c.x * a.z; }
+                    Wall(u, w, area > 0f ? nrm : -nrm);
                 }
                 count++;
             }
         }
         foreach (var c in temps) Object.DestroyImmediate(c);
-        var mesh = new Mesh { name = "Course2_2_RockCracks", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
-        mesh.SetVertices(verts); mesh.SetUVs(0, uvs); mesh.SetTriangles(tris, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
-        var o = new GameObject("RockCracks", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(fire, false);
-        o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mesh);
-        var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = RockCrackMat(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
-        return "ヒビ " + count + " か所, 三角形 " + tris.Count / 3;
-    }
-    static Material RockCrackMat()
-    {
-        string p = "Assets/FuwaStage2/Materials/Stage2_2_RockCrack.mat";
-        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
-        if (!m) { m = new Material(Shader.Find("FuwaCourse/RockCrack")); AssetDatabase.CreateAsset(m, p); }
-        m.SetTexture("_MainTex", RockCrackTex()); EditorUtility.SetDirty(m);
-        return m;
-    }
-    // ヒビの絵：まん中から枝分かれして広がる線。R が濃さ、G が熱いまん中（線の芯とまん中ほど強い）
-    static Texture2D RockCrackTex()
-    {
-        string path = "Assets/FuwaStage2/Textures/Stage2_RockCrack.png";
-        const int S = 512; var mask = new float[S * S]; var rnd = new System.Random(77);
-        float R() => (float)rnd.NextDouble();
-        void Line(Vector2 a, Vector2 b, float w)
+        var loc = new System.Func<Vector3, Vector3>(fire.InverseTransformPoint);
+        var mouth = new Mesh { name = "Course2_2_RockCrackMouth", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; mouth.SetVertices(mv.Select(loc).ToList()); mouth.SetTriangles(mt, 0); mouth.RecalculateNormals(); mouth.RecalculateBounds();
+        var shaft = new Mesh { name = "Course2_2_RockCrackShaft", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; shaft.SetVertices(sv.Select(loc).ToList()); shaft.SetUVs(0, suv); shaft.SetTriangles(st, 0); shaft.RecalculateNormals(); shaft.RecalculateBounds();
+        var root = new GameObject("RockCracks").transform; root.SetParent(fire, false);
+        void Part(string n, Mesh m, Material mat)
         {
-            int x0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(a.x, b.x) - w - 2)), x1 = Mathf.Min(S - 1, Mathf.CeilToInt(Mathf.Max(a.x, b.x) + w + 2));
-            int y0 = Mathf.Max(0, Mathf.FloorToInt(Mathf.Min(a.y, b.y) - w - 2)), y1 = Mathf.Min(S - 1, Mathf.CeilToInt(Mathf.Max(a.y, b.y) + w + 2));
-            var ab = b - a; float l2 = Mathf.Max(0.001f, ab.sqrMagnitude);
-            for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++)
-            {
-                var q = new Vector2(x, y); float d = (q - (a + ab * Mathf.Clamp01(Vector2.Dot(q - a, ab) / l2))).magnitude;
-                mask[y * S + x] = Mathf.Max(mask[y * S + x], Mathf.Clamp01(1f - (d - w) / 2.5f) * 0.5f + Mathf.Clamp01(1f - d / Mathf.Max(0.5f, w)) * 0.5f);
-            }
+            var o = new GameObject(n, typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(root, false); o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(m);
+            var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
         }
-        void Branch(Vector2 p, float ang, float len, float w, int depth)
-        {
-            // 枝やひびの根っこに見えないよう、長い直線をカクッと折り、先へ行くほど細くする（木の枝みたいと判断して作り直し）
-            float left = len, w0 = w, sign = R() < 0.5f ? 1f : -1f, baseAng = ang;
-            while (left > 0f)
-            {
-                float step = Mathf.Lerp(34f, 62f, R()); sign = -sign;
-                ang = baseAng + sign * Mathf.Lerp(0.12f, 0.5f, R());
-                var n = p + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * step;
-                float w1 = w0 * Mathf.Clamp01((left - step) / len);
-                int seg = 6; for (int k = 0; k < seg; k++) Line(Vector2.Lerp(p, n, k / (float)seg), Vector2.Lerp(p, n, (k + 1f) / seg), Mathf.Lerp(w, w1, (k + 0.5f) / seg));
-                p = n; left -= step; w = w1;
-                if (depth > 0 && left > 45f && R() < 0.3f) Branch(p, ang + (R() < 0.5f ? 1f : -1f) * Mathf.Lerp(0.55f, 0.95f, R()), left * Mathf.Lerp(0.45f, 0.75f, R()), w * 0.75f, depth - 1);
-            }
-        }
-        var center = new Vector2(S * 0.5f, S * 0.5f); int arms = 6;
-        // まん中：ぶつかって砕けた跡（太い線の多角形）から放射状に割れる
-        var ring = new Vector2[arms];
-        for (int i = 0; i < arms; i++) { float a = (i + (R() - 0.5f) * 0.5f) / arms * Mathf.PI * 2f; ring[i] = center + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * Mathf.Lerp(38f, 62f, R()); }
-        for (int i = 0; i < arms; i++) { Line(ring[i], ring[(i + 1) % arms], 5f); Line(center + (ring[i] - center) * 0.25f, ring[i], 6f); }
-        for (int i = 0; i < arms; i++) Branch(ring[i], Mathf.Atan2(ring[i].y - center.y, ring[i].x - center.x), Mathf.Lerp(120f, 190f, R()), Mathf.Lerp(8f, 11f, R()), 1);
-        var t = new Texture2D(S, S, TextureFormat.RGB24, false, true); var px = new Color32[S * S];
-        for (int y = 0; y < S; y++) for (int x = 0; x < S; x++)
-        {
-            float m = mask[y * S + x], dist = (new Vector2(x, y) - center).magnitude / (S * 0.5f);
-            m *= Mathf.Clamp01((1f - dist) * 8f);   // 板のふちで必ず切れる
-            float hot = Mathf.Clamp01((m - 0.7f) * 4f) * Mathf.Clamp01(1.1f - dist * 1.9f);   // 熱いのはまん中の近くだけ。外は暗い割れ目
-            px[y * S + x] = new Color32((byte)(m * 255f), (byte)(hot * 255f), 0, 255);
-        }
-        t.SetPixels32(px); t.Apply(); System.IO.File.WriteAllBytes(path, t.EncodeToPNG()); Object.DestroyImmediate(t);
-        AssetDatabase.ImportAsset(path);
-        var ti = (TextureImporter)AssetImporter.GetAtPath(path); ti.sRGBTexture = false; ti.wrapMode = TextureWrapMode.Clamp; ti.mipmapEnabled = true; ti.SaveAndReimport();
-        return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+        string shaftPath = "Assets/FuwaStage2/Materials/Stage2_2_RockCrackShaft.mat";
+        var sm = AssetDatabase.LoadAssetAtPath<Material>(shaftPath); if (!sm) { sm = new Material(Shader.Find("FuwaCourse/VentShaft")); AssetDatabase.CreateAsset(sm, shaftPath); }
+        sm.SetColor("_Top", new Color(0.27f, 0.13f, 0.12f)); sm.SetColor("_Bottom", new Color(0.05f, 0.02f, 0.02f)); sm.SetFloat("_Falloff", 2.2f); sm.SetFloat("_Facet", 0.25f); EditorUtility.SetDirty(sm);
+        Part("Mouth", mouth, AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/VentHoleMask.mat"));
+        Part("Shaft", shaft, sm);
+        return "ヒビ " + count + " か所, 口の三角形 " + mt.Count / 3 + ", 中の三角形 " + st.Count / 3;
     }
 
     // 炎の壁の音は全部の壁で 1 つ。壁の当たり（Burn の箱）の線の上で、聞く人にいちばん近い所から鳴る（FuwaLineSound）。作り直さずシーンだけ直す時もこれを呼ぶ

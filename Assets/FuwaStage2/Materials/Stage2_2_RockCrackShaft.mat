@@ -7,8 +7,8 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: Stage2_2_RockCrack
-  m_Shader: {fileID: 4800000, guid: ff992c0911c1c80499d5b84fcb6040ac, type: 3}
+  m_Name: Stage2_2_RockCrackShaft
+  m_Shader: {fileID: 4800000, guid: 4332cef5e766c674e815348a909c9a3f, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -22,14 +22,12 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs:
-    - _MainTex:
-        m_Texture: {fileID: 2800000, guid: 380a86b7e2a2326418d0335abe5e32ea, type: 3}
-        m_Scale: {x: 1, y: 1}
-        m_Offset: {x: 0, y: 0}
+    m_TexEnvs: []
     m_Ints: []
-    m_Floats: []
+    m_Floats:
+    - _Facet: 0.25
+    - _Falloff: 2.2
     m_Colors:
-    - _Dark: {r: 0.19999996, g: 0.06999998, b: 0.059999965, a: 1}
-    - _Hot: {r: 1.2, g: 0.42, b: 0.08, a: 1}
+    - _Bottom: {r: 0.05, g: 0.02, b: 0.02, a: 1}
+    - _Top: {r: 0.27, g: 0.13, b: 0.12, a: 1}
   m_BuildTextureStacks: []
