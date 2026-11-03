@@ -25,6 +25,8 @@ public class FuwaIceFloor : UdonSharpBehaviour
     [Tooltip("mode 4：止まる壁のレイヤー")]
     public LayerMask wallMask = 1 | (1 << 11);
     public float bodyRadius = 0.25f;
+    [Tooltip("mode 4：氷の上の VRChat の歩く速さ。足を動かすため。全体の速さは変わらない。0 だと歩きモーションなし")]
+    public float skateSpeed = 2f;
 
     [Header("元の値（VRChat の既定値）")]
     public float baseWalk = 2f, baseRun = 4f, baseStrafe = 2f;
@@ -94,7 +96,8 @@ public class FuwaIceFloor : UdonSharpBehaviour
         if (!_in)
         {
             _in = true; _v = flat;
-            if (mode == 1 || mode == 3 || mode == 4) { p.SetWalkSpeed(0f); p.SetRunSpeed(0f); p.SetStrafeSpeed(0f); }
+            if (mode == 1 || mode == 3) { p.SetWalkSpeed(0f); p.SetRunSpeed(0f); p.SetStrafeSpeed(0f); }
+            if (mode == 4) { p.SetWalkSpeed(skateSpeed); p.SetRunSpeed(skateSpeed); p.SetStrafeSpeed(skateSpeed); }
             Debug.Log("[FuwaIce] " + label + " in mode=" + mode + " vr=" + p.IsUserInVR());
         }
         float above = Above(pos);
@@ -134,8 +137,11 @@ public class FuwaIceFloor : UdonSharpBehaviour
                     if (n.sqrMagnitude > 0.0001f) { n.Normalize(); float into = Vector3.Dot(_v, n); if (into < 0f) _v -= n * into; }
                     dir = new Vector3(_v.x, onFloor ? PlaneY(_v) : 0f, _v.z); len = dir.magnitude; if (len > 0.0001f) dir /= len;
                 }
-                p.TeleportTo(pos + dir * len * dt, p.GetRotation(), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, true);
             }
+            // VRChat の歩き（flat）のぶんを引いて、足りない分だけワープで足す。足は歩いているのに、全体の動きは _v のまま
+            Vector3 delta = _v - flat;
+            if (delta.sqrMagnitude > 0.0004f)
+                p.TeleportTo(pos + new Vector3(delta.x, onFloor ? PlaneY(delta) : 0f, delta.z) * dt, p.GetRotation(), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, true);
         }
         else if (mode == 2)
         {

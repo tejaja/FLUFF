@@ -22,11 +22,11 @@ public static class FuwaIceTestBuilder
         var spawn = new GameObject("Spawn").transform; spawn.SetParent(root, true);
         spawn.position = new Vector3(13f, Top + 0.05f, -38f); spawn.rotation = Quaternion.LookRotation(Vector3.back);
 
-        // A＝速さを上書き＋強く下へ押す（案2）、C・B＝毎フレームの小さいワープ（案1、平ら・坂）、D＝今までの A（比較用）
-        Strip(root, "A", 0, 3, 0f, new Color(0.62f, 0.86f, 1f), wall, pillar).stick = 3f;
+        // 全部 毎フレームの小さいワープ。A＝歩く速さ1、C＝歩く速さ2、B＝歩く速さ2の坂、D＝歩く速さ0（比較用、足は動かない）
+        Strip(root, "A", 0, 4, 0f, new Color(0.62f, 0.86f, 1f), wall, pillar).skateSpeed = 1f;
         Strip(root, "B", 1, 4, SlopeDeg, new Color(0.72f, 0.92f, 1f), wall, pillar);
         Strip(root, "C", 2, 4, 0f, new Color(0.82f, 0.96f, 1f), wall, pillar);
-        Strip(root, "D", 3, 3, 0f, new Color(0.7f, 0.82f, 1f), wall, pillar);
+        Strip(root, "D", 3, 4, 0f, new Color(0.7f, 0.82f, 1f), wall, pillar).skateSpeed = 0f;
         foreach (var f in root.GetComponentsInChildren<FuwaIceFloor>(true)) UdonSharpEditorUtility.CopyProxyToUdon(f);
 
         var lobby = stage.Find("Lobby/LobbySpawn");
