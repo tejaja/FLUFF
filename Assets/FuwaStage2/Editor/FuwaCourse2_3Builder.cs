@@ -32,7 +32,7 @@ public static class FuwaCourse2_3Builder
     // ⑤ ゴール前（ゆるい上り坂、まん中の雪道と左右の弧の氷の道）
     // 両わきの氷の幅：手前 SideWBottom → 奥 SideWTop（ハの字）、SideBulge＝外のふちのふくらみ（0 でまっすぐ）
     // まん中の雪道の半分の幅も 手前 LaneHWBottom → 奥 LaneHWTop（2026-11-03 てじゃ「道ごと広げて」）
-    public static float FinalHW = 4.5f, LaneHWBottom = 7.0f, LaneHWTop = 1.0f, SideWBottom = 6.0f, SideWTop = 1.2f, SideBulge = 0f, FinalLen = 34f, FinalRise = 3f, FinalTopLen = 6f;
+    public static float FinalHW = 4.5f, LaneHWBottom = 7.0f, LaneHWTop = 1.0f, SideWBottom = 6.0f, SideWTop = 1.2f, SideBulge = 0f, FlareK = 2.2f, FinalLen = 34f, FinalRise = 3f, FinalTopLen = 6f;
     public static Color TreeCol = new Color(0.38f, 0.33f, 0.31f), IceRockCol = new Color(0.72f, 0.82f, 0.92f);
     // 道の色（2026-10-19 決めた 2–3 の色 #B4C2D2 から）。ふつうの道＝銀のシマシマ、氷＝つるっとした水色、雪（目印の玉）＝白
     public static Color PathColA = new Color(0.84f, 0.88f, 0.93f), PathColB = new Color(0.71f, 0.76f, 0.82f);
@@ -171,8 +171,10 @@ public static class FuwaCourse2_3Builder
             {
                 float t = (float)i / fn;
                 var c = fAt + rise * t;
-                float lw = Mathf.Lerp(LaneHWBottom, LaneHWTop, t);
-                float w = Mathf.Lerp(SideWBottom, SideWTop, t) + SideBulge * Mathf.Sin(Mathf.PI * t);
+                // てじゃ「それぞれの直線を曲げたい、手前にくるほど角度が急に」→ 幅は (1-t)^FlareK で開く（ラッパの口のよう）
+                float f = Mathf.Pow(1f - t, FlareK);
+                float lw = LaneHWTop + (LaneHWBottom - LaneHWTop) * f;
+                float w = SideWTop + (SideWBottom - SideWTop) * f + SideBulge * Mathf.Sin(Mathf.PI * t);
                 mid.Add(c); inner.Add(c + fR * side * lw); outer.Add(c + fR * side * (lw + w));
             }
             Band(path, side < 0 ? "SnowLaneL" : "SnowLaneR", mid, inner, false, true, 0f);
