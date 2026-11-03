@@ -20,6 +20,11 @@ public static class FuwaCourse2_3Builder
     public static float WideHW = 12f, ObsLen = 32f, CrackLen = 32f, CrackT = 1.0f, CrackWaterY = -0.7f, WideFlareLen = 9f;
     // 割れた所（1m のます目）は CrackHoleRatio くらいの割合で乱数の穴。手前のはしから奥のはしまで歩ける道が必ず残るように1つずつ確かめて開ける
     public static float CrackHoleRatio = 0.24f; public static int CrackSeed = 2563;
+    // 2026-11-03 てじゃ「いっそ大改造して、広大な広い氷の中を行ったり来たりする感じにしよう　割れ目と氷水で区切って」「区切りは超えられない」「ギミックは考え直そう」
+    //  → 大きな凍った湖を水の割れ目でジグザグのレーンに区切る。曲がり角だけ氷がつながる。前の ②〜⑤ は LakeLayout=false で戻せる
+    //  水の幅は人が跳んで越えられない幅（滑りの最高 4m/s × 跳んでいる 0.6 秒 ≒ 2.5m）より広く
+    public static bool LakeLayout = true;
+    public static int LakeW = 50, LaneW = 10, ChanW = 5, LakeLanes = 4, TurnGap = 10;
     // 前半の障害物（x＝まん中からの横、z＝氷の手前から、k 0=氷の岩 1=結晶の柱）
     public static (float x, float z, int k)[] Obstacles = {
         (-5.5f, 4f, 0), (3.0f, 5.5f, 1), (8.5f, 4.5f, 0), (-9.5f, 8f, 1), (-1.0f, 9f, 0), (6.0f, 10.5f, 1),
@@ -97,8 +102,15 @@ public static class FuwaCourse2_3Builder
         var p = new Vector3(0, 0, z0 - 0.5f);
         var dir = Vector3.forward;
 
-        // ② 広い氷のエリア 前半：氷の岩と結晶の柱をよける
         Strip(path, "Intro", p, dir, 5f, IntroHW, false); p += dir * 5f;
+        if (LakeLayout)
+        {
+            Flare(path, "LakeIn", ref p, dir, 6f, IntroHW, 5f);
+            Lake(root, path, waterT, ref p, ref dir);
+        }
+        else
+        {
+        // ② 広い氷のエリア 前半：氷の岩と結晶の柱をよける
         Flare(path, "WideIn", ref p, dir, WideFlareLen, IntroHW, WideHW);
         var iceAt = p;
         Strip(path, "WideIce", p, dir, ObsLen, WideHW, true); p += dir * ObsLen;
@@ -195,6 +207,7 @@ public static class FuwaCourse2_3Builder
         sbm.transform.localPosition = p + dir * 0.9f + Vector3.up * 0.45f; sbm.transform.localScale = Vector3.one * 0.9f; sbm.GetComponent<Renderer>().sharedMaterial = snowA;
         Object.DestroyImmediate(sbm.GetComponent<Collider>());
         p += dir * FinalTopLen;
+        }
 
         // ゴール（道の向きがまっすぐ前でない時も、ゴールの島は道の向きに置く）
         GoalSet(root, p, dir);
@@ -450,6 +463,36 @@ public static class FuwaCourse2_3Builder
         if (ice) iceCols.Add(mc);
     }
 
+    // 凍った湖：p（手前のふちのまん中）から奥へ。LakeLanes 本のレーン（幅 LaneW）を ChanW の水で区切る。
+    //  1本目は入口（まん中）から右へ、右はしで曲がって2本目は左へ…と交互。曲がり角は TurnGap ぶん水がない（氷がつながる）
+    //  床は1枚の氷（割れた氷と同じ作り方、水の所が穴）、下に湖ぜんぶの水。出口は最後のレーンの曲がり角の側の奥のふち
+    static void Lake(Transform root, Transform path, Transform waterT, ref Vector3 p, ref Vector3 dir)
+    {
+        int nx = LakeW, nz = LakeLanes * LaneW + (LakeLanes - 1) * ChanW;
+        var holes = new List<(int, int, int, int)>();
+        for (int k = 0; k < LakeLanes - 1; k++)
+        {
+            int z = (k + 1) * LaneW + k * ChanW;
+            bool turnRight = k % 2 == 0;
+            holes.Add(turnRight ? (0, z, nx - TurnGap, ChanW) : (TurnGap, z, nx - TurnGap, ChanW));
+        }
+        var at = p;
+        CrackedFloor(path, "LakeIce", at, nz, nx * 0.5f, holes.ToArray());
+        Water(waterT, "LakeWater", at + new Vector3(0, CrackWaterY, nz * 0.5f), nx, nz);
+        // 曲がり角のチェックポイント（水の横の、氷がつながっている所）
+        for (int k = 0; k < LakeLanes - 1; k++)
+        {
+            float z = (k + 1) * LaneW + k * ChanW + ChanW * 0.5f;
+            float x = (k % 2 == 0) ? nx * 0.5f - TurnGap * 0.5f : -nx * 0.5f + TurnGap * 0.5f;
+            Checkpoint(root, "Checkpoint" + (k + 1), at + new Vector3(x, 0, z), Vector3.forward, TurnGap * 0.5f);
+        }
+        // 出口：最後のレーンは、ひとつ前の曲がり角と反対のはしへ向かう
+        bool lastGoesRight = (LakeLanes - 1) % 2 == 0;
+        float ex = (lastGoesRight ? 1f : -1f) * (nx * 0.5f - LaneW * 0.5f);
+        p = at + new Vector3(ex, 0, nz); dir = Vector3.forward;
+        Flare(path, "LakeOut", ref p, dir, 6f, LaneW * 0.5f, IntroHW);
+        Strip(path, "LakeExit", p, dir, 3f, IntroHW, false); p += dir * 3f;
+    }
     // じょじょに幅が変わる道（シマシマ）：半分の幅 w0 → w1 を smoothstep で。左右の半分をまん中で継ぎ目なしにくっつける。p は先へ進む
     static void Flare(Transform parent, string name, ref Vector3 p, Vector3 dir, float len, float w0, float w1)
     {
