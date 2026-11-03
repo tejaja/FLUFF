@@ -3,22 +3,34 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-// ステージ2 コース2–3「こおりのほら」ブロックアウト（2026-11-03 てじゃの構成案で作り直し。洞くつ・地底湖の版はなくした）。
+// ステージ2 コース2–3「こおりのほら」ブロックアウト（2026-11-03 てじゃの構成案の2回目で作り直し。洞くつ・地底湖・ぐねぐね道の版はなくした）。
 // 決めごと：氷の道では人が滑る（FuwaIceSkate、氷のテスト場の C の方式）。ふわふわは道と同じで、触れたらアウト。
 // 流れ（ロビーの Slot2 方向に放射状、+Z が進む向き。y=0 がスタートの島の地面）：
-//  ① スタート ② 広い氷の道（氷の岩・結晶の柱をよける） ③ ぐねぐね道（まっすぐはふつう、カーブは氷）
-//  ④ 枯れ木の並木（枝の先のつららが落ちる：いまは目印） ⑤ 雪道（氷の池、両側の丘の雪だるまが雪玉を転がす：いまは目印） → ゴール
-// 道は銀のシマシマ、氷はつるっとした水色、雪は白。カーブは丸く曲がったメッシュ（Meshes/Course2_3）
+//  ① スタート ② 広い氷のエリア（前半 障害物よけ、後半 割れた氷と吹雪） ③ 大きな池の流氷（前半 止まる、後半 動く）
+//  ④ つららの並木（いろんな角度に曲がる道） ⑤ ゴール前の坂（雪だるまの雪玉、左右に弧の氷の道） → ゴール
+// 道は銀のシマシマ、氷はつるっとした水色、雪は白。曲がった道・割れた氷・流氷はメッシュ（Meshes/Course2_3）。仕掛け（吹雪・動く流氷・つらら・雪玉）はまだ目印だけ
 public static class FuwaCourse2_3Builder
 {
     const string RootName = "FuwaCourse2_3";
     const float SpokeR = 34.8f, StartBelow = 4f;
     public static float StripeLen = 1.2f;
     public static float IntroHW = 2.5f;
-    public static float WideHW = 4f, WideLen = 36f;                    // ② 広い氷の道
-    public static float WindHW = 1.8f, WindR = 6f;                     // ③ ぐねぐね道（カーブの半径は道のまん中）
-    public static float TreeHW = 2.2f, TreeLen = 36f, TreeBankHW = 2.2f; public static int TreeCount = 6;   // ④ 枯れ木の並木
-    public static float SnowHW = 3.2f, SnowLen = 42f, HillLen = 6f, HillRise = 1.8f;      // ⑤ 雪道と雪だるまの丘
+    // ② 広い氷のエリア（前半 障害物、後半 割れた氷＋吹雪）
+    public static float WideHW = 5f, ObsLen = 24f, CrackLen = 26f, CrackT = 1.0f, CrackWaterY = -0.7f;
+    // 割れた所（1m のます目。ix は左はし=0〜9、iz は手前=0〜25、w×h ます）。どこを通っても1本は道がつながるように
+    public static (int ix, int iz, int w, int h)[] CrackHoles = {
+        (1, 2, 2, 2), (6, 3, 3, 1), (4, 6, 2, 3), (8, 8, 2, 2), (0, 10, 3, 1), (5, 11, 1, 3), (2, 14, 2, 2), (7, 15, 2, 2),
+        (3, 18, 4, 1), (0, 20, 2, 2), (8, 21, 2, 1), (5, 22, 2, 2) };
+    // ③ 大きな池と流氷（x, z＝池の手前からの位置、r＝半径、type 0=滑らない 1=滑る 2=半分ずつ、move＝動く幅（0 は止まっている））
+    public static float PondHW = 8f, PondLen = 34.3f, PondWaterY = -0.5f, FloeTop = -0.3f;
+    public static (float x, float z, float r, int type, float move)[] Floes = {
+        (0f, 2.6f, 1.6f, 0, 0f), (-2.0f, 6.4f, 1.5f, 1, 0f), (0.5f, 9.8f, 1.7f, 2, 0f), (2.8f, 13.3f, 1.4f, 1, 0f), (0.6f, 16.9f, 1.6f, 0, 0f),
+        (-1.0f, 20.6f, 1.5f, 1, 1.2f), (1.2f, 24.2f, 1.6f, 2, 1.5f), (-0.8f, 27.9f, 1.5f, 0, 1.2f), (0.6f, 31.6f, 1.7f, 2, 0.8f) };
+    // ④ つららの並木（len＝まっすぐの長さ、trees＝そこに立てる枯れ木の数、bend＝そのあと曲がる角度 ＋が右）
+    public static float TreeHW = 2.2f, TreePadHW = 1.6f, TreeBendR = 5f;
+    public static (float len, int trees, float bend)[] TreeSegs = { (8f, 1, 30f), (9f, 2, -45f), (8f, 1, 35f), (9f, 2, -25f), (6f, 1, 0f) };
+    // ⑤ ゴール前（ゆるい上り坂、まん中の雪道と左右の弧の氷の道）
+    public static float FinalHW = 4f, LaneHW = 1.6f, SideHW = 0.7f, SideBulge = 7.5f, FinalLen = 34f, FinalRise = 3f, FinalTopLen = 6f;
     public static Color TreeCol = new Color(0.38f, 0.33f, 0.31f), IceRockCol = new Color(0.72f, 0.82f, 0.92f);
     // 道の色（2026-10-19 決めた 2–3 の色 #B4C2D2 から）。ふつうの道＝銀のシマシマ、氷＝つるっとした水色、雪（目印の玉）＝白
     public static Color PathColA = new Color(0.84f, 0.88f, 0.93f), PathColB = new Color(0.71f, 0.76f, 0.82f);
@@ -63,23 +75,28 @@ public static class FuwaCourse2_3Builder
         ballProxy = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
         cps.Clear(); iceCols.Clear();
 
-        // 2026-11-03 てじゃの構成案：①スタート ②広めの氷の道（置いてある物をよける） ③ふつう〜やや細めのぐねぐね道、カーブが氷
-        //  ④道の横に大きな枯れ木、枯れ木からつらら（落ちたら道に残る・当たりあり・落ちてる途中に当たると吹き飛ぶ） ⑤雪道、ところどころ氷の池、まわりの雪だるまが雪玉を転がす（どんどん大きく）
-        // 決めたこと：つららで吹き飛ぶのはふわふわ（人は平気）、残ったつららはしばらくで溶ける、近づくと落ちる。雪玉はふわふわも人も吹き飛ばす。氷の池は人だけ滑る（ふわふわは道と同じでアウト）
+        // 2026-11-03 てじゃの構成案（2回目）：
+        //  ①スタート ②広めの氷のエリア：前半は障害物をよける、後半は吹雪（左右交互にたまに、ややつよい・短い）＋ところどころ割れていて下は水
+        //  ③大きな池：流氷をジャンプで渡る、前半は止まっている・後半は動く ④つららの並木：いろんな角度に曲がる道
+        //  ⑤ゴール前：雪だるま1体が雪玉をまっすぐ転がす（どんどん巨大に）。雪玉の通るまん中は雪道（滑らない）、左右に弧を描く細い氷の道で迂回できる。雪だるまの横を通り越して後ろにゴール
+        // 決めたこと：吹雪はふわふわだけ押す（人は押さない）。水は人が落ちたらアウト、ふわふわが触れたら凍ってアウト。
+        //  流氷は滑る・滑らない・半分ずつをまぜる、動く流氷は乗っている人も運ぶ、ふわふわは流氷に触れたらアウト（足場＝道あつかい）。
+        //  つららで吹き飛ぶのはふわふわ（人は平気）、残ったつららはしばらくで溶ける、近づくと落ちる。雪玉はふわふわも人も吹き飛ばす
         float z0 = StartSet(root);
         var path = new GameObject("Path").transform; path.SetParent(root, false);
         var deco = new GameObject("Marks").transform; deco.SetParent(root, false);
+        var waterT = new GameObject("Water").transform; waterT.SetParent(root, false);
         meshNo = 0;
         var p = new Vector3(0, 0, z0 - 0.5f);
         var dir = Vector3.forward;
 
-        // ② 広い氷の道：氷の岩と結晶の柱をよけて進む
+        // ② 広い氷のエリア 前半：氷の岩と結晶の柱をよける
         Strip(path, "Intro", p, dir, 5f, IntroHW, false); p += dir * 5f;
         Strip(path, "WideIn", p, dir, 3f, WideHW, false); p += dir * 3f;
         var iceAt = p;
-        Strip(path, "WideIce", p, dir, WideLen, WideHW, true); p += dir * WideLen;
-        var obstacles = new[] { (x: -1.2f, z: 4f, k: 0), (x: 2.2f, z: 8f, k: 1), (x: -2.6f, z: 12f, k: 0), (x: 0.6f, z: 15.5f, k: 1), (x: 3.0f, z: 19f, k: 0),
-                                (x: -1.4f, z: 22f, k: 0), (x: -3.2f, z: 26f, k: 1), (x: 1.6f, z: 28.5f, k: 0), (x: -0.4f, z: 32f, k: 1) };
+        Strip(path, "WideIce", p, dir, ObsLen, WideHW, true); p += dir * ObsLen;
+        var obstacles = new[] { (x: -1.6f, z: 4f, k: 0), (x: 2.6f, z: 7.5f, k: 1), (x: -3.0f, z: 11f, k: 0), (x: 0.8f, z: 13.5f, k: 1),
+                                (x: 3.4f, z: 16.5f, k: 0), (x: -1.8f, z: 19f, k: 0), (x: 1.4f, z: 22f, k: 1) };
         var obsT = new GameObject("Obstacles").transform; obsT.SetParent(root, false);
         for (int k = 0; k < obstacles.Length; k++)
         {
@@ -87,63 +104,83 @@ public static class FuwaCourse2_3Builder
             if (obstacles[k].k == 1) Crystal(obsT, "Crystal" + k, at, 0.55f, 2.6f);
             else IceRock(obsT, "IceRock" + k, at, 1.1f + 0.25f * (k % 3), k * 37f);
         }
+        // ② 後半：割れた氷（1m のます目で穴、下は水）＋吹雪
+        var crackAt = p;
+        CrackedFloor(path, "CrackedIce", crackAt, CrackLen, WideHW, CrackHoles);
+        Water(waterT, "CrackWater", crackAt + new Vector3(0, CrackWaterY, CrackLen * 0.5f), WideHW * 2f, CrackLen);
+        var bz = new GameObject("BlizzardZone"); bz.transform.SetParent(root, false);   // 吹雪のかかる所（仕掛けはあとで。ふわふわだけ押す）
+        bz.transform.localPosition = crackAt + new Vector3(0, 3f, CrackLen * 0.5f);
+        var bzc = bz.AddComponent<BoxCollider>(); bzc.isTrigger = true; bzc.size = new Vector3(WideHW * 2f + 6f, 8f, CrackLen);
+        p += dir * CrackLen;
         Strip(path, "WideOut", p, dir, 3f, WideHW, false); p += dir * 3f;
         Checkpoint(root, "Checkpoint1", p - dir * 1.5f, dir, WideHW);
 
-        // ③ ぐねぐね道：まっすぐはふつうの道、カーブは氷（丸く曲がったメッシュ）
-        Strip(path, "WindIn", p, dir, 3f, WindHW, false); p += dir * 3f;
-        var bends = new (float ang, float straight)[] { (-60f, 4f), (110f, 4f), (-110f, 4f), (60f, 3f) };
-        for (int k = 0; k < bends.Length; k++)
+        // ③ 大きな池：流氷をジャンプで渡る（前半は止まっている、後半は動く）
+        Strip(path, "PondIn", p, dir, 3f, IntroHW, false); p += dir * 3f;
+        var pondAt = p;
+        Water(waterT, "PondWater", pondAt + new Vector3(0, PondWaterY, PondLen * 0.5f), PondHW * 2f, PondLen);
+        var basin = Box(waterT, "PondBasin", pondAt + new Vector3(0, PondWaterY - 0.05f - 0.75f, PondLen * 0.5f), new Vector3(PondHW * 2f + 0.6f, 1.5f, PondLen), rockMat, 0);
+        Object.DestroyImmediate(basin.GetComponent<Collider>());   // 人は水に沈んで下のアウトへ
+        var floeT = new GameObject("Floes").transform; floeT.SetParent(root, false);
+        for (int k = 0; k < Floes.Length; k++)
         {
-            Arc(path, "Bend" + k + "_Ice", ref p, ref dir, WindR, bends[k].ang, WindHW, true);
-            Strip(path, "Wind" + k, p, dir, bends[k].straight, WindHW, false); p += dir * bends[k].straight;
+            var f = Floes[k];
+            Floe(floeT, "Floe" + k + (f.move > 0 ? "_Move" : ""), pondAt + new Vector3(f.x, FloeTop, f.z), f.r, f.type, 2562 + k * 17);
         }
-        Checkpoint(root, "Checkpoint2", p - dir * 1.5f, dir, WindHW);
+        p += dir * PondLen;
+        Strip(path, "PondOut", p, dir, 3f, IntroHW, false); p += dir * 3f;
+        Checkpoint(root, "Checkpoint2", p - dir * 1.5f, dir, IntroHW);
 
-        // ④ 枯れ木の並木：道の両側に大きな枯れ木、枝の先から道の上へつらら（いまは目印。仕掛けはあとで）
-        Strip(path, "TreeIn", p, dir, 3f, TreeHW, false); p += dir * 3f;
-        var treeAt = p; var treeDir = dir;
-        Strip(path, "TreeRoad", p, dir, TreeLen, TreeHW, false); p += dir * TreeLen;
+        // ④ つららの並木：いろんな角度に曲がる道。まっすぐの所の横に枯れ木（1本ずつ雪の台にのせる）、枝の先から道の上へつらら（いまは目印）
         var trees = new GameObject("DeadTrees").transform; trees.SetParent(root, false);
         var icicles = new GameObject("Icicles").transform; icicles.SetParent(root, false);
-        var tr = Vector3.Cross(Vector3.up, treeDir);
-        // 枯れ木の立つ雪の地面（道の両側、道より 0.25m 低い）。ふわふわが落ちたらアウト（道と同じレイヤー）
-        foreach (float side in new[] { -1f, 1f })
-            Strip(path, side < 0 ? "TreeBankL" : "TreeBankR", treeAt + tr * side * (TreeHW + TreeBankHW) - Vector3.up * 0.25f, treeDir, TreeLen, TreeBankHW, false, true);
-        for (int k = 0; k < TreeCount; k++)
+        int treeNo = 0;
+        for (int k = 0; k < TreeSegs.Length; k++)
         {
-            float side = (k % 2 == 0) ? -1f : 1f;
-            float along = 3f + k * (TreeLen - 6f) / (TreeCount - 1);
-            var basePos = treeAt + treeDir * along + tr * side * (TreeHW + 2.2f);
-            var tips = DeadTree(trees, "DeadTree" + k, basePos, -tr * side, treeDir, k);
-            for (int j = 0; j < tips.Length; j++) Icicle(icicles, "Icicle" + k + "_" + j, tips[j], 1.6f - 0.3f * j);
+            var seg = TreeSegs[k];
+            var segAt = p; var segDir = dir; var segR = Vector3.Cross(Vector3.up, segDir);
+            Strip(path, "TreeRoad" + k, p, dir, seg.len, TreeHW, false); p += dir * seg.len;
+            // 曲がる外側（＝見通しのいい側）と内側に交互。曲がる直前・直後はさける
+            for (int j = 0; j < seg.trees; j++)
+            {
+                float side = (treeNo % 2 == 0) ? -1f : 1f;
+                float along = seg.len * (j + 1f) / (seg.trees + 1f);
+                float off = TreeHW + TreePadHW;
+                Strip(path, "TreePad" + treeNo, segAt + segDir * (along - TreePadHW) + segR * side * off - Vector3.up * 0.25f, segDir, TreePadHW * 2f, TreePadHW, false, true);
+                var tips = DeadTree(trees, "DeadTree" + treeNo, segAt + segDir * along + segR * side * off, -segR * side, segDir, treeNo, off);
+                for (int t = 0; t < tips.Length; t++) Icicle(icicles, "Icicle" + treeNo + "_" + t, tips[t], 1.6f - 0.3f * t);
+                treeNo++;
+            }
+            if (Mathf.Abs(seg.bend) > 0.5f) Arc(path, "TreeBend" + k, ref p, ref dir, TreeBendR, seg.bend, TreeHW, false);
         }
         Checkpoint(root, "Checkpoint3", p - dir * 1.5f, dir, TreeHW);
 
-        // ⑤ 雪道：ところどころ氷の池、両側の丘の雪だるまが雪玉を転がしてくる（いまは目印）
-        Strip(path, "SnowIn", p, dir, 3f, SnowHW, false); p += dir * 3f;
-        var snowAt = p; var snowDir = dir; var sr = Vector3.Cross(Vector3.up, snowDir);
-        Strip(path, "SnowRoad", p, dir, SnowLen, SnowHW, false, true); p += dir * SnowLen;
-        // 池は道のはしから 0.2m 以上内側（はみ出すと道の外に氷が浮く）
-        var ponds = new[] { (x: -1.1f, z: 5f, rx: 1.9f, rz: 2.6f), (x: 1.2f, z: 13f, rx: 1.8f, rz: 3.2f), (x: -0.5f, z: 22f, rx: 2.5f, rz: 2.4f), (x: 0.8f, z: 31f, rx: 2.2f, rz: 3.0f), (x: -1.4f, z: 38f, rx: 1.6f, rz: 2.2f) };
-        var pondT = new GameObject("IcePonds").transform; pondT.SetParent(root, false);
-        for (int k = 0; k < ponds.Length; k++) Pond(pondT, "Pond" + k, snowAt + snowDir * ponds[k].z + sr * ponds[k].x, ponds[k].rx, ponds[k].rz, snowDir);
-        var hills = new GameObject("SnowHills").transform; hills.SetParent(root, false);
-        var men = new[] { (z: 8f, side: 1f), (z: 17f, side: -1f), (z: 26f, side: 1f), (z: 35f, side: -1f) };
-        for (int k = 0; k < men.Length; k++)
+        // ⑤ ゴール前：ゆるい上り坂。まん中は雪道（雪玉の通り道・滑らない）、左右に弧を描く細い氷の道。てっぺんに雪だるま、その後ろにゴール
+        Strip(path, "FinalBase", p, dir, 3f, FinalHW, false); p += dir * 3f;
+        var fAt = p; var fDir = dir; var fR = Vector3.Cross(Vector3.up, fDir);
+        var rise = new Vector3(0, FinalRise, 0) + fDir * FinalLen;
+        Strip(path, "SnowLane", p, rise.normalized, rise.magnitude, LaneHW, false, true);
+        foreach (float side in new[] { -1f, 1f })
         {
-            var edge = snowAt + snowDir * men[k].z + sr * men[k].side * SnowHW;
-            var outDir = sr * men[k].side;
-            var up = new Vector3(outDir.x * HillLen, HillRise, outDir.z * HillLen);
-            Strip(hills, "Hill" + k, edge, up.normalized, up.magnitude, 1.6f, false, true);
-            var top = edge + up;
-            Strip(hills, "HillTop" + k, top, outDir, 3f, 1.6f, false, true);
-            Snowman(deco, "Snowman" + k, top + outDir * 1.8f, -outDir);
-            var sb = GameObject.CreatePrimitive(PrimitiveType.Sphere); sb.name = "SnowballSource" + k; sb.transform.SetParent(deco, false);
-            sb.transform.localPosition = top + outDir * 0.7f + Vector3.up * 0.45f; sb.transform.localScale = Vector3.one * 0.9f; sb.GetComponent<Renderer>().sharedMaterial = snowA;
-            Object.DestroyImmediate(sb.GetComponent<Collider>());
+            var pts = new List<Vector3>();
+            float sx = FinalHW - SideHW;   // はしは下と上の台の角に
+            Vector3 P0 = fAt + fR * side * sx, P3 = fAt + rise + fR * side * sx;
+            Vector3 P1 = fAt + fR * side * SideBulge + fDir * (FinalLen * 0.28f) + Vector3.up * (FinalRise * 0.28f);
+            Vector3 P2 = fAt + fR * side * SideBulge + fDir * (FinalLen * 0.72f) + Vector3.up * (FinalRise * 0.72f);
+            for (int i = 0; i <= 40; i++)
+            {
+                float t = i / 40f, u = 1f - t;
+                pts.Add(u * u * u * P0 + 3f * u * u * t * P1 + 3f * u * t * t * P2 + t * t * t * P3);
+            }
+            Ribbon(path, side < 0 ? "SideIceL" : "SideIceR", pts, SideHW, true);
         }
-        Strip(path, "SnowOut", p, dir, 3f, IntroHW, false); p += dir * 3f;
+        p += rise;
+        Strip(path, "FinalTop", p, dir, FinalTopLen, FinalHW, false, true);
+        Snowman(deco, "Snowman", p + dir * 2.2f, -dir);
+        var sbm = GameObject.CreatePrimitive(PrimitiveType.Sphere); sbm.name = "SnowballSource"; sbm.transform.SetParent(deco, false);
+        sbm.transform.localPosition = p + dir * 0.9f + Vector3.up * 0.45f; sbm.transform.localScale = Vector3.one * 0.9f; sbm.GetComponent<Renderer>().sharedMaterial = snowA;
+        Object.DestroyImmediate(sbm.GetComponent<Collider>());
+        p += dir * FinalTopLen;
 
         // ゴール（道の向きがまっすぐ前でない時も、ゴールの島は道の向きに置く）
         GoalSet(root, p, dir);
@@ -323,6 +360,145 @@ public static class FuwaCourse2_3Builder
         m = new Mesh { name = name }; AssetDatabase.CreateAsset(m, path); return m;
     }
 
+    // 曲がった細い道：pts（まん中の線、上の面の高さ）にそった板。横の向きは前後の点から（つなぎ目で角がそろう）。ice なら氷、snow なら雪、ほかはシマシマ
+    static void Ribbon(Transform parent, string name, List<Vector3> pts, float hw, bool ice, bool snow = false)
+    {
+        const float T = 0.6f;
+        var g = new GameObject(name).transform; g.SetParent(parent, false);
+        var rights = new Vector3[pts.Count];
+        for (int i = 0; i < pts.Count; i++)
+        {
+            var tg = pts[Mathf.Min(pts.Count - 1, i + 1)] - pts[Mathf.Max(0, i - 1)]; tg.y = 0f;
+            rights[i] = Vector3.Cross(Vector3.up, tg.normalized).normalized;
+        }
+        var top = NewMesh(name); var under = NewMesh(name + "_Under");
+        var tv = new List<Vector3>(); var tA = new List<int>(); var tB = new List<int>();
+        var uv = new List<Vector3>(); var uT = new List<int>();
+        float run = 0f;
+        for (int i = 0; i + 1 < pts.Count; i++)
+        {
+            float segLen = (pts[i + 1] - pts[i]).magnitude;
+            int stripe = Mathf.FloorToInt((run + segLen * 0.5f) / StripeLen); run += segLen;
+            var tris = (!ice && !snow && stripe % 2 == 1) || (snow && stripe % 2 == 1) ? tB : tA;
+            Slab(tv, tris, pts[i], pts[i + 1], rights[i], rights[i + 1], hw, 0f, -T, Vector3.up);
+            Slab(uv, uT, pts[i], pts[i + 1], rights[i], rights[i + 1], hw - 0.1f, -T, -T - 1.5f, Vector3.up);
+        }
+        top.SetVertices(tv);
+        if (ice || tB.Count == 0) { top.subMeshCount = 1; top.SetTriangles(tA.Concat(tB).ToList(), 0); }
+        else { top.subMeshCount = 2; top.SetTriangles(tA, 0); top.SetTriangles(tB, 1); }
+        top.RecalculateNormals(); top.RecalculateBounds();
+        under.SetVertices(uv); under.SetTriangles(uT, 0); under.RecalculateNormals(); under.RecalculateBounds();
+        var vis = new GameObject("S"); vis.transform.SetParent(g, false);
+        vis.AddComponent<MeshFilter>().sharedMesh = top;
+        var ma = snow ? snowA : pathA; var mb = snow ? snowB : pathB;
+        vis.AddComponent<MeshRenderer>().sharedMaterials = ice ? new[] { iceFlat } : (top.subMeshCount == 2 ? new[] { ma, mb } : new[] { ma });
+        var un = new GameObject("Under"); un.transform.SetParent(g, false);
+        un.AddComponent<MeshFilter>().sharedMesh = under; un.AddComponent<MeshRenderer>().sharedMaterial = rockMat;
+        var col = new GameObject("Col"); col.transform.SetParent(g, false); col.layer = pathLayer;
+        var mc = col.AddComponent<MeshCollider>(); mc.sharedMesh = top;
+        if (ice) iceCols.Add(mc);
+    }
+
+    // 割れた氷の床：a（手前のはしのまん中）から +Z へ len、幅 hw×2。1m のます目で holes の所に穴（下は水）。
+    // 1つのメッシュ：のこったます目の上・下の面と、穴・外のふちにだけ側面（となり合うます目の間には面を作らない＝重なりなし）
+    static void CrackedFloor(Transform parent, string name, Vector3 a, float len, float hw, (int ix, int iz, int w, int h)[] holes)
+    {
+        int nx = Mathf.RoundToInt(hw * 2f), nz = Mathf.RoundToInt(len);
+        var solid = new bool[nx, nz];
+        for (int x = 0; x < nx; x++) for (int z = 0; z < nz; z++) solid[x, z] = true;
+        foreach (var h in holes) for (int x = h.ix; x < h.ix + h.w; x++) for (int z = h.iz; z < h.iz + h.h; z++) if (x >= 0 && x < nx && z >= 0 && z < nz) solid[x, z] = false;
+        System.Func<int, int, bool> S = (x, z) => x >= 0 && x < nx && z >= 0 && z < nz && solid[x, z];
+        float cw = hw * 2f / nx, cl = len / nz, T = CrackT;
+        var v = new List<Vector3>(); var t = new List<int>();
+        for (int x = 0; x < nx; x++) for (int z = 0; z < nz; z++)
+        {
+            if (!solid[x, z]) continue;
+            float x0 = -hw + x * cw, x1 = x0 + cw, z0 = z * cl, z1 = z0 + cl;
+            Quad(v, t, new Vector3(x0, 0, z0), new Vector3(x1, 0, z0), new Vector3(x1, 0, z1), new Vector3(x0, 0, z1), Vector3.up);
+            Quad(v, t, new Vector3(x0, -T, z0), new Vector3(x0, -T, z1), new Vector3(x1, -T, z1), new Vector3(x1, -T, z0), Vector3.down);
+            if (!S(x - 1, z)) Quad(v, t, new Vector3(x0, 0, z0), new Vector3(x0, 0, z1), new Vector3(x0, -T, z1), new Vector3(x0, -T, z0), Vector3.left);
+            if (!S(x + 1, z)) Quad(v, t, new Vector3(x1, 0, z0), new Vector3(x1, -T, z0), new Vector3(x1, -T, z1), new Vector3(x1, 0, z1), Vector3.right);
+            if (!S(x, z - 1)) Quad(v, t, new Vector3(x0, 0, z0), new Vector3(x0, -T, z0), new Vector3(x1, -T, z0), new Vector3(x1, 0, z0), Vector3.back);
+            if (!S(x, z + 1)) Quad(v, t, new Vector3(x0, 0, z1), new Vector3(x1, 0, z1), new Vector3(x1, -T, z1), new Vector3(x0, -T, z1), Vector3.forward);
+        }
+        var m = NewMesh(name);
+        m.indexFormat = v.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+        m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = a;
+        g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = iceFlat;
+        g.layer = pathLayer;
+        var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = m;
+        iceCols.Add(mc);
+    }
+
+    // 水：見た目の面（上向き）＋ふわふわのアウト（水面）＋人のアウト（水の下）
+    static void Water(Transform parent, string name, Vector3 center, float w, float l)
+    {
+        var q = GameObject.CreatePrimitive(PrimitiveType.Quad); q.name = name; q.transform.SetParent(parent, false);
+        q.transform.localPosition = center; q.transform.localRotation = Quaternion.Euler(90f, 0, 0); q.transform.localScale = new Vector3(w, l, 1f);
+        Object.DestroyImmediate(q.GetComponent<Collider>());
+        var wm = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_Water_Still.mat");
+        q.GetComponent<Renderer>().sharedMaterial = wm ? wm : crystalMat;
+        Hazard(parent, name + "_BallOut", center, new Vector3(w, 0.3f, l), false);
+        Hazard(parent, name + "_PlayerOut", center + Vector3.down * 0.9f, new Vector3(w, 0.6f, l), true);
+    }
+
+    // 流氷：少しでこぼこした多角形の板（上の面 c.y、厚み 0.8）。type 0＝上に雪（滑らない）、1＝氷（滑る）、2＝線で半分に分けて片方が氷・片方が雪
+    static void Floe(Transform parent, string name, Vector3 c, float r, int type, int seed)
+    {
+        var rnd = new System.Random(seed);
+        System.Func<float, float, float> R = (lo, hi) => lo + (float)rnd.NextDouble() * (hi - lo);
+        const int N = 8; const float T = 0.8f;
+        var poly = new List<Vector2>();
+        float a0 = R(0f, 360f);
+        for (int i = 0; i < N; i++) { float ang = (a0 + 360f * i / N + R(-10f, 10f)) * Mathf.Deg2Rad; float rr = r * R(0.86f, 1.06f); poly.Add(new Vector2(Mathf.Cos(ang) * rr, Mathf.Sin(ang) * rr)); }
+        var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = c;
+        if (type == 2)
+        {
+            float cut = R(0f, 180f) * Mathf.Deg2Rad; var n = new Vector2(Mathf.Cos(cut), Mathf.Sin(cut));
+            FloePiece(g, name + "_Ice", Clip(poly, n), T, true);
+            FloePiece(g, name + "_Snow", Clip(poly, -n), T, false);
+        }
+        else FloePiece(g, name + (type == 1 ? "_Ice" : "_Snow"), poly, T, type == 1);
+    }
+    // 凸の多角形を n・p ≥ 0 の側だけ残して切る
+    static List<Vector2> Clip(List<Vector2> poly, Vector2 n)
+    {
+        var o = new List<Vector2>();
+        for (int i = 0; i < poly.Count; i++)
+        {
+            var A = poly[i]; var B = poly[(i + 1) % poly.Count];
+            float da = Vector2.Dot(A, n), db = Vector2.Dot(B, n);
+            if (da >= 0f) o.Add(A);
+            if ((da >= 0f) != (db >= 0f)) o.Add(A + (B - A) * (da / (da - db)));
+        }
+        return o;
+    }
+    static void FloePiece(Transform g, string name, List<Vector2> poly, float T, bool ice)
+    {
+        var v = new List<Vector3>(); var top = new List<int>(); var side = new List<int>();
+        Vector2 cen = Vector2.zero; foreach (var q in poly) cen += q; cen /= poly.Count;
+        for (int i = 0; i < poly.Count; i++)
+        {
+            var A = poly[i]; var B = poly[(i + 1) % poly.Count];
+            Vector3 a = new Vector3(A.x, 0, A.y), b = new Vector3(B.x, 0, B.y), cc = new Vector3(cen.x, 0, cen.y);
+            int k = v.Count; v.Add(cc); v.Add(a); v.Add(b);   // 上（扇）
+            if (Vector3.Cross(a - cc, b - cc).y >= 0) top.AddRange(new[] { k, k + 1, k + 2 }); else top.AddRange(new[] { k, k + 2, k + 1 });
+            var dn = Vector3.down * T;
+            k = v.Count; v.Add(cc + dn); v.Add(a + dn); v.Add(b + dn);   // 下
+            if (Vector3.Cross(a - cc, b - cc).y < 0) side.AddRange(new[] { k, k + 1, k + 2 }); else side.AddRange(new[] { k, k + 2, k + 1 });
+            var outw = ((a + b) * 0.5f - cc).normalized;
+            Quad(v, side, a, b, b + dn, a + dn, outw);   // 側面
+        }
+        var m = NewMesh(name);
+        m.SetVertices(v); m.subMeshCount = 2; m.SetTriangles(top, 0); m.SetTriangles(side, 1); m.RecalculateNormals(); m.RecalculateBounds();
+        var p = new GameObject(name); p.transform.SetParent(g, false); p.layer = pathLayer;
+        p.AddComponent<MeshFilter>().sharedMesh = m;
+        p.AddComponent<MeshRenderer>().sharedMaterials = new[] { ice ? iceFlat : snowA, iceFlat };
+        var mc = p.AddComponent<MeshCollider>(); mc.sharedMesh = m; mc.convex = true;
+        if (ice) iceCols.Add(mc);
+    }
+
     // ---- 置き物 ----
     // 氷の岩（よける障害物）：角を落とした箱を少し傾けて。当たりあり（ふわふわはアウトにしない）
     static void IceRock(Transform parent, string name, Vector3 at, float size, float yaw)
@@ -334,7 +510,7 @@ public static class FuwaCourse2_3Builder
         g.GetComponent<Renderer>().sharedMaterial = iceRockMat;
     }
     // 枯れ木：太い幹＋道の上へ張り出す枝2本。枝の先（つららの下がる所）を返す
-    static Vector3[] DeadTree(Transform parent, string name, Vector3 basePos, Vector3 toRoad, Vector3 along, int k)
+    static Vector3[] DeadTree(Transform parent, string name, Vector3 basePos, Vector3 toRoad, Vector3 along, int k, float off)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = basePos;
         float h = 7.5f + (k % 3) * 0.6f;
@@ -342,7 +518,7 @@ public static class FuwaCourse2_3Builder
         trunk.transform.localPosition = Vector3.up * (h * 0.5f - 1f); trunk.transform.localScale = new Vector3(0.9f, h * 0.5f + 0.5f, 0.9f);
         trunk.GetComponent<Renderer>().sharedMaterial = treeMat;
         var tips = new List<Vector3>();
-        var branches = new[] { (y: h - 2.6f, reach: TreeHW + 2.2f - 0.6f, fwd: -0.8f, rise: 0.9f), (y: h - 1.2f, reach: TreeHW + 2.2f + 0.6f, fwd: 0.9f, rise: 0.7f) };
+        var branches = new[] { (y: h - 2.6f, reach: off - 0.6f, fwd: -0.8f, rise: 0.9f), (y: h - 1.2f, reach: off + 0.6f, fwd: 0.9f, rise: 0.7f) };
         foreach (var b in branches)
         {
             var from = Vector3.up * b.y;
