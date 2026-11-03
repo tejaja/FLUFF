@@ -77,6 +77,15 @@ public static class FuwaCourse2_3Builder
 
         pathA = PathMat("Course2_3_PathA", PathColA); pathB = PathMat("Course2_3_PathB", PathColB);   // ロビーの道もこの色（FuwaStage2LobbyCourses）
         iceFlat = PathMat("Course2_3_Ice", IceCol);
+        // 2026-11-03 てじゃ「テストコースみたいな白い芝みたいなのにしといて、動きがわかりづらい」→ 氷のテスト場の床（IceTest_IceC）の地面の模様をうつす（色は 2–3 の氷のまま）
+        var testIce = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/IceTest_IceC.mat");
+        if (testIce)
+        {
+            iceFlat.SetTexture("_GroundTex", testIce.GetTexture("_GroundTex"));
+            foreach (var pn in new[] { "_GroundPatch", "_GroundPatchScale", "_GroundMidScale", "_GroundSteps", "_GroundFine", "_GroundFineScale", "_GroundFineFade", "_GroundFineCrisp" }) iceFlat.SetFloat(pn, testIce.GetFloat(pn));
+            iceFlat.SetColor("_GroundTintA", testIce.GetColor("_GroundTintA")); iceFlat.SetColor("_GroundTintB", testIce.GetColor("_GroundTintB"));
+            EditorUtility.SetDirty(iceFlat);
+        }
         snowA = PathMat("Course2_3_SnowA", SnowColA); snowB = PathMat("Course2_3_SnowB", SnowColB);
         rockMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Rock", RockCol);
         crystalMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Crystal", CrystalCol);
@@ -475,9 +484,14 @@ public static class FuwaCourse2_3Builder
             var at0 = p;
             Strip(path, "LakeIce", at0, dir, PlainD, PlainW * 0.5f, true);
             // 坂のテスト（2026-11-03 てじゃ「角度の強さに応じてずり落ちる」「キツすぎると登れない」）：10・20・30・40 度の氷の山（高さ 2.5m）
+            //  てじゃ「きつい坂、一番緩い坂と先端あわせといて、めっちゃ高くなっていいから」→ 上り坂の長さ（横）を 10 度の山にそろえて、きついほど高く（40 度で約 12m）
             float[] angs = { 10f, 20f, 30f, 40f };
+            float hillRun = 2.5f / Mathf.Tan(10f * Mathf.Deg2Rad), hillTop = 3f, hillStartZ = 12f;
             for (int k = 0; k < angs.Length; k++)
-                IceHill(path, "SlopeTest" + (int)angs[k], at0 + new Vector3(-21f + k * 14f, 0, 30f), 6f, 2.5f, angs[k], 3f);
+            {
+                float h = hillRun * Mathf.Tan(angs[k] * Mathf.Deg2Rad);
+                IceHill(path, "SlopeTest" + (int)angs[k], at0 + new Vector3(-21f + k * 14f, 0, hillStartZ + hillRun + hillTop * 0.5f), 6f, h, angs[k], hillTop);
+            }
             p = at0 + dir * PlainD;
             Flare(path, "LakeOut", ref p, dir, 6f, 5f, IntroHW);
             Strip(path, "LakeExit", p, dir, 3f, IntroHW, false); p += dir * 3f;
