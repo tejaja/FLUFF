@@ -474,6 +474,10 @@ public static class FuwaCourse2_3Builder
         {
             var at0 = p;
             Strip(path, "LakeIce", at0, dir, PlainD, PlainW * 0.5f, true);
+            // 坂のテスト（2026-11-03 てじゃ「角度の強さに応じてずり落ちる」「キツすぎると登れない」）：10・20・30・40 度の氷の山（高さ 2.5m）
+            float[] angs = { 10f, 20f, 30f, 40f };
+            for (int k = 0; k < angs.Length; k++)
+                IceHill(path, "SlopeTest" + (int)angs[k], at0 + new Vector3(-21f + k * 14f, 0, 30f), 6f, 2.5f, angs[k], 3f);
             p = at0 + dir * PlainD;
             Flare(path, "LakeOut", ref p, dir, 6f, 5f, IntroHW);
             Strip(path, "LakeExit", p, dir, 3f, IntroHW, false); p += dir * 3f;
@@ -503,6 +507,26 @@ public static class FuwaCourse2_3Builder
         p = at + new Vector3(ex, 0, nz); dir = Vector3.forward;
         Flare(path, "LakeOut", ref p, dir, 6f, LaneW * 0.5f, IntroHW);
         Strip(path, "LakeExit", p, dir, 3f, IntroHW, false); p += dir * 3f;
+    }
+    // 氷の山（台形の柱）：c（まん中、地面の高さ）を中心に +Z へ 上り坂 → 平ら top → 下り坂。幅 w、高さ h、角度 ang。下の面は作らない（床の中）
+    static void IceHill(Transform parent, string name, Vector3 c, float w, float h, float ang, float top)
+    {
+        float run = h / Mathf.Tan(ang * Mathf.Deg2Rad), L = run * 2f + top, hw = w * 0.5f;
+        float z0 = -L * 0.5f, z1 = z0 + run, z2 = z1 + top, z3 = z2 + run;
+        var v = new List<Vector3>(); var t = new List<int>();
+        System.Func<float, float, float, Vector3> P = (x, y, z) => new Vector3(x, y, z);
+        Quad(v, t, P(-hw, 0, z0), P(hw, 0, z0), P(hw, h, z1), P(-hw, h, z1), new Vector3(0, 1, -Mathf.Tan(ang * Mathf.Deg2Rad)));   // 上り
+        Quad(v, t, P(-hw, h, z1), P(hw, h, z1), P(hw, h, z2), P(-hw, h, z2), Vector3.up);                                           // てっぺん
+        Quad(v, t, P(-hw, h, z2), P(hw, h, z2), P(hw, 0, z3), P(-hw, 0, z3), new Vector3(0, 1, Mathf.Tan(ang * Mathf.Deg2Rad)));    // 下り
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            float x = sx * hw;
+            Quad(v, t, P(x, 0, z0), P(x, h, z1), P(x, h, z2), P(x, 0, z3), new Vector3(sx, 0, 0));
+        }
+        var m = NewMesh(name); m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = c; g.layer = pathLayer;
+        g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = iceFlat;
+        var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = m; iceCols.Add(mc);
     }
     // じょじょに幅が変わる道（シマシマ）：半分の幅 w0 → w1 を smoothstep で。左右の半分をまん中で継ぎ目なしにくっつける。p は先へ進む
     static void Flare(Transform parent, string name, ref Vector3 p, Vector3 dir, float len, float w0, float w1)

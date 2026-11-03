@@ -19,8 +19,12 @@ public class FuwaIceSkate : UdonSharpBehaviour
     [Tooltip("滑っている時に止まる壁のレイヤー")]
     public LayerMask wallMask = 1 | (1 << 11);
     public float accel = 3f, friction = 1f, maxSpeed = 4f, skateSpeed = 2f, bodyRadius = 0.25f;
-    [Tooltip("坂で下る向きに流される強さ（重力×sin(傾き)×これ）")]
-    public float slopeSlide = 0.5f;
+    [Tooltip("坂で下る向きに流される強さ（重力×sin(傾き)×これ）。accel と比べて、登れる限界の角度が決まる（asin(accel/(9.81×これ))、0.6 なら約31度）")]
+    public float slopeSlide = 0.6f;
+    [Tooltip("坂で流されて出る速さの上限")]
+    public float maxSlideSpeed = 8f;
+    [Tooltip("壁・障害物にぶつかった時の跳ね返り（壁に向かう速さの何倍で戻るか）と、跳ねる最低の速さ")]
+    public float bounce = 0.45f, bounceMin = 1.0f;
 
     [Tooltip("氷から跳んでふつうの床に着地した時の止まり方（毎秒これだけ減る）。空中では切り替えない")]
     public float landBrake = 14f;
@@ -107,29 +111,95 @@ public class FuwaIceSkate : UdonSharpBehaviour
         Vector3 input = Vector3.ClampMagnitude(q * Vector3.forward * _moveV + q * Vector3.right * _moveH, 1f);
         if (onFloor && !_braking)
         {
+            // 坂の下る向き（横の向きだけ、長さ 1）と sin(傾き)
+            // 2026-11-03 てじゃ「角度の強さに応じてずり落ちてもいい」「キツすぎると登れない」→ 押す力は sin(傾き) そのまま（前は sin×cos で 45 度でも弱かった）
+            Vector3 dn = Vector3.ProjectOnPlane(Vector3.down, n);
+            float sinA = dn.magnitude; dn.y = 0f;
+            Vector3 dh = dn.sqrMagnitude > 0.000001f ? dn.normalized : Vector3.zero;
+            if (sinA < 0.05f) dh = Vector3.zero;   // 3 度より平らなら坂あつかいしない
             if (input.sqrMagnitude > 0.01f) _v = Vector3.MoveTowards(_v, input * maxSpeed, accel * dt);
-            else _v = Vector3.MoveTowards(_v, Vector3.zero, friction * dt);
-            // 坂：下る向きへ流される
-            Vector3 down = Vector3.ProjectOnPlane(Vector3.down, n); down.y = 0f;
-            _v += down * (9.81f * slopeSlide * dt);
+            else if (dh == Vector3.zero) _v = Vector3.MoveTowards(_v, Vector3.zero, friction * dt);
+            else
+            {
+                // 坂で手を離している：下る向きの速さにはブレーキをかけない（ゆるい坂でもちゃんと流れる）。横と登る向きだけ減らす
+                float along = Vector3.Dot(_v, dh);
+                Vector3 lat = Vector3.MoveTowards(_v - dh * along, Vector3.zero, friction * dt);
+                if (along < 0f) along = Mathf.Min(0f, along + friction * dt);
+                _v = lat + dh * along;
+            }
+            _v += dh * (9.81f * slopeSlide * sinA * dt);
+            if (_v.sqrMagnitude > maxSlideSpeed * maxSlideSpeed) _v = _v.normalized * maxSlideSpeed;
         }
 
-        if (_v.sqrMagnitude > 0.0004f)
-        {
-            Vector3 dir = new Vector3(_v.x, 0f, _v.z).normalized;
-            RaycastHit w;
-            if (Physics.SphereCast(pos + Vector3.up * 0.6f, bodyRadius, dir, out w, _v.magnitude * dt + 0.05f, wallMask, QueryTriggerInteraction.Ignore))
-            {
-                Vector3 wn = new Vector3(w.normal.x, 0f, w.normal.z);
-                if (wn.sqrMagnitude > 0.0001f) { wn.Normalize(); float into = Vector3.Dot(_v, wn); if (into < 0f) _v -= wn * into; }
-            }
-        }
+        // 2026-11-03 てじゃ「氷の上で壁にずっとぶつかりつづけると、すり抜けたり視点だけ先に行ったり」
+        //  → 前は 0.6m の高さの小さい玉1つで、少しでもめりこむと（玉の始まりが壁の中だと当たらない）そのまま押し込み続けていた。
+        //    体の高さぶんのカプセルで、少し後ろから・ふちに余裕をもって調べる。壁に向かう分は勢いからも1フレームの動きからも消す。
+        //    消したあとの横すべりの動きももう一度調べて、それでも当たるなら動かさない（ワープは当たりを無視するので、自分で止めきる）
+        WallClip(pos);
         // VRChat の歩き（flat）のぶんを引いて、足りない分だけワープで足す
         Vector3 delta = _v - flat;
         if (delta.sqrMagnitude > 0.0004f)
         {
-            float dy = onFloor ? -(n.x * delta.x + n.z * delta.z) / n.y : 0f;   // 坂の面にそって
-            Shift(p, new Vector3(delta.x, dy, delta.z) * dt);
+            Vector3 step = new Vector3(delta.x, 0f, delta.z) * dt;
+            step = ClipStep(pos, step);
+            if (step.sqrMagnitude > 0.0000001f)
+            {
+                float dy = onFloor ? -(n.x * step.x + n.z * step.z) / n.y : 0f;   // 坂の面にそって
+                Shift(p, new Vector3(step.x, dy, step.z));
+            }
         }
+    }
+
+    private const float Skin = 0.08f;
+
+    // 壁の向き（横だけ、長さ 1）。60 度よりゆるい面は坂なので壁あつかいしない → zero
+    private Vector3 WallNormal(RaycastHit w)
+    {
+        if (w.normal.y >= 0.5f) return Vector3.zero;
+        Vector3 wn = new Vector3(w.normal.x, 0f, w.normal.z);
+        return wn.sqrMagnitude > 0.0001f ? wn.normalized : Vector3.zero;
+    }
+
+    private RaycastHit _hit;   // U# は自作メソッドの out が使えないので、当たりはここに
+    private bool CastBody(Vector3 pos, Vector3 dir, float dist)
+    {
+        // 体のカプセル（足もとから 0.35m 〜 1.4m）。少し後ろ（Skin）から始めて、めりこみかけでも当たるように
+        Vector3 back = -dir * Skin;
+        Vector3 a = pos + Vector3.up * (0.35f + bodyRadius) + back, b = pos + Vector3.up * (1.4f - bodyRadius) + back;
+        return Physics.CapsuleCast(a, b, bodyRadius, dir, out _hit, dist + Skin * 2f, wallMask, QueryTriggerInteraction.Ignore);
+    }
+
+    // 勢い _v のうち、すぐ近くの壁に向かう分を消す
+    private void WallClip(Vector3 pos)
+    {
+        Vector3 hv = new Vector3(_v.x, 0f, _v.z);
+        if (hv.sqrMagnitude < 0.0004f) return;
+        if (!CastBody(pos, hv.normalized, 0.1f)) return;
+        Vector3 wn = WallNormal(_hit); if (wn == Vector3.zero) return;
+        // 2026-11-03 てじゃ「壁や障害物にぶつかったときにちょっと跳ね返ってほしい」→ bounceMin より速くぶつかったら、壁に向かう分の bounce 倍で跳ね返す
+        //  （ゆっくり押しつけている時は跳ねない＝壁ぎわでガタガタしない）
+        float into = Vector3.Dot(_v, wn);
+        if (into < -bounceMin) _v -= wn * into * (1f + bounce);
+        else if (into < 0f) _v -= wn * into;
+    }
+
+    // 1フレームの動き step を、壁の手前で止める／壁にそわせる（2回まで）
+    private Vector3 ClipStep(Vector3 pos, Vector3 step)
+    {
+        for (int i = 0; i < 2; i++)
+        {
+            float len = step.magnitude; if (len < 0.0003f) return Vector3.zero;
+            Vector3 d = step / len;
+            if (!CastBody(pos, d, len)) return step;
+            Vector3 wn = WallNormal(_hit); if (wn == Vector3.zero) return step;
+            float free = Mathf.Max(0f, _hit.distance - Skin * 2f);   // 壁の手前まで（ふちに余裕）
+            if (free >= len) return step;
+            Vector3 rest = step - d * free;
+            float into = Vector3.Dot(rest, wn); if (into < 0f) rest -= wn * into;   // 残りは壁にそって
+            float into2 = Vector3.Dot(_v, wn); if (into2 < 0f) _v -= wn * into2;
+            step = d * free + rest;
+            if (i == 1) return d * free;
+        }
+        return step;
     }
 }
