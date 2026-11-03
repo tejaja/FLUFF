@@ -22,10 +22,11 @@ public static class FuwaIceTestBuilder
         var spawn = new GameObject("Spawn").transform; spawn.SetParent(root, true);
         spawn.position = new Vector3(13f, Top + 0.05f, -38f); spawn.rotation = Quaternion.LookRotation(Vector3.back);
 
-        Strip(root, "A", 0, 0, 0f, new Color(0.62f, 0.86f, 1f), wall, pillar);
-        Strip(root, "B", 1, 1, 0f, new Color(0.72f, 0.92f, 1f), wall, pillar);
+        // A・D＝速さを上書き＋自前のジャンプ（平ら・坂）、C・B＝勢いだけワープ（平ら・坂）
+        Strip(root, "A", 0, 3, 0f, new Color(0.62f, 0.86f, 1f), wall, pillar);
+        Strip(root, "B", 1, 2, SlopeDeg, new Color(0.72f, 0.92f, 1f), wall, pillar);
         Strip(root, "C", 2, 2, 0f, new Color(0.82f, 0.96f, 1f), wall, pillar);
-        Strip(root, "D", 3, 1, SlopeDeg, new Color(0.7f, 0.82f, 1f), wall, pillar);
+        Strip(root, "D", 3, 3, SlopeDeg, new Color(0.7f, 0.82f, 1f), wall, pillar);
 
         var lobby = stage.Find("Lobby/LobbySpawn");
         Warp(root, "WarpToIce", new Vector3(13f, -161.3f, -19.2f), "ICE TEST", spawn, ground);
