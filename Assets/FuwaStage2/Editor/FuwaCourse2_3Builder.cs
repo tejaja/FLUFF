@@ -32,7 +32,7 @@ public static class FuwaCourse2_3Builder
     // ⑤ ゴール前（ゆるい上り坂、まん中の雪道と左右の弧の氷の道）
     // 両わきの氷の幅：手前 SideWBottom → 奥 SideWTop（ハの字）、SideBulge＝外のふちのふくらみ（0 でまっすぐ）
     // まん中の雪道の半分の幅も 手前 LaneHWBottom → 奥 LaneHWTop（2026-11-03 てじゃ「道ごと広げて」）
-    public static float FinalHW = 4.5f, LaneHWBottom = 4.0f, LaneHWTop = 1.2f, SideWBottom = 6.0f, SideWTop = 0.6f, SideBulge = 0f, FinalLen = 34f, FinalRise = 3f, FinalTopLen = 6f;
+    public static float FinalHW = 4.5f, LaneHWBottom = 7.0f, LaneHWTop = 1.0f, SideWBottom = 10.0f, SideWTop = 0.5f, SideBulge = 0f, FinalLen = 34f, FinalRise = 3f, FinalTopLen = 6f;
     public static Color TreeCol = new Color(0.38f, 0.33f, 0.31f), IceRockCol = new Color(0.72f, 0.82f, 0.92f);
     // 道の色（2026-10-19 決めた 2–3 の色 #B4C2D2 から）。ふつうの道＝銀のシマシマ、氷＝つるっとした水色、雪（目印の玉）＝白
     public static Color PathColA = new Color(0.84f, 0.88f, 0.93f), PathColB = new Color(0.71f, 0.76f, 0.82f);
