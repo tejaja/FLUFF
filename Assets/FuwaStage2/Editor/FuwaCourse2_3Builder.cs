@@ -16,11 +16,15 @@ public static class FuwaCourse2_3Builder
     public static float StripeLen = 1.2f;
     public static float IntroHW = 2.5f;
     // ② 広い氷のエリア（前半 障害物、後半 割れた氷＋吹雪）
-    public static float WideHW = 5f, ObsLen = 24f, CrackLen = 26f, CrackT = 1.0f, CrackWaterY = -0.7f;
-    // 割れた所（1m のます目。ix は左はし=0〜9、iz は手前=0〜25、w×h ます）。どこを通っても1本は道がつながるように
-    public static (int ix, int iz, int w, int h)[] CrackHoles = {
-        (1, 2, 2, 2), (6, 3, 3, 1), (4, 6, 2, 3), (8, 8, 2, 2), (0, 10, 3, 1), (5, 11, 1, 3), (2, 14, 2, 2), (7, 15, 2, 2),
-        (3, 18, 4, 1), (0, 20, 2, 2), (8, 21, 2, 1), (5, 22, 2, 2) };
+    // 2026-11-03 てじゃ「せっかくツルツル滑る床できたから、もっと広い場所ほしい」→ 幅10m→24m のスケートリンクに。入口・出口はじょじょに広がる/せばまる
+    public static float WideHW = 12f, ObsLen = 32f, CrackLen = 32f, CrackT = 1.0f, CrackWaterY = -0.7f, WideFlareLen = 9f;
+    // 割れた所（1m のます目）は CrackHoleRatio くらいの割合で乱数の穴。手前のはしから奥のはしまで歩ける道が必ず残るように1つずつ確かめて開ける
+    public static float CrackHoleRatio = 0.24f; public static int CrackSeed = 2563;
+    // 前半の障害物（x＝まん中からの横、z＝氷の手前から、k 0=氷の岩 1=結晶の柱）
+    public static (float x, float z, int k)[] Obstacles = {
+        (-5.5f, 4f, 0), (3.0f, 5.5f, 1), (8.5f, 4.5f, 0), (-9.5f, 8f, 1), (-1.0f, 9f, 0), (6.0f, 10.5f, 1),
+        (-6.0f, 13.5f, 0), (2.5f, 14f, 0), (9.5f, 15f, 1), (-2.5f, 18.5f, 1), (-9.0f, 19f, 0), (5.5f, 19.5f, 0),
+        (0.5f, 23f, 1), (-6.5f, 24.5f, 0), (8.0f, 25f, 1), (3.5f, 28.5f, 0), (-3.5f, 29f, 0), (10f, 29.5f, 0) };
     // ③ 大きな池と流氷（x, z＝池の手前からの位置、r＝半径、type 0=滑らない 1=滑る 2=半分ずつ、move＝動く幅（0 は止まっている））
     public static float PondHW = 8f, PondLen = 34.3f, PondWaterY = -0.5f, FloeTop = -0.3f;
     public static (float x, float z, float r, int type, float move)[] Floes = {
@@ -95,11 +99,10 @@ public static class FuwaCourse2_3Builder
 
         // ② 広い氷のエリア 前半：氷の岩と結晶の柱をよける
         Strip(path, "Intro", p, dir, 5f, IntroHW, false); p += dir * 5f;
-        Strip(path, "WideIn", p, dir, 3f, WideHW, false); p += dir * 3f;
+        Flare(path, "WideIn", ref p, dir, WideFlareLen, IntroHW, WideHW);
         var iceAt = p;
         Strip(path, "WideIce", p, dir, ObsLen, WideHW, true); p += dir * ObsLen;
-        var obstacles = new[] { (x: -1.6f, z: 4f, k: 0), (x: 2.6f, z: 7.5f, k: 1), (x: -3.0f, z: 11f, k: 0), (x: 0.8f, z: 13.5f, k: 1),
-                                (x: 3.4f, z: 16.5f, k: 0), (x: -1.8f, z: 19f, k: 0), (x: 1.4f, z: 22f, k: 1) };
+        var obstacles = Obstacles;
         var obsT = new GameObject("Obstacles").transform; obsT.SetParent(root, false);
         for (int k = 0; k < obstacles.Length; k++)
         {
@@ -109,7 +112,7 @@ public static class FuwaCourse2_3Builder
         }
         // ② 後半：割れた氷（1m のます目で穴、下は水）＋吹雪
         var crackAt = p;
-        CrackedFloor(path, "CrackedIce", crackAt, CrackLen, WideHW, CrackHoles);
+        CrackedFloor(path, "CrackedIce", crackAt, CrackLen, WideHW, CrackHoleCells(Mathf.RoundToInt(WideHW * 2f), Mathf.RoundToInt(CrackLen)));
         Water(waterT, "CrackWater", crackAt + new Vector3(0, CrackWaterY, CrackLen * 0.5f), WideHW * 2f, CrackLen);
         var bz = new GameObject("BlizzardZone"); bz.transform.SetParent(root, false);   // 吹雪のかかる所（仕掛けはあとで。ふわふわだけ押す）
         bz.transform.localPosition = crackAt + new Vector3(0, 3f, CrackLen * 0.5f);
@@ -117,6 +120,7 @@ public static class FuwaCourse2_3Builder
         p += dir * CrackLen;
         Strip(path, "WideOut", p, dir, 3f, WideHW, false); p += dir * 3f;
         Checkpoint(root, "Checkpoint1", p - dir * 1.5f, dir, WideHW);
+        Flare(path, "WideNarrow", ref p, dir, WideFlareLen, WideHW, IntroHW);
 
         // ③ 大きな池：流氷をジャンプで渡る（前半は止まっている、後半は動く）
         Strip(path, "PondIn", p, dir, 3f, IntroHW, false); p += dir * 3f;
@@ -163,23 +167,7 @@ public static class FuwaCourse2_3Builder
         //  さらに「道ごと広げて」→ まん中の雪道も手前ほど広いハの字に（雪道は左右の半分ずつ、まん中で継ぎ目なしにくっつける）
         //  てじゃ「手前のつながり部分、いきなりドンと広がるんじゃなくてワンクッション広場を置こう」→ 細い道 → 広場 → 坂の下の台
         //  「じょじょに広くなってくように」→ 広場は道の幅から坂の下の幅まで、なめらかに（smoothstep）広がる。左右の半分をまん中でくっつける
-        {
-            var pr = Vector3.Cross(Vector3.up, dir);
-            int pn = Mathf.Max(4, Mathf.RoundToInt(PlazaLen / StripeLen));
-            float w0 = TreeHW, w1 = LaneHWBottom + SideWBottom;
-            foreach (float side in new[] { -1f, 1f })
-            {
-                var mid = new List<Vector3>(); var edge = new List<Vector3>();
-                for (int i = 0; i <= pn; i++)
-                {
-                    float t = (float)i / pn, s = t * t * (3f - 2f * t);
-                    var c = p + dir * (PlazaLen * t);
-                    mid.Add(c); edge.Add(c + pr * side * Mathf.Lerp(w0, w1, s));
-                }
-                Band(path, side < 0 ? "FinalPlazaL" : "FinalPlazaR", mid, edge, false, false, 0f);
-            }
-            p += dir * PlazaLen;
-        }
+        Flare(path, "FinalPlaza", ref p, dir, PlazaLen, TreeHW, LaneHWBottom + SideWBottom);
         Strip(path, "FinalBase", p, dir, 3f, LaneHWBottom + SideWBottom, false); p += dir * 3f;
         var fAt = p; var fDir = dir; var fR = Vector3.Cross(Vector3.up, fDir);
         var rise = new Vector3(0, FinalRise, 0) + fDir * FinalLen;
@@ -460,6 +448,64 @@ public static class FuwaCourse2_3Builder
         var col = new GameObject("Col"); col.transform.SetParent(g, false); col.layer = pathLayer;
         var mc = col.AddComponent<MeshCollider>(); mc.sharedMesh = top;
         if (ice) iceCols.Add(mc);
+    }
+
+    // じょじょに幅が変わる道（シマシマ）：半分の幅 w0 → w1 を smoothstep で。左右の半分をまん中で継ぎ目なしにくっつける。p は先へ進む
+    static void Flare(Transform parent, string name, ref Vector3 p, Vector3 dir, float len, float w0, float w1)
+    {
+        var pr = Vector3.Cross(Vector3.up, dir);
+        int pn = Mathf.Max(4, Mathf.RoundToInt(len / StripeLen));
+        foreach (float side in new[] { -1f, 1f })
+        {
+            var mid = new List<Vector3>(); var edge = new List<Vector3>();
+            for (int i = 0; i <= pn; i++)
+            {
+                float t = (float)i / pn, s = t * t * (3f - 2f * t);
+                var c = p + dir * (len * t);
+                mid.Add(c); edge.Add(c + pr * side * Mathf.Lerp(w0, w1, s));
+            }
+            Band(parent, name + (side < 0 ? "L" : "R"), mid, edge, false, false, 0f);
+        }
+        p += dir * len;
+    }
+    // 割れた所のます目：乱数で 1〜3×1〜2 の穴を開けていく。開けると手前のはしから奥のはしへ歩けなくなる穴はやめる（4方向のとなりで調べる）
+    static (int ix, int iz, int w, int h)[] CrackHoleCells(int nx, int nz)
+    {
+        var rnd = new System.Random(CrackSeed);
+        var solid = new bool[nx, nz];
+        for (int x = 0; x < nx; x++) for (int z = 0; z < nz; z++) solid[x, z] = true;
+        var list = new List<(int, int, int, int)>();
+        int want = Mathf.RoundToInt(nx * nz * CrackHoleRatio), open = 0;
+        for (int tries = 0; tries < 4000 && open < want; tries++)
+        {
+            int w = rnd.Next(1, 4), h = rnd.Next(1, 3);
+            if (rnd.Next(2) == 0) { var tmp = w; w = h; h = tmp; }
+            int ix = rnd.Next(0, nx - w + 1), iz = rnd.Next(1, nz - h);   // 手前と奥の1列は残す
+            bool hit = false;
+            for (int x = ix - 1; x <= ix + w && !hit; x++) for (int z = iz - 1; z <= iz + h && !hit; z++)
+                if (x >= 0 && x < nx && z >= 0 && z < nz && !solid[x, z]) hit = true;   // ほかの穴とくっつけない（1ますあける）
+            if (hit) continue;
+            for (int x = ix; x < ix + w; x++) for (int z = iz; z < iz + h; z++) solid[x, z] = false;
+            if (!Crossable(solid, nx, nz)) { for (int x = ix; x < ix + w; x++) for (int z = iz; z < iz + h; z++) solid[x, z] = true; continue; }
+            list.Add((ix, iz, w, h)); open += w * h;
+        }
+        return list.ToArray();
+    }
+    static bool Crossable(bool[,] solid, int nx, int nz)
+    {
+        var seen = new bool[nx, nz]; var q = new Queue<(int, int)>();
+        for (int x = 0; x < nx; x++) if (solid[x, 0]) { seen[x, 0] = true; q.Enqueue((x, 0)); }
+        while (q.Count > 0)
+        {
+            var (x, z) = q.Dequeue(); if (z == nz - 1) return true;
+            foreach (var (dx, dz) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                int a = x + dx, b = z + dz;
+                if (a < 0 || a >= nx || b < 0 || b >= nz || seen[a, b] || !solid[a, b]) continue;
+                seen[a, b] = true; q.Enqueue((a, b));
+            }
+        }
+        return false;
     }
 
     // 割れた氷の床：a（手前のはしのまん中）から +Z へ len、幅 hw×2。1m のます目で holes の所に穴（下は水）。
