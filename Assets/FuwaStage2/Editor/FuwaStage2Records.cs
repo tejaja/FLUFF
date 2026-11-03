@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine;
 
 // ステージ2のロビーの「さいそくタイム」の看板（2026-10-28 てじゃ「ステージ２ロビーに、ステージ２用のを置こう」）。
-// ステージ1の看板（FuwaLobby/BestTimes）と記録係（FuwaSystem/Records）を写して、ステージ2の6コースを並べる。
+// ステージ1の看板（FuwaLobby/BestTimes）と記録係（FuwaSystem/Records）を写して、ステージ2のコース（FuwaStage2Builder.CourseJa、2026-11-03 から5コース）を並べる。
 // 置き場所はステージ1と同じ（ステージ1の看板は「つぎのしま」ポータルの上、こっちは「ステージ1へもどる」ポータルの上）。
 // ゴールのタイムと言語の切り替えは、ステージ1の記録係の next からこっちへ回る。まだ無いコースは スタートなし（記録は --）
 public static class FuwaStage2Records

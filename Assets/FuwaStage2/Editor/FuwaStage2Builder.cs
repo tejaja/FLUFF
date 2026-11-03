@@ -8,7 +8,7 @@ using UnityEngine;
 // ・シーンファイルが大きい（79MB、GitHub の100MB制限に近い）ので、中身はプレハブ（Assets/FuwaStage2/Prefabs/FuwaStage2.prefab）にして、
 //   シーンには置くだけ。シーンの物（FuwaBall など）を参照する Udon は、ビルダーがシーンに置いた後でつなぐ
 // ・ロビーはステージ1と同じ形（てじゃ）：FuwaLobby から床・柵・島・6つのワープの台と看板などの見た目を複製する。
-//   いまは見た目だけ（ワープ・Udon・音は外す）。コース番号は「コース 2–1」〜「2–6」（チュートリアルなし）
+//   いまは見た目だけ（ワープ・Udon・音は外す）。コース番号は「コース 2–1」〜「2–5」（チュートリアルなし。6つめの場所はコース以外の物用に空け）
 public static class FuwaStage2Builder
 {
     public const float Drop = 170f;                 // ステージ1のロビーからどれだけ下か(m)
@@ -20,8 +20,33 @@ public static class FuwaStage2Builder
     static readonly string[] KeepBehaviour = { "GunStand_Lobby" };
     // 仮のコース名（テーマ）。決まったら差し替える
     // 2026-10-19 てじゃ「ほのおのやま こおりのほら はぐるまのとう そらのいせき きのこのくに でいこう、かわるかもだけど」
-    public static readonly string[] CourseJa = { "みずのこみち", "ほのおのやま", "こおりのみち", "はぐるまのとう", "そらのいせき", "きのこのくに" };
-    public static readonly string[] CourseEn = { "Water Path", "Flame Mountain", "Icy Road", "Gear Tower", "Sky Ruins", "Mushroom Kingdom" };
+    // 2026-11-03 てじゃ「きのこのくに撤去しとくか、開けといて」「コースじゃないもの置く予定」→ 5コースに。6つめの場所（Slot5）は空けておく
+    public static readonly string[] CourseJa = { "みずのこみち", "ほのおのやま", "こおりのみち", "はぐるまのとう", "そらのいせき" };
+    public static readonly string[] CourseEn = { "Water Path", "Flame Mountain", "Icy Road", "Gear Tower", "Sky Ruins" };
+
+    // コースのない Slot の中身（看板・ワープの台）を消して、空の Slot だけ残す。言語の切り替えの表から外れた看板の行も消す
+    public static int ClearSlot(Transform lobby, int i)
+    {
+        var slot = lobby.Find("Slot" + i); if (!slot) return 0;
+        int n = 0;
+        foreach (Transform c in slot.Cast<Transform>().ToList()) { Object.DestroyImmediate(c.gameObject); n++; }
+        var lang = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(x => x && x.gameObject.scene.IsValid() && x.GetType().Name == "FuwaLanguage");
+        if (lang)
+        {
+            var so = new SerializedObject(lang);
+            var texts = so.FindProperty("texts"); var jaP = so.FindProperty("ja"); var enP = so.FindProperty("en");
+            for (int k = texts.arraySize - 1; k >= 0; k--)
+            {
+                if (texts.GetArrayElementAtIndex(k).objectReferenceValue != null) continue;
+                texts.DeleteArrayElementAtIndex(k);
+                if (jaP != null && k < jaP.arraySize) jaP.DeleteArrayElementAtIndex(k);
+                if (enP != null && k < enP.arraySize) enP.DeleteArrayElementAtIndex(k);
+            }
+            so.ApplyModifiedProperties();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)lang);
+        }
+        return n;
+    }
 
     [MenuItem("FuwaCourse/ステージ2/土台を作り直す")]
     public static void Menu() { Debug.Log(Build()); }
@@ -61,8 +86,10 @@ public static class FuwaStage2Builder
             }
         }
         var langTexts = new List<(TMPro.TMP_Text t, string ja, string en)>();
-        // 看板：コース 2–1〜2–6（Slot0 はステージ1ではチュートリアルの位置。ステージ2はチュートリアルなしなので 2–1 から6つ）
-        for (int i = 0; i < 6; i++)
+        // 看板：コース 2–1〜2–5（Slot0 はステージ1ではチュートリアルの位置。ステージ2はチュートリアルなしなので 2–1 から）
+        // コースのない場所（今は Slot5、コースじゃない物を置く予定）は中身を空にして、場所の目印だけ残す
+        for (int i = CourseJa.Length; i < 6; i++) ClearSlot(lobby, i);
+        for (int i = 0; i < CourseJa.Length; i++)
         {
             var lab = lobby.Find("Slot" + i + "/Label"); if (!lab) continue;
             var t = lab.GetComponent<TMPro.TMP_Text>(); if (!t) continue;

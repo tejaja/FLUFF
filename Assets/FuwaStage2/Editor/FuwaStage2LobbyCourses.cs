@@ -29,7 +29,7 @@ public static class FuwaStage2LobbyCourses
         holder = new GameObject("CoursePaths").transform; holder.SetParent(lobby, false);
         var lang = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(x => x && x.gameObject.scene.IsValid() && x.GetType().Name == "FuwaLanguage");
         var langSo = lang ? new SerializedObject(lang) : null;
-        for (int i = 0; i < 6; i++)
+        for (int i = 0; i < FuwaStage2Builder.CourseJa.Length; i++)
         {
             var slot = lobby.Find("Slot" + i); if (!slot) continue;
             // 看板の文字（コース名）。日本語・英語の切り替えの配列もそろえる
