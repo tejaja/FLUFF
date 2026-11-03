@@ -3,7 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
-// ステージ2 コース2–3「こおりのほら」ブロックアウト（2026-11-03 てじゃの構成案の2回目で作り直し。洞くつ・地底湖・ぐねぐね道の版はなくした）。
+// ステージ2 コース2–3「こおりのみち」ブロックアウト（2026-11-03 てじゃ「ほらちゃうしな」で こおりのほら から名前を変えた）（2026-11-03 てじゃの構成案の2回目で作り直し。洞くつ・地底湖・ぐねぐね道の版はなくした）。
 // 決めごと：氷の道では人が滑る（FuwaIceSkate、氷のテスト場の C の方式）。ふわふわは道と同じで、触れたらアウト。
 // 流れ（ロビーの Slot2 方向に放射状、+Z が進む向き。y=0 がスタートの島の地面）：
 //  ① スタート ② 広い氷のエリア（前半 障害物よけ、後半 割れた氷と吹雪） ③ 大きな池の流氷（前半 止まる、後半 動く）
@@ -49,7 +49,7 @@ public static class FuwaCourse2_3Builder
     static List<FuwaCheckpoint> cps = new List<FuwaCheckpoint>();
     static List<Collider> iceCols = new List<Collider>();
 
-    [MenuItem("FuwaCourse/ステージ2/2–3 こおりのほら（ブロックアウト）を作り直す")]
+    [MenuItem("FuwaCourse/ステージ2/2–3 こおりのみち（ブロックアウト）を作り直す")]
     public static void Menu() { Debug.Log(Build()); }
 
     public static string Build()

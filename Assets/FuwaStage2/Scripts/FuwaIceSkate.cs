@@ -3,7 +3,7 @@ using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon.Common;
 
-// 2–3 こおりのほら：氷の道の上で人が滑る（2026-11-03、氷のテスト場 FuwaIceFloor の mode 4 をコース用にしたもの。てじゃ実機で「Cいいね」）。
+// 2–3 こおりのみち：氷の道の上で人が滑る（2026-11-03、氷のテスト場 FuwaIceFloor の mode 4 をコース用にしたもの。てじゃ実機で「Cいいね」）。
 // ・足の下を下向きのレイで見て、当たったのが ice の当たりなら氷の上。曲がった道・坂でも使える
 // ・動かし方：毎フレームの小さい TeleportTo（部屋ごと平行に動かす）。SetVelocity だと VRChat が浮いている扱いにして落下モーションが出て跳べない
 // ・歩く速さ skateSpeed は残して足を動かし、VRChat の歩きのぶんを引いて足りない分だけワープで足す
