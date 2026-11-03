@@ -31,7 +31,8 @@ public static class FuwaCourse2_3Builder
     public static (float len, int trees, float bend)[] TreeSegs = { (8f, 1, 30f), (9f, 2, -45f), (8f, 1, 35f), (9f, 2, -25f), (6f, 1, 0f) };
     // ⑤ ゴール前（ゆるい上り坂、まん中の雪道と左右の弧の氷の道）
     // 両わきの氷の幅：手前 SideWBottom → 奥 SideWTop（ハの字）、SideBulge＝外のふちのふくらみ（0 でまっすぐ）
-    public static float FinalHW = 4f, LaneHW = 1.6f, SideWBottom = 3.4f, SideWTop = 0.9f, SideBulge = 0f, FinalLen = 34f, FinalRise = 3f, FinalTopLen = 6f;
+    // まん中の雪道の半分の幅も 手前 LaneHWBottom → 奥 LaneHWTop（2026-11-03 てじゃ「道ごと広げて」）
+    public static float FinalHW = 4.5f, LaneHWBottom = 2.6f, LaneHWTop = 1.6f, SideWBottom = 4.0f, SideWTop = 1.0f, SideBulge = 0f, FinalLen = 34f, FinalRise = 3f, FinalTopLen = 6f;
     public static Color TreeCol = new Color(0.38f, 0.33f, 0.31f), IceRockCol = new Color(0.72f, 0.82f, 0.92f);
     // 道の色（2026-10-19 決めた 2–3 の色 #B4C2D2 から）。ふつうの道＝銀のシマシマ、氷＝つるっとした水色、雪（目印の玉）＝白
     public static Color PathColA = new Color(0.84f, 0.88f, 0.93f), PathColB = new Color(0.71f, 0.76f, 0.82f);
@@ -158,20 +159,23 @@ public static class FuwaCourse2_3Builder
 
         // ⑤ ゴール前：ゆるい上り坂。まん中は雪道（雪玉の通り道・滑らない）、左右に弧を描く細い氷の道。てっぺんに雪だるま、その後ろにゴール
         // 2026-11-03 てじゃ「氷と道はつなげてほしい、ハの字みたいに手前ほど広く」→ 雪道の両わきに氷をくっつけて、外のふちは手前ほど外へ（雪玉が大きくなる手前ほどよけやすい）
-        Strip(path, "FinalBase", p, dir, 3f, LaneHW + SideWBottom, false); p += dir * 3f;
+        //  さらに「道ごと広げて」→ まん中の雪道も手前ほど広いハの字に（雪道は左右の半分ずつ、まん中で継ぎ目なしにくっつける）
+        Strip(path, "FinalBase", p, dir, 3f, LaneHWBottom + SideWBottom, false); p += dir * 3f;
         var fAt = p; var fDir = dir; var fR = Vector3.Cross(Vector3.up, fDir);
         var rise = new Vector3(0, FinalRise, 0) + fDir * FinalLen;
-        Strip(path, "SnowLane", p, rise.normalized, rise.magnitude, LaneHW, false, true);
+        int fn = Mathf.Max(4, Mathf.RoundToInt(FinalLen / StripeLen));
         foreach (float side in new[] { -1f, 1f })
         {
-            var inner = new List<Vector3>(); var outer = new List<Vector3>();
-            for (int i = 0; i <= 24; i++)
+            var mid = new List<Vector3>(); var inner = new List<Vector3>(); var outer = new List<Vector3>();
+            for (int i = 0; i <= fn; i++)
             {
-                float t = i / 24f;
+                float t = (float)i / fn;
                 var c = fAt + rise * t;
+                float lw = Mathf.Lerp(LaneHWBottom, LaneHWTop, t);
                 float w = Mathf.Lerp(SideWBottom, SideWTop, t) + SideBulge * Mathf.Sin(Mathf.PI * t);
-                inner.Add(c + fR * side * LaneHW); outer.Add(c + fR * side * (LaneHW + w));
+                mid.Add(c); inner.Add(c + fR * side * lw); outer.Add(c + fR * side * (lw + w));
             }
+            Band(path, side < 0 ? "SnowLaneL" : "SnowLaneR", mid, inner, false, true, 0f);
             Band(path, side < 0 ? "SideIceL" : "SideIceR", inner, outer, true);
         }
         p += rise;
@@ -400,30 +404,35 @@ public static class FuwaCourse2_3Builder
     }
 
     // 内と外のふちの線で決める板（雪道のわきにくっつける氷）。内側の側面・はしのふたは作らない（となりとくっつく）。下に岩
-    static void Band(Transform parent, string name, List<Vector3> inner, List<Vector3> outer, bool ice)
+    // snow なら雪のシマシマ（1こまごとに A/B）。innerInset＝下の岩の内側のふちを内へずらす量（雪道の半分どうしは 0、氷は雪道の岩にそろえて 0.1）
+    static void Band(Transform parent, string name, List<Vector3> inner, List<Vector3> outer, bool ice, bool snow = false, float innerInset = 0.1f)
     {
         const float T = 0.6f;
         var g = new GameObject(name).transform; g.SetParent(parent, false);
         var top = NewMesh(name); var under = NewMesh(name + "_Under");
-        var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector3>(); var ut = new List<int>();
+        var v = new List<Vector3>(); var t = new List<int>(); var t2 = new List<int>(); var uv = new List<Vector3>(); var ut = new List<int>();
         var dn = Vector3.down * T; var dn2 = Vector3.down * (T + 1.5f);
         for (int i = 0; i + 1 < inner.Count; i++)
         {
             Vector3 a = inner[i], b = outer[i], c = outer[i + 1], d = inner[i + 1];
-            var outw = ((b - a) + (c - d)).normalized;
-            Quad(v, t, a, b, c, d, Vector3.up);
-            Quad(v, t, a + dn, d + dn, c + dn, b + dn, Vector3.down);
-            Quad(v, t, b, b + dn, c + dn, c, outw);
-            // 下の岩：内側は雪道の岩とそろえて 0.1 内側から、外は 0.1 内側まで
-            Vector3 ai = a - outw * 0.1f, di = d - outw * 0.1f, bo = b - outw * 0.1f, co = c - outw * 0.1f;
+            var outw = ((b - a) + (c - d)); outw.y = 0f; outw.Normalize();
+            var tt = (!ice && i % 2 == 1) ? t2 : t;
+            Quad(v, tt, a, b, c, d, Vector3.up);
+            Quad(v, tt, a + dn, d + dn, c + dn, b + dn, Vector3.down);
+            Quad(v, tt, b, b + dn, c + dn, c, outw);
+            Vector3 ai = a - outw * innerInset, di = d - outw * innerInset, bo = b - outw * 0.1f, co = c - outw * 0.1f;
             Quad(uv, ut, ai + dn, bo + dn, co + dn, di + dn, Vector3.up);
             Quad(uv, ut, ai + dn2, di + dn2, co + dn2, bo + dn2, Vector3.down);
             Quad(uv, ut, bo + dn, bo + dn2, co + dn2, co + dn, outw);
         }
-        top.SetVertices(v); top.SetTriangles(t, 0); top.RecalculateNormals(); top.RecalculateBounds();
+        top.SetVertices(v);
+        if (t2.Count == 0) { top.subMeshCount = 1; top.SetTriangles(t, 0); } else { top.subMeshCount = 2; top.SetTriangles(t, 0); top.SetTriangles(t2, 1); }
+        top.RecalculateNormals(); top.RecalculateBounds();
         under.SetVertices(uv); under.SetTriangles(ut, 0); under.RecalculateNormals(); under.RecalculateBounds();
         var vis = new GameObject("S"); vis.transform.SetParent(g, false);
-        vis.AddComponent<MeshFilter>().sharedMesh = top; vis.AddComponent<MeshRenderer>().sharedMaterial = ice ? iceFlat : pathA;
+        vis.AddComponent<MeshFilter>().sharedMesh = top;
+        var ma = snow ? snowA : pathA; var mb = snow ? snowB : pathB;
+        vis.AddComponent<MeshRenderer>().sharedMaterials = ice ? new[] { iceFlat } : (t2.Count == 0 ? new[] { ma } : new[] { ma, mb });
         var un = new GameObject("Under"); un.transform.SetParent(g, false);
         un.AddComponent<MeshFilter>().sharedMesh = under; un.AddComponent<MeshRenderer>().sharedMaterial = rockMat;
         var col = new GameObject("Col"); col.transform.SetParent(g, false); col.layer = pathLayer;
