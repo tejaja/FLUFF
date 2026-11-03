@@ -25,6 +25,8 @@ public static class FuwaCourse2_3Builder
     //  水の幅は人が跳んで越えられない幅（滑りの最高 4m/s × 跳んでいる 0.6 秒 ≒ 2.5m）より広く
     public static bool LakeLayout = true;
     public static int LakeW = 50, LaneW = 10, ChanW = 5, LakeLanes = 4, TurnGap = 10;
+    // 2026-11-03 てじゃ「氷のテスト用に、そのコース全面クソデカ氷にしといて」→ 水の区切りなしの1枚の氷（PlainW×PlainD）。デザインが決まったら false に
+    public static bool LakePlain = true; public static int PlainW = 60, PlainD = 70;
     // 前半の障害物（x＝まん中からの横、z＝氷の手前から、k 0=氷の岩 1=結晶の柱）
     public static (float x, float z, int k)[] Obstacles = {
         (-5.5f, 4f, 0), (3.0f, 5.5f, 1), (8.5f, 4.5f, 0), (-9.5f, 8f, 1), (-1.0f, 9f, 0), (6.0f, 10.5f, 1),
@@ -468,6 +470,15 @@ public static class FuwaCourse2_3Builder
     //  床は1枚の氷（割れた氷と同じ作り方、水の所が穴）、下に湖ぜんぶの水。出口は最後のレーンの曲がり角の側の奥のふち
     static void Lake(Transform root, Transform path, Transform waterT, ref Vector3 p, ref Vector3 dir)
     {
+        if (LakePlain)
+        {
+            var at0 = p;
+            Strip(path, "LakeIce", at0, dir, PlainD, PlainW * 0.5f, true);
+            p = at0 + dir * PlainD;
+            Flare(path, "LakeOut", ref p, dir, 6f, 5f, IntroHW);
+            Strip(path, "LakeExit", p, dir, 3f, IntroHW, false); p += dir * 3f;
+            return;
+        }
         int nx = LakeW, nz = LakeLanes * LaneW + (LakeLanes - 1) * ChanW;
         var holes = new List<(int, int, int, int)>();
         for (int k = 0; k < LakeLanes - 1; k++)
