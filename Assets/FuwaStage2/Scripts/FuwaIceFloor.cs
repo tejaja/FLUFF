@@ -9,6 +9,7 @@ using VRC.Udon.Common;
 //   mode 1：毎フレーム SetVelocity＋氷の上では歩く速さ 0（VRChat の歩きと取り合わないように）
 //   mode 2：ふつうに歩かせて、手を離した後の勢いだけ TeleportTo で少しずつ動かす。歩いている間の勢いは実際の動きに合わせる（前の滑る向きを残さない）
 //   mode 3：mode 1 と同じ動かし方で、接地は床との距離で自分で見て、ジャンプも自分で出す（SetVelocity 中は VRChat が浮いている扱いにして跳べないので）
+//   mode 4：mode 3 と同じ滑り方を毎フレームの小さい TeleportTo で（SetVelocity を使わないので接地のまま＝落下モーションなし、ジャンプも VRChat のまま）。壁は SphereCast で自分で止める
 // 比べやすいように VRChat の output_log に [FuwaIce] で 0.5 秒ごとの値を出す
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaIceFloor : UdonSharpBehaviour
@@ -19,6 +20,11 @@ public class FuwaIceFloor : UdonSharpBehaviour
     [Tooltip("床の面からこの高さまでに足があれば氷の上")]
     public float heightAbove = 1.5f;
     public float accel = 3f, friction = 1f, maxSpeed = 4f;
+    [Tooltip("mode 3：床にいる間に下へ押す速さ。強いと接地のままになるかも")]
+    public float stick = 0.2f;
+    [Tooltip("mode 4：止まる壁のレイヤー")]
+    public LayerMask wallMask = 1 | (1 << 11);
+    public float bodyRadius = 0.25f;
 
     [Header("元の値（VRChat の既定値）")]
     public float baseWalk = 2f, baseRun = 4f, baseStrafe = 2f;
@@ -64,7 +70,7 @@ public class FuwaIceFloor : UdonSharpBehaviour
     private void Restore(VRCPlayerApi p)
     {
         _in = false; _air = false;
-        if ((mode != 1 && mode != 3) || p == null) return;
+        if ((mode != 1 && mode != 3 && mode != 4) || p == null) return;
         p.SetWalkSpeed(baseWalk); p.SetRunSpeed(baseRun); p.SetStrafeSpeed(baseStrafe);
     }
 
@@ -88,7 +94,7 @@ public class FuwaIceFloor : UdonSharpBehaviour
         if (!_in)
         {
             _in = true; _v = flat;
-            if (mode == 1 || mode == 3) { p.SetWalkSpeed(0f); p.SetRunSpeed(0f); p.SetStrafeSpeed(0f); }
+            if (mode == 1 || mode == 3 || mode == 4) { p.SetWalkSpeed(0f); p.SetRunSpeed(0f); p.SetStrafeSpeed(0f); }
             Debug.Log("[FuwaIce] " + label + " in mode=" + mode + " vr=" + p.IsUserInVR());
         }
         float above = Above(pos);
@@ -101,23 +107,42 @@ public class FuwaIceFloor : UdonSharpBehaviour
                 Debug.Log("[FuwaIce] " + label + " land");
             }
         }
-        else if (!p.IsPlayerGrounded()) { _v = flat; return; }   // 空中はふつうの動きにまかせて、着地した時の勢いに使う
+        else if (mode != 4 && !p.IsPlayerGrounded()) { _v = flat; return; }   // 空中はふつうの動きにまかせて、着地した時の勢いに使う
 
         float yaw = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation.eulerAngles.y;
         Quaternion q = Quaternion.Euler(0f, yaw, 0f);
         Vector3 input = Vector3.ClampMagnitude(q * Vector3.forward * _moveV + q * Vector3.right * _moveH, 1f);
         float dt = Time.deltaTime;
         bool moving = input.sqrMagnitude > 0.01f;
-        if (mode == 2 && moving) _v = flat;
+        bool onFloor = above < 0.08f;
+        if (mode == 4 && !onFloor) { }   // 空中は勢いをそのまま
+        else if (mode == 2 && moving) _v = flat;
         else if (moving) _v = Vector3.MoveTowards(_v, input * maxSpeed, accel * dt);
         else _v = Vector3.MoveTowards(_v, Vector3.zero, friction * dt);
 
-        if (mode == 2)
+        if (mode == 4)
+        {
+            float speed = _v.magnitude;
+            if (speed > 0.02f)
+            {
+                Vector3 dir = new Vector3(_v.x, onFloor ? PlaneY(_v) : 0f, _v.z);
+                float len = dir.magnitude; dir /= len;
+                RaycastHit hit;
+                if (Physics.SphereCast(pos + Vector3.up * 0.6f, bodyRadius, dir, out hit, len * dt + 0.05f, wallMask, QueryTriggerInteraction.Ignore))
+                {
+                    Vector3 n = new Vector3(hit.normal.x, 0f, hit.normal.z);
+                    if (n.sqrMagnitude > 0.0001f) { n.Normalize(); float into = Vector3.Dot(_v, n); if (into < 0f) _v -= n * into; }
+                    dir = new Vector3(_v.x, onFloor ? PlaneY(_v) : 0f, _v.z); len = dir.magnitude; if (len > 0.0001f) dir /= len;
+                }
+                p.TeleportTo(pos + dir * len * dt, p.GetRotation(), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, true);
+            }
+        }
+        else if (mode == 2)
         {
             if (!moving && _v.sqrMagnitude > 0.0025f)
                 p.TeleportTo(pos + new Vector3(_v.x, PlaneY(_v), _v.z) * dt, p.GetRotation(), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, true);
         }
-        else if (mode == 3) p.SetVelocity(new Vector3(_v.x, above > 0.08f ? v.y : PlaneY(_v) - 0.2f, _v.z));
+        else if (mode == 3) p.SetVelocity(new Vector3(_v.x, above > 0.08f ? v.y : PlaneY(_v) - stick, _v.z));
         else p.SetVelocity(new Vector3(_v.x, v.y, _v.z));
 
         if (Time.time >= _nextLog)

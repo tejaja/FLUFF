@@ -22,11 +22,12 @@ public static class FuwaIceTestBuilder
         var spawn = new GameObject("Spawn").transform; spawn.SetParent(root, true);
         spawn.position = new Vector3(13f, Top + 0.05f, -38f); spawn.rotation = Quaternion.LookRotation(Vector3.back);
 
-        // A・D＝速さを上書き＋自前のジャンプ（平ら・坂）、C・B＝勢いだけワープ（平ら・坂）
-        Strip(root, "A", 0, 3, 0f, new Color(0.62f, 0.86f, 1f), wall, pillar);
-        Strip(root, "B", 1, 2, SlopeDeg, new Color(0.72f, 0.92f, 1f), wall, pillar);
-        Strip(root, "C", 2, 2, 0f, new Color(0.82f, 0.96f, 1f), wall, pillar);
-        Strip(root, "D", 3, 3, SlopeDeg, new Color(0.7f, 0.82f, 1f), wall, pillar);
+        // A＝速さを上書き＋強く下へ押す（案2）、C・B＝毎フレームの小さいワープ（案1、平ら・坂）、D＝今までの A（比較用）
+        Strip(root, "A", 0, 3, 0f, new Color(0.62f, 0.86f, 1f), wall, pillar).stick = 3f;
+        Strip(root, "B", 1, 4, SlopeDeg, new Color(0.72f, 0.92f, 1f), wall, pillar);
+        Strip(root, "C", 2, 4, 0f, new Color(0.82f, 0.96f, 1f), wall, pillar);
+        Strip(root, "D", 3, 3, 0f, new Color(0.7f, 0.82f, 1f), wall, pillar);
+        foreach (var f in root.GetComponentsInChildren<FuwaIceFloor>(true)) UdonSharpEditorUtility.CopyProxyToUdon(f);
 
         var lobby = stage.Find("Lobby/LobbySpawn");
         Warp(root, "WarpToIce", new Vector3(13f, -161.3f, -19.2f), "ICE TEST", spawn, ground);
@@ -48,7 +49,7 @@ public static class FuwaIceTestBuilder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(stage.scene);
     }
 
-    static void Strip(Transform root, string label, int index, int mode, float slope, Color col, Material wall, Material pillar)
+    static FuwaIceFloor Strip(Transform root, string label, int index, int mode, float slope, Color col, Material wall, Material pillar)
     {
         float x = 13f + (index - 1.5f) * (Wide + 1f);
         var dir = Quaternion.AngleAxis(slope, Vector3.right) * Vector3.back;   // 奥（-z）へ、slope 度だけ上る
@@ -74,6 +75,7 @@ public static class FuwaIceTestBuilder
             c.GetComponent<Renderer>().sharedMaterial = pillar;
         }
         Text(root, "Label" + label, start + Vector3.up * 3.2f, label, 10f);
+        return ice;
     }
 
     static void Warp(Transform root, string name, Vector3 pos, string label, Transform target, Material mat)
