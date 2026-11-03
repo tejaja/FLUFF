@@ -17,12 +17,13 @@ public static class FuwaCourse2_3Builder
     const float SpokeR = 34.8f, StartBelow = 4f;
     public static float StripeLen = 1.2f;
     public static float IntroHW = 2.5f, NarrowHW = 2.0f, CaveHW = 2.0f, CaveH = 4.5f, SlopeHW = 3f, SlopeLen = 26f, SlopeRise = 6f, LakeW = 24f, LakeLen = 30f;
-    // 道の色（2026-10-19 決めた 2–3 の色 #B4C2D2 から）。氷＝青みの銀、雪＝白
-    public static Color IceColA = new Color(0.80f, 0.86f, 0.92f), IceColB = new Color(0.66f, 0.74f, 0.84f);
+    // 道の色（2026-10-19 決めた 2–3 の色 #B4C2D2 から）。ふつうの道＝銀のシマシマ、氷＝つるっとした水色、雪（目印の玉）＝白
+    public static Color PathColA = new Color(0.84f, 0.88f, 0.93f), PathColB = new Color(0.71f, 0.76f, 0.82f);
+    public static Color IceCol = new Color(0.62f, 0.86f, 0.98f);
     public static Color SnowColA = new Color(0.97f, 0.98f, 1f), SnowColB = new Color(0.88f, 0.91f, 0.95f);
     public static Color RockCol = new Color(0.46f, 0.50f, 0.60f), CrystalCol = new Color(0.62f, 0.84f, 1f), MarkCol = new Color(1f, 0.5f, 0.2f);
 
-    static Material iceA, iceB, snowA, snowB, rockMat, crystalMat, markMat;
+    static Material pathA, pathB, iceFlat, snowA, snowB, rockMat, crystalMat, markMat;
     static int pathLayer = 11;
     static FuwaBall ballProxy;
     static List<FuwaCheckpoint> cps = new List<FuwaCheckpoint>();
@@ -43,7 +44,8 @@ public static class FuwaCourse2_3Builder
         root.rotation = Quaternion.LookRotation(spoke);
         root.position = new Vector3(lc.x, floorY - StartBelow, lc.z) + spoke * SpokeR;
 
-        iceA = PathMat("Course2_3_PathA", IceColA); iceB = PathMat("Course2_3_PathB", IceColB);   // ロビーの道もこの色（FuwaStage2LobbyCourses）
+        pathA = PathMat("Course2_3_PathA", PathColA); pathB = PathMat("Course2_3_PathB", PathColB);   // ロビーの道もこの色（FuwaStage2LobbyCourses）
+        iceFlat = PathMat("Course2_3_Ice", IceCol);
         snowA = PathMat("Course2_3_SnowA", SnowColA); snowB = PathMat("Course2_3_SnowB", SnowColB);
         rockMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Rock", RockCol);
         crystalMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Crystal", CrystalCol);
@@ -56,22 +58,23 @@ public static class FuwaCourse2_3Builder
         float z0 = StartSet(root);
         var path = new GameObject("Path").transform; path.SetParent(root, false);
         var deco = new GameObject("Marks").transform; deco.SetParent(root, false);
+        // 2026-11-03 てじゃ「通常の道は滑らないようにして、氷のとこだけ滑るかんじにしよ、それを織り交ぜるかんじ」→ ふつうの道（シマシマ）と氷（つるっとした水色）を交互に
         var p = new Vector3(0, 0, z0 - 0.5f);
         Strip(path, "Intro", p, Vector3.forward, 6f, IntroHW, false); p += Vector3.forward * 6f;
-        Strip(path, "Ice1", p, Vector3.forward, 20f, IntroHW, true);
-        Crystal(path, "Pillar1a", p + new Vector3(-1.0f, 0, 8f), 0.6f, 2.5f);
-        Crystal(path, "Pillar1b", p + new Vector3(1.2f, 0, 14f), 0.6f, 2.5f);
-        p += Vector3.forward * 20f;
-        // 右へ（踊り場）→ 細い氷の道（柵なし、滑りすぎると落ちる）
-        p = Corner(path, "Corner1", p, Vector3.forward, Vector3.right, IntroHW, true);
-        Strip(path, "Ice2", p, Vector3.right, 16f, NarrowHW, true); p += Vector3.right * 16f;
-        p = Corner(path, "Corner2", p, Vector3.right, Vector3.forward, NarrowHW, true);
+        var ice1At = p + Vector3.forward * 3f;
+        Seq(path, "Road1", ref p, Vector3.forward, IntroHW, (3f, false), (10f, true), (7f, false));
+        Crystal(path, "Pillar1a", ice1At + new Vector3(-1.0f, 0, 3f), 0.6f, 2.5f);
+        Crystal(path, "Pillar1b", ice1At + new Vector3(1.2f, 0, 7f), 0.6f, 2.5f);
+        // 右へ（踊り場）→ 細い道（柵なし、氷で滑りすぎると落ちる）
+        p = Corner(path, "Corner1", p, Vector3.forward, Vector3.right, IntroHW, false);
+        Seq(path, "Road2", ref p, Vector3.right, NarrowHW, (6f, true), (4f, false), (6f, true));
+        p = Corner(path, "Corner2", p, Vector3.right, Vector3.forward, NarrowHW, false);
         Checkpoint(root, "Checkpoint1", p + Vector3.forward * 2f, Vector3.forward, NarrowHW);
 
         // ② つららの天井：ほら穴（両側の岩の壁と天井）。つららは天井から（いまは目印）
         Strip(path, "CaveIn", p, Vector3.forward, 4f, CaveHW, false); p += Vector3.forward * 4f;
         float caveLen = 30f;
-        Strip(path, "Cave", p, Vector3.forward, caveLen, CaveHW, true);
+        { var q = p; Seq(path, "Cave", ref q, Vector3.forward, CaveHW, (6f, false), (8f, true), (4f, false), (8f, true), (4f, false)); }
         var cave = new GameObject("Cave").transform; cave.SetParent(root, false);
         Box(cave, "WallL", p + new Vector3(-CaveHW - 0.5f, CaveH * 0.5f - 0.6f, caveLen * 0.5f), new Vector3(1f, CaveH + 0.6f, caveLen), rockMat, 0);
         Box(cave, "WallR", p + new Vector3(CaveHW + 0.5f, CaveH * 0.5f - 0.6f, caveLen * 0.5f), new Vector3(1f, CaveH + 0.6f, caveLen), rockMat, 0);
@@ -88,9 +91,9 @@ public static class FuwaCourse2_3Builder
 
         // ③ 雪玉の坂（雪、滑らない）。てっぺんから雪玉（いまは目印）
         var slopeDir = new Vector3(0, SlopeRise, SlopeLen).normalized;
-        Strip(path, "SnowSlope", p, slopeDir, new Vector3(0, SlopeRise, SlopeLen).magnitude, SlopeHW, false, true);
+        Strip(path, "SnowSlope", p, slopeDir, new Vector3(0, SlopeRise, SlopeLen).magnitude, SlopeHW, false);
         p += new Vector3(0, SlopeRise, SlopeLen);
-        Strip(path, "SlopeTop", p, Vector3.forward, 6f, SlopeHW, false, true);
+        Strip(path, "SlopeTop", p, Vector3.forward, 6f, SlopeHW, false);
         var ball = GameObject.CreatePrimitive(PrimitiveType.Sphere); ball.name = "SnowballSource"; ball.transform.SetParent(deco, false);
         ball.transform.localPosition = p + new Vector3(0, 1f, 4f); ball.transform.localScale = Vector3.one * 1.6f; ball.GetComponent<Renderer>().sharedMaterial = snowA;
         Object.DestroyImmediate(ball.GetComponent<Collider>());
@@ -98,8 +101,8 @@ public static class FuwaCourse2_3Builder
         p += Vector3.forward * 6f;
 
         // ④ 凍った地底湖：広い氷、結晶の柱をよける
-        Strip(path, "Lake", p, Vector3.forward, LakeLen, LakeW * 0.5f, true);
-        var pillars = new[] { (x: -6f, z: 5f), (x: 2f, z: 7f), (x: 7f, z: 12f), (x: -3f, z: 13f), (x: -8f, z: 19f), (x: 4f, z: 20f), (x: -1f, z: 24f), (x: 8f, z: 26f) };
+        { var q = p; Seq(path, "Lake", ref q, Vector3.forward, LakeW * 0.5f, (12f, true), (4f, false), (14f, true)); }   // まん中に休めるふつうの帯
+        var pillars = new[] { (x: -6f, z: 5f), (x: 2f, z: 7f), (x: 7f, z: 10f), (x: -3f, z: 10.5f), (x: -8f, z: 19f), (x: 4f, z: 21f), (x: -1f, z: 24f), (x: 8f, z: 26f) };
         for (int k = 0; k < pillars.Length; k++) Crystal(path, "LakePillar" + k, p + new Vector3(pillars[k].x, 0, pillars[k].z), 0.9f, 3.5f);
         p += Vector3.forward * LakeLen;
         Strip(path, "LakeOut", p, Vector3.forward, 3f, IntroHW, false); p += Vector3.forward * 3f;
@@ -180,9 +183,10 @@ public static class FuwaCourse2_3Builder
         var col = new GameObject("Col"); col.transform.SetParent(g, false); col.layer = pathLayer;
         var bc = col.AddComponent<BoxCollider>(); bc.center = new Vector3(0, -T * 0.5f, len * 0.5f); bc.size = new Vector3(hw * 2f, T, len);
         if (ice) iceCols.Add(bc);
-        var ma = snow ? snowA : iceA; var mb = snow ? snowB : iceB;
-        if (!ice && !snow) { ma = snowB; mb = iceA; }   // 氷でも雪でもない（ふつうの地面）は白と銀の交互
-        int n = Mathf.Max(1, Mathf.RoundToInt(len / StripeLen));
+        // ふつうの道＝銀のシマシマ、氷＝シマシマなしのつるっとした水色（1枚）
+        var ma = ice ? iceFlat : pathA; var mb = ice ? iceFlat : pathB;
+        if (snow) { ma = snowA; mb = snowB; }
+        int n = ice ? 1 : Mathf.Max(1, Mathf.RoundToInt(len / StripeLen));
         for (int k = 0; k < n; k++)
         {
             float l = len / n;
@@ -191,6 +195,11 @@ public static class FuwaCourse2_3Builder
         }
         var u = Box(g, "Under", new Vector3(0, -T - 0.75f, len * 0.5f), new Vector3(hw * 2f - 0.2f, 1.5f, len - 0.1f), rockMat, 0);
         Object.DestroyImmediate(u.GetComponent<Collider>());
+    }
+    // まっすぐな道を (長さ, 氷か) の順に切れ目なく並べる。p は最後のはしまで進む
+    static void Seq(Transform parent, string name, ref Vector3 p, Vector3 dir, float hw, params (float len, bool ice)[] parts)
+    {
+        for (int k = 0; k < parts.Length; k++) { Strip(parent, name + "_" + k + (parts[k].ice ? "_Ice" : ""), p, dir, parts[k].len, hw, parts[k].ice); p += dir * parts[k].len; }
     }
     // 角の踊り場（道の幅の正方形）。入ってきた向き from のはし p から、出ていく向き to のはしを返す
     static Vector3 Corner(Transform parent, string name, Vector3 p, Vector3 from, Vector3 to, float hw, bool ice)
