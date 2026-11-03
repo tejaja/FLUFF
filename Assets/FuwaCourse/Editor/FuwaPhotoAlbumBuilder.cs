@@ -57,7 +57,8 @@ public static class FuwaPhotoAlbumBuilder
         cam.nearClipPlane = 0.05f;
         // 自分のアバターは頭ありの方（MirrorReflection）を写す。一人称用（PlayerLocal、頭が消えてる）とメニュー類は写さない
         int mask = ~0;
-        foreach (var l in new[] { "PlayerLocal", "UiMenu", "InternalUI", "StereoLeft", "StereoRight", "HardwareObjects" })
+        // UI・NoMonitor：自分だけに出る表示（タイマー・ゲージ、FuwaHideFromPhotoCamera）も写さない（2026-11-03）
+        foreach (var l in new[] { "PlayerLocal", "UiMenu", "InternalUI", "StereoLeft", "StereoRight", "HardwareObjects", "UI", "NoMonitor" })
         {
             int li = LayerMask.NameToLayer(l);
             if (li >= 0) mask &= ~(1 << li);
