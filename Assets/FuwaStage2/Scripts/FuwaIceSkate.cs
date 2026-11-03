@@ -22,10 +22,13 @@ public class FuwaIceSkate : UdonSharpBehaviour
     [Tooltip("坂で下る向きに流される強さ（重力×sin(傾き)×これ）")]
     public float slopeSlide = 0.5f;
 
+    [Tooltip("氷から跳んでふつうの床に着地した時の止まり方（毎秒これだけ減る）。空中では切り替えない")]
+    public float landBrake = 14f;
+
     [Header("元の値（VRChat の既定値）")]
     public float baseWalk = 2f, baseRun = 4f, baseStrafe = 2f;
 
-    private bool _in;
+    private bool _in, _braking;
     private Vector3 _v, _lastPos;
     private float _moveH, _moveV;
 
@@ -41,13 +44,13 @@ public class FuwaIceSkate : UdonSharpBehaviour
 
     private void Enter(VRCPlayerApi p, Vector3 flat)
     {
-        _in = true; _v = flat;
+        _in = true; _braking = false; _v = flat;
         p.SetWalkSpeed(skateSpeed); p.SetRunSpeed(skateSpeed); p.SetStrafeSpeed(skateSpeed);
     }
 
     private void Exit(VRCPlayerApi p)
     {
-        _in = false;
+        _in = false; _braking = false;
         if (p != null) { p.SetWalkSpeed(baseWalk); p.SetRunSpeed(baseRun); p.SetStrafeSpeed(baseStrafe); }
     }
 
@@ -78,19 +81,31 @@ public class FuwaIceSkate : UdonSharpBehaviour
         RaycastHit g;
         bool hitGround = Physics.Raycast(pos + Vector3.up * 0.3f, Vector3.down, out g, 0.45f, groundMask, QueryTriggerInteraction.Ignore);
         bool onFloor = hitGround && g.distance < 0.38f;
+        // 2026-11-03 てじゃ「氷からふつうの床へジャンプした時、空中で切り替わって止まっちゃう」
+        //  → 着地する直前（レイが床に届いた時）に切り替えていた。ふつうの床では、本当に着地してから（IsPlayerGrounded）短くブレーキをかけて止まる
         if (hitGround)
         {
             bool iceHere = IsIce(g.collider);
-            if (iceHere && !_in) Enter(p, flat);
-            else if (!iceHere && _in) { Exit(p); return; }
+            if (iceHere) { if (!_in) Enter(p, flat); else if (_braking && onFloor) _braking = false; }
+            else if (_in && !_braking && onFloor && p.IsPlayerGrounded())
+            {
+                _braking = true;
+                p.SetWalkSpeed(baseWalk); p.SetRunSpeed(baseRun); p.SetStrafeSpeed(baseStrafe);
+            }
         }
         if (!_in) return;   // 空中は、氷から跳んだ・落ちた時だけ勢いをそのまま
+        if (_braking)
+        {
+            // ふつうの床に着地：勢いを短く落としきってから氷を出る。自分の歩き（flat）より遅くなったらおしまい
+            _v = Vector3.MoveTowards(_v, Vector3.zero, landBrake * dt);
+            if (_v.sqrMagnitude <= flat.sqrMagnitude + 0.01f) { Exit(p); return; }
+        }
 
         Vector3 n = onFloor ? g.normal : Vector3.up;
         float yaw = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation.eulerAngles.y;
         Quaternion q = Quaternion.Euler(0f, yaw, 0f);
         Vector3 input = Vector3.ClampMagnitude(q * Vector3.forward * _moveV + q * Vector3.right * _moveH, 1f);
-        if (onFloor)
+        if (onFloor && !_braking)
         {
             if (input.sqrMagnitude > 0.01f) _v = Vector3.MoveTowards(_v, input * maxSpeed, accel * dt);
             else _v = Vector3.MoveTowards(_v, Vector3.zero, friction * dt);
