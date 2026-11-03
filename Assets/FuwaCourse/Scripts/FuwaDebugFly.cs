@@ -5,7 +5,7 @@ using VRC.Udon.Common;
 
 // テスト用の飛行（2026-10-31 てじゃ「飛行アイテムが明日で消える、デバッグ用の飛行ギミックを」。公開前に消す）。ownerNames の人だけ使える。消す時は FuwaSystem/DebugFly を消すだけ。
 // PC：H で オン/オフ。向いている方へ WASD、Space で上、LeftCtrl で下、LeftShift で速く。
-// VR：両手のグリップを 1 秒にぎると オン/オフ。向いている方へスティック、右トリガーで速く。
+// VR：両手のトリガーを 1 秒にぎると オン/オフ。向いている方へスティック、右グリップで速く。
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaDebugFly : UdonSharpBehaviour
 {
@@ -35,7 +35,8 @@ public class FuwaDebugFly : UdonSharpBehaviour
         bool vr = p.IsUserInVR();
         if (vr)
         {
-            bool both = Input.GetAxisRaw("Oculus_CrossPlatform_PrimaryHandTrigger") > 0.7f && Input.GetAxisRaw("Oculus_CrossPlatform_SecondaryHandTrigger") > 0.7f;
+            // 2026-11-03 てじゃ「両トリガー長押しにかえといて」（前は両手のグリップ）
+            bool both = Input.GetAxisRaw("Oculus_CrossPlatform_PrimaryIndexTrigger") > 0.7f && Input.GetAxisRaw("Oculus_CrossPlatform_SecondaryIndexTrigger") > 0.7f;
             _gripTime = both ? _gripTime + Time.deltaTime : 0f;
             if (!both) _gripDone = false;
             if (both && !_gripDone && _gripTime >= gripHold) { _gripDone = true; Toggle(p); }
@@ -46,7 +47,7 @@ public class FuwaDebugFly : UdonSharpBehaviour
         Quaternion head = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation;
         Vector3 dir = head * Vector3.forward * _moveV + head * Vector3.right * _moveH;
         bool fast;
-        if (vr) fast = Input.GetAxisRaw("Oculus_CrossPlatform_SecondaryIndexTrigger") > 0.5f;
+        if (vr) fast = Input.GetAxisRaw("Oculus_CrossPlatform_SecondaryHandTrigger") > 0.5f;   // 起動がトリガーになったので、速くするのは右グリップに
         else
         {
             fast = Input.GetKey(KeyCode.LeftShift);

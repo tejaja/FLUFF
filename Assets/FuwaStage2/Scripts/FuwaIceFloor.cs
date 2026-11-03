@@ -48,6 +48,14 @@ public class FuwaIceFloor : UdonSharpBehaviour
         Debug.Log("[FuwaIce] " + label + " jump");
     }
 
+    // 部屋（プレイエリアの原点）ごと平行に動かす。体の向きは入れ直さない
+    //（2026-11-03 VR で、体の向きで TeleportTo し続けると、ジャンプの着地で向きが変になった）
+    private void Shift(VRCPlayerApi p, Vector3 step)
+    {
+        VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
+        p.TeleportTo(o.position + step, o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
+    }
+
     // 足が床の面からどれだけ上か
     private float Above(Vector3 foot)
     {
@@ -141,12 +149,12 @@ public class FuwaIceFloor : UdonSharpBehaviour
             // VRChat の歩き（flat）のぶんを引いて、足りない分だけワープで足す。足は歩いているのに、全体の動きは _v のまま
             Vector3 delta = _v - flat;
             if (delta.sqrMagnitude > 0.0004f)
-                p.TeleportTo(pos + new Vector3(delta.x, onFloor ? PlaneY(delta) : 0f, delta.z) * dt, p.GetRotation(), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, true);
+                Shift(p, new Vector3(delta.x, onFloor ? PlaneY(delta) : 0f, delta.z) * dt);
         }
         else if (mode == 2)
         {
             if (!moving && _v.sqrMagnitude > 0.0025f)
-                p.TeleportTo(pos + new Vector3(_v.x, PlaneY(_v), _v.z) * dt, p.GetRotation(), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, true);
+                Shift(p, new Vector3(_v.x, PlaneY(_v), _v.z) * dt);
         }
         else if (mode == 3) p.SetVelocity(new Vector3(_v.x, above > 0.08f ? v.y : PlaneY(_v) - stick, _v.z));
         else p.SetVelocity(new Vector3(_v.x, v.y, _v.z));
