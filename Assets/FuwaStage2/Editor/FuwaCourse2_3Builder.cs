@@ -32,6 +32,7 @@ public static class FuwaCourse2_3Builder
     // ⑤ ゴール前（ゆるい上り坂、まん中の雪道と左右の弧の氷の道）
     // 両わきの氷の幅：手前 SideWBottom → 奥 SideWTop（ハの字）、SideBulge＝外のふちのふくらみ（0 でまっすぐ）
     // まん中の雪道の半分の幅も 手前 LaneHWBottom → 奥 LaneHWTop（2026-11-03 てじゃ「道ごと広げて」）
+    public static float PlazaLen = 12f;   // 坂の手前の広場（細い道から坂の下の幅まで、じょじょに広がる）
     public static float FinalHW = 4.5f, LaneHWBottom = 7.0f, LaneHWTop = 1.0f, SideWBottom = 6.0f, SideWTop = 2.0f, SideBulge = 0f, FlareK = 2.2f, FinalLen = 34f, FinalRise = 3f, FinalTopLen = 6f;
     public static Color TreeCol = new Color(0.38f, 0.33f, 0.31f), IceRockCol = new Color(0.72f, 0.82f, 0.92f);
     // 道の色（2026-10-19 決めた 2–3 の色 #B4C2D2 から）。ふつうの道＝銀のシマシマ、氷＝つるっとした水色、雪（目印の玉）＝白
@@ -160,6 +161,25 @@ public static class FuwaCourse2_3Builder
         // ⑤ ゴール前：ゆるい上り坂。まん中は雪道（雪玉の通り道・滑らない）、左右に弧を描く細い氷の道。てっぺんに雪だるま、その後ろにゴール
         // 2026-11-03 てじゃ「氷と道はつなげてほしい、ハの字みたいに手前ほど広く」→ 雪道の両わきに氷をくっつけて、外のふちは手前ほど外へ（雪玉が大きくなる手前ほどよけやすい）
         //  さらに「道ごと広げて」→ まん中の雪道も手前ほど広いハの字に（雪道は左右の半分ずつ、まん中で継ぎ目なしにくっつける）
+        //  てじゃ「手前のつながり部分、いきなりドンと広がるんじゃなくてワンクッション広場を置こう」→ 細い道 → 広場 → 坂の下の台
+        //  「じょじょに広くなってくように」→ 広場は道の幅から坂の下の幅まで、なめらかに（smoothstep）広がる。左右の半分をまん中でくっつける
+        {
+            var pr = Vector3.Cross(Vector3.up, dir);
+            int pn = Mathf.Max(4, Mathf.RoundToInt(PlazaLen / StripeLen));
+            float w0 = TreeHW, w1 = LaneHWBottom + SideWBottom;
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var mid = new List<Vector3>(); var edge = new List<Vector3>();
+                for (int i = 0; i <= pn; i++)
+                {
+                    float t = (float)i / pn, s = t * t * (3f - 2f * t);
+                    var c = p + dir * (PlazaLen * t);
+                    mid.Add(c); edge.Add(c + pr * side * Mathf.Lerp(w0, w1, s));
+                }
+                Band(path, side < 0 ? "FinalPlazaL" : "FinalPlazaR", mid, edge, false, false, 0f);
+            }
+            p += dir * PlazaLen;
+        }
         Strip(path, "FinalBase", p, dir, 3f, LaneHWBottom + SideWBottom, false); p += dir * 3f;
         var fAt = p; var fDir = dir; var fR = Vector3.Cross(Vector3.up, fDir);
         var rise = new Vector3(0, FinalRise, 0) + fDir * FinalLen;
