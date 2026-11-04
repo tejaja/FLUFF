@@ -55,6 +55,29 @@ public static class FuwaCourse2_3Builder
         (new Vector2(-26f, 27.4f), new Vector2(-26f, 33.0f), 3f),     // I1 → 輪っか
         (new Vector2(-24.3f, 58.3f), new Vector2(-7.0f, 67.2f), 3f),  // 輪っか → 帯
         (new Vector2(21.5f, 67.2f), new Vector2(21.5f, 76f), 3f) };   // I4 → ゴールの橋
+    // つなぎの道の曲がり（まん中が a→b の左へ何 m ふくらむか。0 でまっすぐ）。輪っか→帯は外側へぐいっと曲げる（2026-11-04 てじゃ「左上の長い道をもっと外側に角度つけて、ぐいっと全体的に曲げよう」）
+    public static float[] MapLinkBend = { 0f, 7f, 0f };
+    // つなぎの道のまん中の線（曲がりは 2 次ベジェ、1m くらいおき）
+    static List<Vector2> LinkPts(int k)
+    {
+        var l = MapLinks[k]; float bend = k < MapLinkBend.Length ? MapLinkBend[k] : 0f;
+        if (Mathf.Abs(bend) < 0.01f) return new List<Vector2> { l.a, l.b };
+        var d = (l.b - l.a); var nl = new Vector2(-d.y, d.x).normalized; var ctl = (l.a + l.b) * 0.5f + nl * bend * 2f;   // ベジェのまん中はふくらみの 2 倍で引く
+        int n = Mathf.Max(8, Mathf.CeilToInt(d.magnitude * 1.3f)); var pts = new List<Vector2>();
+        for (int i = 0; i <= n; i++) { float t = i / (float)n, u = 1f - t; pts.Add(u * u * l.a + 2f * u * t * ctl + t * t * l.b); }
+        return pts;
+    }
+    // つなぎの道の形（島からくりぬく）：まん中の線の左右に hw。横の向きは前後の点から（Ribbon と同じ）
+    static Vector2[] LinkOutline(int k)
+    {
+        var pts = LinkPts(k); float hw = MapLinks[k].hw; var L = new List<Vector2>(); var R = new List<Vector2>();
+        for (int i = 0; i < pts.Count; i++)
+        {
+            var tg = pts[Mathf.Min(pts.Count - 1, i + 1)] - pts[Mathf.Max(0, i - 1)]; tg.Normalize(); var rt = new Vector2(tg.y, -tg.x);
+            L.Add(pts[i] - rt * hw); R.Add(pts[i] + rt * hw);
+        }
+        R.Reverse(); L.AddRange(R); return L.ToArray();
+    }
     // 流氷（滑る）。最後の1つは左右に動く（しくみはまだ。いまは右のはしで止めてある）：move の2点の間
     public static Vector2[] MapFloes = { new Vector2(28.5f, 28f), new Vector2(33.5f, 33.5f), new Vector2(36f, 40f) };
     public static Vector2 MapMoveA = new Vector2(41f, 48f), MapMoveB = new Vector2(30f, 51f);
@@ -728,16 +751,26 @@ public static class FuwaCourse2_3Builder
         var isl = new GameObject("Islands").transform; isl.SetParent(path, false);
         // つなぎの道の長方形（島からくりぬく）。入口の道も
         var cuts = new List<Vector2[]> { MapRingHole, new[] { new Vector2(-3f, 3f), new Vector2(3f, 3f), new Vector2(3f, 10.5f), new Vector2(-3f, 10.5f) } };
-        foreach (var l in MapLinks) { var dd = (l.b - l.a).normalized; var nn = new Vector2(-dd.y, dd.x) * l.hw; cuts.Add(new[] { l.a - nn, l.a + nn, l.b + nn, l.b - nn }); }
+        for (int k = 0; k < MapLinks.Length; k++) cuts.Add(LinkOutline(k));
         MapIsland(isl, "MapI1", o, MapI1, cuts);
         MapIsland(isl, "MapRing", o, MapRing, cuts);
         MapIsland(isl, "MapBand", o, MapBand, cuts);
         MapIsland(isl, "MapI4", o, MapI4, cuts);
         for (int k = 0; k < MapLinks.Length; k++)
         {
-            var l = MapLinks[k]; var a3 = o + new Vector3(l.a.x, 0, l.a.y); var d3 = new Vector3(l.b.x - l.a.x, 0, l.b.y - l.a.y);
-            Strip(path, "MapLink" + k, a3, d3.normalized, d3.magnitude, l.hw, false);
-            Checkpoint(root, "Checkpoint" + (k + 1), a3 + d3 * 0.5f, d3.normalized, l.hw);
+            var l = MapLinks[k]; var lp = LinkPts(k);
+            if (lp.Count == 2)
+            {
+                var a3 = o + new Vector3(l.a.x, 0, l.a.y); var d3 = new Vector3(l.b.x - l.a.x, 0, l.b.y - l.a.y);
+                Strip(path, "MapLink" + k, a3, d3.normalized, d3.magnitude, l.hw, false);
+                Checkpoint(root, "Checkpoint" + (k + 1), a3 + d3 * 0.5f, d3.normalized, l.hw);
+            }
+            else
+            {
+                Ribbon(path, "MapLink" + k, lp.Select(q => o + new Vector3(q.x, 0, q.y)).ToList(), l.hw, false);
+                int mi = lp.Count / 2; var td = lp[mi + 1] - lp[mi - 1];
+                Checkpoint(root, "Checkpoint" + (k + 1), o + new Vector3(lp[mi].x, 0, lp[mi].y), new Vector3(td.x, 0, td.y).normalized, l.hw);
+            }
         }
         var fl = new GameObject("Floes").transform; fl.SetParent(path, false);
         for (int k = 0; k < MapFloes.Length; k++) Floe(fl, "MapFloe" + k, o + new Vector3(MapFloes[k].x, 0, MapFloes[k].y), MapFloeR, 1, 7100 + k);
@@ -771,7 +804,12 @@ public static class FuwaCourse2_3Builder
         var sp = new List<Vector2>(); var sr = new List<float>();
         foreach (var poly in new[] { MapI1, MapRing, MapBand, MapI4 })
             for (int i = 0; i < poly.Length; i++) { var a = poly[i]; var b = poly[(i + 1) % poly.Length]; int n = Mathf.Max(1, Mathf.CeilToInt((b - a).magnitude)); for (int k = 0; k < n; k++) { sp.Add(Vector2.Lerp(a, b, k / (float)n)); sr.Add(0f); } }
-        foreach (var l in MapLinks) { int n = Mathf.Max(1, Mathf.CeilToInt((l.b - l.a).magnitude)); for (int k = 0; k <= n; k++) { sp.Add(Vector2.Lerp(l.a, l.b, k / (float)n)); sr.Add(l.hw); } }
+        for (int li = 0; li < MapLinks.Length; li++)
+        {
+            var lp = LinkPts(li);
+            for (int i = 0; i + 1 < lp.Count; i++) { int n = Mathf.Max(1, Mathf.CeilToInt((lp[i + 1] - lp[i]).magnitude)); for (int k = 0; k < n; k++) { sp.Add(Vector2.Lerp(lp[i], lp[i + 1], k / (float)n)); sr.Add(MapLinks[li].hw); } }
+            sp.Add(lp[lp.Count - 1]); sr.Add(MapLinks[li].hw);
+        }
         foreach (var f in MapFloes) { sp.Add(f); sr.Add(MapFloeR); }
         sp.Add(MapMoveA); sr.Add(MapFloeR);
         int nWater = sp.Count;
