@@ -252,16 +252,19 @@ public static class FuwaCourse2_2Builder
             for (int c = 0; c < cols.Length; c++)
             {
                 float cx = Mathf.Lerp(x0, x1, cols[c]);
-                var rp = new List<Vector3>();
+                var rp = new List<Vector3>(); Vector3 onLeg0 = Vector3.zero, onLeg1 = Vector3.zero;
                 for (int k = legs.Count - 1; k >= 0; k--)
                 {
-                    if (c == RockPassCol && k == 0) continue;   // 奥側の列はジグザグの最初の道ではねずに上を飛びこえて落ちる（ヒビもなし。2026-11-04 てじゃ）
                     float t = (cx - legs[k].a.x) / (legs[k].b.x - legs[k].a.x);
-                    rp.Add(Vector3.Lerp(legs[k].a, legs[k].b, t) + up * RockR);
-                   
+                    var q = Vector3.Lerp(legs[k].a, legs[k].b, t) + up * RockR;
+                    if (k == 0) onLeg0 = q; if (k == 1) onLeg1 = q;
+                    if (c == RockPassCol && k == 0) continue;   // 奥側の列はジグザグの最初の道ではねずに上を飛びこえて落ちる（ヒビもなし。2026-11-04 てじゃ）
+                    rp.Add(q);
                 }
                 rp.Insert(0, vtop);   // 火山の火口から飛んでくる（岩柱→2026-10-30 てじゃ「コース外にある火山から飛んでくる感じに」）
-                rp.Add(rp[rp.Count - 1] + new Vector3(0, -10f, -4f));
+                //  落ちる先は最初の道の点から。飛びこえる列はさらに RockPassFar 遠くへ（てじゃ「もっと遠くに飛ばそう」）
+                var drop = onLeg0 + new Vector3(0, -10f, -4f); if (c == RockPassCol) drop += Flat(onLeg0 - onLeg1).normalized * RockPassFar;
+                rp.Add(drop);
                 LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length, RockPeriod, RockFirstScale, 1.5f, vfx);
             }
             // 関係ない方へ飛んでって落ちていく岩 ×2（てじゃ「コースにいくのが一個、関係ないとこに飛んでくのが２個」）。周期をずらしてばらばらに見えるように
@@ -2281,6 +2284,7 @@ public static class FuwaCourse2_2Builder
     // period：1周の秒（飛んでる間＋休み）。first：最初（火口から）の1回の長さの倍率、firstUp：その1回の高さ。launch：火口で出す火の粉
     // 火山の岩ぜんぶの時間の倍率（2026-11-04 てじゃ「火山から出てる岩をすこしゆっくりに」1→1.15）。はねる時間・1周・ずらしを同じだけのばすので、岩どうしの間合いはそのまま
     public static float RockSlow = 1.15f;
+    public static float RockPassFar = 5f, RockHopUp = 1.8f;   // RockHopUp：はねる高さ 1.2→1.8（2026-11-04 てじゃ「全体的にバウンド時の高度を上げよう」）
     public static int RockPassCol = 1;   // ジグザグの最初の道（legs[0]）ではねない列。-1 で全部はねる
     static void LavaRock(Transform parent, string name, Vector3[] ps, float phase, float period, float first, float firstUp, ParticleSystem launch)
     {
@@ -2298,7 +2302,7 @@ public static class FuwaCourse2_2Builder
         f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
         f.bounceSound = Sfx(mover, "BounceSfx", "sfx_rock_bounce2", Vector3.zero, 8f, 45f, 1f, false, 12f);
         int hops = ps.Length - 1;
-        f.hopTime = hop; f.hopUp = 1.2f; f.lastHopScale = hops > 1 ? 2f : 1f; f.firstHopScale = first; f.firstUp = firstUp; f.launchFx = launch;
+        f.hopTime = hop; f.hopUp = RockHopUp; f.lastHopScale = hops > 1 ? 2f : 1f; f.firstHopScale = first; f.firstUp = firstUp; f.launchFx = launch;
         float fly = 0f; for (int k = 0; k < hops; k++) fly += hop * (k == 0 ? first : 1f) * (k == hops - 1 ? f.lastHopScale : 1f);
         f.rest = Mathf.Max(0.5f, period - fly); f.phase = phase; f.hitRadius = RockR + 0.05f;
         f.ballKnock = 2.5f; f.ballKnockUp = 1.5f; f.playerKnock = 5f; f.playerKnockUp = 4f;
