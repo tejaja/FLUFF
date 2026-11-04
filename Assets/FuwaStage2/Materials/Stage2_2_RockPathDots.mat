@@ -26,9 +26,12 @@ Material:
     m_Ints: []
     m_Floats:
     - _Dim: 0
+    - _FadeFar: 35
+    - _FadeNear: 12
     - _Head: -100
     - _Spacing: 0
     - _Tail: 4
+    - _Through: 0.5
     m_Colors:
     - _Color: {r: 1, g: 0.62, b: 0.05, a: 1}
     - _LitColor: {r: 1, g: 0.95, b: 0.25, a: 1}

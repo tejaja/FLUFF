@@ -29,6 +29,9 @@ Shader "FuwaCourse/FlameMesh"
         _TimeAdd ("時間を足す（撮影用）", Float) = 0
         _Wave ("上のふちの大きなうねり（オブジェクトの長さ）", Float) = 0
         _WaveScale ("うねりの細かさ（タイル／オブジェクトの長さ）", Float) = 0.09
+        _FireFadeNear ("遠くを薄く：はじまり(m)", Float) = 14
+        _FireFadeFar ("遠くを薄く：いちばん薄い所(m)", Float) = 40
+        _FireFadeMin ("遠くを薄く：いちばん薄い時の濃さ（1 で薄くしない）", Range(0,1)) = 1
     }
     SubShader
     {
@@ -63,6 +66,7 @@ Shader "FuwaCourse/FlameMesh"
                 half3 col : TEXCOORD1;
                 half tear : TEXCOORD2;     // 0 なら穴なし
                 half k : TEXCOORD3;        // 根元 0〜先 1
+                float3 wp : TEXCOORD5;
                 UNITY_FOG_COORDS(4)
                 UNITY_VERTEX_OUTPUT_STEREO
             };
@@ -119,6 +123,7 @@ Shader "FuwaCourse/FlameMesh"
                     o.tear = yellow > 0.5 ? 0 : smoothstep(0.42, 0.95, k) * _Tear;
                 }
                 float3 wp = mul(unity_ObjectToWorld, float4(p, 1)).xyz;
+                o.wp = wp;
                 o.pos = UnityWorldToClipPos(wp);
                 if (yellow > 0.5)
                 {
@@ -155,6 +160,7 @@ Shader "FuwaCourse/FlameMesh"
 
             fixed4 frag (v2f i) : SV_Target
             {
+                FuwaFireFadeClip(i.wp, i.pos);
                 half cover = 1;
                 if (i.tear > 0.001 || _Burn > 0.001)
                 {

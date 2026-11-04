@@ -12,6 +12,9 @@ Shader "FuwaCourse/Fireball"
         _Speed ("上へ流れる速さ", Float) = 0.9
         _Wobble ("輪郭のゆらぎ（球の半径の割合に近い）", Range(0,0.5)) = 0.17
         _Fresnel ("ふちの色の広さ（大きいほど細い）", Range(0.5,6)) = 1.7
+        _FireFadeNear ("遠くを薄く：はじまり(m)", Float) = 14
+        _FireFadeFar ("遠くを薄く：いちばん薄い所(m)", Float) = 40
+        _FireFadeMin ("遠くを薄く：いちばん薄い時の濃さ（1 で薄くしない）", Range(0,1)) = 1
     }
     SubShader
     {
@@ -56,6 +59,7 @@ Shader "FuwaCourse/Fireball"
             fixed4 frag (v2f i) : SV_Target
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                FuwaFireFadeClip(i.wp, i.pos);
                 float t = _Time.y;
                 // 2 方向から取って混ぜる（球のどこでも模様がのびない）
                 float3 an = abs(normalize(i.op)); an = an / (an.x + an.y + an.z);

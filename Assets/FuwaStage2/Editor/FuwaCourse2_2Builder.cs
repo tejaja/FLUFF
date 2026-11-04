@@ -1229,7 +1229,7 @@ public static class FuwaCourse2_2Builder
     // FlameMesh の材質。ノイズは使い回し、形の数字だけ変える
     static Material FlameMeshMat(string name, float noiseScale, float flow, float ampBase, float ampTop, float tear, float sway, float blobRise, float blobSize, float bias)
     {
-        var m = FuwaStage2WaterTest.ToonMat(name, Color.white); m.shader = Shader.Find("FuwaCourse/FlameMesh");
+        var m = FuwaStage2WaterTest.ToonMat(name, Color.white); m.shader = Shader.Find("FuwaCourse/FlameMesh"); FireFadeLook(m);
         m.SetTexture("_Noise", FlameNoise3D()); m.SetFloat("_Speed", 1f); m.SetFloat("_NoiseScale", noiseScale); m.SetFloat("_FlowSpeed", flow); m.SetFloat("_AmpBase", ampBase); m.SetFloat("_AmpTop", ampTop);
         m.SetFloat("_Tear", tear); m.SetFloat("_Sway", sway); m.SetFloat("_BlobRise", blobRise); m.SetFloat("_BlobSize", blobSize); m.SetFloat("_Bias", bias);
         // まわりの淡い色になじませる（2026-11-01 てじゃ「炎だけタッチが違う」→淡い色、先へ赤く、中の色のふちをぼかす）
@@ -2205,11 +2205,14 @@ public static class FuwaCourse2_2Builder
         vis.GetComponent<Renderer>().sharedMaterial = m;
     }
     // 火の玉：のっぺりしたオレンジ→メラメラ（FuwaCourse/Fireball、2026-10-31）。尾は太く長く
+    // 遠くの炎・火の玉を網目で薄く（FuwaFireFar.cginc の FuwaFireFadeClip。2026-11-04 てじゃ「炎重なってるとこ全般」「火球も」）
+    public static float FireFadeNear = 14f, FireFadeFar = 40f, FireFadeMin = 0.3f;
+    static void FireFadeLook(Material m) { m.SetFloat("_FireFadeNear", FireFadeNear); m.SetFloat("_FireFadeFar", FireFadeFar); m.SetFloat("_FireFadeMin", FireFadeMin); }
     public static Material FireballMat()
     {
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_Fireball", new Color(1f, 0.55f, 0.15f));
         var sh = Shader.Find("FuwaCourse/Fireball");
-        if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); EditorUtility.SetDirty(m); }
+        if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); FireFadeLook(m); EditorUtility.SetDirty(m); }
         return m;
     }
     public static void FireballTrail(ParticleSystem trail)

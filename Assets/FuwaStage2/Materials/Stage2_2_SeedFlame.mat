@@ -107,6 +107,9 @@ Material:
     - _EmissionFull: 1.6
     - _EmissionGradient: 0
     - _Facet: 0
+    - _FireFadeFar: 40
+    - _FireFadeMin: 0.3
+    - _FireFadeNear: 14
     - _Flow: 1
     - _FlowAmp: 2
     - _FlowBody: 1.25
@@ -144,6 +147,8 @@ Material:
     - _Rim: 0
     - _RimPower: 3
     - _RimStrength: 0.25
+    - _ShadeBump: 0
+    - _ShadeRound: 0
     - _ShadowStrength: 0.75
     - _SmoothnessTextureChannel: 0
     - _Soft: 0.06
@@ -180,6 +185,7 @@ Material:
     - _Orange: {r: 1, g: 0.6313726, b: 0.3019608, a: 1}
     - _OrangeTop: {r: 0.9490196, g: 0.3764706, b: 0.22745098, a: 1}
     - _RimColor: {r: 1, g: 0.96999997, b: 0.92, a: 1}
+    - _ShadeDeep: {r: 0.85, g: 0.22999996, b: 0.11999995, a: 1}
     - _ShadowTint: {r: 0.54999995, g: 0.47999996, b: 0.75, a: 1}
     - _StrataA: {r: 1.06, g: 0.97999996, b: 0.94, a: 1}
     - _StrataB: {r: 0.93, g: 0.95, b: 1.06, a: 1}

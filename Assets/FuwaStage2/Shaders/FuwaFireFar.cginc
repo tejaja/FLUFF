@@ -16,4 +16,16 @@ inline half3 FuwaLavaCalm(half3 c, half far)
     c = lerp(c, half3(0.6, 0.07, 0.04), far * 0.8);
     return lerp(c, unity_FogColor.rgb, far * 0.12);
 }
+// 遠くの炎・火の玉を薄く（2026-11-04 てじゃ「炎重なってるとこ全般」「火球も」）。不透明のまま、細かい網目で間引く（並び順の問題が出ない）。
+// _FireFadeMin が 1 なら何もしない。_FireFadeNear m から薄くなって _FireFadeFar m で _FireFadeMin の濃さ
+float _FireFadeNear, _FireFadeFar, _FireFadeMin;
+inline void FuwaFireFadeClip(float3 wp, float4 svpos)
+{
+    if (_FireFadeMin >= 0.999) return;
+    half a = lerp(1, _FireFadeMin, smoothstep(_FireFadeNear, _FireFadeFar, distance(_WorldSpaceCameraPos, wp)));
+    // 4x4 のベイヤーを計算で（配列は Quest/PICO の GLES で壊れやすいので使わない）
+    float2 c = fmod(floor(svpos.xy), 4.0), lo = fmod(c, 2.0), hi = floor(c * 0.5);
+    float bayer = 4.0 * (2.0 * abs(lo.x - lo.y) + lo.y) + (2.0 * abs(hi.x - hi.y) + hi.y);
+    clip(a - (bayer + 0.5) / 16.0);
+}
 #endif
