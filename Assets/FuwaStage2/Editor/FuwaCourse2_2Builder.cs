@@ -1610,9 +1610,9 @@ public static class FuwaCourse2_2Builder
     //  道のメッシュは切らず、噴気孔と同じステンシルで見せる：Mouth（道の上の割れ目の形。VentHoleMask）＋ Shaft（その下の壁と底。VentShaft）。当たりは平らな道のまま、焼き直しもいらない。
     //  道のはしで切れる腕はそこで止める。LavaRock* の P1〜（最後は道の外なので除く）の真下に作る。作り直さずシーンだけ直す時もこれを呼ぶ
     public static float RockCrackDepth = 0.35f, RockCrackLift = 0.015f, RockBounceH = 0.74f;   // RockBounceH：はねる時の岩の中心の、道からの高さ（岩の下の半径 0.78。少しめりこむくらい）
-    // ジグザグの岩（LavaRock0/1）の通り道の点線（2026-11-04 てじゃ「この点線いいな」）。最初の道の上の板（P1）から落ちる先まで、FuwaLavaRock.At と同じ弧に RockDotGap おきに小さい玉。
+    // ジグザグの岩（LavaRock0/1）とまもののエリアの岩（LavaRockArena）の通り道の点線（2026-11-04 てじゃ「この点線いいな」）。最初の道の上の板（P1）から落ちる先まで、FuwaLavaRock.At と同じ弧に RockDotGap おきに小さい玉。
     //  1 つのメッシュで、uv.x が通り道ぞいの距離。作り直さずシーンだけ直す時もこれを呼ぶ（はねる点を動かしたら呼び直す。RockCracks のあとに）
-    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 18f, RockDotTail = 4f;   /* 2026-11-04 てじゃ「点滅速くして、消えてるときは見えないように」：10→18、ふだんの濃さ 0.8→0（光った所だけ見える） */
+    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 26f, RockDotTail = 4f;   /* 2026-11-04 てじゃ「点滅速くして、消えてるときは見えないように」：10→18→26、ふだんの濃さ 0.8→0（光った所だけ見える） */
     public static string RockPathDots(Transform fire)
     {
         string mp = "Assets/FuwaStage2/Materials/Stage2_2_RockPathDots.mat";
@@ -1626,7 +1626,7 @@ public static class FuwaCourse2_2Builder
         string res = "";
         foreach (var f in fire.GetComponentsInChildren<FuwaLavaRock>(true))
         {
-            var g = f.transform.parent; if (!(g.name == "LavaRock0" || g.name == "LavaRock1")) continue;
+            var g = f.transform.parent; if (!(g.name == "LavaRock0" || g.name == "LavaRock1" || g.name == "LavaRockArena")) continue;   // まもののエリアのも（2026-11-04 てじゃ「まもの側のにもつけて」）
             var old = g.Find("PathDots"); if (old) Object.DestroyImmediate(old.gameObject);
             // 弧をこまかく取って長さを測り、RockDotGap おきに点
             var pts = new List<Vector3>(); var ds = new List<float>(); float d = 0f; Vector3 prev = Vector3.zero; bool first = true;
