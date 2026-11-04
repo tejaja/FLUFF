@@ -1788,7 +1788,7 @@ public static class FuwaCourse2_2Builder
     public static float FireballWarnLead = 0.4f, FireballWarnEdgeW = 0.3f;
     // 予告の地面を「道の色に掛ける＋濃いふち」に（火球も火炎放射も同じ。2026-11-04 てじゃ「火炎放射の予告線もこれで」）
     public static float FireballWarnBase = 0.2f;   // 帯の間の薄さ 0.5→0.2（2026-11-04 てじゃ「濃いとこと薄いところの差を」）
-    public static float FireballWarnSpeed = 6.5f;   // 火球の帯の流れる速さ 10→6.5（2026-11-04 てじゃ「火球のグラデの動きの速さもうちょいおそく」）
+    public static float FireballWarnSpeed = 4.5f;   // 火球の帯の流れる速さ 10→6.5→4.5（2026-11-04 てじゃ「火球のグラデの動きの速さもうちょいおそく」×2）
     static void WarnMulLook(Material mat)
     {
         mat.SetFloat("_Mode", 1f); mat.SetColor("_Tint", FireballWarnTint); mat.SetColor("_EdgeTint", FireballWarnEdgeTint); mat.SetFloat("_EdgeW", FireballWarnEdgeW);

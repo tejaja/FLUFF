@@ -74,7 +74,7 @@ Shader "FuwaCourse/FireWarn"
                     //  ふちがある時は横方向に薄くしない（ふちと中の間で薄くなって、白っぽい線に見えた）。いちばん外だけ少しぼかす
                     half rim = _EdgeW > 0.001 ? 1 - smoothstep(_EdgeW * 0.5, _EdgeW, side) : 0;
                     half3 tint = lerp(_Tint.rgb, _EdgeTint.rgb, rim);
-                    half am = _EdgeW > 0.001 ? smoothstep(0, _EdgeW * 0.3, side) * lerp(_Root, _Tip, i.uv.y) * smoothstep(1, 0.88, i.uv.y) * rootEdge * lerp(lerp(_Base, 1, band), 1, rim) * _Alpha : a;
+                    half am = _EdgeW > 0.001 ? smoothstep(0, _EdgeW * 0.3, side) * lerp(_Root, _Tip, i.uv.y) * smoothstep(1, 0.88, i.uv.y) * rootEdge * lerp(lerp(_Base, 1, band), lerp(min(1, _Base + 0.3), 1, band), rim) * _Alpha : a;   // ふちも帯で濃淡（2026-11-04 てじゃ「ふちのオレンジ部分もグラデに」）。中より少しだけ薄くなりにくく
                     half4 m = half4(lerp(half3(1, 1, 1), tint, am) * 0.5, 1);
                     UNITY_APPLY_FOG_COLOR(i.fogCoord, m, half4(0.5, 0.5, 0.5, 1));
                     return m;
