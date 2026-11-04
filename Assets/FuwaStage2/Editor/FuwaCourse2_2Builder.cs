@@ -1731,9 +1731,11 @@ public static class FuwaCourse2_2Builder
             var bc = j.GetComponent<BoxCollider>(); const int NL = 26, NW = 7; float W = JetWarnW;
             var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var idx = new List<int>(); var id = new int[NL + 1, NW + 1];
             float fromY = j.knockOrigin.position.y;
+            // 根元は箱の始まりより JetWarnRootExt だけ山側から作って、道のふちで切る（2026-11-04 てじゃ「１本目（の根元）がきれてた」：道のふちが斜めで、片側がふちまで届いていなかった）
+            float ext = JetWarnRootExt / bc.size.y;
             for (int l = 0; l <= NL; l++) for (int w = 0; w <= NW; w++)
             {
-                float v = l / (float)NL, u = w / (float)NW;
+                float v = Mathf.Lerp(-ext, 1f, l / (float)NL), u = w / (float)NW;
                 var q = j.transform.TransformPoint(bc.center + new Vector3((u - 0.5f) * W, (v - 0.5f) * bc.size.y, 0f)); id[l, w] = -1;
                 // 道の外の点は、エリアのまん中へ向かって道のふちまで引き戻す（落とすと端がギザギザに切れた。2026-11-02 てじゃ）
                 bool Down(Vector3 at, out Vector3 got)
@@ -1745,11 +1747,19 @@ public static class FuwaCourse2_2Builder
                 bool ok = Down(q, out var hit);
                 if (!ok)
                 {
+                    // まず同じ横位置のまま長さの向きに引き戻す（根元・先の切り口がふちにそろう）。それでもだめならまん中へ
+                    var midU = j.transform.TransformPoint(bc.center + new Vector3((u - 0.5f) * W, 0f, 0f));
+                    if (Down(midU, out var muHit))
+                    {
+                        float lo2 = 0f, hi2 = 1f; hit = muHit; for (int it = 0; it < 9; it++) { float m = (lo2 + hi2) * 0.5f; if (Down(Vector3.Lerp(q, midU, m), out var mh)) { hi2 = m; hit = mh; } else lo2 = m; }
+                        id[l, w] = verts.Count; verts.Add(g.InverseTransformPoint(hit + Vector3.up * 0.015f)); uvs.Add(new Vector2(u, Mathf.Max(0f, v)));
+                        continue;
+                    }
                     var mid = j.transform.TransformPoint(bc.center); float lo = 0f, hi = 1f;   // lo：道の外、hi：まん中
                     if (!Down(mid, out var midHit)) continue;
                     hit = midHit; for (int it = 0; it < 7; it++) { float m = (lo + hi) * 0.5f; if (Down(Vector3.Lerp(q, mid, m), out var mh)) { hi = m; hit = mh; } else lo = m; }
                 }
-                id[l, w] = verts.Count; verts.Add(g.InverseTransformPoint(hit + Vector3.up * 0.015f)); uvs.Add(new Vector2(u, v));
+                id[l, w] = verts.Count; verts.Add(g.InverseTransformPoint(hit + Vector3.up * 0.015f)); uvs.Add(new Vector2(u, Mathf.Max(0f, v)));
             }
             void Tri(int a, int b, int c)
             {
@@ -1777,6 +1787,7 @@ public static class FuwaCourse2_2Builder
     public static Color FireballWarnEdgeTint = new Color(1.2f, 1.05f, 0.15f, 1f);
     public static float FireballWarnLead = 0.4f, FireballWarnEdgeW = 0.3f;
     // 予告の地面を「道の色に掛ける＋濃いふち」に（火球も火炎放射も同じ。2026-11-04 てじゃ「火炎放射の予告線もこれで」）
+    public static float FireballWarnSpeed = 6.5f;   // 火球の帯の流れる速さ 10→6.5（2026-11-04 てじゃ「火球のグラデの動きの速さもうちょいおそく」）
     static void WarnMulLook(Material mat)
     {
         mat.SetFloat("_Mode", 1f); mat.SetColor("_Tint", FireballWarnTint); mat.SetColor("_EdgeTint", FireballWarnEdgeTint); mat.SetFloat("_EdgeW", FireballWarnEdgeW);
@@ -1792,7 +1803,7 @@ public static class FuwaCourse2_2Builder
         Physics.SyncTransforms();
         string mp = "Assets/FuwaStage2/Materials/Stage2_2_FireballWarn.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/FireWarn")); AssetDatabase.CreateAsset(mat, mp); }
-        mat.SetColor("_Color", new Color(1f, 0.82f, 0.1f, 1f)); mat.SetFloat("_Base", 0.5f); mat.SetFloat("_Sharp", 1.5f); mat.SetFloat("_Tip", 1f); mat.SetFloat("_RootFade", 0.1f); WarnMulLook(mat); EditorUtility.SetDirty(mat);   // 道の色に掛けて、影の下に見えるように（2026-11-04 てじゃ「影より下にうつしたい」）
+        mat.SetColor("_Color", new Color(1f, 0.82f, 0.1f, 1f)); mat.SetFloat("_Base", 0.5f); mat.SetFloat("_Sharp", 1.5f); mat.SetFloat("_Tip", 1f); mat.SetFloat("_RootFade", 0.1f); mat.SetFloat("_Speed", FireballWarnSpeed); WarnMulLook(mat); EditorUtility.SetDirty(mat);   // 道の色に掛けて、影の下に見えるように（2026-11-04 てじゃ「影より下にうつしたい」）
         int made = 0, tris = 0;
         foreach (var f in fire.GetComponentsInChildren<FuwaFireball>(true))
         {
@@ -2347,7 +2358,7 @@ public static class FuwaCourse2_2Builder
     }
     // 火炎放射の炎：亀裂から伸びる細長いたまご（FlameMesh）を行ごとに 1 本。y が炎の向き。止まると FuwaFireJet の _Burn で根元から燃えつきる
     // 炎の奥行き（2026-11-02 てじゃ「もっと火の奥行きあってもいい」）：道ぞいの向きに各列を太らせて、前後にずらす。当たりと予兆の幅もそれに合わせる
-    public static float JetDepthScale = 1.35f, JetZoneW = 1.6f, JetWarnW = 2.2f;   /* 予告の地面の幅 2→2.2（2026-11-04 てじゃ「予告線だけちょっぴり太く」「判定はかえずに」） */ static readonly float[] JetRowX = { 0f, 0f, 0f };   // 太さだけ 1.35 倍、前後ずらしはなし（2026-11-02 てじゃ「前後ずらしなしで太さだけ」）
+    public static float JetDepthScale = 1.35f, JetZoneW = 1.6f, JetWarnW = 2.2f, JetWarnRootExt = 1f;   /* 予告の地面の幅 2→2.2（2026-11-04 てじゃ「予告線だけちょっぴり太く」「判定はかえずに」） */ static readonly float[] JetRowX = { 0f, 0f, 0f };   // 太さだけ 1.35 倍、前後ずらしはなし（2026-11-02 てじゃ「前後ずらしなしで太さだけ」）
     public static float JetShadeRound = 0.7f, JetShadeBump = 0.7f;   // 外のオレンジの陰影。VR で遠近感を出す（2026-11-02 てじゃ）
     public static float JetRowDelay = 0.07f;   // 上下 3 本の炎の出るタイミングのずれ（2026-11-02 てじゃ「ほんのちょっと」）。下から順に
     // 炎の本体（全部の列が 1 つのメッシュ）を列ごとに分ける。形はそのまま、三角形を近い列へ振り分けるだけ。作り直さずシーンだけ直す時もこれを呼ぶ（rowZ は null なら Row* の位置から）
