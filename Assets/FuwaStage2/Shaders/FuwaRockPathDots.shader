@@ -10,6 +10,8 @@ Shader "FuwaCourse/RockPathDots"
         _Head ("光の先頭(m)。スクリプトが動かす", Float) = -100
         _Tail ("光の長さ(m)", Float) = 4
         _Spacing ("光と光の間隔(m)。0 で 1 つだけ", Float) = 0
+        _FadeNear ("この距離(m)から薄くなりはじめる", Float) = 12
+        _FadeFar ("この距離(m)で見えなくなる", Float) = 35
     }
     SubShader
     {
@@ -27,10 +29,10 @@ Shader "FuwaCourse/RockPathDots"
 
             fixed4 _Color, _LitColor;
             half _Dim;
-            float _Head, _Tail, _Spacing;
+            float _Head, _Tail, _Spacing, _FadeNear, _FadeFar;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float d : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float d : TEXCOORD0; float far : TEXCOORD2; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
 
             v2f vert (appdata v)
             {
@@ -39,6 +41,8 @@ Shader "FuwaCourse/RockPathDots"
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.d = v.uv.x;
+                // 遠くの点は薄く（2026-11-04 てじゃ「遠くのは見えづらくしたい」）
+                o.far = 1 - smoothstep(_FadeNear, _FadeFar, distance(mul(unity_ObjectToWorld, v.vertex).xyz, _WorldSpaceCameraPos));
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -52,7 +56,7 @@ Shader "FuwaCourse/RockPathDots"
                 if (_Spacing > 0.01 && x >= 0) x = fmod(x, _Spacing);
                 half lit = (x >= 0 && x < _Tail) ? 1 - x / max(0.01, _Tail) : 0;
                 lit = lit * lit * (3 - 2 * lit);
-                fixed4 c = fixed4(lerp(_Color.rgb, _LitColor.rgb, lit), lerp(_Dim, 1, lit));
+                fixed4 c = fixed4(lerp(_Color.rgb, _LitColor.rgb, lit), lerp(_Dim, 1, lit) * i.far);
                 clip(c.a - 0.01);   // 消えている点は深さも書かない（後ろの炎の壁が欠けないように。2026-11-04 てじゃ「消えてるときは見えないように」）
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;
