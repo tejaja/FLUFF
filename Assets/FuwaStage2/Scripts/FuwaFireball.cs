@@ -47,6 +47,16 @@ public class FuwaFireball : UdonSharpBehaviour
     public float auraFxRate = 28f;
     private float _auraNow;
 
+    [Header("地面の予兆（2026-11-03 てじゃ「火球の下にも、飛んでる時だけ火炎放射みたいなグラデーション」。一度消して 2026-11-04「火球の下の予告線復活」）")]
+    [Tooltip("holes[i] と holes[i+1] の間の地面のグラデ。真上に飛ぶ（穴が 1 つの）火球にはなし")]
+    public Renderer[] warnAreas;
+    [Tooltip("warnAreas それぞれの長さ(m)。帯の間隔をそろえる")]
+    public float[] warnLengths;
+    [Tooltip("飛びはじめと終わりのフェードの秒数")]
+    public float warnFade = 0.12f;
+    private Material[] _warnMats;
+    private int _warnSeg = -1;
+
     private bool _flying, _hitBall, _hitPlayer;
     private float _arcExtra;
     private int _hop = -1;
@@ -60,6 +70,37 @@ public class FuwaFireball : UdonSharpBehaviour
             if (sc != null) _ballRadius = sc.radius * ball.transform.lossyScale.x;
         }
         Show(false);
+        if (warnAreas != null)
+        {
+            _warnMats = new Material[warnAreas.Length];
+            for (int i = 0; i < warnAreas.Length; i++)
+            {
+                if (warnAreas[i] == null) continue;
+                _warnMats[i] = warnAreas[i].material;
+                if (warnLengths != null && i < warnLengths.Length) _warnMats[i].SetFloat("_Length", warnLengths[i]);
+                warnAreas[i].enabled = false;
+            }
+        }
+    }
+
+    // 今の飛びの地面のグラデだけ出す。穴の番号が増える向きの飛びなら +、戻る飛びなら - に流す
+    private void UpdateWarn(bool fly, int k, float tau)
+    {
+        if (_warnMats == null || _warnMats.Length == 0) return;
+        int seg = -1; float flow = 1f;
+        if (fly)
+        {
+            int ia = HoleAt(k), ib = HoleAt(k + 1); seg = oneWay ? 0 : Mathf.Min(ia, ib); flow = ia < ib ? 1f : -1f;   // 一方通行は最初〜最後の穴の 1 本を逆向きに流す
+            if (seg >= _warnMats.Length) seg = -1;
+        }
+        if (seg != _warnSeg)
+        {
+            if (_warnSeg >= 0 && warnAreas[_warnSeg] != null) warnAreas[_warnSeg].enabled = false;
+            _warnSeg = seg;
+            if (seg >= 0 && warnAreas[seg] != null) { warnAreas[seg].enabled = true; _warnMats[seg].SetFloat("_Flow", flow); }
+        }
+        else if (seg >= 0 && _warnMats[seg] != null && k != _hop) _warnMats[seg].SetFloat("_Flow", flow);
+        if (seg >= 0 && _warnMats[seg] != null) _warnMats[seg].SetFloat("_Alpha", Mathf.Clamp01(Mathf.Min(tau, flightTime - tau) / Mathf.Max(0.01f, warnFade)));
     }
 
     // 穴が1つなら真上に飛び上がって同じ穴に戻る（2026-10-29 てじゃ「垂直に飛び上がる穴を追加」）
@@ -126,6 +167,7 @@ public class FuwaFireball : UdonSharpBehaviour
         float tau = t - k * step;
         bool fly = tau < flightTime;
         Vector3 a = holes[HoleAt(k)].position, b = holes[HoleAt(k + 1)].position;
+        UpdateWarn(fly, k, tau);
         if (fly != _flying || (fly && k != _hop))
         {
             if (splash != null) { splash.transform.position = fly ? a : b; splash.Play(); }

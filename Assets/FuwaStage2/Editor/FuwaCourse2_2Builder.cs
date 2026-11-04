@@ -36,9 +36,9 @@ public static class FuwaCourse2_2Builder
     public static float VolcanoTopH = 16f, VolcanoTopR = 5f, VolcanoR0 = 12f, VolcanoBottom = -60f, RockFirstScale = 3f;   // 火口の高さ・半径、道の高さでの半径、すその下のはし、火口から飛んでくる1回の長さ（倍）
     // ⑤ 2026-10-30 てじゃ「まものからをもっと右に曲げて山に沿う感じに」「山から何個かさっきの火炎放射、あたれば炎上して飛ぶ、そのあとゴール」
     //   （火口のまわりの輪っかの道・マグマは「あんま面白くない」でやめた）。火山のまわりを右回りに沿う広めの道、山肌の岩から火炎放射
-    public static float FlameExtraOff = 1.2f;
+    public static float FlameExtraOff = 2.0f;   // 1.2→2.0（2026-11-04 てじゃ「火炎放射の間隔も長く」）
     public static float FlameKnockMin = 0.8f;   // 先端に当たっても最低これだけ横へ飛ばす（2026-11-02。2 だと Play で道のふちの 2.2m 外まで飛んだ）
-    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = -1.13f, FlameBallPerMeter = 0.755f,FlamePlayerLand = -1.14f, FlamePlayerPush = 7.5f, FlamePlayerPushUp = 5f, FlamePlayerPerMeter = 0.72f, FlamePlayerMin = 0.8f,   /* 根元ほど強く、先ほど弱く。どこで当たっても道のふちくらいまで飛ぶ＝落ちることもある（2026-11-02 てじゃ「落ちるくらいでいいよ」「位置で強弱」） */ FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
+    public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = -1.13f, FlameBallPerMeter = 0.755f,FlamePlayerLand = -1.14f, FlamePlayerPush = 6f, FlamePlayerPushUp = 4.2f, FlamePlayerPerMeter = 0.6f,   /* 人 7.5/5/0.72→6/4.2/0.6（2026-11-04 てじゃ「火炎放射のプレイヤーのふっ飛ばし力ダウン」） */ FlamePlayerMin = 0.8f,   /* 根元ほど強く、先ほど弱く。どこで当たっても道のふちくらいまで飛ぶ＝落ちることもある（2026-11-02 てじゃ「落ちるくらいでいいよ」「位置で強弱」） */ FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
     public const int FlameRows = 3;   // 炎の壁の縦の本数
     public static Color MonsterCol = new Color(0.95f, 0.35f, 0.18f), MonsterTipCol = new Color(1f, 0.72f, 0.3f);
     public static float WalkW = 1.3f, WalkGap = 0.3f;   // 人の道（左）の幅と、本道とのすき間
@@ -334,6 +334,7 @@ public static class FuwaCourse2_2Builder
             VolcanoJet(fire, "Flamethrower" + k, Around(jt.th, RoadR(jt.th, y) - FlameHW, y), RoadR(jt.th, y) - FlameHW, y, jt.th, jt.per, jt.on, jt.ph);
         }
         JetWarnAreas(fire);
+        FireballWarns(fire);
         var p = pts5[pts5.Length - 1];
 
         // ⑦ ゴール
@@ -1770,6 +1771,74 @@ public static class FuwaCourse2_2Builder
         return "予兆エリア " + made + " 個, 三角形 " + tris;
     }
 
+    // 火球の飛ぶ道の地面のグラデ（FuwaFireball.warnAreas）。穴と穴の間の帯だけ（真上に飛ぶ穴は、てじゃ「真上のはいらんかも」でなし）。道に沿わせて、道の外と穴の中は作らない。作り直さずシーンだけ直す時もこれを呼ぶ
+    public static float FireballWarnW = 1.9f;
+    public static string FireballWarns(Transform fire)
+    {
+        var course = fire.root; var temps = new List<MeshCollider>();
+        foreach (var n in new[] { "ZigPath", "Path12", "Path5" })
+            foreach (var t in course.GetComponentsInChildren<Transform>(true))
+                if (t.name == n && t.GetComponent<MeshFilter>()) { var c = t.gameObject.AddComponent<MeshCollider>(); c.sharedMesh = t.GetComponent<MeshFilter>().sharedMesh; temps.Add(c); }
+        Physics.SyncTransforms();
+        string mp = "Assets/FuwaStage2/Materials/Stage2_2_FireballWarn.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/FireWarn")); AssetDatabase.CreateAsset(mat, mp); }
+        mat.SetColor("_Color", new Color(1f, 0.82f, 0.1f, 1f)); mat.SetFloat("_Base", 0.5f); mat.SetFloat("_Sharp", 1.5f); mat.SetFloat("_Tip", 1f); mat.SetFloat("_RootFade", 0.1f); EditorUtility.SetDirty(mat);
+        int made = 0, tris = 0;
+        foreach (var f in fire.GetComponentsInChildren<FuwaFireball>(true))
+        {
+            var g = f.transform.parent;
+            for (int i = g.childCount - 1; i >= 0; i--) if (g.GetChild(i).name.StartsWith("WarnArea")) Object.DestroyImmediate(g.GetChild(i).gameObject);
+            float fromY = f.holes[0].position.y;
+            bool Down(Vector3 at, out Vector3 got)
+            {
+                float best = float.MaxValue; bool found = false; got = at; var ray = new Ray(new Vector3(at.x, fromY + 2.5f, at.z), Vector3.down);
+                foreach (var c in temps) if (c.Raycast(ray, out var h, 5f) && h.distance < best && h.normal.y > 0.5f) { best = h.distance; got = h.point; found = true; }
+                return found;
+            }
+            var rs = new List<Renderer>(); var lens = new List<float>();
+            int segs = f.oneWay ? Mathf.Min(1, f.holes.Length - 1) : f.holes.Length - 1;   // 一方通行（奥→手前）は最初と最後の穴の間の 1 本だけ（2026-11-04 てじゃ「火球の下の予告線復活」）
+            for (int s = 0; s < segs; s++)
+            {
+                Vector3 a = f.holes[s].position, b = f.holes[f.oneWay ? f.holes.Length - 1 : s + 1].position, along = Flat(b - a).normalized, side = Vector3.Cross(Vector3.up, along);
+                float len = Flat(b - a).magnitude;
+                int NL = Mathf.Max(8, Mathf.CeilToInt(len / 0.25f)), NW = 7;
+                var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var idx = new List<int>(); var id = new int[NL + 1, NW + 1];
+                for (int l = 0; l <= NL; l++) for (int w = 0; w <= NW; w++)
+                {
+                    float v = l / (float)NL, u = w / (float)NW; id[l, w] = -1; Vector3 q, inner;
+                    { q = a + along * (v * len) + side * ((u - 0.5f) * FireballWarnW); inner = (a + b) * 0.5f + side * ((u - 0.5f) * FireballWarnW * 0.5f); }
+                    if (!Down(q, out var hit))
+                    {
+                        if (!Down(inner, out var ih)) continue;
+                        hit = ih; float lo = 0f, hi = 1f; for (int it = 0; it < 7; it++) { float m = (lo + hi) * 0.5f; if (Down(Vector3.Lerp(q, inner, m), out var mh)) { hi = m; hit = mh; } else lo = m; }
+                    }
+                    id[l, w] = verts.Count; verts.Add(g.InverseTransformPoint(hit + Vector3.up * 0.015f));
+                    // 帯は道ぞいの距離で。穴のふちで引き戻した所も、その時の距離に合わせる
+                    float vv = Mathf.Clamp01(Vector3.Dot(hit - a, along) / Mathf.Max(0.01f, len));
+                    uvs.Add(new Vector2(u, vv));
+                }
+                void Tri(int p, int q2, int r2)
+                {
+                    var ab = verts[q2] - verts[p]; var ac = verts[r2] - verts[p];
+                    if (Vector3.Cross(ab, ac).y >= 0f) idx.AddRange(new[] { p, q2, r2 }); else idx.AddRange(new[] { p, r2, q2 });
+                }
+                for (int l = 0; l < NL; l++) for (int w = 0; w < NW; w++)
+                {
+                    int p0 = id[l, w], p1 = id[l + 1, w], p2 = id[l + 1, w + 1], p3 = id[l, w + 1]; if (p0 < 0 || p1 < 0 || p2 < 0 || p3 < 0) continue;
+                    Tri(p0, p1, p2); Tri(p0, p2, p3);
+                }
+                var mesh = new Mesh { name = "Course2_2_" + g.name + "_WarnArea" + s }; mesh.SetVertices(verts); mesh.SetUVs(0, uvs); mesh.SetTriangles(idx, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+                var o = new GameObject("WarnArea" + s, typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mesh);
+                var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; r.enabled = false;
+                rs.Add(r); lens.Add(len); made++; tris += idx.Count / 3;
+            }
+            f.warnAreas = rs.ToArray(); f.warnLengths = lens.ToArray();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); EditorUtility.SetDirty(f);
+        }
+        foreach (var c in temps) Object.DestroyImmediate(c);
+        return "火球の予兆 " + made + " 個, 三角形 " + tris;
+    }
+
     // 炎の壁の音は全部の壁で 1 つ。壁の当たり（Burn の箱）の線の上で、聞く人にいちばん近い所から鳴る（FuwaLineSound）。作り直さずシーンだけ直す時もこれを呼ぶ
     public static void FireWallSound(Transform parent)
     {
@@ -2222,6 +2291,8 @@ public static class FuwaCourse2_2Builder
         var fem = fx.emission; fem.rateOverTime = 0f; fx.Play();
         f.aura = null; f.auraFx = fx; f.auraFxRate = 48f; f.auraHeight = FireballAuraH; f.auraTopRadius = 0.25f;
     }
+    // 2026-11-04 てじゃ「火球のプレイヤーのふっ飛ばしをやや弱体、飛ぶ速度をやや遅く、間隔をちょっとあける」：人 6/4.3→5/3.7、飛ぶ時間 ×1.2、休み +0.5 秒
+    public static float FireballSlow = 1.2f, FireballRestAdd = 0.5f, FireballPlayerKnock = 5f, FireballPlayerKnockUp = 3.7f;
     static void Fireball(Transform parent, string name, Vector3[] hs, float flight, float rest, float phase, float top)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
@@ -2236,7 +2307,7 @@ public static class FuwaCourse2_2Builder
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaFireball>(mover.gameObject);
         f.whoosh = Sfx(mover, "WhooshSfx", "sfx_fireball_bofu2", Vector3.zero, 8f, 30f, 1f, false, 10f);
         f.heat = heat; f.ball = ballProxy; f.holes = ts; f.oneWay = ts.Length > 1; f.visual = vis; f.trail = trail; f.trailRate = FireballTrailRate; FireballAura(f);
-        f.arcHeight = top; f.flightTime = flight; f.rest = rest; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 4.8f; f.ballKnockUp = 2f; f.playerKnock = 6f; f.playerKnockUp = 4.3f;   // 2026-11-02 てじゃ「もうちょいつよくていいかも」
+        f.arcHeight = top; f.flightTime = flight * FireballSlow; f.rest = rest + FireballRestAdd; f.phase = phase; f.hitRadius = FireballSize * 0.5f + 0.05f; f.ballKnock = 4.8f; f.ballKnockUp = 2f; f.playerKnock = FireballPlayerKnock; f.playerKnockUp = FireballPlayerKnockUp;   // 2026-11-02 てじゃ「もうちょいつよくていいかも」
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); FuwaStage2WaterTest.NoSync(f);
     }
 
