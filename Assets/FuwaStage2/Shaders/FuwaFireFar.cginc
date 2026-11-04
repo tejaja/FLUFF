@@ -12,13 +12,13 @@ inline half3 FuwaFireCalm(half3 c, half far)
 }
 // 炎・火の玉（2026-11-04 てじゃ「色自体かえるか、遠くのはちょっと色を濃くしてみよう」）：近くの炎が目立つように、遠いほど濃い赤へ。
 //  溶岩より近くから効かせる（FUWA_FLAME_DEEP_NEAR m から、END m でいちばん濃い）。いちばん遠くは前の FuwaFireCalm と同じくらいなじませる
-#define FUWA_FLAME_DEEP_NEAR 6.0
-#define FUWA_FLAME_DEEP_END 30.0
+#define FUWA_FLAME_DEEP_NEAR 4.0
+#define FUWA_FLAME_DEEP_END 22.0
 inline half3 FuwaFlameDeep(half3 c, float3 wp)
 {
     float d = distance(_WorldSpaceCameraPos, wp);
     half deep = smoothstep(FUWA_FLAME_DEEP_NEAR, FUWA_FLAME_DEEP_END, d);
-    c = lerp(c, c * half3(0.9, 0.55, 0.45), deep * 0.75);   // 明るさを落として赤寄りに（色の段差は残す）
+    c = lerp(c, c * half3(0.78, 0.38, 0.3), deep);   // 明るさを落として赤寄りに（色の段差は残す）。てじゃ「もっと」で 6〜30m・0.75 倍 → 4〜22m・全部
     return FuwaFireCalm(c, FuwaFireFar(wp));
 }
 // 溶岩は炎より赤く（2026-10-31 てじゃ「溶岩もっと赤っぽく」）
