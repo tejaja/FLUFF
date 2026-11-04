@@ -887,6 +887,7 @@ public static class FuwaCourse2_3Builder
     public static Vector2[] M2_I1 = { new Vector2(-24.2f, 37.5f), new Vector2(-10.35f, 53.08f), new Vector2(11.58f, 47.31f), new Vector2(20.23f, 54.23f), new Vector2(28.31f, 49.62f), new Vector2(20.81f, 35.77f), new Vector2(13.89f, 28.27f), new Vector2(16.77f, 18.46f), new Vector2(8.12f, 0.57f), new Vector2(-10.5f, 0.57f), new Vector2(-15.5f, 14f), new Vector2(-23f, 29f) };   // 左下を細く（2026-11-04 てじゃ「この赤いとこいらんかな」）
     // 切れこみの水から右下へ、島を切って外までつなぐ（てじゃの赤いところ）。下の島は左側だけでつながる「C」の形に
     public static bool M2_I1Water = false;
+    public static int M2_ObsCount = 22, M2_ObsSeed = 2304; public static float M2_ObsGapStart = 9f, M2_ObsGapEnd = 3.6f;
     public static Vector2 M2_I1BandA = new Vector2(-2.6f, 30.2f), M2_I1BandB = new Vector2(30f, 10.2f); public static float M2_I1BandHW = 6.5f;
     public static Vector2[] M2_I1Cut = { new Vector2(-15.54f, 38.08f), new Vector2(-5.73f, 41.54f), new Vector2(4.65f, 36.34f), new Vector2(13.89f, 30.57f), new Vector2(12.73f, 25.96f), new Vector2(3.5f, 27.11f), new Vector2(-10.35f, 31.73f) };
     public static Vector2[] M2_I1Hole = { new Vector2(12.73f, 38.65f), new Vector2(11.96f, 36.28f), new Vector2(9.94f, 34.81f), new Vector2(7.44f, 34.81f), new Vector2(5.43f, 36.28f), new Vector2(4.65f, 38.65f), new Vector2(5.43f, 41.03f), new Vector2(7.44f, 42.49f), new Vector2(9.94f, 42.49f), new Vector2(11.96f, 41.03f) };
@@ -1004,6 +1005,30 @@ public static class FuwaCourse2_3Builder
                     Ribbon(path, "MapLink" + k, lp.Select(q => o + new Vector3(q.x, 0, q.y)).ToList(), hw, false);
                     int mi = lp.Count / 2; var td = lp[mi + 1] - lp[mi - 1];
                     Checkpoint(root, "Checkpoint" + (k + 1), o + new Vector3(lp[mi].x, 0, lp[mi].y), new Vector3(td.x, 0, td.y).normalized, hw);
+                }
+            }
+            // 最初の島の置き物（2026-11-04 てじゃ「最初の島、すこしオブジェクトを置いていこう」）：氷の岩と結晶の柱を、ふち・入口・出口から離して、おたがい M2_ObsGap 以上あけて乱数で
+            {
+                var obsT = new GameObject("Obstacles").transform; obsT.SetParent(root, false);
+                var rnd = new System.Random(M2_ObsSeed); var placed = new List<Vector2>();
+                var cand = new List<Vector2>();
+                for (float x = -30f; x <= 30f; x += 1f) for (float z = 0f; z <= 56f; z += 1f) cand.Add(new Vector2(x + (float)rnd.NextDouble() * 0.8f - 0.4f, z + (float)rnd.NextDouble() * 0.8f - 0.4f));
+                for (int i = cand.Count - 1; i > 0; i--) { int j = rnd.Next(i + 1); var tmp = cand[i]; cand[i] = cand[j]; cand[j] = tmp; }
+                var exitA = linkPts[0][0];
+                foreach (var q in cand)
+                {
+                    if (placed.Count >= M2_ObsCount) break;
+                    if (!InPoly(M2_I1, q) || InPoly(I1Band, q)) continue;
+                    NearestOnPoly(M2_I1, q, out float de); if (de < 2.5f) continue;
+                    NearestOnPoly(I1Band, q, out float db); if (db < 2.5f) continue;
+                    if ((q - new Vector2(0f, Map2EntryLen)).magnitude < 7f || (q - exitA).magnitude < 7f) continue;
+                    // 後半ほどつめる（てじゃ「後半ほど難しくするかんじに」）：進み具合は Z（スタート 0 → 出口 55 くらい）
+                    float prog = Mathf.Clamp01(q.y / 55f), gap = Mathf.Lerp(M2_ObsGapStart, M2_ObsGapEnd, prog);
+                    if (placed.Any(pq => (pq - q).magnitude < gap)) continue;
+                    placed.Add(q);
+                    var at = o + new Vector3(q.x, 0f, q.y);
+                    if (placed.Count % 3 == 0) Crystal(obsT, "Crystal" + placed.Count, at, 0.5f + (float)rnd.NextDouble() * 0.3f, 2.2f + (float)rnd.NextDouble() * 1.2f);
+                    else IceRock(obsT, "IceRock" + placed.Count, at, 1.3f + (float)rnd.NextDouble() * 0.8f, (float)rnd.NextDouble() * 360f);
                 }
             }
             var fl = new GameObject("Floes").transform; fl.SetParent(path, false);
