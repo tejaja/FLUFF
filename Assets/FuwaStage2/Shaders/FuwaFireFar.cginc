@@ -10,17 +10,6 @@ inline half3 FuwaFireCalm(half3 c, half far)
     c = lerp(c, half3(0.72, 0.3, 0.16), far * 0.8);
     return lerp(c, unity_FogColor.rgb, far * 0.12);
 }
-// 炎・火の玉（2026-11-04 てじゃ「色自体かえるか、遠くのはちょっと色を濃くしてみよう」）：近くの炎が目立つように、遠いほど濃い赤へ。
-//  溶岩より近くから効かせる（FUWA_FLAME_DEEP_NEAR m から、END m でいちばん濃い）。いちばん遠くは前の FuwaFireCalm と同じくらいなじませる
-#define FUWA_FLAME_DEEP_NEAR 6.0
-#define FUWA_FLAME_DEEP_END 30.0
-inline half3 FuwaFlameDeep(half3 c, float3 wp)
-{
-    float d = distance(_WorldSpaceCameraPos, wp);
-    half deep = smoothstep(FUWA_FLAME_DEEP_NEAR, FUWA_FLAME_DEEP_END, d);
-    c = lerp(c, c * half3(0.9, 0.55, 0.45), deep * 0.75);   // 明るさを落として赤寄りに（色の段差は残す）
-    return FuwaFireCalm(c, FuwaFireFar(wp));
-}
 // 溶岩は炎より赤く（2026-10-31 てじゃ「溶岩もっと赤っぽく」）
 inline half3 FuwaLavaCalm(half3 c, half far)
 {
