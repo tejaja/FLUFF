@@ -13,9 +13,14 @@ public class FuwaMovingIce : UdonSharpBehaviour
     public float period = 20f, phase = 0f;
     [Tooltip("乗っているかを見る、足の下のレイの長さ")]
     public float rideRay = 0.6f;
+    [Tooltip("氷で滑る処理。乗っている間の床の速さを教える（VRChat の速さの読みをなおすため）")]
+    public FuwaIceSkate skate;
 
     private Vector3 _last;
     private bool _init;
+    // 調べる用のログ（2026-11-04 てじゃ「棒立ちで床の移動方向に加速」。ClientSim では再現しない）：乗っている間 0.5 秒ごとに、床と自分の動いた量・VRChat の速さを出す
+    public bool debugLog = true;
+    private Vector3 _dbgFloor, _dbgPlayer, _dbgPrevPos; private float _dbgT; private bool _dbgRiding; private int _dbgFrames;
 
     private float T()
     {
@@ -39,8 +44,20 @@ public class FuwaMovingIce : UdonSharpBehaviour
         if (p == null) return;
         Vector3 pos = p.GetPosition();
         RaycastHit hit;
-        if (!Physics.Raycast(pos + Vector3.up * 0.3f, Vector3.down, out hit, 0.3f + rideRay, ~((1 << 9) | (1 << 10)), QueryTriggerInteraction.Ignore)) return;
-        if (hit.collider == null || !hit.collider.transform.IsChildOf(transform)) return;
+        if (!Physics.Raycast(pos + Vector3.up * 0.3f, Vector3.down, out hit, 0.3f + rideRay, ~((1 << 9) | (1 << 10)), QueryTriggerInteraction.Ignore)) { _dbgRiding = false; return; }
+        if (hit.collider == null || !hit.collider.transform.IsChildOf(transform)) { _dbgRiding = false; return; }
+        if (debugLog)
+        {
+            if (!_dbgRiding) { _dbgRiding = true; _dbgFloor = Vector3.zero; _dbgPlayer = Vector3.zero; _dbgPrevPos = pos; _dbgT = Time.time; _dbgFrames = 0; }
+            _dbgFloor += delta; _dbgPlayer += pos - _dbgPrevPos; _dbgPrevPos = pos; _dbgFrames++;
+            if (Time.time - _dbgT >= 0.5f)
+            {
+                Vector3 v = p.GetVelocity();
+                Debug.Log("[FuwaMovingIce] " + name + " frames=" + _dbgFrames + " floor=" + _dbgFloor.ToString("F3") + " player=" + _dbgPlayer.ToString("F3") + " vel=" + v.ToString("F2") + " grounded=" + p.IsPlayerGrounded());
+                _dbgFloor = Vector3.zero; _dbgPlayer = Vector3.zero; _dbgT = Time.time; _dbgFrames = 0;
+            }
+        }
+        if (skate != null && Time.deltaTime > 0f) { skate.floorVel = delta / Time.deltaTime; skate.floorFrame = Time.frameCount; }
         VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
         p.TeleportTo(o.position + new Vector3(delta.x, 0f, delta.z), o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
     }

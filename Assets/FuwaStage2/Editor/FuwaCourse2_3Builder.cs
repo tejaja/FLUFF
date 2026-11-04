@@ -285,6 +285,7 @@ public static class FuwaCourse2_3Builder
         var skate = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaIceSkate>(sk);
         skate.ice = iceCols.ToArray();
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(skate); FuwaStage2WaterTest.NoSync(skate);
+        foreach (var mi in root.GetComponentsInChildren<FuwaMovingIce>(true)) { mi.skate = skate; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mi); }
 
         // アウト（下に落ちた）：コースの下（コースの向きの箱、まわり 10m）
         var lb = new Bounds(Vector3.zero, Vector3.zero); bool first = true;

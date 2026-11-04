@@ -36,6 +36,15 @@ public class FuwaIceSkate : UdonSharpBehaviour
 
     private bool _in, _braking;
     private Vector3 _v, _lastPos;
+    // 調べる用のログ（2026-11-04 動く板で棒立ちなのに加速する件）：氷の上で 0.5 秒ごとに、自分で足したワープの量・勢い・VRChat の速さ
+    public bool debugLog = true;
+    private Vector3 _dbgShift; private float _dbgT;
+    // 動く床（FuwaMovingIce）の上：床が毎フレーム自分を運ぶ時、VRChat の GetVelocity は「床の速さのマイナス」くらいを返す（2026-11-04 実機ログ。ClientSim は 0）。
+    //  そのまま「VRChat の歩き」として引くと、床の速さぶん余計にワープして床の 2 倍で流れた（てじゃ「棒立ちで床の移動方向に加速」）。
+    //  → 歩きは flat + floorVelK × 床の速さ とみなす。floorVelK は手を離して乗っている間の実測で合わせる（はじめは実機の 1）
+    [HideInInspector] public Vector3 floorVel;
+    [HideInInspector] public int floorFrame = -10;
+    public float floorVelK = 1f;
     private float _moveH, _moveV;
 
     public override void InputMoveHorizontal(float value, UdonInputEventArgs args) { _moveH = value; }
@@ -80,6 +89,14 @@ public class FuwaIceSkate : UdonSharpBehaviour
         Vector3 v = p.GetVelocity();
         Vector3 flat = new Vector3(v.x, 0f, v.z);
         float dt = Time.deltaTime;
+        if (Time.frameCount - floorFrame <= 1)
+        {
+            Vector3 fv = new Vector3(floorVel.x, 0f, floorVel.z);
+            float f2 = fv.sqrMagnitude;
+            if (f2 > 0.04f && Mathf.Abs(_moveH) < 0.05f && Mathf.Abs(_moveV) < 0.05f)
+                floorVelK = Mathf.Lerp(floorVelK, Mathf.Clamp(-Vector3.Dot(flat, fv) / f2, 0f, 1.5f), 0.05f);
+            flat += fv * floorVelK;
+        }
         // ワープ・リスポーンで大きく動いたら、勢いを捨てて氷から出る
         if (_in && (pos - _lastPos).sqrMagnitude > 4f) Exit(p);
         _lastPos = pos;
@@ -155,7 +172,13 @@ public class FuwaIceSkate : UdonSharpBehaviour
             {
                 float dy = onFloor ? -(n.x * step.x + n.z * step.z) / n.y : 0f;   // 坂の面にそって
                 Shift(p, new Vector3(step.x, dy, step.z));
+                _dbgShift += step;
             }
+        }
+        if (debugLog && Time.time - _dbgT >= 0.5f)
+        {
+            Debug.Log("[FuwaIceSkate] shift=" + _dbgShift.ToString("F3") + " v=" + _v.ToString("F2") + " flat=" + flat.ToString("F2") + " onFloor=" + onFloor + " braking=" + _braking + " input=" + input.ToString("F2") + " k=" + floorVelK.ToString("F2"));
+            _dbgShift = Vector3.zero; _dbgT = Time.time;
         }
     }
 
