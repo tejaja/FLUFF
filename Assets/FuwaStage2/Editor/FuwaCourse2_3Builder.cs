@@ -905,6 +905,15 @@ public static class FuwaCourse2_3Builder
     public static Vector2[] M2_TH1 = { new Vector2(-29.97f, 135.01f), new Vector2(-21.89f, 135.01f), new Vector2(-21.89f, 128.09f), new Vector2(-29.97f, 128.09f) };
     public static Vector2[] M2_TH2 = { new Vector2(-14.96f, 126.93f), new Vector2(-6.89f, 126.93f), new Vector2(-6.89f, 120.01f), new Vector2(-14.96f, 120.01f) };
     // ゴール前の氷：ラフより 3.5m 奥（上の大きい氷から跳んで届かないように）
+    // 2026-11-04 てじゃ「坂のぼり降り以降の展開がびみょう」→「C（動く氷をメイン）」「かなりゆっくり」：上の島 → ゆっくり動く氷の島 3 つ（左右→前後→左右）→ ゴール前の氷
+    public static bool M2_Movers = true;
+    public static (Vector2 c, Vector2 dir, float amp, float period, float phase)[] M2_Mov = {
+        (new Vector2(-20f, 141f), new Vector2(1f, 0f), 6f, 22f, 0f),
+        (new Vector2(-8f, 151f), new Vector2(0f, 1f), 4f, 18f, 6f),
+        (new Vector2(2f, 160f), new Vector2(1f, 0f), 6f, 26f, 3f) };
+    public static float M2_MovR = 3f;
+    public static Vector2[] M2_G2 = { new Vector2(7f, 165f), new Vector2(12f, 163f), new Vector2(20f, 164f), new Vector2(23f, 168f), new Vector2(20f, 172f), new Vector2(12f, 173f), new Vector2(7f, 170f) };
+    public static (Vector2[] pts, float hw) M2_L4b = (new[] { new Vector2(15f, 172.5f), new Vector2(15f, 180.5f) }, 3f);
     public static Vector2[] M2_G = { new Vector2(-23.62f, 151.78f), new Vector2(-14.96f, 155.82f), new Vector2(-3.42f, 156.98f), new Vector2(1.19f, 153.51f), new Vector2(-1.12f, 147.17f), new Vector2(-12.66f, 144.86f), new Vector2(-21.31f, 147.17f) };
     public static Vector2[] M2_Floes = { new Vector2(-44.39f, 135.59f), new Vector2(-41.51f, 143.09f), new Vector2(-36.66f, 147.94f) };
     public static Vector2 M2_MoveA = new Vector2(-29.97f, 148.86f), M2_MoveB = new Vector2(-29.97f, 162.71f);
@@ -988,7 +997,9 @@ public static class FuwaCourse2_3Builder
             // 入口の道 → 下の大きい氷
             Strip(path, "MapInStrip", p, Vector3.forward, Map2EntryLen, IntroHW, false); p += Vector3.forward * Map2EntryLen;
             var R = Ellipse(M2_RC, M2_RRx, M2_RRy, M2_RRot, 40); var RH = Ellipse(M2_RHC, M2_RHx, M2_RHy, M2_RRot, 28); var M = Ellipse(M2_MC, M2_MR, M2_MR, 0f, 40);
-            var linkPts = M2_Links.Select(l => SmoothPts(l.pts)).ToList();
+            var links = M2_Links.ToArray(); if (M2_Movers) links[links.Length - 1] = M2_L4b;
+            var G = M2_Movers ? M2_G2 : M2_G;
+            var linkPts = links.Select(l => SmoothPts(l.pts)).ToList();
             Vector2[] I1Band;
             { var d = (M2_I1BandB - M2_I1BandA).normalized; var nn = new Vector2(-d.y, d.x) * M2_I1BandHW; I1Band = new[] { M2_I1BandA - nn, M2_I1BandA + nn, M2_I1BandB + nn, M2_I1BandB - nn }; }
             // 下の島の水（切れこみ・小さい穴）は一旦なし（2026-11-04 てじゃ「手前の水は一旦けしていいよ」）。M2_I1Water で戻せる
@@ -1004,7 +1015,7 @@ public static class FuwaCourse2_3Builder
                 // 穴の側（池のほう）も切る（2026-11-04 てじゃ「右の池のほうもいらんね」）→ 輪っかは坂の道だけ。池の水もなし
                 if (!M2_RingPond) cuts.Add(new[] { a0 - nn * w0, a0 - nn * w1, b0 - nn * w1, b0 - nn * w0 });
             }
-            for (int k = 0; k < linkPts.Count; k++) cuts.Add(PathOutline(linkPts[k], M2_Links[k].hw));
+            for (int k = 0; k < linkPts.Count; k++) cuts.Add(PathOutline(linkPts[k], links[k].hw));
             var isl = new GameObject("Islands").transform; isl.SetParent(path, false);
             MapIsland(isl, "MapI1", o, M2_I1, cuts);
             MapIsland(isl, "MapDome", o, M, cuts);
@@ -1017,10 +1028,10 @@ public static class FuwaCourse2_3Builder
             }
             MapIsland(isl, "MapRing", o, R, cuts);
             MapIsland(isl, "MapTop", o, M2_T, cuts);
-            MapIsland(isl, "MapGoalIce", o, M2_G, cuts);
+            MapIsland(isl, "MapGoalIce", o, G, cuts);
             for (int k = 0; k < linkPts.Count; k++)
             {
-                var lp = linkPts[k]; float hw = M2_Links[k].hw;
+                var lp = linkPts[k]; float hw = links[k].hw;
                 if (lp.Count == 2)
                 {
                     var a3 = o + new Vector3(lp[0].x, 0, lp[0].y); var d3 = new Vector3(lp[1].x - lp[0].x, 0, lp[1].y - lp[0].y);
@@ -1059,8 +1070,28 @@ public static class FuwaCourse2_3Builder
                 }
             }
             var fl = new GameObject("Floes").transform; fl.SetParent(path, false);
+            if (M2_Movers)
+            {
+                for (int k = 0; k < M2_Mov.Length; k++)
+                {
+                    var mv = M2_Mov[k]; var c3 = o + new Vector3(mv.c.x, 0, mv.c.y); var d3 = new Vector3(mv.dir.x, 0, mv.dir.y).normalized * mv.amp;
+                    Floe(fl, "MovingIce" + k, c3, M2_MovR, 1, 7400 + k);
+                    var mg = fl.Find("MovingIce" + k).gameObject;
+                    var mi = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaMovingIce>(mg);
+                    mi.a = c3 - d3; mi.b = c3 + d3; mi.period = mv.period; mi.phase = mv.phase;
+                    UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mi); FuwaStage2WaterTest.NoSync(mi);
+                    // 動く道すじの目印（仮）
+                    var mk = GameObject.CreatePrimitive(PrimitiveType.Cube); mk.name = "MoveRouteMark" + k; mk.transform.SetParent(fl, false);
+                    mk.transform.localPosition = c3 + Vector3.down * 0.9f; mk.transform.localRotation = Quaternion.LookRotation(d3); mk.transform.localScale = new Vector3(0.12f, 0.04f, d3.magnitude * 2f + M2_MovR * 2f);
+                    mk.GetComponent<Renderer>().sharedMaterial = markMat; Object.DestroyImmediate(mk.GetComponent<Collider>());
+                }
+            }
+            else
+            {
             for (int k = 0; k < M2_Floes.Length; k++) Floe(fl, "MapFloe" + k, o + new Vector3(M2_Floes[k].x, 0, M2_Floes[k].y), MapFloeR, 1, 7300 + k);
             Floe(fl, "MapFloeMove", o + new Vector3(M2_MoveA.x, 0, M2_MoveA.y), MapFloeR, 1, 7399);
+            }
+            if (!M2_Movers)
             {
                 var a3 = o + new Vector3(M2_MoveA.x, -0.25f, M2_MoveA.y); var b3 = o + new Vector3(M2_MoveB.x, -0.25f, M2_MoveB.y);
                 var mk = GameObject.CreatePrimitive(PrimitiveType.Cube); mk.name = "MoveRouteMark"; mk.transform.SetParent(fl, false);
@@ -1073,9 +1104,19 @@ public static class FuwaCourse2_3Builder
             // つながっていない島どうしの近さ
             var groups = new List<(string n, Vector2[] poly, Vector2 c, float r)>
             {
-                ("I1", M2_I1, Vector2.zero, 0f), ("Dome", M, Vector2.zero, 0f), ("Ring", R, Vector2.zero, 0f), ("Top", M2_T, Vector2.zero, 0f), ("Goal", M2_G, Vector2.zero, 0f),
-                ("F0", null, M2_Floes[0], MapFloeR), ("F1", null, M2_Floes[1], MapFloeR), ("F2", null, M2_Floes[2], MapFloeR), ("FM", null, M2_MoveA, MapFloeR) };
-            var linked = new HashSet<string> { "I1-Dome", "Dome-Ring", "Ring-Top", "Top-F0", "F0-F1", "F1-F2", "F2-FM", "Goal-FM" };
+                ("I1", M2_I1, Vector2.zero, 0f), ("Dome", M, Vector2.zero, 0f), ("Ring", R, Vector2.zero, 0f), ("Top", M2_T, Vector2.zero, 0f), ("Goal", G, Vector2.zero, 0f) };
+            var linked = new HashSet<string> { "I1-Dome", "Dome-Ring", "Ring-Top" };
+            if (M2_Movers)
+            {
+                // 動く島はそれぞれ両はしで
+                for (int k = 0; k < M2_Mov.Length; k++) { var mv = M2_Mov[k]; var dd = mv.dir.normalized * mv.amp; groups.Add(("M" + k + "a", null, mv.c - dd, M2_MovR)); groups.Add(("M" + k + "b", null, mv.c + dd, M2_MovR)); linked.Add("M" + k + "a-M" + k + "b"); }
+                linked.Add("Top-M0a"); linked.Add("Top-M0b"); linked.Add("M0b-M1a"); linked.Add("M1b-M2a"); linked.Add("M2b-Goal");
+            }
+            else
+            {
+                groups.Add(("F0", null, M2_Floes[0], MapFloeR)); groups.Add(("F1", null, M2_Floes[1], MapFloeR)); groups.Add(("F2", null, M2_Floes[2], MapFloeR)); groups.Add(("FM", null, M2_MoveA, MapFloeR));
+                foreach (var kk in new[] { "Top-F0", "F0-F1", "F1-F2", "F2-FM", "Goal-FM" }) linked.Add(kk);
+            }
             string warn = "";
             for (int i = 0; i < groups.Count; i++) for (int j = i + 1; j < groups.Count; j++)
             {
