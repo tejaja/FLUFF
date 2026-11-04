@@ -147,7 +147,7 @@ Shader "FuwaCourse/FlameMesh"
                     c = lerp(outer, _ShadeDeep.rgb, saturate(dark));
                     c = lerp(c, _Yellow.rgb, _ShadeBump * saturate(bumpN * 2.0) * 0.5);
                 }
-                o.col = FuwaFireCalm(c, FuwaFireFar(wp));
+                o.col = FuwaFlameDeep(c, wp);
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }

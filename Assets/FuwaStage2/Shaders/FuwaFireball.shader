@@ -79,7 +79,7 @@ Shader "FuwaCourse/Fireball"
                 // まん中ほど熱い
                 half k = saturate(pow(facing, _Fresnel) * 1.1 + (h - 0.5) * 0.7);
                 half3 c = k < 0.5 ? lerp(_Edge.rgb, _Mid.rgb, k * 2) : lerp(_Mid.rgb, _Hot.rgb, (k - 0.5) * 2);
-                c = FuwaFireCalm(c, FuwaFireFar(i.wp));
+                c = FuwaFlameDeep(c, i.wp);
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
                 return o;
