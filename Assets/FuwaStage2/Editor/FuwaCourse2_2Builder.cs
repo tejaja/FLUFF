@@ -1630,18 +1630,13 @@ public static class FuwaCourse2_2Builder
             var old = g.Find("PathDots"); if (old) Object.DestroyImmediate(old.gameObject);
             // 弧をこまかく取って長さを測り、RockDotGap おきに点
             var pts = new List<Vector3>(); var ds = new List<float>(); float d = 0f; Vector3 prev = Vector3.zero; bool first = true;
-            var hopTab = new List<float>();   // 光を岩にくっつける用：はねごとに u = 0〜1 を 8 等分した所の点線ぞいの距離（[0] は火口から点線の始まりまでで、マイナス）
+            var hopTab = new List<float>();   // 光を岩にくっつける用：はねごとに u = 0〜1 を 8 等分した所の点線ぞいの距離
+            //  火口（P0）から点を出す（2026-11-04 てじゃ「山から点だそ」。前は最初の板 P1 から）
+            for (int k = 0; k < f.points.Length - 1; k++)
             {
-                Vector3 a = f.points[0].position, b = f.points[1].position; float top = Mathf.Max(a.y, b.y) + f.firstUp;
-                Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f; var acc = new float[201]; Vector3 q0 = a;
-                for (int i = 1; i <= 200; i++) { float u = i / 200f, v = 1f - u; var p = v * v * a + 2f * v * u * m + u * u * b; acc[i] = acc[i - 1] + (p - q0).magnitude; q0 = p; }
-                for (int j = 0; j <= 8; j++) hopTab.Add(acc[j * 25] - acc[200]);
-            }
-            for (int k = 1; k < f.points.Length - 1; k++)
-            {
-                Vector3 a = f.points[k].position, b = f.points[k + 1].position; float top = Mathf.Max(a.y, b.y) + f.hopUp;
+                Vector3 a = f.points[k].position, b = f.points[k + 1].position; float top = Mathf.Max(a.y, b.y) + (k == 0 ? f.firstUp : f.hopUp);
                 Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f; hopTab.Add(d);
-                for (int i = (k == 1 ? 0 : 1); i <= 200; i++) { float u = i / 200f, v = 1f - u; var p = v * v * a + 2f * v * u * m + u * u * b; if (!first) d += (p - prev).magnitude; first = false; prev = p; pts.Add(p); ds.Add(d); if (i > 0 && i % 25 == 0) hopTab.Add(d); }
+                for (int i = (k == 0 ? 0 : 1); i <= 200; i++) { float u = i / 200f, v = 1f - u; var p = v * v * a + 2f * v * u * m + u * u * b; if (!first) d += (p - prev).magnitude; first = false; prev = p; pts.Add(p); ds.Add(d); if (i > 0 && i % 25 == 0) hopTab.Add(d); }
             }
             var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var tris = new List<int>(); int dots = 0;
             for (float at = 0f; at <= d; at += RockDotGap)
