@@ -1612,7 +1612,7 @@ public static class FuwaCourse2_2Builder
     public static float RockCrackDepth = 0.35f, RockCrackLift = 0.015f, RockBounceH = 0.74f;   // RockBounceH：はねる時の岩の中心の、道からの高さ（岩の下の半径 0.78。少しめりこむくらい）
     // ジグザグの岩（LavaRock0/1）とまもののエリアの岩（LavaRockArena）の通り道の点線（2026-11-04 てじゃ「この点線いいな」）。最初の道の上の板（P1）から落ちる先まで、FuwaLavaRock.At と同じ弧に RockDotGap おきに小さい玉。
     //  1 つのメッシュで、uv.x が通り道ぞいの距離。作り直さずシーンだけ直す時もこれを呼ぶ（はねる点を動かしたら呼び直す。RockCracks のあとに）
-    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 15f, RockDotSpots = 3f, RockDotTail = 4f;   /* 2026-11-04 てじゃ「点滅速くして、消えてるときは見えないように」：10→18→26→15（光は同時に 3 か所）、ふだんの濃さ 0.8→0（光った所だけ見える） */
+    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 15f, RockDotSpots = 3f, RockDotLead = 6.5f, RockDotTail = 6f;   /* 2026-11-04 てじゃ「くどい、一箇所に、光ってる部分をすこしながく、岩のちょっと前を岩と同じくらいの速度で」→ 岩にくっつけて、岩の 0.5〜6.5m 先を光らせる（光の長さ 4→6）。 2026-11-04 てじゃ「点滅速くして、消えてるときは見えないように」：10→18→26→15（光は同時に 3 か所）、ふだんの濃さ 0.8→0（光った所だけ見える） */
     public static string RockPathDots(Transform fire)
     {
         string mp = "Assets/FuwaStage2/Materials/Stage2_2_RockPathDots.mat";
@@ -1630,11 +1630,18 @@ public static class FuwaCourse2_2Builder
             var old = g.Find("PathDots"); if (old) Object.DestroyImmediate(old.gameObject);
             // 弧をこまかく取って長さを測り、RockDotGap おきに点
             var pts = new List<Vector3>(); var ds = new List<float>(); float d = 0f; Vector3 prev = Vector3.zero; bool first = true;
+            var hopTab = new List<float>();   // 光を岩にくっつける用：はねごとに u = 0〜1 を 8 等分した所の点線ぞいの距離（[0] は火口から点線の始まりまでで、マイナス）
+            {
+                Vector3 a = f.points[0].position, b = f.points[1].position; float top = Mathf.Max(a.y, b.y) + f.firstUp;
+                Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f; var acc = new float[201]; Vector3 q0 = a;
+                for (int i = 1; i <= 200; i++) { float u = i / 200f, v = 1f - u; var p = v * v * a + 2f * v * u * m + u * u * b; acc[i] = acc[i - 1] + (p - q0).magnitude; q0 = p; }
+                for (int j = 0; j <= 8; j++) hopTab.Add(acc[j * 25] - acc[200]);
+            }
             for (int k = 1; k < f.points.Length - 1; k++)
             {
                 Vector3 a = f.points[k].position, b = f.points[k + 1].position; float top = Mathf.Max(a.y, b.y) + f.hopUp;
-                Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f;
-                for (int i = (k == 1 ? 0 : 1); i <= 200; i++) { float u = i / 200f, v = 1f - u; var p = v * v * a + 2f * v * u * m + u * u * b; if (!first) d += (p - prev).magnitude; first = false; prev = p; pts.Add(p); ds.Add(d); }
+                Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f; hopTab.Add(d);
+                for (int i = (k == 1 ? 0 : 1); i <= 200; i++) { float u = i / 200f, v = 1f - u; var p = v * v * a + 2f * v * u * m + u * u * b; if (!first) d += (p - prev).magnitude; first = false; prev = p; pts.Add(p); ds.Add(d); if (i > 0 && i % 25 == 0) hopTab.Add(d); }
             }
             var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var tris = new List<int>(); int dots = 0;
             for (float at = 0f; at <= d; at += RockDotGap)
@@ -1648,7 +1655,7 @@ public static class FuwaCourse2_2Builder
             var o = new GameObject("PathDots", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mesh);
             var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
             r.enabled = false;   // 岩が飛んでいる間だけ FuwaLavaRock が出す
-            f.pathDots = r; f.pathLength = d; f.dotSpeed = RockDotSpeed; f.dotTail = RockDotTail; f.dotSpacing = d / RockDotSpots;
+            f.pathDots = r; f.pathLength = d; f.dotSpeed = RockDotSpeed; f.dotTail = RockDotTail; f.dotSpacing = 0f; f.dotFollow = true; f.dotLead = RockDotLead; f.dotHopTable = hopTab.ToArray();
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); EditorUtility.SetDirty(f);
             res += g.name + " 点 " + dots + " 長さ " + d.ToString("F1") + "m / ";
         }

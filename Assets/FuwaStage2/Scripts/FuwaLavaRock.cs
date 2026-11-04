@@ -45,6 +45,11 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public float pathLength = 30f, dotSpeed = 10f, dotTail = 4f;
     [Tooltip("光と光の間隔(m)。0 で 1 つだけ流す")]
     public float dotSpacing = 0f;
+    [Tooltip("ON なら光を岩の少し前（dotLead m 先まで）にくっつけて、岩といっしょに動かす（2026-11-04 てじゃ「岩のちょっと前を岩と同じくらいの速度でひからせよう」）")]
+    public bool dotFollow = false;
+    public float dotLead = 6f;
+    [Tooltip("はね k の中の、u = 0, 1/8, …, 1 の時の点線ぞいの距離(m)を 9 個ずつ（弧の長さは u に比例しないので表で）。[0]（火口から）は点線の手前なのでマイナス")]
+    public float[] dotHopTable;
     private Material _dotMat;
 
     private bool _flying, _hitBall, _hitPlayer;
@@ -127,7 +132,12 @@ public class FuwaLavaRock : UdonSharpBehaviour
         }
         // 点線：飛んでいる間、火口を出た時から奥→手前へ光を流し続ける（1 周は点線の長さ＋光の長さ）
         //  間隔ありの時は先頭を止めずに進めて、うしろのくり返しで流れ続ける（間隔の倍数で巻き戻すので値は大きくならない）
-        if (_dotMat != null) _dotMat.SetFloat("_Head", !flying ? -100f : dotSpacing > 0.01f ? (t * dotSpeed > pathLength + dotTail ? pathLength + dotTail + Mathf.Repeat(t * dotSpeed - pathLength - dotTail, dotSpacing) : t * dotSpeed) : (t * dotSpeed) % (pathLength + dotTail));
+        if (_dotMat != null && dotFollow && dotHopTable != null && flying && k * 9 + 8 < dotHopTable.Length)
+        {
+            float uu = Mathf.Clamp01((t - t0) / Dur(k, hops)) * 8f; int ui = Mathf.Min(7, Mathf.FloorToInt(uu));
+            _dotMat.SetFloat("_Head", Mathf.Lerp(dotHopTable[k * 9 + ui], dotHopTable[k * 9 + ui + 1], uu - ui) + dotLead);
+        }
+        else if (_dotMat != null) _dotMat.SetFloat("_Head", !flying ? -100f : dotSpacing > 0.01f ? (t * dotSpeed > pathLength + dotTail ? pathLength + dotTail + Mathf.Repeat(t * dotSpeed - pathLength - dotTail, dotSpacing) : t * dotSpeed) : (t * dotSpeed) % (pathLength + dotTail));
         if (pathDots != null && pathDots.enabled != flying) pathDots.enabled = flying;   // 休みの間は点線ごと消す
         if (!flying) return;
         float u = Mathf.Clamp01((t - t0) / Dur(k, hops));
