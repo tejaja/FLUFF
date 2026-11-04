@@ -1612,13 +1612,13 @@ public static class FuwaCourse2_2Builder
     public static float RockCrackDepth = 0.35f, RockCrackLift = 0.015f, RockBounceH = 0.74f;   // RockBounceH：はねる時の岩の中心の、道からの高さ（岩の下の半径 0.78。少しめりこむくらい）
     // ジグザグの岩（LavaRock0/1）とまもののエリアの岩（LavaRockArena）の通り道の点線（2026-11-04 てじゃ「この点線いいな」）。最初の道の上の板（P1）から落ちる先まで、FuwaLavaRock.At と同じ弧に RockDotGap おきに小さい玉。
     //  1 つのメッシュで、uv.x が通り道ぞいの距離。作り直さずシーンだけ直す時もこれを呼ぶ（はねる点を動かしたら呼び直す。RockCracks のあとに）
-    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 15f, RockDotSpots = 3f, RockDotLead = 6.5f, RockDotTail = 6f;   /* 2026-11-04 てじゃ「くどい、一箇所に、光ってる部分をすこしながく、岩のちょっと前を岩と同じくらいの速度で」→ 岩にくっつけて、岩の 0.5〜6.5m 先を光らせる（光の長さ 4→6）。 2026-11-04 てじゃ「点滅速くして、消えてるときは見えないように」：10→18→26→15（光は同時に 3 か所）、ふだんの濃さ 0.8→0（光った所だけ見える） */
+    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 15f, RockDotSpots = 3f, RockDotLead = 10f, RockDotTail = 6f;   /* 2026-11-04 てじゃ「くどい、一箇所に、光ってる部分をすこしながく、岩のちょっと前を岩と同じくらいの速度で」→ 岩にくっつけて、岩の 4〜10m 先を光らせる（光の長さ 4→6。最初 0.5〜6.5m 先→「もうちょい手前」）。 2026-11-04 てじゃ「点滅速くして、消えてるときは見えないように」：10→18→26→15（光は同時に 3 か所）、ふだんの濃さ 0.8→0（光った所だけ見える） */
     public static string RockPathDots(Transform fire)
     {
         string mp = "Assets/FuwaStage2/Materials/Stage2_2_RockPathDots.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/RockPathDots")); AssetDatabase.CreateAsset(mat, mp); }
         mat.SetColor("_Color", new Color(1f, 0.62f, 0.05f, 1f)); mat.SetFloat("_Dim", 0f); mat.SetColor("_LitColor", new Color(1f, 0.95f, 0.25f, 1f));
-        mat.renderQueue = 2005; EditorUtility.SetDirty(mat);   // 炎の壁（2013、深さを書かない）より先に描く。後だと壁の向こうの点が手前に見えた
+        mat.renderQueue = 3000; EditorUtility.SetDirty(mat);   // ふつうの半透明の順番で（炎の壁は不透明で深さを書くので、後に描けば壁の向こうの点は隠れる）。2005 にしたら、点のまわりで壁が抜けて向こうが見えた（2026-11-04 てじゃ「描画順がおかしい」）
         // 点の形：低い球（緯度 4・経度 8）
         var unitV = new List<Vector3>(); var unitT = new List<int>(); const int LA = 4, LO = 8;
         for (int a = 0; a <= LA; a++) for (int o = 0; o <= LO; o++) { float th = Mathf.PI * a / LA, ph = 2f * Mathf.PI * o / LO; unitV.Add(new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph))); }

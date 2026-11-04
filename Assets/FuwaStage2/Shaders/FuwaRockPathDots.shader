@@ -17,7 +17,7 @@ Shader "FuwaCourse/RockPathDots"
         Pass
         {
             Blend SrcAlpha OneMinusSrcAlpha
-            ZWrite On   // キュー 2005 で描くので、空（スカイボックス）に上書きされないよう深さを書く
+            ZWrite On   // 点どうし・後の半透明（炎の粒など）と正しく重なるように深さを書く。消えている所は clip で書かない
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
