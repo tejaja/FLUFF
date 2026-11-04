@@ -536,7 +536,7 @@ public static class FuwaCourse2_3Builder
     //  床は1枚の氷（割れた氷と同じ作り方、水の所が穴）、下に湖ぜんぶの水。出口は最後のレーンの曲がり角の側の奥のふち
     static void Lake(Transform root, Transform path, Transform waterT, ref Vector3 p, ref Vector3 dir)
     {
-        if (LakeMap) { LakeFromMap(root, path, waterT, ref p, ref dir); return; }
+        if (LakeMap) { if (MapVersion == 2) LakeFromMap2(root, path, waterT, ref p, ref dir); else LakeFromMap(root, path, waterT, ref p, ref dir); return; }
         if (LakePlain)
         {
             var at0 = p;
@@ -603,6 +603,7 @@ public static class FuwaCourse2_3Builder
     {
         float h = 0f;
         foreach (var hl in MapHills) { float d = SegDist(hl.a, hl.b, q); h = Mathf.Max(h, hl.h * (1f - Mathf.Clamp01((d - hl.plateau) / hl.run))); }
+        if (map2Ridge) h = Mathf.Max(h, Map2Ridge(q));
         return h;
     }
     // 氷の島（ます目のメッシュ）：ます目のまん中が中にあるものを残す。外に出ているかどの点はふちの線の上へ寄せる（ふちがギザギザにならない）。
@@ -877,6 +878,163 @@ public static class FuwaCourse2_3Builder
         // 出口：I4 → ゴールの橋のつなぎの先
         p = o + new Vector3(gEnd.x, 0, gEnd.y); dir = new Vector3(gDir.x, 0, gDir.y);
     }
+    // ---- ラフ 2 回目（2026-11-04 てじゃ「隣と近くてきつい、構成かえる」）：縦長。まわりの水・雪の岸はなし（2–1 みずのこみちとかぶる）、島の間は空（落ちたらアウト）、水は島の穴の中だけ。
+    //  座標はラフの絵（上から撮った 2–3 の画像に描いたもの）から、入口の道のはしを原点に X 右・Z 奥（m）。回さない
+    //  ① 下の大きい氷（切れこみの水・小さい穴）→ 曲がった道 → ② 丸い山の島（まん中が高いドーム）→ 曲がった道 → ③ だ円の輪っか（穴、オレンジの坂＝まん中がいちばん高くて両はしへ下る）
+    //  → 道 → ④ 上の大きい氷（穴 2 つ）→ 流氷 3 つ → 上下に動く島 → ⑤ ゴール前の氷 → 道 → ゴール
+    public static int MapVersion = 2;
+    public static float Map2EntryLen = 1.5f;
+    public static Vector2[] M2_I1 = { new Vector2(-24.2f, 37.5f), new Vector2(-10.35f, 53.08f), new Vector2(11.58f, 47.31f), new Vector2(20.23f, 54.23f), new Vector2(28.31f, 49.62f), new Vector2(20.81f, 35.77f), new Vector2(13.89f, 28.27f), new Vector2(16.77f, 18.46f), new Vector2(8.12f, 0.57f), new Vector2(-21.89f, 0.57f), new Vector2(-23.62f, 18.46f) };
+    public static Vector2[] M2_I1Cut = { new Vector2(-15.54f, 38.08f), new Vector2(-5.73f, 41.54f), new Vector2(4.65f, 36.34f), new Vector2(13.89f, 30.57f), new Vector2(12.73f, 25.96f), new Vector2(3.5f, 27.11f), new Vector2(-10.35f, 31.73f) };
+    public static Vector2[] M2_I1Hole = { new Vector2(12.73f, 38.65f), new Vector2(11.96f, 36.28f), new Vector2(9.94f, 34.81f), new Vector2(7.44f, 34.81f), new Vector2(5.43f, 36.28f), new Vector2(4.65f, 38.65f), new Vector2(5.43f, 41.03f), new Vector2(7.44f, 42.49f), new Vector2(9.94f, 42.49f), new Vector2(11.96f, 41.03f) };
+    public static Vector2 M2_MC = new Vector2(2.35f, 71.54f); public static float M2_MR = 13.27f;
+    public static Vector2 M2_RC = new Vector2(-11.27f, 99f); public static float M2_RRx = 22.5f, M2_RRy = 12.1f, M2_RRot = 33f;   // だ円の輪っか（Rot：+X から左回りの角度）
+    public static Vector2 M2_RHC = new Vector2(-6.9f, 96.4f); public static float M2_RHx = 12.1f, M2_RHy = 4.4f;
+    public static Vector2[] M2_T = { new Vector2(-40.93f, 130.4f), new Vector2(-36.89f, 135.01f), new Vector2(-21.89f, 137.32f), new Vector2(-5.73f, 133.86f), new Vector2(8.12f, 133.86f), new Vector2(12.73f, 129.24f), new Vector2(12.73f, 124.05f), new Vector2(5.81f, 120.01f), new Vector2(-11.5f, 117.7f), new Vector2(-28.81f, 118.86f), new Vector2(-40.35f, 123.47f) };
+    public static Vector2[] M2_TH1 = { new Vector2(-29.97f, 135.01f), new Vector2(-21.89f, 135.01f), new Vector2(-21.89f, 128.09f), new Vector2(-29.97f, 128.09f) };
+    public static Vector2[] M2_TH2 = { new Vector2(-14.96f, 126.93f), new Vector2(-6.89f, 126.93f), new Vector2(-6.89f, 120.01f), new Vector2(-14.96f, 120.01f) };
+    // ゴール前の氷：ラフより 3.5m 奥（上の大きい氷から跳んで届かないように）
+    public static Vector2[] M2_G = { new Vector2(-23.62f, 151.78f), new Vector2(-14.96f, 155.82f), new Vector2(-3.42f, 156.98f), new Vector2(1.19f, 153.51f), new Vector2(-1.12f, 147.17f), new Vector2(-12.66f, 144.86f), new Vector2(-21.31f, 147.17f) };
+    public static Vector2[] M2_Floes = { new Vector2(-44.39f, 135.59f), new Vector2(-41.51f, 143.09f), new Vector2(-36.66f, 147.94f) };
+    public static Vector2 M2_MoveA = new Vector2(-29.97f, 148.86f), M2_MoveB = new Vector2(-29.97f, 162.71f);
+    // つなぎの道（点をなめらかにつなぐ）
+    public static (Vector2[] pts, float hw)[] M2_Links = {
+        (new[] { new Vector2(21.96f, 52.2f), new Vector2(24.85f, 58.85f), new Vector2(20.23f, 64.04f), new Vector2(14.6f, 66.6f) }, 2.6f),
+        (new[] { new Vector2(-9.2f, 74.3f), new Vector2(-18.43f, 75.58f), new Vector2(-26.5f, 80.2f), new Vector2(-30.4f, 86.5f) }, 2.6f),
+        (new[] { new Vector2(6.3f, 109.3f), new Vector2(5.81f, 120.3f) }, 3f),
+        (new[] { new Vector2(-4.58f, 156.3f), new Vector2(-4.58f, 163.9f) }, 3f) };
+    // 丸い山（ドーム）と、オレンジの坂（線にそって、まん中がいちばん高く両はしへ下る。横は SideRun で落ちる）
+    public static float M2_DomeH = 3f, M2_DomePlateau = 1.5f, M2_DomeRun = 10f;
+    public static Vector2 M2_RidgeA = new Vector2(-28.24f, 90.01f), M2_RidgeB = new Vector2(2.35f, 110.2f);
+    public static float M2_RidgeH = 7f, M2_RidgeHalfW = 4f, M2_RidgeSideRun = 3f;
+    static Vector2[] Ellipse(Vector2 c, float rx, float ry, float rotDeg, int n)
+    {
+        var o = new Vector2[n]; float a = rotDeg * Mathf.Deg2Rad, ca = Mathf.Cos(a), sa = Mathf.Sin(a);
+        for (int i = 0; i < n; i++) { float t = Mathf.PI * 2f * i / n; float x = rx * Mathf.Cos(t), y = ry * Mathf.Sin(t); o[i] = c + new Vector2(x * ca - y * sa, x * sa + y * ca); }
+        return o;
+    }
+    // なめらかな線（Catmull-Rom、1m くらいおき）
+    static List<Vector2> SmoothPts(Vector2[] k)
+    {
+        if (k.Length < 3) return k.ToList();
+        var o = new List<Vector2>();
+        for (int i = 0; i + 1 < k.Length; i++)
+        {
+            Vector2 p0 = k[Mathf.Max(0, i - 1)], p1 = k[i], p2 = k[i + 1], p3 = k[Mathf.Min(k.Length - 1, i + 2)];
+            int n = Mathf.Max(2, Mathf.CeilToInt((p2 - p1).magnitude));
+            for (int j = 0; j < n; j++) { float t = j / (float)n, t2 = t * t, t3 = t2 * t; o.Add(0.5f * ((2f * p1) + (-p0 + p2) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 + (-p0 + 3f * p1 - 3f * p2 + p3) * t3)); }
+        }
+        o.Add(k[k.Length - 1]); return o;
+    }
+    static Vector2[] PathOutline(List<Vector2> pts, float hw)
+    {
+        var L = new List<Vector2>(); var R = new List<Vector2>();
+        for (int i = 0; i < pts.Count; i++)
+        {
+            var tg = pts[Mathf.Min(pts.Count - 1, i + 1)] - pts[Mathf.Max(0, i - 1)]; tg.Normalize(); var rt = new Vector2(tg.y, -tg.x);
+            L.Add(pts[i] - rt * hw); R.Add(pts[i] + rt * hw);
+        }
+        R.Reverse(); L.AddRange(R); return L.ToArray();
+    }
+    static float Map2Ridge(Vector2 q)
+    {
+        var ab = M2_RidgeB - M2_RidgeA; float len = ab.magnitude; var u = ab / len; var d = q - M2_RidgeA;
+        float t = Vector2.Dot(d, u) / len, side = Mathf.Abs(d.x * u.y - d.y * u.x);
+        if (t < 0f || t > 1f) return 0f;
+        float along = 1f - Mathf.Abs(2f * t - 1f);
+        float sideF = Mathf.Clamp01((M2_RidgeHalfW + M2_RidgeSideRun - side) / M2_RidgeSideRun);
+        return M2_RidgeH * along * sideF;
+    }
+    // 穴の水（見た目の面＋アウト）：穴の形の外わくの四角で（島の中に隠れる）
+    //  見た目は穴の形（まん中からの扇。四角だと島の外にはみ出した）。水のシェーダーは uv×板の大きさをふちからの距離にするので、1/K の形を K 倍に置いて uv はふちで 0・まん中で 0.5 に
+    static void HoleWater(Transform waterT, Vector3 o, string name, Vector2[] hole)
+    {
+        const float K = 8f;
+        var c = new Vector2(hole.Average(q => q.x), hole.Average(q => q.y));
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var t = new List<int>();
+        v.Add(new Vector3(c.x, CrackWaterY, c.y) / K); uv.Add(new Vector2(0.5f, 0.5f));
+        foreach (var q in hole) { var e = q + (q - c).normalized * 0.3f; v.Add(new Vector3(e.x, CrackWaterY, e.y) / K); uv.Add(Vector2.zero); }   // ふちは少し外へ（島の側面の中に入れてすき間なし）
+        for (int i = 0; i < hole.Length; i++) { int a = 1 + i, b = 1 + (i + 1) % hole.Length; if (Vector3.Cross(v[a] - v[0], v[b] - v[0]).y >= 0) t.AddRange(new[] { 0, a, b }); else t.AddRange(new[] { 0, b, a }); }
+        var m = NewMesh(name); m.SetVertices(v); m.SetUVs(0, uv); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        var g = new GameObject(name); g.transform.SetParent(waterT, false); g.transform.localPosition = o; g.transform.localScale = Vector3.one * K;
+        g.AddComponent<MeshFilter>().sharedMesh = m;
+        var wm = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_Water_Still.mat");
+        var r = g.AddComponent<MeshRenderer>(); r.sharedMaterial = wm ? wm : crystalMat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        float x0 = hole.Min(q => q.x), x1 = hole.Max(q => q.x), z0 = hole.Min(q => q.y), z1 = hole.Max(q => q.y);
+        var wc = o + new Vector3((x0 + x1) * 0.5f, CrackWaterY, (z0 + z1) * 0.5f);
+        Hazard(waterT, name + "_BallOut", wc, new Vector3(x1 - x0, 0.3f, z1 - z0), false);
+        Hazard(waterT, name + "_PlayerOut", wc + Vector3.down * 0.9f, new Vector3(x1 - x0, 0.6f, z1 - z0), true);
+    }
+    static void LakeFromMap2(Transform root, Transform path, Transform waterT, ref Vector3 p, ref Vector3 dir)
+    {
+        var o = p;
+        var keepHills = MapHills; MapHills = new[] { (M2_MC, M2_MC, M2_DomePlateau, M2_DomeRun, M2_DomeH) }; map2Ridge = true;
+        try
+        {
+            // 入口の道 → 下の大きい氷
+            Strip(path, "MapInStrip", p, Vector3.forward, Map2EntryLen, IntroHW, false); p += Vector3.forward * Map2EntryLen;
+            var R = Ellipse(M2_RC, M2_RRx, M2_RRy, M2_RRot, 40); var RH = Ellipse(M2_RHC, M2_RHx, M2_RHy, M2_RRot, 28); var M = Ellipse(M2_MC, M2_MR, M2_MR, 0f, 40);
+            var linkPts = M2_Links.Select(l => SmoothPts(l.pts)).ToList();
+            var cuts = new List<Vector2[]> { M2_I1Cut, M2_I1Hole, RH, M2_TH1, M2_TH2, new[] { new Vector2(-IntroHW, 0f), new Vector2(IntroHW, 0f), new Vector2(IntroHW, Map2EntryLen), new Vector2(-IntroHW, Map2EntryLen) } };
+            for (int k = 0; k < linkPts.Count; k++) cuts.Add(PathOutline(linkPts[k], M2_Links[k].hw));
+            var isl = new GameObject("Islands").transform; isl.SetParent(path, false);
+            MapIsland(isl, "MapI1", o, M2_I1, cuts);
+            MapIsland(isl, "MapDome", o, M, cuts);
+            MapIsland(isl, "MapRing", o, R, cuts);
+            MapIsland(isl, "MapTop", o, M2_T, cuts);
+            MapIsland(isl, "MapGoalIce", o, M2_G, cuts);
+            for (int k = 0; k < linkPts.Count; k++)
+            {
+                var lp = linkPts[k]; float hw = M2_Links[k].hw;
+                if (lp.Count == 2)
+                {
+                    var a3 = o + new Vector3(lp[0].x, 0, lp[0].y); var d3 = new Vector3(lp[1].x - lp[0].x, 0, lp[1].y - lp[0].y);
+                    Strip(path, "MapLink" + k, a3, d3.normalized, d3.magnitude, hw, false);
+                    if (k < linkPts.Count - 1) Checkpoint(root, "Checkpoint" + (k + 1), a3 + d3 * 0.5f, d3.normalized, hw);
+                }
+                else
+                {
+                    Ribbon(path, "MapLink" + k, lp.Select(q => o + new Vector3(q.x, 0, q.y)).ToList(), hw, false);
+                    int mi = lp.Count / 2; var td = lp[mi + 1] - lp[mi - 1];
+                    Checkpoint(root, "Checkpoint" + (k + 1), o + new Vector3(lp[mi].x, 0, lp[mi].y), new Vector3(td.x, 0, td.y).normalized, hw);
+                }
+            }
+            var fl = new GameObject("Floes").transform; fl.SetParent(path, false);
+            for (int k = 0; k < M2_Floes.Length; k++) Floe(fl, "MapFloe" + k, o + new Vector3(M2_Floes[k].x, 0, M2_Floes[k].y), MapFloeR, 1, 7300 + k);
+            Floe(fl, "MapFloeMove", o + new Vector3(M2_MoveA.x, 0, M2_MoveA.y), MapFloeR, 1, 7399);
+            {
+                var a3 = o + new Vector3(M2_MoveA.x, -0.25f, M2_MoveA.y); var b3 = o + new Vector3(M2_MoveB.x, -0.25f, M2_MoveB.y);
+                var mk = GameObject.CreatePrimitive(PrimitiveType.Cube); mk.name = "MoveRouteMark"; mk.transform.SetParent(fl, false);
+                mk.transform.localPosition = (a3 + b3) * 0.5f; mk.transform.localRotation = Quaternion.LookRotation(b3 - a3); mk.transform.localScale = new Vector3(0.15f, 0.05f, (b3 - a3).magnitude);
+                mk.GetComponent<Renderer>().sharedMaterial = markMat; Object.DestroyImmediate(mk.GetComponent<Collider>());
+            }
+            // 穴の水
+            HoleWater(waterT, o, "HoleI1Cut", M2_I1Cut); HoleWater(waterT, o, "HoleI1", M2_I1Hole); HoleWater(waterT, o, "HoleRing", RH); HoleWater(waterT, o, "HoleTop1", M2_TH1); HoleWater(waterT, o, "HoleTop2", M2_TH2);
+            // つながっていない島どうしの近さ
+            var groups = new List<(string n, Vector2[] poly, Vector2 c, float r)>
+            {
+                ("I1", M2_I1, Vector2.zero, 0f), ("Dome", M, Vector2.zero, 0f), ("Ring", R, Vector2.zero, 0f), ("Top", M2_T, Vector2.zero, 0f), ("Goal", M2_G, Vector2.zero, 0f),
+                ("F0", null, M2_Floes[0], MapFloeR), ("F1", null, M2_Floes[1], MapFloeR), ("F2", null, M2_Floes[2], MapFloeR), ("FM", null, M2_MoveA, MapFloeR) };
+            var linked = new HashSet<string> { "I1-Dome", "Dome-Ring", "Ring-Top", "Top-F0", "F0-F1", "F1-F2", "F2-FM", "Goal-FM" };
+            string warn = "";
+            for (int i = 0; i < groups.Count; i++) for (int j = i + 1; j < groups.Count; j++)
+            {
+                var A = groups[i]; var B = groups[j];
+                if (linked.Contains(A.n + "-" + B.n) || linked.Contains(B.n + "-" + A.n)) continue;
+                float best = float.MaxValue;
+                if (A.poly != null && B.poly != null) { foreach (var q in A.poly) { NearestOnPoly(B.poly, q, out float d); best = Mathf.Min(best, d); } foreach (var q in B.poly) { NearestOnPoly(A.poly, q, out float d); best = Mathf.Min(best, d); } }
+                else if (A.poly != null) { NearestOnPoly(A.poly, B.c, out float d); best = d - B.r; }
+                else if (B.poly != null) { NearestOnPoly(B.poly, A.c, out float d); best = d - A.r; }
+                else best = (A.c - B.c).magnitude - A.r - B.r;
+                if (best < MapGapMin) warn += " " + A.n + "-" + B.n + "=" + best.ToString("F1") + "m";
+            }
+            if (warn != "") Debug.LogWarning("[2–3] つながっていない島が近い:" + warn);
+            var last = linkPts[linkPts.Count - 1]; var gEnd = last[last.Count - 1]; var gDir = (last[last.Count - 1] - last[last.Count - 2]).normalized;
+            p = o + new Vector3(gEnd.x, 0, gEnd.y); dir = new Vector3(gDir.x, 0, gDir.y);
+        }
+        finally { MapHills = keepHills; map2Ridge = false; }
+    }
+    static bool map2Ridge;
     // 氷の山（台形の柱）：c（まん中、地面の高さ）を中心に +Z へ 上り坂 → 平ら top → 下り坂。幅 w、高さ h、角度 ang。下の面は作らない（床の中）
     static void IceHill(Transform parent, string name, Vector3 c, float w, float h, float ang, float top)
     {
