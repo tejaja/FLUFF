@@ -1002,28 +1002,42 @@ public static class FuwaCourse2_2Builder
         }
         return log;
     }
-    // 3 連火炎放射の合間の焚き火（2026-11-04 てじゃ「３連火炎放射の合間にも焚き火置こう」）。となりの 2 つの炎の根元のまん中から、道のまん中（FlameHW 外）に。
+    // 3 連火炎放射の手前と合間の焚き火（2026-11-04 てじゃ「３連火炎放射の合間にも焚き火置こう」「一番手前にもほしい」「手前ほど内側よりに、最後はちょっと外側よりに」）。
+    //  [0] は 1 つめの炎の手前、[1][2] はとなりの炎の当たりの箱どうしのまん中。道の横の位置は JetSeedSide（外向きが +、道のまん中が 0）。
     //  シーンの火炎放射の位置から決めるので、作り直さずシーンだけ直す時もこれを呼ぶ
+    public static float[] JetSeedSide = { -1.3f, -0.5f, 0.6f };
+    public static float JetSeedGap = 2.1f;   // [0] の、1 つめの炎の当たりからの距離（合間のは両方から同じ距離になる所）
     public static string AddJetGapSeeds(Transform root)
     {
         var fire = root.Find("Fire"); heat = root.GetComponentInChildren<FuwaHeat>(true); rockMat = PathSideMat();
         var log = "";
-        for (int k = 0; k < 2; k++)
+        var js = new FuwaFireJet[3];
+        for (int k = 0; k < 3; k++) js[k] = fire.Find("Flamethrower" + k)?.GetComponentInChildren<FuwaFireJet>(true);
+        if (js[0] == null || js[1] == null || js[2] == null) return "火炎放射がない";
+        Physics.SyncTransforms();
+        float Dist(FuwaFireJet j, Vector3 p) { var q = p + Vector3.up * 0.9f; return (j.GetComponent<BoxCollider>().ClosestPoint(q) - q).magnitude; }
+        for (int k = 0; k < 3; k++)
         {
             var old = fire.Find("JetGapSeed" + k); if (old) Object.DestroyImmediate(old.gameObject);
-            var j0 = fire.Find("Flamethrower" + k)?.GetComponentInChildren<FuwaFireJet>(true); var j1 = fire.Find("Flamethrower" + (k + 1))?.GetComponentInChildren<FuwaFireJet>(true);
-            if (j0 == null || j1 == null || j0.knockOrigin == null || j1.knockOrigin == null) { log += "火炎放射がない " + k + "\n"; continue; }
-            var o = Flat(j0.knockDir + j1.knockDir).normalized;
-            var p = (j0.knockOrigin.position + j1.knockOrigin.position) * 0.5f + o * FlameHW;
-            Physics.SyncTransforms();
-            //  炎の当たりの箱どうしのまん中に寄せる（根元のまん中だと片方に 0.9m 寄っていた）
+            FuwaFireJet a = k == 0 ? js[0] : js[k - 1], b = k == 0 ? js[1] : js[k];
+            var o = Flat(k == 0 ? a.knockDir : a.knockDir + b.knockDir).normalized;
+            var t = Flat(b.knockOrigin.position - a.knockOrigin.position).normalized;
+            Vector3 p;
+            if (k == 0)
             {
-                var t = Flat(j1.knockOrigin.position - j0.knockOrigin.position).normalized; var b0 = j0.GetComponent<BoxCollider>(); var b1 = j1.GetComponent<BoxCollider>();
-                for (int it = 0; it < 3; it++) { var q = p + Vector3.up * 0.9f; float d0 = (b0.ClosestPoint(q) - q).magnitude, d1 = (b1.ClosestPoint(q) - q).magnitude; p += t * (d1 - d0) * 0.5f; }
+                // 1 つめの炎の手前（2 つめと反対側）に JetSeedGap
+                p = a.knockOrigin.position + o * FlameHW - t * 3f;
+                for (int it = 0; it < 4; it++) p -= t * (JetSeedGap - Dist(a, p));
             }
+            else
+            {
+                p = (a.knockOrigin.position + b.knockOrigin.position) * 0.5f + o * FlameHW;
+                for (int it = 0; it < 3; it++) p += t * (Dist(b, p) - Dist(a, p)) * 0.5f;   // 炎の当たりの箱どうしのまん中に（根元のまん中だと片方に 0.9m 寄っていた）
+            }
+            p += o * JetSeedSide[k];
             if (!Physics.Raycast(p + Vector3.up * 5f, Vector3.down, out var hit, 12f, 1 << 11, QueryTriggerInteraction.Ignore)) { log += "道がない " + k + "\n"; continue; }
             GroundFire(fire, "JetGapSeed" + k, fire.InverseTransformPoint(hit.point), fire.InverseTransformDirection(o));
-            log += "JetGapSeed" + k + " " + hit.point.ToString("F1") + " 当たり=" + hit.collider.name + "\n";
+            log += "JetGapSeed" + k + " 炎まで " + Dist(a, hit.point).ToString("F2") + " / " + Dist(b, hit.point).ToString("F2") + " 当たり=" + hit.collider.name + "\n";
         }
         return log;
     }
