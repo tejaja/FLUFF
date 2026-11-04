@@ -1772,7 +1772,7 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火球の飛ぶ道の地面のグラデ（FuwaFireball.warnAreas）。穴と穴の間の帯だけ（真上に飛ぶ穴は、てじゃ「真上のはいらんかも」でなし）。道に沿わせて、道の外と穴の中は作らない。作り直さずシーンだけ直す時もこれを呼ぶ
-    public static float FireballWarnW = 1.9f;
+    public static float FireballWarnW = FireballSize + 0.1f;   // 火球の当たりの太さ（1.6m）にそろえる（2026-11-04 てじゃ「火球と同じにしよ」。前は 1.9）
     public static string FireballWarns(Transform fire)
     {
         var course = fire.root; var temps = new List<MeshCollider>();
