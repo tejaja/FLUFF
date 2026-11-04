@@ -29,6 +29,10 @@ Shader "FuwaCourse/FlameMesh"
         _TimeAdd ("時間を足す（撮影用）", Float) = 0
         _Wave ("上のふちの大きなうねり（オブジェクトの長さ）", Float) = 0
         _WaveScale ("うねりの細かさ（タイル／オブジェクトの長さ）", Float) = 0.09
+        _NearGlow ("近い時の明滅の色（a が強さ、0 でなし）", Color) = (1, 0.97, 0.75, 0)
+        _GlowNear ("この距離(m)より近いと明滅がいちばん強い", Float) = 3
+        _GlowFar ("この距離(m)で明滅なし", Float) = 8
+        _GlowSpeed ("明滅の速さ", Float) = 3
         _FireFadeNear ("遠くを薄く：はじまり(m)", Float) = 14
         _FireFadeFar ("遠くを薄く：いちばん薄い所(m)", Float) = 40
         _FireFadeMin ("遠くを薄く：いちばん薄い時の濃さ（1 で薄くしない）", Range(0,1)) = 1
@@ -154,6 +158,11 @@ Shader "FuwaCourse/FlameMesh"
                     c = lerp(c, _Yellow.rgb, _ShadeBump * saturate(bumpN * 2.0) * 0.5);
                 }
                 o.col = FuwaFireCalm(c, FuwaFireFar(wp));
+                {
+                    float3 wn2 = normalize(UnityObjectToWorldNormal(nor));
+                    half rim = 1 - abs(dot(wn2, normalize(_WorldSpaceCameraPos - wp)));
+                    o.col = FuwaFireNearGlow(o.col, wp, rim);
+                }
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }

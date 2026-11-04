@@ -28,4 +28,14 @@ inline void FuwaFireFadeClip(float3 wp, float4 svpos)
     float bayer = 4.0 * (2.0 * abs(lo.x - lo.y) + lo.y) + (2.0 * abs(hi.x - hi.y) + hi.y);
     clip(a - (bayer + 0.5) / 16.0);
 }
+// 近くの炎だけ、ふちがゆっくり明滅する（2026-11-04 てじゃ「近い炎だけ目立たせる」「ステージ１の近いクモの巣が光るのはよかった」）。rim：ふちほど 1
+half4 _NearGlow; float _GlowNear, _GlowFar, _GlowSpeed;
+inline half3 FuwaFireNearGlow(half3 c, float3 wp, half rim)
+{
+    if (_NearGlow.a < 0.001) return c;
+    float near = 1 - smoothstep(_GlowNear, max(_GlowFar, _GlowNear + 0.01), distance(_WorldSpaceCameraPos, wp));
+    half pulse = 0.5 + 0.5 * sin(_Time.y * _GlowSpeed);
+    // ふちに寄せる（面全体だと白っぽく色があせて見えた）
+    return lerp(c, _NearGlow.rgb, saturate(near * pulse * _NearGlow.a * (0.08 + 0.92 * rim * rim)));
+}
 #endif

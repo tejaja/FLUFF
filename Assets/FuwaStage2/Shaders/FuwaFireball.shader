@@ -12,6 +12,10 @@ Shader "FuwaCourse/Fireball"
         _Speed ("上へ流れる速さ", Float) = 0.9
         _Wobble ("輪郭のゆらぎ（球の半径の割合に近い）", Range(0,0.5)) = 0.17
         _Fresnel ("ふちの色の広さ（大きいほど細い）", Range(0.5,6)) = 1.7
+        _NearGlow ("近い時の明滅の色（a が強さ、0 でなし）", Color) = (1, 0.97, 0.75, 0)
+        _GlowNear ("この距離(m)より近いと明滅がいちばん強い", Float) = 3
+        _GlowFar ("この距離(m)で明滅なし", Float) = 8
+        _GlowSpeed ("明滅の速さ", Float) = 3
         _FireFadeNear ("遠くを薄く：はじまり(m)", Float) = 14
         _FireFadeFar ("遠くを薄く：いちばん薄い所(m)", Float) = 40
         _FireFadeMin ("遠くを薄く：いちばん薄い時の濃さ（1 で薄くしない）", Range(0,1)) = 1
@@ -75,6 +79,7 @@ Shader "FuwaCourse/Fireball"
                 half k = saturate(pow(facing, _Fresnel) * 1.1 + (h - 0.5) * 0.7);
                 half3 c = k < 0.5 ? lerp(_Edge.rgb, _Mid.rgb, k * 2) : lerp(_Mid.rgb, _Hot.rgb, (k - 0.5) * 2);
                 c = FuwaFireCalm(c, FuwaFireFar(i.wp));
+                c = FuwaFireNearGlow(c, i.wp, 1 - facing);
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
                 return o;
