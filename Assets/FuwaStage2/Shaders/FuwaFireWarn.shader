@@ -15,6 +15,11 @@ Shader "FuwaCourse/FireWarn"
         _Alpha ("出ている量（スクリプトが動かす）", Range(0,1)) = 1
         _Flow ("流れる向き(1 か -1。スクリプトが動かす)", Float) = 1
         _RootFade ("根元のふちをぼかす幅(uv.y、0 でぼかさない)", Float) = 0
+        // 2026-11-04 てじゃ「影より下にうつしたい」：1 で上塗りでなく、下の道の色に _Tint を掛ける（2倍の掛け算。影の所は暗いまま色だけ変わる）。_SrcBlend/_DstBlend は DstColor/SrcColor に
+        [Toggle] _Mode ("下の色に掛ける(影の下に見える)", Float) = 0
+        _Tint ("掛ける色(0-2、1 で変わらない)", Color) = (1.15, 1.7, 0.4, 1)
+        [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("SrcBlend", Float) = 5
+        [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("DstBlend", Float) = 10
     }
     SubShader
     {
@@ -22,7 +27,7 @@ Shader "FuwaCourse/FireWarn"
         Pass
         {
             Tags { "LightMode"="ForwardBase" }
-            Blend SrcAlpha OneMinusSrcAlpha
+            Blend [_SrcBlend] [_DstBlend]
             ZWrite Off
             Offset -2, -2
             CGPROGRAM
@@ -32,7 +37,7 @@ Shader "FuwaCourse/FireWarn"
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
 
-            fixed4 _Color;
+            fixed4 _Color; half4 _Tint; half _Mode;
             half _Root, _Tip, _Alpha;
             float _Length, _Wavelength, _Speed, _Base, _Sharp, _Flow, _RootFade;
 
@@ -60,6 +65,13 @@ Shader "FuwaCourse/FireWarn"
                 half band = pow(saw, _Sharp) * smoothstep(1.0, 0.72, saw);
                 half rootEdge = _RootFade > 0.001 ? saturate(i.uv.y / _RootFade) : 1;
                 half a = smoothstep(0, 0.55, side) * lerp(_Root, _Tip, i.uv.y) * smoothstep(1, 0.88, i.uv.y) * rootEdge * lerp(_Base, 1, band) * _Alpha;
+                if (_Mode > 0.5)
+                {
+                    // 出力 s で 2*dst*s。0.5 で変わらず、_Tint*0.5 で _Tint 倍
+                    half4 m = half4(lerp(half3(1, 1, 1), _Tint.rgb, a) * 0.5, 1);
+                    UNITY_APPLY_FOG_COLOR(i.fogCoord, m, half4(0.5, 0.5, 0.5, 1));
+                    return m;
+                }
                 fixed4 c = fixed4(_Color.rgb, a);
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;

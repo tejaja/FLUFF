@@ -1772,6 +1772,7 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火球の飛ぶ道の地面のグラデ（FuwaFireball.warnAreas）。穴と穴の間の帯だけ（真上に飛ぶ穴は、てじゃ「真上のはいらんかも」でなし）。道に沿わせて、道の外と穴の中は作らない。作り直さずシーンだけ直す時もこれを呼ぶ
+    public static Color FireballWarnTint = new Color(1.15f, 1.7f, 0.4f, 1f);
     public static float FireballWarnW = FireballSize + 0.1f;   // 火球の当たりの太さ（1.6m）にそろえる（2026-11-04 てじゃ「火球と同じにしよ」。前は 1.9）
     public static string FireballWarns(Transform fire)
     {
@@ -1782,7 +1783,7 @@ public static class FuwaCourse2_2Builder
         Physics.SyncTransforms();
         string mp = "Assets/FuwaStage2/Materials/Stage2_2_FireballWarn.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/FireWarn")); AssetDatabase.CreateAsset(mat, mp); }
-        mat.SetColor("_Color", new Color(1f, 0.82f, 0.1f, 1f)); mat.SetFloat("_Base", 0.5f); mat.SetFloat("_Sharp", 1.5f); mat.SetFloat("_Tip", 1f); mat.SetFloat("_RootFade", 0.1f); EditorUtility.SetDirty(mat);
+        mat.SetColor("_Color", new Color(1f, 0.82f, 0.1f, 1f)); mat.SetFloat("_Base", 0.5f); mat.SetFloat("_Sharp", 1.5f); mat.SetFloat("_Tip", 1f); mat.SetFloat("_RootFade", 0.1f); mat.SetFloat("_Mode", 1f); mat.SetColor("_Tint", FireballWarnTint); mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.DstColor); mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.SrcColor); EditorUtility.SetDirty(mat);   // 道の色に掛けて、影の下に見えるように（2026-11-04 てじゃ「影より下にうつしたい」）
         int made = 0, tris = 0;
         foreach (var f in fire.GetComponentsInChildren<FuwaFireball>(true))
         {
