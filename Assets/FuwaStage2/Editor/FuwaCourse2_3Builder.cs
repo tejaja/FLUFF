@@ -1036,9 +1036,44 @@ public static class FuwaCourse2_3Builder
         Hazard(waterT, name + "_BallOut", wc, new Vector3(x1 - x0, 0.3f, z1 - z0), false);
         Hazard(waterT, name + "_PlayerOut", wc + Vector3.down * 0.9f, new Vector3(x1 - x0, 0.6f, z1 - z0), true);
     }
+    // 2026-11-04 てじゃ「2-3ちょっとデカすぎる」「スタートゴール以外を縮める」「四角い池があるエリア、いらんかも」：
+    //  ・M2_Top＝false で上の島（四角い池 2 つ）をなくして、帯の坂のあとから割れ目の道へまっすぐ
+    //  ・M2_Scale 倍に縮める（入口からの位置・島の形・坂の長さと高さ＝坂の角度は同じ）。道の幅・置き物のすき間・割れ目の開く幅・ギザギザは遊びやすさのため縮めない
+    //  データはラフを写した大きさのまま。作る間だけ縮めた値に入れかえて、最後に戻す
+    public static bool M2_Top = false;
+    public static float M2_Scale = 0.75f;
+    public static float M2_FieldLink = 14f;   // 上の島なしの時：帯から割れ目の道への道の長さ（L3 の始まりから）
+    static System.Action M2ApplyScale(float k)
+    {
+        var bI1 = M2_I1; var bBA = M2_I1BandA; var bBB = M2_I1BandB; float bBHW = M2_I1BandHW; var bCut = M2_I1Cut; var bHole = M2_I1Hole;
+        var bMC = M2_MC; float bMR = M2_MR; var bRC = M2_RC; float bRRx = M2_RRx, bRRy = M2_RRy; var bRHC = M2_RHC; float bRHx = M2_RHx, bRHy = M2_RHy;
+        float bRBHW = M2_RingBandHW, bRBE = M2_RingBandExt; var bLinks = M2_Links;
+        float bDH = M2_DomeH, bDP = M2_DomePlateau, bDR = M2_DomeRun; var bHA = M2_I1HillA; var bHB = M2_I1HillB; float bHP = M2_I1HillPlateau, bHR = M2_I1HillRun, bHH = M2_I1HillH;
+        var bRA = M2_RidgeA; var bRB = M2_RidgeB; float bRH = M2_RidgeH, bRHW = M2_RidgeHalfW;
+        float bX0 = M2_CrackX0, bX1 = M2_CrackX1, bZ0 = M2_CrackZ0, bSL = M2_CrackSlabL;
+        System.Func<Vector2[], Vector2[]> P = a => a.Select(q => q * k).ToArray();
+        M2_I1 = P(M2_I1); M2_I1BandA *= k; M2_I1BandB *= k; M2_I1BandHW *= k; M2_I1Cut = P(M2_I1Cut); M2_I1Hole = P(M2_I1Hole);
+        M2_MC *= k; M2_MR *= k; M2_RC *= k; M2_RRx *= k; M2_RRy *= k; M2_RHC *= k; M2_RHx *= k; M2_RHy *= k;
+        M2_RingBandHW *= k; M2_RingBandExt *= k; M2_Links = M2_Links.Select(l => (P(l.pts), l.hw)).ToArray();
+        M2_DomeH *= k; M2_DomePlateau *= k; M2_DomeRun *= k; M2_I1HillA *= k; M2_I1HillB *= k; M2_I1HillPlateau *= k; M2_I1HillRun *= k; M2_I1HillH *= k;
+        M2_RidgeA *= k; M2_RidgeB *= k; M2_RidgeH *= k; M2_RidgeHalfW *= k;
+        float w = (M2_CrackX1 - M2_CrackX0) * k; M2_CrackSlabL *= k;
+        if (!M2_Top) { var s0 = M2_Links[2].pts[0]; M2_CrackX0 = s0.x - w * 0.5f; M2_CrackX1 = s0.x + w * 0.5f; M2_CrackZ0 = s0.y + M2_FieldLink; }
+        else { float c = (M2_CrackX0 + M2_CrackX1) * 0.5f * k; M2_CrackX0 = c - w * 0.5f; M2_CrackX1 = c + w * 0.5f; M2_CrackZ0 *= k; }
+        return () =>
+        {
+            M2_I1 = bI1; M2_I1BandA = bBA; M2_I1BandB = bBB; M2_I1BandHW = bBHW; M2_I1Cut = bCut; M2_I1Hole = bHole;
+            M2_MC = bMC; M2_MR = bMR; M2_RC = bRC; M2_RRx = bRRx; M2_RRy = bRRy; M2_RHC = bRHC; M2_RHx = bRHx; M2_RHy = bRHy;
+            M2_RingBandHW = bRBHW; M2_RingBandExt = bRBE; M2_Links = bLinks;
+            M2_DomeH = bDH; M2_DomePlateau = bDP; M2_DomeRun = bDR; M2_I1HillA = bHA; M2_I1HillB = bHB; M2_I1HillPlateau = bHP; M2_I1HillRun = bHR; M2_I1HillH = bHH;
+            M2_RidgeA = bRA; M2_RidgeB = bRB; M2_RidgeH = bRH; M2_RidgeHalfW = bRHW;
+            M2_CrackX0 = bX0; M2_CrackX1 = bX1; M2_CrackZ0 = bZ0; M2_CrackSlabL = bSL;
+        };
+    }
     static void LakeFromMap2(Transform root, Transform path, Transform waterT, ref Vector3 p, ref Vector3 dir)
     {
         var o = p;
+        var unscale = M2ApplyScale(M2_Scale);
         var keepHills = MapHills; MapHills = new[] { (M2_MC, M2_MC, M2_DomePlateau, M2_DomeRun, M2_DomeH), (M2_I1HillA, M2_I1HillB, M2_I1HillPlateau, M2_I1HillRun, M2_I1HillH) }; map2Ridge = true;
         MapHillOnly = new[] { Ellipse(M2_MC, M2_MR, M2_MR, 0f, 40), M2_I1 };
         try
@@ -1052,17 +1087,20 @@ public static class FuwaCourse2_3Builder
             {
                 // 上の島 → 1 枚目の板（まっすぐの道）、最後の板 → ゴール
                 float xm = (M2_CrackX0 + M2_CrackX1) * 0.5f, zEnd = M2_CrackZ0 + M2_CrackN * M2_CrackSlabL + (M2_CrackN - 1) * M2_CrackGap;
-                var toField = (new[] { new Vector2(-15f, 134.8f), new Vector2(-15f, M2_CrackZ0) }, 3f);
+                var toField = M2_Top ? (new[] { new Vector2(xm, 134.8f * M2_Scale), new Vector2(xm, M2_CrackZ0) }, 3f) : (new[] { new Vector2(xm, M2_Links[2].pts[0].y), new Vector2(xm, M2_CrackZ0) }, 3f);
                 var toGoal = (new[] { new Vector2(xm, zEnd), new Vector2(xm, zEnd + 8f) }, 3f);
-                var ll = links.ToList(); ll[ll.Count - 1] = toField; ll.Add(toGoal); links = ll.ToArray();
+                var ll = links.ToList(); ll[ll.Count - 1] = toField; ll.Add(toGoal);
+                if (!M2_Top) ll.RemoveAt(2);   // 上の島なし：帯 → 割れ目の道（toField が L3 の始まりから）
+                links = ll.ToArray();
                 G = CrackSlab(M2_CrackN - 1);
             }
             var linkPts = links.Select(l => SmoothPts(l.pts)).ToList();
             Vector2[] I1Band;
             { var d = (M2_I1BandB - M2_I1BandA).normalized; var nn = new Vector2(-d.y, d.x) * M2_I1BandHW; I1Band = new[] { M2_I1BandA - nn, M2_I1BandA + nn, M2_I1BandB + nn, M2_I1BandB - nn }; }
             // 下の島の水（切れこみ・小さい穴）は一旦なし（2026-11-04 てじゃ「手前の水は一旦けしていいよ」）。M2_I1Water で戻せる
-            var cuts = new List<Vector2[]> { I1Band, RH, M2_TH1, M2_TH2, new[] { new Vector2(-IntroHW, 0f), new Vector2(IntroHW, 0f), new Vector2(IntroHW, Map2EntryLen), new Vector2(-IntroHW, Map2EntryLen) } };
+            var cuts = new List<Vector2[]> { I1Band, RH, new[] { new Vector2(-IntroHW, 0f), new Vector2(IntroHW, 0f), new Vector2(IntroHW, Map2EntryLen), new Vector2(-IntroHW, Map2EntryLen) } };
             if (M2_I1Water) { cuts.Add(M2_I1Cut); cuts.Add(M2_I1Hole); }
+            if (M2_Top) { cuts.Add(M2_TH1); cuts.Add(M2_TH2); }
             if (M2_RingAsBand && !M2_RingPond) cuts.Remove(RH);   // 帯にした時は池の穴もなし
             if (!M2_RingAsBand)
             // 輪っかの大きい坂の横の細道をなくす（2026-11-04 てじゃ「でかい坂のよこの細道いらんかもな」）：坂のすその外側（輪っかの外のふち側）を、坂の長さぶん切る
@@ -1085,7 +1123,7 @@ public static class FuwaCourse2_3Builder
                 R = new[] { a1 - nb, b1 - nb, b1 + nb, a1 + nb };
             }
             MapIsland(isl, "MapRing", o, R, cuts);
-            MapIsland(isl, "MapTop", o, M2_T, cuts);
+            if (M2_Top) MapIsland(isl, "MapTop", o, M2_T, cuts);
             if (M2_Cracks)
             {
                 for (int k = 0; k < M2_CrackN; k++)
@@ -1124,7 +1162,7 @@ public static class FuwaCourse2_3Builder
                 var obsT = new GameObject("Obstacles").transform; obsT.SetParent(root, false);
                 var rnd = new System.Random(M2_ObsSeed); var placed = new List<Vector2>();
                 var cand = new List<Vector2>();
-                for (float x = -30f; x <= 30f; x += 1f) for (float z = 0f; z <= 56f; z += 1f) cand.Add(new Vector2(x + (float)rnd.NextDouble() * 0.8f - 0.4f, z + (float)rnd.NextDouble() * 0.8f - 0.4f));
+                for (float x = -30f * M2_Scale; x <= 30f * M2_Scale; x += 1f) for (float z = 0f; z <= 56f * M2_Scale; z += 1f) cand.Add(new Vector2(x + (float)rnd.NextDouble() * 0.8f - 0.4f, z + (float)rnd.NextDouble() * 0.8f - 0.4f));
                 for (int i = cand.Count - 1; i > 0; i--) { int j = rnd.Next(i + 1); var tmp = cand[i]; cand[i] = cand[j]; cand[j] = tmp; }
                 var exitA = linkPts[0][0];
                 foreach (var q in cand)
@@ -1135,7 +1173,7 @@ public static class FuwaCourse2_3Builder
                     NearestOnPoly(I1Band, q, out float db); if (db < 2.5f) continue;
                     if ((q - new Vector2(0f, Map2EntryLen)).magnitude < 7f || (q - exitA).magnitude < 7f) continue;
                     // 後半ほどつめる（てじゃ「後半ほど難しくするかんじに」）：進み具合は Z（スタート 0 → 出口 55 くらい）
-                    float prog = Mathf.Clamp01(q.y / 55f), gap = Mathf.Lerp(M2_ObsGapStart, M2_ObsGapEnd, prog);
+                    float prog = Mathf.Clamp01(q.y / (55f * M2_Scale)), gap = Mathf.Lerp(M2_ObsGapStart, M2_ObsGapEnd, prog);
                     if (placed.Any(pq => (pq - q).magnitude < gap)) continue;
                     placed.Add(q);
                     var at = o + new Vector3(q.x, MapHeight(q), q.y);
@@ -1174,13 +1212,14 @@ public static class FuwaCourse2_3Builder
             }
             // 穴の水
             if (M2_I1Water) { HoleWater(waterT, o, "HoleI1Cut", M2_I1Cut); HoleWater(waterT, o, "HoleI1", M2_I1Hole); }
-            if (M2_RingPond) HoleWater(waterT, o, "HoleRing", RH); HoleWater(waterT, o, "HoleTop1", M2_TH1); HoleWater(waterT, o, "HoleTop2", M2_TH2);
+            if (M2_RingPond) HoleWater(waterT, o, "HoleRing", RH); if (M2_Top) { HoleWater(waterT, o, "HoleTop1", M2_TH1); HoleWater(waterT, o, "HoleTop2", M2_TH2); }
             // つながっていない島どうしの近さ
             var groups = new List<(string n, Vector2[] poly, Vector2 c, float r)>
             {
-                ("I1", M2_I1, Vector2.zero, 0f), ("Dome", M, Vector2.zero, 0f), ("Ring", R, Vector2.zero, 0f), ("Top", M2_T, Vector2.zero, 0f), ("Goal", G, Vector2.zero, 0f) };
+                ("I1", M2_I1, Vector2.zero, 0f), ("Dome", M, Vector2.zero, 0f), ("Ring", R, Vector2.zero, 0f), ("Goal", G, Vector2.zero, 0f) };
+            if (M2_Top) groups.Add(("Top", M2_T, Vector2.zero, 0f));
             var linked = new HashSet<string> { "I1-Dome", "Dome-Ring", "Ring-Top" };
-            if (M2_Cracks) { for (int k = 0; k < M2_CrackN - 1; k++) groups.Add(("S" + k, CrackSlab(k), Vector2.zero, 0f)); linked.Add("Top-S0"); linked.Add("S0-S1"); linked.Add("S1-S2"); linked.Add("S2-S3"); linked.Add("S3-Goal"); }
+            if (M2_Cracks) { for (int k = 0; k < M2_CrackN - 1; k++) groups.Add(("S" + k, CrackSlab(k), Vector2.zero, 0f)); linked.Add(M2_Top ? "Top-S0" : "Ring-S0"); linked.Add("S0-S1"); linked.Add("S1-S2"); linked.Add("S2-S3"); linked.Add("S3-Goal"); }
             if (M2_Movers)
             {
                 // 動く島はそれぞれ両はしで
@@ -1208,7 +1247,7 @@ public static class FuwaCourse2_3Builder
             var last = linkPts[linkPts.Count - 1]; var gEnd = last[last.Count - 1]; var gDir = (last[last.Count - 1] - last[last.Count - 2]).normalized;
             p = o + new Vector3(gEnd.x, 0, gEnd.y); dir = new Vector3(gDir.x, 0, gDir.y);
         }
-        finally { MapHills = keepHills; map2Ridge = false; MapHillOnly = null; }
+        finally { MapHills = keepHills; map2Ridge = false; MapHillOnly = null; unscale(); }
     }
     static bool map2Ridge;
     static Vector2[][] MapHillOnly;
