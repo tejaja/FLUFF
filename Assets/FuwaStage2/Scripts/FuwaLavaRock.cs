@@ -38,6 +38,12 @@ public class FuwaLavaRock : UdonSharpBehaviour
     [Tooltip("当たったら飛ぶまもの（なくてもOK。2026-10-30 てじゃ「まものも当たったら一応飛ぶ」）")]
     public FuwaEnemy[] enemies;
     public float enemyRadius = 0.7f, enemyKnock = 3.4f;
+    [Header("通り道の点線（2026-11-04 てじゃ「岩が出たら奥から手前まで順番に点灯するのを繰り返す」）")]
+    [Tooltip("点線のメッシュ（FuwaCourse/RockPathDots）。なくてもOK")]
+    public Renderer pathDots;
+    [Tooltip("点線の長さ(m)・光が流れる速さ(m/s)・光の長さ(m)")]
+    public float pathLength = 30f, dotSpeed = 10f, dotTail = 4f;
+    private Material _dotMat;
 
     private bool _flying, _hitBall, _hitPlayer;
     private bool[] _hitEnemy;
@@ -52,6 +58,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
             if (sc != null) _ballRadius = sc.radius * ball.transform.lossyScale.x;
         }
         _hitEnemy = new bool[enemies == null ? 0 : enemies.Length];
+        if (pathDots != null) { _dotMat = pathDots.material; _dotMat.SetFloat("_Tail", dotTail); _dotMat.SetFloat("_Head", -100f); }
         Show(false);
     }
 
@@ -116,6 +123,8 @@ public class FuwaLavaRock : UdonSharpBehaviour
             if (k == 0 && launchSound != null) launchSound.Play();
             _hop = k;
         }
+        // 点線：飛んでいる間、火口を出た時から奥→手前へ光を流し続ける（1 周は点線の長さ＋光の長さ）
+        if (_dotMat != null) _dotMat.SetFloat("_Head", flying ? (t * dotSpeed) % (pathLength + dotTail) : -100f);
         if (!flying) return;
         float u = Mathf.Clamp01((t - t0) / Dur(k, hops));
         Vector3 p = At(k, u);

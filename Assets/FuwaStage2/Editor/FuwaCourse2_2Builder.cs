@@ -380,6 +380,7 @@ public static class FuwaCourse2_2Builder
         RegisterBgm(root);
         FuwaStage2Static.Apply(root);
         RockCracks(fire);
+        RockPathDots(fire);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–2] ゴールまで " + p.z.ToString("F0") + "m、高さ " + p.y.ToString("F1") + "m";
     }
@@ -1609,6 +1610,49 @@ public static class FuwaCourse2_2Builder
     //  道のメッシュは切らず、噴気孔と同じステンシルで見せる：Mouth（道の上の割れ目の形。VentHoleMask）＋ Shaft（その下の壁と底。VentShaft）。当たりは平らな道のまま、焼き直しもいらない。
     //  道のはしで切れる腕はそこで止める。LavaRock* の P1〜（最後は道の外なので除く）の真下に作る。作り直さずシーンだけ直す時もこれを呼ぶ
     public static float RockCrackDepth = 0.35f, RockCrackLift = 0.015f, RockBounceH = 0.74f;   // RockBounceH：はねる時の岩の中心の、道からの高さ（岩の下の半径 0.78。少しめりこむくらい）
+    // ジグザグの岩（LavaRock0/1）の通り道の点線（2026-11-04 てじゃ「この点線いいな」）。最初の道の上の板（P1）から落ちる先まで、FuwaLavaRock.At と同じ弧に RockDotGap おきに小さい玉。
+    //  1 つのメッシュで、uv.x が通り道ぞいの距離。作り直さずシーンだけ直す時もこれを呼ぶ（はねる点を動かしたら呼び直す。RockCracks のあとに）
+    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 10f, RockDotTail = 4f;
+    public static string RockPathDots(Transform fire)
+    {
+        string mp = "Assets/FuwaStage2/Materials/Stage2_2_RockPathDots.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/RockPathDots")); AssetDatabase.CreateAsset(mat, mp); }
+        mat.SetColor("_Color", new Color(1f, 0.62f, 0.05f, 1f)); mat.SetFloat("_Dim", 0.8f); mat.SetColor("_LitColor", new Color(1f, 0.95f, 0.25f, 1f));
+        mat.renderQueue = 2005; EditorUtility.SetDirty(mat);   // 炎の壁（2013、深さを書かない）より先に描く。後だと壁の向こうの点が手前に見えた
+        // 点の形：低い球（緯度 4・経度 8）
+        var unitV = new List<Vector3>(); var unitT = new List<int>(); const int LA = 4, LO = 8;
+        for (int a = 0; a <= LA; a++) for (int o = 0; o <= LO; o++) { float th = Mathf.PI * a / LA, ph = 2f * Mathf.PI * o / LO; unitV.Add(new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph))); }
+        for (int a = 0; a < LA; a++) for (int o = 0; o < LO; o++) { int i0 = a * (LO + 1) + o, i1 = i0 + LO + 1; unitT.AddRange(new[] { i0, i0 + 1, i1, i0 + 1, i1 + 1, i1 }); }
+        string res = "";
+        foreach (var f in fire.GetComponentsInChildren<FuwaLavaRock>(true))
+        {
+            var g = f.transform.parent; if (!(g.name == "LavaRock0" || g.name == "LavaRock1")) continue;
+            var old = g.Find("PathDots"); if (old) Object.DestroyImmediate(old.gameObject);
+            // 弧をこまかく取って長さを測り、RockDotGap おきに点
+            var pts = new List<Vector3>(); var ds = new List<float>(); float d = 0f; Vector3 prev = Vector3.zero; bool first = true;
+            for (int k = 1; k < f.points.Length - 1; k++)
+            {
+                Vector3 a = f.points[k].position, b = f.points[k + 1].position; float top = Mathf.Max(a.y, b.y) + f.hopUp;
+                Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f;
+                for (int i = (k == 1 ? 0 : 1); i <= 200; i++) { float u = i / 200f, v = 1f - u; var p = v * v * a + 2f * v * u * m + u * u * b; if (!first) d += (p - prev).magnitude; first = false; prev = p; pts.Add(p); ds.Add(d); }
+            }
+            var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var tris = new List<int>(); int dots = 0;
+            for (float at = 0f; at <= d; at += RockDotGap)
+            {
+                int j = ds.BinarySearch(at); if (j < 0) j = ~j; j = Mathf.Clamp(j, 1, ds.Count - 1);
+                float w = Mathf.InverseLerp(ds[j - 1], ds[j], at); var c = Vector3.Lerp(pts[j - 1], pts[j], w);
+                int b0 = verts.Count; foreach (var uv0 in unitV) { verts.Add(g.InverseTransformPoint(c + uv0 * RockDotR)); uvs.Add(new Vector2(at, 0f)); }
+                foreach (var ti in unitT) tris.Add(b0 + ti); dots++;
+            }
+            var mesh = new Mesh { name = "Course2_2_" + g.name + "_PathDots" }; mesh.SetVertices(verts); mesh.SetUVs(0, uvs); mesh.SetTriangles(tris, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+            var o = new GameObject("PathDots", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mesh);
+            var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            f.pathDots = r; f.pathLength = d; f.dotSpeed = RockDotSpeed; f.dotTail = RockDotTail;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); EditorUtility.SetDirty(f);
+            res += g.name + " 点 " + dots + " 長さ " + d.ToString("F1") + "m / ";
+        }
+        return res;
+    }
     public static string RockCracks(Transform fire)
     {
         var old = fire.Find("RockCracks"); if (old) Object.DestroyImmediate(old.gameObject);
