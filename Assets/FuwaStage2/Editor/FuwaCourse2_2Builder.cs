@@ -300,7 +300,10 @@ public static class FuwaCourse2_2Builder
         var pts5 = pl5.ToArray(); var hw5 = hl5.ToArray();
         var rad5 = new float[pts5.Length]; rad5[pts5.Length - 3] = 6f; rad5[pts5.Length - 2] = 5f;
         rad5[4] = 3f; rad5[5] = 3f;   // まものエリアの終わりの折れ目。丸めないと内側のふちに切れ目が出た（2026-11-03 てじゃ「道の端にスキマ」）
-        var r5 = Route(pts5, rad5, new List<Vector3>());
+        //  ゴール手前の最後の角（pts5[n-3]）：手前の直線が 4m しかなく、ふつうの 0.45 だと丸めが半径 1.8m で道の半分の幅（3m）より小さく、内側のふちが折れて欠けた（2026-11-04 てじゃ「最後のカーブの内側、また欠けが」）。
+        //  手前の角は丸めていない・後ろの角の丸めは短いので、この角だけ前後の直線を多めに使う（半径 3.4m）
+        var li5 = new float[pts5.Length]; var lo5 = new float[pts5.Length]; li5[pts5.Length - 3] = 0.95f; lo5[pts5.Length - 3] = 0.62f;
+        var r5 = Route(pts5, rad5, new List<Vector3>(), 0.25f, li5, lo5);
         // 曲がった道の上の (x 横, z 奥行き) の所
         Vector3 OnArena(float x, float z) { Frame(r5, ar.z + z, out var c, out var t); return c + Vector3.Cross(Vector3.up, t).normalized * x; }
         {   // まものの手前（最初のまものは z 5.5）
@@ -404,7 +407,8 @@ public static class FuwaCourse2_2Builder
         return vals[vals.Length - 1];
     }
     // 角 i（両はし以外）を半径 rad[i] で丸める（短い辺に合わせて小さくする）。corners に角の丸みのまん中の点
-    static List<RPt> Route(Vector3[] pts, float[] rad, List<Vector3> corners, float step = 0.25f)
+    // limIn / limOut：角 i の丸めが前／後の直線の何割まで使えるか（既定 0.45＝となりの角と半分ずつ）。となりが丸めていない角だけ大きくしてよい
+    static List<RPt> Route(Vector3[] pts, float[] rad, List<Vector3> corners, float step = 0.25f, float[] limIn = null, float[] limOut = null)
     {
         int n = pts.Length; var cum = Cum(pts); var ys = pts.Select(q => q.y).ToArray();
         var res = new List<RPt>();
@@ -421,7 +425,8 @@ public static class FuwaCourse2_2Builder
                 if (th > 0.01f)
                 {
                     tl = r * Mathf.Tan(th * 0.5f);
-                    float lim = 0.45f * Mathf.Min((b - a).magnitude, (Flat(pts[i + 1]) - b).magnitude);
+                    float li = limIn != null && limIn[i] > 0f ? limIn[i] : 0.45f, lo = limOut != null && limOut[i] > 0f ? limOut[i] : 0.45f;
+                    float lim = Mathf.Min(li * (b - a).magnitude, lo * (Flat(pts[i + 1]) - b).magnitude);
                     if (tl > lim) { tl = lim; r = tl / Mathf.Tan(th * 0.5f); }
                 }
             }
