@@ -54,6 +54,8 @@ public class FuwaFireball : UdonSharpBehaviour
     public float[] warnLengths;
     [Tooltip("飛びはじめと終わりのフェードの秒数")]
     public float warnFade = 0.12f;
+    [Tooltip("飛びだす何秒前から出すか（2026-11-04 てじゃ「予告線が出るのをちょっと速く」）")]
+    public float warnLead = 0f;
     private Material[] _warnMats;
     private int _warnSeg = -1;
 
@@ -88,9 +90,12 @@ public class FuwaFireball : UdonSharpBehaviour
     {
         if (_warnMats == null || _warnMats.Length == 0) return;
         int seg = -1; float flow = 1f;
-        if (fly)
+        float step = flightTime + rest;
+        bool lead = !fly && warnLead > 0f && tau > step - warnLead;   // 休みの終わり：次の飛びの線を先に出す
+        int kk = lead ? (k + 1) % Hops() : k;
+        if (fly || lead)
         {
-            int ia = HoleAt(k), ib = HoleAt(k + 1); seg = oneWay ? 0 : Mathf.Min(ia, ib); flow = ia < ib ? 1f : -1f;   // 一方通行は最初〜最後の穴の 1 本を逆向きに流す
+            int ia = HoleAt(kk), ib = HoleAt(kk + 1); seg = oneWay ? 0 : Mathf.Min(ia, ib); flow = ia < ib ? 1f : -1f;   // 一方通行は最初〜最後の穴の 1 本を逆向きに流す
             if (seg >= _warnMats.Length) seg = -1;
         }
         if (seg != _warnSeg)
@@ -99,8 +104,14 @@ public class FuwaFireball : UdonSharpBehaviour
             _warnSeg = seg;
             if (seg >= 0 && warnAreas[seg] != null) { warnAreas[seg].enabled = true; _warnMats[seg].SetFloat("_Flow", flow); }
         }
-        else if (seg >= 0 && _warnMats[seg] != null && k != _hop) _warnMats[seg].SetFloat("_Flow", flow);
-        if (seg >= 0 && _warnMats[seg] != null) _warnMats[seg].SetFloat("_Alpha", Mathf.Clamp01(Mathf.Min(tau, flightTime - tau) / Mathf.Max(0.01f, warnFade)));
+        else if (seg >= 0 && _warnMats[seg] != null) _warnMats[seg].SetFloat("_Flow", flow);
+        if (seg >= 0 && _warnMats[seg] != null)
+        {
+            // 出はじめ（先に出す時は休みの終わり、なければ飛びはじめ）からと、飛び終わりでフェード
+            float fromStart = lead ? tau - (step - warnLead) : tau + warnLead;
+            float toEnd = lead ? flightTime + 1f : flightTime - tau;
+            _warnMats[seg].SetFloat("_Alpha", Mathf.Clamp01(Mathf.Min(fromStart, toEnd) / Mathf.Max(0.01f, warnFade)));
+        }
     }
 
     // 穴が1つなら真上に飛び上がって同じ穴に戻る（2026-10-29 てじゃ「垂直に飛び上がる穴を追加」）

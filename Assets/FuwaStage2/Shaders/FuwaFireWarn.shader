@@ -18,6 +18,8 @@ Shader "FuwaCourse/FireWarn"
         // 2026-11-04 てじゃ「影より下にうつしたい」：1 で上塗りでなく、下の道の色に _Tint を掛ける（2倍の掛け算。影の所は暗いまま色だけ変わる）。_SrcBlend/_DstBlend は DstColor/SrcColor に
         [Toggle] _Mode ("下の色に掛ける(影の下に見える)", Float) = 0
         _Tint ("掛ける色(0-2、1 で変わらない)", Color) = (1.15, 1.7, 0.4, 1)
+        _EdgeTint ("ふちの掛ける色(_Mode 1 の時)", Color) = (1.05, 1.0, 0.2, 1)
+        _EdgeW ("ふちの幅(横の0-1)", Range(0,1)) = 0
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("SrcBlend", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("DstBlend", Float) = 10
     }
@@ -37,7 +39,7 @@ Shader "FuwaCourse/FireWarn"
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
 
-            fixed4 _Color; half4 _Tint; half _Mode;
+            fixed4 _Color; half4 _Tint, _EdgeTint; half _Mode, _EdgeW;
             half _Root, _Tip, _Alpha;
             float _Length, _Wavelength, _Speed, _Base, _Sharp, _Flow, _RootFade;
 
@@ -68,7 +70,11 @@ Shader "FuwaCourse/FireWarn"
                 if (_Mode > 0.5)
                 {
                     // 出力 s で 2*dst*s。0.5 で変わらず、_Tint*0.5 で _Tint 倍
-                    half4 m = half4(lerp(half3(1, 1, 1), _Tint.rgb, a) * 0.5, 1);
+                    // ふち（2026-11-04 てじゃ「予告線のふちは色をちょっと濃く」）：両はしの _EdgeW の所は薄くせず、濃い色に
+                    half rim = _EdgeW > 0.001 ? 1 - smoothstep(_EdgeW * 0.5, _EdgeW, side) : 0;
+                    half3 tint = lerp(_Tint.rgb, _EdgeTint.rgb, rim);
+                    half am = _EdgeW > 0.001 ? max(a, rim * smoothstep(0, _EdgeW * 0.35, side) * lerp(_Root, _Tip, i.uv.y) * smoothstep(1, 0.88, i.uv.y) * rootEdge * _Alpha) : a;
+                    half4 m = half4(lerp(half3(1, 1, 1), tint, am) * 0.5, 1);
                     UNITY_APPLY_FOG_COLOR(i.fogCoord, m, half4(0.5, 0.5, 0.5, 1));
                     return m;
                 }
