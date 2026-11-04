@@ -1314,6 +1314,7 @@ public static class FuwaCourse2_2Builder
     public static Material SeedFlameMat()
     {
         var m = FlameMeshMat("Stage2_2_SeedFlame", 0.75f, 0.75f, 0.1f, 0.42f, 0.75f, 0.05f, 0.58f, 1f, 1f);
+        m.SetFloat("_ShadeRound", JetShadeRound); m.SetFloat("_ShadeBump", JetShadeBump);   // 火炎放射と同じ濃い赤の陰影（2026-11-04 てじゃ「焚き火とか周囲の炎に、火炎放射につけた濃い赤色のやつ」）
         m.renderQueue = 2012; EditorUtility.SetDirty(m);   // 穴の中に見えるように縦穴のあと
         return m;
     }
@@ -2003,7 +2004,7 @@ public static class FuwaCourse2_2Builder
                 f.Blob(new Vector3(x, q.top - 1.2f, q.p.z), seed, 0.8f);
             }
         }
-        var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 0.6f, 0.35f, 0.18f, 2.8f, 3.6f, 1f); mat.SetFloat("_Pulse", 0f); mat.SetFloat("_Wave", 2.2f); mat.SetFloat("_WaveScale", 0.09f);
+        var mat = FlameMeshMat("Stage2_2_FlameCurtain", 0.3f, 0.36f, 0.12f, 0.6f, 0.35f, 0.18f, 2.8f, 3.6f, 1f); mat.SetFloat("_Pulse", 0f); mat.SetFloat("_Wave", 2.2f); mat.SetFloat("_WaveScale", 0.09f); mat.SetFloat("_ShadeRound", JetShadeRound); mat.SetFloat("_ShadeBump", JetShadeBump);   /* 火炎放射と同じ濃い赤の陰影（2026-11-04 てじゃ） */
         mat.SetFloat("_StencilPass", (float)UnityEngine.Rendering.StencilOp.Replace); mat.renderQueue = 2013;   // 岩の影用の印。ほかの物のあとに描いて、隠れた所には印を付けない。穴やヒビ（2010〜2012）より後（2026-11-02 炎の向こうのヒビが見えた）、岩（2014）より前
         EditorUtility.SetDirty(mat);
         var c2 = new GameObject("Curtain", typeof(MeshFilter), typeof(MeshRenderer)); c2.transform.SetParent(g, false);
