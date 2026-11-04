@@ -43,6 +43,8 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public Renderer pathDots;
     [Tooltip("点線の長さ(m)・光が流れる速さ(m/s)・光の長さ(m)")]
     public float pathLength = 30f, dotSpeed = 10f, dotTail = 4f;
+    [Tooltip("光と光の間隔(m)。0 で 1 つだけ流す")]
+    public float dotSpacing = 0f;
     private Material _dotMat;
 
     private bool _flying, _hitBall, _hitPlayer;
@@ -58,7 +60,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
             if (sc != null) _ballRadius = sc.radius * ball.transform.lossyScale.x;
         }
         _hitEnemy = new bool[enemies == null ? 0 : enemies.Length];
-        if (pathDots != null) { _dotMat = pathDots.material; _dotMat.SetFloat("_Tail", dotTail); _dotMat.SetFloat("_Head", -100f); }
+        if (pathDots != null) { _dotMat = pathDots.material; _dotMat.SetFloat("_Tail", dotTail); _dotMat.SetFloat("_Spacing", dotSpacing); _dotMat.SetFloat("_Head", -100f); }
         Show(false);
     }
 
@@ -124,7 +126,8 @@ public class FuwaLavaRock : UdonSharpBehaviour
             _hop = k;
         }
         // 点線：飛んでいる間、火口を出た時から奥→手前へ光を流し続ける（1 周は点線の長さ＋光の長さ）
-        if (_dotMat != null) _dotMat.SetFloat("_Head", flying ? (t * dotSpeed) % (pathLength + dotTail) : -100f);
+        //  間隔ありの時は先頭を止めずに進めて、うしろのくり返しで流れ続ける（間隔の倍数で巻き戻すので値は大きくならない）
+        if (_dotMat != null) _dotMat.SetFloat("_Head", !flying ? -100f : dotSpacing > 0.01f ? (t * dotSpeed > pathLength + dotTail ? pathLength + dotTail + Mathf.Repeat(t * dotSpeed - pathLength - dotTail, dotSpacing) : t * dotSpeed) : (t * dotSpeed) % (pathLength + dotTail));
         if (pathDots != null && pathDots.enabled != flying) pathDots.enabled = flying;   // 休みの間は点線ごと消す
         if (!flying) return;
         float u = Mathf.Clamp01((t - t0) / Dur(k, hops));

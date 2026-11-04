@@ -9,6 +9,7 @@ Shader "FuwaCourse/RockPathDots"
         _LitColor ("光った色", Color) = (1, 0.95, 0.55, 1)
         _Head ("光の先頭(m)。スクリプトが動かす", Float) = -100
         _Tail ("光の長さ(m)", Float) = 4
+        _Spacing ("光と光の間隔(m)。0 で 1 つだけ", Float) = 0
     }
     SubShader
     {
@@ -26,7 +27,7 @@ Shader "FuwaCourse/RockPathDots"
 
             fixed4 _Color, _LitColor;
             half _Dim;
-            float _Head, _Tail;
+            float _Head, _Tail, _Spacing;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float d : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
@@ -47,6 +48,8 @@ Shader "FuwaCourse/RockPathDots"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 // 先頭がいちばん明るく、後ろへなだらかに戻る
                 float x = _Head - i.d;
+                // 2026-11-04 てじゃ「光ってる箇所を３箇所くらいに」：先頭のうしろに _Spacing おきに光をくり返す（まだ先頭が来ていない所は光らない）
+                if (_Spacing > 0.01 && x >= 0) x = fmod(x, _Spacing);
                 half lit = (x >= 0 && x < _Tail) ? 1 - x / max(0.01, _Tail) : 0;
                 lit = lit * lit * (3 - 2 * lit);
                 fixed4 c = fixed4(lerp(_Color.rgb, _LitColor.rgb, lit), lerp(_Dim, 1, lit));
