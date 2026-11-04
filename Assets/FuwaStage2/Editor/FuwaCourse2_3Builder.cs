@@ -657,11 +657,14 @@ public static class FuwaCourse2_3Builder
     // 雪の岸：まわりの物（島・つなぎ・流氷・スタートとゴールの島）から ShoreGap 以上はなれて、湖の外側（中心から見て物より外）の所。
     //  水ぎわは水の下からなだらかに上がる（水面で切れて、ふちが自然な形に）。外のはしは下へ落ちる
     //  avoid：となりのコースの物（湖の入口からの XZ の四角）。AvoidGap 以内には岸も水も作らない（2–2 のスタートの島にかぶった）
-    public static float AvoidGap = 8f;
+    public static float AvoidGap = 2f;   // 8→4→2。8 だと I1 と 2–2 のスタートの間に岸が入らず水が切れた（I1 から ShoreGap＋岸＋これ が入るように）
     //  nWater：pts の先頭から何個を水の浅い色（島のまわり）に使うか（スタート・ゴールの島のあたりや動く島の通り道は除く）
     static void MapShore(Transform parent, Transform waterT, Vector3 o, List<Vector2> pts, List<float> rads, Vector2 center, List<Rect> avoid, int nWater)
     {
-        System.Func<Vector2, bool> Near = q => { foreach (var rc in avoid) { float dx = Mathf.Max(rc.xMin - q.x, 0f, q.x - rc.xMax), dz = Mathf.Max(rc.yMin - q.y, 0f, q.y - rc.yMax); if (dx * dx + dz * dz < AvoidGap * AvoidGap) return true; } return false; };
+        System.Func<Vector2, float> AvD = q => { float best = float.MaxValue; foreach (var rc in avoid) { float dx = Mathf.Max(rc.xMin - q.x, 0f, q.x - rc.xMax), dz = Mathf.Max(rc.yMin - q.y, 0f, q.y - rc.yMax); best = Mathf.Min(best, dx * dx + dz * dz); } return Mathf.Sqrt(best); };
+        System.Func<Vector2, bool> Near = q => AvD(q) < AvoidGap;
+        //  となりのコースの近くは、水を岸で閉じる（水が途中で切れて見えないように。2026-11-04 てじゃ「左下、水がきれてるのがきになる」）：AvoidGap+ShoreClose より近い所は岸にして、AvoidGap で外へ落とす
+        const float ShoreClose = 3f;
         float cs = 1f;
         float minX = pts.Min(q => q.x) - ShoreGap - ShoreWidth - 4f, maxX = pts.Max(q => q.x) + ShoreGap + ShoreWidth + 4f;
         float minZ = pts.Min(q => q.y) - ShoreGap - ShoreWidth - 4f, maxZ = pts.Max(q => q.y) + ShoreGap + ShoreWidth + 4f;
@@ -678,10 +681,11 @@ public static class FuwaCourse2_3Builder
             var q = new Vector2(minX + x * cs, minZ + z * cs);
             float dist = Dist(q), r = (q - center).magnitude, fr = Far(q);
             // 内側（物の並びより中）は岸にしない
-            float outside = Mathf.Clamp01((r - fr + 2f) / 4f);
+            float av = AvD(q);
+            //  岸は「いちばん近い物からの距離」だけで決める（ShoreGap から上がって、ShoreGap＋ShoreWidth で外へ落ちる）。コースの形にそった岸になる（中心から見た向きで決めるのは南西でうまくいかなかった）
             float rise = Mathf.Clamp01((dist - ShoreGap) / 3f);
-            float edge = Mathf.Clamp01((fr + ShoreGap + ShoreWidth - r) / 3f);   // 外のはしで落ちる
-            float y = Mathf.Lerp(-1.4f, 0.35f, rise * outside);
+            float edge = Mathf.Min(Mathf.Clamp01((ShoreGap + ShoreWidth - dist) / 3f), Mathf.Clamp01((av - AvoidGap) / 2f));   // 外のはしで落ちる（となりのコースの手前でも）
+            float y = Mathf.Lerp(-1.4f, 0.35f, rise);
             y = Mathf.Lerp(-6f, y, edge);
             hgt[x, z] = y;
         }
@@ -695,7 +699,9 @@ public static class FuwaCourse2_3Builder
         for (int x = 0; x < nx; x++) for (int z = 0; z < nz; z++)
         {
             var qc = new Vector2(minX + (x + 0.5f) * cs, minZ + (z + 0.5f) * cs);
-            if ((qc - center).magnitude > Far(qc) + ShoreGap + ShoreWidth * 0.5f || Near(qc)) continue;
+            if (Dist(qc) > ShoreGap + ShoreWidth * 0.5f || AvD(qc) < AvoidGap) continue;
+            // 岸が水より高い所（水が見えない所）は作らない。となりのコースの近くでも、岸の下に隠れるまで水を続ける（水のふちがギザギザに見えないように）
+            if (Mathf.Min(Mathf.Min(hgt[x, z], hgt[x + 1, z]), Mathf.Min(hgt[x + 1, z + 1], hgt[x, z + 1])) > CrackWaterY + 0.05f) continue;
             float x0 = minX + x * cs, z0 = minZ + z * cs;
             Quad(wv, wt, new Vector3(x0, CrackWaterY, z0) / K, new Vector3(x0 + cs, CrackWaterY, z0) / K, new Vector3(x0 + cs, CrackWaterY, z0 + cs) / K, new Vector3(x0, CrackWaterY, z0 + cs) / K, Vector3.up);
             float u00 = dcache[x, z], u10 = dcache[x + 1, z], u11 = dcache[x + 1, z + 1], u01 = dcache[x, z + 1];
@@ -829,7 +835,7 @@ public static class FuwaCourse2_3Builder
         sp.Add(MapMoveA); sr.Add(MapFloeR);
         int nWater = sp.Count;
         for (int k = 0; k <= 10; k++) { sp.Add(Vector2.Lerp(MapMoveA, MapMoveB, k / 10f)); sr.Add(MapFloeR); }
-        for (float z = -12f; z <= 10.5f; z += 1f) { sp.Add(new Vector2(0f, z)); sr.Add(z < -1f ? 6f : 3f); }   // スタートの島と橋
+        for (float z = -12f; z <= 10.5f; z += 1f) { sp.Add(new Vector2(0f, z)); sr.Add(z < -1f ? 4.5f : 3f); }   // スタートの島（半径 4.5m くらい）と橋
         var gEnd = MapLinks[MapLinks.Length - 1].b; var gDir = (MapLinks[MapLinks.Length - 1].b - MapLinks[MapLinks.Length - 1].a).normalized;
         for (float z = 0f; z <= 18f; z += 1f) { sp.Add(gEnd + gDir * z); sr.Add(z > 6f ? 6f : 3f); }   // ゴールの橋と島
         var center = new Vector2(sp.Average(q => q.x), sp.Average(q => q.y));
@@ -841,6 +847,19 @@ public static class FuwaCourse2_3Builder
             foreach (var rr in other.GetComponentsInChildren<Renderer>(true))
             {
                 var bb = rr.bounds; if (bb.size.magnitude > 200f) continue;
+                // 大きいメッシュ（曲がった道など）は四角だと広すぎるので、頂点ごとに小さい四角（2m おきくらいに間引く）
+                var mfl = rr.GetComponent<MeshFilter>();
+                if (bb.size.magnitude > 20f && mfl && mfl.sharedMesh && mfl.sharedMesh.isReadable)
+                {
+                    var vv = mfl.sharedMesh.vertices; var seen = new HashSet<(int, int)>();
+                    foreach (var v0 in vv)
+                    {
+                        var lq = root.InverseTransformPoint(rr.transform.TransformPoint(v0)) - o; var key = (Mathf.RoundToInt(lq.x / 2f), Mathf.RoundToInt(lq.z / 2f));
+                        if (!seen.Add(key) || lq.x < -150f || lq.x > 150f || lq.z < -60f || lq.z > 200f) continue;
+                        avoid.Add(Rect.MinMaxRect(lq.x - 1f, lq.z - 1f, lq.x + 1f, lq.z + 1f));
+                    }
+                    continue;
+                }
                 float x0 = float.MaxValue, x1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
                 foreach (var cx in new[] { bb.min.x, bb.max.x }) foreach (var cz in new[] { bb.min.z, bb.max.z })
                 { var lq = root.InverseTransformPoint(new Vector3(cx, bb.center.y, cz)) - o; x0 = Mathf.Min(x0, lq.x); x1 = Mathf.Max(x1, lq.x); z0 = Mathf.Min(z0, lq.z); z1 = Mathf.Max(z1, lq.z); }
