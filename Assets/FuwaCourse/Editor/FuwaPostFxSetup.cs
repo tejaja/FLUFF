@@ -13,11 +13,11 @@ public static class FuwaPostFxSetup
 
     public static bool UseColor = true, UseVignette = false, UseBloom = true;   // ビネットは 2026-11-04 てじゃ「隅が黒いのはいらない」
     // 色味：ほんの少し鮮やか・コントラストを上げる
-    public static float Saturation = 25f, Contrast = 15f, Temperature = 2f, PostExposure = 0f;
+    public static float Saturation = 25f, Contrast = 8f, Temperature = 2f, PostExposure = 0f;
     // ビネット：画面のすみを少しだけ暗く（VR だと目のまわりが暗く見えるので弱く）
     public static float VignetteIntensity = 0.35f, VignetteSmooth = 0.45f;
     // ブルーム：明るい所だけ少しにじむ。fastMode で軽く
-    public static float BloomIntensity = 2.0f, BloomThreshold = 0.8f, BloomSoftKnee = 0.5f, BloomDiffusion = 6f;
+    public static float BloomIntensity = 0.8f, BloomThreshold = 1.1f, BloomSoftKnee = 0.5f, BloomDiffusion = 6f;
 
     [MenuItem("FuwaCourse/よく使う/ポストプロセスを入れ直す")]
     public static void Menu() { Debug.Log(Run()); }
