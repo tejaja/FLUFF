@@ -339,6 +339,7 @@ public static class FuwaCourse2_2Builder
         }
         JetWarnAreas(fire);
         FireballWarns(fire);
+        AddJetGapSeeds(root);   // 3 連火炎放射の合間の焚き火（2026-11-04 てじゃ）
         var p = pts5[pts5.Length - 1];
 
         // ⑦ ゴール
@@ -998,6 +999,31 @@ public static class FuwaCourse2_2Builder
             var y = root.InverseTransformPoint(hit.point).y;
             GroundFire(fire, "WideSeed" + k, new Vector3(q.x, y, q.z), new Vector3(Mathf.Sign(q.x), 0f, 0f));
             log += "WideSeed" + k + " y=" + y.ToString("F2") + " 当たり=" + hit.collider.name + "\n";
+        }
+        return log;
+    }
+    // 3 連火炎放射の合間の焚き火（2026-11-04 てじゃ「３連火炎放射の合間にも焚き火置こう」）。となりの 2 つの炎の根元のまん中から、道のまん中（FlameHW 外）に。
+    //  シーンの火炎放射の位置から決めるので、作り直さずシーンだけ直す時もこれを呼ぶ
+    public static string AddJetGapSeeds(Transform root)
+    {
+        var fire = root.Find("Fire"); heat = root.GetComponentInChildren<FuwaHeat>(true); rockMat = PathSideMat();
+        var log = "";
+        for (int k = 0; k < 2; k++)
+        {
+            var old = fire.Find("JetGapSeed" + k); if (old) Object.DestroyImmediate(old.gameObject);
+            var j0 = fire.Find("Flamethrower" + k)?.GetComponentInChildren<FuwaFireJet>(true); var j1 = fire.Find("Flamethrower" + (k + 1))?.GetComponentInChildren<FuwaFireJet>(true);
+            if (j0 == null || j1 == null || j0.knockOrigin == null || j1.knockOrigin == null) { log += "火炎放射がない " + k + "\n"; continue; }
+            var o = Flat(j0.knockDir + j1.knockDir).normalized;
+            var p = (j0.knockOrigin.position + j1.knockOrigin.position) * 0.5f + o * FlameHW;
+            Physics.SyncTransforms();
+            //  炎の当たりの箱どうしのまん中に寄せる（根元のまん中だと片方に 0.9m 寄っていた）
+            {
+                var t = Flat(j1.knockOrigin.position - j0.knockOrigin.position).normalized; var b0 = j0.GetComponent<BoxCollider>(); var b1 = j1.GetComponent<BoxCollider>();
+                for (int it = 0; it < 3; it++) { var q = p + Vector3.up * 0.9f; float d0 = (b0.ClosestPoint(q) - q).magnitude, d1 = (b1.ClosestPoint(q) - q).magnitude; p += t * (d1 - d0) * 0.5f; }
+            }
+            if (!Physics.Raycast(p + Vector3.up * 5f, Vector3.down, out var hit, 12f, 1 << 11, QueryTriggerInteraction.Ignore)) { log += "道がない " + k + "\n"; continue; }
+            GroundFire(fire, "JetGapSeed" + k, fire.InverseTransformPoint(hit.point), fire.InverseTransformDirection(o));
+            log += "JetGapSeed" + k + " " + hit.point.ToString("F1") + " 当たり=" + hit.collider.name + "\n";
         }
         return log;
     }
