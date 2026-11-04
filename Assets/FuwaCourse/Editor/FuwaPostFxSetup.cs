@@ -13,11 +13,11 @@ public static class FuwaPostFxSetup
 
     public static bool UseColor = true, UseVignette = true, UseBloom = true;
     // 色味：ほんの少し鮮やか・コントラストを上げる
-    public static float Saturation = 8f, Contrast = 6f, Temperature = 2f, PostExposure = 0f;
+    public static float Saturation = 25f, Contrast = 15f, Temperature = 2f, PostExposure = 0f;
     // ビネット：画面のすみを少しだけ暗く（VR だと目のまわりが暗く見えるので弱く）
-    public static float VignetteIntensity = 0.15f, VignetteSmooth = 0.45f;
+    public static float VignetteIntensity = 0.35f, VignetteSmooth = 0.45f;
     // ブルーム：明るい所だけ少しにじむ。fastMode で軽く
-    public static float BloomIntensity = 0.6f, BloomThreshold = 1.0f, BloomSoftKnee = 0.5f, BloomDiffusion = 6f;
+    public static float BloomIntensity = 2.0f, BloomThreshold = 0.8f, BloomSoftKnee = 0.5f, BloomDiffusion = 6f;
 
     [MenuItem("FuwaCourse/よく使う/ポストプロセスを入れ直す")]
     public static void Menu() { Debug.Log(Run()); }
