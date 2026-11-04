@@ -892,7 +892,8 @@ public static class FuwaCourse2_3Builder
     public static float Map2EntryLen = 1.5f;
     public static Vector2[] M2_I1 = { new Vector2(-24.2f, 37.5f), new Vector2(-10.35f, 53.08f), new Vector2(11.58f, 47.31f), new Vector2(20.23f, 54.23f), new Vector2(28.31f, 49.62f), new Vector2(20.81f, 35.77f), new Vector2(13.89f, 28.27f), new Vector2(16.77f, 18.46f), new Vector2(8.12f, 0.57f), new Vector2(-10.5f, 0.57f), new Vector2(-15.5f, 14f), new Vector2(-23f, 29f) };   // 左下を細く（2026-11-04 てじゃ「この赤いとこいらんかな」）
     // 切れこみの水から右下へ、島を切って外までつなぐ（てじゃの赤いところ）。下の島は左側だけでつながる「C」の形に
-    public static bool M2_I1Water = false;
+    public static bool M2_I1Water = false, M2_RingPond = false, M2_RingAsBand = true;
+    public static float M2_RingBandHW = 8f, M2_RingBandExt = 5f;
     public static int M2_ObsCount = 22, M2_ObsSeed = 2304; public static float M2_ObsGapStart = 9f, M2_ObsGapEnd = 3.6f;
     public static Vector2 M2_I1BandA = new Vector2(-2.6f, 30.2f), M2_I1BandB = new Vector2(30f, 10.2f); public static float M2_I1BandHW = 6.5f;
     public static Vector2[] M2_I1Cut = { new Vector2(-15.54f, 38.08f), new Vector2(-5.73f, 41.54f), new Vector2(4.65f, 36.34f), new Vector2(13.89f, 30.57f), new Vector2(12.73f, 25.96f), new Vector2(3.5f, 27.11f), new Vector2(-10.35f, 31.73f) };
@@ -918,7 +919,7 @@ public static class FuwaCourse2_3Builder
     // 最初の島の最後のカーブのあと（上の横向きの所）のゆるい坂：のぼって下りる低い丘（約 12°）（2026-11-04 てじゃ「最後のカーブ後、ちょとゆるい坂にしよ」）
     public static Vector2 M2_I1HillA = new Vector2(8f, 34f), M2_I1HillB = new Vector2(8f, 58f); public static float M2_I1HillPlateau = 1f, M2_I1HillRun = 9f, M2_I1HillH = 2f;
     public static Vector2 M2_RidgeA = new Vector2(-28.24f, 90.01f), M2_RidgeB = new Vector2(2.35f, 110.2f);
-    public static float M2_RidgeH = 7f, M2_RidgeHalfW = 4f, M2_RidgeSideRun = 3f;
+    public static float M2_RidgeH = 7f, M2_RidgeHalfW = 8f, M2_RidgeSideRun = 0.5f;   // 横いっぱい（帯の幅 M2_RingBandHW と同じ）。前は 4＋3 で横に細道が残った
     static Vector2[] Ellipse(Vector2 c, float rx, float ry, float rotDeg, int n)
     {
         var o = new Vector2[n]; float a = rotDeg * Mathf.Deg2Rad, ca = Mathf.Cos(a), sa = Mathf.Sin(a);
@@ -993,17 +994,27 @@ public static class FuwaCourse2_3Builder
             // 下の島の水（切れこみ・小さい穴）は一旦なし（2026-11-04 てじゃ「手前の水は一旦けしていいよ」）。M2_I1Water で戻せる
             var cuts = new List<Vector2[]> { I1Band, RH, M2_TH1, M2_TH2, new[] { new Vector2(-IntroHW, 0f), new Vector2(IntroHW, 0f), new Vector2(IntroHW, Map2EntryLen), new Vector2(-IntroHW, Map2EntryLen) } };
             if (M2_I1Water) { cuts.Add(M2_I1Cut); cuts.Add(M2_I1Hole); }
+            if (M2_RingAsBand && !M2_RingPond) cuts.Remove(RH);   // 帯にした時は池の穴もなし
+            if (!M2_RingAsBand)
             // 輪っかの大きい坂の横の細道をなくす（2026-11-04 てじゃ「でかい坂のよこの細道いらんかもな」）：坂のすその外側（輪っかの外のふち側）を、坂の長さぶん切る
             {
                 var ab = M2_RidgeB - M2_RidgeA; var u = ab.normalized; var nn = new Vector2(-u.y, u.x); float w0 = M2_RidgeHalfW + M2_RidgeSideRun, w1 = w0 + 20f;
                 var a0 = M2_RidgeA + u * 0.5f; var b0 = M2_RidgeB - u * 0.5f;
                 cuts.Add(new[] { a0 + nn * w0, b0 + nn * w0, b0 + nn * w1, a0 + nn * w1 });
-                // 穴の側は坂のすそがもう穴まで届いているので切らない（切ると輪っかの反対側まで消えた）
+                // 穴の側（池のほう）も切る（2026-11-04 てじゃ「右の池のほうもいらんね」）→ 輪っかは坂の道だけ。池の水もなし
+                if (!M2_RingPond) cuts.Add(new[] { a0 - nn * w0, a0 - nn * w1, b0 - nn * w1, b0 - nn * w0 });
             }
             for (int k = 0; k < linkPts.Count; k++) cuts.Add(PathOutline(linkPts[k], M2_Links[k].hw));
             var isl = new GameObject("Islands").transform; isl.SetParent(path, false);
             MapIsland(isl, "MapI1", o, M2_I1, cuts);
             MapIsland(isl, "MapDome", o, M, cuts);
+            // 輪っかは坂の道だけの広い帯に（2026-11-04 てじゃ「ニ択やめて広くしよ」）：坂の線にそった長方形（両はしは道とつながるまでのばす）。坂は横いっぱいの幅
+            if (M2_RingAsBand)
+            {
+                var ub = (M2_RidgeB - M2_RidgeA).normalized; var nb = new Vector2(-ub.y, ub.x) * M2_RingBandHW;
+                var a1 = M2_RidgeA - ub * M2_RingBandExt; var b1 = M2_RidgeB + ub * M2_RingBandExt;
+                R = new[] { a1 - nb, b1 - nb, b1 + nb, a1 + nb };
+            }
             MapIsland(isl, "MapRing", o, R, cuts);
             MapIsland(isl, "MapTop", o, M2_T, cuts);
             MapIsland(isl, "MapGoalIce", o, M2_G, cuts);
@@ -1058,7 +1069,7 @@ public static class FuwaCourse2_3Builder
             }
             // 穴の水
             if (M2_I1Water) { HoleWater(waterT, o, "HoleI1Cut", M2_I1Cut); HoleWater(waterT, o, "HoleI1", M2_I1Hole); }
-            HoleWater(waterT, o, "HoleRing", RH); HoleWater(waterT, o, "HoleTop1", M2_TH1); HoleWater(waterT, o, "HoleTop2", M2_TH2);
+            if (M2_RingPond) HoleWater(waterT, o, "HoleRing", RH); HoleWater(waterT, o, "HoleTop1", M2_TH1); HoleWater(waterT, o, "HoleTop2", M2_TH2);
             // つながっていない島どうしの近さ
             var groups = new List<(string n, Vector2[] poly, Vector2 c, float r)>
             {
