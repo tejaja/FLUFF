@@ -16,6 +16,7 @@ Shader "FuwaCourse/Fireball"
         _GlowNear ("この距離(m)より近いと明滅がいちばん強い", Float) = 3
         _GlowFar ("この距離(m)で明滅なし", Float) = 8
         _GlowSpeed ("明滅の速さ", Float) = 3
+        _OutlineW ("黄色いフチの太さ(m)", Float) = 0.12
         _FireFadeNear ("遠くを薄く：はじまり(m)", Float) = 14
         _FireFadeFar ("遠くを薄く：いちばん薄い所(m)", Float) = 40
         _FireFadeMin ("遠くを薄く：いちばん薄い時の濃さ（1 で薄くしない）", Range(0,1)) = 1
@@ -79,10 +80,44 @@ Shader "FuwaCourse/Fireball"
                 half k = saturate(pow(facing, _Fresnel) * 1.1 + (h - 0.5) * 0.7);
                 half3 c = k < 0.5 ? lerp(_Edge.rgb, _Mid.rgb, k * 2) : lerp(_Mid.rgb, _Hot.rgb, (k - 0.5) * 2);
                 c = FuwaFireCalm(c, FuwaFireFar(i.wp));
-                c = FuwaFireNearGlow(c, i.wp, 1 - facing);
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);
                 return o;
+            }
+            ENDCG
+        }
+        // 近くの火の玉のまわりの黄色いフチ（2026-11-04 てじゃ「火の周りに黄色いフチみたいなのを光らせる」）。球をふくらませて裏だけ描く
+        Pass
+        {
+            Tags { "LightMode"="ForwardBase" }
+            Cull Front
+            ZWrite Off
+            Blend SrcAlpha OneMinusSrcAlpha
+            CGPROGRAM
+            #pragma vertex vertO
+            #pragma fragment fragO
+            #include "UnityCG.cginc"
+            #include "FuwaFireFar.cginc"
+            float _Wobble, _OutlineW;
+            struct appdataO { float4 vertex : POSITION; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2fO { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
+            v2fO vertO (appdataO v)
+            {
+                v2fO o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                float3 wp = mul(unity_ObjectToWorld, float4(v.vertex.xyz * (1 + _Wobble * 0.6), 1)).xyz;
+                float3 wn = normalize(UnityObjectToWorldNormal(v.normal));
+                o.wp = wp; o.pos = UnityWorldToClipPos(wp + wn * _OutlineW);
+                return o;
+            }
+            fixed4 fragO (v2fO i) : SV_Target
+            {
+                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+                if (_NearGlow.a < 0.001) discard;
+                float near = 1 - smoothstep(_GlowNear, max(_GlowFar, _GlowNear + 0.01), distance(_WorldSpaceCameraPos, i.wp));
+                half pulse = 0.5 + 0.5 * sin(_Time.y * _GlowSpeed);
+                half a = saturate(near * _NearGlow.a * lerp(0.55, 1, pulse));
+                clip(a - 0.01);
+                return fixed4(_NearGlow.rgb, a);
             }
             ENDCG
         }

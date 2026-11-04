@@ -33,6 +33,7 @@ Shader "FuwaCourse/FlameMesh"
         _GlowNear ("この距離(m)より近いと明滅がいちばん強い", Float) = 3
         _GlowFar ("この距離(m)で明滅なし", Float) = 8
         _GlowSpeed ("明滅の速さ", Float) = 3
+        _OutlineW ("黄色いフチの太さ(m)", Float) = 0.12
         _FireFadeNear ("遠くを薄く：はじまり(m)", Float) = 14
         _FireFadeFar ("遠くを薄く：いちばん薄い所(m)", Float) = 40
         _FireFadeMin ("遠くを薄く：いちばん薄い時の濃さ（1 で薄くしない）", Range(0,1)) = 1
@@ -40,19 +41,7 @@ Shader "FuwaCourse/FlameMesh"
     SubShader
     {
         Tags { "RenderType"="Opaque" "Queue"="Geometry" "DisableBatching"="True" }
-        Pass
-        {
-            Tags { "LightMode"="ForwardBase" }
-            Cull Off
-            ZWrite On
-            AlphaToMask On
-            Stencil { Ref 32 WriteMask 32 Comp Always Pass [_StencilPass] }
-            CGPROGRAM
-            #pragma vertex vert
-            #pragma fragment frag
-            #pragma multi_compile_fog
-            #pragma multi_compile_instancing
-            #pragma target 3.5
+        CGINCLUDE
             #include "UnityCG.cginc"
             #include "FuwaFireFar.cginc"
 
@@ -60,6 +49,7 @@ Shader "FuwaCourse/FlameMesh"
             half4 _Orange, _OrangeTop, _Yellow;
             float _CoreSoft, _ShadeRound, _ShadeBump;
             half4 _ShadeDeep;
+            float _OutlineW;
             float _Speed, _FlowSpeed, _NoiseScale, _AmpBase, _AmpTop, _Tear, _Sway, _BlobRise, _BlobSize, _Bias, _Burn, _Pulse, _TimeAdd, _Wave, _WaveScale;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -158,11 +148,6 @@ Shader "FuwaCourse/FlameMesh"
                     c = lerp(c, _Yellow.rgb, _ShadeBump * saturate(bumpN * 2.0) * 0.5);
                 }
                 o.col = FuwaFireCalm(c, FuwaFireFar(wp));
-                {
-                    float3 wn2 = normalize(UnityObjectToWorldNormal(nor));
-                    half rim = 1 - abs(dot(wn2, normalize(_WorldSpaceCameraPos - wp)));
-                    o.col = FuwaFireNearGlow(o.col, wp, rim);
-                }
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -183,6 +168,63 @@ Shader "FuwaCourse/FlameMesh"
                 UNITY_APPLY_FOG(i.fogCoord, o);
                 return o;
             }
+
+            // 近くの炎のまわりの黄色いフチ（2026-11-04 てじゃ「火が光るんじゃなくて、火の周りに黄色いフチみたいなのを光らせる」）。
+            //  炎を _OutlineW m ふくらませて裏だけ描く。近いほど濃く、ゆっくり明滅。_NearGlow.a が 0 なら描かない
+            v2f vertOutline (appdata v)
+            {
+                v2f o = vert(v);
+                float3 wn = normalize(UnityObjectToWorldNormal(v.normal));
+                float3 q = o.wp + wn * _OutlineW;
+                o.pos = UnityWorldToClipPos(q);
+                // 深さだけ奥へ：手前に来た面も炎の体のうしろになって、輪郭の外にはみ出た所だけ見える（炎の面の向きがまちまちで、裏だけ描くと壁がまるごと黄色になった）
+                float4 back = UnityWorldToClipPos(q + normalize(q - _WorldSpaceCameraPos) * 0.6);
+                o.pos.z = back.z / back.w * o.pos.w;
+                if (v.uv.x > 1.5) o.pos = float4(0, 0, 0, 0);   // ちぎれて飛ぶかたまりにはフチを付けない（中が抜けた輪に見えた）
+                return o;
+            }
+            fixed4 fragOutline (v2f i) : SV_Target
+            {
+                if (_NearGlow.a < 0.001) discard;
+                if (_Burn > 0.001)
+                {
+                    float n = tex3Dlod(_Noise, float4(i.np, 0)).r;
+                    clip(i.k + (n - 0.5) * 0.25 - _Burn * 1.15);
+                }
+                float near = 1 - smoothstep(_GlowNear, max(_GlowFar, _GlowNear + 0.01), distance(_WorldSpaceCameraPos, i.wp));
+                half pulse = 0.5 + 0.5 * sin(_Time.y * _GlowSpeed);
+                half a = saturate(near * _NearGlow.a * lerp(0.55, 1, pulse));
+                clip(a - 0.01);
+                return fixed4(_NearGlow.rgb, a);
+            }
+        ENDCG
+        Pass
+        {
+            Tags { "LightMode"="ForwardBase" }
+            Cull Off
+            ZWrite On
+            AlphaToMask On
+            Stencil { Ref 32 WriteMask 32 Comp Always Pass [_StencilPass] }
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #pragma multi_compile_fog
+            #pragma multi_compile_instancing
+            #pragma target 3.5
+            ENDCG
+        }
+        Pass
+        {
+            Tags { "LightMode"="ForwardBase" }
+            Cull Off
+            ZWrite Off
+            Blend SrcAlpha OneMinusSrcAlpha
+            CGPROGRAM
+            #pragma vertex vertOutline
+            #pragma fragment fragOutline
+            #pragma multi_compile_fog
+            #pragma multi_compile_instancing
+            #pragma target 3.5
             ENDCG
         }
     }

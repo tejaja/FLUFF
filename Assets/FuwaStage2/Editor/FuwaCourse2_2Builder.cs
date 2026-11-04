@@ -2253,8 +2253,8 @@ public static class FuwaCourse2_2Builder
     // 遠くの炎・火の玉を網目で薄く（FuwaFireFar.cginc の FuwaFireFadeClip。2026-11-04 てじゃ「炎重なってるとこ全般」「火球も」）
     public static float FireFadeNear = 14f, FireFadeFar = 40f, FireFadeMin = 1f;   // 1 で薄くしない（0.3 で試したら、てじゃ「薄くなるのちょっと微妙」で 2026-11-04 やめた。しくみは残す）
     // 近い炎だけふちが明滅（FuwaFireNearGlow。2026-11-04 てじゃ「近い炎だけ目立たせる」「クモの巣が光るのはよかった」）
-    public static Color FireNearGlow = new Color(1f, 0.92f, 0.35f, 0.85f); public static float FireGlowNear = 3f, FireGlowFar = 7f, FireGlowSpeed = 2.2f;   // クモの巣（FuwaCourse/SpiderWeb）と同じ距離・速さ
-    static void FireFadeLook(Material m) { m.SetFloat("_FireFadeNear", FireFadeNear); m.SetFloat("_FireFadeFar", FireFadeFar); m.SetFloat("_FireFadeMin", FireFadeMin); m.SetColor("_NearGlow", FireNearGlow); m.SetFloat("_GlowNear", FireGlowNear); m.SetFloat("_GlowFar", FireGlowFar); m.SetFloat("_GlowSpeed", FireGlowSpeed); }
+    public static Color FireNearGlow = new Color(1f, 0.92f, 0.2f, 0.95f); public static float FireOutlineW = 0.12f, FireGlowNear = 3f, FireGlowFar = 7f, FireGlowSpeed = 2.2f;   // クモの巣（FuwaCourse/SpiderWeb）と同じ距離・速さ
+    static void FireFadeLook(Material m) { m.SetFloat("_FireFadeNear", FireFadeNear); m.SetFloat("_FireFadeFar", FireFadeFar); m.SetFloat("_FireFadeMin", FireFadeMin); m.SetColor("_NearGlow", m.name == "Stage2_2_SeedFlame" ? Color.clear : FireNearGlow); m.SetFloat("_GlowNear", FireGlowNear); m.SetFloat("_GlowFar", FireGlowFar); m.SetFloat("_GlowSpeed", FireGlowSpeed); m.SetFloat("_OutlineW", FireOutlineW); }   // 焚き火はなし（てじゃ「焚き火はいらない」）
     public static Material FireballMat()
     {
         var m = FuwaStage2WaterTest.ToonMat("Stage2_2_Fireball", new Color(1f, 0.55f, 0.15f));
