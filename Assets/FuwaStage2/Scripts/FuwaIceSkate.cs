@@ -37,7 +37,7 @@ public class FuwaIceSkate : UdonSharpBehaviour
     private bool _in, _braking;
     private Vector3 _v, _lastPos;
     // 調べる用のログ（2026-11-04 動く板で棒立ちなのに加速する件）：氷の上で 0.5 秒ごとに、自分で足したワープの量・勢い・VRChat の速さ
-    public bool debugLog = true;
+    public bool debugLog = false;
     private Vector3 _dbgShift; private float _dbgT;
     // 動く床（FuwaMovingIce）の上：床が毎フレーム自分を運ぶ時、VRChat の GetVelocity は「床の速さのマイナス」くらいを返す（2026-11-04 実機ログ。ClientSim は 0）。
     //  そのまま「VRChat の歩き」として引くと、床の速さぶん余計にワープして床の 2 倍で流れた（てじゃ「棒立ちで床の移動方向に加速」）。

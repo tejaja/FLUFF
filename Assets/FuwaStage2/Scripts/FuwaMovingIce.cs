@@ -19,7 +19,7 @@ public class FuwaMovingIce : UdonSharpBehaviour
     private Vector3 _last;
     private bool _init;
     // 調べる用のログ（2026-11-04 てじゃ「棒立ちで床の移動方向に加速」。ClientSim では再現しない）：乗っている間 0.5 秒ごとに、床と自分の動いた量・VRChat の速さを出す
-    public bool debugLog = true;
+    public bool debugLog = false;
     private Vector3 _dbgFloor, _dbgPlayer, _dbgPrevPos; private float _dbgT; private bool _dbgRiding; private int _dbgFrames;
 
     private float T()
