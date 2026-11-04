@@ -66,6 +66,8 @@ Material:
     m_Ints: []
     m_Floats:
     - _AmbientStrength: 1.2
+    - _BakedGlow: 0
+    - _BakedGlowFloor: 0.25
     - _BaseFadeLength: 0
     - _BaseFadeNormal: 1
     - _BumpScale: 1
@@ -92,8 +94,11 @@ Material:
     - _NoiseScale: 0.6
     - _NoiseStrength: 0
     - _OcclusionStrength: 1
+    - _OffsetFactor: 0
+    - _OffsetUnits: 0
     - _Parallax: 0.02
     - _PatternFromBase: 0
+    - _PatternFromUV3: 0
     - _RimPower: 3
     - _RimStrength: 0.15
     - _ShadowStrength: 0.3

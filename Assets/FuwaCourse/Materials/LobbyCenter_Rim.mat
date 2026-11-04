@@ -66,6 +66,8 @@ Material:
     m_Ints: []
     m_Floats:
     - _AmbientStrength: 0.55
+    - _BakedGlow: 0
+    - _BakedGlowFloor: 0.25
     - _BaseFadeLength: 0
     - _BaseFadeNormal: 1
     - _BumpScale: 1
@@ -92,8 +94,11 @@ Material:
     - _NoiseScale: 0.6
     - _NoiseStrength: 0
     - _OcclusionStrength: 1
+    - _OffsetFactor: 0
+    - _OffsetUnits: 0
     - _Parallax: 0.02
     - _PatternFromBase: 0
+    - _PatternFromUV3: 0
     - _RimPower: 3
     - _RimStrength: 0.25
     - _ShadowStrength: 0.75
@@ -106,11 +111,13 @@ Material:
     - _TopMin: 0.55
     - _TopStrength: 0
     - _UVSec: 0
+    - _UnderGrad: 0
+    - _UnderStrength: 0
     - _Wrap: 0.35
     - _ZWrite: 1
     m_Colors:
     - _BaseFadeColor: {r: 0.65999997, g: 0.6, b: 0.68, a: 1}
-    - _Color: {r: 0.8892, g: 0.6517707, b: 0.4575104, a: 1}
+    - _Color: {r: 0.84705883, g: 0.827451, b: 0.79607844, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _GroundTintA: {r: 1.1, g: 1.08, b: 0.86, a: 1}
     - _GroundTintB: {r: 0.8, g: 0.92, b: 0.8399999, a: 1}
@@ -120,4 +127,5 @@ Material:
     - _StrataB: {r: 0.93, g: 0.95, b: 1.06, a: 1}
     - _StrataC: {r: 0.9, g: 0.87, b: 0.93, a: 1}
     - _TopColor: {r: 0.62, g: 0.72, b: 0.52, a: 1}
+    - _UnderColor: {r: 0.72, g: 0.8399999, b: 1, a: 1}
   m_BuildTextureStacks: []
