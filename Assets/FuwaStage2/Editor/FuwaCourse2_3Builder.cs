@@ -908,12 +908,13 @@ public static class FuwaCourse2_3Builder
     // 2026-11-04 てじゃ「坂のぼり降り以降の展開がびみょう」→「C（動く氷をメイン）」「かなりゆっくり」：上の島 → ゆっくり動く氷の島 3 つ（左右→前後→左右）→ ゴール前の氷
     public static bool M2_Movers = true;
     public static (Vector2 c, Vector2 dir, float amp, float period, float phase)[] M2_Mov = {
-        (new Vector2(-20f, 141f), new Vector2(1f, 0f), 6f, 22f, 0f),
-        (new Vector2(-8f, 151f), new Vector2(0f, 1f), 4f, 18f, 6f),
-        (new Vector2(2f, 160f), new Vector2(1f, 0f), 6f, 26f, 3f) };
-    public static float M2_MovR = 3f;
-    public static Vector2[] M2_G2 = { new Vector2(7f, 165f), new Vector2(12f, 163f), new Vector2(20f, 164f), new Vector2(23f, 168f), new Vector2(20f, 172f), new Vector2(12f, 173f), new Vector2(7f, 170f) };
-    public static (Vector2[] pts, float hw) M2_L4b = (new[] { new Vector2(15f, 172.5f), new Vector2(15f, 180.5f) }, 3f);
+        (new Vector2(-20f, 142.5f), new Vector2(1f, 0f), 4f, 22f, 0f),
+        (new Vector2(-8f, 151f), new Vector2(0f, 1f), 3f, 18f, 6f),
+        (new Vector2(3f, 161f), new Vector2(1f, 0f), 4f, 26f, 3f) };
+    // 2026-11-04 てじゃ「ちょとむずすぎそう」→ 島を大きく（半径 3→4.5）・動く幅を小さく（12/8/12→8/6/8m）。はしで次の島と 1m くらいまで近づく
+    public static float M2_MovR = 4.5f;
+    public static Vector2[] M2_G2 = { new Vector2(7f, 166.5f), new Vector2(12f, 164.5f), new Vector2(20f, 165.5f), new Vector2(23f, 169.5f), new Vector2(20f, 173.5f), new Vector2(12f, 174.5f), new Vector2(7f, 171.5f) };
+    public static (Vector2[] pts, float hw) M2_L4b = (new[] { new Vector2(15f, 174f), new Vector2(15f, 182f) }, 3f);
     public static Vector2[] M2_G = { new Vector2(-23.62f, 151.78f), new Vector2(-14.96f, 155.82f), new Vector2(-3.42f, 156.98f), new Vector2(1.19f, 153.51f), new Vector2(-1.12f, 147.17f), new Vector2(-12.66f, 144.86f), new Vector2(-21.31f, 147.17f) };
     public static Vector2[] M2_Floes = { new Vector2(-44.39f, 135.59f), new Vector2(-41.51f, 143.09f), new Vector2(-36.66f, 147.94f) };
     public static Vector2 M2_MoveA = new Vector2(-29.97f, 148.86f), M2_MoveB = new Vector2(-29.97f, 162.71f);
