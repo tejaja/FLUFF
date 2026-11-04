@@ -2,7 +2,7 @@ using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering.PostProcessing;
 
-// ポストプロセス（2026-11-04 てじゃ「軽いのと中くらいのためしてみたい」）：色味（カラーグレーディング）・ビネット・ブルーム（弱め）。
+// ポストプロセス（2026-11-04 てじゃ「軽いのと中くらいのためしてみたい」→ 試して「ぱっとしない」で外した。シーンには入っていない）：色味（カラーグレーディング）・ビネット・ブルーム（弱め）。
 //  VRChat はシーンの Reference Camera（Main Camera）の PostProcessLayer を使う。ボリュームは専用レイヤー 24「PostProcessing」に置いた全体用 1 個。
 //  PC だけで効く（Quest/スマホでは無視される）。何度実行してもよい。数字はここで直して入れ直す
 public static class FuwaPostFxSetup
