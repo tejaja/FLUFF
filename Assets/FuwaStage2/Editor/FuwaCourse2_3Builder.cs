@@ -884,7 +884,10 @@ public static class FuwaCourse2_3Builder
     //  → 道 → ④ 上の大きい氷（穴 2 つ）→ 流氷 3 つ → 上下に動く島 → ⑤ ゴール前の氷 → 道 → ゴール
     public static int MapVersion = 2;
     public static float Map2EntryLen = 1.5f;
-    public static Vector2[] M2_I1 = { new Vector2(-24.2f, 37.5f), new Vector2(-10.35f, 53.08f), new Vector2(11.58f, 47.31f), new Vector2(20.23f, 54.23f), new Vector2(28.31f, 49.62f), new Vector2(20.81f, 35.77f), new Vector2(13.89f, 28.27f), new Vector2(16.77f, 18.46f), new Vector2(8.12f, 0.57f), new Vector2(-21.89f, 0.57f), new Vector2(-23.62f, 18.46f) };
+    public static Vector2[] M2_I1 = { new Vector2(-24.2f, 37.5f), new Vector2(-10.35f, 53.08f), new Vector2(11.58f, 47.31f), new Vector2(20.23f, 54.23f), new Vector2(28.31f, 49.62f), new Vector2(20.81f, 35.77f), new Vector2(13.89f, 28.27f), new Vector2(16.77f, 18.46f), new Vector2(8.12f, 0.57f), new Vector2(-10.5f, 0.57f), new Vector2(-15.5f, 14f), new Vector2(-23f, 29f) };   // 左下を細く（2026-11-04 てじゃ「この赤いとこいらんかな」）
+    // 切れこみの水から右下へ、島を切って外までつなぐ（てじゃの赤いところ）。下の島は左側だけでつながる「C」の形に
+    public static bool M2_I1Water = false;
+    public static Vector2 M2_I1BandA = new Vector2(-2.6f, 30.2f), M2_I1BandB = new Vector2(30f, 10.2f); public static float M2_I1BandHW = 6.5f;
     public static Vector2[] M2_I1Cut = { new Vector2(-15.54f, 38.08f), new Vector2(-5.73f, 41.54f), new Vector2(4.65f, 36.34f), new Vector2(13.89f, 30.57f), new Vector2(12.73f, 25.96f), new Vector2(3.5f, 27.11f), new Vector2(-10.35f, 31.73f) };
     public static Vector2[] M2_I1Hole = { new Vector2(12.73f, 38.65f), new Vector2(11.96f, 36.28f), new Vector2(9.94f, 34.81f), new Vector2(7.44f, 34.81f), new Vector2(5.43f, 36.28f), new Vector2(4.65f, 38.65f), new Vector2(5.43f, 41.03f), new Vector2(7.44f, 42.49f), new Vector2(9.94f, 42.49f), new Vector2(11.96f, 41.03f) };
     public static Vector2 M2_MC = new Vector2(2.35f, 71.54f); public static float M2_MR = 13.27f;
@@ -975,7 +978,11 @@ public static class FuwaCourse2_3Builder
             Strip(path, "MapInStrip", p, Vector3.forward, Map2EntryLen, IntroHW, false); p += Vector3.forward * Map2EntryLen;
             var R = Ellipse(M2_RC, M2_RRx, M2_RRy, M2_RRot, 40); var RH = Ellipse(M2_RHC, M2_RHx, M2_RHy, M2_RRot, 28); var M = Ellipse(M2_MC, M2_MR, M2_MR, 0f, 40);
             var linkPts = M2_Links.Select(l => SmoothPts(l.pts)).ToList();
-            var cuts = new List<Vector2[]> { M2_I1Cut, M2_I1Hole, RH, M2_TH1, M2_TH2, new[] { new Vector2(-IntroHW, 0f), new Vector2(IntroHW, 0f), new Vector2(IntroHW, Map2EntryLen), new Vector2(-IntroHW, Map2EntryLen) } };
+            Vector2[] I1Band;
+            { var d = (M2_I1BandB - M2_I1BandA).normalized; var nn = new Vector2(-d.y, d.x) * M2_I1BandHW; I1Band = new[] { M2_I1BandA - nn, M2_I1BandA + nn, M2_I1BandB + nn, M2_I1BandB - nn }; }
+            // 下の島の水（切れこみ・小さい穴）は一旦なし（2026-11-04 てじゃ「手前の水は一旦けしていいよ」）。M2_I1Water で戻せる
+            var cuts = new List<Vector2[]> { I1Band, RH, M2_TH1, M2_TH2, new[] { new Vector2(-IntroHW, 0f), new Vector2(IntroHW, 0f), new Vector2(IntroHW, Map2EntryLen), new Vector2(-IntroHW, Map2EntryLen) } };
+            if (M2_I1Water) { cuts.Add(M2_I1Cut); cuts.Add(M2_I1Hole); }
             for (int k = 0; k < linkPts.Count; k++) cuts.Add(PathOutline(linkPts[k], M2_Links[k].hw));
             var isl = new GameObject("Islands").transform; isl.SetParent(path, false);
             MapIsland(isl, "MapI1", o, M2_I1, cuts);
@@ -1009,7 +1016,8 @@ public static class FuwaCourse2_3Builder
                 mk.GetComponent<Renderer>().sharedMaterial = markMat; Object.DestroyImmediate(mk.GetComponent<Collider>());
             }
             // 穴の水
-            HoleWater(waterT, o, "HoleI1Cut", M2_I1Cut); HoleWater(waterT, o, "HoleI1", M2_I1Hole); HoleWater(waterT, o, "HoleRing", RH); HoleWater(waterT, o, "HoleTop1", M2_TH1); HoleWater(waterT, o, "HoleTop2", M2_TH2);
+            if (M2_I1Water) { HoleWater(waterT, o, "HoleI1Cut", M2_I1Cut); HoleWater(waterT, o, "HoleI1", M2_I1Hole); }
+            HoleWater(waterT, o, "HoleRing", RH); HoleWater(waterT, o, "HoleTop1", M2_TH1); HoleWater(waterT, o, "HoleTop2", M2_TH2);
             // つながっていない島どうしの近さ
             var groups = new List<(string n, Vector2[] poly, Vector2 c, float r)>
             {
