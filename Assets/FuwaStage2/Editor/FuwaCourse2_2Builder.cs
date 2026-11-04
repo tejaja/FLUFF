@@ -1005,7 +1005,7 @@ public static class FuwaCourse2_2Builder
     // 3 連火炎放射の手前と合間の焚き火（2026-11-04 てじゃ「３連火炎放射の合間にも焚き火置こう」「一番手前にもほしい」「手前ほど内側よりに、最後はちょっと外側よりに」）。
     //  [0] は 1 つめの炎の手前、[1][2] はとなりの炎の当たりの箱どうしのまん中。道の横の位置は JetSeedSide（外向きが +、道のまん中が 0）。
     //  シーンの火炎放射の位置から決めるので、作り直さずシーンだけ直す時もこれを呼ぶ
-    public static float[] JetSeedSide = { -1.3f, -0.5f, 0.6f };
+    public static float[] JetSeedSide = { -2.0f, -0.4f, 1.2f };   // -1.3/-0.5/0.6 → てじゃ「もうちょい差をつけて」
     public static float JetSeedGap = 2.1f;   // [0] の、1 つめの炎の当たりからの距離（合間のは両方から同じ距離になる所）
     public static string AddJetGapSeeds(Transform root)
     {
