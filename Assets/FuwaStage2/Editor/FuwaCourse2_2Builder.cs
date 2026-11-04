@@ -255,6 +255,7 @@ public static class FuwaCourse2_2Builder
                 var rp = new List<Vector3>();
                 for (int k = legs.Count - 1; k >= 0; k--)
                 {
+                    if (c == RockPassCol && k == 0) continue;   // 奥側の列はジグザグの最初の道ではねずに上を飛びこえて落ちる（ヒビもなし。2026-11-04 てじゃ）
                     float t = (cx - legs[k].a.x) / (legs[k].b.x - legs[k].a.x);
                     rp.Add(Vector3.Lerp(legs[k].a, legs[k].b, t) + up * RockR);
                    
@@ -2280,6 +2281,7 @@ public static class FuwaCourse2_2Builder
     // period：1周の秒（飛んでる間＋休み）。first：最初（火口から）の1回の長さの倍率、firstUp：その1回の高さ。launch：火口で出す火の粉
     // 火山の岩ぜんぶの時間の倍率（2026-11-04 てじゃ「火山から出てる岩をすこしゆっくりに」1→1.15）。はねる時間・1周・ずらしを同じだけのばすので、岩どうしの間合いはそのまま
     public static float RockSlow = 1.15f;
+    public static int RockPassCol = 1;   // ジグザグの最初の道（legs[0]）ではねない列。-1 で全部はねる
     static void LavaRock(Transform parent, string name, Vector3[] ps, float phase, float period, float first, float firstUp, ParticleSystem launch)
     {
         phase *= RockSlow; period *= RockSlow; float hop = RockHop * RockSlow;
