@@ -602,7 +602,13 @@ public static class FuwaCourse2_3Builder
     static float MapHeight(Vector2 q)
     {
         float h = 0f;
-        foreach (var hl in MapHills) { float d = SegDist(hl.a, hl.b, q); h = Mathf.Max(h, hl.h * (1f - Mathf.Clamp01((d - hl.plateau) / hl.run))); }
+        for (int k = 0; k < MapHills.Length; k++)
+        {
+            var hl = MapHills[k];
+            // その島の上だけ（となりの島まで坂がはみ出さないように。2026-11-04 てじゃ「次の丸い島まで影響でてる」）
+            if (MapHillOnly != null && k < MapHillOnly.Length && MapHillOnly[k] != null && !InPoly(MapHillOnly[k], q)) { NearestOnPoly(MapHillOnly[k], q, out float dd); if (dd > 0.6f) continue; }
+            float d = SegDist(hl.a, hl.b, q); h = Mathf.Max(h, hl.h * (1f - Mathf.Clamp01((d - hl.plateau) / hl.run)));
+        }
         if (map2Ridge) h = Mathf.Max(h, Map2Ridge(q));
         return h;
     }
@@ -975,6 +981,7 @@ public static class FuwaCourse2_3Builder
     {
         var o = p;
         var keepHills = MapHills; MapHills = new[] { (M2_MC, M2_MC, M2_DomePlateau, M2_DomeRun, M2_DomeH), (M2_I1HillA, M2_I1HillB, M2_I1HillPlateau, M2_I1HillRun, M2_I1HillH) }; map2Ridge = true;
+        MapHillOnly = new[] { Ellipse(M2_MC, M2_MR, M2_MR, 0f, 40), M2_I1 };
         try
         {
             // 入口の道 → 下の大きい氷
@@ -1067,9 +1074,10 @@ public static class FuwaCourse2_3Builder
             var last = linkPts[linkPts.Count - 1]; var gEnd = last[last.Count - 1]; var gDir = (last[last.Count - 1] - last[last.Count - 2]).normalized;
             p = o + new Vector3(gEnd.x, 0, gEnd.y); dir = new Vector3(gDir.x, 0, gDir.y);
         }
-        finally { MapHills = keepHills; map2Ridge = false; }
+        finally { MapHills = keepHills; map2Ridge = false; MapHillOnly = null; }
     }
     static bool map2Ridge;
+    static Vector2[][] MapHillOnly;
     // 氷の山（台形の柱）：c（まん中、地面の高さ）を中心に +Z へ 上り坂 → 平ら top → 下り坂。幅 w、高さ h、角度 ang。下の面は作らない（床の中）
     static void IceHill(Transform parent, string name, Vector3 c, float w, float h, float ang, float top)
     {
