@@ -661,6 +661,34 @@ public static class FuwaCourse2_3Builder
         g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = iceFlat;
         var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = m; iceCols.Add(mc);
     }
+    // 割れ目の板：ます目に合わせず、ふちの点そのままで作る（ギザギザのかどが丸まってこぶになり、閉じた時にすき間が残ったので）。
+    //  poly は CrackSlab の形（下のふち n+1 点 → 上のふち n+1 点を逆順）
+    static void CrackSlabMesh(Transform parent, string name, Vector3 o, Vector2[] poly)
+    {
+        int n1 = poly.Length / 2; float T = CrackT;
+        var bot = poly.Take(n1).ToArray(); var top = poly.Skip(n1).Reverse().ToArray();
+        System.Func<Vector2, float, Vector3> V = (q, y) => new Vector3(q.x, y, q.y);
+        var v = new List<Vector3>(); var t = new List<int>();
+        for (int i = 0; i < n1 - 1; i++)
+        {
+            Vector2 b0 = bot[i], b1 = bot[i + 1], t1 = top[i + 1], t0 = top[i];
+            Quad(v, t, V(b0, MapHeight(b0)), V(b1, MapHeight(b1)), V(t1, MapHeight(t1)), V(t0, MapHeight(t0)), Vector3.up);
+            Quad(v, t, V(b0, -T), V(t0, -T), V(t1, -T), V(b1, -T), Vector3.down);
+            // 手前・奥のふち（割れ目の壁）
+            var nb = new Vector3(b1.y - b0.y, 0f, -(b1.x - b0.x)).normalized; if (nb.z > 0f) nb = -nb;
+            Quad(v, t, V(b0, MapHeight(b0)), V(b0, -T), V(b1, -T), V(b1, MapHeight(b1)), nb);
+            var nt = new Vector3(t1.y - t0.y, 0f, -(t1.x - t0.x)).normalized; if (nt.z < 0f) nt = -nt;
+            Quad(v, t, V(t0, MapHeight(t0)), V(t1, MapHeight(t1)), V(t1, -T), V(t0, -T), nt);
+        }
+        // 左右のはし
+        Quad(v, t, V(bot[0], MapHeight(bot[0])), V(top[0], MapHeight(top[0])), V(top[0], -T), V(bot[0], -T), Vector3.left);
+        Quad(v, t, V(bot[n1 - 1], MapHeight(bot[n1 - 1])), V(bot[n1 - 1], -T), V(top[n1 - 1], -T), V(top[n1 - 1], MapHeight(top[n1 - 1])), Vector3.right);
+        var m = NewMesh(name);
+        m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = o; g.layer = pathLayer;
+        g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = iceFlat;
+        var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = m; iceCols.Add(mc);
+    }
     // 雪の岸：まわりの物（島・つなぎ・流氷・スタートとゴールの島）から ShoreGap 以上はなれて、湖の外側（中心から見て物より外）の所。
     //  水ぎわは水の下からなだらかに上がる（水面で切れて、ふちが自然な形に）。外のはしは下へ落ちる
     //  avoid：となりのコースの物（湖の入口からの XZ の四角）。AvoidGap 以内には岸も水も作らない（2–2 のスタートの島にかぶった）
@@ -906,7 +934,27 @@ public static class FuwaCourse2_3Builder
     public static Vector2[] M2_TH2 = { new Vector2(-14.96f, 126.93f), new Vector2(-6.89f, 126.93f), new Vector2(-6.89f, 120.01f), new Vector2(-14.96f, 120.01f) };
     // ゴール前の氷：ラフより 3.5m 奥（上の大きい氷から跳んで届かないように）
     // 2026-11-04 てじゃ「坂のぼり降り以降の展開がびみょう」→「C（動く氷をメイン）」「かなりゆっくり」：上の島 → ゆっくり動く氷の島 3 つ（左右→前後→左右）→ ゴール前の氷
-    public static bool M2_Movers = true;
+    public static bool M2_Movers = false;   // 2026-11-04 てじゃ「島わたり自体厳しそう」で割れ目の道（M2_Cracks）に
+    // 割れ目ができたり閉じたりする大きい氷の道（てじゃ「大きめの島で区切って、割れ目ができたり閉じたり」）：幅 X0〜X1、Z0 から M2_CrackN 枚、
+    //  動かない板と前後に動く板が交互（1・3 枚目が動く）。動く板が奥へ寄ると手前の割れ目が開いて奥が閉じる（0〜2×g0）。割れ目はギザギザでかみ合う
+    public static bool M2_Cracks = true;
+    public static float M2_CrackX0 = -28f, M2_CrackX1 = -2f, M2_CrackZ0 = 139.5f, M2_CrackSlabL = 7f, M2_CrackGap = 2.5f, M2_CrackPeriod = 14f, M2_CrackZig = 0.8f, M2_CrackZigLen = 2.6f;
+    public static int M2_CrackN = 5;
+    static float CrackZig(float x, int c) { float t = (x / M2_CrackZigLen + c * 0.37f) % 1f; if (t < 0f) t += 1f; return M2_CrackZig * (Mathf.Abs(t * 2f - 1f) * 2f - 1f); }
+    // 板 k の形（止まっている時）。下のふちは割れ目 k-1、上のふちは割れ目 k のギザギザ
+    static Vector2[] CrackSlab(int k)
+    {
+        float zb = M2_CrackZ0 + k * (M2_CrackSlabL + M2_CrackGap), zt = zb + M2_CrackSlabL;
+        var bot = new List<Vector2>(); var top = new List<Vector2>();
+        int n = Mathf.Max(2, Mathf.CeilToInt((M2_CrackX1 - M2_CrackX0) / (M2_CrackZigLen * 0.5f)));
+        for (int i = 0; i <= n; i++)
+        {
+            float x = Mathf.Lerp(M2_CrackX0, M2_CrackX1, i / (float)n);
+            bot.Add(new Vector2(x, zb + (k > 0 ? CrackZig(x, k - 1) : 0f)));
+            top.Add(new Vector2(x, zt + (k < M2_CrackN - 1 ? CrackZig(x, k) : 0f)));
+        }
+        top.Reverse(); bot.AddRange(top); return bot.ToArray();
+    }
     public static (Vector2 c, Vector2 dir, float amp, float period, float phase)[] M2_Mov = {
         (new Vector2(-20f, 142.5f), new Vector2(1f, 0f), 4f, 22f, 0f),
         (new Vector2(-8f, 151f), new Vector2(0f, 1f), 3f, 18f, 6f),
@@ -1000,6 +1048,15 @@ public static class FuwaCourse2_3Builder
             var R = Ellipse(M2_RC, M2_RRx, M2_RRy, M2_RRot, 40); var RH = Ellipse(M2_RHC, M2_RHx, M2_RHy, M2_RRot, 28); var M = Ellipse(M2_MC, M2_MR, M2_MR, 0f, 40);
             var links = M2_Links.ToArray(); if (M2_Movers) links[links.Length - 1] = M2_L4b;
             var G = M2_Movers ? M2_G2 : M2_G;
+            if (M2_Cracks)
+            {
+                // 上の島 → 1 枚目の板（まっすぐの道）、最後の板 → ゴール
+                float xm = (M2_CrackX0 + M2_CrackX1) * 0.5f, zEnd = M2_CrackZ0 + M2_CrackN * M2_CrackSlabL + (M2_CrackN - 1) * M2_CrackGap;
+                var toField = (new[] { new Vector2(-15f, 134.8f), new Vector2(-15f, M2_CrackZ0) }, 3f);
+                var toGoal = (new[] { new Vector2(xm, zEnd), new Vector2(xm, zEnd + 8f) }, 3f);
+                var ll = links.ToList(); ll[ll.Count - 1] = toField; ll.Add(toGoal); links = ll.ToArray();
+                G = CrackSlab(M2_CrackN - 1);
+            }
             var linkPts = links.Select(l => SmoothPts(l.pts)).ToList();
             Vector2[] I1Band;
             { var d = (M2_I1BandB - M2_I1BandA).normalized; var nn = new Vector2(-d.y, d.x) * M2_I1BandHW; I1Band = new[] { M2_I1BandA - nn, M2_I1BandA + nn, M2_I1BandB + nn, M2_I1BandB - nn }; }
@@ -1029,7 +1086,23 @@ public static class FuwaCourse2_3Builder
             }
             MapIsland(isl, "MapRing", o, R, cuts);
             MapIsland(isl, "MapTop", o, M2_T, cuts);
-            MapIsland(isl, "MapGoalIce", o, G, cuts);
+            if (M2_Cracks)
+            {
+                for (int k = 0; k < M2_CrackN; k++)
+                {
+                    var poly = CrackSlab(k);
+                    if (k % 2 == 0) { CrackSlabMesh(isl, "CrackSlab" + k, o, poly); continue; }
+                    // 動く板：板のまん中に動く親を置いて、その下に島を作る
+                    float zb = M2_CrackZ0 + k * (M2_CrackSlabL + M2_CrackGap);
+                    var c3 = o + new Vector3((M2_CrackX0 + M2_CrackX1) * 0.5f, 0f, zb + M2_CrackSlabL * 0.5f);
+                    var mv = new GameObject("CrackMover" + k).transform; mv.SetParent(path, false); mv.localPosition = c3;
+                    CrackSlabMesh(mv, "CrackSlab" + k, o - c3, poly);
+                    var mi = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaMovingIce>(mv.gameObject);
+                    mi.a = c3 - Vector3.forward * M2_CrackGap; mi.b = c3 + Vector3.forward * M2_CrackGap; mi.period = M2_CrackPeriod; mi.phase = (k / 2) % 2 == 0 ? 0f : M2_CrackPeriod * 0.5f;
+                    UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mi); FuwaStage2WaterTest.NoSync(mi);
+                }
+            }
+            else MapIsland(isl, "MapGoalIce", o, G, cuts);
             for (int k = 0; k < linkPts.Count; k++)
             {
                 var lp = linkPts[k]; float hw = links[k].hw;
@@ -1087,12 +1160,12 @@ public static class FuwaCourse2_3Builder
                     mk.GetComponent<Renderer>().sharedMaterial = markMat; Object.DestroyImmediate(mk.GetComponent<Collider>());
                 }
             }
-            else
+            else if (!M2_Cracks)
             {
             for (int k = 0; k < M2_Floes.Length; k++) Floe(fl, "MapFloe" + k, o + new Vector3(M2_Floes[k].x, 0, M2_Floes[k].y), MapFloeR, 1, 7300 + k);
             Floe(fl, "MapFloeMove", o + new Vector3(M2_MoveA.x, 0, M2_MoveA.y), MapFloeR, 1, 7399);
             }
-            if (!M2_Movers)
+            if (!M2_Movers && !M2_Cracks)
             {
                 var a3 = o + new Vector3(M2_MoveA.x, -0.25f, M2_MoveA.y); var b3 = o + new Vector3(M2_MoveB.x, -0.25f, M2_MoveB.y);
                 var mk = GameObject.CreatePrimitive(PrimitiveType.Cube); mk.name = "MoveRouteMark"; mk.transform.SetParent(fl, false);
@@ -1107,13 +1180,14 @@ public static class FuwaCourse2_3Builder
             {
                 ("I1", M2_I1, Vector2.zero, 0f), ("Dome", M, Vector2.zero, 0f), ("Ring", R, Vector2.zero, 0f), ("Top", M2_T, Vector2.zero, 0f), ("Goal", G, Vector2.zero, 0f) };
             var linked = new HashSet<string> { "I1-Dome", "Dome-Ring", "Ring-Top" };
+            if (M2_Cracks) { for (int k = 0; k < M2_CrackN - 1; k++) groups.Add(("S" + k, CrackSlab(k), Vector2.zero, 0f)); linked.Add("Top-S0"); linked.Add("S0-S1"); linked.Add("S1-S2"); linked.Add("S2-S3"); linked.Add("S3-Goal"); }
             if (M2_Movers)
             {
                 // 動く島はそれぞれ両はしで
                 for (int k = 0; k < M2_Mov.Length; k++) { var mv = M2_Mov[k]; var dd = mv.dir.normalized * mv.amp; groups.Add(("M" + k + "a", null, mv.c - dd, M2_MovR)); groups.Add(("M" + k + "b", null, mv.c + dd, M2_MovR)); linked.Add("M" + k + "a-M" + k + "b"); }
                 linked.Add("Top-M0a"); linked.Add("Top-M0b"); linked.Add("M0b-M1a"); linked.Add("M1b-M2a"); linked.Add("M2b-Goal");
             }
-            else
+            else if (!M2_Cracks)
             {
                 groups.Add(("F0", null, M2_Floes[0], MapFloeR)); groups.Add(("F1", null, M2_Floes[1], MapFloeR)); groups.Add(("F2", null, M2_Floes[2], MapFloeR)); groups.Add(("FM", null, M2_MoveA, MapFloeR));
                 foreach (var kk in new[] { "Top-F0", "F0-F1", "F1-F2", "F2-FM", "Goal-FM" }) linked.Add(kk);

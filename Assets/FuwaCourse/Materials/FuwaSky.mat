@@ -34,6 +34,9 @@ Material:
     - _SunFace: 1
     - _SunGlow: 0.6
     - _SunHalo: 0.6
+    - _SunPopAmount: 0.45
+    - _SunPopEvery: 5.5
+    - _SunPopTime: 0.9
     - _SunRadius: 3.5
     - _SunRayCount: 10
     - _SunRayLen: 1.75
@@ -43,15 +46,18 @@ Material:
     - _SunStyle: 1
     - _TopExponent: 0.7
     m_Colors:
-    - _BottomColor: {r: 0.41999996, g: 0.7, b: 0.96999997, a: 1}
+    - _BottomColor: {r: 0.41999993, g: 0.7, b: 0.96999997, a: 1}
     - _CloudColor: {r: 1, g: 1, b: 1, a: 1}
     - _CloudShade: {r: 0.74, g: 0.8399999, b: 0.96999997, a: 1}
     - _CloudSpeed: {r: 0.01, g: 0, b: 0.005, a: 0}
+    - _DimBottomColor: {r: 0.23999995, g: 0.22999996, b: 0.35999998, a: 1}
+    - _DimHorizonColor: {r: 0.33999997, g: 0.31999996, b: 0.45999992, a: 1}
+    - _DimTopColor: {r: 0.12999997, g: 0.12999997, b: 0.25999996, a: 1}
     - _HorizonColor: {r: 0.6, g: 0.83, b: 1, a: 1}
     - _SunCheekColor: {r: 1, g: 0.54999995, b: 0.62, a: 0.85}
     - _SunColor: {r: 1, g: 0.96999997, b: 0.88, a: 1}
     - _SunDiscColor: {r: 1, g: 0.93, b: 0.54999995, a: 1}
     - _SunEyeColor: {r: 0.37999994, g: 0.21999997, b: 0.11999995, a: 1}
     - _SunRayColor: {r: 1, g: 0.72, b: 0.29999998, a: 1}
-    - _TopColor: {r: 0.15999997, g: 0.5, b: 0.95, a: 1}
+    - _TopColor: {r: 0.15999994, g: 0.5, b: 0.95, a: 1}
   m_BuildTextureStacks: []
