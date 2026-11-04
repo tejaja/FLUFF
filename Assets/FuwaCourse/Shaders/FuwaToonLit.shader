@@ -54,6 +54,7 @@ Shader "FuwaCourse/ToonLit"
         _TopStrength ("Top Strength", Range(0,1)) = 0
         _TopMin ("Top Start (normal.y)", Range(0,1)) = 0.55
         [Toggle] _PatternFromBase ("Pattern From Base (stalactite)", Float) = 0
+        [Toggle] _PatternFromUV3 ("模様を uv3 の位置で取る（動く床：止まっている時のワールド位置を入れて、模様を床にくっつける）", Float) = 0
         [Header(Ground Detail)]
         [NoScaleOffset] _GroundTex ("Ground Detail (R=細かい草 G=大きいムラ B=中くらい、継ぎ目なし)", 2D) = "gray" {}
         _GroundPatch ("大きいムラの強さ (0=off)", Range(0,1)) = 0
@@ -94,7 +95,7 @@ Shader "FuwaCourse/ToonLit"
             half _ShadowStrength, _Wrap, _Steps, _AmbientStrength, _RimStrength, _RimPower, _BakedGlow, _BakedGlowFloor;
             fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal;
             half _NoiseStrength, _StrataStrength, _Facet, _TopStrength, _TopMin; float _NoiseScale, _StrataScale; fixed4 _TopColor;
-            half4 _StrataA, _StrataB, _StrataC; half _PatternFromBase;
+            half4 _StrataA, _StrataB, _StrataC; half _PatternFromBase, _PatternFromUV3;
             half _EmissionGradient, _EmissionFull;
             fixed4 _UnderColor; half _UnderStrength, _UnderGrad;
             sampler2D _GroundTex; half _GroundPatch, _GroundFine, _GroundSteps, _GroundFineCrisp; float _GroundPatchScale, _GroundMidScale, _GroundFineScale, _GroundFineFade; half4 _GroundTintA, _GroundTintB;
@@ -119,7 +120,7 @@ Shader "FuwaCourse/ToonLit"
                 UNITY_DEFINE_INSTANCED_PROP(half4, _EmissionColor)
             UNITY_INSTANCING_BUFFER_END(Props)
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; float3 uv3 : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f
             {
                 float4 pos : SV_POSITION;
@@ -148,6 +149,7 @@ Shader "FuwaCourse/ToonLit"
                 o.wn = lerp(o.wn, float3(0, -1, 0), o.fade * _BaseFadeNormal);
                 o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 o.pp = _PatternFromBase > 0.5 ? mul(unity_ObjectToWorld, float4(v.vertex.x, 0, v.vertex.z, 1)).xyz : o.wp;
+                if (_PatternFromUV3 > 0.5) o.pp = v.uv3;
                 o.amb = ShadeSH9(float4(o.wn, 1));
                 #ifdef VERTEXLIGHT_ON
                 // 重要でない点光源（頂点ライト）も、まわりの明るさとして足す
@@ -198,7 +200,7 @@ Shader "FuwaCourse/ToonLit"
                 if (_GroundPatch > 0 || _GroundFine > 0)
                 {
                     half up = smoothstep(0.45, 0.85, n.y);
-                    float2 xz = i.wp.xz;
+                    float2 xz = i.pp.xz;   // pp はふつう wp と同じ（つらら・動く床だけちがう）
                     half pg = tex2D(_GroundTex, xz / _GroundPatchScale).g;
                     half pb = tex2D(_GroundTex, xz / _GroundMidScale + 0.37).b;
                     half p = saturate(pg * 0.65 + pb * 0.35);

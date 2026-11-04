@@ -663,7 +663,9 @@ public static class FuwaCourse2_3Builder
     }
     // 割れ目の板：ます目に合わせず、ふちの点そのままで作る（ギザギザのかどが丸まってこぶになり、閉じた時にすき間が残ったので）。
     //  poly は CrackSlab の形（下のふち n+1 点 → 上のふち n+1 点を逆順）
-    static void CrackSlabMesh(Transform parent, string name, Vector3 o, Vector2[] poly)
+    //  moving：動く板。模様はふつうワールドの位置で描くので、動くと模様だけその場に残って上の人が床より速く見えた（2026-11-04 てじゃ「床の模様が動く床と連動してない」）
+    //   → 止まっている時（まん中）のワールド位置を uv3 に入れて、模様をそこから取る材質（_PatternFromUV3）に。止まっている板とも模様がつながる
+    static void CrackSlabMesh(Transform parent, string name, Vector3 o, Vector2[] poly, bool moving = false)
     {
         int n1 = poly.Length / 2; float T = CrackT;
         var bot = poly.Take(n1).ToArray(); var top = poly.Skip(n1).Reverse().ToArray();
@@ -686,7 +688,16 @@ public static class FuwaCourse2_3Builder
         var m = NewMesh(name);
         m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
         var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = o; g.layer = pathLayer;
-        g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = iceFlat;
+        var mat = iceFlat;
+        if (moving)
+        {
+            m.SetUVs(3, v.Select(q => g.transform.TransformPoint(q)).ToList());
+            const string mp = "Assets/FuwaStage2/Materials/Course2_3_IceMoving.mat";
+            mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (!mat) { mat = new Material(iceFlat); AssetDatabase.CreateAsset(mat, mp); }
+            mat.CopyPropertiesFromMaterial(iceFlat); mat.SetFloat("_PatternFromUV3", 1f); EditorUtility.SetDirty(mat);
+        }
+        g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = mat;
         var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = m; iceCols.Add(mc);
     }
     // 雪の岸：まわりの物（島・つなぎ・流氷・スタートとゴールの島）から ShoreGap 以上はなれて、湖の外側（中心から見て物より外）の所。
@@ -1134,7 +1145,7 @@ public static class FuwaCourse2_3Builder
                     float zb = M2_CrackZ0 + k * (M2_CrackSlabL + M2_CrackGap);
                     var c3 = o + new Vector3((M2_CrackX0 + M2_CrackX1) * 0.5f, 0f, zb + M2_CrackSlabL * 0.5f);
                     var mv = new GameObject("CrackMover" + k).transform; mv.SetParent(path, false); mv.localPosition = c3;
-                    CrackSlabMesh(mv, "CrackSlab" + k, o - c3, poly);
+                    CrackSlabMesh(mv, "CrackSlab" + k, o - c3, poly, true);
                     var mi = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaMovingIce>(mv.gameObject);
                     mi.a = c3 - Vector3.forward * M2_CrackGap; mi.b = c3 + Vector3.forward * M2_CrackGap; mi.period = M2_CrackPeriod; mi.phase = (k / 2) % 2 == 0 ? 0f : M2_CrackPeriod * 0.5f;
                     UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mi); FuwaStage2WaterTest.NoSync(mi);
