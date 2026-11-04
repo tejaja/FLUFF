@@ -59,7 +59,7 @@ public static class FuwaCourse2_3Builder
     public static float[] MapLinkBend = { 0f, 0f, 0f };
     // 輪っか→帯の長い道から先（帯・流氷・動く島・右上の島・ゴールへの道・帯の坂）を、長い道の始まり（輪っかのはし）を中心に回す（＋が左回り＝外側へ起こす）。
     //  2026-11-04 てじゃ「道はまっすぐのまま、右側の氷とかを全体的にまげる」「左上の長い道をもっと外側に角度つけて」
-    public static float MapBendDeg = 20f;
+    public static float MapBendDeg = 20f, MapMoveGap = 1.8f;
     // つなぎの道のまん中の線（曲がりは 2 次ベジェ、1m くらいおき）
     static List<Vector2> LinkPts(int k)
     {
@@ -742,9 +742,13 @@ public static class FuwaCourse2_3Builder
         // 先に、長い道から先を曲げる（ラフの座標のまま）
         var bp = sLinks[1].a; float ba = MapBendDeg * Mathf.Deg2Rad, bc = Mathf.Cos(ba), bs = Mathf.Sin(ba);
         System.Func<Vector2, Vector2> Bend = q => { var d = q - bp; return bp + new Vector2(d.x * bc - d.y * bs, d.x * bs + d.y * bc); };
-        sBand = sBand.Select(Bend).ToArray(); sI4 = sI4.Select(Bend).ToArray(); sFloes = sFloes.Select(Bend).ToArray(); sMA = Bend(sMA); sMB = Bend(sMB);
+        //  ゴール前の島（I4）とゴールへの道は向きを変えずに、回した先の場所へずらすだけ（2026-11-04 てじゃ「ゴール前の氷の島、角度いらんよ」）。動く島の左のはしは、I4 の近いふちから MapMoveGap あけた所に置き直す
+        var i4c = new Vector2(sI4.Average(q => q.x), sI4.Average(q => q.y)); var i4Move = Bend(i4c) - i4c;
+        sI4 = sI4.Select(q => q + i4Move).ToArray();
+        sBand = sBand.Select(Bend).ToArray(); sFloes = sFloes.Select(Bend).ToArray(); sMA = Bend(sMA);
+        { var nI4 = NearestOnPoly(sI4, sMA, out float dI4); var dv = (nI4 - sMA).normalized; sMB = nI4 - dv * (MapFloeR + MapMoveGap); }
         sHills = sHills.Select((h, i) => i == 2 ? (Bend(h.a), Bend(h.b), h.plateau, h.run, h.h) : h).ToArray();
-        sLinks = sLinks.Select((l, i) => i == 1 ? (l.a, Bend(l.b), l.hw) : i == 2 ? (Bend(l.a), Bend(l.b), l.hw) : l).ToArray();
+        sLinks = sLinks.Select((l, i) => i == 1 ? (l.a, Bend(l.b), l.hw) : i == 2 ? (l.a + i4Move, l.b + i4Move, l.hw) : l).ToArray();
         var keepLinks = MapLinks; var keepHills = MapHills;
         MapI1 = MapRotPoly(sI1); MapRing = MapRotPoly(sRing); MapRingHole = MapRotPoly(sHole); MapBand = MapRotPoly(sBand); MapI4 = MapRotPoly(sI4);
         MapHills = sHills.Select(h => (MapRotPt(h.a), MapRotPt(h.b), h.plateau, h.run, h.h)).ToArray();
