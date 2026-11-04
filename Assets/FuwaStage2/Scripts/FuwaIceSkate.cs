@@ -28,6 +28,8 @@ public class FuwaIceSkate : UdonSharpBehaviour
 
     [Tooltip("氷から跳んでふつうの床に着地した時の止まり方（毎秒これだけ減る）。空中では切り替えない")]
     public float landBrake = 14f;
+    [Tooltip("氷から跳んでいる間、スティック・キーの向きへ毎秒これだけ寄せる（地面の accel より弱く。2026-11-04 てじゃ「ジャンプ中も多少制御できるように」）。速さは跳んだ時より上げない（最高 maxSpeed）")]
+    public float airAccel = 1.5f;
 
     [Header("元の値（VRChat の既定値）")]
     public float baseWalk = 2f, baseRun = 4f, baseStrafe = 2f;
@@ -129,6 +131,13 @@ public class FuwaIceSkate : UdonSharpBehaviour
             }
             _v += dh * (9.81f * slopeSlide * sinA * dt);
             if (_v.sqrMagnitude > maxSlideSpeed * maxSlideSpeed) _v = _v.normalized * maxSlideSpeed;
+        }
+        else if (!onFloor && !_braking && input.sqrMagnitude > 0.01f && airAccel > 0f)
+        {
+            // 空中：入力の向きへ少しだけ足す。今の速さ（maxSpeed より遅ければ maxSpeed）より速くはしない
+            float cap = Mathf.Max(_v.magnitude, maxSpeed);
+            _v += input * (airAccel * dt);
+            if (_v.sqrMagnitude > cap * cap) _v = _v.normalized * cap;
         }
 
         // 2026-11-03 てじゃ「氷の上で壁にずっとぶつかりつづけると、すり抜けたり視点だけ先に行ったり」
