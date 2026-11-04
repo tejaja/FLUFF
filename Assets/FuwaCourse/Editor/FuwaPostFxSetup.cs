@@ -11,7 +11,7 @@ public static class FuwaPostFxSetup
     const string LayerName = "PostProcessing";
     const string ProfilePath = "Assets/FuwaCourse/Generated/FuwaPostFx.asset";
 
-    public static bool UseColor = true, UseVignette = true, UseBloom = true;
+    public static bool UseColor = true, UseVignette = false, UseBloom = true;   // ビネットは 2026-11-04 てじゃ「隅が黒いのはいらない」
     // 色味：ほんの少し鮮やか・コントラストを上げる
     public static float Saturation = 25f, Contrast = 15f, Temperature = 2f, PostExposure = 0f;
     // ビネット：画面のすみを少しだけ暗く（VR だと目のまわりが暗く見えるので弱く）
