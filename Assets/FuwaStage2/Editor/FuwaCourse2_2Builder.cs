@@ -1612,12 +1612,12 @@ public static class FuwaCourse2_2Builder
     public static float RockCrackDepth = 0.35f, RockCrackLift = 0.015f, RockBounceH = 0.74f;   // RockBounceH：はねる時の岩の中心の、道からの高さ（岩の下の半径 0.78。少しめりこむくらい）
     // ジグザグの岩（LavaRock0/1）の通り道の点線（2026-11-04 てじゃ「この点線いいな」）。最初の道の上の板（P1）から落ちる先まで、FuwaLavaRock.At と同じ弧に RockDotGap おきに小さい玉。
     //  1 つのメッシュで、uv.x が通り道ぞいの距離。作り直さずシーンだけ直す時もこれを呼ぶ（はねる点を動かしたら呼び直す。RockCracks のあとに）
-    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 10f, RockDotTail = 4f;
+    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 18f, RockDotTail = 4f;   /* 2026-11-04 てじゃ「点滅速くして、消えてるときは見えないように」：10→18、ふだんの濃さ 0.8→0（光った所だけ見える） */
     public static string RockPathDots(Transform fire)
     {
         string mp = "Assets/FuwaStage2/Materials/Stage2_2_RockPathDots.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/RockPathDots")); AssetDatabase.CreateAsset(mat, mp); }
-        mat.SetColor("_Color", new Color(1f, 0.62f, 0.05f, 1f)); mat.SetFloat("_Dim", 0.8f); mat.SetColor("_LitColor", new Color(1f, 0.95f, 0.25f, 1f));
+        mat.SetColor("_Color", new Color(1f, 0.62f, 0.05f, 1f)); mat.SetFloat("_Dim", 0f); mat.SetColor("_LitColor", new Color(1f, 0.95f, 0.25f, 1f));
         mat.renderQueue = 2005; EditorUtility.SetDirty(mat);   // 炎の壁（2013、深さを書かない）より先に描く。後だと壁の向こうの点が手前に見えた
         // 点の形：低い球（緯度 4・経度 8）
         var unitV = new List<Vector3>(); var unitT = new List<int>(); const int LA = 4, LO = 8;
@@ -1647,6 +1647,7 @@ public static class FuwaCourse2_2Builder
             var mesh = new Mesh { name = "Course2_2_" + g.name + "_PathDots" }; mesh.SetVertices(verts); mesh.SetUVs(0, uvs); mesh.SetTriangles(tris, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
             var o = new GameObject("PathDots", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mesh);
             var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            r.enabled = false;   // 岩が飛んでいる間だけ FuwaLavaRock が出す
             f.pathDots = r; f.pathLength = d; f.dotSpeed = RockDotSpeed; f.dotTail = RockDotTail;
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); EditorUtility.SetDirty(f);
             res += g.name + " 点 " + dots + " 長さ " + d.ToString("F1") + "m / ";

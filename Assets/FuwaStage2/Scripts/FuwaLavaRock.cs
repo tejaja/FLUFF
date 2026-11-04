@@ -125,6 +125,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
         }
         // 点線：飛んでいる間、火口を出た時から奥→手前へ光を流し続ける（1 周は点線の長さ＋光の長さ）
         if (_dotMat != null) _dotMat.SetFloat("_Head", flying ? (t * dotSpeed) % (pathLength + dotTail) : -100f);
+        if (pathDots != null && pathDots.enabled != flying) pathDots.enabled = flying;   // 休みの間は点線ごと消す
         if (!flying) return;
         float u = Mathf.Clamp01((t - t0) / Dur(k, hops));
         Vector3 p = At(k, u);

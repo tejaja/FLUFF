@@ -50,6 +50,7 @@ Shader "FuwaCourse/RockPathDots"
                 half lit = (x >= 0 && x < _Tail) ? 1 - x / max(0.01, _Tail) : 0;
                 lit = lit * lit * (3 - 2 * lit);
                 fixed4 c = fixed4(lerp(_Color.rgb, _LitColor.rgb, lit), lerp(_Dim, 1, lit));
+                clip(c.a - 0.01);   // 消えている点は深さも書かない（後ろの炎の壁が欠けないように。2026-11-04 てじゃ「消えてるときは見えないように」）
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;
             }
