@@ -27,18 +27,20 @@ Material:
     m_Floats:
     - _Alpha: 1
     - _Base: 0.5
-    - _DstBlend: 10
+    - _DstBlend: 3
+    - _EdgeW: 0.3
     - _Flow: 1
     - _Length: 6.5
-    - _Mode: 0
+    - _Mode: 1
     - _Root: 1
     - _RootFade: 0
     - _Sharp: 1.5
     - _Speed: 10
-    - _SrcBlend: 5
+    - _SrcBlend: 2
     - _Tip: 0.8
     - _Wavelength: 1.8
     m_Colors:
     - _Color: {r: 1, g: 0.82, b: 0.1, a: 1}
-    - _Tint: {r: 1.15, g: 1.7, b: 0.39999998, a: 1}
+    - _EdgeTint: {r: 1.2, g: 1.05, b: 0.15, a: 1}
+    - _Tint: {r: 1.15, g: 1.7, b: 0.4, a: 1}
   m_BuildTextureStacks: []
