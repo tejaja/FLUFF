@@ -1787,6 +1787,7 @@ public static class FuwaCourse2_2Builder
     public static Color FireballWarnEdgeTint = new Color(1.2f, 1.05f, 0.15f, 1f);
     public static float FireballWarnLead = 0.4f, FireballWarnEdgeW = 0.3f;
     // 予告の地面を「道の色に掛ける＋濃いふち」に（火球も火炎放射も同じ。2026-11-04 てじゃ「火炎放射の予告線もこれで」）
+    public static float FireballWarnBase = 0.2f;   // 帯の間の薄さ 0.5→0.2（2026-11-04 てじゃ「濃いとこと薄いところの差を」）
     public static float FireballWarnSpeed = 6.5f;   // 火球の帯の流れる速さ 10→6.5（2026-11-04 てじゃ「火球のグラデの動きの速さもうちょいおそく」）
     static void WarnMulLook(Material mat)
     {
@@ -1803,7 +1804,7 @@ public static class FuwaCourse2_2Builder
         Physics.SyncTransforms();
         string mp = "Assets/FuwaStage2/Materials/Stage2_2_FireballWarn.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/FireWarn")); AssetDatabase.CreateAsset(mat, mp); }
-        mat.SetColor("_Color", new Color(1f, 0.82f, 0.1f, 1f)); mat.SetFloat("_Base", 0.5f); mat.SetFloat("_Sharp", 1.5f); mat.SetFloat("_Tip", 1f); mat.SetFloat("_RootFade", 0.1f); mat.SetFloat("_Speed", FireballWarnSpeed); WarnMulLook(mat); EditorUtility.SetDirty(mat);   // 道の色に掛けて、影の下に見えるように（2026-11-04 てじゃ「影より下にうつしたい」）
+        mat.SetColor("_Color", new Color(1f, 0.82f, 0.1f, 1f)); mat.SetFloat("_Base", FireballWarnBase); mat.SetFloat("_Sharp", 1.5f); mat.SetFloat("_Tip", 1f); mat.SetFloat("_RootFade", 0.1f); mat.SetFloat("_Speed", FireballWarnSpeed); WarnMulLook(mat); EditorUtility.SetDirty(mat);   // 道の色に掛けて、影の下に見えるように（2026-11-04 てじゃ「影より下にうつしたい」）
         int made = 0, tris = 0;
         foreach (var f in fire.GetComponentsInChildren<FuwaFireball>(true))
         {
