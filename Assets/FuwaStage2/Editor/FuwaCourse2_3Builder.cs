@@ -993,6 +993,13 @@ public static class FuwaCourse2_3Builder
             // 下の島の水（切れこみ・小さい穴）は一旦なし（2026-11-04 てじゃ「手前の水は一旦けしていいよ」）。M2_I1Water で戻せる
             var cuts = new List<Vector2[]> { I1Band, RH, M2_TH1, M2_TH2, new[] { new Vector2(-IntroHW, 0f), new Vector2(IntroHW, 0f), new Vector2(IntroHW, Map2EntryLen), new Vector2(-IntroHW, Map2EntryLen) } };
             if (M2_I1Water) { cuts.Add(M2_I1Cut); cuts.Add(M2_I1Hole); }
+            // 輪っかの大きい坂の横の細道をなくす（2026-11-04 てじゃ「でかい坂のよこの細道いらんかもな」）：坂のすその外側（輪っかの外のふち側）を、坂の長さぶん切る
+            {
+                var ab = M2_RidgeB - M2_RidgeA; var u = ab.normalized; var nn = new Vector2(-u.y, u.x); float w0 = M2_RidgeHalfW + M2_RidgeSideRun, w1 = w0 + 20f;
+                var a0 = M2_RidgeA + u * 0.5f; var b0 = M2_RidgeB - u * 0.5f;
+                cuts.Add(new[] { a0 + nn * w0, b0 + nn * w0, b0 + nn * w1, a0 + nn * w1 });
+                // 穴の側は坂のすそがもう穴まで届いているので切らない（切ると輪っかの反対側まで消えた）
+            }
             for (int k = 0; k < linkPts.Count; k++) cuts.Add(PathOutline(linkPts[k], M2_Links[k].hw));
             var isl = new GameObject("Islands").transform; isl.SetParent(path, false);
             MapIsland(isl, "MapI1", o, M2_I1, cuts);
