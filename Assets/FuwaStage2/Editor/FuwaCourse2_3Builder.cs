@@ -56,7 +56,10 @@ public static class FuwaCourse2_3Builder
         (new Vector2(-24.3f, 58.3f), new Vector2(-7.0f, 67.2f), 3f),  // 輪っか → 帯
         (new Vector2(21.5f, 67.2f), new Vector2(21.5f, 76f), 3f) };   // I4 → ゴールの橋
     // つなぎの道の曲がり（まん中が a→b の左へ何 m ふくらむか。0 でまっすぐ）。輪っか→帯は外側へぐいっと曲げる（2026-11-04 てじゃ「左上の長い道をもっと外側に角度つけて、ぐいっと全体的に曲げよう」）
-    public static float[] MapLinkBend = { 0f, 7f, 0f };
+    public static float[] MapLinkBend = { 0f, 0f, 0f };
+    // 輪っか→帯の長い道から先（帯・流氷・動く島・右上の島・ゴールへの道・帯の坂）を、長い道の始まり（輪っかのはし）を中心に回す（＋が左回り＝外側へ起こす）。
+    //  2026-11-04 てじゃ「道はまっすぐのまま、右側の氷とかを全体的にまげる」「左上の長い道をもっと外側に角度つけて」
+    public static float MapBendDeg = 20f;
     // つなぎの道のまん中の線（曲がりは 2 次ベジェ、1m くらいおき）
     static List<Vector2> LinkPts(int k)
     {
@@ -735,12 +738,20 @@ public static class FuwaCourse2_3Builder
     {
         // ラフの座標を回してから使う（入口の道はまっすぐのまま）
         var sI1 = MapI1; var sRing = MapRing; var sHole = MapRingHole; var sBand = MapBand; var sI4 = MapI4; var sHills = MapHills; var sLinks = MapLinks; var sFloes = MapFloes; var sMA = MapMoveA; var sMB = MapMoveB;
+        var origBand = sBand; var origI4 = sI4; var origFloes = sFloes; var origMA = sMA; var origMB = sMB;
+        // 先に、長い道から先を曲げる（ラフの座標のまま）
+        var bp = sLinks[1].a; float ba = MapBendDeg * Mathf.Deg2Rad, bc = Mathf.Cos(ba), bs = Mathf.Sin(ba);
+        System.Func<Vector2, Vector2> Bend = q => { var d = q - bp; return bp + new Vector2(d.x * bc - d.y * bs, d.x * bs + d.y * bc); };
+        sBand = sBand.Select(Bend).ToArray(); sI4 = sI4.Select(Bend).ToArray(); sFloes = sFloes.Select(Bend).ToArray(); sMA = Bend(sMA); sMB = Bend(sMB);
+        sHills = sHills.Select((h, i) => i == 2 ? (Bend(h.a), Bend(h.b), h.plateau, h.run, h.h) : h).ToArray();
+        sLinks = sLinks.Select((l, i) => i == 1 ? (l.a, Bend(l.b), l.hw) : i == 2 ? (Bend(l.a), Bend(l.b), l.hw) : l).ToArray();
+        var keepLinks = MapLinks; var keepHills = MapHills;
         MapI1 = MapRotPoly(sI1); MapRing = MapRotPoly(sRing); MapRingHole = MapRotPoly(sHole); MapBand = MapRotPoly(sBand); MapI4 = MapRotPoly(sI4);
         MapHills = sHills.Select(h => (MapRotPt(h.a), MapRotPt(h.b), h.plateau, h.run, h.h)).ToArray();
         MapLinks = sLinks.Select(l => (MapRotPt(l.a), MapRotPt(l.b), l.hw)).ToArray();
         MapFloes = MapRotPoly(sFloes); MapMoveA = MapRotPt(sMA); MapMoveB = MapRotPt(sMB);
         try { LakeFromMapBody(root, path, waterT, ref p, ref dir); }
-        finally { MapI1 = sI1; MapRing = sRing; MapRingHole = sHole; MapBand = sBand; MapI4 = sI4; MapHills = sHills; MapLinks = sLinks; MapFloes = sFloes; MapMoveA = sMA; MapMoveB = sMB; }
+        finally { MapI1 = sI1; MapRing = sRing; MapRingHole = sHole; MapBand = origBand; MapI4 = origI4; MapHills = keepHills; MapLinks = keepLinks; MapFloes = origFloes; MapMoveA = origMA; MapMoveB = origMB; }
     }
     static void LakeFromMapBody(Transform root, Transform path, Transform waterT, ref Vector3 p, ref Vector3 dir)
     {
