@@ -337,8 +337,11 @@ public static class FuwaPracticeTutorial
     }
 
     // 本番の道の障害物（カーブのあと〜溝の手前、道の中に左右互い違い。2026-11-05）
+    // カーブのあとに平らな直線を足して、そこにチェックポイントと障害物（2026-11-05 てじゃ「カーブ後に直線増やしてそこに置く」）
+    const float FinFlatLen = 8f;                  // 足した直線（坂・溝・横風・まもの・ゴールはそのぶん奥へ）
     const int ObstCount = 3;
-    const float ObstFrom = 1.4f, ObstStep = 3f;   // カーブの終わりから最初の障害物まで、間隔(m)
+    const float ObstFrom = 2.5f, ObstStep = 3f;   // カーブの終わりから最初の障害物まで、間隔(m)
+    const float Cp0Ahead = 2.5f;                  // チェックポイント（Checkpoint0）は最初の障害物のこれだけ手前
     const float ObstOffset = 1.0f;                // 道のまん中から左右へ(m)。道の半分の幅は FinHalfW 2.5
     static readonly int[] ObstProps = { 6, 3, 10 }; // PracticeProp_N のどれを使うか（大きいマカロンの塔など。キャンディは細くて障害物にならない）
 
@@ -844,7 +847,7 @@ public static class FuwaPracticeTutorial
         float sMush = lastWall + ToMushroom;
         // 最後の本番の道の目印（キノコの島の中心からの距離 u）
         float uCurve1 = FinStraight + FinCurveR * FinCurveDeg * Mathf.Deg2Rad;
-        float uSlope0 = uCurve1 + 1f, uSlope1 = uSlope0 + FinSlopeLen;
+        float uSlope0 = uCurve1 + 1f + FinFlatLen, uSlope1 = uSlope0 + FinSlopeLen;
         float uGroove0 = uSlope1 + 3f, uGroove1 = uGroove0 + FinGrooveW;
         // チェックポイントは横風の手前（2026-10-10 てじゃ。前は横風のあと）。まもの・ゴールの位置は前と同じ
         float uCp = uGroove1 + 3f;
@@ -936,7 +939,7 @@ public static class FuwaPracticeTutorial
 
         // ---------- 本番の道の障害物（2026-11-05 てじゃ「カーブ後〜溝の手前に障害物」案A） ----------
         // 道の中に小物を左右互い違いに置いて、ジグザグに避けさせる。ふちの小物と同じ物（ふわふわはぽよんとはじく、アウトにならない）
-        bool InObstacleRange(float u) { return u > uCurve1 + ObstFrom - 1f && u < uGroove0 - 1.5f; }
+        bool InObstacleRange(float u) { return u > uCurve1 + ObstFrom - Cp0Ahead - 1f && u < uCurve1 + ObstFrom + ObstStep * (ObstCount - 1) + 1.5f; }
         string PlaceObstacles(Transform fin, Transform deco)
         {
             var oldO = fin.Find("Obstacles"); if (oldO != null) Object.DestroyImmediate(oldO.gameObject);
@@ -965,7 +968,7 @@ public static class FuwaPracticeTutorial
                     cps.arraySize++; cps.GetArrayElementAtIndex(cps.arraySize - 1).objectReferenceValue = trig;
                     bso.ApplyModifiedPropertiesWithoutUndo(); Sync(ball);
                 }
-                float uCp0 = uCurve1 + ObstFrom - 1.9f;
+                float uCp0 = uCurve1 + ObstFrom - Cp0Ahead;
                 At(pts, dist, D(uCp0), out var c0, out var f0);
                 cp0.position = c0; cp0.rotation = Quaternion.LookRotation(f0);
                 foreach (Transform cl0 in cp0.Find("GlowMushrooms"))
