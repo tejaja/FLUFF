@@ -1525,6 +1525,36 @@ public static class FuwaCourse2_3Builder
     public static float V4_MoverObsLat = 1.9f;   // 動く板：まん中から横へ（1 枚ごとに左右）
     // 丸い山の坂：まん中からの半径と角度（度）。道が入る所の近く（V4_DomeObsClear m）は置かない
     public static float[] V4_DomeObsR = { 5.8f, 8.1f }; public static float V4_DomeObsClear = 3.4f;
+    // 氷原のチェックポイント（2026-11-05 てじゃ「移動床の一個目超えた先の島にチェックポイントを置こう。どまんなかに一個きのこ置いて、島全体カバーでOK」）
+    //  動かない板 V4_CpStatic のまん中に光るキノコ 1 つ（2–2 のジグザグと同じ 1 つ式）、判定は板ぜんたいを囲む箱、復活は回る橋の方へ V4_CpRespawnOut m
+    public static int V4_CpStatic = 1; public static float V4_CpRespawnOut = 2.8f, V4_CpTrigPad = 0.6f;
+    static void V4FieldCheckpoint(Transform root, Vector3 o, V4Field F)
+    {
+        const string name = "CheckpointField";
+        var poly = F.statics[V4_CpStatic]; var c = V4_Statics[V4_CpStatic].c;
+        var toSpin = (V4_SpinC - c).normalized; var d3 = new Vector3(toSpin.x, 0f, toSpin.y);
+        Checkpoint(root, name, o + new Vector3(c.x, MapHeight(c), c.y), d3, 1f);
+        var cp = root.Find("Checkpoints/" + name); if (!cp) return;
+        var gm = cp.Find("GlowMushrooms");
+        if (gm)
+        {
+            var r = gm.Find("ClusterR"); if (r) Object.DestroyImmediate(r.gameObject);
+            var l = gm.Find("ClusterL"); if (l) l.localPosition = new Vector3(0f, l.localPosition.y, 0f);
+        }
+        var inv = Quaternion.Inverse(Quaternion.LookRotation(d3));
+        float x0 = float.MaxValue, x1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
+        foreach (var q in poly) { var v = inv * new Vector3(q.x - c.x, 0f, q.y - c.y); x0 = Mathf.Min(x0, v.x); x1 = Mathf.Max(x1, v.x); z0 = Mathf.Min(z0, v.z); z1 = Mathf.Max(z1, v.z); }
+        var trig = cp.Find("Trigger");
+        if (trig) { trig.localRotation = Quaternion.identity; trig.localPosition = new Vector3((x0 + x1) * 0.5f, trig.localPosition.y, (z0 + z1) * 0.5f); trig.localScale = new Vector3(x1 - x0 + V4_CpTrigPad * 2f, trig.localScale.y, z1 - z0 + V4_CpTrigPad * 2f); }
+        var rp = cp.Find("RespawnPoint"); if (rp) rp.localPosition = new Vector3(0f, rp.localPosition.y, V4_CpRespawnOut);
+        var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
+        if (fc)
+        {
+            if (fc.glowRenderers != null) fc.glowRenderers = fc.glowRenderers.Where(x => x).ToArray();
+            if (fc.glowEffects != null) fc.glowEffects = fc.glowEffects.Where(x => x).ToArray();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc);
+        }
+    }
     static void V4Obstacle(Transform parent, string name, Vector3 lp, bool crystal, float size, float yaw, float sink)
     {
         if (crystal) { Crystal(parent, name, lp + Vector3.down * sink, size, 2.2f + size * 1.2f); return; }
@@ -1720,6 +1750,7 @@ public static class FuwaCourse2_3Builder
                 if (v3DomeJoins != null) for (int j = 0; j < v3DomeJoins.Length; j++) IslandJoin(path, "DomeJoin" + j, o + new Vector3(M2_MC.x, 0f, M2_MC.y), new Vector3(v3DomeJoins[j].x, 0f, v3DomeJoins[j].y), M2_MR, 3f, pathB);
                 V4Build(isl, path, o, F4, cuts);
                 V4Check(F4, M2_I1, M);
+                V4FieldCheckpoint(root, o, F4);
                 {
                     var dobs = new GameObject("DomeObstacles").transform; dobs.SetParent(root, false); int no = 0;
                     var entries = v3DomeJoins != null ? v3DomeJoins.Select(d => M2_MC + d * M2_MR).ToList() : new List<Vector2>();
