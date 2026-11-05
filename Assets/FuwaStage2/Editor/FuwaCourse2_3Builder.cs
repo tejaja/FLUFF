@@ -1518,6 +1518,18 @@ public static class FuwaCourse2_3Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ti); FuwaStage2WaterTest.NoSync(ti);
         return ti;
     }
+    // 坂と動く物の上の置き物（2026-11-05 てじゃ「坂は確かにちょっとキツめになったけど、まだつっきれるな」「坂や移動床にも障害物あってもいいかもね」→ 案A＋B）
+    //  シーソー：(何枚目, 軸にそった位置 0〜1, 軸の左へ m, 結晶か, 大きさ)。板と一緒に傾く
+    public static (int f, float s, float lat, bool crystal, float size)[] V4_FloeObs = {
+        (0, 0.5f, 2.8f, false, 1.5f), (1, 0.5f, -2.5f, true, 0.45f), (2, 0.38f, -2.6f, false, 1.4f), (2, 0.64f, 2.9f, true, 0.5f) };
+    public static float V4_MoverObsLat = 1.9f;   // 動く板：まん中から横へ（1 枚ごとに左右）
+    // 丸い山の坂：まん中からの半径と角度（度）。道が入る所の近く（V4_DomeObsClear m）は置かない
+    public static float[] V4_DomeObsR = { 5.8f, 8.1f }; public static float V4_DomeObsClear = 3.4f;
+    static void V4Obstacle(Transform parent, string name, Vector3 lp, bool crystal, float size, float yaw, float sink)
+    {
+        if (crystal) { Crystal(parent, name, lp + Vector3.down * sink, size, 2.2f + size * 1.2f); return; }
+        IceRock(parent, name, lp + Vector3.down * sink, size, yaw);
+    }
     static void V4Build(Transform isl, Transform path, Vector3 o, V4Field F, List<Vector2[]> cuts)
     {
         foreach (var pd in V4_Pads) MapIsland(isl, "Map" + pd.n, o, Ellipse(pd.c, pd.r, pd.r, 0f, 32), cuts);
@@ -1529,6 +1541,15 @@ public static class FuwaCourse2_3Builder
             var loc = F.floes[i].Select(q => { var v3 = inv * new Vector3(q.x - mid.x, 0f, q.y - mid.y); return new Vector2(v3.x, v3.z); }).ToList();
             V4Piece(pv, f.n + "Ice", Vector3.zero, loc, 8200 + i * 13, true, q => 0f);
             V4Turner(pv, f.amp, f.period, f.phase, baseRot, false);
+            float L = (B - A).magnitude; var lt = new Vector2(-u.y, u.x); int no = 0;
+            foreach (var ob in V4_FloeObs)
+            {
+                if (ob.f != i) continue;
+                var q = A + u * (L * ob.s) + lt * ob.lat;
+                if (!InPoly(F.floes[i].ToArray(), q)) { Debug.LogWarning("[2–3 V4] シーソーの置き物が板の外 " + f.n + " " + q); continue; }
+                var v3 = inv * new Vector3(q.x - mid.x, 0f, q.y - mid.y);
+                V4Obstacle(pv, "Obs" + (no++), v3, ob.crystal, ob.size, 30f + i * 47f, 0.1f);
+            }
         }
         for (int i = 0; i < F.statics.Count; i++) V4Piece(isl, "Field" + V4_Statics[i].n, o, F.statics[i], 9100 + i * 37, false, q => MapHeight(q));
         foreach (var m in F.movers)
@@ -1536,6 +1557,7 @@ public static class FuwaCourse2_3Builder
             var c3 = o + new Vector3(m.c.x, 0f, m.c.y); var d3 = new Vector3(m.d.x, 0f, m.d.y);
             var mv = new GameObject("FieldMover" + m.n).transform; mv.SetParent(path, false); mv.localPosition = c3;
             V4Piece(mv, "Field" + m.n, Vector3.zero, m.body.Select(q => q - m.c).ToList(), 9300 + m.seed, true, q => 0f);
+            { int k = F.movers.IndexOf(m); var side = new Vector2(-m.d.y, m.d.x) * (k % 2 == 0 ? V4_MoverObsLat : -V4_MoverObsLat); V4Obstacle(mv, "Obs0", new Vector3(side.x, 0f, side.y), false, 1.4f, 20f + k * 61f, 0.1f); }
             var mi = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaMovingIce>(mv.gameObject);
             mi.a = c3 - d3 * V4_Gap; mi.b = c3 + d3 * V4_Gap; mi.period = V4_MovePeriod; mi.phase = m.phase;
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mi); FuwaStage2WaterTest.NoSync(mi);
@@ -1543,6 +1565,7 @@ public static class FuwaCourse2_3Builder
         {
             var pv = new GameObject("FieldSpin").transform; pv.SetParent(path, false); pv.localPosition = o + new Vector3(V4_SpinC.x, 0f, V4_SpinC.y);
             V4Piece(pv, "FieldSpinIce", Vector3.zero, F.spin, 9500, true, q => 0f);
+            V4Obstacle(pv, "Obs0", Vector3.zero, true, 0.55f, 0f, 0.1f);
             V4Turner(pv, 0f, V4_SpinPeriod, 0f, Quaternion.identity, true);
         }
     }
@@ -1697,6 +1720,19 @@ public static class FuwaCourse2_3Builder
                 if (v3DomeJoins != null) for (int j = 0; j < v3DomeJoins.Length; j++) IslandJoin(path, "DomeJoin" + j, o + new Vector3(M2_MC.x, 0f, M2_MC.y), new Vector3(v3DomeJoins[j].x, 0f, v3DomeJoins[j].y), M2_MR, 3f, pathB);
                 V4Build(isl, path, o, F4, cuts);
                 V4Check(F4, M2_I1, M);
+                {
+                    var dobs = new GameObject("DomeObstacles").transform; dobs.SetParent(root, false); int no = 0;
+                    var entries = v3DomeJoins != null ? v3DomeJoins.Select(d => M2_MC + d * M2_MR).ToList() : new List<Vector2>();
+                    for (int ri = 0; ri < V4_DomeObsR.Length; ri++)
+                        for (int k = 0; k < 6; k++)
+                        {
+                            float a = (k * 60f + (ri == 0 ? 15f : 45f)) * Mathf.Deg2Rad; var q = M2_MC + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * V4_DomeObsR[ri];
+                            if (entries.Any(e => (e - q).magnitude < V4_DomeObsClear)) continue;
+                            bool cr = (k + ri) % 3 == 0;
+                            V4Obstacle(dobs, "DomeObs" + (no++), o + new Vector3(q.x, MapHeight(q), q.y), cr, cr ? 0.5f : 1.4f + 0.25f * ((k * 7 + ri * 3) % 3), k * 53f + ri * 21f, cr ? 0.15f : 0.35f);
+                        }
+                    Debug.Log("[2–3 V4] 丸い山の坂の置き物 " + no + " 個");
+                }
             }
             else if (M2_V3)
             {
