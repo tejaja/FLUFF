@@ -320,11 +320,37 @@ public static class FuwaCourse2_3Builder
             so.ApplyModifiedProperties();
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)visb);
         }
+        RegisterBgm(root);
         FuwaStage2LobbyCourses.Run();
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
         return "[2–3] ゴールの位置 " + p.ToString("F1") + "、向き " + dir.ToString("F2") + "、範囲 " + lb.min.ToString("F0") + "〜" + lb.max.ToString("F0") + "、氷の当たり " + iceCols.Count + " 個";
+    }
+
+    // BGM（2026-11-05 てじゃ B「ゆきのよる」、Tools/audio/make_bgm_kori.py の kori_b_long）。2–1・2–2 と同じく FuwaSystem/BGM に足して、作り直すたびに BallStart をつなぎ直す
+    const string BgmClip = "Assets/FuwaStage2/Audio/bgm_kori_long.wav";
+    const float BgmGain = 1f;
+    public static void RegisterBgm(Transform root)
+    {
+        var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault(); if (!bgm) return;
+        var start = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BallStart"); if (!start) return;
+        var src = bgm.transform.Find("BGM_course2_1"); if (!src) return;
+        var tr = bgm.transform.Find("BGM_course2_3");
+        if (!tr) { tr = Object.Instantiate(src.gameObject, bgm.transform, false).transform; tr.name = "BGM_course2_3"; }
+        var a = tr.GetComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(BgmClip); EditorUtility.SetDirty(a);
+        var so = new SerializedObject(bgm);
+        var tracks = so.FindProperty("tracks"); var starts = so.FindProperty("starts");
+        int idx = -1;
+        for (int i = 0; i < tracks.arraySize; i++) if (tracks.GetArrayElementAtIndex(i).objectReferenceValue == a) idx = i;
+        if (idx < 0) { idx = tracks.arraySize; tracks.arraySize++; tracks.GetArrayElementAtIndex(idx).objectReferenceValue = a; }
+        while (starts.arraySize <= idx) { starts.arraySize++; starts.GetArrayElementAtIndex(starts.arraySize - 1).objectReferenceValue = null; }
+        starts.GetArrayElementAtIndex(idx).objectReferenceValue = start;
+        var gains = so.FindProperty("trackGains");
+        while (gains.arraySize <= idx) { gains.arraySize++; gains.GetArrayElementAtIndex(gains.arraySize - 1).floatValue = 1f; }
+        gains.GetArrayElementAtIndex(idx).floatValue = BgmGain;
+        so.ApplyModifiedProperties();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bgm);
     }
 
     // ---- 部品 ----
