@@ -176,7 +176,7 @@ public static class FuwaCourse2_3Builder
         if (!AssetDatabase.IsValidFolder(MeshDir)) AssetDatabase.CreateFolder("Assets/FuwaStage2/Meshes", "Course2_3");
         var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
         ballProxy = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
-        cps.Clear(); iceCols.Clear();
+        cps.Clear(); iceCols.Clear(); iceRockSeed = 0;
 
         // 2026-11-03 てじゃの構成案（2回目）：
         //  ①スタート ②広めの氷のエリア：前半は障害物をよける、後半は吹雪（左右交互にたまに、ややつよい・短い）＋ところどころ割れていて下は水
@@ -2307,13 +2307,56 @@ public static class FuwaCourse2_3Builder
 
     // ---- 置き物 ----
     // 氷の岩（よける障害物）：角を落とした箱を少し傾けて。当たりあり（ふわふわはアウトにしない）
+    // 氷の岩（2026-11-05 てじゃ「障害物もいいかたちにしよ」→ 四角い箱から、カクカクの多面体のゴツゴツした塊＋上を向いた面に雪）。
+    //  低い多面体（たて LAT・よこ LON の球を半径ばらばらに）を面ごとの法線（カクカク）で。底は平らに切って地面にうめる。当たりは凸の MeshCollider
+    public static bool ObsNewShape = true; public static float IceRockTall = 0.62f;   // たての半径（よこの半径 0.62 と同じくらい。0.48 だと平たくて低かった）
+    static int iceRockSeed;
+    static Mesh IceRockMesh(string name, float size, int seed)
+    {
+        var rnd = new System.Random(seed); const int LON = 7, LAT = 4;
+        float rx = size * 0.62f, ry = size * IceRockTall, rz = size * 0.54f, bottom = -ry * 0.5f;
+        var P = new Vector3[LAT + 1, LON];
+        float kTop = 0.85f + 0.3f * (float)rnd.NextDouble();
+        for (int a = 0; a <= LAT; a++) for (int b = 0; b < LON; b++)
+        {
+            float th = Mathf.PI * a / LAT, ph = Mathf.PI * 2f * (b + (a % 2) * 0.5f) / LON + 0.3f * ((float)rnd.NextDouble() - 0.5f);
+            float k = 0.78f + 0.44f * (float)rnd.NextDouble();
+            var q = a == 0 ? new Vector3(0f, ry * kTop, 0f) : new Vector3(Mathf.Sin(th) * Mathf.Cos(ph) * rx * k, Mathf.Cos(th) * ry * k, Mathf.Sin(th) * Mathf.Sin(ph) * rz * k);
+            if (a == LAT) q = new Vector3(0f, bottom, 0f);
+            q.y = Mathf.Max(q.y, bottom);
+            P[a, b] = q;
+        }
+        var v = new List<Vector3>(); var tIce = new List<int>(); var tSnow = new List<int>();
+        void Face(Vector3 x, Vector3 y, Vector3 z)
+        {
+            var n = Vector3.Cross(y - x, z - x); if (n.sqrMagnitude < 1e-8f) return;
+            var c = (x + y + z) / 3f; if (Vector3.Dot(n, c - new Vector3(0f, (ry * 0.2f + bottom) * 0.5f, 0f)) < 0f) { var tmp = y; y = z; z = tmp; n = -n; }
+            int k = v.Count; v.Add(x); v.Add(y); v.Add(z);
+            (n.normalized.y > 0.72f ? tSnow : tIce).AddRange(new[] { k, k + 1, k + 2 });
+        }
+        for (int a = 0; a < LAT; a++) for (int b = 0; b < LON; b++)
+        {
+            int b1 = (b + 1) % LON;
+            Vector3 p00 = P[a, b], p01 = P[a, b1], p10 = P[a + 1, b], p11 = P[a + 1, b1];
+            Face(p00, p01, p11); Face(p00, p11, p10);
+        }
+        var m = NewMesh(name); m.subMeshCount = 2; m.SetVertices(v); m.SetTriangles(tIce, 0); m.SetTriangles(tSnow, 1); m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
+    }
     static void IceRock(Transform parent, string name, Vector3 at, float size, float yaw)
     {
-        var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = name; g.transform.SetParent(parent, false);
-        g.transform.localPosition = at + Vector3.up * (size * 0.38f);
-        g.transform.localRotation = Quaternion.Euler(8f, yaw, 12f);
-        g.transform.localScale = new Vector3(size * 1.2f, size, size);
-        g.GetComponent<Renderer>().sharedMaterial = iceRockMat;
+        if (!ObsNewShape)
+        {
+            var c = GameObject.CreatePrimitive(PrimitiveType.Cube); c.name = name; c.transform.SetParent(parent, false);
+            c.transform.localPosition = at + Vector3.up * (size * 0.38f); c.transform.localRotation = Quaternion.Euler(8f, yaw, 12f);
+            c.transform.localScale = new Vector3(size * 1.2f, size, size); c.GetComponent<Renderer>().sharedMaterial = iceRockMat; ObstacleBounce(c); return;
+        }
+        var g = new GameObject(name); g.transform.SetParent(parent, false);
+        g.transform.localPosition = at + Vector3.up * (size * 1.25f * IceRockTall * 0.5f - 0.12f);
+        g.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
+        int idx = iceRockSeed++; var m = IceRockMesh("ObsRock" + idx, size * 1.25f, 6100 + idx * 17);   // メッシュの名前は通し番号（同じ名前だと上書きされて形がそろってしまう）
+        g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterials = new[] { iceRockMat, snowLipMat ? snowLipMat : iceRockMat };
+        var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = m; mc.convex = true;
         ObstacleBounce(g);
     }
     // 丸い山のてっぺんの巨大な氷の結晶の束（2026-11-05 てじゃ「真ん中つっきれないように、頂上にオブジェクト置こう。1島目の目印としても使いたいから、上に向かってバカでかい何か」→ 案A 結晶の柱の束）。
@@ -2451,12 +2494,34 @@ public static class FuwaCourse2_3Builder
     }
 
     // 結晶の柱（よける障害物。当たりあり、ふわふわが当たってもアウトにはしない）
+    // 結晶（円柱 → てっぺんの巨大結晶と同じ六角のとがった結晶の束：まん中 1 本＋外へ傾いた小さめ 1〜2 本）。1 本ずつ凸の当たり＋ぽよん
     static void Crystal(Transform parent, string name, Vector3 at, float r, float h)
     {
-        var g = GameObject.CreatePrimitive(PrimitiveType.Cylinder); g.name = name; g.transform.SetParent(parent, false);
-        g.transform.localPosition = at + Vector3.up * (h * 0.5f); g.transform.localScale = new Vector3(r * 2f, h * 0.5f, r * 2f);
-        g.GetComponent<Renderer>().sharedMaterial = crystalMat;
-        ObstacleBounce(g);
+        if (!ObsNewShape)
+        {
+            var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder); c.name = name; c.transform.SetParent(parent, false);
+            c.transform.localPosition = at + Vector3.up * (h * 0.5f); c.transform.localScale = new Vector3(r * 2f, h * 0.5f, r * 2f);
+            c.GetComponent<Renderer>().sharedMaterial = crystalMat; ObstacleBounce(c); return;
+        }
+        var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = at + Vector3.down * 0.25f;
+        int idx = iceRockSeed++; var rnd = new System.Random(7300 + idx * 29);
+        g.localRotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+        void One(string n, Vector3 lp, Quaternion rot, float rr, float hh)
+        {
+            var o = new GameObject(n); o.transform.SetParent(g, false); o.transform.localPosition = lp; o.transform.localRotation = rot;
+            var m = CrystalPrism("ObsCrystal" + idx + "_" + n, rr, hh, 0.24f + (float)rnd.NextDouble() * 0.08f, (float)rnd.NextDouble() * 60f, 1.02f);
+            o.AddComponent<MeshFilter>().sharedMesh = m; o.AddComponent<MeshRenderer>().sharedMaterial = crystalMat;
+            var mc = o.AddComponent<MeshCollider>(); mc.sharedMesh = m; mc.convex = true;
+            ObstacleBounce(o);
+        }
+        One("Main", Vector3.zero, Quaternion.Euler(0f, 0f, 3f), r * 1.15f, h + 0.25f);
+        int sides = 1 + rnd.Next(2);
+        for (int i = 0; i < sides; i++)
+        {
+            float a = (i * 150f + 40f + (float)rnd.NextDouble() * 40f) * Mathf.Deg2Rad; var d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            var rot = Quaternion.AngleAxis(18f + (float)rnd.NextDouble() * 14f, Vector3.Cross(Vector3.up, d));
+            One("Side" + i, d * r * 0.9f, rot, r * (0.6f + 0.15f * (float)rnd.NextDouble()), (h + 0.25f) * (0.45f + 0.2f * (float)rnd.NextDouble()));
+        }
     }
     static void Hazard(Transform root, string name, Vector3 lp, Vector3 size, bool player)
     {
