@@ -167,10 +167,11 @@ public static class FuwaCourse2_3Builder
         var deco = new GameObject("Marks").transform; deco.SetParent(root, false);
         var waterT = new GameObject("Water").transform; waterT.SetParent(root, false);
         meshNo = 0;
-        var p = new Vector3(0, 0, z0 - 0.5f);
+        var p = new Vector3(0, 0, NoEndBridges ? z0 : z0 - 0.5f);
         var dir = Vector3.forward;
+        if (NoEndBridges) IslandJoin(path, "StartJoin", Vector3.zero, dir, z0, IntroHW, pathB);
 
-        Strip(path, "Intro", p, dir, 5f, IntroHW, false); p += dir * 5f;
+        Strip(path, "Intro", p, dir, NoEndBridges ? 4.5f : 5f, IntroHW, false); p += dir * (NoEndBridges ? 4.5f : 5f);
         if (LakeLayout)
         {
             if (!LakeMap) Flare(path, "LakeIn", ref p, dir, 6f, IntroHW, 5f);
@@ -1700,18 +1701,51 @@ public static class FuwaCourse2_3Builder
         float halfLen = (bc ? bc.size.z : 1f) * bridge.localScale.z * 0.5f;
         float frontZ = 2f * ground.localPosition.z - bridge.localPosition.z;
         start.localPosition = new Vector3(-ground.localPosition.x, -islandTop, -ground.localPosition.z);
-        foreach (var b in new[] { bridge, bridgeWood })
+        // 2026-11-05 てじゃ「最初と最後の木の橋いらんかな直接つなごう」→ 島（半径 StartIslandR）のふちから道を出す。前は島の前にもう1本の木の橋（Bridge_Front）
+        startIslandR = ground.localScale.x * 0.5f;
+        if (!NoEndBridges)
         {
-            var c = Object.Instantiate(b.gameObject, area, false); c.name = b.name + "_Front";
-            c.transform.localPosition = new Vector3(b.localPosition.x, b.localPosition.y, 2f * ground.localPosition.z - b.localPosition.z);
-            c.transform.localRotation = Quaternion.Euler(0, 180f, 0) * b.localRotation; c.transform.localScale = b.localScale;
+            foreach (var b in new[] { bridge, bridgeWood })
+            {
+                var c = Object.Instantiate(b.gameObject, area, false); c.name = b.name + "_Front";
+                c.transform.localPosition = new Vector3(b.localPosition.x, b.localPosition.y, 2f * ground.localPosition.z - b.localPosition.z);
+                c.transform.localRotation = Quaternion.Euler(0, 180f, 0) * b.localRotation; c.transform.localScale = b.localScale;
+            }
         }
         FuwaCourse2_1Builder.FixCopied(start, map);
         FuwaCourse2_1Builder.Stage2Grass(start);
+        if (NoEndBridges) return startIslandR;   // 島のまん中は (0, 0, 0)
         return frontZ + halfLen - ground.localPosition.z;
     }
 
-    // ゴール：コース1の Goal を丸ごと。道のはし p の先に木の橋 → 島
+    public static bool NoEndBridges = true;   // スタート・ゴールの島と道を木の橋なしで直接つなぐ（2026-11-05）
+    static float startIslandR = 3f;
+    // 丸い島と道のつなぎ：島のまん中 c から dir の向きに、島のふち（半径 R の円）から、ふちに接する直線（c から R の所）までのすき間をうめる。
+    //  まっすぐな道のはしは c から R の所に置く。道の幅 hw、上の面の高さは c.y。シマシマの色は mat。島と重ねない（Zファイトなし）
+    static void IslandJoin(Transform parent, string name, Vector3 c, Vector3 dir, float R, float hw, Material mat)
+    {
+        const float T = 0.6f; int nx = 16;
+        var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = c; g.transform.localRotation = Quaternion.LookRotation(dir); g.layer = pathLayer;
+        var v = new List<Vector3>(); var t = new List<int>();
+        float Zb(float x) => Mathf.Sqrt(Mathf.Max(0f, R * R - x * x));
+        for (int i = 0; i < nx; i++)
+        {
+            float x0 = Mathf.Lerp(-hw, hw, i / (float)nx), x1 = Mathf.Lerp(-hw, hw, (i + 1) / (float)nx);
+            Vector3 a = new Vector3(x0, 0, Zb(x0)), b = new Vector3(x1, 0, Zb(x1)), cc = new Vector3(x1, 0, R), d = new Vector3(x0, 0, R), dn = Vector3.down * T;
+            Quad(v, t, a, b, cc, d, Vector3.up);
+            Quad(v, t, a + dn, d + dn, cc + dn, b + dn, Vector3.down);
+        }
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            Vector3 a = new Vector3(sx * hw, 0, Zb(hw)), b = new Vector3(sx * hw, 0, R), dn = Vector3.down * T;
+            Quad(v, t, a, b, b + dn, a + dn, new Vector3(sx, 0, 0));
+        }
+        var m = NewMesh(name); m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        g.AddComponent<MeshCollider>().sharedMesh = m;
+    }
+
+    // ゴール：コース1の Goal を丸ごと。道のはし p の先に木の橋 → 島（NoEndBridges なら橋なしで島のふちへ直接）
     static void GoalSet(Transform root, Vector3 p, Vector3 dir)
     {
         var goal = new GameObject("Goal").transform; goal.SetParent(root, false);
@@ -1721,7 +1755,8 @@ public static class FuwaCourse2_3Builder
         FuwaCourse2_1Builder.CopyChildren(src, goal, null, map);
         var area = GameObject.Find("FuwaCourse/Start/StartArea")?.transform; var ground = area ? area.Find("Ground") : null; var gg = goal.Find("GoalGround");
         float far = 6.1f;
-        if (ground && gg)
+        if (NoEndBridges && gg) far = gg.localScale.x * 0.5f;   // 道のはしから島のまん中まで＝島の半径（つなぎは IslandJoin）
+        else if (ground && gg)
         {
             var br = area.Find("Bridge"); var bc = br ? br.GetComponent<BoxCollider>() : null;
             if (bc) far = Mathf.Abs(ground.localPosition.z - br.localPosition.z) + bc.size.z * br.localScale.z * 0.5f;
@@ -1733,8 +1768,9 @@ public static class FuwaCourse2_3Builder
                 c.transform.localRotation = b.localRotation; c.transform.localScale = b.localScale;
             }
         }
-        goal.localPosition = p + dir * (far - 0.3f) + Vector3.up * 0.02f;
+        goal.localPosition = p + dir * (NoEndBridges ? far : far - 0.3f) + Vector3.up * 0.02f;
         goal.localRotation = Quaternion.LookRotation(dir);
+        if (NoEndBridges) IslandJoin(root.Find("Path"), "GoalJoin", p + dir * far, -dir, far, IntroHW, pathB);
         FuwaCourse2_1Builder.FixCopied(goal, map);
         FuwaCourse2_1Builder.Stage2Grass(goal);
     }
