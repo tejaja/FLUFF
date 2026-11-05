@@ -307,7 +307,8 @@ public static class FuwaCourse2_1Builder
     [MenuItem("FuwaCourse/ステージ2/2–1 みずのこみち（ブロックアウト）を作り直す")]
     public static void Menu() { Debug.Log(Build()); }
 
-    public static string Build()
+    // 中心線の表と区間の位置（s）だけを決める（作り直さずに一部だけ置き直すメニューからも使う）
+    static void Layout()
     {
         _tu = null; Table();
         sEnd = SI(Ctrl.Length - 2);
@@ -322,6 +323,11 @@ public static class FuwaCourse2_1Builder
         const float TerLen = 5.5f;
         for (int k = 0; k < 3; k++) { terA[k] = sTer0 + k * (TerLen + RimW); terB[k] = terA[k] + TerLen; }
         sGoal0 = SI(21.2f);
+    }
+
+    public static string Build()
+    {
+        Layout();
         float b2 = terB[2];
 
         var old = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName);
@@ -862,6 +868,7 @@ public static class FuwaCourse2_1Builder
             new[] { sRiver1 - CpMushBack, float.MaxValue, float.MaxValue, float.MaxValue });
             }
         }
+        if (PondCut) PlaceCpRiver(root);
         if (!PondCut) { PondSpillLipFalls(root); PondSpringFalls(root); }
         FloatIsles(root);
         AirFallsFray(root);
@@ -2144,6 +2151,74 @@ public static class FuwaCourse2_1Builder
         lat = from * Mathf.Lerp(RiverHW(sc) + RimW, -(RiverHW(sc) + RimW), k);
         s = sc + Mathf.Lerp(-StoneSpread, StoneSpread, k);
     }
+    // ---- 川のチェックポイント：1回目の渡り場の岩の列（番の魚）と2回目の渡り場（2連魚）のあいだの左岸の道 ----
+    // 2026-11-05 てじゃ「序盤の滝の後の2連魚の前くらいの道にチェックポイントおこう」「道はさんで川までがっつりチェックポイントにして、復活するときは道」
+    // → 判定は道の外のはしから川の向こうのふちまで（川を流れていくふわふわも通る）。戻る場所は道の上
+    public static float CpRiverAfter = 3.8f;   // 岩の列（StopRocks）から川下へ(m)
+    public static float CpRiverMushOut = 0.3f;   // 右のキノコ：川の向こうのふちの外側から外へ（ふちの上だと丸太が川にはみ出た）
+    const string CpRiverName = "CheckpointRiver";
+    static float B2Lat(float s) { return -(RiverHW(Mathf.Clamp(s, sPool1, sRiver1)) + RimW + 1.55f); }   // 左岸の道（B2_Bank）の中心の横のずれ。道の幅は 3m
+
+    [MenuItem("FuwaCourse/ステージ2/2–1 川のチェックポイント（岩の列と2連魚のあいだ）を置き直す")]
+    public static void MenuCpRiver()
+    {
+        var rootGo = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName);
+        if (!rootGo) { Debug.LogWarning("[2–1] コースがない"); return; }
+        Layout();
+        PlaceCpRiver(rootGo.transform);
+        FuwaStage2Static.Apply(rootGo.transform);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(rootGo.scene);
+    }
+
+    static void PlaceCpRiver(Transform root)
+    {
+        var tmpl = GameObject.Find("FuwaCourse3/Checkpoint1");
+        if (tmpl == null) { Debug.LogWarning("[2–1] チェックポイントのお手本（FuwaCourse3/Checkpoint1）がない"); return; }
+        var g = root.Find("Checkpoints");
+        if (!g) { g = new GameObject("Checkpoints").transform; g.SetParent(root, false); }
+        var old = g.Find(CpRiverName); if (old) Object.DestroyImmediate(old.gameObject);
+        float s = sCross1 + CrossGap * 0.5f + StopAfter + CpRiverAfter;
+        Center(s, out var p, out var d);
+        float lat = B2Lat(s);
+        var q = p + Right(d) * lat;
+        var cp = Object.Instantiate(tmpl, g, false); cp.name = CpRiverName;
+        cp.transform.localPosition = new Vector3(q.x, BankTop, q.y);
+        cp.transform.localRotation = Quaternion.LookRotation(new Vector3(d.x, 0, d.y));
+        foreach (var n in new[] { "Post_L", "Post_R", "Bar" }) { var c = cp.transform.Find(n); if (c) Object.DestroyImmediate(c.gameObject); }
+        // 判定：道の外のはし（左）から川の向こうのふち（右）まで。下は水面の下まで（川を流れるふわふわも通る）
+        float left = -1.5f, right = RiverHW(s) + RimW - lat;   // 道の中心から
+        var trig = cp.transform.Find("Trigger");
+        if (trig)
+        {
+            trig.localPosition = new Vector3((left + right) * 0.5f, 3.5f, trig.localPosition.z);
+            trig.localScale = new Vector3(right - left + 0.6f, 9f, trig.localScale.z);
+        }
+        // キノコ：左は道の外、右は川の向こうのふちの上（判定のはしの目印）
+        var gm = cp.transform.Find("GlowMushrooms");
+        if (gm)
+            foreach (Transform cl in gm)
+            {
+                float sx = Mathf.Sign(cl.localPosition.x), sc = s + cl.localPosition.z;
+                Center(sc, out var p2, out var d2);
+                float l2 = sx < 0 ? B2Lat(sc) - 1.5f - CpOut : RiverHW(sc) + RimW + CpRiverMushOut;
+                var w = root.TransformPoint(new Vector3((p2 + Right(d2) * l2).x, BankTop, (p2 + Right(d2) * l2).y));
+                var lp = cp.transform.InverseTransformPoint(w);
+                cl.localPosition = new Vector3(lp.x, cl.localPosition.y, lp.z);
+            }
+        var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
+        if (!fc) return;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); NoSync(fc);
+        var ball = Object.FindObjectsOfType<FuwaBall>(true).FirstOrDefault();
+        if (ball)
+        {
+            var so = new SerializedObject(ball); var arr = so.FindProperty("checkpoints");
+            for (int k = arr.arraySize - 1; k >= 0; k--) if (arr.GetArrayElementAtIndex(k).objectReferenceValue == null) arr.DeleteArrayElementAtIndex(k);
+            arr.arraySize++; arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = fc;
+            so.ApplyModifiedProperties();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ball);
+        }
+    }
+
     static void RiverFish(Transform root, FuwaWaterFx fx)
     {
         var g = new GameObject("RiverFish").transform; g.SetParent(root, false);
