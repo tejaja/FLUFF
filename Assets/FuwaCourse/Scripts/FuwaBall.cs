@@ -41,6 +41,8 @@ public class FuwaBall : UdonSharpBehaviour
     private float _lastGroundY = -10000f;
     [Tooltip("コースアウト判定：真下に道が無くても、再開位置よりこれだけ下ならどこでもアウト(m)")]
     public float maxDrop = 3f;
+    [Tooltip("ステージ2：真下に道があっても、最後に通った道よりこれだけ低い段なら、道が無いのと同じにアウトを見る(m)")]
+    public float tierDrop = 2f;
     [Tooltip("この範囲の中ではコースアウト判定をしない（崖ダイブの谷の上など。底のアウトは別のトゲ等で）")]
     public Collider[] gapZones;
     [Tooltip("この範囲の中では「再開位置より maxDrop 下でアウト」を見ない（最後に通った道より offCourseDrop 下でアウトだけ）。崖の下の広い岩場など、はみ出しても沈むまでは押し戻せるように")]
@@ -1013,6 +1015,9 @@ public class FuwaBall : UdonSharpBehaviour
         RaycastHit hit;
         if (Physics.Raycast(transform.position, Vector3.down, out hit, groundProbe, 1 << groundLayer, QueryTriggerInteraction.Ignore))
         {
+            // ステージ2：真下の道が、最後に通った道より tierDrop 以上低い（ジグザグの上の段から下の段の上へ落ちた等）なら、道が無いのと同じに offCourseDrop 落ちた所でアウト
+            //  （2026-11-05 てじゃ「2-2 まものエリアあたりからコースアウト判定が下すぎてめっちゃおちる」：下の段を「道がある」と見て、8m 下まで落ちてからアウトになっていた）
+            if (_stage == 2 && _lastGroundY > -9999f && hit.point.y < _lastGroundY - tierDrop && transform.position.y < _lastGroundY - offCourseDrop) { Fail(); return; }
             _lastGroundY = hit.point.y;
             return;
         }
@@ -1033,7 +1038,9 @@ public class FuwaBall : UdonSharpBehaviour
                 if (lowZones[i] != null && lowZones[i].bounds.Contains(lp)) { low = true; break; }
             }
         }
-        if (!low && rp.position.y - transform.position.y > maxDrop) { Fail(); return; }
+        // ステージ2は、最後に通った道の高さがわかっていればそっちだけで見る（2026-11-05 てじゃ「2-1のゴール手前の道のコース外の空中でアウト判定」：
+        //  ゴール前の道が最後のチェックポイントより 4m 低く、道のはしから出た瞬間に「再開位置より maxDrop 下」でアウトになっていた）
+        if (!low && !(_stage == 2 && _lastGroundY > -9999f) && rp.position.y - transform.position.y > maxDrop) { Fail(); return; }
         // 道の外：最後に通った道の高さより下に落ちたらアウト（道より上に浮いている間はまだセーフ）
         if (_lastGroundY > -9999f && transform.position.y < _lastGroundY - offCourseDrop) Fail();
     }
