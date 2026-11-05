@@ -36,6 +36,8 @@ public class FuwaGhost : UdonSharpBehaviour
     private bool _shownHidden;
 
     [UdonSynced] private int _area;          // 持ち主が今いるエリア（0=入口 1=チャレンジ 2=あそびば）。モードの看板の人数表示用
+    [UdonSynced] private int _stage = 1;     // 持ち主が今いるステージ（1 か 2）。おっかけカメラがステージ2のロビーを出すのに使う（2026-11-05 てじゃ）
+    private int _pStage = 1;
 
     [Header("同期（持ち主が送る・見る側がなめらかにつなぐ）")]
     [Tooltip("動いている間に送る間隔(秒)")]
@@ -70,6 +72,7 @@ public class FuwaGhost : UdonSharpBehaviour
     public int GetArea() { return _area; }
     // 持ち主が今いるコース（courseStarts の番号、-1=どれでもない）。追っかけカメラが、ほかのエリアから見る時にそのコースを出すのに使う
     public int GetCourse() { return _course; }
+    public int GetStage() { return _stage; }
 
     // ===== 同期 =====
     public override void OnPreSerialization()
@@ -145,6 +148,7 @@ public class FuwaGhost : UdonSharpBehaviour
         _hidden = ball.IsHidden();
         _waiting = ball.IsWaiting();
         _course = CourseOf(ball);
+        if (areaVisibility != null) _stage = areaVisibility.GetStage();
         float dt = Mathf.Max(Time.deltaTime, 0.0001f);
         Vector3 rawVel = (transform.position - _prevPos) / dt;
         _prevPos = transform.position;
@@ -152,7 +156,7 @@ public class FuwaGhost : UdonSharpBehaviour
         _vel = Vector3.Lerp(_vel, rawVel, 1f - Mathf.Exp(-20f * dt));
 
         bool moving = _vel.magnitude > 0.05f;
-        bool stateChanged = _hidden != _pHidden || _area != _pArea || _waiting != _pWaiting || _course != _pCourse;
+        bool stateChanged = _hidden != _pHidden || _area != _pArea || _waiting != _pWaiting || _course != _pCourse || _stage != _pStage;
         bool kick = (_vel - _lastSentVel).magnitude > sendOnVelocityChange;
         bool due = moving && Time.time >= _nextSend;
         bool stopped = !moving && _moving;   // 止まった瞬間にもう一度送って、止まった位置をそろえる
@@ -160,7 +164,7 @@ public class FuwaGhost : UdonSharpBehaviour
         if (stateChanged || kick || due || stopped || !_sentOnce)
         {
             _sentOnce = true;
-            _pHidden = _hidden; _pArea = _area; _pWaiting = _waiting; _pCourse = _course;
+            _pHidden = _hidden; _pArea = _area; _pWaiting = _waiting; _pCourse = _course; _pStage = _stage;
             _lastSentVel = _vel;
             _nextSend = Time.time + sendInterval;
             RequestSerialization();

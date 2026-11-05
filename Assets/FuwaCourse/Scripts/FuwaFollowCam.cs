@@ -107,6 +107,12 @@ public class FuwaFollowCam : UdonSharpBehaviour
     public GameObject playgroundRoot;
     private bool _shownPlayground;
     private int _shownPlaygroundArea = -2;
+    [Tooltip("courseRoots と同じ順で、そのコースのステージ（1 か 2）。2026-11-05 てじゃ「ステージ２の各所、おっかけカメラにうつるようにして」")]
+    public int[] courseStages;
+    [Tooltip("ステージ2のロビー・遠景（FuwaStage2・Stage2Far）。映している人がステージ2にいて、自分の画面に出ていない間だけ出す")]
+    public GameObject[] stage2LobbyObjects;
+    private bool _shownStage2Lobby;
+    private int _shownStage2LobbyArea = -2;
     private int _shownCourse = -1;
     private int _shownCourseArea = -2;
     [Tooltip("今映している人の名前を出す文字（人物ボタン）")]
@@ -197,28 +203,44 @@ public class FuwaFollowCam : UdonSharpBehaviour
     }
 
     private int MyArea() { return areas != null ? areas.GetArea() : -1; }
+    private int MyStage() { return areas != null ? areas.GetStage() : 1; }
+    // 自分の画面の表示の組み合わせ（エリアとステージ）。変わったら FuwaAreaVisibility が出し直している
+    private int ViewKey() { return MyArea() * 10 + MyStage(); }
+    private int StageOfCourse(int k) { return courseStages != null && k >= 0 && k < courseStages.Length ? courseStages[k] : 1; }
+    // そのコースは FuwaAreaVisibility がもう出している（自分がそのステージのチャレンジにいる）
+    private bool AreaShowsCourse(int k) { return MyArea() == soloArea && MyStage() == StageOfCourse(k); }
 
     // 映すためだけに出しているコース（k=-1 で隠す）。自分がチャレンジに入った時は FuwaAreaVisibility が全部出すので、その時は触らない
     private void ShowCourse(int k)
     {
-        int area = MyArea();
-        if (area != _shownCourseArea) { _shownCourseArea = area; _shownCourse = -1; }   // エリアが変わった：FuwaAreaVisibility が出し直したので、こちらの記録は捨てる
+        int key = ViewKey();
+        if (key != _shownCourseArea) { _shownCourseArea = key; _shownCourse = -1; }   // エリア・ステージが変わった：FuwaAreaVisibility が出し直したので、こちらの記録は捨てる
         if (k == _shownCourse) return;
-        bool mine = area == soloArea;
-        if (_shownCourse >= 0 && !mine) SetCourse(_shownCourse, false);
+        if (_shownCourse >= 0 && !AreaShowsCourse(_shownCourse)) SetCourse(_shownCourse, false);
         _shownCourse = k;
-        if (k >= 0 && !mine) SetCourse(k, true);
+        if (k >= 0 && !AreaShowsCourse(k)) SetCourse(k, true);
     }
 
     // 映すためだけにひとりモードのロビーを出す（自分がひとりモードにいる時は FuwaAreaVisibility に任せる）
     private void ShowLobby(bool on)
     {
-        int area = MyArea();
-        if (area != _shownLobbyArea) { _shownLobbyArea = area; _shownLobby = false; }   // エリアが変わった：FuwaAreaVisibility が出し直した
+        int key = ViewKey();
+        if (key != _shownLobbyArea) { _shownLobbyArea = key; _shownLobby = false; }   // エリア・ステージが変わった：FuwaAreaVisibility が出し直した
         if (on == _shownLobby) return;
         _shownLobby = on;
-        if (area == soloArea || lobbyRoot == null) return;
+        if ((MyArea() == soloArea && MyStage() == 1) || lobbyRoot == null) return;
         if (lobbyRoot.activeSelf != on) lobbyRoot.SetActive(on);
+    }
+
+    // 映すためだけにステージ2のロビー・遠景を出す（自分がステージ2にいる時は FuwaAreaVisibility に任せる）
+    private void ShowStage2Lobby(bool on)
+    {
+        int key = ViewKey();
+        if (key != _shownStage2LobbyArea) { _shownStage2LobbyArea = key; _shownStage2Lobby = false; }
+        if (on == _shownStage2Lobby) return;
+        _shownStage2Lobby = on;
+        if ((MyArea() == soloArea && MyStage() == 2) || stage2LobbyObjects == null) return;
+        foreach (GameObject g in stage2LobbyObjects) if (g != null && g.activeSelf != on) g.SetActive(on);
     }
 
     // 映すためだけに入口を出す（自分が入口にいる時は FuwaAreaVisibility に任せる）
@@ -262,7 +284,8 @@ public class FuwaFollowCam : UdonSharpBehaviour
         Transform parent = arr[k].transform.parent;
         if (on)
         {
-            for (int i = 0; i < arr.Length; i++) if (i != k && arr[i] != null && arr[i].activeSelf) arr[i].SetActive(false);
+            // 同じ親（CourseLites）の軽い版だけ消す。ステージ2のコースは親なしの本体なので触らない
+            if (parent != null) for (int i = 0; i < arr.Length; i++) if (i != k && arr[i] != null && arr[i].transform.parent == parent && arr[i].activeSelf) arr[i].SetActive(false);
             if (parent != null && !parent.gameObject.activeSelf) parent.gameObject.SetActive(true);
         }
         else if (parent != null && parent.gameObject.activeSelf) parent.gameObject.SetActive(false);
@@ -442,6 +465,7 @@ public class FuwaFollowCam : UdonSharpBehaviour
         {
             ShowCourse(-1);
             ShowLobby(false);
+            ShowStage2Lobby(false);
             ShowHub(false);
             ShowPlayground(false);
             if (_watchedGhost != null) { _watchedGhost.watched = false; _watchedGhost = null; }
@@ -493,10 +517,19 @@ public class FuwaFollowCam : UdonSharpBehaviour
         Transform tgt = null;
         bool ghostShown = false;
         // チャレンジにいる人を、ほかのエリアから映している：その人のいるコースを出す（ふだんは隠れている）
+        // ステージがちがう時も同じ（2026-11-05 てじゃ「ステージ２の各所、おっかけカメラにうつるようにして」）
+        bool tSolo = who != lp && ghost != null && ghost.GetArea() == soloArea;
+        int tStage = tSolo ? ghost.GetStage() : 0;
+        bool tSeen = tSolo && MyArea() == soloArea && MyStage() == tStage;   // その人のステージは自分の画面にもう出ている
         int showCourse = -1;
-        if (who != lp && ghost != null && ghost.GetArea() == soloArea && MyArea() != soloArea) showCourse = ghost.GetCourse();
+        if (tSolo && !tSeen)
+        {
+            int c = ghost.GetCourse();
+            if (c >= 0 && StageOfCourse(c) == tStage) showCourse = c;   // ステージ2のロビーにいる間、番号はステージ1の前のコースのことがある
+        }
         ShowCourse(showCourse);
-        ShowLobby(who != lp && ghost != null && ghost.GetArea() == soloArea && MyArea() != soloArea);   // コースの番号はロビーに戻っても前のコースのまま残るので、ひとりモードの間はロビーも一緒に出す
+        ShowLobby(tSolo && !tSeen && tStage == 1);   // コースの番号はロビーに戻っても前のコースのまま残るので、ひとりモードの間はロビーも一緒に出す
+        ShowStage2Lobby(tSolo && !tSeen && tStage == 2);
         ShowPlayground(who != lp && ghost != null && ghost.GetArea() == playgroundArea && MyArea() != playgroundArea);
         ShowHub(who != lp && ghost != null && ghost.GetArea() == hubArea && MyArea() != hubArea);
         bool inPlayground = who == lp ? MyArea() == playgroundArea : (ghost != null && ghost.GetArea() == playgroundArea);

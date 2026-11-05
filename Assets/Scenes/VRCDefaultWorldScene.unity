@@ -82268,6 +82268,9 @@ MonoBehaviour:
   - {fileID: 1631740643}
   - {fileID: 1324662150}
   - {fileID: 712445115}
+  - {fileID: 154293325}
+  - {fileID: 273974247}
+  - {fileID: 1096995923}
   areaVisibility: {fileID: 1340627342}
   farDistance: 60
   farEvery: 4
@@ -348936,6 +348939,9 @@ MonoBehaviour:
   - {fileID: 78269920}
   - {fileID: 2008140005}
   - {fileID: 1894034503}
+  - {fileID: 1319510450}
+  - {fileID: 156529525}
+  - {fileID: 1606526286}
   courseLites:
   - {fileID: 686792232}
   - {fileID: 374457905}
@@ -348943,7 +348949,14 @@ MonoBehaviour:
   - {fileID: 1721795746}
   - {fileID: 1049625113}
   - {fileID: 1198607181}
+  - {fileID: 1319510450}
+  - {fileID: 156529525}
+  - {fileID: 1606526286}
   playgroundRoot: {fileID: 652695177}
+  courseStages: 010000000100000001000000010000000100000001000000020000000200000002000000
+  stage2LobbyObjects:
+  - {fileID: 6488772441229420653}
+  - {fileID: 1901953188}
   targetTexts:
   - {fileID: 1875722660}
   - {fileID: 1724527633}
@@ -1752705,6 +1752718,14 @@ MonoBehaviour:
     - VRC.Udon.UdonBehaviour
   - gameObject: {fileID: 601757701}
     ID: 2638
+    SerializedTypeNames:
+    - VRC.Udon.UdonBehaviour
+  - gameObject: {fileID: 1701984768}
+    ID: 2639
+    SerializedTypeNames:
+    - VRC.Udon.UdonBehaviour
+  - gameObject: {fileID: 14048918}
+    ID: 2640
     SerializedTypeNames:
     - VRC.Udon.UdonBehaviour
   portraitCameraPositionOffset: {x: 0, y: 0, z: 0}
