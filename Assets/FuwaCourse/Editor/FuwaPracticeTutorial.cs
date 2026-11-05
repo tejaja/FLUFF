@@ -336,6 +336,47 @@ public static class FuwaPracticeTutorial
         return Origin + fwd * s + right * (Sway * Mathf.Sin(s * 2f * Mathf.PI / SwayLen));
     }
 
+    // 本番の道の障害物（カーブのあと〜溝の手前、道の中に左右互い違い。2026-11-05）
+    const int ObstCount = 3;
+    const float ObstFrom = 1.4f, ObstStep = 3f;   // カーブの終わりから最初の障害物まで、間隔(m)
+    const float ObstOffset = 1.0f;                // 道のまん中から左右へ(m)。道の半分の幅は FinHalfW 2.5
+    static readonly int[] ObstProps = { 6, 3, 10 }; // PracticeProp_N のどれを使うか（大きいマカロンの塔など。キャンディは細くて障害物にならない）
+
+    static bool _obstOnly;
+    [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/本番の道の障害物だけ作り直す")]
+    public static void ObstaclesMenu() { Debug.Log(RebuildObstaclesOnly()); }
+    public static string RebuildObstaclesOnly()
+    {
+        _pathOnly = true; _obstOnly = true;
+        string r;
+        try { r = RunCore(); } finally { _pathOnly = false; _obstOnly = false; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        return "obstacles " + r;
+    }
+
+    // 本番の道のふちの小物・障害物（マカロンの塔など）を1個置く
+    static GameObject MakeFinalProp(Transform parent, string name, Mesh pm, Material[] mats, Vector3 pos, float yaw)
+    {
+        float rad = Mathf.Max(pm.bounds.extents.x, pm.bounds.extents.z);
+        var g = new GameObject(name); g.transform.SetParent(parent, false);
+        g.transform.position = pos;
+        g.transform.rotation = Quaternion.Euler(0f, yaw, 0f);
+        g.AddComponent<MeshFilter>().sharedMesh = pm;
+        var pr = g.AddComponent<MeshRenderer>(); pr.sharedMaterials = mats;
+        // 太陽が真上なので、たての側面に自分の影がしま模様に出る（2026-10-09 てじゃ「マシュマロの影きたない」）→ 影は落とすけど受けない
+        pr.receiveShadows = false;
+        // 当たり判定：道のレイヤー（人は通れない）。ふわふわは当たってもアウトにせず、ぽよんとはじく
+        // （FuwaBounce、いわのみちの頂上の岩と同じ 2.2・面の向き。2026-10-09 てじゃ）
+        var cap = g.AddComponent<CapsuleCollider>();
+        cap.radius = rad * 0.8f; cap.height = pm.bounds.size.y; cap.center = new Vector3(0f, pm.bounds.size.y * 0.5f, 0f);
+        g.layer = 11;
+        var fb = UdonSharpUndo.AddComponent<FuwaBounce>(g);
+        fb.bounceSpeed = 2.2f; fb.keepTangent = 0.7f; fb.alwaysUp = false; fb.useContactNormal = true; Sync(fb);
+        var fbu = UdonSharpEditorUtility.GetBackingUdonBehaviour(fb);
+        var fbso = new SerializedObject(fbu); fbso.FindProperty("_syncMethod").intValue = (int)VRC.SDKBase.Networking.SyncType.None; fbso.ApplyModifiedPropertiesWithoutUndo();
+        return g;
+    }
+
     // 道の見た目と当たり判定だけ作り直す（看板・島・ためし撃ちの場所など、手で直した所はさわらない）
     static bool _pathOnly; static List<Vector2> _pathOnlyPts; static List<float> _pathOnlyDist;
     [MenuItem("FuwaCourse/済み（押す前に相談）/れんしゅう/説明の小道の道だけ作り直す")]
@@ -892,6 +933,43 @@ public static class FuwaPracticeTutorial
             PathFilletR = d => Fillet(d, 1); PathFilletL = d => Fillet(d, -1);
         }
         GrooveD0 = D(uGroove0); GrooveD1 = D(uGroove1);
+
+        // ---------- 本番の道の障害物（2026-11-05 てじゃ「カーブ後〜溝の手前に障害物」案A） ----------
+        // 道の中に小物を左右互い違いに置いて、ジグザグに避けさせる。ふちの小物と同じ物（ふわふわはぽよんとはじく、アウトにならない）
+        bool InObstacleRange(float u) { return u > uCurve1 + ObstFrom - 1f && u < uGroove0 - 1.5f; }
+        string PlaceObstacles(Transform fin, Transform deco)
+        {
+            var oldO = fin.Find("Obstacles"); if (oldO != null) Object.DestroyImmediate(oldO.gameObject);
+            var grp = new GameObject("Obstacles").transform; grp.SetParent(fin, false);
+            var props = PracticeProps();
+            var candy = course.Find("EdgeProps/Visual").GetComponent<MeshRenderer>().sharedMaterials;
+            int removed = 0;
+            if (deco != null)   // 障害物だけ作り直す時：範囲内のふちの小物を消す（ふつうの作り直しでは最初から置かない）
+                foreach (Transform t in deco.Cast<Transform>().ToList())
+                {
+                    if (!t.name.StartsWith("Prop")) continue;
+                    var c2 = new Vector2(t.position.x, t.position.z); int bi = 0; float bd = 1e9f;
+                    for (int i = 0; i < pts.Count; i++) { float e = (pts[i] - c2).sqrMagnitude; if (e < bd) { bd = e; bi = i; } }
+                    if (InObstacleRange(U(dist[bi]))) { Object.DestroyImmediate(t.gameObject); removed++; }
+                }
+            Physics.SyncTransforms();
+            var parts = new List<string>();
+            for (int k = 0; k < ObstCount; k++)
+            {
+                float u = uCurve1 + ObstFrom + ObstStep * k;
+                int side = (k % 2 == 0) ? 1 : -1;   // カーブの内側（右）から
+                At(pts, dist, D(u), out var c, out var f);
+                var r = new Vector3(f.z, 0f, -f.x);
+                var pm = props[ObstProps[k % ObstProps.Length] % props.Count];
+                var p = c + r * side * ObstOffset;
+                float y = Physics.Raycast(p + Vector3.up * 2f, Vector3.down, out var h, 5f, 1 << 11, QueryTriggerInteraction.Ignore) ? h.point.y : p.y;
+                MakeFinalProp(grp, "Obstacle" + k, pm, candy, new Vector3(p.x, y - 0.01f, p.z), 37f * k);
+                parts.Add($"u{u:0.0}/{(side > 0 ? "R" : "L")}/r{Mathf.Max(pm.bounds.extents.x, pm.bounds.extents.z):0.00}");
+            }
+            return string.Join(" ", parts) + (deco != null ? $" (edge props removed {removed})" : "");
+        }
+        if (_obstOnly) { var fr = root.Find("FinalRun"); return PlaceObstacles(fr, root.Find("FinalDeco")); }
+
         if (_pathOnly) { _pathOnlyPts = pts; _pathOnlyDist = dist; return "layout"; }   // 道だけ作り直す時はここまで
 
         // ---------- 道（入口の島〜ゴールの島まで一本） ----------
@@ -1306,30 +1384,17 @@ public static class FuwaPracticeTutorial
             for (float u = 5.5f; u < uGoal - 4.5f; u += 4.5f, sideA = -sideA)
             {
                 int side = sideA;
+                if (InObstacleRange(u)) continue;   // カーブのあと〜溝の手前は道の中の障害物があるので、ふちの小物は置かない
                 if (!Free(u, side)) { side = -side; if (!Free(u, side)) continue; }
                 At(pts, dist, D(u), out var c, out var f);
                 var r = new Vector3(f.z, 0f, -f.x);
                 var pm = props[pi++ % props.Count];
                 float rad = Mathf.Max(pm.bounds.extents.x, pm.bounds.extents.z);
                 var p = c + r * side * (PathHalfW(D(u)) - rad - 0.15f);
-                var g = new GameObject("Prop" + np); g.transform.SetParent(deco, false);
-                g.transform.position = new Vector3(p.x, GroundY(p) - 0.01f, p.z);
-                g.transform.rotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
-                g.AddComponent<MeshFilter>().sharedMesh = pm;
-                var pr = g.AddComponent<MeshRenderer>(); pr.sharedMaterials = candy;
-                // 太陽が真上なので、たての側面に自分の影がしま模様に出る（2026-10-09 てじゃ「マシュマロの影きたない」）→ 影は落とすけど受けない
-                pr.receiveShadows = false;
-                // 当たり判定：道のレイヤー（人は通れない）。ふわふわは当たってもアウトにせず、ぽよんとはじく
-                // （FuwaBounce、いわのみちの頂上の岩と同じ 2.2・面の向き。2026-10-09 てじゃ）
-                var cap = g.AddComponent<CapsuleCollider>();
-                cap.radius = rad * 0.8f; cap.height = pm.bounds.size.y; cap.center = new Vector3(0f, pm.bounds.size.y * 0.5f, 0f);
-                g.layer = 11;
-                var fb = UdonSharpUndo.AddComponent<FuwaBounce>(g);
-                fb.bounceSpeed = 2.2f; fb.keepTangent = 0.7f; fb.alwaysUp = false; fb.useContactNormal = true; Sync(fb);
-                var fbu = UdonSharpEditorUtility.GetBackingUdonBehaviour(fb);
-                var fbso = new SerializedObject(fbu); fbso.FindProperty("_syncMethod").intValue = (int)VRC.SDKBase.Networking.SyncType.None; fbso.ApplyModifiedPropertiesWithoutUndo();
+                MakeFinalProp(deco, "Prop" + np, pm, candy, new Vector3(p.x, GroundY(p) - 0.01f, p.z), (float)rnd.NextDouble() * 360f);
                 np++;
             }
+            log.Add("final obstacles " + PlaceObstacles(root.Find("FinalRun"), null));
             // 草花：左右に約2.6mおき（小物とずらして）
             for (float u = 6.8f; u < uGoal - 4.5f; u += 2.6f)
                 for (int side = -1; side <= 1; side += 2)
