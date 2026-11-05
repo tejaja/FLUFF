@@ -697,12 +697,35 @@ public static class FuwaCourse2_3Builder
     //  poly は CrackSlab の形（下のふち n+1 点 → 上のふち n+1 点を逆順）
     //  moving：動く板。模様はふつうワールドの位置で描くので、動くと模様だけその場に残って上の人が床より速く見えた（2026-11-04 てじゃ「床の模様が動く床と連動してない」）
     //   → 止まっている時（まん中）のワールド位置を uv3 に入れて、模様をそこから取る材質（_PatternFromUV3）に。止まっている板とも模様がつながる
+    public static bool CrackRough = true;   // 割れ目の板も流氷の形に（左右のはしを不ぞろいに。割れ目どうしのギザギザはかみ合うまま）
     static void CrackSlabMesh(Transform parent, string name, Vector3 o, Vector2[] poly, bool moving = false)
     {
         int n1 = poly.Length / 2; float T = CrackT;
         var bot = poly.Take(n1).ToArray(); var top = poly.Skip(n1).Reverse().ToArray();
         System.Func<Vector2, float, Vector3> V = (q, y) => new Vector3(q.x, y, q.y);
         var v = new List<Vector3>(); var t = new List<int>();
+        Mesh m;
+        if (CrackRough)
+        {
+            // 外まわり：下のふち（左→右）→ 右のはし（でこぼこ）→ 上のふち（右→左）→ 左のはし（でこぼこ）。はしの角は少し内へ欠く
+            int seed = 9100 + name.Length * 31 + (int)(bot[0].y * 10f);
+            var rnd = new System.Random(seed);
+            var ol = new List<Vector2>();
+            float cutL0 = 0.4f + (float)rnd.NextDouble() * 0.6f, cutR0 = 0.4f + (float)rnd.NextDouble() * 0.6f, cutL1 = 0.4f + (float)rnd.NextDouble() * 0.6f, cutR1 = 0.4f + (float)rnd.NextDouble() * 0.6f;
+            for (int i = 0; i < n1; i++) { var q = bot[i]; if (i == 0) q.x += cutL0; if (i == n1 - 1) q.x -= cutR0; ol.Add(q); }
+            void End(Vector2 a, Vector2 b, float sx, int sd)   // a→b のはし。外は sx の向き
+            {
+                int n = Mathf.Max(2, Mathf.CeilToInt((b - a).magnitude / RoughStep));
+                for (int j = 1; j < n; j++) { float f = j / (float)n; var q = Vector2.Lerp(a, b, f); q.x -= sx * RoughAmp * 1.6f * RNoise(sd, j * 0.8f) * Mathf.Sin(f * Mathf.PI); ol.Add(q); }
+            }
+            var tr = top[n1 - 1]; tr.x -= cutR1; var tl = top[0]; tl.x += cutL1;
+            End(ol[ol.Count - 1], tr, 1f, seed + 1);
+            for (int i = n1 - 1; i >= 0; i--) { var q = top[i]; if (i == 0) q = tl; if (i == n1 - 1) q = tr; ol.Add(q); }
+            End(tl, ol[0], -1f, seed + 2);
+            m = IceSlab(name, ol, seed, q => MapHeight(q));
+        }
+        else
+        {
         for (int i = 0; i < n1 - 1; i++)
         {
             Vector2 b0 = bot[i], b1 = bot[i + 1], t1 = top[i + 1], t0 = top[i];
@@ -717,8 +740,10 @@ public static class FuwaCourse2_3Builder
         // 左右のはし
         Quad(v, t, V(bot[0], MapHeight(bot[0])), V(top[0], MapHeight(top[0])), V(top[0], -T), V(bot[0], -T), Vector3.left);
         Quad(v, t, V(bot[n1 - 1], MapHeight(bot[n1 - 1])), V(bot[n1 - 1], -T), V(top[n1 - 1], -T), V(top[n1 - 1], MapHeight(top[n1 - 1])), Vector3.right);
-        var m = NewMesh(name);
+        m = NewMesh(name);
         m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        }
+        v = m.vertices.ToList();
         var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = o; g.layer = pathLayer;
         var mat = iceFlat;
         if (moving)
@@ -1142,6 +1167,84 @@ public static class FuwaCourse2_3Builder
         float w = M2_CrackX1 - M2_CrackX0;
         M2_CrackX0 = top.x - w * 0.5f; M2_CrackX1 = top.x + w * 0.5f; M2_CrackZ0 = top.y + V3_PadR + V3_FieldLink;
     }
+    // ---- 流氷みたいな板（2026-11-05 てじゃ「傾く床と、移動床、ちょときれいな四角すぎる」→ 案A）----
+    //  外まわりは角を欠いて丸め、辺に小さいでこぼこ（内側へだけ。乗る面が外へはみ出さない）。側面は少し外へふくらんでから、下は氷山みたいにすぼめる（厚みもばらつく）
+    public static float RoughAmp = 0.28f, RoughCornerMin = 0.7f, RoughCornerMax = 1.5f, RoughStep = 0.45f, RoughTaper = 0.9f, RoughDepthMin = 1.3f, RoughDepthMax = 2.0f;
+    static float RNoise(int seed, float t) { return Mathf.PerlinNoise(t * 0.55f + seed * 0.731f, seed * 1.37f + 3.1f) * 0.65f + Mathf.PerlinNoise(t * 1.7f + seed * 0.29f, seed * 0.53f + 7.7f) * 0.35f; }
+    // 長方形（x ±hw, z ±hl）の流氷の形。flushZ：短い辺（z の両はし）のまん中 |x| < flushZ は欠かない（足場とすき間を作らない）
+    static List<Vector2> RoughRect(float hw, float hl, int seed, float flushZ)
+    {
+        var rnd = new System.Random(seed); var o = new List<Vector2>();
+        var cr = new float[4]; for (int k = 0; k < 4; k++) cr[k] = Mathf.Lerp(RoughCornerMin, RoughCornerMax, (float)rnd.NextDouble());
+        // 角 k のまわり（-hw,-hl）→（hw,-hl）→（hw,hl）→（-hw,hl）の順。辺は角の丸めの終わりから次の角の丸めの始まりまで
+        var C = new[] { new Vector2(-hw, -hl), new Vector2(hw, -hl), new Vector2(hw, hl), new Vector2(-hw, hl) };
+        float t = 0f;
+        for (int k = 0; k < 4; k++)
+        {
+            Vector2 a = C[k], b = C[(k + 1) % 4]; var d = (b - a).normalized; var nIn = new Vector2(-d.y, d.x);   // 反時計まわりなので左が内側
+            float r0 = cr[k], r1 = cr[(k + 1) % 4], len = (b - a).magnitude;
+            bool shortSide = Mathf.Abs(d.y) < 0.5f;   // x 向きの辺＝z のはし
+            // 角の丸め（角 k）
+            Vector2 cc = a + d * r0 + new Vector2(-d.y, d.x) * r0 * 0f;
+            int nArc = 4; var prevD = (a - C[(k + 3) % 4]).normalized;
+            for (int j = 0; j <= nArc; j++)
+            {
+                float f = j / (float)nArc; var q = Vector2.Lerp(a - prevD * r0, a + d * r0, f);   // 角を切った線
+                var mid = a - prevD * r0 + d * r0;   // 角を切る線のまん中より少し内へふくらませて丸く
+                float bulge = Mathf.Sin(f * Mathf.PI) * r0 * 0.3f;
+                var toA = (a - (a - prevD * r0 * 0.5f + d * r0 * 0.5f)).normalized;
+                o.Add(q + toA * bulge);
+            }
+            // 辺のでこぼこ
+            int n = Mathf.Max(2, Mathf.CeilToInt((len - r0 - r1) / RoughStep));
+            for (int j = 1; j < n; j++)
+            {
+                float f = j / (float)n; var q = Vector2.Lerp(a + d * r0, b - d * r1, f); t += RoughStep;
+                float amp = RoughAmp * RNoise(seed + k * 17, t);
+                if (shortSide && Mathf.Abs(q.x) < flushZ) amp *= Mathf.SmoothStep(0f, 1f, (Mathf.Abs(q.x) - flushZ * 0.6f) / (flushZ * 0.4f));
+                o.Add(q + nIn * amp);
+            }
+        }
+        return o;
+    }
+    // 外まわり outline（ローカルの xz、上の面の高さ topH）から板のメッシュ。上の面は重心から扇、側面は 3 段（ふち → 少し外へふくらむ → 下へすぼまる）、下の面
+    static Mesh IceSlab(string name, List<Vector2> outline, int seed, System.Func<Vector2, float> topH)
+    {
+        int n = outline.Count; var c = Vector2.zero; foreach (var q in outline) c += q; c /= n;
+        float area = 0f; for (int i = 0; i < n; i++) { var a = outline[i]; var b = outline[(i + 1) % n]; area += a.x * b.y - b.x * a.y; }
+        float sgn = area >= 0f ? 1f : -1f;   // 反時計まわりなら +（左が内側）
+        var nIn = new Vector2[n];
+        for (int i = 0; i < n; i++)
+        {
+            var e0 = (outline[i] - outline[(i + n - 1) % n]).normalized; var e1 = (outline[(i + 1) % n] - outline[i]).normalized;
+            var m = new Vector2(-e0.y, e0.x) + new Vector2(-e1.y, e1.x); nIn[i] = (m.sqrMagnitude > 1e-6f ? m.normalized : new Vector2(-e1.y, e1.x)) * sgn;
+        }
+        var top = new Vector3[n]; var mid = new Vector3[n]; var bot = new Vector3[n];
+        for (int i = 0; i < n; i++)
+        {
+            var q = outline[i]; float h = topH(q); float r = RNoise(seed + 5, i * 0.9f);
+            top[i] = new Vector3(q.x, h, q.y);
+            var qm = q - nIn[i] * (0.08f + 0.1f * r); mid[i] = new Vector3(qm.x, h - 0.35f - 0.2f * r, qm.y);
+            var toC = c - q; float room = toC.magnitude;
+            var qb = q + nIn[i] * Mathf.Min(room * 0.45f, RoughTaper * (0.6f + 0.8f * RNoise(seed + 9, i * 0.6f)));
+            bot[i] = new Vector3(qb.x, h - Mathf.Lerp(RoughDepthMin, RoughDepthMax, RNoise(seed + 13, i * 0.45f)), qb.y);
+        }
+        var v = new List<Vector3>(); var t = new List<int>();
+        float hc = topH(c); var ctop = new Vector3(c.x, hc, c.y);
+        float hb = bot.Average(x => x.y) - 0.15f; var cbot = new Vector3(c.x, hb, c.y);
+        void Tri(Vector3 a, Vector3 b, Vector3 d, Vector3 want) { int k = v.Count; v.Add(a); v.Add(b); v.Add(d); if (Vector3.Dot(Vector3.Cross(b - a, d - a), want) >= 0f) t.AddRange(new[] { k, k + 1, k + 2 }); else t.AddRange(new[] { k, k + 2, k + 1 }); }
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            Tri(ctop, top[i], top[j], Vector3.up);
+            Tri(cbot, bot[i], bot[j], Vector3.down);
+            var outw = -new Vector3(nIn[i].x + nIn[j].x, 0f, nIn[i].y + nIn[j].y);
+            Quad(v, t, top[i], top[j], mid[j], mid[i], outw);
+            Quad(v, t, mid[i], mid[j], bot[j], bot[i], outw + Vector3.down * 0.6f);
+        }
+        var mesh = NewMesh(name); mesh.SetVertices(v); mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        return mesh;
+    }
     // シーソーの板：s から u の向きに長さ len、半分の幅 hw。まん中を軸に傾ける親（FuwaTiltIce）の下に、止まっている時の形で作る
     static Vector2[] TiltPanelPoly(Vector2 s, Vector2 u, float len, float hw) { var n = new Vector2(-u.y, u.x) * hw; var e = s + u * len; return new[] { s - n, e - n, e + n, s + n }; }
     static void TiltPanel(Transform parent, string name, Vector3 o, Vector2 s, Vector2 u, float len, float hw, float phase)
@@ -1150,18 +1253,12 @@ public static class FuwaCourse2_3Builder
         var pv = new GameObject(name).transform; pv.SetParent(parent, false);
         pv.localPosition = o + new Vector3(c2.x, 0f, c2.y);
         var baseRot = Quaternion.LookRotation(new Vector3(u.x, 0f, u.y)); pv.localRotation = baseRot;
-        float T = CrackT, hl = len * 0.5f;
-        var v = new List<Vector3>(); var t = new List<int>();
-        Vector3 a = new Vector3(-hw, 0, -hl), b = new Vector3(hw, 0, -hl), c = new Vector3(hw, 0, hl), d = new Vector3(-hw, 0, hl), dn = Vector3.down * T;
-        Quad(v, t, a, d, c, b, Vector3.up);
-        Quad(v, t, a + dn, b + dn, c + dn, d + dn, Vector3.down);
-        Quad(v, t, a, b, b + dn, a + dn, Vector3.back); Quad(v, t, c, d, d + dn, c + dn, Vector3.forward);
-        Quad(v, t, b, c, c + dn, b + dn, Vector3.right); Quad(v, t, d, a, a + dn, d + dn, Vector3.left);
-        var m = NewMesh(name);
-        m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        float hl = len * 0.5f;
+        // 流氷の形（2026-11-05）。z のはし（足場とつながる短い辺）はまん中 2.6m を欠かない
+        var m = IceSlab(name, RoughRect(hw, hl, 7700 + name[name.Length - 1] * 13, 2.6f), 7800 + name[name.Length - 1], q => 0f);
         var g = new GameObject(name + "Ice"); g.transform.SetParent(pv, false); g.layer = pathLayer;
         // 動く板と同じ：止まっている時のワールド位置を uv3 に入れて、模様を板にくっつける
-        m.SetUVs(3, v.Select(q => g.transform.TransformPoint(q)).ToList());
+        m.SetUVs(3, m.vertices.Select(q => g.transform.TransformPoint(q)).ToList());
         const string mp = "Assets/FuwaStage2/Materials/Course2_3_IceMoving.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (!mat) { mat = new Material(iceFlat); AssetDatabase.CreateAsset(mat, mp); }
