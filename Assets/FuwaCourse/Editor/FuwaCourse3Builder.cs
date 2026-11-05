@@ -12,16 +12,19 @@ public static class FuwaCourse3Builder
     const float Stripe = 0.75f;
     public const float Upper = 3f;   // 上の段の高さ
 
-    // 中心線：直線0-10 → 右カーブR25(10-30) → 直線30-56 → 左カーブR25(56-76) → 直線76-
-    static readonly float[] SegEnd = { 10f, 30f, 56f, 76f, 1e9f };
+    // 木の橋のあと（RegionB 49.5）に直線を Ext だけ足した（2026-11-05 てじゃ「橋の後にちょっとだけ直線を増やしてそこにチェックポイント」）。
+    // 49.5 より先の数字はみな +Ext。シーンの物は道の向きに Ext だけ平行移動した（AreaFog の箱・YamiMist のだ円体も）
+    public const float Ext = 3f;
+    // 中心線：直線0-10 → 右カーブR25(10-30) → 直線30-59 → 左カーブR25(59-79) → 直線79-
+    static readonly float[] SegEnd = { 10f, 30f, 56f + Ext, 76f + Ext, 1e9f };
     static readonly float[] SegCurv = { 0f, 1f / 25f, 0f, -1f / 25f, 0f };
 
     // かたまり：0 下の道 / 1 穴の向こう（坂で上の段へ→ゴールまで）/ 2 上の段（今は1に統合、ギミックの置き場の高さ用に残す）/ 3 （旧）人用の細道・今は無し / 4・5 穴の左右の木の橋
     // 0 と 1 の間（RegionA〜RegionB）は道がなく、左右の橋（幅1m）が穴のまわりをふくらんで回る
     // 穴の向こうは道幅いっぱいの坂（RampA〜RampB で高さ0→Upper、±0.8mでならす）。人もふわふわも同じ坂を上がる
-    public const float ValleyA = 43f, ValleyB = 49f, LandB = 53.6f, UpperA = 54f, UpperEnd = 86.4f;   // 道はゴールの広場（半径3m）のふちまで
+    public const float ValleyA = 43f, ValleyB = 49f, LandB = 53.6f + Ext, UpperA = 54f + Ext, UpperEnd = 86.4f + Ext;   // 道はゴールの広場（半径3m）のふちまで
     public const float RegionA = 42.5f, RegionB = 49.5f, HoleC = 46f, HoleR = 2.6f, BridgeOut = 3.1f;   // 橋の中心は穴のまん中で横3.1m（内側のふち2.6m＝重力の球の端くらい）
-    public const float RampA = 50.4f, RampB = 56.0f, SlopeFogS = 53.2f;
+    public const float RampA = 50.4f + Ext, RampB = 56.0f + Ext, SlopeFogS = 53.2f + Ext;
     public static readonly Vector2[] Pieces =
     {
         new Vector2(0f, RegionA), new Vector2(RegionB, UpperEnd), new Vector2(UpperEnd, UpperEnd), new Vector2(RegionB, RegionB),
@@ -33,7 +36,7 @@ public static class FuwaCourse3Builder
         new[] { new Vector2(0, 0), new Vector2(100, 0) },
         new[] { new Vector2(RampA, 0), new Vector2(RampB, Upper) },
         new[] { new Vector2(RampA, 0), new Vector2(RampB, Upper) },
-        new[] { new Vector2(49.5f, 0), new Vector2(55.8f, Upper) },
+        new[] { new Vector2(49.5f + Ext, 0), new Vector2(55.8f + Ext, Upper) },
         new[] { new Vector2(0, 0), new Vector2(100, 0) },
         new[] { new Vector2(0, 0), new Vector2(100, 0) },
     };
@@ -156,7 +159,32 @@ public static class FuwaCourse3Builder
         return "Course3 path rebuilt: verts " + vis.vertexCount;
     }
 
-    public const float CP1 = 29f, CP2 = 57.5f, GoalS = 89f;
+    public const float CP1 = 29f, CP2 = 57.5f + Ext, GoalS = 89f + Ext;
+    // 橋を渡ったあと、足した直線のまん中にチェックポイント（CheckpointBridge）
+    public const float CPBridge = RegionB + 1.0f;
+
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course3/橋のあとのチェックポイントだけ置く")]
+    public static void PlaceCpBridgeMenu() { Debug.Log(PlaceCpBridge()); }
+    public static string PlaceCpBridge()
+    {
+        var root = Root();
+        var m = ToCourse(root);
+        var cp = FuwaCourse1Builder.EnsureCheckpoint(root, "CheckpointBridge", "Checkpoint1");
+        Undo.RecordObject(cp, "place");
+        cp.localPosition = m.MultiplyPoint3x4(Point(1, CPBridge, 0, 0));
+        cp.localRotation = Quaternion.Euler(0, Yaw(root, CPBridge), 0);
+        float sa = CPBridge + 2f, half = Width(1, sa) * 0.5f + 0.08f + 0.45f;   // 光るキノコは坂にかからないよう判定の2m先
+        foreach (var (cn, side, yaw) in new[] { ("ClusterL", -1f, 69.9f), ("ClusterR", 1f, -69.9f) })
+        {
+            var c = cp.Find("GlowMushrooms/" + cn);
+            if (c == null) continue;
+            Undo.RecordObject(c, "place");
+            var wp = root.TransformPoint(m.MultiplyPoint3x4(Point(1, sa, side * half, 0)));
+            c.position = wp + Vector3.up * -0.66f;
+            c.rotation = root.rotation * Quaternion.Euler(0, Yaw(root, sa) + yaw, 0);
+        }
+        return "CheckpointBridge " + cp.localPosition.ToString("F2");
+    }
 
     public static string PlaceObjects()
     {
@@ -182,6 +210,7 @@ public static class FuwaCourse3Builder
             log += name + " " + cp.localPosition.ToString("F2") + "  ";
         }
         PlaceCp("Checkpoint1", 0, CP1);
+        log += PlaceCpBridge() + "  ";
         PlaceCp("Checkpoint2", 2, CP2);
 
         var goal = root.Find("Goal");
@@ -204,8 +233,8 @@ public static class FuwaCourse3Builder
     public static readonly float[] DodgeS = { 5f, 8.5f, 12f };   // 4本目(15.5)は最初の重力きのこの直前でムズいので抜いた
     public const float FogA = 18f, FogB = 24.5f, BigWebS = 37f;
     public const float SlopeFogSize = 4.0f, SlopeFogLat = -0.59f;   // 球の右端が、坂から0.3mの高さで道の中心から1.2m（ふわふわの中心が通れるのは右ふちの約15cm）
-    public static readonly float[] CorridorS = { 62f, 65f, 68f, 71f };
-    public const float CorridorFog = 66.5f, WebX1 = 76.5f, WebX2 = 81.5f;
+    public static readonly float[] CorridorS = { 62f + Ext, 65f + Ext, 68f + Ext, 71f + Ext };
+    public const float CorridorFog = 66.5f + Ext, WebX1 = 76.5f + Ext, WebX2 = 81.5f + Ext;
 
     static Transform FindIn(string rootName, string path)
     {
