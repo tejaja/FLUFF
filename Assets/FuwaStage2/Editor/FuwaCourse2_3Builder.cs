@@ -161,7 +161,7 @@ public static class FuwaCourse2_3Builder
             iceFlat.SetFloat("_GroundFine", 0.5f); iceFlat.SetFloat("_GroundFineScale", 8f); iceFlat.SetFloat("_GroundFineFade", 40f); iceFlat.SetFloat("_GroundFineCrisp", 1f); iceFlat.SetFloat("_GroundFineMask", IceCrackMask);
             iceFlat.SetColor("_GroundTintA", new Color(1.5f, 1.15f, 1.03f)); iceFlat.SetColor("_GroundTintB", new Color(0.86f, 0.93f, 1.0f));
             iceFlat.SetFloat("_IceSide", 1f); iceFlat.SetColor("_IceSideColor", new Color(0.5f, 0.62f, 0.92f)); iceFlat.SetFloat("_IceSideDepth", 1.6f);
-            iceFlat.SetFloat("_IceStreak", 0.4f); iceFlat.SetFloat("_IceStreakScale", 1.6f);
+            iceFlat.SetFloat("_IceStreak", 0.3f); iceFlat.SetFloat("_IceStreakScale", 0.6f);
             EditorUtility.SetDirty(iceFlat);
         }
         snowLipMat = FuwaStage2WaterTest.ToonMat("Stage2_3_SnowLip", SnowLipCol); snowLipMat.SetFloat("_OffsetFactor", -1f); snowLipMat.SetFloat("_OffsetUnits", -1f); EditorUtility.SetDirty(snowLipMat);
@@ -698,13 +698,24 @@ public static class FuwaCourse2_3Builder
         System.Func<int, int, bool> S = (x, z) => x >= 0 && x < nx && z >= 0 && z < nz && solid[x, z];
         System.Func<Vector2, float, Vector3> V = (q, y) => new Vector3(q.x, y, q.y);
         float T = CrackT;
+        // ふちの角は、中にあるものもふちの線へ寄せる（前は外の角だけ寄せていたので、ななめのふちが階段のギザギザに見えた。2026-11-05 てじゃ「まだギザギザ感ある」）
+        if (IceLook)
+            for (int x = 0; x <= nx; x++) for (int z = 0; z <= nz; z++)
+            {
+                bool a = S(x - 1, z - 1) || S(x, z - 1) || S(x - 1, z) || S(x, z), b = !S(x - 1, z - 1) || !S(x, z - 1) || !S(x - 1, z) || !S(x, z);
+                if (!a || !b) continue;
+                var q = new Vector2(minX + x * cs, minZ + z * cs); if (!Inside(q)) continue;   // 外の角はもう寄せてある
+                var best = NearestOnPoly(outer, q, out float bd);
+                foreach (var c in cut) { var nb = NearestOnPoly(c, q, out float dc); if (dc < bd) { bd = dc; best = nb; } }
+                if (bd < cs * 1.2f) corner[x, z] = best;
+            }
         // B：ふちの角（まわりに中と外の両方があるます目の角）を 1 つおきに下へ（つららっぽいギザギザ）
         var spk = new float[nx + 1, nz + 1];
         if (IceLook)
             for (int x = 0; x <= nx; x++) for (int z = 0; z <= nz; z++)
             {
                 bool a = S(x - 1, z - 1) || S(x, z - 1) || S(x - 1, z) || S(x, z), b = !S(x - 1, z - 1) || !S(x, z - 1) || !S(x - 1, z) || !S(x, z);
-                if (a && b && (x + z) % 2 == 0) spk[x, z] = IceSpike * (0.35f + 0.65f * RNoise(77 + name.Length, (x * 13 + z * 7) * 0.31f));
+                if (a && b) { var cq = new Vector2(minX + x * cs, minZ + z * cs); spk[x, z] = IceSpike * 1.8f * Mathf.Max(0f, Mathf.PerlinNoise(cq.x * 0.3f + 17.3f, cq.y * 0.3f + 5.1f) - 0.35f) / 0.65f; }
             }
         var bEdges = new Dictionary<int, int>(); int Key(int x, int z) => x * (nz + 1) + z;
         var v = new List<Vector3>(); var t = new List<int>();
@@ -1355,7 +1366,8 @@ public static class FuwaCourse2_3Builder
             var qm = q - nIn[i] * (0.08f + 0.1f * r); mid[i] = new Vector3(qm.x, h - 0.35f - 0.2f * r, qm.y);
             float room = RayToPoly(outline, q + nIn[i] * 0.01f, nIn[i]);
             var qb = q + nIn[i] * Mathf.Min(room * 0.4f, RoughTaper * (0.6f + 0.8f * RNoise(seed + 9, i * 0.6f)));
-            float spike = IceLook && i % 2 == 0 ? IceSpike * (0.35f + 0.65f * RNoise(seed + 17, i * 0.8f)) : 0f;
+            // 下のはし：1 つおきのトゲだと細かいギザギザに見えた（てじゃ「まだギザギザ感ある、細かいのかも」）→ 数 m 単位のゆるい出っぱり
+            float spike = IceLook ? IceSpike * 1.8f * Mathf.Max(0f, RNoise(seed + 17, i * 0.25f) - 0.35f) / 0.65f : 0f;
             bot[i] = new Vector3(qb.x, h - Mathf.Lerp(RoughDepthMin, RoughDepthMax, RNoise(seed + 13, i * 0.45f)) - spike, qb.y);
         }
         var v = new List<Vector3>(); var t = new List<int>();
