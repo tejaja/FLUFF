@@ -1195,7 +1195,9 @@ public static class FuwaCourse2_3Builder
     static List<Vector2> RoughRect(float hw, float hl, int seed, float flushZ)
     {
         var rnd = new System.Random(seed); var o = new List<Vector2>();
-        var cr = new float[4]; for (int k = 0; k < 4; k++) cr[k] = Mathf.Lerp(BigCornerMin, BigCornerMax, (float)rnd.NextDouble());
+        // 角の欠けは板の小さい方の辺の 2 割まで（9m の板が 3m も欠けて小さく見えた。2026-11-05 てじゃ「奥のやつちっちゃくなってない？」）
+        float cmax = Mathf.Min(BigCornerMax, Mathf.Min(hw, hl) * 2f * 0.2f), cmin = Mathf.Min(BigCornerMin, cmax * 0.6f);
+        var cr = new float[4]; for (int k = 0; k < 4; k++) cr[k] = Mathf.Lerp(cmin, cmax, (float)rnd.NextDouble());
         // 角 k のまわり（-hw,-hl）→（hw,-hl）→（hw,hl）→（-hw,hl）の順。辺は角の丸めの終わりから次の角の丸めの始まりまで
         var C = new[] { new Vector2(-hw, -hl), new Vector2(hw, -hl), new Vector2(hw, hl), new Vector2(-hw, hl) };
         float t = 0f;
@@ -1228,6 +1230,10 @@ public static class FuwaCourse2_3Builder
                 o.Add(q + nIn * amp);
             }
         }
+        // 欠けたぶん面積が減るので、横（x）にのばして元の長方形と同じ広さに（z のはし＝足場とつながる所は動かさない。1.25 倍まで）
+        float ar = 0f; for (int i = 0; i < o.Count; i++) { var a = o[i]; var b = o[(i + 1) % o.Count]; ar += a.x * b.y - b.x * a.y; }
+        ar = Mathf.Abs(ar) * 0.5f; float k2 = Mathf.Clamp(4f * hw * hl / Mathf.Max(1f, ar), 1f, 1.25f);
+        for (int i = 0; i < o.Count; i++) o[i] = new Vector2(o[i].x * k2, o[i].y);
         return o;
     }
     // 外まわり outline（ローカルの xz、上の面の高さ topH）から板のメッシュ。上の面は重心から扇、側面は 3 段（ふち → 少し外へふくらむ → 下へすぼまる）、下の面
