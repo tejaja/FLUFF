@@ -967,7 +967,7 @@ public static class FuwaCourse2_3Builder
     //  線は縮めたあとの座標。M2_ObsInner が false なら前の「後半ほど詰める」
     public static bool M2_ObsInner = true;
     public static Vector2[] M2_ObsRoute = { new Vector2(0f, 4f), new Vector2(-6f, 18f), new Vector2(-1f, 28.5f), new Vector2(16f, 40f) };
-    public static float M2_ObsGapIn = 3.0f, M2_ObsGapOut = 13f, M2_ObsInW = 2.0f, M2_ObsOutW = 6.5f;   // 線からの距離 InW 以内は GapIn、OutW で GapOut
+    public static float M2_ObsGapIn = 4.4f, M2_ObsGapOut = 6.2f, M2_ObsInW = 2.0f, M2_ObsOutW = 9f;   // 3.0/13/2/6.5 は「インが多すぎてアウトがなさすぎ」   // 線からの距離 InW 以内は GapIn、OutW で GapOut
     public static int M2_ObsCountInner = 28;
     // 障害物にふわふわが当たったら、いわのみちの頂上の岩と同じ「当たった面の向きにぽよん」（FuwaBounce 2.2、アウトにしない）。人は氷のスケートの壁の跳ね返り（FuwaIceSkate.bounce）
     public static Vector2 M2_I1BandA = new Vector2(-2.6f, 30.2f), M2_I1BandB = new Vector2(30f, 10.2f); public static float M2_I1BandHW = 6.5f;
@@ -1116,12 +1116,15 @@ public static class FuwaCourse2_3Builder
     public static Vector2 V3_TiltDir = new Vector2(14.9f, 20.7f); public static float V3_HubDist = 25.5f;   // 斜めの板の向き・入口の足場の中心から角の足場の中心まで
     public static float V3_PanelHW = 5f, V3_PanelB = 9f, V3_PanelGap = 0.05f, V3_FieldLink = 6f, V3_LinkIn = 1.2f;   // 板の半分の幅・まっすぐ上の板の長さ・足場とのすき間・割れ目の道への道の長さ・道が島に入りこむ長さ
     public static float V3_TiltDeg = 10f, V3_TiltPeriod = 8f;   // シーソーの傾き（±度）と 1 往復の秒数。2 枚は半周ずらす
+    public static bool V3_DomeToEdge = true;   // 丸い山のすそを島のふちまで（平らな輪をなくす）
     // 角の足場の中心・出口の足場の中心
     static Vector2 V3Hub() { var u = V3_TiltDir.normalized; return V3_Pad0 + u * V3_HubDist; }
     static Vector2 V3PadTop() { var h = V3Hub(); return new Vector2(h.x, h.y + V3_HubR + V3_PanelGap + V3_PanelB + V3_PanelGap + V3_PadR); }
     static void M2ApplyV3()
     {
         M2_I1 = V3_I1; M2_MC = V3_DomeC;
+        // 丸い山のすそを島のふちまで（2026-11-05 てじゃ「丸い山の島、端っこも斜めにしちゃお」）：前はふちに 1.4m 平らな所が残っていた。坂の角度はそのままで、高さを上げる
+        if (V3_DomeToEdge) { float ang = M2_DomeH / M2_DomeRun; M2_DomeRun = M2_MR - M2_DomePlateau; M2_DomeH = ang * M2_DomeRun; }
         Vector2 C = M2_MC; float R = M2_MR;
         var d0 = (C - V3_Nub).normalized; var d1 = (V3_Pad0 - C).normalized;
         var top = V3PadTop();
