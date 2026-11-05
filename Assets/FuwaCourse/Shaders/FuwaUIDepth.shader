@@ -19,6 +19,11 @@ Shader "Fuwa/UIDepth"
 
         _ColorMask ("Color Mask", Float) = 15
         _Cutoff ("Depth Cutoff", Range(0,1)) = 0.05
+        // 2026-11-05: 裏から反転したボタンが見えないように裏を描かない（2=Back）。
+        // アイコン用の材質は奥行きを書かず(_ZWrite 0)、板の奥へずらさない(_Push 0)
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 0
+        [Toggle] _ZWrite ("ZWrite", Float) = 1
+        _Push ("Depth Push (m)", Float) = 0.005
 
         [Toggle(UNITY_UI_ALPHACLIP)] _UseUIAlphaClip ("Use Alpha Clip", Float) = 0
     }
@@ -43,9 +48,9 @@ Shader "Fuwa/UIDepth"
             WriteMask [_StencilWriteMask]
         }
 
-        Cull Off
+        Cull [_Cull]
         Lighting Off
-        ZWrite On
+        ZWrite [_ZWrite]
         ZTest [unity_GUIZTestMode]
         Blend SrcAlpha OneMinusSrcAlpha
         ColorMask [_ColorMask]
@@ -90,6 +95,7 @@ Shader "Fuwa/UIDepth"
             float _UIMaskSoftnessX;
             float _UIMaskSoftnessY;
             fixed _Cutoff;
+            float _Push;
 
             v2f vert(appdata_t v)
             {
@@ -99,7 +105,7 @@ Shader "Fuwa/UIDepth"
                 float4 vPosition = UnityObjectToClipPos(v.vertex);
                 // 同じ面に乗っている文字が奥行きで欠けないように、板の奥行きだけ 5mm 奥へずらす（Offset だけでは足りず「タイト」が欠けた）
                 float3 viewPos = UnityObjectToViewPos(v.vertex);
-                viewPos += normalize(viewPos) * 0.005;
+                viewPos += normalize(viewPos) * _Push;
                 OUT.vertex = mul(UNITY_MATRIX_P, float4(viewPos, 1));
 
                 OUT.texcoord = OUT.texcoordCentroid = TRANSFORM_TEX(v.texcoord, _MainTex);

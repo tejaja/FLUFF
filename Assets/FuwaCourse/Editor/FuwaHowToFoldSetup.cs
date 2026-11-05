@@ -118,7 +118,8 @@ public static class FuwaHowToFoldSetup
             close.GetComponentInChildren<TMPro.TextMeshProUGUI>(true).text = "";
             // 丸は奥行きを書かない普通のUIの材質で。Fuwa/UIDepth だと丸のふちの半透明な所が奥行きを書いて、
             // あとから描く看板の板・ふちがそこだけ欠けて、空が透けた隙間に見えた（2026-10-12 てじゃ）
-            img.material = null;
+            // 2026-11-05: 裏から見えないように、奥行きを書かず裏を描かない UIIconCullBack に
+            img.material = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/UIIconCullBack.mat");
             var size = ((RectTransform)close.transform.Find("Canvas")).sizeDelta.x;
             foreach (float ang in new[] { 45f, -45f })
             {
@@ -126,7 +127,7 @@ public static class FuwaHowToFoldSetup
                 var brt = (RectTransform)bar.transform; brt.SetParent(cbtn.transform, false);
                 brt.anchorMin = brt.anchorMax = new Vector2(0.5f, 0.5f); brt.sizeDelta = new Vector2(size * 0.62f, size * 0.15f);
                 brt.localRotation = Quaternion.Euler(0f, 0f, ang);
-                var bi = bar.GetComponent<UnityEngine.UI.Image>(); bi.color = Color.white; bi.raycastTarget = false;
+                var bi = bar.GetComponent<UnityEngine.UI.Image>(); bi.color = Color.white; bi.raycastTarget = false; bi.material = img.material;
                 bi.sprite = img.sprite; bi.type = UnityEngine.UI.Image.Type.Sliced; bi.pixelsPerUnitMultiplier = 2f;
             }
             // 押せる範囲は見た目の丸より大きく（2026-10-13 てじゃ「VRだとレーザー狙いづらいかも、判定でっかくしちゃお」）。
@@ -148,7 +149,7 @@ public static class FuwaHowToFoldSetup
                 var drt = (RectTransform)dot.transform; drt.SetParent(cbtn.transform, false);
                 drt.anchorMin = drt.anchorMax = new Vector2(0.5f, 0.5f); drt.sizeDelta = new Vector2(size, size);
                 drt.anchoredPosition = new Vector2(-off.x / k, -off.y / k);   // 丸は元の位置のまま
-                var di = dot.GetComponent<UnityEngine.UI.Image>(); di.sprite = img.sprite; di.type = img.type; di.pixelsPerUnitMultiplier = img.pixelsPerUnitMultiplier; di.color = Color.white; di.raycastTarget = false; di.material = null;
+                var di = dot.GetComponent<UnityEngine.UI.Image>(); di.sprite = img.sprite; di.type = img.type; di.pixelsPerUnitMultiplier = img.pixelsPerUnitMultiplier; di.color = Color.white; di.raycastTarget = false; di.material = img.material;
                 foreach (var bar in cbtn.transform.Cast<Transform>().Where(t => t.name == "XBar").ToList()) bar.SetParent(dot.transform, false);
                 img.sprite = null; img.color = new Color(1f, 1f, 1f, 0f); img.raycastTarget = true;
                 cbtn.targetGraphic = di;
