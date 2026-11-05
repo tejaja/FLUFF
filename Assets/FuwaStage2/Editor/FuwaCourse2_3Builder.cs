@@ -636,7 +636,10 @@ public static class FuwaCourse2_3Builder
             var hl = MapHills[k];
             // その島の上だけ（となりの島まで坂がはみ出さないように。2026-11-04 てじゃ「次の丸い島まで影響でてる」）
             if (MapHillOnly != null && k < MapHillOnly.Length && MapHillOnly[k] != null && !InPoly(MapHillOnly[k], q)) { NearestOnPoly(MapHillOnly[k], q, out float dd); if (dd > 0.6f) continue; }
-            float d = SegDist(hl.a, hl.b, q); h = Mathf.Max(h, hl.h * (1f - Mathf.Clamp01((d - hl.plateau) / hl.run)));
+            float d = SegDist(hl.a, hl.b, q); float hh = hl.h * (1f - Mathf.Clamp01((d - hl.plateau) / hl.run));
+            // 道がつながる所だけ平らに（丸い山のすそをふちまで坂にしたら、島に入りこんだ道のはしが段差になった。2026-11-05 てじゃ「道の前に段差みえる」）
+            if (k == 0 && domeFlat != null) foreach (var fl in domeFlat) { float e = SegDist(fl.a, fl.b, q) - fl.hw; hh *= Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(DomeFlatIn, DomeFlatOut, e)); }
+            h = Mathf.Max(h, hh);
         }
         if (map2Ridge) h = Mathf.Max(h, Map2Ridge(q));
         return h;
@@ -1132,6 +1135,7 @@ public static class FuwaCourse2_3Builder
         var l1 = (new[] { C + d1 * (R - V3_LinkIn), V3_Pad0 - d1 * (V3_PadR - V3_LinkIn) }, 3f);
         var l2 = (new[] { new Vector2(top.x, top.y + V3_PadR - V3_LinkIn), new Vector2(top.x, top.y + V3_PadR + V3_FieldLink) }, 3f);
         M2_Links = new[] { l0, l1, l2, l2 };   // 2 番は割れ目の道への道の始まり（作る所で toField に置きかわる）、3 番は使わない
+        domeFlat = V3_DomeToEdge ? new List<(Vector2 a, Vector2 b, float hw)> { (C - d0 * (R + 1f), C - d0 * (R - V3_LinkIn - 0.5f), 3f), (C + d1 * (R - V3_LinkIn - 0.5f), C + d1 * (R + 1f), 3f) } : null;
         float w = M2_CrackX1 - M2_CrackX0;
         M2_CrackX0 = top.x - w * 0.5f; M2_CrackX1 = top.x + w * 0.5f; M2_CrackZ0 = top.y + V3_PadR + V3_FieldLink;
     }
@@ -1414,9 +1418,12 @@ public static class FuwaCourse2_3Builder
             var last = linkPts[linkPts.Count - 1]; var gEnd = last[last.Count - 1]; var gDir = (last[last.Count - 1] - last[last.Count - 2]).normalized;
             p = o + new Vector3(gEnd.x, 0, gEnd.y); dir = new Vector3(gDir.x, 0, gDir.y);
         }
-        finally { MapHills = keepHills; map2Ridge = false; MapHillOnly = null; unscale(); }
+        finally { MapHills = keepHills; map2Ridge = false; MapHillOnly = null; domeFlat = null; unscale(); }
     }
     static bool map2Ridge;
+    // 丸い山の上で平らにする所（道の中心線の島に入る部分、半分の幅）。e＝道のふちからの距離が DomeFlatIn 以内は平ら、DomeFlatOut で元の坂
+    static List<(Vector2 a, Vector2 b, float hw)> domeFlat;
+    public static float DomeFlatIn = 0.3f, DomeFlatOut = 2.8f;
     static List<(string n, Vector2[] poly)> v3Polys = new List<(string n, Vector2[] poly)>();
     static Vector2[][] MapHillOnly;
     // 氷の山（台形の柱）：c（まん中、地面の高さ）を中心に +Z へ 上り坂 → 平ら top → 下り坂。幅 w、高さ h、角度 ang。下の面は作らない（床の中）
