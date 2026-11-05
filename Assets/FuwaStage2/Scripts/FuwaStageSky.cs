@@ -20,6 +20,10 @@ public class FuwaStageSky : UdonSharpBehaviour
     [Tooltip("箱の外側、この距離で切り替わる(m)")]
     public float whiteBlend = 5f;
     public Color whiteTop, whiteHorizon, whiteBottom, whiteFog;
+    [Tooltip("今いるコース（ball.startPoint のコース）がこれの時だけ白くする。空なら箱だけで決める。" +
+             "2026-11-05 てじゃ「隣の空の色変化がこっちにもきてる」：コースが斜めに並んでいて、2–2 の箱が 2–3 の最初の島にかかっていた")]
+    public Transform whiteCourse;
+    public FuwaBall ball;
     [Tooltip("雲海と遠くの島のマテリアル（色をいっしょに変える）")]
     public Material cloudSea, farIsland;
     public Color seaShade, seaHaze, whiteSeaShade, whiteSeaHaze;
@@ -40,6 +44,7 @@ public class FuwaStageSky : UdonSharpBehaviour
     {
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null) return 0f;
+        if (whiteCourse != null && ball != null && ball.startPoint != null && ball.startPoint.root != whiteCourse) return 0f;
         Vector3 p = lp.GetPosition();
         float dx = Mathf.Max(whiteMin.x - p.x, Mathf.Max(0f, p.x - whiteMax.x));
         float dy = Mathf.Max(whiteMin.y - p.y, Mathf.Max(0f, p.y - whiteMax.y));
