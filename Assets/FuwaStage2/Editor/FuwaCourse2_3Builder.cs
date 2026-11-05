@@ -2396,27 +2396,35 @@ public static class FuwaCourse2_3Builder
         }
         var m = NewMesh(name); m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds(); return m;
     }
+    // まわりの細い柱だけ明るいシアン＋ほんのり光る（2026-11-05 てじゃ「でかいのはそのままに、周りの細いのをちょと色味かえよ」→ 案A）
+    public static Color SpireSideCol = new Color(0.55f, 0.93f, 1f), SpireSideGlow = new Color(0.3f, 0.65f, 0.8f);
+    static Material SideMat()
+    {
+        var m = FuwaStage2WaterTest.ToonMat("Stage2_3_SpireSide", SpireSideCol);
+        m.SetColor("_EmissionColor", SpireSideGlow); m.SetFloat("_EmissionGradient", 1f); m.SetFloat("_RimStrength", 0.5f); EditorUtility.SetDirty(m);
+        return m;
+    }
     static void CrystalSpire(Transform parent, string name, Vector3 at)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = at;
         var rnd = new System.Random(SpireSeed);
-        void One(string n, Vector3 lp, Quaternion rot, float r, float h, float topK = 0.92f, float tipK = -1f)
+        void One(string n, Vector3 lp, Quaternion rot, float r, float h, float topK = 0.92f, float tipK = -1f, Material mat = null)
         {
             var o = new GameObject(n); o.transform.SetParent(g, false); o.transform.localPosition = lp; o.transform.localRotation = rot; o.layer = pathLayer;
             float tk = 0.22f + (float)rnd.NextDouble() * 0.08f; if (tipK > 0f) tk = tipK;
             var m = CrystalPrism(name + "_" + n, r, h, tk, (float)rnd.NextDouble() * 60f, topK);
-            o.AddComponent<MeshFilter>().sharedMesh = m; var mr = o.AddComponent<MeshRenderer>(); mr.sharedMaterial = crystalMat;
+            o.AddComponent<MeshFilter>().sharedMesh = m; var mr = o.AddComponent<MeshRenderer>(); mr.sharedMaterial = mat ? mat : crystalMat;
             var mc = o.AddComponent<MeshCollider>(); mc.sharedMesh = m; mc.convex = true;
             var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBounce>(o);
             fb.bounceSpeed = 2.2f; fb.keepTangent = 0.7f; fb.alwaysUp = false; fb.useContactNormal = true;
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb);
         }
-        One("Main", Vector3.down * SpireSink, Quaternion.Euler(0f, 0f, 2f), SpireR, SpireH + SpireSink, SpireTopK, SpireTipK);
+        One("Main", Vector3.down * SpireSink, Quaternion.Euler(0f, 0f, 2f), SpireR, SpireH + SpireSink, SpireTopK, SpireTipK, crystalMat);
         for (int i = 0; i < SpireSides.Length; i++)
         {
             var sd = SpireSides[i]; float a = sd.ang * Mathf.Deg2Rad; var dirH = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
             var rot = Quaternion.AngleAxis(sd.tilt, Vector3.Cross(Vector3.up, dirH)) * Quaternion.identity;
-            One("Side" + i, dirH * sd.dist + Vector3.down * SpireSink, rot, sd.r, sd.h + SpireSink);
+            One("Side" + i, dirH * sd.dist + Vector3.down * SpireSink, rot, sd.r, sd.h + SpireSink, mat: SideMat());
         }
     }
     // ふわふわが当たったら ぽよん（いわのみちの頂上の岩・チュートリアルのマシュマロと同じ 2.2・面の向き。2026-11-05 てじゃ）。道のレイヤーにして人は通れない
