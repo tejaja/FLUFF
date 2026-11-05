@@ -963,6 +963,13 @@ public static class FuwaCourse2_3Builder
     public static bool M2_I1Water = false, M2_RingPond = false, M2_RingAsBand = true;
     public static float M2_RingBandHW = 8f, M2_RingBandExt = 5f;
     public static int M2_ObsCount = 22, M2_ObsSeed = 2304; public static float M2_ObsGapStart = 9f, M2_ObsGapEnd = 3.6f;
+    // 2026-11-05 てじゃ「最初の島、インコースが障害物多め、って感じにしよ」：近道の線（スタート → 切れこみの先を回る → 出口）に近いほど詰めて、外まわりはまばらに。
+    //  線は縮めたあとの座標。M2_ObsInner が false なら前の「後半ほど詰める」
+    public static bool M2_ObsInner = true;
+    public static Vector2[] M2_ObsRoute = { new Vector2(0f, 4f), new Vector2(-6f, 18f), new Vector2(-1f, 28.5f), new Vector2(16f, 40f) };
+    public static float M2_ObsGapIn = 3.0f, M2_ObsGapOut = 13f, M2_ObsInW = 2.0f, M2_ObsOutW = 6.5f;   // 線からの距離 InW 以内は GapIn、OutW で GapOut
+    public static int M2_ObsCountInner = 28;
+    // 障害物にふわふわが当たったら、いわのみちの頂上の岩と同じ「当たった面の向きにぽよん」（FuwaBounce 2.2、アウトにしない）。人は氷のスケートの壁の跳ね返り（FuwaIceSkate.bounce）
     public static Vector2 M2_I1BandA = new Vector2(-2.6f, 30.2f), M2_I1BandB = new Vector2(30f, 10.2f); public static float M2_I1BandHW = 6.5f;
     public static Vector2[] M2_I1Cut = { new Vector2(-15.54f, 38.08f), new Vector2(-5.73f, 41.54f), new Vector2(4.65f, 36.34f), new Vector2(13.89f, 30.57f), new Vector2(12.73f, 25.96f), new Vector2(3.5f, 27.11f), new Vector2(-10.35f, 31.73f) };
     public static Vector2[] M2_I1Hole = { new Vector2(12.73f, 38.65f), new Vector2(11.96f, 36.28f), new Vector2(9.94f, 34.81f), new Vector2(7.44f, 34.81f), new Vector2(5.43f, 36.28f), new Vector2(4.65f, 38.65f), new Vector2(5.43f, 41.03f), new Vector2(7.44f, 42.49f), new Vector2(9.94f, 42.49f), new Vector2(11.96f, 41.03f) };
@@ -1311,13 +1318,18 @@ public static class FuwaCourse2_3Builder
                 var exitA = linkPts[0][0];
                 foreach (var q in cand)
                 {
-                    if (placed.Count >= M2_ObsCount) break;
+                    if (placed.Count >= (M2_ObsInner ? M2_ObsCountInner : M2_ObsCount)) break;
                     if (!InPoly(M2_I1, q) || InPoly(I1Band, q)) continue;
                     NearestOnPoly(M2_I1, q, out float de); if (de < 2.5f) continue;
                     NearestOnPoly(I1Band, q, out float db); if (db < 2.5f) continue;
                     if ((q - new Vector2(0f, Map2EntryLen)).magnitude < 7f || (q - exitA).magnitude < 7f) continue;
                     // 後半ほどつめる（てじゃ「後半ほど難しくするかんじに」）：進み具合は Z（スタート 0 → 出口 55 くらい）
                     float prog = Mathf.Clamp01(q.y / (55f * M2_Scale)), gap = Mathf.Lerp(M2_ObsGapStart, M2_ObsGapEnd, prog);
+                    if (M2_ObsInner)
+                    {
+                        float dr = float.MaxValue; for (int k = 0; k + 1 < M2_ObsRoute.Length; k++) dr = Mathf.Min(dr, SegDist(M2_ObsRoute[k], M2_ObsRoute[k + 1], q));
+                        gap = Mathf.Lerp(M2_ObsGapIn, M2_ObsGapOut, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(M2_ObsInW, M2_ObsOutW, dr)));
+                    }
                     if (placed.Any(pq => (pq - q).magnitude < gap)) continue;
                     placed.Add(q);
                     var at = o + new Vector3(q.x, MapHeight(q), q.y);
@@ -1591,6 +1603,15 @@ public static class FuwaCourse2_3Builder
         g.transform.localRotation = Quaternion.Euler(8f, yaw, 12f);
         g.transform.localScale = new Vector3(size * 1.2f, size, size);
         g.GetComponent<Renderer>().sharedMaterial = iceRockMat;
+        ObstacleBounce(g);
+    }
+    // ふわふわが当たったら ぽよん（いわのみちの頂上の岩・チュートリアルのマシュマロと同じ 2.2・面の向き。2026-11-05 てじゃ）。道のレイヤーにして人は通れない
+    static void ObstacleBounce(GameObject g)
+    {
+        g.layer = pathLayer;
+        var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBounce>(g);
+        fb.bounceSpeed = 2.2f; fb.keepTangent = 0.7f; fb.alwaysUp = false; fb.useContactNormal = true;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb);
     }
     // 枯れ木：太い幹＋道の上へ張り出す枝2本。枝の先（つららの下がる所）を返す
     static Vector3[] DeadTree(Transform parent, string name, Vector3 basePos, Vector3 toRoad, Vector3 along, int k, float off)
@@ -1676,6 +1697,7 @@ public static class FuwaCourse2_3Builder
         var g = GameObject.CreatePrimitive(PrimitiveType.Cylinder); g.name = name; g.transform.SetParent(parent, false);
         g.transform.localPosition = at + Vector3.up * (h * 0.5f); g.transform.localScale = new Vector3(r * 2f, h * 0.5f, r * 2f);
         g.GetComponent<Renderer>().sharedMaterial = crystalMat;
+        ObstacleBounce(g);
     }
     static void Hazard(Transform root, string name, Vector3 lp, Vector3 size, bool player)
     {
