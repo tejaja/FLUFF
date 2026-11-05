@@ -1279,6 +1279,7 @@ public static class FuwaCourse2_3Builder
                 MapIsland(isl, "MapPad1", o, Ellipse(top, V3_PadR, V3_PadR, 0f, 28), cuts);
                 var sA = V3_Pad0 + u * (V3_PadR + V3_PanelGap); float lenA = V3_HubDist - V3_PadR - V3_HubR - 2f * V3_PanelGap;
                 var sB = hub + Vector2.up * (V3_HubR + V3_PanelGap);
+                CrystalSpire(isl, "DomeSpire", o + new Vector3(M2_MC.x, MapHeight(M2_MC), M2_MC.y));
                 if (v3DomeJoins != null) for (int j = 0; j < v3DomeJoins.Length; j++) IslandJoin(path, "DomeJoin" + j, o + new Vector3(M2_MC.x, 0f, M2_MC.y), new Vector3(v3DomeJoins[j].x, 0f, v3DomeJoins[j].y), M2_MR, 3f, pathB);
                 TiltPanel(path, "TiltA", o, sA, u, lenA, V3_PanelHW, 0f);
                 TiltPanel(path, "TiltB", o, sB, Vector2.up, V3_PanelB, V3_PanelHW, V3_TiltPeriod * 0.5f);
@@ -1619,6 +1620,52 @@ public static class FuwaCourse2_3Builder
         g.transform.localScale = new Vector3(size * 1.2f, size, size);
         g.GetComponent<Renderer>().sharedMaterial = iceRockMat;
         ObstacleBounce(g);
+    }
+    // 丸い山のてっぺんの巨大な氷の結晶の束（2026-11-05 てじゃ「真ん中つっきれないように、頂上にオブジェクト置こう。1島目の目印としても使いたいから、上に向かってバカでかい何か」→ 案A 結晶の柱の束）。
+    //  とがった六角柱（ステージ2の浮島の結晶と同じカクカクの形）。まん中の1本が SpireH、まわりに外へ傾いた小さめの柱。根元は山にうめる。
+    //  当たり：1本ずつ凸の MeshCollider（道のレイヤー＝人は通れない）、ふわふわは ぽよん（FuwaBounce）
+    public static float SpireH = 20f, SpireR = 2.4f, SpireSink = 1.2f; public static int SpireSeed = 2311;
+    public static (float ang, float dist, float h, float r, float tilt)[] SpireSides = {
+        (20f, 2.6f, 11f, 1.3f, 16f), (85f, 2.9f, 7.5f, 1.0f, 24f), (150f, 2.4f, 13.5f, 1.5f, 12f), (215f, 2.8f, 8.5f, 1.1f, 22f), (280f, 2.5f, 10f, 1.25f, 18f), (330f, 3.2f, 6f, 0.9f, 28f) };
+    static Mesh CrystalPrism(string name, float r, float h, float tipK, float twist)
+    {
+        var v = new List<Vector3>(); var t = new List<int>(); const int N = 6;
+        float hb = h * (1f - tipK);
+        Vector3 P(int i, float y, float rr) { float a = (i * 60f + twist) * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a) * rr, y, Mathf.Sin(a) * rr); }
+        var tip = new Vector3(0, h, 0);
+        for (int i = 0; i < N; i++)
+        {
+            int j = (i + 1) % N;
+            Vector3 b0 = P(i, 0, r), b1 = P(j, 0, r), m0 = P(i, hb, r * 0.92f), m1 = P(j, hb, r * 0.92f);
+            var outw = (b0 + b1) * 0.5f; outw.y = 0f;
+            Quad(v, t, b0, b1, m1, m0, outw);
+            int k = v.Count; v.Add(m0); v.Add(m1); v.Add(tip);
+            if (Vector3.Dot(Vector3.Cross(m1 - m0, tip - m0), outw + Vector3.up * 0.3f) >= 0f) t.AddRange(new[] { k, k + 1, k + 2 }); else t.AddRange(new[] { k, k + 2, k + 1 });
+            int q = v.Count; v.Add(b0); v.Add(Vector3.zero); v.Add(b1); t.AddRange(new[] { q, q + 2, q + 1 });   // 底（下向き）
+        }
+        var m = NewMesh(name); m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds(); return m;
+    }
+    static void CrystalSpire(Transform parent, string name, Vector3 at)
+    {
+        var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = at;
+        var rnd = new System.Random(SpireSeed);
+        void One(string n, Vector3 lp, Quaternion rot, float r, float h)
+        {
+            var o = new GameObject(n); o.transform.SetParent(g, false); o.transform.localPosition = lp; o.transform.localRotation = rot; o.layer = pathLayer;
+            var m = CrystalPrism(name + "_" + n, r, h, 0.22f + (float)rnd.NextDouble() * 0.08f, (float)rnd.NextDouble() * 60f);
+            o.AddComponent<MeshFilter>().sharedMesh = m; var mr = o.AddComponent<MeshRenderer>(); mr.sharedMaterial = crystalMat;
+            var mc = o.AddComponent<MeshCollider>(); mc.sharedMesh = m; mc.convex = true;
+            var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBounce>(o);
+            fb.bounceSpeed = 2.2f; fb.keepTangent = 0.7f; fb.alwaysUp = false; fb.useContactNormal = true;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb);
+        }
+        One("Main", Vector3.down * SpireSink, Quaternion.Euler(0f, 0f, 2f), SpireR, SpireH + SpireSink);
+        for (int i = 0; i < SpireSides.Length; i++)
+        {
+            var sd = SpireSides[i]; float a = sd.ang * Mathf.Deg2Rad; var dirH = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            var rot = Quaternion.AngleAxis(sd.tilt, Vector3.Cross(Vector3.up, dirH)) * Quaternion.identity;
+            One("Side" + i, dirH * sd.dist + Vector3.down * SpireSink, rot, sd.r, sd.h + SpireSink);
+        }
     }
     // ふわふわが当たったら ぽよん（いわのみちの頂上の岩・チュートリアルのマシュマロと同じ 2.2・面の向き。2026-11-05 てじゃ）。道のレイヤーにして人は通れない
     static void ObstacleBounce(GameObject g)
