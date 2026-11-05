@@ -11,8 +11,25 @@ B16 = ['C', 'C', 'Am', 'Am', 'C', 'C', 'B', 'B', 'Em', 'Em', 'C', 'C', 'Am', 'Am
 Q = 16.0 / 3.0   # 3 連符の幅（拍の 1/3）を拍で書くのに使う
 
 
-def sec(bars, prog, level, riff=None, kicks=(), snares=(), toms=(), ticks=(), fill=0, brass=0, bell=(), pad=1.0, rumble=1.0, rev=0.0, bass_only=False):
-    return dict(bars=bars, prog=prog, level=level, riff=riff, kicks=kicks, snares=snares, toms=toms, ticks=ticks, fill=fill, brass=brass, bell=bell, pad=pad, rumble=rumble, rev=rev, bass_only=bass_only)
+def sec(bars, prog, level, riff=None, kicks=(), snares=(), toms=(), ticks=(), fill=0, brass=0, bell=(), pad=1.0, rumble=1.0, rev=0.0, bass_only=False, inst=None, extra=None, extra_gain=0.7):
+    return dict(bars=bars, prog=prog, level=level, riff=riff, kicks=kicks, snares=snares, toms=toms, ticks=ticks, fill=fill, brass=brass, bell=bell, pad=pad, rumble=rumble, rev=rev, bass_only=bass_only, inst=inst, extra=extra, extra_gain=extra_gain)
+
+
+# 出だし（太鼓だけの所）のリフをベース以外で（2026-11-05 てじゃ「序盤の小さいベースのとこ、ベースじゃないなにかではじめたい」）
+INTRO_INST = 'marimba'   # None＝前のベース / 'marimba'（2026-11-05 てじゃ「マリンバいいな」）/ 'anvil' / 'brass' / 'guitar' / 'taiko'
+# 盛り上がり（倍の速さ・最後の行進）でも同じ楽器をリフに重ねる（てじゃ「イントロ以外にも盛り上がりに追加したい」）。None でなし
+CLIMAX_INST = 'marimba'
+def intro_note(m, inst, f, dur, v, beat, g, rev):
+    if inst == 'marimba':   # 低い木のマリンバ（ぽこぽこ）
+        m.add(marimba3(f * 2, max(dur, 0.3), m.vel(v), hard=0.45), beat, pan=-0.1, rev=0.12 + rev, gain=1.1 * g, humanize=0.003)
+    elif inst == 'anvil':   # 金属を打つ音（カーン）
+        m.add(anvil(f * 4, m.vel(v * 0.9)), beat, pan=0.15, rev=0.25 + rev, gain=0.9 * g, humanize=0.003)
+    elif inst == 'brass':   # 低いブラスの短い「ぶっ」
+        m.add(brass2(f * 2, min(dur, 0.35), m.vel(v), bright=0.3, att=0.02, voices=2), beat, pan=0.05, rev=0.15 + rev, gain=0.75 * g, humanize=0.003)
+    elif inst == 'guitar':   # ミュートしたひずみギター（ザッザッ）
+        m.add(power2(f * 2, min(dur, 0.25), m.vel(v), drive=3.0, mute=0.04), beat, pan=-0.15, rev=0.08 + rev, gain=0.55 * g, humanize=0.003)
+    elif inst == 'taiko':   # 音程のある太鼓（ドン、ドン）
+        m.add(tom2(f * 1.0 + 30, m.vel(v), skin=0.45), beat, pan=0.0, rev=0.18 + rev, gain=0.75 * g, humanize=0.003)
 
 
 # E 短調の音に寄せる（2026-11-01 てじゃ「25〜28秒あたり音程ズレてる」）。リフはどのコードでも同じ度数で弾いていて、長三和音（C、B）の上で短3度がぶつかり、E の上の 6（Bb）も音階の外だった
@@ -48,6 +65,9 @@ def render(path, bpm, bar_beats, sections, seed=65, hits=(), in_key=False):
                 for beat, iv, v, d in rf:
                     if in_key: iv = fit_riff(cn, root, iv)
                     dur = d * m.beat
+                    if s['inst']:
+                        intro_note(m, s['inst'], midi_hz(root + iv), dur, v, pos + beat, g, s['rev']); continue
+                    if s['extra']: intro_note(m, s['extra'], midi_hz(root + iv), dur, v, pos + beat, g * s['extra_gain'], s['rev'])
                     if not s['bass_only']: m.add(power2(midi_hz(root + iv + 12), dur, m.vel(v), drive=3.0), pos + beat, pan=-0.12, rev=0.08 + s['rev'], gain=0.6 * g, humanize=0.003)
                     m.add(finger_bass(midi_hz(root + iv), dur, m.vel(v, 0.04), tone=0.5), pos + beat, rev=0.03, gain=0.5 * g, humanize=0.003)
             kicks = s['kicks'](b) if callable(s['kicks']) else s['kicks']
@@ -129,11 +149,11 @@ def march(path):
     last_r = march_r
     end_prog = ['Em', 'Em', 'C', 'Em', 'Am', 'C', 'B', 'B']   # 最後はちゃんと B で終わらせて E へ解決（2026-11-01 てじゃ「まだ続きそうな感じで最初に戻っちゃう」）
     render(path, 100, 4, [
-        sec(8, ['Em'], lambda k: .58 + .2 * k, intro_r, ((0, .95), (1.5, .6), (2.5, .8), (3.5, .55)), (), ((0, 66, .9, 0), (1, 88, .55, .3), (2, 66, .8, 0), (3, 88, .6, -.3), (3.5, 74, .6, .3)), (.5, 1.5, 2.5, 3.5), pad=.7, rumble=1., bass_only=True),   # 2026-11-01 てじゃ「最初の部分がちょっと静かすぎ」：キックと刻みとパッドを足す
+        sec(8, ['Em'], lambda k: .58 + .2 * k, intro_r, ((0, .95), (1.5, .6), (2.5, .8), (3.5, .55)), (), ((0, 66, .9, 0), (1, 88, .55, .3), (2, 66, .8, 0), (3, 88, .6, -.3), (3.5, 74, .6, .3)), (.5, 1.5, 2.5, 3.5), pad=.7, rumble=1., bass_only=True, inst=INTRO_INST),   # 2026-11-01 てじゃ「最初の部分がちょっと静かすぎ」：キックと刻みとパッドを足す
         sec(16, A16, .78, march_r, ((0, .95), (2.5, .8)), (2,), ((0, 66, .9, 0), (2.5, 66, .7, 0)), (1, 3), fill=8, brass=2, rev=.1),
-        sec(12, B16, .85, fast_r, ((0, .85), (.75, .55), (1.5, .7), (2, .8), (2.75, .55), (3.5, .7)), (1, 3), (), (.25, .5, .75, 1.25, 1.5, 1.75, 2.25, 2.5, 2.75, 3.25, 3.5, 3.75), fill=2, brass=4, bell=(.5, 1.5, 2.5, 3.5)),
+        sec(12, B16, .85, fast_r, ((0, .85), (.75, .55), (1.5, .7), (2, .8), (2.75, .55), (3.5, .7)), (1, 3), (), (.25, .5, .75, 1.25, 1.5, 1.75, 2.25, 2.5, 2.75, 3.25, 3.5, 3.75), fill=2, brass=4, bell=(.5, 1.5, 2.5, 3.5), extra=CLIMAX_INST),
         sec(2, ['B'], lambda k: .7 + .25 * k, f4, ((0, .9), (2, .8)), (), tuple((i * .25, (66, 74, 88, 100)[i % 4], .42 + i * .02, -.3 + (i % 2) * .6) for i in range(16)), (), pad=1.3),   # 止めずに太鼓の連打でつなぐ（2026-11-01 てじゃ「止まるところ気になる」）。リフとベースも切らない（実機で「ベースがスッと消える」）
-        sec(8, end_prog, 1.0, last_r, ((0, 1.0), (1.5, .7), (2.5, .85)), (2,), ((.5, 74, .6, -.3), (1, 88, .6, .3), (1.5, 74, .55, -.3), (3, 88, .65, .3), (3.5, 74, .6, -.3)), (.25, .75, 1.25, 1.75, 2.25, 2.75, 3.25, 3.75), fill=2, brass=2, bell=(1, 3)),
+        sec(8, end_prog, 1.0, last_r, ((0, 1.0), (1.5, .7), (2.5, .85)), (2,), ((.5, 74, .6, -.3), (1, 88, .6, .3), (1.5, 74, .55, -.3), (3, 88, .65, .3), (3.5, 74, .6, -.3)), (.25, .75, 1.25, 1.75, 2.25, 2.75, 3.25, 3.75), fill=2, brass=2, bell=(1, 3), extra=CLIMAX_INST),
         # 終わり：全員で E を長く鳴らす → 余韻の上で太鼓が下りて、頭の太鼓へ
         sec(1, ['Em'], 1.0, R((0, 0, .95), d=3.8), ((0, 1.0),), (), (), (), brass=1, rev=.15),
         sec(1, ['Em'], .55, None, ((0, .7),), (), ((2, 110, .55, -.25), (2.5, 100, .55, .25), (3, 88, .6, -.25), (3.5, 74, .65, .25)), (), pad=1.1),
@@ -170,6 +190,13 @@ def call(path):
 
 if __name__ == '__main__':
     out = sys.argv[1]
+    if len(sys.argv) > 2 and sys.argv[2] == 'intro':   # 出だしの楽器ちがい：python make_bgm_hono_rhythm.py <出力> intro marimba anvil ...
+        for inst in sys.argv[3:]:
+            INTRO_INST = inst
+            march(os.path.join(out, "bgm_hono_march4_" + inst + ".wav")); print("done", inst, flush=True)
+        sys.exit(0)
+    if len(sys.argv) > 2 and sys.argv[2] == 'march5':   # 2026-11-05 の採用版：出だしマリンバ＋盛り上がりにもマリンバ
+        march(os.path.join(out, "bgm_hono_march5.wav")); sys.exit(0)
     for name in (sys.argv[2:] or ['tresillo', 'shuffle', 'march', 'seven', 'call']):
         globals()[name](os.path.join(out, "bgm_hono_r_" + name + ".wav"))
         print("done", name, flush=True)
