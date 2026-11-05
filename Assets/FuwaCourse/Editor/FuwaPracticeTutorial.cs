@@ -341,7 +341,7 @@ public static class FuwaPracticeTutorial
     const float FinFlatLen = 8f;                  // 足した直線（坂・溝・横風・まもの・ゴールはそのぶん奥へ）
     const int ObstCount = 3;
     const float ObstFrom = 2.5f, ObstStep = 3f;   // カーブの終わりから最初の障害物まで、間隔(m)
-    const float Cp0Ahead = 2.5f;                  // チェックポイント（Checkpoint0）は最初の障害物のこれだけ手前
+    const float Cp0Ahead = 5.5f;                  // チェックポイント（Checkpoint0）は最初の障害物のこれだけ手前（カーブの出口の3m手前。てじゃ「もっと手前に」）
     const float ObstOffset = 1.0f;                // 道のまん中から左右へ(m)。道の半分の幅は FinHalfW 2.5
     static readonly int[] ObstProps = { 6, 3, 10 }; // PracticeProp_N のどれを使うか（大きいマカロンの塔など。キャンディは細くて障害物にならない）
 
@@ -939,7 +939,7 @@ public static class FuwaPracticeTutorial
 
         // ---------- 本番の道の障害物（2026-11-05 てじゃ「カーブ後〜溝の手前に障害物」案A） ----------
         // 道の中に小物を左右互い違いに置いて、ジグザグに避けさせる。ふちの小物と同じ物（ふわふわはぽよんとはじく、アウトにならない）
-        bool InObstacleRange(float u) { return u > uCurve1 + ObstFrom - Cp0Ahead - 1f && u < uCurve1 + ObstFrom + ObstStep * (ObstCount - 1) + 1.5f; }
+        bool InObstacleRange(float u) { return u > uCurve1 + ObstFrom - Cp0Ahead + 3f - 1.8f && u <uCurve1 + ObstFrom + ObstStep * (ObstCount - 1) + 1.5f; }
         string PlaceObstacles(Transform fin, Transform deco)
         {
             var oldO = fin.Find("Obstacles"); if (oldO != null) Object.DestroyImmediate(oldO.gameObject);
@@ -971,9 +971,15 @@ public static class FuwaPracticeTutorial
                 float uCp0 = uCurve1 + ObstFrom - Cp0Ahead;
                 At(pts, dist, D(uCp0), out var c0, out var f0);
                 cp0.position = c0; cp0.rotation = Quaternion.LookRotation(f0);
+                // 光るキノコの丸太は判定の3m先の道のふちの外。カーブの途中に置くので、まっすぐ3m先でなく道にそって3m先から測る
                 foreach (Transform cl0 in cp0.Find("GlowMushrooms"))
                 {
-                    var lp = cl0.localPosition; lp.x = Mathf.Sign(lp.x) * (PathHalfW(D(uCp0)) + 0.28f); cl0.localPosition = lp;
+                    float side = Mathf.Sign(cl0.localPosition.x), ua = uCp0 + 3f;
+                    At(pts, dist, D(ua), out var ca, out var fa);
+                    var ra = new Vector3(fa.z, 0f, -fa.x);
+                    var y = cl0.position.y - cp0.position.y;
+                    cl0.position = ca + ra * side * (PathHalfW(D(ua)) + 0.28f) + Vector3.up * y;
+                    cl0.rotation = Quaternion.LookRotation(fa) * Quaternion.Euler(0f, -side * 69.9f, 0f);
                 }
                 var t0 = cp0.Find("Trigger").GetComponent<FuwaCheckpoint>();
                 bool own = t0.respawnPoint != null && t0.respawnPoint.IsChildOf(cp0) && t0.glowRenderers.All(r => r == null || r.transform.IsChildOf(cp0)) && t0.glowEffects.All(e => e == null || e.transform.IsChildOf(cp0));
