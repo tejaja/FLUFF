@@ -59,7 +59,7 @@ public class FuwaTiltIce : UdonSharpBehaviour
         Vector3 moved = c + now * (Quaternion.Inverse(prev) * (pos - c));
         Vector3 delta = moved - pos; delta.y = 0f;
         if (delta.sqrMagnitude < 1e-10f || delta.sqrMagnitude > 1f) return;
-        if (skate != null && Time.deltaTime > 0f) { skate.floorVel = delta / Time.deltaTime; skate.floorFrame = Time.frameCount; }
+        if (skate != null && Time.deltaTime > 0f) { skate.floorVel = delta / Time.deltaTime; skate.floorFrame = Time.frameCount; skate.shiftFrame = Time.frameCount; }
         VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
         p.TeleportTo(o.position + delta, o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
     }

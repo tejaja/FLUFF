@@ -23,6 +23,8 @@ public class FuwaIceSkate : UdonSharpBehaviour
     public float slopeSlide = 0.6f;
     [Tooltip("坂で流されて出る速さの上限")]
     public float maxSlideSpeed = 8f;
+    [Tooltip("坂を登る向きに、スティック・キーで出せる速さの上限（勢いで登るのはそのまま）。2026-11-05 てじゃ「VRだと常時ダッシュなので、氷の坂が楽勝」→ 走っても歩いても同じ")]
+    public float climbSpeed = 2f;
     [Tooltip("壁・障害物にぶつかった時の跳ね返り（壁に向かう速さの何倍で戻るか）と、跳ねる最低の速さ")]
     public float bounce = 0.45f, bounceMin = 1.0f;
 
@@ -45,6 +47,8 @@ public class FuwaIceSkate : UdonSharpBehaviour
     [HideInInspector] public Vector3 floorVel;
     [HideInInspector] public int floorFrame = -10;
     public float floorVelK = 1f;
+    // 小さいワープ（ここ・動く床・傾く床）をしたフレーム。VR の銃の見た目を手に合わせ直す目安（FuwaBlower）
+    [HideInInspector] public int shiftFrame = -100;
     private float _moveH, _moveV;
 
     public override void InputMoveHorizontal(float value, UdonInputEventArgs args) { _moveH = value; }
@@ -79,6 +83,7 @@ public class FuwaIceSkate : UdonSharpBehaviour
     {
         VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
         p.TeleportTo(o.position + step, o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
+        shiftFrame = Time.frameCount;
     }
 
     private void Update()
@@ -136,7 +141,12 @@ public class FuwaIceSkate : UdonSharpBehaviour
             float sinA = dn.magnitude; dn.y = 0f;
             Vector3 dh = dn.sqrMagnitude > 0.000001f ? dn.normalized : Vector3.zero;
             if (sinA < 0.05f) dh = Vector3.zero;   // 3 度より平らなら坂あつかいしない
-            if (input.sqrMagnitude > 0.01f) _v = Vector3.MoveTowards(_v, input * maxSpeed, accel * dt);
+            if (input.sqrMagnitude > 0.01f)
+            {
+                Vector3 target = input * maxSpeed;
+                if (dh != Vector3.zero) { float cap = Mathf.Max(climbSpeed, -Vector3.Dot(_v, dh)), up = -Vector3.Dot(target, dh); if (up > cap) target += dh * (up - cap); }   // 今の登る速さより遅くはしない（勢いはそのまま）
+                _v = Vector3.MoveTowards(_v, target, accel * dt);
+            }
             else if (dh == Vector3.zero) _v = Vector3.MoveTowards(_v, Vector3.zero, friction * dt);
             else
             {

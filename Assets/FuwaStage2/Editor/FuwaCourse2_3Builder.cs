@@ -288,6 +288,8 @@ public static class FuwaCourse2_3Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(skate); FuwaStage2WaterTest.NoSync(skate);
         foreach (var mi in root.GetComponentsInChildren<FuwaMovingIce>(true)) { mi.skate = skate; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mi); }
         foreach (var ti in root.GetComponentsInChildren<FuwaTiltIce>(true)) { ti.skate = skate; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ti); }
+        // 銃（VR で滑る間の見た目の合わせ直し）。シーンの銃ぜんぶ
+        foreach (var bl in Object.FindObjectsOfType<FuwaBlower>(true)) { bl.skate = skate; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bl); EditorUtility.SetDirty(bl); }
 
         // アウト（下に落ちた）：コースの下（コースの向きの箱、まわり 10m）
         var lb = new Bounds(Vector3.zero, Vector3.zero); bool first = true;

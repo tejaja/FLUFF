@@ -57,7 +57,7 @@ public class FuwaMovingIce : UdonSharpBehaviour
                 _dbgFloor = Vector3.zero; _dbgPlayer = Vector3.zero; _dbgT = Time.time; _dbgFrames = 0;
             }
         }
-        if (skate != null && Time.deltaTime > 0f) { skate.floorVel = delta / Time.deltaTime; skate.floorFrame = Time.frameCount; }
+        if (skate != null && Time.deltaTime > 0f) { skate.floorVel = delta / Time.deltaTime; skate.floorFrame = Time.frameCount; skate.shiftFrame = Time.frameCount; }
         VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
         p.TeleportTo(o.position + new Vector3(delta.x, 0f, delta.z), o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
     }

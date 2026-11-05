@@ -411,6 +411,7 @@ public class FuwaBlower : UdonSharpBehaviour
 
     public override void OnPickup()
     {
+        _gripOk = false;
         if (hud != null && _pickup != null) hud.SetHeld(true, _pickup.currentHand == VRC_Pickup.PickupHand.Left);
         _held = true;
         if (grabSound != null) grabSound.Play();
@@ -468,12 +469,50 @@ public class FuwaBlower : UdonSharpBehaviour
     // （VRは手の向きそのまま）
     // 他人の道具も、持ち主がデスクトップなら同じ計算をする。持ち主の手のボーンと頭の向きは
     // VRChatが同期しているので、追加の同期なしで全員に同じ見た目になる。
+    // VR：氷で滑っている間、銃が手から少し遅れてガタついた（2026-11-05 てじゃ「滑る時に、銃がガタつく（少し遅れてついてくるかんじ）」）。
+    //  滑りは毎フレームの小さいワープ（FuwaIceSkate・動く床・傾く床）で、VRChat が持ち物を手に合わせたあとに部屋が動くので、銃だけ前の位置に残る。
+    //  → ワープしている間は、見た目と風の口を手のトラッキングの位置に合わせ直す。手からの位置関係は、ワープしていない時に取っておく
+    [Tooltip("氷で滑る処理（ワープしたフレームを知るため）。なければ合わせ直さない")]
+    public FuwaIceSkate skate;
+    private Vector3 _gripPos; private Quaternion _gripRot = Quaternion.identity; private bool _gripOk;
+
+    private bool VrGlue(VRCPlayerApi holder)
+    {
+        VRCPlayerApi.TrackingData hd = holder.GetTrackingData(_pickup.currentHand == VRC_Pickup.PickupHand.Left ? VRCPlayerApi.TrackingDataType.LeftHand : VRCPlayerApi.TrackingDataType.RightHand);
+        bool shifting = skate != null && Time.frameCount - skate.shiftFrame <= 2;
+        if (!shifting)
+        {
+            Quaternion inv = Quaternion.Inverse(hd.rotation);
+            _gripPos = inv * (transform.position - hd.position); _gripRot = inv * transform.rotation; _gripOk = true;
+            return false;
+        }
+        if (!_gripOk) return false;
+        Vector3 rp = hd.position + hd.rotation * _gripPos; Quaternion rr = hd.rotation * _gripRot;
+        Quaternion d = rr * Quaternion.Inverse(transform.rotation); Vector3 rootPos = transform.position;
+        if (visualRoot != null)
+        {
+            Transform vt = visualRoot.transform; vt.localPosition = _visualLocalPos; vt.localRotation = _visualLocalRot;
+            vt.SetPositionAndRotation(rp + d * (vt.position - rootPos), d * vt.rotation);
+        }
+        if (nozzle != null)
+        {
+            nozzle.localPosition = _nozzleLocalPos; nozzle.localRotation = _nozzleLocalRot;
+            nozzle.SetPositionAndRotation(rp + d * (nozzle.position - rootPos), d * nozzle.rotation);
+        }
+        _aligned = true;
+        return true;
+    }
+
     public override void PostLateUpdate()
     {
         VRCPlayerApi holder = Networking.GetOwner(gameObject);
         UpdateAutoScale(holder);
         bool align = desktopAimWithView && _held && holder != null && holder.IsValid() && !holder.IsUserInVR();
-        if (align)
+        bool glued = false;
+        if (!align && _held && !_dropPending && holder != null && holder.isLocal && holder.IsUserInVR() && _pickup != null) glued = VrGlue(holder);
+        else _gripOk = false;
+        if (glued) { }
+        else if (align)
         {
             Quaternion head = holder.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation;
             Vector3 basePos = transform.position;
