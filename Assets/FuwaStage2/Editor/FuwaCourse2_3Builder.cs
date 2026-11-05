@@ -1131,11 +1131,14 @@ public static class FuwaCourse2_3Builder
         Vector2 C = M2_MC; float R = M2_MR;
         var d0 = (C - V3_Nub).normalized; var d1 = (V3_Pad0 - C).normalized;
         var top = V3PadTop();
-        var l0 = (new[] { V3_Nub + d0 * (V3_NubR - V3_LinkIn), C - d0 * (R - V3_LinkIn) }, 3f);
-        var l1 = (new[] { C + d1 * (R - V3_LinkIn), V3_Pad0 - d1 * (V3_PadR - V3_LinkIn) }, 3f);
+        // 丸い山の側は道を山に入れずに、ふちに接する所（まん中から R）で止めて、すき間は IslandJoin でうめる（山をへこませない。2026-11-05 てじゃ「山凹むとキツいかも」「道をけずってもいいよ」）
+        float dIn = V3_DomeToEdge ? 0f : V3_LinkIn;
+        var l0 = (new[] { V3_Nub + d0 * (V3_NubR - V3_LinkIn), C - d0 * (R - dIn) }, 3f);
+        var l1 = (new[] { C + d1 * (R - dIn), V3_Pad0 - d1 * (V3_PadR - V3_LinkIn) }, 3f);
+        v3DomeJoins = V3_DomeToEdge ? new[] { -d0, d1 } : null;
         var l2 = (new[] { new Vector2(top.x, top.y + V3_PadR - V3_LinkIn), new Vector2(top.x, top.y + V3_PadR + V3_FieldLink) }, 3f);
         M2_Links = new[] { l0, l1, l2, l2 };   // 2 番は割れ目の道への道の始まり（作る所で toField に置きかわる）、3 番は使わない
-        domeFlat = V3_DomeToEdge ? new List<(Vector2 a, Vector2 b, float hw)> { (C - d0 * (R + 1f), C - d0 * (R - V3_LinkIn - 0.5f), 3f), (C + d1 * (R - V3_LinkIn - 0.5f), C + d1 * (R + 1f), 3f) } : null;
+        domeFlat = null;   // 道のつなぎで山を平らにする版（「山凹むとキツい」でやめた）。使う時は (道の中心線の島に入る部分, 半分の幅) を入れる
         float w = M2_CrackX1 - M2_CrackX0;
         M2_CrackX0 = top.x - w * 0.5f; M2_CrackX1 = top.x + w * 0.5f; M2_CrackZ0 = top.y + V3_PadR + V3_FieldLink;
     }
@@ -1276,6 +1279,7 @@ public static class FuwaCourse2_3Builder
                 MapIsland(isl, "MapPad1", o, Ellipse(top, V3_PadR, V3_PadR, 0f, 28), cuts);
                 var sA = V3_Pad0 + u * (V3_PadR + V3_PanelGap); float lenA = V3_HubDist - V3_PadR - V3_HubR - 2f * V3_PanelGap;
                 var sB = hub + Vector2.up * (V3_HubR + V3_PanelGap);
+                if (v3DomeJoins != null) for (int j = 0; j < v3DomeJoins.Length; j++) IslandJoin(path, "DomeJoin" + j, o + new Vector3(M2_MC.x, 0f, M2_MC.y), new Vector3(v3DomeJoins[j].x, 0f, v3DomeJoins[j].y), M2_MR, 3f, pathB);
                 TiltPanel(path, "TiltA", o, sA, u, lenA, V3_PanelHW, 0f);
                 TiltPanel(path, "TiltB", o, sB, Vector2.up, V3_PanelB, V3_PanelHW, V3_TiltPeriod * 0.5f);
                 v3Polys = new List<(string n, Vector2[] poly)> { ("Pad0", Ellipse(V3_Pad0, V3_PadR, V3_PadR, 0f, 28)), ("TiltA", TiltPanelPoly(sA, u, lenA, V3_PanelHW)), ("Hub", Ellipse(hub, V3_HubR, V3_HubR, 0f, 32)), ("TiltB", TiltPanelPoly(sB, Vector2.up, V3_PanelB, V3_PanelHW)), ("Pad1", Ellipse(top, V3_PadR, V3_PadR, 0f, 28)) };
@@ -1423,6 +1427,7 @@ public static class FuwaCourse2_3Builder
     static bool map2Ridge;
     // 丸い山の上で平らにする所（道の中心線の島に入る部分、半分の幅）。e＝道のふちからの距離が DomeFlatIn 以内は平ら、DomeFlatOut で元の坂
     static List<(Vector2 a, Vector2 b, float hw)> domeFlat;
+    static Vector2[] v3DomeJoins;   // 丸い山から道へ出る向き（IslandJoin を置く）
     public static float DomeFlatIn = 0.3f, DomeFlatOut = 2.8f;
     static List<(string n, Vector2[] poly)> v3Polys = new List<(string n, Vector2[] poly)>();
     static Vector2[][] MapHillOnly;
