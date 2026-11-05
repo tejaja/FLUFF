@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -172,6 +173,53 @@ public static class FuwaCourse1Builder
     }
 
     public const float CP1 = 46f, CP2 = 79f, GoalS = 119.5f;
+    public const float CP0 = TailB;   // 追い風の終わり（2026-11-05 てじゃ）
+
+    // チェックポイントがなければ、ほかのチェックポイントを複製して作り、球の一覧に足す（中の参照は複製の中を指す）
+    public static Transform EnsureCheckpoint(Transform root, string name, string srcName)
+    {
+        var cp = root.Find(name);
+        if (cp != null) return cp;
+        var src = root.Find(srcName);
+        cp = Object.Instantiate(src.gameObject, root, false).transform; cp.name = name;
+        cp.SetSiblingIndex(src.GetSiblingIndex());
+        Undo.RegisterCreatedObjectUndo(cp.gameObject, "cp");
+        var trig = cp.GetComponentInChildren<FuwaCheckpoint>(true);
+        foreach (var ball in Object.FindObjectsOfType<FuwaBall>(true).Where(b => b.checkpoints != null && b.checkpoints.Any(c => c != null && c.transform.IsChildOf(src))))
+        {
+            var so = new SerializedObject(ball); var p = so.FindProperty("checkpoints");
+            p.arraySize++; p.GetArrayElementAtIndex(p.arraySize - 1).objectReferenceValue = trig;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ball);
+        }
+        return cp;
+    }
+
+    // 追い風の終わりのチェックポイントだけ置く（PlaceObjects はゴール・受け止めも置き直すので、それはさわらない版）
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course1/追い風の終わりのチェックポイントを置く")]
+    public static void PlaceCheckpoint0Menu() { Debug.Log(PlaceCheckpoint0()); }
+    public static string PlaceCheckpoint0()
+    {
+        var root = Root();
+        var m = ToCourse(root);
+        var cp = EnsureCheckpoint(root, "Checkpoint0", "Checkpoint1");
+        Undo.RecordObject(cp, "place");
+        cp.localPosition = m.MultiplyPoint3x4(Point(0, CP0, 0, 0));
+        cp.localRotation = Quaternion.Euler(0, Yaw(root, CP0), 0);
+        float sa = CP0 + 3f, half = Width(0, sa) * 0.5f + 0.08f + 0.45f;
+        foreach (var (cn, side, yaw) in new[] { ("ClusterL", -1f, 69.9f), ("ClusterR", 1f, -69.9f) })
+        {
+            var c = cp.Find("GlowMushrooms/" + cn);
+            if (c == null) continue;
+            Undo.RecordObject(c, "place");
+            var wp = root.TransformPoint(m.MultiplyPoint3x4(Point(0, sa, side * half, 0)));
+            c.position = wp + Vector3.up * -0.66f;
+            c.rotation = root.rotation * Quaternion.Euler(0, Yaw(root, sa) + yaw, 0);
+        }
+        var t = cp.GetComponentInChildren<FuwaCheckpoint>(true);
+        bool own = t.respawnPoint == null || t.respawnPoint.IsChildOf(cp);
+        return "Checkpoint0 " + cp.localPosition.ToString("F2") + (own ? "" : " (respawnPoint points outside!)");
+    }
     public const float PracticeWhirlS = 85.5f;   // CP2のすぐ後、道のまん中で必ず捕まる練習用つむじかぜ
 
     public static string PlaceObjects()
@@ -197,6 +245,8 @@ public static class FuwaCourse1Builder
             }
             log += name + " " + cp.localPosition.ToString("F2") + "  ";
         }
+        EnsureCheckpoint(root, "Checkpoint0", "Checkpoint1");
+        PlaceCp("Checkpoint0", 0, CP0);
         PlaceCp("Checkpoint1", 0, CP1);
         PlaceCp("Checkpoint2", 2, CP2);
 
@@ -216,7 +266,46 @@ public static class FuwaCourse1Builder
 
 
     // ---- ギミック（Gimmicks_Kaze の下に毎回作り直す。見た目の元はコース2・旧コース1から複製） ----
-    public const float TailA = 2.5f, TailB = 14f;
+    // 追い風：2.5〜14 → スタート側を削って 2/3 に（2026-11-05 てじゃ「スタート直後は歩く」）。終わりは同じ
+    public const float TailA = 6.33f, TailB = 14f;
+
+    // 追い風の箱・粒・床のグラデだけ、今の TailA〜TailB に合わせ直す（作り直さない：Zone は NetworkIDs・吹き流しなどから参照されているので）。
+    // 吹き流し・風車は、参照している箱からの相対位置のまま一緒に動かす
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course1/追い風の範囲だけ合わせ直す")]
+    public static void RefitTailwindMenu() { Debug.Log(RefitTailwind()); }
+    public static string RefitTailwind()
+    {
+        var root = Root();
+        var m = ToCourse(root);
+        var g = root.Find("Gimmicks_Kaze/G1_Tailwind");
+        Vector3 P(float s, float dy) => m.MultiplyPoint3x4(Point(0, s, 0, dy));
+        Quaternion R(float s) => Quaternion.Euler(0, Yaw(root, s), 0);
+        var decos = Object.FindObjectsOfType<FuwaWindDeco>(true).Where(w => w.wind != null && w.wind.transform.IsChildOf(g)).ToList();
+        var rel = decos.ToDictionary(d => d, d => (Quaternion.Inverse(d.wind.transform.rotation) * (d.transform.position - d.wind.transform.position), Quaternion.Inverse(d.wind.transform.rotation) * d.transform.rotation));
+        int n = 5; float seg = (TailB - TailA) / n;
+        for (int i = 0; i < n; i++)
+        {
+            float sc = TailA + seg * (i + 0.5f);
+            var z = g.Find("Zone" + i);
+            Undo.RecordObject(z, "tail");
+            z.localPosition = P(sc, 2.2f); z.localRotation = R(sc); z.localScale = new Vector3(3.0f, 4.4f, seg + 0.05f);
+            var ps = g.Find("Particles" + i).GetComponent<ParticleSystem>();
+            Undo.RecordObject(ps.transform, "tail"); Undo.RecordObject(ps, "tail");
+            ps.transform.localPosition = P(sc, 1.9f); ps.transform.localRotation = R(sc) * Quaternion.Euler(0, 270, 0);
+            var sh = ps.shape; sh.scale = new Vector3(seg, 3.2f, 2.6f);
+            var em = ps.emission; em.rateOverTimeMultiplier = 90f * seg / 11.5f * 1.2f;
+            var hl = z.Find("GroundHighlight");
+            if (hl != null) PathHighlight(hl, z, Vector3.forward, "Kaze_TailHighlight_" + i, 0.6f, i == 0, i == n - 1, seg * i - seg * 0.5f);
+        }
+        foreach (var d in decos)
+        {
+            var (off, rot) = rel[d]; var w = d.wind.transform;
+            Undo.RecordObject(d.transform, "tail");
+            d.transform.SetPositionAndRotation(w.position + w.rotation * off, w.rotation * rot);
+        }
+        EditorUtility.SetDirty(g.gameObject);
+        return $"tailwind {TailA}〜{TailB} seg {seg:0.00}, decos moved {decos.Count}";
+    }
     public const float CrossL = 28.5f, CrossR = 41f, CrossLen = 5f;
     public static readonly float[] WhirlS = { 93f, 99f, 105f, 111f };
 
