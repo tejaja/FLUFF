@@ -1625,9 +1625,10 @@ public static class FuwaCourse2_3Builder
     //  とがった六角柱（ステージ2の浮島の結晶と同じカクカクの形）。まん中の1本が SpireH、まわりに外へ傾いた小さめの柱。根元は山にうめる。
     //  当たり：1本ずつ凸の MeshCollider（道のレイヤー＝人は通れない）、ふわふわは ぽよん（FuwaBounce）
     public static float SpireH = 20f, SpireR = 2.4f, SpireSink = 1.2f; public static int SpireSeed = 2311;
+    public static float SpireTopK = 1.3f, SpireTipK = 0.17f;   // まん中の柱：上のほうを太く（とがる手前の太さ＝根元の SpireTopK 倍）、とがりは短め（2026-11-05 てじゃ「上のほうちょっと太くしよ」）
     public static (float ang, float dist, float h, float r, float tilt)[] SpireSides = {
         (20f, 2.6f, 11f, 1.3f, 16f), (85f, 2.9f, 7.5f, 1.0f, 24f), (150f, 2.4f, 13.5f, 1.5f, 12f), (215f, 2.8f, 8.5f, 1.1f, 22f), (280f, 2.5f, 10f, 1.25f, 18f), (330f, 3.2f, 6f, 0.9f, 28f) };
-    static Mesh CrystalPrism(string name, float r, float h, float tipK, float twist)
+    static Mesh CrystalPrism(string name, float r, float h, float tipK, float twist, float topK = 0.92f)
     {
         var v = new List<Vector3>(); var t = new List<int>(); const int N = 6;
         float hb = h * (1f - tipK);
@@ -1636,7 +1637,7 @@ public static class FuwaCourse2_3Builder
         for (int i = 0; i < N; i++)
         {
             int j = (i + 1) % N;
-            Vector3 b0 = P(i, 0, r), b1 = P(j, 0, r), m0 = P(i, hb, r * 0.92f), m1 = P(j, hb, r * 0.92f);
+            Vector3 b0 = P(i, 0, r), b1 = P(j, 0, r), m0 = P(i, hb, r * topK), m1 = P(j, hb, r * topK);
             var outw = (b0 + b1) * 0.5f; outw.y = 0f;
             Quad(v, t, b0, b1, m1, m0, outw);
             int k = v.Count; v.Add(m0); v.Add(m1); v.Add(tip);
@@ -1649,17 +1650,18 @@ public static class FuwaCourse2_3Builder
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = at;
         var rnd = new System.Random(SpireSeed);
-        void One(string n, Vector3 lp, Quaternion rot, float r, float h)
+        void One(string n, Vector3 lp, Quaternion rot, float r, float h, float topK = 0.92f, float tipK = -1f)
         {
             var o = new GameObject(n); o.transform.SetParent(g, false); o.transform.localPosition = lp; o.transform.localRotation = rot; o.layer = pathLayer;
-            var m = CrystalPrism(name + "_" + n, r, h, 0.22f + (float)rnd.NextDouble() * 0.08f, (float)rnd.NextDouble() * 60f);
+            float tk = 0.22f + (float)rnd.NextDouble() * 0.08f; if (tipK > 0f) tk = tipK;
+            var m = CrystalPrism(name + "_" + n, r, h, tk, (float)rnd.NextDouble() * 60f, topK);
             o.AddComponent<MeshFilter>().sharedMesh = m; var mr = o.AddComponent<MeshRenderer>(); mr.sharedMaterial = crystalMat;
             var mc = o.AddComponent<MeshCollider>(); mc.sharedMesh = m; mc.convex = true;
             var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBounce>(o);
             fb.bounceSpeed = 2.2f; fb.keepTangent = 0.7f; fb.alwaysUp = false; fb.useContactNormal = true;
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb);
         }
-        One("Main", Vector3.down * SpireSink, Quaternion.Euler(0f, 0f, 2f), SpireR, SpireH + SpireSink);
+        One("Main", Vector3.down * SpireSink, Quaternion.Euler(0f, 0f, 2f), SpireR, SpireH + SpireSink, SpireTopK, SpireTipK);
         for (int i = 0; i < SpireSides.Length; i++)
         {
             var sd = SpireSides[i]; float a = sd.ang * Mathf.Deg2Rad; var dirH = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
