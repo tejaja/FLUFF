@@ -78,7 +78,20 @@ public static class FuwaStage2LobbyCourses
                 so.FindProperty("playerSpot").objectReferenceValue = cStart.Find("PlayerSpot");
                 var stand = cStart.GetComponentInChildren<FuwaGunStand>(true);   // スタートの島のエアガンの台（2026-10-23 からステージ1のスタートを写している）
                 so.FindProperty("gunSpot").objectReferenceValue = stand ? stand.gunSpot : null;
-                so.FindProperty("lobbyReturnSpot").objectReferenceValue = null;
+                // ロビーへ戻った時（手動リスポーン・スタートやゴールのロビーへのワープ）の立ち位置：まん中で、このコースのワープの台を向く。
+                //  2026-11-05 てじゃ「ステージ2のコース、手動リスポーンしたときの向きが2-1固定になってる、各コースにしといて」：前は全部 LobbySpawn（2–1 向き）だった。ステージ1の LobbySpawn_FromN と同じ
+                var spawn0 = lobby.Find("LobbySpawn");
+                var back = lobby.Find("LobbySpawn_From" + i);
+                if (!back) { back = new GameObject("LobbySpawn_From" + i).transform; back.SetParent(lobby, false); }
+                var face = slot.position - spawn0.position; face.y = 0f;
+                back.SetPositionAndRotation(spawn0.position, face.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(face.normalized, Vector3.up) : spawn0.rotation);
+                so.FindProperty("lobbyReturnSpot").objectReferenceValue = back;
+                foreach (var cw in course.GetComponentsInChildren<FuwaCourseWarp>(true))
+                {
+                    if (cw.playerSpot != spawn0 && (cw.playerSpot == null || !cw.playerSpot.name.StartsWith("LobbySpawn"))) continue;
+                    var cso = new SerializedObject(cw); cso.FindProperty("playerSpot").objectReferenceValue = back; cso.ApplyModifiedProperties();
+                    UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cw);
+                }
                 so.FindProperty("stage").intValue = 2;
                 // ゴール（FuwaGoal）ができたコースはタイムあり（ゴールでファンファーレ→ゴール後の曲もタイムありの時だけ）。2026-10-28 てじゃ「タイム入れよう」
                 so.FindProperty("timed").boolValue = course.GetComponentInChildren<FuwaGoal>(true) != null;
