@@ -697,7 +697,23 @@ public static class FuwaCourse2_3Builder
     //  poly は CrackSlab の形（下のふち n+1 点 → 上のふち n+1 点を逆順）
     //  moving：動く板。模様はふつうワールドの位置で描くので、動くと模様だけその場に残って上の人が床より速く見えた（2026-11-04 てじゃ「床の模様が動く床と連動してない」）
     //   → 止まっている時（まん中）のワールド位置を uv3 に入れて、模様をそこから取る材質（_PatternFromUV3）に。止まっている板とも模様がつながる
-    public static bool CrackRough = true;   // 割れ目の板も流氷の形に（左右のはしを不ぞろいに。割れ目どうしのギザギザはかみ合うまま）
+    public static bool CrackRough = true;
+    public static float CrackTrimMax = 3.6f; public static int CrackTrimSeed = 4471;
+    // 割れ目の線 L（板 L と L+1 のあいだ。-1 は 1 枚目の手前、M2_CrackN-1 は最後の奥）の、左右のはしを短くする長さ
+    static Vector2 CrackTrim(int L)
+    {
+        var r = new System.Random(CrackTrimSeed + (L + 2) * 97);
+        return new Vector2((float)r.NextDouble() * CrackTrimMax, (float)r.NextDouble() * CrackTrimMax);
+    }
+    static int CrackIndexOf(Vector2[] bot) { float zb = bot[0].y; return Mathf.RoundToInt((zb - M2_CrackZ0) / (M2_CrackSlabL + M2_CrackGap)); }
+    // x の小さい順の線 row を、左を L・右を R だけ短くした線（はしは線の上で補間）
+    static List<Vector2> TrimRow(Vector2[] row, float L, float R)
+    {
+        float x0 = row[0].x + L, x1 = row[row.Length - 1].x - R; var o = new List<Vector2>();
+        Vector2 At(float x) { for (int i = 0; i + 1 < row.Length; i++) if (x <= row[i + 1].x) return Vector2.Lerp(row[i], row[i + 1], Mathf.InverseLerp(row[i].x, row[i + 1].x, x)); return row[row.Length - 1]; }
+        o.Add(At(x0)); foreach (var q in row) if (q.x > x0 + 0.05f && q.x < x1 - 0.05f) o.Add(q); o.Add(At(x1));
+        return o;
+    }   // 割れ目の板も流氷の形に（左右のはしを不ぞろいに。割れ目どうしのギザギザはかみ合うまま）
     static void CrackSlabMesh(Transform parent, string name, Vector3 o, Vector2[] poly, bool moving = false)
     {
         int n1 = poly.Length / 2; float T = CrackT;
@@ -707,21 +723,22 @@ public static class FuwaCourse2_3Builder
         Mesh m;
         if (CrackRough)
         {
-            // 外まわり：下のふち（左→右）→ 右のはし（でこぼこ）→ 上のふち（右→左）→ 左のはし（でこぼこ）。はしの角は少し内へ欠く
-            int seed = 9100 + name.Length * 31 + (int)(bot[0].y * 10f);
-            var rnd = new System.Random(seed);
-            var ol = new List<Vector2>();
-            float cutL0 = 0.4f + (float)rnd.NextDouble() * 0.6f, cutR0 = 0.4f + (float)rnd.NextDouble() * 0.6f, cutL1 = 0.4f + (float)rnd.NextDouble() * 0.6f, cutR1 = 0.4f + (float)rnd.NextDouble() * 0.6f;
-            for (int i = 0; i < n1; i++) { var q = bot[i]; if (i == 0) q.x += cutL0; if (i == n1 - 1) q.x -= cutR0; ol.Add(q); }
+            // 2026-11-05 てじゃ「もっとガッツリ形変えたいな」：割れ目の線ごとに、左右のはしを 0〜CrackTrimMax m 短くする（同じ線を使うとなりの板も同じだけ短くなるので、ギザギザはかみ合うまま）。
+            //  はしは大きく出っぱり・へこむ線でつなぐ
+            int k = CrackIndexOf(bot);
+            float zb = bot[0].y;
+            var bl = CrackTrim(k - 1); var tl = CrackTrim(k);
+            var B = TrimRow(bot, bl.x, bl.y); var Tp = TrimRow(top, tl.x, tl.y);
+            int seed = 9100 + k * 37;
+            var ol = new List<Vector2>(B);
             void End(Vector2 a, Vector2 b, float sx, int sd)   // a→b のはし。外は sx の向き
             {
-                int n = Mathf.Max(2, Mathf.CeilToInt((b - a).magnitude / RoughStep));
-                for (int j = 1; j < n; j++) { float f = j / (float)n; var q = Vector2.Lerp(a, b, f); q.x -= sx * RoughAmp * 1.6f * RNoise(sd, j * 0.8f) * Mathf.Sin(f * Mathf.PI); ol.Add(q); }
+                int n = Mathf.Max(3, Mathf.CeilToInt((b - a).magnitude / RoughStep));
+                for (int j = 1; j < n; j++) { float f = j / (float)n; var q = Vector2.Lerp(a, b, f); q.x += sx * CrackEndAmp * (BigNoise(sd, j * 2.2f) * 1.6f - 0.7f) * Mathf.Sin(f * Mathf.PI); ol.Add(q); }
             }
-            var tr = top[n1 - 1]; tr.x -= cutR1; var tl = top[0]; tl.x += cutL1;
-            End(ol[ol.Count - 1], tr, 1f, seed + 1);
-            for (int i = n1 - 1; i >= 0; i--) { var q = top[i]; if (i == 0) q = tl; if (i == n1 - 1) q = tr; ol.Add(q); }
-            End(tl, ol[0], -1f, seed + 2);
+            End(B[B.Count - 1], Tp[Tp.Count - 1], 1f, seed + 1);
+            for (int i = Tp.Count - 1; i >= 0; i--) ol.Add(Tp[i]);
+            End(Tp[0], B[0], -1f, seed + 2);
             m = IceSlab(name, ol, seed, q => MapHeight(q));
         }
         else
@@ -1170,12 +1187,15 @@ public static class FuwaCourse2_3Builder
     // ---- 流氷みたいな板（2026-11-05 てじゃ「傾く床と、移動床、ちょときれいな四角すぎる」→ 案A）----
     //  外まわりは角を欠いて丸め、辺に小さいでこぼこ（内側へだけ。乗る面が外へはみ出さない）。側面は少し外へふくらんでから、下は氷山みたいにすぼめる（厚みもばらつく）
     public static float RoughAmp = 0.28f, RoughCornerMin = 0.7f, RoughCornerMax = 1.5f, RoughStep = 0.45f, RoughTaper = 0.9f, RoughDepthMin = 1.3f, RoughDepthMax = 2.0f;
+    // てじゃ「もっとガッツリ形変えたいな」：大きなうねり（BigAmp m、BigFreq 1/m。外へ BigOut の割合まで出る）を重ねる。角の欠けも大きく
+    public static float BigAmp = 1.7f, BigFreq = 0.16f, BigOut = 0.45f, BigCornerMin = 1.6f, BigCornerMax = 3.2f, CrackEndAmp = 2.6f, CrackCutMin = 0.8f, CrackCutMax = 2.4f;
+    static float BigNoise(int seed, float t) { return Mathf.PerlinNoise(t * BigFreq + seed * 0.37f, seed * 0.91f + 1.7f) * 0.75f + Mathf.PerlinNoise(t * BigFreq * 2.3f + seed * 0.13f, seed * 0.47f + 5.3f) * 0.25f; }
     static float RNoise(int seed, float t) { return Mathf.PerlinNoise(t * 0.55f + seed * 0.731f, seed * 1.37f + 3.1f) * 0.65f + Mathf.PerlinNoise(t * 1.7f + seed * 0.29f, seed * 0.53f + 7.7f) * 0.35f; }
     // 長方形（x ±hw, z ±hl）の流氷の形。flushZ：短い辺（z の両はし）のまん中 |x| < flushZ は欠かない（足場とすき間を作らない）
     static List<Vector2> RoughRect(float hw, float hl, int seed, float flushZ)
     {
         var rnd = new System.Random(seed); var o = new List<Vector2>();
-        var cr = new float[4]; for (int k = 0; k < 4; k++) cr[k] = Mathf.Lerp(RoughCornerMin, RoughCornerMax, (float)rnd.NextDouble());
+        var cr = new float[4]; for (int k = 0; k < 4; k++) cr[k] = Mathf.Lerp(BigCornerMin, BigCornerMax, (float)rnd.NextDouble());
         // 角 k のまわり（-hw,-hl）→（hw,-hl）→（hw,hl）→（-hw,hl）の順。辺は角の丸めの終わりから次の角の丸めの始まりまで
         var C = new[] { new Vector2(-hw, -hl), new Vector2(hw, -hl), new Vector2(hw, hl), new Vector2(-hw, hl) };
         float t = 0f;
@@ -1201,6 +1221,9 @@ public static class FuwaCourse2_3Builder
             {
                 float f = j / (float)n; var q = Vector2.Lerp(a + d * r0, b - d * r1, f); t += RoughStep;
                 float amp = RoughAmp * RNoise(seed + k * 17, t);
+                // 大きなうねり：長い辺だけ（短い辺は足場とつながる）。内へ BigAmp、外へ BigAmp×BigOut
+                if (!shortSide) { float bn = BigNoise(seed + k * 29, t); amp += BigAmp * (bn - (1f - BigOut) * 0.5f - 0.25f) * 1.6f * Mathf.Sin(f * Mathf.PI); }
+                else amp += BigAmp * 0.45f * BigNoise(seed + k * 29, t) * Mathf.Sin(f * Mathf.PI);
                 if (shortSide && Mathf.Abs(q.x) < flushZ) amp *= Mathf.SmoothStep(0f, 1f, (Mathf.Abs(q.x) - flushZ * 0.6f) / (flushZ * 0.4f));
                 o.Add(q + nIn * amp);
             }
