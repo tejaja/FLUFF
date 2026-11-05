@@ -109,6 +109,7 @@ public static class FuwaCourse2_3Builder
     public static Color SnowColA = new Color(0.97f, 0.98f, 1f), SnowColB = new Color(0.88f, 0.91f, 0.95f);
     public static bool IceLook = true;   // 氷の島の見た目（2026-11-05）。false で前の見た目（材質の模様は前の値を入れ直さないので、戻す時は IceTest_IceC から写す所が効く）
     public static Color SnowLipCol = new Color(0.97f, 0.985f, 1f), IcicleCol = new Color(0.7f, 0.88f, 1f);
+    public static float IceCrackMask = 0.55f;   // ひびを一部だけ（雪のまだらのない所の、さらに一部。0＝全部）
     public static float IceSpike = 0.75f;   // B：側面の下のはしのギザギザ（つららっぽく、1 つおきに下へ）
     public static Color RockCol = new Color(0.46f, 0.50f, 0.60f), CrystalCol = new Color(0.62f, 0.84f, 1f), MarkCol = new Color(1f, 0.5f, 0.2f);
 
@@ -157,7 +158,7 @@ public static class FuwaCourse2_3Builder
             var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(tp);
             if (tex) iceFlat.SetTexture("_GroundTex", tex);
             iceFlat.SetFloat("_GroundPatch", 0.75f); iceFlat.SetFloat("_GroundPatchScale", 10f); iceFlat.SetFloat("_GroundMidScale", 3.4f); iceFlat.SetFloat("_GroundSteps", 3f);
-            iceFlat.SetFloat("_GroundFine", 0.5f); iceFlat.SetFloat("_GroundFineScale", 8f); iceFlat.SetFloat("_GroundFineFade", 40f); iceFlat.SetFloat("_GroundFineCrisp", 1f);
+            iceFlat.SetFloat("_GroundFine", 0.5f); iceFlat.SetFloat("_GroundFineScale", 8f); iceFlat.SetFloat("_GroundFineFade", 40f); iceFlat.SetFloat("_GroundFineCrisp", 1f); iceFlat.SetFloat("_GroundFineMask", IceCrackMask);
             iceFlat.SetColor("_GroundTintA", new Color(1.5f, 1.15f, 1.03f)); iceFlat.SetColor("_GroundTintB", new Color(0.86f, 0.93f, 1.0f));
             iceFlat.SetFloat("_IceSide", 1f); iceFlat.SetColor("_IceSideColor", new Color(0.5f, 0.62f, 0.92f)); iceFlat.SetFloat("_IceSideDepth", 1.6f);
             iceFlat.SetFloat("_IceStreak", 0.4f); iceFlat.SetFloat("_IceStreakScale", 1.6f);
@@ -1580,7 +1581,8 @@ public static class FuwaCourse2_3Builder
     //  ふちの外 0.4m に別の氷・道の上の面がある所（道とのつなぎ・足場とシーソーのあいだ）は雪もつららも付けない。動く物は親ごと動く（子にする）
     static bool recordDeco;
     static List<(Transform g, List<List<Vector2>> loops, System.Func<Vector2, float> topH, float dripOut, float icicleDepth, Collider self)> iceDeco = new List<(Transform, List<List<Vector2>>, System.Func<Vector2, float>, float, float, Collider)>();
-    public static float SnowLipIn = 0.62f, SnowLipH = 0.1f, SnowDripMax = 0.55f, IcicleGapMin = 1.4f, IcicleGapMax = 3.2f, IcicleChance = 0.75f, IcicleLenMin = 0.5f, IcicleLenMax = 1.9f;
+    public static float SnowRimThresh = 0.47f;   // 雪のふちを付ける所（ノイズ 0〜1 がこれより上）
+    public static float SnowLipIn = 0.62f, SnowLipH = 0.1f, SnowDripMax = 0.55f, IcicleGapMin = 1.4f, IcicleGapMax = 3.2f, IcicleChance = 0.55f, IcicleLenMin = 0.5f, IcicleLenMax = 1.9f;
     static void BuildIceDeco(Transform pathRoot)
     {
         Physics.SyncTransforms();
@@ -1612,6 +1614,9 @@ public static class FuwaCourse2_3Builder
                     }
                     ok[i] = !nb;
                 }
+                // 雪のふちは一部だけ（2026-11-05 てじゃ「ちょっとくどいかも、雪もヒビも一部だけでいいかも」）：ふちにそった長さ(m)のノイズが SnowRimThresh より上の所だけ
+                var okIce = (bool[])ok.Clone();
+                { float sl = 0f; for (int i = 0; i < n; i++) { if (i > 0) sl += (loop[i] - loop[i - 1]).magnitude; if (ok[i] && BigNoise(1300 + di * 7, sl * 1.0f) < SnowRimThresh) ok[i] = false; } }
                 bool full = ok.All(x => x);
                 // 雪のふち：ok がつづく所を帯に。はしは 3 点かけて細く
                 int start = full ? 0 : System.Array.FindIndex(ok, x => !x);
@@ -1649,7 +1654,15 @@ public static class FuwaCourse2_3Builder
                         for (int k = 0; k + 1 < rows; k++) { st.AddRange(new[] { a0 + k, a1 + k, a1 + k + 1, a0 + k, a1 + k + 1, a0 + k + 1 }); }
                     }
                     nSnow++;
-                    // つらら
+                }
+                // つらら（雪のない所にも。となりの物がある所はなし）
+                {
+                    bool fullI = okIce.All(x => x); int startI = fullI ? 0 : System.Array.FindIndex(okIce, x => !x);
+                    var runsI = new List<List<int>>(); var curI = new List<int>();
+                    for (int k = 0; k <= n; k++) { int i = (startI + k) % n; if (okIce[i] && !(k == n && !fullI)) curI.Add(i); if (!okIce[i] || k == n) { if (curI.Count >= 3) runsI.Add(curI); curI = new List<int>(); } }
+                    foreach (var run in runsI)
+                    {
+                    int rc = run.Count;
                     float acc = 0f, next = Mathf.Lerp(IcicleGapMin, IcicleGapMax, (float)rnd.NextDouble()) * 0.5f;
                     for (int r = 1; r + 1 < rc; r++)
                     {
@@ -1662,6 +1675,7 @@ public static class FuwaCourse2_3Builder
                         var outD = -nIn[i]; var tip = top + new Vector3(outD.x, 0f, outD.y) * (len * 0.08f) + Vector3.down * len;
                         Icicle(iv, it, top, tip, rad, (float)rnd.NextDouble() * 72f);
                         nIce++;
+                    }
                     }
                 }
             }

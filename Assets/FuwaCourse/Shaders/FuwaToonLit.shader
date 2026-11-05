@@ -73,6 +73,7 @@ Shader "FuwaCourse/ToonLit"
         _GroundFineScale ("細かい草の模様の大きさ (m)", Float) = 0.9
         _GroundFineFade ("細かい草が消える距離 (m)", Float) = 18
         _GroundFineCrisp ("草の筋をくっきり（トゥーンっぽく、0=やわらか）", Range(0,1)) = 0
+        _GroundFineMask ("細かい模様を一部だけに（大きいムラの暗い所だけ。0=全部、大きいほど少なく）", Range(0,1)) = 0
     }
     SubShader
     {
@@ -105,7 +106,7 @@ Shader "FuwaCourse/ToonLit"
             half _EmissionGradient, _EmissionFull;
             fixed4 _UnderColor; half _UnderStrength, _UnderGrad;
             fixed4 _IceSideColor; half _IceSide, _IceStreak; float _IceSideDepth, _IceStreakScale;
-            sampler2D _GroundTex; half _GroundPatch, _GroundFine, _GroundSteps, _GroundFineCrisp; float _GroundPatchScale, _GroundMidScale, _GroundFineScale, _GroundFineFade; half4 _GroundTintA, _GroundTintB;
+            sampler2D _GroundTex; half _GroundPatch, _GroundFine, _GroundSteps, _GroundFineCrisp, _GroundFineMask; float _GroundPatchScale, _GroundMidScale, _GroundFineScale, _GroundFineFade; half4 _GroundTintA, _GroundTintB;
             float Hash1(float x) { return frac(sin(x * 127.1 + 311.7) * 43758.5453); }
             // 層ごとの色味：層の番号からA/B/C（と元の色）を選ぶ。となりと同じ色になることもあるので、層の厚みがバラバラに見える
             half3 LayerTint(float id)
@@ -229,6 +230,8 @@ Shader "FuwaCourse/ToonLit"
                         half crisp = sign(fd) * smoothstep(0.22 - w, 0.22 + w, abs(fd)) * 0.6;
                         fd = lerp(fd, crisp, _GroundFineCrisp);
                     }
+                    // 2026-11-05 2–3 てじゃ「ヒビも一部だけでいいかも」：大きいムラ（pg）の低い所だけ残す
+                    if (_GroundFineMask > 0) fd *= 1 - smoothstep(1 - _GroundFineMask - 0.06, 1 - _GroundFineMask + 0.06, pg);
                     col.rgb *= 1 + fd * _GroundFine * fineFade * up;
                 }
                 // 下向きの面だけ色をかける（雲の看板の水色の影など。光の向きに関係なく、いつも下側。2026-10-12 てじゃ）
