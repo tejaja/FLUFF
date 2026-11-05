@@ -952,6 +952,30 @@ public static class FuwaPracticeTutorial
                     for (int i = 0; i < pts.Count; i++) { float e = (pts[i] - c2).sqrMagnitude; if (e < bd) { bd = e; bi = i; } }
                     if (InObstacleRange(U(dist[bi]))) { Object.DestroyImmediate(t.gameObject); removed++; }
                 }
+            // 障害物の手前（カーブの終わり）にもうひとつチェックポイント（2026-11-05 てじゃ）。Checkpoint1（溝のあと）を複製して Checkpoint0 に
+            {
+                var cp0 = course.Find("Checkpoint0");
+                if (cp0 == null)
+                {
+                    cp0 = Object.Instantiate(cp.gameObject, course, false).transform; cp0.name = "Checkpoint0";
+                    cp0.SetSiblingIndex(cp.GetSiblingIndex());
+                    var trig = cp0.Find("Trigger").GetComponent<FuwaCheckpoint>();
+                    // 複製の参照は複製の中を指しているか確かめて、球の一覧（アウトの時の光の戻し・ゴール後の戻り先）に足す
+                    var bso = new SerializedObject(ball); var cps = bso.FindProperty("checkpoints");
+                    cps.arraySize++; cps.GetArrayElementAtIndex(cps.arraySize - 1).objectReferenceValue = trig;
+                    bso.ApplyModifiedPropertiesWithoutUndo(); Sync(ball);
+                }
+                float uCp0 = uCurve1 + ObstFrom - 1.9f;
+                At(pts, dist, D(uCp0), out var c0, out var f0);
+                cp0.position = c0; cp0.rotation = Quaternion.LookRotation(f0);
+                foreach (Transform cl0 in cp0.Find("GlowMushrooms"))
+                {
+                    var lp = cl0.localPosition; lp.x = Mathf.Sign(lp.x) * (PathHalfW(D(uCp0)) + 0.28f); cl0.localPosition = lp;
+                }
+                var t0 = cp0.Find("Trigger").GetComponent<FuwaCheckpoint>();
+                bool own = t0.respawnPoint != null && t0.respawnPoint.IsChildOf(cp0) && t0.glowRenderers.All(r => r == null || r.transform.IsChildOf(cp0)) && t0.glowEffects.All(e => e == null || e.transform.IsChildOf(cp0));
+                if (!own) return "Checkpoint0 refs point outside!";
+            }
             Physics.SyncTransforms();
             var parts = new List<string>();
             for (int k = 0; k < ObstCount; k++)
