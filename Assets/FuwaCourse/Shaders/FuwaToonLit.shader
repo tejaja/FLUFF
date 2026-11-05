@@ -41,6 +41,12 @@ Shader "FuwaCourse/ToonLit"
         _UnderColor ("下向きの面の色（かける）", Color) = (0.72, 0.84, 1, 1)
         _UnderStrength ("下向きの面の色の強さ (0=off)", Range(0,1)) = 0
         _UnderGrad ("UV の y がこの値より下も色をかける（下ほど濃く。0=off）", Range(0,1)) = 0
+        // 氷の島の側面（2026-11-05 2–3 てじゃ「氷の島の見た目をクオリティあげてこ」）：uv の y＝上のふちからの深さ(m)。下ほど _IceSideColor をかけて、横向きの面にたての筋
+        _IceSide ("氷の側面：下ほど濃く＋たての筋 (0=off)", Range(0,1)) = 0
+        _IceSideColor ("氷の側面の下の色（かける）", Color) = (0.55, 0.68, 0.95, 1)
+        _IceSideDepth ("色が濃くなりきる深さ (m、uv.y)", Float) = 1.6
+        _IceStreak ("たての筋の強さ", Range(0,1)) = 0.35
+        _IceStreakScale ("たての筋の細かさ (per m)", Float) = 1.6
         [Header(Rock Detail)]
         _NoiseStrength ("Color Noise Strength", Range(0,0.5)) = 0
         _NoiseScale ("Color Noise Scale (per m)", Float) = 0.6
@@ -98,6 +104,7 @@ Shader "FuwaCourse/ToonLit"
             half4 _StrataA, _StrataB, _StrataC; half _PatternFromBase, _PatternFromUV3;
             half _EmissionGradient, _EmissionFull;
             fixed4 _UnderColor; half _UnderStrength, _UnderGrad;
+            fixed4 _IceSideColor; half _IceSide, _IceStreak; float _IceSideDepth, _IceStreakScale;
             sampler2D _GroundTex; half _GroundPatch, _GroundFine, _GroundSteps, _GroundFineCrisp; float _GroundPatchScale, _GroundMidScale, _GroundFineScale, _GroundFineFade; half4 _GroundTintA, _GroundTintB;
             float Hash1(float x) { return frac(sin(x * 127.1 + 311.7) * 43758.5453); }
             // 層ごとの色味：層の番号からA/B/C（と元の色）を選ぶ。となりと同じ色になることもあるので、層の厚みがバラバラに見える
@@ -230,6 +237,15 @@ Shader "FuwaCourse/ToonLit"
                     half under = smoothstep(-0.15, 0.75, -n.y);
                     if (_UnderGrad > 0) under = max(under, 0.75 * smoothstep(_UnderGrad, 0, i.uv.y));
                     col.rgb *= lerp(1, _UnderColor.rgb, _UnderStrength * under);
+                }
+                if (_IceSide > 0)
+                {
+                    half dep = saturate(i.uv.y / max(_IceSideDepth, 0.01));
+                    col.rgb *= lerp(half3(1,1,1), _IceSideColor.rgb, _IceSide * dep * (2 - dep) * 0.9);
+                    half side = 1 - smoothstep(0.35, 0.8, abs(n.y));
+                    float3 sq = float3(i.pp.x * _IceStreakScale, i.pp.y * 0.12, i.pp.z * _IceStreakScale);
+                    half st = 0.6 * VNoise(sq) + 0.4 * VNoise(sq * float3(2.7, 1.3, 2.7) + 3.3);
+                    col.rgb *= 1 + (st - 0.5) * 2 * _IceStreak * _IceSide * side;
                 }
                 float3 l = normalize(_WorldSpaceLightPos0.xyz);
                 float3 v = normalize(_WorldSpaceCameraPos - i.wp);

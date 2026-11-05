@@ -107,9 +107,12 @@ public static class FuwaCourse2_3Builder
     public static Color PathColA = new Color(0.84f, 0.88f, 0.93f), PathColB = new Color(0.71f, 0.76f, 0.82f);
     public static Color IceCol = new Color(0.62f, 0.86f, 0.98f);
     public static Color SnowColA = new Color(0.97f, 0.98f, 1f), SnowColB = new Color(0.88f, 0.91f, 0.95f);
+    public static bool IceLook = true;   // 氷の島の見た目（2026-11-05）。false で前の見た目（材質の模様は前の値を入れ直さないので、戻す時は IceTest_IceC から写す所が効く）
+    public static Color SnowLipCol = new Color(0.97f, 0.985f, 1f), IcicleCol = new Color(0.7f, 0.88f, 1f);
+    public static float IceSpike = 0.75f;   // B：側面の下のはしのギザギザ（つららっぽく、1 つおきに下へ）
     public static Color RockCol = new Color(0.46f, 0.50f, 0.60f), CrystalCol = new Color(0.62f, 0.84f, 1f), MarkCol = new Color(1f, 0.5f, 0.2f);
 
-    static Material pathA, pathB, iceFlat, snowA, snowB, rockMat, crystalMat, markMat, treeMat, iceRockMat;
+    static Material pathA, pathB, iceFlat, snowA, snowB, rockMat, crystalMat, markMat, treeMat, iceRockMat, snowLipMat, icicleMat;
     static int meshNo;
     const string MeshDir = "Assets/FuwaStage2/Meshes/Course2_3";
     static int pathLayer = 11;
@@ -143,6 +146,25 @@ public static class FuwaCourse2_3Builder
             iceFlat.SetColor("_GroundTintA", testIce.GetColor("_GroundTintA")); iceFlat.SetColor("_GroundTintB", testIce.GetColor("_GroundTintB"));
             EditorUtility.SetDirty(iceFlat);
         }
+        // 2026-11-05 てじゃ「氷の島の見た目をクオリティあげてこ」→ 全部（A 雪のふち・B 側面・C 上の面・D つらら）
+        //  C 上の面：三角の模様（芝の筋）をやめて、雪の白いまだら＋細いひび（IceDetail：R＝ひび、G＝大きいまだら、B＝中くらい）
+        //  B 側面：上のふちからの深さ（uv.y）で下ほど濃い青、横向きの面にたての筋（FuwaToonLit の _IceSide）
+        if (IceLook)
+        {
+            const string tp = "Assets/FuwaStage2/Textures/IceDetail.png";
+            var ti = AssetImporter.GetAtPath(tp) as TextureImporter;
+            if (ti && (ti.sRGBTexture || ti.wrapMode != TextureWrapMode.Repeat)) { ti.sRGBTexture = false; ti.wrapMode = TextureWrapMode.Repeat; ti.mipmapEnabled = true; ti.SaveAndReimport(); }
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(tp);
+            if (tex) iceFlat.SetTexture("_GroundTex", tex);
+            iceFlat.SetFloat("_GroundPatch", 0.75f); iceFlat.SetFloat("_GroundPatchScale", 10f); iceFlat.SetFloat("_GroundMidScale", 3.4f); iceFlat.SetFloat("_GroundSteps", 3f);
+            iceFlat.SetFloat("_GroundFine", 0.5f); iceFlat.SetFloat("_GroundFineScale", 8f); iceFlat.SetFloat("_GroundFineFade", 40f); iceFlat.SetFloat("_GroundFineCrisp", 1f);
+            iceFlat.SetColor("_GroundTintA", new Color(1.5f, 1.15f, 1.03f)); iceFlat.SetColor("_GroundTintB", new Color(0.86f, 0.93f, 1.0f));
+            iceFlat.SetFloat("_IceSide", 1f); iceFlat.SetColor("_IceSideColor", new Color(0.5f, 0.62f, 0.92f)); iceFlat.SetFloat("_IceSideDepth", 1.6f);
+            iceFlat.SetFloat("_IceStreak", 0.4f); iceFlat.SetFloat("_IceStreakScale", 1.6f);
+            EditorUtility.SetDirty(iceFlat);
+        }
+        snowLipMat = FuwaStage2WaterTest.ToonMat("Stage2_3_SnowLip", SnowLipCol); snowLipMat.SetFloat("_OffsetFactor", -1f); snowLipMat.SetFloat("_OffsetUnits", -1f); EditorUtility.SetDirty(snowLipMat);
+        icicleMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Icicle", IcicleCol);
         snowA = PathMat("Course2_3_SnowA", SnowColA); snowB = PathMat("Course2_3_SnowB", SnowColB);
         rockMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Rock", RockCol);
         crystalMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Crystal", CrystalCol);
@@ -675,6 +697,15 @@ public static class FuwaCourse2_3Builder
         System.Func<int, int, bool> S = (x, z) => x >= 0 && x < nx && z >= 0 && z < nz && solid[x, z];
         System.Func<Vector2, float, Vector3> V = (q, y) => new Vector3(q.x, y, q.y);
         float T = CrackT;
+        // B：ふちの角（まわりに中と外の両方があるます目の角）を 1 つおきに下へ（つららっぽいギザギザ）
+        var spk = new float[nx + 1, nz + 1];
+        if (IceLook)
+            for (int x = 0; x <= nx; x++) for (int z = 0; z <= nz; z++)
+            {
+                bool a = S(x - 1, z - 1) || S(x, z - 1) || S(x - 1, z) || S(x, z), b = !S(x - 1, z - 1) || !S(x, z - 1) || !S(x - 1, z) || !S(x, z);
+                if (a && b && (x + z) % 2 == 0) spk[x, z] = IceSpike * (0.35f + 0.65f * RNoise(77 + name.Length, (x * 13 + z * 7) * 0.31f));
+            }
+        var bEdges = new Dictionary<int, int>(); int Key(int x, int z) => x * (nz + 1) + z;
         var v = new List<Vector3>(); var t = new List<int>();
         for (int x = 0; x < nx; x++) for (int z = 0; z < nz; z++)
         {
@@ -682,18 +713,40 @@ public static class FuwaCourse2_3Builder
             Vector2 c00 = corner[x, z], c10 = corner[x + 1, z], c11 = corner[x + 1, z + 1], c01 = corner[x, z + 1];
             float h00 = MapHeight(c00), h10 = MapHeight(c10), h11 = MapHeight(c11), h01 = MapHeight(c01);
             Quad(v, t, V(c00, h00), V(c10, h10), V(c11, h11), V(c01, h01), Vector3.up);
-            Quad(v, t, V(c00, -T), V(c01, -T), V(c11, -T), V(c10, -T), Vector3.down);
-            if (!S(x - 1, z)) Quad(v, t, V(c00, h00), V(c01, h01), V(c01, -T), V(c00, -T), Vector3.left);
-            if (!S(x + 1, z)) Quad(v, t, V(c10, h10), V(c10, -T), V(c11, -T), V(c11, h11), Vector3.right);
-            if (!S(x, z - 1)) Quad(v, t, V(c00, h00), V(c00, -T), V(c10, -T), V(c10, h10), Vector3.back);
-            if (!S(x, z + 1)) Quad(v, t, V(c01, h01), V(c11, h11), V(c11, -T), V(c01, -T), Vector3.forward);
+            float b00 = -T - spk[x, z], b10 = -T - spk[x + 1, z], b11 = -T - spk[x + 1, z + 1], b01 = -T - spk[x, z + 1];
+            Quad(v, t, V(c00, b00), V(c01, b01), V(c11, b11), V(c10, b10), Vector3.down);
+            // ふちの線（中を左に見て進む向き）も覚える（A 雪のふち・D つらら）
+            if (!S(x - 1, z)) { Quad(v, t, V(c00, h00), V(c01, h01), V(c01, b01), V(c00, b00), Vector3.left); bEdges[Key(x, z + 1)] = Key(x, z); }
+            if (!S(x + 1, z)) { Quad(v, t, V(c10, h10), V(c10, b10), V(c11, b11), V(c11, h11), Vector3.right); bEdges[Key(x + 1, z)] = Key(x + 1, z + 1); }
+            if (!S(x, z - 1)) { Quad(v, t, V(c00, h00), V(c00, b00), V(c10, b10), V(c10, h10), Vector3.back); bEdges[Key(x, z)] = Key(x + 1, z); }
+            if (!S(x, z + 1)) { Quad(v, t, V(c01, h01), V(c11, h11), V(c11, b11), V(c01, b01), Vector3.forward); bEdges[Key(x + 1, z + 1)] = Key(x, z + 1); }
         }
         var m = NewMesh(name);
         m.indexFormat = v.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
-        m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        m.SetVertices(v); m.SetTriangles(t, 0);
+        m.SetUVs(0, v.Select(q => new Vector2(0f, Mathf.Max(0f, MapHeight(new Vector2(q.x, q.z)) - q.y))).ToList());   // uv.y＝上の面からの深さ（側面の色）
+        m.RecalculateNormals(); m.RecalculateBounds();
         var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = o; g.layer = pathLayer;
         g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = iceFlat;
         var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = m; iceCols.Add(mc);
+        if (recordDeco)
+        {
+            var loops = new List<List<Vector2>>(); var used = new HashSet<int>();
+            foreach (var st in bEdges.Keys.ToList())
+            {
+                if (used.Contains(st)) continue;
+                var loop = new List<Vector2>(); int cur = st, guard = 0;
+                while (!used.Contains(cur) && bEdges.ContainsKey(cur) && guard++ < 200000)
+                {
+                    used.Add(cur); var q = corner[cur / (nz + 1), cur % (nz + 1)];
+                    if (loop.Count == 0 || (loop[loop.Count - 1] - q).magnitude > 0.03f) loop.Add(q);
+                    cur = bEdges[cur];
+                }
+                if (loop.Count > 2 && (loop[0] - loop[loop.Count - 1]).magnitude < 0.03f) loop.RemoveAt(loop.Count - 1);
+                if (loop.Count >= 3) loops.Add(loop);
+            }
+            iceDeco.Add((g.transform, loops, q => MapHeight(q), 0.05f, T - 0.1f, mc));
+        }
     }
     // 割れ目の板：ます目に合わせず、ふちの点そのままで作る（ギザギザのかどが丸まってこぶになり、閉じた時にすき間が残ったので）。
     //  poly は CrackSlab の形（下のふち n+1 点 → 上のふち n+1 点を逆順）
@@ -1301,7 +1354,8 @@ public static class FuwaCourse2_3Builder
             var qm = q - nIn[i] * (0.08f + 0.1f * r); mid[i] = new Vector3(qm.x, h - 0.35f - 0.2f * r, qm.y);
             float room = RayToPoly(outline, q + nIn[i] * 0.01f, nIn[i]);
             var qb = q + nIn[i] * Mathf.Min(room * 0.4f, RoughTaper * (0.6f + 0.8f * RNoise(seed + 9, i * 0.6f)));
-            bot[i] = new Vector3(qb.x, h - Mathf.Lerp(RoughDepthMin, RoughDepthMax, RNoise(seed + 13, i * 0.45f)), qb.y);
+            float spike = IceLook && i % 2 == 0 ? IceSpike * (0.35f + 0.65f * RNoise(seed + 17, i * 0.8f)) : 0f;
+            bot[i] = new Vector3(qb.x, h - Mathf.Lerp(RoughDepthMin, RoughDepthMax, RNoise(seed + 13, i * 0.45f)) - spike, qb.y);
         }
         var v = new List<Vector3>(); var t = new List<int>();
         float hc = topH(c); var ctop = new Vector3(c.x, hc, c.y);
@@ -1316,7 +1370,9 @@ public static class FuwaCourse2_3Builder
             Quad(v, t, top[i], top[j], mid[j], mid[i], outw);
             Quad(v, t, mid[i], mid[j], bot[j], bot[i], outw + Vector3.down * 0.6f);
         }
-        var mesh = NewMesh(name); mesh.SetVertices(v); mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        var mesh = NewMesh(name); mesh.SetVertices(v); mesh.SetTriangles(t, 0);
+        mesh.SetUVs(0, v.Select(q => new Vector2(0f, Mathf.Max(0f, topH(new Vector2(q.x, q.z)) - q.y))).ToList());   // uv.y＝上の面からの深さ（側面の色）
+        mesh.RecalculateNormals(); mesh.RecalculateBounds();
         return mesh;
     }
     // シーソーの板：s から u の向きに長さ len、半分の幅 hw。まん中を軸に傾ける親（FuwaTiltIce）の下に、止まっている時の形で作る
@@ -1509,6 +1565,7 @@ public static class FuwaCourse2_3Builder
         if (moving) { m.SetUVs(3, m.vertices.Select(q => g.transform.TransformPoint(q)).ToList()); mat = MovingIceMat(); }
         g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = mat;
         var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = m; iceCols.Add(mc);
+        if (recordDeco) iceDeco.Add((g.transform, new List<List<Vector2>> { outline }, topH, 0.16f, 0.55f, mc));
         return g;
     }
     static FuwaTiltIce V4Turner(Transform pv, float amp, float period, float phase, Quaternion baseRot, bool spin)
@@ -1517,6 +1574,131 @@ public static class FuwaCourse2_3Builder
         ti.amplitude = amp; ti.period = period; ti.phase = phase; ti.baseRotation = baseRot; ti.spin = spin;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ti); FuwaStage2WaterTest.NoSync(ti);
         return ti;
+    }
+    // ---- 氷の島の飾り（2026-11-05 てじゃ「氷の島の見た目をクオリティあげてこ」→ A 雪のふち・D つらら）----
+    //  島・板ごとに、ふちの線（ローカルの xz、中を左に見て進む）と上の面の高さを覚えておき、最後にまとめて作る（となりの物があるかを当たりで調べるため）。
+    //  ふちの外 0.4m に別の氷・道の上の面がある所（道とのつなぎ・足場とシーソーのあいだ）は雪もつららも付けない。動く物は親ごと動く（子にする）
+    static bool recordDeco;
+    static List<(Transform g, List<List<Vector2>> loops, System.Func<Vector2, float> topH, float dripOut, float icicleDepth, Collider self)> iceDeco = new List<(Transform, List<List<Vector2>>, System.Func<Vector2, float>, float, float, Collider)>();
+    public static float SnowLipIn = 0.62f, SnowLipH = 0.1f, SnowDripMax = 0.55f, IcicleGapMin = 1.4f, IcicleGapMax = 3.2f, IcicleChance = 0.75f, IcicleLenMin = 0.5f, IcicleLenMax = 1.9f;
+    static void BuildIceDeco(Transform pathRoot)
+    {
+        Physics.SyncTransforms();
+        int nSnow = 0, nIce = 0;
+        for (int di = 0; di < iceDeco.Count; di++)
+        {
+            var rec = iceDeco[di]; var g = rec.g; var rnd = new System.Random(5100 + di * 31);
+            var sv = new List<Vector3>(); var st = new List<int>(); var iv = new List<Vector3>(); var it = new List<int>();
+            foreach (var loop0 in rec.loops)
+            {
+                var loop = new List<Vector2>(loop0);
+                float ar = 0f; for (int i = 0; i < loop.Count; i++) { var a = loop[i]; var b = loop[(i + 1) % loop.Count]; ar += a.x * b.y - b.x * a.y; }
+                if (ar < 0f) loop.Reverse();   // 反時計まわり＝中が左
+                int n = loop.Count; if (n < 3) continue;
+                var nIn = new Vector2[n]; var hh = new float[n]; var ok = new bool[n];
+                for (int i = 0; i < n; i++)
+                {
+                    var e0 = (loop[i] - loop[(i + n - 1) % n]).normalized; var e1 = (loop[(i + 1) % n] - loop[i]).normalized;
+                    var m = new Vector2(-e0.y, e0.x) + new Vector2(-e1.y, e1.x); nIn[i] = m.sqrMagnitude > 1e-6f ? m.normalized : new Vector2(-e1.y, e1.x);
+                    hh[i] = rec.topH(loop[i]);
+                    // となりの物：ふちの外 0.4m の上から下へ当たりを見る
+                    var outP = loop[i] - nIn[i] * 0.4f; var wp = g.TransformPoint(new Vector3(outP.x, hh[i] + 1.0f, outP.y)); var wy = g.TransformPoint(new Vector3(loop[i].x, hh[i], loop[i].y)).y;
+                    bool nb = false;
+                    foreach (var hit in Physics.RaycastAll(wp, Vector3.down, 2.2f, ~0, QueryTriggerInteraction.Ignore))
+                    {
+                        if (hit.collider == rec.self || hit.collider.GetComponent<FuwaBounce>()) continue;
+                        if (Mathf.Abs(hit.point.y - wy) > 0.7f) continue;
+                        if (iceCols.Contains(hit.collider) || hit.collider.transform.IsChildOf(pathRoot)) { nb = true; break; }
+                    }
+                    ok[i] = !nb;
+                }
+                bool full = ok.All(x => x);
+                // 雪のふち：ok がつづく所を帯に。はしは 3 点かけて細く
+                int start = full ? 0 : System.Array.FindIndex(ok, x => !x);
+                var runs = new List<List<int>>(); var cur = new List<int>();
+                for (int k = 0; k <= n; k++)
+                {
+                    int i = (start + k) % n;
+                    if (ok[i] && !(k == n && !full)) cur.Add(i);
+                    if (!ok[i] || k == n) { if (cur.Count >= 3) runs.Add(cur); cur = new List<int>(); }
+                }
+                foreach (var run in runs)
+                {
+                    bool closed = full; int rc = run.Count;
+                    float[] prof = { -SnowLipIn, -SnowLipIn * 0.62f, -SnowLipIn * 0.28f, 0f, 0.7f, 1f, 0.9f };   // 外向きの位置（4〜6 番目は rec.dripOut の倍）
+                    int rows = prof.Length; int baseIdx = sv.Count;
+                    for (int r = 0; r < rc; r++)
+                    {
+                        int i = run[r];
+                        float tp = closed ? 1f : Mathf.Clamp01(Mathf.Min(r, rc - 1 - r) / 3f); tp = Mathf.SmoothStep(0f, 1f, tp);
+                        float drip = Mathf.Max(0f, BigNoise(900 + di, i * 0.9f) * 1.25f - 0.45f) / 0.8f * SnowDripMax;
+                        float[] dy = { 0.012f, SnowLipH * 0.55f, SnowLipH * 0.95f, SnowLipH, SnowLipH * 0.5f, -0.06f, -0.06f - drip };
+                        var outD = -nIn[i];
+                        for (int k = 0; k < rows; k++)
+                        {
+                            float off = k <= 3 ? prof[k] * tp : prof[k] * rec.dripOut * tp;
+                            var q = loop[i] + outD * off;
+                            float y = k <= 3 ? rec.topH(q) + 0.012f + (dy[k] - 0.012f) * tp : hh[i] + dy[k] * tp;
+                            sv.Add(new Vector3(q.x, y, q.y));
+                        }
+                    }
+                    int segs = closed ? rc : rc - 1;
+                    for (int r = 0; r < segs; r++)
+                    {
+                        int a0 = baseIdx + r * rows, a1 = baseIdx + ((r + 1) % rc) * rows;
+                        for (int k = 0; k + 1 < rows; k++) { st.AddRange(new[] { a0 + k, a1 + k, a1 + k + 1, a0 + k, a1 + k + 1, a0 + k + 1 }); }
+                    }
+                    nSnow++;
+                    // つらら
+                    float acc = 0f, next = Mathf.Lerp(IcicleGapMin, IcicleGapMax, (float)rnd.NextDouble()) * 0.5f;
+                    for (int r = 1; r + 1 < rc; r++)
+                    {
+                        int i = run[r], ip = run[r - 1]; acc += (loop[i] - loop[ip]).magnitude;
+                        if (acc < next) continue;
+                        acc = 0f; next = Mathf.Lerp(IcicleGapMin, IcicleGapMax, (float)rnd.NextDouble());
+                        if (rnd.NextDouble() > IcicleChance) continue;
+                        float len = Mathf.Lerp(IcicleLenMin, IcicleLenMax, (float)(rnd.NextDouble() * rnd.NextDouble() * 0.6 + rnd.NextDouble() * 0.4)), rad = 0.1f + 0.12f * (float)rnd.NextDouble() + len * 0.03f;
+                        var bp = loop[i] + nIn[i] * 0.15f; var top = new Vector3(bp.x, hh[i] - rec.icicleDepth, bp.y);
+                        var outD = -nIn[i]; var tip = top + new Vector3(outD.x, 0f, outD.y) * (len * 0.08f) + Vector3.down * len;
+                        Icicle(iv, it, top, tip, rad, (float)rnd.NextDouble() * 72f);
+                        nIce++;
+                    }
+                }
+            }
+            if (sv.Count > 0)
+            {
+                var m = NewMesh(g.name + "_Snow"); m.indexFormat = sv.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+                m.SetVertices(sv); m.SetTriangles(st, 0); m.RecalculateNormals(); m.RecalculateBounds();
+                var o = new GameObject("Snow"); o.transform.SetParent(g, false);
+                o.AddComponent<MeshFilter>().sharedMesh = m; var mr = o.AddComponent<MeshRenderer>(); mr.sharedMaterial = snowLipMat;
+            }
+            if (iv.Count > 0)
+            {
+                var m = NewMesh(g.name + "_Icicles"); m.SetVertices(iv); m.SetTriangles(it, 0); m.RecalculateNormals(); m.RecalculateBounds();
+                var o = new GameObject("Icicles"); o.transform.SetParent(g, false);
+                o.AddComponent<MeshFilter>().sharedMesh = m; var mr = o.AddComponent<MeshRenderer>(); mr.sharedMaterial = icicleMat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+        }
+        Debug.Log("[2–3] 氷の飾り：雪のふち " + nSnow + " 本、つらら " + nIce + " 本（" + iceDeco.Count + " 個の島・板）");
+        iceDeco.Clear();
+    }
+    // つらら 1 本（5 角のとがった柱、根元は上のふたつき）。表は外向き
+    static void Icicle(List<Vector3> v, List<int> t, Vector3 top, Vector3 tip, float r, float twist)
+    {
+        const int N = 5; var axis = (tip - top).normalized; var side = Vector3.Cross(axis, Vector3.forward).sqrMagnitude > 1e-4f ? Vector3.Cross(axis, Vector3.forward).normalized : Vector3.right; var side2 = Vector3.Cross(axis, side);
+        var mid = Vector3.Lerp(top, tip, 0.35f);
+        Vector3 Ring(int i, Vector3 c, float rr) { float a = (i * 72f + twist) * Mathf.Deg2Rad; return c + (side * Mathf.Cos(a) + side2 * Mathf.Sin(a)) * rr; }
+        for (int i = 0; i < N; i++)
+        {
+            int j = (i + 1) % N;
+            Vector3 a0 = Ring(i, top, r), a1 = Ring(j, top, r), m0 = Ring(i, mid, r * 0.7f), m1 = Ring(j, mid, r * 0.7f);
+            var outw = (a0 + a1) * 0.5f - top;
+            Quad(v, t, a0, a1, m1, m0, outw);
+            int k = v.Count; v.Add(m0); v.Add(m1); v.Add(tip);
+            if (Vector3.Dot(Vector3.Cross(m1 - m0, tip - m0), outw) >= 0f) t.AddRange(new[] { k, k + 1, k + 2 }); else t.AddRange(new[] { k, k + 2, k + 1 });
+            int q = v.Count; v.Add(top); v.Add(a0); v.Add(a1);
+            if (Vector3.Dot(Vector3.Cross(a0 - top, a1 - top), Vector3.up) >= 0f) t.AddRange(new[] { q, q + 1, q + 2 }); else t.AddRange(new[] { q, q + 2, q + 1 });
+        }
     }
     // 坂と動く物の上の置き物（2026-11-05 てじゃ「坂は確かにちょっとキツめになったけど、まだつっきれるな」「坂や移動床にも障害物あってもいいかもね」→ 案A＋B）
     //  シーソー：(何枚目, 軸にそった位置 0〜1, 軸の左へ m, 結晶か, 大きさ)。板と一緒に傾く
@@ -1695,6 +1877,7 @@ public static class FuwaCourse2_3Builder
             var links = M2_Links.ToArray(); if (M2_Movers) links[links.Length - 1] = M2_L4b;
             var G = M2_Movers ? M2_G2 : M2_G;
             bool v4 = M2_V3 && M2_V4; var F4 = v4 ? V4Make() : null;
+            recordDeco = v4 && IceLook; iceDeco.Clear();
             if (v4)
             {
                 // 出口の足場 → S0 の平らなふち、S3 の平らなふち → ゴール
@@ -1917,10 +2100,11 @@ public static class FuwaCourse2_3Builder
             }
             if (warn != "") Debug.LogWarning("[2–3] つながっていない島が近い:" + warn);
             Debug.Log("[2–3] 道でつないだ島どうしの水の幅:" + linkedGaps);
+            if (recordDeco) { recordDeco = false; BuildIceDeco(path); }
             var last = linkPts[linkPts.Count - 1]; var gEnd = last[last.Count - 1]; var gDir = (last[last.Count - 1] - last[last.Count - 2]).normalized;
             p = o + new Vector3(gEnd.x, 0, gEnd.y); dir = new Vector3(gDir.x, 0, gDir.y);
         }
-        finally { MapHills = keepHills; map2Ridge = false; MapHillOnly = null; domeFlat = null; unscale(); }
+        finally { MapHills = keepHills; map2Ridge = false; MapHillOnly = null; domeFlat = null; recordDeco = false; unscale(); }
     }
     static bool map2Ridge;
     // 丸い山の上で平らにする所（道の中心線の島に入る部分、半分の幅）。e＝道のふちからの距離が DomeFlatIn 以内は平ら、DomeFlatOut で元の坂
