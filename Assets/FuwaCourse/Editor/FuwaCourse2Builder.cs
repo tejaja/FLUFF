@@ -216,6 +216,37 @@ public static class FuwaCourse2Builder
 
     // CP2：頂上（50）→ 岩の柱を抜けた先・追い風（TailS0=70.5）の手前へ（2026-10-12 てじゃ「頂上のチェックポイントやめて、追い風の手前くらいに」）
     public const float CP1 = 18.5f, CP2 = 67.6f, GoalS = 102.4f;   // 2026-10-07 夜：岩場を奥へ伸ばしてゴールもその先へ（元 89.5）
+    // 頂上の割れ目（s≈54〜57.5）の手前・温泉（右、〜50.5）のあとに、もうひとつ CheckpointSummit（2026-11-05 てじゃ。CP2 はそのまま。Checkpoint1b は登りの手前に手で置いた別の物なので使わない）。
+    // 光るキノコは割れ目にかからないよう判定の2m先
+    public const float CP1b = 50.5f, CP1bAhead = 2f;
+
+    [MenuItem("FuwaCourse/済み（押す前に相談）/Course2/頂上のチェックポイントだけ置く")]
+    public static void PlaceCp1bMenu() { Debug.Log(PlaceCp1b()); }
+    public static string PlaceCp1b()
+    {
+        var root = GameObject.Find("FuwaCourse2").transform;
+        FuwaCourse1Builder.EnsureCheckpoint(root, "CheckpointSummit", "Checkpoint1");
+        return PlaceCpAt(root, ToCourse(root), "CheckpointSummit", 1, CP1b, CP1bAhead, CP1bAhead);
+    }
+
+    static string PlaceCpAt(Transform root, Matrix4x4 m, string name, int piece, float s, float leftAhead, float rightAhead)
+    {
+        var cp = root.Find(name);
+        Undo.RecordObject(cp, "place");
+        cp.localPosition = m.MultiplyPoint3x4(Point(piece, s, 0, 0));
+        cp.localRotation = Quaternion.Euler(0, Yaw(root, s), 0);
+        foreach (var (cn, side, yaw) in new[] { ("ClusterL", -1f, 69.9f), ("ClusterR", 1f, -69.9f) })
+        {
+            var c = cp.Find("GlowMushrooms/" + cn);
+            if (c == null) continue;
+            float sa = s + (side < 0 ? leftAhead : rightAhead), half = Width(piece, sa) * 0.5f + 0.08f + 0.45f;
+            Undo.RecordObject(c, "place");
+            var wp = root.TransformPoint(m.MultiplyPoint3x4(Point(piece, sa, side * half, 0)));
+            c.position = wp + Vector3.up * -0.66f;
+            c.rotation = root.rotation * Quaternion.Euler(0, Yaw(root, sa) + yaw, 0);
+        }
+        return name + " " + cp.localPosition.ToString("F2");
+    }
     // ゴールの島を持ち上げて、柵の入口を回り込む上り坂（Rocks2/PlazaWalk）の方へ向ける（2026-10-07。c2plaza.py の GOAL_LIFT と同じ）
     public const float GoalLift = 0f, GoalYawOffset = 0f;
 
@@ -227,6 +258,8 @@ public static class FuwaCourse2Builder
         var root = GameObject.Find("FuwaCourse2").transform;
         var m = ToCourse(root);
         var log = "";
+        FuwaCourse1Builder.EnsureCheckpoint(root, "CheckpointSummit", "Checkpoint1");
+        log += PlaceCpAt(root, m, "CheckpointSummit", 1, CP1b, CP1bAhead, CP1bAhead) + "  ";
         void PlaceCp(string name, int piece, float s, float leftAhead = 3f)
         {
             var cp = root.Find(name);
