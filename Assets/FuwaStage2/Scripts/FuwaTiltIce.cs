@@ -20,6 +20,8 @@ public class FuwaTiltIce : UdonSharpBehaviour
     public FuwaIceSkate skate;
     [Tooltip("傾いていない時の向き（作る時に入れる）")]
     public Quaternion baseRotation = Quaternion.identity;
+    [Tooltip("true：傾くかわりに、たて軸でぐるぐる回る（period 秒で 1 回転。上から見て時計まわり）。2026-11-05 2–3 の回る橋")]
+    public bool spin = false;
 
     private Quaternion _lastRot;
     private bool _init;
@@ -36,8 +38,12 @@ public class FuwaTiltIce : UdonSharpBehaviour
 
     private void Update()
     {
-        float ang = amplitude * Mathf.Sin(T() * Mathf.PI * 2f);
-        transform.localRotation = baseRotation * Quaternion.Euler(0f, 0f, ang);
+        if (spin) transform.localRotation = baseRotation * Quaternion.Euler(0f, 360f * T(), 0f);
+        else
+        {
+            float ang = amplitude * Mathf.Sin(T() * Mathf.PI * 2f);
+            transform.localRotation = baseRotation * Quaternion.Euler(0f, 0f, ang);
+        }
         Quaternion now = transform.rotation;
         if (!_init) { _lastRot = now; _init = true; return; }
         Quaternion prev = _lastRot; _lastRot = now;

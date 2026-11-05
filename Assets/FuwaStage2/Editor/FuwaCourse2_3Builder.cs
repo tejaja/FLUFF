@@ -1172,13 +1172,13 @@ public static class FuwaCourse2_3Builder
         if (V3_DomeToEdge) { float ang = M2_DomeH / M2_DomeRun; M2_DomeRun = M2_MR - M2_DomePlateau; M2_DomeH = ang * M2_DomeRun; }
         Vector2 C = M2_MC; float R = M2_MR;
         var d0 = (C - V3_Nub).normalized; var d1 = (V3_Pad0 - C).normalized;
-        var top = V3PadTop();
+        var top = M2_V4 ? V4_Pads[V4_Pads.Length - 1].c : V3PadTop(); float topR = M2_V4 ? V4_Pads[V4_Pads.Length - 1].r : V3_PadR;
         // 丸い山の側は道を山に入れずに、ふちに接する所（まん中から R）で止めて、すき間は IslandJoin でうめる（山をへこませない。2026-11-05 てじゃ「山凹むとキツいかも」「道をけずってもいいよ」）
         float dIn = V3_DomeToEdge ? 0f : V3_LinkIn;
         var l0 = (new[] { V3_Nub + d0 * (V3_NubR - V3_LinkIn), C - d0 * (R - dIn) }, 3f);
         var l1 = (new[] { C + d1 * (R - dIn), V3_Pad0 - d1 * (V3_PadR - V3_LinkIn) }, 3f);
         v3DomeJoins = V3_DomeToEdge ? new[] { -d0, d1 } : null;
-        var l2 = (new[] { new Vector2(top.x, top.y + V3_PadR - V3_LinkIn), new Vector2(top.x, top.y + V3_PadR + V3_FieldLink) }, 3f);
+        var l2 = (new[] { new Vector2(top.x, top.y + topR - V3_LinkIn), new Vector2(top.x, M2_V4 ? V4_FieldY : top.y + V3_PadR + V3_FieldLink) }, 3f);
         M2_Links = new[] { l0, l1, l2, l2 };   // 2 番は割れ目の道への道の始まり（作る所で toField に置きかわる）、3 番は使わない
         domeFlat = null;   // 道のつなぎで山を平らにする版（「山凹むとキツい」でやめた）。使う時は (道の中心線の島に入る部分, 半分の幅) を入れる
         float w = M2_CrackX1 - M2_CrackX0;
@@ -1237,6 +1237,49 @@ public static class FuwaCourse2_3Builder
         return o;
     }
     // 外まわり outline（ローカルの xz、上の面の高さ topH）から板のメッシュ。上の面は重心から扇、側面は 3 段（ふち → 少し外へふくらむ → 下へすぼまる）、下の面
+    // 点 q から dir の向きに、外まわり poly のふちまでの長さ（当たらなければ 100）
+    static float RayToPoly(List<Vector2> poly, Vector2 q, Vector2 dir)
+    {
+        float best = 100f;
+        for (int i = 0, j = poly.Count - 1; i < poly.Count; j = i++)
+        {
+            Vector2 a = poly[j], e = poly[i] - a; float den = dir.x * e.y - dir.y * e.x; if (Mathf.Abs(den) < 1e-8f) continue;
+            var w = a - q; float t = (w.x * e.y - w.y * e.x) / den, u = (w.x * dir.y - w.y * dir.x) / den;
+            if (t > 1e-4f && u >= 0f && u <= 1f) best = Mathf.Min(best, t);
+        }
+        return best;
+    }
+    // 多角形の耳切り（三角形の番号。向きはどちらでも。2D で反時計まわり）
+    static List<int> EarClip(List<Vector2> p)
+    {
+        int n = p.Count; var idx = Enumerable.Range(0, n).ToList(); var tri = new List<int>();
+        float area = 0f; for (int i = 0; i < n; i++) { var a = p[i]; var b = p[(i + 1) % n]; area += a.x * b.y - b.x * a.y; }
+        if (area < 0f) idx.Reverse();
+        float Cr(Vector2 a, Vector2 b, Vector2 c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+        int guard = 0;
+        while (idx.Count > 3 && guard++ < n * 4)
+        {
+            bool found = false; int m = idx.Count;
+            for (int k = 0; k < m; k++)
+            {
+                int i0 = idx[(k + m - 1) % m], i1 = idx[k], i2 = idx[(k + 1) % m];
+                Vector2 a = p[i0], b = p[i1], c = p[i2];
+                if (Cr(a, b, c) <= 1e-6f) continue;
+                bool any = false;
+                foreach (int j in idx) { if (j == i0 || j == i1 || j == i2) continue; var q = p[j]; if (Cr(a, b, q) > 1e-6f && Cr(b, c, q) > 1e-6f && Cr(c, a, q) > 1e-6f) { any = true; break; } }
+                if (any) continue;
+                tri.Add(i0); tri.Add(i1); tri.Add(i2); idx.RemoveAt(k); found = true; break;
+            }
+            if (!found)
+            {
+                // 一直線に並んだ点だけ残った時など：いちばん平らな点を落とす
+                int bk = 0; float bc = float.MaxValue; for (int k = 0; k < m; k++) { float cr = Mathf.Abs(Cr(p[idx[(k + m - 1) % m]], p[idx[k]], p[idx[(k + 1) % m]])); if (cr < bc) { bc = cr; bk = k; } }
+                idx.RemoveAt(bk);
+            }
+        }
+        if (idx.Count == 3) { tri.Add(idx[0]); tri.Add(idx[1]); tri.Add(idx[2]); }
+        return tri;
+    }
     static Mesh IceSlab(string name, List<Vector2> outline, int seed, System.Func<Vector2, float> topH)
     {
         int n = outline.Count; var c = Vector2.zero; foreach (var q in outline) c += q; c /= n;
@@ -1254,19 +1297,19 @@ public static class FuwaCourse2_3Builder
             var q = outline[i]; float h = topH(q); float r = RNoise(seed + 5, i * 0.9f);
             top[i] = new Vector3(q.x, h, q.y);
             var qm = q - nIn[i] * (0.08f + 0.1f * r); mid[i] = new Vector3(qm.x, h - 0.35f - 0.2f * r, qm.y);
-            var toC = c - q; float room = toC.magnitude;
-            var qb = q + nIn[i] * Mathf.Min(room * 0.45f, RoughTaper * (0.6f + 0.8f * RNoise(seed + 9, i * 0.6f)));
+            float room = RayToPoly(outline, q + nIn[i] * 0.01f, nIn[i]);
+            var qb = q + nIn[i] * Mathf.Min(room * 0.4f, RoughTaper * (0.6f + 0.8f * RNoise(seed + 9, i * 0.6f)));
             bot[i] = new Vector3(qb.x, h - Mathf.Lerp(RoughDepthMin, RoughDepthMax, RNoise(seed + 13, i * 0.45f)), qb.y);
         }
         var v = new List<Vector3>(); var t = new List<int>();
         float hc = topH(c); var ctop = new Vector3(c.x, hc, c.y);
         float hb = bot.Average(x => x.y) - 0.15f; var cbot = new Vector3(c.x, hb, c.y);
         void Tri(Vector3 a, Vector3 b, Vector3 d, Vector3 want) { int k = v.Count; v.Add(a); v.Add(b); v.Add(d); if (Vector3.Dot(Vector3.Cross(b - a, d - a), want) >= 0f) t.AddRange(new[] { k, k + 1, k + 2 }); else t.AddRange(new[] { k, k + 2, k + 1 }); }
+        var ear = EarClip(outline);
+        for (int e = 0; e + 2 < ear.Count; e += 3) { Tri(top[ear[e]], top[ear[e + 1]], top[ear[e + 2]], Vector3.up); Tri(bot[ear[e]], bot[ear[e + 1]], bot[ear[e + 2]], Vector3.down); }
         for (int i = 0; i < n; i++)
         {
             int j = (i + 1) % n;
-            Tri(ctop, top[i], top[j], Vector3.up);
-            Tri(cbot, bot[i], bot[j], Vector3.down);
             var outw = -new Vector3(nIn[i].x + nIn[j].x, 0f, nIn[i].y + nIn[j].y);
             Quad(v, t, top[i], top[j], mid[j], mid[i], outw);
             Quad(v, t, mid[i], mid[j], bot[j], bot[i], outw + Vector3.down * 0.6f);
@@ -1297,6 +1340,245 @@ public static class FuwaCourse2_3Builder
         var ti = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaTiltIce>(pv.gameObject);
         ti.amplitude = V3_TiltDeg; ti.period = V3_TiltPeriod; ti.phase = phase; ti.baseRotation = baseRot;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ti); FuwaStage2WaterTest.NoSync(ti);
+    }
+    // ---- V4（2026-11-05 てじゃ「縁がかわっても全体的に四角なのはかわらんからなあ、もっと構成からガッツリ変えて形を変形させよう」「移動床も、全部平行な直線なのも変だし」）----
+    //  シーソー：四角 2 枚 → 形も大きさもちがう流氷 3 枚（片側だけ大きい／細い三日月／大きく丸い）。あいだに小さい丸い足場。
+    //   傾く軸は前後の足場のまん中を結ぶ線なので、足場とのつなぎ目は動かない。板のはしは足場の円にそってくぼませる（すき間 V3_PanelGap）
+    //  割れ目の道：平行な帯 5 枚 → 割れた氷原。動かない板 S0〜S3 どうしは跳んでも届かない水（MapGapMin 以上）で離して、
+    //   動く板 M1・M2（それぞれの向きに、片側の割れ目を閉じながら反対側を開く）と回る橋（Spin）に乗らないと進めない一本道（てじゃ「右ルートだと動かないまま2枚渡れちゃうんじゃ」）
+    //  座標は縮めたあと（V3 と同じ）
+    public static bool M2_V4 = true;
+    public static (string n, Vector2 c, float r)[] V4_Pads = { ("Pad0", new Vector2(-5.4f, 72.3f), 2.6f), ("PadJ1", new Vector2(1.5f, 84.5f), 2.2f), ("PadJ2", new Vector2(5f, 99f), 2.4f), ("Pad1", new Vector2(17f, 108.5f), 2.8f) };
+    // シーソー：足場 a → 足場 b、形（0 片側だけ大きい・1 三日月・2 大きく丸い）、傾き（±度）・1 往復の秒・ずらし（秒）
+    public static (string n, int a, int b, int shape, float amp, float period, float phase)[] V4_Floes = {
+        ("TiltF1", 0, 1, 0, 9f, 9f, 0f), ("TiltF2", 1, 2, 1, 7f, 5.5f, 2f), ("TiltF3", 2, 3, 2, 11f, 11f, 4.5f) };
+    // 割れた氷原：動かない板（まん中・半径 x/y・回転・乱数）
+    public static (string n, Vector2 c, float rx, float ry, float rot, int seed)[] V4_Statics = {
+        ("S0", new Vector2(17f, 120.5f), 7f, 6f, 15f, 1), ("S1", new Vector2(7f, 140.56f), 7f, 5.5f, 30f, 2), ("S2", new Vector2(6.1f, 158f), 5.5f, 5f, -20f, 3), ("S3", new Vector2(0.4f, 176f), 6.5f, 5.5f, 10f, 4) };
+    // 動く板：動かない板 a と b のあいだ。割れ目は a のまん中から rA、b のまん中から rB の所。hw＝半分の幅。止まっている時（まん中）の割れ目の幅は V4_Gap（0〜2 倍に開け閉め）
+    public static (string n, int a, int b, float rA, float rB, float hw, int seed, float phase)[] V4_Movers = {
+        ("M1", 0, 1, 4.5f, 4.5f, 4.0f, 5, 0f), ("M2", 2, 3, 4f, 4.5f, 4.5f, 6, 7f) };
+    public static float V4_Gap = 2.5f, V4_MovePeriod = 14f;
+    // 回る橋：まん中・はしの半径・半分の幅・1 回転の秒。touch の板のふちは回る円にそってくぼませる（S1 は回るまん中の南西、時計まわりに 110° 回って北西の S2。動く板 M1 から離すため）
+    public static Vector2 V4_SpinC = new Vector2(12.6f, 150.26f); public static float V4_SpinR = 6f, V4_SpinHW = 3f, V4_SpinPeriod = 20f; public static int[] V4_SpinTouch = { 1, 2 };
+    public static float V4_FieldY = 116.3f, V4_GoalY = 180.6f;   // 入口の道が S0 に入る線・ゴールへの道が S3 から出る線（どちらも平らに切る）
+
+    static void V4Profile(int shape, float s, out float cx, out float wL, out float wR)
+    {
+        float sn = Mathf.Max(0f, Mathf.Sin(Mathf.PI * s));   // s=1 で sin がほんの少しマイナスになり Pow が NaN（板が足場のまん中へ割れた）
+        if (shape == 0) { cx = 0f; wL = 2.6f + 4.6f * Mathf.Pow(sn, 1.3f); wR = 2.6f + 0.6f * sn; }
+        else if (shape == 1) { cx = -2.4f * sn; wL = 2.0f + 0.6f * sn; wR = 2.0f + 1.2f * sn; }
+        else { cx = 0.6f * Mathf.Sin(2f * Mathf.PI * s); wL = wR = 2.6f + 4.4f * Mathf.Pow(sn, 0.8f); }
+    }
+    // シーソーの流氷の外まわり（地図の座標）。軸（A→B）の左右に形の幅、両はしは丸めて、足場の円でくぼませる
+    static List<Vector2> V4FloeOutline(Vector2 A, float RA, Vector2 B, float RB, int shape, int seed)
+    {
+        var u = (B - A).normalized; float L = (B - A).magnitude; var lt = new Vector2(-u.y, u.x);
+        float z0 = RA * 0.3f, z1 = L - RB * 0.3f; int n = Mathf.Max(24, Mathf.CeilToInt((z1 - z0) / 0.35f));
+        var right = new List<Vector2>(); var left = new List<Vector2>();
+        for (int i = 0; i <= n; i++)
+        {
+            float s = i / (float)n, z = Mathf.Lerp(z0, z1, s), e = Mathf.Sqrt(Mathf.Max(0f, 1f - Mathf.Pow(Mathf.Abs(2f * s - 1f), 4f)));
+            V4Profile(shape, s, out float cx, out float wL, out float wR);
+            float jr = RoughAmp * RNoise(seed, z * 2.2f), jl = RoughAmp * RNoise(seed + 7, z * 2.2f);
+            var b = A + u * z;
+            right.Add(b + lt * (cx - Mathf.Max(0.2f, wR - jr) * e)); left.Add(b + lt * (cx + Mathf.Max(0.2f, wL - jl) * e));
+        }
+        var poly = new List<Vector2>(right); for (int i = left.Count - 2; i >= 1; i--) poly.Add(left[i]);
+        poly = ClipCircle(poly, A, RA + V3_PanelGap, false); poly = ClipCircle(poly, B, RB + V3_PanelGap, false);
+        return poly;
+    }
+    // 外まわり poly の inside でない所（いくつあってもよい）を、ふちの線 sample で置きかえる
+    static List<Vector2> ClipRuns(List<Vector2> poly, System.Func<Vector2, bool> inside, System.Func<Vector2, Vector2> project, System.Func<Vector2, Vector2, List<Vector2>> sample)
+    {
+        int n = poly.Count; var ins = poly.Select(inside).ToArray();
+        int i0 = System.Array.IndexOf(ins, true);
+        if (i0 < 0) return new List<Vector2>();
+        if (ins.All(x => x)) return poly;
+        Vector2 Cross(Vector2 a, Vector2 b) { float lo = 0f, hi = 1f; for (int it = 0; it < 30; it++) { float m = (lo + hi) * 0.5f; if (inside(Vector2.Lerp(a, b, m))) lo = m; else hi = m; } return project(Vector2.Lerp(a, b, lo)); }
+        var res = new List<Vector2>(); Vector2 qa = Vector2.zero;
+        for (int k = 0; k <= n; k++)
+        {
+            int i = (i0 + k) % n, ip = (i0 + k - 1 + n) % n;
+            if (k > 0 && ins[i] != ins[ip])
+            {
+                if (!ins[i]) qa = Cross(poly[ip], poly[i]);
+                else { var qb = Cross(poly[i], poly[ip]); res.Add(qa); res.AddRange(sample(qa, qb)); res.Add(qb); }
+            }
+            if (k < n && ins[i]) res.Add(poly[i]);
+        }
+        return res;
+    }
+    static float Zig01(float x) { float t = x % 1f; if (t < 0f) t += 1f; return Mathf.Abs(t * 2f - 1f) * 2f - 1f; }
+    // 線で切る：P を通り d を向く線より手前（h ≦ f(s)）を残す。f(s) = amp × ギザギザ(s / zl + ph)。ギザギザの角は角の位置に点を置く（となりの板とぴったりかみ合う）
+    static List<Vector2> ClipLine(List<Vector2> poly, Vector2 P, Vector2 d, float amp, float zl, float ph)
+    {
+        var t = new Vector2(-d.y, d.x);
+        float F(float s) => amp == 0f ? 0f : amp * Zig01(s / zl + ph);
+        float S(Vector2 q) => Vector2.Dot(q - P, t);
+        Vector2 On(float s) => P + t * s + d * F(s);
+        return ClipRuns(poly, q => Vector2.Dot(q - P, d) <= F(S(q)), q => On(S(q)), (qa, qb) =>
+        {
+            float sa = S(qa), sb = S(qb); var ss = new List<float>();
+            if (amp != 0f) { float lo = Mathf.Min(sa, sb), hi = Mathf.Max(sa, sb); for (int k = Mathf.FloorToInt((lo / zl + ph) * 2f) - 1; k <= Mathf.CeilToInt((hi / zl + ph) * 2f) + 1; k++) { float sc = (k * 0.5f - ph) * zl; if (sc > lo + 0.02f && sc < hi - 0.02f) ss.Add(sc); } }
+            int n = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(sb - sa) / 0.5f)); for (int i = 1; i < n; i++) ss.Add(Mathf.Lerp(sa, sb, i / (float)n));
+            ss = ss.Distinct().ToList(); ss.Sort(); if (sb < sa) ss.Reverse();
+            return ss.Select(On).ToList();
+        });
+    }
+    // 円で切る：keepInside なら円の中、でなければ外を残す。切った所は円の弧
+    static List<Vector2> ClipCircle(List<Vector2> poly, Vector2 C, float R, bool keepInside)
+    {
+        return ClipRuns(poly, q => keepInside ? (q - C).magnitude <= R : (q - C).magnitude >= R, q => C + (q - C).normalized * R, (qa, qb) =>
+        {
+            float a0 = Mathf.Atan2(qa.y - C.y, qa.x - C.x), da = Mathf.DeltaAngle(a0 * Mathf.Rad2Deg, Mathf.Atan2(qb.y - C.y, qb.x - C.x) * Mathf.Rad2Deg) * Mathf.Deg2Rad;
+            int n = Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(da) * R / 0.3f)); var o = new List<Vector2>();
+            for (int i = 1; i < n; i++) { float a = a0 + da * i / n; o.Add(C + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * R); }
+            return o;
+        });
+    }
+    // 丸っこい流氷（だ円に大きなうねり＋小さいでこぼこ）
+    static List<Vector2> V4Blob(Vector2 c, float rx, float ry, float rot, int seed)
+    {
+        var o = new List<Vector2>(); float a = rot * Mathf.Deg2Rad, ca = Mathf.Cos(a), sa = Mathf.Sin(a); const int n = 96;
+        for (int i = 0; i < n; i++)
+        {
+            float t = Mathf.PI * 2f * i / n;
+            float k = 1f + 0.10f * Mathf.Sin(2f * t + seed) + 0.07f * Mathf.Sin(3f * t + seed * 1.7f) + 0.04f * Mathf.Sin(5f * t + seed * 2.3f);
+            var q = new Vector2(rx * Mathf.Cos(t) * k, ry * Mathf.Sin(t) * k); q = new Vector2(q.x * ca - q.y * sa, q.x * sa + q.y * ca);
+            q -= q.normalized * (RoughAmp * RNoise(seed + 31, i * 0.5f));
+            o.Add(c + q);
+        }
+        return o;
+    }
+    class V4Field
+    {
+        public List<List<Vector2>> statics = new List<List<Vector2>>();
+        public List<(string n, List<Vector2> body, Vector2 c, Vector2 d, int seed, float phase)> movers = new List<(string, List<Vector2>, Vector2, Vector2, int, float)>();
+        public List<Vector2> spin;   // 回る橋（まん中が 0 の座標）
+        public List<List<Vector2>> floes = new List<List<Vector2>>();
+    }
+    static V4Field V4Make()
+    {
+        var F = new V4Field();
+        for (int i = 0; i < V4_Floes.Length; i++) { var f = V4_Floes[i]; var A = V4_Pads[f.a]; var B = V4_Pads[f.b]; F.floes.Add(V4FloeOutline(A.c, A.r, B.c, B.r, f.shape, 8100 + i * 41)); }
+        var S = V4_Statics.Select(q => V4Blob(q.c, q.rx, q.ry, q.rot, q.seed)).ToList();
+        float zl = M2_CrackZigLen, amp = M2_CrackZig;
+        foreach (var m in V4_Movers)
+        {
+            Vector2 a = V4_Statics[m.a].c, b = V4_Statics[m.b].c; var d = (b - a).normalized;
+            var PA = a + d * m.rA; var PB = b - d * m.rB; float Lm = Vector2.Dot(PB - PA, d) - 2f * V4_Gap;
+            float pha = m.seed * 0.29f, phb = m.seed * 0.53f;
+            S[m.a] = ClipLine(S[m.a], PA, d, amp, zl, pha);
+            S[m.b] = ClipLine(S[m.b], PB, -d, -amp, zl, -phb);
+            var mc = PA + d * (V4_Gap + Lm * 0.5f);
+            var body = V4Blob(mc, Lm * 0.5f + 3f, m.hw, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, m.seed + 40);
+            body = ClipLine(body, PA + d * V4_Gap, -d, -amp, zl, -pha);
+            body = ClipLine(body, PB - d * V4_Gap, d, amp, zl, phb);
+            F.movers.Add((m.n, body, mc, d, m.seed, m.phase));
+            Debug.Log("[2–3 V4] 動く板 " + m.n + " 長さ " + Lm.ToString("F1") + "m（割れ目から割れ目）");
+        }
+        foreach (int k in V4_SpinTouch) S[k] = ClipCircle(S[k], V4_SpinC, V4_SpinR + 0.1f, false);
+        S[0] = ClipLine(S[0], new Vector2(0f, V4_FieldY), Vector2.down, 0f, 1f, 0f);
+        S[S.Count - 1] = ClipLine(S[S.Count - 1], new Vector2(0f, V4_GoalY), Vector2.up, 0f, 1f, 0f);
+        F.statics = S;
+        // 回る橋：x の向きに長い板（まん中が少し細い）を、半径 V4_SpinR の円で切る（はしは円の弧＝S1・S2 のくぼみとぴったり）
+        var sp = new List<Vector2>(); float L = V4_SpinR + 1.5f; const int ns = 48;
+        float W(float x) => V4_SpinHW * (0.85f - 0.15f * Mathf.Cos(x / V4_SpinR * Mathf.PI));
+        for (int i = 0; i <= ns; i++) { float x = Mathf.Lerp(-L, L, i / (float)ns); sp.Add(new Vector2(x, -(W(x) - RoughAmp * RNoise(77, i * 0.7f)))); }
+        for (int i = ns; i >= 0; i--) { float x = Mathf.Lerp(-L, L, i / (float)ns); sp.Add(new Vector2(x, W(x) - RoughAmp * RNoise(78, i * 0.7f))); }
+        F.spin = ClipCircle(sp, Vector2.zero, V4_SpinR, true);
+        return F;
+    }
+    static Material MovingIceMat()
+    {
+        const string mp = "Assets/FuwaStage2/Materials/Course2_3_IceMoving.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!mat) { mat = new Material(iceFlat); AssetDatabase.CreateAsset(mat, mp); }
+        mat.CopyPropertiesFromMaterial(iceFlat); mat.SetFloat("_PatternFromUV3", 1f); EditorUtility.SetDirty(mat);
+        return mat;
+    }
+    // 流氷の板 1 枚（外まわりは親の中の xz）。moving：動く物の下。模様を止まっている時の位置にくっつける（uv3）
+    static GameObject V4Piece(Transform parent, string name, Vector3 lp, List<Vector2> outline, int seed, bool moving, System.Func<Vector2, float> topH)
+    {
+        var m = IceSlab(name, outline, seed, topH);
+        var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = lp; g.layer = pathLayer;
+        Material mat = iceFlat;
+        if (moving) { m.SetUVs(3, m.vertices.Select(q => g.transform.TransformPoint(q)).ToList()); mat = MovingIceMat(); }
+        g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = mat;
+        var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = m; iceCols.Add(mc);
+        return g;
+    }
+    static FuwaTiltIce V4Turner(Transform pv, float amp, float period, float phase, Quaternion baseRot, bool spin)
+    {
+        var ti = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaTiltIce>(pv.gameObject);
+        ti.amplitude = amp; ti.period = period; ti.phase = phase; ti.baseRotation = baseRot; ti.spin = spin;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ti); FuwaStage2WaterTest.NoSync(ti);
+        return ti;
+    }
+    static void V4Build(Transform isl, Transform path, Vector3 o, V4Field F, List<Vector2[]> cuts)
+    {
+        foreach (var pd in V4_Pads) MapIsland(isl, "Map" + pd.n, o, Ellipse(pd.c, pd.r, pd.r, 0f, 32), cuts);
+        for (int i = 0; i < V4_Floes.Length; i++)
+        {
+            var f = V4_Floes[i]; Vector2 A = V4_Pads[f.a].c, B = V4_Pads[f.b].c; var mid = (A + B) * 0.5f; var u = (B - A).normalized;
+            var pv = new GameObject(f.n).transform; pv.SetParent(path, false); pv.localPosition = o + new Vector3(mid.x, 0f, mid.y);
+            var baseRot = Quaternion.LookRotation(new Vector3(u.x, 0f, u.y)); pv.localRotation = baseRot; var inv = Quaternion.Inverse(baseRot);
+            var loc = F.floes[i].Select(q => { var v3 = inv * new Vector3(q.x - mid.x, 0f, q.y - mid.y); return new Vector2(v3.x, v3.z); }).ToList();
+            V4Piece(pv, f.n + "Ice", Vector3.zero, loc, 8200 + i * 13, true, q => 0f);
+            V4Turner(pv, f.amp, f.period, f.phase, baseRot, false);
+        }
+        for (int i = 0; i < F.statics.Count; i++) V4Piece(isl, "Field" + V4_Statics[i].n, o, F.statics[i], 9100 + i * 37, false, q => MapHeight(q));
+        foreach (var m in F.movers)
+        {
+            var c3 = o + new Vector3(m.c.x, 0f, m.c.y); var d3 = new Vector3(m.d.x, 0f, m.d.y);
+            var mv = new GameObject("FieldMover" + m.n).transform; mv.SetParent(path, false); mv.localPosition = c3;
+            V4Piece(mv, "Field" + m.n, Vector3.zero, m.body.Select(q => q - m.c).ToList(), 9300 + m.seed, true, q => 0f);
+            var mi = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaMovingIce>(mv.gameObject);
+            mi.a = c3 - d3 * V4_Gap; mi.b = c3 + d3 * V4_Gap; mi.period = V4_MovePeriod; mi.phase = m.phase;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mi); FuwaStage2WaterTest.NoSync(mi);
+        }
+        {
+            var pv = new GameObject("FieldSpin").transform; pv.SetParent(path, false); pv.localPosition = o + new Vector3(V4_SpinC.x, 0f, V4_SpinC.y);
+            V4Piece(pv, "FieldSpinIce", Vector3.zero, F.spin, 9500, true, q => 0f);
+            V4Turner(pv, 0f, V4_SpinPeriod, 0f, Quaternion.identity, true);
+        }
+    }
+    // すき間の確かめ：つないでいない物どうし MapGapMin 以上（となりのシーソーどうしは 0.8m 以上）、動く板は両はしの位置でも
+    static void V4Check(V4Field F, Vector2[] I1, Vector2[] dome)
+    {
+        var P = new List<(string n, Vector2[] poly)> { ("I1", I1), ("Dome", dome) };
+        foreach (var pd in V4_Pads) P.Add((pd.n, Ellipse(pd.c, pd.r, pd.r, 0f, 32)));
+        for (int i = 0; i < V4_Floes.Length; i++) P.Add((V4_Floes[i].n, F.floes[i].ToArray()));
+        for (int i = 0; i < F.statics.Count; i++) P.Add((V4_Statics[i].n, F.statics[i].ToArray()));
+        foreach (var m in F.movers) P.Add((m.n, m.body.ToArray()));
+        P.Add(("Spin", Ellipse(V4_SpinC, V4_SpinR, V4_SpinR, 0f, 64)));
+        var linked = new HashSet<string> { "I1-Dome", "Dome-Pad0", "Pad1-S0", "S1-Spin", "S2-Spin" };
+        foreach (var f in V4_Floes) { linked.Add(V4_Pads[f.a].n + "-" + f.n); linked.Add(V4_Pads[f.b].n + "-" + f.n); }
+        foreach (var m in V4_Movers) { linked.Add(V4_Statics[m.a].n + "-" + m.n); linked.Add(V4_Statics[m.b].n + "-" + m.n); }
+        var close = new HashSet<string>(); for (int i = 0; i + 1 < V4_Floes.Length; i++) close.Add(V4_Floes[i].n + "-" + V4_Floes[i + 1].n);
+        bool Has(HashSet<string> h, string a, string b) => h.Contains(a + "-" + b) || h.Contains(b + "-" + a);
+        float Dist(Vector2[] A, Vector2[] B) { float best = float.MaxValue; foreach (var q in A) { NearestOnPoly(B, q, out float d); best = Mathf.Min(best, d); } foreach (var q in B) { NearestOnPoly(A, q, out float d); best = Mathf.Min(best, d); } return best; }
+        string warn = "", info = "";
+        for (int i = 0; i < P.Count; i++) for (int j = i + 1; j < P.Count; j++)
+        {
+            var A = P[i]; var B = P[j]; float d = Dist(A.poly, B.poly);
+            if (Has(linked, A.n, B.n)) { info += " " + A.n + "-" + B.n + "=" + d.ToString("F2"); continue; }
+            float lim = Has(close, A.n, B.n) ? 0.8f : MapGapMin;
+            if (d < lim) warn += " " + A.n + "-" + B.n + "=" + d.ToString("F1") + "m";
+        }
+        foreach (var m in F.movers) foreach (float sg in new[] { -1f, 1f })
+        {
+            var sh = m.body.Select(q => q + m.d * (sg * V4_Gap)).ToArray();
+            foreach (var B in P) { if (B.n == m.n || Has(linked, m.n, B.n)) continue; float d = Dist(sh, B.poly); if (d < 2.5f) warn += " " + m.n + (sg > 0 ? "(奥)" : "(手前)") + "-" + B.n + "=" + d.ToString("F1") + "m"; }
+            // 閉じた側は 0、開いた側は 2×V4_Gap になっているか
+            var mv = V4_Movers.First(x => x.n == m.n);
+            info += " " + m.n + (sg > 0 ? "奥" : "手前") + ":" + V4_Statics[mv.a].n + "=" + Dist(sh, F.statics[mv.a].ToArray()).ToString("F2") + "/" + V4_Statics[mv.b].n + "=" + Dist(sh, F.statics[mv.b].ToArray()).ToString("F2");
+        }
+        // 入口・出口の平らなふちの幅
+        foreach (var (k, y) in new[] { (0, V4_FieldY), (F.statics.Count - 1, V4_GoalY) }) { var on = F.statics[k].Where(q => Mathf.Abs(q.y - y) < 0.01f).ToList(); info += " " + V4_Statics[k].n + "の平らなふち幅=" + (on.Count > 1 ? (on.Max(q => q.x) - on.Min(q => q.x)).ToString("F1") : "0") + "m"; }
+        if (warn != "") Debug.LogWarning("[2–3 V4] 近すぎ:" + warn);
+        Debug.Log("[2–3 V4] つないだ物のすき間:" + info);
     }
     static void M2Shrink()
     {
@@ -1357,7 +1639,18 @@ public static class FuwaCourse2_3Builder
             var R = Ellipse(M2_RC, M2_RRx, M2_RRy, M2_RRot, 40); var RH = Ellipse(M2_RHC, M2_RHx, M2_RHy, M2_RRot, 28); var M = Ellipse(M2_MC, M2_MR, M2_MR, 0f, 40);
             var links = M2_Links.ToArray(); if (M2_Movers) links[links.Length - 1] = M2_L4b;
             var G = M2_Movers ? M2_G2 : M2_G;
-            if (M2_Cracks)
+            bool v4 = M2_V3 && M2_V4; var F4 = v4 ? V4Make() : null;
+            if (v4)
+            {
+                // 出口の足場 → S0 の平らなふち、S3 の平らなふち → ゴール
+                var s3c = V4_Statics[V4_Statics.Length - 1].c;
+                var toField = (new[] { M2_Links[2].pts[0], M2_Links[2].pts[1] }, 3f);
+                var toGoal = (new[] { new Vector2(s3c.x, V4_GoalY), new Vector2(s3c.x, V4_GoalY + 8f) }, 3f);
+                var ll = links.ToList(); ll[ll.Count - 1] = toField; ll.Add(toGoal); ll.RemoveAt(2);
+                links = ll.ToArray();
+                G = F4.statics[F4.statics.Count - 1].ToArray();
+            }
+            else if (M2_Cracks)
             {
                 // 上の島 → 1 枚目の板（まっすぐの道）、最後の板 → ゴール
                 float xm = (M2_CrackX0 + M2_CrackX1) * 0.5f, zEnd = M2_CrackZ0 + M2_CrackN * M2_CrackSlabL + (M2_CrackN - 1) * M2_CrackGap;
@@ -1396,7 +1689,14 @@ public static class FuwaCourse2_3Builder
                 var a1 = M2_RidgeA - ub * M2_RingBandExt; var b1 = M2_RidgeB + ub * M2_RingBandExt;
                 R = new[] { a1 - nb, b1 - nb, b1 + nb, a1 + nb };
             }
-            if (M2_V3)
+            if (v4)
+            {
+                CrystalSpire(isl, "DomeSpire", o + new Vector3(M2_MC.x, MapHeight(M2_MC), M2_MC.y));
+                if (v3DomeJoins != null) for (int j = 0; j < v3DomeJoins.Length; j++) IslandJoin(path, "DomeJoin" + j, o + new Vector3(M2_MC.x, 0f, M2_MC.y), new Vector3(v3DomeJoins[j].x, 0f, v3DomeJoins[j].y), M2_MR, 3f, pathB);
+                V4Build(isl, path, o, F4, cuts);
+                V4Check(F4, M2_I1, M);
+            }
+            else if (M2_V3)
             {
                 // 3 島目：足場（入口・角・出口）は止まっている丸い島、そのあいだの 2 枚がシーソー（逆向きのタイミング）
                 var u = V3_TiltDir.normalized; var hub = V3Hub(); var top = V3PadTop();
@@ -1413,7 +1713,8 @@ public static class FuwaCourse2_3Builder
             }
             else MapIsland(isl, "MapRing", o, R, cuts);
             if (M2_Top) MapIsland(isl, "MapTop", o, M2_T, cuts);
-            if (M2_Cracks)
+            if (v4) { }
+            else if (M2_Cracks)
             {
                 for (int k = 0; k < M2_CrackN; k++)
                 {
@@ -1528,6 +1829,7 @@ public static class FuwaCourse2_3Builder
                 foreach (var kk in new[] { "Top-F0", "F0-F1", "F1-F2", "F2-FM", "Goal-FM" }) linked.Add(kk);
             }
             string warn = "", linkedGaps = "";
+            if (v4) groups.Clear();
             for (int i = 0; i < groups.Count; i++) for (int j = i + 1; j < groups.Count; j++)
             {
                 var A = groups[i]; var B = groups[j];
