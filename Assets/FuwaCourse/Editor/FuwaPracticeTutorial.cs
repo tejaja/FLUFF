@@ -340,8 +340,8 @@ public static class FuwaPracticeTutorial
     // カーブのあとに平らな直線を足して、そこにチェックポイントと障害物（2026-11-05 てじゃ「カーブ後に直線増やしてそこに置く」）
     const float FinFlatLen = 8f;                  // 足した直線（坂・溝・横風・まもの・ゴールはそのぶん奥へ）
     const int ObstCount = 3;
-    const float ObstFrom = 2.5f, ObstStep = 3f;   // カーブの終わりから最初の障害物まで、間隔(m)
-    const float Cp0Ahead = 5.5f;                  // チェックポイント（Checkpoint0）は最初の障害物のこれだけ手前（カーブの出口の3m手前。てじゃ「もっと手前に」）
+    const float ObstFrom = 3.5f, ObstStep = 3f;   // カーブの終わりから最初の障害物まで、間隔(m)（2.5→3.5 てじゃ「ちょっぴり奥へ」）
+    const float Cp0Ahead = 6.5f;                 // チェックポイント（Checkpoint0）は最初の障害物のこれだけ手前（カーブの出口の3m手前。てじゃ「もっと手前に」）
     const float ObstOffset = 1.0f;                // 道のまん中から左右へ(m)。道の半分の幅は FinHalfW 2.5
     static readonly int[] ObstProps = { 6, 3, 10 }; // PracticeProp_N のどれを使うか（大きいマカロンの塔など。キャンディは細くて障害物にならない）
 
