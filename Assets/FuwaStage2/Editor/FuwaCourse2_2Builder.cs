@@ -1987,33 +1987,48 @@ public static class FuwaCourse2_2Builder
 
     // 炎の壁の下の岩（2026-10-31 てじゃ「炎の下がぶら下がってる、岩を伸ばす？でも歩けちゃだめ」）。V のすき間を埋める 1 つのかたまりで、まん中は溶岩、ふちはとがった岩。炎は溶岩から立つ。
     //  当たりなし。-x がジグザグの V の根元で、そちらは道の下にもぐる
+    // 炎の壁の下の岩（2026-11-05 てじゃ「炎の壁の端っこがすきまあるね」「下部分、もっとシンプルでもいいかもな　つくりなおそ」→ 案A「道の下の岩とおそろい」）。
+    //  断面はジグザグの道と同じ：上の面（まん中に溶岩の割れ目）→ ベベル → 側面 0.6m → 下へすぼまる 3 段（SkirtPoint、深さは場所のゆらぎ）。トゲなし。
+    //  両はしは上から見て丸く閉じる（割れ目はその手前で閉じる）。前は上のふちギザギザ・下に長いトゲ・外のはしが細くとがって割れ目が抜けていた
+    public static float FireRockSide = 0.6f, FireRockEndR = 1.3f, FireRockSlitEnd = 0.9f;
     static void FireWallRock(Transform g, string name, List<WallPt> ptsA, List<WallPt> ptsB)
     {
         float xRoot = ptsA[0].p.x, xFork = ptsB[ptsB.Count - 1].p.x;
-        var mb = new MB(); float x0 = xRoot - 1.1f, x1 = ptsA[ptsA.Count - 1].p.x + 1.8f; int nx = Mathf.Max(4, Mathf.CeilToInt((x1 - x0) / 0.32f));
-        float Rnd(float n) { float v = Mathf.Sin(n * 12.9898f + name.Length * 7.1f + name[name.Length - 1] * 3.3f) * 43758.5453f; return v - Mathf.Floor(v); }
-        Vector3[] Ring(int i)
+        var mb = new MB(); float x0 = xRoot - 1.1f, x1 = ptsA[ptsA.Count - 1].p.x + 1.8f;
+        // はしの丸みの所はこまかく
+        var xs = new List<float>(); { float step = 0.32f; for (float x = x0; x < x1 - 1e-3f; ) { xs.Add(x); float ed = Mathf.Min(x - x0, x1 - x); x += ed < FireRockEndR ? 0.12f : step; } xs.Add(x1); }
+        float EndK(float x, float r, float back = 0f) { float ed = Mathf.Min(x - x0, x1 - x) - back; if (ed <= 0f) return 0f; if (ed >= r) return 1f; float u = 1f - Mathf.Max(0f, ed) / r; return Mathf.Sqrt(Mathf.Max(0f, 1f - u * u)); }   // 上から見て丸く
+        const float T = 0.6f;
+        Vector3[] Ring(float x)
         {
-            float x = Mathf.Lerp(x0, x1, i / (float)nx) + (i > 0 && i < nx ? (Rnd(i) - 0.5f) * 0.14f : 0f), e = Mathf.Clamp01((x1 - x) / 2.4f), root = Mathf.Clamp01((xRoot + 1f - x) / 2.1f);   // e：外のはしへ細く、root：V の根元で道の下へもぐる
+            float root = Mathf.Clamp01((xRoot + 1f - x) / 2.1f);   // V の根元：道の下へもぐる
             WallPt a = WallAt(ptsA, x), b = x < xFork ? WallAt(ptsB, x) : a; bool aLow = a.p.z <= b.p.z; WallPt lo = aLow ? a : b, hi = aLow ? b : a;
-            float zc = (lo.p.z + hi.p.z) * 0.5f, half = (hi.p.z - lo.p.z) * 0.5f, t = Mathf.Lerp(0.015f, 1f, Mathf.SmoothStep(0f, 1f, e)), slit = Mathf.SmoothStep(0f, 1f, e / 0.35f);   // 炎のない外のはしは割れ目を閉じる（溶岩が岩の底より下へ抜けて、裏返って見えた。2026-10-31 てじゃ「端っこがぬけてる」）
-            float w = (half + 0.5f + 0.08f * Mathf.Sin(x * 0.8f + 1f)) * t, lw = (half + 0.3f) * t * slit, rise = Mathf.SmoothStep(0f, 1f, root) * 0.6f, drop = (1f - e) * 1.1f;
-            float topLo = lo.floor + 0.4f + rise - drop, topHi = hi.floor + 0.4f + rise - drop, lavaLo = Mathf.Lerp(topLo, lo.floor + rise, slit), lavaHi = Mathf.Lerp(topHi, hi.floor + rise, slit);
-            float SpikeL = Mathf.Pow(Rnd(i * 1.3f + 3f), 2.2f) * 0.55f * e * (1f - root), SpikeR = Mathf.Pow(Rnd(i * 1.7f + 11f), 2.2f) * 0.55f * e * (1f - root);   // 根元のトゲは道を突き抜けた
-            float depth = Mathf.Lerp(1.3f, 4.4f, Mathf.InverseLerp(x1, x0, x)) * (0.82f + 0.14f * Mathf.Sin(x * 0.9f + 0.4f) + 0.08f * Mathf.Sin(x * 2.3f)) * Mathf.Lerp(0.12f, 1f, Mathf.SmoothStep(0f, 1f, e));
-            if (Rnd(Mathf.Floor(i / 3f) + 40f) > 0.68f && i % 3 == 1) depth += 0.7f * e;   // ときどき長いトゲ
-            float minTop = Mathf.Min(topLo, topHi), minLava = Mathf.Min(lavaLo, lavaHi);
-            float bottom = Mathf.Min(minTop - depth * Mathf.Lerp(0.15f, 1f, e) - 0.04f, minLava - 0.3f * slit - 0.03f), flank = Mathf.Min(minTop - Mathf.Min(1.2f, depth * 0.55f) * Mathf.Lerp(0.15f, 1f, e), minLava - 0.1f * slit - 0.015f);
-            return new[] { new Vector3(x, bottom, zc + 0.25f * Mathf.Sin(x * 1.1f) * t), new Vector3(x, flank, zc - w * (1.2f + 0.16f * Rnd(i * 2.1f))), new Vector3(x, topLo + SpikeL, zc - w), new Vector3(x, lavaLo + 0.1f * slit, zc - lw * 1.05f), new Vector3(x, lavaLo, zc - lw), new Vector3(x, lavaHi, zc + lw), new Vector3(x, lavaHi + 0.1f * slit, zc + lw * 1.05f), new Vector3(x, topHi + SpikeR, zc + w), new Vector3(x, flank, zc + w * (1.2f + 0.16f * Rnd(i * 2.7f))) };
+            float zc = (lo.p.z + hi.p.z) * 0.5f, half = (hi.p.z - lo.p.z) * 0.5f, k = EndK(x, FireRockEndR), ks = EndK(x, FireRockEndR, FireRockSlitEnd);
+            float w = (half + 0.5f + 0.06f * Mathf.Sin(x * 0.8f + 1f)) * k, lw = (half + 0.3f) * ks;
+            float rise = Mathf.SmoothStep(0f, 1f, root) * 0.6f;
+            float topLo = lo.floor + 0.4f + rise, topHi = hi.floor + 0.4f + rise;
+            float lavaLo = Mathf.Lerp(topLo, lo.floor + rise, ks), lavaHi = Mathf.Lerp(topHi, hi.floor + rise, ks);
+            float bev = Bevel * k; float le = Mathf.Min(lw * 1.05f, Mathf.Max(0f, w - bev - 0.03f));
+            var c = new Vector3(x, 0f, zc);
+            Vector3 eL = new Vector3(x, topLo, zc - w), eR = new Vector3(x, topHi, zc + w);
+            Vector3 sL = new Vector3(x, Mathf.Min(topLo, lavaLo) - FireRockSide, zc - w), sR = new Vector3(x, Mathf.Min(topHi, lavaHi) - FireRockSide, zc + w);
+            // 下の段：道の下と同じ（中心へすぼめて、深さは場所のゆらぎ）。はしの丸みの所は浅く
+            Vector3 Sk(Vector3 p, float f) { var q = SkirtPoint(p, new Vector3(c.x, p.y, c.z), f); return new Vector3(x, Mathf.Lerp(p.y, q.y, Mathf.Lerp(0.35f, 1f, k)), q.z); }
+            return new[] {
+                Sk(sL, 1f), Sk(sL, 0.75f), Sk(sL, 0.4f), sL, eL + Vector3.down * bev, new Vector3(x, topLo, zc - w + bev),
+                new Vector3(x, lavaLo + 0.1f * ks, zc - le), new Vector3(x, lavaLo, zc - Mathf.Min(lw, le)), new Vector3(x, lavaHi, zc + Mathf.Min(lw, le)), new Vector3(x, lavaHi + 0.1f * ks, zc + le),
+                new Vector3(x, topHi, zc + w - bev), eR + Vector3.down * bev, sR, Sk(sR, 0.4f), Sk(sR, 0.75f), Sk(sR, 1f) };
         }
-        var outs = new[] { new Vector3(0, -1, -1), new Vector3(0, 0.3f, -1), new Vector3(0, 0.6f, 1), new Vector3(0, 0.6f, 1), new Vector3(0, 1, 0), new Vector3(0, 0.6f, -1), new Vector3(0, 0.6f, -1), new Vector3(0, 0.3f, 1), new Vector3(0, -1, 1) };
-        for (int i = 0; i < nx; i++)
+        //            0 下L   1 .75L  2 .4L   3 側面L  4 ベベルL 5 上L    6 割れ目L 7 溶岩L  8 溶岩R  9 割れ目R 10 上R   11 ベベルR 12 側面R 13 .4R  14 .75R 15 下R
+        var outs = new[] { new Vector3(0, -1, -0.6f), new Vector3(0, -0.4f, -1), new Vector3(0, -0.2f, -1), new Vector3(0, 0, -1), new Vector3(0, 1, -1), new Vector3(0, 1, 0.3f),
+            new Vector3(0, 0.6f, 1), new Vector3(0, 1, 0), new Vector3(0, 0.6f, -1), new Vector3(0, 1, -0.3f), new Vector3(0, 1, 1), new Vector3(0, 0, 1),
+            new Vector3(0, -0.2f, 1), new Vector3(0, -0.4f, 1), new Vector3(0, -1, 0.6f), new Vector3(0, -1, 0) };
+        const int LavaK = 7;
+        for (int i = 0; i + 1 < xs.Count; i++)
         {
-            var a = Ring(i); var b = Ring(i + 1);
-            for (int k = 0; k < a.Length; k++) { int n = (k + 1) % a.Length; mb.Quad(a[k], b[k], b[n], a[n], outs[k], k == 4 ? 1 : 0); }
+            var a = Ring(xs[i]); var b = Ring(xs[i + 1]);
+            for (int k = 0; k < a.Length; k++) { int n = (k + 1) % a.Length; mb.Quad(a[k], b[k], b[n], a[n], outs[k], k == LavaK ? 1 : 0); }
         }
-        foreach (var (rg, xo) in new[] { (Ring(0), -1f), (Ring(nx), 1f) })
-            for (int k = 0; k < rg.Length; k++) { int n = (k + 1) % rg.Length; var c = rg.Aggregate(Vector3.zero, (q, v) => q + v) / rg.Length; mb.Quad(rg[k], rg[n], c, c, new Vector3(xo, 0, 0), 0); }
         var o = new GameObject("Rock", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false);
         o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mb.Build("Course2_2_" + name + "_Rock", 2));
         var r = o.GetComponent<MeshRenderer>(); r.sharedMaterials = new[] { rockMat, FlowLavaMat() }; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
