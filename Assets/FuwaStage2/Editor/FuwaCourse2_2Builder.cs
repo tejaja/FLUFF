@@ -747,9 +747,13 @@ public static class FuwaCourse2_2Builder
             foreach (var mb in new[] { vis, col })
             {
                 int sub = mb == vis ? st : 0;
-                void Top(float a0, float a1, float b0, float b1) { if (b0 - a0 > 1e-4f || b1 - a1 > 1e-4f) mb.Quad(P0(a0), P1(a1), P1(b1), P0(b0), Vector3.up, sub); }
                 // 上の面：穴と穴の間を区切って（溝の帯は穴からふちまで切れている）
                 float bl = mb == vis && !openL ? Bevel : 0f, br = mb == vis && !openR ? Bevel : 0f;   // ベベルは見た目だけ（当たりは今まで通りの角）
+                // 上の面のはし（ふちのベベルの内側）は、折れ返りをならした線（L/R）から取る。中心線からの P0/P1 のままだと、ならした所だけ
+                // ベベル（L/R から作る）とずれて、すき間から空が見えた（2026-11-05 てじゃ「ゴール前のカーブのスキマ、まだちょっとある」）
+                Vector3 E0(float x) => x <= -w0 + bl + 1e-4f ? L[i] + side[i] * bl : x >= w0 - br - 1e-4f ? R[i] - side[i] * br : P0(x);
+                Vector3 E1(float x) => x <= -w1 + bl + 1e-4f ? L[i + 1] + side[i + 1] * bl : x >= w1 - br - 1e-4f ? R[i + 1] - side[i + 1] * br : P1(x);
+                void Top(float a0, float a1, float b0, float b1) { if (b0 - a0 > 1e-4f || b1 - a1 > 1e-4f) mb.Quad(E0(a0), E1(a1), E1(b1), E0(b0), Vector3.up, sub); }
                 float xa0 = -w0 + bl, xa1 = -w1 + bl;
                 foreach (var h in cut)
                 {
