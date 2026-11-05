@@ -208,6 +208,7 @@ public static class FuwaCourse2_2Builder
         // ③ 鋭角のグネグネ（登り）：丸い踊り場（角）の火種で止めて切り返す。角は約155° 曲がる（道どうしが約26°）
         //  はしの踊り場（Pad0・Pad4）は広い道がつながるので大きく（EndPadR）、広い道のはしが踊り場の中におさまる所に
         var pad = new Vector3(0, yL, z0 + 60f + EndPadIn);
+        Vector3? zigCpAt = null;
         var pads = new List<(Vector3 c, float r)> { (pad, EndPadR) };
         var legs = new List<(Vector3 a, Vector3 b)>();
         for (int k = 0; k < 4; k++)
@@ -224,10 +225,12 @@ public static class FuwaCourse2_2Builder
                 // 火種は折り返しの内側の角から外へ（角の真上だと道からはみ出した）
                 float hd2 = (k % 2 == 0 ? -ZigHeading : ZigHeading) * Mathf.Deg2Rad; var dn2 = new Vector3(Mathf.Sin(hd2), 0, Mathf.Cos(hd2));
                 GroundFire(fire, "ZigSeed" + k, nx + (d - dn2).normalized * ZigSeedOut, (d - dn2).normalized);
+                if (k == CpZigSeed) zigCpAt = nx + (d - dn2).normalized * ZigSeedOut;
             }
             pads.Add((nx, k == 3 ? EndPadR : PadR));
             pad = nx;
         }
+        if (zigCpAt.HasValue) ZigCheckpoint(root, zigCpAt.Value);
         // 1個とばしで並んだ踊り場のまん中を横切る炎の壁（ふわふわが入ると即黒焦げ）：飛ばし越すショートカットを防ぐ
         //  （てじゃ「ショートカット防止に炎の壁でも敷いとくか、即黒焦げの」→ 踊り場の間に縦に置いたら「そこじゃなくてこの青ライン」＝V字のすき間を横切る向き）
         //  V の根元から両側の道のそばを 2 列で走り（FireStripGap、てじゃ「炎の壁がジグザグから遠すぎる」2026-10-31）、口で 1 本にまとめて列の外（FireWallOut）まで
@@ -2833,6 +2836,64 @@ public static class FuwaCourse2_2Builder
         goal.localPosition = p + Vector3.forward * (far - 0.3f) + Vector3.up * 0.02f;
         FuwaCourse2_1Builder.FixCopied(goal, map);
         FuwaCourse2_1Builder.Stage2Grass(goal);
+    }
+
+    // ---- ジグザグのまん中の折り返し（2個目の焚き火 ZigSeed1）のチェックポイント ----
+    // 2026-11-05 てじゃ「２-2のジグザグの中間（2個目の焚き火付近）に置こう　きのこ一個式で」
+    // → キノコは折り返しの外の岩の足場に 1 つだけ（まもののす・いわのみちの片側キノコと同じ）。判定は焚き火のまわりの丸い所、戻るのは焚き火の上（ふわふわが止まる高さ）。
+    //    向きは来た道（1本目の道）の向き：人は来た道の上に戻る
+    public static int CpZigSeed = 1;
+    public static float CpZigMushOut = 2.05f, CpZigTrig = 4.6f;   // キノコの焚き火からの距離（道のピンクの外・岩の足場の中）、判定の大きさ
+    const string CpZigName = "CheckpointZig";
+    static void ZigDirs(int k, out Vector3 d, out Vector3 outw)
+    {
+        float hd = (k % 2 == 0 ? ZigHeading : -ZigHeading) * Mathf.Deg2Rad, hd2 = (k % 2 == 0 ? -ZigHeading : ZigHeading) * Mathf.Deg2Rad;
+        d = new Vector3(Mathf.Sin(hd), 0, Mathf.Cos(hd)); outw = (d - new Vector3(Mathf.Sin(hd2), 0, Mathf.Cos(hd2))).normalized;
+    }
+
+    [MenuItem("FuwaCourse/ステージ2/2–2 ジグザグのまん中のチェックポイントを置き直す")]
+    public static void MenuZigCheckpoint()
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == "FuwaCourse2_2")?.transform;
+        var seed = root ? root.Find("Fire/ZigSeed" + CpZigSeed) : null;
+        if (!seed) { Debug.LogWarning("[2–2] 焚き火 ZigSeed" + CpZigSeed + " がない"); return; }
+        cps.Clear();
+        ZigCheckpoint(root, root.InverseTransformPoint(seed.position));
+        RegisterCheckpoints();
+        FuwaStage2Static.Apply(root);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+    }
+
+    static void ZigCheckpoint(Transform root, Vector3 at)
+    {
+        var g = root.Find("Checkpoints"); var old = g ? g.Find(CpZigName) : null; if (old) Object.DestroyImmediate(old.gameObject);
+        ZigDirs(CpZigSeed, out var d, out var outw);
+        Checkpoint(root, CpZigName, at, d, 1f);
+        var cp = root.Find("Checkpoints/" + CpZigName); if (!cp) return;
+        var gm = cp.Find("GlowMushrooms");
+        if (gm)
+        {
+            var r = gm.Find("ClusterR"); if (r) Object.DestroyImmediate(r.gameObject);
+            var l = gm.Find("ClusterL");
+            if (l)
+            {
+                var lp = cp.InverseTransformPoint(root.TransformPoint(at + outw * CpZigMushOut));
+                l.localPosition = new Vector3(lp.x, l.localPosition.y, lp.z);
+                // 丸太は外のふちにそって（折り返しの外の円の接線）
+                float ang = Vector3.SignedAngle(d, Vector3.Cross(Vector3.up, outw), Vector3.up);
+                l.localRotation = Quaternion.Euler(0f, ang, 0f) * l.localRotation;
+            }
+        }
+        var trig = cp.Find("Trigger");
+        if (trig) { trig.localPosition = new Vector3(0f, trig.localPosition.y, 0f); trig.localRotation = Quaternion.identity; trig.localScale = new Vector3(CpZigTrig, trig.localScale.y, CpZigTrig); }
+        var rp = cp.Find("RespawnPoint"); if (rp) rp.localPosition = new Vector3(0f, SeedHover, 0f);
+        var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
+        if (fc)
+        {
+            if (fc.glowRenderers != null) fc.glowRenderers = fc.glowRenderers.Where(x => x).ToArray();
+            if (fc.glowEffects != null) fc.glowEffects = fc.glowEffects.Where(x => x).ToArray();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc);
+        }
     }
 
     // チェックポイント：ステージ1の FuwaCourse3/Checkpoint1（光るキノコ＋丸太、通り抜けの判定）を写す。門の柱・横木は消す
