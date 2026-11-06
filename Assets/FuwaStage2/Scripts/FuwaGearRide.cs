@@ -28,6 +28,13 @@ public class FuwaGearRide : UdonSharpBehaviour
     public int puffCount = 6;
     private float _lastCrank;
 
+    [Header("オルゴール：シリンダーの歯車（gears[musicGear]）が1周＝曲が1ループ")]
+    public AudioSource music;
+    public int musicGear = -1;
+    public float musicLen = 31f;
+    [Tooltip("音と歯車がこれよりずれたら合わせ直す（秒）")]
+    public float musicResync = 0.08f;
+
     private float _a;
     private Quaternion[] _last;
     private bool _init;
@@ -39,6 +46,21 @@ public class FuwaGearRide : UdonSharpBehaviour
         _a = Mathf.Repeat(_a + speed * Time.deltaTime, wrap);
         Apply();
         Carry();
+        SyncMusic();
+    }
+
+    // 曲の今の位置＝シリンダーの角度（回る向きに進む）／360 × ループの長さ
+    private void SyncMusic()
+    {
+        if (music == null || musicGear < 0 || ratio == null || musicGear >= ratio.Length || musicLen <= 0f || music.clip == null) return;
+        float r = ratio[musicGear];
+        float phi = r * _a + phase[musicGear];
+        float want = Mathf.Repeat((r >= 0f ? phi : -phi) / 360f, 1f) * musicLen;
+        if (want >= music.clip.length) want = 0f;
+        if (!music.isPlaying) { music.time = want; music.Play(); return; }
+        float d = Mathf.Abs(music.time - want);
+        d = Mathf.Min(d, musicLen - d);
+        if (d > musicResync) music.time = want;
     }
 
     private void Apply()

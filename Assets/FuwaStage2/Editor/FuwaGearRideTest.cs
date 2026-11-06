@@ -82,7 +82,7 @@ public static class FuwaGearRideTest
 
         // 落ちた時の受け床と、入口へ戻る階段（0.3m × 10段）
         float x0 = -13f, x1 = exitX + 5f;
-        var cf = Floor(root, "CatchFloor", new Vector3((x0 + x1) / 2f, CatchY, 2f), new Vector2(x1 - x0, 16f), under);
+        var cf = Floor(root, "CatchFloor", new Vector3((x0 + x1) / 2f, CatchY, 3.25f), new Vector2(x1 - x0, 18.5f), under);
         for (int k = 0; k < 10; k++)
         {
             float top = CatchY + 0.3f * (k + 1);
@@ -93,9 +93,22 @@ public static class FuwaGearRideTest
             st.AddComponent<BoxCollider>().size = new Vector3(0.8f, top - CatchY, 2f);
         }
 
+        // オルゴール：G4 から歯車3段で速くして、シリンダーを回す（1周＝曲1ループ）
+        var mb = MusicBox(root, g4, dark, light, brass, axleM, floorM);
+        int musicIdx = ts.Length + mb.Length - 1;
+        var ts2 = new Transform[ts.Length + mb.Length]; var ratio2 = new float[ts2.Length]; var phase2 = new float[ts2.Length];
+        for (int i = 0; i < ts.Length; i++) { ts2[i] = ts[i]; ratio2[i] = ratio[i]; phase2[i] = phase[i]; }
+        for (int i = 0; i < mb.Length; i++) { ts2[ts.Length + i] = mb[i].t; ratio2[ts.Length + i] = mb[i].g.ratio; phase2[ts.Length + i] = mb[i].g.phase * Mathf.Rad2Deg; }
+        ts = ts2; ratio = ratio2; phase = phase2;
+
         var ride = UdonSharpUndo.AddComponent<FuwaGearRide>(root.gameObject);
         ride.gears = ts; ride.ratio = ratio; ride.phase = phase;
         ride.speed = PitchSpeed / (Mod * ZBig / 2f) * Mathf.Rad2Deg;   // G1 のピッチ円の速さ → 角速度
+        float wC = ride.speed * Mathf.Abs(ratio[musicIdx]);
+        MusicLen = 360f / wC;
+        ride.musicGear = musicIdx; ride.musicLen = MusicLen;
+        Pins(ts[musicIdx], Mathf.Sign(ratio[musicIdx]), brass);
+        ride.music = MusicSource(ts[musicIdx].parent, ts[musicIdx].localPosition);
         UdonSharpEditorUtility.CopyProxyToUdon(ride); FuwaStage2WaterTest.NoSync(ride);
         SetA(0f);
 
@@ -261,6 +274,121 @@ public static class FuwaGearRideTest
         var g = Prim(PrimitiveType.Cube, parent, name, (a + b) / 2f, new Vector3(thick, thick, (b - a).magnitude + thick), m);
         if ((b - a).sqrMagnitude > 1e-6f) g.localRotation = Quaternion.LookRotation((b - a).normalized, Mathf.Abs(Vector3.Dot((b - a).normalized, Vector3.up)) > 0.9f ? Vector3.forward : Vector3.up);
         return g;
+    }
+
+    // ---- オルゴール（2026-11-06 てじゃ「Aいいなぁ 何箇所かで音出してて、あわさってBGMなってたらかわいい」「お試しでね」）----
+    //  G4（大20枚, モジュール Mod）→ MA 小12枚（同じ高さの層で G4 とかみ合う）、同じ軸の上に MA2 大30枚（モジュール MMod）
+    //  → MB 小10枚、同じ軸の上に MB2 大30枚 → MC 小10枚＝シリンダーの軸。G4 の 20/12×30/10×30/10＝15倍の速さ
+    //  シリンダー1周＝曲1ループ（MusicLen 秒）。ピンは音符の時刻と高さどおりに並べて、くし（+x の向き）の所に来た時に鳴る
+    public class MB { public Transform t; public FuwaGearTest.Gear g; }
+    const float MMod = 0.1f, CylR = 0.35f, CylH = 0.8f, MTh = 0.1f;
+    public static float MusicLen;
+    static MB[] MusicBox(Transform root, FuwaGearTest.Gear g4, Material dark, Material light, Material brass, Material axleM, Material floorM)
+    {
+        float S = Step;
+        var ma = FuwaGearTest.Mesh2(g4, "MA", ZSmall, 90f, Mod);
+        var ma2 = new FuwaGearTest.Gear { name = "MA2", z = 30, c = ma.c, ratio = ma.ratio, phase = ma.phase };
+        var mbg = FuwaGearTest.Mesh2(ma2, "MB", 10, 0f, MMod);
+        var mb2 = new FuwaGearTest.Gear { name = "MB2", z = 30, c = mbg.c, ratio = mbg.ratio, phase = mbg.phase };
+        var mc = FuwaGearTest.Mesh2(mb2, "MC", 10, 0f, MMod);
+        // 段（歯数, モジュール, 下, 上）
+        var defs = new[] {
+            new[] { new Vector4(ZSmall, Mod, S + ClearY, 2f * S), new Vector4(30, MMod, 2f * S + 0.1f, 2f * S + 0.1f + MTh) },
+            new[] { new Vector4(10, MMod, 2f * S + 0.1f, 2f * S + 0.1f + MTh), new Vector4(30, MMod, 2f * S + 0.25f, 2f * S + 0.25f + MTh) },
+            new[] { new Vector4(10, MMod, 2f * S + 0.25f, 2f * S + 0.25f + MTh) },
+        };
+        var gs = new[] { ma, mbg, mc };
+        var res = new MB[3];
+        for (int i = 0; i < 3; i++)
+        {
+            var t = new GameObject(gs[i].name).transform; t.SetParent(root, false); t.localPosition = new Vector3(gs[i].c.x, 0f, gs[i].c.y);
+            float lowest = 99f;
+            foreach (var d in defs[i])
+            {
+                int z = (int)d.x; float m = d.y, y0 = d.z, y1 = d.w;
+                var mesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(z, 8, m), y1 - y0, "GearRide_M_z" + z + "_m" + Mathf.RoundToInt(m * 100f) + "_t" + Mathf.RoundToInt((y1 - y0) * 100f), Vector2.zero));
+                var body = new GameObject("Body_z" + z); body.transform.SetParent(t, false); body.transform.localPosition = new Vector3(0f, y0, 0f);
+                body.AddComponent<MeshFilter>().sharedMesh = mesh; body.AddComponent<MeshRenderer>().sharedMaterial = z == 30 ? light : brass;
+                if (i == 0 && z == ZSmall) { body.layer = 11; body.AddComponent<MeshCollider>().sharedMesh = mesh; }   // 歩ける所の横にある段だけ当たりあり
+                lowest = Mathf.Min(lowest, y0);
+            }
+            Prim(PrimitiveType.Cylinder, root, "Axle_" + gs[i].name, new Vector3(gs[i].c.x, (CatchY + lowest) / 2f, gs[i].c.y), new Vector3(0.12f, (lowest - CatchY) / 2f, 0.12f), axleM);
+            res[i] = new MB { t = t, g = gs[i] };
+        }
+        // シリンダー（MC の軸の上）
+        var cyl = res[2].t;
+        float cy0 = 2f * S + 0.4f;
+        Prim(PrimitiveType.Cylinder, cyl, "Cylinder", new Vector3(0f, cy0 + CylH / 2f, 0f), new Vector3(CylR * 2f, CylH / 2f, CylR * 2f), brass);
+        Prim(PrimitiveType.Cylinder, cyl, "CylAxle", new Vector3(0f, cy0 - 0.05f, 0f), new Vector3(0.08f, 0.1f, 0.08f), axleM);
+        // くし（+x の向き、動かない）と台
+        Vector3 cc = new Vector3(mc.c.x, 0f, mc.c.y);
+        var comb = new GameObject("Comb").transform; comb.SetParent(root, false); comb.localPosition = cc;
+        Prim(PrimitiveType.Cube, comb, "CombBase", new Vector3(CylR + 0.48f, cy0 + CylH / 2f, 0f), new Vector3(0.14f, CylH + 0.05f, 0.3f), dark);
+        Prim(PrimitiveType.Cube, comb, "Stand", new Vector3(CylR + 0.48f, (CatchY + cy0) / 2f, 0f), new Vector3(0.14f, cy0 - CatchY, 0.14f), dark);
+        res[0].t.gameObject.name = "MA_z12"; res[1].t.gameObject.name = "MB_z10"; res[2].t.gameObject.name = "MC_z10_Cylinder";
+        _combRoot = comb; _cy0 = cy0; _combDark = dark;
+        return res;
+    }
+    static Transform _combRoot; static float _cy0; static Material _combDark;
+
+    [System.Serializable] public class NoteFile { public float length; public float bpm; public Note[] notes; }
+    [System.Serializable] public class Note { public float t; public int midi; }
+
+    // ピン：音符ごとに、時刻→シリンダーの角度、高さ→音の高さ（くしの歯）。くしの歯も音の数だけ
+    static void Pins(Transform cyl, float sign, Material brass)
+    {
+        string path = System.IO.Path.Combine(Application.dataPath, "../Tools/audio/musicbox_test_melody.json");
+        if (!System.IO.File.Exists(path)) { Debug.LogWarning("[乗る歯車] 音符の表がない " + path); return; }
+        var nf = JsonUtility.FromJson<NoteFile>(System.IO.File.ReadAllText(path));
+        if (Mathf.Abs(nf.length - MusicLen) > 0.01f) Debug.LogWarning($"[乗る歯車] 曲の長さ {nf.length:F3} と歯車の1周 {MusicLen:F3} がちがう → make_musicbox_test.py {MusicLen:F4} で作り直す");
+        var pitches = new System.Collections.Generic.List<int>();
+        foreach (var n in nf.notes) if (!pitches.Contains(n.midi)) pitches.Add(n.midi);
+        pitches.Sort();
+        int np = pitches.Count;
+        System.Func<int, float> rowY = k => _cy0 + 0.07f + (np <= 1 ? 0f : k * (CylH - 0.14f) / (np - 1));
+        var cube = GetCube(); var cis = new System.Collections.Generic.List<CombineInstance>();
+        foreach (var n in nf.notes)
+        {
+            float al = (0f - sign * 360f * n.t / nf.length) * Mathf.Deg2Rad;   // くしは 2D の角度 0（+x）
+            var dir = new Vector3(Mathf.Cos(al), 0f, Mathf.Sin(al));
+            var pos = dir * (CylR + 0.02f) + Vector3.up * rowY(pitches.IndexOf(n.midi));
+            cis.Add(new CombineInstance { mesh = cube, transform = Matrix4x4.TRS(pos, Quaternion.LookRotation(dir, Vector3.up), new Vector3(0.03f, 0.03f, 0.05f)) });
+        }
+        var pm = new Mesh { name = "GearRide_MusicPins" }; pm.CombineMeshes(cis.ToArray(), true, true); pm.RecalculateBounds();
+        var pins = new GameObject("Pins"); pins.transform.SetParent(cyl, false);
+        pins.AddComponent<MeshFilter>().sharedMesh = FuwaGearTest.SaveMesh(pm); pins.AddComponent<MeshRenderer>().sharedMaterial = _combDark;
+        // くしの歯（低い音ほど長い。先はピンがはじく所）
+        for (int k = 0; k < np; k++)
+        {
+            float len = 0.36f;
+            Prim(PrimitiveType.Cube, _combRoot, "Tooth" + k, new Vector3(CylR + 0.04f + len / 2f, rowY(k), 0f), new Vector3(len, 0.025f, 0.05f - 0.02f * k / Mathf.Max(1, np - 1)), brass);
+        }
+        Debug.Log($"[乗る歯車] オルゴール：ピン {nf.notes.Length}本、くしの歯 {np}本、1周 {MusicLen:F3}秒");
+    }
+
+    static AudioSource MusicSource(Transform parent, Vector3 lp)
+    {
+        var clipPath = "Assets/FuwaStage2/Audio/musicbox_test_melody.wav";
+        var imp = AssetImporter.GetAtPath(clipPath) as AudioImporter;
+        if (imp != null)
+        {
+            var st = imp.defaultSampleSettings; st.loadType = AudioClipLoadType.CompressedInMemory; st.compressionFormat = AudioCompressionFormat.Vorbis; st.quality = 0.6f;
+            imp.defaultSampleSettings = st; imp.forceToMono = true; imp.SaveAndReimport();
+        }
+        var clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clipPath);
+        var g = new GameObject("MusicBoxSound"); g.transform.SetParent(parent, false); g.transform.localPosition = lp + new Vector3(0f, 2f * Step + 0.8f, 0f);
+        var a = g.AddComponent<AudioSource>();
+        a.clip = clip; a.loop = true; a.playOnAwake = false; a.volume = 0.6f; a.spatialBlend = 1f; a.dopplerLevel = 0f;
+        a.rolloffMode = AudioRolloffMode.Linear; a.minDistance = 3f; a.maxDistance = 28f;
+        return a;
+    }
+
+    static Mesh _cube;
+    static Mesh GetCube()
+    {
+        if (_cube) return _cube;
+        var g = GameObject.CreatePrimitive(PrimitiveType.Cube); _cube = g.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(g);
+        return _cube;
     }
 
     // エディタ用：元の歯車の角度 a にする（FuwaGearRide と同じ計算）
