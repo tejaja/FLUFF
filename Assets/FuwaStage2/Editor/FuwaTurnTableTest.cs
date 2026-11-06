@@ -109,7 +109,11 @@ public static class FuwaTurnTableTest
         var hp = new Vector2(gP.c.x, gP.c.y);
         float padX0 = Mathf.Min(hp.x - 1.4f, -10.3f), padX1 = -10.3f, padZ0 = (BridgeW + 0.5f) / 2f, padZ1 = hp.y + 2.1f;
         Floor(root, "HandlePad", new Vector3((padX0 + padX1) / 2f, 0f, (padZ0 + padZ1) / 2f), 0f, new Vector2(padX1 - padX0, padZ1 - padZ0), floorM);
-        WireFence(root, new Vector3(hp.x, 0f, hp.y + 1.7f), 90f, padX1 - padX0 - 0.2f, 2.2f, light, axleM);
+        // 金網は羽根車と反対側（入口の道の南どなり）。てじゃ「金網を風車とかぶらせると、ふわふわを動かす時にまた羽が回る」
+        //  → 道に立って南へ撃つ＝ふわふわ、北へ撃つ＝羽根車。ふわふわを橋へ送る風の線も羽根車から 2m 以上はなれる
+        float fX0 = -16f, fX1 = -11.2f, fZ1 = -(BridgeW + 0.5f) / 2f, fZ0 = -4.6f;
+        Floor(root, "FencePad", new Vector3((fX0 + fX1) / 2f, 0f, (fZ0 + fZ1) / 2f), 0f, new Vector2(fX1 - fX0, fZ1 - fZ0), floorM);
+        WireFence(root, new Vector3((fX0 + fX1) / 2f, 0f, fZ0 + 0.3f), 90f, fX1 - fX0 - 0.2f, 2.2f, light, axleM);
 
         var tt = UdonSharpUndo.AddComponent<FuwaTurnTable>(handle.gameObject);
         tt.table = table; tt.tableRatio = 1f / rp; tt.tablePhase = -php / rp;
