@@ -23,15 +23,17 @@ public class FuwaWindmill : UdonSharpBehaviour
     [Tooltip("回る速さの減り方（1秒あたり）")]
     public float drag = 1.2f;
     [Tooltip("おもりで戻る速さ（風車の度/秒）と、そこまでの加速")]
-    public float returnSpeed = 120f;
-    public float returnAccel = 160f;
+    public float returnSpeed = 45f;     // 2026-11-06 てじゃ「もどるのがはやい」120→45（橋が上がりきるまで 約19秒）
+    public float returnAccel = 25f;
+    [Tooltip("最後に撃ってから戻り始めるまで（秒）")]
+    public float holdTime = 2.5f;
     [Tooltip("いちばん回した時の turn（度）。橋が下りきる所")]
     public float maxTurn = 900f;
     [Tooltip("風車の軸の向き（ワールド）。風がこの向きに近いほどよく回る")]
     public Transform axisRef;
     public AudioSource clickSound;
 
-    private float _turn, _vel;
+    private float _turn, _vel, _lastHit = -100f;
     private int _lastTooth;
 
     public void Blown(Vector3 aim, float power)
@@ -39,6 +41,7 @@ public class FuwaWindmill : UdonSharpBehaviour
         float k = 1f;
         if (axisRef != null) k = Mathf.Lerp(0.35f, 1f, Mathf.Abs(Vector3.Dot(aim.normalized, axisRef.up)));
         _vel = Mathf.Min(maxSpin, Mathf.Max(_vel, 0f) + spinPerShot * power * k);
+        _lastHit = Time.time;
     }
 
     public float GetOpen() { return maxTurn > 0f ? _turn / maxTurn : 0f; }
@@ -51,7 +54,7 @@ public class FuwaWindmill : UdonSharpBehaviour
         if (dt <= 0f) return;
         // 速さの減り（空気・まさつ）＋おもりで逆向きへ
         _vel *= Mathf.Exp(-drag * dt);
-        if (_turn > 0f) _vel = Mathf.Max(_vel - returnAccel * dt, -returnSpeed);
+        if (_turn > 0f && Time.time > _lastHit + holdTime) _vel = Mathf.Max(_vel - returnAccel * dt, -returnSpeed);
         _turn += _vel * dt;
         if (_turn <= 0f) { _turn = 0f; if (_vel < 0f) _vel = 0f; }
         if (_turn >= maxTurn) { _turn = maxTurn; if (_vel > 0f) _vel = 0f; }
