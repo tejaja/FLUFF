@@ -2013,7 +2013,7 @@ public static class FuwaCourse2_1Builder
     // StoneSpread：川の流れの向きにどれだけずらして並べるか（片側、m）。0.5→2.5（てじゃ「飛び石、斜めぎみに配置しよう」。石2個で前後に約1.7mずれる）
     public static float StoneR = 0.42f, StoneSpread = 2.5f;
     public static int Stones1Count = 1;   // 1回目の渡り場だけ 2→1（2026-11-06 てじゃ「最初の滝を通ったあとの2個ある飛び石、真ん中1個にして」）。川のまん中に来る
-    public static float Stones1Shift = 1.2f;   // 1回目の渡り場の石を川の流れの向きにずらす（m、プラス＝下流。てじゃ「もうちょい奥寄りに」→上流にしたら「ぎゃくぎゃく」）
+    public static float Stones1Shift = 2.2f;   // 1回目の渡り場の石を川の流れの向きにずらす（m、プラス＝下流。てじゃ「もうちょい奥寄りに」→上流にしたら「ぎゃくぎゃく」→1.2「もちょい」→2.2。岩の列は +4.7）
     static void CrossingStones(Transform root, string name, float sc, float from, int count = -1)
     {
         if (count < 0) count = StoneCount;
