@@ -4,13 +4,17 @@ using UnityEditor;
 using UnityEngine;
 
 // 2–4：撃って回す回転床のお試し（2026-11-06）
-// まん中に動かない太陽歯車（24枚）、回転床に乗った遊星歯車（12枚）と撃つ用の羽根車。橋は2本（120° はなれ）
-// 入口（西）に1本目を合わせて乗り、羽根車を撃って回して、2本目を出口（2D で 60°）に合わせる。300° は行き止まり
+// 作り直し（てじゃ「乗ってる島が回るとフワフワの維持ムズい」→ B「回すのは動かない地面から」「歯車のつながりも矛盾ないように」）
+//  入口の道の北の足場に羽根車。羽根車の軸の小歯車（12枚）→ 床下の歯車（14枚）→（14枚）→ 回転床のふちの下の大きい歯車（44枚）
+//  歯車は一直線（中心から 165° の向き）に並べて、Mesh2 で中心距離と最初の角度をそろえる。軸は床下の動かない梁（中心の台から外へ）で受ける
+//  歯車は橋の通り道（床の高さ）より下を通るのでぶつからない
+// 橋は2本（120° はなれ）。最初は1本が入口（西）、もう1本が行き止まり（300°）。羽根車を回して 2本目を出口（60°）に合わせる
 // ・2D の (x, y) は Unity の (x, z)。2D の反時計回りは Unity の Y 回転でマイナス
 public static class FuwaTurnTableTest
 {
-    const float Mod = 0.12f; const int ZS = 24, ZPl = 12;
+    const float Mod = 0.2f; const int ZR = 44, ZI = 14, ZP = 12;
     const float DeckR = 4.6f, BridgeEnd = 10f, BridgeW = 2.5f;
+    const float GearY = -1.0f, GearTh = 0.35f, LineDeg = 165f;
     static readonly Vector3 Origin = new Vector3(31.5f, -162f, -104f);   // 回転床のまん中、床の上の高さ
 
     [MenuItem("FuwaCourse/ステージ2/回転床のお試しを作る")]
@@ -52,22 +56,47 @@ public static class FuwaTurnTableTest
             br.gameObject.AddComponent<BoxCollider>().size = new Vector3(len, 0.4f, BridgeW);
             for (int k = 1; k < 7; k++) Prim(PrimitiveType.Cube, br, "Plank" + k, new Vector3(-len / 2f + k * len / 7f, 0.205f, 0f), new Vector3(0.05f, 0.01f, BridgeW), axleM);
         }
+        // 回転床のふちの下の大きい歯車（回転床と一緒に回る）と、床とつなぐ胴
+        var ringMesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZR, 8, Mod), GearTh, "TurnTable_Ring_z44", Vector2.zero));
+        var ring = new GameObject("Ring_z44").transform; ring.SetParent(table, false); ring.localPosition = new Vector3(0f, GearY, 0f);
+        ring.gameObject.AddComponent<MeshFilter>().sharedMesh = ringMesh; ring.gameObject.AddComponent<MeshRenderer>().sharedMaterial = brass;
+        Prim(PrimitiveType.Cylinder, table, "Skirt", new Vector3(0f, (GearY + GearTh - 0.4f) / 2f, 0f), new Vector3(7.6f, (-0.4f - GearY - GearTh) / 2f + 0.02f, 7.6f), dark);
+        // 中心の台（動かない、回転床の軸受け）
+        Prim(PrimitiveType.Cylinder, root, "Pedestal", new Vector3(0f, -1.9f, 0f), new Vector3(2.4f, 0.9f, 2.4f), dark);
 
-        // 太陽歯車（動かない）と、まん中の柱
-        float gy = 0.05f, gTh = 0.25f;
-        var sun = new GameObject("Sun_z24").transform; sun.SetParent(root, false); sun.localPosition = new Vector3(0f, gy, 0f);
-        sun.gameObject.AddComponent<MeshFilter>().sharedMesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZS, 8, Mod), gTh, "TurnTable_Sun_z24", Vector2.zero));
-        sun.gameObject.AddComponent<MeshRenderer>().sharedMaterial = dark;
-        Prim(PrimitiveType.Cylinder, root, "SunPost", new Vector3(0f, -0.6f, 0f), new Vector3(0.5f, 1.0f, 0.5f), axleM);
+        // 歯車の列：回転床（ring）を元に Mesh2 で並べる → 羽根車の軸の小歯車の角度 u を元に直す
+        var gR = new FuwaGearTest.Gear { name = "ring", z = ZR, c = Vector2.zero, ratio = 1f, phase = 0f };
+        var gI1 = FuwaGearTest.Mesh2(gR, "Idler1_z14", ZI, LineDeg, Mod);
+        var gI2 = FuwaGearTest.Mesh2(gI1, "Idler2_z14", ZI, LineDeg, Mod);
+        var gP = FuwaGearTest.Mesh2(gI2, "Pinion_z12", ZP, LineDeg, Mod);
+        var chain = new[] { gI1, gI2, gP };
+        float rp = gP.ratio, php = gP.phase * Mathf.Rad2Deg;   // 小歯車の角度 = rp·v + php（v = 回転床の角度）
+        var gearTs = new Transform[3]; var gearRatio = new float[3]; var gearPhase = new float[3];
+        var meshI = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZI, 8, Mod), GearTh, "TurnTable_Idler_z14", Vector2.zero));
+        var meshP = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZP, 8, Mod), GearTh, "TurnTable_Pinion_z12", Vector2.zero));
+        float beamY = GearY - 0.35f;
+        for (int i = 0; i < 3; i++)
+        {
+            var g = chain[i];
+            var t = new GameObject(g.name).transform; t.SetParent(root, false); t.localPosition = new Vector3(g.c.x, GearY, g.c.y);
+            t.gameObject.AddComponent<MeshFilter>().sharedMesh = i < 2 ? meshI : meshP;
+            t.gameObject.AddComponent<MeshRenderer>().sharedMaterial = i == 1 ? light : dark;
+            gearTs[i] = t;
+            // 角度 = (r_i / rp)·u + (ph_i − r_i·php/rp)
+            gearRatio[i] = g.ratio / rp;
+            gearPhase[i] = g.phase * Mathf.Rad2Deg - g.ratio * php / rp;
+            // 軸（梁から歯車の上まで。小歯車は羽根車まで）
+            float top = i == 2 ? 1.05f : GearY + GearTh + 0.1f;
+            Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (beamY + top) / 2f, g.c.y), new Vector3(0.16f, (top - beamY) / 2f, 0.16f), axleM);
+        }
+        // 床下の梁（中心の台から歯車の列にそって、小歯車の先まで。動かない）
+        float rEnd = gP.c.magnitude + 0.6f;
+        var beam = Prim(PrimitiveType.Cube, root, "Beam", Polar(LineDeg, (1f + rEnd) / 2f) + new Vector3(0f, beamY - 0.1f, 0f), new Vector3(rEnd - 1f, 0.2f, 0.4f), light);
+        beam.localRotation = Quaternion.Euler(0f, -LineDeg, 0f);
 
-        // 遊星歯車（回転床の東、太陽歯車とかみ合う）と羽根車
-        var sg = new FuwaGearTest.Gear { name = "s", z = ZS, c = Vector2.zero, ratio = 1f, phase = 0f };
-        var pg = FuwaGearTest.Mesh2(sg, "p", ZPl, 0f, Mod);
-        var planet = new GameObject("Planet_z12").transform; planet.SetParent(table, false); planet.localPosition = new Vector3(pg.c.x, gy, pg.c.y);
-        planet.gameObject.AddComponent<MeshFilter>().sharedMesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZPl, 8, Mod), gTh, "TurnTable_Planet_z12", Vector2.zero));
-        planet.gameObject.AddComponent<MeshRenderer>().sharedMaterial = brass;
-        Prim(PrimitiveType.Cylinder, planet, "Axle", new Vector3(0f, 0.55f, 0f), new Vector3(0.09f, 0.55f, 0.09f), axleM);
-        var handle = new GameObject("Handle").transform; handle.SetParent(planet, false); handle.localPosition = new Vector3(0f, 1.05f, 0f);
+        // 羽根車（小歯車の軸の上）と、まわりの足場・金網
+        var pinT = gearTs[2];
+        var handle = new GameObject("Handle").transform; handle.SetParent(pinT, false); handle.localPosition = new Vector3(0f, 1.05f - GearY, 0f);
         handle.gameObject.layer = 2;
         Prim(PrimitiveType.Cylinder, handle, "Hub", Vector3.zero, new Vector3(0.22f, 0.15f, 0.22f), brass);
         for (int k = 0; k < 6; k++)
@@ -76,18 +105,18 @@ public static class FuwaTurnTableTest
             pd.localRotation = Quaternion.Euler(0f, k * 60f, 0f);
         }
         var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.9f;
-        // 回転床の下の支え（動かない）
-        Prim(PrimitiveType.Cylinder, root, "Pedestal", new Vector3(0f, -1.6f, 0f), new Vector3(2.4f, 1.2f, 2.4f), dark);
+        // 足場：入口の道の北どなり（橋の通り道 r<10 にかからない所）
+        var hp = new Vector2(gP.c.x, gP.c.y);
+        float padX0 = Mathf.Min(hp.x - 1.4f, -10.3f), padX1 = -10.3f, padZ0 = (BridgeW + 0.5f) / 2f, padZ1 = hp.y + 2.1f;
+        Floor(root, "HandlePad", new Vector3((padX0 + padX1) / 2f, 0f, (padZ0 + padZ1) / 2f), 0f, new Vector2(padX1 - padX0, padZ1 - padZ0), floorM);
+        WireFence(root, new Vector3(hp.x, 0f, hp.y + 1.7f), 90f, padX1 - padX0 - 0.2f, 2.2f, light, axleM);
 
         var tt = UdonSharpUndo.AddComponent<FuwaTurnTable>(handle.gameObject);
-        tt.table = table; tt.planet = planet; tt.handle = handle;
-        tt.sunTeeth = ZS; tt.planetTeeth = ZPl; tt.planetPhase = pg.phase * Mathf.Rad2Deg;
-        tt.hitRadius = 0.9f; tt.startDeg = 0f;
+        tt.table = table; tt.tableRatio = 1f / rp; tt.tablePhase = -php / rp;
+        tt.gears = gearTs; tt.gearRatio = gearRatio; tt.gearPhase = gearPhase;
+        tt.handle = handle; tt.hitRadius = 0.9f; tt.startU = php;   // u = php で回転床が 0°
         UdonSharpEditorUtility.CopyProxyToUdon(tt); FuwaStage2WaterTest.NoSync(tt);
-
-        // 金網の壁（羽根車の向こう＝東。てじゃ「フワフワをぶつけながら維持できる壁」「金網なら向こうも見える」）。回転床と一緒に回る
-        WireFence(table, new Vector3(pg.c.x + 1.7f, 0f, pg.c.y), 0f, 3f, 2.2f, light, axleM);
-        SetTable(0f);
+        SetU(php);
 
         // ふわふわを出す台
         var spot = new GameObject("BallSpot").transform; spot.SetParent(root, false); spot.localPosition = new Vector3(x0 + 2f, 1.6f, 0f);
@@ -96,17 +125,16 @@ public static class FuwaTurnTableTest
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
-        Debug.Log("[回転床のお試し] 作った");
+        Debug.Log($"[回転床のお試し] 作った 小歯車1回転で回転床 {360f / rp:F1}°  小歯車の位置 {gP.c}");
     }
 
-    // エディタ用：回転床を th 度（2D）にする（FuwaTurnTable と同じ計算）
-    public static void SetTable(float th)
+    // エディタ用：羽根車（小歯車）の角度 u にする（FuwaTurnTable と同じ計算）
+    public static void SetU(float u)
     {
         var o = GameObject.Find("TurnTableTest"); if (!o) return;
         var tt = o.GetComponentInChildren<FuwaTurnTable>(true); if (!tt) return;
-        tt.table.localRotation = Quaternion.Euler(0f, -th, 0f);
-        float phi = (float)tt.sunTeeth / tt.planetTeeth * th + tt.planetPhase;
-        tt.planet.localRotation = Quaternion.Euler(0f, -Mathf.Repeat(phi, 360f), 0f);
+        tt.table.localRotation = Quaternion.Euler(0f, -Mathf.Repeat(tt.tableRatio * u + tt.tablePhase, 360f), 0f);
+        for (int i = 0; i < tt.gears.Length; i++) tt.gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(tt.gearRatio[i] * u + tt.gearPhase[i], 360f), 0f);
     }
 
     [MenuItem("FuwaCourse/ステージ2/回転床のお試しを消す")]
@@ -176,9 +204,9 @@ public static class FuwaTurnTableTest
     static void Floor(Transform root, string name, Vector3 c, float deg, Vector2 size, Material m)
     {
         var g = new GameObject(name); g.transform.SetParent(root, false); g.layer = 11;
-        g.transform.localPosition = c + new Vector3(0f, -0.5f, 0f); g.transform.localRotation = Quaternion.Euler(0f, -deg, 0f);
-        Prim(PrimitiveType.Cube, g.transform, "Visual", Vector3.zero, new Vector3(size.x, 1f, size.y), m);
-        g.AddComponent<BoxCollider>().size = new Vector3(size.x, 1f, size.y);
+        g.transform.localPosition = c + new Vector3(0f, -0.2f, 0f); g.transform.localRotation = Quaternion.Euler(0f, -deg, 0f);   // 厚み 0.4（床下の歯車にかからない）
+        Prim(PrimitiveType.Cube, g.transform, "Visual", Vector3.zero, new Vector3(size.x, 0.4f, size.y), m);
+        g.AddComponent<BoxCollider>().size = new Vector3(size.x, 0.4f, size.y);
     }
 
     static Transform Prim(PrimitiveType t, Transform parent, string name, Vector3 lp, Vector3 ls, Material m)
