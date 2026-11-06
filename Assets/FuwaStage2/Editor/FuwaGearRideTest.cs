@@ -125,7 +125,7 @@ public static class FuwaGearRideTest
     }
 
     const int WheelZ = 16; const float WMod = 0.2f, WormR = 0.4f, WormLen = 1.2f, WheelTh = 0.3f, CrankY = -1.85f;
-    const float EngineZ = -9f, CrankR = 0.45f, RodL = 1.4f;
+    const float EngineZ = -6.8f, BoxW = 1.6f;
     static void Engine(Transform root, FuwaGearRide ride, Transform g1T, FuwaGearTest.Gear g1, Material dark, Material light, Material brass, Material axleM, Material floorM)
     {
         // ウォームホイール（G1 の軸、G1 と一緒に回る）。歯の1本が +x（ウォームの方）を向く（2D で角度0＝歯の真ん中なので回さない）
@@ -147,58 +147,38 @@ public static class FuwaGearRideTest
         foreach (float e in new[] { -1f, 1f })
             Prim(PrimitiveType.Cylinder, worm, "Cap" + e, new Vector3(0f, 0f, e * WormLen / 2f), new Vector3(rRoot * 2f + 0.01f, 0.012f, rRoot * 2f + 0.01f), dark).localRotation = Quaternion.Euler(90f, 0f, 0f);
         // 軸（ウォームの先 → エンジン）
-        float z0 = WormLen / 2f + 0.3f, z1 = EngineZ - 0.6f;
+        // 2026-11-06 てじゃ「おもしろいけど仰々しい」→ B「小さい箱からちょこっと」：蒸気機関は箱の中（見せない）。箱の上にクリスタル、小さい煙突からたまに煙
+        float z0 = WormLen / 2f + 0.3f, z1 = EngineZ + BoxW / 2f - 0.05f;
         Prim(PrimitiveType.Cylinder, crank, "Shaft", new Vector3(0f, 0f, (z0 + z1) / 2f), new Vector3(0.16f, (z0 - z1) / 2f, 0.16f), axleM).localRotation = Quaternion.Euler(90f, 0f, 0f);
-        // 軸受け（受け床・土台から）
-        foreach (float bz in new[] { z0 - 0.15f, -WormLen / 2f - 0.3f, -3f, -5.5f, EngineZ + 1.3f, EngineZ - 0.45f })
+        // 軸受け（受け床から）
+        foreach (float bz in new[] { z0 - 0.15f, -WormLen / 2f - 0.3f, -3.5f })
         {
             float h = CrankY - CatchY;
             Prim(PrimitiveType.Cube, mount, "Bearing" + bz, new Vector3(0f, -h / 2f, bz), new Vector3(0.3f, h, 0.3f), light);
             Prim(PrimitiveType.Cylinder, mount, "BearingCap" + bz, new Vector3(0f, 0f, bz), new Vector3(0.34f, 0.12f, 0.34f), light).localRotation = Quaternion.Euler(90f, 0f, 0f);
         }
-        // はずみ車（スポーク4本、回ってるのが分かる）
-        var fly = new GameObject("Flywheel").transform; fly.SetParent(crank, false); fly.localPosition = new Vector3(0f, 0f, EngineZ + 0.8f);
-        for (int k = 0; k < 24; k++)
-        {
-            float a0 = k * 15f * Mathf.Deg2Rad, a1 = (k + 1) * 15f * Mathf.Deg2Rad; float R = 1.0f;
-            Bar(fly, "Rim" + k, new Vector3(Mathf.Cos(a0), Mathf.Sin(a0), 0f) * R, new Vector3(Mathf.Cos(a1), Mathf.Sin(a1), 0f) * R, 0.16f, dark);
-        }
-        for (int k = 0; k < 4; k++) { float a = k * 90f * Mathf.Deg2Rad; Bar(fly, "Spoke" + k, Vector3.zero, new Vector3(Mathf.Cos(a), Mathf.Sin(a), 0f) * 0.95f, 0.09f, dark); }
-        // クランク（腕＋ピン）。ピンは角度 0 で真上
-        Bar(crank, "CrankArm", new Vector3(0f, 0f, EngineZ), new Vector3(0f, CrankR, EngineZ), 0.18f, light);
-        var pin = new GameObject("CrankPin").transform; pin.SetParent(crank, false); pin.localPosition = new Vector3(0f, CrankR, EngineZ);
-        Prim(PrimitiveType.Cylinder, pin, "Pin", Vector3.zero, new Vector3(0.1f, 0.12f, 0.1f), axleM).localRotation = Quaternion.Euler(90f, 0f, 0f);
-        // シリンダー（たて、上が閉じてる）・ピストン・連接棒
-        float cyl0 = RodL - CrankR + 0.55f, cyl1 = RodL + CrankR + 0.9f;
-        Prim(PrimitiveType.Cylinder, mount, "Cylinder", new Vector3(0f, (cyl0 + cyl1) / 2f, EngineZ), new Vector3(0.9f, (cyl1 - cyl0) / 2f, 0.9f), light);
-        Prim(PrimitiveType.Cylinder, mount, "CylinderHead", new Vector3(0f, cyl1 + 0.06f, EngineZ), new Vector3(1.0f, 0.06f, 1.0f), dark);
-        foreach (float sx in new[] { -0.6f, 0.6f })
-            Prim(PrimitiveType.Cube, mount, "Column" + sx, new Vector3(sx, (cyl0 + (CatchY - CrankY)) / 2f, EngineZ), new Vector3(0.14f, cyl0 - (CatchY - CrankY), 0.3f), dark);
-        // ピストン：連接棒の上のピン（ここが動く）から上へピストン棒。シリンダーの中に入る
-        var piston = new GameObject("Piston").transform; piston.SetParent(mount, false);
-        Prim(PrimitiveType.Cylinder, piston, "Rod", new Vector3(0f, 0.45f, 0f), new Vector3(0.12f, 0.45f, 0.12f), axleM);
-        Prim(PrimitiveType.Cube, piston, "Crosshead", Vector3.zero, new Vector3(0.3f, 0.2f, 0.2f), dark);
-        var rod = Prim(PrimitiveType.Cube, mount, "ConnectingRod", Vector3.zero, new Vector3(0.12f, 0.08f, RodL), brass);
-        // 土台
-        Prim(PrimitiveType.Cube, mount, "EnginePad", new Vector3(1.2f, CatchY - CrankY - 0.2f, EngineZ - 0.3f), new Vector3(5.5f, 0.4f, 4.2f), floorM);
-        // ボイラー（横の筒）＋ 管、上にクリスタル
-        var boiler = Prim(PrimitiveType.Cylinder, mount, "Boiler", new Vector3(2.3f, CatchY - CrankY + 0.9f, EngineZ - 0.3f), new Vector3(1.5f, 1.4f, 1.5f), dark);
-        boiler.localRotation = Quaternion.Euler(90f, 0f, 0f);
-        Bar(mount, "SteamPipe", new Vector3(2.3f, CatchY - CrankY + 1.6f, EngineZ + 0.7f), new Vector3(2.3f, cyl1 - 0.2f, EngineZ + 0.7f), 0.16f, brass);   // ボイラーの前のはしから（上はクリスタル）
-        Bar(mount, "SteamPipe2", new Vector3(2.3f, cyl1 - 0.2f, EngineZ + 0.7f), new Vector3(0.45f, cyl1 - 0.2f, EngineZ), 0.16f, brass);
+        // 箱（下は受け床の高さ、上はコースの床の高さ）。軸は箱の横の穴から出る
+        float yb = CatchY - CrankY, yt = -CrankY;
+        Prim(PrimitiveType.Cube, mount, "Box", new Vector3(0f, (yb + yt) / 2f, EngineZ), new Vector3(BoxW, yt - yb, BoxW), dark);
+        Prim(PrimitiveType.Cube, mount, "BoxLid", new Vector3(0f, yt + 0.04f, EngineZ), new Vector3(BoxW + 0.12f, 0.08f, BoxW + 0.12f), light);
+        Prim(PrimitiveType.Cylinder, mount, "ShaftCollar", new Vector3(0f, 0f, EngineZ + BoxW / 2f + 0.03f), new Vector3(0.36f, 0.03f, 0.36f), brass).localRotation = Quaternion.Euler(90f, 0f, 0f);
+        // クリスタル（ふたの台座にささって、ゆっくり回る）
+        Prim(PrimitiveType.Cylinder, mount, "CrystalSocket", new Vector3(0f, yt + 0.16f, EngineZ), new Vector3(0.9f, 0.08f, 0.9f), brass);
         var cryMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaStage2/Meshes/Course2_3/ObsCrystal1_Main.asset");
         var cryMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_3_Crystal.mat");
         if (cryMesh && cryMat)
         {
-            var cry = new GameObject("Crystal").transform; cry.SetParent(mount, false); cry.localPosition = new Vector3(2.3f, CatchY - CrankY + 2.2f, EngineZ - 0.9f);
-            cry.localScale = Vector3.one * 0.7f;
+            var cry = new GameObject("Crystal").transform; cry.SetParent(mount, false); cry.localPosition = new Vector3(0f, yt + 0.12f, EngineZ);
+            cry.localScale = Vector3.one * 0.6f;
             cry.gameObject.AddComponent<MeshFilter>().sharedMesh = cryMesh; cry.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cryMat;
             var sp = UdonSharpUndo.AddComponent<FuwaSpinner>(cry.gameObject); sp.axis = Vector3.up; sp.degPerSec = 15f;
             UdonSharpEditorUtility.CopyProxyToUdon(sp); FuwaStage2WaterTest.NoSync(sp);
         }
-        // 煙（ピストンが上がりきるたびに、シリンダーの横の排気口から）
-        var puffGo = new GameObject("Puff"); puffGo.transform.SetParent(mount, false); puffGo.transform.localPosition = new Vector3(-0.5f, cyl1 - 0.1f, EngineZ);
-        puffGo.transform.localRotation = Quaternion.Euler(-60f, -90f, 0f);
+        // 小さい煙突と煙（クランク1回転＝約10秒に1回）
+        Vector3 chim = new Vector3(BoxW / 2f - 0.25f, yt, EngineZ - BoxW / 2f + 0.25f);
+        Prim(PrimitiveType.Cylinder, mount, "Chimney", chim + new Vector3(0f, 0.35f, 0f), new Vector3(0.22f, 0.35f, 0.22f), light);
+        var puffGo = new GameObject("Puff"); puffGo.transform.SetParent(mount, false); puffGo.transform.localPosition = chim + new Vector3(0f, 0.72f, 0f);
+        puffGo.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
         var ps = puffGo.AddComponent<ParticleSystem>();
         var main = ps.main; main.playOnAwake = false; main.startLifetime = 1.6f; main.startSpeed = 0.9f; main.startSize = new ParticleSystem.MinMaxCurve(0.25f, 0.45f);
         main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 60; main.gravityModifier = -0.05f;
@@ -211,7 +191,7 @@ public static class FuwaGearRideTest
 
         // ウォームの山と谷：ホイールの歯（+x）に向く所が谷になる角度（首ふり扇風機と同じ：phiC＋180°、phiC＝180° なので 0°）
         ride.crank = crank; ride.crankRatio = -WheelZ; ride.crankPhase = 0f;
-        ride.engineMount = mount; ride.crankPin = pin; ride.piston = piston; ride.rod = rod; ride.rodLen = RodL; ride.puff = ps;
+        ride.engineMount = null; ride.crankPin = null; ride.piston = null; ride.rod = null; ride.puff = ps;
         UdonSharpEditorUtility.CopyProxyToUdon(ride);
     }
 
