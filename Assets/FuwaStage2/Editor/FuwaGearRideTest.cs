@@ -93,8 +93,8 @@ public static class FuwaGearRideTest
             st.AddComponent<BoxCollider>().size = new Vector3(0.8f, top - CatchY, 2f);
         }
 
-        // オルゴール：G4 から歯車3段で速くして、シリンダーを回す（1周＝曲1ループ）
-        var mb = MusicBox(root, g4, dark, light, brass, axleM, floorM);
+        // 石臼：G4 から歯車3段で速くして、上の石を回す（オルゴール版 MusicBox は残してあるが使わない）
+        var mb = Mill(root, g4, dark, light, brass, axleM, floorM);
         int musicIdx = ts.Length + mb.Length - 1;
         var ts2 = new Transform[ts.Length + mb.Length]; var ratio2 = new float[ts2.Length]; var phase2 = new float[ts2.Length];
         for (int i = 0; i < ts.Length; i++) { ts2[i] = ts[i]; ratio2[i] = ratio[i]; phase2[i] = phase[i]; }
@@ -104,11 +104,7 @@ public static class FuwaGearRideTest
         var ride = UdonSharpUndo.AddComponent<FuwaGearRide>(root.gameObject);
         ride.gears = ts; ride.ratio = ratio; ride.phase = phase;
         ride.speed = PitchSpeed / (Mod * ZBig / 2f) * Mathf.Rad2Deg;   // G1 のピッチ円の速さ → 角速度
-        float wC = ride.speed * Mathf.Abs(ratio[musicIdx]);
-        MusicLen = 360f / wC;
-        ride.musicGear = musicIdx; ride.musicLen = MusicLen;
-        Pins(ts[musicIdx], Mathf.Sign(ratio[musicIdx]), brass);
-        ride.music = MusicSource(ts[musicIdx].parent, ts[musicIdx].localPosition);
+        ride.music = null; ride.musicGear = -1;
         UdonSharpEditorUtility.CopyProxyToUdon(ride); FuwaStage2WaterTest.NoSync(ride);
         SetA(0f);
 
@@ -389,6 +385,123 @@ public static class FuwaGearRideTest
         if (_cube) return _cube;
         var g = GameObject.CreatePrimitive(PrimitiveType.Cube); _cube = g.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(g);
         return _cube;
+    }
+
+    // ---- 石臼（2026-11-06 オルゴールは「インパクトない、見てる余裕なさそ」→ てじゃ「もっと地味なのでいい、粉引いてるみたいな」）----
+    //  G4（大20枚）→ MA 小12枚（G4 と同じ高さの層）＋同じ軸の上に MA2 大30枚 → MB 小10枚＋上に MB2 大30枚 → MC 小10枚（石臼の軸）
+    //  G4 の 20/12×30/10×30/10＝15倍の速さで上の石が回る。下の石は台に固定。じょうごから粒、石のすき間から粉
+    static MB[] Mill(Transform root, FuwaGearTest.Gear g4, Material dark, Material light, Material brass, Material axleM, Material floorM)
+    {
+        float S = Step;
+        var ma = FuwaGearTest.Mesh2(g4, "MA", ZSmall, 90f, Mod);
+        var ma2 = new FuwaGearTest.Gear { name = "MA2", z = 30, c = ma.c, ratio = ma.ratio, phase = ma.phase };
+        var mbg = FuwaGearTest.Mesh2(ma2, "MB", 10, 0f, MMod);
+        var mb2 = new FuwaGearTest.Gear { name = "MB2", z = 30, c = mbg.c, ratio = mbg.ratio, phase = mbg.phase };
+        var mc = FuwaGearTest.Mesh2(mb2, "MC", 10, 0f, MMod);
+        var defs = new[] {
+            new[] { new Vector4(ZSmall, Mod, S + ClearY, 2f * S), new Vector4(30, MMod, 2f * S + 0.1f, 2f * S + 0.1f + MTh) },
+            new[] { new Vector4(10, MMod, 2f * S + 0.1f, 2f * S + 0.1f + MTh), new Vector4(30, MMod, 2f * S + 0.25f, 2f * S + 0.25f + MTh) },
+            new[] { new Vector4(10, MMod, 2f * S + 0.25f, 2f * S + 0.25f + MTh) },
+        };
+        var gs = new[] { ma, mbg, mc };
+        var res = new MB[3];
+        for (int i = 0; i < 3; i++)
+        {
+            var t = new GameObject(gs[i].name).transform; t.SetParent(root, false); t.localPosition = new Vector3(gs[i].c.x, 0f, gs[i].c.y);
+            float lowest = 99f;
+            foreach (var d in defs[i])
+            {
+                int z = (int)d.x; float m = d.y, y0 = d.z, y1 = d.w;
+                var mesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(z, 8, m), y1 - y0, "GearRide_M_z" + z + "_m" + Mathf.RoundToInt(m * 100f) + "_t" + Mathf.RoundToInt((y1 - y0) * 100f), Vector2.zero));
+                var body = new GameObject("Body_z" + z); body.transform.SetParent(t, false); body.transform.localPosition = new Vector3(0f, y0, 0f);
+                body.AddComponent<MeshFilter>().sharedMesh = mesh; body.AddComponent<MeshRenderer>().sharedMaterial = z == 30 ? light : brass;
+                if (i == 0 && z == ZSmall) { body.layer = 11; body.AddComponent<MeshCollider>().sharedMesh = mesh; }
+                lowest = Mathf.Min(lowest, y0);
+            }
+            Prim(PrimitiveType.Cylinder, root, "Axle_" + gs[i].name, new Vector3(gs[i].c.x, (CatchY + lowest) / 2f, gs[i].c.y), new Vector3(0.12f, (lowest - CatchY) / 2f, 0.12f), axleM);
+            res[i] = new MB { t = t, g = gs[i] };
+        }
+        res[0].t.gameObject.name = "MA_z12"; res[1].t.gameObject.name = "MB_z10"; res[2].t.gameObject.name = "MC_z10_Millstone";
+
+        var stoneM = FuwaGearTest.Mat("GearRideTest_Millstone", new Color(0.66f, 0.64f, 0.6f));
+        var woodM = FuwaGearTest.Mat("GearTest_Bridge", new Color(0.66f, 0.52f, 0.38f));
+        var flourM = FuwaGearTest.Mat("GearRideTest_Flour", new Color(0.98f, 0.97f, 0.93f));
+        var grainM = FuwaGearTest.Mat("GearRideTest_Grain", new Color(0.86f, 0.72f, 0.42f));
+        var sackM = FuwaGearTest.Mat("GearRideTest_Sack", new Color(0.82f, 0.74f, 0.6f));
+        Vector3 c = new Vector3(mc.c.x, 0f, mc.c.y);
+        var mill = new GameObject("Mill").transform; mill.SetParent(root, false); mill.localPosition = c;
+        // 台（下の歯車 MB2 に当たらない所に足）。板の上に下の石
+        float deck0 = 2f * S + 0.45f, deck1 = deck0 + 0.1f;
+        Prim(PrimitiveType.Cube, mill, "Deck", new Vector3(0.3f, (deck0 + deck1) / 2f, 0f), new Vector3(2.4f, deck1 - deck0, 2.5f), woodM);
+        foreach (var lp in new[] { new Vector2(1.35f, 1.1f), new Vector2(1.35f, -1.1f), new Vector2(-0.3f, 1.15f), new Vector2(-0.3f, -1.15f) })
+            Prim(PrimitiveType.Cube, mill, "Leg", new Vector3(lp.x, (CatchY + deck0) / 2f, lp.y), new Vector3(0.14f, deck0 - CatchY, 0.14f), woodM);
+        float bed0 = deck1, bed1 = bed0 + 0.25f, run0 = bed1 + 0.02f, run1 = run0 + 0.28f;
+        Prim(PrimitiveType.Cylinder, mill, "BedStone", new Vector3(0f, (bed0 + bed1) / 2f, 0f), new Vector3(1.8f, (bed1 - bed0) / 2f, 1.8f), stoneM);
+        // 上の石（MC の軸と一緒に回る）。回ってるのが分かるように、上に溝の線と取っ手
+        var runner = res[2].t;
+        Prim(PrimitiveType.Cylinder, runner, "Shaft", new Vector3(0f, (2f * S + 0.35f + run1) / 2f, 0f), new Vector3(0.1f, (run1 - 2f * S - 0.35f) / 2f, 0.1f), axleM);
+        Prim(PrimitiveType.Cylinder, runner, "RunnerStone", new Vector3(0f, (run0 + run1) / 2f, 0f), new Vector3(1.76f, (run1 - run0) / 2f, 1.76f), stoneM);
+        Prim(PrimitiveType.Cylinder, runner, "Eye", new Vector3(0f, run1 + 0.003f, 0f), new Vector3(0.3f, 0.004f, 0.3f), dark);
+        for (int k = 0; k < 4; k++)
+        {
+            var gr = Prim(PrimitiveType.Cube, runner, "Groove" + k, Quaternion.Euler(0f, k * 45f, 0f) * new Vector3(0f, run1 + 0.002f, 0f), new Vector3(1.5f, 0.004f, 0.04f), dark);
+            gr.localRotation = Quaternion.Euler(0f, k * 45f, 0f);
+        }
+        Prim(PrimitiveType.Cube, runner, "Rynd", new Vector3(0f, run1 + 0.05f, 0f), new Vector3(0.5f, 0.06f, 0.1f), axleM);
+        // じょうご（四角い木の箱、下がせまい）と支え
+        float hop0 = run1 + 0.45f, hop1 = hop0 + 0.5f;
+        var hm = Frustum(0.12f, 0.45f, hop1 - hop0, "GearRide_Hopper");
+        var hop = new GameObject("Hopper"); hop.transform.SetParent(mill, false); hop.transform.localPosition = new Vector3(0f, hop0, 0f);
+        hop.AddComponent<MeshFilter>().sharedMesh = FuwaGearTest.SaveMesh(hm); hop.AddComponent<MeshRenderer>().sharedMaterial = woodM;
+        Prim(PrimitiveType.Cube, mill, "HopperGrain", new Vector3(0f, hop1 - 0.04f, 0f), new Vector3(0.82f, 0.02f, 0.82f), grainM);
+        foreach (float sz in new[] { -1f, 1f })
+        {
+            Prim(PrimitiveType.Cube, mill, "HopperPost", new Vector3(0.95f, (bed0 + hop1) / 2f, sz * 0.5f), new Vector3(0.1f, hop1 - bed0, 0.1f), woodM);
+            Bar(mill, "HopperArm" + sz, new Vector3(0.95f, hop1 - 0.1f, sz * 0.5f), new Vector3(0.45f, hop1 - 0.1f, sz * 0.45f), 0.08f, woodM);
+        }
+        // 粒（じょうごの下から石の目へ）・粉（石のすき間から外へ、ふわっと）
+        Particles(mill, "Grain", new Vector3(0f, hop0 - 0.02f, 0f), Quaternion.Euler(90f, 0f, 0f), grainM, rate: 10f, life: 0.35f, speed: 0.3f, size: 0.035f, grav: 1f, cone: 4f, radius: 0.02f, shape: ParticleSystemShapeType.Cone);
+        Particles(mill, "Flour", new Vector3(0f, bed1 + 0.01f, 0f), Quaternion.Euler(-90f, 0f, 0f), flourM, rate: 14f, life: 1.4f, speed: 0.12f, size: 0.05f, grav: 0.05f, cone: 0f, radius: 0.9f, shape: ParticleSystemShapeType.Circle);
+        // 粉の箱（石の手前、台の上）と粉袋
+        Prim(PrimitiveType.Cube, mill, "FlourTray", new Vector3(0f, deck1 + 0.06f, -1.07f), new Vector3(1.2f, 0.12f, 0.32f), woodM);
+        var pile = Prim(PrimitiveType.Sphere, mill, "FlourPile", new Vector3(0f, deck1 + 0.12f, -1.07f), new Vector3(0.9f, 0.12f, 0.24f), flourM);
+        foreach (var sp in new[] { new Vector3(1.0f, 0f, 0.85f), new Vector3(1.0f, 0f, -0.75f) })
+        {
+            var sk = Prim(PrimitiveType.Sphere, mill, "Sack", new Vector3(sp.x, deck1 + 0.28f, sp.z), new Vector3(0.42f, 0.56f, 0.38f), sackM);
+            Prim(PrimitiveType.Cylinder, mill, "SackTie", new Vector3(sp.x, deck1 + 0.6f, sp.z), new Vector3(0.12f, 0.06f, 0.12f), sackM);
+        }
+        return res;
+    }
+
+    static void Particles(Transform parent, string name, Vector3 lp, Quaternion lr, Material m, float rate, float life, float speed, float size, float grav, float cone, float radius, ParticleSystemShapeType shape)
+    {
+        var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = lp; g.transform.localRotation = lr;
+        var ps = g.AddComponent<ParticleSystem>();
+        var main = ps.main; main.startLifetime = life; main.startSpeed = speed; main.startSize = new ParticleSystem.MinMaxCurve(size * 0.7f, size * 1.3f);
+        main.gravityModifier = grav; main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 80; main.prewarm = true; main.loop = true;
+        var em = ps.emission; em.rateOverTime = rate;
+        var sh = ps.shape; sh.shapeType = shape; sh.angle = cone; sh.radius = radius; if (shape == ParticleSystemShapeType.Circle) { sh.radiusThickness = 0f; }
+        var sol = ps.sizeOverLifetime; sol.enabled = true; sol.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.3f));
+        var pr = g.GetComponent<ParticleSystemRenderer>(); pr.renderMode = ParticleSystemRenderMode.Mesh;
+        pr.mesh = GetCube(); pr.sharedMaterial = m;
+    }
+
+    // 四角いじょうご（下の口 a、上の口 b、高さ h）。外と内の両面
+    static Mesh Frustum(float a, float b, float h, string name)
+    {
+        var v = new System.Collections.Generic.List<Vector3>(); var t = new System.Collections.Generic.List<int>();
+        Vector3[] lo = { new Vector3(-a, 0, -a), new Vector3(a, 0, -a), new Vector3(a, 0, a), new Vector3(-a, 0, a) };
+        Vector3[] hi = { new Vector3(-b, h, -b), new Vector3(b, h, -b), new Vector3(b, h, b), new Vector3(-b, h, b) };
+        for (int i = 0; i < 4; i++)
+        {
+            int j = (i + 1) % 4; int s = v.Count;
+            v.Add(lo[i]); v.Add(lo[j]); v.Add(hi[j]); v.Add(hi[i]);
+            t.Add(s); t.Add(s + 2); t.Add(s + 1); t.Add(s); t.Add(s + 3); t.Add(s + 2);   // 外
+            s = v.Count; v.Add(lo[i]); v.Add(lo[j]); v.Add(hi[j]); v.Add(hi[i]);
+            t.Add(s); t.Add(s + 1); t.Add(s + 2); t.Add(s); t.Add(s + 2); t.Add(s + 3);   // 内
+        }
+        var m = new Mesh { name = name }; m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
     }
 
     // エディタ用：元の歯車の角度 a にする（FuwaGearRide と同じ計算）
