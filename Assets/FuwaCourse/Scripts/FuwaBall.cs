@@ -351,6 +351,29 @@ public class FuwaBall : UdonSharpBehaviour
         BounceOffNormal(b, b.GetNormal(transform.position));
     }
 
+    // 歯車に当たった：歯の動く向き・速さ（の横の分）×boost ＋ 当たった面から離れる向き。上下は少しだけ浮かせる
+    private void HitGear(FuwaGearBumper g, Vector3 p, Vector3 n)
+    {
+        if (_resetAt > 0f || _hidden || _stuck || _waiting || _carried) return;
+        Vector3 sv = g.SurfaceVelocity(p);
+        n.y = 0f;
+        if (n.sqrMagnitude < 0.0001f) n = transform.position - g.transform.position;
+        n.y = 0f; n.Normalize();
+        if (Vector3.Dot(n, transform.position - p) < 0f) n = -n;   // 歯車からふわふわへ向く向きに
+        Vector3 v = _rb.velocity;
+        float vn = Vector3.Dot(v, n);
+        Vector3 nv = sv * g.boost + n * Mathf.Max(g.minPush, -vn * 0.6f) + (v - n * vn) * g.keep;
+        nv.y = Mathf.Max(v.y, 0.4f);
+        _rb.velocity = nv;
+        StartSquash(nv - v);
+        if (sfxBoing != null && sfxBoing.clip != null && Time.time >= _nextBounceSound)
+        {
+            _nextBounceSound = Time.time + 0.15f;
+            sfxBoing.pitch = boingPitchWeak * Random.Range(0.96f, 1.04f);
+            sfxBoing.PlayOneShot(sfxBoing.clip, boingVolumeWeak);
+        }
+    }
+
     private void BounceOffNormal(FuwaBounce b, Vector3 n)
     {
         if (_resetAt > 0f || _hidden || _stuck || _waiting) return;
@@ -1252,6 +1275,9 @@ public class FuwaBall : UdonSharpBehaviour
     private void OnCollisionEnter(Collision collision)
     {
         if (collision == null || collision.gameObject == null) return;
+        // 2–4 の歯車バンパー：当たった所の歯の動きではじかれる（アウトにはならない）
+        FuwaGearBumper gearB = collision.gameObject.GetComponent<FuwaGearBumper>();
+        if (gearB != null) { if (collision.contactCount > 0) HitGear(gearB, collision.GetContact(0).point, collision.GetContact(0).normal); return; }
         FuwaHazard hazard = collision.gameObject.GetComponent<FuwaHazard>();
         FuwaBounce bouncer = collision.gameObject.GetComponent<FuwaBounce>();
         FuwaTopOut topOut = collision.gameObject.GetComponent<FuwaTopOut>();
