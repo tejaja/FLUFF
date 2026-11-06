@@ -1382,4 +1382,12 @@ public class FuwaBall : UdonSharpBehaviour
         _rb.isKinematic = true;
         _waiting = true;
     }
+    // 運び終わり：その場で放して、ふつうに落ち始める（2–4 の鳥。床につく前に撃って拾う）
+    public void EndCarryDrop(Vector3 velocity)
+    {
+        if (!_carried) return;
+        _carried = false;
+        _rb.isKinematic = false;
+        _rb.velocity = velocity;
+    }
 }

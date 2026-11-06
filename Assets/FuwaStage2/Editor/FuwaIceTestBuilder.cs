@@ -78,7 +78,7 @@ public static class FuwaIceTestBuilder
         return ice;
     }
 
-    static void Warp(Transform root, string name, Vector3 pos, string label, Transform target, Material mat)
+    public static void Warp(Transform root, string name, Vector3 pos, string label, Transform target, Material mat)
     {
         var g = Box(root, name, pos, Quaternion.identity, new Vector3(0.7f, 0.7f, 0.7f), mat, true);
         var w = UdonSharpUndo.AddComponent<FuwaIceTestWarp>(g.gameObject); w.target = target; w.InteractionText = label;

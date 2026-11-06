@@ -117,10 +117,102 @@ public static class FuwaDrawbridgeTest
         // 最初の角度（turn = 0：橋が上）
         for (int i = 0; i < 4; i++) ts[i].localRotation = Quaternion.Euler(0f, -gears[i].phase * Mathf.Rad2Deg, 0f);
 
+        // ===== ここからはワールドの向きのまま（root は回っているので、まっすぐな入れ物を別に） =====
+        var ex = new GameObject("Extras").transform; ex.SetParent(root, false); ex.rotation = Quaternion.identity; ex.position = Origin;
+        float pathZ = Origin.z - (PathNear + PathW / 2f);   // 道のまん中
+        float top = Origin.y;
+        var ball = Object.FindObjectsOfType<FuwaBall>(true);
+        FuwaBall myBall = null;
+        foreach (var bb in ball) if (bb.transform.parent && bb.transform.parent.name == "FuwaSystem") myBall = bb;
+        if (myBall == null && ball.Length > 0) myBall = ball[0];
+
+        // 鳥（仮：まるの組み合わせ）と止まり木
+        BuildBird(ex, myBall, new Vector3(Origin.x - 5f, top + 3.0f, pathZ), pathZ, top);
+
+        // ふわふわを出す台・ワープ（テスト用）
+        var spot = new GameObject("BallSpot").transform; spot.SetParent(ex, false);
+        spot.position = new Vector3(Origin.x - 12f, top + 1.6f, pathZ);
+        FuwaStage2WaterTest.BallStand(ex, "BallStand", new Vector3(-13.5f, 0f, pathZ - Origin.z + 1.4f), spot, "ふわふわを出す", new Color(1f, 0.75f, 0.85f));
+        var spawn = new GameObject("Spawn").transform; spawn.SetParent(ex, false);
+        spawn.position = new Vector3(Origin.x - 14.5f, top, pathZ); spawn.rotation = Quaternion.LookRotation(Vector3.right);
+        var warpMat = FuwaGearTest.Mat("GearTest_Warp", new Color(0.55f, 0.8f, 1f));
+        var lobby = GameObject.Find("FuwaStage2/Lobby/LobbySpawn");
+        FuwaIceTestBuilder.Warp(ex, "WarpToGear", new Vector3(13f, -161.3f, -19.2f), "GEAR TEST", spawn, warpMat);
+        if (lobby) FuwaIceTestBuilder.Warp(ex, "WarpBack", new Vector3(Origin.x - 15.5f, top + 0.7f, pathZ - 1.6f), "BACK", lobby.transform, warpMat);
+
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
         Debug.Log($"[跳ね橋のお試し] 作った maxTurn={maxTurn:F1} rA={rA:F3}");
+    }
+
+    // 仮の鳥：まるい体＋おなか＋目＋くちばし＋羽2枚＋しっぽ＋足。止まり木は道の奥のはしから枝をのばす
+    static void BuildBird(Transform ex, FuwaBall ball, Vector3 perchPos, float pathZ, float top)
+    {
+        var bodyM = FuwaGearTest.Mat("BirdTest_Body", new Color(0.97f, 0.74f, 0.45f));
+        var wingM = FuwaGearTest.Mat("BirdTest_Wing", new Color(0.86f, 0.55f, 0.32f));
+        var bellyM = FuwaGearTest.Mat("BirdTest_Belly", new Color(1f, 0.94f, 0.84f));
+        var darkM = FuwaGearTest.Mat("BirdTest_Eye", new Color(0.15f, 0.12f, 0.12f));
+        var beakM = FuwaGearTest.Mat("BirdTest_Beak", new Color(1f, 0.82f, 0.3f));
+        var woodM = FuwaGearTest.Mat("BirdTest_Branch", new Color(0.5f, 0.36f, 0.25f));
+
+        // 止まり木：道の奥のはし（ワールド -Z 側）に柱、そこから鳥の足の下まで枝
+        float footY = perchPos.y - 0.85f;
+        float postZ = pathZ - PathW / 2f + 0.15f;
+        var post = Prim(PrimitiveType.Cylinder, ex, "PerchPost", Vector3.zero, Vector3.one, woodM);
+        post.position = new Vector3(perchPos.x, (top + footY) / 2f, postZ); post.localScale = new Vector3(0.22f, (footY - top) / 2f, 0.22f);
+        var branch = Prim(PrimitiveType.Cylinder, ex, "PerchBranch", Vector3.zero, Vector3.one, woodM);
+        float bl = perchPos.z - postZ;
+        branch.position = new Vector3(perchPos.x, footY - 0.06f, postZ + bl / 2f); branch.rotation = Quaternion.Euler(90f, 0f, 0f); branch.localScale = new Vector3(0.12f, bl / 2f + 0.15f, 0.12f);
+
+        var bird = new GameObject("Bird").transform; bird.SetParent(ex, false);
+        bird.position = perchPos; bird.rotation = Quaternion.LookRotation(Vector3.right);
+        Prim(PrimitiveType.Sphere, bird, "Body", Vector3.zero, new Vector3(1.1f, 1.0f, 1.25f), bodyM);
+        Prim(PrimitiveType.Sphere, bird, "Belly", new Vector3(0f, -0.12f, 0.18f), new Vector3(0.8f, 0.7f, 0.85f), bellyM);
+        Prim(PrimitiveType.Sphere, bird, "EyeL", new Vector3(-0.27f, 0.17f, 0.48f), Vector3.one * 0.12f, darkM);
+        Prim(PrimitiveType.Sphere, bird, "EyeR", new Vector3(0.27f, 0.17f, 0.48f), Vector3.one * 0.12f, darkM);
+        var beak = Prim(PrimitiveType.Cube, bird, "Beak", new Vector3(0f, 0.02f, 0.66f), new Vector3(0.16f, 0.16f, 0.16f), beakM);
+        beak.localRotation = Quaternion.Euler(45f, 0f, 45f);
+        var tail = Prim(PrimitiveType.Sphere, bird, "Tail", new Vector3(0f, 0.12f, -0.66f), new Vector3(0.45f, 0.12f, 0.45f), wingM);
+        tail.localRotation = Quaternion.Euler(-25f, 0f, 0f);
+        // 羽：つけ根（体の横）で回る。見た目は外へのびる平たいまる
+        var wl = new GameObject("WingL").transform; wl.SetParent(bird, false); wl.localPosition = new Vector3(-0.48f, 0.08f, 0f);
+        Prim(PrimitiveType.Sphere, wl, "Wing", new Vector3(-0.35f, 0f, -0.05f), new Vector3(0.8f, 0.1f, 0.55f), wingM);
+        var wr = new GameObject("WingR").transform; wr.SetParent(bird, false); wr.localPosition = new Vector3(0.48f, 0.08f, 0f);
+        Prim(PrimitiveType.Sphere, wr, "Wing", new Vector3(0.35f, 0f, -0.05f), new Vector3(0.8f, 0.1f, 0.55f), wingM);
+        // 足
+        Prim(PrimitiveType.Cylinder, bird, "LegL", new Vector3(-0.16f, -0.65f, 0.05f), new Vector3(0.06f, 0.2f, 0.06f), beakM);
+        Prim(PrimitiveType.Cylinder, bird, "LegR", new Vector3(0.16f, -0.65f, 0.05f), new Vector3(0.06f, 0.2f, 0.06f), beakM);
+
+        // 飛ぶ道すじ：止まり木 → 少し上がって谷の上 → 向こう岸の上で放す（なめらかに点を並べる）
+        // 上がっている橋（高さ8m）を飛びこえる：ふわふわの下のはしが橋の上を通るように
+        var keys = new[]
+        {
+            perchPos,
+            perchPos + new Vector3(2.5f, 3.0f, 0f),
+            perchPos + new Vector3(5f, 7.2f, 0f),
+            perchPos + new Vector3(9f, 7.6f, 0f),
+            perchPos + new Vector3(13.5f, 5.0f, 0f),
+            perchPos + new Vector3(19f, 1.5f, 0f),
+        };
+        var pts = new System.Collections.Generic.List<Vector3>();
+        for (int i = 0; i < keys.Length - 1; i++)
+        {
+            Vector3 p0 = keys[Mathf.Max(i - 1, 0)], p1 = keys[i], p2 = keys[i + 1], p3 = keys[Mathf.Min(i + 2, keys.Length - 1)];
+            for (int s = 0; s < 10; s++)
+            {
+                float t = s / 10f, t2 = t * t, t3 = t2 * t;
+                pts.Add(0.5f * (2f * p1 + (-p0 + p2) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2 + (-p0 + 3f * p1 - 3f * p2 + p3) * t3));
+            }
+        }
+        pts.Add(keys[keys.Length - 1]);
+
+        var b = UdonSharpUndo.AddComponent<FuwaBird>(bird.gameObject);
+        b.ball = ball; b.body = bird; b.wingL = wl; b.wingR = wr;
+        b.path = pts.ToArray();
+        b.carrySpeed = 2.4f;   // 道すじ約24m → 約10秒
+        UdonSharpEditorUtility.CopyProxyToUdon(b);
+        FuwaStage2WaterTest.NoSync(b);
     }
 
     // エディタで動画を撮る用：turn（風車の回った度）にする
