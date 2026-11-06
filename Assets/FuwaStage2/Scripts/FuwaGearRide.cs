@@ -15,6 +15,18 @@ public class FuwaGearRide : UdonSharpBehaviour
     [Tooltip("元の歯車の回る速さ（2D 反時計回り、度/秒）")]
     public float speed = 2f;
     public float rideRay = 0.6f;
+    [Tooltip("元の角度をこの値でくり返す（全部の ratio × wrap が 360 の倍数になる値。精度のため小さめ）")]
+    public float wrap = 36000f;
+
+    [Header("動力：蒸気機関（クランク軸＝ウォーム軸、ローカル Z で回る）")]
+    public Transform crank;
+    public float crankRatio, crankPhase;
+    public Transform engineMount;   // クランク軸の向き（ローカル Z）。ピストンはローカル +Y の線を動く
+    public Transform crankPin, piston, rod;
+    public float rodLen = 1.4f;
+    public ParticleSystem puff;      // ピストンが上がりきるたびに煙
+    public int puffCount = 6;
+    private float _lastCrank;
 
     private float _a;
     private Quaternion[] _last;
@@ -24,7 +36,7 @@ public class FuwaGearRide : UdonSharpBehaviour
 
     private void Update()
     {
-        _a = Mathf.Repeat(_a + speed * Time.deltaTime, 360000f);
+        _a = Mathf.Repeat(_a + speed * Time.deltaTime, wrap);
         Apply();
         Carry();
     }
@@ -34,6 +46,29 @@ public class FuwaGearRide : UdonSharpBehaviour
         if (gears == null || ratio == null || phase == null) return;
         for (int i = 0; i < gears.Length; i++)
             if (gears[i] != null) gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(ratio[i] * _a + phase[i], 360f), 0f);
+        if (crank == null) return;
+        float ca = Mathf.Repeat(crankRatio * _a + crankPhase, 360f);
+        crank.localRotation = Quaternion.Euler(0f, 0f, ca);
+        if (engineMount != null && crankPin != null && piston != null)
+        {
+            Vector3 pl = engineMount.InverseTransformPoint(crankPin.position);
+            float y = pl.y + Mathf.Sqrt(Mathf.Max(0f, rodLen * rodLen - pl.x * pl.x));
+            piston.localPosition = new Vector3(0f, y, pl.z);
+            if (rod != null)
+            {
+                Vector3 a = crankPin.position, b = piston.position;
+                rod.position = (a + b) * 0.5f;
+                rod.rotation = Quaternion.LookRotation((b - a).normalized, engineMount.forward);
+            }
+        }
+        // 上がりきり（ピンがまうえ＝クランクの角度 0° を通った時）に煙
+        if (puff != null)
+        {
+            float d = Mathf.DeltaAngle(_lastCrank, ca);
+            float rel0 = Mathf.DeltaAngle(0f, _lastCrank), rel1 = rel0 + d;
+            if ((rel0 < 0f && rel1 >= 0f) || (rel0 > 0f && rel1 <= 0f)) puff.Emit(puffCount);
+            _lastCrank = ca;
+        }
     }
 
     private void Carry()
