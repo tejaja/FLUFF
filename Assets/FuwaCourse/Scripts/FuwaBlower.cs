@@ -1079,6 +1079,18 @@ public class FuwaBlower : UdonSharpBehaviour
                 mm.Blown(flat * pushPower * Mathf.Lerp(nearBoost, minFalloff, dm / reach) * power, stun);
                 continue;
             }
+            // 2–4 の風車：羽根（半径 hitRadius の球）に風の円すいがかすれば回る（自分の画面だけ）
+            FuwaWindmill wm = c.GetComponent<FuwaWindmill>();
+            if (wm != null)
+            {
+                float alw = Vector3.Dot(to, aim);
+                float rw = wm.hitRadius;
+                if (alw < -rw || alw - rw > reach) continue;
+                float tw = Mathf.Clamp(alw, 0f, reach);
+                if ((to - aim * tw).magnitude > rw + tw * Mathf.Tan(coneAngle * Mathf.Deg2Rad) + nearRadius) continue;
+                wm.Blown(aim, power);
+                continue;
+            }
             if (!InShot(origin, aim, reach, to)) continue;
             float d = Vector3.Dot(to, aim) > 0f ? Mathf.Min(to.magnitude, reach) : 0f;
             FuwaEnemy e = c.GetComponent<FuwaEnemy>();

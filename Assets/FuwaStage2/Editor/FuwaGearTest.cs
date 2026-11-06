@@ -38,10 +38,11 @@ public static class FuwaGearTest
     }
 
     // a とかみ合う z 枚の歯車を、a から dirDeg の向きに置く
-    static Gear Mesh2(Gear a, string name, int z, float dirDeg)
+    public static Gear Mesh2(Gear a, string name, int z, float dirDeg, float m = -1f)
     {
+        if (m <= 0f) m = M;
         float psi = dirDeg * Mathf.Deg2Rad;
-        float dist = M * (a.z + z) / 2f;
+        float dist = m * (a.z + z) / 2f;
         var g = new Gear { name = name, z = z, c = a.c + new Vector2(Mathf.Cos(psi), Mathf.Sin(psi)) * dist, y = a.y };
         // θb = ψ + π + π/zb − (za/zb)(θa − ψ)、θa = ratio_a·T + phase_a
         g.ratio = -a.ratio * a.z / z;
@@ -52,10 +53,13 @@ public static class FuwaGearTest
     public static float Inv(float a) => Mathf.Tan(a) - a;
 
     // 歯車の輪郭（中心から見て星形なので扇で三角形にできる）。角度0に歯の真ん中
-    public static Vector2[] GearOutline(int z, int flankSteps = 10)
+    // m：モジュール（省略で M）。a0〜a1（ラジアン）を渡すと、その角度の範囲の歯だけの扇形（跳ね橋の歯車用、中心まで埋める）
+    public static Vector2[] GearOutline(int z, int flankSteps = 10, float m = -1f, float a0 = 0f, float a1 = 0f)
     {
-        float r = M * z / 2f, rb = r * Mathf.Cos(Alpha), ra = r + M, rf = Mathf.Max(r - 1.25f * M, 0.1f);
-        float half = (Mathf.PI * M / 2f - Backlash) / (2f * r) + Inv(Alpha);   // 基礎円での歯の半分の角度（あそびの分だけ細く）
+        if (m <= 0f) m = M;
+        bool sector = a1 > a0;
+        float r = m * z / 2f, rb = r * Mathf.Cos(Alpha), ra = r + m, rf = Mathf.Max(r - 1.25f * m, 0.1f);
+        float half = (Mathf.PI * m / 2f - Backlash) / (2f * r) + Inv(Alpha);   // 基礎円での歯の半分の角度（あそびの分だけ細く）
         float pitch = 2f * Mathf.PI / z;
         var flank = new System.Collections.Generic.List<Vector2>(); // (半径, 歯の中心からの角度) 右側の歯面、根元→歯先
         float r0 = Mathf.Max(rf, rb);
@@ -72,6 +76,13 @@ public static class FuwaGearTest
         for (int k = 0; k < z; k++)
         {
             float c = k * pitch;
+            if (sector)
+            {
+                // 範囲の中の歯だけ（a0 から順に並ぶように角度をそろえる）
+                c = a0 + Mathf.Repeat(-a0, pitch) + k * pitch;
+                if (c + pitch / 2f > a1) break;
+                if (c - pitch / 2f < a0) continue;
+            }
             // 歯元（前の歯との間）
             for (int s = 0; s < 3; s++) pts.Add(P(rf, c - half - rootHalf + rootHalf * s / 3f));
             // 左の歯面（根元→歯先）＝ 角度は c - flank
@@ -83,6 +94,7 @@ public static class FuwaGearTest
             // 歯元（次の歯との間）
             for (int s = 1; s < 3; s++) pts.Add(P(rf, c + half + rootHalf * s / 3f));
         }
+        if (sector) pts.Add(Vector2.zero);   // 扇の中心へ戻る
         return pts.ToArray();
     }
 
@@ -140,7 +152,7 @@ public static class FuwaGearTest
         return m;
     }
 
-    static Material Mat(string name, Color c)
+    public static Material Mat(string name, Color c)
     {
         string path = MatDir + name + ".mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
@@ -149,7 +161,7 @@ public static class FuwaGearTest
         return m;
     }
 
-    static Mesh SaveMesh(Mesh m)
+    public static Mesh SaveMesh(Mesh m)
     {
         if (!AssetDatabase.IsValidFolder("Assets/FuwaStage2/Meshes/GearTest")) AssetDatabase.CreateFolder("Assets/FuwaStage2/Meshes", "GearTest");
         string path = MeshDir + m.name + ".asset";
