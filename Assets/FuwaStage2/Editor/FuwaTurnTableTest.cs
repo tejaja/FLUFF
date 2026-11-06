@@ -5,16 +5,19 @@ using UnityEngine;
 
 // 2–4：撃って回す回転床のお試し（2026-11-06）
 // 作り直し（てじゃ「乗ってる島が回るとフワフワの維持ムズい」→ B「回すのは動かない地面から」「歯車のつながりも矛盾ないように」）
-//  入口の道の北の足場に羽根車。羽根車の軸の小歯車（12枚）→ 床下の歯車（14枚）→（14枚）→ 回転床のふちの下の大きい歯車（44枚）
-//  歯車は一直線（中心から 165° の向き）に並べて、Mesh2 で中心距離と最初の角度をそろえる。軸は床下の動かない梁（中心の台から外へ）で受ける
+//  入口の道は金網のかご（口は入口と橋の先だけ）。羽根車はかごの入口側のすみ（橋から遠い所。橋へ送る時は背中側になり風が当たらない）
+//  羽根車の軸の小歯車（12枚）→ 床下の歯車（16枚）×3 → 回転床のふちの下の大きい歯車（44枚）
+//  歯車は一直線（中心から 175.5° の向き）に並べて、Mesh2 で中心距離と最初の角度をそろえる。軸は床下の動かない梁（中心の台から外へ）で受ける
 //  歯車は橋の通り道（床の高さ）より下を通るのでぶつからない
 // 橋は2本（120° はなれ）。最初は1本が入口（西）、もう1本が行き止まり（300°）。羽根車を回して 2本目を出口（60°）に合わせる
 // ・2D の (x, y) は Unity の (x, z)。2D の反時計回りは Unity の Y 回転でマイナス
 public static class FuwaTurnTableTest
 {
-    const float Mod = 0.2f; const int ZR = 44, ZI = 14, ZP = 12;
+    const float Mod = 0.2f; const int ZR = 44, ZI = 16, ZP = 12, NI = 3;
     const float DeckR = 4.6f, BridgeEnd = 10f, BridgeW = 2.5f;
-    const float GearY = -1.0f, GearTh = 0.35f, LineDeg = 165f;
+    const float GearY = -1.0f, GearTh = 0.35f, LineDeg = 175.5f;
+    const float Gap = 0.09f;   // 橋の先と床のすき間（橋のかどは r=10.08 を回るので、それより外で床を切る）
+    const float CageX0 = -17.5f, CageHalfZ = 2.5f;   // かご（入口の道の終わり）：x は CageX0 〜 橋の先、z は ±CageHalfZ
     static readonly Vector3 Origin = new Vector3(31.5f, -162f, -104f);   // 回転床のまん中、床の上の高さ
 
     [MenuItem("FuwaCourse/ステージ2/回転床のお試しを作る")]
@@ -32,11 +35,12 @@ public static class FuwaTurnTableTest
 
         var root = new GameObject("TurnTableTest").transform; root.position = Origin;
         // 入口の道（歯車バンパーの床の東のはし x=14 から、回転床の橋の先 r=10 の手前まで）
-        float x0 = 14f - Origin.x, x1 = -(BridgeEnd + 0.05f);
-        Floor(root, "EntryPath", new Vector3((x0 + x1) / 2f, 0f, 0f), 0f, new Vector2(x1 - x0, BridgeW + 0.5f), floorM);
+        // 2026-11-06 てじゃ「羽周辺は網でかこって、橋との接続部分だけあけとく」→ 入口の道を丸ごと金網のかごにする
+        float x0 = 14f - Origin.x, x1 = -(BridgeEnd + Gap);
+        Floor(root, "CageFloor", new Vector3((x0 + x1) / 2f, 0f, 0f), 0f, new Vector2(x1 - x0, 2f * CageHalfZ), floorM);
         // 出口（60°）と行き止まり（300°）：橋の先 r=10.05 から外へ
-        Floor(root, "Exit", Polar(60f, BridgeEnd + 0.05f + 3f), 60f, new Vector2(6f, 6f), floorM);
-        Floor(root, "DeadEnd", Polar(300f, BridgeEnd + 0.05f + 1.25f), 300f, new Vector2(2.5f, 3f), floorM);
+        Floor(root, "Exit", Polar(60f, BridgeEnd + Gap + 3f), 60f, new Vector2(6f, 6f), floorM);
+        Floor(root, "DeadEnd", Polar(300f, BridgeEnd + Gap + 1.25f), 300f, new Vector2(2.5f, 3f), floorM);
 
         // 回転床
         var table = new GameObject("Table").transform; table.SetParent(root, false);
@@ -66,27 +70,28 @@ public static class FuwaTurnTableTest
 
         // 歯車の列：回転床（ring）を元に Mesh2 で並べる → 羽根車の軸の小歯車の角度 u を元に直す
         var gR = new FuwaGearTest.Gear { name = "ring", z = ZR, c = Vector2.zero, ratio = 1f, phase = 0f };
-        var gI1 = FuwaGearTest.Mesh2(gR, "Idler1_z14", ZI, LineDeg, Mod);
-        var gI2 = FuwaGearTest.Mesh2(gI1, "Idler2_z14", ZI, LineDeg, Mod);
-        var gP = FuwaGearTest.Mesh2(gI2, "Pinion_z12", ZP, LineDeg, Mod);
-        var chain = new[] { gI1, gI2, gP };
+        var chain = new FuwaGearTest.Gear[NI + 1];
+        var prev = gR;
+        for (int i = 0; i < NI; i++) { chain[i] = FuwaGearTest.Mesh2(prev, "Idler" + (i + 1) + "_z" + ZI, ZI, LineDeg, Mod); prev = chain[i]; }
+        var gP = FuwaGearTest.Mesh2(prev, "Pinion_z" + ZP, ZP, LineDeg, Mod);
+        chain[NI] = gP;
         float rp = gP.ratio, php = gP.phase * Mathf.Rad2Deg;   // 小歯車の角度 = rp·v + php（v = 回転床の角度）
-        var gearTs = new Transform[3]; var gearRatio = new float[3]; var gearPhase = new float[3];
-        var meshI = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZI, 8, Mod), GearTh, "TurnTable_Idler_z14", Vector2.zero));
+        int nc = chain.Length; var gearTs = new Transform[nc]; var gearRatio = new float[nc]; var gearPhase = new float[nc];
+        var meshI = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZI, 8, Mod), GearTh, "TurnTable_Idler_z" + ZI, Vector2.zero));
         var meshP = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZP, 8, Mod), GearTh, "TurnTable_Pinion_z12", Vector2.zero));
         float beamY = GearY - 0.35f;
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < nc; i++)
         {
             var g = chain[i];
             var t = new GameObject(g.name).transform; t.SetParent(root, false); t.localPosition = new Vector3(g.c.x, GearY, g.c.y);
-            t.gameObject.AddComponent<MeshFilter>().sharedMesh = i < 2 ? meshI : meshP;
-            t.gameObject.AddComponent<MeshRenderer>().sharedMaterial = i == 1 ? light : dark;
+            t.gameObject.AddComponent<MeshFilter>().sharedMesh = i < NI ? meshI : meshP;
+            t.gameObject.AddComponent<MeshRenderer>().sharedMaterial = i % 2 == 1 ? light : dark;
             gearTs[i] = t;
             // 角度 = (r_i / rp)·u + (ph_i − r_i·php/rp)
             gearRatio[i] = g.ratio / rp;
             gearPhase[i] = g.phase * Mathf.Rad2Deg - g.ratio * php / rp;
             // 軸（梁から歯車の上まで。小歯車は羽根車まで）
-            float top = i == 2 ? 1.05f : GearY + GearTh + 0.1f;
+            float top = i == NI ? 1.05f : GearY + GearTh + 0.1f;
             Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (beamY + top) / 2f, g.c.y), new Vector3(0.16f, (top - beamY) / 2f, 0.16f), axleM);
         }
         // 床下の梁（中心の台から歯車の列にそって、小歯車の先まで。動かない）
@@ -95,7 +100,7 @@ public static class FuwaTurnTableTest
         beam.localRotation = Quaternion.Euler(0f, -LineDeg, 0f);
 
         // 羽根車（小歯車の軸の上）と、まわりの足場・金網
-        var pinT = gearTs[2];
+        var pinT = gearTs[NI];
         var handle = new GameObject("Handle").transform; handle.SetParent(pinT, false); handle.localPosition = new Vector3(0f, 1.05f - GearY, 0f);
         handle.gameObject.layer = 2;
         Prim(PrimitiveType.Cylinder, handle, "Hub", Vector3.zero, new Vector3(0.22f, 0.15f, 0.22f), brass);
@@ -105,15 +110,16 @@ public static class FuwaTurnTableTest
             pd.localRotation = Quaternion.Euler(0f, k * 60f, 0f);
         }
         var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.9f;
-        // 足場：入口の道の北どなり（橋の通り道 r<10 にかからない所）
-        var hp = new Vector2(gP.c.x, gP.c.y);
-        float padX0 = Mathf.Min(hp.x - 1.4f, -10.3f), padX1 = -10.3f, padZ0 = (BridgeW + 0.5f) / 2f, padZ1 = hp.y + 2.1f;
-        Floor(root, "HandlePad", new Vector3((padX0 + padX1) / 2f, 0f, (padZ0 + padZ1) / 2f), 0f, new Vector2(padX1 - padX0, padZ1 - padZ0), floorM);
-        // 金網は羽根車と反対側（入口の道の南どなり）。てじゃ「金網を風車とかぶらせると、ふわふわを動かす時にまた羽が回る」
-        //  → 道に立って南へ撃つ＝ふわふわ、北へ撃つ＝羽根車。ふわふわを橋へ送る風の線も羽根車から 2m 以上はなれる
-        float fX0 = -16f, fX1 = -11.2f, fZ1 = -(BridgeW + 0.5f) / 2f, fZ0 = -4.6f;
-        Floor(root, "FencePad", new Vector3((fX0 + fX1) / 2f, 0f, (fZ0 + fZ1) / 2f), 0f, new Vector2(fX1 - fX0, fZ1 - fZ0), floorM);
-        WireFence(root, new Vector3((fX0 + fX1) / 2f, 0f, fZ0 + 0.3f), 90f, fX1 - fX0 - 0.2f, 2.2f, light, axleM);
+        // かごの金網：北・南の長い壁、入口側（東）と橋側（西）は口をあけて両はしだけ。かどの柱が重ならないように端の壁は少し短く
+        float cx0 = x0, cx1 = x1, cl = cx1 - cx0;
+        WireFence(root, new Vector3((cx0 + cx1) / 2f, 0f, CageHalfZ), 90f, cl, 2.2f, light, axleM).name = "Fence_N";
+        WireFence(root, new Vector3((cx0 + cx1) / 2f, 0f, -CageHalfZ), 90f, cl, 2.2f, light, axleM).name = "Fence_S";
+        float inZ = 1.5f, brZ = BridgeW / 2f + 0.15f, endZ = CageHalfZ - 0.08f;
+        foreach (int sgn in new[] { 1, -1 })
+        {
+            WireFence(root, new Vector3(cx0, 0f, sgn * (inZ + endZ) / 2f), 0f, endZ - inZ, 2.2f, light, axleM).name = "Fence_In" + (sgn > 0 ? "N" : "S");
+            WireFence(root, new Vector3(cx1, 0f, sgn * (brZ + endZ) / 2f), 0f, endZ - brZ, 2.2f, light, axleM).name = "Fence_Br" + (sgn > 0 ? "N" : "S");
+        }
 
         var tt = UdonSharpUndo.AddComponent<FuwaTurnTable>(handle.gameObject);
         tt.table = table; tt.tableRatio = 1f / rp; tt.tablePhase = -php / rp;
@@ -176,7 +182,7 @@ public static class FuwaTurnTableTest
                 cis.Add(new CombineInstance { mesh = cube, transform = m });
             }
         }
-        var wm = new Mesh { name = "WireFence_Wires" }; wm.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        var wm = new Mesh { name = "WireFence_Wires_" + w.ToString("F2") + "x" + h.ToString("F2") };   // 大きさごとに別のアセット（同じ名前だと上書きされて全部の金網が最後の形になった） wm.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
         wm.CombineMeshes(cis.ToArray(), true, true); wm.RecalculateBounds();
         var wires = new GameObject("Wires"); wires.transform.SetParent(f, false);
         wires.AddComponent<MeshFilter>().sharedMesh = FuwaGearTest.SaveMesh(wm);
