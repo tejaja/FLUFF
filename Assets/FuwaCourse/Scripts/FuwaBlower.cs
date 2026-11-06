@@ -1095,11 +1095,17 @@ public class FuwaBlower : UdonSharpBehaviour
             FuwaTurnTable tt = c.GetComponent<FuwaTurnTable>();
             if (tt != null)
             {
+                // 当たりは風の円すい（45°）ではなく細い芯だけ。羽根の円（横 hitRadius、縦 ±hitHalfHeight）を通った時だけ回る
+                //  （てじゃ「予想以上に端でも当たっちゃって困る」2026-11-06）
                 float alt = Vector3.Dot(to, aim);
                 float rt = tt.hitRadius;
                 if (alt < -rt || alt - rt > reach) continue;
                 float tt2 = Mathf.Clamp(alt, 0f, reach);
-                if ((to - aim * tt2).magnitude > rt + tt2 * Mathf.Tan(coneAngle * Mathf.Deg2Rad) + nearRadius) continue;
+                Vector3 off = to - aim * tt2;
+                float grow = tt2 * Mathf.Tan(tt.hitCone * Mathf.Deg2Rad);
+                if (Mathf.Abs(off.y) > tt.hitHalfHeight + grow) continue;
+                off.y = 0f;
+                if (off.magnitude > rt + grow) continue;
                 tt.Shot(origin, aim, power);
                 continue;
             }

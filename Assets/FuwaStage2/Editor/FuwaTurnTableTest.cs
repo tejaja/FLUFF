@@ -109,7 +109,7 @@ public static class FuwaTurnTableTest
             var pd = Prim(PrimitiveType.Cube, handle, "Paddle" + k, Quaternion.Euler(0f, k * 60f, 0f) * new Vector3(0.45f, 0f, 0f), new Vector3(0.7f, 0.3f, 0.04f), bladeM);
             pd.localRotation = Quaternion.Euler(0f, k * 60f, 0f);
         }
-        var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.9f;
+        var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.8f;
         // かごの金網：北・南の長い壁、入口側（東）と橋側（西）は口をあけて両はしだけ。かどの柱が重ならないように端の壁は少し短く
         float cx0 = x0, cx1 = x1, cl = cx1 - cx0;
         WireFence(root, new Vector3((cx0 + cx1) / 2f, 0f, CageHalfZ), 90f, cl, 2.2f, light, axleM).name = "Fence_N";
@@ -124,7 +124,7 @@ public static class FuwaTurnTableTest
         var tt = UdonSharpUndo.AddComponent<FuwaTurnTable>(handle.gameObject);
         tt.table = table; tt.tableRatio = 1f / rp; tt.tablePhase = -php / rp;
         tt.gears = gearTs; tt.gearRatio = gearRatio; tt.gearPhase = gearPhase;
-        tt.handle = handle; tt.hitRadius = 0.9f; tt.startU = php;   // u = php で回転床が 0°
+        tt.handle = handle; tt.hitRadius = 0.8f; tt.hitHalfHeight = 0.3f; tt.hitCone = 3f; tt.startU = php;   // u = php で回転床が 0°
         UdonSharpEditorUtility.CopyProxyToUdon(tt); FuwaStage2WaterTest.NoSync(tt);
         SetU(php);
 

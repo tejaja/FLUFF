@@ -16,8 +16,12 @@ public class FuwaTurnTable : UdonSharpBehaviour
     public Transform[] gears;          // 羽根車の軸の小歯車・床下の歯車（ローカル Y で回る）
     public float[] gearRatio, gearPhase;
     public Transform handle;           // 撃つ羽根車（当たりの中心、小歯車と同じ軸）
-    [Tooltip("羽根車に風がかすれば当たり（半径 m）")]
-    public float hitRadius = 0.9f;
+    [Tooltip("当たりの半径（m）。風の芯がこの円の中を通った時だけ回る（羽根の先 0.8m）")]
+    public float hitRadius = 0.8f;
+    [Tooltip("当たりの高さ（羽根の真ん中から上下 m）")]
+    public float hitHalfHeight = 0.3f;
+    [Tooltip("遠くから撃った時だけ少し広げる角度（度）。0 で銃口からまっすぐの線だけ")]
+    public float hitCone = 3f;
     [Tooltip("フルパワーで真横を撃った時に足す、羽根車の回る速さ（度/秒）")]
     public float spinPerShot = 260f;
     public float maxSpin = 450f;
