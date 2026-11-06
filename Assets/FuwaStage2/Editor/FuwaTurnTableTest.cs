@@ -84,6 +84,9 @@ public static class FuwaTurnTableTest
         tt.sunTeeth = ZS; tt.planetTeeth = ZPl; tt.planetPhase = pg.phase * Mathf.Rad2Deg;
         tt.hitRadius = 0.9f; tt.startDeg = 0f;
         UdonSharpEditorUtility.CopyProxyToUdon(tt); FuwaStage2WaterTest.NoSync(tt);
+
+        // 金網の壁（羽根車の向こう＝東。てじゃ「フワフワをぶつけながら維持できる壁」「金網なら向こうも見える」）。回転床と一緒に回る
+        WireFence(table, new Vector3(pg.c.x + 1.7f, 0f, pg.c.y), 0f, 3f, 2.2f, light, axleM);
         SetTable(0f);
 
         // ふわふわを出す台
@@ -108,6 +111,65 @@ public static class FuwaTurnTableTest
 
     [MenuItem("FuwaCourse/ステージ2/回転床のお試しを消す")]
     public static void Remove() { var o = GameObject.Find("TurnTableTest"); if (o) Object.DestroyImmediate(o); }
+
+    // 金網：ひし形（±45° の細い針金）＋まわりの枠。面は local の YZ（法線 +X）。当たりは薄い箱（地面レイヤーではない＝当たってもアウトにならない）
+    // ふわふわはゆっくり跳ね返す（FuwaBounce、面の向き）。くっついて止まらないように
+    public static Transform WireFence(Transform parent, Vector3 basePos, float yawDeg, float w, float h, Material frameM, Material wireM)
+    {
+        var f = new GameObject("WireFence").transform; f.SetParent(parent, false);
+        f.localPosition = basePos; f.localRotation = Quaternion.Euler(0f, yawDeg, 0f);
+        float y0 = 0.15f, y1 = y0 + h, s = 0.2f, wr = 0.012f;
+        // 針金（1つのメッシュにまとめる）
+        var cis = new System.Collections.Generic.List<CombineInstance>();
+        var cube = GetCube();
+        foreach (int dir in new[] { 1, -1 })
+        {
+            // 直線 z = dir*(y - y0) + c を、z∈[-w/2, w/2]、y∈[y0, y1] で切る
+            for (float c = -w / 2f - h; c <= w / 2f + h; c += s * Mathf.Sqrt(2f))
+            {
+                Vector2 a = Vector2.zero, b = Vector2.zero; int n = 0;
+                Vector2[] cand = new Vector2[4];
+                // 4 辺との交点（y, z）
+                float zA = c, zB = dir * h + c;
+                if (zA >= -w / 2f && zA <= w / 2f) cand[n++] = new Vector2(y0, zA);
+                if (zB >= -w / 2f && zB <= w / 2f) cand[n++] = new Vector2(y1, zB);
+                float yL = (-w / 2f - c) / dir + y0, yR = (w / 2f - c) / dir + y0;
+                if (yL > y0 && yL < y1) cand[n++] = new Vector2(yL, -w / 2f);
+                if (yR > y0 && yR < y1) cand[n++] = new Vector2(yR, w / 2f);
+                if (n < 2) continue;
+                a = cand[0]; b = cand[1];
+                Vector3 pa = new Vector3(0f, a.x, a.y), pb = new Vector3(0f, b.x, b.y);
+                float len = (pb - pa).magnitude; if (len < 0.05f) continue;
+                var m = Matrix4x4.TRS((pa + pb) / 2f, Quaternion.LookRotation((pb - pa).normalized, Vector3.right), new Vector3(wr, wr, len));
+                cis.Add(new CombineInstance { mesh = cube, transform = m });
+            }
+        }
+        var wm = new Mesh { name = "WireFence_Wires" }; wm.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        wm.CombineMeshes(cis.ToArray(), true, true); wm.RecalculateBounds();
+        var wires = new GameObject("Wires"); wires.transform.SetParent(f, false);
+        wires.AddComponent<MeshFilter>().sharedMesh = FuwaGearTest.SaveMesh(wm);
+        wires.AddComponent<MeshRenderer>().sharedMaterial = wireM;
+        // 枠と柱
+        Prim(PrimitiveType.Cube, f, "FrameTop", new Vector3(0f, y1, 0f), new Vector3(0.06f, 0.06f, w + 0.06f), frameM);
+        Prim(PrimitiveType.Cube, f, "FrameBottom", new Vector3(0f, y0, 0f), new Vector3(0.06f, 0.06f, w + 0.06f), frameM);
+        Prim(PrimitiveType.Cube, f, "PostL", new Vector3(0f, (y1) / 2f, -w / 2f), new Vector3(0.07f, y1 + 0.03f, 0.07f), frameM);
+        Prim(PrimitiveType.Cube, f, "PostR", new Vector3(0f, (y1) / 2f, w / 2f), new Vector3(0.07f, y1 + 0.03f, 0.07f), frameM);
+        // 当たり
+        var col = new GameObject("Collider"); col.transform.SetParent(f, false);
+        var bc = col.AddComponent<BoxCollider>(); bc.center = new Vector3(0f, (y0 + y1) / 2f, 0f); bc.size = new Vector3(0.06f, h + 0.1f, w + 0.06f);
+        var bo = UdonSharpUndo.AddComponent<FuwaBounce>(col);
+        bo.useContactNormal = true; bo.alwaysUp = false; bo.bounceSpeed = 0.6f; bo.keepTangent = 0.85f;
+        UdonSharpEditorUtility.CopyProxyToUdon(bo); FuwaStage2WaterTest.NoSync(bo);
+        return f;
+    }
+
+    static Mesh _cube;
+    static Mesh GetCube()
+    {
+        if (_cube) return _cube;
+        var g = GameObject.CreatePrimitive(PrimitiveType.Cube); _cube = g.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(g);
+        return _cube;
+    }
 
     static Vector3 Polar(float deg, float r) { float a = deg * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r); }
 
