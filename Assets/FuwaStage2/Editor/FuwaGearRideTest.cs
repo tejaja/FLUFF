@@ -11,6 +11,8 @@ using UnityEngine;
 public static class FuwaGearRideTest
 {
     const float Mod = 0.4f, Th = 0.6f, Gap = 0.15f;
+    public static float Step = 0.4f;     // 1段の高さ（ジャンプ力3で足が約0.46m上がる）
+    const float ClearY = 0.04f;          // 上の段の大きい歯車と、下の段の歯車の上の面とのすき間
     const int ZBig = 20, ZSmall = 12;
     public static float PitchSpeed = 0.15f;   // ピッチ円の速さ（m/秒）。てじゃ「かなりゆっくり」
     static readonly Vector3 Origin = new Vector3(50f, -162f, -104f);   // 入口の台の東のはし、床の上の高さ
@@ -28,40 +30,59 @@ public static class FuwaGearRideTest
         var under = FuwaGearTest.Mat("GearRideTest_Under", new Color(0.78f, 0.8f, 0.85f));
 
         var root = new GameObject("GearRideTest").transform; root.position = Origin;
+        // 2026-11-06 てじゃ「ジャンプで上がる程度の段差ほしい、歯車の組み合わせで」→ 段つき歯車（同じ軸に大20枚＋上に小12枚）で1段 Step m ずつ上がる
+        //  G1（大、高さ0）→ G2（下：大＝G1とかみ合う、上：小＝1段上）→ G3（下：大、1段上＝G2の小とかみ合う、上：小＝2段上）→ G4（大、2段上）→ 出口（2段上）
+        //  かみ合う2枚は同じ高さの層。上の段の大きい歯車は下の段の歯車の上を ClearY だけ浮いて通る
+        //  回る速さ：G1＝G2、G3＝G2×12/20、G4＝G3×12/20（上の段ほどゆっくり）
         float tipBig = Mod * ZBig / 2f + Mod;
-        var g1 = new FuwaGearTest.Gear { name = "G1_z" + ZBig, z = ZBig, c = new Vector2(tipBig + Gap, 0f), ratio = 1f, phase = 0f };
-        var g2 = FuwaGearTest.Mesh2(g1, "G2_z" + ZSmall, ZSmall, 30f, Mod);
-        var g3 = FuwaGearTest.Mesh2(g2, "G3_z" + ZBig, ZBig, -30f, Mod);
-        var gs = new[] { g1, g2, g3 };
+        var g1 = new FuwaGearTest.Gear { name = "G1", z = ZBig, c = new Vector2(tipBig + Gap, 0f), ratio = 1f, phase = 0f };
+        var g2 = FuwaGearTest.Mesh2(g1, "G2", ZBig, 30f, Mod);
+        var g2s = new FuwaGearTest.Gear { name = "G2s", z = ZSmall, c = g2.c, ratio = g2.ratio, phase = g2.phase };
+        var g3 = FuwaGearTest.Mesh2(g2s, "G3", ZBig, -30f, Mod);
+        var g3s = new FuwaGearTest.Gear { name = "G3s", z = ZSmall, c = g3.c, ratio = g3.ratio, phase = g3.phase };
+        var g4 = FuwaGearTest.Mesh2(g3s, "G4", ZBig, 30f, Mod);
+        var gs = new[] { g1, g2, g3, g4 };
+        // 各歯車の段（歯数, 下の面, 上の面）。床の高さ＝上の面
+        float S = Step;
+        var parts = new[] {
+            new[] { new Vector3(ZBig, -Th, 0f) },
+            new[] { new Vector3(ZBig, -Th, 0f), new Vector3(ZSmall, 0f, S) },
+            new[] { new Vector3(ZBig, ClearY, S), new Vector3(ZSmall, S, 2f * S) },
+            new[] { new Vector3(ZBig, S + ClearY, 2f * S) },
+        };
 
         Floor(root, "Entry", new Vector3(-2f, 0f, 0f), new Vector2(4f, 4f), floorM);
-        float exitX = g3.c.x + tipBig + Gap;
-        Floor(root, "Exit", new Vector3(exitX + 2f, 0f, 0f), new Vector2(4f, 4f), floorM);
+        float exitX = g4.c.x + tipBig + Gap;
+        Floor(root, "Exit", new Vector3(exitX + 2f, 2f * S, g4.c.y), new Vector2(4f, 4f), floorM);
 
-        var meshBig = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZBig, 8, Mod), Th, "GearRide_z" + ZBig, Vector2.zero));
-        var meshSmall = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZSmall, 8, Mod), Th, "GearRide_z" + ZSmall, Vector2.zero));
-        var ts = new Transform[3]; var ratio = new float[3]; var phase = new float[3];
-        for (int i = 0; i < 3; i++)
+        var ts = new Transform[4]; var ratio = new float[4]; var phase = new float[4];
+        for (int i = 0; i < 4; i++)
         {
             var g = gs[i];
             var t = new GameObject(g.name).transform; t.SetParent(root, false); t.localPosition = new Vector3(g.c.x, 0f, g.c.y);
-            var body = new GameObject("Body"); body.transform.SetParent(t, false); body.transform.localPosition = new Vector3(0f, -Th, 0f);
-            body.layer = 11;
-            var mesh = g.z == ZBig ? meshBig : meshSmall;
-            body.AddComponent<MeshFilter>().sharedMesh = mesh; body.AddComponent<MeshRenderer>().sharedMaterial = i == 1 ? brass : light;
-            body.AddComponent<MeshCollider>().sharedMesh = mesh;
             var rb = t.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
-            // まん中の印（回ってるのが分かるように、軸のキャップと1本の線）
-            Prim(PrimitiveType.Cylinder, t, "Cap", new Vector3(0f, 0.005f, 0f), new Vector3(0.6f, 0.005f, 0.6f), dark);
-            Prim(PrimitiveType.Cube, t, "Mark", new Vector3(g.z * Mod / 4f, 0.004f, 0f), new Vector3(g.z * Mod / 2f - 0.5f, 0.008f, 0.12f), dark);
-            // 軸（受け床まで）
-            Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (CatchY - Th) / 2f, g.c.y), new Vector3(0.3f, (-Th - CatchY) / 2f, 0.3f), axleM);
+            float lowest = 99f, topY = 0f; int topZ = ZBig;
+            for (int k = 0; k < parts[i].Length; k++)
+            {
+                int z = (int)parts[i][k].x; float y0 = parts[i][k].y, y1 = parts[i][k].z;
+                var mesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(z, 8, Mod), y1 - y0, "GearRide_z" + z + "_t" + Mathf.RoundToInt((y1 - y0) * 100f), Vector2.zero));
+                var body = new GameObject("Body_z" + z); body.transform.SetParent(t, false); body.transform.localPosition = new Vector3(0f, y0, 0f);
+                body.layer = 11;
+                body.AddComponent<MeshFilter>().sharedMesh = mesh; body.AddComponent<MeshRenderer>().sharedMaterial = z == ZSmall ? brass : light;
+                body.AddComponent<MeshCollider>().sharedMesh = mesh;
+                lowest = Mathf.Min(lowest, y0); if (y1 >= topY) { topY = y1; topZ = z; }
+            }
+            // まん中の印（回ってるのが分かるように、軸のキャップと1本の線）。いちばん上の段に
+            Prim(PrimitiveType.Cylinder, t, "Cap", new Vector3(0f, topY + 0.005f, 0f), new Vector3(0.6f, 0.005f, 0.6f), dark);
+            Prim(PrimitiveType.Cube, t, "Mark", new Vector3(topZ * Mod / 4f, topY + 0.004f, 0f), new Vector3(topZ * Mod / 2f - 0.5f, 0.008f, 0.12f), dark);
+            // 軸（受け床から歯車の下の面まで）
+            Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (CatchY + lowest) / 2f, g.c.y), new Vector3(0.3f, (lowest - CatchY) / 2f, 0.3f), axleM);
             ts[i] = t; ratio[i] = g.ratio; phase[i] = g.phase * Mathf.Rad2Deg;
         }
 
         // 落ちた時の受け床と、入口へ戻る階段（0.3m × 10段）
         float x0 = -13f, x1 = exitX + 5f;
-        var cf = Floor(root, "CatchFloor", new Vector3((x0 + x1) / 2f, CatchY, 1.5f), new Vector2(x1 - x0, 14f), under);
+        var cf = Floor(root, "CatchFloor", new Vector3((x0 + x1) / 2f, CatchY, 2f), new Vector2(x1 - x0, 16f), under);
         for (int k = 0; k < 10; k++)
         {
             float top = CatchY + 0.3f * (k + 1);
@@ -94,7 +115,7 @@ public static class FuwaGearRideTest
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
-        Debug.Log($"[乗る歯車] 作った G1 {ride.speed:F2}°/秒（1周 {360f / ride.speed:F0}秒）、G2 {ride.speed * ZBig / ZSmall:F2}°/秒");
+        Debug.Log($"[乗る歯車] 作った G1 {ride.speed:F2}°/秒（1周 {360f / ride.speed:F0}秒）、比 {string.Join(", ", ratio)}");
     }
 
     // エディタ用：元の歯車の角度 a にする（FuwaGearRide と同じ計算）
