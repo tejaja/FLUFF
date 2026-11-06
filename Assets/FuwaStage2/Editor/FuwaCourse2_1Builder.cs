@@ -588,7 +588,7 @@ public static class FuwaCourse2_1Builder
         }
 
         // 渡り場の飛び石、1回目の渡り場の先の岩、2回目の渡り場の魚
-        CrossingStones(root, "Stones1", sCross1, 1f);
+        CrossingStones(root, "Stones1", sCross1, 1f, Stones1Count);
         CrossingStones(root, "Stones2", sCross2, -1f);
         StopRocks(root);
         MidRock(root);
@@ -2012,15 +2012,17 @@ public static class FuwaCourse2_1Builder
     public static int StoneCount = 2;   // 3→2（てじゃ「石２個でいいかも」）
     // StoneSpread：川の流れの向きにどれだけずらして並べるか（片側、m）。0.5→2.5（てじゃ「飛び石、斜めぎみに配置しよう」。石2個で前後に約1.7mずれる）
     public static float StoneR = 0.42f, StoneSpread = 2.5f;
-    static void CrossingStones(Transform root, string name, float sc, float from)
+    public static int Stones1Count = 1;   // 1回目の渡り場だけ 2→1（2026-11-06 てじゃ「最初の滝を通ったあとの2個ある飛び石、真ん中1個にして」）。川のまん中に来る
+    static void CrossingStones(Transform root, string name, float sc, float from, int count = -1)
     {
+        if (count < 0) count = StoneCount;
         var g = new GameObject(name).transform; g.SetParent(root, false);
         // 円柱のメッシュは作った円柱から借りる（GetBuiltinResource("Cylinder.fst") は null で、当たり判定がなく石に乗れなかった）
         var tmpCyl = GameObject.CreatePrimitive(PrimitiveType.Cylinder); var cyl = tmpCyl.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(tmpCyl);
         var rng = new System.Random(name.GetHashCode());
-        for (int i = 0; i < StoneCount; i++)
+        for (int i = 0; i < count; i++)
         {
-            StoneAt(sc, from, i, out float s, out float lat);
+            StoneAt(sc, from, i, out float s, out float lat, count);
             Center(s, out var p, out var d); var q = p + Right(d) * lat;
             var st = new GameObject("Stone" + i); st.transform.SetParent(g, false);
             st.transform.localPosition = new Vector3(q.x, BankTop, q.y);
@@ -2145,9 +2147,10 @@ public static class FuwaCourse2_1Builder
     public static float[] FishPeriods = { 3.4f, 4.3f };
     public static float FishJumpTime = 1.15f;
     // 飛び石の場所（CrossingStones と同じ式）：sc＝渡り場、from＝出発する岸、i 番目の石の中心線の位置 s と横のずれ lat
-    static void StoneAt(float sc, float from, int i, out float s, out float lat)
+    static void StoneAt(float sc, float from, int i, out float s, out float lat, int count = -1)
     {
-        float k = (i + 1f) / (StoneCount + 1f);
+        if (count < 0) count = StoneCount;
+        float k = (i + 1f) / (count + 1f);
         lat = from * Mathf.Lerp(RiverHW(sc) + RimW, -(RiverHW(sc) + RimW), k);
         s = sc + Mathf.Lerp(-StoneSpread, StoneSpread, k);
     }
@@ -2158,6 +2161,20 @@ public static class FuwaCourse2_1Builder
     public static float CpRiverMushOut = 0.3f;   // 右のキノコ：川の向こうのふちの外側から外へ（ふちの上だと丸太が川にはみ出た）
     const string CpRiverName = "CheckpointRiver";
     static float B2Lat(float s) { return -(RiverHW(Mathf.Clamp(s, sPool1, sRiver1)) + RimW + 1.55f); }   // 左岸の道（B2_Bank）の中心の横のずれ。道の幅は 3m
+
+    [MenuItem("FuwaCourse/ステージ2/2–1 1回目の渡り場の飛び石を置き直す")]
+    public static void MenuStones1()
+    {
+        var rootGo = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName);
+        if (!rootGo) { Debug.LogWarning("[2–1] コースがない"); return; }
+        Layout();
+        var old = rootGo.transform.Find("Stones1"); int idx = old ? old.GetSiblingIndex() : -1;
+        if (old) Object.DestroyImmediate(old.gameObject);
+        CrossingStones(rootGo.transform, "Stones1", sCross1, 1f, Stones1Count);
+        if (idx >= 0) rootGo.transform.Find("Stones1").SetSiblingIndex(idx);
+        FuwaStage2Static.Apply(rootGo.transform);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(rootGo.scene);
+    }
 
     [MenuItem("FuwaCourse/ステージ2/2–1 川のチェックポイント（岩の列と2連魚のあいだ）を置き直す")]
     public static void MenuCpRiver()
