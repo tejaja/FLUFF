@@ -1091,6 +1091,18 @@ public class FuwaBlower : UdonSharpBehaviour
                 wm.Blown(aim, power);
                 continue;
             }
+            // 2–4 の回転床の羽根車：同じ当たり方。回る向きは撃った所と向きで決まる（自分の画面だけ）
+            FuwaTurnTable tt = c.GetComponent<FuwaTurnTable>();
+            if (tt != null)
+            {
+                float alt = Vector3.Dot(to, aim);
+                float rt = tt.hitRadius;
+                if (alt < -rt || alt - rt > reach) continue;
+                float tt2 = Mathf.Clamp(alt, 0f, reach);
+                if ((to - aim * tt2).magnitude > rt + tt2 * Mathf.Tan(coneAngle * Mathf.Deg2Rad) + nearRadius) continue;
+                tt.Shot(origin, aim, power);
+                continue;
+            }
             if (!InShot(origin, aim, reach, to)) continue;
             float d = Vector3.Dot(to, aim) > 0f ? Mathf.Min(to.magnitude, reach) : 0f;
             FuwaEnemy e = c.GetComponent<FuwaEnemy>();
