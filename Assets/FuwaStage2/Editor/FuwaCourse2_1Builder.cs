@@ -588,7 +588,7 @@ public static class FuwaCourse2_1Builder
         }
 
         // 渡り場の飛び石、1回目の渡り場の先の岩、2回目の渡り場の魚
-        CrossingStones(root, "Stones1", sCross1, 1f, Stones1Count);
+        CrossingStones(root, "Stones1", sCross1 + Stones1Shift, 1f, Stones1Count);
         CrossingStones(root, "Stones2", sCross2, -1f);
         StopRocks(root);
         MidRock(root);
@@ -2013,6 +2013,7 @@ public static class FuwaCourse2_1Builder
     // StoneSpread：川の流れの向きにどれだけずらして並べるか（片側、m）。0.5→2.5（てじゃ「飛び石、斜めぎみに配置しよう」。石2個で前後に約1.7mずれる）
     public static float StoneR = 0.42f, StoneSpread = 2.5f;
     public static int Stones1Count = 1;   // 1回目の渡り場だけ 2→1（2026-11-06 てじゃ「最初の滝を通ったあとの2個ある飛び石、真ん中1個にして」）。川のまん中に来る
+    public static float Stones1Shift = -1.2f;   // 1回目の渡り場の石を川の流れの向きにずらす（m、マイナス＝上流の滝の方。てじゃ「もうちょい奥寄りに」）
     static void CrossingStones(Transform root, string name, float sc, float from, int count = -1)
     {
         if (count < 0) count = StoneCount;
@@ -2170,7 +2171,7 @@ public static class FuwaCourse2_1Builder
         Layout();
         var old = rootGo.transform.Find("Stones1"); int idx = old ? old.GetSiblingIndex() : -1;
         if (old) Object.DestroyImmediate(old.gameObject);
-        CrossingStones(rootGo.transform, "Stones1", sCross1, 1f, Stones1Count);
+        CrossingStones(rootGo.transform, "Stones1", sCross1 + Stones1Shift, 1f, Stones1Count);
         if (idx >= 0) rootGo.transform.Find("Stones1").SetSiblingIndex(idx);
         FuwaStage2Static.Apply(rootGo.transform);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(rootGo.scene);
