@@ -112,6 +112,27 @@ public static class FuwaGearRideTest
             FuwaIceTestBuilder.Warp(root, "WarpBack", root.TransformPoint(new Vector3(-3.4f, 0.35f, -1.5f)), "BACK", back, warpMat);
         }
 
+        // 動力の目印：コースの外のデカい風車（2026-11-06 てじゃ「勝手に回る歯車の近くには風車って感じ」「いまはテストだから適当でいい」→ 歯車とはつながってない見た目だけ）
+        {
+            var wm = new GameObject("Windmill").transform; wm.SetParent(root, false); wm.localPosition = new Vector3(g1.c.x + 3f, CatchY, -9f);
+            Prim(PrimitiveType.Cylinder, wm, "Pad", new Vector3(0f, -0.2f, 0f), new Vector3(4f, 0.2f, 4f), floorM);
+            const float H = 11f;
+            Prim(PrimitiveType.Cylinder, wm, "Tower", new Vector3(0f, H / 2f, 0f), new Vector3(1.4f, H / 2f, 1.4f), light);
+            Prim(PrimitiveType.Cube, wm, "Head", new Vector3(0f, H + 0.4f, 0.3f), new Vector3(1.6f, 1.2f, 2.2f), dark);
+            var rotor = new GameObject("Rotor").transform; rotor.SetParent(wm, false); rotor.localPosition = new Vector3(0f, H + 0.4f, 1.6f);
+            rotor.gameObject.AddComponent<Rigidbody>().isKinematic = true;
+            Prim(PrimitiveType.Cylinder, rotor, "Hub", Vector3.zero, new Vector3(0.7f, 0.25f, 0.7f), brass).localRotation = Quaternion.Euler(90f, 0f, 0f);
+            for (int k = 0; k < 4; k++)
+            {
+                var arm = new GameObject("Blade" + k).transform; arm.SetParent(rotor, false); arm.localRotation = Quaternion.Euler(0f, 0f, k * 90f);
+                Prim(PrimitiveType.Cube, arm, "Spar", new Vector3(0f, 2.6f, 0f), new Vector3(0.15f, 4.8f, 0.12f), dark);
+                var bl = Prim(PrimitiveType.Cube, arm, "Sail", new Vector3(0.55f, 3.0f, 0.05f), new Vector3(1.0f, 3.8f, 0.04f), light);
+                bl.localRotation = Quaternion.Euler(0f, 12f, 0f);
+            }
+            var sp = UdonSharpUndo.AddComponent<FuwaSpinner>(rotor.gameObject); sp.axis = Vector3.forward; sp.degPerSec = 30f;
+            UdonSharpEditorUtility.CopyProxyToUdon(sp); FuwaStage2WaterTest.NoSync(sp);
+        }
+
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
