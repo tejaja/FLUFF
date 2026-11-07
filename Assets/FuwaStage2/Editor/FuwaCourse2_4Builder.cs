@@ -72,6 +72,7 @@ public static class FuwaCourse2_4Builder
         var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
         ballProxy = GameObject.Find("FuwaSystem/FuwaBall")?.GetComponent<FuwaBall>();
         cps.Clear(); segNo = 0;
+        cwG.Clear(); cwR.Clear(); cwP.Clear(); slG.Clear(); slT.Clear(); slRod.Clear(); slAx.Clear(); slPin.Clear(); slPY.Clear(); slLen.Clear(); feeds.Clear(); CwMats();
         var log = new System.Text.StringBuilder();
 
         float R0 = StartSet(root);
@@ -86,18 +87,19 @@ public static class FuwaCourse2_4Builder
         //  ① 乗る歯車（前へ）→ 右 ② 跳ね橋 → 右 ③ せり出す橋（おりたらすぐ右）→ ④ 2枚の回転床（①の上を通る）→ まん中の塔
         MakeMechs();
         S(3f);
-        Place(Ride, log); CP("Checkpoint1", 1f); S(2f);
+        Place(Ride, log); CP("Checkpoint1", 1f); PushWall(); S(PushLen);   // ①→②：押し出し壁（乗る歯車の出口の先。跳ね橋の手前だと跳ね橋の大きい歯車にかかった）
         T(-90f); S(2f);
-        Place(Draw, log); CP("Checkpoint2", 1f); S(2f); S(8f, 3f);
+        Place(Draw, log); CP("Checkpoint2", 1f); SweepArm(); S(ArmLen); S(8f, 3f);   // ②→③：回るアーム
         T(-90f); S(2f);
-        Place(Rack, log); CP("Checkpoint3", 1f); S(2f);
+        Place(Rack, log); CP("Checkpoint3", 1f); Shutters(); S(ShutLen);   // ③→④：シャッター
         T(90f); S(6f, 3f); T(-90f); S(2f);
         Place(Twin, log); CP("Checkpoint4", 1f); S(2f);
         // 塔へ（まん中）：①の上をまたいで
-        T(-120f); S(8f, 3f); S(12.5f);   // 2026-11-07 2枚の回転床を大きくした（すき間 3.2m）ので塔の位置を合わせ直し
+        T(-120f); S(8f, 3f); S(14f);   // 2026-11-07 2枚の回転床を大きくした（すき間 3.2m）ので塔の位置を合わせ直し
         // 時計塔のトンネルを突っ切って、抜けた先にゴール（2026-11-07 てじゃ「最後は塔を突っ切った先がゴール」）
         ClockTower(P + Dir(th) * (TowerW / 2f), th);
         TowerDriveRide(log);
+        ClockworkFeeds(root.Find("ClockTower")); ClockworkInstall(root.Find("ClockTower"));
         S(TowerW); S(1f);
         var goalAt = GoalSet(root, P, Dir(th));
 
@@ -408,23 +410,262 @@ public static class FuwaCourse2_4Builder
         var d = new Vector2(tc.x - c3.x, tc.z - c3.z).normalized;
         // ride の中の 2D（x→z 反時計回り）。G3 の回り方：角度 = ratio·a + phase（度）
         var g3 = new FuwaGearTest.Gear { name = "G3", z = 20, c = new Vector2(c3.x, c3.z), ratio = rl[i3], phase = pl[i3] * Mathf.Deg2Rad };
-        var gd = FuwaGearTest.Mesh2(g3, "TowerDrive_z18", 18, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0.4f);
-        var t = new GameObject(gd.name).transform; t.SetParent(ride, false);
-        t.localPosition = new Vector3(gd.c.x, g3T.localPosition.y, gd.c.y);
+        // G3 から塔の壁までの距離（塔の四角との交わり）。塔の中から出てくる歯車は、中心が壁の 1m 内側、壁から 1.2m 以上出る
+        float dirDeg = Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg;
+        var c3w = ride.TransformPoint(c3); var dw = ride.TransformDirection(new Vector3(d.x, 0f, d.y));
+        var lo = tower.InverseTransformPoint(c3w); var ld = tower.InverseTransformDirection(dw);
+        float h = TowerW / 2f, tIn = 0f;
+        foreach (var (o, dd) in new[] { (lo.x, ld.x), (lo.z, ld.z) }) { if (Mathf.Abs(dd) < 1e-5f) continue; float t1 = (-h - o) / dd, t2 = (h - o) / dd; tIn = Mathf.Max(tIn, Mathf.Min(t1, t2)); }
+        // 1枚で届くか、なければ間に1枚（どちらも 12〜24 枚から）
+        var chain = new List<FuwaGearTest.Gear>(); float tipOf(int z) => 0.2f * z + 0.4f;
+        for (int z = 12; z <= 24 && chain.Count == 0; z++) { float D = 0.2f * (20 + z); if (D >= tIn + 0.8f && D - tipOf(z) <= tIn - 1.2f) chain.Add(FuwaGearTest.Mesh2(g3, "TowerDrive_z" + z, z, dirDeg, 0.4f)); }
+        for (int zi = 10; zi <= 20 && chain.Count == 0; zi++) for (int z = 10; z <= 20 && chain.Count == 0; z++)
+        {
+            float D = 0.2f * (20 + zi) + 0.2f * (zi + z);
+            if (D >= tIn + 0.8f && D - tipOf(z) <= tIn - 1.2f) { var gi = FuwaGearTest.Mesh2(g3, "TowerIdler_z" + zi, zi, dirDeg, 0.4f); chain.Add(gi); chain.Add(FuwaGearTest.Mesh2(gi, "TowerDrive_z" + z, z, dirDeg, 0.4f)); }
+        }
+        if (chain.Count == 0) { log.Append("塔へ歯車が届かない(" + tIn.ToString("F1") + "m) "); return; }
         var b3m = body3.GetComponent<MeshFilter>().sharedMesh; var bb = b3m.bounds;
-        var body = new GameObject("Body_z18"); body.transform.SetParent(t, false);
-        body.transform.localPosition = body3.localPosition + new Vector3(0f, bb.min.y * body3.localScale.y, 0f);
-        body.layer = body3.gameObject.layer;
-        var m = SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(18, 10, 0.4f), bb.size.y * body3.localScale.y, "TowerDrive_z18", Vector2.zero));
-        body.AddComponent<MeshFilter>().sharedMesh = m; body.AddComponent<MeshRenderer>().sharedMaterial = body3.GetComponent<Renderer>().sharedMaterial;
-        if (body3.GetComponent<MeshCollider>()) body.AddComponent<MeshCollider>().sharedMesh = m;
-        gl.Add(t); rl.Add(gd.ratio); pl.Add(gd.phase * Mathf.Rad2Deg);
+        foreach (var gd in chain)
+        {
+            var t = new GameObject(gd.name).transform; t.SetParent(ride, false);
+            t.localPosition = new Vector3(gd.c.x, g3T.localPosition.y, gd.c.y);
+            var body = new GameObject("Body_z" + gd.z); body.transform.SetParent(t, false);
+            body.transform.localPosition = body3.localPosition + new Vector3(0f, bb.min.y * body3.localScale.y, 0f);
+            body.layer = body3.gameObject.layer;
+            var m = SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(gd.z, 10, 0.4f), bb.size.y * body3.localScale.y, "TowerDrive_m04_z" + gd.z, Vector2.zero));
+            body.AddComponent<MeshFilter>().sharedMesh = m; body.AddComponent<MeshRenderer>().sharedMaterial = body3.GetComponent<Renderer>().sharedMaterial;
+            if (body3.GetComponent<MeshCollider>()) body.AddComponent<MeshCollider>().sharedMesh = m;
+            if (gd.name.StartsWith("TowerIdler"))
+            {
+                var ax = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ax.name = "Axle"; Object.DestroyImmediate(ax.GetComponent<Collider>());
+                ax.transform.SetParent(t, false); ax.transform.localPosition = new Vector3(0f, -1.5f, 0f); ax.transform.localScale = new Vector3(0.3f, 1.55f, 0.3f);
+                ax.GetComponent<Renderer>().sharedMaterial = cwAxle;
+            }
+            gl.Add(t); rl.Add(gd.ratio); pl.Add(gd.phase * Mathf.Rad2Deg);
+        }
+        var gdLast = chain[chain.Count - 1];
         gr.gears = gl.ToArray(); gr.ratio = rl.ToArray(); gr.phase = pl.ToArray();
         gr.crank = null; gr.engineMount = null; gr.crankPin = null; gr.piston = null; gr.rod = null; gr.puff = null;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(gr);
         // エディタでも今の角度に
         for (int i = 0; i < gr.gears.Length; i++) gr.gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(gr.phase[i], 360f), 0f);
-        log.Append("塔→G3 中心距離 " + (gd.c - g3.c).magnitude.ToString("F2") + " ");
+        log.Append("塔→G3 歯車 " + string.Join("+", chain.Select(x => x.name)) + " 壁まで " + tIn.ToString("F1") + "m ");
+    }
+
+    // ===== 時計塔が動かす、道ごとの自動の歯車じかけ（2026-11-07 てじゃ「各道に、なんかしら自動の歯車の仕掛けを追加しよう」→ 案「いいよ」）=====
+    //  FuwaClockwork が全部の歯車・クランクを 元の角度 a（ClockSpeed 度/秒）から動かす。歯車 i の角度 = ratio·a + phase（frame の local Y まわり、2D 反時計回り）
+    //  塔 ←（空中の軸、高さ ShaftY）→ かさ歯車 → たての軸 → しかけ。塔の中の歯車は見せない（軸は塔の壁にささる）
+    public static float ClockSpeed = 10f, ShaftY = 15.4f;
+    const float BevM = 0.15f; const int BevZ = 16;
+    static List<Transform> cwG = new List<Transform>(); static List<float> cwR = new List<float>(), cwP = new List<float>();
+    static List<int> slG = new List<int>(); static List<Transform> slT = new List<Transform>(), slRod = new List<Transform>(); static List<Vector3> slAx = new List<Vector3>(); static List<float> slPin = new List<float>(), slPY = new List<float>(), slLen = new List<float>();
+    struct Feed { public Vector3 O; public Transform shaftGear; public float ratio, phase; }   // たての軸のてっぺん O（コースの座標）と、その軸の歯車（local Y＝上）の回り方
+    static List<Feed> feeds = new List<Feed>();
+    static Material cwDark, cwLight, cwBrass, cwAxle, cwFloor, cwWall;
+
+    static void CwMats()
+    {
+        cwDark = FuwaGearTest.Mat("GearTest_Gear", new Color(0.36f, 0.38f, 0.43f));
+        cwLight = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f));
+        cwBrass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        cwAxle = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
+        cwFloor = FuwaGearTest.Mat("GearTest_Floor", new Color(0.55f, 0.58f, 0.63f));
+        cwWall = FuwaStage2WaterTest.ToonMat("Stage2_4_Pusher", new Color(0.74f, 0.42f, 0.36f));
+    }
+
+    static int AddGear(Transform t, float r, float p) { cwG.Add(t); cwR.Add(r); cwP.Add(p); return cwG.Count - 1; }
+
+    // frame（向きだけ）の下に回る歯車。lp は parent の中。axis＝歯車の軸（frame の local Y）
+    static Transform CwGear(Transform parent, string name, Vector3 lp, Vector3 axisLocal, Mesh mesh, Material m, bool collider = false)
+    {
+        var fr = new GameObject(name + "_Frame").transform; fr.SetParent(parent, false);
+        fr.localPosition = lp; fr.localRotation = Quaternion.FromToRotation(Vector3.up, axisLocal);
+        var g = new GameObject(name).transform; g.SetParent(fr, false);
+        if (mesh)
+        {
+            g.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh; g.gameObject.AddComponent<MeshRenderer>().sharedMaterial = m;
+            if (collider) { g.gameObject.layer = 11; g.gameObject.AddComponent<MeshCollider>().sharedMesh = mesh; }
+        }
+        return g;
+    }
+    static Mesh SpurMesh(int z, float mod, float th, string name) => SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(z, 8, mod), th, name, Vector2.zero));
+    static void CwShaft(Transform g, float y0, float y1, float d)
+    {
+        var s = GameObject.CreatePrimitive(PrimitiveType.Cylinder); s.name = "Shaft"; Object.DestroyImmediate(s.GetComponent<Collider>());
+        s.transform.SetParent(g, false); s.transform.localPosition = new Vector3(0f, (y0 + y1) / 2f, 0f); s.transform.localScale = new Vector3(d, (y1 - y0) / 2f, d);
+        s.GetComponent<Renderer>().sharedMaterial = cwAxle;
+        var l = GameObject.CreatePrimitive(PrimitiveType.Cube); l.name = "ShaftLine"; Object.DestroyImmediate(l.GetComponent<Collider>());
+        l.transform.SetParent(g, false); l.transform.localPosition = new Vector3(d / 2f, (y0 + y1) / 2f, 0f); l.transform.localScale = new Vector3(0.03f, y1 - y0, 0.05f);
+        l.GetComponent<Renderer>().sharedMaterial = cwBrass;
+    }
+    static Transform CwRod(Transform parent, string name, float len)
+    {
+        var r = new GameObject(name).transform; r.SetParent(parent, false);
+        TBox(r, "Bar", Vector3.zero, new Vector3(0.16f, 0.12f, len), cwAxle, false);
+        return r;
+    }
+    static Transform Platform(Transform parent, string name, Vector3 c, Vector2 size)
+    {
+        var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = c + new Vector3(0f, -0.3f, 0f); g.gameObject.layer = 11;
+        var v = GameObject.CreatePrimitive(PrimitiveType.Cube); v.name = "Visual"; Object.DestroyImmediate(v.GetComponent<Collider>()); v.transform.SetParent(g, false); v.transform.localScale = new Vector3(size.x, 0.6f, size.y); v.GetComponent<Renderer>().sharedMaterial = cwFloor;
+        g.gameObject.AddComponent<BoxCollider>().size = new Vector3(size.x, 0.6f, size.y);
+        return g;
+    }
+    static Transform GimmickRoot(string name)
+    {
+        var holder = root.Find("Gimmicks"); if (!holder) { holder = new GameObject("Gimmicks").transform; holder.SetParent(root, false); }
+        var g = new GameObject(name).transform; g.SetParent(holder, false); g.localPosition = P; g.localRotation = Quaternion.LookRotation(Dir(th));
+        return g;
+    }
+    // 2枚のかさ歯車（頂点 O を共有、軸 A・B はどちらも O から歯車の方へ、直角）。A の回り方から B の回り方を出して登録。B の歯車を返す
+    //  A の歯が B の方（axisB）を向く時 B はすき間：θB = −(zA/zB)(θA − φA) + φB + 180/zB
+    static Transform BevelPair(Transform parent, string name, Vector3 O, Vector3 axA, Vector3 axB, int zA, int zB, float rA, float pA, out Transform gA, out float rB, out float pB)
+    {
+        float dA = Mathf.Atan2(zA, zB), dB = Mathf.PI / 2f - dA, Ac = BevM * zA / (2f * Mathf.Sin(dA)), F = 0.3f * Ac;
+        var mA = SaveMesh2(FuwaRackBridgeTest.Bevel(zA, BevM, dA, F, "Clockwork_Bevel_z" + zA + "_" + zB)); var mB = SaveMesh2(FuwaRackBridgeTest.Bevel(zB, BevM, dB, F, "Clockwork_Bevel_z" + zB + "_" + zA));
+        gA = CwGear(parent, name + "_A", O + axA * (Ac * Mathf.Cos(dA)), axA, mA, cwBrass);
+        var gB = CwGear(parent, name + "_B", O + axB * (Ac * Mathf.Cos(dB)), axB, mB, cwDark);
+        float phA = FuwaRackBridgeTest.Phi2D(gA.parent.localRotation, axB), phB = FuwaRackBridgeTest.Phi2D(gB.parent.localRotation, axA);
+        rB = -(float)zA / zB * rA; pB = -(float)zA / zB * (pA - phA) + phB + 180f / zB;
+        AddGear(gA, rA, pA); AddGear(gB, rB, pB);
+        return gB;
+    }
+
+    // ①→② 押し出し壁：道の左（外）の台の上でクランクが回って、壁が道を横切って出たり引っこんだり（クランク1回転 6秒）
+    //  台の上の小歯車（たての軸、空中の軸から）→ クランクの歯車（26枚）。壁は引っこむと台の上、出ると道を全部ふさぐ
+    public static float PushLen = 6f, PushCycle = 6f;
+    static void PushWall()
+    {
+        var g = GimmickRoot("PushWall"); float zc = PushLen / 2f;
+        const float R = 2.25f, L = 4.5f, Cx = -6.85f, Y = 2.4f, GT = 0.25f;   // クランクは壁の上（壁が引っこむとクランクの下にもぐる）
+        Platform(g, "Deck", new Vector3(-7.2f, 0f, zc), new Vector2(10.2f, PushLen - 0.2f));
+        float rc = 360f / PushCycle / ClockSpeed;
+        var crankG = new FuwaGearTest.Gear { z = 26, c = new Vector2(Cx, zc), ratio = rc, phase = Mathf.PI };   // a=0 でピンが −x（壁は引っこんでいる）
+        var crank = CwGear(g, "Crank_z26", new Vector3(Cx, Y, zc), Vector3.up, SpurMesh(26, 0.2f, GT, "Clockwork_Spur_z26"), cwLight);
+        int ci = AddGear(crank, rc, 180f);
+        var pin = GameObject.CreatePrimitive(PrimitiveType.Cylinder); Object.DestroyImmediate(pin.GetComponent<Collider>()); pin.name = "Pin"; pin.transform.SetParent(crank, false);
+        pin.transform.localPosition = new Vector3(R, GT + 0.1f, 0f); pin.transform.localScale = new Vector3(0.2f, 0.1f, 0.2f); pin.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        var pg = FuwaGearTest.Mesh2(crankG, "Pinion_z12", 12, 180f, 0.2f);
+        var pinion = CwGear(g, "Pinion_z12", new Vector3(pg.c.x, Y, pg.c.y), Vector3.up, SpurMesh(12, 0.2f, GT, "Clockwork_Spur_z12"), cwBrass);
+        AddGear(pinion, pg.ratio, pg.phase * Mathf.Rad2Deg);
+        // 壁（スライダー、原点＝ピンの高さの壁のまん中）と棒
+        var wall = new GameObject("Wall").transform; wall.SetParent(g, false); wall.localPosition = new Vector3(Cx - (L - R), Y + GT + 0.1f, zc);
+        var wb = TBox(wall, "Plate", new Vector3(0f, 1.15f - (Y + GT + 0.1f), 0f), new Vector3(4.6f, 2.2f, 0.4f), cwWall, true);
+        TBox(wall, "Bracket", new Vector3(0f, -0.25f, 0f), new Vector3(0.3f, 0.5f, 0.3f), cwDark, false);
+        foreach (float px in new[] { Cx, pg.c.x }) TBox(g, "Stand" + px.ToString("F1"), new Vector3(px, Y / 2f, zc), new Vector3(0.3f, Y, 0.3f), cwDark, false);
+        var bo = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBounce>(wb.gameObject); bo.useContactNormal = true; bo.alwaysUp = false; bo.bounceSpeed = 3f; bo.keepTangent = 0.5f;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bo); FuwaStage2WaterTest.NoSync(bo);
+        var rod = CwRod(g, "Rod", L);
+        slG.Add(ci); slT.Add(wall); slRod.Add(rod); slAx.Add(Vector3.right); slPin.Add(R); slPY.Add(GT + 0.1f); slLen.Add(L);
+        // たての軸（小歯車から空中の軸の高さまで）
+        float top = ShaftY - P.y;
+        CwShaft(pinion, GT, top - 1.25f, 0.18f);
+        feeds.Add(new Feed { O = root.InverseTransformPoint(g.TransformPoint(new Vector3(pg.c.x, top, pg.c.y))), shaftGear = pinion, ratio = pg.ratio, phase = pg.phase * Mathf.Rad2Deg });
+    }
+
+    // ②→③ 回るアーム：道の左（外）のたての軸に長い腕。9秒で1周、道の上（ふわふわの高さ）をはらう
+    public static float ArmLen = 6f, ArmCycle = 9f, ArmReach = 5.5f, ArmY = 1.2f;
+    static void SweepArm()
+    {
+        var g = GimmickRoot("SweepArm"); float zc = ArmLen / 2f; const float Ax = -3.6f;
+        Platform(g, "Deck", new Vector3(-3.8f, 0f, zc), new Vector2(3.4f, 3.4f));
+        float ra = 360f / ArmCycle / ClockSpeed;
+        var hub = CwGear(g, "ArmHub_z14", new Vector3(Ax, 0.05f, zc), Vector3.up, SpurMesh(14, 0.2f, 0.3f, "Clockwork_Spur_z14"), cwBrass);
+        AddGear(hub, ra, 90f);   // a=0 で腕は道と平行（道の上にない）
+        var arm = new GameObject("Arm").transform; arm.SetParent(hub, false);
+        var ab = TBox(arm, "Bar", new Vector3(ArmReach / 2f, ArmY, 0f), new Vector3(ArmReach, 0.35f, 0.35f), cwWall, true);
+        var bo = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBounce>(ab.gameObject); bo.useContactNormal = true; bo.alwaysUp = false; bo.bounceSpeed = 3.5f; bo.keepTangent = 0.4f;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bo); FuwaStage2WaterTest.NoSync(bo);
+        TBox(arm, "Post", new Vector3(0f, ArmY / 2f + 0.15f, 0f), new Vector3(0.4f, ArmY, 0.4f), cwDark, false);
+        float top = ShaftY - P.y;
+        CwShaft(hub, 0.3f, top - 1.25f, 0.2f);
+        feeds.Add(new Feed { O = root.InverseTransformPoint(g.TransformPoint(new Vector3(Ax, top, zc))), shaftGear = hub, ratio = ra, phase = 90f });
+    }
+
+    // ③→④ かわりばんこのシャッター：道の上の門に2枚。上の軸（道ぞい）のクランク2つが 180° ずれていて、交互に上下（6秒で1回）
+    public static float ShutLen = 6f, ShutCycle = 6f;
+    static void Shutters()
+    {
+        var g = GimmickRoot("Shutters");
+        const float R = 1.3f, L = 3.0f, CY = 6.55f, GW = 4.8f, GH = 2.2f;
+        float[] zs = { 1.6f, ShutLen - 1.6f };
+        float rk = 360f / ShutCycle / ClockSpeed;
+        // 門：はしらと上のはり
+        foreach (float z in zs) foreach (int sx in new[] { -1, 1 })
+            TBox(g, "Post" + z.ToString("F1") + sx, new Vector3(sx * 2.65f, (CY + 0.4f) / 2f, z), new Vector3(0.25f, CY + 0.4f, 0.35f), cwDark, true);
+        foreach (float z in new[] { 0.3f, zs[1] + 0.6f })   // 2本目は出口側のかさ歯車（z = ShutLen − 0.3）にかからない所
+            TBox(g, "Beam" + z.ToString("F1"), new Vector3(0f, CY, z), new Vector3(5.6f, 0.3f, 0.3f), cwLight, false);
+        // クランク（上の軸、local Y＝道の向き）2つ。a=0 で1枚目のピンが真下（閉まっている）、2枚目は真上（開いている）
+        Transform first = null;
+        for (int k = 0; k < 2; k++)
+        {
+            var cr = CwGear(g, "Crank" + k, new Vector3(0f, CY, zs[k]), Vector3.forward, SpurMesh(16, 0.2f, 0.2f, "Clockwork_Spur_z16"), cwLight);
+            float phD = FuwaRackBridgeTest.Phi2D(cr.parent.localRotation, Vector3.down);
+            int ci = AddGear(cr, rk, phD);
+            float pr = k == 0 ? R : -R;
+            var pin = GameObject.CreatePrimitive(PrimitiveType.Cylinder); Object.DestroyImmediate(pin.GetComponent<Collider>()); pin.name = "Pin"; pin.transform.SetParent(cr, false);
+            pin.transform.localPosition = new Vector3(pr, -0.1f, 0f); pin.transform.localScale = new Vector3(0.16f, 0.15f, 0.16f); pin.GetComponent<Renderer>().sharedMaterial = cwBrass;
+            var gate = new GameObject("Gate" + k).transform; gate.SetParent(g, false); gate.localPosition = new Vector3(0f, CY - (L + R), zs[k]);
+            var gb = TBox(gate, "Plate", new Vector3(0f, -GH / 2f, 0f), new Vector3(GW, GH, 0.25f), cwWall, true);
+            var bo = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBounce>(gb.gameObject); bo.useContactNormal = true; bo.alwaysUp = false; bo.bounceSpeed = 3f; bo.keepTangent = 0.5f;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bo); FuwaStage2WaterTest.NoSync(bo);
+            var rod = CwRod(g, "Rod" + k, L);
+            slG.Add(ci); slT.Add(gate); slRod.Add(rod); slAx.Add(Quaternion.Inverse(cr.parent.localRotation) * Vector3.down); slPin.Add(pr); slPY.Add(-0.1f); slLen.Add(L);
+            if (k == 0) first = cr;
+            if (k == 1) CwShaft(cr, -(zs[1] - zs[0]), 0f, 0.16f);   // 2つのクランクをつなぐ軸
+        }
+        // 上の軸の先（出口側 +z）でかさ歯車 → たての軸 → 空中の軸の高さ
+        var Ob = new Vector3(0f, CY, ShutLen + 0.9f);
+        var lastCrank = cwG[cwG.Count - 1];
+        float rC = cwR[cwR.Count - 1], pC = cwP[cwP.Count - 1];
+        // E：上の軸の歯車（Ob から −z＝門の方。上の軸の local Y は +z なので向きが逆：θE = −θC）。F：Ob の上（たての軸）
+        Transform gE; float rF, pF;
+        var gF = BevelPair(g, "ShutBevel", Ob, Vector3.back, Vector3.up, BevZ, BevZ, -rC, -pC, out gE, out rF, out pF);
+        CwShaft(lastCrank, 0f, Ob.z - 1.2f - zs[1], 0.16f);
+        float top = ShutTop();
+        CwShaft(gF, 0f, top - CY - 2.4f, 0.16f);
+        feeds.Add(new Feed { O = root.InverseTransformPoint(g.TransformPoint(new Vector3(0f, top, Ob.z))), shaftGear = gF, ratio = rF, phase = pF });
+    }
+    static float ShutTop() => ShaftY - P.y;
+
+    // 塔から各しかけへ：てっぺん O でかさ歯車（A：たての軸、O の下／B：空中の軸、塔の方）。軸は塔の壁の中まで
+    static void ClockworkFeeds(Transform tower)
+    {
+        var tc = root.InverseTransformPoint(tower.position);
+        int n = 0;
+        foreach (var f in feeds)
+        {
+            var d = new Vector3(tc.x - f.O.x, 0f, tc.z - f.O.z); float dist = d.magnitude; d /= dist;
+            // たての軸の歯車（local Y＝上）の θ と、O の下の A（local Y＝下）：θA = −θ
+            Transform gA; float rB, pB;
+            var gB = BevelPair(root.Find("Gimmicks"), "Feed" + n, f.O, Vector3.down, d, BevZ, BevZ, -f.ratio, -f.phase, out gA, out rB, out pB);
+            CwShaft(gB, 0f, dist - 1.2f - 1.0f, 0.2f);   // 塔のまん中から 1m 手前まで（塔の中）
+            n++;
+        }
+    }
+
+    static void ClockworkInstall(Transform tower)
+    {
+        var cw = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaClockwork>(tower.gameObject);
+        cw.speed = ClockSpeed;
+        cw.gears = cwG.ToArray(); cw.ratio = cwR.ToArray(); cw.phase = cwP.ToArray();
+        cw.sliderGear = slG.ToArray(); cw.sliders = slT.ToArray(); cw.rods = slRod.ToArray(); cw.sliderAxis = slAx.ToArray(); cw.pinR = slPin.ToArray(); cw.pinY = slPY.ToArray(); cw.rodLen = slLen.ToArray();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cw); FuwaStage2WaterTest.NoSync(cw);
+        ClockworkSet(cw, 0f);
+    }
+    // エディタ用：元の角度 a にする（FuwaClockwork と同じ計算）
+    public static void ClockworkSet(FuwaClockwork cw, float a)
+    {
+        for (int i = 0; i < cw.gears.Length; i++) if (cw.gears[i]) cw.gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(cw.ratio[i] * a + cw.phase[i], 360f), 0f);
+        for (int k = 0; k < cw.sliders.Length; k++)
+        {
+            var gg = cw.gears[cw.sliderGear[k]]; float py = cw.pinY[k]; var c = gg.TransformPoint(new Vector3(0f, py, 0f)); var pin = gg.TransformPoint(new Vector3(cw.pinR[k], py, 0f));
+            var ax = gg.parent.TransformDirection(cw.sliderAxis[k]).normalized; var dd = pin - c; float al = Vector3.Dot(dd, ax); var side = dd - ax * al;
+            var sp = c + ax * (al + Mathf.Sqrt(Mathf.Max(0f, cw.rodLen[k] * cw.rodLen[k] - side.sqrMagnitude)));
+            cw.sliders[k].position = sp;
+            if (cw.rods[k]) { cw.rods[k].position = (pin + sp) * 0.5f; cw.rods[k].rotation = Quaternion.LookRotation((sp - pin).normalized, gg.up); }
+        }
     }
 
     // ---- 2–3 と同じ部品 ----

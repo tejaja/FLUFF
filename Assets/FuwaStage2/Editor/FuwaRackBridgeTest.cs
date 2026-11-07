@@ -189,7 +189,7 @@ public static class FuwaRackBridgeTest
     public static void Remove() { var o = GameObject.Find("RackBridgeTest"); if (o) Object.DestroyImmediate(o); }
 
     // 枠 q の中で、世界の向き dir が 2D の何度か（local の x→z 反時計回り）
-    static float Phi2D(Quaternion q, Vector3 dir) { var l = Quaternion.Inverse(q) * dir; return Mathf.Atan2(l.z, l.x) * Mathf.Rad2Deg; }
+    public static float Phi2D(Quaternion q, Vector3 dir) { var l = Quaternion.Inverse(q) * dir; return Mathf.Atan2(l.z, l.x) * Mathf.Rad2Deg; }
 
     // 歯車：枠（動かない、向きだけ）の下に回る本体
     static Transform Gear(Transform root, string name, Vector3 localPos, Quaternion frameRot, Mesh mesh, Material m)
@@ -210,7 +210,7 @@ public static class FuwaRackBridgeTest
     }
 
     // かさ歯車：外の面（y=0）の歯の輪郭を、頂点（y = −A cosδ）に向かって縮めた円すい台。歯の幅 F
-    static Mesh Bevel(int z, float m, float delta, float faceW, string name)
+    public static Mesh Bevel(int z, float m, float delta, float faceW, string name)
     {
         // 外の面の歯は「背円すい」（ピッチ円すいに直角な円すい）の上に、トレッドゴールドの近似で置く（2026-11-07）：
         //  背円すいを開いた「仮想の平歯車」（半径 r/cosδ、歯数 z/cosδ）の歯形を描いて、ピッチ円からの高さ dρ は
