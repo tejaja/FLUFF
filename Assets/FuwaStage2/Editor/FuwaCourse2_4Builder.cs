@@ -225,6 +225,7 @@ public static class FuwaCourse2_4Builder
         var m = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (!m) { m = new Mesh { name = name }; AssetDatabase.CreateAsset(m, path); }
         m.Clear(false);
+        m.indexFormat = v.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;   // でかい歯車は頂点が6万5千をこえる（こえると途中で切れて見えた）
         m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
         EditorUtility.SetDirty(m);
         return m;
@@ -817,7 +818,7 @@ public static class FuwaCourse2_4Builder
         // でかい歯車（まん中は塔の土台の中にかくれる。こしきの輪は塔の角の外）
         float rHub = 5.9f, rWin = RW - 1.25f * WM - 0.9f;
         var wins = new (float, float)[8]; for (int k = 0; k < 8; k++) wins[k] = (k * 45f + 22.5f, 18.5f);
-        var wMesh = WindowGear(WZ, WM, WT, rHub, rWin, wins, "Clockwork_BigWheel_z" + WZ);
+        var wMesh = WindowGear(WZ, WM, WT, rHub, rWin, wins, "Clockwork_BigWheel_z" + WZ, 4);
         var wg = CwGear(wf, "BigWheel_z" + WZ, Vector3.zero, Vector3.up, wMesh, cwDark);
         AddGear(wg, bestRW, 0f);
         var log = new System.Text.StringBuilder("[2–4] でかい歯車 z" + WZ + " 直径 " + (2f * RW).ToString("F1") + "m ratio " + bestRW.ToString("F4") + " ");
@@ -895,9 +896,9 @@ public static class FuwaCourse2_4Builder
     }
 
     // 窓のある歯車：外のふち（歯）と、まん中のこしき（rHub）の間に、wins の角度（中心, 半分の幅）だけ rHub〜rWin の窓（穴）
-    static Mesh WindowGear(int z, float mod, float h, float rHub, float rWin, (float c, float hw)[] wins, string name)
+    static Mesh WindowGear(int z, float mod, float h, float rHub, float rWin, (float c, float hw)[] wins, string name, int flank = 8)
     {
-        var o = FuwaGearTest.GearOutline(z, 8, mod); int n = o.Length;
+        var o = FuwaGearTest.GearOutline(z, flank, mod); int n = o.Length;
         var v = new List<Vector3>(); var t = new List<int>();
         bool InWin(float a) { foreach (var w in wins) if (Mathf.Abs(Mathf.DeltaAngle(a, w.c)) < w.hw) return true; return false; }
         Vector3 P3(Vector2 d, float r, float y) => new Vector3(d.x * r, y, d.y * r);
