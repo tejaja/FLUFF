@@ -40,7 +40,7 @@ public static class FuwaCourse2_4Builder
         float dz = -(FuwaDrawbridgeTest.PathNear + FuwaDrawbridgeTest.PathW / 2f);
         Draw = new Mech { test = "DrawbridgeTest", name = "S2_Drawbridge", build = FuwaDrawbridgeTest.Build, e = new Vector3(-FuwaDrawbridgeTest.NearLen, 0f, dz), de = 0f, x = new Vector3(FuwaDrawbridgeTest.BridgeLen + 0.05f + FuwaDrawbridgeTest.FarLen, 0f, dz), dx = 0f };
         // せり出す橋：橋をおりたらすぐ右（−z）の床から出る（2026-11-07「小回りに」。前は向こう岸の奥 (21, 0, 3.13) から）
-        Rack = new Mech { test = "RackBridgeTest", name = "S3_RackBridge", build = FuwaRackBridgeTest.Build, e = new Vector3(-7.4f, 0f, 0f), de = 0f, x = new Vector3(11f, 0f, -5f), dx = -90f };
+        Rack = new Mech { test = "RackBridgeTest", name = "S3_RackBridge", build = FuwaRackBridgeTest.Build, e = new Vector3(-7.4f, 0f, 0f), de = 0f, x = new Vector3((FuwaRackBridgeTest.Gap + FuwaRackBridgeTest.FarX1) / 2f, 0f, FuwaRackBridgeTest.FarZ0), dx = -90f };   // 2026-11-07 両側から出る橋に作り直し（谷 6m、向こう岸 5m）
         Turn = new Mech { test = "TurnTableTest", name = "S4_TurnTable", build = FuwaTurnTableTest.Build, e = new Vector3(-17.5f, 0f, 0f), de = 0f, x = new Vector3(8.045f, 0f, 13.934f), dx = 60f };
         // 2枚の回転床：かごの奥 x0 = −(A の橋のかどの半径 + 0.05) − CageLen、出口は B から ExitDeg の向きに 10.43m
         float ex = FuwaTwinTableTest.ExitDeg * Mathf.Deg2Rad;

@@ -40,6 +40,16 @@ public class FuwaTurnTable : UdonSharpBehaviour
     public float rackPerU = 0f;
     [Tooltip("羽根車の角度の範囲（橋の行き止まり）。uMin < uMax の時だけ")]
     public float uMin = 0f, uMax = 0f;
+    // 2026-11-07 てじゃ「両端で伸びるようにして、徐々にもどるように」：2本目のラック（向こう岸の橋）と、撃たないと startU へ戻る
+    public Transform rack2;
+    public Vector3 rack2Base, rack2Axis = Vector3.right;
+    public float rack2PerU = 0f;
+    [Tooltip("撃ってから戻り始めるまで（秒）")]
+    public float holdTime = 2.5f;
+    [Tooltip("戻る速さ（羽根車の度/秒）。0 で戻らない")]
+    public float returnSpeed = 0f;
+    private float _lastShot = -100f;
+    private Vector3 _lastRack2Pos;
 
     private float _u, _w;     // 羽根車の角度・速さ（2D 反時計回り、度）
     private Quaternion _lastRot;
@@ -54,6 +64,7 @@ public class FuwaTurnTable : UdonSharpBehaviour
     public void Shot(Vector3 origin, Vector3 aim, float power)
     {
         if (handle == null) return;
+        _lastShot = Time.time;
         Vector3 o = origin - handle.position; o.y = 0f;
         Vector3 a = aim; a.y = 0f;
         if (a.sqrMagnitude < 1e-4f) return;
@@ -78,6 +89,7 @@ public class FuwaTurnTable : UdonSharpBehaviour
             if (Mathf.Abs(_u - uT) < 0.01f) { _u = uT; _w = 0f; }
         }
         else _u += _w * dt;
+        if (returnSpeed > 0f && Time.time - _lastShot > holdTime) _u = Mathf.MoveTowards(_u, startU, returnSpeed * dt);
         if (uMin < uMax)
         {
             // 行き止まり：止まる（はね返らない）
@@ -92,6 +104,7 @@ public class FuwaTurnTable : UdonSharpBehaviour
     {
         if (table != null) table.localRotation = Quaternion.Euler(0f, -Mathf.Repeat(tableRatio * _u + tablePhase, 360f), 0f);
         if (rack != null) rack.localPosition = rackBase + rackAxis * (rackPerU * (_u - startU));
+        if (rack2 != null) rack2.localPosition = rack2Base + rack2Axis * (rack2PerU * (_u - startU));
         if (gears == null || gearRatio == null || gearPhase == null) return;
         for (int i = 0; i < gears.Length; i++)
             if (gears[i] != null) gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(gearRatio[i] * _u + gearPhase[i], 360f), 0f);
@@ -100,12 +113,14 @@ public class FuwaTurnTable : UdonSharpBehaviour
     // 回転床・橋に乗っている自分を一緒に運ぶ（横だけ）
     private void Carry()
     {
-        if (table == null && rack == null) return;
+        if (table == null && rack == null && rack2 == null) return;
         Quaternion now = table != null ? table.rotation : Quaternion.identity;
         Vector3 rackNow = rack != null ? rack.position : Vector3.zero;
-        if (!_init) { _lastRot = now; _lastRackPos = rackNow; _init = true; return; }
+        Vector3 rack2Now = rack2 != null ? rack2.position : Vector3.zero;
+        if (!_init) { _lastRot = now; _lastRackPos = rackNow; _lastRack2Pos = rack2Now; _init = true; return; }
         Quaternion prev = _lastRot; _lastRot = now;
         Vector3 rackPrev = _lastRackPos; _lastRackPos = rackNow;
+        Vector3 rack2Prev = _lastRack2Pos; _lastRack2Pos = rack2Now;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
         Vector3 pos = p.GetPosition();
@@ -119,6 +134,7 @@ public class FuwaTurnTable : UdonSharpBehaviour
             delta = c + now * (Quaternion.Inverse(prev) * (pos - c)) - pos;
         }
         else if (rack != null && hit.collider.transform.IsChildOf(rack)) delta = rackNow - rackPrev;
+        else if (rack2 != null && hit.collider.transform.IsChildOf(rack2)) delta = rack2Now - rack2Prev;
         else return;
         delta.y = 0f;
         if (delta.sqrMagnitude < 1e-10f || delta.sqrMagnitude > 1f) return;
