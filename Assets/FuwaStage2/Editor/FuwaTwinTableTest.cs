@@ -120,7 +120,9 @@ public static class FuwaTwinTableTest
         float endZ = CageHalfZ - 0.08f, brZ = BridgeW / 2f + 0.15f;
         FuwaTurnTableTest.WireFence(root, new Vector3((x0 + x1) / 2f, 0f, CageHalfZ), 90f, x1 - x0, 2.2f, light, axleM).name = "Fence_N";
         FuwaTurnTableTest.WireFence(root, new Vector3((x0 + x1) / 2f, 0f, -CageHalfZ), 90f, x1 - x0, 2.2f, light, axleM).name = "Fence_S";
-        FuwaTurnTableTest.WireFence(root, new Vector3(x0, 0f, 0f), 0f, 2f * endZ, 2.2f, light, axleM).name = "Fence_Back";
+        // 入口（かごの奥、2026-11-07 2–4 のコースに並べる時の入口）：まん中 ±1.5m をあける（回転床のかごと同じ）
+        foreach (int sg in new[] { 1, -1 })
+            FuwaTurnTableTest.WireFence(root, new Vector3(x0, 0f, sg * (1.5f + endZ) / 2f), 0f, endZ - 1.5f, 2.2f, light, axleM).name = "Fence_In" + (sg > 0 ? "N" : "S");
         foreach (int sg in new[] { 1, -1 })
             FuwaTurnTableTest.WireFence(root, new Vector3(x1, 0f, sg * (brZ + endZ) / 2f), 0f, endZ - brZ, 2.2f, light, axleM).name = "Fence_Br" + (sg > 0 ? "N" : "S");
 
