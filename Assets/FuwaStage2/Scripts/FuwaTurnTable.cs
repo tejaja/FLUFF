@@ -32,8 +32,18 @@ public class FuwaTurnTable : UdonSharpBehaviour
     public float detentSpeed = 8f;
     public float rideRay = 0.6f;
 
+    // 2026-11-07 ラック＆ピニオンで橋がせり出すお試し（FuwaRackBridgeTest）。table を使わず、rack を羽根車の角度に合わせて動かす
+    [Tooltip("羽根車の角度 u に合わせてまっすぐ動く物（ラックのついた橋）。null で使わない")]
+    public Transform rack;
+    public Vector3 rackBase, rackAxis = Vector3.right;
+    [Tooltip("羽根車 1° あたりの移動（m）。位置 = rackBase + rackAxis × rackPerU × (u − startU)")]
+    public float rackPerU = 0f;
+    [Tooltip("羽根車の角度の範囲（橋の行き止まり）。uMin < uMax の時だけ")]
+    public float uMin = 0f, uMax = 0f;
+
     private float _u, _w;     // 羽根車の角度・速さ（2D 反時計回り、度）
     private Quaternion _lastRot;
+    private Vector3 _lastRackPos;
     private bool _init;
 
     [Tooltip("最初の羽根車の角度（回転床が 0° になる所）")]
@@ -59,7 +69,7 @@ public class FuwaTurnTable : UdonSharpBehaviour
         float dt = Time.deltaTime; if (dt <= 0f) return;
         _w *= Mathf.Exp(-drag * dt);
         float tw = Mathf.Abs(_w * tableRatio);
-        if (tw < detentSpeed && detentDeg > 0f && tableRatio != 0f)
+        if (table != null && tw < detentSpeed && detentDeg > 0f && tableRatio != 0f)
         {
             float th = tableRatio * _u + tablePhase;
             float uT = (Mathf.Round(th / detentDeg) * detentDeg - tablePhase) / tableRatio;
@@ -68,6 +78,12 @@ public class FuwaTurnTable : UdonSharpBehaviour
             if (Mathf.Abs(_u - uT) < 0.01f) { _u = uT; _w = 0f; }
         }
         else _u += _w * dt;
+        if (uMin < uMax)
+        {
+            // 行き止まり：止まる（はね返らない）
+            if (_u < uMin) { _u = uMin; if (_w < 0f) _w = 0f; }
+            if (_u > uMax) { _u = uMax; if (_w > 0f) _w = 0f; }
+        }
         Apply();
         Carry();
     }
@@ -75,27 +91,36 @@ public class FuwaTurnTable : UdonSharpBehaviour
     private void Apply()
     {
         if (table != null) table.localRotation = Quaternion.Euler(0f, -Mathf.Repeat(tableRatio * _u + tablePhase, 360f), 0f);
+        if (rack != null) rack.localPosition = rackBase + rackAxis * (rackPerU * (_u - startU));
         if (gears == null || gearRatio == null || gearPhase == null) return;
         for (int i = 0; i < gears.Length; i++)
             if (gears[i] != null) gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(gearRatio[i] * _u + gearPhase[i], 360f), 0f);
     }
 
-    // 回転床に乗っている自分を一緒に運ぶ（横だけ）
+    // 回転床・橋に乗っている自分を一緒に運ぶ（横だけ）
     private void Carry()
     {
-        if (table == null) return;
-        Quaternion now = table.rotation;
-        if (!_init) { _lastRot = now; _init = true; return; }
+        if (table == null && rack == null) return;
+        Quaternion now = table != null ? table.rotation : Quaternion.identity;
+        Vector3 rackNow = rack != null ? rack.position : Vector3.zero;
+        if (!_init) { _lastRot = now; _lastRackPos = rackNow; _init = true; return; }
         Quaternion prev = _lastRot; _lastRot = now;
+        Vector3 rackPrev = _lastRackPos; _lastRackPos = rackNow;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
         Vector3 pos = p.GetPosition();
         RaycastHit hit;
         if (!Physics.Raycast(pos + Vector3.up * 0.3f, Vector3.down, out hit, 0.3f + rideRay, ~((1 << 9) | (1 << 10)), QueryTriggerInteraction.Ignore)) return;
-        if (hit.collider == null || !hit.collider.transform.IsChildOf(table)) return;
-        Vector3 c = table.position;
-        Vector3 moved = c + now * (Quaternion.Inverse(prev) * (pos - c));
-        Vector3 delta = moved - pos; delta.y = 0f;
+        if (hit.collider == null) return;
+        Vector3 delta;
+        if (table != null && hit.collider.transform.IsChildOf(table))
+        {
+            Vector3 c = table.position;
+            delta = c + now * (Quaternion.Inverse(prev) * (pos - c)) - pos;
+        }
+        else if (rack != null && hit.collider.transform.IsChildOf(rack)) delta = rackNow - rackPrev;
+        else return;
+        delta.y = 0f;
         if (delta.sqrMagnitude < 1e-10f || delta.sqrMagnitude > 1f) return;
         VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
         p.TeleportTo(o.position + delta, o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
