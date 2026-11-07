@@ -25,10 +25,10 @@ public class FuwaUmbrella : UdonSharpBehaviour
     public Transform visual;
     [Tooltip("持つ所（傘の local。ExactGrip と同じ所）")]
     public Vector3 gripLocal = new Vector3(0f, -0.01f, 0f);
-    [Tooltip("デスクトップの人が持つ時の持つ所の位置（体の向き基準：x=右 y=目の高さに対する割合 z=前）。見上げても手が上がらないように、視線ではなく体についていく")]
-    public Vector3 desktopHold = new Vector3(0.38f, 0.75f, -0.12f);
-    [Tooltip("デスクトップで持つ時のかたむき（x=後ろへ、z=外へ。度）。肩にかつぐ感じで、見上げても布が視界に入りにくい")]
-    public Vector2 desktopTilt = new Vector2(28f, 14f);
+    [Tooltip("持っている人が見上げると、自分の画面でだけ布を網点で透かす（2026-11-08 てじゃ「上向くほど傘が透けるとか」）。x=透け始める視線の上向き(sin)、y=いちばん透ける上向き、z=いちばん透けた時の量")]
+    public Vector3 lookUpFade = new Vector3(0.25f, 0.8f, 0.85f);
+    private MaterialPropertyBlock _mpb;
+    private float _shownFade = -1f;
     [Tooltip("開く・閉じるのにかかる秒数")]
     public float openTime = 0.35f;
     public AudioSource openSound;
@@ -108,17 +108,27 @@ public class FuwaUmbrella : UdonSharpBehaviour
             VRCPlayerApi o = _held ? Networking.GetOwner(gameObject) : null;
             if (o != null && !o.IsUserInVR())
             {
-                // 2026-11-08 てじゃ「上むいた時にやっぱ視界の邪魔」→ 手（視線で上下する）ではなく、体の右肩あたりに持つ
                 Vector3 f = o.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward; f.y = 0f;
                 if (f.sqrMagnitude < 1e-4f) f = Vector3.forward;
                 Quaternion r = Quaternion.LookRotation(f.normalized, Vector3.up);
-                float eye = o.GetAvatarEyeHeightAsMeters();
-                Vector3 hand = o.GetPosition() + r * new Vector3(desktopHold.x, desktopHold.y * eye, desktopHold.z);
-                visual.rotation = r * Quaternion.Euler(-desktopTilt.x, 0f, -desktopTilt.y);   // 後ろと外へかたむける
-                visual.position = hand - visual.rotation * gripLocal;
+                visual.rotation = r;
+                visual.position = transform.TransformPoint(gripLocal) - r * gripLocal;
             }
             else if (visual.localRotation != Quaternion.identity || visual.localPosition != Vector3.zero) { visual.localRotation = Quaternion.identity; visual.localPosition = Vector3.zero; }
         }
+
+        // 見上げた時の透け（自分が持っている時だけ、自分の画面で）
+        float fade = 0f;
+        if (_mine)
+        {
+            VRCPlayerApi lp = Networking.LocalPlayer;
+            if (lp != null)
+            {
+                float up = (lp.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward).y;
+                fade = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(lookUpFade.x, lookUpFade.y, up)) * lookUpFade.z;
+            }
+        }
+        if (Mathf.Abs(fade - _shownFade) > 0.01f || (fade == 0f && _shownFade != 0f)) ShowFade(fade);
 
         // 手放した傘：持ち主の画面で、だれも持たないまま returnDelay たったら傘立てへ（ほかの人が持ったら持ち主が変わるのでやめる）
         if (_waiting)
@@ -159,6 +169,16 @@ public class FuwaUmbrella : UdonSharpBehaviour
         if (_held) { _held = false; RequestSerialization(); }
         // 手放したまま残っていた傘も、引きついだ人の画面で時間がたったら戻す（傘立てにある傘は戻しても同じ場所）
         if (!_waiting) { _waiting = true; _dropTime = Time.time; }
+    }
+
+    private void ShowFade(float f)
+    {
+        _shownFade = f;
+        if (canopy == null) return;
+        if (_mpb == null) _mpb = new MaterialPropertyBlock();
+        canopy.GetPropertyBlock(_mpb);
+        _mpb.SetFloat("_DitherFade", f);
+        canopy.SetPropertyBlock(_mpb);
     }
 
     private void ShowOpen(float o)

@@ -74,6 +74,8 @@ Shader "FuwaCourse/ToonLit"
         _GroundFineFade ("細かい草が消える距離 (m)", Float) = 18
         _GroundFineCrisp ("草の筋をくっきり（トゥーンっぽく、0=やわらか）", Range(0,1)) = 0
         _GroundFineMask ("細かい模様を一部だけに（大きいムラの暗い所だけ。0=全部、大きいほど少なく）", Range(0,1)) = 0
+        // 2026-11-08 見学用の傘：持っている人が見上げた時だけ、自分の画面で網点にして透かす（スクリプトが MaterialPropertyBlock で入れる。0=なし）
+        _DitherFade ("網点で透かす (0=なし)", Range(0,1)) = 0
     }
     SubShader
     {
@@ -106,6 +108,15 @@ Shader "FuwaCourse/ToonLit"
             half _EmissionGradient, _EmissionFull;
             fixed4 _UnderColor; half _UnderStrength, _UnderGrad;
             fixed4 _IceSideColor; half _IceSide, _IceStreak; float _IceSideDepth, _IceStreakScale;
+            half _DitherFade;
+            // 4x4 の網点（Bayer）。0〜1
+            float Bayer4(float2 p)
+            {
+                float2 q = floor(fmod(floor(p), 4.0));
+                float2 lo = fmod(q, 2.0), hi = floor(q / 2.0);
+                float b0 = abs(lo.x - lo.y) * 2.0 + lo.y, b1 = abs(hi.x - hi.y) * 2.0 + hi.y;
+                return (b0 * 4.0 + b1 + 0.5) / 16.0;
+            }
             sampler2D _GroundTex; half _GroundPatch, _GroundFine, _GroundSteps, _GroundFineCrisp, _GroundFineMask; float _GroundPatchScale, _GroundMidScale, _GroundFineScale, _GroundFineFade; half4 _GroundTintA, _GroundTintB;
             float Hash1(float x) { return frac(sin(x * 127.1 + 311.7) * 43758.5453); }
             // 層ごとの色味：層の番号からA/B/C（と元の色）を選ぶ。となりと同じ色になることもあるので、層の厚みがバラバラに見える
@@ -174,6 +185,7 @@ Shader "FuwaCourse/ToonLit"
             fixed4 frag (v2f i, fixed facing : VFACE) : SV_Target
             { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 UNITY_SETUP_INSTANCE_ID(i);
+                if (_DitherFade > 0) clip(Bayer4(i.pos.xy) - _DitherFade);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
                 float3 n = normalize(i.wn) * (facing > 0 ? 1 : -1);   // 両面描画の裏側は法線を反転
@@ -318,7 +330,14 @@ Shader "FuwaCourse/ToonLit"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
             sampler2D _MainTex; float4 _MainTex_ST;
-            half _Wrap; fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal;
+            half _Wrap; fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal; half _DitherFade;
+            float Bayer4(float2 p)
+            {
+                float2 q = floor(fmod(floor(p), 4.0));
+                float2 lo = fmod(q, 2.0), hi = floor(q / 2.0);
+                float b0 = abs(lo.x - lo.y) * 2.0 + lo.y, b1 = abs(hi.x - hi.y) * 2.0 + hi.y;
+                return (b0 * 4.0 + b1 + 0.5) / 16.0;
+            }
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(fixed4, _Color)
             UNITY_INSTANCING_BUFFER_END(Props)
@@ -338,6 +357,7 @@ Shader "FuwaCourse/ToonLit"
             fixed4 frag (v2f i) : SV_Target
             { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 UNITY_SETUP_INSTANCE_ID(i);
+                if (_DitherFade > 0) clip(Bayer4(i.pos.xy) - _DitherFade);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
                 float3 n = normalize(i.wn);
