@@ -4,6 +4,9 @@ using UnityEditor;
 using UnityEngine;
 
 // 2–4：かみ合う2枚の回転床のお試し（2026-11-07 てじゃ OK。コース案の ⑤ 山場）
+// 2026-11-07 てじゃ「合うタイミングすくなすぎる」（A 72・B 48、A の橋2本で羽根車6回転に1回）→ 案2：
+//  A の橋を十字の4本（90° ごとにかごとつながる）、B を 36枚（2倍速）。A が 90° 回ると B は 180° → 2回に1回全部つながる（羽根車 1.5 回転に1回）
+//  中心距離が 10.8m に縮むので床を小さく（A 4.2・B 3.4、床のすき間 3.2m）。以下のコメントの数字は前の版のもの
 //  かごの羽根車（の軸の小歯車 24枚）→ 床下の歯車（16枚）×2 → 回転床 A のふちの下の大きい歯車（72枚）
 //  A の歯車と B の歯車（48枚）が直接かみ合う。B は逆向きで 72/48 = 1.5 倍の速さ
 // 橋：A はまっすぐ2本（180° はなれ：かごの方と B の方）。B は2本（A の方＝180°、出口＝60°）
@@ -14,8 +17,8 @@ using UnityEngine;
 // ・2D の (x, y) は Unity の (x, z)。2D の反時計回りは Unity の Y 回転でマイナス
 public static class FuwaTwinTableTest
 {
-    const float Mod = 0.2f; const int ZA = 72, ZB = 48, ZI = 16, ZP = 24, NI = 2;
-    const float DeckA = 4.6f, DeckB = 3.8f, TipA = 6.9f, TipB = 4.7f, BridgeW = 2.5f;
+    const float Mod = 0.2f; const int ZA = 72, ZB = 36, ZI = 16, ZP = 24, NI = 2;
+    const float DeckA = 4.2f, DeckB = 3.4f, TipA = 6.2f, TipB = 4.2f, BridgeW = 2.5f;
     const float GearY = -1.85f, GearTh = 0.35f, LineDeg = 175.5f;   // 2026-11-07 てじゃ「下の歯車が床にみえちゃう」→ 床の 1.5m 下へ、中を抜いた輪＋スポークに
     const float ExitDeg = 60f;                 // B から見た出口の向き
     const float CageHalfZ = 2.5f, CageLen = 10.4f;
@@ -61,7 +64,7 @@ public static class FuwaTwinTableTest
         // ── 回転床 A ──
         var tableA = new GameObject("TableA").transform; tableA.SetParent(root, false);
         Deck(tableA, DeckA, deckM);
-        foreach (float ang in new[] { 0f, 180f }) Bridge(tableA, ang, DeckA, TipA, wood, axleM);
+        foreach (float ang in new[] { 0f, 90f, 180f, 270f }) Bridge(tableA, ang, DeckA, TipA, wood, axleM);
         var ringAMesh = FuwaGearTest.SaveMesh(RimGear(ZA, Mod, GearTh, 0.5f, "TwinTable_Ring_z" + ZA));
         Ring(tableA, ringAMesh, brass, RimIn(ZA), dark);
         Prim(PrimitiveType.Cylinder, root, "PedestalA", new Vector3(0f, GearY - 0.92f, 0f), new Vector3(1.6f, 0.9f, 1.6f), dark);
