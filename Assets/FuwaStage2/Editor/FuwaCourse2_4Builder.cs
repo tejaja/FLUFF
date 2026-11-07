@@ -6,7 +6,7 @@ using UnityEngine;
 // ステージ2 コース2–4「はぐるまのとう」ブロックアウト（2026-11-07 てじゃ「配置してみよう」）
 // 流れ（2026-11-07 てじゃ「とりあえずこれで」）：だんだん上へのぼる。しかけは 5つのお試しをそのまま使う
 //  ① 乗る歯車（FuwaGearRideTest）→ ② 跳ね橋（FuwaDrawbridgeTest）→ 坂 → ③ せり出す橋（FuwaRackBridgeTest）→ 坂
-//  → ④ 回転床（FuwaTurnTableTest）→ 坂 → ⑤ かみ合う2枚の回転床（FuwaTwinTableTest）→ 坂 → 塔のてっぺんのゴール
+//  → ④ かみ合う2枚の回転床（FuwaTwinTableTest）→ 坂 → 塔のてっぺんのゴール（1枚の回転床は 2026-11-07 に外した、Turn の表は残す）
 // 作り方：お試しのビルダーで作った物を、コースの中の決まった所へ動かす（テスト用のふわふわの台・ワープ・石臼は消す）。間の道・坂・曲がり角・スタート・ゴール・塔はここで作る
 //  道は 1本の線をたどって作る：P＝いまの道のはし（コースの座標、上の面の高さ）、th＝進む向き（上から見て x→z の反時計回り、度）
 //  お試しの物は「入口の点 e と入る向き」「出口の点 x と出る向き」（お試しの root からのずれ、世界の向き）で表しておいて、入口を P に合わせる
@@ -72,23 +72,22 @@ public static class FuwaCourse2_4Builder
         IslandJoin(pathT, "StartJoin", Vector3.zero, Dir(th), R0, HW, pathB);
         P = Dir(th) * R0;
 
+        // 2026-11-07 てじゃ「ちょとながすぎる」「橋合わせるやつが過剰かも」「道も詰めよう」→ 1枚の回転床（FuwaTurnTableTest）を外して4つに、坂 14m→8m、まっすぐは最小
+        //  ① 乗る歯車 → ② 跳ね橋 → ③ せり出す橋 → ④ かみ合う2枚の回転床 → 塔（まん中）。約63m 四方
         // ① 乗る歯車（入口の台に横から入るので、手前で右へ曲がる）
         S(10f); T(-90f); S(3f);   // 乗る歯車の受け床がスタートの島の下の岩にかからないように 10m
         Place(Ride, log); CP("Checkpoint1", 2f); S(6f);   // 跳ね橋の大きい歯車が乗る歯車の受け床にかからないように 6m
         // ② 跳ね橋
         T(90f); S(2f);
-        Place(Draw, log); CP("Checkpoint2", 3f); S(3f); S(14f, 3f);
+        Place(Draw, log); CP("Checkpoint2", 1f); S(2f); S(8f, 3f);
         // ③ せり出す橋
-        T(90f); S(3f);
-        Place(Rack, log); CP("Checkpoint3", 2f); S(2f); S(14f, 3f);
-        // ④ 回転床
         T(90f); S(2f);
-        Place(Turn, log); CP("Checkpoint4", 2f); S(2f);
-        // ⑤ かみ合う2枚の回転床：①の乗る歯車の上（6m 上）を通る。下から見上げると歯車が回っている
-        T(-60f); S(18f); S(14f, 3f); T(90f); S(2f);
-        Place(Twin, log); CP("Checkpoint5", 2f); S(3f);
-        // 塔へ：まん中（①〜④にかこまれた所）へ長い道で渡る（跳ね橋の道の上を 9m 上でまたぐ）
-        T(75f); S(14f, 3f); S(21f);   // 先に上ってから渡る（跳ね橋の大きい歯車のてっぺん 9.4m の上を 12.8m で通る）
+        Place(Rack, log); CP("Checkpoint3", 1f); S(2f); S(8f, 3f);
+        // ④ かみ合う2枚の回転床
+        T(90f); S(2f);
+        Place(Twin, log); CP("Checkpoint4", 1f); S(2f);
+        // 塔へ（まん中）
+        T(90f); S(8f, 3f); S(4f);
         // 塔のてっぺんのゴール
         var goalAt = GoalSet(root, P, Dir(th));
         Tower(goalAt);
