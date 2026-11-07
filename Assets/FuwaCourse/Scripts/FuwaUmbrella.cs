@@ -19,8 +19,8 @@ public class FuwaUmbrella : UdonSharpBehaviour
     public float speed = 7f;
     [Tooltip("持っているだけの時、落ちる速さの上限(m/s)")]
     public float glideFall = 0.6f;   // 2026-11-08 てじゃ「落下速度もかなり遅くて良い」（1.6→0.6）
-    [Tooltip("使うを離した時に残す速さの割合（小さいほどピタッと止まる）")]
-    public float stopKeep = 0.12f;   // 2026-11-08 てじゃ「クリックやめたときにもっと強めに止まって」
+    [Tooltip("使うを離してから止まりきるまでの秒数（この間に速さ 0 まで落として、そのあとゆっくり降りる）")]
+    public float brakeTime = 0.18f;   // 2026-11-08 てじゃ「トリガー離したときは素早く減速して、ちゃんと速度０に」
     [Tooltip("見た目（Body・Canopy の親）。デスクトップの人が持っている間は、だれの画面でもまっすぐ立てる")]
     public Transform visual;
     [Tooltip("持つ所（傘の local。ExactGrip と同じ所）")]
@@ -37,7 +37,9 @@ public class FuwaUmbrella : UdonSharpBehaviour
 
     [UdonSynced] private bool _held;
     private bool _mine, _using, _waiting;
-    private float _dropTime;
+    private float _dropTime, _brakeStart = -10f;
+    private bool _braking;
+    private Vector3 _brakeFrom;
     private float _gravity = 1f, _liftUntil, _open, _shownOpen = -1f;
     private VRCPickup _pickup;
     private VRCObjectSync _sync;
@@ -73,7 +75,7 @@ public class FuwaUmbrella : UdonSharpBehaviour
         if (!_mine) return;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
-        _using = true;
+        _using = true; _braking = false;
         p.SetGravityStrength(0f);
         if (p.IsPlayerGrounded()) _liftUntil = Time.time + 0.25f;   // 地面に立っていると横の速さが消されるので、まず少し浮かせる
     }
@@ -84,15 +86,15 @@ public class FuwaUmbrella : UdonSharpBehaviour
         _using = false;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
-        p.SetGravityStrength(_gravity);
-        p.SetVelocity(p.GetVelocity() * stopKeep);   // 強めに止める
+        // 素早く減速して速さ 0 に（重力はブレーキが終わってから戻す）
+        _braking = true; _brakeStart = Time.time; _brakeFrom = p.GetVelocity();
     }
 
     private void EndFlight()
     {
         VRCPlayerApi p = Networking.LocalPlayer;
-        if (p != null && _using) p.SetGravityStrength(_gravity);
-        _using = false;
+        if (p != null && (_using || _braking)) p.SetGravityStrength(_gravity);
+        _using = false; _braking = false;
     }
 
     private void Update()
@@ -153,6 +155,12 @@ public class FuwaUmbrella : UdonSharpBehaviour
             Vector3 v = dir.normalized * speed;
             if (Time.time < _liftUntil) v.y = Mathf.Max(v.y, 2f);
             p.SetVelocity(v);
+        }
+        else if (_braking)
+        {
+            float k = (Time.time - _brakeStart) / Mathf.Max(0.01f, brakeTime);
+            if (k >= 1f) { _braking = false; p.SetVelocity(Vector3.zero); p.SetGravityStrength(_gravity); }
+            else { float e = 1f - k; p.SetVelocity(_brakeFrom * (e * e)); }
         }
         else if (!p.IsPlayerGrounded())
         {
