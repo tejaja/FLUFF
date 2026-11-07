@@ -114,9 +114,10 @@ public static class FuwaUmbrellaBuilder
     {
         var go = new GameObject(name); go.transform.SetParent(holder, false); go.transform.position = pos; go.transform.rotation = rot;
         go.layer = 13;   // Pickup
-        var b = new GameObject("Body"); b.transform.SetParent(go.transform, false); b.layer = 13;
+        var vis = new GameObject("Visual"); vis.transform.SetParent(go.transform, false); vis.layer = 13;
+        var b = new GameObject("Body"); b.transform.SetParent(vis.transform, false); b.layer = 13;
         b.AddComponent<MeshFilter>().sharedMesh = body; b.AddComponent<MeshRenderer>().sharedMaterials = bodyMats;
-        var c = new GameObject("Canopy"); c.transform.SetParent(go.transform, false); c.layer = 13;
+        var c = new GameObject("Canopy"); c.transform.SetParent(vis.transform, false); c.layer = 13;
         var smr = c.AddComponent<SkinnedMeshRenderer>(); smr.sharedMesh = canopy; smr.sharedMaterials = canMats; smr.SetBlendShapeWeight(0, 100f);
         smr.localBounds = new Bounds(new Vector3(0f, 0.55f, 0f), new Vector3(1.2f, 0.8f, 1.2f)); smr.updateWhenOffscreen = false;
         var rb = go.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
@@ -128,7 +129,7 @@ public static class FuwaUmbrellaBuilder
         pk.InteractionText = "ふわふわ傘"; pk.UseText = "飛ぶ";
         var os = go.AddComponent<VRCObjectSync>(); os.AllowCollisionOwnershipTransfer = false;
         var u = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaUmbrella>(go);
-        u.manager = manager; u.canopy = smr;
+        u.manager = manager; u.canopy = smr; u.visual = vis.transform; u.gripLocal = grip.localPosition;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(u);
         return go;
     }

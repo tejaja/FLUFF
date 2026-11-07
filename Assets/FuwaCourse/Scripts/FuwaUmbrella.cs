@@ -18,7 +18,13 @@ public class FuwaUmbrella : UdonSharpBehaviour
     public SkinnedMeshRenderer canopy;
     public float speed = 7f;
     [Tooltip("持っているだけの時、落ちる速さの上限(m/s)")]
-    public float glideFall = 1.6f;
+    public float glideFall = 0.6f;   // 2026-11-08 てじゃ「落下速度もかなり遅くて良い」（1.6→0.6）
+    [Tooltip("使うを離した時に残す速さの割合（小さいほどピタッと止まる）")]
+    public float stopKeep = 0.12f;   // 2026-11-08 てじゃ「クリックやめたときにもっと強めに止まって」
+    [Tooltip("見た目（Body・Canopy の親）。デスクトップの人が持っている間は、だれの画面でもまっすぐ立てる")]
+    public Transform visual;
+    [Tooltip("持つ所（傘の local。ExactGrip と同じ所）")]
+    public Vector3 gripLocal = new Vector3(0f, -0.01f, 0f);
     [Tooltip("開く・閉じるのにかかる秒数")]
     public float openTime = 0.35f;
     public AudioSource openSound;
@@ -73,7 +79,9 @@ public class FuwaUmbrella : UdonSharpBehaviour
         if (!_mine) return;
         _using = false;
         VRCPlayerApi p = Networking.LocalPlayer;
-        if (p != null) p.SetGravityStrength(_gravity);
+        if (p == null) return;
+        p.SetGravityStrength(_gravity);
+        p.SetVelocity(p.GetVelocity() * stopKeep);   // 強めに止める
     }
 
     private void EndFlight()
@@ -89,6 +97,21 @@ public class FuwaUmbrella : UdonSharpBehaviour
         float target = _held ? 1f : 0f;
         _open = Mathf.MoveTowards(_open, target, Time.deltaTime / Mathf.Max(0.01f, openTime));
         if (_open != _shownOpen) ShowOpen(_open);
+
+        // デスクトップの人が持つと手の向きで真横になる（2026-11-08 てじゃ）→ 見た目だけ、持つ所を中心にまっすぐ立てる
+        if (visual != null)
+        {
+            VRCPlayerApi o = _held ? Networking.GetOwner(gameObject) : null;
+            if (o != null && !o.IsUserInVR())
+            {
+                Vector3 f = o.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward; f.y = 0f;
+                if (f.sqrMagnitude < 1e-4f) f = Vector3.forward;
+                Quaternion r = Quaternion.LookRotation(f.normalized, Vector3.up);
+                visual.rotation = r;
+                visual.position = transform.TransformPoint(gripLocal) - r * gripLocal;
+            }
+            else if (visual.localRotation != Quaternion.identity || visual.localPosition != Vector3.zero) { visual.localRotation = Quaternion.identity; visual.localPosition = Vector3.zero; }
+        }
 
         // 手放した傘：持ち主の画面で、だれも持たないまま returnDelay たったら傘立てへ（ほかの人が持ったら持ち主が変わるのでやめる）
         if (_waiting)
