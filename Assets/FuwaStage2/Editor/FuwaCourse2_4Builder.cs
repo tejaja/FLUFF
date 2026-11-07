@@ -31,13 +31,13 @@ public static class FuwaCourse2_4Builder
 
     // お試しの物：入口（ずれ・入る向き）、出口（ずれ・出る向き）、のぼる高さ。ずれは root からの世界の向きのずれ（root の回り方によらない）
     struct Mech { public string test, name; public System.Action build; public Vector3 e; public float de; public Vector3 x; public float dx; public float rise; }
-    static readonly Mech Ride = new Mech { test = "GearRideTest", name = "S1_GearRide", build = FuwaGearRideTest.Build, e = new Vector3(-2f, 0f, 2f), de = -90f, x = new Vector3(31.1f, 0.8f, 4f), dx = 0f, rise = 0.8f };   // 入口の台に横（+z）から入る
+    static readonly Mech Ride = new Mech { test = "GearRideTest", name = "S1_GearRide", build = FuwaGearRideTest.Build, e = new Vector3(-4f, 0f, 0f), de = 0f, x = new Vector3(31.1f, 0.8f, 4f), dx = 0f, rise = 0.8f };   // 入口の台にまっすぐ入る（2026-11-07 てじゃ「最初の道も曲がってる必要ない」。前は横から：e(-2,0,2) de -90）
     static readonly Mech Draw = new Mech { test = "DrawbridgeTest", name = "S2_Drawbridge", build = FuwaDrawbridgeTest.Build, e = new Vector3(-16f, 0f, -4.15f), de = 0f, x = new Vector3(22f, 0f, -4.15f), dx = 0f };
     static readonly Mech Rack = new Mech { test = "RackBridgeTest", name = "S3_RackBridge", build = FuwaRackBridgeTest.Build, e = new Vector3(-7.4f, 0f, 0f), de = 0f, x = new Vector3(21f, 0f, 3.13f), dx = 0f };
     static readonly Mech Turn = new Mech { test = "TurnTableTest", name = "S4_TurnTable", build = FuwaTurnTableTest.Build, e = new Vector3(-17.5f, 0f, 0f), de = 0f, x = new Vector3(8.045f, 0f, 13.934f), dx = 60f };
     static readonly Mech Twin = new Mech { test = "TwinTableTest", name = "S5_TwinTable", build = FuwaTwinTableTest.Build, e = new Vector3(-16.775f, 0f, 0f), de = 0f, x = new Vector3(16.02f, 0f, 9.03f), dx = 60f };
     // コースでは要らない、お試し用の物（名前の頭）
-    static readonly string[] TestOnly = { "BallSpot", "BallStand", "Spawn", "BackSpot", "Warp", "Extras", "Mill", "MA_", "MB_", "MC_", "Axle_MA", "Axle_MB", "Axle_MC" };
+    static readonly string[] TestOnly = { "BallSpot", "BallStand", "Spawn", "BackSpot", "Warp", "Extras", "Mill", "MA_", "MB_", "MC_", "Axle_MA", "Axle_MB", "Axle_MC", "CatchFloor", "Step" };   // 受け床と階段：2026-11-07 てじゃ「テストようで床がのこったまま、階段もいらん」
 
     [MenuItem("FuwaCourse/ステージ2/2–4 はぐるまのとう（ブロックアウト）を作り直す")]
     public static void Menu() { Debug.Log(Build()); }
@@ -74,9 +74,9 @@ public static class FuwaCourse2_4Builder
 
         // 2026-11-07 てじゃ「ちょとながすぎる」「橋合わせるやつが過剰かも」「道も詰めよう」→ 1枚の回転床（FuwaTurnTableTest）を外して4つに、坂 14m→8m、まっすぐは最小
         //  ① 乗る歯車 → ② 跳ね橋 → ③ せり出す橋 → ④ かみ合う2枚の回転床 → 塔（まん中）。約63m 四方
-        // ① 乗る歯車（入口の台に横から入るので、手前で右へ曲がる）
-        S(10f); T(-90f); S(3f);   // 乗る歯車の受け床がスタートの島の下の岩にかからないように 10m
-        Place(Ride, log); CP("Checkpoint1", 2f); S(6f);   // 跳ね橋の大きい歯車が乗る歯車の受け床にかからないように 6m
+        // ① 乗る歯車（スタートからまっすぐ）
+        S(3f);
+        Place(Ride, log); CP("Checkpoint1", 1f); S(2f);
         // ② 跳ね橋
         T(90f); S(2f);
         Place(Draw, log); CP("Checkpoint2", 1f); S(2f); S(8f, 3f);
