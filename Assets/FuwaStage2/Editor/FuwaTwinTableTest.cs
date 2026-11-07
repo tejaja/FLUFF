@@ -16,7 +16,7 @@ public static class FuwaTwinTableTest
 {
     const float Mod = 0.2f; const int ZA = 72, ZB = 48, ZI = 16, ZP = 24, NI = 2;
     const float DeckA = 4.6f, DeckB = 3.8f, TipA = 6.9f, TipB = 4.7f, BridgeW = 2.5f;
-    const float GearY = -1.0f, GearTh = 0.35f, LineDeg = 175.5f;
+    const float GearY = -1.85f, GearTh = 0.35f, LineDeg = 175.5f;   // 2026-11-07 てじゃ「下の歯車が床にみえちゃう」→ 床の 1.5m 下へ、中を抜いた輪＋スポークに
     const float ExitDeg = 60f;                 // B から見た出口の向き
     const float CageHalfZ = 2.5f, CageLen = 10.4f;
     static readonly Vector3 Origin = new Vector3(30f, -162f, -165f);   // A のまん中、床の上の高さ
@@ -62,9 +62,9 @@ public static class FuwaTwinTableTest
         var tableA = new GameObject("TableA").transform; tableA.SetParent(root, false);
         Deck(tableA, DeckA, deckM);
         foreach (float ang in new[] { 0f, 180f }) Bridge(tableA, ang, DeckA, TipA, wood, axleM);
-        var ringAMesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZA, 8, Mod), GearTh, "TwinTable_Ring_z" + ZA, Vector2.zero));
-        Ring(tableA, ringAMesh, brass, DeckA, dark);
-        Prim(PrimitiveType.Cylinder, root, "PedestalA", new Vector3(0f, -1.9f, 0f), new Vector3(2.4f, 0.9f, 2.4f), dark);
+        var ringAMesh = FuwaGearTest.SaveMesh(RimGear(ZA, Mod, GearTh, 0.5f, "TwinTable_Ring_z" + ZA));
+        Ring(tableA, ringAMesh, brass, RimIn(ZA), dark);
+        Prim(PrimitiveType.Cylinder, root, "PedestalA", new Vector3(0f, GearY - 0.92f, 0f), new Vector3(1.6f, 0.9f, 1.6f), dark);
 
         // ── 回転床 B（A とかみ合う。gears に入れて回す）──
         var frB = new GameObject("TableB_Frame").transform; frB.SetParent(root, false); frB.localPosition = cB;
@@ -73,9 +73,9 @@ public static class FuwaTwinTableTest
         // 最初（u = startU）の B の歯車の角度 θB0 = gB.phase。橋は世界で {0°, 240°}（答えの {180°, 60°} から 180° ずれ）に向くよう local を決める
         float thB0 = gB.phase * Mathf.Rad2Deg;
         foreach (float wAng in new[] { 0f, 240f }) Bridge(tableB, wAng - thB0, DeckB, TipB, wood, axleM);
-        var ringBMesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZB, 8, Mod), GearTh, "TwinTable_Ring_z" + ZB, Vector2.zero));
-        Ring(tableB, ringBMesh, light, DeckB, dark);
-        Prim(PrimitiveType.Cylinder, root, "PedestalB", cB + new Vector3(0f, -1.9f, 0f), new Vector3(2.0f, 0.9f, 2.0f), dark);
+        var ringBMesh = FuwaGearTest.SaveMesh(RimGear(ZB, Mod, GearTh, 0.5f, "TwinTable_Ring_z" + ZB));
+        Ring(tableB, ringBMesh, light, RimIn(ZB), dark);
+        Prim(PrimitiveType.Cylinder, root, "PedestalB", cB + new Vector3(0f, GearY - 0.92f, 0f), new Vector3(1.6f, 0.9f, 1.6f), dark);
 
         // ── 床下の歯車の列（羽根車の小歯車の角度 u を元に）──
         int nc = chain.Length;
@@ -180,13 +180,60 @@ public static class FuwaTwinTableTest
         for (int k = 1; k < nk; k++) Prim(PrimitiveType.Cube, br, "Plank" + k, new Vector3(-len / 2f + k * len / nk, 0.205f, 0f), new Vector3(0.05f, 0.01f, BridgeW), lineM);
     }
 
-    // ふちの下の大きい歯車と、床とつなぐ胴
-    static void Ring(Transform table, Mesh mesh, Material m, float deckR, Material skirtM)
+    static float RimIn(int z) => Mod * z / 2f - 1.25f * Mod - 0.5f;   // 輪の内側の半径（歯元から 0.5m）
+
+    // ふちの下の大きい歯車（輪＋スポーク6本＋まん中のこしき）と、床とつなぐ細い柱
+    static void Ring(Transform table, Mesh mesh, Material m, float rin, Material colM)
     {
         var ring = new GameObject("Ring").transform; ring.SetParent(table, false); ring.localPosition = new Vector3(0f, GearY, 0f);
         ring.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh; ring.gameObject.AddComponent<MeshRenderer>().sharedMaterial = m;
-        float sd = 2f * deckR - 1f;
-        Prim(PrimitiveType.Cylinder, table, "Skirt", new Vector3(0f, (GearY + GearTh - 0.4f) / 2f, 0f), new Vector3(sd, (-0.4f - GearY - GearTh) / 2f + 0.02f, sd), skirtM);
+        const float hubR = 0.8f;
+        Prim(PrimitiveType.Cylinder, ring, "Hub", new Vector3(0f, GearTh / 2f, 0f), new Vector3(2f * hubR, GearTh / 2f, 2f * hubR), m);
+        for (int k = 0; k < 6; k++)
+        {
+            float l = rin + 0.05f - (hubR - 0.05f);
+            var sp = Prim(PrimitiveType.Cube, ring, "Spoke" + k, Quaternion.Euler(0f, k * 60f + 30f, 0f) * new Vector3(hubR - 0.05f + l / 2f, GearTh / 2f, 0f), new Vector3(l, GearTh * 0.8f, 0.35f), m);
+            sp.localRotation = Quaternion.Euler(0f, k * 60f + 30f, 0f);
+        }
+        float top = GearY + GearTh;
+        Prim(PrimitiveType.Cylinder, table, "Column", new Vector3(0f, (top - 0.4f) / 2f, 0f), new Vector3(1.1f, (-0.4f - top) / 2f + 0.02f, 1.1f), colM);
+    }
+
+    // 歯のついた輪（内側は半径 RimIn の円）。歯の輪郭の点ごとに同じ角度の内側の点と組んで帯にする
+    static Mesh RimGear(int z, float m, float th, float rimW, string name)
+    {
+        var o = FuwaGearTest.GearOutline(z, 8, m);
+        float rin = m * z / 2f - 1.25f * m - rimW;
+        int n = o.Length;
+        var v = new System.Collections.Generic.List<Vector3>(); var t = new System.Collections.Generic.List<int>();
+        System.Func<int, Vector2> In = i => o[i].normalized * rin;
+        foreach (float y in new[] { th, 0f })
+        {
+            int s0 = v.Count;
+            for (int i = 0; i < n; i++) { v.Add(new Vector3(o[i].x, y, o[i].y)); var q = In(i); v.Add(new Vector3(q.x, y, q.y)); }
+            for (int i = 0; i < n; i++)
+            {
+                int j = (i + 1) % n, oi = s0 + 2 * i, ii = oi + 1, oj = s0 + 2 * j, ij = oj + 1;
+                if (y > 0f) { t.Add(ii); t.Add(oj); t.Add(oi); t.Add(ii); t.Add(ij); t.Add(oj); }
+                else { t.Add(ii); t.Add(oi); t.Add(oj); t.Add(ii); t.Add(oj); t.Add(ij); }
+            }
+        }
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            var a = o[i]; var b = o[j];
+            int s = v.Count;
+            v.Add(new Vector3(a.x, 0f, a.y)); v.Add(new Vector3(b.x, 0f, b.y)); v.Add(new Vector3(b.x, th, b.y)); v.Add(new Vector3(a.x, th, a.y));
+            t.Add(s); t.Add(s + 3); t.Add(s + 2); t.Add(s); t.Add(s + 2); t.Add(s + 1);
+            var ai = In(i); var bi = In(j);
+            s = v.Count;
+            v.Add(new Vector3(ai.x, 0f, ai.y)); v.Add(new Vector3(bi.x, 0f, bi.y)); v.Add(new Vector3(bi.x, th, bi.y)); v.Add(new Vector3(ai.x, th, ai.y));
+            t.Add(s); t.Add(s + 2); t.Add(s + 3); t.Add(s); t.Add(s + 1); t.Add(s + 2);
+        }
+        var mesh = new Mesh { name = name };
+        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        mesh.SetVertices(v); mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        return mesh;
     }
 
     static Vector3 Polar(float deg, float r) { float a = deg * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r); }
