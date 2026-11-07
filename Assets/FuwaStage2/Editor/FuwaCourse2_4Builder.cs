@@ -87,12 +87,11 @@ public static class FuwaCourse2_4Builder
         //  ① 乗る歯車（前へ）→ 右 ② 跳ね橋 → 右 ③ せり出す橋（おりたらすぐ右）→ ④ 2枚の回転床（①の上を通る）→ まん中の塔
         MakeMechs();
         S(3f);
-        Place(Ride, log); CP("Checkpoint1", 1f); PushWall(); S(PushLen);   // ①→②：押し出し壁（乗る歯車の出口の先。跳ね橋の手前だと跳ね橋の大きい歯車にかかった）
+        Place(Ride, log); CP("Checkpoint1", 1f); S(1f); HoleGears(); S(1f);   // ①→②：窓のある歯車（2026-11-07「道そのものが歯車」。前は押し出し壁）
         T(-90f); S(2f);
-        Place(Draw, log); CP("Checkpoint2", 1f); SweepArm(); S(ArmLen); S(8f, 3f);   // ②→③：回るアーム
+        Place(Draw, log); CP("Checkpoint2", 1f); S(1f); ChunkyGears(); S(1f); S(8f, 3f);   // ②→③：ごつい歯車（前は回るアーム）
         T(-90f); S(2f);
-        Place(Rack, log); CP("Checkpoint3", 1f); Shutters(); S(ShutLen);   // ③→④：シャッター
-        T(90f); S(6f, 3f); T(-90f); S(2f);
+        Place(Rack, log); CP("Checkpoint3", 1f); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
         Place(Twin, log); CP("Checkpoint4", 1f); S(2f);
         // 塔へ（まん中）：①の上をまたいで
         T(-120f); S(8f, 3f); S(14f);   // 2026-11-07 2枚の回転床を大きくした（すき間 3.2m）ので塔の位置を合わせ直し
@@ -173,10 +172,10 @@ public static class FuwaCourse2_4Builder
     }
 
     // まっすぐの道（rise で上り坂）
-    static void S(float len, float rise = 0f)
+    static void S(float len, float rise = 0f, bool under = true)
     {
         var d = Dir(th) * len + Vector3.up * rise;
-        Strip(pathT, "Road" + (segNo++) + (rise != 0f ? "_Slope" : ""), P, d, HW);
+        Strip(pathT, "Road" + (segNo++) + (rise != 0f ? "_Slope" : ""), P, d, HW, under);
         P += d;
     }
 
@@ -232,7 +231,7 @@ public static class FuwaCourse2_4Builder
     }
 
     // シマシマの道：a（手前のはしのまん中、上の面）から d だけ（坂なら傾いた箱）。当たりは1枚の箱、見た目は StripeLen ごとに A/B
-    static void Strip(Transform parent, string name, Vector3 a, Vector3 d, float hw)
+    static void Strip(Transform parent, string name, Vector3 a, Vector3 d, float hw, bool under = true)
     {
         float len = d.magnitude; if (len <= 0.01f) return;
         var g = new GameObject(name).transform; g.SetParent(parent, false);
@@ -247,6 +246,7 @@ public static class FuwaCourse2_4Builder
             var s = Box(g, "S" + k, new Vector3(0, -Tk * 0.5f, l * (k + 0.5f)), new Vector3(hw * 2f, Tk, l), (k % 2 == 0) ? pathA : pathB, 0);
             Object.DestroyImmediate(s.GetComponent<Collider>());
         }
+        if (!under) return;
         var u = Box(g, "Under", new Vector3(0, -Tk - 0.5f, len * 0.5f), new Vector3(hw * 2f - 0.2f, 1.0f, len - 0.1f), underMat, 0);
         Object.DestroyImmediate(u.GetComponent<Collider>());
     }
@@ -424,7 +424,21 @@ public static class FuwaCourse2_4Builder
             float D = 0.2f * (20 + zi) + 0.2f * (zi + z);
             if (D >= tIn + 0.8f && D - tipOf(z) <= tIn - 1.2f) { var gi = FuwaGearTest.Mesh2(g3, "TowerIdler_z" + zi, zi, dirDeg, 0.4f); chain.Add(gi); chain.Add(FuwaGearTest.Mesh2(gi, "TowerDrive_z" + z, z, dirDeg, 0.4f)); }
         }
-        if (chain.Count == 0) { log.Append("塔へ歯車が届かない(" + tIn.ToString("F1") + "m) "); return; }
+        if (chain.Count == 0)
+        {
+            // 塔が遠い：G1 の軸を道の下（FeedY）までのばして、かさ歯車 → 横の軸で塔へ（ほかの歯車の道と同じ）
+            //  FuwaGearRide と FuwaClockwork はどちらも Time.time で回るので、ratio を塔の元の角度に直す（× 乗る歯車の速さ / 塔の速さ）
+            int i1 = gl.FindIndex(x => x.name == "G1"); var g1T = gl[i1];
+            float k = gr.speed / ClockSpeed;
+            float yl = g1T.localPosition.y, oy = ride.InverseTransformPoint(root.TransformPoint(new Vector3(0f, FeedY, 0f))).y;
+            CwShaft(g1T, oy + 1.2f - yl, -0.5f, 0.2f);
+            feeds.Add(new Feed { O = root.InverseTransformPoint(ride.TransformPoint(new Vector3(g1T.localPosition.x, oy, g1T.localPosition.z))), shaftGear = g1T, ratio = rl[i1] * k, phase = pl[i1], below = true });
+            gr.gears = gl.ToArray(); gr.ratio = rl.ToArray(); gr.phase = pl.ToArray();
+            gr.crank = null; gr.engineMount = null; gr.crankPin = null; gr.piston = null; gr.rod = null; gr.puff = null;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(gr);
+            log.Append("塔→G1 の軸から（塔まで " + tIn.ToString("F1") + "m） ");
+            return;
+        }
         var b3m = body3.GetComponent<MeshFilter>().sharedMesh; var bb = b3m.bounds;
         foreach (var gd in chain)
         {
@@ -460,7 +474,7 @@ public static class FuwaCourse2_4Builder
     const float BevM = 0.15f; const int BevZ = 16;
     static List<Transform> cwG = new List<Transform>(); static List<float> cwR = new List<float>(), cwP = new List<float>();
     static List<int> slG = new List<int>(); static List<Transform> slT = new List<Transform>(), slRod = new List<Transform>(); static List<Vector3> slAx = new List<Vector3>(); static List<float> slPin = new List<float>(), slPY = new List<float>(), slLen = new List<float>();
-    struct Feed { public Vector3 O; public Transform shaftGear; public float ratio, phase; }   // たての軸のてっぺん O（コースの座標）と、その軸の歯車（local Y＝上）の回り方
+    struct Feed { public Vector3 O; public Transform shaftGear; public float ratio, phase; public bool below; }   // below：O がたての軸の下のはし（道の下の軸）   // たての軸のてっぺん O（コースの座標）と、その軸の歯車（local Y＝上）の回り方
     static List<Feed> feeds = new List<Feed>();
     static Material cwDark, cwLight, cwBrass, cwAxle, cwFloor, cwWall;
 
@@ -639,7 +653,8 @@ public static class FuwaCourse2_4Builder
             var d = new Vector3(tc.x - f.O.x, 0f, tc.z - f.O.z); float dist = d.magnitude; d /= dist;
             // たての軸の歯車（local Y＝上）の θ と、O の下の A（local Y＝下）：θA = −θ
             Transform gA; float rB, pB;
-            var gB = BevelPair(root.Find("Gimmicks"), "Feed" + n, f.O, Vector3.down, d, BevZ, BevZ, -f.ratio, -f.phase, out gA, out rB, out pB);
+            var gB = f.below ? BevelPair(root.Find("Gimmicks"), "Feed" + n, f.O, Vector3.up, d, BevZ, BevZ, f.ratio, f.phase, out gA, out rB, out pB)
+                             : BevelPair(root.Find("Gimmicks"), "Feed" + n, f.O, Vector3.down, d, BevZ, BevZ, -f.ratio, -f.phase, out gA, out rB, out pB);
             CwShaft(gB, 0f, dist - 1.2f - 1.0f, 0.2f);   // 塔のまん中から 1m 手前まで（塔の中）
             n++;
         }
@@ -666,6 +681,142 @@ public static class FuwaCourse2_4Builder
             cw.sliders[k].position = sp;
             if (cw.rods[k]) { cw.rods[k].position = (pin + sp) * 0.5f; cw.rods[k].rotation = Quaternion.LookRotation((sp - pin).normalized, gg.up); }
         }
+    }
+
+    // ===== 道そのものが歯車（2026-11-07 てじゃ：押し出し壁・アーム・シャッターは「だいぶ無理やり感」→「道そのものを歯車にする」「いいよ」）=====
+    //  道の一部が、時計塔から動かされる歯車の足場。外側の小歯車 → たての軸が道の下へ → 道の下の横の軸（FeedY）→ 塔の下の段
+    //  乗っている自分は FuwaClockwork が一緒に運ぶ。ふわふわは運ばない（歯車の上を押していく）
+    const float PM = 0.2f;
+    public static float FeedY = -5f;   // 道の下の横の軸の高さ（コースの y）
+    static float RatioFor(float pitchSpeed, float r) => pitchSpeed / r * Mathf.Rad2Deg / ClockSpeed;   // ピッチ円が pitchSpeed m/s で回る ratio
+
+    // 外側の小歯車（道の左＝外、2D 180°）とたての軸。たての軸の下（FeedY）でかさ歯車 → 塔へ
+    static void Drive(Transform g, FuwaGearTest.Gear from, int z, float mod, float layerY, float th, Material m)
+    {
+        var dg = FuwaGearTest.Mesh2(from, "Drive_z" + z, z, 180f, mod);
+        var t = CwGear(g, g.name + "_Drive_z" + z, new Vector3(dg.c.x, layerY, dg.c.y), Vector3.up, SpurMesh(z, mod, th, "Clockwork_Spur_m" + Mathf.RoundToInt(mod * 100) + "_z" + z), m);
+        AddGear(t, dg.ratio, dg.phase * Mathf.Rad2Deg);
+        float oy = FeedY - P.y;                    // gimmick の中の O の高さ
+        CwShaft(t, oy + 1.2f - layerY, 0f, 0.18f); // A（O の上 1.2m）の上の面から小歯車の下の面まで
+        feeds.Add(new Feed { O = root.InverseTransformPoint(g.TransformPoint(new Vector3(dg.c.x, oy, dg.c.y))), shaftGear = t, ratio = dg.ratio, phase = dg.phase * Mathf.Rad2Deg, below = true });
+    }
+
+    // 窓のある歯車：外のふち（歯）と、まん中のこしき（rHub）の間に、wins の角度（中心, 半分の幅）だけ rHub〜rWin の窓（穴）
+    static Mesh WindowGear(int z, float mod, float h, float rHub, float rWin, (float c, float hw)[] wins, string name)
+    {
+        var o = FuwaGearTest.GearOutline(z, 8, mod); int n = o.Length;
+        var v = new List<Vector3>(); var t = new List<int>();
+        bool InWin(float a) { foreach (var w in wins) if (Mathf.Abs(Mathf.DeltaAngle(a, w.c)) < w.hw) return true; return false; }
+        Vector3 P3(Vector2 d, float r, float y) => new Vector3(d.x * r, y, d.y * r);
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            Vector2 di = o[i].normalized, dj = o[j].normalized;
+            float am = Mathf.Atan2((di + dj).y, (di + dj).x) * Mathf.Rad2Deg;
+            bool win = InWin(am);
+            foreach (var y in new[] { h, 0f })
+            {
+                var want = y > 0f ? Vector3.up : Vector3.down;
+                // ふち（rWin〜歯）
+                Tri(v, t, P3(di, rWin, y), new Vector3(o[i].x, y, o[i].y), new Vector3(o[j].x, y, o[j].y), want);
+                Tri(v, t, P3(di, rWin, y), new Vector3(o[j].x, y, o[j].y), P3(dj, rWin, y), want);
+                // こしき（0〜rHub）
+                Tri(v, t, new Vector3(0f, y, 0f), P3(di, rHub, y), P3(dj, rHub, y), want);
+                if (!win) { Tri(v, t, P3(di, rHub, y), P3(di, rWin, y), P3(dj, rWin, y), want); Tri(v, t, P3(di, rHub, y), P3(dj, rWin, y), P3(dj, rHub, y), want); }
+            }
+            // 歯の側面
+            var a0 = new Vector3(o[i].x, 0f, o[i].y); var b0 = new Vector3(o[j].x, 0f, o[j].y); var up = Vector3.up * h;
+            var nrm = new Vector3((o[i] + o[j]).x, 0f, (o[i] + o[j]).y);
+            Tri(v, t, a0, b0, b0 + up, nrm); Tri(v, t, a0, b0 + up, a0 + up, nrm);
+            if (win)
+            {
+                // 窓の内側の壁（こしき側は外向き、ふち側は内向き）
+                foreach (var (r, s) in new[] { (rHub, 1f), (rWin, -1f) })
+                {
+                    var p0 = P3(di, r, 0f); var p1 = P3(dj, r, 0f); var nn = new Vector3((di + dj).x, 0f, (di + dj).y) * s;
+                    Tri(v, t, p0, p1, p1 + up, nn); Tri(v, t, p0, p1 + up, p0 + up, nn);
+                }
+            }
+            // 窓のはしの壁（窓と窓でない所の境）
+            int k = (i + 1) % n; Vector2 dk = o[(i + 2) % n].normalized;
+            float an = Mathf.Atan2((dj + dk).y, (dj + dk).x) * Mathf.Rad2Deg;
+            if (InWin(an) != win)
+            {
+                var q0 = P3(dj, rHub, 0f); var q1 = P3(dj, rWin, 0f); var tang = new Vector3(-dj.y, 0f, dj.x) * (win ? -1f : 1f);
+                Tri(v, t, q0, q1, q1 + up, tang); Tri(v, t, q0, q1 + up, q0 + up, tang);
+            }
+        }
+        return SaveMesh(name, v, t);
+    }
+
+    // ①→② 窓のある歯車3枚（24・18・24枚）。かみ合う所で次へ乗り移る。窓が道の上に来たら落ちる
+    public static float HoleSpeed = 0.35f;
+    static void HoleGears()
+    {
+        var g = GimmickRoot("HoleGears"); const float H = 0.5f;
+        int[] zs = { 24, 18, 24 };
+        var gs = new List<FuwaGearTest.Gear>();
+        gs.Add(new FuwaGearTest.Gear { name = "HG0_z24", z = zs[0], c = new Vector2(0f, PM * zs[0] / 2f + PM + 0.05f), ratio = RatioFor(HoleSpeed, PM * zs[0] / 2f), phase = 0f });
+        for (int i = 1; i < zs.Length; i++) gs.Add(FuwaGearTest.Mesh2(gs[i - 1], "HG" + i + "_z" + zs[i], zs[i], 90f, PM));
+        var wood = cwLight;
+        for (int i = 0; i < gs.Count; i++)
+        {
+            var q = gs[i]; float r = PM * q.z / 2f, rf = r - 1.25f * PM;
+            var wins = i == 1 ? new[] { (0f, 50f), (180f, 50f) } : new[] { (30f, 45f), (210f, 45f) };
+            var mesh = WindowGear(q.z, PM, H, 0.45f, rf - 0.45f, wins, "PathGear_Hole_z" + q.z + "_" + i);
+            var t = CwGear(g, q.name, new Vector3(q.c.x, -H, q.c.y), Vector3.up, mesh, i == 1 ? cwBrass : wood, true);
+            AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg);
+        }
+        Drive(g, gs[0], 12, PM, -H, H, cwDark);
+        var last = gs[gs.Count - 1];
+        P += Dir(th) * (last.c.y + PM * last.z / 2f + PM + 0.05f);
+    }
+
+    // ②→③ ごつい歯車2枚（8枚歯、歯の大きさ 0.8）：入る所・乗り移る所・出る所で、歯が来ている時だけ足場がつながる
+    public static float ChunkSpeed = 0.3f;
+    static void ChunkyGears()
+    {
+        var g = GimmickRoot("ChunkyGears"); const float H = 0.6f, CM = 0.8f; const int Z = 8;
+        float r = CM * Z / 2f, ra = r + CM;
+        var a = new FuwaGearTest.Gear { name = "CG0_z8", z = Z, c = new Vector2(0f, ra + 0.05f), ratio = RatioFor(ChunkSpeed, r), phase = 0f };
+        var b = FuwaGearTest.Mesh2(a, "CG1_z8", Z, 90f, CM);
+        var mesh = SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(Z, 10, CM), H, "PathGear_Chunky_z8", Vector2.zero));
+        foreach (var q in new[] { a, b })
+        {
+            var t = CwGear(g, q.name, new Vector3(q.c.x, -H, q.c.y), Vector3.up, mesh, q == a ? cwLight : cwBrass, true);
+            AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg);
+        }
+        Drive(g, a, 8, CM, -H, H, cwDark);
+        P += Dir(th) * (b.c.y + ra + 0.05f);
+    }
+
+    // ③→④ 段つき歯車2つで 1.4m 上がる：A（大24・上に小14 が +0.7）→ B（大24 が +0.7 の層で A の小とかみ合う、上に小14 が +1.4）
+    public static float StepSpeed = 0.22f;
+    static void StepGears()
+    {
+        var g = GimmickRoot("StepGears"); const float S = 0.7f, Cl = 0.04f;
+        var aB = new FuwaGearTest.Gear { name = "SGA_z24", z = 24, c = new Vector2(0f, PM * 12 + PM + 0.05f), ratio = RatioFor(StepSpeed, PM * 12), phase = 0f };
+        var aS = new FuwaGearTest.Gear { name = "SGA_z14", z = 14, c = aB.c, ratio = aB.ratio, phase = 0.3f };
+        var bB = FuwaGearTest.Mesh2(aS, "SGB_z24", 24, 90f, PM);
+        var bS = new FuwaGearTest.Gear { name = "SGB_z14", z = 14, c = bB.c, ratio = bB.ratio, phase = bB.phase + 0.2f };
+        var m24 = SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(24, 8, PM), S - Cl, "PathGear_Step_z24", Vector2.zero));
+        var m24b = SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(24, 8, PM), S, "PathGear_Step_z24b", Vector2.zero));
+        var m14 = SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(14, 8, PM), S - Cl, "PathGear_Step_z14", Vector2.zero));
+        // A：大は −0.7〜0、小は 0.04〜0.7。B：大は 0.04〜0.7、小は 0.74〜1.4
+        var tA = CwGear(g, "SGA", new Vector3(aB.c.x, -S, aB.c.y), Vector3.up, m24b, cwLight, true);
+        AddGear(tA, aB.ratio, aB.phase * Mathf.Rad2Deg);
+        Child(tA, "Small_z14", new Vector3(0f, S + Cl, 0f), m14, cwBrass, aS.phase - aB.phase);
+        var tB = CwGear(g, "SGB", new Vector3(bB.c.x, Cl, bB.c.y), Vector3.up, m24, cwLight, true);
+        AddGear(tB, bB.ratio, bB.phase * Mathf.Rad2Deg);
+        Child(tB, "Small_z14", new Vector3(0f, S, 0f), m14, cwBrass, bS.phase - bB.phase);
+        Drive(g, aB, 12, PM, -S, S, cwDark);
+        P += Dir(th) * (bB.c.y + PM * 7 + PM + 0.05f) + Vector3.up * 2f * S;
+    }
+    // 同じ軸で一緒に回る段（歯の向きのずれ dphase ラジアン）
+    static void Child(Transform gear, string name, Vector3 lp, Mesh m, Material mat, float dphase)
+    {
+        var c = new GameObject(name); c.transform.SetParent(gear, false); c.transform.localPosition = lp; c.transform.localRotation = Quaternion.Euler(0f, -dphase * Mathf.Rad2Deg, 0f);
+        c.layer = 11; c.AddComponent<MeshFilter>().sharedMesh = m; c.AddComponent<MeshRenderer>().sharedMaterial = mat; c.AddComponent<MeshCollider>().sharedMesh = m;
     }
 
     // ---- 2–3 と同じ部品 ----

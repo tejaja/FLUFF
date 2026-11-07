@@ -1,5 +1,6 @@
 using UdonSharp;
 using UnityEngine;
+using VRC.SDKBase;
 
 // 2–4 はぐるまのとう：時計塔が動かす、道ごとの自動の歯車じかけ（2026-11-07 てじゃ「各道に、なんかしら自動の歯車の仕掛けを追加しよう」）
 // ・塔から空中の軸がのびて、かさ歯車でたての軸 → 歯車 → クランク → 押し出し壁・回るアーム・シャッター
@@ -20,6 +21,10 @@ public class FuwaClockwork : UdonSharpBehaviour
     public Vector3[] sliderAxis;    // クランクの歯車の親の中での向き
     public float[] pinR, pinY, rodLen;   // ピンはクランクの歯車の local (pinR, pinY, 0)、線の中心は local (0, pinY, 0)
     public Transform[] rods;
+    [Tooltip("歯車の足場に乗っている自分を一緒に運ぶ（足もとを見る長さ）")]
+    public float rideRay = 0.6f;
+    private Quaternion[] _last;
+    private bool _init;
 
     private void Update()
     {
@@ -27,6 +32,7 @@ public class FuwaClockwork : UdonSharpBehaviour
         if (gears != null && ratio != null && phase != null)
             for (int i = 0; i < gears.Length; i++)
                 if (gears[i] != null) gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(ratio[i] * a + phase[i], 360f), 0f);
+        Carry();
         if (sliders == null || sliderGear == null) return;
         for (int k = 0; k < sliders.Length; k++)
         {
@@ -49,5 +55,35 @@ public class FuwaClockwork : UdonSharpBehaviour
                 rods[k].rotation = Quaternion.LookRotation((sp - pin).normalized, g.up);
             }
         }
+    }
+
+    // 足場の歯車（当たりのある物）に乗っている自分を、その歯車の回りに合わせて運ぶ（FuwaGearRide と同じ）
+    private void Carry()
+    {
+        if (gears == null) return;
+        int n = gears.Length;
+        if (!_init) { _last = new Quaternion[n]; for (int i = 0; i < n; i++) if (gears[i] != null) _last[i] = gears[i].rotation; _init = true; return; }
+        VRCPlayerApi p = Networking.LocalPlayer;
+        int on = -1; Vector3 pos = Vector3.zero;
+        if (p != null)
+        {
+            pos = p.GetPosition();
+            RaycastHit hit;
+            if (Physics.Raycast(pos + Vector3.up * 0.3f, Vector3.down, out hit, 0.3f + rideRay, ~((1 << 9) | (1 << 10)), QueryTriggerInteraction.Ignore) && hit.collider != null)
+                for (int i = 0; i < n; i++) if (gears[i] != null && hit.collider.transform.IsChildOf(gears[i])) { on = i; break; }
+        }
+        if (on >= 0)
+        {
+            Transform g = gears[on];
+            Vector3 c = g.position;
+            Vector3 moved = c + g.rotation * (Quaternion.Inverse(_last[on]) * (pos - c));
+            Vector3 delta = moved - pos; delta.y = 0f;
+            if (delta.sqrMagnitude > 1e-10f && delta.sqrMagnitude < 1f)
+            {
+                VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
+                p.TeleportTo(o.position + delta, o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
+            }
+        }
+        for (int i = 0; i < n; i++) if (gears[i] != null) _last[i] = gears[i].rotation;
     }
 }
