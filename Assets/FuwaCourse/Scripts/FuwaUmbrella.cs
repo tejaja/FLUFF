@@ -7,7 +7,8 @@ using VRC.SDKBase;
 // ・ロビーの傘立てに並べてある同期ピックアップ（VRCObjectSync）。持っている傘はみんなに見える。人が持っている傘は取れない
 // ・持って「使う」（トリガー／クリック／スマホの使うボタン）を押している間、傘の向き（PC・スマホは見ている方）へ飛ぶ
 // ・押していない間は、持っているだけでゆっくり降りる（落ちる速さに上限）
-// ・手放す・エアガンを持つ → 傘立ての元の場所へ戻る（ObjectSync の Respawn）
+// ・手放す・エアガンを持つ → その場にしばらく残って（returnDelay 秒）、だれも持たなければ傘立ての元の場所へ戻る（ObjectSync の Respawn）
+//   2026-11-08 てじゃ「離してもしばらく残っててほしい」
 // ・傘立てでは閉じていて、持つと開く（シェイプキー Closed。開き具合は持っているかどうかの同期変数から、それぞれの画面で動かす）
 [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
 public class FuwaUmbrella : UdonSharpBehaviour
@@ -21,9 +22,12 @@ public class FuwaUmbrella : UdonSharpBehaviour
     [Tooltip("開く・閉じるのにかかる秒数")]
     public float openTime = 0.35f;
     public AudioSource openSound;
+    [Tooltip("手放してから傘立てに戻るまでの秒数")]
+    public float returnDelay = 20f;
 
     [UdonSynced] private bool _held;
-    private bool _mine, _using;
+    private bool _mine, _using, _waiting;
+    private float _dropTime;
     private float _gravity = 1f, _liftUntil, _open, _shownOpen = -1f;
     private VRCPickup _pickup;
     private VRCObjectSync _sync;
@@ -39,7 +43,7 @@ public class FuwaUmbrella : UdonSharpBehaviour
     {
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
-        _mine = true; _using = false;
+        _mine = true; _using = false; _waiting = false;
         _gravity = p.GetGravityStrength();
         _held = true; RequestSerialization();
         if (openSound != null) openSound.Play();
@@ -51,7 +55,7 @@ public class FuwaUmbrella : UdonSharpBehaviour
         EndFlight();
         _mine = false;
         _held = false; RequestSerialization();
-        if (_sync != null) _sync.Respawn();   // 傘立ての元の場所へ
+        _waiting = true; _dropTime = Time.time;   // しばらくその場に残る
     }
 
     public override void OnPickupUseDown()
@@ -86,6 +90,12 @@ public class FuwaUmbrella : UdonSharpBehaviour
         _open = Mathf.MoveTowards(_open, target, Time.deltaTime / Mathf.Max(0.01f, openTime));
         if (_open != _shownOpen) ShowOpen(_open);
 
+        // 手放した傘：持ち主の画面で、だれも持たないまま returnDelay たったら傘立てへ（ほかの人が持ったら持ち主が変わるのでやめる）
+        if (_waiting)
+        {
+            if (!Networking.IsOwner(gameObject) || _held) _waiting = false;
+            else if (Time.time - _dropTime > returnDelay) { _waiting = false; if (_sync != null) _sync.Respawn(); }
+        }
         if (!_mine) return;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
@@ -114,10 +124,11 @@ public class FuwaUmbrella : UdonSharpBehaviour
     // 持っていた人が抜けた：残った持ち主（引きついだ人）が閉じて戻す
     public override void OnPlayerLeft(VRCPlayerApi player)
     {
-        if (!_held || !Networking.IsOwner(gameObject)) return;
+        if (!Networking.IsOwner(gameObject)) return;
         if (_pickup != null && _pickup.IsHeld) return;
-        _held = false; RequestSerialization();
-        if (_sync != null) _sync.Respawn();
+        if (_held) { _held = false; RequestSerialization(); }
+        // 手放したまま残っていた傘も、引きついだ人の画面で時間がたったら戻す（傘立てにある傘は戻しても同じ場所）
+        if (!_waiting) { _waiting = true; _dropTime = Time.time; }
     }
 
     private void ShowOpen(float o)

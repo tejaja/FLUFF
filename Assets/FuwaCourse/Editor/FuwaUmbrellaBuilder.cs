@@ -121,7 +121,9 @@ public static class FuwaUmbrellaBuilder
         smr.localBounds = new Bounds(new Vector3(0f, 0.55f, 0f), new Vector3(1.2f, 0.8f, 1.2f)); smr.updateWhenOffscreen = false;
         var rb = go.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
         var col = go.AddComponent<CapsuleCollider>(); col.direction = 1; col.center = new Vector3(0.02f, 0.35f, 0f); col.height = 1.05f; col.radius = 0.1f;
-        var pk = go.AddComponent<VRCPickup>();
+        // 持ち手のところを持つ（2026-11-08 てじゃ「もっと持ちてのあたり持たないと、視界の邪魔」）：+Y が布の方（手の親指側）
+        var grip = new GameObject("Grip").transform; grip.SetParent(go.transform, false); grip.localPosition = new Vector3(0f, -0.01f, 0f);
+        var pk = go.AddComponent<VRCPickup>(); pk.ExactGrip = grip; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Grip;
         pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.DisallowTheft = true; pk.pickupable = true; pk.proximity = 2f;
         pk.InteractionText = "ふわふわ傘"; pk.UseText = "飛ぶ";
         var os = go.AddComponent<VRCObjectSync>(); os.AllowCollisionOwnershipTransfer = false;
