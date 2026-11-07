@@ -271,8 +271,8 @@ public static class FuwaCourse2_4Builder
         float h = TowerW / 2f, baseTop = -1.7f;
         // 下の段（トンネルの床の下）・トンネルの左右の壁・トンネルの上
         // 下の段：中を空洞にして、時計の動力（おもり）が見える窓（2026-11-07 てじゃ「動力ある？」→ A「時計のおもり」）
-        //  窓はスタートのある側の面（local ±x）。中：ドラム＋大歯車（36枚）→ 小歯車（8）＋2段目（30）→ 小歯車（8）。ドラムに巻いたくさりでおもりがゆっくり下がる
-        //  回り方は FuwaClockwork（ほかの歯車と同じ時計）、おもりは FuwaClockHands（WeightPeriod 秒で WeightDrop 下がって、上へ戻る）
+        //  窓はスタートのある側の面（local ±x）。中：大歯車（36枚）→ 小歯車（8）＋2段目（30）→ 小歯車（8）。動力はクリスタル（下）
+        //  回り方は FuwaClockwork（ほかの歯車と同じ時計）
         float wsx = Mathf.Sign(t.InverseTransformDirection(root.TransformPoint(Vector3.zero) - t.position).x); if (wsx == 0f) wsx = 1f;
         const float CavB = -12f, CavT = -2.5f, Wall = 0.5f, WinHW = 2.5f;
         TBox(t, "Base", new Vector3(0f, (TowerBottom + CavB) / 2f, 0f), new Vector3(TowerW, CavB - TowerBottom, TowerW), stone, true);
@@ -303,8 +303,6 @@ public static class FuwaCourse2_4Builder
             return g;
         }
         var gwT = MvGear(gw, gwX, 0.12f, brassM);
-        var drum = GameObject.CreatePrimitive(PrimitiveType.Cylinder); drum.name = "Drum"; Object.DestroyImmediate(drum.GetComponent<Collider>()); drum.transform.SetParent(gwT, false);
-        drum.transform.localPosition = new Vector3(0f, -wsx * 0.8f, 0f); drum.transform.localScale = new Vector3(2f * Rb, 0.7f, 2f * Rb); drum.GetComponent<Renderer>().sharedMaterial = handM;
         for (int k = 0; k < 6; k++)
         {
             var sp = TBox(gwT, "Spoke" + k, Quaternion.Euler(0f, k * 60f, 0f) * new Vector3(0.9f, wsx > 0f ? 0.14f : -0.02f, 0f), new Vector3(1.4f, 0.04f, 0.14f), brassM, false);
@@ -318,16 +316,32 @@ public static class FuwaCourse2_4Builder
             var ax = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ax.name = "Arbor"; Object.DestroyImmediate(ax.GetComponent<Collider>()); ax.transform.SetParent(g, false);
             ax.transform.localPosition = new Vector3(0f, -wsx * len / 2f + 0.06f, 0f); ax.transform.localScale = new Vector3(0.12f, len / 2f, 0.12f); ax.GetComponent<Renderer>().sharedMaterial = handM;
         }
-        // おもりとくさり（くさりはドラムの −z 側から真下）
-        float cordX = wsx * (2.2f - 0.8f);
-        var cordTop = new Vector3(cordX, -4.6f, -1.0f - Rb);
-        var weight = new GameObject("Weight").transform; weight.SetParent(t, false); weight.localPosition = cordTop + Vector3.down * 1.0f;
-        TBox(weight, "Body", new Vector3(0f, -0.9f, 0f), new Vector3(0.9f, 1.6f, 0.9f), handM, false);
-        TBox(weight, "Band", new Vector3(0f, -0.4f, 0f), new Vector3(0.96f, 0.14f, 0.96f), brassM, false);
-        TBox(weight, "Hook", new Vector3(0f, -0.05f, 0f), new Vector3(0.12f, 0.2f, 0.12f), brassM, false);
-        var cord = new GameObject("Chain").transform; cord.SetParent(t, false);
-        TBox(cord, "Links", new Vector3(0f, -0.5f, 0f), new Vector3(0.07f, 1f, 0.07f), handM, false);   // 長さ 1 を上から下へ。FuwaClockHands が y の大きさで長さを合わせる
-        weightT = weight; chainT = cord; chainTop = cordTop;
+        // 動力はクリスタル（2026-11-07 てじゃ「オモリあげないとなのか」「やっぱクリスタル式がいいかな」）：
+        //  大歯車の下に大きいクリスタルが浮いて、たての軸でゆっくり回る。軸の上のかさ歯車（16:16）で大歯車の軸を回す
+        {
+            var O = new Vector3(wsx * 0.1f, -4.6f, -1.0f);                 // 大歯車の軸の線の上
+            var axB = new Vector3(wsx, 0f, 0f);                             // 大歯車の方
+            // 大歯車の軸の歯車 B の回り方 = 大歯車（mv の local Y＝塔の +x）。B の軸が −x の時は向きが逆
+            float rGW = rB, rBev = wsx > 0f ? rGW : -rGW;
+            float rA = -rBev;                                               // 16:16 なので rB = −rA
+            Transform gA; float rB2, pB2;
+            var gBv = BevelPair(t, "CrystalBevel", O, Vector3.down, axB, BevZ, BevZ, rA, 0f, out gA, out rB2, out pB2);
+            CwShaft(gBv, 0f, Mathf.Abs(gwX - O.x) - 1.2f, 0.12f);           // 大歯車の軸へ
+            CwShaft(gA, 0f, 2.1f, 0.14f);                                   // クリスタルまで（下へ）
+            var cryMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaStage2/Meshes/Course2_3/ObsCrystal1_Main.asset");
+            var cryMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_3_Crystal.mat");
+            if (cryMesh && cryMat)
+            {
+                var cry = new GameObject("PowerCrystal").transform; cry.SetParent(gA, false);
+                cry.localPosition = new Vector3(0f, 2.05f, 0f);   // 軸の先にぶら下がる（gA の local Y は下向き＝クリスタルの先が下）
+                cry.localScale = Vector3.one * 1.1f;   // 高さ 約 3.3m（空洞の床より上）
+                cry.gameObject.AddComponent<MeshFilter>().sharedMesh = cryMesh; cry.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cryMat;
+            }
+            var sock = GameObject.CreatePrimitive(PrimitiveType.Cylinder); sock.name = "Socket"; Object.DestroyImmediate(sock.GetComponent<Collider>());
+            sock.transform.SetParent(gA, false); sock.transform.localPosition = new Vector3(0f, 2.0f, 0f); sock.transform.localScale = new Vector3(1.1f, 0.08f, 1.1f); sock.GetComponent<Renderer>().sharedMaterial = brassM;   // 軸の先のうけ
+        }
+        weightT = null; chainT = null; chainTop = Vector3.zero;
+
         foreach (int sg in new[] { -1, 1 })
             TBox(t, "TunnelWall" + (sg > 0 ? "R" : "L"), new Vector3(sg * (h + TunnelHW) / 2f, (baseTop + TunnelH) / 2f, 0f), new Vector3(h - TunnelHW, TunnelH - baseTop, TowerW), stone, true);
         TBox(t, "Upper", new Vector3(0f, (TunnelH + TowerTop) / 2f, 0f), new Vector3(TowerW, TowerTop - TunnelH, TowerW), stone, true);
@@ -418,7 +432,7 @@ public static class FuwaCourse2_4Builder
         ck.hourHands = hours.ToArray(); ck.minuteHands = mins.ToArray();
         ck.pendulum = pendPivot; ck.pendulumAmp = PendAmp; ck.pendulumPeriod = 2f * Mathf.PI * Mathf.Sqrt((PendPivotY - PendBobY) / 9.81f);   // 本物の振り子と同じ周期
         ck.escapeWheel = escape; ck.escapeTeeth = 30;
-        ck.weight = weightT; ck.chain = chainT; ck.chainTop = chainTop; ck.weightStart = weightT.localPosition; ck.weightDrop = WeightDrop; ck.weightPeriod = WeightPeriod;
+        ck.weight = null; ck.chain = null;   // おもりはやめた（クリスタル式）
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ck); FuwaStage2WaterTest.NoSync(ck);
         // エディタでも今の時刻に
         var now = System.DateTime.Now; float mm = now.Minute + now.Second / 60f, hh = (now.Hour % 12) + mm / 60f;
