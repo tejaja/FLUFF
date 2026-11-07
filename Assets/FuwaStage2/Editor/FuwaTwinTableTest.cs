@@ -212,38 +212,56 @@ public static class FuwaTwinTableTest
     }
 
     // 歯のついた輪（内側は半径 RimIn の円）。歯の輪郭の点ごとに同じ角度の内側の点と組んで帯にする
+    // 輪っかの歯車（2026-11-07 軽くした：内がわの輪は歯1枚あたり4点、歯の側面はなめらかな所で点を共有）
     static Mesh RimGear(int z, float m, float th, float rimW, string name)
     {
         var o = FuwaGearTest.GearOutline(z, 8, m);
         float rin = m * z / 2f - 1.25f * m - rimW;
         int n = o.Length;
+        float area = 0f; for (int i = 0; i < n; i++) { var p0 = o[i]; var p1 = o[(i + 1) % n]; area += p0.x * p1.y - p1.x * p0.y; }
+        float ori = area > 0f ? 1f : -1f;
+        int K = Mathf.Max(1, n / (z * 4)); int M = (n + K - 1) / K;
+        var dIn = new Vector2[M]; for (int k = 0; k < M; k++) dIn[k] = o[k * K].normalized;
         var v = new System.Collections.Generic.List<Vector3>(); var t = new System.Collections.Generic.List<int>();
-        System.Func<int, Vector2> In = i => o[i].normalized * rin;
+        System.Action<int, int, int, Vector3> T = (ia, ib, ic, want) =>
+        {
+            if (Vector3.Dot(Vector3.Cross(v[ib] - v[ia], v[ic] - v[ia]), want) < 0f) { int sw = ib; ib = ic; ic = sw; }
+            t.Add(ia); t.Add(ib); t.Add(ic);
+        };
         foreach (float y in new[] { th, 0f })
         {
-            int s0 = v.Count;
-            for (int i = 0; i < n; i++) { v.Add(new Vector3(o[i].x, y, o[i].y)); var q = In(i); v.Add(new Vector3(q.x, y, q.y)); }
+            var want = y > 0f ? Vector3.up : Vector3.down;
+            int bo = v.Count; for (int i = 0; i < n; i++) v.Add(new Vector3(o[i].x, y, o[i].y));
+            int bi = v.Count; for (int k = 0; k < M; k++) v.Add(new Vector3(dIn[k].x * rin, y, dIn[k].y * rin));
             for (int i = 0; i < n; i++)
             {
-                int j = (i + 1) % n, oi = s0 + 2 * i, ii = oi + 1, oj = s0 + 2 * j, ij = oj + 1;
-                if (y > 0f) { t.Add(ii); t.Add(oj); t.Add(oi); t.Add(ii); t.Add(ij); t.Add(oj); }
-                else { t.Add(ii); t.Add(oi); t.Add(oj); t.Add(ii); t.Add(oj); t.Add(ij); }
+                int j = (i + 1) % n, gi = i / K, gj = j / K;
+                T(bi + gi, bo + i, bo + j, want);
+                if (gj != gi) T(bi + gi, bo + j, bi + gj, want);
             }
+        }
+        // 歯の側面（角は分ける）
+        var sA = new int[n]; var sB = new int[n];
+        for (int i = 0; i < n; i++)
+        {
+            var e0 = o[i] - o[(i - 1 + n) % n]; var e1 = o[(i + 1) % n] - o[i];
+            sA[i] = v.Count; v.Add(new Vector3(o[i].x, 0f, o[i].y)); v.Add(new Vector3(o[i].x, th, o[i].y));
+            if (Vector2.Angle(e0, e1) > 35f) { sB[i] = v.Count; v.Add(new Vector3(o[i].x, 0f, o[i].y)); v.Add(new Vector3(o[i].x, th, o[i].y)); } else sB[i] = sA[i];
         }
         for (int i = 0; i < n; i++)
         {
-            int j = (i + 1) % n;
-            var a = o[i]; var b = o[j];
-            int s = v.Count;
-            v.Add(new Vector3(a.x, 0f, a.y)); v.Add(new Vector3(b.x, 0f, b.y)); v.Add(new Vector3(b.x, th, b.y)); v.Add(new Vector3(a.x, th, a.y));
-            t.Add(s); t.Add(s + 3); t.Add(s + 2); t.Add(s); t.Add(s + 2); t.Add(s + 1);
-            var ai = In(i); var bi = In(j);
-            s = v.Count;
-            v.Add(new Vector3(ai.x, 0f, ai.y)); v.Add(new Vector3(bi.x, 0f, bi.y)); v.Add(new Vector3(bi.x, th, bi.y)); v.Add(new Vector3(ai.x, th, ai.y));
-            t.Add(s); t.Add(s + 2); t.Add(s + 3); t.Add(s); t.Add(s + 1); t.Add(s + 2);
+            int j = (i + 1) % n; var e = o[j] - o[i]; var nw = new Vector3(e.y, 0f, -e.x) * ori;
+            T(sA[i], sB[j], sB[j] + 1, nw); T(sA[i], sB[j] + 1, sA[i] + 1, nw);
+        }
+        // 内がわの壁（内向き、なめらか）
+        int bw = v.Count; for (int k = 0; k < M; k++) { v.Add(new Vector3(dIn[k].x * rin, 0f, dIn[k].y * rin)); v.Add(new Vector3(dIn[k].x * rin, th, dIn[k].y * rin)); }
+        for (int k = 0; k < M; k++)
+        {
+            int k2 = (k + 1) % M; var sd = dIn[k] + dIn[k2]; var nn = -new Vector3(sd.x, 0f, sd.y);
+            T(bw + 2 * k, bw + 2 * k2, bw + 2 * k2 + 1, nn); T(bw + 2 * k, bw + 2 * k2 + 1, bw + 2 * k + 1, nn);
         }
         var mesh = new Mesh { name = name };
-        mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        mesh.indexFormat = v.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
         mesh.SetVertices(v); mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
         return mesh;
     }

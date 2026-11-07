@@ -818,7 +818,7 @@ public static class FuwaCourse2_4Builder
         // でかい歯車（まん中は塔の土台の中にかくれる。こしきの輪は塔の角の外）
         float rHub = 5.9f, rWin = RW - 1.25f * WM - 0.9f;
         var wins = new (float, float)[8]; for (int k = 0; k < 8; k++) wins[k] = (k * 45f + 22.5f, 18.5f);
-        var wMesh = WindowGear(WZ, WM, WT, rHub, rWin, wins, "Clockwork_BigWheel_z" + WZ, 4);
+        var wMesh = WindowGear(WZ, WM, WT, rHub, rWin, wins, "Clockwork_BigWheel_z" + WZ);
         var wg = CwGear(wf, "BigWheel_z" + WZ, Vector3.zero, Vector3.up, wMesh, cwDark);
         AddGear(wg, bestRW, 0f);
         var log = new System.Text.StringBuilder("[2–4] でかい歯車 z" + WZ + " 直径 " + (2f * RW).ToString("F1") + "m ratio " + bestRW.ToString("F4") + " ");
@@ -898,47 +898,84 @@ public static class FuwaCourse2_4Builder
     // 窓のある歯車：外のふち（歯）と、まん中のこしき（rHub）の間に、wins の角度（中心, 半分の幅）だけ rHub〜rWin の窓（穴）
     static Mesh WindowGear(int z, float mod, float h, float rHub, float rWin, (float c, float hw)[] wins, string name, int flank = 8)
     {
+        // 2026-11-07 軽くした：点を使い回す（前は三角形ごとに3点ずつで、88枚歯は11万点あった）
+        //  ふちの内がわ（rWin）とこしき（rHub）の輪は、歯1枚あたり4点のあらい輪。歯の側面は、なめらかな所は点を共有して角だけ分ける
         var o = FuwaGearTest.GearOutline(z, flank, mod); int n = o.Length;
-        var v = new List<Vector3>(); var t = new List<int>();
+        float area = 0f; for (int i = 0; i < n; i++) { var p0 = o[i]; var p1 = o[(i + 1) % n]; area += p0.x * p1.y - p1.x * p0.y; }
+        float ori = area > 0f ? 1f : -1f;   // 1：反時計回り（x→z）
+        int K = Mathf.Max(1, n / (z * 4)); int M = (n + K - 1) / K;
+        var dIn = new Vector2[M]; for (int k = 0; k < M; k++) dIn[k] = o[k * K].normalized;
         bool InWin(float a) { foreach (var w in wins) if (Mathf.Abs(Mathf.DeltaAngle(a, w.c)) < w.hw) return true; return false; }
+        var segWin = new bool[M];
+        for (int k = 0; k < M; k++) { var s = dIn[k] + dIn[(k + 1) % M]; segWin[k] = InWin(Mathf.Atan2(s.y, s.x) * Mathf.Rad2Deg); }
+        var v = new List<Vector3>(); var t = new List<int>();
+        void T(int a, int b, int c, Vector3 want)
+        {
+            if (Vector3.Dot(Vector3.Cross(v[b] - v[a], v[c] - v[a]), want) < 0f) { int s = b; b = c; c = s; }
+            t.Add(a); t.Add(b); t.Add(c);
+        }
         Vector3 P3(Vector2 d, float r, float y) => new Vector3(d.x * r, y, d.y * r);
+        // 表と裏
+        foreach (var y in new[] { h, 0f })
+        {
+            var want = y > 0f ? Vector3.up : Vector3.down;
+            int bo = v.Count; for (int i = 0; i < n; i++) v.Add(new Vector3(o[i].x, y, o[i].y));
+            int bw = v.Count; for (int k = 0; k < M; k++) v.Add(P3(dIn[k], rWin, y));
+            int bh = v.Count; for (int k = 0; k < M; k++) v.Add(P3(dIn[k], rHub, y));
+            int bc = v.Count; v.Add(new Vector3(0f, y, 0f));
+            for (int i = 0; i < n; i++)
+            {
+                int j = (i + 1) % n, gi = i / K, gj = j / K;
+                T(bw + gi, bo + i, bo + j, want);
+                if (gj != gi) T(bw + gi, bo + j, bw + gj, want);
+            }
+            for (int k = 0; k < M; k++)
+            {
+                int k2 = (k + 1) % M;
+                T(bc, bh + k, bh + k2, want);
+                if (!segWin[k]) { T(bh + k, bw + k, bw + k2, want); T(bh + k, bw + k2, bh + k2, want); }
+            }
+        }
+        // 歯の側面（角は分ける）
+        var sA = new int[n]; var sB = new int[n];
         for (int i = 0; i < n; i++)
         {
-            int j = (i + 1) % n;
-            Vector2 di = o[i].normalized, dj = o[j].normalized;
-            float am = Mathf.Atan2((di + dj).y, (di + dj).x) * Mathf.Rad2Deg;
-            bool win = InWin(am);
-            foreach (var y in new[] { h, 0f })
+            var e0 = o[i] - o[(i - 1 + n) % n]; var e1 = o[(i + 1) % n] - o[i];
+            bool sharp = Vector2.Angle(e0, e1) > 35f;
+            sA[i] = v.Count; v.Add(new Vector3(o[i].x, 0f, o[i].y)); v.Add(new Vector3(o[i].x, h, o[i].y));
+            if (sharp) { sB[i] = v.Count; v.Add(new Vector3(o[i].x, 0f, o[i].y)); v.Add(new Vector3(o[i].x, h, o[i].y)); } else sB[i] = sA[i];
+        }
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n; var e = o[j] - o[i]; var nw = new Vector3(e.y, 0f, -e.x) * ori;
+            int a = sA[i], b = sB[j];
+            T(a, b, b + 1, nw); T(a, b + 1, a + 1, nw);
+        }
+        // 窓の内がわの壁（こしき側は外向き、ふち側は内向き）。窓の中では点を共有（丸くなめらか）
+        foreach (var (r, sg) in new[] { (rHub, 1f), (rWin, -1f) })
+        {
+            var idx = new int[M];
+            for (int k = 0; k < M; k++)
             {
-                var want = y > 0f ? Vector3.up : Vector3.down;
-                // ふち（rWin〜歯）
-                Tri(v, t, P3(di, rWin, y), new Vector3(o[i].x, y, o[i].y), new Vector3(o[j].x, y, o[j].y), want);
-                Tri(v, t, P3(di, rWin, y), new Vector3(o[j].x, y, o[j].y), P3(dj, rWin, y), want);
-                // こしき（0〜rHub）
-                Tri(v, t, new Vector3(0f, y, 0f), P3(di, rHub, y), P3(dj, rHub, y), want);
-                if (!win) { Tri(v, t, P3(di, rHub, y), P3(di, rWin, y), P3(dj, rWin, y), want); Tri(v, t, P3(di, rHub, y), P3(dj, rWin, y), P3(dj, rHub, y), want); }
+                idx[k] = -1;
+                if (!segWin[k] && !segWin[(k - 1 + M) % M]) continue;
+                idx[k] = v.Count; v.Add(P3(dIn[k], r, 0f)); v.Add(P3(dIn[k], r, h));
             }
-            // 歯の側面
-            var a0 = new Vector3(o[i].x, 0f, o[i].y); var b0 = new Vector3(o[j].x, 0f, o[j].y); var up = Vector3.up * h;
-            var nrm = new Vector3((o[i] + o[j]).x, 0f, (o[i] + o[j]).y);
-            Tri(v, t, a0, b0, b0 + up, nrm); Tri(v, t, a0, b0 + up, a0 + up, nrm);
-            if (win)
+            for (int k = 0; k < M; k++)
             {
-                // 窓の内側の壁（こしき側は外向き、ふち側は内向き）
-                foreach (var (r, s) in new[] { (rHub, 1f), (rWin, -1f) })
-                {
-                    var p0 = P3(di, r, 0f); var p1 = P3(dj, r, 0f); var nn = new Vector3((di + dj).x, 0f, (di + dj).y) * s;
-                    Tri(v, t, p0, p1, p1 + up, nn); Tri(v, t, p0, p1 + up, p0 + up, nn);
-                }
+                if (!segWin[k]) continue;
+                int k2 = (k + 1) % M; var s = dIn[k] + dIn[k2]; var nn = new Vector3(s.x, 0f, s.y) * sg;
+                T(idx[k], idx[k2], idx[k2] + 1, nn); T(idx[k], idx[k2] + 1, idx[k] + 1, nn);
             }
-            // 窓のはしの壁（窓と窓でない所の境）
-            int k = (i + 1) % n; Vector2 dk = o[(i + 2) % n].normalized;
-            float an = Mathf.Atan2((dj + dk).y, (dj + dk).x) * Mathf.Rad2Deg;
-            if (InWin(an) != win)
-            {
-                var q0 = P3(dj, rHub, 0f); var q1 = P3(dj, rWin, 0f); var tang = new Vector3(-dj.y, 0f, dj.x) * (win ? -1f : 1f);
-                Tri(v, t, q0, q1, q1 + up, tang); Tri(v, t, q0, q1 + up, q0 + up, tang);
-            }
+        }
+        // 窓のはしの壁（窓と窓でない所の境）。向きは窓の方
+        for (int k = 0; k < M; k++)
+        {
+            bool after = segWin[k], before = segWin[(k - 1 + M) % M];
+            if (after == before) continue;
+            var tg = dIn[(k + 1) % M] - dIn[(k - 1 + M) % M]; var nn = new Vector3(tg.x, 0f, tg.y) * (after ? 1f : -1f);
+            int b0 = v.Count; v.Add(P3(dIn[k], rHub, 0f)); v.Add(P3(dIn[k], rWin, 0f)); v.Add(P3(dIn[k], rWin, h)); v.Add(P3(dIn[k], rHub, h));
+            T(b0, b0 + 1, b0 + 2, nn); T(b0, b0 + 2, b0 + 3, nn);
         }
         return SaveMesh(name, v, t);
     }

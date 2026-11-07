@@ -114,14 +114,18 @@ public static class FuwaGearTest
         int bot = v.Count; v.Add(new Vector3(center2D.x, 0f, center2D.y));
         foreach (var p in o) v.Add(new Vector3(p.x, 0f, p.y));
         for (int i = 0; i < n; i++) { t.Add(bot); t.Add(bot + 1 + i); t.Add(bot + 1 + (i + 1) % n); }
-        // 横
+        // 横（2026-11-07 軽くした：なめらかな所はとなりの面と点を共有、35°より曲がる角だけ分ける）
+        var sA = new int[n]; var sB = new int[n];
         for (int i = 0; i < n; i++)
         {
-            var a = o[i]; var b = o[(i + 1) % n];
-            int s = v.Count;
-            v.Add(new Vector3(a.x, 0f, a.y)); v.Add(new Vector3(b.x, 0f, b.y));
-            v.Add(new Vector3(b.x, thick, b.y)); v.Add(new Vector3(a.x, thick, a.y));
-            t.Add(s); t.Add(s + 3); t.Add(s + 2); t.Add(s); t.Add(s + 2); t.Add(s + 1);
+            var e0 = o[i] - o[(i - 1 + n) % n]; var e1 = o[(i + 1) % n] - o[i];
+            sA[i] = v.Count; v.Add(new Vector3(o[i].x, 0f, o[i].y)); v.Add(new Vector3(o[i].x, thick, o[i].y));
+            if (Vector2.Angle(e0, e1) > 35f) { sB[i] = v.Count; v.Add(new Vector3(o[i].x, 0f, o[i].y)); v.Add(new Vector3(o[i].x, thick, o[i].y)); } else sB[i] = sA[i];
+        }
+        for (int i = 0; i < n; i++)
+        {
+            int a0 = sA[i], b0 = sB[(i + 1) % n];   // a0/b0：下、+1：上（前と同じ巻き：a下, a上, b上 / a下, b上, b下）
+            t.Add(a0); t.Add(a0 + 1); t.Add(b0 + 1); t.Add(a0); t.Add(b0 + 1); t.Add(b0);
         }
         var m = new Mesh { name = name };
         m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
