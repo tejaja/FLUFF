@@ -103,7 +103,7 @@ public static class FuwaTwinTableTest
             gearRatio[i] = g.ratio / rp;
             gearPhase[i] = g.phase * Mathf.Rad2Deg - g.ratio * php / rp;
             float top = i == NI ? 1.05f : GearY + GearTh + 0.1f;
-            Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (beamY + top) / 2f, g.c.y), new Vector3(0.16f, (top - beamY) / 2f, 0.16f), axleM);
+            Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (beamY + top) / 2f, g.c.y), new Vector3(0.45f, (top - beamY) / 2f, 0.45f), axleM);
         }
         gearTs[nc] = tableB; gearRatio[nc] = gB.ratio / rp; gearPhase[nc] = thB0 - gB.ratio * php / rp;
         float rEnd = gP.c.magnitude + 0.6f;

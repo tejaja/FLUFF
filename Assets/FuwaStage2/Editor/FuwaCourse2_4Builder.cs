@@ -311,10 +311,10 @@ public static class FuwaCourse2_4Builder
         var p1T = MvGear(p1, gwX, 0.12f, handM);
         var w2T = MvGear(w2, gwX - wsx * 0.3f, 0.1f, brassM);
         var p2T = MvGear(p2, gwX - wsx * 0.3f, 0.1f, handM);
-        foreach (var (g, len) in new[] { (gwT, 2.6f), (p1T, 1.4f), (p2T, 1.2f) })
+        foreach (var (g, len, ad) in new[] { (gwT, 2.6f, 0.4f), (p1T, 1.4f, 0.3f), (p2T, 1.2f, 0.3f) })
         {
             var ax = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ax.name = "Arbor"; Object.DestroyImmediate(ax.GetComponent<Collider>()); ax.transform.SetParent(g, false);
-            ax.transform.localPosition = new Vector3(0f, -wsx * len / 2f + 0.06f, 0f); ax.transform.localScale = new Vector3(0.12f, len / 2f, 0.12f); ax.GetComponent<Renderer>().sharedMaterial = handM;
+            ax.transform.localPosition = new Vector3(0f, -wsx * len / 2f + 0.06f, 0f); ax.transform.localScale = new Vector3(ad, len / 2f, ad); ax.GetComponent<Renderer>().sharedMaterial = handM;
         }
         // 動力はクリスタル（2026-11-07 てじゃ「オモリあげないとなのか」「やっぱクリスタル式がいいかな」）：
         //  大歯車の下に大きいクリスタルが浮いて、たての軸でゆっくり回る。軸の上のかさ歯車（16:16）で大歯車の軸を回す
@@ -326,8 +326,8 @@ public static class FuwaCourse2_4Builder
             float rA = -rBev;                                               // 16:16 なので rB = −rA
             Transform gA; float rB2, pB2;
             var gBv = BevelPair(t, "CrystalBevel", O, Vector3.down, axB, BevZ, BevZ, rA, 0f, out gA, out rB2, out pB2);
-            CwShaft(gBv, 0f, Mathf.Abs(gwX - O.x) - 1.2f, 0.12f);           // 大歯車の軸へ
-            CwShaft(gA, 0f, 2.1f, 0.14f);                                   // クリスタルまで（下へ）
+            CwShaft(gBv, 0f, Mathf.Abs(gwX - O.x) - 1.2f, 0.36f);           // 大歯車の軸へ
+            CwShaft(gA, 0f, 1.88f, 0.6f);                                   // クリスタルまで（下へ）
             var cryMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaStage2/Meshes/Course2_3/ObsCrystal1_Main.asset");
             var cryMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_3_Crystal.mat");
             if (cryMesh && cryMat)
@@ -338,7 +338,16 @@ public static class FuwaCourse2_4Builder
                 cry.gameObject.AddComponent<MeshFilter>().sharedMesh = cryMesh; cry.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cryMat;
             }
             var sock = GameObject.CreatePrimitive(PrimitiveType.Cylinder); sock.name = "Socket"; Object.DestroyImmediate(sock.GetComponent<Collider>());
-            sock.transform.SetParent(gA, false); sock.transform.localPosition = new Vector3(0f, 2.0f, 0f); sock.transform.localScale = new Vector3(1.1f, 0.08f, 1.1f); sock.GetComponent<Renderer>().sharedMaterial = brassM;   // 軸の先のうけ
+            sock.transform.SetParent(gA, false); sock.transform.localPosition = new Vector3(0f, 1.95f, 0f); sock.transform.localScale = new Vector3(1.6f, 0.1f, 1.6f); sock.GetComponent<Renderer>().sharedMaterial = brassM;   // 軸の先のうけ
+            // クリスタルをつかむ爪 6本（クリスタルの半径 約 0.57 の外から）
+            for (int k = 0; k < 6; k++)
+            {
+                var q = Quaternion.Euler(0f, k * 60f + 30f, 0f);
+                var claw = TBox(gA, "Claw" + k, q * new Vector3(0.66f, 2.4f, 0f), new Vector3(0.14f, 0.9f, 0.24f), brassM, false);
+                claw.localRotation = q;
+                var tip = TBox(gA, "ClawTip" + k, q * new Vector3(0.6f, 2.78f, 0f), new Vector3(0.12f, 0.14f, 0.24f), brassM, false);
+                tip.localRotation = q;
+            }
         }
         weightT = null; chainT = null; chainTop = Vector3.zero;
 
@@ -504,7 +513,8 @@ public static class FuwaCourse2_4Builder
             int i1 = gl.FindIndex(x => x.name == "G1"); var g1T = gl[i1];
             float k = gr.speed / ClockSpeed;
             float yl = g1T.localPosition.y, oy = ride.InverseTransformPoint(root.TransformPoint(new Vector3(0f, FeedY, 0f))).y;
-            CwShaft(g1T, oy + 1.2f - yl, -0.5f, 0.2f);
+            var oldAx = ride.Find("Axle_G1"); if (oldAx) Object.DestroyImmediate(oldAx.gameObject);   // 動かない軸は消して、回る太い軸だけに（同じ太さで重なってチラつく）
+            CwShaft(g1T, oy + 1.2f - yl, -0.5f, 0.55f);
             feeds.Add(new Feed { O = root.InverseTransformPoint(ride.TransformPoint(new Vector3(g1T.localPosition.x, oy, g1T.localPosition.z))), shaftGear = g1T, ratio = rl[i1] * k, phase = pl[i1], below = true });
             gr.gears = gl.ToArray(); gr.ratio = rl.ToArray(); gr.phase = pl.ToArray();
             gr.crank = null; gr.engineMount = null; gr.crankPin = null; gr.piston = null; gr.rod = null; gr.puff = null;
@@ -526,7 +536,7 @@ public static class FuwaCourse2_4Builder
             if (gd.name.StartsWith("TowerIdler"))
             {
                 var ax = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ax.name = "Axle"; Object.DestroyImmediate(ax.GetComponent<Collider>());
-                ax.transform.SetParent(t, false); ax.transform.localPosition = new Vector3(0f, -1.5f, 0f); ax.transform.localScale = new Vector3(0.3f, 1.55f, 0.3f);
+                ax.transform.SetParent(t, false); ax.transform.localPosition = new Vector3(0f, -1.5f, 0f); ax.transform.localScale = new Vector3(0.55f, 1.55f, 0.55f);
                 ax.GetComponent<Renderer>().sharedMaterial = cwAxle;
             }
             gl.Add(t); rl.Add(gd.ratio); pl.Add(gd.phase * Mathf.Rad2Deg);
@@ -585,6 +595,14 @@ public static class FuwaCourse2_4Builder
         var l = GameObject.CreatePrimitive(PrimitiveType.Cube); l.name = "ShaftLine"; Object.DestroyImmediate(l.GetComponent<Collider>());
         l.transform.SetParent(g, false); l.transform.localPosition = new Vector3(d / 2f, (y0 + y1) / 2f, 0f); l.transform.localScale = new Vector3(0.03f, y1 - y0, 0.05f);
         l.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        // 両はしに太い輪（カラー）：2026-11-07 てじゃ「軸が細いから違和感」「もっと大げさに」
+        float lo = Mathf.Min(y0, y1), hi = Mathf.Max(y0, y1), ct = Mathf.Min(0.16f, (hi - lo) / 4f);
+        foreach (float cy in new[] { lo + ct / 2f, hi - ct / 2f })
+        {
+            var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder); c.name = "Collar"; Object.DestroyImmediate(c.GetComponent<Collider>());
+            c.transform.SetParent(g, false); c.transform.localPosition = new Vector3(0f, cy, 0f); c.transform.localScale = new Vector3(d * 1.6f, ct / 2f, d * 1.6f);
+            c.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        }
     }
     static Transform CwRod(Transform parent, string name, float len)
     {
@@ -728,7 +746,7 @@ public static class FuwaCourse2_4Builder
             Transform gA; float rB, pB;
             var gB = f.below ? BevelPair(root.Find("Gimmicks"), "Feed" + n, f.O, Vector3.up, d, BevZ, BevZ, f.ratio, f.phase, out gA, out rB, out pB)
                              : BevelPair(root.Find("Gimmicks"), "Feed" + n, f.O, Vector3.down, d, BevZ, BevZ, -f.ratio, -f.phase, out gA, out rB, out pB);
-            CwShaft(gB, 0f, dist - 1.2f - 1.0f, 0.2f);   // 塔のまん中から 1m 手前まで（塔の中）
+            CwShaft(gB, 0f, dist - 1.2f - 1.0f, 0.5f);   // 塔のまん中から 1m 手前まで（塔の中）
             n++;
         }
     }
@@ -770,7 +788,7 @@ public static class FuwaCourse2_4Builder
         var t = CwGear(g, g.name + "_Drive_z" + z, new Vector3(dg.c.x, layerY, dg.c.y), Vector3.up, SpurMesh(z, mod, th, "Clockwork_Spur_m" + Mathf.RoundToInt(mod * 100) + "_z" + z), m);
         AddGear(t, dg.ratio, dg.phase * Mathf.Rad2Deg);
         float oy = FeedY - P.y;                    // gimmick の中の O の高さ
-        CwShaft(t, oy + 1.2f - layerY, 0f, 0.18f); // A（O の上 1.2m）の上の面から小歯車の下の面まで
+        CwShaft(t, oy + 1.2f - layerY, 0f, 0.5f); // A（O の上 1.2m）の上の面から小歯車の下の面まで
         feeds.Add(new Feed { O = root.InverseTransformPoint(g.TransformPoint(new Vector3(dg.c.x, oy, dg.c.y))), shaftGear = t, ratio = dg.ratio, phase = dg.phase * Mathf.Rad2Deg, below = true });
     }
 

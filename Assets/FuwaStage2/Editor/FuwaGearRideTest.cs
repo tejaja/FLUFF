@@ -76,7 +76,7 @@ public static class FuwaGearRideTest
             Prim(PrimitiveType.Cylinder, t, "Cap", new Vector3(0f, topY + 0.005f, 0f), new Vector3(0.6f, 0.005f, 0.6f), dark);
             Prim(PrimitiveType.Cube, t, "Mark", new Vector3(topZ * Mod / 4f, topY + 0.004f, 0f), new Vector3(topZ * Mod / 2f - 0.5f, 0.008f, 0.12f), dark);
             // 軸（受け床から歯車の下の面まで）
-            Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (CatchY + lowest) / 2f, g.c.y), new Vector3(0.3f, (lowest - CatchY) / 2f, 0.3f), axleM);
+            Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (CatchY + lowest) / 2f, g.c.y), new Vector3(0.55f, (lowest - CatchY) / 2f, 0.55f), axleM);
             ts[i] = t; ratio[i] = g.ratio; phase[i] = g.phase * Mathf.Rad2Deg;
         }
 

@@ -95,20 +95,20 @@ public static class FuwaRackBridgeTest
 
         // 軸（歯車と一緒に回る。回ってるのが分かるように線を1本）
         float topNV = gNV.position.y - Origin.y;
-        Shaft(gNV, 0f, HubY - topNV, 0.16f, axleM, brass);                                   // 羽根車の軸（床をつきぬける。途中に手前のピニオン）
+        Shaft(gNV, 0f, HubY - topNV, 0.4f, axleM, brass);                                   // 羽根車の軸（床をつきぬける。途中に手前のピニオン）
         float cxN = gNH.position.x - Origin.x;
-        Shaft(gNH, ShaftX0 - cxN, ShaftX1 - cxN, 0.16f, axleM, brass);                       // 横の長い軸
+        Shaft(gNH, ShaftX0 - cxN, ShaftX1 - cxN, 0.4f, axleM, brass);                       // 横の長い軸
         float topFV = gFV.position.y - Origin.y;
-        Shaft(gFV, 0f, -0.4f - topFV, 0.16f, axleM, brass);                                  // 向こうのピニオンの軸（向こう岸の床の下まで）
+        Shaft(gFV, 0f, -0.4f - topFV, 0.4f, axleM, brass);                                  // 向こうのピニオンの軸（向こう岸の床の下まで）
 
         // 軸受け（動かない）：床の下からつるす
         foreach (float bx in new[] { ShaftX0 + 0.15f, ShaftX1 - 0.15f })
         {
-            Prim(PrimitiveType.Cube, root, "Hanger" + bx.ToString("F1"), new Vector3(bx, (-0.4f + YL) / 2f, ZL), new Vector3(0.12f, -0.4f - YL, 0.12f), light);
-            Prim(PrimitiveType.Cube, root, "Bearing" + bx.ToString("F1"), new Vector3(bx, YL, ZL), new Vector3(0.22f, 0.34f, 0.34f), dark);
+            Prim(PrimitiveType.Cube, root, "Hanger" + bx.ToString("F1"), new Vector3(bx, (-0.4f + YL) / 2f, ZL), new Vector3(0.2f, -0.4f - YL, 0.2f), light);
+            Prim(PrimitiveType.Cube, root, "Bearing" + bx.ToString("F1"), new Vector3(bx, YL, ZL), new Vector3(0.3f, 0.66f, 0.66f), dark);
         }
-        Prim(PrimitiveType.Cylinder, root, "BearingPinion", new Vector3(XP, -0.48f, ZL), new Vector3(0.34f, 0.08f, 0.34f), dark);
-        Prim(PrimitiveType.Cylinder, root, "CollarHandle", new Vector3(XW, 0.02f, ZL), new Vector3(0.36f, 0.02f, 0.36f), dark);
+        Prim(PrimitiveType.Cylinder, root, "BearingPinion", new Vector3(XP, -0.48f, ZL), new Vector3(0.66f, 0.08f, 0.66f), dark);
+        Prim(PrimitiveType.Cylinder, root, "CollarHandle", new Vector3(XW, 0.02f, ZL), new Vector3(0.7f, 0.02f, 0.7f), dark);
 
         // ── 羽根車 ──
         var handle = new GameObject("Handle").transform; handle.SetParent(gNV, false); handle.localPosition = new Vector3(0f, HubY - topNV, 0f);
@@ -206,7 +206,10 @@ public static class FuwaRackBridgeTest
     {
         float len = y1 - y0, mid = (y0 + y1) / 2f;
         Prim(PrimitiveType.Cylinder, g, "Shaft", new Vector3(0f, mid, 0f), new Vector3(d, len / 2f, d), m);
-        Prim(PrimitiveType.Cube, g, "ShaftLine", new Vector3(d / 2f, mid, 0f), new Vector3(0.03f, len, 0.05f), lineM);
+        Prim(PrimitiveType.Cube, g, "ShaftLine", new Vector3(d / 2f, mid, 0f), new Vector3(0.03f, Mathf.Abs(len), 0.05f), lineM);
+        // 両はしに太い輪（カラー）（2026-11-07 てじゃ「もっと大げさに」）
+        float lo = Mathf.Min(y0, y1), hi = Mathf.Max(y0, y1), ct = Mathf.Min(0.14f, (hi - lo) / 4f);
+        foreach (float cy in new[] { lo + ct / 2f, hi - ct / 2f }) Prim(PrimitiveType.Cylinder, g, "Collar", new Vector3(0f, cy, 0f), new Vector3(d * 1.6f, ct / 2f, d * 1.6f), lineM);
     }
 
     // かさ歯車：外の面（y=0）の歯の輪郭を、頂点（y = −A cosδ）に向かって縮めた円すい台。歯の幅 F
