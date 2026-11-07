@@ -20,13 +20,13 @@ public static class FuwaRackBridgeTest
     const float BridgeW = 2.5f, BridgeL = 10.5f, Slot = 0.01f;
     const float FrontExtended = 0.03f;             // のびきった時の橋の先（かごの床とのすき間 3cm）
     const float ZL = -2.2f, YL = -2.3f;            // 横の軸の z と高さ
-    const float XW = -5.8f;                        // 羽根車の軸の x
+    const float XW = -1.4f;                        // 羽根車の軸の x（2026-11-07 てじゃ「前が見える位置で羽まわしたい」→ 橋の口の近くへ。前は -5.8）
     const float XP = 9.8f;                         // ピニオンの軸の x
     const float MB = 0.15f; const int Z1 = 12, Z2 = 20, ZH = 14, ZV = 20;   // かさ歯車
     const float MP = 0.2f; const int ZPin = 16, RackTeeth = 16;               // ピニオンとラック
     const float GearY = -1.0f, GearTh = 0.35f;
     const float HubY = 1.05f;                      // 羽根車の高さ
-    const float ShaftX0 = -7.0f, ShaftX1 = 12.0f;  // 横の軸のはし（軸受け）
+    const float ShaftX0 = -2.9f, ShaftX1 = 12.0f;  // 横の軸のはし（軸受け）
 
     static float RP => MP * ZPin / 2f;
     static float KV => -((float)ZH / ZV) * ((float)Z1 / Z2);   // ピニオンの角度 / 羽根車の角度
@@ -116,7 +116,7 @@ public static class FuwaRackBridgeTest
         Shaft(gFV, 0f, -0.4f - topFV, 0.16f, axleM, brass);                                  // ピニオンの軸（向こう岸の床の下まで）
 
         // 軸受け（動かない）：床の下からつるす
-        foreach (float bx in new[] { ShaftX0 + 0.15f, -0.6f, ShaftX1 - 0.15f })
+        foreach (float bx in new[] { ShaftX0 + 0.15f, ShaftX1 - 0.15f })
         {
             Prim(PrimitiveType.Cube, root, "Hanger" + bx.ToString("F1"), new Vector3(bx, (-0.4f + YL) / 2f, ZL), new Vector3(0.12f, -0.4f - YL, 0.12f), light);
             Prim(PrimitiveType.Cube, root, "Bearing" + bx.ToString("F1"), new Vector3(bx, YL, ZL), new Vector3(0.22f, 0.34f, 0.34f), dark);
@@ -164,7 +164,7 @@ public static class FuwaRackBridgeTest
         if (ttRoot)
         {
             var back = new GameObject("BackSpot").transform; back.SetParent(root, false); back.position = ttRoot.transform.position + new Vector3(-16f, 0f, 0.5f); back.rotation = Quaternion.Euler(0f, 90f, 0f);
-            FuwaIceTestBuilder.Warp(root, "WarpToBridge", ttRoot.transform.position + new Vector3(-13f, 0.35f, 2.0f), "RACK BRIDGE", spawn, warpMat);
+            FuwaIceTestBuilder.Warp(root, "WarpToBridge", ttRoot.transform.position + new Vector3(-14.6f, 0.35f, 2.0f), "RACK BRIDGE", spawn, warpMat);
             FuwaIceTestBuilder.Warp(root, "WarpBack", root.TransformPoint(new Vector3(-6.8f, 0.35f, 2.4f)), "BACK", back, warpMat);
         }
 

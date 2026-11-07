@@ -13,9 +13,11 @@ using UnityEngine;
 // ・2D の (x, y) は Unity の (x, z)。2D の反時計回りは Unity の Y 回転でマイナス
 public static class FuwaTurnTableTest
 {
-    const float Mod = 0.2f; const int ZR = 44, ZI = 16, ZP = 12, NI = 3;
+    const float Mod = 0.2f; const int ZR = 44, ZI = 16, ZP = 12, NI = 2;
     const float DeckR = 4.6f, BridgeEnd = 10f, BridgeW = 2.5f;
-    const float GearY = -1.0f, GearTh = 0.35f, LineDeg = 175.5f;
+    const float GearY = -1.0f, GearTh = 0.35f, LineDeg = 172.3f;
+    // 2026-11-07 てじゃ「各種羽、前が見える位置で羽まわしたい」→ 羽根車をかごの橋の口の近く（口の 1.8m 手前、まん中から 1.6m 横）へ。
+    //  床下の歯車は 3枚 → 2枚（回る向きは前と逆）。ふわふわを橋へ送る風の線はまん中なので、羽根の当たり（芯の線が半径 0.8m を通る）にはかからない
     const float Gap = 0.09f;   // 橋の先と床のすき間（橋のかどは r=10.08 を回るので、それより外で床を切る）
     const float CageX0 = -17.5f, CageHalfZ = 2.5f;   // かご（入口の道の終わり）：x は CageX0 〜 橋の先、z は ±CageHalfZ
     static readonly Vector3 Origin = new Vector3(31.5f, -162f, -104f);   // 回転床のまん中、床の上の高さ
