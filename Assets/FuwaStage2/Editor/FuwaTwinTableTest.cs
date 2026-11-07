@@ -17,9 +17,11 @@ using UnityEngine;
 // ・2D の (x, y) は Unity の (x, z)。2D の反時計回りは Unity の Y 回転でマイナス
 public static class FuwaTwinTableTest
 {
-    const float Mod = 0.2f; const int ZA = 72, ZB = 36, ZI = 16, ZP = 24, NI = 0;
-    const float DeckA = 4.2f, DeckB = 3.4f, TipA = 6.2f, TipB = 4.2f, BridgeW = 2.5f;
-    const float GearY = -1.85f, GearTh = 0.35f, LineDeg = 168.0f;
+    // 2026-11-07 てじゃ「小さい方、橋あってなくてもジャンプで届いちゃう」→ すき間を全部 3.2m 以上（走ってジャンプで約 2.5m）に。
+    //  B の橋を長くするには中心距離が要るので、歯の大きさ 0.2 → 0.26（中心距離 10.8 → 14.04m）。A の橋もかごまでのすき間 3.2m になる長さに
+    const float Mod = 0.26f; const int ZA = 72, ZB = 36, ZI = 16, ZP = 16, NI = 0;   // 羽根車の小歯車 24 → 16（大きくなった歯車でかごの外へはみ出さないように。羽根車1回転で A 80°）
+    const float DeckA = 4.2f, DeckB = 3.4f, TipA = 7.24f, TipB = 6.43f, BridgeW = 2.5f;
+    const float GearY = -1.85f, GearTh = 0.35f, LineDeg = 169.9f;
     // 2026-11-07 てじゃ「前が見える位置で羽まわしたい」→ 羽根車の小歯車を A の歯車に直接かませて、かごの口の 3m 手前・まん中から 1.6m 横に   // 2026-11-07 てじゃ「下の歯車が床にみえちゃう」→ 床の 1.5m 下へ、中を抜いた輪＋スポークに
     public const float ExitDeg = -60f;         // B から見た出口の向き（2026-11-07 2–4 の右回りに合わせて 60 → −60。B の橋も左右反転）
     const float CageHalfZ = 3.0f, CageLen = 7f;   // 2026-11-07「小回りに」10.4 → 7   // 羽根車をまん中から 2m 横に（ふわふわを送る風の線と羽根の当たりを離す）

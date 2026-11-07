@@ -94,7 +94,7 @@ public static class FuwaCourse2_4Builder
         T(90f); S(6f, 3f); T(-90f); S(2f);
         Place(Twin, log); CP("Checkpoint4", 1f); S(2f);
         // 塔へ（まん中）：①の上をまたいで
-        T(-105f); S(8f, 3f); S(8f);
+        T(-120f); S(8f, 3f); S(10f);   // 2026-11-07 2枚の回転床を大きくした（すき間 3.2m）ので塔の位置を合わせ直し
         // 塔のてっぺんのゴール
         var goalAt = GoalSet(root, P, Dir(th));
         Tower(goalAt);
@@ -251,7 +251,7 @@ public static class FuwaCourse2_4Builder
     static void Tower(Vector3 goalAt)
     {
         var gg = root.Find("Goal/GoalGround");
-        float r = gg ? gg.lossyScale.x * 0.5f * 0.8f : 5f;   // 島より細く（島へつなぐ道が塔の上にかからない）
+        float r = gg ? gg.lossyScale.x * 0.5f * 0.6f : 4f;   // 島より細く（島へつなぐ道が塔の上にかからない、乗る歯車とも 1m 以上はなす）
         float topY = goalAt.y - 0.3f, botY = -24f;
         var t = GameObject.CreatePrimitive(PrimitiveType.Cylinder); t.name = "Tower"; t.transform.SetParent(root, false);
         Object.DestroyImmediate(t.GetComponent<Collider>());
