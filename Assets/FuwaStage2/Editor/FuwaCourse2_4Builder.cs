@@ -94,10 +94,11 @@ public static class FuwaCourse2_4Builder
         T(90f); S(6f, 3f); T(-90f); S(2f);
         Place(Twin, log); CP("Checkpoint4", 1f); S(2f);
         // 塔へ（まん中）：①の上をまたいで
-        T(-120f); S(8f, 3f); S(10f);   // 2026-11-07 2枚の回転床を大きくした（すき間 3.2m）ので塔の位置を合わせ直し
-        // 塔のてっぺんのゴール
+        T(-120f); S(8f, 3f); S(12.5f);   // 2026-11-07 2枚の回転床を大きくした（すき間 3.2m）ので塔の位置を合わせ直し
+        // 時計塔のトンネルを突っ切って、抜けた先にゴール（2026-11-07 てじゃ「最後は塔を突っ切った先がゴール」）
+        ClockTower(P + Dir(th) * (TowerW / 2f), th);
+        S(TowerW); S(1f);
         var goalAt = GoalSet(root, P, Dir(th));
-        Tower(goalAt);
 
         // アウト（下に落ちた）：コースの下（コースの向きの箱、まわり 10m）
         var lb = new Bounds(Vector3.zero, Vector3.zero); bool first = true;
@@ -247,17 +248,98 @@ public static class FuwaCourse2_4Builder
         Object.DestroyImmediate(u.GetComponent<Collider>());
     }
 
-    // 塔：ゴールの島の下にのびる柱（見た目だけ。島より 0.3m 下で終わる＝島の面と重ならない）
-    static void Tower(Vector3 goalAt)
+    // 時計塔（2026-11-07 てじゃ「まんなかの塔、塔っぽく」「でかい時計塔にして、最後は塔を突っ切った先がゴール」）
+    //  c＝トンネルの床のまん中（道の上の面の高さ）、道の向き th。四角い塔（TowerW 角）、道の高さに道の幅のトンネル、上に4面の時計ととんがり屋根
+    //  下は雲の下までのびる。トンネルの床は道（S）で作るので、塔の下の段は道の下の石（−1.6m）より下で終わる
+    public static float TowerW = 7f, TunnelHW = 2.2f, TunnelH = 4f, TowerTop = 16f, RoofH = 7f, ClockY = 11.5f, ClockR = 2.6f, TowerBottom = -30f;
+    static void ClockTower(Vector3 c, float heading)
     {
-        var gg = root.Find("Goal/GoalGround");
-        float r = gg ? gg.lossyScale.x * 0.5f * 0.6f : 4f;   // 島より細く（島へつなぐ道が塔の上にかからない、乗る歯車とも 1m 以上はなす）
-        float topY = goalAt.y - 0.3f, botY = -24f;
-        var t = GameObject.CreatePrimitive(PrimitiveType.Cylinder); t.name = "Tower"; t.transform.SetParent(root, false);
-        Object.DestroyImmediate(t.GetComponent<Collider>());
-        t.transform.localPosition = new Vector3(goalAt.x, (topY + botY) / 2f, goalAt.z);
-        t.transform.localScale = new Vector3(2f * r, (topY - botY) / 2f, 2f * r);
-        t.GetComponent<Renderer>().sharedMaterial = towerMat;
+        var stone = FuwaStage2WaterTest.ToonMat("Stage2_4_TowerStone", TowerCol);
+        var trim = FuwaStage2WaterTest.ToonMat("Stage2_4_TowerTrim", new Color(0.36f, 0.35f, 0.43f));
+        var roofM = FuwaStage2WaterTest.ToonMat("Stage2_4_TowerRoof", new Color(0.3f, 0.32f, 0.4f));
+        var dialM = FuwaStage2WaterTest.ToonMat("Stage2_4_ClockDial", new Color(0.97f, 0.94f, 0.85f));
+        var brassM = FuwaStage2WaterTest.ToonMat("Stage2_4_ClockBrass", new Color(0.86f, 0.68f, 0.32f));
+        var handM = FuwaStage2WaterTest.ToonMat("Stage2_4_ClockHand", new Color(0.16f, 0.16f, 0.2f));
+        var t = new GameObject("ClockTower").transform; t.SetParent(root, false);
+        t.localPosition = c; t.localRotation = Quaternion.LookRotation(Dir(heading));   // local z = 道の向き、x = 右
+        float h = TowerW / 2f, baseTop = -1.7f;
+        // 下の段（トンネルの床の下）・トンネルの左右の壁・トンネルの上
+        TBox(t, "Base", new Vector3(0f, (TowerBottom + baseTop) / 2f, 0f), new Vector3(TowerW, baseTop - TowerBottom, TowerW), stone, true);
+        foreach (int sg in new[] { -1, 1 })
+            TBox(t, "TunnelWall" + (sg > 0 ? "R" : "L"), new Vector3(sg * (h + TunnelHW) / 2f, (baseTop + TunnelH) / 2f, 0f), new Vector3(h - TunnelHW, TunnelH - baseTop, TowerW), stone, true);
+        TBox(t, "Upper", new Vector3(0f, (TunnelH + TowerTop) / 2f, 0f), new Vector3(TowerW, TowerTop - TunnelH, TowerW), stone, true);
+        // トンネルの口のふち（アーチの代わりの枠）と、帯・てっぺんのふち（少し外へ張り出す）
+        foreach (int sz in new[] { -1, 1 })
+        {
+            float fz = sz * (h + 0.1f);
+            TBox(t, "PortalTop" + sz, new Vector3(0f, TunnelH + 0.25f, fz), new Vector3(2f * TunnelHW + 0.8f, 0.5f, 0.2f), trim, false);
+            foreach (int sx in new[] { -1, 1 }) TBox(t, "PortalSide" + sz + "_" + sx, new Vector3(sx * (TunnelHW + 0.2f), (baseTop + TunnelH) / 2f, fz), new Vector3(0.4f, TunnelH - baseTop, 0.2f), trim, false);
+        }
+        foreach (var y in new[] { TunnelH + 1.6f, ClockY - ClockR - 0.7f, TowerTop - 0.3f })
+            TBox(t, "Band" + y.ToString("F1"), new Vector3(0f, y, 0f), new Vector3(TowerW + 0.4f, 0.4f, TowerW + 0.4f), trim, false);
+        // 4面の時計：外向き n、上 up。ふち（真ちゅう）→ 文字盤 → 目盛り → 針（時・分）→ まん中のふた
+        var hours = new List<Transform>(); var mins = new List<Transform>();
+        foreach (var n in new[] { Vector3.forward, Vector3.back, Vector3.right, Vector3.left })
+        {
+            var face = new GameObject("Clock_" + n.ToString("F0")).transform; face.SetParent(t, false);
+            face.localPosition = n * h + Vector3.up * ClockY;   // 壁の面から外へ
+            face.localRotation = Quaternion.LookRotation(n, Vector3.up);   // local +Z = 外向き
+            Disc(face, "Rim", 0.03f, 0.06f, ClockR + 0.25f, brassM);
+            Disc(face, "Dial", 0.08f, 0.04f, ClockR, dialM);
+            for (int k = 0; k < 12; k++)
+            {
+                var q = Quaternion.Euler(0f, 0f, -k * 30f);
+                bool big = k % 3 == 0;
+                var tick = TBox(face, "Tick" + k, q * new Vector3(0f, ClockR - (big ? 0.38f : 0.3f), 0.13f), new Vector3(big ? 0.18f : 0.1f, big ? 0.5f : 0.34f, 0.02f), handM, false);
+                tick.localRotation = q;
+            }
+            var hp = new GameObject("HourPivot").transform; hp.SetParent(face, false); hp.localPosition = new Vector3(0f, 0f, 0.15f);
+            TBox(hp, "Hand", new Vector3(0f, 0.55f, 0f), new Vector3(0.22f, 1.5f, 0.03f), handM, false);
+            var mp = new GameObject("MinutePivot").transform; mp.SetParent(face, false); mp.localPosition = new Vector3(0f, 0f, 0.19f);
+            TBox(mp, "Hand", new Vector3(0f, 0.85f, 0f), new Vector3(0.14f, 2.2f, 0.03f), handM, false);
+            Disc(face, "Cap", 0.22f, 0.04f, 0.2f, brassM);
+            hours.Add(hp); mins.Add(mp);
+        }
+        // とんがり屋根（四角すい）
+        var roof = new GameObject("Roof"); roof.transform.SetParent(t, false); roof.transform.localPosition = new Vector3(0f, TowerTop, 0f);
+        {
+            float rh = h + 0.5f; var v = new List<Vector3>(); var tr = new List<int>();
+            var apex = new Vector3(0f, RoofH, 0f);
+            var cs = new[] { new Vector3(-rh, 0, -rh), new Vector3(rh, 0, -rh), new Vector3(rh, 0, rh), new Vector3(-rh, 0, rh) };
+            for (int i = 0; i < 4; i++) { var a = cs[i]; var b = cs[(i + 1) % 4]; var mid = (a + b) * 0.5f; mid.y = 0f; Tri(v, tr, a, b, apex, mid.normalized + Vector3.up * 0.5f); }
+            Tri(v, tr, cs[0], cs[1], cs[2], Vector3.down); Tri(v, tr, cs[0], cs[2], cs[3], Vector3.down);
+            var m = SaveMesh("ClockTowerRoof", v, tr);
+            roof.AddComponent<MeshFilter>().sharedMesh = m; roof.AddComponent<MeshRenderer>().sharedMaterial = roofM;
+        }
+        TBox(t, "Spire", new Vector3(0f, TowerTop + RoofH + 0.6f, 0f), new Vector3(0.15f, 1.4f, 0.15f), brassM, false);
+        // 針を動かす
+        var ck = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaClockHands>(t.gameObject);
+        ck.hourHands = hours.ToArray(); ck.minuteHands = mins.ToArray();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ck); FuwaStage2WaterTest.NoSync(ck);
+        // エディタでも今の時刻に
+        var now = System.DateTime.Now; float mm = now.Minute + now.Second / 60f, hh = (now.Hour % 12) + mm / 60f;
+        foreach (var x in hours) x.localRotation = Quaternion.Euler(0f, 0f, hh * 30f);
+        foreach (var x in mins) x.localRotation = Quaternion.Euler(0f, 0f, mm * 6f);
+    }
+
+    static Transform TBox(Transform p, string name, Vector3 lp, Vector3 size, Material m, bool collider)
+    {
+        var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = name; g.transform.SetParent(p, false);
+        g.transform.localPosition = lp; g.transform.localScale = size;
+        g.GetComponent<Renderer>().sharedMaterial = m;
+        if (!collider) Object.DestroyImmediate(g.GetComponent<Collider>());
+        return g.transform;
+    }
+
+    // 文字盤などの円盤：face の local +Z の向きに、z0 から厚み th
+    static void Disc(Transform face, string name, float z0, float th, float r, Material m)
+    {
+        var g = GameObject.CreatePrimitive(PrimitiveType.Cylinder); g.name = name; g.transform.SetParent(face, false);
+        Object.DestroyImmediate(g.GetComponent<Collider>());
+        g.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);   // 円柱の軸（Y）を Z へ
+        g.transform.localPosition = new Vector3(0f, 0f, z0 + th / 2f);
+        g.transform.localScale = new Vector3(2f * r, th / 2f, 2f * r);
+        g.GetComponent<Renderer>().sharedMaterial = m;
     }
 
     // ---- 2–3 と同じ部品 ----
