@@ -11,10 +11,10 @@ using UnityEngine;
 public static class FuwaGearRideTest
 {
     const float Mod = 0.4f, Th = 0.6f, Gap = 0.15f;
-    public static float Step = 0.4f;     // 1段の高さ（ジャンプ力3で足が約0.46m上がる）
+    public static float Step = 0.7f;     // 1段の高さ。2026-11-07 てじゃ「歩いて登れてしまう」0.4→0.7（歩きの段差こえ＋ジャンプで足が約0.46m上がる、の間）
     const float ClearY = 0.04f;          // 上の段の大きい歯車と、下の段の歯車の上の面とのすき間
     const int ZBig = 20, ZSmall = 12;
-    public static float PitchSpeed = 0.15f;   // ピッチ円の速さ（m/秒）。てじゃ「かなりゆっくり」
+    public static float PitchSpeed = 0.2f;   // ピッチ円の速さ（m/秒）。てじゃ「かなりゆっくり」0.15 → 2026-11-07「ちょい遅すぎ」0.2
     static readonly Vector3 Origin = new Vector3(50f, -162f, -104f);   // 入口の台の東のはし、床の上の高さ
     const float CatchY = -3f;
 

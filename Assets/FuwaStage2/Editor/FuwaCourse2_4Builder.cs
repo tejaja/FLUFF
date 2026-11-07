@@ -31,11 +31,21 @@ public static class FuwaCourse2_4Builder
 
     // お試しの物：入口（ずれ・入る向き）、出口（ずれ・出る向き）、のぼる高さ。ずれは root からの世界の向きのずれ（root の回り方によらない）
     struct Mech { public string test, name; public System.Action build; public Vector3 e; public float de; public Vector3 x; public float dx; public float rise; }
-    static readonly Mech Ride = new Mech { test = "GearRideTest", name = "S1_GearRide", build = FuwaGearRideTest.Build, e = new Vector3(-4f, 0f, 0f), de = 0f, x = new Vector3(31.1f, 0.8f, 4f), dx = 0f, rise = 0.8f };   // 入口の台にまっすぐ入る（2026-11-07 てじゃ「最初の道も曲がってる必要ない」。前は横から：e(-2,0,2) de -90）
-    static readonly Mech Draw = new Mech { test = "DrawbridgeTest", name = "S2_Drawbridge", build = FuwaDrawbridgeTest.Build, e = new Vector3(-16f, 0f, -4.15f), de = 0f, x = new Vector3(22f, 0f, -4.15f), dx = 0f };
-    static readonly Mech Rack = new Mech { test = "RackBridgeTest", name = "S3_RackBridge", build = FuwaRackBridgeTest.Build, e = new Vector3(-7.4f, 0f, 0f), de = 0f, x = new Vector3(21f, 0f, 3.13f), dx = 0f };
-    static readonly Mech Turn = new Mech { test = "TurnTableTest", name = "S4_TurnTable", build = FuwaTurnTableTest.Build, e = new Vector3(-17.5f, 0f, 0f), de = 0f, x = new Vector3(8.045f, 0f, 13.934f), dx = 60f };
-    static readonly Mech Twin = new Mech { test = "TwinTableTest", name = "S5_TwinTable", build = FuwaTwinTableTest.Build, e = new Vector3(-16.775f, 0f, 0f), de = 0f, x = new Vector3(16.02f, 0f, 9.03f), dx = 60f };
+    static Mech Ride, Draw, Rack, Turn, Twin;
+    // お試しのビルダーの今の大きさから入口・出口を決める
+    static void MakeMechs()
+    {
+        float st = FuwaGearRideTest.Step;
+        Ride = new Mech { test = "GearRideTest", name = "S1_GearRide", build = FuwaGearRideTest.Build, e = new Vector3(-4f, 0f, 0f), de = 0f, x = new Vector3(31.1f, 2f * st, 4f), dx = 0f, rise = 2f * st };   // 入口の台にまっすぐ入る（2026-11-07 てじゃ「最初の道も曲がってる必要ない」）
+        float dz = -(FuwaDrawbridgeTest.PathNear + FuwaDrawbridgeTest.PathW / 2f);
+        Draw = new Mech { test = "DrawbridgeTest", name = "S2_Drawbridge", build = FuwaDrawbridgeTest.Build, e = new Vector3(-FuwaDrawbridgeTest.NearLen, 0f, dz), de = 0f, x = new Vector3(FuwaDrawbridgeTest.BridgeLen + 0.05f + FuwaDrawbridgeTest.FarLen, 0f, dz), dx = 0f };
+        // せり出す橋：橋をおりたらすぐ右（−z）の床から出る（2026-11-07「小回りに」。前は向こう岸の奥 (21, 0, 3.13) から）
+        Rack = new Mech { test = "RackBridgeTest", name = "S3_RackBridge", build = FuwaRackBridgeTest.Build, e = new Vector3(-7.4f, 0f, 0f), de = 0f, x = new Vector3(11f, 0f, -5f), dx = -90f };
+        Turn = new Mech { test = "TurnTableTest", name = "S4_TurnTable", build = FuwaTurnTableTest.Build, e = new Vector3(-17.5f, 0f, 0f), de = 0f, x = new Vector3(8.045f, 0f, 13.934f), dx = 60f };
+        // 2枚の回転床：かごの奥 x0 = −(A の橋のかどの半径 + 0.05) − CageLen、出口は B から ExitDeg の向きに 10.43m
+        float ex = FuwaTwinTableTest.ExitDeg * Mathf.Deg2Rad;
+        Twin = new Mech { test = "TwinTableTest", name = "S5_TwinTable", build = FuwaTwinTableTest.Build, e = new Vector3(FuwaTwinTableTest.EntryX, 0f, 0f), de = 0f, x = new Vector3(FuwaTwinTableTest.BCenterX + Mathf.Cos(ex) * FuwaTwinTableTest.ExitFar, 0f, Mathf.Sin(ex) * FuwaTwinTableTest.ExitFar), dx = FuwaTwinTableTest.ExitDeg };
+    }
     // コースでは要らない、お試し用の物（名前の頭）
     static readonly string[] TestOnly = { "BallSpot", "BallStand", "Spawn", "BackSpot", "Warp", "Extras", "Mill", "MA_", "MB_", "MC_", "Axle_MA", "Axle_MB", "Axle_MC", "CatchFloor", "Step" };   // 受け床と階段：2026-11-07 てじゃ「テストようで床がのこったまま、階段もいらん」
 
@@ -51,9 +61,8 @@ public static class FuwaCourse2_4Builder
         var lc = lobby.transform.Find("LobbySpawn").position; var slot = lobby.transform.Find("Slot3").position;
         var spoke = slot - lc; spoke.y = 0f; spoke.Normalize();
         float floorY = lobby.transform.Find("LobbyFloor").GetComponent<Renderer>().bounds.max.y;
-        // 道はスタートの島から右（コースの +Z）へ出て、左回りに塔のまわりをのぼる。しかけを並べると左へ大きくふくらむので、
-        //  コースの -X をロビーから外（spoke）に向ける（= Slot3 の方向の前に広がる）
-        root.rotation = Quaternion.LookRotation(spoke) * Quaternion.Euler(0f, 90f, 0f);
+        // 2026-11-07 てじゃ「入口を他のコースみたいにロビーから伸びてる角度に」→ 道はスタートからロビーの外向き（+Z）へまっすぐ。輪は右回り
+        root.rotation = Quaternion.LookRotation(spoke);
         root.position = new Vector3(lc.x, floorY - StartBelow, lc.z) + spoke * SpokeR;
 
         pathA = PathMat("Course2_4_PathA", PathColA); pathB = PathMat("Course2_4_PathB", PathColB);   // ロビーの道もこの色（FuwaStage2LobbyCourses）
@@ -73,21 +82,19 @@ public static class FuwaCourse2_4Builder
         P = Dir(th) * R0;
 
         // 2026-11-07 てじゃ「ちょとながすぎる」「橋合わせるやつが過剰かも」「道も詰めよう」→ 1枚の回転床（FuwaTurnTableTest）を外して4つに、坂 14m→8m、まっすぐは最小
-        //  ① 乗る歯車 → ② 跳ね橋 → ③ せり出す橋 → ④ かみ合う2枚の回転床 → 塔（まん中）。約63m 四方
-        // ① 乗る歯車（スタートからまっすぐ）
+        // 2026-11-07 てじゃ「入口はロビーから伸びてる角度」「全体的にもうちょっと小回りに」→ スタートからまっすぐ前、右回り
+        //  ① 乗る歯車（前へ）→ 右 ② 跳ね橋 → 右 ③ せり出す橋（おりたらすぐ右）→ ④ 2枚の回転床（①の上を通る）→ まん中の塔
+        MakeMechs();
         S(3f);
         Place(Ride, log); CP("Checkpoint1", 1f); S(2f);
-        // ② 跳ね橋
-        T(90f); S(2f);
+        T(-90f); S(2f);
         Place(Draw, log); CP("Checkpoint2", 1f); S(2f); S(8f, 3f);
-        // ③ せり出す橋
-        T(90f); S(2f);
-        Place(Rack, log); CP("Checkpoint3", 1f); S(2f); S(8f, 3f);
-        // ④ かみ合う2枚の回転床
-        T(90f); S(2f);
+        T(-90f); S(2f);
+        Place(Rack, log); CP("Checkpoint3", 1f); S(2f);
+        T(90f); S(6f, 3f); T(-90f); S(2f);
         Place(Twin, log); CP("Checkpoint4", 1f); S(2f);
-        // 塔へ（まん中）
-        T(90f); S(8f, 3f); S(4f);
+        // 塔へ（まん中）：①の上をまたいで
+        T(-105f); S(8f, 3f); S(8f);
         // 塔のてっぺんのゴール
         var goalAt = GoalSet(root, P, Dir(th));
         Tower(goalAt);

@@ -14,7 +14,9 @@ public static class FuwaDrawbridgeTest
     const float Th = 0.5f;           // 歯車の厚み
     const float Front = Th + 0.1f;   // 手前の段の位置（ローカル Y）
     const int ZA = 16, ZB = 40, ZC = 16, ZD = 60;
-    const float BridgeLen = 8f, PathW = 4.5f, PathNear = 1.9f;   // 道は手前（ローカル Y = 1.9〜6.4）
+    public const float BridgeLen = 8f, PathW = 4.5f, PathNear = 1.9f;
+    // 橋の手前・向こうの道の長さ。2026-11-07 てじゃ「全体的にもうちょっと小回りに」16・14 → 8・4
+    public static float NearLen = 8f, FarLen = 4f;   // 道は手前（ローカル Y = 1.9〜6.4）
     static readonly Vector3 Origin = new Vector3(-40f, -162f, -100f);
     const bool WithBird = false;
 
@@ -83,8 +85,8 @@ public static class FuwaDrawbridgeTest
         for (int k = 1; k < 8; k++) Prim(PrimitiveType.Cube, leaf.transform, "Plank" + k, new Vector3(-BridgeLen / 2f + k * BridgeLen / 8f, 0f, 0.2f), new Vector3(0.06f, PathW, 0.02f), axleM);
 
         // 道（手前の床）：橋の手前と向こう
-        Floor(root, "PathNear", -16f, 0f, floorM, pathLayer);
-        Floor(root, "PathFar", BridgeLen + 0.05f, BridgeLen + 14f, floorM, pathLayer);
+        Floor(root, "PathNear", -NearLen, 0f, floorM, pathLayer);
+        Floor(root, "PathFar", BridgeLen + 0.05f, BridgeLen + 0.05f + FarLen, floorM, pathLayer);
 
         // 風車（A の軸の手前）
         var wmGo = new GameObject("Windmill");

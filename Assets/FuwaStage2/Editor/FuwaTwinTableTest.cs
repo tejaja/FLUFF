@@ -21,11 +21,15 @@ public static class FuwaTwinTableTest
     const float DeckA = 4.2f, DeckB = 3.4f, TipA = 6.2f, TipB = 4.2f, BridgeW = 2.5f;
     const float GearY = -1.85f, GearTh = 0.35f, LineDeg = 168.0f;
     // 2026-11-07 てじゃ「前が見える位置で羽まわしたい」→ 羽根車の小歯車を A の歯車に直接かませて、かごの口の 3m 手前・まん中から 1.6m 横に   // 2026-11-07 てじゃ「下の歯車が床にみえちゃう」→ 床の 1.5m 下へ、中を抜いた輪＋スポークに
-    const float ExitDeg = 60f;                 // B から見た出口の向き
-    const float CageHalfZ = 3.0f, CageLen = 10.4f;   // 羽根車をまん中から 2m 横に（ふわふわを送る風の線と羽根の当たりを離す）
+    public const float ExitDeg = -60f;         // B から見た出口の向き（2026-11-07 2–4 の右回りに合わせて 60 → −60。B の橋も左右反転）
+    const float CageHalfZ = 3.0f, CageLen = 7f;   // 2026-11-07「小回りに」10.4 → 7   // 羽根車をまん中から 2m 横に（ふわふわを送る風の線と羽根の当たりを離す）
     static readonly Vector3 Origin = new Vector3(30f, -162f, -165f);   // A のまん中、床の上の高さ
 
     static float CornerR(float tip) => Mathf.Sqrt(tip * tip + BridgeW * BridgeW / 4f);
+    // コース（FuwaCourse2_4Builder）用：かごの奥（入口）の x、B のまん中の x、B から出口のはしまで
+    public static float EntryX => -(CornerR(TipA) + 0.05f) - CageLen;
+    public static float BCenterX => Mod * (ZA + ZB) / 2f;
+    public static float ExitFar => CornerR(TipB) + 0.05f + 6f;
 
     [MenuItem("FuwaCourse/ステージ2/かみ合う2枚の回転床のお試しを作る")]
     public static void Build()
@@ -76,7 +80,7 @@ public static class FuwaTwinTableTest
         Deck(tableB, DeckB, deckBM);
         // 最初（u = startU）の B の歯車の角度 θB0 = gB.phase。橋は世界で {0°, 240°}（答えの {180°, 60°} から 180° ずれ）に向くよう local を決める
         float thB0 = gB.phase * Mathf.Rad2Deg;
-        foreach (float wAng in new[] { 0f, 240f }) Bridge(tableB, wAng - thB0, DeckB, TipB, wood, axleM);
+        foreach (float wAng in new[] { 0f, ExitDeg + 180f }) Bridge(tableB, wAng - thB0, DeckB, TipB, wood, axleM);   // 答えの {180°, ExitDeg} から 180° ずれ
         var ringBMesh = FuwaGearTest.SaveMesh(RimGear(ZB, Mod, GearTh, 0.5f, "TwinTable_Ring_z" + ZB));
         Ring(tableB, ringBMesh, light, RimIn(ZB), dark);
         Prim(PrimitiveType.Cylinder, root, "PedestalB", cB + new Vector3(0f, GearY - 0.92f, 0f), new Vector3(1.6f, 0.9f, 1.6f), dark);
