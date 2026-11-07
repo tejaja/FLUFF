@@ -147,7 +147,7 @@ public static class FuwaRackBridgeTest
         var tt = UdonSharpUndo.AddComponent<FuwaTurnTable>(handle.gameObject);
         tt.table = null; tt.tableRatio = 0f; tt.detentDeg = 0f;
         tt.gears = gearTs; tt.gearRatio = gearRatio; tt.gearPhase = gearPhase;
-        tt.handle = handle; tt.hitRadius = 0.8f; tt.hitHalfHeight = 0.3f; tt.hitCone = 3f;
+        tt.handle = handle; tt.hitRadius = 1.0f; tt.hitHalfHeight = 0.55f; tt.hitCone = 4f;   // 2026-11-07 てじゃ「当たり判定が狭くなりすぎてる」0.8・0.3・3° → 1.0・0.55・4°
         tt.maxSpin = 300f;
         tt.startU = 0f;
         tt.rack = bridge; tt.rackBase = new Vector3(GapEnd, 0f, 0f); tt.rackAxis = Vector3.right; tt.rackPerU = RackPerU;

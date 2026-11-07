@@ -126,7 +126,7 @@ public static class FuwaTurnTableTest
         var tt = UdonSharpUndo.AddComponent<FuwaTurnTable>(handle.gameObject);
         tt.table = table; tt.tableRatio = 1f / rp; tt.tablePhase = -php / rp;
         tt.gears = gearTs; tt.gearRatio = gearRatio; tt.gearPhase = gearPhase;
-        tt.handle = handle; tt.hitRadius = 0.8f; tt.hitHalfHeight = 0.3f; tt.hitCone = 3f; tt.startU = php;   // u = php で回転床が 0°
+        tt.handle = handle; tt.hitRadius = 1.0f; tt.hitHalfHeight = 0.55f; tt.hitCone = 4f; tt.startU = php;   // u = php で回転床が 0°。当たり 2026-11-07 てじゃ「狭くなりすぎてる」0.8・0.3・3° → 1.0・0.55・4°
         UdonSharpEditorUtility.CopyProxyToUdon(tt); FuwaStage2WaterTest.NoSync(tt);
         SetU(php);
 

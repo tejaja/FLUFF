@@ -19,10 +19,10 @@ public static class FuwaTwinTableTest
 {
     const float Mod = 0.2f; const int ZA = 72, ZB = 36, ZI = 16, ZP = 24, NI = 0;
     const float DeckA = 4.2f, DeckB = 3.4f, TipA = 6.2f, TipB = 4.2f, BridgeW = 2.5f;
-    const float GearY = -1.85f, GearTh = 0.35f, LineDeg = 170.4f;
+    const float GearY = -1.85f, GearTh = 0.35f, LineDeg = 168.0f;
     // 2026-11-07 てじゃ「前が見える位置で羽まわしたい」→ 羽根車の小歯車を A の歯車に直接かませて、かごの口の 3m 手前・まん中から 1.6m 横に   // 2026-11-07 てじゃ「下の歯車が床にみえちゃう」→ 床の 1.5m 下へ、中を抜いた輪＋スポークに
     const float ExitDeg = 60f;                 // B から見た出口の向き
-    const float CageHalfZ = 2.5f, CageLen = 10.4f;
+    const float CageHalfZ = 3.0f, CageLen = 10.4f;   // 羽根車をまん中から 2m 横に（ふわふわを送る風の線と羽根の当たりを離す）
     static readonly Vector3 Origin = new Vector3(30f, -162f, -165f);   // A のまん中、床の上の高さ
 
     static float CornerR(float tip) => Mathf.Sqrt(tip * tip + BridgeW * BridgeW / 4f);
@@ -128,7 +128,7 @@ public static class FuwaTwinTableTest
         var tt = UdonSharpUndo.AddComponent<FuwaTurnTable>(handle.gameObject);
         tt.table = tableA; tt.tableRatio = 1f / rp; tt.tablePhase = -php / rp;
         tt.gears = gearTs; tt.gearRatio = gearRatio; tt.gearPhase = gearPhase;
-        tt.handle = handle; tt.hitRadius = 0.8f; tt.hitHalfHeight = 0.3f; tt.hitCone = 3f; tt.startU = php;   // u = php で A が 0°
+        tt.handle = handle; tt.hitRadius = 1.0f; tt.hitHalfHeight = 0.55f; tt.hitCone = 4f; tt.startU = php;   // u = php で A が 0°。当たり 2026-11-07 てじゃ「狭くなりすぎてる」0.8・0.3・3° → 1.0・0.55・4°
         UdonSharpEditorUtility.CopyProxyToUdon(tt); FuwaStage2WaterTest.NoSync(tt);
         SetU(php);
 
