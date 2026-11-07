@@ -25,6 +25,10 @@ public class FuwaUmbrella : UdonSharpBehaviour
     public Transform visual;
     [Tooltip("持つ所（傘の local。ExactGrip と同じ所）")]
     public Vector3 gripLocal = new Vector3(0f, -0.01f, 0f);
+    [Tooltip("デスクトップの人が持つ時の持つ所の位置（体の向き基準：x=右 y=目の高さに対する割合 z=前）。見上げても手が上がらないように、視線ではなく体についていく")]
+    public Vector3 desktopHold = new Vector3(0.38f, 0.75f, -0.12f);
+    [Tooltip("デスクトップで持つ時のかたむき（x=後ろへ、z=外へ。度）。肩にかつぐ感じで、見上げても布が視界に入りにくい")]
+    public Vector2 desktopTilt = new Vector2(28f, 14f);
     [Tooltip("開く・閉じるのにかかる秒数")]
     public float openTime = 0.35f;
     public AudioSource openSound;
@@ -104,11 +108,14 @@ public class FuwaUmbrella : UdonSharpBehaviour
             VRCPlayerApi o = _held ? Networking.GetOwner(gameObject) : null;
             if (o != null && !o.IsUserInVR())
             {
+                // 2026-11-08 てじゃ「上むいた時にやっぱ視界の邪魔」→ 手（視線で上下する）ではなく、体の右肩あたりに持つ
                 Vector3 f = o.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward; f.y = 0f;
                 if (f.sqrMagnitude < 1e-4f) f = Vector3.forward;
                 Quaternion r = Quaternion.LookRotation(f.normalized, Vector3.up);
-                visual.rotation = r;
-                visual.position = transform.TransformPoint(gripLocal) - r * gripLocal;
+                float eye = o.GetAvatarEyeHeightAsMeters();
+                Vector3 hand = o.GetPosition() + r * new Vector3(desktopHold.x, desktopHold.y * eye, desktopHold.z);
+                visual.rotation = r * Quaternion.Euler(-desktopTilt.x, 0f, -desktopTilt.y);   // 後ろと外へかたむける
+                visual.position = hand - visual.rotation * gripLocal;
             }
             else if (visual.localRotation != Quaternion.identity || visual.localPosition != Vector3.zero) { visual.localRotation = Quaternion.identity; visual.localPosition = Vector3.zero; }
         }
