@@ -256,7 +256,8 @@ public static class FuwaCourse2_4Builder
     //  下は雲の下までのびる。トンネルの床は道（S）で作るので、塔の下の段は道の下の石（−1.6m）より下で終わる
     public static float TowerW = 7f, TunnelHW = 2.2f, TunnelH = 4f, TowerTop = 16f, RoofH = 7f, ClockY = 11.5f, ClockR = 2.6f, TowerBottom = -30f;
     public static float PendOut = 3f, PendPivotY = 8.6f, PendBobY = 1.6f, PendBobR = 0.8f, PendAmp = 28f;
-    static Transform pendPivot, escape;
+    static Transform pendPivot, escape, weightT, chainT; static Vector3 chainTop;
+    public static float WeightDrop = 4.4f, WeightPeriod = 600f;
     static void ClockTower(Vector3 c, float heading)
     {
         var stone = FuwaStage2WaterTest.ToonMat("Stage2_4_TowerStone", TowerCol);
@@ -269,7 +270,64 @@ public static class FuwaCourse2_4Builder
         t.localPosition = c; t.localRotation = Quaternion.LookRotation(Dir(heading));   // local z = 道の向き、x = 右
         float h = TowerW / 2f, baseTop = -1.7f;
         // 下の段（トンネルの床の下）・トンネルの左右の壁・トンネルの上
-        TBox(t, "Base", new Vector3(0f, (TowerBottom + baseTop) / 2f, 0f), new Vector3(TowerW, baseTop - TowerBottom, TowerW), stone, true);
+        // 下の段：中を空洞にして、時計の動力（おもり）が見える窓（2026-11-07 てじゃ「動力ある？」→ A「時計のおもり」）
+        //  窓はスタートのある側の面（local ±x）。中：ドラム＋大歯車（36枚）→ 小歯車（8）＋2段目（30）→ 小歯車（8）。ドラムに巻いたくさりでおもりがゆっくり下がる
+        //  回り方は FuwaClockwork（ほかの歯車と同じ時計）、おもりは FuwaClockHands（WeightPeriod 秒で WeightDrop 下がって、上へ戻る）
+        float wsx = Mathf.Sign(t.InverseTransformDirection(root.TransformPoint(Vector3.zero) - t.position).x); if (wsx == 0f) wsx = 1f;
+        const float CavB = -12f, CavT = -2.5f, Wall = 0.5f, WinHW = 2.5f;
+        TBox(t, "Base", new Vector3(0f, (TowerBottom + CavB) / 2f, 0f), new Vector3(TowerW, CavB - TowerBottom, TowerW), stone, true);
+        TBox(t, "BaseTop", new Vector3(0f, (CavT + baseTop) / 2f, 0f), new Vector3(TowerW, baseTop - CavT, TowerW), stone, true);
+        float ch = CavT - CavB, cy = (CavB + CavT) / 2f, iw = h - Wall;
+        TBox(t, "CavWallBack", new Vector3(-wsx * (h - Wall / 2f), cy, 0f), new Vector3(Wall, ch, TowerW), stone, true);
+        foreach (int sz in new[] { -1, 1 }) TBox(t, "CavWallSide" + sz, new Vector3(0f, cy, sz * (h - Wall / 2f)), new Vector3(TowerW - 2f * Wall, ch, Wall), stone, true);
+        foreach (int sz in new[] { -1, 1 }) TBox(t, "CavWallWin" + sz, new Vector3(wsx * (h - Wall / 2f), cy, sz * (WinHW + (h - WinHW) / 2f)), new Vector3(Wall, ch, h - WinHW), stone, true);
+        TBox(t, "WinSill", new Vector3(wsx * (h + 0.05f), CavB + 0.15f, 0f), new Vector3(0.3f, 0.3f, 2f * WinHW + 0.6f), trim, false);
+        TBox(t, "WinLintel", new Vector3(wsx * (h + 0.05f), CavT - 0.15f, 0f), new Vector3(0.3f, 0.3f, 2f * WinHW + 0.6f), trim, false);
+        TBox(t, "CavFloor", new Vector3(0f, CavB + 0.02f, 0f), new Vector3(2f * iw, 0.04f, 2f * iw), roofM, false);
+        // 歯車の面（frame の local Y＝塔の +x、2D の x＝下、2D の z＝塔の +z）。ドラムは窓から奥へ
+        var mv = new GameObject("Movement").transform; mv.SetParent(t, false);
+        mv.localPosition = new Vector3(0f, -4.6f, -1.0f); mv.localRotation = Quaternion.FromToRotation(Vector3.up, Vector3.right);
+        const float MM = 0.1f, Rb = 0.35f;
+        float wv = WeightDrop / WeightPeriod;                          // おもりの下がる速さ m/s
+        float rB = wv / Rb * Mathf.Rad2Deg / ClockSpeed;               // くさりは −z 側：ドラムが 2D でプラスに回るとくさりがほどけて下がる
+        var gw = new FuwaGearTest.Gear { name = "GreatWheel_z36", z = 36, c = Vector2.zero, ratio = rB, phase = 0f };
+        var p1 = FuwaGearTest.Mesh2(gw, "Pinion1_z8", 8, 90f, MM);
+        var w2 = new FuwaGearTest.Gear { name = "Wheel2_z30", z = 30, c = p1.c, ratio = p1.ratio, phase = 0.2f };
+        var p2 = FuwaGearTest.Mesh2(w2, "Pinion2_z8", 8, 0f, MM);
+        float gwX = wsx * 2.2f;                                         // 大歯車の面（窓のすぐ奥）
+        Transform MvGear(FuwaGearTest.Gear q, float planeX, float th, Material m)
+        {
+            var g = new GameObject(q.name).transform; g.SetParent(mv, false); g.localPosition = new Vector3(q.c.x, planeX, q.c.y);
+            g.gameObject.AddComponent<MeshFilter>().sharedMesh = SpurMesh(q.z, MM, th, "TowerMove_z" + q.z); g.gameObject.AddComponent<MeshRenderer>().sharedMaterial = m;
+            AddGear(g, q.ratio, q.phase * Mathf.Rad2Deg);
+            return g;
+        }
+        var gwT = MvGear(gw, gwX, 0.12f, brassM);
+        var drum = GameObject.CreatePrimitive(PrimitiveType.Cylinder); drum.name = "Drum"; Object.DestroyImmediate(drum.GetComponent<Collider>()); drum.transform.SetParent(gwT, false);
+        drum.transform.localPosition = new Vector3(0f, -wsx * 0.8f, 0f); drum.transform.localScale = new Vector3(2f * Rb, 0.7f, 2f * Rb); drum.GetComponent<Renderer>().sharedMaterial = handM;
+        for (int k = 0; k < 6; k++)
+        {
+            var sp = TBox(gwT, "Spoke" + k, Quaternion.Euler(0f, k * 60f, 0f) * new Vector3(0.9f, wsx > 0f ? 0.14f : -0.02f, 0f), new Vector3(1.4f, 0.04f, 0.14f), brassM, false);
+            sp.localRotation = Quaternion.Euler(0f, k * 60f, 0f);
+        }
+        var p1T = MvGear(p1, gwX, 0.12f, handM);
+        var w2T = MvGear(w2, gwX - wsx * 0.3f, 0.1f, brassM);
+        var p2T = MvGear(p2, gwX - wsx * 0.3f, 0.1f, handM);
+        foreach (var (g, len) in new[] { (gwT, 2.6f), (p1T, 1.4f), (p2T, 1.2f) })
+        {
+            var ax = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ax.name = "Arbor"; Object.DestroyImmediate(ax.GetComponent<Collider>()); ax.transform.SetParent(g, false);
+            ax.transform.localPosition = new Vector3(0f, -wsx * len / 2f + 0.06f, 0f); ax.transform.localScale = new Vector3(0.12f, len / 2f, 0.12f); ax.GetComponent<Renderer>().sharedMaterial = handM;
+        }
+        // おもりとくさり（くさりはドラムの −z 側から真下）
+        float cordX = wsx * (2.2f - 0.8f);
+        var cordTop = new Vector3(cordX, -4.6f, -1.0f - Rb);
+        var weight = new GameObject("Weight").transform; weight.SetParent(t, false); weight.localPosition = cordTop + Vector3.down * 1.0f;
+        TBox(weight, "Body", new Vector3(0f, -0.9f, 0f), new Vector3(0.9f, 1.6f, 0.9f), handM, false);
+        TBox(weight, "Band", new Vector3(0f, -0.4f, 0f), new Vector3(0.96f, 0.14f, 0.96f), brassM, false);
+        TBox(weight, "Hook", new Vector3(0f, -0.05f, 0f), new Vector3(0.12f, 0.2f, 0.12f), brassM, false);
+        var cord = new GameObject("Chain").transform; cord.SetParent(t, false);
+        TBox(cord, "Links", new Vector3(0f, -0.5f, 0f), new Vector3(0.07f, 1f, 0.07f), handM, false);   // 長さ 1 を上から下へ。FuwaClockHands が y の大きさで長さを合わせる
+        weightT = weight; chainT = cord; chainTop = cordTop;
         foreach (int sg in new[] { -1, 1 })
             TBox(t, "TunnelWall" + (sg > 0 ? "R" : "L"), new Vector3(sg * (h + TunnelHW) / 2f, (baseTop + TunnelH) / 2f, 0f), new Vector3(h - TunnelHW, TunnelH - baseTop, TowerW), stone, true);
         TBox(t, "Upper", new Vector3(0f, (TunnelH + TowerTop) / 2f, 0f), new Vector3(TowerW, TowerTop - TunnelH, TowerW), stone, true);
@@ -360,6 +418,7 @@ public static class FuwaCourse2_4Builder
         ck.hourHands = hours.ToArray(); ck.minuteHands = mins.ToArray();
         ck.pendulum = pendPivot; ck.pendulumAmp = PendAmp; ck.pendulumPeriod = 2f * Mathf.PI * Mathf.Sqrt((PendPivotY - PendBobY) / 9.81f);   // 本物の振り子と同じ周期
         ck.escapeWheel = escape; ck.escapeTeeth = 30;
+        ck.weight = weightT; ck.chain = chainT; ck.chainTop = chainTop; ck.weightStart = weightT.localPosition; ck.weightDrop = WeightDrop; ck.weightPeriod = WeightPeriod;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ck); FuwaStage2WaterTest.NoSync(ck);
         // エディタでも今の時刻に
         var now = System.DateTime.Now; float mm = now.Minute + now.Second / 60f, hh = (now.Hour % 12) + mm / 60f;

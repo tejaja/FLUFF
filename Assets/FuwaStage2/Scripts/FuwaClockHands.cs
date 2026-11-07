@@ -25,8 +25,24 @@ public class FuwaClockHands : UdonSharpBehaviour
     [Tooltip("カチッと進むのにかかる時間（往復の何割か）")]
     public float tickTime = 0.06f;
 
+    [Header("おもり（時計の動力）。weightPeriod 秒で weightDrop 下がって上へ戻る。くさりは chainTop からおもりまで")]
+    public Transform weight;
+    public Transform chain;
+    public Vector3 chainTop, weightStart;
+    public float weightDrop = 4.4f, weightPeriod = 600f;
+
     private void Update()
     {
+        if (weight != null && weightPeriod > 0f)
+        {
+            float f = Mathf.Repeat(Time.time / weightPeriod, 1f);
+            weight.localPosition = weightStart + Vector3.down * (weightDrop * f);
+            if (chain != null)
+            {
+                chain.localPosition = chainTop;
+                chain.localScale = new Vector3(1f, Mathf.Max(0.01f, chainTop.y - weight.localPosition.y), 1f);
+            }
+        }
         if (pendulum != null && pendulumPeriod > 0f)
         {
             float ph = Time.time / pendulumPeriod;
