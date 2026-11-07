@@ -16,6 +16,7 @@ public static class FuwaDrawbridgeTest
     const int ZA = 16, ZB = 40, ZC = 16, ZD = 60;
     const float BridgeLen = 8f, PathW = 4.5f, PathNear = 1.9f;   // 道は手前（ローカル Y = 1.9〜6.4）
     static readonly Vector3 Origin = new Vector3(-40f, -162f, -100f);
+    const bool WithBird = false;
 
     [MenuItem("FuwaCourse/ステージ2/風車の跳ね橋のお試しを作る")]
     public static void Build()
@@ -127,7 +128,8 @@ public static class FuwaDrawbridgeTest
         if (myBall == null && ball.Length > 0) myBall = ball[0];
 
         // 鳥（仮：まるの組み合わせ）と止まり木
-        BuildBird(ex, myBall, new Vector3(Origin.x - 5f, top + 3.0f, pathZ), pathZ, top);
+        // 2026-11-07 てじゃ「倒れる橋も鳥なくてもいけるかも」「浮いてる間に撃って間に合いそう」→ 鳥なし（コードは残す、WithBird で戻せる）
+        if (WithBird) BuildBird(ex, myBall, new Vector3(Origin.x - 5f, top + 3.0f, pathZ), pathZ, top);
 
         // ふわふわを出す台・ワープ（テスト用）
         var spot = new GameObject("BallSpot").transform; spot.SetParent(ex, false);
