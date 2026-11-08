@@ -1181,7 +1181,7 @@ public static class FuwaCourse2_4Builder
     public static int GoalPlan = 1;
     public static bool UseTower = false, UseFactory = false;
     static Transform coreT;
-    public static float CrystalH = 6.6f, BoxY = 3.4f, CrystalGap = 0.8f, CrystalDown = 5f, CrystalW = 3.0f, CrystalSpin = -0.3f;
+    public static float CrystalH = 6.6f, BoxY = 3.4f, CrystalGap = 0.8f, CrystalDown = 5f, CrystalW = 3.0f, CrystalSpin = -0.3f, FanSpin = 70f;
     const float CcMod = 0.1f; const int CcBig = 60, CcSmall = 12;
     static void CloudBalloon(Transform core, System.Text.StringBuilder log)
     {
@@ -1193,8 +1193,8 @@ public static class FuwaCourse2_4Builder
         var cryMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaStage2/Meshes/Course2_3/ObsCrystal1_Main.asset");
         float wheelTop = WT;   // でかい歯車の上の面（歯車の local）
         // クリスタル（2026-11-08 てじゃ「空中に浮いた単体の巨大クリスタルのまわりにギア」「下にもとびだしてる」）：でかい歯車のまん中の穴に浮く、上下にとがった1本。
-        //  歯車にはつかない（ゆっくり自分で回る）。上のとがりの少し上に歯車箱の軸のはし（さわっていない）
-        float wy = root.InverseTransformPoint(wf.position).y, cMid = wy + WT / 2f, cTop = BoxY - CrystalGap, cBot = cMid - CrystalDown;
+        //  歯車にはつかない（ゆっくり自分で回る）。上のとがりの少し上にバルーンの首の輪と羽根（さわっていない）
+        float wy = root.InverseTransformPoint(wf.position).y, cMid = wy + WT / 2f, cTop = CollarY0 - CrystalGap, cBot = cMid - CrystalDown;
         if (cryMesh && crystalMat)
         {
             // 2026-11-08 てじゃ「ちゃんと切れ目消して」→ 上下を1つのメッシュに（六角の柱＋上下のとがり、面ごとに平ら）
@@ -1203,38 +1203,17 @@ public static class FuwaCourse2_4Builder
             cr.gameObject.AddComponent<MeshRenderer>().sharedMaterial = crystalMat;
             AddGear(cr, CrystalSpin, 0f);   // ゆっくり回る（FuwaClockwork）
         }
-        // 歯車箱（浮いている）：A1(60) → B1(12)=B2(60) → C1(12)=C2(60) → D1(12)=D2(60) → E1(12)。A・C・E は同じ軸（まん中）
-        var G = new GameObject("Gearbox").transform; G.SetParent(holder, false); G.localPosition = new Vector3(0f, BoxY, 0f);
-        float rW = WheelRatioUsed;
-        var A1 = new FuwaGearTest.Gear { name = "A1", z = CcBig, c = Vector2.zero, ratio = rW, phase = 0f };
-        var B1 = FuwaGearTest.Mesh2(A1, "B1", CcSmall, 0f, CcMod);
-        var B2 = new FuwaGearTest.Gear { name = "B2", z = CcBig, c = B1.c, ratio = B1.ratio, phase = B1.phase };
-        var C1 = FuwaGearTest.Mesh2(B2, "C1", CcSmall, 180f, CcMod);
-        var C2 = new FuwaGearTest.Gear { name = "C2", z = CcBig, c = C1.c, ratio = C1.ratio, phase = C1.phase };
-        var D1 = FuwaGearTest.Mesh2(C2, "D1", CcSmall, 90f, CcMod);
-        var D2 = new FuwaGearTest.Gear { name = "D2", z = CcBig, c = D1.c, ratio = D1.ratio, phase = D1.phase };
-        var E1 = FuwaGearTest.Mesh2(D2, "E1", CcSmall, 270f, CcMod);
-        const float LT = 0.28f, LS = 0.42f;   // 歯車の厚み・段の間
-        var bigMesh = SpurMesh(CcBig, CcMod, LT, "Candy_Gear_z" + CcBig); var smallMesh = SpurMesh(CcSmall, CcMod, LT, "Candy_Gear_z" + CcSmall);
-        var gt = new Dictionary<string, Transform>();
-        void GearAt(FuwaGearTest.Gear q, int layer, bool big, Material m)
+        // 2026-11-08 てじゃ「こうなるとバルーンの下のギアはいらんな」→ 歯車箱なし。クリスタルのとがりの真上、首の輪の中で送風の羽根が回る（クリスタルの力で、さわらずに）
+        //  羽根の軸は首の輪の中を横切る2本のはりで支える
+        float fanY = CollarY0 + 0.35f;
+        foreach (float yaw in new[] { 45f, 135f })
         {
-            var t = CwGear(G, "Candy_" + q.name, new Vector3(q.c.x, layer * LS, q.c.y), Vector3.up, big ? bigMesh : smallMesh, m);
-            AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg); gt[q.name] = t;
+            var bar = TBox(holder, "FanBeam", new Vector3(0f, fanY - 0.22f, 0f), new Vector3(2f * CollarR0 + 0.1f, 0.1f, 0.12f), cwAxle, false);
+            bar.localRotation = Quaternion.Euler(0f, yaw, 0f);
         }
-        GearAt(A1, 0, true, cwBrass); GearAt(B1, 0, false, cwDark);
-        GearAt(B2, 1, true, cwLight); GearAt(C1, 1, false, cwDark);
-        GearAt(C2, 2, true, cwBrass); GearAt(D1, 2, false, cwDark);
-        GearAt(D2, 3, true, cwLight); GearAt(E1, 3, false, cwDark);
-        // 軸：A1 からクリスタルの頭まで／B・D の軸／C の筒／E の軸から頭まで
-        CwShaft(gt["A1"], -CrystalGap * 0.5f, LT, 0.5f);   // とがりの上で止める（すき間 CrystalGap/2）
-        CwShaft(gt["B1"], -0.15f, LS + LT + 0.15f, 0.3f);
-        CwShaft(gt["C1"], -0.05f, LS + LT + 0.05f, 0.42f);
-        CwShaft(gt["D1"], -0.15f, LS + LT + 0.15f, 0.3f);
-        // 2026-11-08 てじゃ「白パイプだけにして、上にあげてでっかいバルーン状の機械に接続、上から雲がぽわぽわ」「綿あめはなし」
-        //  E1（いちばん速い）に送風の羽根 → 首の真ちゅうの輪（パイプ4本がつながる）→ 白いバルーン（ふくらんでいる）→ てっぺんの煙突から雲
-        var fan = new GameObject("BalloonFan").transform; fan.SetParent(gt["E1"], false); fan.localPosition = new Vector3(0f, LT + 0.25f, 0f);
-        CwShaft(gt["E1"], -0.1f, LT + 0.3f, 0.3f);
+        var fan = new GameObject("BalloonFan").transform; fan.SetParent(holder, false); fan.localPosition = new Vector3(0f, fanY, 0f);
+        AddGear(fan, FanSpin, 0f);
+        CwShaft(fan, -0.3f, 0.12f, 0.22f);
         for (int k = 0; k < 6; k++)
         {
             var bl = TBox(fan, "FanBlade", Quaternion.Euler(0f, k * 60f, 0f) * new Vector3(0.85f, 0f, 0f), new Vector3(1.2f, 0.04f, 0.42f), cwLight, false);
@@ -1278,7 +1257,7 @@ public static class FuwaCourse2_4Builder
         cb.body = body; cb.burst = burst; cb.burstCount = 7;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); FuwaStage2WaterTest.NoSync(cb);
         balloon = cb;
-        log.Append(" バルーン：羽根 1周 " + (360f / Mathf.Abs(E1.ratio * ClockSpeed)).ToString("F2") + "秒 ");
+        log.Append(" バルーン：羽根 1周 " + (360f / Mathf.Abs(FanSpin * ClockSpeed)).ToString("F2") + "秒 ");
     }
     // 上下にとがった六角のクリスタル（中心 0、上 up・下 dn まで、半径 r）。とがりの長さは半径の 1.6 倍
     static Mesh CrystalMesh(float r, float up, float dn, string name)
@@ -1507,8 +1486,9 @@ public static class FuwaCourse2_4Builder
             return new[] { p0, e0, new Vector3(e0.x, yR, e0.z), new Vector3(q.x, yR, q.z), new Vector3(q.x, topY, q.z), new Vector3(sp.x, topY, sp.z) };
         }
         Vector3[] pts = null; int bestHits = int.MaxValue; float bestY = 0f;
-        foreach (float yR in new[] { -2.2f, -1.7f, -2.7f, -1.2f, -3.2f })
-            foreach (float rr in new[] { 7.0f, 7.6f, 8.3f })
+        // 2026-11-08 てじゃ「パイプ、一回下に降りてるのなんで？」→ 歯車箱がなくなったので、まずはタンクの出口の高さのまま（下りない）まん中の近くまで行く道を探す。だめな時だけ道の下をくぐる
+        foreach (float yR in new[] { p0.y, p0.y - 0.5f, p0.y + 0.5f, p0.y - 1f, -2.2f, -1.7f, -2.7f, -1.2f, -3.2f })
+            foreach (float rr in new[] { 3.6f, 4.6f, 5.6f, 7.0f, 7.6f, 8.3f })
                 foreach (float yaw in new[] { 0f, 12f, -12f, 24f, -24f })
                 {
                     var cand = Route(yR, rr, yaw);
@@ -1517,6 +1497,7 @@ public static class FuwaCourse2_4Builder
                     if (h == 0) goto found;
                 }
         found:
+        { var dd = new List<Vector3> { pts[0] }; for (int i = 1; i < pts.Length; i++) if ((pts[i] - dd[dd.Count - 1]).sqrMagnitude > 1e-4f) dd.Add(pts[i]); pts = dd.ToArray(); }   // 長さ 0 の所（下りない時）を消す
         var pipeT = new GameObject("SugarPipe" + k).transform; pipeT.SetParent(holder, false);
         for (int i = 1; i < pts.Length; i++)
         {
