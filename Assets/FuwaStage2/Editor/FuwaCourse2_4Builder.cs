@@ -753,7 +753,7 @@ public static class FuwaCourse2_4Builder
     //  歯の数の都合でしかけの速さを s 倍にする（しかけの歯車の ratio をまとめて s 倍：かみ合いはくずれない）
     const float WM = 0.4f, WT = 0.5f; const int WZ = 88;
     // 2026-11-08 てじゃ「クリスタルはギアに刺さってる感じじゃなくて、空中に浮いた単体の巨大クリスタルのまわりにギア」→ でかい歯車のまん中は穴（BoreR）
-    public static float HubR = 3.6f, BoreR = 2.6f;
+    public static float HubR = 4.4f, BoreR = 3.3f;   // 2026-11-08 クリスタルを太くしたので穴も広げた
     public static float WheelRatio = 0f;   // 0 なら自動で決める
     public static float WheelRatioUsed;
     static void ClockworkFeeds(Transform tower)
@@ -1181,7 +1181,7 @@ public static class FuwaCourse2_4Builder
     public static int GoalPlan = 1;
     public static bool UseTower = false, UseFactory = false;
     static Transform coreT;
-    public static float CrystalH = 6.6f, BoxY = 3.4f, CrystalGap = 0.8f, CrystalDown = 5f, CrystalW = 3.0f, CrystalSpin = -0.3f, FanSpin = 70f;
+    public static float CrystalH = 6.6f, BoxY = 3.4f, CrystalGap = 0.8f, CrystalDown = 5f, CrystalW = 4.6f, CrystalHalf = 6.5f, CrystalSpin = -0.3f, FanSpin = 70f;
     const float CcMod = 0.1f; const int CcBig = 60, CcSmall = 12;
     static void CloudBalloon(Transform core, System.Text.StringBuilder log)
     {
@@ -1194,7 +1194,7 @@ public static class FuwaCourse2_4Builder
         float wheelTop = WT;   // でかい歯車の上の面（歯車の local）
         // クリスタル（2026-11-08 てじゃ「空中に浮いた単体の巨大クリスタルのまわりにギア」「下にもとびだしてる」）：でかい歯車のまん中の穴に浮く、上下にとがった1本。
         //  歯車にはつかない（ゆっくり自分で回る）。上のとがりの少し上にバルーンの首の輪と羽根（さわっていない）
-        float wy = root.InverseTransformPoint(wf.position).y, cMid = wy + WT / 2f, cTop = CollarY0 - CrystalGap, cBot = cMid - (cTop - cMid);   // 2026-11-08 てじゃ「上下おなじながさにして」
+        float wy = root.InverseTransformPoint(wf.position).y, cMid = wy + WT / 2f, cTop = cMid + CrystalHalf, cBot = cMid - CrystalHalf;   // 2026-11-08 てじゃ「上下おなじながさにして」「もうちょい短く、かつ太く」
         if (cryMesh && crystalMat)
         {
             // 2026-11-08 てじゃ「ちゃんと切れ目消して」→ 上下を1つのメッシュに（六角の柱＋上下のとがり、面ごとに平ら）
