@@ -2,7 +2,7 @@ using UdonSharp;
 using UnityEngine;
 
 // 2–4 はぐるまのとう：色ざらめのパイプ（2026-11-08 てじゃ「周りの自動で回ってる歯車の末端も、何かしらの形でつなげて」→ A 色ざらめパイプ）
-// ・しかけの最後の歯車が動かすポンプ（FuwaCloudFactory）がひと押しするたびに Send() → パイプの中をざらめのふくらみ（bulges）が流れて、まん中のわたあめ機の鍋へ
+// ・しかけの最後の歯車が動かすポンプ（FuwaCloudFactory）がひと押しするたびに Send() → パイプの中をざらめのふくらみ（bulges）が流れて、まん中の雲のバルーンへ（はじめはわたあめ機の鍋）
 // ・パイプの道すじは pts（世界の点、つなぎ目）。ふくらみは使い回し。着いたら endPuff（その色の雲の糸）を出す
 // 自分の画面だけ（同期なし）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -12,6 +12,8 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     public float speed = 4f;
     public Transform[] bulges;
     public ParticleSystem endPuff;
+    [Tooltip("着いたら Puff() を呼ぶ（まん中の雲のバルーン、2026-11-08）")]
+    public FuwaCloudBalloon balloon;
     public int endCount = 10;
 
     private float[] _cum;
@@ -66,6 +68,7 @@ public class FuwaSugarPipe : UdonSharpBehaviour
             {
                 _at[i] = -1f; bulges[i].gameObject.SetActive(false);
                 if (endPuff != null) endPuff.Emit(endCount);
+                if (balloon != null) balloon.Puff();
                 continue;
             }
             Place(i);

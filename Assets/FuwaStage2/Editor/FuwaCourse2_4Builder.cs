@@ -95,19 +95,23 @@ public static class FuwaCourse2_4Builder
         // チェックポイント4は出口の床（6m 角）に入ってすぐ・床の幅いっぱい（2026-11-08 てじゃ「横から抜けられちゃう」：床の先の曲がり角を斜めに飛ぶと、道の幅の判定を通らなかった）
         Place(Twin, log); CP("Checkpoint4", -5.5f, 3f); S(2f);
         // 塔へ（まん中）：①の上をまたいで
+        // 2026-11-08 てじゃ「今のゴールと前の道は完全に別の場所に」→ まん中（バルーン）へ向かう道は位置を決めるためだけに作って消す（GoalPlan 0 で前の通り）
+        var P0 = P; float th0 = th; int n0 = pathT.childCount, s0 = segNo;
         T(-120f); S(8f, 3f); S(14f);   // 2026-11-07 2枚の回転床を大きくした（すき間 3.2m）ので塔の位置を合わせ直し
         // 時計塔のトンネルを突っ切って、抜けた先にゴール（2026-11-07 てじゃ「最後は塔を突っ切った先がゴール」）
         // 2026-11-08 てじゃ「時計塔自体なしにして、ここにデカい何かしらの機械を」→ 巨大わたあめ機（UseTower=false）。時計塔・振り子・雲づくり工場のコードは残す
         //  まん中（前の塔の中心）を coreT に。でかい歯車・塔の時計じかけ・めりこみ対策はここにつく
-        var coreAt = P + Dir(th) * (TowerW / 2f);
+        var coreAt = P + Dir(th) * (TowerW / 2f); float coreTh = th;
+        if (GoalPlan != 0) { while (pathT.childCount > n0) Object.DestroyImmediate(pathT.GetChild(pathT.childCount - 1).gameObject); P = P0; th = th0; segNo = s0; }
         if (UseTower) { ClockTower(coreAt, th); coreT = root.Find("ClockTower"); }
-        else { coreT = new GameObject("MachineCore").transform; coreT.SetParent(root, false); coreT.localPosition = coreAt; coreT.localRotation = Quaternion.LookRotation(Dir(th)); pendPivot = null; }
+        else { coreT = new GameObject("MachineCore").transform; coreT.SetParent(root, false); coreT.localPosition = coreAt; coreT.localRotation = Quaternion.LookRotation(Dir(coreTh)); pendPivot = null; }
         TowerDriveRide(log);
         ClockworkFeeds(coreT);
         if (UseFactory) CloudFactory(coreT);
-        if (!UseTower) { CottonCandy(coreT, log); SugarPipes(coreT, log); }
+        if (!UseTower) { CloudBalloon(coreT, log); SugarPipes(coreT, log); }
         ClockworkInstall(coreT); GuardInstall(coreT);
-        S(TowerW); S(1f);
+        if (GoalPlan == 0) { S(TowerW); S(1f); }
+        else if (GoalPlan == 1) { T(60f); S(3f); }   // A：チェックポイント4のあとの角から、まん中と反対（コースの外の空）へ
         var goalAt = GoalSet(root, P, Dir(th));
 
         // アウト（下に落ちた）：コースの下（コースの向きの箱、まわり 10m）
@@ -1172,20 +1176,19 @@ public static class FuwaCourse2_4Builder
     //  動力：でかい歯車（88枚）のまん中に立つでかいクリスタル（歯車といっしょに回る。てじゃ「最初の動力源は下のデカい歯車の中心のデカいクリスタル」）
     //  → 浮いている歯車箱（60:12 を4組、同じ軸にもどる形で 625 倍）→ わたあめ機の頭（鍋のまん中でくるくる、雲の糸が出る）
     //  鍋は浮いていて回らない。ふちに雲の糸がたまっている。大きさは回転床 A・まわりの道とぶつからないように
+    public static int GoalPlan = 1;
     public static bool UseTower = false, UseFactory = false;
     static Transform coreT;
-    public static float CrystalH = 6.6f, BoxY = 3.4f, BowlY = 5.5f, BowlR = 6f, BowlH = 2f, HeadY = 6.2f;
+    public static float CrystalH = 6.6f, BoxY = 3.4f;
     const float CcMod = 0.1f; const int CcBig = 60, CcSmall = 12;
-    static void CottonCandy(Transform core, System.Text.StringBuilder log)
+    static void CloudBalloon(Transform core, System.Text.StringBuilder log)
     {
         var wf = root.Find("Gimmicks/BigWheel_Frame"); var wheel = wf ? wf.GetComponentsInChildren<Transform>(true).FirstOrDefault(x => x.name == "BigWheel_z" + WZ) : null;
         if (!wheel) { log.Append("でかい歯車がない "); return; }
-        var holder = new GameObject("CottonCandy").transform; holder.SetParent(root.Find("Gimmicks"), false);
+        var holder = new GameObject("CloudBalloon").transform; holder.SetParent(root.Find("Gimmicks"), false);
         var cc = root.InverseTransformPoint(core.position); holder.localPosition = new Vector3(cc.x, 0f, cc.z);
         var crystalMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_3_Crystal.mat");
         var cryMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaStage2/Meshes/Course2_3/ObsCrystal1_Main.asset");
-        var bowlM = FuwaStage2WaterTest.ToonMat("Stage2_4_CandyBowl", new Color(0.84f, 0.88f, 0.94f));
-        var flossM = FuwaGearTest.Mat("Course2_4_Floss", new Color(1f, 0.9f, 0.96f));
         float wheelTop = WT;   // でかい歯車の上の面（歯車の local）
         // クリスタル（でかい歯車の子：いっしょに回る）。土台の真ちゅうの輪と、まわりに小さいクリスタル
         if (cryMesh && crystalMat)
@@ -1233,74 +1236,94 @@ public static class FuwaCourse2_4Builder
         CwShaft(gt["B1"], -0.15f, LS + LT + 0.15f, 0.3f);
         CwShaft(gt["C1"], -0.05f, LS + LT + 0.05f, 0.42f);
         CwShaft(gt["D1"], -0.15f, LS + LT + 0.15f, 0.3f);
-        float headLocal = HeadY - BoxY - 3 * LS;   // E1 の local の y（E1 は 3段目）
-        CwShaft(gt["E1"], -0.1f, headLocal, 0.3f);
-        // 歯車箱のわく（動かない）：B・D の軸を支える腕を、いちばん上と下に
-        foreach (var (q, y0) in new[] { (B1, -0.25f), (B1, LS + LT + 0.2f), (D1, 2 * LS - 0.25f), (D1, 3 * LS + LT + 0.2f) })
+        // 2026-11-08 てじゃ「白パイプだけにして、上にあげてでっかいバルーン状の機械に接続、上から雲がぽわぽわ」「綿あめはなし」
+        //  E1（いちばん速い）に送風の羽根 → 首の真ちゅうの輪（パイプ4本がつながる）→ 白いバルーン（ふくらんでいる）→ てっぺんの煙突から雲
+        var fan = new GameObject("BalloonFan").transform; fan.SetParent(gt["E1"], false); fan.localPosition = new Vector3(0f, LT + 0.25f, 0f);
+        CwShaft(gt["E1"], -0.1f, LT + 0.3f, 0.3f);
+        for (int k = 0; k < 6; k++)
         {
-            var arm = TBox(G, "GearboxArm", new Vector3(q.c.x / 2f, y0, q.c.y / 2f), new Vector3(0.22f, 0.1f, q.c.magnitude + 0.5f), cwAxle, false);
-            arm.localRotation = Quaternion.LookRotation(new Vector3(q.c.x, 0f, q.c.y));
+            var bl = TBox(fan, "FanBlade", Quaternion.Euler(0f, k * 60f, 0f) * new Vector3(0.85f, 0f, 0f), new Vector3(1.2f, 0.04f, 0.42f), cwLight, false);
+            bl.localRotation = Quaternion.Euler(0f, k * 60f, 0f) * Quaternion.Euler(28f, 0f, 0f);
         }
-        // 頭（E1 の子：いっしょに回る）：円盤＋真ちゅうの帯＋ふちの穴、雲の糸を出す
-        var head = new GameObject("CandyHead").transform; head.SetParent(gt["E1"], false); head.localPosition = new Vector3(0f, headLocal, 0f);
-        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder); disc.name = "Spinner"; Object.DestroyImmediate(disc.GetComponent<Collider>());
-        disc.transform.SetParent(head, false); disc.transform.localScale = new Vector3(2.2f, 0.25f, 2.2f); disc.GetComponent<Renderer>().sharedMaterial = cwLight;
-        var band = GameObject.CreatePrimitive(PrimitiveType.Cylinder); band.name = "SpinnerBand"; Object.DestroyImmediate(band.GetComponent<Collider>());
-        band.transform.SetParent(head, false); band.transform.localScale = new Vector3(2.26f, 0.08f, 2.26f); band.GetComponent<Renderer>().sharedMaterial = cwBrass;
-        var cap = GameObject.CreatePrimitive(PrimitiveType.Sphere); cap.name = "SpinnerCap"; Object.DestroyImmediate(cap.GetComponent<Collider>());
-        cap.transform.SetParent(head, false); cap.transform.localPosition = new Vector3(0f, 0.28f, 0f); cap.transform.localScale = new Vector3(0.9f, 0.5f, 0.9f); cap.GetComponent<Renderer>().sharedMaterial = cwBrass;
-        for (int k = 0; k < 12; k++)
+        var fhub = GameObject.CreatePrimitive(PrimitiveType.Sphere); fhub.name = "FanHub"; Object.DestroyImmediate(fhub.GetComponent<Collider>());
+        fhub.transform.SetParent(fan, false); fhub.transform.localScale = new Vector3(0.5f, 0.3f, 0.5f); fhub.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        // 首の輪（動かない）：パイプはこの横につながる
+        var collar = new GameObject("BalloonCollar"); collar.transform.SetParent(holder, false);
+        collar.AddComponent<MeshFilter>().sharedMesh = RingMesh(CollarR0, CollarR1, CollarY0, CollarY1, 48, "Balloon_Collar"); collar.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        // バルーン（ゆっくり息をする：FuwaCloudBalloon）
+        var body = new GameObject("BalloonBody").transform; body.SetParent(holder, false); body.localPosition = new Vector3(0f, BalloonY, 0f);
+        var balM = FuwaStage2WaterTest.ToonMat("Stage2_4_Balloon", new Color(0.97f, 0.97f, 0.99f));
+        var prof = BalloonProf;
+        var skin = new GameObject("BalloonSkin"); skin.transform.SetParent(body, false); skin.layer = 11;
+        var sm = LatheMesh(prof, 0f, 64, "Balloon_Skin");
+        skin.AddComponent<MeshFilter>().sharedMesh = sm; skin.AddComponent<MeshRenderer>().sharedMaterial = balM;
+        { var col = new GameObject("BalloonCol"); col.layer = 11; col.transform.SetParent(holder, false); col.transform.localPosition = body.localPosition; col.AddComponent<MeshCollider>().sharedMesh = sm; }   // 当たりは息をしない（毎フレーム大きさを変えると当たりの作り直しになる）
+        // 真ちゅうの帯（いちばん太い所と、下のほう）と、たての網（8本）
+        foreach (int i in new[] { 3, 5 })
         {
-            float a = k * 30f * Mathf.Deg2Rad;
-            var hole = GameObject.CreatePrimitive(PrimitiveType.Cube); hole.name = "SpinnerSlot"; Object.DestroyImmediate(hole.GetComponent<Collider>());
-            hole.transform.SetParent(head, false); hole.transform.localPosition = new Vector3(Mathf.Cos(a) * 1.115f, 0f, Mathf.Sin(a) * 1.115f); hole.transform.localRotation = Quaternion.Euler(0f, -k * 30f, 0f);
-            hole.transform.localScale = new Vector3(0.04f, 0.18f, 0.22f); hole.GetComponent<Renderer>().sharedMaterial = cwAxle;
+            float r = prof[i].x, y = prof[i].y;
+            var hp = new GameObject("BalloonHoop"); hp.transform.SetParent(body, false);
+            hp.AddComponent<MeshFilter>().sharedMesh = RingMesh(r - 0.05f, r + 0.1f, y - 0.11f, y + 0.11f, 64, "Balloon_Hoop" + i); hp.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
         }
-        // 雲の糸：頭のふちから外へ（ゆっくりになって、ふわっと上がる）。4色（色ざらめのパイプの色、2026-11-08）をまぜてレインボー
-        for (int k = 0; k < SugarCols.Length; k++)
+        var net = new GameObject("BalloonNet"); net.transform.SetParent(body, false);
+        net.AddComponent<MeshFilter>().sharedMesh = LatheRibbons(prof, 0.035f, 0.07f, 8, "Balloon_Net"); net.AddComponent<MeshRenderer>().sharedMaterial = cwAxle;
+        // てっぺんの煙突（真ちゅうの輪＋中のふた）
+        float topY = prof[prof.Length - 1].y;
+        var chim = new GameObject("BalloonChimney"); chim.transform.SetParent(body, false);
+        chim.AddComponent<MeshFilter>().sharedMesh = RingMesh(0.72f, prof[prof.Length - 1].x + 0.12f, topY - 0.3f, topY + 0.55f, 32, "Balloon_Chimney"); chim.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        var lid = GameObject.CreatePrimitive(PrimitiveType.Cylinder); lid.name = "ChimneyInside"; Object.DestroyImmediate(lid.GetComponent<Collider>());
+        lid.transform.SetParent(body, false); lid.transform.localPosition = new Vector3(0f, topY + 0.1f, 0f); lid.transform.localScale = new Vector3(1.46f, 0.02f, 1.46f); lid.GetComponent<Renderer>().sharedMaterial = cwAxle;
+        // 雲：いつもぽわぽわ＋パイプからざらめが着いたらぽわっ
+        facCloud = FuwaGearTest.Mat("GearRideTest_Steam", new Color(0.97f, 0.98f, 1f));
+        var idle = FacPuff(holder, new Vector3(0f, BalloonY + topY + 0.5f, 0f), Vector3.up, 1.4f, 1.6f, 0.5f); idle.name = "BalloonPuffIdle";
+        { var mm = idle.main; mm.startSpeed = new ParticleSystem.MinMaxCurve(0.9f, 1.6f); mm.startLifetime = new ParticleSystem.MinMaxCurve(4f, 6f); var lv = idle.limitVelocityOverLifetime; lv.limit = 0.5f; }
+        var burst = FacPuff(holder, new Vector3(0f, BalloonY + topY + 0.5f, 0f), Vector3.up, 1.9f, 0f, 0.6f); burst.name = "BalloonPuffBurst";
+        { var mm = burst.main; mm.startSpeed = new ParticleSystem.MinMaxCurve(2f, 3.2f); mm.startLifetime = new ParticleSystem.MinMaxCurve(4f, 6f); var lv = burst.limitVelocityOverLifetime; lv.limit = 0.6f; var sh = burst.shape; sh.angle = 30f; }
+        var cb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaCloudBalloon>(holder.gameObject);
+        cb.body = body; cb.burst = burst; cb.burstCount = 7;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); FuwaStage2WaterTest.NoSync(cb);
+        balloon = cb;
+        log.Append(" バルーン：羽根 1周 " + (360f / Mathf.Abs(E1.ratio * ClockSpeed)).ToString("F2") + "秒 ");
+    }
+    static FuwaCloudBalloon balloon;
+    public static float CollarR0 = 1.7f, CollarR1 = 2.3f, CollarY0 = 5.0f, CollarY1 = 6.4f, BalloonY = 6.2f, PipeInY = 5.7f;
+    // バルーンの形（r, y）：下の首から、ふくらんで、てっぺんの煙突まで
+    static readonly Vector2[] BalloonProf = { new Vector2(1.95f, 0f), new Vector2(2.7f, 0.6f), new Vector2(3.8f, 1.6f), new Vector2(4.75f, 2.9f), new Vector2(5.35f, 4.2f), new Vector2(5.55f, 5.4f), new Vector2(5.35f, 6.6f), new Vector2(4.75f, 7.7f), new Vector2(3.75f, 8.6f), new Vector2(2.45f, 9.2f), new Vector2(1.0f, 9.5f) };
+
+    // 回転体（外向き、1枚）。prof を外へ off ずらす
+    static Mesh LatheMesh(Vector2[] prof, float off, int n, string name)
+    {
+        var v = new List<Vector3>(); var t = new List<int>(); int m = prof.Length;
+        var line = OffsetProf(prof, off);
+        for (int j = 0; j <= n; j++) { float a = 2f * Mathf.PI * j / n; for (int i = 0; i < m; i++) v.Add(new Vector3(Mathf.Cos(a) * line[i].x, line[i].y, Mathf.Sin(a) * line[i].x)); }
+        for (int j = 0; j < n; j++) for (int i = 0; i < m - 1; i++) { int a0 = j * m + i, a1 = a0 + 1, b0 = a0 + m, b1 = b0 + 1; t.Add(a0); t.Add(a1); t.Add(b0); t.Add(a1); t.Add(b1); t.Add(b0); }
+        return SaveMesh(name, v, t);
+    }
+    static Vector2[] OffsetProf(Vector2[] prof, float off)
+    {
+        int m = prof.Length; var o = new Vector2[m];
+        for (int i = 0; i < m; i++) { Vector2 tg = (i < m - 1 ? prof[i + 1] : prof[i]) - (i > 0 ? prof[i - 1] : prof[i]); tg.Normalize(); o[i] = prof[i] + new Vector2(tg.y, -tg.x) * off; }
+        return o;
+    }
+    // 回転体にそったたての帯（cnt 本、幅 w、外へ off）
+    static Mesh LatheRibbons(Vector2[] prof, float off, float w, int cnt, string name)
+    {
+        var v = new List<Vector3>(); var t = new List<int>(); var line = OffsetProf(prof, off); int m = line.Length;
+        for (int k = 0; k < cnt; k++)
         {
-            var fl = new GameObject("FlossSpray" + k).transform; fl.SetParent(holder, false); fl.localPosition = new Vector3(0f, HeadY, 0f); fl.localRotation = Quaternion.Euler(90f, 0f, 0f);
-            var ps = fl.gameObject.AddComponent<ParticleSystem>();
-            var main = ps.main; main.loop = true; main.playOnAwake = true; main.startLifetime = new ParticleSystem.MinMaxCurve(3f, 5f); main.startSpeed = new ParticleSystem.MinMaxCurve(2.5f, 4f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.15f, 0.35f); main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 120; main.gravityModifier = -0.03f;
-            var em = ps.emission; em.rateOverTime = 12f;
-            var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 1.15f; sh.radiusThickness = 0f;
-            var lv = ps.limitVelocityOverLifetime; lv.enabled = true; lv.limit = 0.4f; lv.dampen = 0.12f;
-            var sol = ps.sizeOverLifetime; sol.enabled = true; sol.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.4f), new Keyframe(0.35f, 1.6f), new Keyframe(1f, 0f)));
-            var pr = fl.GetComponent<ParticleSystemRenderer>(); pr.renderMode = ParticleSystemRenderMode.Mesh;
-            var tmp = GameObject.CreatePrimitive(PrimitiveType.Sphere); pr.mesh = tmp.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(tmp);
-            pr.sharedMaterial = FlossMat(k);
+            float a = 2f * Mathf.PI * k / cnt; var d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var s = new Vector3(-d.z, 0f, d.x);
+            int b = v.Count;
+            for (int i = 0; i < m; i++) { var c = d * line[i].x + Vector3.up * line[i].y; float hw = w * 0.5f; v.Add(c - s * hw); v.Add(c + s * hw); }
+            for (int i = 0; i < m - 1; i++) { int a0 = b + 2 * i; t.Add(a0); t.Add(a0 + 2); t.Add(a0 + 1); t.Add(a0 + 1); t.Add(a0 + 2); t.Add(a0 + 3); }
         }
-        // 鍋（浮いている、回らない）：回転体。まん中に軸の穴
-        var bowl = new GameObject("CandyBowl"); bowl.transform.SetParent(holder, false); bowl.transform.localPosition = new Vector3(0f, BowlY, 0f); bowl.layer = 11;
-        var bm = BowlMesh(new[] { new Vector2(1.4f, 0f), new Vector2(3.6f, 0.08f), new Vector2(4.9f, 0.35f), new Vector2(5.6f, 0.9f), new Vector2(BowlR, BowlH * 0.8f), new Vector2(BowlR, BowlH) }, 0.16f, 64, "Candy_Bowl");
-        bowl.AddComponent<MeshFilter>().sharedMesh = bm; bowl.AddComponent<MeshRenderer>().sharedMaterial = bowlM; bowl.AddComponent<MeshCollider>().sharedMesh = bm;
-        var rim = new GameObject("BowlRim"); rim.transform.SetParent(bowl.transform, false);
-        rim.AddComponent<MeshFilter>().sharedMesh = RingMesh(BowlR - 0.06f, BowlR + 0.34f, BowlH - 0.24f, BowlH + 0.04f, 64, "Candy_BowlRim"); rim.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
-        // 鍋のふちにたまった雲の糸（動かない）
-        for (int k = 0; k < 30; k++)
-        {
-            float a = k * 12f * Mathf.Deg2Rad, rr = BowlR - 0.75f - 0.25f * (k % 3), sz = 1.0f + 0.35f * ((k * 7) % 4) / 3f;
-            var b = GameObject.CreatePrimitive(PrimitiveType.Sphere); b.name = "FlossPile"; Object.DestroyImmediate(b.GetComponent<Collider>());
-            b.transform.SetParent(bowl.transform, false); b.transform.localPosition = new Vector3(Mathf.Cos(a) * rr, 1.0f + 0.25f * (k % 2), Mathf.Sin(a) * rr); b.transform.localScale = new Vector3(sz, sz * 0.75f, sz);
-            b.GetComponent<Renderer>().sharedMaterial = k % 3 == 0 ? flossM : FlossMat(k % SugarCols.Length);
-        }
-        // 鍋を支える足（歯車箱のわくから3本）
-        for (int k = 0; k < 3; k++)
-        {
-            float a = (k * 120f + 45f) * Mathf.Deg2Rad; var top = new Vector3(Mathf.Cos(a) * 3.2f, BowlY + 0.1f, Mathf.Sin(a) * 3.2f); var bot = new Vector3(Mathf.Cos(a) * 4.6f, BoxY + 3 * LS + LT + 0.2f, Mathf.Sin(a) * 4.6f);
-            var leg = TBox(holder, "BowlLeg", (top + bot) / 2f, new Vector3(0.18f, 0.18f, (top - bot).magnitude), cwAxle, false);
-            leg.localRotation = Quaternion.LookRotation(top - bot);
-        }
-        log.Append(" わたあめ機：頭 1周 " + (360f / Mathf.Abs(E1.ratio * ClockSpeed)).ToString("F2") + "秒 ");
+        return SaveMesh(name, v, t);
     }
 
     // ===== 色ざらめのパイプ（2026-11-08 てじゃ「周りの自動で回ってる歯車の末端も、何かしらの形でつなげて」→ A。「羽でまわす歯車はべつにいい」）=====
     //  自動で回るしかけ（乗る歯車・穴あき・ごつい・段つき）の最後の歯車の下に、64:8 の増速歯車 → クランク → ピストンのポンプ（FuwaCloudFactory）。
     //  ひと押しごとに色つきの太いパイプ（FuwaSugarPipe）の中をざらめのふくらみが流れて、まん中の鍋の底へ。着いたらその色の雲の糸
-    static readonly Color[] SugarCols = { new Color(1f, 0.72f, 0.86f), new Color(0.66f, 0.85f, 1f), new Color(1f, 0.92f, 0.55f), new Color(0.66f, 0.97f, 0.82f) };
-    static readonly Color[] PipeCols = { new Color(0.95f, 0.52f, 0.72f), new Color(0.45f, 0.7f, 0.96f), new Color(0.98f, 0.8f, 0.3f), new Color(0.38f, 0.85f, 0.64f) };
-    static Material FlossMat(int k) => FuwaGearTest.Mat("Course2_4_Floss" + k, SugarCols[k]);
+    //  2026-11-08 てじゃ「情報量がふえすぎた」「白パイプだけにして、上にあげてでっかいバルーン状の機械に接続」「ふくらみはあってもいい」→ 色なしの白いパイプ、まん中のバルーンの首へ
+    static readonly Color PipeCol = new Color(0.95f, 0.95f, 0.97f), BulgeCol = new Color(1f, 0.99f, 0.96f);
     public static float PumpScale = 1.3f, PipeR = 0.3f, PipeRiseR = 5.2f;
     static void SugarPipes(Transform core, System.Text.StringBuilder log)
     {
@@ -1332,7 +1355,7 @@ public static class FuwaCourse2_4Builder
         F.localPosition = new Vector3(gp.x, bottom - 0.35f - 0.9f * sc, gp.z); F.localScale = Vector3.one * sc;
         Vector3 u = cc - new Vector3(gp.x, 0f, gp.z); u.y = 0f; u.Normalize();
         F.localRotation = Quaternion.LookRotation(Vector3.Cross(u, Vector3.up), Vector3.up);
-        var pipeM = FuwaStage2WaterTest.ToonMat("Course2_4_SugarPipe" + k, PipeCols[k]);
+        var pipeM = FuwaStage2WaterTest.ToonMat("Course2_4_SugarPipe", PipeCol);
         // 大きい歯車（最後の歯車の子：いっしょに回る）と、そこまでの軸
         var big = new GameObject("FactoryBig_z" + FacZBig).transform; big.SetParent(g, false);
         big.position = F.position; big.localPosition = new Vector3(0f, big.localPosition.y, 0f); big.localRotation = Quaternion.identity; big.localScale = Vector3.one * sc;
@@ -1389,8 +1412,8 @@ public static class FuwaCourse2_4Builder
         Vector3 outW = F.TransformPoint(pc + axisY + new Vector3(fd + 0.1f, 0f, 0f));
         var p0 = root.InverseTransformPoint(outW);
         var dirC = new Vector3(cc.x - p0.x, 0f, cc.z - p0.z).normalized;   // まん中へ向かう向き
-        // 鍋の外（歯車箱の大きい歯車より外）で上がって、ふちを越えて内がわへ注ぐ。ぶつからない高さ・半径・向きを探す
-        float topY = BowlY + BowlH + 0.7f, spoutR = BowlR - 1.1f;
+        // 歯車箱の大きい歯車より外で上がって、バルーンの首の輪の横へ。ぶつからない高さ・半径・向きを探す
+        float topY = PipeInY, spoutR = CollarR1 + 0.02f;
         Vector3[] Route(float yR, float rr, float yaw)
         {
             var d = Quaternion.Euler(0f, yaw, 0f) * (-dirC);
@@ -1427,19 +1450,17 @@ public static class FuwaCourse2_4Builder
         var inlet = GameObject.CreatePrimitive(PrimitiveType.Cylinder); inlet.name = "PipeInlet"; Object.DestroyImmediate(inlet.GetComponent<Collider>());
         inlet.transform.SetParent(pipeT, false); inlet.transform.localPosition = pts[pts.Length - 1]; inlet.transform.localRotation = Quaternion.FromToRotation(Vector3.up, (pts[pts.Length - 1] - pts[pts.Length - 2]).normalized); inlet.transform.localScale = new Vector3(2f * PipeR + 0.2f, 0.12f, 2f * PipeR + 0.2f); inlet.GetComponent<Renderer>().sharedMaterial = cwBrass;
         // ざらめのふくらみ（使い回し 5 つ、はじめは隠す）
-        var bulgeM = FuwaStage2WaterTest.ToonMat("Course2_4_SugarBulge" + k, Color.Lerp(PipeCols[k], Color.white, 0.45f));
+        var bulgeM = FuwaStage2WaterTest.ToonMat("Course2_4_SugarBulge", BulgeCol);
         var bulges = new Transform[5];
         for (int i = 0; i < bulges.Length; i++)
         {
             var b = GameObject.CreatePrimitive(PrimitiveType.Sphere); b.name = "SugarBulge"; Object.DestroyImmediate(b.GetComponent<Collider>());
-            b.transform.SetParent(pipeT, false); b.transform.localScale = new Vector3(2f * PipeR + 0.22f, 2f * PipeR + 0.22f, 2f * PipeR + 0.5f); b.GetComponent<Renderer>().sharedMaterial = bulgeM;
+            b.transform.SetParent(pipeT, false); b.transform.localScale = new Vector3(2f * PipeR + 0.3f, 2f * PipeR + 0.3f, 2f * PipeR + 0.6f); b.GetComponent<Renderer>().sharedMaterial = bulgeM;
             b.gameObject.SetActive(false); bulges[i] = b.transform;
         }
         var sp2 = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSugarPipe>(pipeT.gameObject);
         sp2.pts = pts.Select(x => root.TransformPoint(x)).ToArray(); sp2.bulges = bulges; sp2.speed = 4.5f; sp2.endCount = 12;
-        var puff = FacPuff(pipeT, pts[pts.Length - 1] + Vector3.down * 0.35f, Vector3.down, 0.45f, 0f, 0.3f);   // 注ぎ口から鍋へ
-        puff.GetComponent<ParticleSystemRenderer>().sharedMaterial = FlossMat(k);
-        sp2.endPuff = puff;
+        sp2.endPuff = null; sp2.balloon = balloon;   // 着いたらバルーンがふくらんで、てっぺんから雲
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp2); FuwaStage2WaterTest.NoSync(sp2);
         fc.pipes = new[] { sp2 };
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); FuwaStage2WaterTest.NoSync(fc);
@@ -1457,7 +1478,7 @@ public static class FuwaCourse2_4Builder
         for (int i = 1; i < pts.Length; i++)
         {
             Vector3 a = root.TransformPoint(pts[i - 1]), b = root.TransformPoint(pts[i]);
-            foreach (var c in Physics.OverlapCapsule(a, b, PipeR + 0.1f, ~0, QueryTriggerInteraction.Ignore)) if (!(c.transform.parent && c.transform.parent.name == "CottonCandy")) n++;
+            foreach (var c in Physics.OverlapCapsule(a, b, PipeR + 0.1f, ~0, QueryTriggerInteraction.Ignore)) if (!(c.transform.parent && c.transform.parent.name == "CloudBalloon")) n++;
             var bb = new Bounds(a, Vector3.zero); bb.Encapsulate(b); bb.Expand(2f * PipeR);
             foreach (var r in rs)
             {
