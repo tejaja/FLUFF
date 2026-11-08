@@ -13,7 +13,7 @@ public static class FuwaCopterBuilder
     const string MatDir = "Assets/FuwaCourse/Materials/Copter";
     public static Vector3 StandLocal = new Vector3(-5.4f, 0f, 0.9f);   // 傘立てと同じ所（銃の台の左どなり）
     // 竹とんぼの大きさ（root は持つ所＝軸の下から 1/3。+Y が羽の方）
-    const float StickLen = 0.34f, StickR = 0.014f, GripFromBottom = 0.11f, BladeSpan = 0.52f, BladeW = 0.065f, BladeT = 0.01f, BladeTwist = 16f;
+    const float StickLen = 0.34f, StickR = 0.014f, GripFromBottom = 0.11f, BladeSpan = 0.52f, BladeW = 0.065f, BladeT = 0.01f, BladeTwist = 16f, TipR = 0.016f;
     const float StandBaseH = 0.1f, StandPostH = 0.75f;
 
     [MenuItem("FuwaCourse/よく使う/竹とんぼ立て（見学用）を作り直す（傘は消す）")]
@@ -62,7 +62,14 @@ public static class FuwaCopterBuilder
             // 竹とんぼ：軸の下のはしが柱の上のつつの底に入る
             float cupTop = StandBaseH + StandPostH + 0.06f;
             var pos = st.TransformPoint(new Vector3(0f, cupTop - 0.05f + GripFromBottom, 0f));
-            MakeCopter(holder, key + "_Copter", pos, st.rotation, bamboo, node, blade, bladeMesh, manager);
+            var cop = MakeCopter(holder, key + "_Copter", pos, st.rotation, bamboo, node, blade, bladeMesh, manager);
+            // 立てをクリックで戻す（台と柱の当たり。竹とんぼの当たりより下）
+            var sc = st.gameObject.AddComponent<CapsuleCollider>(); sc.direction = 1; sc.radius = 0.18f; sc.height = StandBaseH + StandPostH; sc.center = new Vector3(0f, (StandBaseH + StandPostH) / 2f, 0f);
+            var fs = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaCopterStand>(st.gameObject);
+            fs.copter = cop.GetComponent<FuwaBambooCopter>(); fs.InteractionText = "竹とんぼをもどす";
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fs);
+            var sub = UdonSharpEditor.UdonSharpEditorUtility.GetBackingUdonBehaviour(fs);
+            if (sub) { sub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; sub.interactText = "竹とんぼをもどす"; EditorUtility.SetDirty(sub); }
             log.Append(key + " 床 " + floorY.ToString("F2") + " ");
         }
         FixNetworkIds();
@@ -118,16 +125,22 @@ public static class FuwaCopterBuilder
         }
         foreach (float sg in new[] { 1f, -1f })
         {
+            // 2026-11-08 てじゃ「先端、もうちょい四角寄りに　角はとってほしい」→ はしまで同じ幅、かどだけ半径 TipR で丸める
             var sec = new List<Vector3[]>();
-            for (int i = 0; i <= N; i++)
+            float half = BladeSpan / 2f, uc = 1f - TipR / half;
+            var us = new List<float>();
+            for (int i = 0; i <= N; i++) us.Add(uc * i / N);
+            for (int i = 1; i <= 6; i++) us.Add(uc + (1f - uc) * i / 6f);
+            foreach (float u in us)
             {
-                float u = i / (float)N, x = sg * u * BladeSpan / 2f;
-                float w = BladeW * (u < 0.85f ? 1f : Mathf.Sqrt(Mathf.Max(0.05f, 1f - Mathf.Pow((u - 0.85f) / 0.15f, 2f))));
+                float x = sg * u * half;
+                float dz = Mathf.Max(0f, u - uc) * half;   // かどの丸みの中
+                float w = BladeW - 2f * TipR + 2f * Mathf.Sqrt(Mathf.Max(0f, TipR * TipR - dz * dz));
                 var q = Quaternion.AngleAxis(sg * BladeTwist * u, Vector3.right);   // 外ほどねじれる（両側で回る向きにそろう）
                 Vector3 P(float z, float y) => new Vector3(x, 0f, 0f) + q * new Vector3(0f, y, z);
                 sec.Add(new[] { P(-w / 2f, -BladeT / 2f), P(w / 2f, -BladeT / 2f), P(w / 2f, BladeT / 2f), P(-w / 2f, BladeT / 2f) });
             }
-            for (int i = 0; i < N; i++)
+            for (int i = 0; i < sec.Count - 1; i++)
             {
                 var a = sec[i]; var c = sec[i + 1];
                 Quad(a[3], a[2], c[2], c[3], Vector3.up);
@@ -135,7 +148,7 @@ public static class FuwaCopterBuilder
                 Quad(a[1], a[2], c[2], c[1], Vector3.forward);
                 Quad(a[0], a[3], c[3], c[0], Vector3.back);
             }
-            var e = sec[N]; Quad(e[0], e[1], e[2], e[3], new Vector3(sg, 0f, 0f));
+            var e = sec[sec.Count - 1]; Quad(e[0], e[1], e[2], e[3], new Vector3(sg, 0f, 0f));
         }
         string path = MeshDir + "/Copter_Blade.asset";
         var m = AssetDatabase.LoadAssetAtPath<Mesh>(path);
@@ -146,13 +159,17 @@ public static class FuwaCopterBuilder
         return m;
     }
 
-    static UdonSharp.UdonSharpProgramAsset EnsureProgram()
+    static void EnsureProgram()
     {
-        const string p = "Assets/FuwaCourse/Scripts/FuwaBambooCopter.asset";
+        EnsureProgram("FuwaBambooCopter"); EnsureProgram("FuwaCopterStand");
+    }
+    static UdonSharp.UdonSharpProgramAsset EnsureProgram(string cls)
+    {
+        string p = "Assets/FuwaCourse/Scripts/" + cls + ".asset";
         var a = AssetDatabase.LoadAssetAtPath<UdonSharp.UdonSharpProgramAsset>(p);
         if (a) return a;
         a = ScriptableObject.CreateInstance<UdonSharp.UdonSharpProgramAsset>();
-        a.sourceCsScript = AssetDatabase.LoadAssetAtPath<MonoScript>("Assets/FuwaCourse/Scripts/FuwaBambooCopter.cs");
+        a.sourceCsScript = AssetDatabase.LoadAssetAtPath<MonoScript>("Assets/FuwaCourse/Scripts/" + cls + ".cs");
         AssetDatabase.CreateAsset(a, p); AssetDatabase.SaveAssets();
         UdonSharp.UdonSharpProgramAsset.CompileAllCsPrograms();
         return a;

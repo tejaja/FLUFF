@@ -11,7 +11,7 @@ using VRC.Udon.Common;
 //   2026-11-08 てじゃ「トリガーでプロペラの向きに移動、つまりデフォだとトリガーorクリックで真上に上昇」→ プロペラの向き（transform.up）へ speed
 // ・持っていて空中でトリガーを押していない間：ホバリング（かなりゆっくり降りる hoverFall）＋ふつうの移動（WASD・スティック）
 // ・トリガーを離すと素早くホバリングの速さに（brakeTime）
-// ・手放すと returnDelay 秒で立てに戻る。エアガンを持ったら手放す
+// ・手放してもその場に残る（2026-11-08 てじゃ「離しても自動で戻らなくする　元の台座をクリックで戻す」→ FuwaCopterStand）。エアガンを持ったら手放す
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaBambooCopter : UdonSharpBehaviour
 {
@@ -29,11 +29,9 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     public float brakeTime = 0.18f;
     [Header("羽")]
     public float spinUse = 1500f, spinIdle = 0f, spinAccel = 2400f;
-    [Header("戻る")]
-    public float returnDelay = 8f;
 
-    private bool _mine, _using, _braking, _waiting;
-    private float _gravity = 1f, _brakeStart, _dropTime, _liftUntil, _spin;
+    private bool _mine, _using, _braking;
+    private float _gravity = 1f, _brakeStart, _liftUntil, _spin;
     private Vector3 _brakeFrom, _homePos;
     private Quaternion _homeRot;
     private float _moveH, _moveV;
@@ -46,6 +44,13 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         _homePos = transform.position; _homeRot = transform.rotation;
     }
 
+    // 竹とんぼ立てをクリックした（FuwaCopterStand）：持っていたら手放して、立てに戻す
+    public void ReturnHome()
+    {
+        if (_mine && _pickup != null) _pickup.Drop();
+        transform.SetPositionAndRotation(_homePos, _homeRot);
+    }
+
     public override void InputMoveHorizontal(float value, UdonInputEventArgs args) { _moveH = value; }
     public override void InputMoveVertical(float value, UdonInputEventArgs args) { _moveV = value; }
 
@@ -53,7 +58,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     {
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
-        _mine = true; _using = false; _braking = false; _waiting = false;
+        _mine = true; _using = false; _braking = false;
         _gravity = p.GetGravityStrength();
     }
 
@@ -62,7 +67,6 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         if (!_mine) return;
         EndFlight();
         _mine = false;
-        _waiting = true; _dropTime = Time.time;
     }
 
     public override void OnPickupUseDown()
@@ -97,13 +101,6 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         float want = _using ? spinUse : (_mine ? spinIdle : 0f);
         _spin = Mathf.MoveTowards(_spin, want, spinAccel * Time.deltaTime);
         if (blades != null && _spin != 0f) blades.Rotate(0f, _spin * Time.deltaTime, 0f, Space.Self);
-
-        // 手放した：しばらくして立てに戻る
-        if (_waiting && Time.time - _dropTime > returnDelay)
-        {
-            _waiting = false;
-            transform.SetPositionAndRotation(_homePos, _homeRot);
-        }
 
         if (!_mine) return;
         VRCPlayerApi p = Networking.LocalPlayer;
