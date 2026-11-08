@@ -97,9 +97,16 @@ public static class FuwaCourse2_4Builder
         // 塔へ（まん中）：①の上をまたいで
         T(-120f); S(8f, 3f); S(14f);   // 2026-11-07 2枚の回転床を大きくした（すき間 3.2m）ので塔の位置を合わせ直し
         // 時計塔のトンネルを突っ切って、抜けた先にゴール（2026-11-07 てじゃ「最後は塔を突っ切った先がゴール」）
-        ClockTower(P + Dir(th) * (TowerW / 2f), th);
+        // 2026-11-08 てじゃ「時計塔自体なしにして、ここにデカい何かしらの機械を」→ 巨大わたあめ機（UseTower=false）。時計塔・振り子・雲づくり工場のコードは残す
+        //  まん中（前の塔の中心）を coreT に。でかい歯車・塔の時計じかけ・めりこみ対策はここにつく
+        var coreAt = P + Dir(th) * (TowerW / 2f);
+        if (UseTower) { ClockTower(coreAt, th); coreT = root.Find("ClockTower"); }
+        else { coreT = new GameObject("MachineCore").transform; coreT.SetParent(root, false); coreT.localPosition = coreAt; coreT.localRotation = Quaternion.LookRotation(Dir(th)); pendPivot = null; }
         TowerDriveRide(log);
-        ClockworkFeeds(root.Find("ClockTower")); CloudFactory(root.Find("ClockTower")); ClockworkInstall(root.Find("ClockTower")); GuardInstall(root.Find("ClockTower"));
+        ClockworkFeeds(coreT);
+        if (UseFactory) CloudFactory(coreT);
+        if (!UseTower) CottonCandy(coreT, log);
+        ClockworkInstall(coreT); GuardInstall(coreT);
         S(TowerW); S(1f);
         var goalAt = GoalSet(root, P, Dir(th));
 
@@ -483,7 +490,7 @@ public static class FuwaCourse2_4Builder
     //  前の動力（クリスタルの箱・G1 のウォームホイール）は消す。お試しで消えた歯車（オルゴール・石臼）の空きも詰める
     static void TowerDriveRide(System.Text.StringBuilder log)
     {
-        var ride = root.Find("Sections/S1_GearRide"); var tower = root.Find("ClockTower");
+        var ride = root.Find("Sections/S1_GearRide"); var tower = coreT;
         if (!ride || !tower) return;
         foreach (var w in ride.GetComponentsInChildren<Transform>(true).Where(x => x.name.StartsWith("WormWheel")).ToArray()) Object.DestroyImmediate(w.gameObject);
         var gr = ride.GetComponentInChildren<FuwaGearRide>(true);
@@ -818,7 +825,7 @@ public static class FuwaCourse2_4Builder
         }
         WheelRatioUsed = bestRW;
         // でかい歯車（まん中は塔の土台の中にかくれる。こしきの輪は塔の角の外）
-        float rHub = 5.9f, rWin = RW - 1.25f * WM - 0.9f;
+        float rHub = UseTower ? 5.9f : 2.6f, rWin = RW - 1.25f * WM - 0.9f;
         var wins = new (float, float)[8]; for (int k = 0; k < 8; k++) wins[k] = (k * 45f + 22.5f, 18.5f);
         var wMesh = WindowGear(WZ, WM, WT, rHub, rWin, wins, "Clockwork_BigWheel_z" + WZ);
         var wg = CwGear(wf, "BigWheel_z" + WZ, Vector3.zero, Vector3.up, wMesh, cwDark);
@@ -1159,6 +1166,195 @@ public static class FuwaCourse2_4Builder
         fc.hammer = hm; fc.hammerBaseY = y0 + rollR; fc.lift = lift; fc.steps = steps; fc.camSign = sg;
         fc.hammerPuff = FacPuff(F, new Vector3(stemX, doughTop + 0.05f, pc.z), Vector3.up, 0.4f, 0f, 0.45f);
         fc.puffCount = 7;
+    }
+
+    // ===== まん中の巨大わたあめ機（2026-11-08 てじゃ「時計塔自体なしにして、デカい機械を」→ A わたあめ機「機械はその歯車の上にういててもいい」）=====
+    //  動力：でかい歯車（88枚）のまん中に立つでかいクリスタル（歯車といっしょに回る。てじゃ「最初の動力源は下のデカい歯車の中心のデカいクリスタル」）
+    //  → 浮いている歯車箱（60:12 を4組、同じ軸にもどる形で 625 倍）→ わたあめ機の頭（鍋のまん中でくるくる、雲の糸が出る）
+    //  鍋は浮いていて回らない。ふちに雲の糸がたまっている。大きさは回転床 A・まわりの道とぶつからないように
+    public static bool UseTower = false, UseFactory = false;
+    static Transform coreT;
+    public static float CrystalH = 6.6f, BoxY = 3.4f, BowlY = 5.5f, BowlR = 6f, BowlH = 2f, HeadY = 6.2f;
+    const float CcMod = 0.1f; const int CcBig = 60, CcSmall = 12;
+    static void CottonCandy(Transform core, System.Text.StringBuilder log)
+    {
+        var wf = root.Find("Gimmicks/BigWheel_Frame"); var wheel = wf ? wf.GetComponentsInChildren<Transform>(true).FirstOrDefault(x => x.name == "BigWheel_z" + WZ) : null;
+        if (!wheel) { log.Append("でかい歯車がない "); return; }
+        var holder = new GameObject("CottonCandy").transform; holder.SetParent(root.Find("Gimmicks"), false);
+        var cc = root.InverseTransformPoint(core.position); holder.localPosition = new Vector3(cc.x, 0f, cc.z);
+        var crystalMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_3_Crystal.mat");
+        var cryMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaStage2/Meshes/Course2_3/ObsCrystal1_Main.asset");
+        var bowlM = FuwaStage2WaterTest.ToonMat("Stage2_4_CandyBowl", new Color(0.84f, 0.88f, 0.94f));
+        var flossM = FuwaGearTest.Mat("Course2_4_Floss", new Color(1f, 0.9f, 0.96f));
+        float wheelTop = WT;   // でかい歯車の上の面（歯車の local）
+        // クリスタル（でかい歯車の子：いっしょに回る）。土台の真ちゅうの輪と、まわりに小さいクリスタル
+        if (cryMesh && crystalMat)
+        {
+            float mh = cryMesh.bounds.size.y, s = CrystalH / Mathf.Max(0.01f, mh);
+            void Cry(string n, Vector3 lp, float sc, float tilt, float yaw)
+            {
+                var c = new GameObject(n).transform; c.SetParent(wheel, false);
+                c.localRotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(tilt, 0f, 0f); c.localScale = Vector3.one * sc;
+                c.localPosition = lp + c.localRotation * new Vector3(0f, -cryMesh.bounds.min.y * sc, 0f);
+                c.gameObject.AddComponent<MeshFilter>().sharedMesh = cryMesh; c.gameObject.AddComponent<MeshRenderer>().sharedMaterial = crystalMat;
+            }
+            Cry("PowerCrystal", new Vector3(0f, wheelTop, 0f), s, 0f, 0f);
+            for (int k = 0; k < 5; k++) { float a = k * 72f + 20f; Cry("PowerCrystalSmall" + k, Quaternion.Euler(0f, a, 0f) * new Vector3(1.6f, wheelTop, 0f), s * (0.32f + 0.06f * (k % 3)), 24f, a + 90f); }
+            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ring.name = "CrystalMount"; Object.DestroyImmediate(ring.GetComponent<Collider>());
+            ring.transform.SetParent(wheel, false); ring.transform.localPosition = new Vector3(0f, wheelTop + 0.12f, 0f); ring.transform.localScale = new Vector3(2.6f, 0.12f, 2.6f); ring.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        }
+        // 歯車箱（浮いている）：A1(60) → B1(12)=B2(60) → C1(12)=C2(60) → D1(12)=D2(60) → E1(12)。A・C・E は同じ軸（まん中）
+        float wy = root.InverseTransformPoint(wf.position).y;
+        var G = new GameObject("Gearbox").transform; G.SetParent(holder, false); G.localPosition = new Vector3(0f, BoxY, 0f);
+        float rW = WheelRatioUsed;
+        var A1 = new FuwaGearTest.Gear { name = "A1", z = CcBig, c = Vector2.zero, ratio = rW, phase = 0f };
+        var B1 = FuwaGearTest.Mesh2(A1, "B1", CcSmall, 0f, CcMod);
+        var B2 = new FuwaGearTest.Gear { name = "B2", z = CcBig, c = B1.c, ratio = B1.ratio, phase = B1.phase };
+        var C1 = FuwaGearTest.Mesh2(B2, "C1", CcSmall, 180f, CcMod);
+        var C2 = new FuwaGearTest.Gear { name = "C2", z = CcBig, c = C1.c, ratio = C1.ratio, phase = C1.phase };
+        var D1 = FuwaGearTest.Mesh2(C2, "D1", CcSmall, 90f, CcMod);
+        var D2 = new FuwaGearTest.Gear { name = "D2", z = CcBig, c = D1.c, ratio = D1.ratio, phase = D1.phase };
+        var E1 = FuwaGearTest.Mesh2(D2, "E1", CcSmall, 270f, CcMod);
+        const float LT = 0.28f, LS = 0.42f;   // 歯車の厚み・段の間
+        var bigMesh = SpurMesh(CcBig, CcMod, LT, "Candy_Gear_z" + CcBig); var smallMesh = SpurMesh(CcSmall, CcMod, LT, "Candy_Gear_z" + CcSmall);
+        var gt = new Dictionary<string, Transform>();
+        void GearAt(FuwaGearTest.Gear q, int layer, bool big, Material m)
+        {
+            var t = CwGear(G, "Candy_" + q.name, new Vector3(q.c.x, layer * LS, q.c.y), Vector3.up, big ? bigMesh : smallMesh, m);
+            AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg); gt[q.name] = t;
+        }
+        GearAt(A1, 0, true, cwBrass); GearAt(B1, 0, false, cwDark);
+        GearAt(B2, 1, true, cwLight); GearAt(C1, 1, false, cwDark);
+        GearAt(C2, 2, true, cwBrass); GearAt(D1, 2, false, cwDark);
+        GearAt(D2, 3, true, cwLight); GearAt(E1, 3, false, cwDark);
+        // 軸：A1 からクリスタルの頭まで／B・D の軸／C の筒／E の軸から頭まで
+        float cryTop = wy + wheelTop + CrystalH - BoxY;   // 歯車箱の local の y
+        CwShaft(gt["A1"], cryTop - 0.2f, LT, 0.5f);
+        CwShaft(gt["B1"], -0.15f, LS + LT + 0.15f, 0.3f);
+        CwShaft(gt["C1"], -0.05f, LS + LT + 0.05f, 0.42f);
+        CwShaft(gt["D1"], -0.15f, LS + LT + 0.15f, 0.3f);
+        float headLocal = HeadY - BoxY - 3 * LS;   // E1 の local の y（E1 は 3段目）
+        CwShaft(gt["E1"], -0.1f, headLocal, 0.3f);
+        // 歯車箱のわく（動かない）：B・D の軸を支える腕を、いちばん上と下に
+        foreach (var (q, y0) in new[] { (B1, -0.25f), (B1, LS + LT + 0.2f), (D1, 2 * LS - 0.25f), (D1, 3 * LS + LT + 0.2f) })
+        {
+            var arm = TBox(G, "GearboxArm", new Vector3(q.c.x / 2f, y0, q.c.y / 2f), new Vector3(0.22f, 0.1f, q.c.magnitude + 0.5f), cwAxle, false);
+            arm.localRotation = Quaternion.LookRotation(new Vector3(q.c.x, 0f, q.c.y));
+        }
+        // 頭（E1 の子：いっしょに回る）：円盤＋真ちゅうの帯＋ふちの穴、雲の糸を出す
+        var head = new GameObject("CandyHead").transform; head.SetParent(gt["E1"], false); head.localPosition = new Vector3(0f, headLocal, 0f);
+        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder); disc.name = "Spinner"; Object.DestroyImmediate(disc.GetComponent<Collider>());
+        disc.transform.SetParent(head, false); disc.transform.localScale = new Vector3(2.2f, 0.25f, 2.2f); disc.GetComponent<Renderer>().sharedMaterial = cwLight;
+        var band = GameObject.CreatePrimitive(PrimitiveType.Cylinder); band.name = "SpinnerBand"; Object.DestroyImmediate(band.GetComponent<Collider>());
+        band.transform.SetParent(head, false); band.transform.localScale = new Vector3(2.26f, 0.08f, 2.26f); band.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        var cap = GameObject.CreatePrimitive(PrimitiveType.Sphere); cap.name = "SpinnerCap"; Object.DestroyImmediate(cap.GetComponent<Collider>());
+        cap.transform.SetParent(head, false); cap.transform.localPosition = new Vector3(0f, 0.28f, 0f); cap.transform.localScale = new Vector3(0.9f, 0.5f, 0.9f); cap.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        for (int k = 0; k < 12; k++)
+        {
+            float a = k * 30f * Mathf.Deg2Rad;
+            var hole = GameObject.CreatePrimitive(PrimitiveType.Cube); hole.name = "SpinnerSlot"; Object.DestroyImmediate(hole.GetComponent<Collider>());
+            hole.transform.SetParent(head, false); hole.transform.localPosition = new Vector3(Mathf.Cos(a) * 1.115f, 0f, Mathf.Sin(a) * 1.115f); hole.transform.localRotation = Quaternion.Euler(0f, -k * 30f, 0f);
+            hole.transform.localScale = new Vector3(0.04f, 0.18f, 0.22f); hole.GetComponent<Renderer>().sharedMaterial = cwAxle;
+        }
+        // 雲の糸：頭のふちから外へ（ゆっくりになって、ふわっと上がる）
+        var fl = new GameObject("FlossSpray").transform; fl.SetParent(holder, false); fl.localPosition = new Vector3(0f, HeadY, 0f); fl.localRotation = Quaternion.Euler(90f, 0f, 0f);
+        var ps = fl.gameObject.AddComponent<ParticleSystem>();
+        var main = ps.main; main.loop = true; main.playOnAwake = true; main.startLifetime = new ParticleSystem.MinMaxCurve(3f, 5f); main.startSpeed = new ParticleSystem.MinMaxCurve(2.5f, 4f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.15f, 0.35f); main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 400; main.gravityModifier = -0.03f;
+        var em = ps.emission; em.rateOverTime = 45f;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 1.15f; sh.radiusThickness = 0f;
+        var lv = ps.limitVelocityOverLifetime; lv.enabled = true; lv.limit = 0.4f; lv.dampen = 0.12f;
+        var sol = ps.sizeOverLifetime; sol.enabled = true; sol.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.4f), new Keyframe(0.35f, 1.6f), new Keyframe(1f, 0f)));
+        var pr = fl.GetComponent<ParticleSystemRenderer>(); pr.renderMode = ParticleSystemRenderMode.Mesh;
+        var tmp = GameObject.CreatePrimitive(PrimitiveType.Sphere); pr.mesh = tmp.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(tmp);
+        pr.sharedMaterial = flossM;
+        // 鍋（浮いている、回らない）：回転体。まん中に軸の穴
+        var bowl = new GameObject("CandyBowl"); bowl.transform.SetParent(holder, false); bowl.transform.localPosition = new Vector3(0f, BowlY, 0f); bowl.layer = 11;
+        var bm = BowlMesh(new[] { new Vector2(1.4f, 0f), new Vector2(3.6f, 0.08f), new Vector2(4.9f, 0.35f), new Vector2(5.6f, 0.9f), new Vector2(BowlR, BowlH * 0.8f), new Vector2(BowlR, BowlH) }, 0.16f, 64, "Candy_Bowl");
+        bowl.AddComponent<MeshFilter>().sharedMesh = bm; bowl.AddComponent<MeshRenderer>().sharedMaterial = bowlM; bowl.AddComponent<MeshCollider>().sharedMesh = bm;
+        var rim = new GameObject("BowlRim"); rim.transform.SetParent(bowl.transform, false);
+        rim.AddComponent<MeshFilter>().sharedMesh = RingMesh(BowlR - 0.06f, BowlR + 0.34f, BowlH - 0.24f, BowlH + 0.04f, 64, "Candy_BowlRim"); rim.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        // 鍋のふちにたまった雲の糸（動かない）
+        for (int k = 0; k < 30; k++)
+        {
+            float a = k * 12f * Mathf.Deg2Rad, rr = BowlR - 0.75f - 0.25f * (k % 3), sz = 1.0f + 0.35f * ((k * 7) % 4) / 3f;
+            var b = GameObject.CreatePrimitive(PrimitiveType.Sphere); b.name = "FlossPile"; Object.DestroyImmediate(b.GetComponent<Collider>());
+            b.transform.SetParent(bowl.transform, false); b.transform.localPosition = new Vector3(Mathf.Cos(a) * rr, 1.0f + 0.25f * (k % 2), Mathf.Sin(a) * rr); b.transform.localScale = new Vector3(sz, sz * 0.75f, sz);
+            b.GetComponent<Renderer>().sharedMaterial = flossM;
+        }
+        // 鍋を支える足（歯車箱のわくから3本）
+        for (int k = 0; k < 3; k++)
+        {
+            float a = (k * 120f + 45f) * Mathf.Deg2Rad; var top = new Vector3(Mathf.Cos(a) * 3.2f, BowlY + 0.1f, Mathf.Sin(a) * 3.2f); var bot = new Vector3(Mathf.Cos(a) * 4.6f, BoxY + 3 * LS + LT + 0.2f, Mathf.Sin(a) * 4.6f);
+            var leg = TBox(holder, "BowlLeg", (top + bot) / 2f, new Vector3(0.18f, 0.18f, (top - bot).magnitude), cwAxle, false);
+            leg.localRotation = Quaternion.LookRotation(top - bot);
+        }
+        log.Append(" わたあめ機：頭 1周 " + (360f / Mathf.Abs(E1.ratio * ClockSpeed)).ToString("F2") + "秒 ");
+    }
+
+    // 輪（半径 r0〜r1、高さ y0〜y1）
+    static Mesh RingMesh(float r0, float r1, float y0, float y1, int n, string name)
+    {
+        var v = new List<Vector3>(); var t = new List<int>();
+        Vector3 P(float r, float y, int j) { float a = 2f * Mathf.PI * j / n; return new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r); }
+        for (int j = 0; j < n; j++)
+        {
+            Vector3 o = P(1f, 0f, j) + P(1f, 0f, j + 1);
+            Tri(v, t, P(r0, y1, j), P(r1, y1, j), P(r1, y1, j + 1), Vector3.up); Tri(v, t, P(r0, y1, j), P(r1, y1, j + 1), P(r0, y1, j + 1), Vector3.up);
+            Tri(v, t, P(r0, y0, j), P(r1, y0, j), P(r1, y0, j + 1), Vector3.down); Tri(v, t, P(r0, y0, j), P(r1, y0, j + 1), P(r0, y0, j + 1), Vector3.down);
+            Tri(v, t, P(r1, y0, j), P(r1, y1, j), P(r1, y1, j + 1), o); Tri(v, t, P(r1, y0, j), P(r1, y1, j + 1), P(r1, y0, j + 1), o);
+            Tri(v, t, P(r0, y0, j), P(r0, y1, j), P(r0, y1, j + 1), -o); Tri(v, t, P(r0, y0, j), P(r0, y1, j + 1), P(r0, y0, j + 1), -o);
+        }
+        return SaveMesh(name, v, t);
+    }
+
+    // 回転体の鍋：prof（半径, 高さ）を内がわの面として、外がわは th だけ外下へ。ふちとまん中の穴のふちもふさぐ
+    static Mesh BowlMesh(Vector2[] prof, float th, int n, string name)
+    {
+        var v = new List<Vector3>(); var t = new List<int>();
+        int m = prof.Length;
+        // 外がわの線：内がわの線を法線（外下）向きに th ずらす
+        var outer = new Vector2[m];
+        for (int i = 0; i < m; i++)
+        {
+            Vector2 tg = (i < m - 1 ? prof[i + 1] : prof[i]) - (i > 0 ? prof[i - 1] : prof[i]); tg.Normalize();
+            Vector2 nr = new Vector2(tg.y, -tg.x);   // 内がわの面の外下
+            outer[i] = prof[i] + nr * th;
+        }
+        void Surface(Vector2[] line, bool inner)
+        {
+            int b = v.Count;
+            for (int j = 0; j <= n; j++)
+            {
+                float a = 2f * Mathf.PI * j / n;
+                for (int i = 0; i < m; i++) v.Add(new Vector3(Mathf.Cos(a) * line[i].x, line[i].y, Mathf.Sin(a) * line[i].x));
+            }
+            for (int j = 0; j < n; j++) for (int i = 0; i < m - 1; i++)
+            {
+                int a0 = b + j * m + i, a1 = a0 + 1, b0 = a0 + m, b1 = b0 + 1;
+                if (inner) { t.Add(a0); t.Add(b0); t.Add(a1); t.Add(a1); t.Add(b0); t.Add(b1); }
+                else { t.Add(a0); t.Add(a1); t.Add(b0); t.Add(a1); t.Add(b1); t.Add(b0); }
+            }
+        }
+        Surface(prof, true); Surface(outer, false);
+        // ふち（いちばん外）とまん中の穴のふち：内と外をつなぐ帯
+        foreach (int i in new[] { 0, m - 1 })
+        {
+            int b = v.Count;
+            for (int j = 0; j <= n; j++)
+            {
+                float a = 2f * Mathf.PI * j / n;
+                v.Add(new Vector3(Mathf.Cos(a) * prof[i].x, prof[i].y, Mathf.Sin(a) * prof[i].x));
+                v.Add(new Vector3(Mathf.Cos(a) * outer[i].x, outer[i].y, Mathf.Sin(a) * outer[i].x));
+            }
+            for (int j = 0; j < n; j++)
+            {
+                int a0 = b + 2 * j, a1 = a0 + 1, b0 = a0 + 2, b1 = a0 + 3;
+                if (i == 0) { t.Add(a0); t.Add(a1); t.Add(b0); t.Add(a1); t.Add(b1); t.Add(b0); }
+                else { t.Add(a0); t.Add(b0); t.Add(a1); t.Add(a1); t.Add(b0); t.Add(b1); }
+            }
+        }
+        return SaveMesh(name, v, t);
     }
 
     // 歯車に巻き込まれた時のめりこみ対策（2026-11-08 てじゃ「歯車に巻き込まれて潰される感じになると、めり込んでちょっと変」）
