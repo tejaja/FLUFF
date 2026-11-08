@@ -99,7 +99,7 @@ public static class FuwaCourse2_4Builder
         // 時計塔のトンネルを突っ切って、抜けた先にゴール（2026-11-07 てじゃ「最後は塔を突っ切った先がゴール」）
         ClockTower(P + Dir(th) * (TowerW / 2f), th);
         TowerDriveRide(log);
-        ClockworkFeeds(root.Find("ClockTower")); ClockworkInstall(root.Find("ClockTower")); GuardInstall(root.Find("ClockTower"));
+        ClockworkFeeds(root.Find("ClockTower")); CloudFactory(root.Find("ClockTower")); ClockworkInstall(root.Find("ClockTower")); GuardInstall(root.Find("ClockTower"));
         S(TowerW); S(1f);
         var goalAt = GoalSet(root, P, Dir(th));
 
@@ -865,6 +865,300 @@ public static class FuwaCourse2_4Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cw); FuwaStage2WaterTest.NoSync(cw);
         ClockworkSet(cw, 0f);
     }
+    // ===== 雲づくり工場（2026-11-08 てじゃ「歯車のしごとやろか」→ A「雲づくり工場」）=====
+    //  塔はクリスタルの力で雲を作る機械。各しかけのたての軸（塔のでかい歯車から回る）の途中に大きい歯車（64枚）→ 小さい歯車（8枚、8倍速）→
+    //   乗る歯車：大きいふいご＋煙突 ／ 穴あき歯車：雲の糸巻き ／ ごつい歯車：らせんカムで持ち上げて落とす臼 ／ 段つき歯車：小さいふいご2つ（交互）
+    //  道の下（軸のてっぺんから FacDrop 下）、軸から外向き（ほかの物とぶつからない向きを探す）。動きは FuwaCloudFactory（軸の角度を読むだけ）
+    public static float FacDrop = 2.0f;   // 機械の高さ：しかけの軸のてっぺん（道の歯車の下の面くらい）からこれだけ下
+    const float FacMod = 0.05f; const int FacZBig = 64, FacZS = 8;
+    static Material facLeather, facCloud, facWood;
+    static void CloudFactory(Transform tower)
+    {
+        facLeather = FuwaStage2WaterTest.ToonMat("Stage2_4_Leather", new Color(0.47f, 0.32f, 0.24f));
+        facWood = FuwaStage2WaterTest.ToonMat("Stage2_4_Wood", new Color(0.62f, 0.45f, 0.3f));
+        facCloud = FuwaGearTest.Mat("GearRideTest_Steam", new Color(0.97f, 0.98f, 1f));
+        var holder = new GameObject("CloudFactory").transform; holder.SetParent(root.Find("Gimmicks"), false);
+        var tc = root.InverseTransformPoint(tower.position);
+        var log = new System.Text.StringBuilder("[2–4] 雲づくり工場");
+        foreach (var f in feeds)
+        {
+            var sh = f.shaftGear; string nm = sh.name;
+            int kind = nm == "G1" ? 0 : nm.StartsWith("HoleGears") ? 2 : nm.StartsWith("Chunky") ? 1 : nm.StartsWith("StepGears") ? 3 : -1;
+            if (kind < 0) continue;
+            // 軸の回る速さ（2D 反時計回り、度/秒）
+            float rate;
+            var ride = sh.GetComponentInParent<FuwaGearRide>();
+            if (ride != null) { int gi = System.Array.IndexOf(ride.gears, sh); rate = ride.ratio[gi] * ride.speed; }
+            else { int ci = cwG.IndexOf(sh); rate = cwR[ci] * ClockSpeed; }
+            log.Append(" | " + Machine(holder, sh, kind, tc, rate));
+        }
+        Debug.Log(log.ToString());
+    }
+
+    // 機械の場所の中の箱（frame の中 lo〜hi）が、ほかの物の見た目とぶつかる数
+    static int FacHits(Transform F, Vector3 lo, Vector3 hi, Transform skip)
+    {
+        var b = new Bounds(F.TransformPoint(lo), Vector3.zero);
+        for (int k = 0; k < 8; k++) b.Encapsulate(F.TransformPoint(new Vector3((k & 1) == 0 ? lo.x : hi.x, (k & 2) == 0 ? lo.y : hi.y, (k & 4) == 0 ? lo.z : hi.z)));
+        int n = 0;
+        foreach (var rr in root.GetComponentsInChildren<Renderer>())
+        {
+            if (rr.transform.IsChildOf(skip) || rr.transform.IsChildOf(F) || rr is ParticleSystemRenderer) continue;
+            if (rr.transform.name.StartsWith("Factory")) continue;
+            // 見た目の箱は回った物だと大きすぎるので、当たりがあればそちらも見る
+            if (!rr.bounds.Intersects(b)) continue;
+            // 中心どうしの横の距離で、細い物の箱の大きすぎをすこし割り引く（ざっくり）
+            n++;
+        }
+        return n;
+    }
+
+    static string Machine(Transform holder, Transform shaft, int kind, Vector3 tc, float rate)
+    {
+        string[] names = { "Bellows", "Stamp", "Spool", "TwinBellows" };
+        var F = new GameObject("Factory_" + names[kind] + "_" + shaft.name).transform; F.SetParent(holder, false);
+        var S = root.InverseTransformPoint(shaft.position); float shaftTop = S.y; S.y = shaftTop - FacDrop;
+        F.localPosition = S;
+        float Rb = FacMod * FacZBig / 2f, Rs = FacMod * FacZS / 2f, px = Rb + Rs;
+        float topY = shaftTop - 0.3f - S.y;   // 煙突のてっぺん（frame の y、道よりすこし下）
+        // 機械の大きさ（frame の中）
+        Vector3 lo, hi;
+        switch (kind)
+        {
+            case 0: lo = new Vector3(Rb - 0.3f, -0.8f, -0.9f); hi = new Vector3(px + 3.6f, topY + 0.4f, 0.9f); break;
+            case 3: lo = new Vector3(Rb - 0.3f, -0.8f, -2.7f); hi = new Vector3(px + 0.9f, topY + 0.4f, 2.7f); break;
+            case 2: lo = new Vector3(Rb - 0.3f, -0.8f, -0.9f); hi = new Vector3(px + 4.0f, 1.8f, 0.9f); break;
+            default: lo = new Vector3(Rb - 0.3f, -3.0f, -0.9f); hi = new Vector3(px + 1.6f, 1.4f, 0.9f); break;
+        }
+        // 向き：ぶつからない向きのうち、塔から外向きに近いもの
+        Vector3 outw = S - tc; outw.y = 0f; outw.Normalize();
+        float bestScore = 1e9f; Vector3 bestU = outw; int bestHits = -1;
+        for (int k = 0; k < 24; k++)
+        {
+            float a = k * 15f * Mathf.Deg2Rad; var u = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            F.localRotation = Quaternion.LookRotation(Vector3.Cross(u, Vector3.up), Vector3.up);
+            int h = FacHits(F, lo, hi, shaft);
+            float score = h * 10f - Vector3.Dot(u, outw);
+            if (score < bestScore) { bestScore = score; bestU = u; bestHits = h; }
+        }
+        F.localRotation = Quaternion.LookRotation(Vector3.Cross(bestU, Vector3.up), Vector3.up);
+
+        // 大きい歯車（軸の子、いっしょに回る）と小さい歯車（ここで回す）
+        var big = new GameObject("FactoryBig_z" + FacZBig).transform; big.SetParent(shaft, false);
+        big.position = F.position; big.localPosition = new Vector3(0f, big.localPosition.y, 0f); big.localRotation = Quaternion.identity;
+        big.gameObject.AddComponent<MeshFilter>().sharedMesh = SpurMesh(FacZBig, FacMod, 0.12f, "Factory_Big_z" + FacZBig);
+        big.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        var bg = new FuwaGearTest.Gear { name = "Big", z = FacZBig, c = Vector2.zero, ratio = 1f, phase = 0f };
+        var pg = FuwaGearTest.Mesh2(bg, "Pinion", FacZS, 0f, FacMod);
+        var pin = new GameObject("FactoryPinion_z" + FacZS).transform; pin.SetParent(F, false); pin.localPosition = new Vector3(pg.c.x, 0f, pg.c.y);
+        pin.gameObject.AddComponent<MeshFilter>().sharedMesh = SpurMesh(FacZS, FacMod, 0.3f, "Factory_Pinion_z" + FacZS);
+        pin.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cwDark;
+        CwShaft(pin, -0.7f, 0.3f, 0.12f);
+        // 台（小さい歯車の下から機械の先まで）と、軸へのうで
+        float bedEnd = kind == 1 ? px + 0.45f : hi.x - 0.2f;   // 臼は棒が台を通らないように、小さい歯車の所まで
+        TBox(F, "FactoryBed", new Vector3((Rb - 0.2f + bedEnd) / 2f, -0.76f, (lo.z + hi.z) / 2f), new Vector3(bedEnd - (Rb - 0.2f), 0.12f, hi.z - lo.z - 0.2f), facWood, false);
+        TBox(F, "FactoryArm", new Vector3((Rb - 0.2f) / 2f, -0.76f, 0f), new Vector3(Rb - 0.2f, 0.1f, 0.18f), cwAxle, false);
+        var bear = GameObject.CreatePrimitive(PrimitiveType.Cylinder); bear.name = "FactoryBearing"; Object.DestroyImmediate(bear.GetComponent<Collider>());
+        bear.transform.SetParent(F, false); bear.transform.localPosition = new Vector3(0f, -0.76f, 0f); bear.transform.localScale = new Vector3(0.75f, 0.08f, 0.75f); bear.GetComponent<Renderer>().sharedMaterial = cwAxle;
+
+        var fc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaCloudFactory>(F.gameObject);
+        fc.frame = F; fc.bigGear = big; fc.pinion = pin; fc.ratio = pg.ratio; fc.phase = pg.phase * Mathf.Rad2Deg;
+        float pinRate = pg.ratio * rate;   // 小さい歯車の回る速さ（度/秒）
+        fc.mode = kind == 1 ? 1 : kind == 2 ? 2 : 0;
+        if (kind == 0) FacBellows(F, fc, pin, new[] { Vector3.right }, 1.25f, 0.36f, 1.15f, 2.8f, topY, 0.55f);
+        else if (kind == 3) FacBellows(F, fc, pin, new[] { Vector3.forward, Vector3.back }, 0.75f, 0.24f, 0.8f, 1.85f, topY, 0.35f);
+        else if (kind == 2) FacSpool(F, pin);
+        else FacStamp(F, fc, pin, pinRate);
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); FuwaStage2WaterTest.NoSync(fc);
+        // 今の角度に（エディタでも）
+        float th; { var x = Quaternion.Inverse(F.rotation) * (big.rotation * Vector3.right); th = Mathf.Atan2(x.z, x.x) * Mathf.Rad2Deg; }
+        pin.localRotation = Quaternion.Euler(0f, -Mathf.Repeat(fc.ratio * th + fc.phase, 360f), 0f);
+        return names[kind] + "@" + shaft.name + " 向き " + (Mathf.Atan2(bestU.z, bestU.x) * Mathf.Rad2Deg).ToString("F0") + "° ぶつかり " + bestHits + " 1周 " + (360f / Mathf.Max(0.01f, Mathf.Abs(pinRate))).ToString("F1") + "秒";
+    }
+
+    // ふいご（1つか2つ）：小さい歯車の上にクランクの円盤とピン、棒、動く板、じゃばら、動かない板、ノズル→たての管→煙突、雲
+    //  dirs：板が動く向き（frame の中）。B：ふいごの大きさ、R：ピンの半径、L：棒の長さ、fd：動かない板（小さい歯車の軸から）
+    static void FacBellows(Transform F, FuwaCloudFactory fc, Transform pin, Vector3[] dirs, float B, float R, float L, float fd, float topY, float puffSize)
+    {
+        const float PY = 0.5f;   // ピン・ふいごの高さ（小さい歯車の上の面 0.3 から）
+        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder); disc.name = "CrankDisc"; Object.DestroyImmediate(disc.GetComponent<Collider>());
+        disc.transform.SetParent(pin, false); disc.transform.localPosition = new Vector3(0f, 0.34f, 0f); disc.transform.localScale = new Vector3(2f * R + 0.24f, 0.04f, 2f * R + 0.24f); disc.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        var cp = GameObject.CreatePrimitive(PrimitiveType.Cylinder); cp.name = "CrankPin"; Object.DestroyImmediate(cp.GetComponent<Collider>());
+        cp.transform.SetParent(pin, false); cp.transform.localPosition = new Vector3(R, (0.38f + PY + 0.08f) / 2f, 0f); cp.transform.localScale = new Vector3(0.09f, (PY + 0.08f - 0.38f) / 2f, 0.09f); cp.GetComponent<Renderer>().sharedMaterial = cwAxle;
+        fc.pinR = R; fc.pinY = PY; fc.rodLen = L;
+        int n = dirs.Length; var plates = new Transform[n]; var rods = new Transform[n]; var skins = new Transform[n]; var fds = new float[n]; var puffs = new ParticleSystem[n];
+        var rings = new List<Transform>(); var owner = new List<int>(); var rt = new List<float>();
+        var pc = pin.localPosition;
+        for (int k = 0; k < n; k++)
+        {
+            var d = dirs[k]; var q = Quaternion.LookRotation(Vector3.Cross(d, Vector3.up), Vector3.up);   // local x = d
+            // 動く板（原点＝板の、棒がつく面）
+            var pl = new GameObject("BellowsPlate" + k).transform; pl.SetParent(F, false); pl.localRotation = q; pl.localPosition = pc + Vector3.up * PY + d * L;
+            TBox(pl, "Board", new Vector3(0.05f, 0f, 0f), new Vector3(0.1f, B, B), facWood, false);
+            TBox(pl, "Lug", new Vector3(-0.06f, 0f, 0f), new Vector3(0.12f, 0.16f, 0.16f), cwAxle, false);
+            plates[k] = pl;
+            var rod = new GameObject("BellowsRod" + k).transform; rod.SetParent(F, false);
+            TBox(rod, "Bar", Vector3.zero, new Vector3(0.07f, 0.07f, L), cwAxle, false);
+            rods[k] = rod;
+            // 動かない板とその先：ノズル → たての管 → 煙突
+            fds[k] = fd;
+            var fx = new GameObject("BellowsFixed" + k).transform; fx.SetParent(F, false); fx.localRotation = q; fx.localPosition = pc + Vector3.up * PY + d * fd;
+            TBox(fx, "Board", new Vector3(0.05f, 0f, 0f), new Vector3(0.1f, B, B), facWood, false);
+            float nz = 0.55f, pr = Mathf.Max(0.12f, B * 0.16f);
+            var noz = GameObject.CreatePrimitive(PrimitiveType.Cylinder); noz.name = "Nozzle"; Object.DestroyImmediate(noz.GetComponent<Collider>());
+            noz.transform.SetParent(fx, false); noz.transform.localRotation = Quaternion.Euler(0f, 0f, 90f); noz.transform.localPosition = new Vector3(0.1f + nz / 2f, 0f, 0f); noz.transform.localScale = new Vector3(pr * 2f, nz / 2f, pr * 2f); noz.GetComponent<Renderer>().sharedMaterial = cwDark;
+            float up0 = 0f, up1 = topY - PY;
+            var pipe = GameObject.CreatePrimitive(PrimitiveType.Cylinder); pipe.name = "Pipe"; Object.DestroyImmediate(pipe.GetComponent<Collider>());
+            pipe.transform.SetParent(fx, false); pipe.transform.localPosition = new Vector3(0.1f + nz + pr, (up0 - pr + up1) / 2f, 0f); pipe.transform.localScale = new Vector3(pr * 2f, (up1 - up0 + pr) / 2f, pr * 2f); pipe.GetComponent<Renderer>().sharedMaterial = cwDark;
+            var elbow = GameObject.CreatePrimitive(PrimitiveType.Sphere); elbow.name = "Elbow"; Object.DestroyImmediate(elbow.GetComponent<Collider>());
+            elbow.transform.SetParent(fx, false); elbow.transform.localPosition = new Vector3(0.1f + nz + pr, 0f, 0f); elbow.transform.localScale = Vector3.one * pr * 2.3f; elbow.GetComponent<Renderer>().sharedMaterial = cwDark;
+            var cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder); cap.name = "ChimneyCap"; Object.DestroyImmediate(cap.GetComponent<Collider>());
+            cap.transform.SetParent(fx, false); cap.transform.localPosition = new Vector3(0.1f + nz + pr, up1 + 0.12f, 0f); cap.transform.localScale = new Vector3(pr * 3.4f, 0.12f, pr * 3.4f); cap.GetComponent<Renderer>().sharedMaterial = cwBrass;
+            puffs[k] = FacPuff(fx, new Vector3(0.1f + nz + pr, up1 + 0.26f, 0f), Vector3.up, puffSize, 0f, pr * 1.2f);
+            // じゃばら：輪 5つ（大小を交互）と、中の革
+            for (int i = 1; i <= 5; i++)
+            {
+                var ring = TBox(F, "BellowsRing" + k + "_" + i, Vector3.zero, new Vector3(0.05f, (i % 2 == 1) ? B * 0.97f : B * 0.8f, (i % 2 == 1) ? B * 0.97f : B * 0.8f), facLeather, false);
+                ring.localRotation = q; rings.Add(ring); owner.Add(k); rt.Add(i / 6f);
+            }
+            var skin = TBox(F, "BellowsSkin" + k, Vector3.zero, new Vector3(1f, B * 0.84f, B * 0.84f), facLeather, false);
+            skin.localRotation = q; skins[k] = skin;
+        }
+        fc.axisDir = dirs; fc.plates = plates; fc.rods = rods; fc.skins = skins; fc.fixedDist = fds; fc.puffs = puffs;
+        fc.rings = rings.ToArray(); fc.ringOwner = owner.ToArray(); fc.ringT = rt.ToArray();
+        fc.puffCount = n == 1 ? 8 : 5;
+        // エディタでも形を（今の角度で）：ピンが +x の時
+        for (int k = 0; k < n; k++)
+        {
+            float dist = L + Vector3.Dot(new Vector3(R, 0f, 0f), dirs[k]);
+            plates[k].localPosition = pc + Vector3.up * PY + dirs[k] * dist;
+            for (int i = 0; i < rings.Count; i++) if (owner[i] == k) rings[i].localPosition = pc + Vector3.up * PY + dirs[k] * Mathf.Lerp(dist, fds[k], rt[i]);
+            skins[k].localPosition = pc + Vector3.up * PY + dirs[k] * ((dist + fds[k]) / 2f); var ls = skins[k].localScale; ls.x = fds[k] - dist; skins[k].localScale = ls;
+            var pinP = pc + Vector3.up * PY + new Vector3(R, 0f, 0f); var sp = plates[k].localPosition;
+            rods[k].localPosition = (pinP + sp) / 2f; rods[k].localRotation = Quaternion.LookRotation((sp - pinP).normalized, Vector3.up);
+        }
+    }
+
+    // 雲の粒（ぽふっ）：rate > 0 なら出しっぱなし
+    static ParticleSystem FacPuff(Transform parent, Vector3 lp, Vector3 dir, float size, float rate, float radius)
+    {
+        var go = new GameObject("CloudPuff"); go.transform.SetParent(parent, false); go.transform.localPosition = lp;
+        go.transform.localRotation = Quaternion.FromToRotation(Vector3.forward, dir);
+        var ps = go.AddComponent<ParticleSystem>();
+        var main = ps.main; main.playOnAwake = rate > 0f; main.loop = true; main.startLifetime = new ParticleSystem.MinMaxCurve(2.4f, 3.4f); main.startSpeed = new ParticleSystem.MinMaxCurve(0.7f, 1.3f);
+        main.startSize = new ParticleSystem.MinMaxCurve(size * 0.6f, size); main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 80; main.gravityModifier = -0.02f;
+        var em = ps.emission; em.rateOverTime = rate;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 18f; sh.radius = radius;
+        var vel = ps.limitVelocityOverLifetime; vel.enabled = true; vel.limit = 0.35f; vel.dampen = 0.08f;
+        var sol = ps.sizeOverLifetime; sol.enabled = true; sol.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0.5f), new Keyframe(0.3f, 1.4f), new Keyframe(1f, 0f)));
+        var pr = go.GetComponent<ParticleSystemRenderer>(); pr.renderMode = ParticleSystemRenderMode.Mesh;
+        var tmp = GameObject.CreatePrimitive(PrimitiveType.Sphere); pr.mesh = tmp.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(tmp);
+        pr.sharedMaterial = facCloud;
+        if (rate <= 0f) ps.Stop();
+        return ps;
+    }
+
+    // 雲の糸巻き：小さい歯車の上に糸巻き（いっしょに回る）。雲のかたまりから糸がのびて巻き取られている
+    static void FacSpool(Transform F, Transform pin)
+    {
+        var drum = GameObject.CreatePrimitive(PrimitiveType.Cylinder); drum.name = "SpoolDrum"; Object.DestroyImmediate(drum.GetComponent<Collider>());
+        drum.transform.SetParent(pin, false); drum.transform.localPosition = new Vector3(0f, 0.85f, 0f); drum.transform.localScale = new Vector3(0.5f, 0.55f, 0.5f); drum.GetComponent<Renderer>().sharedMaterial = facWood;
+        foreach (float y in new[] { 0.36f, 1.34f })
+        {
+            var fl = GameObject.CreatePrimitive(PrimitiveType.Cylinder); fl.name = "SpoolFlange"; Object.DestroyImmediate(fl.GetComponent<Collider>());
+            fl.transform.SetParent(pin, false); fl.transform.localPosition = new Vector3(0f, y, 0f); fl.transform.localScale = new Vector3(1.5f, 0.04f, 1.5f); fl.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        }
+        var yarn = GameObject.CreatePrimitive(PrimitiveType.Cylinder); yarn.name = "SpoolYarn"; Object.DestroyImmediate(yarn.GetComponent<Collider>());
+        yarn.transform.SetParent(pin, false); yarn.transform.localPosition = new Vector3(0f, 0.85f, 0f); yarn.transform.localScale = new Vector3(1.15f, 0.44f, 1.15f); yarn.GetComponent<Renderer>().sharedMaterial = facCloud;
+        // 巻いた雲のでこぼこ（回っているのが分かるように）
+        for (int k = 0; k < 7; k++)
+        {
+            float a = k * 360f / 7f * Mathf.Deg2Rad;
+            var lump = GameObject.CreatePrimitive(PrimitiveType.Sphere); lump.name = "YarnLump"; Object.DestroyImmediate(lump.GetComponent<Collider>());
+            lump.transform.SetParent(pin, false); lump.transform.localPosition = new Vector3(Mathf.Cos(a) * 0.55f, 0.6f + 0.5f * ((k * 3) % 5) / 4f, Mathf.Sin(a) * 0.55f); lump.transform.localScale = Vector3.one * 0.3f;
+            lump.GetComponent<Renderer>().sharedMaterial = facCloud;
+        }
+        // 雲のかたまり（動かない）と、そこから糸巻きへの糸
+        var pc = pin.localPosition; var src = pc + new Vector3(3.3f, 0.95f, 0f);
+        var tuft = new GameObject("CloudTuft").transform; tuft.SetParent(F, false); tuft.localPosition = src;
+        foreach (var (o, s) in new[] { (new Vector3(0f, 0f, 0f), 0.9f), (new Vector3(0.35f, 0.2f, 0.3f), 0.65f), (new Vector3(0.25f, -0.15f, -0.35f), 0.6f), (new Vector3(-0.2f, 0.3f, 0.1f), 0.5f) })
+        {
+            var b = GameObject.CreatePrimitive(PrimitiveType.Sphere); b.name = "Tuft"; Object.DestroyImmediate(b.GetComponent<Collider>());
+            b.transform.SetParent(tuft, false); b.transform.localPosition = o; b.transform.localScale = Vector3.one * s; b.GetComponent<Renderer>().sharedMaterial = facCloud;
+        }
+        var a0 = pc + new Vector3(0.55f, 0.85f, 0f); var a1 = src + new Vector3(-0.4f, 0f, 0f);
+        var strand = TBox(F, "CloudStrand", (a0 + a1) / 2f, new Vector3(0.07f, 0.07f, (a1 - a0).magnitude), facCloud, false);
+        strand.localRotation = Quaternion.LookRotation(a1 - a0);
+        // 糸にそって小さい雲がすこしずつ糸巻きへ
+        var ps = FacPuff(F, src + new Vector3(-0.45f, 0f, 0f), Vector3.left, 0.16f, 2.5f, 0.08f);
+        var m = ps.main; m.startSpeed = 0.9f; m.startLifetime = 3.0f; m.gravityModifier = 0f;
+        var lv = ps.limitVelocityOverLifetime; lv.enabled = false;
+        var sh = ps.shape; sh.angle = 2f;
+        // 台の上の、雲のかたまりを支える柱
+        TBox(F, "TuftPost", src + new Vector3(0f, (-0.7f - 0.95f) / 2f - 0.05f, 0f), new Vector3(0.12f, 1.55f, 0.12f), cwAxle, false);
+    }
+
+    // 臼：小さい歯車の上のらせんカム（1周で steps 回、lift 上がってストンと落ちる）に、臼の腕のころが乗っている。落ちると下のおけの雲の生地をたたいて、ぽふっ
+    static void FacStamp(Transform F, FuwaCloudFactory fc, Transform pin, float pinRate)
+    {
+        const float r1 = 0.14f, r2 = 0.55f, y0 = 0.42f, lift = 0.6f; const int steps = 2, N = 24;
+        float sg = pinRate >= 0f ? 1f : -1f;
+        // らせんカム（小さい歯車の local、y0 から）：t で 0→lift、角度 φ = sg × (−(j+t)×360/steps)。台の円盤も
+        var v = new List<Vector3>(); var tr = new List<int>();
+        Vector3 P(float r, float phi, float y) { float a = phi * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r); }
+        for (int j = 0; j < steps; j++)
+        {
+            for (int i = 0; i < N; i++)
+            {
+                float t0 = (float)i / N, t1 = (float)(i + 1) / N;
+                float f0 = sg * (-(j + t0) * 360f / steps), f1 = sg * (-(j + t1) * 360f / steps);
+                float h0 = y0 + lift * t0, h1 = y0 + lift * t1;
+                Tri(v, tr, P(r1, f0, h0), P(r2, f0, h0), P(r2, f1, h1), Vector3.up); Tri(v, tr, P(r1, f0, h0), P(r2, f1, h1), P(r1, f1, h1), Vector3.up);
+                var om = (P(r2, f0, 0f) + P(r2, f1, 0f)) * 0.5f; om.y = 0f;
+                Tri(v, tr, P(r2, f0, y0), P(r2, f1, y0), P(r2, f1, h1), om); Tri(v, tr, P(r2, f0, y0), P(r2, f1, h1), P(r2, f0, h0), om);
+                Tri(v, tr, P(r1, f0, y0), P(r1, f1, y0), P(r1, f1, h1), -om); Tri(v, tr, P(r1, f0, y0), P(r1, f1, h1), P(r1, f0, h0), -om);
+            }
+            // 落ちる面（t=1 の所）
+            float fe = sg * (-(j + 1) * 360f / steps); var tg = P(1f, fe - sg * 5f, 0f) - P(1f, fe, 0f);
+            Tri(v, tr, P(r1, fe, y0), P(r2, fe, y0), P(r2, fe, y0 + lift), tg); Tri(v, tr, P(r1, fe, y0), P(r2, fe, y0 + lift), P(r1, fe, y0 + lift), tg);
+        }
+        var cam = new GameObject("StampCam"); cam.transform.SetParent(pin, false);
+        cam.AddComponent<MeshFilter>().sharedMesh = SaveMesh("Factory_StampCam_" + (sg > 0 ? "p" : "n"), v, tr); cam.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        var basePlate = GameObject.CreatePrimitive(PrimitiveType.Cylinder); basePlate.name = "CamBase"; Object.DestroyImmediate(basePlate.GetComponent<Collider>());
+        basePlate.transform.SetParent(pin, false); basePlate.transform.localPosition = new Vector3(0f, (0.3f + y0) / 2f, 0f); basePlate.transform.localScale = new Vector3(2f * r2 + 0.06f, (y0 - 0.3f) / 2f, 2f * r2 + 0.06f); basePlate.GetComponent<Renderer>().sharedMaterial = cwDark;
+        // 臼（上下に動く）：原点はころの下（カムの面の上）。ころ → 腕 → たての棒 → 下の重い頭
+        var pc = pin.localPosition; float rf = (r1 + r2) / 2f, stemX = pc.x + r2 + 0.35f, rollR = 0.07f;
+        var hm = new GameObject("Stamp").transform; hm.SetParent(F, false); hm.localPosition = new Vector3(stemX, y0 + rollR, pc.z);
+        var roll = GameObject.CreatePrimitive(PrimitiveType.Cylinder); roll.name = "Roller"; Object.DestroyImmediate(roll.GetComponent<Collider>());
+        roll.transform.SetParent(hm, false); roll.transform.localPosition = new Vector3(pc.x + rf - stemX, 0f, 0f); roll.transform.localRotation = Quaternion.Euler(0f, 0f, 90f); roll.transform.localScale = new Vector3(2f * rollR, 0.1f, 2f * rollR); roll.GetComponent<Renderer>().sharedMaterial = cwAxle;
+        TBox(hm, "Arm", new Vector3((pc.x + rf - stemX) / 2f, 0.06f, 0f), new Vector3(stemX - pc.x - rf + 0.1f, 0.08f, 0.14f), cwDark, false);
+        const float stemLen = 1.9f;
+        var stem = GameObject.CreatePrimitive(PrimitiveType.Cylinder); stem.name = "Stem"; Object.DestroyImmediate(stem.GetComponent<Collider>());
+        stem.transform.SetParent(hm, false); stem.transform.localPosition = new Vector3(0f, 0.15f - stemLen / 2f, 0f); stem.transform.localScale = new Vector3(0.16f, stemLen / 2f, 0.16f); stem.GetComponent<Renderer>().sharedMaterial = cwAxle;
+        float headY = 0.15f - stemLen - 0.25f;
+        TBox(hm, "Head", new Vector3(0f, headY, 0f), new Vector3(0.75f, 0.5f, 0.75f), facWood, false);
+        TBox(hm, "HeadBand", new Vector3(0f, headY + 0.12f, 0f), new Vector3(0.79f, 0.1f, 0.79f), cwBrass, false);
+        // おけ（動かない）：頭がいちばん下（u=0）の時、頭の下の面＝雲の生地の上の面
+        float doughTop = y0 + rollR + headY - 0.25f;
+        var tubC = new Vector3(stemX, doughTop - 0.3f, pc.z);
+        TBox(F, "TubFloor", tubC + new Vector3(0f, -0.28f, 0f), new Vector3(1.3f, 0.08f, 1.3f), facWood, false);
+        foreach (var (o, s) in new[] { (new Vector3(0.62f, 0f, 0f), new Vector3(0.08f, 0.6f, 1.3f)), (new Vector3(-0.62f, 0f, 0f), new Vector3(0.08f, 0.6f, 1.3f)), (new Vector3(0f, 0f, 0.62f), new Vector3(1.16f, 0.6f, 0.08f)), (new Vector3(0f, 0f, -0.62f), new Vector3(1.16f, 0.6f, 0.08f)) })
+            TBox(F, "TubWall", tubC + o, s, facWood, false);
+        var dough = GameObject.CreatePrimitive(PrimitiveType.Sphere); dough.name = "CloudDough"; Object.DestroyImmediate(dough.GetComponent<Collider>());
+        dough.transform.SetParent(F, false); dough.transform.localPosition = new Vector3(stemX, doughTop - 0.22f, pc.z); dough.transform.localScale = new Vector3(1.12f, 0.44f, 1.12f); dough.GetComponent<Renderer>().sharedMaterial = facCloud;
+        // 棒のガイド（動かない柱と、棒を通す輪 2つ）
+        float postX = stemX + 0.42f;
+        TBox(F, "GuidePost", new Vector3(postX, (tubC.y + 0.3f + y0 + 0.9f) / 2f, pc.z), new Vector3(0.14f, y0 + 0.9f - tubC.y - 0.3f, 0.14f), cwDark, false);
+        foreach (float gy in new[] { y0 - 0.5f, doughTop + 1.3f })
+        {
+            TBox(F, "GuideArm", new Vector3((stemX + postX) / 2f + 0.06f, gy, pc.z), new Vector3(postX - stemX - 0.05f, 0.08f, 0.1f), cwDark, false);
+            foreach (int sz in new[] { -1, 1 }) TBox(F, "GuideJaw", new Vector3(stemX, gy, pc.z + sz * 0.13f), new Vector3(0.26f, 0.1f, 0.05f), cwDark, false);
+        }
+        fc.hammer = hm; fc.hammerBaseY = y0 + rollR; fc.lift = lift; fc.steps = steps; fc.camSign = sg;
+        fc.hammerPuff = FacPuff(F, new Vector3(stemX, doughTop + 0.05f, pc.z), Vector3.up, 0.4f, 0f, 0.45f);
+        fc.puffCount = 7;
+    }
+
     // 歯車に巻き込まれた時のめりこみ対策（2026-11-08 てじゃ「歯車に巻き込まれて潰される感じになると、めり込んでちょっと変」）
     //  FuwaGearGuard を塔に1つ。動く物（塔が回す歯車・乗る歯車・回転床とその歯車・せり出す橋・振り子のおもり）の当たりを movers に。
     //  人を運ぶ FuwaClockwork・FuwaGearRide は guard を通して運ぶ（行き先がふさがっていたら運ばない）
