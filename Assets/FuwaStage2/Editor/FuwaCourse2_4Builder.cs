@@ -1197,16 +1197,10 @@ public static class FuwaCourse2_4Builder
         float wy = root.InverseTransformPoint(wf.position).y, cMid = wy + WT / 2f, cTop = BoxY - CrystalGap, cBot = cMid - CrystalDown;
         if (cryMesh && crystalMat)
         {
-            float mh = cryMesh.bounds.size.y, mw = Mathf.Max(cryMesh.bounds.size.x, cryMesh.bounds.size.z);
+            // 2026-11-08 てじゃ「ちゃんと切れ目消して」→ 上下を1つのメッシュに（六角の柱＋上下のとがり、面ごとに平ら）
             var cr = new GameObject("PowerCrystal").transform; cr.SetParent(holder, false); cr.localPosition = new Vector3(0f, cMid, 0f);
-            float sx = CrystalW / mw;
-            foreach (var (n, len, up) in new[] { ("CrystalUp", cTop - cMid, true), ("CrystalDown", cMid - cBot, false) })
-            {
-                var c = new GameObject(n).transform; c.SetParent(cr, false);
-                c.localRotation = up ? Quaternion.identity : Quaternion.Euler(180f, 0f, 0f); c.localScale = new Vector3(sx, len / mh, sx);
-                c.localPosition = c.localRotation * new Vector3(0f, -cryMesh.bounds.min.y * len / mh, 0f);
-                c.gameObject.AddComponent<MeshFilter>().sharedMesh = cryMesh; c.gameObject.AddComponent<MeshRenderer>().sharedMaterial = crystalMat;
-            }
+            cr.gameObject.AddComponent<MeshFilter>().sharedMesh = CrystalMesh(CrystalW / 2f, cTop - cMid, cMid - cBot, "Power_Crystal");
+            cr.gameObject.AddComponent<MeshRenderer>().sharedMaterial = crystalMat;
             AddGear(cr, CrystalSpin, 0f);   // ゆっくり回る（FuwaClockwork）
         }
         // 歯車箱（浮いている）：A1(60) → B1(12)=B2(60) → C1(12)=C2(60) → D1(12)=D2(60) → E1(12)。A・C・E は同じ軸（まん中）
@@ -1285,6 +1279,28 @@ public static class FuwaCourse2_4Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); FuwaStage2WaterTest.NoSync(cb);
         balloon = cb;
         log.Append(" バルーン：羽根 1周 " + (360f / Mathf.Abs(E1.ratio * ClockSpeed)).ToString("F2") + "秒 ");
+    }
+    // 上下にとがった六角のクリスタル（中心 0、上 up・下 dn まで、半径 r）。とがりの長さは半径の 1.6 倍
+    static Mesh CrystalMesh(float r, float up, float dn, string name)
+    {
+        var v = new List<Vector3>(); var t = new List<int>(); const int n = 6; float tip = r * 1.6f;
+        float yT = up - tip, yB = -dn + tip;
+        Vector3 Rim(int k, float y) { float a = (k * 60f + 30f) * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r); }
+        float mid = (yT + yB) / 2f;
+        void Tri(Vector3 a, Vector3 b, Vector3 c)
+        {
+            var cen = (a + b + c) / 3f; var o = cen - new Vector3(0f, Mathf.Clamp(cen.y, yB, yT) == cen.y ? cen.y : mid, 0f);
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a), o) < 0f) { var s2 = b; b = c; c = s2; }
+            int i = v.Count; v.Add(a); v.Add(b); v.Add(c); t.Add(i); t.Add(i + 1); t.Add(i + 2);
+        }
+        for (int k = 0; k < n; k++)
+        {
+            int k2 = (k + 1) % n;
+            Tri(Rim(k, yB), Rim(k2, yB), Rim(k2, yT)); Tri(Rim(k, yB), Rim(k2, yT), Rim(k, yT));
+            Tri(Rim(k, yT), Rim(k2, yT), new Vector3(0f, up, 0f));
+            Tri(Rim(k, yB), Rim(k2, yB), new Vector3(0f, -dn, 0f));
+        }
+        return SaveMesh(name, v, t);
     }
     static FuwaCloudBalloon balloon;
     public static float CollarR0 = 1.7f, CollarR1 = 2.3f, CollarY0 = 5.0f, CollarY1 = 6.4f, BalloonY = 6.2f, PipeInY = 5.7f;
