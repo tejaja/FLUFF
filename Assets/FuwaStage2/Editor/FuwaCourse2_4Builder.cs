@@ -256,7 +256,10 @@ public static class FuwaCourse2_4Builder
     //  c＝トンネルの床のまん中（道の上の面の高さ）、道の向き th。四角い塔（TowerW 角）、道の高さに道の幅のトンネル、上に4面の時計ととんがり屋根
     //  下は雲の下までのびる。トンネルの床は道（S）で作るので、塔の下の段は道の下の石（−1.6m）より下で終わる
     public static float TowerW = 7f, TunnelHW = 2.2f, TunnelH = 4f, TowerTop = 16f, RoofH = 7f, ClockY = 11.5f, ClockR = 2.6f, TowerBottom = -30f;
-    public static float PendOut = 3f, PendPivotY = 8.6f, PendBobY = 1.6f, PendBobR = 0.8f, PendAmp = 28f;
+    // 振り子：吹き抜けの天井 HallTop からつるす。振れ幅はおもりがトンネルの壁（±TunnelHW）に当たらない角度（おもりの端が壁から 0.1m）
+    public static float HallTop = 8.6f, PendBobY = 1.6f, PendBobR = 0.65f;
+    static float PendPivotY => HallTop - 0.45f;
+    static float PendAmp => Mathf.Asin((TunnelHW - 0.1f - PendBobR) / (PendPivotY - PendBobY)) * Mathf.Rad2Deg;
     static Transform pendPivot, escape, weightT, chainT; static Vector3 chainTop;
     public static float WeightDrop = 4.4f, WeightPeriod = 600f;
     static void ClockTower(Vector3 c, float heading)
@@ -352,9 +355,12 @@ public static class FuwaCourse2_4Builder
         }
         weightT = null; chainT = null; chainTop = Vector3.zero;
 
+        // トンネルの中は吹き抜け（HallTop まで）で、そこに振り子（2026-11-08 てじゃ「振り子は時計塔の中に」）。外から見た口の高さは TunnelH のまま（口の上は壁）
         foreach (int sg in new[] { -1, 1 })
-            TBox(t, "TunnelWall" + (sg > 0 ? "R" : "L"), new Vector3(sg * (h + TunnelHW) / 2f, (baseTop + TunnelH) / 2f, 0f), new Vector3(h - TunnelHW, TunnelH - baseTop, TowerW), stone, true);
-        TBox(t, "Upper", new Vector3(0f, (TunnelH + TowerTop) / 2f, 0f), new Vector3(TowerW, TowerTop - TunnelH, TowerW), stone, true);
+            TBox(t, "TunnelWall" + (sg > 0 ? "R" : "L"), new Vector3(sg * (h + TunnelHW) / 2f, (baseTop + HallTop) / 2f, 0f), new Vector3(h - TunnelHW, HallTop - baseTop, TowerW), stone, true);
+        foreach (int sz in new[] { -1, 1 })
+            TBox(t, "HallLintel" + sz, new Vector3(0f, (TunnelH + HallTop) / 2f, sz * (h - Wall / 2f)), new Vector3(2f * TunnelHW, HallTop - TunnelH, Wall), stone, true);
+        TBox(t, "Upper", new Vector3(0f, (HallTop + TowerTop) / 2f, 0f), new Vector3(TowerW, TowerTop - HallTop, TowerW), stone, true);
         // トンネルの口のふち（アーチの代わりの枠）と、帯・てっぺんのふち（少し外へ張り出す）
         foreach (int sz in new[] { -1, 1 })
         {
@@ -388,24 +394,19 @@ public static class FuwaCourse2_4Builder
             hours.Add(hp); mins.Add(mp);
         }
         // 振り子と脱進機（2026-11-07 てじゃ「各道に、なんかしら自動の歯車の仕掛け」→ ④→塔の道：塔の振り子が道の上で左右にゆれる）
-        //  入口（local −z の面）から腕を PendOut m 出して、その先に振り子の軸（アンクルの軸）。おもりは道の上 PendBobY。ゆれは道を横切る向き（local Z まわり）
+        //  トンネルの吹き抜けの天井に振り子の軸（アンクルの軸）。おもりは道の上 PendBobY。ゆれは道を横切る向き（local Z まわり）
         //  軸の下にがんぎ車（30枚）。塔の中から軸がのびて回している。振り子が1回ゆれきるたびに半歯カチッ
         {
-            float pz = -(h + PendOut), py = PendPivotY, len = py - PendBobY;
-            foreach (int sx in new[] { -1, 1 })
-            {
-                TBox(t, "PendArm" + sx, new Vector3(sx * 0.45f, py + 0.35f, -(h + PendOut / 2f)), new Vector3(0.22f, 0.3f, PendOut + 0.4f), trim, false);
-                var br = TBox(t, "PendBrace" + sx, new Vector3(sx * 0.45f, py - 0.6f, -(h + PendOut * 0.3f)), new Vector3(0.16f, 0.16f, PendOut * 0.75f), trim, false);
-                br.localRotation = Quaternion.Euler(-35f, 0f, 0f);
-            }
-            TBox(t, "PendHead", new Vector3(0f, py + 0.35f, pz), new Vector3(1.3f, 0.3f, 0.5f), trim, false);
-            // がんぎ車（local Y＝塔の面に直角）とその軸（塔の面まで）
+            // 2026-11-08 塔の外（入口の前の腕の先）→ トンネルの吹き抜けの天井からつるす。ゆれは道を横切る向き（トンネルの壁に当たらない振れ幅）
+            float pz = 0f, py = HallTop - 0.45f, len = py - PendBobY;
+            TBox(t, "PendHead", new Vector3(0f, py + 0.3f, pz), new Vector3(1.3f, 0.3f, 0.6f), trim, false);
+            // がんぎ車（local Y＝道の向き）とその軸（出口がわの口の上の壁まで）
             var ewF = new GameObject("EscapeWheel_Frame").transform; ewF.SetParent(t, false);
             ewF.localPosition = new Vector3(0f, py - 0.95f, pz + 0.15f); ewF.localRotation = Quaternion.FromToRotation(Vector3.up, Vector3.forward);
             var ew = new GameObject("EscapeWheel_z30").transform; ew.SetParent(ewF, false);
             ew.gameObject.AddComponent<MeshFilter>().sharedMesh = SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(30, 6, 0.05f), 0.08f, "ClockTower_EscapeWheel_z30", Vector2.zero));
             ew.gameObject.AddComponent<MeshRenderer>().sharedMaterial = brassM;
-            var ax = TBox(t, "EscapeAxle", new Vector3(0f, py - 0.95f, (pz + 0.15f - h) / 2f), new Vector3(0.1f, 0.1f, PendOut - 0.15f), handM, false);
+            var ax = TBox(t, "EscapeAxle", new Vector3(0f, py - 0.95f, (pz + 0.15f + h - Wall) / 2f), new Vector3(0.1f, 0.1f, h - Wall - pz - 0.15f), handM, false);
             // 振り子：軸（アンクル＋棒＋おもり）。棒とおもりはがんぎ車の手前（−z）
             var pv = new GameObject("PendulumPivot").transform; pv.SetParent(t, false); pv.localPosition = new Vector3(0f, py, pz);
             TBox(pv, "Arbor", new Vector3(0f, 0f, 0.1f), new Vector3(0.14f, 0.14f, 0.5f), handM, false);
@@ -980,6 +981,77 @@ public static class FuwaCourse2_4Builder
         return SaveMesh(name, v, t);
     }
 
+    // 窓（穴）のふちのしましま（2026-11-08 てじゃ「穴が見えづらい」）：WindowGear と同じ窓の形のふちの、穴でない側に黄色と黒の帯
+    //  上の面から少し浮かせた薄い板（ふちの弧は +0.02、たての辺は +0.025 で、かどの重なりも同じ高さにならない）。当たりなし、歯車の子
+    static void WindowLip(Transform gear, int z, float mod, float h, float rHub, float rWin, (float c, float hw)[] wins, string name, int flank = 8)
+    {
+        const float W = 0.2f, Seg = 0.3f, YArc = 0.02f, YRad = 0.025f;
+        var o = FuwaGearTest.GearOutline(z, flank, mod); int n = o.Length;
+        int K = Mathf.Max(1, n / (z * 4)); int M = (n + K - 1) / K;
+        var dIn = new Vector2[M]; for (int k = 0; k < M; k++) dIn[k] = o[k * K].normalized;
+        bool InWin(float a) { foreach (var w in wins) if (Mathf.Abs(Mathf.DeltaAngle(a, w.c)) < w.hw) return true; return false; }
+        var segWin = new bool[M];
+        for (int k = 0; k < M; k++) { var s = dIn[k] + dIn[(k + 1) % M]; segWin[k] = InWin(Mathf.Atan2(s.y, s.x) * Mathf.Rad2Deg); }
+        var vv = new[] { new List<Vector3>(), new List<Vector3>() }; var tt = new[] { new List<int>(), new List<int>() };
+        void Tri(int c, Vector3 a, Vector3 b, Vector3 d, Vector3 want)
+        {
+            if (Vector3.Dot(Vector3.Cross(b - a, d - a), want) < 0f) { var s = b; b = d; d = s; }
+            int i = vv[c].Count; vv[c].Add(a); vv[c].Add(b); vv[c].Add(d); tt[c].Add(i); tt[c].Add(i + 1); tt[c].Add(i + 2);
+        }
+        // 平面の四角 a b c d（どちら回りでも）を、h から h+y の薄い板に
+        void Slab(int c, Vector2 a, Vector2 b, Vector2 cc, Vector2 d, float y)
+        {
+            var p = new[] { a, b, cc, d }; var m = (a + b + cc + d) / 4f;
+            Vector3 T(Vector2 q, float yy) => new Vector3(q.x, yy, q.y);
+            Tri(c, T(a, h + y), T(b, h + y), T(cc, h + y), Vector3.up); Tri(c, T(a, h + y), T(cc, h + y), T(d, h + y), Vector3.up);
+            for (int e = 0; e < 4; e++)
+            {
+                var q0 = p[e]; var q1 = p[(e + 1) % 4]; var mid = (q0 + q1) / 2f - m; var nw = new Vector3(mid.x, 0f, mid.y);
+                Tri(c, T(q0, h), T(q1, h), T(q1, h + y), nw); Tri(c, T(q0, h), T(q1, h + y), T(q0, h + y), nw);
+            }
+        }
+        // 弧の帯（k0 から k1 の区間、半径 r0〜r1）。しま1本の長さ Seg ぶんの区間ごとに色をかえる
+        void Arc(int k0, int k1, float r0, float r1)
+        {
+            float rm = (r0 + r1) / 2f, len = 0f;
+            for (int k = k0; k <= k1; k++)
+            {
+                var a = dIn[k % M]; var b = dIn[(k + 1) % M];
+                int c = Mathf.FloorToInt((len + (a - b).magnitude * rm * 0.5f) / Seg) % 2;
+                len += (a - b).magnitude * rm;
+                Slab(c, a * r0, b * r0, b * r1, a * r1, YArc);
+            }
+        }
+        // たての辺の帯：向き d の線の、穴でない側（side）に幅 W。半径 rHub−W〜rWin+W（かどを覆う）
+        void Radial(Vector2 d, Vector2 side)
+        {
+            float r0 = rHub - W, r1 = rWin + W; int ns = Mathf.Max(1, Mathf.RoundToInt((r1 - r0) / Seg));
+            for (int s = 0; s < ns; s++)
+            {
+                float a0 = Mathf.Lerp(r0, r1, (float)s / ns), a1 = Mathf.Lerp(r0, r1, (float)(s + 1) / ns);
+                Slab(s % 2, d * a0, d * a1, d * a1 + side * W, d * a0 + side * W, YRad);
+            }
+        }
+        for (int s = 0; s < M; s++)
+        {
+            if (!segWin[s] || segWin[(s - 1 + M) % M]) continue;   // 窓のはじまり
+            int e = s; while (segWin[(e + 1) % M] && e - s < M) e++;
+            Arc(s, e, rWin, rWin + W);                // 外のふち（穴の外がわ）
+            Arc(s, e, rHub - W, rHub);                // こしきのふち（穴の内がわ）
+            Vector2 ds = dIn[s], de = dIn[(e + 1) % M];
+            Vector2 ps = new Vector2(-ds.y, ds.x); if (Vector2.Dot(ps, dIn[(s - 1 + M) % M]) < 0f) ps = -ps;
+            Vector2 pe = new Vector2(-de.y, de.x); if (Vector2.Dot(pe, dIn[(e + 2) % M]) < 0f) pe = -pe;
+            Radial(ds, ps); Radial(de, pe);
+        }
+        var mats = new[] { FuwaGearTest.Mat("Course2_4_HazardYellow", new Color(1f, 0.8f, 0.12f)), FuwaGearTest.Mat("Course2_4_HazardBlack", new Color(0.13f, 0.13f, 0.15f)) };
+        for (int c = 0; c < 2; c++)
+        {
+            var go = new GameObject(c == 0 ? "LipYellow" : "LipBlack"); go.transform.SetParent(gear, false);
+            go.AddComponent<MeshFilter>().sharedMesh = SaveMesh(name + (c == 0 ? "_Y" : "_K"), vv[c], tt[c]);
+            go.AddComponent<MeshRenderer>().sharedMaterial = mats[c];
+        }
+    }
+
     // ①→② 窓のある歯車3枚（24・18・24枚）。かみ合う所で次へ乗り移る。窓が道の上に来たら落ちる
     public static float HoleSpeed = 0.35f;
     static void HoleGears()
@@ -989,14 +1061,17 @@ public static class FuwaCourse2_4Builder
         var gs = new List<FuwaGearTest.Gear>();
         gs.Add(new FuwaGearTest.Gear { name = "HG0_z24", z = zs[0], c = new Vector2(0f, PM * zs[0] / 2f + PM + 0.05f), ratio = RatioFor(HoleSpeed, PM * zs[0] / 2f), phase = 0f });
         for (int i = 1; i < zs.Length; i++) gs.Add(FuwaGearTest.Mesh2(gs[i - 1], "HG" + i + "_z" + zs[i], zs[i], 90f, PM));
-        var wood = cwLight;
+        // 2026-11-08 てじゃ「穴が見えづらい」：明るいグレーだと下の白い雲と溶ける → 歯車は濃い色、穴のふちに黄色と黒のしましま
+        var darkM = FuwaGearTest.Mat("Course2_4_HoleGear", new Color(0.3f, 0.32f, 0.37f));
+        var bronzeM = FuwaGearTest.Mat("Course2_4_HoleGearBronze", new Color(0.48f, 0.36f, 0.24f));
         for (int i = 0; i < gs.Count; i++)
         {
             var q = gs[i]; float r = PM * q.z / 2f, rf = r - 1.25f * PM;
             var wins = i == 1 ? new[] { (0f, 50f), (180f, 50f) } : new[] { (30f, 45f), (210f, 45f) };
             var mesh = WindowGear(q.z, PM, H, 0.45f, rf - 0.45f, wins, "PathGear_Hole_z" + q.z + "_" + i);
-            var t = CwGear(g, q.name, new Vector3(q.c.x, -H, q.c.y), Vector3.up, mesh, i == 1 ? cwBrass : wood, true);
+            var t = CwGear(g, q.name, new Vector3(q.c.x, -H, q.c.y), Vector3.up, mesh, i == 1 ? bronzeM : darkM, true);
             AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg);
+            WindowLip(t, q.z, PM, H, 0.45f, rf - 0.45f, wins, "PathGear_HoleLip_" + i);
         }
         Drive(g, gs[2], 18, PM, -H, H, cwDark);   // 大きめ（でかい歯車からの速さ合わせ）。最後の歯車の外（最初の歯車の外はチェックポイントのきのこの丸太とぶつかる）
         var last = gs[gs.Count - 1];

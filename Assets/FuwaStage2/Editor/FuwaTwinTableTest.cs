@@ -114,12 +114,7 @@ public static class FuwaTwinTableTest
         var pinT = gearTs[NI];
         var handle = new GameObject("Handle").transform; handle.SetParent(pinT, false); handle.localPosition = new Vector3(0f, 1.05f - GearY, 0f);
         handle.gameObject.layer = 2;
-        Prim(PrimitiveType.Cylinder, handle, "Hub", Vector3.zero, new Vector3(0.22f, 0.15f, 0.22f), brass);
-        for (int k = 0; k < 6; k++)
-        {
-            var pd = Prim(PrimitiveType.Cube, handle, "Paddle" + k, Quaternion.Euler(0f, k * 60f, 0f) * new Vector3(0.45f, 0f, 0f), new Vector3(0.7f, 0.3f, 0.04f), bladeM);
-            pd.localRotation = Quaternion.Euler(0f, k * 60f, 0f);
-        }
+        FuwaTurnTableTest.Impeller(handle, brass);
         var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.8f;
 
         // ── かごの金網（橋の口だけあける）──

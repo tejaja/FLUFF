@@ -105,12 +105,7 @@ public static class FuwaTurnTableTest
         var pinT = gearTs[NI];
         var handle = new GameObject("Handle").transform; handle.SetParent(pinT, false); handle.localPosition = new Vector3(0f, 1.05f - GearY, 0f);
         handle.gameObject.layer = 2;
-        Prim(PrimitiveType.Cylinder, handle, "Hub", Vector3.zero, new Vector3(0.22f, 0.15f, 0.22f), brass);
-        for (int k = 0; k < 6; k++)
-        {
-            var pd = Prim(PrimitiveType.Cube, handle, "Paddle" + k, Quaternion.Euler(0f, k * 60f, 0f) * new Vector3(0.45f, 0f, 0f), new Vector3(0.7f, 0.3f, 0.04f), bladeM);
-            pd.localRotation = Quaternion.Euler(0f, k * 60f, 0f);
-        }
+        Impeller(handle, brass);
         var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.8f;
         // かごの金網：北・南の長い壁、入口側（東）と橋側（西）は口をあけて両はしだけ。かどの柱が重ならないように端の壁は少し短く
         float cx0 = x0, cx1 = x1, cl = cx1 - cx0;
@@ -219,6 +214,30 @@ public static class FuwaTurnTableTest
         g.transform.localPosition = c + new Vector3(0f, -0.2f, 0f); g.transform.localRotation = Quaternion.Euler(0f, -deg, 0f);   // 厚み 0.4（床下の歯車にかからない）
         Prim(PrimitiveType.Cube, g.transform, "Visual", Vector3.zero, new Vector3(size.x, 0.4f, size.y), m);
         g.AddComponent<BoxCollider>().size = new Vector3(size.x, 0.4f, size.y);
+    }
+
+    // 羽根車の見た目（2026-11-08 てじゃ「横向きの回転羽に気が付きにくい」→ 大きく・濃い水色・白い先っぽ・上に目印の小さい羽）
+    //  handle の原点＝羽の高さのまん中。見た目を当たり（hitRadius 1.0・高さ ±0.55）に合わせる。目印は金網（2.2m）より上に出る
+    public static void Impeller(Transform handle, Material brass)
+    {
+        var blade = FuwaGearTest.Mat("Impeller_Blade", new Color(0.22f, 0.62f, 1f));
+        var tip = FuwaGearTest.Mat("Impeller_Tip", new Color(0.97f, 0.98f, 1f));
+        var axle = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
+        Prim(PrimitiveType.Cylinder, handle, "Hub", Vector3.zero, new Vector3(0.34f, 0.36f, 0.34f), brass);
+        for (int k = 0; k < 6; k++)
+        {
+            var q = Quaternion.Euler(0f, k * 60f, 0f);
+            Prim(PrimitiveType.Cube, handle, "Paddle" + k, q * new Vector3(0.58f, 0f, 0f), new Vector3(0.84f, 0.62f, 0.05f), blade).localRotation = q;
+            Prim(PrimitiveType.Cube, handle, "PaddleTip" + k, q * new Vector3(0.94f, 0f, 0f), new Vector3(0.13f, 0.64f, 0.06f), tip).localRotation = q;
+        }
+        // 目印：細い柱の先に真ちゅうの玉と小さい羽（一緒に回る）
+        Prim(PrimitiveType.Cylinder, handle, "Mast", new Vector3(0f, 1.06f, 0f), new Vector3(0.08f, 0.7f, 0.08f), axle);
+        Prim(PrimitiveType.Sphere, handle, "MastBall", new Vector3(0f, 1.86f, 0f), Vector3.one * 0.26f, brass);
+        for (int k = 0; k < 3; k++)
+        {
+            var q = Quaternion.Euler(0f, k * 120f, 0f);
+            Prim(PrimitiveType.Cube, handle, "MastFin" + k, q * new Vector3(0.3f, 1.86f, 0f), new Vector3(0.36f, 0.24f, 0.03f), blade).localRotation = q;
+        }
     }
 
     static Transform Prim(PrimitiveType t, Transform parent, string name, Vector3 lp, Vector3 ls, Material m)

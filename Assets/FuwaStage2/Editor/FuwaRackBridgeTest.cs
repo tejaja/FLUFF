@@ -113,12 +113,7 @@ public static class FuwaRackBridgeTest
         // ── 羽根車 ──
         var handle = new GameObject("Handle").transform; handle.SetParent(gNV, false); handle.localPosition = new Vector3(0f, HubY - topNV, 0f);
         handle.gameObject.layer = 2;
-        Prim(PrimitiveType.Cylinder, handle, "Hub", Vector3.zero, new Vector3(0.22f, 0.15f, 0.22f), brass);
-        for (int k = 0; k < 6; k++)
-        {
-            var pd = Prim(PrimitiveType.Cube, handle, "Paddle" + k, Quaternion.Euler(0f, k * 60f, 0f) * new Vector3(0.45f, 0f, 0f), new Vector3(0.7f, 0.3f, 0.04f), bladeM);
-            pd.localRotation = Quaternion.Euler(0f, k * 60f, 0f);
-        }
+        FuwaTurnTableTest.Impeller(handle, brass);
         var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.8f;
 
         // ── かごの金網（橋の口だけあける） ──
@@ -172,6 +167,14 @@ public static class FuwaRackBridgeTest
         rack.gameObject.AddComponent<MeshRenderer>().sharedMaterial = brass;
         float rackLen = RackTeeth * Mathf.PI * MP, top = GearY + GearTh, bot = BridgeTop - BridgeT;
         Prim(PrimitiveType.Cube, b, "RackPlate", new Vector3(rackC, (top + bot) / 2f, pitchZ + hf + 0.15f), new Vector3(rackLen, bot - top + 0.01f, 0.3f), dark);
+        // 先っぽの目印の柱（2026-11-08 てじゃ「橋が目線から見えづらい」）：床より低い橋でも、どこまで出ているか遠くから分かる。当たりなし
+        //  橋の先から少し谷の側（引っこんでも床にささらない）、橋の幅のすぐ外。手前の橋は +z・向こうは −z（まん中で合った時にすれちがう）
+        var postM = FuwaGearTest.Mat("RackBridge_TipPost", new Color(0.88f, 0.34f, 0.27f));
+        float pz = (dir < 0f ? 1f : -1f) * (BridgeW / 2f + 0.08f), px = -dir * 0.12f, py0 = BridgeTop - BridgeT, py1 = 1.7f;
+        Prim(PrimitiveType.Cylinder, b, "TipPost", new Vector3(px, (py0 + py1) / 2f, pz), new Vector3(0.14f, (py1 - py0) / 2f, 0.14f), postM);
+        Prim(PrimitiveType.Sphere, b, "TipPostBall", new Vector3(px, py1 + 0.12f, pz), Vector3.one * 0.32f, brass);
+        // 橋のかどから柱へのうけ（橋の幅の外だけ：まん中で合った時、相手の橋にささらない）
+        Prim(PrimitiveType.Cube, b, "TipPostBracket", new Vector3(px / 2f - dir * 0.02f, BridgeTop - BridgeT / 2f, Mathf.Sign(pz) * (BridgeW / 2f + 0.075f)), new Vector3(Mathf.Abs(px) + 0.18f, BridgeT * 0.6f, 0.15f), dark);
         return b;
     }
 
