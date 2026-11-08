@@ -106,6 +106,8 @@ public static class FuwaGearRideTest
             var hm = FuwaGearTest.SaveMesh(HubMesh(hr, HubH, coneH, 40, "GearRide_Hub_r" + Mathf.RoundToInt(hr * 100)));
             hub.AddComponent<MeshFilter>().sharedMesh = hm; hub.AddComponent<MeshRenderer>().sharedMaterial = dark; hub.AddComponent<MeshCollider>().sharedMesh = hm;
             // ふわふわが当たると軽くはじく（2026-11-08 てじゃ「まんなかのやつ、ちょっとフワフワ弾くように」）
+            //  こしきにも自分の Rigidbody（kinematic）：歯車の Rigidbody の子の当たりだと、ふわふわの OnCollisionEnter の collision.gameObject が歯車の方になって FuwaBounce が見つからなかった（とんがりに乗って転がった）
+            var hrb = hub.AddComponent<Rigidbody>(); hrb.isKinematic = true; hrb.useGravity = false;
             var bo = UdonSharpUndo.AddComponent<FuwaBounce>(hub);
             bo.alwaysUp = false; bo.useContactNormal = true; bo.bounceSpeed = HubBounce; bo.keepTangent = 0.5f;
             UdonSharpEditorUtility.CopyProxyToUdon(bo); FuwaStage2WaterTest.NoSync(bo);
