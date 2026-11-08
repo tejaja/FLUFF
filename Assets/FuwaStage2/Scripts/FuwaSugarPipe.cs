@@ -14,11 +14,17 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     public ParticleSystem endPuff;
     [Tooltip("着いたら Puff() を呼ぶ（まん中の雲のバルーン、2026-11-08）")]
     public FuwaCloudBalloon balloon;
+    [Tooltip("途中のタンクのクリスタル（ふくらみが popAt を通るときらっと回ってふくらむ、2026-11-08）")]
+    public Transform pop;
+    public float popAt = -1f;
+    public float popSpin = 25f;
     public int endCount = 10;
 
     private float[] _cum;
     private float[] _at;
     private float _total;
+    private float _pop;
+    private Vector3 _popScale;
 
     private void Start()
     {
@@ -28,6 +34,7 @@ public class FuwaSugarPipe : UdonSharpBehaviour
         _total = n > 0 ? _cum[n - 1] : 0f;
         int b = bulges != null ? bulges.Length : 0;
         _at = new float[b];
+        if (pop != null) _popScale = pop.localScale;
         for (int i = 0; i < b; i++) { _at[i] = -1f; if (bulges[i] != null) bulges[i].gameObject.SetActive(false); }
     }
 
@@ -60,10 +67,19 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     {
         if (_at == null || pts == null || pts.Length < 2) return;
         float dt = Time.deltaTime;
+        if (pop != null)
+        {
+            _pop = Mathf.Max(0f, _pop - dt * 1.2f);
+            float k = _pop * _pop;
+            pop.Rotate(0f, (popSpin + 600f * k) * dt, 0f, Space.Self);
+            pop.localScale = _popScale * (1f + 0.3f * k);
+        }
         for (int i = 0; i < _at.Length; i++)
         {
             if (_at[i] < 0f) continue;
+            float was = _at[i];
             _at[i] += speed * dt;
+            if (popAt >= 0f && was < popAt && _at[i] >= popAt) _pop = 1f;
             if (_at[i] >= _total)
             {
                 _at[i] = -1f; bulges[i].gameObject.SetActive(false);
