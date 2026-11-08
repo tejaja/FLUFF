@@ -72,6 +72,8 @@ public class FuwaCloudFactory : UdonSharpBehaviour
     private void Bellows()
     {
         if (axisDir == null) return;
+        float sc = frame.lossyScale.x;   // 機械ごと大きくしている時（長さは frame の中の値）
+        float L = rodLen * sc;
         Vector3 pin = pinion.TransformPoint(new Vector3(pinR, pinY, 0f));
         Vector3 c = pinion.TransformPoint(new Vector3(0f, pinY, 0f));
         for (int k = 0; k < axisDir.Length; k++)
@@ -80,7 +82,7 @@ public class FuwaCloudFactory : UdonSharpBehaviour
             Vector3 d = pin - c;
             float along = Vector3.Dot(d, ax);
             Vector3 side = d - ax * along;
-            float dist = along + Mathf.Sqrt(Mathf.Max(0f, rodLen * rodLen - side.sqrMagnitude));
+            float dist = along + Mathf.Sqrt(Mathf.Max(0f, L * L - side.sqrMagnitude));
             Vector3 sp = c + ax * dist;
             if (plates != null && k < plates.Length && plates[k] != null) plates[k].position = sp;
             if (rods != null && k < rods.Length && rods[k] != null)
@@ -89,14 +91,14 @@ public class FuwaCloudFactory : UdonSharpBehaviour
                 rods[k].rotation = Quaternion.LookRotation((sp - pin).normalized, frame.up);
             }
             // じゃばら：動く板から動かない板まで
-            float fd = fixedDist[k];
+            float fd = fixedDist[k] * sc;
             if (rings != null)
                 for (int i = 0; i < rings.Length; i++)
                     if (ringOwner[i] == k && rings[i] != null) rings[i].position = c + ax * Mathf.Lerp(dist, fd, ringT[i]);
             if (skins != null && k < skins.Length && skins[k] != null)
             {
                 skins[k].position = c + ax * ((dist + fd) * 0.5f);
-                Vector3 ls = skins[k].localScale; ls.x = Mathf.Max(0.01f, fd - dist); skins[k].localScale = ls;
+                Vector3 ls = skins[k].localScale; ls.x = Mathf.Max(0.01f, (fd - dist) / sc); skins[k].localScale = ls;
             }
             // いちばん押しこんだ所（板が動かない板にいちばん近づいて戻りはじめた）で雲
             float dir = dist - _lastD[k];

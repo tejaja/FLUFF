@@ -869,7 +869,9 @@ public static class FuwaCourse2_4Builder
     //  塔はクリスタルの力で雲を作る機械。各しかけのたての軸（塔のでかい歯車から回る）の途中に大きい歯車（64枚）→ 小さい歯車（8枚、8倍速）→
     //   乗る歯車：大きいふいご＋煙突 ／ 穴あき歯車：雲の糸巻き ／ ごつい歯車：らせんカムで持ち上げて落とす臼 ／ 段つき歯車：小さいふいご2つ（交互）
     //  道の下（軸のてっぺんから FacDrop 下）、軸から外向き（ほかの物とぶつからない向きを探す）。動きは FuwaCloudFactory（軸の角度を読むだけ）
-    public static float FacDrop = 2.0f;   // 機械の高さ：しかけの軸のてっぺん（道の歯車の下の面くらい）からこれだけ下
+    // 機械の大きさ（2026-11-08 てじゃ「ちっちゃすぎる」→ まるごと2倍。大きい歯車も同じ倍率なのでかみ合いはそのまま）と高さ：しかけの軸のてっぺん（道の歯車の下の面）から FacDrop 下
+    public static float FacScale = 2f;
+    static float FacDrop => 1.35f * FacScale + 0.1f;
     const float FacMod = 0.05f; const int FacZBig = 64, FacZS = 8;
     static Material facLeather, facCloud, facWood;
     static void CloudFactory(Transform tower)
@@ -917,10 +919,10 @@ public static class FuwaCourse2_4Builder
     {
         string[] names = { "Bellows", "Stamp", "Spool", "TwinBellows" };
         var F = new GameObject("Factory_" + names[kind] + "_" + shaft.name).transform; F.SetParent(holder, false);
-        var S = root.InverseTransformPoint(shaft.position); float shaftTop = S.y; S.y = shaftTop - FacDrop;
-        F.localPosition = S;
+        var S = root.InverseTransformPoint(shaft.position); float shaftTop = S.y; S.y = shaftTop - FacDrop - (kind == 0 ? 0.7f : 0f);   // 乗る歯車は軸のてっぺん＝歯車の上の面なので、歯車の厚みぶんさらに下
+        F.localPosition = S; F.localScale = Vector3.one * FacScale;
         float Rb = FacMod * FacZBig / 2f, Rs = FacMod * FacZS / 2f, px = Rb + Rs;
-        float topY = shaftTop - 0.3f - S.y;   // 煙突のてっぺん（frame の y、道よりすこし下）
+        float topY = (shaftTop - 0.3f - S.y) / FacScale;   // 煙突のてっぺん（frame の y、道よりすこし下）
         // 機械の大きさ（frame の中）
         Vector3 lo, hi;
         switch (kind)
@@ -945,7 +947,7 @@ public static class FuwaCourse2_4Builder
 
         // 大きい歯車（軸の子、いっしょに回る）と小さい歯車（ここで回す）
         var big = new GameObject("FactoryBig_z" + FacZBig).transform; big.SetParent(shaft, false);
-        big.position = F.position; big.localPosition = new Vector3(0f, big.localPosition.y, 0f); big.localRotation = Quaternion.identity;
+        big.position = F.position; big.localPosition = new Vector3(0f, big.localPosition.y, 0f); big.localRotation = Quaternion.identity; big.localScale = Vector3.one * FacScale;
         big.gameObject.AddComponent<MeshFilter>().sharedMesh = SpurMesh(FacZBig, FacMod, 0.12f, "Factory_Big_z" + FacZBig);
         big.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
         var bg = new FuwaGearTest.Gear { name = "Big", z = FacZBig, c = Vector2.zero, ratio = 1f, phase = 0f };
@@ -953,7 +955,7 @@ public static class FuwaCourse2_4Builder
         var pin = new GameObject("FactoryPinion_z" + FacZS).transform; pin.SetParent(F, false); pin.localPosition = new Vector3(pg.c.x, 0f, pg.c.y);
         pin.gameObject.AddComponent<MeshFilter>().sharedMesh = SpurMesh(FacZS, FacMod, 0.3f, "Factory_Pinion_z" + FacZS);
         pin.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cwDark;
-        CwShaft(pin, -0.7f, 0.3f, 0.12f);
+        CwShaft(pin, kind == 0 ? -0.1f : -0.7f, 0.3f, 0.12f);   // 乗る歯車のは下に塔からの歯車があるので短く
         // 台（小さい歯車の下から機械の先まで）と、軸へのうで
         float bedEnd = kind == 1 ? px + 0.45f : hi.x - 0.2f;   // 臼は棒が台を通らないように、小さい歯車の所まで
         TBox(F, "FactoryBed", new Vector3((Rb - 0.2f + bedEnd) / 2f, -0.76f, (lo.z + hi.z) / 2f), new Vector3(bedEnd - (Rb - 0.2f), 0.12f, hi.z - lo.z - 0.2f), facWood, false);
@@ -1045,7 +1047,7 @@ public static class FuwaCourse2_4Builder
         var go = new GameObject("CloudPuff"); go.transform.SetParent(parent, false); go.transform.localPosition = lp;
         go.transform.localRotation = Quaternion.FromToRotation(Vector3.forward, dir);
         var ps = go.AddComponent<ParticleSystem>();
-        var main = ps.main; main.playOnAwake = rate > 0f; main.loop = true; main.startLifetime = new ParticleSystem.MinMaxCurve(2.4f, 3.4f); main.startSpeed = new ParticleSystem.MinMaxCurve(0.7f, 1.3f);
+        var main = ps.main; main.scalingMode = ParticleSystemScalingMode.Hierarchy; main.playOnAwake = rate > 0f; main.loop = true; main.startLifetime = new ParticleSystem.MinMaxCurve(2.4f, 3.4f); main.startSpeed = new ParticleSystem.MinMaxCurve(0.7f, 1.3f);
         main.startSize = new ParticleSystem.MinMaxCurve(size * 0.6f, size); main.simulationSpace = ParticleSystemSimulationSpace.World; main.maxParticles = 80; main.gravityModifier = -0.02f;
         var em = ps.emission; em.rateOverTime = rate;
         var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Cone; sh.angle = 18f; sh.radius = radius;
