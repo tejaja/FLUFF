@@ -110,6 +110,8 @@ public static class FuwaCourse2_3Builder
     public static bool IceLook = true;   // 氷の島の見た目（2026-11-05）。false で前の見た目（材質の模様は前の値を入れ直さないので、戻す時は IceTest_IceC から写す所が効く）
     public static Color SnowLipCol = new Color(0.97f, 0.985f, 1f), IcicleCol = new Color(0.7f, 0.88f, 1f);
     public static float IceCrackMask = 0.55f;   // ひびを一部だけ（雪のまだらのない所の、さらに一部。0＝全部）
+    public static float IceDeep = 0.3f,   // てじゃ「色もうすく」0.55→0.3
+    IceBubble = 0.6f, IceSky = 0.55f;   // 氷の上の面の奥行き・泡・空のうつりこみ（FuwaToonLit）
     public static float IceSpike = 0.35f;   // 0.75 は てじゃ「下のギザギザがちょっとくどい」   // B：側面の下のはしのギザギザ（つららっぽく、1 つおきに下へ）
     public static Color RockCol = new Color(0.46f, 0.50f, 0.60f), CrystalCol = new Color(0.62f, 0.84f, 1f), MarkCol = new Color(1f, 0.5f, 0.2f);
 
@@ -162,6 +164,8 @@ public static class FuwaCourse2_3Builder
             iceFlat.SetColor("_GroundTintA", new Color(1.5f, 1.15f, 1.03f)); iceFlat.SetColor("_GroundTintB", new Color(0.86f, 0.93f, 1.0f));
             iceFlat.SetFloat("_IceSide", 1f); iceFlat.SetColor("_IceSideColor", new Color(0.5f, 0.62f, 0.92f)); iceFlat.SetFloat("_IceSideDepth", 1.6f);
             iceFlat.SetFloat("_IceStreak", 0.3f); iceFlat.SetFloat("_IceStreakScale", 0.6f);
+            // 2026-11-08 てじゃ「氷の表面ももっと氷っぽく」→ B 奥の層（視差でずれる暗い青のまだら＋泡）＋ C 浅い角度ほど空色
+            iceFlat.SetFloat("_IceDeep", IceDeep); iceFlat.SetFloat("_IceDeepScale", 9f); iceFlat.SetFloat("_IceBubble", IceBubble); iceFlat.SetFloat("_IceSky", IceSky);   // まだらは大きく（てじゃ「細かくて繰り返し模様に見える」2.4→9）
             EditorUtility.SetDirty(iceFlat);
         }
         snowLipMat = FuwaStage2WaterTest.ToonMat("Stage2_3_SnowLip", SnowLipCol); snowLipMat.SetFloat("_OffsetFactor", -1f); snowLipMat.SetFloat("_OffsetUnits", -1f); EditorUtility.SetDirty(snowLipMat);

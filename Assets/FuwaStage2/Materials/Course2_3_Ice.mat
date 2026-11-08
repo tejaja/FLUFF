@@ -91,8 +91,14 @@ Material:
     - _GroundPatch: 0.75
     - _GroundPatchScale: 10
     - _GroundSteps: 3
+    - _IceBubble: 0.6
+    - _IceDeep: 0.3
+    - _IceDeepDepth: 0.6
+    - _IceDeepScale: 9
     - _IceSide: 1
     - _IceSideDepth: 1.6
+    - _IceSky: 0.55
+    - _IceSkyPower: 3
     - _IceStreak: 0.3
     - _IceStreakScale: 0.6
     - _Metallic: 0
@@ -127,7 +133,9 @@ Material:
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _GroundTintA: {r: 1.5, g: 1.15, b: 1.03, a: 1}
     - _GroundTintB: {r: 0.86, g: 0.93, b: 1, a: 1}
+    - _IceDeepColor: {r: 0.45, g: 0.62, b: 0.92, a: 1}
     - _IceSideColor: {r: 0.5, g: 0.62, b: 0.92, a: 1}
+    - _IceSkyColor: {r: 0.86, g: 0.95, b: 1, a: 1}
     - _RimColor: {r: 1, g: 0.96999997, b: 0.92, a: 1}
     - _ShadowTint: {r: 0.54999995, g: 0.47999996, b: 0.75, a: 1}
     - _StrataA: {r: 1.06, g: 0.97999996, b: 0.94, a: 1}

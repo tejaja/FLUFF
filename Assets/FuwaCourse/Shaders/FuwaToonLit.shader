@@ -47,6 +47,15 @@ Shader "FuwaCourse/ToonLit"
         _IceSideDepth ("色が濃くなりきる深さ (m、uv.y)", Float) = 1.6
         _IceStreak ("たての筋の強さ", Range(0,1)) = 0.35
         _IceStreakScale ("たての筋の細かさ (per m)", Float) = 1.6
+        // 氷の上の面（2026-11-08 2–3 てじゃ「氷の表面ももっと氷っぽく」→ B 奥行き＋C 遠くが空色）
+        _IceDeep ("氷の奥：表面の下の層（暗い青のまだら・泡）が見る角度でずれて見える (0=off)", Range(0,1)) = 0
+        _IceDeepDepth ("奥の層の深さ (m)", Float) = 0.6
+        _IceDeepColor ("奥の層の色（かける）", Color) = (0.45, 0.62, 0.92, 1)
+        _IceDeepScale ("奥のまだらの大きさ (m)", Float) = 9
+        _IceBubble ("奥の泡の量 (0=off)", Range(0,1)) = 0
+        _IceSky ("浅い角度で見るほど空色に明るく (0=off)", Range(0,1)) = 0
+        _IceSkyColor ("うつりこむ空の色", Color) = (0.86, 0.95, 1, 1)
+        _IceSkyPower ("空色になりはじめる浅さ（大きいほど遠くだけ）", Float) = 3
         [Header(Rock Detail)]
         _NoiseStrength ("Color Noise Strength", Range(0,0.5)) = 0
         _NoiseScale ("Color Noise Scale (per m)", Float) = 0.6
@@ -108,6 +117,7 @@ Shader "FuwaCourse/ToonLit"
             half _EmissionGradient, _EmissionFull;
             fixed4 _UnderColor; half _UnderStrength, _UnderGrad;
             fixed4 _IceSideColor; half _IceSide, _IceStreak; float _IceSideDepth, _IceStreakScale;
+            fixed4 _IceDeepColor, _IceSkyColor; half _IceDeep, _IceBubble, _IceSky; float _IceDeepDepth, _IceDeepScale, _IceSkyPower;
             half _DitherFade;
             // 4x4 の網点（Bayer）。0〜1
             float Bayer4(float2 p)
@@ -264,6 +274,30 @@ Shader "FuwaCourse/ToonLit"
                 }
                 float3 l = normalize(_WorldSpaceLightPos0.xyz);
                 float3 v = normalize(_WorldSpaceCameraPos - i.wp);
+                // 氷の奥：上向きの面だけ。見る向きの反対へ、深さぶんずらした位置の模様（屈折で少し浅く見えるので 0.75 倍）
+                if (_IceDeep > 0 || _IceBubble > 0)
+                {
+                    half upd = smoothstep(0.6, 0.9, n.y);
+                    float2 off = -v.xz / max(v.y, 0.2) * _IceDeepDepth * 0.75;
+                    float2 dq = i.pp.xz + off;
+                    // 2026-11-08 てじゃ「まだらが細かくて繰り返し模様に見える」→ 大きく、向きと大きさのちがう 2 枚を半端な比で重ねて繰り返しを見えにくく
+                    float2 r1 = float2(dq.x * 0.799 - dq.y * 0.602, dq.x * 0.602 + dq.y * 0.799);   // 37°
+                    float2 r2 = float2(dq.x * 0.934 + dq.y * 0.358, -dq.x * 0.358 + dq.y * 0.934);  // -21°
+                    half dg = tex2D(_GroundTex, r1 / _IceDeepScale + 0.53).g * 0.6 + tex2D(_GroundTex, r2 / (_IceDeepScale * 1.73) + 0.21).g * 0.4;
+                    half w = max(fwidth(dg) * 1.5, 0.02);
+                    half dm = smoothstep(0.56 - w, 0.56 + w, dg);   // トゥーンっぽく、ふちのくっきりしたまだら
+                    col.rgb *= lerp(half3(1,1,1), _IceDeepColor.rgb, _IceDeep * dm * upd);
+                    if (_IceBubble > 0)
+                    {
+                        // 泡：もう少し深い所（1.6 倍）の小さい白い点
+                        float2 bq = i.pp.xz + off * 1.6;
+                        half bn = VNoise(float3(bq * 3.1, 0.0)) * 0.7 + VNoise(float3(bq * 7.3, 5.0)) * 0.3;
+                        half bw = max(fwidth(bn) * 1.5, 0.01);
+                        half bub = smoothstep(0.83 - bw, 0.83 + bw, bn);
+                        half bfade = 1 - smoothstep(10, 25, distance(_WorldSpaceCameraPos, i.wp));   // 遠くはチラつくので消す
+                        col.rgb = lerp(col.rgb, col.rgb * 0.6 + 0.5, _IceBubble * bub * bfade * upd * 0.6);
+                    }
+                }
 
                 // ふんわり明暗：ハーフランバートを、少しだけ段っぽく（_Steps で境目の締まり）
                 half ndl = dot(n, l);
@@ -289,6 +323,13 @@ Shader "FuwaCourse/ToonLit"
                 half rim = pow(1 - saturate(dot(n, v)), _RimPower) * _RimStrength * (0.5 + 0.5 * lit);
                 rim *= 1 - i.fade;   // 根元のなじませ部分はふちを光らせない（境目が浮かないように）
                 c += _RimColor.rgb * rim;
+                // 空のうつりこみ：上向きの面を浅い角度で見るほど空色へ（遠くの氷が明るく光る）
+                if (_IceSky > 0)
+                {
+                    half ups = smoothstep(0.6, 0.9, n.y);
+                    half fres = pow(1 - saturate(dot(n, v)), _IceSkyPower);
+                    c = lerp(c, _IceSkyColor.rgb * _LightColor0.rgb * 0.5 + _IceSkyColor.rgb * 0.5, _IceSky * fres * ups);
+                }
                 half3 em = UNITY_ACCESS_INSTANCED_PROP(Props, _EmissionColor).rgb;
                 if (_EmissionGradient > 0.5)
                 {
