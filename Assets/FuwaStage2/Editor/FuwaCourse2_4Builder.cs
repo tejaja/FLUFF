@@ -752,6 +752,8 @@ public static class FuwaCourse2_4Builder
     //  しかけのたての軸の下のはし（FeedY+0.7〜+1.2 の層）に小歯車。でかい歯車のふちと、なか歯車 1〜2 枚でつなぐ（距離のちがいをそこで吸収）
     //  歯の数の都合でしかけの速さを s 倍にする（しかけの歯車の ratio をまとめて s 倍：かみ合いはくずれない）
     const float WM = 0.4f, WT = 0.5f; const int WZ = 88;
+    // 2026-11-08 てじゃ「クリスタルはギアに刺さってる感じじゃなくて、空中に浮いた単体の巨大クリスタルのまわりにギア」→ でかい歯車のまん中は穴（BoreR）
+    public static float HubR = 3.6f, BoreR = 2.6f;
     public static float WheelRatio = 0f;   // 0 なら自動で決める
     public static float WheelRatioUsed;
     static void ClockworkFeeds(Transform tower)
@@ -829,9 +831,9 @@ public static class FuwaCourse2_4Builder
         }
         WheelRatioUsed = bestRW;
         // でかい歯車（まん中は塔の土台の中にかくれる。こしきの輪は塔の角の外）
-        float rHub = UseTower ? 5.9f : 2.6f, rWin = RW - 1.25f * WM - 0.9f;
+        float rHub = UseTower ? 5.9f : HubR, rWin = RW - 1.25f * WM - 0.9f;
         var wins = new (float, float)[8]; for (int k = 0; k < 8; k++) wins[k] = (k * 45f + 22.5f, 18.5f);
-        var wMesh = WindowGear(WZ, WM, WT, rHub, rWin, wins, "Clockwork_BigWheel_z" + WZ);
+        var wMesh = WindowGear(WZ, WM, WT, rHub, rWin, wins, "Clockwork_BigWheel_z" + WZ, 8, false, UseTower ? 0f : BoreR);
         var wg = CwGear(wf, "BigWheel_z" + WZ, Vector3.zero, Vector3.up, wMesh, cwDark);
         AddGear(wg, bestRW, 0f);
         var log = new System.Text.StringBuilder("[2–4] でかい歯車 z" + WZ + " 直径 " + (2f * RW).ToString("F1") + "m ratio " + bestRW.ToString("F4") + " ");
@@ -1179,7 +1181,7 @@ public static class FuwaCourse2_4Builder
     public static int GoalPlan = 1;
     public static bool UseTower = false, UseFactory = false;
     static Transform coreT;
-    public static float CrystalH = 6.6f, BoxY = 3.4f;
+    public static float CrystalH = 6.6f, BoxY = 3.4f, CrystalGap = 0.8f, CrystalDown = 5f, CrystalW = 3.0f, CrystalSpin = -0.3f;
     const float CcMod = 0.1f; const int CcBig = 60, CcSmall = 12;
     static void CloudBalloon(Transform core, System.Text.StringBuilder log)
     {
@@ -1190,24 +1192,24 @@ public static class FuwaCourse2_4Builder
         var crystalMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_3_Crystal.mat");
         var cryMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaStage2/Meshes/Course2_3/ObsCrystal1_Main.asset");
         float wheelTop = WT;   // でかい歯車の上の面（歯車の local）
-        // クリスタル（でかい歯車の子：いっしょに回る）。土台の真ちゅうの輪と、まわりに小さいクリスタル
+        // クリスタル（2026-11-08 てじゃ「空中に浮いた単体の巨大クリスタルのまわりにギア」「下にもとびだしてる」）：でかい歯車のまん中の穴に浮く、上下にとがった1本。
+        //  歯車にはつかない（ゆっくり自分で回る）。上のとがりの少し上に歯車箱の軸のはし（さわっていない）
+        float wy = root.InverseTransformPoint(wf.position).y, cMid = wy + WT / 2f, cTop = BoxY - CrystalGap, cBot = cMid - CrystalDown;
         if (cryMesh && crystalMat)
         {
-            float mh = cryMesh.bounds.size.y, s = CrystalH / Mathf.Max(0.01f, mh);
-            void Cry(string n, Vector3 lp, float sc, float tilt, float yaw)
+            float mh = cryMesh.bounds.size.y, mw = Mathf.Max(cryMesh.bounds.size.x, cryMesh.bounds.size.z);
+            var cr = new GameObject("PowerCrystal").transform; cr.SetParent(holder, false); cr.localPosition = new Vector3(0f, cMid, 0f);
+            float sx = CrystalW / mw;
+            foreach (var (n, len, up) in new[] { ("CrystalUp", cTop - cMid, true), ("CrystalDown", cMid - cBot, false) })
             {
-                var c = new GameObject(n).transform; c.SetParent(wheel, false);
-                c.localRotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(tilt, 0f, 0f); c.localScale = Vector3.one * sc;
-                c.localPosition = lp + c.localRotation * new Vector3(0f, -cryMesh.bounds.min.y * sc, 0f);
+                var c = new GameObject(n).transform; c.SetParent(cr, false);
+                c.localRotation = up ? Quaternion.identity : Quaternion.Euler(180f, 0f, 0f); c.localScale = new Vector3(sx, len / mh, sx);
+                c.localPosition = c.localRotation * new Vector3(0f, -cryMesh.bounds.min.y * len / mh, 0f);
                 c.gameObject.AddComponent<MeshFilter>().sharedMesh = cryMesh; c.gameObject.AddComponent<MeshRenderer>().sharedMaterial = crystalMat;
             }
-            Cry("PowerCrystal", new Vector3(0f, wheelTop, 0f), s, 0f, 0f);
-            for (int k = 0; k < 5; k++) { float a = k * 72f + 20f; Cry("PowerCrystalSmall" + k, Quaternion.Euler(0f, a, 0f) * new Vector3(1.6f, wheelTop, 0f), s * (0.32f + 0.06f * (k % 3)), 24f, a + 90f); }
-            var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ring.name = "CrystalMount"; Object.DestroyImmediate(ring.GetComponent<Collider>());
-            ring.transform.SetParent(wheel, false); ring.transform.localPosition = new Vector3(0f, wheelTop + 0.12f, 0f); ring.transform.localScale = new Vector3(2.6f, 0.12f, 2.6f); ring.GetComponent<Renderer>().sharedMaterial = cwBrass;
+            AddGear(cr, CrystalSpin, 0f);   // ゆっくり回る（FuwaClockwork）
         }
         // 歯車箱（浮いている）：A1(60) → B1(12)=B2(60) → C1(12)=C2(60) → D1(12)=D2(60) → E1(12)。A・C・E は同じ軸（まん中）
-        float wy = root.InverseTransformPoint(wf.position).y;
         var G = new GameObject("Gearbox").transform; G.SetParent(holder, false); G.localPosition = new Vector3(0f, BoxY, 0f);
         float rW = WheelRatioUsed;
         var A1 = new FuwaGearTest.Gear { name = "A1", z = CcBig, c = Vector2.zero, ratio = rW, phase = 0f };
@@ -1231,8 +1233,7 @@ public static class FuwaCourse2_4Builder
         GearAt(C2, 2, true, cwBrass); GearAt(D1, 2, false, cwDark);
         GearAt(D2, 3, true, cwLight); GearAt(E1, 3, false, cwDark);
         // 軸：A1 からクリスタルの頭まで／B・D の軸／C の筒／E の軸から頭まで
-        float cryTop = wy + wheelTop + CrystalH - BoxY;   // 歯車箱の local の y
-        CwShaft(gt["A1"], cryTop - 0.2f, LT, 0.5f);
+        CwShaft(gt["A1"], -CrystalGap * 0.5f, LT, 0.5f);   // とがりの上で止める（すき間 CrystalGap/2）
         CwShaft(gt["B1"], -0.15f, LS + LT + 0.15f, 0.3f);
         CwShaft(gt["C1"], -0.05f, LS + LT + 0.05f, 0.42f);
         CwShaft(gt["D1"], -0.15f, LS + LT + 0.15f, 0.3f);
@@ -1697,7 +1698,7 @@ public static class FuwaCourse2_4Builder
 
     // 窓のある歯車：外のふち（歯）と、まん中のこしき（rHub）の間に、wins の角度（中心, 半分の幅）だけ rHub〜rWin の窓（穴）
     //  cutSub：窓の断面（内がわの壁）を2つ目のサブメッシュに分ける（2026-11-08 てじゃ「断面をもっと暗く」）
-    static Mesh WindowGear(int z, float mod, float h, float rHub, float rWin, (float c, float hw)[] wins, string name, int flank = 8, bool cutSub = false)
+    static Mesh WindowGear(int z, float mod, float h, float rHub, float rWin, (float c, float hw)[] wins, string name, int flank = 8, bool cutSub = false, float rBore = 0f)
     {
         var cutT = new List<int>();
         // 2026-11-07 軽くした：点を使い回す（前は三角形ごとに3点ずつで、88枚歯は11万点あった）
@@ -1725,6 +1726,7 @@ public static class FuwaCourse2_4Builder
             int bw = v.Count; for (int k = 0; k < M; k++) v.Add(P3(dIn[k], rWin, y));
             int bh = v.Count; for (int k = 0; k < M; k++) v.Add(P3(dIn[k], rHub, y));
             int bc = v.Count; v.Add(new Vector3(0f, y, 0f));
+            int bb = v.Count; if (rBore > 0f) for (int k = 0; k < M; k++) v.Add(P3(dIn[k], rBore, y));   // まん中の穴（2026-11-08 でかい歯車のまん中にクリスタルが浮く）
             for (int i = 0; i < n; i++)
             {
                 int j = (i + 1) % n, gi = i / K, gj = j / K;
@@ -1734,7 +1736,8 @@ public static class FuwaCourse2_4Builder
             for (int k = 0; k < M; k++)
             {
                 int k2 = (k + 1) % M;
-                T(bc, bh + k, bh + k2, want);
+                if (rBore > 0f) { T(bb + k, bh + k, bh + k2, want); T(bb + k, bh + k2, bb + k2, want); }
+                else T(bc, bh + k, bh + k2, want);
                 if (!segWin[k]) { T(bh + k, bw + k, bw + k2, want); T(bh + k, bw + k2, bh + k2, want); }
             }
         }
@@ -1752,6 +1755,11 @@ public static class FuwaCourse2_4Builder
             int j = (i + 1) % n; var e = o[j] - o[i]; var nw = new Vector3(e.y, 0f, -e.x) * ori;
             int a = sA[i], b = sB[j];
             T(a, b, b + 1, nw); T(a, b + 1, a + 1, nw);
+        }
+        if (rBore > 0f)   // まん中の穴の壁（内向き）
+        {
+            int b0 = v.Count; for (int k = 0; k <= M; k++) { v.Add(P3(dIn[k % M], rBore, 0f)); v.Add(P3(dIn[k % M], rBore, h)); }
+            for (int k = 0; k < M; k++) { var s2 = dIn[k] + dIn[(k + 1) % M]; var nn = -new Vector3(s2.x, 0f, s2.y); int a = b0 + 2 * k; T(a, a + 2, a + 3, nn); T(a, a + 3, a + 1, nn); }
         }
         // 窓の内がわの壁（こしき側は外向き、ふち側は内向き）。窓の中では点を共有（丸くなめらか）
         if (cutSub) cur = cutT;
