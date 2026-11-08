@@ -259,7 +259,7 @@ public static class FuwaCourse2_4Builder
             var s = Box(g, "S" + k, new Vector3(0, -Tk * 0.5f, l * (k + 0.5f)), new Vector3(hw * 2f, Tk, l), (k % 2 == 0) ? pathA : pathB, 0);
             Object.DestroyImmediate(s.GetComponent<Collider>());
         }
-        if (!under) return;
+        if (!under || !PathUnder) return;   // 2026-11-08 てじゃ「道の下の■部分もいらない」
         var u = Box(g, "Under", new Vector3(0, -Tk - 0.5f, len * 0.5f), new Vector3(hw * 2f - 0.2f, 1.0f, len - 0.1f), underMat, 0);
         Object.DestroyImmediate(u.GetComponent<Collider>());
     }
@@ -1185,6 +1185,7 @@ public static class FuwaCourse2_4Builder
     //  → 浮いている歯車箱（60:12 を4組、同じ軸にもどる形で 625 倍）→ わたあめ機の頭（鍋のまん中でくるくる、雲の糸が出る）
     //  鍋は浮いていて回らない。ふちに雲の糸がたまっている。大きさは回転床 A・まわりの道とぶつからないように
     public static int GoalPlan = 1;
+    public static bool PathUnder = false;
     public static bool UseTower = false, UseFactory = false;
     static Transform coreT;
     public static float CrystalH = 6.6f, BoxY = 3.4f, CrystalGap = 0.8f, CrystalDown = 5f, CrystalW = 4.6f, CrystalHalf = 6.5f, CrystalSpin = -0.3f, FanSpin = 70f;

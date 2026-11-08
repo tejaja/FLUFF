@@ -107,6 +107,7 @@ public static class FuwaCourse2_3Builder
     public static Color PathColA = new Color(0.84f, 0.88f, 0.93f), PathColB = new Color(0.71f, 0.76f, 0.82f);
     public static Color IceCol = new Color(0.62f, 0.86f, 0.98f);
     public static Color SnowColA = new Color(0.97f, 0.98f, 1f), SnowColB = new Color(0.88f, 0.91f, 0.95f);
+    public static bool PathUnder = false;   // 道の下の四角い岩（2026-11-08 てじゃ「道の下の■部分もいらない」）
     public static bool IceLook = true;   // 氷の島の見た目（2026-11-05）。false で前の見た目（材質の模様は前の値を入れ直さないので、戻す時は IceTest_IceC から写す所が効く）
     public static Color SnowLipCol = new Color(0.97f, 0.985f, 1f), IcicleCol = new Color(0.7f, 0.88f, 1f);
     public static float IceCrackMask = 0.55f;   // ひびを一部だけ（雪のまだらのない所の、さらに一部。0＝全部）
@@ -425,8 +426,7 @@ public static class FuwaCourse2_3Builder
             var s = Box(g, "S" + k, new Vector3(0, -T * 0.5f, l * (k + 0.5f)), new Vector3(hw * 2f, T, l), (k % 2 == 0) ? ma : mb, 0);
             Object.DestroyImmediate(s.GetComponent<Collider>());
         }
-        var u = Box(g, "Under", new Vector3(0, -T - 0.75f, len * 0.5f), new Vector3(hw * 2f - 0.2f, 1.5f, len - 0.1f), rockMat, 0);
-        Object.DestroyImmediate(u.GetComponent<Collider>());
+        if (PathUnder) { var u = Box(g, "Under", new Vector3(0, -T - 0.75f, len * 0.5f), new Vector3(hw * 2f - 0.2f, 1.5f, len - 0.1f), rockMat, 0); Object.DestroyImmediate(u.GetComponent<Collider>()); }
     }
     // まっすぐな道を (長さ, 氷か) の順に切れ目なく並べる。p は最後のはしまで進む
     static void Seq(Transform parent, string name, ref Vector3 p, Vector3 dir, float hw, params (float len, bool ice)[] parts)
@@ -477,8 +477,7 @@ public static class FuwaCourse2_3Builder
         var vis = new GameObject("S"); vis.transform.SetParent(g, false);
         vis.AddComponent<MeshFilter>().sharedMesh = top;
         vis.AddComponent<MeshRenderer>().sharedMaterials = ice ? new[] { iceFlat } : (top.subMeshCount == 2 ? new[] { pathA, pathB } : new[] { pathA });
-        var un = new GameObject("Under"); un.transform.SetParent(g, false);
-        un.AddComponent<MeshFilter>().sharedMesh = under; un.AddComponent<MeshRenderer>().sharedMaterial = rockMat;
+        if (PathUnder) { var un = new GameObject("Under"); un.transform.SetParent(g, false); un.AddComponent<MeshFilter>().sharedMesh = under; un.AddComponent<MeshRenderer>().sharedMaterial = rockMat; }
         var col = new GameObject("Col"); col.transform.SetParent(g, false); col.layer = pathLayer;
         var mc = col.AddComponent<MeshCollider>(); mc.sharedMesh = top;
         if (ice) iceCols.Add(mc);
@@ -545,8 +544,7 @@ public static class FuwaCourse2_3Builder
         vis.AddComponent<MeshFilter>().sharedMesh = top;
         var ma = snow ? snowA : pathA; var mb = snow ? snowB : pathB;
         vis.AddComponent<MeshRenderer>().sharedMaterials = ice ? new[] { iceFlat } : (top.subMeshCount == 2 ? new[] { ma, mb } : new[] { ma });
-        var un = new GameObject("Under"); un.transform.SetParent(g, false);
-        un.AddComponent<MeshFilter>().sharedMesh = under; un.AddComponent<MeshRenderer>().sharedMaterial = rockMat;
+        if (PathUnder) { var un = new GameObject("Under"); un.transform.SetParent(g, false); un.AddComponent<MeshFilter>().sharedMesh = under; un.AddComponent<MeshRenderer>().sharedMaterial = rockMat; }
         var col = new GameObject("Col"); col.transform.SetParent(g, false); col.layer = pathLayer;
         var mc = col.AddComponent<MeshCollider>(); mc.sharedMesh = top;
         if (ice) iceCols.Add(mc);
@@ -582,8 +580,7 @@ public static class FuwaCourse2_3Builder
         vis.AddComponent<MeshFilter>().sharedMesh = top;
         var ma = snow ? snowA : pathA; var mb = snow ? snowB : pathB;
         vis.AddComponent<MeshRenderer>().sharedMaterials = ice ? new[] { iceFlat } : (t2.Count == 0 ? new[] { ma } : new[] { ma, mb });
-        var un = new GameObject("Under"); un.transform.SetParent(g, false);
-        un.AddComponent<MeshFilter>().sharedMesh = under; un.AddComponent<MeshRenderer>().sharedMaterial = rockMat;
+        if (PathUnder) { var un = new GameObject("Under"); un.transform.SetParent(g, false); un.AddComponent<MeshFilter>().sharedMesh = under; un.AddComponent<MeshRenderer>().sharedMaterial = rockMat; }
         var col = new GameObject("Col"); col.transform.SetParent(g, false); col.layer = pathLayer;
         var mc = col.AddComponent<MeshCollider>(); mc.sharedMesh = top;
         if (ice) iceCols.Add(mc);
@@ -727,7 +724,8 @@ public static class FuwaCourse2_3Builder
         {
             if (!IceLook || !onEdge.Contains(id)) return 0f;
             var cq = pos[id];
-            { float gx = (cq.x - minX) / cs, gz = (cq.y - minZ) / cs; if (Mathf.Abs(gx - Mathf.Round(gx)) * cs < 0.03f && Mathf.Abs(gz - Mathf.Round(gz)) * cs < 0.03f) return 0f; }   // ます目の角と重なった点（角へ寄せた所）は角と同じ（下のはしがずれない） return IceSpike * 1.8f * Mathf.Max(0f, Mathf.PerlinNoise(cq.x * 0.3f + 17.3f, cq.y * 0.3f + 5.1f) - 0.35f) / 0.65f;
+            { float gx = (cq.x - minX) / cs, gz = (cq.y - minZ) / cs; if (Mathf.Abs(gx - Mathf.Round(gx)) * cs < 0.03f && Mathf.Abs(gz - Mathf.Round(gz)) * cs < 0.03f) return 0f; }   // ます目の角と重なった点（角へ寄せた所）は角と同じ（下のはしがずれない）
+            return IceSpike * 1.8f * Mathf.Max(0f, Mathf.PerlinNoise(cq.x * 0.3f + 17.3f, cq.y * 0.3f + 5.1f) - 0.35f) / 0.65f;
         }
         System.Func<Vector2, float, Vector3> V = (q, y) => new Vector3(q.x, y, q.y);
         var v = new List<Vector3>(); var t = new List<int>();
