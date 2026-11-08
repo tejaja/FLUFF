@@ -34,6 +34,8 @@ public class FuwaCloudFactory : UdonSharpBehaviour
     public Transform[] skins;
     public ParticleSystem[] puffs;
     public int puffCount = 6;
+    [Tooltip("いちばん押しこんだ時にざらめを送るパイプ（ふいご・ポンプごと、2026-11-08 色ざらめパイプ）")]
+    public FuwaSugarPipe[] pipes;
 
     [Header("臼")]
     public Transform hammer;
@@ -102,7 +104,11 @@ public class FuwaCloudFactory : UdonSharpBehaviour
             }
             // いちばん押しこんだ所（板が動かない板にいちばん近づいて戻りはじめた）で雲
             float dir = dist - _lastD[k];
-            if (_lastDir[k] > 0f && dir < 0f && puffs != null && k < puffs.Length && puffs[k] != null) puffs[k].Emit(puffCount);
+            if (_lastDir[k] > 0f && dir < 0f)
+            {
+                if (puffs != null && k < puffs.Length && puffs[k] != null) puffs[k].Emit(puffCount);
+                if (pipes != null && k < pipes.Length && pipes[k] != null) pipes[k].Send();
+            }
             if (Mathf.Abs(dir) > 1e-5f) _lastDir[k] = dir;
             _lastD[k] = dist;
         }
