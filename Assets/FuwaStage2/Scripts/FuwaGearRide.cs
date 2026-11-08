@@ -15,6 +15,8 @@ public class FuwaGearRide : UdonSharpBehaviour
     [Tooltip("元の歯車の回る速さ（2D 反時計回り、度/秒）")]
     public float speed = 2f;
     public float rideRay = 0.6f;
+    [Tooltip("運ぶ時のめりこみ対策（2–4 の FuwaGearGuard）")]
+    public FuwaGearGuard guard;
     [Tooltip("元の角度をこの値でくり返す（全部の ratio × wrap が 360 の倍数になる値。精度のため小さめ）")]
     public float wrap = 36000f;
 
@@ -117,8 +119,13 @@ public class FuwaGearRide : UdonSharpBehaviour
             Vector3 delta = moved - pos; delta.y = 0f;
             if (delta.sqrMagnitude > 1e-10f && delta.sqrMagnitude < 1f)
             {
-                VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
+                // 2026-11-08 運ぶ先が壁・ほかの物ならやめる（FuwaGearGuard。巻き込まれてめりこむ対策）
+                if (guard != null) guard.CarryPlayer(delta, g);
+                else
+                {
+                    VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
                 p.TeleportTo(o.position + delta, o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
+                }
             }
         }
         for (int i = 0; i < n; i++) if (gears[i] != null) _last[i] = gears[i].rotation;

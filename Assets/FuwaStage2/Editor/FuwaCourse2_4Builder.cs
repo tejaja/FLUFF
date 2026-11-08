@@ -99,7 +99,7 @@ public static class FuwaCourse2_4Builder
         // 時計塔のトンネルを突っ切って、抜けた先にゴール（2026-11-07 てじゃ「最後は塔を突っ切った先がゴール」）
         ClockTower(P + Dir(th) * (TowerW / 2f), th);
         TowerDriveRide(log);
-        ClockworkFeeds(root.Find("ClockTower")); ClockworkInstall(root.Find("ClockTower"));
+        ClockworkFeeds(root.Find("ClockTower")); ClockworkInstall(root.Find("ClockTower")); GuardInstall(root.Find("ClockTower"));
         S(TowerW); S(1f);
         var goalAt = GoalSet(root, P, Dir(th));
 
@@ -865,6 +865,25 @@ public static class FuwaCourse2_4Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cw); FuwaStage2WaterTest.NoSync(cw);
         ClockworkSet(cw, 0f);
     }
+    // 歯車に巻き込まれた時のめりこみ対策（2026-11-08 てじゃ「歯車に巻き込まれて潰される感じになると、めり込んでちょっと変」）
+    //  FuwaGearGuard を塔に1つ。動く物（塔が回す歯車・乗る歯車・回転床とその歯車・せり出す橋・振り子のおもり）の当たりを movers に。
+    //  人を運ぶ FuwaClockwork・FuwaGearRide は guard を通して運ぶ（行き先がふさがっていたら運ばない）
+    static void GuardInstall(Transform tower)
+    {
+        var gd = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGearGuard>(tower.gameObject);
+        var movers = new List<Collider>(); var groups = new List<Transform>();   // groups：いっしょに動くまとまり（足もとと同じなら数えない）
+        void AddUnder(Transform t) { if (!t) return; foreach (var c in t.GetComponentsInChildren<Collider>(true)) if (!c.isTrigger && !movers.Contains(c)) { movers.Add(c); groups.Add(t); } }
+        var cw = tower.GetComponent<FuwaClockwork>();
+        foreach (var g in cw.gears) AddUnder(g);
+        foreach (var gr in root.GetComponentsInChildren<FuwaGearRide>(true)) { foreach (var g in gr.gears) AddUnder(g); gr.guard = gd; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(gr); }
+        foreach (var tt in root.GetComponentsInChildren<FuwaTurnTable>(true)) { AddUnder(tt.table); AddUnder(tt.rack); AddUnder(tt.rack2); if (tt.gears != null) foreach (var g in tt.gears) AddUnder(g); }
+        AddUnder(pendPivot);
+        gd.movers = movers.ToArray(); gd.moverGroup = groups.ToArray();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(gd); FuwaStage2WaterTest.NoSync(gd);
+        cw.guard = gd; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cw);
+        Debug.Log("[2–4] めりこみ対策 動く物の当たり " + movers.Count);
+    }
+
     // エディタ用：元の角度 a にする（FuwaClockwork と同じ計算）
     public static void ClockworkSet(FuwaClockwork cw, float a)
     {

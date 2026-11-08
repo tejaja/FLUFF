@@ -23,6 +23,8 @@ public class FuwaClockwork : UdonSharpBehaviour
     public Transform[] rods;
     [Tooltip("歯車の足場に乗っている自分を一緒に運ぶ（足もとを見る長さ）")]
     public float rideRay = 0.6f;
+    [Tooltip("運ぶ時のめりこみ対策（2–4 の FuwaGearGuard）")]
+    public FuwaGearGuard guard;
     private Quaternion[] _last;
     private bool _init;
 
@@ -80,8 +82,13 @@ public class FuwaClockwork : UdonSharpBehaviour
             Vector3 delta = moved - pos; delta.y = 0f;
             if (delta.sqrMagnitude > 1e-10f && delta.sqrMagnitude < 1f)
             {
-                VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
+                // 2026-11-08 運ぶ先が壁・ほかの物ならやめる（FuwaGearGuard。巻き込まれてめりこむ対策）
+                if (guard != null) guard.CarryPlayer(delta, g);
+                else
+                {
+                    VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
                 p.TeleportTo(o.position + delta, o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
+                }
             }
         }
         for (int i = 0; i < n; i++) if (gears[i] != null) _last[i] = gears[i].rotation;
