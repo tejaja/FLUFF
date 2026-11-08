@@ -17,7 +17,7 @@ public static class FuwaGearRideTest
     public static float PitchSpeed = 0.45f;   // 2026-11-08 「もっとはやくていいな」0.3 → 0.45   // ピッチ円の速さ（m/秒）。てじゃ「かなりゆっくり」0.15 → 2026-11-07「ちょい遅すぎ」0.2 → 2026-11-08 こしきで回るしかなくなったので「もっとはやくても」0.3
     static readonly Vector3 Origin = new Vector3(50f, -162f, -104f);   // 入口の台の東のはし、床の上の高さ
     const float CatchY = -3f;
-    public static float HubH = 1.4f, HubRBig = 2f, HubRSmall = 0.9f, HubSlope = 52f, HubBounce = 2.2f;   // まん中のこしき（2026-11-08）。上は円すい、ふわふわを軽くはじく
+    public static float HubH = 1.4f, HubRBig = 2f, HubRSmall = 0.9f, HubSlope = 52f, HubBounce = 1.3f;   // まん中のこしき（2026-11-08）。上は円すい、ふわふわを軽くはじく（2.2 は「弾く力つよすぎ」→ 1.3）
 
     // こしき：y=0〜hc の筒（半径 r、n 角）＋その上の円すい（てっぺん y=hc+hk）。底はなし（歯車の上の面にのる）
     //  筒の横はなめらか、筒と円すいの境・てっぺんは点を分けて角を立てる
@@ -86,6 +86,8 @@ public static class FuwaGearRideTest
             var g = gs[i];
             var t = new GameObject(g.name).transform; t.SetParent(root, false); t.localPosition = new Vector3(g.c.x, 0f, g.c.y);
             var rb = t.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+            // 2026-11-08 てじゃ「下の歯車はアウトに」：Rigidbody の子の当たりは、ふわふわから見ると歯車（この物）に当たった扱いになる → 歯車も地面のレイヤーに
+            t.gameObject.layer = 11;
             float lowest = 99f, topY = 0f; int topZ = ZBig;
             for (int k = 0; k < parts[i].Length; k++)
             {
