@@ -14,10 +14,26 @@ public static class FuwaGearRideTest
     public static float Step = 0.7f;     // 1段の高さ。2026-11-07 てじゃ「歩いて登れてしまう」0.4→0.7（歩きの段差こえ＋ジャンプで足が約0.46m上がる、の間）
     const float ClearY = 0.04f;          // 上の段の大きい歯車と、下の段の歯車の上の面とのすき間
     const int ZBig = 20, ZSmall = 12;
-    public static float PitchSpeed = 0.2f;   // ピッチ円の速さ（m/秒）。てじゃ「かなりゆっくり」0.15 → 2026-11-07「ちょい遅すぎ」0.2
+    public static float PitchSpeed = 0.3f;   // ピッチ円の速さ（m/秒）。てじゃ「かなりゆっくり」0.15 → 2026-11-07「ちょい遅すぎ」0.2 → 2026-11-08 こしきで回るしかなくなったので「もっとはやくても」0.3
     static readonly Vector3 Origin = new Vector3(50f, -162f, -104f);   // 入口の台の東のはし、床の上の高さ
     const float CatchY = -3f;
-    public static float HubH = 2f, HubRBig = 2f, HubRSmall = 0.9f;   // まん中のこしき（2026-11-08）
+    public static float HubH = 1.4f, HubRBig = 2f, HubRSmall = 0.9f, HubSlope = 52f;   // まん中のこしき（2026-11-08）。上は円すい
+
+    // 円すい（底は y=0 の半径 r の円、てっぺん y=h）。横の面だけ（底は筒の上の面にのる）。とがった所以外は点を共有してなめらかに
+    static Mesh Cone(float r, float h, int n, string name)
+    {
+        var v = new System.Collections.Generic.List<Vector3>(); var tr = new System.Collections.Generic.List<int>();
+        for (int i = 0; i <= n; i++) { float a = 2f * Mathf.PI * i / n; v.Add(new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r)); }
+        for (int i = 0; i < n; i++) { float a = 2f * Mathf.PI * (i + 0.5f) / n; v.Add(new Vector3(0f, h, 0f)); }
+        for (int i = 0; i < n; i++) { tr.Add(i); tr.Add(n + 1 + i); tr.Add(i + 1); }   // 外から見て時計回り（Unity の表）
+        var m = new Mesh { name = name }; m.SetVertices(v); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        // てっぺんの点の法線は、その面の向きに（RecalculateNormals だと真上になる）
+        var nr = m.normals;
+        for (int i = 0; i < n; i++) { float a = 2f * Mathf.PI * (i + 0.5f) / n; nr[n + 1 + i] = new Vector3(Mathf.Cos(a) * h, r, Mathf.Sin(a) * h).normalized; }
+        for (int i = 0; i <= n; i++) { float a = 2f * Mathf.PI * i / n; nr[i] = new Vector3(Mathf.Cos(a) * h, r, Mathf.Sin(a) * h).normalized; }
+        m.normals = nr;
+        return m;
+    }
 
     [MenuItem("FuwaCourse/ステージ2/乗る歯車のお試しを作る")]
     public static void Build()
@@ -81,6 +97,11 @@ public static class FuwaGearRideTest
             Prim(PrimitiveType.Cylinder, t, "HubBand", new Vector3(0f, topY + HubH - 0.2f, 0f), new Vector3(2f * hr + 0.08f, 0.12f, 2f * hr + 0.08f), brass);
             Prim(PrimitiveType.Cylinder, t, "HubFoot", new Vector3(0f, topY + 0.1f, 0f), new Vector3(2f * hr + 0.12f, 0.1f, 2f * hr + 0.12f), brass);
             Prim(PrimitiveType.Cube, t, "HubMark", new Vector3(hr + 0.01f, topY + HubH / 2f, 0f), new Vector3(0.06f, HubH - 0.7f, 0.24f), brass);
+            // 上はとんがり（2026-11-08 てじゃ「上を円錐状にしないと乗っちゃう」）：HubSlope° の円すいで、乗ってもすべり落ちる
+            var cone = new GameObject("HubCone"); cone.transform.SetParent(t, false); cone.transform.localPosition = new Vector3(0f, topY + HubH, 0f); cone.layer = 11;
+            var cm = FuwaGearTest.SaveMesh(Cone(hr, hr * Mathf.Tan(HubSlope * Mathf.Deg2Rad), 40, "GearRide_HubCone_r" + Mathf.RoundToInt(hr * 100)));
+            cone.AddComponent<MeshFilter>().sharedMesh = cm; cone.AddComponent<MeshRenderer>().sharedMaterial = dark; cone.AddComponent<MeshCollider>().sharedMesh = cm;
+            Prim(PrimitiveType.Sphere, t, "HubTop", new Vector3(0f, topY + HubH + hr * Mathf.Tan(HubSlope * Mathf.Deg2Rad), 0f), Vector3.one * 0.22f, brass);
             // 軸（受け床から歯車の下の面まで）
             Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (CatchY + lowest) / 2f, g.c.y), new Vector3(0.55f, (lowest - CatchY) / 2f, 0.55f), axleM);
             ts[i] = t; ratio[i] = g.ratio; phase[i] = g.phase * Mathf.Rad2Deg;
