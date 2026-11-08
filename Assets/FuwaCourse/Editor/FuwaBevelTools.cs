@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -308,5 +309,181 @@ public static class FuwaBevelTools
         }
         AssetDatabase.SaveAssets();
         return root.name + ": " + sb;
+    }
+
+    // ---------- 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」（2–3・2–4：シマの箱を並べた道＋扇形の曲がり角＋島とのつなぎ）----------
+    //  コースの中のシマシマの材質（名前が _PathA / _PathB）の見た目を 1 つのメッシュにまとめて、外のふちだけ丸める。当たりは今まで通り（元の Col / MeshCollider）
+    //  上の面は四角でも三角（扇）でも。となりの上の面と同じ高さで続く辺の下の壁（シマどうしの間の壁）は消す（丸めたふちから板の切れはしが見えないように）
+    public static string BevelCourseStripes(Transform root, string meshPath, float r, int steps)
+    {
+        var old = root.Find("PathBevel"); if (old) Object.DestroyImmediate(old.gameObject);
+        var srcs = root.GetComponentsInChildren<MeshRenderer>(true).Where(x => x.enabled && x.sharedMaterials.Length == 1 && x.sharedMaterial && (x.sharedMaterial.name.EndsWith("_PathA") || x.sharedMaterial.name.EndsWith("_PathB")) && x.GetComponent<MeshFilter>() && x.GetComponent<MeshFilter>().sharedMesh).ToList();
+        if (srcs.Count == 0) return "シマの道がない";
+        var mats = srcs.Select(x => x.sharedMaterial).Distinct().OrderBy(m => m.name).ToList();
+        var V = new List<Vector3>(); var Nn = new List<Vector3>(); var T = mats.Select(_ => new List<int>()).ToList();
+        var w2l = root.worldToLocalMatrix;
+        foreach (var mr in srcs)
+        {
+            var m = mr.GetComponent<MeshFilter>().sharedMesh; var mtx = w2l * mr.transform.localToWorldMatrix;
+            int b = V.Count; var mv = m.vertices; var mn = m.normals;
+            for (int i = 0; i < mv.Length; i++) { V.Add(mtx.MultiplyPoint3x4(mv[i])); Nn.Add(mn.Length == mv.Length ? mtx.MultiplyVector(mn[i]).normalized : Vector3.up); }
+            int si = mats.IndexOf(mr.sharedMaterial);
+            for (int s = 0; s < m.subMeshCount; s++) foreach (var t in m.GetTriangles(s)) T[si].Add(b + t);
+        }
+        var comb = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        comb.SetVertices(V); comb.SetNormals(Nn); comb.subMeshCount = mats.Count;
+        for (int s = 0; s < mats.Count; s++) comb.SetTriangles(T[s], s);
+        Physics.SyncTransforms();
+        bool Abut(Vector3 mid, Vector3 no)
+        {
+            var w = root.TransformPoint(mid + no * 0.08f); var wn = root.TransformDirection(no);
+            if (!Physics.Raycast(w + Vector3.up * 0.3f, Vector3.down, out var h, 0.6f, ~0, QueryTriggerInteraction.Ignore)) return false;
+            return Mathf.Abs(h.point.y - root.TransformPoint(mid).y) < 0.08f;
+        }
+        var mesh = BevelTopPolys(comb, r, steps, out string info, Abut);
+        mesh.name = System.IO.Path.GetFileNameWithoutExtension(meshPath);
+        var oldM = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
+        if (oldM != null) { CopyInto(oldM, mesh); mesh = oldM; } else AssetDatabase.CreateAsset(mesh, meshPath);
+        var go = new GameObject("PathBevel"); go.transform.SetParent(root, false); go.layer = srcs[0].gameObject.layer;
+        GameObjectUtility.SetStaticEditorFlags(go, GameObjectUtility.GetStaticEditorFlags(srcs[0].gameObject));
+        go.AddComponent<MeshFilter>().sharedMesh = mesh; go.AddComponent<MeshRenderer>().sharedMaterials = mats.ToArray();
+        // 元の見た目は消す（当たりのある物は見た目だけ止める）
+        int del = 0, off = 0;
+        foreach (var mr in srcs)
+        {
+            var g = mr.gameObject;
+            if (g.GetComponents<Component>().Length == 3 && g.transform.childCount == 0) { Object.DestroyImmediate(g); del++; }
+            else { mr.enabled = false; off++; }
+        }
+        return info + " 元の見た目 消した " + del + " 止めた " + off;
+    }
+
+    // BevelTopEdges の三角も扱える版。上の面（法線がほぼ上）の多角形（三角・四角）のふちを丸める。同じ高さで続く辺の下の壁は消す
+    public static Mesh BevelTopPolys(Mesh src, float r, int steps, out string info, System.Func<Vector3, Vector3, bool> abut = null)
+    {
+        var v = src.vertices; var n = src.normals;
+        var tops = new List<TopQuad>(); var sides = new List<(int[] idx, int sub, int k0, int cnt)>();
+        var keep = new List<int>[src.subMeshCount];
+        var allT = new List<int[]>(); var topVerts = new HashSet<int>();
+        for (int s = 0; s < src.subMeshCount; s++)
+        {
+            var t = src.GetTriangles(s); allT.Add(t); keep[s] = new List<int>();
+            int k = 0;
+            while (k + 2 < t.Length)
+            {
+                var nrm = Vector3.Cross(v[t[k + 1]] - v[t[k]], v[t[k + 2]] - v[t[k]]).normalized;
+                int cnt = 3; var ids = new List<int> { t[k], t[k + 1], t[k + 2] };
+                if (k + 5 < t.Length)
+                {
+                    var n2 = Vector3.Cross(v[t[k + 4]] - v[t[k + 3]], v[t[k + 5]] - v[t[k + 3]]).normalized;
+                    var ids2 = new List<int>(ids);
+                    for (int j = 3; j < 6; j++) { int id = t[k + j]; bool dup = false; foreach (var e in ids2) if ((v[e] - v[id]).sqrMagnitude < 1e-8f) dup = true; if (!dup) ids2.Add(id); }
+                    if (ids2.Count == 4 && Vector3.Dot(nrm, n2) > 0.999f) { ids = ids2; cnt = 6; }
+                }
+                var c = Vector3.zero; foreach (var id in ids) c += v[id]; c /= ids.Count;
+                ids.Sort((a, b) => Mathf.Atan2(v[a].z - c.z, v[a].x - c.x).CompareTo(Mathf.Atan2(v[b].z - c.z, v[b].x - c.x)));
+                if (nrm.y > 0.9f) { tops.Add(new TopQuad { idx = ids.ToArray(), sub = s, y = c.y, c = c }); for (int j = 0; j < cnt; j++) topVerts.Add(t[k + j]); }   // 同じ所の頂点が三角ごとに別でも全部動かす
+                if (Mathf.Abs(nrm.y) < 0.2f && ids.Count == 4) sides.Add((ids.ToArray(), s, k, cnt));
+                else for (int j = 0; j < cnt; j++) keep[s].Add(t[k + j]);
+                k += cnt;
+            }
+        }
+        // 下に壁がある辺だけ丸める（島や仕掛けにくっつく辺は壁がない→とがったまま）
+        var wallTop = new HashSet<string>();
+        foreach (var sd in sides) { var ids0 = new List<int>(sd.idx); ids0.Sort((p, q) => v[q].y.CompareTo(v[p].y)); wallTop.Add(EdgeKey(v[ids0[0]], v[ids0[1]])); }
+        var edgeOwners = new Dictionary<string, List<(int q, float y)>>();
+        for (int qi = 0; qi < tops.Count; qi++)
+        {
+            int L = tops[qi].idx.Length;
+            for (int e = 0; e < L; e++)
+            {
+                var a = v[tops[qi].idx[e]]; var b = v[tops[qi].idx[(e + 1) % L]];
+                string key = EdgeKey(a, b);
+                if (!edgeOwners.TryGetValue(key, out var l)) edgeOwners[key] = l = new List<(int, float)>();
+                l.Add((qi, (a.y + b.y) * 0.5f));
+            }
+        }
+        var bEdges = new List<(int q, int e, Vector3 no)>();
+        var vertNormals = new Dictionary<string, List<Vector3>>();
+        var innerEdges = new HashSet<string>();   // 同じ高さで続く辺（下の壁は消す）
+        for (int qi = 0; qi < tops.Count; qi++)
+        {
+            int L = tops[qi].idx.Length;
+            for (int e = 0; e < L; e++)
+            {
+                var a = v[tops[qi].idx[e]]; var b = v[tops[qi].idx[(e + 1) % L]];
+                float y = (a.y + b.y) * 0.5f; bool rim = true;
+                foreach (var o in edgeOwners[EdgeKey(a, b)])
+                {
+                    if (o.q == qi) continue;
+                    if (Mathf.Abs(o.y - y) < 0.03f) innerEdges.Add(EdgeKey(a, b));
+                    if (o.y > y - 0.03f) { rim = false; break; }
+                }
+                if (!rim || !wallTop.Contains(EdgeKey(a, b))) continue;
+                var dir = b - a; dir.y = 0; var no = new Vector3(dir.z, 0, -dir.x).normalized;
+                var mid = (a + b) * 0.5f; if (Vector3.Dot(no, mid - tops[qi].c) < 0) no = -no;
+                if (abut != null && abut(mid, no)) continue;   // 外にすぐ同じ高さの床（島・仕掛け）がある
+                bEdges.Add((qi, e, no));
+                foreach (var p in new[] { a, b }) { string kk = VKey(p); if (!vertNormals.TryGetValue(kk, out var l)) vertNormals[kk] = l = new List<Vector3>(); l.Add(no); }
+            }
+        }
+        var offs = new Dictionary<string, Vector3>();
+        foreach (var kv in vertNormals)
+        {
+            var sum = Vector3.zero; foreach (var x in kv.Value) sum += x;
+            var m = sum.sqrMagnitude > 1e-6f ? sum.normalized : kv.Value[0];
+            float d = Vector3.Dot(m, kv.Value[0]); float len = r / Mathf.Max(0.35f, d);
+            offs[kv.Key] = m * len;
+        }
+        var Vo = new List<Vector3>(v); var No = new List<Vector3>(n.Length == v.Length ? n : new Vector3[v.Length]);
+        var moved = new HashSet<int>();
+        foreach (var id in topVerts)
+            {
+                if (moved.Contains(id)) continue;
+                if (offs.TryGetValue(VKey(v[id]), out var o)) { Vo[id] = v[id] - o; moved.Add(id); }
+            }
+        var rimEdges = new HashSet<string>(); var rimVerts = new HashSet<string>();
+        foreach (var be in bEdges)
+        {
+            var tq = tops[be.q]; int L = tq.idx.Length; var a = v[tq.idx[be.e]]; var b = v[tq.idx[(be.e + 1) % L]];
+            rimEdges.Add(EdgeKey(a, b)); rimVerts.Add(VKey(a)); rimVerts.Add(VKey(b));
+        }
+        int lowered = 0, removed = 0;
+        foreach (var sd in sides)
+        {
+            var ids = new List<int>(sd.idx); ids.Sort((p, q) => v[q].y.CompareTo(v[p].y));
+            string ek = EdgeKey(v[ids[0]], v[ids[1]]);
+            bool isRim = rimEdges.Contains(ek) && rimVerts.Contains(VKey(v[ids[0]])) && rimVerts.Contains(VKey(v[ids[1]]));
+            if (!isRim && innerEdges.Contains(ek)) { removed++; continue; }   // シマどうしの間の壁
+            var t = allT[sd.sub];
+            if (isRim) { float ytop = v[ids[1]].y - 0.001f; for (int j = 0; j < sd.cnt; j++) { int id = t[sd.k0 + j]; if (v[id].y >= ytop && (VKey(v[id]) == VKey(v[ids[0]]) || VKey(v[id]) == VKey(v[ids[1]]))) Vo[id] = new Vector3(v[id].x, v[id].y - r, v[id].z); } lowered++; } for (int j = 0; j < sd.cnt; j++) keep[sd.sub].Add(t[sd.k0 + j]);
+        }
+        foreach (var be in bEdges)
+        {
+            var tq = tops[be.q]; int L = tq.idx.Length; var a = v[tq.idx[be.e]]; var b = v[tq.idx[(be.e + 1) % L]];
+            var oa = offs[VKey(a)]; var ob = offs[VKey(b)];
+            var ma = oa.normalized; var mb = ob.normalized;
+            int b0 = Vo.Count;
+            for (int k = 0; k <= steps; k++)
+            {
+                float th = k * Mathf.PI * 0.5f / steps; float s = Mathf.Sin(th), c = Mathf.Cos(th);
+                Vo.Add(a - oa * (1 - s) + Vector3.down * r * (1 - c)); No.Add((Vector3.up * c + ma * s).normalized);
+                Vo.Add(b - ob * (1 - s) + Vector3.down * r * (1 - c)); No.Add((Vector3.up * c + mb * s).normalized);
+            }
+            for (int k = 0; k < steps; k++)
+            {
+                int p0 = b0 + k * 2, p1 = p0 + 1, p2 = p0 + 3, p3 = p0 + 2;
+                var want = (No[p0] + No[p3]).normalized;
+                var cr = Vector3.Cross(Vo[p1] - Vo[p0], Vo[p2] - Vo[p0]);
+                if (Vector3.Dot(cr, want) >= 0) keep[tq.sub].AddRange(new[] { p0, p1, p2, p0, p2, p3 });
+                else keep[tq.sub].AddRange(new[] { p0, p2, p1, p0, p3, p2 });
+            }
+        }
+        var mesh = new Mesh { indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+        mesh.SetVertices(Vo); mesh.SetNormals(No); mesh.subMeshCount = src.subMeshCount;
+        for (int s = 0; s < src.subMeshCount; s++) mesh.SetTriangles(keep[s], s);
+        mesh.RecalculateBounds();
+        info = "上の面 " + tops.Count + " 丸めたふち " + bEdges.Count + " 下げた壁 " + lowered + " 消した間の壁 " + removed + " 頂点 " + Vo.Count;
+        return mesh;
     }
 }

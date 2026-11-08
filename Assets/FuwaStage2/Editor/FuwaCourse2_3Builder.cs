@@ -107,7 +107,7 @@ public static class FuwaCourse2_3Builder
     public static Color PathColA = new Color(0.84f, 0.88f, 0.93f), PathColB = new Color(0.71f, 0.76f, 0.82f);
     public static Color IceCol = new Color(0.62f, 0.86f, 0.98f);
     public static Color SnowColA = new Color(0.97f, 0.98f, 1f), SnowColB = new Color(0.88f, 0.91f, 0.95f);
-    public static bool PathUnder = false;   // 道の下の四角い岩（2026-11-08 てじゃ「道の下の■部分もいらない」）
+    public static bool PathUnder = false; public static float PathBevel = 0.08f;   // 道の下の四角い岩（2026-11-08 てじゃ「道の下の■部分もいらない」）
     public static bool IceLook = true;   // 氷の島の見た目（2026-11-05）。false で前の見た目（材質の模様は前の値を入れ直さないので、戻す時は IceTest_IceC から写す所が効く）
     public static Color SnowLipCol = new Color(0.97f, 0.985f, 1f), IcicleCol = new Color(0.7f, 0.88f, 1f);
     public static float IceCrackMask = 0.55f;   // ひびを一部だけ（雪のまだらのない所の、さらに一部。0＝全部）
@@ -351,6 +351,7 @@ public static class FuwaCourse2_3Builder
             so.ApplyModifiedProperties();
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)visb);
         }
+        Debug.Log("[2–3] ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_3_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
         RegisterBgm(root);
         FuwaStage2LobbyCourses.Run();
         FuwaCourse2_1Builder.FixNetworkIDs();

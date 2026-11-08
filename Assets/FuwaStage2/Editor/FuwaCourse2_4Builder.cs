@@ -151,6 +151,7 @@ public static class FuwaCourse2_4Builder
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
+        log.Append(" ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_4_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
         return "[2–4] " + log + " ゴール " + goalAt.ToString("F1") + " 範囲 " + lb.min.ToString("F0") + "〜" + lb.max.ToString("F0");
     }
 
@@ -1185,7 +1186,7 @@ public static class FuwaCourse2_4Builder
     //  → 浮いている歯車箱（60:12 を4組、同じ軸にもどる形で 625 倍）→ わたあめ機の頭（鍋のまん中でくるくる、雲の糸が出る）
     //  鍋は浮いていて回らない。ふちに雲の糸がたまっている。大きさは回転床 A・まわりの道とぶつからないように
     public static int GoalPlan = 1;
-    public static bool PathUnder = false;
+    public static bool PathUnder = false; public static float PathBevel = 0.08f;
     public static bool UseTower = false, UseFactory = false;
     static Transform coreT;
     public static float CrystalH = 6.6f, BoxY = 3.4f, CrystalGap = 0.8f, CrystalDown = 5f, CrystalW = 4.6f, CrystalHalf = 6.5f, CrystalSpin = -0.3f, FanSpin = 70f;
