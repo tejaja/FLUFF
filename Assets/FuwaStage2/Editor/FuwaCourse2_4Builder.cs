@@ -897,8 +897,10 @@ public static class FuwaCourse2_4Builder
     }
 
     // 窓のある歯車：外のふち（歯）と、まん中のこしき（rHub）の間に、wins の角度（中心, 半分の幅）だけ rHub〜rWin の窓（穴）
-    static Mesh WindowGear(int z, float mod, float h, float rHub, float rWin, (float c, float hw)[] wins, string name, int flank = 8)
+    //  cutSub：窓の断面（内がわの壁）を2つ目のサブメッシュに分ける（2026-11-08 てじゃ「断面をもっと暗く」）
+    static Mesh WindowGear(int z, float mod, float h, float rHub, float rWin, (float c, float hw)[] wins, string name, int flank = 8, bool cutSub = false)
     {
+        var cutT = new List<int>();
         // 2026-11-07 軽くした：点を使い回す（前は三角形ごとに3点ずつで、88枚歯は11万点あった）
         //  ふちの内がわ（rWin）とこしき（rHub）の輪は、歯1枚あたり4点のあらい輪。歯の側面は、なめらかな所は点を共有して角だけ分ける
         var o = FuwaGearTest.GearOutline(z, flank, mod); int n = o.Length;
@@ -909,11 +911,11 @@ public static class FuwaCourse2_4Builder
         bool InWin(float a) { foreach (var w in wins) if (Mathf.Abs(Mathf.DeltaAngle(a, w.c)) < w.hw) return true; return false; }
         var segWin = new bool[M];
         for (int k = 0; k < M; k++) { var s = dIn[k] + dIn[(k + 1) % M]; segWin[k] = InWin(Mathf.Atan2(s.y, s.x) * Mathf.Rad2Deg); }
-        var v = new List<Vector3>(); var t = new List<int>();
+        var v = new List<Vector3>(); var t = new List<int>(); var cur = t;
         void T(int a, int b, int c, Vector3 want)
         {
             if (Vector3.Dot(Vector3.Cross(v[b] - v[a], v[c] - v[a]), want) < 0f) { int s = b; b = c; c = s; }
-            t.Add(a); t.Add(b); t.Add(c);
+            cur.Add(a); cur.Add(b); cur.Add(c);
         }
         Vector3 P3(Vector2 d, float r, float y) => new Vector3(d.x * r, y, d.y * r);
         // 表と裏
@@ -953,6 +955,7 @@ public static class FuwaCourse2_4Builder
             T(a, b, b + 1, nw); T(a, b + 1, a + 1, nw);
         }
         // 窓の内がわの壁（こしき側は外向き、ふち側は内向き）。窓の中では点を共有（丸くなめらか）
+        if (cutSub) cur = cutT;
         foreach (var (r, sg) in new[] { (rHub, 1f), (rWin, -1f) })
         {
             var idx = new int[M];
@@ -978,7 +981,10 @@ public static class FuwaCourse2_4Builder
             int b0 = v.Count; v.Add(P3(dIn[k], rHub, 0f)); v.Add(P3(dIn[k], rWin, 0f)); v.Add(P3(dIn[k], rWin, h)); v.Add(P3(dIn[k], rHub, h));
             T(b0, b0 + 1, b0 + 2, nn); T(b0, b0 + 2, b0 + 3, nn);
         }
-        return SaveMesh(name, v, t);
+        var mesh = SaveMesh(name, v, t);
+        if (cutSub) { mesh.subMeshCount = 2; mesh.SetTriangles(t, 0); mesh.SetTriangles(cutT, 1); mesh.RecalculateNormals(); mesh.RecalculateBounds(); EditorUtility.SetDirty(mesh); }
+        else if (mesh.subMeshCount != 1) { mesh.subMeshCount = 1; mesh.SetTriangles(t, 0); EditorUtility.SetDirty(mesh); }
+        return mesh;
     }
 
     // 窓（穴）のふちのしましま（2026-11-08 てじゃ「穴が見えづらい」）：WindowGear と同じ窓の形のふちの、穴でない側に黄色と黒の帯
@@ -1061,17 +1067,19 @@ public static class FuwaCourse2_4Builder
         var gs = new List<FuwaGearTest.Gear>();
         gs.Add(new FuwaGearTest.Gear { name = "HG0_z24", z = zs[0], c = new Vector2(0f, PM * zs[0] / 2f + PM + 0.05f), ratio = RatioFor(HoleSpeed, PM * zs[0] / 2f), phase = 0f });
         for (int i = 1; i < zs.Length; i++) gs.Add(FuwaGearTest.Mesh2(gs[i - 1], "HG" + i + "_z" + zs[i], zs[i], 90f, PM));
-        // 2026-11-08 てじゃ「穴が見えづらい」：明るいグレーだと下の白い雲と溶ける → 歯車は濃い色、穴のふちに黄色と黒のしましま
+        // 2026-11-08 てじゃ「穴が見えづらい」：明るいグレーだと下の白い雲と溶ける → 歯車は濃い色、穴の断面（内がわの壁）はほぼ黒
+        //  （穴のふちの黄色と黒のしましまは「ちょとくどい」で外した。WindowLip は残す）
         var darkM = FuwaGearTest.Mat("Course2_4_HoleGear", new Color(0.3f, 0.32f, 0.37f));
         var bronzeM = FuwaGearTest.Mat("Course2_4_HoleGearBronze", new Color(0.48f, 0.36f, 0.24f));
+        var cutM = FuwaGearTest.Mat("Course2_4_HoleCut", new Color(0.07f, 0.07f, 0.09f));
         for (int i = 0; i < gs.Count; i++)
         {
             var q = gs[i]; float r = PM * q.z / 2f, rf = r - 1.25f * PM;
             var wins = i == 1 ? new[] { (0f, 50f), (180f, 50f) } : new[] { (30f, 45f), (210f, 45f) };
-            var mesh = WindowGear(q.z, PM, H, 0.45f, rf - 0.45f, wins, "PathGear_Hole_z" + q.z + "_" + i);
+            var mesh = WindowGear(q.z, PM, H, 0.45f, rf - 0.45f, wins, "PathGear_Hole_z" + q.z + "_" + i, 8, true);
             var t = CwGear(g, q.name, new Vector3(q.c.x, -H, q.c.y), Vector3.up, mesh, i == 1 ? bronzeM : darkM, true);
+            t.GetComponent<MeshRenderer>().sharedMaterials = new[] { i == 1 ? bronzeM : darkM, cutM };
             AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg);
-            WindowLip(t, q.z, PM, H, 0.45f, rf - 0.45f, wins, "PathGear_HoleLip_" + i);
         }
         Drive(g, gs[2], 18, PM, -H, H, cwDark);   // 大きめ（でかい歯車からの速さ合わせ）。最後の歯車の外（最初の歯車の外はチェックポイントのきのこの丸太とぶつかる）
         var last = gs[gs.Count - 1];
