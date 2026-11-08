@@ -207,11 +207,12 @@ public static class FuwaRackBridgeTest
     // 回る軸（local Y ぞい、y0〜y1）に、回ってるのが分かる線
     static void Shaft(Transform g, float y0, float y1, float d, Material m, Material lineM)
     {
-        float len = y1 - y0, mid = (y0 + y1) / 2f;
-        Prim(PrimitiveType.Cylinder, g, "Shaft", new Vector3(0f, mid, 0f), new Vector3(d, len / 2f, d), m);
-        Prim(PrimitiveType.Cube, g, "ShaftLine", new Vector3(d / 2f, mid, 0f), new Vector3(0.03f, Mathf.Abs(len), 0.05f), lineM);
+        // 2026-11-08 てじゃ「軸の先端にZファイト」：軸・線・カラーの上の面が同じ高さ → 軸と線はカラーの中で止める
+        float lo = Mathf.Min(y0, y1), hi = Mathf.Max(y0, y1), ct = Mathf.Min(0.14f, (hi - lo) / 4f), inset = Mathf.Min(0.02f, ct / 3f);
+        float s0 = lo + inset, s1 = hi - inset, l0 = lo + ct - inset, l1 = hi - ct + inset;
+        Prim(PrimitiveType.Cylinder, g, "Shaft", new Vector3(0f, (s0 + s1) / 2f, 0f), new Vector3(d, (s1 - s0) / 2f, d), m);
+        if (l1 > l0) Prim(PrimitiveType.Cube, g, "ShaftLine", new Vector3(d / 2f, (l0 + l1) / 2f, 0f), new Vector3(0.03f, l1 - l0, 0.05f), lineM);
         // 両はしに太い輪（カラー）（2026-11-07 てじゃ「もっと大げさに」）
-        float lo = Mathf.Min(y0, y1), hi = Mathf.Max(y0, y1), ct = Mathf.Min(0.14f, (hi - lo) / 4f);
         foreach (float cy in new[] { lo + ct / 2f, hi - ct / 2f }) Prim(PrimitiveType.Cylinder, g, "Collar", new Vector3(0f, cy, 0f), new Vector3(d * 1.6f, ct / 2f, d * 1.6f), lineM);
     }
 

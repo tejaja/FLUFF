@@ -603,14 +603,20 @@ public static class FuwaCourse2_4Builder
     static Mesh SpurMesh(int z, float mod, float th, string name) => SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(z, 8, mod), th, name, Vector2.zero));
     static void CwShaft(Transform g, float y0, float y1, float d)
     {
+        // 2026-11-08 てじゃ「ギアの中央のパーツの先端にZファイト多数」：軸・線・カラーの上の面が同じ高さだった → 軸と線はカラーの中で止める
+        float lo = Mathf.Min(y0, y1), hi = Mathf.Max(y0, y1), ct = Mathf.Min(0.16f, (hi - lo) / 4f), inset = Mathf.Min(0.02f, ct / 3f);
+        float s0 = lo + inset, s1 = hi - inset;
         var s = GameObject.CreatePrimitive(PrimitiveType.Cylinder); s.name = "Shaft"; Object.DestroyImmediate(s.GetComponent<Collider>());
-        s.transform.SetParent(g, false); s.transform.localPosition = new Vector3(0f, (y0 + y1) / 2f, 0f); s.transform.localScale = new Vector3(d, (y1 - y0) / 2f, d);
+        s.transform.SetParent(g, false); s.transform.localPosition = new Vector3(0f, (s0 + s1) / 2f, 0f); s.transform.localScale = new Vector3(d, (s1 - s0) / 2f, d);
         s.GetComponent<Renderer>().sharedMaterial = cwAxle;
-        var l = GameObject.CreatePrimitive(PrimitiveType.Cube); l.name = "ShaftLine"; Object.DestroyImmediate(l.GetComponent<Collider>());
-        l.transform.SetParent(g, false); l.transform.localPosition = new Vector3(d / 2f, (y0 + y1) / 2f, 0f); l.transform.localScale = new Vector3(0.03f, y1 - y0, 0.05f);
-        l.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        float l0 = lo + ct - inset, l1 = hi - ct + inset;
+        if (l1 > l0)
+        {
+            var l = GameObject.CreatePrimitive(PrimitiveType.Cube); l.name = "ShaftLine"; Object.DestroyImmediate(l.GetComponent<Collider>());
+            l.transform.SetParent(g, false); l.transform.localPosition = new Vector3(d / 2f, (l0 + l1) / 2f, 0f); l.transform.localScale = new Vector3(0.03f, l1 - l0, 0.05f);
+            l.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        }
         // 両はしに太い輪（カラー）：2026-11-07 てじゃ「軸が細いから違和感」「もっと大げさに」
-        float lo = Mathf.Min(y0, y1), hi = Mathf.Max(y0, y1), ct = Mathf.Min(0.16f, (hi - lo) / 4f);
         foreach (float cy in new[] { lo + ct / 2f, hi - ct / 2f })
         {
             var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder); c.name = "Collar"; Object.DestroyImmediate(c.GetComponent<Collider>());
@@ -1203,27 +1209,12 @@ public static class FuwaCourse2_4Builder
             cr.gameObject.AddComponent<MeshRenderer>().sharedMaterial = crystalMat;
             AddGear(cr, CrystalSpin, 0f);   // ゆっくり回る（FuwaClockwork）
         }
-        // 2026-11-08 てじゃ「こうなるとバルーンの下のギアはいらんな」→ 歯車箱なし。クリスタルのとがりの真上、首の輪の中で送風の羽根が回る（クリスタルの力で、さわらずに）
-        //  羽根の軸は首の輪の中を横切る2本のはりで支える
-        float fanY = CollarY0 + 0.35f;
-        foreach (float yaw in new[] { 45f, 135f })
-        {
-            var bar = TBox(holder, "FanBeam", new Vector3(0f, fanY - 0.22f, 0f), new Vector3(2f * CollarR0 + 0.1f, 0.1f, 0.12f), cwAxle, false);
-            bar.localRotation = Quaternion.Euler(0f, yaw, 0f);
-        }
-        var fan = new GameObject("BalloonFan").transform; fan.SetParent(holder, false); fan.localPosition = new Vector3(0f, fanY, 0f);
-        AddGear(fan, FanSpin, 0f);
-        CwShaft(fan, -0.3f, 0.12f, 0.22f);
-        for (int k = 0; k < 6; k++)
-        {
-            var bl = TBox(fan, "FanBlade", Quaternion.Euler(0f, k * 60f, 0f) * new Vector3(0.85f, 0f, 0f), new Vector3(1.2f, 0.04f, 0.42f), cwLight, false);
-            bl.localRotation = Quaternion.Euler(0f, k * 60f, 0f) * Quaternion.Euler(28f, 0f, 0f);
-        }
-        var fhub = GameObject.CreatePrimitive(PrimitiveType.Sphere); fhub.name = "FanHub"; Object.DestroyImmediate(fhub.GetComponent<Collider>());
-        fhub.transform.SetParent(fan, false); fhub.transform.localScale = new Vector3(0.5f, 0.3f, 0.5f); fhub.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        // 2026-11-08 てじゃ「こうなるとバルーンの下のギアはいらんな」→ 歯車箱なし。「下のプロペラいらんかも、穴うめて、ドームも球状に」→ 羽根もなし、首の輪の底はふさぐ
         // 首の輪（動かない）：パイプはこの横につながる
         var collar = new GameObject("BalloonCollar"); collar.transform.SetParent(holder, false);
         collar.AddComponent<MeshFilter>().sharedMesh = RingMesh(CollarR0, CollarR1, CollarY0, CollarY1, 48, "Balloon_Collar"); collar.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        { var bt = GameObject.CreatePrimitive(PrimitiveType.Cylinder); bt.name = "CollarBottom"; Object.DestroyImmediate(bt.GetComponent<Collider>());
+          bt.transform.SetParent(holder, false); bt.transform.localPosition = new Vector3(0f, CollarY0 + 0.06f, 0f); bt.transform.localScale = new Vector3(2f * CollarR0 + 0.02f, 0.05f, 2f * CollarR0 + 0.02f); bt.GetComponent<Renderer>().sharedMaterial = cwBrass; }   // 底のふた（輪の内がわにはまる。下の面は輪の下の面より 1cm 上）
         // バルーン（ゆっくり息をする：FuwaCloudBalloon）
         var body = new GameObject("BalloonBody").transform; body.SetParent(holder, false); body.localPosition = new Vector3(0f, BalloonY, 0f);
         var balM = FuwaStage2WaterTest.ToonMat("Stage2_4_Balloon", new Color(0.97f, 0.97f, 0.99f));
@@ -1233,11 +1224,12 @@ public static class FuwaCourse2_4Builder
         skin.AddComponent<MeshFilter>().sharedMesh = sm; skin.AddComponent<MeshRenderer>().sharedMaterial = balM;
         { var col = new GameObject("BalloonCol"); col.layer = 11; col.transform.SetParent(holder, false); col.transform.localPosition = body.localPosition; col.AddComponent<MeshCollider>().sharedMesh = sm; }   // 当たりは息をしない（毎フレーム大きさを変えると当たりの作り直しになる）
         // 真ちゅうの帯（いちばん太い所と、下のほう）と、たての網（8本）
-        foreach (int i in new[] { 3, 5 })
+        foreach (float lat in new[] { 0f, -38f })
         {
-            float r = prof[i].x, y = prof[i].y;
+            float y = BalloonR + BalloonR * Mathf.Sin(lat * Mathf.Deg2Rad), yn = Mathf.Abs(lat) < 1f ? BalloonR : y + 0.11f;   // 帯の中でいちばん太い所
+            float r = Mathf.Sqrt(Mathf.Max(0f, BalloonR * BalloonR - (yn - BalloonR) * (yn - BalloonR)));
             var hp = new GameObject("BalloonHoop"); hp.transform.SetParent(body, false);
-            hp.AddComponent<MeshFilter>().sharedMesh = RingMesh(r - 0.05f, r + 0.1f, y - 0.11f, y + 0.11f, 64, "Balloon_Hoop" + i); hp.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+            hp.AddComponent<MeshFilter>().sharedMesh = RingMesh(r - 0.05f, r + 0.1f, y - 0.11f, y + 0.11f, 64, "Balloon_Hoop" + (int)lat); hp.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
         }
         var net = new GameObject("BalloonNet"); net.transform.SetParent(body, false);
         net.AddComponent<MeshFilter>().sharedMesh = LatheRibbons(prof, 0.035f, 0.07f, 8, "Balloon_Net"); net.AddComponent<MeshRenderer>().sharedMaterial = cwAxle;
@@ -1257,7 +1249,7 @@ public static class FuwaCourse2_4Builder
         cb.body = body; cb.burst = burst; cb.burstCount = 7;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); FuwaStage2WaterTest.NoSync(cb);
         balloon = cb;
-        log.Append(" バルーン：羽根 1周 " + (360f / Mathf.Abs(FanSpin * ClockSpeed)).ToString("F2") + "秒 ");
+        log.Append(" バルーン：球 半径 " + BalloonR + " ");
     }
     // 上下にとがった六角のクリスタル（中心 0、上 up・下 dn まで、半径 r）。とがりの長さは半径の 1.6 倍
     static Mesh CrystalMesh(float r, float up, float dn, string name)
@@ -1282,9 +1274,20 @@ public static class FuwaCourse2_4Builder
         return SaveMesh(name, v, t);
     }
     static FuwaCloudBalloon balloon;
-    public static float CollarR0 = 1.7f, CollarR1 = 2.3f, CollarY0 = 5.0f, CollarY1 = 6.4f, BalloonY = 6.2f, PipeInY = 5.7f;
+    public static float CollarR0 = 1.7f, CollarR1 = 2.3f, CollarY0 = 5.0f, CollarY1 = 6.4f, PipeInY = 5.7f, BalloonR = 5.2f;
+    // 球のバルーン：首の輪のてっぺんで球の半径が輪の外より少し内（2.2m）になる高さに球の底
+    static float BalloonY => CollarY1 - (BalloonR - Mathf.Sqrt(BalloonR * BalloonR - 2.2f * 2.2f));
     // バルーンの形（r, y）：下の首から、ふくらんで、てっぺんの煙突まで
-    static readonly Vector2[] BalloonProf = { new Vector2(1.95f, 0f), new Vector2(2.7f, 0.6f), new Vector2(3.8f, 1.6f), new Vector2(4.75f, 2.9f), new Vector2(5.35f, 4.2f), new Vector2(5.55f, 5.4f), new Vector2(5.35f, 6.6f), new Vector2(4.75f, 7.7f), new Vector2(3.75f, 8.6f), new Vector2(2.45f, 9.2f), new Vector2(1.0f, 9.5f) };
+    // 球（底から、てっぺんの煙突の半径 1.0 まで）
+    static Vector2[] BalloonProf
+    {
+        get
+        {
+            float top = Mathf.Acos(1.0f / BalloonR) * Mathf.Rad2Deg; const int n = 28; var pr = new Vector2[n + 1];
+            for (int i = 0; i <= n; i++) { float a = Mathf.Lerp(-90f, top, i / (float)n) * Mathf.Deg2Rad; pr[i] = new Vector2(Mathf.Max(0.001f, BalloonR * Mathf.Cos(a)), BalloonR + BalloonR * Mathf.Sin(a)); }
+            return pr;
+        }
+    }
 
     // 回転体（外向き、1枚）。prof を外へ off ずらす
     static Mesh LatheMesh(Vector2[] prof, float off, int n, string name)
