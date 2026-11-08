@@ -1194,7 +1194,7 @@ public static class FuwaCourse2_4Builder
         float wheelTop = WT;   // でかい歯車の上の面（歯車の local）
         // クリスタル（2026-11-08 てじゃ「空中に浮いた単体の巨大クリスタルのまわりにギア」「下にもとびだしてる」）：でかい歯車のまん中の穴に浮く、上下にとがった1本。
         //  歯車にはつかない（ゆっくり自分で回る）。上のとがりの少し上にバルーンの首の輪と羽根（さわっていない）
-        float wy = root.InverseTransformPoint(wf.position).y, cMid = wy + WT / 2f, cTop = CollarY0 - CrystalGap, cBot = cMid - CrystalDown;
+        float wy = root.InverseTransformPoint(wf.position).y, cMid = wy + WT / 2f, cTop = CollarY0 - CrystalGap, cBot = cMid - (cTop - cMid);   // 2026-11-08 てじゃ「上下おなじながさにして」
         if (cryMesh && crystalMat)
         {
             // 2026-11-08 てじゃ「ちゃんと切れ目消して」→ 上下を1つのメッシュに（六角の柱＋上下のとがり、面ごとに平ら）
