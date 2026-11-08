@@ -42,6 +42,7 @@ public class FuwaMovingIce : UdonSharpBehaviour
 
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
+        if (p.GetGravityStrength() < 0.01f) { _dbgRiding = false; return; }   // 2026-11-08 飛んでいる間（重力 0：Hキーの飛行・傘の使う中）は運ばない
         Vector3 pos = p.GetPosition();
         RaycastHit hit;
         if (!Physics.Raycast(pos + Vector3.up * 0.3f, Vector3.down, out hit, 0.3f + rideRay, ~((1 << 9) | (1 << 10)), QueryTriggerInteraction.Ignore)) { _dbgRiding = false; return; }

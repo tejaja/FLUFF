@@ -90,6 +90,8 @@ public class FuwaIceSkate : UdonSharpBehaviour
     {
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
+        // 2026-11-08 てじゃ「Hキーの飛行や傘で飛んでる時も、氷の上だと挙動が変わる」：飛んでいる間（重力 0：FuwaDebugFly・FuwaUmbrella の使う中）は氷の動きをしない
+        if (p.GetGravityStrength() < 0.01f) { if (_in) Exit(p); _lastPos = p.GetPosition(); return; }
         Vector3 pos = p.GetPosition();
         Vector3 v = p.GetVelocity();
         Vector3 flat = new Vector3(v.x, 0f, v.z);

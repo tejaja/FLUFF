@@ -93,6 +93,7 @@ public class FuwaIceFloor : UdonSharpBehaviour
     {
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null || area == null) return;
+        if (p.GetGravityStrength() < 0.01f) { if (_in) Restore(p); return; }   // 2026-11-08 飛んでいる間（重力 0：Hキーの飛行・傘の使う中）は氷の動きをしない
         Vector3 pos = p.GetPosition();
         if (!OnIce(pos))
         {
