@@ -94,6 +94,22 @@ public class FuwaBgm : UdonSharpBehaviour
     private float Vol() { return volume * _userPercent / 100f; }
     [Tooltip("曲ごとの音量の倍率（tracks と同じ順。無い・0 以下は 1 倍）。低音が多い曲は小さく聞こえるので（2026-11-01 2–2）")]
     public float[] trackGains;
+    [Header("イントロ＋ループの曲（2026-11-09 よそで作った曲をループ化）")]
+    [Tooltip("tracks と同じ順。ループの頭(秒)。loopEnds が 0 以下ならふつうに曲全体をループ")]
+    public float[] loopStarts;
+    [Tooltip("tracks と同じ順。ループの終わり(秒)。ここまで来たら loopStarts へ戻る（クリップはこの後ろにループの頭の続きを数秒入れておく）")]
+    public float[] loopEnds;
+
+    // 終わりを過ぎていたら、ちょうどループの長さだけ戻す（後ろにループの頭と同じ音が入っているので、過ぎた分もつながる）
+    private void KeepLoop(int i, AudioSource s)
+    {
+        if (loopEnds == null || loopStarts == null || i >= loopEnds.Length || i >= loopStarts.Length) return;
+        if (loopEnds[i] <= 0f || s.clip == null) return;
+        int fq = s.clip.frequency;
+        int end = Mathf.RoundToInt(loopEnds[i] * fq), st = Mathf.RoundToInt(loopStarts[i] * fq);
+        int ts = s.timeSamples;
+        if (ts >= end) s.timeSamples = ts - (end - st);
+    }
     private float VolOf(int i) { return Mathf.Clamp01(Vol() * (trackGains != null && i < trackGains.Length && trackGains[i] > 0f ? trackGains[i] : 1f)); }
 
     // 音量バーが動かされた時に呼ばれる（どのバーかは、今の値と違うものを探す）
@@ -242,6 +258,7 @@ public class FuwaBgm : UdonSharpBehaviour
             _vol[i] = Mathf.MoveTowards(_vol[i], goal, step);
             s.volume = _vol[i] * _vol[i] * VolOf(i);   // 2乗で聞こえ方の変化をなめらかに
             if (_vol[i] <= 0f && s.isPlaying) s.Stop();
+            else if (s.isPlaying) KeepLoop(i, s);
         }
     }
 
