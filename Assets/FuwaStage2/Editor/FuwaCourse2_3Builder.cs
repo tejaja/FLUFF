@@ -674,65 +674,101 @@ public static class FuwaCourse2_3Builder
     //  cut：島からくりぬく形（穴・つなぎの道の長方形）。つなぎの道は島に重ねず、くりぬいた所にぴったり入る（重なりのチラつき・すき間なし）
     static void MapIsland(Transform parent, string name, Vector3 o, Vector2[] outer, List<Vector2[]> cut)
     {
+        // 2026-11-08 てじゃ「氷の床のフチ、欠けてスキマになってるとこが多数」：前はます目の角をふちの線へ寄せていて、角どうしが入れちがうと上の面が裏返って（下の雪が見えて）欠けに見えた。
+        //  → ます目の角に「ふちまでの符号つき距離」を持たせて、マーチングスクエアでふちを切る。ふちの点はます目の辺の上（となりのます目と同じ点）なので切れ目なし・裏返りなし。
+        //    ふちの点はます目の辺の上でふちの線ちょうどまで二分探索。形のとがった角（外の形・くりぬき）だけ、近いふちの点を角へ寄せる
         float cs = MapCell;
         float minX = outer.Min(q => q.x) - cs, maxX = outer.Max(q => q.x) + cs, minZ = outer.Min(q => q.y) - cs, maxZ = outer.Max(q => q.y) + cs;
         int nx = Mathf.CeilToInt((maxX - minX) / cs), nz = Mathf.CeilToInt((maxZ - minZ) / cs);
-        System.Func<Vector2, bool> Inside = q => InPoly(outer, q) && !cut.Any(c => InPoly(c, q));
-        var solid = new bool[nx, nz];
-        for (int x = 0; x < nx; x++) for (int z = 0; z < nz; z++) solid[x, z] = Inside(new Vector2(minX + (x + 0.5f) * cs, minZ + (z + 0.5f) * cs));
-        // かどの点：外なら近いふちへ
-        var corner = new Vector2[nx + 1, nz + 1];
+        float SD(Vector2 q)
+        {
+            NearestOnPoly(outer, q, out float d0); float f = InPoly(outer, q) ? d0 : -d0;
+            foreach (var c in cut) { NearestOnPoly(c, q, out float dc); f = Mathf.Min(f, InPoly(c, q) ? -dc : dc); }
+            return Mathf.Abs(f) < 1e-4f ? -1e-4f : f;
+        }
+        Vector2 CP(int x, int z) => new Vector2(minX + x * cs, minZ + z * cs);
+        var F = new float[nx + 1, nz + 1];
+        for (int x = 0; x <= nx; x++) for (int z = 0; z <= nz; z++) F[x, z] = SD(CP(x, z));
+        int Cid(int x, int z) => (x * (nz + 1) + z) * 3;
+        int Ex(int x, int z) => Cid(x, z) + 1;   // (x,z)-(x+1,z)
+        int Ez(int x, int z) => Cid(x, z) + 2;   // (x,z)-(x,z+1)
+        var pos = new Dictionary<int, Vector2>(); var onEdge = new HashSet<int>();
+        Vector2 Cut(Vector2 a, float fa, Vector2 b)
+        {
+            Vector2 lo = a, hi = b; bool loIn = fa > 0f;
+            for (int k = 0; k < 18; k++) { var mid = (lo + hi) * 0.5f; if ((SD(mid) > 0f) == loIn) lo = mid; else hi = mid; }
+            return (lo + hi) * 0.5f;
+        }
         for (int x = 0; x <= nx; x++) for (int z = 0; z <= nz; z++)
         {
-            var q = new Vector2(minX + x * cs, minZ + z * cs);
-            if (!Inside(q))
-            {
-                // 外ならふちへ、くりぬいた形の中ならその形のふちへ（近い方）
-                Vector2 best = q; float bd = float.MaxValue;
-                if (!InPoly(outer, q)) { best = NearestOnPoly(outer, q, out bd); }
-                foreach (var c in cut) if (InPoly(c, q)) { var b = NearestOnPoly(c, q, out float db); if (db < bd) { bd = db; best = b; } }
-                q = best;
-            }
-            corner[x, z] = q;
+            pos[Cid(x, z)] = CP(x, z);
+            if (x < nx && (F[x, z] > 0f) != (F[x + 1, z] > 0f)) { pos[Ex(x, z)] = Cut(CP(x, z), F[x, z], CP(x + 1, z)); onEdge.Add(Ex(x, z)); }
+            if (z < nz && (F[x, z] > 0f) != (F[x, z + 1] > 0f)) { pos[Ez(x, z)] = Cut(CP(x, z), F[x, z], CP(x, z + 1)); onEdge.Add(Ez(x, z)); }
         }
-        System.Func<int, int, bool> S = (x, z) => x >= 0 && x < nx && z >= 0 && z < nz && solid[x, z];
-        System.Func<Vector2, float, Vector3> V = (q, y) => new Vector3(q.x, y, q.y);
+        // とがった角：いちばん近いふちの点を角へ（1 つの角に 1 点、1 つの点に 1 つの角）
+        var taken = new HashSet<int>();
+        foreach (var poly in new[] { outer }.Concat(cut))
+            for (int i = 0; i < poly.Length; i++)
+            {
+                Vector2 a = poly[(i - 1 + poly.Length) % poly.Length], w = poly[i], b = poly[(i + 1) % poly.Length];
+                if (Vector2.Angle(w - a, b - w) < 25f) continue;
+                int best = -1; float bd = cs * 0.75f;
+                foreach (int id in onEdge) { if (taken.Contains(id)) continue; float d = (pos[id] - w).magnitude; if (d < bd) { bd = d; best = id; } }
+                if (best >= 0) { pos[best] = w; taken.Add(best); }
+            }
         float T = CrackT;
-        // ふちの角は、中にあるものもふちの線へ寄せる（前は外の角だけ寄せていたので、ななめのふちが階段のギザギザに見えた。2026-11-05 てじゃ「まだギザギザ感ある」）
-        if (IceLook)
-            for (int x = 0; x <= nx; x++) for (int z = 0; z <= nz; z++)
-            {
-                bool a = S(x - 1, z - 1) || S(x, z - 1) || S(x - 1, z) || S(x, z), b = !S(x - 1, z - 1) || !S(x, z - 1) || !S(x - 1, z) || !S(x, z);
-                if (!a || !b) continue;
-                var q = new Vector2(minX + x * cs, minZ + z * cs); if (!Inside(q)) continue;   // 外の角はもう寄せてある
-                var best = NearestOnPoly(outer, q, out float bd);
-                foreach (var c in cut) { var nb = NearestOnPoly(c, q, out float dc); if (dc < bd) { bd = dc; best = nb; } }
-                if (bd < cs * 1.2f) corner[x, z] = best;
-            }
-        // B：ふちの角（まわりに中と外の両方があるます目の角）を 1 つおきに下へ（つららっぽいギザギザ）
-        var spk = new float[nx + 1, nz + 1];
-        if (IceLook)
-            for (int x = 0; x <= nx; x++) for (int z = 0; z <= nz; z++)
-            {
-                bool a = S(x - 1, z - 1) || S(x, z - 1) || S(x - 1, z) || S(x, z), b = !S(x - 1, z - 1) || !S(x, z - 1) || !S(x - 1, z) || !S(x, z);
-                if (a && b) { var cq = new Vector2(minX + x * cs, minZ + z * cs); spk[x, z] = IceSpike * 1.8f * Mathf.Max(0f, Mathf.PerlinNoise(cq.x * 0.3f + 17.3f, cq.y * 0.3f + 5.1f) - 0.35f) / 0.65f; }
-            }
-        var bEdges = new Dictionary<int, int>(); int Key(int x, int z) => x * (nz + 1) + z;
+        var hCache = new Dictionary<int, float>();
+        float H(int id) { if (!hCache.TryGetValue(id, out float h)) { h = MapHeight(pos[id]); hCache[id] = h; } return h; }
+        float Spk(int id)
+        {
+            if (!IceLook || !onEdge.Contains(id)) return 0f;
+            var cq = pos[id];
+            { float gx = (cq.x - minX) / cs, gz = (cq.y - minZ) / cs; if (Mathf.Abs(gx - Mathf.Round(gx)) * cs < 0.03f && Mathf.Abs(gz - Mathf.Round(gz)) * cs < 0.03f) return 0f; }   // ます目の角と重なった点（角へ寄せた所）は角と同じ（下のはしがずれない） return IceSpike * 1.8f * Mathf.Max(0f, Mathf.PerlinNoise(cq.x * 0.3f + 17.3f, cq.y * 0.3f + 5.1f) - 0.35f) / 0.65f;
+        }
+        System.Func<Vector2, float, Vector3> V = (q, y) => new Vector3(q.x, y, q.y);
         var v = new List<Vector3>(); var t = new List<int>();
+        var bEdges = new Dictionary<int, int>();
+        int flips = 0;
+        void Poly(List<int> ids)
+        {
+            // 上と下（扇形）
+            for (int k = 1; k + 1 < ids.Count; k++)
+            {
+                Vector3 a = V(pos[ids[0]], H(ids[0])), b = V(pos[ids[k]], H(ids[k])), c = V(pos[ids[k + 1]], H(ids[k + 1]));
+                var n = Vector3.Cross(b - a, c - a); if (n.y >= -1e-7f) flips++;   // x→z の反時計回りなら n.y < 0（表は上へ向け直す）
+                int i0 = v.Count; v.Add(a); v.Add(b); v.Add(c);
+                if (n.y >= 0f) { t.Add(i0); t.Add(i0 + 1); t.Add(i0 + 2); } else { t.Add(i0); t.Add(i0 + 2); t.Add(i0 + 1); }
+                Vector3 a2 = V(pos[ids[0]], -T - Spk(ids[0])), b2 = V(pos[ids[k]], -T - Spk(ids[k])), c2 = V(pos[ids[k + 1]], -T - Spk(ids[k + 1]));
+                int j0 = v.Count; v.Add(a2); v.Add(b2); v.Add(c2);
+                if (n.y >= 0f) { t.Add(j0); t.Add(j0 + 2); t.Add(j0 + 1); } else { t.Add(j0); t.Add(j0 + 1); t.Add(j0 + 2); }
+            }
+            // ふち（ます目の中で、ふちの点どうしの辺）：中を左に見て進む。外向きの壁
+            for (int k = 0; k < ids.Count; k++)
+            {
+                int ia = ids[k], ib = ids[(k + 1) % ids.Count];
+                if (!onEdge.Contains(ia) || !onEdge.Contains(ib)) continue;
+                Vector2 pa = pos[ia], pb = pos[ib]; var d = pb - pa; if (d.sqrMagnitude < 1e-8f) continue;
+                Quad(v, t, V(pa, H(ia)), V(pb, H(ib)), V(pb, -T - Spk(ib)), V(pa, -T - Spk(ia)), new Vector3(d.y, 0f, -d.x));
+                bEdges[ia] = ib;
+            }
+        }
         for (int x = 0; x < nx; x++) for (int z = 0; z < nz; z++)
         {
-            if (!solid[x, z]) continue;
-            Vector2 c00 = corner[x, z], c10 = corner[x + 1, z], c11 = corner[x + 1, z + 1], c01 = corner[x, z + 1];
-            float h00 = MapHeight(c00), h10 = MapHeight(c10), h11 = MapHeight(c11), h01 = MapHeight(c01);
-            Quad(v, t, V(c00, h00), V(c10, h10), V(c11, h11), V(c01, h01), Vector3.up);
-            float b00 = -T - spk[x, z], b10 = -T - spk[x + 1, z], b11 = -T - spk[x + 1, z + 1], b01 = -T - spk[x, z + 1];
-            Quad(v, t, V(c00, b00), V(c01, b01), V(c11, b11), V(c10, b10), Vector3.down);
-            // ふちの線（中を左に見て進む向き）も覚える（A 雪のふち・D つらら）
-            if (!S(x - 1, z)) { Quad(v, t, V(c00, h00), V(c01, h01), V(c01, b01), V(c00, b00), Vector3.left); bEdges[Key(x, z + 1)] = Key(x, z); }
-            if (!S(x + 1, z)) { Quad(v, t, V(c10, h10), V(c10, b10), V(c11, b11), V(c11, h11), Vector3.right); bEdges[Key(x + 1, z)] = Key(x + 1, z + 1); }
-            if (!S(x, z - 1)) { Quad(v, t, V(c00, h00), V(c00, b00), V(c10, b10), V(c10, h10), Vector3.back); bEdges[Key(x, z)] = Key(x + 1, z); }
-            if (!S(x, z + 1)) { Quad(v, t, V(c01, h01), V(c11, h11), V(c11, b11), V(c01, b01), Vector3.forward); bEdges[Key(x + 1, z + 1)] = Key(x, z + 1); }
+            int[] cid = { Cid(x, z), Cid(x + 1, z), Cid(x + 1, z + 1), Cid(x, z + 1) };
+            int[] eid = { Ex(x, z), Ez(x + 1, z), Ex(x, z + 1), Ez(x, z) };   // 角 i → 角 i+1 の辺（x→z の反時計回り）
+            bool[] inn = { F[x, z] > 0f, F[x + 1, z] > 0f, F[x + 1, z + 1] > 0f, F[x, z + 1] > 0f };
+            int cnt = inn.Count(bb => bb); if (cnt == 0) continue;
+            bool saddle = cnt == 2 && inn[0] == inn[2];
+            if (saddle && SD((CP(x, z) + CP(x + 1, z + 1)) * 0.5f) <= 0f)
+            {
+                for (int i = 0; i < 4; i++) if (inn[i]) Poly(new List<int> { cid[i], eid[i], eid[(i + 3) % 4] });
+                continue;
+            }
+            var ids = new List<int>();
+            for (int i = 0; i < 4; i++) { if (inn[i]) ids.Add(cid[i]); if (inn[i] != inn[(i + 1) % 4]) ids.Add(eid[i]); }
+            Poly(ids);
         }
+        if (flips > 0) Debug.LogWarning("[2–3] " + name + " 上の面の裏返り " + flips);
         var m = NewMesh(name);
         m.indexFormat = v.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
         m.SetVertices(v); m.SetTriangles(t, 0);
@@ -750,7 +786,7 @@ public static class FuwaCourse2_3Builder
                 var loop = new List<Vector2>(); int cur = st, guard = 0;
                 while (!used.Contains(cur) && bEdges.ContainsKey(cur) && guard++ < 200000)
                 {
-                    used.Add(cur); var q = corner[cur / (nz + 1), cur % (nz + 1)];
+                    used.Add(cur); var q = pos[cur];
                     if (loop.Count == 0 || (loop[loop.Count - 1] - q).magnitude > 0.03f) loop.Add(q);
                     cur = bEdges[cur];
                 }
@@ -1735,7 +1771,7 @@ public static class FuwaCourse2_3Builder
     public static float[] V4_DomeObsR = { 5.8f, 8.1f }; public static float V4_DomeObsClear = 3.4f;
     // 氷原のチェックポイント（2026-11-05 てじゃ「移動床の一個目超えた先の島にチェックポイントを置こう。どまんなかに一個きのこ置いて、島全体カバーでOK」）
     //  動かない板 V4_CpStatic のまん中に光るキノコ 1 つ（2–2 のジグザグと同じ 1 つ式）、判定は板ぜんたいを囲む箱、復活は回る橋の方へ V4_CpRespawnOut m
-    public static int V4_CpStatic = 1; public static float V4_CpRespawnOut = 2.8f, V4_CpTrigPad = 0.6f;
+    public static int V4_CpStatic = 1; public static float V4_CpRespawnOut = 2.8f, V4_CpTrigPad = 0.6f, V4_CpDepth = 0.4f;
     static void V4FieldCheckpoint(Transform root, Vector3 o, V4Field F)
     {
         const string name = "CheckpointField";
@@ -1753,7 +1789,10 @@ public static class FuwaCourse2_3Builder
         float x0 = float.MaxValue, x1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
         foreach (var q in poly) { var v = inv * new Vector3(q.x - c.x, 0f, q.y - c.y); x0 = Mathf.Min(x0, v.x); x1 = Mathf.Max(x1, v.x); z0 = Mathf.Min(z0, v.z); z1 = Mathf.Max(z1, v.z); }
         var trig = cp.Find("Trigger");
-        if (trig) { trig.localRotation = Quaternion.identity; trig.localPosition = new Vector3((x0 + x1) * 0.5f, trig.localPosition.y, (z0 + z1) * 0.5f); trig.localScale = new Vector3(x1 - x0 + V4_CpTrigPad * 2f, trig.localScale.y, z1 - z0 + V4_CpTrigPad * 2f); }
+        // 2026-11-08 てじゃ「最後のチェックポイント、範囲広いかも　もうちょい奥よりに」→ 板の奥（回る橋の方）V4_CpDepth だけ
+        float zs = Mathf.Lerp(z1, z0, V4_CpDepth);
+        if (trig) { trig.localRotation = Quaternion.identity; trig.localPosition = new Vector3((x0 + x1) * 0.5f, trig.localPosition.y, (zs + z1 + V4_CpTrigPad) * 0.5f); trig.localScale = new Vector3(x1 - x0 + V4_CpTrigPad * 2f, trig.localScale.y, z1 + V4_CpTrigPad - zs); }
+        if (gm) { var l2 = gm.Find("ClusterL"); if (l2) l2.localPosition = new Vector3(0f, l2.localPosition.y, (zs + z1) * 0.5f); }   // きのこも判定のまん中へ
         var rp = cp.Find("RespawnPoint"); if (rp) rp.localPosition = new Vector3(0f, rp.localPosition.y, V4_CpRespawnOut);
         var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
         if (fc)
