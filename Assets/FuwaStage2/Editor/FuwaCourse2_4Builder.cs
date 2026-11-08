@@ -1530,7 +1530,8 @@ public static class FuwaCourse2_4Builder
         var sp2 = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSugarPipe>(pipeT.gameObject);
         var full = new[] { pOut, pTank }.Concat(pts).ToArray();   // ポンプの出口 → タンクの中 → タンクの下から出て、まん中へ
         sp2.pts = full.Select(x => root.TransformPoint(x)).ToArray();
-        sp2.pop = popT; sp2.popAt = Vector3.Distance(pOut, pTank); sp2.bulges = bulges; sp2.speed = 4.5f; sp2.endCount = 12;
+        sp2.pop = popT; sp2.popAt = Vector3.Distance(pOut, pTank);
+        sp2.glows = (popT ? popT.GetComponentsInChildren<Renderer>() : new Renderer[0]).Concat(tank.GetComponentsInChildren<Renderer>().Where(x => x.name == "TankGlass")).ToArray(); sp2.bulges = bulges; sp2.speed = 4.5f; sp2.endCount = 12;
         sp2.endPuff = null; sp2.balloon = balloon;   // 着いたらバルーンがふくらんで、てっぺんから雲
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp2); FuwaStage2WaterTest.NoSync(sp2);
         fc.pipes = new[] { sp2 };

@@ -18,6 +18,10 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     public Transform pop;
     public float popAt = -1f;
     public float popSpin = 25f;
+    [Tooltip("ポンプが押しこむたび（Send）に光る物（タンクのクリスタル・窓、2026-11-08 てじゃ「押し込むたびに光らせよう」）")]
+    public Renderer[] glows;
+    [ColorUsage(false, true)] public Color glowColor = new Color(0.9f, 1.6f, 2.6f);
+    public float glowFade = 1.6f;
     public int endCount = 10;
 
     private float[] _cum;
@@ -25,6 +29,10 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     private float _total;
     private float _pop;
     private Vector3 _popScale;
+    private float _glow;
+    private bool _glowOn;
+    private Color[] _glowBase;
+    private MaterialPropertyBlock _mpb;
 
     private void Start()
     {
@@ -35,12 +43,17 @@ public class FuwaSugarPipe : UdonSharpBehaviour
         int b = bulges != null ? bulges.Length : 0;
         _at = new float[b];
         if (pop != null) _popScale = pop.localScale;
+        int g = glows != null ? glows.Length : 0;
+        _glowBase = new Color[g];
+        for (int i = 0; i < g; i++) if (glows[i] != null && glows[i].sharedMaterial != null && glows[i].sharedMaterial.HasProperty("_EmissionColor")) _glowBase[i] = glows[i].sharedMaterial.GetColor("_EmissionColor");
+        _mpb = new MaterialPropertyBlock();
         for (int i = 0; i < b; i++) { _at[i] = -1f; if (bulges[i] != null) bulges[i].gameObject.SetActive(false); }
     }
 
     public void Send()
     {
         if (_at == null) return;
+        _glow = 1f;
         for (int i = 0; i < _at.Length; i++)
             if (_at[i] < 0f && bulges[i] != null) { _at[i] = 0f; bulges[i].gameObject.SetActive(true); Place(i); return; }
     }
@@ -67,6 +80,19 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     {
         if (_at == null || pts == null || pts.Length < 2) return;
         float dt = Time.deltaTime;
+        if (glows != null && (_glow > 0f || _glowOn))
+        {
+            _glow = Mathf.Max(0f, _glow - dt * glowFade);
+            float gk = _glow * _glow;
+            for (int i = 0; i < glows.Length; i++)
+            {
+                if (glows[i] == null) continue;
+                glows[i].GetPropertyBlock(_mpb);
+                _mpb.SetColor("_EmissionColor", _glowBase[i] + glowColor * gk);
+                glows[i].SetPropertyBlock(_mpb);
+            }
+            _glowOn = _glow > 0f;
+        }
         if (pop != null)
         {
             _pop = Mathf.Max(0f, _pop - dt * 1.2f);
