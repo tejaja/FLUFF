@@ -22,7 +22,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     [Tooltip("トリガー中にプロペラの向きへ進む速さ(m/s)")]
     public float speed = 7f;
     [Tooltip("持っていて空中、トリガーを押していない時（ホバリング）に降りる速さ(m/s)")]
-    public float hoverFall = 0.2f;
+    public float hoverFall = 0.35f;   // 2026-11-08 てじゃ「あとちょっぴり速くても」0.2→0.35
     [Tooltip("ホバリング中の移動の速さ（走る速さに対する倍率）")]
     public float moveScale = 1f;
     [Tooltip("トリガーを離してからホバリングになるまでの秒数")]
