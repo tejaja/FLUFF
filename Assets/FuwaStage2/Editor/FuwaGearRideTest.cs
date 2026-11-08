@@ -17,6 +17,7 @@ public static class FuwaGearRideTest
     public static float PitchSpeed = 0.2f;   // ピッチ円の速さ（m/秒）。てじゃ「かなりゆっくり」0.15 → 2026-11-07「ちょい遅すぎ」0.2
     static readonly Vector3 Origin = new Vector3(50f, -162f, -104f);   // 入口の台の東のはし、床の上の高さ
     const float CatchY = -3f;
+    public static float HubH = 2f, HubRBig = 2f, HubRSmall = 0.9f;   // まん中のこしき（2026-11-08）
 
     [MenuItem("FuwaCourse/ステージ2/乗る歯車のお試しを作る")]
     public static void Build()
@@ -72,9 +73,14 @@ public static class FuwaGearRideTest
                 body.AddComponent<MeshCollider>().sharedMesh = mesh;
                 lowest = Mathf.Min(lowest, y0); if (y1 >= topY) { topY = y1; topZ = z; }
             }
-            // まん中の印（回ってるのが分かるように、軸のキャップと1本の線）。いちばん上の段に
-            Prim(PrimitiveType.Cylinder, t, "Cap", new Vector3(0f, topY + 0.005f, 0f), new Vector3(0.6f, 0.005f, 0.6f), dark);
-            Prim(PrimitiveType.Cube, t, "Mark", new Vector3(topZ * Mod / 4f, topY + 0.004f, 0f), new Vector3(topZ * Mod / 2f - 0.5f, 0.008f, 0.12f), dark);
+            // まん中の太いこしき（2026-11-08 てじゃ「中央を突破するとただの平地」）：いちばん上の段のまん中に高さ HubH の筒。
+            //  まん中を突っ切れないので、ふちの輪っかに乗って運ばれる。当たりあり（歯車と一緒に回る）。回ってるのが分かるように真ちゅうの帯とたての線
+            float hr = topZ == ZBig ? HubRBig : HubRSmall;
+            var hub = Prim(PrimitiveType.Cylinder, t, "Hub", new Vector3(0f, topY + HubH / 2f, 0f), new Vector3(2f * hr, HubH / 2f, 2f * hr), dark);
+            hub.gameObject.layer = 11; hub.gameObject.AddComponent<MeshCollider>().sharedMesh = hub.GetComponent<MeshFilter>().sharedMesh;
+            Prim(PrimitiveType.Cylinder, t, "HubBand", new Vector3(0f, topY + HubH - 0.2f, 0f), new Vector3(2f * hr + 0.08f, 0.12f, 2f * hr + 0.08f), brass);
+            Prim(PrimitiveType.Cylinder, t, "HubFoot", new Vector3(0f, topY + 0.1f, 0f), new Vector3(2f * hr + 0.12f, 0.1f, 2f * hr + 0.12f), brass);
+            Prim(PrimitiveType.Cube, t, "HubMark", new Vector3(hr + 0.01f, topY + HubH / 2f, 0f), new Vector3(0.06f, HubH - 0.7f, 0.24f), brass);
             // 軸（受け床から歯車の下の面まで）
             Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (CatchY + lowest) / 2f, g.c.y), new Vector3(0.55f, (lowest - CatchY) / 2f, 0.55f), axleM);
             ts[i] = t; ratio[i] = g.ratio; phase[i] = g.phase * Mathf.Rad2Deg;
