@@ -984,6 +984,10 @@ public static class FuwaPracticeTutorial
                 var t0 = cp0.Find("Trigger").GetComponent<FuwaCheckpoint>();
                 bool own = t0.respawnPoint != null && t0.respawnPoint.IsChildOf(cp0) && t0.glowRenderers.All(r => r == null || r.transform.IsChildOf(cp0)) && t0.glowEffects.All(e => e == null || e.transform.IsChildOf(cp0));
                 if (!own) return "Checkpoint0 refs point outside!";
+                // 前半（Checkpoint0）はプレイヤー基準、後半（Checkpoint1）はふわふわ基準（2026-11-09 てじゃ。複製元の byPlayer がそのまま残っていた）
+                var t1 = cp.Find("Trigger").GetComponent<FuwaCheckpoint>();
+                foreach (var (fc, bp) in new[] { (t0, true), (t1, false) })
+                    if (fc.byPlayer != bp) { var cso = new SerializedObject(fc); cso.FindProperty("byPlayer").boolValue = bp; cso.ApplyModifiedPropertiesWithoutUndo(); Sync(fc); }
             }
             Physics.SyncTransforms();
             var parts = new List<string>();
