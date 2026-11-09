@@ -17,12 +17,18 @@ public static class FuwaIslandColliders
 
     public static string Run()
     {
-        int added = 0, skipped = 0, moved = 0;
+        int added = 0, skipped = 0, moved = 0, removed = 0;
         foreach (var mf in Object.FindObjectsOfType<MeshFilter>(true))
         {
             var m = mf.sharedMesh;
             if (m == null) continue;
             if (!m.name.StartsWith("IslandDisc_") && !m.name.StartsWith("FarIsland_")) continue;
+            // きのこのたにのジャンプで渡るキノコの根元の島はつけない（2026-11-09 てじゃ「下の島にコライダーいらんかも」）。前につけた物は消す
+            if (UnderJumpMushroom(mf.transform))
+            {
+                var old = mf.transform.Find(ChildName); if (old != null) { Object.DestroyImmediate(old.gameObject); removed++; }
+                continue;
+            }
             var own = mf.GetComponent<MeshCollider>();
             // 前の版で地面でないレイヤーの物に直接つけた当たりは、子へ移す
             if (own != null && mf.gameObject.layer != Ground && own.sharedMesh == m) { Object.DestroyImmediate(own); own = null; moved++; }
@@ -42,6 +48,13 @@ public static class FuwaIslandColliders
             added++;
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
-        return "island colliders added " + added + " (moved to child " + moved + ", already had " + skipped + ")";
+        return "island colliders added " + added + " (moved to child " + moved + ", already had " + skipped + ", removed under jump mushrooms " + removed + ")";
+    }
+
+    static bool UnderJumpMushroom(Transform t)
+    {
+        for (var p = t.parent; p != null; p = p.parent)
+            if (p.name.StartsWith("CapStep") || p.name.StartsWith("GapCap")) return true;
+        return false;
     }
 }
