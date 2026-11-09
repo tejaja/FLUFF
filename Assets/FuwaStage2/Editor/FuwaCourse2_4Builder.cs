@@ -147,6 +147,7 @@ public static class FuwaCourse2_4Builder
             so.ApplyModifiedProperties();
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)visb);
         }
+        RegisterBgm(root);
         FuwaStage2LobbyCourses.Run();
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
@@ -160,6 +161,14 @@ public static class FuwaCourse2_4Builder
         // 乗る歯車の受け床より下
         var cf = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "CatchFloor");
         return cf ? root.InverseTransformPoint(cf.position).y - 1f : -4f;
+    }
+
+    // BGM（2026-11-09 てじゃ「Clockwork Factory」A案、よそで作った曲をループ化：イントロ37.84s＋79.06sループ）。2–1〜2–3 と同じく作り直すたびに BallStart をつなぎ直す
+    const string BgmClip = "Assets/FuwaStage2/Audio/gear_clockwork_introloop.wav";
+    const float BgmGain = 1.85f, BgmLoopStart = 37.84f, BgmLoopEnd = 116.9f;
+    public static void RegisterBgm(Transform courseRoot)
+    {
+        FuwaStage2Bgm.Register(courseRoot, "BGM_course2_4", "BGM_course2_3", BgmClip, BgmGain, BgmLoopStart, BgmLoopEnd);
     }
 
     static Vector3 Dir(float deg) { float a = deg * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); }
