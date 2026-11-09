@@ -1949,6 +1949,8 @@ public static class FuwaCourse2_2Builder
     }
 
     // 炎の壁の音は全部の壁で 1 つ。壁の当たり（Burn の箱）の線の上で、聞く人にいちばん近い所から鳴る（FuwaLineSound）。作り直さずシーンだけ直す時もこれを呼ぶ
+    // 2026-11-09 てじゃ「火の壁無音でもいいかも」→ false で音なし（近くの落ちる岩のゴンがかき消されていた）。true に戻せば前の音
+    public static bool FireWallSoundOn = false;
     public static void FireWallSound(Transform parent)
     {
         for (int i = parent.childCount - 1; i >= 0; i--)
@@ -1971,6 +1973,8 @@ public static class FuwaCourse2_2Builder
         var src = Sfx(parent, "FireWallLoop", "sfx_loop_firewall", a.Count > 0 ? a[0] : Vector3.zero, 4f, 20f, 0.55f, true);
         var ls = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLineSound>(src.gameObject); ls.segA = a.ToArray(); ls.segB = b.ToArray();
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ls); FuwaStage2WaterTest.NoSync(ls);
+        // 音なしでも物は残して隠すだけ（Udon つきの物を消すとネットワークIDの一覧とずれてビルドが止まるので）
+        src.gameObject.SetActive(FireWallSoundOn);
     }
 
     // 炎の壁の下の岩（2026-10-31 てじゃ「炎の下がぶら下がってる、岩を伸ばす？でも歩けちゃだめ」）。V のすき間を埋める 1 つのかたまりで、まん中は溶岩、ふちはとがった岩。炎は溶岩から立つ。
