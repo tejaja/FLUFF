@@ -971,28 +971,12 @@ public static class FuwaCourse2_2Builder
     }
 
     // BGM（2026-11-01 てじゃ E「ようがんのこどう」、Tools/audio/make_bgm_hono.py の hono_e_long）。2–1 と同じく FuwaSystem/BGM に足して、作り直すたびに BallStart をつなぎ直す
-    const string BgmClip = "Assets/FuwaStage2/Audio/bgm_hono_march5.wav";   // 2026-11-05 てじゃ「序盤の小さいベース、ベースじゃないなにかで」→ マリンバ、盛り上がりにもマリンバ（make_bgm_hono_rhythm.py march5）。その前は march4   // 太鼓と小さいベースで開始→重い行進→倍の速さ→太鼓の連打→行進→ちゃんと終わる（Tools/audio/make_bgm_hono_rhythm.py の march、2026-11-01）。前は bgm_hono_march、bgm_hono_long2、bgm_hono_long
-    const float BgmGain = 2.5f;
+    // 2026-11-09 てじゃ「Volcano Dungeon」A案（イントロ60.18s＋73.14sループ）。前は bgm_hono_march5（gain 2.5、てじゃ「もっと大きくて良い」）
+    const string BgmClip = "Assets/FuwaStage2/Audio/hono_volcano_introloop.wav";
+    const float BgmGain = 1.4f, BgmLoopStart = 60.18f, BgmLoopEnd = 133.32f;
     static void RegisterBgm(Transform root)
     {
-        var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault(); if (!bgm) return;
-        var start = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BallStart"); if (!start) return;
-        var src = bgm.transform.Find("BGM_course2_1"); if (!src) return;
-        var tr = bgm.transform.Find("BGM_course2_2");
-        if (!tr) { tr = Object.Instantiate(src.gameObject, bgm.transform, false).transform; tr.name = "BGM_course2_2"; }
-        var a = tr.GetComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(BgmClip); EditorUtility.SetDirty(a);
-        var so = new SerializedObject(bgm);
-        var tracks = so.FindProperty("tracks"); var starts = so.FindProperty("starts");
-        int idx = -1;
-        for (int i = 0; i < tracks.arraySize; i++) if (tracks.GetArrayElementAtIndex(i).objectReferenceValue == a) idx = i;
-        if (idx < 0) { idx = tracks.arraySize; tracks.arraySize++; tracks.GetArrayElementAtIndex(idx).objectReferenceValue = a; }
-        while (starts.arraySize <= idx) { starts.arraySize++; starts.GetArrayElementAtIndex(starts.arraySize - 1).objectReferenceValue = null; }
-        starts.GetArrayElementAtIndex(idx).objectReferenceValue = start;
-        var gains = so.FindProperty("trackGains");   // てじゃ「もっと大きくて良い」。音源を上げるとつぶれるので再生の倍率で
-        while (gains.arraySize <= idx) { gains.arraySize++; gains.GetArrayElementAtIndex(gains.arraySize - 1).floatValue = 1f; }
-        gains.GetArrayElementAtIndex(idx).floatValue = BgmGain;
-        so.ApplyModifiedProperties();
-        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bgm);
+        FuwaStage2Bgm.Register(root, "BGM_course2_2", "BGM_course2_1", BgmClip, BgmGain, BgmLoopStart, BgmLoopEnd);
     }
 
     // 火種：地面の燃えさし＋炎＋熱の範囲（かがり火と同じ FuwaHeatSource、止まる所は地面の SeedHover 上）

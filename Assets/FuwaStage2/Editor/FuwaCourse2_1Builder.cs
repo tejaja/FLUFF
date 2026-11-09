@@ -1849,27 +1849,12 @@ public static class FuwaCourse2_1Builder
     // ---- BGM（2026-10-25 てじゃ「音楽先につくっちゃうか」→ 候補C「すいめんのひかり」の笛ひかえめ版 C3、Tools/audio/make_bgm_mizu.py の mizu_c_long）----
     // FuwaSystem/BGM に曲（BGM_course2_1、ほかの曲の AudioSource を写す）を足して、FuwaBgm の tracks と starts（このコースの BallStart）をつなぐ。
     // 作り直すと BallStart が新しくなるので毎回つなぎ直す
-    const string BgmClip = "Assets/FuwaStage2/Audio/bgm_mizu_long.wav";
+    // 2026-11-09 てじゃ「Hidden Waterfalls」B案（よそで作った曲をループ化、イントロ26s＋132sループ）。前は bgm_mizu_long
+    const string BgmClip = "Assets/FuwaStage2/Audio/mizu_waterfall_introloop.wav";
+    const float BgmGain = 1.5f, BgmLoopStart = 26f, BgmLoopEnd = 158f;
     static void RegisterBgm(Transform root)
     {
-        var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault(); if (!bgm) return;
-        var start = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BallStart"); if (!start) return;
-        var src = bgm.transform.Find("BGM_mix"); if (!src) return;
-        var tr = bgm.transform.Find("BGM_course2_1");
-        if (!tr)
-        {
-            tr = Object.Instantiate(src.gameObject, bgm.transform, false).transform; tr.name = "BGM_course2_1";
-        }
-        var a = tr.GetComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(BgmClip); EditorUtility.SetDirty(a);
-        var so = new SerializedObject(bgm);
-        var tracks = so.FindProperty("tracks"); var starts = so.FindProperty("starts");
-        int idx = -1;
-        for (int i = 0; i < tracks.arraySize; i++) if (tracks.GetArrayElementAtIndex(i).objectReferenceValue == a) idx = i;
-        if (idx < 0) { idx = tracks.arraySize; tracks.arraySize++; tracks.GetArrayElementAtIndex(idx).objectReferenceValue = a; }
-        while (starts.arraySize <= idx) { starts.arraySize++; starts.GetArrayElementAtIndex(starts.arraySize - 1).objectReferenceValue = null; }
-        starts.GetArrayElementAtIndex(idx).objectReferenceValue = start;
-        so.ApplyModifiedProperties();
-        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bgm);
+        FuwaStage2Bgm.Register(root, "BGM_course2_1", "BGM_mix", BgmClip, BgmGain, BgmLoopStart, BgmLoopEnd);
     }
 
     // ---- 川の小物の岩（2026-10-25 てじゃ「手前から順番に」→ 止める岩・飛び石を、岩山と同じ色のごつごつした岩に。前は紫の球）----
