@@ -194,7 +194,47 @@ public class FuwaEnemy : UdonSharpBehaviour
         InitPupils();
         if (sleepFx != null) { _sleepFxBase = sleepFx.localPosition; _sleepFxScale = sleepFx.localScale; }
         if (alertFx != null) alertFx.gameObject.SetActive(false);
+        // ゴールの芝（コースの Goal/GoalGround の丸い島）。入ったら倒れる（2026-11-09 てじゃ）
+        Transform gg = transform.root.Find("Goal/GoalGround");
+        _goalCol = gg != null ? gg.GetComponent<Collider>() : null;
         EnterIdleMode();
+    }
+
+    private Collider _goalCol;
+    private Vector3 _goalCenter;
+    private float _goalTop, _goalR = -1f;
+
+    // 体がゴールの芝の上（丸の中で、芝の面のすぐ上〜少し下）にいるか。突進で上を跳びこえている間は入らない
+    private bool OnGoalGrass()
+    {
+        if (_goalR <= 0f)
+        {
+            // 隠れている間の当たりは大きさ 0 なので、出ている時に測る
+            if (_goalCol == null || !_goalCol.gameObject.activeInHierarchy) return false;
+            Bounds b = _goalCol.bounds;
+            _goalCenter = b.center; _goalTop = b.max.y;
+            _goalR = Mathf.Min(b.extents.x, b.extents.z) * 0.95f;
+            if (_goalR <= 0f) return false;
+        }
+        Vector3 p = transform.position;
+        float dy = p.y - _goalTop;
+        if (dy > 0.8f || dy < -1.0f) return false;
+        Vector3 d = p - _goalCenter; d.y = 0f;
+        return d.sqrMagnitude < _goalR * _goalR;
+    }
+
+    // 倒れる（トゲ・ゴールの芝）：毛が弾けて消える。復活はアウト・リスポーン（autoReviveDelay があれば時間で）
+    private void Pop()
+    {
+        if (popEffect != null)
+        {
+            popEffect.transform.position = transform.position + Vector3.up * 0.15f;
+            popEffect.Play();
+        }
+        if (popSound != null) popSound.Play();
+        if (windupSound != null) windupSound.Stop();
+        SetVisible(false);
+        SetState(6);
     }
 
     private Vector3 _eyesScale = Vector3.one;
@@ -394,6 +434,9 @@ public class FuwaEnemy : UdonSharpBehaviour
             }
             return;
         }
+
+        // ゴールの芝に入ったら倒れる（追いかけ・突進・押されて飛ばされた先がゴール）
+        if (_state <= 4 && OnGoalGrass()) { Pop(); return; }
 
         if (_state == 0) // うろうろ（地面を這う）
         {
@@ -685,14 +728,7 @@ public class FuwaEnemy : UdonSharpBehaviour
             if (w != null) { Douse(w, other); return; }
         }
         if (other.GetComponent<FuwaSpike>() == null && (igniteHeat == null || other.GetComponent<FuwaWater>() == null)) return;
-        if (popEffect != null)
-        {
-            popEffect.transform.position = transform.position + Vector3.up * 0.15f;
-            popEffect.Play();
-        }
-        if (popSound != null) popSound.Play();
-        SetVisible(false);
-        SetState(6);
+        Pop();
     }
 
     private float _floatY, _floatYaw, _floatSpin;
