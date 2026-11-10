@@ -187,9 +187,9 @@ public class FuwaBall : UdonSharpBehaviour
     //  ルーン（FuwaSizeRune）をくぐると SetSizeMode(-1 小 / 0 ふつう / +1 大)。見た目・当たりは大きさ（transform のスケール）ごと、ぽよんと変わる
     //  小さい：撃った風・風のゾーンでよく飛ぶ、落ちるのは少しゆっくり。大きい：風に強い、落ちるのは少し速い
     [Header("大きさの魔法（2–5）")]
-    public float smallScale = 0.55f, bigScale = 1.8f;
-    public float smallBlow = 1.45f, bigBlow = 0.62f;     // 撃った風（Blow）の倍率
-    public float smallWind = 1.6f, bigWind = 0.4f;       // 風のゾーン（AddWind）の倍率
+    public float smallScale = 0.55f, bigScale = 3f;   // 2026-11-10 てじゃ「大きくなるのはもっと極端でもいいかも」1.8 → 3
+    public float smallBlow = 1.45f, bigBlow = 0.5f;      // 撃った風（Blow）の倍率（大 0.62 → 0.5）
+    public float smallWind = 1.6f, bigWind = 0.3f;       // 風のゾーン（AddWind）の倍率（大 0.4 → 0.3）
     public float smallFall = 0.8f, bigFall = 1.25f;      // 落ちる速さ（重力・最大落下速度）の倍率
     public float sizeTime = 0.45f;                        // 大きさが変わるのにかかる時間（ぽよんと少し行きすぎる）
     private int _sizeMode;
