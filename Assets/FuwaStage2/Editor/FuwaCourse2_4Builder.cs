@@ -102,7 +102,18 @@ public static class FuwaCourse2_4Builder
         // 2026-11-08 てじゃ「時計塔自体なしにして、ここにデカい何かしらの機械を」→ 巨大わたあめ機（UseTower=false）。時計塔・振り子・雲づくり工場のコードは残す
         //  まん中（前の塔の中心）を coreT に。でかい歯車・塔の時計じかけ・めりこみ対策はここにつく
         var coreAt = P + Dir(th) * (TowerW / 2f); float coreTh = th;
-        if (GoalPlan != 0) { while (pathT.childCount > n0) Object.DestroyImmediate(pathT.GetChild(pathT.childCount - 1).gameObject); P = P0; th = th0; segNo = s0; }
+        if (GoalPlan == 1) { while (pathT.childCount > n0) Object.DestroyImmediate(pathT.GetChild(pathT.childCount - 1).gameObject); P = P0; th = th0; segNo = s0; }
+        else if (GoalPlan == 2)
+        {
+            // 2026-11-10 てじゃ「ラストのゴールの位置かえよう　気球の手前くらいにもってきたい」：まん中へ向かう道（GoalPlan 0 と同じ曲がり・上り坂）の途中で止めて、
+            //  ゴールの島のむこうのふちが気球の首の輪から GoalGapToCore m 手前になる長さにする
+            while (pathT.childCount > n0) Object.DestroyImmediate(pathT.GetChild(pathT.childCount - 1).gameObject); P = P0; th = th0; segNo = s0;
+            //  「もうちょい高くしてね」→ 坂を GoalRise m（前の GoalPlan 0 の坂は 8m で 3m）
+            T(-120f); S(GoalSlopeLen, GoalRise);
+            var ggs = GameObject.Find("FuwaCourse/Goal/GoalGround"); float islandD = ggs ? ggs.transform.localScale.x : 6f, toCore = 8f + 14f + TowerW / 2f - GoalSlopeLen;   // 島の直径（GoalSet と同じ）
+            float L = Mathf.Max(0.5f, toCore - CollarR1 - GoalGapToCore - islandD);
+            S(L);
+        }
         if (UseTower) { ClockTower(coreAt, th); coreT = root.Find("ClockTower"); }
         else { coreT = new GameObject("MachineCore").transform; coreT.SetParent(root, false); coreT.localPosition = coreAt; coreT.localRotation = Quaternion.LookRotation(Dir(coreTh)); pendPivot = null; }
         TowerDriveRide(log);
@@ -112,6 +123,7 @@ public static class FuwaCourse2_4Builder
         ClockworkInstall(coreT); GuardInstall(coreT);
         if (GoalPlan == 0) { S(TowerW); S(1f); }
         else if (GoalPlan == 1) { T(60f); S(3f); }   // A：チェックポイント4のあとの角から、まん中と反対（コースの外の空）へ
+        // GoalPlan 2：上で道を作ったところでそのままゴール
         var goalAt = GoalSet(root, P, Dir(th));
 
         // アウト（下に落ちた）：コースの下（コースの向きの箱、まわり 10m）
@@ -1194,7 +1206,9 @@ public static class FuwaCourse2_4Builder
     //  動力：でかい歯車（88枚）のまん中に立つでかいクリスタル（歯車といっしょに回る。てじゃ「最初の動力源は下のデカい歯車の中心のデカいクリスタル」）
     //  → 浮いている歯車箱（60:12 を4組、同じ軸にもどる形で 625 倍）→ わたあめ機の頭（鍋のまん中でくるくる、雲の糸が出る）
     //  鍋は浮いていて回らない。ふちに雲の糸がたまっている。大きさは回転床 A・まわりの道とぶつからないように
-    public static int GoalPlan = 1;
+    public static int GoalPlan = 2;   // 2026-11-10 1（外の空）→ 2（気球の手前）
+    // 島のむこうのふちは気球の帯（球の半径 5.2＋帯 0.17）より 1m 外に：首の輪（半径 2.3）から 4.1m
+    public static float GoalGapToCore = 4.1f, GoalSlopeLen = 8.5f, GoalRise = 4f;
     public static bool PathUnder = false; public static float PathBevel = 0.08f;
     public static bool UseTower = false, UseFactory = false;
     static Transform coreT;
@@ -1244,7 +1258,8 @@ public static class FuwaCourse2_4Builder
             hp.AddComponent<MeshFilter>().sharedMesh = RingMesh(r - 0.05f, r + BalloonNetOff + 0.07f, y - 0.11f, y + 0.11f, 64, "Balloon_Hoop" + (int)lat); hp.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
         }
         var net = new GameObject("BalloonNet"); net.transform.SetParent(body, false);
-        net.AddComponent<MeshFilter>().sharedMesh = LatheRibbons(prof, BalloonNetOff, 0.08f, 8, "Balloon_Net");   // 2026-11-10 てじゃ「気球の側面がたまにちらつく」：3.5cm 浮かせただけだと遠くで深度が足りず Z ファイト（近クリップ 0.01）→ 10cm net.AddComponent<MeshRenderer>().sharedMaterial = cwAxle;
+        net.AddComponent<MeshFilter>().sharedMesh = LatheRibbons(prof, BalloonNetOff, 0.08f, 8, "Balloon_Net");   // 2026-11-10 てじゃ「気球の側面がたまにちらつく」：3.5cm 浮かせただけだと遠くで深度が足りず Z ファイト（近クリップ 0.01）→ 10cm
+        net.AddComponent<MeshRenderer>().sharedMaterial = cwAxle;
         // てっぺんの煙突（真ちゅうの輪＋中のふた）
         float topY = prof[prof.Length - 1].y;
         var chim = new GameObject("BalloonChimney"); chim.transform.SetParent(body, false);
@@ -1316,7 +1331,8 @@ public static class FuwaCourse2_4Builder
         }
         cb.clouds = list.ToArray(); cb.cloudSpawn = sp;
         cb.cloudScaleMin = 3.2f; cb.cloudScaleMax = 4.6f; cb.cloudGrowLate = 2.2f;   // さらに「もっとデカく」：出て 7〜11m、流れながら 16〜24m まで   // 2026-11-10 てじゃ「もっとでかく」：出て 5〜7.5m、流れながら 9〜13m まで
-         cb.cloudSpread = 20f;   // 2–5 の方 ±20°（全方向も試しかけたが、てじゃ「いまのままで」） cb.cloudPale = 1f;   // 幅 2.1〜2.4m の丸い雲を 3.5〜5.5m に。色は白だけ（てじゃ）
+         cb.cloudSpread = 20f;   // 2–5 の方 ±20°（全方向も試しかけたが、てじゃ「いまのままで」）
+        cb.cloudPale = 1f;   // 色は白だけ（てじゃ）
         cb.puffEvery = 6; cb.cloudMinGap = 16f;   // 「もうちょい間隔ひろげよ」で 6→10→16 秒（雲は最後 16〜24m になるので、間 16 秒 × 風 1.4m/s で重ならないように）   // 2026-11-10 てじゃ「頻度もへらしていい」
         // 流れる向き：ロビーから 2–5（Slot4）の方（てじゃ「2-5予定地の方向に飛ばそう」）
         var lobby = GameObject.Find("FuwaStage2/Lobby");
