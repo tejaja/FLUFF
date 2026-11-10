@@ -1400,8 +1400,11 @@ public static class FuwaCourse2_3Builder
         float hc = topH(c); var ctop = new Vector3(c.x, hc, c.y);
         float hb = bot.Average(x => x.y) - 0.15f; var cbot = new Vector3(c.x, hb, c.y);
         void Tri(Vector3 a, Vector3 b, Vector3 d, Vector3 want) { int k = v.Count; v.Add(a); v.Add(b); v.Add(d); if (Vector3.Dot(Vector3.Cross(b - a, d - a), want) >= 0f) t.AddRange(new[] { k, k + 1, k + 2 }); else t.AddRange(new[] { k, k + 2, k + 1 }); }
-        var ear = EarClip(outline);
-        for (int e = 0; e + 2 < ear.Count; e += 3) { Tri(top[ear[e]], top[ear[e + 1]], top[ear[e + 2]], Vector3.up); Tri(bot[ear[e]], bot[ear[e + 1]], bot[ear[e + 2]], Vector3.down); }
+        var ear = EarClip(outline); var botIdx = new List<int>();
+        for (int e = 0; e + 2 < ear.Count; e += 3) Tri(top[ear[e]], top[ear[e + 1]], top[ear[e + 2]], Vector3.up);
+        // 底は、内側へよせた下のふち（bot）の形そのもので三角に分ける（上の面の分け方を使うと、よせた点で三角が裏返ってすき間が見えた）
+        var earB = EarClip(bot.Select(x => new Vector2(x.x, x.z)).ToList());
+        for (int e = 0; e + 2 < earB.Count; e += 3) { botIdx.Add(v.Count); Tri(bot[earB[e]], bot[earB[e + 1]], bot[earB[e + 2]], Vector3.down); }
         for (int i = 0; i < n; i++)
         {
             int j = (i + 1) % n;
@@ -1411,7 +1414,12 @@ public static class FuwaCourse2_3Builder
         }
         var mesh = NewMesh(name); mesh.SetVertices(v); mesh.SetTriangles(t, 0);
         mesh.SetUVs(0, v.Select(q => new Vector2(0f, Mathf.Max(0f, topH(new Vector2(q.x, q.z)) - q.y))).ToList());   // uv.y＝上の面からの深さ（側面の色）
-        mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        mesh.RecalculateNormals();
+        // 底：耳切りの細長い三角が 1 枚ずつ別の向きで光って、放射状のスジ・ジャギに見えた（2026-11-10 てじゃ「移動床とか回転床の裏側とか下側がジャギジャギ」）→ 底の向きは全部まっすぐ下
+        { var nr = mesh.normals; foreach (int k in botIdx) { nr[k] = Vector3.down; nr[k + 1] = Vector3.down; nr[k + 2] = Vector3.down; } mesh.normals = nr; }
+        //  底の色（uv.y＝深さで濃くなる）も、頂点ごとの深さのちがいで細い三角に明るいスジが出たので、底は全部いちばん深い色に
+        { var uv = new List<Vector2>(); mesh.GetUVs(0, uv); float deep = 0f; foreach (var q in uv) deep = Mathf.Max(deep, q.y); foreach (int k in botIdx) { uv[k] = new Vector2(0f, deep); uv[k + 1] = new Vector2(0f, deep); uv[k + 2] = new Vector2(0f, deep); } mesh.SetUVs(0, uv); }
+        mesh.RecalculateBounds();
         return mesh;
     }
     // シーソーの板：s から u の向きに長さ len、半分の幅 hw。まん中を軸に傾ける親（FuwaTiltIce）の下に、止まっている時の形で作る
@@ -1860,6 +1868,42 @@ public static class FuwaCourse2_3Builder
     {
         if (crystal) { Crystal(parent, name, lp + Vector3.down * sink, size, 2.2f + size * 1.2f); return; }
         IceRock(parent, name, lp + Vector3.down * sink, size, yaw);
+    }
+    // V4 の流氷の板（動かない板・動く板・回る橋・シーソー）のメッシュだけ作り直す（形の作り方を直した時。コースは作り直さない）。メッシュのアセットはそのまま上書き
+    public static string RefreshV4Slabs()
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return "2–3 がない";
+        Transform Find(string n) => root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == n);
+        int done = 0; var unscale = M2ApplyScale(M2_Scale);
+        try
+        {
+            var F = V4Make();
+            void Redo(string n, List<Vector2> outline, int seed, bool moving, System.Func<Vector2, float> topH)
+            {
+                var g = Find(n); if (!g) { Debug.LogWarning("[2–3] ない " + n); return; }
+                var m = IceSlab(n, outline, seed, topH);
+                if (moving) m.SetUVs(3, m.vertices.Select(q => g.TransformPoint(q)).ToList());
+                g.GetComponent<MeshFilter>().sharedMesh = m;
+                var mc = g.GetComponent<MeshCollider>(); if (mc) { mc.sharedMesh = null; mc.sharedMesh = m; }
+                EditorUtility.SetDirty(m); done++;
+            }
+            for (int i = 0; i < F.statics.Count; i++) Redo("Field" + V4_Statics[i].n, F.statics[i], 9100 + i * 37, false, q => MapHeight(q));
+            foreach (var m in F.movers) Redo("Field" + m.n, m.body.Select(q => q - m.c).ToList(), 9300 + m.seed, true, q => 0f);
+            { var pv = Find("FieldSpin"); var keep = pv.localRotation; pv.localRotation = Quaternion.identity; Redo("FieldSpinIce", F.spin, 9500, true, q => 0f); pv.localRotation = keep; }
+            for (int i = 0; i < V4_Floes.Length; i++)
+            {
+                var f = V4_Floes[i]; Vector2 A = V4_Pads[f.a].c, B = V4_Pads[f.b].c; var mid = (A + B) * 0.5f; var u = (B - A).normalized;
+                var inv = Quaternion.Inverse(Quaternion.LookRotation(new Vector3(u.x, 0f, u.y)));
+                var loc = F.floes[i].Select(q => { var v3 = inv * new Vector3(q.x - mid.x, 0f, q.y - mid.y); return new Vector2(v3.x, v3.z); }).ToList();
+                var pv = Find(f.n); var keep = pv ? pv.localRotation : Quaternion.identity; if (pv) pv.localRotation = Quaternion.LookRotation(new Vector3(u.x, 0f, u.y));
+                Redo(f.n + "Ice", loc, 8200 + i * 13, true, q => 0f);
+                if (pv) pv.localRotation = keep;
+            }
+        }
+        finally { unscale(); }
+        AssetDatabase.SaveAssets();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.scene);
+        return "板のメッシュを作り直した " + done;
     }
     // 回る橋（FieldSpin）だけ作り直す（幅・速さを変えた時。コースを丸ごと作り直さない）。材質は今の板から、雪のふちも付け直す
     public static string RebuildSpinOnly(int snowSeed = 60)
