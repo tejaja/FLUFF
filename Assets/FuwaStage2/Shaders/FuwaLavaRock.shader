@@ -30,12 +30,14 @@ Shader "FuwaCourse/LavaRock"
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_instancing
+            #pragma multi_compile_fog
             #include "UnityCG.cginc"
             half4 _Shade;
             struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; UNITY_VERTEX_OUTPUT_STEREO };
-            v2f vert (appdata v) { v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o); o.pos = UnityObjectToClipPos(v.vertex); return o; }
-            fixed4 frag (v2f i) : SV_Target { return fixed4(_Shade.rgb, 1); }
+            struct v2f { float4 pos : SV_POSITION; UNITY_FOG_COORDS(0) UNITY_VERTEX_OUTPUT_STEREO };
+            v2f vert (appdata v) { v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o); o.pos = UnityObjectToClipPos(v.vertex); UNITY_TRANSFER_FOG(o, o.pos); return o; }
+            // 2026-11-10 てじゃ「炎越しの岩の影が、青いフォグがかかって無くて遠くでめだっちゃってる」→ 影にもフォグ
+            fixed4 frag (v2f i) : SV_Target { fixed4 c = fixed4(_Shade.rgb, 1); UNITY_APPLY_FOG(i.fogCoord, c); return c; }
             ENDCG
         }
         Pass
