@@ -27,6 +27,8 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
     public Vector3 cloudWind = new Vector3(0.9f, 0f, 0.35f);
     [Tooltip("流れる向きのばらつき（度）。2026-11-10 てじゃ「2-5予定地の方向に飛ばそう」→ cloudWind は 2–5 の方へ")]
     public float cloudSpread = 20f;
+    [Tooltip("出てから消えるまでに、さらに何倍まで大きくなるか（2026-11-10 てじゃ「雲もっとでかくなるようにしよ」）")]
+    public float cloudGrowLate = 1.8f;
     [Tooltip("雲の色のうすさ（0=ふくらみの色そのまま、1=白）")]
     public float cloudPale = 1f;   // 2026-11-10 てじゃ「色は白だけでいいかも」→ 白（色をもどすなら 0.55）
 
@@ -114,7 +116,8 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
             float g = Mathf.Clamp01(a / cloudGrow); g = 1f - (1f - g) * (1f - g) * (1f - g);   // むくっと出て、ゆっくり大きく
             float f = Mathf.Clamp01((cloudLife - a) / cloudFade); f = f * f * (3f - 2f * f);  // 最後はしぼむ
             float wob = 1f + 0.04f * Mathf.Sin(Time.time * 0.9f + _seed[i]);
-            clouds[i].localScale = Vector3.one * (_size[i] * g * f * wob + 0.001f);
+            float late = Mathf.Lerp(1f, cloudGrowLate, Mathf.Clamp01((a - cloudGrow) / Mathf.Max(0.1f, cloudLife - cloudGrow - cloudFade * 0.5f)));   // 流れながらだんだん大きく
+            clouds[i].localScale = Vector3.one * (_size[i] * g * f * wob * late + 0.001f);
             // 出たてはぐっとのぼり、だんだん風まかせ
             float up = cloudRise * (0.35f + 0.65f / (1f + a * 0.25f)) + 0.12f * Mathf.Sin(Time.time * 0.6f + _seed[i]);
             float side = Mathf.Clamp01(a / 4f);
