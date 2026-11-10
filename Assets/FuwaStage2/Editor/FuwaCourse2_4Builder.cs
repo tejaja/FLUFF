@@ -1233,6 +1233,7 @@ public static class FuwaCourse2_4Builder
         var skin = new GameObject("BalloonSkin"); skin.transform.SetParent(body, false); skin.layer = 11;
         var sm = LatheMesh(prof, 0f, 64, "Balloon_Skin");
         skin.AddComponent<MeshFilter>().sharedMesh = sm; skin.AddComponent<MeshRenderer>().sharedMaterial = balM;
+        skin.GetComponent<MeshRenderer>().receiveShadows = false;   // 2026-11-10 てじゃ「気球のよこちらつく」：大きい球の自分の影（影のギザギザ）が息をするたびにゆれる → 受けない
         { var col = new GameObject("BalloonCol"); col.layer = 11; col.transform.SetParent(holder, false); col.transform.localPosition = body.localPosition; col.AddComponent<MeshCollider>().sharedMesh = sm; }   // 当たりは息をしない（毎フレーム大きさを変えると当たりの作り直しになる）
         // 真ちゅうの帯（いちばん太い所と、下のほう）と、たての網（8本）
         foreach (float lat in new[] { 0f, -38f })
@@ -1240,7 +1241,7 @@ public static class FuwaCourse2_4Builder
             float y = BalloonR + BalloonR * Mathf.Sin(lat * Mathf.Deg2Rad), yn = Mathf.Abs(lat) < 1f ? BalloonR : y + 0.11f;   // 帯の中でいちばん太い所
             float r = Mathf.Sqrt(Mathf.Max(0f, BalloonR * BalloonR - (yn - BalloonR) * (yn - BalloonR)));
             var hp = new GameObject("BalloonHoop"); hp.transform.SetParent(body, false);
-            hp.AddComponent<MeshFilter>().sharedMesh = RingMesh(r - 0.05f, r + 0.1f, y - 0.11f, y + 0.11f, 64, "Balloon_Hoop" + (int)lat); hp.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+            hp.AddComponent<MeshFilter>().sharedMesh = RingMesh(r - 0.05f, r + BalloonNetOff + 0.07f, y - 0.11f, y + 0.11f, 64, "Balloon_Hoop" + (int)lat); hp.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
         }
         var net = new GameObject("BalloonNet"); net.transform.SetParent(body, false);
         net.AddComponent<MeshFilter>().sharedMesh = LatheRibbons(prof, BalloonNetOff, 0.08f, 8, "Balloon_Net");   // 2026-11-10 てじゃ「気球の側面がたまにちらつく」：3.5cm 浮かせただけだと遠くで深度が足りず Z ファイト（近クリップ 0.01）→ 10cm net.AddComponent<MeshRenderer>().sharedMaterial = cwAxle;
