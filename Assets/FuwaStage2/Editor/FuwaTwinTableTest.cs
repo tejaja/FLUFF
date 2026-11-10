@@ -22,7 +22,7 @@ public static class FuwaTwinTableTest
     //  B の橋を長くするには中心距離が要るので、歯の大きさ 0.2 → 0.26（中心距離 10.8 → 14.04m）。A の橋もかごまでのすき間 3.2m になる長さに
     const float Mod = 0.26f; const int ZA = 72, ZB = 36, ZI = 16, ZP = 16, NI = 1;   // 羽根車の小歯車 24 → 16（大きくなった歯車でかごの外へはみ出さないように。羽根車1回転で A 80°）
     const float DeckA = 4.2f, DeckB = 3.4f, TipA = 7.24f, TipB = 6.43f, BridgeW = 2.5f;
-    const float GearY = -1.85f, GearTh = 0.35f, LineDeg = 169.9f;
+    const float GearY = -1.85f, GearTh = 0.35f, LineDeg = 169.9f, Layer2 = -1.3f;   // Layer2：小歯車の段（A の輪の上、2026-11-10）
     // 2026-11-07 てじゃ「前が見える位置で羽まわしたい」→ 羽根車の小歯車を A の歯車に直接かませて、かごの口の 3m 手前・まん中から 1.6m 横に   // 2026-11-07 てじゃ「下の歯車が床にみえちゃう」→ 床の 1.5m 下へ、中を抜いた輪＋スポークに
     public const float ExitDeg = -60f;         // B から見た出口の向き（2026-11-07 2–4 の右回りに合わせて 60 → −60。B の橋も左右反転）
     static readonly Vector2 PinTarget = new Vector2(-8.4f, 1.6f);   // 羽根車の小歯車の場所（2026-11-10 かごの口寄りに。口 x=-7.4、羽根の当たり半径 1）
@@ -104,14 +104,22 @@ public static class FuwaTwinTableTest
         for (int i = 0; i < nc; i++)
         {
             var g = chain[i];
-            var t = new GameObject(g.name).transform; t.SetParent(root, false); t.localPosition = new Vector3(g.c.x, GearY, g.c.y);
+            // 2026-11-10 てじゃ「かさなってるよ」：小歯車を A の輪の内がわに寄せたので、同じ高さだと輪と重なる → 小歯車は輪の上の段（Layer2）。
+            //  間の歯車は同じ軸に2段（下が A の輪と、上が小歯車とかみ合う。同じ形・同じ向きなので計算は1枚と同じ）。小歯車の軸は輪をよけて上からつるす
+            bool pinion = i == NI;
+            var t = new GameObject(g.name).transform; t.SetParent(root, false); t.localPosition = new Vector3(g.c.x, pinion ? Layer2 : GearY, g.c.y);
             t.gameObject.AddComponent<MeshFilter>().sharedMesh = i < NI ? meshI : meshP;
             t.gameObject.AddComponent<MeshRenderer>().sharedMaterial = i % 2 == 1 ? light : dark;
+            if (!pinion)
+            {
+                var up = new GameObject(g.name + "_Upper").transform; up.SetParent(t, false); up.localPosition = new Vector3(0f, Layer2 - GearY, 0f);
+                up.gameObject.AddComponent<MeshFilter>().sharedMesh = meshI; up.gameObject.AddComponent<MeshRenderer>().sharedMaterial = i % 2 == 1 ? light : dark;
+            }
             gearTs[i] = t;
             gearRatio[i] = g.ratio / rp;
             gearPhase[i] = g.phase * Mathf.Rad2Deg - g.ratio * php / rp;
-            float top = i == NI ? 1.05f : GearY + GearTh + 0.1f;
-            Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (beamY + top) / 2f, g.c.y), new Vector3(0.45f, (top - beamY) / 2f, 0.45f), axleM);
+            float top = pinion ? 1.05f : Layer2 + GearTh + 0.1f, bot = pinion ? Layer2 - 0.1f : beamY;
+            Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (bot + top) / 2f, g.c.y), new Vector3(0.45f, (top - bot) / 2f, 0.45f), axleM);
         }
         gearTs[nc] = tableB; gearRatio[nc] = gB.ratio / rp; gearPhase[nc] = thB0 - gB.ratio * php / rp;
         // 軸を受ける梁：A の台の柱 → 間の歯車 → 小歯車
@@ -121,11 +129,11 @@ public static class FuwaTwinTableTest
             var bm = Prim(PrimitiveType.Cube, root, n, new Vector3((a.x + b.x) / 2f, beamY - 0.1f, (a.y + b.y) / 2f), new Vector3(l + 0.4f, 0.2f, 0.4f), light);
             bm.localRotation = Quaternion.Euler(0f, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0f);
         }
-        BeamTo("Beam", gI.c.normalized * 1f, gI.c); BeamTo("Beam2", gI.c, gP.c);
+        BeamTo("Beam", gI.c.normalized * 1f, gI.c);   // 小歯車の軸は上の床からつるす（下の梁は輪とぶつかるのでなし）
 
         // ── 羽根車 ──
         var pinT = gearTs[NI];
-        var handle = new GameObject("Handle").transform; handle.SetParent(pinT, false); handle.localPosition = new Vector3(0f, 1.05f - GearY, 0f);
+        var handle = new GameObject("Handle").transform; handle.SetParent(pinT, false); handle.localPosition = new Vector3(0f, 1.05f - Layer2, 0f);
         handle.gameObject.layer = 2;
         FuwaTurnTableTest.Impeller(handle, brass);
         var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.8f;
@@ -230,9 +238,9 @@ public static class FuwaTwinTableTest
         // 羽根車と小歯車の軸を上げる
         var pin = root.Cast<Transform>().FirstOrDefault(x => x.name.StartsWith("Pinion_z"));
         var handle = pin ? pin.Find("Handle") : null;
-        if (handle) handle.localPosition = new Vector3(0f, 1.05f + H - GearY, 0f);
+        if (handle) handle.localPosition = new Vector3(0f, 1.05f + H - pin.localPosition.y, 0f);
         var axle = root.Cast<Transform>().FirstOrDefault(x => x.name.StartsWith("Axle_Pinion"));
-        if (axle && pin) { float beamY = GearY - 0.35f, top = 1.05f + H; axle.localPosition = new Vector3(axle.localPosition.x, (beamY + top) / 2f, axle.localPosition.z); axle.localScale = new Vector3(axle.localScale.x, (top - beamY) / 2f, axle.localScale.z); }
+        if (axle && pin) { float beamY = pin.localPosition.y > GearY + 0.01f ? pin.localPosition.y - 0.1f : GearY - 0.35f, top = 1.05f + H; axle.localPosition = new Vector3(axle.localPosition.x, (beamY + top) / 2f, axle.localPosition.z); axle.localScale = new Vector3(axle.localScale.x, (top - beamY) / 2f, axle.localScale.z); }
         // お試し用の物（コースにはない）も上げる
         foreach (var n in new[] { "BallSpot", "BallStand", "Spawn" }) { var t = root.Find(n); if (t && t.localPosition.x > xr - 0.5f) t.localPosition += Vector3.up * H; }
         return "かご +" + H + "m 坂 " + CageRamp + "m";
