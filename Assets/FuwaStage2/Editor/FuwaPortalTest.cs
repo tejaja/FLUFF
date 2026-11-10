@@ -49,7 +49,8 @@ public static class FuwaPortalTest
         {
             var pt = UdonSharpUndo.AddComponent<FuwaPortal>(en.gameObject);
             pt.entry = en; pt.exit = ex; pt.halfW = HalfW; pt.height = HoleH; pt.ball = ballT; pt.ballRadius = br;
-            pt.ghost = BallGhost(root, ballT, en, sref);
+            pt.ghost = BallGhost(root, ballT, en, sref, false);
+            pt.nearGhost = BallGhost(root, ballT, en, sref, true);
             UdonSharpEditorUtility.CopyProxyToUdon(pt); FuwaStage2WaterTest.NoSync(pt);
         }
 
@@ -167,20 +168,30 @@ public static class FuwaPortalTest
     }
 
     // ふわふわのうつし（2026-11-10 てじゃ「でもふわふわ見えないか」）：ふわふわと同じメッシュ・同じ毛の材質を、穴の中だけ・面の奥だけに見える設定で
-    static MeshRenderer BallGhost(Transform root, FuwaBall ball, Transform portal, int stencil)
+    //  near=true：穴の手前に出ている分（ステンシルなし、入口の面の奥を切る）
+    static MeshRenderer BallGhost(Transform root, FuwaBall ball, Transform portal, int stencil, bool near)
     {
         if (!ball) return null;
         var br = ball.GetComponent<MeshRenderer>(); var bf = ball.GetComponent<MeshFilter>(); if (!br || !bf) return null;
-        var g = new GameObject("BallGhost_" + portal.name); g.transform.SetParent(root, false);
+        var g = new GameObject((near ? "BallGhostNear_" : "BallGhost_") + portal.name); g.transform.SetParent(root, false);
         g.AddComponent<MeshFilter>().sharedMesh = bf.sharedMesh;
         var r = g.AddComponent<MeshRenderer>(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
-        var src = br.sharedMaterial; string path = "Assets/FuwaStage2/Materials/PortalView/" + src.name + "_Ghost" + stencil + ".mat";
+        var src = br.sharedMaterial; string path = "Assets/FuwaStage2/Materials/PortalView/" + src.name + (near ? "_GhostNear" : "_Ghost") + stencil + ".mat";
         if (!AssetDatabase.IsValidFolder("Assets/FuwaStage2/Materials/PortalView")) AssetDatabase.CreateFolder("Assets/FuwaStage2/Materials", "PortalView");
         var m = AssetDatabase.LoadAssetAtPath<Material>(path);
         if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, path); } else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
-        Vector3 n = -portal.forward;
-        m.SetFloat("_StencilRef", 64 | stencil); m.SetFloat("_StencilReadMask", 63); m.SetFloat("_StencilComp", (float)UnityEngine.Rendering.CompareFunction.Equal);
-        m.SetVector("_PortalClip", new Vector4(n.x, n.y, n.z, -Vector3.Dot(n, portal.position) - 0.01f));
+        if (!near)
+        {
+            Vector3 n = -portal.forward;
+            m.SetFloat("_StencilRef", 64 | stencil); m.SetFloat("_StencilReadMask", 63); m.SetFloat("_StencilComp", (float)UnityEngine.Rendering.CompareFunction.Equal);
+            m.SetVector("_PortalClip", new Vector4(n.x, n.y, n.z, -Vector3.Dot(n, portal.position) - 0.01f));
+        }
+        else
+        {
+            Vector3 n = portal.forward;   // 入口の面の手前だけ残す（ふつうのふわふわと同じステンシル）
+            m.SetFloat("_StencilRef", 64); m.SetFloat("_StencilReadMask", 64); m.SetFloat("_StencilComp", (float)UnityEngine.Rendering.CompareFunction.Always);
+            m.SetVector("_PortalClip", new Vector4(n.x, n.y, n.z, -Vector3.Dot(n, portal.position) + 0.005f));
+        }
         EditorUtility.SetDirty(m); r.sharedMaterial = m; r.enabled = false;
         return r;
     }

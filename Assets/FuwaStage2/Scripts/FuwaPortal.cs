@@ -22,10 +22,14 @@ public class FuwaPortal : UdonSharpBehaviour
     public float footAhead = 0.35f;
     [Header("ふわふわのうつし")]
     public MeshRenderer ghost;
+    [Tooltip("ふわふわが出口の面をまたいでいる間、入口の手前に出ている分（2026-11-10 てじゃ「通る一瞬ふわふわが欠ける」）。ステンシルなし・入口の面の奥を切る")]
+    public MeshRenderer nearGhost;
     public float ghostRange = 40f;
     private Rigidbody _rb;
     private MeshRenderer _ballR;
     private MaterialPropertyBlock _mpb;
+    // ふわふわの毛の材質は FuwaBall が自分用に複製して、つぶれ・光り・顔などを直接入れている → うつしにも毎フレーム写す（てじゃ「ポータル越しだとつぶれるアニメーションとかはでない」）
+    private Material _bm, _gm, _nm;
     private float _prevHead = 1f, _prevBall = 1f;
     private bool _init;
 
@@ -33,7 +37,20 @@ public class FuwaPortal : UdonSharpBehaviour
     {
         if (ball != null) { _rb = ball.GetComponent<Rigidbody>(); _ballR = ball.GetComponent<MeshRenderer>(); }
         _mpb = new MaterialPropertyBlock();
-        if (ghost != null) ghost.enabled = false;
+        if (ghost != null) { ghost.enabled = false; _gm = ghost.material; }
+        if (nearGhost != null) { nearGhost.enabled = false; _nm = nearGhost.material; }
+    }
+
+    private void CopyFur(Material dst)
+    {
+        if (dst == null) return;
+        if (_bm == null && ball != null && ball.furRenderer != null) _bm = ball.furRenderer.material;
+        if (_bm == null) return;
+        dst.SetColor("_Color", _bm.GetColor("_Color")); dst.SetColor("_TipColor", _bm.GetColor("_TipColor"));
+        dst.SetColor("_GlowColor", _bm.GetColor("_GlowColor")); dst.SetVector("_GlowDir", _bm.GetVector("_GlowDir"));
+        dst.SetVector("_Drag", _bm.GetVector("_Drag")); dst.SetVector("_Squash", _bm.GetVector("_Squash"));
+        dst.SetFloat("_FaceHit", _bm.GetFloat("_FaceHit")); dst.SetFloat("_FaceOn", _bm.GetFloat("_FaceOn"));
+        dst.SetFloat("_FurLength", _bm.GetFloat("_FurLength"));
     }
 
     private Vector3 MapPoint(Vector3 p)
@@ -126,9 +143,22 @@ public class FuwaPortal : UdonSharpBehaviour
                 {
                     Transform g = ghost.transform;
                     g.position = UnmapPoint(bp); g.rotation = UnmapRot(ball.transform.rotation); g.localScale = ball.transform.lossyScale;
-                    _ballR.GetPropertyBlock(_mpb); ghost.SetPropertyBlock(_mpb);
+                    _ballR.GetPropertyBlock(_mpb); ghost.SetPropertyBlock(_mpb); CopyFur(_gm);
                 }
                 if (ghost.enabled != show) ghost.enabled = show;
+                // 出口の面をまたいでいる（後ろ半分が出口の面の奥）間は、その分を入口の手前にも出す
+                if (nearGhost != null)
+                {
+                    float d = Vector3.Dot(bp - exit.position, exit.forward);
+                    bool near = show && d < ballRadius * 1.6f;
+                    if (near)
+                    {
+                        Transform g = nearGhost.transform;
+                        g.position = ghost.transform.position; g.rotation = ghost.transform.rotation; g.localScale = ghost.transform.localScale;
+                        nearGhost.SetPropertyBlock(_mpb); CopyFur(_nm);
+                    }
+                    if (nearGhost.enabled != near) nearGhost.enabled = near;
+                }
             }
         }
         _init = true;
