@@ -124,7 +124,7 @@ public static class FuwaCourse2_3Builder
     static List<FuwaCheckpoint> cps = new List<FuwaCheckpoint>();
     static List<Collider> iceCols = new List<Collider>();
 
-    [MenuItem("FuwaCourse/ステージ2/2–3 こおりのみち（ブロックアウト）を作り直す")]
+    [MenuItem("FuwaCourse/ステージ2/2–3 こおりのしま（ブロックアウト）を作り直す")]
     public static void Menu() { Debug.Log(Build()); }
 
     public static string Build()
