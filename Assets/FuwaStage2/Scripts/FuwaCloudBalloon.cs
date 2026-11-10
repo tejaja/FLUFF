@@ -15,6 +15,9 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
     public ParticleSystem burst;
     public int burstCount = 7;
     public float swell = 0.05f, breathe = 0.015f, breathePeriod = 5f;
+    [Tooltip("パイプからのふくらみが何回たまったら、ふくらんで雲を出すか（2026-11-10 てじゃ「3回くらい溜まったら」）")]
+    public int puffEvery = 3;
+    private int _count;
 
     [Header("生まれる雲")]
     public Transform[] clouds;
@@ -57,6 +60,9 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
 
     public void PuffColor(Color c)
     {
+        _count++;
+        if (_count < puffEvery) return;
+        _count = 0;
         _kick = 1f;
         if (burst != null) burst.Emit(burstCount);
         if (!_ready || clouds == null || clouds.Length == 0 || cloudSpawn == null) return;
