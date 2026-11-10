@@ -153,6 +153,12 @@ public class FuwaBlower : UdonSharpBehaviour
     public bool desktopSnapToHand = true;
     [Tooltip("右手からのずらし（視線基準: x=右 y=上 z=前）")]
     public Vector3 desktopHandOffset = Vector3.zero;
+    // 2026-11-11 てじゃ「デスクトップやスマホとかで銃もって走った時にブレないように（画面上で手からはズレてもいい）」：
+    //  自分が持っている時は、手の位置を「頭から見た位置」として、止まっている時だけゆっくり覚え直す。走っている間は覚えた位置に固定（走りの腕ふりで揺れない）
+    //  他人の銃は今までどおり手のボーンについていく（見ている人には手から離れて見えないように）
+    [Tooltip("自分の銃（デスクトップ・スマホ）：止まっている時に手の位置を覚え直す速さ")]
+    public float desktopSettleSpeed = 4f;
+    private Vector3 _dtRel; private bool _dtRelOk;
 
     [Tooltip("持ち主のアバターの大きさ（目の高さ）に合わせて銃の大きさを変える。風の届く距離や強さは変えない")]
     public bool autoScale = true;
@@ -542,6 +548,15 @@ public class FuwaBlower : UdonSharpBehaviour
                     // 手のボーンは手首にあるので、中指の付け根の方へ寄せて手のひらの中心にする
                     Vector3 finger = holder.GetBonePosition(HumanBodyBones.RightMiddleProximal);
                     Vector3 palm = finger.sqrMagnitude > 0.0001f ? Vector3.Lerp(hand, finger, 0.7f) : hand;
+                    if (holder.isLocal)
+                    {
+                        VRCPlayerApi.TrackingData hd = holder.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
+                        Vector3 rel = Quaternion.Inverse(hd.rotation) * (palm - hd.position);
+                        bool still = holder.GetVelocity().sqrMagnitude < 0.04f && holder.IsPlayerGrounded();
+                        if (!_dtRelOk) { _dtRel = rel; _dtRelOk = true; }
+                        else if (still) _dtRel = Vector3.Lerp(_dtRel, rel, 1f - Mathf.Exp(-Time.deltaTime * desktopSettleSpeed));
+                        palm = hd.position + hd.rotation * _dtRel;
+                    }
                     basePos = palm + head * (desktopHandOffset * _autoScale);
                 }
             }
@@ -551,6 +566,7 @@ public class FuwaBlower : UdonSharpBehaviour
         }
         else if (_aligned && !_dropPending)
         {
+            _dtRelOk = false;
             if (visualRoot != null)
             {
                 visualRoot.transform.localPosition = _visualLocalPos;

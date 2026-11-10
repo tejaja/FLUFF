@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -65,6 +65,7 @@ public static class FuwaCopterBuilder
             var cop = MakeCopter(holder, key + "_Copter", pos, st.rotation, bamboo, node, blade, bladeMesh, manager);
             // 立てをクリックで戻す（台と柱の当たり。竹とんぼの当たりより下）
             var sc = st.gameObject.AddComponent<CapsuleCollider>(); sc.direction = 1; sc.radius = 0.18f; sc.height = StandBaseH + StandPostH; sc.center = new Vector3(0f, (StandBaseH + StandPostH) / 2f, 0f);
+            sc.isTrigger = true;   // 2026-11-11 てじゃ「竹とんぼの台のコライダーぬく」：クリック用だけ。人もふわふわもすり抜ける
             var fs = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaCopterStand>(st.gameObject);
             fs.copter = cop.GetComponent<FuwaBambooCopter>(); fs.InteractionText = "竹とんぼをもどす";
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fs);
@@ -81,7 +82,7 @@ public static class FuwaCopterBuilder
     // 木の丸い台＋柱＋上のつつ（竹とんぼの軸を立てる）
     static void BuildStand(Transform st, Material wood, Material trim)
     {
-        Cyl(st, "Base", new Vector3(0f, StandBaseH / 2f, 0f), new Vector3(0.6f, StandBaseH / 2f, 0.6f), wood, true);
+        Cyl(st, "Base", new Vector3(0f, StandBaseH / 2f, 0f), new Vector3(0.6f, StandBaseH / 2f, 0.6f), wood, false);
         Cyl(st, "BaseTrim", new Vector3(0f, StandBaseH + 0.004f, 0f), new Vector3(0.5f, 0.004f, 0.5f), trim, false);
         Cyl(st, "Post", new Vector3(0f, StandBaseH + StandPostH / 2f, 0f), new Vector3(0.07f, StandPostH / 2f, 0.07f), wood, false);
         Cyl(st, "Cup", new Vector3(0f, StandBaseH + StandPostH + 0.03f, 0f), new Vector3(0.09f, 0.03f, 0.09f), trim, false);
