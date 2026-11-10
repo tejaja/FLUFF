@@ -37,7 +37,7 @@ public static class FuwaTwinTableTest
 
     // 2026-11-10 てじゃ「こういう模様にするとか」（縞鋼板の写真）「ノーマルマップつかうとか」：動く橋の上の面は縞鋼板（CheckerPlate＋ノーマルマップ）。
     //  uv はメートル（_MainTex のタイリングで模様の大きさ）。上の面だけ uv が動き、横・下の面は uv (0,0)（模様のない所）
-    public static float PlateTile = 2.2f, PlateBump = 1.2f;   // 1m あたりの模様のくり返し（2×2 の山のかたまり）
+    public static float PlateTile = 3f, PlateBump = 1.2f;   // 2026-11-10 模様を本物の縞鋼板の並び（山の先がとなりの山の横腹を向く）に作り直して 3 に   // 1m あたりの模様のくり返し（2×2 の山のかたまり）
     //  箱：center・size は parent の local。up＝上の面の向きの軸（1=y, 2=z）。uvOrigin＝上の面の uv をそろえる基準（parent の local の位置を uv にする）
     public static Transform PlateBox(Transform parent, string name, Vector3 center, Vector3 size, Material m, int up = 1, Vector2 uvOff = default)
     {
@@ -79,7 +79,7 @@ public static class FuwaTwinTableTest
     }
 
     // 動く橋のシマの色（跳ね橋・回転床・伸びる橋で共通）。材質は道のシマ（Course2_4_PathA）と同じシェーダーで色だけちがう。名前が _PathA/_PathB でないのでベベルでまとめられない
-    public static Color BridgeColA = new Color(0.72f, 0.60f, 0.45f), BridgeColB = new Color(0.50f, 0.40f, 0.31f);
+    public static Color BridgeColA = new Color(0.66f, 0.68f, 0.70f), BridgeColB = new Color(0.44f, 0.46f, 0.49f);   // 2026-11-10 てじゃ「そもそもその部分はグレーにしとこか」→ 鉄のグレー（前はキャラメル 0.72,0.60,0.45 / 0.50,0.40,0.31）
     public static Material BridgeMat(bool a)
     {
         string path = "Assets/FuwaStage2/Materials/Course2_4_Bridge" + (a ? "A" : "B") + ".mat";
