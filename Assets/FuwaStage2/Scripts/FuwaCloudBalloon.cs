@@ -22,8 +22,10 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
     public float cloudLife = 30f, cloudGrow = 3.5f, cloudFade = 6f, cloudMinGap = 2.5f;
     public float cloudRise = 0.7f, cloudScaleMin = 0.35f, cloudScaleMax = 0.6f;
     public Vector3 cloudWind = new Vector3(0.9f, 0f, 0.35f);
+    [Tooltip("流れる向きのばらつき（度）。2026-11-10 てじゃ「2-5予定地の方向に飛ばそう」→ cloudWind は 2–5 の方へ")]
+    public float cloudSpread = 20f;
     [Tooltip("雲の色のうすさ（0=ふくらみの色そのまま、1=白）")]
-    public float cloudPale = 0.55f;
+    public float cloudPale = 1f;   // 2026-11-10 てじゃ「色は白だけでいいかも」→ 白（色をもどすなら 0.55）
 
     private float _kick;
     private float[] _age, _size, _seed;
@@ -72,7 +74,7 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
         _age[pick] = 0f;
         _size[pick] = Random.Range(cloudScaleMin, cloudScaleMax);
         _seed[pick] = Random.Range(0f, 100f);
-        _dir[pick] = Quaternion.Euler(0f, Random.Range(-45f, 45f), 0f) * cloudWind;
+        _dir[pick] = Quaternion.Euler(0f, Random.Range(-cloudSpread, cloudSpread), 0f) * cloudWind;
         t.position = cloudSpawn.position;
         t.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
         t.localScale = Vector3.one * 0.001f;

@@ -1301,7 +1301,8 @@ public static class FuwaCourse2_4Builder
         var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (!m) { m = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/CloudPuff.mat")); AssetDatabase.CreateAsset(m, mp); }
         m.SetFloat("_Drift", 0f); m.SetFloat("_Bob", 0f); m.enableInstancing = true; EditorUtility.SetDirty(m);
-        var meshes = new[] { "A", "B", "C", "D", "E" }.Select(x => AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/Clouds/CloudR_" + x + ".asset")).Where(x => x).ToArray();
+        // 2026-11-10 てじゃ「この形だとおもったより変」→ 近くで見る用の雲を Blender で（Tools/blender/stage2_4_balloon_clouds.py、メタボール・底が平ら、3つ）
+        var meshes = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/BalloonClouds.fbx").OfType<Mesh>().OrderBy(x => x.name).ToArray();
         var sp = new GameObject("BalloonCloudSpawn").transform; sp.SetParent(holder, false); sp.localPosition = spawnLocal;
         var grp = new GameObject("BalloonClouds").transform; grp.SetParent(holder, false);
         var list = new List<Transform>();
@@ -1313,6 +1314,16 @@ public static class FuwaCourse2_4Builder
             c.SetActive(false); list.Add(c.transform);
         }
         cb.clouds = list.ToArray(); cb.cloudSpawn = sp;
+        cb.cloudScaleMin = 1.1f; cb.cloudScaleMax = 1.7f; cb.cloudSpread = 20f; cb.cloudPale = 1f;   // 幅 3.3〜4.2m の雲を 4〜7m に。色は白だけ（てじゃ）
+        // 流れる向き：ロビーから 2–5（Slot4）の方（てじゃ「2-5予定地の方向に飛ばそう」）
+        var lobby = GameObject.Find("FuwaStage2/Lobby");
+        if (lobby)
+        {
+            var lc = lobby.transform.Find("LobbySpawn").position; var s4 = lobby.transform.Find("Slot4").position;
+            var sp4 = s4 - lc; sp4.y = 0f; var target = lc + sp4.normalized * SpokeR;
+            var d = target - sp.position; d.y = 0f;
+            cb.cloudWind = d.normalized * 0.9f;
+        }
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); EditorUtility.SetDirty(cb);
     }
 
