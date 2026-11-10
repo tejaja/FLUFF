@@ -17,7 +17,8 @@ public static class FuwaCourse2_4Builder
     const string RootName = "FuwaCourse2_4";
     const float SpokeR = 34.8f, StartBelow = 4f;
     public static float HW = 2f, StripeLen = 1.2f;
-    public static Color PathColA = new Color(0.62f, 0.64f, 0.69f), PathColB = new Color(0.45f, 0.47f, 0.52f), UnderCol = new Color(0.33f, 0.35f, 0.4f);
+    // 2026-11-10 てじゃ「道の色がこおりのしまとちかい」→ B「グレー×真ちゅうの黄色」（前は青みのグレー 0.62,0.64,0.69 / 0.45,0.47,0.52）
+    public static Color PathColA = new Color(0.50f, 0.50f, 0.52f), PathColB = new Color(0.80f, 0.62f, 0.30f), UnderCol = new Color(0.33f, 0.35f, 0.4f);
     public static Color TowerCol = new Color(0.52f, 0.5f, 0.6f);
     const string MeshDir = "Assets/FuwaStage2/Meshes/Course2_4";
 
