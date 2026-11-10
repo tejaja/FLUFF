@@ -1760,6 +1760,21 @@ public static class FuwaCourse2_3Builder
     // 氷原のチェックポイント（2026-11-05 てじゃ「移動床の一個目超えた先の島にチェックポイントを置こう。どまんなかに一個きのこ置いて、島全体カバーでOK」）
     //  動かない板 V4_CpStatic のまん中に光るキノコ 1 つ（2–2 のジグザグと同じ 1 つ式）、判定は板ぜんたいを囲む箱、復活は回る橋の方へ V4_CpRespawnOut m
     public static int V4_CpStatic = 1; public static float V4_CpRespawnOut = 2.8f, V4_CpTrigPad = 0.6f, V4_CpDepth = 0.4f;
+    // 最初の大きい氷（I1）の右の曲がり角のあと、坂（M2_I1Hill）の手前のチェックポイント（2026-11-10 てじゃ「最初の方の曲がり角の後に坂になってるところ、あれの手前にもチェックポイント」）。
+    //  曲がり角のすぐ先で、坂の下る向きに横いっぱいの線（ふわふわ基準）。きのこは島のふちの内側に
+    public static Vector2 V4_HillCp = new Vector2(-3.39f, 28.22f), V4_HillCpDir = new Vector2(0.975f, -0.223f);
+    public static float V4_HillCpHW = 11f;
+    public static Vector2 V4_HillCpMushL = new Vector2(7f, -1.5f), V4_HillCpMushR = new Vector2(7.8f, 0.5f);   // きのこ（横・前後）。島のふち・氷の岩・置き物から離した所
+    public static string V4HillCheckpoint(Transform root, Vector3 o)
+    {
+        const string name = "CheckpointHill";
+        var old = root.Find("Checkpoints/" + name); if (old) Object.DestroyImmediate(old.gameObject);
+        Checkpoint(root, name, o + new Vector3(V4_HillCp.x, MapHeight(V4_HillCp), V4_HillCp.y), new Vector3(V4_HillCpDir.x, 0f, V4_HillCpDir.y).normalized, V4_HillCpHW);
+        var cp = root.Find("Checkpoints/" + name); if (!cp) return "チェックポイントの元がない";
+        var gm = cp.Find("GlowMushrooms");
+        if (gm) foreach (Transform cl in gm) { var m = cl.name == "ClusterR" ? V4_HillCpMushR : V4_HillCpMushL; cl.localPosition = new Vector3(Mathf.Sign(cl.localPosition.x) * m.x, cl.localPosition.y, m.y); }
+        return cp.position.ToString("F1");
+    }
     static void V4FieldCheckpoint(Transform root, Vector3 o, V4Field F)
     {
         const string name = "CheckpointField";
@@ -2014,6 +2029,7 @@ public static class FuwaCourse2_3Builder
                 V4Build(isl, path, o, F4, cuts);
                 V4Check(F4, M2_I1, M);
                 V4FieldCheckpoint(root, o, F4);
+                V4HillCheckpoint(root, o);
                 {
                     var dobs = new GameObject("DomeObstacles").transform; dobs.SetParent(root, false); int no = 0;
                     var entries = v3DomeJoins != null ? v3DomeJoins.Select(d => M2_MC + d * M2_MR).ToList() : new List<Vector2>();
