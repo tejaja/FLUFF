@@ -78,8 +78,10 @@ float hash3(float3 p)
     return frac(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
 
+float4 _PortalClip;   // 2026-11-10 2–5 ポータルのうつし：面の手前を切る（0=なし）
 fixed4 frag (v2f i) : SV_Target
 {
+    if (any(_PortalClip.xyz)) clip(dot(i.worldPos, _PortalClip.xyz) + _PortalClip.w);
     float h = FUR_H;
     // 3Dのマス目ごとに毛の長さを決める（毛が短いマスは途中の層で消える）
     float3 cell = floor(i.objPos * _Density);

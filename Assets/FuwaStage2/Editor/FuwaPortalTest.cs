@@ -44,12 +44,12 @@ public static class FuwaPortalTest
 
         // 運ぶスクリプト（A→B、B→A）
         var ballT = Resources.FindObjectsOfTypeAll<FuwaBall>().FirstOrDefault(b => b.gameObject.scene.IsValid() && b.transform.parent && b.transform.parent.name == "FuwaSystem");
-        var rb = ballT ? ballT.GetComponent<Rigidbody>() : null;
         float br = ballT ? ballT.GetComponent<SphereCollider>().radius * ballT.transform.lossyScale.x : 0.15f;
-        foreach (var (en, ex) in new[] { (A, B), (B, A) })
+        foreach (var (en, ex, sref) in new[] { (A, B, 1), (B, A, 2) })
         {
             var pt = UdonSharpUndo.AddComponent<FuwaPortal>(en.gameObject);
-            pt.entry = en; pt.exit = ex; pt.halfW = HalfW; pt.height = HoleH; pt.ball = rb; pt.ballRadius = br;
+            pt.entry = en; pt.exit = ex; pt.halfW = HalfW; pt.height = HoleH; pt.ball = ballT; pt.ballRadius = br;
+            pt.ghost = BallGhost(root, ballT, en, sref);
             UdonSharpEditorUtility.CopyProxyToUdon(pt); FuwaStage2WaterTest.NoSync(pt);
         }
 
@@ -151,6 +151,25 @@ public static class FuwaPortalTest
             nr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; nr.receiveShadows = false;
             nr.lightmapIndex = r.lightmapIndex; nr.lightmapScaleOffset = r.lightmapScaleOffset;
         }
+    }
+
+    // ふわふわのうつし（2026-11-10 てじゃ「でもふわふわ見えないか」）：ふわふわと同じメッシュ・同じ毛の材質を、穴の中だけ・面の奥だけに見える設定で
+    static MeshRenderer BallGhost(Transform root, FuwaBall ball, Transform portal, int stencil)
+    {
+        if (!ball) return null;
+        var br = ball.GetComponent<MeshRenderer>(); var bf = ball.GetComponent<MeshFilter>(); if (!br || !bf) return null;
+        var g = new GameObject("BallGhost_" + portal.name); g.transform.SetParent(root, false);
+        g.AddComponent<MeshFilter>().sharedMesh = bf.sharedMesh;
+        var r = g.AddComponent<MeshRenderer>(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        var src = br.sharedMaterial; string path = "Assets/FuwaStage2/Materials/PortalView/" + src.name + "_Ghost" + stencil + ".mat";
+        if (!AssetDatabase.IsValidFolder("Assets/FuwaStage2/Materials/PortalView")) AssetDatabase.CreateFolder("Assets/FuwaStage2/Materials", "PortalView");
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, path); } else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
+        Vector3 n = -portal.forward;
+        m.SetFloat("_StencilRef", 64 | stencil); m.SetFloat("_StencilReadMask", 63); m.SetFloat("_StencilComp", (float)UnityEngine.Rendering.CompareFunction.Equal);
+        m.SetVector("_PortalClip", new Vector4(n.x, n.y, n.z, -Vector3.Dot(n, portal.position) - 0.01f));
+        EditorUtility.SetDirty(m); r.sharedMaterial = m; r.enabled = false;
+        return r;
     }
 
     static Material StencilClone(Material m, int stencil, Vector4 clip)

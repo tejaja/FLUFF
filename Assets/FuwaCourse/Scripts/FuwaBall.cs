@@ -458,6 +458,15 @@ public class FuwaBall : UdonSharpBehaviour
     // 今いるステージ（ワープ FuwaCourseWarp.stage から）。アウトの高さを切り替える
     public void SetStage(int stage) { if (stage > 0) _stage = stage; }
 
+    // 2026-11-10 2–5 のポータルで運ばれた（てじゃ「いまの設定だと通すとアウトになっちゃう」）：
+    //  「最後に通った道より下に落ちたらアウト」の基準の高さも一緒に動かす。軌跡の線が向こうまでのびないように消す
+    public void PortalMoved(Vector3 delta)
+    {
+        if (_lastGroundY > -9999f) _lastGroundY += delta.y;
+        TrailRenderer tr = GetComponent<TrailRenderer>();
+        if (tr != null) tr.Clear();
+    }
+
     // 水（FuwaWater）から：浮力・水の抵抗・流れの加速度。風と違って撃った直後も弱めない、光らせない
     public void AddWater(Vector3 acceleration)
     {

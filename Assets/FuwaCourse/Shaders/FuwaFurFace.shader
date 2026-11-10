@@ -34,13 +34,18 @@
         [Toggle] _FaceHit ("Face Hit (set by script)", Float) = 0
         _FaceEyeColor ("Face Eye Color", Color) = (0.28, 0.17, 0.12, 1)
         _FaceCheekColor ("Face Cheek Color (a=strength)", Color) = (1, 0.55, 0.6, 0.75)
+        // 2026-11-10 2–5 のポータルの「ふわふわのうつし」用（ふだんは 64・64・Always で前と同じ）。うつしは Ref=64|ポータル番号、ReadMask=63、Comp=Equal
+        _StencilRef ("Stencil Ref", Float) = 64
+        _StencilReadMask ("Stencil ReadMask", Float) = 64
+        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp ("Stencil Comp", Float) = 8
+        _PortalClip ("ポータルの面の手前を切る（0=なし）", Vector) = (0,0,0,0)
     }
     SubShader
     {
         Tags { "RenderType"="Opaque" "Queue"="AlphaTest" }
         Cull Back
         // ステンシルの64番のビットに「ふわふわ」の印。うそ影のデカール（FuwaBlobDecal）がふわふわ自身に乗らないように（2026-10-15 地面近くで玉の下の方に影のふちが出ていた）
-        Stencil { Ref 64 ReadMask 64 WriteMask 64 Comp Always Pass Replace }
+        Stencil { Ref [_StencilRef] ReadMask [_StencilReadMask] WriteMask 64 Comp [_StencilComp] Pass Replace }
 
         Pass { Tags { "LightMode"="ForwardBase" } CGPROGRAM
         #pragma vertex vert

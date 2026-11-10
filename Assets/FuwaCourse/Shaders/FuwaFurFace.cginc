@@ -34,6 +34,7 @@ float sdCapsuleY(float2 p, float halfLen, float r)
 fixed4 fragFace (v2f i) : SV_Target
 { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
     if (_FaceOn < 0.5) discard;
+    if (any(_PortalClip.xyz)) clip(dot(i.worldPos, _PortalClip.xyz) + _PortalClip.w);
     float3 center = unity_ObjectToWorld._m03_m13_m23;
     // 描く板は毛先の外側だけど、絵は見た目の毛玉のふくらみ（内側の球）に貼ってあるように見せる：
     // 視線と内側の球の交点を求めて、そこの向きで絵を決める（外側の球にそのまま描くと、回った時に顔が玉からはみ出して見える）
