@@ -1,3 +1,4 @@
+using System.Linq;
 using UdonSharp;
 using UdonSharpEditor;
 using UnityEditor;
@@ -21,6 +22,62 @@ public static class FuwaGearRideTest
 
     // こしき：y=0〜hc の筒（半径 r、n 角）＋その上の円すい（てっぺん y=hc+hk）。底はなし（歯車の上の面にのる）
     //  筒の横はなめらか、筒と円すいの境・てっぺんは点を分けて角を立てる
+    public static int HubSectors = 8;
+    // 筒のまわりのらせんの帯（床屋のポール、2026-11-10）：nb 本、y0〜y1 で turns 回まわる。幅 w、外へ th だけ出っぱる
+    public static float HelixTurns = 0.8f, HelixW = 0.16f, HelixTh = 0.02f; public static int HelixBands = 2;
+    static Mesh HelixMesh(float r, float y0, float y1, string name)
+    {
+        float turns = HelixTurns * 0.9f / Mathf.Max(0.3f, r);   // 太い筒ほど少なく巻く（帯のかたむきをそろえる。半径 0.9 で HelixTurns 回）
+        var v = new System.Collections.Generic.List<Vector3>(); var tr = new System.Collections.Generic.List<int>();
+        int steps = Mathf.Max(16, Mathf.RoundToInt(64 * turns * Mathf.Max(1f, r)));
+        void Q(Vector3 a, Vector3 b, Vector3 c, Vector3 d) { int i = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d); tr.Add(i); tr.Add(i + 1); tr.Add(i + 2); tr.Add(i); tr.Add(i + 2); tr.Add(i + 3); }
+        Vector3 P(float a, float y, float rr) => new Vector3(Mathf.Cos(a) * rr, y, Mathf.Sin(a) * rr);
+        float hw = HelixW / 2f, ro = r + HelixTh;
+        for (int b = 0; b < HelixBands; b++)
+            for (int k = 0; k < steps; k++)
+            {
+                float t0 = k / (float)steps, t1 = (k + 1) / (float)steps;
+                float a0 = 2f * Mathf.PI * (b / (float)HelixBands + turns * t0), a1 = 2f * Mathf.PI * (b / (float)HelixBands + turns * t1);
+                float yc0 = Mathf.Lerp(y0 + hw, y1 - hw, t0), yc1 = Mathf.Lerp(y0 + hw, y1 - hw, t1);
+                // 外の面（外向き）
+                Q(P(a0, yc0 - hw, ro), P(a0, yc0 + hw, ro), P(a1, yc1 + hw, ro), P(a1, yc1 - hw, ro));
+                // 上と下のふち
+                Q(P(a0, yc0 + hw, ro), P(a0, yc0 + hw, r), P(a1, yc1 + hw, r), P(a1, yc1 + hw, ro));
+                Q(P(a0, yc0 - hw, r), P(a0, yc0 - hw, ro), P(a1, yc1 - hw, ro), P(a1, yc1 - hw, r));
+                if (k == 0) Q(P(a0, yc0 - hw, r), P(a0, yc0 + hw, r), P(a0, yc0 + hw, ro), P(a0, yc0 - hw, ro));
+                if (k == steps - 1) Q(P(a1, yc1 - hw, ro), P(a1, yc1 + hw, ro), P(a1, yc1 + hw, r), P(a1, yc1 - hw, r));
+            }
+        var m = new Mesh { name = name }; m.SetVertices(v); m.SetTriangles(tr, 0);
+        // 向きをそろえる：外の面が外を向くように（巻きが逆なら全部ひっくり返す）
+        var tris = m.triangles; var vv = m.vertices;
+        var n0 = Vector3.Cross(vv[tris[1]] - vv[tris[0]], vv[tris[2]] - vv[tris[0]]); var c = (vv[tris[0]] + vv[tris[1]] + vv[tris[2]]) / 3f;
+        if (Vector3.Dot(n0, new Vector3(c.x, 0f, c.z)) < 0f) { for (int i = 0; i < tris.Length; i += 3) { int t = tris[i + 1]; tris[i + 1] = tris[i + 2]; tris[i + 2] = t; } m.triangles = tris; }
+        m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
+    }
+    // サブメッシュつきで保存（FuwaGearTest.SaveMesh は1つだけ）
+    public static Mesh SaveMeshSub(Mesh m)
+    {
+        string path = "Assets/FuwaStage2/Meshes/GearTest/" + m.name + ".asset";
+        var old = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (old == null) { AssetDatabase.CreateAsset(m, path); return m; }
+        old.Clear(false); old.SetVertices(m.vertices); old.SetNormals(m.normals); old.subMeshCount = m.subMeshCount;
+        for (int i = 0; i < m.subMeshCount; i++) old.SetTriangles(m.GetTriangles(i), i);
+        old.RecalculateBounds(); EditorUtility.SetDirty(old); return old;
+    }
+    // こしきの見た目（屋根の塗り分け・らせんの帯）を付け直す。シーンの物にも使う
+    public static void HubLooks(Transform t, Transform hub, float hr, Material dark, Material light, Material brass)
+    {
+        float coneH = hr * Mathf.Tan(HubSlope * Mathf.Deg2Rad);
+        var hm = SaveMeshSub(HubMesh(hr, HubH, coneH, 40, "GearRide_Hub_r" + Mathf.RoundToInt(hr * 100)));
+        hub.GetComponent<MeshFilter>().sharedMesh = hm; hub.GetComponent<MeshRenderer>().sharedMaterials = new[] { dark, light };
+        var mc = hub.GetComponent<MeshCollider>(); if (mc) { mc.sharedMesh = null; mc.sharedMesh = hm; }
+        foreach (var x in t.Cast<Transform>().Where(x => x.name == "HubMark" || x.name == "HubHelix").ToArray()) Object.DestroyImmediate(x.gameObject);
+        var hx = new GameObject("HubHelix"); hx.transform.SetParent(t, false); hx.transform.localPosition = hub.localPosition;
+        hx.AddComponent<MeshFilter>().sharedMesh = FuwaGearTest.SaveMesh(HelixMesh(hr, 0.2f, HubH - 0.3f, "GearRide_HubHelix_r" + Mathf.RoundToInt(hr * 100)));
+        hx.AddComponent<MeshRenderer>().sharedMaterial = brass;
+    }
+
     static Mesh HubMesh(float r, float hc, float hk, int n, string name)
     {
         var v = new System.Collections.Generic.List<Vector3>(); var nr = new System.Collections.Generic.List<Vector3>(); var tr = new System.Collections.Generic.List<int>();
@@ -38,8 +95,10 @@ public static class FuwaGearRideTest
         for (int i = 0; i <= n; i++) { v.Add(Ring(i, hc)); nr.Add(ConeN(2f * Mathf.PI * i / n)); }
         int t0 = v.Count;
         for (int i = 0; i < n; i++) { v.Add(new Vector3(0f, hc + hk, 0f)); nr.Add(ConeN(2f * Mathf.PI * (i + 0.5f) / n)); }
-        for (int i = 0; i < n; i++) { tr.Add(c0 + i); tr.Add(t0 + i); tr.Add(c0 + i + 1); }
-        var m = new Mesh { name = name }; m.SetVertices(v); m.SetNormals(nr); m.SetTriangles(tr, 0); m.RecalculateBounds();
+        // 2026-11-10 てじゃ「回転してるのをわかりやすく」→ 屋根をサーカステントみたいに HubSectors 個に塗り分け（1つおきにサブメッシュ 1）
+        var tr2 = new System.Collections.Generic.List<int>();
+        for (int i = 0; i < n; i++) { var dst = ((i * HubSectors / n) % 2 == 0) ? tr : tr2; dst.Add(c0 + i); dst.Add(t0 + i); dst.Add(c0 + i + 1); }
+        var m = new Mesh { name = name }; m.SetVertices(v); m.SetNormals(nr); m.subMeshCount = 2; m.SetTriangles(tr, 0); m.SetTriangles(tr2, 1); m.RecalculateBounds();
         return m;
     }
 
@@ -105,8 +164,8 @@ public static class FuwaGearRideTest
             // 筒と上のとんがり（2026-11-08 てじゃ「上を円錐状にしないと乗っちゃう」→ HubSlope° の円すい）は1つのメッシュ（別々だと角の数がずれてすき間が見えた）
             float coneH = hr * Mathf.Tan(HubSlope * Mathf.Deg2Rad);
             var hub = new GameObject("Hub"); hub.transform.SetParent(t, false); hub.transform.localPosition = new Vector3(0f, topY, 0f); hub.layer = 11;
-            var hm = FuwaGearTest.SaveMesh(HubMesh(hr, HubH, coneH, 40, "GearRide_Hub_r" + Mathf.RoundToInt(hr * 100)));
-            hub.AddComponent<MeshFilter>().sharedMesh = hm; hub.AddComponent<MeshRenderer>().sharedMaterial = dark; hub.AddComponent<MeshCollider>().sharedMesh = hm;
+            var hm = SaveMeshSub(HubMesh(hr, HubH, coneH, 40, "GearRide_Hub_r" + Mathf.RoundToInt(hr * 100)));
+            hub.AddComponent<MeshFilter>().sharedMesh = hm; hub.AddComponent<MeshRenderer>().sharedMaterials = new[] { dark, light }; hub.AddComponent<MeshCollider>().sharedMesh = hm;
             // ふわふわが当たると軽くはじく（2026-11-08 てじゃ「まんなかのやつ、ちょっとフワフワ弾くように」）
             //  こしきにも自分の Rigidbody（kinematic）：歯車の Rigidbody の子の当たりだと、ふわふわの OnCollisionEnter の collision.gameObject が歯車の方になって FuwaBounce が見つからなかった（とんがりに乗って転がった）
             var hrb = hub.AddComponent<Rigidbody>(); hrb.isKinematic = true; hrb.useGravity = false;
@@ -115,7 +174,7 @@ public static class FuwaGearRideTest
             UdonSharpEditorUtility.CopyProxyToUdon(bo); FuwaStage2WaterTest.NoSync(bo);
             Prim(PrimitiveType.Cylinder, t, "HubBand", new Vector3(0f, topY + HubH - 0.2f, 0f), new Vector3(2f * hr + 0.08f, 0.12f, 2f * hr + 0.08f), brass);
             Prim(PrimitiveType.Cylinder, t, "HubFoot", new Vector3(0f, topY + 0.1f, 0f), new Vector3(2f * hr + 0.12f, 0.1f, 2f * hr + 0.12f), brass);
-            Prim(PrimitiveType.Cube, t, "HubMark", new Vector3(hr + 0.01f, topY + HubH / 2f, 0f), new Vector3(0.06f, HubH - 0.7f, 0.24f), brass);
+            HubLooks(t, hub.transform, hr, dark, light, brass);   // 2026-11-10 てじゃ「今一本だけ黄色のスジ」→ らせんの帯2本＋屋根の塗り分け（前は HubMark 1本）
             Prim(PrimitiveType.Sphere, t, "HubTop", new Vector3(0f, topY + HubH + coneH, 0f), Vector3.one * 0.22f, brass);
             // 軸（受け床から歯車の下の面まで）
             Prim(PrimitiveType.Cylinder, root, "Axle_" + g.name, new Vector3(g.c.x, (CatchY + lowest) / 2f, g.c.y), new Vector3(0.55f, (lowest - CatchY) / 2f, 0.55f), axleM);
