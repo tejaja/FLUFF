@@ -275,11 +275,36 @@ public static class FuwaCourse2_4Builder
         var col = new GameObject("Col"); col.transform.SetParent(g, false); col.layer = pathLayer;
         var bc = col.AddComponent<BoxCollider>(); bc.center = new Vector3(0, -Tk * 0.5f, len * 0.5f); bc.size = new Vector3(hw * 2f, Tk, len);
         int n = Mathf.Max(1, Mathf.RoundToInt(len / StripeLen));
+        bool slope = Mathf.Abs(d.y) > 0.001f;
+        // 2026-11-10 てじゃ「坂+平地のとこのスキマ」：坂の箱は坂に直角な面で切れていて、平らな道（たての面）とのつなぎ目の下に三角のすき間があいた
+        //  → 坂のシマは、はしの面をたてにした（上の辺の真下に下の辺）ゆがんだ箱にする。平らな道ともシマどうしともぴったり合う
+        var vUp = g.InverseTransformDirection(Vector3.up) * Tk;
         for (int k = 0; k < n; k++)
         {
             float l = len / n;
-            var s = Box(g, "S" + k, new Vector3(0, -Tk * 0.5f, l * (k + 0.5f)), new Vector3(hw * 2f, Tk, l), (k % 2 == 0) ? pathA : pathB, 0);
-            Object.DestroyImmediate(s.GetComponent<Collider>());
+            if (!slope)
+            {
+                var s = Box(g, "S" + k, new Vector3(0, -Tk * 0.5f, l * (k + 0.5f)), new Vector3(hw * 2f, Tk, l), (k % 2 == 0) ? pathA : pathB, 0);
+                Object.DestroyImmediate(s.GetComponent<Collider>());
+                continue;
+            }
+            float z0 = l * k, z1 = l * (k + 1);
+            Vector3 T(float x, float z) => new Vector3(x, 0f, z);
+            var p = new[] { T(-hw, z0), T(hw, z0), T(hw, z1), T(-hw, z1) };   // 上の4点（左手前・右手前・右奥・左奥）
+            var q = p.Select(x => x - vUp).ToArray();                             // 真下の4点
+            var vv = new List<Vector3>(); var tt = new List<int>();
+            void F(Vector3 a, Vector3 b, Vector3 c, Vector3 e, Vector3 want)
+            {
+                if (Vector3.Dot(Vector3.Cross(b - a, c - a), want) < 0f) { var tmp = b; b = e; e = tmp; }
+                int i0 = vv.Count; vv.Add(a); vv.Add(b); vv.Add(c); vv.Add(e); tt.Add(i0); tt.Add(i0 + 1); tt.Add(i0 + 2); tt.Add(i0); tt.Add(i0 + 2); tt.Add(i0 + 3);
+            }
+            var up = Vector3.up; var fw = Vector3.forward;
+            F(p[0], p[1], p[2], p[3], up); F(q[0], q[3], q[2], q[1], -vUp);
+            F(p[0], p[3], q[3], q[0], Vector3.left); F(p[1], q[1], q[2], p[2], Vector3.right);
+            F(p[0], q[0], q[1], p[1], -fw); F(p[3], p[2], q[2], q[3], fw);
+            var me = new Mesh { name = "SlopeStripe" }; me.SetVertices(vv); me.SetTriangles(tt, 0); me.RecalculateNormals(); me.RecalculateBounds();
+            var so = new GameObject("S" + k); so.transform.SetParent(g, false);
+            so.AddComponent<MeshFilter>().sharedMesh = me; so.AddComponent<MeshRenderer>().sharedMaterial = (k % 2 == 0) ? pathA : pathB;
         }
         if (!under || !PathUnder) return;   // 2026-11-08 てじゃ「道の下の■部分もいらない」
         var u = Box(g, "Under", new Vector3(0, -Tk - 0.5f, len * 0.5f), new Vector3(hw * 2f - 0.2f, 1.0f, len - 0.1f), underMat, 0);
