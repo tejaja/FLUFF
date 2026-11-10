@@ -169,6 +169,8 @@ public static class FuwaCourse2_3Builder
             iceFlat.SetFloat("_IceDeep", IceDeep); iceFlat.SetFloat("_IceDeepScale", 9f); iceFlat.SetFloat("_IceBubble", IceBubble); iceFlat.SetFloat("_IceSky", IceSky);   // まだらは大きく（てじゃ「細かくて繰り返し模様に見える」2.4→9）
             EditorUtility.SetDirty(iceFlat);
         }
+        // 2026-11-10 てじゃ「板の下側がスキマだらけ」：流氷の板のへこんだ角で側面が少し折れ返る所があり、裏向きの面が消えて向こうが透けた → 氷は両面描く（形も直したうえでの保険）
+        iceFlat.SetFloat("_Cull", 0f); EditorUtility.SetDirty(iceFlat);
         snowLipMat = FuwaStage2WaterTest.ToonMat("Stage2_3_SnowLip", SnowLipCol); snowLipMat.SetFloat("_OffsetFactor", -1f); snowLipMat.SetFloat("_OffsetUnits", -1f); EditorUtility.SetDirty(snowLipMat);
         icicleMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Icicle", IcicleCol);
         snowA = PathMat("Course2_3_SnowA", SnowColA); snowB = PathMat("Course2_3_SnowB", SnowColB);
@@ -1419,6 +1421,15 @@ public static class FuwaCourse2_3Builder
                     flip = true;
                     foreach (int i in new[] { i0, i1, i2 }) { k[i] *= 0.5f; var q2 = outline[i] + full[i] * k[i]; bot[i] = new Vector3(q2.x, bot[i].y, q2.y); }
                 }
+                // ふちの辺の向き：へこんだ角で、よせた点どうしが入れ違って辺が逆向きになると、側面がねじれて透けた（てじゃのスクショ 2026-11-10）
+                for (int i = 0; i < n; i++)
+                {
+                    int j = (i + 1) % n;
+                    Vector3 et = top[j] - top[i], eb = bot[j] - bot[i]; et.y = 0f; eb.y = 0f;
+                    if (Vector3.Dot(et, eb) > et.sqrMagnitude * 0.2f) continue;
+                    flip = true;
+                    foreach (int q in new[] { i, j }) { k[q] *= 0.5f; var q2 = outline[q] + full[q] * k[q]; bot[q] = new Vector3(q2.x, bot[q].y, q2.y); }
+                }
                 if (!flip) break;
             }
         }
@@ -1427,8 +1438,9 @@ public static class FuwaCourse2_3Builder
         {
             int j = (i + 1) % n;
             var outw = -new Vector3(nIn[i].x + nIn[j].x, 0f, nIn[i].y + nIn[j].y);
-            Quad(v, t, top[i], top[j], mid[j], mid[i], outw);
-            Quad(v, t, mid[i], mid[j], bot[j], bot[i], outw + Vector3.down * 0.6f);
+            // 三角ごとに外向きにそろえる（ねじれた四角で片方の三角だけ裏向きになって透けるのを防ぐ）
+            Tri(top[i], top[j], mid[j], outw); Tri(top[i], mid[j], mid[i], outw);
+            Tri(mid[i], mid[j], bot[j], outw + Vector3.down * 0.6f); Tri(mid[i], bot[j], bot[i], outw + Vector3.down * 0.6f);
         }
         var mesh = NewMesh(name); mesh.SetVertices(v); mesh.SetTriangles(t, 0);
         mesh.SetUVs(0, v.Select(q => new Vector2(0f, Mathf.Max(0f, topH(new Vector2(q.x, q.z)) - q.y))).ToList());   // uv.y＝上の面からの深さ（側面の色）
