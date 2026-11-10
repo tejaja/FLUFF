@@ -197,17 +197,25 @@ public class FuwaIceSkate : UdonSharpBehaviour
     private const float Skin = 0.08f;
 
     // 壁の向き（横だけ、長さ 1）。60 度よりゆるい面は坂なので壁あつかいしない → zero
+    //  2026-11-10 てじゃ「（2–3 の丸い山の出口の）岩のそばで、アバターだけ引っかかって視点だけ先に進む」：氷の岩は面がななめ（上向き 0.5〜0.95）で坂あつかいになり、
+    //   押しこみ続けていた。氷の床でない物の、足もとより StepUp m 上に当たったら、面の向きにかかわらず壁（登れない）
+    public float stepUp = 0.3f;
+    private float _castFeetY;
+    private Vector3 _castDir;
     private Vector3 WallNormal(RaycastHit w)
     {
-        if (w.normal.y >= 0.5f) return Vector3.zero;
+        bool steep = w.normal.y < 0.5f;
+        if (!steep && (IsIce(w.collider) || w.point.y <= _castFeetY + stepUp)) return Vector3.zero;
         Vector3 wn = new Vector3(w.normal.x, 0f, w.normal.z);
-        return wn.sqrMagnitude > 0.0001f ? wn.normalized : Vector3.zero;
+        if (wn.sqrMagnitude > 0.0001f) return wn.normalized;
+        return steep ? Vector3.zero : -_castDir;   // ほぼ真上を向いた面（岩のてっぺんのふち）：来た向きの逆を壁に
     }
 
     private RaycastHit _hit;   // U# は自作メソッドの out が使えないので、当たりはここに
     private bool CastBody(Vector3 pos, Vector3 dir, float dist)
     {
         // 体のカプセル（足もとから 0.35m 〜 1.4m）。少し後ろ（Skin）から始めて、めりこみかけでも当たるように
+        _castFeetY = pos.y; _castDir = dir;
         Vector3 back = -dir * Skin;
         Vector3 a = pos + Vector3.up * (0.35f + bodyRadius) + back, b = pos + Vector3.up * (1.4f - bodyRadius) + back;
         return Physics.CapsuleCast(a, b, bodyRadius, dir, out _hit, dist + Skin * 2f, wallMask, QueryTriggerInteraction.Ignore);
