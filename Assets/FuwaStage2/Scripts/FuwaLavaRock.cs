@@ -35,6 +35,10 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public float hitRadius = 0.5f;
     public float ballKnock = 2.5f, ballKnockUp = 1.5f;
     public float playerKnock = 5f, playerKnockUp = 4f;
+    [Tooltip("次に着く所の予告の丸。[k-1] が points[k] に着く時（なくてもOK。2026-11-10 てじゃ「予告をもっとわかりやすく」）")]
+    public Renderer[] landWarns;
+    [Tooltip("着く何秒前から予告の丸を出すか")]
+    public float landWarnLead = 0.9f;
     [Tooltip("当たったら飛ぶまもの（なくてもOK。2026-10-30 てじゃ「まものも当たったら一応飛ぶ」）")]
     public FuwaEnemy[] enemies;
     public float enemyRadius = 0.7f, enemyKnock = 3.4f;
@@ -53,6 +57,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
     private Material _dotMat;
 
     private bool _flying, _hitBall, _hitPlayer;
+    private Material[] _warnMats; private bool[] _warnOn;
     private bool[] _hitEnemy;
     private int _hop = -1;
     private float _ballRadius = 0.4f;
@@ -67,6 +72,9 @@ public class FuwaLavaRock : UdonSharpBehaviour
         _hitEnemy = new bool[enemies == null ? 0 : enemies.Length];
         if (pathDots != null) { _dotMat = pathDots.material; _dotMat.SetFloat("_Tail", dotTail); _dotMat.SetFloat("_Spacing", dotSpacing); _dotMat.SetFloat("_Head", -100f); }
         Show(false);
+        int nw = landWarns == null ? 0 : landWarns.Length;
+        _warnMats = new Material[nw]; _warnOn = new bool[nw];
+        for (int i = 0; i < nw; i++) if (landWarns[i] != null) { _warnMats[i] = landWarns[i].material; landWarns[i].enabled = false; }
         // はねる音は岩から外して、着いた点に置いて鳴らす（2026-11-10 てじゃ「下の段から聞くと中段の2回が聞こえない、横からだと聞こえる」）。
         //  岩についたままだと、鳴っている間に音の出る所が岩といっしょに上へ飛んでいく
         if (bounceSound != null) bounceSound.transform.SetParent(transform.parent, true);
@@ -97,6 +105,26 @@ public class FuwaLavaRock : UdonSharpBehaviour
         Vector3 m = (a + b) * 0.5f; m.y = 2f * top - (a.y + b.y) * 0.5f;
         float v = 1f - u;
         return v * v * a + 2f * v * u * m + u * u * b;
+    }
+
+    // 予告の丸：points[k] に着く landWarnLead 秒前から出して、まん中から埋まっていき、ふちまで埋まった時に着く。着いたら消す
+    private void LandWarns(bool flying, float t, int hops)
+    {
+        if (_warnMats == null) return;
+        float land = 0f;
+        for (int k = 1; k < hops; k++)
+        {
+            land += Dur(k - 1, hops);
+            int i = k - 1; if (i >= _warnMats.Length) break;
+            Material m = _warnMats[i]; if (m == null) continue;
+            float dt = land - t;
+            bool on = flying && dt > 0f && dt < landWarnLead;
+            if (on != _warnOn[i]) { _warnOn[i] = on; landWarns[i].enabled = on; }
+            if (!on) continue;
+            float f = 1f - dt / landWarnLead;
+            m.SetFloat("_Fill", f);
+            m.SetFloat("_Alpha", Mathf.Clamp01(f * 4f));
+        }
     }
 
     private void Show(bool on)
@@ -142,6 +170,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
         }
         else if (_dotMat != null) _dotMat.SetFloat("_Head", !flying ? -100f : dotSpacing > 0.01f ? (t * dotSpeed > pathLength + dotTail ? pathLength + dotTail + Mathf.Repeat(t * dotSpeed - pathLength - dotTail, dotSpacing) : t * dotSpeed) : (t * dotSpeed) % (pathLength + dotTail));
         if (pathDots != null && pathDots.enabled != flying) pathDots.enabled = flying;   // 休みの間は点線ごと消す
+        LandWarns(flying, t, hops);
         if (!flying) return;
         float u = Mathf.Clamp01((t - t0) / Dur(k, hops));
         Vector3 p = At(k, u);

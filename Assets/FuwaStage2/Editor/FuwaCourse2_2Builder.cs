@@ -388,6 +388,7 @@ public static class FuwaCourse2_2Builder
         FuwaStage2Static.Apply(root);
         RockCracks(fire);
         RockPathDots(fire);
+        RockLandWarns(fire);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–2] ゴールまで " + p.z.ToString("F0") + "m、高さ " + p.y.ToString("F1") + "m";
     }
@@ -1648,7 +1649,7 @@ public static class FuwaCourse2_2Builder
     public static float RockCrackDepth = 0.35f, RockCrackLift = 0.015f, RockBounceH = 0.74f;   // RockBounceH：はねる時の岩の中心の、道からの高さ（岩の下の半径 0.78。少しめりこむくらい）
     // ジグザグの岩（LavaRock0/1）とまもののエリアの岩（LavaRockArena）の通り道の点線（2026-11-04 てじゃ「この点線いいな」）。最初の道の上の板（P1）から落ちる先まで、FuwaLavaRock.At と同じ弧に RockDotGap おきに小さい玉。
     //  1 つのメッシュで、uv.x が通り道ぞいの距離。作り直さずシーンだけ直す時もこれを呼ぶ（はねる点を動かしたら呼び直す。RockCracks のあとに）
-    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 15f, RockDotSpots = 3f, RockDotLead = 10f, RockDotFadeNear = 5f, RockDotFadeFar = 20f,   /* 遠くの点は薄く：5m から薄くなって 20m で見えない（2026-11-04 てじゃ「遠くのは見えづらく」→ 12/35 だと「２個並んでるところが近すぎて奥側も普通にみえちゃう」） */ RockDotTail = 6f;   /* 2026-11-04 てじゃ「くどい、一箇所に、光ってる部分をすこしながく、岩のちょっと前を岩と同じくらいの速度で」→ 岩にくっつけて、岩の 4〜10m 先を光らせる（光の長さ 4→6。最初 0.5〜6.5m 先→「もうちょい手前」）。 2026-11-04 てじゃ「点滅速くして、消えてるときは見えないように」：10→18→26→15（光は同時に 3 か所）、ふだんの濃さ 0.8→0（光った所だけ見える） */
+    public static float RockDotGap = 0.6f, RockDotR = 0.13f, RockDotSpeed = 15f, RockDotSpots = 3f, RockDotLead = 14f, RockDotFadeNear = 5f, RockDotFadeFar = 20f,   /* 遠くの点は薄く：5m から薄くなって 20m で見えない（2026-11-04 てじゃ「遠くのは見えづらく」→ 12/35 だと「２個並んでるところが近すぎて奥側も普通にみえちゃう」） */ RockDotTail = 10f;   /* 2026-11-10 てじゃ「光る部分の長さを長く、形はかえないで」：4〜10m 先 → 4〜14m 先（Lead 10→14, Tail 6→10） */   /* 2026-11-04 てじゃ「くどい、一箇所に、光ってる部分をすこしながく、岩のちょっと前を岩と同じくらいの速度で」→ 岩にくっつけて、岩の 4〜10m 先を光らせる（光の長さ 4→6。最初 0.5〜6.5m 先→「もうちょい手前」）。 2026-11-04 てじゃ「点滅速くして、消えてるときは見えないように」：10→18→26→15（光は同時に 3 か所）、ふだんの濃さ 0.8→0（光った所だけ見える） */
     public static string RockPathDots(Transform fire)
     {
         string mp = "Assets/FuwaStage2/Materials/Stage2_2_RockPathDots.mat";
@@ -1692,6 +1693,69 @@ public static class FuwaCourse2_2Builder
         }
         return res;
     }
+    // 落ちる岩が次に着く所の予告の丸（FuwaLavaRock.landWarns、2026-11-10 てじゃ「予告をもっとわかりやすく」→ 着地点に丸＋点線の光を長く）。
+    //  はねる点（P1〜）ごとに、道の上に沿わせた丸。道の外は作らない。火球の予告と同じ色（道の色に掛ける＋濃いふち）。作り直さずシーンだけ直す時もこれを呼ぶ（RockPathDots のあとに）
+    public static float RockWarnR = 1.35f, RockWarnLead = 0.9f;
+    public static string RockLandWarns(Transform fire)
+    {
+        var course = fire.root; var temps = new List<MeshCollider>();
+        foreach (var n in new[] { "ZigPath", "Path12", "Path5" })
+            foreach (var t in course.GetComponentsInChildren<Transform>(true))
+                if (t.name == n && t.GetComponent<MeshFilter>()) { var c = t.gameObject.AddComponent<MeshCollider>(); c.sharedMesh = t.GetComponent<MeshFilter>().sharedMesh; temps.Add(c); }
+        Physics.SyncTransforms();
+        string mp = "Assets/FuwaStage2/Materials/Stage2_2_RockLandWarn.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/RockLandWarn")); AssetDatabase.CreateAsset(mat, mp); }
+        mat.SetColor("_Tint", FireballWarnTint); mat.SetColor("_EdgeTint", FireballWarnEdgeTint); mat.SetFloat("_Inner", FireballWarnBase); mat.SetFloat("_Fill", 0f); mat.SetFloat("_Alpha", 0f); EditorUtility.SetDirty(mat);
+        string res = "";
+        foreach (var f in fire.GetComponentsInChildren<FuwaLavaRock>(true))
+        {
+            var g = f.transform.parent; if (!(g.name == "LavaRock0" || g.name == "LavaRock1" || g.name == "LavaRockArena")) { f.landWarns = new Renderer[0]; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); continue; }
+            for (int i = g.childCount - 1; i >= 0; i--) if (g.GetChild(i).name.StartsWith("LandWarn")) Object.DestroyImmediate(g.GetChild(i).gameObject);
+            var rs = new List<Renderer>();
+            for (int k = 1; k < f.points.Length - 1; k++)
+            {
+                var c0 = f.points[k].position; float fromY = c0.y + 1.5f;
+                bool Down(Vector3 at, out Vector3 got)
+                {
+                    float best = float.MaxValue; bool found = false; got = at; var ray = new Ray(new Vector3(at.x, fromY, at.z), Vector3.down);
+                    foreach (var c in temps) if (c.Raycast(ray, out var h, 4f) && h.distance < best && h.normal.y > 0.5f) { best = h.distance; got = h.point; found = true; }
+                    return found;
+                }
+                const int NR = 8, NS = 40;
+                var verts = new List<Vector3>(); var uvs = new List<Vector2>(); var idx = new List<int>(); var id = new int[NR + 1, NS];
+                for (int ri = 0; ri <= NR; ri++) for (int si = 0; si < NS; si++)
+                {
+                    id[ri, si] = -1; if (ri == 0 && si > 0) { id[ri, si] = id[0, 0]; continue; }
+                    float rr = ri / (float)NR, th = si * Mathf.PI * 2f / NS; var off = new Vector3(Mathf.Cos(th), 0f, Mathf.Sin(th)) * rr;
+                    if (!Down(c0 + off * RockWarnR, out var hit)) continue;
+                    id[ri, si] = verts.Count; verts.Add(g.InverseTransformPoint(hit + Vector3.up * 0.015f)); uvs.Add(new Vector2(off.x, off.z));
+                }
+                void Tri(int p, int q2, int r2)
+                {
+                    if (p < 0 || q2 < 0 || r2 < 0 || p == q2 || q2 == r2 || p == r2) return;
+                    var ab = verts[q2] - verts[p]; var ac = verts[r2] - verts[p];
+                    if (Vector3.Cross(ab, ac).y >= 0f) idx.AddRange(new[] { p, q2, r2 }); else idx.AddRange(new[] { p, r2, q2 });   // 上向き（火球の予告と同じ決まり）
+                }
+                for (int ri = 0; ri < NR; ri++) for (int si = 0; si < NS; si++)
+                {
+                    int sj = (si + 1) % NS; int a0 = id[ri, si], a1 = id[ri, sj], b0 = id[ri + 1, si], b1 = id[ri + 1, sj];
+                    if (ri == 0) { Tri(a0, b0, b1); continue; }
+                    Tri(a0, b0, b1); Tri(a0, b1, a1);
+                }
+                if (idx.Count == 0) { Debug.LogWarning("[2–2] 予告の丸：道が見つからない " + g.name + " P" + k); rs.Add(null); continue; }
+                var mesh = new Mesh { name = "Course2_2_" + g.name + "_LandWarn" + k }; mesh.SetVertices(verts); mesh.SetUVs(0, uvs); mesh.SetTriangles(idx, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+                var o = new GameObject("LandWarn" + k, typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.GetComponent<MeshFilter>().sharedMesh = SaveMesh(mesh);
+                var r = o.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; r.enabled = false;
+                rs.Add(r);
+                res += g.name + " P" + k + " " + idx.Count / 3 + "tri / ";
+            }
+            f.landWarns = rs.ToArray(); f.landWarnLead = RockWarnLead;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); EditorUtility.SetDirty(f);
+        }
+        foreach (var c in temps) Object.DestroyImmediate(c);
+        return res;
+    }
+
     public static string RockCracks(Transform fire)
     {
         var old = fire.Find("RockCracks"); if (old) Object.DestroyImmediate(old.gameObject);
