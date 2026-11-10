@@ -162,6 +162,9 @@ public class FuwaBlower : UdonSharpBehaviour
     //  → 決まった位置だと手からだいぶずれた（アバターごとに手の位置が違う）ので、持って落ち着いた時（desktopLearnAfter 秒後、止まっている時）の
     //    手の位置を「頭から見た位置」として覚えておき、次からは持った瞬間にそこへ出す。持っている間はそこに固定。覚えるのは1回持つごとに1回だけ。
     //    まだ覚えていない最初の1回だけ、決まった位置から覚えた位置へすっと移る。アバターを変えたら（目の高さが変わったら）覚え直す
+    [Tooltip("デスクトップ・スマホでは VRChat の銃の持ち方（Orientation=Gun）にして、その位置に見た目を出す（向きは視線）。OFFなら下の「手の位置を覚える」方式")]
+    public bool desktopUseGunHold = true;
+    private bool _desktopGunHold;
     [Tooltip("まだ手の位置を覚えていない時の位置：頭から見て x=右 y=上 z=前（m、目の高さ1.6mのアバターの時）")]
     public Vector3 desktopViewPos = new Vector3(0.15f, -0.2f, 0.3f);
     [Tooltip("持ってからこの秒数たって止まっていたら、その時の手の位置を覚える")]
@@ -248,6 +251,15 @@ public class FuwaBlower : UdonSharpBehaviour
         if (pumpBulb != null) { _bulbBaseScale = pumpBulb.localScale; _bulbBasePos = pumpBulb.localPosition; }
         SetOrb(0f);
         _pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
+        // デスクトップ・スマホの人のパソコンでだけ、VRChat の「銃として持つ」（Orientation=Gun）に切り替える。握る目印は銃の根元（見た目の原点＝グリップ）。
+        // VRの人は Any のまま（持った瞬間に決まった握りへパチッと持ち替えられるのはNG：2026-11-11 てじゃ「あれきらい」）。持ち方は持つ人のパソコンで決まるので他の人には関係ない
+        VRCPlayerApi lp0 = Networking.LocalPlayer;
+        if (desktopUseGunHold && _pickup != null && lp0 != null && !lp0.IsUserInVR())
+        {
+            _pickup.orientation = VRC_Pickup.PickupOrientation.Gun;
+            _pickup.ExactGun = transform;
+            _desktopGunHold = true;
+        }
         _isMine = Networking.IsOwner(gameObject);
         SetupBulbMaterial();
         if (!_isMine && _pickup != null) _pickup.pickupable = false;
@@ -556,7 +568,8 @@ public class FuwaBlower : UdonSharpBehaviour
                     // 手のボーンは手首にあるので、中指の付け根の方へ寄せて手のひらの中心にする
                     Vector3 finger = holder.GetBonePosition(HumanBodyBones.RightMiddleProximal);
                     Vector3 palm = finger.sqrMagnitude > 0.0001f ? Vector3.Lerp(hand, finger, 0.7f) : hand;
-                    if (holder.isLocal)
+                    if (holder.isLocal && _desktopGunHold) palm = transform.position;   // VRChat が銃として持たせた位置
+                    else if (holder.isLocal)
                     {
                         VRCPlayerApi.TrackingData hd = holder.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
                         Vector3 rel = Quaternion.Inverse(hd.rotation) * (palm - hd.position);
