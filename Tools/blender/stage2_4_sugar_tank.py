@@ -98,7 +98,12 @@ class MB:
         bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
         bpy.ops.mesh.sort_elements(type='MATERIAL', elements={'FACE'})
         bpy.ops.object.mode_set(mode='OBJECT')
-        for p in me.polygons: p.use_smooth = False
+        # スムース（2026-11-10 てじゃ「スムースもかけといて」）：35°より曲がる所だけ角を立てる
+        try:
+            bpy.ops.object.shade_smooth_by_angle(angle=math.radians(35))
+        except Exception:
+            for p in me.polygons: p.use_smooth = True
+            if hasattr(me, "use_auto_smooth"): me.use_auto_smooth = True; me.auto_smooth_angle = math.radians(35)
         return ob
 
 PAINT, BRASS, GLASS, DARK, LIQ, FACE = range(6)
