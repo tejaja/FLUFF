@@ -55,6 +55,31 @@ public static class FuwaGearRideTest
         m.RecalculateNormals(); m.RecalculateBounds();
         return m;
     }
+    // 筒のまわりのたてのスジ（HubStripeN 本、幅 HelixW、外へ HelixTh）
+    public static int HubStripeN = 6;
+    static Mesh StripesMesh(float r, float y0, float y1, string name)
+    {
+        var v = new System.Collections.Generic.List<Vector3>(); var tr = new System.Collections.Generic.List<int>();
+        void Q(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 want) { int i = v.Count; if (Vector3.Dot(Vector3.Cross(b - a, c - a), want) < 0f) { var tmp = b; b = d; d = tmp; } v.Add(a); v.Add(b); v.Add(c); v.Add(d); tr.Add(i); tr.Add(i + 1); tr.Add(i + 2); tr.Add(i); tr.Add(i + 2); tr.Add(i + 3); }
+        Vector3 P(float a, float y, float rr) => new Vector3(Mathf.Cos(a) * rr, y, Mathf.Sin(a) * rr);
+        float ro = r + HelixTh, hw = HelixW / 2f / r; const int seg = 3;
+        for (int k = 0; k < HubStripeN; k++)
+        {
+            float ac = 2f * Mathf.PI * k / HubStripeN;
+            for (int j = 0; j < seg; j++)
+            {
+                float a0 = ac - hw + 2f * hw * j / seg, a1 = ac - hw + 2f * hw * (j + 1) / seg; var o = P((a0 + a1) / 2f, 0f, 1f);
+                Q(P(a0, y0, ro), P(a0, y1, ro), P(a1, y1, ro), P(a1, y0, ro), o);   // 外
+                Q(P(a0, y1, r), P(a0, y1, ro), P(a1, y1, ro), P(a1, y1, r), Vector3.up);   // 上
+                Q(P(a0, y0, ro), P(a0, y0, r), P(a1, y0, r), P(a1, y0, ro), Vector3.down);   // 下
+            }
+            float e0 = ac - hw, e1 = ac + hw;
+            Q(P(e0, y0, r), P(e0, y1, r), P(e0, y1, ro), P(e0, y0, ro), P(e0 - Mathf.PI / 2f, 0f, 1f));   // 横
+            Q(P(e1, y0, ro), P(e1, y1, ro), P(e1, y1, r), P(e1, y0, r), P(e1 + Mathf.PI / 2f, 0f, 1f));
+        }
+        var m = new Mesh { name = name }; m.SetVertices(v); m.SetTriangles(tr, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
+    }
     // サブメッシュつきで保存（FuwaGearTest.SaveMesh は1つだけ）
     public static Mesh SaveMeshSub(Mesh m)
     {
@@ -72,9 +97,11 @@ public static class FuwaGearRideTest
         var hm = SaveMeshSub(HubMesh(hr, HubH, coneH, 40, "GearRide_Hub_r" + Mathf.RoundToInt(hr * 100)));
         hub.GetComponent<MeshFilter>().sharedMesh = hm; hub.GetComponent<MeshRenderer>().sharedMaterials = new[] { dark, light };
         var mc = hub.GetComponent<MeshCollider>(); if (mc) { mc.sharedMesh = null; mc.sharedMesh = hm; }
-        foreach (var x in t.Cast<Transform>().Where(x => x.name == "HubMark" || x.name == "HubHelix").ToArray()) Object.DestroyImmediate(x.gameObject);
-        var hx = new GameObject("HubHelix"); hx.transform.SetParent(t, false); hx.transform.localPosition = hub.localPosition;
-        hx.AddComponent<MeshFilter>().sharedMesh = FuwaGearTest.SaveMesh(HelixMesh(hr, 0.2f, HubH - 0.3f, "GearRide_HubHelix_r" + Mathf.RoundToInt(hr * 100)));
+        foreach (var x in t.Cast<Transform>().Where(x => x.name == "HubMark" || x.name == "HubHelix" || x.name == "HubStripes").ToArray()) Object.DestroyImmediate(x.gameObject);
+        // 2026-11-10 らせんは「びみょう」→ たての金のスジを HubStripeN 本（前は1本の HubMark）
+        foreach (var x in t.Cast<Transform>().Where(x => x.name == "HubStripes").ToArray()) Object.DestroyImmediate(x.gameObject);
+        var hx = new GameObject("HubStripes"); hx.transform.SetParent(t, false); hx.transform.localPosition = hub.localPosition;
+        hx.AddComponent<MeshFilter>().sharedMesh = FuwaGearTest.SaveMesh(StripesMesh(hr, 0.2f, HubH - 0.3f, "GearRide_HubStripes_r" + Mathf.RoundToInt(hr * 100)));
         hx.AddComponent<MeshRenderer>().sharedMaterial = brass;
     }
 
