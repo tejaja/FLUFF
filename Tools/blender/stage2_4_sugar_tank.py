@@ -131,6 +131,8 @@ t.lathe([(0, NECK_Y - 0.005), (0.23, NECK_Y - 0.005), (0.23, NECK_Y + 0.06), (0,
 for j in range(6):
     a = 2 * math.pi * (j + 0.5) / 6
     t.bolt((0.19 * math.cos(a), NECK_Y + 0.06, 0.19 * math.sin(a)), (0, 1, 0), BRASS, 0.018, 0.02)
+# クリスタルの台を受ける軸受け（回らない）：フランジの上 0.90 → 0.95（2026-11-10 てじゃ「上のクリスタルの置き方もちょっと雑」）
+t.lathe([(0, NECK_Y + 0.055), (0.12, NECK_Y + 0.055), (0.12, NECK_Y + 0.1), (0.1, NECK_Y + 0.11), (0, NECK_Y + 0.11)], 24, BRASS)
 # 帯（上下のつなぎ目）とボルト
 for yc in (Y_TOP, Y_BOT):
     t.lathe([(R - 0.01, yc - 0.045), (R + 0.03, yc - 0.045), (R + 0.03, yc + 0.045), (R - 0.01, yc + 0.045)], 48, BRASS, closed_ends=False)
@@ -186,67 +188,48 @@ t.tube(case_c + face_n * 0.03, case_c + face_n * 0.04, 0.1, 24, BRASS, r_in=0.08
 tank = t.obj("SugarTankV2")
 print("GAUGE_C", tuple(round(x, 4) for x in (case_c + face_n * 0.034)), "GAUGE_N", tuple(round(x, 4) for x in face_n))
 
-# ===== ピストンの筒（クランク側は開いている。のぞき窓が ±z に1つずつ）=====
+# ===== ピストンの筒：透明なケース（2026-11-10 てじゃ「ポンプのシリンダは透明ケースでもいいかも　見栄えで」）。クランク側は開いている =====
 b = MB()
 RO, RI = 0.40, 0.36
 X0, X1 = 0.62, 1.9
-SLOT_X0, SLOT_X1 = 0.88, 1.62
-SLOT_HALF = math.radians(28)
-segs = 48
-xs = [X0, SLOT_X0, SLOT_X1, X1]
-def in_slot(a, x0, x1):
-    if not (x0 >= SLOT_X0 - 1e-6 and x1 <= SLOT_X1 + 1e-6): return False
-    for c in (math.pi / 2, -math.pi / 2):
-        d = (a - c + math.pi) % (2 * math.pi) - math.pi
-        if abs(d) < SLOT_HALF: return True
-    return False
-# 角度の並び：窓のふちで切れるように
-angs = sorted(set([2 * math.pi * j / segs for j in range(segs)] + [((c + s * SLOT_HALF) % (2 * math.pi)) for c in (math.pi / 2, 3 * math.pi / 2) for s in (-1, 1)]))
-def P(r, x, a):
-    return U(x, r * math.cos(a), r * math.sin(a))   # 軸 = x、y と z で回る
-vo = {}; vi = {}
-for x in xs:
-    for a in angs:
-        vo[(x, a)] = b.v(P(RO, x, a)); vi[(x, a)] = b.v(P(RI, x, a))
-n = len(angs)
-for xi in range(len(xs) - 1):
-    x0, x1 = xs[xi], xs[xi + 1]
-    for j in range(n):
-        a0, a1 = angs[j], angs[(j + 1) % n]
-        am = a0 + (((a1 - a0) % (2 * math.pi)) / 2)
-        if in_slot(am, x0, x1):
-            continue
-        b.f([vo[(x0, a0)], vo[(x0, a1)], vo[(x1, a1)], vo[(x1, a0)]], PAINT)
-        b.f([vi[(x0, a1)], vi[(x0, a0)], vi[(x1, a0)], vi[(x1, a1)]], DARK)
-# 窓のふち（切り口）
-for c in (math.pi / 2, 3 * math.pi / 2):
-    lo, hi = (c - SLOT_HALF) % (2 * math.pi), (c + SLOT_HALF) % (2 * math.pi)
-    for a in (lo, hi):
-        b.f([vo[(SLOT_X0, a)], vi[(SLOT_X0, a)], vi[(SLOT_X1, a)], vo[(SLOT_X1, a)]], BRASS)
-    seg = [a for a in angs if ((a - lo) % (2 * math.pi)) <= ((hi - lo) % (2 * math.pi)) + 1e-6]
-    seg.sort(key=lambda a: (a - lo) % (2 * math.pi))
-    for k in range(len(seg) - 1):
-        for x in (SLOT_X0, SLOT_X1):
-            b.f([vo[(x, seg[k])], vo[(x, seg[k + 1])], vi[(x, seg[k + 1])], vi[(x, seg[k])]], BRASS)
-# クランク側のはし（輪）
-for j in range(n):
-    a0, a1 = angs[j], angs[(j + 1) % n]
-    b.f([vo[(X0, a1)], vo[(X0, a0)], vi[(X0, a0)], vi[(X0, a1)]], PAINT)
-# 両はしのフランジ・ボルト
+b.tube((X0 + 0.04, 0, 0), (X1 + 0.01, 0, 0), RO, 48, GLASS, r_in=0.0)
+# 両はしのフランジ・ボルト（クランク側は輪、タンク側はふた）
 b.tube((X0 - 0.02, 0, 0), (X0 + 0.06, 0, 0), 0.47, 32, BRASS, r_in=RI)
 b.tube((X1, 0, 0), (X1 + 0.1, 0, 0), 0.47, 32, BRASS)
 for j in range(8):
     a = 2 * math.pi * (j + 0.5) / 8
     b.bolt((X0 + 0.06, 0.43 * math.cos(a), 0.43 * math.sin(a)), (1, 0, 0), BRASS)
     b.bolt((X1, 0.43 * math.cos(a), 0.43 * math.sin(a)), (-1, 0, 0), BRASS)
-# 筒の奥（タンク側）の内がわのふた
-b.tube((X1 - 0.005, 0, 0), (X1 + 0.001, 0, 0), RI + 0.001, 32, DARK)
-# 帯（窓をよけて）
-for xr in (0.74, 1.76):
-    b.tube((xr - 0.03, 0, 0), (xr + 0.03, 0, 0), RO + 0.025, 48, BRASS, r_in=RO - 0.005)
+# ケースを押さえる細い棒4本（フランジどうしをつなぐ）
+for j in range(4):
+    a = 2 * math.pi * (j + 0.5) / 4
+    b.tube((X0 + 0.06, 0.445 * math.cos(a), 0.445 * math.sin(a)), (X1, 0.445 * math.cos(a), 0.445 * math.sin(a)), 0.014, 8, BRASS)
+# 帯2本
+for xr in (0.9, 1.6):
+    b.tube((xr - 0.025, 0, 0), (xr + 0.025, 0, 0), RO + 0.022, 48, BRASS, r_in=RO + 0.002)
 # 台（サドル2つ）：台の上 y=-1.01（軸から）
 for xs_ in (0.78, 1.74):
     b.box((xs_, -0.695, 0), (0.08, 0.63, 0.4), DARK)
     b.box((xs_, -0.995, 0), (0.2, 0.03, 0.62), DARK)
 barrel = b.obj("PumpBarrel")
-print("ok", len(tank.data.vertices), len(barrel.data.vertices))
+# ===== クリスタルの台（回る：TankCrystal の子、原点＝台の下の面）=====
+# まん中の大きいクリスタル（半径 0.13）を3本のつめでおさえる。小さいクリスタル3つは 60/180/300° に外へ 20° かたむけて、輪（カラー）で受ける
+h = MB()
+h.lathe([(0, 0), (0.31, 0), (0.31, 0.02), (0.29, 0.035), (0, 0.035)], 48, BRASS)
+for j in range(3):
+    a = math.radians(120 * j); d = Vector((math.cos(a), 0, math.sin(a)))
+    pts = [(0.165, 0.02), (0.17, 0.12), (0.162, 0.22), (0.152, 0.27)]
+    for k in range(len(pts) - 1):
+        p0 = d * pts[k][0] + Vector((0, pts[k][1], 0)); p1 = d * pts[k + 1][0] + Vector((0, pts[k + 1][1], 0))
+        h.tube(p0, p1, 0.016, 8, BRASS)
+    tip = d * pts[-1][0] + Vector((0, pts[-1][1], 0))
+    h.tube(tip - Vector((0, 0.012, 0)), tip + Vector((0, 0.012, 0)), 0.022, 8, BRASS)
+SMALL_A, SMALL_R, SMALL_TILT = (60, 180, 300), 0.225, math.radians(20)
+for deg in SMALL_A:
+    a = math.radians(deg); d = Vector((math.cos(a), 0, math.sin(a)))
+    ax = (d * math.sin(SMALL_TILT) + Vector((0, 1, 0)) * math.cos(SMALL_TILT)).normalized()
+    base = d * SMALL_R + Vector((0, 0.035, 0))
+    h.tube(base - ax * 0.01, base + ax * 0.05, 0.078, 16, BRASS, r_in=0.068)
+    h.tube(base - ax * 0.012, base - ax * 0.002, 0.07, 16, BRASS)
+holder = h.obj("GemHolder")
+print("ok", len(tank.data.vertices), len(barrel.data.vertices), len(holder.data.vertices))

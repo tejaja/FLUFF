@@ -1429,28 +1429,7 @@ public static class FuwaCourse2_4Builder
             TBox(F, "TankBed", new Vector3(tc.x, -0.56f, 0f), new Vector3(2f * TankR + 0.2f, 0.1f, 2f * TankR + 0.2f), facWood, false);
             TBox(F, "TankBedJoin", new Vector3((px + fd - 0.1f + tc.x - TankR - 0.1f) / 2f + 0.01f, -0.56f, 0f), new Vector3(tc.x - TankR - 0.1f - (px + fd - 0.1f) - 0.02f, 0.06f, 0.5f), facWood, false);
         }
-        Transform popT = null;
-        {
-            var crystalMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_3_Crystal.mat");
-            var cryMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaStage2/Meshes/Course2_3/ObsCrystal1_Main.asset");
-            if (cryMesh && crystalMat)
-            {
-                float top = SugarNeckTop, s0 = 0.75f / Mathf.Max(0.01f, cryMesh.bounds.size.y);   // 2026-11-10 缶の首のフランジの上
-                popT = new GameObject("TankCrystal").transform; popT.SetParent(tank, false); popT.localPosition = new Vector3(0f, top, 0f);
-                void Cry(string n, float sc, float tilt, float yaw, float r)
-                {
-                    var c = new GameObject(n).transform; c.SetParent(popT, false);
-                    c.localRotation = Quaternion.Euler(0f, yaw, 0f) * Quaternion.Euler(tilt, 0f, 0f); c.localScale = Vector3.one * sc;
-                    c.localPosition = Quaternion.Euler(0f, yaw, 0f) * new Vector3(r, 0f, 0f) + c.localRotation * new Vector3(0f, -cryMesh.bounds.min.y * sc, 0f);
-                    c.gameObject.AddComponent<MeshFilter>().sharedMesh = cryMesh; c.gameObject.AddComponent<MeshRenderer>().sharedMaterial = crystalMat;
-                }
-                Cry("Crystal", s0, 0f, 0f, 0f);
-                Cry("CrystalSmall0", s0 * 0.5f, 28f, 30f, 0.16f);
-                Cry("CrystalSmall1", s0 * 0.45f, 28f, 190f, 0.16f);
-                var mount = GameObject.CreatePrimitive(PrimitiveType.Cylinder); mount.name = "CrystalMount"; Object.DestroyImmediate(mount.GetComponent<Collider>());
-                mount.transform.SetParent(tank, false); mount.transform.localPosition = new Vector3(0f, top + 0.02f, 0f); mount.transform.localScale = new Vector3(0.3f, 0.04f, 0.3f); mount.GetComponent<Renderer>().sharedMaterial = cwBrass;
-            }
-        }
+        Transform popT = CrystalTop(tank);
         // 動き
         var fc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaCloudFactory>(F.gameObject);
         fc.mode = 0; fc.frame = F; fc.bigGear = big; fc.pinion = pin; fc.ratio = pg.ratio; fc.phase = pg.phase * Mathf.Rad2Deg;
@@ -1518,7 +1497,7 @@ public static class FuwaCourse2_4Builder
         var full = new[] { pOut, pTank }.Concat(pts).ToArray();   // ポンプの出口 → タンクの中 → タンクの下から出て、まん中へ
         sp2.pts = full.Select(x => root.TransformPoint(x)).ToArray();
         sp2.pop = popT; sp2.popAt = Vector3.Distance(pOut, pTank); sp2.needle = needleT;
-        sp2.glows = (popT ? popT.GetComponentsInChildren<Renderer>() : new Renderer[0]).Concat(tank.GetComponentsInChildren<Renderer>().Where(x => x.name == "TankGlass")).ToArray(); sp2.bulges = bulges; sp2.speed = 4.5f; sp2.endCount = 12;
+        sp2.glows = (popT ? popT.GetComponentsInChildren<Renderer>().Where(x => x.name != "GemHolder").ToArray() : new Renderer[0]).Concat(tank.GetComponentsInChildren<Renderer>().Where(x => x.name == "TankGlass")).ToArray(); sp2.bulges = bulges; sp2.speed = 4.5f; sp2.endCount = 12;
         sp2.endPuff = null; sp2.balloon = balloon;   // 着いたらバルーンがふくらんで、てっぺんから雲
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp2); FuwaStage2WaterTest.NoSync(sp2);
         fc.pipes = new[] { sp2 };
@@ -1533,7 +1512,7 @@ public static class FuwaCourse2_4Builder
     //  Blender（Tools/blender/stage2_4_sugar_tank.py）で作った缶（脚・帯とボルト・首のフランジ・液面計・圧力計・入口出口のフランジ）と、ピストンの筒（クランク側は開いている、のぞき窓、サドル）
     //  缶は SugarTank の local（まん中が原点）、筒はピストンの軸の上・ピンの所（pc+axisY）が原点。針は圧力計の文字盤の上（FuwaSugarPipe.needle がふくらみで振る）
     const string SugarModel = "Assets/FuwaStage2/Models/SugarTankV2.fbx";
-    public static float SugarNeckTop = 0.92f;
+    public static float SugarNeckTop = 0.95f;   // 缶の軸受けの上（クリスタルの台の下の面）
     public static Vector3 GaugeC = new Vector3(-0.2348f, 0.7646f, 0.4066f), GaugeN = new Vector3(-0.4719f, 0.3304f, 0.8174f);
     static Transform PumpLooks(Transform F, Vector3 axisP, Transform tank, Material pipeM, Material tankM)
     {
@@ -1543,14 +1522,57 @@ public static class FuwaCourse2_4Builder
         var levelM = FuwaStage2WaterTest.ToonMat("Course2_4_SugarLevel", new Color(0.62f, 0.82f, 1f));
         var faceM = FuwaStage2WaterTest.ToonMat("Course2_4_GaugeFace", new Color(0.98f, 0.97f, 0.93f));
         var barrel = new GameObject("PumpBarrel"); barrel.transform.SetParent(F, false); barrel.transform.localPosition = axisP;
-        barrel.AddComponent<MeshFilter>().sharedMesh = M("PumpBarrel"); barrel.AddComponent<MeshRenderer>().sharedMaterials = new[] { pipeM, cwBrass, cwAxle };
+        barrel.AddComponent<MeshFilter>().sharedMesh = M("PumpBarrel"); barrel.AddComponent<MeshRenderer>().sharedMaterials = SugarMats("PumpBarrel", tankM, glassM, levelM, faceM);
         var body = new GameObject("TankBody"); body.transform.SetParent(tank, false);
-        body.AddComponent<MeshFilter>().sharedMesh = M("SugarTankV2"); body.AddComponent<MeshRenderer>().sharedMaterials = new[] { tankM, cwBrass, glassM, cwAxle, levelM, faceM };
+        body.AddComponent<MeshFilter>().sharedMesh = M("SugarTankV2"); body.AddComponent<MeshRenderer>().sharedMaterials = SugarMats("SugarTankV2", tankM, glassM, levelM, faceM);
         var nb = new GameObject("GaugeNeedle").transform; nb.SetParent(tank, false);
         nb.localPosition = GaugeC + GaugeN.normalized * 0.004f; nb.localRotation = Quaternion.LookRotation(-GaugeN.normalized, Vector3.up) * Quaternion.Euler(0f, 0f, 45f);
         TBox(nb, "Needle", new Vector3(0f, 0.03f, 0f), new Vector3(0.012f, 0.07f, 0.004f), cwAxle, false);
         TBox(nb, "NeedleHub", Vector3.zero, new Vector3(0.024f, 0.024f, 0.006f), cwBrass, false);
         return nb;
+    }
+
+    // fbx の中の材質の名前（SugarTank_Paint など、使われている物だけ・サブメッシュの順）から、こちらの材質へ
+    static Material[] SugarMats(string obj, Material paint, Material glass, Material level, Material face)
+    {
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>(SugarModel).GetComponentsInChildren<MeshRenderer>(true).First(x => x.name == obj).sharedMaterials;
+        return src.Select(m =>
+        {
+            string n = m ? m.name : "";
+            if (n.EndsWith("Brass")) return cwBrass; if (n.EndsWith("Glass")) return glass; if (n.EndsWith("Dark")) return cwAxle;
+            if (n.EndsWith("Liquid")) return level; if (n.EndsWith("Face")) return face; return paint;
+        }).ToArray();
+    }
+
+    // 缶のてっぺんのクリスタル（2026-11-10 てじゃ「上のクリスタルの置き方もちょっと雑だからきれいにしよ」）
+    //  回る台（GemHolder、Blender）にまん中の大きい1本を3本のつめで、小さい3本を 60/180/300° に外へ 20° かたむけて輪で受ける
+    //  TankCrystal（FuwaSugarPipe.pop が回してふくらませる）の原点は台の下の面＝缶の軸受けの上（SugarNeckTop）
+    public static float GemSmallR = 0.225f, GemSmallTilt = 20f, GemBaseY = 0.035f;
+    static Transform CrystalTop(Transform tank)
+    {
+        var crystalMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_3_Crystal.mat");
+        var cryMesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaStage2/Meshes/Course2_3/ObsCrystal1_Main.asset");
+        if (!cryMesh || !crystalMat) return null;
+        float s0 = 0.75f / Mathf.Max(0.01f, cryMesh.bounds.size.y);
+        var popT = new GameObject("TankCrystal").transform; popT.SetParent(tank, false); popT.localPosition = new Vector3(0f, SugarNeckTop, 0f);
+        var hold = new GameObject("GemHolder"); hold.transform.SetParent(popT, false);
+        hold.AddComponent<MeshFilter>().sharedMesh = AssetDatabase.LoadAllAssetsAtPath(SugarModel).OfType<Mesh>().First(x => x.name == "GemHolder"); hold.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        void Cry(string n, float sc, Vector3 basePos, Quaternion rot)
+        {
+            var c = new GameObject(n).transform; c.SetParent(popT, false);
+            c.localRotation = rot; c.localScale = Vector3.one * sc;
+            c.localPosition = basePos + rot * new Vector3(0f, -cryMesh.bounds.min.y * sc, 0f);
+            c.gameObject.AddComponent<MeshFilter>().sharedMesh = cryMesh; c.gameObject.AddComponent<MeshRenderer>().sharedMaterial = crystalMat;
+        }
+        Cry("Crystal", s0, new Vector3(0f, GemBaseY, 0f), Quaternion.identity);
+        int k = 0;
+        foreach (float deg in new[] { 60f, 180f, 300f })
+        {
+            var d = new Vector3(Mathf.Cos(deg * Mathf.Deg2Rad), 0f, Mathf.Sin(deg * Mathf.Deg2Rad));
+            var ax = (d * Mathf.Sin(GemSmallTilt * Mathf.Deg2Rad) + Vector3.up * Mathf.Cos(GemSmallTilt * Mathf.Deg2Rad)).normalized;
+            Cry("CrystalSmall" + k++, s0 * 0.46f, d * GemSmallR + Vector3.up * GemBaseY, Quaternion.FromToRotation(Vector3.up, ax));
+        }
+        return popT;
     }
 
     // シーンの砂糖ポンプ4つの見た目だけ作り直す
@@ -1567,10 +1589,15 @@ public static class FuwaCourse2_4Builder
             foreach (var x in F.Cast<Transform>().Concat(tank.Cast<Transform>()).Where(x => x.name == "CageRing" || x.name == "CageBar" || x.name == "CageEnd" || x.name == "TankStub" || x.name == "TankBody" || x.name == "TankBand" || x.name == "PumpBarrel" || x.name == "GaugeNeedle").ToArray())
                 Object.DestroyImmediate(x.gameObject);
             var needle = PumpLooks(F, pin.localPosition + Vector3.up * 0.5f, tank, pipeM, tankM);
-            var cry = tank.Find("TankCrystal"); if (cry) cry.localPosition = new Vector3(0f, SugarNeckTop, 0f);
-            var mt = tank.Find("CrystalMount"); if (mt) { mt.localPosition = new Vector3(0f, SugarNeckTop + 0.02f, 0f); mt.localScale = new Vector3(0.3f, 0.04f, 0.3f); }
+            foreach (var x in tank.Cast<Transform>().Where(x => x.name == "TankCrystal" || x.name == "CrystalMount").ToArray()) Object.DestroyImmediate(x.gameObject);
+            var popT = CrystalTop(tank);
             var fc = F.GetComponent<FuwaCloudFactory>();
-            if (fc.pipes != null) foreach (var sp in fc.pipes) if (sp) { sp.needle = needle; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp); EditorUtility.SetDirty(sp); }
+            if (fc.pipes != null) foreach (var sp in fc.pipes) if (sp)
+            {
+                sp.needle = needle; sp.pop = popT;
+                sp.glows = (popT ? popT.GetComponentsInChildren<Renderer>().Where(x => x.name != "GemHolder").ToArray() : new Renderer[0]).Concat(tank.GetComponentsInChildren<Renderer>().Where(x => x.name == "TankGlass")).ToArray();
+                UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp); EditorUtility.SetDirty(sp);
+            }
             n++;
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
