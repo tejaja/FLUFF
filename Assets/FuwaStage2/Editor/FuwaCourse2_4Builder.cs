@@ -87,9 +87,9 @@ public static class FuwaCourse2_4Builder
         //  ① 乗る歯車（前へ）→ 右 ② 跳ね橋 → 右 ③ せり出す橋（おりたらすぐ右）→ ④ 2枚の回転床（①の上を通る）→ まん中の塔
         MakeMechs();
         S(3f);
-        Place(Ride, log); CP("Checkpoint1", 1f); S(1f); HoleGears(); S(1f);   // ①→②：窓のある歯車（2026-11-07「道そのものが歯車」。前は押し出し壁）
+        Place(Ride, log); CP("Checkpoint1", 1f, 0f, -1.5f); S(1f); HoleGears(); S(1f);   // ①→②：窓のある歯車（2026-11-07「道そのものが歯車」。前は押し出し壁）
         T(-90f); S(2f);
-        Place(Draw, log); CP("Checkpoint2", 1f); S(1f); ChunkyGears(); S(1f); S(8f, 3f);   // ②→③：ごつい歯車（前は回るアーム）
+        Place(Draw, log); CP("Checkpoint2", 1f, 0f, -1.5f); S(1f); ChunkyGears(); S(1f); S(8f, 3f);   // ②→③：ごつい歯車（前は回るアーム）
         T(-90f); S(2f);
         Place(Rack, log); CP("Checkpoint3", 1f); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
         // チェックポイント4は出口の床（6m 角）に入ってすぐ・床の幅いっぱい（2026-11-08 てじゃ「横から抜けられちゃう」：床の先の曲がり角を斜めに飛ぶと、道の幅の判定を通らなかった）
@@ -1953,7 +1953,8 @@ public static class FuwaCourse2_4Builder
 
     // ---- 2–3 と同じ部品 ----
     //  hw：判定の半分の幅（床が道より広い所で使う。0 なら道の幅）
-    static void CP(string name, float along, float hw = 0f)
+    //  mushZ：きのこの前後（判定の線から先へ+）。すぐ先に回る歯車がある所は手前へ（2026-11-10 てじゃ「跳ね橋の次のチェックポイント、歯車にうまってる」「その一個前のも」）
+    static void CP(string name, float along, float hw = 0f, float mushZ = 1.5f)
     {
         if (hw <= 0f) hw = HW;
         var tmpl = GameObject.Find("FuwaCourse3/Checkpoint1"); if (!tmpl) return;
@@ -1964,7 +1965,7 @@ public static class FuwaCourse2_4Builder
         var trig = cp.transform.Find("Trigger");
         if (trig) trig.localScale = new Vector3(hw * 2f + 0.8f, trig.localScale.y, trig.localScale.z);
         var gm = cp.transform.Find("GlowMushrooms");
-        if (gm) foreach (Transform cl in gm) cl.localPosition = new Vector3(Mathf.Sign(cl.localPosition.x) * (hw + 0.55f), cl.localPosition.y, 1.5f);
+        if (gm) foreach (Transform cl in gm) cl.localPosition = new Vector3(Mathf.Sign(cl.localPosition.x) * (hw + 0.55f), cl.localPosition.y, mushZ);
         var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
         if (fc) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); FuwaStage2WaterTest.NoSync(fc); cps.Add(fc); }
     }
