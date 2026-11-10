@@ -100,11 +100,21 @@ public static class FuwaDrawbridgeTest
         wmGo.layer = 2;
         var sc = wmGo.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 1.2f;
         var rotor = new GameObject("Rotor").transform; rotor.SetParent(wmGo.transform, false);
-        // 2026-11-10 白い板4枚 → ラック・ふたごの台と同じ羽根車（目印の柱は道の方へ出るのでなし）。横向きの軸の水車になる
+        // 2026-11-10 てじゃ「この向きじゃ正面から打った時に回るのがおかしくなる」「元の角度つけたプロペラにしよう　色だけこれで」：
+        //  道から軸の向きに撃つので、羽根車（水車）ではなく元のひねったプロペラ。色だけラック・ふたごの羽根車（青い羽根・白い先・真ちゅうのこしき）
         {
-            var imp = new GameObject("Impeller").transform; imp.SetParent(rotor, false); imp.localPosition = new Vector3(0f, WmY - 1.8f, 0f); imp.localScale = Vector3.one * WmScale;
-            FuwaTurnTableTest.Impeller(imp, brass);
-            foreach (var x in imp.Cast<Transform>().Where(x => x.name.StartsWith("Mast")).ToArray()) Object.DestroyImmediate(x.gameObject);
+            var bladeC = FuwaGearTest.Mat("Impeller_Blade", new Color(0.22f, 0.62f, 1f));
+            var tipC = FuwaGearTest.Mat("Impeller_Tip", new Color(0.97f, 0.98f, 1f));
+            Prim(PrimitiveType.Cylinder, rotor, "Hub", Vector3.zero, new Vector3(0.45f, 0.12f, 0.45f), brass);
+            Prim(PrimitiveType.Sphere, rotor, "HubNose", new Vector3(0f, 0.12f, 0f), new Vector3(0.3f, 0.2f, 0.3f), brass);
+            for (int k = 0; k < 4; k++)
+            {
+                float ang = k * 90f; var q = Quaternion.Euler(0f, -ang, 0f);
+                var bl = Prim(PrimitiveType.Cube, rotor, "Blade" + k, q * new Vector3(0.625f, 0f, 0f), new Vector3(0.9f, 0.05f, 0.42f), bladeC);
+                bl.localRotation = q * Quaternion.Euler(18f, 0f, 0f);   // ひねり（風を受ける角度）
+                var tp = Prim(PrimitiveType.Cube, rotor, "BladeTip" + k, q * new Vector3(1.15f, 0f, 0f), new Vector3(0.15f, 0.052f, 0.422f), tipC);
+                tp.localRotation = q * Quaternion.Euler(18f, 0f, 0f);
+            }
         }
 
         Supports(root, a, c, dark, light, brass);

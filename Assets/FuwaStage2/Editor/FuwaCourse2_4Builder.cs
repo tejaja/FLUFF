@@ -97,7 +97,7 @@ public static class FuwaCourse2_4Builder
         T(-90f); CPCurve("CheckpointDraw", -90f); S(2f);
         Place(Draw, log); FloorsToStripes(Draw); S(1f); ChunkyGears(); S(1f); S(8f, 3f);   // ②→③：ごつい歯車（前は回るアーム）。CheckpointDraw は風車の横だときのこの丸太が重なるので 2.5m 手前
         T(-90f); CPCurve("CheckpointRack", -90f); S(2f);
-        Place(Rack, log); FloorsToStripes(Rack); NotchStripes(secT.Find(Rack.name).Find("FarBank"), FuwaRackBridgeTest.FarNotch()); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); CPCurve("CheckpointTwin", -90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
+        Place(Rack, log); FloorsToStripes(Rack); NotchStripes(secT.Find(Rack.name).Find("FarBank"), FuwaRackBridgeTest.FarNotch()); RoundFloorEnd(secT.Find(Rack.name).Find("FarBank")); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); CPCurve("CheckpointTwin", -90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
         // チェックポイント4は出口の床（6m 角）に入ってすぐ・床の幅いっぱい（2026-11-08 てじゃ「横から抜けられちゃう」：床の先の曲がり角を斜めに飛ぶと、道の幅の判定を通らなかった）
         Place(Twin, log); FloorsToStripes(Twin); CP("Checkpoint4", -5.5f); S(2f);   // 出口の床を道の幅にしたので判定も道の幅
         // 塔へ（まん中）：①の上をまたいで
@@ -2619,6 +2619,87 @@ public static class FuwaCourse2_4Builder
             Box(ox0, ox1, a.y, a.z, oz0); Box(ox0, ox1, a.y, oz1, b.z);          // 横
             Box(ox0, ox1, lo.y, oz0, oz1);                                        // しまう所（うすい）
             Object.DestroyImmediate(st.gameObject);
+        }
+    }
+
+    // シマの床の行き止まり（+のはし、長い方の軸）に半円のふた（2026-11-10 てじゃ「橋わたった先の道の進行方向と逆の先端、ぶつ切りでさみしいな」）。
+    //  半円のまん中＝床のはし（横のふちはまっすぐのまま残す）。シマは同じ幅で続ける。当たりは凸のメッシュ
+    static void RoundFloorEnd(Transform F)
+    {
+        if (!F) return;
+        var bc = F.GetComponent<BoxCollider>(); if (!bc) return;
+        var stripes = F.Cast<Transform>().Where(x => x.name.StartsWith("Stripe")).ToList(); if (stripes.Count == 0) return;
+        var sz = bc.size; int along = sz.x >= sz.z ? 0 : 2, side = 2 - along;
+        float endA = bc.center[along] + sz[along] / 2f, R = sz[side] / 2f, cS = bc.center[side];
+        float top = stripes.Max(x => x.localPosition.y + x.localScale.y / 2f), bot = top - 0.6f;
+        // 端のシマ（いちばん + のはしにふれている物）の色と、シマの長さ
+        var last = stripes.Where(x => Mathf.Abs(x.localPosition[along] + x.localScale[along] / 2f - endA) < 0.02f).OrderBy(x => x.localScale[side]).Last();
+        float sl = sz[along] / Mathf.Max(1, Mathf.RoundToInt(sz[along] / StripeLen));   // FloorsToStripes と同じシマの長さ（端のシマは切り欠きで分かれていることがある）
+        var mats = new[] { pathA, pathB }; int mi = last.GetComponent<Renderer>().sharedMaterial == pathA ? 1 : 0;
+        // 半円のまん中は床のはしから CapStraight 先（はしの角はふつうのシマと同じ直角、まっすぐ → 半円はなめらかにつながる。角で半円が始まるとベベルで角がとがった）
+        const float CapStraight = 0.3f;
+        float capLen = CapStraight + R;
+        int nb = Mathf.Max(1, Mathf.RoundToInt(capLen / sl)); float bl = capLen / nb;
+        var all = new List<Vector3>(); int seg = 32;
+        Vector3 P(float a, float s2, float y) { var v = Vector3.zero; v[along] = a; v[side] = s2; v.y = y; return v; }
+        float HW(float a) => a <= CapStraight ? R : Mathf.Sqrt(Mathf.Max(0f, R * R - (a - CapStraight) * (a - CapStraight)));
+        for (int k = 0; k < nb; k++)
+        {
+            float a0 = k * bl, a1 = (k + 1) * bl;   // 床のはしからの距離（のびる向き）
+            var av = new List<float> { a0 };
+            if (a0 < CapStraight && a1 > CapStraight) av.Add(CapStraight);
+            float s0 = Mathf.Max(a0, CapStraight), t0 = Mathf.Asin(Mathf.Clamp01((s0 - CapStraight) / R)), t1 = Mathf.Asin(Mathf.Clamp01((a1 - CapStraight) / R));
+            if (a1 > CapStraight) { int ns = Mathf.Max(2, Mathf.CeilToInt((t1 - t0) / Mathf.PI * seg)); for (int i = 1; i <= ns; i++) av.Add(CapStraight + R * Mathf.Sin(Mathf.Lerp(t0, t1, i / (float)ns))); }
+            else av.Add(a1);
+            var poly = new List<Vector2>();
+            foreach (var a in av) poly.Add(new Vector2(a, HW(a)));
+            for (int i = av.Count - 1; i >= 0; i--) poly.Add(new Vector2(av[i], -HW(av[i])));
+            var pl = new List<Vector2>(); foreach (var q in poly) if (pl.Count == 0 || (q - pl[pl.Count - 1]).sqrMagnitude > 1e-6f) pl.Add(q);
+            if ((pl[0] - pl[pl.Count - 1]).sqrMagnitude < 1e-6f) pl.RemoveAt(pl.Count - 1);
+            if (k == 0)
+            {
+                // 床のはしにふれる辺（弦）に、床のシマの切れ目と同じ所で点を入れる（辺が1本ずつ合わないと、間の壁が消えずに角でとがって見えた）
+                var cuts = stripes.Where(x => Mathf.Abs(x.localPosition[along] + x.localScale[along] / 2f - endA) < 0.02f)
+                    .SelectMany(x => new[] { x.localPosition[side] - x.localScale[side] / 2f - cS, x.localPosition[side] + x.localScale[side] / 2f - cS })
+                    .Where(c => c > -R + 0.01f && c < R - 0.01f).Distinct().OrderBy(c => c).ToList();
+                foreach (var c in cuts) pl.Add(new Vector2(0f, c));   // (0,-R) → … → (0,+R) の間（最後の点は (0,-R)）
+                // 扇のかなめは弦の上でない点（いちばん先）にする
+                int apex = 0; for (int i = 1; i < pl.Count; i++) if (pl[i].x > pl[apex].x) apex = i;
+                pl = pl.Skip(apex).Concat(pl.Take(apex)).ToList();
+            }
+            var v = new List<Vector3>(); var t3 = new List<int>();
+            void Tri(int a, int b, int c, Vector3 want) { if (Vector3.Dot(Vector3.Cross(v[b] - v[a], v[c] - v[a]), want) < 0f) { int q = b; b = c; c = q; } t3.Add(a); t3.Add(b); t3.Add(c); }
+            int n = pl.Count;
+            foreach (float y in new[] { top, bot })
+            {
+                int b0 = v.Count; foreach (var q in pl) v.Add(P(endA + q.x, cS + q.y, y));
+                for (int i = 1; i < n - 1; i++) Tri(b0, b0 + i, b0 + i + 1, y == top ? Vector3.up : Vector3.down);   // 凸なので扇で
+            }
+            for (int i = 0; i < n; i++)
+            {
+                var qa = pl[i]; var qb = pl[(i + 1) % n]; var mid = (qa + qb) / 2f; var e = qb - qa;
+                var nn2 = new Vector2(e.y, -e.x); if (Vector2.Dot(nn2, mid - new Vector2((a0 + a1) / 2f, 0f)) < 0f) nn2 = -nn2;
+                var want = P(nn2.x, nn2.y, 0f);
+                int b0 = v.Count; v.Add(P(endA + qa.x, cS + qa.y, bot)); v.Add(P(endA + qb.x, cS + qb.y, bot)); v.Add(P(endA + qb.x, cS + qb.y, top)); v.Add(P(endA + qa.x, cS + qa.y, top));
+                Tri(b0, b0 + 1, b0 + 2, want); Tri(b0, b0 + 2, b0 + 3, want);
+            }
+            var mesh = new Mesh { name = "Course2_4_" + F.parent.name + "_" + F.name + "_Cap" + k };
+            mesh.SetVertices(v); mesh.SetTriangles(t3, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+            mesh = SaveMesh2(mesh);
+            var g = new GameObject("StripeCap" + k); g.transform.SetParent(F, false); g.layer = pathLayer;
+            g.AddComponent<MeshFilter>().sharedMesh = mesh; g.AddComponent<MeshRenderer>().sharedMaterial = mats[(mi + k) % 2];
+            all.AddRange(v.Select(x => x));
+        }
+        // 当たり：ふた全体の凸のメッシュ（上の面の半円＋下の面）
+        {
+            var cv = new List<Vector3>();
+            for (int i = 0; i <= seg; i++) { float t = Mathf.PI * i / seg; foreach (float y in new[] { top, bot }) cv.Add(P(endA + CapStraight + R * Mathf.Sin(t), cS + R * Mathf.Cos(t), y)); }
+            foreach (float y in new[] { top, bot }) { cv.Add(P(endA, cS + R, y)); cv.Add(P(endA, cS - R, y)); }
+            var cm = new Mesh { name = "Course2_4_" + F.parent.name + "_" + F.name + "_CapCol" }; cm.SetVertices(cv);
+            var tri = new List<int>(); for (int i = 0; i + 2 < cv.Count; i++) { tri.Add(i); tri.Add(i + 1); tri.Add(i + 2); }
+            cm.SetTriangles(tri, 0); cm = SaveMesh2(cm);
+            var cg = new GameObject("CapCollider"); cg.transform.SetParent(F, false); cg.layer = F.gameObject.layer;
+            var mc = cg.AddComponent<MeshCollider>(); mc.sharedMesh = cm; mc.convex = true;
         }
     }
 
