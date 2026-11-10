@@ -99,7 +99,7 @@ public static class FuwaCourse2_4Builder
         T(-90f); CPCurve("CheckpointRack", -90f); S(2f);
         Place(Rack, log); FloorsToStripes(Rack); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); CPCurve("CheckpointTwin", -90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
         // チェックポイント4は出口の床（6m 角）に入ってすぐ・床の幅いっぱい（2026-11-08 てじゃ「横から抜けられちゃう」：床の先の曲がり角を斜めに飛ぶと、道の幅の判定を通らなかった）
-        Place(Twin, log); FloorsToStripes(Twin); CP("Checkpoint4", -5.5f);   // 出口の床を道の幅にしたので判定も道の幅 S(2f);
+        Place(Twin, log); FloorsToStripes(Twin); CP("Checkpoint4", -5.5f); S(2f);   // 出口の床を道の幅にしたので判定も道の幅
         // 塔へ（まん中）：①の上をまたいで
         // 2026-11-08 てじゃ「今のゴールと前の道は完全に別の場所に」→ まん中（バルーン）へ向かう道は位置を決めるためだけに作って消す（GoalPlan 0 で前の通り）
         var P0 = P; float th0 = th; int n0 = pathT.childCount, s0 = segNo;
@@ -126,6 +126,8 @@ public static class FuwaCourse2_4Builder
         ClockworkFeeds(coreT);
         if (UseFactory) CloudFactory(coreT);
         if (!UseTower) { CloudBalloon(coreT, log); SugarPipes(coreT, log); TankPipes(coreT, log); }
+        // 2026-11-10 コースの長さが変わってでかい歯車が作られず、気球ごと消えたのに気づかなかった → 結果の先頭に出す
+        if (!UseTower && !root.Find("Gimmicks/CloudBalloon")) { log.Insert(0, "!!! 気球・でかい歯車が作られていない（コンソールの [2–4] Feed を見る） "); Debug.LogError("[2–4] 気球が作られていない"); }
         ClockworkInstall(coreT); GuardInstall(coreT);
         if (GoalPlan == 0) { S(TowerW); S(1f); }
         else if (GoalPlan == 1) { T(60f); S(3f); }   // A：チェックポイント4のあとの角から、まん中と反対（コースの外の空）へ
