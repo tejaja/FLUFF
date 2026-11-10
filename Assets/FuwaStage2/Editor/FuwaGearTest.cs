@@ -54,12 +54,13 @@ public static class FuwaGearTest
 
     // 歯車の輪郭（中心から見て星形なので扇で三角形にできる）。角度0に歯の真ん中
     // m：モジュール（省略で M）。a0〜a1（ラジアン）を渡すと、その角度の範囲の歯だけの扇形（跳ね橋の歯車用、中心まで埋める）
-    public static Vector2[] GearOutline(int z, int flankSteps = 10, float m = -1f, float a0 = 0f, float a1 = 0f)
+    public static Vector2[] GearOutline(int z, int flankSteps = 10, float m = -1f, float a0 = 0f, float a1 = 0f, float backlash = -1f)
     {
         if (m <= 0f) m = M;
         bool sector = a1 > a0;
         float r = m * z / 2f, rb = r * Mathf.Cos(Alpha), ra = r + m, rf = Mathf.Max(r - 1.25f * m, 0.1f);
-        float half = (Mathf.PI * m / 2f - Backlash) / (2f * r) + Inv(Alpha);   // 基礎円での歯の半分の角度（あそびの分だけ細く）
+        if (backlash < 0f) backlash = Backlash;   // 小さい歯車（2–4 の遊星歯車、歯の大きさ 0.05）は 0.04 だと歯が半分の細さになる → 小さく渡す
+        float half = (Mathf.PI * m / 2f - backlash) / (2f * r) + Inv(Alpha);   // 基礎円での歯の半分の角度（あそびの分だけ細く）
         float pitch = 2f * Mathf.PI / z;
         var flank = new System.Collections.Generic.List<Vector2>(); // (半径, 歯の中心からの角度) 右側の歯面、根元→歯先
         float r0 = Mathf.Max(rf, rb);

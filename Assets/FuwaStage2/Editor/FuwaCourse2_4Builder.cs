@@ -1698,7 +1698,7 @@ public static class FuwaCourse2_4Builder
 
     // 外側の小歯車（道の左＝外、2D 180°）とたての軸。たての軸の下（FeedY）でかさ歯車 → 塔へ
     //  walk：上に乗れる（当たり・道のレイヤー。FuwaClockwork が乗った人を運ぶ、めりこみ対策の movers にも入る）。2026-11-10 てじゃ「この歯車乗れないのが気になる」
-    static void Drive(Transform g, FuwaGearTest.Gear from, int z, float mod, float layerY, float th, Material m, float dirDeg = 180f, bool walk = false)
+    static Transform Drive(Transform g, FuwaGearTest.Gear from, int z, float mod, float layerY, float th, Material m, float dirDeg = 180f, bool walk = false)
     {
         var dg = FuwaGearTest.Mesh2(from, "Drive_z" + z, z, dirDeg, mod);
         var t = CwGear(g, g.name + "_Drive_z" + z, new Vector3(dg.c.x, layerY, dg.c.y), Vector3.up, SpurMesh(z, mod, th, "Clockwork_Spur_m" + Mathf.RoundToInt(mod * 100) + "_z" + z), m);
@@ -1707,6 +1707,7 @@ public static class FuwaCourse2_4Builder
         float oy = FeedY - P.y;                    // gimmick の中の O の高さ
         CwShaft(t, oy + 1.2f - layerY, 0f, 0.5f); // A（O の上 1.2m）の上の面から小歯車の下の面まで
         feeds.Add(new Feed { O = root.InverseTransformPoint(g.TransformPoint(new Vector3(dg.c.x, oy, dg.c.y))), shaftGear = t, ratio = dg.ratio, phase = dg.phase * Mathf.Rad2Deg, below = true });
+        return t;
     }
 
     // 窓のある歯車：外のふち（歯）と、まん中のこしき（rHub）の間に、wins の角度（中心, 半分の幅）だけ rHub〜rWin の窓（穴）
@@ -1901,9 +1902,167 @@ public static class FuwaCourse2_4Builder
             t.GetComponent<MeshRenderer>().sharedMaterials = new[] { i == 1 ? bronzeM : darkM, cutM };
             AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg);
         }
-        Drive(g, gs[2], 18, PM, -H, H, cwDark, 180f, true);   // 大きめ（でかい歯車からの速さ合わせ）。最後の歯車の外（最初の歯車の外はチェックポイントのきのこの丸太とぶつかる）
+        var drive = Drive(g, gs[2], 18, PM, -H, H, cwDark, 180f, true);   // 大きめ（でかい歯車からの速さ合わせ）。最後の歯車の外（最初の歯車の外はチェックポイントのきのこの丸太とぶつかる）
+        SpinTank(drive, H);   // 2026-11-10 上に遊星歯車で速く回るタンク
         var last = gs[gs.Count - 1];
         P += Dir(th) * (last.c.y + PM * last.z / 2f + PM + 0.05f);
+    }
+
+    // ===== 駆動歯車の上の、速く回るタンク（2026-11-10 てじゃ「この歯車の上あたりに、なんか速く回ってるタンクを作りたい」→ 遊星歯車の案「最初の案でとりあえず」）=====
+    //  遊星歯車：外のリング（内歯）は動かない。腕（キャリア）＝駆動歯車そのもの（惑星3つの軸が駆動歯車に立つ）。まん中の太陽が速く回って、上のガラスのタンクを回す
+    //  リングを止めて腕から回すと 太陽 = 腕 ×（1 + Zr/Zs）＝ 6倍。惑星の自転（腕から見て）= −(Zr/Zp)× 腕
+    //  リングは上の冠（3本の柱）に固定、冠はまん中の動かない軸（タンクの中を通る）で下から支える
+    //  かみ合わせ（角度0に歯の真ん中、2D 反時計回り）：惑星 k を腕の中の角度 120k に置き、惑星の歯を外（リング）へ向ける。Zp が偶数なので太陽にも歯が向く
+    //   → 太陽はすき間を向ける：太陽 = ψk − 180/Zs、リングもすき間：リング = ψk − 180/Zr（Zs・Zr が 3 で割れるので3つともそろう）
+    public static int STankZs = 9, STankZp = 18, STankZr = 45;
+    public static float STankM = 0.05f, STankGearT = 0.15f, STankGearY = 0.08f, STankBacklash = 0.006f;
+    public static float STankR = 0.72f, STankY0 = 0.6f, STankY1 = 1.8f, STankRingOut = 1.3f, STankCrownY = 2.1f;
+    // シーンの駆動歯車にタンクだけ作り直す（丸ごと作り直さずに試す用）。FuwaClockwork の配列に足す
+    public static string RebuildSpinTankOnly()
+    {
+        var drive = GameObject.Find("HoleGears_Drive_z18"); if (!drive) return "駆動歯車なし";
+        var cw = Object.FindObjectsOfType<FuwaClockwork>(true).FirstOrDefault(); if (!cw) return "FuwaClockwork なし";
+        CwMats();
+        // 前のを外す
+        var keep = new List<int>();
+        for (int i = 0; i < cw.gears.Length; i++) if (cw.gears[i] && !cw.gears[i].name.StartsWith("TankPlanet") && !cw.gears[i].name.StartsWith("TankSun")) keep.Add(i);
+        cwG = keep.Select(i => cw.gears[i]).ToList(); cwR = keep.Select(i => cw.ratio[i]).ToList(); cwP = keep.Select(i => cw.phase[i]).ToList();
+        foreach (var n in new[] { "SpinTank", "SpinTank_Carrier" }) { Transform x; while ((x = drive.transform.parent.Find(n) ?? drive.transform.Find(n)) != null) Object.DestroyImmediate(x.gameObject); }
+        SpinTank(drive.transform, 0.5f);
+        Undo.RecordObject(cw, "SpinTank");
+        cw.gears = cwG.ToArray(); cw.ratio = cwR.ToArray(); cw.phase = cwP.ToArray();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cw); EditorUtility.SetDirty(cw);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(drive.scene);
+        return "歯車 " + cw.gears.Length;
+    }
+    static void SpinTank(Transform drive, float th)
+    {
+        int gi = cwG.IndexOf(drive); float rc = cwR[gi], pc = cwP[gi];
+        var fr = drive.parent;
+        int Zs = STankZs, Zp = STankZp, Zr = STankZr; float m = STankM, GT = STankGearT, gy = STankGearY;
+        float a = m * (Zs + Zp) / 2f, Rr = m * Zr / 2f, gTop = gy + GT;
+        Mesh Spur(int z, string n) => SaveMesh2(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(z, 8, m, 0f, 0f, STankBacklash), GT, n, Vector2.zero));
+        var glassM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_TankGlass.mat");
+        if (!glassM) { glassM = new Material(Shader.Find("FuwaCourse/TankGlass")); AssetDatabase.CreateAsset(glassM, "Assets/FuwaStage2/Materials/Course2_4_TankGlass.mat"); }
+        Material Puff(string n, Color c, Color sh)
+        {
+            string path = "Assets/FuwaStage2/Materials/" + n + ".mat";
+            var pm = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (!pm) { pm = new Material(Shader.Find("FuwaCourse/CloudPuff")); AssetDatabase.CreateAsset(pm, path); }
+            pm.SetColor("_Color", c); pm.SetColor("_Shade", sh); pm.SetFloat("_Drift", 0f); pm.SetFloat("_Bob", 0f); pm.SetFloat("_Rim", 0.4f);
+            EditorUtility.SetDirty(pm); return pm;
+        }
+        var pinkM = Puff("Course2_4_CottonPink", new Color(1f, 0.72f, 0.86f), new Color(0.86f, 0.6f, 0.86f));
+        var whiteM = Puff("Course2_4_CottonWhite", new Color(1f, 0.95f, 0.98f), new Color(0.8f, 0.78f, 0.95f));
+        Transform Cyl(Transform p, string n, float r, float y0, float y1, Material mm, Vector3 at = default(Vector3))
+        {
+            var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder); c.name = n; Object.DestroyImmediate(c.GetComponent<Collider>());
+            c.transform.SetParent(p, false); c.transform.localPosition = at + new Vector3(0f, (y0 + y1) / 2f, 0f); c.transform.localScale = new Vector3(2f * r, (y1 - y0) / 2f, 2f * r);
+            c.GetComponent<Renderer>().sharedMaterial = mm; return c.transform;
+        }
+        Vector3 Dir2(float deg) => new Vector3(Mathf.Cos(deg * Mathf.Deg2Rad), 0f, Mathf.Sin(deg * Mathf.Deg2Rad));
+
+        // 動かない物（駆動歯車の frame の下、y=0 が駆動歯車の上の面）
+        var fix = new GameObject("SpinTank").transform; fix.SetParent(fr, false); fix.localPosition = new Vector3(0f, th, 0f);
+        // 腕（駆動歯車と一緒に回る）
+        var car = new GameObject("SpinTank_Carrier").transform; car.SetParent(drive, false); car.localPosition = new Vector3(0f, th, 0f);
+
+        // 惑星3つ
+        var pMesh = Spur(Zp, "Tank_Planet_z" + Zp);
+        for (int k = 0; k < 3; k++)
+        {
+            float phi = 120f * k; var pp = Dir2(phi) * a;
+            Cyl(car, "PlanetPin" + k, 0.045f, 0f, gTop + 0.1f, cwAxle, pp);
+            Cyl(car, "PlanetSpacer" + k, 0.1f, -0.01f, gy, cwBrass, pp);
+            var pg = CwGear(car, "TankPlanet" + k, pp + Vector3.up * gy, Vector3.up, pMesh, cwBrass);
+            AddGear(pg, -(float)Zr / Zp * rc, phi);
+            Cyl(pg, "PlanetCap", 0.07f, GT - 0.01f, GT + 0.05f, cwLight);
+        }
+        // 太陽（6倍で回る）とタンク
+        var sun = CwGear(fix, "TankSun_z" + Zs, Vector3.up * gy, Vector3.up, Spur(Zs, "Tank_Sun_z" + Zs), cwLight);
+        AddGear(sun, rc * (1f + (float)Zr / Zs), pc - 180f / Zs);
+        {
+            float o = -gy;   // 太陽の中の y = fix の y − gy
+            Cyl(sun, "SunShaft", 0.13f, GT - 0.01f, 0.5f + o, cwLight);
+            Cyl(sun, "TankBase", STankR + 0.06f, 0.5f + o, STankY0 + o, cwLight);
+            var gl = new GameObject("TankGlass"); gl.transform.SetParent(sun, false); gl.transform.localPosition = new Vector3(0f, o, 0f);
+            gl.AddComponent<MeshFilter>().sharedMesh = LatheMesh(new[] { new Vector2(STankR, STankY0 - 0.01f), new Vector2(STankR, STankY1 + 0.01f) }, 0f, 40, "Tank_Glass");
+            gl.AddComponent<MeshRenderer>().sharedMaterial = glassM;
+            foreach (var (b0, b1) in new[] { (STankY0, STankY0 + 0.08f), (STankY1 - 0.08f, STankY1) })
+            {
+                var bd = new GameObject("TankBand"); bd.transform.SetParent(sun, false); bd.transform.localPosition = new Vector3(0f, o, 0f);
+                bd.AddComponent<MeshFilter>().sharedMesh = RingMesh(STankR - 0.02f, STankR + 0.04f, b0, b1, 40, "Tank_Band" + (b0 < 1f ? "0" : "1")); bd.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+            }
+            for (int k = 0; k < 3; k++)   // たての細い帯（回っているのが見える）
+            {
+                var rb = TBox(sun, "TankRib" + k, Dir2(120f * k + 60f) * (STankR + 0.015f) + new Vector3(0f, (STankY0 + STankY1) / 2f + o, 0f), new Vector3(0.04f, STankY1 - STankY0 - 0.12f, 0.06f), cwBrass, false);
+                rb.localRotation = Quaternion.Euler(0f, -(120f * k + 60f), 0f);
+            }
+            Cyl(sun, "TankTop", STankR + 0.06f, STankY1 + o, STankY1 + 0.1f + o, cwLight);
+            Cyl(sun, "TankTopHub", 0.1f, STankY1 + 0.1f + o, STankCrownY - 0.02f + o, cwBrass);
+            // 中：わたあめ機の回る頭と、らせんに並ぶ綿あめ
+            Cyl(sun, "Spinner", 0.17f, STankY0 - 0.01f + o, STankY0 + 0.14f + o, cwBrass);
+            var cot = new GameObject("CottonCandy").transform; cot.SetParent(sun, false); cot.localPosition = new Vector3(0f, o, 0f);
+            for (int i = 0; i < 13; i++)
+            {
+                float t = i / 12f, ang = i * 77f, r = 0.18f + 0.26f * Mathf.Sin(Mathf.PI * (0.15f + 0.75f * t)), sz = 0.26f + 0.1f * Mathf.Sin(i * 1.7f);
+                r = Mathf.Min(r, STankR - 0.04f - sz / 2f);
+                var s = GameObject.CreatePrimitive(PrimitiveType.Sphere); s.name = "Puff" + i; Object.DestroyImmediate(s.GetComponent<Collider>());
+                s.transform.SetParent(cot, false); s.transform.localPosition = Dir2(ang) * r + new Vector3(0f, STankY0 + 0.3f + 0.8f * t, 0f);
+                s.transform.localScale = new Vector3(sz, sz * 0.85f, sz);
+                s.GetComponent<Renderer>().sharedMaterial = i % 3 == 2 ? whiteM : pinkM;
+            }
+        }
+        // 動かない軸（太陽・タンクの中を通って冠を支える）
+        Cyl(fix, "FixedAxle", 0.035f, gy + 0.02f, STankCrownY + 0.12f, cwAxle);
+        // リング（内歯、動かない）
+        {
+            var o2 = FuwaGearTest.GearOutline(Zr, 8, m, 0f, 0f, STankBacklash);
+            var v = new List<Vector3>(); var t = new List<int>(); int n = o2.Length;
+            var inr = new Vector3[n]; var outr = new Vector3[n];
+            for (int i = 0; i < n; i++)
+            {
+                float rr = o2[i].magnitude, an = Mathf.Atan2(o2[i].y, o2[i].x); float r2 = 2f * Rr - rr;   // 外歯の歯を内がわへ折り返す（歯先 Rr+m → Rr−m）
+                inr[i] = new Vector3(Mathf.Cos(an) * r2, 0f, Mathf.Sin(an) * r2); outr[i] = new Vector3(Mathf.Cos(an) * STankRingOut, 0f, Mathf.Sin(an) * STankRingOut);
+            }
+            Vector3 U = Vector3.up * GT;
+            for (int i = 0; i < n; i++)
+            {
+                int j = (i + 1) % n; Vector3 mid = (inr[i] + inr[j]) * 0.5f; mid.y = 0f; Vector3 rad = mid.normalized;
+                Tri(v, t, inr[i] + U, outr[j] + U, outr[i] + U, Vector3.up); Tri(v, t, inr[i] + U, inr[j] + U, outr[j] + U, Vector3.up);
+                Tri(v, t, inr[i], outr[j], outr[i], Vector3.down); Tri(v, t, inr[i], inr[j], outr[j], Vector3.down);
+                Vector3 e = inr[j] - inr[i]; Vector3 nIn = Vector3.Cross(Vector3.up, e).normalized; if (Vector3.Dot(nIn, rad) > 0f) nIn = -nIn;   // 歯の面の向き（中へ）
+                Tri(v, t, inr[i], inr[i] + U, inr[j] + U, nIn); Tri(v, t, inr[i], inr[j] + U, inr[j], nIn);
+                Tri(v, t, outr[i], outr[i] + U, outr[j] + U, rad); Tri(v, t, outr[i], outr[j] + U, outr[j], rad);
+            }
+            var ring = new GameObject("TankRing_z" + Zr); ring.transform.SetParent(fix, false); ring.transform.localPosition = Vector3.up * gy;
+            ring.transform.localRotation = Quaternion.Euler(0f, -(pc - 180f / Zr), 0f);
+            ring.AddComponent<MeshFilter>().sharedMesh = SaveMesh("Tank_Ring_z" + Zr, v, t); ring.AddComponent<MeshRenderer>().sharedMaterial = cwLight;
+        }
+        // 冠と3本の柱（リングを上からつる）
+        {
+            float pr = (Rr + m * 1.25f + STankRingOut) / 2f;
+            var cr = new GameObject("TankCrown"); cr.transform.SetParent(fix, false);
+            cr.AddComponent<MeshFilter>().sharedMesh = RingMesh(STankRingOut - 0.16f, STankRingOut, STankCrownY, STankCrownY + 0.1f, 40, "Tank_Crown"); cr.AddComponent<MeshRenderer>().sharedMaterial = cwDark;
+            Cyl(fix, "CrownHub", 0.15f, STankCrownY - 0.04f, STankCrownY + 0.16f, cwBrass);
+            for (int k = 0; k < 3; k++)
+            {
+                float ang = 120f * k + 60f; var d = Dir2(ang);
+                var sp = TBox(fix, "CrownSpoke" + k, d * ((0.14f + STankRingOut - 0.08f) / 2f) + Vector3.up * (STankCrownY + 0.05f), new Vector3(STankRingOut - 0.08f - 0.14f, 0.07f, 0.1f), cwDark, false);
+                sp.localRotation = Quaternion.Euler(0f, -ang, 0f);
+                Cyl(fix, "RingPost" + k, 0.04f, gTop - 0.02f, STankCrownY + 0.02f, cwDark, d * pr);
+                Cyl(fix, "RingPostFoot" + k, 0.075f, gTop - 0.01f, gTop + 0.05f, cwBrass, d * pr);
+            }
+        }
+        // 当たり：まとめて1つの筒（動かない）。駆動歯車に運ばれてぶつかったら FuwaGearGuard が止める
+        {
+            var v = new List<Vector3>(); var t = new List<int>(); const int N = 16; float R = STankRingOut + 0.02f, Y = STankCrownY + 0.16f;
+            for (int i = 0; i < N; i++) { var d = Dir2(360f * i / N) * R; v.Add(d + Vector3.up * 0.02f); v.Add(d + Vector3.up * Y); }
+            for (int i = 0; i < N; i++) { int j = (i + 1) % N; t.Add(2 * i); t.Add(2 * i + 1); t.Add(2 * j + 1); t.Add(2 * i); t.Add(2 * j + 1); t.Add(2 * j); }
+            for (int i = 1; i < N - 1; i++) { t.Add(0); t.Add(2 * i); t.Add(2 * i + 2); t.Add(1); t.Add(2 * i + 3); t.Add(2 * i + 1); }
+            var bl = new GameObject("SpinTank_Block"); bl.transform.SetParent(fix, false);
+            var mc = bl.AddComponent<MeshCollider>(); mc.sharedMesh = SaveMesh("Tank_Block", v, t); mc.convex = true;
+        }
     }
 
     // ②→③ ごつい歯車2枚（8枚歯、歯の大きさ 0.8）：入る所・乗り移る所・出る所で、歯が来ている時だけ足場がつながる
