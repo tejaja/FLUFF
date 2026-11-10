@@ -1764,10 +1764,10 @@ public static class FuwaCourse2_3Builder
     public static int V4_CpStatic = 1; public static float V4_CpRespawnOut = 2.8f, V4_CpTrigPad = 0.6f, V4_CpDepth = 0.4f;
     // 最初の大きい氷（I1）の右の曲がり角のあと、坂（M2_I1Hill）の手前のチェックポイント（2026-11-10 てじゃ「最初の方の曲がり角の後に坂になってるところ、あれの手前にもチェックポイント」）。
     //  曲がり角のすぐ先で、坂の下る向きに横いっぱいの線（ふわふわ基準）。きのこは島のふちの内側に
-    public static Vector2 V4_HillCp = new Vector2(-5.66f, 30.99f), V4_HillCpDir = new Vector2(0.995f, 0.097f);   // 2026-11-10 てじゃ「きのこだいぶ通り過ぎないとチェックポイントにならなさそう」→ 判定の線をきのこを通る斜めに（島の切れ目の角 → きのこ → 右のふち）
+    public static Vector2 V4_HillCp = new Vector2(-5.77f, 30.92f), V4_HillCpDir = new Vector2(0.877f, 0.480f);   // 2026-11-10 てじゃ「きのこだいぶ通り過ぎないとチェックポイントにならなさそう」→ 判定の線をきのこを通る斜めに。さらに「青だと坂にかぶるかな？」→ 向きを変えて、切れ目の右のふち → きのこ → 右上のふち（坂にはかからない、線の上は平ら）
     //  2026-11-10 てじゃ「ちょっとへんかなあ、ここも単品きのこにして青◯の氷の場所あたりに置こう、これは左にどかして」「コース端通った時も反応するように、判定だけ横長に」
     //   → きのこは 1 つだけ、もと IceRock2 のあった所（IceRock2 は M2_ObsNudge で左へ）。判定の線は島の幅より左右 1m ずつ長く
-    public static float V4_HillCpHW = 12.5f, V4_HillCpTrigX = 1.52f;   // 線の横のずれ（きのこは線の上、線のまん中は切れ目と右のふちの間）
+    public static float V4_HillCpHW = 10.2f, V4_HillCpTrigX = 0.93f;   // 線の横のずれ（きのこは線の上、線のまん中は切れ目と右のふちの間）
     public static Vector2 V4_HillCpMush = new Vector2(0f, 0f);   // きのこ（チェックポイントから 横・前後）
     public static string V4HillCheckpoint(Transform root, Vector3 o)
     {
