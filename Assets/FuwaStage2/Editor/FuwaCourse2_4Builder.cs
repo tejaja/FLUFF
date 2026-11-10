@@ -173,6 +173,7 @@ public static class FuwaCourse2_4Builder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
         // 動く物（跳ね橋の板・回転床の橋）のシマはまとめない（まとめると止まった1枚になって、動かなくなる）→ いったん見た目を止めて、ベベルのあとで戻す
+        foreach (var sn in TrussSegs) UnderTruss(sn, log);   // 道の下の鉄骨（アクセント、2026-11-10）
         var moving = root.GetComponentsInChildren<MeshRenderer>(true).Where(r => r.enabled && r.GetComponentsInParent<Transform>(true).Any(p => p.name == "BridgeLeaf" || p.name == "TableA" || p.name == "TableB")).ToList();
         foreach (var r in moving) r.enabled = false;
         log.Append(" ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_4_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
@@ -526,6 +527,52 @@ public static class FuwaCourse2_4Builder
     {
         var v = new List<Vector3>(m.vertices); var t = new List<int>(m.triangles);
         return SaveMesh(m.name, v, t);
+    }
+
+    // ===== 道の下の鉄骨のトラス（2026-11-10 てじゃ「3は欲しいけどやりすぎない、アクセント程度にたまにつけるくらい」）=====
+    //  長くて下が空いている坂の道だけ。道の両はしの少し内がわに、上の梁・下の梁・ななめの筋かい（ワーレン）・たて、下の梁どうしを横の梁で。ふしに真ちゅうのボルト
+    public static string[] TrussSegs = { "Road8_Slope", "Road19_Slope" };
+    public static float TrussH = 1.1f, TrussInset = 0.7f;
+    static void UnderTruss(string segName, System.Text.StringBuilder log)
+    {
+        var seg = root.Find("Path/" + segName); if (!seg) { log.Append(" トラス: " + segName + " なし"); return; }
+        var c = seg.GetComponentInChildren<BoxCollider>(); if (!c) return;
+        var t = c.transform; var sz = c.size;   // t の local（x 幅、y 厚み、z 長さ）
+        var holder = new GameObject("UnderTruss"); holder.transform.SetParent(t, false); holder.transform.localPosition = c.center;
+        float L = sz.z - 0.8f, yTop = -sz.y / 2f - 0.07f, yBot = yTop - TrussH, xs = sz.x / 2f - TrussInset, cw = 0.16f;
+        int n = Mathf.Max(2, Mathf.RoundToInt(L / 1.5f)); float pl = L / n;
+        void Bar(string nm, Vector3 a, Vector3 b, float w)
+        {
+            var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = nm; Object.DestroyImmediate(g.GetComponent<Collider>());
+            g.transform.SetParent(holder.transform, false); g.transform.localPosition = (a + b) / 2f;
+            var d = b - a; g.transform.localRotation = Quaternion.LookRotation(d.normalized, Mathf.Abs(d.normalized.y) > 0.99f ? Vector3.forward : Vector3.up);
+            g.transform.localScale = new Vector3(w, w, d.magnitude); g.GetComponent<Renderer>().sharedMaterial = cwDark;
+        }
+        void Bolt(Vector3 p, float sx)
+        {
+            var b = GameObject.CreatePrimitive(PrimitiveType.Cylinder); b.name = "TrussBolt"; Object.DestroyImmediate(b.GetComponent<Collider>());
+            b.transform.SetParent(holder.transform, false); b.transform.localPosition = p + new Vector3(sx * (cw / 2f + 0.01f), 0f, 0f); b.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            b.transform.localScale = new Vector3(0.1f, 0.012f, 0.1f); b.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        }
+        float z0 = -L / 2f;
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            float x = sx * xs;
+            Bar("TrussTop", new Vector3(x, yTop, z0), new Vector3(x, yTop, -z0), cw);
+            Bar("TrussBottom", new Vector3(x, yBot, z0 + pl / 2f), new Vector3(x, yBot, -z0 - pl / 2f), cw);
+            Bar("TrussEnd", new Vector3(x, yTop, z0), new Vector3(x, yBot, z0 + pl / 2f), cw * 0.8f);
+            Bar("TrussEnd", new Vector3(x, yTop, -z0), new Vector3(x, yBot, -z0 - pl / 2f), cw * 0.8f);
+            for (int k = 1; k < n; k++)
+            {
+                float zt = z0 + k * pl, zb0 = z0 + (k - 0.5f) * pl, zb1 = z0 + (k + 0.5f) * pl;
+                Bar("TrussDiag", new Vector3(x, yTop, zt), new Vector3(x, yBot, zb0), cw * 0.75f);
+                Bar("TrussDiag", new Vector3(x, yTop, zt), new Vector3(x, yBot, zb1), cw * 0.75f);
+                Bolt(new Vector3(x, yTop, zt), sx);
+            }
+            for (int k = 0; k < n; k++) Bolt(new Vector3(x, yBot, z0 + (k + 0.5f) * pl), sx);
+        }
+        for (int k = 0; k < n; k++) { float zb = z0 + (k + 0.5f) * pl; Bar("TrussCross", new Vector3(-xs + cw / 2f, yBot, zb), new Vector3(xs - cw / 2f, yBot, zb), cw * 0.7f); }
+        log.Append(" トラス " + segName + " " + n + "区間");
     }
 
     // 鉄の台：板（こい鉄）＋四すみの真ちゅうのボルト（2026-11-10 砂糖ポンプの下の木の板をやめた）
