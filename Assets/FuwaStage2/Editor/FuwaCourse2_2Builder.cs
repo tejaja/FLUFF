@@ -2458,6 +2458,7 @@ public static class FuwaCourse2_2Builder
     // period：1周の秒（飛んでる間＋休み）。first：最初（火口から）の1回の長さの倍率、firstUp：その1回の高さ。launch：火口で出す火の粉
     // 火山の岩ぜんぶの時間の倍率（2026-11-04 てじゃ「火山から出てる岩をすこしゆっくりに」1→1.15）。はねる時間・1周・ずらしを同じだけのばすので、岩どうしの間合いはそのまま
     public static float RockSlow = 1.15f;
+    public static float RockBounceNear = 18f;
     public static float RockPassFar = 5f, RockHopUp = 1.8f;   // RockHopUp：はねる高さ 1.2→1.8（2026-11-04 てじゃ「全体的にバウンド時の高度を上げよう」）
     public static int RockPassCol = 1;   // ジグザグの最初の道（legs[0]）ではねない列。-1 で全部はねる
     static void LavaRock(Transform parent, string name, Vector3[] ps, float phase, float period, float first, float firstUp, ParticleSystem launch)
@@ -2474,7 +2475,7 @@ public static class FuwaCourse2_2Builder
         LavaRockTrail(trail);
         var f = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaLavaRock>(mover.gameObject);
         f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
-        f.bounceSound = Sfx(mover, "BounceSfx", "sfx_rock_bounce2", Vector3.zero, 8f, 45f, 1f, false, 12f);
+        f.bounceSound = Sfx(mover, "BounceSfx", "sfx_rock_bounce2", Vector3.zero, RockBounceNear, 50f, 1f, false, 12f);   // near 8→18（2026-11-10 てじゃ「1バウンド目がやたら聞こえやすい」：ジグザグのどの段でも同じくらいの大きさに）
         int hops = ps.Length - 1;
         f.hopTime = hop; f.hopUp = RockHopUp; f.lastHopScale = hops > 1 ? 2f : 1f; f.firstHopScale = first; f.firstUp = firstUp; f.launchFx = launch;
         float fly = 0f; for (int k = 0; k < hops; k++) fly += hop * (k == 0 ? first : 1f) * (k == hops - 1 ? f.lastHopScale : 1f);
