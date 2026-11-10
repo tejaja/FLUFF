@@ -159,6 +159,11 @@ public class FuwaBlower : UdonSharpBehaviour
     [Tooltip("自分の銃（デスクトップ・スマホ）：止まっている時に手の位置を覚え直す速さ")]
     public float desktopSettleSpeed = 4f;
     private Vector3 _dtRel; private bool _dtRelOk;
+    // 2026-11-11 てじゃ「銃の向きもキーで変えれるように（VRChatの基本機能のやつ）」：デスクトップで持った物を回す VRChat の操作で本体が回ったぶんを、
+    //  見た目にも足す。持った直後（desktopTwistSettle 秒）の手から見た向きを基準にして、そこから回った分だけ。狙う向きは今までどおり視線
+    [Tooltip("持った直後、この秒数のあいだの向きを「回していない向き」として覚える")]
+    public float desktopTwistSettle = 0.3f;
+    private Quaternion _dtRotBase = Quaternion.identity; private float _dtHoldStart = -1f;
 
     [Tooltip("持ち主のアバターの大きさ（目の高さ）に合わせて銃の大きさを変える。風の届く距離や強さは変えない")]
     public bool autoScale = true;
@@ -538,6 +543,13 @@ public class FuwaBlower : UdonSharpBehaviour
         else if (align)
         {
             Quaternion head = holder.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation;
+            {
+                VRCPlayerApi.TrackingData hand = holder.GetTrackingData(_pickup != null && _pickup.currentHand == VRC_Pickup.PickupHand.Left ? VRCPlayerApi.TrackingDataType.LeftHand : VRCPlayerApi.TrackingDataType.RightHand);
+                Quaternion relR = Quaternion.Inverse(hand.rotation) * transform.rotation;
+                if (_dtHoldStart < 0f) _dtHoldStart = Time.time;
+                if (Time.time - _dtHoldStart < desktopTwistSettle) _dtRotBase = relR;
+                head = head * (Quaternion.Inverse(_dtRotBase) * relR);
+            }
             Vector3 basePos = transform.position;
             if (desktopSnapToHand)
             {
@@ -566,7 +578,7 @@ public class FuwaBlower : UdonSharpBehaviour
         }
         else if (_aligned && !_dropPending)
         {
-            _dtRelOk = false;
+            _dtRelOk = false; _dtHoldStart = -1f;
             if (visualRoot != null)
             {
                 visualRoot.transform.localPosition = _visualLocalPos;
