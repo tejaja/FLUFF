@@ -21,6 +21,8 @@ Shader "FuwaCourse/Tornado"
         _NearDist ("Fade Start Distance", Float) = 5
         _FarDist ("Fade End Distance", Float) = 13
         _FarAlpha ("Far Alpha", Range(0, 1)) = 0.35
+        _CamFadeNear ("カメラの近くで消える：この距離(m)より近いと見えない", Float) = 0.5
+        _CamFadeFar ("カメラの近くで消える：この距離(m)から全部見える（0 で消さない）", Float) = 1.5
     }
     SubShader
     {
@@ -40,6 +42,7 @@ Shader "FuwaCourse/Tornado"
             half _Alpha, _Bands, _Twist, _Spin, _Rise, _Sharp, _Rim, _Base, _BottomFade, _TopFade;
             float _SwayAmp, _SwaySpeed, _NearDist, _FarDist;
             half _FarAlpha;
+            float _CamFadeNear, _CamFadeFar;   // 2026-11-10 てじゃ「竜巻だけいれよ」（火炎放射・湯気・風の粒と同じ、近くで溶けるように消える）
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; UNITY_FOG_COORDS(3) UNITY_VERTEX_OUTPUT_STEREO };
@@ -86,6 +89,7 @@ Shader "FuwaCourse/Tornado"
                 float3 org = float3(unity_ObjectToWorld._m03, unity_ObjectToWorld._m13, unity_ObjectToWorld._m23);
                 float dist = distance(_WorldSpaceCameraPos, org);
                 alpha *= lerp(1, _FarAlpha, smoothstep(_NearDist, _FarDist, dist));
+                if (_CamFadeFar > 0.001) alpha *= smoothstep(_CamFadeNear, max(_CamFadeFar, _CamFadeNear + 0.01), distance(_WorldSpaceCameraPos, i.wp));
                 fixed4 c = fixed4(_Color.rgb * (0.9 + 0.1 * band), alpha);
                 UNITY_APPLY_FOG(i.fogCoord, c);
                 return c;
