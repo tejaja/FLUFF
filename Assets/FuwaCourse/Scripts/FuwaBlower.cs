@@ -15,6 +15,23 @@ public class FuwaBlower : UdonSharpBehaviour
     public FuwaBall targetBall;
     [Tooltip("みんなで吹く同期ふわふわ（FuwaSharedBall）。自分のふわふわと同じ風で吹ける")]
     public FuwaSharedBall[] sharedBalls;
+    [Tooltip("2–5 のポータル（2026-11-10 てじゃ「向こうの撃てないしやっぱ違和感すごいな」）：穴ごしに向こうのふわふわを撃てる。ビルダーが入れる")]
+    public FuwaPortal[] portals;
+
+    // ポータルの穴ごしに見えている、ふわふわの「こちら側での位置」。見えていなければ本物の位置。どのポータル経由かを _shotPortal に
+    private FuwaPortal _shotPortal;
+    private Vector3 SeenBallPos(Vector3 origin, Vector3 ballPos)
+    {
+        _shotPortal = null;
+        if (portals == null) return ballPos;
+        for (int i = 0; i < portals.Length; i++)
+        {
+            FuwaPortal pt = portals[i];
+            if (pt == null || !pt.gameObject.activeInHierarchy) continue;
+            if (pt.SeesBall(origin, ballPos)) { _shotPortal = pt; return pt.GhostPos(ballPos); }
+        }
+        return ballPos;
+    }
     [Tooltip("あそびばのまもののぬいぐるみ（FuwaPlaygroundPlush）。撃つと押し返せる（2026-10-13）")]
     public FuwaPlaygroundPlush[] plushes;
     [Tooltip("風が出る口。forward（青い矢印）が風の向き")]
@@ -648,11 +665,14 @@ public class FuwaBlower : UdonSharpBehaviour
         if (desktopAimWithView && local != null && !local.IsUserInVR())
             aim = local.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward;
         Vector3 to = targetBall.transform.position - origin;
+        if (!InShot(origin, aim, reach, to)) { Vector3 seen = SeenBallPos(origin, targetBall.transform.position); if (_shotPortal != null) to = seen - origin; }   // ポータルごし
         if (to.magnitude < chargePullMinDist || !InShot(origin, aim, reach, to)) return;
         // 引くのは水平方向だけ（上下に引くと、浮かせ続けたり床に引きずり下ろしたりできてしまうので）
         Vector3 flat = new Vector3(-to.x, 0f, -to.z);
         if (flat.sqrMagnitude < 0.0001f) return;
-        targetBall.SetChargePull(flat.normalized * chargePull * Mathf.Lerp(0.3f, 1f, charge));
+        Vector3 pullA = flat.normalized * chargePull * Mathf.Lerp(0.3f, 1f, charge);
+        if (_shotPortal != null) { pullA = _shotPortal.MapDir(pullA); _shotPortal = null; }
+        targetBall.SetChargePull(pullA);
     }
 
     // 空気の回復（自分の銃だけ）。溜めている間はポンプで入れる感じで早く回復、撃たずにいると自然回復
@@ -923,6 +943,17 @@ public class FuwaBlower : UdonSharpBehaviour
         if (targetBall != null && targetBall.gameObject.activeInHierarchy)
         {
             Vector3 vb = ShotVelocity(origin, aim, reach, ballPower, targetBall.transform.position);
+            if (vb == Vector3.zero && portals != null)
+            {
+                // ポータルの穴ごしに見えているふわふわ：こちら側の見えている位置で当たりを見て、風の向きは向こう側の向きに直して当てる
+                Vector3 seen = SeenBallPos(origin, targetBall.transform.position);
+                if (_shotPortal != null)
+                {
+                    vb = ShotVelocity(origin, aim, reach, ballPower, seen);
+                    if (vb != Vector3.zero) vb = _shotPortal.MapDir(vb);
+                    _shotPortal = null;
+                }
+            }
             if (vb != Vector3.zero) { targetBall.Blow(vb); targetBall.ShotWindDamp(charge, vb); }
         }
         // あそびばのまもののぬいぐるみ：撃った向きへ押し返す（持ち主の画面で動く）

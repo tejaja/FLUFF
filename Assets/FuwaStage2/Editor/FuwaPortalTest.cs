@@ -53,6 +53,9 @@ public static class FuwaPortalTest
             UdonSharpEditorUtility.CopyProxyToUdon(pt); FuwaStage2WaterTest.NoSync(pt);
         }
 
+        // 銃：ポータルの穴ごしに向こうのふわふわを撃てるように（シーンのポータル全部を入れる）
+        LinkBlowers();
+
         // ふわふわの台・ワープ（ロビー ⇄ 島1）
         var spot = new GameObject("BallSpot").transform; spot.SetParent(i1, false); spot.localPosition = new Vector3(-1.6f, 1.6f, -2.5f);
         FuwaStage2WaterTest.BallStand(i1, "BallStand", new Vector3(-2.6f, 0f, -3.2f), spot, "ふわふわを出す", new Color(1f, 0.75f, 0.85f));
@@ -71,7 +74,17 @@ public static class FuwaPortalTest
     }
 
     [MenuItem("FuwaCourse/ステージ2/2-5 ポータルのお試しを消す")]
-    public static void Remove() { var o = GameObject.Find(Root); if (o) Object.DestroyImmediate(o); }
+    public static void Remove() { var o = GameObject.Find(Root); if (o) Object.DestroyImmediate(o); LinkBlowers(); }
+
+    // シーンのポータル（FuwaPortal）を全部、銃（FuwaBlower）に入れる
+    public static void LinkBlowers()
+    {
+        var ps = Resources.FindObjectsOfTypeAll<FuwaPortal>().Where(x => x.gameObject.scene.IsValid() && x != null).ToArray();
+        foreach (var b in Resources.FindObjectsOfTypeAll<FuwaBlower>().Where(x => x.gameObject.scene.IsValid()))
+        {
+            b.portals = ps; UdonSharpEditorUtility.CopyProxyToUdon(b); EditorUtility.SetDirty(b);
+        }
+    }
 
     // 島：床（z0〜z1、ポータルのはしでちょうど終わる）＋下の岩＋柱。land=true の島2はクリスタルの目印つき
     static Transform Island(Transform root, string name, Vector3 lp, float z0, float z1, Material stone, Material terra, Material terraD, Material moss, bool mark)

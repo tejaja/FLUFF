@@ -42,13 +42,25 @@ public class FuwaPortal : UdonSharpBehaviour
         l = new Vector3(-l.x, l.y, -l.z);   // y まわり 180°
         return exit.TransformPoint(l);
     }
+    public Vector3 GhostPos(Vector3 ballPos) { return UnmapPoint(ballPos); }
+    // 銃（origin）から、穴ごしに向こうのふわふわが見えているか：ふわふわが出口の手前の近くにいて、origin → うつしの線が入口の穴を手前から奥へ通る
+    public bool SeesBall(Vector3 origin, Vector3 ballPos)
+    {
+        if (entry == null || exit == null) return false;
+        if (Vector3.Dot(ballPos - exit.position, exit.forward) < -ballRadius || (ballPos - exit.position).sqrMagnitude > ghostRange * ghostRange) return false;
+        Vector3 g = UnmapPoint(ballPos);
+        float so = Side(origin), sg = Side(g);
+        if (so <= 0f || sg >= 0f) return false;
+        Vector3 hit = origin + (g - origin) * (so / (so - sg));
+        return InHole(hit, 0f);
+    }
     private Vector3 UnmapPoint(Vector3 p)
     {
         Vector3 l = exit.InverseTransformPoint(p);
         l = new Vector3(-l.x, l.y, -l.z);
         return entry.TransformPoint(l);
     }
-    private Vector3 MapDir(Vector3 d)
+    public Vector3 MapDir(Vector3 d)
     {
         Vector3 l = entry.InverseTransformDirection(d);
         l = new Vector3(-l.x, l.y, -l.z);
