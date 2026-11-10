@@ -48,6 +48,8 @@ public static class FuwaTwinTableTest
         var bladeM = FuwaGearTest.Mat("FanTest_Blade", new Color(0.55f, 0.82f, 0.95f));
         var deckM = FuwaGearTest.Mat("TurnTableTest_Deck", new Color(0.7f, 0.72f, 0.77f));
         var deckBM = FuwaGearTest.Mat("TwinTableTest_DeckB", new Color(0.78f, 0.74f, 0.66f));
+        var deckDarkM = FuwaGearTest.Mat("TwinTableTest_DeckADark", new Color(0.56f, 0.58f, 0.65f));   // 扇形の塗り分け（2026-11-10）
+        var deckBDarkM = FuwaGearTest.Mat("TwinTableTest_DeckBDark", new Color(0.64f, 0.58f, 0.49f));
 
         var root = new GameObject("TwinTableTest").transform; root.position = Origin;
 
@@ -78,7 +80,7 @@ public static class FuwaTwinTableTest
 
         // ── 回転床 A ──
         var tableA = new GameObject("TableA").transform; tableA.SetParent(root, false);
-        Deck(tableA, DeckA, deckM);
+        Deck(tableA, DeckA, deckM, deckDarkM, brass, 0f);
         foreach (float ang in new[] { 0f, 90f, 180f, 270f }) Bridge(tableA, ang, DeckA, TipA, wood, axleM);
         var ringAMesh = FuwaGearTest.SaveMesh(RimGear(ZA, Mod, GearTh, 0.5f, "TwinTable_Ring_z" + ZA));
         Ring(tableA, ringAMesh, brass, RimIn(ZA), dark);
@@ -87,9 +89,9 @@ public static class FuwaTwinTableTest
         // ── 回転床 B（A とかみ合う。gears に入れて回す）──
         var frB = new GameObject("TableB_Frame").transform; frB.SetParent(root, false); frB.localPosition = cB;
         var tableB = new GameObject("TableB").transform; tableB.SetParent(frB, false);
-        Deck(tableB, DeckB, deckBM);
         // 最初（u = startU）の B の歯車の角度 θB0 = gB.phase。橋は世界で {0°, 240°}（答えの {180°, 60°} から 180° ずれ）に向くよう local を決める
         float thB0 = gB.phase * Mathf.Rad2Deg;
+        Deck(tableB, DeckB, deckBM, deckBDarkM, brass, -thB0);
         foreach (float wAng in new[] { 0f, ExitDeg + 180f }) Bridge(tableB, wAng - thB0, DeckB, TipB, wood, axleM);   // 答えの {180°, ExitDeg} から 180° ずれ
         var ringBMesh = FuwaGearTest.SaveMesh(RimGear(ZB, Mod, GearTh, 0.5f, "TwinTable_Ring_z" + ZB));
         Ring(tableB, ringBMesh, light, RimIn(ZB), dark);
@@ -189,11 +191,52 @@ public static class FuwaTwinTableTest
     [MenuItem("FuwaCourse/ステージ2/かみ合う2枚の回転床のお試しを消す")]
     public static void Remove() { var o = GameObject.Find("TwinTableTest"); if (o) Object.DestroyImmediate(o); }
 
-    static void Deck(Transform table, float r, Material m)
+    // 2026-11-10 てじゃ「回転橋の丸い床、模様ほしい」→ なめらかな丸（DeckSeg 角）に、まん中の金の丸・こい色の細い輪・扇形 DeckSectors 枚の2色・ふち近くの金の細い輪。
+    //  模様は同じ面の中で三角形ごとに材質を分ける（重ねないので Zファイトなし）。扇形のまん中が橋の向き（bridgeAng）
+    public static int DeckSeg = 64, DeckSectors = 8;
+    static void Deck(Transform table, float r, Material m, Material mDark, Material brass, float bridgeAng)
     {
-        var deck = Prim(PrimitiveType.Cylinder, table, "Deck", new Vector3(0f, -0.2f, 0f), new Vector3(2f * r, 0.2f, 2f * r), m);
-        deck.gameObject.layer = 11;
-        var mc = deck.gameObject.AddComponent<MeshCollider>(); mc.sharedMesh = deck.GetComponent<MeshFilter>().sharedMesh;
+        var mesh = FuwaGearRideTest.SaveMeshSub(DeckMesh(r, 0.4f, bridgeAng, "TwinTable_Deck_r" + Mathf.RoundToInt(r * 100) + "_a" + Mathf.RoundToInt(Mathf.Repeat(bridgeAng, 360f))));
+        var deck = new GameObject("Deck"); deck.transform.SetParent(table, false); deck.layer = 11;
+        deck.AddComponent<MeshFilter>().sharedMesh = mesh; deck.AddComponent<MeshRenderer>().sharedMaterials = new[] { m, mDark, brass };
+        var mc = deck.AddComponent<MeshCollider>(); mc.sharedMesh = mesh;
+    }
+    // 上の面 y=0、下の面 y=-h。サブメッシュ 0=床の色（扇形の半分・ふち・横・底）1=こい色 2=金
+    static Mesh DeckMesh(float r, float h, float bridgeAng, string name)
+    {
+        int n = DeckSeg, per = n / DeckSectors;
+        float[] rad = { 0.15f * r, 0.19f * r, 0.85f * r, 0.875f * r, r };
+        var v = new System.Collections.Generic.List<Vector3>(); var nr = new System.Collections.Generic.List<Vector3>();
+        var t = new[] { new System.Collections.Generic.List<int>(), new System.Collections.Generic.List<int>(), new System.Collections.Generic.List<int>() };
+        float a0 = bridgeAng * Mathf.Deg2Rad - Mathf.PI / DeckSectors;   // 扇形のまん中が橋の向き（Polar と同じ向きの取り方）
+        Vector3 Dir(int j) { float a = a0 + 2f * Mathf.PI * j / n; return new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); }
+        // 上の面
+        int c0 = v.Count; v.Add(Vector3.zero); nr.Add(Vector3.up);
+        int ring0 = v.Count;
+        for (int i = 0; i < rad.Length; i++) for (int j = 0; j < n; j++) { v.Add(Dir(j) * rad[i]); nr.Add(Vector3.up); }
+        int Idx(int i, int j) => ring0 + i * n + (j % n);
+        for (int j = 0; j < n; j++) { t[2].Add(c0); t[2].Add(Idx(0, j + 1)); t[2].Add(Idx(0, j)); }
+        for (int i = 0; i < rad.Length - 1; i++)
+            for (int j = 0; j < n; j++)
+            {
+                int sm = i == 0 ? 1 : i == 1 ? ((j / per) % 2 == 0 ? 0 : 1) : i == 2 ? 2 : 0;
+                int a = Idx(i, j), b = Idx(i, j + 1), c = Idx(i + 1, j + 1), d = Idx(i + 1, j);
+                t[sm].Add(a); t[sm].Add(b); t[sm].Add(c); t[sm].Add(a); t[sm].Add(c); t[sm].Add(d);
+            }
+        // 横
+        int s0 = v.Count;
+        for (int j = 0; j <= n; j++) { var d = Dir(j); v.Add(d * r); nr.Add(d); v.Add(d * r + Vector3.down * h); nr.Add(d); }
+        for (int j = 0; j < n; j++) { int a = s0 + 2 * j; t[0].Add(a); t[0].Add(a + 2); t[0].Add(a + 3); t[0].Add(a); t[0].Add(a + 3); t[0].Add(a + 1); }
+        // 底
+        int b0 = v.Count; v.Add(Vector3.down * h); nr.Add(Vector3.down);
+        for (int j = 0; j < n; j++) { v.Add(Dir(j) * r + Vector3.down * h); nr.Add(Vector3.down); }
+        for (int j = 0; j < n; j++) { t[0].Add(b0); t[0].Add(b0 + 1 + j); t[0].Add(b0 + 1 + (j + 1) % n); }
+        var m = new Mesh { name = name }; m.SetVertices(v); m.SetNormals(nr); m.subMeshCount = 3;
+        for (int k = 0; k < 3; k++) m.SetTriangles(t[k], k);
+        m.RecalculateBounds();
+        // 表の向きのチェック（Cross(b-a,c-a) が法線と同じ向き）
+        for (int k = 0; k < 3; k++) { var tr = t[k]; for (int q = 0; q < tr.Count; q += 3) { var cr = Vector3.Cross(v[tr[q + 1]] - v[tr[q]], v[tr[q + 2]] - v[tr[q]]); if (Vector3.Dot(cr, nr[tr[q]]) < 0f) { Debug.LogError("[回転床] 床の三角形が裏返り " + name); k = 3; break; } } }
+        return m;
     }
 
     // 橋：根元は橋のかどが床のふちの円に乗る所から（すき間なし）。重なる所は 1cm 上げて Zファイトを避ける

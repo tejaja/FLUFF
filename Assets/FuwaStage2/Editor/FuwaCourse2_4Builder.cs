@@ -1451,6 +1451,7 @@ public static class FuwaCourse2_4Builder
         facCloud = FuwaGearTest.Mat("GearRideTest_Steam", new Color(0.97f, 0.98f, 1f));
         var holder = new GameObject("SugarPipes").transform; holder.SetParent(root.Find("Gimmicks"), false);
         var cc = root.InverseTransformPoint(core.position); cc.y = 0f;
+        sugarSegs.Clear();
         string[] names = { "G4", "HG2_z24", "CG1_z8", "SGB" };
         for (int k = 0; k < names.Length; k++)
         {
@@ -1467,6 +1468,14 @@ public static class FuwaCourse2_4Builder
         }
     }
 
+    // 先に作った砂糖パイプの線（2026-11-10 てじゃ「パイプの気球との接続部分、かぶってる」：2本が同じ向きから首の輪に入って重なった → ほかの砂糖パイプとも離す）
+    static List<(Vector3 a, Vector3 b)> sugarSegs = new List<(Vector3 a, Vector3 b)>();
+    static float SegDist3(Vector3 p1, Vector3 q1, Vector3 p2, Vector3 q2)
+    {
+        float best = 1e9f;
+        for (int i = 0; i <= 16; i++) { var p = Vector3.Lerp(p1, q1, i / 16f); var d2 = q2 - p2; float t = Mathf.Clamp01(Vector3.Dot(p - p2, d2) / Mathf.Max(1e-5f, d2.sqrMagnitude)); best = Mathf.Min(best, Vector3.Distance(p, p2 + d2 * t)); }
+        return best;
+    }
     static string Pump(Transform holder, Transform g, int k, float bottom, float rate, Vector3 cc)
     {
         float sc = PumpScale;
@@ -1567,15 +1576,17 @@ public static class FuwaCourse2_4Builder
         // 2026-11-08 てじゃ「パイプ、一回下に降りてるのなんで？」→ 歯車箱がなくなったので、まずはタンクの出口の高さのまま（下りない）まん中の近くまで行く道を探す。だめな時だけ道の下をくぐる
         foreach (float yR in new[] { p0.y, p0.y - 0.5f, p0.y + 0.5f, p0.y - 1f, -2.2f, -1.7f, -2.7f, -1.2f, -3.2f })
             foreach (float rr in new[] { 3.6f, 4.6f, 5.6f, 7.0f, 7.6f, 8.3f })
-                foreach (float yaw in new[] { 0f, 12f, -12f, 24f, -24f })
+                foreach (float yaw in new[] { 0f, 12f, -12f, 24f, -24f, 36f, -36f, 48f, -48f })
                 {
                     var cand = Route(yR, rr, yaw);
                     int h = PipeHits(cand, F);
+                    for (int i = 1; i < cand.Length; i++) foreach (var o in sugarSegs) if (SegDist3(cand[i - 1], cand[i], o.a, o.b) < 2f * PipeR + 0.2f) h++;
                     if (h < bestHits) { bestHits = h; pts = cand; bestY = yR; }
                     if (h == 0) goto found;
                 }
         found:
         { var dd = new List<Vector3> { pts[0] }; for (int i = 1; i < pts.Length; i++) if ((pts[i] - dd[dd.Count - 1]).sqrMagnitude > 1e-4f) dd.Add(pts[i]); pts = dd.ToArray(); }   // 長さ 0 の所（下りない時）を消す
+        for (int i = 1; i < pts.Length; i++) sugarSegs.Add((pts[i - 1], pts[i]));
         var pipeT = new GameObject("SugarPipe" + k).transform; pipeT.SetParent(holder, false);
         for (int i = 1; i < pts.Length; i++)
         {
