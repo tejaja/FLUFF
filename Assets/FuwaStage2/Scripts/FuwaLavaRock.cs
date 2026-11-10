@@ -39,6 +39,8 @@ public class FuwaLavaRock : UdonSharpBehaviour
     public Renderer[] landWarns;
     [Tooltip("着く何秒前から予告の丸を出すか")]
     public float landWarnLead = 0.9f;
+    [Tooltip("着いたあと予告の丸が薄くなって消えるまでの秒（2026-11-10 てじゃ「ぱっと消えすぎ」）")]
+    public float landWarnFade = 0.4f;
     [Tooltip("当たったら飛ぶまもの（なくてもOK。2026-10-30 てじゃ「まものも当たったら一応飛ぶ」）")]
     public FuwaEnemy[] enemies;
     public float enemyRadius = 0.7f, enemyKnock = 3.4f;
@@ -118,12 +120,22 @@ public class FuwaLavaRock : UdonSharpBehaviour
             int i = k - 1; if (i >= _warnMats.Length) break;
             Material m = _warnMats[i]; if (m == null) continue;
             float dt = land - t;
-            bool on = flying && dt > 0f && dt < landWarnLead;
+            bool on = flying && dt > -landWarnFade && dt < landWarnLead;
             if (on != _warnOn[i]) { _warnOn[i] = on; landWarns[i].enabled = on; }
             if (!on) continue;
-            float f = 1f - dt / landWarnLead;
-            m.SetFloat("_Fill", f);
-            m.SetFloat("_Alpha", Mathf.Clamp01(f * 4f));
+            if (dt > 0f)
+            {
+                float f = 1f - dt / landWarnLead;
+                m.SetFloat("_Fill", f);
+                m.SetFloat("_Alpha", Mathf.Clamp01(f * 4f));
+            }
+            else
+            {
+                // 着いたあと：埋まったまま薄くなって消える
+                float a = 1f + dt / Mathf.Max(0.01f, landWarnFade);
+                m.SetFloat("_Fill", 1f);
+                m.SetFloat("_Alpha", a * a);
+            }
         }
     }
 

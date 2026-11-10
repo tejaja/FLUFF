@@ -1695,7 +1695,7 @@ public static class FuwaCourse2_2Builder
     }
     // 落ちる岩が次に着く所の予告の丸（FuwaLavaRock.landWarns、2026-11-10 てじゃ「予告をもっとわかりやすく」→ 着地点に丸＋点線の光を長く）。
     //  はねる点（P1〜）ごとに、道の上に沿わせた丸。道の外は作らない。火球の予告と同じ色（道の色に掛ける＋濃いふち）。作り直さずシーンだけ直す時もこれを呼ぶ（RockPathDots のあとに）
-    public static float RockWarnR = 1.35f, RockWarnLead = 0.9f;
+    public static float RockWarnR = 1.35f, RockWarnLead = 1.15f;   // 0.9→1.15（2026-11-10 てじゃ「もうちょい速く出ても」）。はねる間隔 1.21 秒より短く＝前に着いた直後から次の丸
     public static string RockLandWarns(Transform fire)
     {
         var course = fire.root; var temps = new List<MeshCollider>();
