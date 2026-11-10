@@ -340,6 +340,7 @@ public static class FuwaCourse2_3Builder
         Hazard(root, "PlayerOut", new Vector3(lb.center.x, -9f, lb.center.z), outSize, true);
 
         RegisterCheckpoints();
+        SlipOffSetup(root);
         // ステージ2にいる時だけ表示
         var visb = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(m => m && m.gameObject.scene.IsValid() && m.GetType().Name == "FuwaAreaVisibility");
         if (visb)
@@ -2477,7 +2478,7 @@ public static class FuwaCourse2_3Builder
         var m = NewMesh(name); m.subMeshCount = 2; m.SetVertices(v); m.SetTriangles(tIce, 0); m.SetTriangles(tSnow, 1); m.RecalculateNormals(); m.RecalculateBounds();
         return m;
     }
-    public static float IceRockAddH = 1.4f;
+    public static float IceRockAddH = 0f;   // 1.4 で試したら「圧がやばい」→ 0（のせない対策は FuwaSlipOff）
     static void IceRock(Transform parent, string name, Vector3 at, float size, float yaw)
     {
         if (!ObsNewShape)
@@ -2554,6 +2555,24 @@ public static class FuwaCourse2_3Builder
         }
     }
     // ふわふわが当たったら ぽよん（いわのみちの頂上の岩・チュートリアルのマシュマロと同じ 2.2・面の向き。2026-11-05 てじゃ）。道のレイヤーにして人は通れない
+    // 氷の岩・結晶に乗ったら外へ押し出して落とす（FuwaSlipOff。2026-11-10 てじゃ「上にのっても落ちるような判定にしよう」）。作り直した後にも呼ぶ
+    public static string SlipOffSetup(Transform root)
+    {
+        var old = root.Find("RockSlipOff"); if (old) Object.DestroyImmediate(old.gameObject);
+        var cols = new List<Collider>();
+        foreach (var c in root.GetComponentsInChildren<Collider>(true))
+        {
+            if (c.isTrigger) continue;
+            bool rockOrCrystal = c.GetComponent<FuwaBounce>() && c is MeshCollider mc && mc.convex;
+            bool spire = c.transform.parent && c.transform.parent.name == "DomeSpire";
+            if (rockOrCrystal || spire) cols.Add(c);
+        }
+        var g = new GameObject("RockSlipOff"); g.transform.SetParent(root, false);
+        var so = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSlipOff>(g);
+        so.slippery = cols.ToArray();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(so); FuwaStage2WaterTest.NoSync(so);
+        return "すべる当たり " + cols.Count;
+    }
     static void ObstacleBounce(GameObject g)
     {
         g.layer = pathLayer;
