@@ -2477,6 +2477,7 @@ public static class FuwaCourse2_3Builder
         var m = NewMesh(name); m.subMeshCount = 2; m.SetVertices(v); m.SetTriangles(tIce, 0); m.SetTriangles(tSnow, 1); m.RecalculateNormals(); m.RecalculateBounds();
         return m;
     }
+    public static float IceRockAddH = 1.4f;
     static void IceRock(Transform parent, string name, Vector3 at, float size, float yaw)
     {
         if (!ObsNewShape)
@@ -2486,9 +2487,12 @@ public static class FuwaCourse2_3Builder
             c.transform.localScale = new Vector3(size * 1.2f, size, size); c.GetComponent<Renderer>().sharedMaterial = iceRockMat; ObstacleBounce(c); return;
         }
         var g = new GameObject(name); g.transform.SetParent(parent, false);
-        g.transform.localPosition = at + Vector3.up * (size * 1.25f * IceRockTall * 0.5f - 0.12f);
         g.transform.localRotation = Quaternion.Euler(0f, yaw, 0f);
         int idx = iceRockSeed++; var m = IceRockMesh("ObsRock" + idx, size * 1.25f, 6100 + idx * 17);   // メッシュの名前は通し番号（同じ名前だと上書きされて形がそろってしまう）
+        // 2026-11-10 てじゃ「（低い）氷の岩にジャンプで簡単に乗れちゃう、全体的に高さあげて」「むらが減るのもやだ」→ 横幅そのままで、どの岩も同じだけ（IceRockAddH m）縦にのばす（高さの差はそのまま）
+        float mh = m.bounds.size.y, vis = Mathf.Max(0.1f, mh - 0.12f), sy = (vis + IceRockAddH) / vis;
+        g.transform.localScale = new Vector3(1f, sy, 1f);
+        g.transform.localPosition = at + Vector3.up * ((mh * 0.5f - m.bounds.center.y) * sy - 0.12f);
         g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterials = new[] { iceRockMat, snowLipMat ? snowLipMat : iceRockMat };
         var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = m; mc.convex = true;
         ObstacleBounce(g);
