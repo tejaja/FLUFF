@@ -14,7 +14,7 @@ using UnityEngine;
 public static class FuwaPortalTest
 {
     public static readonly Vector3 Origin = new Vector3(-40f, -162f, -140f);
-    public static Vector3 Island2Offset = new Vector3(6f, 14f, -38f);
+    public static Vector3 Island2Offset = new Vector3(9f, 5f, -3f);   // 2026-11-10 てじゃ「遠景がポータル越しでもワープ前のがみえてる」→ 入口と出口の距離を短く（前は (6,14,-38) で 40m）。島2は島1の南東の上（A の穴からは見えない所）
     public const float HalfW = 1.1f, HoleH = 3.0f, FloorTh = 0.8f;
     const string Root = "PortalTest";
     static readonly Dictionary<string, Material> clones = new Dictionary<string, Material>();
