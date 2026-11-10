@@ -49,7 +49,7 @@ public static class FuwaCourse2_4Builder
     // コースでは要らない、お試し用の物（名前の頭）
     static readonly string[] TestOnly = { "BallSpot", "BallStand", "Spawn", "BackSpot", "Warp", "Extras", "Mill", "MA_", "MB_", "MC_", "Axle_MA", "Axle_MB", "Axle_MC", "CatchFloor", "Step", "EngineMount" };   // EngineMount：乗る歯車の動力（クリスタルの箱）→ 2026-11-07 時計塔が回す（TowerDriveRide）   // 受け床と階段：2026-11-07 てじゃ「テストようで床がのこったまま、階段もいらん」
 
-    [MenuItem("FuwaCourse/ステージ2/2–4 はぐるまのしろ（ブロックアウト）を作り直す")]
+    [MenuItem("FuwaCourse/ステージ2/2–4 はぐるまのこうば（ブロックアウト）を作り直す")]
     public static void Menu() { Debug.Log(Build()); }
 
     public static string Build()
