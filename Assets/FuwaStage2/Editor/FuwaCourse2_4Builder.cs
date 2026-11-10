@@ -2534,6 +2534,7 @@ public static class FuwaCourse2_4Builder
         {
             var vis = F.Find("Visual"); var bc = F.GetComponent<BoxCollider>(); var vr = vis ? vis.GetComponent<Renderer>() : null;
             if (!vis || !bc || !vr || !vr.sharedMaterial || vr.sharedMaterial.name != "GearTest_Floor") continue;
+            if (F.name.StartsWith("Cage")) continue;   // 羽根車のかご（床・坂・下り坂）は元のグレーの板のまま（てじゃ「羽のとこはいいかも」）
             var ax = new[] { F.right, F.up, F.forward }; var sz = bc.size;
             int thick = 0; for (int i = 1; i < 3; i++) if (Mathf.Abs(ax[i].y) > Mathf.Abs(ax[thick].y)) thick = i;
             int along = -1; for (int i = 0; i < 3; i++) if (i != thick && (along < 0 || Mathf.Abs(Vector3.Dot(ax[i], travel)) > Mathf.Abs(Vector3.Dot(ax[along], travel)))) along = i;
