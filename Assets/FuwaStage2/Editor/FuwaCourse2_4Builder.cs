@@ -2457,7 +2457,7 @@ public static class FuwaCourse2_4Builder
 
     // ごつい歯車のまん中のこしき（2026-11-10 てじゃ「ここ真ん中つっきると簡単だし、ここも真ん中になんかおくか」）
     //  歯車ライド（FuwaGearRideTest）と同じとんがり屋根の筒。歯の根元（半径 2.2）より内がわに ChunkyHubR、歯と根元の輪に乗って渡る
-    public static float ChunkyHubR = 1.7f;
+    public static float ChunkyHubR = 1.2f;   // 1.7 は「もっと小さくていいかも」
     static void ChunkyHub(Transform t, float topY)
     {
         float hr = ChunkyHubR, coneH = hr * Mathf.Tan(FuwaGearRideTest.HubSlope * Mathf.Deg2Rad), hh = FuwaGearRideTest.HubH;
