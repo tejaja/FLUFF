@@ -364,7 +364,7 @@ public static class FuwaBevelTools
         var v = src.vertices; var n = src.normals;
         var tops = new List<TopQuad>(); var sides = new List<(int[] idx, int sub, int k0, int cnt)>();
         var keep = new List<int>[src.subMeshCount];
-        var allT = new List<int[]>(); var topVerts = new HashSet<int>();
+        var allT = new List<int[]>(); var topVerts = new HashSet<int>(); var tiltVerts = new HashSet<int>();
         for (int s = 0; s < src.subMeshCount; s++)
         {
             var t = src.GetTriangles(s); allT.Add(t); keep[s] = new List<int>();
@@ -384,6 +384,9 @@ public static class FuwaBevelTools
                 ids.Sort((a, b) => Mathf.Atan2(v[a].z - c.z, v[a].x - c.x).CompareTo(Mathf.Atan2(v[b].z - c.z, v[b].x - c.x)));
                 if (nrm.y > 0.9f) { tops.Add(new TopQuad { idx = ids.ToArray(), sub = s, y = c.y, c = c }); for (int j = 0; j < cnt; j++) topVerts.Add(t[k + j]); }   // 同じ所の頂点が三角ごとに別でも全部動かす
                 if (Mathf.Abs(nrm.y) < 0.2f && ids.Count == 4) sides.Add((ids.ToArray(), s, k, cnt));
+                // 2026-11-10 てじゃ「坂のふちに変な出っ張り」：坂のシマの境目の面はかたむいていて（法線 y = sin(坂)）壁に数えず、ふちを丸めた後も元の角が残って出っぱった
+                //  → かたむいた面の、ふちの角の点も上の面と同じだけ動かす（消すと坂と平らな道のつなぎ目に三角のすき間があく）
+                else if (Mathf.Abs(nrm.y) < 0.6f && ids.Count == 4) { for (int j = 0; j < cnt; j++) { keep[s].Add(t[k + j]); tiltVerts.Add(t[k + j]); } }
                 else for (int j = 0; j < cnt; j++) keep[s].Add(t[k + j]);
                 k += cnt;
             }
@@ -442,6 +445,8 @@ public static class FuwaBevelTools
                 if (moved.Contains(id)) continue;
                 if (offs.TryGetValue(VKey(v[id]), out var o)) { Vo[id] = v[id] - o; moved.Add(id); }
             }
+        foreach (var id in tiltVerts)
+            if (!moved.Contains(id) && offs.TryGetValue(VKey(v[id]), out var o2)) { Vo[id] = v[id] - o2; moved.Add(id); }
         var rimEdges = new HashSet<string>(); var rimVerts = new HashSet<string>();
         foreach (var be in bEdges)
         {

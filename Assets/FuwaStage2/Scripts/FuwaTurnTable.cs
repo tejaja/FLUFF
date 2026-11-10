@@ -61,6 +61,16 @@ public class FuwaTurnTable : UdonSharpBehaviour
 
     private void Start() { _u = startU; Apply(); }
 
+    // アウトで戻った時（FuwaBall.resetOnOut）：最初の向きへ。乗っている人を運ばないように、運ぶ用の前の向きも合わせる
+    public void ResetGimmick()
+    {
+        _u = startU; _w = 0f; _lastShot = -100f;
+        Apply();
+        if (table != null) _lastRot = table.rotation;
+        if (rack != null) _lastRackPos = rack.position;
+        if (rack2 != null) _lastRack2Pos = rack2.position;
+    }
+
     public void Shot(Vector3 origin, Vector3 aim, float power)
     {
         if (handle == null) return;

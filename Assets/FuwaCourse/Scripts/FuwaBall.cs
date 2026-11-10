@@ -276,6 +276,7 @@ public class FuwaBall : UdonSharpBehaviour
             if (_teleportOnReset) TeleportPlayerToRespawn();
             _teleportOnReset = false;
             ResetToRespawn(); ReviveEnemies();   // アウトで戻ったら、モンスターも家に戻す
+            ResetGimmicks();
         }
         if (!_waiting && !_carried && _resetAt < 0f && transform.position.y < (_stage == 2 ? stage2KillHeight : killHeight)) Fail();
         CheckOffCourse();
@@ -964,6 +965,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void FinishPlayerMiss()
     {
         TeleportPlayerToRespawn();
+        ResetGimmicks();
         if (_finished) return;
         _teleportOnReset = false;
         ReviveEnemies();
@@ -1071,6 +1073,8 @@ public class FuwaBall : UdonSharpBehaviour
     // 別のコース（またはロビー）に切り替える。timed=falseならタイムを計らない
     [Tooltip("全コースのチェックポイント（スタートからやり直す時に光を消す）")]
     public FuwaCheckpoint[] checkpoints;
+    [Tooltip("アウトで戻った時・はじめからの時に ResetGimmick を送る、回して使うしかけ（2026-11-10 てじゃ「アウトから復帰したら回転ギミックもリセット」。2–4 の回転床・跳ね橋・せり出す橋）")]
+    public UdonSharpBehaviour[] resetOnOut;
 
     [Tooltip("チュートリアルの看板の赤▼。チュートリアルのコースから出た時（別のコース・ロビーへ。ワープでも手動リスポーンでも）に最初から出し直す")]
     public FuwaReadMarks tutorialMarks;
@@ -1173,6 +1177,7 @@ public class FuwaBall : UdonSharpBehaviour
 
     public void RestartFromStart()
     {
+        ResetGimmicks();
         respawnPoint = startPoint != null ? startPoint : transform;
         _finished = false;
         _running = false; _untimedRun = false;
@@ -1235,6 +1240,12 @@ public class FuwaBall : UdonSharpBehaviour
     public void LeaveGoalZone(FuwaGoal goal) { if (_goalZone == goal) _goalZone = null; }
 
     // 倒したモンスターを全部復活させる
+    public void ResetGimmicks()
+    {
+        if (resetOnOut == null) return;
+        for (int i = 0; i < resetOnOut.Length; i++) if (resetOnOut[i] != null) resetOnOut[i].SendCustomEvent("ResetGimmick");
+    }
+
     public void ReviveEnemies()
     {
         if (enemies == null) return;

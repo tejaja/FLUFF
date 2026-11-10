@@ -89,11 +89,11 @@ public static class FuwaCourse2_4Builder
         S(3f);
         Place(Ride, log); CP("Checkpoint1", 1f, 0f, -1.5f); S(1f); HoleGears(); S(1f);   // ①→②：窓のある歯車（2026-11-07「道そのものが歯車」。前は押し出し壁）
         T(-90f); S(2f);
-        Place(Draw, log); CP("Checkpoint2", 1f, 0f, -1.5f); S(1f); ChunkyGears(); S(1f); S(8f, 3f);   // ②→③：ごつい歯車（前は回るアーム）
+        Place(Draw, log); CPMech("CheckpointDraw", Draw, "PathNear", -2.5f, FuwaDrawbridgeTest.PathW / 2f); CP("Checkpoint2", 1f, 0f, -1.5f); S(1f); ChunkyGears(); S(1f); S(8f, 3f);   // ②→③：ごつい歯車（前は回るアーム）。CheckpointDraw は風車の横だときのこの丸太が重なるので 2.5m 手前
         T(-90f); S(2f);
-        Place(Rack, log); CP("Checkpoint3", 1f); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
+        Place(Rack, log); CPMech("CheckpointRack", Rack, "CageFloor", 0f, 3.2f); CP("Checkpoint3", 1f); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
         // チェックポイント4は出口の床（6m 角）に入ってすぐ・床の幅いっぱい（2026-11-08 てじゃ「横から抜けられちゃう」：床の先の曲がり角を斜めに飛ぶと、道の幅の判定を通らなかった）
-        Place(Twin, log); CP("Checkpoint4", -5.5f, 3f); S(2f);
+        Place(Twin, log); CPMech("CheckpointTwin", Twin, "CageFloor", 0f, 3.0f); CP("Checkpoint4", -5.5f, 3f); S(2f);
         // 塔へ（まん中）：①の上をまたいで
         // 2026-11-08 てじゃ「今のゴールと前の道は完全に別の場所に」→ まん中（バルーン）へ向かう道は位置を決めるためだけに作って消す（GoalPlan 0 で前の通り）
         var P0 = P; float th0 = th; int n0 = pathT.childCount, s0 = segNo;
@@ -2471,12 +2471,35 @@ public static class FuwaCourse2_4Builder
         if (fc) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); FuwaStage2WaterTest.NoSync(fc); cps.Add(fc); }
     }
 
+    // 羽根を回す所（しかけの入口の床）のチェックポイント（2026-11-10 てじゃ「3箇所の羽まわすとこにチェックポイントほしい」）
+    //  floorName の床の上の面のまん中（+ 進む向きに along m）。向きはしかけの local +x（Place の進む向き）
+    static void CPMech(string name, Mech m, string floorName, float along, float hw)
+    {
+        var mt = secT.Find(m.name); if (!mt) return;
+        var fl = mt.Find(floorName); var col = fl ? fl.GetComponent<Collider>() : null; if (!col) return;
+        Physics.SyncTransforms();
+        var b = col.bounds; var top = new Vector3(b.center.x, b.max.y, b.center.z);
+        var dir = mt.right; dir.y = 0f; dir.Normalize();
+        var keepP = P; float keepTh = th;
+        P = root.InverseTransformPoint(top + dir * along); var dl = root.InverseTransformDirection(dir); th = Mathf.Atan2(dl.z, dl.x) * Mathf.Rad2Deg;
+        CP(name, 0f, hw);
+        P = keepP; th = keepTh;
+    }
+
     static void RegisterCheckpoints()
     {
         var ball = Object.FindObjectsOfType<FuwaBall>(true).FirstOrDefault(); if (!ball) return;
         var so = new SerializedObject(ball); var arr = so.FindProperty("checkpoints");
         for (int k = arr.arraySize - 1; k >= 0; k--) if (arr.GetArrayElementAtIndex(k).objectReferenceValue == null) arr.DeleteArrayElementAtIndex(k);
         foreach (var fc in cps) { arr.arraySize++; arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = fc; }
+        // アウトで戻ったら回すしかけを最初に戻す（2026-11-10 てじゃ「アウトから復帰したら回転ギミックもリセット」）
+        var ro = so.FindProperty("resetOnOut");
+        if (ro != null)
+        {
+            for (int k = ro.arraySize - 1; k >= 0; k--) { var o2 = ro.GetArrayElementAtIndex(k).objectReferenceValue as Component; if (o2 == null || o2.transform.IsChildOf(root)) ro.DeleteArrayElementAtIndex(k); }
+            foreach (var g in root.GetComponentsInChildren<FuwaTurnTable>(true).Cast<UdonSharp.UdonSharpBehaviour>().Concat(root.GetComponentsInChildren<FuwaWindmill>(true)))
+            { ro.arraySize++; ro.GetArrayElementAtIndex(ro.arraySize - 1).objectReferenceValue = g; }
+        }
         so.ApplyModifiedProperties();
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ball);
     }

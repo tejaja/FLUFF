@@ -55,6 +55,9 @@ public class FuwaWindmill : UdonSharpBehaviour
 
     private void Start() { Apply(); }
 
+    // アウトで戻った時（FuwaBall.resetOnOut）：橋を上げた最初の状態へ
+    public void ResetGimmick() { _turn = 0f; _vel = 0f; _lastHit = -100f; Apply(); }
+
     private void Update()
     {
         float dt = Time.deltaTime;
