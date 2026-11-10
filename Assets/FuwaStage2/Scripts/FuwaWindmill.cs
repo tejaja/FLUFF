@@ -1,5 +1,6 @@
 using UdonSharp;
 using UnityEngine;
+using VRC.SDKBase;
 
 // 2–4 はぐるまのとう：エアガンで撃つと回る風車（2026-11-06 お試し）
 // ・風車 → 歯車のつながり → 跳ね橋（扇形の歯車）。撃つと回って橋が下りる、撃たないとおもりでじわじわ戻る
@@ -32,6 +33,12 @@ public class FuwaWindmill : UdonSharpBehaviour
     [Tooltip("風車の軸の向き（ワールド）。風がこの向きに近いほどよく回る")]
     public Transform axisRef;
     public AudioSource clickSound;
+    [Tooltip("跳ね橋の板の当たり。乗っている間、橋が動いていて向きが1フレームで yawSnap 度より回ったら元の向きにもどす")]
+    public Collider leafCollider;
+    // 2026-11-10 てじゃ「跳ね橋が戻る途中に通り抜けようとすると、突然向きが90度くらい変わる（VR・PCどっちも）」
+    //  VRChat が「乗っている床の回り」を体の向きにのせていて、横の軸で回る橋だと向きの計算がとぶらしい → 自分で元にもどす
+    public float yawSnap = 50f;
+    private float _prevYaw; private bool _onPrev;
 
     private float _turn, _vel, _lastHit = -100f;
     private int _lastTooth;
@@ -59,6 +66,29 @@ public class FuwaWindmill : UdonSharpBehaviour
         if (_turn <= 0f) { _turn = 0f; if (_vel < 0f) _vel = 0f; }
         if (_turn >= maxTurn) { _turn = maxTurn; if (_vel > 0f) _vel = 0f; }
         Apply();
+        GuardYaw();
+    }
+
+    private void GuardYaw()
+    {
+        if (leafCollider == null) return;
+        VRCPlayerApi p = Networking.LocalPlayer;
+        if (p == null) return;
+        Vector3 pos = p.GetPosition();
+        float yaw = p.GetRotation().eulerAngles.y;
+        RaycastHit h;
+        bool on = Physics.Raycast(pos + Vector3.up * 0.3f, Vector3.down, out h, 0.9f, 1 | (1 << 11), QueryTriggerInteraction.Ignore) && h.collider == leafCollider;
+        bool moving = _turn > 0f && _turn < maxTurn;
+        if (on && _onPrev && moving)
+        {
+            float dy = Mathf.DeltaAngle(_prevYaw, yaw);
+            if (Mathf.Abs(dy) > yawSnap)
+            {
+                p.TeleportTo(pos, Quaternion.Euler(0f, _prevYaw, 0f), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, true);
+                yaw = _prevYaw;
+            }
+        }
+        _prevYaw = yaw; _onPrev = on;
     }
 
     private void Apply()

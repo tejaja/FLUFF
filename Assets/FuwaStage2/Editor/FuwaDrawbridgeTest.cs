@@ -113,6 +113,7 @@ public static class FuwaDrawbridgeTest
         for (int i = 0; i < 4; i++) { wm.gearRatio[i] = gears[i].ratio; wm.gearPhase[i] = gears[i].phase * Mathf.Rad2Deg; }
         wm.maxTurn = maxTurn;
         wm.hitRadius = 1.2f;
+        wm.leafCollider = lc;   // 乗っている間に向きがとぶのを戻す（2026-11-10）
         UdonSharpEditorUtility.CopyProxyToUdon(wm);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(wm);
         ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None;
