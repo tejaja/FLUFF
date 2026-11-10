@@ -59,13 +59,46 @@ public class FuwaTurnTable : UdonSharpBehaviour
     [Tooltip("最初の羽根車の角度（回転床が 0° になる所）")]
     public float startU = 0f;
 
-    private void Start() { _u = startU; Apply(); }
+    [Header("音（2026-11-10 てじゃ「しかけの音」）")]
+    [Tooltip("clickDeg ごとにカチッ（回転床は床の角度、橋は羽根車の角度 u で数える）")]
+    public AudioSource clickSound;
+    public float clickDeg = 15f;
+    [Tooltip("動いている間のループ（速さで音量）。loopFullSpeed（u の度/秒）で loopVolume")]
+    public AudioSource loopSound;
+    public float loopFullSpeed = 120f, loopVolume = 0.6f;
+    [Tooltip("行き止まり（uMin、橋がつながった所）に着いた時")]
+    public AudioSource endSound;
+    private float _prevU; private int _lastClick; private float _loopV;
+
+    private void Start() { _u = startU; _prevU = _u; Apply(); _lastClick = ClickIndex(); }
+
+    private int ClickIndex()
+    {
+        float a = table != null && tableRatio != 0f ? tableRatio * _u : _u;
+        return Mathf.FloorToInt(a / Mathf.Max(0.1f, clickDeg));
+    }
+
+    private void Sounds(float dt)
+    {
+        float du = _u - _prevU;
+        if (clickSound != null) { int ci = ClickIndex(); if (ci != _lastClick) { _lastClick = ci; clickSound.pitch = 0.92f + Random.value * 0.16f; clickSound.Play(); } }
+        if (loopSound != null)
+        {
+            float target = Mathf.Clamp01(Mathf.Abs(du) / dt / Mathf.Max(1f, loopFullSpeed)) * loopVolume;
+            _loopV = Mathf.MoveTowards(_loopV, target, dt * 3f);
+            loopSound.volume = _loopV;
+            if (_loopV > 0.005f) { if (!loopSound.isPlaying) loopSound.Play(); }
+            else if (loopSound.isPlaying) loopSound.Pause();
+        }
+        if (endSound != null && uMin < uMax && _u <= uMin + 1e-3f && _prevU > uMin + 1e-3f) endSound.Play();
+        _prevU = _u;
+    }
 
     // アウトで戻った時（FuwaBall.resetOnOut）：最初の向きへ。乗っている人を運ばないように、運ぶ用の前の向きも合わせる
     public void ResetGimmick()
     {
         _u = startU; _w = 0f; _lastShot = -100f;
-        Apply();
+        Apply(); _prevU = _u; _lastClick = ClickIndex();
         if (table != null) _lastRot = table.rotation;
         if (rack != null) _lastRackPos = rack.position;
         if (rack2 != null) _lastRack2Pos = rack2.position;
@@ -108,6 +141,7 @@ public class FuwaTurnTable : UdonSharpBehaviour
         }
         Apply();
         Carry();
+        Sounds(dt);
     }
 
     private void Apply()

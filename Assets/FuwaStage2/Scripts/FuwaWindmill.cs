@@ -33,6 +33,9 @@ public class FuwaWindmill : UdonSharpBehaviour
     [Tooltip("風車の軸の向き（ワールド）。風がこの向きに近いほどよく回る")]
     public Transform axisRef;
     public AudioSource clickSound;
+    [Tooltip("橋が下りきった時（turn が maxTurn に着いた）。2026-11-10")]
+    public AudioSource landSound;
+    private float _prevTurnS;
     [Tooltip("跳ね橋の板の当たり。乗っている間、橋が動いていて向きが1フレームで yawSnap 度より回ったら元の向きにもどす")]
     public Collider leafCollider;
     // 2026-11-10 てじゃ「跳ね橋が戻る途中に通り抜けようとすると、突然向きが90度くらい変わる（VR・PCどっちも）」
@@ -106,6 +109,8 @@ public class FuwaWindmill : UdonSharpBehaviour
             float a = gearRatio[i] * u + gearPhase[i];
             gears[i].localRotation = Quaternion.Euler(0f, -a, 0f);
         }
+        if (landSound != null && _turn >= maxTurn - 0.01f && _prevTurnS < maxTurn - 0.01f) landSound.Play();
+        _prevTurnS = _turn;
         // 歯が1本進むごとにカチッ（風車の歯車の歯数ぶんで1周）
         if (clickSound != null)
         {
