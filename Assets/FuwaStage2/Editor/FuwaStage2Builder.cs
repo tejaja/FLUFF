@@ -21,8 +21,8 @@ public static class FuwaStage2Builder
     // 仮のコース名（テーマ）。決まったら差し替える
     // 2026-10-19 てじゃ「ほのおのやま こおりのほら はぐるまのとう そらのいせき きのこのくに でいこう、かわるかもだけど」
     // 2026-11-03 てじゃ「きのこのくに撤去しとくか、開けといて」「コースじゃないもの置く予定」→ 5コースに。6つめの場所（Slot5）は空けておく
-    public static readonly string[] CourseJa = { "みずのこみち", "ほのおのやま", "こおりのしま", "はぐるまのとう", "そらのいせき" };
-    public static readonly string[] CourseEn = { "Water Path", "Flame Mountain", "Ice Isles", "Gear Tower", "Sky Ruins" };
+    public static readonly string[] CourseJa = { "みずのこみち", "ほのおのやま", "こおりのしま", "はぐるまのしろ", "そらのいせき" };
+    public static readonly string[] CourseEn = { "Water Path", "Flame Mountain", "Ice Isles", "Gear Castle", "Sky Ruins" };
 
     // コースのない Slot の中身（看板・ワープの台）を消して、空の Slot だけ残す。言語の切り替えの表から外れた看板の行も消す
     public static int ClearSlot(Transform lobby, int i)
