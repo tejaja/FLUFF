@@ -161,6 +161,100 @@ def demo_turn(k):
     return out
 
 
+# ===== 2026-11-10 てじゃ「ちょい耳障りかもなぁ」→ やわらかい版 D/E/F：高い音を落として（ローパス）、立ち上がりもやわらかく、こもった「コト」「ゴトン」系 =====
+def soft(x, f=1800):
+    return lp(x, f, 3)
+
+
+def click_soft(kind):
+    if kind == 'D':   # 木づちのような「コト」
+        t = T(0.12); out = np.zeros(len(t))
+        place(out, ring([420, 690, 1050], [0.7, 0.35, 0.15], [45, 60, 80], 0.12), 0)
+        n = rng.standard_normal(int(0.02 * sr)); place(out, lp(n, 1200) * np.exp(-T(0.02) * 150) * 0.5, 0)
+        out *= np.minimum(1, t / 0.003)
+        return fade(norm(soft(out), 0.6))
+    if kind == 'E':   # 低い「トッ」（ほとんど胴の音だけ）
+        t = T(0.1); f = 180 + 80 * np.exp(-t * 50)
+        out = np.sin(2 * np.pi * np.cumsum(f) / sr) * np.exp(-t * 40) * np.minimum(1, t / 0.004)
+        out += lp(rng.standard_normal(len(t)), 700) * np.exp(-t * 90) * 0.3
+        return fade(norm(soft(out, 1200), 0.55))
+    # F：やわらかいラチェット「ころっ」（2つの小さいコト）
+    a = click_soft('D') * 0.8; out = np.zeros(int(0.14 * sr)); place(out, a, 0); place(out, a * 0.4, 0.03)
+    return fade(norm(out, 0.55))
+
+
+def land_soft(kind):
+    t = T(1.0); out = np.zeros(len(t))
+    if kind == 'D':   # 低い「ドゥン」
+        f = 48 + 40 * np.exp(-t * 10); out += np.sin(2 * np.pi * np.cumsum(f) / sr) * np.exp(-t * 5)
+        out += lp(rng.standard_normal(len(t)), 300) * np.exp(-t * 18) * 0.5
+    elif kind == 'E':   # 「ゴトン」2段、低め
+        for at, g in ((0, 1.0), (0.1, 0.45)):
+            tt = T(0.6); f = 60 + 40 * np.exp(-tt * 16)
+            place(out, np.sin(2 * np.pi * np.cumsum(f) / sr) * np.exp(-tt * 9) * g, at)
+            place(out, lp(rng.standard_normal(len(tt)), 400) * np.exp(-tt * 25) * 0.4 * g, at)
+    else:   # F：「ドン」＋ほんの少しだけ鳴り（低い）
+        f = 55 + 50 * np.exp(-t * 14); out += np.sin(2 * np.pi * np.cumsum(f) / sr) * np.exp(-t * 7)
+        out += ring([260, 410], [0.12, 0.06], [5, 7], 1.0)
+    out *= np.minimum(1, t / 0.004)
+    return fade(norm(soft(out, 1000), 0.7), 0.001, 0.15)
+
+
+def rumble_soft(kind, dur=2.0):
+    N = int(dur * sr); t = np.arange(N) / sr; out = np.zeros(N)
+    if kind == 'D':   # 低いゴーッ（こもった）
+        out += lp(rng.standard_normal(N), 140, 3) * 1.4 + np.sin(2 * np.pi * 48 * t) * 0.25
+    elif kind == 'E':   # ゆっくりのゴロゴロ（歯の当たりは 10回/秒、低い）
+        rate = 10; k = int(sr / rate)
+        for i in range(N // k): tn = T(0.05); place(out, lp(rng.standard_normal(len(tn)), 500) * np.exp(-tn * 60) * (0.6 + 0.3 * rng.random()), i * k / sr)
+        out += lp(rng.standard_normal(N), 160, 3) * 0.8
+    else:   # F：やわらかいコトコト（click_soft D を 9回/秒）
+        rate = 9; k = int(sr / rate)
+        for i in range(N // k): place(out, click_soft('D') * (0.5 + 0.2 * rng.random()), i * k / sr)
+        out += lp(rng.standard_normal(N), 150, 3) * 0.5
+    x = int(0.08 * sr); w = np.linspace(0, 1, x)
+    head = out[:x].copy(); out[:x] = head * w + out[-x:] * (1 - w); out = out[:-x]
+    return norm(soft(out, 900), 0.45)
+
+
+def meet_soft(kind):
+    if kind == 'D':   # 「コトン」
+        out = np.zeros(int(0.7 * sr)); place(out, click_soft('D'), 0); place(out, land_soft('E') * 0.6, 0.05); return fade(norm(out, 0.65), 0.001, 0.1)
+    if kind == 'E':   # 低い「ゴン」（やわらかめ）
+        return land_soft('D') * 0.9
+    out = np.zeros(int(0.8 * sr)); place(out, click_soft('E'), 0); place(out, click_soft('E') * 0.7, 0.08); return fade(norm(out, 0.6), 0.001, 0.1)
+
+
+def demo_drawbridge_soft(k):
+    out = np.zeros(int(4.6 * sr)); tt = 0.0; c = click_soft(k)
+    while tt < 3.0:
+        rate = 3 + 9 * min(1, tt / 1.0); place(out, c * 0.7, tt); tt += 1 / rate
+    place(out, land_soft(k), 3.05); return out
+
+
+def demo_rack_soft(k):
+    out = np.zeros(int(4.2 * sr)); r = rumble_soft(k); seg = np.concatenate([r, r])[:int(3.0 * sr)]
+    env = np.minimum(1, np.arange(len(seg)) / (0.3 * sr)) * np.minimum(1, (len(seg) - np.arange(len(seg))) / (0.05 * sr))
+    place(out, seg * env, 0); place(out, meet_soft(k), 3.0); return out
+
+
+def demo_turn_soft(k):
+    out = np.zeros(int(3.2 * sr)); c = click_soft(k); tt = 0.0
+    while tt < 2.8:
+        rate = 5 - 3 * max(0, (tt - 1.6) / 1.2); place(out, c * 0.75, tt); tt += 1 / max(1.5, rate)
+    return out
+
+
+def main_soft(od):
+    for k in 'DEF':
+        write(os.path.join(od, 'click_%s.wav' % k), click_soft(k)); write(os.path.join(od, 'land_%s.wav' % k), land_soft(k))
+        write(os.path.join(od, 'rumble_%s.wav' % k), rumble_soft(k)); write(os.path.join(od, 'meet_%s.wav' % k), meet_soft(k))
+    gap = np.zeros(int(1.0 * sr))
+    for name, fn in (('drawbridge', demo_drawbridge_soft), ('rackbridge', demo_rack_soft), ('turntable', demo_turn_soft)):
+        seq = np.concatenate([np.concatenate([fn(k), gap]) for k in 'DEF'])
+        write(os.path.join(od, 'demo_soft_%s.wav' % name), norm(seq, 0.6))
+
+
 if __name__ == '__main__':
     od = sys.argv[1] if len(sys.argv) > 1 else '.'
     os.makedirs(od, exist_ok=True)
@@ -173,4 +267,5 @@ if __name__ == '__main__':
     for name, fn in (('drawbridge', demo_drawbridge), ('rackbridge', demo_rack), ('turntable', demo_turn)):
         seq = np.concatenate([np.concatenate([fn(k), gap]) for k in 'ABC'])
         write(os.path.join(od, 'demo_%s.wav' % name), norm(seq, 0.85))
+    main_soft(od)
     print('ok', od)

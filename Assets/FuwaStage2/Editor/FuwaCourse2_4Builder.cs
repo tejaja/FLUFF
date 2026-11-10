@@ -174,6 +174,7 @@ public static class FuwaCourse2_4Builder
         AssetDatabase.SaveAssets();
         // 動く物（跳ね橋の板・回転床の橋）のシマはまとめない（まとめると止まった1枚になって、動かなくなる）→ いったん見た目を止めて、ベベルのあとで戻す
         foreach (var sn in TrussSegs) UnderTruss(sn, log);   // 道の下の鉄骨（アクセント、2026-11-10）
+        GimmickSounds(log);
         var moving = root.GetComponentsInChildren<MeshRenderer>(true).Where(r => r.enabled && r.GetComponentsInParent<Transform>(true).Any(p => p.name == "BridgeLeaf" || p.name == "TableA" || p.name == "TableB")).ToList();
         foreach (var r in moving) r.enabled = false;
         log.Append(" ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_4_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
@@ -527,6 +528,50 @@ public static class FuwaCourse2_4Builder
     {
         var v = new List<Vector3>(m.vertices); var t = new List<int>(m.triangles);
         return SaveMesh(m.name, v, t);
+    }
+
+    // ===== しかけの音（2026-11-10 てじゃ「ちょい耳障りかも」→ やわらかい版で「いいぐあいかも」。Tools/audio/make_sfx_gimmicks_2_4.py の D/E）=====
+    //  跳ね橋：風車の歯ごとに「コト」、下りきったら「ドゥン」。伸びる橋：動いている間「ゴロゴロ」、つながったら「ゴン」。回転床：床が 15° ごとに「コト」
+    //  どれも近くでだけ聞こえる立体音（3D）、音量控えめ
+    const string SfxDir = "Assets/FuwaStage2/Audio/Gimmick2_4/";
+    static AudioSource Sfx(Transform at, string name, string clip, float vol, bool loop = false, float maxDist = 22f)
+    {
+        var c = AssetDatabase.LoadAssetAtPath<AudioClip>(SfxDir + clip + ".wav"); if (!c) return null;
+        var g = new GameObject(name); g.transform.SetParent(at, false);
+        var a = g.AddComponent<AudioSource>(); a.clip = c; a.playOnAwake = false; a.loop = loop; a.volume = vol;
+        a.spatialBlend = 1f; a.rolloffMode = AudioRolloffMode.Linear; a.minDistance = 3f; a.maxDistance = maxDist; a.dopplerLevel = 0f;
+        return a;
+    }
+    static void GimmickSounds(System.Text.StringBuilder log)
+    {
+        int n = 0;
+        var wm = secT.Find(Draw.name)?.GetComponentInChildren<FuwaWindmill>(true);
+        if (wm)
+        {
+            wm.clickSound = Sfx(wm.transform, "SfxClick", "G24_click_D", 0.35f);
+            var hinge = secT.Find(Draw.name).Find("D_z60");
+            wm.landSound = Sfx(hinge ? hinge.parent : wm.transform, "SfxLand", "G24_land_D", 0.6f, false, 28f);
+            if (wm.landSound && hinge) wm.landSound.transform.position = hinge.position;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(wm); n++;
+        }
+        var rk = secT.Find(Rack.name)?.GetComponentInChildren<FuwaTurnTable>(true);
+        if (rk)
+        {
+            var mid = rk.rack ? rk.rack.parent.TransformPoint(new Vector3(FuwaRackBridgeTest.Gap / 2f, -0.6f, 0f)) : rk.transform.position;
+            rk.loopSound = Sfx(rk.transform, "SfxRumble", "G24_rumble_E", 0.5f, true); if (rk.loopSound) rk.loopSound.transform.position = mid;
+            rk.loopFullSpeed = 120f; rk.loopVolume = 0.5f;
+            rk.endSound = Sfx(rk.transform, "SfxMeet", "G24_meet_E", 0.6f); if (rk.endSound) rk.endSound.transform.position = mid;
+            rk.clickSound = null;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(rk); n++;
+        }
+        var tw = secT.Find(Twin.name)?.GetComponentInChildren<FuwaTurnTable>(true);
+        if (tw)
+        {
+            tw.clickSound = Sfx(tw.table ? tw.table : tw.transform, "SfxClick", "G24_click_D", 0.4f); tw.clickDeg = 15f;
+            tw.loopSound = null; tw.endSound = null;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(tw); n++;
+        }
+        log.Append(" しかけの音 " + n);
     }
 
     // ===== 道の下の鉄骨のトラス（2026-11-10 てじゃ「3は欲しいけどやりすぎない、アクセント程度にたまにつけるくらい」）=====
