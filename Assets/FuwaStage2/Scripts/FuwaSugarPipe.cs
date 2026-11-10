@@ -25,6 +25,10 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     public int endCount = 10;
     [Tooltip("0より大きいと、この秒ごとに自分で Send（2–4 の回るタンクから気球へのパイプ、2026-11-10）")]
     public float autoInterval = 0f;
+    [Tooltip("ふくらみがタンクに入ると振れる圧力計の針（local z まわり、2026-11-10）")]
+    public Transform needle;
+    public float needleKick = 70f;
+    private Quaternion _needleBase;
     private float _autoT;
 
     private float[] _cum;
@@ -46,6 +50,7 @@ public class FuwaSugarPipe : UdonSharpBehaviour
         int b = bulges != null ? bulges.Length : 0;
         _at = new float[b];
         if (pop != null) _popScale = pop.localScale;
+        if (needle != null) _needleBase = needle.localRotation;
         int g = glows != null ? glows.Length : 0;
         _glowBase = new Color[g];
         for (int i = 0; i < g; i++) if (glows[i] != null && glows[i].sharedMaterial != null && glows[i].sharedMaterial.HasProperty("_EmissionColor")) _glowBase[i] = glows[i].sharedMaterial.GetColor("_EmissionColor");
@@ -103,6 +108,7 @@ public class FuwaSugarPipe : UdonSharpBehaviour
             float k = _pop * _pop;
             pop.Rotate(0f, (popSpin + 600f * k) * dt, 0f, Space.Self);
             pop.localScale = _popScale * (1f + 0.3f * k);
+            if (needle != null) needle.localRotation = _needleBase * Quaternion.Euler(0f, 0f, -needleKick * k);
         }
         for (int i = 0; i < _at.Length; i++)
         {
