@@ -82,7 +82,7 @@ public static class FuwaDrawbridgeTest
         var lv = Prim(PrimitiveType.Cube, leaf.transform, "Visual", Vector3.zero, new Vector3(BridgeLen, PathW, 0.4f), wood);
         var lc = leaf.AddComponent<BoxCollider>(); lc.size = new Vector3(BridgeLen, PathW, 0.4f);
         // 橋の板の筋（回ってるのが見えるように）
-        for (int k = 1; k < 8; k++) Prim(PrimitiveType.Cube, leaf.transform, "Plank" + k, new Vector3(-BridgeLen / 2f + k * BridgeLen / 8f, 0f, 0.2f), new Vector3(0.06f, PathW, 0.02f), axleM);
+        for (int k = 1; k < 8; k++) Prim(PrimitiveType.Cube, leaf.transform, "Plank" + k, new Vector3(-BridgeLen / 2f + k * BridgeLen / 8f, 0f, 0.2f), new Vector3(0.06f, PathW + 0.004f, 0.02f), axleM);   // 板の横の面が橋の横の面と同じだった（1cmの帯でZファイト、2026-11-10）→ 2mmずつはみ出す
 
         // 道（手前の床）：橋の手前と向こう
         Floor(root, "PathNear", -NearLen, 0f, floorM, pathLayer);
