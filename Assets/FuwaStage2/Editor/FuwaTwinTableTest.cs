@@ -213,7 +213,7 @@ public static class FuwaTwinTableTest
     // ===== 橋が見えやすいように（2026-11-10 てじゃ「横から見ると遠く全然みえない、合ってるかもわからん」）=====
     //  門と信号ランプは「くどいかも」→ やめて「羽のある台を高くして、すこし降りて橋にのるかんじ」：
     //  かごの床を CageRise 上げる（入口から CageRamp m の坂で上がる）。かごの口から橋へ CageRise だけ飛びおりる。羽根車もいっしょに上げる
-    public static float CageRise = 1.2f, CageRamp = 3f;
+    public static float CageRise = 1.2f, CageRamp = 3f, ApronLen = 1.6f, ApronEndY = 0.4f, ApronTh = 0.2f;
     public static string RaiseCage(Transform root)
     {
         var cf = root.Find("CageFloor"); if (!cf) return "かごの床がない";
@@ -232,6 +232,17 @@ public static class FuwaTwinTableTest
         Prim(PrimitiveType.Cube, rp, "Visual", Vector3.zero, new Vector3(L + 0.02f, 0.4f, 2f * CageHalfZ), floorM);
         rp.gameObject.AddComponent<BoxCollider>().size = new Vector3(L + 0.02f, 0.4f, 2f * CageHalfZ);
         // 平らな所と坂のつなぎ目の下の すき間：坂の上のはしは平らな所の下にもぐる（L+0.02）
+        // 降りる時の下り坂（2026-11-10 てじゃ「降りる時用のスロープほしい」の絵）：かごの口から外へ、回ってくる橋の上に張り出す。
+        //  先は橋の上 ApronEndY で止める（橋はその下をくぐる）
+        foreach (var x in root.Cast<Transform>().Where(x => x.name == "CageApron").ToArray()) Object.DestroyImmediate(x.gameObject);
+        {
+            float ax0 = x1, ax1 = x1 + ApronLen, dy = H - ApronEndY, la = Mathf.Sqrt(ApronLen * ApronLen + dy * dy), aa = -Mathf.Atan2(dy, ApronLen) * Mathf.Rad2Deg;
+            var ap = new GameObject("CageApron").transform; ap.SetParent(root, false); ap.gameObject.layer = 11;
+            ap.localRotation = Quaternion.Euler(0f, 0f, aa);
+            ap.localPosition = new Vector3((ax0 + ax1) / 2f, (H + ApronEndY) / 2f, 0f) + ap.localRotation * new Vector3(0f, -ApronTh / 2f, 0f);
+            Prim(PrimitiveType.Cube, ap, "Visual", Vector3.zero, new Vector3(la + 0.1f, ApronTh, BridgeW), floorM);
+            ap.gameObject.AddComponent<BoxCollider>().size = new Vector3(la + 0.1f, ApronTh, BridgeW);
+        }
         // 金網を背の分だけのばす（下は 0 のまま）
         foreach (var f in root.Cast<Transform>().Where(x => x.name.StartsWith("Fence_")))
             f.localScale = new Vector3(1f, (2.2f + H) / 2.2f, 1f);
