@@ -72,6 +72,9 @@ public class FuwaTurnTable : UdonSharpBehaviour
 
     private void Start() { _u = startU; _prevU = _u; Apply(); _lastClick = ClickIndex(); }
 
+    // エリアで隠れている時など、止まっている音は鳴らさない（「Can not play a disabled audio source」）
+    private bool Ok(AudioSource a) { return a != null && a.enabled && a.gameObject.activeInHierarchy; }
+
     private int ClickIndex()
     {
         float a = table != null && tableRatio != 0f ? tableRatio * _u : _u;
@@ -81,8 +84,8 @@ public class FuwaTurnTable : UdonSharpBehaviour
     private void Sounds(float dt)
     {
         float du = _u - _prevU;
-        if (clickSound != null) { int ci = ClickIndex(); if (ci != _lastClick) { _lastClick = ci; clickSound.pitch = 0.92f + Random.value * 0.16f; clickSound.Play(); } }
-        if (loopSound != null)
+        if (clickSound != null) { int ci = ClickIndex(); if (ci != _lastClick) { _lastClick = ci; if (Ok(clickSound)) { clickSound.pitch = 0.92f + Random.value * 0.16f; clickSound.Play(); } } }
+        if (Ok(loopSound))
         {
             float target = Mathf.Clamp01(Mathf.Abs(du) / dt / Mathf.Max(1f, loopFullSpeed)) * loopVolume;
             _loopV = Mathf.MoveTowards(_loopV, target, dt * 3f);
@@ -90,7 +93,7 @@ public class FuwaTurnTable : UdonSharpBehaviour
             if (_loopV > 0.005f) { if (!loopSound.isPlaying) loopSound.Play(); }
             else if (loopSound.isPlaying) loopSound.Pause();
         }
-        if (endSound != null && uMin < uMax && _u <= uMin + 1e-3f && _prevU > uMin + 1e-3f) endSound.Play();
+        if (Ok(endSound) && uMin < uMax && _u <= uMin + 1e-3f && _prevU > uMin + 1e-3f) endSound.Play();
         _prevU = _u;
     }
 

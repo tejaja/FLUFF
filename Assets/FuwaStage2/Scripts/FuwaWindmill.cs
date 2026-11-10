@@ -109,10 +109,10 @@ public class FuwaWindmill : UdonSharpBehaviour
             float a = gearRatio[i] * u + gearPhase[i];
             gears[i].localRotation = Quaternion.Euler(0f, -a, 0f);
         }
-        if (landSound != null && _turn >= maxTurn - 0.01f && _prevTurnS < maxTurn - 0.01f) landSound.Play();
+        if (landSound != null && landSound.enabled && landSound.gameObject.activeInHierarchy && _turn >= maxTurn - 0.01f && _prevTurnS < maxTurn - 0.01f) landSound.Play();
         _prevTurnS = _turn;
         // 歯が1本進むごとにカチッ（風車の歯車の歯数ぶんで1周）
-        if (clickSound != null)
+        if (clickSound != null && clickSound.enabled && clickSound.gameObject.activeInHierarchy)
         {
             int tooth = Mathf.FloorToInt(_turn / 22.5f);
             if (tooth != _lastTooth) { _lastTooth = tooth; clickSound.pitch = 0.9f + Random.value * 0.2f; clickSound.Play(); }
