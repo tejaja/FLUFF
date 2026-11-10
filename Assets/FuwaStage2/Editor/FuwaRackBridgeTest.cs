@@ -47,7 +47,7 @@ public static class FuwaRackBridgeTest
         var axleM = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
         var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
         var floorM = FuwaGearTest.Mat("GearTest_Floor", new Color(0.55f, 0.58f, 0.63f));
-        var wood = FuwaGearTest.Mat("GearTest_Bridge", new Color(0.66f, 0.52f, 0.38f));
+        var wood = FuwaTwinTableTest.BridgeMat(true); var woodB = FuwaTwinTableTest.BridgeMat(false);   // 2026-11-10 木の板 → 動く橋の色のシマ
         var bladeM = FuwaGearTest.Mat("FanTest_Blade", new Color(0.55f, 0.82f, 0.95f));
 
         var root = new GameObject("RackBridgeTest").transform; root.position = Origin;
@@ -60,8 +60,9 @@ public static class FuwaRackBridgeTest
         float pitchZ = ZL + RP, hf = 1.25f * MP, p = Mathf.PI * MP;
         var rackMesh = FuwaGearTest.SaveMesh(RackMesh(RackTeeth, MP, 0.3f, GearTh, "RackBridge_Rack_m01"));
         // 引っこんだ時、ピニオンの所がラックの歯のすき間になるように（歯は偶数本で、まん中から p ごとにすき間）
-        var near = HalfBridge(root, "BridgeNear", 0f, -1f, XW - 6f * p, pitchZ, hf, rackMesh, wood, axleM, brass, dark);
-        var far = HalfBridge(root, "BridgeFar", Gap, 1f, XP - Gap + 6f * p, pitchZ, hf, rackMesh, wood, axleM, brass, dark);
+        var near = HalfBridge(root, "BridgeNear", 0f, -1f, XW - 6f * p, pitchZ, hf, rackMesh, wood, woodB, brass, dark);
+        var far = HalfBridge(root, "BridgeFar", Gap, 1f, XP - Gap + 6f * p, pitchZ, hf, rackMesh, wood, woodB, brass, dark);
+        Guides(root, dark, brass);
 
         // ── 歯車 ──
         float d1 = Mathf.Atan2(Z1, Z2), d2 = Mathf.PI / 2f - d1;      // 手前：縦（12）・横（20）
@@ -155,14 +156,29 @@ public static class FuwaRackBridgeTest
     }
 
     // 半分の橋：原点＝橋の先。dir＝橋の本体がのびる向き（手前の橋は −1、向こうは +1）。上の面は BridgeTop。下にラック（歯は −z）とラックの板
-    static Transform HalfBridge(Transform root, string name, float x0, float dir, float rackC, float pitchZ, float hf, Mesh rackMesh, Material wood, Material lineM, Material brass, Material dark)
+    static Transform HalfBridge(Transform root, string name, float x0, float dir, float rackC, float pitchZ, float hf, Mesh rackMesh, Material stripeA, Material stripeB, Material brass, Material dark)
     {
         var b = new GameObject(name).transform; b.SetParent(root, false); b.localPosition = new Vector3(x0, 0f, 0f);
         b.gameObject.layer = 11;
         var c = new Vector3(dir * HalfL / 2f, BridgeTop - BridgeT / 2f, 0f);
-        Prim(PrimitiveType.Cube, b, "Visual", c, new Vector3(HalfL, BridgeT, BridgeW), wood);
         var bc = b.gameObject.AddComponent<BoxCollider>(); bc.center = c; bc.size = new Vector3(HalfL, BridgeT, BridgeW);
-        for (int k = 1; k < 5; k++) Prim(PrimitiveType.Cube, b, "Plank" + k, new Vector3(dir * k * HalfL / 5f, BridgeTop + 0.005f, 0f), new Vector3(0.05f, 0.01f, BridgeW), lineM);
+        // 2026-11-10 てじゃ「伸びる橋もいけるか」：木の板 → 動く橋の色のシマ（先から A/B）＋両はしの鉄の桁と真ちゅうのびょう（跳ね橋と同じ作り）
+        int ns = Mathf.Max(1, Mathf.RoundToInt(HalfL / 1.2f));
+        for (int k = 0; k < ns; k++)
+            Prim(PrimitiveType.Cube, b, "Visual" + k, new Vector3(dir * HalfL * (k + 0.5f) / ns, BridgeTop - BridgeT / 2f, 0f), new Vector3(HalfL / ns, BridgeT, BridgeW), k % 2 == 0 ? stripeA : stripeB);
+        float gx0 = dir * 0.06f, gx1 = dir * HalfL;   // 先の柱のうけ（はばの外、先から 3cm まで）をよける
+        foreach (float sg in new[] { -1f, 1f })
+        {
+            float gz = sg * (BridgeW / 2f + GirderW / 2f);
+            Prim(PrimitiveType.Cube, b, "Girder", new Vector3((gx0 + gx1) / 2f, BridgeTop - BridgeT / 2f, gz), new Vector3(Mathf.Abs(gx1 - gx0), BridgeT, GirderW), dark);
+            int nr = Mathf.RoundToInt(Mathf.Abs(gx1 - gx0) / 0.7f);
+            for (int k = 0; k < nr; k++)
+                foreach (float ry in new[] { BridgeTop - 0.1f, BridgeTop - BridgeT + 0.1f })
+                {
+                    var rv = Prim(PrimitiveType.Cylinder, b, "Rivet", new Vector3(Mathf.Lerp(gx0, gx1, (k + 0.5f) / nr), ry, gz + sg * (GirderW / 2f + 0.012f)), new Vector3(0.09f, 0.014f, 0.09f), brass);
+                    rv.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                }
+        }
         var rack = new GameObject("Rack").transform; rack.SetParent(b, false);
         rack.localPosition = new Vector3(rackC, GearY, pitchZ); rack.localRotation = Quaternion.Euler(0f, 180f, 0f);   // 歯は −z（ピニオン）向き
         rack.gameObject.AddComponent<MeshFilter>().sharedMesh = rackMesh;
@@ -178,6 +194,29 @@ public static class FuwaRackBridgeTest
         // 橋のかどから柱へのうけ（橋の幅の外だけ：まん中で合った時、相手の橋にささらない）
         Prim(PrimitiveType.Cube, b, "TipPostBracket", new Vector3(px / 2f - dir * 0.02f, BridgeTop - BridgeT / 2f, Mathf.Sign(pz) * (BridgeW / 2f + 0.075f)), new Vector3(Mathf.Abs(px) + 0.18f, BridgeT * 0.6f, 0.15f), dark);
         return b;
+    }
+
+    // 橋が床の下から出てくる口（2026-11-10）：両はしの桁の外に、床の下からさがる案内の板と、桁にふれる金のローラー（たての軸）
+    public const float GirderW = 0.14f, GuideZ0 = BridgeW / 2f + GirderW + 0.1f, GuideZ1 = GuideZ0 + 0.14f, GuideLen = 1.1f;
+    static void Guides(Transform root, Material dark, Material brass)
+    {
+        float y0 = -0.4f, y1 = BridgeTop - BridgeT - 0.05f;   // 床の下の面 → 橋の下の面より少し下
+        foreach (var (xa, xb) in new[] { (-GuideLen, 0f), (Gap, Gap + GuideLen) })
+            foreach (float sg in new[] { -1f, 1f })
+            {
+                float zc = sg * (GuideZ0 + GuideZ1) / 2f;
+                Prim(PrimitiveType.Cube, root, "BridgeGuide", new Vector3((xa + xb) / 2f, (y0 + y1) / 2f, zc), new Vector3(xb - xa, y0 - y1, GuideZ1 - GuideZ0), dark);
+                foreach (float f in new[] { 0.25f, 0.75f })
+                {
+                    float rz = sg * (BridgeW / 2f + GirderW + 0.08f);   // 桁の外の面から 3cm（桁のびょうとぶつからない）。半分は案内の板にうまる
+                    Prim(PrimitiveType.Cylinder, root, "GuideRoller", new Vector3(Mathf.Lerp(xa, xb, f), BridgeTop - BridgeT / 2f, rz), new Vector3(0.1f, BridgeT * 0.4f, 0.1f), brass);
+                }
+            }
+    }
+    // 向こう岸の床の、橋がしまわれる所（この範囲は床の厚みを 0.4 のまま。道にそろえた 0.6 だと橋がめりこむ）。RackBridgeTest の local
+    public static Bounds FarNotch()
+    {
+        var b = new Bounds(); b.SetMinMax(new Vector3(Gap - 0.01f, -0.4f, -GuideZ1 - 0.02f), new Vector3(Gap + HalfL + 0.3f, 0f, GuideZ1 + 0.02f)); return b;
     }
 
     // エディタ用：羽根車の角度 u にする（FuwaTurnTable と同じ計算）

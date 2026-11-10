@@ -46,8 +46,7 @@ public static class FuwaDrawbridgeTest
         var blade = FuwaGearTest.Mat("GearTest_Blade", new Color(0.95f, 0.93f, 0.88f));
         var mark = FuwaGearTest.Mat("GearTest_Mark", new Color(0.95f, 0.72f, 0.25f));
         var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
-        var roadA = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_PathA.mat") ?? FuwaGearTest.Mat("DrawbridgeTest_RoadA", new Color(0.60f, 0.56f, 0.52f));
-        var roadB = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_PathB.mat") ?? FuwaGearTest.Mat("DrawbridgeTest_RoadB", new Color(0.40f, 0.36f, 0.33f));
+        var roadA = FuwaTwinTableTest.BridgeMat(true); var roadB = FuwaTwinTableTest.BridgeMat(false);   // 動く橋の色（2026-11-10）
         int pathLayer = 11;
 
         var ts = new Transform[4];

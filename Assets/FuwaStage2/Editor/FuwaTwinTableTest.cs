@@ -35,6 +35,23 @@ public static class FuwaTwinTableTest
     public static float BCenterX => Mod * (ZA + ZB) / 2f;
     public static float ExitFar => CornerR(TipB) + 0.05f + 6f;
 
+    // 動く橋のシマの色（跳ね橋・回転床・伸びる橋で共通）。材質は道のシマ（Course2_4_PathA）と同じシェーダーで色だけちがう。名前が _PathA/_PathB でないのでベベルでまとめられない
+    public static Color BridgeColA = new Color(0.72f, 0.60f, 0.45f), BridgeColB = new Color(0.50f, 0.40f, 0.31f);
+    public static Material BridgeMat(bool a)
+    {
+        string path = "Assets/FuwaStage2/Materials/Course2_4_Bridge" + (a ? "A" : "B") + ".mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m)
+        {
+            var src = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_Path" + (a ? "A" : "B") + ".mat");
+            m = src ? new Material(src) : new Material(Shader.Find("FuwaCourse/ToonLit")); AssetDatabase.CreateAsset(m, path);
+        }
+        var c = a ? BridgeColA : BridgeColB;
+        m.SetColor("_Color", c);
+        if (m.HasProperty("_UnderColor")) m.SetColor("_UnderColor", Color.Lerp(c, Color.white, 0.4f));
+        EditorUtility.SetDirty(m); return m;
+    }
+
     [MenuItem("FuwaCourse/ステージ2/かみ合う2枚の回転床のお試しを作る")]
     public static void Build()
     {
@@ -49,8 +66,8 @@ public static class FuwaTwinTableTest
         var deckM = FuwaGearTest.Mat("TurnTableTest_Deck", new Color(0.7f, 0.72f, 0.77f));
         var deckBM = FuwaGearTest.Mat("TwinTableTest_DeckB", new Color(0.78f, 0.74f, 0.66f));
         // 2026-11-10 てじゃ「橋とあわせて道みたいな模様にしたらわかりやすいかも」→ 橋と床の上の道を 2–4 の道と同じシマに
-        var roadA = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_PathA.mat") ?? FuwaGearTest.Mat("TwinTableTest_RoadA", new Color(0.60f, 0.56f, 0.52f));
-        var roadB = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_PathB.mat") ?? FuwaGearTest.Mat("TwinTableTest_RoadB", new Color(0.40f, 0.36f, 0.33f));
+        // 2026-11-10 てじゃ「橋として動く部分だけ橋の色ちょっとかえよか」→ 道のシマと同じ作りで色だけ「橋の色」（BridgeMat）
+        var roadA = BridgeMat(true); var roadB = BridgeMat(false);
         var deckDarkM = FuwaGearTest.Mat("TwinTableTest_DeckADark", new Color(0.56f, 0.58f, 0.65f));   // 扇形の塗り分け（2026-11-10）
         var deckBDarkM = FuwaGearTest.Mat("TwinTableTest_DeckBDark", new Color(0.64f, 0.58f, 0.49f));
 

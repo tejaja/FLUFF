@@ -97,7 +97,7 @@ public static class FuwaCourse2_4Builder
         T(-90f); CPCurve("CheckpointDraw", -90f); S(2f);
         Place(Draw, log); FloorsToStripes(Draw); S(1f); ChunkyGears(); S(1f); S(8f, 3f);   // ②→③：ごつい歯車（前は回るアーム）。CheckpointDraw は風車の横だときのこの丸太が重なるので 2.5m 手前
         T(-90f); CPCurve("CheckpointRack", -90f); S(2f);
-        Place(Rack, log); FloorsToStripes(Rack); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); CPCurve("CheckpointTwin", -90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
+        Place(Rack, log); FloorsToStripes(Rack); NotchStripes(secT.Find(Rack.name).Find("FarBank"), FuwaRackBridgeTest.FarNotch()); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); CPCurve("CheckpointTwin", -90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
         // チェックポイント4は出口の床（6m 角）に入ってすぐ・床の幅いっぱい（2026-11-08 てじゃ「横から抜けられちゃう」：床の先の曲がり角を斜めに飛ぶと、道の幅の判定を通らなかった）
         Place(Twin, log); FloorsToStripes(Twin); CP("Checkpoint4", -5.5f); S(2f);   // 出口の床を道の幅にしたので判定も道の幅
         // 塔へ（まん中）：①の上をまたいで
@@ -2593,6 +2593,32 @@ public static class FuwaCourse2_4Builder
                 g.GetComponent<Renderer>().sharedMaterial = (k % 2 == 0) ? pathA : pathB;
             }
             Object.DestroyImmediate(vis.gameObject);
+        }
+    }
+
+    // シマの床の一部だけ下の面を上げる（2026-11-10 伸びる橋がしまわれる所：道にそろえた 0.6 の厚みだと橋がめりこむ）。notch はしかけの local、y の min が新しい下の面
+    static void NotchStripes(Transform F, Bounds notch)
+    {
+        if (!F) return;
+        var mt = F.parent; var nmin = F.InverseTransformPoint(mt.TransformPoint(notch.min)); var nmax = F.InverseTransformPoint(mt.TransformPoint(notch.max));
+        var lo = Vector3.Min(nmin, nmax); var hi = Vector3.Max(nmin, nmax);
+        foreach (var st in F.Cast<Transform>().Where(x => x.name.StartsWith("Stripe")).ToArray())
+        {
+            var c = st.localPosition; var s = st.localScale; var a = c - s / 2f; var b = c + s / 2f;
+            float ox0 = Mathf.Max(a.x, lo.x), ox1 = Mathf.Min(b.x, hi.x), oz0 = Mathf.Max(a.z, lo.z), oz1 = Mathf.Min(b.z, hi.z);
+            if (ox1 <= ox0 + 1e-3f || oz1 <= oz0 + 1e-3f || lo.y <= a.y + 1e-3f) continue;
+            var mat = st.GetComponent<Renderer>().sharedMaterial; int layer = st.gameObject.layer;
+            void Box(float x0, float x1, float y0, float z0, float z1)
+            {
+                if (x1 - x0 < 1e-3f || z1 - z0 < 1e-3f) return;
+                var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = st.name; Object.DestroyImmediate(g.GetComponent<Collider>());
+                g.transform.SetParent(F, false); g.transform.localPosition = new Vector3((x0 + x1) / 2f, (y0 + b.y) / 2f, (z0 + z1) / 2f); g.transform.localScale = new Vector3(x1 - x0, b.y - y0, z1 - z0);
+                g.layer = layer; g.GetComponent<Renderer>().sharedMaterial = mat;
+            }
+            Box(a.x, ox0, a.y, a.z, b.z); Box(ox1, b.x, a.y, a.z, b.z);          // 前後（全部の幅）
+            Box(ox0, ox1, a.y, a.z, oz0); Box(ox0, ox1, a.y, oz1, b.z);          // 横
+            Box(ox0, ox1, lo.y, oz0, oz1);                                        // しまう所（うすい）
+            Object.DestroyImmediate(st.gameObject);
         }
     }
 
