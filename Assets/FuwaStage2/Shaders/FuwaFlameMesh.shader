@@ -37,6 +37,8 @@ Shader "FuwaCourse/FlameMesh"
         _FireFadeNear ("遠くを薄く：はじまり(m)", Float) = 14
         _FireFadeFar ("遠くを薄く：いちばん薄い所(m)", Float) = 40
         _FireFadeMin ("遠くを薄く：いちばん薄い時の濃さ（1 で薄くしない）", Range(0,1)) = 1
+        _CamFadeNear ("カメラの近くで消える：この距離(m)より近いと見えない", Float) = 0.5
+        _CamFadeFar ("カメラの近くで消える：この距離(m)から全部見える（0 で消さない）", Float) = 0
     }
     SubShader
     {
@@ -50,6 +52,7 @@ Shader "FuwaCourse/FlameMesh"
             float _CoreSoft, _ShadeRound, _ShadeBump;
             half4 _ShadeDeep;
             float _OutlineW;
+            float _CamFadeNear, _CamFadeFar;
             float _Speed, _FlowSpeed, _NoiseScale, _AmpBase, _AmpTop, _Tear, _Sway, _BlobRise, _BlobSize, _Bias, _Burn, _Pulse, _TimeAdd, _Wave, _WaveScale;
 
             struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -156,11 +159,14 @@ Shader "FuwaCourse/FlameMesh"
             {
                 FuwaFireFadeClip(i.wp, i.pos);
                 half cover = 1;
-                if (i.tear > 0.001 || _Burn > 0.001)
+                // カメラのすぐ近くは模様にそって溶けるように消す（2026-11-10 てじゃ「火炎放射は近づいたらクモの巣みたいに消える感じに」）。不透明のままなので穴をあけて消す
+                float camF = _CamFadeFar > 0.001 ? smoothstep(_CamFadeNear, max(_CamFadeFar, _CamFadeNear + 0.01), distance(_WorldSpaceCameraPos, i.wp)) : 1.0;
+                if (i.tear > 0.001 || _Burn > 0.001 || camF < 0.999)
                 {
                     float n = tex3Dlod(_Noise, float4(i.np, 0)).r;
                     float d = i.tear > 0.001 ? n - i.tear * 0.5 : 1.0;   // tear が大きいほど穴が増える
                     if (_Burn > 0.001) d = min(d, i.k + (n - 0.5) * 0.25 - _Burn * 1.15);   // 根元から消える
+                    if (camF < 0.999) d = min(d, camF * 1.5 - 0.5 + (n - 0.5) * 0.5);
                     cover = saturate(d / max(fwidth(d), 1e-4) + 0.5);
                     clip(cover - 0.01);
                 }
@@ -186,6 +192,7 @@ Shader "FuwaCourse/FlameMesh"
             fixed4 fragOutline (v2f i) : SV_Target
             {
                 if (_NearGlow.a < 0.001) discard;
+                if (_CamFadeFar > 0.001) clip(distance(_WorldSpaceCameraPos, i.wp) - _CamFadeFar);
                 if (_Burn > 0.001)
                 {
                     float n = tex3Dlod(_Noise, float4(i.np, 0)).r;

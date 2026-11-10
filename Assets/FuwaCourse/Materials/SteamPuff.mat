@@ -28,7 +28,9 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
-    m_Floats: []
+    m_Floats:
+    - _CamFadeFar: 1.5
+    - _CamFadeNear: 0.5
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _ShadeColor: {r: 0.97, g: 0.97, b: 1, a: 1}

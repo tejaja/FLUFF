@@ -36,7 +36,8 @@ public static class FuwaCourse2_2Builder
     public static float VolcanoTopH = 16f, VolcanoTopR = 5f, VolcanoR0 = 12f, VolcanoBottom = -60f, RockFirstScale = 3f;   // 火口の高さ・半径、道の高さでの半径、すその下のはし、火口から飛んでくる1回の長さ（倍）
     // ⑤ 2026-10-30 てじゃ「まものからをもっと右に曲げて山に沿う感じに」「山から何個かさっきの火炎放射、あたれば炎上して飛ぶ、そのあとゴール」
     //   （火口のまわりの輪っかの道・マグマは「あんま面白くない」でやめた）。火山のまわりを右回りに沿う広めの道、山肌の岩から火炎放射
-    public static float FlameExtraOff = 2.0f;   // 1.2→2.0（2026-11-04 てじゃ「火炎放射の間隔も長く」）
+    public static float FlameExtraOff = 2.6f;   // 1.2→2.0（2026-11-04 てじゃ「火炎放射の間隔も長く」）→2.6（2026-11-10 てじゃ「ちょっとだけ長く」）
+    public static float JetCamFadeNear = 0.5f, JetCamFadeFar = 1.5f;   // 火炎放射はカメラの近くで溶けるように消える（2026-11-10 てじゃ「クモの巣みたいに」）
     public static float FlameKnockMin = 0.8f;   // 先端に当たっても最低これだけ横へ飛ばす（2026-11-02。2 だと Play で道のふちの 2.2m 外まで飛んだ）
     public static float FlameHW = 3f, FlameRise = 3f, FlameGap = 0.9f, FlameKnock = 6f, FlameKnockUp = 1.5f, FlameLand = -1.13f, FlameBallPerMeter = 0.755f,FlamePlayerLand = -1.14f, FlamePlayerPush = 6f, FlamePlayerPushUp = 4.2f, FlamePlayerPerMeter = 0.6f,   /* 人 7.5/5/0.72→6/4.2/0.6（2026-11-04 てじゃ「火炎放射のプレイヤーのふっ飛ばし力ダウン」） */ FlamePlayerMin = 0.8f,   /* 根元ほど強く、先ほど弱く。どこで当たっても道のふちくらいまで飛ぶ＝落ちることもある（2026-11-02 てじゃ「落ちるくらいでいいよ」「位置で強弱」） */ FlameLowH = 0.55f, FlameHighH = 2.95f;   // 上 6→3→1.5（てじゃ「上に飛ばしすぎかな」「まだ上にとびすぎ」）   // FlameLand：吹っ飛んで落ちる所の、外のふちからの残り
     public const int FlameRows = 3;   // 炎の壁の縦の本数
@@ -2584,7 +2585,7 @@ public static class FuwaCourse2_2Builder
             for (int b = 0; b < 2; b++) { float seed = (r * 3 + b + 0.37f) * 0.137f; f.Blob(c + Vector3.up * (L - 1.6f), seed, 0.85f); }
         }
         var mat = FlameMeshMat("Stage2_2_JetFlame", 0.33f, 1.1f, 0.1f, 0.5f, 0.45f, 0.1f, 2.6f, 3.2f, 1.3f);
-        mat.SetFloat("_ShadeRound", JetShadeRound); mat.SetFloat("_ShadeBump", JetShadeBump); EditorUtility.SetDirty(mat);
+        mat.SetFloat("_ShadeRound", JetShadeRound); mat.SetFloat("_ShadeBump", JetShadeBump); mat.SetFloat("_CamFadeNear", JetCamFadeNear); mat.SetFloat("_CamFadeFar", JetCamFadeFar); EditorUtility.SetDirty(mat);
         var o = new GameObject("FlameBody", typeof(MeshFilter), typeof(MeshRenderer)); o.transform.SetParent(g, false); o.transform.localPosition = Vector3.down * maxBack;
         o.GetComponent<MeshFilter>().sharedMesh = f.Build("Course2_2_" + name + "_Body", 3f); var mr = o.GetComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;   /* 影は赤い予兆があるのでなし（2026-11-02 てじゃ） */
         o.SetActive(false);
