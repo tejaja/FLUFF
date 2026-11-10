@@ -29,7 +29,9 @@ public static class FuwaRackBridgeTest
     const float GearTh = 0.35f;
     const float HubY = 1.05f;                      // 羽根車の高さ
     const float ShaftX0 = XW - 1.5f, ShaftX1 = XP + 2f;  // 横の軸のはし（軸受け）
-    public static float ReturnTime = 12f, HoldTime = 2.5f;   // 全部引っこむまで（秒）・撃ってから戻り始めるまで
+    public static float ReturnTime = 12f, HoldTime = 2.5f;
+    static float Peek => 2f * Mathf.PI * MP;   // ふだん出ている長さ（ラックの歯2つぶん、約 0.63m）
+    const bool TipPosts = false;   // 先っぽの赤い柱（2026-11-08）。先のしましま＋ふだん少し出ているので、2026-11-10 からなし   // 全部引っこむまで（秒）・撃ってから戻り始めるまで
 
     static float BridgeTop => -BridgeDrop;
     static float GearY => BridgeTop - BridgeT - 0.25f - GearTh;   // ピニオン・ラックの下の面（橋の下にラックの板 0.25m）
@@ -137,10 +139,11 @@ public static class FuwaRackBridgeTest
         tt.spinPerShot = 170f; tt.maxSpin = 300f;   // 1発で羽根車 約 100°（橋 片側 約 1.2m）→ 3発くらいでつながる
         tt.startU = 0f;
         // 手前の橋：ピニオンの +z 側のラックは、ピニオンが反時計回り（u が +）だと −x。u を − にすると +x（谷へ）
-        tt.rack = near; tt.rackBase = Vector3.zero; tt.rackAxis = Vector3.right; tt.rackPerU = -PerU;
+        // 2026-11-10 てじゃ「伸びる橋も、最初からちょっぴりでてるかんじに」：ふだん（u = 0）でも Peek m 出ている。ラックの歯2つぶんなので歯車のかみ合いはそのまま
+        tt.rack = near; tt.rackBase = new Vector3(Peek, 0f, 0f); tt.rackAxis = Vector3.right; tt.rackPerU = -PerU;
         // 向こうの橋：ピニオンは −u で回る → u を − にすると −x（谷へ）
-        tt.rack2 = far; tt.rack2Base = new Vector3(Gap, 0f, 0f); tt.rack2Axis = Vector3.right; tt.rack2PerU = -PerU * KV;
-        tt.uMin = -Travel / PerU; tt.uMax = 0f;
+        tt.rack2 = far; tt.rack2Base = new Vector3(Gap - Peek, 0f, 0f); tt.rack2Axis = Vector3.right; tt.rack2PerU = -PerU * KV;
+        tt.uMin = -(Travel - Peek) / PerU; tt.uMax = 0f;
         tt.holdTime = HoldTime; tt.returnSpeed = (-tt.uMin) / ReturnTime;
         UdonSharpEditorUtility.CopyProxyToUdon(tt); FuwaStage2WaterTest.NoSync(tt);
         SetU(0f);
@@ -165,7 +168,12 @@ public static class FuwaRackBridgeTest
         // 2026-11-10 てじゃ「伸びる橋もいけるか」：木の板 → 動く橋の色のシマ（先から A/B）＋両はしの鉄の桁と真ちゅうのびょう（跳ね橋と同じ作り）
         int ns = Mathf.Max(1, Mathf.RoundToInt(HalfL / 1.2f));
         for (int k = 0; k < ns; k++)
-            FuwaTwinTableTest.PlateBox(b, "Visual" + k, new Vector3(dir * HalfL * (k + 0.5f) / ns, BridgeTop - BridgeT / 2f, 0f), new Vector3(HalfL / ns, BridgeT, BridgeW), k % 2 == 0 ? stripeA : stripeB);   // 縞鋼板
+        {
+            // 先（x=0）の HazardLen は黄色×黒のしましま（上の面と先の切り口）
+            float a0 = HalfL * k / ns, a1 = HalfL * (k + 1) / ns, ah = k == 0 ? FuwaTwinTableTest.HazardLen : a0;
+            FuwaTwinTableTest.PlateBox(b, "Visual" + k, new Vector3(dir * (ah + a1) / 2f, BridgeTop - BridgeT / 2f, 0f), new Vector3(a1 - ah, BridgeT, BridgeW), k % 2 == 0 ? stripeA : stripeB);   // 縞鋼板
+            if (k == 0) FuwaTwinTableTest.PlateBox(b, "VisualTip", new Vector3(dir * ah / 2f, BridgeTop - BridgeT / 2f, 0f), new Vector3(ah, BridgeT, BridgeW), stripeA, 1, default, FuwaTwinTableTest.HazardMat(), 0, -dir);
+        }
         float gx0 = dir * 0.06f, gx1 = dir * HalfL;   // 先の柱のうけ（はばの外、先から 3cm まで）をよける
         foreach (float sg in new[] { -1f, 1f })
         {
@@ -187,6 +195,7 @@ public static class FuwaRackBridgeTest
         Prim(PrimitiveType.Cube, b, "RackPlate", new Vector3(rackC, (top + bot) / 2f, pitchZ + hf + 0.15f), new Vector3(rackLen, bot - top + 0.01f, 0.3f), dark);
         // 先っぽの目印の柱（2026-11-08 てじゃ「橋が目線から見えづらい」）：床より低い橋でも、どこまで出ているか遠くから分かる。当たりなし
         //  橋の先から少し谷の側（引っこんでも床にささらない）、橋の幅のすぐ外。手前の橋は +z・向こうは −z（まん中で合った時にすれちがう）
+        if (!TipPosts) return b;
         var postM = FuwaGearTest.Mat("RackBridge_TipPost", new Color(0.88f, 0.34f, 0.27f));
         float pz = (dir < 0f ? 1f : -1f) * (BridgeW / 2f + 0.08f), px = -dir * 0.12f, py0 = BridgeTop - BridgeT, py1 = 1.7f;
         Prim(PrimitiveType.Cylinder, b, "TipPost", new Vector3(px, (py0 + py1) / 2f, pz), new Vector3(0.14f, (py1 - py0) / 2f, 0.14f), postM);

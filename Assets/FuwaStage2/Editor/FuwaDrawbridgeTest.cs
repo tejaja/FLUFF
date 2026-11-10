@@ -317,7 +317,11 @@ public static class FuwaDrawbridgeTest
         // leaf の local：X＝橋の長さ、Y＝幅、Z＝厚み（上の面が +0.2）
         float top = 0.2f, tk = 0.6f; int n = Mathf.Max(1, Mathf.RoundToInt(BridgeLen / 1.2f));
         for (int k = 0; k < n; k++)
-            FuwaTwinTableTest.PlateBox(leaf, "Visual" + k, new Vector3(-BridgeLen / 2f + BridgeLen * (k + 0.5f) / n, 0f, top - tk / 2f), new Vector3(BridgeLen / n, PathW, tk), k % 2 == 0 ? roadB : roadA, 2);   // 縞鋼板（上の面＝leaf の +z）
+        {
+            float x0 = -BridgeLen / 2f + BridgeLen * k / n, x1 = -BridgeLen / 2f + BridgeLen * (k + 1) / n, xh = k == n - 1 ? x1 - FuwaTwinTableTest.HazardLen : x1;
+            FuwaTwinTableTest.PlateBox(leaf, "Visual" + k, new Vector3((x0 + xh) / 2f, 0f, top - tk / 2f), new Vector3(xh - x0, PathW, tk), k % 2 == 0 ? roadB : roadA, 2);   // 縞鋼板（上の面＝leaf の +z）
+            if (k == n - 1) FuwaTwinTableTest.PlateBox(leaf, "VisualTip", new Vector3((xh + x1) / 2f, 0f, top - tk / 2f), new Vector3(x1 - xh, PathW, tk), k % 2 == 0 ? roadB : roadA, 2, default, FuwaTwinTableTest.HazardMat(), 0, 1f);   // 先っぽのしましま
+        }
         float gw = 0.14f, gd = 0.86f, gx0 = -BridgeLen / 2f + 0.06f, gx1 = BridgeLen / 2f;
         foreach (float sg in new[] { -1f, 1f })
         {

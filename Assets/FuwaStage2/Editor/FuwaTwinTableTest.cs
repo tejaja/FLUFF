@@ -39,8 +39,11 @@ public static class FuwaTwinTableTest
     //  uv はメートル（_MainTex のタイリングで模様の大きさ）。上の面だけ uv が動き、横・下の面は uv (0,0)（模様のない所）
     public static float PlateTile = 3f, PlateBump = 1.2f;   // 2026-11-10 模様を本物の縞鋼板の並び（山の先がとなりの山の横腹を向く）に作り直して 3 に   // 1m あたりの模様のくり返し（2×2 の山のかたまり）
     //  箱：center・size は parent の local。up＝上の面の向きの軸（1=y, 2=z）。uvOrigin＝上の面の uv をそろえる基準（parent の local の位置を uv にする）
-    public static Transform PlateBox(Transform parent, string name, Vector3 center, Vector3 size, Material m, int up = 1, Vector2 uvOff = default)
+    public static Transform PlateBox(Transform parent, string name, Vector3 center, Vector3 size, Material m, int up = 1, Vector2 uvOff = default) => PlateBox(parent, name, center, size, m, up, uvOff, null, -1, 0f);
+    // hazard：上の面と、endAxis の endSign 側の面（先の切り口）をこの材質に（2つ目のサブメッシュ、uv はその面の上のメートル）
+    public static Transform PlateBox(Transform parent, string name, Vector3 center, Vector3 size, Material m, int up, Vector2 uvOff, Material hazard, int endAxis, float endSign)
     {
+        var t2 = new System.Collections.Generic.List<int>();
         int a0 = 0, a1 = up == 1 ? 2 : 1;   // 上の面の uv に使う2つの軸
         var v = new System.Collections.Generic.List<Vector3>(); var nr = new System.Collections.Generic.List<Vector3>(); var uv = new System.Collections.Generic.List<Vector2>(); var t = new System.Collections.Generic.List<int>();
         var h = size / 2f;
@@ -55,18 +58,36 @@ public static class FuwaTwinTableTest
                     var p = Vector3.zero; p[ax] = sg * h[ax]; p[u] = (k == 1 || k == 2 ? 1 : -1) * h[u]; p[w] = (k >= 2 ? 1 : -1) * h[w];
                     v.Add(p); nr.Add(nn);
                     var wp = center + p;
-                    uv.Add(ax == up && sg > 0 ? new Vector2(wp[a0], wp[a1]) + uvOff : Vector2.zero);
+                    bool isEnd = hazard && ax == endAxis && sg == endSign;
+                    int e0 = endAxis == up ? 0 : (3 - endAxis - up), e1 = up;   // 先の切り口の uv：横の軸と上の軸
+                    uv.Add(ax == up && sg > 0 ? new Vector2(wp[a0], wp[a1]) + uvOff : isEnd ? new Vector2(wp[e0], wp[e1]) : Vector2.zero);
                 }
                 int[] q = { b, b + 1, b + 2, b, b + 2, b + 3 };
                 if (Vector3.Dot(Vector3.Cross(v[b + 1] - v[b], v[b + 2] - v[b]), nn) < 0f) q = new[] { b, b + 2, b + 1, b, b + 3, b + 2 };
-                t.AddRange(q);
+                bool hz = hazard && ((ax == up && sg > 0) || (ax == endAxis && sg == endSign));
+                (hz ? t2 : t).AddRange(q);
             }
         string mn = "Plate_" + name + "_" + string.Join("_", new[] { center.x, center.y, center.z, size.x, size.y, size.z }.Select(x => Mathf.RoundToInt(x * 100f).ToString())) + "_u" + up;
-        var mesh = new Mesh { name = mn }; mesh.SetVertices(v); mesh.SetNormals(nr); mesh.SetUVs(0, uv); mesh.SetTriangles(t, 0); mesh.RecalculateBounds();
+        if (hazard) mn += "_hz" + endAxis + (endSign > 0 ? "p" : "n");
+        var mesh = new Mesh { name = mn }; mesh.SetVertices(v); mesh.SetNormals(nr); mesh.SetUVs(0, uv);
+        mesh.subMeshCount = hazard ? 2 : 1; mesh.SetTriangles(t, 0); if (hazard) mesh.SetTriangles(t2, 1); mesh.RecalculateBounds();
         mesh = SaveMeshUV(mesh);
         var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = center;
-        g.AddComponent<MeshFilter>().sharedMesh = mesh; g.AddComponent<MeshRenderer>().sharedMaterial = m;
+        g.AddComponent<MeshFilter>().sharedMesh = mesh;
+        if (hazard) g.AddComponent<MeshRenderer>().sharedMaterials = new[] { m, hazard }; else g.AddComponent<MeshRenderer>().sharedMaterial = m;
         return g.transform;
+    }
+    // 先っぽの黄色×黒のななめのしましま（2026-11-10 てじゃ「各金属の橋の先端に、黄色と黒の斜めしましまつけるとか」）。uv はメートル
+    public static float HazardLen = 0.45f;
+    public static Material HazardMat()
+    {
+        string path = "Assets/FuwaStage2/Materials/Course2_4_Hazard.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m) { m = new Material(Shader.Find("FuwaCourse/ToonLit")); AssetDatabase.CreateAsset(m, path); }
+        m.SetColor("_Color", Color.white);
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/HazardStripes.png");
+        if (tex) { m.SetTexture("_MainTex", tex); m.SetTextureScale("_MainTex", Vector2.one * 3f); }
+        EditorUtility.SetDirty(m); return m;
     }
     public static Mesh SaveMeshUV(Mesh m)
     {
@@ -330,7 +351,9 @@ public static class FuwaTwinTableTest
         for (int k = 0; k < n; k++)
         {
             bool isA = (k % 2 == 0) != lastArmA;
-            PlateBox(br, "Visual" + k, new Vector3(-len / 2f + len * (k + 0.5f) / n, 0f, 0f), new Vector3(len / n, 0.4f, BridgeW), isA ? roadA : roadB, 1, new Vector2(r0 + len / 2f, 0f)).gameObject.layer = 11;   // uv は床の上の道の腕とそろえる
+            float x0 = -len / 2f + len * k / n, x1 = -len / 2f + len * (k + 1) / n, xh = k == n - 1 ? x1 - HazardLen : x1;
+            PlateBox(br, "Visual" + k, new Vector3((x0 + xh) / 2f, 0f, 0f), new Vector3(xh - x0, 0.4f, BridgeW), isA ? roadA : roadB, 1, new Vector2(r0 + len / 2f, 0f)).gameObject.layer = 11;   // uv は床の上の道の腕とそろえる
+            if (k == n - 1) PlateBox(br, "VisualTip", new Vector3((xh + x1) / 2f, 0f, 0f), new Vector3(x1 - xh, 0.4f, BridgeW), isA ? roadA : roadB, 1, new Vector2(r0 + len / 2f, 0f), HazardMat(), 0, 1f).gameObject.layer = 11;   // 先っぽのしましま
         }
     }
 
