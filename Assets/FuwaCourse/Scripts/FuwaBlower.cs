@@ -154,11 +154,12 @@ public class FuwaBlower : UdonSharpBehaviour
     [Tooltip("右手からのずらし（視線基準: x=右 y=上 z=前）")]
     public Vector3 desktopHandOffset = Vector3.zero;
     // 2026-11-11 てじゃ「デスクトップやスマホとかで銃もって走った時にブレないように（画面上で手からはズレてもいい）」：
-    //  自分が持っている時は、手の位置を「頭から見た位置」として、止まっている時だけゆっくり覚え直す。走っている間は覚えた位置に固定（走りの腕ふりで揺れない）
+    //  自分が持っている時は、持った直後（desktopGrabSnap 秒）の手の位置を「頭から見た位置」として覚えて、あとはそこに固定（走りの腕ふりで揺れない）。
+    //  最初は止まっている時だけゆっくり覚え直していたが、向きを変えた時に体が遅れて回るのを拾って、ぬるっとついてくる感じになった
     //  他人の銃は今までどおり手のボーンについていく（見ている人には手から離れて見えないように）
-    [Tooltip("自分の銃（デスクトップ・スマホ）：止まっている時に手の位置を覚え直す速さ")]
-    public float desktopSettleSpeed = 4f;
-    private Vector3 _dtRel; private bool _dtRelOk;
+    [Tooltip("持った直後この秒数は、手の位置にそのままついていく（腕を上げる動きの途中から覚えると、ぬるっと遅れてついてきた）")]
+    public float desktopGrabSnap = 0.6f;
+    private Vector3 _dtRel; private bool _dtRelOk; private float _dtGrabTime;
 
     [Tooltip("持ち主のアバターの大きさ（目の高さ）に合わせて銃の大きさを変える。風の届く距離や強さは変えない")]
     public bool autoScale = true;
@@ -552,9 +553,8 @@ public class FuwaBlower : UdonSharpBehaviour
                     {
                         VRCPlayerApi.TrackingData hd = holder.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
                         Vector3 rel = Quaternion.Inverse(hd.rotation) * (palm - hd.position);
-                        bool still = holder.GetVelocity().sqrMagnitude < 0.04f && holder.IsPlayerGrounded();
-                        if (!_dtRelOk) { _dtRel = rel; _dtRelOk = true; }
-                        else if (still) _dtRel = Vector3.Lerp(_dtRel, rel, 1f - Mathf.Exp(-Time.deltaTime * desktopSettleSpeed));
+                        if (!_dtRelOk) { _dtRel = rel; _dtRelOk = true; _dtGrabTime = Time.time; }
+                        else if (Time.time - _dtGrabTime < desktopGrabSnap) _dtRel = rel;   // そのあとは固定（走っても、向きを変えても画面の同じ所）
                         palm = hd.position + hd.rotation * _dtRel;
                     }
                     basePos = palm + head * (desktopHandOffset * _autoScale);
