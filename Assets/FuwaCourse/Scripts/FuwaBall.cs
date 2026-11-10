@@ -674,6 +674,9 @@ public class FuwaBall : UdonSharpBehaviour
     public bool webCatch = true;
     [Range(0f, 1f)] public float webFullCharge = 0.99f;
     public float webPopSpeed = 2.6f, webPopUp = 1.4f;
+    [Tooltip("2026-11-10 てじゃ「炎の消火みたいに、弱でも何回か撃ったらとれてもいいかも」：一発ごとに溜めに応じて「はがれ度」がたまり、1 ではがれる。ノンチャ1発の分・1秒に減る分")]
+    public float webWeakHit = 0.34f, webDecay = 0.2f;
+    private float _webLoose;
     private float _shotCharge = -1f;
     private float _wiggleStart = -10f;
     // 銃（FuwaBlower）が Blow の直前に、その一発の溜め（0〜1）を知らせる
@@ -683,7 +686,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void Stick(float seconds)
     {
         if (_waiting || _finished || _resetAt > 0f || _stuck) return;
-        _stuck = true;
+        _stuck = true; _webLoose = 0f;
         _rb.velocity = Vector3.zero;
         _rb.angularVelocity = Vector3.zero;
         _rb.isKinematic = true;
@@ -698,10 +701,12 @@ public class FuwaBall : UdonSharpBehaviour
     private void WebShot(Vector3 velocityChange)
     {
         float charge = _shotCharge; _shotCharge = -1f;
-        if (charge >= webFullCharge)
+        if (charge < 0f) charge = 0f;
+        _webLoose += charge >= webFullCharge ? 1f : Mathf.Lerp(webWeakHit, 1f, charge);
+        if (_webLoose >= 0.999f)
         {
             // はがれる：巣と反対（来た側）へポーン
-            _stuck = false;
+            _stuck = false; _webLoose = 0f;
             transform.position = _stuckPos;
             _rb.isKinematic = false;
             Vector3 away = -_anchorDir; if (away.sqrMagnitude < 0.01f) away = Vector3.up;
@@ -810,7 +815,11 @@ public class FuwaBall : UdonSharpBehaviour
     private void UpdateStuckShake()
     {
         float k = Mathf.Clamp01((Time.time - _stuckStart) / _stuckDuration);
-        if (webCatch && !_softStick) k = 0.25f;   // 破裂しないので、ずっと軽くプルプル
+        if (webCatch && !_softStick)
+        {
+            k = 0.25f + 0.6f * _webLoose;   // 破裂しないので、ずっと軽くプルプル。はがれかけるほど大きく
+            _webLoose = Mathf.Max(0f, _webLoose - webDecay * Time.deltaTime);
+        }
         float amp = stuckShakeMax * (0.15f + 0.85f * k * k);
         // 撃たれてゆれた直後は大きくゆさゆさ（巣ごと引っぱられる感じ）
         float wt = Time.time - _wiggleStart;
