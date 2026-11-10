@@ -1,3 +1,4 @@
+using System.Linq;
 using UdonSharp;
 using UdonSharpEditor;
 using UnityEditor;
@@ -44,6 +45,9 @@ public static class FuwaDrawbridgeTest
         var floorM = FuwaGearTest.Mat("GearTest_Floor", new Color(0.55f, 0.58f, 0.63f));
         var blade = FuwaGearTest.Mat("GearTest_Blade", new Color(0.95f, 0.93f, 0.88f));
         var mark = FuwaGearTest.Mat("GearTest_Mark", new Color(0.95f, 0.72f, 0.25f));
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var roadA = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_PathA.mat") ?? FuwaGearTest.Mat("DrawbridgeTest_RoadA", new Color(0.60f, 0.56f, 0.52f));
+        var roadB = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_PathB.mat") ?? FuwaGearTest.Mat("DrawbridgeTest_RoadB", new Color(0.40f, 0.36f, 0.33f));
         int pathLayer = 11;
 
         var ts = new Transform[4];
@@ -54,35 +58,37 @@ public static class FuwaDrawbridgeTest
             go.transform.SetParent(root, false);
             bool front = g == a || g == b;
             go.transform.localPosition = new Vector3(g.c.x, front ? Front : 0f, g.c.y);
-            Vector2[] outline;
+            Mesh mesh;
             if (g == d)
             {
                 // 扇形：橋が 0〜90° 動く間にかみ合う所（C の向き 200° から、ローカルで 110〜200°）＋ゆとり
-                outline = FuwaGearTest.GearOutline(ZD, 10, Mod, 96f * Mathf.Deg2Rad, 214f * Mathf.Deg2Rad);
+                // 2026-11-10 てじゃ「跳ね橋あたりもクオリティ上げたい」→ のっぺりした板をやめて、歯のふち（帯）＋スポーク＋こしき
+                mesh = FuwaGearTest.SaveMesh(SectorRim(FuwaGearTest.GearOutline(ZD, 10, Mod, SecA0 * Mathf.Deg2Rad, SecA1 * Mathf.Deg2Rad), Th, RimW, "Bridge_D_z60_Rim"));
             }
-            else outline = FuwaGearTest.GearOutline(g.z, 10, Mod);
-            var mesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(outline, Th, "Bridge_" + g.name, Vector2.zero));
+            else mesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(g.z, 10, Mod), Th, "Bridge_" + g.name, Vector2.zero));
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterial = front ? light : dark;
             ts[i] = go.transform;
             // 回ってるのがわかる印
-            var mk = Prim(PrimitiveType.Cylinder, go.transform, "Mark", new Vector3(Mod * g.z / 2f - 1.8f * Mod, Th + 0.01f, 0f), new Vector3(0.3f, 0.01f, 0.3f), mark);
+            if (g != d) Prim(PrimitiveType.Cylinder, go.transform, "Mark", new Vector3(Mod * g.z / 2f - 1.8f * Mod, Th + 0.01f, 0f), new Vector3(0.3f, 0.01f, 0.3f), mark);
+            else SectorInside(go.transform, dark, brass);
         }
         // 軸
-        Prim(PrimitiveType.Cylinder, root, "Axle_BC", new Vector3(b.c.x, Front + Th / 2f, b.c.y) + Vector3.zero, new Vector3(0.7f, (Front + Th) / 2f + 0.2f, 0.7f), axleM).localPosition = new Vector3(b.c.x, (Front + Th) / 2f, b.c.y);
-        Prim(PrimitiveType.Cylinder, root, "Axle_A", new Vector3(a.c.x, (Front + 1.8f) / 2f, a.c.y), new Vector3(0.5f, (1.8f - Front) / 2f + 0.1f, 0.5f), axleM).localPosition = new Vector3(a.c.x, (Front + 1.8f) / 2f, a.c.y);
-        // 橋のつけ根の軸（D から橋まで、道の幅いっぱい）
-        Prim(PrimitiveType.Cylinder, ts[3], "Axle_D", new Vector3(0f, (PathNear + PathW) / 2f, 0f), new Vector3(0.6f, (PathNear + PathW) / 2f + 0.2f, 0.6f), axleM);
+        // 軸（2026-11-10 支えの枠までのばす：BC はうしろの梁〜前のうで、A は歯車〜羽根車）
+        Prim(PrimitiveType.Cylinder, root, "Axle_BC", new Vector3(b.c.x, (BackY0 + ArmY1 + 0.04f) / 2f, b.c.y), new Vector3(0.7f, (ArmY1 + 0.04f - BackY0) / 2f, 0.7f), axleM);
+        Prim(PrimitiveType.Cylinder, root, "Axle_A", new Vector3(a.c.x, (Front - 0.05f + WmY) / 2f, a.c.y), new Vector3(0.5f, (WmY - Front + 0.05f) / 2f, 0.5f), axleM);
+        // 橋のつけ根の軸：うしろの梁 → 橋の手前のはしの桁、橋の向こうのはしの桁 → 前の軸受け（2026-11-10 道の幅いっぱいの軸は道の上に半分出て段に見えた → 道の幅の所はなし、橋は両はしの桁で軸にのる）
+        float gIn = PathNear - 0.14f, gOut = PathNear + PathW + 0.14f;
+        Prim(PrimitiveType.Cylinder, ts[3], "Axle_D", new Vector3(0f, (BackY0 + gIn + 0.1f) / 2f, 0f), new Vector3(0.6f, (gIn + 0.1f - BackY0) / 2f, 0.6f), axleM);
+        Prim(PrimitiveType.Cylinder, ts[3], "Axle_DFront", new Vector3(0f, (gOut - 0.1f + FrontBearY1 + 0.04f) / 2f, 0f), new Vector3(0.6f, (FrontBearY1 + 0.04f - gOut + 0.1f) / 2f, 0.6f), axleM);
 
         // 橋（D の子、D = 0° でローカル +X へのびる。上の面が軸の高さ）
         var leaf = new GameObject("BridgeLeaf");
         leaf.transform.SetParent(ts[3], false);
         leaf.transform.localPosition = new Vector3(BridgeLen / 2f, PathNear + PathW / 2f, -0.2f);
         leaf.layer = pathLayer;
-        var lv = Prim(PrimitiveType.Cube, leaf.transform, "Visual", Vector3.zero, new Vector3(BridgeLen, PathW, 0.4f), wood);
         var lc = leaf.AddComponent<BoxCollider>(); lc.size = new Vector3(BridgeLen, PathW, 0.4f);
-        // 橋の板の筋（回ってるのが見えるように）
-        for (int k = 1; k < 8; k++) Prim(PrimitiveType.Cube, leaf.transform, "Plank" + k, new Vector3(-BridgeLen / 2f + k * BridgeLen / 8f, 0f, 0.2f), new Vector3(0.06f, PathW + 0.004f, 0.02f), axleM);   // 板の横の面が橋の横の面と同じだった（1cmの帯でZファイト、2026-11-10）→ 2mmずつはみ出す
+        LeafLooks(leaf.transform, roadA, roadB, dark, brass);
 
         // 道（手前の床）：橋の手前と向こう
         Floor(root, "PathNear", -NearLen, 0f, floorM, pathLayer);
@@ -95,14 +101,14 @@ public static class FuwaDrawbridgeTest
         wmGo.layer = 2;
         var sc = wmGo.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 1.2f;
         var rotor = new GameObject("Rotor").transform; rotor.SetParent(wmGo.transform, false);
-        Prim(PrimitiveType.Cylinder, rotor, "Hub", Vector3.zero, new Vector3(0.45f, 0.12f, 0.45f), axleM);
-        for (int k = 0; k < 4; k++)
+        // 2026-11-10 白い板4枚 → ラック・ふたごの台と同じ羽根車（目印の柱は道の方へ出るのでなし）。横向きの軸の水車になる
         {
-            var bl = Prim(PrimitiveType.Cube, rotor, "Blade" + k, Vector3.zero, new Vector3(1.05f, 0.05f, 0.42f), blade);
-            float ang = k * 90f;
-            bl.localRotation = Quaternion.Euler(0f, -ang, 0f) * Quaternion.Euler(18f, 0f, 0f);   // ひねり（風を受ける角度）
-            bl.localPosition = Quaternion.Euler(0f, -ang, 0f) * new Vector3(0.7f, 0f, 0f);
+            var imp = new GameObject("Impeller").transform; imp.SetParent(rotor, false); imp.localPosition = new Vector3(0f, WmY - 1.8f, 0f); imp.localScale = Vector3.one * WmScale;
+            FuwaTurnTableTest.Impeller(imp, brass);
+            foreach (var x in imp.Cast<Transform>().Where(x => x.name.StartsWith("Mast")).ToArray()) Object.DestroyImmediate(x.gameObject);
         }
+
+        Supports(root, a, c, dark, light, brass);
 
         // 回す人（自分の画面だけ）
         var wm = UdonSharpUndo.AddComponent<FuwaWindmill>(wmGo);
@@ -235,6 +241,134 @@ public static class FuwaDrawbridgeTest
     {
         var old = GameObject.Find("DrawbridgeTest");
         if (old) Object.DestroyImmediate(old);
+    }
+
+    // ===== 2026-11-10 てじゃ「跳ね橋あたりもクオリティ上げたい」→ 全部（橋の板・扇形の歯車・軸受け・羽根車・支えの枠）=====
+    //  層（ローカル Y）：うしろの梁 BackY0〜BackY1 ／ 奥の段 D・C 0〜Th ／ 手前の段 A・B Front〜Front+Th ／ 前のうで ArmY0〜ArmY1 ／ 羽根車 WmY のまわり ／ 道 PathNear〜
+    //  A の軸はうしろへのばさない（D の扇形が回る範囲を通る）。A は前のうでで B・C の軸に、B・C の軸はうしろの梁で D の軸に、D の軸は道の床の横の軸受けに
+    const float SecA0 = 96f, SecA1 = 214f, RimW = 0.55f;
+    const float BackY0 = -0.5f, BackY1 = -0.16f, ArmY0 = 1.17f, ArmY1 = 1.37f, WmY = 1.78f, WmScale = 1.1f;
+    const float BackBearY0 = 1.36f, BackBearY1 = 1.72f, FrontBearY0 = 6.08f, FrontBearY1 = 6.44f;
+
+    // 扇形の歯のふち：歯の輪郭（中心の点はのぞく）と、その内がわ RimW の弧のあいだの帯。表・裏・歯の側面・内がわの弧・両はし
+    static Mesh SectorRim(Vector2[] o0, float h, float rimW, string name)
+    {
+        int n = o0.Length - 1; var o = new Vector2[n]; System.Array.Copy(o0, o, n);
+        float rf = float.MaxValue; foreach (var p in o) rf = Mathf.Min(rf, p.magnitude);
+        float rIn = rf - rimW;
+        var inn = new Vector2[n]; for (int i = 0; i < n; i++) inn[i] = o[i].normalized * rIn;
+        var v = new System.Collections.Generic.List<Vector3>(); var t = new System.Collections.Generic.List<int>();
+        void Tri(int a, int b, int c, Vector3 want) { if (Vector3.Dot(Vector3.Cross(v[b] - v[a], v[c] - v[a]), want) < 0f) { int q = b; b = c; c = q; } t.Add(a); t.Add(b); t.Add(c); }
+        Vector3 P3(Vector2 q, float y) => new Vector3(q.x, y, q.y);
+        foreach (float y in new[] { h, 0f })
+        {
+            var want = y > 0f ? Vector3.up : Vector3.down;
+            int bo = v.Count; for (int i = 0; i < n; i++) v.Add(P3(o[i], y));
+            int bi = v.Count; for (int i = 0; i < n; i++) v.Add(P3(inn[i], y));
+            for (int i = 0; i < n - 1; i++) { Tri(bi + i, bo + i, bo + i + 1, want); Tri(bi + i, bo + i + 1, bi + i + 1, want); }
+        }
+        // 歯の側面（角は分ける）
+        for (int i = 0; i < n - 1; i++)
+        {
+            var e = o[i + 1] - o[i]; var mid = (o[i] + o[i + 1]) / 2f; var nn = new Vector3(e.y, 0f, -e.x); if (Vector2.Dot(new Vector2(nn.x, nn.z), mid) < 0f) nn = -nn;
+            int b0 = v.Count; v.Add(P3(o[i], 0f)); v.Add(P3(o[i + 1], 0f)); v.Add(P3(o[i + 1], h)); v.Add(P3(o[i], h));
+            Tri(b0, b0 + 1, b0 + 2, nn); Tri(b0, b0 + 2, b0 + 3, nn);
+        }
+        // 内がわの弧（なめらか）
+        {
+            int b0 = v.Count; for (int i = 0; i < n; i++) { v.Add(P3(inn[i], 0f)); v.Add(P3(inn[i], h)); }
+            for (int i = 0; i < n - 1; i++) { var mid = (inn[i] + inn[i + 1]) / 2f; var nn = -new Vector3(mid.x, 0f, mid.y); int a = b0 + 2 * i; Tri(a, a + 2, a + 3, nn); Tri(a, a + 3, a + 1, nn); }
+        }
+        // 両はし
+        foreach (int i in new[] { 0, n - 1 })
+        {
+            var dir = o[i].normalized; var tg = new Vector3(-dir.y, 0f, dir.x) * (i == 0 ? -1f : 1f);
+            int b0 = v.Count; v.Add(P3(inn[i], 0f)); v.Add(P3(o[i], 0f)); v.Add(P3(o[i], h)); v.Add(P3(inn[i], h));
+            Tri(b0, b0 + 1, b0 + 2, tg); Tri(b0, b0 + 2, b0 + 3, tg);
+        }
+        var m = new Mesh { name = name }; m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
+    }
+
+    // 扇形の内がわ：こしき（真ちゅうのボルトつき）と、こしき → ふちのスポーク（両はしと、まん中2本）。厚みは歯車より少しうすく（表の面が重ならない）
+    static void SectorInside(Transform g, Material dark, Material brass)
+    {
+        float r = Mod * ZD / 2f, rIn = r - 1.25f * Mod - RimW, hubR = 1.15f;
+        var hub = Prim(PrimitiveType.Cylinder, g, "SectorHub", new Vector3(0f, Th / 2f, 0f), new Vector3(2f * hubR, Th / 2f + 0.08f, 2f * hubR), dark);
+        Prim(PrimitiveType.Cylinder, g, "SectorHubCap", new Vector3(0f, Th + 0.1f, 0f), new Vector3(1.3f, 0.02f, 1.3f), brass);
+        for (int k = 0; k < 8; k++)
+        {
+            float a = k * 45f * Mathf.Deg2Rad;
+            Prim(PrimitiveType.Cylinder, g, "HubBolt" + k, new Vector3(Mathf.Cos(a) * 0.88f, Th + 0.1f, Mathf.Sin(a) * 0.88f), new Vector3(0.16f, 0.03f, 0.16f), brass);
+        }
+        float pitchDeg = 360f / ZD;
+        var angs = new[] { SecA0 + pitchDeg * 0.6f, Mathf.Lerp(SecA0, SecA1, 0.36f), Mathf.Lerp(SecA0, SecA1, 0.64f), SecA1 - pitchDeg * 0.6f };
+        float r0 = hubR - 0.1f, r1 = rIn + 0.12f, sw = 0.42f;
+        foreach (float ad in angs)
+        {
+            var dir = new Vector3(Mathf.Cos(ad * Mathf.Deg2Rad), 0f, Mathf.Sin(ad * Mathf.Deg2Rad));
+            var sp = Prim(PrimitiveType.Cube, g, "Spoke" + Mathf.RoundToInt(ad), dir * (r0 + r1) / 2f + new Vector3(0f, Th / 2f, 0f), new Vector3(r1 - r0, Th - 0.06f, sw), dark);
+            sp.localRotation = Quaternion.FromToRotation(Vector3.right, dir);
+        }
+    }
+
+    // 橋の板：道と同じシマ（道と同じ 0.6m の厚み、上の面はそのまま）＋両はしの鉄の桁（真ちゅうのびょう）＋裏の横の梁
+    static void LeafLooks(Transform leaf, Material roadA, Material roadB, Material dark, Material brass)
+    {
+        // leaf の local：X＝橋の長さ、Y＝幅、Z＝厚み（上の面が +0.2）
+        float top = 0.2f, tk = 0.6f; int n = Mathf.Max(1, Mathf.RoundToInt(BridgeLen / 1.2f));
+        for (int k = 0; k < n; k++)
+            Prim(PrimitiveType.Cube, leaf, "Visual" + k, new Vector3(-BridgeLen / 2f + BridgeLen * (k + 0.5f) / n, 0f, top - tk / 2f), new Vector3(BridgeLen / n, PathW, tk), k % 2 == 0 ? roadB : roadA);
+        float gw = 0.14f, gd = 0.86f, gx0 = -BridgeLen / 2f + 0.06f, gx1 = BridgeLen / 2f;
+        foreach (float sg in new[] { -1f, 1f })
+        {
+            float gy = sg * (PathW / 2f + gw / 2f);
+            Prim(PrimitiveType.Cube, leaf, "Girder" + (sg < 0 ? "L" : "R"), new Vector3((gx0 + gx1) / 2f, gy, top - gd / 2f), new Vector3(gx1 - gx0, gw, gd), dark);
+            int nr = Mathf.RoundToInt((gx1 - gx0) / 0.7f);
+            for (int k = 0; k < nr; k++)
+                foreach (float rz in new[] { top - 0.16f, top - gd + 0.16f })
+                {
+                    var rv = Prim(PrimitiveType.Cylinder, leaf, "Rivet", new Vector3(gx0 + (gx1 - gx0) * (k + 0.5f) / nr, gy + sg * (gw / 2f + 0.012f), rz), new Vector3(0.1f, 0.014f, 0.1f), brass);
+                    rv.localRotation = Quaternion.identity;   // 円柱の軸は Y（桁の外の面に垂直）
+                }
+        }
+        // つけ根の輪（桁の手前のはし、軸のはしをかくす。いっしょに回る）
+        foreach (float sg in new[] { -1f, 1f })
+        {
+            Prim(PrimitiveType.Cylinder, leaf, "HingeLug", new Vector3(-BridgeLen / 2f, sg * (PathW / 2f + gw / 2f), top), new Vector3(0.84f, gw / 2f, 0.84f), dark);
+            Prim(PrimitiveType.Cylinder, leaf, "HingeLugCap", new Vector3(-BridgeLen / 2f, sg * (PathW / 2f + gw + 0.006f), top), new Vector3(0.5f, 0.006f, 0.5f), brass);
+        }
+        for (int k = 0; k < 4; k++)
+            Prim(PrimitiveType.Cube, leaf, "CrossBeam" + k, new Vector3(-BridgeLen / 2f + BridgeLen * (k + 0.5f) / 4f, 0f, top - tk - 0.1f), new Vector3(0.22f, PathW, 0.2f), dark);
+    }
+
+    // 支え：橋のつけ根の軸受け2つ（道の床の横に腕で止める）、うしろの梁（D の軸 ↔ C の軸）、前のうで（C の軸 ↔ A の軸）
+    static void Supports(Transform root, FuwaGearTest.Gear a, FuwaGearTest.Gear c, Material dark, Material light, Material brass)
+    {
+        // 橋のつけ根の軸受け（x = 0、z = 0 のまわり）。腕は道の床（x < 0、z −0.6〜0）の横の面にあたる
+        foreach (var (y0, y1, floorY) in new[] { (BackBearY0, BackBearY1, PathNear), (FrontBearY0, FrontBearY1, PathNear + PathW) })
+        {
+            float yc = (y0 + y1) / 2f;
+            Prim(PrimitiveType.Cube, root, "HingeBearing", new Vector3(0f, yc, -0.015f), new Vector3(0.84f, y1 - y0, 0.87f), dark);
+            Prim(PrimitiveType.Cylinder, root, "HingeBearingCap", new Vector3(0f, yc, 0f), new Vector3(0.74f, (y1 - y0) / 2f + 0.01f, 0.74f), brass);   // 橋のつけ根の輪の金のふたとくっつかないよう、出っぱりは 1cm
+            float by0 = Mathf.Min(y0, floorY), by1 = Mathf.Max(y1, floorY);
+            Prim(PrimitiveType.Cube, root, "HingeBracket", new Vector3(-0.975f, (by0 + by1) / 2f, -0.55f), new Vector3(1.35f, by1 - by0, 0.2f), light);   // 橋の桁のつけ根の輪（半径 0.42）が回る所をよける
+        }
+        // うしろの梁：D の軸（0,0）と C の軸。両はしに丸いこしき
+        Vector2 pD = Vector2.zero, pC = c.c;
+        Beam(root, "BackBeam", pD, pC, (BackY0 + BackY1) / 2f, BackY1 - BackY0, 0.62f, light);
+        foreach (var q in new[] { pD, pC })
+            Prim(PrimitiveType.Cylinder, root, "BackBoss", new Vector3(q.x, (BackY0 + BackY1) / 2f, q.y), new Vector3(1.05f, (BackY1 - BackY0) / 2f + 0.03f, 1.05f), dark);
+        // 前のうで：C の軸 → A の軸（B・A の歯車の前、羽根車のうしろ）
+        Beam(root, "FrontArm", pC, a.c, (ArmY0 + ArmY1) / 2f, ArmY1 - ArmY0, 0.46f, light);
+        foreach (var q in new[] { pC, a.c })
+            Prim(PrimitiveType.Cylinder, root, "ArmBoss", new Vector3(q.x, (ArmY0 + ArmY1) / 2f, q.y), new Vector3(0.9f, (ArmY1 - ArmY0) / 2f + 0.03f, 0.9f), dark);
+    }
+    static void Beam(Transform root, string name, Vector2 p, Vector2 q, float y, float th, float w, Material m)
+    {
+        var d = q - p; var mid = (p + q) / 2f;
+        var b = Prim(PrimitiveType.Cube, root, name, new Vector3(mid.x, y, mid.y), new Vector3(d.magnitude, th, w), m);
+        b.localRotation = Quaternion.Euler(0f, -Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg, 0f);
     }
 
     static void Floor(Transform root, string name, float u0, float u1, Material m, int layer)

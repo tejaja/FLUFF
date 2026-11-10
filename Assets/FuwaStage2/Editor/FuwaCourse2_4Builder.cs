@@ -172,7 +172,11 @@ public static class FuwaCourse2_4Builder
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
+        // 動く物（跳ね橋の板・回転床の橋）のシマはまとめない（まとめると止まった1枚になって、動かなくなる）→ いったん見た目を止めて、ベベルのあとで戻す
+        var moving = root.GetComponentsInChildren<MeshRenderer>(true).Where(r => r.enabled && r.GetComponentsInParent<Transform>(true).Any(p => p.name == "BridgeLeaf" || p.name == "TableA" || p.name == "TableB")).ToList();
+        foreach (var r in moving) r.enabled = false;
         log.Append(" ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_4_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
+        foreach (var r in moving) if (r) r.enabled = true;
         return "[2–4] " + log + " ゴール " + goalAt.ToString("F1") + " 範囲 " + lb.min.ToString("F0") + "〜" + lb.max.ToString("F0");
     }
 
