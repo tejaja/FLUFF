@@ -1401,10 +1401,28 @@ public static class FuwaCourse2_3Builder
         float hb = bot.Average(x => x.y) - 0.15f; var cbot = new Vector3(c.x, hb, c.y);
         void Tri(Vector3 a, Vector3 b, Vector3 d, Vector3 want) { int k = v.Count; v.Add(a); v.Add(b); v.Add(d); if (Vector3.Dot(Vector3.Cross(b - a, d - a), want) >= 0f) t.AddRange(new[] { k, k + 1, k + 2 }); else t.AddRange(new[] { k, k + 2, k + 1 }); }
         var ear = EarClip(outline); var botIdx = new List<int>();
-        for (int e = 0; e + 2 < ear.Count; e += 3) Tri(top[ear[e]], top[ear[e + 1]], top[ear[e + 2]], Vector3.up);
-        // 底は、内側へよせた下のふち（bot）の形そのもので三角に分ける（上の面の分け方を使うと、よせた点で三角が裏返ってすき間が見えた）
-        var earB = EarClip(bot.Select(x => new Vector2(x.x, x.z)).ToList());
-        for (int e = 0; e + 2 < earB.Count; e += 3) { botIdx.Add(v.Count); Tri(bot[earB[e]], bot[earB[e + 1]], bot[earB[e + 2]], Vector3.down); }
+        // 底は上の面と同じ三角の分け方（ふちの辺が側面とぴったり合う＝すき間なし）。内側へよせた点で三角が裏返る所は、その点のよせ方を半分ずつ戻す
+        //  （2026-11-10 てじゃ「板の裏がジャギジャギ」「だいぶスキマあるかも」：前は裏返った三角からすき間が見えた。底だけ別に分けると点が落ちて穴があいた）
+        {
+            float Cr2(Vector3 a, Vector3 b2, Vector3 d) => (b2.x - a.x) * (d.z - a.z) - (b2.z - a.z) * (d.x - a.x);
+            var full = new Vector2[n]; for (int i = 0; i < n; i++) full[i] = new Vector2(bot[i].x, bot[i].z) - outline[i];
+            var k = Enumerable.Repeat(1f, n).ToArray();
+            for (int it = 0; it < 10; it++)
+            {
+                bool flip = false;
+                for (int e = 0; e + 2 < ear.Count; e += 3)
+                {
+                    int i0 = ear[e], i1 = ear[e + 1], i2 = ear[e + 2];
+                    float st = Cr2(top[i0], top[i1], top[i2]), sb = Cr2(bot[i0], bot[i1], bot[i2]);
+                    if (st * sb > 0f && Mathf.Abs(sb) > Mathf.Abs(st) * 0.05f) continue;
+                    if (Mathf.Abs(st) < 1e-6f) continue;   // 上の面でもつぶれている三角
+                    flip = true;
+                    foreach (int i in new[] { i0, i1, i2 }) { k[i] *= 0.5f; var q2 = outline[i] + full[i] * k[i]; bot[i] = new Vector3(q2.x, bot[i].y, q2.y); }
+                }
+                if (!flip) break;
+            }
+        }
+        for (int e = 0; e + 2 < ear.Count; e += 3) { Tri(top[ear[e]], top[ear[e + 1]], top[ear[e + 2]], Vector3.up); botIdx.Add(v.Count); Tri(bot[ear[e]], bot[ear[e + 1]], bot[ear[e + 2]], Vector3.down); }
         for (int i = 0; i < n; i++)
         {
             int j = (i + 1) % n;
