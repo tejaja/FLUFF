@@ -1072,6 +1072,8 @@ public static class FuwaCourse2_2Builder
         const string mp = "Assets/FuwaStage2/Materials/Stage2_2_VolcanoSteam.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (!mat) { mat = new Material(Shader.Find("FuwaCourse/SteamPuff")); mat.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaCourse/Textures/SteamPuffSheet.png"); AssetDatabase.CreateAsset(mat, mp); }
+        // 2026-11-10 てじゃ「近くで見えなくなるやつ、他の風系エフェクトに全部」→ 噴気孔の噴射・火種の上昇気流（HeatWisp）もカメラの近くで消える（火炎放射と同じ）
+        mat.SetFloat("_CamFadeNear", JetCamFadeNear); mat.SetFloat("_CamFadeFar", JetCamFadeFar); EditorUtility.SetDirty(mat);
         return mat;
     }
     // 道の面の向きに合わせる（坂の上で平らな物を置くと半分うまった）。道の当たりがまだ無い所は上向き
