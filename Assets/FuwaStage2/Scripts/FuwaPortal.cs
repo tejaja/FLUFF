@@ -18,8 +18,9 @@ public class FuwaPortal : UdonSharpBehaviour
     public FuwaBall ball;
     [Tooltip("ふわふわの半径（穴のふちに当たる分だけ内がわで判定）")]
     public float ballRadius = 0.35f;
-    [Tooltip("人を出す時、足が出口の面より最低これだけ前に出るように")]
-    public float footAhead = 0.35f;
+    [Tooltip("人を出す時、足が出口の面より最低これだけ前に出るように（0=押し出さない。出口の裏に見えない床がある時）")]
+    public float footAhead = 0f;
+    private Vector3 _pendingVel; private int _velFrames;
     [Header("ふわふわのうつし")]
     public MeshRenderer ghost;
     [Tooltip("ふわふわが出口の面をまたいでいる間、入口の手前に出ている分（2026-11-10 てじゃ「通る一瞬ふわふわが欠ける」）。ステンシルなし・入口の面の奥を切る")]
@@ -108,16 +109,20 @@ public class FuwaPortal : UdonSharpBehaviour
             float s = Side(head);
             if (_init && _prevHead > 0f && s <= 0f && InHole(head, 0f))
             {
-                Vector3 pos = p.GetPosition(), vel = p.GetVelocity();
-                Quaternion rot = p.GetRotation();
-                // 頭でくぐるので、足はまだ面の手前（出口では面の奥＝何もない所）にいる → 出口の面より footAhead m 前へ出す
-                Vector3 np = MapPoint(pos);
-                float fz = Vector3.Dot(np - exit.position, exit.forward);
-                if (fz < footAhead) np += exit.forward * (footAhead - fz);
-                p.TeleportTo(np, MapRot(rot), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, false);
-                p.SetVelocity(MapDir(vel));
+                // 2026-11-10 てじゃ「歩いてはいったときに一瞬カクっとなる」→ プレイスペースの原点ごと動かす（頭の位置・向きがぴったり続く）、勢いは次のフレームでもどす
+                Vector3 vel = p.GetVelocity();
+                VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
+                Vector3 no = MapPoint(o.position);
+                if (footAhead > 0f)
+                {
+                    float fz = Vector3.Dot(MapPoint(p.GetPosition()) - exit.position, exit.forward);
+                    if (fz < footAhead) no += exit.forward * (footAhead - fz);
+                }
+                p.TeleportTo(no, MapRot(o.rotation), VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, false);
+                _pendingVel = MapDir(vel); _velFrames = 2;
                 s = 1f;   // 向こうへ出たので、こちらの面の記録はもどす（出口の面は手前にいるのでくぐり返さない）
             }
+            else if (_velFrames > 0) { _velFrames--; p.SetVelocity(_pendingVel); }
             _prevHead = s;
         }
         if (_rb != null)

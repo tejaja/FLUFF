@@ -142,6 +142,10 @@ public static class FuwaPortalTest
         string mp = "Assets/FuwaStage2/Materials/Ruins_PortalMask_" + stencil + ".mat";
         var old = AssetDatabase.LoadAssetAtPath<Material>(mp); if (old) { old.CopyPropertiesFromMaterial(mm); old.shader = mm.shader; mm = old; } else AssetDatabase.CreateAsset(mm, mp);
         mr.sharedMaterial = mm; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+        // 面の裏の見えない床（当たりだけ）：くぐった時、足はまだ面の裏側に出る（頭でくぐるので）。2026-11-10 押し出しをやめて、ここに立つ
+        var back = new GameObject("PortalBackFloor"); back.transform.SetParent(p, false); back.layer = 0;
+        back.transform.localPosition = new Vector3(0f, -FloorTh / 2f, -0.6f);
+        back.AddComponent<BoxCollider>().size = new Vector3(2f * HalfW + 0.6f, FloorTh, 1.2f);
         return p;
     }
 
