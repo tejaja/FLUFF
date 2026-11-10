@@ -21,9 +21,10 @@ FLAT_Z = -99.0   # 底を平らにする高さ（2026-11-10 てじゃ「雲の�
 made = []
 for key, balls in LAYOUTS.items():
     mb = bpy.data.metaballs.new("CloudMB_" + key)
-    mb.resolution = 0.09; mb.render_resolution = 0.09; mb.threshold = 0.6
+    mb.resolution = 0.16; mb.render_resolution = 0.16;   # 2026-11-10 てじゃ「ポリ数おおくなってたりする？」→ 0.09（2〜2.4千頂点）から荒く
+    mb.threshold = 0.6
     for (x, y, z, r) in balls:
-        e = mb.elements.new(); e.co = (x, y, z); e.radius = r * 1.22; e.stiffness = 2.0
+        e = mb.elements.new(); e.co = (x, y, z); e.radius = r * 1.32; e.stiffness = 2.0   # 「もうちょいまるよりで」→ 玉をすこし大きく（1.22 から）
     mo = bpy.data.objects.new("CloudMBObj_" + key, mb); scn.collection.objects.link(mo)
     bpy.context.view_layer.update()
     dg = bpy.context.evaluated_depsgraph_get()
