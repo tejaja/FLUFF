@@ -2173,7 +2173,7 @@ public static class FuwaCourse2_4Builder
     }
 
     // ①→② 窓のある歯車3枚（24・18・24枚）。かみ合う所で次へ乗り移る。窓が道の上に来たら落ちる
-    public static float HoleSpeed = 0.35f;
+    public static float HoleSpeed = 0.35f, HoleHub = 0.28f, HoleRim = 0.22f, HoleHalfMid = 64f, HoleHalfOut = 56f;
     static void HoleGears()
     {
         var g = GimmickRoot("HoleGears"); const float H = 0.5f;
@@ -2189,8 +2189,9 @@ public static class FuwaCourse2_4Builder
         for (int i = 0; i < gs.Count; i++)
         {
             var q = gs[i]; float r = PM * q.z / 2f, rf = r - 1.25f * PM;
-            var wins = i == 1 ? new[] { (0f, 50f), (180f, 50f) } : new[] { (30f, 45f), (210f, 45f) };
-            var mesh = WindowGear(q.z, PM, H, 0.45f, rf - 0.45f, wins, "PathGear_Hole_z" + q.z + "_" + i, 8, true);
+            // 2026-11-10 てじゃ「歯車穴、ちいさすぎて落ちないかも、特にまんなかのやつ」→ 穴を大きく（こしき 0.45→HoleHub、ふちの残り 0.45→HoleRim、角度も広く）
+            var wins = i == 1 ? new[] { (0f, HoleHalfMid), (180f, HoleHalfMid) } : new[] { (30f, HoleHalfOut), (210f, HoleHalfOut) };
+            var mesh = WindowGear(q.z, PM, H, HoleHub, rf - HoleRim, wins, "PathGear_Hole_z" + q.z + "_" + i, 8, true);
             var t = CwGear(g, q.name, new Vector3(q.c.x, -H, q.c.y), Vector3.up, mesh, i == 1 ? bronzeM : darkM, true);
             t.GetComponent<MeshRenderer>().sharedMaterials = new[] { i == 1 ? bronzeM : darkM, cutM };
             AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg);
