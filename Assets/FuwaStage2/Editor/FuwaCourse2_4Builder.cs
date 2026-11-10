@@ -528,6 +528,19 @@ public static class FuwaCourse2_4Builder
         return SaveMesh(m.name, v, t);
     }
 
+    // 鉄の台：板（こい鉄）＋四すみの真ちゅうのボルト（2026-11-10 砂糖ポンプの下の木の板をやめた）
+    static void SteelBed(Transform F, string name, Vector3 c, Vector3 size)
+    {
+        TBox(F, name, c, size, cwDark, false);
+        float bx = size.x / 2f - 0.09f, bz = size.z / 2f - 0.09f;
+        foreach (float sx in new[] { -1f, 1f }) foreach (float sz in new[] { -1f, 1f })
+        {
+            var b = GameObject.CreatePrimitive(PrimitiveType.Cylinder); b.name = name + "Bolt"; Object.DestroyImmediate(b.GetComponent<Collider>());
+            b.transform.SetParent(F, false); b.transform.localPosition = c + new Vector3(sx * bx, size.y / 2f + 0.012f, sz * bz); b.transform.localScale = new Vector3(0.09f, 0.012f, 0.09f);
+            b.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        }
+    }
+
     static Transform TBox(Transform p, string name, Vector3 lp, Vector3 size, Material m, bool collider)
     {
         var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = name; g.transform.SetParent(p, false);
@@ -1519,7 +1532,7 @@ public static class FuwaCourse2_4Builder
         CwShaft(pin, -0.5f, 0.3f, 0.12f);
         // 台と、大きい歯車の軸へのうで
         float px = pg.c.x, fd = 1.9f, R = 0.3f, L = 1.0f, PY = 0.5f;
-        TBox(F, "PumpBed", new Vector3((px - 0.4f + px + fd - 0.1f) / 2f, -0.56f, 0f), new Vector3(fd + 0.3f, 0.1f, 1.1f), facWood, false);   // パイプが下りる所にかからないように、出口の手前まで
+        SteelBed(F, "PumpBed", new Vector3((px - 0.4f + px + fd - 0.1f) / 2f, -0.56f, 0f), new Vector3(fd + 0.3f, 0.1f, 1.1f));   // 2026-11-10 てじゃ「タンクの下の板気になるな」→ 木の板をやめて鉄の台（真ちゅうのボルト）   // パイプが下りる所にかからないように、出口の手前まで
         TBox(F, "PumpArm", new Vector3((px - 0.4f) / 2f, -0.56f, 0f), new Vector3(px - 0.4f, 0.09f, 0.16f), cwAxle, false);
         var bear = GameObject.CreatePrimitive(PrimitiveType.Cylinder); bear.name = "PumpBearing"; Object.DestroyImmediate(bear.GetComponent<Collider>());
         bear.transform.SetParent(F, false); bear.transform.localPosition = new Vector3(0f, -0.56f, 0f); bear.transform.localScale = new Vector3(0.6f, 0.07f, 0.6f); bear.GetComponent<Renderer>().sharedMaterial = cwAxle;
@@ -1549,8 +1562,11 @@ public static class FuwaCourse2_4Builder
             var glass = GameObject.CreatePrimitive(PrimitiveType.Cylinder); glass.name = "TankGlass"; Object.DestroyImmediate(glass.GetComponent<Collider>());
             glass.transform.SetParent(tank, false); glass.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); glass.transform.localPosition = new Vector3(0f, 0.05f, -TankR + 0.005f); glass.transform.localScale = new Vector3(0.26f, 0.04f, 0.26f);
             glass.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_3_Crystal.mat") ?? cwAxle;
-            TBox(F, "TankBed", new Vector3(tc.x, -0.56f, 0f), new Vector3(2f * TankR + 0.2f, 0.1f, 2f * TankR + 0.2f), facWood, false);
-            TBox(F, "TankBedJoin", new Vector3((px + fd - 0.1f + tc.x - TankR - 0.1f) / 2f + 0.01f, -0.56f, 0f), new Vector3(tc.x - TankR - 0.1f - (px + fd - 0.1f) - 0.02f, 0.06f, 0.5f), facWood, false);
+            SteelBed(F, "TankBed", new Vector3(tc.x, -0.56f, 0f), new Vector3(2f * TankR + 0.2f, 0.1f, 2f * TankR + 0.2f));
+            {   // 2つの台をつなぐ鉄の梁2本
+                float jx0 = px + fd - 0.1f, jx1 = tc.x - TankR - 0.1f;
+                foreach (float jz in new[] { -0.3f, 0.3f }) TBox(F, "TankBedJoin", new Vector3((jx0 + jx1) / 2f, -0.58f, jz), new Vector3(jx1 - jx0 + 0.1f, 0.08f, 0.12f), cwAxle, false);
+            }
         }
         Transform popT = CrystalTop(tank);
         // 動き
