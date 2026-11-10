@@ -1,3 +1,4 @@
+using System.Linq;
 using UdonSharp;
 using UdonSharpEditor;
 using UnityEditor;
@@ -148,6 +149,8 @@ public static class FuwaTwinTableTest
             FuwaIceTestBuilder.Warp(root, "WarpBack", root.TransformPoint(new Vector3(x0 + 0.6f, 0.35f, 1.8f)), "BACK", back, warpMat);
         }
 
+        BridgeSignals(root);   // 2026-11-10 橋の先の門と信号ランプ
+
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
@@ -185,6 +188,54 @@ public static class FuwaTwinTableTest
         br.gameObject.AddComponent<BoxCollider>().size = new Vector3(len, 0.4f, BridgeW);
         int nk = Mathf.Max(2, Mathf.RoundToInt(len / 0.8f));
         for (int k = 1; k < nk; k++) Prim(PrimitiveType.Cube, br, "Plank" + k, new Vector3(-len / 2f + k * len / nk, 0.205f, 0f), new Vector3(0.05f, 0.01f, BridgeW), lineM);
+    }
+
+    // ===== 橋が見えやすいように（2026-11-10 てじゃ「横から見ると遠く全然みえない、合ってるかもわからん」→ A＋B「ためしてみよ」）=====
+    //  B：橋の先っぽに門（2本の柱と上の横木）。こっちを向くと口が見え、横を向くと細い線になる（当たりなし）
+    //  A：信号ランプ（FuwaBridgeSignal）。渡る先が見える所に立てる：かごの口（かご→A）、B のまん中（A→B）、出口（B→出口）。合っている間だけ緑
+    public static float GateH = 2.2f, SignalH = 2.6f, SignalTol = 8f;
+    public static string BridgeSignals(Transform root)
+    {
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var axleM = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
+        var lampM = FuwaGearTest.Mat("TwinTable_SignalLamp", new Color(1f, 1f, 1f));
+        var tableA = root.Find("TableA"); var frB = root.Find("TableB_Frame"); var tableB = frB ? frB.Find("TableB") : null;
+        if (!tableA || !tableB) return "回転床がない";
+        foreach (var x in root.GetComponentsInChildren<Transform>(true).Where(x => x && (x.name == "BridgeGate" || x.name.StartsWith("Signal_"))).ToArray()) if (x) Object.DestroyImmediate(x.gameObject);
+        Transform[] Bridges(Transform t) => t.Cast<Transform>().Where(x => x.name.StartsWith("Bridge")).ToArray();
+        var bA = Bridges(tableA); var bB = Bridges(tableB);
+        // 門
+        foreach (var br in bA.Concat(bB))
+        {
+            var vis = br.Find("Visual"); float len = vis ? vis.localScale.x : 3f;
+            var g = new GameObject("BridgeGate").transform; g.SetParent(br, false); g.localPosition = new Vector3(len / 2f - 0.08f, 0.2f, 0f);
+            foreach (int sg in new[] { 1, -1 })
+            {
+                Prim(PrimitiveType.Cube, g, "Post", new Vector3(0f, GateH / 2f, sg * (BridgeW / 2f - 0.07f)), new Vector3(0.1f, GateH, 0.1f), brass);
+                Prim(PrimitiveType.Sphere, g, "Knob", new Vector3(0f, GateH + 0.06f, sg * (BridgeW / 2f - 0.07f)), Vector3.one * 0.17f, brass);
+            }
+            Prim(PrimitiveType.Cube, g, "Bar", new Vector3(0f, GateH - 0.05f, 0f), new Vector3(0.1f, 0.1f, BridgeW - 0.14f), brass);
+        }
+        // ランプ
+        float D = frB.localPosition.x;
+        float x1 = -(CornerR(TipA) + 0.05f), brZ = BridgeW / 2f + 0.15f, exitNear = CornerR(TipB) + 0.05f;
+        var exDir = Polar(ExitDeg, 1f); var exSide = new Vector3(-exDir.z, 0f, exDir.x);
+        void Lamp(string name, Vector3 lp, Transform[] a, Vector3 da, Transform[] b, Vector3 db)
+        {
+            var g = new GameObject(name).transform; g.SetParent(root, false); g.localPosition = lp;
+            Prim(PrimitiveType.Cylinder, g, "Pole", new Vector3(0f, SignalH / 2f, 0f), new Vector3(0.12f, SignalH / 2f, 0.12f), axleM);
+            Prim(PrimitiveType.Cylinder, g, "Foot", new Vector3(0f, 0.04f, 0f), new Vector3(0.4f, 0.04f, 0.4f), brass);
+            Prim(PrimitiveType.Cylinder, g, "Cup", new Vector3(0f, SignalH + 0.02f, 0f), new Vector3(0.34f, 0.05f, 0.34f), brass);
+            var lamp = Prim(PrimitiveType.Sphere, g, "Lamp", new Vector3(0f, SignalH + 0.24f, 0f), Vector3.one * 0.44f, lampM);
+            Prim(PrimitiveType.Sphere, g, "Cap", new Vector3(0f, SignalH + 0.47f, 0f), new Vector3(0.2f, 0.08f, 0.2f), brass);
+            var sig = UdonSharpUndo.AddComponent<FuwaBridgeSignal>(g.gameObject);
+            sig.space = root; sig.bridgesA = a; sig.dirA = da; sig.bridgesB = b ?? new Transform[0]; sig.dirB = db; sig.tolDeg = SignalTol; sig.lamp = lamp.GetComponent<Renderer>();
+            UdonSharpEditorUtility.CopyProxyToUdon(sig); FuwaStage2WaterTest.NoSync(sig);
+        }
+        Lamp("Signal_CageToA", new Vector3(x1 - 0.35f, 0f, brZ + 0.4f), bA, Vector3.left, null, Vector3.zero);
+        Lamp("Signal_AtoB", new Vector3(D, 0f, 0f), bA, Vector3.right, bB, Vector3.left);   // B のまん中（回るけど軸の上なので動かない）
+        Lamp("Signal_BtoExit", new Vector3(D, 0f, 0f) + exDir * (exitNear + 0.5f) + exSide * (BridgeW / 2f + 0.5f), bB, exDir, null, Vector3.zero);
+        return "門 " + (bA.Length + bB.Length) + " ランプ 3";
     }
 
     static float RimIn(int z) => Mod * z / 2f - 1.25f * Mod - 0.5f;   // 輪の内側の半径（歯元から 0.5m）
