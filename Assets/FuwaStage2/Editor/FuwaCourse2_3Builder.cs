@@ -1263,11 +1263,26 @@ public static class FuwaCourse2_3Builder
     // 最初の島の外まわり（見た目と当たり）。丸い出っぱり（V3_Nub、丸い山への橋が乗る）の右下が、出っぱりと島のふちのあいだでへこんで、橋のわきに不自然なすき間に見えた
     //  （2026-11-10 てじゃ「山の島の手前の道のとこ、不自然なスキマあるからうめたい」）→ 出っぱりの円の後半（I1NotchFrom〜I1NotchTo）を飛ばして、次の角までまっすぐつなぐ。
     //  置き物の乱数の場所は M2_I1 のまま（ここを変えると全部の岩の場所が変わる）
-    public static bool I1FillNotch = true; public static int I1NotchFrom = 17, I1NotchTo = 24;
+    //  さらに「接続部が大きく幅が違うのがきになる」→ 丸い出っぱり（半径 2.6＝幅 5.2m）が橋（幅 6m）より細く、橋のはしが出っぱりからはみ出していた。
+    //  出っぱりの円（V3_I1 の 4〜24）をやめて、橋の幅＋I1TabMargin の四角い舌（角は I1TabRound で丸める）にする。舌の先は今の出っぱりの先と同じ所
+    public static bool I1FillNotch = true; public static float I1TabMargin = 0.4f, I1TabBack = 2.2f, I1TabRound = 0.6f; public static int I1ArcFrom = 4, I1ArcTo = 24;
     static Vector2[] I1Shape()
     {
         if (!I1FillNotch || !M2_V3 || M2_I1 != V3_I1) return M2_I1;
-        return M2_I1.Where((q, i) => i < I1NotchFrom || i > I1NotchTo).ToArray();
+        var d0 = (V3_DomeC - V3_Nub).normalized; var s = new Vector2(d0.y, -d0.x);
+        float W = 3f + I1TabMargin;   // 橋（M2_Links[0]）の半分の幅 3m
+        var e = V3_Nub + d0 * V3_NubR;
+        // 2 番（島のふち）側が -s、25 番側が +s
+        Vector2 A = e - s * W - d0 * I1TabBack, B = e - s * W, C = e + s * W, D = e + s * W - d0 * I1TabBack;
+        var tab = new List<Vector2> { A, B + (A - B).normalized * I1TabRound, B + (C - B).normalized * I1TabRound, C + (B - C).normalized * I1TabRound, C + (D - C).normalized * I1TabRound, D };
+        var o = new List<Vector2>();
+        for (int i = 0; i < M2_I1.Length; i++)
+        {
+            if (i == 3) continue;   // 出っぱりの付け根の点（舌の中に入る）
+            if (i >= I1ArcFrom && i <= I1ArcTo) { if (i == I1ArcFrom) o.AddRange(tab); continue; }
+            o.Add(M2_I1[i]);
+        }
+        return o.ToArray();
     }
     static void M2ApplyV3()
     {
