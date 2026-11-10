@@ -1243,7 +1243,7 @@ public static class FuwaCourse2_4Builder
             hp.AddComponent<MeshFilter>().sharedMesh = RingMesh(r - 0.05f, r + 0.1f, y - 0.11f, y + 0.11f, 64, "Balloon_Hoop" + (int)lat); hp.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
         }
         var net = new GameObject("BalloonNet"); net.transform.SetParent(body, false);
-        net.AddComponent<MeshFilter>().sharedMesh = LatheRibbons(prof, 0.035f, 0.07f, 8, "Balloon_Net"); net.AddComponent<MeshRenderer>().sharedMaterial = cwAxle;
+        net.AddComponent<MeshFilter>().sharedMesh = LatheRibbons(prof, BalloonNetOff, 0.08f, 8, "Balloon_Net");   // 2026-11-10 てじゃ「気球の側面がたまにちらつく」：3.5cm 浮かせただけだと遠くで深度が足りず Z ファイト（近クリップ 0.01）→ 10cm net.AddComponent<MeshRenderer>().sharedMaterial = cwAxle;
         // てっぺんの煙突（真ちゅうの輪＋中のふた）
         float topY = prof[prof.Length - 1].y;
         var chim = new GameObject("BalloonChimney"); chim.transform.SetParent(body, false);
@@ -1285,6 +1285,7 @@ public static class FuwaCourse2_4Builder
         return SaveMesh(name, v, t);
     }
     static FuwaCloudBalloon balloon;
+    public static float BalloonNetOff = 0.1f;
     public static float CollarR0 = 1.7f, CollarR1 = 2.3f, CollarY0 = 5.0f, CollarY1 = 6.4f, PipeInY = 5.7f, BalloonR = 5.2f;
     // 球のバルーン：首の輪のてっぺんで球の半径が輪の外より少し内（2.2m）になる高さに球の底
     static float BalloonY => CollarY1 - (BalloonR - Mathf.Sqrt(BalloonR * BalloonR - 2.2f * 2.2f));
@@ -1315,7 +1316,7 @@ public static class FuwaCourse2_4Builder
         cb.clouds = list.ToArray(); cb.cloudSpawn = sp;
         cb.cloudScaleMin = 3.2f; cb.cloudScaleMax = 4.6f; cb.cloudGrowLate = 2.2f;   // さらに「もっとデカく」：出て 7〜11m、流れながら 16〜24m まで   // 2026-11-10 てじゃ「もっとでかく」：出て 5〜7.5m、流れながら 9〜13m まで
          cb.cloudSpread = 20f;   // 2–5 の方 ±20°（全方向も試しかけたが、てじゃ「いまのままで」） cb.cloudPale = 1f;   // 幅 2.1〜2.4m の丸い雲を 3.5〜5.5m に。色は白だけ（てじゃ）
-        cb.puffEvery = 6; cb.cloudMinGap = 10f;   // 「もうちょい間隔ひろげよ」で 6→10 秒   // 2026-11-10 てじゃ「頻度もへらしていい」
+        cb.puffEvery = 6; cb.cloudMinGap = 16f;   // 「もうちょい間隔ひろげよ」で 6→10→16 秒（雲は最後 16〜24m になるので、間 16 秒 × 風 1.4m/s で重ならないように）   // 2026-11-10 てじゃ「頻度もへらしていい」
         // 流れる向き：ロビーから 2–5（Slot4）の方（てじゃ「2-5予定地の方向に飛ばそう」）
         var lobby = GameObject.Find("FuwaStage2/Lobby");
         if (lobby)
@@ -1324,7 +1325,7 @@ public static class FuwaCourse2_4Builder
             // 2026-11-10 てじゃ「方向、ロビー側にとんでない？」：SpokeR（コースの入口）だとロビー寄りすぎた → 2–5 の入口ではなく、気球とロビーの距離くらい先（2–5 のコースのまん中あたり）
             var sp4 = s4 - lc; sp4.y = 0f; var bl = sp.position - lc; bl.y = 0f; var target = lc + sp4.normalized * Mathf.Max(SpokeR, bl.magnitude);
             var d = target - sp.position; d.y = 0f;
-            cb.cloudWind = d.normalized * 0.9f;
+            cb.cloudWind = d.normalized * 1.4f;
         }
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); EditorUtility.SetDirty(cb);
     }
