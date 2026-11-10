@@ -2097,17 +2097,16 @@ public static class FuwaCourse2_4Builder
     }
 
     // シーンでタンクの歯車だけ作り直す（丸ごと作り直さずに試す用）。FuwaClockwork の配列とめりこみ対策の movers に足す
-    // 段の歯車の回るタンク（ラベンダー）：駆動歯車の上だと上の段の歯車（SGB）にめりこむ（2026-11-10 てじゃ「ラベンダーのほうめりこんでる」）
-    //  → 駆動歯車の外（SGB と反対の向き）に18枚の歯車を足して、その上に
-    static Transform StepTankGear(Transform g, Transform drv, Vector2 avoidC, float S)
+    // 段の歯車の回るタンク（ラベンダー）（2026-11-10）：駆動歯車の上だと上の段の歯車（SGB）にめりこむ（てじゃ「ラベンダーのほうめりこんでる」）
+    //  → 上の段の薄いグレーの歯車（SGB、24枚）とかみ合う18枚の歯車を同じ段に足して、その上に（てじゃ「上の薄いグレーの歯車とからませたい」）
+    //  向き StepTankDir：道の右の少し前（ほかの物と重ならない向きを調べた）
+    public static float StepTankDir = 20f;
+    static Transform StepTankGear(Transform g, FuwaGearTest.Gear sgb, float y0, float th)
     {
-        int di = cwG.IndexOf(drv);
-        var dgear = new FuwaGearTest.Gear { name = "Drive", z = 12, c = new Vector2(drv.parent.localPosition.x, drv.parent.localPosition.z), ratio = cwR[di], phase = cwP[di] * Mathf.Deg2Rad };
-        var away = dgear.c - avoidC; float dd = Mathf.Atan2(away.y, away.x) * Mathf.Rad2Deg;
-        var q = FuwaGearTest.Mesh2(dgear, "StepGears_TankGear_z18", 18, dd, PM);
-        var t = CwGear(g, q.name, new Vector3(q.c.x, -S, q.c.y), Vector3.up, SpurMesh(18, PM, S, "Clockwork_Spur_m" + Mathf.RoundToInt(PM * 100) + "_z18_t" + Mathf.RoundToInt(S * 100)), cwDark);
+        var q = FuwaGearTest.Mesh2(sgb, "StepGears_TankGear_z18", 18, StepTankDir, PM);
+        var t = CwGear(g, q.name, new Vector3(q.c.x, y0, q.c.y), Vector3.up, SpurMesh(18, PM, th, "Clockwork_Spur_m" + Mathf.RoundToInt(PM * 100) + "_z18_t" + Mathf.RoundToInt(th * 100)), cwDark);
         AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg);
-        SpinTank(t, S, TankLiquidD);
+        SpinTank(t, th, TankLiquidD);
         return t;
     }
 
@@ -2129,7 +2128,11 @@ public static class FuwaCourse2_4Builder
         var tg = TankGear(g.transform, gear0, 0.5f);
         SpinTank(cw.gears.First(x => x && x.name == "HoleGears_Drive_z18"), 0.5f, TankLiquidB);
         SpinTank(cw.gears.First(x => x && x.name == "ChunkyGears_Drive_z8"), 0.6f, TankLiquidC);
-        { var sg = GameObject.Find("StepGears").transform; var sgb = sg.Find("SGB_Frame"); StepTankGear(sg, cw.gears.First(x => x && x.name == "StepGears_Drive_z12"), new Vector2(sgb.localPosition.x, sgb.localPosition.z), 0.7f); }
+        {
+            var sg = GameObject.Find("StepGears").transform; var sgbT = cw.gears.First(x => x && x.name == "SGB"); int bi = System.Array.IndexOf(cw.gears, sgbT);
+            var sgb = new FuwaGearTest.Gear { name = "SGB_z24", z = 24, c = new Vector2(sgbT.parent.localPosition.x, sgbT.parent.localPosition.z), ratio = cw.ratio[bi], phase = cw.phase[bi] * Mathf.Deg2Rad };
+            StepTankGear(sg, sgb, sgbT.parent.localPosition.y, 0.7f - 0.04f);
+        }
         Undo.RecordObject(cw, "SpinTank");
         cw.gears = cwG.ToArray(); cw.ratio = cwR.ToArray(); cw.phase = cwP.ToArray();
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cw); EditorUtility.SetDirty(cw);
@@ -2310,7 +2313,7 @@ public static class FuwaCourse2_4Builder
         AddGear(tB, bB.ratio, bB.phase * Mathf.Rad2Deg);
         Child(tB, "Small_z14", new Vector3(0f, S, 0f), m14, cwBrass, bS.phase - bB.phase);
         var drv = Drive(g, aB, 12, PM, -S, S, cwDark, 140f);   // 少し前より（真横はチェックポイントのきのこの丸太とぶつかる）
-        StepTankGear(g, drv, bB.c, S);
+        StepTankGear(g, bB, Cl, S - Cl);
         P += Dir(th) * (bB.c.y + PM * 7 + PM + 0.05f) + Vector3.up * 2f * S;
     }
     // 同じ軸で一緒に回る段（歯の向きのずれ dphase ラジアン）
