@@ -2478,13 +2478,18 @@ public static class FuwaCourse2_4Builder
     //  T(turnDeg) の直後に呼ぶ。判定は曲がり終わりの道の幅、きのこは1つだけ曲がり角の外がわ（ふちの円弧の 45° の所の外）
     static void CPCurve(string name, float turnDeg)
     {
+        // 「カーブの角度にあわせて」：曲がり角のまん中（turnDeg の半分の所）に、その向きで置く。判定は内がわのかどから外の円弧までの線
+        float sg = Mathf.Sign(turnDeg), thMid = th - turnDeg / 2f;
+        var inner = P + Dir(th + 90f) * HW * sg;
+        var radialOut = -Dir(thMid + 90f) * sg;
+        var keepP = P; float keepTh = th;
+        P = inner + radialOut * HW; th = thMid;
         CP(name, 0f);
+        P = keepP; th = keepTh;
         var cp = root.Find("Checkpoints/" + name); if (!cp) return;
         var gm = cp.Find("GlowMushrooms"); if (!gm) return;
         var keep = gm.Find("ClusterL"); var drop = gm.Find("ClusterR"); if (drop) Object.DestroyImmediate(drop.gameObject);
-        if (!keep) return;
-        float sg = Mathf.Sign(turnDeg), innerX = -sg * HW, R = 2f * HW + 0.7f, c = Mathf.Cos(45f * Mathf.Deg2Rad);
-        keep.localPosition = new Vector3(innerX - Mathf.Sign(innerX) * R * c, keep.localPosition.y, -R * c);
+        if (keep) keep.localPosition = new Vector3(sg * (HW + 0.7f), keep.localPosition.y, 0f);   // 外がわ（右カーブなら左）
     }
 
     static void CPMech(string name, Mech m, string floorName, float along, float hw)
