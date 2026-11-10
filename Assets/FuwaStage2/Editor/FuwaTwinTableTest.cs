@@ -79,7 +79,7 @@ public static class FuwaTwinTableTest
     }
 
     // 動く橋のシマの色（跳ね橋・回転床・伸びる橋で共通）。材質は道のシマ（Course2_4_PathA）と同じシェーダーで色だけちがう。名前が _PathA/_PathB でないのでベベルでまとめられない
-    public static Color BridgeColA = new Color(0.66f, 0.68f, 0.70f), BridgeColB = new Color(0.44f, 0.46f, 0.49f);   // 2026-11-10 てじゃ「そもそもその部分はグレーにしとこか」→ 鉄のグレー（前はキャラメル 0.72,0.60,0.45 / 0.50,0.40,0.31）
+    public static Color BridgeColA = new Color(0.58f, 0.60f, 0.63f), BridgeColB = new Color(0.58f, 0.60f, 0.63f);   // 2026-11-10 てじゃ「もとの色の縞もなくてもいいかも」→ 1色（縞鋼板の模様だけ）。2色にもどすなら 0.66,0.68,0.70 / 0.44,0.46,0.49   // 2026-11-10 てじゃ「そもそもその部分はグレーにしとこか」→ 鉄のグレー（前はキャラメル 0.72,0.60,0.45 / 0.50,0.40,0.31）
     public static Material BridgeMat(bool a)
     {
         string path = "Assets/FuwaStage2/Materials/Course2_4_Bridge" + (a ? "A" : "B") + ".mat";
