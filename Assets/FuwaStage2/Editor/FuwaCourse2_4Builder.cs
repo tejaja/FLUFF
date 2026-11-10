@@ -1571,71 +1571,71 @@ public static class FuwaCourse2_4Builder
     }
 
     // パイプの道すじ（コースの座標）が、ほかの物（当たり・見た目の小さい物）とぶつかる数
-    // ===== 回るタンクから気球へのパイプ（2026-11-10 てじゃ「せっかくだからどっかに流したかった」→「2本足してそのまま気球行き」）=====
-    //  タンクのてっぺんのまん中（止まっている冠のハブ＝ロータリージョイント、回る物と止まった管のつなぎ目）から上へ → 気球の首の輪の横（ほかの砂糖パイプと同じ高さ PipeInY）へ
-    //  タンク1回転ごとに液の色のふくらみが流れて、着くと気球がふくらむ（FuwaSugarPipe.autoInterval）
+    // ===== 回るタンクから砂糖パイプのタンクへの管（2026-11-10 てじゃ「せっかくだからどっかに流したかった」→ 上を通して気球へ →「ごちゃつく」
+    //   →「緑とピンク、それぞれ別の白い管に合流」「なるべく下を通る」「白い管の根本のタンクにつなげばいい」）=====
+    //  歯車の下の軸にロータリージョイント（回る軸に止まった輪の継手）。そこから道より下を通って、いちばん近い砂糖ポンプのタンク（白い管の根本）の横へ（2台は別のタンク）
+    //  タンク1回転ごとに液の色のふくらみが流れて、砂糖タンク → 白い管 → 気球（着くと気球がふくらむ）
     public static float TankPipeR = 0.16f;
     static void TankPipes(Transform core, System.Text.StringBuilder log)
     {
         var holder = root.Find("Gimmicks");
-        var cc = root.InverseTransformPoint(core.position); cc.y = 0f;
         var pipeM = FuwaStage2WaterTest.ToonMat("Course2_4_SugarPipe", PipeCol);
-        float topY = PipeInY, spoutR = CollarR1 + 0.02f, R = TankPipeR;
-        // ほかのパイプ（砂糖パイプ・先に作ったタンクのパイプ）の線
+        float R = TankPipeR;
+        var sugar = root.GetComponentsInChildren<FuwaSugarPipe>(true).Where(x => x.name.StartsWith("SugarPipe")).ToList();
+        var stanks = sugar.Select(sp => sp.pts.Length > 1 ? root.InverseTransformPoint(sp.pts[1]) : Vector3.zero).ToList();   // pts[1] がタンクのまん中
+        var used = new HashSet<int>();
+        var tanks = root.GetComponentsInChildren<Transform>(true).Where(x => x.name == "SpinTank").ToArray();
+        int k = 0; var balloonC = root.GetComponentInChildren<FuwaCloudBalloon>(true);
         var others = new List<(Vector3 a, Vector3 b)>();
-        void AddPipes(Transform pr)
-        {
-            foreach (var r in pr.GetComponentsInChildren<Renderer>(true))
-                if (r.name == "Pipe" || r.name == "PipeInlet")
-                {
-                    var t = r.transform; var h = t.up * t.lossyScale.y;
-                    others.Add((root.InverseTransformPoint(t.position - h), root.InverseTransformPoint(t.position + h)));
-                }
-        }
-        foreach (Transform pr in holder.GetComponentsInChildren<Transform>(true).Where(x => x.name.StartsWith("SugarPipe") && x.parent && x.parent.name == "SugarPipes")) AddPipes(pr);
+        foreach (var sp in sugar) for (int i = 1; i < sp.pts.Length; i++) others.Add((root.InverseTransformPoint(sp.pts[i - 1]), root.InverseTransformPoint(sp.pts[i])));
         float SegDist(Vector3 p1, Vector3 q1, Vector3 p2, Vector3 q2)
         {
             float best = 1e9f;
             for (int i = 0; i <= 16; i++) { var p = Vector3.Lerp(p1, q1, i / 16f); var d2 = q2 - p2; float t = Mathf.Clamp01(Vector3.Dot(p - p2, d2) / Mathf.Max(1e-5f, d2.sqrMagnitude)); best = Mathf.Min(best, Vector3.Distance(p, p2 + d2 * t)); }
             return best;
         }
-        var tanks = root.GetComponentsInChildren<Transform>(true).Where(x => x.name == "SpinTank").ToArray();
-        int k = 0; var balloonC = root.GetComponentInChildren<FuwaCloudBalloon>(true);
         foreach (var fix in tanks)
         {
+            var frame = fix.parent; var gear = frame.GetChild(0);
             var liqR = fix.GetComponentsInChildren<Renderer>(true).FirstOrDefault(r => r.name == "TankLiquid");
             Color col = liqR && liqR.sharedMaterial ? liqR.sharedMaterial.GetColor("_Color") : Color.white;
             var sun = fix.GetComponentsInChildren<Transform>(true).FirstOrDefault(x => x.name.StartsWith("TankSun_z") && !x.name.EndsWith("_Frame"));
             int si = sun ? cwG.IndexOf(sun) : -1; float sunRate = si >= 0 ? Mathf.Abs(cwR[si]) * ClockSpeed : 60f;
-            var p0 = root.InverseTransformPoint(fix.TransformPoint(new Vector3(0f, STankCrownY + 0.6f, 0f)));   // ジョイントの上（当たりの筒より上から探す）
-            var dirC = new Vector3(cc.x - p0.x, 0f, cc.z - p0.z).normalized;
-            Vector3[] Route(float yR, float rr, float yaw)
+            var c = root.InverseTransformPoint(frame.position);   // 歯車の下の面のまん中
+            // いちばん近い、まだ使っていない砂糖タンク
+            int ti = -1; float bd = 1e9f;
+            for (int i = 0; i < stanks.Count; i++) { if (used.Contains(i)) continue; float d = Vector2.Distance(new Vector2(c.x, c.z), new Vector2(stanks[i].x, stanks[i].z)); if (d < bd) { bd = d; ti = i; } }
+            if (ti < 0) { log.Append(" | タンクの管: 砂糖タンクがない"); continue; }
+            used.Add(ti);
+            var st = stanks[ti];
+            float sR = (TankR * PumpScale) + 0.02f;
+            var toUs = new Vector3(c.x - st.x, 0f, c.z - st.z).normalized;
+            Vector3[] Route(float y, int shape, float side)
             {
-                var d = Quaternion.Euler(0f, yaw, 0f) * (-dirC);
-                var q = cc + d * rr; var sp = cc + d * spoutR;
-                return new[] { p0, new Vector3(p0.x, yR, p0.z), new Vector3(q.x, yR, q.z), new Vector3(q.x, topY, q.z), new Vector3(sp.x, topY, sp.z) };
+                var sideDir = Quaternion.Euler(0f, side, 0f) * toUs;
+                var E = st + sideDir * sR; var Ein = st + sideDir * (sR + 0.5f);
+                var J = new Vector3(c.x, y, c.z); var Eo = new Vector3(Ein.x, y, Ein.z);
+                var l = new List<Vector3> { J };
+                if (shape == 1) l.Add(new Vector3(Eo.x, y, J.z)); else if (shape == 2) l.Add(new Vector3(J.x, y, Eo.z));
+                l.Add(Eo); if (Mathf.Abs(Ein.y - y) > 0.01f) l.Add(Ein); l.Add(E);
+                return l.ToArray();
             }
-            int Hits(Vector3[] c)
+            int Hits(Vector3[] cand)
             {
-                int n = PipeHits(c, fix.parent);
-                for (int i = 1; i < c.Length; i++) foreach (var o in others) if (SegDist(c[i - 1], c[i], o.a, o.b) < PipeR + R + 0.15f) n++;
+                var body = cand.Take(cand.Length - 1).ToArray();   // 最後（タンクにささる所）は数えない
+                int n = PipeHits(body, frame);
+                for (int i = 1; i < body.Length; i++) foreach (var o in others) if (SegDist(body[i - 1], body[i], o.a, o.b) < PipeR + R + 0.15f) n++;
                 return n;
             }
-            Vector3[] pts = null; int bestHits = int.MaxValue; float bestY = 0f, bestYaw = 0f;
-            foreach (float yR in new[] { topY, topY + 0.8f, topY + 1.6f, topY - 0.8f, topY + 2.4f })
-                foreach (float rr in new[] { 3.6f, 4.6f, 5.6f })
-                    foreach (float yaw in new[] { 0f, 15f, -15f, 30f, -30f, 45f, -45f })
+            Vector3[] pts = null; int bestHits = int.MaxValue; float bestLen = 1e9f, bestY = 0f;
+            foreach (float y in new[] { st.y, st.y - 0.5f, st.y - 1.0f, st.y + 0.3f, st.y - 1.6f })
+                foreach (int shape in new[] { 0, 1, 2 })
+                    foreach (float side in new[] { 0f, 30f, -30f, 60f, -60f })
                     {
-                        var cand = Route(yR, rr, yaw);
-                        { var dd = new List<Vector3> { cand[0] }; for (int i = 1; i < cand.Length; i++) if ((cand[i] - dd[dd.Count - 1]).sqrMagnitude > 1e-4f) dd.Add(cand[i]); cand = dd.ToArray(); }
-                        int h = Hits(cand);
-                        if (h < bestHits) { bestHits = h; pts = cand; bestY = yR; bestYaw = yaw; }
-                        if (h == 0) goto found;
+                        var cand = Route(y, shape, side);
+                        int h = Hits(cand); float len = 0f; for (int i = 1; i < cand.Length; i++) len += Vector3.Distance(cand[i - 1], cand[i]);
+                        if (h < bestHits || (h == bestHits && len < bestLen)) { bestHits = h; bestLen = len; pts = cand; bestY = y; }
                     }
-            found:
-            // ジョイントの下の管（冠のハブの上 → p0）を先頭に
-            var j0 = root.InverseTransformPoint(fix.TransformPoint(new Vector3(0f, STankCrownY + 0.14f, 0f)));
-            pts = new[] { j0 }.Concat(pts).ToArray();
             var pipeT = new GameObject("TankPipe" + k).transform; pipeT.SetParent(holder, false);
             for (int i = 1; i < pts.Length; i++)
             {
@@ -1643,7 +1643,7 @@ public static class FuwaCourse2_4Builder
                 var seg = GameObject.CreatePrimitive(PrimitiveType.Cylinder); seg.name = "Pipe"; Object.DestroyImmediate(seg.GetComponent<Collider>());
                 seg.transform.SetParent(pipeT, false); seg.transform.localPosition = (a + b) / 2f; seg.transform.localRotation = Quaternion.FromToRotation(Vector3.up, (b - a).normalized);
                 seg.transform.localScale = new Vector3(2f * R, (b - a).magnitude / 2f, 2f * R); seg.GetComponent<Renderer>().sharedMaterial = pipeM;
-                if (i < pts.Length - 1 && i > 1)
+                if (i < pts.Length - 1)
                 {
                     var j = GameObject.CreatePrimitive(PrimitiveType.Sphere); j.name = "PipeElbow"; Object.DestroyImmediate(j.GetComponent<Collider>());
                     j.transform.SetParent(pipeT, false); j.transform.localPosition = b; j.transform.localScale = Vector3.one * 2f * R; j.GetComponent<Renderer>().sharedMaterial = pipeM;
@@ -1655,16 +1655,32 @@ public static class FuwaCourse2_4Builder
                     band.transform.localScale = new Vector3(2f * R + 0.08f, 0.05f, 2f * R + 0.08f); band.GetComponent<Renderer>().sharedMaterial = cwBrass;
                 }
             }
-            // ロータリージョイント（止まっている。太い輪2段）と気球の入口
+            // ロータリージョイント：歯車の下の軸（なければ短い軸を足す）に止まった輪
             {
+                var shaft = gear.Find("Shaft");
+                float jy = pts[0].y;
+                if (!shaft)
+                {
+                    float top = 0f, bot = gear.InverseTransformPoint(root.TransformPoint(pts[0])).y - 0.25f;
+                    var s = GameObject.CreatePrimitive(PrimitiveType.Cylinder); s.name = "TankShaft"; Object.DestroyImmediate(s.GetComponent<Collider>());
+                    s.transform.SetParent(gear, false); s.transform.localPosition = new Vector3(0f, (top + bot) / 2f - 0.01f, 0f); s.transform.localScale = new Vector3(0.3f, (top - bot) / 2f, 0.3f);
+                    s.GetComponent<Renderer>().sharedMaterial = cwAxle;
+                    var cap = GameObject.CreatePrimitive(PrimitiveType.Cylinder); cap.name = "TankShaftCap"; Object.DestroyImmediate(cap.GetComponent<Collider>());
+                    cap.transform.SetParent(gear, false); cap.transform.localPosition = new Vector3(0f, bot + 0.02f, 0f); cap.transform.localScale = new Vector3(0.38f, 0.04f, 0.38f);
+                    cap.GetComponent<Renderer>().sharedMaterial = cwBrass;
+                }
+                float sd = shaft ? shaft.localScale.x : 0.3f;
                 var jt = GameObject.CreatePrimitive(PrimitiveType.Cylinder); jt.name = "RotaryJoint"; Object.DestroyImmediate(jt.GetComponent<Collider>());
-                jt.transform.SetParent(pipeT, false); jt.transform.localPosition = j0 + Vector3.up * 0.08f; jt.transform.localScale = new Vector3(0.36f, 0.08f, 0.36f); jt.GetComponent<Renderer>().sharedMaterial = cwBrass;
-                var jt2 = GameObject.CreatePrimitive(PrimitiveType.Cylinder); jt2.name = "RotaryJointCap"; Object.DestroyImmediate(jt2.GetComponent<Collider>());
-                jt2.transform.SetParent(pipeT, false); jt2.transform.localPosition = j0 + Vector3.up * 0.2f; jt2.transform.localScale = new Vector3(0.28f, 0.04f, 0.28f); jt2.GetComponent<Renderer>().sharedMaterial = cwAxle;
+                jt.transform.SetParent(pipeT, false); jt.transform.localPosition = pts[0]; jt.transform.localScale = new Vector3(sd + 0.26f, 0.2f, sd + 0.26f); jt.GetComponent<Renderer>().sharedMaterial = cwBrass;
+                foreach (float dy in new[] { -0.22f, 0.22f })
+                {
+                    var r2 = GameObject.CreatePrimitive(PrimitiveType.Cylinder); r2.name = "RotaryJointRing"; Object.DestroyImmediate(r2.GetComponent<Collider>());
+                    r2.transform.SetParent(pipeT, false); r2.transform.localPosition = pts[0] + Vector3.up * dy; r2.transform.localScale = new Vector3(sd + 0.12f, 0.03f, sd + 0.12f); r2.GetComponent<Renderer>().sharedMaterial = cwAxle;
+                }
             }
             var inlet = GameObject.CreatePrimitive(PrimitiveType.Cylinder); inlet.name = "PipeInlet"; Object.DestroyImmediate(inlet.GetComponent<Collider>());
-            inlet.transform.SetParent(pipeT, false); inlet.transform.localPosition = pts[pts.Length - 1]; inlet.transform.localRotation = Quaternion.FromToRotation(Vector3.up, (pts[pts.Length - 1] - pts[pts.Length - 2]).normalized); inlet.transform.localScale = new Vector3(2f * R + 0.16f, 0.1f, 2f * R + 0.16f); inlet.GetComponent<Renderer>().sharedMaterial = cwBrass;
-            // 液の色のふくらみ
+            inlet.transform.SetParent(pipeT, false); inlet.transform.localPosition = Vector3.Lerp(pts[pts.Length - 2], pts[pts.Length - 1], 0.75f); inlet.transform.localRotation = Quaternion.FromToRotation(Vector3.up, (pts[pts.Length - 1] - pts[pts.Length - 2]).normalized); inlet.transform.localScale = new Vector3(2f * R + 0.14f, 0.06f, 2f * R + 0.14f); inlet.GetComponent<Renderer>().sharedMaterial = cwBrass;
+            // 液の色のふくらみ：この管 → 砂糖タンクのまん中 → 白い管の残り（気球まで）
             var bulgeM = FuwaStage2WaterTest.ToonMat("Course2_4_TankBulge" + k, Color.Lerp(col, Color.white, 0.15f));
             var bulges = new Transform[4];
             for (int i = 0; i < bulges.Length; i++)
@@ -1673,24 +1689,25 @@ public static class FuwaCourse2_4Builder
                 b.transform.SetParent(pipeT, false); b.transform.localScale = new Vector3(2f * R + 0.16f, 2f * R + 0.16f, 2f * R + 0.4f); b.GetComponent<Renderer>().sharedMaterial = bulgeM;
                 b.gameObject.SetActive(false); bulges[i] = b.transform;
             }
+            var full = pts.Select(x => root.TransformPoint(x)).Concat(sugar[ti].pts.Skip(1)).ToArray();
             var sp2 = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSugarPipe>(pipeT.gameObject);
-            sp2.pts = pts.Select(x => root.TransformPoint(x)).ToArray();
-            sp2.bulges = bulges; sp2.speed = 3.5f; sp2.endCount = 8; sp2.endPuff = null; sp2.balloon = balloonC; sp2.glows = new Renderer[0];
+            sp2.pts = full; sp2.bulges = bulges; sp2.speed = 3.5f; sp2.endCount = 8; sp2.endPuff = null; sp2.balloon = balloonC; sp2.glows = new Renderer[0];
             sp2.autoInterval = 360f / Mathf.Max(1f, sunRate);   // タンク1回転ごと
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp2); FuwaStage2WaterTest.NoSync(sp2);
-            AddPipes(pipeT);
-            log.Append(" | タンクのパイプ" + k + " 高さ " + bestY.ToString("F1") + " 向き " + bestYaw + " ぶつかり " + bestHits + " 間隔 " + sp2.autoInterval.ToString("F1") + "秒");
+            for (int i = 1; i < pts.Length; i++) others.Add((pts[i - 1], pts[i]));
+            log.Append(" | タンクの管" + k + " → " + sugar[ti].name + " 高さ " + bestY.ToString("F1") + " 長さ " + bestLen.ToString("F1") + " ぶつかり " + bestHits);
             k++;
         }
     }
 
-    // シーンでタンクのパイプだけ作り直す
+    // シーンでタンクの管だけ作り直す
     public static string RebuildTankPipesOnly()
     {
         root = GameObject.Find(RootName).transform; CwMats();
         var cw = Object.FindObjectsOfType<FuwaClockwork>(true).FirstOrDefault();
         cwG = cw.gears.ToList(); cwR = cw.ratio.ToList(); cwP = cw.phase.ToList();
         foreach (var t in root.Find("Gimmicks").Cast<Transform>().Where(x => x.name.StartsWith("TankPipe")).ToArray()) Object.DestroyImmediate(t.gameObject);
+        foreach (var t in root.GetComponentsInChildren<Transform>(true).Where(x => x.name == "TankShaft" || x.name == "TankShaftCap").ToArray()) Object.DestroyImmediate(t.gameObject);
         var core = root.Find("MachineCore"); if (!core) return "MachineCore なし";
         var log = new System.Text.StringBuilder();
         TankPipes(core, log);
