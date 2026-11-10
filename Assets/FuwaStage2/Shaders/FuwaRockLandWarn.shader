@@ -9,6 +9,7 @@ Shader "FuwaCourse/RockLandWarn"
         _EdgeTint ("ふちの掛ける色", Color) = (1.2, 1.05, 0.15, 1)
         _EdgeW ("ふちの幅(半径の0-1)", Range(0,1)) = 0.16
         _Inner ("まだ埋まっていない所の濃さ", Range(0,1)) = 0.2
+        _Soft ("外のふちのぼかし(半径の0-1)", Range(0,0.3)) = 0.06
         _Fill ("埋まった半径（スクリプトが動かす）", Range(0,1)) = 0
         _Alpha ("出ている量（スクリプトが動かす）", Range(0,1)) = 0
     }
@@ -28,7 +29,7 @@ Shader "FuwaCourse/RockLandWarn"
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
 
-            half4 _Tint, _EdgeTint; half _EdgeW, _Inner, _Fill, _Alpha;
+            half4 _Tint, _EdgeTint; half _EdgeW, _Inner, _Fill, _Alpha, _Soft;
 
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
@@ -49,7 +50,7 @@ Shader "FuwaCourse/RockLandWarn"
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 float r = length(i.uv);
                 float aa = max(fwidth(r), 0.002);
-                half inside = 1 - smoothstep(1 - aa, 1, r);                       // 丸の外は何もしない
+                half inside = 1 - smoothstep(1 - max(aa, _Soft), 1, r);          // 丸の外は何もしない。外のふちだけほんの少しぼかす（2026-11-10 てじゃ「ぱきっとしすぎ、極わずかだけフチをボカシて」）
                 half rim = smoothstep(1 - _EdgeW - aa, 1 - _EdgeW, r);           // ふちの輪
                 half filled = 1 - smoothstep(_Fill - aa * 2, _Fill, r);          // まん中から広がる所
                 half am = lerp(lerp(_Inner, 1, filled), 1, rim) * inside * _Alpha;

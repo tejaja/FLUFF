@@ -1695,6 +1695,7 @@ public static class FuwaCourse2_2Builder
     }
     // 落ちる岩が次に着く所の予告の丸（FuwaLavaRock.landWarns、2026-11-10 てじゃ「予告をもっとわかりやすく」→ 着地点に丸＋点線の光を長く）。
     //  はねる点（P1〜）ごとに、道の上に沿わせた丸。道の外は作らない。火球の予告と同じ色（道の色に掛ける＋濃いふち）。作り直さずシーンだけ直す時もこれを呼ぶ（RockPathDots のあとに）
+    public static float RockWarnSoft = 0.06f;   // 外のふちのぼかし（半径の割合。2026-11-10 てじゃ「ぱきっとしすぎ、極わずかだけ」）
     public static float RockWarnR = 1.35f, RockWarnLead = 1.15f;   // 0.9→1.15（2026-11-10 てじゃ「もうちょい速く出ても」）。はねる間隔 1.21 秒より短く＝前に着いた直後から次の丸
     public static string RockLandWarns(Transform fire)
     {
@@ -1705,7 +1706,7 @@ public static class FuwaCourse2_2Builder
         Physics.SyncTransforms();
         string mp = "Assets/FuwaStage2/Materials/Stage2_2_RockLandWarn.mat";
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp); if (!mat) { mat = new Material(Shader.Find("FuwaCourse/RockLandWarn")); AssetDatabase.CreateAsset(mat, mp); }
-        mat.SetColor("_Tint", FireballWarnTint); mat.SetColor("_EdgeTint", FireballWarnEdgeTint); mat.SetFloat("_Inner", FireballWarnBase); mat.SetFloat("_Fill", 0f); mat.SetFloat("_Alpha", 0f); EditorUtility.SetDirty(mat);
+        mat.SetColor("_Tint", FireballWarnTint); mat.SetColor("_EdgeTint", FireballWarnEdgeTint); mat.SetFloat("_Inner", FireballWarnBase); mat.SetFloat("_Soft", RockWarnSoft); mat.SetFloat("_Fill", 0f); mat.SetFloat("_Alpha", 0f); EditorUtility.SetDirty(mat);
         string res = "";
         foreach (var f in fire.GetComponentsInChildren<FuwaLavaRock>(true))
         {
