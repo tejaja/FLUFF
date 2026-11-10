@@ -1252,8 +1252,7 @@ public static class FuwaCourse2_4Builder
         lid.transform.SetParent(body, false); lid.transform.localPosition = new Vector3(0f, topY + 0.1f, 0f); lid.transform.localScale = new Vector3(1.46f, 0.02f, 1.46f); lid.GetComponent<Renderer>().sharedMaterial = cwAxle;
         // 雲：いつもぽわぽわ＋パイプからざらめが着いたらぽわっ
         facCloud = FuwaGearTest.Mat("GearRideTest_Steam", new Color(0.97f, 0.98f, 1f));
-        var idle = FacPuff(holder, new Vector3(0f, BalloonY + topY + 0.5f, 0f), Vector3.up, 1.4f, 1.6f, 0.5f); idle.name = "BalloonPuffIdle";
-        { var mm = idle.main; mm.startSpeed = new ParticleSystem.MinMaxCurve(0.9f, 1.6f); mm.startLifetime = new ParticleSystem.MinMaxCurve(4f, 6f); var lv = idle.limitVelocityOverLifetime; lv.limit = 0.5f; }
+        // 2026-11-10 てじゃ「常時出てる煙みたいなのもいらない」→ いつもの玉の煙（BalloonPuffIdle）はやめた
         var burst = FacPuff(holder, new Vector3(0f, BalloonY + topY + 0.5f, 0f), Vector3.up, 1.9f, 0f, 0.6f); burst.name = "BalloonPuffBurst";
         { var mm = burst.main; mm.startSpeed = new ParticleSystem.MinMaxCurve(2f, 3.2f); mm.startLifetime = new ParticleSystem.MinMaxCurve(4f, 6f); var lv = burst.limitVelocityOverLifetime; lv.limit = 0.6f; var sh = burst.shape; sh.angle = 30f; }
         var cb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaCloudBalloon>(holder.gameObject);
@@ -1314,7 +1313,8 @@ public static class FuwaCourse2_4Builder
             c.SetActive(false); list.Add(c.transform);
         }
         cb.clouds = list.ToArray(); cb.cloudSpawn = sp;
-        cb.cloudScaleMin = 1.1f; cb.cloudScaleMax = 1.7f; cb.cloudSpread = 20f; cb.cloudPale = 1f;   // 幅 3.3〜4.2m の雲を 4〜7m に。色は白だけ（てじゃ）
+        cb.cloudScaleMin = 1.5f; cb.cloudScaleMax = 2.3f; cb.cloudSpread = 20f; cb.cloudPale = 1f;   // 幅 2.1〜2.4m の丸い雲を 3.5〜5.5m に。色は白だけ（てじゃ）
+        cb.puffEvery = 6; cb.cloudMinGap = 6f;   // 2026-11-10 てじゃ「頻度もへらしていい」
         // 流れる向き：ロビーから 2–5（Slot4）の方（てじゃ「2-5予定地の方向に飛ばそう」）
         var lobby = GameObject.Find("FuwaStage2/Lobby");
         if (lobby)
@@ -1334,6 +1334,7 @@ public static class FuwaCourse2_4Builder
         var cb = root.GetComponentInChildren<FuwaCloudBalloon>(true); if (!cb) return "気球なし";
         var holder = cb.transform; var old = cb.burst ? holder.InverseTransformPoint(cb.burst.transform.position) : Vector3.zero;
         cb.burstCount = 0;
+        foreach (var ps in holder.GetComponentsInChildren<ParticleSystem>(true).Where(x => x.name == "BalloonPuffIdle").ToArray()) Object.DestroyImmediate(ps.gameObject);
         BalloonClouds(cb, holder, old + new Vector3(0f, -0.2f, 0f));
         foreach (var sp in root.GetComponentsInChildren<FuwaSugarPipe>(true).Where(x => x.name.StartsWith("TankPipe")))
         {
