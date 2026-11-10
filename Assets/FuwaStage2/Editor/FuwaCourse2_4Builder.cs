@@ -1697,10 +1697,12 @@ public static class FuwaCourse2_4Builder
     static float RatioFor(float pitchSpeed, float r) => pitchSpeed / r * Mathf.Rad2Deg / ClockSpeed;   // ピッチ円が pitchSpeed m/s で回る ratio
 
     // 外側の小歯車（道の左＝外、2D 180°）とたての軸。たての軸の下（FeedY）でかさ歯車 → 塔へ
-    static void Drive(Transform g, FuwaGearTest.Gear from, int z, float mod, float layerY, float th, Material m, float dirDeg = 180f)
+    //  walk：上に乗れる（当たり・道のレイヤー。FuwaClockwork が乗った人を運ぶ、めりこみ対策の movers にも入る）。2026-11-10 てじゃ「この歯車乗れないのが気になる」
+    static void Drive(Transform g, FuwaGearTest.Gear from, int z, float mod, float layerY, float th, Material m, float dirDeg = 180f, bool walk = false)
     {
         var dg = FuwaGearTest.Mesh2(from, "Drive_z" + z, z, dirDeg, mod);
         var t = CwGear(g, g.name + "_Drive_z" + z, new Vector3(dg.c.x, layerY, dg.c.y), Vector3.up, SpurMesh(z, mod, th, "Clockwork_Spur_m" + Mathf.RoundToInt(mod * 100) + "_z" + z), m);
+        if (walk) { t.gameObject.layer = 11; var mc = t.gameObject.AddComponent<MeshCollider>(); mc.sharedMesh = t.GetComponent<MeshFilter>().sharedMesh; }
         AddGear(t, dg.ratio, dg.phase * Mathf.Rad2Deg);
         float oy = FeedY - P.y;                    // gimmick の中の O の高さ
         CwShaft(t, oy + 1.2f - layerY, 0f, 0.5f); // A（O の上 1.2m）の上の面から小歯車の下の面まで
@@ -1899,7 +1901,7 @@ public static class FuwaCourse2_4Builder
             t.GetComponent<MeshRenderer>().sharedMaterials = new[] { i == 1 ? bronzeM : darkM, cutM };
             AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg);
         }
-        Drive(g, gs[2], 18, PM, -H, H, cwDark);   // 大きめ（でかい歯車からの速さ合わせ）。最後の歯車の外（最初の歯車の外はチェックポイントのきのこの丸太とぶつかる）
+        Drive(g, gs[2], 18, PM, -H, H, cwDark, 180f, true);   // 大きめ（でかい歯車からの速さ合わせ）。最後の歯車の外（最初の歯車の外はチェックポイントのきのこの丸太とぶつかる）
         var last = gs[gs.Count - 1];
         P += Dir(th) * (last.c.y + PM * last.z / 2f + PM + 0.05f);
     }
