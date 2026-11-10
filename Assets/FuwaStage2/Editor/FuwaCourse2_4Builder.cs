@@ -1257,7 +1257,8 @@ public static class FuwaCourse2_4Builder
         var burst = FacPuff(holder, new Vector3(0f, BalloonY + topY + 0.5f, 0f), Vector3.up, 1.9f, 0f, 0.6f); burst.name = "BalloonPuffBurst";
         { var mm = burst.main; mm.startSpeed = new ParticleSystem.MinMaxCurve(2f, 3.2f); mm.startLifetime = new ParticleSystem.MinMaxCurve(4f, 6f); var lv = burst.limitVelocityOverLifetime; lv.limit = 0.6f; var sh = burst.shape; sh.angle = 30f; }
         var cb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaCloudBalloon>(holder.gameObject);
-        cb.body = body; cb.burst = burst; cb.burstCount = 7;
+        cb.body = body; cb.burst = burst; cb.burstCount = 0;   // 2026-11-10 玉の粒はやめて、背景と同じ雲を出す（BalloonClouds）
+        BalloonClouds(cb, holder, new Vector3(0f, BalloonY + topY + 0.3f, 0f));
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); FuwaStage2WaterTest.NoSync(cb);
         balloon = cb;
         log.Append(" バルーン：球 半径 " + BalloonR + " ");
@@ -1288,6 +1289,50 @@ public static class FuwaCourse2_4Builder
     public static float CollarR0 = 1.7f, CollarR1 = 2.3f, CollarY0 = 5.0f, CollarY1 = 6.4f, PipeInY = 5.7f, BalloonR = 5.2f;
     // 球のバルーン：首の輪のてっぺんで球の半径が輪の外より少し内（2.2m）になる高さに球の底
     static float BalloonY => CollarY1 - (BalloonR - Mathf.Sqrt(BalloonR * BalloonR - 2.2f * 2.2f));
+    // ===== 気球から生まれる雲（2026-11-10 てじゃ「ちゃんと雲つくってふわふわ飛ばしたい」「ステージ1の背景の雲みたいなのいい感じに生み出せないもんか」）=====
+    //  背景の雲と同じ形（CloudR_A〜E）を12個使い回す。動きは FuwaCloudBalloon（煙突から出て大きくなり、のぼって風で流れ、しぼんで消える）
+    //  材質は背景の雲と同じ CloudPuff。ただし頂点のただよい（_Drift・_Bob）は0（スクリプトが動かす）。色は1つずつ MaterialPropertyBlock で
+    public static int BalloonCloudCount = 12;
+    static void BalloonClouds(FuwaCloudBalloon cb, Transform holder, Vector3 spawnLocal)
+    {
+        var old = holder.Find("BalloonClouds"); if (old) Object.DestroyImmediate(old.gameObject);
+        var old2 = holder.Find("BalloonCloudSpawn"); if (old2) Object.DestroyImmediate(old2.gameObject);
+        string mp = "Assets/FuwaStage2/Materials/Course2_4_BalloonCloud.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!m) { m = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/CloudPuff.mat")); AssetDatabase.CreateAsset(m, mp); }
+        m.SetFloat("_Drift", 0f); m.SetFloat("_Bob", 0f); m.enableInstancing = true; EditorUtility.SetDirty(m);
+        var meshes = new[] { "A", "B", "C", "D", "E" }.Select(x => AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/Clouds/CloudR_" + x + ".asset")).Where(x => x).ToArray();
+        var sp = new GameObject("BalloonCloudSpawn").transform; sp.SetParent(holder, false); sp.localPosition = spawnLocal;
+        var grp = new GameObject("BalloonClouds").transform; grp.SetParent(holder, false);
+        var list = new List<Transform>();
+        for (int i = 0; i < BalloonCloudCount; i++)
+        {
+            var c = new GameObject("BalloonCloud" + i); c.transform.SetParent(grp, false); c.transform.localPosition = spawnLocal; c.transform.localScale = Vector3.one * 0.001f;
+            c.AddComponent<MeshFilter>().sharedMesh = meshes[i % meshes.Length];
+            var r = c.AddComponent<MeshRenderer>(); r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            c.SetActive(false); list.Add(c.transform);
+        }
+        cb.clouds = list.ToArray(); cb.cloudSpawn = sp;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); EditorUtility.SetDirty(cb);
+    }
+
+    // シーンで気球の雲だけ作り直す（色つきの管の色もつなぐ）
+    public static string RebuildBalloonClouds()
+    {
+        root = GameObject.Find(RootName).transform;
+        var cb = root.GetComponentInChildren<FuwaCloudBalloon>(true); if (!cb) return "気球なし";
+        var holder = cb.transform; var old = cb.burst ? holder.InverseTransformPoint(cb.burst.transform.position) : Vector3.zero;
+        cb.burstCount = 0;
+        BalloonClouds(cb, holder, old + new Vector3(0f, -0.2f, 0f));
+        foreach (var sp in root.GetComponentsInChildren<FuwaSugarPipe>(true).Where(x => x.name.StartsWith("TankPipe")))
+        {
+            var lr = sp.bulges != null && sp.bulges.Length > 0 && sp.bulges[0] ? sp.bulges[0].GetComponent<Renderer>() : null;
+            if (lr && lr.sharedMaterial) { var c = lr.sharedMaterial.GetColor("_Color"); sp.cloudColor = c; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp); EditorUtility.SetDirty(sp); }
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+        return "雲 " + cb.clouds.Length;
+    }
+
     // バルーンの形（r, y）：下の首から、ふくらんで、てっぺんの煙突まで
     // 球（底から、てっぺんの煙突の半径 1.0 まで）
     static Vector2[] BalloonProf
@@ -1764,6 +1809,7 @@ public static class FuwaCourse2_4Builder
             var sp2 = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSugarPipe>(pipeT.gameObject);
             sp2.pts = full; sp2.bulges = bulges; sp2.speed = 3.5f; sp2.endCount = 8; sp2.endPuff = null; sp2.balloon = balloonC; sp2.glows = new Renderer[0];
             sp2.autoInterval = 360f / Mathf.Max(1f, sunRate);   // タンク1回転ごと
+            sp2.cloudColor = col;   // 気球から出る雲もこの色（うすく）
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp2); FuwaStage2WaterTest.NoSync(sp2);
             for (int i = 1; i < pts.Length; i++) others.Add((pts[i - 1], pts[i]));
             log.Append(" | タンクの管" + k + " → " + sugar[ti].name + " 高さ " + bestY.ToString("F1") + " 長さ " + bestLen.ToString("F1") + " ぶつかり " + bestHits);

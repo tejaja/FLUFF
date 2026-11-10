@@ -27,6 +27,8 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     public float autoInterval = 0f;
     [Tooltip("ふくらみがタンクに入ると振れる圧力計の針（local z まわり、2026-11-10）")]
     public Transform needle;
+    [Tooltip("着いた時に気球から出る雲の色（2026-11-10、色つきタンクの管はその液の色）")]
+    public Color cloudColor = Color.white;
     public float needleKick = 70f;
     private Quaternion _needleBase;
     private float _autoT;
@@ -120,7 +122,7 @@ public class FuwaSugarPipe : UdonSharpBehaviour
             {
                 _at[i] = -1f; bulges[i].gameObject.SetActive(false);
                 if (endPuff != null) endPuff.Emit(endCount);
-                if (balloon != null) balloon.Puff();
+                if (balloon != null) balloon.PuffColor(cloudColor);
                 continue;
             }
             Place(i);
