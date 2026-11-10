@@ -23,6 +23,9 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     [ColorUsage(false, true)] public Color glowColor = new Color(0.9f, 1.6f, 2.6f);
     public float glowFade = 1.6f;
     public int endCount = 10;
+    [Tooltip("0より大きいと、この秒ごとに自分で Send（2–4 の回るタンクから気球へのパイプ、2026-11-10）")]
+    public float autoInterval = 0f;
+    private float _autoT;
 
     private float[] _cum;
     private float[] _at;
@@ -80,6 +83,7 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     {
         if (_at == null || pts == null || pts.Length < 2) return;
         float dt = Time.deltaTime;
+        if (autoInterval > 0f) { _autoT += dt; if (_autoT >= autoInterval) { _autoT -= autoInterval; Send(); } }
         if (glows != null && (_glow > 0f || _glowOn))
         {
             _glow = Mathf.Max(0f, _glow - dt * glowFade);
