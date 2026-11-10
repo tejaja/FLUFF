@@ -33,8 +33,7 @@ public static class FuwaKinokoEntrance
     public static float TabCut = 46.45f, TabEnd = 47.3f, TabHalfW = 1.3f, TabTopY = 18.17f;
     public static float HalfW = 1.5f;
     public static float CapLift = 0.6f;    // キノコの傘を床より上に（小ジャンプで乗る。0.5以下だとVRChatでは歩いて登れる）
-    public static float CapD = -5.0f;   // 2026-11-11 てじゃ「最初のきのこもサイズアップ、ちょっと手前に」：0.6→0.75、すき間の真ん中(-4.7)→-5.0
-    public static float CapScale = 0.75f, ShelfScale = 0.5f, ShelfTopY = 9.62f;   // 2026-10-07 9.75→9.62：根本の盛り上がり（傘の上面+7cm）が段の板の上端（YA1-0.08）より上に出ていた
+    public static float CapScale = 0.6f, ShelfScale = 0.5f, ShelfTopY = 9.62f;   // 2026-10-07 9.75→9.62：根本の盛り上がり（傘の上面+7cm）が段の板の上端（YA1-0.08）より上に出ていた
     public static float ShelfOut = 0.8f;   // サルノコシカケが平らAの先の壁（手前側）から出る長さ
     public static float ShelfImpulse = 4.85f;  // サルノコシカケの上のジャンプ力（高さ約1.2m。傘を13cm下げたぶん強めた）
 
@@ -126,7 +125,7 @@ public static class FuwaKinokoEntrance
         if (cap != null)
         {
             cap.name = "EntranceCap"; cap.localScale = Vector3.one * CapScale;
-            cap.position = W(CapD, 0f, FloorY + CapLift);
+            cap.position = W((Gap1A + Gap1B) * 0.5f, 0f, FloorY + CapLift);
             var st = cap.Find("Stem"); if (st) { st.localScale = Vector3.one; st.localPosition = new Vector3(0, -3.28f, 0); }
             var j = cap.GetComponentInChildren<FuwaJumpBoost>(); j.radius = 1.15f * CapScale;
             if (j.boostRings) { var m = j.boostRings.main; m.startSize = j.radius * 2f * 1.3f; }
