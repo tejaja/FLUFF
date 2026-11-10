@@ -19,7 +19,7 @@ public static class FuwaRackBridgeTest
     static readonly Vector3 Origin = new Vector3(25f, -162f, -135f);   // かごの床の橋側のはしのまん中、床の上の高さ
     const float CageX0 = -7.4f, CageHalfZ = 3.2f;
     public const float Gap = 6f;                   // 谷（x 0〜Gap）
-    public const float FarX1 = 12f, FarZ0 = -5f, FarZ1 = 3.2f;   // 向こう岸の床（x Gap〜FarX1、z FarZ0〜FarZ1）。コースでは −z のはしから出る
+    public const float FarX1 = 10f, FarZ0 = -5f, FarZ1 = 2f;   // 2026-11-10 てじゃ「幅もあわせて」：出口の道と同じ幅 4m（前は 12 / 3.2 で 6×8.2m）   // 向こう岸の床（x Gap〜FarX1、z FarZ0〜FarZ1）。コースでは −z のはしから出る
     const float BridgeW = 2.5f, HalfL = 3.5f, BridgeT = 0.4f, BridgeDrop = 0.45f, MeetGap = 0.03f;
     const float ZL = -2.2f, YL = -3.1f;            // 横の軸の z と高さ
     const float XW = -1.4f;                        // 羽根車の軸の x（2026-11-07 てじゃ「前が見える位置で羽まわしたい」）

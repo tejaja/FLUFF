@@ -14,7 +14,7 @@ public static class FuwaDrawbridgeTest
     const float Th = 0.5f;           // 歯車の厚み
     const float Front = Th + 0.1f;   // 手前の段の位置（ローカル Y）
     const int ZA = 16, ZB = 40, ZC = 16, ZD = 60;
-    public const float BridgeLen = 8f, PathW = 4.5f, PathNear = 1.9f;
+    public const float BridgeLen = 8f, PathW = 4f, PathNear = 1.9f;   // 2026-11-10 てじゃ「幅もあわせて」：道（2–4 の 2×HW）と同じ 4m（前は 4.5m）
     // 橋の手前・向こうの道の長さ。2026-11-07 てじゃ「全体的にもうちょっと小回りに」16・14 → 8・4
     public static float NearLen = 8f, FarLen = 4f;   // 道は手前（ローカル Y = 1.9〜6.4）
     static readonly Vector3 Origin = new Vector3(-40f, -162f, -100f);

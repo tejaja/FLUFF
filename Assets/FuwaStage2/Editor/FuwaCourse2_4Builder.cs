@@ -99,7 +99,7 @@ public static class FuwaCourse2_4Builder
         T(-90f); CPCurve("CheckpointRack", -90f); S(2f);
         Place(Rack, log); FloorsToStripes(Rack); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); CPCurve("CheckpointTwin", -90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
         // チェックポイント4は出口の床（6m 角）に入ってすぐ・床の幅いっぱい（2026-11-08 てじゃ「横から抜けられちゃう」：床の先の曲がり角を斜めに飛ぶと、道の幅の判定を通らなかった）
-        Place(Twin, log); FloorsToStripes(Twin); CP("Checkpoint4", -5.5f, 3f); S(2f);
+        Place(Twin, log); FloorsToStripes(Twin); CP("Checkpoint4", -5.5f);   // 出口の床を道の幅にしたので判定も道の幅 S(2f);
         // 塔へ（まん中）：①の上をまたいで
         // 2026-11-08 てじゃ「今のゴールと前の道は完全に別の場所に」→ まん中（バルーン）へ向かう道は位置を決めるためだけに作って消す（GoalPlan 0 で前の通り）
         var P0 = P; float th0 = th; int n0 = pathT.childCount, s0 = segNo;
@@ -2537,7 +2537,9 @@ public static class FuwaCourse2_4Builder
             if (F.name.StartsWith("Cage")) continue;   // 羽根車のかご（床・坂・下り坂）は元のグレーの板のまま（てじゃ「羽のとこはいいかも」）
             var ax = new[] { F.right, F.up, F.forward }; var sz = bc.size;
             int thick = 0; for (int i = 1; i < 3; i++) if (Mathf.Abs(ax[i].y) > Mathf.Abs(ax[thick].y)) thick = i;
-            int along = -1; for (int i = 0; i < 3; i++) if (i != thick && (along < 0 || Mathf.Abs(Vector3.Dot(ax[i], travel)) > Mathf.Abs(Vector3.Dot(ax[along], travel)))) along = i;
+            // シマは長い方の向きにならべる（向こう岸のように、橋で着いて横へ出ていく床は出ていく向きが長い）。同じ長さなら進む向き
+            int h0 = thick == 0 ? 1 : 0, h1 = thick == 2 ? 1 : 2;
+            int along = Mathf.Abs(sz[h0] - sz[h1]) > 0.01f ? (sz[h0] > sz[h1] ? h0 : h1) : (Mathf.Abs(Vector3.Dot(ax[h0], travel)) >= Mathf.Abs(Vector3.Dot(ax[h1], travel)) ? h0 : h1);
             float L = sz[along]; int n = Mathf.Max(1, Mathf.RoundToInt(L / StripeLen));
             for (int k = 0; k < n; k++)
             {

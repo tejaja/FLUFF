@@ -74,7 +74,7 @@ public static class FuwaTwinTableTest
         Floor(root, "CageFloor", new Vector3((x0 + x1) / 2f, 0f, 0f), 0f, new Vector2(x1 - x0, 2f * CageHalfZ), floorM);
         Vector3 cB = new Vector3(D, 0f, 0f);
         float exitNear = CornerR(TipB) + 0.05f;
-        Floor(root, "Exit", cB + Polar(ExitDeg, exitNear + 3f), ExitDeg, new Vector2(6f, 6f), floorM);
+        Floor(root, "Exit", cB + Polar(ExitDeg, exitNear + 3f), ExitDeg, new Vector2(6f, 4f), floorM);   // 2026-11-10 幅を道と同じ 4m に（前は 6m）
 
         // ── 回転床 A ──
         var tableA = new GameObject("TableA").transform; tableA.SetParent(root, false);
