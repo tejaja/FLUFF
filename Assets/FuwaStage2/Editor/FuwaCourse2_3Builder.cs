@@ -1798,6 +1798,8 @@ public static class FuwaCourse2_3Builder
     public static float V4_MoverObsLat = 1.9f;   // 動く板：まん中から横へ（1 枚ごとに左右）
     // 丸い山の坂：まん中からの半径と角度（度）。道が入る所の近く（V4_DomeObsClear m）は置かない
     public static float[] V4_DomeObsR = { 5.8f, 8.1f }; public static float V4_DomeObsClear = 3.4f;
+    // 外へずらす置き物（名前・ずらす m）。2026-11-10 てじゃ「視点バグ起きてた氷、外側にちょっとずらしてスキマ広げても」→ 出口の橋の手前の岩 DomeObs2 を外へ
+    public static (string n, float d)[] V4_DomeObsOut = { ("DomeObs2", 1.2f) };
     // 氷原のチェックポイント（2026-11-05 てじゃ「移動床の一個目超えた先の島にチェックポイントを置こう。どまんなかに一個きのこ置いて、島全体カバーでOK」）
     //  動かない板 V4_CpStatic のまん中に光るキノコ 1 つ（2–2 のジグザグと同じ 1 つ式）、判定は板ぜんたいを囲む箱、復活は回る橋の方へ V4_CpRespawnOut m
     public static int V4_CpStatic = 1; public static float V4_CpRespawnOut = 2.8f, V4_CpTrigPad = 0.6f, V4_CpDepth = 0.4f;
@@ -2165,6 +2167,7 @@ public static class FuwaCourse2_3Builder
                             float a = (k * 60f + (ri == 0 ? 15f : 45f)) * Mathf.Deg2Rad; var q = M2_MC + new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * V4_DomeObsR[ri];
                             if (entries.Any(e => (e - q).magnitude < V4_DomeObsClear)) continue;
                             bool cr = (k + ri) % 3 == 0;
+                            { string nm = "DomeObs" + no; foreach (var nd in V4_DomeObsOut) if (nd.n == nm) q = M2_MC + (q - M2_MC).normalized * ((q - M2_MC).magnitude + nd.d); }
                             V4Obstacle(dobs, "DomeObs" + (no++), o + new Vector3(q.x, MapHeight(q), q.y), cr, cr ? 0.5f : 1.4f + 0.25f * ((k * 7 + ri * 3) % 3), k * 53f + ri * 21f, cr ? 0.15f : 0.35f);
                         }
                     Debug.Log("[2–3 V4] 丸い山の坂の置き物 " + no + " 個");
