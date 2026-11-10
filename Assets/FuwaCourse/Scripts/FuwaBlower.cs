@@ -159,8 +159,14 @@ public class FuwaBlower : UdonSharpBehaviour
     //  他人の銃は今までどおり手のボーンについていく（見ている人には手から離れて見えないように）
     //  → 手について行くと、持った瞬間も腕を上げるアニメに合わせてぬるっと来る（てじゃ「持った時も一瞬で持てないかんじ？」）ので、
     //    自分の画面では手は見ずに、頭から見た決まった位置（desktopViewPos、目の高さ1.6mの時。アバターの大きさで伸び縮み）に一瞬で出す
-    [Tooltip("自分の銃（デスクトップ・スマホ）の画面上の位置：頭から見て x=右 y=上 z=前（m、目の高さ1.6mのアバターの時）")]
-    public Vector3 desktopViewPos = new Vector3(0.2f, -0.24f, 0.38f);
+    //  → 決まった位置だと手からだいぶずれた（アバターごとに手の位置が違う）ので、持って落ち着いた時（desktopLearnAfter 秒後、止まっている時）の
+    //    手の位置を「頭から見た位置」として覚えておき、次からは持った瞬間にそこへ出す。持っている間はそこに固定。覚えるのは1回持つごとに1回だけ。
+    //    まだ覚えていない最初の1回だけ、決まった位置から覚えた位置へすっと移る。アバターを変えたら（目の高さが変わったら）覚え直す
+    [Tooltip("まだ手の位置を覚えていない時の位置：頭から見て x=右 y=上 z=前（m、目の高さ1.6mのアバターの時）")]
+    public Vector3 desktopViewPos = new Vector3(0.15f, -0.2f, 0.3f);
+    [Tooltip("持ってからこの秒数たって止まっていたら、その時の手の位置を覚える")]
+    public float desktopLearnAfter = 0.8f;
+    private Vector3 _dtLearned, _dtCur; private bool _dtLearnedOk, _dtHolding, _dtLearnedThisHold; private float _dtLearnEye, _dtGrabTime;
 
     [Tooltip("持ち主のアバターの大きさ（目の高さ）に合わせて銃の大きさを変える。風の届く距離や強さは変えない")]
     public bool autoScale = true;
@@ -553,7 +559,21 @@ public class FuwaBlower : UdonSharpBehaviour
                     if (holder.isLocal)
                     {
                         VRCPlayerApi.TrackingData hd = holder.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
-                        palm = hd.position + hd.rotation * (desktopViewPos * _autoScale);
+                        Vector3 rel = Quaternion.Inverse(hd.rotation) * (palm - hd.position);
+                        float eye = holder.GetAvatarEyeHeightAsMeters();
+                        if (_dtLearnedOk && Mathf.Abs(eye - _dtLearnEye) > _dtLearnEye * 0.02f) _dtLearnedOk = false;   // アバターが変わった
+                        if (!_dtHolding)
+                        {
+                            _dtHolding = true; _dtLearnedThisHold = false; _dtGrabTime = Time.time;
+                            _dtCur = _dtLearnedOk ? _dtLearned : desktopViewPos * _autoScale;
+                        }
+                        if (!_dtLearnedThisHold && Time.time - _dtGrabTime > desktopLearnAfter && holder.GetVelocity().sqrMagnitude < 0.04f && holder.IsPlayerGrounded())
+                        {
+                            _dtLearned = rel; _dtLearnedOk = true; _dtLearnEye = eye; _dtLearnedThisHold = true;
+                        }
+                        Vector3 target = _dtLearnedOk ? _dtLearned : desktopViewPos * _autoScale;
+                        _dtCur = Vector3.Lerp(_dtCur, target, 1f - Mathf.Exp(-Time.deltaTime * 6f));
+                        palm = hd.position + hd.rotation * _dtCur;
                     }
                     basePos = palm + head * (desktopHandOffset * _autoScale);
                 }
@@ -564,6 +584,7 @@ public class FuwaBlower : UdonSharpBehaviour
         }
         else if (_aligned && !_dropPending)
         {
+            _dtHolding = false;
             if (visualRoot != null)
             {
                 visualRoot.transform.localPosition = _visualLocalPos;
