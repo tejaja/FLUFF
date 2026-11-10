@@ -2024,7 +2024,7 @@ public static class FuwaCourse2_4Builder
                 var rb = TBox(sun, "TankRib" + k, Dir2(120f * k + 60f) * (STankR + 0.015f) + new Vector3(0f, (STankY0 + STankY1) / 2f + o, 0f), new Vector3(0.04f, STankY1 - STankY0 - 0.12f, 0.06f), cwBrass, false);
                 rb.localRotation = Quaternion.Euler(0f, -(120f * k + 60f), 0f);
             }
-            Cyl(sun, "TankTop", STankR + 0.06f, STankY1 + o, STankY1 + 0.1f + o, cwLight);
+            Cyl(sun, "TankTop", STankR + 0.06f, STankY1 + o, STankY1 + 0.1f + o, glassM);   // ふたもガラス（2026-11-10 上から液のうずが見えるように）
             Cyl(sun, "TankTopHub", 0.1f, STankY1 + 0.1f + o, STankCrownY - 0.02f + o, cwBrass);
             // 中：回る液。回っている液は上の面がすり鉢（放物面）になる。ふちの高さ LiqWall、まん中は LiqDip だけ下がる
             {
