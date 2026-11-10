@@ -48,6 +48,9 @@ public static class FuwaTwinTableTest
         var bladeM = FuwaGearTest.Mat("FanTest_Blade", new Color(0.55f, 0.82f, 0.95f));
         var deckM = FuwaGearTest.Mat("TurnTableTest_Deck", new Color(0.7f, 0.72f, 0.77f));
         var deckBM = FuwaGearTest.Mat("TwinTableTest_DeckB", new Color(0.78f, 0.74f, 0.66f));
+        // 2026-11-10 てじゃ「橋とあわせて道みたいな模様にしたらわかりやすいかも」→ 橋と床の上の道を 2–4 の道と同じシマに
+        var roadA = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_PathA.mat") ?? FuwaGearTest.Mat("TwinTableTest_RoadA", new Color(0.60f, 0.56f, 0.52f));
+        var roadB = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_PathB.mat") ?? FuwaGearTest.Mat("TwinTableTest_RoadB", new Color(0.40f, 0.36f, 0.33f));
         var deckDarkM = FuwaGearTest.Mat("TwinTableTest_DeckADark", new Color(0.56f, 0.58f, 0.65f));   // 扇形の塗り分け（2026-11-10）
         var deckBDarkM = FuwaGearTest.Mat("TwinTableTest_DeckBDark", new Color(0.64f, 0.58f, 0.49f));
 
@@ -81,7 +84,9 @@ public static class FuwaTwinTableTest
         // ── 回転床 A ──
         var tableA = new GameObject("TableA").transform; tableA.SetParent(root, false);
         Deck(tableA, DeckA, deckM, deckDarkM, brass, 0f);
-        foreach (float ang in new[] { 0f, 90f, 180f, 270f }) Bridge(tableA, ang, DeckA, TipA, wood, axleM);
+        var angsA = new[] { 0f, 90f, 180f, 270f }; plazaR = RoadPlazaR(angsA);
+        foreach (float ang in angsA) Bridge(tableA, ang, DeckA, TipA, roadA, roadB, RoadArmStripes(DeckA));
+        Road(tableA, DeckA, angsA, roadA, roadB);
         var ringAMesh = FuwaGearTest.SaveMesh(RimGear(ZA, Mod, GearTh, 0.5f, "TwinTable_Ring_z" + ZA));
         Ring(tableA, ringAMesh, brass, RimIn(ZA), dark);
         Prim(PrimitiveType.Cylinder, root, "PedestalA", new Vector3(0f, GearY - 0.92f, 0f), new Vector3(1.6f, 0.9f, 1.6f), dark);
@@ -92,7 +97,10 @@ public static class FuwaTwinTableTest
         // 最初（u = startU）の B の歯車の角度 θB0 = gB.phase。橋は世界で {0°, 240°}（答えの {180°, 60°} から 180° ずれ）に向くよう local を決める
         float thB0 = gB.phase * Mathf.Rad2Deg;
         Deck(tableB, DeckB, deckBM, deckBDarkM, brass, -thB0);
-        foreach (float wAng in new[] { 0f, ExitDeg + 180f }) Bridge(tableB, wAng - thB0, DeckB, TipB, wood, axleM);   // 答えの {180°, ExitDeg} から 180° ずれ
+        var angsB = new[] { 0f - thB0, ExitDeg + 180f - thB0 };   // 答えの {180°, ExitDeg} から 180° ずれ
+        plazaR = RoadPlazaR(angsB);
+        foreach (float ang in angsB) Bridge(tableB, ang, DeckB, TipB, roadA, roadB, RoadArmStripes(DeckB));
+        Road(tableB, DeckB, angsB, roadA, roadB);
         var ringBMesh = FuwaGearTest.SaveMesh(RimGear(ZB, Mod, GearTh, 0.5f, "TwinTable_Ring_z" + ZB));
         Ring(tableB, ringBMesh, light, RimIn(ZB), dark);
         Prim(PrimitiveType.Cylinder, root, "PedestalB", cB + new Vector3(0f, GearY - 0.92f, 0f), new Vector3(1.6f, 0.9f, 1.6f), dark);
@@ -219,7 +227,7 @@ public static class FuwaTwinTableTest
         for (int i = 0; i < rad.Length - 1; i++)
             for (int j = 0; j < n; j++)
             {
-                int sm = i == 0 ? 1 : i == 1 ? ((j / per) % 2 == 0 ? 0 : 1) : i == 2 ? 2 : 0;
+                int sm = i == 2 ? 2 : 0;   // 扇形の塗り分けは道に変えたのでなし（ふち近くの金の輪だけ）
                 int a = Idx(i, j), b = Idx(i, j + 1), c = Idx(i + 1, j + 1), d = Idx(i + 1, j);
                 t[sm].Add(a); t[sm].Add(b); t[sm].Add(c); t[sm].Add(a); t[sm].Add(c); t[sm].Add(d);
             }
@@ -240,17 +248,94 @@ public static class FuwaTwinTableTest
     }
 
     // 橋：根元は橋のかどが床のふちの円に乗る所から（すき間なし）。重なる所は 1cm 上げて Zファイトを避ける
-    static void Bridge(Transform table, float ang, float deckR, float tip, Material wood, Material lineM)
+    // 橋（2026-11-10 木の板 → 道と同じシマ。床の上の道の最後のシマと色が交互につづく）
+    static void Bridge(Transform table, float ang, float deckR, float tip, Material roadA, Material roadB, int armStripes)
     {
         float r0 = Mathf.Sqrt(deckR * deckR - BridgeW * BridgeW / 4f), len = tip - r0;
         var br = new GameObject("Bridge" + Mathf.RoundToInt(Mathf.Repeat(ang, 360f))).transform; br.SetParent(table, false);
         br.localPosition = Polar(ang, r0 + len / 2f) + new Vector3(0f, -0.19f, 0f);
         br.localRotation = Quaternion.Euler(0f, -ang, 0f);
         br.gameObject.layer = 11;
-        Prim(PrimitiveType.Cube, br, "Visual", Vector3.zero, new Vector3(len, 0.4f, BridgeW), wood);
         br.gameObject.AddComponent<BoxCollider>().size = new Vector3(len, 0.4f, BridgeW);
-        int nk = Mathf.Max(2, Mathf.RoundToInt(len / 0.8f));
-        for (int k = 1; k < nk; k++) Prim(PrimitiveType.Cube, br, "Plank" + k, new Vector3(-len / 2f + k * len / nk, 0.205f, 0f), new Vector3(0.05f, 0.01f, BridgeW), lineM);
+        int n = Mathf.Max(1, Mathf.RoundToInt(len / RoadStripe));
+        bool lastArmA = (armStripes - 1) % 2 == 0;
+        for (int k = 0; k < n; k++)
+        {
+            bool isA = (k % 2 == 0) != lastArmA;
+            Prim(PrimitiveType.Cube, br, "Visual" + k, new Vector3(-len / 2f + len * (k + 0.5f) / n, 0f, 0f), new Vector3(len / n, 0.4f, BridgeW), isA ? roadA : roadB);
+        }
+    }
+
+    // 床の上の道（橋と橋をまん中の丸い広場でつなぐ）。床の上の面から RoadTh だけ上（＝橋の上の面と同じ高さ）。見た目だけ（当たりは床）
+    //  広場の半径は、となりの腕どうしが重ならない大きさ（w / sin(間の角/2) 以上）。腕は広場の円から、橋の根元（弦 r0）まで
+    public static float RoadStripe = 1.2f, RoadTh = 0.01f;
+    static float plazaR;
+    static float RoadPlazaR(float[] angs)
+    {
+        float w = BridgeW / 2f, minGap = 180f;
+        var a = angs.Select(x => Mathf.Repeat(x, 360f)).OrderBy(x => x).ToArray();
+        if (a.Length >= 2) { minGap = 360f; for (int i = 0; i < a.Length; i++) { float g = (i + 1 < a.Length ? a[i + 1] : a[0] + 360f) - a[i]; minGap = Mathf.Min(minGap, g); } }
+        return Mathf.Max(w * 1.15f, w / Mathf.Sin(Mathf.Min(minGap, 180f) * 0.5f * Mathf.Deg2Rad) + 0.15f);
+    }
+    static int RoadArmStripes(float deckR)
+    {
+        float r0 = Mathf.Sqrt(deckR * deckR - BridgeW * BridgeW / 4f);
+        return Mathf.Max(1, Mathf.RoundToInt((r0 - plazaR) / RoadStripe));
+    }
+    static void Road(Transform table, float deckR, float[] angs, Material roadA, Material roadB)
+    {
+        float w = BridgeW / 2f, r0 = Mathf.Sqrt(deckR * deckR - w * w), rho = plazaR, h = RoadTh;
+        var v = new System.Collections.Generic.List<Vector3>(); var nr = new System.Collections.Generic.List<Vector3>();
+        var t = new[] { new System.Collections.Generic.List<int>(), new System.Collections.Generic.List<int>() };
+        void Tri(int sm, int a, int b, int c, Vector3 nrm)
+        {
+            if (Vector3.Dot(Vector3.Cross(v[b] - v[a], v[c] - v[a]), nrm) >= 0f) { t[sm].Add(a); t[sm].Add(b); t[sm].Add(c); }
+            else { t[sm].Add(a); t[sm].Add(c); t[sm].Add(b); }
+        }
+        void Quad(int sm, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 nrm)
+        {
+            int i0 = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d); for (int q = 0; q < 4; q++) nr.Add(nrm);
+            Tri(sm, i0, i0 + 1, i0 + 2, nrm); Tri(sm, i0, i0 + 2, i0 + 3, nrm);
+        }
+        var up = Vector3.up * h;
+        int seg = DeckSeg;
+        // 広場（こい色）
+        {
+            int c0 = v.Count; v.Add(up); nr.Add(Vector3.up);
+            for (int j = 0; j < seg; j++) { float a = 2f * Mathf.PI * j / seg; v.Add(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * rho + up); nr.Add(Vector3.up); }
+            for (int j = 0; j < seg; j++) Tri(1, c0, c0 + 1 + j, c0 + 1 + (j + 1) % seg, Vector3.up);
+            for (int j = 0; j < seg; j++)
+            {
+                float a0 = 2f * Mathf.PI * j / seg, a1 = 2f * Mathf.PI * (j + 1) / seg, am = (a0 + a1) / 2f;
+                var p0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)) * rho; var p1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1)) * rho;
+                Quad(1, p0, p1, p1 + up, p0 + up, new Vector3(Mathf.Cos(am), 0f, Mathf.Sin(am)));
+            }
+        }
+        // 腕（橋の向き）：広場の円 → 弦 r0。進む向きに A/B（広場のとなりは A）
+        int n = RoadArmStripes(deckR); const int m = 8;
+        foreach (float ang in angs)
+        {
+            var d = Polar(ang, 1f); var e = new Vector3(-d.z, 0f, d.x);
+            float XIn(float y) => Mathf.Sqrt(Mathf.Max(0f, rho * rho - y * y));
+            Vector3 P(float y, float f) { float x = Mathf.Lerp(XIn(y), r0, f); return d * x + e * y; }
+            for (int k = 0; k < n; k++)
+            {
+                int sm = k % 2 == 0 ? 0 : 1;
+                float fa = (float)k / n, fb = (float)(k + 1) / n;
+                for (int q = 0; q < m; q++)
+                {
+                    float y0 = -w + 2f * w * q / m, y1 = -w + 2f * w * (q + 1) / m;
+                    Quad(sm, P(y0, fa) + up, P(y1, fa) + up, P(y1, fb) + up, P(y0, fb) + up, Vector3.up);
+                }
+                Quad(sm, P(-w, fa), P(-w, fb), P(-w, fb) + up, P(-w, fa) + up, -e);
+                Quad(sm, P(w, fa), P(w, fb), P(w, fb) + up, P(w, fa) + up, e);
+            }
+        }
+        var mesh = new Mesh { name = "TwinTable_Road_r" + Mathf.RoundToInt(deckR * 100) + "_" + string.Join("_", angs.Select(x => Mathf.RoundToInt(Mathf.Repeat(x, 360f)).ToString())) };
+        mesh.SetVertices(v); mesh.SetNormals(nr); mesh.subMeshCount = 2; mesh.SetTriangles(t[0], 0); mesh.SetTriangles(t[1], 1); mesh.RecalculateBounds();
+        mesh = FuwaGearRideTest.SaveMeshSub(mesh);
+        var go = new GameObject("Road"); go.transform.SetParent(table, false);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh; go.AddComponent<MeshRenderer>().sharedMaterials = new[] { roadA, roadB };
     }
 
     // ===== 橋が見えやすいように（2026-11-10 てじゃ「横から見ると遠く全然みえない、合ってるかもわからん」）=====
