@@ -1452,9 +1452,9 @@ public static class FuwaCourse2_3Builder
     // 動く板：動かない板 a と b のあいだ。割れ目は a のまん中から rA、b のまん中から rB の所。hw＝半分の幅。止まっている時（まん中）の割れ目の幅は V4_Gap（0〜2 倍に開け閉め）
     public static (string n, int a, int b, float rA, float rB, float hw, int seed, float phase)[] V4_Movers = {
         ("M1", 0, 1, 4.5f, 4.5f, 4.0f, 5, 0f), ("M2", 2, 3, 4f, 4.5f, 4.5f, 6, 7f) };
-    public static float V4_Gap = 2.5f, V4_MovePeriod = 14f;
+    public static float V4_Gap = 2.5f, V4_MovePeriod = 14f, V4_MoveHold = 1.5f;   // V4_MoveHold：はしで（割れ目がつながった状態で）止まる秒。1 往復は V4_MovePeriod＋2×hold（2026-11-10 てじゃ「移動床クソむずい、繋がった状態で短時間止まるように」）
     // 回る橋：まん中・はしの半径・半分の幅・1 回転の秒。touch の板のふちは回る円にそってくぼませる（S1 は回るまん中の南西、時計まわりに 110° 回って北西の S2。動く板 M1 から離すため）
-    public static Vector2 V4_SpinC = new Vector2(12.6f, 150.26f); public static float V4_SpinR = 6f, V4_SpinHW = 3f, V4_SpinPeriod = 20f; public static int[] V4_SpinTouch = { 1, 2 };
+    public static Vector2 V4_SpinC = new Vector2(12.6f, 150.26f); public static float V4_SpinR = 6f, V4_SpinHW = 4f, V4_SpinPeriod = 28f; public static int[] V4_SpinTouch = { 1, 2 };   // 2026-11-10 てじゃ「回転床クソむずい、速度を落としつつ広く」：幅 3→4、1 回転 20→28 秒
     public static float V4_FieldY = 116.3f, V4_GoalY = 180.6f;   // 入口の道が S0 に入る線・ゴールへの道が S3 から出る線（どちらも平らに切る）
 
     static void V4Profile(int shape, float s, out float cx, out float wL, out float wR)
@@ -1618,13 +1618,13 @@ public static class FuwaCourse2_3Builder
     static List<(Transform g, List<List<Vector2>> loops, System.Func<Vector2, float> topH, float dripOut, float icicleDepth, Collider self)> iceDeco = new List<(Transform, List<List<Vector2>>, System.Func<Vector2, float>, float, float, Collider)>();
     public static float SnowRimThresh = 0.6f;   // つららは IcicleChance 0 でいったんなし（2026-11-05 てじゃ「つららもへんだ」）   // 雪のふちを付ける所（ノイズ 0〜1 がこれより上）
     public static float SnowLipIn = 0.45f, SnowLipH = 0.07f, SnowDripMax = 0.3f, IcicleGapMin = 1.4f, IcicleGapMax = 3.2f, IcicleChance = 0f, IcicleLenMin = 0.5f, IcicleLenMax = 1.9f;
-    static void BuildIceDeco(Transform pathRoot)
+    static int BuildIceDeco(Transform pathRoot, int seedOff = 0)
     {
         Physics.SyncTransforms();
         int nSnow = 0, nIce = 0;
         for (int di = 0; di < iceDeco.Count; di++)
         {
-            var rec = iceDeco[di]; var g = rec.g; var rnd = new System.Random(5100 + di * 31);
+            var rec = iceDeco[di]; var g = rec.g; int ds = di + seedOff; var rnd = new System.Random(5100 + ds * 31);
             var sv = new List<Vector3>(); var st = new List<int>(); var iv = new List<Vector3>(); var it = new List<int>();
             foreach (var loop0 in rec.loops)
             {
@@ -1651,7 +1651,7 @@ public static class FuwaCourse2_3Builder
                 }
                 // 雪のふちは一部だけ（2026-11-05 てじゃ「ちょっとくどいかも、雪もヒビも一部だけでいいかも」）：ふちにそった長さ(m)のノイズが SnowRimThresh より上の所だけ
                 var okIce = (bool[])ok.Clone();
-                { float sl = 0f; for (int i = 0; i < n; i++) { if (i > 0) sl += (loop[i] - loop[i - 1]).magnitude; if (ok[i] && BigNoise(1300 + di * 7, sl * 1.0f) < SnowRimThresh) ok[i] = false; } }
+                { float sl = 0f; for (int i = 0; i < n; i++) { if (i > 0) sl += (loop[i] - loop[i - 1]).magnitude; if (ok[i] && BigNoise(1300 + ds * 7, sl * 1.0f) < SnowRimThresh) ok[i] = false; } }
                 bool full = ok.All(x => x);
                 // 雪のふち：ok がつづく所を帯に。はしは 3 点かけて細く
                 int start = full ? 0 : System.Array.FindIndex(ok, x => !x);
@@ -1730,6 +1730,7 @@ public static class FuwaCourse2_3Builder
         }
         Debug.Log("[2–3] 氷の飾り：雪のふち " + nSnow + " 本、つらら " + nIce + " 本（" + iceDeco.Count + " 個の島・板）");
         iceDeco.Clear();
+        return nSnow;
     }
     // つらら 1 本（5 角のとがった柱、根元は上のふたつき）。表は外向き
     static void Icicle(List<Vector3> v, List<int> t, Vector3 top, Vector3 tip, float r, float twist)
@@ -1794,6 +1795,33 @@ public static class FuwaCourse2_3Builder
         if (crystal) { Crystal(parent, name, lp + Vector3.down * sink, size, 2.2f + size * 1.2f); return; }
         IceRock(parent, name, lp + Vector3.down * sink, size, yaw);
     }
+    // 回る橋（FieldSpin）だけ作り直す（幅・速さを変えた時。コースを丸ごと作り直さない）。材質は今の板から、雪のふちも付け直す
+    public static string RebuildSpinOnly(int snowSeed = 60)
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return "2–3 がない";
+        var pv = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "FieldSpin"); if (!pv) return "FieldSpin がない";
+        var old = pv.Find("FieldSpinIce"); if (!old) return "FieldSpinIce がない";
+        var s1 = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "FieldS1");
+        iceFlat = s1.GetComponent<MeshRenderer>().sharedMaterial;
+        var sn = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Snow" && t.GetComponent<MeshRenderer>()); snowLipMat = sn ? sn.GetComponent<MeshRenderer>().sharedMaterial : FuwaStage2WaterTest.ToonMat("Stage2_3_SnowLip", SnowLipCol);
+        icicleMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Icicle", IcicleCol);
+        pathLayer = old.gameObject.layer;
+        var keepRot = pv.localRotation; pv.localRotation = Quaternion.identity;
+        Object.DestroyImmediate(old.gameObject);
+        iceCols.Clear(); foreach (var c in root.GetComponentsInChildren<MeshCollider>(true)) if (c.GetComponent<MeshRenderer>() && c.GetComponent<MeshRenderer>().sharedMaterial && c.GetComponent<MeshRenderer>().sharedMaterial.name.StartsWith("Course2_3_Ice")) iceCols.Add(c);   // 作った時と同じく氷の板だけ
+        var F = V4Make(); int nSnow = 0;
+        recordDeco = IceLook; iceDeco.Clear();
+        try
+        {
+            var g = V4Piece(pv, "FieldSpinIce", Vector3.zero, F.spin, 9500, true, q => 0f); g.transform.SetSiblingIndex(0);
+            if (recordDeco) nSnow = BuildIceDeco(pv.parent, snowSeed);
+        }
+        finally { recordDeco = false; iceDeco.Clear(); }
+        pv.localRotation = keepRot;
+        var ti = pv.GetComponent<FuwaTiltIce>(); ti.period = V4_SpinPeriod; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ti); EditorUtility.SetDirty(ti);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.scene);
+        return "回る橋 幅 " + (V4_SpinHW * 2f) + "m・1 回転 " + V4_SpinPeriod + " 秒で作り直した（雪のふち " + nSnow + "）";
+    }
     static void V4Build(Transform isl, Transform path, Vector3 o, V4Field F, List<Vector2[]> cuts)
     {
         foreach (var pd in V4_Pads) MapIsland(isl, "Map" + pd.n, o, Ellipse(pd.c, pd.r, pd.r, 0f, 32), cuts);
@@ -1823,7 +1851,7 @@ public static class FuwaCourse2_3Builder
             V4Piece(mv, "Field" + m.n, Vector3.zero, m.body.Select(q => q - m.c).ToList(), 9300 + m.seed, true, q => 0f);
             { int k = F.movers.IndexOf(m); var side = new Vector2(-m.d.y, m.d.x) * (k % 2 == 0 ? V4_MoverObsLat : -V4_MoverObsLat); V4Obstacle(mv, "Obs0", new Vector3(side.x, 0f, side.y), false, 1.4f, 20f + k * 61f, 0.1f); }
             var mi = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaMovingIce>(mv.gameObject);
-            mi.a = c3 - d3 * V4_Gap; mi.b = c3 + d3 * V4_Gap; mi.period = V4_MovePeriod; mi.phase = m.phase;
+            mi.a = c3 - d3 * V4_Gap; mi.b = c3 + d3 * V4_Gap; mi.period = V4_MovePeriod + 2f * V4_MoveHold; mi.hold = V4_MoveHold; mi.phase = m.phase * mi.period / V4_MovePeriod;
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(mi); FuwaStage2WaterTest.NoSync(mi);
         }
         {

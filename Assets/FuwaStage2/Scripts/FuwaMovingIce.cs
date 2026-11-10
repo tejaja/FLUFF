@@ -11,6 +11,8 @@ public class FuwaMovingIce : UdonSharpBehaviour
 {
     public Vector3 a, b;
     public float period = 20f, phase = 0f;
+    [Tooltip("はし（a と b）で止まっている秒（それぞれ）。period にふくむ（2026-11-10 てじゃ「繋がった状態で短時間止まるように」）")]
+    public float hold = 0f;
     [Tooltip("乗っているかを見る、足の下のレイの長さ")]
     public float rideRay = 0.6f;
     [Tooltip("氷で滑る処理。乗っている間の床の速さを教える（VRChat の速さの読みをなおすため）")]
@@ -32,7 +34,11 @@ public class FuwaMovingIce : UdonSharpBehaviour
 
     private void Update()
     {
-        float u = 0.5f - 0.5f * Mathf.Cos(T() * Mathf.PI * 2f);
+        // はしで hold 秒止まって、あいだはなめらかに動く（hold 0 なら前と同じ 0.5-0.5cos）
+        float tt = T(); float h = period > 0.01f ? Mathf.Clamp(hold / period, 0f, 0.45f) : 0f;
+        float u;
+        if (tt < 0.5f) { float x = Mathf.Clamp01((tt - h * 0.5f) / (0.5f - h)); u = 0.5f - 0.5f * Mathf.Cos(x * Mathf.PI); }
+        else { float x = Mathf.Clamp01((tt - 0.5f - h * 0.5f) / (0.5f - h)); u = 0.5f + 0.5f * Mathf.Cos(x * Mathf.PI); }
         Vector3 lp = Vector3.Lerp(a, b, u);
         transform.localPosition = lp;
         Vector3 now = transform.position;
