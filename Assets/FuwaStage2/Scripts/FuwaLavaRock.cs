@@ -109,10 +109,20 @@ public class FuwaLavaRock : UdonSharpBehaviour
         return v * v * a + 2f * v * u * m + u * u * b;
     }
 
-    // 予告の丸：points[k] に着く landWarnLead 秒前から出して、まん中から埋まっていき、ふちまで埋まった時に着く。着いたら消す
-    private void LandWarns(bool flying, float t, int hops)
+    // 点線ぞいの岩の位置（m）。dotHopTable がなければ -1
+    private float RockDist(int k, float t, float t0, int hops)
+    {
+        if (dotHopTable == null || k < 0 || k * 9 + 8 >= dotHopTable.Length) return -1f;
+        float uu = Mathf.Clamp01((t - t0) / Dur(k, hops)) * 8f; int ui = Mathf.Min(7, Mathf.FloorToInt(uu));
+        return Mathf.Lerp(dotHopTable[k * 9 + ui], dotHopTable[k * 9 + ui + 1], uu - ui);
+    }
+
+    // 2026-11-10 てじゃ「ちょうど点線がバウンドするくらいから光らせよう」：点線の光の先（岩の dotLead m 先）が着く点に届いたら出す。
+    //  まん中から埋まっていき、ふちまで埋まった時に着く。着いたら landWarnFade 秒で薄くなって消える。埋まり方は点線ぞいの距離で（光の先が届いた時 0 → 岩が着いた時 1）。点線の表がなければ landWarnLead 秒前から
+    private void LandWarns(bool flying, float t, int hops, int hk, float t0)
     {
         if (_warnMats == null) return;
+        float rd = flying ? RockDist(hk, t, t0, hops) : -1f;
         float land = 0f;
         for (int k = 1; k < hops; k++)
         {
@@ -120,12 +130,14 @@ public class FuwaLavaRock : UdonSharpBehaviour
             int i = k - 1; if (i >= _warnMats.Length) break;
             Material m = _warnMats[i]; if (m == null) continue;
             float dt = land - t;
-            bool on = flying && dt > -landWarnFade && dt < landWarnLead;
+            bool byDots = rd >= 0f && k * 9 < dotHopTable.Length && dotLead > 0.01f;
+            float left = byDots ? dotHopTable[k * 9] - rd : 0f;   // 岩が着く点までの残り（m）
+            bool on = flying && dt > -landWarnFade && (byDots ? left < dotLead : dt < landWarnLead);
             if (on != _warnOn[i]) { _warnOn[i] = on; landWarns[i].enabled = on; }
             if (!on) continue;
             if (dt > 0f)
             {
-                float f = 1f - dt / landWarnLead;
+                float f = byDots ? 1f - left / dotLead : 1f - dt / landWarnLead;
                 m.SetFloat("_Fill", f);
                 m.SetFloat("_Alpha", Mathf.Clamp01(f * 4f));
             }
@@ -182,7 +194,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
         }
         else if (_dotMat != null) _dotMat.SetFloat("_Head", !flying ? -100f : dotSpacing > 0.01f ? (t * dotSpeed > pathLength + dotTail ? pathLength + dotTail + Mathf.Repeat(t * dotSpeed - pathLength - dotTail, dotSpacing) : t * dotSpeed) : (t * dotSpeed) % (pathLength + dotTail));
         if (pathDots != null && pathDots.enabled != flying) pathDots.enabled = flying;   // 休みの間は点線ごと消す
-        LandWarns(flying, t, hops);
+        LandWarns(flying, t, hops, k, t0);
         if (!flying) return;
         float u = Mathf.Clamp01((t - t0) / Dur(k, hops));
         Vector3 p = At(k, u);
