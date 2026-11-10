@@ -1158,7 +1158,7 @@ public static class FuwaCourse2_3Builder
         (new[] { new Vector2(6.3f, 109.3f), new Vector2(5.81f, 120.3f) }, 3f),
         (new[] { new Vector2(-4.58f, 156.3f), new Vector2(-4.58f, 163.9f) }, 3f) };
     // 丸い山（ドーム）と、オレンジの坂（線にそって、まん中がいちばん高く両はしへ下る。横は SideRun で落ちる）
-    public static float M2_DomeH = 3f, M2_DomePlateau = 1.5f, M2_DomeRun = 10f;
+    public static float M2_DomeH = 2.4f, M2_DomePlateau = 1.5f, M2_DomeRun = 10f;   // 3→2.4（2026-11-10 てじゃ「丸い山ちょっとむずい、ほんのちょっと緩める」：坂 17°→13.5°。シーンは MapDome を縦0.8倍＋上の物を下げて合わせた）
     // 最初の島の最後のカーブのあと（上の横向きの所）のゆるい坂：のぼって下りる低い丘（約 12°）（2026-11-04 てじゃ「最後のカーブ後、ちょとゆるい坂にしよ」）
     public static Vector2 M2_I1HillA = new Vector2(8f, 34f), M2_I1HillB = new Vector2(8f, 58f); public static float M2_I1HillPlateau = 1f, M2_I1HillRun = 9f, M2_I1HillH = 2f;
     public static Vector2 M2_RidgeA = new Vector2(-28.24f, 90.01f), M2_RidgeB = new Vector2(2.35f, 110.2f);
