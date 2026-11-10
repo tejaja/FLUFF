@@ -157,9 +157,10 @@ public class FuwaBlower : UdonSharpBehaviour
     //  自分が持っている時は、持った直後（desktopGrabSnap 秒）の手の位置を「頭から見た位置」として覚えて、あとはそこに固定（走りの腕ふりで揺れない）。
     //  最初は止まっている時だけゆっくり覚え直していたが、向きを変えた時に体が遅れて回るのを拾って、ぬるっとついてくる感じになった
     //  他人の銃は今までどおり手のボーンについていく（見ている人には手から離れて見えないように）
-    [Tooltip("持った直後この秒数は、手の位置にそのままついていく（腕を上げる動きの途中から覚えると、ぬるっと遅れてついてきた）")]
-    public float desktopGrabSnap = 0.6f;
-    private Vector3 _dtRel; private bool _dtRelOk; private float _dtGrabTime;
+    //  → 手について行くと、持った瞬間も腕を上げるアニメに合わせてぬるっと来る（てじゃ「持った時も一瞬で持てないかんじ？」）ので、
+    //    自分の画面では手は見ずに、頭から見た決まった位置（desktopViewPos、目の高さ1.6mの時。アバターの大きさで伸び縮み）に一瞬で出す
+    [Tooltip("自分の銃（デスクトップ・スマホ）の画面上の位置：頭から見て x=右 y=上 z=前（m、目の高さ1.6mのアバターの時）")]
+    public Vector3 desktopViewPos = new Vector3(0.2f, -0.24f, 0.38f);
 
     [Tooltip("持ち主のアバターの大きさ（目の高さ）に合わせて銃の大きさを変える。風の届く距離や強さは変えない")]
     public bool autoScale = true;
@@ -552,10 +553,7 @@ public class FuwaBlower : UdonSharpBehaviour
                     if (holder.isLocal)
                     {
                         VRCPlayerApi.TrackingData hd = holder.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
-                        Vector3 rel = Quaternion.Inverse(hd.rotation) * (palm - hd.position);
-                        if (!_dtRelOk) { _dtRel = rel; _dtRelOk = true; _dtGrabTime = Time.time; }
-                        else if (Time.time - _dtGrabTime < desktopGrabSnap) _dtRel = rel;   // そのあとは固定（走っても、向きを変えても画面の同じ所）
-                        palm = hd.position + hd.rotation * _dtRel;
+                        palm = hd.position + hd.rotation * (desktopViewPos * _autoScale);
                     }
                     basePos = palm + head * (desktopHandOffset * _autoScale);
                 }
@@ -566,7 +564,6 @@ public class FuwaBlower : UdonSharpBehaviour
         }
         else if (_aligned && !_dropPending)
         {
-            _dtRelOk = false;
             if (visualRoot != null)
             {
                 visualRoot.transform.localPosition = _visualLocalPos;
