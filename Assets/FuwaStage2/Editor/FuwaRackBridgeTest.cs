@@ -105,7 +105,9 @@ public static class FuwaRackBridgeTest
         foreach (float bx in new[] { ShaftX0 + 0.15f, ShaftX1 - 0.15f })
         {
             Prim(PrimitiveType.Cube, root, "Hanger" + bx.ToString("F1"), new Vector3(bx, (-0.4f + YL) / 2f, ZL), new Vector3(0.2f, -0.4f - YL, 0.2f), light);
-            Prim(PrimitiveType.Cube, root, "Bearing" + bx.ToString("F1"), new Vector3(bx, YL, ZL), new Vector3(0.3f, 0.66f, 0.66f), dark);
+            // 軸のはしのカラー（太さ0.64）の外の面が軸受けの外の面とぴったり同じでZファイト（2026-11-10 てじゃ）→ 軸受けを外へ 2cm ずつ厚くして、カラーを中にかくす
+            float outSide = bx < (ShaftX0 + ShaftX1) / 2f ? -1f : 1f;
+            Prim(PrimitiveType.Cube, root, "Bearing" + bx.ToString("F1"), new Vector3(bx + outSide * 0.02f, YL, ZL), new Vector3(0.34f, 0.66f, 0.66f), dark);
         }
         Prim(PrimitiveType.Cylinder, root, "BearingPinion", new Vector3(XP, -0.48f, ZL), new Vector3(0.66f, 0.08f, 0.66f), dark);
         Prim(PrimitiveType.Cylinder, root, "CollarHandle", new Vector3(XW, 0.02f, ZL), new Vector3(0.7f, 0.02f, 0.7f), dark);
