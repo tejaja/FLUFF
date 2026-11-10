@@ -97,7 +97,18 @@ fixed4 fragFace (v2f i) : SV_Target
         dEye = min(dEye, dMouth);
     }
     float ck = max(_FaceCheekSize, 0.01);
-    if (_FaceHit > 0.5)
+    if (_FaceHit > 1.5)
+    {
+        // クモの巣にくっついている顔（2026-11-10）：小さい点の目＋ハの字の困り眉＋「〜」のふにゃっとした口
+        float2 q = float2(abs(uv.x) - 0.30, uv.y - 0.08);   // +x=外側
+        float dE = length(q) - 0.055;
+        float dB = sdSeg(q, float2(0.11, 0.17), float2(-0.08, 0.25)) - 0.022;   // 内がわが上がる眉
+        float2 wm = uv - float2(0, -0.15);
+        float wx = clamp(wm.x, -0.14, 0.14);
+        float dM = length(float2(wm.x - wx, wm.y - 0.03 * sin(wx * 34.0))) - 0.024;
+        dEye = min(min(dE, dB), dM);
+    }
+    else if (_FaceHit > 0.5)
     {
         // 撃たれた顔 😣：ぎゅっと閉じた目（真ん中向きの「＞ ＜」）＋への字口。眉はなし（2026-10-15 てじゃ）
         float2 q = float2(abs(uv.x) - 0.30, uv.y - 0.10);   // +x=外側

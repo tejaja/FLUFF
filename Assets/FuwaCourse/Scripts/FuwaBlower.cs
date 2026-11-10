@@ -954,7 +954,7 @@ public class FuwaBlower : UdonSharpBehaviour
                     _shotPortal = null;
                 }
             }
-            if (vb != Vector3.zero) { targetBall.Blow(vb); targetBall.ShotWindDamp(charge, vb); }
+            if (vb != Vector3.zero) { targetBall.NoteShotCharge(charge); targetBall.Blow(vb); targetBall.ShotWindDamp(charge, vb); }   // 溜めを先に知らせる（クモの巣：フルチャではがれる）
         }
         // あそびばのまもののぬいぐるみ：撃った向きへ押し返す（持ち主の画面で動く）
         if (plushes != null)

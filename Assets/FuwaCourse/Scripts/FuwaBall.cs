@@ -141,6 +141,7 @@ public class FuwaBall : UdonSharpBehaviour
     public float hitFaceTime = 1.0f;   // 0.6→1.0（2026-10-30 てじゃ「＞＜の時間ちょっと伸ばしてもいい」）
     private const float HitFaceLaunchSpeed = 2.5f;   // これより速く打ち出されたら 😣（いちばん弱い火の岩の押しで約 2.9）
     private float _hitFaceUntil;
+    private float _faceShown = -1f;
     private bool _hitFaceShown;
 
     [Header("風などの影響を受けている間の光（毛玉シェーダー用）")]
@@ -293,7 +294,9 @@ public class FuwaBall : UdonSharpBehaviour
             _furMat.SetVector("_Drag", new Vector4(_furDrag.x, _furDrag.y, _furDrag.z, 0f));
             UpdateGlow();
             bool hit = _burnFace || Time.time < _hitFaceUntil || _resetAt > 0f || _spiking;   // アウトになってから戻るまでも 😣（2026-10-31 てじゃ）
-            if (hit != _hitFaceShown) { _hitFaceShown = hit; _furMat.SetFloat("_FaceHit", hit ? 1f : 0f); }
+            // クモの巣にくっついている間は困り顔（2026-11-10 てじゃ「くっついてるときはふわふわの表情もかえよ」）。撃たれた直後だけ 😣
+            float face = hit ? 1f : (_stuck && webCatch && !_softStick ? 2f : 0f);
+            if (face != _faceShown) { _faceShown = face; _hitFaceShown = hit; _furMat.SetFloat("_FaceHit", face); }
         }
         if (_stuck) UpdateStuckShake();
         UpdateAppear();
@@ -336,6 +339,8 @@ public class FuwaBall : UdonSharpBehaviour
     // 風の道具から呼ばれる（瞬間的な速度変化）
     public void Blow(Vector3 velocityChange)
     {
+        if (_stuck && webCatch && !_softStick && _resetAt < 0f && !_hidden) { WebShot(velocityChange); return; }
+        _shotCharge = -1f;
         if (_resetAt > 0f || _hidden || _stuck || _spiking) return;
         velocityChange *= SizeBlow();
         if (_waiting)
@@ -661,7 +666,20 @@ public class FuwaBall : UdonSharpBehaviour
         _furMat.SetVector("_GlowDir", new Vector4(gd.x, gd.y, gd.z, 0f));
     }
 
-    // クモの巣にくっつく：その場でピタッと止まり、少ししたら破裂してアウト
+    // ===== クモの巣（2026-11-10 てじゃ「クモの巣弱体化案：当たったらくっつく、チャージショットで外せる。フルチャ未満はゆれるだけ、
+    //   チャージショットを当てるとくっついてた側にポーンと跳ねる」）=====
+    //  webCatch=true：くっついたまま破裂しない。フルチャ（webFullCharge 以上）で撃つと、来た側（巣と反対）へ webPopSpeed で跳ねてはがれる。それ未満はぷるんとゆれるだけ
+    //  webCatch=false：前と同じ（少ししたら破裂してアウト）
+    [Header("クモの巣")]
+    public bool webCatch = true;
+    [Range(0f, 1f)] public float webFullCharge = 0.99f;
+    public float webPopSpeed = 2.6f, webPopUp = 1.4f;
+    private float _shotCharge = -1f;
+    private float _wiggleStart = -10f;
+    // 銃（FuwaBlower）が Blow の直前に、その一発の溜め（0〜1）を知らせる
+    public void NoteShotCharge(float charge) { _shotCharge = charge; }
+
+    // クモの巣にくっつく：その場でピタッと止まる。webCatch=false なら少ししたら破裂してアウト
     public void Stick(float seconds)
     {
         if (_waiting || _finished || _resetAt > 0f || _stuck) return;
@@ -673,7 +691,33 @@ public class FuwaBall : UdonSharpBehaviour
         _stuckStart = Time.time;
         _stuckDuration = Mathf.Max(0.05f, seconds);
         PlaySfx(sfxStick);
-        SendCustomEventDelayedSeconds(nameof(StickPop), seconds);
+        if (!webCatch) SendCustomEventDelayedSeconds(nameof(StickPop), seconds);
+    }
+
+    // くっついている時に撃たれた（webCatch）
+    private void WebShot(Vector3 velocityChange)
+    {
+        float charge = _shotCharge; _shotCharge = -1f;
+        if (charge >= webFullCharge)
+        {
+            // はがれる：巣と反対（来た側）へポーン
+            _stuck = false;
+            transform.position = _stuckPos;
+            _rb.isKinematic = false;
+            Vector3 away = -_anchorDir; if (away.sqrMagnitude < 0.01f) away = Vector3.up;
+            Vector3 flat = new Vector3(away.x, 0f, away.z);
+            _rb.velocity = (flat.sqrMagnitude > 0.0001f ? flat.normalized * webPopSpeed : Vector3.zero) + Vector3.up * webPopUp;
+            _anchorDir = Vector3.down;
+            StartSquash(_rb.velocity * 1.5f);
+            EmitShotPuff(_rb.velocity);
+        }
+        else
+        {
+            // ゆれるだけ
+            _wiggleStart = Time.time;
+            StartSquash(velocityChange);
+        }
+        _hitFaceUntil = Time.time + hitFaceTime;
     }
 
     public void StickPop()
@@ -697,6 +741,7 @@ public class FuwaBall : UdonSharpBehaviour
         if (_waiting || _finished || _resetAt > 0f || _stuck || _hidden) return;
         Stick(seconds);
         _softStick = _stuck;
+        if (webCatch && _softStick) SendCustomEventDelayedSeconds(nameof(StickPop), seconds);   // アイテムの糸はいつもどおり時間ではがれる
     }
 
     public bool IsWaitingOrHidden() { return _waiting || _hidden || _resetAt > 0f; }
@@ -765,7 +810,11 @@ public class FuwaBall : UdonSharpBehaviour
     private void UpdateStuckShake()
     {
         float k = Mathf.Clamp01((Time.time - _stuckStart) / _stuckDuration);
+        if (webCatch && !_softStick) k = 0.25f;   // 破裂しないので、ずっと軽くプルプル
         float amp = stuckShakeMax * (0.15f + 0.85f * k * k);
+        // 撃たれてゆれた直後は大きくゆさゆさ（巣ごと引っぱられる感じ）
+        float wt = Time.time - _wiggleStart;
+        if (wt < 0.6f) amp += 0.06f * Mathf.Exp(-wt * 6f) * Mathf.Abs(Mathf.Sin(wt * 30f));
         float t = Time.time * stuckShakeSpeed;
         Vector3 off = new Vector3(Mathf.Sin(t), Mathf.Sin(t * 0.86f + 1.3f), Mathf.Sin(t * 1.1f + 2.1f)) * amp;
         transform.position = _stuckPos + off;
