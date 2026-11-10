@@ -67,6 +67,9 @@ public class FuwaLavaRock : UdonSharpBehaviour
         _hitEnemy = new bool[enemies == null ? 0 : enemies.Length];
         if (pathDots != null) { _dotMat = pathDots.material; _dotMat.SetFloat("_Tail", dotTail); _dotMat.SetFloat("_Spacing", dotSpacing); _dotMat.SetFloat("_Head", -100f); }
         Show(false);
+        // はねる音は岩から外して、着いた点に置いて鳴らす（2026-11-10 てじゃ「下の段から聞くと中段の2回が聞こえない、横からだと聞こえる」）。
+        //  岩についたままだと、鳴っている間に音の出る所が岩といっしょに上へ飛んでいく
+        if (bounceSound != null) bounceSound.transform.SetParent(transform.parent, true);
     }
 
     // k 回目のはねの長さ（最初・最後だけ長い。1回だけなら両方）
@@ -125,7 +128,7 @@ public class FuwaLavaRock : UdonSharpBehaviour
         {
             // 板に着いた所で火の粉（最初の空と最後の外は除く）
             if (k > 0 && k < hops && bounce != null) { bounce.transform.position = points[k].position; bounce.Play(); }
-            if (k > 0 && k < hops && bounceSound != null) bounceSound.Play();
+            if (k > 0 && k < hops && bounceSound != null) { bounceSound.transform.position = points[k].position; bounceSound.Play(); }
             if (k == 0 && launchFx != null) launchFx.Play();
             if (k == 0 && launchSound != null) launchSound.Play();
             _hop = k;

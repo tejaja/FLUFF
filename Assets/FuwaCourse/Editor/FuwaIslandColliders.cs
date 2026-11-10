@@ -3,7 +3,7 @@ using UnityEditor;
 using UnityEngine;
 
 // コースの外に浮いている飾りの浮島にも乗れるように、床の当たり（MeshCollider）をつける（2026-10-14 てじゃ「コース外の浮島にも乗れるように。乗ってる物は考えなくていい、島の床だけ」）。
-// ・対象：上の円盤（IslandDisc_*）と、遠くの浮島（FarIsland_*）のうち、まだ当たりがない物。下の岩（IslandUnder*）や上の飾りはつけない
+// ・対象：上の円盤（IslandDisc_*）と、遠くの浮島（FarIsland_*）、2–1 の滝の浮島（FloatIsle0〜）のうち、まだ当たりがない物。下の岩（IslandUnder*）や上の飾りはつけない
 // ・当たりは地面のレイヤー（11）にする：ふわふわが触れたらコースの床と同じくアウト（地面のレイヤーでないと、コースの外の島に乗って止まってしまう）。
 //   見た目の物が別のレイヤーなら、子に当たりだけの物（IslandFloorCollider）を作る
 // ・何度実行してもよい（ついている物は飛ばす）。コースを作り直して当たりが消えたら、もう一度このメニュー
@@ -22,7 +22,7 @@ public static class FuwaIslandColliders
         {
             var m = mf.sharedMesh;
             if (m == null) continue;
-            if (!m.name.StartsWith("IslandDisc_") && !m.name.StartsWith("FarIsland_")) continue;
+            if (!m.name.StartsWith("IslandDisc_") && !m.name.StartsWith("FarIsland_") && !IsFloatIsle(m.name)) continue;
             // きのこのたにのジャンプで渡るキノコの根元の島はつけない（2026-11-09 てじゃ「下の島にコライダーいらんかも」）。前につけた物は消す
             if (UnderJumpMushroom(mf.transform))
             {
@@ -50,6 +50,9 @@ public static class FuwaIslandColliders
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         return "island colliders added " + added + " (moved to child " + moved + ", already had " + skipped + ", removed under jump mushrooms " + removed + ")";
     }
+
+    // 2–1 の滝のある飾りの浮島（FloatIsles/Isle*/Body の FloatIsle0〜）。水場の底まで乗れる（2026-11-10 てじゃ「2-1の滝の飾り浮島も乗れて良いかも」）。水面・滝はつけない
+    static bool IsFloatIsle(string n) { return System.Text.RegularExpressions.Regex.IsMatch(n, @"^FloatIsle\d+$"); }
 
     static bool UnderJumpMushroom(Transform t)
     {
