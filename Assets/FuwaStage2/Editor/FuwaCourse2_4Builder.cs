@@ -17,8 +17,8 @@ public static class FuwaCourse2_4Builder
     const string RootName = "FuwaCourse2_4";
     const float SpokeR = 34.8f, StartBelow = 4f;
     public static float HW = 2f, StripeLen = 1.2f;
-    // 2026-11-10 てじゃ「道の色がこおりのしまとちかい」→ B「グレー×真ちゅうの黄色」（前は青みのグレー 0.62,0.64,0.69 / 0.45,0.47,0.52）
-    public static Color PathColA = new Color(0.50f, 0.50f, 0.52f), PathColB = new Color(0.80f, 0.62f, 0.30f), UnderCol = new Color(0.33f, 0.35f, 0.4f);
+    // 2026-11-10 てじゃ「道の色がこおりのしまとちかい」→ 黄色×グレーは「通行しちゃダメ感」→ C「あたたかいグレー×こげ茶」（前は青みのグレー 0.62,0.64,0.69 / 0.45,0.47,0.52）
+    public static Color PathColA = new Color(0.60f, 0.56f, 0.52f), PathColB = new Color(0.40f, 0.36f, 0.33f), UnderCol = new Color(0.33f, 0.35f, 0.4f);
     public static Color TowerCol = new Color(0.52f, 0.5f, 0.6f);
     const string MeshDir = "Assets/FuwaStage2/Meshes/Course2_4";
 
@@ -88,13 +88,18 @@ public static class FuwaCourse2_4Builder
         //  ① 乗る歯車（前へ）→ 右 ② 跳ね橋 → 右 ③ せり出す橋（おりたらすぐ右）→ ④ 2枚の回転床（①の上を通る）→ まん中の塔
         MakeMechs();
         S(3f);
-        Place(Ride, log); CP("Checkpoint1", 1f, 0f, -1.5f); S(1f); HoleGears(); S(1f);   // ①→②：窓のある歯車（2026-11-07「道そのものが歯車」。前は押し出し壁）
+        // 2026-11-10 てじゃ「スタート直後の道のあとの板、そのまま道でいい」：乗る歯車の入口の台（4m 角の板）をやめて、同じ所をシマの道に
+        var entryP = P; float entryTh = th;
+        Place(Ride, log);
+        { var ent = secT.Find(Ride.name + "/Entry"); if (ent) Object.DestroyImmediate(ent.gameObject); Strip(pathT, "Road" + (segNo++) + "_Entry", entryP, Dir(entryTh) * (-Ride.e.x), HW); }
+        FloorsToStripes(Ride);
+        CP("Checkpoint1", 1f, 0f, -1.5f); S(1f); HoleGears(); S(1f);   // ①→②：窓のある歯車（2026-11-07「道そのものが歯車」。前は押し出し壁）
         T(-90f); CPCurve("CheckpointDraw", -90f); S(2f);
-        Place(Draw, log); S(1f); ChunkyGears(); S(1f); S(8f, 3f);   // ②→③：ごつい歯車（前は回るアーム）。CheckpointDraw は風車の横だときのこの丸太が重なるので 2.5m 手前
+        Place(Draw, log); FloorsToStripes(Draw); S(1f); ChunkyGears(); S(1f); S(8f, 3f);   // ②→③：ごつい歯車（前は回るアーム）。CheckpointDraw は風車の横だときのこの丸太が重なるので 2.5m 手前
         T(-90f); CPCurve("CheckpointRack", -90f); S(2f);
-        Place(Rack, log); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); CPCurve("CheckpointTwin", -90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
+        Place(Rack, log); FloorsToStripes(Rack); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); CPCurve("CheckpointTwin", -90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
         // チェックポイント4は出口の床（6m 角）に入ってすぐ・床の幅いっぱい（2026-11-08 てじゃ「横から抜けられちゃう」：床の先の曲がり角を斜めに飛ぶと、道の幅の判定を通らなかった）
-        Place(Twin, log); CP("Checkpoint4", -5.5f, 3f); S(2f);
+        Place(Twin, log); FloorsToStripes(Twin); CP("Checkpoint4", -5.5f, 3f); S(2f);
         // 塔へ（まん中）：①の上をまたいで
         // 2026-11-08 てじゃ「今のゴールと前の道は完全に別の場所に」→ まん中（バルーン）へ向かう道は位置を決めるためだけに作って消す（GoalPlan 0 で前の通り）
         var P0 = P; float th0 = th; int n0 = pathT.childCount, s0 = segNo;
@@ -2517,6 +2522,32 @@ public static class FuwaCourse2_4Builder
         var gm = cp.Find("GlowMushrooms"); if (!gm) return;
         var keep = gm.Find("ClusterL"); var drop = gm.Find("ClusterR"); if (drop) Object.DestroyImmediate(drop.gameObject);
         if (keep) keep.localPosition = new Vector3(sg * (HW + 0.7f), keep.localPosition.y, 0f);   // 外がわ（右カーブなら左）
+    }
+
+    // しかけの中のただの板（GearTest_Floor の箱）を、道と同じシマにする（2026-11-10 てじゃ「ほかもただの長方形のグレーの板があるだけのとこ、道でいいかも」）
+    //  当たりはそのまま。見た目（Visual）を、進む向き（しかけの local +x）に近い横の軸にそって StripeLen ごとの A/B の箱に分ける
+    static void FloorsToStripes(Mech m)
+    {
+        var mt = secT.Find(m.name); if (!mt) return;
+        var travel = mt.right; travel.y = 0f; travel.Normalize();
+        foreach (Transform F in mt.Cast<Transform>().ToArray())
+        {
+            var vis = F.Find("Visual"); var bc = F.GetComponent<BoxCollider>(); var vr = vis ? vis.GetComponent<Renderer>() : null;
+            if (!vis || !bc || !vr || !vr.sharedMaterial || vr.sharedMaterial.name != "GearTest_Floor") continue;
+            var ax = new[] { F.right, F.up, F.forward }; var sz = bc.size;
+            int thick = 0; for (int i = 1; i < 3; i++) if (Mathf.Abs(ax[i].y) > Mathf.Abs(ax[thick].y)) thick = i;
+            int along = -1; for (int i = 0; i < 3; i++) if (i != thick && (along < 0 || Mathf.Abs(Vector3.Dot(ax[i], travel)) > Mathf.Abs(Vector3.Dot(ax[along], travel)))) along = i;
+            float L = sz[along]; int n = Mathf.Max(1, Mathf.RoundToInt(L / StripeLen));
+            for (int k = 0; k < n; k++)
+            {
+                var c = bc.center; c[along] = bc.center[along] - L / 2f + L * (k + 0.5f) / n;
+                var size = sz; size[along] = L / n;
+                var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = "Stripe" + k; Object.DestroyImmediate(g.GetComponent<Collider>());
+                g.transform.SetParent(F, false); g.transform.localPosition = c; g.transform.localScale = size; g.layer = pathLayer;
+                g.GetComponent<Renderer>().sharedMaterial = (k % 2 == 0) ? pathA : pathB;
+            }
+            Object.DestroyImmediate(vis.gameObject);
+        }
     }
 
     static void CPMech(string name, Mech m, string floorName, float along, float hw)
