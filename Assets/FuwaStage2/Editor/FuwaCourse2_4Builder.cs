@@ -2541,10 +2541,12 @@ public static class FuwaCourse2_4Builder
             int h0 = thick == 0 ? 1 : 0, h1 = thick == 2 ? 1 : 2;
             int along = Mathf.Abs(sz[h0] - sz[h1]) > 0.01f ? (sz[h0] > sz[h1] ? h0 : h1) : (Mathf.Abs(Vector3.Dot(ax[h0], travel)) >= Mathf.Abs(Vector3.Dot(ax[h1], travel)) ? h0 : h1);
             float L = sz[along]; int n = Mathf.Max(1, Mathf.RoundToInt(L / StripeLen));
+            // 厚みは道（0.6m）にそろえる（2026-11-10 てじゃ「つないだと厚み違ったり」：板は 0.4m で、道とのつなぎ目の下に段ができた）。上の面はそのまま、下へのばす
+            float upSign = Mathf.Sign(ax[thick].y), top = bc.center[thick] + upSign * sz[thick] / 2f, tk = 0.6f;   // 跳ね橋の床は 1m 厚（見た目だけ 0.6 に）
             for (int k = 0; k < n; k++)
             {
-                var c = bc.center; c[along] = bc.center[along] - L / 2f + L * (k + 0.5f) / n;
-                var size = sz; size[along] = L / n;
+                var c = bc.center; c[along] = bc.center[along] - L / 2f + L * (k + 0.5f) / n; c[thick] = top - upSign * tk / 2f;
+                var size = sz; size[along] = L / n; size[thick] = tk;
                 var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = "Stripe" + k; Object.DestroyImmediate(g.GetComponent<Collider>());
                 g.transform.SetParent(F, false); g.transform.localPosition = c; g.transform.localScale = size; g.layer = pathLayer;
                 g.GetComponent<Renderer>().sharedMaterial = (k % 2 == 0) ? pathA : pathB;
