@@ -22,6 +22,11 @@ Shader "FuwaCourse/ToonLit"
         [Toggle(_FUWA_BUMP)] _UseBump ("ノーマルマップを使う", Float) = 0
         [Normal] _BumpMap ("Normal Map", 2D) = "bump" {}
         _BumpScale ("Normal Strength", Range(0,3)) = 1
+        // 2026-11-10 2–5 そらのいせき：壁のポータルの向こうに見える「行き先の島のコピー」用。ふだんは Always（何もしない）
+        //  コピーは Comp=Equal・Ref=ポータルの番号で、ポータルの穴（Fuwa/PortalMask が Ref を書く）の中だけ描く。_PortalClip（xyz 法線, w）で面の手前を切る
+        _StencilRef ("Stencil Ref（ポータルのコピー用）", Float) = 0
+        [Enum(UnityEngine.Rendering.CompareFunction)] _StencilComp ("Stencil Comp（ふだん Always）", Float) = 8
+        _PortalClip ("ポータルの面の手前を切る（xyz=法線、w。0=なし）", Vector) = (0,0,0,0)
         [HDR] _EmissionColor ("Emission", Color) = (0,0,0,1)
         [Toggle] _EmissionGradient ("Emission: グラデーションで光る（足し算で白飛びしない）", Float) = 0
         _EmissionFull ("Emission: いちばん光った時の強さ（この明るさで色が全部光の色になる）", Float) = 1.6
@@ -100,6 +105,7 @@ Shader "FuwaCourse/ToonLit"
             Name "FORWARD"
             Tags { "LightMode"="ForwardBase" }
             Cull [_Cull]
+            Stencil { Ref [_StencilRef] Comp [_StencilComp] }
             Offset [_OffsetFactor], [_OffsetUnits]
             CGPROGRAM
             #pragma vertex vert
@@ -115,6 +121,7 @@ Shader "FuwaCourse/ToonLit"
 
             sampler2D _MainTex; float4 _MainTex_ST;
             sampler2D _BumpMap; half _BumpScale;
+            float4 _PortalClip;
             fixed4 _ShadowTint, _RimColor;
             half _ShadowStrength, _Wrap, _Steps, _AmbientStrength, _RimStrength, _RimPower, _BakedGlow, _BakedGlowFloor;
             fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal;
@@ -202,6 +209,7 @@ Shader "FuwaCourse/ToonLit"
             { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 UNITY_SETUP_INSTANCE_ID(i);
                 if (_DitherFade > 0) clip(Bayer4(i.pos.xy) - _DitherFade);
+                if (any(_PortalClip.xyz)) clip(dot(i.wp, _PortalClip.xyz) + _PortalClip.w);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
                 float3 n = normalize(i.wn) * (facing > 0 ? 1 : -1);   // 両面描画の裏側は法線を反転
@@ -379,6 +387,7 @@ Shader "FuwaCourse/ToonLit"
             Name "FORWARD_ADD"
             Tags { "LightMode"="ForwardAdd" }
             Cull [_Cull]
+            Stencil { Ref [_StencilRef] Comp [_StencilComp] }
             Offset [_OffsetFactor], [_OffsetUnits]
             Blend One One
             ZWrite Off
@@ -392,7 +401,7 @@ Shader "FuwaCourse/ToonLit"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
             sampler2D _MainTex; float4 _MainTex_ST;
-            half _Wrap; fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal; half _DitherFade;
+            half _Wrap; fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal; half _DitherFade; float4 _PortalClip;
             float Bayer4(float2 p)
             {
                 float2 q = floor(fmod(floor(p), 4.0));
@@ -420,6 +429,7 @@ Shader "FuwaCourse/ToonLit"
             { UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
                 UNITY_SETUP_INSTANCE_ID(i);
                 if (_DitherFade > 0) clip(Bayer4(i.pos.xy) - _DitherFade);
+                if (any(_PortalClip.xyz)) clip(dot(i.wp, _PortalClip.xyz) + _PortalClip.w);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
                 float3 n = normalize(i.wn);
