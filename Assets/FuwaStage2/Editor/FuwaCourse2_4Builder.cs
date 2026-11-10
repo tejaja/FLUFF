@@ -1313,8 +1313,8 @@ public static class FuwaCourse2_4Builder
             c.SetActive(false); list.Add(c.transform);
         }
         cb.clouds = list.ToArray(); cb.cloudSpawn = sp;
-        cb.cloudScaleMin = 2.2f; cb.cloudScaleMax = 3.2f; cb.cloudGrowLate = 1.8f;   // 2026-11-10 てじゃ「もっとでかく」：出て 5〜7.5m、流れながら 9〜13m まで
-         cb.cloudSpread = 20f; cb.cloudPale = 1f;   // 幅 2.1〜2.4m の丸い雲を 3.5〜5.5m に。色は白だけ（てじゃ）
+        cb.cloudScaleMin = 3.2f; cb.cloudScaleMax = 4.6f; cb.cloudGrowLate = 2.2f;   // さらに「もっとデカく」：出て 7〜11m、流れながら 16〜24m まで   // 2026-11-10 てじゃ「もっとでかく」：出て 5〜7.5m、流れながら 9〜13m まで
+         cb.cloudSpread = 20f;   // 2–5 の方 ±20°（全方向も試しかけたが、てじゃ「いまのままで」） cb.cloudPale = 1f;   // 幅 2.1〜2.4m の丸い雲を 3.5〜5.5m に。色は白だけ（てじゃ）
         cb.puffEvery = 6; cb.cloudMinGap = 6f;   // 2026-11-10 てじゃ「頻度もへらしていい」
         // 流れる向き：ロビーから 2–5（Slot4）の方（てじゃ「2-5予定地の方向に飛ばそう」）
         var lobby = GameObject.Find("FuwaStage2/Lobby");
