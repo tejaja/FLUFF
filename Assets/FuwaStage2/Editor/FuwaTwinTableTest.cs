@@ -35,6 +35,49 @@ public static class FuwaTwinTableTest
     public static float BCenterX => Mod * (ZA + ZB) / 2f;
     public static float ExitFar => CornerR(TipB) + 0.05f + 6f;
 
+    // 2026-11-10 てじゃ「こういう模様にするとか」（縞鋼板の写真）「ノーマルマップつかうとか」：動く橋の上の面は縞鋼板（CheckerPlate＋ノーマルマップ）。
+    //  uv はメートル（_MainTex のタイリングで模様の大きさ）。上の面だけ uv が動き、横・下の面は uv (0,0)（模様のない所）
+    public static float PlateTile = 2.2f, PlateBump = 1.2f;   // 1m あたりの模様のくり返し（2×2 の山のかたまり）
+    //  箱：center・size は parent の local。up＝上の面の向きの軸（1=y, 2=z）。uvOrigin＝上の面の uv をそろえる基準（parent の local の位置を uv にする）
+    public static Transform PlateBox(Transform parent, string name, Vector3 center, Vector3 size, Material m, int up = 1, Vector2 uvOff = default)
+    {
+        int a0 = 0, a1 = up == 1 ? 2 : 1;   // 上の面の uv に使う2つの軸
+        var v = new System.Collections.Generic.List<Vector3>(); var nr = new System.Collections.Generic.List<Vector3>(); var uv = new System.Collections.Generic.List<Vector2>(); var t = new System.Collections.Generic.List<int>();
+        var h = size / 2f;
+        for (int ax = 0; ax < 3; ax++)
+            foreach (float sg in new[] { -1f, 1f })
+            {
+                var nn = Vector3.zero; nn[ax] = sg;
+                int u = (ax + 1) % 3, w = (ax + 2) % 3;
+                int b = v.Count;
+                for (int k = 0; k < 4; k++)
+                {
+                    var p = Vector3.zero; p[ax] = sg * h[ax]; p[u] = (k == 1 || k == 2 ? 1 : -1) * h[u]; p[w] = (k >= 2 ? 1 : -1) * h[w];
+                    v.Add(p); nr.Add(nn);
+                    var wp = center + p;
+                    uv.Add(ax == up && sg > 0 ? new Vector2(wp[a0], wp[a1]) + uvOff : Vector2.zero);
+                }
+                int[] q = { b, b + 1, b + 2, b, b + 2, b + 3 };
+                if (Vector3.Dot(Vector3.Cross(v[b + 1] - v[b], v[b + 2] - v[b]), nn) < 0f) q = new[] { b, b + 2, b + 1, b, b + 3, b + 2 };
+                t.AddRange(q);
+            }
+        string mn = "Plate_" + name + "_" + string.Join("_", new[] { center.x, center.y, center.z, size.x, size.y, size.z }.Select(x => Mathf.RoundToInt(x * 100f).ToString())) + "_u" + up;
+        var mesh = new Mesh { name = mn }; mesh.SetVertices(v); mesh.SetNormals(nr); mesh.SetUVs(0, uv); mesh.SetTriangles(t, 0); mesh.RecalculateBounds();
+        mesh = SaveMeshUV(mesh);
+        var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = center;
+        g.AddComponent<MeshFilter>().sharedMesh = mesh; g.AddComponent<MeshRenderer>().sharedMaterial = m;
+        return g.transform;
+    }
+    public static Mesh SaveMeshUV(Mesh m)
+    {
+        string path = "Assets/FuwaStage2/Meshes/GearTest/" + m.name + ".asset";
+        var old = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (old == null) { AssetDatabase.CreateAsset(m, path); return m; }
+        old.Clear(false); old.SetVertices(m.vertices); old.SetNormals(m.normals); old.uv = m.uv; old.subMeshCount = m.subMeshCount;
+        for (int i = 0; i < m.subMeshCount; i++) old.SetTriangles(m.GetTriangles(i), i);
+        old.RecalculateBounds(); EditorUtility.SetDirty(old); return old;
+    }
+
     // 動く橋のシマの色（跳ね橋・回転床・伸びる橋で共通）。材質は道のシマ（Course2_4_PathA）と同じシェーダーで色だけちがう。名前が _PathA/_PathB でないのでベベルでまとめられない
     public static Color BridgeColA = new Color(0.72f, 0.60f, 0.45f), BridgeColB = new Color(0.50f, 0.40f, 0.31f);
     public static Material BridgeMat(bool a)
@@ -48,6 +91,14 @@ public static class FuwaTwinTableTest
         }
         var c = a ? BridgeColA : BridgeColB;
         m.SetColor("_Color", c);
+        // 縞鋼板（2026-11-10）
+        var alb = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/CheckerPlate.png");
+        var nrm = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/CheckerPlate_N.png");
+        if (alb && nrm)
+        {
+            m.SetTexture("_MainTex", alb); m.SetTextureScale("_MainTex", Vector2.one * PlateTile); m.SetTextureOffset("_MainTex", Vector2.zero);
+            m.SetTexture("_BumpMap", nrm); m.SetFloat("_BumpScale", PlateBump); m.SetFloat("_UseBump", 1f); m.EnableKeyword("_FUWA_BUMP");
+        }
         if (m.HasProperty("_UnderColor")) m.SetColor("_UnderColor", Color.Lerp(c, Color.white, 0.4f));
         EditorUtility.SetDirty(m); return m;
     }
@@ -279,7 +330,7 @@ public static class FuwaTwinTableTest
         for (int k = 0; k < n; k++)
         {
             bool isA = (k % 2 == 0) != lastArmA;
-            Prim(PrimitiveType.Cube, br, "Visual" + k, new Vector3(-len / 2f + len * (k + 0.5f) / n, 0f, 0f), new Vector3(len / n, 0.4f, BridgeW), isA ? roadA : roadB);
+            PlateBox(br, "Visual" + k, new Vector3(-len / 2f + len * (k + 0.5f) / n, 0f, 0f), new Vector3(len / n, 0.4f, BridgeW), isA ? roadA : roadB, 1, new Vector2(r0 + len / 2f, 0f)).gameObject.layer = 11;   // uv は床の上の道の腕とそろえる
         }
     }
 
@@ -349,8 +400,21 @@ public static class FuwaTwinTableTest
             }
         }
         var mesh = new Mesh { name = "TwinTable_Road_r" + Mathf.RoundToInt(deckR * 100) + "_" + string.Join("_", angs.Select(x => Mathf.RoundToInt(Mathf.Repeat(x, 360f)).ToString())) };
-        mesh.SetVertices(v); mesh.SetNormals(nr); mesh.subMeshCount = 2; mesh.SetTriangles(t[0], 0); mesh.SetTriangles(t[1], 1); mesh.RecalculateBounds();
-        mesh = FuwaGearRideTest.SaveMeshSub(mesh);
+        // 縞鋼板の uv（上の面だけ）：腕は腕の向きの座標（橋の uv とそろう）、広場は床の座標
+        var uvs = new Vector2[v.Count];
+        for (int q = 0; q < v.Count; q++)
+        {
+            if (nr[q].y < 0.9f) continue;
+            var p = v[q]; Vector2 best = new Vector2(p.x, p.z); float bestD = rho;
+            foreach (float ang in angs)
+            {
+                var d = Polar(ang, 1f); var e = new Vector3(-d.z, 0f, d.x); float x = Vector3.Dot(p, d), y = Vector3.Dot(p, e);
+                if (x >= rho - 0.01f && Mathf.Abs(y) <= w + 0.01f) { best = new Vector2(x, y); }
+            }
+            uvs[q] = best;
+        }
+        mesh.SetVertices(v); mesh.SetNormals(nr); mesh.SetUVs(0, uvs); mesh.subMeshCount = 2; mesh.SetTriangles(t[0], 0); mesh.SetTriangles(t[1], 1); mesh.RecalculateBounds();
+        mesh = SaveMeshUV(mesh);
         var go = new GameObject("Road"); go.transform.SetParent(table, false);
         go.AddComponent<MeshFilter>().sharedMesh = mesh; go.AddComponent<MeshRenderer>().sharedMaterials = new[] { roadA, roadB };
     }

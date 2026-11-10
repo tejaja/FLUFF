@@ -165,7 +165,7 @@ public static class FuwaRackBridgeTest
         // 2026-11-10 てじゃ「伸びる橋もいけるか」：木の板 → 動く橋の色のシマ（先から A/B）＋両はしの鉄の桁と真ちゅうのびょう（跳ね橋と同じ作り）
         int ns = Mathf.Max(1, Mathf.RoundToInt(HalfL / 1.2f));
         for (int k = 0; k < ns; k++)
-            Prim(PrimitiveType.Cube, b, "Visual" + k, new Vector3(dir * HalfL * (k + 0.5f) / ns, BridgeTop - BridgeT / 2f, 0f), new Vector3(HalfL / ns, BridgeT, BridgeW), k % 2 == 0 ? stripeA : stripeB);
+            FuwaTwinTableTest.PlateBox(b, "Visual" + k, new Vector3(dir * HalfL * (k + 0.5f) / ns, BridgeTop - BridgeT / 2f, 0f), new Vector3(HalfL / ns, BridgeT, BridgeW), k % 2 == 0 ? stripeA : stripeB);   // 縞鋼板
         float gx0 = dir * 0.06f, gx1 = dir * HalfL;   // 先の柱のうけ（はばの外、先から 3cm まで）をよける
         foreach (float sg in new[] { -1f, 1f })
         {

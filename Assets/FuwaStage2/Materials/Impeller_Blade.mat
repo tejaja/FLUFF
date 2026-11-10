@@ -23,6 +23,10 @@ Material:
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
+    - _BumpMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _GroundTex:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -38,6 +42,7 @@ Material:
     - _BakedGlowFloor: 0.25
     - _BaseFadeLength: 0
     - _BaseFadeNormal: 1
+    - _BumpScale: 1
     - _Cull: 2
     - _DitherFade: 0
     - _EmissionFull: 1.6
@@ -78,6 +83,7 @@ Material:
     - _TopStrength: 0
     - _UnderGrad: 0
     - _UnderStrength: 0
+    - _UseBump: 0
     - _Wrap: 0.6
     m_Colors:
     - _BaseFadeColor: {r: 0.65999997, g: 0.6, b: 0.68, a: 1}

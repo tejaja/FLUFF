@@ -18,6 +18,10 @@ Shader "FuwaCourse/ToonLit"
         _OffsetFactor ("Depth Offset Factor（重ねた層を手前に：-1）", Float) = 0
         _OffsetUnits ("Depth Offset Units（重ねた層を手前に：-1〜-4）", Float) = 0
         _MainTex ("Albedo (optional)", 2D) = "white" {}
+        // 2026-11-10 てじゃ「ノーマルマップつかうとか」（2–4 の動く橋の縞鋼板）：使う材質だけ _FUWA_BUMP をオン。接線はいらない（画面の微分で向きを出す）、uv は _MainTex と同じ
+        [Toggle(_FUWA_BUMP)] _UseBump ("ノーマルマップを使う", Float) = 0
+        [Normal] _BumpMap ("Normal Map", 2D) = "bump" {}
+        _BumpScale ("Normal Strength", Range(0,3)) = 1
         [HDR] _EmissionColor ("Emission", Color) = (0,0,0,1)
         [Toggle] _EmissionGradient ("Emission: グラデーションで光る（足し算で白飛びしない）", Float) = 0
         _EmissionFull ("Emission: いちばん光った時の強さ（この明るさで色が全部光の色になる）", Float) = 1.6
@@ -103,12 +107,14 @@ Shader "FuwaCourse/ToonLit"
             #pragma multi_compile_fwdbase
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
+            #pragma shader_feature_local _FUWA_BUMP
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
             #include "FuwaBaked.cginc"
 
             sampler2D _MainTex; float4 _MainTex_ST;
+            sampler2D _BumpMap; half _BumpScale;
             fixed4 _ShadowTint, _RimColor;
             half _ShadowStrength, _Wrap, _Steps, _AmbientStrength, _RimStrength, _RimPower, _BakedGlow, _BakedGlowFloor;
             fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal;
@@ -199,6 +205,21 @@ Shader "FuwaCourse/ToonLit"
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
                 float3 n = normalize(i.wn) * (facing > 0 ? 1 : -1);   // 両面描画の裏側は法線を反転
+                #ifdef _FUWA_BUMP
+                {
+                    // 接線なしのノーマルマップ（位置と uv の画面の微分から面の向きの枠を作る）。uv が動かない面（横の面など）は元の法線のまま
+                    float3 dp1 = ddx(i.wp), dp2 = ddy(i.wp); float2 du1 = ddx(i.uv), du2 = ddy(i.uv);
+                    float3 p2 = cross(dp2, n), p1 = cross(n, dp1);
+                    float3 T = p2 * du1.x + p1 * du2.x, B = p2 * du1.y + p1 * du2.y;
+                    float mx = max(dot(T, T), dot(B, B));
+                    if (mx > 1e-12)
+                    {
+                        float inv = rsqrt(mx);
+                        half3 tn = UnpackNormal(tex2D(_BumpMap, i.uv)); tn.xy *= _BumpScale;
+                        n = normalize(T * inv * tn.x + B * inv * tn.y + n * tn.z);
+                    }
+                }
+                #endif
                 // 面ごとのカクカク：画面上の位置の変化から面の向きを出して混ぜる
                 if (_Facet > 0)
                 {
