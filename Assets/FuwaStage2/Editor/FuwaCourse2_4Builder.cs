@@ -2263,8 +2263,9 @@ public static class FuwaCourse2_4Builder
         return "歯車 " + cw.gears.Length + " " + gs + log;
     }
 
-    public static (Color, Color, string) TankLiquidA = (new Color(1f, 0.6f, 0.8f), new Color(0.85f, 0.32f, 0.6f), "Pink"), TankLiquidB = (new Color(0.55f, 0.95f, 0.85f), new Color(0.2f, 0.62f, 0.66f), "Mint"),
-        TankLiquidC = (new Color(1f, 0.9f, 0.42f), new Color(0.88f, 0.62f, 0.16f), "Lemon"), TankLiquidD = (new Color(0.8f, 0.68f, 1f), new Color(0.5f, 0.38f, 0.85f), "Lavender");
+    // 2026-11-10 てじゃ「色の液体、全部青にしていいかな」→ 4台とも同じ青（前はピンク・ミント・レモン・ラベンダー）
+    static readonly (Color, Color, string) TankBlue = (new Color(0.5f, 0.76f, 1f), new Color(0.2f, 0.42f, 0.86f), "Blue");
+    public static (Color, Color, string) TankLiquidA = TankBlue, TankLiquidB = TankBlue, TankLiquidC = TankBlue, TankLiquidD = TankBlue;
     static void SpinTank(Transform drive, float th, (Color top, Color deep, string name) liq)
     {
         int gi = cwG.IndexOf(drive); float rc = cwR[gi], pc = cwP[gi];
