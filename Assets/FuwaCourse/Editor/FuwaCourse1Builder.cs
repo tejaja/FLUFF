@@ -304,7 +304,9 @@ public static class FuwaCourse1Builder
             d.transform.SetPositionAndRotation(w.position + w.rotation * off, w.rotation * rot);
         }
         EditorUtility.SetDirty(g.gameObject);
-        return $"tailwind {TailA}〜{TailB} seg {seg:0.00}, decos moved {decos.Count}";
+        // 地面の模様（投影の箱）のつなぎ目の切り口も、新しい箱の位置で出し直す（2026-11-10 てじゃ「おいかぜの地面エフェクト、前に縮めたときに見た目がおかしくなってる」：古い位置の切り口のままだった）
+        string dl = FuwaWindDecalSetup.Run();
+        return $"tailwind {TailA}〜{TailB} seg {seg:0.00}, decos moved {decos.Count}, {dl}";
     }
     public const float CrossL = 28.5f, CrossR = 41f, CrossLen = 5f;
     public static readonly float[] WhirlS = { 93f, 99f, 105f, 111f };
