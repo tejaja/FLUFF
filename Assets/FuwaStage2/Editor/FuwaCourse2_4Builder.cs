@@ -2448,10 +2448,34 @@ public static class FuwaCourse2_4Builder
         {
             var t = CwGear(g, q.name, new Vector3(q.c.x, -H, q.c.y), Vector3.up, mesh, q == a ? cwLight : cwBrass, true);
             AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg);
+            ChunkyHub(t, H);
         }
         var drv = Drive(g, a, 8, CM, -H, H, cwDark);
         SpinTank(drv, H, TankLiquidC);   // 2026-11-10 てじゃ「残り2個にもこんなかんじに」：駆動歯車の上に回るタンク（レモン）
         P += Dir(th) * (b.c.y + ra + 0.05f);
+    }
+
+    // ごつい歯車のまん中のこしき（2026-11-10 てじゃ「ここ真ん中つっきると簡単だし、ここも真ん中になんかおくか」）
+    //  歯車ライド（FuwaGearRideTest）と同じとんがり屋根の筒。歯の根元（半径 2.2）より内がわに ChunkyHubR、歯と根元の輪に乗って渡る
+    public static float ChunkyHubR = 1.7f;
+    static void ChunkyHub(Transform t, float topY)
+    {
+        float hr = ChunkyHubR, coneH = hr * Mathf.Tan(FuwaGearRideTest.HubSlope * Mathf.Deg2Rad), hh = FuwaGearRideTest.HubH;
+        var hub = new GameObject("Hub"); hub.transform.SetParent(t, false); hub.transform.localPosition = new Vector3(0f, topY, 0f); hub.layer = 11;
+        hub.AddComponent<MeshFilter>(); hub.AddComponent<MeshRenderer>(); hub.AddComponent<MeshCollider>();
+        FuwaGearRideTest.HubLooks(t, hub.transform, hr, cwDark, cwLight, cwBrass);
+        var hrb = hub.AddComponent<Rigidbody>(); hrb.isKinematic = true; hrb.useGravity = false;
+        var bo = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBounce>(hub);
+        bo.alwaysUp = false; bo.useContactNormal = true; bo.bounceSpeed = FuwaGearRideTest.HubBounce; bo.keepTangent = 0.5f;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(bo); FuwaStage2WaterTest.NoSync(bo);
+        void P2(PrimitiveType pt, string n, Vector3 lp, Vector3 ls)
+        {
+            var o = GameObject.CreatePrimitive(pt); o.name = n; Object.DestroyImmediate(o.GetComponent<Collider>());
+            o.transform.SetParent(t, false); o.transform.localPosition = lp; o.transform.localScale = ls; o.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        }
+        P2(PrimitiveType.Cylinder, "HubBand", new Vector3(0f, topY + hh - 0.2f, 0f), new Vector3(2f * hr + 0.08f, 0.12f, 2f * hr + 0.08f));
+        P2(PrimitiveType.Cylinder, "HubFoot", new Vector3(0f, topY + 0.1f, 0f), new Vector3(2f * hr + 0.12f, 0.1f, 2f * hr + 0.12f));
+        P2(PrimitiveType.Sphere, "HubTop", new Vector3(0f, topY + hh + coneH, 0f), Vector3.one * 0.22f);
     }
 
     // ③→④ 段つき歯車2つで 1.4m 上がる：A（大24・上に小14 が +0.7）→ B（大24 が +0.7 の層で A の小とかみ合う、上に小14 が +1.4）
