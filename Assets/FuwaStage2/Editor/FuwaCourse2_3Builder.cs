@@ -1104,6 +1104,8 @@ public static class FuwaCourse2_3Builder
     public static Vector2[] M2_ObsRoute = { new Vector2(0f, 4f), new Vector2(-6f, 18f), new Vector2(-1f, 28.5f), new Vector2(16f, 40f) };
     public static float M2_ObsGapIn = 4.4f, M2_ObsGapOut = 6.2f, M2_ObsInW = 2.0f, M2_ObsOutW = 9f;   // 3.0/13/2/6.5 は「インが多すぎてアウトがなさすぎ」   // 線からの距離 InW 以内は GapIn、OutW で GapOut
     public static int M2_ObsCountInner = 28;
+    // 置いたあとに少しずらす置き物（名前・地図の座標でのずれ）。2026-11-10 IceRock2 は坂の手前のチェックポイントのきのこの場所をあけるため左へ
+    public static (string n, Vector2 d)[] M2_ObsNudge = { ("IceRock2", new Vector2(-1.70f, 2.44f)) };
     // 障害物にふわふわが当たったら、いわのみちの頂上の岩と同じ「当たった面の向きにぽよん」（FuwaBounce 2.2、アウトにしない）。人は氷のスケートの壁の跳ね返り（FuwaIceSkate.bounce）
     public static Vector2 M2_I1BandA = new Vector2(-2.6f, 30.2f), M2_I1BandB = new Vector2(30f, 10.2f); public static float M2_I1BandHW = 6.5f;
     public static Vector2[] M2_I1Cut = { new Vector2(-15.54f, 38.08f), new Vector2(-5.73f, 41.54f), new Vector2(4.65f, 36.34f), new Vector2(13.89f, 30.57f), new Vector2(12.73f, 25.96f), new Vector2(3.5f, 27.11f), new Vector2(-10.35f, 31.73f) };
@@ -1763,8 +1765,10 @@ public static class FuwaCourse2_3Builder
     // 最初の大きい氷（I1）の右の曲がり角のあと、坂（M2_I1Hill）の手前のチェックポイント（2026-11-10 てじゃ「最初の方の曲がり角の後に坂になってるところ、あれの手前にもチェックポイント」）。
     //  曲がり角のすぐ先で、坂の下る向きに横いっぱいの線（ふわふわ基準）。きのこは島のふちの内側に
     public static Vector2 V4_HillCp = new Vector2(-3.39f, 28.22f), V4_HillCpDir = new Vector2(0.975f, -0.223f);
-    public static float V4_HillCpHW = 11f;
-    public static Vector2 V4_HillCpMushL = new Vector2(7f, -1.5f), V4_HillCpMushR = new Vector2(7.8f, 0.5f);   // きのこ（横・前後）。島のふち・氷の岩・置き物から離した所
+    //  2026-11-10 てじゃ「ちょっとへんかなあ、ここも単品きのこにして青◯の氷の場所あたりに置こう、これは左にどかして」「コース端通った時も反応するように、判定だけ横長に」
+    //   → きのこは 1 つだけ、もと IceRock2 のあった所（IceRock2 は M2_ObsNudge で左へ）。判定の線は島の幅より左右 1m ずつ長く
+    public static float V4_HillCpHW = 12f;
+    public static Vector2 V4_HillCpMush = new Vector2(-2.2f, -2.8f);   // きのこ（チェックポイントから 横・前後）
     public static string V4HillCheckpoint(Transform root, Vector3 o)
     {
         const string name = "CheckpointHill";
@@ -1772,7 +1776,18 @@ public static class FuwaCourse2_3Builder
         Checkpoint(root, name, o + new Vector3(V4_HillCp.x, MapHeight(V4_HillCp), V4_HillCp.y), new Vector3(V4_HillCpDir.x, 0f, V4_HillCpDir.y).normalized, V4_HillCpHW);
         var cp = root.Find("Checkpoints/" + name); if (!cp) return "チェックポイントの元がない";
         var gm = cp.Find("GlowMushrooms");
-        if (gm) foreach (Transform cl in gm) { var m = cl.name == "ClusterR" ? V4_HillCpMushR : V4_HillCpMushL; cl.localPosition = new Vector3(Mathf.Sign(cl.localPosition.x) * m.x, cl.localPosition.y, m.y); }
+        if (gm)
+        {
+            var r = gm.Find("ClusterR"); if (r) Object.DestroyImmediate(r.gameObject);
+            var l = gm.Find("ClusterL"); if (l) l.localPosition = new Vector3(V4_HillCpMush.x, l.localPosition.y, V4_HillCpMush.y);
+        }
+        var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
+        if (fc)
+        {
+            if (fc.glowRenderers != null) fc.glowRenderers = fc.glowRenderers.Where(x => x).ToArray();
+            if (fc.glowEffects != null) fc.glowEffects = fc.glowEffects.Where(x => x).ToArray();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc);
+        }
         return cp.position.ToString("F1");
     }
     static void V4FieldCheckpoint(Transform root, Vector3 o, V4Field F)
@@ -2119,7 +2134,8 @@ public static class FuwaCourse2_3Builder
                     }
                     if (placed.Any(pq => (pq - q).magnitude < gap)) continue;
                     placed.Add(q);
-                    var at = o + new Vector3(q.x, MapHeight(q), q.y);
+                    var qa = q; { string nm = (placed.Count % 3 == 0 ? "Crystal" : "IceRock") + placed.Count; foreach (var nd in M2_ObsNudge) if (nd.n == nm) qa += nd.d; }
+                    var at = o + new Vector3(qa.x, MapHeight(qa), qa.y);
                     if (placed.Count % 3 == 0) Crystal(obsT, "Crystal" + placed.Count, at, 0.5f + (float)rnd.NextDouble() * 0.3f, 2.2f + (float)rnd.NextDouble() * 1.2f);
                     else IceRock(obsT, "IceRock" + placed.Count, at, 1.3f + (float)rnd.NextDouble() * 0.8f, (float)rnd.NextDouble() * 360f);
                 }
