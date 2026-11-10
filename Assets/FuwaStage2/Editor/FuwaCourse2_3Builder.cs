@@ -1260,6 +1260,15 @@ public static class FuwaCourse2_3Builder
     // 角の足場の中心・出口の足場の中心
     static Vector2 V3Hub() { var u = V3_TiltDir.normalized; return V3_Pad0 + u * V3_HubDist; }
     static Vector2 V3PadTop() { var h = V3Hub(); return new Vector2(h.x, h.y + V3_HubR + V3_PanelGap + V3_PanelB + V3_PanelGap + V3_PadR); }
+    // 最初の島の外まわり（見た目と当たり）。丸い出っぱり（V3_Nub、丸い山への橋が乗る）の右下が、出っぱりと島のふちのあいだでへこんで、橋のわきに不自然なすき間に見えた
+    //  （2026-11-10 てじゃ「山の島の手前の道のとこ、不自然なスキマあるからうめたい」）→ 出っぱりの円の後半（I1NotchFrom〜I1NotchTo）を飛ばして、次の角までまっすぐつなぐ。
+    //  置き物の乱数の場所は M2_I1 のまま（ここを変えると全部の岩の場所が変わる）
+    public static bool I1FillNotch = true; public static int I1NotchFrom = 17, I1NotchTo = 24;
+    static Vector2[] I1Shape()
+    {
+        if (!I1FillNotch || !M2_V3 || M2_I1 != V3_I1) return M2_I1;
+        return M2_I1.Where((q, i) => i < I1NotchFrom || i > I1NotchTo).ToArray();
+    }
     static void M2ApplyV3()
     {
         M2_I1 = V3_I1; M2_MC = V3_DomeC;
@@ -2140,7 +2149,7 @@ public static class FuwaCourse2_3Builder
             }
             for (int k = 0; k < linkPts.Count; k++) cuts.Add(PathOutline(linkPts[k], links[k].hw));
             var isl = new GameObject("Islands").transform; isl.SetParent(path, false);
-            MapIsland(isl, "MapI1", o, M2_I1, cuts);
+            MapIsland(isl, "MapI1", o, I1Shape(), cuts);
             MapIsland(isl, "MapDome", o, M, cuts);
             // 輪っかは坂の道だけの広い帯に（2026-11-04 てじゃ「ニ択やめて広くしよ」）：坂の線にそった長方形（両はしは道とつながるまでのばす）。坂は横いっぱいの幅
             if (M2_RingAsBand)
