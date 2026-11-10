@@ -11,6 +11,7 @@ using UnityEngine.UI;
 // ロビーの説明ボード（FuwaLobby/HowToPlay）の左の列（JP/EN・HUD・音量）の下と、タイトルの設定の台に「きれい / ふつう / かるい」ボタンを作る（2026-10-22）。
 // HUD ボタン（HudButton）を複製して、中身を「がしつ ◀ ふつう ▶」（おっかけカメラのボタンと同じ形）に作り替える。何度実行しても同じ結果。
 // 2026-10-22 てじゃ「なんとか画質設定であるってことを付け加えたい、でも長さが足りない」→「がしつ：◁ふつう▷ みたいに」「おっかけカメラにつかってるやつみたいな」
+// 2026-11-10 てじゃ「画質設定いらんかも」→ ボタン2つは隠した（消すとネットワークIDがずれるので非表示）。FuwaCourseLod.savePlayerData も OFF にして前に選んだ設定は読まない（PC ふつう・スマホ/Quest かるい 固定）
 public static class FuwaQualitySwitchSetup
 {
     const string Name = "QualityButton";
