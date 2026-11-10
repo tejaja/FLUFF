@@ -1321,7 +1321,8 @@ public static class FuwaCourse2_4Builder
         if (lobby)
         {
             var lc = lobby.transform.Find("LobbySpawn").position; var s4 = lobby.transform.Find("Slot4").position;
-            var sp4 = s4 - lc; sp4.y = 0f; var target = lc + sp4.normalized * SpokeR;
+            // 2026-11-10 てじゃ「方向、ロビー側にとんでない？」：SpokeR（コースの入口）だとロビー寄りすぎた → 2–5 の入口ではなく、気球とロビーの距離くらい先（2–5 のコースのまん中あたり）
+            var sp4 = s4 - lc; sp4.y = 0f; var bl = sp.position - lc; bl.y = 0f; var target = lc + sp4.normalized * Mathf.Max(SpokeR, bl.magnitude);
             var d = target - sp.position; d.y = 0f;
             cb.cloudWind = d.normalized * 0.9f;
         }
