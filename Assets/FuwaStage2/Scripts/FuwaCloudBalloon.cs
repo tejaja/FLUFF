@@ -64,12 +64,13 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
     {
         _count++;
         if (_count < puffEvery) return;
+        if (!_ready || clouds == null || clouds.Length == 0 || cloudSpawn == null) return;
+        if (Time.time - _last < cloudMinGap) return;   // 間があいていない時は、たまったまま待つ（次に着いた時に出す）
         _count = 0;
+        _last = Time.time;
+        // ふくらむのは雲が出る時だけ（2026-11-10 てじゃ「膨らむのは出るときだけにしたい」）
         _kick = 1f;
         if (burst != null) burst.Emit(burstCount);
-        if (!_ready || clouds == null || clouds.Length == 0 || cloudSpawn == null) return;
-        if (Time.time - _last < cloudMinGap) return;
-        _last = Time.time;
         int pick = -1; float oldest = -1f;
         for (int i = 0; i < clouds.Length; i++)
         {
