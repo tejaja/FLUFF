@@ -190,26 +190,26 @@ print("GAUGE_C", tuple(round(x, 4) for x in (case_c + face_n * 0.034)), "GAUGE_N
 
 # ===== ピストンの筒：透明なケース（2026-11-10 てじゃ「ポンプのシリンダは透明ケースでもいいかも　見栄えで」）。クランク側は開いている =====
 b = MB()
-RO, RI = 0.40, 0.36
+RO, RI = 0.325, 0.3   # 2026-11-10 てじゃ「ピストンギリギリの直径」（ピストンの頭は半径 0.31）
 X0, X1 = 0.62, 1.9
 b.tube((X0 + 0.04, 0, 0), (X1 + 0.01, 0, 0), RO, 48, GLASS, r_in=0.0)
 # 両はしのフランジ・ボルト（クランク側は輪、タンク側はふた）
-b.tube((X0 - 0.02, 0, 0), (X0 + 0.06, 0, 0), 0.47, 32, BRASS, r_in=RI)
-b.tube((X1, 0, 0), (X1 + 0.1, 0, 0), 0.47, 32, BRASS)
+b.tube((X0 - 0.02, 0, 0), (X0 + 0.06, 0, 0), 0.39, 32, BRASS, r_in=RI)
+b.tube((X1, 0, 0), (X1 + 0.1, 0, 0), 0.39, 32, BRASS)
 for j in range(8):
     a = 2 * math.pi * (j + 0.5) / 8
-    b.bolt((X0 + 0.06, 0.43 * math.cos(a), 0.43 * math.sin(a)), (1, 0, 0), BRASS)
-    b.bolt((X1, 0.43 * math.cos(a), 0.43 * math.sin(a)), (-1, 0, 0), BRASS)
+    b.bolt((X0 + 0.06, 0.36 * math.cos(a), 0.36 * math.sin(a)), (1, 0, 0), BRASS)
+    b.bolt((X1, 0.36 * math.cos(a), 0.36 * math.sin(a)), (-1, 0, 0), BRASS)
 # ケースを押さえる細い棒4本（フランジどうしをつなぐ）
 for j in range(4):
     a = 2 * math.pi * (j + 0.5) / 4
-    b.tube((X0 + 0.06, 0.445 * math.cos(a), 0.445 * math.sin(a)), (X1, 0.445 * math.cos(a), 0.445 * math.sin(a)), 0.014, 8, BRASS)
+    b.tube((X0 + 0.06, 0.365 * math.cos(a), 0.365 * math.sin(a)), (X1, 0.365 * math.cos(a), 0.365 * math.sin(a)), 0.014, 8, BRASS)
 # 帯2本
 for xr in (0.9, 1.6):
     b.tube((xr - 0.025, 0, 0), (xr + 0.025, 0, 0), RO + 0.022, 48, BRASS, r_in=RO + 0.002)
 # 台（サドル2つ）：台の上 y=-1.01（軸から）
 for xs_ in (0.78, 1.74):
-    b.box((xs_, -0.695, 0), (0.08, 0.63, 0.4), DARK)
+    b.box((xs_, -0.67, 0), (0.08, 0.68, 0.3), DARK)
     b.box((xs_, -0.995, 0), (0.2, 0.03, 0.62), DARK)
 barrel = b.obj("PumpBarrel")
 # ===== クリスタルの台（回る：TankCrystal の子、原点＝台の下の面）=====
