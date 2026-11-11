@@ -80,6 +80,12 @@ Material:
     - _EmissionFull: 1.6
     - _EmissionGradient: 0
     - _Facet: 0
+    - _GearBandDark: 0.86
+    - _GearPattern: 0
+    - _GearR: 1
+    - _GearRingStr: 0.035
+    - _GearRingsPerM: 40
+    - _GearRoot: 0.8
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
@@ -102,6 +108,9 @@ Material:
     - _IceSkyPower: 3
     - _IceStreak: 0.35
     - _IceStreakScale: 1.6
+    - _MetalEnv: 0
+    - _MetalSize: 0.93
+    - _MetalSpec: 0
     - _Metallic: 0
     - _Mode: 0
     - _NoiseScale: 0.6
@@ -140,6 +149,9 @@ Material:
     - _IceDeepColor: {r: 0.45, g: 0.62, b: 0.92, a: 1}
     - _IceSideColor: {r: 0.54999995, g: 0.68, b: 0.95, a: 1}
     - _IceSkyColor: {r: 0.86, g: 0.95, b: 1, a: 1}
+    - _MetalGround: {r: 0.62, g: 0.58, b: 0.62, a: 1}
+    - _MetalSky: {r: 1.25, g: 1.22, b: 1.15, a: 1}
+    - _MetalSpecColor: {r: 1, g: 0.96999997, b: 0.88, a: 1}
     - _PortalClip: {r: 0, g: 0, b: 0, a: 0}
     - _RimColor: {r: 1, g: 0.96999997, b: 0.92, a: 1}
     - _ShadowTint: {r: 0.54999995, g: 0.47999996, b: 0.75, a: 1}

@@ -17,6 +17,12 @@ public class FuwaCloudFactory : UdonSharpBehaviour
     [Tooltip("整数にする（大きい歯車の角度が巻き戻った時にずれないように）")]
     public float ratio = -8f, phase = 0f;
 
+    [Header("2段目の増速（2026-11-11 てじゃ「ロビー側のポンプ、やたらおそい」→ B：64:8 のあとに 24:8）")]
+    [Tooltip("pinion と同じ軸の歯車にかみ合う小さい歯車。あればクランク（ふいご・ポンプのピン）はこっち")]
+    public Transform pinion2;
+    [Tooltip("整数（pinion の角度 × ratio2 ＋ phase2）")]
+    public float ratio2 = 0f, phase2 = 0f;
+
     [Header("ふいご")]
     public float pinR = 0.35f, pinY = 0.1f, rodLen = 1.1f;
     [Tooltip("ふいごごとの、板が動く向き（frame の中、長さ 1）")]
@@ -66,6 +72,11 @@ public class FuwaCloudFactory : UdonSharpBehaviour
         float th = Angle2D(bigGear);
         float s = Mathf.Repeat(ratio * th + phase, 360f);
         pinion.localRotation = Quaternion.Euler(0f, -s, 0f);
+        if (pinion2 != null)
+        {
+            s = Mathf.Repeat(ratio2 * s + phase2, 360f);
+            pinion2.localRotation = Quaternion.Euler(0f, -s, 0f);
+        }
 
         if (mode == 0) Bellows();
         else if (mode == 1) Hammer(s);
@@ -76,8 +87,9 @@ public class FuwaCloudFactory : UdonSharpBehaviour
         if (axisDir == null) return;
         float sc = frame.lossyScale.x;   // 機械ごと大きくしている時（長さは frame の中の値）
         float L = rodLen * sc;
-        Vector3 pin = pinion.TransformPoint(new Vector3(pinR, pinY, 0f));
-        Vector3 c = pinion.TransformPoint(new Vector3(0f, pinY, 0f));
+        Transform crank = pinion2 != null ? pinion2 : pinion;
+        Vector3 pin = crank.TransformPoint(new Vector3(pinR, pinY, 0f));
+        Vector3 c = crank.TransformPoint(new Vector3(0f, pinY, 0f));
         for (int k = 0; k < axisDir.Length; k++)
         {
             Vector3 ax = frame.TransformDirection(axisDir[k]);

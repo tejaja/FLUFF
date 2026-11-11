@@ -1557,6 +1557,8 @@ public static class FuwaCourse2_4Builder
     //  2026-11-08 てじゃ「情報量がふえすぎた」「白パイプだけにして、上にあげてでっかいバルーン状の機械に接続」「ふくらみはあってもいい」→ 色なしの白いパイプ、まん中のバルーンの首へ
     static readonly Color PipeCol = new Color(0.95f, 0.95f, 0.97f), BulgeCol = new Color(1f, 0.99f, 0.96f);
     public static float PumpScale = 1.3f, PipeR = 0.3f, PipeRiseR = 5.2f, TankR = 0.55f, TankH = 0.9f;
+    public static readonly string[] PumpTwoStage = { "G4", "SGB" };   // 2段増速にするポンプ（つながる歯車の名前）
+    public static int PumpMidZ = 24; public static float PumpMidY = 0.32f;   // 2段目の大きい方の歯数・高さ（小さい歯車の上）
     static void SugarPipes(Transform core, System.Text.StringBuilder log)
     {
         facWood = FuwaStage2WaterTest.ToonMat("Stage2_4_Wood", new Color(0.62f, 0.45f, 0.3f));
@@ -1606,11 +1608,16 @@ public static class FuwaCourse2_4Builder
         CwShaft(g, bigY - 0.15f, gearBottomLocal, 0.3f);
         var bg = new FuwaGearTest.Gear { name = "Big", z = FacZBig, c = Vector2.zero, ratio = 1f, phase = 0f };
         var pg = FuwaGearTest.Mesh2(bg, "Pinion", FacZS, 0f, FacMod);
+        // 2段目の増速（2026-11-11 てじゃ「ロビー側のポンプ、やたらおそい」：乗る歯車・段つき歯車はゆっくり回るので 64:8 だけだと 1回 15〜19 秒 → B「24:8 をもう1段」）
+        //  小さい歯車（pinion）の上に同じ軸の 24 枚（Mid）、それにかみ合う 8 枚（Pinion2）にクランク。ポンプ・タンク・台は Mid の高さぶん上へ
+        bool two = PumpTwoStage.Contains(g.name);
+        var cc2 = pg.c; FuwaGearTest.Gear p2g = default; float lift = 0f;
+        if (two) { var mg = new FuwaGearTest.Gear { name = "Mid", z = PumpMidZ, c = pg.c, ratio = 1f, phase = 0f }; p2g = FuwaGearTest.Mesh2(mg, "Pinion2", FacZS, 0f, FacMod); cc2 = p2g.c; lift = PumpMidY; }
         // タンクが道や歯車にぶつからない向きにポンプごと回す（大きい歯車の軸のまわり）
         int tankHits;
         {
             var baseRot = F.localRotation; float bestYaw = 0f; int best = int.MaxValue;
-            var tcl = new Vector3(pg.c.x, 0f, pg.c.y) + new Vector3(1.9f + 0.1f + 0.2f + TankR, -0.5f + TankR + TankH / 2f, 0f);
+            var tcl = new Vector3(cc2.x, lift, cc2.y) + new Vector3(1.9f + 0.1f + 0.2f + TankR, -0.5f + TankR + TankH / 2f, 0f);
             foreach (float yaw in new[] { 0f, 180f, 90f, -90f, 45f, -45f, 135f, -135f })
             {
                 F.localRotation = Quaternion.Euler(0f, yaw, 0f) * baseRot;
@@ -1625,18 +1632,30 @@ public static class FuwaCourse2_4Builder
         pin.gameObject.AddComponent<MeshFilter>().sharedMesh = SpurMesh(FacZS, FacMod, 0.3f, "Factory_Pinion_z" + FacZS);
         pin.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cwDark;
         CwShaft(pin, -0.5f, 0.3f, 0.12f);
+        Transform crank = pin;
+        if (two)
+        {
+            var mid = new GameObject("FactoryMid_z" + PumpMidZ).transform; mid.SetParent(pin, false); mid.localPosition = new Vector3(0f, PumpMidY, 0f);
+            mid.gameObject.AddComponent<MeshFilter>().sharedMesh = SpurMesh(PumpMidZ, FacMod, 0.12f, "Factory_Mid_z" + PumpMidZ);
+            mid.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+            var pin2 = new GameObject("FactoryPinion2_z" + FacZS).transform; pin2.SetParent(F, false); pin2.localPosition = new Vector3(cc2.x, PumpMidY, cc2.y);
+            pin2.gameObject.AddComponent<MeshFilter>().sharedMesh = SpurMesh(FacZS, FacMod, 0.3f, "Factory_Pinion_z" + FacZS);
+            pin2.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cwDark;
+            CwShaft(pin2, -0.5f, 0.3f, 0.12f);
+            crank = pin2;
+        }
         // 台と、大きい歯車の軸へのうで
-        float px = pg.c.x, fd = 1.9f, R = 0.3f, L = 1.0f, PY = 0.5f;
-        SteelBed(F, "PumpBed", new Vector3((px - 0.4f + px + fd - 0.1f) / 2f, -0.56f, 0f), new Vector3(fd + 0.3f, 0.1f, 1.1f));   // 2026-11-10 てじゃ「タンクの下の板気になるな」→ 木の板をやめて鉄の台（真ちゅうのボルト）   // パイプが下りる所にかからないように、出口の手前まで
-        TBox(F, "PumpArm", new Vector3((px - 0.4f) / 2f, -0.56f, 0f), new Vector3(px - 0.4f, 0.09f, 0.16f), cwAxle, false);
+        float px = cc2.x, fd = 1.9f, R = 0.3f, L = 1.0f, PY = 0.5f;
+        SteelBed(F, "PumpBed", new Vector3((px - 0.4f + px + fd - 0.1f) / 2f, -0.56f + lift, 0f), new Vector3(fd + 0.3f, 0.1f, 1.1f));   // 2026-11-10 てじゃ「タンクの下の板気になるな」→ 木の板をやめて鉄の台（真ちゅうのボルト）   // パイプが下りる所にかからないように、出口の手前まで
+        TBox(F, "PumpArm", new Vector3((px - 0.4f) / 2f, -0.56f + lift, 0f), new Vector3(px - 0.4f, 0.09f, 0.16f), cwAxle, false);
         var bear = GameObject.CreatePrimitive(PrimitiveType.Cylinder); bear.name = "PumpBearing"; Object.DestroyImmediate(bear.GetComponent<Collider>());
-        bear.transform.SetParent(F, false); bear.transform.localPosition = new Vector3(0f, -0.56f, 0f); bear.transform.localScale = new Vector3(0.6f, 0.07f, 0.6f); bear.GetComponent<Renderer>().sharedMaterial = cwAxle;
+        bear.transform.SetParent(F, false); bear.transform.localPosition = new Vector3(0f, -0.56f + lift, 0f); bear.transform.localScale = new Vector3(0.6f, 0.07f, 0.6f); bear.GetComponent<Renderer>().sharedMaterial = cwAxle;
         // クランク
         var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder); disc.name = "CrankDisc"; Object.DestroyImmediate(disc.GetComponent<Collider>());
-        disc.transform.SetParent(pin, false); disc.transform.localPosition = new Vector3(0f, 0.34f, 0f); disc.transform.localScale = new Vector3(2f * R + 0.24f, 0.04f, 2f * R + 0.24f); disc.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        disc.transform.SetParent(crank, false); disc.transform.localPosition = new Vector3(0f, 0.34f, 0f); disc.transform.localScale = new Vector3(2f * R + 0.24f, 0.04f, 2f * R + 0.24f); disc.GetComponent<Renderer>().sharedMaterial = cwBrass;
         var cp = GameObject.CreatePrimitive(PrimitiveType.Cylinder); cp.name = "CrankPin"; Object.DestroyImmediate(cp.GetComponent<Collider>());
-        cp.transform.SetParent(pin, false); cp.transform.localPosition = new Vector3(R, (0.38f + PY + 0.08f) / 2f, 0f); cp.transform.localScale = new Vector3(0.09f, (PY + 0.08f - 0.38f) / 2f, 0.09f); cp.GetComponent<Renderer>().sharedMaterial = cwAxle;
-        var pc = pin.localPosition; var axisY = Vector3.up * PY;
+        cp.transform.SetParent(crank, false); cp.transform.localPosition = new Vector3(R, (0.38f + PY + 0.08f) / 2f, 0f); cp.transform.localScale = new Vector3(0.09f, (PY + 0.08f - 0.38f) / 2f, 0.09f); cp.GetComponent<Renderer>().sharedMaterial = cwAxle;
+        var pc = crank.localPosition; var axisY = Vector3.up * PY;
         // ピストン（動く）と、ピストンの通るかご（動かない）
         var piston = new GameObject("Piston").transform; piston.SetParent(F, false);
         var head = GameObject.CreatePrimitive(PrimitiveType.Cylinder); head.name = "Head"; Object.DestroyImmediate(head.GetComponent<Collider>());
@@ -1657,16 +1676,17 @@ public static class FuwaCourse2_4Builder
             var glass = GameObject.CreatePrimitive(PrimitiveType.Cylinder); glass.name = "TankGlass"; Object.DestroyImmediate(glass.GetComponent<Collider>());
             glass.transform.SetParent(tank, false); glass.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); glass.transform.localPosition = new Vector3(0f, 0.05f, -TankR + 0.005f); glass.transform.localScale = new Vector3(0.26f, 0.04f, 0.26f);
             glass.GetComponent<Renderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_3_Crystal.mat") ?? cwAxle;
-            SteelBed(F, "TankBed", new Vector3(tc.x, -0.56f, 0f), new Vector3(2f * TankR + 0.2f, 0.1f, 2f * TankR + 0.2f));
+            SteelBed(F, "TankBed", new Vector3(tc.x, -0.56f + lift, 0f), new Vector3(2f * TankR + 0.2f, 0.1f, 2f * TankR + 0.2f));
             {   // 2つの台をつなぐ鉄の梁2本
                 float jx0 = px + fd - 0.1f, jx1 = tc.x - TankR - 0.1f;
-                foreach (float jz in new[] { -0.3f, 0.3f }) TBox(F, "TankBedJoin", new Vector3((jx0 + jx1) / 2f, -0.58f, jz), new Vector3(jx1 - jx0 + 0.1f, 0.08f, 0.12f), cwAxle, false);
+                foreach (float jz in new[] { -0.3f, 0.3f }) TBox(F, "TankBedJoin", new Vector3((jx0 + jx1) / 2f, -0.58f + lift, jz), new Vector3(jx1 - jx0 + 0.1f, 0.08f, 0.12f), cwAxle, false);
             }
         }
         Transform popT = CrystalTop(tank);
         // 動き
         var fc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaCloudFactory>(F.gameObject);
         fc.mode = 0; fc.frame = F; fc.bigGear = big; fc.pinion = pin; fc.ratio = pg.ratio; fc.phase = pg.phase * Mathf.Rad2Deg;
+        if (two) { fc.pinion2 = crank; fc.ratio2 = p2g.ratio; fc.phase2 = p2g.phase * Mathf.Rad2Deg; }
         fc.pinR = R; fc.pinY = PY; fc.rodLen = L;
         fc.axisDir = new[] { Vector3.right }; fc.plates = new[] { piston }; fc.rods = new[] { rod }; fc.fixedDist = new[] { fd };
         fc.rings = new Transform[0]; fc.ringOwner = new int[0]; fc.ringT = new float[0]; fc.skins = new Transform[0]; fc.puffs = new ParticleSystem[1];
@@ -1739,8 +1759,10 @@ public static class FuwaCourse2_4Builder
         fc.pipes = new[] { sp2 };
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); FuwaStage2WaterTest.NoSync(fc);
         float th; { var x = Quaternion.Inverse(F.rotation) * (big.rotation * Vector3.right); th = Mathf.Atan2(x.z, x.x) * Mathf.Rad2Deg; }
-        pin.localRotation = Quaternion.Euler(0f, -Mathf.Repeat(fc.ratio * th + fc.phase, 360f), 0f);
-        float pinRate = pg.ratio * rate;
+        float s1 = Mathf.Repeat(fc.ratio * th + fc.phase, 360f);
+        pin.localRotation = Quaternion.Euler(0f, -s1, 0f);
+        if (two) crank.localRotation = Quaternion.Euler(0f, -Mathf.Repeat(fc.ratio2 * s1 + fc.phase2, 360f), 0f);
+        float pinRate = pg.ratio * rate * (two ? p2g.ratio : 1f);
         return g.name + " タンク " + tankHits + " 1回 " + (360f / Mathf.Max(0.01f, Mathf.Abs(pinRate))).ToString("F1") + "秒 パイプ高さ " + bestY.ToString("F1") + " ぶつかり " + bestHits;
     }
 
