@@ -20,7 +20,7 @@ public static class FuwaCageFloorLook
     {
         if (!course) return "2–4 がない";
         var punch = PunchMat(); var hazard = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_Hazard.mat");
-        var markM = FuwaStage2WaterTest.ToonMat("Course2_4_CageMark", new Color(1f, 0.78f, 0.22f));
+        var markM = FuwaStage2WaterTest.ToonMat("Course2_4_CageMark", new Color(1f, 0.886f, 0.5f));   // しましまと同じ淡い黄色（2026-11-11 てじゃ「ちょっと色を淡く」）
         int n = 0;
         foreach (var F in course.GetComponentsInChildren<Transform>(true).Where(t => t.name == "CageFloor" || t.name == "CageRamp" || t.name == "CageApron").ToList())
         {
