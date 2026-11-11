@@ -31,7 +31,19 @@ public class FuwaGunShowcase : UdonSharpBehaviour
         float s = gun.GetAutoScale();
         transform.position = gun.GetDockPoint();
         transform.localScale = Vector3.one * s;
-        if (spin != null)
+        // VRで目の前に呼び出した時（見えない台 plainSpot）：回さず光らせず、デスクトップの召喚みたいにまっすぐ止めて見せる（2026-11-11 てじゃ）
+        bool plain = plainSpot != null && dock == plainSpot;
+        if (!_baseRotSet) { _baseRot = transform.rotation; _baseRotSet = true; }
+        if (!plain && _wasPlain) transform.rotation = _baseRot;
+        _wasPlain = plain;
+        if (halo != null && halo.activeSelf == plain) halo.SetActive(!plain);
+        if (sparkles != null && sparkles.activeSelf == plain) sparkles.SetActive(!plain);
+        if (plain)
+        {
+            transform.rotation = dock.rotation;
+            if (spin != null) { spin.localPosition = Vector3.zero; spin.localRotation = Quaternion.identity; }
+        }
+        else if (spin != null)
         {
             spin.localPosition = Vector3.up * Mathf.Sin(Time.time * bobSpeed) * bobAmp;
             spin.localRotation = Quaternion.Euler(0f, Time.time * spinSpeed, 0f) * Quaternion.Euler(tilt);
@@ -42,4 +54,10 @@ public class FuwaGunShowcase : UdonSharpBehaviour
 
     [Tooltip("見た目の銃（Spin の下の Visual）。本物の銃の枠線用ダミーをここに重ねる")]
     public Transform shownVisual;
+    [Tooltip("VRで目の前に呼び出した時の見えない台（FuwaGunSummon.vrFrontSpot）。ここに乗っている時は回さない・光らせない")]
+    public Transform plainSpot;
+    [Tooltip("後ろのやわらかい光・下のキラキラ（plainSpot の時は消す）")]
+    public GameObject halo;
+    public GameObject sparkles;
+    private Quaternion _baseRot; private bool _baseRotSet, _wasPlain;
 }

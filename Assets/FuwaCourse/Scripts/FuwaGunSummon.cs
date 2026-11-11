@@ -5,8 +5,8 @@ using VRC.Udon.Common;
 
 // 自分のエアガンをどこからでも呼び出す（自分だけ）。
 // ・デスクトップ：Fキーで目の前に出てくる（あとはいつも通りクリックで持つ）
-// ・VR：右スティックを下にしばらく倒すと、デスクトップと同じく目の前にまっすぐ銃が出る（ふつうに掴む）。
-//   （台から取る時だけ、手を近づけると握る向きでついてくる FollowDocked）
+// ・VR：右スティックを下にしばらく倒すと、目の前にまっすぐ止まった銃が出る（見えない台 vrFrontSpot に乗せる、回さない）。
+//   手を近づけると近い方の手に握る向きでついてくる（台と同じ FollowDocked）ので、そのまま握れば持てる。
 //   （2026-11-11 前は右手の中に出して、握らなければ waitSeconds 秒で戻していた。左利きの人のために目の前へ。自動で戻すのはなし）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaGunSummon : UdonSharpBehaviour
@@ -172,10 +172,12 @@ public class FuwaGunSummon : UdonSharpBehaviour
             //  → 2026-11-11 てじゃ「デスクトップのときみたいに真っ直ぐポップするかんじでいいかも」：台の回る銃はやめて、デスクトップと同じく目の前にまっすぐ置く（ふつうに掴む）
             _gaugeFlashUntil = Time.time + 0.25f;
             _waitRelease = true;
-            gun.Undock();
+            //  → でもふつうに掴むと握る角度に合わせてくれない。見た目はまっすぐ止めて（FuwaGunShowcase.plainSpot）、中身は台と同じく手を近づけると握る角度でついてくる（A案）
             _dockFollow = 0;
-            summonSpot.SetPositionAndRotation(FrontPos(p), Quaternion.LookRotation(FlatForward(p), Vector3.up));
-            gun.MoveToStand(summonSpot);
+            float hover = gun.dockHover * gun.GetAutoScale();   // 台は乗せた位置より dockHover 浮かせて見せるので、その分下げる
+            vrFrontSpot.SetPositionAndRotation(FrontPos(p) + Vector3.down * hover, Quaternion.LookRotation(FlatForward(p), Vector3.up));
+            gun.Undock();
+            gun.Dock(vrFrontSpot);
             gun.PlaySpawnSound();
             return;
         }
