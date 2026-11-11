@@ -160,8 +160,8 @@ public class FuwaBlower : UdonSharpBehaviour
     public bool desktopUseGripHold = true;
     [Tooltip("Grip 持ちの握る目印（位置と向き）。なければ銃の根元")]
     public Transform desktopGrip;
-    [Tooltip("（お試し 2026-11-11）VRの人も Grip 持ちにする。OFFならVRは Any")]
-    public bool vrUseGripHold = true;
+    [Tooltip("VRの人も Grip 持ちにする（2026-11-11 試してダメだった。てじゃ「やっぱダメね」）。OFFならVRは Any")]
+    public bool vrUseGripHold = false;
     private float _alignStart; private Vector3 _pivotLocal;
     [Tooltip("右手からのずらし（視線基準: x=右 y=上 z=前）")]
     public Vector3 desktopHandOffset = Vector3.zero;
