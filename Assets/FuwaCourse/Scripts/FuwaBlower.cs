@@ -150,7 +150,7 @@ public class FuwaBlower : UdonSharpBehaviour
     [Tooltip("デスクトップでは道具の向きではなく視線の方向に吹く")]
     public bool desktopAimWithView = true;
     [Tooltip("デスクトップでは見た目をアバターの右手の位置に持ってくる")]
-    public bool desktopSnapToHand = true;
+    public bool desktopSnapToHand = false;
     [Tooltip("右手からのずらし（視線基準: x=右 y=上 z=前）")]
     public Vector3 desktopHandOffset = Vector3.zero;
 
