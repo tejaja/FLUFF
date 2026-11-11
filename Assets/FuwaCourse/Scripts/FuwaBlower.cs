@@ -153,23 +153,6 @@ public class FuwaBlower : UdonSharpBehaviour
     public bool desktopSnapToHand = true;
     [Tooltip("右手からのずらし（視線基準: x=右 y=上 z=前）")]
     public Vector3 desktopHandOffset = Vector3.zero;
-    // 2026-11-11 てじゃ「デスクトップやスマホとかで銃もって走った時にブレないように（画面上で手からはズレてもいい）」：
-    //  自分が持っている時は、持った直後（desktopGrabSnap 秒）の手の位置を「頭から見た位置」として覚えて、あとはそこに固定（走りの腕ふりで揺れない）。
-    //  最初は止まっている時だけゆっくり覚え直していたが、向きを変えた時に体が遅れて回るのを拾って、ぬるっとついてくる感じになった
-    //  他人の銃は今までどおり手のボーンについていく（見ている人には手から離れて見えないように）
-    //  → 手について行くと、持った瞬間も腕を上げるアニメに合わせてぬるっと来る（てじゃ「持った時も一瞬で持てないかんじ？」）ので、
-    //    自分の画面では手は見ずに、頭から見た決まった位置（desktopViewPos、目の高さ1.6mの時。アバターの大きさで伸び縮み）に一瞬で出す
-    //  → 決まった位置だと手からだいぶずれた（アバターごとに手の位置が違う）ので、持って落ち着いた時（desktopLearnAfter 秒後、止まっている時）の
-    //    手の位置を「頭から見た位置」として覚えておき、次からは持った瞬間にそこへ出す。持っている間はそこに固定。覚えるのは1回持つごとに1回だけ。
-    //    まだ覚えていない最初の1回だけ、決まった位置から覚えた位置へすっと移る。アバターを変えたら（目の高さが変わったら）覚え直す
-    [Tooltip("デスクトップ・スマホでは VRChat の銃の持ち方（Orientation=Gun）にして、その位置に見た目を出す（向きは視線）。OFFなら下の「手の位置を覚える」方式")]
-    public bool desktopUseGunHold = true;
-    private bool _desktopGunHold;
-    [Tooltip("まだ手の位置を覚えていない時の位置：頭から見て x=右 y=上 z=前（m、目の高さ1.6mのアバターの時）")]
-    public Vector3 desktopViewPos = new Vector3(0.15f, -0.2f, 0.3f);
-    [Tooltip("持ってからこの秒数たって止まっていたら、その時の手の位置を覚える")]
-    public float desktopLearnAfter = 0.8f;
-    private Vector3 _dtLearned, _dtCur; private bool _dtLearnedOk, _dtHolding, _dtLearnedThisHold; private float _dtLearnEye, _dtGrabTime;
 
     [Tooltip("持ち主のアバターの大きさ（目の高さ）に合わせて銃の大きさを変える。風の届く距離や強さは変えない")]
     public bool autoScale = true;
@@ -251,15 +234,6 @@ public class FuwaBlower : UdonSharpBehaviour
         if (pumpBulb != null) { _bulbBaseScale = pumpBulb.localScale; _bulbBasePos = pumpBulb.localPosition; }
         SetOrb(0f);
         _pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
-        // デスクトップ・スマホの人のパソコンでだけ、VRChat の「銃として持つ」（Orientation=Gun）に切り替える。握る目印は銃の根元（見た目の原点＝グリップ）。
-        // VRの人は Any のまま（持った瞬間に決まった握りへパチッと持ち替えられるのはNG：2026-11-11 てじゃ「あれきらい」）。持ち方は持つ人のパソコンで決まるので他の人には関係ない
-        VRCPlayerApi lp0 = Networking.LocalPlayer;
-        if (desktopUseGunHold && _pickup != null && lp0 != null && !lp0.IsUserInVR())
-        {
-            _pickup.orientation = VRC_Pickup.PickupOrientation.Gun;
-            _pickup.ExactGun = transform;
-            _desktopGunHold = true;
-        }
         _isMine = Networking.IsOwner(gameObject);
         SetupBulbMaterial();
         if (!_isMine && _pickup != null) _pickup.pickupable = false;
@@ -568,26 +542,6 @@ public class FuwaBlower : UdonSharpBehaviour
                     // 手のボーンは手首にあるので、中指の付け根の方へ寄せて手のひらの中心にする
                     Vector3 finger = holder.GetBonePosition(HumanBodyBones.RightMiddleProximal);
                     Vector3 palm = finger.sqrMagnitude > 0.0001f ? Vector3.Lerp(hand, finger, 0.7f) : hand;
-                    if (holder.isLocal && _desktopGunHold) palm = transform.position;   // VRChat が銃として持たせた位置
-                    else if (holder.isLocal)
-                    {
-                        VRCPlayerApi.TrackingData hd = holder.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
-                        Vector3 rel = Quaternion.Inverse(hd.rotation) * (palm - hd.position);
-                        float eye = holder.GetAvatarEyeHeightAsMeters();
-                        if (_dtLearnedOk && Mathf.Abs(eye - _dtLearnEye) > _dtLearnEye * 0.02f) _dtLearnedOk = false;   // アバターが変わった
-                        if (!_dtHolding)
-                        {
-                            _dtHolding = true; _dtLearnedThisHold = false; _dtGrabTime = Time.time;
-                            _dtCur = _dtLearnedOk ? _dtLearned : desktopViewPos * _autoScale;
-                        }
-                        if (!_dtLearnedThisHold && Time.time - _dtGrabTime > desktopLearnAfter && holder.GetVelocity().sqrMagnitude < 0.04f && holder.IsPlayerGrounded())
-                        {
-                            _dtLearned = rel; _dtLearnedOk = true; _dtLearnEye = eye; _dtLearnedThisHold = true;
-                        }
-                        Vector3 target = _dtLearnedOk ? _dtLearned : desktopViewPos * _autoScale;
-                        _dtCur = Vector3.Lerp(_dtCur, target, 1f - Mathf.Exp(-Time.deltaTime * 6f));
-                        palm = hd.position + hd.rotation * _dtCur;
-                    }
                     basePos = palm + head * (desktopHandOffset * _autoScale);
                 }
             }
@@ -597,7 +551,6 @@ public class FuwaBlower : UdonSharpBehaviour
         }
         else if (_aligned && !_dropPending)
         {
-            _dtHolding = false;
             if (visualRoot != null)
             {
                 visualRoot.transform.localPosition = _visualLocalPos;
