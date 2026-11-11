@@ -360,6 +360,55 @@ public static class FuwaTwinTableTest
     // 床の上の道（橋と橋をまん中の丸い広場でつなぐ）。床の上の面から RoadTh だけ上（＝橋の上の面と同じ高さ）。見た目だけ（当たりは床）
     //  広場の半径は、となりの腕どうしが重ならない大きさ（w / sin(間の角/2) 以上）。腕は広場の円から、橋の根元（弦 r0）まで
     public static float RoadStripe = 1.2f, RoadTh = 0.01f;
+    public static bool PlazaPolar = false, PlazaRound = true; public static int PlazaRings = 8;
+
+    // 広場の丸い柄のテクスチャと材質（道の濃い色の材質を写して、柄だけ差しかえ）
+    public static Material PlazaMat(Material baseMat)
+    {
+        string tp = "Assets/FuwaStage2/Textures/TwinTable_Plaza.png", mp = "Assets/FuwaStage2/Materials/Course2_4_TablePlaza.mat";
+        int N = 512; var px = new Color[N * N];
+        for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+        {
+            float u = (x + 0.5f) / N * 2f - 1f, w = (y + 0.5f) / N * 2f - 1f, d = Mathf.Sqrt(u * u + w * w), a = Mathf.Atan2(w, u);
+            float c = 0.86f;
+            // 同心円のみぞ（うすい影＋明るいふち）
+            foreach (float rr in new[] { 0.34f, 0.52f, 0.70f })
+            {
+                float dd = d - rr;
+                if (Mathf.Abs(dd) < 0.012f) c -= 0.22f; else if (dd > 0.012f && dd < 0.022f) c += 0.06f;
+            }
+            // ふちの帯（少し暗い）
+            if (d > 0.88f) c -= 0.07f;
+            if (Mathf.Abs(d - 0.88f) < 0.008f) c -= 0.15f;
+            // リベットの輪（16個）
+            for (int k = 0; k < 16; k++)
+            {
+                float ak = k * Mathf.PI / 8f + Mathf.PI / 16f; float cx = Mathf.Cos(ak) * 0.79f, cy = Mathf.Sin(ak) * 0.79f;
+                float rd = Mathf.Sqrt((u - cx) * (u - cx) + (w - cy) * (w - cy));
+                if (rd < 0.032f) { float hl = Mathf.Clamp01(1f - Mathf.Sqrt((u - cx + 0.01f) * (u - cx + 0.01f) + (w - cy - 0.01f) * (w - cy - 0.01f)) / 0.03f); c = 0.78f + 0.2f * hl; }
+                else if (rd < 0.04f) c -= 0.2f;
+            }
+            // まん中の軸のふた（丸い板＋6本の放射のみぞ）
+            if (d < 0.18f)
+            {
+                c = 0.8f;
+                float spoke = Mathf.Abs(Mathf.Repeat(a / (2f * Mathf.PI) * 6f + 0.5f, 1f) - 0.5f);
+                if (d > 0.05f && spoke < 0.03f) c -= 0.18f;
+                if (d < 0.05f) c = 0.72f;
+            }
+            if (Mathf.Abs(d - 0.18f) < 0.01f) c -= 0.25f;
+            c = Mathf.Clamp01(c);
+            px[y * N + x] = new Color(c, c, c, 1f);
+        }
+        var tex = new Texture2D(N, N, TextureFormat.RGBA32, true); tex.SetPixels(px); tex.Apply();
+        System.IO.File.WriteAllBytes(tp, tex.EncodeToPNG()); AssetDatabase.ImportAsset(tp);
+        var ti = (TextureImporter)AssetImporter.GetAtPath(tp); ti.wrapMode = TextureWrapMode.Clamp; ti.SaveAndReimport();
+        var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!m) { m = new Material(baseMat); AssetDatabase.CreateAsset(m, mp); } else { m.shader = baseMat.shader; m.CopyPropertiesFromMaterial(baseMat); }
+        m.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(tp); m.mainTextureScale = Vector2.one; m.mainTextureOffset = Vector2.zero;
+        foreach (var bp in new[] { "_BumpMap", "_NormalMap" }) if (m.HasProperty(bp)) m.SetTexture(bp, null);   // 縞鋼板の凹凸は使わない
+        EditorUtility.SetDirty(m); return m;
+    }
     static float plazaR;
     static float RoadPlazaR(float[] angs)
     {
@@ -377,7 +426,7 @@ public static class FuwaTwinTableTest
     {
         float w = BridgeW / 2f, r0 = Mathf.Sqrt(deckR * deckR - w * w), rho = plazaR, h = RoadTh;
         var v = new System.Collections.Generic.List<Vector3>(); var nr = new System.Collections.Generic.List<Vector3>();
-        var t = new[] { new System.Collections.Generic.List<int>(), new System.Collections.Generic.List<int>() };
+        var t = new[] { new System.Collections.Generic.List<int>(), new System.Collections.Generic.List<int>(), new System.Collections.Generic.List<int>() };
         void Tri(int sm, int a, int b, int c, Vector3 nrm)
         {
             if (Vector3.Dot(Vector3.Cross(v[b] - v[a], v[c] - v[a]), nrm) >= 0f) { t[sm].Add(a); t[sm].Add(b); t[sm].Add(c); }
@@ -390,11 +439,44 @@ public static class FuwaTwinTableTest
         }
         var up = Vector3.up * h;
         int seg = DeckSeg;
+        var polarUV = new System.Collections.Generic.Dictionary<int, Vector2>();
         // 広場（こい色）
         {
-            int c0 = v.Count; v.Add(up); nr.Add(Vector3.up);
-            for (int j = 0; j < seg; j++) { float a = 2f * Mathf.PI * j / seg; v.Add(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * rho + up); nr.Add(Vector3.up); }
-            for (int j = 0; j < seg; j++) Tri(1, c0, c0 + 1 + j, c0 + 1 + (j + 1) % seg, Vector3.up);
+            if (PlazaRound)
+            {
+                // 2026-11-11 てじゃ「真ん中の丸い部分だけ丸い模様」「別の柄にしよ」：広場は回転台らしい丸い柄（PlazaMat、同心円のみぞ・リベットの輪・まん中の軸のふた）。uv は広場の円を 0〜1 に
+                int c0 = v.Count; v.Add(up); nr.Add(Vector3.up); polarUV[c0] = new Vector2(0.5f, 0.5f);
+                for (int j = 0; j < seg; j++) { float a = 2f * Mathf.PI * j / seg; polarUV[v.Count] = new Vector2(0.5f + 0.5f * Mathf.Cos(a), 0.5f + 0.5f * Mathf.Sin(a)); v.Add(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * rho + up); nr.Add(Vector3.up); }
+                for (int j = 0; j < seg; j++) Tri(2, c0, c0 + 1 + j, c0 + 1 + (j + 1) % seg, Vector3.up);
+            }
+            else if (!PlazaPolar)
+            {
+                int c0 = v.Count; v.Add(up); nr.Add(Vector3.up);
+                for (int j = 0; j < seg; j++) { float a = 2f * Mathf.PI * j / seg; v.Add(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * rho + up); nr.Add(Vector3.up); }
+                for (int j = 0; j < seg; j++) Tri(1, c0, c0 + 1 + j, c0 + 1 + (j + 1) % seg, Vector3.up);
+            }
+            else
+            {
+                // 2026-11-11 てじゃ「真ん中の丸い部分だけ丸い模様でもいい」：広場の縞鋼板を円にそって回す（uv＝円周にそった長さ・半径）。
+                //  輪 PlazaRings 本の格子（つなぎ目の列は2つ持つ）。まん中の輪は半径 0 の点がそろって、模様がまん中に集まる
+                int rings = PlazaRings, c0 = v.Count;
+                for (int k = 0; k <= rings; k++)
+                {
+                    float rr = rho * k / rings;
+                    for (int j = 0; j <= seg; j++)
+                    {
+                        float a = 2f * Mathf.PI * j / seg;
+                        polarUV[v.Count] = new Vector2(a * rr, rr);   // 円周にそった長さはその輪の半径で（まん中で模様が集まりすぎないように）
+                        v.Add(new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * rr + up); nr.Add(Vector3.up);
+                    }
+                }
+                for (int k = 0; k < rings; k++) for (int j = 0; j < seg; j++)
+                {
+                    int a0 = c0 + k * (seg + 1) + j, a1 = a0 + 1, b0 = a0 + seg + 1, b1 = b0 + 1;
+                    if (k > 0) Tri(1, a0, b0, a1, Vector3.up);
+                    Tri(1, a1, b0, b1, Vector3.up);
+                }
+            }
             for (int j = 0; j < seg; j++)
             {
                 float a0 = 2f * Mathf.PI * j / seg, a1 = 2f * Mathf.PI * (j + 1) / seg, am = (a0 + a1) / 2f;
@@ -434,6 +516,7 @@ public static class FuwaTwinTableTest
         {
             if (nr[q].y < 0.9f) continue;
             var p = v[q]; Vector2 best = new Vector2(p.x, p.z);
+            if (polarUV.TryGetValue(q, out var pu)) best = pu;
             foreach (var ar in armRange)
             {
                 if (q < ar.from || q >= ar.to) continue;
@@ -442,10 +525,11 @@ public static class FuwaTwinTableTest
             }
             uvs[q] = best;
         }
-        mesh.SetVertices(v); mesh.SetNormals(nr); mesh.SetUVs(0, uvs); mesh.subMeshCount = 2; mesh.SetTriangles(t[0], 0); mesh.SetTriangles(t[1], 1); mesh.RecalculateBounds();
+        int subs = PlazaRound ? 3 : 2;
+        mesh.SetVertices(v); mesh.SetNormals(nr); mesh.SetUVs(0, uvs); mesh.subMeshCount = subs; for (int k = 0; k < subs; k++) mesh.SetTriangles(t[k], k); mesh.RecalculateBounds();
         mesh = SaveMeshUV(mesh);
         var go = new GameObject("Road"); go.transform.SetParent(table, false);
-        go.AddComponent<MeshFilter>().sharedMesh = mesh; go.AddComponent<MeshRenderer>().sharedMaterials = new[] { roadA, roadB };
+        go.AddComponent<MeshFilter>().sharedMesh = mesh; go.AddComponent<MeshRenderer>().sharedMaterials = PlazaRound ? new[] { roadA, roadB, PlazaMat(roadB) } : new[] { roadA, roadB };
     }
 
     // ===== 橋が見えやすいように（2026-11-10 てじゃ「横から見ると遠く全然みえない、合ってるかもわからん」）=====
