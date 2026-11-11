@@ -151,6 +151,8 @@ public class FuwaBlower : UdonSharpBehaviour
     public bool desktopAimWithView = true;
     [Tooltip("デスクトップでは見た目をアバターの右手の位置に持ってくる")]
     public bool desktopSnapToHand = false;
+    [Tooltip("デスクトップで見た目の向きを視線に合わせる（OFFならVRChatの持ち方そのまま。撃つ向きは視線のまま）")]
+    public bool desktopAlignVisual = false;
     [Tooltip("右手からのずらし（視線基準: x=右 y=上 z=前）")]
     public Vector3 desktopHandOffset = Vector3.zero;
 
@@ -524,7 +526,7 @@ public class FuwaBlower : UdonSharpBehaviour
     {
         VRCPlayerApi holder = Networking.GetOwner(gameObject);
         UpdateAutoScale(holder);
-        bool align = desktopAimWithView && _held && holder != null && holder.IsValid() && !holder.IsUserInVR();
+        bool align = desktopAimWithView && desktopAlignVisual && _held && holder != null && holder.IsValid() && !holder.IsUserInVR();
         bool glued = false;
         if (!align && _held && !_dropPending && holder != null && holder.isLocal && holder.IsUserInVR() && _pickup != null) glued = VrGlue(holder);
         else _gripOk = false;
