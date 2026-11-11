@@ -129,24 +129,19 @@ public static class FuwaCourse2_5Builder
     }
 
     // ================= ③ ちいさくなる門 =================
-    //  青い輪 → 鉄格子の門（すき間はちいさいふわふわだけ通る。人も通れない）。人は門の右のクモの巣の通り口をくぐる（人はすり抜け、ふわふわはくっつく）→ 白い輪
-    public static float GateH = 3.6f, WebDoorW = 1.6f, WebDoorH = 3.0f;
+    //  青い輪 → 遺跡の門をふさぐクモの巣（人はすり抜け、小さいふわふわは巣の目を抜ける、ふつう・でかいはくっつく）→ 白い輪
+    //  2026-11-11 てじゃ「鉄の柵じゃなくて、その部分そのままクモの巣でいいんじゃないの」→ 鉄格子と横の人用の通り口をやめた
+    public static float GateH = 3.6f;
     static void Section3_SmallGate()
     {
         S(3f);
         Rune("Rune3_Small", -1); S(4f);
-        // 門の前後は右へ広げて、人の通り口の床に
         var g = new GameObject("S3_Gate").transform; g.SetParent(secT, false); g.localPosition = P; g.localRotation = Quaternion.LookRotation(Dir(th));
-        float sideW = WebDoorW + 1.2f;   // 右の床の幅
-        Strip(g, "SideFloor", new Vector3(HW + sideW / 2f, 0f, -2.5f), Vector3.forward * 5f, sideW / 2f, false);
-        float x0 = -HW - 0.6f, xm0 = HW, xm1 = HW + 0.5f, xd1 = xm1 + WebDoorW, x1 = HW + sideW + 0.6f, wallH = GateH + 0.6f, t = 0.6f;
-        Block(g, "WallL", x0, -HW, -0.6f, wallH, t, stone);
-        Block(g, "WallMid", xm0, xm1, -0.6f, wallH, t, stone);
-        Block(g, "WallR", xd1, x1, -0.6f, wallH, t, stone);
-        Block(g, "OverGrate", -HW, HW, GateH, wallH, t, terra);
-        Block(g, "OverDoor", xm1, xd1, WebDoorH, wallH, t, terra);
-        FuwaSizeTest.GrateAt(g, "Grate", Vector3.zero, Quaternion.identity, 2f * HW, GateH, stone, iron, 0);
-        Web(g, "DoorWeb", new Vector3((xm1 + xd1) / 2f, WebDoorH / 2f, 0f), Quaternion.identity, new Vector2(WebDoorW + 0.1f, WebDoorH + 0.1f), false, 0.6f);
+        float wallH = GateH + 0.6f, t = 0.6f;
+        Block(g, "PostL", -HW - 0.6f, -HW, -0.6f, wallH, t, stone);
+        Block(g, "PostR", HW, HW + 0.6f, -0.6f, wallH, t, stone);
+        Block(g, "Top", -HW, HW, GateH, wallH, t, terra);
+        Web(g, "GateWeb", new Vector3(0f, GateH / 2f, 0f), Quaternion.identity, new Vector2(2f * HW + 0.1f, GateH + 0.1f), false, 0.6f, true);
         S(4f);
         Rune("Rune3_Normal", 0); S(3f);
         log.Append("③門 ");
@@ -479,7 +474,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // クモの巣（人はすり抜け＝トリガー、ふわふわはくっつく）。tear＝でかいと破れる。lp は巣のまん中、面の向きは lr の forward
-    static void Web(Transform parent, string name, Vector3 lp, Quaternion lr, Vector2 size, bool tear, float playerSlow)
+    static void Web(Transform parent, string name, Vector3 lp, Quaternion lr, Vector2 size, bool tear, float playerSlow, bool smallPasses = false)
     {
         var tmpl = Resources.FindObjectsOfTypeAll<SpiderWebBuilder>().FirstOrDefault(b => b && b.gameObject.scene.IsValid() && b.name == "BigWeb" && b.transform.parent && b.transform.parent.name == "Gimmick6_Window");
         if (!tmpl) { log.Append("（クモの巣の見本がない）"); return; }
@@ -496,7 +491,7 @@ public static class FuwaCourse2_5Builder
         if (hz)
         {
             hz.holeCenter = null; hz.sticky = true; hz.playerSlow = playerSlow; hz.playerSlowLinger = 0f;
-            hz.tearWhenBig = tear;
+            hz.tearWhenBig = tear; hz.smallPasses = smallPasses;
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }

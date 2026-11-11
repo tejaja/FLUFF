@@ -199,9 +199,13 @@ public class FuwaHazard : UdonSharpBehaviour
         if (tearHide != null) for (int i = 0; i < tearHide.Length; i++) if (tearHide[i] != null) tearHide[i].SetActive(true);
     }
 
+    // 2–5（2026-11-11 てじゃ「鉄の柵じゃなくて、その部分そのままクモの巣でいいんじゃないの」）：小さいふわふわは巣の目のすき間を抜ける
+    public bool smallPasses = false;
+
     public void HitBall(FuwaBall ball)
     {
         if (ball == null) return;
+        if (sticky && smallPasses && ball.GetSizeMode() < 0) return;
         if (sticky && tearWhenBig && ball.GetSizeMode() > 0) { Tear(); return; }
         if (sticky)
         {
