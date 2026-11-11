@@ -42,6 +42,14 @@ Shader "FuwaCourse/ToonLit"
         _RimColor ("Rim Color", Color) = (1, 0.97, 0.92, 1)
         _RimStrength ("Rim Strength", Range(0,1)) = 0.18
         _RimPower ("Rim Power", Range(0.5,8)) = 3
+        // 2026-11-11 てじゃ「2-4の歯車の質感っていい感じにできたりするかな」：金属っぽさ（トゥーンのくっきりしたハイライト＋空と地面のうつりこみの2色）。0 なら今までどおり
+        [Header(Metal)]
+        _MetalSpec ("Metal Highlight", Range(0,2)) = 0
+        _MetalSize ("Metal Highlight Size (N.H threshold)", Range(0.5,0.999)) = 0.93
+        _MetalSpecColor ("Metal Highlight Color", Color) = (1, 0.97, 0.88, 1)
+        _MetalEnv ("Metal Reflection (sky/ground)", Range(0,1)) = 0
+        _MetalSky ("Metal Sky Tint", Color) = (1.25, 1.22, 1.15, 1)
+        _MetalGround ("Metal Ground Tint", Color) = (0.62, 0.58, 0.62, 1)
         [Header(Base Fade)]
         _BaseFadeColor ("Base Fade Color", Color) = (0.66, 0.6, 0.68, 1)
         _BaseFadeLength ("Base Fade Length (object units, 0=off)", Float) = 0
@@ -132,6 +140,7 @@ Shader "FuwaCourse/ToonLit"
             fixed4 _IceSideColor; half _IceSide, _IceStreak; float _IceSideDepth, _IceStreakScale;
             fixed4 _IceDeepColor, _IceSkyColor; half _IceDeep, _IceBubble, _IceSky; float _IceDeepDepth, _IceDeepScale, _IceSkyPower;
             half _DitherFade;
+            half _MetalSpec, _MetalSize, _MetalEnv; fixed4 _MetalSpecColor, _MetalSky, _MetalGround;
             // 4x4 の網点（Bayer）。0〜1
             float Bayer4(float2 p)
             {
@@ -348,6 +357,17 @@ Shader "FuwaCourse/ToonLit"
                 half3 light = lerp(shade, 1, lit) * _LightColor0.rgb;
                 half3 c = col.rgb * (light + amb * _AmbientStrength * shade);
 
+                // 金属（_MetalEnv：うつりこみの向きが上なら空の色、下なら地面の色をかける。_MetalSpec：光の向きのくっきりしたハイライト）
+                if (_MetalEnv > 0 || _MetalSpec > 0)
+                {
+                    float3 rv = reflect(-v, n);
+                    half up = smoothstep(-0.25, 0.35, rv.y);
+                    c *= lerp(half3(1,1,1), lerp(_MetalGround.rgb, _MetalSky.rgb, up), _MetalEnv);
+                    half nh = saturate(dot(n, normalize(l + v)));
+                    half sw = max(fwidth(nh) * 1.5, 0.004);
+                    half sp = smoothstep(_MetalSize - sw, _MetalSize + sw, nh) * saturate(lit * 1.5);
+                    c += _MetalSpecColor.rgb * _LightColor0.rgb * sp * _MetalSpec;
+                }
                 // ふちの光（光の当たる側は少し強め）
                 half rim = pow(1 - saturate(dot(n, v)), _RimPower) * _RimStrength * (0.5 + 0.5 * lit);
                 rim *= 1 - i.fade;   // 根元のなじませ部分はふちを光らせない（境目が浮かないように）
