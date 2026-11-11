@@ -50,6 +50,13 @@ Shader "FuwaCourse/ToonLit"
         _MetalEnv ("Metal Reflection (sky/ground)", Range(0,1)) = 0
         _MetalSky ("Metal Sky Tint", Color) = (1.25, 1.22, 1.15, 1)
         _MetalGround ("Metal Ground Tint", Color) = (0.62, 0.58, 0.62, 1)
+        // 歯車の柄（2026-11-11）：uv＝歯車の面を半径 1 にした平面の座標。根元（_GearRoot、半径の割合）の外を一段暗く、根元に段差の線、内側に削り目の同心円。1ピクセルずつ計算（頂点ごとだとカクカクした）
+        _GearPattern ("Gear Pattern (0/1)", Float) = 0
+        _GearRoot ("Gear Root Radius (ratio)", Float) = 0.8
+        _GearR ("Gear Radius (m)", Float) = 1
+        _GearBandDark ("Gear Teeth Band (multiply)", Range(0,1)) = 0.86
+        _GearRingsPerM ("Gear Machining Rings per m", Float) = 40
+        _GearRingStr ("Gear Machining Ring Strength", Range(0,0.2)) = 0.035
         [Header(Base Fade)]
         _BaseFadeColor ("Base Fade Color", Color) = (0.66, 0.6, 0.68, 1)
         _BaseFadeLength ("Base Fade Length (object units, 0=off)", Float) = 0
@@ -141,6 +148,7 @@ Shader "FuwaCourse/ToonLit"
             fixed4 _IceDeepColor, _IceSkyColor; half _IceDeep, _IceBubble, _IceSky; float _IceDeepDepth, _IceDeepScale, _IceSkyPower;
             half _DitherFade;
             half _MetalSpec, _MetalSize, _MetalEnv; fixed4 _MetalSpecColor, _MetalSky, _MetalGround;
+            half _GearPattern, _GearBandDark, _GearRingStr; float _GearRoot, _GearR, _GearRingsPerM;
             // 4x4 の網点（Bayer）。0〜1
             float Bayer4(float2 p)
             {
@@ -221,6 +229,19 @@ Shader "FuwaCourse/ToonLit"
                 if (any(_PortalClip.xyz)) clip(dot(i.wp, _PortalClip.xyz) + _PortalClip.w);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
+                if (_GearPattern > 0.5)
+                {
+                    float rm = length(i.uv * 2 - 1) * _GearR, root = _GearRoot * _GearR;   // メートル
+                    float aa = max(fwidth(rm), 1e-4);
+                    half k = 1;
+                    k *= lerp(1, _GearBandDark, smoothstep(root - aa, root + aa, rm));                                  // 歯の帯
+                    k *= 1 - 0.22 * (1 - smoothstep(0, aa + 0.003, abs(rm - (root - 0.03))));                          // 段差の影の線
+                    k *= 1 + 0.06 * (1 - smoothstep(0, aa + 0.002, abs(rm - (root - 0.012))));                         // 段差の明るい線
+                    half ringFade = saturate(1 - fwidth(rm * _GearRingsPerM) * 1.5) * (1 - smoothstep(root - 0.08, root - 0.05, rm));
+                    float ph = rm * _GearRingsPerM * 6.2831853;
+                    k *= 1 - _GearRingStr * (0.5 + 0.25 * sin(ph) + 0.25 * sin(ph * 0.37 + 1.3)) * ringFade;          // 削り目（遠くでチラつく所は消す）
+                    col.rgb *= k;
+                }
                 float3 n = normalize(i.wn) * (facing > 0 ? 1 : -1);   // 両面描画の裏側は法線を反転
                 #ifdef _FUWA_BUMP
                 {
