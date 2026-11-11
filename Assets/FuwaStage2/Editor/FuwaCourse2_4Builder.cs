@@ -2907,12 +2907,16 @@ public static class FuwaCourse2_4Builder
     }
 
     // 丸い島と道のつなぎ（2–3 と同じ）：島のまん中 c から dir の向きに、島のふち（半径 R）から c から R の直線までのすき間をうめる
+    public static float JoinInset = 0.08f;
     static void IslandJoin(Transform parent, string name, Vector3 c, Vector3 dir, float R, float hw, Material mat)
     {
         const float Tk = 0.6f; int nx = 16;
         var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = c; g.transform.localRotation = Quaternion.LookRotation(dir); g.layer = pathLayer;
         var v = new List<Vector3>(); var t = new List<int>();
-        float Zb(float x) => Mathf.Sqrt(Mathf.Max(0f, R * R - x * x));
+        // 2026-11-11 てじゃ「入口のつなぎ目にスキマ」：島のふちは丸めてある（BevelCyl r 0.07）ので、ふちぴったりで止めると丸まった所にすき間が見えた
+        //  → 島の中へ JoinInset だけ入れる（島の上の面は道より 1cm 高いので、入った所は島の下にかくれる）
+        float Ri = R - JoinInset;
+        float Zb(float x) => Mathf.Sqrt(Mathf.Max(0f, Ri * Ri - x * x));
         for (int i = 0; i < nx; i++)
         {
             float x0 = Mathf.Lerp(-hw, hw, i / (float)nx), x1 = Mathf.Lerp(-hw, hw, (i + 1) / (float)nx);

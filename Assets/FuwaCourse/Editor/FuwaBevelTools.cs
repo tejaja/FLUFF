@@ -409,6 +409,7 @@ public static class FuwaBevelTools
         var bEdges = new List<(int q, int e, Vector3 no)>();
         var vertNormals = new Dictionary<string, List<Vector3>>();
         var innerEdges = new HashSet<string>();   // 同じ高さで続く辺（下の壁は消す）
+        var abutEdges = new HashSet<string>();    // 外にすぐ同じ高さの別の床（島・つなぎ）がある辺。下の壁は上を r 下げてかくす
         for (int qi = 0; qi < tops.Count; qi++)
         {
             int L = tops[qi].idx.Length;
@@ -425,7 +426,7 @@ public static class FuwaBevelTools
                 if (!rim || !wallTop.Contains(EdgeKey(a, b))) continue;
                 var dir = b - a; dir.y = 0; var no = new Vector3(dir.z, 0, -dir.x).normalized;
                 var mid = (a + b) * 0.5f; if (Vector3.Dot(no, mid - tops[qi].c) < 0) no = -no;
-                if (abut != null && abut(mid, no)) continue;   // 外にすぐ同じ高さの床（島・仕掛け）がある
+                if (abut != null && abut(mid, no)) { abutEdges.Add(EdgeKey(a, b)); continue; }   // 外にすぐ同じ高さの床（島・仕掛け）がある
                 bEdges.Add((qi, e, no));
                 foreach (var p in new[] { a, b }) { string kk = VKey(p); if (!vertNormals.TryGetValue(kk, out var l)) vertNormals[kk] = l = new List<Vector3>(); l.Add(no); }
             }
@@ -461,7 +462,9 @@ public static class FuwaBevelTools
             bool isRim = rimEdges.Contains(ek) && rimVerts.Contains(VKey(v[ids[0]])) && rimVerts.Contains(VKey(v[ids[1]]));
             if (!isRim && innerEdges.Contains(ek)) { removed++; continue; }   // シマどうしの間の壁
             var t = allT[sd.sub];
-            if (isRim) { float ytop = v[ids[1]].y - 0.001f; for (int j = 0; j < sd.cnt; j++) { int id = t[sd.k0 + j]; if (v[id].y >= ytop && (VKey(v[id]) == VKey(v[ids[0]]) || VKey(v[id]) == VKey(v[ids[1]]))) Vo[id] = new Vector3(v[id].x, v[id].y - r, v[id].z); } lowered++; } for (int j = 0; j < sd.cnt; j++) keep[sd.sub].Add(t[sd.k0 + j]);
+            // 2026-11-11 てじゃ「入口のつなぎ目に飛び出してるトゲ」：島のつなぎ（細かく割った上の面）と道のシマの間の壁は、辺が分かれていて「間の壁」と見なされず
+            //  上の辺が丸めたふちより高いまま残って、両はしの角がトゲに → 外に同じ高さの床がある壁も、上を r 下げる（床の下にかくれる）
+            if (isRim || abutEdges.Contains(ek)) { float ytop = v[ids[1]].y - 0.001f; for (int j = 0; j < sd.cnt; j++) { int id = t[sd.k0 + j]; if (v[id].y >= ytop && (VKey(v[id]) == VKey(v[ids[0]]) || VKey(v[id]) == VKey(v[ids[1]]))) Vo[id] = new Vector3(v[id].x, v[id].y - r, v[id].z); } lowered++; } for (int j = 0; j < sd.cnt; j++) keep[sd.sub].Add(t[sd.k0 + j]);
         }
         foreach (var be in bEdges)
         {
