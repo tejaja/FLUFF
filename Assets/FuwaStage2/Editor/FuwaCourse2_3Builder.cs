@@ -199,7 +199,7 @@ public static class FuwaCourse2_3Builder
         meshNo = 0;
         var p = new Vector3(0, 0, NoEndBridges ? z0 : z0 - 0.5f);
         var dir = Vector3.forward;
-        if (NoEndBridges) IslandJoin(path, "StartJoin", Vector3.zero, dir, z0, IntroHW, pathB);
+        if (NoEndBridges) IslandJoin(path, "StartJoin", Vector3.zero, dir, z0, IntroHW, pathB, FuwaCourse2_4Builder.JoinInset);
 
         Strip(path, "Intro", p, dir, NoEndBridges ? 4.5f : 5f, IntroHW, false); p += dir * (NoEndBridges ? 4.5f : 5f);
         if (LakeLayout)
@@ -2835,12 +2835,14 @@ public static class FuwaCourse2_3Builder
     static float startIslandR = 3f;
     // 丸い島と道のつなぎ：島のまん中 c から dir の向きに、島のふち（半径 R の円）から、ふちに接する直線（c から R の所）までのすき間をうめる。
     //  まっすぐな道のはしは c から R の所に置く。道の幅 hw、上の面の高さは c.y。シマシマの色は mat。島と重ねない（Zファイトなし）
-    static void IslandJoin(Transform parent, string name, Vector3 c, Vector3 dir, float R, float hw, Material mat)
+    static void IslandJoin(Transform parent, string name, Vector3 c, Vector3 dir, float R, float hw, Material mat, float inset = 0f)
     {
         const float T = 0.6f; int nx = 16;
         var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = c; g.transform.localRotation = Quaternion.LookRotation(dir); g.layer = pathLayer;
         var v = new List<Vector3>(); var t = new List<int>();
-        float Zb(float x) => Mathf.Sqrt(Mathf.Max(0f, R * R - x * x));
+        // 2026-11-11 てじゃ「入口のつなぎ目にスキマ」：島のふちは丸めてあるので、スタート・ゴールの島は中へ inset 入れる（2–4 の FuwaCourse2_4Builder.JoinInset と同じ）
+        float Ri = R - inset;
+        float Zb(float x) => Mathf.Sqrt(Mathf.Max(0f, Ri * Ri - x * x));
         for (int i = 0; i < nx; i++)
         {
             float x0 = Mathf.Lerp(-hw, hw, i / (float)nx), x1 = Mathf.Lerp(-hw, hw, (i + 1) / (float)nx);
@@ -2883,7 +2885,7 @@ public static class FuwaCourse2_3Builder
         }
         goal.localPosition = p + dir * (NoEndBridges ? far : far - 0.3f) + Vector3.up * 0.02f;
         goal.localRotation = Quaternion.LookRotation(dir);
-        if (NoEndBridges) IslandJoin(root.Find("Path"), "GoalJoin", p + dir * far, -dir, far, IntroHW, pathB);
+        if (NoEndBridges) IslandJoin(root.Find("Path"), "GoalJoin", p + dir * far, -dir, far, IntroHW, pathB, FuwaCourse2_4Builder.JoinInset);
         FuwaCourse2_1Builder.FixCopied(goal, map);
         FuwaCourse2_1Builder.Stage2Grass(goal);
     }
