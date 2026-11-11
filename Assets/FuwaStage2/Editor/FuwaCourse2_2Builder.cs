@@ -272,10 +272,11 @@ public static class FuwaCourse2_2Builder
                 rp.Add(drop);
                 colPts.Add(rp.ToArray());
             }
-            // 2026-11-11 てじゃ「落石の頻度もうちょいあってもいい」：岩の数 RockCount を 2→3。j 番の岩は j%2 の列、1周を RockCount 等分した時間ずつずらす（列ごとの速さ・休みはそのまま）
-            //  2 の時は前と同じ（列0 が 0、列1 が半周）
+            // 2026-11-11 てじゃ「落石の頻度もうちょい」「岩が出る頻度の間隔を縮めたかっただけ」：1個の岩は飛ぶのに 8.5 秒かかるので、速さそのままで出る間隔を縮めるには岩を増やす。
+            //  各列 2 個ずつ（RockCount 4）、j 番の岩は j%2 の列で、火山から RockInterval 秒おきに 手前→奥→手前→奥 と交互に出る（前は 2 個で約 4.5 秒おき）
+            //  RockInterval は実際の秒（LavaRock の中で RockSlow を掛けるので割っておく）
             for (int j = 0; j < RockCount; j++)
-                LavaRock(fire, "LavaRock" + j, colPts[j % cols.Length], j * RockPeriod / RockCount, RockPeriod, RockFirstScale, 1.5f, vfx, RockLastScale);
+                LavaRock(fire, "LavaRock" + j, colPts[j % cols.Length], j * RockInterval / RockSlow, RockCount * RockInterval / RockSlow, RockFirstScale, 1.5f, vfx, RockLastScale);
             // 関係ない方へ飛んでって落ちていく岩 ×2（てじゃ「コースにいくのが一個、関係ないとこに飛んでくのが２個」）。周期をずらしてばらばらに見えるように
             LavaRock(fire, "LavaRockAway0", new[] { vtop, vtop + new Vector3(22f, -45f, 8f) }, 1.7f, 4.6f, 3.2f, 6f, vfx);
             LavaRock(fire, "LavaRockAway1", new[] { vtop, vtop + new Vector3(16f, -45f, -14f) }, 3.4f, 7.3f, 3.6f, 7f, vfx);
@@ -2151,7 +2152,7 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
-    public static int RockCount = 3;   // コースに落ちてくる岩の数（2026-11-11 2→3）
+    public static int RockCount = 4; public static float RockInterval = 3.5f;   // コースに落ちてくる岩の数（列ごとに半分）と、火山から出る間隔（秒）。2026-11-11 2 個・約 4.5 秒 → 4 個・3.5 秒
     public static float RockR = 0.9f, RockHop = 1.05f, RockPeriod = 7.86f;   // 8.9→7.86（2026-11-11、飛ぶ時間を縮めた分）   // 2026-11-01 てじゃ「落ちる岩、もっと遅く」0.75→1.05、1周は飛ぶ時間 8.4 秒＋休み 0.5 秒（前は 6 秒＋0.5 秒）。2 列は半周ずらす
       // 予告線（点線）は試したけど「びみょう、やっぱなしに」（2026-10-30）   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
     // コースの外の火山（2026-10-30 てじゃ「いまの岩の出る柱のちょい奥くらいにデカい火山」「下から浮いてる感じに」）：c（道の高さ）を中心に、
