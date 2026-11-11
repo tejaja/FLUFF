@@ -160,6 +160,8 @@ public class FuwaBlower : UdonSharpBehaviour
     public bool desktopUseGripHold = true;
     [Tooltip("Grip 持ちの握る目印（位置と向き）。なければ銃の根元")]
     public Transform desktopGrip;
+    [Tooltip("（お試し 2026-11-11）VRの人も Grip 持ちにする。OFFならVRは Any")]
+    public bool vrUseGripHold = true;
     private float _alignStart; private Vector3 _pivotLocal;
     [Tooltip("右手からのずらし（視線基準: x=右 y=上 z=前）")]
     public Vector3 desktopHandOffset = Vector3.zero;
@@ -245,7 +247,7 @@ public class FuwaBlower : UdonSharpBehaviour
         SetOrb(0f);
         _pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
         VRCPlayerApi lp0 = Networking.LocalPlayer;
-        if (desktopUseGripHold && _pickup != null && lp0 != null && !lp0.IsUserInVR())
+        if (desktopUseGripHold && _pickup != null && lp0 != null && (!lp0.IsUserInVR() || vrUseGripHold))
         {
             _pickup.orientation = VRC_Pickup.PickupOrientation.Grip;
             _pickup.ExactGrip = desktopGrip != null ? desktopGrip : transform;
