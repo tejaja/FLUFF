@@ -982,8 +982,9 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火種：地面の燃えさし＋炎＋熱の範囲（かがり火と同じ FuwaHeatSource、止まる所は地面の SeedHover 上）
-    // 2026-11-11 てじゃ「火の玉の導線の近くに寄せる」：次に横切る火の玉の通り道の手前ぎりぎりへ（溶岩から 1.4m・通り道から約 2.9m はなす。前は (-3.39, 38.62) / (3.93, 47.23)）
-    public static readonly Vector3[] WideSeedSpots = { new Vector3(-3.4f, 0f, 40.0f), new Vector3(3.9f, 0f, 49.1f) };
+    // 2026-11-11 てじゃ「火の玉の飛ぶルートの真ん中を通るイメージで、その手前におきたい」：横切る火の玉（Fireball0・Fireball1）の通り道のまん中から、
+    //  通り道に直角に 1.6m 手前（溶岩から 1.2m 以上）。前は道の横のはし (-3.39, 38.62) / (3.93, 47.23)
+    public static readonly Vector3[] WideSeedSpots = { new Vector3(-1.37f, 0f, 39.11f), new Vector3(1.59f, 0f, 48.66f) };
     // シーンの今の 2–2 に広い道の焚き火だけ足す（作り直さずに）
     public static string AddWideSeeds(Transform root)
     {
