@@ -32,6 +32,9 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
     [Tooltip("雲の色のうすさ（0=ふくらみの色そのまま、1=白）")]
     public float cloudPale = 1f;   // 2026-11-10 てじゃ「色は白だけでいいかも」→ 白（色をもどすなら 0.55）
 
+    [Tooltip("2026-11-11 てじゃ「できあがった雲、ちょっとプヨプヨしてたらかわいい」：形のぷよぷよ（横・たてが交互にのびちぢみ）の強さと速さ")]
+    public float jiggle = 0.07f, jiggleSpeed = 2.2f;
+    private Transform[] _meshes; private Vector3[] _meshBase;
     private float _kick;
     private float[] _age, _size, _seed;
     private Vector3[] _dir;
@@ -44,11 +47,13 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
     {
         int n = clouds != null ? clouds.Length : 0;
         _age = new float[n]; _size = new float[n]; _seed = new float[n]; _dir = new Vector3[n]; _rends = new Renderer[n];
+        _meshes = new Transform[n]; _meshBase = new Vector3[n];
         for (int i = 0; i < n; i++)
         {
             _age[i] = -1f;
             if (clouds[i] == null) continue;
             _rends[i] = clouds[i].GetComponentInChildren<Renderer>(true);   // 2026-11-11 見た目は子の Mesh（横に広げるため）
+            if (_rends[i] != null && _rends[i].transform != clouds[i]) { _meshes[i] = _rends[i].transform; _meshBase[i] = _meshes[i].localScale; }
             clouds[i].gameObject.SetActive(false);
         }
         _mpb = new MaterialPropertyBlock();
@@ -119,6 +124,15 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
             float wob = 1f + 0.04f * Mathf.Sin(Time.time * 0.9f + _seed[i]);
             float late = Mathf.Lerp(1f, cloudGrowLate, Mathf.Clamp01((a - cloudGrow) / Mathf.Max(0.1f, cloudLife - cloudGrow - cloudFade * 0.5f)));   // 流れながらだんだん大きく
             clouds[i].localScale = Vector3.one * (_size[i] * g * f * wob * late + 0.001f);
+            // ぷよぷよ：ふくらみきってから（g が 1 に近いほど）。横が太る時はたてが縮む（体積はだいたいそのまま）
+            if (_meshes[i] != null && jiggle > 0f)
+            {
+                float k = jiggle * g * g;
+                float t1 = Time.time * jiggleSpeed + _seed[i] * 3.1f;
+                float sx = Mathf.Sin(t1), sz = Mathf.Sin(t1 * 0.83f + 1.7f);
+                float h = 1f + k * (sx * 0.6f + sz * 0.4f);
+                _meshes[i].localScale = new Vector3(_meshBase[i].x * (1f + k * sx), _meshBase[i].y / h, _meshBase[i].z * (1f + k * sz));
+            }
             // 出たてはぐっとのぼり、だんだん風まかせ
             float up = cloudRise * (0.35f + 0.65f / (1f + a * 0.25f)) + 0.12f * Mathf.Sin(Time.time * 0.6f + _seed[i]);
             float side = Mathf.Clamp01(a / 4f);
