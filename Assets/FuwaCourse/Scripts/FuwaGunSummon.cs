@@ -5,9 +5,9 @@ using VRC.Udon.Common;
 
 // 自分のエアガンをどこからでも呼び出す（自分だけ）。
 // ・デスクトップ：Fキーで目の前に出てくる（あとはいつも通りクリックで持つ）
-// ・VR：右スティックを下にしばらく倒すと、右手の中に銃が出てきて手についてくる。そのままグリップを握れば持てる
-//   （VRChatはスクリプトから「持たせる」ことはできないので、握るまで手の位置に置き続ける。
-//     waitSeconds 秒たっても握らなければ、元の場所に戻す）
+// ・VR：右スティックを下にしばらく倒すと、目の前に台の上と同じ浮いて回る銃が出る（見えない台 vrFrontSpot に乗せる）。
+//   手を近づけると近い方の手に握る向きでついてくるので、そのまま握れば持てる（台から取る時と同じ FollowDocked）。
+//   （2026-11-11 前は右手の中に出して、握らなければ waitSeconds 秒で戻していた。左利きの人のために目の前へ。自動で戻すのはなし）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaGunSummon : UdonSharpBehaviour
 {
@@ -69,9 +69,8 @@ public class FuwaGunSummon : UdonSharpBehaviour
             _gaugeShown = -1f;
             return;
         }
-        VRCPlayerApi.TrackingData hand = p.GetTrackingData(VRCPlayerApi.TrackingDataType.RightHand);
         VRCPlayerApi.TrackingData head = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
-        Vector3 pos = hand.position + Vector3.up * gaugeLift;
+        Vector3 pos = FrontPos(p);   // 銃が出てくる所（2026-11-11 右手の上→目の前）
         Vector3 toHead = head.position - pos;
         if (toHead.sqrMagnitude < 0.0001f) toHead = Vector3.back;
         // Quad の表（-Z 側から見える面）を顔へ向ける
@@ -166,40 +165,44 @@ public class FuwaGunSummon : UdonSharpBehaviour
         if (down && !_waitRelease && !_summoning && _downSince >= 0f) ShowGauge(p, Mathf.Clamp01((Time.time - _downSince) / Mathf.Max(0.01f, stickHoldSeconds)));
         else if (Time.time < _gaugeFlashUntil) ShowGauge(p, 1f);
         else ShowGauge(p, -1f);
-        if (down && !_waitRelease && !_summoning && Time.time - _downSince >= stickHoldSeconds)
+        if (down && !_waitRelease && !_summoning && Time.time - _downSince >= stickHoldSeconds && vrFrontSpot != null)
         {
+            // 2026-11-11 てじゃ「目の前召喚のほうがいいかも、左利きの人もおるし」「握った時の向きは今のまま」「自動で戻るのはいらん」
+            //  → 目の前に台と同じ浮いて回る銃を出す（見えない台＝vrFrontSpot に乗せる）。手を近づけると近い方の手に握る向きでついてくる（台と同じ FollowDocked）。時間切れで戻すのはなし
             _gaugeFlashUntil = Time.time + 0.25f;
             _waitRelease = true;
-            _summoning = true;
-            _summonUntil = Time.time + waitSeconds;
-            _returnDock = gun.GetDock();   // 台に乗っていたら、時間切れの時は台に戻す
-            gun.Undock();
+            vrFrontSpot.SetPositionAndRotation(FrontPos(p), Quaternion.LookRotation(FlatForward(p), Vector3.up));
+            gun.Dock(vrFrontSpot);
             _dockFollow = 0;
-            _returnPos = gun.transform.position;
-            _returnRot = gun.transform.rotation;
-            gun.SetSummonHidden(false);
-            _nextFollow = 0f;
-            _spawnSoundPending = true;   // 手元へ動かしてから鳴らす
-        }
-        if (!_summoning) return;
-
-        // 握らないまま時間切れ：元の場所に戻す
-        if (Time.time > _summonUntil)
-        {
-            _summoning = false;
-            if (_returnDock != null) { gun.Dock(_returnDock); return; }
-            summonSpot.SetPositionAndRotation(_returnPos, _returnRot);
-            gun.MoveToStand(summonSpot);
+            gun.PlaySpawnSound();
             return;
         }
-
-        if (Time.time < _nextFollow) return;
-        _nextFollow = Time.time + followInterval;
-        SetGripPose(p, false);
-        gun.MoveToStand(summonSpot);
-        if (_spawnSoundPending) { _spawnSoundPending = false; gun.PlaySpawnSound(); }
     }
-    private bool _spawnSoundPending;
+
+    [Header("VR：目の前に出す")]
+    [Tooltip("VRで呼び出した時に銃を乗せる見えない台（空のオブジェクト。Udonでは新しく作れないので用意しておく）")]
+    public Transform vrFrontSpot;
+    [Tooltip("VR：目の前のどれくらい先に出すか(m)")]
+    public float vrDistance = 0.45f;
+    [Tooltip("VR：目線からどれくらい下に出すか(m)")]
+    public float vrDrop = 0.3f;
+
+    private Vector3 FlatForward(VRCPlayerApi p)
+    {
+        Vector3 fwd = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).rotation * Vector3.forward;
+        fwd.y = 0f;
+        if (fwd.sqrMagnitude < 0.001f) fwd = Vector3.forward;
+        return fwd.normalized;
+    }
+
+    // 目の前の出す位置（アバターの大きさで伸び縮み）
+    private Vector3 FrontPos(VRCPlayerApi p)
+    {
+        float s = 1f;
+        FuwaBlower gun = manager != null ? manager.GetMyBlower() : null;
+        if (gun != null) s = gun.GetAutoScale();
+        return p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position + FlatForward(p) * (vrDistance * s) + Vector3.down * (vrDrop * s);
+    }
 
     // summonSpot を、手で握った時の銃の位置・向きにする。
     // 手の向きのままだと銃口が親指の方（上）を向くので、銃口を手の先・グリップを小指側へ回す。
