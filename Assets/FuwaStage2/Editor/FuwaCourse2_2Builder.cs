@@ -992,7 +992,8 @@ public static class FuwaCourse2_2Builder
     // 2026-11-11 てじゃ「火の玉の飛ぶルートの真ん中を通るイメージで、その手前におきたい」：横切る火の玉（Fireball0・Fireball1）の通り道のまん中から、
     //  通り道に直角に 1.6m 手前（溶岩から 1.2m 以上）。前は道の横のはし (-3.39, 38.62) / (3.93, 47.23)
     //  2026-11-11 てじゃ「もうちょい真ん中からずらそう、最初のは左に、次のは右に」→ x を 1m ずつ外へ（-1.37→-2.37、1.59→2.59）
-    public static readonly Vector3[] WideSeedSpots = { new Vector3(-2.37f, 0f, 39.11f), new Vector3(2.59f, 0f, 48.66f) };
+    //  「もちょい溶岩よりに」→ 前の溶岩（火の玉が出る池）へ寄せて、溶岩まで 1.2m（z 39.11→40.3、48.66→49.55）
+    public static readonly Vector3[] WideSeedSpots = { new Vector3(-2.37f, 0f, 40.3f), new Vector3(2.59f, 0f, 49.55f) };
     // シーンの今の 2–2 に広い道の焚き火だけ足す（作り直さずに）
     public static string AddWideSeeds(Transform root)
     {
