@@ -9,6 +9,7 @@ using UnityEngine;
 //   2026-10-07：切り取りを「三角形ごと消す」から「切り口の面でぴったり切る」に変更（ギザギザのすき間が出ていた）。
 //   切り口には道の断面と同じ形の木の板（ふた）を張って、中が見えないように。坂Bはその板にぴったり突き当てる
 // ・道は一直線（O から D の向き）。d＝その向きの距離、s＝横の距離
+// ⚠️ 2026-11-11 FuwaKinokoDeckCheckpoint で着地の板から先を D に 3m ずらした。これを実行し直したら、そのあと FuwaKinokoDeckCheckpoint.ShiftEntranceMeshes() を呼ぶ
 public static class FuwaKinokoEntrance
 {
     static readonly Vector3 O = new Vector3(-22.920f, 0f, -44.641f);
