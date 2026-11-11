@@ -145,7 +145,26 @@ public class FuwaGunSummon : UdonSharpBehaviour
             _summoning = false;
             _dockFollow = 0;
             ShowGauge(p, -1f);   // 銃を持っている時は出さない
+            _wasHeld = true;
             return;
+        }
+        // VRで離した銃：少しして落ち着いたら、その場所・向きのまま見えない台（vrFrontSpot）に乗せる。
+        // → 次に手を近づけた時も、台と同じく握る角度で手についてくる（2026-11-11 てじゃ「一回離した銃にもそういう処理はいれられないのかな」）
+        if (_wasHeld)
+        {
+            _wasHeld = false;
+            _droppedAt = Time.time;
+        }
+        if (_droppedAt > 0f && Time.time - _droppedAt > dropDockDelay)
+        {
+            _droppedAt = 0f;
+            if (p.IsUserInVR() && vrFrontSpot != null && gun.GetDock() == null)
+            {
+                Transform gt = gun.transform;
+                vrFrontSpot.SetPositionAndRotation(gt.position + Vector3.down * (gun.dockHover * gun.GetAutoScale()), gt.rotation);
+                _dockFollow = 0;
+                gun.Dock(vrFrontSpot);
+            }
         }
         if (!_summoning) FollowDocked(p, gun);
 
@@ -186,6 +205,10 @@ public class FuwaGunSummon : UdonSharpBehaviour
     [Header("VR：目の前に出す")]
     [Tooltip("VRで呼び出した時に銃を乗せる見えない台（空のオブジェクト。Udonでは新しく作れないので用意しておく）")]
     public Transform vrFrontSpot;
+    [Tooltip("VR：離してから何秒で見えない台に乗せるか（その間はふつうの持ち物）")]
+    public float dropDockDelay = 0.3f;
+    private bool _wasHeld;
+    private float _droppedAt;
     [Tooltip("VR：目の前のどれくらい先に出すか(m)")]
     public float vrDistance = 0.45f;
     [Tooltip("VR：目線からどれくらい下に出すか(m)")]

@@ -33,15 +33,21 @@ public class FuwaGunShowcase : UdonSharpBehaviour
         transform.localScale = Vector3.one * s;
         // VRで目の前に呼び出した時（見えない台 plainSpot）：回さず光らせず、デスクトップの召喚みたいにまっすぐ止めて見せる（2026-11-11 てじゃ）
         bool plain = plainSpot != null && dock == plainSpot;
-        if (!_baseRotSet) { _baseRot = transform.rotation; _baseRotSet = true; }
-        if (!plain && _wasPlain) transform.rotation = _baseRot;
+        if (!_baseRotSet) { _baseRot = transform.rotation; _baseRotSet = true; if (spin != null) _spinScale = spin.localScale; }
+        if (!plain && _wasPlain) { transform.rotation = _baseRot; if (spin != null) spin.localScale = _spinScale; }
         _wasPlain = plain;
         if (halo != null && halo.activeSelf == plain) halo.SetActive(!plain);
         if (sparkles != null && sparkles.activeSelf == plain) sparkles.SetActive(!plain);
         if (plain)
         {
             transform.rotation = dock.rotation;
-            if (spin != null) { spin.localPosition = Vector3.zero; spin.localRotation = Quaternion.identity; }
+            // 本物の銃とぴったり同じ大きさ・位置に（台の見た目は1.4倍で少しずらしてあるので打ち消す）。離した銃をそのまま置いた時に大きさが変わらないように
+            if (spin != null)
+            {
+                spin.localScale = Vector3.one;
+                spin.localRotation = Quaternion.identity;
+                spin.localPosition = shownVisual != null ? -shownVisual.localPosition : Vector3.zero;
+            }
         }
         else if (spin != null)
         {
@@ -59,5 +65,5 @@ public class FuwaGunShowcase : UdonSharpBehaviour
     [Tooltip("後ろのやわらかい光・下のキラキラ（plainSpot の時は消す）")]
     public GameObject halo;
     public GameObject sparkles;
-    private Quaternion _baseRot; private bool _baseRotSet, _wasPlain;
+    private Quaternion _baseRot; private bool _baseRotSet, _wasPlain; private Vector3 _spinScale = Vector3.one;
 }
