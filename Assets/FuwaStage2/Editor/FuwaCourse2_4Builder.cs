@@ -2578,7 +2578,7 @@ public static class FuwaCourse2_4Builder
             AddGear(t, q.ratio, q.phase * Mathf.Rad2Deg);
             ChunkyHub(t, H);
         }
-        var drv = Drive(g, a, 8, CM, -H, H, cwDark);
+        var drv = Drive(g, a, 8, CM, -H, H, cwDark, 180f, true);   // 2026-11-11 てじゃ「左の濃い歯車に乗れない」→ 乗れるように（当たり＋地面のレイヤー）
         SpinTank(drv, H, TankLiquidC);   // 2026-11-10 てじゃ「残り2個にもこんなかんじに」：駆動歯車の上に回るタンク（レモン）
         P += Dir(th) * (b.c.y + ra + 0.05f);
     }
