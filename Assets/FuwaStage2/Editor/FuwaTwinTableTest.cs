@@ -404,8 +404,10 @@ public static class FuwaTwinTableTest
         }
         // 腕（橋の向き）：広場の円 → 弦 r0。進む向きに A/B（広場のとなりは A）
         int n = RoadArmStripes(deckR); const int m = 8;
+        var armRange = new System.Collections.Generic.List<(int from, int to, float ang)>();
         foreach (float ang in angs)
         {
+            int armFrom = v.Count;
             var d = Polar(ang, 1f); var e = new Vector3(-d.z, 0f, d.x);
             float XIn(float y) => Mathf.Sqrt(Mathf.Max(0f, rho * rho - y * y));
             Vector3 P(float y, float f) { float x = Mathf.Lerp(XIn(y), r0, f); return d * x + e * y; }
@@ -421,18 +423,22 @@ public static class FuwaTwinTableTest
                 Quad(sm, P(-w, fa), P(-w, fb), P(-w, fb) + up, P(-w, fa) + up, -e);
                 Quad(sm, P(w, fa), P(w, fb), P(w, fb) + up, P(w, fa) + up, e);
             }
+            armRange.Add((armFrom, v.Count, ang));
         }
         var mesh = new Mesh { name = "TwinTable_Road_r" + Mathf.RoundToInt(deckR * 100) + "_" + string.Join("_", angs.Select(x => Mathf.RoundToInt(Mathf.Repeat(x, 360f)).ToString())) };
         // 縞鋼板の uv（上の面だけ）：腕は腕の向きの座標（橋の uv とそろう）、広場は床の座標
+        //  2026-11-11 てじゃ「回転床各種の格子模様、一部がぐにゃってなってる」：前は点の位置で腕か広場かを決めていて、腕の根元（広場の円の上、x < rho）の点だけ
+        //  広場の座標になり、腕の最初のシマの中で uv がねじれていた → 腕の点は作った順の範囲で腕の座標に
         var uvs = new Vector2[v.Count];
         for (int q = 0; q < v.Count; q++)
         {
             if (nr[q].y < 0.9f) continue;
-            var p = v[q]; Vector2 best = new Vector2(p.x, p.z); float bestD = rho;
-            foreach (float ang in angs)
+            var p = v[q]; Vector2 best = new Vector2(p.x, p.z);
+            foreach (var ar in armRange)
             {
-                var d = Polar(ang, 1f); var e = new Vector3(-d.z, 0f, d.x); float x = Vector3.Dot(p, d), y = Vector3.Dot(p, e);
-                if (x >= rho - 0.01f && Mathf.Abs(y) <= w + 0.01f) { best = new Vector2(x, y); }
+                if (q < ar.from || q >= ar.to) continue;
+                var d = Polar(ar.ang, 1f); var e = new Vector3(-d.z, 0f, d.x);
+                best = new Vector2(Vector3.Dot(p, d), Vector3.Dot(p, e));
             }
             uvs[q] = best;
         }
