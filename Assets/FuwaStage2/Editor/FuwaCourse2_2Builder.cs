@@ -252,6 +252,7 @@ public static class FuwaCourse2_2Builder
         //  （2026-10-30 てじゃ「道に沿って落ちるとこの狭さじゃ回避できない、この方向に３個くらい列ずらしで落とす、ちょうどいい位置でバウンドして落ちてくる感じ」）
         {
             float x0 = legs[0].a.x, x1 = legs[0].b.x;
+            var colPts = new List<Vector3[]>();
             float[] cols = { 0.33f, 0.67f };   // 2列を半周期ずらし（2026-10-31 てじゃ「2ラインあってもいいかも」。前は1列。3列は「きついか」→「やっぱ３列＋予告線」→「やっぱむずすぎる、３列やめとこう」）。予告（印・点線）は「びみょう」でなし
             for (int c = 0; c < cols.Length; c++)
             {
@@ -269,8 +270,12 @@ public static class FuwaCourse2_2Builder
                 //  落ちる先は最初の道の点から。飛びこえる列はさらに RockPassFar 遠くへ（てじゃ「もっと遠くに飛ばそう」）
                 var drop = onLeg0 + new Vector3(0, -10f, -4f); if (c == RockPassCol) drop += Flat(onLeg0 - onLeg1).normalized * RockPassFar;
                 rp.Add(drop);
-                LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length, RockPeriod, RockFirstScale, 1.5f, vfx, RockLastScale);
+                colPts.Add(rp.ToArray());
             }
+            // 2026-11-11 てじゃ「落石の頻度もうちょいあってもいい」：岩の数 RockCount を 2→3。j 番の岩は j%2 の列、1周を RockCount 等分した時間ずつずらす（列ごとの速さ・休みはそのまま）
+            //  2 の時は前と同じ（列0 が 0、列1 が半周）
+            for (int j = 0; j < RockCount; j++)
+                LavaRock(fire, "LavaRock" + j, colPts[j % cols.Length], j * RockPeriod / RockCount, RockPeriod, RockFirstScale, 1.5f, vfx, RockLastScale);
             // 関係ない方へ飛んでって落ちていく岩 ×2（てじゃ「コースにいくのが一個、関係ないとこに飛んでくのが２個」）。周期をずらしてばらばらに見えるように
             LavaRock(fire, "LavaRockAway0", new[] { vtop, vtop + new Vector3(22f, -45f, 8f) }, 1.7f, 4.6f, 3.2f, 6f, vfx);
             LavaRock(fire, "LavaRockAway1", new[] { vtop, vtop + new Vector3(16f, -45f, -14f) }, 3.4f, 7.3f, 3.6f, 7f, vfx);
@@ -1671,7 +1676,7 @@ public static class FuwaCourse2_2Builder
         string res = "";
         foreach (var f in fire.GetComponentsInChildren<FuwaLavaRock>(true))
         {
-            var g = f.transform.parent; if (!(g.name == "LavaRock0" || g.name == "LavaRock1" || g.name == "LavaRockArena")) continue;   // まもののエリアのも（2026-11-04 てじゃ「まもの側のにもつけて」）
+            var g = f.transform.parent; if (!(IsZigRock(g.name) || g.name == "LavaRockArena")) continue;   // まもののエリアのも（2026-11-04 てじゃ「まもの側のにもつけて」）
             var old = g.Find("PathDots"); if (old) Object.DestroyImmediate(old.gameObject);
             // 弧をこまかく取って長さを測り、RockDotGap おきに点
             var pts = new List<Vector3>(); var ds = new List<float>(); float d = 0f; Vector3 prev = Vector3.zero; bool first = true;
@@ -1718,7 +1723,7 @@ public static class FuwaCourse2_2Builder
         string res = "";
         foreach (var f in fire.GetComponentsInChildren<FuwaLavaRock>(true))
         {
-            var g = f.transform.parent; if (!(g.name == "LavaRock0" || g.name == "LavaRock1" || g.name == "LavaRockArena")) { f.landWarns = new Renderer[0]; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); continue; }
+            var g = f.transform.parent; if (!(IsZigRock(g.name) || g.name == "LavaRockArena")) { f.landWarns = new Renderer[0]; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); continue; }
             for (int i = g.childCount - 1; i >= 0; i--) if (g.GetChild(i).name.StartsWith("LandWarn")) Object.DestroyImmediate(g.GetChild(i).gameObject);
             var rs = new List<Renderer>();
             for (int k = 1; k < f.points.Length - 1; k++)
@@ -1784,6 +1789,7 @@ public static class FuwaCourse2_2Builder
         var mv = new List<Vector3>(); var mt = new List<int>(); var sv = new List<Vector3>(); var suv = new List<Vector2>(); var st = new List<int>();
         void Tri(List<Vector3> vs, List<int> ts, int a, int b, int c, Vector3 want) { if (Vector3.Dot(Vector3.Cross(vs[b] - vs[a], vs[c] - vs[a]), want) >= 0f) ts.AddRange(new[] { a, b, c }); else ts.AddRange(new[] { a, c, b }); }
         int count = 0; var rnd = new System.Random(2202); float R() => (float)rnd.NextDouble();
+        var crackDone = new HashSet<Vector3Int>();
         // はねる点を今の道の高さにそろえる（板の線の計算だと道から 0.3〜1.5m ずれて、浮いて見えた。2026-11-02 てじゃ）
         foreach (var rock in fire.GetComponentsInChildren<FuwaLavaRock>(true))
             for (int pi = 1; pi + 1 < rock.points.Length; pi++)
@@ -1793,6 +1799,8 @@ public static class FuwaCourse2_2Builder
             for (int pi = 1; pi + 1 < rock.points.Length; pi++)
             {
                 var p = rock.points[pi].position; if (!OnRoad(p, p.y, out var center)) continue;
+                // 同じ列の 2 個目の岩（RockCount 3 の LavaRock2）は同じ所ではねる → ヒビは 1 回だけ（重ねるとチラつく）
+                if (!crackDone.Add(Vector3Int.RoundToInt(p * 20f))) continue;
                 // 3 パターンを順番に：0 長い 3 本、1 短い 4 本、2 長い 2 本＋短い枝 1 本（2026-11-02 てじゃ「長さとか角度とか変えて３パターンくらい」）
                 int pat = count % 3, arms = pat == 1 ? 4 : 3; float a0 = R() * Mathf.PI * 2f; var loop = new List<Vector3>(); var hub = new List<Vector3>();
                 for (int ai = 0; ai < arms; ai++)
@@ -2143,6 +2151,7 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
+    public static int RockCount = 3;   // コースに落ちてくる岩の数（2026-11-11 2→3）
     public static float RockR = 0.9f, RockHop = 1.05f, RockPeriod = 7.86f;   // 8.9→7.86（2026-11-11、飛ぶ時間を縮めた分）   // 2026-11-01 てじゃ「落ちる岩、もっと遅く」0.75→1.05、1周は飛ぶ時間 8.4 秒＋休み 0.5 秒（前は 6 秒＋0.5 秒）。2 列は半周ずらす
       // 予告線（点線）は試したけど「びみょう、やっぱなしに」（2026-10-30）   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
     // コースの外の火山（2026-10-30 てじゃ「いまの岩の出る柱のちょい奥くらいにデカい火山」「下から浮いてる感じに」）：c（道の高さ）を中心に、
@@ -2321,12 +2330,14 @@ public static class FuwaCourse2_2Builder
     }
     // 火山の岩：丸くて暗い玉 → 角ばった溶岩の岩（Tools/stage2_lavarock.py、FuwaCourse/LavaRock。2026-10-31）。当たりは今まで通りスクリプトの球
     // 火の玉と同じ見た目は試して「ちょっと差がないとびみょう」（2026-10-31）→ 形は角ばった岩のまま、割れ目を太く・ふちを光らせて燃えている岩に
+    // ジグザグに落ちてくる岩（LavaRock0, 1, 2…。RockCount 個）
+    static bool IsZigRock(string n) => n.Length > 8 && n.StartsWith("LavaRock") && n.Substring(8).All(char.IsDigit);
     public static void LavaRockLook(GameObject vis, string name)
     {
         var mesh = AssetDatabase.LoadAllAssetsAtPath("Assets/FuwaStage2/Models/Stage2_LavaRock.fbx").OfType<Mesh>().FirstOrDefault(x => x.name == "Stage2_LavaRock" + (name.EndsWith("1") ? 1 : 0));
         if (mesh) vis.GetComponent<MeshFilter>().sharedMesh = mesh;
         // 炎越しの影はジグザグに飛んでくる 2 個だけ（2026-11-02 てじゃ「影でみえるのはジグザグに影響する２個だけにしたい」）
-        bool zigRock = name == "LavaRock0" || name == "LavaRock1";
+        bool zigRock = IsZigRock(name);
         var m = FuwaStage2WaterTest.ToonMat(zigRock ? "Stage2_2_LavaRock" : "Stage2_2_LavaRockNoShade", new Color(0.35f, 0.12f, 0.08f));
         var sh = Shader.Find("FuwaCourse/LavaRock");
         if (sh) { m.shader = sh; m.SetTexture("_FlowTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/Stage2_LavaFlow.png")); m.SetFloat("_Width", 0.42f); m.SetInt("_ShadeComp", (int)(zigRock ? UnityEngine.Rendering.CompareFunction.Equal : UnityEngine.Rendering.CompareFunction.Never)); m.renderQueue = 2014; EditorUtility.SetDirty(m); }   // 炎の壁のあと（炎越しの影のため）
