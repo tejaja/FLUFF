@@ -766395,7 +766395,8 @@ GameObject:
   - component: {fileID: 883001446}
   - component: {fileID: 883001448}
   - component: {fileID: 883001447}
-  m_Layer: 0
+  - component: {fileID: 883001449}
+  m_Layer: 11
   m_Name: StepGears_Drive_z12
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -766471,6 +766472,28 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 883001445}
+  m_Mesh: {fileID: 4300000, guid: 86bdccc8b952de447be286b64d5d6980, type: 2}
+--- !u!64 &883001449
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 883001445}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
   m_Mesh: {fileID: 4300000, guid: 86bdccc8b952de447be286b64d5d6980, type: 2}
 --- !u!1001 &883116822
 PrefabInstance:

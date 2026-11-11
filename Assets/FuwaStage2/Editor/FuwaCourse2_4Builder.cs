@@ -2625,7 +2625,7 @@ public static class FuwaCourse2_4Builder
         var tB = CwGear(g, "SGB", new Vector3(bB.c.x, Cl, bB.c.y), Vector3.up, m24, cwLight, true);
         AddGear(tB, bB.ratio, bB.phase * Mathf.Rad2Deg);
         Child(tB, "Small_z14", new Vector3(0f, S, 0f), m14, cwBrass, bS.phase - bB.phase);
-        var drv = Drive(g, aB, 12, PM, -S, S, cwDark, 140f);   // 少し前より（真横はチェックポイントのきのこの丸太とぶつかる）
+        var drv = Drive(g, aB, 12, PM, -S, S, cwDark, 140f, true);   // 2026-11-11 乗れるように   // 少し前より（真横はチェックポイントのきのこの丸太とぶつかる）
         StepTankGear(g, bB, Cl, S - Cl);
         P += Dir(th) * (bB.c.y + PM * 7 + PM + 0.05f) + Vector3.up * 2f * S;
     }
