@@ -153,6 +153,12 @@ public class FuwaBlower : UdonSharpBehaviour
     public bool desktopSnapToHand = false;
     [Tooltip("デスクトップで見た目の向きを視線に合わせる（OFFならVRChatの持ち方そのまま。撃つ向きは視線のまま）")]
     public bool desktopAlignVisual = true;
+    // 2026-11-11 てじゃ：VRChat の持ち方で向きを決めたい。Gun は指が引き金の形でキモいので Grip（ふつうの握り）。
+    //  デスクトップ・スマホの人のパソコンでだけ実行時に Grip にする（VRは Any のまま、パチッと持ち替えはNG）。Grip の時は見た目にスクリプトで触らない（撃つ向きは視線）
+    [Tooltip("デスクトップ・スマホでは VRChat の Grip 持ちにする（握る目印は desktopGrip）。ONの時は見た目の向き合わせをしない")]
+    public bool desktopUseGripHold = true;
+    [Tooltip("Grip 持ちの握る目印（位置と向き）。なければ銃の根元")]
+    public Transform desktopGrip;
     private float _alignStart; private Vector3 _pivotLocal;
     [Tooltip("右手からのずらし（視線基準: x=右 y=上 z=前）")]
     public Vector3 desktopHandOffset = Vector3.zero;
@@ -237,6 +243,12 @@ public class FuwaBlower : UdonSharpBehaviour
         if (pumpBulb != null) { _bulbBaseScale = pumpBulb.localScale; _bulbBasePos = pumpBulb.localPosition; }
         SetOrb(0f);
         _pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
+        VRCPlayerApi lp0 = Networking.LocalPlayer;
+        if (desktopUseGripHold && _pickup != null && lp0 != null && !lp0.IsUserInVR())
+        {
+            _pickup.orientation = VRC_Pickup.PickupOrientation.Grip;
+            _pickup.ExactGrip = desktopGrip != null ? desktopGrip : transform;
+        }
         _isMine = Networking.IsOwner(gameObject);
         SetupBulbMaterial();
         if (!_isMine && _pickup != null) _pickup.pickupable = false;
@@ -527,7 +539,7 @@ public class FuwaBlower : UdonSharpBehaviour
     {
         VRCPlayerApi holder = Networking.GetOwner(gameObject);
         UpdateAutoScale(holder);
-        bool align = desktopAimWithView && desktopAlignVisual && _held && holder != null && holder.IsValid() && !holder.IsUserInVR();
+        bool align = desktopAimWithView && desktopAlignVisual && !desktopUseGripHold && _held && holder != null && holder.IsValid() && !holder.IsUserInVR();
         bool glued = false;
         if (!align && _held && !_dropPending && holder != null && holder.isLocal && holder.IsUserInVR() && _pickup != null) glued = VrGlue(holder);
         else _gripOk = false;
