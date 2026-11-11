@@ -985,9 +985,12 @@ public static class FuwaPracticeTutorial
                 bool own = t0.respawnPoint != null && t0.respawnPoint.IsChildOf(cp0) && t0.glowRenderers.All(r => r == null || r.transform.IsChildOf(cp0)) && t0.glowEffects.All(e => e == null || e.transform.IsChildOf(cp0));
                 if (!own) return "Checkpoint0 refs point outside!";
                 // 前半（Checkpoint0）はプレイヤー基準、後半（Checkpoint1）はふわふわ基準（2026-11-09 てじゃ。複製元の byPlayer がそのまま残っていた）
+                //  → 2026-11-11 てじゃ「後半はふわふわが通ったら判定にしてほしい」：Checkpoint0（後半の最初）もふわふわ基準に
                 var t1 = cp.Find("Trigger").GetComponent<FuwaCheckpoint>();
-                foreach (var (fc, bp) in new[] { (t0, true), (t1, false) })
+                foreach (var (fc, bp) in new[] { (t0, false), (t1, false) })
                     if (fc.byPlayer != bp) { var cso = new SerializedObject(fc); cso.FindProperty("byPlayer").boolValue = bp; cso.ApplyModifiedPropertiesWithoutUndo(); Sync(fc); }
+                // ふわふわ基準にしたので、道の横（空の上）を通ったふわふわも拾えるように判定を道の幅より広く（道は ±2.7m）
+                { var tr0 = t0.transform; tr0.localScale = new Vector3(9f, tr0.localScale.y, tr0.localScale.z); }
             }
             Physics.SyncTransforms();
             var parts = new List<string>();
