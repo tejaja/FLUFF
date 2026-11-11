@@ -1472,7 +1472,9 @@ public static class FuwaCourse2_4Builder
         {
             var c = new GameObject("BalloonCloud" + i); c.transform.SetParent(grp, false); c.transform.localPosition = spawnLocal; c.transform.localScale = Vector3.one * 0.001f;
             // 2026-11-11 てじゃ「出てくる雲がもっと横に大きくてもいいかも」：形だけ横に広げる（大きさの変化は FuwaCloudBalloon が c ごと同じ割合で）
-            var mo = new GameObject("Mesh"); mo.transform.SetParent(c.transform, false); mo.transform.localScale = new Vector3(BalloonCloudWide, 1f, BalloonCloudWide);
+            //  → 縦横同じに広げると下から見て四角っぽかった（てじゃ「ちょと四角にみえがち」）：片方の向きだけ長く（雲ごとに少しちがう）
+            float wx = BalloonCloudWide * (1f + 0.12f * ((i * 37) % 5 - 2) / 2f), wz = 1f + (BalloonCloudWide - 1f) * 0.25f;
+            var mo = new GameObject("Mesh"); mo.transform.SetParent(c.transform, false); mo.transform.localScale = new Vector3(wx, 1f, wz); mo.transform.localRotation = Quaternion.Euler(0f, (i * 53) % 180, 0f);
             mo.AddComponent<MeshFilter>().sharedMesh = meshes[i % meshes.Length];
             var r = mo.AddComponent<MeshRenderer>(); r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
             c.SetActive(false); list.Add(c.transform);
