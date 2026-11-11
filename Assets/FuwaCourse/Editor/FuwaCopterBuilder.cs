@@ -11,7 +11,7 @@ public static class FuwaCopterBuilder
 {
     const string MeshDir = "Assets/FuwaCourse/Models/Copter";
     const string MatDir = "Assets/FuwaCourse/Materials/Copter";
-    public static Vector3 StandLocal = new Vector3(-14.49f, 0f, 0.15f);   // 2026-11-11 てじゃ「たけとんぼ、スクショ板の左くらいに移動」「もうちょい左に、台座をちゃんと島に」：撮影の島のまん中から 3m、スクショの板から左へ 66°（前は傘立てと同じ所 (-5.4, 0, 0.9)、銃の台の左どなり）。ステージ2のロビーにも同じ島がある
+    public static Vector3 StandLocal = new Vector3(-14.51f, 0f, -0.25f);   // 2026-11-11 てじゃ「たけとんぼ、スクショ板の左くらいに移動」「もうちょい左に、台座をちゃんと島に」：撮影の島のまん中から 3.4m（「もちょっとだけ柵寄りに」）、スクショの板から左へ 66°（前は傘立てと同じ所 (-5.4, 0, 0.9)、銃の台の左どなり）。ステージ2のロビーにも同じ島がある
     // 竹とんぼの大きさ（root は持つ所＝軸の下から 1/3。+Y が羽の方）
     const float StickLen = 0.34f, StickR = 0.014f, GripFromBottom = 0.11f, BladeSpan = 0.52f, BladeW = 0.065f, BladeT = 0.01f, BladeTwist = 16f, TipR = 0.016f;
     const float StandBaseH = 0.1f, StandPostH = 0.75f;
