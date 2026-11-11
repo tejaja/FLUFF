@@ -384,6 +384,7 @@ public static class FuwaCourse2_2Builder
         }
         ApplyMonsterAvoid(root);   // チェックポイントを作ったあとで
         FuwaStage2LobbyCourses.Run();
+        FuwaStage2CopyShadows.Run();   // 写したスタート・ゴールの飾りを「近くで影を出す」一覧へ（2026-11-11）
         FuwaCourse2_1Builder.FixNetworkIDs();
         RegisterBgm(root);
         FuwaStage2Static.Apply(root);

@@ -95,6 +95,7 @@ public static class FuwaCourse2_5Builder
         FuwaPortalTest.LinkBlowers();
         FuwaStage2LobbyCourses.Run();
         LinkRecords();
+        FuwaStage2CopyShadows.Run();   // 写したスタート・ゴールの飾りを「近くで影を出す」一覧へ（2026-11-11）
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
