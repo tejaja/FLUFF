@@ -32,7 +32,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 5ecf4242afbfa344fb2d688b60a62e7a, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
@@ -69,7 +69,7 @@ Material:
     - _IceStreakScale: 1.6
     - _MetalEnv: 0.5
     - _MetalSize: 0.93
-    - _MetalSpec: 0.6
+    - _MetalSpec: 0
     - _NoiseScale: 0.6
     - _NoiseStrength: 0
     - _OffsetFactor: 0
