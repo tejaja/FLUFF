@@ -212,7 +212,7 @@ public class FuwaGunSummon : UdonSharpBehaviour
     [Tooltip("VR：目の前のどれくらい先に出すか(m)")]
     public float vrDistance = 0.45f;
     [Tooltip("VR：目線からどれくらい下に出すか(m)")]
-    public float vrDrop = 0.3f;
+    public float vrDrop = 0.18f;   // 2026-11-11 てじゃ「もちょい上に」0.3→0.18
 
     private Vector3 FlatForward(VRCPlayerApi p)
     {
