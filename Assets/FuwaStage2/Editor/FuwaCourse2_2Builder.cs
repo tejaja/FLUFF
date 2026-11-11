@@ -33,7 +33,7 @@ public static class FuwaCourse2_2Builder
     // ⑤ 2026-10-30 てじゃ「最後はみじかめ、ちょっとの坂→火口→火口の周りに道、左右どっちから進んでもok。火口からは一定間隔でマグマが吹き出て道の一部にながれてくる、
     //    タイミングを見て進む。最後は道が合流してゴール」「マグマは即死」。火炎放射の坂（横・下・斜め、当たると吹っ飛んで炎上）は「びみょう」でやめた
     public static Vector3 VolcanoAt = new Vector3(18f, 0f, 14f);   // 火山の中心（ジグザグのてっぺんの踊り場から）。2026-10-30 てじゃ「山はもっとふとめに」→ 太くしたぶん右へ
-    public static float VolcanoTopH = 16f, VolcanoTopR = 5f, VolcanoR0 = 12f, VolcanoBottom = -60f, RockFirstScale = 3f;   // 火口の高さ・半径、道の高さでの半径、すその下のはし、火口から飛んでくる1回の長さ（倍）
+    public static float VolcanoTopH = 16f, VolcanoTopR = 5f, VolcanoR0 = 12f, VolcanoBottom = -60f, RockFirstScale = 2.4f, RockLastScale = 1.6f;   // 2026-11-11 てじゃ「落石はちょっぴり短く」：コースの上のはね方はそのまま、火口から飛んでくる1回（3→2.4）と最後に落ちていく1回（2→1.6）を速くして1周 10.2→9.0 秒   // 火口の高さ・半径、道の高さでの半径、すその下のはし、火口から飛んでくる1回の長さ（倍）
     // ⑤ 2026-10-30 てじゃ「まものからをもっと右に曲げて山に沿う感じに」「山から何個かさっきの火炎放射、あたれば炎上して飛ぶ、そのあとゴール」
     //   （火口のまわりの輪っかの道・マグマは「あんま面白くない」でやめた）。火山のまわりを右回りに沿う広めの道、山肌の岩から火炎放射
     public static float FlameExtraOff = 2.6f;   // 1.2→2.0（2026-11-04 てじゃ「火炎放射の間隔も長く」）→2.6（2026-11-10 てじゃ「ちょっとだけ長く」）
@@ -269,7 +269,7 @@ public static class FuwaCourse2_2Builder
                 //  落ちる先は最初の道の点から。飛びこえる列はさらに RockPassFar 遠くへ（てじゃ「もっと遠くに飛ばそう」）
                 var drop = onLeg0 + new Vector3(0, -10f, -4f); if (c == RockPassCol) drop += Flat(onLeg0 - onLeg1).normalized * RockPassFar;
                 rp.Add(drop);
-                LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length, RockPeriod, RockFirstScale, 1.5f, vfx);
+                LavaRock(fire, "LavaRock" + c, rp.ToArray(), c * RockPeriod / cols.Length, RockPeriod, RockFirstScale, 1.5f, vfx, RockLastScale);
             }
             // 関係ない方へ飛んでって落ちていく岩 ×2（てじゃ「コースにいくのが一個、関係ないとこに飛んでくのが２個」）。周期をずらしてばらばらに見えるように
             LavaRock(fire, "LavaRockAway0", new[] { vtop, vtop + new Vector3(22f, -45f, 8f) }, 1.7f, 4.6f, 3.2f, 6f, vfx);
@@ -2138,7 +2138,7 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火の玉：穴（の溶岩の面）hs を順に往復する。てっぺんが道の FireballTop 上の弧
-    public static float RockR = 0.9f, RockHop = 1.05f, RockPeriod = 8.9f;   // 2026-11-01 てじゃ「落ちる岩、もっと遅く」0.75→1.05、1周は飛ぶ時間 8.4 秒＋休み 0.5 秒（前は 6 秒＋0.5 秒）。2 列は半周ずらす
+    public static float RockR = 0.9f, RockHop = 1.05f, RockPeriod = 7.86f;   // 8.9→7.86（2026-11-11、飛ぶ時間を縮めた分）   // 2026-11-01 てじゃ「落ちる岩、もっと遅く」0.75→1.05、1周は飛ぶ時間 8.4 秒＋休み 0.5 秒（前は 6 秒＋0.5 秒）。2 列は半周ずらす
       // 予告線（点線）は試したけど「びみょう、やっぱなしに」（2026-10-30）   // 火の岩の半径（てじゃ「もっとデカく」0.45→0.9）・1回はねる時間・1周（降る〜休み）
     // コースの外の火山（2026-10-30 てじゃ「いまの岩の出る柱のちょい奥くらいにデカい火山」「下から浮いてる感じに」）：c（道の高さ）を中心に、
     //  すそは下の雲の中（VolcanoBottom）まで続いて、火口は道の VolcanoTopH 上。道の高さでの半径 VolcanoR0。VolcanoRAt は道の計算と Blender の形の土台（Tools/stage2_volcano.json）。変えたら JSON も書き出し直す。
@@ -2463,7 +2463,7 @@ public static class FuwaCourse2_2Builder
     public static float RockBounceNear = 18f;
     public static float RockPassFar = 5f, RockHopUp = 1.8f;   // RockHopUp：はねる高さ 1.2→1.8（2026-11-04 てじゃ「全体的にバウンド時の高度を上げよう」）
     public static int RockPassCol = 1;   // ジグザグの最初の道（legs[0]）ではねない列。-1 で全部はねる
-    static void LavaRock(Transform parent, string name, Vector3[] ps, float phase, float period, float first, float firstUp, ParticleSystem launch)
+    static void LavaRock(Transform parent, string name, Vector3[] ps, float phase, float period, float first, float firstUp, ParticleSystem launch, float lastScale = 2f)
     {
         phase *= RockSlow; period *= RockSlow; float hop = RockHop * RockSlow;
         var g = new GameObject(name).transform; g.SetParent(parent, false);
@@ -2479,7 +2479,7 @@ public static class FuwaCourse2_2Builder
         f.heat = heat; f.ball = ballProxy; f.points = ts; f.visual = vis; f.trail = trail;
         f.bounceSound = Sfx(mover, "BounceSfx", "sfx_rock_bounce2", Vector3.zero, RockBounceNear, 50f, 1f, false, 12f);   // near 8→18（2026-11-10 てじゃ「1バウンド目がやたら聞こえやすい」：ジグザグのどの段でも同じくらいの大きさに）
         int hops = ps.Length - 1;
-        f.hopTime = hop; f.hopUp = RockHopUp; f.lastHopScale = hops > 1 ? 2f : 1f; f.firstHopScale = first; f.firstUp = firstUp; f.launchFx = launch;
+        f.hopTime = hop; f.hopUp = RockHopUp; f.lastHopScale = hops > 1 ? lastScale : 1f; f.firstHopScale = first; f.firstUp = firstUp; f.launchFx = launch;
         float fly = 0f; for (int k = 0; k < hops; k++) fly += hop * (k == 0 ? first : 1f) * (k == hops - 1 ? f.lastHopScale : 1f);
         f.rest = Mathf.Max(0.5f, period - fly); f.phase = phase; f.hitRadius = RockR + 0.05f;
         f.ballKnock = 2.5f; f.ballKnockUp = 1.5f; f.playerKnock = 5f; f.playerKnockUp = 4f;
@@ -2500,7 +2500,8 @@ public static class FuwaCourse2_2Builder
         f.aura = null; f.auraFx = fx; f.auraFxRate = 48f; f.auraHeight = FireballAuraH; f.auraTopRadius = 0.25f;
     }
     // 2026-11-04 てじゃ「火球のプレイヤーのふっ飛ばしをやや弱体、飛ぶ速度をやや遅く、間隔をちょっとあける」：人 6/4.3→5/3.7、飛ぶ時間 ×1.2、休み +0.5 秒
-    public static float FireballSlow = 1.2f, FireballRestAdd = 0.5f, FireballPlayerKnock = 5f, FireballPlayerKnockUp = 3.7f;
+    public static float FireballSlow = 1.2f, FireballRestAdd = 0.8f,   // 0.5→0.8（2026-11-11 てじゃ「火の玉の出る間隔をちょっぴり長く」）
+    FireballPlayerKnock = 5f, FireballPlayerKnockUp = 3.7f;
     static void Fireball(Transform parent, string name, Vector3[] hs, float flight, float rest, float phase, float top)
     {
         var g = new GameObject(name).transform; g.SetParent(parent, false);
