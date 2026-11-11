@@ -152,7 +152,8 @@ public class FuwaBlower : UdonSharpBehaviour
     [Tooltip("デスクトップでは見た目をアバターの右手の位置に持ってくる")]
     public bool desktopSnapToHand = false;
     [Tooltip("デスクトップで見た目の向きを視線に合わせる（OFFならVRChatの持ち方そのまま。撃つ向きは視線のまま）")]
-    public bool desktopAlignVisual = false;
+    public bool desktopAlignVisual = true;
+    private float _alignStart; private Vector3 _pivotLocal;
     [Tooltip("右手からのずらし（視線基準: x=右 y=上 z=前）")]
     public Vector3 desktopHandOffset = Vector3.zero;
 
@@ -546,6 +547,30 @@ public class FuwaBlower : UdonSharpBehaviour
                     Vector3 palm = finger.sqrMagnitude > 0.0001f ? Vector3.Lerp(hand, finger, 0.7f) : hand;
                     basePos = palm + head * (desktopHandOffset * _autoScale);
                 }
+            }
+            if (!desktopSnapToHand && visualRoot != null)
+            {
+                // 位置は VRChat の持たせた所のまま（手のボーンに吸いつけると走った時にブレる）、
+                // 向きだけ視線に。回す中心は手のひら：持った直後0.5秒の手のひらの位置を、道具から見た位置で覚えておく
+                Transform vt = visualRoot.transform;
+                vt.localPosition = _visualLocalPos; vt.localRotation = _visualLocalRot;
+                if (nozzle != null) { nozzle.localPosition = _nozzleLocalPos; nozzle.localRotation = _nozzleLocalRot; }
+                if (!_aligned) _alignStart = Time.time;
+                if (Time.time - _alignStart < 0.5f)
+                {
+                    bool left = _pickup != null && _pickup.currentHand == VRC_Pickup.PickupHand.Left;
+                    Vector3 hb = holder.GetBonePosition(left ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand);
+                    Vector3 fb = holder.GetBonePosition(left ? HumanBodyBones.LeftMiddleProximal : HumanBodyBones.RightMiddleProximal);
+                    Vector3 palmW = hb.sqrMagnitude > 0.0001f ? (fb.sqrMagnitude > 0.0001f ? Vector3.Lerp(hb, fb, 0.7f) : hb) : vt.position;
+                    _pivotLocal = transform.InverseTransformPoint(palmW);
+                }
+                Vector3 pivot = transform.TransformPoint(_pivotLocal);
+                Quaternion d = head * Quaternion.Inverse(vt.rotation);
+                Vector3 vp = pivot + d * (vt.position - pivot);
+                if (nozzle != null) nozzle.SetPositionAndRotation(pivot + d * (nozzle.position - pivot), d * nozzle.rotation);
+                vt.SetPositionAndRotation(vp, head);
+                _aligned = true;
+                return;
             }
             if (visualRoot != null) visualRoot.transform.SetPositionAndRotation(basePos, head);
             if (nozzle != null) nozzle.SetPositionAndRotation(basePos + head * (_nozzleLocalPos * _autoScale), head);
