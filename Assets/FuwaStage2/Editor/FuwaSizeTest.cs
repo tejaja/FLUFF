@@ -56,9 +56,14 @@ public static class FuwaSizeTest
     public static void Remove() { var o = GameObject.Find(Root); if (o) Object.DestroyImmediate(o); }
 
     // ルーン：たての光る輪＋輪の中で回る魔法陣（加算の板）＋くぐる所のトリガー
-    static void Rune(Transform root, string name, float z, int mode, Color col, string label)
+    static void Rune(Transform root, string name, float z, int mode, Color col, string label) { RuneAt(root, name, new Vector3(0f, RuneY, z), Quaternion.identity, mode, col); }
+
+    // 2–5 のコースからも使う：lp＝輪のまん中（床から RuneY の高さ）、lr＝向き（+z がくぐる向き）
+    public static Color RuneColor(int mode) => mode < 0 ? new Color(0.35f, 0.75f, 1f) : mode > 0 ? new Color(1f, 0.55f, 0.2f) : new Color(0.95f, 0.95f, 1f);
+    public const float RuneHeight = RuneY;
+    public static Transform RuneAt(Transform root, string name, Vector3 lp, Quaternion lr, int mode, Color col)
     {
-        var r = new GameObject(name).transform; r.SetParent(root, false); r.localPosition = new Vector3(0f, RuneY, z);
+        var r = new GameObject(name).transform; r.SetParent(root, false); r.localPosition = lp; r.localRotation = lr;
         var ringM = FuwaStage2WaterTest.ToonMat("Rune_Ring_" + mode, Color.Lerp(col, Color.white, 0.35f));
         ringM.SetColor("_EmissionColor", col * 1.2f); EditorUtility.SetDirty(ringM);
         var ring = new GameObject("Ring"); ring.transform.SetParent(r, false);
@@ -87,20 +92,26 @@ public static class FuwaSizeTest
         var sr = UdonSharpUndo.AddComponent<FuwaSizeRune>(r.gameObject);
         sr.mode = mode; sr.glyph = g.transform; sr.glows = new Renderer[] { rr }; sr.burst = ps; sr.glowColor = col;
         UdonSharpEditorUtility.CopyProxyToUdon(sr); FuwaStage2WaterTest.NoSync(sr);
+        return r;
     }
 
     // 鉄格子：レーンをふさぐ。すき間 Gap（小さいふわふわ 直径 0.17 は通る、ふつう 0.3 は通らない）
     const float BarD = 0.06f, Gap = 0.22f, GrateH = 3.6f;
-    static void Grate(Transform root, float z, Material stone, Material iron)
+    static void Grate(Transform root, float z, Material stone, Material iron) { GrateAt(root, "Grate", new Vector3(0f, 0f, z), Quaternion.identity, LaneW, GrateH, stone, iron, 17); }
+
+    // 2–5 のコースからも使う：barLayer 17＝ふわふわとだけ当たる（人は通れる）、0＝人も通れない
+    public const float BarGap = Gap;
+    public static Transform GrateAt(Transform root, string name, Vector3 lp, Quaternion lr, float width, float height, Material stone, Material iron, int barLayer)
     {
-        var g = new GameObject("Grate").transform; g.SetParent(root, false); g.localPosition = new Vector3(0f, 0f, z);
+        float LaneW = width, GrateH = height;
+        var g = new GameObject(name).transform; g.SetParent(root, false); g.localPosition = lp; g.localRotation = lr;
         int n = Mathf.FloorToInt(LaneW / (BarD + Gap));
         float w = n * (BarD + Gap);
         for (int i = 0; i <= n; i++)
         {
             float x = -w / 2f + i * (BarD + Gap);
             var b = Prim(PrimitiveType.Cylinder, g, "Bar", new Vector3(x, GrateH / 2f, 0f), new Vector3(BarD, GrateH / 2f, BarD), iron);
-            var c = new GameObject("BarHit"); c.transform.SetParent(g, false); c.layer = 17; c.transform.localPosition = b.localPosition;
+            var c = new GameObject("BarHit"); c.transform.SetParent(g, false); c.layer = barLayer; c.transform.localPosition = b.localPosition;
             var cc = c.AddComponent<CapsuleCollider>(); cc.radius = BarD / 2f; cc.height = GrateH; cc.direction = 1;
         }
         // 横の帯（上と下）
@@ -115,6 +126,7 @@ public static class FuwaSizeTest
             bo.alwaysUp = false; bo.useContactNormal = true; bo.bounceSpeed = 1.2f; bo.keepTangent = 0.3f;
             UdonSharpEditorUtility.CopyProxyToUdon(bo); FuwaStage2WaterTest.NoSync(bo);
         }
+        return g;
     }
 
     // 強い横風（+x へ、レーンの外へ吹き出す）
@@ -134,7 +146,7 @@ public static class FuwaSizeTest
         }
     }
 
-    static Mesh Torus(float R, float r, int n, int m)
+    public static Mesh Torus(float R, float r, int n, int m)
     {
         string path = "Assets/FuwaStage2/Meshes/GearTest/Rune_Torus.asset";
         var v = new List<Vector3>(); var nr = new List<Vector3>(); var t = new List<int>();

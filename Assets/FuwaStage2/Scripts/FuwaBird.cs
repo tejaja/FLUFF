@@ -24,6 +24,9 @@ public class FuwaBird : UdonSharpBehaviour
     public Vector3 dropVelocity = new Vector3(0f, -0.2f, 0f);
     [Tooltip("戻ってから次につかめるまで（秒）")]
     public float cooldown = 1.0f;
+    [Tooltip("2–5（2026-11-11 てじゃ「デカいのはギミックに強い」）：大きいふわふわは重くて持てない（つかもうとして羽ばたくだけ）")]
+    public bool cantLiftBig = false;
+    private float _struggleUntil;
 
     private int _state;      // 0 待つ 1 運ぶ 2 戻る
     private float _s, _len, _readyAt;
@@ -69,7 +72,7 @@ public class FuwaBird : UdonSharpBehaviour
         if (path == null || _acc == null || body == null) return;
         float dt = Time.deltaTime;
         // 羽ばたき：待つ時はゆっくり小さく、飛ぶ時は速く大きく
-        float flap = _state == 0 ? Mathf.Sin(Time.time * 3f) * 8f : Mathf.Sin(Time.time * 14f) * 38f;
+        float flap = (_state == 0 && Time.time > _struggleUntil) ? Mathf.Sin(Time.time * 3f) * 8f : Mathf.Sin(Time.time * 14f) * 38f;
         if (wingL != null) wingL.localRotation = Quaternion.Euler(0f, 0f, 10f + flap);
         if (wingR != null) wingR.localRotation = Quaternion.Euler(0f, 0f, -10f - flap);
 
@@ -80,6 +83,7 @@ public class FuwaBird : UdonSharpBehaviour
             if (ball == null || Time.time < _readyAt || !ball.gameObject.activeInHierarchy || ball.IsCarried()) return;
             Vector3 foot = body.position + footOffset;
             if (Vector3.Distance(ball.transform.position, foot) > grabRadius) return;
+            if (cantLiftBig && ball.GetSizeMode() > 0) { _struggleUntil = Time.time + 0.8f; return; }
             if (!ball.BeginCarry()) return;
             _state = 1; _s = 0f;
             return;

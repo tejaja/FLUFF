@@ -170,9 +170,39 @@ public class FuwaHazard : UdonSharpBehaviour
     }
 
     // ふわふわが触れた時（普通のコライダーの場合はFuwaBall側から呼ばれる）
+    // 2–5 そらのいせき（2026-11-11 てじゃ「デカいのはギミックに強い感じに」）：大きいふわふわはクモの巣にくっつかずに破って通る。
+    //  破れた巣は tearHide を消して当たりも消し、tearMend 秒後にもどる（自分の画面だけ）
+    [Header("大きいと破れる（2–5）")]
+    public bool tearWhenBig = false;
+    public GameObject[] tearHide;
+    public ParticleSystem tearBurst;
+    public AudioSource tearSound;
+    public float tearMend = 4f;
+    private bool _torn;
+
+    private void Tear()
+    {
+        if (_torn) return;
+        _torn = true;
+        Collider c = GetComponent<Collider>(); if (c != null) c.enabled = false;
+        if (tearHide != null) for (int i = 0; i < tearHide.Length; i++) if (tearHide[i] != null) tearHide[i].SetActive(false);
+        if (tearBurst != null) tearBurst.Emit(40);
+        if (tearSound != null) tearSound.Play();
+        _inside = false; _insideCount = 0; RestoreSpeed();
+        SendCustomEventDelayedSeconds(nameof(_Mend), tearMend);
+    }
+
+    public void _Mend()
+    {
+        _torn = false;
+        Collider c = GetComponent<Collider>(); if (c != null) c.enabled = true;
+        if (tearHide != null) for (int i = 0; i < tearHide.Length; i++) if (tearHide[i] != null) tearHide[i].SetActive(true);
+    }
+
     public void HitBall(FuwaBall ball)
     {
         if (ball == null) return;
+        if (sticky && tearWhenBig && ball.GetSizeMode() > 0) { Tear(); return; }
         if (sticky)
         {
             // 破裂で膨らむ時は、巣にくっついている側を動かさない（巣の面＝この物体のZ軸に垂直）

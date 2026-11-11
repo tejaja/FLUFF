@@ -17,7 +17,7 @@ public static class FuwaPortalTest
     public static Vector3 Island2Offset = new Vector3(9f, 5f, -3f);   // 2026-11-10 てじゃ「遠景がポータル越しでもワープ前のがみえてる」→ 入口と出口の距離を短く（前は (6,14,-38) で 40m）。島2は島1の南東の上（A の穴からは見えない所）
     public const float HalfW = 1.1f, HoleH = 3.0f, FloorTh = 0.8f;
     const string Root = "PortalTest";
-    static readonly Dictionary<string, Material> clones = new Dictionary<string, Material>();
+    public static readonly Dictionary<string, Material> clones = new Dictionary<string, Material>();
 
     [MenuItem("FuwaCourse/ステージ2/2-5 ポータルのお試しを作る")]
     public static string Build()
@@ -121,7 +121,7 @@ public static class FuwaPortalTest
     }
 
     // ポータル：石の枠（左右の柱・上の石・しきい）＋ふちの光る帯＋穴（PortalMask）。transform の forward＝手前（出てくる側）
-    static Transform Portal(Transform island, string name, Vector3 lp, float yaw, Material stone, Material dark, Material glow, Material maskM, int stencil)
+    public static Transform Portal(Transform island, string name, Vector3 lp, float yaw, Material stone, Material dark, Material glow, Material maskM, int stencil)
     {
         var p = new GameObject(name).transform; p.SetParent(island, false); p.localPosition = lp; p.localRotation = Quaternion.Euler(0f, yaw, 0f);
         var fr = new GameObject("PortalFrame").transform; fr.SetParent(p, false);
@@ -150,7 +150,7 @@ public static class FuwaPortalTest
     }
 
     // src（島）の見た目を、portalFrom の奥に見えるように置く（src 側の出口 srcPortal → 見る側の portalFrom の変換）。srcPortal の枠はのぞく（見る側の枠と重なる）
-    static void Copy(Transform src, Transform portalFrom, Transform srcPortal, Transform root, string name, int stencil)
+    public static void Copy(Transform src, Transform portalFrom, Transform srcPortal, Transform root, string name, int stencil)
     {
         // srcPortal の奥へ進む → portalFrom の手前へ、の逆：src の点 q を portalFrom の奥へ：q' = portalFrom · R180 · srcPortal⁻¹ · q
         var M = portalFrom.localToWorldMatrix * Matrix4x4.Rotate(Quaternion.Euler(0f, 180f, 0f)) * srcPortal.worldToLocalMatrix;
@@ -160,6 +160,8 @@ public static class FuwaPortalTest
         {
             if (r.transform.GetComponentsInParent<Transform>(true).Any(x => x.name == "PortalFrame" || x.name == "PortalHole") || r.name == "PortalHole") continue;
             if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
+            // ToonLit 以外（クモの巣・粒・加算の板など）はステンシルで切れないので、コピーしない（穴の外に浮いて見えてしまう）
+            if (r.sharedMaterials.Any(m => !m || m.shader.name != "FuwaCourse/ToonLit")) continue;
             var mf = r.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue;
             var g = new GameObject(r.name); g.transform.SetParent(holder, false);
             var W = M * r.transform.localToWorldMatrix;
@@ -173,7 +175,7 @@ public static class FuwaPortalTest
 
     // ふわふわのうつし（2026-11-10 てじゃ「でもふわふわ見えないか」）：ふわふわと同じメッシュ・同じ毛の材質を、穴の中だけ・面の奥だけに見える設定で
     //  near=true：穴の手前に出ている分（ステンシルなし、入口の面の奥を切る）
-    static MeshRenderer BallGhost(Transform root, FuwaBall ball, Transform portal, int stencil, bool near)
+    public static MeshRenderer BallGhost(Transform root, FuwaBall ball, Transform portal, int stencil, bool near)
     {
         if (!ball) return null;
         var br = ball.GetComponent<MeshRenderer>(); var bf = ball.GetComponent<MeshFilter>(); if (!br || !bf) return null;
@@ -200,7 +202,7 @@ public static class FuwaPortalTest
         return r;
     }
 
-    static Material StencilClone(Material m, int stencil, Vector4 clip)
+    public static Material StencilClone(Material m, int stencil, Vector4 clip)
     {
         if (!m) return m;
         string key = m.name + "_" + stencil;
@@ -215,7 +217,7 @@ public static class FuwaPortalTest
         EditorUtility.SetDirty(nm); clones[key] = nm; return nm;
     }
 
-    static Transform Prim(PrimitiveType t, Transform parent, string name, Vector3 lp, Vector3 ls, Material m)
+    public static Transform Prim(PrimitiveType t, Transform parent, string name, Vector3 lp, Vector3 ls, Material m)
     {
         var g = GameObject.CreatePrimitive(t); Object.DestroyImmediate(g.GetComponent<Collider>());
         g.name = name; g.transform.SetParent(parent, false); g.transform.localPosition = lp; g.transform.localScale = ls;
