@@ -175,7 +175,8 @@ public static class FuwaCourse2_4Builder
         // 動く物（跳ね橋の板・回転床の橋）のシマはまとめない（まとめると止まった1枚になって、動かなくなる）→ いったん見た目を止めて、ベベルのあとで戻す
         foreach (var sn in TrussSegs) UnderTruss(sn, log);   // 道の下の鉄骨（アクセント、2026-11-10）
         GimmickSounds(log);
-        log.Append(" " + FuwaCageFloorLook.Apply(root));   // 2026-11-11 羽根車のかごの床：パンチングメタル＋ふちの注意ライン＋軸のまわりの両回りの矢印
+        log.Append(" " + FuwaCageFloorLook.Apply(root));
+        log.Append(" " + FuwaGearMetalLook.Apply(root));   // 2026-11-11 歯車だけ金属っぽく   // 2026-11-11 羽根車のかごの床：パンチングメタル＋ふちの注意ライン＋軸のまわりの両回りの矢印
         var moving = root.GetComponentsInChildren<MeshRenderer>(true).Where(r => r.enabled && r.GetComponentsInParent<Transform>(true).Any(p => p.name == "BridgeLeaf" || p.name == "TableA" || p.name == "TableB")).ToList();
         foreach (var r in moving) r.enabled = false;
         log.Append(" ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_4_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
