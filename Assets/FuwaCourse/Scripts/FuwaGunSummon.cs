@@ -5,8 +5,8 @@ using VRC.Udon.Common;
 
 // 自分のエアガンをどこからでも呼び出す（自分だけ）。
 // ・デスクトップ：Fキーで目の前に出てくる（あとはいつも通りクリックで持つ）
-// ・VR：右スティックを下にしばらく倒すと、目の前に台の上と同じ浮いて回る銃が出る（見えない台 vrFrontSpot に乗せる）。
-//   手を近づけると近い方の手に握る向きでついてくるので、そのまま握れば持てる（台から取る時と同じ FollowDocked）。
+// ・VR：右スティックを下にしばらく倒すと、デスクトップと同じく目の前にまっすぐ銃が出る（ふつうに掴む）。
+//   （台から取る時だけ、手を近づけると握る向きでついてくる FollowDocked）
 //   （2026-11-11 前は右手の中に出して、握らなければ waitSeconds 秒で戻していた。左利きの人のために目の前へ。自動で戻すのはなし）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaGunSummon : UdonSharpBehaviour
@@ -29,8 +29,8 @@ public class FuwaGunSummon : UdonSharpBehaviour
 
     [Tooltip("VR：掴んだ時の銃の向き（手の向きからの回転。右手の値）")]
     public Vector3 gripEuler = new Vector3(90f, 0f, 0f);
-    [Tooltip("（左手用・今は使っていない）左右反転したあとに追加で回す角度")]
-    public Vector3 leftExtraEuler = new Vector3(0f, 0f, 180f);
+    [Tooltip("左手用：左右反転したあとに追加で回す角度（このあとに gripTilt が掛かる）")]
+    public Vector3 leftExtraEuler = new Vector3(0f, 180f, 0f);
     [Tooltip("VR：最後に銃自身の向き基準で足す傾き。X＋で銃口が下がる/グリップが前に倒れる向き")]
     public Vector3 gripTilt = new Vector3(45f, 0f, 0f);
     [Tooltip("VR：手の位置からのずらし（銃自身の向き基準 m。Y＋で銃が上＝手がグリップの下の方を握る）")]
@@ -165,15 +165,17 @@ public class FuwaGunSummon : UdonSharpBehaviour
         if (down && !_waitRelease && !_summoning && _downSince >= 0f) ShowGauge(p, Mathf.Clamp01((Time.time - _downSince) / Mathf.Max(0.01f, stickHoldSeconds)));
         else if (Time.time < _gaugeFlashUntil) ShowGauge(p, 1f);
         else ShowGauge(p, -1f);
-        if (down && !_waitRelease && !_summoning && Time.time - _downSince >= stickHoldSeconds && vrFrontSpot != null)
+        if (down && !_waitRelease && !_summoning && Time.time - _downSince >= stickHoldSeconds)
         {
             // 2026-11-11 てじゃ「目の前召喚のほうがいいかも、左利きの人もおるし」「握った時の向きは今のまま」「自動で戻るのはいらん」
             //  → 目の前に台と同じ浮いて回る銃を出す（見えない台＝vrFrontSpot に乗せる）。手を近づけると近い方の手に握る向きでついてくる（台と同じ FollowDocked）。時間切れで戻すのはなし
+            //  → 2026-11-11 てじゃ「デスクトップのときみたいに真っ直ぐポップするかんじでいいかも」：台の回る銃はやめて、デスクトップと同じく目の前にまっすぐ置く（ふつうに掴む）
             _gaugeFlashUntil = Time.time + 0.25f;
             _waitRelease = true;
-            vrFrontSpot.SetPositionAndRotation(FrontPos(p), Quaternion.LookRotation(FlatForward(p), Vector3.up));
-            gun.Dock(vrFrontSpot);
+            gun.Undock();
             _dockFollow = 0;
+            summonSpot.SetPositionAndRotation(FrontPos(p), Quaternion.LookRotation(FlatForward(p), Vector3.up));
+            gun.MoveToStand(summonSpot);
             gun.PlaySpawnSound();
             return;
         }
@@ -210,13 +212,16 @@ public class FuwaGunSummon : UdonSharpBehaviour
     private void SetGripPose(VRCPlayerApi p, bool left)
     {
         VRCPlayerApi.TrackingData hand = p.GetTrackingData(left ? VRCPlayerApi.TrackingDataType.LeftHand : VRCPlayerApi.TrackingDataType.RightHand);
-        Quaternion g = Quaternion.Euler(gripEuler) * Quaternion.Euler(gripTilt);
+        Quaternion g = Quaternion.Euler(gripEuler);
         Vector3 off = gripOffset;
         if (left)
         {
             g = new Quaternion(g.x, -g.y, -g.z, g.w) * Quaternion.Euler(leftExtraEuler);
             off.x = -off.x;
         }
+        // 傾きは左右反転・leftExtraEuler のあとに（銃自身の向き基準）。
+        // 前は反転の前に掛けていたので、leftExtraEuler の Y180° で傾きが逆になり、左手だけ銃口が下を向いていた（2026-11-11 てじゃ「下むいてる」）
+        g = g * Quaternion.Euler(gripTilt);
         Quaternion rot = hand.rotation * g;
         summonSpot.SetPositionAndRotation(hand.position + rot * off, rot);
     }
