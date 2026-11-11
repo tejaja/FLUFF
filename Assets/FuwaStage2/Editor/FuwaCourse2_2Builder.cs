@@ -982,7 +982,8 @@ public static class FuwaCourse2_2Builder
     }
 
     // 火種：地面の燃えさし＋炎＋熱の範囲（かがり火と同じ FuwaHeatSource、止まる所は地面の SeedHover 上）
-    public static readonly Vector3[] WideSeedSpots = { new Vector3(-3.39f, 0f, 38.62f), new Vector3(3.93f, 0f, 47.23f) };
+    // 2026-11-11 てじゃ「火の玉の導線の近くに寄せる」：次に横切る火の玉の通り道の手前ぎりぎりへ（溶岩から 1.4m・通り道から約 2.9m はなす。前は (-3.39, 38.62) / (3.93, 47.23)）
+    public static readonly Vector3[] WideSeedSpots = { new Vector3(-3.4f, 0f, 40.0f), new Vector3(3.9f, 0f, 49.1f) };
     // シーンの今の 2–2 に広い道の焚き火だけ足す（作り直さずに）
     public static string AddWideSeeds(Transform root)
     {
@@ -1004,7 +1005,8 @@ public static class FuwaCourse2_2Builder
     //  [0] は 1 つめの炎の手前、[1][2] はとなりの炎の当たりの箱どうしのまん中。道の横の位置は JetSeedSide（外向きが +、道のまん中が 0）。
     //  シーンの火炎放射の位置から決めるので、作り直さずシーンだけ直す時もこれを呼ぶ
     public static float[] JetSeedSide = { -2.0f, -0.4f, 1.2f };   // -1.3/-0.5/0.6 → てじゃ「もうちょい差をつけて」
-    public static float JetSeedGap = 2.1f;   // [0] の、1 つめの炎の当たりからの距離（合間のは両方から同じ距離になる所）
+    public static float JetSeedGap = 1.5f;   // [0] の、1 つめの炎の当たりからの距離。2.1→1.2（2026-11-11 てじゃ「次の火炎放射のエリアのなるべく近くに」）
+    public static float JetSeedNext = 1.4f;   // 合間の焚き火：次の炎の当たりからこの距離（前は両方から同じ距離のまん中）
     public static string AddJetGapSeeds(Transform root)
     {
         var fire = root.Find("Fire"); heat = root.GetComponentInChildren<FuwaHeat>(true); rockMat = PathSideMat();
@@ -1031,6 +1033,7 @@ public static class FuwaCourse2_2Builder
             {
                 p = (a.knockOrigin.position + b.knockOrigin.position) * 0.5f + o * FlameHW;
                 for (int it = 0; it < 3; it++) p += t * (Dist(b, p) - Dist(a, p)) * 0.5f;   // 炎の当たりの箱どうしのまん中に（根元のまん中だと片方に 0.9m 寄っていた）
+                for (int it = 0; it < 4; it++) p += t * (Dist(b, p) - JetSeedNext);         // そこから次の炎の手前 JetSeedNext まで寄せる（2026-11-11）
             }
             p += o * JetSeedSide[k];
             if (!Physics.Raycast(p + Vector3.up * 5f, Vector3.down, out var hit, 12f, 1 << 11, QueryTriggerInteraction.Ignore)) { log += "道がない " + k + "\n"; continue; }
