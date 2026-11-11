@@ -1097,6 +1097,21 @@ public static class FuwaCourse2_3Builder
     //  → 道 → ④ 上の大きい氷（穴 2 つ）→ 流氷 3 つ → 上下に動く島 → ⑤ ゴール前の氷 → 道 → ゴール
     public static int MapVersion = 2;
     public static float Map2EntryLen = 1.5f;
+    // 2026-11-11 入口の道は島のまっすぐな下のふちで止める（切りぬきなし）。ゴールへの道は入口と同じ幅（てじゃ「ゴールガワ、太さがカクっとかわってる」：6m の道から 5m のゴールのつなぎへ細くなっていた）
+    public static bool EntryFlush = true; public static float GoalLinkHW = 2.5f;
+    // 島の外まわりの、x = 0 を横切る一番下の辺の z（道の幅のあいだ平らでなければ fallback）
+    static float BottomEdgeAt0(Vector2[] poly, float fallback)
+    {
+        float best = float.MaxValue;
+        for (int i = 0; i < poly.Length; i++)
+        {
+            var a = poly[i]; var b = poly[(i + 1) % poly.Length];
+            if (Mathf.Min(a.x, b.x) > -IntroHW || Mathf.Max(a.x, b.x) < IntroHW) continue;   // 道の幅をまるごとまたぐ辺だけ
+            if (Mathf.Abs(a.y - b.y) > 0.01f) continue;
+            best = Mathf.Min(best, a.y);
+        }
+        return best < float.MaxValue && best > 0.05f ? best : fallback;
+    }
     public static Vector2[] M2_I1 = { new Vector2(-24.2f, 37.5f), new Vector2(-10.35f, 53.08f), new Vector2(11.58f, 47.31f), new Vector2(20.23f, 54.23f), new Vector2(28.31f, 49.62f), new Vector2(20.81f, 35.77f), new Vector2(13.89f, 28.27f), new Vector2(16.77f, 18.46f), new Vector2(8.12f, 0.57f), new Vector2(-10.5f, 0.57f), new Vector2(-15.5f, 14f), new Vector2(-23f, 29f) };   // 左下を細く（2026-11-04 てじゃ「この赤いとこいらんかな」）
     // 切れこみの水から右下へ、島を切って外までつなぐ（てじゃの赤いところ）。下の島は左側だけでつながる「C」の形に
     public static bool M2_I1Water = false, M2_RingPond = false, M2_RingAsBand = true;
@@ -2119,7 +2134,10 @@ public static class FuwaCourse2_3Builder
         try
         {
             // 入口の道 → 下の大きい氷
-            Strip(path, "MapInStrip", p, Vector3.forward, Map2EntryLen, IntroHW, false); p += Vector3.forward * Map2EntryLen;
+            // 2026-11-11 てじゃ「2-3のスタート・ゴールスキマおおい」：道を島に 1.5m 入れて四角く切りぬいていたが、氷のふちは 50cm のマス目（マーチングスクエア）なので
+            //  切りぬきの角がななめになって、道のわきと角にすき間ができた → 道は島のまっすぐな下のふちでぴったり止めて、切りぬきはなし（EntryFlush）
+            float entryLen = EntryFlush ? BottomEdgeAt0(M2_I1, Map2EntryLen) : Map2EntryLen;
+            Strip(path, "MapInStrip", p, Vector3.forward, entryLen, IntroHW, false); p += Vector3.forward * entryLen;
             var R = Ellipse(M2_RC, M2_RRx, M2_RRy, M2_RRot, 40); var RH = Ellipse(M2_RHC, M2_RHx, M2_RHy, M2_RRot, 28); var M = Ellipse(M2_MC, M2_MR, M2_MR, 0f, 40);
             var links = M2_Links.ToArray(); if (M2_Movers) links[links.Length - 1] = M2_L4b;
             var G = M2_Movers ? M2_G2 : M2_G;
@@ -2130,7 +2148,7 @@ public static class FuwaCourse2_3Builder
                 // 出口の足場 → S0 の平らなふち、S3 の平らなふち → ゴール
                 var s3c = V4_Statics[V4_Statics.Length - 1].c;
                 var toField = (new[] { M2_Links[2].pts[0], M2_Links[2].pts[1] }, 3f);
-                var toGoal = (new[] { new Vector2(s3c.x, V4_GoalY), new Vector2(s3c.x, V4_GoalY + 8f) }, 3f);
+                var toGoal = (new[] { new Vector2(s3c.x, V4_GoalY), new Vector2(s3c.x, V4_GoalY + 8f) }, GoalLinkHW);
                 var ll = links.ToList(); ll[ll.Count - 1] = toField; ll.Add(toGoal); ll.RemoveAt(2);
                 links = ll.ToArray();
                 G = F4.statics[F4.statics.Count - 1].ToArray();
@@ -2140,7 +2158,7 @@ public static class FuwaCourse2_3Builder
                 // 上の島 → 1 枚目の板（まっすぐの道）、最後の板 → ゴール
                 float xm = (M2_CrackX0 + M2_CrackX1) * 0.5f, zEnd = M2_CrackZ0 + M2_CrackN * M2_CrackSlabL + (M2_CrackN - 1) * M2_CrackGap;
                 var toField = M2_Top ? (new[] { new Vector2(xm, 134.8f * M2_Scale), new Vector2(xm, M2_CrackZ0) }, 3f) : (new[] { new Vector2(xm, M2_Links[2].pts[0].y), new Vector2(xm, M2_CrackZ0) }, 3f);
-                var toGoal = (new[] { new Vector2(xm, zEnd), new Vector2(xm, zEnd + 8f) }, 3f);
+                var toGoal = (new[] { new Vector2(xm, zEnd), new Vector2(xm, zEnd + 8f) }, GoalLinkHW);
                 var ll = links.ToList(); ll[ll.Count - 1] = toField; ll.Add(toGoal);
                 if (!M2_Top) ll.RemoveAt(2);   // 上の島なし：帯 → 割れ目の道（toField が L3 の始まりから）
                 links = ll.ToArray();
@@ -2150,7 +2168,8 @@ public static class FuwaCourse2_3Builder
             Vector2[] I1Band;
             { var d = (M2_I1BandB - M2_I1BandA).normalized; var nn = new Vector2(-d.y, d.x) * M2_I1BandHW; I1Band = new[] { M2_I1BandA - nn, M2_I1BandA + nn, M2_I1BandB + nn, M2_I1BandB - nn }; }
             // 下の島の水（切れこみ・小さい穴）は一旦なし（2026-11-04 てじゃ「手前の水は一旦けしていいよ」）。M2_I1Water で戻せる
-            var cuts = new List<Vector2[]> { I1Band, RH, new[] { new Vector2(-IntroHW, 0f), new Vector2(IntroHW, 0f), new Vector2(IntroHW, Map2EntryLen), new Vector2(-IntroHW, Map2EntryLen) } };
+            var cuts = new List<Vector2[]> { I1Band, RH };
+            if (!EntryFlush) cuts.Add(new[] { new Vector2(-IntroHW, 0f), new Vector2(IntroHW, 0f), new Vector2(IntroHW, Map2EntryLen), new Vector2(-IntroHW, Map2EntryLen) });
             if (M2_I1Water) { cuts.Add(M2_I1Cut); cuts.Add(M2_I1Hole); }
             if (M2_Top) { cuts.Add(M2_TH1); cuts.Add(M2_TH2); }
             if (M2_RingAsBand && !M2_RingPond) cuts.Remove(RH);   // 帯にした時は池の穴もなし
