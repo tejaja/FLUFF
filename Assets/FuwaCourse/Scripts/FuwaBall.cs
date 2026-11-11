@@ -675,7 +675,10 @@ public class FuwaBall : UdonSharpBehaviour
     [Range(0f, 1f)] public float webFullCharge = 0.99f;
     public float webPopSpeed = 2.6f, webPopUp = 1.4f;
     [Tooltip("2026-11-10 てじゃ「炎の消火みたいに、弱でも何回か撃ったらとれてもいいかも」：一発ごとに溜めに応じて「はがれ度」がたまり、1 ではがれる。ノンチャ1発の分・1秒に減る分")]
-    public float webWeakHit = 0.34f, webDecay = 0.2f;
+    public float webWeakHit = 0.4f, webDecay = 0.1f;   // 2026-11-11 てじゃ「フルチャ1回、チャージなし3回」：0.34/0.2 だと撃つ間に減って4回いることがあった
+    [Tooltip("はがれてから、また巣にくっつくまでの秒数（2026-11-11 てじゃ「真横に当てると捕まって詰む」：穴のある巣は中にいる間ずっと判定するので、はがれた瞬間にまたくっついていた）")]
+    public float webFreeTime = 0.7f;
+    private float _webFreeUntil = -10f;
     private float _webLoose;
     private float _shotCharge = -1f;
     private float _wiggleStart = -10f;
@@ -686,6 +689,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void Stick(float seconds)
     {
         if (_waiting || _finished || _resetAt > 0f || _stuck) return;
+        if (Time.time < _webFreeUntil) return;   // はがれた直後
         _stuck = true; _webLoose = 0f;
         _rb.velocity = Vector3.zero;
         _rb.angularVelocity = Vector3.zero;
@@ -706,10 +710,10 @@ public class FuwaBall : UdonSharpBehaviour
         if (_webLoose >= 0.999f)
         {
             // はがれる：巣と反対（来た側）へポーン
-            _stuck = false; _webLoose = 0f;
-            transform.position = _stuckPos;
-            _rb.isKinematic = false;
+            _stuck = false; _webLoose = 0f; _webFreeUntil = Time.time + webFreeTime;
             Vector3 away = -_anchorDir; if (away.sqrMagnitude < 0.01f) away = Vector3.up;
+            transform.position = _stuckPos + away.normalized * 0.05f;
+            _rb.isKinematic = false;
             Vector3 flat = new Vector3(away.x, 0f, away.z);
             _rb.velocity = (flat.sqrMagnitude > 0.0001f ? flat.normalized * webPopSpeed : Vector3.zero) + Vector3.up * webPopUp;
             _anchorDir = Vector3.down;
