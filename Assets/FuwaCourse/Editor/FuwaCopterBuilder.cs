@@ -94,8 +94,7 @@ public static class FuwaCopterBuilder
         go.layer = 13;   // Pickup
         float y0 = -GripFromBottom, y1 = StickLen - GripFromBottom;
         var stick = Cyl(go.transform, "Stick", new Vector3(0f, (y0 + y1) / 2f, 0f), new Vector3(2f * StickR, StickLen / 2f, 2f * StickR), bamboo, false); stick.gameObject.layer = 13;
-        foreach (float t in new[] { 0.3f, 0.7f })
-        { var n = Cyl(go.transform, "Node", new Vector3(0f, Mathf.Lerp(y0, y1, t), 0f), new Vector3(2f * StickR + 0.008f, 0.006f, 2f * StickR + 0.008f), node, false); n.gameObject.layer = 13; }
+        // 棒の節（輪っか）は 2026-11-11 てじゃ「いらんかも」で無し
         var blades = new GameObject("Blades").transform; blades.SetParent(go.transform, false); blades.localPosition = new Vector3(0f, y1, 0f); blades.gameObject.layer = 13;
         var b = new GameObject("Blade"); b.transform.SetParent(blades, false); b.layer = 13;
         b.AddComponent<MeshFilter>().sharedMesh = bladeMesh; b.AddComponent<MeshRenderer>().sharedMaterial = bladeM;
