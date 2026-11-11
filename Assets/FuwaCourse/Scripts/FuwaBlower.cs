@@ -154,8 +154,9 @@ public class FuwaBlower : UdonSharpBehaviour
     [Tooltip("デスクトップで見た目の向きを視線に合わせる（OFFならVRChatの持ち方そのまま。撃つ向きは視線のまま）")]
     public bool desktopAlignVisual = true;
     // 2026-11-11 てじゃ：VRChat の持ち方で向きを決めたい。Gun は指が引き金の形でキモいので Grip（ふつうの握り）。
-    //  デスクトップ・スマホの人のパソコンでだけ実行時に Grip にする（VRは Any のまま、パチッと持ち替えはNG）。Grip の時は見た目にスクリプトで触らない（撃つ向きは視線）
-    [Tooltip("デスクトップ・スマホでは VRChat の Grip 持ちにする（握る目印は desktopGrip）。ONの時は見た目の向き合わせをしない")]
+    //  デスクトップ・スマホの人のパソコンでだけ実行時に Grip にする（VRは Any のまま、パチッと持ち替えはNG）。
+    //  Grip だけだと角度がずれた（VRChat の握りの向きと銃の向きが合わない）ので、位置は VRChat 任せのまま、見た目の向きだけ握る目印を中心に視線へ回す（撃つ向きは視線）
+    [Tooltip("デスクトップ・スマホでは VRChat の Grip 持ちにする（握る目印は desktopGrip）。位置は VRChat 任せ、見た目の向きは目印を中心に視線へ回す")]
     public bool desktopUseGripHold = true;
     [Tooltip("Grip 持ちの握る目印（位置と向き）。なければ銃の根元")]
     public Transform desktopGrip;
@@ -539,7 +540,7 @@ public class FuwaBlower : UdonSharpBehaviour
     {
         VRCPlayerApi holder = Networking.GetOwner(gameObject);
         UpdateAutoScale(holder);
-        bool align = desktopAimWithView && desktopAlignVisual && !desktopUseGripHold && _held && holder != null && holder.IsValid() && !holder.IsUserInVR();
+        bool align = desktopAimWithView && desktopAlignVisual && _held && holder != null && holder.IsValid() && !holder.IsUserInVR();
         bool glued = false;
         if (!align && _held && !_dropPending && holder != null && holder.isLocal && holder.IsUserInVR() && _pickup != null) glued = VrGlue(holder);
         else _gripOk = false;
@@ -577,6 +578,8 @@ public class FuwaBlower : UdonSharpBehaviour
                     _pivotLocal = transform.InverseTransformPoint(palmW);
                 }
                 Vector3 pivot = transform.TransformPoint(_pivotLocal);
+                // Grip 持ちの時は VRChat が握る目印を手に合わせてくれるので、そこを中心に回す（2026-11-11 てじゃ「位置はばっちりだけど角度がずれとる」）
+                if (desktopUseGripHold && desktopGrip != null) pivot = desktopGrip.position;
                 Quaternion d = head * Quaternion.Inverse(vt.rotation);
                 Vector3 vp = pivot + d * (vt.position - pivot);
                 if (nozzle != null) nozzle.SetPositionAndRotation(pivot + d * (nozzle.position - pivot), d * nozzle.rotation);
