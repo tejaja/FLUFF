@@ -4,7 +4,7 @@ using UnityEditor;
 using UnityEngine;
 
 // 2–4 の羽根車のかごの床の見た目（2026-11-11 てじゃ「羽がおいてあるあたりの床もなんかほしい」「縞鋼板じゃ被る」→ C案「いいね」）
-//  ・床（CageFloor・CageRamp・CageApron）：パンチングメタル（丸い穴のならんだ鉄板）。uv はメートル（どの大きさの板でも穴の大きさがそろう）
+//  ・床（CageFloor・CageRamp・CageApron）：1m 角の鉄板のパネル（継ぎ目＋角のリベット）。パンチングメタルはやめた。uv はメートル（どの大きさの板でも穴の大きさがそろう）
 //  ・CageFloor のふち：黄色×黒の注意ライン（橋の先と同じ Course2_4_Hazard）。上の面を内がわ＋ふちの帯に分けた1つのメッシュ（重ねないのでちらつかない）
 //  ・羽根車の軸のまわり：黄色い円＋両回りの矢印（撃つ側で回る向きが変わるので両方）。床の上 1cm の板
 //  当たりは今のまま（Visual の見た目だけ差しかえ）。FuwaCourse2_4Builder.Build の最後で呼ぶ
@@ -125,21 +125,27 @@ public static class FuwaCageFloorLook
         ex.Clear(false); FuwaBevelTools.CopyInto(ex, src); ex.name = src.name; EditorUtility.SetDirty(ex); return ex;
     }
 
-    // パンチングメタル：明るい鉄板に、ずらしてならべた丸い穴（穴の中は暗く、下のふちに明るい線）。1枚 = 0.25m 角に穴2つ
+    // 鉄板のパネル（2026-11-11 てじゃ「パンチングがね」→ パンチングメタルをやめた）：1m 角の板の継ぎ目（暗い線＋明るいふち）と、角の4つのリベット。ほんのりムラ
     static Material PunchMat()
     {
-        string tp = "Assets/FuwaStage2/Textures/PunchingMetal.png", mp = "Assets/FuwaStage2/Materials/Course2_4_PunchMetal.mat";
+        string tp = "Assets/FuwaStage2/Textures/CagePanel.png", mp = "Assets/FuwaStage2/Materials/Course2_4_CagePanel.mat";
         int N = 256; var px = new Color[N * N];
         for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
         {
-            float u = (x + 0.5f) / N, w = (y + 0.5f) / N; float c = 0.78f;
-            foreach (var h in new[] { new Vector2(0.25f, 0.25f), new Vector2(0.75f, 0.75f), new Vector2(0.75f, -0.25f), new Vector2(0.25f, 1.25f), new Vector2(-0.25f, 0.75f), new Vector2(1.25f, 0.25f), new Vector2(0.75f, 1.25f), new Vector2(1.25f, 1.25f), new Vector2(-0.25f, -0.25f), new Vector2(1.25f, -0.25f), new Vector2(-0.25f, 1.25f), new Vector2(0.25f, -0.25f) })
+            float u = (x + 0.5f) / N, w = (y + 0.5f) / N; float c = 0.80f;
+            // ムラ（ゆるい斜めのグラデーション）
+            c += 0.03f * Mathf.Sin((u + w) * Mathf.PI * 2f);
+            // 継ぎ目（板のふち）：外がわ 1.2% は暗い線、その内がわに明るいふち
+            float e = Mathf.Min(Mathf.Min(u, 1f - u), Mathf.Min(w, 1f - w));
+            if (e < 0.012f) c = 0.45f; else if (e < 0.022f) c += 0.08f;
+            // 角のリベット
+            foreach (var h in new[] { new Vector2(0.06f, 0.06f), new Vector2(0.94f, 0.06f), new Vector2(0.06f, 0.94f), new Vector2(0.94f, 0.94f) })
             {
                 float d = Vector2.Distance(new Vector2(u, w), h);
-                if (d < 0.14f) c = 0.30f + 0.12f * Mathf.Clamp01((w - h.y + 0.14f) / 0.28f);      // 穴の中（上ほど少し明るい）
-                else if (d < 0.165f && w < h.y) c = 0.92f;                                        // 穴の下のふちの光
-                else if (d < 0.165f) c = Mathf.Min(c, 0.66f);                                     // 穴の上のふちの影
+                if (d < 0.022f) { float hl = Mathf.Clamp01(1f - Vector2.Distance(new Vector2(u, w), h + new Vector2(-0.007f, 0.007f)) / 0.02f); c = 0.74f + 0.22f * hl; }
+                else if (d < 0.03f) c -= 0.15f;
             }
+            c = Mathf.Clamp01(c);
             px[y * N + x] = new Color(c, c, c * 1.02f, 1f);
         }
         var tex = new Texture2D(N, N, TextureFormat.RGBA32, true); tex.SetPixels(px); tex.Apply();
@@ -148,7 +154,7 @@ public static class FuwaCageFloorLook
         var baseM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/GearTest_Floor.mat");
         var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (!m) { m = baseM ? new Material(baseM) : new Material(Shader.Find("FuwaCourse/ToonLit")); AssetDatabase.CreateAsset(m, mp); }
-        m.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(tp); m.mainTextureScale = new Vector2(4f, 4f);   // 1m に 4枚（穴の間 0.18m）
+        m.mainTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(tp); m.mainTextureScale = new Vector2(1f, 1f);   // 1m に 1枚
         if (m.HasProperty("_Color")) m.SetColor("_Color", new Color(0.82f, 0.84f, 0.9f));
         EditorUtility.SetDirty(m); return m;
     }
