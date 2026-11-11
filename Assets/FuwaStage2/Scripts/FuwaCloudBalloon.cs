@@ -48,7 +48,7 @@ public class FuwaCloudBalloon : UdonSharpBehaviour
         {
             _age[i] = -1f;
             if (clouds[i] == null) continue;
-            _rends[i] = clouds[i].GetComponent<Renderer>();
+            _rends[i] = clouds[i].GetComponentInChildren<Renderer>(true);   // 2026-11-11 見た目は子の Mesh（横に広げるため）
             clouds[i].gameObject.SetActive(false);
         }
         _mpb = new MaterialPropertyBlock();

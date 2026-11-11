@@ -1454,6 +1454,7 @@ public static class FuwaCourse2_4Builder
     //  背景の雲と同じ形（CloudR_A〜E）を12個使い回す。動きは FuwaCloudBalloon（煙突から出て大きくなり、のぼって風で流れ、しぼんで消える）
     //  材質は背景の雲と同じ CloudPuff。ただし頂点のただよい（_Drift・_Bob）は0（スクリプトが動かす）。色は1つずつ MaterialPropertyBlock で
     public static int BalloonCloudCount = 12;
+    public static float BalloonCloudWide = 1.6f;
     static void BalloonClouds(FuwaCloudBalloon cb, Transform holder, Vector3 spawnLocal)
     {
         var old = holder.Find("BalloonClouds"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -1470,8 +1471,10 @@ public static class FuwaCourse2_4Builder
         for (int i = 0; i < BalloonCloudCount; i++)
         {
             var c = new GameObject("BalloonCloud" + i); c.transform.SetParent(grp, false); c.transform.localPosition = spawnLocal; c.transform.localScale = Vector3.one * 0.001f;
-            c.AddComponent<MeshFilter>().sharedMesh = meshes[i % meshes.Length];
-            var r = c.AddComponent<MeshRenderer>(); r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            // 2026-11-11 てじゃ「出てくる雲がもっと横に大きくてもいいかも」：形だけ横に広げる（大きさの変化は FuwaCloudBalloon が c ごと同じ割合で）
+            var mo = new GameObject("Mesh"); mo.transform.SetParent(c.transform, false); mo.transform.localScale = new Vector3(BalloonCloudWide, 1f, BalloonCloudWide);
+            mo.AddComponent<MeshFilter>().sharedMesh = meshes[i % meshes.Length];
+            var r = mo.AddComponent<MeshRenderer>(); r.sharedMaterial = m; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
             c.SetActive(false); list.Add(c.transform);
         }
         cb.clouds = list.ToArray(); cb.cloudSpawn = sp;
