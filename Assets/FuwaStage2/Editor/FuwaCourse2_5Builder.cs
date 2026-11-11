@@ -104,7 +104,7 @@ public static class FuwaCourse2_5Builder
     // ================= ② はじめてのポータル =================
     //  屋根つきの回廊（部屋1）のつきあたりの壁にポータルA → 上の島の部屋2の奥の壁のポータルB から出る。部屋2の右の壁の出口から道へ
     //  部屋2は回廊の右うしろの上（Aの穴の奥（回廊の先）にはない所）
-    public static float CorridorLen = 14f, CorridorW = 4.4f, CorridorH = 4.2f, Room2W = 7f, Room2L = 7f, Room2H = 4.5f;
+    public static float CorridorLen = 8f, CorridorW = 4.4f, CorridorH = 4.2f, Room2W = 7f, Room2L = 7f, Room2H = 4.5f;
     // 回廊のまん中から、部屋2の床のまん中へ（回廊の向き基準：右12・上8・うしろ6。Aの穴の奥（回廊の先）には出ない所）
     //  コースはロビーから外（+z）へのびて、横へ出る時は右（+x）へ。左（-x）は 2–4（コースの座標で x < -19）があるので行かない
     public static Vector3 Room2Offset = new Vector3(12f, 8f, -6f);
@@ -112,7 +112,7 @@ public static class FuwaCourse2_5Builder
     {
         float h0 = th;
         var c1 = P + Dir(th) * (CorridorLen / 2f);
-        var r1 = Room("Room1_Corridor", c1, th, CorridorW, CorridorLen, CorridorH, new[] { Door('B', 0f, 2f * HW, 3.4f), PortalGap('F', 0f) });
+        var r1 = Room("Room1_Corridor", c1, th, CorridorW, CorridorLen, CorridorH, new[] { Door('B', 0f, 2f * HW, 3.4f), PortalGap('F', 0f) }, true);
         var r2 = Room("Room2_Up", c1 + Off(h0, Room2Offset), h0, Room2W, Room2L, Room2H, new[] { PortalGap('K', 0f), Door('R', Room2L / 2f - 2.3f, 2f * HW, 3.4f, 0f, true) });
         var A = BigPortal(r1, "PortalA", new Vector3(0f, 0f, CorridorLen / 2f), 180f);
         var B = BigPortal(r2, "PortalB", new Vector3(0f, 0f, -Room2L / 2f), 0f);
@@ -223,7 +223,7 @@ public static class FuwaCourse2_5Builder
         float h0 = th;
         var c3 = P + Dir(th) * (Room3L / 2f);
         float doorX = 2f, winX = -1.6f;
-        var r3 = Room("Room3", c3, th, Room3W, Room3L, Room3H, new[] { Door('B', 0f, 2f * HW, 3.4f), PortalGap('F', doorX), WindowGap('F', winX) });
+        var r3 = Room("Room3", c3, th, Room3W, Room3L, Room3H, new[] { Door('B', 0f, 2f * HW, 3.4f), PortalGap('F', doorX), WindowGap('F', winX) }, true);
         var r4 = Room("Room4_Up", c3 + Off(h0, Room4Offset), h0, Room4W, Room4L, Room4H, new[] { PortalGap('K', doorX), WindowGap('K', winX), Door('F', 0f, 2f * HW, 3.4f, 0f, true) });
         // 人の扉（ふわふわは運ばない）・ふわふわの窓（人は通れない大きさ）
         var Ad = BigPortal(r3, "PortalDoorA", new Vector3(doorX, 0f, Room3L / 2f), 180f);
@@ -264,26 +264,28 @@ public static class FuwaCourse2_5Builder
     static Vector3 Off(float heading, Vector3 local) => Dir(heading - 90f) * local.x + Vector3.up * local.y + Dir(heading) * local.z;
 
     // 部屋：c＝床のまん中（コースの座標、床の上の面）、heading＝前の向き。床はシマの道（w × len）、まわりに厚み WT の壁、上に屋根
-    static Transform Room(string name, Vector3 c, float heading, float w, float len, float h, DoorSpec[] doors)
+    //  open＝true：入る側（2026-11-11 てじゃ「ポータル、入る側は囲わなくてもいいかも」）。前の壁（ポータルのある壁）だけ立てて、ほかの壁・屋根はなし
+    static Transform Room(string name, Vector3 c, float heading, float w, float len, float h, DoorSpec[] doors, bool open = false)
     {
         var r = new GameObject(name).transform; r.SetParent(secT, false); r.localPosition = c; r.localRotation = Quaternion.LookRotation(Dir(heading));
         Strip(r, "Floor", new Vector3(0f, 0f, -len / 2f), Vector3.forward * len, w / 2f, false);
         var walls = new GameObject("Walls").transform; walls.SetParent(r, false);
         float hx = w / 2f, hz = len / 2f;
         // 前・うしろの壁（x にそって、角をふくむ）
-        foreach (char side in new[] { 'F', 'B' })
+        foreach (char side in open ? new[] { 'F' } : new[] { 'F', 'B' })
         {
             float z = side == 'F' ? hz + WT / 2f : -hz - WT / 2f;
             WallLine(walls, "Wall" + side, -hx - WT, hx + WT, h, doors.Where(d => d.side == side).ToArray(), (a, b, y0, y1) => WallBox(walls, "Wall" + side, new Vector3((a + b) / 2f, (y0 + y1) / 2f, z), new Vector3(b - a, y1 - y0, WT)));
         }
         // 左・右の壁（z にそって、角はのぞく）
-        foreach (char side in new[] { 'L', 'R' })
+        foreach (char side in open ? new char[0] : new[] { 'L', 'R' })
         {
             float x = side == 'L' ? -hx - WT / 2f : hx + WT / 2f;
             WallLine(walls, "Wall" + side, -hz, hz, h, doors.Where(d => d.side == side).ToArray(), (a, b, y0, y1) => WallBox(walls, "Wall" + side, new Vector3(x, (y0 + y1) / 2f, (a + b) / 2f), new Vector3(WT, y1 - y0, b - a)));
         }
         // 屋根
-        var roof = Box(r, "Roof", new Vector3(0f, h + 0.3f, 0f), new Vector3(w + 2f * WT + 0.4f, 0.6f, len + 2f * WT + 0.4f), terra, 0);
+        if (!open) Box(r, "Roof", new Vector3(0f, h + 0.3f, 0f), new Vector3(w + 2f * WT + 0.4f, 0.6f, len + 2f * WT + 0.4f), terra, 0);
+        else Box(r, "WallCap", new Vector3(0f, h + 0.2f, hz + WT / 2f), new Vector3(w + 2f * WT + 0.3f, 0.4f, WT + 0.3f), terra, 0);   // 壁のてっぺんのふち
         // 出入口の床（壁の厚みの所）
         foreach (var d in doors)
         {
@@ -374,8 +376,10 @@ public static class FuwaCourse2_5Builder
         int sa = (int)A.Find("PortalHole").GetComponent<MeshRenderer>().sharedMaterial.GetFloat("_StencilRef");
         int sb = (int)B.Find("PortalHole").GetComponent<MeshRenderer>().sharedMaterial.GetFloat("_StencilRef");
         FuwaPortalTest.Copy(roomOfB, A, B, viewT, "ViewThrough_" + A.name, sa);
-        FuwaPortalTest.Copy(roomOfA, B, A, viewT, "ViewThrough_" + B.name, sb);
-        foreach (var (en, ex, sref) in new[] { (A, B, sa), (B, A, sb) })
+        // 一方通行（2026-11-11 てじゃ「戻れないようにしとこ、前のが見えると空がみえちゃう」）：出る側 B は穴（向こうの見え方）をなくして、奥の暗いくぼみだけ
+        B.Find("PortalHole").gameObject.SetActive(false);
+        Niche(B, halfW > 0f ? halfW : FuwaPortalTest.HalfW, height > 0f ? height : FuwaPortalTest.HoleH);
+        foreach (var (en, ex, sref) in new[] { (A, B, sa) })
         {
             var pt = UdonSharpUndo.AddComponent<FuwaPortal>(en.gameObject);
             pt.entry = en; pt.exit = ex;
@@ -390,6 +394,16 @@ public static class FuwaCourse2_5Builder
             // 人を運ばない窓：FuwaPortal は人も見るので、穴の高さを人の頭が届かない大きさにしてある（窓は人が通れないので頭が入ることはない）
             if (!players) { }
         }
+    }
+
+    // 出る側のくぼみ：壁のすき間の奥を暗い石でふさぐ（人の体・ふわふわが面の奥に少し出ても当たらない深さ 1.3m）
+    static void Niche(Transform B, float hw, float hh)
+    {
+        var n = new GameObject("ExitNiche").transform; n.SetParent(B, false);
+        float depth = 1.3f, t = 0.2f, w = hw + 0.06f;
+        Box(n, "Back", new Vector3(0f, hh / 2f - 0.3f, -depth - t / 2f), new Vector3(2f * w + 2f * t, hh + 0.6f + t, t), terraD, 0);
+        foreach (float sx in new[] { -1f, 1f }) Box(n, "Side", new Vector3(sx * (w + t / 2f), hh / 2f - 0.3f, -depth / 2f), new Vector3(t, hh + 0.6f, depth), terraD, 0);
+        Box(n, "Top", new Vector3(0f, hh + t / 2f + 0.01f, -depth / 2f), new Vector3(2f * w + 2f * t, t, depth), terraD, 0);
     }
 
     // 大きさのルーン（くぐる向き＝進む向き）。いまの P に置く
