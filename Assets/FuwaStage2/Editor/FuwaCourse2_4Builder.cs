@@ -2699,6 +2699,10 @@ public static class FuwaCourse2_4Builder
         foreach (var n in new[] { "Post_L", "Post_R", "Bar" }) { var c = cp.transform.Find(n); if (c) Object.DestroyImmediate(c.gameObject); }
         var trig = cp.transform.Find("Trigger");
         if (trig) trig.localScale = new Vector3(hw * 2f + 0.8f, trig.localScale.y, trig.localScale.z);
+        // 2026-11-12 てじゃ「一個目のチェックポイント、きのこより判定がだいぶ奥」：mushZ を変えても判定（もとは z 1.5）と復活（z 0.9）が置いてけぼりで、
+        //  Checkpoint1 は判定が 3m 奥・復活が次の窓のある歯車の上になっていた → 判定はきのこの間、復活はその 0.6m 手前（もとの並びと同じ）
+        if (trig) trig.localPosition = new Vector3(trig.localPosition.x, trig.localPosition.y, mushZ);
+        var rsp = cp.transform.Find("RespawnPoint"); if (rsp) rsp.localPosition = new Vector3(rsp.localPosition.x, rsp.localPosition.y, mushZ - 0.6f);
         var gm = cp.transform.Find("GlowMushrooms");
         if (gm) foreach (Transform cl in gm) cl.localPosition = new Vector3(Mathf.Sign(cl.localPosition.x) * (hw + 0.55f), cl.localPosition.y, mushZ);
         var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
