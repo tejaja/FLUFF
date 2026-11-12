@@ -19,7 +19,7 @@ public static class FuwaCourse2_5Builder
     const string RootName = "FuwaCourse2_5";
     const float SpokeR = 34.8f, StartBelow = 4f;
     public static float HW = 2f, StripeLen = 1.2f;
-    public static Color PathColA = new Color(0.651f, 0.859f, 0.494f), PathColB = new Color(0.549f, 0.796f, 0.40f);   // #A6DB7E / #8CCB66
+    public static Color PathColA = new Color(0.490f, 0.722f, 0.400f), PathColB = new Color(0.404f, 0.647f, 0.322f);   // #7DB866 / #67A552（2026-11-12 てじゃ「道を深緑寄りに」→ 4案から「いったん右上で」。前は #A6DB7E / #8CCB66）
     const string MeshDir = "Assets/FuwaStage2/Meshes/Course2_5";
     const float WT = 0.5f;   // 部屋の壁の厚み
 
