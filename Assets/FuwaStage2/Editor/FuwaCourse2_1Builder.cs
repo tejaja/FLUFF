@@ -1362,29 +1362,24 @@ public static class FuwaCourse2_1Builder
     public static float OrbSizeK = 1.5f, OrbStreamK = 1.8f;
     static void WaterOrb(Transform terr, Vector3 pool, string name, float OrbHeight, float OrbRadius, float OrbStream)
     {
-        OrbRadius *= OrbSizeK; OrbStream *= OrbStreamK;
-        var g = new GameObject(name).transform; g.SetParent(terr, false); g.localPosition = pool + Vector3.up * OrbHeight;
-        var orb = GameObject.CreatePrimitive(PrimitiveType.Sphere); orb.name = "Orb"; orb.transform.SetParent(g, false);
-        Object.DestroyImmediate(orb.GetComponent<Collider>());
-        orb.transform.localScale = Vector3.one * OrbRadius * 2f;
-        const string mp = "Assets/FuwaStage2/Materials/Stage2_WaterOrb.mat";
-        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
-        if (!mat) { mat = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Lobby_Ring.mat")); AssetDatabase.CreateAsset(mat, mp); }
-        mat.SetColor("_Color", new Color(0.45f, 0.78f, 1f)); mat.SetColor("_EmissionColor", new Color(0.25f, 0.6f, 1f));
-        if (mat.HasProperty("_RimColor")) { mat.SetColor("_RimColor", new Color(0.85f, 0.97f, 1f)); mat.SetFloat("_RimStrength", 0.8f); }
-        EditorUtility.SetDirty(mat);
-        var r = orb.GetComponent<Renderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        var hv = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaHover>(orb);
-        // 球ごとに位置からずらし・速さを決める（2026-10-28 てじゃ「球の浮き沈み、それぞれでズラしたい」）
+        // 2026-11-12 てじゃ「2-1の水を出してるのもクリスタルにしたら統一感でそう」「クリスタルが水面から上部だけ見えてる感じ」「落ちる水も省ける」
+        //  → 浮く青い球＋落ちる水の柱をやめて、水面（pool）から六角クリスタル（大1＋小2）の頭が突き出る形に。材質は 2-4 の動力クリスタルと同じ作り（光のグラデーションが上へ流れる）
+        //  OrbHeight / OrbStream は使わない（呼び出し側の数字を残すため引数はそのまま）
+        OrbRadius *= OrbSizeK;
+        var g = new GameObject(name).transform; g.SetParent(terr, false); g.localPosition = pool;
         float hh = Mathf.Abs(Mathf.Sin(pool.x * 12.9898f + pool.z * 78.233f) * 43758.5453f) % 1f;
-        hv.amplitude = 0.15f; hv.period = 3.2f * Mathf.Lerp(0.85f, 1.15f, (hh * 7.3f) % 1f); hv.spinSpeed = 25f * Mathf.Lerp(0.8f, 1.2f, (hh * 3.1f) % 1f); hv.phase = hh;
-        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hv); NoSync(hv);
+        g.localRotation = Quaternion.Euler(0f, hh * 360f, 0f);
+        var mat = WaterCrystalMat();
+        float r = OrbRadius * WaterCrystalR, up = OrbRadius * WaterCrystalUp;
+        WaterCrystalPiece(g, "Crystal", mat, r, up, Vector3.zero, 0f, (hh * 7.3f % 1f - 0.5f) * 8f);
+        WaterCrystalPiece(g, "CrystalSmall0", mat, r * 0.55f, up * 0.5f, new Vector3(r * 1.15f, 0f, 0f), 0f, 26f);
+        WaterCrystalPiece(g, "CrystalSmall1", mat, r * 0.45f, up * 0.38f, new Vector3(r * 1.1f, 0f, 0f), 140f, 32f);
         // まわりのぼんやりした光（やわらかい丸の粒）
-        var gl = new GameObject("Glow"); gl.transform.SetParent(orb.transform, false);
+        var gl = new GameObject("Glow"); gl.transform.SetParent(g, false); gl.transform.localPosition = Vector3.up * up * 0.5f;
         var gp = gl.AddComponent<ParticleSystem>();
         var gm = gp.main; gm.loop = true; gm.playOnAwake = true; gm.prewarm = true; gm.simulationSpace = ParticleSystemSimulationSpace.Local;
-        gm.startLifetime = 1.6f; gm.startSpeed = 0f; gm.startSize = new ParticleSystem.MinMaxCurve(OrbRadius * 3.2f, OrbRadius * 4.2f); gm.maxParticles = 10;
-        gm.startColor = new Color(0.45f, 0.8f, 1f, 0.35f);
+        gm.startLifetime = 1.6f; gm.startSpeed = 0f; gm.startSize = new ParticleSystem.MinMaxCurve(up * 1.4f, up * 1.8f); gm.maxParticles = 10;
+        gm.startColor = new Color(0.45f, 0.8f, 1f, 0.3f);
         var ge = gp.emission; ge.rateOverTime = 5f;
         var gs = gp.shape; gs.enabled = false;
         var gc = gp.colorOverLifetime; gc.enabled = true;
@@ -1392,20 +1387,57 @@ public static class FuwaCourse2_1Builder
         gc.color = gg;
         var gr = gl.GetComponent<ParticleSystemRenderer>(); gr.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Default-ParticleSystem.mat");
         gr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; gr.receiveShadows = false;
-        // 球の下から池へ落ちる水（まるい断面の滝）
-        float len = OrbHeight - 0.02f;
-        string key = "OrbStream_" + len.ToString("F2") + "_" + OrbStream.ToString("F2");
-        var meshP = "Assets/FuwaStage2/Generated/Falls/" + key + ".asset";
-        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshP);
-        if (!mesh)
+    }
+    // クリスタルの太さ・水面から上の高さ（球の半径に対する倍率）、水面の下にしずめる長さ（m、とがりの下にこれだけ柱を足す）
+    public static float WaterCrystalR = 0.55f, WaterCrystalUp = 2.6f, WaterCrystalSink = 0.25f;
+    static void WaterCrystalPiece(Transform g, string name, Material mat, float r, float up, Vector3 off, float yaw, float tilt)
+    {
+        var t = new GameObject(name).transform; t.SetParent(g, false);
+        var rot = Quaternion.Euler(0f, yaw, 0f);
+        t.localPosition = rot * off;
+        // 外へ傾ける（off の向きへ）。大きいのは少しだけ
+        t.localRotation = rot * Quaternion.Euler(0f, 0f, -tilt) * Quaternion.Euler(0f, 30f + yaw * 0.37f, 0f);
+        float dn = r * 1.6f + WaterCrystalSink;
+        string key = "WaterCrystal_" + r.ToString("F2") + "_" + up.ToString("F2") + "_" + dn.ToString("F2");
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/" + key + ".asset") ?? Save(HexCrystalMesh(r, up, dn, key), MeshDir + "/" + key + ".asset");
+        t.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var mr = t.gameObject.AddComponent<MeshRenderer>(); mr.sharedMaterial = mat;
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;   // 球のときと同じく影は出さない（水面に落ちる影がうるさい）
+    }
+    // 上下にとがった六角の柱（面ごとに平ら）。2-4 の動力クリスタル（FuwaCourse2_4Builder.CrystalMesh）と同じ形
+    static Mesh HexCrystalMesh(float r, float up, float dn, string name)
+    {
+        var v = new List<Vector3>(); var t = new List<int>(); const int n = 6; float tip = r * 1.6f;
+        float yT = up - tip, yB = -dn + tip, mid = (yT + yB) / 2f;
+        Vector3 Rim(int k, float y) { float a = (k * 60f + 30f) * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r); }
+        void Tri(Vector3 a, Vector3 b, Vector3 c)
         {
-            var cs = new List<Vector3> { Vector3.down * len, Vector3.zero };
-            mesh = FuwaStage2WaterTest.SweepFalls(key, cs, new List<Vector3> { Vector3.forward, Vector3.forward }, new List<Vector3> { Vector3.right, Vector3.right }, new List<float> { len, 0f }, len, OrbStream, OrbStream);
-            AssetDatabase.CreateAsset(mesh, meshP);
+            var cen = (a + b + c) / 3f; var o = cen - new Vector3(0f, Mathf.Clamp(cen.y, yB, yT) == cen.y ? cen.y : mid, 0f);
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a), o) < 0f) { var s2 = b; b = c; c = s2; }
+            int i = v.Count; v.Add(a); v.Add(b); v.Add(c); t.Add(i); t.Add(i + 1); t.Add(i + 2);
         }
-        var st = new GameObject("Stream"); st.transform.SetParent(g, false);
-        st.AddComponent<MeshFilter>().sharedMesh = mesh;
-        var sr = st.AddComponent<MeshRenderer>(); sr.sharedMaterial = OrbStreamMat(); sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        for (int k = 0; k < n; k++)
+        {
+            int k2 = (k + 1) % n;
+            Tri(Rim(k, yB), Rim(k2, yB), Rim(k2, yT)); Tri(Rim(k, yB), Rim(k2, yT), Rim(k, yT));
+            Tri(Rim(k, yT), Rim(k2, yT), new Vector3(0f, up, 0f));
+            Tri(Rim(k, yB), Rim(k2, yB), new Vector3(0f, -dn, 0f));
+        }
+        var m = new Mesh { name = name }; m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
+    }
+    // 水のクリスタルの材質：2-4 の動力クリスタル（Stage2_4_PowerCrystal）を写して、光の帯だけ小さいクリスタル向けに細かく・ゆっくり
+    public static float WaterCrystalFlowSpacing = 1.6f, WaterCrystalFlowSpeed = 0.6f;
+    static Material WaterCrystalMat()
+    {
+        const string p = "Assets/FuwaStage2/Materials/Stage2_1_WaterCrystal.mat";
+        var src = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_4_PowerCrystal.mat");
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, p); }
+        m.CopyPropertiesFromMaterial(src);
+        m.SetFloat("_FlowSpacing", WaterCrystalFlowSpacing); m.SetFloat("_FlowSpeed", WaterCrystalFlowSpeed);
+        EditorUtility.SetDirty(m);
+        return m;
     }
     // 青い球の下の水の柱の材質（2026-10-28 てじゃ「青いたまから落ちる水、白ばっかりで水にみえない」：大きい滝と同じ材質で、上下の泡（0.8m ずつ）と
     // 筋が 1〜2m の短い柱をほとんど白にしていた）。泡は短く、筋は細かく少なめ
