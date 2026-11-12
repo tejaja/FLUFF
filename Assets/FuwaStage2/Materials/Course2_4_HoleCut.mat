@@ -47,7 +47,13 @@ Material:
     - _DitherFade: 0
     - _EmissionFull: 1.6
     - _EmissionGradient: 0
+    - _EmissionPulse: 0
+    - _EmissionPulseSpeed: 2
     - _Facet: 0
+    - _FlowSpacing: 4
+    - _FlowSpeed: 2
+    - _FlowStrength: 0
+    - _FlowWidth: 0.15
     - _GearBandDark: 0.86
     - _GearPattern: 0
     - _GearR: 1
@@ -100,6 +106,7 @@ Material:
     - _BaseFadeColor: {r: 0.65999997, g: 0.6, b: 0.68, a: 1}
     - _Color: {r: 0.07, g: 0.07, b: 0.09, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _FlowColor: {r: 0.85, g: 1, b: 1, a: 1}
     - _GroundTintA: {r: 1.1, g: 1.08, b: 0.86, a: 1}
     - _GroundTintB: {r: 0.8, g: 0.92, b: 0.8399999, a: 1}
     - _IceDeepColor: {r: 0.45, g: 0.62, b: 0.92, a: 1}

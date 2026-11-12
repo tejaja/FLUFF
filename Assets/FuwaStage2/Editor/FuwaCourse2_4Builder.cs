@@ -2381,7 +2381,8 @@ public static class FuwaCourse2_4Builder
     }
 
     // ①→② 窓のある歯車3枚（24・18・24枚）。かみ合う所で次へ乗り移る。窓が道の上に来たら落ちる
-    public static float HoleSpeed = 0.35f, HoleHub = 0.28f, HoleRim = 0.22f, HoleHalfMid = 64f, HoleHalfOut = 56f;
+    // 2026-11-12 てじゃ「歯車渡る系のとこがぬるい」→ 歯車を渡る所（乗る歯車・窓・ごつい・段つき）を約1.4倍速く。橋を合わせる所（せり出す橋・2枚の回転床）は「いい感じ」で据え置き
+    public static float HoleSpeed = 0.5f, HoleHub = 0.28f, HoleRim = 0.22f, HoleHalfMid = 64f, HoleHalfOut = 56f;
     static void HoleGears()
     {
         var g = GimmickRoot("HoleGears"); const float H = 0.5f;
@@ -2613,7 +2614,7 @@ public static class FuwaCourse2_4Builder
     }
 
     // ②→③ ごつい歯車2枚（8枚歯、歯の大きさ 0.8）：入る所・乗り移る所・出る所で、歯が来ている時だけ足場がつながる
-    public static float ChunkSpeed = 0.3f;
+    public static float ChunkSpeed = 0.45f;   // 2026-11-12 0.3 → 0.45
     static void ChunkyGears()
     {
         var g = GimmickRoot("ChunkyGears"); const float H = 0.6f, CM = 0.8f; const int Z = 8;
@@ -2656,7 +2657,7 @@ public static class FuwaCourse2_4Builder
     }
 
     // ③→④ 段つき歯車2つで 1.4m 上がる：A（大24・上に小14 が +0.7）→ B（大24 が +0.7 の層で A の小とかみ合う、上に小14 が +1.4）
-    public static float StepSpeed = 0.22f;
+    public static float StepSpeed = 0.32f;   // 2026-11-12 0.22 → 0.32
     static void StepGears()
     {
         var g = GimmickRoot("StepGears"); const float S = 0.7f, Cl = 0.04f;

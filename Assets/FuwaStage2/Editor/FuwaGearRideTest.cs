@@ -15,7 +15,7 @@ public static class FuwaGearRideTest
     public static float Step = 0.7f;     // 1段の高さ。2026-11-07 てじゃ「歩いて登れてしまう」0.4→0.7（歩きの段差こえ＋ジャンプで足が約0.46m上がる、の間）
     const float ClearY = 0.04f;          // 上の段の大きい歯車と、下の段の歯車の上の面とのすき間
     const int ZBig = 20, ZSmall = 12;
-    public static float PitchSpeed = 0.45f;   // 2026-11-08 「もっとはやくていいな」0.3 → 0.45   // ピッチ円の速さ（m/秒）。てじゃ「かなりゆっくり」0.15 → 2026-11-07「ちょい遅すぎ」0.2 → 2026-11-08 こしきで回るしかなくなったので「もっとはやくても」0.3
+    public static float PitchSpeed = 0.6f;   // 2026-11-12 てじゃ「2-4ぬるい」「歯車渡る系のとこがぬるい」0.45 → 0.6。2026-11-08 「もっとはやくていいな」0.3 → 0.45   // ピッチ円の速さ（m/秒）。てじゃ「かなりゆっくり」0.15 → 2026-11-07「ちょい遅すぎ」0.2 → 2026-11-08 こしきで回るしかなくなったので「もっとはやくても」0.3
     static readonly Vector3 Origin = new Vector3(50f, -162f, -104f);   // 入口の台の東のはし、床の上の高さ
     const float CatchY = -3f;
     public static float HubH = 1.4f, HubRBig = 2f, HubRSmall = 0.9f, HubSlope = 52f, HubBounce = 1.3f;   // まん中のこしき（2026-11-08）。上は円すい、ふわふわを軽くはじく（2.2 は「弾く力つよすぎ」→ 1.3）
