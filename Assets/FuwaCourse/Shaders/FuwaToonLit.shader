@@ -36,7 +36,7 @@ Shader "FuwaCourse/ToonLit"
         _FlowColor ("光の帯の色", Color) = (0.85,1,1,1)
         _FlowSpacing ("光の帯の間隔(m)", Float) = 4
         _FlowSpeed ("光の帯の速さ(m/秒)", Float) = 2
-        _FlowWidth ("光の帯の太さ（間隔に対する割合）", Range(0.02,0.5)) = 0.15
+        _FlowWidth ("光の帯の太さ（間隔に対する割合。1=すき間なしのグラデーション）", Range(0.02,1)) = 0.15
         [Header(Light)]
         _ShadowTint ("Shadow Tint", Color) = (0.62, 0.55, 0.78, 1)
         _ShadowStrength ("Shadow Strength", Range(0,1)) = 0.55
