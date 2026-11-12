@@ -1405,7 +1405,7 @@ public static class FuwaCourse2_1Builder
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;   // 球のときと同じく影は出さない（水面に落ちる影がうるさい）
     }
     // 上下にとがった六角の柱（面ごとに平ら）。2-4 の動力クリスタル（FuwaCourse2_4Builder.CrystalMesh）と同じ形
-    static Mesh HexCrystalMesh(float r, float up, float dn, string name)
+    internal static Mesh HexCrystalMesh(float r, float up, float dn, string name)
     {
         var v = new List<Vector3>(); var t = new List<int>(); const int n = 6; float tip = r * 1.6f;
         float yT = up - tip, yB = -dn + tip, mid = (yT + yB) / 2f;

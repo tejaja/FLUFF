@@ -2428,6 +2428,70 @@ public static class FuwaCourse2_2Builder
         ps.Play();
         return ps;
     }
+    // 2026-11-12 てじゃ「2-2の火山にも赤いクリスタルがいくつか突き出てるかんじにしよ」（2-4の動力クリスタル・2-1の水のクリスタルとそろえる）
+    //  山肌から赤い六角クリスタル（大1＋小2〜3）が突き出る。場所は道から9mくらい・溶岩の川（テクスチャの光）・亀裂・炎をよけて選んだ（Volcano の local。点と山肌の向き）
+    //  山の形（Stage2_Volcano.fbx）を変えたら、場所を選び直す
+    static readonly (Vector3 p, Vector3 n)[] VolcanoCrystalAt =
+    {
+        (new Vector3(-12.96f, -11.70f, 12.72f), new Vector3(-0.94f, 0.35f, -0.02f)),
+        (new Vector3(-18.33f, -11.70f, 1.33f), new Vector3(-0.77f, 0.62f, -0.15f)),
+        (new Vector3(1.79f, -9.20f, 16.57f), new Vector3(-0.44f, 0.27f, 0.86f)),
+        (new Vector3(11.70f, -6.70f, 8.13f), new Vector3(0.29f, 0.68f, 0.67f)),
+        (new Vector3(10.57f, 5.80f, 1.69f), new Vector3(0.60f, 0.36f, 0.71f)),
+        (new Vector3(5.07f, 0.80f, -10.08f), new Vector3(0.84f, 0.28f, -0.47f)),
+        (new Vector3(-9.53f, 5.80f, -1.30f), new Vector3(-0.99f, 0.06f, -0.13f)),
+        (new Vector3(-5.07f, -16.70f, -20.97f), new Vector3(0.11f, 0.55f, -0.83f)),
+        (new Vector3(1.09f, 13.30f, 7.25f), new Vector3(0.58f, 0.56f, 0.59f)),
+        (new Vector3(7.55f, -14.20f, -16.64f), new Vector3(0.61f, 0.59f, -0.53f)),
+    };
+    public static float VolcanoCrystalUpK = 0.45f, VolcanoCrystalSink = 1.2f, VolcanoCrystalK = 1f;
+    static void VolcanoCrystals(Transform g)
+    {
+        var old = g.Find("Crystals"); if (old) Object.DestroyImmediate(old.gameObject);
+        var cr = new GameObject("Crystals").transform; cr.SetParent(g, false);
+        var mat = FireCrystalMat();
+        for (int i = 0; i < VolcanoCrystalAt.Length; i++)
+        {
+            var (p, n) = VolcanoCrystalAt[i];
+            float h = Mathf.Abs(Mathf.Sin(i * 12.9898f + 3.1f) * 43758.5453f) % 1f;
+            var c = new GameObject("Crystal" + i).transform; c.SetParent(cr, false); c.localPosition = p;
+            var axis = Vector3.Lerp(n.normalized, Vector3.up, VolcanoCrystalUpK).normalized;   // 山肌から外へ、少し上向きに
+            c.localRotation = Quaternion.FromToRotation(Vector3.up, axis) * Quaternion.Euler(0f, h * 360f, 0f);
+            float r = Mathf.Lerp(1.0f, 1.5f, h) * VolcanoCrystalK, up = Mathf.Lerp(5f, 7f, (h * 7.3f) % 1f) * VolcanoCrystalK;   // 山が大きい（80m）ので 2-1 の倍くらい
+            Piece(c, "Big", r, up, Vector3.zero, 0f, (h * 3.7f % 1f - 0.5f) * 10f);
+            Piece(c, "Small0", r * 0.55f, up * 0.55f, new Vector3(r * 1.2f, 0f, 0f), 0f, 28f);
+            Piece(c, "Small1", r * 0.45f, up * 0.4f, new Vector3(r * 1.1f, 0f, 0f), 130f, 34f);
+            if (h > 0.4f) Piece(c, "Small2", r * 0.4f, up * 0.33f, new Vector3(r * 1.1f, 0f, 0f), 235f, 40f);
+        }
+        void Piece(Transform c, string name, float r, float up, Vector3 off, float yaw, float tilt)
+        {
+            var t = new GameObject(name).transform; t.SetParent(c, false);
+            var rot = Quaternion.Euler(0f, yaw, 0f);
+            t.localPosition = rot * off;
+            t.localRotation = rot * Quaternion.Euler(0f, 0f, -tilt) * Quaternion.Euler(0f, 30f + yaw * 0.37f, 0f);
+            float dn = r * 1.6f + VolcanoCrystalSink;   // 山肌の中までうめる（坂なので深め）
+            var m = FuwaCourse2_1Builder.HexCrystalMesh(r, up, dn, "FireCrystal_" + r.ToString("F2") + "_" + up.ToString("F2") + "_" + dn.ToString("F2"));
+            t.gameObject.AddComponent<MeshFilter>().sharedMesh = SaveMesh(m);
+            var mr = t.gameObject.AddComponent<MeshRenderer>(); mr.sharedMaterial = mat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+    }
+    // 赤いクリスタルの材質：2-4 の動力クリスタル（Stage2_4_PowerCrystal）を写して色だけ赤に
+    static Material FireCrystalMat()
+    {
+        const string p = "Assets/FuwaStage2/Materials/Stage2_2_FireCrystal.mat";
+        var src = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_4_PowerCrystal.mat");
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, p); }
+        m.CopyPropertiesFromMaterial(src);
+        m.SetColor("_Color", new Color(0.92f, 0.16f, 0.2f));
+        m.SetColor("_EmissionColor", new Color(1.5f, 0.22f, 0.16f));
+        m.SetColor("_RimColor", new Color(1f, 0.85f, 0.7f));
+        m.SetColor("_ShadowTint", new Color(0.7f, 0.35f, 0.45f));
+        m.SetColor("_FlowColor", new Color(1f, 0.62f, 0.5f));
+        m.SetFloat("_FlowSpacing", 4f); m.SetFloat("_FlowSpeed", 1.4f);
+        EditorUtility.SetDirty(m);
+        return m;
+    }
     static ParticleSystem Volcano(Transform parent, Vector3 c)
     {
         var g = new GameObject("Volcano").transform; g.SetParent(parent, false); g.localPosition = c;
@@ -2463,6 +2527,7 @@ public static class FuwaCourse2_2Builder
         body.GetComponent<MeshFilter>().sharedMesh = mesh;
         body.GetComponent<MeshRenderer>().sharedMaterials = model && vmat ? new[] { vmat } : new[] { FuwaStage2WaterTest.ToonMat("Stage2_2_PillarRock", new Color(0.45f, 0.3f, 0.27f)), lavaMat };
         body.AddComponent<MeshCollider>().sharedMesh = mesh;
+        VolcanoCrystals(g);
         // 火口：いつもの赤い湯気と、岩が飛び出す時の火の粉
         var top = new GameObject("Crater").transform; top.SetParent(g, false); top.localPosition = Vector3.up * (VolcanoTopH - 1.5f);
         VolcanoSmoke(top);
