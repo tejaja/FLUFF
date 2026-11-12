@@ -30,6 +30,13 @@ Shader "FuwaCourse/ToonLit"
         [HDR] _EmissionColor ("Emission", Color) = (0,0,0,1)
         [Toggle] _EmissionGradient ("Emission: グラデーションで光る（足し算で白飛びしない）", Float) = 0
         _EmissionFull ("Emission: いちばん光った時の強さ（この明るさで色が全部光の色になる）", Float) = 1.6
+        _EmissionPulse ("Emission: 脈打つ強さ（0=なし。2-4の動力クリスタル）", Range(0,1)) = 0
+        _EmissionPulseSpeed ("Emission: 脈打つ速さ（ラジアン/秒）", Float) = 2
+        _FlowStrength ("光の帯が上へ流れる（0=なし。2-4の動力クリスタル）", Range(0,1)) = 0
+        _FlowColor ("光の帯の色", Color) = (0.85,1,1,1)
+        _FlowSpacing ("光の帯の間隔(m)", Float) = 4
+        _FlowSpeed ("光の帯の速さ(m/秒)", Float) = 2
+        _FlowWidth ("光の帯の太さ（間隔に対する割合）", Range(0.02,0.5)) = 0.15
         [Header(Light)]
         _ShadowTint ("Shadow Tint", Color) = (0.62, 0.55, 0.78, 1)
         _ShadowStrength ("Shadow Strength", Range(0,1)) = 0.55
@@ -142,7 +149,8 @@ Shader "FuwaCourse/ToonLit"
             fixed4 _BaseFadeColor; float _BaseFadeLength; half _BaseFadeNormal;
             half _NoiseStrength, _StrataStrength, _Facet, _TopStrength, _TopMin; float _NoiseScale, _StrataScale; fixed4 _TopColor;
             half4 _StrataA, _StrataB, _StrataC; half _PatternFromBase, _PatternFromUV3;
-            half _EmissionGradient, _EmissionFull;
+            half _EmissionGradient, _EmissionFull, _EmissionPulse; float _EmissionPulseSpeed;
+            half _FlowStrength, _FlowWidth; fixed4 _FlowColor; float _FlowSpacing, _FlowSpeed;
             fixed4 _UnderColor; half _UnderStrength, _UnderGrad;
             fixed4 _IceSideColor; half _IceSide, _IceStreak; float _IceSideDepth, _IceStreakScale;
             fixed4 _IceDeepColor, _IceSkyColor; half _IceDeep, _IceBubble, _IceSky; float _IceDeepDepth, _IceDeepScale, _IceSkyPower;
@@ -401,6 +409,7 @@ Shader "FuwaCourse/ToonLit"
                     c = lerp(c, _IceSkyColor.rgb * _LightColor0.rgb * 0.5 + _IceSkyColor.rgb * 0.5, _IceSky * fres * ups);
                 }
                 half3 em = UNITY_ACCESS_INSTANCED_PROP(Props, _EmissionColor).rgb;
+                if (_EmissionPulse > 0) em *= 1 + _EmissionPulse * sin(_Time.y * _EmissionPulseSpeed);   // 2026-11-12 動力クリスタル：ゆっくり明るく・暗く
                 if (_EmissionGradient > 0.5)
                 {
                     // 光の色へ「塗り替える」光り方：下向き・ふちほど強く、てっぺんは控えめ（グラデーション）。
@@ -414,6 +423,14 @@ Shader "FuwaCourse/ToonLit"
                     c = lerp(c, glow, k * lerp(0.2, 1.0, g * g));
                 }
                 else c += em;
+                // 2026-11-12 動力クリスタル：光の帯が下から上（気球へ）流れる。物の中心からの高さで取る（回っても帯はずれない）
+                if (_FlowStrength > 0)
+                {
+                    float fy = (i.wp.y - unity_ObjectToWorld._m13) / max(_FlowSpacing, 1e-3) - _Time.y * _FlowSpeed / max(_FlowSpacing, 1e-3);
+                    half fd = abs(frac(fy) - 0.5) * 2;   // 帯のまん中で 1
+                    half fb = saturate(1 - (1 - fd) / max(_FlowWidth, 1e-3)); fb = fb * fb * (3 - 2 * fb);
+                    c = lerp(c, _FlowColor.rgb, fb * _FlowStrength);
+                }
 
                 fixed4 o = fixed4(c, 1);
                 UNITY_APPLY_FOG(i.fogCoord, o);

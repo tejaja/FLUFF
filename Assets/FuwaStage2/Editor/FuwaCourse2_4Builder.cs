@@ -1359,6 +1359,26 @@ public static class FuwaCourse2_4Builder
     static Transform coreT;
     public static float CrystalH = 6.6f, BoxY = 3.4f, CrystalGap = 0.8f, CrystalDown = 5f, CrystalW = 4.6f, CrystalHalf = 6.5f, CrystalSpin = -0.3f, FanSpin = 70f;
     const float CcMod = 0.1f; const int CcBig = 60, CcSmall = 12;
+    // 2026-11-12 動力クリスタルのまわりのキラキラ（FX_Star、ゆっくり上へ）
+    static void PowerCrystalSparkles(Transform holder, Vector3 localPos)
+    {
+        var go = new GameObject("PowerCrystalSparkles"); go.transform.SetParent(holder, false); go.transform.localPosition = localPos;
+        var ps = go.AddComponent<ParticleSystem>();
+        var mm = ps.main; mm.loop = true; mm.startLifetime = new ParticleSystem.MinMaxCurve(1.8f, 3.2f);
+        mm.startSize = new ParticleSystem.MinMaxCurve(0.35f, 0.7f); mm.startSpeed = new ParticleSystem.MinMaxCurve(0.1f, 0.4f);
+        mm.startRotation = new ParticleSystem.MinMaxCurve(0f, 6.283f); mm.simulationSpace = ParticleSystemSimulationSpace.World;
+        mm.startColor = new ParticleSystem.MinMaxGradient(new Color(0.85f, 0.97f, 1f), new Color(0.6f, 0.85f, 1f)); mm.maxParticles = 80; mm.gravityModifier = -0.03f;
+        var em = ps.emission; em.rateOverTime = 18;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(CrystalW + 2f, CrystalHalf * 2f, CrystalW + 2f);
+        var sol = ps.sizeOverLifetime; sol.enabled = true;
+        sol.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.25f, 1f), new Keyframe(0.7f, 0.8f), new Keyframe(1f, 0f)));
+        var col = ps.colorOverLifetime; col.enabled = true; var g = new Gradient();
+        g.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.2f), new GradientAlphaKey(1f, 0.7f), new GradientAlphaKey(0f, 1f) });
+        col.color = g;
+        var rot = ps.rotationOverLifetime; rot.enabled = true; rot.z = new ParticleSystem.MinMaxCurve(-1f, 1f);
+        var r = go.GetComponent<ParticleSystemRenderer>(); r.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/FX_Star.mat");
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+    }
     static void CloudBalloon(Transform core, System.Text.StringBuilder log)
     {
         var wf = root.Find("Gimmicks/BigWheel_Frame"); var wheel = wf ? wf.GetComponentsInChildren<Transform>(true).FirstOrDefault(x => x.name == "BigWheel_z" + WZ) : null;
@@ -1376,7 +1396,9 @@ public static class FuwaCourse2_4Builder
             // 2026-11-08 てじゃ「ちゃんと切れ目消して」→ 上下を1つのメッシュに（六角の柱＋上下のとがり、面ごとに平ら）
             var cr = new GameObject("PowerCrystal").transform; cr.SetParent(holder, false); cr.localPosition = new Vector3(0f, cMid, 0f);
             cr.gameObject.AddComponent<MeshFilter>().sharedMesh = CrystalMesh(CrystalW / 2f, cTop - cMid, cMid - cBot, "Power_Crystal");
-            cr.gameObject.AddComponent<MeshRenderer>().sharedMaterial = crystalMat;
+            // 2026-11-12 てじゃ「下のデカいクリスタル目立たせたい」「青のまま光とかで」→ 専用の材質（濃い青＋内から光る＋脈打つ＋光の帯が上へ流れる）
+            cr.gameObject.AddComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_4_PowerCrystal.mat") ?? crystalMat;
+            PowerCrystalSparkles(holder, cr.localPosition);
             AddGear(cr, CrystalSpin, 0f);   // ゆっくり回る（FuwaClockwork）
         }
         // 2026-11-08 てじゃ「こうなるとバルーンの下のギアはいらんな」→ 歯車箱なし。「下のプロペラいらんかも、穴うめて、ドームも球状に」→ 羽根もなし、首の輪の底はふさぐ
