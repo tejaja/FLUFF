@@ -125,7 +125,7 @@ public static class FuwaCourse2_4Builder
         TowerDriveRide(log);
         ClockworkFeeds(coreT);
         if (UseFactory) CloudFactory(coreT);
-        if (!UseTower) { CloudBalloon(coreT, log); SugarPipes(coreT, log); TankPipes(coreT, log); }
+        if (!UseTower) { CloudBalloon(coreT, log); SugarPipes(coreT, log); TankPipes(coreT, log); log.Append(" " + PipeSqueeze()); }
         // 2026-11-10 コースの長さが変わってでかい歯車が作られず、気球ごと消えたのに気づかなかった → 結果の先頭に出す
         if (!UseTower && !root.Find("Gimmicks/CloudBalloon")) { log.Insert(0, "!!! 気球・でかい歯車が作られていない（コンソールの [2–4] Feed を見る） "); Debug.LogError("[2–4] 気球が作られていない"); }
         ClockworkInstall(coreT); GuardInstall(coreT);
@@ -2178,6 +2178,38 @@ public static class FuwaCourse2_4Builder
         }
     }
 
+    // ===== ふくらみが管の輪（真ちゅうの帯・入口の輪）をくぐる位置（2026-11-13 てじゃ「ふくらみが黄色い輪っか通る時に輪っかが埋もれるのが変」）=====
+    //  各 FuwaSugarPipe の子の PipeBand / PipeInlet を道すじに当てて、道すじの上の位置（m）を squeezeAt に。くぐる太さ＝輪の半径より少し内
+    public static string PipeSqueeze()
+    {
+        root = GameObject.Find(RootName).transform;
+        var sb = new System.Text.StringBuilder("輪をくぐる：");
+        foreach (var sp in root.GetComponentsInChildren<FuwaSugarPipe>(true))
+        {
+            if (sp.pts == null || sp.pts.Length < 2 || sp.bulges == null || sp.bulges.Length == 0 || !sp.bulges[0]) continue;
+            var cum = new float[sp.pts.Length]; for (int i = 1; i < cum.Length; i++) cum[i] = cum[i - 1] + Vector3.Distance(sp.pts[i - 1], sp.pts[i]);
+            var at = new List<float>(); float bandR = 1e9f;
+            foreach (Transform c in sp.transform)
+            {
+                if (c.name != "PipeBand" && c.name != "PipeInlet") continue;
+                float best = 1e9f, bd = 0f;
+                for (int i = 1; i < sp.pts.Length; i++)
+                {
+                    var a = sp.pts[i - 1]; var ab = sp.pts[i] - a; float L = ab.magnitude; if (L < 1e-4f) continue;
+                    float t = Mathf.Clamp(Vector3.Dot(c.position - a, ab / L), 0f, L); float dist = Vector3.Distance(a + ab / L * t, c.position);
+                    if (dist < best) { best = dist; bd = cum[i - 1] + t; }
+                }
+                if (best < 0.3f) { at.Add(bd); bandR = Mathf.Min(bandR, c.lossyScale.x * 0.5f); }
+            }
+            float bulgeR = sp.bulges[0].lossyScale.x * 0.5f;
+            sp.squeezeAt = at.OrderBy(x => x).ToArray();
+            sp.squeezeR = bandR < 1e8f ? Mathf.Clamp((bandR - 0.03f) / bulgeR, 0.4f, 1f) : 1f;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp); EditorUtility.SetDirty(sp);
+            sb.Append(sp.name + " " + at.Count + "（×" + sp.squeezeR.ToString("F2") + "） ");
+        }
+        return sb.ToString();
+    }
+
     // シーンでタンクの管だけ作り直す
     public static string RebuildTankPipesOnly()
     {
@@ -2189,6 +2221,7 @@ public static class FuwaCourse2_4Builder
         var core = root.Find("MachineCore"); if (!core) return "MachineCore なし";
         var log = new System.Text.StringBuilder();
         TankPipes(core, log);
+        log.Append(" " + PipeSqueeze());
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return log.ToString();
     }

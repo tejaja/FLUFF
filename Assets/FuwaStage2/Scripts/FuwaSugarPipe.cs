@@ -35,6 +35,14 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     private Vector3[] _bs;
     [Tooltip("着いたら、気球の代わりにこの管へ色を渡す（2026-11-13 てじゃ「タンクで青球はとまっていい」：回るタンクの液は砂糖タンクで止まり、そこから白いふくらみが色を運ぶ）")]
     public FuwaSugarPipe handoff;
+    [Tooltip("管の輪（真ちゅうの帯）の、道すじの上の位置(m)。ここを通る時はふくらみが細くなってくぐる（2026-11-13 てじゃ「輪がふくらみに埋もれるのが変」）")]
+    public float[] squeezeAt;
+    [Tooltip("輪をくぐる時の太さ（ふだんの何倍）")]
+    public float squeezeR = 0.7f;
+    [Tooltip("輪の前後この長さ(m)で細くなる")]
+    public float squeezeW = 0.45f;
+    [Tooltip("出だし・着く手前のこの長さ(m)で、ふくらみがふくらむ／しぼむ（2026-11-13 てじゃ「最後についたときにパッと消えるのが気になる」）")]
+    public float growW = 0.4f, endW = 0.8f;
     private Color[] _bc;
     private bool[] _bcOn;
     private Quaternion _needleBase;
@@ -116,7 +124,25 @@ public class FuwaSugarPipe : UdonSharpBehaviour
                     if (dp.sqrMagnitude > 1e-6f) { near = fromStart / cornerW; look = Vector3.Slerp(dir, dp.normalized, 0.5f * (1f - near)); }
                 }
                 if (look.sqrMagnitude > 1e-6f) bulges[i].rotation = Quaternion.LookRotation(look.normalized, Mathf.Abs(look.normalized.y) > 0.9f ? Vector3.forward : Vector3.up);
-                if (_bs != null && i < _bs.Length) { Vector3 bs = _bs[i]; bulges[i].localScale = new Vector3(bs.x, bs.y, Mathf.Lerp(Mathf.Min(bs.x, bs.z), bs.z, near)); }
+                if (_bs != null && i < _bs.Length)
+                {
+                    Vector3 bs = _bs[i];
+                    float zl = Mathf.Lerp(Mathf.Min(bs.x, bs.z), bs.z, near);
+                    // 輪をくぐる：輪のある所でふくらみの太さが輪の内がわに収まるように細く（だ円体の、中心から x の所の太さ＝r√(1−(x/L)²)）。そのぶん少し長く
+                    float sq = 1f, L = zl * 0.5f;
+                    if (squeezeAt != null && L > 1e-4f)
+                        for (int q = 0; q < squeezeAt.Length; q++)
+                        {
+                            float x = d - squeezeAt[q];
+                            if (Mathf.Abs(x) < L) { float w = Mathf.Sqrt(Mathf.Max(1e-3f, 1f - x * x / (L * L))); sq = Mathf.Min(sq, squeezeR / w); }
+                        }
+                    // 出だし・着く手前：全体をふくらませる／しぼませる
+                    float g = 1f;
+                    if (growW > 0f) g = Mathf.Min(g, Mathf.Clamp01(d / growW));
+                    if (endW > 0f) g = Mathf.Min(g, Mathf.Clamp01((_total - d) / endW));
+                    g = g * g * (3f - 2f * g);
+                    bulges[i].localScale = new Vector3(bs.x * sq * g, bs.y * sq * g, zl * (1f + (1f - sq) * 0.4f) * g);
+                }
                 return;
             }
         }
