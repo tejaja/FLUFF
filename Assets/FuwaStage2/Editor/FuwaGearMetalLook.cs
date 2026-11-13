@@ -96,7 +96,7 @@ public static class FuwaGearMetalLook
 
     static readonly string[] PartBases = { "FanTest_Brass", "GearTest_Gear", "GearTest_GearLight", "GearTest_Axle" };
     // 2026-11-13 てじゃ「液体タンク周りは明るい黄色でいいかも」→ 回るタンク（SpinTank）の中は歯車も部品も暗くしない
-    static bool InTank(Transform t) { for (; t; t = t.parent) if (t.name == "SpinTank") return true; return false; }
+    static bool InTank(Transform t) { for (; t; t = t.parent) if (t.name.StartsWith("SpinTank")) return true; return false; }   // SpinTank_Carrier（下の遊星歯車3枚、てじゃ「3枚あるやつ」も）
     static string PartBase(string n) { foreach (var b in PartBases.OrderByDescending(x => x.Length)) if (n == b || n == b + "_PartDim") return b; return null; }
     static Material PartDimMat(Material src, string bn)
     {
