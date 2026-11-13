@@ -182,6 +182,7 @@ public static class FuwaCourse2_4Builder
         foreach (var r in moving) r.enabled = false;
         log.Append(" ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_4_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
         foreach (var r in moving) if (r) r.enabled = true;
+        log.Append(" " + FuwaCourse2_4Perf.Apply(root));   // 2026-11-13 静的バッチ・影（いちばん最後に）
         return "[2–4] " + log + " ゴール " + goalAt.ToString("F1") + " 範囲 " + lb.min.ToString("F0") + "〜" + lb.max.ToString("F0");
     }
 

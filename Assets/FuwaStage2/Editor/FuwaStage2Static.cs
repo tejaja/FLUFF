@@ -10,11 +10,15 @@ public static class FuwaStage2Static
 {
     // 自分の見た目を動かさないスクリプト
     static readonly HashSet<string> StillScripts = new HashSet<string> { "FuwaWater", "FuwaShallowWater", "FuwaHazard", "FuwaTopOut", "FuwaPlayerCatcher", "FuwaWindArea", "FuwaFireJet", "FuwaHeatSource", "FuwaFarShadows", "FuwaCourseLod" };
+    // 動かさない物を入れている欄（場所・向きの基準や、色を変える相手）。2026-11-13 2–4 のポンプの台・気球の首がこれで外れていた
+    // 自分の物（付いている物の下）は動かさず、欄に入れた物だけ動かすスクリプト（欄の物は Referenced で外れる）
+    static readonly HashSet<string> RefOnlyScripts = new HashSet<string> { "FuwaCloudFactory", "FuwaSugarPipe" };
+    static readonly HashSet<string> StillFields = new HashSet<string> { "FuwaCloudFactory.frame", "FuwaSugarPipe.balloon" };
 
     [MenuItem("FuwaCourse/ステージ2/ステージ2の動かない物を静的バッチにする")]
     static void Menu()
     {
-        foreach (var name in new[] { "FuwaCourse2_1", "FuwaCourse2_2" })
+        foreach (var name in new[] { "FuwaCourse2_1", "FuwaCourse2_2", "FuwaCourse2_4" })
         {
             var root = Resources.FindObjectsOfTypeAll<Transform>().FirstOrDefault(t => t && t.name == name && t.parent == null && t.gameObject.scene.IsValid());
             if (root) Apply(root);
@@ -46,6 +50,7 @@ public static class FuwaStage2Static
             if (!u || !u.gameObject.scene.IsValid() || StillScripts.Contains(u.GetType().Name)) continue;
             foreach (var f in u.GetType().GetFields(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance))
             {
+                if (StillFields.Contains(u.GetType().Name + "." + f.Name)) continue;
                 var v = f.GetValue(u);
                 if (v is System.Array a) { foreach (var e in a) Add(e); }
                 else Add(v);
@@ -66,7 +71,7 @@ public static class FuwaStage2Static
             for (var p = r.transform; p && p != root && !moves; p = p.parent)   // コースの親はエリアの出し入れで参照されるだけなので見ない
             {
                 if (refs.Contains(p) || p.GetComponent<Animator>() || p.GetComponent<Rigidbody>()) { moves = true; why[p.name] = why.TryGetValue(p.name, out var w) ? w + 1 : 1; }
-                else if (p.GetComponents<UdonSharp.UdonSharpBehaviour>().Any(u => u && !StillScripts.Contains(u.GetType().Name))) { moves = true; why[p.name] = why.TryGetValue(p.name, out var w) ? w + 1 : 1; }
+                else if (p.GetComponents<UdonSharp.UdonSharpBehaviour>().Any(u => u && !StillScripts.Contains(u.GetType().Name) && !RefOnlyScripts.Contains(u.GetType().Name))) { moves = true; why[p.name] = why.TryGetValue(p.name, out var w) ? w + 1 : 1; }
             }
             if (moves) continue;
             GameObjectUtility.SetStaticEditorFlags(r.gameObject, GameObjectUtility.GetStaticEditorFlags(r.gameObject) | StaticEditorFlags.BatchingStatic);   // ContributeGI は足さない（焼きに影響しない）
