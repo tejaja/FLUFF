@@ -1400,6 +1400,7 @@ public static class FuwaCourse2_4Builder
             cr.gameObject.AddComponent<MeshRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_4_PowerCrystal.mat") ?? crystalMat;
             PowerCrystalSparkles(holder, cr.localPosition);
             AddGear(cr, CrystalSpin, 0f);   // ゆっくり回る（FuwaClockwork）
+            CrystalMount(cr, holder, cMid);
         }
         // 2026-11-08 てじゃ「こうなるとバルーンの下のギアはいらんな」→ 歯車箱なし。「下のプロペラいらんかも、穴うめて、ドームも球状に」→ 羽根もなし、首の輪の底はふさぐ
         // 首の輪（動かない）：パイプはこの横につながる
@@ -1444,6 +1445,96 @@ public static class FuwaCourse2_4Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); FuwaStage2WaterTest.NoSync(cb);
         balloon = cb;
         log.Append(" バルーン：球 半径 " + BalloonR + " ");
+    }
+    // ===== 動力クリスタルの金具（2026-11-13 てじゃ「ちゃんと金具とかで固定しよう」）=====
+    //  でかい歯車にはつけない（11-08「歯車に刺さってる感じじゃなく、浮いたクリスタルのまわりにギア」）→ 気球の首からつるす
+    //  クリスタルの子（いっしょにゆっくり回る）：肩の六角の帯×2、とんがりをつかむ爪×6×2、帯どうしをつなぐ柱×3、上下の帽子、上の軸、下の飾りのとんがり
+    //  holder の子（動かない）：首の底の下の受け金具（軸がささる）
+    public static float MountBandH = 0.44f, MountBandT = 0.22f, MountProngW = 0.24f, MountProngT = 0.12f, MountCapR = 0.75f, MountShaftR = 0.3f;
+    static void CrystalMount(Transform cr, Transform holder, float cMid)
+    {
+        float r = CrystalW / 2f, tip = r * 1.6f, yT = CrystalHalf - tip;   // CrystalMesh と同じ（上下同じ長さ）
+        var mt = new GameObject("CrystalMount").transform; mt.SetParent(cr, false);
+        // 肩の六角の帯（RingMesh の n=6 は 0° に角 → クリスタルの角は 30°+60k なので −30° 回す）
+        var band = RingMesh(r + 0.03f, r + 0.03f + MountBandT, -MountBandH / 2f, MountBandH / 2f, 6, "Power_MountBand");
+        foreach (float s in new[] { 1f, -1f })
+        {
+            var b = new GameObject("MountBand"); b.transform.SetParent(mt, false); b.transform.localPosition = new Vector3(0f, s * yT, 0f); b.transform.localRotation = Quaternion.Euler(0f, -30f, 0f);
+            b.AddComponent<MeshFilter>().sharedMesh = band; b.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        }
+        // 上下の帽子（とんがりの先をかぶせる）：帽子の下のはしでクリスタルの半径が帽子より少し小さい所まで
+        float capLen = tip * (MountCapR - 0.12f) / r;   // とがりの先からこの長さの所でクリスタルの半径 = 帽子の半径 − 0.12
+        var cap = RingMesh(0f, MountCapR, -capLen, 0.3f, 12, "Power_MountCap");
+        var capBand = RingMesh(MountCapR - 0.02f, MountCapR + 0.08f, -capLen, -capLen + 0.18f, 12, "Power_MountCapBand");
+        foreach (float s in new[] { 1f, -1f })
+        {
+            var c = new GameObject("MountCap"); c.transform.SetParent(mt, false); c.transform.localPosition = new Vector3(0f, s * CrystalHalf, 0f); c.transform.localRotation = s > 0f ? Quaternion.identity : Quaternion.Euler(180f, 0f, 0f);
+            c.AddComponent<MeshFilter>().sharedMesh = cap; c.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+            var cb = new GameObject("MountCapBand"); cb.transform.SetParent(c.transform, false);
+            cb.AddComponent<MeshFilter>().sharedMesh = capBand; cb.AddComponent<MeshRenderer>().sharedMaterial = cwDark;
+        }
+        // 爪：とがりの稜線にそって、帯の上から帽子の下まで（宝石の爪留め）
+        for (int k = 0; k < 6; k++)
+        {
+            float a = (k * 60f + 30f) * Mathf.Deg2Rad; var rad = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            foreach (float s in new[] { 1f, -1f })
+            {
+                Vector3 p0 = rad * r + new Vector3(0f, s * yT, 0f), p1 = new Vector3(0f, s * CrystalHalf, 0f);
+                var d = (p1 - p0).normalized; var n = (rad - Vector3.Dot(rad, d) * d).normalized;
+                float t0 = MountBandH / 2f / tip, t1 = 1f - (capLen - 0.1f) / tip;   // 帯の上のはし〜帽子の中
+                Vector3 a0 = Vector3.Lerp(p0, p1, t0), a1 = Vector3.Lerp(p0, p1, t1);
+                var pr = GameObject.CreatePrimitive(PrimitiveType.Cube); pr.name = "MountProng"; Object.DestroyImmediate(pr.GetComponent<Collider>());
+                pr.transform.SetParent(mt, false); pr.transform.localPosition = (a0 + a1) / 2f + n * (MountProngT / 2f);
+                pr.transform.localRotation = Quaternion.LookRotation(d, n); pr.transform.localScale = new Vector3(MountProngW, MountProngT, (a1 - a0).magnitude);
+                pr.GetComponent<Renderer>().sharedMaterial = cwBrass;
+            }
+        }
+        // 帯どうしをつなぐ柱（角の外、1つおきに3本。でかい歯車の穴 BoreR の内がわを通る）
+        for (int k = 0; k < 6; k += 2)
+        {
+            float a = (k * 60f + 30f) * Mathf.Deg2Rad; var rad = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            var rod = GameObject.CreatePrimitive(PrimitiveType.Cylinder); rod.name = "MountRod"; Object.DestroyImmediate(rod.GetComponent<Collider>());
+            rod.transform.SetParent(mt, false); rod.transform.localPosition = rad * (r + 0.03f + MountBandT / 2f); rod.transform.localScale = new Vector3(0.14f, yT, 0.14f);
+            rod.GetComponent<Renderer>().sharedMaterial = cwBrass;
+        }
+        // 上の軸：帽子の上から気球の首の底の受け金具まで
+        float collarBot = CollarY0 + 0.06f - 0.025f - cMid;   // CollarBottom の下の面（クリスタルの local）
+        float sh0 = CrystalHalf + 0.3f, sh1 = collarBot - 0.2f;
+        var shaft = GameObject.CreatePrimitive(PrimitiveType.Cylinder); shaft.name = "MountShaft"; Object.DestroyImmediate(shaft.GetComponent<Collider>());
+        shaft.transform.SetParent(mt, false); shaft.transform.localPosition = new Vector3(0f, (sh0 + sh1) / 2f, 0f); shaft.transform.localScale = new Vector3(2f * MountShaftR, (sh1 - sh0) / 2f, 2f * MountShaftR);
+        shaft.GetComponent<Renderer>().sharedMaterial = cwAxle;
+        // 下の飾りのとんがり（帽子の先から）
+        {
+            var v = new List<Vector3>(); var t = new List<int>(); const int n = 12; float y0 = -CrystalHalf - 0.3f, y1 = y0 - 1.1f, rr = MountCapR * 0.8f;
+            for (int j = 0; j < n; j++)
+            {
+                float a0 = 2f * Mathf.PI * j / n, a1 = 2f * Mathf.PI * (j + 1) / n;
+                Vector3 q0 = new Vector3(Mathf.Cos(a0) * rr, y0, Mathf.Sin(a0) * rr), q1 = new Vector3(Mathf.Cos(a1) * rr, y0, Mathf.Sin(a1) * rr);
+                Tri(v, t, q0, q1, new Vector3(0f, y1, 0f), (q0 + q1) * 0.5f - new Vector3(0f, y0 + 0.3f, 0f));
+                Tri(v, t, q0, q1, new Vector3(0f, y0, 0f), Vector3.up);
+            }
+            var fin = new GameObject("MountFinial"); fin.transform.SetParent(mt, false);
+            fin.AddComponent<MeshFilter>().sharedMesh = SaveMesh("Power_MountFinial", v, t); fin.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        }
+        // 受け金具（動かない、holder の子）：首の底から下へ、軸がささる筒＋つば
+        float hy1 = CollarY0 + 0.06f - 0.025f, hy0 = hy1 - 0.75f;
+        var hs = new GameObject("CrystalHanger"); hs.transform.SetParent(holder, false);
+        hs.AddComponent<MeshFilter>().sharedMesh = RingMesh(MountShaftR + 0.02f, MountShaftR + 0.38f, hy0, hy1, 16, "Power_Hanger"); hs.AddComponent<MeshRenderer>().sharedMaterial = cwDark;
+        var fl = new GameObject("CrystalHangerFlange"); fl.transform.SetParent(holder, false);
+        fl.AddComponent<MeshFilter>().sharedMesh = RingMesh(MountShaftR + 0.02f, MountShaftR + 0.62f, hy0, hy0 + 0.16f, 16, "Power_HangerFlange"); fl.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        foreach (var x in mt.GetComponentsInChildren<Renderer>()) x.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+    }
+    // 今のシーンの2–4に金具だけ足し直す（丸ごと作り直さずに）
+    public static string RebuildCrystalMount()
+    {
+        root = GameObject.Find("FuwaCourse2_4")?.transform; if (!root) return "2–4 がない";
+        var holder = root.Find("Gimmicks/CloudBalloon"); var cr = holder ? holder.Find("PowerCrystal") : null; if (!cr) return "PowerCrystal がない";
+        foreach (var nm in new[] { "CrystalHanger", "CrystalHangerFlange" }) { var o = holder.Find(nm); if (o) Object.DestroyImmediate(o.gameObject); }
+        var om = cr.Find("CrystalMount"); if (om) Object.DestroyImmediate(om.gameObject);
+        CwMats();
+        CrystalMount(cr, holder, cr.localPosition.y);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+        return "ok";
     }
     // 上下にとがった六角のクリスタル（中心 0、上 up・下 dn まで、半径 r）。とがりの長さは半径の 1.6 倍
     static Mesh CrystalMesh(float r, float up, float dn, string name)
