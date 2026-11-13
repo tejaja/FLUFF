@@ -2156,7 +2156,7 @@ public static class FuwaCourse2_4Builder
             }
             var inlet = GameObject.CreatePrimitive(PrimitiveType.Cylinder); inlet.name = "PipeInlet"; Object.DestroyImmediate(inlet.GetComponent<Collider>());
             inlet.transform.SetParent(pipeT, false); inlet.transform.localPosition = Vector3.Lerp(pts[pts.Length - 2], pts[pts.Length - 1], 0.75f); inlet.transform.localRotation = Quaternion.FromToRotation(Vector3.up, (pts[pts.Length - 1] - pts[pts.Length - 2]).normalized); inlet.transform.localScale = new Vector3(2f * R + 0.14f, 0.06f, 2f * R + 0.14f); inlet.GetComponent<Renderer>().sharedMaterial = cwBrass;
-            // 液の色のふくらみ：この管 → 砂糖タンクのまん中 → 白い管の残り（気球まで）
+            // 液の色のふくらみ：この管 → 砂糖タンクのまん中で止まる（そこから白い管が色を運ぶ）
             var bulgeM = FuwaStage2WaterTest.ToonMat("Course2_4_TankBulge" + k, Color.Lerp(col, Color.white, 0.15f));
             var bulges = new Transform[4];
             for (int i = 0; i < bulges.Length; i++)
@@ -2165,9 +2165,10 @@ public static class FuwaCourse2_4Builder
                 b.transform.SetParent(pipeT, false); b.transform.localScale = new Vector3(2f * R + 0.16f, 2f * R + 0.16f, 2f * R + 0.4f); b.GetComponent<Renderer>().sharedMaterial = bulgeM;
                 b.gameObject.SetActive(false); bulges[i] = b.transform;
             }
-            var full = pts.Select(x => root.TransformPoint(x)).Concat(sugar[ti].pts.Skip(1)).ToArray();
+            // 2026-11-13 てじゃ「タンクで青球はとまっていい」→ 液のふくらみは砂糖タンクのまん中で止まる。色は白い管（handoff）がタンクから気球へ運ぶ
+            var full = pts.Select(x => root.TransformPoint(x)).Concat(sugar[ti].pts.Skip(1).Take(1)).ToArray();
             var sp2 = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSugarPipe>(pipeT.gameObject);
-            sp2.pts = full; sp2.bulges = bulges; sp2.speed = 3.5f; sp2.endCount = 8; sp2.endPuff = null; sp2.balloon = balloonC; sp2.glows = new Renderer[0];
+            sp2.pts = full; sp2.bulges = bulges; sp2.speed = 3.5f; sp2.endCount = 8; sp2.endPuff = null; sp2.balloon = balloonC; sp2.glows = new Renderer[0]; sp2.handoff = sugar[ti];
             sp2.autoInterval = 360f / Mathf.Max(1f, sunRate);   // タンク1回転ごと
             sp2.cloudColor = col;   // 気球から出る雲もこの色（うすく）
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp2); FuwaStage2WaterTest.NoSync(sp2);

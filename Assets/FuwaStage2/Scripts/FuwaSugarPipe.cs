@@ -30,6 +30,13 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     [Tooltip("着いた時に気球から出る雲の色（2026-11-10、色つきタンクの管はその液の色）")]
     public Color cloudColor = Color.white;
     public float needleKick = 70f;
+    [Tooltip("角の手前・あとのこの長さ(m)で、ふくらみの向きを次の管へなめらかに回し、長さを縮めて丸くする（2026-11-13 てじゃ「角を通る時に青い◯が一瞬みえる」：細長いふくらみが角の玉からはみ出ていた）")]
+    public float cornerW = 0.5f;
+    private Vector3[] _bs;
+    [Tooltip("着いたら、気球の代わりにこの管へ色を渡す（2026-11-13 てじゃ「タンクで青球はとまっていい」：回るタンクの液は砂糖タンクで止まり、そこから白いふくらみが色を運ぶ）")]
+    public FuwaSugarPipe handoff;
+    private Color[] _bc;
+    private bool[] _bcOn;
     private Quaternion _needleBase;
     private float _autoT;
 
@@ -51,6 +58,9 @@ public class FuwaSugarPipe : UdonSharpBehaviour
         _total = n > 0 ? _cum[n - 1] : 0f;
         int b = bulges != null ? bulges.Length : 0;
         _at = new float[b];
+        _bs = new Vector3[b];
+        _bc = new Color[b]; _bcOn = new bool[b];
+        for (int i = 0; i < b; i++) if (bulges[i] != null) _bs[i] = bulges[i].localScale;
         if (pop != null) _popScale = pop.localScale;
         if (needle != null) _needleBase = needle.localRotation;
         int g = glows != null ? glows.Length : 0;
@@ -65,7 +75,17 @@ public class FuwaSugarPipe : UdonSharpBehaviour
         if (_at == null) return;
         _glow = 1f;
         for (int i = 0; i < _at.Length; i++)
-            if (_at[i] < 0f && bulges[i] != null) { _at[i] = 0f; bulges[i].gameObject.SetActive(true); Place(i); return; }
+            if (_at[i] < 0f && bulges[i] != null) { _at[i] = 0f; _bcOn[i] = false; bulges[i].gameObject.SetActive(true); Place(i); return; }
+    }
+
+    // ほかの管から色を受け取って、タンク（popAt）から流す。着いたら気球からその色の雲
+    public void SendColored(Color c)
+    {
+        if (_at == null) return;
+        _glow = 1f; _pop = 1f;
+        for (int i = 0; i < _at.Length; i++)
+            if (_at[i] < 0f && bulges[i] != null) { _at[i] = popAt > 0f ? popAt : 0f; _bc[i] = c; _bcOn[i] = true; bulges[i].gameObject.SetActive(true); Place(i); return; }
+        if (balloon != null) balloon.PuffColor(c);   // あいているふくらみがない時は、色だけ先に
     }
 
     private void Place(int i)
@@ -80,7 +100,23 @@ public class FuwaSugarPipe : UdonSharpBehaviour
                 float t = seg > 1e-4f ? Mathf.Clamp01((d - _cum[k - 1]) / seg) : 1f;
                 bulges[i].position = Vector3.Lerp(pts[k - 1], pts[k], t);
                 Vector3 dir = pts[k] - pts[k - 1];
-                if (dir.sqrMagnitude > 1e-6f) bulges[i].rotation = Quaternion.LookRotation(dir.normalized, Mathf.Abs(dir.normalized.y) > 0.9f ? Vector3.forward : Vector3.up);
+                if (dir.sqrMagnitude <= 1e-6f) return;
+                dir = dir.normalized;
+                // 角の近く：向きを角の前後の管の間へ回し、長さを縮める（角のまん中で丸＝向きは前後の半分）
+                Vector3 look = dir; float near = 1f;
+                float toEnd = _cum[k] - d, fromStart = d - _cum[k - 1];
+                if (cornerW > 0f && k < n - 1 && toEnd < cornerW)
+                {
+                    Vector3 dn = pts[k + 1] - pts[k];
+                    if (dn.sqrMagnitude > 1e-6f) { near = toEnd / cornerW; look = Vector3.Slerp(dir, dn.normalized, 0.5f * (1f - near)); }
+                }
+                else if (cornerW > 0f && k > 1 && fromStart < cornerW)
+                {
+                    Vector3 dp = pts[k - 1] - pts[k - 2];
+                    if (dp.sqrMagnitude > 1e-6f) { near = fromStart / cornerW; look = Vector3.Slerp(dir, dp.normalized, 0.5f * (1f - near)); }
+                }
+                if (look.sqrMagnitude > 1e-6f) bulges[i].rotation = Quaternion.LookRotation(look.normalized, Mathf.Abs(look.normalized.y) > 0.9f ? Vector3.forward : Vector3.up);
+                if (_bs != null && i < _bs.Length) { Vector3 bs = _bs[i]; bulges[i].localScale = new Vector3(bs.x, bs.y, Mathf.Lerp(Mathf.Min(bs.x, bs.z), bs.z, near)); }
                 return;
             }
         }
@@ -122,7 +158,8 @@ public class FuwaSugarPipe : UdonSharpBehaviour
             {
                 _at[i] = -1f; bulges[i].gameObject.SetActive(false);
                 if (endPuff != null) endPuff.Emit(endCount);
-                if (balloon != null) balloon.PuffColor(cloudColor);
+                if (handoff != null) handoff.SendColored(cloudColor);
+                else if (balloon != null) balloon.PuffColor(_bcOn[i] ? _bc[i] : cloudColor);
                 continue;
             }
             Place(i);
