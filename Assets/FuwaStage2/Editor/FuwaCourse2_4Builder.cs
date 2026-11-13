@@ -1453,11 +1453,9 @@ public static class FuwaCourse2_4Builder
             float y = BalloonR + BalloonR * Mathf.Sin(lat * Mathf.Deg2Rad), yn = Mathf.Abs(lat) < 1f ? BalloonR : y + 0.11f;   // 帯の中でいちばん太い所
             float r = Mathf.Sqrt(Mathf.Max(0f, BalloonR * BalloonR - (yn - BalloonR) * (yn - BalloonR)));
             var hp = new GameObject("BalloonHoop"); hp.transform.SetParent(body, false);
-            hp.AddComponent<MeshFilter>().sharedMesh = RingMesh(r - 0.05f, r + BalloonNetOff + 0.07f, y - 0.11f, y + 0.11f, 64, "Balloon_Hoop" + (int)lat); hp.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+            hp.AddComponent<MeshFilter>().sharedMesh = RingMesh(r - 0.05f, r + 0.17f, y - 0.11f, y + 0.11f, 64, "Balloon_Hoop" + (int)lat); hp.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;   // 太さは前と同じ（網の浮きと切りはなした）
         }
-        var net = new GameObject("BalloonNet"); net.transform.SetParent(body, false);
-        net.AddComponent<MeshFilter>().sharedMesh = LatheRibbons(prof, BalloonNetOff, 0.08f, 8, "Balloon_Net");   // 2026-11-10 てじゃ「気球の側面がたまにちらつく」：3.5cm 浮かせただけだと遠くで深度が足りず Z ファイト（近クリップ 0.01）→ 10cm
-        net.AddComponent<MeshRenderer>().sharedMaterial = cwAxle;
+        BalloonNet(body, prof, sm, balM);
         // てっぺんの煙突（真ちゅうの輪＋中のふた）
         float topY = prof[prof.Length - 1].y;
         var chim = new GameObject("BalloonChimney"); chim.transform.SetParent(body, false);
@@ -1573,7 +1571,43 @@ public static class FuwaCourse2_4Builder
         return SaveMesh(name, v, t);
     }
     static FuwaCloudBalloon balloon;
-    public static float BalloonNetOff = 0.1f;
+    // 2026-11-10 てじゃ「気球の側面がたまにちらつく」：網を 3.5cm 浮かせただけだと遠くで Z ファイト → 10cm
+    // 2026-11-13 てじゃ「気球の黒いスジがだいぶ浮いてるのきになる」「そもそも模様にするとか」→ 網の形はやめて、気球の表面の模様（_MainTex）に黒いスジ 8 本
+    //  気球の皮に uv（u＝まわりの角度、v＝高さ）を入れて、たて線のテクスチャ（u だけ、くり返し）。てっぺん・底へ向かって線は細くなる（経線と同じ）
+    public static int BalloonNetCount = 8; public static float BalloonNetW = 0.08f;   // 線の太さ（いちばん太い所で m）
+    const string BalloonNetTex = "Assets/FuwaStage2/Textures/Balloon_NetLines.png";
+    static void BalloonNet(Transform body, Vector2[] prof, Mesh skinMesh, Material skinMat)
+    {
+        var old = body.Find("BalloonNet"); if (old) Object.DestroyImmediate(old.gameObject);
+        // 皮の uv：LatheMesh の並び（j＝まわり 0..n、i＝プロファイル）
+        int m = prof.Length, n = skinMesh.vertexCount / m - 1;
+        var uv = new Vector2[skinMesh.vertexCount];
+        for (int idx = 0; idx < uv.Length; idx++) { int j = idx / m, i = idx % m; uv[idx] = new Vector2((float)j / n, (float)i / (m - 1)); }
+        skinMesh.uv = uv; EditorUtility.SetDirty(skinMesh);
+        // たて線のテクスチャ：いちばん太い所の円周で BalloonNetW の太さ。ふちは 1px ぼかす
+        float maxR = prof.Max(q => q.x); int W = 2048; float lineFrac = BalloonNetW / (2f * Mathf.PI * maxR), half = lineFrac * W * 0.5f;
+        var lineCol = cwAxle.GetColor("_Color"); var tex = new Texture2D(W, 4, TextureFormat.RGBA32, false);
+        for (int x = 0; x < W; x++)
+        {
+            float best = 1e9f; for (int k = 0; k <= BalloonNetCount; k++) best = Mathf.Min(best, Mathf.Abs(x + 0.5f - (float)k / BalloonNetCount * W));
+            float a = Mathf.Clamp01(half + 0.5f - best);   // 線の中 1、ふち 1px で 0 へ
+            var c = Color.Lerp(Color.white, lineCol, a); for (int y = 0; y < 4; y++) tex.SetPixel(x, y, c);
+        }
+        if (!AssetDatabase.IsValidFolder("Assets/FuwaStage2/Textures")) AssetDatabase.CreateFolder("Assets/FuwaStage2", "Textures");
+        System.IO.File.WriteAllBytes(BalloonNetTex, tex.EncodeToPNG()); Object.DestroyImmediate(tex);
+        AssetDatabase.ImportAsset(BalloonNetTex);
+        var ti = (TextureImporter)AssetImporter.GetAtPath(BalloonNetTex);
+        ti.wrapModeU = TextureWrapMode.Repeat; ti.wrapModeV = TextureWrapMode.Clamp; ti.mipmapEnabled = true; ti.anisoLevel = 8; ti.filterMode = FilterMode.Trilinear; ti.npotScale = TextureImporterNPOTScale.None; ti.SaveAndReimport();
+        skinMat.SetTexture("_MainTex", AssetDatabase.LoadAssetAtPath<Texture2D>(BalloonNetTex)); EditorUtility.SetDirty(skinMat);
+    }
+    public static string RebuildBalloonNet()
+    {
+        root = GameObject.Find(RootName).transform; CwMats();
+        var body = root.Find("Gimmicks/CloudBalloon/BalloonBody"); if (!body) return "気球がない";
+        var skin = body.Find("BalloonSkin");
+        BalloonNet(body, BalloonProf, skin.GetComponent<MeshFilter>().sharedMesh, skin.GetComponent<MeshRenderer>().sharedMaterial);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene); return "ok";
+    }
     public static float CollarR0 = 1.7f, CollarR1 = 2.3f, CollarY0 = 5.0f, CollarY1 = 6.4f, PipeInY = 5.7f, BalloonR = 5.2f;
     // 球のバルーン：首の輪のてっぺんで球の半径が輪の外より少し内（2.2m）になる高さに球の底
     static float BalloonY => CollarY1 - (BalloonR - Mathf.Sqrt(BalloonR * BalloonR - 2.2f * 2.2f));
