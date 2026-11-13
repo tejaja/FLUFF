@@ -181,7 +181,8 @@ public static class FuwaCourse2_5Builder
         if (warpA && warpAin) Link(warpA, warpAin, iw, null, true, true);
         if (warpW && warpWin) Link(warpW, warpWin, i3, null, true, true);
         if (warpB && warpBin) Link(warpB, warpBin, gc, null, true, true);
-        GiantMushroom(new Vector3(low.max.x + 10f, -4f, low.center.z + 6f));
+        // 2026-11-13 てじゃ「ここにきのこ石像をおこう」（①の島の上、石の道と上の段と巣の回廊にかこまれた広場）「サイズ調整いるかも」
+        GiantMushroom(new Vector3(MushroomAt.x, i1Top, MushroomAt.y), MushroomH, MushroomCapR, false);
         DecoIslets();
         log.Append("下の段 2・上の段 2・空洞のゴール ");
         return goalP;
@@ -216,7 +217,7 @@ public static class FuwaCourse2_5Builder
     {
         var b = LocalBounds(island, root);
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
-        float top = b.min.y - 0.55f;
+        float top = b.min.y - 0.55f; i1Top = top;
         Vector3 size = new Vector3(Mathf.Max(b.size.x + 2f * margin, CavernSize.x + 4f), 1f, Mathf.Max(b.size.z + 2f * margin, CavernSize.z + 4f));
         Box(rk, "Top", new Vector3(b.center.x, top - 0.5f, b.center.z), size, moss, pathLayer);
         // 空洞
@@ -236,21 +237,27 @@ public static class FuwaCourse2_5Builder
     }
 
     // シンボルの巨大なキノコの石像（てじゃ「どっかにデカいシンボルてきな石像がほしい、キノコ型とか」）：下の段の右に、自分の浮島の上に立つ。上の段の高さまで届く
-    public static float MushroomH = 30f, MushroomCapR = 11f;
-    static void GiantMushroom(Vector3 baseP)
+    public static float MushroomH = 20f, MushroomCapR = 7.5f;   // 前は 30／11（自分の浮島の上）。①の島の広場に移して小さく
+    public static Vector2 MushroomAt = new Vector2(14.6f, 30f);  // コースの座標（x, z）
+    static float i1Top;
+    static void GiantMushroom(Vector3 baseP, float MushroomH, float MushroomCapR, bool islet)
     {
         var g = new GameObject("GiantMushroom").transform; g.SetParent(islandsT, false); g.localPosition = baseP;
-        var isle = Box(g, "IsleTop", new Vector3(0f, -0.5f, 0f), new Vector3(16f, 1f, 16f), moss, 0);
-        var u1 = Box(g, "IsleUnder", new Vector3(0f, -5f, 0f), new Vector3(13f, 8f, 13f), underM, 0); Object.DestroyImmediate(u1.GetComponent<Collider>());
-        var u2 = Box(g, "IsleUnder2", new Vector3(0f, -11f, 0f), new Vector3(7f, 6f, 7f), underM, 0); Object.DestroyImmediate(u2.GetComponent<Collider>());
-        var stem = FuwaPortalTest.Prim(PrimitiveType.Cylinder, g, "Stem", new Vector3(0f, MushroomH * 0.4f, 0f), new Vector3(4.2f, MushroomH * 0.4f, 4.2f), stone);
-        var ring = FuwaPortalTest.Prim(PrimitiveType.Cylinder, g, "StemRing", new Vector3(0f, MushroomH * 0.62f, 0f), new Vector3(6f, 0.5f, 6f), terra);
+        if (islet)
+        {
+            Box(g, "IsleTop", new Vector3(0f, -0.5f, 0f), new Vector3(16f, 1f, 16f), moss, 0);
+            var u1 = Box(g, "IsleUnder", new Vector3(0f, -5f, 0f), new Vector3(13f, 8f, 13f), underM, 0); Object.DestroyImmediate(u1.GetComponent<Collider>());
+            var u2 = Box(g, "IsleUnder2", new Vector3(0f, -11f, 0f), new Vector3(7f, 6f, 7f), underM, 0); Object.DestroyImmediate(u2.GetComponent<Collider>());
+        }
+        else Box(g, "Base", new Vector3(0f, 0.3f, 0f), new Vector3(MushroomCapR * 0.9f, 0.6f, MushroomCapR * 0.9f), stone, 0);   // 台座
+        var stem = FuwaPortalTest.Prim(PrimitiveType.Cylinder, g, "Stem", new Vector3(0f, MushroomH * 0.4f, 0f), new Vector3(MushroomCapR * 0.38f, MushroomH * 0.4f, MushroomCapR * 0.38f), stone);
+        var ring = FuwaPortalTest.Prim(PrimitiveType.Cylinder, g, "StemRing", new Vector3(0f, MushroomH * 0.62f, 0f), new Vector3(MushroomCapR * 0.55f, 0.5f, MushroomCapR * 0.55f), terra);
         var cap = FuwaPortalTest.Prim(PrimitiveType.Sphere, g, "Cap", new Vector3(0f, MushroomH * 0.85f, 0f), new Vector3(2f * MushroomCapR, MushroomH * 0.32f, 2f * MushroomCapR), terra);
         var under = FuwaPortalTest.Prim(PrimitiveType.Cylinder, g, "Gills", new Vector3(0f, MushroomH * 0.78f, 0f), new Vector3(2f * MushroomCapR * 0.92f, 0.3f, 2f * MushroomCapR * 0.92f), stone);
         for (int i = 0; i < 6; i++)
         {
             float a = i * 60f * Mathf.Deg2Rad;
-            FuwaPortalTest.Prim(PrimitiveType.Sphere, g, "Spot", new Vector3(Mathf.Cos(a) * MushroomCapR * 0.55f, MushroomH * 0.95f, Mathf.Sin(a) * MushroomCapR * 0.55f), new Vector3(2.4f, 1.2f, 2.4f), stone);
+            FuwaPortalTest.Prim(PrimitiveType.Sphere, g, "Spot", new Vector3(Mathf.Cos(a) * MushroomCapR * 0.55f, MushroomH * 0.95f, Mathf.Sin(a) * MushroomCapR * 0.55f), new Vector3(MushroomCapR * 0.22f, MushroomCapR * 0.11f, MushroomCapR * 0.22f), stone);
         }
     }
 
