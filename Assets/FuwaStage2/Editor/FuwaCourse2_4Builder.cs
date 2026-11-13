@@ -929,6 +929,7 @@ public static class FuwaCourse2_4Builder
     public static float HubR = 4.4f, BoreR = 3.3f;   // 2026-11-08 クリスタルを太くしたので穴も広げた
     public static float WheelRatio = 0f;   // 0 なら自動で決める
     public static float WheelRatioUsed;
+    public static Color HoleGearCol = new Color(0.62f, 0.65f, 0.71f), HoleGearBronzeCol = new Color(0.78f, 0.6f, 0.36f);
     // 2026-11-13 てじゃ「一番下の層のギア、デカイギアみたいに中を抜きたい」「小さいのは無理にやらなくていい」
     //  → なか歯車は IdlerWinMinZ 枚以上なら でかい歯車と同じく スポーク6本の窓あき（スポークは IdlerSpokeDeg 度、こしきは IdlerHubR）。小さいのは今までどおり
     public static int IdlerWinMinZ = 18, IdlerSpokes = 6; public static float IdlerSpokeDeg = 18f, IdlerHubR = 0.9f;
@@ -2465,8 +2466,9 @@ public static class FuwaCourse2_4Builder
         for (int i = 1; i < zs.Length; i++) gs.Add(FuwaGearTest.Mesh2(gs[i - 1], "HG" + i + "_z" + zs[i], zs[i], 90f, PM));
         // 2026-11-08 てじゃ「穴が見えづらい」：明るいグレーだと下の白い雲と溶ける → 歯車は濃い色、穴の断面（内がわの壁）はほぼ黒
         //  （穴のふちの黄色と黒のしましまは「ちょとくどい」で外した。WindowLip は残す）
-        var darkM = FuwaGearTest.Mat("Course2_4_HoleGear", new Color(0.3f, 0.32f, 0.37f));
-        var bronzeM = FuwaGearTest.Mat("Course2_4_HoleGearBronze", new Color(0.48f, 0.36f, 0.24f));
+        // 2026-11-13 てじゃ「乗れるとこで濃いのあるからそこを薄くしよ」（乗れない歯車を暗くしたので、乗れる歯車は明るく）→ 乗る歯車と同じ明るいグレー・明るい真ちゅう。穴の断面の黒はそのまま
+        var darkM = FuwaGearTest.Mat("Course2_4_HoleGear", HoleGearCol);
+        var bronzeM = FuwaGearTest.Mat("Course2_4_HoleGearBronze", HoleGearBronzeCol);
         var cutM = FuwaGearTest.Mat("Course2_4_HoleCut", new Color(0.07f, 0.07f, 0.09f));
         for (int i = 0; i < gs.Count; i++)
         {
