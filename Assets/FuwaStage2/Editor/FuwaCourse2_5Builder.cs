@@ -103,7 +103,7 @@ public static class FuwaCourse2_5Builder
 
     // ================= 2026-11-13 夜 練り直し 3（てじゃ）：下の段 ①②（右へのびる）→ ワープ → 上の段 ③④（①②の上空、向きを変える）→ ワープ → ①の島の中の空洞（ゴール）=====
     public static int Layout = 4;
-    public static float UpperUp = 22f, UpperHeading = 60f;
+    public static float UpperUp = 22f, UpperHeading = 60f, UpperCrossBack = 22f;   // 上の段のスタートを、交わる所から手前へ
     public static Vector3 CavernSize = new Vector3(16f, 7f, 16f);
 
     static Vector3 BuildV4()
@@ -129,11 +129,14 @@ public static class FuwaCourse2_5Builder
         IslandRock(i2, 3f, false);
         // ---- 上の段（①②の上、向きを変える）----
         var low = LocalBounds(islandsT, root);
-        P = new Vector3(low.min.x + 6f, low.max.y + UpperUp, low.min.z + 6f); th = UpperHeading;
+        // てじゃ「上の二島、下の二島とクロスしたかんじのほうがいい」：上から見て X 字。下の段のスタート→ワープA の向き d に直角（n）で、まん中の上を横切る
+        { var a0 = Vector3.zero; var a1 = root.InverseTransformPoint(warpA.position); var d = a1 - a0; d.y = 0f; d.Normalize(); var n = new Vector3(d.z, 0f, -d.x); if (n.z < 0f) n = -n;
+          var mid = (a0 + a1) / 2f; P = new Vector3(mid.x, low.max.y + UpperUp, mid.z) - n * UpperCrossBack; th = Mathf.Atan2(n.z, n.x) * Mathf.Rad2Deg; }
+        float upTh = th;
         var i3 = Island("I3_Gravity");
         Transform warpAin = null;
         Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(1.5f); ArchGate(); Curtain("C3_Small", -1); S(1.5f); GravRun("S", 9f); S(1.2f); ArchGate(); Curtain("C3_Big", 1); S(1.5f); GravRun("B", 9f); S(2f); });
-        IslandRock(i3, 3f, false);
+        IslandRock(i3, 3f, false, 5f, upTh);
         Island("Bridge3");
         Run(() => { ArchBridge(14f, 2f, false, null); });
         var i4 = Island("I4_Choice");
@@ -144,7 +147,7 @@ public static class FuwaCourse2_5Builder
         Run(() => { S(1f); Choice("C4c"); S(1f); GravRun("M", 7f); S(2f); });
         Transform warpB = null;
         Run(() => { warpB = BigPortal(isl, "WarpB", P, 180f); });
-        IslandRock(i4, 3f, false);
+        IslandRock(i4, 3f, false, 5f, upTh);
         // ---- ①の島の中の空洞（ゴール）----
         var gc = Island("Cavern");
         P = cav.entry; th = cav.heading;
@@ -347,11 +350,12 @@ public static class FuwaCourse2_5Builder
     }
 
     // 島の岩：その島の道の範囲の下に、平らな岩の台＋先細りの岩。hill なら内がわに丘
-    static void IslandRock(Transform island, float margin, bool hill, float depth = 5f)
+    static void IslandRock(Transform island, float margin, bool hill, float depth = 5f, float heading = 90f)
     {
-        var b = LocalBounds(island, root);
-        if (b.size.sqrMagnitude < 0.01f) return;
-        var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
+        // heading：島の道のおおよその向き（斜めの島は、その向きの箱で岩を作る。前はコースの軸の箱で、斜めの島がでかい四角になった）
+        var rk = new GameObject("Rock").transform; rk.SetParent(island, false); rk.localRotation = Quaternion.LookRotation(Dir(heading));
+        var b = LocalBounds(island, rk);
+        if (b.size.sqrMagnitude < 0.01f) { Object.DestroyImmediate(rk.gameObject); return; }
         float top = b.min.y - 0.55f;
         Box(rk, "Top", new Vector3(b.center.x, top - 0.5f, b.center.z), new Vector3(b.size.x + 2f * margin, 1f, b.size.z + 2f * margin), moss, pathLayer);   // 地面（ふわふわが着いたらアウト＝道と同じレイヤー）
         var u1 = Box(rk, "Under1", new Vector3(b.center.x, top - 1f - depth / 2f, b.center.z), new Vector3((b.size.x + 2f * margin) * 0.85f, depth, (b.size.z + 2f * margin) * 0.85f), underM, 0); Object.DestroyImmediate(u1.GetComponent<Collider>());
