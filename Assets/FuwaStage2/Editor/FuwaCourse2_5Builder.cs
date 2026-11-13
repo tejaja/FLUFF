@@ -133,20 +133,32 @@ public static class FuwaCourse2_5Builder
         var cav = IslandRockHollow(i1, 3.5f);
         Island("Bridge2");
         Run(() => { ArchBridge(14f, 1f, false, null); });
+        // 2026-11-13 てじゃ「いまあるクモの巣エリアを撤去、橋わたってすぐにポータル」「（①の島の向こうの角の上に）屋根付きのポータル到着地点、そこから（①の島の上を）矢印方向にコース、矢印終点にポータル」「これでクモの巣回避コースを伸ばす」
+        //  → ②は橋のあとすぐワープ。巣の道（ふつう→小→大、前より長い）は ①の島の上空をわたる空中の回廊に移す
         var i2 = Island("I2_Temple");
-        Run(() => { S(1.5f); CPi("Checkpoint1", 0.8f); S(1.5f); ArchGate(); Curtain("C2_Normal", 0); S(1.2f); Colonnade(23f); WebRun("N", 7f, 1.7f); S(1.2f); ArchGate(); Curtain("C2_Small", -1); S(1.2f); WebRun("S", 7f, 1.7f); S(1.2f); ArchGate(); Curtain("C2_Big", 1); S(1.2f); WebRun("B", 7f, 1.9f); S(2f); });
         Transform warpA = null;
-        Run(() => { warpA = BigPortal(isl, "WarpA", P, 180f); });
-        IslandRock(i2, 3f, false);
+        Run(() => { S(2f); warpA = BigPortal(isl, "WarpA", P, 180f); });
+        IslandRock(i2, 2f, false);
+        var low = LocalBounds(islandsT, root);   // 上の段の高さは下の段（空中の回廊はのぞく）から
+        var i1b = LocalBounds(i1, root);
+        // ---- 空中の巣の回廊（①の島の +x・-z の角の上から、-x へ ①の上をわたる）----
+        P = new Vector3(i1b.max.x + WebWalkOut.x, WebWalkUp, i1b.min.z + WebWalkOut.z); th = 200f;
+        var iw = Island("I2_WebWalk");
+        Transform warpAin = null;
+        Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f); ArchGate(); Curtain("C2_Normal", 0); S(1.2f); Colonnade(10.4f); WebRun("N", 9f, 1.7f); S(1.5f); });
+        T(-40f);
+        Run(() => { S(1f); ArchGate(); Curtain("C2_Small", -1); S(1.2f); Colonnade(10.4f); WebRun("S", 9f, 1.7f); S(1.5f); ArchGate(); Curtain("C2_Big", 1); S(1.2f); Colonnade(10.4f); WebRun("B", 9f, 1.9f); S(2f); });
+        Transform warpW = null;
+        Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); });
+        IslandRock(iw, 1.5f, false, 3f, 180f);
         // ---- 上の段（①②の上、向きを変える）----
-        var low = LocalBounds(islandsT, root);
         // てじゃ「上の二島、下の二島とクロスしたかんじのほうがいい」：上から見て X 字。下の段のスタート→ワープA の向き d に直角（n）で、まん中の上を横切る
         { var a0 = Vector3.zero; var a1 = root.InverseTransformPoint(warpA.position); var d = a1 - a0; d.y = 0f; d.Normalize(); var n = new Vector3(d.z, 0f, -d.x); if (n.z < 0f) n = -n;
           var mid = (a0 + a1) / 2f; P = new Vector3(mid.x, low.max.y + UpperUp, mid.z) - n * UpperCrossBack; th = Mathf.Atan2(n.z, n.x) * Mathf.Rad2Deg; }
         float upTh = th;
         var i3 = Island("I3_Gravity");
-        Transform warpAin = null;
-        Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(1.5f); ArchGate(); Curtain("C3_Small", -1); S(1.5f); GravRun("S", 9f); S(1.2f); ArchGate(); Curtain("C3_Big", 1); S(1.5f); GravRun("B", 9f); S(2f); });
+        Transform warpWin = null;
+        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(1.5f); ArchGate(); Curtain("C3_Small", -1); S(1.5f); GravRun("S", 9f); S(1.2f); ArchGate(); Curtain("C3_Big", 1); S(1.5f); GravRun("B", 9f); S(2f); });
         IslandRock(i3, 3f, false, 5f, upTh);
         Island("Bridge3");
         Run(() => { ArchBridge(14f, 2f, false, null); });
@@ -166,7 +178,8 @@ public static class FuwaCourse2_5Builder
         Run(() => { warpBin = BigPortal(isl, "WarpBIn", Vector3.zero, 0f); S(2.5f); });
         var goalP = P;
         GoalSet(gc, P, Dir(th));
-        if (warpA && warpAin) Link(warpA, warpAin, i3, null, true, true);
+        if (warpA && warpAin) Link(warpA, warpAin, iw, null, true, true);
+        if (warpW && warpWin) Link(warpW, warpWin, i3, null, true, true);
         if (warpB && warpBin) Link(warpB, warpBin, gc, null, true, true);
         GiantMushroom(new Vector3(low.max.x + 10f, -4f, low.center.z + 6f));
         DecoIslets();
@@ -176,6 +189,29 @@ public static class FuwaCourse2_5Builder
 
     // 島の岩（中に空洞）：上の地面の板、まわりの岩の壁、空洞の床。-x がわは洞窟の口（外から見える・光が入る）
     //  返り値：出口のポータルを置く所（空洞の +x の壁の内がわ、床の高さ）と、そこから進む向き（-x）
+    // 空中の巣の回廊の置き場所：①の島の道の範囲の +x・-z の角から WebWalkOut、高さ WebWalkUp（てじゃの図の青◯）
+    public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;
+    // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
+    static void ArrivalRoof()
+    {
+        float hx = HW + 0.35f, z0 = P.z - 1.6f, z1 = P.z + 1.4f, h = FuwaPortalTest.HoleH + 1.1f;
+        var g = new GameObject("ArrivalRoof").transform; g.SetParent(isl, false);
+        // 床：道（P から先）と重ならないように、ポータルのうしろの部分と、道の左右の外だけ（同じ高さの面が重なるとちらつく）
+        float fw = hx + 0.3f, zb = z0 - 0.3f, zf = z1 + 0.3f;
+        Box(g, "FloorBack", new Vector3(0f, P.y - 0.3f, (zb + P.z) / 2f), new Vector3(2f * fw, 0.6f, P.z - zb), pathB, pathLayer);
+        foreach (float sx in new[] { -1f, 1f })
+            Box(g, "FloorSide", new Vector3(sx * (HW + fw) / 2f, P.y - 0.3f, (P.z + zf) / 2f), new Vector3(fw - HW, 0.6f, zf - P.z), pathB, pathLayer);
+        foreach (float sx in new[] { -1f, 1f }) foreach (float z in new[] { z0, z1 })
+            Box(g, "Pillar", new Vector3(sx * hx, P.y + h / 2f, z), new Vector3(0.6f, h, 0.6f), stone, 0);
+        Box(g, "Beam", new Vector3(0f, P.y + h + 0.2f, (z0 + z1) / 2f), new Vector3(2f * hx + 1.2f, 0.4f, z1 - z0 + 1.2f), terra, 0);
+        // 切妻の屋根（2枚の板）
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            var rf = Box(g, "Roof", new Vector3(sx * (hx + 0.6f) * 0.5f, P.y + h + 0.95f, (z0 + z1) / 2f), new Vector3((hx + 0.6f) * 1.18f, 0.3f, z1 - z0 + 1.8f), terraD, 0);
+            rf.transform.localRotation = Quaternion.Euler(0f, 0f, -sx * 32f);
+        }
+    }
+
     static (Vector3 entry, float heading) IslandRockHollow(Transform island, float margin)
     {
         var b = LocalBounds(island, root);
@@ -380,9 +416,17 @@ public static class FuwaCourse2_5Builder
         var g = new GameObject("DecoIslets").transform; g.SetParent(islandsT, false);
         var all = LocalBounds(islandsT, root);
         var rnd = new System.Random(5);
+        // 道にかぶらないように：島ごとの範囲（少し広げる）に入ったら引き直す（2026-11-13 空中の回廊を足したら小島とかぶりそうだった）
+        var keep = new List<Bounds>();
+        foreach (Transform ch in islandsT) if (ch != g) { var b = LocalBounds(ch, root); if (b.size.sqrMagnitude > 0.01f) { b.Expand(new Vector3(8f, 10f, 8f)); keep.Add(b); } }
         for (int i = 0; i < 9; i++)
         {
-            var c = new Vector3(Mathf.Lerp(all.min.x - 8f, all.max.x + 8f, (float)rnd.NextDouble()), Mathf.Lerp(-6f, 16f, (float)rnd.NextDouble()), Mathf.Lerp(all.min.z, all.max.z, (float)rnd.NextDouble()));
+            var c = Vector3.zero;
+            for (int k = 0; k < 30; k++)
+            {
+                c = new Vector3(Mathf.Lerp(all.min.x - 8f, all.max.x + 8f, (float)rnd.NextDouble()), Mathf.Lerp(-6f, 16f, (float)rnd.NextDouble()), Mathf.Lerp(all.min.z, all.max.z, (float)rnd.NextDouble()));
+                if (!keep.Any(kb => kb.Contains(c))) break;
+            }
             float s = 2f + 3f * (float)rnd.NextDouble();
             var t = Box(g, "IsletTop", c, new Vector3(s, 0.5f, s * 0.8f), moss, 0); Object.DestroyImmediate(t.GetComponent<Collider>());
             var u = Box(g, "IsletUnder", c + Vector3.down * s * 0.45f, new Vector3(s * 0.8f, s * 0.8f, s * 0.65f), underM, 0); Object.DestroyImmediate(u.GetComponent<Collider>());
