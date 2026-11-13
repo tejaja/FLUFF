@@ -112,13 +112,15 @@ public static class FuwaCourse2_5Builder
         runNo = 0;
         // ---- 下の段 ----
         Island("Bridge1");
-        Run(() => { ArchBridge(12f, 0f, true, new[] { 6f }); });
+        Run(() => { ArchBridge(12f, 0f, true, null); });
+        // 2026-11-13 てじゃ「正直風はもう良いかな」「序盤はデカくしたり小さくしたりしてぐねぐねの穴だらけの道をアスレチックするだけでもいい」
+        //  → ①は ぐねぐねの穴あきの道：ふつう → 大 → 小
         var i1 = Island("I1_StatueHill");
-        Run(() => { S(2f); WindRun("N", 6f, new[] { 3f }); S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); S(3f, 1f); });
+        Run(() => { S(2f); Wiggle("N", new[] { 35f, -70f, 35f }); S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); S(3f, 1f); });
         T(-45f);
-        Run(() => { WindRun("B", 8f, new[] { 2.5f, 6f }); S(3f, 1.5f); });
+        Run(() => { Wiggle("B", new[] { -40f, 80f, -80f, 40f }); S(3f, 1.5f); });
         T(-45f);
-        Run(() => { S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); WindRun("S", 8f, new[] { 2.5f, 6f }); S(3f, 1.5f); });
+        Run(() => { S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); Wiggle("S", new[] { 40f, -80f, 80f, -40f }); S(3f, 1.5f); });
         var cav = IslandRockHollow(i1, 3.5f);
         Island("Bridge2");
         Run(() => { ArchBridge(14f, 1f, false, null); });
@@ -140,7 +142,7 @@ public static class FuwaCourse2_5Builder
         Island("Bridge3");
         Run(() => { ArchBridge(14f, 2f, false, null); });
         var i4 = Island("I4_Choice");
-        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(1f); Choice("C4a"); S(1f); WindRun("M", 6f, new[] { 2f, 4.5f }); S(2f); });
+        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(1f); Choice("C4a"); S(1f); Wiggle("M", new[] { 30f, -60f, 30f }); S(2f); });
         T(-90f);
         Run(() => { S(1f); Choice("C4b"); S(1f); WebRun("M", 6f, 1.8f); S(2f); });
         T(90f);
@@ -557,6 +559,89 @@ public static class FuwaCourse2_5Builder
         int k = 0; foreach (float a in windsAt) WindStatues(g, z0 + a, (k++) * 1.5f);
         P += Vector3.forward * len;
     }
+    // ---- ぐねぐねの穴あきの道（2026-11-13）：くねくね曲がる道をタイルに切って、ところどころ穴。
+    //  中心線 x(z) = amp·sin(2π·waves·z/len)·sin(π·z/len)（はしは向きが 0 → 前後のまっすぐの道とつながる）
+    //  タイルは中心線にそった曲がった箱（となりのタイルとすき間・重なりなし）。A/B の列ごとに1つのメッシュ＋当たり
+    public static float WiggleTile = 1.2f;   // はばは道と同じ HW（4列）
+    public static int WiggleCols = 4, WiggleSeed = 25;
+    //  中心線は半径 WiggleR の円弧を左右交互につなぐ（turns の角度、合計 0 なら出口は入口と同じ向き）。z は中心線にそった長さ
+    public static float WiggleR = 6f;
+    static void Wiggle(string tag, float[] turns)
+    {
+        float y = P.y, hw = HW; int cols = WiggleCols; float cw = 2f * hw / cols;
+        // 中心線を細かく取っておく
+        const float ds = 0.05f; var cp = new List<Vector3>(); var chd = new List<float>();
+        Vector3 pos = P; float hd = 0f; cp.Add(pos); chd.Add(hd);
+        foreach (float tdeg in turns)
+        {
+            float arc = WiggleR * Mathf.Abs(tdeg) * Mathf.Deg2Rad; int n = Mathf.Max(1, Mathf.CeilToInt(arc / ds));
+            for (int i = 0; i < n; i++)
+            {
+                float hm = hd + tdeg * Mathf.Deg2Rad * (i + 0.5f) / n;
+                pos += new Vector3(Mathf.Sin(hm), 0f, Mathf.Cos(hm)) * (arc / n); cp.Add(pos);
+                hd += tdeg * Mathf.Deg2Rad / n; chd.Add(hd);
+            }
+        }
+        float len = (cp.Count - 1) * 0f; { float L = 0f; for (int i = 1; i < cp.Count; i++) L += (cp[i] - cp[i - 1]).magnitude; len = L; }
+        float stepL = len / (cp.Count - 1);
+        int rows = Mathf.Max(1, Mathf.RoundToInt(len / WiggleTile)); float rl = len / rows;
+        Vector3 C(float z) { float f = Mathf.Clamp(z / stepL, 0f, cp.Count - 1.001f); int i = (int)f; return Vector3.Lerp(cp[i], cp[i + 1], f - i); }
+        Vector3 N(float z) { float f = Mathf.Clamp(z / stepL, 0f, cp.Count - 1.001f); int i = (int)f; float a = Mathf.Lerp(chd[i], chd[i + 1], f - i); return new Vector3(Mathf.Cos(a), 0f, -Mathf.Sin(a)); }
+        Vector3 Pt(float z, float u) => C(z) + N(z) * u;
+        log.Append("ぐねぐね" + tag + " " + len.ToString("F1") + "m ");
+        var g = new GameObject("Wiggle_" + tag).transform; g.SetParent(isl, false);
+        int seed = WiggleSeed; foreach (char ch in tag) seed = seed * 31 + ch; var rnd = new System.Random(seed);
+        var vA = new List<Vector3>(); var tA = new List<int>(); var vB = new List<Vector3>(); var tB = new List<int>();
+        bool[] prev = null; const float Tk = 0.6f, gap = 0.02f; const int sub = 3;
+        for (int r = 0; r < rows; r++)
+        {
+            // 穴：はし2列・3列おきに全部ある列。ほかは1つか2つ穴、前の列とつながる所を1つは残す
+            var solid = new bool[cols]; for (int c = 0; c < cols; c++) solid[c] = true;
+            if (r >= 1 && r < rows - 1 && r % 3 != 0)
+            {
+                int nh = rnd.Next(10) < 4 ? 2 : 1;
+                for (int k = 0; k < 20; k++)
+                {
+                    for (int c = 0; c < cols; c++) solid[c] = true;
+                    for (int h = 0; h < nh; h++) solid[rnd.Next(cols)] = false;
+                    bool ok = false; for (int c = 0; c < cols; c++) if (solid[c] && (prev == null || prev[c])) ok = true;
+                    if (ok) break;
+                }
+            }
+            prev = solid;
+            var v = r % 2 == 0 ? vA : vB; var t = r % 2 == 0 ? tA : tB;
+            float za = rl * r + gap, zb = rl * (r + 1) - gap;
+            for (int c = 0; c < cols; c++)
+            {
+                if (!solid[c]) continue;
+                float ua = -hw + cw * c + gap, ub = -hw + cw * (c + 1) - gap;
+                // 上の面・下の面・左右の面（sub 分割）、前後のふた
+                for (int i = 0; i < sub; i++)
+                {
+                    float z1 = Mathf.Lerp(za, zb, (float)i / sub), z2 = Mathf.Lerp(za, zb, (float)(i + 1) / sub);
+                    Vector3 a = Pt(z1, ua), b = Pt(z1, ub), cc = Pt(z2, ub), d = Pt(z2, ua), dn = Vector3.down * Tk;
+                    Quad(v, t, a, b, cc, d, Vector3.up); Quad(v, t, a + dn, d + dn, cc + dn, b + dn, Vector3.down);
+                    Quad(v, t, a, d, d + dn, a + dn, -N((z1 + z2) / 2f)); Quad(v, t, b, b + dn, cc + dn, cc, N((z1 + z2) / 2f));
+                }
+                { Vector3 a = Pt(za, ua), b = Pt(za, ub), dn = Vector3.down * Tk; var f = (Pt(za, 0f) - Pt(za + 0.01f, 0f)).normalized; Quad(v, t, a, a + dn, b + dn, b, f); }
+                { Vector3 a = Pt(zb, ua), b = Pt(zb, ub), dn = Vector3.down * Tk; var f = (Pt(zb, 0f) - Pt(zb - 0.01f, 0f)).normalized; Quad(v, t, a, b, b + dn, a + dn, f); }
+            }
+        }
+        foreach (var (nm, v, t, m) in new[] { ("A", vA, tA, pathA), ("B", vB, tB, pathB) })
+        {
+            if (v.Count == 0) continue;
+            var o = new GameObject("Tiles" + nm); o.transform.SetParent(g, false); o.layer = pathLayer;
+            var me = SaveMesh("Wiggle_" + tag + "_" + nm + "_" + (segNo++), v, t);
+            o.AddComponent<MeshFilter>().sharedMesh = me; o.AddComponent<MeshRenderer>().sharedMaterial = m; o.AddComponent<MeshCollider>().sharedMesh = me;
+        }
+        P = cp[cp.Count - 1]; P.y = y;
+    }
+    static void Quad(List<Vector3> v, List<int> t, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 want)
+    {
+        if (Vector3.Dot(Vector3.Cross(b - a, c - a), want) < 0f) { var s = b; b = d; d = s; }
+        int i = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d); t.Add(i); t.Add(i + 1); t.Add(i + 2); t.Add(i); t.Add(i + 2); t.Add(i + 3);
+    }
+
     static void WindStatues(Transform g, float z, float phase)
     {
         var tmpl = Resources.FindObjectsOfTypeAll<Transform>().FirstOrDefault(t => t.name == "Gimmick1_CrossWind" && t.parent && t.parent.name == "BuildTemplates" && t.parent.parent && t.parent.parent.name == "FuwaCourse" && t.gameObject.scene.IsValid());
