@@ -116,11 +116,11 @@ public static class FuwaCourse2_5Builder
         // 2026-11-13 てじゃ「正直風はもう良いかな」「序盤はデカくしたり小さくしたりしてぐねぐねの穴だらけの道をアスレチックするだけでもいい」
         //  → ①は ぐねぐねの穴あきの道：ふつう → 大 → 小
         var i1 = Island("I1_StatueHill");
-        Run(() => { S(2f); Wiggle("N", new[] { 35f, -70f, 35f }); S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); S(3f, 1f); });
+        Run(() => { S(2f); Stones("N", 13f); S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); S(3f, 1f); });
         T(-45f);
-        Run(() => { Wiggle("B", new[] { -40f, 80f, -80f, 40f }); S(3f, 1.5f); });
+        Run(() => { Stones("B", 20f); S(3f, 1.5f); });
         T(-45f);
-        Run(() => { S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); Wiggle("S", new[] { 40f, -80f, 80f, -40f }); S(3f, 1.5f); });
+        Run(() => { S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); Stones("S", 20f); S(3f, 1.5f); });
         var cav = IslandRockHollow(i1, 3.5f);
         Island("Bridge2");
         Run(() => { ArchBridge(14f, 1f, false, null); });
@@ -142,7 +142,7 @@ public static class FuwaCourse2_5Builder
         Island("Bridge3");
         Run(() => { ArchBridge(14f, 2f, false, null); });
         var i4 = Island("I4_Choice");
-        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(1f); Choice("C4a"); S(1f); Wiggle("M", new[] { 30f, -60f, 30f }); S(2f); });
+        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(1f); Choice("C4a"); S(1f); Stones("M", 11f); S(2f); });
         T(-90f);
         Run(() => { S(1f); Choice("C4b"); S(1f); WebRun("M", 6f, 1.8f); S(2f); });
         T(90f);
@@ -559,6 +559,52 @@ public static class FuwaCourse2_5Builder
         int k = 0; foreach (float a in windsAt) WindStatues(g, z0 + a, (k++) * 1.5f);
         P += Vector3.forward * len;
     }
+    // ---- 崩れた石だたみの飛び石（2026-11-13 てじゃ「曲がり方がなんか不自然」→ 道は曲げない）----
+    //  まっすぐで広い石だたみ（StoneCols×1.2m）のタイルが崩れ落ちて、残った所がくねくねの飛び石ルート。石はふつうの四角
+    //  ルートのまん中 m(r) が左右にゆれる（sin＋ゆらぎ）。各列 1〜2 マス、前の列と辺で接する。はしの列は道のはば分
+    public static int StoneCols = 6; public static float StonePeriod = 9f;
+    static void Stones(string tag, float len)
+    {
+        int cols = StoneCols; float cw = WiggleTile, hwF = cols * cw / 2f;
+        int rows = Mathf.Max(3, Mathf.RoundToInt(len / WiggleTile)); float rl = len / rows;
+        int seed = WiggleSeed; foreach (char ch in tag) seed = seed * 31 + ch; var rnd = new System.Random(seed);
+        float ph = (float)rnd.NextDouble() * Mathf.PI * 2f, amp = (cols - 1) / 2f;
+        var g = new GameObject("Stones_" + tag).transform; g.SetParent(isl, false);
+        float z0 = P.z, y = P.y; bool[] prev = null; int full = Mathf.RoundToInt(2f * HW / cw), f0 = (cols - full) / 2;
+        for (int r = 0; r < rows; r++)
+        {
+            var solid = new bool[cols];
+            if (r == 0 || r == rows - 1) { for (int c = f0; c < f0 + full; c++) solid[c] = true; }
+            else
+            {
+                float m = (cols - 1) / 2f + amp * Mathf.Sin(ph + 2f * Mathf.PI * r / StonePeriod) * 0.9f + ((float)rnd.NextDouble() - 0.5f) * 0.8f;
+                int w = rnd.Next(10) < WiggleWide ? 2 : 1;
+                int a0 = w == 2 ? Mathf.FloorToInt(m) : Mathf.RoundToInt(m); a0 = Mathf.Clamp(a0, 0, cols - w);
+                for (int c = a0; c < a0 + w; c++) solid[c] = true;
+                // 前の列と辺で接していなければ、近い方へのばす
+                bool ok = false; for (int c = 0; c < cols; c++) if (solid[c] && prev[c]) ok = true;
+                if (!ok)
+                {
+                    int best = -1, bd = 99; for (int c = 0; c < cols; c++) if (prev[c]) { int d = c < a0 ? a0 - c : c - (a0 + w - 1); if (d < bd) { bd = d; best = c; } }
+                    for (int c = Mathf.Min(best, a0); c <= Mathf.Max(best, a0 + w - 1); c++) solid[c] = true;
+                }
+            }
+            prev = solid;
+            for (int c = 0; c < cols; c++)
+            {
+                if (!solid[c]) continue;
+                Box(g, "Stone", new Vector3(-hwF + cw * (c + 0.5f), y - 0.3f, z0 + rl * (r + 0.5f)), new Vector3(cw - 0.04f, 0.6f, rl - 0.04f), r % 2 == 0 ? pathA : pathB, pathLayer);
+            }
+        }
+        // 崩れた石だたみのふち（低い石のへり、見た目だけ）
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            var rim = Box(g, "Rim", new Vector3(sx * (hwF + 0.15f), y - 0.45f, z0 + len / 2f), new Vector3(0.3f, 0.9f, len), underM, 0); Object.DestroyImmediate(rim.GetComponent<Collider>());
+        }
+        log.Append("飛び石" + tag + " ");
+        P += Vector3.forward * len;
+    }
+
     // ---- ぐねぐねの穴あきの道（2026-11-13）：くねくね曲がる道をタイルに切って、ところどころ穴。
     //  中心線 x(z) = amp·sin(2π·waves·z/len)·sin(π·z/len)（はしは向きが 0 → 前後のまっすぐの道とつながる）
     //  タイルは中心線にそった曲がった箱（となりのタイルとすき間・重なりなし）。A/B の列ごとに1つのメッシュ＋当たり
