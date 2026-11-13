@@ -562,7 +562,7 @@ public static class FuwaCourse2_5Builder
     // ---- 崩れた石だたみの飛び石（2026-11-13 てじゃ「曲がり方がなんか不自然」→ 道は曲げない）----
     //  まっすぐで広い石だたみ（StoneCols×1.2m）のタイルが崩れ落ちて、残った所がくねくねの飛び石ルート。石はふつうの四角
     //  ルートのまん中 m(r) が左右にゆれる（sin＋ゆらぎ）。各列 1〜2 マス、前の列と辺で接する。はしの列は道のはば分
-    public static int StoneCols = 6; public static float StonePeriod = 9f;
+    public static int StoneCols = 6, StoneGap = 22; public static float StonePeriod = 9f;   // StoneGap：列が丸ごと穴になる％
     static void Stones(string tag, float len)
     {
         int cols = StoneCols; float cw = WiggleTile, hwF = cols * cw / 2f;
@@ -570,11 +570,13 @@ public static class FuwaCourse2_5Builder
         int seed = WiggleSeed; foreach (char ch in tag) seed = seed * 31 + ch; var rnd = new System.Random(seed);
         float ph = (float)rnd.NextDouble() * Mathf.PI * 2f, amp = (cols - 1) / 2f;
         var g = new GameObject("Stones_" + tag).transform; g.SetParent(isl, false);
-        float z0 = P.z, y = P.y; bool[] prev = null; int full = Mathf.RoundToInt(2f * HW / cw), f0 = (cols - full) / 2;
+        float z0 = P.z, y = P.y; bool[] prev = null; bool lastGap = false; int full = Mathf.RoundToInt(2f * HW / cw), f0 = (cols - full) / 2;
         for (int r = 0; r < rows; r++)
         {
             var solid = new bool[cols];
             if (r == 0 || r == rows - 1) { for (int c = f0; c < f0 + full; c++) solid[c] = true; }
+            // 2026-11-13 てじゃ「繋げずに途中切ってもいいよ」→ ときどき1列まるごと穴（1.2m を飛びこす）。続けない・はしの近くはなし
+            else if (r >= 2 && r < rows - 2 && !lastGap && rnd.Next(100) < StoneGap) { lastGap = true; continue; }
             else
             {
                 float m = (cols - 1) / 2f + amp * Mathf.Sin(ph + 2f * Mathf.PI * r / StonePeriod) * 0.9f + ((float)rnd.NextDouble() - 0.5f) * 0.8f;
@@ -589,7 +591,7 @@ public static class FuwaCourse2_5Builder
                     for (int c = Mathf.Min(best, a0); c <= Mathf.Max(best, a0 + w - 1); c++) solid[c] = true;
                 }
             }
-            prev = solid;
+            prev = solid; lastGap = false;
             for (int c = 0; c < cols; c++)
             {
                 if (!solid[c]) continue;
