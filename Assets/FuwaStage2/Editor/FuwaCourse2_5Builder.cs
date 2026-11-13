@@ -452,7 +452,61 @@ public static class FuwaCourse2_5Builder
     static Transform BigPortal(Transform room, string name, Vector3 lp, float yaw)
     {
         var p = FuwaPortalTest.Portal(room, name, lp, yaw, stone, terraD, glow, maskM, ++stencilNo);
+        if (OvalPortals) OvalStyle(p);
         return p;
+    }
+
+    // ===== だ円の輪のポータル（2026-11-13 てじゃ「ポータルの見た目、空中に浮いた縦長の◯枠がいい」）=====
+    //  柱と屋根の枠をやめて、道の上に少し浮いた縦長のだ円の輪（外に石の輪・内に光るふち）。穴（ステンシルの面）もだ円
+    //  人・ふわふわを運ぶ判定（FuwaPortal の halfW × height の四角）はそのまま（だ円の外の角を通ると運ばれるが、ブロックアウトなのでよしとする）
+    public static bool OvalPortals = true;
+    public static float OvalLift = 0.15f;   // 輪の下のはしの高さ
+    static float OvalA => FuwaPortalTest.HalfW;
+    static float OvalB => FuwaPortalTest.HoleH / 2f;
+    static Vector3 OvalC => new Vector3(0f, OvalLift + OvalB, 0f);
+    static void OvalStyle(Transform p)
+    {
+        var fr = p.Find("PortalFrame"); if (fr) Object.DestroyImmediate(fr.gameObject);
+        var ring = new GameObject("OvalFrame").transform; ring.SetParent(p, false); ring.localPosition = OvalC;
+        var o = new GameObject("StoneRing"); o.transform.SetParent(ring, false);
+        o.AddComponent<MeshFilter>().sharedMesh = EllipseTube(OvalA + 0.24f, OvalB + 0.24f, 0.17f, 64, 10, "Portal_OvalStone");
+        o.AddComponent<MeshRenderer>().sharedMaterial = stone;
+        var g = new GameObject("GlowRim"); g.transform.SetParent(ring, false);
+        g.AddComponent<MeshFilter>().sharedMesh = EllipseTube(OvalA + 0.04f, OvalB + 0.04f, 0.06f, 64, 8, "Portal_OvalGlow");
+        g.AddComponent<MeshRenderer>().sharedMaterial = glow;
+        // 穴：だ円の面（Quad と同じく -z が表 → 180°回して手前へ）
+        var hole = p.Find("PortalHole");
+        if (hole)
+        {
+            hole.localPosition = OvalC; hole.localRotation = Quaternion.Euler(0f, 180f, 0f); hole.localScale = Vector3.one;
+            hole.GetComponent<MeshFilter>().sharedMesh = EllipseDisc(OvalA + 0.06f, OvalB + 0.06f, 64, "Portal_OvalHole");
+        }
+    }
+    // だ円の面（xy、中心 0、表は -z）
+    static Mesh EllipseDisc(float a, float b, int n, string name)
+    {
+        var v = new List<Vector3> { Vector3.zero }; var t = new List<int>();
+        for (int i = 0; i < n; i++) { float ang = 2f * Mathf.PI * i / n; v.Add(new Vector3(Mathf.Cos(ang) * a, Mathf.Sin(ang) * b, 0f)); }
+        for (int i = 0; i < n; i++) { int i1 = 1 + i, i2 = 1 + (i + 1) % n; t.Add(0); t.Add(i2); t.Add(i1); }   // -z 向き
+        var m = SaveMesh(name, v, t); return m;
+    }
+    // だ円にそった管（xy の だ円、半径 r の管）
+    static Mesh EllipseTube(float a, float b, float r, int n, int k, string name)
+    {
+        var v = new List<Vector3>(); var t = new List<int>();
+        for (int i = 0; i <= n; i++)
+        {
+            float ang = 2f * Mathf.PI * i / n; var c = new Vector3(Mathf.Cos(ang) * a, Mathf.Sin(ang) * b, 0f);
+            var tg = new Vector3(-Mathf.Sin(ang) * a, Mathf.Cos(ang) * b, 0f).normalized; var nOut = new Vector3(tg.y, -tg.x, 0f);
+            for (int j = 0; j <= k; j++) { float ph = 2f * Mathf.PI * j / k; v.Add(c + (nOut * Mathf.Cos(ph) + Vector3.forward * Mathf.Sin(ph)) * r); }
+        }
+        int row = k + 1;
+        for (int i = 0; i < n; i++) for (int j = 0; j < k; j++)
+        {
+            int a0 = i * row + j, a1 = a0 + 1, b0 = a0 + row, b1 = b0 + 1;
+            t.Add(a0); t.Add(a1); t.Add(b0); t.Add(a1); t.Add(b1); t.Add(b0);
+        }
+        return SaveMesh(name, v, t);
     }
 
     // 小さい窓のポータル：枠（4本の石）＋穴。lp は窓の下のまん中。PortalHole の大きさだけ変える
@@ -484,7 +538,7 @@ public static class FuwaCourse2_5Builder
         FuwaPortalTest.Copy(roomOfB, A, B, viewT, "ViewThrough_" + A.name, sa);
         // 一方通行（2026-11-11 てじゃ「戻れないようにしとこ、前のが見えると空がみえちゃう」）：出る側 B は穴（向こうの見え方）をなくして、奥の暗いくぼみだけ
         B.Find("PortalHole").gameObject.SetActive(false);
-        Niche(B, halfW > 0f ? halfW : FuwaPortalTest.HalfW, height > 0f ? height : FuwaPortalTest.HoleH);
+        if (OvalPortals && halfW <= 0f) OvalBack(B); else Niche(B, halfW > 0f ? halfW : FuwaPortalTest.HalfW, height > 0f ? height : FuwaPortalTest.HoleH);
         foreach (var (en, ex, sref) in new[] { (A, B, sa) })
         {
             var pt = UdonSharpUndo.AddComponent<FuwaPortal>(en.gameObject);
@@ -500,6 +554,17 @@ public static class FuwaCourse2_5Builder
             // 人を運ばない窓：FuwaPortal は人も見るので、穴の高さを人の頭が届かない大きさにしてある（窓は人が通れないので頭が入ることはない）
             if (!players) { }
         }
+    }
+
+    // だ円の輪の出る側：輪の中を暗い石の円盤でふさぐ（前から見ると暗い、うしろは石の色）
+    static void OvalBack(Transform B)
+    {
+        var n = new GameObject("ExitBack").transform; n.SetParent(B, false); n.localPosition = OvalC + new Vector3(0f, 0f, -0.05f);
+        var d = EllipseDisc(OvalA + 0.1f, OvalB + 0.1f, 64, "Portal_OvalBack");
+        var f = new GameObject("Front"); f.transform.SetParent(n, false); f.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+        f.AddComponent<MeshFilter>().sharedMesh = d; f.AddComponent<MeshRenderer>().sharedMaterial = terraD;
+        var bk = new GameObject("Back"); bk.transform.SetParent(n, false); bk.transform.localPosition = new Vector3(0f, 0f, -0.02f);
+        bk.AddComponent<MeshFilter>().sharedMesh = d; bk.AddComponent<MeshRenderer>().sharedMaterial = stone;
     }
 
     // 出る側のくぼみ：壁のすき間の奥を暗い石でふさぐ（人の体・ふわふわが面の奥に少し出ても当たらない深さ 1.3m）
