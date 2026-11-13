@@ -562,21 +562,23 @@ public static class FuwaCourse2_5Builder
     // ---- 崩れた石だたみの飛び石（2026-11-13 てじゃ「曲がり方がなんか不自然」→ 道は曲げない）----
     //  まっすぐで広い石だたみ（StoneCols×1.2m）のタイルが崩れ落ちて、残った所がくねくねの飛び石ルート。石はふつうの四角
     //  ルートのまん中 m(r) が左右にゆれる（sin＋ゆらぎ）。各列 1〜2 マス、前の列と辺で接する。はしの列は道のはば分
-    public static int StoneCols = 6, StoneGap = 22; public static float StonePeriod = 9f;   // StoneGap：列が丸ごと穴になる％
+    public static int StoneCols = 5, StoneGap = 22, StoneGapRows = 1; public static float StonePeriod = 8f, StoneCell = 1.5f;   // 2026-11-13 てじゃ「ちょっぴり1マスを大きく」1.2 → 1.5（はば 6×1.2 → 5×1.5）   // StoneGap：列が丸ごと穴になる％
     static void Stones(string tag, float len)
     {
-        int cols = StoneCols; float cw = WiggleTile, hwF = cols * cw / 2f;
-        int rows = Mathf.Max(3, Mathf.RoundToInt(len / WiggleTile)); float rl = len / rows;
+        int cols = StoneCols; float cw = StoneCell, hwF = cols * cw / 2f;
+        int rows = Mathf.Max(3, Mathf.RoundToInt(len / StoneCell)); float rl = len / rows;
         int seed = WiggleSeed; foreach (char ch in tag) seed = seed * 31 + ch; var rnd = new System.Random(seed);
         float ph = (float)rnd.NextDouble() * Mathf.PI * 2f, amp = (cols - 1) / 2f;
         var g = new GameObject("Stones_" + tag).transform; g.SetParent(isl, false);
-        float z0 = P.z, y = P.y; bool[] prev = null; bool lastGap = false; int full = Mathf.RoundToInt(2f * HW / cw), f0 = (cols - full) / 2;
+        float z0 = P.z, y = P.y; bool[] prev = null; bool lastGap = false; int gapLeft = 0; int full = cols, f0 = 0;   // はしの列は全部（石だたみのはば）
         for (int r = 0; r < rows; r++)
         {
             var solid = new bool[cols];
             if (r == 0 || r == rows - 1) { for (int c = f0; c < f0 + full; c++) solid[c] = true; }
             // 2026-11-13 てじゃ「繋げずに途中切ってもいいよ」→ ときどき1列まるごと穴（1.2m を飛びこす）。続けない・はしの近くはなし
-            else if (r >= 2 && r < rows - 2 && !lastGap && rnd.Next(100) < StoneGap) { lastGap = true; continue; }
+            //  → 「1マスの穴、ダッシュで超えられちゃう」→ 切れ目は StoneGapRows 列ぶん
+            else if (gapLeft > 0) { gapLeft--; continue; }
+            else if (r >= 2 && r + StoneGapRows < rows - 1 && !lastGap && rnd.Next(100) < StoneGap) { lastGap = true; gapLeft = StoneGapRows - 1; continue; }
             else
             {
                 float m = (cols - 1) / 2f + amp * Mathf.Sin(ph + 2f * Mathf.PI * r / StonePeriod) * 0.9f + ((float)rnd.NextDouble() - 0.5f) * 0.8f;
