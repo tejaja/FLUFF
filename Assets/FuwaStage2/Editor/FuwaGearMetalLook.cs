@@ -46,7 +46,7 @@ public static class FuwaGearMetalLook
         foreach (var n in Bases) { var src = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/" + n + ".mat"); if (src) bases[n] = src; }
         var info = new Dictionary<Mesh, (float root, float R, bool pattern)>();
         var mats = new Dictionary<string, Material>();
-        var rides = RideRoots(course);
+        var rides = RideRoots(course); var dimGears = new HashSet<Transform>();
         int n2 = 0, nDim = 0;
         foreach (var mr in course.GetComponentsInChildren<MeshRenderer>(true))
         {
@@ -61,15 +61,60 @@ public static class FuwaGearMetalLook
                 bool dim = Dim < 0.999f && !IsRide(mr, rides);
                 string key = bn + "_" + mesh.name + (dim ? "_Dim" : "");
                 if (!mats.TryGetValue(key, out var m)) { m = GearMat(bases[bn], key, inf, dim ? Dim : 1f); mats[key] = m; }
-                if (dim) nDim++;
+                if (dim) { nDim++; dimGears.Add(mr.transform); }
                 ms[i] = m; ch = true;
             }
             if (ch) { mr.sharedMaterials = ms; EditorUtility.SetDirty(mr); n2++; }
         }
+        // 2026-11-13 てじゃ「黄色が濃いところに明るい黄色のパーツつながってると気になる」→ 暗くした歯車にくっついている部品（軸・輪・線など、歯車でないメッシュ）も同じだけ暗く
+        //  くっついている＝親が暗くした歯車／乗れる歯車の下の部品／動力クリスタルの金具（暗いでかい歯車につく）
+        int nPart = 0;
+        if (Dim < 0.999f)
+            foreach (var mr in course.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                var mf = mr.GetComponent<MeshFilter>(); if (mf && mf.sharedMesh && GearMesh.IsMatch(mf.sharedMesh.name)) continue;
+                bool dim = false; Transform rr = null;
+                for (var t = mr.transform; t; t = t.parent) if (rides.Contains(t)) { rr = t; break; }
+                if (rr) dim = !IsRide(mr, rides);
+                else if (mr.transform.parent && dimGears.Contains(mr.transform.parent)) dim = true;
+                else if (SiblingDim(mr.transform, course, dimGears)) dim = true;   // 同じ組の中に暗くした歯車がある（タンクのかご・柱など）
+                else for (var t = mr.transform; t; t = t.parent) if (t.name == "CrystalMount") { dim = true; break; }
+                var ms = mr.sharedMaterials; bool ch = false;
+                for (int i = 0; i < ms.Length; i++)
+                {
+                    if (!ms[i]) continue;
+                    string bn = PartBase(ms[i].name); if (bn == null) continue;
+                    var src = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/" + bn + ".mat"); if (!src) continue;
+                    var want = dim ? PartDimMat(src, bn) : src;
+                    if (ms[i] != want) { ms[i] = want; ch = true; }
+                }
+                if (ch) { mr.sharedMaterials = ms; EditorUtility.SetDirty(mr); nPart++; }
+            }
         AssetDatabase.SaveAssets();
-        return "[歯車の金属] " + n2 + " 個（暗くした " + nDim + "・メッシュ " + info.Count + "・材質 " + mats.Count + "）";
+        return "[歯車の金属] " + n2 + " 個（部品の入れかえ " + nPart + "・暗くした " + nDim + "・メッシュ " + info.Count + "・材質 " + mats.Count + "）";
     }
 
+    static readonly string[] PartBases = { "FanTest_Brass", "GearTest_Gear", "GearTest_GearLight", "GearTest_Axle" };
+    // 回るタンク（SpinTank）の中に暗くした歯車がある時、同じ組のかご・柱も暗く
+    static bool SiblingDim(Transform t, Transform course, HashSet<Transform> dimGears)
+    {
+        var p = t.parent; if (!p || p.name != "SpinTank") return false;   // 広げると橋・回転床の台・ポンプまで暗くなったので、回るタンクのかごだけ
+        foreach (Transform s in p) if (s != t && dimGears.Contains(s)) return true;
+        return false;
+    }
+    static string PartBase(string n) { foreach (var b in PartBases.OrderByDescending(x => x.Length)) if (n == b || n == b + "_PartDim") return b; return null; }
+    static Material PartDimMat(Material src, string bn)
+    {
+        string p = Dir + "/" + bn + "_PartDim.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, p); } else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
+        DimColor(m, Dim); EditorUtility.SetDirty(m); return m;
+    }
+    static void DimColor(Material m, float dim)
+    {
+        if (dim >= 0.999f || !m.HasProperty("_Color")) return;
+        var c = m.GetColor("_Color"); float g = c.grayscale; var d = Color.Lerp(c, new Color(g, g, g, c.a), 0.3f) * dim; d.a = c.a; m.SetColor("_Color", d);   // 少し色を抜いて暗く
+    }
     // 元の材質の名前（_Metal や歯車ごとの複製からも元をたどる）
     static string BaseName(string n)
     {
@@ -83,7 +128,7 @@ public static class FuwaGearMetalLook
         var m = AssetDatabase.LoadAssetAtPath<Material>(p);
         if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, p); } else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
         m.mainTexture = null;
-        if (dim < 0.999f && m.HasProperty("_Color")) { var c = m.GetColor("_Color"); float g = c.grayscale; var d = Color.Lerp(c, new Color(g, g, g, c.a), 0.3f) * dim; d.a = c.a; m.SetColor("_Color", d); }   // 少し色を抜いて暗く
+        DimColor(m, dim);
         m.SetFloat("_MetalEnv", Env); m.SetFloat("_MetalSpec", Spec); m.SetFloat("_MetalSize", Size);
         m.SetFloat("_GearPattern", inf.pattern ? 1f : 0f); m.SetFloat("_GearRoot", inf.root); m.SetFloat("_GearR", inf.R);
         m.SetFloat("_GearBandDark", BandDark); m.SetFloat("_GearRingsPerM", RingsPerM); m.SetFloat("_GearRingStr", RingStr);
