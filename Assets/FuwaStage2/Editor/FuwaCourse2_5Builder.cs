@@ -563,7 +563,7 @@ public static class FuwaCourse2_5Builder
     //  中心線 x(z) = amp·sin(2π·waves·z/len)·sin(π·z/len)（はしは向きが 0 → 前後のまっすぐの道とつながる）
     //  タイルは中心線にそった曲がった箱（となりのタイルとすき間・重なりなし）。A/B の列ごとに1つのメッシュ＋当たり
     public static float WiggleTile = 1.2f;   // はばは道と同じ HW（4列）
-    public static int WiggleCols = 4, WiggleSeed = 25;
+    public static int WiggleCols = 4, WiggleSeed = 25, WiggleWide = 6;   // WiggleWide：10回に何回 2マスはば
     //  中心線は半径 WiggleR の円弧を左右交互につなぐ（turns の角度、合計 0 なら出口は入口と同じ向き）。z は中心線にそった長さ
     public static float WiggleR = 6f;
     static void Wiggle(string tag, float[] turns)
@@ -597,16 +597,19 @@ public static class FuwaCourse2_5Builder
         {
             // 穴：はし2列・3列おきに全部ある列。ほかは1つか2つ穴、前の列とつながる所を1つは残す
             var solid = new bool[cols]; for (int c = 0; c < cols; c++) solid[c] = true;
-            if (r >= 1 && r < rows - 1 && r % 3 != 0)
+            // 2026-11-13 てじゃ「細かすぎて走ってぬけられるかも」「穴があいてるというより、飛び石状態になってるくらい抜いてもいい」
+            //  → 列ごとに 1〜2 マスだけ残す（ほかは穴）。前の列と1マス以上は辺で接して、左右にずれていく。はしの列は全部
+            if (r >= 1 && r < rows - 1)
             {
-                int nh = rnd.Next(10) < 4 ? 2 : 1;
+                int pa = 0, pb = cols - 1; for (int c = 0; c < cols; c++) if (prev[c]) { pa = c; break; } for (int c = cols - 1; c >= 0; c--) if (prev[c]) { pb = c; break; }
+                int w = rnd.Next(10) < WiggleWide ? 2 : 1, a0 = 0;
                 for (int k = 0; k < 20; k++)
                 {
-                    for (int c = 0; c < cols; c++) solid[c] = true;
-                    for (int h = 0; h < nh; h++) solid[rnd.Next(cols)] = false;
-                    bool ok = false; for (int c = 0; c < cols; c++) if (solid[c] && (prev == null || prev[c])) ok = true;
-                    if (ok) break;
+                    a0 = rnd.Next(cols - w + 1);
+                    bool overlap = a0 <= pb && a0 + w - 1 >= pa, same = a0 == pa && w == pb - pa + 1;
+                    if (overlap && !same) break;
                 }
+                for (int c = 0; c < cols; c++) solid[c] = c >= a0 && c < a0 + w;
             }
             prev = solid;
             var v = r % 2 == 0 ? vA : vB; var t = r % 2 == 0 ? tA : tB;
