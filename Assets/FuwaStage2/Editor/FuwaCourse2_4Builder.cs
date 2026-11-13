@@ -954,6 +954,7 @@ public static class FuwaCourse2_4Builder
             var mc = t.GetComponent<MeshCollider>(); if (mc) mc.sharedMesh = m;
             sb.Append(t.name + (z >= IdlerWinMinZ ? "→窓 " : "→そのまま "));
         }
+        sb.Append(FuwaGearMetalLook.Apply(root));   // 新しいメッシュに金属の uv・材質を入れる（入れないと柄がくずれる）
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return sb.ToString();
     }

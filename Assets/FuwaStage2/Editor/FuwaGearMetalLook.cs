@@ -14,6 +14,22 @@ using UnityEngine;
 public static class FuwaGearMetalLook
 {
     public static float Env = 0.5f, Spec = 0f, Size = 0.93f, BandDark = 0.86f, RingsPerM = 40f, RingStr = 0.035f;
+    // 2026-11-13 てじゃ「乗れるギアだけ目立たせる方法ないかな」→ B「乗れない歯車を暗くして沈める」：乗れない歯車の色を Dim 倍（1 で なし）
+    //  乗れる＝FuwaGearRide の歯車・窓のある歯車 HG・ごつい歯車 CG・段つき歯車 SG の、ふちより下に出ていない部品（下の動力の歯車・軸は暗くする）
+    public static float Dim = 0.55f;
+    static readonly Regex RideRoot = new Regex(@"^(HG\d+_z\d+|CG\d+_z\d+|SG[AB])$");
+    static HashSet<Transform> RideRoots(Transform course)
+    {
+        var set = new HashSet<Transform>();
+        foreach (var t in course.GetComponentsInChildren<Transform>(true)) if (RideRoot.IsMatch(t.name)) set.Add(t);
+        foreach (var gr in course.GetComponentsInChildren<FuwaGearRide>(true)) if (gr.gears != null) foreach (var g in gr.gears) if (g) set.Add(g);
+        return set;
+    }
+    static bool IsRide(MeshRenderer mr, HashSet<Transform> roots)
+    {
+        for (var t = mr.transform; t; t = t.parent) if (roots.Contains(t)) return mr.bounds.max.y >= t.position.y - 0.05f;
+        return false;
+    }
     static readonly Regex GearMesh = new Regex(@"(Spur|Pinion|Rack_|_z\d|Bevel_z|PathGear_|Gear_z)", RegexOptions.IgnoreCase);
     static readonly Regex Teeth = new Regex(@"_z(\d+)");
     static readonly string[] Bases = { "FanTest_Brass", "GearTest_Gear", "GearTest_GearLight" };
@@ -30,7 +46,8 @@ public static class FuwaGearMetalLook
         foreach (var n in Bases) { var src = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/" + n + ".mat"); if (src) bases[n] = src; }
         var info = new Dictionary<Mesh, (float root, float R, bool pattern)>();
         var mats = new Dictionary<string, Material>();
-        int n2 = 0;
+        var rides = RideRoots(course);
+        int n2 = 0, nDim = 0;
         foreach (var mr in course.GetComponentsInChildren<MeshRenderer>(true))
         {
             var mf = mr.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh || !GearMesh.IsMatch(mf.sharedMesh.name)) continue;
@@ -41,14 +58,16 @@ public static class FuwaGearMetalLook
                 if (!ms[i]) continue;
                 string bn = BaseName(ms[i].name); if (bn == null || !bases.ContainsKey(bn)) continue;
                 if (!info.TryGetValue(mesh, out var inf)) { inf = RadialUV(mesh); info[mesh] = inf; }
-                string key = bn + "_" + mesh.name;
-                if (!mats.TryGetValue(key, out var m)) { m = GearMat(bases[bn], key, inf); mats[key] = m; }
+                bool dim = Dim < 0.999f && !IsRide(mr, rides);
+                string key = bn + "_" + mesh.name + (dim ? "_Dim" : "");
+                if (!mats.TryGetValue(key, out var m)) { m = GearMat(bases[bn], key, inf, dim ? Dim : 1f); mats[key] = m; }
+                if (dim) nDim++;
                 ms[i] = m; ch = true;
             }
             if (ch) { mr.sharedMaterials = ms; EditorUtility.SetDirty(mr); n2++; }
         }
         AssetDatabase.SaveAssets();
-        return "[歯車の金属] " + n2 + " 個（メッシュ " + info.Count + "・材質 " + mats.Count + "）";
+        return "[歯車の金属] " + n2 + " 個（暗くした " + nDim + "・メッシュ " + info.Count + "・材質 " + mats.Count + "）";
     }
 
     // 元の材質の名前（_Metal や歯車ごとの複製からも元をたどる）
@@ -58,12 +77,13 @@ public static class FuwaGearMetalLook
         return null;
     }
 
-    static Material GearMat(Material src, string key, (float root, float R, bool pattern) inf)
+    static Material GearMat(Material src, string key, (float root, float R, bool pattern) inf, float dim)
     {
         string p = Dir + "/" + key.Replace("/", "_") + ".mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(p);
         if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, p); } else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
         m.mainTexture = null;
+        if (dim < 0.999f && m.HasProperty("_Color")) { var c = m.GetColor("_Color"); float g = c.grayscale; var d = Color.Lerp(c, new Color(g, g, g, c.a), 0.3f) * dim; d.a = c.a; m.SetColor("_Color", d); }   // 少し色を抜いて暗く
         m.SetFloat("_MetalEnv", Env); m.SetFloat("_MetalSpec", Spec); m.SetFloat("_MetalSize", Size);
         m.SetFloat("_GearPattern", inf.pattern ? 1f : 0f); m.SetFloat("_GearRoot", inf.root); m.SetFloat("_GearR", inf.R);
         m.SetFloat("_GearBandDark", BandDark); m.SetFloat("_GearRingsPerM", RingsPerM); m.SetFloat("_GearRingStr", RingStr);
