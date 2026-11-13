@@ -104,7 +104,7 @@ public static class FuwaCourse2_5Builder
 
     // BGM（2026-11-13 てじゃ「ancient ruins cover」、よそで作った曲をループ化：A案 イントロ42.92s＋56.48sループ（16小節、68BPM）。元の曲と候補は Claude_Workspace/fluff_bgm/ruins）
     const string BgmClip = "Assets/FuwaStage2/Audio/ruins_ancient_introloop.wav";
-    const float BgmGain = 1.35f, BgmLoopStart = 42.92f, BgmLoopEnd = 99.40f;
+    const float BgmGain = 1.35f, BgmLoopStart = 36.62f, BgmLoopEnd = 93.092f;   // A案 42.92–99.40 は「つなぎきつい」→ 2回目と1回目がいちばん似てる 36.6s 付近の拍の頭でつなぐ C案
     public static void RegisterBgm(Transform courseRoot)
     {
         FuwaStage2Bgm.Register(courseRoot, "BGM_course2_5", "BGM_course2_4", BgmClip, BgmGain, BgmLoopStart, BgmLoopEnd);
