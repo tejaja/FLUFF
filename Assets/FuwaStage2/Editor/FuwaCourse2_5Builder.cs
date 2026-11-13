@@ -182,7 +182,8 @@ public static class FuwaCourse2_5Builder
         if (warpW && warpWin) Link(warpW, warpWin, i3, null, true, true);
         if (warpB && warpBin) Link(warpB, warpBin, gc, null, true, true);
         // 2026-11-13 てじゃ「ここにきのこ石像をおこう」（①の島の上、石の道と上の段と巣の回廊にかこまれた広場）「サイズ調整いるかも」
-        GiantMushroom(new Vector3(MushroomAt.x, i1Top, MushroomAt.y), MushroomH, MushroomCapR, false);
+        if (!MushStatue(new Vector3(MushroomAt.x, i1Top, MushroomAt.y), StatueH))
+            GiantMushroom(new Vector3(MushroomAt.x, i1Top, MushroomAt.y), MushroomH, MushroomCapR, false);
         DecoIslets();
         log.Append("下の段 2・上の段 2・空洞のゴール ");
         return goalP;
@@ -237,6 +238,32 @@ public static class FuwaCourse2_5Builder
     }
 
     // シンボルの巨大なキノコの石像（てじゃ「どっかにデカいシンボルてきな石像がほしい、キノコ型とか」）：下の段の右に、自分の浮島の上に立つ。上の段の高さまで届く
+    // 2026-11-14 てじゃの絵「きのこの帽子の女の子の石像」（目を閉じて小さいきのこを抱える、苔、アーチの台座）を Blender で作った（Tools/blender/mush_statue.blend、MushStatue）
+    //  「イボはなくてもいい」「◯模様自体なしでいい」「縦に潰れてる」→ 水玉なし・体を縦にのばした版。正面（モデルの +z）はスタートの方へ向ける
+    public static float StatueH = 18f;
+    const string StatueFbx = "Assets/FuwaStage2/Models/MushStatue.fbx";
+    static bool MushStatue(Vector3 baseP, float height)
+    {
+        var src = AssetDatabase.LoadAssetAtPath<GameObject>(StatueFbx); if (!src) return false;
+        var smf = src.GetComponentInChildren<MeshFilter>(); var smr = smf ? smf.GetComponent<MeshRenderer>() : null; if (!smr) return false;
+        var mesh = smf.sharedMesh; float h = mesh.bounds.size.y; if (h <= 0f) return false;
+        var g = new GameObject("MushStatue").transform; g.SetParent(islandsT, false); g.localPosition = baseP;
+        var to = -new Vector3(baseP.x, 0f, baseP.z); g.localRotation = Quaternion.LookRotation(to.sqrMagnitude > 0.01f ? to.normalized : Vector3.back);
+        g.localScale = Vector3.one * (height / h);
+        g.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
+        // 材質：Blender の名前 → ステージ2のトゥーン材質
+        var mats = smr.sharedMaterials.Select(m =>
+        {
+            string n = m ? m.name : "";
+            if (n.Contains("Moss")) return moss;
+            if (n.Contains("Dark")) return FuwaStage2WaterTest.ToonMat("Ruins_StatueDark", new Color(0.45f, 0.42f, 0.42f));
+            if (n.Contains("Base")) return FuwaStage2WaterTest.ToonMat("Ruins_StatueBase", new Color(0.80f, 0.74f, 0.66f));
+            return FuwaStage2WaterTest.ToonMat("Ruins_StatueStone", new Color(0.88f, 0.84f, 0.78f));
+        }).ToArray();
+        g.gameObject.AddComponent<MeshRenderer>().sharedMaterials = mats;
+        g.gameObject.AddComponent<MeshCollider>().sharedMesh = mesh;   // 人がぶつかる（ふわふわが乗ったら島の地面と同じくアウトにはならない＝レイヤー0）
+        return true;
+    }
     public static float MushroomH = 20f, MushroomCapR = 7.5f;   // 前は 30／11（自分の浮島の上）。①の島の広場に移して小さく
     public static Vector2 MushroomAt = new Vector2(14.6f, 30f);  // コースの座標（x, z）
     static float i1Top;
