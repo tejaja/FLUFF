@@ -1867,32 +1867,34 @@ public static class FuwaCourse2_4Builder
     }
 
     // ===== ピストンの頭（2026-11-13 てじゃ「ピストンの白い円柱ももうちょい盛れないかな」）=====
-    //  前はただの白い円柱（半径 0.31・長さ 0.24、x が押す向き）。白い胴（少し細く）＋真ちゅうのピストンリング3本、押す面に黒い板＋真ちゅうのボス＋ボルト6本、棒の側に黒い受け
-    //  大きさ（半径 0.31）は前と同じなので、筒にはあたらない
-    public static float PistonR = 0.31f, PistonLen = 0.24f;
+    //  リング・ボルトなどを足したら「ごちゃつく」→ もとの白い円柱（半径 0.31・長さ 0.24、x が押す向き）のまま、フチだけ PistonBevel の面取り
+    public static float PistonR = 0.31f, PistonLen = 0.24f, PistonBevel = 0.035f;
     static void PistonHead(Transform piston, Material pipeM)
     {
         var old = piston.Find("Head"); if (old) Object.DestroyImmediate(old.gameObject);
-        var h = new GameObject("Head").transform; h.SetParent(piston, false);
-        Transform Cyl(string nm, float x0, float x1, float r, Material m, Transform par = null)
+        var h = new GameObject("Head"); h.transform.SetParent(piston, false);
+        h.AddComponent<MeshFilter>().sharedMesh = BevelCylX(PistonR, PistonLen, PistonBevel, 40, "Pump_PistonHead");
+        h.AddComponent<MeshRenderer>().sharedMaterial = pipeM;
+    }
+    // x 方向の円柱（x 0〜len、半径 r）、両はしのフチを b だけ面取り。まわりはなめらか、面取りの所で折れる
+    static Mesh BevelCylX(float r, float len, float b, int n, string name)
+    {
+        var prof = new[] { new Vector2(0f, 0f), new Vector2(0f, r - b), new Vector2(b, r), new Vector2(len - b, r), new Vector2(len, r - b), new Vector2(len, 0f) };   // (x, 半径)
+        var v = new List<Vector3>(); var t = new List<int>();
+        Vector3 P(Vector2 q, int j) { float a = 2f * Mathf.PI * j / n; return new Vector3(q.x, Mathf.Cos(a) * q.y, Mathf.Sin(a) * q.y); }
+        for (int i = 0; i < prof.Length - 1; i++)
         {
-            var g = GameObject.CreatePrimitive(PrimitiveType.Cylinder); g.name = nm; Object.DestroyImmediate(g.GetComponent<Collider>());
-            g.transform.SetParent(par ? par : h, false); g.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
-            g.transform.localPosition = new Vector3((x0 + x1) / 2f, 0f, 0f); g.transform.localScale = new Vector3(2f * r, (x1 - x0) / 2f, 2f * r);
-            g.GetComponent<Renderer>().sharedMaterial = m; return g.transform;
+            Vector2 q0 = prof[i], q1 = prof[i + 1], d = q1 - q0; var n2 = new Vector2(-d.y, d.x);   // 外向き（x, 半径）
+            int b0 = v.Count; for (int j = 0; j < n; j++) { v.Add(P(q0, j)); v.Add(P(q1, j)); }
+            for (int j = 0; j < n; j++)
+            {
+                int j2 = (j + 1) % n; int a0 = b0 + 2 * j, a1 = a0 + 1, c0 = b0 + 2 * j2, c1 = c0 + 1;
+                float am = 2f * Mathf.PI * (j + 0.5f) / n; var want = new Vector3(n2.x, Mathf.Cos(am) * n2.y, Mathf.Sin(am) * n2.y);
+                void T3(int x, int y, int z) { if (Vector3.Dot(Vector3.Cross(v[y] - v[x], v[z] - v[x]), want) < 0f) { int s2 = y; y = z; z = s2; } t.Add(x); t.Add(y); t.Add(z); }
+                T3(a0, a1, c1); T3(a0, c1, c0);
+            }
         }
-        float L = PistonLen, R = PistonR;
-        Cyl("HeadBody", 0f, L, R - 0.025f, pipeM);
-        foreach (var (a, b) in new[] { (0f, 0.035f), (L * 0.5f - 0.02f, L * 0.5f + 0.02f), (L - 0.035f, L) }) Cyl("PistonRing", a, b, R, cwBrass);
-        Cyl("FacePlate", L, L + 0.025f, R * 0.72f, cwAxle);
-        Cyl("FaceBoss", L + 0.025f, L + 0.07f, R * 0.26f, cwBrass);
-        for (int k = 0; k < 6; k++)
-        {
-            float a = k * 60f * Mathf.Deg2Rad; var b = Cyl("FaceBolt", L + 0.025f, L + 0.045f, 0.022f, cwBrass);
-            b.localPosition += new Vector3(0f, Mathf.Cos(a), Mathf.Sin(a)) * (R * 0.52f);
-        }
-        Cyl("RodBoss", -0.07f, 0f, R * 0.32f, cwAxle);
-        Cyl("RodNut", -0.1f, -0.07f, R * 0.2f, cwBrass);
+        return SaveMesh(name, v, t);
     }
     // 今のシーンのピストンの頭だけ作り直す
     public static string RebuildPistonHeads()
