@@ -1449,34 +1449,24 @@ public static class FuwaCourse2_4Builder
     // ===== 動力クリスタルの金具（2026-11-13 てじゃ「ちゃんと金具とかで固定しよう」）=====
     //  1回目：気球の首からつるす（帯・爪・柱・帽子・軸）→「ゴツいかも、歯車に固定して一緒に回ってるくらいでいい」
     //  → でかい歯車の高さに六角の帯1本＋歯車の穴のふちへ渡す腕6本だけ。クリスタルはでかい歯車と同じ速さで回る（CloudBalloon の AddGear）
-    //  → てじゃ「いいね」→「クランプで押さえてる感じもいいかも」→ 帯なし、3方向から押さえる（旋盤のチャックみたい）：腕の先のネジ受け→ネジ→当て板がクリスタルの面を押す
-    public static int MountClamps = 3;
-    public static float MountArmW = 0.5f, MountArmH = 0.4f, MountPadW = 2.0f, MountPadH = 1.4f, MountPadT = 0.14f, MountScrewR = 0.14f, MountNut = 0.8f;   // 1回目（当て板 1.3）は遠くから見えなかったので 1.5 倍くらい
+    public static float MountBandH = 0.7f, MountBandT = 0.2f, MountArmW = 0.32f, MountArmH = 0.3f;
     static void CrystalMount(Transform cr, Transform holder, float cMid)
     {
-        float r = CrystalW / 2f, ap = r * Mathf.Cos(30f * Mathf.Deg2Rad);   // 面までの距離（角は 30°+60k → 面のまん中は 60k）
+        float r = CrystalW / 2f;
         var mt = new GameObject("CrystalMount").transform; mt.SetParent(cr, false);
-        float nutIn = ap + 0.6f, nutOut = nutIn + MountNut * 0.6f, rOut = BoreR + 0.25f;
-        for (int k = 0; k < MountClamps; k++)
+        // 帯（RingMesh の n=6 は 0° に角 → クリスタルの角は 30°+60k なので −30° 回す）。でかい歯車の板（厚さ WT）の上下に少し出る
+        var b = new GameObject("MountBand"); b.transform.SetParent(mt, false); b.transform.localRotation = Quaternion.Euler(0f, -30f, 0f);
+        b.AddComponent<MeshFilter>().sharedMesh = RingMesh(r + 0.03f, r + 0.03f + MountBandT, -MountBandH / 2f, MountBandH / 2f, 6, "Power_MountBand");
+        b.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        // 腕：帯の面のまん中から、歯車の穴（BoreR）のふちの中まで。板より薄いので上下の面は歯車の中にかくれない・重ならない
+        float rIn = (r + 0.03f + MountBandT) * Mathf.Cos(30f * Mathf.Deg2Rad) - 0.05f, rOut = BoreR + 0.25f;
+        for (int k = 0; k < 6; k++)
         {
-            var c = new GameObject("MountClamp").transform; c.SetParent(mt, false); c.localRotation = Quaternion.Euler(0f, -k * 360f / MountClamps, 0f);   // local +x が外向き（面のまん中）
-            Transform Box(string nm, float x0, float x1, float w, float h, Material m)
-            {
-                var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = nm; Object.DestroyImmediate(g.GetComponent<Collider>());
-                g.transform.SetParent(c, false); g.transform.localPosition = new Vector3((x0 + x1) / 2f, 0f, 0f); g.transform.localScale = new Vector3(x1 - x0, h, w);
-                g.GetComponent<Renderer>().sharedMaterial = m; return g.transform;
-            }
-            Box("ClampPad", ap + 0.005f, ap + 0.005f + MountPadT, MountPadW, MountPadH, cwDark);                       // 当て板（面にぴったり）
-            Box("ClampPadBack", ap + MountPadT, ap + MountPadT + 0.12f, MountPadW * 0.55f, MountPadH * 0.55f, cwBrass);   // 当て板の裏の受け
-            var sc = GameObject.CreatePrimitive(PrimitiveType.Cylinder); sc.name = "ClampScrew"; Object.DestroyImmediate(sc.GetComponent<Collider>());
-            sc.transform.SetParent(c, false); float s0 = ap + MountPadT + 0.12f, s1 = nutOut + 0.18f;
-            sc.transform.localPosition = new Vector3((s0 + s1) / 2f, 0f, 0f); sc.transform.localRotation = Quaternion.Euler(0f, 0f, 90f); sc.transform.localScale = new Vector3(2f * MountScrewR, (s1 - s0) / 2f, 2f * MountScrewR);
-            sc.GetComponent<Renderer>().sharedMaterial = cwAxle;
-            Box("ClampNut", nutIn, nutOut, MountNut, MountNut * 0.75f, cwBrass);                                                        // ネジ受け（腕の先）
-            Box("ClampArm", nutOut - 0.02f, rOut, MountArmW, MountArmH, cwBrass);                                      // 腕：歯車の穴のふちの中まで（板より薄い）
-            var th = GameObject.CreatePrimitive(PrimitiveType.Cylinder); th.name = "ClampHandle"; Object.DestroyImmediate(th.GetComponent<Collider>());
-            th.transform.SetParent(c, false); th.transform.localPosition = new Vector3((s0 + nutIn) / 2f, 0f, 0f); th.transform.localScale = new Vector3(0.1f, 0.5f, 0.1f);   // ネジを回す棒（たて）
-            th.GetComponent<Renderer>().sharedMaterial = cwAxle;
+            float a = k * 60f * Mathf.Deg2Rad; var rad = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            var arm = GameObject.CreatePrimitive(PrimitiveType.Cube); arm.name = "MountArm"; Object.DestroyImmediate(arm.GetComponent<Collider>());
+            arm.transform.SetParent(mt, false); arm.transform.localPosition = rad * ((rIn + rOut) / 2f);
+            arm.transform.localRotation = Quaternion.LookRotation(rad, Vector3.up); arm.transform.localScale = new Vector3(MountArmW, MountArmH, rOut - rIn);
+            arm.GetComponent<Renderer>().sharedMaterial = cwBrass;
         }
     }
     // 今のシーンの2–4に金具だけ足し直す（丸ごと作り直さずに）。クリスタルの回る速さもでかい歯車にそろえる
