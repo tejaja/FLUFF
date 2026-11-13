@@ -4,7 +4,12 @@ using UdonSharpEditor;
 using UnityEditor;
 using UnityEngine;
 
-// ステージ2 コース2–5「そらのいせき」ブロックアウト（2026-11-11 てじゃと流れを決めた）
+// ステージ2 コース2–5「そらのいせき」ブロックアウト
+// 2026-11-13 練り直し（てじゃ）：島を細かく 1島1ギミック、島どうしはポータル。大きさは島の中の「光のカーテン」で強制的に変わる（青＝小・橙＝大・白＝もどる）
+//  変わる前と後で同じギミックを体験する。① 横風の島（石像から左右交互の強風＋落とし穴の道：ふつう → 大 → 小）
+//  ② 巣の島（巣のスキマをぬう：ふつう → 小 → 大）③ 重力の島（小 → 大）④ 最後：横風・巣・重力を短く、入口に青と橙のカーテンが並んで選べる → ゴール
+//  島は右（+x）へ並べる。次の島は前の島のポータルの面より手前（-z）に置く（穴の向こうに本物の次の島が見えないように）
+//  ※ 下は 2026-11-11 の古い流れの説明（コードは 2026-11-13 に島の作りへ置きかえ）
 //  ① スタート小島 → ② はじめてのポータル（屋根つきの回廊のつきあたりのポータル → 上の島の部屋）CP1
 //  → ③ ちいさくなる門（青い輪 → 鉄格子。人は門の横のクモの巣をくぐる → 白い輪）
 //  → ④ でかくなる（オレンジの輪 → 強い横風の細い橋 → 吸いこむ渦のあいだ → 白い輪）CP2
@@ -18,7 +23,7 @@ public static class FuwaCourse2_5Builder
 {
     const string RootName = "FuwaCourse2_5";
     const float SpokeR = 34.8f, StartBelow = 4f;
-    public static float HW = 2f, StripeLen = 1.2f;
+    public static float HW = 2.4f, StripeLen = 1.2f;   // 2026-11-13 島の道 2→2.4
     public static Color PathColA = new Color(0.490f, 0.722f, 0.400f), PathColB = new Color(0.404f, 0.647f, 0.322f);   // #7DB866 / #67A552（2026-11-12 てじゃ「道を深緑寄りに」→ 4案から「いったん右上で」。前は #A6DB7E / #8CCB66）
     const string MeshDir = "Assets/FuwaStage2/Meshes/Course2_5";
     const float WT = 0.5f;   // 部屋の壁の厚み
@@ -74,14 +79,8 @@ public static class FuwaCourse2_5Builder
         IslandJoin(pathT, "StartJoin", Vector3.zero, Dir(th), R0, HW, pathB, FuwaCourse2_4Builder.JoinInset);
         P = Dir(th) * R0;
 
-        S(3f);
-        Section2_FirstPortal();
-        Section3_SmallGate();
-        Section4_Big();
-        Section5_Switch();
-        Section6_PortalSwitch();
-        S(2f);
-        var goalAt = GoalSet(root, P, Dir(th));
+        S(StartRun);
+        var goalAt = BuildIslands();
 
         // アウト（下に落ちた）：コースの下（まわり 12m）
         var lb = LocalCollidersBounds();
@@ -102,149 +101,260 @@ public static class FuwaCourse2_5Builder
         return "[2–5] " + log + " ゴール " + goalAt.ToString("F1") + " 範囲 " + lb.min.ToString("F0") + "〜" + lb.max.ToString("F0");
     }
 
-    // ================= ② はじめてのポータル =================
-    //  屋根つきの回廊（部屋1）のつきあたりの壁にポータルA → 上の島の部屋2の奥の壁のポータルB から出る。部屋2の右の壁の出口から道へ
-    //  部屋2は回廊の右うしろの上（Aの穴の奥（回廊の先）にはない所）
-    public static float CorridorLen = 8f, CorridorW = 4.4f, CorridorH = 4.2f, Room2W = 7f, Room2L = 7f, Room2H = 4.5f;
-    // 回廊のまん中から、部屋2の床のまん中へ（回廊の向き基準：右12・上8・うしろ6。Aの穴の奥（回廊の先）には出ない所）
-    //  コースはロビーから外（+z）へのびて、横へ出る時は右（+x）へ。左（-x）は 2–4（コースの座標で x < -19）があるので行かない
-    public static Vector3 Room2Offset = new Vector3(12f, 8f, -6f);
-    static void Section2_FirstPortal()
+    // ================= 2026-11-13 島とカーテン =================
+    public static float StartRun = 4f, IslandGapX = 6f, FirstMinX = 22f, IslandDY = 2f, IslandGapZ = 3f;
+    static Transform isl, islandsT;
+    static Texture2D curtainFade;
+    public static float WinHalf = 0.12f, WinY = 1.3f;   // 小さい窓のポータル（今は使っていない）
+
+    static Vector3 BuildIslands()
     {
-        float h0 = th;
-        var c1 = P + Dir(th) * (CorridorLen / 2f);
-        var r1 = Room("Room1_Corridor", c1, th, CorridorW, CorridorLen, CorridorH, new[] { Door('B', 0f, 2f * HW, 3.4f), PortalGap('F', 0f) }, true);
-        var r2 = Room("Room2_Up", c1 + Off(h0, Room2Offset), h0, Room2W, Room2L, Room2H, new[] { PortalGap('K', 0f), Door('R', Room2L / 2f - 2.3f, 2f * HW, 3.4f, 0f, true) });
-        var A = BigPortal(r1, "PortalA", new Vector3(0f, 0f, CorridorLen / 2f), 180f);
-        var B = BigPortal(r2, "PortalB", new Vector3(0f, 0f, -Room2L / 2f), 0f);
-        Link(A, B, r2, r1, true, true);
-        Under(r2, Room2W + 2f * WT, Room2L + 2f * WT, 3f);
-        Under(r1, CorridorW + 2f * WT, CorridorLen + 2f * WT, 2f);
-        // 部屋2の右の出口の外へ → すぐ左へ曲がって、また外向き（+z）へ
-        th = h0 - 90f;
-        var door = r2.TransformPoint(new Vector3(Room2W / 2f + WT, 0f, Room2L / 2f - 2.3f));
-        P = root.InverseTransformPoint(door);
-        CP("Checkpoint1", 1.2f);
-        S(2f); T(90f);
-        log.Append("②ポータル ");
+        islandsT = new GameObject("Islands").transform; islandsT.SetParent(root, false);
+        var A0 = BigPortal(pathT, "Portal0", P, 180f);   // スタートの道のつきあたり
+        var list = new List<(Transform island, Transform B, Transform A)>();
+        Transform B; Transform A;
+        // ① 横風の島：ふつう → 大 → 小
+        B = BeginIsland("I1_Wind");
+        S(2f);
+        WindRun("N", 7f, new[] { 3.5f });
+        S(1.2f); Curtain("C1_Big", 1); S(1.2f);
+        WindRun("B", 9f, new[] { 2.5f, 6.5f });
+        S(1.2f); Curtain("C1_Small", -1); S(1.2f);
+        WindRun("S", 9f, new[] { 2.5f, 6.5f });
+        S(2.5f); A = EndIsland(); list.Add((isl, B, A));
+        // ② 巣の島：ふつう → 小 → 大
+        B = BeginIsland("I2_Webs");
+        S(1.5f); CPi("Checkpoint1", 0.8f); S(1.5f);
+        Curtain("C2_Normal", 0); S(1.2f);
+        WebRun("N", 7f, 1.7f);
+        S(1.2f); Curtain("C2_Small", -1); S(1.2f);
+        WebRun("S", 7f, 1.7f);
+        S(1.2f); Curtain("C2_Big", 1); S(1.2f);
+        WebRun("B", 7f, 1.9f);
+        S(2.5f); A = EndIsland(); list.Add((isl, B, A));
+        // ③ 重力の島：小 → 大
+        B = BeginIsland("I3_Gravity");
+        S(1.5f); CPi("Checkpoint2", 0.8f); S(1.5f);
+        Curtain("C3_Small", -1); S(1.5f);
+        GravRun("S", 10f);
+        S(1.2f); Curtain("C3_Big", 1); S(1.5f);
+        GravRun("B", 10f);
+        S(2.5f); A = EndIsland(); list.Add((isl, B, A));
+        // ④ 最後：えらぶカーテン＋短いギミック
+        B = BeginIsland("I4a_Wind"); S(1.5f); CPi("Checkpoint3", 0.8f); S(1f); Choice("C4a"); S(1f); WindRun("M", 7f, new[] { 2f, 5.5f }); S(2.5f); A = EndIsland(); list.Add((isl, B, A));
+        B = BeginIsland("I4b_Webs"); S(1.5f); CPi("Checkpoint4", 0.8f); S(1f); Choice("C4b"); S(1f); WebRun("M", 7f, 1.8f); S(2.5f); A = EndIsland(); list.Add((isl, B, A));
+        B = BeginIsland("I4c_Gravity"); S(1.5f); CPi("Checkpoint5", 0.8f); S(1f); Choice("C4c"); S(1f); GravRun("M", 8f); S(2f);
+        var goalLocal = P;
+        GoalSet(isl, P, Dir(th));
+        var last = isl;
+        list.Add((isl, B, null));
+        // 置く：前のポータル A の面より手前（-z）、前の島の右
+        var prevA = A0; float prevMaxX = LocalBounds(root, root).max.x;
+        for (int i = 0; i < list.Count; i++)
+        {
+            var (island, b, a) = list[i];
+            var lb = LocalBounds(island, island);
+            var pa = root.InverseTransformPoint(prevA.position);
+            float x = prevMaxX + IslandGapX - lb.min.x;
+            if (i == 0) x = Mathf.Max(x, FirstMinX - lb.min.x);
+            island.localPosition = new Vector3(x, pa.y + IslandDY, pa.z - IslandGapZ - lb.max.z);
+            Link(prevA, b, island, null, true, true);
+            prevMaxX = x + lb.max.x;
+            if (a) prevA = a;
+        }
+        log.Append("島 " + list.Count + " ");
+        return root.InverseTransformPoint(last.TransformPoint(goalLocal));
     }
 
-    // ================= ③ ちいさくなる門 =================
-    //  青い輪 → 遺跡の門をふさぐクモの巣（人はすり抜け、小さいふわふわは巣の目を抜ける、ふつう・でかいはくっつく）→ 白い輪
-    //  2026-11-11 てじゃ「鉄の柵じゃなくて、その部分そのままクモの巣でいいんじゃないの」→ 鉄格子と横の人用の通り口をやめた
-    public static float GateH = 3.6f;
-    static void Section3_SmallGate()
+    // 島をはじめる：入口のポータル B（出る側、z=0 の面）。道はそこから +z へ
+    static Transform BeginIsland(string name)
     {
-        S(3f);
-        Rune("Rune3_Small", -1); S(4f);
-        var g = new GameObject("S3_Gate").transform; g.SetParent(secT, false); g.localPosition = P; g.localRotation = Quaternion.LookRotation(Dir(th));
-        float wallH = GateH + 0.6f, t = 0.6f;
-        Block(g, "PostL", -HW - 0.6f, -HW, -0.6f, wallH, t, stone);
-        Block(g, "PostR", HW, HW + 0.6f, -0.6f, wallH, t, stone);
-        Block(g, "Top", -HW, HW, GateH, wallH, t, terra);
-        Web(g, "GateWeb", new Vector3(0f, GateH / 2f, 0f), Quaternion.identity, new Vector2(2f * HW + 0.1f, GateH + 0.1f), false, 0.6f, true);
-        S(4f);
-        Rune("Rune3_Normal", 0); S(3f);
-        log.Append("③門 ");
+        isl = new GameObject(name).transform; isl.SetParent(islandsT, false);
+        pathT = isl; secT = isl; P = Vector3.zero; th = 90f;
+        return BigPortal(isl, "PortalIn", Vector3.zero, 0f);
+    }
+    // 島のおわり：道のはしにポータル A（入る側）
+    static Transform EndIsland() => BigPortal(isl, "PortalOut", P, 180f);
+
+    // 島の中のチェックポイント（島の子に置く）
+    static void CPi(string name, float along)
+    {
+        var tmpl = GameObject.Find("FuwaCourse3/Checkpoint1"); if (!tmpl) return;
+        var g = isl.Find("Checkpoints"); if (!g) { g = new GameObject("Checkpoints").transform; g.SetParent(isl, false); }
+        var cp = Object.Instantiate(tmpl, g, false); cp.name = name;
+        cp.transform.localPosition = P + Dir(th) * along; cp.transform.localRotation = Quaternion.LookRotation(Dir(th));
+        foreach (var n in new[] { "Post_L", "Post_R", "Bar" }) { var c = cp.transform.Find(n); if (c) Object.DestroyImmediate(c.gameObject); }
+        var trig = cp.transform.Find("Trigger");
+        if (trig) trig.localScale = new Vector3(HW * 2f + 0.8f, trig.localScale.y, trig.localScale.z);
+        var gm = cp.transform.Find("GlowMushrooms");
+        if (gm) foreach (Transform cl in gm) cl.localPosition = new Vector3(Mathf.Sign(cl.localPosition.x) * (HW + 0.55f), cl.localPosition.y, 1.5f);
+        var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
+        if (fc) { UdonSharpEditorUtility.CopyProxyToUdon(fc); FuwaStage2WaterTest.NoSync(fc); cps.Add(fc); }
     }
 
-    // ================= ④ でかくなる =================
-    //  オレンジの輪 → 強い横風の細い橋（ふつうだと流されて落ちる、でかいと耐える）→ 吸いこむ渦が両わきにある道 → 白い輪
-    public static float WindBridgeLen = 12f, WindBridgeHW = 0.9f, CrossWindStrength = 3.4f;
-    static void Section4_Big()
+    // ---- 光のカーテン：柱2本の間の光の幕。ふわふわがくぐると大きさが変わる（FuwaSizeRune を幕に）。飛びこえ・横からまわれないよう、当たりは横 TrigW・高さ TrigH ----
+    public static float CurtainH = 6.5f, CurtainTrigH = 40f, CurtainTrigW = 20f;
+    static void Curtain(string name, int mode, float xc = 0f, float w = -1f, float tx0 = float.NaN, float tx1 = float.NaN)
     {
-        S(2f);
-        Rune("Rune4_Big", 1); S(3f);
-        // 細い橋（人もここを歩く）と横風
-        var bridgeStart = P; float bth = th;
-        Strip(pathT, "Road" + (segNo++) + "_WindBridge", P, Dir(th) * WindBridgeLen, WindBridgeHW, true);
-        P += Dir(th) * WindBridgeLen;
-        WindZone("S4_CrossWind", bridgeStart + Dir(bth) * (WindBridgeLen / 2f) + Vector3.up * 2.5f, bth, new Vector3(9f, 6f, WindBridgeLen - 1f), Vector3.right, CrossWindStrength);
-        S(2f);
-        // 渦の道：両わきに吸いこむ渦（捕まえるつむじ風）
-        var w0 = P;
-        S(10f);
-        Whirl("S4_WhirlL", w0 + Dir(th) * 3f + Dir(th + 90f) * (HW + 2.4f));
-        Whirl("S4_WhirlR", w0 + Dir(th) * 7f + Dir(th - 90f) * (HW + 2.4f));
-        Rune("Rune4_Normal", 0); S(2f);
-        CP("Checkpoint2", 0.5f);
-        S(2f);
-        log.Append("④でかい ");
+        if (w < 0f) w = 2f * HW;
+        if (float.IsNaN(tx0)) { tx0 = xc - CurtainTrigW / 2f; tx1 = xc + CurtainTrigW / 2f; }
+        var col = FuwaSizeTest.RuneColor(mode);
+        var c = new GameObject(name).transform; c.SetParent(isl, false); c.localPosition = new Vector3(xc, P.y, P.z); c.gameObject.layer = 2;
+        var capM = FuwaStage2WaterTest.ToonMat("Ruins_CurtainCap_" + mode, Color.Lerp(col, Color.white, 0.3f));
+        capM.SetColor("_EmissionColor", col * 1.2f); EditorUtility.SetDirty(capM);
+        var caps = new List<Renderer>();
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            Box(c, "Post", new Vector3(sx * (w / 2f + 0.3f), CurtainH / 2f - 0.3f, 0f), new Vector3(0.5f, CurtainH + 0.6f, 0.5f), stone, 0);
+            var cap = Box(c, "Cap", new Vector3(sx * (w / 2f + 0.3f), CurtainH + 0.45f, 0f), new Vector3(0.62f, 0.3f, 0.62f), capM, 0);
+            Object.DestroyImmediate(cap.GetComponent<Collider>()); caps.Add(cap.GetComponent<Renderer>());
+        }
+        // 幕（下がこく、上へ消える）
+        if (!curtainFade) curtainFade = CurtainFadeTex();
+        string mp = "Assets/FuwaStage2/Materials/Ruins_Curtain_" + mode + ".mat";
+        var vm = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!vm) { vm = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended")); AssetDatabase.CreateAsset(vm, mp); }
+        vm.mainTexture = curtainFade; vm.SetColor("_TintColor", new Color(col.r * 0.6f, col.g * 0.6f, col.b * 0.6f, 0.45f)); EditorUtility.SetDirty(vm);
+        var q = GameObject.CreatePrimitive(PrimitiveType.Quad); q.name = "Veil"; Object.DestroyImmediate(q.GetComponent<Collider>());
+        q.transform.SetParent(c, false); q.transform.localPosition = new Vector3(0f, CurtainH / 2f, 0f); q.transform.localScale = new Vector3(w, CurtainH, 1f);
+        var qr = q.GetComponent<MeshRenderer>(); qr.sharedMaterial = vm; qr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; qr.receiveShadows = false;
+        // 当たり（FuwaSizeRune と同じ物に）
+        var bc = c.gameObject.AddComponent<BoxCollider>(); bc.isTrigger = true;
+        bc.size = new Vector3(tx1 - tx0, CurtainTrigH, 0.4f); bc.center = new Vector3((tx0 + tx1) / 2f - xc, CurtainTrigH / 2f - 6f, 0f);
+        var ps = new GameObject("Burst").AddComponent<ParticleSystem>(); ps.transform.SetParent(c, false); ps.transform.localPosition = new Vector3(0f, 1.8f, 0f);
+        var main = ps.main; main.playOnAwake = false; main.loop = false; main.startLifetime = 0.8f; main.startSpeed = 2.2f; main.startSize = 0.14f; main.startColor = Color.Lerp(col, Color.white, 0.3f); main.maxParticles = 64; main.simulationSpace = ParticleSystemSimulationSpace.World;
+        var em = ps.emission; em.rateOverTime = 0f;
+        var sh = ps.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(w, 2.5f, 0.1f);
+        ps.GetComponent<ParticleSystemRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Rune_Glyph_" + mode + ".mat");
+        ps.Stop();
+        var sr = UdonSharpUndo.AddComponent<FuwaSizeRune>(c.gameObject);
+        sr.mode = mode; sr.glyph = null; sr.glows = caps.ToArray(); sr.burst = ps; sr.glowColor = col;
+        UdonSharpEditorUtility.CopyProxyToUdon(sr); FuwaStage2WaterTest.NoSync(sr);
+    }
+    static Texture2D CurtainFadeTex()
+    {
+        const string path = "Assets/FuwaStage2/Textures/Curtain_Fade.png";
+        var t = new Texture2D(4, 64, TextureFormat.RGBA32, false);
+        for (int y = 0; y < 64; y++) { float v = y / 63f; float a = Mathf.Clamp01(1f - v) * (0.55f + 0.45f * Mathf.Clamp01(v * 6f)); for (int x = 0; x < 4; x++) t.SetPixel(x, y, new Color(1f, 1f, 1f, a)); }
+        if (!AssetDatabase.IsValidFolder("Assets/FuwaStage2/Textures")) AssetDatabase.CreateFolder("Assets/FuwaStage2", "Textures");
+        System.IO.File.WriteAllBytes(path, t.EncodeToPNG()); Object.DestroyImmediate(t);
+        AssetDatabase.ImportAsset(path);
+        var ti = (TextureImporter)AssetImporter.GetAtPath(path); ti.wrapMode = TextureWrapMode.Clamp; ti.alphaIsTransparency = true; ti.SaveAndReimport();
+        return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
     }
 
-    // ================= ⑤ 切りかえ =================
-    //  オレンジ → 道をふさぐクモの巣の壁（でかいと破れる、人はすり抜け）→ 鳥のいる所（でかいと持てない）→ 白 → 追い風の谷（でかいと落ちる）
-    public static float GapLen = 12f, TailWind = 2.2f;
-    static void Section5_Switch()
+    // えらぶカーテン：まん中の仕切りの左に青（小）、右に橙（大）
+    static void Choice(string name)
     {
-        T(-90f); S(2f);
-        Rune("Rune5_Big", 1); S(4f);
-        // クモの巣の壁（アーチの中）
-        var a = new GameObject("S5_WebArch").transform; a.SetParent(secT, false); a.localPosition = P; a.localRotation = Quaternion.LookRotation(Dir(th));
-        float ah = 3.6f;
-        Block(a, "PostL", -HW - 0.6f, -HW, -0.6f, ah + 0.6f, 0.6f, stone);
-        Block(a, "PostR", HW, HW + 0.6f, -0.6f, ah + 0.6f, 0.6f, stone);
-        Block(a, "Top", -HW, HW, ah, ah + 0.6f, 0.6f, terra);
-        Web(a, "ArchWeb", new Vector3(0f, ah / 2f, 0f), Quaternion.identity, new Vector2(2f * HW + 0.1f, ah + 0.1f), true, 0.6f);
-        S(6f);
-        // 鳥：道の上で待っていて、ふわふわが来るとつかんで道の外へ運んで落とす（でかいと持てない）
-        Bird("S5_Bird", P + Dir(th) * -3f + Vector3.up * 3.2f);
-        S(4f);
-        Rune("Rune5_Normal", 0); S(3f);
-        // 追い風の谷：ふわふわは谷の上を風に乗って渡る（でかいと風が弱く重いので落ちる）。人は谷の右の細い橋
-        var gapStart = P; float gth = th;
-        var pb = new GameObject("S5_PlayerBridge").transform; pb.SetParent(secT, false);
-        Strip(pb, "Bridge", gapStart + Dir(gth - 90f) * (HW + 1.6f), Dir(gth) * GapLen, 0.55f, false);
-        // 人の橋へのつなぎ（谷の手前と向こうの道の右へ）
-        Strip(pb, "JoinNear", gapStart - Dir(gth) * 1.2f + Dir(gth - 90f) * (HW + 0.8f), Dir(gth) * 1.2f, 0.8f, false);
-        Strip(pb, "JoinFar", gapStart + Dir(gth) * GapLen + Dir(gth - 90f) * (HW + 0.8f), Dir(gth) * 1.2f, 0.8f, false);
-        P += Dir(th) * GapLen;
-        WindZone("S5_TailWind", gapStart + Dir(gth) * (GapLen / 2f) + Vector3.up * 1.5f, gth, new Vector3(2f * HW + 1f, 5f, GapLen + 2f), new Vector3(0f, 0.35f, 1f).normalized, TailWind);
-        S(3f);
-        CP("Checkpoint3", 0.5f);
-        S(2f);
-        log.Append("⑤切りかえ ");
+        float len = 3.2f;
+        Box(isl, name + "_Divider", new Vector3(0f, P.y + 2.5f, P.z + len / 2f), new Vector3(0.4f, 5f, len), stone, 0);
+        float z = P.z; P += Vector3.forward * (len / 2f);
+        Curtain(name + "_Small", -1, -HW / 2f, HW - 0.1f, -CurtainTrigW / 2f, 0f);
+        Curtain(name + "_Big", 1, HW / 2f, HW - 0.1f, 0f, CurtainTrigW / 2f);
+        P = new Vector3(P.x, P.y, z);
+        S(len);
     }
 
-    // ================= ⑥ ポータル＋切りかえ =================
-    //  青い輪 → 部屋3：奥の壁に小さい窓のポータル（ふわふわだけ、小さくないと入らない）と、クモの巣でふさいだ扉のポータル（人）→ 上の部屋4
-    //  → 部屋4の出口 → オレンジの輪 → 横風の上り坂 → ゴール
-    public static float Room3W = 8f, Room3L = 7f, Room3H = 4.2f, Room4W = 8f, Room4L = 7f, Room4H = 4.2f;
-    public static Vector3 Room4Offset = new Vector3(-10f, 7f, -6f);   // 部屋3から（向き基準：左10・上7・うしろ6）
-    public static float WinHalf = 0.12f, WinY = 1.3f;   // 窓：0.24m 角（小さいふわふわ 0.17 は通る、ふつう 0.3 は通らない）
-    static void Section6_PortalSwitch()
+    // ---- 横風：落とし穴だらけの道（タイル）＋左右の石像から交互の強風（ステージ1の横風を写す）----
+    public static float WindStrength = 5.5f, WindOn = 0.8f, WindOff = 2.2f, TileL = 1.2f;
+    static readonly int[][] PitRows = { new int[0], new[] { 0, 1 }, new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2 }, new int[0], new[] { 0 }, new[] { 3 } };
+    static int pitRow;
+    static void WindRun(string tag, float len, float[] windsAt)
     {
-        T(90f); S(2f);
-        Rune("Rune6_Small", -1); S(3f);
-        float h0 = th;
-        var c3 = P + Dir(th) * (Room3L / 2f);
-        float doorX = 2f, winX = -1.6f;
-        var r3 = Room("Room3", c3, th, Room3W, Room3L, Room3H, new[] { Door('B', 0f, 2f * HW, 3.4f), PortalGap('F', doorX), WindowGap('F', winX) }, true);
-        var r4 = Room("Room4_Up", c3 + Off(h0, Room4Offset), h0, Room4W, Room4L, Room4H, new[] { PortalGap('K', doorX), WindowGap('K', winX), Door('F', 0f, 2f * HW, 3.4f, 0f, true) });
-        // 人の扉（ふわふわは運ばない）・ふわふわの窓（人は通れない大きさ）
-        var Ad = BigPortal(r3, "PortalDoorA", new Vector3(doorX, 0f, Room3L / 2f), 180f);
-        var Bd = BigPortal(r4, "PortalDoorB", new Vector3(doorX, 0f, -Room4L / 2f), 0f);
-        Link(Ad, Bd, r4, r3, true, false);
-        var Aw = WindowPortal(r3, "PortalWinA", new Vector3(winX, WinY, Room3L / 2f), 180f);
-        var Bw = WindowPortal(r4, "PortalWinB", new Vector3(winX, WinY, -Room4L / 2f), 0f);
-        Link(Aw, Bw, r4, r3, false, true, WinHalf, 2f * WinHalf);
-        // 扉のポータルの前にクモの巣（ふわふわを扉へ行かせない。人はすり抜け）
-        Web(r3, "DoorWeb", new Vector3(doorX, FuwaPortalTest.HoleH / 2f, Room3L / 2f - 0.55f), Quaternion.identity, new Vector2(2f * FuwaPortalTest.HalfW + 0.2f, FuwaPortalTest.HoleH + 0.1f), false, 0.6f);
-        Under(r3, Room3W + 2f * WT, Room3L + 2f * WT, 2.5f);
-        Under(r4, Room4W + 2f * WT, Room4L + 2f * WT, 3f);
-        // 部屋4の前の出口から
-        th = h0;
-        P = root.InverseTransformPoint(r4.TransformPoint(new Vector3(0f, 0f, Room4L / 2f + WT)));
-        CP("Checkpoint4", 1.2f);
-        S(2f);
-        Rune("Rune6_Big", 1); S(3f);
-        // 横風の上り坂（でかくないと流される）
-        var s0 = P; float sth = th;
-        S(12f, 3f);
-        WindZone("S6_CrossWind", s0 + Dir(sth) * 6f + Vector3.up * 4f, sth, new Vector3(9f, 7f, 11f), Vector3.left, CrossWindStrength);
-        S(2f);
-        Rune("Rune6_Normal", 0);
-        log.Append("⑥ポータル＋切りかえ ");
+        float z0 = P.z; int rows = Mathf.Max(1, Mathf.RoundToInt(len / TileL)); float rl = len / rows;
+        int cols = 4; float cw = 2f * HW / cols;
+        var g = new GameObject("WindRun_" + tag).transform; g.SetParent(isl, false);
+        for (int r = 0; r < rows; r++)
+        {
+            var holes = PitRows[(pitRow++) % PitRows.Length];
+            for (int c = 0; c < cols; c++)
+            {
+                if (holes.Contains(c)) continue;
+                Box(g, "Tile", new Vector3(-HW + cw * (c + 0.5f), P.y - 0.3f, z0 + rl * (r + 0.5f)), new Vector3(cw - 0.04f, 0.6f, rl - 0.04f), r % 2 == 0 ? pathA : pathB, pathLayer);
+            }
+        }
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            var rail = Box(g, "Rail", new Vector3(sx * (HW + 0.12f), P.y - 0.45f, z0 + len / 2f), new Vector3(0.24f, 0.9f, len), underM, 0); Object.DestroyImmediate(rail.GetComponent<Collider>());
+        }
+        int k = 0; foreach (float a in windsAt) WindStatues(g, z0 + a, (k++) * 1.5f);
+        P += Vector3.forward * len;
+    }
+    static void WindStatues(Transform g, float z, float phase)
+    {
+        var tmpl = Resources.FindObjectsOfTypeAll<Transform>().FirstOrDefault(t => t.name == "Gimmick1_CrossWind" && t.parent && t.parent.name == "BuildTemplates" && t.parent.parent && t.parent.parent.name == "FuwaCourse" && t.gameObject.scene.IsValid());
+        if (!tmpl) { log.Append("（横風の見本がない）"); return; }
+        var w = Object.Instantiate(tmpl.gameObject, g, false); w.name = "CrossWind"; w.SetActive(true);
+        w.transform.localPosition = new Vector3(0f, P.y, z); w.transform.localRotation = Quaternion.identity;
+        foreach (Transform c in w.transform) c.localPosition = new Vector3(c.localPosition.x, 2.6f, c.localPosition.z);
+        var cwT = w.transform.Find("CrossWind"); if (cwT) cwT.localScale = new Vector3(2f * HW + 10f, 5.2f, 3.6f);
+        var wa = w.GetComponentInChildren<FuwaWindArea>(true);
+        if (wa) { wa.strength = WindStrength; wa.onSeconds = WindOn; wa.offSeconds = WindOff; wa.phaseOffset = phase; wa.alternate = true; UdonSharpEditorUtility.CopyProxyToUdon(wa); FuwaStage2WaterTest.NoSync(wa); }
+        // 石像（左右）：台＋胴＋頭、道の方を向いた口
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            float x = sx * (HW + 2.4f);
+            Box(g, "StatueBase", new Vector3(x, P.y - 0.3f, z), new Vector3(2f, 0.6f, 2f), underM, 0);
+            Box(g, "StatueBody", new Vector3(x, P.y + 1.3f, z), new Vector3(1.1f, 2.6f, 1.1f), stone, 0);
+            Box(g, "StatueHead", new Vector3(x, P.y + 3.1f, z), new Vector3(1.2f, 1.1f, 1.2f), terra, 0);
+            var mouth = Box(g, "StatueMouth", new Vector3(x - sx * 0.6f, P.y + 2.95f, z), new Vector3(0.12f, 0.45f, 0.7f), terraD, 0); Object.DestroyImmediate(mouth.GetComponent<Collider>());
+        }
+    }
+
+    // ---- 巣のスキマ：左右交互に道をふさぐ巣（破れない、人はすり抜け）。gap＝あいている幅 ----
+    public static float WebH = 5f, WebStep = 2.2f;
+    static void WebRun(string tag, float len, float gap)
+    {
+        float z0 = P.z;
+        var g = new GameObject("WebRun_" + tag).transform; g.SetParent(isl, false);
+        int n = Mathf.Max(1, Mathf.FloorToInt((len - 1f) / WebStep));
+        for (int i = 0; i < n; i++)
+        {
+            float z = z0 + 1.2f + i * WebStep; bool left = i % 2 == 0;
+            float x0 = left ? -HW - 0.5f : -HW + gap, x1 = left ? HW - gap : HW + 0.5f;
+            Web(g, "Web" + i, new Vector3((x0 + x1) / 2f, P.y + WebH / 2f, z), Quaternion.identity, new Vector2(x1 - x0, WebH), false, 0.6f);
+        }
+        S(len);
+    }
+
+    // ---- 重力：重いゾーン（ステージ1のドームを写す、キノコはなし）----
+    public static float GravScale = 0.75f;
+    static void GravRun(string tag, float len)
+    {
+        float z0 = P.z;
+        var tmpl = GameObject.Find("FuwaCourse5/Gimmick4_Heavy");
+        S(len);
+        if (!tmpl) { log.Append("（重いゾーンの見本がない）"); return; }
+        int k = 0;
+        foreach (float a in new[] { 0.28f, 0.75f })
+        {
+            var d = Object.Instantiate(tmpl, isl, false); d.name = "Heavy_" + tag + (k++);
+            var ink = d.transform.Find("InkCap"); if (ink) Object.DestroyImmediate(ink.gameObject);
+            d.transform.localScale = Vector3.one * GravScale;
+            d.transform.localPosition = new Vector3(0f, P.y - 1.3f * GravScale, z0 + len * a); d.transform.localRotation = Quaternion.identity;
+        }
+    }
+
+    // 当たり（トリガー以外）の範囲（space の座標）。of＝root の時は島の下はのぞく
+    static Bounds LocalBounds(Transform of, Transform space)
+    {
+        var lb = new Bounds(Vector3.zero, Vector3.zero); bool first = true;
+        foreach (var cl in of.GetComponentsInChildren<Collider>(true))
+        {
+            if (cl.isTrigger) continue;
+            if (of == root && islandsT && cl.transform.IsChildOf(islandsT)) continue;
+            Vector3 cc, ex; var t = cl.transform;
+            if (cl is BoxCollider bc) { cc = bc.center; ex = bc.size * 0.5f; }
+            else if (cl is MeshCollider mc && mc.sharedMesh) { cc = mc.sharedMesh.bounds.center; ex = mc.sharedMesh.bounds.extents; }
+            else continue;
+            for (int k = 0; k < 8; k++)
+            {
+                var c = cc + new Vector3((k & 1) == 0 ? -ex.x : ex.x, (k & 2) == 0 ? -ex.y : ex.y, (k & 4) == 0 ? -ex.z : ex.z);
+                var lp = space.InverseTransformPoint(t.TransformPoint(c));
+                if (first) { lb = new Bounds(lp, Vector3.zero); first = false; } else lb.Encapsulate(lp);
+            }
+        }
+        return lb;
     }
 
     // ================= 部品 =================
