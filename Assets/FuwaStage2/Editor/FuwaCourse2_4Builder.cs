@@ -1473,6 +1473,7 @@ public static class FuwaCourse2_4Builder
         cb.body = body; cb.burst = burst; cb.burstCount = 0;   // 2026-11-10 玉の粒はやめて、背景と同じ雲を出す（BalloonClouds）
         BalloonClouds(cb, holder, new Vector3(0f, BalloonY + topY + 0.3f, 0f));
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cb); FuwaStage2WaterTest.NoSync(cb);
+        BalloonShadow(holder);
         balloon = cb;
         log.Append(" バルーン：球 半径 " + BalloonR + " ");
     }
@@ -1520,6 +1521,35 @@ public static class FuwaCourse2_4Builder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return res;
     }
+    // ===== 気球の影（2026-11-13 てじゃ「気球の影がふくらんだときとかにチラつく、パイプとかギアに落ちてる分」）=====
+    //  息をする本体（BalloonBody の下）は影を出さず、息をしない影だけの気球（BalloonShadow、ShadowsOnly、本体と同じ形）を置く → 影の形が毎フレーム変わらない
+    //  FarShadows などの「近い時に影を On」にする一覧からは外す（On にされると見えてしまう／本体に影が戻る）
+    static void BalloonShadow(Transform holder)
+    {
+        var body = holder.Find("BalloonBody"); if (!body) return;
+        var skin = body.Find("BalloonSkin"); var mf = skin ? skin.GetComponent<MeshFilter>() : null; if (!mf) return;
+        var old = holder.Find("BalloonShadow"); if (old) Object.DestroyImmediate(old.gameObject);
+        var rs = body.GetComponentsInChildren<Renderer>(true).Where(r => !(r is ParticleSystemRenderer)).ToList();
+        foreach (var r in rs) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; EditorUtility.SetDirty(r); }
+        foreach (var f in Resources.FindObjectsOfTypeAll<FuwaFarShadows>().Where(x => x && x.gameObject.scene.IsValid() && x.targets != null))
+        {
+            var keep = new List<int>(); for (int i = 0; i < f.targets.Length; i++) if (!(f.targets[i] && rs.Contains(f.targets[i]))) keep.Add(i);
+            if (keep.Count == f.targets.Length) continue;
+            f.targets = keep.Select(i => f.targets[i]).ToArray(); f.centers = keep.Select(i => f.centers[i]).ToArray(); f.radii = keep.Select(i => f.radii[i]).ToArray();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f); EditorUtility.SetDirty(f);
+        }
+        var sh = new GameObject("BalloonShadow"); sh.transform.SetParent(holder, false);
+        sh.transform.localPosition = body.localPosition; sh.transform.localRotation = body.localRotation; sh.transform.localScale = Vector3.one;
+        sh.AddComponent<MeshFilter>().sharedMesh = mf.sharedMesh;
+        var mr = sh.AddComponent<MeshRenderer>(); mr.sharedMaterial = skin.GetComponent<MeshRenderer>().sharedMaterial;
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly; mr.receiveShadows = false;
+    }
+    public static string RebuildBalloonShadow()
+    {
+        root = GameObject.Find(RootName).transform; var h = root.Find("Gimmicks/CloudBalloon"); if (!h) return "気球がない";
+        BalloonShadow(h); UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene); return "ok";
+    }
+
     // 上下にとがった六角のクリスタル（中心 0、上 up・下 dn まで、半径 r）。とがりの長さは半径の 1.6 倍
     static Mesh CrystalMesh(float r, float up, float dn, string name)
     {

@@ -41,7 +41,7 @@ public static class FuwaCourse2_4Perf
         foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
         {
             if (inSmall.Contains(r) || inFar.Contains(r)) continue;
-            if (r.shadowCastingMode == ShadowCastingMode.Off) continue;   // もともと影なし
+            if (r.shadowCastingMode != ShadowCastingMode.On) continue;   // もともと影なし・影だけの物（FarShadows が On にすると見えてしまう）
             if (!r.GetComponent<MeshFilter>()) continue;
             var b = r.bounds; float m = Mathf.Max(b.size.x, b.size.y, b.size.z);
             if (m < SmallSize) { r.shadowCastingMode = ShadowCastingMode.Off; EditorUtility.SetDirty(r); addS.Add(r); }
