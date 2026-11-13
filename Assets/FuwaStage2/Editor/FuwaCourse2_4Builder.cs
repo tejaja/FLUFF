@@ -1875,7 +1875,12 @@ public static class FuwaCourse2_4Builder
         var h = new GameObject("Head"); h.transform.SetParent(piston, false);
         h.AddComponent<MeshFilter>().sharedMesh = BevelCylX(PistonR, PistonLen, PistonBevel, 40, "Pump_PistonHead");
         h.AddComponent<MeshRenderer>().sharedMaterial = pipeM;
+        // 棒とのつなぎ目の補強（てじゃ「円柱と棒の接続部をちょと補強」）：棒の色の太い受け（面取りつき）を円柱の裏に
+        var bo = new GameObject("RodBoss"); bo.transform.SetParent(h.transform, false); bo.transform.localPosition = new Vector3(-PistonBossLen, 0f, 0f);
+        bo.AddComponent<MeshFilter>().sharedMesh = BevelCylX(PistonBossR, PistonBossLen + 0.005f, 0.015f, 24, "Pump_PistonBoss");
+        bo.AddComponent<MeshRenderer>().sharedMaterial = cwAxle;
     }
+    public static float PistonBossR = 0.1f, PistonBossLen = 0.08f;
     // x 方向の円柱（x 0〜len、半径 r）、両はしのフチを b だけ面取り。まわりはなめらか、面取りの所で折れる
     static Mesh BevelCylX(float r, float len, float b, int n, string name)
     {
