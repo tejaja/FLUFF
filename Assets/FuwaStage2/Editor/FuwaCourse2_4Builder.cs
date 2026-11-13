@@ -1759,8 +1759,7 @@ public static class FuwaCourse2_4Builder
         var pc = crank.localPosition; var axisY = Vector3.up * PY;
         // ピストン（動く）と、ピストンの通るかご（動かない）
         var piston = new GameObject("Piston").transform; piston.SetParent(F, false);
-        var head = GameObject.CreatePrimitive(PrimitiveType.Cylinder); head.name = "Head"; Object.DestroyImmediate(head.GetComponent<Collider>());
-        head.transform.SetParent(piston, false); head.transform.localRotation = Quaternion.Euler(0f, 0f, 90f); head.transform.localPosition = new Vector3(0.12f, 0f, 0f); head.transform.localScale = new Vector3(0.62f, 0.12f, 0.62f); head.GetComponent<Renderer>().sharedMaterial = pipeM;
+        PistonHead(piston, pipeM);
         var rod = new GameObject("PumpRod").transform; rod.SetParent(F, false);
         TBox(rod, "Bar", Vector3.zero, new Vector3(0.07f, 0.07f, L), cwAxle, false);
         // 2026-11-08 てじゃ「ポンプがただ押してるだけ」「ポンプのすぐ横に丸みのあるタンク、クリスタルつけて処理してそうな雰囲気」
@@ -1865,6 +1864,45 @@ public static class FuwaCourse2_4Builder
         if (two) crank.localRotation = Quaternion.Euler(0f, -Mathf.Repeat(fc.ratio2 * s1 + fc.phase2, 360f), 0f);
         float pinRate = pg.ratio * rate * (two ? p2g.ratio : 1f);
         return g.name + " タンク " + tankHits + " 1回 " + (360f / Mathf.Max(0.01f, Mathf.Abs(pinRate))).ToString("F1") + "秒 パイプ高さ " + bestY.ToString("F1") + " ぶつかり " + bestHits;
+    }
+
+    // ===== ピストンの頭（2026-11-13 てじゃ「ピストンの白い円柱ももうちょい盛れないかな」）=====
+    //  前はただの白い円柱（半径 0.31・長さ 0.24、x が押す向き）。白い胴（少し細く）＋真ちゅうのピストンリング3本、押す面に黒い板＋真ちゅうのボス＋ボルト6本、棒の側に黒い受け
+    //  大きさ（半径 0.31）は前と同じなので、筒にはあたらない
+    public static float PistonR = 0.31f, PistonLen = 0.24f;
+    static void PistonHead(Transform piston, Material pipeM)
+    {
+        var old = piston.Find("Head"); if (old) Object.DestroyImmediate(old.gameObject);
+        var h = new GameObject("Head").transform; h.SetParent(piston, false);
+        Transform Cyl(string nm, float x0, float x1, float r, Material m, Transform par = null)
+        {
+            var g = GameObject.CreatePrimitive(PrimitiveType.Cylinder); g.name = nm; Object.DestroyImmediate(g.GetComponent<Collider>());
+            g.transform.SetParent(par ? par : h, false); g.transform.localRotation = Quaternion.Euler(0f, 0f, 90f);
+            g.transform.localPosition = new Vector3((x0 + x1) / 2f, 0f, 0f); g.transform.localScale = new Vector3(2f * r, (x1 - x0) / 2f, 2f * r);
+            g.GetComponent<Renderer>().sharedMaterial = m; return g.transform;
+        }
+        float L = PistonLen, R = PistonR;
+        Cyl("HeadBody", 0f, L, R - 0.025f, pipeM);
+        foreach (var (a, b) in new[] { (0f, 0.035f), (L * 0.5f - 0.02f, L * 0.5f + 0.02f), (L - 0.035f, L) }) Cyl("PistonRing", a, b, R, cwBrass);
+        Cyl("FacePlate", L, L + 0.025f, R * 0.72f, cwAxle);
+        Cyl("FaceBoss", L + 0.025f, L + 0.07f, R * 0.26f, cwBrass);
+        for (int k = 0; k < 6; k++)
+        {
+            float a = k * 60f * Mathf.Deg2Rad; var b = Cyl("FaceBolt", L + 0.025f, L + 0.045f, 0.022f, cwBrass);
+            b.localPosition += new Vector3(0f, Mathf.Cos(a), Mathf.Sin(a)) * (R * 0.52f);
+        }
+        Cyl("RodBoss", -0.07f, 0f, R * 0.32f, cwAxle);
+        Cyl("RodNut", -0.1f, -0.07f, R * 0.2f, cwBrass);
+    }
+    // 今のシーンのピストンの頭だけ作り直す
+    public static string RebuildPistonHeads()
+    {
+        root = GameObject.Find(RootName).transform; CwMats();
+        var pipeM = FuwaStage2WaterTest.ToonMat("Course2_4_SugarPipe", PipeCol);
+        int n = 0;
+        foreach (var p in root.GetComponentsInChildren<Transform>(true).Where(x => x.name == "Piston" && x.parent && x.parent.name.StartsWith("SugarPump")).ToArray()) { PistonHead(p, pipeM); n++; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+        return "ピストン " + n;
     }
 
     // ===== 砂糖ポンプの見た目（2026-11-10 てじゃ「タンク周りのモデルのクオリティアップ」「スキマはあるしシリンダーは丸裸」「タンク自体もただのカプセル」）=====
