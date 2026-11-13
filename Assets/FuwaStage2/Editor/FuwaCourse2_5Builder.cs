@@ -571,7 +571,7 @@ public static class FuwaCourse2_5Builder
     // ---- 崩れた石だたみの飛び石（2026-11-13 てじゃ「曲がり方がなんか不自然」→ 道は曲げない）----
     //  まっすぐで広い石だたみ（StoneCols×1.2m）のタイルが崩れ落ちて、残った所がくねくねの飛び石ルート。石はふつうの四角
     //  ルートのまん中 m(r) が左右にゆれる（sin＋ゆらぎ）。各列 1〜2 マス、前の列と辺で接する。はしの列は道のはば分
-    public static int StoneCols = 5, StoneGapEvery = 4, StoneGapRows = 2; public static float StonePeriod = 8f, StoneCell = 1.5f;   // 2026-11-13 てじゃ「ちょっぴり1マスを大きく」1.2 → 1.5（はば 6×1.2 → 5×1.5）   // 切れ目：石 StoneGapEvery 列ごとに StoneGapRows 列まるごと穴
+    public static int StoneCols = 5, StoneGapEvery = 4, StoneGapRows = 1; public static float StonePeriod = 8f, StoneCell = 1.5f, StoneGapLen = 2.2f;   // 切れ目の長さ：1.5m はダッシュで越えられる、3m は届かない（てじゃ）→ 2.2m   // 2026-11-13 てじゃ「ちょっぴり1マスを大きく」1.2 → 1.5（はば 6×1.2 → 5×1.5）   // 切れ目：石 StoneGapEvery 列ごとに StoneGapRows 列まるごと穴
     static void Stones(string tag, float len)
     {
         int cols = StoneCols; float cw = StoneCell, hwF = cols * cw / 2f;
@@ -579,15 +579,15 @@ public static class FuwaCourse2_5Builder
         int seed = WiggleSeed; foreach (char ch in tag) seed = seed * 31 + ch; var rnd = new System.Random(seed);
         float ph = (float)rnd.NextDouble() * Mathf.PI * 2f, amp = (cols - 1) / 2f;
         var g = new GameObject("Stones_" + tag).transform; g.SetParent(isl, false);
-        float z0 = P.z, y = P.y; bool[] prev = null; bool lastGap = false; int gapLeft = 0, sinceGap = 0; int full = cols, f0 = 0;   // はしの列は全部（石だたみのはば）
+        float z0 = P.z, y = P.y, zc = z0; bool[] prev = null; bool lastGap = false; int gapLeft = 0, sinceGap = 0; int full = cols, f0 = 0;   // はしの列は全部（石だたみのはば）
         for (int r = 0; r < rows; r++)
         {
             var solid = new bool[cols];
             if (r == 0 || r == rows - 1) { for (int c = f0; c < f0 + full; c++) solid[c] = true; }
             // 2026-11-13 てじゃ「繋げずに途中切ってもいいよ」→ ときどき1列まるごと穴（1.2m を飛びこす）。続けない・はしの近くはなし
             //  → 「1マスの穴、ダッシュで超えられちゃう」→ 切れ目は StoneGapRows 列ぶん
-            else if (gapLeft > 0) { gapLeft--; continue; }
-            else if (r + StoneGapRows < rows - 1 && sinceGap >= StoneGapEvery + rnd.Next(2)) { lastGap = true; sinceGap = 0; gapLeft = StoneGapRows - 1; continue; }   // 運まかせだと切れ目のない区間ができた → 石 StoneGapEvery〜+1 列ごとに必ず
+            else if (gapLeft > 0) { gapLeft--; zc += StoneGapLen; continue; }
+            else if (r + StoneGapRows < rows - 1 && sinceGap >= StoneGapEvery + rnd.Next(2)) { lastGap = true; sinceGap = 0; gapLeft = StoneGapRows - 1; zc += StoneGapLen; continue; }   // 運まかせだと切れ目のない区間ができた → 石 StoneGapEvery〜+1 列ごとに必ず
             else
             {
                 float m = (cols - 1) / 2f + amp * Mathf.Sin(ph + 2f * Mathf.PI * r / StonePeriod) * 0.9f + ((float)rnd.NextDouble() - 0.5f) * 0.8f;
@@ -606,9 +606,11 @@ public static class FuwaCourse2_5Builder
             for (int c = 0; c < cols; c++)
             {
                 if (!solid[c]) continue;
-                Box(g, "Stone", new Vector3(-hwF + cw * (c + 0.5f), y - 0.3f, z0 + rl * (r + 0.5f)), new Vector3(cw - 0.04f, 0.6f, rl - 0.04f), r % 2 == 0 ? pathA : pathB, pathLayer);
+                Box(g, "Stone", new Vector3(-hwF + cw * (c + 0.5f), y - 0.3f, zc + rl * 0.5f), new Vector3(cw - 0.04f, 0.6f, rl - 0.04f), r % 2 == 0 ? pathA : pathB, pathLayer);
             }
+            zc += rl;
         }
+        len = zc - z0;   // 切れ目で長さが変わる
         // 崩れた石だたみのふち（低い石のへり、見た目だけ）
         foreach (float sx in new[] { -1f, 1f })
         {
