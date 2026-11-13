@@ -80,7 +80,7 @@ public static class FuwaCourse2_5Builder
         P = Dir(th) * R0;
 
         S(StartRun);
-        var goalAt = LayoutV3 ? BuildV3() : BuildIslands();
+        var goalAt = Layout == 4 ? BuildV4() : LayoutV3 ? BuildV3() : BuildIslands();
 
         // アウト（下に落ちた）：コースの下（まわり 12m）
         var lb = LocalCollidersBounds();
@@ -99,6 +99,109 @@ public static class FuwaCourse2_5Builder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
         return "[2–5] " + log + " ゴール " + goalAt.ToString("F1") + " 範囲 " + lb.min.ToString("F0") + "〜" + lb.max.ToString("F0");
+    }
+
+    // ================= 2026-11-13 夜 練り直し 3（てじゃ）：下の段 ①②（右へのびる）→ ワープ → 上の段 ③④（①②の上空、向きを変える）→ ワープ → ①の島の中の空洞（ゴール）=====
+    public static int Layout = 4;
+    public static float UpperUp = 22f, UpperHeading = 60f;
+    public static Vector3 CavernSize = new Vector3(16f, 7f, 16f);
+
+    static Vector3 BuildV4()
+    {
+        islandsT = new GameObject("Islands").transform; islandsT.SetParent(root, false);
+        runNo = 0;
+        // ---- 下の段 ----
+        Island("Bridge1");
+        Run(() => { ArchBridge(12f, 0f, true, new[] { 6f }); });
+        var i1 = Island("I1_StatueHill");
+        Run(() => { S(2f); WindRun("N", 6f, new[] { 3f }); S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); S(3f, 1f); });
+        T(-45f);
+        Run(() => { WindRun("B", 8f, new[] { 2.5f, 6f }); S(3f, 1.5f); });
+        T(-45f);
+        Run(() => { S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); WindRun("S", 8f, new[] { 2.5f, 6f }); S(3f, 1.5f); });
+        var cav = IslandRockHollow(i1, 3.5f);
+        Island("Bridge2");
+        Run(() => { ArchBridge(14f, 1f, false, null); });
+        var i2 = Island("I2_Temple");
+        Run(() => { S(1.5f); CPi("Checkpoint1", 0.8f); S(1.5f); ArchGate(); Curtain("C2_Normal", 0); S(1.2f); Colonnade(23f); WebRun("N", 7f, 1.7f); S(1.2f); ArchGate(); Curtain("C2_Small", -1); S(1.2f); WebRun("S", 7f, 1.7f); S(1.2f); ArchGate(); Curtain("C2_Big", 1); S(1.2f); WebRun("B", 7f, 1.9f); S(2f); });
+        Transform warpA = null;
+        Run(() => { warpA = BigPortal(isl, "WarpA", P, 180f); });
+        IslandRock(i2, 3f, false);
+        // ---- 上の段（①②の上、向きを変える）----
+        var low = LocalBounds(islandsT, root);
+        P = new Vector3(low.min.x + 6f, low.max.y + UpperUp, low.min.z + 6f); th = UpperHeading;
+        var i3 = Island("I3_Gravity");
+        Transform warpAin = null;
+        Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(1.5f); ArchGate(); Curtain("C3_Small", -1); S(1.5f); GravRun("S", 9f); S(1.2f); ArchGate(); Curtain("C3_Big", 1); S(1.5f); GravRun("B", 9f); S(2f); });
+        IslandRock(i3, 3f, false);
+        Island("Bridge3");
+        Run(() => { ArchBridge(14f, 2f, false, null); });
+        var i4 = Island("I4_Choice");
+        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(1f); Choice("C4a"); S(1f); WindRun("M", 6f, new[] { 2f, 4.5f }); S(2f); });
+        T(-90f);
+        Run(() => { S(1f); Choice("C4b"); S(1f); WebRun("M", 6f, 1.8f); S(2f); });
+        T(90f);
+        Run(() => { S(1f); Choice("C4c"); S(1f); GravRun("M", 7f); S(2f); });
+        Transform warpB = null;
+        Run(() => { warpB = BigPortal(isl, "WarpB", P, 180f); });
+        IslandRock(i4, 3f, false);
+        // ---- ①の島の中の空洞（ゴール）----
+        var gc = Island("Cavern");
+        P = cav.entry; th = cav.heading;
+        Transform warpBin = null;
+        Run(() => { warpBin = BigPortal(isl, "WarpBIn", Vector3.zero, 0f); S(2.5f); });
+        var goalP = P;
+        GoalSet(gc, P, Dir(th));
+        if (warpA && warpAin) Link(warpA, warpAin, i3, null, true, true);
+        if (warpB && warpBin) Link(warpB, warpBin, gc, null, true, true);
+        GiantMushroom(new Vector3(low.max.x + 10f, -4f, low.center.z + 6f));
+        DecoIslets();
+        log.Append("下の段 2・上の段 2・空洞のゴール ");
+        return goalP;
+    }
+
+    // 島の岩（中に空洞）：上の地面の板、まわりの岩の壁、空洞の床。-x がわは洞窟の口（外から見える・光が入る）
+    //  返り値：出口のポータルを置く所（空洞の +x の壁の内がわ、床の高さ）と、そこから進む向き（-x）
+    static (Vector3 entry, float heading) IslandRockHollow(Transform island, float margin)
+    {
+        var b = LocalBounds(island, root);
+        var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
+        float top = b.min.y - 0.55f;
+        Vector3 size = new Vector3(Mathf.Max(b.size.x + 2f * margin, CavernSize.x + 4f), 1f, Mathf.Max(b.size.z + 2f * margin, CavernSize.z + 4f));
+        Box(rk, "Top", new Vector3(b.center.x, top - 0.5f, b.center.z), size, moss, pathLayer);
+        // 空洞
+        float wt = 2f, cy1 = top - 1.5f, cy0 = cy1 - CavernSize.y;
+        var c = new Vector3(b.center.x, (cy0 + cy1) / 2f, b.center.z);
+        float hx = CavernSize.x / 2f, hz = CavernSize.z / 2f;
+        Box(rk, "CaveCeiling", new Vector3(c.x, (cy1 + top - 1f) / 2f, c.z), new Vector3(size.x * 0.95f, top - 1f - cy1 + 0.01f, size.z * 0.95f), underM, 0);
+        Box(rk, "CaveFloor", new Vector3(c.x, cy0 - 0.5f, c.z), new Vector3(CavernSize.x + 2f * wt, 1f, CavernSize.z + 2f * wt), underM, pathLayer);
+        Box(rk, "CaveWallE", new Vector3(c.x + hx + wt / 2f, c.y, c.z), new Vector3(wt, CavernSize.y, CavernSize.z + 2f * wt), underM, 0);
+        Box(rk, "CaveWallN", new Vector3(c.x, c.y, c.z + hz + wt / 2f), new Vector3(CavernSize.x, CavernSize.y, wt), underM, 0);
+        Box(rk, "CaveWallS", new Vector3(c.x, c.y, c.z - hz - wt / 2f), new Vector3(CavernSize.x, CavernSize.y, wt), underM, 0);
+        // 口（-x）の上下だけ岩：口の上のはり
+        Box(rk, "CaveMouthTop", new Vector3(c.x - hx - wt / 2f, cy1 - 1f, c.z), new Vector3(wt, 2f, CavernSize.z + 2f * wt), underM, 0);
+        // 空洞の下の先細りの岩
+        var u = Box(rk, "Under", new Vector3(c.x, cy0 - 1f - 3f, c.z), new Vector3(size.x * 0.6f, 6f, size.z * 0.6f), underM, 0); Object.DestroyImmediate(u.GetComponent<Collider>());
+        return (new Vector3(c.x + hx, cy0, c.z), 180f);
+    }
+
+    // シンボルの巨大なキノコの石像（てじゃ「どっかにデカいシンボルてきな石像がほしい、キノコ型とか」）：下の段の右に、自分の浮島の上に立つ。上の段の高さまで届く
+    public static float MushroomH = 30f, MushroomCapR = 11f;
+    static void GiantMushroom(Vector3 baseP)
+    {
+        var g = new GameObject("GiantMushroom").transform; g.SetParent(islandsT, false); g.localPosition = baseP;
+        var isle = Box(g, "IsleTop", new Vector3(0f, -0.5f, 0f), new Vector3(16f, 1f, 16f), moss, 0);
+        var u1 = Box(g, "IsleUnder", new Vector3(0f, -5f, 0f), new Vector3(13f, 8f, 13f), underM, 0); Object.DestroyImmediate(u1.GetComponent<Collider>());
+        var u2 = Box(g, "IsleUnder2", new Vector3(0f, -11f, 0f), new Vector3(7f, 6f, 7f), underM, 0); Object.DestroyImmediate(u2.GetComponent<Collider>());
+        var stem = FuwaPortalTest.Prim(PrimitiveType.Cylinder, g, "Stem", new Vector3(0f, MushroomH * 0.4f, 0f), new Vector3(4.2f, MushroomH * 0.4f, 4.2f), stone);
+        var ring = FuwaPortalTest.Prim(PrimitiveType.Cylinder, g, "StemRing", new Vector3(0f, MushroomH * 0.62f, 0f), new Vector3(6f, 0.5f, 6f), terra);
+        var cap = FuwaPortalTest.Prim(PrimitiveType.Sphere, g, "Cap", new Vector3(0f, MushroomH * 0.85f, 0f), new Vector3(2f * MushroomCapR, MushroomH * 0.32f, 2f * MushroomCapR), terra);
+        var under = FuwaPortalTest.Prim(PrimitiveType.Cylinder, g, "Gills", new Vector3(0f, MushroomH * 0.78f, 0f), new Vector3(2f * MushroomCapR * 0.92f, 0.3f, 2f * MushroomCapR * 0.92f), stone);
+        for (int i = 0; i < 6; i++)
+        {
+            float a = i * 60f * Mathf.Deg2Rad;
+            FuwaPortalTest.Prim(PrimitiveType.Sphere, g, "Spot", new Vector3(Mathf.Cos(a) * MushroomCapR * 0.55f, MushroomH * 0.95f, Mathf.Sin(a) * MushroomCapR * 0.55f), new Vector3(2.4f, 1.2f, 2.4f), stone);
+        }
     }
 
     // ================= 2026-11-13 夕 練り直し 2：大きい島3つ＋アーチ橋＋てっぺんの石像の島（参考画像の雰囲気）=====
