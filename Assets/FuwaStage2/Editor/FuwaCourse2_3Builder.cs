@@ -358,6 +358,7 @@ public static class FuwaCourse2_3Builder
         RegisterBgm(root);
         FuwaStage2LobbyCourses.Run();
         FuwaStage2CopyShadows.Run();   // 写したスタート・ゴールの飾りを「近くで影を出す」一覧へ（2026-11-11）
+        Debug.Log(FuwaCourse2_4Perf.Apply(root));   // 2026-11-13 静的バッチ・小物の影は近くだけ・大物は遠いと影オフ
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();

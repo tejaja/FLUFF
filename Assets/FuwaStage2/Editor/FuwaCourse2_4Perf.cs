@@ -16,14 +16,17 @@ public static class FuwaCourse2_4Perf
 
     [MenuItem("FuwaCourse/ステージ2/2–4 の負荷対策（静的バッチ・影）")]
     public static void Menu() { Debug.Log(Apply(GameObject.Find("FuwaCourse2_4")?.transform)); }
+    // 2026-11-13 てじゃ「2-3もみてみて」→ 同じ対策を 2–3 にも（ほかのコースでも使える）
+    [MenuItem("FuwaCourse/ステージ2/2–3 の負荷対策（静的バッチ・影）")]
+    public static void Menu23() { Debug.Log(Apply(GameObject.Find("FuwaCourse2_3")?.transform)); }
 
     public static string Apply(Transform root)
     {
-        if (!root) return "2–4 がない";
+        if (!root) return "コースがない";
         int st = FuwaStage2Static.Apply(root);
         var sh = Shadows(root);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
-        return "[2–4 負荷対策] 静的バッチ +" + st + " " + sh;
+        return "[" + root.name + " 負荷対策] 静的バッチ +" + st + " " + sh;
     }
 
     static FuwaFarShadows Find(string name) => Resources.FindObjectsOfTypeAll<FuwaFarShadows>().FirstOrDefault(f => f && f.name == name && f.gameObject.scene.IsValid());
