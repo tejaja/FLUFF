@@ -80,7 +80,7 @@ public static class FuwaCourse2_5Builder
         P = Dir(th) * R0;
 
         S(StartRun);
-        var goalAt = BuildIslands();
+        var goalAt = LayoutV3 ? BuildV3() : BuildIslands();
 
         // アウト（下に落ちた）：コースの下（まわり 12m）
         var lb = LocalCollidersBounds();
@@ -99,6 +99,176 @@ public static class FuwaCourse2_5Builder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
         return "[2–5] " + log + " ゴール " + goalAt.ToString("F1") + " 範囲 " + lb.min.ToString("F0") + "〜" + lb.max.ToString("F0");
+    }
+
+    // ================= 2026-11-13 夕 練り直し 2：大きい島3つ＋アーチ橋＋てっぺんの石像の島（参考画像の雰囲気）=====
+    //  てじゃ「今回は島に小分けじゃなくてもいい、多少はほしい」「ワープは一回くらい」
+    //  1 石像の丘：丘のまわりを上りながら回る道、石像の頭の横風、アーチの門のカーテン（ふつう→大→小）
+    //  2 柱の神殿：列柱の間の巣（ふつう→小→大）→ 魔法陣の広場の重力（小→大）
+    //  3 えらびの遺跡：門で青か橙をえらぶ ×3（横風→巣→重力）→ はしのワープ（仮：ステンシルのポータル。あとでカメラ式に）→ ★てっぺんの石像の島（ゴール）
+    //  ブロックアウトの書き方：まっすぐの区間は Run() で「その向きの小さい入れ物」の中に、+z 向きのつもりで作る（WindRun・Curtain などは +z 前提）
+    public static bool LayoutV3 = true;
+    public static float BridgeHW = 1.6f, TopIslandUp = 32f;
+    static Transform islandRoot;
+    static int runNo;
+    static readonly List<Transform> deckOf1 = new List<Transform>(), deckOf2 = new List<Transform>(), deckOf3 = new List<Transform>();
+
+    static Vector3 BuildV3()
+    {
+        islandsT = new GameObject("Islands").transform; islandsT.SetParent(root, false);
+        runNo = 0;
+        // ---- スタート → こわれたアーチ橋（穴あき、石像の横風）----
+        Island("Bridge1");
+        Run(() => { ArchBridge(12f, 0f, true, new[] { 6f }); });
+        // ---- 1 石像の丘 ----
+        var i1 = Island("I1_StatueHill");
+        Run(() => { S(2f); WindRun("N", 6f, new[] { 3f }); S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); S(3f, 1f); });
+        T(-90f);
+        Run(() => { WindRun("B", 8f, new[] { 2.5f, 6f }); S(3f, 1.5f); });
+        T(90f);
+        Run(() => { S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); WindRun("S", 8f, new[] { 2.5f, 6f }); S(3f, 1.5f); });
+        T(90f);
+        Run(() => { S(5f); });
+        T(-90f);
+        IslandRock(i1, 3.5f, false);   // 丘のかたまりは道にかぶったのでいったんなし
+        // ---- 橋 2 ----
+        Island("Bridge2");
+        Run(() => { ArchBridge(14f, 2f, false, null); });
+        // ---- 2 柱の神殿 ----
+        var i2 = Island("I2_Temple");
+        Run(() => { S(1.5f); CPi("Checkpoint1", 0.8f); S(1.5f); ArchGate(); Curtain("C2_Normal", 0); S(1.2f); Colonnade(23f); WebRun("N", 7f, 1.7f); S(1.2f); ArchGate(); Curtain("C2_Small", -1); S(1.2f); WebRun("S", 7f, 1.7f); S(1.2f); ArchGate(); Curtain("C2_Big", 1); S(1.2f); WebRun("B", 7f, 1.9f); S(2f); });
+        T(-90f);
+        Run(() => { S(2f); CPi("Checkpoint2", 0.8f); S(1.5f); ArchGate(); Curtain("C2_GSmall", -1); S(1.5f); GravRun("S", 9f); S(1.2f); ArchGate(); Curtain("C2_GBig", 1); S(1.5f); GravRun("B", 9f); S(2f); });
+        T(90f);
+        Run(() => { S(3f); });
+        IslandRock(i2, 3f, false);
+        var templeTop = LocalBounds(i2, root);
+        // ---- 橋 3 ----
+        Island("Bridge3");
+        Run(() => { ArchBridge(16f, 3f, false, null); });
+        // ---- 3 えらびの遺跡 ----
+        var i3 = Island("I3_Choice");
+        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(1f); Choice("C3a"); S(1f); WindRun("M", 6f, new[] { 2f, 4.5f }); S(2f); });
+        T(90f);
+        Run(() => { S(1f); Choice("C3b"); S(1f); WebRun("M", 6f, 1.8f); S(2f); });
+        T(-90f);
+        Run(() => { S(1f); Choice("C3c"); S(1f); GravRun("M", 7f); S(2f); });
+        Transform warpA = null;
+        Run(() => { warpA = BigPortal(isl, "WarpOut", P, 180f); });
+        IslandRock(i3, 3f, false);
+        // ---- ★ てっぺんの石像の島（神殿の上、ワープの出口）----
+        var top = Island("I4_TopStatue");
+        var topAt = new Vector3(templeTop.center.x, templeTop.max.y + TopIslandUp, templeTop.center.z);
+        P = topAt; th = 90f;
+        Transform warpB = null;
+        Run(() => { warpB = BigPortal(isl, "WarpIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint4", 0.6f); S(4f); });
+        float lastTh = th; var goalP = P;
+        GoalSet(top, P, Dir(th));
+        // 石像の頭と手（飾り）
+        var hd = new GameObject("GiantHead").transform; hd.SetParent(top, false); hd.localPosition = topAt + new Vector3(-7f, 0f, 6f);
+        Box(hd, "Head", new Vector3(0f, 3.5f, 0f), new Vector3(5f, 7f, 5f), stone, 0);
+        Box(hd, "Nose", new Vector3(2.6f, 3.6f, 0f), new Vector3(0.6f, 1.4f, 1f), stone, 0);
+        foreach (float sz in new[] { -1f, 1f }) Box(hd, "Hand", new Vector3(6f, -3f, sz * 6f), new Vector3(3f, 1.2f, 2f), stone, 0);
+        IslandRock(top, 4f, false, 6f);
+        if (warpA && warpB) Link(warpA, warpB, top, null, true, true);
+        DecoIslets();
+        log.Append("島 3＋てっぺん ");
+        return goalP;
+    }
+
+    // 島（の入れ物）をはじめる：P・th はそのまま（コースの座標）
+    static Transform Island(string name)
+    {
+        islandRoot = new GameObject(name).transform; islandRoot.SetParent(islandsT, false);
+        isl = islandRoot; pathT = islandRoot; secT = islandRoot;
+        return islandRoot;
+    }
+    // まっすぐの区間：P に th 向きの入れ物を置いて、その中で +z 向きに作る。終わったら P を進める（th はそのまま）
+    static void Run(System.Action body)
+    {
+        var seg = new GameObject("Run" + (runNo++)).transform; seg.SetParent(islandRoot, false);
+        seg.localPosition = P; seg.localRotation = Quaternion.LookRotation(Dir(th));
+        float th0 = th; isl = seg; pathT = seg; secT = seg; P = Vector3.zero; th = 90f;
+        body();
+        var end = seg.localPosition + seg.localRotation * P;
+        isl = islandRoot; pathT = islandRoot; secT = islandRoot; P = end; th = th0;
+    }
+
+    // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
+    static void ArchBridge(float len, float rise, bool pits, float[] windsAt)
+    {
+        float hw0 = HW; HW = BridgeHW;
+        float y0 = P.y; float z0 = P.z;
+        if (pits && Mathf.Abs(rise) < 0.01f) WindRun("Bridge", len, windsAt ?? new float[0]);
+        else S(len, rise);
+        // 橋脚とアーチ（見た目だけ）
+        int n = Mathf.Max(2, Mathf.RoundToInt(len / 4f));
+        for (int i = 0; i <= n; i++)
+        {
+            float z = z0 + len * i / n, y = y0 + rise * i / n;
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                var pier = Box(isl, "Pier", new Vector3(sx * (HW - 0.35f), y - 0.6f - 3.5f, z), new Vector3(0.7f, 7f, 0.9f), stone, 0); Object.DestroyImmediate(pier.GetComponent<Collider>());
+            }
+            if (i < n)
+            {
+                float zm = z0 + len * (i + 0.5f) / n, ym = y0 + rise * (i + 0.5f) / n;
+                var arch = Box(isl, "Arch", new Vector3(0f, ym - 1.3f, zm), new Vector3(2f * HW, 0.5f, len / n - 0.9f), stone, 0); Object.DestroyImmediate(arch.GetComponent<Collider>());
+            }
+        }
+        // 低いへり
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            var rail = Box(isl, "Parapet", new Vector3(sx * (HW + 0.1f), y0 + rise / 2f + 0.15f, z0 + len / 2f), new Vector3(0.2f, 0.3f, len), stone, 0);
+            rail.transform.localRotation = Quaternion.Euler(-Mathf.Atan2(rise, len) * Mathf.Rad2Deg, 0f, 0f);
+        }
+        HW = hw0;
+    }
+
+    // 崩れたアーチの門（カーテンの柱の外に、上が少し欠けたアーチ）
+    static void ArchGate()
+    {
+        float w = 2f * HW + 1.6f, h = CurtainH + 1.2f;
+        foreach (float sx in new[] { -1f, 1f }) Box(isl, "GatePillar", new Vector3(sx * (w / 2f), P.y + h / 2f - 0.6f, P.z), new Vector3(0.9f, h + 0.6f, 1.1f), terra, 0);
+        Box(isl, "GateTopL", new Vector3(-w / 4f - 0.3f, P.y + h + 0.2f, P.z), new Vector3(w / 2f, 0.8f, 1.1f), terra, 0);
+        var br = Box(isl, "GateTopBroken", new Vector3(w / 4f + 0.2f, P.y + h + 0.1f, P.z), new Vector3(w / 4f, 0.7f, 1.1f), terraD, 0);
+        br.transform.localRotation = Quaternion.Euler(0f, 0f, -12f);
+    }
+
+    // 列柱：道の両わきに柱（len の間）
+    static void Colonnade(float len)
+    {
+        for (float z = 0.8f; z < len; z += 2.6f)
+            foreach (float sx in new[] { -1f, 1f })
+                Box(isl, "Column", new Vector3(sx * (HW + 0.9f), P.y + 2.6f, P.z + z), new Vector3(0.8f, 5.8f, 0.8f), stone, 0);
+    }
+
+    // 島の岩：その島の道の範囲の下に、平らな岩の台＋先細りの岩。hill なら内がわに丘
+    static void IslandRock(Transform island, float margin, bool hill, float depth = 5f)
+    {
+        var b = LocalBounds(island, root);
+        if (b.size.sqrMagnitude < 0.01f) return;
+        var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
+        float top = b.min.y - 0.55f;
+        Box(rk, "Top", new Vector3(b.center.x, top - 0.5f, b.center.z), new Vector3(b.size.x + 2f * margin, 1f, b.size.z + 2f * margin), moss, pathLayer);   // 地面（ふわふわが着いたらアウト＝道と同じレイヤー）
+        var u1 = Box(rk, "Under1", new Vector3(b.center.x, top - 1f - depth / 2f, b.center.z), new Vector3((b.size.x + 2f * margin) * 0.85f, depth, (b.size.z + 2f * margin) * 0.85f), underM, 0); Object.DestroyImmediate(u1.GetComponent<Collider>());
+        var u2 = Box(rk, "Under2", new Vector3(b.center.x, top - 1f - depth - depth * 0.4f, b.center.z), new Vector3((b.size.x + 2f * margin) * 0.5f, depth * 0.8f, (b.size.z + 2f * margin) * 0.5f), underM, 0); Object.DestroyImmediate(u2.GetComponent<Collider>());
+        if (hill) Box(rk, "Hill", new Vector3(b.center.x, (top + b.max.y) / 2f - 0.5f, b.center.z), new Vector3(Mathf.Max(2f, b.size.x - 7f), b.max.y - top - 1f, Mathf.Max(2f, b.size.z - 7f)), moss, 0);
+    }
+
+    // 飾りの小さい浮島（当たりなし）
+    static void DecoIslets()
+    {
+        var g = new GameObject("DecoIslets").transform; g.SetParent(islandsT, false);
+        var all = LocalBounds(islandsT, root);
+        var rnd = new System.Random(5);
+        for (int i = 0; i < 9; i++)
+        {
+            var c = new Vector3(Mathf.Lerp(all.min.x - 8f, all.max.x + 8f, (float)rnd.NextDouble()), Mathf.Lerp(-6f, 16f, (float)rnd.NextDouble()), Mathf.Lerp(all.min.z, all.max.z, (float)rnd.NextDouble()));
+            float s = 2f + 3f * (float)rnd.NextDouble();
+            var t = Box(g, "IsletTop", c, new Vector3(s, 0.5f, s * 0.8f), moss, 0); Object.DestroyImmediate(t.GetComponent<Collider>());
+            var u = Box(g, "IsletUnder", c + Vector3.down * s * 0.45f, new Vector3(s * 0.8f, s * 0.8f, s * 0.65f), underM, 0); Object.DestroyImmediate(u.GetComponent<Collider>());
+        }
     }
 
     // ================= 2026-11-13 島とカーテン =================
