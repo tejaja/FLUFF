@@ -94,11 +94,20 @@ public static class FuwaCourse2_5Builder
         FuwaPortalTest.LinkBlowers();
         FuwaStage2LobbyCourses.Run();
         LinkRecords();
+        RegisterBgm(root);
         FuwaStage2CopyShadows.Run();   // 写したスタート・ゴールの飾りを「近くで影を出す」一覧へ（2026-11-11）
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         AssetDatabase.SaveAssets();
         return "[2–5] " + log + " ゴール " + goalAt.ToString("F1") + " 範囲 " + lb.min.ToString("F0") + "〜" + lb.max.ToString("F0");
+    }
+
+    // BGM（2026-11-13 てじゃ「ancient ruins cover」、よそで作った曲をループ化：A案 イントロ42.92s＋56.48sループ（16小節、68BPM）。元の曲と候補は Claude_Workspace/fluff_bgm/ruins）
+    const string BgmClip = "Assets/FuwaStage2/Audio/ruins_ancient_introloop.wav";
+    const float BgmGain = 1.35f, BgmLoopStart = 42.92f, BgmLoopEnd = 99.40f;
+    public static void RegisterBgm(Transform courseRoot)
+    {
+        FuwaStage2Bgm.Register(courseRoot, "BGM_course2_5", "BGM_course2_4", BgmClip, BgmGain, BgmLoopStart, BgmLoopEnd);
     }
 
     // ================= 2026-11-13 夜 練り直し 3（てじゃ）：下の段 ①②（右へのびる）→ ワープ → 上の段 ③④（①②の上空、向きを変える）→ ワープ → ①の島の中の空洞（ゴール）=====
