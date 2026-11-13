@@ -58,7 +58,7 @@ public static class FuwaGearMetalLook
                 if (!ms[i]) continue;
                 string bn = BaseName(ms[i].name); if (bn == null || !bases.ContainsKey(bn)) continue;
                 if (!info.TryGetValue(mesh, out var inf)) { inf = RadialUV(mesh); info[mesh] = inf; }
-                bool dim = Dim < 0.999f && !IsRide(mr, rides);
+                bool dim = Dim < 0.999f && !IsRide(mr, rides) && !InTank(mr.transform);
                 string key = bn + "_" + mesh.name + (dim ? "_Dim" : "");
                 if (!mats.TryGetValue(key, out var m)) { m = GearMat(bases[bn], key, inf, dim ? Dim : 1f); mats[key] = m; }
                 if (dim) { nDim++; dimGears.Add(mr.transform); }
@@ -75,9 +75,9 @@ public static class FuwaGearMetalLook
                 var mf = mr.GetComponent<MeshFilter>(); if (mf && mf.sharedMesh && GearMesh.IsMatch(mf.sharedMesh.name)) continue;
                 bool dim = false; Transform rr = null;
                 for (var t = mr.transform; t; t = t.parent) if (rides.Contains(t)) { rr = t; break; }
-                if (rr) dim = !IsRide(mr, rides);
+                if (InTank(mr.transform)) dim = false;
+                else if (rr) dim = !IsRide(mr, rides);
                 else if (mr.transform.parent && dimGears.Contains(mr.transform.parent)) dim = true;
-                else if (SiblingDim(mr.transform, course, dimGears)) dim = true;   // 同じ組の中に暗くした歯車がある（タンクのかご・柱など）
                 else for (var t = mr.transform; t; t = t.parent) if (t.name == "CrystalMount") { dim = true; break; }
                 var ms = mr.sharedMaterials; bool ch = false;
                 for (int i = 0; i < ms.Length; i++)
@@ -95,13 +95,8 @@ public static class FuwaGearMetalLook
     }
 
     static readonly string[] PartBases = { "FanTest_Brass", "GearTest_Gear", "GearTest_GearLight", "GearTest_Axle" };
-    // 回るタンク（SpinTank）の中に暗くした歯車がある時、同じ組のかご・柱も暗く
-    static bool SiblingDim(Transform t, Transform course, HashSet<Transform> dimGears)
-    {
-        var p = t.parent; if (!p || p.name != "SpinTank") return false;   // 広げると橋・回転床の台・ポンプまで暗くなったので、回るタンクのかごだけ
-        foreach (Transform s in p) if (s != t && dimGears.Contains(s)) return true;
-        return false;
-    }
+    // 2026-11-13 てじゃ「液体タンク周りは明るい黄色でいいかも」→ 回るタンク（SpinTank）の中は歯車も部品も暗くしない
+    static bool InTank(Transform t) { for (; t; t = t.parent) if (t.name == "SpinTank") return true; return false; }
     static string PartBase(string n) { foreach (var b in PartBases.OrderByDescending(x => x.Length)) if (n == b || n == b + "_PartDim") return b; return null; }
     static Material PartDimMat(Material src, string bn)
     {
