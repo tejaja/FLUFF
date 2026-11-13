@@ -125,11 +125,11 @@ public static class FuwaCourse2_5Builder
         // 2026-11-13 てじゃ「正直風はもう良いかな」「序盤はデカくしたり小さくしたりしてぐねぐねの穴だらけの道をアスレチックするだけでもいい」
         //  → ①は ぐねぐねの穴あきの道：ふつう → 大 → 小
         var i1 = Island("I1_StatueHill");
-        Run(() => { S(2f); Stones("N", 13f); S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); S(3f, 1f); });
+        Run(() => { S(2f); Stones("N", 17.6f); S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); S(3f, 1f); });
         T(-45f);
-        Run(() => { Stones("B", 20f); S(3f, 1.5f); });
+        Run(() => { Stones("B", 24.2f); S(3f, 1.5f); });
         T(-45f);
-        Run(() => { S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); Stones("S", 20f); S(3f, 1.5f); });
+        Run(() => { S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); Stones("S", 24.2f); S(3f, 1.5f); });
         var cav = IslandRockHollow(i1, 3.5f);
         Island("Bridge2");
         Run(() => { ArchBridge(14f, 1f, false, null); });
@@ -151,7 +151,7 @@ public static class FuwaCourse2_5Builder
         Island("Bridge3");
         Run(() => { ArchBridge(14f, 2f, false, null); });
         var i4 = Island("I4_Choice");
-        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(1f); Choice("C4a"); S(1f); Stones("M", 11f); S(2f); });
+        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(1f); Choice("C4a"); S(1f); Stones("M", 13.2f); S(2f); });
         T(-90f);
         Run(() => { S(1f); Choice("C4b"); S(1f); WebRun("M", 6f, 1.8f); S(2f); });
         T(90f);
@@ -571,7 +571,7 @@ public static class FuwaCourse2_5Builder
     // ---- 崩れた石だたみの飛び石（2026-11-13 てじゃ「曲がり方がなんか不自然」→ 道は曲げない）----
     //  まっすぐで広い石だたみ（StoneCols×1.2m）のタイルが崩れ落ちて、残った所がくねくねの飛び石ルート。石はふつうの四角
     //  ルートのまん中 m(r) が左右にゆれる（sin＋ゆらぎ）。各列 1〜2 マス、前の列と辺で接する。はしの列は道のはば分
-    public static int StoneCols = 5, StoneGapEvery = 4, StoneGapRows = 1; public static float StonePeriod = 8f, StoneCell = 1.5f, StoneGapLen = 2.2f;   // 切れ目の長さ：1.5m はダッシュで越えられる、3m は届かない（てじゃ）→ 2.2m   // 2026-11-13 てじゃ「ちょっぴり1マスを大きく」1.2 → 1.5（はば 6×1.2 → 5×1.5）   // 切れ目：石 StoneGapEvery 列ごとに StoneGapRows 列まるごと穴
+    public static int StoneCols = 4, StoneGapEvery = 3, StoneGapRows = 1; public static float StonePeriod = 6f, StoneCell = 2.2f, StoneGapLen = 2.2f;   // 2026-11-13 てじゃ「（切れ目 2.2m が）ちょうどいい、マス目全部これに」→ 1マス 2.2m（はば 4マス 8.8m）   // 切れ目の長さ：1.5m はダッシュで越えられる、3m は届かない（てじゃ）→ 2.2m   // 2026-11-13 てじゃ「ちょっぴり1マスを大きく」1.2 → 1.5（はば 6×1.2 → 5×1.5）   // 切れ目：石 StoneGapEvery 列ごとに StoneGapRows 列まるごと穴
     static void Stones(string tag, float len)
     {
         int cols = StoneCols; float cw = StoneCell, hwF = cols * cw / 2f;
