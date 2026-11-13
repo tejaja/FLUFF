@@ -929,6 +929,33 @@ public static class FuwaCourse2_4Builder
     public static float HubR = 4.4f, BoreR = 3.3f;   // 2026-11-08 クリスタルを太くしたので穴も広げた
     public static float WheelRatio = 0f;   // 0 なら自動で決める
     public static float WheelRatioUsed;
+    // 2026-11-13 てじゃ「一番下の層のギア、デカイギアみたいに中を抜きたい」「小さいのは無理にやらなくていい」
+    //  → なか歯車は IdlerWinMinZ 枚以上なら でかい歯車と同じく スポーク6本の窓あき（スポークは IdlerSpokeDeg 度、こしきは IdlerHubR）。小さいのは今までどおり
+    public static int IdlerWinMinZ = 18, IdlerSpokes = 6; public static float IdlerSpokeDeg = 18f, IdlerHubR = 0.9f;
+    static Mesh IdlerMesh(int z)
+    {
+        if (z < IdlerWinMinZ) return SpurMesh(z, WM, WT, "Clockwork_Spur_m40_th50_z" + z);
+        float rq = WM * z / 2f, step = 360f / IdlerSpokes, hw = (step - IdlerSpokeDeg) / 2f;
+        var wins = new (float, float)[IdlerSpokes]; for (int k = 0; k < IdlerSpokes; k++) wins[k] = (k * step + step / 2f, hw);
+        return WindowGear(z, WM, WT, IdlerHubR, rq - 1.25f * WM - 0.5f, wins, "Clockwork_IdlerWin_m40_z" + z);
+    }
+    // 今のシーンの なか歯車だけ 形を入れかえる（丸ごと作り直さずに）
+    public static string RebuildIdlerMeshes()
+    {
+        root = GameObject.Find("FuwaCourse2_4")?.transform; if (!root) return "2–4 がない";
+        var wf = root.Find("Gimmicks/BigWheel_Frame"); if (!wf) return "でかい歯車がない";
+        var sb = new System.Text.StringBuilder();
+        foreach (var t in wf.GetComponentsInChildren<Transform>(true))
+        {
+            var mm = System.Text.RegularExpressions.Regex.Match(t.name, @"^Feed\d+_Idler\d+_z(\d+)$"); if (!mm.Success) continue;
+            int z = int.Parse(mm.Groups[1].Value); var mf = t.GetComponent<MeshFilter>(); if (!mf) continue;
+            var m = IdlerMesh(z); mf.sharedMesh = m;
+            var mc = t.GetComponent<MeshCollider>(); if (mc) mc.sharedMesh = m;
+            sb.Append(t.name + (z >= IdlerWinMinZ ? "→窓 " : "→そのまま "));
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+        return sb.ToString();
+    }
     static void ClockworkFeeds(Transform tower)
     {
         var tc = root.InverseTransformPoint(tower.position);
@@ -1018,8 +1045,7 @@ public static class FuwaCourse2_4Builder
             for (int k = 1; k < c.Count - 1; k++)
             {
                 var q = c[k]; float rq = WM * q.z / 2f;
-                Mesh m = q.z >= 30 ? WindowGear(q.z, WM, WT, 0.8f, rq - 1.25f * WM - 0.5f, new[] { (45f, 30f), (135f, 30f), (225f, 30f), (315f, 30f) }, "Clockwork_Idler_m40_z" + q.z)
-                                   : SpurMesh(q.z, WM, WT, "Clockwork_Spur_m40_th50_z" + q.z);
+                Mesh m = IdlerMesh(q.z);
                 var ig = CwGear(wf, "Feed" + i + "_Idler" + k + "_z" + q.z, new Vector3(q.c.x, 0f, q.c.y), Vector3.up, m, k % 2 == 1 ? cwBrass : cwLight);
                 AddGear(ig, bestRW * q.ratio, q.phase * Mathf.Rad2Deg);
                 CwShaft(ig, -0.3f, WT + 0.3f, q.z >= 30 ? 0.7f : 0.5f);
