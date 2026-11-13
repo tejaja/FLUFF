@@ -949,6 +949,7 @@ public static class FuwaCourse2_4Builder
         {
             var mm = System.Text.RegularExpressions.Regex.Match(t.name, @"^Feed\d+_Idler\d+_z(\d+)$"); if (!mm.Success) continue;
             int z = int.Parse(mm.Groups[1].Value); var mf = t.GetComponent<MeshFilter>(); if (!mf) continue;
+            if (z < IdlerWinMinZ) { sb.Append(t.name + "→そのまま "); continue; }   // 小さいのは作り直さない（作り直すと保存ずみのメッシュの UV が消えた）
             var m = IdlerMesh(z); mf.sharedMesh = m;
             var mc = t.GetComponent<MeshCollider>(); if (mc) mc.sharedMesh = m;
             sb.Append(t.name + (z >= IdlerWinMinZ ? "→窓 " : "→そのまま "));
