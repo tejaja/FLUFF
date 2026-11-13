@@ -193,6 +193,12 @@ public class FuwaBall : UdonSharpBehaviour
     public float smallWind = 1.6f, bigWind = 0.3f;       // 風のゾーン（AddWind）の倍率（大 0.4 → 0.3）
     public float smallFall = 0.8f, bigFall = 1.25f;      // 落ちる速さ（重力・最大落下速度）の倍率
     public float sizeTime = 0.45f;                        // 大きさが変わるのにかかる時間（ぽよんと少し行きすぎる）
+    // 2026-11-13 てじゃ「サイズがかわると遠近感がバグってきもちわる」「変わる時に一旦とめる？マリオのパワーアップダウンみたいな」
+    //  → 変わる瞬間にその場で sizeFreeze 秒止まる（風・撃つのも効かない）。止まっている間は「中→元→中→元→新」とチカチカ切りかわる。止まったあとは前の勢いの sizeKeepVel 倍で動き出す
+    public float sizeFreeze = 0.7f, sizeKeepVel = 1f;   // てじゃ「勢いはそのままでもいいかも」→ 1
+    private bool _sizeFrozen;
+    private float _freezeStart;
+    private Vector3 _freezeVel;
     private int _sizeMode;
     private float _sizeFrom = 1f, _sizeTo = 1f, _sizeNow = 1f, _sizeStart = -10f;
     private Vector3 _unitScale;
@@ -203,6 +209,23 @@ public class FuwaBall : UdonSharpBehaviour
         if (mode == _sizeMode) return;
         _sizeMode = mode;
         _sizeFrom = _sizeNow; _sizeTo = mode < 0 ? smallScale : (mode > 0 ? bigScale : 1f); _sizeStart = Time.time;
+        if (sizeFreeze > 0f && !_waiting && !_hidden && _resetAt < 0f && !_stuck && !_carried && _rb != null)
+        {
+            if (!_sizeFrozen) _freezeVel = _rb.velocity;
+            _sizeFrozen = true; _freezeStart = Time.time;
+            _rb.velocity = Vector3.zero; _rb.isKinematic = true;
+        }
+    }
+    private void UpdateSizeFreeze()
+    {
+        if (!_sizeFrozen) return;
+        if (_waiting || _hidden || _resetAt > 0f) { _sizeFrozen = false; return; }   // アウト・待ちになったら止めるのは終わり（物理はそっちが管理）
+        if (Time.time - _freezeStart < sizeFreeze) return;
+        _sizeFrozen = false;
+        _rb.isKinematic = false;
+        _rb.velocity = _freezeVel * sizeKeepVel;
+        _sizeStart = -10f; _sizeNow = _sizeTo; _baseScale = _unitScale * _sizeNow;
+        if (_inflateStart < 0f && _appearStart < 0f) transform.localScale = _baseScale;
     }
     private float SizeBlow() { return _sizeMode < 0 ? smallBlow : (_sizeMode > 0 ? bigBlow : 1f); }
     private float SizeWind() { return _sizeMode < 0 ? smallWind : (_sizeMode > 0 ? bigWind : 1f); }
@@ -210,6 +233,17 @@ public class FuwaBall : UdonSharpBehaviour
     private void UpdateSize()
     {
         if (_sizeStart < -5f || _unitScale.sqrMagnitude <= 0f) return;
+        if (_sizeFrozen)
+        {
+            // チカチカ：中→元→中→元→新→中→新（最後は新）
+            float ft = Mathf.Clamp01((Time.time - _freezeStart) / Mathf.Max(0.01f, sizeFreeze));
+            int step = Mathf.Min(6, Mathf.FloorToInt(ft * 7f));
+            float mid = (_sizeFrom + _sizeTo) * 0.5f;
+            float sz = step == 0 || step == 2 || step == 5 ? mid : (step == 1 || step == 3 ? _sizeFrom : _sizeTo);
+            _sizeNow = sz; _baseScale = _unitScale * sz;
+            if (_inflateStart < 0f && _appearStart < 0f) transform.localScale = _baseScale;
+            return;
+        }
         float t = Mathf.Clamp01((Time.time - _sizeStart) / Mathf.Max(0.01f, sizeTime));
         // ぽよん：行きすぎて戻る（ばね）
         float e = 1f - Mathf.Exp(-6f * t) * Mathf.Cos(t * 9f);
@@ -220,6 +254,7 @@ public class FuwaBall : UdonSharpBehaviour
     }
     private void ResetSize()
     {
+        _sizeFrozen = false;
         _sizeMode = 0; _sizeFrom = 1f; _sizeTo = 1f; _sizeNow = 1f; _sizeStart = -10f;
         if (_unitScale.sqrMagnitude > 0f) { _baseScale = _unitScale; transform.localScale = _baseScale; }
     }
@@ -262,7 +297,7 @@ public class FuwaBall : UdonSharpBehaviour
     private void FixedUpdate()
     {
         _fixedVel = _rb.velocity;
-        if (_waiting || _stuck || _carried) return;
+        if (_waiting || _stuck || _carried || _sizeFrozen) return;
 
         // 重くなるゾーンから届いた倍率（届いてなければ1倍）
         float g = (_gravityScale > 0f ? _gravityScale : 1f) * SizeFall();
@@ -302,6 +337,7 @@ public class FuwaBall : UdonSharpBehaviour
         UpdateAppear();
         ShareBallPos();
         UpdateInflate();
+        UpdateSizeFreeze();
         UpdateSize();
         UpdateSquash();
         // 待機中（空中で止まってる間）もゆっくり回して、ふわふわ感を出す
@@ -341,7 +377,7 @@ public class FuwaBall : UdonSharpBehaviour
     {
         if (_stuck && webCatch && !_softStick && _resetAt < 0f && !_hidden) { WebShot(velocityChange); return; }
         _shotCharge = -1f;
-        if (_resetAt > 0f || _hidden || _stuck || _spiking) return;
+        if (_resetAt > 0f || _hidden || _stuck || _spiking || _sizeFrozen) return;
         velocityChange *= SizeBlow();
         if (_waiting)
         {
@@ -530,7 +566,7 @@ public class FuwaBall : UdonSharpBehaviour
 
     public void AddWind(Vector3 acceleration)
     {
-        if (_waiting || _resetAt > 0f || _stuck) return;
+        if (_waiting || _resetAt > 0f || _stuck || _sizeFrozen) return;
         acceleration *= SizeWind();
         _rb.AddForce(DampWind(acceleration), ForceMode.Acceleration);
         float mag = acceleration.magnitude;
@@ -546,7 +582,7 @@ public class FuwaBall : UdonSharpBehaviour
     // 風の力はそのままかけて、光る向き・強さだけ指定する（つむじ風に捕まっている時など、力の向きがころころ変わる時用）
     public void AddWindGlowDir(Vector3 acceleration, Vector3 glowDir, float glowAmount)
     {
-        if (_waiting || _resetAt > 0f || _stuck) return;
+        if (_waiting || _resetAt > 0f || _stuck || _sizeFrozen) return;
         acceleration *= SizeWind();   // 竜巻など（大きいと持っていかれにくい）
         _rb.AddForce(DampWind(acceleration), ForceMode.Acceleration);
         if (glowDir.sqrMagnitude > 0.0001f) SetGlow(windGlowColor, glowDir.normalized, WindGlowCurve(glowAmount), 0.1f);
