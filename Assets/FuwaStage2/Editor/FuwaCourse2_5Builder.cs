@@ -24,7 +24,7 @@ public static class FuwaCourse2_5Builder
     const string RootName = "FuwaCourse2_5";
     const float SpokeR = 34.8f, StartBelow = 4f;
     public static float HW = 2.4f, StripeLen = 1.2f;   // 2026-11-13 島の道 2→2.4
-    public static Color PathColA = new Color(0.490f, 0.722f, 0.400f), PathColB = new Color(0.404f, 0.647f, 0.322f);   // #7DB866 / #67A552（2026-11-12 てじゃ「道を深緑寄りに」→ 4案から「いったん右上で」。前は #A6DB7E / #8CCB66）
+    public static Color PathColA = new Color(0.910f, 0.851f, 0.710f), PathColB = new Color(0.839f, 0.757f, 0.588f);   // #E8D9B5 / #D6C196（2026-11-13 てじゃ「道、ベージュ系にしてみよ」。前は深緑 #7DB866 / #67A552、その前 #A6DB7E / #8CCB66）
     const string MeshDir = "Assets/FuwaStage2/Meshes/Course2_5";
     const float WT = 0.5f;   // 部屋の壁の厚み
 
