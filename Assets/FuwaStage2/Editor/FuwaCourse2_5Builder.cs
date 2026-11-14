@@ -143,6 +143,7 @@ public static class FuwaCourse2_5Builder
         { // 2026-11-14 てじゃ「その島、石像基準に反時計回りに回り込むようにちょっとだけ動かして」→ 石像を中心に上から見て反時計回りに WebWalkOrbit°（向きもいっしょに）
             float o = WebWalkOrbit * Mathf.Deg2Rad, dx = P.x - MushroomAt.x, dz = P.z - MushroomAt.y;
             P = new Vector3(MushroomAt.x + dx * Mathf.Cos(o) - dz * Mathf.Sin(o), P.y, MushroomAt.y + dx * Mathf.Sin(o) + dz * Mathf.Cos(o)); th += WebWalkOrbit; }
+        P -= Dir(th) * WebWalkBack;   // 2026-11-14 巣の門を1つ足したぶん、到着側をうしろへ（曲がり角から先は前と同じ所）
         var iw = Island("I2_WebWalk");
         Transform warpAin = null;
         // 2026-11-14 てじゃ「この道、全体的に石の壁で包まれた道みたいなのにしたい」「屋根もあっていい、たまに崩れてちょっと見えてる程度」「ギミック入ったんけしていいよ、一旦」
@@ -156,7 +157,7 @@ public static class FuwaCourse2_5Builder
         pitTable = BigPitRows; pitRow = 0;   // 2026-11-14 てじゃ「穴をもっと奥にデカく」「穴は全部」→ 回廊の落とし穴は全部大きい（4マス中3マス×2列）   // 2026-11-14 てじゃ「このトンネルもっと太くても良いかも、横も上も」→ 回廊の道（＝トンネルの中）のはばを広く
         float wh0 = WebH, ch0 = CurtainH, cth0 = CurtainTrigH; WebH = TunnelH - 0.15f; CurtainH = TunnelH - 0.4f; CurtainTrigH = TunnelH + 7f;   // 当たりも低く（真上の上の段の島まで届かないように）
         Run(() => { runA = isl; warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f);
-            WebGates("N", 3.6f, new[] { WLL | WUL }, false); S(1f); Curtain("C2_Big", 1); S(1.5f); WebGates("B1", 5.6f, new[] { WLR, WUL | WUR }, true); });
+            WebGates("N", 3.6f, new[] { WLL | WUL }, false); S(1f); Curtain("C2_Big", 1); S(1.5f); WebGates("B1", 5.6f, new[] { WLR, WLL | WLR, WUL | WUR }, true); });   // 2026-11-14 てじゃ「大きくなったあとのクモの巣をもう一個ふやしたい、入ってきた側の道を伸ばして追加」→ 下2つ（上を越える）を足す
         T(-40f);
         //  2026-11-14 てじゃ「クモの巣もっと小さくしよ、4つで埋まるくらい、それを組み合わせて使う、左下だけ、右下と左上、一箇所しかあいてない、とか」
         //  → 断面を田の字に4分割した小さい巣（WebGates）。前の版：左右交互の大きい巣（WebPits）＋天井の巣（LowWeb）
@@ -217,7 +218,7 @@ public static class FuwaCourse2_5Builder
     //  返り値：出口のポータルを置く所（空洞の +x の壁の内がわ、床の高さ）と、そこから進む向き（-x）
     // 空中の巣の回廊の置き場所：①の島の道の範囲の +x・-z の角から WebWalkOut、高さ WebWalkUp（てじゃの図の青◯）
     public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;   // （前の決め方、今は WebWalkStart に固定）
-    public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f); public static float WebWalkOrbit = 25f;   // 2026-11-14 15° → トンネルが伸びたので「また反時計回りにまわして」25°
+    public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f); public static float WebWalkOrbit = 25f, WebWalkBack = 3.8f;   // 2026-11-14 15° → トンネルが伸びたので「また反時計回りにまわして」25°
     public static Vector3 UpperStart = new Vector3(49.0348f, 32.8087f, 17.1244f); public static float UpperStartHeading = 134.3111f;
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
     static void ArrivalRoof(bool full = true)
