@@ -138,6 +138,9 @@ public static class FuwaCourse2_5Builder
         // ---- 空中の巣の回廊（①の島の +x・-z の角の上から、-x へ ①の上をわたる）----
         //  2026-11-14 ①が短くなったので、前の位置（①の範囲から決めていた所）に固定
         P = WebWalkStart; th = 200f;
+        { // 2026-11-14 てじゃ「その島、石像基準に反時計回りに回り込むようにちょっとだけ動かして」→ 石像を中心に上から見て反時計回りに WebWalkOrbit°（向きもいっしょに）
+            float o = WebWalkOrbit * Mathf.Deg2Rad, dx = P.x - MushroomAt.x, dz = P.z - MushroomAt.y;
+            P = new Vector3(MushroomAt.x + dx * Mathf.Cos(o) - dz * Mathf.Sin(o), P.y, MushroomAt.y + dx * Mathf.Sin(o) + dz * Mathf.Cos(o)); th += WebWalkOrbit; }
         var iw = Island("I2_WebWalk");
         Transform warpAin = null;
         // 2026-11-14 てじゃ「この道、全体的に石の壁で包まれた道みたいなのにしたい」「屋根もあっていい、たまに崩れてちょっと見えてる程度」「ギミック入ったんけしていいよ、一旦」
@@ -154,7 +157,7 @@ public static class FuwaCourse2_5Builder
         }
         Transform warpW = null;
         Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); });
-        IslandRock(iw, 1.5f, false, 3f, 180f);
+        IslandRock(iw, 1.5f, false, 3f, 180f + WebWalkOrbit);
         // ---- 上の段（①②の上、向きを変える）----
         // てじゃ「上の二島、下の二島とクロスしたかんじのほうがいい」：上から見て X 字。下の段のスタート→ワープA の向き d に直角（n）で、まん中の上を横切る
         //  2026-11-14 ①が短くなって②の島もなくなったので、前の位置（スタート→前のワープA のまん中の上）に固定
@@ -197,7 +200,7 @@ public static class FuwaCourse2_5Builder
     //  返り値：出口のポータルを置く所（空洞の +x の壁の内がわ、床の高さ）と、そこから進む向き（-x）
     // 空中の巣の回廊の置き場所：①の島の道の範囲の +x・-z の角から WebWalkOut、高さ WebWalkUp（てじゃの図の青◯）
     public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;   // （前の決め方、今は WebWalkStart に固定）
-    public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f);
+    public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f); public static float WebWalkOrbit = 15f;
     public static Vector3 UpperStart = new Vector3(49.0348f, 32.8087f, 17.1244f); public static float UpperStartHeading = 134.3111f;
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
     static void ArrivalRoof(bool full = true)
