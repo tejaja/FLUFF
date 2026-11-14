@@ -152,9 +152,12 @@ public static class FuwaCourse2_5Builder
         //  → ふつうで巣1枚 → 橙 → 大きいまま 左右交互の巣＋落とし穴の床 → 天井から垂れた巣をくぐる → … → 白 → ワープW。巣・カーテンはトンネルの高さに収める
         float wh0 = WebH, ch0 = CurtainH, cth0 = CurtainTrigH; WebH = TunnelH - 0.15f; CurtainH = TunnelH - 0.4f; CurtainTrigH = TunnelH + 7f;   // 当たりも低く（真上の上の段の島まで届かないように）
         Run(() => { runA = isl; warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f);
-            WebRun("N", 3.6f, 1.7f); S(1f); Curtain("C2_Big", 1); S(1.5f); WebPits("B1", 5.6f, 1.9f); });
+            WebGates("N", 3.6f, new[] { WLL | WUL }, false); S(1f); Curtain("C2_Big", 1); S(1.5f); WebGates("B1", 5.6f, new[] { WLR, WUL | WUR }, true); });
         T(-40f);
-        Run(() => { runB = isl; S(1f); WebPits("B2", 6.6f, 1.9f); S(1f); LowWeb("L1"); S(3f); WebPits("B3", 6.6f, 1.9f); LowWeb("L2"); S(2.5f); S(1.2f); Curtain("C2_Normal", 0); S(2.5f); });
+        //  2026-11-14 てじゃ「クモの巣もっと小さくしよ、4つで埋まるくらい、それを組み合わせて使う、左下だけ、右下と左上、一箇所しかあいてない、とか」
+        //  → 断面を田の字に4分割した小さい巣（WebGates）。前の版：左右交互の大きい巣（WebPits）＋天井の巣（LowWeb）
+        Run(() => { runB = isl; S(1f); WebGates("B2", 6.6f, new[] { WLL | WUR, WLL | WLR | WUL }, true); S(1f); WebGates("B3", 3f, new[] { WUL | WUR }, false);
+            WebGates("B4", 6.6f, new[] { WLR | WUL, WLL | WLR | WUR }, true); WebGates("B5", 2.5f, new[] { WLL }, false); S(1.2f); Curtain("C2_Normal", 0); S(2.5f); });
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         CorridorTunnel(runA, runB, -40f, -1.6f);
         { // CP の光るキノコは道のふちの外（壁の中）にあったので、トンネルの中の壁ぎわへ
@@ -1202,6 +1205,28 @@ public static class FuwaCourse2_5Builder
         }
         WindRun("Pits_" + tag, len, new float[0]);
     }
+    // 巣の門（2026-11-14）：トンネルの断面を田の字に4分割、埋まっているマスに1枚ずつ小さい巣。patterns は門ごとのビット（WLL 左下・WLR 右下・WUL 左上・WUR 右上）
+    //  len の中に等間隔で門を並べる。pits なら床は落とし穴のタイル
+    const int WLL = 1, WLR = 2, WUL = 4, WUR = 8;
+    static void WebGates(string tag, float len, int[] patterns, bool pits)
+    {
+        float z0 = P.z;
+        var g = new GameObject("WebGates_" + tag).transform; g.SetParent(isl, false);
+        float hTop = TunnelH - 0.1f, hMid = TunnelH / 2f, xo = HW + 0.5f;   // 横は壁に 0.5m めりこませる
+        for (int i = 0; i < patterns.Length; i++)
+        {
+            float z = z0 + len * (i + 0.5f) / patterns.Length; int pt = patterns[i];
+            for (int c = 0; c < 4; c++)
+            {
+                if ((pt & (1 << c)) == 0) continue;
+                bool right = (c & 1) != 0, up = (c & 2) != 0;
+                float x0 = right ? 0f : -xo, x1 = right ? xo : 0f, y0 = up ? hMid : 0f, y1 = up ? hTop : hMid;
+                Web(g, "Web" + i + "_" + (up ? "U" : "L") + (right ? "R" : "L"), new Vector3((x0 + x1) / 2f, P.y + (y0 + y1) / 2f, z), Quaternion.identity, new Vector2(x1 - x0, y1 - y0), false, 0.6f);
+            }
+        }
+        if (pits) WindRun("Pits_" + tag, len, new float[0]); else S(len);
+    }
+
     // 天井から垂れた巣：道のはばいっぱい、下 LowWebGap だけあいている（下をくぐる）
     public static float LowWebGap = 1.7f;
     static void LowWeb(string tag)
