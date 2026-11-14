@@ -68,7 +68,7 @@ public static class FuwaCourse2_5Builder
         var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
         ballT = Resources.FindObjectsOfTypeAll<FuwaBall>().FirstOrDefault(b => b.gameObject.scene.IsValid() && b.transform.parent && b.transform.parent.name == "FuwaSystem");
         ballR = ballT ? ballT.GetComponent<SphereCollider>().radius * ballT.transform.lossyScale.x : 0.15f;
-        cps.Clear(); segNo = 0; stencilNo = 10; FuwaPortalTest.clones.Clear(); camPortals.Clear();
+        cps.Clear(); segNo = 0; stencilNo = 10; FuwaPortalTest.clones.Clear(); camPortals.Clear(); gateZ.Clear();
         log = new System.Text.StringBuilder();
 
         float R0 = StartSet(root);
@@ -161,7 +161,8 @@ public static class FuwaCourse2_5Builder
         Run(() => { runB = isl; S(1f); WebGates("B2", 6.6f, new[] { WLL | WUR, WLL | WLR | WUL }, true); S(1f); WebGates("B3", 3f, new[] { WUL | WUR }, false);
             WebGates("B4", 6.6f, new[] { WLR | WUL, WLL | WLR | WUR }, true); S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
-        CorridorTunnel(runA, runB, -40f, -1.6f);
+        // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
+        if (CorridorPillars) CorridorColonnade(runA, runB); else CorridorTunnel(runA, runB, -40f, -1.6f);
         { // CP の光るキノコは道のふちの外（壁の中）にあったので、トンネルの中の壁ぎわへ
             var cpg = runA.Find("Checkpoints/Checkpoint1/GlowMushrooms");
             if (cpg) foreach (Transform c in cpg) c.localPosition = new Vector3(Mathf.Sign(c.localPosition.x) * (HW - 0.3f), c.localPosition.y + 0.66f, c.localPosition.z);
@@ -693,6 +694,33 @@ public static class FuwaCourse2_5Builder
         Box(isl, "GateTopL", new Vector3(-w / 4f - 0.3f, P.y + h + 0.2f, P.z), new Vector3(w / 2f, 0.8f, 1.1f), terra, 0);
         var br = Box(isl, "GateTopBroken", new Vector3(w / 4f + 0.2f, P.y + h + 0.1f, P.z), new Vector3(w / 4f, 0.7f, 1.1f), terraD, 0);
         br.transform.localRotation = Quaternion.Euler(0f, 0f, -12f);
+    }
+
+    // ---- 列柱の回廊（2026-11-14 てじゃ「柱式にもどしたい」）：道の両わきに柱、巣の門の所は柱2本＋上のはり（巣はその間に張る）----
+    public static bool CorridorPillars = true;
+    public static float PillarStep = 2.6f, PillarSize = 0.8f;
+    static void CorridorColonnade(Transform runA, Transform runB)
+    {
+        float H = TunnelH, xc = HW + 0.5f;   // 巣の横のはし（HW+0.5）が柱のまん中に来る
+        foreach (var run in new[] { runA, runB })
+        {
+            var g = new GameObject("Colonnade").transform; g.SetParent(run, false);
+            float end = LocalBounds(run, run).max.z, z0 = run == runA ? 2.6f : 0.6f;   // A はワープの到着の床のあとから
+            var gz = gateZ.Where(x => x.run == run).Select(x => x.z).ToList();
+            foreach (float z in gz)
+            {
+                foreach (float sx in new[] { -1f, 1f })
+                    Box(g, "GatePillar", new Vector3(sx * xc, (H + 0.6f) / 2f - 0.6f + 0.3f, z), new Vector3(PillarSize, H + 0.9f, PillarSize), stone, 0);
+                Box(g, "GateBeam", new Vector3(0f, H + 0.25f, z), new Vector3(2f * xc + PillarSize + 0.4f, 0.5f, PillarSize + 0.1f), terra, 0);
+            }
+            for (float z = z0; z < end - 0.4f; z += PillarStep)
+            {
+                if (gz.Any(q => Mathf.Abs(q - z) < 1.2f)) continue;   // 門の柱と近すぎる所はぬく
+                foreach (float sx in new[] { -1f, 1f })
+                    Box(g, "Column", new Vector3(sx * xc, (H + 0.6f) / 2f - 0.6f, z), new Vector3(PillarSize * 0.85f, H + 0.6f, PillarSize * 0.85f), stone, 0);
+            }
+        }
+        log.Append("列柱 ");
     }
 
     // ---- 石のトンネルの回廊（2026-11-14 てじゃ「石の壁で包まれた道」「屋根もあっていい、たまに崩れてちょっと見えてる程度」）----
@@ -1227,6 +1255,7 @@ public static class FuwaCourse2_5Builder
     //  → はがれた時（来た側へ webPopSpeed 2.6・上 1.4）の飛ぶ距離を Play で測ったら、ふつうも大きいも中心で約 2.1m（3秒でほぼ止まる）。
     //    大きい玉の半径 0.45 ×2 ＋余裕で、門と門の間は WebGateGap（len は使わず、門の数 × WebGateGap。前後の区間との間も半分ずつで WebGateGap 以上）
     public static float WebGateGap = 3.8f;
+    static readonly List<(Transform run, float z)> gateZ = new List<(Transform, float)>();
     static void WebGates(string tag, float len, int[] patterns, bool pits)
     {
         float z0 = P.z; len = patterns.Length * WebGateGap;
@@ -1235,6 +1264,7 @@ public static class FuwaCourse2_5Builder
         for (int i = 0; i < patterns.Length; i++)
         {
             float z = z0 + len * (i + 0.5f) / patterns.Length; int pt = patterns[i];
+            gateZ.Add((isl, z));
             for (int c = 0; c < 4; c++)
             {
                 if ((pt & (1 << c)) == 0) continue;
