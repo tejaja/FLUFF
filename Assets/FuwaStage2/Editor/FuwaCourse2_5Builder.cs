@@ -1470,7 +1470,7 @@ public static class FuwaCourse2_5Builder
 
     // ポータルの組：A の奥に B の部屋のコピー、B の奥に A の部屋のコピー。人を運ぶ（players）・ふわふわを運ぶ（balls）
     // ===== カメラ式ポータル（2026-11-14 てじゃ「ワープ前にカーテンとかクモの巣とかみえない」「明るさ」→ A）=====
-    public static bool CameraPortals = true;
+    public static bool CameraPortals = true, TwoWayPortals = true;
     public static int PortalRTSize = 1024;
     static readonly List<(Transform entry, Transform exit, MeshRenderer hole)> camPortals = new List<(Transform, Transform, MeshRenderer)>();
     static void SetupPortalCams()
@@ -1514,12 +1514,27 @@ public static class FuwaCourse2_5Builder
             cm.shader = Shader.Find("Fuwa/PortalCam"); cm.SetFloat("_Active", 0f); EditorUtility.SetDirty(cm);
             hr.sharedMaterial = cm;
             camPortals.Add((A, B, hr));
+            if (TwoWayPortals)
+            {
+                // 2026-11-14 てじゃ「これなら戻りのポータルうつしてもいいかも」「行き来できてもいいかも」→ 出口側の穴にも来た側を映して、くぐったら戻れる
+                var hb = B.Find("PortalHole").GetComponent<MeshRenderer>();
+                string mpb = "Assets/FuwaStage2/Materials/Ruins_PortalCam_" + B.name + ".mat";
+                var cmb = AssetDatabase.LoadAssetAtPath<Material>(mpb);
+                if (!cmb) { cmb = new Material(Shader.Find("Fuwa/PortalCam")); AssetDatabase.CreateAsset(cmb, mpb); }
+                cmb.shader = Shader.Find("Fuwa/PortalCam"); cmb.SetFloat("_Active", 0f); EditorUtility.SetDirty(cmb);
+                hb.sharedMaterial = cmb;
+                camPortals.Add((B, A, hb));
+            }
         }
         else FuwaPortalTest.Copy(roomOfB, A, B, viewT, "ViewThrough_" + A.name, sa);
         // 一方通行（2026-11-11 てじゃ「戻れないようにしとこ、前のが見えると空がみえちゃう」）：出る側 B は穴（向こうの見え方）をなくして、奥の暗いくぼみだけ
-        B.Find("PortalHole").gameObject.SetActive(false);
-        if (OvalPortals && halfW <= 0f) OvalBack(B); else Niche(B, halfW > 0f ? halfW : FuwaPortalTest.HalfW, height > 0f ? height : FuwaPortalTest.HoleH);
-        foreach (var (en, ex, sref) in new[] { (A, B, sa) })
+        bool two = CameraPortals && TwoWayPortals;
+        if (!two)
+        {
+            B.Find("PortalHole").gameObject.SetActive(false);
+            if (OvalPortals && halfW <= 0f) OvalBack(B); else Niche(B, halfW > 0f ? halfW : FuwaPortalTest.HalfW, height > 0f ? height : FuwaPortalTest.HoleH);
+        }
+        foreach (var (en, ex, sref) in two ? new[] { (A, B, sa), (B, A, sb) } : new[] { (A, B, sa) })
         {
             var pt = UdonSharpUndo.AddComponent<FuwaPortal>(en.gameObject);
             pt.entry = en; pt.exit = ex;
