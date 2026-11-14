@@ -215,17 +215,28 @@ public static class FuwaCourse2_5Builder
         //  → ③ 倒れてくる柱（FallRun）→ 橋 → ④ すき間に倒れて橋になる柱（PillarGap）→ 崩れた階段＋坂になる柱（BrokenStairs）→ ワープB
         //  吹っ飛んで落ちるように、上の段の島の下の地面（IslandRock）はなし（道だけ浮いている）
         //  前の版：③ 白 → 青 GravRun S → 橙 GravRun B / ④ えらぶ道 3本（Stones / WebRun / GravRun）
-        // 2026-11-14 てじゃ「（倒れる柱は）ふわふわのシステムと相性悪いな、やっぱべつのにしよ」「上下左右移動する石板の道はありだなぁ」
-        //  → ③ 左右にスライドする石板 → 橋 → ④ 上下する石板で登る → 前後に行き来する石板で大きいすき間 → ワープB
-        //  柱の版：③ FallRun F1 / ④ PillarGap G1・G2・T(-45)・G3 → BrokenStairs
-        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f); SideSlabs("A", 4); S(3f); });
+        // 2026-11-14 てじゃ「（倒れる柱は）ふわふわのシステムと相性悪いな、やっぱべつのにしよ」→ 動く石板 →「ふわふわがついてこないからやっぱきびしい」
+        //  →「（回る石の腕と飛び出す石ブロックの）2と3の複合、2も当たったら弾かれるくらいでいい」
+        //  → ③ 回る石の腕 3本 → 橋 → ④ 飛び出す石ブロック → 45° → 腕とブロックのまざり → ワープB
+        //  柱の版：③ FallRun F1 / ④ PillarGap G1・G2・T(-45)・G3 → BrokenStairs。石板の版：③ SideSlabs A / ④ UpSlabs B → T(-45) → FerrySlab C
+        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f);
+            var g = new GameObject("Arms_A").transform; g.SetParent(isl, false);
+            SpinArm(g, "Arm0", 3.5f, 50f, 2, 0f); SpinArm(g, "Arm1", 10f, -65f, 2, 45f); SpinArm(g, "Arm2", 16.5f, 45f, 3, 20f);
+            S(20f); S(2f); });
         Island("Bridge3");
         Run(() => { ArchBridge(14f, 2f, false, null); });
-        var i4 = Island("I4_Slabs");
-        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(2.5f); UpSlabs("B", 3); S(2.5f); });
+        var i4 = Island("I4_Bumpers");
+        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(2f);
+            var g = new GameObject("Pistons_B").transform; g.SetParent(isl, false);
+            Piston(g, "P0", 2f, 1f, 0.9f, 0f); Piston(g, "P1", 4.6f, -1f, 0.9f, 0.8f); Piston(g, "P2", 7.2f, 1f, 1.9f, 1.6f);
+            Piston(g, "P3", 9.8f, -1f, 0.9f, 2.4f); Piston(g, "P4", 12.4f, 1f, 0.9f, 0f); Piston(g, "P5", 12.4f, -1f, 1.9f, 1.6f);
+            S(15f); S(2.5f); });
         T(-45f);
         Transform warpB = null;
-        Run(() => { S(2f); FerrySlab("C", 10f); S(3f); warpB = BigPortal(isl, "WarpB", P, 180f); });
+        Run(() => { S(2f);
+            var g = new GameObject("Mix_C").transform; g.SetParent(isl, false);
+            SpinArm(g, "Arm0", 3.5f, -55f, 2, 0f); Piston(g, "P0", 7.5f, 1f, 1.2f, 0f); Piston(g, "P1", 7.5f, -1f, 1.2f, 1.6f); SpinArm(g, "Arm1", 11.5f, 60f, 3, 30f);
+            S(14f); S(3f); warpB = BigPortal(isl, "WarpB", P, 180f); });
         // ---- ①の島の中の空洞（ゴール）----
         var gc = Island("Cavern");
         P = cav.entry; th = cav.heading;
@@ -1776,6 +1787,55 @@ public static class FuwaCourse2_5Builder
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
+    }
+
+    // ===== 回る石の腕＋飛び出す石ブロック（2026-11-14 てじゃ「2と3の複合」「当たったら弾かれるくらいでいい」）=====
+    //  動く石板は「ふわふわがついてこないからきびしい、ついてくるのもへん」でやめ（コードは残置）。道は動かさず、まわりが動く
+    //  FuwaRuinsBumper：サーバー時刻で全員同じ動き。腕・ブロックはトリガーだけ（道レイヤーではない）：当たると弾く、アウトにはしない
+    public static float ArmLow = 0.3f, ArmHigh = 2.3f, ArmT = 0.4f;
+    public static float PistonPeriod = 3.2f, PistonOut = 3.0f;
+    static FuwaRuinsBumper BumperOn(GameObject g)
+    {
+        var rb = g.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+        var bp = UdonSharpUndo.AddComponent<FuwaRuinsBumper>(g);
+        var snd = new GameObject("Hit"); snd.transform.SetParent(g.transform, false);
+        var au = snd.AddComponent<AudioSource>(); au.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaStage2/Audio/sfx_rock_bounce.wav"); au.playOnAwake = false; au.volume = 0.8f;
+        au.spatialBlend = 1f; au.rolloffMode = AudioRolloffMode.Linear; au.minDistance = 2f; au.maxDistance = 25f; au.dopplerLevel = 0f;
+        bp.hitSound = au;
+        return bp;
+    }
+    // 回る石の腕：道のまん中の柱に blades 本の腕。dz＝今の P からの距離、deg＝度/秒（＋/−で回る向き）
+    static void SpinArm(Transform g, string name, float dz, float deg, int blades, float phaseDeg)
+    {
+        float y = P.y, z = P.z + dz, L = HW + 0.3f;
+        var col = Box(g, name + "_Column", new Vector3(0f, y + 1.7f, z), new Vector3(0.9f, 3.4f, 0.9f), stone, 0);
+        var cap = Box(g, name + "_Cap", new Vector3(0f, y + 3.5f, z), new Vector3(1.2f, 0.3f, 1.2f), terra, 0); Object.DestroyImmediate(cap.GetComponent<Collider>());
+        var m = new GameObject(name); m.transform.SetParent(g, false); m.transform.localPosition = new Vector3(0f, y, z);
+        for (int k = 0; k < blades; k++)
+        {
+            var bl = new GameObject("Blade" + k).transform; bl.SetParent(m.transform, false); bl.localRotation = Quaternion.Euler(0f, 360f * k / blades, 0f);
+            var v = Box(bl, "Stone", new Vector3(0f, (ArmLow + ArmHigh) / 2f, 0.45f + (L - 0.45f) / 2f), new Vector3(ArmT, ArmHigh - ArmLow, L - 0.45f), terra, 0);
+            v.GetComponent<Collider>().isTrigger = true;
+            // 腕の上下のふち（見た目だけ）
+            foreach (float yy in new[] { ArmLow + 0.08f, ArmHigh - 0.08f })
+            { var e = Box(bl, "Rim", new Vector3(0f, yy, 0.45f + (L - 0.45f) / 2f), new Vector3(ArmT + 0.06f, 0.16f, L - 0.4f), terraD, 0); Object.DestroyImmediate(e.GetComponent<Collider>()); }
+        }
+        var bp = BumperOn(m); bp.mode = 0; bp.degPerSec = deg; bp.phaseDeg = phaseDeg;
+        UdonSharpEditorUtility.CopyProxyToUdon(bp); FuwaStage2WaterTest.NoSync(bp);
+    }
+    // 飛び出す石ブロック：道のわき（sd ＋1 右 / −1 左）の柱から、道の上へ PistonOut 突き出す。h＝ブロックのまん中の高さ（道から）、ph＝タイミング（秒）
+    static void Piston(Transform g, string name, float dz, float sd, float h, float ph)
+    {
+        float y = P.y, z = P.z + dz, xp = sd * (HW + 0.8f);
+        Box(g, name + "_Pillar", new Vector3(xp, y + 2.1f, z), new Vector3(1.6f, 4.2f, 1.6f), stone, 0);
+        var cap = Box(g, name + "_Cap", new Vector3(xp, y + 4.35f, z), new Vector3(1.9f, 0.3f, 1.9f), terra, 0); Object.DestroyImmediate(cap.GetComponent<Collider>());
+        var m = new GameObject(name); m.transform.SetParent(g, false);
+        var a = new Vector3(xp, y + h, z); var b = new Vector3(xp - sd * PistonOut, y + h, z);
+        m.transform.localPosition = a;
+        var v = Box(m.transform, "Block", Vector3.zero, new Vector3(1.4f, 1.1f, 1.1f), terraD, 0); v.GetComponent<Collider>().isTrigger = true;
+        var face = Box(m.transform, "Face", new Vector3(-sd * 0.72f, 0f, 0f), new Vector3(0.06f, 0.8f, 0.8f), terra, 0); Object.DestroyImmediate(face.GetComponent<Collider>());
+        var bp = BumperOn(m); bp.mode = 1; bp.a = a; bp.b = b; bp.period = PistonPeriod; bp.phase = ph;
+        UdonSharpEditorUtility.CopyProxyToUdon(bp); FuwaStage2WaterTest.NoSync(bp);
     }
 
     // ===== 動く石板（2026-11-14 てじゃ「上下左右移動する石板の道はありだなぁ」）=====
