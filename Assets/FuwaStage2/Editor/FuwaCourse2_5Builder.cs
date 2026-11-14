@@ -130,7 +130,8 @@ public static class FuwaCourse2_5Builder
         Run(() => { Stones("B", 24.2f); S(3f, 1.5f); });
         T(-45f);
         Run(() => { S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); Stones("S", 24.2f); S(3f, 1.5f); });
-        var cav = IslandRockHollow(i1, 3.5f);
+        // 2026-11-14 てじゃ「下の地面は道に沿った部分以外なくして、床下のゴール部分は石像の下においてみよ」→ 道ぞいの帯＋石像の台地（中に空洞）
+        var cav = PathHugRock(i1);
         Island("Bridge2");
         Run(() => { ArchBridge(14f, 1f, false, null); });
         // 2026-11-13 てじゃ「いまあるクモの巣エリアを撤去、橋わたってすぐにポータル」「（①の島の向こうの角の上に）屋根付きのポータル到着地点、そこから（①の島の上を）矢印方向にコース、矢印終点にポータル」「これでクモの巣回避コースを伸ばす」
@@ -212,6 +213,201 @@ public static class FuwaCourse2_5Builder
             var rf = Box(g, "Roof", new Vector3(sx * (hx + 0.6f) * 0.5f, P.y + h + 0.95f, (z0 + z1) / 2f), new Vector3((hx + 0.6f) * 1.18f, 0.3f, z1 - z0 + 1.8f), terraD, 0);
             rf.transform.localRotation = Quaternion.Euler(0f, 0f, -sx * 32f);
         }
+    }
+
+    // ---- 道ぞいの岩＋石像の台地（2026-11-14）----
+    //  2D の符号つき距離（中が −）を層ごとに作って、マーチングトライアングルで板にする。下の層ほど細い（段々の先細り）
+    //  道：その島の Run ごとの当たりの範囲（Run の向きの四角）から PathRockM。石像：MushroomAt を中心に StatueRockR
+    //  空洞：石像の真下、口は -z（スタートの方から見える）。出口のポータルは空洞の +z の壁の内がわ、-z へ進む
+    public static float PathRockM = 1.6f, StatueRockR = 17f, RockCell = 0.8f, RockNoise = 0.9f;
+    public static float CaveMouthW = 9f;
+    static (Vector3 entry, float heading) PathHugRock(Transform island)
+    {
+        var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
+        // 道の四角（Run の中の座標の範囲）
+        var rects = new List<(Matrix4x4 toRun, Bounds b)>();
+        float pathMinY = float.MaxValue;
+        foreach (Transform ch in island)
+        {
+            if (!ch.name.StartsWith("Run")) continue;
+            var b = LocalBounds(ch, ch); if (b.size.sqrMagnitude < 0.01f) continue;
+            rects.Add((ch.worldToLocalMatrix * root.localToWorldMatrix, b));
+            pathMinY = Mathf.Min(pathMinY, LocalBounds(ch, root).min.y);
+        }
+        float top = pathMinY - 0.55f; i1Top = top;
+        var sc = MushroomAt;
+        System.Func<Vector2, float> dPath = q =>
+        {
+            float d = float.MaxValue;
+            foreach (var (m, b) in rects)
+            {
+                var p = m.MultiplyPoint3x4(new Vector3(q.x, top, q.y));
+                float dx = Mathf.Abs(p.x - b.center.x) - b.extents.x, dz = Mathf.Abs(p.z - b.center.z) - b.extents.z;
+                float o = new Vector2(Mathf.Max(dx, 0f), Mathf.Max(dz, 0f)).magnitude + Mathf.Min(Mathf.Max(dx, dz), 0f);
+                d = Mathf.Min(d, o);
+            }
+            return d;
+        };
+        // ふちのゆらぎ（ゆるい波を2つ）
+        System.Func<Vector2, float> noise = q => RockNoise * (0.6f * Mathf.Sin(q.x * 0.23f + 1.3f) * Mathf.Cos(q.y * 0.19f - 0.7f) + 0.4f * Mathf.Sin(q.x * 0.11f - q.y * 0.13f + 2.1f));
+        System.Func<Vector2, float> dStat = q => (q - sc).magnitude;
+        // 空洞（石像の真下）：部屋＋口（-z へ外までぬける）
+        float cy1 = top - 1.5f, cy0 = cy1 - CavernSize.y;
+        float hx = CavernSize.x / 2f, hz = CavernSize.z / 2f;
+        System.Func<Vector2, float> dCave = q =>
+        {
+            var d = q - sc;
+            float room = Mathf.Max(Mathf.Abs(d.x) - hx, Mathf.Abs(d.y) - hz);
+            float mouth = Mathf.Max(Mathf.Abs(d.x) - CaveMouthW / 2f, Mathf.Max(d.y - 0f, -d.y - (StatueRockR + 6f)));
+            return Mathf.Min(room, mouth);
+        };
+        // 層：(上, 下, 道のはば足し, 台地の半径, 空洞をくりぬく)
+        var layers = new List<(float y1, float y0, float pm, float sr, bool cave)>
+        {
+            (top, top - 1.5f, PathRockM, StatueRockR, false),            // 地面（空洞の天井）
+            (top - 1.5f, top - 3.5f, PathRockM - 1.2f, StatueRockR, true),
+            (top - 3.5f, top - 6f, PathRockM - 3f, StatueRockR - 0.6f, true),
+            (cy1 - 3.5f, cy0, -99f, StatueRockR - 1.2f, true),
+            (cy0, cy0 - 1.2f, -99f, StatueRockR - 2f, false),            // 空洞の床
+            (cy0 - 1.2f, cy0 - 4.5f, -99f, StatueRockR - 5.5f, false),
+            (cy0 - 4.5f, cy0 - 8.5f, -99f, StatueRockR - 9.5f, false),
+        };
+        // 3 番目の層が 2 番目の層の下（top-6）と空洞の層の上（cy1-3.5 = top-5）で重ならないように：空洞の層の上は top-6 に
+        layers[3] = (top - 6f, cy0, -99f, StatueRockR - 1.2f, true);
+        System.Func<int, Vector2, float> F = (k, q) =>
+        {
+            var L = layers[k];
+            float n = noise(q);
+            float f = Mathf.Min(dPath(q) - L.pm + n, dStat(q) - L.sr + n * 1.6f);
+            if (L.cave && L.y0 < cy1 + 0.01f && L.y1 > cy0 - 0.01f) f = Mathf.Max(f, -dCave(q));
+            return f;
+        };
+        // 範囲
+        var bb = LocalBounds(island, root);
+        float x0 = Mathf.Min(bb.min.x, sc.x - StatueRockR) - 4f, x1 = Mathf.Max(bb.max.x, sc.x + StatueRockR) + 4f;
+        float z0 = Mathf.Min(bb.min.z, sc.y - StatueRockR - 8f) - 4f, z1 = Mathf.Max(bb.max.z, sc.y + StatueRockR) + 4f;
+        int nx = Mathf.CeilToInt((x1 - x0) / RockCell), nz = Mathf.CeilToInt((z1 - z0) / RockCell);
+        var grids = new float[layers.Count][,];
+        for (int k = 0; k < layers.Count; k++)
+        {
+            var g = new float[nx + 1, nz + 1];
+            for (int i = 0; i <= nx; i++) for (int j = 0; j <= nz; j++)
+            {
+                float f = F(k, new Vector2(x0 + i * RockCell, z0 + j * RockCell));
+                if (Mathf.Abs(f) < 1e-4f) f = 1e-4f;
+                g[i, j] = f;
+            }
+            grids[k] = g;
+        }
+        var v = new List<Vector3>(); var tTop = new List<int>(); var tSide = new List<int>();
+        Vector3 P3(int i, int j, float y) => new Vector3(x0 + i * RockCell, y, z0 + j * RockCell);
+        bool Full(float[,] g, int i, int j) => g != null && g[i, j] < 0f && g[i + 1, j] < 0f && g[i, j + 1] < 0f && g[i + 1, j + 1] < 0f;
+        for (int k = 0; k < layers.Count; k++)
+        {
+            var L = layers[k]; var g = grids[k];
+            var above = k > 0 ? grids[k - 1] : null; var below = k + 1 < layers.Count ? grids[k + 1] : null;
+            var capTop = k == 0 ? tTop : tSide;
+            for (int j = 0; j < nz; j++)
+            {
+                int runStart = -1;
+                for (int i = 0; i <= nx; i++)
+                {
+                    bool full = i < nx && Full(g, i, j);
+                    if (full && runStart < 0) runStart = i;
+                    if (!full && runStart >= 0)
+                    {
+                        // まるごと中のマスは横につなげて1枚（上の層・下の層にかくれる所はぬく）
+                        RockRun(v, capTop, tSide, P3, runStart, i, j, L.y1, L.y0, above, below, Full);
+                        runStart = -1;
+                    }
+                    if (i < nx && !full)
+                    {
+                        // ふちのマス：三角2つに分けて切る
+                        RockTri(v, capTop, tSide, P3(i, j, 0), P3(i + 1, j, 0), P3(i + 1, j + 1, 0), g[i, j], g[i + 1, j], g[i + 1, j + 1], L.y1, L.y0);
+                        RockTri(v, capTop, tSide, P3(i, j, 0), P3(i + 1, j + 1, 0), P3(i, j + 1, 0), g[i, j], g[i + 1, j + 1], g[i, j + 1], L.y1, L.y0);
+                    }
+                }
+            }
+        }
+        var mesh = SaveRockMesh("I1_Rock", v, tTop, tSide);
+        var go = new GameObject("RockMesh"); go.transform.SetParent(rk, false); go.layer = pathLayer;
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterials = new[] { moss, underM };
+        go.AddComponent<MeshCollider>().sharedMesh = mesh;   // 地面も空洞もふわふわが着いたらアウト（前の Top・CaveFloor と同じ道のレイヤー）
+        log.Append("道ぞいの岩 " + (tTop.Count + tSide.Count) / 3 + "三角 ");
+        return (new Vector3(sc.x, cy0, sc.y + hz - 1.5f), 270f);   // 壁から少し離す（だ円の輪が壁にめりこまないように）
+    }
+
+    // まるごと中のマスの横つながり（i0〜i1-1）：上の面・下の面。上の層／下の層にまるごとかくれるマスはぬく
+    static void RockRun(List<Vector3> v, List<int> tTop, List<int> tBot, System.Func<int, int, float, Vector3> P3, int i0, int i1, int j, float y1, float y0,
+        float[,] above, float[,] below, System.Func<float[,], int, int, bool> Full)
+    {
+        // 上の面
+        int a = -1;
+        for (int i = i0; i <= i1; i++)
+        {
+            bool vis = i < i1 && !Full(above, i, j);
+            if (vis && a < 0) a = i;
+            if (!vis && a >= 0) { RockQuad(v, tTop, P3(a, j, y1), P3(i, j, y1), P3(i, j + 1, y1), P3(a, j + 1, y1), Vector3.up); a = -1; }
+        }
+        a = -1;
+        for (int i = i0; i <= i1; i++)
+        {
+            bool vis = i < i1 && !Full(below, i, j);
+            if (vis && a < 0) a = i;
+            if (!vis && a >= 0) { RockQuad(v, tBot, P3(a, j, y0), P3(i, j, y0), P3(i, j + 1, y0), P3(a, j + 1, y0), Vector3.down); a = -1; }
+        }
+    }
+    static void RockQuad(List<Vector3> v, List<int> t, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 want)
+    {
+        RockAddTri(v, t, a, b, c, want); RockAddTri(v, t, a, c, d, want);
+    }
+    static void RockAddTri(List<Vector3> v, List<int> t, Vector3 a, Vector3 b, Vector3 c, Vector3 want)
+    {
+        if (Vector3.Dot(Vector3.Cross(b - a, c - a), want) < 0f) { var s = b; b = c; c = s; }
+        int i = v.Count; v.Add(a); v.Add(b); v.Add(c); t.Add(i); t.Add(i + 1); t.Add(i + 2);
+    }
+    // ふちの三角：中（f<0）の部分を切り出して上の面・下の面、切り口の線から横の壁
+    static void RockTri(List<Vector3> v, List<int> tTop, List<int> tSide, Vector3 p0, Vector3 p1, Vector3 p2, float f0, float f1, float f2, float y1, float y0)
+    {
+        var ps = new[] { p0, p1, p2 }; var fs = new[] { f0, f1, f2 };
+        var poly = new List<Vector3>(); var cut = new List<Vector3>();
+        for (int e = 0; e < 3; e++)
+        {
+            int n = (e + 1) % 3;
+            if (fs[e] < 0f) poly.Add(ps[e]);
+            if ((fs[e] < 0f) != (fs[n] < 0f))
+            {
+                var x = Vector3.Lerp(ps[e], ps[n], fs[e] / (fs[e] - fs[n]));
+                poly.Add(x); cut.Add(x);
+            }
+        }
+        if (poly.Count < 3) return;
+        for (int k = 1; k + 1 < poly.Count; k++)
+        {
+            RockAddTri(v, tTop, poly[0] + Vector3.up * y1, poly[k] + Vector3.up * y1, poly[k + 1] + Vector3.up * y1, Vector3.up);
+            RockAddTri(v, tSide, poly[0] + Vector3.up * y0, poly[k] + Vector3.up * y0, poly[k + 1] + Vector3.up * y0, Vector3.down);
+        }
+        if (cut.Count == 2)
+        {
+            // 外向き：外（f>0）の角の平均の方
+            var outC = Vector3.zero; int no = 0; for (int e = 0; e < 3; e++) if (fs[e] >= 0f) { outC += ps[e]; no++; }
+            outC /= no; var mid = (cut[0] + cut[1]) / 2f; var on = outC - mid; on.y = 0f;
+            var seg = cut[1] - cut[0]; var nrm = new Vector3(seg.z, 0f, -seg.x); if (Vector3.Dot(nrm, on) < 0f) nrm = -nrm;
+            RockQuad(v, tSide, cut[0] + Vector3.up * y1, cut[1] + Vector3.up * y1, cut[1] + Vector3.up * y0, cut[0] + Vector3.up * y0, nrm);
+        }
+    }
+    static Mesh SaveRockMesh(string name, List<Vector3> v, List<int> t0, List<int> t1)
+    {
+        string path = MeshDir + "/" + name + ".asset";
+        var m = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (!m) { m = new Mesh { name = name }; AssetDatabase.CreateAsset(m, path); }
+        m.Clear(false);
+        m.indexFormat = v.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+        m.SetVertices(v); m.subMeshCount = 2; m.SetTriangles(t0, 0); m.SetTriangles(t1, 1);
+        m.RecalculateNormals(); m.RecalculateBounds();
+        EditorUtility.SetDirty(m);
+        return m;
     }
 
     static (Vector3 entry, float heading) IslandRockHollow(Transform island, float margin)
