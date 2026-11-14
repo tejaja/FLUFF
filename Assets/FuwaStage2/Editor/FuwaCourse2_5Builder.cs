@@ -147,9 +147,15 @@ public static class FuwaCourse2_5Builder
         //  → 石のトンネル（CorridorTunnel）。巣・カーテン・門・柱の列は一旦なし（長さは前と同じ）。到着所の屋根もトンネルに入れる（床だけ残す）
         //  前の版：ArrivalRoof → CP → 白 巣N → 右40° → 青 巣S → 橙 巣B
         Transform runA = null, runB = null;
-        Run(() => { runA = isl; warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f); S(1.2f); S(9f); S(1.5f); });
+        // 2026-11-14 てじゃ「ポータル後にまず通常状態で1個避ける、その後に巨大化、その後巨大化のまま避けながら進む、ポータル前に通常に戻る」
+        //  「床もちょい崩れさせて、上部の蜘蛛の巣を下からくぐるとかもあってもいいかも」「落とし穴もほしい」
+        //  → ふつうで巣1枚 → 橙 → 大きいまま 左右交互の巣＋落とし穴の床 → 天井から垂れた巣をくぐる → … → 白 → ワープW。巣・カーテンはトンネルの高さに収める
+        float wh0 = WebH, ch0 = CurtainH, cth0 = CurtainTrigH; WebH = TunnelH - 0.15f; CurtainH = TunnelH - 0.4f; CurtainTrigH = TunnelH + 7f;   // 当たりも低く（真上の上の段の島まで届かないように）
+        Run(() => { runA = isl; warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f);
+            WebRun("N", 3.6f, 1.7f); S(1f); Curtain("C2_Big", 1); S(1.5f); WebPits("B1", 5.6f, 1.9f); });
         T(-40f);
-        Run(() => { runB = isl; S(1f); S(1.2f); S(9f); S(1.5f); S(1.2f); S(9f); S(2f); });
+        Run(() => { runB = isl; S(1f); WebPits("B2", 6.6f, 1.9f); S(1f); LowWeb("L1"); S(3f); WebPits("B3", 6.6f, 1.9f); LowWeb("L2"); S(2.5f); S(1.2f); Curtain("C2_Normal", 0); S(2.5f); });
+        WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         CorridorTunnel(runA, runB, -40f, -1.6f);
         { // CP の光るキノコは道のふちの外（壁の中）にあったので、トンネルの中の壁ぎわへ
             var cpg = runA.Find("Checkpoints/Checkpoint1/GlowMushrooms");
@@ -157,7 +163,8 @@ public static class FuwaCourse2_5Builder
         }
         Transform warpW = null;
         Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); });
-        IslandRock(iw, 1.5f, false, 3f, 180f + WebWalkOrbit);
+        // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
+        //IslandRock(iw, 1.5f, false, 3f, 180f + WebWalkOrbit);
         // ---- 上の段（①②の上、向きを変える）----
         // てじゃ「上の二島、下の二島とクロスしたかんじのほうがいい」：上から見て X 字。下の段のスタート→ワープA の向き d に直角（n）で、まん中の上を横切る
         //  2026-11-14 ①が短くなって②の島もなくなったので、前の位置（スタート→前のワープA のまん中の上）に固定
@@ -996,7 +1003,7 @@ public static class FuwaCourse2_5Builder
             for (int c = 0; c < cols; c++)
             {
                 if (holes.Contains(c)) continue;
-                Box(g, "Tile", new Vector3(-HW + cw * (c + 0.5f), P.y - 0.3f, z0 + rl * (r + 0.5f)), new Vector3(cw - 0.04f, 0.6f, rl - 0.04f), r % 2 == 0 ? pathA : pathB, pathLayer);
+                Box(g, "Tile", new Vector3(-HW + cw * (c + 0.5f), P.y - 0.3f, z0 + rl * (r + 0.5f)), new Vector3(cw, 0.6f, rl), r % 2 == 0 ? pathA : pathB, pathLayer);   // 2026-11-14 タイルの間の 4cm のすき間から空が線に見えたのでなし
             }
         }
         foreach (float sx in new[] { -1f, 1f })
@@ -1179,6 +1186,29 @@ public static class FuwaCourse2_5Builder
             Web(g, "Web" + i, new Vector3((x0 + x1) / 2f, P.y + WebH / 2f, z), Quaternion.identity, new Vector2(x1 - x0, WebH), false, 0.6f);
         }
         S(len);
+    }
+
+    // 巣（左右交互）＋落とし穴の床（WindRun のタイル道、風なし）（2026-11-14 回廊）
+    static void WebPits(string tag, float len, float gap)
+    {
+        float z0 = P.z;
+        var g = new GameObject("WebRun_" + tag).transform; g.SetParent(isl, false);
+        int n = Mathf.Max(1, Mathf.FloorToInt((len - 1f) / WebStep));
+        for (int i = 0; i < n; i++)
+        {
+            float z = z0 + 1.2f + i * WebStep; bool left = i % 2 == 0;
+            float x0 = left ? -HW - 0.5f : -HW + gap, x1 = left ? HW - gap : HW + 0.5f;
+            Web(g, "Web" + i, new Vector3((x0 + x1) / 2f, P.y + WebH / 2f, z), Quaternion.identity, new Vector2(x1 - x0, WebH), false, 0.6f);
+        }
+        WindRun("Pits_" + tag, len, new float[0]);
+    }
+    // 天井から垂れた巣：道のはばいっぱい、下 LowWebGap だけあいている（下をくぐる）
+    public static float LowWebGap = 1.7f;
+    static void LowWeb(string tag)
+    {
+        var g = new GameObject("LowWeb_" + tag).transform; g.SetParent(isl, false);
+        float h = TunnelH - LowWebGap;
+        Web(g, "Web", new Vector3(0f, P.y + LowWebGap + h / 2f, P.z + 0.6f), Quaternion.identity, new Vector2(2f * HW + 1f, h), false, 0.6f);
     }
 
     // ---- 重力：重いゾーン（ステージ1のドームを写す、キノコはなし）----
