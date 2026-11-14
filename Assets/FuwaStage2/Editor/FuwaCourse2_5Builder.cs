@@ -697,7 +697,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // ---- 列柱の回廊（2026-11-14 てじゃ「柱式にもどしたい」）：道の両わきに柱、巣の門の所は柱2本＋上のはり（巣はその間に張る）----
-    public static bool CorridorPillars = true, GateBeams = false;
+    public static bool CorridorPillars = true, GateBeams = false, PlainColumns = false;
     public static float PillarStep = 2.6f, PillarSize = 0.8f;
     static void CorridorColonnade(Transform runA, Transform runB)
     {
@@ -713,7 +713,7 @@ public static class FuwaCourse2_5Builder
                     Box(g, "GatePillar", new Vector3(sx * xc, (H + 0.6f) / 2f - 0.6f + 0.3f, z), new Vector3(PillarSize, H + 0.9f, PillarSize), stone, 0);
                 if (GateBeams) Box(g, "GateBeam", new Vector3(0f, H + 0.25f, z), new Vector3(2f * xc + PillarSize + 0.4f, 0.5f, PillarSize + 0.1f), terra, 0);   // 2026-11-14 てじゃ「上の板いらんかも」→ なし
             }
-            for (float z = z0; z < end - 0.4f; z += PillarStep)
+            if (PlainColumns) for (float z = z0; z < end - 0.4f; z += PillarStep)   // 2026-11-14 てじゃ「柱おおい、クモの巣まとめて柱へらそう」→ ふつうの柱はなし、巣の門の柱だけ
             {
                 if (gz.Any(q => Mathf.Abs(q - z) < 1.2f)) continue;   // 門の柱と近すぎる所はぬく
                 foreach (float sx in new[] { -1f, 1f })
