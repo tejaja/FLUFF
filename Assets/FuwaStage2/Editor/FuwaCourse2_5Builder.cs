@@ -163,7 +163,8 @@ public static class FuwaCourse2_5Builder
             // 2026-11-14 てじゃ「上段2個、いみないかもな、左側2個にしよう」→ 右下 → 左2つ → 下2つ
             // 2026-11-14 てじゃ「序盤のも、1〜4枚じゃなくてデカイやつの一部が大きく破れてる形式に」→ 大きい巣1枚に大きな裂け目（右下ななめ／左たて／上よこ）。前の版：右下 / 左2 / 下2（WebGates）
             S(1f); Curtain("C2_Big", 1); S(1.5f);
-            TearGates("B1", new[] { new Tear(0.9f, -1.9f, 2.5f, -0.6f, 1.0f, true), new Tear(-2.3f, -1.1f, -2.3f, 1.1f, 0.95f, true), new Tear(-1.6f, 1.55f, 1.6f, 1.55f, 0.95f, false) }); });
+            // 2026-11-14 てじゃ「（裂け目より）小さい巣が複数あるやつ」→ 田の字にもどす（右下 / 左2つ / 下2つ）。裂け目の版：TearGates B1
+            WebGates("B1", 5.6f, new[] { WLR, WLL | WUL, WLL | WLR }, true); });
         T(-40f);
         //  2026-11-14 てじゃ「クモの巣もっと小さくしよ、4つで埋まるくらい、それを組み合わせて使う、左下だけ、右下と左上、一箇所しかあいてない、とか」
         //  → 断面を田の字に4分割した小さい巣（WebGates）。前の版：左右交互の大きい巣（WebPits）＋天井の巣（LowWeb）
@@ -173,8 +174,9 @@ public static class FuwaCourse2_5Builder
         Run(() => { runB = isl; S(1f); S(WebGateGap / 2f); Curtain("C2_Small", -1); S(WebGateGap / 2f);
             // 2026-11-14 てじゃ「スキマ通し、穴よりもさっきみたいなクモの巣が複数あるとこのスキマを通す感じに」→ 四角い巣2枚の間の細いスキマ（左寄りたて／上よこ／右寄りたて／下よこ）。前の版：穴1つの巣（HoleGates）
             // 2026-11-14 てじゃ「1枚ものを一部を裂くイメージ」「1〜2ライン裂けてる感じ」「斜めもあり」→ 細い裂け目（たて左／ななめ上／ななめ右／よこ下）。前の版：スキマ（SlitGates）
-            TearGates("B2", new[] { new Tear(-1.6f, -0.5f, -1.6f, 0.9f, 0.38f, false), new Tear(-0.7f, 1.3f, 1.0f, 1.9f, 0.38f, false) }); S(1f);
-            TearGates("B4", new[] { new Tear(1.3f, -1.3f, 2.2f, 0.2f, 0.38f, false), new Tear(-0.9f, -1.6f, 0.9f, -1.6f, 0.38f, false) });
+            // 2026-11-14 てじゃ「小さいゾーンも、小さい巣をもっとつめて、形を変えてスキマを調整」→ 3×3 のつめた巣＋1か所のスキマ（たて中段左 / よこ上右 / たて下段右 / よこ下左）
+            PackedGates("B2", new[] { new Vector4(0, 1, 1, 1), new Vector4(1, 2, 2, 2) }); S(1f);
+            PackedGates("B4", new[] { new Vector4(0, 2, 0, 3), new Vector4(1, 1, 0, 4) });
             S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
@@ -1753,6 +1755,37 @@ public static class FuwaCourse2_5Builder
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
+    }
+
+    // つめた小さい巣の門（2026-11-14 てじゃ「小さい巣が複数あるやつ、小さいゾーンも、小さい巣をもっとつめて、形を変えてスキマを調整」）
+    //  断面を 3×3 の四角い巣でぎっしりうめて（列のはば・段の高さは門ごとに少しバラバラ）、さかい目の1か所だけ SlitW のスキマ
+    //  slit：(たて=0/よこ=1, さかい目の番号 1〜2, そのさかい目にそったマスの番号 0〜2, 種)
+    static void PackedGates(string tag, Vector4[] slits)
+    {
+        float z0 = P.z, len = slits.Length * WebGateGap;
+        var g = new GameObject("PackedGates_" + tag).transform; g.SetParent(isl, false);
+        float hTop = TunnelH - 0.1f, xo = HW + 0.5f, hs = SlitW / 2f;
+        for (int i = 0; i < slits.Length; i++)
+        {
+            float z = z0 + WebGateGap * (i + 0.5f);
+            gateZ.Add((isl, z));
+            var rnd = new System.Random((int)slits[i].w * 131 + i * 7 + 3);
+            float J() => 1f + ((float)rnd.NextDouble() - 0.5f) * 0.4f;   // ±20%
+            float[] cw = { J(), J(), J() }, rh = { J(), J(), J() };
+            float cs = cw.Sum(), rs = rh.Sum();
+            var xs = new float[4]; xs[0] = -xo; for (int c = 0; c < 3; c++) xs[c + 1] = xs[c] + cw[c] / cs * 2f * xo;
+            var ys = new float[4]; ys[0] = 0f; for (int r = 0; r < 3; r++) ys[r + 1] = ys[r] + rh[r] / rs * hTop;
+            bool vertical = slits[i].x < 0.5f; int line = (int)slits[i].y, cell = (int)slits[i].z;
+            for (int c = 0; c < 3; c++) for (int r = 0; r < 3; r++)
+            {
+                float x0 = xs[c], x1 = xs[c + 1], y0 = ys[r], y1 = ys[r + 1];
+                // スキマ：たてなら line 本目のたての線（xs[line]）の、r==cell のマスの左右を hs ずつ引っこめる。よこなら ys[line] の c==cell
+                if (vertical && r == cell) { if (c == line - 1) x1 -= hs; if (c == line) x0 += hs; }
+                if (!vertical && c == cell) { if (r == line - 1) y1 -= hs; if (r == line) y0 += hs; }
+                Web(g, "Web" + i + "_" + c + r, new Vector3((x0 + x1) / 2f, P.y + (y0 + y1) / 2f, z), Quaternion.identity, new Vector2(x1 - x0, y1 - y0), false, 0.6f, false, true);
+            }
+        }
+        S(len);
     }
 
     // 裂けた巣の門（2026-11-14 てじゃ「1枚ものを一部を裂くイメージ」「1〜2ライン裂けてる感じ」「斜めもあり」「序盤のも、1〜4枚じゃなくてデカイやつの一部が大きく破れてる形式に」）
