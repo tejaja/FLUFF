@@ -1043,7 +1043,8 @@ public static class FuwaCourse2_5Builder
     static readonly int[][] PitRows = { new int[0], new[] { 0, 1 }, new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2 }, new int[0], new[] { 0 }, new[] { 3 } };
     static int pitRow;
     static int[][] pitTable;   // null なら PitRows（2026-11-14 回廊の奥は BigPitRows）
-    static readonly int[][] BigPitRows = { new int[0], new[] { 0, 1, 2 }, new[] { 0, 1, 2 }, new int[0], new[] { 1, 2, 3 }, new[] { 1, 2, 3 }, new int[0], new[] { 0, 1, 2 }, new[] { 0, 1, 2 } };
+    // 2026-11-14 てじゃ「広げた穴デカすぎかも」「ちょっとだけ縮めて」→ 3マス×2列 と 2マス×2列 を交互に（前は全部 3マス×2列）
+    static readonly int[][] BigPitRows = { new int[0], new[] { 0, 1, 2 }, new[] { 0, 1, 2 }, new int[0], new[] { 2, 3 }, new[] { 2, 3 }, new int[0], new[] { 1, 2, 3 }, new[] { 1, 2, 3 }, new int[0], new[] { 0, 1 }, new[] { 0, 1 } };
     static void WindRun(string tag, float len, float[] windsAt)
     {
         float z0 = P.z; int rows = Mathf.Max(1, Mathf.RoundToInt(len / TileL)); float rl = len / rows;
