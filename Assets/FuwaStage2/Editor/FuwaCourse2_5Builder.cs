@@ -219,6 +219,7 @@ public static class FuwaCourse2_5Builder
     //  2D の符号つき距離（中が −）を層ごとに作って、マーチングトライアングルで板にする。下の層ほど細い（段々の先細り）
     //  道：その島の Run ごとの当たりの範囲（Run の向きの四角）から PathRockM。石像：MushroomAt を中心に StatueRockR
     //  空洞：石像の真下、口は -z（スタートの方から見える）。出口のポータルは空洞の +z の壁の内がわ、-z へ進む
+    public static bool StoneRims = false;
     public static float PathRockM = 1.6f, StatueRockR = 17f, RockCell = 0.8f, RockNoise = 0.9f;
     public static float CaveMouthW = 9f;
     static (Vector3 entry, float heading) PathHugRock(Transform island)
@@ -929,8 +930,8 @@ public static class FuwaCourse2_5Builder
             zc += rl;
         }
         len = zc - z0;   // 切れ目で長さが変わる
-        // 崩れた石だたみのふち（低い石のへり、見た目だけ）
-        foreach (float sx in new[] { -1f, 1f })
+        // 崩れた石だたみのふち（低い石のへり、見た目だけ）→ 2026-11-14 てじゃ「道にある横の枠みたいなのもいらんかも」でなし（StoneRims）
+        if (StoneRims) foreach (float sx in new[] { -1f, 1f })
         {
             var rim = Box(g, "Rim", new Vector3(sx * (hwF + 0.15f), y - 0.45f, z0 + len / 2f), new Vector3(0.3f, 0.9f, len), underM, 0); Object.DestroyImmediate(rim.GetComponent<Collider>());
         }
