@@ -674,9 +674,12 @@ public static class FuwaCourse2_5Builder
     //  SegL ごとに区切って、たまに片側の壁が低く崩れて、その上の屋根も半分ない（外と空がちょっと見える）
     //  同じ高さの面が重なるとちらつくので、runB の壁・屋根は +0.03、曲がり角の外の壁は1つおきに +0.04、曲がり角の屋根は +0.06
     public static float TunnelH = 4.2f, TunnelWall = 0.6f, TunnelRoof = 0.45f, TunnelSegL = 2.4f, TunnelBreak = 0.2f;
+    public static int TunnelRuinAfter = 2; public static float TunnelRuinKeep = 0.35f;   // 何個目の崩れから屋根がほとんどなくなるか、そこから先で屋根が残る割合
     static void CorridorTunnel(Transform runA, Transform runB, float turnDeg, float zStartA)
     {
         var rnd = new System.Random(77);
+        var rndR = new System.Random(78);   // 屋根の崩れ用（rnd とは別にして、壁の崩れる場所が変わらないように）
+        int breaks = 0;
         float wt = TunnelWall, H = TunnelH;
         void Seg(Transform run, string nm, float z0, float z1, float dy, bool canBreak, float innerTrimEnd, float innerTrimStart, float innerSx)
         {
@@ -687,7 +690,8 @@ public static class FuwaCourse2_5Builder
             {
                 float a = z0 + i * sl, b = a + sl;
                 int brk = 0;   // 0 なし、-1 左、+1 右
-                if (canBreak && i > 0 && i < n - 1 && i - lastBreak > 2 && rnd.NextDouble() < TunnelBreak) { brk = rnd.Next(2) == 0 ? -1 : 1; lastBreak = i; }
+                if (canBreak && i > 0 && i < n - 1 && i - lastBreak > 2 && rnd.NextDouble() < TunnelBreak) { brk = rnd.Next(2) == 0 ? -1 : 1; lastBreak = i; breaks++; }
+                bool ruined = breaks >= TunnelRuinAfter;   // 2026-11-14 てじゃ「2個目の天井崩れたあたりから天井かなり崩そう、逆にちょっと天井のこってる、くらい」
                 foreach (float sx in new[] { -1f, 1f })
                 {
                     float wa = a, wb = b;
@@ -710,7 +714,17 @@ public static class FuwaCourse2_5Builder
                 // 屋根：崩れた区切りは、崩れた側の半分がない
                 float rx0 = -(HW + wt), rx1 = HW + wt;
                 if (brk == -1) rx0 = 0.4f; else if (brk == 1) rx1 = -0.4f;
-                Box(g, "Roof", new Vector3((rx0 + rx1) / 2f, H + TunnelRoof / 2f + dy, (a + b) / 2f), new Vector3(rx1 - rx0, TunnelRoof, sl), terraD, 0);
+                float ra = a, rb = b;
+                if (ruined && brk == 0)
+                {
+                    // ほとんど崩れた屋根：TunnelRuinKeep の割合だけ、片側の壁から出っぱる短い屋根が残る（長さも少し短い）
+                    if (rndR.NextDouble() > TunnelRuinKeep) continue;
+                    bool fromLeft = rndR.Next(2) == 0; float w = (2f * HW + 2f * wt) * (0.35f + 0.35f * (float)rndR.NextDouble());
+                    if (fromLeft) rx1 = rx0 + w; else rx0 = rx1 - w;
+                    float cut = sl * 0.3f * (float)rndR.NextDouble(); if (rndR.Next(2) == 0) ra += cut; else rb -= cut;
+                }
+                else if (ruined) continue;   // 崩れた壁の所は屋根なし
+                Box(g, "Roof", new Vector3((rx0 + rx1) / 2f, H + TunnelRoof / 2f + dy, (ra + rb) / 2f), new Vector3(rx1 - rx0, TunnelRoof, rb - ra), terraD, 0);
             }
         }
         float endA = LocalBounds(runA, runA).max.z, endB = LocalBounds(runB, runB).max.z;
