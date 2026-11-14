@@ -126,7 +126,8 @@ public static class FuwaCourse2_5Builder
         // 2026-11-13 てじゃ「正直風はもう良いかな」「序盤はデカくしたり小さくしたりしてぐねぐねの穴だらけの道をアスレチックするだけでもいい」
         //  → ①は ぐねぐねの穴あきの道：ふつう → 大 → 小
         var i1 = Island("I1_StatueHill");
-        Run(() => { S(2f); Stones("N", 17.6f); S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); S(3f, 1f); });
+        // 2026-11-14 てじゃ「下層、最初の橋抜けたら巨大カーテン、今の巨大カーテンの位置に小さくするやつをおこう」→ 橋のあと 橙（大）→ 飛び石 → 青（小）→ 飛び石 → 白
+        Run(() => { S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); Stones("N", 17.6f); S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); S(3f, 1f); });
         T(-45f);
         Run(() => { Stones("B", 24.2f); S(3f, 1.5f); });
         T(-45f);
