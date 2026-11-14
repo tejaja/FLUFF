@@ -140,12 +140,18 @@ public static class FuwaCourse2_5Builder
         P = WebWalkStart; th = 200f;
         var iw = Island("I2_WebWalk");
         Transform warpAin = null;
-        Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f); ArchGate(); Curtain("C2_Normal", 0); S(1.2f); Colonnade(10.4f); WebRun("N", 9f, 1.7f); S(1.5f); });
-        T(-40f);
-        Run(() => { S(1f); ArchGate(); Curtain("C2_Small", -1); S(1.2f); Colonnade(10.4f); WebRun("S", 9f, 1.7f); S(1.5f); ArchGate(); Curtain("C2_Big", 1); S(1.2f); Colonnade(10.4f); WebRun("B", 9f, 1.9f); S(2f); });
+        // 2026-11-14 てじゃの図：ワープAの出口は壁で囲まれた屋根つきの小屋（正面は壁）。出口は左の壁、出たら右へぐるっと回って回廊の道へ。巣は一旦撤去
+        //  （巣・巣のカーテン・柱の列は一旦なし。前の版：小屋なしの屋根 ArrivalRoof → CP → 白 巣N → 右40° → 青 巣S → 橙 巣B）
+        Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); S(HouseIn); CPi("Checkpoint1", -HouseIn * 0.5f); ArrivalHouse(HouseIn); });
+        T(90f);
+        Run(() => { S(HouseExit); });
+        T(-65f);
+        Run(() => { S(HouseLoop); });
+        T(-65f);
+        Run(() => { S(WebLeg2); });
         Transform warpW = null;
         Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); });
-        IslandRock(iw, 1.5f, false, 3f, 180f);
+        IslandRock(iw, 1.5f, false, 3f, 200f);
         // ---- 上の段（①②の上、向きを変える）----
         // てじゃ「上の二島、下の二島とクロスしたかんじのほうがいい」：上から見て X 字。下の段のスタート→ワープA の向き d に直角（n）で、まん中の上を横切る
         //  2026-11-14 ①が短くなって②の島もなくなったので、前の位置（スタート→前のワープA のまん中の上）に固定
@@ -190,6 +196,36 @@ public static class FuwaCourse2_5Builder
     public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;   // （前の決め方、今は WebWalkStart に固定）
     public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f);
     public static Vector3 UpperStart = new Vector3(49.0348f, 32.8087f, 17.1244f); public static float UpperStartHeading = 134.3111f;
+    // ワープAの到着の小屋（2026-11-14 てじゃの図）：ポータルのうしろ・右・正面は壁、左の壁に出口、屋根つき。
+    //  Run の中（ポータルが原点、+z が出てくる向き）で、道は ポータル→ zIn まで → 左へ90°（内がわの角 (-HW, zIn) を中心に回る）→ 左の壁の出口から外へ
+    public static float HouseIn = 1.8f, HouseExit = 2.6f, HouseLoop = 3.5f, WebLeg2 = 16f;
+    static void ArrivalHouse(float zIn)
+    {
+        var g = new GameObject("ArrivalHouse").transform; g.SetParent(isl, false);
+        float hw = HW + 0.7f, z0 = -1.8f, z1 = zIn + 2f * HW + 1.0f, h = FuwaPortalTest.HoleH + 1.3f, wt = 0.4f;
+        float y = P.y;
+        float dz0 = zIn - 0.35f, dz1 = zIn + 2f * HW + 0.35f, dh = Mathf.Min(h - 0.5f, 3.2f);   // 出口（左の壁）
+        // 床：道より 5cm 下に全面（道の板と同じ高さで重ねるとちらつく）
+        Box(g, "Floor", new Vector3(0f, y - 0.05f - 0.3f, (z0 + z1) / 2f), new Vector3(2f * hw, 0.6f, z1 - z0), pathB, pathLayer);
+        // 壁
+        Box(g, "WallBack", new Vector3(0f, y + h / 2f, z0 - wt / 2f), new Vector3(2f * hw + 2f * wt, h, wt), stone, 0);
+        Box(g, "WallFront", new Vector3(0f, y + h / 2f, z1 + wt / 2f), new Vector3(2f * hw + 2f * wt, h, wt), stone, 0);
+        Box(g, "WallRight", new Vector3(hw + wt / 2f, y + h / 2f, (z0 + z1) / 2f), new Vector3(wt, h, z1 - z0), stone, 0);
+        Box(g, "WallLeftA", new Vector3(-hw - wt / 2f, y + h / 2f, (z0 + dz0) / 2f), new Vector3(wt, h, dz0 - z0), stone, 0);
+        Box(g, "WallLeftB", new Vector3(-hw - wt / 2f, y + h / 2f, (dz1 + z1) / 2f), new Vector3(wt, h, z1 - dz1), stone, 0);
+        Box(g, "WallLeftTop", new Vector3(-hw - wt / 2f, y + (dh + h) / 2f, (dz0 + dz1) / 2f), new Vector3(wt, h - dh, dz1 - dz0), stone, 0);
+        // 出口の枠（テラコッタ）
+        foreach (float z in new[] { dz0, dz1 }) Box(g, "DoorPost", new Vector3(-hw - wt / 2f, y + dh / 2f, z), new Vector3(wt + 0.2f, dh, 0.35f), terra, 0);
+        Box(g, "DoorLintel", new Vector3(-hw - wt / 2f, y + dh + 0.15f, (dz0 + dz1) / 2f), new Vector3(wt + 0.2f, 0.3f, dz1 - dz0 + 0.35f), terra, 0);
+        // 屋根：はり＋切妻
+        Box(g, "Beam", new Vector3(0f, y + h + 0.2f, (z0 + z1) / 2f), new Vector3(2f * (hw + wt) + 0.6f, 0.4f, z1 - z0 + 2f * wt + 0.6f), terra, 0);
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            var rf = Box(g, "Roof", new Vector3(sx * (hw + wt + 0.4f) * 0.5f, y + h + 0.95f, (z0 + z1) / 2f), new Vector3((hw + wt + 0.4f) * 1.18f, 0.3f, z1 - z0 + 2f * wt + 1.2f), terraD, 0);
+            rf.transform.localRotation = Quaternion.Euler(0f, 0f, -sx * 32f);
+        }
+    }
+
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
     static void ArrivalRoof()
     {
