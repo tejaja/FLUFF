@@ -175,8 +175,9 @@ public static class FuwaCourse2_5Builder
             // 2026-11-14 てじゃ「スキマ通し、穴よりもさっきみたいなクモの巣が複数あるとこのスキマを通す感じに」→ 四角い巣2枚の間の細いスキマ（左寄りたて／上よこ／右寄りたて／下よこ）。前の版：穴1つの巣（HoleGates）
             // 2026-11-14 てじゃ「1枚ものを一部を裂くイメージ」「1〜2ライン裂けてる感じ」「斜めもあり」→ 細い裂け目（たて左／ななめ上／ななめ右／よこ下）。前の版：スキマ（SlitGates）
             // 2026-11-14 てじゃ「小さいゾーンも、小さい巣をもっとつめて、形を変えてスキマを調整」→ 3×3 のつめた巣＋1か所のスキマ（たて中段左 / よこ上右 / たて下段右 / よこ下左）
-            PackedGates("B2", new[] { new Vector4(0, 1, 1, 1), new Vector4(1, 2, 2, 2) }); S(1f);
-            PackedGates("B4", new[] { new Vector4(0, 2, 0, 3), new Vector4(1, 1, 0, 4) });
+            // 2026-11-14 てじゃ「（3×3 は）規則的すぎる」→ ばらばらにつめた小さい巣＋スキマ1か所（左たて / 右上ななめ / まん中よこ / 右下ななめ）。3×3 の版：PackedGates
+            OrganicGates("B2", new[] { new Vector4(-1.6f, 2.4f, 90f, 0.6f), new Vector4(1.5f, 3.6f, 35f, 0.6f) }, 11); S(1f);
+            OrganicGates("B4", new[] { new Vector4(0f, 2.6f, 0f, 0.6f), new Vector4(1.7f, 1.2f, -40f, 0.6f) }, 23);
             S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
@@ -1755,6 +1756,73 @@ public static class FuwaCourse2_5Builder
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
+    }
+
+    // ばらばらにつめた小さい巣の門（2026-11-14 てじゃ「（3×3 は）規則的すぎる」）：
+    //  大きさ・縦横比・かたむきがバラバラの小さい巣（六角形っぽい見本の形）を、断面がうまるまでランダムに足す。スキマ（カプセル）にかかる巣は入れない
+    //  gap：(中心 x, 床からの y, 向き°（0=よこ、90=たて）, 半分の長さ)。はば SlitW。重なる巣は前後に少しずらす（同じ面だとちらつく）
+    public static int OrganicMax = 18; public static bool OrganicRect = true;   // 四角い巣（角までうまる）でつめる。六角形だとスキマのまわりが大きくあいた   // 1門の巣の枚数の上限（最初は上限なしで40枚以上になってぎっしりすぎた）
+    static void OrganicGates(string tag, Vector4[] gaps, int seed)
+    {
+        float z0 = P.z, len = gaps.Length * WebGateGap;
+        var g = new GameObject("OrganicGates_" + tag).transform; g.SetParent(isl, false);
+        float hTop = TunnelH - 0.1f, xo = HW + 0.5f, gw = SlitW / 2f;
+        var rnd = new System.Random(seed);
+        float R(float a, float b) => a + (b - a) * (float)rnd.NextDouble();
+        for (int gi = 0; gi < gaps.Length; gi++)
+        {
+            float z = z0 + WebGateGap * (gi + 0.5f);
+            gateZ.Add((isl, z));
+            var gp = gaps[gi]; var gc = new Vector2(gp.x, gp.y); float ga = gp.z * Mathf.Deg2Rad; var gd = new Vector2(Mathf.Cos(ga), Mathf.Sin(ga)); float gh = gp.w;
+            float GapDist(Vector2 q) { var d = q - gc; float t = Mathf.Clamp(Vector2.Dot(d, gd), -gh, gh); return (d - gd * t).magnitude; }
+            // 断面の点（0.3m おき）。スキマのまわり（gw+0.15）はうめなくてよい
+            var pts = new List<Vector2>();
+            for (float x = -xo + 0.15f; x < xo; x += 0.3f) for (float y = 0.15f; y < hTop; y += 0.3f) { var q = new Vector2(x, y); if (GapDist(q) > gw + 0.12f) pts.Add(q); }
+            var covered = new bool[pts.Count];
+            var webs = new List<(Vector2 c, Vector2 s, float rot)>();
+            bool Inside(Vector2 q, Vector2 c, Vector2 sz, float rot, float k) { var d = q - c; float cr = Mathf.Cos(-rot), sr = Mathf.Sin(-rot); var l = new Vector2(d.x * cr - d.y * sr, d.x * sr + d.y * cr); return Mathf.Abs(l.x) <= sz.x * 0.5f * k && Mathf.Abs(l.y) <= sz.y * 0.5f * k; }
+            bool HitsGap(Vector2 c, Vector2 sz, float rot)
+            {
+                // 巣の四角（見た目は内がわの六角形だが、当たりの余裕をみて四角の 0.95）の中の点がスキマにかかるか
+                for (int ix = 0; ix <= 6; ix++) for (int iy = 0; iy <= 6; iy++)
+                {
+                    var l = new Vector2((ix / 6f - 0.5f) * sz.x * 0.95f, (iy / 6f - 0.5f) * sz.y * 0.95f);
+                    float cr = Mathf.Cos(rot), sr = Mathf.Sin(rot);
+                    var q = c + new Vector2(l.x * cr - l.y * sr, l.x * sr + l.y * cr);
+                    if (GapDist(q) < gw) return true;
+                }
+                return false;
+            }
+            for (int tries = 0; tries < 300 && webs.Count < OrganicMax; tries++)
+            {
+                int u = -1; for (int k = 0; k < pts.Count; k++) if (!covered[k]) { u = k; break; }
+                if (u < 0) break;
+                // まだうまっていない点のどれか（最初の点に近い所から少しランダムに）
+                var cands = Enumerable.Range(0, pts.Count).Where(k => !covered[k]).ToList();
+                // うまっていない点のうち、今ある巣の中心からいちばん遠い点（すき間なく広がるように）。少しだけランダム
+                var p0 = pts[cands.OrderByDescending(k => webs.Count == 0 ? (float)rnd.NextDouble() : webs.Min(w => (w.c - pts[k]).sqrMagnitude) + (float)rnd.NextDouble() * 0.5f).First()];
+                float sz = R(2.0f, 3.2f), asp = R(0.75f, 1.3f), rot = R(-25f, 25f) * Mathf.Deg2Rad;
+                var c = p0 + new Vector2(R(-0.3f, 0.3f), R(-0.3f, 0.3f));
+                var size = new Vector2(sz * asp, sz / asp);
+                // スキマにかかる時は、スキマから遠ざける向きに少しずらしてから小さくする
+                for (int mv = 0; mv < 4 && HitsGap(c, size, rot); mv++) { var away = c - gc; away -= gd * Vector2.Dot(away, gd); c += (away.sqrMagnitude > 1e-4f ? away.normalized : Vector2.up) * 0.25f; }
+                while (HitsGap(c, size, rot) && size.x > 0.5f) size *= 0.88f;
+                if (size.x <= 0.5f || HitsGap(c, size, rot)) { covered[u] = true; continue; }   // スキマのすぐそばでうめられない点はあきらめる
+                // 床より下・上はみ出しすぎは中へ寄せる
+                c.y = Mathf.Clamp(c.y, size.y * 0.3f, hTop - size.y * 0.3f);
+                if (HitsGap(c, size, rot)) { covered[u] = true; continue; }
+                webs.Add((c, size, rot));
+                for (int k = 0; k < pts.Count; k++) if (!covered[k] && Inside(pts[k], c, size, rot, OrganicRect ? 0.97f : 0.85f)) covered[k] = true;
+                covered[u] = true;
+            }
+            for (int wi = 0; wi < webs.Count; wi++)
+            {
+                var w = webs[wi]; float dz = (wi % 5 - 2) * 0.05f;
+                Web(g, "Web" + gi + "_" + wi, new Vector3(w.c.x, P.y + w.c.y, z + dz), Quaternion.Euler(0f, 0f, w.rot * Mathf.Rad2Deg), w.s, false, 0.6f, false, OrganicRect);
+            }
+            log.Append("巣の門" + tag + gi + ":" + webs.Count + "枚 ");
+        }
+        S(len);
     }
 
     // つめた小さい巣の門（2026-11-14 てじゃ「小さい巣が複数あるやつ、小さいゾーンも、小さい巣をもっとつめて、形を変えてスキマを調整」）
