@@ -701,7 +701,7 @@ public static class FuwaCourse2_5Builder
     //  同じ高さの面が重なるとちらつくので、runB の壁・屋根は +0.03、曲がり角の外の壁は1つおきに +0.04、曲がり角の屋根は +0.06
     public static float TunnelHW = 3.3f;   // トンネルの中のはばの半分（前は島の道と同じ 2.4）
     public static float TunnelH = 5.4f, TunnelWall = 0.6f, TunnelRoof = 0.45f, TunnelSegL = 2.4f, TunnelBreak = 0.2f;
-    public static int TunnelRuinAfter = 2; public static float TunnelRuinKeep = 0.35f;   // 何個目の崩れから屋根がほとんどなくなるか、そこから先で屋根が残る割合
+    public static int TunnelRuinAfter = 2; public static float TunnelRuinKeep = 0.35f, TunnelRoofKeep = 0.6f;   // 何個目の崩れから屋根がほとんどなくなるか、そこから先で屋根が残る割合
     static void CorridorTunnel(Transform runA, Transform runB, float turnDeg, float zStartA)
     {
         var rnd = new System.Random(77);
@@ -751,6 +751,17 @@ public static class FuwaCourse2_5Builder
                     float cut = sl * 0.3f * (float)rndR.NextDouble(); if (rndR.Next(2) == 0) ra += cut; else rb -= cut;
                 }
                 else if (ruined) continue;   // 崩れた壁の所は屋根なし
+                else if (brk == 0 && TunnelRoofKeep < 1f)
+                {
+                    // 2026-11-14 てじゃ「屋根きっちり覆わなくてもいいかもな」→ 前半も TunnelRoofKeep の割合だけ残す（残る屋根も幅・長さが少し欠ける）
+                    if (rndR.NextDouble() > TunnelRoofKeep) continue;
+                    if (rndR.Next(3) > 0)
+                    {
+                        bool fromLeft = rndR.Next(2) == 0; float w = (2f * HW + 2f * wt) * (0.55f + 0.4f * (float)rndR.NextDouble());
+                        if (fromLeft) rx1 = rx0 + w; else rx0 = rx1 - w;
+                    }
+                    float cut = sl * 0.25f * (float)rndR.NextDouble(); if (rndR.Next(2) == 0) ra += cut; else rb -= cut;
+                }
                 Box(g, "Roof", new Vector3((rx0 + rx1) / 2f, H + TunnelRoof / 2f + dy, (ra + rb) / 2f), new Vector3(rx1 - rx0, TunnelRoof, rb - ra), terraD, 0);
             }
         }
