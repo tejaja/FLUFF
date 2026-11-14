@@ -158,7 +158,7 @@ public static class FuwaCourse2_5Builder
         //  2026-11-14 てじゃ「クモの巣もっと小さくしよ、4つで埋まるくらい、それを組み合わせて使う、左下だけ、右下と左上、一箇所しかあいてない、とか」
         //  → 断面を田の字に4分割した小さい巣（WebGates）。前の版：左右交互の大きい巣（WebPits）＋天井の巣（LowWeb）
         Run(() => { runB = isl; S(1f); WebGates("B2", 6.6f, new[] { WLL | WUR, WLL | WLR | WUL }, true); S(1f); WebGates("B3", 3f, new[] { WUL | WUR }, false);
-            WebGates("B4", 6.6f, new[] { WLR | WUL, WLL | WLR | WUR }, true); S(1.2f); Curtain("C2_Normal", 0); S(2.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」（前は左下だけの門 B5 のあと白）
+            WebGates("B4", 6.6f, new[] { WLR | WUL, WLL | WLR | WUR }, true); S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         CorridorTunnel(runA, runB, -40f, -1.6f);
         { // CP の光るキノコは道のふちの外（壁の中）にあったので、トンネルの中の壁ぎわへ
