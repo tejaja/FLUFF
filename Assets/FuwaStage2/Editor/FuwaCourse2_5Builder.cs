@@ -1208,9 +1208,13 @@ public static class FuwaCourse2_5Builder
     // 巣の門（2026-11-14）：トンネルの断面を田の字に4分割、埋まっているマスに1枚ずつ小さい巣。patterns は門ごとのビット（WLL 左下・WLR 右下・WUL 左上・WUR 右上）
     //  len の中に等間隔で門を並べる。pits なら床は落とし穴のタイル
     const int WLL = 1, WLR = 2, WUL = 4, WUR = 8;
+    //  2026-11-14 てじゃ「クモの巣にひっかかったときにショットで解除したときに飛び出したふわふわがまたひっかからないような距離に」
+    //  → はがれた時（来た側へ webPopSpeed 2.6・上 1.4）の飛ぶ距離を Play で測ったら、ふつうも大きいも中心で約 2.1m（3秒でほぼ止まる）。
+    //    大きい玉の半径 0.45 ×2 ＋余裕で、門と門の間は WebGateGap（len は使わず、門の数 × WebGateGap。前後の区間との間も半分ずつで WebGateGap 以上）
+    public static float WebGateGap = 3.8f;
     static void WebGates(string tag, float len, int[] patterns, bool pits)
     {
-        float z0 = P.z;
+        float z0 = P.z; len = patterns.Length * WebGateGap;
         var g = new GameObject("WebGates_" + tag).transform; g.SetParent(isl, false);
         float hTop = TunnelH - 0.1f, hMid = TunnelH / 2f, xo = HW + 0.5f;   // 横は壁に 0.5m めりこませる
         for (int i = 0; i < patterns.Length; i++)
