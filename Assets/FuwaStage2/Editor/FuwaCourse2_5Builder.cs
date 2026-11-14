@@ -127,9 +127,9 @@ public static class FuwaCourse2_5Builder
         //  → ①は ぐねぐねの穴あきの道：ふつう → 大 → 小
         var i1 = Island("I1_StatueHill");
         // 2026-11-14 てじゃ「下層、最初の橋抜けたら巨大カーテン、今の巨大カーテンの位置に小さくするやつをおこう」→ 橋のあと 橙（大）→ 飛び石 → 青（小）→ 飛び石 → 白
-        Run(() => { S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); Stones("N", 17.6f); S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); S(3f, 1f); });
+        Run(() => { S(1f); ArchGate(); Curtain("C1_Big", 1); S(1.5f); StonesWind("N", 17.6f, 0f); S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); S(3f, 1f); });
         T(-45f);
-        Run(() => { Stones("B", 24.2f); S(3f, 1.5f); });
+        Run(() => { StonesWind("B", 24.2f, 1.1f); S(3f, 1.5f); });
         T(-45f);
         // 2026-11-14 てじゃ「最初の小さくなるところやめてもとに戻すやつにする、その後すぐポータルにする、下の小さくなるエリアはなし」
         //  → 大きい飛び石のあと、白カーテン（戻る）→ すぐワープA。小さいカーテン・小さい飛び石・橋2・②の島はなし
@@ -1200,6 +1200,31 @@ public static class FuwaCourse2_5Builder
     {
         if (Vector3.Dot(Vector3.Cross(b - a, c - a), want) < 0f) { var s = b; b = d; d = s; }
         int i = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d); t.Add(i); t.Add(i + 1); t.Add(i + 2); t.Add(i); t.Add(i + 2); t.Add(i + 3);
+    }
+
+    // 飛び石＋その上の弱い横風（2026-11-14 てじゃ「かなり弱めの横風を吹かせよう」）：横風の見本の風だけ（石像なし）を飛び石の長さいっぱいに
+    public static float WeakWind = 1.6f, WeakWindOn = 1.4f, WeakWindOff = 1.6f;   // 前の横風は 5.5（大きいと ×0.3、小さいと ×1.6）
+    static void StonesWind(string tag, float len, float phase)
+    {
+        float z0 = P.z; Stones(tag, len); float L = P.z - z0;
+        var tmpl = Resources.FindObjectsOfTypeAll<Transform>().FirstOrDefault(t => t.name == "Gimmick1_CrossWind" && t.parent && t.parent.name == "BuildTemplates" && t.parent.parent && t.parent.parent.name == "FuwaCourse" && t.gameObject.scene.IsValid());
+        if (!tmpl) { log.Append("（横風の見本がない）"); return; }
+        var w = Object.Instantiate(tmpl.gameObject, isl, false); w.name = "WeakWind_" + tag; w.SetActive(true);
+        w.transform.localPosition = new Vector3(0f, P.y, z0 + L / 2f); w.transform.localRotation = Quaternion.identity;
+        foreach (Transform c in w.transform) c.localPosition = new Vector3(c.localPosition.x, 2.6f, c.localPosition.z);
+        var cwT = w.transform.Find("CrossWind"); if (cwT) cwT.localScale = new Vector3(StoneCols * StoneCell + 10f, 5.2f, L);
+        // 見た目（風の粒・木の葉・地面の光）も長さに合わせてのばす（見本は 5m ぶん）
+        float f = L / 5f;
+        var gh = w.transform.Find("GroundHighlight"); if (gh) gh.localScale = Vector3.Scale(gh.localScale, new Vector3(1f, 1f, f));
+        foreach (var ps in w.GetComponentsInChildren<ParticleSystem>(true))
+        {
+            var sh = ps.shape; sh.scale = Vector3.Scale(sh.scale, new Vector3(1f, 1f, f));
+            var em = ps.emission; em.rateOverTimeMultiplier *= f;
+            var mn = ps.main; mn.maxParticles = Mathf.CeilToInt(mn.maxParticles * f);
+        }
+        var wa = w.GetComponentInChildren<FuwaWindArea>(true);
+        if (wa) { wa.strength = WeakWind; wa.onSeconds = WeakWindOn; wa.offSeconds = WeakWindOff; wa.phaseOffset = phase; wa.alternate = true; UdonSharpEditorUtility.CopyProxyToUdon(wa); FuwaStage2WaterTest.NoSync(wa); }
+        log.Append("弱い横風" + tag + " ");
     }
 
     static void WindStatues(Transform g, float z, float phase)
