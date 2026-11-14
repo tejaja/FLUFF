@@ -150,6 +150,7 @@ public static class FuwaCourse2_5Builder
         // 2026-11-14 てじゃ「ポータル後にまず通常状態で1個避ける、その後に巨大化、その後巨大化のまま避けながら進む、ポータル前に通常に戻る」
         //  「床もちょい崩れさせて、上部の蜘蛛の巣を下からくぐるとかもあってもいいかも」「落とし穴もほしい」
         //  → ふつうで巣1枚 → 橙 → 大きいまま 左右交互の巣＋落とし穴の床 → 天井から垂れた巣をくぐる → … → 白 → ワープW。巣・カーテンはトンネルの高さに収める
+        float hwSave = HW; HW = TunnelHW;   // 2026-11-14 てじゃ「このトンネルもっと太くても良いかも、横も上も」→ 回廊の道（＝トンネルの中）のはばを広く
         float wh0 = WebH, ch0 = CurtainH, cth0 = CurtainTrigH; WebH = TunnelH - 0.15f; CurtainH = TunnelH - 0.4f; CurtainTrigH = TunnelH + 7f;   // 当たりも低く（真上の上の段の島まで届かないように）
         Run(() => { runA = isl; warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f);
             WebGates("N", 3.6f, new[] { WLL | WUL }, false); S(1f); Curtain("C2_Big", 1); S(1.5f); WebGates("B1", 5.6f, new[] { WLR, WUL | WUR }, true); });
@@ -166,6 +167,7 @@ public static class FuwaCourse2_5Builder
         }
         Transform warpW = null;
         Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); });
+        HW = hwSave;
         // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
         //IslandRock(iw, 1.5f, false, 3f, 180f + WebWalkOrbit);
         // ---- 上の段（①②の上、向きを変える）----
@@ -696,7 +698,8 @@ public static class FuwaCourse2_5Builder
     //  runA →（turnDeg の曲がり角）→ runB の道を、両わきの壁（道のふちにぴったり）＋平らな屋根でつつむ。
     //  SegL ごとに区切って、たまに片側の壁が低く崩れて、その上の屋根も半分ない（外と空がちょっと見える）
     //  同じ高さの面が重なるとちらつくので、runB の壁・屋根は +0.03、曲がり角の外の壁は1つおきに +0.04、曲がり角の屋根は +0.06
-    public static float TunnelH = 4.2f, TunnelWall = 0.6f, TunnelRoof = 0.45f, TunnelSegL = 2.4f, TunnelBreak = 0.2f;
+    public static float TunnelHW = 3.3f;   // トンネルの中のはばの半分（前は島の道と同じ 2.4）
+    public static float TunnelH = 5.4f, TunnelWall = 0.6f, TunnelRoof = 0.45f, TunnelSegL = 2.4f, TunnelBreak = 0.2f;
     public static int TunnelRuinAfter = 2; public static float TunnelRuinKeep = 0.35f;   // 何個目の崩れから屋根がほとんどなくなるか、そこから先で屋根が残る割合
     static void CorridorTunnel(Transform runA, Transform runB, float turnDeg, float zStartA)
     {
