@@ -177,8 +177,15 @@ public static class FuwaCourse2_5Builder
             // 2026-11-14 てじゃ「小さいゾーンも、小さい巣をもっとつめて、形を変えてスキマを調整」→ 3×3 のつめた巣＋1か所のスキマ（たて中段左 / よこ上右 / たて下段右 / よこ下左）
             // 2026-11-14 てじゃ「（3×3 は）規則的すぎる」→ ばらばらにつめた小さい巣＋スキマ1か所（左たて / 右上ななめ / まん中よこ / 右下ななめ）。3×3 の版：PackedGates
             // 2026-11-14 てじゃ「むしろ最初のクモの巣4枚並べてできたスキマみたいな感じがいい」→ 六角形っぽい巣でうめて、角のスキマを通す（2×2 / 3×2 / 2×3 / 3×2 ずらし）。ランダムの版：OrganicGates
-            HexGridGates("B2", new[] { new Vector4(2, 2, 0, 0), new Vector4(3, 2, 0, 0) }); S(1f);
-            HexGridGates("B4", new[] { new Vector4(2, 3, 0, 0), new Vector4(3, 2, 0.5f, 0) });
+            // 2026-11-14 てじゃ「もっと丁寧に、スキマのある巣を1から作ってみて」→ ステンドグラスの巣（ボロノイ）＋さかい目1本だけのスキマ。六角形を並べた版：HexGridGates
+            VoronoiGates("B2", new[] {
+                new[] { new Vector2(-2.5f, 1.4f), new Vector2(0.2f, 1.1f), new Vector2(2.6f, 1.6f), new Vector2(-2.2f, 4.0f), new Vector2(0.4f, 3.7f), new Vector2(2.8f, 4.2f) },
+                new[] { new Vector2(-2.8f, 2.6f), new Vector2(-0.6f, 0.9f), new Vector2(-0.3f, 3.9f), new Vector2(1.9f, 2.2f), new Vector2(2.9f, 4.5f), new Vector2(2.7f, 0.4f) } },
+                new[] { new Vector2Int(1, 4), new Vector2Int(0, 2) }); S(1f);
+            VoronoiGates("B4", new[] {
+                new[] { new Vector2(-2.6f, 0.8f), new Vector2(-1.0f, 3.0f), new Vector2(-3.0f, 4.5f), new Vector2(1.2f, 1.2f), new Vector2(1.5f, 4.2f), new Vector2(3.2f, 2.6f) },
+                new[] { new Vector2(-2.0f, 1.8f), new Vector2(0.8f, 0.7f), new Vector2(0.5f, 3.0f), new Vector2(-1.8f, 4.4f), new Vector2(2.8f, 2.0f), new Vector2(2.6f, 4.6f) } },
+                new[] { new Vector2Int(3, 5), new Vector2Int(2, 3) });
             S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
@@ -1762,6 +1769,111 @@ public static class FuwaCourse2_5Builder
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
+    }
+
+    // ===== ステンドグラスの巣の門（2026-11-14 てじゃ「もっと丁寧に、スキマのある巣を1から作ってみて」）=====
+    //  門の四角を、種の点からボロノイ分割した凸の多角形（ステンドグラス）に分けて、多角形1つ＝巣1枚。巣の枠（多角形の枠の糸）は多角形ぴったり、当たりも同じ多角形
+    //  スキマは gap の2つの多角形のさかい目だけ、両がわを VoronoiGap/2 ずつ引っこめて作る。ほかのさかい目はぴったり（すき間なし）
+    public static float VoronoiGap = 0.55f;
+    static List<Vector2> ClipHalf(List<Vector2> poly, Vector2 m, Vector2 n, float off)
+    {
+        // dot(p - m, n) <= off の側を残す
+        var o = new List<Vector2>();
+        for (int i = 0; i < poly.Count; i++)
+        {
+            var a = poly[i]; var b = poly[(i + 1) % poly.Count];
+            float da = Vector2.Dot(a - m, n) - off, db = Vector2.Dot(b - m, n) - off;
+            if (da <= 0f) o.Add(a);
+            if ((da <= 0f) != (db <= 0f)) o.Add(a + (b - a) * (da / (da - db)));
+        }
+        return o;
+    }
+    static List<Vector2> SimplifyPoly(List<Vector2> q, int maxN)
+    {
+        // 近すぎる点をまとめて、角が maxN を超える時は いちばんまっすぐな角 から消す
+        var p = new List<Vector2>(q);
+        for (int i = p.Count - 1; i >= 0 && p.Count > 3; i--) if ((p[i] - p[(i + 1) % p.Count]).magnitude < 0.06f) p.RemoveAt(i);
+        while (p.Count > maxN)
+        {
+            int best = 0; float bestA = -1f;
+            for (int i = 0; i < p.Count; i++)
+            {
+                var a = p[(i + p.Count - 1) % p.Count]; var b = p[i]; var c = p[(i + 1) % p.Count];
+                float score = 180f - Vector2.Angle(b - a, c - b);
+                if (score > bestA) { bestA = score; best = i; }
+            }
+            p.RemoveAt(best);
+        }
+        return p;
+    }
+    static void VoronoiGates(string tag, Vector2[][] seedsPerGate, Vector2Int[] gapPairs)
+    {
+        float z0 = P.z, len = seedsPerGate.Length * WebGateGap;
+        var g = new GameObject("VoronoiGates_" + tag).transform; g.SetParent(isl, false);
+        float hTop = TunnelH - 0.1f, xo = HW + 0.5f;
+        for (int gi = 0; gi < seedsPerGate.Length; gi++)
+        {
+            float z = z0 + WebGateGap * (gi + 0.5f);
+            gateZ.Add((isl, z));
+            var sd = seedsPerGate[gi]; var gp = gapPairs[gi];
+            for (int i = 0; i < sd.Length; i++)
+            {
+                var poly = new List<Vector2> { new Vector2(-xo, 0f), new Vector2(xo, 0f), new Vector2(xo, hTop), new Vector2(-xo, hTop) };
+                for (int j = 0; j < sd.Length && poly.Count >= 3; j++)
+                {
+                    if (j == i) continue;
+                    var n = (sd[j] - sd[i]).normalized; var m = (sd[i] + sd[j]) * 0.5f;
+                    bool isGap = (gp.x == i && gp.y == j) || (gp.x == j && gp.y == i);
+                    poly = ClipHalf(poly, m, n, isGap ? -VoronoiGap * 0.5f : 0f);
+                }
+                if (poly.Count < 3) continue;
+                poly = SimplifyPoly(poly, 8);
+                var sh = ShapeFor(tag, gi, i);
+                CellWeb(g, "Web" + gi + "_" + i, poly, z + ((i % 3) - 1) * 0.04f, sh.s);
+            }
+        }
+        S(len);
+    }
+    // 多角形 poly（断面の座標：x 右・y 床から上）ぴったりの巣
+    static void CellWeb(Transform parent, string name, List<Vector2> poly, float z, float seed)
+    {
+        var tmpl = Resources.FindObjectsOfTypeAll<SpiderWebBuilder>().FirstOrDefault(b => b && b.gameObject.scene.IsValid() && b.name == "BigWeb" && b.transform.parent && b.transform.parent.name == "Gimmick6_Window");
+        if (!tmpl) { log.Append("（クモの巣の見本がない）"); return; }
+        Vector2 mn = poly[0], mx = poly[0], cen = Vector2.zero;
+        foreach (var q in poly) { mn = Vector2.Min(mn, q); mx = Vector2.Max(mx, q); cen += q; }
+        cen /= poly.Count;
+        var bc = (mn + mx) * 0.5f; var size = (mx - mn) + Vector2.one * 0.1f;
+        var g = Object.Instantiate(tmpl.gameObject, parent, false); g.name = name; g.SetActive(true);
+        g.transform.localPosition = new Vector3(bc.x, P.y + bc.y, z); g.transform.localRotation = Quaternion.identity; g.transform.localScale = Vector3.one;
+        var wh = g.GetComponent<FuwaWebHole>(); if (wh) Object.DestroyImmediate(wh);
+        var b = g.GetComponent<SpiderWebBuilder>();
+        b.size = size; b.holeCenter = cen - bc; b.holeRadius = 0f; b.spokes = 18 + (int)(Mathf.Min(size.x, size.y) * 4f); b.floorShadow = false; b.autoIsland = false;
+        b.left.anchor = SpiderWebBuilder.AnchorType.None; b.right.anchor = SpiderWebBuilder.AnchorType.None; b.topThread = false;
+        b.polygonFrame = true; b.frameCorners = Mathf.Clamp(poly.Count, 3, 8); b.seed = seed; b.outerMin = 0.99f; b.outerMax = 1f;
+        b.assetId = "Web_2_5_" + parent.name + "_" + name;
+        SpiderWebBuild.Build(b);
+        // 枠の多角形を、自分の多角形にさしかえる（巣の中心＝重心から見た角、角度の順）
+        var rel = poly.Select(q => q - cen).OrderBy(v => Mathf.Atan2(v.y, v.x)).ToList();
+        if (b.webRenderer)
+        {
+            var m = b.webRenderer.sharedMaterial; var fv = new Vector4[4];
+            for (int k = 0; k < 8; k++) { var v = k < rel.Count ? rel[k] : Vector2.zero; if (k % 2 == 0) { fv[k / 2].x = v.x; fv[k / 2].y = v.y; } else { fv[k / 2].z = v.x; fv[k / 2].w = v.y; } }
+            m.SetFloat("_FrameN", rel.Count); m.SetVector("_F01", fv[0]); m.SetVector("_F23", fv[1]); m.SetVector("_F45", fv[2]); m.SetVector("_F67", fv[3]);
+            EditorUtility.SetDirty(m);
+        }
+        // 当たり：多角形の板（厚み 0.4）
+        var outline = rel.Select(v => v + cen - bc).ToList();
+        var V = new List<Vector3>();
+        foreach (var v in outline) V.Add(new Vector3(v.x, v.y, -0.2f));
+        foreach (var v in outline) V.Add(new Vector3(v.x, v.y, 0.2f));
+        int nn = outline.Count; var T = new List<int>();
+        for (int i = 1; i < nn - 1; i++) { T.Add(0); T.Add(i + 1); T.Add(i); T.Add(nn); T.Add(nn + i); T.Add(nn + i + 1); }
+        for (int i = 0; i < nn; i++) { int j = (i + 1) % nn; T.Add(i); T.Add(j); T.Add(nn + i); T.Add(j); T.Add(nn + j); T.Add(nn + i); }
+        var cm = SaveMesh("WebCell_" + parent.name + "_" + name, V, T);
+        var mc = g.GetComponent<MeshCollider>(); if (!mc) mc = g.AddComponent<MeshCollider>();
+        mc.sharedMesh = null; mc.convex = true; mc.isTrigger = true; mc.sharedMesh = cm;
+        var hz = g.GetComponent<FuwaHazard>();
+        if (hz) { hz.holeCenter = null; hz.sticky = true; hz.playerSlow = 0.6f; hz.playerSlowLinger = 0f; hz.tearWhenBig = false; hz.smallPasses = false; UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz); }
     }
 
     // 巣の形の見本（2026-11-14 てじゃ「クモの巣の形を何パターンかつくろう」→ 8つ見せて「ぜんぶまぜよ」）：(枠の角の数, 形の種)
