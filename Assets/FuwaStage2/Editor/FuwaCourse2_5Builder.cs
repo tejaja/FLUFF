@@ -140,9 +140,18 @@ public static class FuwaCourse2_5Builder
         P = WebWalkStart; th = 200f;
         var iw = Island("I2_WebWalk");
         Transform warpAin = null;
-        Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f); ArchGate(); Curtain("C2_Normal", 0); S(1.2f); Colonnade(10.4f); WebRun("N", 9f, 1.7f); S(1.5f); });
+        // 2026-11-14 てじゃ「この道、全体的に石の壁で包まれた道みたいなのにしたい」「屋根もあっていい、たまに崩れてちょっと見えてる程度」「ギミック入ったんけしていいよ、一旦」
+        //  → 石のトンネル（CorridorTunnel）。巣・カーテン・門・柱の列は一旦なし（長さは前と同じ）。到着所の屋根もトンネルに入れる（床だけ残す）
+        //  前の版：ArrivalRoof → CP → 白 巣N → 右40° → 青 巣S → 橙 巣B
+        Transform runA = null, runB = null;
+        Run(() => { runA = isl; warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f); S(1.2f); S(9f); S(1.5f); });
         T(-40f);
-        Run(() => { S(1f); ArchGate(); Curtain("C2_Small", -1); S(1.2f); Colonnade(10.4f); WebRun("S", 9f, 1.7f); S(1.5f); ArchGate(); Curtain("C2_Big", 1); S(1.2f); Colonnade(10.4f); WebRun("B", 9f, 1.9f); S(2f); });
+        Run(() => { runB = isl; S(1f); S(1.2f); S(9f); S(1.5f); S(1.2f); S(9f); S(2f); });
+        CorridorTunnel(runA, runB, -40f, -1.6f);
+        { // CP の光るキノコは道のふちの外（壁の中）にあったので、トンネルの中の壁ぎわへ
+            var cpg = runA.Find("Checkpoints/Checkpoint1/GlowMushrooms");
+            if (cpg) foreach (Transform c in cpg) c.localPosition = new Vector3(Mathf.Sign(c.localPosition.x) * (HW - 0.3f), c.localPosition.y + 0.66f, c.localPosition.z);
+        }
         Transform warpW = null;
         Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); });
         IslandRock(iw, 1.5f, false, 3f, 180f);
@@ -191,7 +200,7 @@ public static class FuwaCourse2_5Builder
     public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f);
     public static Vector3 UpperStart = new Vector3(49.0348f, 32.8087f, 17.1244f); public static float UpperStartHeading = 134.3111f;
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
-    static void ArrivalRoof()
+    static void ArrivalRoof(bool full = true)
     {
         float hx = HW + 0.35f, z0 = P.z - 1.6f, z1 = P.z + 1.4f, h = FuwaPortalTest.HoleH + 1.1f;
         var g = new GameObject("ArrivalRoof").transform; g.SetParent(isl, false);
@@ -200,6 +209,7 @@ public static class FuwaCourse2_5Builder
         Box(g, "FloorBack", new Vector3(0f, P.y - 0.3f, (zb + P.z) / 2f), new Vector3(2f * fw, 0.6f, P.z - zb), pathB, pathLayer);
         foreach (float sx in new[] { -1f, 1f })
             Box(g, "FloorSide", new Vector3(sx * (HW + fw) / 2f, P.y - 0.3f, (P.z + zf) / 2f), new Vector3(fw - HW, 0.6f, zf - P.z), pathB, pathLayer);
+        if (!full) return;   // 2026-11-14 回廊をトンネルにしたので、柱と屋根はなし（床だけ）
         foreach (float sx in new[] { -1f, 1f }) foreach (float z in new[] { z0, z1 })
             Box(g, "Pillar", new Vector3(sx * hx, P.y + h / 2f, z), new Vector3(0.6f, h, 0.6f), stone, 0);
         Box(g, "Beam", new Vector3(0f, P.y + h + 0.2f, (z0 + z1) / 2f), new Vector3(2f * hx + 1.2f, 0.4f, z1 - z0 + 1.2f), terra, 0);
@@ -657,6 +667,92 @@ public static class FuwaCourse2_5Builder
         Box(isl, "GateTopL", new Vector3(-w / 4f - 0.3f, P.y + h + 0.2f, P.z), new Vector3(w / 2f, 0.8f, 1.1f), terra, 0);
         var br = Box(isl, "GateTopBroken", new Vector3(w / 4f + 0.2f, P.y + h + 0.1f, P.z), new Vector3(w / 4f, 0.7f, 1.1f), terraD, 0);
         br.transform.localRotation = Quaternion.Euler(0f, 0f, -12f);
+    }
+
+    // ---- 石のトンネルの回廊（2026-11-14 てじゃ「石の壁で包まれた道」「屋根もあっていい、たまに崩れてちょっと見えてる程度」）----
+    //  runA →（turnDeg の曲がり角）→ runB の道を、両わきの壁（道のふちにぴったり）＋平らな屋根でつつむ。
+    //  SegL ごとに区切って、たまに片側の壁が低く崩れて、その上の屋根も半分ない（外と空がちょっと見える）
+    //  同じ高さの面が重なるとちらつくので、runB の壁・屋根は +0.03、曲がり角の外の壁は1つおきに +0.04、曲がり角の屋根は +0.06
+    public static float TunnelH = 4.2f, TunnelWall = 0.6f, TunnelRoof = 0.45f, TunnelSegL = 2.4f, TunnelBreak = 0.2f;
+    static void CorridorTunnel(Transform runA, Transform runB, float turnDeg, float zStartA)
+    {
+        var rnd = new System.Random(77);
+        float wt = TunnelWall, H = TunnelH;
+        void Seg(Transform run, string nm, float z0, float z1, float dy, bool canBreak, float innerTrimEnd, float innerTrimStart, float innerSx)
+        {
+            var g = new GameObject(nm).transform; g.SetParent(run, false);
+            int n = Mathf.Max(1, Mathf.RoundToInt((z1 - z0) / TunnelSegL)); float sl = (z1 - z0) / n;
+            int lastBreak = -9;
+            for (int i = 0; i < n; i++)
+            {
+                float a = z0 + i * sl, b = a + sl;
+                int brk = 0;   // 0 なし、-1 左、+1 右
+                if (canBreak && i > 0 && i < n - 1 && i - lastBreak > 2 && rnd.NextDouble() < TunnelBreak) { brk = rnd.Next(2) == 0 ? -1 : 1; lastBreak = i; }
+                foreach (float sx in new[] { -1f, 1f })
+                {
+                    float wa = a, wb = b;
+                    if (sx == innerSx && i == n - 1) wb -= innerTrimEnd;   // 曲がり角の内がわ：となりの壁と重ならないように切る
+                    if (sx == innerSx && i == 0) wa += innerTrimStart;
+                    float x = sx * (HW + wt / 2f);
+                    if (brk == (int)sx)
+                    {
+                        // 崩れた壁：低い段＋もう少し高い段（ギザギザ）
+                        float h1 = 1.1f + (float)rnd.NextDouble() * 0.9f, h2 = h1 + 0.5f + (float)rnd.NextDouble() * 0.6f;
+                        bool firstHalf = rnd.Next(2) == 0; float m = (wa + wb) / 2f;
+                        Box(g, "WallBroken", new Vector3(x, -0.6f + (h1 + 0.6f) / 2f + dy, firstHalf ? (m + wb) / 2f : (wa + m) / 2f), new Vector3(wt, h1 + 0.6f, (wb - wa) / 2f), stone, 0);
+                        Box(g, "WallBroken", new Vector3(x, -0.6f + (h2 + 0.6f) / 2f + dy, firstHalf ? (wa + m) / 2f : (m + wb) / 2f), new Vector3(wt, h2 + 0.6f, (wb - wa) / 2f), stone, 0);
+                        // 崩れたかけら（壁の上に転がってる。当たりなし）
+                        var ch = Box(g, "Rubble", new Vector3(x + sx * 0.2f, h1 + 0.15f + dy, m + ((float)rnd.NextDouble() - 0.5f) * sl * 0.4f), new Vector3(0.5f, 0.3f, 0.6f), stone, 0);
+                        ch.transform.localRotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 60f - 30f, (float)rnd.NextDouble() * 20f - 10f); Object.DestroyImmediate(ch.GetComponent<Collider>());
+                    }
+                    else Box(g, "Wall", new Vector3(x, -0.6f + (H + 0.6f) / 2f + dy, (wa + wb) / 2f), new Vector3(wt, H + 0.6f, wb - wa), stone, 0);
+                }
+                // 屋根：崩れた区切りは、崩れた側の半分がない
+                float rx0 = -(HW + wt), rx1 = HW + wt;
+                if (brk == -1) rx0 = 0.4f; else if (brk == 1) rx1 = -0.4f;
+                Box(g, "Roof", new Vector3((rx0 + rx1) / 2f, H + TunnelRoof / 2f + dy, (a + b) / 2f), new Vector3(rx1 - rx0, TunnelRoof, sl), terraD, 0);
+            }
+        }
+        float endA = LocalBounds(runA, runA).max.z, endB = LocalBounds(runB, runB).max.z;
+        float sg = Mathf.Sign(turnDeg);       // − なら右へ曲がる（内がわは右 = +x）
+        float innerSx = -sg;
+        float trim = 0f;   // 内がわの壁は角で重なる（切るとすき間があいた）。重なりは runB の +0.03 でちらつかない
+        Seg(runA, "TunnelA", zStartA, endA, 0f, true, trim, 0f, innerSx);
+        Seg(runB, "TunnelB", 0f, endB, 0.03f, true, 0f, trim, innerSx);
+        // ポータルのうしろの壁
+        Box(runA, "TunnelBackWall", new Vector3(0f, -0.6f + (H + 0.6f) / 2f, zStartA - wt / 2f), new Vector3(2f * (HW + wt), H + 0.6f, wt), stone, 0);
+        // 曲がり角：外がわの壁（円弧）と屋根（扇）。runA の座標で、内がわの角（道のふち）を中心に回る
+        {
+            var g = new GameObject("TunnelTurn").transform; g.SetParent(runA, false);
+            var pivot = new Vector3(innerSx * HW, 0f, endA);
+            int n = Mathf.Max(3, Mathf.CeilToInt(Mathf.Abs(turnDeg) / 7.5f));
+            float R = 2f * HW + wt / 2f, step = Mathf.Abs(turnDeg) / n;
+            var outDir = new Vector3(-innerSx, 0f, 0f);
+            for (int i = 0; i < n; i++)
+            {
+                float ang = -turnDeg * (i + 0.5f) / n;
+                var rot = Quaternion.Euler(0f, ang, 0f);
+                float len = 2f * (R + wt / 2f) * Mathf.Sin(step * 0.5f * Mathf.Deg2Rad) + 0.02f;
+                var w = Box(g, "WallArc", pivot + rot * (outDir * R) + Vector3.up * (-0.6f + (H + 0.6f) / 2f + 0.04f + (i % 2) * 0.04f), new Vector3(wt, H + 0.6f, len), stone, 0);
+                w.transform.localRotation = rot;
+            }
+            // 屋根の扇（メッシュ）
+            var v = new List<Vector3>(); var tr = new List<int>(); float Ro = 2f * HW + wt, y0 = H + 0.06f, y1 = H + TunnelRoof + 0.06f;
+            var arc = new List<Vector3>();
+            for (int i = 0; i <= n; i++) arc.Add(pivot + Quaternion.Euler(0f, -turnDeg * i / n, 0f) * (outDir * Ro));
+            for (int i = 0; i < n; i++)
+            {
+                Tri(v, tr, pivot + Vector3.up * y1, arc[i] + Vector3.up * y1, arc[i + 1] + Vector3.up * y1, Vector3.up);
+                Tri(v, tr, pivot + Vector3.up * y0, arc[i] + Vector3.up * y0, arc[i + 1] + Vector3.up * y0, Vector3.down);
+                var nrm = (arc[i] + arc[i + 1]) * 0.5f - pivot; nrm.y = 0f;
+                Tri(v, tr, arc[i] + Vector3.up * y1, arc[i + 1] + Vector3.up * y1, arc[i + 1] + Vector3.up * y0, nrm);
+                Tri(v, tr, arc[i] + Vector3.up * y1, arc[i + 1] + Vector3.up * y0, arc[i] + Vector3.up * y0, nrm);
+            }
+            var m = SaveMesh("TunnelTurnRoof", v, tr);
+            var rg = new GameObject("RoofFan"); rg.transform.SetParent(g, false);
+            rg.AddComponent<MeshFilter>().sharedMesh = m; rg.AddComponent<MeshRenderer>().sharedMaterial = terraD; rg.AddComponent<MeshCollider>().sharedMesh = m;
+        }
+        log.Append("トンネル ");
     }
 
     // 列柱：道の両わきに柱（len の間）
