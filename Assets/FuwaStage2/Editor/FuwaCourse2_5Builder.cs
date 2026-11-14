@@ -230,7 +230,7 @@ public static class FuwaCourse2_5Builder
     //  空洞：石像の真下、口は -z（スタートの方から見える）。出口のポータルは空洞の +z の壁の内がわ、-z へ進む
     public static bool StoneRims = false;
     public static float PathRockM = 1.6f, StatueRockR = 17f, RockCell = 0.8f, RockNoise = 0.9f;
-    public static float CaveMouthW = 9f;
+    public static float CaveMouthW = 9f; public static bool GoalOpen = true;
     static (Vector3 entry, float heading) PathHugRock(Transform island)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -300,6 +300,13 @@ public static class FuwaCourse2_5Builder
         };
         // 3 番目の層が 2 番目の層の下（top-6）と空洞の層の上（cy1-3.5 = top-5）で重ならないように：空洞の層の上は top-6 に
         layers[3] = (top - 6f, cy0, -99f, StatueRockR - 1.2f, true);
+        // 2026-11-14 てじゃ「ゴール周りの土っぽい部分（を）抜けてる感じにしたい」→ 石像の台地は上の地面の板だけ、空洞の土の壁・床・下の岩はなし。
+        //  ゴールは台地の下に浮いた床（写したゴールの GoalGround＋道）だけで、まわりは吹き抜け（GoalOpen）
+        if (GoalOpen)
+        {
+            for (int k = 1; k < 3; k++) layers[k] = (layers[k].y1, layers[k].y0, layers[k].pm, -99f, false);
+            layers.RemoveRange(3, layers.Count - 3);
+        }
         System.Func<int, Vector2, float> F = (k, q) =>
         {
             var L = layers[k];
