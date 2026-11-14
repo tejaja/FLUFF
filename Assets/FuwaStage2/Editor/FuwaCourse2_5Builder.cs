@@ -161,7 +161,9 @@ public static class FuwaCourse2_5Builder
             // 2026-11-14 てじゃ「大きくなったあとのクモの巣をもう一個ふやしたい、入ってきた側の道を伸ばして追加」→ 下2つ（上を越える）を足す
             // 2026-11-14 てじゃ「そもそも順番かえよ、今下段2個→上段2個のとこを逆に」→ 右下 → 上2つ → 下2つ
             // 2026-11-14 てじゃ「上段2個、いみないかもな、左側2個にしよう」→ 右下 → 左2つ → 下2つ
-            S(1f); Curtain("C2_Big", 1); S(1.5f); WebGates("B1", 5.6f, new[] { WLR, WLL | WUL, WLL | WLR }, true); });
+            // 2026-11-14 てじゃ「序盤のも、1〜4枚じゃなくてデカイやつの一部が大きく破れてる形式に」→ 大きい巣1枚に大きな裂け目（右下ななめ／左たて／上よこ）。前の版：右下 / 左2 / 下2（WebGates）
+            S(1f); Curtain("C2_Big", 1); S(1.5f);
+            TearGates("B1", new[] { new Tear(0.9f, -1.9f, 2.5f, -0.6f, 1.0f, true), new Tear(-2.3f, -1.1f, -2.3f, 1.1f, 0.95f, true), new Tear(-1.6f, 1.55f, 1.6f, 1.55f, 0.95f, false) }); });
         T(-40f);
         //  2026-11-14 てじゃ「クモの巣もっと小さくしよ、4つで埋まるくらい、それを組み合わせて使う、左下だけ、右下と左上、一箇所しかあいてない、とか」
         //  → 断面を田の字に4分割した小さい巣（WebGates）。前の版：左右交互の大きい巣（WebPits）＋天井の巣（LowWeb）
@@ -170,7 +172,9 @@ public static class FuwaCourse2_5Builder
         //  前の版：右上だけあき / 右2 / 右下＋左上 / 左上だけあき（WebGates B2・B3・B4）
         Run(() => { runB = isl; S(1f); S(WebGateGap / 2f); Curtain("C2_Small", -1); S(WebGateGap / 2f);
             // 2026-11-14 てじゃ「スキマ通し、穴よりもさっきみたいなクモの巣が複数あるとこのスキマを通す感じに」→ 四角い巣2枚の間の細いスキマ（左寄りたて／上よこ／右寄りたて／下よこ）。前の版：穴1つの巣（HoleGates）
-            SlitGates("B2", new[] { new Vector3(0f, -1.3f), new Vector3(1f, 3.6f) }); S(1f); SlitGates("B4", new[] { new Vector3(0f, 1.6f), new Vector3(1f, 1.2f) });
+            // 2026-11-14 てじゃ「1枚ものを一部を裂くイメージ」「1〜2ライン裂けてる感じ」「斜めもあり」→ 細い裂け目（たて左／ななめ上／ななめ右／よこ下）。前の版：スキマ（SlitGates）
+            TearGates("B2", new[] { new Tear(-1.6f, -0.5f, -1.6f, 0.9f, 0.38f, false), new Tear(-0.7f, 1.3f, 1.0f, 1.9f, 0.38f, false) }); S(1f);
+            TearGates("B4", new[] { new Tear(1.3f, -1.3f, 2.2f, 0.2f, 0.38f, false), new Tear(-0.9f, -1.6f, 0.9f, -1.6f, 0.38f, false) });
             S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
@@ -1747,6 +1751,57 @@ public static class FuwaCourse2_5Builder
             hz.holeCenter = null; hz.sticky = true; hz.playerSlow = playerSlow; hz.playerSlowLinger = 0f;
             hz.tearWhenBig = tear; hz.smallPasses = smallPasses;
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
+            UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
+        }
+    }
+
+    // 裂けた巣の門（2026-11-14 てじゃ「1枚ものを一部を裂くイメージ」「1〜2ライン裂けてる感じ」「斜めもあり」「序盤のも、1〜4枚じゃなくてデカイやつの一部が大きく破れてる形式に」）
+    //  道いっぱいの四角い巣1枚に、tearA→tearB の線のまわり tearW の裂け目（巣の中心から、x 右・y 上、m）。当たりは裂け目のカプセル（ふわふわの半径込み）
+    struct Tear { public Vector2 a, b; public float w; public bool pits; public Tear(float ax, float ay, float bx, float by, float w, bool pits) { a = new Vector2(ax, ay); b = new Vector2(bx, by); this.w = w; this.pits = pits; } }
+    static void TearGates(string tag, Tear[] tears)
+    {
+        float z0 = P.z;
+        var g = new GameObject("TearGates_" + tag).transform; g.SetParent(isl, false);
+        float hTop = TunnelH - 0.1f, xo = HW + 0.5f;
+        for (int i = 0; i < tears.Length; i++)
+        {
+            var T = tears[i]; float z = z0 + WebGateGap * (i + 0.5f);
+            gateZ.Add((isl, z));
+            TearWeb(g, "TearWeb" + i, new Vector3(0f, P.y + hTop / 2f, z), new Vector2(2f * xo, hTop), T.a, T.b, T.w);
+        }
+        for (int i = 0; i < tears.Length; i++) { if (tears[i].pits) WindRun("Pits_" + tag + "_" + i, WebGateGap, new float[0]); else S(WebGateGap); }
+    }
+    static void TearWeb(Transform parent, string name, Vector3 lp, Vector2 size, Vector2 ta, Vector2 tb, float tw)
+    {
+        var tmpl = Resources.FindObjectsOfTypeAll<SpiderWebBuilder>().FirstOrDefault(b => b && b.gameObject.scene.IsValid() && b.name == "BigWeb" && b.transform.parent && b.transform.parent.name == "Gimmick6_Window");
+        if (!tmpl) { log.Append("（クモの巣の見本がない）"); return; }
+        var g = Object.Instantiate(tmpl.gameObject, parent, false); g.name = name; g.SetActive(true);
+        g.transform.localPosition = lp; g.transform.localRotation = Quaternion.identity; g.transform.localScale = Vector3.one;
+        var wh = g.GetComponent<FuwaWebHole>(); if (wh) Object.DestroyImmediate(wh);
+        var b = g.GetComponent<SpiderWebBuilder>();
+        var mid = (ta + tb) * 0.5f;
+        // 放射の糸の中心は裂け目のまん中（裂け目が巣の模様になじむ）、丸い穴はなし
+        b.size = size; b.holeCenter = mid; b.holeRadius = 0f; b.spokes = 40; b.floorShadow = false; b.autoIsland = false;
+        b.left.anchor = SpiderWebBuilder.AnchorType.None; b.right.anchor = SpiderWebBuilder.AnchorType.None; b.topThread = false;
+        b.polygonFrame = false; b.outerMin = 0.99f; b.outerMax = 1f; b.cornerRound = 8f; b.spacingRef = 0f;
+        b.assetId = "Web_2_5_" + parent.name + "_" + name;
+        SpiderWebBuild.Build(b);
+        if (b.webRenderer)
+        {
+            var m = b.webRenderer.sharedMaterial;
+            m.SetVector("_TearA", new Vector4(ta.x, ta.y, 0f, 0f)); m.SetVector("_TearB", new Vector4(tb.x, tb.y, 0f, 0f)); m.SetFloat("_TearW", tw);
+            EditorUtility.SetDirty(m);
+        }
+        var hole = b.hole; if (hole) { var ring = hole.Find("Ring"); if (ring) ring.gameObject.SetActive(false); }   // 金の輪はなし
+        var hz = g.GetComponent<FuwaHazard>();
+        if (hz)
+        {
+            var hc = new GameObject("TearCenter").transform; hc.SetParent(g.transform, false);
+            var dir = tb - ta; float half = dir.magnitude / 2f;
+            hc.localPosition = new Vector3(mid.x, mid.y, 0f);
+            hc.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);   // local x = 裂け目の向き
+            hz.holeCenter = hc; hz.holeRadius = tw * 0.9f; hz.holeHalfLen = half; hz.holeBallFit = 1f;   // ギザギザの内がわ（0.82〜1倍）くらいで判定
+            hz.sticky = true; hz.playerSlow = 0.6f; hz.playerSlowLinger = 0f; hz.tearWhenBig = false; hz.smallPasses = false;
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
     }

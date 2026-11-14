@@ -20,6 +20,8 @@ public class FuwaHazard : UdonSharpBehaviour
     public float holeRadius = 0.8f;
     [Tooltip("2026-11-14 2–5：1 にすると、ふわふわの半径ぶん内がわでないと通れない（小さいふわふわだけ通れる穴）。0 は前と同じ（中心だけで判定）")]
     public float holeBallFit = 0f;
+    [Tooltip("2026-11-14 2–5 裂け目：穴を holeCenter の X 方向に ±これだけのばした細長い形（カプセル）にする。0 は丸い穴")]
+    public float holeHalfLen = 0f;
 
     [Header("プレイヤーが通り抜ける時（巨大クモの巣用）")]
     [Tooltip("中にいる間の移動速度の倍率（1なら何もしない）")]
@@ -168,7 +170,8 @@ public class FuwaHazard : UdonSharpBehaviour
             d.z = 0f;
             float br = 0f;
             if (holeBallFit > 0f) { SphereCollider sc = ball.GetComponent<SphereCollider>(); if (sc != null) br = sc.radius * ball.transform.lossyScale.x * holeBallFit; }
-            if (d.magnitude + br < holeRadius) return;
+            float dx = Mathf.Max(Mathf.Abs(d.x) - holeHalfLen, 0f);
+            if (Mathf.Sqrt(dx * dx + d.y * d.y) + br < holeRadius) return;
         }
         HitBall(ball);
     }

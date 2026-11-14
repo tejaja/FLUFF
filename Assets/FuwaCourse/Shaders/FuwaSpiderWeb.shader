@@ -13,6 +13,9 @@ Shader "FuwaCourse/SpiderWeb"
         _HoleCenter ("Hole Center (m)", Vector) = (0, -1.3, 0, 0)
         _HoleRadius ("Hole Radius (m)", Float) = 0.62
         _HoleRadiusMax ("Largest Hole Radius (m, for ring cut)", Float) = 0.85
+        _TearA ("Tear Start (m)", Vector) = (0, 0, 0, 0)
+        _TearB ("Tear End (m)", Vector) = (0, 0, 0, 0)
+        _TearW ("Tear Half Width (m, 0 = none)", Float) = 0
         _LineWidth ("Line Width (m)", Float) = 0.0165
         _Spokes ("Spokes", Float) = 28
         _RingStart ("First Ring Gap (m)", Float) = 0.12
@@ -73,6 +76,7 @@ Shader "FuwaCourse/SpiderWeb"
 
             fixed4 _Color;
             float4 _Size, _HoleCenter;
+            float4 _TearA, _TearB; float _TearW;
             float _HoleRadius, _HoleRadiusMax, _LineWidth, _Spokes, _RingStart, _RingGrow, _Seed, _OuterMin, _OuterMax, _Round;
             float _FadeNear, _FadeFar;
             float _FrameN;
@@ -329,13 +333,29 @@ Shader "FuwaCourse/SpiderWeb"
                     a = max(a, max(dewA * _DewColor.a, haloA));
                 }
                 a *= _Color.a;
+                // 2026-11-14 裂け目（2–5 てじゃ「1枚ものを一部を裂くイメージ」「1〜2ライン裂けてる感じ」「斜めもあり」）：
+                //  _TearA→_TearB の線のまわり _TearW の中は糸を消す。ふちは糸ごとに少しずつずらしてギザギザに（ちぎれた感じ）
+                float tearRimA = 0;
+                if (_TearW > 0.001)
+                {
+                    float2 ta = _TearA.xy, tb = _TearB.xy, ab = tb - ta;
+                    float tt = saturate(dot(i.m - ta, ab) / max(dot(ab, ab), 1e-6));
+                    float dT = length(i.m - (ta + ab * tt));
+                    float jag = 0.82 + 0.18 * sin(tt * 37.0 + _Seed) * sin(tt * 11.0 + _Seed * 1.7);
+                    float endTaper = saturate(min(tt, 1 - tt) * 6.0 + 0.35);   // 両はしは少し細く
+                    float tw_ = _TearW * jag * endTaper;
+                    a *= smoothstep(tw_ - px * 1.5, tw_ + px * 1.5, dT);
+                    // 裂け目のふちをうっすら光らせる（どこが裂けてるか分かる目印。穴のふちと同じ色）
+                    float hwT = hw * _RimWidth * 0.6;
+                    tearRimA = (1 - smoothstep(hwT - px, hwT + px, abs(dT - tw_))) * 0.75 + (1 - smoothstep(0, max(_RimGlow, 1e-4) * 1.5, abs(dT - tw_))) * _RimGlowAlpha * 0.6;
+                }
                 // 穴のふち：太く明るい糸＋まわりにうっすら光（穴の場所と開き具合が分かる目印）
                 float dRim = abs(r - _HoleRadius);
                 float hwR = hw * _RimWidth;
                 float rimA = 1 - smoothstep(hwR - lw * 0.5, hwR + lw * 0.5, dRim);
                 float glowA = (1 - smoothstep(hwR, hwR + max(_RimGlow, 1e-4), dRim)) * _RimGlowAlpha;
                 if (_HoleRadius < 0.01) { rimA = 0; glowA = 0; }
-                float rimTotal = max(rimA * _RimColor.a, glowA);
+                float rimTotal = max(max(rimA * _RimColor.a, glowA), tearRimA * _RimColor.a);
                 float outA = max(a, rimTotal);
                 col = lerp(col, _RimColor.rgb, saturate(rimTotal / max(outA, 1e-4)));
                 // 奥行きの目印：遠い巣ほど空の色に寄って薄くなる（手前の巣がくっきり）
