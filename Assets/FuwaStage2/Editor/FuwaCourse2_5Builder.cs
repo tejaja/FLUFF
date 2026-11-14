@@ -224,28 +224,40 @@ public static class FuwaCourse2_5Builder
     static (Vector3 entry, float heading) PathHugRock(Transform island)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
-        // 道の四角（Run の中の座標の範囲）
-        var rects = new List<(Matrix4x4 toRun, Bounds b)>();
+        // 2026-11-14 てじゃ「（飛び石の下に地面があると）道の穴があんまいみない」→「普通の道のとこだけ地面がある感じ」
+        //  → 地面はふつうの道（Run の中の Road*、島の Turn*＝曲がり角）の下だけ。飛び石の下は底なし
+        //  形：それぞれの道の部品の当たりの角（コースの座標の xz）の凸包
+        var polys = new List<Vector2[]>();
         float pathMinY = float.MaxValue;
+        void AddHull(Transform part)
+        {
+            var pts = new List<Vector2>();
+            foreach (var cl in part.GetComponentsInChildren<Collider>(true))
+            {
+                if (cl.isTrigger) continue;
+                var t = cl.transform; IEnumerable<Vector3> cs;
+                if (cl is BoxCollider bc) cs = Enumerable.Range(0, 8).Select(k => bc.center + Vector3.Scale(bc.size * 0.5f, new Vector3((k & 1) == 0 ? -1 : 1, (k & 2) == 0 ? -1 : 1, (k & 4) == 0 ? -1 : 1)));
+                else if (cl is MeshCollider mc && mc.sharedMesh) cs = mc.sharedMesh.vertices;
+                else continue;
+                foreach (var c in cs) { var p = root.InverseTransformPoint(t.TransformPoint(c)); pts.Add(new Vector2(p.x, p.z)); }
+            }
+            if (pts.Count >= 3) polys.Add(Hull2D(pts));
+        }
         foreach (Transform ch in island)
         {
-            if (!ch.name.StartsWith("Run")) continue;
-            var b = LocalBounds(ch, ch); if (b.size.sqrMagnitude < 0.01f) continue;
-            rects.Add((ch.worldToLocalMatrix * root.localToWorldMatrix, b));
-            pathMinY = Mathf.Min(pathMinY, LocalBounds(ch, root).min.y);
+            if (ch.name.StartsWith("Run"))
+            {
+                var lb = LocalBounds(ch, root); if (lb.size.sqrMagnitude > 0.01f) pathMinY = Mathf.Min(pathMinY, lb.min.y);
+                foreach (Transform part in ch) if (part.name.StartsWith("Road")) AddHull(part);
+            }
+            else if (ch.name.StartsWith("Turn")) AddHull(ch);
         }
         float top = pathMinY - 0.55f; i1Top = top;
         var sc = MushroomAt;
         System.Func<Vector2, float> dPath = q =>
         {
             float d = float.MaxValue;
-            foreach (var (m, b) in rects)
-            {
-                var p = m.MultiplyPoint3x4(new Vector3(q.x, top, q.y));
-                float dx = Mathf.Abs(p.x - b.center.x) - b.extents.x, dz = Mathf.Abs(p.z - b.center.z) - b.extents.z;
-                float o = new Vector2(Mathf.Max(dx, 0f), Mathf.Max(dz, 0f)).magnitude + Mathf.Min(Mathf.Max(dx, dz), 0f);
-                d = Mathf.Min(d, o);
-            }
+            foreach (var poly in polys) d = Mathf.Min(d, PolySdf(poly, q));
             return d;
         };
         // ふちのゆらぎ（ゆるい波を2つ）
@@ -336,6 +348,38 @@ public static class FuwaCourse2_5Builder
         go.AddComponent<MeshCollider>().sharedMesh = mesh;   // 地面も空洞もふわふわが着いたらアウト（前の Top・CaveFloor と同じ道のレイヤー）
         log.Append("道ぞいの岩 " + (tTop.Count + tSide.Count) / 3 + "三角 ");
         return (new Vector3(sc.x, cy0, sc.y + hz - 1.5f), 270f);   // 壁から少し離す（だ円の輪が壁にめりこまないように）
+    }
+
+    // 凸包（反時計回り）と、凸多角形までの符号つき距離（中が −）
+    static Vector2[] Hull2D(List<Vector2> pts)
+    {
+        var p = pts.Distinct().OrderBy(a => a.x).ThenBy(a => a.y).ToList();
+        if (p.Count < 3) return p.ToArray();
+        float Cr(Vector2 o, Vector2 a, Vector2 b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+        var h = new List<Vector2>();
+        for (int pass = 0; pass < 2; pass++)
+        {
+            int start = h.Count;
+            foreach (var pt in pass == 0 ? p : Enumerable.Reverse(p))
+            {
+                while (h.Count >= start + 2 && Cr(h[h.Count - 2], h[h.Count - 1], pt) <= 0f) h.RemoveAt(h.Count - 1);
+                h.Add(pt);
+            }
+            h.RemoveAt(h.Count - 1);
+        }
+        return h.ToArray();
+    }
+    static float PolySdf(Vector2[] poly, Vector2 q)
+    {
+        float dmin = float.MaxValue; bool inside = true;
+        for (int i = 0; i < poly.Length; i++)
+        {
+            var a = poly[i]; var b = poly[(i + 1) % poly.Length]; var e = b - a;
+            float t = Mathf.Clamp01(Vector2.Dot(q - a, e) / Mathf.Max(e.sqrMagnitude, 1e-6f));
+            dmin = Mathf.Min(dmin, (q - (a + e * t)).magnitude);
+            if (e.x * (q.y - a.y) - e.y * (q.x - a.x) < 0f) inside = false;   // 反時計回りなら中は左
+        }
+        return inside ? -dmin : dmin;
     }
 
     // まるごと中のマスの横つながり（i0〜i1-1）：上の面・下の面。上の層／下の層にまるごとかくれるマスはぬく
