@@ -196,6 +196,11 @@ public class FuwaBall : UdonSharpBehaviour
     // 2026-11-13 てじゃ「サイズがかわると遠近感がバグってきもちわる」「変わる時に一旦とめる？マリオのパワーアップダウンみたいな」
     //  → 変わる瞬間にその場で sizeFreeze 秒止まる（風・撃つのも効かない）。止まっている間は「中→元→中→元→新」とチカチカ切りかわる。止まったあとは前の勢いの sizeKeepVel 倍で動き出す
     public float sizeFreeze = 0.7f, sizeKeepVel = 1f;   // てじゃ「勢いはそのままでもいいかも」→ 1
+    public AudioSource sfxSize;                                     // FuwaSystem/FuwaHud/SizeSfx（2D）
+    public AudioClip sizeClipGrow, sizeClipShrink, sizeClipNormal;  // Assets/FuwaStage2/Audio/sfx_size_*.wav（Tools/audio/make_sfx_grow_v4.py）
+    public float sizeSfxVolume = 1f;
+    public float sizeWobble = 0.09f, sizeWobbleTime = 0.45f;   // ぷるん（横↔縦のゆれ）の強さと、止まりおわったあとに残す時間
+    private float _wobbleStart = -1f;
     private bool _sizeFrozen;
     private float _freezeStart;
     private Vector3 _freezeVel;
@@ -214,6 +219,9 @@ public class FuwaBall : UdonSharpBehaviour
             if (!_sizeFrozen) _freezeVel = _rb.velocity;
             _sizeFrozen = true; _freezeStart = Time.time;
             _rb.velocity = Vector3.zero; _rb.isKinematic = true;
+            // 2026-11-14 てじゃ「大きくなるときにSEつけたい」（小さく・戻るも）：ぽむ＋ぽわの3段（アニメの3段と同じタイミング）
+            AudioClip sc = mode > 0 ? sizeClipGrow : (mode < 0 ? sizeClipShrink : sizeClipNormal);
+            if (sfxSize != null && sc != null) sfxSize.PlayOneShot(sc, sizeSfxVolume);
         }
     }
     private void UpdateSizeFreeze()
@@ -226,22 +234,55 @@ public class FuwaBall : UdonSharpBehaviour
         _rb.velocity = _freezeVel * sizeKeepVel;
         _sizeStart = -10f; _sizeNow = _sizeTo; _baseScale = _unitScale * _sizeNow;
         if (_inflateStart < 0f && _appearStart < 0f) transform.localScale = _baseScale;
+        _wobbleStart = Time.time;
+    }
+    // 止まっている間の段々（0〜1 の時間 → 元から新への進みぐあい）：ぐっ（0.45）→戻る（0.30）→ぐっ（0.75）→戻る（0.58）→ぐーん（1）→ぷるぷる
+    //  音（sfx の 0.00・0.18・0.36 秒の3段）と合わせてある：0.7 秒 × 0 / 0.26 / 0.52
+    private float SizeKeyU(int i)
+    {
+        if (i <= 0) return 0f; if (i == 1) return 0.16f; if (i == 2) return 0.26f; if (i == 3) return 0.42f; if (i == 4) return 0.52f; if (i == 5) return 0.8f; return 1f;
+    }
+    private float SizeKeyP(int i)
+    {
+        if (i <= 0) return 0f; if (i == 1) return 0.45f; if (i == 2) return 0.3f; if (i == 3) return 0.75f; if (i == 4) return 0.58f; return 1f;
     }
     private float SizeBlow() { return _sizeMode < 0 ? smallBlow : (_sizeMode > 0 ? bigBlow : 1f); }
     private float SizeWind() { return _sizeMode < 0 ? smallWind : (_sizeMode > 0 ? bigWind : 1f); }
     private float SizeFall() { return _sizeMode < 0 ? smallFall : (_sizeMode > 0 ? bigFall : 1f); }
     private void UpdateSize()
     {
-        if (_sizeStart < -5f || _unitScale.sqrMagnitude <= 0f) return;
+        if (_unitScale.sqrMagnitude <= 0f) return;
+        if (_sizeStart < -5f)
+        {
+            // 止まりおわったあとの、のこりのぷるぷる（横↔縦）
+            if (_wobbleStart < 0f) return;
+            float wt = Time.time - _wobbleStart;
+            if (wt >= sizeWobbleTime) { _wobbleStart = -1f; if (_inflateStart < 0f && _appearStart < 0f) transform.localScale = _baseScale; return; }
+            float wa = sizeWobble * Mathf.Exp(-wt * 7f) * Mathf.Sin(wt * 2f * Mathf.PI * 4.5f);
+            if (_inflateStart < 0f && _appearStart < 0f) transform.localScale = new Vector3(_baseScale.x * (1f + wa), _baseScale.y * (1f - wa), _baseScale.z * (1f + wa));
+            return;
+        }
         if (_sizeFrozen)
         {
-            // チカチカ：中→元→中→元→新→中→新（最後は新）
+            // 2026-11-14 てじゃ「大きくなるアニメーションもちょいいい感じに」：前のチカチカ（中→元→中→元→新）を
+            //  「ぐっ→ちょい戻る→ぐっ→ちょい戻る→ぐーん」と段々に（大きさは対数で補間）＋ふくらむたびに横→縦にぷるん
             float ft = Mathf.Clamp01((Time.time - _freezeStart) / Mathf.Max(0.01f, sizeFreeze));
-            int step = Mathf.Min(6, Mathf.FloorToInt(ft * 7f));
-            float mid = (_sizeFrom + _sizeTo) * 0.5f;
-            float sz = step == 0 || step == 2 || step == 5 ? mid : (step == 1 || step == 3 ? _sizeFrom : _sizeTo);
+            int seg = 0; while (seg < 5 && ft >= SizeKeyU(seg + 1)) seg++;
+            float u0 = SizeKeyU(seg), u1 = SizeKeyU(seg + 1);
+            float x = u1 > u0 ? Mathf.Clamp01((ft - u0) / (u1 - u0)) : 1f;
+            float p0 = SizeKeyP(seg), p1 = SizeKeyP(seg + 1);
+            bool fwd = p1 > p0;
+            float ee;
+            if (fwd) { float xm = x - 1f; ee = 1f + 2.7f * xm * xm * xm + 1.7f * xm * xm; }   // 少し行きすぎて戻る
+            else { float xm = 1f - x; ee = 1f - xm * xm * xm; }
+            float pr = Mathf.LerpUnclamped(p0, p1, ee);
+            float lf = Mathf.Log(Mathf.Max(0.01f, _sizeFrom)), lt = Mathf.Log(Mathf.Max(0.01f, _sizeTo));
+            float sz = Mathf.Exp(Mathf.LerpUnclamped(lf, lt, pr));
             _sizeNow = sz; _baseScale = _unitScale * sz;
-            if (_inflateStart < 0f && _appearStart < 0f) transform.localScale = _baseScale;
+            // ぷるん：進む段は 横に広がる→縦にのびる、戻る段は弱く逆
+            float ja = (fwd ? sizeWobble * 1.6f : -sizeWobble * 0.8f) * Mathf.Sin(x * 2f * Mathf.PI) * (1f - x * 0.6f);
+            if (seg == 5) ja = sizeWobble * Mathf.Exp(-x * 4f) * Mathf.Sin(x * 2f * Mathf.PI * 2f);
+            if (_inflateStart < 0f && _appearStart < 0f) transform.localScale = new Vector3(_baseScale.x * (1f + ja), _baseScale.y * (1f - ja), _baseScale.z * (1f + ja));
             return;
         }
         float t = Mathf.Clamp01((Time.time - _sizeStart) / Mathf.Max(0.01f, sizeTime));
@@ -254,7 +295,7 @@ public class FuwaBall : UdonSharpBehaviour
     }
     private void ResetSize()
     {
-        _sizeFrozen = false;
+        _sizeFrozen = false; _wobbleStart = -1f;
         _sizeMode = 0; _sizeFrom = 1f; _sizeTo = 1f; _sizeNow = 1f; _sizeStart = -10f;
         if (_unitScale.sqrMagnitude > 0f) { _baseScale = _unitScale; transform.localScale = _baseScale; }
     }
