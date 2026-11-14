@@ -151,14 +151,16 @@ public static class FuwaCourse2_5Builder
         // 2026-11-14 てじゃ「ポータル後にまず通常状態で1個避ける、その後に巨大化、その後巨大化のまま避けながら進む、ポータル前に通常に戻る」
         //  「床もちょい崩れさせて、上部の蜘蛛の巣を下からくぐるとかもあってもいいかも」「落とし穴もほしい」
         //  → ふつうで巣1枚 → 橙 → 大きいまま 左右交互の巣＋落とし穴の床 → 天井から垂れた巣をくぐる → … → 白 → ワープW。巣・カーテンはトンネルの高さに収める
-        float hwSave = HW; HW = TunnelHW;   // 2026-11-14 てじゃ「このトンネルもっと太くても良いかも、横も上も」→ 回廊の道（＝トンネルの中）のはばを広く
+        float hwSave = HW; HW = TunnelHW;
+        pitTable = BigPitRows; pitRow = 0;   // 2026-11-14 てじゃ「穴をもっと奥にデカく」「穴は全部」→ 回廊の落とし穴は全部大きい（4マス中3マス×2列）   // 2026-11-14 てじゃ「このトンネルもっと太くても良いかも、横も上も」→ 回廊の道（＝トンネルの中）のはばを広く
         float wh0 = WebH, ch0 = CurtainH, cth0 = CurtainTrigH; WebH = TunnelH - 0.15f; CurtainH = TunnelH - 0.4f; CurtainTrigH = TunnelH + 7f;   // 当たりも低く（真上の上の段の島まで届かないように）
         Run(() => { runA = isl; warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f);
             WebGates("N", 3.6f, new[] { WLL | WUL }, false); S(1f); Curtain("C2_Big", 1); S(1.5f); WebGates("B1", 5.6f, new[] { WLR, WUL | WUR }, true); });
         T(-40f);
         //  2026-11-14 てじゃ「クモの巣もっと小さくしよ、4つで埋まるくらい、それを組み合わせて使う、左下だけ、右下と左上、一箇所しかあいてない、とか」
         //  → 断面を田の字に4分割した小さい巣（WebGates）。前の版：左右交互の大きい巣（WebPits）＋天井の巣（LowWeb）
-        Run(() => { runB = isl; S(1f); WebGates("B2", 6.6f, new[] { WLL | WUR, WLL | WLR | WUL }, true); S(1f); WebGates("B3", 3f, new[] { WUL | WUR }, false);
+        // 2026-11-14 てじゃ「カーブ後の蜘蛛の巣の位置に、小さくなるカーテンつけよう」→ 曲がってすぐの門（左下＋右上）を青カーテンに
+        Run(() => { runB = isl; S(1f); S(WebGateGap / 2f); Curtain("C2_Small", -1); S(WebGateGap / 2f); WebGates("B2", 6.6f, new[] { WLL | WLR | WUL }, true); S(1f); WebGates("B3", 3f, new[] { WUL | WUR }, false);
             WebGates("B4", 6.6f, new[] { WLR | WUL, WLL | WLR | WUR }, true); S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
@@ -169,7 +171,7 @@ public static class FuwaCourse2_5Builder
         }
         Transform warpW = null;
         Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); });
-        HW = hwSave;
+        HW = hwSave; pitTable = null;
         // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
         //IslandRock(iw, 1.5f, false, 3f, 180f + WebWalkOrbit);
         // ---- 上の段（①②の上、向きを変える）----
@@ -1038,6 +1040,8 @@ public static class FuwaCourse2_5Builder
     public static float WindStrength = 5.5f, WindOn = 0.8f, WindOff = 2.2f, TileL = 1.2f;
     static readonly int[][] PitRows = { new int[0], new[] { 0, 1 }, new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2 }, new int[0], new[] { 0 }, new[] { 3 } };
     static int pitRow;
+    static int[][] pitTable;   // null なら PitRows（2026-11-14 回廊の奥は BigPitRows）
+    static readonly int[][] BigPitRows = { new int[0], new[] { 0, 1, 2 }, new[] { 0, 1, 2 }, new int[0], new[] { 1, 2, 3 }, new[] { 1, 2, 3 }, new int[0], new[] { 0, 1, 2 }, new[] { 0, 1, 2 } };
     static void WindRun(string tag, float len, float[] windsAt)
     {
         float z0 = P.z; int rows = Mathf.Max(1, Mathf.RoundToInt(len / TileL)); float rl = len / rows;
@@ -1045,7 +1049,7 @@ public static class FuwaCourse2_5Builder
         var g = new GameObject("WindRun_" + tag).transform; g.SetParent(isl, false);
         for (int r = 0; r < rows; r++)
         {
-            var holes = PitRows[(pitRow++) % PitRows.Length];
+            var tbl = pitTable ?? PitRows; var holes = tbl[(pitRow++) % tbl.Length];
             for (int c = 0; c < cols; c++)
             {
                 if (holes.Contains(c)) continue;
