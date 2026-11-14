@@ -273,14 +273,18 @@ public static class FuwaCourse2_5Builder
         // ふちのゆらぎ（ゆるい波を2つ）
         System.Func<Vector2, float> noise = q => RockNoise * (0.6f * Mathf.Sin(q.x * 0.23f + 1.3f) * Mathf.Cos(q.y * 0.19f - 0.7f) + 0.4f * Mathf.Sin(q.x * 0.11f - q.y * 0.13f + 2.1f));
         System.Func<Vector2, float> dStat = q => (q - sc).magnitude;
-        // 空洞（石像の真下）：部屋＋口（-z へ外までぬける）
+        // 空洞（石像の真下）：部屋＋口（外までぬける）
+        //  2026-11-14 てじゃ「石像の下のゴール、石像からみて後ろ側が開いてる感じにしたい」→ 口は石像の背中の向き（前は -z＝スタート側＝石像の正面側）
         float cy1 = top - 1.5f, cy0 = cy1 - CavernSize.y;
         float hx = CavernSize.x / 2f, hz = CavernSize.z / 2f;
+        var back3 = -(Quaternion.Euler(0f, StatueYaw, 0f) * Vector3.forward);
+        var mdir = new Vector2(back3.x, back3.z).normalized;   // 口の向き（外へ）
+        var mper = new Vector2(-mdir.y, mdir.x);
         System.Func<Vector2, float> dCave = q =>
         {
-            var d = q - sc;
-            float room = Mathf.Max(Mathf.Abs(d.x) - hx, Mathf.Abs(d.y) - hz);
-            float mouth = Mathf.Max(Mathf.Abs(d.x) - CaveMouthW / 2f, Mathf.Max(d.y - 0f, -d.y - (StatueRockR + 6f)));
+            var d = q - sc; float u = Vector2.Dot(d, mdir), v = Vector2.Dot(d, mper);
+            float room = Mathf.Max(Mathf.Abs(v) - hx, Mathf.Abs(u) - hz);
+            float mouth = Mathf.Max(Mathf.Abs(v) - CaveMouthW / 2f, Mathf.Max(-u, u - (StatueRockR + 6f)));
             return Mathf.Min(room, mouth);
         };
         // 層：(上, 下, 道のはば足し, 台地の半径, 空洞をくりぬく)
@@ -357,7 +361,9 @@ public static class FuwaCourse2_5Builder
         go.AddComponent<MeshRenderer>().sharedMaterials = new[] { moss, underM };
         go.AddComponent<MeshCollider>().sharedMesh = mesh;   // 地面も空洞もふわふわが着いたらアウト（前の Top・CaveFloor と同じ道のレイヤー）
         log.Append("道ぞいの岩 " + (tTop.Count + tSide.Count) / 3 + "三角 ");
-        return (new Vector3(sc.x, cy0, sc.y + hz - 1.5f), 270f);   // 壁から少し離す（だ円の輪が壁にめりこまないように）
+        // 出口のポータルは口と反対の壁から少し離す（だ円の輪が壁にめりこまないように）、口の方へ進む
+        var ent = sc - mdir * (hz - 1.5f);
+        return (new Vector3(ent.x, cy0, ent.y), Mathf.Atan2(mdir.y, mdir.x) * Mathf.Rad2Deg);
     }
 
     // 凸包（反時計回り）と、凸多角形までの符号つき距離（中が −）
