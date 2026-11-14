@@ -215,15 +215,17 @@ public static class FuwaCourse2_5Builder
         //  → ③ 倒れてくる柱（FallRun）→ 橋 → ④ すき間に倒れて橋になる柱（PillarGap）→ 崩れた階段＋坂になる柱（BrokenStairs）→ ワープB
         //  吹っ飛んで落ちるように、上の段の島の下の地面（IslandRock）はなし（道だけ浮いている）
         //  前の版：③ 白 → 青 GravRun S → 橙 GravRun B / ④ えらぶ道 3本（Stones / WebRun / GravRun）
-        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(2f);
-            FallRun("F1", 24f, new[] { new Vector2(4f, 1f), new Vector2(9.5f, -1f), new Vector2(15f, 1f), new Vector2(17.5f, -1f), new Vector2(22f, 1f) }); S(2.5f); });
+        // 2026-11-14 てじゃ「（倒れる柱は）ふわふわのシステムと相性悪いな、やっぱべつのにしよ」「上下左右移動する石板の道はありだなぁ」
+        //  → ③ 左右にスライドする石板 → 橋 → ④ 上下する石板で登る → 前後に行き来する石板で大きいすき間 → ワープB
+        //  柱の版：③ FallRun F1 / ④ PillarGap G1・G2・T(-45)・G3 → BrokenStairs
+        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f); SideSlabs("A", 4); S(3f); });
         Island("Bridge3");
         Run(() => { ArchBridge(14f, 2f, false, null); });
-        var i4 = Island("I4_Pillars");
-        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(2.5f); PillarGap("G1", 3.5f, false); S(3.5f); PillarGap("G2", 3.5f, true); S(3f); });
+        var i4 = Island("I4_Slabs");
+        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(2.5f); UpSlabs("B", 3); S(2.5f); });
         T(-45f);
         Transform warpB = null;
-        Run(() => { S(2f); PillarGap("G3", 4f, false); S(3f); BrokenStairs(); warpB = BigPortal(isl, "WarpB", P, 180f); });
+        Run(() => { S(2f); FerrySlab("C", 10f); S(3f); warpB = BigPortal(isl, "WarpB", P, 180f); });
         // ---- ①の島の中の空洞（ゴール）----
         var gc = Island("Cavern");
         P = cav.entry; th = cav.heading;
@@ -1774,6 +1776,64 @@ public static class FuwaCourse2_5Builder
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
+    }
+
+    // ===== 動く石板（2026-11-14 てじゃ「上下左右移動する石板の道はありだなぁ」）=====
+    //  柱（FallingPillar）は「ふわふわのシステムと相性悪い」でやめ（コードは残置）。2–3 の動く氷と同じく、サーバー時刻で全員同じ動き・乗っている人を運ぶ（FuwaMovingSlab、上下も運ぶ）
+    //  石板の上の面は道と同じシマシマ（当たりは道レイヤー：ふわふわが触れたらアウト＝上がってくる石板にも注意）
+    public static float SlabL = 3.2f, SlabW = 3.4f, SlabGap = 0.4f;
+    public static float SideAmp = 4.2f, SidePeriod = 8f, SideHold = 2.4f, SideStagger = 1.0f;
+    public static float UpRise = 1.5f, UpPeriod = 7f, UpHold = 2f;
+    public static float FerryPeriod = 11f, FerryHold = 2.2f;
+    static Transform Slab(Transform parent, string name, Vector3 a, Vector3 b, float period, float phase, float hold, float len, float wid)
+    {
+        var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = a;
+        int n = Mathf.Max(1, Mathf.RoundToInt(len / StripeLen));
+        for (int k = 0; k < n; k++)
+        {
+            var st = Box(g.transform, "S" + k, new Vector3(0f, -0.3f, -len / 2f + len / n * (k + 0.5f)), new Vector3(wid, 0.6f, len / n), (k % 2 == 0) ? pathA : pathB, 0);
+            Object.DestroyImmediate(st.GetComponent<Collider>());
+        }
+        var col = new GameObject("Col"); col.layer = pathLayer; col.transform.SetParent(g.transform, false);
+        var bc = col.AddComponent<BoxCollider>(); bc.center = new Vector3(0f, -0.3f, 0f); bc.size = new Vector3(wid, 0.6f, len);
+        var u1 = Box(g.transform, "Under", new Vector3(0f, -1f, 0f), new Vector3(wid - 0.3f, 0.8f, len - 0.3f), stone, 0); Object.DestroyImmediate(u1.GetComponent<Collider>());
+        var u2 = Box(g.transform, "Under2", new Vector3(0f, -1.75f, 0f), new Vector3(wid * 0.55f, 0.7f, len * 0.55f), underM, 0); Object.DestroyImmediate(u2.GetComponent<Collider>());
+        var ms = UdonSharpUndo.AddComponent<FuwaMovingSlab>(g);
+        ms.a = a; ms.b = b; ms.period = period; ms.phase = phase; ms.hold = hold;
+        UdonSharpEditorUtility.CopyProxyToUdon(ms); FuwaStage2WaterTest.NoSync(ms);
+        return g.transform;
+    }
+    // 左右にスライドする石板 count 枚（道の列にそろう時だけ渡れる。そろうタイミングを1枚ずつ SideStagger 秒ずらす、左右交互に出ていく）
+    static void SideSlabs(string tag, int count)
+    {
+        float z0 = P.z, y = P.y, step = SlabL + SlabGap;
+        var g = new GameObject("SideSlabs_" + tag).transform; g.SetParent(isl, false);
+        for (int i = 0; i < count; i++)
+        {
+            float zc = z0 + SlabGap / 2f + step * i + SlabL / 2f, sd = (i % 2 == 0) ? 1f : -1f;
+            Slab(g, "Slab" + i, new Vector3(0f, y, zc), new Vector3(sd * SideAmp, y, zc), SidePeriod, -SideStagger * i, SideHold, SlabL, SlabW);
+        }
+        P += Dir(th) * (step * count + SlabGap);
+    }
+    // 上下する石板 count 枚で UpRise ずつ登る（となりどうし、片方が上・片方が下の時に高さがそろう）
+    static void UpSlabs(string tag, int count)
+    {
+        float z0 = P.z, y = P.y, step = SlabL + SlabGap;
+        var g = new GameObject("UpSlabs_" + tag).transform; g.SetParent(isl, false);
+        for (int i = 0; i < count; i++)
+        {
+            float zc = z0 + SlabGap / 2f + step * i + SlabL / 2f;
+            Slab(g, "Slab" + i, new Vector3(0f, y + UpRise * i, zc), new Vector3(0f, y + UpRise * (i + 1), zc), UpPeriod, (i % 2 == 0) ? 0f : UpPeriod * 0.5f, UpHold, SlabL, SlabW);
+        }
+        P += Dir(th) * (step * count + SlabGap) + Vector3.up * UpRise * count;
+    }
+    // 前後に行き来する石板1枚で、gap の大きいすき間をわたる
+    static void FerrySlab(string tag, float gap)
+    {
+        float z0 = P.z, y = P.y;
+        var g = new GameObject("Ferry_" + tag).transform; g.SetParent(isl, false);
+        Slab(g, "Slab", new Vector3(0f, y, z0 + SlabGap / 2f + SlabL / 2f), new Vector3(0f, y, z0 + gap - SlabGap / 2f - SlabL / 2f), FerryPeriod, 0f, FerryHold, SlabL, SlabW);
+        P += Dir(th) * gap;
     }
 
     // ===== 倒れる柱（2026-11-14 てじゃ「上段いくか、ギミック全部かえたい、カーテンギミックはナシ、柱が倒れてくギミック」）=====
