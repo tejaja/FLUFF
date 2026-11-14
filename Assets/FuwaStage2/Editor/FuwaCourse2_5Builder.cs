@@ -209,19 +209,21 @@ public static class FuwaCourse2_5Builder
         float upTh = th;
         var i3 = Island("I3_Gravity");
         Transform warpWin = null;
-        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(1.5f); ArchGate(); Curtain("C3_Small", -1); S(1.5f); GravRun("S", 9f); S(1.2f); ArchGate(); Curtain("C3_Big", 1); S(1.5f); GravRun("B", 9f); S(2f); });
-        IslandRock(i3, 3f, false, 5f, upTh);
+        // 2026-11-14 てじゃ「上段いくか、ギミック全部かえたい、カーテンギミックはナシ、柱が倒れてくギミック」
+        //  「前半は柱が倒れてきて邪魔な感じ、近づくとグラグラして道側にバタンと倒れてくる、あたるとふわふわもプレイヤーも大きく吹っ飛ぶ、ほぼアウトなくらい」
+        //  「後半は同じように柱が倒れるが、倒れた後の柱に乗って進む」「最後は崩れて登りきれない階段に柱が倒れて登ってポータル」
+        //  → ③ 倒れてくる柱（FallRun）→ 橋 → ④ すき間に倒れて橋になる柱（PillarGap）→ 崩れた階段＋坂になる柱（BrokenStairs）→ ワープB
+        //  吹っ飛んで落ちるように、上の段の島の下の地面（IslandRock）はなし（道だけ浮いている）
+        //  前の版：③ 白 → 青 GravRun S → 橙 GravRun B / ④ えらぶ道 3本（Stones / WebRun / GravRun）
+        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(2f);
+            FallRun("F1", 24f, new[] { new Vector2(4f, 1f), new Vector2(9.5f, -1f), new Vector2(15f, 1f), new Vector2(17.5f, -1f), new Vector2(22f, 1f) }); S(2.5f); });
         Island("Bridge3");
         Run(() => { ArchBridge(14f, 2f, false, null); });
-        var i4 = Island("I4_Choice");
-        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(1f); Choice("C4a"); S(1f); Stones("M", 13.2f); S(2f); });
-        T(-90f);
-        Run(() => { S(1f); Choice("C4b"); S(1f); WebRun("M", 6f, 1.8f); S(2f); });
-        T(90f);
-        Run(() => { S(1f); Choice("C4c"); S(1f); GravRun("M", 7f); S(2f); });
+        var i4 = Island("I4_Pillars");
+        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(2.5f); PillarGap("G1", 3.5f, false); S(3.5f); PillarGap("G2", 3.5f, true); S(3f); });
+        T(-45f);
         Transform warpB = null;
-        Run(() => { warpB = BigPortal(isl, "WarpB", P, 180f); });
-        IslandRock(i4, 3f, false, 5f, upTh);
+        Run(() => { S(2f); PillarGap("G3", 4f, false); S(3f); BrokenStairs(); warpB = BigPortal(isl, "WarpB", P, 180f); });
         // ---- ①の島の中の空洞（ゴール）----
         var gc = Island("Cavern");
         P = cav.entry; th = cav.heading;
@@ -1772,6 +1774,121 @@ public static class FuwaCourse2_5Builder
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
+    }
+
+    // ===== 倒れる柱（2026-11-14 てじゃ「上段いくか、ギミック全部かえたい、カーテンギミックはナシ、柱が倒れてくギミック」）=====
+    //  前半：道のわきの柱が、近づくとグラグラ → 道へバタン（当たるとふわふわもプレイヤーも大きく吹っ飛ぶ）。少しすると起き上がる
+    //  後半：道のすき間に柱が倒れて、はまって橋になる（手前から向こうへ／向こうからこっちへ）
+    //  最後：崩れて登りきれない階段に、上の台の柱が倒れて坂になる → 登ってポータル
+    public static float PillarW = 1.1f, BridgePillarW = 1.6f, BridgePillarT = 1.0f, PillarArmR = 4.5f;
+    // 柱1本：parent の中の lp（ちょうつがい＝柱の倒れる側の下のはし）、yaw（parent の座標で、倒れる向き）
+    //  柱の体は ちょうつがい から見て x ±wx/2・y 0〜L・z −t〜0（倒れる向きのうしろに立つ）。endOff：倒れきった時のちょうつがいのずれ（倒れる向きの座標）
+    static FuwaFallingPillar FallingPillar(Transform parent, string name, Vector3 lp, float yaw, float L, float wx, float t, Vector3 armLp, float armR, float fallAngle, Vector3 endOff, float lieTime, bool deco)
+    {
+        var r = new GameObject(name).transform; r.SetParent(parent, false);
+        r.localPosition = lp; r.localRotation = Quaternion.Euler(0f, yaw, 0f);
+        var hinge = new GameObject("Hinge"); hinge.transform.SetParent(r, false);
+        var body = Box(hinge.transform, "Body", new Vector3(0f, L / 2f, -t / 2f), new Vector3(wx, L, t), stone, pathLayer);
+        if (deco)
+        {
+            // 柱頭と台座（見た目だけ）
+            foreach (var (y, h) in new[] { (L - 0.22f, 0.44f), (0.16f, 0.32f) })
+            { var d = Box(hinge.transform, "Band", new Vector3(0f, y, -t / 2f), new Vector3(wx + 0.24f, h, t + 0.24f), terra, 0); Object.DestroyImmediate(d.GetComponent<Collider>()); }
+        }
+        else
+        {
+            // 両はしの色ちがい（橋・坂の柱。でっぱらないように面にそろえる）
+            foreach (float y in new[] { 0.2f, L - 0.2f })
+            { var d = Box(hinge.transform, "End", new Vector3(0f, y, -t / 2f), new Vector3(wx + 0.02f, 0.4f, t + 0.02f), terra, 0); Object.DestroyImmediate(d.GetComponent<Collider>()); }
+        }
+        var hit = hinge.AddComponent<BoxCollider>(); hit.isTrigger = true; hit.center = new Vector3(0f, L / 2f, -t / 2f); hit.size = new Vector3(wx + 0.3f, L + 0.2f, t + 0.3f);
+        var rb = hinge.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+        var arm = new GameObject("Arm").transform; arm.SetParent(parent, false); arm.localPosition = armLp; arm.SetParent(r, true);
+        AudioSource Snd(string n, string clip, bool loop, float vol)
+        {
+            var go = new GameObject(n); go.transform.SetParent(r, false); go.transform.localPosition = new Vector3(0f, 1.5f, 0f);
+            var a = go.AddComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(clip); a.loop = loop; a.playOnAwake = false; a.volume = vol;
+            a.spatialBlend = 1f; a.rolloffMode = AudioRolloffMode.Linear; a.minDistance = 3f; a.maxDistance = 35f; a.dopplerLevel = 0f;
+            return a;
+        }
+        var fp = UdonSharpUndo.AddComponent<FuwaFallingPillar>(hinge);
+        fp.arm = arm; fp.armRadius = armR; fp.ball = ballT ? ballT.transform : null;
+        fp.fallAngle = fallAngle; fp.startPos = Vector3.zero; fp.endPos = endOff; fp.lieTime = lieTime;
+        fp.body = body; fp.bodyLayer = pathLayer;
+        fp.rumble = Snd("Rumble", "Assets/FuwaStage2/Audio/Gimmick2_4/G24_rumble_E.wav", true, 0.55f);
+        fp.thud = Snd("Thud", "Assets/FuwaStage2/Audio/sfx_rock_bounce.wav", false, 1f);
+        UdonSharpEditorUtility.CopyProxyToUdon(fp); FuwaStage2WaterTest.NoSync(fp);
+        return fp;
+    }
+
+    // 前半：道のわきの柱。pillars：x＝区間の始めからの距離、y＝わき（+1 右 / −1 左）
+    static void FallRun(string tag, float len, Vector2[] pillars)
+    {
+        float z0 = P.z, y = P.y, W = PillarW, L = 2f * HW + 0.8f;
+        var g = new GameObject("FallRun_" + tag).transform; g.SetParent(isl, false);
+        S(len);
+        for (int i = 0; i < pillars.Length; i++)
+        {
+            float z = z0 + pillars[i].x, sd = Mathf.Sign(pillars[i].y);
+            var pl = Box(g, "Plinth", new Vector3(sd * (HW + 0.02f + W / 2f), y - 0.9f, z - W / 2f * 0f), new Vector3(W + 0.5f, 1.8f, W + 0.5f), terraD, 0);
+            FallingPillar(g, "Pillar" + i, new Vector3(sd * (HW + 0.02f), y, z - 0f), sd > 0f ? -90f : 90f, L, W, W, new Vector3(0f, y, z - 2.5f), PillarArmR, 90f, Vector3.zero, 1.6f, true);
+        }
+    }
+
+    // 後半：道のすき間（gap）に柱が倒れて、はまって橋になる。fromFar：向こう岸の柱がこっちへ倒れる（近くにいると当たる）
+    static void PillarGap(string tag, float gap, bool fromFar)
+    {
+        float z0 = P.z, y = P.y, t = BridgePillarT, e = 0.5f, L = gap + 2f * e;
+        var g = new GameObject("PillarGap_" + tag).transform; g.SetParent(isl, false);
+        if (!fromFar) FallingPillar(g, "Pillar", new Vector3(0f, y, z0), 0f, L, BridgePillarW, t, new Vector3(0f, y, z0 - 3f), 3.5f, 90f, new Vector3(0f, -t, -e), 0f, false);
+        else FallingPillar(g, "Pillar", new Vector3(0f, y, z0 + gap), 180f, L, BridgePillarW, t, new Vector3(0f, y, z0 - 1.5f), 3.5f, 90f, new Vector3(0f, -t, -e), 0f, false);
+        P += Dir(th) * gap;
+    }
+
+    // 最後：崩れた階段（見た目は段、当たりは坂）→ 踊り場 → 崩れたすき間（StairGapG）→ StairUpH 高い上の台。上の台のふちの柱が踊り場へ倒れて坂になる
+    public static float StairGapG = 3.6f, StairUpH = 1.8f, StairTopLen = 7f;
+    static void BrokenStairs()
+    {
+        const float rise = 0.15f, tread = 0.4f; const int n = 16;
+        float hL = n * rise, z0 = P.z, y0 = P.y, bot = y0 - 1.8f, w = 2f * HW;
+        var g = new GameObject("BrokenStairs").transform; g.SetParent(isl, false);
+        for (int i = 0; i < n; i++)
+        {
+            float top = y0 + rise * (i + 1);
+            var st = Box(g, "Step" + i, new Vector3(0f, (top + bot) / 2f, z0 + tread * (i + 0.5f)), new Vector3(w, top - bot, tread), (i % 2 == 0) ? pathA : pathB, 0);
+            Object.DestroyImmediate(st.GetComponent<Collider>());
+        }
+        { // 坂の当たり：(z0 − tread/2, y0) → (z0 + (n − 0.5)·tread, y0 + hL)
+            Vector3 a = new Vector3(0f, y0, z0 - tread / 2f), b = new Vector3(0f, y0 + hL, z0 + (n - 0.5f) * tread);
+            var d = b - a; var c = new GameObject("StairSlope"); c.layer = pathLayer; c.transform.SetParent(g, false);
+            c.transform.localRotation = Quaternion.LookRotation(d.normalized, Vector3.up);
+            c.transform.localPosition = (a + b) / 2f + c.transform.localRotation * new Vector3(0f, -0.2f, 0f);
+            var bc = c.AddComponent<BoxCollider>(); bc.size = new Vector3(w, 0.4f, d.magnitude);
+        }
+        float zl0 = z0 + (n - 0.5f) * tread, zl1 = z0 + n * tread + 1.6f, yl = y0 + hL;
+        var land = Box(g, "Landing", new Vector3(0f, (yl + bot) / 2f, (z0 + n * tread + zl1) / 2f), new Vector3(w, yl - bot, zl1 - z0 - n * tread), pathA, 0);
+        Object.DestroyImmediate(land.GetComponent<Collider>());
+        { var c = new GameObject("LandingCol"); c.layer = pathLayer; c.transform.SetParent(g, false); var bc = c.AddComponent<BoxCollider>(); bc.center = new Vector3(0f, yl - 0.3f, (zl0 + zl1) / 2f); bc.size = new Vector3(w, 0.6f, zl1 - zl0); }
+        // 崩れた段（すき間の下のほうに、かたむいた段のかけら。当たりなし）
+        var rnd = new System.Random(11);
+        for (int i = 0; i < 5; i++)
+        {
+            float z = zl1 + StairGapG * (i + 0.5f) / 5f, yy = yl - 1.2f - 0.9f * (float)rnd.NextDouble();
+            var rb = Box(g, "Rubble" + i, new Vector3(((float)rnd.NextDouble() - 0.5f) * w * 0.7f, yy, z), new Vector3(0.9f + (float)rnd.NextDouble(), 0.35f, 0.5f + 0.3f * (float)rnd.NextDouble()), (i % 2 == 0) ? pathA : pathB, 0);
+            rb.transform.localRotation = Quaternion.Euler((float)rnd.NextDouble() * 30f - 15f, (float)rnd.NextDouble() * 40f - 20f, (float)rnd.NextDouble() * 30f - 15f);
+            Object.DestroyImmediate(rb.GetComponent<Collider>());
+        }
+        // 上の台
+        float zT = zl1 + StairGapG, yT = yl + StairUpH;
+        var blk = Box(g, "TopBlock", new Vector3(0f, (yT - 0.6f + bot) / 2f, zT + 1.5f), new Vector3(w, yT - 0.6f - bot, 3f), stone, 0);
+        Object.DestroyImmediate(blk.GetComponent<Collider>());
+        // 坂になる柱：上の台のふち（zT）に立って、踊り場へ倒れる。上の面が、台のふち → 踊り場のすき間側から 0.8m の所 を結ぶ
+        float D = StairGapG + 0.8f, th0 = Mathf.Atan2(StairUpH, D), t = BridgePillarT + 0.2f;
+        float L = Mathf.Sqrt(D * D + StairUpH * StairUpH) + 0.7f;
+        FallingPillar(g, "RampPillar", new Vector3(0f, yT, zT), 180f, L, BridgePillarW + 0.3f, t, new Vector3(0f, yl, z0 + n * tread), 2.5f,
+            90f + th0 * Mathf.Rad2Deg, new Vector3(0f, -t * Mathf.Cos(th0), -t * Mathf.Sin(th0)), 0f, false);
+        P = new Vector3(0f, yT, zT);
+        S(StairTopLen);
     }
 
     // ===== ステンドグラスの巣の門（2026-11-14 てじゃ「もっと丁寧に、スキマのある巣を1から作ってみて」）=====
