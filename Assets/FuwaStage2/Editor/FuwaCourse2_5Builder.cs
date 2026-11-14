@@ -1323,7 +1323,8 @@ public static class FuwaCourse2_5Builder
                 if ((pt & (1 << c)) == 0) continue;
                 bool right = (c & 1) != 0, up = (c & 2) != 0;
                 float x0 = right ? 0f : -xo, x1 = right ? xo : 0f, y0 = up ? hMid : 0f, y1 = up ? hTop : hMid;
-                Web(g, "Web" + i + "_" + (up ? "U" : "L") + (right ? "R" : "L"), new Vector3((x0 + x1) / 2f, P.y + (y0 + y1) / 2f, z), Quaternion.identity, new Vector2(x1 - x0, y1 - y0), false, 0.6f);
+                var sh = ShapeFor(tag, i, c);   // 2026-11-14 てじゃ「序盤の蜘蛛の巣もちょっと種類まばらにしよう」
+                Web(g, "Web" + i + "_" + (up ? "U" : "L") + (right ? "R" : "L"), new Vector3((x0 + x1) / 2f, P.y + (y0 + y1) / 2f, z), Quaternion.identity, new Vector2(x1 - x0, y1 - y0), false, 0.6f, false, false, sh.c, sh.s);
             }
         }
         // 床：門ごとの区間（WebGateGap）で作る。2026-11-14 てじゃ「穴の次が下段2個クモの巣はキツい」→ 下2つが埋まった門（上を越える）の区間は穴なし
@@ -1734,7 +1735,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // クモの巣（人はすり抜け＝トリガー、ふわふわはくっつく）。tear＝でかいと破れる。lp は巣のまん中、面の向きは lr の forward
-    static void Web(Transform parent, string name, Vector3 lp, Quaternion lr, Vector2 size, bool tear, float playerSlow, bool smallPasses = false, bool rect = false)
+    static void Web(Transform parent, string name, Vector3 lp, Quaternion lr, Vector2 size, bool tear, float playerSlow, bool smallPasses = false, bool rect = false, int corners = 0, float shapeSeed = float.NaN)
     {
         var tmpl = Resources.FindObjectsOfTypeAll<SpiderWebBuilder>().FirstOrDefault(b => b && b.gameObject.scene.IsValid() && b.name == "BigWeb" && b.transform.parent && b.transform.parent.name == "Gimmick6_Window");
         if (!tmpl) { log.Append("（クモの巣の見本がない）"); return; }
@@ -1747,6 +1748,9 @@ public static class FuwaCourse2_5Builder
         b.outerMin = 0.96f; b.outerMax = 1f; b.cornerRound = 0.15f;
         // rect：角までうまる四角い巣（見本の polygonFrame をやめる）。スキマの門用
         if (rect) { b.polygonFrame = false; b.outerMin = 0.99f; b.cornerRound = 8f; b.spokes = 32; }
+        // 2026-11-14 てじゃ「クモの巣の形を何パターンかつくろう」：枠の角の数（3〜8）と形の種（角の向き・ゆらぎ）
+        if (corners > 0) { b.polygonFrame = true; b.frameCorners = corners; }
+        if (!float.IsNaN(shapeSeed)) b.seed = shapeSeed;
         b.assetId = "Web_2_5_" + parent.name + "_" + name;
         SpiderWebBuild.Build(b);
         var hz = g.GetComponent<FuwaHazard>();
@@ -1758,6 +1762,10 @@ public static class FuwaCourse2_5Builder
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
     }
+
+    // 巣の形の見本（2026-11-14 てじゃ「クモの巣の形を何パターンかつくろう」→ 8つ見せて「ぜんぶまぜよ」）：(枠の角の数, 形の種)
+    static readonly (int c, float s)[] WebShapes = { (4, 1f), (4, 6f), (5, 2f), (5, 7f), (6, 3f), (6, 9f), (7, 4f), (8, 5f) };
+    static (int c, float s) ShapeFor(string tag, int gate, int cell) { int h = (tag.GetHashCode() & 0x7fff) * 31 + gate * 17 + cell * 7; return WebShapes[(h % WebShapes.Length + WebShapes.Length) % WebShapes.Length]; }
 
     // 六角形っぽい巣をすき間なく並べた門（2026-11-14 てじゃ「むしろ最初のクモの巣4枚並べてできたスキマみたいな感じがいいかも」）
     //  見本の巣（六角形っぽい外形）をマスいっぱいに並べると、巣と巣の角に自然にスキマができる → そこを小さいふわふわで通す
@@ -1783,7 +1791,8 @@ public static class FuwaCourse2_5Builder
                     float x0 = -xo + c * cw - off, x1 = x0 + cw;
                     x0 = Mathf.Max(x0, -xo - 0.3f); x1 = Mathf.Min(x1, xo + 0.3f);
                     if (x1 - x0 < 0.6f) continue;
-                    Web(g, "Web" + i + "_" + c + r, new Vector3((x0 + x1) / 2f, P.y + rh * (r + 0.5f), z + ((c + r) % 2) * 0.04f), Quaternion.identity, new Vector2(x1 - x0, rh), false, 0.6f);
+                    var sh = ShapeFor(tag, i, c * 10 + r);
+                    Web(g, "Web" + i + "_" + c + r, new Vector3((x0 + x1) / 2f, P.y + rh * (r + 0.5f), z + ((c + r) % 2) * 0.04f), Quaternion.identity, new Vector2(x1 - x0, rh), false, 0.6f, false, false, sh.c, sh.s);
                 }
             }
         }
