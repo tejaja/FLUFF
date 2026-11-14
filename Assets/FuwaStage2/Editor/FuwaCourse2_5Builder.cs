@@ -176,8 +176,9 @@ public static class FuwaCourse2_5Builder
             // 2026-11-14 てじゃ「1枚ものを一部を裂くイメージ」「1〜2ライン裂けてる感じ」「斜めもあり」→ 細い裂け目（たて左／ななめ上／ななめ右／よこ下）。前の版：スキマ（SlitGates）
             // 2026-11-14 てじゃ「小さいゾーンも、小さい巣をもっとつめて、形を変えてスキマを調整」→ 3×3 のつめた巣＋1か所のスキマ（たて中段左 / よこ上右 / たて下段右 / よこ下左）
             // 2026-11-14 てじゃ「（3×3 は）規則的すぎる」→ ばらばらにつめた小さい巣＋スキマ1か所（左たて / 右上ななめ / まん中よこ / 右下ななめ）。3×3 の版：PackedGates
-            OrganicGates("B2", new[] { new Vector4(-1.6f, 2.4f, 90f, 0.6f), new Vector4(1.5f, 3.6f, 35f, 0.6f) }, 11); S(1f);
-            OrganicGates("B4", new[] { new Vector4(0f, 2.6f, 0f, 0.6f), new Vector4(1.7f, 1.2f, -40f, 0.6f) }, 23);
+            // 2026-11-14 てじゃ「むしろ最初のクモの巣4枚並べてできたスキマみたいな感じがいい」→ 六角形っぽい巣でうめて、角のスキマを通す（2×2 / 3×2 / 2×3 / 3×2 ずらし）。ランダムの版：OrganicGates
+            HexGridGates("B2", new[] { new Vector4(2, 2, 0, 0), new Vector4(3, 2, 0, 0) }); S(1f);
+            HexGridGates("B4", new[] { new Vector4(2, 3, 0, 0), new Vector4(3, 2, 0.5f, 0) });
             S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
@@ -1756,6 +1757,37 @@ public static class FuwaCourse2_5Builder
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
+    }
+
+    // 六角形っぽい巣をすき間なく並べた門（2026-11-14 てじゃ「むしろ最初のクモの巣4枚並べてできたスキマみたいな感じがいいかも」）
+    //  見本の巣（六角形っぽい外形）をマスいっぱいに並べると、巣と巣の角に自然にスキマができる → そこを小さいふわふわで通す
+    //  grids：門ごとに (列, 段, 段ごとのずらし 0〜0.5, 予備)。ずらすと段ごとに巣が半マスずれる（レンガ）
+    static void HexGridGates(string tag, Vector4[] grids)
+    {
+        float z0 = P.z, len = grids.Length * WebGateGap;
+        var g = new GameObject("HexGridGates_" + tag).transform; g.SetParent(isl, false);
+        float hTop = TunnelH - 0.1f, xo = HW + 0.5f;
+        for (int i = 0; i < grids.Length; i++)
+        {
+            float z = z0 + WebGateGap * (i + 0.5f);
+            gateZ.Add((isl, z));
+            int cols = (int)grids[i].x, rows = (int)grids[i].y; float shift = grids[i].z;
+            float cw = 2f * xo / cols, rh = hTop / rows;
+            for (int r = 0; r < rows; r++)
+            {
+                float off = (r % 2 == 1) ? shift * cw : 0f;
+                // ずらした段は、左はしに半端なマスができるので1つ多く作る（はみ出しは柱の中）
+                int n = cols + (off > 0.01f ? 1 : 0);
+                for (int c = 0; c < n; c++)
+                {
+                    float x0 = -xo + c * cw - off, x1 = x0 + cw;
+                    x0 = Mathf.Max(x0, -xo - 0.3f); x1 = Mathf.Min(x1, xo + 0.3f);
+                    if (x1 - x0 < 0.6f) continue;
+                    Web(g, "Web" + i + "_" + c + r, new Vector3((x0 + x1) / 2f, P.y + rh * (r + 0.5f), z + ((c + r) % 2) * 0.04f), Quaternion.identity, new Vector2(x1 - x0, rh), false, 0.6f);
+                }
+            }
+        }
+        S(len);
     }
 
     // ばらばらにつめた小さい巣の門（2026-11-14 てじゃ「（3×3 は）規則的すぎる」）：
