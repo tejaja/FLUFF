@@ -129,21 +129,15 @@ public static class FuwaCourse2_5Builder
         T(-45f);
         Run(() => { Stones("B", 24.2f); S(3f, 1.5f); });
         T(-45f);
-        Run(() => { S(1f); ArchGate(); Curtain("C1_Small", -1); S(1.5f); Stones("S", 24.2f); S(3f, 1.5f); });
+        // 2026-11-14 てじゃ「最初の小さくなるところやめてもとに戻すやつにする、その後すぐポータルにする、下の小さくなるエリアはなし」
+        //  → 大きい飛び石のあと、白カーテン（戻る）→ すぐワープA。小さいカーテン・小さい飛び石・橋2・②の島はなし
+        Transform warpA = null;
+        Run(() => { S(1f); ArchGate(); Curtain("C1_Normal", 0); S(1.5f); S(2f); warpA = BigPortal(isl, "WarpA", P, 180f); });
         // 2026-11-14 てじゃ「下の地面は道に沿った部分以外なくして、床下のゴール部分は石像の下においてみよ」→ 道ぞいの帯＋石像の台地（中に空洞）
         var cav = PathHugRock(i1);
-        Island("Bridge2");
-        Run(() => { ArchBridge(14f, 1f, false, null); });
-        // 2026-11-13 てじゃ「いまあるクモの巣エリアを撤去、橋わたってすぐにポータル」「（①の島の向こうの角の上に）屋根付きのポータル到着地点、そこから（①の島の上を）矢印方向にコース、矢印終点にポータル」「これでクモの巣回避コースを伸ばす」
-        //  → ②は橋のあとすぐワープ。巣の道（ふつう→小→大、前より長い）は ①の島の上空をわたる空中の回廊に移す
-        var i2 = Island("I2_Temple");
-        Transform warpA = null;
-        Run(() => { S(2f); warpA = BigPortal(isl, "WarpA", P, 180f); });
-        IslandRock(i2, 2f, false);
-        var low = LocalBounds(islandsT, root);   // 上の段の高さは下の段（空中の回廊はのぞく）から
-        var i1b = LocalBounds(i1, root);
         // ---- 空中の巣の回廊（①の島の +x・-z の角の上から、-x へ ①の上をわたる）----
-        P = new Vector3(i1b.max.x + WebWalkOut.x, WebWalkUp, i1b.min.z + WebWalkOut.z); th = 200f;
+        //  2026-11-14 ①が短くなったので、前の位置（①の範囲から決めていた所）に固定
+        P = WebWalkStart; th = 200f;
         var iw = Island("I2_WebWalk");
         Transform warpAin = null;
         Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f); ArchGate(); Curtain("C2_Normal", 0); S(1.2f); Colonnade(10.4f); WebRun("N", 9f, 1.7f); S(1.5f); });
@@ -154,8 +148,8 @@ public static class FuwaCourse2_5Builder
         IslandRock(iw, 1.5f, false, 3f, 180f);
         // ---- 上の段（①②の上、向きを変える）----
         // てじゃ「上の二島、下の二島とクロスしたかんじのほうがいい」：上から見て X 字。下の段のスタート→ワープA の向き d に直角（n）で、まん中の上を横切る
-        { var a0 = Vector3.zero; var a1 = root.InverseTransformPoint(warpA.position); var d = a1 - a0; d.y = 0f; d.Normalize(); var n = new Vector3(d.z, 0f, -d.x); if (n.z < 0f) n = -n;
-          var mid = (a0 + a1) / 2f; P = new Vector3(mid.x, low.max.y + UpperUp, mid.z) - n * UpperCrossBack; th = Mathf.Atan2(n.z, n.x) * Mathf.Rad2Deg; }
+        //  2026-11-14 ①が短くなって②の島もなくなったので、前の位置（スタート→前のワープA のまん中の上）に固定
+        P = UpperStart; th = UpperStartHeading;
         float upTh = th;
         var i3 = Island("I3_Gravity");
         Transform warpWin = null;
@@ -193,7 +187,9 @@ public static class FuwaCourse2_5Builder
     // 島の岩（中に空洞）：上の地面の板、まわりの岩の壁、空洞の床。-x がわは洞窟の口（外から見える・光が入る）
     //  返り値：出口のポータルを置く所（空洞の +x の壁の内がわ、床の高さ）と、そこから進む向き（-x）
     // 空中の巣の回廊の置き場所：①の島の道の範囲の +x・-z の角から WebWalkOut、高さ WebWalkUp（てじゃの図の青◯）
-    public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;
+    public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;   // （前の決め方、今は WebWalkStart に固定）
+    public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f);
+    public static Vector3 UpperStart = new Vector3(49.0348f, 32.8087f, 17.1244f); public static float UpperStartHeading = 134.3111f;
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
     static void ArrivalRoof()
     {
