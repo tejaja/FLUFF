@@ -1778,6 +1778,8 @@ public static class FuwaCourse2_5Builder
     //  門の四角を、種の点からボロノイ分割した凸の多角形（ステンドグラス）に分けて、多角形1つ＝巣1枚。巣の枠（多角形の枠の糸）は多角形ぴったり、当たりも同じ多角形
     //  スキマは gap の2つの多角形のさかい目だけ、両がわを VoronoiGap/2 ずつ引っこめて作る。ほかのさかい目はぴったり（すき間なし）
     public static float VoronoiGap = 0.55f;
+    public static float CellWebHalfT = 0.06f;
+    public static float CellWebInset = 0.03f;
     static List<Vector2> ClipHalf(List<Vector2> poly, Vector2 m, Vector2 n, float off)
     {
         // dot(p - m, n) <= off の側を残す
@@ -1864,11 +1866,24 @@ public static class FuwaCourse2_5Builder
             m.SetFloat("_FrameN", rel.Count); m.SetVector("_F01", fv[0]); m.SetVector("_F23", fv[1]); m.SetVector("_F45", fv[2]); m.SetVector("_F67", fv[3]);
             EditorUtility.SetDirty(m);
         }
-        // 当たり：多角形の板（厚み 0.4）
+        // 当たり：多角形の板
+        // 2026-11-14 てじゃ「ギリギリだと通り過ぎた後に裏側の上部にくっつく」→ 前は厚み 0.4（巣の面の奥 0.2 まで当たり）で、抜けかけのふわふわが面のうしろでくっついて見えた
+        //  → 厚みを CellWebHalfT（面のすぐ前後だけ）にして、ふちも CellWebInset だけ内がわへ（見た目の枠の糸にかすったくらいは通す）
         var outline = rel.Select(v => v + cen - bc).ToList();
+        {
+            int on = outline.Count; var ins = new List<Vector2>();
+            for (int k = 0; k < on; k++)
+            {
+                var a = outline[(k + on - 1) % on]; var v = outline[k]; var c = outline[(k + 1) % on];
+                var e1 = (v - a).normalized; var e2 = (c - v).normalized;
+                var n1 = new Vector2(-e1.y, e1.x); var n2 = new Vector2(-e2.y, e2.x);
+                ins.Add(v + (n1 + n2) / Mathf.Max(0.2f, 1f + Vector2.Dot(n1, n2)) * CellWebInset);
+            }
+            outline = ins;
+        }
         var V = new List<Vector3>();
-        foreach (var v in outline) V.Add(new Vector3(v.x, v.y, -0.2f));
-        foreach (var v in outline) V.Add(new Vector3(v.x, v.y, 0.2f));
+        foreach (var v in outline) V.Add(new Vector3(v.x, v.y, -CellWebHalfT));
+        foreach (var v in outline) V.Add(new Vector3(v.x, v.y, CellWebHalfT));
         int nn = outline.Count; var T = new List<int>();
         for (int i = 1; i < nn - 1; i++) { T.Add(0); T.Add(i + 1); T.Add(i); T.Add(nn); T.Add(nn + i); T.Add(nn + i + 1); }
         for (int i = 0; i < nn; i++) { int j = (i + 1) % nn; T.Add(i); T.Add(j); T.Add(nn + i); T.Add(j); T.Add(nn + j); T.Add(nn + i); }
