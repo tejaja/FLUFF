@@ -301,12 +301,9 @@ public static class FuwaCourse2_5Builder
         // 3 番目の層が 2 番目の層の下（top-6）と空洞の層の上（cy1-3.5 = top-5）で重ならないように：空洞の層の上は top-6 に
         layers[3] = (top - 6f, cy0, -99f, StatueRockR - 1.2f, true);
         // 2026-11-14 てじゃ「ゴール周りの土っぽい部分（を）抜けてる感じにしたい」→ 石像の台地は上の地面の板だけ、空洞の土の壁・床・下の岩はなし。
-        //  ゴールは台地の下に浮いた床（写したゴールの GoalGround＋道）だけで、まわりは吹き抜け（GoalOpen）
-        if (GoalOpen)
-        {
-            for (int k = 1; k < 3; k++) layers[k] = (layers[k].y1, layers[k].y0, layers[k].pm, -99f, false);
-            layers.RemoveRange(3, layers.Count - 3);
-        }
+        //  → 同日「周りを囲う感じは残したい」→ 空洞のまわりの土の壁（口つき）は残して、空洞の床と下の岩だけなし（下が抜けてる）。
+        //  ゴールは壁に囲まれた中に浮いた床（写したゴールの GoalGround＋道）（GoalOpen）
+        if (GoalOpen) layers.RemoveRange(4, layers.Count - 4);
         System.Func<int, Vector2, float> F = (k, q) =>
         {
             var L = layers[k];
