@@ -166,8 +166,11 @@ public static class FuwaCourse2_5Builder
         //  2026-11-14 てじゃ「クモの巣もっと小さくしよ、4つで埋まるくらい、それを組み合わせて使う、左下だけ、右下と左上、一箇所しかあいてない、とか」
         //  → 断面を田の字に4分割した小さい巣（WebGates）。前の版：左右交互の大きい巣（WebPits）＋天井の巣（LowWeb）
         // 2026-11-14 てじゃ「カーブ後の蜘蛛の巣の位置に、小さくなるカーテンつけよう」→ 曲がってすぐの門（左下＋右上）を青カーテンに
-        Run(() => { runB = isl; S(1f); S(WebGateGap / 2f); Curtain("C2_Small", -1); S(WebGateGap / 2f); WebGates("B2", 6.6f, new[] { WLL | WLR | WUL }, true); S(1f); WebGates("B3", 3f, new[] { WLR | WUR }, false);
-            WebGates("B4", 6.6f, new[] { WLR | WUL, WLL | WLR | WUR }, true); S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
+        // 2026-11-14 てじゃ「青カーテン以降の蜘蛛の巣、もっと小さいスキマを小さいふわふわで通り抜ける感じにしよう」→ 4つの門を「小さい穴1つの巣」に（穴の位置は 左下・右上・まん中・右下）
+        //  前の版：右上だけあき / 右2 / 右下＋左上 / 左上だけあき（WebGates B2・B3・B4）
+        Run(() => { runB = isl; S(1f); S(WebGateGap / 2f); Curtain("C2_Small", -1); S(WebGateGap / 2f);
+            HoleGates("B2", new[] { new Vector2(-2.1f, -1.6f), new Vector2(2.1f, 1.3f) }); S(1f); HoleGates("B4", new[] { new Vector2(0f, 0f), new Vector2(2.2f, -1.7f) });
+            S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
         if (CorridorPillars) CorridorColonnade(runA, runB); else CorridorTunnel(runA, runB, -40f, -1.6f);
@@ -1743,6 +1746,51 @@ public static class FuwaCourse2_5Builder
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
+    }
+
+    // 小さい穴のあいた1枚の巣（2026-11-14 てじゃ「青カーテン以降の蜘蛛の巣、もっと小さいスキマを小さいふわふわで通り抜ける感じに」）
+    //  hole：巣の中心から見た穴の中心、r：穴の半径。当たりはふわふわの半径込み（holeBallFit=1）＝小さいほど通りやすい、大きいのは通れない
+    public static float SmallHoleR = 0.5f;   // てじゃ「ギリすぎるとムズすぎるかも」→ 直径1m（小さいは余裕、ふつうも通れる、大きいはほぼ無理）
+    static void HoleWeb(Transform parent, string name, Vector3 lp, Vector2 size, Vector2 hole, float r)
+    {
+        var tmpl = Resources.FindObjectsOfTypeAll<SpiderWebBuilder>().FirstOrDefault(b => b && b.gameObject.scene.IsValid() && b.name == "BigWeb" && b.transform.parent && b.transform.parent.name == "Gimmick6_Window");
+        if (!tmpl) { log.Append("（クモの巣の見本がない）"); return; }
+        var g = Object.Instantiate(tmpl.gameObject, parent, false); g.name = name; g.SetActive(true);
+        g.transform.localPosition = lp; g.transform.localRotation = Quaternion.identity; g.transform.localScale = Vector3.one;
+        var wh = g.GetComponent<FuwaWebHole>(); if (wh) Object.DestroyImmediate(wh);
+        var b = g.GetComponent<SpiderWebBuilder>();
+        // spokes 48：糸の先が四角のふちにのる。本数が少ないと角が大きく欠けた（当たりも欠けた）
+        b.size = size; b.holeCenter = hole; b.holeRadius = r; b.spokes = 48; b.floorShadow = false; b.autoIsland = false;
+        b.left.anchor = SpiderWebBuilder.AnchorType.None; b.right.anchor = SpiderWebBuilder.AnchorType.None; b.topThread = false;
+        // 角まで四角くうめる：見本の BigWeb は polygonFrame（枠の多角形、角6つ）なので、そのままだと外形がひし形っぽくなって角があいた
+        b.polygonFrame = false; b.outerMin = 0.99f; b.outerMax = 1f; b.cornerRound = 8f; b.spacingRef = 1.2f;
+        b.assetId = "Web_2_5_" + parent.name + "_" + name;
+        SpiderWebBuild.Build(b);
+        var hz = g.GetComponent<FuwaHazard>();
+        if (hz)
+        {
+            Transform hc = b.hole;
+            if (!hc) { hc = new GameObject("HoleCenter").transform; hc.SetParent(g.transform, false); }
+            hc.localPosition = new Vector3(hole.x, hole.y, 0f); hc.localRotation = Quaternion.identity;
+            var ring = hc.Find("Ring"); if (ring) ring.localScale = Vector3.one * (r / 0.92f);   // 金の輪の内がわの半径 0.92（FuwaWebHole.ringInnerRadius）を穴にあわせる
+            hz.holeCenter = hc; hz.holeRadius = r; hz.holeBallFit = 1f;
+            hz.sticky = true; hz.playerSlow = 0.6f; hz.playerSlowLinger = 0f; hz.tearWhenBig = false; hz.smallPasses = false;
+            UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
+        }
+    }
+    // 小さい穴の巣の門：道いっぱいの巣に穴1つ。holes は門ごとの穴の中心（巣の中心から、x 右・y 上）。床は穴なし（狙う所なので）
+    static void HoleGates(string tag, Vector2[] holes)
+    {
+        float z0 = P.z, len = holes.Length * WebGateGap;
+        var g = new GameObject("HoleGates_" + tag).transform; g.SetParent(isl, false);
+        float hTop = TunnelH - 0.1f, xo = HW + 0.5f;
+        for (int i = 0; i < holes.Length; i++)
+        {
+            float z = z0 + WebGateGap * (i + 0.5f);
+            gateZ.Add((isl, z));
+            HoleWeb(g, "HoleWeb" + i, new Vector3(0f, P.y + hTop / 2f, z), new Vector2(2f * xo, hTop), holes[i], SmallHoleR);
+        }
+        S(len);
     }
 
     // ================= 道（2–4 と同じ） =================

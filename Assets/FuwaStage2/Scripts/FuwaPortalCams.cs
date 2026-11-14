@@ -88,13 +88,17 @@ public class FuwaPortalCams : UdonSharpBehaviour
         cam.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(fwd / dist, ex.up));
         cam.ResetProjectionMatrix();
         cam.fieldOfView = Mathf.Clamp(2f * Mathf.Atan(holeRadius / Mathf.Max(dist, 0.05f)) * Mathf.Rad2Deg * 1.1f, 4f, 170f);
-        // 斜めの近クリップ：出口の面（少し手前）より奥を切る
+        // 出口の面より奥（カメラ側）を切る：前は斜めの近クリップ（CalculateObliqueMatrix）だったが、クリップの奥行きがゆがんで霧（遠景のぼかし）が効かなくなった
+        //  （2026-11-14 てじゃ「ポータル越しだと遠景にかかるぼかしがちゃんときかない、火山がはっきり」）
+        //  → ふつうの近クリップを、出口の穴の四すみのうちいちばん近い所の手前まで出す（穴のふち付近で出口の裏が少し見えることがあるだけ）
+        Vector3 cf = cam.transform.forward; float nearD = 1e9f;
+        for (int k = 0; k < 4; k++)
+        {
+            Vector3 q = target + ex.right * ((k & 1) == 0 ? -holeRadius : holeRadius) + ex.up * ((k & 2) == 0 ? -holeRadius : holeRadius);
+            nearD = Mathf.Min(nearD, Vector3.Dot(q - pos, cf));
+        }
+        cam.nearClipPlane = Mathf.Clamp(nearD * 0.97f, 0.05f, 500f);
         Matrix4x4 w2c = cam.worldToCameraMatrix;
-        float sgn = Mathf.Sign(Vector3.Dot(ex.forward, ex.position - pos));
-        Vector3 n = w2c.MultiplyVector(ex.forward) * sgn;
-        Vector3 cp = w2c.MultiplyPoint(ex.position + ex.forward * 0.02f);
-        if (Mathf.Abs(Vector3.Dot(ex.position - pos, ex.forward)) > 0.05f)
-            cam.projectionMatrix = cam.CalculateObliqueMatrix(new Vector4(n.x, n.y, n.z, -Vector3.Dot(cp, n)));
         return cam.projectionMatrix * w2c * m;
     }
 }

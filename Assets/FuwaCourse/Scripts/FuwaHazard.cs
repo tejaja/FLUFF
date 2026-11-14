@@ -18,6 +18,8 @@ public class FuwaHazard : UdonSharpBehaviour
     public Transform holeCenter;
     [Tooltip("穴の半径(m)。ふわふわの中心がこれより内側なら通り抜けられる")]
     public float holeRadius = 0.8f;
+    [Tooltip("2026-11-14 2–5：1 にすると、ふわふわの半径ぶん内がわでないと通れない（小さいふわふわだけ通れる穴）。0 は前と同じ（中心だけで判定）")]
+    public float holeBallFit = 0f;
 
     [Header("プレイヤーが通り抜ける時（巨大クモの巣用）")]
     [Tooltip("中にいる間の移動速度の倍率（1なら何もしない）")]
@@ -164,7 +166,9 @@ public class FuwaHazard : UdonSharpBehaviour
             // 巣の面の上での、穴の中心からの距離（奥行きは無視）
             Vector3 d = holeCenter.InverseTransformPoint(ball.transform.position);
             d.z = 0f;
-            if (d.magnitude < holeRadius) return;
+            float br = 0f;
+            if (holeBallFit > 0f) { SphereCollider sc = ball.GetComponent<SphereCollider>(); if (sc != null) br = sc.radius * ball.transform.lossyScale.x * holeBallFit; }
+            if (d.magnitude + br < holeRadius) return;
         }
         HitBall(ball);
     }
