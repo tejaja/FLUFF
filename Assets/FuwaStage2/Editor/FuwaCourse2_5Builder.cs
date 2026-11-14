@@ -169,7 +169,8 @@ public static class FuwaCourse2_5Builder
         // 2026-11-14 てじゃ「青カーテン以降の蜘蛛の巣、もっと小さいスキマを小さいふわふわで通り抜ける感じにしよう」→ 4つの門を「小さい穴1つの巣」に（穴の位置は 左下・右上・まん中・右下）
         //  前の版：右上だけあき / 右2 / 右下＋左上 / 左上だけあき（WebGates B2・B3・B4）
         Run(() => { runB = isl; S(1f); S(WebGateGap / 2f); Curtain("C2_Small", -1); S(WebGateGap / 2f);
-            HoleGates("B2", new[] { new Vector2(-2.1f, -1.6f), new Vector2(2.1f, 1.3f) }); S(1f); HoleGates("B4", new[] { new Vector2(0f, 0f), new Vector2(2.2f, -1.7f) });
+            // 2026-11-14 てじゃ「スキマ通し、穴よりもさっきみたいなクモの巣が複数あるとこのスキマを通す感じに」→ 四角い巣2枚の間の細いスキマ（左寄りたて／上よこ／右寄りたて／下よこ）。前の版：穴1つの巣（HoleGates）
+            SlitGates("B2", new[] { new Vector3(0f, -1.3f), new Vector3(1f, 3.6f) }); S(1f); SlitGates("B4", new[] { new Vector3(0f, 1.6f), new Vector3(1f, 1.2f) });
             S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
@@ -1725,7 +1726,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // クモの巣（人はすり抜け＝トリガー、ふわふわはくっつく）。tear＝でかいと破れる。lp は巣のまん中、面の向きは lr の forward
-    static void Web(Transform parent, string name, Vector3 lp, Quaternion lr, Vector2 size, bool tear, float playerSlow, bool smallPasses = false)
+    static void Web(Transform parent, string name, Vector3 lp, Quaternion lr, Vector2 size, bool tear, float playerSlow, bool smallPasses = false, bool rect = false)
     {
         var tmpl = Resources.FindObjectsOfTypeAll<SpiderWebBuilder>().FirstOrDefault(b => b && b.gameObject.scene.IsValid() && b.name == "BigWeb" && b.transform.parent && b.transform.parent.name == "Gimmick6_Window");
         if (!tmpl) { log.Append("（クモの巣の見本がない）"); return; }
@@ -1736,6 +1737,8 @@ public static class FuwaCourse2_5Builder
         b.size = size; b.holeCenter = Vector2.zero; b.holeRadius = 0.0f; b.spokes = 20; b.floorShadow = false; b.autoIsland = false;
         b.left.anchor = SpiderWebBuilder.AnchorType.None; b.right.anchor = SpiderWebBuilder.AnchorType.None; b.topThread = false;
         b.outerMin = 0.96f; b.outerMax = 1f; b.cornerRound = 0.15f;
+        // rect：角までうまる四角い巣（見本の polygonFrame をやめる）。スキマの門用
+        if (rect) { b.polygonFrame = false; b.outerMin = 0.99f; b.cornerRound = 8f; b.spokes = 32; }
         b.assetId = "Web_2_5_" + parent.name + "_" + name;
         SpiderWebBuild.Build(b);
         var hz = g.GetComponent<FuwaHazard>();
@@ -1746,6 +1749,32 @@ public static class FuwaCourse2_5Builder
             if (tear) hz.tearHide = g.transform.Cast<Transform>().Where(x => x.name == "Front" || x.name == "Back" || x.name == "WebSupports").Select(x => x.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
         }
+    }
+
+    // スキマの門（2026-11-14 てじゃ「穴よりも、さっきみたいなクモの巣が複数あるとこのスキマを通す感じにしよ」）：四角い巣2枚の間に細いスキマ
+    //  slits：門ごとに (たて=0/よこ=1, スキマの中心：たてなら x、よこなら 床からの y)。スキマのはば SlitW
+    public static float SlitW = 0.8f;
+    static void SlitGates(string tag, Vector3[] slits)
+    {
+        float z0 = P.z, len = slits.Length * WebGateGap;
+        var g = new GameObject("SlitGates_" + tag).transform; g.SetParent(isl, false);
+        float hTop = TunnelH - 0.1f, xo = HW + 0.5f, hw = SlitW / 2f;
+        for (int i = 0; i < slits.Length; i++)
+        {
+            float z = z0 + WebGateGap * (i + 0.5f);
+            gateZ.Add((isl, z));
+            bool vertical = slits[i].x < 0.5f; float c = slits[i].y;
+            var rects = vertical
+                ? new[] { new Vector4(-xo, c - hw, 0f, hTop), new Vector4(c + hw, xo, 0f, hTop) }
+                : new[] { new Vector4(-xo, xo, 0f, c - hw), new Vector4(-xo, xo, c + hw, hTop) };
+            for (int k = 0; k < rects.Length; k++)
+            {
+                var r = rects[k];   // x0, x1, y0, y1
+                if (r.y - r.x < 0.3f || r.w - r.z < 0.3f) continue;
+                Web(g, "Web" + i + "_" + k, new Vector3((r.x + r.y) / 2f, P.y + (r.z + r.w) / 2f, z), Quaternion.identity, new Vector2(r.y - r.x, r.w - r.z), false, 0.6f, false, true);
+            }
+        }
+        S(len);
     }
 
     // 小さい穴のあいた1枚の巣（2026-11-14 てじゃ「青カーテン以降の蜘蛛の巣、もっと小さいスキマを小さいふわふわで通り抜ける感じに」）
