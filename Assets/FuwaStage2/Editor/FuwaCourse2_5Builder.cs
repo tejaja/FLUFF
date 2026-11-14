@@ -154,7 +154,7 @@ public static class FuwaCourse2_5Builder
         //  「床もちょい崩れさせて、上部の蜘蛛の巣を下からくぐるとかもあってもいいかも」「落とし穴もほしい」
         //  → ふつうで巣1枚 → 橙 → 大きいまま 左右交互の巣＋落とし穴の床 → 天井から垂れた巣をくぐる → … → 白 → ワープW。巣・カーテンはトンネルの高さに収める
         float hwSave = HW; HW = TunnelHW;
-        pitTable = BigPitRows; pitRow = 0;   // 2026-11-14 てじゃ「穴をもっと奥にデカく」「穴は全部」→ 回廊の落とし穴は全部大きい（4マス中3マス×2列）   // 2026-11-14 てじゃ「このトンネルもっと太くても良いかも、横も上も」→ 回廊の道（＝トンネルの中）のはばを広く
+        pitTable = BigPitRows; pitRow = 0; float tileL0 = TileL; TileL = PitTileL;   // 2026-11-14 てじゃ「穴をもっと奥にデカく」「穴は全部」→ 回廊の落とし穴は全部大きい（4マス中3マス×2列）   // 2026-11-14 てじゃ「このトンネルもっと太くても良いかも、横も上も」→ 回廊の道（＝トンネルの中）のはばを広く
         float wh0 = WebH, ch0 = CurtainH, cth0 = CurtainTrigH; WebH = TunnelH - 0.15f; CurtainH = TunnelH - 0.4f; CurtainTrigH = TunnelH + 7f;   // 当たりも低く（真上の上の段の島まで届かないように）
         Run(() => { runA = isl; warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f);
             WebGates("N", 3.6f, new[] { WLL | WUL }, false); S(1f); Curtain("C2_Big", 1); S(1.5f); WebGates("B1", 5.6f, new[] { WLR, WLL | WLR, WUL | WUR }, true); });   // 2026-11-14 てじゃ「大きくなったあとのクモの巣をもう一個ふやしたい、入ってきた側の道を伸ばして追加」→ 下2つ（上を越える）を足す
@@ -173,7 +173,7 @@ public static class FuwaCourse2_5Builder
         }
         Transform warpW = null;
         Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); });
-        HW = hwSave; pitTable = null;
+        HW = hwSave; pitTable = null; TileL = tileL0;
         // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
         //IslandRock(iw, 1.5f, false, 3f, 180f + WebWalkOrbit);
         // ---- 上の段（①②の上、向きを変える）----
@@ -1043,13 +1043,18 @@ public static class FuwaCourse2_5Builder
     static readonly int[][] PitRows = { new int[0], new[] { 0, 1 }, new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2 }, new int[0], new[] { 0 }, new[] { 3 } };
     static int pitRow;
     static int[][] pitTable;   // null なら PitRows（2026-11-14 回廊の奥は BigPitRows）
-    // 2026-11-14 てじゃ「広げた穴デカすぎかも」「ちょっとだけ縮めて」→ 3マス×2列 と 2マス×2列 を交互に（前は全部 3マス×2列）
-    static readonly int[][] BigPitRows = { new int[0], new[] { 0, 1, 2 }, new[] { 0, 1, 2 }, new int[0], new[] { 2, 3 }, new[] { 2, 3 }, new int[0], new[] { 1, 2, 3 }, new[] { 1, 2, 3 }, new int[0], new[] { 0, 1 }, new[] { 0, 1 } };
+    // 2026-11-14 てじゃ「広げた穴デカすぎかも」「ちょっとだけ縮めて」→「（穴の長さ）2マスがムリだけど1マスがヌルすぎ」
+    //  → 回廊ではタイルの長さを PitTileL（1.7m）にして、穴は1列（=1.7m、前は 1.2m×2列=2.4m）。はばは 3マス と 2マス を交互
+    public static float PitTileL = 1.7f;
+    static readonly int[][] BigPitRows = { new int[0], new[] { 0, 1, 2 }, new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2, 3 }, new int[0], new[] { 0, 1 } };
     static void WindRun(string tag, float len, float[] windsAt)
     {
         float z0 = P.z; int rows = Mathf.Max(1, Mathf.RoundToInt(len / TileL)); float rl = len / rows;
+        // 回廊（pitTable あり）はマスの長さをぴったり TileL に（穴の長さを決めたいので）。あまりは最後の穴なしの列に
+        float extra = 0f; if (pitTable != null) { rows = Mathf.Max(1, Mathf.FloorToInt(len / TileL)); rl = TileL; extra = len - rows * rl; }
         int cols = 4; float cw = 2f * HW / cols;
         var g = new GameObject("WindRun_" + tag).transform; g.SetParent(isl, false);
+        if (extra > 0.01f) for (int c = 0; c < cols; c++) Box(g, "Tile", new Vector3(-HW + cw * (c + 0.5f), P.y - 0.3f, z0 + rows * rl + extra * 0.5f), new Vector3(cw, 0.6f, extra), rows % 2 == 0 ? pathA : pathB, pathLayer);
         for (int r = 0; r < rows; r++)
         {
             var tbl = pitTable ?? PitRows; var holes = tbl[(pitRow++) % tbl.Length];
