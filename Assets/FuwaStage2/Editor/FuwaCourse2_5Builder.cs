@@ -1324,6 +1324,7 @@ public static class FuwaCourse2_5Builder
                 bool right = (c & 1) != 0, up = (c & 2) != 0;
                 float x0 = right ? 0f : -xo, x1 = right ? xo : 0f, y0 = up ? hMid : 0f, y1 = up ? hTop : hMid;
                 var sh = ShapeFor(tag, i, c);   // 2026-11-14 てじゃ「序盤の蜘蛛の巣もちょっと種類まばらにしよう」
+                if (tag == "B1" && i == 0) sh = (6, 3f);   // てじゃ「最初の巣の形べつなのがいい」→ 六角A
                 Web(g, "Web" + i + "_" + (up ? "U" : "L") + (right ? "R" : "L"), new Vector3((x0 + x1) / 2f, P.y + (y0 + y1) / 2f, z), Quaternion.identity, new Vector2(x1 - x0, y1 - y0), false, 0.6f, false, false, sh.c, sh.s);
             }
         }
@@ -1770,6 +1771,7 @@ public static class FuwaCourse2_5Builder
     // 六角形っぽい巣をすき間なく並べた門（2026-11-14 てじゃ「むしろ最初のクモの巣4枚並べてできたスキマみたいな感じがいいかも」）
     //  見本の巣（六角形っぽい外形）をマスいっぱいに並べると、巣と巣の角に自然にスキマができる → そこを小さいふわふわで通す
     //  grids：門ごとに (列, 段, 段ごとのずらし 0〜0.5, 予備)。ずらすと段ごとに巣が半マスずれる（レンガ）
+    public static float HexGridGrow = 1.15f;
     static void HexGridGates(string tag, Vector4[] grids)
     {
         float z0 = P.z, len = grids.Length * WebGateGap;
@@ -1792,7 +1794,8 @@ public static class FuwaCourse2_5Builder
                     x0 = Mathf.Max(x0, -xo - 0.3f); x1 = Mathf.Min(x1, xo + 0.3f);
                     if (x1 - x0 < 0.6f) continue;
                     var sh = ShapeFor(tag, i, c * 10 + r);
-                    Web(g, "Web" + i + "_" + c + r, new Vector3((x0 + x1) / 2f, P.y + rh * (r + 0.5f), z + ((c + r) % 2) * 0.04f), Quaternion.identity, new Vector2(x1 - x0, rh), false, 0.6f, false, false, sh.c, sh.s);
+                    // 2026-11-14 てじゃ「小さいゾーン、もっとスキマ細くてもいいかも」→ 巣をマスより HexGridGrow 倍大きくして、となりと少し重ねる（角のスキマが細くなる）
+                    Web(g, "Web" + i + "_" + c + r, new Vector3((x0 + x1) / 2f, P.y + rh * (r + 0.5f), z + ((c + r) % 2) * 0.04f), Quaternion.identity, new Vector2(x1 - x0, rh) * HexGridGrow, false, 0.6f, false, false, sh.c, sh.s);
                 }
             }
         }
