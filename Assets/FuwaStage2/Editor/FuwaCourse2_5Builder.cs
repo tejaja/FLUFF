@@ -68,7 +68,7 @@ public static class FuwaCourse2_5Builder
         var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
         ballT = Resources.FindObjectsOfTypeAll<FuwaBall>().FirstOrDefault(b => b.gameObject.scene.IsValid() && b.transform.parent && b.transform.parent.name == "FuwaSystem");
         ballR = ballT ? ballT.GetComponent<SphereCollider>().radius * ballT.transform.lossyScale.x : 0.15f;
-        cps.Clear(); segNo = 0; stencilNo = 10; FuwaPortalTest.clones.Clear();
+        cps.Clear(); segNo = 0; stencilNo = 10; FuwaPortalTest.clones.Clear(); camPortals.Clear();
         log = new System.Text.StringBuilder();
 
         float R0 = StartSet(root);
@@ -81,6 +81,7 @@ public static class FuwaCourse2_5Builder
 
         S(StartRun);
         var goalAt = Layout == 4 ? BuildV4() : LayoutV3 ? BuildV3() : BuildIslands();
+        SetupPortalCams();
 
         // アウト（下に落ちた）：コースの下（まわり 12m）
         var lb = LocalCollidersBounds();
@@ -1457,11 +1458,53 @@ public static class FuwaCourse2_5Builder
     }
 
     // ポータルの組：A の奥に B の部屋のコピー、B の奥に A の部屋のコピー。人を運ぶ（players）・ふわふわを運ぶ（balls）
+    // ===== カメラ式ポータル（2026-11-14 てじゃ「ワープ前にカーテンとかクモの巣とかみえない」「明るさ」→ A）=====
+    public static bool CameraPortals = true;
+    public static int PortalRTSize = 1024;
+    static readonly List<(Transform entry, Transform exit, MeshRenderer hole)> camPortals = new List<(Transform, Transform, MeshRenderer)>();
+    static void SetupPortalCams()
+    {
+        if (!CameraPortals || camPortals.Count == 0) return;
+        var g = new GameObject("PortalCams"); g.transform.SetParent(root, false);
+        if (!AssetDatabase.IsValidFolder("Assets/FuwaStage2/RenderTextures")) AssetDatabase.CreateFolder("Assets/FuwaStage2", "RenderTextures");
+        Camera MakeCam(string n)
+        {
+            string rp = "Assets/FuwaStage2/RenderTextures/PortalCam" + n + ".renderTexture";
+            var rt = AssetDatabase.LoadAssetAtPath<RenderTexture>(rp);
+            if (!rt) { rt = new RenderTexture(PortalRTSize, PortalRTSize, 24, RenderTextureFormat.ARGB32); AssetDatabase.CreateAsset(rt, rp); }
+            if (rt.width != PortalRTSize) { rt.Release(); rt.width = PortalRTSize; rt.height = PortalRTSize; }
+            rt.antiAliasing = 2; rt.useMipMap = false; rt.wrapMode = TextureWrapMode.Clamp; EditorUtility.SetDirty(rt);
+            var c = new GameObject("Cam" + n).AddComponent<Camera>(); c.transform.SetParent(g.transform, false);
+            c.enabled = false; c.targetTexture = rt; c.clearFlags = CameraClearFlags.Skybox; c.nearClipPlane = 0.05f; c.farClipPlane = 2000f;
+            c.cullingMask = ~((1 << 5) | (1 << 12));   // UI・UiMenu は映さない
+            c.allowHDR = false; c.allowMSAA = true; c.useOcclusionCulling = false;
+            return c;
+        }
+        var cl = MakeCam("L"); var cr = MakeCam("R");
+        foreach (var (_, _, h) in camPortals) { h.sharedMaterial.SetTexture("_TexL", cl.targetTexture); h.sharedMaterial.SetTexture("_TexR", cr.targetTexture); EditorUtility.SetDirty(h.sharedMaterial); }
+        var pc = UdonSharpUndo.AddComponent<FuwaPortalCams>(g);
+        pc.entries = camPortals.Select(x => x.entry).ToArray(); pc.exits = camPortals.Select(x => x.exit).ToArray(); pc.holes = camPortals.Select(x => x.hole).ToArray();
+        pc.camL = cl; pc.camR = cr;
+        UdonSharpEditorUtility.CopyProxyToUdon(pc); FuwaStage2WaterTest.NoSync(pc);
+        log.Append("カメラ式ポータル " + camPortals.Count + " ");
+    }
+
     static void Link(Transform A, Transform B, Transform roomOfB, Transform roomOfA, bool players, bool balls, float halfW = -1f, float height = -1f)
     {
         int sa = (int)A.Find("PortalHole").GetComponent<MeshRenderer>().sharedMaterial.GetFloat("_StencilRef");
         int sb = (int)B.Find("PortalHole").GetComponent<MeshRenderer>().sharedMaterial.GetFloat("_StencilRef");
-        FuwaPortalTest.Copy(roomOfB, A, B, viewT, "ViewThrough_" + A.name, sa);
+        if (CameraPortals)
+        {
+            // 2026-11-14 カメラ式：穴は Fuwa/PortalCam（出口側のカメラの映像）。コピーとふわふわのうつしはなし
+            var hr = A.Find("PortalHole").GetComponent<MeshRenderer>();
+            string mp = "Assets/FuwaStage2/Materials/Ruins_PortalCam_" + A.name + ".mat";
+            var cm = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (!cm) { cm = new Material(Shader.Find("Fuwa/PortalCam")); AssetDatabase.CreateAsset(cm, mp); }
+            cm.shader = Shader.Find("Fuwa/PortalCam"); cm.SetFloat("_Active", 0f); EditorUtility.SetDirty(cm);
+            hr.sharedMaterial = cm;
+            camPortals.Add((A, B, hr));
+        }
+        else FuwaPortalTest.Copy(roomOfB, A, B, viewT, "ViewThrough_" + A.name, sa);
         // 一方通行（2026-11-11 てじゃ「戻れないようにしとこ、前のが見えると空がみえちゃう」）：出る側 B は穴（向こうの見え方）をなくして、奥の暗いくぼみだけ
         B.Find("PortalHole").gameObject.SetActive(false);
         if (OvalPortals && halfW <= 0f) OvalBack(B); else Niche(B, halfW > 0f ? halfW : FuwaPortalTest.HalfW, height > 0f ? height : FuwaPortalTest.HoleH);
@@ -1471,7 +1514,7 @@ public static class FuwaCourse2_5Builder
             pt.entry = en; pt.exit = ex;
             pt.halfW = halfW > 0f ? halfW : FuwaPortalTest.HalfW; pt.height = height > 0f ? height : FuwaPortalTest.HoleH;
             pt.ball = balls ? ballT : null; pt.ballRadius = ballR;
-            if (balls)
+            if (balls && !CameraPortals)
             {
                 pt.ghost = FuwaPortalTest.BallGhost(viewT, ballT, en, sref, false);
                 pt.nearGhost = FuwaPortalTest.BallGhost(viewT, ballT, en, sref, true);
