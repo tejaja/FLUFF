@@ -883,7 +883,7 @@ public static class FuwaCourse2_5Builder
                     int kind = (seed * 7) % 3 == 0 ? 1 : 0;
                     float ch = H + 1.2f;   // 道の下（-0.6）から、てっぺんは H+0.6 くらい
                     var co = new GameObject("GatePillar"); co.transform.SetParent(g, false); co.transform.localPosition = new Vector3(sx * xc, -0.6f, z);
-                    co.transform.localRotation = Quaternion.Euler(0f, (seed * 37) % 360, 0f);
+                    co.transform.localRotation = Quaternion.identity;   // 2026-11-15 てじゃ「向きがバラバラ」→ 台と柱頭の四角を道の向きにそろえる
                     co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("CorridorColumn" + seed, seed, ch, kind);
                     co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
                     var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = ch; cc.center = Vector3.up * ch / 2f;
@@ -3023,7 +3023,7 @@ public static class FuwaCourse2_5Builder
         foreach (float sx in new[] { -1f, 1f })
         {
             var co = new GameObject(sx < 0 ? "ColumnL" : "ColumnR"); co.transform.SetParent(g, false); co.transform.localPosition = new Vector3(sx * cx, 0f, 0f);
-            co.transform.localRotation = Quaternion.Euler(0f, sx < 0 ? 0f : 45f, 0f);
+            co.transform.localRotation = Quaternion.identity;   // 2本の向きをそろえる
             co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("GateColumn" + (sx < 0 ? "L" : "R"), sx < 0 ? 31 : 32, colH, 0);
             co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
             var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = colH; cc.center = Vector3.up * colH / 2f;
@@ -3195,7 +3195,8 @@ public static class FuwaCourse2_5Builder
             int kind = kinds[ci % kinds.Length]; float hh = hts[ci % hts.Length];
             var cm = ColumnMesh("PlazaColumn" + ci, 900 + ci, hh, kind);
             var co = new GameObject("Column" + ci); co.transform.SetParent(g, false); co.transform.localPosition = pos;
-            co.transform.localRotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+            rnd.NextDouble();   // 乱数の並びを前と同じに保つ
+            co.transform.localRotation = Quaternion.LookRotation(new Vector3(-pos.x, 0f, -pos.z));   // 2026-11-15 四角い台・柱頭を広場のまん中に向けてそろえる
             co.AddComponent<MeshFilter>().sharedMesh = cm; co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
             var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = hh; cc.center = Vector3.up * hh / 2f;
             if (kind == 2)
