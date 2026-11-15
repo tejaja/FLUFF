@@ -69,7 +69,7 @@ public static class FuwaCourse2_5Builder
         var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
         ballT = Resources.FindObjectsOfTypeAll<FuwaBall>().FirstOrDefault(b => b.gameObject.scene.IsValid() && b.transform.parent && b.transform.parent.name == "FuwaSystem");
         ballR = ballT ? ballT.GetComponent<SphereCollider>().radius * ballT.transform.lossyScale.x : 0.15f;
-        cps.Clear(); segNo = 0; stencilNo = 10; FuwaPortalTest.clones.Clear(); camPortals.Clear(); gateZ.Clear();
+        cps.Clear(); segNo = 0; stencilNo = 10; archGateNo = 0; FuwaPortalTest.clones.Clear(); camPortals.Clear(); gateZ.Clear();
         log = new System.Text.StringBuilder();
 
         float R0 = StartSet(root);
@@ -910,14 +910,70 @@ public static class FuwaCourse2_5Builder
     }
 
     // 崩れたアーチの門（カーテンの柱の外に、上が少し欠けたアーチ）
+    static int archGateNo;
     static void ArchGate()
     {
         float w = 2f * HW + 1.6f, h = CurtainH + 1.2f;
-        foreach (float sx in new[] { -1f, 1f }) Box(isl, "GatePillar", new Vector3(sx * (w / 2f), P.y + h / 2f - 0.6f, P.z), new Vector3(0.9f, h + 0.6f, 1.1f), terra, 0);
-        Box(isl, "GateTopL", new Vector3(-w / 4f - 0.3f, P.y + h + 0.2f, P.z), new Vector3(w / 2f, 0.8f, 1.1f), terra, 0);
-        var br = Box(isl, "GateTopBroken", new Vector3(w / 4f + 0.2f, P.y + h + 0.1f, P.z), new Vector3(w / 4f, 0.7f, 1.1f), terraD, 0);
-        br.transform.localRotation = Quaternion.Euler(0f, 0f, -12f);
+        if (!ArchGateNew)
+        {
+            foreach (float sx in new[] { -1f, 1f }) Box(isl, "GatePillar", new Vector3(sx * (w / 2f), P.y + h / 2f - 0.6f, P.z), new Vector3(0.9f, h + 0.6f, 1.1f), terra, 0);
+            Box(isl, "GateTopL", new Vector3(-w / 4f - 0.3f, P.y + h + 0.2f, P.z), new Vector3(w / 2f, 0.8f, 1.1f), terra, 0);
+            var br = Box(isl, "GateTopBroken", new Vector3(w / 4f + 0.2f, P.y + h + 0.1f, P.z), new Vector3(w / 4f, 0.7f, 1.1f), terraD, 0);
+            br.transform.localRotation = Quaternion.Euler(0f, 0f, -12f);
+            return;
+        }
+        // 2026-11-15 見た目クオリティ（3）：四角い柱と板 → 溝のある柱2本（根もとは道の下の面）＋平たいくさび石のアーチ（1つは外がわが欠ける）
+        int no = archGateNo++;
+        var g = new GameObject("ArchGate").transform; g.SetParent(isl, false); g.localPosition = new Vector3(0f, P.y, P.z);
+        float cx = w / 2f, colH = h - 0.6f + 0.6f;   // 道の下（-0.6）から h まで
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            var co = new GameObject(sx < 0 ? "ColumnL" : "ColumnR"); co.transform.SetParent(g, false); co.transform.localPosition = new Vector3(sx * cx, -0.6f, 0f);
+            co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("ArchGateColumn" + no + (sx < 0 ? "L" : "R"), 700 + no * 2 + (sx < 0 ? 0 : 1), colH, 0);
+            co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
+            var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = colH; cc.center = Vector3.up * colH / 2f;
+        }
+        // 平たいアーチ：柱の上（y0）から rise だけ上がる円弧
+        float y0 = colH - 0.6f, rise = 1.3f, R = (cx * cx + rise * rise) / (2f * rise), cyc = y0 + rise - R;
+        float th0 = Mathf.Asin(Mathf.Clamp(cx / R, -1f, 1f));   // 縦からの角度
+        var v = new List<Vector3>(); var t = new List<int>(); var kv = new List<Vector3>(); var kt = new List<int>();
+        var rnd = new System.Random(1300 + no);
+        int n = 11, brk = 2 + rnd.Next(2) * (n - 5);
+        float thick = 0.75f, d = 0.5f;
+        for (int i = 0; i < n; i++)
+        {
+            float a0 = Mathf.PI / 2f + th0 - 2f * th0 * i / n, a1 = Mathf.PI / 2f + th0 - 2f * th0 * (i + 1) / n;
+            bool key = i == n / 2;
+            float rIn = R - thick * 0.5f, ro = R + thick * (key ? 0.75f : 0.5f) * (0.96f + 0.06f * (float)rnd.NextDouble());
+            Vector3 Q(float a, float r, float z) => new Vector3(Mathf.Cos(a) * r, cyc + Mathf.Sin(a) * r, z);
+            var tv = key ? kv : v; var tt = key ? kt : t;
+            float dd = key ? d + 0.08f : d;
+            int m = i == brk ? 6 : 2;   // 欠けたくさび石は外がわをガタガタに
+            var outerF = new Vector3[m]; var outerB = new Vector3[m];
+            for (int k = 0; k < m; k++)
+            {
+                float aa = Mathf.Lerp(a1, a0, (float)k / (m - 1));
+                float rr = (i == brk && k > 0 && k < m - 1) ? R + thick * (-0.15f + 0.5f * (float)rnd.NextDouble()) : ro;
+                outerF[k] = Q(aa, rr, -dd + (i == brk ? (float)rnd.NextDouble() * 0.1f : 0f)); outerB[k] = Q(aa, rr, dd);
+            }
+            var polyF = new List<Vector3> { Q(a0, rIn, -dd), Q(a1, rIn, -dd) }; polyF.AddRange(outerF);
+            var polyB = new List<Vector3> { Q(a0, rIn, dd), Q(a1, rIn, dd) }; polyB.AddRange(outerB);
+            var cF = polyF.Aggregate(Vector3.zero, (x, y) => x + y) / polyF.Count; var cB = polyB.Aggregate(Vector3.zero, (x, y) => x + y) / polyB.Count;
+            var c3 = (cF + cB) * 0.5f;
+            for (int k = 0; k < polyF.Count; k++)
+            {
+                int k2 = (k + 1) % polyF.Count;
+                Tri(tv, tt, cF, polyF[k], polyF[k2], Vector3.back); Tri(tv, tt, cB, polyB[k], polyB[k2], Vector3.forward);
+                var mid = (polyF[k] + polyF[k2] + polyB[k] + polyB[k2]) * 0.25f;
+                Tri(tv, tt, polyF[k], polyF[k2], polyB[k2], mid - c3); Tri(tv, tt, polyF[k], polyB[k2], polyB[k], mid - c3);
+            }
+        }
+        MeshObj(g, "Arch", SaveMesh("ArchGateArch" + no, v, t), terra, Vector3.zero, 0, true);
+        MeshObj(g, "Keystone", SaveMesh("ArchGateKey" + no, kv, kt), stone, Vector3.zero, 0, true);
+        curtainOnArch = true; curtainArchTop = colH - 0.6f;
     }
+    public static bool ArchGateNew = true;
+    static bool curtainOnArch; static float curtainArchTop;   // ArchGate のすぐあとの Curtain は柱の間に張る
 
     // ---- 列柱の回廊（2026-11-14 てじゃ「柱式にもどしたい」）：道の両わきに柱、巣の門の所は柱2本＋上のはり（巣はその間に張る）----
     public static bool CorridorPillars = true, GateBeams = false, PlainColumns = false;
@@ -1232,7 +1288,18 @@ public static class FuwaCourse2_5Builder
         var capM = FuwaStage2WaterTest.ToonMat("Ruins_CurtainCap_" + mode, Color.Lerp(col, Color.white, 0.3f));
         capM.SetColor("_EmissionColor", col * 1.2f); EditorUtility.SetDirty(capM);
         var caps = new List<Renderer>();
-        foreach (float sx in new[] { -1f, 1f })
+        bool onArch = curtainOnArch; curtainOnArch = false;
+        if (onArch)
+        {   // 2026-11-15 溝の柱のアーチの門の中：細い柱はなし。幕は柱と柱の間いっぱい、光る石は柱頭の上に浮かぶ結晶
+            float cxA = HW + 0.8f;
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                var gem = MeshObj(c, "Cap", CrystalClusterMesh("CurtainGem", 21, 0.42f, 0), capM, new Vector3(sx * cxA - xc, curtainArchTop + 0.55f, 0f), 0, false);
+                caps.Add(gem.GetComponent<Renderer>());
+            }
+            w = 2f * cxA - 0.75f;
+        }
+        else foreach (float sx in new[] { -1f, 1f })
         {
             Box(c, "Post", new Vector3(sx * (w / 2f + 0.3f), CurtainH / 2f - 0.3f, 0f), new Vector3(0.5f, CurtainH + 0.6f, 0.5f), stone, 0);
             var cap = Box(c, "Cap", new Vector3(sx * (w / 2f + 0.3f), CurtainH + 0.45f, 0f), new Vector3(0.62f, 0.3f, 0.62f), capM, 0);
