@@ -59,7 +59,7 @@ def shield_off():
         out += (np.sin(ph(f * bend)) + 0.5 * np.sin(ph(f * bend * 1.004))) * env
     return out
 
-def crystal_charge(sec=1.3):
+def crystal_charge(sec=2.0):   # 2026-11-15 ため 1.3 → 2 秒
     t = T(sec); x = t / sec
     # うなり：低い音＋オクターブ上が、だんだん上がって明るく
     f0 = 98 * 2 ** (x ** 1.4 * 1.0)

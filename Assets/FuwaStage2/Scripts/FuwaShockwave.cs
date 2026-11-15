@@ -24,11 +24,11 @@ public class FuwaShockwave : UdonSharpBehaviour
     public float heightBelow = 2f, heightAbove = 7f;
 
     [Header("リズム")]
-    public float chargeTime = 1.3f;
+    public float chargeTime = 2f;   // 2026-11-15 てじゃ「チャージ時間伸ばして」1.3 → 2
     [Tooltip("入った時の1発目だけのため（秒）。2026-11-15 てじゃ「初回の一撃もっと早めに」")]
     public float firstChargeTime = 0.7f;
     [Tooltip("ドンからドンまで（秒）")]
-    public float period = 4.2f;
+    public float period = 5f;
 
     [Header("衝撃波")]
     public float waveSpeed = 9f;
@@ -54,6 +54,14 @@ public class FuwaShockwave : UdonSharpBehaviour
     public int blastCount = 60;
     public Renderer[] runeGlows;   // 床のまわりの模様（ためると光る）
 
+    [Header("クリスタルのため（2026-11-15 てじゃ「クリスタル本体にもエネルギーためてる感じ」）")]
+    public Transform[] shards;          // まわりのかけら（ためると引きよせられる、ドンではじける）
+    public Renderer auraRenderer;       // まわりの光（Fuwa/EnergyGlow）
+    public float auraIdle = 1.6f, auraCharged = 3.4f;
+    public Transform[] orbitRings;      // 斜めの光の輪（ためるとちぢんで速く回る）
+    public Renderer[] orbitRingRenderers;
+    public float ringIdleR = 2.2f, ringChargedR = 1.15f;
+
     [Header("音")]
     public AudioSource chargeSound, boomSound, hitSound;
 
@@ -71,11 +79,16 @@ public class FuwaShockwave : UdonSharpBehaviour
     private Quaternion _crystalRot0;
     private float _flash;
     private MaterialPropertyBlock _mpb;
+    private Vector3[] _shard0;
+    private Quaternion[] _ring0;
+    private float _ringAng, _pulsePh, _kSmooth;
 
     private void Start()
     {
         _mpb = new MaterialPropertyBlock();
         if (crystal != null) { _crystal0 = crystal.localPosition; _crystalRot0 = crystal.localRotation; }
+        if (shards != null) { _shard0 = new Vector3[shards.Length]; for (int i = 0; i < shards.Length; i++) if (shards[i] != null) _shard0[i] = shards[i].localPosition; }
+        if (orbitRings != null) { _ring0 = new Quaternion[orbitRings.Length]; for (int i = 0; i < orbitRings.Length; i++) if (orbitRings[i] != null) _ring0[i] = orbitRings[i].localRotation; }
         HideWave();
         if (chargeRenderer != null) chargeRenderer.enabled = false;
     }
@@ -266,7 +279,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         float sc = 1f - 0.08f * kk + 0.18f * _flash * _flash;
         crystal.localScale = Vector3.one * sc;
         if (_mpb == null) return;
-        float g = Mathf.Lerp(glowIdle, glowCharged, kk) + 4f * _flash * _flash;
+        float g = (Mathf.Lerp(glowIdle, glowCharged, kk) * (1f + 0.45f * kk * (0.5f + 0.5f * Mathf.Sin(_pulsePh)))) + 4f * _flash * _flash;   // ためるほど脈うつ
         Color col = glowColor * g; col.a = 1f;
         if (crystalGlows != null)
             for (int i = 0; i < crystalGlows.Length; i++)
@@ -274,6 +287,7 @@ public class FuwaShockwave : UdonSharpBehaviour
                 if (crystalGlows[i] == null) continue;
                 crystalGlows[i].GetPropertyBlock(_mpb); _mpb.SetColor("_EmissionColor", col); crystalGlows[i].SetPropertyBlock(_mpb);
             }
+        UpdateEnergy(k, dt);
         if (runeGlows != null)
         {
             Color rc = glowColor * (0.4f + 3.5f * kk + 3f * _flash); rc.a = 1f;
@@ -281,6 +295,58 @@ public class FuwaShockwave : UdonSharpBehaviour
             {
                 if (runeGlows[i] == null) continue;
                 runeGlows[i].GetPropertyBlock(_mpb); _mpb.SetColor("_EmissionColor", rc); runeGlows[i].SetPropertyBlock(_mpb);
+            }
+        }
+    }
+
+    // クリスタル本体のため：かけらが寄る・オーラがふくらむ・光の輪がちぢんで速く回る（ドンでぱっとはじける）
+    private void UpdateEnergy(float k, float dt)
+    {
+        _kSmooth = k > _kSmooth ? k : Mathf.MoveTowards(_kSmooth, k, dt * 3f);   // ドンの後はすっと戻す
+        float kk = _kSmooth * _kSmooth;
+        float fl = _flash * _flash;
+        // 脈：ためるほど速く・強く（ドクン ドクン → ドドドド）
+        _pulsePh += dt * Mathf.Lerp(3f, 26f, kk);
+        float pulse = 0.5f + 0.5f * Mathf.Sin(_pulsePh);
+        if (shards != null && _shard0 != null)
+            for (int i = 0; i < shards.Length; i++)
+            {
+                if (shards[i] == null) continue;
+                Vector3 b = _shard0[i];
+                Vector3 flat = new Vector3(b.x, 0f, b.z);
+                float pull = Mathf.Lerp(1f, 0.5f, kk) + 0.9f * fl;   // 寄る → はじける
+                shards[i].localPosition = flat * pull + Vector3.up * Mathf.Lerp(b.y, 0f, kk) + Vector3.up * (0.06f * Mathf.Sin(_bob * 2.3f + i * 2.1f));
+                shards[i].Rotate(0f, (40f + 600f * kk) * dt, 0f, Space.Self);
+            }
+        if (auraRenderer != null)
+        {
+            float a = 0.18f + 0.9f * kk * (0.75f + 0.25f * pulse) + 1.4f * fl;
+            bool on = a > 0.01f;
+            if (auraRenderer.enabled != on) auraRenderer.enabled = on;
+            float sc = Mathf.Lerp(auraIdle, auraCharged, kk) * (1f + 0.06f * pulse * kk) + 2.5f * fl;
+            auraRenderer.transform.localScale = Vector3.one * sc;
+            auraRenderer.GetPropertyBlock(_mpb);
+            Color ac = Color.Lerp(glowColor, Color.white, 0.25f * kk); ac.a = 1f;
+            _mpb.SetColor("_Color", ac);
+            _mpb.SetFloat("_Alpha", a);
+            auraRenderer.SetPropertyBlock(_mpb);
+        }
+        if (orbitRings != null && _ring0 != null)
+        {
+            _ringAng += dt * Mathf.Lerp(50f, 760f, kk);
+            float r = Mathf.Lerp(ringIdleR, ringChargedR, kk) + 3f * fl;
+            float ra = 0.12f + 0.75f * kk + 0.5f * fl * (1f - fl);
+            for (int i = 0; i < orbitRings.Length; i++)
+            {
+                Transform t = orbitRings[i]; if (t == null) continue;
+                t.localRotation = _ring0[i] * Quaternion.Euler(0f, (i % 2 == 0 ? 1f : -1.3f) * _ringAng, 0f);
+                t.localScale = new Vector3(r, 1f, r);
+                if (orbitRingRenderers == null || i >= orbitRingRenderers.Length || orbitRingRenderers[i] == null) continue;
+                Renderer rr = orbitRingRenderers[i];
+                rr.GetPropertyBlock(_mpb);
+                _mpb.SetFloat("_Alpha", ra);
+                _mpb.SetVector("_Ball", Vector4.zero);
+                rr.SetPropertyBlock(_mpb);
             }
         }
     }

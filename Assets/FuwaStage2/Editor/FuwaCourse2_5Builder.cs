@@ -2682,13 +2682,19 @@ public static class FuwaCourse2_5Builder
         var pivot = new GameObject("Crystal").transform; pivot.SetParent(g, false); pivot.localPosition = new Vector3(0f, CrystalH, 0f);
         var core = MeshObj(pivot, "Core", CrystalMesh("PlazaCrystal", 0.6f, 1.05f, 0.85f), crysM, Vector3.zero, 0, false);
         var crystalRends = new List<Renderer> { core.GetComponent<Renderer>() };
+        var shardTs = new List<Transform>();
         for (int i = 0; i < 3; i++)
         {
             float a = Mathf.PI * 2f * i / 3f;
             var sh = MeshObj(pivot, "Shard" + i, CrystalMesh("PlazaShard", 0.13f, 0.28f, 0.22f), crysM, new Vector3(Mathf.Cos(a) * 1.25f, -0.2f + 0.25f * i, Mathf.Sin(a) * 1.25f), 0, false);
             sh.transform.localRotation = Quaternion.Euler(12f * (i - 1), 0f, 18f);
-            crystalRends.Add(sh.GetComponent<Renderer>());
+            crystalRends.Add(sh.GetComponent<Renderer>()); shardTs.Add(sh.transform);
         }
+        // 2026-11-15 てじゃ「クリスタル本体にもエネルギーためてる感じ」：まわりの光（オーラ）＋斜めの光の輪2本
+        var auraM = FxMat("Ruins_CrystalAura", "Fuwa/EnergyGlow"); auraM.SetColor("_Color", ShieldCol); EditorUtility.SetDirty(auraM);
+        var aura = GameObject.CreatePrimitive(PrimitiveType.Sphere); aura.name = "Aura"; Object.DestroyImmediate(aura.GetComponent<Collider>());
+        aura.transform.SetParent(pivot, false); aura.transform.localScale = Vector3.one * 1.6f;
+        { var r = aura.GetComponent<MeshRenderer>(); r.sharedMaterial = auraM; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off; }
         // ---- 衝撃波の見た目 ----
         var waveM = FxMat("Ruins_Shockwave", "Fuwa/Shockwave");
         Mesh band;
@@ -2719,7 +2725,23 @@ public static class FuwaCourse2_5Builder
         var bps = Sparks(pivot, "BlastFx", Vector3.zero, 0.7f, 9f, 0.16f, 120);
         { var s = bps.shape; s.shapeType = ParticleSystemShapeType.Sphere; s.radius = 0.5f; var m = bps.main; m.loop = false; }
         // ---- しくみ ----
+        var orbitTs = new List<Transform>(); var orbitRs = new List<Renderer>();
+        {
+            Mesh thin;
+            var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
+            AnnulusInto(v, t, uv, 0.9f, 1f, 0f, Mathf.PI * 2f, 0f, 0f, 64);
+            thin = SaveMeshUV("CrystalOrbitRing", v, t, uv, v.Select(_ => Vector3.up).ToList());
+            var tilts = new[] { new Vector3(62f, 0f, 18f), new Vector3(-55f, 40f, -25f) };
+            for (int i = 0; i < 2; i++)
+            {
+                var ro = MeshObj(pivot, "OrbitRing" + i, thin, waveM, Vector3.zero, 0, false);
+                ro.transform.localRotation = Quaternion.Euler(tilts[i]); ro.transform.localScale = new Vector3(2.2f, 1f, 2.2f);
+                var r = ro.GetComponent<Renderer>(); r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+                orbitTs.Add(ro.transform); orbitRs.Add(r);
+            }
+        }
         var sw = UdonSharpUndo.AddComponent<FuwaShockwave>(g.gameObject);
+        sw.shards = shardTs.ToArray(); sw.auraRenderer = aura.GetComponent<Renderer>(); sw.orbitRings = orbitTs.ToArray(); sw.orbitRingRenderers = orbitRs.ToArray();
         sw.ball = ballT; sw.shield = shieldT; sw.radius = R;
         sw.crystal = pivot; sw.crystalGlows = crystalRends.ToArray(); sw.glowColor = ShieldCol; sw.runeGlows = runeRends.ToArray();
         sw.wave = wave.transform; sw.waveFloor = waveF.transform; sw.chargeRing = chg.transform;
