@@ -1068,7 +1068,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
-    public static bool ShockDark = true; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
+    public static bool ShockDark = true, ShockSkyDim = true; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
     public static bool PlazaBridgeDirect = true, PlazaLedgeUnderEntry = true;
     // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
     static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
@@ -4491,6 +4491,15 @@ public static class FuwaCourse2_5Builder
             var zo = MeshObj(g, "ShockZone", zm, zM, new Vector3(0f, 0.025f, 0f), 0, false);
             var zr = zo.GetComponent<Renderer>(); zr.enabled = false; zr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; zr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             sw.floorZone = zr;
+        }
+        if (ShockSkyDim)
+        {   // 2026-11-15 てじゃ「チャージで空もちょっと暗くするとか」→ 空だけ暗くする大きい球（広場のまわり 400m、内がわ）
+            var sp = GameObject.CreatePrimitive(PrimitiveType.Sphere); sp.name = "SkyDim"; Object.DestroyImmediate(sp.GetComponent<Collider>());
+            sp.transform.SetParent(g, false); sp.transform.localPosition = Vector3.zero; sp.transform.localScale = Vector3.one * 800f;
+            var sdM = FxMat("Ruins_SkyDim", "Fuwa/SkyDim"); sdM.SetColor("_Color", ShockDark ? new Color(0.06f, 0.02f, 0.10f, 1f) : new Color(0.05f, 0.08f, 0.16f, 1f)); EditorUtility.SetDirty(sdM);
+            var sr = sp.GetComponent<MeshRenderer>(); sr.sharedMaterial = sdM; sr.enabled = false;
+            sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; sr.receiveShadows = false; sr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; sr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            sw.skyDim = sr;
         }
         sw.chargeSound = Sfx(pivot, "ChargeSfx", "sfx_crystal_charge.wav", 0.9f, 0.7f, 45f);
         sw.boomSound = Sfx(pivot, "BoomSfx", "sfx_shockwave_boom.wav", 1f, 0.6f, 60f);

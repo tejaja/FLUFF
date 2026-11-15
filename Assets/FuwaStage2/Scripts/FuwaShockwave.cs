@@ -58,6 +58,9 @@ public class FuwaShockwave : UdonSharpBehaviour
     public Renderer[] runeGlows;   // 床のまわりの模様（ためると光る）
     [Tooltip("2026-11-15 てじゃ「衝撃波の範囲、もっと目立たせたいな、特に床」→ 床にかぶせる円盤（Fuwa/ShockFloor）：ためで床いっぱいに流れる光、セーフ（影）は抜けて白いふち、ドンで帯と尾")]
     public Renderer floorZone;
+    [Tooltip("2026-11-15 てじゃ「チャージで空もちょっと暗くするとか」→ 空だけ暗くする大きい球（Fuwa/SkyDim）")]
+    public Renderer skyDim;
+    public float skyDimMax = 0.45f;
 
     [Header("クリスタルのため（2026-11-15 てじゃ「クリスタル本体にもエネルギーためてる感じ」）")]
     public Transform[] shards;          // まわりのかけら（ためると引きよせられる、ドンではじける）
@@ -98,6 +101,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         HideWave();
         if (chargeRenderer != null) chargeRenderer.enabled = false;
         if (floorZone != null) floorZone.enabled = false;
+        if (skyDim != null) skyDim.enabled = false;
     }
 
     private void HideWave()
@@ -166,6 +170,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         UpdateCrystal(k);
         UpdateChargeRing(k);
         UpdateFloorZone(k, now);
+        UpdateSkyDim();
 
         // ---- 広がる衝撃波 ----
         if (_waveLive)
@@ -424,6 +429,21 @@ public class FuwaShockwave : UdonSharpBehaviour
         _mpb.SetFloat("_Pad", shadowPad);
         _mpb.SetFloat("_Near", nearPad);
         floorZone.SetPropertyBlock(_mpb);
+    }
+
+    private float _skyA;
+    private void UpdateSkyDim()
+    {
+        if (skyDim == null) return;
+        // ためるほど暗く、ドンのあとは少しかけて戻す（_kSmooth はドンのあとゆっくり下がる）
+        float target = _active ? skyDimMax * _kSmooth * _kSmooth : 0f;
+        _skyA = Mathf.MoveTowards(_skyA, target, Time.deltaTime * (target > _skyA ? 2f : 0.6f));
+        bool on = _skyA > 0.005f;
+        if (skyDim.enabled != on) skyDim.enabled = on;
+        if (!on) return;
+        skyDim.GetPropertyBlock(_mpb);
+        _mpb.SetFloat("_Alpha", _skyA);
+        skyDim.SetPropertyBlock(_mpb);
     }
 
     // 外からクリスタルへちぢむ光の輪（ための予告）
