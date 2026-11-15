@@ -244,12 +244,13 @@ public static class FuwaCourse2_5Builder
         //  「一定間隔で広場全体に放射状に衝撃波」「ふわふわのバリアの周囲+後ろ側はセーフゾーン」「広場に入る時に最初に一発」
         //  → ③ ワープ → CP2 → バリアの門 → 円形の広場（クリスタルの衝撃波）→ 出口でバリアが消える。回る腕の版：Arms_A（SpinArm ×3、20m）
         shieldT = EnsureShield();
-        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); ArrivalRoof(false, true); S(2f);   // 着いた所のうしろにも道はばの床 CPi("Checkpoint2", 0.8f); S(2.5f);
+        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); ArrivalRoof(false, true); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f);   // ArrivalRoof：着いた所のうしろにも道はばの床（2026-11-15 ここに入れたコメントで CP2 と S(2.5) が消えていたのを戻す）
             S(1.5f); ShieldGateArch("ShieldGate"); S(5f);
             CrystalPlaza("CrystalPlaza");
-            S(1.5f); ShieldOff("ShieldOff"); S(1.5f); });
+            // 2026-11-15 てじゃ「広場のつなぎ目がちょっとシンプルすぎる」→ 広場と橋の間の 3m のただの道をやめて、橋を広場のふちから直接（橋は 3m 長く＝先は同じ所）
+            if (PlazaBridgeDirect) { S(0.4f); ShieldOff("ShieldOff"); } else { S(1.5f); ShieldOff("ShieldOff"); S(1.5f); } });
         Island("Bridge3");
-        Run(() => { ArchBridge(14f, 2f, false, null); });
+        Run(() => { if (PlazaBridgeDirect) ArchBridge(14f + 3f - 0.4f, 2f, false, null, false, true); else ArchBridge(14f, 2f, false, null); });
         // 2026-11-15 てじゃ「ここ（クリスタルの広場）通り過ぎて橋の先はもうゴール行きポータルでいいかも」→ 橋のすぐ先にワープB
         //  前の版：I4_Bumpers（CP3 → 飛び出す石ブロック Pistons_B → T(-45) → 腕とブロックのまざり Mix_C → ワープB）
         Island("I4_End");
@@ -1063,7 +1064,8 @@ public static class FuwaCourse2_5Builder
     }
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
-    static void ArchBridge(float len, float rise, bool pits, float[] windsAt, bool stubGap = false)
+    public static bool PlazaBridgeDirect = true;
+    static void ArchBridge(float len, float rise, bool pits, float[] windsAt, bool stubGap = false, bool noFirstPier = false)
     {
         float hw0 = HW; HW = BridgeHW;
         float y0 = P.y; float z0 = P.z;
@@ -1092,6 +1094,7 @@ public static class FuwaCourse2_5Builder
             // 橋脚
             for (int i = 0; i <= n; i++)
             {
+                if (noFirstPier && i == 0) continue;   // 広場のふちから出る橋：はじめの橋脚はなし（広場の下のドームが支え）
                 float z = z0 + len * i / n, yt = DeckY(z) - Tk;
                 float dep = 4.2f + 1.6f * (float)rnd.NextDouble();
                 float bx = (float)rnd.NextDouble() - 0.5f, bz = (float)rnd.NextDouble() - 0.5f;
@@ -4253,13 +4256,37 @@ public static class FuwaCourse2_5Builder
         }
         // ---- 外のふち（一段低い石の輪、入口・出口はあける）----
         {
-            float ly = -0.25f, gapA = Mathf.Asin(Mathf.Min(0.95f, (HW + 0.35f) / R));
+            // 2026-11-15 てじゃ「継ぎ目われてる」→ ふちの切れ目は角度（放射状）で切っていて、外ほど道との間がひらいていた（くさび形のすき間）
+            //  → 切れ目を道（入口）・橋（出口）のはばでまっすぐに切る＋切り口にふた
+            float ly = -0.25f, hwE = HW + 0.02f, hwX = PlazaBridgeDirect ? BridgeHW + 0.2f : HW + 0.02f;
+            float gapE = Mathf.Asin(Mathf.Min(0.95f, hwE / R)), gapX = Mathf.Asin(Mathf.Min(0.95f, hwX / R));
             var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
             // 入口は -z（角度 270°）、出口は +z（90°）
             float e = Mathf.PI * 1.5f, x = Mathf.PI * 0.5f;
-            AnnulusInto(v, t, uv, R, R + PlazaLedge, x + gapA, e - gapA, ly, 0.5f, 40);
-            AnnulusInto(v, t, uv, R, R + PlazaLedge, e + gapA, x + Mathf.PI * 2f - gapA, ly, 0.5f, 40);
+            AnnulusInto(v, t, uv, R, R + PlazaLedge, x + gapX, e - gapE, ly, 0.5f, 40);
+            AnnulusInto(v, t, uv, R, R + PlazaLedge, e + gapE, x + Mathf.PI * 2f - gapX, ly, 0.5f, 40);
+            // 切れ目の近くの点を、道のはしの線（x = ±hw）の上へ（外の円の上のまま）
+            for (int k = 0; k < v.Count; k++)
+            {
+                var c = v[k]; float hw = c.z < 0f ? hwE : hwX;
+                if (Mathf.Abs(c.x) < hw)
+                {
+                    float rr = new Vector2(c.x, c.z).magnitude; float sx = Mathf.Sign(c.x == 0f ? 1f : c.x);
+                    c.x = sx * hw; c.z = Mathf.Sign(c.z) * Mathf.Sqrt(Mathf.Max(0f, rr * rr - hw * hw)); v[k] = c;
+                }
+            }
             FixWinding(v, t, c => new Vector2(c.x, c.z).magnitude < R + PlazaLedge - 0.001f ? Vector3.up : new Vector3(c.x, 0f, c.z));
+            // 切り口のふた（4つ：入口の左右・出口の左右）。内（R）〜外（R+PlazaLedge）、上 ly 〜 下 ly-0.5
+            foreach (var (hw, sz) in new[] { (hwE, -1f), (hwX, 1f) })
+                foreach (float sx in new[] { -1f, 1f })
+                {
+                    float zi = sz * Mathf.Sqrt(Mathf.Max(0f, R * R - hw * hw)), zo = sz * Mathf.Sqrt(Mathf.Max(0f, (R + PlazaLedge) * (R + PlazaLedge) - hw * hw));
+                    var a0 = new Vector3(sx * hw, ly, zi); var a1 = new Vector3(sx * hw, ly, zo); var b1 = new Vector3(sx * hw, ly - 0.5f, zo); var b0 = new Vector3(sx * hw, ly - 0.5f, zi);
+                    int k0 = v.Count; v.Add(a0); v.Add(a1); v.Add(b1); v.Add(b0); for (int q = 0; q < 4; q++) uv.Add(Vector2.zero);
+                    var want = new Vector3(-sx, 0f, 0f);   // 道の方へ向く
+                    if (Vector3.Dot(Vector3.Cross(a1 - a0, b1 - a0), want) < 0f) { t.Add(k0); t.Add(k0 + 2); t.Add(k0 + 1); t.Add(k0); t.Add(k0 + 3); t.Add(k0 + 2); }
+                    else { t.Add(k0); t.Add(k0 + 1); t.Add(k0 + 2); t.Add(k0); t.Add(k0 + 2); t.Add(k0 + 3); }
+                }
             var lm = SaveMeshUV(name + "_Ledge", v, t, uv, null);
             var lo = MeshObj(g, "Ledge", lm, stone, Vector3.zero, pathLayer, true);
             lo.AddComponent<MeshCollider>().sharedMesh = lm;
