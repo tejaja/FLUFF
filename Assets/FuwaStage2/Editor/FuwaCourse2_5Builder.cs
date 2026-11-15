@@ -296,7 +296,7 @@ public static class FuwaCourse2_5Builder
     //  空洞：石像の真下、口は -z（スタートの方から見える）。出口のポータルは空洞の +z の壁の内がわ、-z へ進む
     public static bool StoneRims = false;
     public static float PathRockM = 1.6f, StatueRockR = 17f, RockCell = 0.8f, RockNoise = 0.9f;
-    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true; public static float CaveCeilBump = 1.3f;
+    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;
     static (Vector3 entry, float heading) PathHugRock(Transform island)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -434,11 +434,44 @@ public static class FuwaCourse2_5Builder
                 var p3 = v[i]; if (Mathf.Abs(p3.y - yc) > 0.01f) continue;
                 var q2 = new Vector2(p3.x, p3.z); float dc = dCave(q2); if (dc >= 0f) continue;
                 float fade = Mathf.Clamp01(-dc / 2.2f);
+                // 2026-11-15 てじゃ「中心ほど凹んでるドーム状に」：まん中ほど上へ（地面の上から 0.3m は残す）＋小さいでこぼこ
+                float rr = Mathf.Clamp01((q2 - sc).magnitude / hx);
+                float dome = CaveDomeUp * (1f - rr * rr);
                 float bump = Mathf.PerlinNoise(p3.x * 0.45f + 11f, p3.z * 0.45f + 5f) * 0.7f + Mathf.PerlinNoise(p3.x * 1.1f + 2f, p3.z * 1.1f + 9f) * 0.3f;
-                p3.y -= CaveCeilBump * bump * fade; v[i] = p3;
+                p3.y += (dome - CaveCeilBump * (bump - 0.35f)) * fade; v[i] = p3;
             }
         }
-        if (RockRugged) RockDisplace(v, top, x0, z0);   // 2026-11-15 見た目クオリティ：段々の平らな壁 → ゴツゴツ（上のふちは動かさない）
+        if (RockRugged) RockDisplace(v, top, x0, z0);
+        // 2026-11-15 てじゃ「壁もまったいらなのもきになる」：空洞の壁に岩のでっぱりを埋めこむ（壁から半分出る）＋天井の近くから下がる岩
+        if (CaveWallRocks > 0)
+        {
+            var cv = new List<Vector3>(); var ct = new List<int>(); var crnd = new System.Random(808);
+            float mouthAng = Mathf.Atan2(mdir.y, mdir.x);
+            for (int k = 0; k < CaveWallRocks; k++)
+            {
+                float ang = (float)crnd.NextDouble() * Mathf.PI * 2f;
+                if (Mathf.Abs(Mathf.DeltaAngle(ang * Mathf.Rad2Deg, mouthAng * Mathf.Rad2Deg)) < 30f) continue;   // 口のあたりはなし
+                var dir2 = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
+                float sz = 1.4f + 1.6f * (float)crnd.NextDouble();
+                float y = Mathf.Lerp(cy0 + 0.3f, cy1 - 0.4f, (float)crnd.NextDouble());
+                var c2 = sc + dir2 * (hx + 0.15f);
+                // 平たいでっぱり（横に広く、壁から出るのは浅く）を重ねて、壁の面そのものがゴツゴツに見えるように
+                RockChunk(cv, ct, new Vector3(c2.x, y, c2.y), new Vector3(sz * 1.7f, sz * (1.0f + 0.6f * (float)crnd.NextDouble()), sz * 0.55f),
+                    Quaternion.LookRotation(new Vector3(dir2.x, 0f, dir2.y)) * Quaternion.Euler((float)crnd.NextDouble() * 30f - 15f, 0f, (float)crnd.NextDouble() * 40f), crnd);
+            }
+            // 天井の近く（壁から少し内）から下がる岩
+            for (int k = 0; k < 9; k++)
+            {
+                float ang = (float)crnd.NextDouble() * Mathf.PI * 2f;
+                if (Mathf.Abs(Mathf.DeltaAngle(ang * Mathf.Rad2Deg, mouthAng * Mathf.Rad2Deg)) < 35f) continue;
+                var c2 = sc + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * (hx - 1.2f - 1.5f * (float)crnd.NextDouble());
+                float len = 1.2f + 1.4f * (float)crnd.NextDouble();
+                RockChunk(cv, ct, new Vector3(c2.x, cy1 - len * 0.35f, c2.y), new Vector3(0.9f, len, 0.9f), Quaternion.Euler(0f, (float)crnd.NextDouble() * 360f, 0f), crnd);
+            }
+            var cm = SaveMesh("I1_CaveRocks", cv, ct);
+            var cgo = new GameObject("CaveRocks"); cgo.transform.SetParent(rk, false);
+            cgo.AddComponent<MeshFilter>().sharedMesh = cm; cgo.AddComponent<MeshRenderer>().sharedMaterial = underM;
+        }   // 2026-11-15 見た目クオリティ：段々の平らな壁 → ゴツゴツ（上のふちは動かさない）
         var mesh = SaveRockMesh("I1_Rock", v, tTop, tSide);
         var go = new GameObject("RockMesh"); go.transform.SetParent(rk, false); go.layer = pathLayer;
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
