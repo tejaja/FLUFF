@@ -2728,6 +2728,8 @@ public static class FuwaCourse2_5Builder
             Tri(v, t, mi[i] + off, mi[j] + off, up[j] + off, o + Vector3.up * o.magnitude); Tri(v, t, mi[i] + off, up[j] + off, up[i] + off, o + Vector3.up * o.magnitude);
         }
         Tri(v, t, up[0] + off, up[1] + off, up[2] + off, Vector3.up); Tri(v, t, up[0] + off, up[2] + off, up[3] + off, Vector3.up);
+        // 底（2026-11-15 てじゃ「柱、下から見るとスキマが」→ 下から見ると中が透けていた）
+        Tri(v, t, lo[0] + off, lo[1] + off, lo[2] + off, Vector3.down); Tri(v, t, lo[0] + off, lo[2] + off, lo[3] + off, Vector3.down);
     }
     static Mesh ColumnMesh(string name, int seed, float h, int kind)
     {
