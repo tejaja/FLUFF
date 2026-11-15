@@ -297,7 +297,7 @@ public static class FuwaCourse2_5Builder
     //  空洞：石像の真下、口は -z（スタートの方から見える）。出口のポータルは空洞の +z の壁の内がわ、-z へ進む
     public static bool StoneRims = false;
     public static float PathRockM = 1.6f, StatueRockR = 17f, RockCell = 0.8f, RockNoise = 0.9f;
-    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true, CaveSkirt = true, SkirtSpikes = false, GrassLip = true, CaveMouthLintel = true; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;
+    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true, CaveSkirt = true, SkirtSpikes = false, GrassLip = true, CaveMouthLintel = false; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;   // CaveMouthLintel＝口の上の岩の天井（てじゃ「そっちじゃなくて下」→ もとにもどす）
     static (Vector3 entry, float heading) PathHugRock(Transform island)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -521,9 +521,23 @@ public static class FuwaCourse2_5Builder
                     }
                     rings.Add(ring);
                 }
+                // 2026-11-15 てじゃ「ゴールからみて抜けてるはずなのに、下のほうに壁がつながってる」→ 口の下（口の向き・はば）はふちを切る。切り口はふさぐ
+                bool InMouth(int i) { float ang = Mathf.PI * 2f * (i + 0.5f) / N; var d2 = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)); return Vector2.Dot(d2, mdir) > 0f && Mathf.Abs(Vector2.Dot(d2, mper)) * rIn < CaveMouthW / 2f + 1.2f; }
+                for (int i = 0; i < N; i++)
+                {
+                    int ip = (i + N - 1) % N;
+                    if (InMouth(i) == InMouth(ip)) continue;
+                    // i の線（i-1 と i の間）が切り口：6つの輪の i 番目の点で多角形のふた
+                    var poly = rings.Select(rg => rg[i]).ToList();
+                    var cen = poly.Aggregate(Vector3.zero, (x, y) => x + y) / poly.Count;
+                    float angI = Mathf.PI * 2f * i / N; var tang = new Vector3(-Mathf.Sin(angI), 0f, Mathf.Cos(angI));
+                    var want = InMouth(i) ? tang : -tang;   // 切った側（口の方）を向く
+                    for (int k = 0; k < poly.Count; k++) Tri(cv, ct, cen, poly[k], poly[(k + 1) % poly.Count], want);
+                }
                 for (int ri = 0; ri + 1 < rings.Count; ri++)
                     for (int i = 0; i < N; i++)
                     {
+                        if (InMouth(i)) continue;
                         int j = (i + 1) % N;
                         var A = rings[ri][i]; var B = rings[ri][j]; var C = rings[ri + 1][j]; var D = rings[ri + 1][i];
                         var mid = (A + B + C + D) * 0.25f; var radial = new Vector3(mid.x - sc.x, 0f, mid.z - sc.y).normalized;
