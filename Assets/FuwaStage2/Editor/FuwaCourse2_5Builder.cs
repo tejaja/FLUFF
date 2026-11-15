@@ -2915,7 +2915,7 @@ public static class FuwaCourse2_5Builder
         }
         var crysM = CrystalMat();
         var pivot = new GameObject("Crystal").transform; pivot.SetParent(g, false); pivot.localPosition = new Vector3(0f, CrystalH, 0f);
-        var core = MeshObj(pivot, "Core", CrystalClusterMesh("PlazaCrystalCluster", 7, 1.15f, 6), crysM, Vector3.zero, 0, false);
+        var core = MeshObj(pivot, "Core", CrystalClusterMesh("PlazaCrystalCluster", 7, 1.3f, 0)   /* 2026-11-15 てじゃ「クリスタル本体にトゲトゲいらんかも」→ 小さい結晶なし */, crysM, Vector3.zero, 0, false);
         var crystalRends = new List<Renderer> { core.GetComponent<Renderer>() };
         var shardTs = new List<Transform>();
         for (int i = 0; i < 3; i++)
@@ -2960,6 +2960,17 @@ public static class FuwaCourse2_5Builder
         var bps = Sparks(pivot, "BlastFx", Vector3.zero, 0.7f, 9f, 0.16f, 120);
         { var s = bps.shape; s.shapeType = ParticleSystemShapeType.Sphere; s.radius = 0.5f; var m = bps.main; m.loop = false; }
         // ---- しくみ ----
+        // 床の魔法陣（3）：床にぴったりの板（Offset で手前に描く）。ためると外から内へ光が走る
+        Renderer circleR;
+        {
+            var v = new List<Vector3> { new Vector3(-R, 0f, -R), new Vector3(R, 0f, -R), new Vector3(R, 0f, R), new Vector3(-R, 0f, R) };
+            var uv = new List<Vector2> { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
+            var t = new List<int> { 0, 2, 1, 0, 3, 2 };
+            var cm = SaveMeshUV(name + "_Circle", v, t, uv, Enumerable.Repeat(Vector3.up, 4).ToList());
+            var mcM = FxMat("Ruins_MagicCircle", "Fuwa/MagicCircle"); mcM.SetFloat("_Radius", R); mcM.SetFloat("_R0", 2.5f); EditorUtility.SetDirty(mcM);
+            var co = MeshObj(g, "MagicCircle", cm, mcM, Vector3.zero, 0, false);
+            circleR = co.GetComponent<Renderer>(); circleR.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; circleR.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+        }
         var orbitTs = new List<Transform>(); var orbitRs = new List<Renderer>();
         {
             Mesh thin;
@@ -2976,6 +2987,7 @@ public static class FuwaCourse2_5Builder
             }
         }
         var sw = UdonSharpUndo.AddComponent<FuwaShockwave>(g.gameObject);
+        sw.magicCircle = circleR;
         sw.shards = shardTs.ToArray(); sw.auraRenderer = aura.GetComponent<Renderer>(); sw.orbitRings = orbitTs.ToArray(); sw.orbitRingRenderers = orbitRs.ToArray();
         sw.ball = ballT; sw.shield = shieldT; sw.radius = R;
         sw.crystal = pivot; sw.crystalGlows = crystalRends.ToArray(); sw.glowColor = ShieldCol; sw.runeGlows = runeRends.ToArray();

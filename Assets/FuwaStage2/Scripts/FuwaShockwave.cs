@@ -57,6 +57,7 @@ public class FuwaShockwave : UdonSharpBehaviour
     [Header("クリスタルのため（2026-11-15 てじゃ「クリスタル本体にもエネルギーためてる感じ」）")]
     public Transform[] shards;          // まわりのかけら（ためると引きよせられる、ドンではじける）
     public Renderer auraRenderer;       // まわりの光（Fuwa/EnergyGlow）
+    public Renderer magicCircle;        // 床の魔法陣（Fuwa/MagicCircle の _Charge・_Flash）
     public float auraIdle = 1.6f, auraCharged = 3.4f;
     public Transform[] orbitRings;      // 斜めの光の輪（ためるとちぢんで速く回る）
     public Renderer[] orbitRingRenderers;
@@ -288,6 +289,13 @@ public class FuwaShockwave : UdonSharpBehaviour
                 crystalGlows[i].GetPropertyBlock(_mpb); _mpb.SetColor("_EmissionColor", col); crystalGlows[i].SetPropertyBlock(_mpb);
             }
         UpdateEnergy(k, dt);
+        if (magicCircle != null)
+        {
+            magicCircle.GetPropertyBlock(_mpb);
+            _mpb.SetFloat("_Charge", k);
+            _mpb.SetFloat("_Flash", _flash * _flash);
+            magicCircle.SetPropertyBlock(_mpb);
+        }
         if (runeGlows != null)
         {
             Color rc = glowColor * (0.4f + 3.5f * kk + 3f * _flash); rc.a = 1f;
