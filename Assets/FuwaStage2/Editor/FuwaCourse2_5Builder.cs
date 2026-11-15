@@ -468,6 +468,7 @@ public static class FuwaCourse2_5Builder
                 p3.y += (dome - CaveCeilBump * (bump - 0.35f)) * fade; v[i] = p3;
             }
         }
+        if (BottomBulge > 0f) BulgeBottoms(v, layers.Select(L => L.y0).ToArray(), F, 1, 2, BottomBulge, BottomBulgeR);   // 道の下（層1・2の下の面）。いちばん下の空洞の輪の層はふち（CaveSkirt）があるのでなし
         if (RockRugged) RockDisplace(v, top, x0, z0);
         // 2026-11-15 てじゃ「壁もまったいらなのもきになる」：空洞の壁に岩のでっぱりを埋めこむ（壁から半分出る）＋天井の近くから下がる岩
         if (CaveWallRocks > 0)
@@ -591,7 +592,7 @@ public static class FuwaCourse2_5Builder
     // ===== 2026-11-15 中段（空中の巣の回廊）の下の島 =====
     //  てじゃ「穴が開いてるところ以外に下に島つけよ」→ ふつうの道（Road*・Turn*・到着の床）の下だけ、下の段と同じ作りの岩（段々に細る・ゴツゴツ・草のへり）
     //  落とし穴の列（WindRun_Pits*）の下はくりぬく（MidRockPitClear のゆとり）＝落ちたらそのまま落ちる
-    public static bool MidRock = true; public static float MidRockPortalR = 6f; public static int MidRockLayers = 7; public static float MidRockTipIn = 3.2f, MidRockSag = 0.9f; public static float MidRockPitClear = 0.7f, MidRockM = 1.3f, MidRockTopNoise = 0.15f;   // 2026-11-15 てじゃ「やっぱここは島やめるか」「ポータル付近のとこだけ島にしよう」→ ポータルから MidRockPortalR 以内の道の部品だけ。2026-11-15 てじゃ「島のフチは柱の外側ギリギリくらいに、外側から通れるとまずい」→ 上の面のふちは道のはし＋1.3（柱の台の外がわ）±0.15
+    public static bool MidRock = true; public static float MidRockPortalR = 6f; public static int MidRockLayers = 3; public static float MidRockTipIn = 3.0f, MidRockSag = 0f, MidRockDepth = 5.4f; public static float MidRockPitClear = 0.7f, MidRockM = 1.3f, MidRockTopNoise = 0.15f;   // 2026-11-15 てじゃ「やっぱここは島やめるか」「ポータル付近のとこだけ島にしよう」→ ポータルから MidRockPortalR 以内の道の部品だけ。2026-11-15 てじゃ「島のフチは柱の外側ギリギリくらいに、外側から通れるとまずい」→ 上の面のふちは道のはし＋1.3（柱の台の外がわ）±0.15   // MidRockLayers：てじゃ「段はおおくなくていいなぁ」7→3
     static void MidTierRock(Transform island, string meshName)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -635,14 +636,14 @@ public static class FuwaCourse2_5Builder
         System.Func<Vector2, float> noise = q => RockNoise * (0.6f * Mathf.Sin(q.x * 0.23f + 1.3f) * Mathf.Cos(q.y * 0.19f - 0.7f) + 0.4f * Mathf.Sin(q.x * 0.11f - q.y * 0.13f + 2.1f));
         System.Func<Vector2, float> dPath = q => { float d = float.MaxValue; foreach (var poly in polys) d = Mathf.Min(d, PolySdf(poly, q)); return d; };
         System.Func<Vector2, float> dPit = q => { float d = float.MaxValue; foreach (var poly in pits) d = Mathf.Min(d, PolySdf(poly, q)); return d; };
-        // 2026-11-15 てじゃ「この道の島の下部分もパッキリしすぎ」→ 3段の平らな段 → 7段で下へ細ってとがる（あとで段のふちを上下にゆらす）
+        // 2026-11-15 てじゃ「この道の島の下部分もパッキリしすぎ」→ 下へ細ってとがる＋段のふちを上下にゆらす（「段はおおくなくていい」→ 3段）
         var layers = new List<(float y1, float y0, float pm)>();
         {
             int NL = MidRockLayers; float y = top;
             for (int k = 0; k < NL; k++)
             {
                 float u = (float)k / (NL - 1);
-                float h = k == 0 ? 1.1f : Mathf.Lerp(0.9f, 1.25f, u);
+                float h = k == 0 ? 1.3f : (MidRockDepth - 1.3f) / Mathf.Max(1, NL - 1);   // 段の数をかえても深さは同じ
                 float pm = MidRockM - (MidRockM + MidRockTipIn) * Mathf.Pow(u, 1.25f);
                 layers.Add((y, y - h, pm)); y -= h;
             }
@@ -692,6 +693,7 @@ public static class FuwaCourse2_5Builder
         }
         rimSegs = null;
         if (GrassLip && segs.Count > 0) GrassLipMesh(segs, rk, meshName + "_GrassLip");
+        if (BottomBulge > 0f) BulgeBottoms(v, layers.Select(L => L.y0).ToArray(), F, 0, layers.Count - 1, BottomBulge, BottomBulgeR);
         if (RockRugged) RockDisplace(v, top, x0, z0);
         // 段のふち（上の面より下）を上下にゆらす：位置だけで決まるずらしなので、となりの面と同じ点は同じだけ動く（すき間なし）
         if (MidRockSag > 0f)
@@ -794,6 +796,29 @@ public static class FuwaCourse2_5Builder
             var seg = cut[1] - cut[0]; var nrm = new Vector3(seg.z, 0f, -seg.x); if (Vector3.Dot(nrm, on) < 0f) nrm = -nrm;
             RockQuad(v, tSide, cut[0] + Vector3.up * y1, cut[1] + Vector3.up * y1, cut[1] + Vector3.up * y0, cut[0] + Vector3.up * y0, nrm);
             if (rimSegs != null) rimSegs.Add(new[] { cut[0] + Vector3.up * y1, cut[1] + Vector3.up * y1, nrm.normalized });
+        }
+    }
+    // 2026-11-15 てじゃ「下段も島もだけど、真下が真っ平らなのがきになる」
+    //  下向きの面（層 k の下の面のうち、下の層 k+1 がついていない所）を下へふくらませる。ふち（F(k)=0）と下の層のふち（F(k+1)=0）では 0 → 継ぎ目は動かない
+    //  下へ動かすだけなので、下の層の壁は面をつきぬける向き（すき間にならない）。RockDisplace の前に呼ぶ（格子の座標で F を使う）
+    public static float BottomBulge = 1.3f, BottomBulgeR = 2.2f;
+    static void BulgeBottoms(List<Vector3> v, float[] y0s, System.Func<int, Vector2, float> F, int kFrom, int kTo, float K, float R)
+    {
+        int nL = y0s.Length;
+        for (int i = 0; i < v.Count; i++)
+        {
+            var p = v[i];
+            for (int k = kFrom; k <= kTo && k < nL; k++)
+            {
+                if (Mathf.Abs(p.y - y0s[k]) > 1e-3f) continue;
+                var q = new Vector2(p.x, p.z);
+                float fk = F(k, q); if (fk >= 0f) break;
+                float fn = k + 1 < nL ? F(k + 1, q) : 99f; if (fn <= 0f) break;
+                float s1 = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(-fk / R)), s2 = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(fn / R));
+                float nz = Mathf.PerlinNoise(p.x * 0.31f + 13.7f, p.z * 0.31f + 4.4f) * 0.75f + Mathf.PerlinNoise(p.x * 0.8f + 2.9f, p.z * 0.8f + 19.1f) * 0.25f;
+                p.y -= K * s1 * s2 * (0.45f + 1.0f * nz); v[i] = p;
+                break;
+            }
         }
     }
     // 岩の横と下をゴツゴツに：場所だけで決まるずらし（同じ場所の点は同じだけ動く＝すき間ができない）。上の面（topY）のふちは動かさず、下へいくほど大きく
