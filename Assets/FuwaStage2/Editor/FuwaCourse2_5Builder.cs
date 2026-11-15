@@ -250,6 +250,7 @@ public static class FuwaCourse2_5Builder
         // 2026-11-13 てじゃ「ここにきのこ石像をおこう」（①の島の上、石の道と上の段と巣の回廊にかこまれた広場）「サイズ調整いるかも」
         if (!MushStatue(new Vector3(MushroomAt.x, i1Top, MushroomAt.y)))
             GiantMushroom(new Vector3(MushroomAt.x, i1Top, MushroomAt.y), MushroomH, MushroomCapR, false);
+        BrokenBridge(i1);
         DecoIslets();
         log.Append("下の段 2・上の段 2・空洞のゴール ");
         return goalP;
@@ -2388,6 +2389,103 @@ public static class FuwaCourse2_5Builder
             HoleWeb(g, "HoleWeb" + i, new Vector3(0f, P.y + hTop / 2f, z), new Vector2(2f * xo, hTop), holes[i], SmallHoleR);
         }
         S(len);
+    }
+
+    // ================= 崩れた参道の橋（2026-11-15 てじゃ「石像の島から手前の道へ、かつて橋があったんだろうな、って感じの残骸」「ジャンプで届かないように」）=================
+    //  石像の正面（台地のふち）から、最初のアーチ橋（Bridge1）の横へ。道側の崩れ残りはアーチ橋に直角（つなぎ目をきれいに）、島側は台地のふちから道側の先っぽへ向ける
+    //  すき間は約12m（ジャンプで届かない）。まん中に折れた橋脚とずり落ちた床のかけら（道より 3.2m 低く、道側の先から 5m 以上）、空中で止まった石（当たりなし）
+    //  床は石（もう道じゃない）、当たりはレイヤー0（立てるけど道あつかいじゃない）
+    public static float BrokenBridgeZ = 14f, BrokenRoadStub = 2.4f, BrokenIslandStub = 4f;
+    static void BrokenBridge(Transform island)
+    {
+        var g = new GameObject("BrokenBridge").transform; g.SetParent(island, false);
+        var sc = new Vector3(MushroomAt.x, 0f, MushroomAt.y);
+        var f = Quaternion.Euler(0f, StatueYaw, 0f) * Vector3.forward; f.y = 0f; f.Normalize();
+        // 台地のふち：石像の正面の向きに外へ、下向きレイで台地（道レイヤーの RockMesh）に当たる最後の所
+        Physics.SyncTransforms();
+        float tEdge = 16f, yTop = i1Top;
+        for (float t = 8f; t < 30f; t += 0.1f)
+        {
+            var p = root.TransformPoint(sc + f * t + Vector3.up * 8f);
+            if (Physics.Raycast(p, -root.up, out var h, 40f, 1 << pathLayer, QueryTriggerInteraction.Ignore) && h.collider.name == "RockMesh") { tEdge = t; yTop = root.InverseTransformPoint(h.point).y; }
+        }
+        var a = sc + f * (tEdge - 0.5f);                                  // 島側の橋台（ふちから少し内）
+        float roadX = BridgeHW;                                           // アーチ橋の床のはし（ここから外へ）
+        var tip = new Vector3(roadX + BrokenRoadStub, 0f, BrokenBridgeZ); // 道側の崩れ残りの先
+        var dir = tip - a; dir.y = 0f; float L = dir.magnitude; dir /= L;
+        const float W = 3.0f, T = 0.6f;
+        var deckM = stone; var edgeM = terraD;
+
+        // ---- 道側：アーチ橋に直角（+x）----
+        var rs = new GameObject("RoadStub").transform; rs.SetParent(g, false);
+        rs.localPosition = new Vector3(roadX, 0f, BrokenBridgeZ); rs.localRotation = Quaternion.LookRotation(Vector3.right);
+        {
+            float s = BrokenRoadStub;
+            Box(rs, "Deck", new Vector3(0f, -T / 2f, (s - 0.5f) / 2f), new Vector3(W, T, s - 0.5f), deckM, 0);
+            var br1 = Box(rs, "DeckBrokenL", new Vector3(-W / 4f, -T / 2f - 0.04f, s - 0.5f + 0.3f), new Vector3(W / 2f - 0.05f, T, 0.6f), deckM, 0);
+            br1.transform.localRotation = Quaternion.Euler(7f, 4f, 0f);
+            var br2 = Box(rs, "DeckBrokenR", new Vector3(W / 4f, -T / 2f - 0.02f, s - 0.5f + 0.15f), new Vector3(W / 2f - 0.05f, T, 0.3f), deckM, 0);
+            br2.transform.localRotation = Quaternion.Euler(3f, -3f, 0f);
+            var cb = Box(rs, "Corbel", new Vector3(0f, -T - 0.7f, 0.45f), new Vector3(W - 0.5f, 1.4f, 0.9f), underM, 0); cb.transform.localRotation = Quaternion.Euler(-8f, 0f, 0f);
+            Box(rs, "EdgeL", new Vector3(-W / 2f + 0.12f, 0.15f, (s - 0.7f) / 2f), new Vector3(0.24f, 0.3f, s - 0.7f), edgeM, 0);
+            var er = Box(rs, "EdgeR", new Vector3(W / 2f - 0.12f, 0.15f, 0.35f), new Vector3(0.24f, 0.3f, 0.7f), edgeM, 0);
+            var ch = Box(rs, "Chip", new Vector3(W / 2f - 0.2f, 0.05f, 0.95f), new Vector3(0.28f, 0.22f, 0.3f), edgeM, 0); ch.transform.localRotation = Quaternion.Euler(10f, 30f, 15f);
+            Object.DestroyImmediate(ch.GetComponent<Collider>());
+        }
+        // ---- 島側：台地から立ち上がる橋台＋突き出して折れた床 ----
+        var isb = new GameObject("IslandStub").transform; isb.SetParent(g, false);
+        isb.localPosition = new Vector3(a.x, 0f, a.z); isb.localRotation = Quaternion.LookRotation(dir);
+        {
+            float s = BrokenIslandStub;
+            float ab0 = yTop - 1.5f, ab1 = -T;
+            Box(isb, "Abutment", new Vector3(0f, (ab0 + ab1) / 2f, -0.4f), new Vector3(W + 0.8f, ab1 - ab0, 2.2f), deckM, 0);
+            Box(isb, "AbutmentCap", new Vector3(0f, ab1 - 0.12f, -0.4f), new Vector3(W + 1.0f, 0.24f, 2.4f), edgeM, 0);
+            Box(isb, "Deck", new Vector3(0f, -T / 2f, (-1.5f + s - 0.8f) / 2f), new Vector3(W, T, s - 0.8f + 1.5f), deckM, 0);
+            var b1 = Box(isb, "DeckBrokenL", new Vector3(-W / 4f, -T / 2f - 0.06f, s - 0.8f + 0.4f), new Vector3(W / 2f - 0.05f, T, 0.8f), deckM, 0); b1.transform.localRotation = Quaternion.Euler(8f, -5f, 2f);
+            var b2 = Box(isb, "DeckBrokenR", new Vector3(W / 4f, -T / 2f - 0.02f, s - 0.8f + 0.2f), new Vector3(W / 2f - 0.05f, T, 0.4f), deckM, 0); b2.transform.localRotation = Quaternion.Euler(3f, 4f, 0f);
+            // 下の斜めの支え（アーチの名ごり）
+            var st = Box(isb, "Strut", new Vector3(0f, -T - 0.9f, 1.0f), new Vector3(W - 0.6f, 0.6f, 2.4f), underM, 0); st.transform.localRotation = Quaternion.Euler(-32f, 0f, 0f);
+            Box(isb, "EdgeL", new Vector3(-W / 2f + 0.12f, 0.15f, (-1.5f + s - 1f) / 2f), new Vector3(0.24f, 0.3f, s - 1f + 1.5f), edgeM, 0);
+            Box(isb, "EdgeR", new Vector3(W / 2f - 0.12f, 0.15f, -0.4f), new Vector3(0.24f, 0.3f, 2.2f), edgeM, 0);
+            var ep = Box(isb, "EdgeRBroken", new Vector3(W / 2f - 0.12f, 0.1f, 1.1f), new Vector3(0.24f, 0.2f, 0.6f), edgeM, 0); ep.transform.localRotation = Quaternion.Euler(0f, 0f, 12f);
+            // 苔（横の面から少し外に出して重ならないように）
+            foreach (float sx in new[] { -1f, 1f })
+            { var mo = Box(isb, "Moss", new Vector3(sx * (W / 2f + 0.43f), ab1 - 0.55f, -0.6f + 0.3f * sx), new Vector3(0.06f, 0.7f, 1.1f), moss, 0); Object.DestroyImmediate(mo.GetComponent<Collider>()); }
+            // 台地の上のがれき
+            var rnd0 = new System.Random(77);
+            for (int i = 0; i < 4; i++)
+            {
+                var rb = Box(isb, "Rubble", new Vector3(((float)rnd0.NextDouble() - 0.5f) * 3.2f, yTop + 0.12f, -1.8f - (float)rnd0.NextDouble() * 1.6f), Vector3.one * (0.25f + 0.25f * (float)rnd0.NextDouble()), i % 2 == 0 ? deckM : edgeM, 0);
+                rb.transform.localRotation = Quaternion.Euler((float)rnd0.NextDouble() * 40f, (float)rnd0.NextDouble() * 90f, (float)rnd0.NextDouble() * 30f);
+                Object.DestroyImmediate(rb.GetComponent<Collider>());
+            }
+        }
+        // ---- まん中：折れた橋脚＋ずり落ちた床のかけら ----
+        var islandTip = a + dir * BrokenIslandStub;
+        var mid = Vector3.Lerp(islandTip, tip, 0.45f);
+        var md = new GameObject("MidPier").transform; md.SetParent(g, false);
+        md.localPosition = new Vector3(mid.x, 0f, mid.z); md.localRotation = Quaternion.LookRotation(dir);
+        {
+            Box(md, "Pier", new Vector3(0f, -7.5f, 0f), new Vector3(1.4f, 8f, 1.4f), underM, 0);
+            var top = Box(md, "PierTop", new Vector3(0.15f, -3.35f, 0.1f), new Vector3(1.3f, 0.5f, 1.3f), deckM, 0); top.transform.localRotation = Quaternion.Euler(9f, 20f, -14f);
+            var fr = Box(md, "DeckFragment", new Vector3(-0.3f, -3.0f, 0.2f), new Vector3(W - 0.2f, T, 2.6f), deckM, 0); fr.transform.localRotation = Quaternion.Euler(10f, 14f, -13f);
+            var fe = Box(md, "FragmentEdge", new Vector3(-1.35f, -2.75f, 0.0f), new Vector3(0.24f, 0.3f, 1.6f), edgeM, 0); fe.transform.localRotation = Quaternion.Euler(10f, 14f, -13f);
+        }
+        // ---- 空中で止まった石（当たりなし）----
+        var rnd = new System.Random(4242);
+        for (int i = 0; i < 8; i++)
+        {
+            float u = 0.1f + 0.8f * i / 7f;
+            if (Mathf.Abs(u - 0.45f) < 0.08f) u += 0.1f;
+            var p = Vector3.Lerp(islandTip, tip, u);
+            var fs = Box(g, "FloatingStone", new Vector3(p.x, -1.2f - (float)rnd.NextDouble() * 1.8f, p.z) + Vector3.Cross(Vector3.up, dir) * (((float)rnd.NextDouble() - 0.5f) * 1.8f),
+                Vector3.one * (0.6f + 0.6f * (float)rnd.NextDouble()), i % 3 == 0 ? edgeM : deckM, 0);
+            fs.transform.localRotation = Quaternion.Euler((float)rnd.NextDouble() * 60f, (float)rnd.NextDouble() * 180f, (float)rnd.NextDouble() * 50f);
+            fs.transform.localScale = Vector3.Scale(fs.transform.localScale, new Vector3(1.3f, 0.6f, 1f));
+            Object.DestroyImmediate(fs.GetComponent<Collider>());
+        }
+        float gap = (tip - islandTip).magnitude;
+        log.Append("崩れた橋 すき間" + gap.ToString("F1") + "m ");
     }
 
     // ================= バリア＋クリスタルの広場（2026-11-15 てじゃの案）=================
