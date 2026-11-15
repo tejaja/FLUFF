@@ -12,6 +12,9 @@ Shader "Fuwa/SizeCurtain"
         _Arms ("うずまきの腕", Float) = 3
         _Alpha ("全体の濃さ", Range(0, 1)) = 0.6
         _EmissionColor ("光（スクリプト）", Color) = (1, 1, 1, 1)
+        _FarFadeStart ("遠くでうすく：はじまり（m、0＝なし）", Float) = 0
+        _FarFadeEnd ("遠くでうすく：おわり（m）", Float) = 0
+        _FarFadeMin ("遠くでうすく：おわりの濃さ", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -25,12 +28,12 @@ Shader "Fuwa/SizeCurtain"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            half4 _Color; float _Mode, _Freq, _Speed, _Arms; half _Alpha;
+            half4 _Color; float _Mode, _Freq, _Speed, _Arms; half _Alpha; float _FarFadeStart, _FarFadeEnd, _FarFadeMin;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _EmissionColor)
             UNITY_INSTANCING_BUFFER_END(Props)
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float aspect : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float aspect : TEXCOORD1; UNITY_FOG_COORDS(2) float3 wpos : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata v)
             {
                 v2f o;
@@ -39,6 +42,7 @@ Shader "Fuwa/SizeCurtain"
                 UNITY_TRANSFER_INSTANCE_ID(v, o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.uv;
+                o.wpos = mul(unity_ObjectToWorld, v.vertex).xyz;
                 float sx = length(unity_ObjectToWorld._m00_m10_m20), sy = length(unity_ObjectToWorld._m01_m11_m21);
                 o.aspect = sx / max(sy, 1e-3);
                 UNITY_TRANSFER_FOG(o, o.pos);
@@ -66,6 +70,8 @@ Shader "Fuwa/SizeCurtain"
                 float a = (_Alpha * (0.35 + 0.9 * band) + flash * 0.5) * vfade * side;
                 half3 col = _Color.rgb * (0.7 + 0.8 * band + flash) + band * 0.35;
                 a = saturate(a);
+                // 2026-11-15 遠くのカーテンはうすく（てじゃ「奥のやつが見えすぎてる、重なる時」）
+                if (_FarFadeEnd > _FarFadeStart) a *= lerp(1, _FarFadeMin, smoothstep(_FarFadeStart, _FarFadeEnd, distance(i.wpos, _WorldSpaceCameraPos)));
                 half4 o = half4(col * a, a * 0.85);
                 UNITY_APPLY_FOG_COLOR(i.fogCoord, o, half4(0, 0, 0, 0));
                 return o;

@@ -31,6 +31,9 @@ Shader "FuwaCourse/SpiderWeb"
         _F67 ("Frame Corner 6,7", Vector) = (0, 0, 0, 0)
         _FadeNear ("Camera Fade: invisible within (m)", Float) = 0.45
         _FadeFar ("Camera Fade: fully visible beyond (m)", Float) = 1.0
+        _FarFadeStart ("Far Fade: start (m, 0=off)", Float) = 0
+        _FarFadeEnd ("Far Fade: end (m)", Float) = 0
+        _FarFadeMin ("Far Fade: alpha at end", Range(0,1)) = 0
         _CoreColor ("糸の色（中心）", Color) = (0.93, 0.91, 1.0, 1)
         _OutlineColor ("糸の縁取り", Color) = (0.12, 0.09, 0.18, 0.85)
         _OutlineWidth ("縁取りの太さ (x 糸の太さ)", Float) = 0.7
@@ -78,7 +81,7 @@ Shader "FuwaCourse/SpiderWeb"
             float4 _Size, _HoleCenter;
             float4 _TearA, _TearB; float _TearW;
             float _HoleRadius, _HoleRadiusMax, _LineWidth, _Spokes, _RingStart, _RingGrow, _Seed, _OuterMin, _OuterMax, _Round;
-            float _FadeNear, _FadeFar;
+            float _FadeNear, _FadeFar, _FarFadeStart, _FarFadeEnd, _FarFadeMin;
             float _FrameN;
             float4 _F01, _F23, _F45, _F67;
             fixed4 _RimColor;
@@ -364,6 +367,8 @@ Shader "FuwaCourse/SpiderWeb"
                 outA *= lerp(1, _DepthFade, far);
                 // 通り抜ける時に見づらくないよう、カメラのすぐ近くの部分はスゥっと消す
                 outA *= smoothstep(_FadeNear, max(_FadeFar, _FadeNear + 0.01), camD);
+                // 2026-11-15 遠くの巣はうすく（2–5：てじゃ「奥のやつが見えすぎてる、重なる時」）。_FarFadeEnd が 0 なら何もしない
+                if (_FarFadeEnd > _FarFadeStart) outA *= lerp(1, _FarFadeMin, smoothstep(_FarFadeStart, _FarFadeEnd, camD));
                 clip(outA - 0.03);   // 糸のない所は奥行きも書かない
                 { fixed4 fogc__ = fixed4(col, outA); UNITY_APPLY_FOG(i.fogCoord, fogc__); return fogc__; }
             }

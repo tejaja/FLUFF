@@ -270,6 +270,7 @@ public static class FuwaCourse2_5Builder
             GiantMushroom(new Vector3(MushroomAt.x, i1Top, MushroomAt.y), MushroomH, MushroomCapR, false);
         BrokenBridge(i1);
         FixColumnGround();
+        ApplyFarFade();
         DecoIslets();
         log.Append("下の段 2・上の段 2・空洞のゴール ");
         return goalP;
@@ -991,6 +992,7 @@ public static class FuwaCourse2_5Builder
         IslandRock(top, 4f, false, 6f);
         if (warpA && warpB) Link(warpA, warpB, top, null, true, true);
         FixColumnGround();
+        ApplyFarFade();
         DecoIslets();
         log.Append("島 3＋てっぺん ");
         return goalP;
@@ -1266,6 +1268,22 @@ public static class FuwaCourse2_5Builder
         MeshObj(g, "Arch", SaveMesh("ArchGateArch" + no, v, t), terra, Vector3.zero, 0, true);
         MeshObj(g, "Keystone", SaveMesh("ArchGateKey" + no, kv, kt), stone, Vector3.zero, 0, true);
         curtainOnArch = true; curtainArchTop = colH - 0.6f;
+    }
+    // 2026-11-15 てじゃ「クモの巣とかカーテン、奥のやつが見えすぎてるのがきになる」「重なる時」→ 2–5 の巣・カーテンだけ、遠いほどうすく
+    public static float FarFadeStart = 8f, FarFadeEnd = 16f, FarFadeMin = 0.05f;
+    static void ApplyFarFade()
+    {
+        var done = new HashSet<Material>(); int n = 0;
+        foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+            foreach (var m in r.sharedMaterials)
+            {
+                if (m == null || done.Contains(m)) continue;
+                if (m.shader.name != "FuwaCourse/SpiderWeb" && m.shader.name != "Fuwa/SizeCurtain") continue;
+                done.Add(m);
+                m.SetFloat("_FarFadeStart", FarFadeStart); m.SetFloat("_FarFadeEnd", FarFadeEnd); m.SetFloat("_FarFadeMin", FarFadeMin);
+                EditorUtility.SetDirty(m); n++;
+            }
+        log.Append("遠くでうすく " + n + " ");
     }
     // 柱の根もとの下に地面（当たり）があれば、そこまでの距離（少し埋める）。何もない・遠い（空中）なら 0
     public static float ColumnMaxDrop = 6f;
