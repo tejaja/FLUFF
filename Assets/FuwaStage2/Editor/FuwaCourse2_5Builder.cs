@@ -206,7 +206,7 @@ public static class FuwaCourse2_5Builder
             //  外した門の種：(-2.0,1.8) (0.8,0.7) (0.5,3.0) (-1.8,4.4) (2.8,2.0) (2.6,4.6)、スキマ (2,3)
             // 2026-11-14 てじゃ「道は縮めなくてよかった、カーテンまでの間があいててOK」→ 外した門のぶん（WebGateGap）道を足して長さは元のまま
             S(WebGateGap);
-            S(0.3f); ArchGate(); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
+            S(0.3f); ArchGate(); Curtain("C2_Normal", 0); S(6.6f); });   // 6.5→6.6：シマを偶数（A…B）にして、ポータルのうしろの道（A から）と交互にする   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
         if (CorridorPillars) CorridorColonnade(runA, runB); else CorridorTunnel(runA, runB, -40f, -1.6f);
@@ -215,7 +215,7 @@ public static class FuwaCourse2_5Builder
             if (cpg) foreach (Transform c in cpg) c.localPosition = new Vector3(Mathf.Sign(c.localPosition.x) * (HW - 0.3f), c.localPosition.y + 0.66f, c.localPosition.z);
         }
         Transform warpW = null;
-        Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); });
+        Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); if (WarpWBack > 0f) S(WarpWBack); });   // 2026-11-15 てじゃ「ポータルぎりぎりすぎるから道ちょっぴり伸ばして」→ ポータルのうしろに道
         if (MidRock) MidTierRock(iw, "I2_Rock");   // 2026-11-15 てじゃ「穴が開いてるところ以外に下に島つけよ」→「ポータル付近のとこだけ島にしよう」（出口のポータルができたあと）
         HW = hwSave; pitTable = null; TileL = tileL0;
         // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
@@ -281,7 +281,7 @@ public static class FuwaCourse2_5Builder
     // 空中の巣の回廊の置き場所：①の島の道の範囲の +x・-z の角から WebWalkOut、高さ WebWalkUp（てじゃの図の青◯）
     public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;   // （前の決め方、今は WebWalkStart に固定）
     public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f); public static float WebWalkOrbit = 25f, WebWalkBack = 0f;   // 巣の門を1つ足して +3.8、最初の巣をなくして −3.8   // 2026-11-14 15° → トンネルが伸びたので「また反時計回りにまわして」25°
-    public static float UpperBackShift = 10f, WarpAInBack = 3.6f, WarpAInBend = 25f;   // 3.6m＝シマ3本（A B A）→ 曲がり角（B）→ 先の道（A…）で交互がくずれない
+    public static float UpperBackShift = 10f, WarpAInBack = 3.6f, WarpWBack = 1.3f, WarpAInBend = 25f;   // 3.6m＝シマ3本（A B A）→ 曲がり角（B）→ 先の道（A…）で交互がくずれない
     public static Vector3 UpperStart = new Vector3(39.5948f, 32.8087f, 24.0744f); public static float UpperStartHeading = 134.3111f;   // 2026-11-15 てじゃ「この広場は石像の真上くらいにしよう」→ 広場のまん中が MushroomAt の真上に来るよう (-9.44, 0, +6.95) ずらした（前は 49.0348, 32.8087, 17.1244）
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
     public static float ArrivalBackLen = 0f;   // 0＝前のまま（1.9m）。てじゃ「そうじゃなくて 道をすこし伸ばしてポータルの位置も後ろに」→ WarpAInBack で道ごと下げる
