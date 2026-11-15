@@ -575,6 +575,17 @@ public static class FuwaCourse2_5Builder
         m.SetColor("_GroundTintA", new Color(mossCol.r / stoneCol.r, mossCol.g / stoneCol.g, mossCol.b / stoneCol.b));   // まだらの濃い所＝苔
         m.SetColor("_GroundTintB", Color.white);
         m.SetFloat("_GroundFine", 0f);
+        StatueShade(m);
+        EditorUtility.SetDirty(m);
+    }
+    // 2026-11-15 てじゃ「石像のっぺりにみえちゃうな」→ 形はそのまま、材質で立体感：面の角ばり・石の色むら・濃いめの影・下向きの面を暗く
+    static void StatueShade(Material m)
+    {
+        if (!m.HasProperty("_Facet")) return;
+        m.SetFloat("_Facet", 0.55f);
+        m.SetFloat("_NoiseStrength", 0.13f); m.SetFloat("_NoiseScale", 0.32f);
+        m.SetFloat("_ShadowStrength", 0.92f); m.SetFloat("_Wrap", 0.18f);
+        m.SetColor("_UnderColor", new Color(0.58f, 0.52f, 0.66f)); m.SetFloat("_UnderStrength", 0.5f); m.SetFloat("_UnderGrad", 0.5f);
         EditorUtility.SetDirty(m);
     }
     static bool MushStatue(Vector3 baseP)
@@ -588,14 +599,15 @@ public static class FuwaCourse2_5Builder
         g.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
         // 材質：Blender の名前 → ステージ2のトゥーン材質
         // 2026-11-15 苔：面ごとの四角い苔（MS_Moss の面）はやめて石に。かわりに石の材質の「上を向いた面」に、ワールドの xz のまだらで苔の色をのせる（FuwaToonLit の地面の模様、IceDetail の G/B）
-        var stoneM = FuwaStage2WaterTest.ToonMat("Ruins_StatueStone", new Color(0.88f, 0.84f, 0.78f));
-        var baseM = FuwaStage2WaterTest.ToonMat("Ruins_StatueBase", new Color(0.80f, 0.74f, 0.66f));
-        StatueMoss(stoneM, new Color(0.88f, 0.84f, 0.78f)); StatueMoss(baseM, new Color(0.80f, 0.74f, 0.66f));
+        Color stoneC = new Color(0.83f, 0.78f, 0.71f), baseC = new Color(0.76f, 0.69f, 0.61f);   // 少し落ち着かせた（前は 0.88/0.84/0.78・0.80/0.74/0.66）
+        var stoneM = FuwaStage2WaterTest.ToonMat("Ruins_StatueStone", stoneC);
+        var baseM = FuwaStage2WaterTest.ToonMat("Ruins_StatueBase", baseC);
+        StatueMoss(stoneM, stoneC); StatueMoss(baseM, baseC);
         var mats = smr.sharedMaterials.Select(m =>
         {
             string n = m ? m.name : "";
             if (n.Contains("Moss")) return StatueMossFaces ? moss : stoneM;
-            if (n.Contains("Dark")) return FuwaStage2WaterTest.ToonMat("Ruins_StatueDark", new Color(0.45f, 0.42f, 0.42f));
+            if (n.Contains("Dark")) { var dm = FuwaStage2WaterTest.ToonMat("Ruins_StatueDark", new Color(0.45f, 0.42f, 0.42f)); StatueShade(dm); return dm; }
             if (n.Contains("Base")) return baseM;
             return stoneM;
         }).ToArray();
