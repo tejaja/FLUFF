@@ -277,7 +277,8 @@ public static class FuwaCourse2_5Builder
         ApplyFarFade();
         DecoIslets();
         if (ColumnLods) AddColumnLods();
-        if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
+        if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));
+        if (CoursePerf && TierShadows) SetupTierShadows();   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
         log.Append("下の段 2・上の段 2・空洞のゴール ");
         return goalP;
     }
@@ -1048,7 +1049,8 @@ public static class FuwaCourse2_5Builder
         ApplyFarFade();
         DecoIslets();
         if (ColumnLods) AddColumnLods();
-        if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
+        if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));
+        if (CoursePerf && TierShadows) SetupTierShadows();   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
         log.Append("島 3＋てっぺん ");
         return goalP;
     }
@@ -3717,6 +3719,34 @@ public static class FuwaCourse2_5Builder
     public static bool ColumnLods = true; public static float ColumnLodScreen = 0.1f;
     static readonly Dictionary<Mesh, Mesh> columnLite = new Dictionary<Mesh, Mesh>();
     static Mesh ColumnMesh(string name, int seed, float h, int kind) => ColumnMesh(name, seed, h, kind, false);
+    // 2026-11-15 軽量化：段ごとの影（FuwaTierShadows）。FarShadows に入った 2–5 の物をこちらへ移す
+    public static bool TierShadows = true; public static float[] TierYs = { -161f, -145f };
+    static void SetupTierShadows()
+    {
+        var far = Resources.FindObjectsOfTypeAll<FuwaFarShadows>().FirstOrDefault(f => f && f.name == "FarShadows" && f.gameObject.scene.IsValid());
+        if (!far) { log.Append("（FarShadows がない）"); return; }
+        var keepT = new List<Renderer>(); var keepC = new List<Vector3>(); var keepR = new List<float>();
+        var mine = new List<Renderer>();
+        for (int i = 0; i < far.targets.Length; i++)
+        {
+            var r = far.targets[i]; if (!r) continue;
+            if (r.transform.IsChildOf(root)) mine.Add(r);
+            else { keepT.Add(r); keepC.Add(far.centers[i]); keepR.Add(far.radii[i]); }
+        }
+        far.targets = keepT.ToArray(); far.centers = keepC.ToArray(); far.radii = keepR.ToArray();
+        UdonSharpEditorUtility.CopyProxyToUdon(far); EditorUtility.SetDirty(far);
+        var old = root.Find("TierShadows"); if (old) Object.DestroyImmediate(old.gameObject);
+        var go = new GameObject("TierShadows"); go.transform.SetParent(root, false);
+        var ts = UdonSharpUndo.AddComponent<FuwaTierShadows>(go);
+        ts.targets = mine.ToArray();
+        ts.centers = mine.Select(r => r.bounds.center).ToArray();
+        ts.radii = mine.Select(r => r.bounds.extents.magnitude).ToArray();
+        ts.tiers = mine.Select(r => { float y = r.bounds.min.y; int t = 0; for (int k = 0; k < TierYs.Length; k++) if (y >= TierYs[k]) t = k + 1; return t; }).ToArray();
+        ts.tierY = TierYs; ts.shadowDistance = far.shadowDistance; ts.perFrame = 120;
+        UdonSharpEditorUtility.CopyProxyToUdon(ts); FuwaStage2WaterTest.NoSync(ts);
+        log.Append("段ごとの影 " + mine.Count + "（段0 " + ts.tiers.Count(x => x == 0) + "・段1 " + ts.tiers.Count(x => x == 1) + "・段2 " + ts.tiers.Count(x => x == 2) + "） ");
+    }
+
     // ビルドの最後：ふつうの版の柱に「遠い版」の子と LODGroup（画面の高さ ColumnLodScreen より小さいと遠い版）
     static void AddColumnLods()
     {

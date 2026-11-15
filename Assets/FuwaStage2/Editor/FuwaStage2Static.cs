@@ -9,7 +9,7 @@ using UnityEngine;
 public static class FuwaStage2Static
 {
     // 自分の見た目を動かさないスクリプト
-    static readonly HashSet<string> StillScripts = new HashSet<string> { "FuwaWater", "FuwaShallowWater", "FuwaHazard", "FuwaTopOut", "FuwaPlayerCatcher", "FuwaWindArea", "FuwaFireJet", "FuwaHeatSource", "FuwaFarShadows", "FuwaCourseLod" };
+    static readonly HashSet<string> StillScripts = new HashSet<string> { "FuwaWater", "FuwaShallowWater", "FuwaHazard", "FuwaTopOut", "FuwaPlayerCatcher", "FuwaWindArea", "FuwaFireJet", "FuwaHeatSource", "FuwaFarShadows", "FuwaCourseLod", "FuwaTierShadows" };   // FuwaTierShadows：影の向きだけ
     // 動かさない物を入れている欄（場所・向きの基準や、色を変える相手）。2026-11-13 2–4 のポンプの台・気球の首がこれで外れていた
     // 自分の物（付いている物の下）は動かさず、欄に入れた物だけ動かすスクリプト（欄の物は Referenced で外れる）
     static readonly HashSet<string> RefOnlyScripts = new HashSet<string> { "FuwaCloudFactory", "FuwaSugarPipe" };
