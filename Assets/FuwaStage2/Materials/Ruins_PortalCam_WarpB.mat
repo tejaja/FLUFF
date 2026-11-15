@@ -34,7 +34,13 @@ Material:
     m_Ints: []
     m_Floats:
     - _Active: 0
+    - _EA: 1.5
+    - _EB: 1.5
+    - _Mono: 0
+    - _Swirl: 0.35
+    - _VS: 1
     m_Colors:
+    - _EdgeGlow: {r: 0.5, g: 0.9, b: 1, a: 1}
     - _Idle: {r: 0.17999998, g: 0.21999997, b: 0.31999996, a: 1}
     - _IdleGlow: {r: 0.45, g: 0.8, b: 1, a: 1}
   m_BuildTextureStacks: []

@@ -1,6 +1,7 @@
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
+using VRC.SDK3.Rendering;
 
 // 2026-11-14 カメラ式ポータル（てじゃ「ワープ前にカーテンとかクモの巣とかみえない」「明るさ」→ A：カメラ式）
 //  入口（entries[i]）の穴に、出口（exits[i]）側から見た本物の景色を映す。空・遠景・巣・カーテン・影の明るさもそのまま
@@ -28,6 +29,21 @@ public class FuwaPortalCams : UdonSharpBehaviour
     public float closeFov = 130f;
     [Tooltip("出口の穴（自分の円盤）をこのレイヤーに移して、ポータルのカメラには映さない（入る直前に出口の円盤が目の前に大きく映っていた）")]
     public int hideLayer = 25;
+    // 2026-11-15 てじゃ「ポータルの軽量化」「近寄ったほうがボケてみえるのなんで？」
+    //  ・映像の大きさ（解像度）を、穴が画面に映る大きさに合わせる：レンダーテクスチャは1組（最大 rtSize）のまま、カメラは左下の一部（rect）だけに描く。穴のシェーダーは _VS 倍の所を読む
+    //    （前は 1024 固定：遠いと余り、近いと足りずにボケた）
+    //  ・入る直前は 130° ではなく、画面のカメラの横の画角に合わせる（余分に広く描くと 1 ピクセルがうすくなる）
+    //  ・遠い時（monoDist より遠い）は VR でもカメラ1台（両目に同じ映像）。halfRateDist より遠いと 2 フレームに 1 回だけ描く
+    //  ・小さい物（layerCull のレイヤー）はポータルのカメラでは近くだけ（layerCullDist）
+    [Tooltip("映像のくっきりさ（1＝画面のピクセルと同じ。少し下げると軽い）")]
+    public float quality = 0.85f;
+    public int minPixels = 256;
+    public float monoDist = 9f, halfRateDist = 16f;
+    [Tooltip("ポータルのカメラで近くだけ映すレイヤーと、その距離（m）")]
+    public int[] layerCull;
+    public float layerCullDist = 25f;
+    private float _vs = 1f;
+    private bool _mono;
     private Material[] _mats;
     private int _active = -2;
     private int[] _exitHole;
@@ -39,6 +55,13 @@ public class FuwaPortalCams : UdonSharpBehaviour
         for (int i = 0; i < holes.Length; i++) if (holes[i] != null) { _mats[i] = holes[i].material; _mats[i].SetFloat("_Active", 0f); }
         if (camL != null) { camL.enabled = false; camL.cullingMask &= ~(1 << hideLayer); }
         if (camR != null) { camR.enabled = false; camR.cullingMask &= ~(1 << hideLayer); }
+        if (layerCull != null && layerCull.Length > 0)
+        {
+            float[] cd = new float[32];
+            for (int k = 0; k < layerCull.Length; k++) if (layerCull[k] >= 0 && layerCull[k] < 32) cd[layerCull[k]] = layerCullDist;
+            if (camL != null) { camL.layerCullDistances = cd; camL.layerCullSpherical = true; }
+            if (camR != null) { camR.layerCullDistances = cd; camR.layerCullSpherical = true; }
+        }
         _exitHole = new int[entries.Length];
         for (int i = 0; i < entries.Length; i++)
         {
@@ -76,47 +99,80 @@ public class FuwaPortalCams : UdonSharpBehaviour
             if (_hidHole >= 0 && holes[_hidHole] != null) { _hidLayer0 = holes[_hidHole].gameObject.layer; holes[_hidHole].gameObject.layer = hideLayer; }
         }
         bool on = best >= 0;
-        if (camL.enabled != on) camL.enabled = on;
-        if (camR != null && camR.enabled != (on && vr)) camR.enabled = on && vr;
-        if (!on) return;
+        if (!on)
+        {
+            if (camL.enabled) camL.enabled = false;
+            if (camR != null && camR.enabled) camR.enabled = false;
+            return;
+        }
 
         Transform en = entries[best], ex = exits[best];
         Matrix4x4 m = ex.localToWorldMatrix * Matrix4x4.Rotate(Quaternion.Euler(0f, 180f, 0f)) * en.worldToLocalMatrix;
         Quaternion camRot = ex.rotation * Quaternion.Euler(0f, 180f, 0f) * Quaternion.Inverse(en.rotation) * hr;   // 頭の向きを出口側へ
         Vector3 target = m.MultiplyPoint3x4(holes[best].bounds.center);
-        if (vr && camR != null)
+
+        // 画面のカメラ（縦の画角・ピクセル数）
+        VRCCameraSettings sc = VRCCameraSettings.ScreenCamera;
+        float vFov = 60f; float pxW = 1920f, pxH = 1080f;
+        if (sc != null) { vFov = Mathf.Clamp(sc.FieldOfView, 20f, 150f); pxW = Mathf.Max(64f, sc.PixelWidth); pxH = Mathf.Max(64f, sc.PixelHeight); }
+        float aspect = pxW / pxH;
+        float hFov = 2f * Mathf.Atan(Mathf.Tan(vFov * 0.5f * Mathf.Deg2Rad) * aspect) * Mathf.Rad2Deg;
+        // 穴が画面にどのくらいの大きさで映るか → 映像の解像度
+        float ang = 2f * Mathf.Atan(holeRadius / Mathf.Max(bd, 0.05f)) * Mathf.Rad2Deg;
+        float fitFov = ang * 1.1f;
+        bool close = fitFov > Mathf.Min(closeSwitchFov, hFov);
+        float camFov = close ? Mathf.Min(hFov * 1.04f, closeFov) : fitFov;
+        float pxPerDeg = pxH / vFov;
+        float need = camFov * pxPerDeg * quality;                 // この画角をこの密度で描くのに要るピクセル
+        // 遠い時：VR でもカメラ1台・2フレームに1回（描かないフレームは前の映像・行列・大きさのまま）
+        bool skip = !close && bd > halfRateDist && (Time.frameCount & 1) == 1;
+        if (skip)
+        {
+            if (camL.enabled) camL.enabled = false;
+            if (camR != null && camR.enabled) camR.enabled = false;
+            return;
+        }
+        int rtSz = camL.targetTexture != null ? camL.targetTexture.width : 1024;
+        float vs = Mathf.Clamp(need / rtSz, (float)minPixels / rtSz, 1f);
+        if (vs > _vs || vs < _vs * 0.8f) _vs = Mathf.Min(1f, vs * 1.1f);   // ちらつかないように少し余裕・のりしろ
+        Rect rc = new Rect(0f, 0f, _vs, _vs);
+        _mono = !vr || camR == null || (!close && bd > monoDist);
+        if (!camL.enabled) camL.enabled = true;
+        if (camR != null && camR.enabled != !_mono) camR.enabled = !_mono;
+        Material mat = _mats[best];
+        mat.SetFloat("_VS", _vs); mat.SetFloat("_Mono", _mono ? 1f : 0f);
+        camL.rect = rc; if (camR != null) camR.rect = rc;
+        if (!_mono)
         {
             float ipd = ipdBase * Mathf.Max(0.2f, p.GetAvatarEyeHeightAsMeters()) / 1.6f;
             Vector3 right = hr * Vector3.right;
-            Matrix4x4 vl = Place(camL, m.MultiplyPoint3x4(head - right * (ipd * 0.5f)), target, ex, m, camRot);
-            Matrix4x4 vrm = Place(camR, m.MultiplyPoint3x4(head + right * (ipd * 0.5f)), target, ex, m, camRot);
-            _mats[best].SetMatrix("_VPL", vl); _mats[best].SetMatrix("_VPR", vrm);
+            Matrix4x4 vl = Place(camL, m.MultiplyPoint3x4(head - right * (ipd * 0.5f)), target, ex, m, camRot, close, camFov);
+            Matrix4x4 vrm = Place(camR, m.MultiplyPoint3x4(head + right * (ipd * 0.5f)), target, ex, m, camRot, close, camFov);
+            mat.SetMatrix("_VPL", vl); mat.SetMatrix("_VPR", vrm);
         }
         else
         {
-            Matrix4x4 vl = Place(camL, m.MultiplyPoint3x4(head), target, ex, m, camRot);
-            _mats[best].SetMatrix("_VPL", vl); _mats[best].SetMatrix("_VPR", vl);
+            Matrix4x4 vl = Place(camL, m.MultiplyPoint3x4(head), target, ex, m, camRot, close, camFov);
+            mat.SetMatrix("_VPL", vl); mat.SetMatrix("_VPR", vl);
         }
     }
 
     // カメラを置いて、穴のシェーダーに渡す行列（入口側のワールド → このカメラのクリップ）を返す
-    private Matrix4x4 Place(Camera cam, Vector3 pos, Vector3 target, Transform ex, Matrix4x4 m, Quaternion headRot)
+    private Matrix4x4 Place(Camera cam, Vector3 pos, Vector3 target, Transform ex, Matrix4x4 m, Quaternion headRot, bool close, float camFov)
     {
         Vector3 fwd = target - pos; float dist = fwd.magnitude;
         if (dist < 0.001f) { fwd = ex.forward; dist = 0.001f; }
-        float fitFov = 2f * Mathf.Atan(holeRadius / Mathf.Max(dist, 0.05f)) * Mathf.Rad2Deg * 1.1f;
         cam.ResetProjectionMatrix();
-        if (fitFov > closeSwitchFov)
+        if (close)
         {
-            // 穴のすぐ前：穴を全部入れようとすると画角が 170° 近くになって引きのばされる → 頭の向きのまま、ふつうの広さの画角（見えている所だけ映せばいい）
+            // 穴のすぐ前：頭の向きのまま、画面と同じくらいの画角（見えている所だけ映せばいい）
             cam.transform.SetPositionAndRotation(pos, headRot);
-            cam.fieldOfView = closeFov;
         }
         else
         {
             cam.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(fwd / dist, ex.up));
-            cam.fieldOfView = Mathf.Clamp(fitFov, 4f, 170f);
         }
+        cam.fieldOfView = Mathf.Clamp(camFov, 4f, 170f);
         // 出口の面より奥（カメラ側）を切る：前は斜めの近クリップ（CalculateObliqueMatrix）だったが、クリップの奥行きがゆがんで霧（遠景のぼかし）が効かなくなった
         //  （2026-11-14 てじゃ「ポータル越しだと遠景にかかるぼかしがちゃんときかない、火山がはっきり」）
         //  → ふつうの近クリップを、出口の穴の四すみのうちいちばん近い所の手前まで出す（穴のふち付近で出口の裏が少し見えることがあるだけ）

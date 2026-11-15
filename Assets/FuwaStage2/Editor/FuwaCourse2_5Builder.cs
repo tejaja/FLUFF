@@ -2397,9 +2397,81 @@ public static class FuwaCourse2_5Builder
     public static float OvalLift = 0.15f;   // 輪の下のはしの高さ
     static float OvalA => FuwaPortalTest.HalfW;
     static float OvalB => FuwaPortalTest.HoleH / 2f;
-    static Vector3 OvalC => new Vector3(0f, OvalLift + OvalB, 0f);
+    static Vector3 OvalC => new Vector3(0f, (PortalFloating ? PortalFloatLift : OvalLift) + OvalB, 0f);
+    // 2026-11-15 てじゃ「ポータル、石の枠なくして ポータル自体が浮いてる感じのほうが映えるかも 現状だとワープしてる感うすい」
+    //  → 石の枠・台座・踏み石なし。穴が道から浮いて、ふちに光の帯（Fuwa/PortalRim）、ふちから中へ吸いこまれる光の粒、下の地面に光のたまり。穴の中はふちほどうず（Fuwa/PortalCam）
+    public static bool PortalFloating = true;
+    public static float PortalFloatLift = 0.35f, PortalRimW = 0.5f;
+    public static Color PortalRimCol = new Color(0.45f, 0.85f, 1f, 1f);
+    static void FloatingStyle(Transform p)
+    {
+        foreach (var nm in new[] { "PortalFrame", "OvalFrame", "FloatFrame" }) { var fr = p.Find(nm); if (fr) Object.DestroyImmediate(fr.gameObject); }
+        var ring = new GameObject("FloatFrame").transform; ring.SetParent(p, false); ring.localPosition = OvalC;
+        float A = OvalA + 0.06f, B = OvalB + 0.06f;
+        // 穴
+        var hole = p.Find("PortalHole");
+        if (hole)
+        {
+            hole.localPosition = OvalC; hole.localRotation = Quaternion.Euler(0f, 180f, 0f); hole.localScale = Vector3.one;
+            hole.GetComponent<MeshFilter>().sharedMesh = EllipseDisc(A, B, 64, "Portal_OvalHole");
+            var hm = hole.GetComponent<MeshRenderer>().sharedMaterial;
+            if (hm && hm.HasProperty("_EA")) { hm.SetFloat("_EA", A); hm.SetFloat("_EB", B); hm.SetColor("_EdgeGlow", PortalRimCol); EditorUtility.SetDirty(hm); }
+        }
+        // ふちの光の帯（穴のふちの少し内がわ〜外へ PortalRimW）
+        {
+            var v = new List<Vector3>(); var uv = new List<Vector2>(); var t = new List<int>();
+            int N = 128; float rin = -0.03f, rout = PortalRimW;
+            for (int k = 0; k <= N; k++)
+            {
+                float a = 2f * Mathf.PI * k / N;
+                var nOut = new Vector2(Mathf.Cos(a) / A, Mathf.Sin(a) / B).normalized;
+                var e = new Vector2(Mathf.Cos(a) * A, Mathf.Sin(a) * B);
+                var pi = e + nOut * rin; var po = e + nOut * rout;
+                v.Add(new Vector3(pi.x, pi.y, 0f)); v.Add(new Vector3(po.x, po.y, 0f));
+                uv.Add(new Vector2((float)k / N, 0f)); uv.Add(new Vector2((float)k / N, 1f));
+            }
+            for (int k = 0; k < N; k++) { int a = k * 2; t.Add(a); t.Add(a + 1); t.Add(a + 3); t.Add(a); t.Add(a + 3); t.Add(a + 2); }
+            var mesh = SaveMeshUV("Portal_FloatRim", v, t, uv, v.Select(_ => Vector3.back).ToList());
+            var rm = FxMat("Ruins_PortalFloatRim", "Fuwa/PortalRim"); rm.SetColor("_Color", PortalRimCol); rm.SetFloat("_Mode", 0f); rm.SetFloat("_Strength", 1.3f); EditorUtility.SetDirty(rm);
+            var ro = MeshObj(ring, "Rim", mesh, rm, Vector3.zero, 0, false);
+            var rr = ro.GetComponent<Renderer>(); rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; rr.receiveShadows = false;
+        }
+        // 下の地面の光のたまり
+        {
+            float yG = -OvalC.y + 0.03f, w = A * 2f + 1.4f, d = 2.2f;
+            var v = new List<Vector3> { new Vector3(-w / 2f, yG, -d / 2f), new Vector3(w / 2f, yG, -d / 2f), new Vector3(w / 2f, yG, d / 2f), new Vector3(-w / 2f, yG, d / 2f) };
+            var uv = new List<Vector2> { new Vector2(0, 0), new Vector2(1, 0), new Vector2(1, 1), new Vector2(0, 1) };
+            var t = new List<int> { 0, 2, 1, 0, 3, 2 };
+            var mesh = SaveMeshUV("Portal_FloatPool", v, t, uv, v.Select(_ => Vector3.up).ToList());
+            var pm = FxMat("Ruins_PortalPool", "Fuwa/PortalRim"); pm.SetColor("_Color", PortalRimCol); pm.SetFloat("_Mode", 1f); pm.SetFloat("_Strength", 0.8f); EditorUtility.SetDirty(pm);
+            var po = MeshObj(ring, "GroundGlow", mesh, pm, Vector3.zero, 0, false);
+            var pr = po.GetComponent<Renderer>(); pr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; pr.receiveShadows = false;
+        }
+        // ふちから中へ吸いこまれる光の粒
+        {
+            var go = new GameObject("Sparkles"); go.transform.SetParent(ring, false);
+            var ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main; main.loop = true; main.startLifetime = new ParticleSystem.MinMaxCurve(0.9f, 1.4f); main.startSpeed = new ParticleSystem.MinMaxCurve(-0.6f, -0.3f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.04f, 0.09f); main.startColor = new ParticleSystem.MinMaxGradient(new Color(0.75f, 0.95f, 1f, 1f), new Color(0.45f, 0.85f, 1f, 1f));
+            main.simulationSpace = ParticleSystemSimulationSpace.Local; main.maxParticles = 60; main.playOnAwake = true; main.scalingMode = ParticleSystemScalingMode.Shape;
+            var em = ps.emission; em.rateOverTime = 26f;
+            var sh = ps.shape; sh.enabled = true; sh.shapeType = ParticleSystemShapeType.Circle; sh.radius = 1f; sh.radiusThickness = 0f; sh.arc = 360f;
+            sh.scale = new Vector3(A + 0.08f, B + 0.08f, 1f);
+            var col = ps.colorOverLifetime; col.enabled = true;
+            var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(1f, 0.25f), new GradientAlphaKey(0f, 1f) });
+            col.color = gr;
+            var sz = ps.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.3f));
+            var r = go.GetComponent<ParticleSystemRenderer>();
+            var mp = "Assets/FuwaStage2/Materials/Ruins_PortalSpark.mat";
+            var sm = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (!sm) { sm = new Material(Shader.Find("Legacy Shaders/Particles/Additive")); AssetDatabase.CreateAsset(sm, mp); }
+            sm.mainTexture = AssetDatabase.GetBuiltinExtraResource<Texture2D>("Default-Particle.psd"); sm.SetColor("_TintColor", new Color(0.5f, 0.5f, 0.5f, 0.5f)); EditorUtility.SetDirty(sm);
+            r.sharedMaterial = sm; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        }
+    }
     static void OvalStyle(Transform p)
     {
+        if (PortalFloating) { FloatingStyle(p); return; }
         var fr = p.Find("PortalFrame"); if (fr) Object.DestroyImmediate(fr.gameObject);
         var ring = new GameObject("OvalFrame").transform; ring.SetParent(p, false); ring.localPosition = OvalC;
         var o = new GameObject("StoneRing"); o.transform.SetParent(ring, false);
@@ -2648,7 +2720,7 @@ public static class FuwaCourse2_5Builder
     // ポータルの組：A の奥に B の部屋のコピー、B の奥に A の部屋のコピー。人を運ぶ（players）・ふわふわを運ぶ（balls）
     // ===== カメラ式ポータル（2026-11-14 てじゃ「ワープ前にカーテンとかクモの巣とかみえない」「明るさ」→ A）=====
     public static bool CameraPortals = true, TwoWayPortals = true;
-    public static int PortalRTSize = 1024;
+    public static int PortalRTSize = 1280;   // 2026-11-15 1024→1280：カメラは穴の大きさに合わせて一部だけに描く（FuwaPortalCams）。近くはくっきり、遠くは小さく
     static readonly List<(Transform entry, Transform exit, MeshRenderer hole)> camPortals = new List<(Transform, Transform, MeshRenderer)>();
     static void SetupPortalCams()
     {
@@ -2734,9 +2806,17 @@ public static class FuwaCourse2_5Builder
         var n = new GameObject("ExitBack").transform; n.SetParent(B, false); n.localPosition = OvalC + new Vector3(0f, 0f, -0.05f);
         var d = EllipseDisc(OvalA + 0.1f, OvalB + 0.1f, 64, "Portal_OvalBack");
         var f = new GameObject("Front"); f.transform.SetParent(n, false); f.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-        f.AddComponent<MeshFilter>().sharedMesh = d; f.AddComponent<MeshRenderer>().sharedMaterial = terraD;
+        Material fm = terraD, bm = stone;
+        if (PortalFloating)
+        {   // 浮いたポータルの裏：石ではなく、待機のうず（穴と同じ見た目）
+            var mp = "Assets/FuwaStage2/Materials/Ruins_PortalBack.mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (!m) { m = new Material(Shader.Find("Fuwa/PortalCam")); AssetDatabase.CreateAsset(m, mp); }
+            m.SetFloat("_Active", 0f); EditorUtility.SetDirty(m); fm = m; bm = m;
+        }
+        f.AddComponent<MeshFilter>().sharedMesh = d; f.AddComponent<MeshRenderer>().sharedMaterial = fm;
         var bk = new GameObject("Back"); bk.transform.SetParent(n, false); bk.transform.localPosition = new Vector3(0f, 0f, -0.02f);
-        bk.AddComponent<MeshFilter>().sharedMesh = d; bk.AddComponent<MeshRenderer>().sharedMaterial = stone;
+        bk.AddComponent<MeshFilter>().sharedMesh = d; bk.AddComponent<MeshRenderer>().sharedMaterial = bm;
     }
 
     // 出る側のくぼみ：壁のすき間の奥を暗い石でふさぐ（人の体・ふわふわが面の奥に少し出ても当たらない深さ 1.3m）
