@@ -32,7 +32,7 @@ public class FuwaShield : UdonSharpBehaviour
     public void Activate()
     {
         if (_on) return;
-        _on = true; _bounces = 0; _colNow = 0f;
+        _on = true; _bounces = 0; _colNow = 0f; _shockHits = 0;
         if (onSound != null) onSound.Play();
     }
 
@@ -54,7 +54,18 @@ public class FuwaShield : UdonSharpBehaviour
         if (dirFromSource.sqrMagnitude > 1e-6f) _hitDir = -dirFromSource.normalized;
         _hitAt = Time.time;
         if (blockSound != null) blockSound.Play();
+        // 2026-11-15 てじゃ「衝撃波を3回うけても1段階削れてもいいかも」：衝撃波 shockHitsPerStage 回で1段階（床で跳ねた時と同じ 水色→黄→赤→パリン）
+        //  途中の回数でも色が少しずつ変わる（あと何回か分かるように）。段階が進んだ時はカキンの音も
+        if (shockHitsPerStage > 0 && ++_shockHits >= shockHitsPerStage)
+        {
+            _shockHits = 0; _bounces++;
+            if (_bounces >= bouncesToBreak) { Shatter(); return; }
+            if (bounceSound != null) { bounceSound.pitch = 1f + 0.12f * (_bounces - 1); bounceSound.Play(); }
+        }
     }
+    [Tooltip("衝撃波を何回受けたら1段階削れるか（0＝削れない）")]
+    public int shockHitsPerStage = 3;
+    private int _shockHits;
 
     // 2026-11-15 てじゃ「バリアの回転はふわふわより遅めに」：ふわふわの回った分の spinFollow 倍だけ回る（子なので、毎フレーム向きを上書き）
     [Tooltip("ふわふわの回転についていく割合（0＝回らない、1＝ふわふわと同じ）")]
@@ -115,7 +126,7 @@ public class FuwaShield : UdonSharpBehaviour
     {
         if (_on && ball != null && ball.IsWaitingOrHidden()) { _on = false; _t = 0f; }   // アウト・チェックポイントにもどった：音なしですぐ消す
         if (_on && groundMask != 0 && _t > 0.3f && Time.time - _bounceAt > bounceCool && Physics.CheckSphere(transform.position, Radius() * 0.97f, groundMask, QueryTriggerInteraction.Ignore)) Bounce();
-        if (_on) _colNow = Mathf.MoveTowards(_colNow, Mathf.Min(2, _bounces), Time.deltaTime * 6f);
+        if (_on) _colNow = Mathf.MoveTowards(_colNow, Mathf.Min(2f, _bounces + (shockHitsPerStage > 0 ? (float)_shockHits / shockHitsPerStage : 0f)), Time.deltaTime * 6f);
         float target = _on ? 1f : 0f;
         if (_t < target) _t = Mathf.Min(target, _t + Time.deltaTime / Mathf.Max(0.01f, appearTime));
         else if (_t > target) _t = Mathf.Max(target, _t - Time.deltaTime / Mathf.Max(0.01f, vanishTime));
