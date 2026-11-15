@@ -2560,7 +2560,7 @@ public static class FuwaCourse2_5Builder
     //  石像の正面（台地のふち）から、最初のアーチ橋（Bridge1）の横へ。道側の崩れ残りはアーチ橋に直角（つなぎ目をきれいに）、島側は台地のふちから道側の先っぽへ向ける
     //  すき間は約12m（ジャンプで届かない）。まん中に折れた橋脚とずり落ちた床のかけら（道より 3.2m 低く、道側の先から 5m 以上）、空中で止まった石（当たりなし）
     //  床は石（もう道じゃない）、当たりはレイヤー0（立てるけど道あつかいじゃない）
-    public static float BrokenBridgeZ = 14f, BrokenRoadStub = 2.4f, BrokenIslandStub = 4f, BrokenStatueBack = 6.86f;   // BrokenStatueBack：島側の橋台（台地のふち）から石像の台座の正面の壁まで（Play で測った 6.81＋5cm 食いこませる）
+    public static float BrokenBridgeZ = 14f, BrokenRoadStub = 2.4f, BrokenIslandStub = 4f, BrokenStatueBack = 7.4f;   // BrokenStatueBack：島側の橋台（台地のふち）から石像の台座の正面の壁まで（黒いアーチを消したあと測って 6.9〜7.2、ななめなので少し食いこませる）
     static void BrokenBridge(Transform island)
     {
         var g = new GameObject("BrokenBridge").transform; g.SetParent(island, false);
