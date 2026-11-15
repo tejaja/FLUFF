@@ -11,6 +11,8 @@ public static class FuwaCopterBuilder
 {
     const string MeshDir = "Assets/FuwaCourse/Models/Copter";
     const string MatDir = "Assets/FuwaCourse/Materials/Copter";
+    // 2026-11-15 てじゃ「竹とんぼ台、竹とんぼごと反時計回りに15度くらいまわして」（上から見て反時計回り＝Yをマイナス）
+    public static float StandYaw = -15f;
     public static Vector3 StandLocal = new Vector3(-14.51f, 0f, -0.25f);   // 2026-11-11 てじゃ「たけとんぼ、スクショ板の左くらいに移動」「もうちょい左に、台座をちゃんと島に」：撮影の島のまん中から 3.4m（「もちょっとだけ柵寄りに」）、スクショの板から左へ 66°（前は傘立てと同じ所 (-5.4, 0, 0.9)、銃の台の左どなり）。ステージ2のロビーにも同じ島がある
     // 竹とんぼの大きさ（root は持つ所＝軸の下から 1/3。+Y が羽の方）
     const float StickLen = 0.34f, StickR = 0.014f, GripFromBottom = 0.11f, BladeSpan = 0.52f, BladeW = 0.065f, BladeT = 0.01f, BladeTwist = 16f, TipR = 0.016f;
@@ -57,7 +59,7 @@ public static class FuwaCopterBuilder
             if (Physics.Raycast(w + Vector3.up * 3f, Vector3.down, out var hit, 6f, 1 << 11 | 1, QueryTriggerInteraction.Ignore)) floorY = hit.point.y;
             var st = new GameObject("CopterStand").transform; st.SetParent(lt, false);
             st.position = new Vector3(w.x, floorY, w.z);
-            st.rotation = Quaternion.LookRotation(-new Vector3(w.x - lt.position.x, 0f, w.z - lt.position.z).normalized);
+            st.rotation = Quaternion.Euler(0f, StandYaw, 0f) * Quaternion.LookRotation(-new Vector3(w.x - lt.position.x, 0f, w.z - lt.position.z).normalized);
             BuildStand(st, standWood, standTrim);
             // 竹とんぼ：軸の下のはしが柱の上のつつの底に入る
             float cupTop = StandBaseH + StandPostH + 0.06f;
