@@ -972,7 +972,7 @@ public static class FuwaCourse2_5Builder
         MeshObj(g, "Keystone", SaveMesh("ArchGateKey" + no, kv, kt), stone, Vector3.zero, 0, true);
         curtainOnArch = true; curtainArchTop = colH - 0.6f;
     }
-    public static bool ArchGateNew = true;
+    public static bool ArchGateNew = true, StoneLook = true;
     static bool curtainOnArch; static float curtainArchTop;   // ArchGate のすぐあとの Curtain は柱の間に張る
 
     // ---- 列柱の回廊（2026-11-14 てじゃ「柱式にもどしたい」）：道の両わきに柱、巣の門の所は柱2本＋上のはり（巣はその間に張る）----
@@ -1395,6 +1395,8 @@ public static class FuwaCourse2_5Builder
         int seed = WiggleSeed; foreach (char ch in tag) seed = seed * 31 + ch; var rnd = new System.Random(seed);
         float ph = (float)rnd.NextDouble() * Mathf.PI * 2f, amp = (cols - 1) / 2f;
         var g = new GameObject("Stones_" + tag).transform; g.SetParent(isl, false);
+        var stA = new List<Vector3>(); var stAt = new List<int>(); var stB = new List<Vector3>(); var stBt = new List<int>(); var stU = new List<Vector3>(); var stUt = new List<int>();
+        var rnd2 = new System.Random(seed + 99);   // 見た目用（石の並びの乱数 rnd は変えない）
         float z0 = P.z, y = P.y, zc = z0; bool[] prev = null; bool lastGap = false; int gapLeft = 0, sinceGap = 0; int full = cols, f0 = 0;   // はしの列は全部（石だたみのはば）
         for (int r = 0; r < rows; r++)
         {
@@ -1422,11 +1424,24 @@ public static class FuwaCourse2_5Builder
             for (int c = 0; c < cols; c++)
             {
                 if (!solid[c]) continue;
-                Box(g, "Stone", new Vector3(-hwF + cw * (c + 0.5f), y - 0.3f, zc + rl * 0.5f), new Vector3(cw - 0.04f, 0.6f, rl - 0.04f), r % 2 == 0 ? pathA : pathB, pathLayer);
+                var sc3 = new Vector3(-hwF + cw * (c + 0.5f), y - 0.3f, zc + rl * 0.5f); var ss3 = new Vector3(cw - 0.04f, 0.6f, rl - 0.04f);
+                var sb = Box(g, "Stone", sc3, ss3, r % 2 == 0 ? pathA : pathB, pathLayer);
+                if (StoneLook)
+                {   // 2026-11-15 見た目クオリティ（2）：ただの箱 → 上のふちを面取りした石の板＋下にゴツゴツの岩（当たりは前の箱のまま）
+                    Object.DestroyImmediate(sb.GetComponent<MeshRenderer>()); Object.DestroyImmediate(sb.GetComponent<MeshFilter>());
+                    ChamferBoxInto(r % 2 == 0 ? stA : stB, r % 2 == 0 ? stAt : stBt, sc3, ss3, 0.08f);
+                    RockChunk(stU, stUt, sc3 + Vector3.down * (0.3f + 0.6f), new Vector3(cw * 0.78f, 1.5f, rl * 0.78f), Quaternion.Euler(0f, (float)rnd2.NextDouble() * 360f, 0f), rnd2);
+                }
             }
             zc += rl;
         }
         len = zc - z0;   // 切れ目で長さが変わる
+        if (StoneLook && stA.Count > 0)
+        {
+            MeshObj(g, "StonesA", SaveMesh("Stones_" + tag + "_A", stA, stAt), pathA, Vector3.zero, 0, true);
+            if (stB.Count > 0) MeshObj(g, "StonesB", SaveMesh("Stones_" + tag + "_B", stB, stBt), pathB, Vector3.zero, 0, true);
+            MeshObj(g, "StonesUnder", SaveMesh("Stones_" + tag + "_U", stU, stUt), underM, Vector3.zero, 0, true);
+        }
         // 崩れた石だたみのふち（低い石のへり、見た目だけ）→ 2026-11-14 てじゃ「道にある横の枠みたいなのもいらんかも」でなし（StoneRims）
         if (StoneRims) foreach (float sx in new[] { -1f, 1f })
         {
