@@ -3944,7 +3944,22 @@ public static class FuwaCourse2_5Builder
             var cr = MeshObj(g, "DomeCrystal", CrystalClusterMesh("PlazaDomeCrystal", 77, 1.1f, 0), CrystalMat(), new Vector3(0f, yb - 1.15f, 0f), 0, false);
             cr.transform.localRotation = Quaternion.Euler(180f, 20f, 0f);
         }
+        // 2026-11-15 てじゃ「上の方にすきまみえる」→ ドームの上は開いていて、いちばん上の溝から中（裏の殻は外向きだけ＝中から見ると透明）を通して空が見えた
+        //  → ふち（uy）にふた：下向き（中から見える、暗い）＋上向き（入口・出口のふちがない所で上から見える、石）
+        var vL = new List<Vector3>(); var tL = new List<int>();
+        {
+            int nP = 96;
+            for (int i = 0; i < nP; i++)
+            {
+                float p0 = 2f * Mathf.PI * i / nP, p1 = 2f * Mathf.PI * (i + 1) / nP;
+                var c = new Vector3(0f, uy - 0.005f, 0f);
+                var a0 = new Vector3(Mathf.Cos(p0) * (Rr + 0.02f), uy - 0.005f, Mathf.Sin(p0) * (Rr + 0.02f)); var a1 = new Vector3(Mathf.Cos(p1) * (Rr + 0.02f), uy - 0.005f, Mathf.Sin(p1) * (Rr + 0.02f));
+                Tri(vK, tK, c, a0, a1, Vector3.down);
+                Tri(vL, tL, c + Vector3.up * 0.005f, a0 + Vector3.up * 0.005f, a1 + Vector3.up * 0.005f, Vector3.up);
+            }
+        }
         var go = new GameObject("BlockDome"); go.transform.SetParent(g, false);
+        MeshObj(go.transform, "Lid", SaveMesh(name + "_DomeLid", vL, tL), stone, Vector3.zero, 0, true);
         MeshObj(go.transform, "BlocksA", SaveMesh(name + "_DomeA", vA, tA), stone, Vector3.zero, 0, true);
         if (vB.Count > 0) MeshObj(go.transform, "BlocksB", SaveMesh(name + "_DomeB", vB, tB), stoneB, Vector3.zero, 0, true);
         MeshObj(go.transform, "Backing", SaveMesh(name + "_DomeBack", vK, tK), underM, Vector3.zero, 0, true);
