@@ -2560,7 +2560,48 @@ public static class FuwaCourse2_5Builder
     //  石像の正面（台地のふち）から、最初のアーチ橋（Bridge1）の横へ。道側の崩れ残りはアーチ橋に直角（つなぎ目をきれいに）、島側は台地のふちから道側の先っぽへ向ける
     //  すき間は約12m（ジャンプで届かない）。まん中に折れた橋脚とずり落ちた床のかけら（道より 3.2m 低く、道側の先から 5m 以上）、空中で止まった石（当たりなし）
     //  床は石（もう道じゃない）、当たりはレイヤー0（立てるけど道あつかいじゃない）
-    public static float BrokenBridgeZ = 14f, BrokenRoadStub = 2.4f, BrokenIslandStub = 4f, BrokenStatueBack = 7.4f;   // BrokenStatueBack：島側の橋台（台地のふち）から石像の台座の正面の壁まで（黒いアーチを消したあと測って 6.9〜7.2、ななめなので少し食いこませる）
+    public static float BrokenBridgeZ = 14f, BrokenRoadStub = 2.4f, BrokenIslandStub = 4f, BrokenStatueBack = 1.5f;   // 島側の床が橋台のうしろへ出る長さ（2026-11-15 てじゃ「直で橋つなぐのちがう、島の先端に橋、石像までは道」→ 1.5 にもどして、その先は StatueApproach の階段と道）
+    // 橋のたもとから石像の台座まで：階段で台地へ下りる → シマシマの道 → 台座の段へ上がる短い階段（見た目だけ、当たりはレイヤー0）
+    //  台座の正面の段（上の面 -0.55、台地から 0.9）は橋台のうしろ 4.9m から（Play で測った）
+    public static float ApproachSlabD = 4.9f, ApproachSlabTop = -0.55f;
+    static void StatueApproach(Transform isb, float yTop, float W)
+    {
+        var g = new GameObject("StatueApproach").transform; g.SetParent(isb, false);
+        float back = BrokenStatueBack, pw = W - 0.5f;
+        int nDown = 5; float drop = 0f - (yTop + 0.06f), rise = drop / nDown, run = 0.32f;
+        float z = -back;
+        for (int k = 1; k <= nDown; k++)
+        {
+            float top = -rise * k, z0 = z - run;
+            Box(g, "StepDown" + k, new Vector3(0f, (top + yTop - 0.3f) / 2f, (z + z0) / 2f), new Vector3(pw, top - (yTop - 0.3f), run), k % 2 == 0 ? pathA : pathB, 0);
+            z = z0;
+        }
+        // 道（シマシマ）
+        int nUp = 3; float upRise = (ApproachSlabTop - 0.02f - (yTop + 0.06f)) / nUp;
+        float zUp0 = -(ApproachSlabD - run * nUp);
+        int si = 0;
+        for (float zz = z; zz > zUp0 + 0.01f; si++)
+        {
+            float z1 = Mathf.Max(zUp0, zz - StripeLen * 0.5f);
+            Box(g, "Path" + si, new Vector3(0f, yTop + 0.06f - 0.15f, (zz + z1) / 2f), new Vector3(pw, 0.3f, zz - z1), si % 2 == 0 ? pathA : pathB, 0);
+            zz = z1;
+        }
+        // 台座の段へ上がる階段（最後の段は台座の段より 2cm 低く、少し下へもぐりこませる＝ちらつかない）
+        z = zUp0;
+        for (int k = 1; k <= nUp; k++)
+        {
+            float top = yTop + 0.06f + upRise * k, z0 = z - run - (k == nUp ? 0.08f : 0f);
+            Box(g, "StepUp" + k, new Vector3(0f, (top + yTop - 0.3f) / 2f, (z + z0) / 2f), new Vector3(pw, top - (yTop - 0.3f), z - z0), k % 2 == 0 ? pathA : pathB, 0);
+            z = z0 + (k == nUp ? 0.08f : 0f);
+        }
+        // 道のふち石
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            float zs = -back - run * nDown, ze = zUp0;
+            Box(g, "Curb", new Vector3(sx * (pw / 2f + 0.1f), yTop + 0.1f, (zs + ze) / 2f), new Vector3(0.2f, 0.2f, zs - ze), terraD, 0);
+        }
+    }
+
     static void BrokenBridge(Transform island)
     {
         var g = new GameObject("BrokenBridge").transform; g.SetParent(island, false);
@@ -2640,6 +2681,7 @@ public static class FuwaCourse2_5Builder
                 RockChunk(rbv, rbt, new Vector3((i % 2 == 0 ? -1f : 1f) * (W / 2f + 0.9f + (float)rnd0.NextDouble() * 1.2f), yTop + 0.1f, -0.8f - (float)rnd0.NextDouble() * 3.5f), Vector3.one * (0.3f + 0.3f * (float)rnd0.NextDouble()),
                     Quaternion.Euler((float)rnd0.NextDouble() * 360f, (float)rnd0.NextDouble() * 360f, 0f), rnd0);
             MeshObj(isb, "Rubble", SaveMesh("BrokenIslandRubble", rbv, rbt), deckM, Vector3.zero, 0, true);
+            StatueApproach(isb, yTop, W);
         }
         // ---- まん中：折れた橋脚＋ずり落ちた床のかけら ----
         var islandTip = a + dir * BrokenIslandStub;
