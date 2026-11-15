@@ -251,7 +251,7 @@ public static class FuwaCourse2_5Builder
             CrystalPlaza("CrystalPlaza");
             // 2026-11-15 てじゃ「広場のつなぎ目がちょっとシンプルすぎる」→ 広場と橋の間の 3m のただの道をやめて、橋を広場のふちから直接（橋は 3m 長く＝先は同じ所）
             // 2026-11-15 てじゃ「（S(0.4) の道の）上が飛び出てる」→ 道ははさまない。橋の欄干の外のはし（BridgeHW+0.27）が広場の円のふちに来る所から橋（まん中は床の下にかくれる）
-            if (PlazaBridgeDirect) { P += Dir(th) * PlazaBridgeAdvance(); ShieldOff("ShieldOff"); } else { S(1.5f); ShieldOff("ShieldOff"); S(1.5f); } });
+            if (PlazaBridgeDirect) { if (ShieldOffArch) ShieldGateArch("ShieldOffGate", false, BridgeHW + 0.8f); else ShieldOff("ShieldOff"); P += Dir(th) * PlazaBridgeAdvance(); } else { S(1.5f); ShieldOff("ShieldOff"); S(1.5f); } });   // 解除のアーチは広場のふちギリギリ
         Island("Bridge3");
         Run(() => { if (PlazaBridgeDirect) ArchBridge(14f + 3f - PlazaBridgeAdvance(), 2f, false, null, false, true); else ArchBridge(14f, 2f, false, null); });   // 先のはしは前と同じ所
         // 2026-11-15 てじゃ「ここ（クリスタルの広場）通り過ぎて橋の先はもうゴール行きポータルでいいかも」→ 橋のすぐ先にワープB
@@ -1068,7 +1068,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
-    public static bool ShockDark = true, ShockSkyDim = true, ShieldVeil = true; public static float ShockEarly = 5f; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
+    public static bool ShockDark = true, ShockSkyDim = true, ShieldVeil = true, ShieldOffArch = true; public static Color ShieldOffCol = new Color(0.86f, 0.78f, 1f, 1f); public static float ShockEarly = 5f; public static bool ShockCorridor = true; static float shockCorridorLen; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
     public static bool PlazaBridgeDirect = true, PlazaLedgeUnderEntry = true;
     // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
     static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
@@ -4002,16 +4002,18 @@ public static class FuwaCourse2_5Builder
     }
 
     // バリアの門：崩れた石のアーチ＋てっぺんに浮いた小さいクリスタル。くぐると FuwaShieldGate がバリアをつける。当たりは道のはばより広く・高く（よけられない）
-    static void ShieldGateArch(string name)
+    static void ShieldGateArch(string name, bool give = true, float cxIn = -1f)
     {
+        // 2026-11-15 てじゃ「反対側は広場ギリギリにバリア解除のアーチ置こう」→ give=false で解除の門（色ちがい、アセット名も別）
+        string pre = give ? "Gate" : "OffGate"; Color gcol = give ? ShieldCol : ShieldOffCol;
         // 2026-11-15 見た目クオリティ（5）：四角い門 → 溝のある柱2本＋半円の石のアーチ（くさび石）、要石の上に石の爪で支えた小さいクリスタル、要石に光る石
-        float cx = HW + 0.8f, colH = 3.6f, rIn = cx - 0.45f, rOut = cx + 0.45f;
+        float cx = cxIn > 0f ? cxIn : HW + 0.8f, colH = 3.6f, rIn = cx - 0.45f, rOut = cx + 0.45f;
         var g = new GameObject(name).transform; g.SetParent(isl, false); g.localPosition = new Vector3(0f, P.y, P.z); g.gameObject.layer = 2;
         foreach (float sx in new[] { -1f, 1f })
         {
             var co = new GameObject(sx < 0 ? "ColumnL" : "ColumnR"); co.transform.SetParent(g, false); co.transform.localPosition = new Vector3(sx * cx, 0f, 0f);
             co.transform.localRotation = Quaternion.identity;   // 2本の向きをそろえる
-            co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("GateColumn" + (sx < 0 ? "L" : "R"), sx < 0 ? 31 : 32, colH, 0);
+            co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh(pre + "Column" + (sx < 0 ? "L" : "R"), sx < 0 ? 31 : 32, colH, 0);
             co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
             var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = colH; cc.center = Vector3.up * colH / 2f;
         }
@@ -4069,12 +4071,12 @@ public static class FuwaCourse2_5Builder
                     Tri(tv, tt, q[fc[0]], q[fc[1]], q[fc[2]], fcen - cen); Tri(tv, tt, q[fc[0]], q[fc[2]], q[fc[3]], fcen - cen);
                 }
             }
-            MeshObj(g, "Arch", SaveMesh("GateArch", v, t), terra, Vector3.zero, 0, true);
-            keyT = MeshObj(g, "Keystone", SaveMesh("GateKeystone", kv, kt), stone, Vector3.zero, 0, true).transform;
+            MeshObj(g, "Arch", SaveMesh(pre + "Arch", v, t), terra, Vector3.zero, 0, true);
+            keyT = MeshObj(g, "Keystone", SaveMesh(pre + "Keystone", kv, kt), stone, Vector3.zero, 0, true).transform;
         }
         float keyTop = colH + rOut * 1.12f;
         // 要石の光る石（正面と裏、半分うまっている）
-        var runeM = GlowMat("Ruins_ShieldRune", ShieldCol, 1.4f);
+        var runeM = GlowMat(give ? "Ruins_ShieldRune" : "Ruins_ShieldOffRune", gcol, 1.4f);
         var glows = new List<Renderer>();
         foreach (float sz in new[] { -1f, 1f })
         {
@@ -4096,7 +4098,7 @@ public static class FuwaCourse2_5Builder
                 int[][] faces = { new[] { 0, 1, 5, 4 }, new[] { 1, 2, 6, 5 }, new[] { 2, 3, 7, 6 }, new[] { 3, 0, 4, 7 }, new[] { 4, 5, 6, 7 } };
                 foreach (var fc in faces) { var fcen = (q[fc[0]] + q[fc[1]] + q[fc[2]] + q[fc[3]]) * 0.25f; Tri(v, t, q[fc[0]], q[fc[1]], q[fc[2]], fcen - cen); Tri(v, t, q[fc[0]], q[fc[2]], q[fc[3]], fcen - cen); }
             }
-            MeshObj(g, "Claws", SaveMesh("GateClaws", v, t), stone, Vector3.zero, 0, true);
+            MeshObj(g, "Claws", SaveMesh(pre + "Claws", v, t), stone, Vector3.zero, 0, true);
         }
         float h = keyTop - 0.45f;   // 下の粒の位置用（クリスタルは keyTop+0.75）
         var crysM = CrystalMat();
@@ -4118,13 +4120,13 @@ public static class FuwaCourse2_5Builder
             int c0 = vv.Count; vv.Add(new Vector3(0f, colH, 0f));
             for (int k = 0; k <= m; k++) { float a = Mathf.PI * k / m; vv.Add(new Vector3(Mathf.Cos(a) * rr, colH + Mathf.Sin(a) * rr, 0f)); }
             for (int k = 0; k < m; k++) { tt.Add(c0); tt.Add(c0 + 1 + k); tt.Add(c0 + 2 + k); }
-            var vm = SaveMesh("GateShieldVeil", vv, tt);
-            var veilM = FxMat("Ruins_ShieldVeil", "Fuwa/ShieldVeil"); veilM.SetColor("_Color", ShieldCol); veilM.SetFloat("_Width", 2f * hw); veilM.SetFloat("_Height", colH + rr); veilM.SetFloat("_ArchR", rr); veilM.SetFloat("_RimW", 0.9f); EditorUtility.SetDirty(veilM);
+            var vm = SaveMesh(pre + "ShieldVeil", vv, tt);
+            var veilM = FxMat(give ? "Ruins_ShieldVeil" : "Ruins_ShieldOffVeil", "Fuwa/ShieldVeil"); veilM.SetColor("_Color", gcol); veilM.SetFloat("_Width", 2f * hw); veilM.SetFloat("_Height", colH + rr); veilM.SetFloat("_ArchR", rr); veilM.SetFloat("_RimW", 0.9f); EditorUtility.SetDirty(veilM);
             var vo = MeshObj(g, "Veil", vm, veilM, Vector3.zero, 2, false);
             var vr = vo.GetComponent<Renderer>(); vr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; vr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             glows.Add(vr);
         }
-        sg.shield = shieldT; sg.give = true; sg.crystal = cr.transform; sg.glows = glows.ToArray(); sg.glowColor = ShieldCol; sg.beam = beam;
+        sg.shield = shieldT; sg.give = give; sg.crystal = cr.transform; sg.glows = glows.ToArray(); sg.glowColor = gcol; sg.beam = beam;
         UdonSharpEditorUtility.CopyProxyToUdon(sg); FuwaStage2WaterTest.NoSync(sg);
     }
     // バリアが消える所（見た目なし）
@@ -4505,7 +4507,15 @@ public static class FuwaCourse2_5Builder
         sw.shadowPad = sw.nearPad;
         // 2026-11-15 てじゃ「初回チャージ、チャージが速すぎて気になる、チャージ時間揃える代わりにもっと手前から察知してチャージ開始」
         //  → 1発目のためも chargeTime と同じ。ふわふわが広場のふちの ShockEarly m 手前に来たらためはじめ（止まるのはそれより外 ShockEarly+0.5）
-        sw.firstChargeTime = sw.chargeTime; sw.enterMargin = ShockEarly; sw.leaveMargin = ShockEarly + 0.5f;   // 2026-11-15 てじゃ「後ろの影の出始めが、バリアの中心じゃないんだな」→ 影のはばの始まりをバリアのまわりのセーフ（半径＋nearPad）とそろえる（線がいちばん太い所からそのまま後ろへ）
+        sw.firstChargeTime = sw.chargeTime; sw.enterMargin = ShockEarly; sw.leaveMargin = ShockEarly + 0.5f;
+        // 入口の道も当たる（バリアの門より奥＝門の 0.4m 手前まで）。向きは広場のまん中→入口（g の -z）
+        {
+            var gateT = isl.Find("ShieldGate");
+            Vector3 cW = g.position, dW = g.TransformDirection(Vector3.back); dW.y = 0f; dW.Normalize();
+            float glen = gateT ? Vector3.Dot(gateT.position - cW, dW) - 0.4f : R + 3f;
+            if (ShockCorridor) { sw.corridorDir = dW; sw.corridorHalfW = HW + 0.3f; sw.corridorLen = glen; }
+            shockCorridorLen = ShockCorridor ? glen : 0f;
+        }   // 2026-11-15 てじゃ「後ろの影の出始めが、バリアの中心じゃないんだな」→ 影のはばの始まりをバリアのまわりのセーフ（半径＋nearPad）とそろえる（線がいちばん太い所からそのまま後ろへ）
         sw.crystal = pivot; sw.crystalGlows = crystalRends.ToArray(); sw.glowColor = ShieldCol; sw.runeGlows = runeRends.ToArray();
         sw.wave = wave.transform; sw.waveFloor = waveF.transform; sw.chargeRing = chg.transform;
         sw.waveRenderers = new[] { wave.GetComponent<Renderer>(), waveF.GetComponent<Renderer>() }; sw.chargeRenderer = chg.GetComponent<Renderer>();
@@ -4514,9 +4524,16 @@ public static class FuwaCourse2_5Builder
         {   // 2026-11-15 てじゃ「衝撃波の範囲、もっと目立たせたいな、特に床」→ 床にかぶせる円盤（Fuwa/ShockFloor）
             var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
             AnnulusInto(v, t, uv, 0.001f, R, 0f, Mathf.PI * 2f, 0f, 0f, 96);
+            if (shockCorridorLen > R)
+            {   // 入口の道の上（g の -z 向き、道はば）
+                float hwc = HW, z1 = -(R - 0.6f), z2 = -shockCorridorLen; int k0 = v.Count;
+                v.Add(new Vector3(-hwc, -0.12f, z1)); v.Add(new Vector3(hwc, -0.12f, z1)); v.Add(new Vector3(hwc, -0.12f, z2)); v.Add(new Vector3(-hwc, -0.12f, z2));
+                for (int q = 0; q < 4; q++) uv.Add(Vector2.zero);
+                t.Add(k0); t.Add(k0 + 1); t.Add(k0 + 2); t.Add(k0); t.Add(k0 + 2); t.Add(k0 + 3);
+            }
             FixWinding(v, t, _ => Vector3.up);
             var zm = SaveMeshUV(name + "_ShockZone", v, t, uv, v.Select(_ => Vector3.up).ToList());
-            var zM = FxMat("Ruins_ShockFloor", "Fuwa/ShockFloor"); zM.SetColor("_Color", ShockDark ? ShockDarkCol : ShieldCol); zM.SetFloat("_Radius", R); EditorUtility.SetDirty(zM);
+            var zM = FxMat("Ruins_ShockFloor", "Fuwa/ShockFloor"); zM.SetColor("_Color", ShockDark ? ShockDarkCol : ShieldCol); zM.SetFloat("_Radius", Mathf.Max(R, shockCorridorLen)); EditorUtility.SetDirty(zM);
             var zo = MeshObj(g, "ShockZone", zm, zM, new Vector3(0f, 0.025f, 0f), 0, false);
             var zr = zo.GetComponent<Renderer>(); zr.enabled = false; zr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; zr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             sw.floorZone = zr;

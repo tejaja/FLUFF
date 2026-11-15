@@ -38,6 +38,9 @@ public class FuwaShockwave : UdonSharpBehaviour
     public float ballPush = 9f, ballUp = 3f;
     [Tooltip("バリアのまわりのセーフ（バリアのふちからの距離 m）")]
     public float nearPad = 0.8f;
+    [Tooltip("2026-11-15 てじゃ「手前の道は影響あってもいいかも、バリアより奥」→ 広場のほかに、入口の道（広場のまん中から corridorDir の向き、はば corridorHalfW、まん中から corridorLen まで）も当たる")]
+    public Vector3 corridorDir = Vector3.zero;
+    public float corridorHalfW = 2.7f, corridorLen = 0f;
     [Tooltip("影の横のゆとり（m）")]
     public float shadowPad = 0.8f;   // 2026-11-15 nearPad とそろえる（0.45 → 0.8）
 
@@ -181,7 +184,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         if (_waveLive)
         {
             float r = (now - _blastAt) * waveSpeed;
-            float rEnd = radius + waveExtra;
+            float rEnd = WaveEnd();
             if (r > rEnd) HideWave();
             else
             {
@@ -199,7 +202,7 @@ public class FuwaShockwave : UdonSharpBehaviour
                     if (r >= pd)
                     {
                         _playerDone = true;
-                        if (_active && band && pd <= radius + 0.5f && dy < waveHeight + 0.5f && !Safe(pp))
+                        if (_active && band && InZone(pp) && dy < waveHeight + 0.5f && !Safe(pp))
                         {
                             Vector3 o = new Vector3(pdx, 0f, pdz);
                             o = o.sqrMagnitude > 1e-4f ? o.normalized : Vector3.forward;
@@ -218,7 +221,7 @@ public class FuwaShockwave : UdonSharpBehaviour
                     {
                         _ballDone = true;
                         float bdy = bp.y - c.y;
-                        if (bd <= radius + 0.5f && bdy > -heightBelow && bdy < waveHeight + 0.5f && !ball.IsWaitingOrHidden())
+                        if (InZone(bp) && bdy > -heightBelow && bdy < waveHeight + 0.5f && !ball.IsWaitingOrHidden())
                         {
                             Vector3 o = new Vector3(bdx, 0f, bdz);
                             o = o.sqrMagnitude > 1e-4f ? o.normalized : Vector3.forward;
@@ -251,6 +254,21 @@ public class FuwaShockwave : UdonSharpBehaviour
         if (boomSound != null) boomSound.Play();
         if (chargeParticles != null) { var em = chargeParticles.emission; em.enabled = false; }
         if (blastParticles != null) blastParticles.Emit(blastCount);
+    }
+
+    private float WaveEnd() { return Mathf.Max(radius + waveExtra, corridorLen + 0.5f); }
+
+    // 当たる所か：広場（radius+0.5）か、入口の道（corridor）
+    private bool InZone(Vector3 p)
+    {
+        Vector3 c = transform.position;
+        float dx = p.x - c.x, dz = p.z - c.z;
+        if (Mathf.Sqrt(dx * dx + dz * dz) <= radius + 0.5f) return true;
+        if (corridorLen <= 0f) return false;
+        Vector2 dir = new Vector2(corridorDir.x, corridorDir.z); float dl = dir.magnitude; if (dl < 1e-4f) return false; dir /= dl;
+        Vector2 q = new Vector2(dx, dz);
+        float along = Vector2.Dot(q, dir), lat = Mathf.Abs(q.x * dir.y - q.y * dir.x);
+        return along > 0f && along <= corridorLen && lat <= corridorHalfW;
     }
 
     // セーフか（p：自分の足の位置）。バリアのまわり、またはクリスタルから見てバリアの後ろ（上から見た2D）
@@ -431,8 +449,8 @@ public class FuwaShockwave : UdonSharpBehaviour
         if (_waveLive)
         {
             wr = (now - _blastAt) * waveSpeed;
-            float rEnd = radius + waveExtra;
-            wf = (1f - Mathf.Clamp01((wr - radius * 0.8f) / (rEnd - radius * 0.8f))) * Mathf.Clamp01(wr / 0.6f);
+            float rEnd = WaveEnd();
+            wf = (1f - Mathf.Clamp01((wr - rEnd + 2.5f) / 2.5f)) * Mathf.Clamp01(wr / 0.6f);
         }
         bool on = _active && (k > 0f || _waveLive);
         if (floorZone.enabled != on) floorZone.enabled = on;
