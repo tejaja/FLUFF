@@ -12,6 +12,8 @@ Shader "Fuwa/ShieldVeil"
         _Alpha ("濃さ", Range(0, 1)) = 0.55
         _Width ("口のはば（m、ふちのフェード用）", Float) = 4.2
         _Height ("口の高さ（m）", Float) = 5.6
+        _ArchR ("上の半円の半径（m）", Float) = 1.9
+        _RimW ("ふちから模様が見えるはば（m）", Float) = 0.9
         _EmissionColor ("光（スクリプト）", Color) = (1, 1, 1, 1)
     }
     SubShader
@@ -26,7 +28,7 @@ Shader "Fuwa/ShieldVeil"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            half4 _Color; float _Cell, _Width, _Height; half _Alpha;
+            half4 _Color; float _Cell, _Width, _Height, _ArchR, _RimW; half _Alpha;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _EmissionColor)
             UNITY_INSTANCING_BUFFER_END(Props)
@@ -60,15 +62,21 @@ Shader "Fuwa/ShieldVeil"
                 float2 id = p - gv;
                 float d = HexD(gv);                       // 0＝まん中、0.5＝ふち
                 float edge = smoothstep(0.40, 0.49, d);   // 六角形のふちの線
-                // 下から上へ流れる光の波＋六角形ごとのまたたき
-                float wave = 0.5 + 0.5 * sin(i.op.y * 2.2 - t * 2.4 + id.x * 0.15);
-                float tw = step(0.86, frac(H2(floor(id * 10.0 + 0.5)) + t * 0.18));
-                // 口のふちのほうが濃い（まん中は通れる感じにうすく）
-                float ex = abs(i.op.x) / (_Width * 0.5);
-                float ey = i.op.y / _Height;
-                float rim = saturate(max(ex, ey * 0.9) * 1.25 - 0.25);
-                float baseA = _Alpha * (0.10 + 0.35 * rim);
-                float a1 = baseA + edge * _Alpha * (0.35 + 0.45 * wave) + tw * (1 - d * 1.6) * 0.18 + flash * (0.35 + 0.6 * edge);
+                // 2026-11-15 てじゃ「六角形マークがチラチラしてる青いカーテンくらいがいいかな」
+                //  → ほかのカーテン（大きさのカーテン）と同じく、下ほど濃く上へ消える青い幕。六角形はところどころの1つずつがチラッと光る（全面の網目はなし）
+                float hw = _Width * 0.5, colH = _Height - _ArchR;
+                float dIn = i.op.y < colH ? hw - abs(i.op.x) : _ArchR - length(float2(i.op.x, i.op.y - colH));   // 枠までの距離（m）
+                float side = smoothstep(0.0, 0.35, dIn);
+                float y01 = saturate(i.op.y / _Height);
+                float vfade = pow(1 - y01, 1.3) * (0.55 + 0.45 * saturate(y01 * 6));
+                float shimmer = 0.85 + 0.15 * sin(i.op.y * 3.0 - t * 1.8 + i.op.x * 0.7);
+                float curtain = _Alpha * 1.05 * vfade * shimmer;
+                // 六角形のマーク：セルごとにばらばらのタイミングで ふっと出て消える
+                float hsh = H2(floor(id * 10.0 + 0.5));
+                float blink = saturate(sin(t * (1.3 + hsh * 1.7) + hsh * 40.0) * 7.0 - 6.0);   // たまに 0→1→0（少なめ）
+                float mark = blink * (edge * 0.9 + (1 - smoothstep(0.30, 0.46, d)) * 0.18);
+                float a1 = (curtain + mark * (0.15 + 0.85 * vfade)) * side + flash * (0.3 + 0.5 * edge) * side;
+                edge = mark;   // 下の色計算で、光っている六角形だけ明るく
                 // 床ぎわは消す
                 a1 *= smoothstep(0.0, 0.25, i.op.y);
                 a1 = saturate(a1);

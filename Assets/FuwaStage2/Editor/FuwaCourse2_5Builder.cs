@@ -4119,7 +4119,7 @@ public static class FuwaCourse2_5Builder
             for (int k = 0; k <= m; k++) { float a = Mathf.PI * k / m; vv.Add(new Vector3(Mathf.Cos(a) * rr, colH + Mathf.Sin(a) * rr, 0f)); }
             for (int k = 0; k < m; k++) { tt.Add(c0); tt.Add(c0 + 1 + k); tt.Add(c0 + 2 + k); }
             var vm = SaveMesh("GateShieldVeil", vv, tt);
-            var veilM = FxMat("Ruins_ShieldVeil", "Fuwa/ShieldVeil"); veilM.SetColor("_Color", ShieldCol); veilM.SetFloat("_Width", 2f * hw); veilM.SetFloat("_Height", colH + rr); EditorUtility.SetDirty(veilM);
+            var veilM = FxMat("Ruins_ShieldVeil", "Fuwa/ShieldVeil"); veilM.SetColor("_Color", ShieldCol); veilM.SetFloat("_Width", 2f * hw); veilM.SetFloat("_Height", colH + rr); veilM.SetFloat("_ArchR", rr); veilM.SetFloat("_RimW", 0.9f); EditorUtility.SetDirty(veilM);
             var vo = MeshObj(g, "Veil", vm, veilM, Vector3.zero, 2, false);
             var vr = vo.GetComponent<Renderer>(); vr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; vr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             glows.Add(vr);
