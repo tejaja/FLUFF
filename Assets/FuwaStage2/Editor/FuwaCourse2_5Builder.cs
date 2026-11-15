@@ -922,17 +922,30 @@ public static class FuwaCourse2_5Builder
                 foreach (float cxp in open ? new[] { -(xi + xo) / 2f, (xi + xo) / 2f } : new[] { 0f })
                 {
                     float hx0 = open ? (xo - xi) / 2f : xo, hz0 = pw / 2f;
-                    var top = new[] { new Vector3(cxp - hx0, yt, z - hz0), new Vector3(cxp + hx0, yt, z - hz0), new Vector3(cxp + hx0, yt, z + hz0), new Vector3(cxp - hx0, yt, z + hz0) };
-                    float ym = yt - dep * 0.55f;
-                    var mid = new[] { new Vector3(cxp - hx0 * 0.95f, ym, z - hz0 * 1.1f), new Vector3(cxp + hx0 * 0.95f, ym, z - hz0 * 1.1f), new Vector3(cxp + hx0 * 0.95f, ym, z + hz0 * 1.1f), new Vector3(cxp - hx0 * 0.95f, ym, z + hz0 * 1.1f) };
-                    var bot = new Vector3(cxp + bx * (open ? 0.2f : 0.6f), yt - dep, z + bz * 0.3f);
-                    var c = new Vector3(cxp, yt - dep * 0.5f, z);
-                    for (int k = 0; k < 4; k++)
+                    // 2026-11-15 てじゃ「橋の下の柱も、ツンツンじゃなくて折れた後みたいなかんじにしよ」→ 先が1点にとがる形 → まっすぐ下りて（少しだけ細る）ギザギザに折れて終わる
+                    //  まわりを 1辺 PS こまに分けた輪：上（道の下の面）→ 下（折れ口、こまごとに高さがちがう）。折れ口はまん中から扇でふさぐ
+                    const int PS = 3; int PM = PS * 4;
+                    var cornersT = new[] { new Vector2(-hx0, -hz0), new Vector2(hx0, -hz0), new Vector2(hx0, hz0), new Vector2(-hx0, hz0) };
+                    var ringT = new Vector3[PM]; var ringB = new Vector3[PM];
+                    float yb = yt - dep * 0.8f, tap = 0.9f;
+                    var sh = new Vector2(bx * (open ? 0.05f : 0.15f), bz * 0.08f);   // 下の方が少しずれる（古い感じ）
+                    for (int k = 0; k < PM; k++)
                     {
-                        int j = (k + 1) % 4;
-                        Quad(v, t, top[k], top[j], mid[j], mid[k], (top[k] + top[j]) * 0.5f - new Vector3(cxp, top[k].y, z));
-                        Tri(v, t, mid[k], mid[j], bot, (mid[k] + mid[j]) * 0.5f - c);
+                        int side = k / PS; float f = (k % PS) / (float)PS;
+                        var q = Vector2.Lerp(cornersT[side], cornersT[(side + 1) % 4], f);
+                        ringT[k] = new Vector3(cxp + q.x, yt, z + q.y);
+                        float jag = (float)rnd.NextDouble() * 0.9f - 0.45f + ((k % 2 == 0) ? 0.18f : -0.18f);
+                        ringB[k] = new Vector3(cxp + q.x * tap + sh.x, yb + jag, z + q.y * tap + sh.y);
                     }
+                    var cB = new Vector3(cxp + sh.x, yb - 0.15f + 0.3f * (float)rnd.NextDouble(), z + sh.y);
+                    for (int k = 0; k < PM; k++)
+                    {
+                        int j = (k + 1) % PM;
+                        var mid2 = (ringT[k] + ringT[j]) * 0.5f; var outw = new Vector3(mid2.x - cxp, 0f, mid2.z - z);
+                        Quad(v, t, ringT[k], ringT[j], ringB[j], ringB[k], outw);
+                        Tri(v, t, ringB[k], ringB[j], cB, Vector3.down);
+                    }
+                    var top = new[] { new Vector3(cxp - hx0, yt, z - hz0), new Vector3(cxp + hx0, yt, z - hz0), new Vector3(cxp + hx0, yt, z + hz0), new Vector3(cxp - hx0, yt, z + hz0) };
                     if (open) Quad(v, t, top[0], top[1], top[2], top[3], Vector3.up);   // 上（穴から見える）
                 }
             }
