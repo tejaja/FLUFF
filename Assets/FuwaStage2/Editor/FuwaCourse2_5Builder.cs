@@ -206,6 +206,9 @@ public static class FuwaCourse2_5Builder
         // てじゃ「上の二島、下の二島とクロスしたかんじのほうがいい」：上から見て X 字。下の段のスタート→ワープA の向き d に直角（n）で、まん中の上を横切る
         //  2026-11-14 ①が短くなって②の島もなくなったので、前の位置（スタート→前のワープA のまん中の上）に固定
         P = UpperStart; th = UpperStartHeading;
+        { // 2026-11-15 てじゃ「ここから石像からみて後ろ側にまっすぐずらしてみて」→ 石像の背中の向きへ UpperBackShift m（向きはそのまま）
+            var back = -(Quaternion.Euler(0f, StatueYaw, 0f) * Vector3.forward); back.y = 0f; back.Normalize();
+            P += back * UpperBackShift; }
         float upTh = th;
         var i3 = Island("I3_Gravity");
         Transform warpWin = null;
@@ -257,6 +260,7 @@ public static class FuwaCourse2_5Builder
     // 空中の巣の回廊の置き場所：①の島の道の範囲の +x・-z の角から WebWalkOut、高さ WebWalkUp（てじゃの図の青◯）
     public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;   // （前の決め方、今は WebWalkStart に固定）
     public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f); public static float WebWalkOrbit = 25f, WebWalkBack = 0f;   // 巣の門を1つ足して +3.8、最初の巣をなくして −3.8   // 2026-11-14 15° → トンネルが伸びたので「また反時計回りにまわして」25°
+    public static float UpperBackShift = 10f;
     public static Vector3 UpperStart = new Vector3(39.5948f, 32.8087f, 24.0744f); public static float UpperStartHeading = 134.3111f;   // 2026-11-15 てじゃ「この広場は石像の真上くらいにしよう」→ 広場のまん中が MushroomAt の真上に来るよう (-9.44, 0, +6.95) ずらした（前は 49.0348, 32.8087, 17.1244）
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
     static void ArrivalRoof(bool full = true)
