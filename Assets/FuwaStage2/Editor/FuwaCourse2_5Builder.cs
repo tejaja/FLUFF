@@ -56,8 +56,10 @@ public static class FuwaCourse2_5Builder
         pathA = PathMat("Course2_5_PathA", PathColA); pathB = PathMat("Course2_5_PathB", PathColB);
         PavingOn(pathA); PavingOn(pathB);   // ロビーの道もこの色（FuwaStage2LobbyCourses）
         stone = FuwaStage2WaterTest.ToonMat("Ruins_Stone", new Color(0.86f, 0.74f, 0.62f));
-        terra = FuwaStage2WaterTest.ToonMat("Ruins_Terracotta", new Color(0.82f, 0.48f, 0.33f));
-        terraD = FuwaStage2WaterTest.ToonMat("Ruins_TerracottaDark", new Color(0.62f, 0.34f, 0.24f));
+        // 2026-11-15 てじゃ「いまテラコッタカラーなところ、もっとベージュに近い色がいい、道のベージュとはちょっとかえて」→ 少しピンク寄りの砂岩ベージュ（道は黄色寄り）
+        //  前：0.82/0.48/0.33・0.62/0.34/0.24
+        terra = FuwaStage2WaterTest.ToonMat("Ruins_Terracotta", TerraCol);
+        terraD = FuwaStage2WaterTest.ToonMat("Ruins_TerracottaDark", TerraDCol);
         moss = FuwaStage2WaterTest.ToonMat("Ruins_Moss", new Color(0.55f, 0.72f, 0.45f));
         underM = FuwaStage2WaterTest.ToonMat("Ruins_Under", new Color(0.72f, 0.58f, 0.48f));
         glow = FuwaStage2WaterTest.ToonMat("Ruins_PortalRim", new Color(0.55f, 0.9f, 1f));
@@ -973,6 +975,7 @@ public static class FuwaCourse2_5Builder
         curtainOnArch = true; curtainArchTop = colH - 0.6f;
     }
     public static bool ArchGateNew = true, StoneLook = true;
+    public static Color TerraCol = new Color(0.84f, 0.68f, 0.58f), TerraDCol = new Color(0.69f, 0.53f, 0.45f);
     static bool curtainOnArch; static float curtainArchTop;   // ArchGate のすぐあとの Curtain は柱の間に張る
 
     // ---- 列柱の回廊（2026-11-14 てじゃ「柱式にもどしたい」）：道の両わきに柱、巣の門の所は柱2本＋上のはり（巣はその間に張る）----
