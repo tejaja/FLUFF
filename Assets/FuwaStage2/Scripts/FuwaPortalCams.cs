@@ -23,15 +23,29 @@ public class FuwaPortalCams : UdonSharpBehaviour
     [Tooltip("頭の向きと穴の方向のなす角の cos がこれより小さい（見ていない）なら映さない（近い時はいつも映す）")]
     public float viewCos = 0.0f;
     public float ipdBase = 0.064f;
+    [Tooltip("穴に入る直前（穴に合わせる画角がこれを超える）は、頭の向きのままの画角 closeFov に切りかえる（2026-11-15 てじゃ「ポータル入る瞬間、こんなかんじに」→ 170°の画角で引きのばされていた）")]
+    public float closeSwitchFov = 100f;
+    public float closeFov = 130f;
+    [Tooltip("出口の穴（自分の円盤）をこのレイヤーに移して、ポータルのカメラには映さない（入る直前に出口の円盤が目の前に大きく映っていた）")]
+    public int hideLayer = 25;
     private Material[] _mats;
     private int _active = -2;
+    private int[] _exitHole;
+    private int _hidHole = -1, _hidLayer0;
 
     private void Start()
     {
         _mats = new Material[holes.Length];
         for (int i = 0; i < holes.Length; i++) if (holes[i] != null) { _mats[i] = holes[i].material; _mats[i].SetFloat("_Active", 0f); }
-        if (camL != null) camL.enabled = false;
-        if (camR != null) camR.enabled = false;
+        if (camL != null) { camL.enabled = false; camL.cullingMask &= ~(1 << hideLayer); }
+        if (camR != null) { camR.enabled = false; camR.cullingMask &= ~(1 << hideLayer); }
+        _exitHole = new int[entries.Length];
+        for (int i = 0; i < entries.Length; i++)
+        {
+            _exitHole[i] = -1;
+            if (exits[i] == null) continue;
+            for (int j = 0; j < holes.Length; j++) if (holes[j] != null && holes[j].transform.IsChildOf(exits[i])) { _exitHole[i] = j; break; }
+        }
     }
 
     public override void PostLateUpdate()
@@ -56,6 +70,10 @@ public class FuwaPortalCams : UdonSharpBehaviour
         {
             for (int i = 0; i < _mats.Length; i++) if (_mats[i] != null) _mats[i].SetFloat("_Active", i == best ? 1f : 0f);
             _active = best;
+            // 出口の円盤をポータルのカメラから隠す（前に隠したのは元のレイヤーへ）
+            if (_hidHole >= 0 && holes[_hidHole] != null) holes[_hidHole].gameObject.layer = _hidLayer0;
+            _hidHole = best >= 0 ? _exitHole[best] : -1;
+            if (_hidHole >= 0 && holes[_hidHole] != null) { _hidLayer0 = holes[_hidHole].gameObject.layer; holes[_hidHole].gameObject.layer = hideLayer; }
         }
         bool on = best >= 0;
         if (camL.enabled != on) camL.enabled = on;
@@ -64,30 +82,41 @@ public class FuwaPortalCams : UdonSharpBehaviour
 
         Transform en = entries[best], ex = exits[best];
         Matrix4x4 m = ex.localToWorldMatrix * Matrix4x4.Rotate(Quaternion.Euler(0f, 180f, 0f)) * en.worldToLocalMatrix;
+        Quaternion camRot = ex.rotation * Quaternion.Euler(0f, 180f, 0f) * Quaternion.Inverse(en.rotation) * hr;   // 頭の向きを出口側へ
         Vector3 target = m.MultiplyPoint3x4(holes[best].bounds.center);
         if (vr && camR != null)
         {
             float ipd = ipdBase * Mathf.Max(0.2f, p.GetAvatarEyeHeightAsMeters()) / 1.6f;
             Vector3 right = hr * Vector3.right;
-            Matrix4x4 vl = Place(camL, m.MultiplyPoint3x4(head - right * (ipd * 0.5f)), target, ex, m);
-            Matrix4x4 vrm = Place(camR, m.MultiplyPoint3x4(head + right * (ipd * 0.5f)), target, ex, m);
+            Matrix4x4 vl = Place(camL, m.MultiplyPoint3x4(head - right * (ipd * 0.5f)), target, ex, m, camRot);
+            Matrix4x4 vrm = Place(camR, m.MultiplyPoint3x4(head + right * (ipd * 0.5f)), target, ex, m, camRot);
             _mats[best].SetMatrix("_VPL", vl); _mats[best].SetMatrix("_VPR", vrm);
         }
         else
         {
-            Matrix4x4 vl = Place(camL, m.MultiplyPoint3x4(head), target, ex, m);
+            Matrix4x4 vl = Place(camL, m.MultiplyPoint3x4(head), target, ex, m, camRot);
             _mats[best].SetMatrix("_VPL", vl); _mats[best].SetMatrix("_VPR", vl);
         }
     }
 
     // カメラを置いて、穴のシェーダーに渡す行列（入口側のワールド → このカメラのクリップ）を返す
-    private Matrix4x4 Place(Camera cam, Vector3 pos, Vector3 target, Transform ex, Matrix4x4 m)
+    private Matrix4x4 Place(Camera cam, Vector3 pos, Vector3 target, Transform ex, Matrix4x4 m, Quaternion headRot)
     {
         Vector3 fwd = target - pos; float dist = fwd.magnitude;
         if (dist < 0.001f) { fwd = ex.forward; dist = 0.001f; }
-        cam.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(fwd / dist, ex.up));
+        float fitFov = 2f * Mathf.Atan(holeRadius / Mathf.Max(dist, 0.05f)) * Mathf.Rad2Deg * 1.1f;
         cam.ResetProjectionMatrix();
-        cam.fieldOfView = Mathf.Clamp(2f * Mathf.Atan(holeRadius / Mathf.Max(dist, 0.05f)) * Mathf.Rad2Deg * 1.1f, 4f, 170f);
+        if (fitFov > closeSwitchFov)
+        {
+            // 穴のすぐ前：穴を全部入れようとすると画角が 170° 近くになって引きのばされる → 頭の向きのまま、ふつうの広さの画角（見えている所だけ映せばいい）
+            cam.transform.SetPositionAndRotation(pos, headRot);
+            cam.fieldOfView = closeFov;
+        }
+        else
+        {
+            cam.transform.SetPositionAndRotation(pos, Quaternion.LookRotation(fwd / dist, ex.up));
+            cam.fieldOfView = Mathf.Clamp(fitFov, 4f, 170f);
+        }
         // 出口の面より奥（カメラ側）を切る：前は斜めの近クリップ（CalculateObliqueMatrix）だったが、クリップの奥行きがゆがんで霧（遠景のぼかし）が効かなくなった
         //  （2026-11-14 てじゃ「ポータル越しだと遠景にかかるぼかしがちゃんときかない、火山がはっきり」）
         //  → ふつうの近クリップを、出口の穴の四すみのうちいちばん近い所の手前まで出す（穴のふち付近で出口の裏が少し見えることがあるだけ）
