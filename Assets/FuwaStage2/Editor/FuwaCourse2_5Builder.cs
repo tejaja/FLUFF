@@ -276,6 +276,7 @@ public static class FuwaCourse2_5Builder
         FixColumnGround();
         ApplyFarFade();
         DecoIslets();
+        if (ColumnLods) AddColumnLods();
         if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
         log.Append("下の段 2・上の段 2・空洞のゴール ");
         return goalP;
@@ -1046,6 +1047,7 @@ public static class FuwaCourse2_5Builder
         FixColumnGround();
         ApplyFarFade();
         DecoIslets();
+        if (ColumnLods) AddColumnLods();
         if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
         log.Append("島 3＋てっぺん ");
         return goalP;
@@ -1413,7 +1415,7 @@ public static class FuwaCourse2_5Builder
         go.AddComponent<MeshFilter>().sharedMesh = SaveMesh(nm + "_Corbel", v, t);
         go.AddComponent<MeshRenderer>().sharedMaterial = stone;
     }
-    public static bool CoursePerf = true;
+    public static bool CoursePerf = true; public static float PortalCamFar = 600f;
     public static bool ColumnFlatBreak = true; public static float ColumnRingStep = 1.1f;
     public static bool ArchGateNew = true, StoneLook = true, CurtainPattern = true, OpenPitBridge = true;
     public static Color TerraCol = new Color(0.84f, 0.68f, 0.58f), TerraDCol = new Color(0.69f, 0.53f, 0.45f);
@@ -2609,7 +2611,7 @@ public static class FuwaCourse2_5Builder
             if (rt.width != PortalRTSize) { rt.Release(); rt.width = PortalRTSize; rt.height = PortalRTSize; }
             rt.antiAliasing = 2; rt.useMipMap = false; rt.wrapMode = TextureWrapMode.Clamp; EditorUtility.SetDirty(rt);
             var c = new GameObject("Cam" + n).AddComponent<Camera>(); c.transform.SetParent(g.transform, false);
-            c.enabled = false; c.targetTexture = rt; c.clearFlags = CameraClearFlags.Skybox; c.nearClipPlane = 0.05f; c.farClipPlane = 2000f;
+            c.enabled = false; c.targetTexture = rt; c.clearFlags = CameraClearFlags.Skybox; c.nearClipPlane = 0.05f; c.farClipPlane = PortalCamFar;   // 2026-11-15 軽量化：2000 → PortalCamFar（穴の向こうに見えるのはほぼコースの中）
             c.cullingMask = ~((1 << 5) | (1 << 12));   // UI・UiMenu は映さない
             c.allowHDR = false; c.allowMSAA = true; c.useOcclusionCulling = false;
             return c;
@@ -3711,18 +3713,49 @@ public static class FuwaCourse2_5Builder
         // 底（2026-11-15 てじゃ「柱、下から見るとスキマが」→ 下から見ると中が透けていた）
         Tri(v, t, lo[0] + off, lo[1] + off, lo[2] + off, Vector3.down); Tri(v, t, lo[0] + off, lo[2] + off, lo[3] + off, Vector3.down);
     }
-    static Mesh ColumnMesh(string name, int seed, float h, int kind)
+    // 2026-11-15 軽量化：柱の遠い版（ColumnLite）。ふつうの版を作るたびに _Lite も作って覚えておき、ビルドの最後に LODGroup をつける
+    public static bool ColumnLods = true; public static float ColumnLodScreen = 0.1f;
+    static readonly Dictionary<Mesh, Mesh> columnLite = new Dictionary<Mesh, Mesh>();
+    static Mesh ColumnMesh(string name, int seed, float h, int kind) => ColumnMesh(name, seed, h, kind, false);
+    // ビルドの最後：ふつうの版の柱に「遠い版」の子と LODGroup（画面の高さ ColumnLodScreen より小さいと遠い版）
+    static void AddColumnLods()
+    {
+        int n = 0;
+        foreach (var mf in root.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (!mf.sharedMesh || !columnLite.TryGetValue(mf.sharedMesh, out var lm) || !lm) continue;
+            var r = mf.GetComponent<MeshRenderer>(); if (!r) continue;
+            var old = mf.transform.Find("Lite"); if (old) Object.DestroyImmediate(old.gameObject);
+            var lg0 = mf.GetComponent<LODGroup>(); if (lg0) Object.DestroyImmediate(lg0);
+            var lo = new GameObject("Lite"); lo.transform.SetParent(mf.transform, false); lo.layer = mf.gameObject.layer;
+            lo.AddComponent<MeshFilter>().sharedMesh = lm;
+            var lr = lo.AddComponent<MeshRenderer>(); lr.sharedMaterials = r.sharedMaterials; lr.shadowCastingMode = r.shadowCastingMode; lr.receiveShadows = r.receiveShadows;
+            var lg = mf.gameObject.AddComponent<LODGroup>();
+            lg.SetLODs(new[] { new LOD(ColumnLodScreen, new Renderer[] { r }), new LOD(0f, new Renderer[] { lr }) });
+            lg.RecalculateBounds();
+            n++;
+        }
+        columnLite.Clear();
+        log.Append("柱の遠い版 " + n + " ");
+    }
+    static Mesh ColumnMesh(string name, int seed, float h, int kind, bool lite)
+    {
+        if (!lite && ColumnLods) { var lm = ColumnMesh(name + "_Lite", seed, h, kind, true); var fm = ColumnMesh(name, seed, h, kind, true, false); columnLite[fm] = lm; return fm; }
+        return ColumnMesh(name, seed, h, kind, lite, false);
+    }
+    static Mesh ColumnMesh(string name, int seed, float h, int kind, bool lite, bool _)
     {
         var rnd = new System.Random(seed);
         var sv = new List<Vector3>(); var stt = new List<int>();   // 胴（なめらか）
         var fv = new List<Vector3>(); var ft = new List<int>();    // 胴のふた（平ら・胴の材質）
         var bv = new List<Vector3>(); var bt = new List<int>();    // 土台・柱頭（平ら・石）
-        const int Seg = 80, Flutes = 20;   // 1本の溝に4つ（溝と細い山がはっきり見えるように）
+        int Seg = lite ? 20 : 80; const int Flutes = 20;   // 1本の溝に4つ（溝と細い山がはっきり見えるように）。遠い版は溝なし 20 角
+        int lat = lite ? 10 : 24;
         float z0 = 0f;
         if (kind != 3)
         {
             ChamferBoxInto(bv, bt, new Vector3(0f, 0.1f, 0f), new Vector3(1.1f, 0.2f, 1.1f), 0.04f);
-            LatheInto(bv, bt, new[] { new[] { 0.5f, 0.2f }, new[] { 0.53f, 0.25f }, new[] { 0.5f, 0.31f }, new[] { 0.43f, 0.34f }, new[] { 0.39f, 0.36f } }, 24);
+            LatheInto(bv, bt, new[] { new[] { 0.5f, 0.2f }, new[] { 0.53f, 0.25f }, new[] { 0.5f, 0.31f }, new[] { 0.43f, 0.34f }, new[] { 0.39f, 0.36f } }, lat);
             z0 = 0.36f;
         }
         bool full = kind == 0;
@@ -3736,6 +3769,7 @@ public static class FuwaCourse2_5Builder
         {
             float u = Mathf.Clamp01((z - z0) / 4.2f);
             float rb = Mathf.Lerp(0.37f, 0.32f, u) + 0.012f * Mathf.Sin(Mathf.PI * u);
+            if (lite) return rb * 0.94f;   // 遠い版：溝なし（溝の平均くらいの太さ）
             float c = Mathf.Abs(Mathf.Sin(Flutes * th * 0.5f));      // 0＝溝の間の細い山、1＝溝の底
             float r = rb * (1f - 0.1f * Mathf.Pow(c, 0.6f));
             float jz = (z - z0) % 1.1f; if (jz < 0.05f && z - z0 > 0.2f) r *= 0.93f;   // 石の継ぎ目
@@ -3743,8 +3777,8 @@ public static class FuwaCourse2_5Builder
         };
         var zl = new List<float>();
         float topRegular = full ? zs : zs - jagAmp * 1.3f;
-        for (float z = z0; z < topRegular - 0.05f; z += ColumnRingStep) zl.Add(z);   // 2026-11-15 軽量化：0.25 → ColumnRingStep（ふくらみはゆるいので石の継ぎ目の輪＋ときどき）
-        for (float j = 1.1f; z0 + j + 0.05f < topRegular; j += 1.1f) { zl.Add(z0 + j - 0.001f); zl.Add(z0 + j + 0.001f); zl.Add(z0 + j + 0.049f); zl.Add(z0 + j + 0.051f); }
+        for (float z = z0; z < topRegular - 0.05f; z += lite ? 2.2f : ColumnRingStep) zl.Add(z);   // 2026-11-15 軽量化：0.25 → ColumnRingStep（ふくらみはゆるいので石の継ぎ目の輪＋ときどき）
+        if (!lite) for (float j = 1.1f; z0 + j + 0.05f < topRegular; j += 1.1f) { zl.Add(z0 + j - 0.001f); zl.Add(z0 + j + 0.001f); zl.Add(z0 + j + 0.049f); zl.Add(z0 + j + 0.051f); }
         zl.Add(topRegular); zl.Sort();
         int rings = zl.Count;
         bool jag = !full;
@@ -3782,7 +3816,7 @@ public static class FuwaCourse2_5Builder
         {
             var cen = Vector3.up * zs;
             for (int i = 0; i < Seg; i++) { int j = (i + 1) % Seg; Tri(fv, ft, sv[last + i], sv[last + j], cen, Vector3.up); }
-            LatheInto(bv, bt, new[] { new[] { 0.32f, zs }, new[] { 0.35f, zs + 0.06f }, new[] { 0.44f, zs + 0.17f }, new[] { 0.5f, zs + 0.24f }, new[] { 0.42f, zs + 0.25f } }, 24);
+            LatheInto(bv, bt, new[] { new[] { 0.32f, zs }, new[] { 0.35f, zs + 0.06f }, new[] { 0.44f, zs + 0.17f }, new[] { 0.5f, zs + 0.24f }, new[] { 0.42f, zs + 0.25f } }, lat);
             ChamferBoxInto(bv, bt, new Vector3(0f, zs + 0.25f + 0.1f, 0f), new Vector3(1.08f, 0.2f, 1.08f), 0.035f);
         }
         if (kind == 3) for (int i = 0; i < Seg; i++) { int j = (i + 1) % Seg; Tri(fv, ft, sv[i], sv[j], Vector3.up * z0, Vector3.down); }
