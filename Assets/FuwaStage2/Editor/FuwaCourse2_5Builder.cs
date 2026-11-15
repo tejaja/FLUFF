@@ -2218,7 +2218,7 @@ public static class FuwaCourse2_5Builder
     // ===== だ円の輪のポータル（2026-11-13 てじゃ「ポータルの見た目、空中に浮いた縦長の◯枠がいい」）=====
     //  柱と屋根の枠をやめて、道の上に少し浮いた縦長のだ円の輪（外に石の輪・内に光るふち）。穴（ステンシルの面）もだ円
     //  人・ふわふわを運ぶ判定（FuwaPortal の halfW × height の四角）はそのまま（だ円の外の角を通ると運ばれるが、ブロックアウトなのでよしとする）
-    public static bool OvalPortals = true, PortalBlocks = true, PortalCradle = true, PortalOuterBand = true; public static float PortalBlockBevel = 0.045f;
+    public static bool OvalPortals = true, PortalBlocks = true, PortalCradle = true, PortalOuterBand = true, PortalJointGlow = true; public static float PortalBlockBevel = 0.045f;
     // 6面体（q：0〜3 が前の面、4〜7 が後ろの面、同じ並び）を面取りして入れる。面ごとに角を2本の辺にそって b だけ内へ → 面・辺の帯・角の三角
     static void ChamferHexInto(List<Vector3> v, List<int> t, Vector3[] q, float b, Vector3 cen)
     {
@@ -2270,7 +2270,7 @@ public static class FuwaCourse2_5Builder
                 float a0 = Mathf.PI / 2f + 2f * Mathf.PI * (i - 0.5f) / n + gapA, a1 = Mathf.PI / 2f + 2f * Mathf.PI * (i + 0.5f) / n - gapA;
                 bool key = i == 0;
                 if (PortalCradle && (i == n / 2 - 1 || i == n / 2 || i == n / 2 + 1)) continue;   // 下の3つは台座（PortalCradle）にする
-                float wo = key ? w0 + 0.22f : w0 + ((i % 2 == 0) ? 0.04f : -0.02f);
+                float wo = key ? w0 + 0.22f : (PortalJointGlow ? w0 + 0.02f : w0 + ((i % 2 == 0) ? 0.04f : -0.02f));   // 継ぎ目の光をそろえるので石の出っぱりもそろえる
                 float dd = key ? dz + 0.06f : dz;
                 Vector3 E(float a, float ex, float z) => new Vector3(Mathf.Cos(a) * (ain + ex), Mathf.Sin(a) * (bin + ex), z);
                 // 2026-11-15 てじゃ「枠自体ももうちょいいじろ」→ 石ごとに少し前後にずらす（手で積んだ感じ）＋面取り（継ぎ目が V の溝）
@@ -2318,6 +2318,30 @@ public static class FuwaCourse2_5Builder
                         for (int k = 0; k < sec.Length; k++) Tri(ov, ot, sc2, sec[k], sec[(k + 1) % sec.Length], tg);
                     }
                 MeshObj(ring, "OuterBand", SaveMesh("Portal_OvalBand", ov, ot), terraD, Vector3.zero, 0, true);
+            }
+            // 2026-11-15 てじゃ「ちらっとみえる水色のはなんだろ」→ B「わざと見せる、綺麗にととのえよう」
+            //  石の継ぎ目ごとに、光る細い板（継ぎ目の溝の奥、石のはばいっぱい）＝継ぎ目から光がもれている線
+            if (PortalJointGlow)
+            {
+                var jv = new List<Vector3>(); var jt = new List<int>();
+                float hw2 = 0.011f, zf = dz - 0.035f, r0j = -0.02f, r1j = w0 - 0.03f;
+                Vector3 Ej(float a, float ex, float z) => new Vector3(Mathf.Cos(a) * (ain + ex), Mathf.Sin(a) * (bin + ex), z);
+                for (int i = 0; i < n; i++)
+                {
+                    // i と i+1 の間（台座の中の継ぎ目はなし。台座のはしの2つはあり）
+                    int j = (i + 1) % n;
+                    bool inCr(int k) => PortalCradle && (k == n / 2 - 1 || k == n / 2 || k == n / 2 + 1);
+                    if (inCr(i) && inCr(j)) continue;
+                    float aj = Mathf.PI / 2f + 2f * Mathf.PI * (i + 0.5f) / n;
+                    var tg = new Vector3(-Mathf.Sin(aj) * ain, Mathf.Cos(aj) * bin, 0f).normalized * hw2;
+                    var c0 = Ej(aj, r0j, 0f); var c1 = Ej(aj, r1j, 0f);
+                    var q8 = new[] { c0 - tg + Vector3.back * zf, c0 + tg + Vector3.back * zf, c1 + tg + Vector3.back * zf, c1 - tg + Vector3.back * zf,
+                                     c0 - tg + Vector3.forward * zf, c0 + tg + Vector3.forward * zf, c1 + tg + Vector3.forward * zf, c1 - tg + Vector3.forward * zf };
+                    var cc = (c0 + c1) * 0.5f;
+                    int[][] fcs = { new[] { 0, 1, 2, 3 }, new[] { 4, 5, 6, 7 }, new[] { 0, 1, 5, 4 }, new[] { 3, 2, 6, 7 }, new[] { 0, 3, 7, 4 }, new[] { 1, 2, 6, 5 } };
+                    foreach (var fc in fcs) { var fcen = (q8[fc[0]] + q8[fc[1]] + q8[fc[2]] + q8[fc[3]]) * 0.25f; Tri(jv, jt, q8[fc[0]], q8[fc[1]], q8[fc[2]], fcen - cc); Tri(jv, jt, q8[fc[0]], q8[fc[2]], q8[fc[3]], fcen - cc); }
+                }
+                MeshObj(ring, "JointGlow", SaveMesh("Portal_OvalJointGlow", jv, jt), glow, Vector3.zero, 0, false);
             }
             o.AddComponent<MeshFilter>().sharedMesh = SaveMesh("Portal_OvalBlocks", bv, bt);
             o.AddComponent<MeshRenderer>().sharedMaterial = stone;
