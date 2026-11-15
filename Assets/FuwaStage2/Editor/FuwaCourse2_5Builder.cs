@@ -2565,6 +2565,134 @@ public static class FuwaCourse2_5Builder
         return SaveMesh(name, v, t);
     }
 
+    // ---- 2026-11-15 見た目クオリティ：結晶の塊・祭壇（てじゃ「見た目クオリティあげてくか」）----
+    // 六角柱の両はしがとがった結晶1本（平らな面）。p0＝根もと、axis＝伸びる向き、r＝太さ、body＝胴の長さ、tipA＝先のとがり、tipB＝根もとのとがり（0 なら平ら）
+    static void CrystalPrism(List<Vector3> v, List<int> t, Vector3 p0, Vector3 axis, float r, float body, float tipA, float tipB, System.Random rnd, int sides = 6)
+    {
+        axis.Normalize();
+        var side = Vector3.Cross(axis, Mathf.Abs(axis.y) > 0.9f ? Vector3.right : Vector3.up).normalized;
+        var side2 = Vector3.Cross(axis, side);
+        float rot = (float)rnd.NextDouble() * Mathf.PI * 2f;
+        var ringA = new Vector3[sides]; var ringB = new Vector3[sides];
+        for (int i = 0; i < sides; i++)
+        {
+            float a = rot + Mathf.PI * 2f * i / sides;
+            float jr = r * (0.88f + 0.24f * (float)rnd.NextDouble());
+            var d = (side * Mathf.Cos(a) + side2 * Mathf.Sin(a)) * jr;
+            ringB[i] = p0 + d;
+            ringA[i] = p0 + axis * body + d * (0.92f + 0.1f * (float)rnd.NextDouble());
+        }
+        var tipP = p0 + axis * (body + tipA) + (side * ((float)rnd.NextDouble() - 0.5f) + side2 * ((float)rnd.NextDouble() - 0.5f)) * r * 0.25f;
+        var botP = p0 - axis * tipB;
+        var cA = p0 + axis * body; var cB = p0;
+        for (int i = 0; i < sides; i++)
+        {
+            int j = (i + 1) % sides;
+            var outw = ((ringA[i] + ringA[j] + ringB[i] + ringB[j]) * 0.25f - (cA + cB) * 0.5f);
+            Tri(v, t, ringB[i], ringB[j], ringA[j], outw); Tri(v, t, ringB[i], ringA[j], ringA[i], outw);
+            Tri(v, t, ringA[i], ringA[j], tipP, (ringA[i] + ringA[j]) * 0.5f - cA + axis * r);
+            if (tipB > 0.001f) Tri(v, t, ringB[i], ringB[j], botP, (ringB[i] + ringB[j]) * 0.5f - cB - axis * r);
+            else Tri(v, t, ringB[i], ringB[j], cB, -axis);
+        }
+    }
+    // 結晶の塊：大きい1本（上下にとがる）＋まわりに小さいのを extra 本、斜めに生やす（浮いているので下向きのもある）
+    static Mesh CrystalClusterMesh(string name, int seed, float s, int extra)
+    {
+        var v = new List<Vector3>(); var t = new List<int>(); var rnd = new System.Random(seed);
+        float r = 0.42f * s, bodyL = 0.95f * s;
+        CrystalPrism(v, t, Vector3.down * 0.45f * s, Vector3.up + new Vector3(0.05f, 0f, 0.03f), r, bodyL, 0.7f * s, 0.6f * s, rnd);
+        for (int k = 0; k < extra; k++)
+        {
+            float a = Mathf.PI * 2f * (k + 0.3f * (float)rnd.NextDouble()) / extra;
+            var outw = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            bool down = k % 3 == 2;
+            float h = down ? -0.35f * s : (-0.2f + 0.45f * (float)rnd.NextDouble()) * s;
+            var axis = (outw * (0.7f + 0.3f * (float)rnd.NextDouble()) + Vector3.up * (down ? -0.75f : 0.55f + 0.4f * (float)rnd.NextDouble())).normalized;
+            float rr = (0.13f + 0.1f * (float)rnd.NextDouble()) * s;
+            var p0 = outw * r * 0.45f + Vector3.up * h;   // 大きい結晶の中から生やす（すき間なし）
+            CrystalPrism(v, t, p0, axis, rr, (0.35f + 0.3f * (float)rnd.NextDouble()) * s, (0.22f + 0.15f * (float)rnd.NextDouble()) * s, 0f, rnd);
+        }
+        return SaveMesh(name, v, t);
+    }
+    static Material CrystalMat()
+    {
+        var m = FxMat("Ruins_CrystalFacet", "Fuwa/Crystal");
+        m.SetColor("_Color", new Color(0.62f, 0.95f, 1f)); m.SetColor("_Deep", new Color(0.12f, 0.38f, 0.75f));
+        m.SetColor("_EmissionColor", ShieldCol * 0.45f); EditorUtility.SetDirty(m);
+        return m;
+    }
+
+    // 祭壇：八角形の3段（角が少し欠けた不ぞろいな形）、中段の上にルーンの溝（溝の底は rune で光る）、上の段にクリスタルを支えていた石の爪
+    static (Mesh stone, Mesh rune) AltarMesh(string name)
+    {
+        var v = new List<Vector3>(); var t = new List<int>();
+        var rv = new List<Vector3>(); var rt = new List<int>();
+        var rnd = new System.Random(808);
+        const int N = 8;
+        float rot = Mathf.PI / 8f;
+        System.Func<int, float, Vector3> Dir8 = (i, r) => { float a = rot + Mathf.PI * 2f * i / N; return new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r); };
+        // 段：下の半径 r、高さ y0〜y1、上のふちを面取り c。角ごとに欠け（半径をばらつかせる）。上の面は rInner まで
+        void Tier(float r, float y0, float y1, float c, float rInner)
+        {
+            var jit = new float[N]; for (int i = 0; i < N; i++) jit[i] = 0.94f + 0.06f * (float)rnd.NextDouble();
+            jit[rnd.Next(N)] *= 0.9f;
+            if (rInner > 0.001f) for (int i = 0; i < N; i++) jit[i] = Mathf.Max(jit[i], (rInner + 0.04f) / (r - c));
+            for (int i = 0; i < N; i++)
+            {
+                int j = (i + 1) % N;
+                Vector3 a0 = Dir8(i, r * jit[i]), a1 = Dir8(j, r * jit[j]);
+                Vector3 b0 = Dir8(i, (r - c) * jit[i]), b1 = Dir8(j, (r - c) * jit[j]);
+                var o = (a0 + a1) * 0.5f;
+                Tri(v, t, a0 + Vector3.up * y0, a1 + Vector3.up * y0, a1 + Vector3.up * (y1 - c), o); Tri(v, t, a0 + Vector3.up * y0, a1 + Vector3.up * (y1 - c), a0 + Vector3.up * (y1 - c), o);
+                Tri(v, t, a0 + Vector3.up * (y1 - c), a1 + Vector3.up * (y1 - c), b1 + Vector3.up * y1, o + Vector3.up * o.magnitude); Tri(v, t, a0 + Vector3.up * (y1 - c), b1 + Vector3.up * y1, b0 + Vector3.up * y1, o + Vector3.up * o.magnitude);
+                Vector3 c0 = Dir8(i, rInner), c1 = Dir8(j, rInner);
+                if (rInner > 0.001f) { Tri(v, t, b0 + Vector3.up * y1, b1 + Vector3.up * y1, c1 + Vector3.up * y1, Vector3.up); Tri(v, t, b0 + Vector3.up * y1, c1 + Vector3.up * y1, c0 + Vector3.up * y1, Vector3.up); }
+                else Tri(v, t, b0 + Vector3.up * y1, b1 + Vector3.up * y1, Vector3.up * y1, Vector3.up);
+            }
+        }
+        Tier(1.62f, 0f, 0.28f, 0.06f, 0f);
+        float gy = 0.62f, gd = 0.05f, g0 = 1.04f, g1 = 1.18f;
+        Tier(1.32f, 0.28f, gy, 0.05f, g1);
+        // 溝：外の壁・内の壁（石）、底（光る）、溝の内がわの上の面（石。上の段の下にかくれる所もあるが向きが同じで重ならない高さ）
+        for (int i = 0; i < N; i++)
+        {
+            int j = (i + 1) % N;
+            Vector3 o0 = Dir8(i, g1), o1 = Dir8(j, g1), i0 = Dir8(i, g0), i1 = Dir8(j, g0);
+            Tri(v, t, o0 + Vector3.up * gy, o1 + Vector3.up * gy, o1 + Vector3.up * (gy - gd), -(o0 + o1));
+            Tri(v, t, o0 + Vector3.up * gy, o1 + Vector3.up * (gy - gd), o0 + Vector3.up * (gy - gd), -(o0 + o1));
+            Tri(v, t, i0 + Vector3.up * gy, i1 + Vector3.up * gy, i1 + Vector3.up * (gy - gd), i0 + i1);
+            Tri(v, t, i0 + Vector3.up * gy, i1 + Vector3.up * (gy - gd), i0 + Vector3.up * (gy - gd), i0 + i1);
+            Tri(rv, rt, o0 + Vector3.up * (gy - gd), o1 + Vector3.up * (gy - gd), i1 + Vector3.up * (gy - gd), Vector3.up);
+            Tri(rv, rt, o0 + Vector3.up * (gy - gd), i1 + Vector3.up * (gy - gd), i0 + Vector3.up * (gy - gd), Vector3.up);
+            // 溝の内がわ（g0〜上の段のふち 1.0）の上の面
+            Vector3 k0 = Dir8(i, 0.8f), k1 = Dir8(j, 0.8f);   // 上の段の下にかくれるところまで
+            Tri(v, t, i0 + Vector3.up * gy, i1 + Vector3.up * gy, k1 + Vector3.up * gy, Vector3.up); Tri(v, t, i0 + Vector3.up * gy, k1 + Vector3.up * gy, k0 + Vector3.up * gy, Vector3.up);
+        }
+        Tier(1.0f, gy, 0.84f, 0.05f, 0f);
+        // 石の爪 4本（上の段のふちから立ち上がって内がわへかたむく、1本は折れている）
+        for (int k = 0; k < 4; k++)
+        {
+            float a = Mathf.PI / 4f + Mathf.PI / 2f * k;
+            var outw = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var tan = new Vector3(-outw.z, 0f, outw.x);
+            bool broken = k == 2;
+            float h = broken ? 0.4f : 0.8f + 0.12f * (float)rnd.NextDouble();   // クリスタルにはふれない（浮いている感じを残す）
+            var b = outw * 0.74f + Vector3.up * 0.84f;
+            var top = outw * (broken ? 0.68f : 0.5f) + Vector3.up * (0.84f + h);
+            float w0 = 0.16f, w1 = broken ? 0.13f : 0.05f, d0 = 0.2f, d1 = broken ? 0.16f : 0.07f;
+            var q = new Vector3[8];
+            q[0] = b - tan * w0 - outw * d0; q[1] = b + tan * w0 - outw * d0; q[2] = b + tan * w0 + outw * d0; q[3] = b - tan * w0 + outw * d0;
+            q[4] = top - tan * w1 - outw * d1; q[5] = top + tan * w1 - outw * d1; q[6] = top + tan * w1 + outw * d1; q[7] = top - tan * w1 + outw * d1;
+            var cen = (b + top) * 0.5f;
+            int[][] faces = { new[] { 0, 1, 5, 4 }, new[] { 1, 2, 6, 5 }, new[] { 2, 3, 7, 6 }, new[] { 3, 0, 4, 7 }, new[] { 4, 5, 6, 7 } };
+            foreach (var fc in faces)
+            {
+                var fcen = (q[fc[0]] + q[fc[1]] + q[fc[2]] + q[fc[3]]) * 0.25f;
+                Tri(v, t, q[fc[0]], q[fc[1]], q[fc[2]], fcen - cen); Tri(v, t, q[fc[0]], q[fc[2]], q[fc[3]], fcen - cen);
+            }
+        }
+        return (SaveMesh(name + "_Stone", v, t), SaveMesh(name + "_Rune", rv, rt));
+    }
+
     // uv・法線つきで保存（輪・帯用）
     static Mesh SaveMeshUV(string name, List<Vector3> v, List<int> t, List<Vector2> uv, List<Vector3> n)
     {
@@ -2665,8 +2793,8 @@ public static class FuwaCourse2_5Builder
             Object.DestroyImmediate(rb.GetComponent<Collider>()); glows.Add(rb.GetComponent<Renderer>());
         }
         // てっぺんのクリスタル
-        var crysM = GlowMat("Ruins_Crystal", ShieldCol, 0.5f);
-        var cr = MeshObj(g, "Crystal", CrystalMesh("GateCrystal", 0.26f, 0.5f, 0.38f), crysM, new Vector3(0f, h + 1.2f, 0f), 0, false);
+        var crysM = CrystalMat();
+        var cr = MeshObj(g, "Crystal", CrystalClusterMesh("GateCrystalCluster", 3, 0.5f, 4), crysM, new Vector3(0f, h + 1.25f, 0f), 0, false);
         glows.Add(cr.GetComponent<Renderer>());
         var beam = Sparks(g, "Beam", new Vector3(0f, h + 1.2f, 0f), 0.4f, 11f, 0.12f, 80);
         var bsh = beam.shape; bsh.shapeType = ParticleSystemShapeType.Cone; bsh.angle = 6f; bsh.radius = 0.1f;
@@ -2768,20 +2896,32 @@ public static class FuwaCourse2_5Builder
             if (ph > 3.5f) { var cp = Box(g, "ColumnCap", pos + Vector3.up * (0.3f + ph + 0.15f), new Vector3(1f, 0.3f, 1f), terraD, 0); Object.DestroyImmediate(cp.GetComponent<Collider>()); }
         }
         // ---- 台座とクリスタル ----
+        // 2026-11-15 見た目クオリティ：円柱 → 八角形3段の祭壇（欠け・ルーンの溝・石の爪）。当たりは円柱のまま（見た目なし）
         var ped = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ped.name = "Pedestal"; ped.transform.SetParent(g, false);
-        ped.transform.localPosition = new Vector3(0f, 0.3f, 0f); ped.transform.localScale = new Vector3(2.8f, 0.3f, 2.8f); ped.GetComponent<Renderer>().sharedMaterial = terra;
-        var ped2 = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ped2.name = "PedestalTop"; ped2.transform.SetParent(g, false);
-        ped2.transform.localPosition = new Vector3(0f, 0.7f, 0f); ped2.transform.localScale = new Vector3(2.0f, 0.1f, 2.0f); ped2.GetComponent<Renderer>().sharedMaterial = stone;
-        Object.DestroyImmediate(ped2.GetComponent<Collider>());
-        var crysM = GlowMat("Ruins_Crystal", ShieldCol, 0.5f);
+        ped.transform.localPosition = new Vector3(0f, 0.42f, 0f); ped.transform.localScale = new Vector3(3.1f, 0.42f, 3.1f);
+        Object.DestroyImmediate(ped.GetComponent<MeshRenderer>()); Object.DestroyImmediate(ped.GetComponent<MeshFilter>());
+        var altar = AltarMesh(name + "_Altar");
+        MeshObj(g, "Altar", altar.stone, stone, Vector3.zero, 0, true);
+        var altarRune = MeshObj(g, "AltarRune", altar.rune, runeM, Vector3.zero, 0, false);
+        runeRends.Add(altarRune.GetComponent<Renderer>());
+        { // 苔のかたまり（下の段の上、ふちのあたり）
+            var rnm = new System.Random(31);
+            for (int i = 0; i < 6; i++)
+            {
+                float a = (float)rnm.NextDouble() * Mathf.PI * 2f, rr = 1.38f + 0.12f * (float)rnm.NextDouble();
+                var mb = Box(g, "AltarMoss", new Vector3(Mathf.Cos(a) * rr, 0.28f + 0.025f, Mathf.Sin(a) * rr), new Vector3(0.22f + 0.2f * (float)rnm.NextDouble(), 0.05f, 0.16f + 0.12f * (float)rnm.NextDouble()), moss, 0);
+                mb.transform.localRotation = Quaternion.Euler(0f, a * Mathf.Rad2Deg, 0f); Object.DestroyImmediate(mb.GetComponent<Collider>());
+            }
+        }
+        var crysM = CrystalMat();
         var pivot = new GameObject("Crystal").transform; pivot.SetParent(g, false); pivot.localPosition = new Vector3(0f, CrystalH, 0f);
-        var core = MeshObj(pivot, "Core", CrystalMesh("PlazaCrystal", 0.6f, 1.05f, 0.85f), crysM, Vector3.zero, 0, false);
+        var core = MeshObj(pivot, "Core", CrystalClusterMesh("PlazaCrystalCluster", 7, 1.15f, 6), crysM, Vector3.zero, 0, false);
         var crystalRends = new List<Renderer> { core.GetComponent<Renderer>() };
         var shardTs = new List<Transform>();
         for (int i = 0; i < 3; i++)
         {
             float a = Mathf.PI * 2f * i / 3f;
-            var sh = MeshObj(pivot, "Shard" + i, CrystalMesh("PlazaShard", 0.13f, 0.28f, 0.22f), crysM, new Vector3(Mathf.Cos(a) * 1.25f, -0.2f + 0.25f * i, Mathf.Sin(a) * 1.25f), 0, false);
+            var sh = MeshObj(pivot, "Shard" + i, CrystalClusterMesh("PlazaShard" + i, 50 + i, 0.32f, 0), crysM, new Vector3(Mathf.Cos(a) * 1.25f, -0.2f + 0.25f * i, Mathf.Sin(a) * 1.25f), 0, false);
             sh.transform.localRotation = Quaternion.Euler(12f * (i - 1), 0f, 18f);
             crystalRends.Add(sh.GetComponent<Renderer>()); shardTs.Add(sh.transform);
         }
@@ -2791,7 +2931,7 @@ public static class FuwaCourse2_5Builder
         aura.transform.SetParent(pivot, false); aura.transform.localScale = Vector3.one * 1.6f;
         { var r = aura.GetComponent<MeshRenderer>(); r.sharedMaterial = auraM; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off; }
         // ---- 衝撃波の見た目 ----
-        var waveM = FxMat("Ruins_Shockwave", "Fuwa/Shockwave");
+        var waveM = FxMat("Ruins_Shockwave", "Fuwa/Shockwave"); waveM.SetFloat("_Alpha", 0f);   // 濃さはスクリプトが MPB で（エディタでは見えない）
         Mesh band;
         {
             var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>(); var nn = new List<Vector3>(); int n = 96;
