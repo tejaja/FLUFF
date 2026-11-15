@@ -1407,6 +1407,7 @@ public static class FuwaCourse2_5Builder
         go.AddComponent<MeshFilter>().sharedMesh = SaveMesh(nm + "_Corbel", v, t);
         go.AddComponent<MeshRenderer>().sharedMaterial = stone;
     }
+    public static bool ColumnFlatBreak = true;
     public static bool ArchGateNew = true, StoneLook = true, CurtainPattern = true, OpenPitBridge = true;
     public static Color TerraCol = new Color(0.84f, 0.68f, 0.58f), TerraDCol = new Color(0.69f, 0.53f, 0.45f);
     static bool curtainOnArch; static float curtainArchTop;   // ArchGate のすぐあとの Curtain は柱の間に張る
@@ -3721,6 +3722,7 @@ public static class FuwaCourse2_5Builder
         float ja = (float)rnd.NextDouble() * 6.28f, jb = (float)rnd.NextDouble() * 6.28f, jc = (float)rnd.NextDouble() * 6.28f;
         // 2026-11-15 てじゃ「道の柱も、折れてるところギザギザすぎる、もっとゆるやかに」→ 細かい波（7・13）をやめて、ゆるい斜め＋小さいうねり
         float jagAmp = kind == 3 ? 0.13f : (kind == 2 ? 0.15f : 0.22f);
+        if (ColumnFlatBreak) jagAmp *= 1.3f;   // 平面なのでかたむきを少し大きく
         System.Func<float, float> Jag = th => Mathf.Clamp(jagAmp * (0.5f + 0.42f * Mathf.Sin(th + ja) + 0.1f * Mathf.Sin(2f * th + jb) + 0.03f * Mathf.Sin(3f * th + jc)), 0f, jagAmp * 1.25f);
         System.Func<float, float, float> Rad = (z, th) =>
         {
@@ -3745,6 +3747,14 @@ public static class FuwaCourse2_5Builder
                 float th = Mathf.PI * 2f * i / Seg;
                 float z = k < rings ? zl[k] : zs - Jag(th);
                 float r = Rad(z, th) * (k == rings && jag ? 0.97f : 1f);
+                if (k == rings && jag && ColumnFlatBreak)
+                {   // 2026-11-15 てじゃ「柱の断面のこのすじ消せない？」→ 折れ口を1枚のかたむいた平面に（点の位置で高さを決める＝扇の三角がみんな同じ面の向き）
+                    r = Rad(zs, th) * 0.97f;
+                    float px = Mathf.Cos(th) * r, pz = Mathf.Sin(th) * r;
+                    z = zs - jagAmp * (0.55f + 0.45f * (px * Mathf.Cos(ja) + pz * Mathf.Sin(ja)) / 0.36f);
+                    sv.Add(new Vector3(px, z, pz));
+                    continue;
+                }
                 sv.Add(new Vector3(Mathf.Cos(th) * r, z, Mathf.Sin(th) * r));
             }
         for (int k = 0; k + 1 < totalRings; k++)
@@ -3757,7 +3767,7 @@ public static class FuwaCourse2_5Builder
         int last = (totalRings - 1) * Seg;
         if (jag)
         {   // ギザギザのふち → 少しへこんだまん中（面ごとに角ばる）
-            var cen = new Vector3(0.04f, zs - jagAmp * 0.6f, -0.03f);
+            var cen = ColumnFlatBreak ? new Vector3(0f, zs - jagAmp * 0.55f, 0f) : new Vector3(0.04f, zs - jagAmp * 0.6f, -0.03f);   // 平面の上（まん中の高さ）
             for (int i = 0; i < Seg; i++) { int j = (i + 1) % Seg; Tri(fv, ft, sv[last + i], sv[last + j], cen, Vector3.up); }
         }
         else
