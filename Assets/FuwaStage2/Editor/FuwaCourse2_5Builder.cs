@@ -870,7 +870,7 @@ public static class FuwaCourse2_5Builder
                         }
                         ee[0] = hgt; ee[nn - 1] = hgt;
                         FieldSlab(bvv, btt, new Vector3(sx * (HW + 0.1f), DeckY(za), za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, aa, ee, dd, -0.11f, 0.11f);
-                        for (int k = 0; k < 3; k++)
+                        if (Pebbles) for (int k = 0; k < 3; k++)
                         {
                             float rz = za + L * (0.3f + 0.4f * (float)rnd.NextDouble());
                             RockChunk(bvv, btt, new Vector3(sx * (HW - 0.15f - 0.25f * (float)rnd.NextDouble()), DeckY(rz) + 0.08f, rz), Vector3.one * (0.16f + 0.14f * (float)rnd.NextDouble()),
@@ -2564,7 +2564,7 @@ public static class FuwaCourse2_5Builder
     // 橋のたもとから石像の台座まで：階段で台地へ下りる → シマシマの道 → 台座の段へ上がる短い階段（見た目だけ、当たりはレイヤー0）
     //  台座の正面の段（上の面 -0.55、台地から 0.9）は橋台のうしろ 4.9m から（Play で測った）
     public static float ApproachSlabD = 4.9f, ApproachSlabTop = -0.55f;   // ApproachSlabTop は道の高さ 0（＝橋が道の高さの時）から見た値
-    public static bool BrokenIslandLow = true, StatueApproachPath = false;
+    public static bool BrokenIslandLow = true, StatueApproachPath = false, Pebbles = false;   // Pebbles：地面・橋の上の石ころ（てじゃ「石ころもいらないかな」→ なし。空中で止まった石は残す）
     static void StatueApproach(Transform isb, float yTop, float W, float back)
     {
         var g = new GameObject("StatueApproach").transform; g.SetParent(isb, false);
@@ -2627,7 +2627,7 @@ public static class FuwaCourse2_5Builder
                 for (int k = 0; k < m2; k++) { float u = (float)k / (m2 - 1); hh[k] = Mathf.Lerp(0.3f, 0.05f + 0.1f * (float)rr.NextDouble(), Mathf.Clamp01((u - 0.45f) / 0.55f)) + (u > 0.45f ? ((float)rr.NextDouble() - 0.5f) * 0.08f : 0f); d2[k] = u > 0.45f ? (float)rr.NextDouble() * 0.05f : 0f; }
                 FieldSlab(ev, et, new Vector3(sx * (W / 2f - 0.12f), 0f, 0f), Vector3.forward, Vector3.up, Vector3.right, zz, hh, d2, -0.12f, 0.12f);
             }
-            for (int k = 0; k < 3; k++) RockChunk(dv, dt, new Vector3(((float)rr.NextDouble() - 0.5f) * 2f, 0.07f, s - 0.9f - 0.5f * (float)rr.NextDouble()), Vector3.one * (0.14f + 0.12f * (float)rr.NextDouble()), Quaternion.Euler((float)rr.NextDouble() * 360f, (float)rr.NextDouble() * 360f, 0f), rr);
+            if (Pebbles) for (int k = 0; k < 3; k++) RockChunk(dv, dt, new Vector3(((float)rr.NextDouble() - 0.5f) * 2f, 0.07f, s - 0.9f - 0.5f * (float)rr.NextDouble()), Vector3.one * (0.14f + 0.12f * (float)rr.NextDouble()), Quaternion.Euler((float)rr.NextDouble() * 360f, (float)rr.NextDouble() * 360f, 0f), rr);
             MeshObj(rs, "Deck", SaveMesh("BrokenRoadDeck", dv, dt), deckM, Vector3.zero, 0, true);
             MeshObj(rs, "Edges", SaveMesh("BrokenRoadEdges", ev, et), edgeM, Vector3.zero, 0, true);
             var dcol = rs.gameObject.AddComponent<BoxCollider>(); dcol.center = new Vector3(0f, -T / 2f, (s - 0.6f) / 2f); dcol.size = new Vector3(W, T, s - 0.6f);
@@ -2670,7 +2670,7 @@ public static class FuwaCourse2_5Builder
             for (int i = 0; i < 5; i++)
                 RockChunk(rbv, rbt, new Vector3((i % 2 == 0 ? -1f : 1f) * (W / 2f + 0.9f + (float)rnd0.NextDouble() * 1.2f), yL + 0.1f, -0.8f - (float)rnd0.NextDouble() * 3.5f), Vector3.one * (0.3f + 0.3f * (float)rnd0.NextDouble()),
                     Quaternion.Euler((float)rnd0.NextDouble() * 360f, (float)rnd0.NextDouble() * 360f, 0f), rnd0);
-            MeshObj(isb, "Rubble", SaveMesh("BrokenIslandRubble", rbv, rbt), deckM, Vector3.zero, 0, true);
+            if (Pebbles) MeshObj(isb, "Rubble", SaveMesh("BrokenIslandRubble", rbv, rbt), deckM, Vector3.zero, 0, true);   // 2026-11-15 てじゃ「石ころもいらないかな」
             if (StatueApproachPath) StatueApproach(isb, yL, W, back);   // 2026-11-15 てじゃ「道無くていいかもな」→ なし
         }
         // ---- まん中：折れた橋脚＋ずり落ちた床のかけら ----
