@@ -162,7 +162,18 @@ public static class FuwaCourse2_5Builder
         float hwSave = HW; HW = TunnelHW;
         pitTable = BigPitRows; pitRow = 0; float tileL0 = TileL; TileL = PitTileL;   // 2026-11-14 てじゃ「穴をもっと奥にデカく」「穴は全部」→ 回廊の落とし穴は全部大きい（4マス中3マス×2列）   // 2026-11-14 てじゃ「このトンネルもっと太くても良いかも、横も上も」→ 回廊の道（＝トンネルの中）のはばを広く
         float wh0 = WebH, ch0 = CurtainH, cth0 = CurtainTrigH; WebH = TunnelH - 0.15f; CurtainH = TunnelH - 0.4f; CurtainTrigH = TunnelH + 7f;   // 当たりも低く（真上の上の段の島まで届かないように）
-        Run(() => { runA = isl; warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f);
+        // 2026-11-15 てじゃ「道をすこし伸ばしてポータルの位置も後ろに」「イラストみたいにちょっと曲げて」
+        //  → 到着ポータル＋まっすぐ WarpAInBack ＋ 左へ WarpAInBend° 曲がって、前の道のはじまり（ここから先は前と同じ所）につなぐ
+        if (WarpAInBack > 0f)
+        {
+            float sg = Mathf.Sign(WarpAInBend == 0f ? 1f : WarpAInBend), thE = th, thS = th - WarpAInBend;
+            var inner = P + Dir(thE + 90f) * HW * sg;
+            var p1 = WarpAInBend == 0f ? P : inner - Dir(thS + 90f) * HW * sg;
+            P = p1 - Dir(thS) * WarpAInBack; th = thS;
+            Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(WarpAInBack); });
+            if (WarpAInBend != 0f) T(WarpAInBend);
+        }
+        Run(() => { runA = isl; if (WarpAInBack <= 0f) { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); } S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f);
             // 2026-11-14 てじゃ「最初のクモの巣やっぱいらんかもね」→ ふつうの大きさの巣（左2つ）はなし
             // 2026-11-14 てじゃ「大きくなったあとのクモの巣をもう一個ふやしたい、入ってきた側の道を伸ばして追加」→ 下2つ（上を越える）を足す
             // 2026-11-14 てじゃ「そもそも順番かえよ、今下段2個→上段2個のとこを逆に」→ 右下 → 上2つ → 下2つ
@@ -268,10 +279,10 @@ public static class FuwaCourse2_5Builder
     // 空中の巣の回廊の置き場所：①の島の道の範囲の +x・-z の角から WebWalkOut、高さ WebWalkUp（てじゃの図の青◯）
     public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;   // （前の決め方、今は WebWalkStart に固定）
     public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f); public static float WebWalkOrbit = 25f, WebWalkBack = 0f;   // 巣の門を1つ足して +3.8、最初の巣をなくして −3.8   // 2026-11-14 15° → トンネルが伸びたので「また反時計回りにまわして」25°
-    public static float UpperBackShift = 10f;
+    public static float UpperBackShift = 10f, WarpAInBack = 3f, WarpAInBend = 25f;
     public static Vector3 UpperStart = new Vector3(39.5948f, 32.8087f, 24.0744f); public static float UpperStartHeading = 134.3111f;   // 2026-11-15 てじゃ「この広場は石像の真上くらいにしよう」→ 広場のまん中が MushroomAt の真上に来るよう (-9.44, 0, +6.95) ずらした（前は 49.0348, 32.8087, 17.1244）
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
-    public static float ArrivalBackLen = 4f;
+    public static float ArrivalBackLen = 0f;   // 0＝前のまま（1.9m）。てじゃ「そうじゃなくて 道をすこし伸ばしてポータルの位置も後ろに」→ WarpAInBack で道ごと下げる
     static void ArrivalRoof(bool full = true)
     {
         float hx = HW + 0.35f, z0 = P.z - 1.6f, z1 = P.z + 1.4f, h = FuwaPortalTest.HoleH + 1.1f;
