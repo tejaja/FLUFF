@@ -146730,6 +146730,7 @@ GameObject:
   - component: {fileID: 222067133}
   - component: {fileID: 222067138}
   - component: {fileID: 222067137}
+  - component: {fileID: 222067139}
   - component: {fileID: 222067136}
   - component: {fileID: 222067135}
   - component: {fileID: 222067134}
@@ -146842,7 +146843,7 @@ MonoBehaviour:
   assetId: Web_2_5_WebGates_B1_Web0_LR
 --- !u!114 &222067136
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -146935,6 +146936,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &222067139
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 222067132}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 222067136}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &222313016
 GameObject:
   m_ObjectHideFlags: 0
@@ -198325,6 +198358,7 @@ GameObject:
   - component: {fileID: 301298954}
   - component: {fileID: 301298959}
   - component: {fileID: 301298958}
+  - component: {fileID: 301298960}
   - component: {fileID: 301298957}
   - component: {fileID: 301298956}
   - component: {fileID: 301298955}
@@ -198437,7 +198471,7 @@ MonoBehaviour:
   assetId: Web_2_5_WebGates_B1_Web1_UL
 --- !u!114 &301298957
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -198530,6 +198564,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &301298960
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 301298953}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 301298957}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &301640631
 GameObject:
   m_ObjectHideFlags: 0
@@ -246147,6 +246213,7 @@ GameObject:
   - component: {fileID: 390319287}
   - component: {fileID: 390319292}
   - component: {fileID: 390319291}
+  - component: {fileID: 390319293}
   - component: {fileID: 390319290}
   - component: {fileID: 390319289}
   - component: {fileID: 390319288}
@@ -246259,7 +246326,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web0_0
 --- !u!114 &390319290
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -246352,6 +246419,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &390319293
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 390319286}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 390319290}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &390457091
 GameObject:
   m_ObjectHideFlags: 0
@@ -249077,6 +249176,7 @@ GameObject:
   - component: {fileID: 395948071}
   - component: {fileID: 395948076}
   - component: {fileID: 395948075}
+  - component: {fileID: 395948077}
   - component: {fileID: 395948074}
   - component: {fileID: 395948073}
   - component: {fileID: 395948072}
@@ -249189,7 +249289,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web1_4
 --- !u!114 &395948074
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -249282,6 +249382,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &395948077
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 395948070}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 395948074}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &396467870
 GameObject:
   m_ObjectHideFlags: 0
@@ -337231,6 +337363,7 @@ GameObject:
   - component: {fileID: 517089073}
   - component: {fileID: 517089078}
   - component: {fileID: 517089077}
+  - component: {fileID: 517089079}
   - component: {fileID: 517089076}
   - component: {fileID: 517089075}
   - component: {fileID: 517089074}
@@ -337343,7 +337476,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web0_3
 --- !u!114 &517089076
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -337436,6 +337569,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &517089079
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 517089072}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 517089076}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!198 &517098536 stripped
 ParticleSystem:
   m_CorrespondingSourceObject: {fileID: 4706285762130975884, guid: 97a7766e9668a384792595d31850ae66, type: 3}
@@ -378250,6 +378415,7 @@ GameObject:
   - component: {fileID: 569133417}
   - component: {fileID: 569133422}
   - component: {fileID: 569133421}
+  - component: {fileID: 569133423}
   - component: {fileID: 569133420}
   - component: {fileID: 569133419}
   - component: {fileID: 569133418}
@@ -378362,7 +378528,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B4_Web0_2
 --- !u!114 &569133420
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -378455,6 +378621,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &569133423
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 569133416}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 569133420}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &569141925
 GameObject:
   m_ObjectHideFlags: 0
@@ -398452,6 +398650,7 @@ GameObject:
   - component: {fileID: 607728761}
   - component: {fileID: 607728766}
   - component: {fileID: 607728765}
+  - component: {fileID: 607728767}
   - component: {fileID: 607728764}
   - component: {fileID: 607728763}
   - component: {fileID: 607728762}
@@ -398564,7 +398763,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web0_4
 --- !u!114 &607728764
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -398657,6 +398856,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &607728767
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 607728760}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 607728764}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &607803128
 GameObject:
   m_ObjectHideFlags: 0
@@ -574878,6 +575109,7 @@ GameObject:
   - component: {fileID: 825165795}
   - component: {fileID: 825165800}
   - component: {fileID: 825165799}
+  - component: {fileID: 825165801}
   - component: {fileID: 825165798}
   - component: {fileID: 825165797}
   - component: {fileID: 825165796}
@@ -574990,7 +575222,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B4_Web0_1
 --- !u!114 &825165798
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -575083,6 +575315,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &825165801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 825165794}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 825165798}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &825390081
 GameObject:
   m_ObjectHideFlags: 0
@@ -721465,6 +721729,7 @@ GameObject:
   - component: {fileID: 1018348463}
   - component: {fileID: 1018348468}
   - component: {fileID: 1018348467}
+  - component: {fileID: 1018348469}
   - component: {fileID: 1018348466}
   - component: {fileID: 1018348465}
   - component: {fileID: 1018348464}
@@ -721577,7 +721842,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B4_Web0_3
 --- !u!114 &1018348466
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -721670,6 +721935,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1018348469
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1018348462}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1018348466}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1018679200
 GameObject:
   m_ObjectHideFlags: 0
@@ -730106,6 +730403,7 @@ GameObject:
   - component: {fileID: 1035207487}
   - component: {fileID: 1035207492}
   - component: {fileID: 1035207491}
+  - component: {fileID: 1035207493}
   - component: {fileID: 1035207490}
   - component: {fileID: 1035207489}
   - component: {fileID: 1035207488}
@@ -730218,7 +730516,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B4_Web0_4
 --- !u!114 &1035207490
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -730311,6 +730609,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1035207493
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1035207486}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1035207490}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1035348358
 GameObject:
   m_ObjectHideFlags: 0
@@ -743197,6 +743527,7 @@ GameObject:
   - component: {fileID: 1058060515}
   - component: {fileID: 1058060520}
   - component: {fileID: 1058060519}
+  - component: {fileID: 1058060521}
   - component: {fileID: 1058060518}
   - component: {fileID: 1058060517}
   - component: {fileID: 1058060516}
@@ -743309,7 +743640,7 @@ MonoBehaviour:
   assetId: Web_2_5_WebGates_B1_Web1_LL
 --- !u!114 &1058060518
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -743402,6 +743733,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1058060521
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058060514}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1058060518}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1058142412
 GameObject:
   m_ObjectHideFlags: 0
@@ -791400,6 +791763,7 @@ GameObject:
   - component: {fileID: 1125402163}
   - component: {fileID: 1125402168}
   - component: {fileID: 1125402167}
+  - component: {fileID: 1125402169}
   - component: {fileID: 1125402166}
   - component: {fileID: 1125402165}
   - component: {fileID: 1125402164}
@@ -791512,7 +791876,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B4_Web0_0
 --- !u!114 &1125402166
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -791605,6 +791969,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1125402169
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1125402162}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1125402166}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1125514095
 GameObject:
   m_ObjectHideFlags: 0
@@ -804390,6 +804786,7 @@ GameObject:
   - component: {fileID: 1156501002}
   - component: {fileID: 1156501007}
   - component: {fileID: 1156501006}
+  - component: {fileID: 1156501008}
   - component: {fileID: 1156501005}
   - component: {fileID: 1156501004}
   - component: {fileID: 1156501003}
@@ -804502,7 +804899,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B4_Web0_5
 --- !u!114 &1156501005
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -804595,6 +804992,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1156501008
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1156501001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1156501005}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1156536413
 GameObject:
   m_ObjectHideFlags: 0
@@ -855622,6 +856051,7 @@ GameObject:
   - component: {fileID: 1203612401}
   - component: {fileID: 1203612406}
   - component: {fileID: 1203612405}
+  - component: {fileID: 1203612407}
   - component: {fileID: 1203612404}
   - component: {fileID: 1203612403}
   - component: {fileID: 1203612402}
@@ -855734,7 +856164,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web1_2
 --- !u!114 &1203612404
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -855827,6 +856257,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1203612407
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1203612400}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1203612404}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1203796956
 GameObject:
   m_ObjectHideFlags: 0
@@ -890752,6 +891214,7 @@ GameObject:
   - component: {fileID: 1246676533}
   - component: {fileID: 1246676538}
   - component: {fileID: 1246676537}
+  - component: {fileID: 1246676539}
   - component: {fileID: 1246676536}
   - component: {fileID: 1246676535}
   - component: {fileID: 1246676534}
@@ -890864,7 +891327,7 @@ MonoBehaviour:
   assetId: Web_2_5_WebGates_B1_Web2_LL
 --- !u!114 &1246676536
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -890957,6 +891420,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1246676539
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1246676532}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1246676536}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1246680238
 GameObject:
   m_ObjectHideFlags: 0
@@ -892245,6 +892740,7 @@ GameObject:
   - component: {fileID: 1248176508}
   - component: {fileID: 1248176513}
   - component: {fileID: 1248176512}
+  - component: {fileID: 1248176514}
   - component: {fileID: 1248176511}
   - component: {fileID: 1248176510}
   - component: {fileID: 1248176509}
@@ -892357,7 +892853,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web1_5
 --- !u!114 &1248176511
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -892450,6 +892946,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1248176514
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1248176507}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1248176511}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1001 &1248374024
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -941960,6 +942488,7 @@ GameObject:
   - component: {fileID: 1310641781}
   - component: {fileID: 1310641786}
   - component: {fileID: 1310641785}
+  - component: {fileID: 1310641787}
   - component: {fileID: 1310641784}
   - component: {fileID: 1310641783}
   - component: {fileID: 1310641782}
@@ -942072,7 +942601,7 @@ MonoBehaviour:
   assetId: Web_2_5_WebGates_B1_Web2_LR
 --- !u!114 &1310641784
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -942165,6 +942694,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1310641787
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1310641780}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1310641784}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1001 &1310852657
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1066807,6 +1067368,7 @@ GameObject:
   - component: {fileID: 1458425927}
   - component: {fileID: 1458425932}
   - component: {fileID: 1458425931}
+  - component: {fileID: 1458425933}
   - component: {fileID: 1458425930}
   - component: {fileID: 1458425929}
   - component: {fileID: 1458425928}
@@ -1066919,7 +1067481,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web1_0
 --- !u!114 &1458425930
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -1067012,6 +1067574,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1458425933
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1458425926}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1458425930}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1458882827
 GameObject:
   m_ObjectHideFlags: 0
@@ -1114702,6 +1115296,7 @@ GameObject:
   - component: {fileID: 1515968276}
   - component: {fileID: 1515968281}
   - component: {fileID: 1515968280}
+  - component: {fileID: 1515968282}
   - component: {fileID: 1515968279}
   - component: {fileID: 1515968278}
   - component: {fileID: 1515968277}
@@ -1114814,7 +1115409,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web0_5
 --- !u!114 &1515968279
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -1114907,6 +1115502,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1515968282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1515968275}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1515968279}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1516070520
 GameObject:
   m_ObjectHideFlags: 0
@@ -1115672,6 +1116299,7 @@ GameObject:
   - component: {fileID: 1517466435}
   - component: {fileID: 1517466440}
   - component: {fileID: 1517466439}
+  - component: {fileID: 1517466441}
   - component: {fileID: 1517466438}
   - component: {fileID: 1517466437}
   - component: {fileID: 1517466436}
@@ -1115784,7 +1116412,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web0_2
 --- !u!114 &1517466438
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -1115877,6 +1116505,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1517466441
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1517466434}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1517466438}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1517574108
 GameObject:
   m_ObjectHideFlags: 0
@@ -1162237,6 +1162897,7 @@ GameObject:
   - component: {fileID: 1578967481}
   - component: {fileID: 1578967486}
   - component: {fileID: 1578967485}
+  - component: {fileID: 1578967487}
   - component: {fileID: 1578967484}
   - component: {fileID: 1578967483}
   - component: {fileID: 1578967482}
@@ -1162349,7 +1163010,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web1_3
 --- !u!114 &1578967484
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -1162442,6 +1163103,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1578967487
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1578967480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1578967484}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1579040109 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 5264251887328577948, guid: f4dacc4895fc40e40b899d86d02b08a2, type: 3}
@@ -1183591,7 +1184284,7 @@ MonoBehaviour:
   _syncMethod: 1
   serializedProgramAsset: {fileID: 11400000, guid: fd2ee1fc1c9aa3b41a6ee1f2777a88d9, type: 2}
   programSource: {fileID: 11400000, guid: abc49f73bf33d56429e99c2efca062a9, type: 2}
-  serializedPublicVariablesBytesString: Ai8AAAAAATIAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAFQAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AAAAAAAYBAAAAAAAAACcBBAAAAHQAeQBwAGUAAWgAAABTAHkAcwB0AGUAbQAuAEMAbwBsAGwAZQBjAHQAaQBvAG4AcwAuAEcAZQBuAGUAcgBpAGMALgBMAGkAcwB0AGAAMQBbAFsAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4ALgBJAG4AdABlAHIAZgBhAGMAZQBzAC4ASQBVAGQAbwBuAFYAYQByAGkAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AXQBdACwAIABtAHMAYwBvAHIAbABpAGIAAQEJAAAAVgBhAHIAaQBhAGIAbABlAHMALwEAAAABaAAAAFMAeQBzAHQAZQBtAC4AQwBvAGwAbABlAGMAdABpAG8AbgBzAC4ARwBlAG4AZQByAGkAYwAuAEwAaQBzAHQAYAAxAFsAWwBWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAEkAbgB0AGUAcgBmAGEAYwBlAHMALgBJAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlACwAIABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgBdAF0ALAAgAG0AcwBjAG8AcgBsAGkAYgABAAAABggAAAAAAAAAAi8CAAAAAUkAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAGAAMQBbAFsAUwB5AHMAdABlAG0ALgBJAG4AdAAzADIALAAgAG0AcwBjAG8AcgBsAGkAYgBdAF0ALAAgAFYAUgBDAC4AVQBkAG8AbgAuAEMAbwBtAG0AbwBuAAIAAAAGAgAAAAAAAAAnAQQAAAB0AHkAcABlAAEXAAAAUwB5AHMAdABlAG0ALgBTAHQAcgBpAG4AZwAsACAAbQBzAGMAbwByAGwAaQBiACcBCgAAAFMAeQBtAGIAbwBsAE4AYQBtAGUAAR8AAABfAF8AXwBVAGQAbwBuAFMAaABhAHIAcABCAGUA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
+  serializedPublicVariablesBytesString: Ai8AAAAAATIAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAFQAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AAAAAAAYBAAAAAAAAACcBBAAAAHQAeQBwAGUAAWgAAABTAHkAcwB0AGUAbQAuAEMAbwBsAGwAZQBjAHQAaQBvAG4AcwAuAEcAZQBuAGUAcgBpAGMALgBMAGkAcwB0AGAAMQBbAFsAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4ALgBJAG4AdABlAHIAZgBhAGMAZQBzAC4ASQBVAGQAbwBuAFYAYQByAGkAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AXQBdACwAIABtAHMAYwBvAHIAbABpAGIAAQEJAAAAVgBhAHIAaQBhAGIAbABlAHMALwEAAAABaAAAAFMAeQBzAHQAZQBtAC4AQwBvAGwAbABlAGMAdABpAG8AbgBzAC4ARwBlAG4AZQByAGkAYwAuAEwAaQBzAHQAYAAxAFsAWwBWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAEkAbgB0AGUAcgBmAGEAYwBlAHMALgBJAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlACwAIABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgBdAF0ALAAgAG0AcwBjAG8AcgBsAGkAYgABAAAABgkAAAAAAAAAAi8CAAAAAUkAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAGAAMQBbAFsAUwB5AHMAdABlAG0ALgBJAG4AdAAzADIALAAgAG0AcwBjAG8AcgBsAGkAYgBdAF0ALAAgAFYAUgBDAC4AVQBkAG8AbgAuAEMAbwBtAG0AbwBuAAIAAAAGAgAAAAAAAAAnAQQAAAB0AHkAcABlAAEXAAAAUwB5AHMAdABlAG0ALgBTAHQAcgBpAG4AZwAsACAAbQBzAGMAbwByAGwAaQBiACcBCgAAAFMAeQBtAGIAbwBsAE4AYQBtAGUAAR8AAABfAF8AXwBVAGQAbwBuAFMAaABhAHIAcABCAGUA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AFMAeQBzAHQAZQBtAC4AUwB0AHIAaQBuAGcAWwBdACwAIABtAHMAYwBvAHIAbABpAGIABwAAAAYBAAAAAAAAACgBBAAAAFQAZQBqAGEABwUHBQIvCAAAAAFKAAAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4ALgBVAGQAbwBuAFYAYQByAGkAYQBiAGwAZQBgADEAWwBbAFMAeQBzAHQAZQBtAC4AUwBpAG4AZwBsAGUALAAgAG0AcwBjAG8AcgBsAGkAYgBdAF0ALAAgAFYAUgBDAC4AVQBkAG8AbgAuAEMAbwBtAG0AbwBuAAgAAAAGAgAAAAAAAAAnAQQAAAB0AHkAcABlAAEXAAAAUwB5AHMAdABlAG0ALgBTAHQAcgBpAG4AZwAsACAAbQBzAGMAbwByAGwAaQBiACcBCgAAAFMAeQBtAGIAbwBsAE4AYQBtAGUAAQgAAABkAGkAcwB0AGEAbgBjAGUAJwEEAAAAdAB5AHAAZQABFwAAAFMAeQBzAHQAZQBtAC4AUwBpAG4AZwBsAGUALAAgAG0AcwBjAG8AcgBsAGkAYgAfAQUAAABWAGEAbAB1AGUAzczMPwcFAjAIAAAACQAAAAYCAAAAAAAAACcBBAAAAHQAeQBwAGUAARcAAABTAHkAcwB0AGUAbQAuAFMAdAByAGkAbgBnACwAIABtAHMAYwBvAHIAbABpAGIAJwEKAAAAUwB5AG0AYgBvAGwATgBhAG0AZQABBAAAAGQAcgBvAHAAJwEEAAAAdAB5AHAAZQABFwAAAFMAeQBzAHQAZQBtAC4AUwBpAG4AZwBsAGUALAAgAG0AcwBjAG8AcgBsAGkAYgAfAQUAAABWAGEAbAB1AGUAzczMPgcFAjAIAAAACgAAAAYCAAAAAAAAACcBBAAAAHQAeQBwAGUAARcAAABTAHkAcwB0AGUAbQAuAFMAdAByAGkAbgBnACwAIABtAHMAYwBvAHIAbABpAGIAJwEKAAAAUwB5AG0AYgBvAGwATgBhAG0AZQABDAAAAHMAdABhAGcAZQAyAEIAZQBsAG8AdwBZACcBBAAAAHQAeQBwAGUAARcAAABTAHkAcwB0AGUAbQAuAFMAaQBuAGcAbABlACwAIABtAHMAYwBvAHIAbABpAGIAHwEFAAAAVgBhAGwAdQBlAAAAcMIHBQIvCQAAAAFLAAAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4ALgBVAGQAbwBuAFYAYQByAGkAYQBiAGwAZQBgADEAWwBbAFMAeQBzAHQAZQBtAC4AQgBvAG8AbABlAGEAbgAsACAAbQBzAGMAbwByAGwAaQBiAF0AXQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4ACwAAAAYCAAAAAAAAACcBBAAAAHQAeQBwAGUAARcAAABTAHkAcwB0AGUAbQAuAFMAdAByAGkAbgBnACwAIABtAHMAYwBvAHIAbABpAGIAJwEKAAAAUwB5AG0AYgBvAGwATgBhAG0AZQABCAAAAGUAdgBlAHIAeQBvAG4AZQAnAQQAAAB0AHkAcABlAAEYAAAAUwB5AHMAdABlAG0ALgBCAG8AbwBsAGUAYQBuACwAIABtAHMAYwBvAHIAbABpAGIAKwEFAAAAVgBhAGwAdQBlAAEHBQcFBwU=
   publicVariablesUnityEngineObjects:
   - {fileID: 1849933630}
   - {fileID: 1644272715}
@@ -1183623,6 +1184316,7 @@ MonoBehaviour:
   key: 103
   ownerNames:
   - Teja
+  everyone: 1
   distance: 1.6
   drop: 0.4
   stage2BelowY: -60
@@ -1253048,6 +1253742,7 @@ GameObject:
   - component: {fileID: 1704647870}
   - component: {fileID: 1704647875}
   - component: {fileID: 1704647874}
+  - component: {fileID: 1704647876}
   - component: {fileID: 1704647873}
   - component: {fileID: 1704647872}
   - component: {fileID: 1704647871}
@@ -1253160,7 +1253855,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web0_1
 --- !u!114 &1704647873
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -1253253,6 +1253948,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1704647876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1704647869}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1704647873}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1705156189
 GameObject:
   m_ObjectHideFlags: 0
@@ -1392998,6 +1393725,7 @@ GameObject:
   - component: {fileID: 1899022146}
   - component: {fileID: 1899022151}
   - component: {fileID: 1899022150}
+  - component: {fileID: 1899022152}
   - component: {fileID: 1899022149}
   - component: {fileID: 1899022148}
   - component: {fileID: 1899022147}
@@ -1393110,7 +1393838,7 @@ MonoBehaviour:
   assetId: Web_2_5_VoronoiGates_B2_Web1_1
 --- !u!114 &1899022149
 MonoBehaviour:
-  m_ObjectHideFlags: 2
+  m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
@@ -1393203,6 +1393931,38 @@ MonoBehaviour:
   tearSound: {fileID: 0}
   tearMend: 4
   smallPasses: 0
+--- !u!114 &1899022152
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1899022145}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2786613ef0192994681ee7b9df77e4fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 1899022149}
+  holeRadius: 0.62
+  breathe: 0
+  minRadius: 0.45
+  maxRadius: 0.85
+  period: 4
+  webRenderers: []
+  ring: {fileID: 0}
+  ringInnerRadius: 0.92
+  hazard: {fileID: 0}
+  hazardInset: 0.02
 --- !u!1 &1899070153
 GameObject:
   m_ObjectHideFlags: 0
