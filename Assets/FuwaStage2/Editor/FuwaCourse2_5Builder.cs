@@ -248,9 +248,10 @@ public static class FuwaCourse2_5Builder
             S(1.5f); ShieldGateArch("ShieldGate"); S(5f);
             CrystalPlaza("CrystalPlaza");
             // 2026-11-15 てじゃ「広場のつなぎ目がちょっとシンプルすぎる」→ 広場と橋の間の 3m のただの道をやめて、橋を広場のふちから直接（橋は 3m 長く＝先は同じ所）
-            if (PlazaBridgeDirect) { S(0.4f); ShieldOff("ShieldOff"); } else { S(1.5f); ShieldOff("ShieldOff"); S(1.5f); } });
+            // 2026-11-15 てじゃ「（S(0.4) の道の）上が飛び出てる」→ 道ははさまない。橋の欄干の外のはし（BridgeHW+0.27）が広場の円のふちに来る所から橋（まん中は床の下にかくれる）
+            if (PlazaBridgeDirect) { P += Dir(th) * PlazaBridgeAdvance(); ShieldOff("ShieldOff"); } else { S(1.5f); ShieldOff("ShieldOff"); S(1.5f); } });
         Island("Bridge3");
-        Run(() => { if (PlazaBridgeDirect) ArchBridge(14f + 3f - 0.4f, 2f, false, null, false, true); else ArchBridge(14f, 2f, false, null); });
+        Run(() => { if (PlazaBridgeDirect) ArchBridge(14f + 3f - PlazaBridgeAdvance(), 2f, false, null, false, true); else ArchBridge(14f, 2f, false, null); });   // 先のはしは前と同じ所
         // 2026-11-15 てじゃ「ここ（クリスタルの広場）通り過ぎて橋の先はもうゴール行きポータルでいいかも」→ 橋のすぐ先にワープB
         //  前の版：I4_Bumpers（CP3 → 飛び出す石ブロック Pistons_B → T(-45) → 腕とブロックのまざり Mix_C → ワープB）
         Island("I4_End");
@@ -1065,6 +1066,8 @@ public static class FuwaCourse2_5Builder
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
     public static bool PlazaBridgeDirect = true;
+    // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
+    static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
     static void ArchBridge(float len, float rise, bool pits, float[] windsAt, bool stubGap = false, bool noFirstPier = false)
     {
         float hw0 = HW; HW = BridgeHW;
@@ -4258,7 +4261,7 @@ public static class FuwaCourse2_5Builder
         {
             // 2026-11-15 てじゃ「継ぎ目われてる」→ ふちの切れ目は角度（放射状）で切っていて、外ほど道との間がひらいていた（くさび形のすき間）
             //  → 切れ目を道（入口）・橋（出口）のはばでまっすぐに切る＋切り口にふた
-            float ly = -0.25f, hwE = HW + 0.02f, hwX = PlazaBridgeDirect ? BridgeHW + 0.2f : HW + 0.02f;
+            float ly = -0.25f, hwE = HW + 0.02f, hwX = PlazaBridgeDirect ? BridgeHW + 0.05f : HW + 0.02f;   // 橋の横の壁（xo＝BridgeHW+0.05）にぴったり
             float gapE = Mathf.Asin(Mathf.Min(0.95f, hwE / R)), gapX = Mathf.Asin(Mathf.Min(0.95f, hwX / R));
             var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
             // 入口は -z（角度 270°）、出口は +z（90°）
