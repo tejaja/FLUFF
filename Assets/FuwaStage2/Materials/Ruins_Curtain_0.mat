@@ -8,13 +8,13 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Ruins_Curtain_0
-  m_Shader: {fileID: 203, guid: 0000000000000000f000000000000000, type: 0}
+  m_Shader: {fileID: 4800000, guid: 05b03a9ffe448ce41b106ee9065b71f9, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords: []
   m_LightmapFlags: 4
-  m_EnableInstancingVariants: 0
+  m_EnableInstancingVariants: 1
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: -1
   stringTagMap: {}
@@ -29,7 +29,14 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _Alpha: 0.7
+    - _Arms: 3
+    - _Freq: 3.5
     - _InvFade: 1
+    - _Mode: 0
+    - _Speed: 0.6
     m_Colors:
+    - _Color: {r: 0.9575, g: 0.9575, b: 1, a: 1}
+    - _EmissionColor: {r: 1.14, g: 1.14, b: 1.2, a: 1.2}
     - _TintColor: {r: 0.57, g: 0.57, b: 0.6, a: 0.45}
   m_BuildTextureStacks: []

@@ -1055,7 +1055,7 @@ public static class FuwaCourse2_5Builder
         MeshObj(g, "Keystone", SaveMesh("ArchGateKey" + no, kv, kt), stone, Vector3.zero, 0, true);
         curtainOnArch = true; curtainArchTop = colH - 0.6f;
     }
-    public static bool ArchGateNew = true, StoneLook = true;
+    public static bool ArchGateNew = true, StoneLook = true, CurtainPattern = true;
     public static Color TerraCol = new Color(0.84f, 0.68f, 0.58f), TerraDCol = new Color(0.69f, 0.53f, 0.45f);
     static bool curtainOnArch; static float curtainArchTop;   // ArchGate のすぐあとの Curtain は柱の間に張る
 
@@ -1400,7 +1400,14 @@ public static class FuwaCourse2_5Builder
         string mp = "Assets/FuwaStage2/Materials/Ruins_Curtain_" + mode + ".mat";
         var vm = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (!vm) { vm = new Material(Shader.Find("Legacy Shaders/Particles/Alpha Blended")); AssetDatabase.CreateAsset(vm, mp); }
-        vm.mainTexture = curtainFade; vm.SetColor("_TintColor", new Color(col.r * 0.6f, col.g * 0.6f, col.b * 0.6f, 0.45f)); EditorUtility.SetDirty(vm);
+        if (CurtainPattern && Shader.Find("Fuwa/SizeCurtain"))
+        {   // 2026-11-15 てじゃ「カーテンをもっと目立つようにグラデ演出、巨大化は中心から外に広がる円、小型化は逆、通常化はうずまき」
+            vm.shader = Shader.Find("Fuwa/SizeCurtain"); vm.enableInstancing = true;
+            vm.SetColor("_Color", Color.Lerp(col, Color.white, 0.15f)); vm.SetFloat("_Mode", mode); vm.SetFloat("_Alpha", 0.7f); vm.SetFloat("_Freq", mode == 0 ? 3.5f : 5f); vm.SetFloat("_Speed", 0.6f);
+            vm.SetColor("_EmissionColor", col * 1.2f);
+        }
+        else { vm.mainTexture = curtainFade; vm.SetColor("_TintColor", new Color(col.r * 0.6f, col.g * 0.6f, col.b * 0.6f, 0.45f)); }
+        EditorUtility.SetDirty(vm);
         var q = GameObject.CreatePrimitive(PrimitiveType.Quad); q.name = "Veil"; Object.DestroyImmediate(q.GetComponent<Collider>());
         q.transform.SetParent(c, false); q.transform.localPosition = new Vector3(0f, CurtainH / 2f, 0f); q.transform.localScale = new Vector3(w, CurtainH, 1f);
         var qr = q.GetComponent<MeshRenderer>(); qr.sharedMaterial = vm; qr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; qr.receiveShadows = false;
@@ -1414,6 +1421,7 @@ public static class FuwaCourse2_5Builder
         ps.GetComponent<ParticleSystemRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Rune_Glyph_" + mode + ".mat");
         ps.Stop();
         var sr = UdonSharpUndo.AddComponent<FuwaSizeRune>(c.gameObject);
+        if (CurtainPattern) caps.Add(qr);   // くぐった時に幕も光る（_EmissionColor の明るさ）
         sr.mode = mode; sr.glyph = null; sr.glows = caps.ToArray(); sr.burst = ps; sr.glowColor = col;
         UdonSharpEditorUtility.CopyProxyToUdon(sr); FuwaStage2WaterTest.NoSync(sr);
     }
