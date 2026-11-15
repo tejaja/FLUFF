@@ -48,6 +48,9 @@ public class FuwaShockwave : UdonSharpBehaviour
     public float glowIdle = 0.45f, glowCharged = 2.6f;
     public float spinIdle = 25f, spinCharged = 420f;
     public Transform wave, waveFloor, chargeRing;
+    [Tooltip("2026-11-15 見た目（7）：光の壁のあとを追う砂ぼこりの輪（Fuwa/DustRing）と、壁の残像（Fuwa/Shockwave）")]
+    public Transform dustRing, waveEcho;
+    public Renderer dustRenderer, echoRenderer;
     public Renderer[] waveRenderers;
     public Renderer chargeRenderer;
     public ParticleSystem chargeParticles, blastParticles;
@@ -97,6 +100,8 @@ public class FuwaShockwave : UdonSharpBehaviour
     private void HideWave()
     {
         _waveLive = false;
+        if (dustRenderer != null) dustRenderer.enabled = false;
+        if (echoRenderer != null) echoRenderer.enabled = false;
         if (waveRenderers != null) for (int i = 0; i < waveRenderers.Length; i++) if (waveRenderers[i] != null) waveRenderers[i].enabled = false;
     }
 
@@ -171,6 +176,7 @@ public class FuwaShockwave : UdonSharpBehaviour
                 if (wave != null) wave.localScale = new Vector3(r, waveHeight, r);
                 if (waveFloor != null) waveFloor.localScale = new Vector3(r, 1f, r);
                 SetWaveProps(fade);
+                UpdateTrail(r, fade);
                 // 自分
                 if (!_playerDone)
                 {
@@ -222,6 +228,10 @@ public class FuwaShockwave : UdonSharpBehaviour
         _flash = 1f;
         if (wave != null) { wave.position = new Vector3(_src.x, transform.position.y, _src.z); wave.localScale = new Vector3(0.01f, waveHeight, 0.01f); }
         if (waveFloor != null) { waveFloor.position = new Vector3(_src.x, transform.position.y + 0.02f, _src.z); waveFloor.localScale = new Vector3(0.01f, 1f, 0.01f); }
+        if (dustRing != null) { dustRing.position = new Vector3(_src.x, transform.position.y, _src.z); dustRing.localScale = new Vector3(0.01f, 1f, 0.01f); }
+        if (waveEcho != null) { waveEcho.position = new Vector3(_src.x, transform.position.y, _src.z); waveEcho.localScale = new Vector3(0.01f, waveHeight, 0.01f); }
+        if (dustRenderer != null) dustRenderer.enabled = true;
+        if (echoRenderer != null) echoRenderer.enabled = true;
         if (waveRenderers != null) for (int i = 0; i < waveRenderers.Length; i++) if (waveRenderers[i] != null) waveRenderers[i].enabled = true;
         if (chargeSound != null) chargeSound.Stop();
         if (boomSound != null) boomSound.Play();
@@ -245,6 +255,32 @@ public class FuwaShockwave : UdonSharpBehaviour
         if (along < bl) return false;
         float perp = (q - bh * along).magnitude;
         return perp < rs * along / bl + shadowPad;
+    }
+
+    // 砂ぼこり（壁の少しうしろ、低い）と残像（壁の1.3m うしろ、うすい）
+    private void UpdateTrail(float r, float fade)
+    {
+        Vector4 bv = Vector4.zero;
+        if (shield != null && shield.IsOn()) { Vector3 bp = shield.transform.position; bv = new Vector4(bp.x, bp.y, bp.z, shield.Radius()); }
+        Vector4 sv = new Vector4(_src.x, _src.y, _src.z, 0f);
+        if (dustRing != null && dustRenderer != null)
+        {
+            float rd = Mathf.Max(0.05f, r - 0.7f);
+            dustRing.localScale = new Vector3(rd, 1.4f, rd);
+            dustRenderer.GetPropertyBlock(_mpb);
+            _mpb.SetFloat("_Alpha", fade * Mathf.Clamp01(r / 2.5f));
+            _mpb.SetVector("_Src", sv); _mpb.SetVector("_Ball", bv); _mpb.SetFloat("_Pad", shadowPad);
+            dustRenderer.SetPropertyBlock(_mpb);
+        }
+        if (waveEcho != null && echoRenderer != null)
+        {
+            float re = Mathf.Max(0.05f, r - 1.3f);
+            waveEcho.localScale = new Vector3(re, waveHeight * 0.85f, re);
+            echoRenderer.GetPropertyBlock(_mpb);
+            _mpb.SetFloat("_Alpha", fade * 0.35f);
+            _mpb.SetVector("_Src", sv); _mpb.SetVector("_Ball", bv); _mpb.SetFloat("_Pad", shadowPad);
+            echoRenderer.SetPropertyBlock(_mpb);
+        }
     }
 
     private void SetWaveProps(float fade)

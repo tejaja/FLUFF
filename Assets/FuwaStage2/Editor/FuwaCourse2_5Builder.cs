@@ -3135,6 +3135,11 @@ public static class FuwaCourse2_5Builder
         var wave = MeshObj(g, "Wave", band, waveM, Vector3.zero, 0, false);
         var waveF = MeshObj(g, "WaveFloor", ring, waveM, new Vector3(0f, 0.02f, 0f), 0, false);
         var chg = MeshObj(g, "ChargeRing", ring, waveM, new Vector3(0f, 0.03f, 0f), 0, false);
+        // 7：砂ぼこりの輪（壁のあとを追う、低い）と壁の残像
+        var dustM = FxMat("Ruins_DustRing", "Fuwa/DustRing"); dustM.SetFloat("_Alpha", 0f); dustM.SetColor("_Color", new Color(0.74f, 0.63f, 0.5f)); EditorUtility.SetDirty(dustM);
+        var dust = MeshObj(g, "DustRing", band, dustM, Vector3.zero, 0, false);
+        var echo = MeshObj(g, "WaveEcho", band, waveM, Vector3.zero, 0, false);
+        foreach (var o in new[] { dust, echo }) { var r = o.GetComponent<Renderer>(); r.enabled = false; r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off; }
         foreach (var o in new[] { wave, waveF, chg }) { var r = o.GetComponent<Renderer>(); r.enabled = false; r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off; }
         // 粒：ため（まわりから集まる）とドン（はじける）
         var cps = Sparks(pivot, "ChargeFx", Vector3.zero, 0.7f, -4.2f, 0.1f, 120);
@@ -3170,6 +3175,7 @@ public static class FuwaCourse2_5Builder
         }
         var sw = UdonSharpUndo.AddComponent<FuwaShockwave>(g.gameObject);
         sw.magicCircle = circleR;
+        sw.dustRing = dust.transform; sw.dustRenderer = dust.GetComponent<Renderer>(); sw.waveEcho = echo.transform; sw.echoRenderer = echo.GetComponent<Renderer>();
         sw.shards = shardTs.ToArray(); sw.auraRenderer = aura.GetComponent<Renderer>(); sw.orbitRings = orbitTs.ToArray(); sw.orbitRingRenderers = orbitRs.ToArray();
         sw.ball = ballT; sw.shield = shieldT; sw.radius = R;
         sw.crystal = pivot; sw.crystalGlows = crystalRends.ToArray(); sw.glowColor = ShieldCol; sw.runeGlows = runeRends.ToArray();
