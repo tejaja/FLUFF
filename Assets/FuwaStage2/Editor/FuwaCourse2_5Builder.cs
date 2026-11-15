@@ -1224,7 +1224,7 @@ public static class FuwaCourse2_5Builder
             var co = new GameObject(sx < 0 ? "ColumnL" : "ColumnR"); co.transform.SetParent(g, false); co.transform.localPosition = new Vector3(sx * cx, -0.6f, 0f);
             float ch = colH;
             co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("ArchGateColumn" + no + (sx < 0 ? "L" : "R"), 700 + no * 2 + (sx < 0 ? 0 : 1), ch, 0);
-            colFix.Add((co.transform, "ArchGateColumn" + no + (sx < 0 ? "L" : "R"), 700 + no * 2 + (sx < 0 ? 0 : 1), ch, 0));   // 2026-11-15 てじゃ「はしらういてる」→ 岩ができたあとに地面までのばす
+            colFix.Add((co.transform, "ArchGateColumn" + no + (sx < 0 ? "L" : "R"), 700 + no * 2 + (sx < 0 ? 0 : 1), ch, 0, HW));   // 2026-11-15 てじゃ「はしらういてる」→ 岩ができたあとに地面までのばす
             co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
             var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = ch; cc.center = Vector3.up * ch / 2f;
         }
@@ -1269,7 +1269,8 @@ public static class FuwaCourse2_5Builder
     }
     // 柱の根もとの下に地面（当たり）があれば、そこまでの距離（少し埋める）。何もない・遠い（空中）なら 0
     public static float ColumnMaxDrop = 6f;
-    static List<(Transform co, string nm, int seed, float h, int kind)> colFix = new List<(Transform, string, int, float, int)>();
+    static List<(Transform co, string nm, int seed, float h, int kind, float hw)> colFix = new List<(Transform, string, int, float, int, float)>();
+    public static bool ColumnCorbels = true; public static float CorbelDepth = 1.7f;
     // 岩（RockMesh）などができたあとで：記録した柱の根もとが浮いていたら、下へのばして作り直す（てっぺんの高さはそのまま）
     static void FixColumnGround()
     {
@@ -1277,7 +1278,9 @@ public static class FuwaCourse2_5Builder
         foreach (var c in colFix)
         {
             if (!c.co) continue;
-            float drop = ColumnGroundDrop(c.co); if (drop <= 0f) continue;
+            float drop = ColumnGroundDrop(c.co, out bool any);
+            if (!any && ColumnCorbels) { ColumnCorbel(c.co, c.nm, c.hw); continue; }   // 2026-11-15 てじゃ「柱が浮いてるのをなんとかしたいけど外側は歩かせたくない」→ 道の横から出る石の持ち送り（上は柱の台の下にかくれる、外は急な斜め＝乗れない）
+            if (drop <= 0f) continue;
             c.co.localPosition += Vector3.down * drop; float h = c.h + drop;
             c.co.GetComponent<MeshFilter>().sharedMesh = ColumnMesh(c.nm, c.seed, h, c.kind);
             var cc = c.co.GetComponent<CapsuleCollider>(); if (cc) { cc.height = h; cc.center = Vector3.up * h / 2f; }
@@ -1286,8 +1289,10 @@ public static class FuwaCourse2_5Builder
         colFix.Clear();
         log.Append("柱の根もと" + n + " ");
     }
-    static float ColumnGroundDrop(Transform co)
+    static float ColumnGroundDrop(Transform co) => ColumnGroundDrop(co, out _);
+    static float ColumnGroundDrop(Transform co, out bool any)
     {
+        any = false;
         Physics.SyncTransforms();
         var p = co.position; float sc = Mathf.Max(1e-3f, co.lossyScale.y);
         float best = -1f;
@@ -1299,9 +1304,29 @@ public static class FuwaCourse2_5Builder
             float d = -1f;
             foreach (var hh in hits) { if (hh.collider.transform.IsChildOf(co)) continue; float dd = hh.distance / sc - 0.3f; if (d < 0f || dd < d) d = dd; }
             if (d < 0f) continue;
+            if (o == Vector3.zero) any = true;
             best = Mathf.Max(best, d);
         }
         return best > 0.03f ? best + 0.12f : 0f;
+    }
+    // 空中の道のわきの柱の下：道の横の面から出る石の持ち送り（柱の座標。原点＝柱の根もとのまん中、x は道を横切る向き）
+    //  上の面は柱の台（0.54 角）の下にかくれる、外の面は下へ道の方へ急に斜め（乗れない）、内の面は道の横の面より少し中
+    static void ColumnCorbel(Transform co, string nm, float hw)
+    {
+        float sgn = Mathf.Sign(co.localPosition.x == 0f ? 1f : co.localPosition.x);
+        float e = Mathf.Abs(co.localPosition.x) - hw;            // 道のはし → 柱のまん中
+        float xi = -sgn * (e + 0.06f), xo = sgn * 0.5f, xb = xi + sgn * 0.32f;
+        float zt = 0.5f, zb = 0.3f, D = CorbelDepth, y0 = -0.002f;
+        var T = new[] { new Vector3(xi, y0, -zt), new Vector3(xo, y0, -zt), new Vector3(xo, y0, zt), new Vector3(xi, y0, zt) };
+        var B = new[] { new Vector3(xi, y0 - D, -zb), new Vector3(xb, y0 - D, -zb), new Vector3(xb, y0 - D, zb), new Vector3(xi, y0 - D, zb) };
+        var v = new List<Vector3>(); var t = new List<int>();
+        var cen = (T.Aggregate(Vector3.zero, (a, b) => a + b) + B.Aggregate(Vector3.zero, (a, b) => a + b)) / 8f;
+        void Q(Vector3 a, Vector3 b, Vector3 c, Vector3 d) { var w = (a + b + c + d) * 0.25f - cen; Tri(v, t, a, b, c, w); Tri(v, t, a, c, d, w); }
+        Q(T[0], T[1], T[2], T[3]); Q(B[0], B[1], B[2], B[3]);
+        for (int k = 0; k < 4; k++) { int j = (k + 1) % 4; Q(T[k], T[j], B[j], B[k]); }
+        var go = new GameObject("Corbel"); go.transform.SetParent(co, false);
+        go.AddComponent<MeshFilter>().sharedMesh = SaveMesh(nm + "_Corbel", v, t);
+        go.AddComponent<MeshRenderer>().sharedMaterial = stone;
     }
     public static bool ArchGateNew = true, StoneLook = true, CurtainPattern = true, OpenPitBridge = true;
     public static Color TerraCol = new Color(0.84f, 0.68f, 0.58f), TerraDCol = new Color(0.69f, 0.53f, 0.45f);
@@ -1332,7 +1357,7 @@ public static class FuwaCourse2_5Builder
                     co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("CorridorColumn" + seed, seed, ch, kind);
                     co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
                     var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = ch; cc.center = Vector3.up * ch / 2f;
-                    colFix.Add((co.transform, "CorridorColumn" + seed, seed, ch, kind));
+                    colFix.Add((co.transform, "CorridorColumn" + seed, seed, ch, kind, HW));
                     pi++;
                 }
                 if (GateBeams) Box(g, "GateBeam", new Vector3(0f, H + 0.25f, z), new Vector3(2f * xc + PillarSize + 0.4f, 0.5f, PillarSize + 0.1f), terra, 0);   // 2026-11-14 てじゃ「上の板いらんかも」→ なし
