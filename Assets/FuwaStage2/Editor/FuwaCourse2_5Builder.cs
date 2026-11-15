@@ -927,6 +927,7 @@ public static class FuwaCourse2_5Builder
                     const int PS = 3; int PM = PS * 4;
                     var cornersT = new[] { new Vector2(-hx0, -hz0), new Vector2(hx0, -hz0), new Vector2(hx0, hz0), new Vector2(-hx0, hz0) };
                     var ringT = new Vector3[PM]; var ringB = new Vector3[PM];
+                    float jph = (float)rnd.NextDouble() * 6.28f, jph2 = (float)rnd.NextDouble() * 6.28f;
                     float yb = yt - dep * 0.8f, tap = 0.9f;
                     var sh = new Vector2(bx * (open ? 0.05f : 0.15f), bz * 0.08f);   // 下の方が少しずれる（古い感じ）
                     for (int k = 0; k < PM; k++)
@@ -934,10 +935,12 @@ public static class FuwaCourse2_5Builder
                         int side = k / PS; float f = (k % PS) / (float)PS;
                         var q = Vector2.Lerp(cornersT[side], cornersT[(side + 1) % 4], f);
                         ringT[k] = new Vector3(cxp + q.x, yt, z + q.y);
-                        float jag = (float)rnd.NextDouble() * 0.9f - 0.45f + ((k % 2 == 0) ? 0.18f : -0.18f);
+                        // 2026-11-15 てじゃ「折れてるところギザギザすぎる、もっとゆるやかに」→ こまごとの乱数をやめ、ゆるい斜め＋小さいうねり
+                        float thk = Mathf.PI * 2f * k / PM;
+                        float jag = 0.32f * Mathf.Sin(thk + jph) + 0.07f * Mathf.Sin(2f * thk + jph2);
                         ringB[k] = new Vector3(cxp + q.x * tap + sh.x, yb + jag, z + q.y * tap + sh.y);
                     }
-                    var cB = new Vector3(cxp + sh.x, yb - 0.15f + 0.3f * (float)rnd.NextDouble(), z + sh.y);
+                    var cB = new Vector3(cxp + sh.x, yb - 0.04f + 0.08f * (float)rnd.NextDouble(), z + sh.y);
                     for (int k = 0; k < PM; k++)
                     {
                         int j = (k + 1) % PM;
@@ -3247,8 +3250,9 @@ public static class FuwaCourse2_5Builder
         bool full = kind == 0;
         float zs = full ? h - 0.45f : h;                   // 胴のてっぺん（折れなら一番高い所の目安）
         float ja = (float)rnd.NextDouble() * 6.28f, jb = (float)rnd.NextDouble() * 6.28f, jc = (float)rnd.NextDouble() * 6.28f;
-        float jagAmp = kind == 3 ? 0.18f : (kind == 2 ? 0.22f : 0.32f);
-        System.Func<float, float> Jag = th => Mathf.Clamp(jagAmp * (0.5f + 0.35f * Mathf.Sin(3f * th + ja) + 0.2f * Mathf.Sin(7f * th + jb) + 0.12f * Mathf.Sin(13f * th + jc)), 0f, jagAmp * 1.25f);
+        // 2026-11-15 てじゃ「道の柱も、折れてるところギザギザすぎる、もっとゆるやかに」→ 細かい波（7・13）をやめて、ゆるい斜め＋小さいうねり
+        float jagAmp = kind == 3 ? 0.13f : (kind == 2 ? 0.15f : 0.22f);
+        System.Func<float, float> Jag = th => Mathf.Clamp(jagAmp * (0.5f + 0.42f * Mathf.Sin(th + ja) + 0.1f * Mathf.Sin(2f * th + jb) + 0.03f * Mathf.Sin(3f * th + jc)), 0f, jagAmp * 1.25f);
         System.Func<float, float, float> Rad = (z, th) =>
         {
             float u = Mathf.Clamp01((z - z0) / 4.2f);
@@ -3284,7 +3288,7 @@ public static class FuwaCourse2_5Builder
         int last = (totalRings - 1) * Seg;
         if (jag)
         {   // ギザギザのふち → 少しへこんだまん中（面ごとに角ばる）
-            var cen = new Vector3(0.04f, zs - jagAmp * 0.9f, -0.03f);
+            var cen = new Vector3(0.04f, zs - jagAmp * 0.6f, -0.03f);
             for (int i = 0; i < Seg; i++) { int j = (i + 1) % Seg; Tri(fv, ft, sv[last + i], sv[last + j], cen, Vector3.up); }
         }
         else
