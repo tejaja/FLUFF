@@ -3026,8 +3026,18 @@ public static class FuwaCourse2_5Builder
             lo.AddComponent<MeshCollider>().sharedMesh = lm;
         }
         // ---- 下の岩（浮いた島らしく先細り）----
+        //  2026-11-15 見た目クオリティ（6）：円柱の積み重ね → Blender で作ったゴツゴツの浮き島の岩（BlenderSource/FLUFF_models.blend の PlazaRock シーン → Models/PlazaRock.fbx → 子の変換を焼いた PlazaRockBaked）
+        //  上の口（半径 10.4）がふちの下（-0.75）にぴったり。ふち（R+PlazaLedge）より少し大きく広げて、下から見てすき間が出ないように
+        var rockMesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/PlazaRockBaked.asset");
         float[] ur = { R + PlazaLedge - 0.05f, R - 0.6f, R - 3f, R - 5.8f }, uh = { 1.2f, 1.6f, 1.8f, 2f };
         float uy = -0.75f;   // ふちの側面の下から（ふちの下の面のかわり）
+        if (rockMesh)
+        {
+            var ro = new GameObject("UnderRock"); ro.transform.SetParent(g, false); ro.transform.localPosition = new Vector3(0f, uy, 0f);
+            float k = (R + PlazaLedge + 0.06f) / 10.4f; ro.transform.localScale = new Vector3(k, 1f, k);
+            ro.AddComponent<MeshFilter>().sharedMesh = rockMesh; ro.AddComponent<MeshRenderer>().sharedMaterials = new[] { stone, underM };
+            ur = new float[0];
+        }
         for (int i = 0; i < ur.Length; i++)
         {
             var cy = GameObject.CreatePrimitive(PrimitiveType.Cylinder); cy.name = "Under" + i; Object.DestroyImmediate(cy.GetComponent<Collider>());
