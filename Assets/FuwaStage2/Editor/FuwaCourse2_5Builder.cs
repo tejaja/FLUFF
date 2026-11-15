@@ -2218,7 +2218,7 @@ public static class FuwaCourse2_5Builder
     // ===== だ円の輪のポータル（2026-11-13 てじゃ「ポータルの見た目、空中に浮いた縦長の◯枠がいい」）=====
     //  柱と屋根の枠をやめて、道の上に少し浮いた縦長のだ円の輪（外に石の輪・内に光るふち）。穴（ステンシルの面）もだ円
     //  人・ふわふわを運ぶ判定（FuwaPortal の halfW × height の四角）はそのまま（だ円の外の角を通ると運ばれるが、ブロックアウトなのでよしとする）
-    public static bool OvalPortals = true, PortalBlocks = true;
+    public static bool OvalPortals = true, PortalBlocks = true, PortalCradle = true;
     public static float OvalLift = 0.15f;   // 輪の下のはしの高さ
     static float OvalA => FuwaPortalTest.HalfW;
     static float OvalB => FuwaPortalTest.HoleH / 2f;
@@ -2236,6 +2236,7 @@ public static class FuwaCourse2_5Builder
             {
                 float a0 = Mathf.PI / 2f + 2f * Mathf.PI * (i - 0.5f) / n + gapA, a1 = Mathf.PI / 2f + 2f * Mathf.PI * (i + 0.5f) / n - gapA;
                 bool key = i == 0;
+                if (PortalCradle && (i == n / 2 - 1 || i == n / 2 || i == n / 2 + 1)) continue;   // 下の3つは台座（PortalCradle）にする
                 float wo = key ? w0 + 0.22f : w0 + ((i % 2 == 0) ? 0.04f : -0.02f);
                 float dd = key ? dz + 0.06f : dz;
                 Vector3 E(float a, float ex, float z) => new Vector3(Mathf.Cos(a) * (ain + ex), Mathf.Sin(a) * (bin + ex), z);
@@ -2253,8 +2254,50 @@ public static class FuwaCourse2_5Builder
                 var gem = MeshObj(ring, "KeyGem", CrystalClusterMesh("PortalGem", 41, 0.2f, 0), CrystalMat(), new Vector3(0f, bin + 0.33f, sz * 0.33f), 0, false);
                 gem.transform.localRotation = Quaternion.Euler(90f * sz, 0f, 0f);
             }
+            // 2026-11-15 てじゃ「ポータル枠の下の接続部分がちょっと雑」→ 下の3つのブロック＋2つの台（ななめのブロックに箱がささっていた）をやめて、
+            //  1つの台座：上の面が輪の内がわのカーブ（だ円）、横はまっすぐ下へ、下に一段広い踏み石
+            if (PortalCradle)
+            {
+                float yBot = -OvalC.y, stepH = 0.05f, wc = w0 + 0.02f;   // 輪の下のはしは道から 0.07 しかないので、踏み石はうすい板
+                float ta = Mathf.PI / 2f + 2f * Mathf.PI * (n / 2 - 1.5f) / n + gapA, tb = Mathf.PI / 2f + 2f * Mathf.PI * (n / 2 + 1.5f) / n - gapA;
+                Vector2 In(float a) => new Vector2(Mathf.Cos(a) * ain, Mathf.Sin(a) * bin);
+                Vector2 Out(float a) => new Vector2(Mathf.Cos(a) * (ain + wc), Mathf.Sin(a) * (bin + wc));
+                var poly = new List<Vector2>();
+                var oa = Out(ta); var ob = Out(tb);
+                float xl = Mathf.Min(oa.x, ob.x), xr = Mathf.Max(oa.x, ob.x), yb = yBot + stepH;
+                poly.Add(new Vector2(xl, yb)); poly.Add(oa);
+                int m = 14; for (int k = 0; k <= m; k++) { var pi2 = In(Mathf.Lerp(ta, tb, (float)k / m)); pi2.y = Mathf.Max(pi2.y, yb + 0.015f); poly.Add(pi2); }
+                poly.Add(ob); poly.Add(new Vector2(xr, yb));
+                var cv = new List<Vector3>(); var ct = new List<int>();
+                var fanC = new Vector2(0f, yb);
+                float cz = dz + 0.02f;
+                for (int k = 0; k < poly.Count; k++)
+                {
+                    var a2v = poly[k]; var b2v = poly[(k + 1) % poly.Count];
+                    // 前後の面（下のまん中から扇）
+                    if (k < poly.Count - 1)
+                    {
+                        Tri(cv, ct, new Vector3(fanC.x, fanC.y, -cz), new Vector3(a2v.x, a2v.y, -cz), new Vector3(b2v.x, b2v.y, -cz), Vector3.back);
+                        Tri(cv, ct, new Vector3(fanC.x, fanC.y, cz), new Vector3(a2v.x, a2v.y, cz), new Vector3(b2v.x, b2v.y, cz), Vector3.forward);
+                    }
+                    // まわりの面
+                    // 外向き：0＝左の横、1＝左のはし（となりのブロックへ）、2〜m+1＝上のカーブ（穴の中心へ）、m+2＝右のはし、m+3＝右の横、最後＝底
+                    var mid2 = (a2v + b2v) * 0.5f; Vector3 w;
+                    if (k == 0) w = Vector3.left;
+                    else if (k == 1) w = new Vector3(Mathf.Sin(ta) * ain, -Mathf.Cos(ta) * bin, 0f);
+                    else if (k <= m + 1) w = new Vector3(-mid2.x, -mid2.y, 0f);
+                    else if (k == m + 2) w = new Vector3(-Mathf.Sin(tb) * ain, Mathf.Cos(tb) * bin, 0f);
+                    else if (k == m + 3) w = Vector3.right;
+                    else w = Vector3.down;
+                    Tri(cv, ct, new Vector3(a2v.x, a2v.y, -cz), new Vector3(b2v.x, b2v.y, -cz), new Vector3(b2v.x, b2v.y, cz), w);
+                    Tri(cv, ct, new Vector3(a2v.x, a2v.y, -cz), new Vector3(b2v.x, b2v.y, cz), new Vector3(a2v.x, a2v.y, cz), w);
+                }
+                MeshObj(ring, "Cradle", SaveMesh("Portal_OvalCradle", cv, ct), stone, Vector3.zero, 0, true);
+                // 踏み石（道の上、台座より少し広い）
+                var stp = Box(ring, "Step", new Vector3(0f, yBot + stepH / 2f, 0f), new Vector3(xr - xl + 0.3f, stepH, 2f * cz + 0.24f), terra, 0); Object.DestroyImmediate(stp.GetComponent<Collider>());
+            }
             // 下の2つの台（道の上から輪の下まで）
-            foreach (float sx in new[] { -1f, 1f })
+            if (!PortalCradle) foreach (float sx in new[] { -1f, 1f })
             {
                 float ang = Mathf.PI * 1.5f + sx * 0.42f;
                 var bp = new Vector3(Mathf.Cos(ang) * (ain + w0 * 0.5f), Mathf.Sin(ang) * (bin + w0 * 0.5f), 0f);
