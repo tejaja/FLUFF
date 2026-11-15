@@ -170,10 +170,10 @@ public static class FuwaCourse2_5Builder
             var inner = P + Dir(thE + 90f) * HW * sg;
             var p1 = WarpAInBend == 0f ? P : inner - Dir(thS + 90f) * HW * sg;
             P = p1 - Dir(thS) * WarpAInBack; th = thS;
-            Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); S(WarpAInBack); });
+            Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false, true); S(WarpAInBack); });   // 「延長で縞がおかしい」→ 広い床をやめ、うしろの床は道はば（B）
             if (WarpAInBend != 0f) T(WarpAInBend);
         }
-        Run(() => { runA = isl; if (WarpAInBack <= 0f) { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); } S(2.5f); CPi("Checkpoint1", 0.8f); S(1.5f);
+        Run(() => { runA = isl; if (WarpAInBack <= 0f) { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); } CPi("Checkpoint1", 0.8f, true); S(4f);   // 2026-11-15 てじゃ「チェックポイントもうちょい手前に、ちゃんと丸太を道の外に」→ 2.5m 手前（曲がり角のすぐ先）。前：S(2.5) CP S(1.5)
             // 2026-11-14 てじゃ「最初のクモの巣やっぱいらんかもね」→ ふつうの大きさの巣（左2つ）はなし
             // 2026-11-14 てじゃ「大きくなったあとのクモの巣をもう一個ふやしたい、入ってきた側の道を伸ばして追加」→ 下2つ（上を越える）を足す
             // 2026-11-14 てじゃ「そもそも順番かえよ、今下段2個→上段2個のとこを逆に」→ 右下 → 上2つ → 下2つ
@@ -210,7 +210,7 @@ public static class FuwaCourse2_5Builder
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
         if (CorridorPillars) CorridorColonnade(runA, runB); else CorridorTunnel(runA, runB, -40f, -1.6f);
-        { // CP の光るキノコは道のふちの外（壁の中）にあったので、トンネルの中の壁ぎわへ
+        if (!CorridorPillars) { // CP の光るキノコは道のふちの外（壁の中）にあったので、トンネルの中の壁ぎわへ（2026-11-15 柱式ではやらない：てじゃ「ちゃんと丸太を道の外に」）
             var cpg = runA.Find("Checkpoints/Checkpoint1/GlowMushrooms");
             if (cpg) foreach (Transform c in cpg) c.localPosition = new Vector3(Mathf.Sign(c.localPosition.x) * (HW - 0.3f), c.localPosition.y + 0.66f, c.localPosition.z);
         }
@@ -279,16 +279,17 @@ public static class FuwaCourse2_5Builder
     // 空中の巣の回廊の置き場所：①の島の道の範囲の +x・-z の角から WebWalkOut、高さ WebWalkUp（てじゃの図の青◯）
     public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;   // （前の決め方、今は WebWalkStart に固定）
     public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f); public static float WebWalkOrbit = 25f, WebWalkBack = 0f;   // 巣の門を1つ足して +3.8、最初の巣をなくして −3.8   // 2026-11-14 15° → トンネルが伸びたので「また反時計回りにまわして」25°
-    public static float UpperBackShift = 10f, WarpAInBack = 3f, WarpAInBend = 25f;
+    public static float UpperBackShift = 10f, WarpAInBack = 3.6f, WarpAInBend = 25f;   // 3.6m＝シマ3本（A B A）→ 曲がり角（B）→ 先の道（A…）で交互がくずれない
     public static Vector3 UpperStart = new Vector3(39.5948f, 32.8087f, 24.0744f); public static float UpperStartHeading = 134.3111f;   // 2026-11-15 てじゃ「この広場は石像の真上くらいにしよう」→ 広場のまん中が MushroomAt の真上に来るよう (-9.44, 0, +6.95) ずらした（前は 49.0348, 32.8087, 17.1244）
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
     public static float ArrivalBackLen = 0f;   // 0＝前のまま（1.9m）。てじゃ「そうじゃなくて 道をすこし伸ばしてポータルの位置も後ろに」→ WarpAInBack で道ごと下げる
-    static void ArrivalRoof(bool full = true)
+    static void ArrivalRoof(bool full = true, bool narrow = false)
     {
         float hx = HW + 0.35f, z0 = P.z - 1.6f, z1 = P.z + 1.4f, h = FuwaPortalTest.HoleH + 1.1f;
         var g = new GameObject("ArrivalRoof").transform; g.SetParent(isl, false);
         // 床：道（P から先）と重ならないように、ポータルのうしろの部分と、道の左右の外だけ（同じ高さの面が重なるとちらつく）
         float fw = hx + 0.3f, zb = Mathf.Min(z0 - 0.3f, P.z - ArrivalBackLen), zf = z1 + 0.3f;   // 2026-11-15 てじゃ「中段のポータル、ちょっと後ろに道を伸ばしておいてほしい」→ うしろの床 1.9m → ArrivalBackLen
+        if (narrow) { Box(g, "FloorBack", new Vector3(0f, P.y - 0.3f, (zb + P.z) / 2f), new Vector3(2f * HW, 0.6f, P.z - zb), pathB, pathLayer); return; }
         Box(g, "FloorBack", new Vector3(0f, P.y - 0.3f, (zb + P.z) / 2f), new Vector3(2f * fw, 0.6f, P.z - zb), pathB, pathLayer);
         foreach (float sx in new[] { -1f, 1f })
             Box(g, "FloorSide", new Vector3(sx * (HW + fw) / 2f, P.y - 0.3f, (P.z + zf) / 2f), new Vector3(fw - HW, 0.6f, zf - P.z), pathB, pathLayer);
@@ -1487,7 +1488,7 @@ public static class FuwaCourse2_5Builder
     static Transform EndIsland() => BigPortal(isl, "PortalOut", P, 180f);
 
     // 島の中のチェックポイント（島の子に置く）
-    static void CPi(string name, float along)
+    static void CPi(string name, float along, bool logsOutside = false)
     {
         var tmpl = GameObject.Find("FuwaCourse3/Checkpoint1"); if (!tmpl) return;
         var g = isl.Find("Checkpoints"); if (!g) { g = new GameObject("Checkpoints").transform; g.SetParent(isl, false); }
@@ -1497,7 +1498,10 @@ public static class FuwaCourse2_5Builder
         var trig = cp.transform.Find("Trigger");
         if (trig) trig.localScale = new Vector3(HW * 2f + 0.8f, trig.localScale.y, trig.localScale.z);
         var gm = cp.transform.Find("GlowMushrooms");
-        if (gm) foreach (Transform cl in gm) cl.localPosition = new Vector3(Mathf.Sign(cl.localPosition.x) * (HW + 0.55f), cl.localPosition.y, 1.5f);
+        if (gm) foreach (Transform cl in gm)
+            cl.localPosition = logsOutside
+                ? new Vector3(Mathf.Sign(cl.localPosition.x) * (HW + 1.05f), -0.45f, 1.5f)   // 丸太（はば約2m）が道の外、道の横の面にそって少し下（空中の道なので地面はない）
+                : new Vector3(Mathf.Sign(cl.localPosition.x) * (HW + 0.55f), cl.localPosition.y, 1.5f);
         var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
         if (fc) { UdonSharpEditorUtility.CopyProxyToUdon(fc); FuwaStage2WaterTest.NoSync(fc); cps.Add(fc); }
     }
