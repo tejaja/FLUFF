@@ -296,7 +296,7 @@ public static class FuwaCourse2_5Builder
     //  空洞：石像の真下、口は -z（スタートの方から見える）。出口のポータルは空洞の +z の壁の内がわ、-z へ進む
     public static bool StoneRims = false;
     public static float PathRockM = 1.6f, StatueRockR = 17f, RockCell = 0.8f, RockNoise = 0.9f;
-    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;
+    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true, CaveSkirt = true; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;
     static (Vector3 entry, float heading) PathHugRock(Transform island)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -467,6 +467,45 @@ public static class FuwaCourse2_5Builder
                 var c2 = sc + new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * (hx - 1.2f - 1.5f * (float)crnd.NextDouble());
                 float len = 1.2f + 1.4f * (float)crnd.NextDouble();
                 RockChunk(cv, ct, new Vector3(c2.x, cy1 - len * 0.35f, c2.y), new Vector3(0.9f, len, 0.9f), Quaternion.Euler(0f, (float)crnd.NextDouble() * 360f, 0f), crnd);
+            }
+            // 2026-11-15 てじゃ「裏がぱきっと真っ平らなのもきになる」：空洞のまわりの輪の底に、下へ垂れるゴツゴツのふち（まん中のゴールの下は抜けたまま）
+            if (GoalOpen && CaveSkirt)
+            {
+                int N = 72; float rOut = StatueRockR - 1.2f + 1.1f, rIn = hx - 0.35f;
+                var rings = new List<Vector3[]>();
+                float[] rs = { rOut, rOut - 1.6f, (rOut + rIn) * 0.5f + 0.8f, (rOut + rIn) * 0.5f - 1.2f, rIn + 0.6f, rIn };
+                float[] ys = { cy0 + 0.35f, cy0 - 1.6f, cy0 - 3.4f, cy0 - 3.0f, cy0 - 1.2f, cy0 + 0.3f };
+                for (int ri = 0; ri < rs.Length; ri++)
+                {
+                    var ring = new Vector3[N];
+                    for (int i = 0; i < N; i++)
+                    {
+                        float ang = Mathf.PI * 2f * i / N; var d2 = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
+                        bool edge = ri == 0 || ri == rs.Length - 1;
+                        float nr = edge ? 0f : (Mathf.PerlinNoise(d2.x * 2f + ri * 3.1f, d2.y * 2f + 1.7f) - 0.5f) * 2.2f;
+                        float ny = edge ? 0f : (Mathf.PerlinNoise(d2.x * 2.6f + 7.3f + ri, d2.y * 2.6f + 4.1f) - 0.5f) * 2.4f;
+                        var q2 = sc + d2 * (rs[ri] + nr);
+                        ring[i] = new Vector3(q2.x, ys[ri] + ny, q2.y);
+                    }
+                    rings.Add(ring);
+                }
+                for (int ri = 0; ri + 1 < rings.Count; ri++)
+                    for (int i = 0; i < N; i++)
+                    {
+                        int j = (i + 1) % N;
+                        var A = rings[ri][i]; var B = rings[ri][j]; var C = rings[ri + 1][j]; var D = rings[ri + 1][i];
+                        var mid = (A + B + C + D) * 0.25f; var radial = new Vector3(mid.x - sc.x, 0f, mid.z - sc.y).normalized;
+                        var want = (ri < 2 ? radial : (ri == 2 ? Vector3.zero : -radial)) + Vector3.down;   // 外の帯は外下向き、内の帯は内下向き
+                        Tri(cv, ct, A, B, C, want); Tri(cv, ct, A, C, D, want);
+                    }
+                // ところどころ下がる岩
+                for (int k = 0; k < 14; k++)
+                {
+                    float ang = (float)crnd.NextDouble() * Mathf.PI * 2f; var d2 = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
+                    var q2 = sc + d2 * Mathf.Lerp(rIn + 1.5f, rOut - 2f, (float)crnd.NextDouble());
+                    float len = 2f + 2.5f * (float)crnd.NextDouble();
+                    RockChunk(cv, ct, new Vector3(q2.x, cy0 - 2.6f - len * 0.4f, q2.y), new Vector3(1.6f, len, 1.6f), Quaternion.Euler(0f, (float)crnd.NextDouble() * 360f, 0f), crnd);
+                }
             }
             var cm = SaveMesh("I1_CaveRocks", cv, ct);
             var cgo = new GameObject("CaveRocks"); cgo.transform.SetParent(rk, false);
