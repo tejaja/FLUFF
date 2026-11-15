@@ -4469,6 +4469,7 @@ public static class FuwaCourse2_5Builder
         sw.dustRing = dust.transform; sw.dustRenderer = dust.GetComponent<Renderer>(); sw.waveEcho = echo.transform; sw.echoRenderer = echo.GetComponent<Renderer>();
         sw.shards = shardTs.ToArray(); sw.auraRenderer = aura.GetComponent<Renderer>(); sw.orbitRings = orbitTs.ToArray(); sw.orbitRingRenderers = orbitRs.ToArray();
         sw.ball = ballT; sw.shield = shieldT; sw.radius = R;
+        sw.shadowPad = sw.nearPad;   // 2026-11-15 てじゃ「後ろの影の出始めが、バリアの中心じゃないんだな」→ 影のはばの始まりをバリアのまわりのセーフ（半径＋nearPad）とそろえる（線がいちばん太い所からそのまま後ろへ）
         sw.crystal = pivot; sw.crystalGlows = crystalRends.ToArray(); sw.glowColor = ShieldCol; sw.runeGlows = runeRends.ToArray();
         sw.wave = wave.transform; sw.waveFloor = waveF.transform; sw.chargeRing = chg.transform;
         sw.waveRenderers = new[] { wave.GetComponent<Renderer>(), waveF.GetComponent<Renderer>() }; sw.chargeRenderer = chg.GetComponent<Renderer>();

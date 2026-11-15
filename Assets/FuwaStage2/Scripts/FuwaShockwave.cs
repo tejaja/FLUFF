@@ -39,7 +39,7 @@ public class FuwaShockwave : UdonSharpBehaviour
     [Tooltip("バリアのまわりのセーフ（バリアのふちからの距離 m）")]
     public float nearPad = 0.8f;
     [Tooltip("影の横のゆとり（m）")]
-    public float shadowPad = 0.45f;
+    public float shadowPad = 0.8f;   // 2026-11-15 nearPad とそろえる（0.45 → 0.8）
 
     [Header("見た目")]
     public Transform crystal;
