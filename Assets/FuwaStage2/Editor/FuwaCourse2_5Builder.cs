@@ -1068,7 +1068,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
-    public static bool ShockDark = true, ShockSkyDim = true; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
+    public static bool ShockDark = true, ShockSkyDim = true, ShieldVeil = true; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
     public static bool PlazaBridgeDirect = true, PlazaLedgeUnderEntry = true;
     // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
     static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
@@ -4109,6 +4109,21 @@ public static class FuwaCourse2_5Builder
         var bc = g.gameObject.AddComponent<BoxCollider>(); bc.isTrigger = true;
         bc.size = new Vector3(CurtainTrigW, CurtainTrigH, 0.4f); bc.center = new Vector3(0f, CurtainTrigH / 2f - 6f, 0f);
         var sg = UdonSharpUndo.AddComponent<FuwaShieldGate>(g.gameObject);
+        // 2026-11-15 てじゃ「バリア付与カーテンとこもなんかほしいな」「バリア模様？」→ アーチの口いっぱいに六角形のバリアの膜（Fuwa/ShieldVeil）。くぐった時は門の光といっしょに光る
+        if (ShieldVeil)
+        {
+            float hw = cx - 0.2f, rr = rIn + 0.05f; int m = 24;
+            var vv = new List<Vector3> { new Vector3(-hw, 0f, 0f), new Vector3(hw, 0f, 0f), new Vector3(hw, colH, 0f), new Vector3(-hw, colH, 0f) };
+            var tt = new List<int> { 0, 1, 2, 0, 2, 3 };
+            int c0 = vv.Count; vv.Add(new Vector3(0f, colH, 0f));
+            for (int k = 0; k <= m; k++) { float a = Mathf.PI * k / m; vv.Add(new Vector3(Mathf.Cos(a) * rr, colH + Mathf.Sin(a) * rr, 0f)); }
+            for (int k = 0; k < m; k++) { tt.Add(c0); tt.Add(c0 + 1 + k); tt.Add(c0 + 2 + k); }
+            var vm = SaveMesh("GateShieldVeil", vv, tt);
+            var veilM = FxMat("Ruins_ShieldVeil", "Fuwa/ShieldVeil"); veilM.SetColor("_Color", ShieldCol); veilM.SetFloat("_Width", 2f * hw); veilM.SetFloat("_Height", colH + rr); EditorUtility.SetDirty(veilM);
+            var vo = MeshObj(g, "Veil", vm, veilM, Vector3.zero, 2, false);
+            var vr = vo.GetComponent<Renderer>(); vr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; vr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            glows.Add(vr);
+        }
         sg.shield = shieldT; sg.give = true; sg.crystal = cr.transform; sg.glows = glows.ToArray(); sg.glowColor = ShieldCol; sg.beam = beam;
         UdonSharpEditorUtility.CopyProxyToUdon(sg); FuwaStage2WaterTest.NoSync(sg);
     }
