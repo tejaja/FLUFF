@@ -2055,9 +2055,32 @@ public static class FuwaCourse2_5Builder
             var em = ps.emission; em.rateOverTimeMultiplier *= f;
             var mn = ps.main; mn.maxParticles = Mathf.CeilToInt(mn.maxParticles * f);
         }
+        BlueWindDecal(w);
         var wa = w.GetComponentInChildren<FuwaWindArea>(true);
         if (wa) { wa.strength = WeakWind; wa.onSeconds = WeakWindOn; wa.offSeconds = WeakWindOff; wa.phaseOffset = phase; wa.alternate = true; UdonSharpEditorUtility.CopyProxyToUdon(wa); FuwaStage2WaterTest.NoSync(wa); }
         log.Append("弱い横風" + tag + " ");
+    }
+
+    // 2026-11-15 てじゃ「2-5の風の地面エフェクト青くしてほしい」：見本（1-1の横風）の緑の材質を共有していた → 2-5用の青い材質に（ほかのコースの青と同じ色）
+    static readonly Color WindDecalBlue = new Color(0.4f, 0.78f, 1f, 0.3f);
+    static void BlueWindDecal(GameObject w)
+    {
+        const string mp = "Assets/FuwaCourse/Generated/WindDecal/WindDecal_Course2_5_Wind.mat";
+        foreach (var r in w.GetComponentsInChildren<Renderer>(true))
+        {
+            if (r.name != "WindDecal" || !r.sharedMaterial) continue;
+            //  色・帯の形は今の 1-1 の横風（G2_CrossLeft）にそろえる（見本の材質は古いまま）。風の向きだけ見本のを使う
+            var src = r.sharedMaterial;
+            var now = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Generated/WindDecal/WindDecal_G2_CrossLeft_CrossWind.mat");
+            var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (!m) { m = new Material(now ? now : src); AssetDatabase.CreateAsset(m, mp); }
+            else if (now) m.CopyPropertiesFromMaterial(now);
+            m.shader = src.shader;
+            m.SetVector("_WindDir", src.GetVector("_WindDir")); m.SetFloat("_FlowDir", src.GetFloat("_FlowDir"));
+            if (!now) m.color = WindDecalBlue;
+            EditorUtility.SetDirty(m);
+            r.sharedMaterial = m;
+        }
     }
 
     static void WindStatues(Transform g, float z, float phase)
@@ -2068,6 +2091,7 @@ public static class FuwaCourse2_5Builder
         w.transform.localPosition = new Vector3(0f, P.y, z); w.transform.localRotation = Quaternion.identity;
         foreach (Transform c in w.transform) c.localPosition = new Vector3(c.localPosition.x, 2.6f, c.localPosition.z);
         var cwT = w.transform.Find("CrossWind"); if (cwT) cwT.localScale = new Vector3(2f * HW + 10f, 5.2f, 3.6f);
+        BlueWindDecal(w);
         var wa = w.GetComponentInChildren<FuwaWindArea>(true);
         if (wa) { wa.strength = WindStrength; wa.onSeconds = WindOn; wa.offSeconds = WindOff; wa.phaseOffset = phase; wa.alternate = true; UdonSharpEditorUtility.CopyProxyToUdon(wa); FuwaStage2WaterTest.NoSync(wa); }
         // 石像（左右）：台＋胴＋頭、道の方を向いた口

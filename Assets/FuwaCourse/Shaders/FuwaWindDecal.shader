@@ -29,6 +29,11 @@ Shader "Fuwa/WindDecal"
         // カーブに沿って回した箱どうしが内側でくさび形に重なり、二重に塗られて濃い帯になっていた（2026-10-16 てじゃ「グラデのとこに濃い境目」）
         _CutFront ("風下の境目（スクリプトから）", Vector) = (0, 0, 0, 0)
         _CutBack ("風上の境目（スクリプトから）", Vector) = (0, 0, 0, 0)
+        // 2026-11-15 てじゃ「各風の地面エフェクトのグラデーションが、アバターにもうつってる」
+        //  箱（高さ1.5m、まん中が地面の0.15m上）の中の面なら何にでも塗っていたので、箱に入ったアバターの足にも模様が出ていた
+        //  → 箱のまん中から上は、この高さ（m、まん中から）で消す。地面すれすれだけに塗る
+        _TopStart ("上で消し始める高さ(m、箱のまん中から)", Float) = 0.0
+        _TopEnd ("上で消え切る高さ(m、箱のまん中から)", Float) = 0.15
     }
     SubShader
     {
@@ -52,6 +57,7 @@ Shader "Fuwa/WindDecal"
             float _EdgeFade, _FadeFront, _FadeBack, _Wavelength, _Speed, _FlowDir, _Base, _Sharp;
             float _Chevron, _ChevPeriod, _ChevSlope, _Stroke, _Phase, _Taper, _Soft, _ScriptPhase;
             float4 _CutFront, _CutBack;
+            float _TopStart, _TopEnd;
             UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
 
             struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -115,6 +121,7 @@ Shader "Fuwa/WindDecal"
                 float wz = ez > 0.5 ? _FadeFront : (ez < -0.5 ? _FadeBack : _EdgeFade);
                 c.a *= (wx > 0.001 ? smoothstep(0, wx, dEdge.x) : 1) * (wz > 0.001 ? smoothstep(0, wz, dEdge.y) : 1);
                 c.a *= 1.0 - smoothstep(0.3, 0.5, abs(lp.y));   // 箱の上下のふちでなめらかに消す
+                c.a *= 1.0 - smoothstep(_TopStart, _TopEnd, lp.y * sc.y);   // 地面より上（アバターの足など）には塗らない
                 c.a *= smoothstep(0.55, 0.85, abs(dot(sn, up)));   // 崖の横の面などには塗らない
 
                 if (_Chevron > 0.5)
