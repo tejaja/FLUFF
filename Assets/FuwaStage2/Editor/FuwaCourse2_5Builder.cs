@@ -1326,7 +1326,7 @@ public static class FuwaCourse2_5Builder
         log.Append("遠くでうすく " + n + " ");
     }
     // 柱の根もとの下に地面（当たり）があれば、そこまでの距離（少し埋める）。何もない・遠い（空中）なら 0
-    public static float ColumnMaxDrop = 6f;
+    public static float ColumnMaxDrop = 6f, ColumnBury = 0.02f;
     static List<(Transform co, string nm, int seed, float h, int kind, float hw)> colFix = new List<(Transform, string, int, float, int, float)>();
     public static bool ColumnCorbels = true; public static float CorbelDepth = 1.7f;
     // 岩（RockMesh）などができたあとで：記録した柱の根もとが浮いていたら、下へのばして作り直す（てっぺんの高さはそのまま）
@@ -1338,7 +1338,7 @@ public static class FuwaCourse2_5Builder
             if (!c.co) continue;
             float drop = ColumnGroundDrop(c.co, out bool any);
             if (!any && ColumnCorbels) { ColumnCorbel(c.co, c.nm, c.hw); continue; }   // 2026-11-15 てじゃ「柱が浮いてるのをなんとかしたいけど外側は歩かせたくない」→ 道の横から出る石の持ち送り（上は柱の台の下にかくれる、外は急な斜め＝乗れない）
-            if (drop <= 0f) continue;
+            if (drop == 0f) continue;
             c.co.localPosition += Vector3.down * drop; float h = c.h + drop;
             c.co.GetComponent<MeshFilter>().sharedMesh = ColumnMesh(c.nm, c.seed, h, c.kind);
             var cc = c.co.GetComponent<CapsuleCollider>(); if (cc) { cc.height = h; cc.center = Vector3.up * h / 2f; }
@@ -1353,7 +1353,7 @@ public static class FuwaCourse2_5Builder
         any = false;
         Physics.SyncTransforms();
         var p = co.position; float sc = Mathf.Max(1e-3f, co.lossyScale.y);
-        float best = -1f;
+        float best = -1e9f;
         // 根もとの台の四すみ近くと まん中で調べて、一番遠い所まで（台のはしが浮かないように）
         foreach (var o in new[] { Vector3.zero, new Vector3(0.45f, 0, 0.45f), new Vector3(-0.45f, 0, 0.45f), new Vector3(0.45f, 0, -0.45f), new Vector3(-0.45f, 0, -0.45f) })
         {
@@ -1364,11 +1364,14 @@ public static class FuwaCourse2_5Builder
             bool hitAny = false;
             foreach (var hh in hits) { if (hh.collider.transform.IsChildOf(co)) continue; float dd = hh.distance / sc - 0.3f; if (dd < -0.2f) continue; if (!hitAny || dd < d) d = dd; hitAny = true; }
             if (!hitAny) continue;
-            d = Mathf.Max(d, 0f);
+            // （地面が根もとより上なら d はマイナス＝柱を上げる）
             if (o == Vector3.zero) any = true;
             best = Mathf.Max(best, d);
         }
-        return best > 0.03f ? best + 0.12f : 0f;
+        // 2026-11-15 てじゃ「下の板部分うまってる」→ 埋めるのは 2cm だけ（前は 12cm で台の板がうまって見えた）。地面が少し上なら上げる
+        if (best < -1e8f) return 0f;
+        float drop = best + ColumnBury;
+        return Mathf.Abs(drop) > 0.01f ? drop : 0f;
     }
     // 空中の道のわきの柱の下：道の横の面から出る石の持ち送り（柱の座標。原点＝柱の根もとのまん中、x は道を横切る向き）
     //  上の面は柱の台（0.54 角）の下にかくれる、外の面は下へ道の方へ急に斜め（乗れない）、内の面は道の横の面より少し中
