@@ -591,7 +591,7 @@ public static class FuwaCourse2_5Builder
     // ===== 2026-11-15 中段（空中の巣の回廊）の下の島 =====
     //  てじゃ「穴が開いてるところ以外に下に島つけよ」→ ふつうの道（Road*・Turn*・到着の床）の下だけ、下の段と同じ作りの岩（段々に細る・ゴツゴツ・草のへり）
     //  落とし穴の列（WindRun_Pits*）の下はくりぬく（MidRockPitClear のゆとり）＝落ちたらそのまま落ちる
-    public static bool MidRock = true; public static float MidRockPortalR = 6f; public static float MidRockPitClear = 0.7f, MidRockM = 1.3f, MidRockTopNoise = 0.15f;   // 2026-11-15 てじゃ「やっぱここは島やめるか」「ポータル付近のとこだけ島にしよう」→ ポータルから MidRockPortalR 以内の道の部品だけ。2026-11-15 てじゃ「島のフチは柱の外側ギリギリくらいに、外側から通れるとまずい」→ 上の面のふちは道のはし＋1.3（柱の台の外がわ）±0.15
+    public static bool MidRock = true; public static float MidRockPortalR = 6f; public static int MidRockLayers = 7; public static float MidRockTipIn = 3.2f, MidRockSag = 0.9f; public static float MidRockPitClear = 0.7f, MidRockM = 1.3f, MidRockTopNoise = 0.15f;   // 2026-11-15 てじゃ「やっぱここは島やめるか」「ポータル付近のとこだけ島にしよう」→ ポータルから MidRockPortalR 以内の道の部品だけ。2026-11-15 てじゃ「島のフチは柱の外側ギリギリくらいに、外側から通れるとまずい」→ 上の面のふちは道のはし＋1.3（柱の台の外がわ）±0.15
     static void MidTierRock(Transform island, string meshName)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -635,12 +635,18 @@ public static class FuwaCourse2_5Builder
         System.Func<Vector2, float> noise = q => RockNoise * (0.6f * Mathf.Sin(q.x * 0.23f + 1.3f) * Mathf.Cos(q.y * 0.19f - 0.7f) + 0.4f * Mathf.Sin(q.x * 0.11f - q.y * 0.13f + 2.1f));
         System.Func<Vector2, float> dPath = q => { float d = float.MaxValue; foreach (var poly in polys) d = Mathf.Min(d, PolySdf(poly, q)); return d; };
         System.Func<Vector2, float> dPit = q => { float d = float.MaxValue; foreach (var poly in pits) d = Mathf.Min(d, PolySdf(poly, q)); return d; };
-        var layers = new List<(float y1, float y0, float pm)>
+        // 2026-11-15 てじゃ「この道の島の下部分もパッキリしすぎ」→ 3段の平らな段 → 7段で下へ細ってとがる（あとで段のふちを上下にゆらす）
+        var layers = new List<(float y1, float y0, float pm)>();
         {
-            (top, top - 1.3f, MidRockM),
-            (top - 1.3f, top - 3.0f, MidRockM - 1.1f),
-            (top - 3.0f, top - 5.2f, MidRockM - 2.6f),
-        };
+            int NL = MidRockLayers; float y = top;
+            for (int k = 0; k < NL; k++)
+            {
+                float u = (float)k / (NL - 1);
+                float h = k == 0 ? 1.1f : Mathf.Lerp(0.9f, 1.25f, u);
+                float pm = MidRockM - (MidRockM + MidRockTipIn) * Mathf.Pow(u, 1.25f);
+                layers.Add((y, y - h, pm)); y -= h;
+            }
+        }
         System.Func<int, Vector2, float> F = (k, q) =>
         {
             float f = dPath(q) - layers[k].pm + noise(q) * (k == 0 ? MidRockTopNoise / RockNoise : 1f);
@@ -687,6 +693,15 @@ public static class FuwaCourse2_5Builder
         rimSegs = null;
         if (GrassLip && segs.Count > 0) GrassLipMesh(segs, rk, meshName + "_GrassLip");
         if (RockRugged) RockDisplace(v, top, x0, z0);
+        // 段のふち（上の面より下）を上下にゆらす：位置だけで決まるずらしなので、となりの面と同じ点は同じだけ動く（すき間なし）
+        if (MidRockSag > 0f)
+            for (int i = 0; i < v.Count; i++)
+            {
+                var p3 = v[i]; if (p3.y > top - 0.05f) continue;
+                float depth = Mathf.Clamp01((top - p3.y) / 2f);
+                float sagN = Mathf.PerlinNoise(p3.x * 0.33f + 5.1f, p3.z * 0.33f + 2.7f) * 0.7f + Mathf.PerlinNoise(p3.x * 0.9f + 1.3f, p3.z * 0.9f + 8.2f) * 0.3f;
+                p3.y -= MidRockSag * sagN * depth; v[i] = p3;
+            }
         var mesh = SaveRockMesh(meshName, v, tTop, tSide);
         var go = new GameObject("RockMesh"); go.transform.SetParent(rk, false); go.layer = pathLayer;
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
