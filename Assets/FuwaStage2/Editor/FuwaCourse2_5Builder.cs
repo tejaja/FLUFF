@@ -1270,7 +1270,7 @@ public static class FuwaCourse2_5Builder
         curtainOnArch = true; curtainArchTop = colH - 0.6f;
     }
     // 2026-11-15 てじゃ「クモの巣とかカーテン、奥のやつが見えすぎてるのがきになる」「重なる時」→ 2–5 の巣・カーテンだけ、遠いほどうすく
-    public static float FarFadeStart = 5f, FarFadeEnd = 11f, FarFadeMin = 0.03f;   // 8→16 から てじゃ「もうちょい強く」
+    public static float FarFadeStart = 3f, FarFadeEnd = 8f, FarFadeMin = 0.35f;   // 8→16 → 5→11（もうちょい強く）→ てじゃ「もっと強めるかわりに、薄さの最大値を減らそう」
     static void ApplyFarFade()
     {
         var done = new HashSet<Material>(); int n = 0;
