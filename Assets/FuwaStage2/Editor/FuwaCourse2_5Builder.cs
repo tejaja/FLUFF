@@ -179,7 +179,7 @@ public static class FuwaCourse2_5Builder
             // 2026-11-14 てじゃ「そもそも順番かえよ、今下段2個→上段2個のとこを逆に」→ 右下 → 上2つ → 下2つ
             // 2026-11-14 てじゃ「上段2個、いみないかもな、左側2個にしよう」→ 右下 → 左2つ → 下2つ
             // 2026-11-14 てじゃ「序盤のも、1〜4枚じゃなくてデカイやつの一部が大きく破れてる形式に」→ 大きい巣1枚に大きな裂け目（右下ななめ／左たて／上よこ）。前の版：右下 / 左2 / 下2（WebGates）
-            S(1f); ArchGate(); Curtain("C2_Big", 1); S(1.5f);   // 2026-11-15 てじゃ「その段のカーテンのアーチもしたのと揃える」→ 下の段と同じ溝の柱＋くさび石のアーチ
+            S(1f); ArchGate(); Curtain("C2_Big", 1); S(1.5f + MidCurtainGap);   // 2026-11-15 てじゃ「その段のカーテンのアーチもしたのと揃える」→ 下の段と同じ溝の柱＋くさび石のアーチ
             // 2026-11-14 てじゃ「（裂け目より）小さい巣が複数あるやつ」→ 田の字にもどす（右下 / 左2つ / 下2つ）。裂け目の版：TearGates B1
             WebGates("B1", 5.6f, new[] { WLR, WLL | WUL, WLL | WLR }, true); });
         T(-40f);
@@ -188,7 +188,7 @@ public static class FuwaCourse2_5Builder
         // 2026-11-14 てじゃ「カーブ後の蜘蛛の巣の位置に、小さくなるカーテンつけよう」→ 曲がってすぐの門（左下＋右上）を青カーテンに
         // 2026-11-14 てじゃ「青カーテン以降の蜘蛛の巣、もっと小さいスキマを小さいふわふわで通り抜ける感じにしよう」→ 4つの門を「小さい穴1つの巣」に（穴の位置は 左下・右上・まん中・右下）
         //  前の版：右上だけあき / 右2 / 右下＋左上 / 左上だけあき（WebGates B2・B3・B4）
-        Run(() => { runB = isl; S(1f); S(WebGateGap / 2f); ArchGate(); Curtain("C2_Small", -1); S(WebGateGap / 2f);
+        Run(() => { runB = isl; S(1f); S(WebGateGap / 2f); ArchGate(); Curtain("C2_Small", -1); S(WebGateGap / 2f + MidCurtainGap);
             // 2026-11-14 てじゃ「スキマ通し、穴よりもさっきみたいなクモの巣が複数あるとこのスキマを通す感じに」→ 四角い巣2枚の間の細いスキマ（左寄りたて／上よこ／右寄りたて／下よこ）。前の版：穴1つの巣（HoleGates）
             // 2026-11-14 てじゃ「1枚ものを一部を裂くイメージ」「1〜2ライン裂けてる感じ」「斜めもあり」→ 細い裂け目（たて左／ななめ上／ななめ右／よこ下）。前の版：スキマ（SlitGates）
             // 2026-11-14 てじゃ「小さいゾーンも、小さい巣をもっとつめて、形を変えてスキマを調整」→ 3×3 のつめた巣＋1か所のスキマ（たて中段左 / よこ上右 / たて下段右 / よこ下左）
@@ -205,7 +205,7 @@ public static class FuwaCourse2_5Builder
             // 2026-11-14 てじゃ「小のほうの蜘蛛の巣、奥の一個けそう ながいかも」→ B4 の2門目（左上ななめ）を外した（道も 3.8m 短く）
             //  外した門の種：(-2.0,1.8) (0.8,0.7) (0.5,3.0) (-1.8,4.4) (2.8,2.0) (2.6,4.6)、スキマ (2,3)
             // 2026-11-14 てじゃ「道は縮めなくてよかった、カーテンまでの間があいててOK」→ 外した門のぶん（WebGateGap）道を足して長さは元のまま
-            S(WebGateGap);
+            S(WebGateGap + MidCurtainGap);
             S(0.3f); ArchGate(); Curtain("C2_Normal", 0); S(6.6f); });   // 6.5→6.6：シマを偶数（A…B）にして、ポータルのうしろの道（A から）と交互にする   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
@@ -283,6 +283,7 @@ public static class FuwaCourse2_5Builder
     // 空中の巣の回廊の置き場所：①の島の道の範囲の +x・-z の角から WebWalkOut、高さ WebWalkUp（てじゃの図の青◯）
     public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;   // （前の決め方、今は WebWalkStart に固定）
     public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f); public static float WebWalkOrbit = 25f, WebWalkBack = 0f;   // 巣の門を1つ足して +3.8、最初の巣をなくして −3.8   // 2026-11-14 15° → トンネルが伸びたので「また反時計回りにまわして」25°
+    public static float MidCurtainGap = 1.5f, MidWebExtra = 1.4f;   // MidWebExtra：てじゃ「クモの巣同士もね」→ 門と門の間を 1.4m 足す（穴の区間はそのまま、前後に道）   // 2026-11-15 てじゃ「いまさらだけど中段の蜘蛛の巣とカーテンの間広げたいな」→ カーテンと巣の間を 1.5m ずつ足す
     public static float UpperBackShift = 10f, WarpAInBack = 3.6f, WarpWBack = 1.3f, WarpAInBend = 25f;   // 3.6m＝シマ3本（A B A）→ 曲がり角（B）→ 先の道（A…）で交互がくずれない
     public static Vector3 UpperStart = new Vector3(39.5948f, 32.8087f, 24.0744f); public static float UpperStartHeading = 134.3111f;   // 2026-11-15 てじゃ「この広場は石像の真上くらいにしよう」→ 広場のまん中が MushroomAt の真上に来るよう (-9.44, 0, +6.95) ずらした（前は 49.0348, 32.8087, 17.1244）
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
@@ -2111,7 +2112,7 @@ public static class FuwaCourse2_5Builder
     static readonly List<(Transform run, float z)> gateZ = new List<(Transform, float)>();
     static void WebGates(string tag, float len, int[] patterns, bool pits)
     {
-        float z0 = P.z; len = patterns.Length * WebGateGap;
+        float z0 = P.z; len = patterns.Length * (WebGateGap + MidWebExtra);
         var g = new GameObject("WebGates_" + tag).transform; g.SetParent(isl, false);
         float hTop = TunnelH - 0.1f, hMid = TunnelH / 2f, xo = WebXO;   // 横は壁に 0.5m めりこませる
         for (int i = 0; i < patterns.Length; i++)
@@ -2143,7 +2144,8 @@ public static class FuwaCourse2_5Builder
         for (int i = 0; i < patterns.Length; i++)
         {
             bool lowBlocked = (patterns[i] & (WLL | WLR)) == (WLL | WLR);
-            if (lowBlocked) S(WebGateGap); else WindRun("Pits_" + tag + "_" + i, WebGateGap, new float[0]);
+            if (lowBlocked) S(WebGateGap + MidWebExtra);
+            else { if (MidWebExtra > 0f) S(MidWebExtra / 2f); WindRun("Pits_" + tag + "_" + i, WebGateGap, new float[0]); if (MidWebExtra > 0f) S(MidWebExtra / 2f); }   // 穴の区間はそのまま、前後に道を足す
         }
     }
 
@@ -3049,12 +3051,12 @@ public static class FuwaCourse2_5Builder
     }
     static void VoronoiGates(string tag, Vector2[][] seedsPerGate, Vector2Int[] gapPairs)
     {
-        float z0 = P.z, len = seedsPerGate.Length * WebGateGap;
+        float z0 = P.z, len = seedsPerGate.Length * (WebGateGap + MidWebExtra);
         var g = new GameObject("VoronoiGates_" + tag).transform; g.SetParent(isl, false);
         float hTop = TunnelH - 0.1f, xo = WebXO;
         for (int gi = 0; gi < seedsPerGate.Length; gi++)
         {
-            float z = z0 + WebGateGap * (gi + 0.5f);
+            float z = z0 + (WebGateGap + MidWebExtra) * (gi + 0.5f);
             gateZ.Add((isl, z));
             var sd = seedsPerGate[gi]; var gp = gapPairs[gi];
             for (int i = 0; i < sd.Length; i++)
