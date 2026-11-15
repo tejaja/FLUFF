@@ -73,7 +73,7 @@ public static class FuwaCourse2_5Builder
         var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
         ballT = Resources.FindObjectsOfTypeAll<FuwaBall>().FirstOrDefault(b => b.gameObject.scene.IsValid() && b.transform.parent && b.transform.parent.name == "FuwaSystem");
         ballR = ballT ? ballT.GetComponent<SphereCollider>().radius * ballT.transform.lossyScale.x : 0.15f;
-        cps.Clear(); segNo = 0; stencilNo = 10; archGateNo = 0; FuwaPortalTest.clones.Clear(); camPortals.Clear(); gateZ.Clear();
+        cps.Clear(); segNo = 0; stencilNo = 10; archGateNo = 0; stripeCache.Clear(); FuwaPortalTest.clones.Clear(); camPortals.Clear(); gateZ.Clear();
         log = new System.Text.StringBuilder();
 
         float R0 = StartSet(root);
@@ -1373,6 +1373,24 @@ public static class FuwaCourse2_5Builder
     //  → 回廊ではタイルの長さを PitTileL（1.7m）にして、穴は1列（=1.7m、前は 1.2m×2列=2.4m）。はばは 3マス と 2マス を交互
     public static float PitTileL = 1.7f;
     static readonly int[][] BigPitRows = { new int[0], new[] { 0, 1, 2 }, new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2, 3 }, new int[0], new[] { 0, 1 } };
+    // 箱（上の左右のふちだけ面取り。left/right で選ぶ）
+    static void EdgeChamferBox(List<Vector3> v, List<int> t, Vector3 c3, Vector3 sz, float ch, bool left, bool right)
+    {
+        float hx = sz.x / 2f, hy = sz.y / 2f, hz = sz.z / 2f;
+        var sec = new List<Vector2> { new Vector2(-hx, -hy) };
+        if (left) { sec.Add(new Vector2(-hx, hy - ch)); sec.Add(new Vector2(-hx + ch, hy)); } else sec.Add(new Vector2(-hx, hy));
+        if (right) { sec.Add(new Vector2(hx - ch, hy)); sec.Add(new Vector2(hx, hy - ch)); } else sec.Add(new Vector2(hx, hy));
+        sec.Add(new Vector2(hx, -hy));
+        int n = sec.Count;
+        Vector3 Pt(Vector2 s2, float z) => c3 + new Vector3(s2.x, s2.y, z);
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            var mid = (sec[i] + sec[j]) * 0.5f;
+            Tri(v, t, Pt(sec[i], -hz), Pt(sec[j], -hz), Pt(sec[j], hz), new Vector3(mid.x, mid.y, 0f)); Tri(v, t, Pt(sec[i], -hz), Pt(sec[j], hz), Pt(sec[i], hz), new Vector3(mid.x, mid.y, 0f));
+        }
+        for (int i = 1; i + 1 < n; i++) { Tri(v, t, Pt(sec[0], -hz), Pt(sec[i], -hz), Pt(sec[i + 1], -hz), Vector3.back); Tri(v, t, Pt(sec[0], hz), Pt(sec[i], hz), Pt(sec[i + 1], hz), Vector3.forward); }
+    }
     static void WindRun(string tag, float len, float[] windsAt)
     {
         float z0 = P.z; int rows = Mathf.Max(1, Mathf.RoundToInt(len / TileL)); float rl = len / rows;
@@ -1380,16 +1398,27 @@ public static class FuwaCourse2_5Builder
         float extra = 0f; if (pitTable != null) { rows = Mathf.Max(1, Mathf.FloorToInt(len / TileL)); rl = TileL; extra = len - rows * rl; }
         int cols = 4; float cw = 2f * HW / cols;
         var g = new GameObject("WindRun_" + tag).transform; g.SetParent(isl, false);
-        if (extra > 0.01f) for (int c = 0; c < cols; c++) Box(g, "Tile", new Vector3(-HW + cw * (c + 0.5f), P.y - 0.3f, z0 + rows * rl + extra * 0.5f), new Vector3(cw, 0.6f, extra), rows % 2 == 0 ? pathA : pathB, pathLayer);
+        var tA = new List<Vector3>(); var tAt = new List<int>(); var tB = new List<Vector3>(); var tBt = new List<int>();
+        // 2026-11-15 面取り：両はしの列のタイルは外がわの上のふちを面取りした見た目（当たりは箱のまま）
+        void TileAt(Vector3 c3, Vector3 sz3, bool even, int c)
+        {
+            var b = Box(g, "Tile", c3, sz3, even ? pathA : pathB, pathLayer);
+            if (PathChamfer <= 0f || (c != 0 && c != cols - 1)) return;
+            Object.DestroyImmediate(b.GetComponent<MeshRenderer>()); Object.DestroyImmediate(b.GetComponent<MeshFilter>());
+            EdgeChamferBox(even ? tA : tB, even ? tAt : tBt, c3, sz3, PathChamfer, c == 0, c == cols - 1);
+        }
+        if (extra > 0.01f) for (int c = 0; c < cols; c++) TileAt(new Vector3(-HW + cw * (c + 0.5f), P.y - 0.3f, z0 + rows * rl + extra * 0.5f), new Vector3(cw, 0.6f, extra), rows % 2 == 0, c);
         for (int r = 0; r < rows; r++)
         {
             var tbl = pitTable ?? PitRows; var holes = tbl[(pitRow++) % tbl.Length];
             for (int c = 0; c < cols; c++)
             {
                 if (holes.Contains(c)) continue;
-                Box(g, "Tile", new Vector3(-HW + cw * (c + 0.5f), P.y - 0.3f, z0 + rl * (r + 0.5f)), new Vector3(cw, 0.6f, rl), r % 2 == 0 ? pathA : pathB, pathLayer);   // 2026-11-14 タイルの間の 4cm のすき間から空が線に見えたのでなし
+                TileAt(new Vector3(-HW + cw * (c + 0.5f), P.y - 0.3f, z0 + rl * (r + 0.5f)), new Vector3(cw, 0.6f, rl), r % 2 == 0, c);   // 2026-11-14 タイルの間の 4cm のすき間から空が線に見えたのでなし
             }
         }
+        if (tA.Count > 0) MeshObj(g, "TilesEdgeA", SaveMesh("WindRun_" + tag + "_" + runNo + "_EA", tA, tAt), pathA, Vector3.zero, 0, true);
+        if (tB.Count > 0) MeshObj(g, "TilesEdgeB", SaveMesh("WindRun_" + tag + "_" + runNo + "_EB", tB, tBt), pathB, Vector3.zero, 0, true);
         foreach (float sx in new[] { -1f, 1f })
         {
             var rail = Box(g, "Rail", new Vector3(sx * (HW + 0.12f), P.y - 0.45f, z0 + len / 2f), new Vector3(0.24f, 0.9f, len), underM, 0); Object.DestroyImmediate(rail.GetComponent<Collider>());
@@ -2770,7 +2799,7 @@ public static class FuwaCourse2_5Builder
         for (float t = 8f; t < 30f; t += 0.1f)
         {
             var p = root.TransformPoint(sc + f * t + Vector3.up * 8f);
-            if (Physics.Raycast(p, -root.up, out var h, 40f, 1 << pathLayer, QueryTriggerInteraction.Ignore) && h.collider.name == "RockMesh") { tEdge = t; yTop = root.InverseTransformPoint(h.point).y; }
+            if (Physics.Raycast(p, -root.up, out var h, 40f, 1 << pathLayer, QueryTriggerInteraction.Ignore) && h.collider.name == "RockMesh" && root.InverseTransformPoint(h.point).y > i1Top - 0.3f) { tEdge = t; yTop = root.InverseTransformPoint(h.point).y; }   // 2026-11-15 岩の横をゴツゴツにしたら、下の横の面に当たって橋が下へずれた → 台地の上の面だけ
         }
         var a = sc + f * (tEdge - 0.5f);                                  // 島側の橋台（ふちから少し内）
         float roadX = BridgeHW;                                           // アーチ橋の床のはし（ここから外へ）
@@ -3695,7 +3724,24 @@ public static class FuwaCourse2_5Builder
             Tri(v, tr, a, b, b + dn, nrm); Tri(v, tr, a, b + dn, a + dn, nrm);
         }
         var m = SaveMesh(name, v, tr);
-        g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = pathB;
+        var vis = m;
+        if (PathChamfer > 0f)
+        {   // 2026-11-15 面取り：外がわの弧の上のふちを面取り（見た目だけ。当たりは前の形）
+            float c = PathChamfer; var v2 = new List<Vector3>(); var t2 = new List<int>();
+            var tin = new List<Vector3>(); var tout = new List<Vector3>();
+            for (int i = 0; i <= n; i++) { var rr = top[i] - inner; float L2 = rr.magnitude; tin.Add(inner + rr * ((L2 - c) / L2)); tout.Add(top[i] + Vector3.down * c); }
+            for (int i = 0; i < n; i++)
+            {
+                Tri(v2, t2, inner, tin[i], tin[i + 1], Vector3.up);
+                Tri(v2, t2, inner + Vector3.down * Tk, top[i] + Vector3.down * Tk, top[i + 1] + Vector3.down * Tk, Vector3.down);
+                var nrm = ((top[i] + top[i + 1]) * 0.5f - inner); nrm.y = 0f;
+                Tri(v2, t2, tin[i], tin[i + 1], tout[i + 1], nrm + Vector3.up * nrm.magnitude); Tri(v2, t2, tin[i], tout[i + 1], tout[i], nrm + Vector3.up * nrm.magnitude);
+                var dn = Vector3.down * Tk;
+                Tri(v2, t2, tout[i], tout[i + 1], top[i + 1] + dn, nrm); Tri(v2, t2, tout[i], top[i + 1] + dn, top[i] + dn, nrm);
+            }
+            vis = SaveMesh(name + "_Vis", v2, t2);
+        }
+        g.AddComponent<MeshFilter>().sharedMesh = vis; g.AddComponent<MeshRenderer>().sharedMaterial = pathB;
         g.AddComponent<MeshCollider>().sharedMesh = m;
         P = inner + q * (P - inner);
         th += deg;
@@ -3720,6 +3766,34 @@ public static class FuwaCourse2_5Builder
     }
 
     // シマシマの道：a（手前のはしのまん中、上の面）から d だけ。当たりは1枚の箱、見た目は StripeLen ごとに A/B
+    // 面取りしたシマの1枚：上の面は x=±(hw-c)、両はしの角は斜めに c 下がる。vUp＝この中から見た「上」×厚み（坂でもまっすぐ下へ厚み）
+    public static float PathChamfer = 0.09f;
+    static Dictionary<string, Mesh> stripeCache = new Dictionary<string, Mesh>();
+    static Mesh ChamferStripe(float hw, float z0, float z1, Vector3 vUp, float c)
+    {
+        bool flat = Mathf.Abs(vUp.x) < 1e-4f && Mathf.Abs(vUp.z) < 1e-4f;
+        string key = flat ? ("PathStripe_" + hw.ToString("F2") + "_" + (z1 - z0).ToString("F3") + "_" + vUp.y.ToString("F2") + "_" + c.ToString("F2")) : null;
+        if (key != null && stripeCache.TryGetValue(key, out var cached) && cached) return cached;
+        if (key != null) { float L = z1 - z0; z0 = 0f; z1 = L; }   // 平らな物は形が同じなので使い回す（位置は z0 で動かす…はできないので下でずらす）
+        var vn = vUp.normalized; float tk = vUp.magnitude;
+        var v = new List<Vector3>(); var t = new List<int>();
+        Vector3 T(float x, float z) => new Vector3(x, 0f, z);
+        // 断面（左から右）：下左、上の角下左、上左、上右、上の角下右、下右
+        Vector3[] Sec(float z) => new[] { T(-hw, z) - vUp, T(-hw, z) - vn * c, T(-hw + c, z), T(hw - c, z), T(hw, z) - vn * c, T(hw, z) - vUp };
+        var A = Sec(z0); var B = Sec(z1);
+        var cen = (T(0, (z0 + z1) / 2f) - vUp * 0.5f);
+        for (int i = 0; i < 6; i++)
+        {
+            int j = (i + 1) % 6;
+            var mid = (A[i] + A[j] + B[i] + B[j]) * 0.25f;
+            Tri(v, t, A[i], A[j], B[j], mid - cen); Tri(v, t, A[i], B[j], B[i], mid - cen);
+        }
+        // 両はしのふた（となりのシマ・道とくっつく面）
+        var cA = T(0, z0) - vUp * 0.5f; var cB = T(0, z1) - vUp * 0.5f;
+        for (int i = 0; i < 6; i++) { int j = (i + 1) % 6; Tri(v, t, cA, A[i], A[j], Vector3.back); Tri(v, t, cB, B[i], B[j], Vector3.forward); }
+        if (key == null) { var me = new Mesh { name = "PathStripeSlope" }; me.SetVertices(v); me.SetTriangles(t, 0); me.RecalculateNormals(); me.RecalculateBounds(); return me; }
+        var m = SaveMesh(key, v, t); stripeCache[key] = m; return m;
+    }
     static void Strip(Transform parent, string name, Vector3 a, Vector3 d, float hw, bool under = true)
     {
         float len = d.magnitude; if (len <= 0.01f) return;
@@ -3734,6 +3808,14 @@ public static class FuwaCourse2_5Builder
         for (int k = 0; k < n; k++)
         {
             float l = len / n;
+            if (PathChamfer > 0f)
+            {   // 2026-11-15 てじゃ「道の角も面取りして」：両はしの上のふちを面取り（シマの区切りはそのまま＝溝なし）
+                var cm = ChamferStripe(hw, l * k, l * (k + 1), slope ? vUp : new Vector3(0f, Tk, 0f), PathChamfer);
+                var so2 = new GameObject("S" + k); so2.transform.SetParent(g, false);
+                if (!slope) so2.transform.localPosition = new Vector3(0f, 0f, l * k);   // 平らな物は 0〜l の形を使い回すので位置でずらす
+                so2.AddComponent<MeshFilter>().sharedMesh = cm; so2.AddComponent<MeshRenderer>().sharedMaterial = (k % 2 == 0) ? pathA : pathB;
+                continue;
+            }
             if (!slope)
             {
                 var s = Box(g, "S" + k, new Vector3(0, -Tk * 0.5f, l * (k + 0.5f)), new Vector3(hw * 2f, Tk, l), (k % 2 == 0) ? pathA : pathB, 0);
