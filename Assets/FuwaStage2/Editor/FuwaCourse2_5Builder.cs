@@ -2027,6 +2027,7 @@ public static class FuwaCourse2_5Builder
     //  → はがれた時（来た側へ webPopSpeed 2.6・上 1.4）の飛ぶ距離を Play で測ったら、ふつうも大きいも中心で約 2.1m（3秒でほぼ止まる）。
     //    大きい玉の半径 0.45 ×2 ＋余裕で、門と門の間は WebGateGap（len は使わず、門の数 × WebGateGap。前後の区間との間も半分ずつで WebGateGap 以上）
     public static float WebGateGap = 3.8f;
+    public static bool WebEyeHeight = true; public static float WebMidAboveEye = 1.1f, WebMidMin = 1.5f, WebMidMax = 3.2f;   // 田の字のまん中の線 = 目の高さ + 1.1（1.5〜3.2）
     static readonly List<(Transform run, float z)> gateZ = new List<(Transform, float)>();
     static void WebGates(string tag, float len, int[] patterns, bool pits)
     {
@@ -2046,6 +2047,16 @@ public static class FuwaCourse2_5Builder
                 if (tag == "B1" && i == 0) sh = (6, 3f);   // てじゃ「最初の巣の形べつなのがいい」→ 六角A
                 Web(g, "Web" + i + "_" + (up ? "U" : "L") + (right ? "R" : "L"), new Vector3((x0 + x1) / 2f, P.y + (y0 + y1) / 2f, z), Quaternion.identity, new Vector2(x1 - x0, y1 - y0), false, 0.6f, false, false, sh.c, sh.s);
             }
+        }
+        // 2026-11-15 てじゃ「クモの巣の上を通るところ、アバターの大きさで難易度変わるのがヤだな」「いっそアバターの高さでクモの巣の位置かえちゃうとか」
+        //  → まん中の線を自分の目の高さ＋WebMidAboveEye に（FuwaWebEyeHeight、自分の画面だけ）
+        if (WebEyeHeight)
+        {
+            var we = UdonSharpUndo.AddComponent<FuwaWebEyeHeight>(g.gameObject);
+            we.lower = g.Cast<Transform>().Where(x => x.name.Contains("_L")).ToArray();
+            we.upper = g.Cast<Transform>().Where(x => x.name.Contains("_U")).ToArray();
+            we.baseY = P.y; we.hMid = hMid; we.hTop = hTop; we.midAboveEye = WebMidAboveEye; we.minMid = WebMidMin; we.maxMid = WebMidMax;
+            UdonSharpEditorUtility.CopyProxyToUdon(we); FuwaStage2WaterTest.NoSync(we);
         }
         // 床：門ごとの区間（WebGateGap）で作る。2026-11-14 てじゃ「穴の次が下段2個クモの巣はキツい」→ 下2つが埋まった門（上を越える）の区間は穴なし
         if (!pits) { S(len); return; }
