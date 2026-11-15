@@ -29,15 +29,15 @@ public class FuwaShockwave : UdonSharpBehaviour
     public float period = 4.2f;
 
     [Header("衝撃波")]
-    public float waveSpeed = 13f;
+    public float waveSpeed = 9f;
     public float waveHeight = 3.2f;
     public float waveExtra = 1.5f;
     public float playerPush = 14f, playerUp = 6f;
     public float ballPush = 9f, ballUp = 3f;
     [Tooltip("バリアのまわりのセーフ（バリアのふちからの距離 m）")]
-    public float nearPad = 0.55f;
+    public float nearPad = 0.8f;
     [Tooltip("影の横のゆとり（m）")]
-    public float shadowPad = 0.2f;
+    public float shadowPad = 0.45f;
 
     [Header("見た目")]
     public Transform crystal;

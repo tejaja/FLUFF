@@ -2425,7 +2425,7 @@ public static class FuwaCourse2_5Builder
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
         var sh = g.GetComponent<FuwaShield>(); if (!sh) sh = UdonSharpUndo.AddComponent<FuwaShield>(g);
-        sh.ball = ballT; sh.rend = mr; sh.baseScale = 3f;
+        sh.ball = ballT; sh.rend = mr; sh.baseScale = 3f; sh.spinFollow = 0.3f;
         sh.onSound = Sfx(g.transform, "OnSfx", "sfx_shield_on.wav", 0.8f, 0.5f, 20f);
         sh.offSound = Sfx(g.transform, "OffSfx", "sfx_shield_off.wav", 0.7f, 0.5f, 20f);
         sh.blockSound = Sfx(g.transform, "BlockSfx", "sfx_shield_block.wav", 0.8f, 0.5f, 25f);

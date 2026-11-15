@@ -56,6 +56,23 @@ public class FuwaShield : UdonSharpBehaviour
         if (blockSound != null) blockSound.Play();
     }
 
+    // 2026-11-15 てじゃ「バリアの回転はふわふわより遅めに」：ふわふわの回った分の spinFollow 倍だけ回る（子なので、毎フレーム向きを上書き）
+    [Tooltip("ふわふわの回転についていく割合（0＝回らない、1＝ふわふわと同じ）")]
+    public float spinFollow = 0.3f;
+    private Quaternion _rot = Quaternion.identity, _prevBall = Quaternion.identity;
+    private bool _rotInit;
+
+    private void LateUpdate()
+    {
+        if (ball == null) return;
+        Quaternion br = ball.transform.rotation;
+        if (!_rotInit) { _rotInit = true; _prevBall = br; _rot = br; }
+        Quaternion d = br * Quaternion.Inverse(_prevBall);
+        _prevBall = br;
+        _rot = Quaternion.Slerp(Quaternion.identity, d, spinFollow) * _rot;
+        transform.rotation = _rot;
+    }
+
     private void Update()
     {
         if (_on && ball != null && ball.IsWaitingOrHidden()) { _on = false; _t = 0f; }   // アウト・チェックポイントにもどった：音なしですぐ消す
