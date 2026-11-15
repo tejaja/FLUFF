@@ -3531,8 +3531,10 @@ public static class FuwaCourse2_5Builder
 
     // 2026-11-15 見た目クオリティ（B）：道の上の面に石だたみ（FuwaToonLit の地面の模様を使う。ワールドの xz で取るので、シマシマの区切りをまたいでも石がつながる）
     //  模様は Tools/make_ruin_paving.py の Textures/RuinPaving.png（R＝石だたみ、G・B＝ムラ）。シマシマの色（_Color）はそのまま
+    public static bool PathPaving = false;   // 2026-11-15 てじゃ「うーん道の模様いらんかな」→ なし（模様を切るだけ、コードは残す）
     static void PavingOn(Material m)
     {
+        if (!PathPaving) { if (m.HasProperty("_GroundFine")) { m.SetFloat("_GroundFine", 0f); m.SetFloat("_GroundPatch", 0f); EditorUtility.SetDirty(m); } return; }
         const string tp = "Assets/FuwaStage2/Textures/RuinPaving.png";
         var ti = AssetImporter.GetAtPath(tp) as TextureImporter;
         if (ti && (ti.sRGBTexture || ti.wrapMode != TextureWrapMode.Repeat)) { ti.sRGBTexture = false; ti.wrapMode = TextureWrapMode.Repeat; ti.anisoLevel = 4; ti.SaveAndReimport(); }
