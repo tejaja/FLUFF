@@ -2564,7 +2564,7 @@ public static class FuwaCourse2_5Builder
     // 橋のたもとから石像の台座まで：階段で台地へ下りる → シマシマの道 → 台座の段へ上がる短い階段（見た目だけ、当たりはレイヤー0）
     //  台座の正面の段（上の面 -0.55、台地から 0.9）は橋台のうしろ 4.9m から（Play で測った）
     public static float ApproachSlabD = 4.9f, ApproachSlabTop = -0.55f;   // ApproachSlabTop は道の高さ 0（＝橋が道の高さの時）から見た値
-    public static bool BrokenIslandLow = true;
+    public static bool BrokenIslandLow = true, StatueApproachPath = false;
     static void StatueApproach(Transform isb, float yTop, float W, float back)
     {
         var g = new GameObject("StatueApproach").transform; g.SetParent(isb, false);
@@ -2671,7 +2671,7 @@ public static class FuwaCourse2_5Builder
                 RockChunk(rbv, rbt, new Vector3((i % 2 == 0 ? -1f : 1f) * (W / 2f + 0.9f + (float)rnd0.NextDouble() * 1.2f), yL + 0.1f, -0.8f - (float)rnd0.NextDouble() * 3.5f), Vector3.one * (0.3f + 0.3f * (float)rnd0.NextDouble()),
                     Quaternion.Euler((float)rnd0.NextDouble() * 360f, (float)rnd0.NextDouble() * 360f, 0f), rnd0);
             MeshObj(isb, "Rubble", SaveMesh("BrokenIslandRubble", rbv, rbt), deckM, Vector3.zero, 0, true);
-            StatueApproach(isb, yL, W, back);
+            if (StatueApproachPath) StatueApproach(isb, yL, W, back);   // 2026-11-15 てじゃ「道無くていいかもな」→ なし
         }
         // ---- まん中：折れた橋脚＋ずり落ちた床のかけら ----
         var islandTip = a + dir * BrokenIslandStub;
