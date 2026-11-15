@@ -4404,6 +4404,16 @@ public static class FuwaCourse2_5Builder
         var aura = GameObject.CreatePrimitive(PrimitiveType.Sphere); aura.name = "Aura"; Object.DestroyImmediate(aura.GetComponent<Collider>());
         aura.transform.SetParent(pivot, false); aura.transform.localScale = Vector3.one * 1.6f;
         { var r = aura.GetComponent<MeshRenderer>(); r.sharedMaterial = auraM; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false; r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off; }
+        // 2026-11-15 てじゃ「チャージでクリスタルも黒オーラみたいな色つけよ」「撃ったらもどる」→ ためる間だけ黒紫のもや（Fuwa/DarkAura）
+        MeshRenderer darkAuraR = null;
+        if (ShockDark)
+        {
+            var da = GameObject.CreatePrimitive(PrimitiveType.Sphere); da.name = "DarkAura"; Object.DestroyImmediate(da.GetComponent<Collider>());
+            da.transform.SetParent(pivot, false); da.transform.localScale = Vector3.one * 1.4f;
+            var daM = FxMat("Ruins_CrystalDarkAura", "Fuwa/DarkAura"); EditorUtility.SetDirty(daM);
+            darkAuraR = da.GetComponent<MeshRenderer>(); darkAuraR.sharedMaterial = daM; darkAuraR.enabled = false;
+            darkAuraR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; darkAuraR.receiveShadows = false; darkAuraR.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; darkAuraR.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+        }
         // ---- 衝撃波の見た目 ----
         var waveM = FxMat("Ruins_Shockwave", "Fuwa/Shockwave"); waveM.SetFloat("_Alpha", 0f);   // 濃さはスクリプトが MPB で（エディタでは見えない）
         Mesh band;
@@ -4482,6 +4492,7 @@ public static class FuwaCourse2_5Builder
         sw.wave = wave.transform; sw.waveFloor = waveF.transform; sw.chargeRing = chg.transform;
         sw.waveRenderers = new[] { wave.GetComponent<Renderer>(), waveF.GetComponent<Renderer>() }; sw.chargeRenderer = chg.GetComponent<Renderer>();
         sw.chargeParticles = cps; sw.blastParticles = bps;
+        if (darkAuraR != null) { sw.darkAura = darkAuraR; sw.chargeTint = new Color(0.62f, 0.2f, 0.95f, 1f); }
         {   // 2026-11-15 てじゃ「衝撃波の範囲、もっと目立たせたいな、特に床」→ 床にかぶせる円盤（Fuwa/ShockFloor）
             var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
             AnnulusInto(v, t, uv, 0.001f, R, 0f, Mathf.PI * 2f, 0f, 0f, 96);

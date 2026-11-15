@@ -70,6 +70,11 @@ public class FuwaShockwave : UdonSharpBehaviour
     public Transform[] orbitRings;      // 斜めの光の輪（ためるとちぢんで速く回る）
     public Renderer[] orbitRingRenderers;
     public float ringIdleR = 2.2f, ringChargedR = 1.15f;
+    [Tooltip("2026-11-15 てじゃ「チャージでクリスタルも黒オーラみたいな色つけよ」「撃ったらもどる」→ ためる間だけ黒紫のもや（Fuwa/DarkAura）＋クリスタルの光を紫へ")]
+    public Renderer darkAura;
+    public float darkAuraMax = 1.1f;
+    public Color chargeTint = new Color(0.62f, 0.2f, 0.95f, 1f);
+    private float _dark;
 
     [Header("音")]
     public AudioSource chargeSound, boomSound, hitSound;
@@ -326,7 +331,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         crystal.localScale = Vector3.one * sc;
         if (_mpb == null) return;
         float g = (Mathf.Lerp(glowIdle, glowCharged, kk) * (1f + 0.45f * kk * (0.5f + 0.5f * Mathf.Sin(_pulsePh)))) + 4f * _flash * _flash;   // ためるほど脈うつ
-        Color col = glowColor * g; col.a = 1f;
+        Color col = Color.Lerp(glowColor, chargeTint, darkAura != null ? kk : 0f) * g; col.a = 1f;
         if (crystalGlows != null)
             for (int i = 0; i < crystalGlows.Length; i++)
             {
@@ -334,6 +339,7 @@ public class FuwaShockwave : UdonSharpBehaviour
                 crystalGlows[i].GetPropertyBlock(_mpb); _mpb.SetColor("_EmissionColor", col); crystalGlows[i].SetPropertyBlock(_mpb);
             }
         UpdateEnergy(k, dt);
+        UpdateDarkAura(k, dt);
         if (magicCircle != null)
         {
             magicCircle.GetPropertyBlock(_mpb);
@@ -350,6 +356,20 @@ public class FuwaShockwave : UdonSharpBehaviour
                 runeGlows[i].GetPropertyBlock(_mpb); _mpb.SetColor("_EmissionColor", rc); runeGlows[i].SetPropertyBlock(_mpb);
             }
         }
+    }
+
+    private void UpdateDarkAura(float k, float dt)
+    {
+        if (darkAura == null) return;
+        float target = k * k;   // ためる間だけ。ドンで k=0 → すぐもどる
+        _dark = target > _dark ? target : Mathf.MoveTowards(_dark, target, dt * 4f);
+        bool on = _dark > 0.01f;
+        if (darkAura.enabled != on) darkAura.enabled = on;
+        if (!on) return;
+        darkAura.transform.localScale = Vector3.one * Mathf.Lerp(1.3f, 2.4f, _dark);
+        darkAura.GetPropertyBlock(_mpb);
+        _mpb.SetFloat("_Alpha", darkAuraMax * _dark);
+        darkAura.SetPropertyBlock(_mpb);
     }
 
     // クリスタル本体のため：かけらが寄る・オーラがふくらむ・光の輪がちぢんで速く回る（ドンでぱっとはじける）
