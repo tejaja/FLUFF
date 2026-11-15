@@ -122,7 +122,7 @@ public static class FuwaCourse2_5Builder
         runNo = 0;
         // ---- 下の段 ----
         Island("Bridge1");
-        Run(() => { ArchBridge(12f, 0f, true, null); });
+        Run(() => { ArchBridge(12f, 0f, true, null, true); });
         // 2026-11-13 てじゃ「正直風はもう良いかな」「序盤はデカくしたり小さくしたりしてぐねぐねの穴だらけの道をアスレチックするだけでもいい」
         //  → ①は ぐねぐねの穴あきの道：ふつう → 大 → 小
         var i1 = Island("I1_StatueHill");
@@ -703,32 +703,121 @@ public static class FuwaCourse2_5Builder
     }
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
-    static void ArchBridge(float len, float rise, bool pits, float[] windsAt)
+    static void ArchBridge(float len, float rise, bool pits, float[] windsAt, bool stubGap = false)
     {
         float hw0 = HW; HW = BridgeHW;
         float y0 = P.y; float z0 = P.z;
+        // 崩れた参道の橋（BrokenBridge）がつながる所は +x の欄干をあける（コースの座標 → この Run の座標）
+        Vector2 gapPlusX = Vector2.zero;
+        if (stubGap) { float lz = isl.InverseTransformPoint(root.TransformPoint(new Vector3(BridgeHW, 0f, BrokenBridgeZ))).z; gapPlusX = new Vector2(lz - 1.7f, lz + 1.7f); }
         if (pits && Mathf.Abs(rise) < 0.01f) WindRun("Bridge", len, windsAt ?? new float[0]);
         else S(len, rise);
-        // 橋脚とアーチ（見た目だけ）
+        // 2026-11-15 見た目クオリティ（C）：橋脚（はばいっぱいの石の壁、下へ細くなって崩れて終わる）＋橋脚の間の石のアーチ（上は壁＝スパンドレル、ふちにくさび石の輪）
+        //  ＋道のはしの下のふち飾り（コーニス）＋欄干（低い壁＋笠石、ところどころ崩れて切れている）
         int n = Mathf.Max(2, Mathf.RoundToInt(len / 4f));
-        for (int i = 0; i <= n; i++)
+        System.Func<float, float> DeckY = z => y0 + rise * (z - z0) / len;            // 道の上の面
+        const float Tk = 0.6f;                                                          // 道の厚み
+        float pw = 1.0f, xo = HW + 0.05f, xr = HW + 0.11f;
+        string bn = "Br" + (runNo) + "_" + Mathf.RoundToInt(len * 10f);
         {
-            float z = z0 + len * i / n, y = y0 + rise * i / n;
+            var v = new List<Vector3>(); var t = new List<int>();     // 石（橋脚・スパンドレル・アーチの下）
+            var rv = new List<Vector3>(); var rt = new List<int>();   // テラコッタ（くさび石の輪・コーニス）
+            var rnd = new System.Random(Mathf.RoundToInt(len * 100f + rise * 10f));
+            void Quad(List<Vector3> vv, List<int> tt, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 want) { Tri(vv, tt, a, b, c, want); Tri(vv, tt, a, c, d, want); }
+            // 橋脚
+            for (int i = 0; i <= n; i++)
+            {
+                float z = z0 + len * i / n, yt = DeckY(z) - Tk;
+                float dep = 4.2f + 1.6f * (float)rnd.NextDouble();
+                float hx0 = xo, hz0 = pw / 2f, hx1 = xo * 0.55f, hz1 = pw / 2f * 0.6f;
+                var top = new[] { new Vector3(-hx0, yt, z - hz0), new Vector3(hx0, yt, z - hz0), new Vector3(hx0, yt, z + hz0), new Vector3(-hx0, yt, z + hz0) };
+                float ym = yt - dep * 0.55f;
+                var mid = new[] { new Vector3(-hx0 * 0.95f, ym, z - hz0 * 1.1f), new Vector3(hx0 * 0.95f, ym, z - hz0 * 1.1f), new Vector3(hx0 * 0.95f, ym, z + hz0 * 1.1f), new Vector3(-hx0 * 0.95f, ym, z + hz0 * 1.1f) };
+                var bot = new Vector3(((float)rnd.NextDouble() - 0.5f) * 0.6f, yt - dep, z + ((float)rnd.NextDouble() - 0.5f) * 0.3f);
+                var c = new Vector3(0f, yt - dep * 0.5f, z);
+                for (int k = 0; k < 4; k++)
+                {
+                    int j = (k + 1) % 4;
+                    Quad(v, t, top[k], top[j], mid[j], mid[k], (top[k] + top[j]) * 0.5f - new Vector3(0f, top[k].y, z));
+                    Tri(v, t, mid[k], mid[j], bot, (mid[k] + mid[j]) * 0.5f - c);
+                }
+            }
+            // 橋脚の間のアーチ
+            for (int i = 0; i < n; i++)
+            {
+                float za = z0 + len * i / n + pw / 2f, zb = z0 + len * (i + 1) / n - pw / 2f;
+                int K = 12;
+                var sof = new Vector3[K + 1];   // アーチの下の線（x=0 の断面）
+                for (int k = 0; k <= K; k++)
+                {
+                    float z = Mathf.Lerp(za, zb, (float)k / K), tt = (z - (za + zb) / 2f) / ((zb - za) / 2f);
+                    float yd = DeckY(z) - Tk;
+                    float y = yd - 1.7f + (1.7f - 0.3f) * Mathf.Sqrt(Mathf.Max(0f, 1f - tt * tt));
+                    sof[k] = new Vector3(0f, y, z);
+                }
+                for (int k = 0; k < K; k++)
+                {
+                    Vector3 a = sof[k], b = sof[k + 1];
+                    float ya = DeckY(a.z) - Tk, yb = DeckY(b.z) - Tk;
+                    // 下の面
+                    Quad(v, t, new Vector3(-xo, a.y, a.z), new Vector3(xo, a.y, a.z), new Vector3(xo, b.y, b.z), new Vector3(-xo, b.y, b.z), Vector3.down);
+                    // 横の壁（スパンドレル）
+                    foreach (float sx in new[] { -1f, 1f })
+                        Quad(v, t, new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, b.y, b.z), new Vector3(sx * xo, yb, b.z), new Vector3(sx * xo, ya, a.z), new Vector3(sx, 0f, 0f));
+                    // くさび石の輪（横の壁から 6cm 出る、はば 0.35）
+                    var nrm = Vector3.Cross(Vector3.right, (b - a).normalized); if (nrm.y < 0) nrm = -nrm;   // アーチの線の外向き（上がわ）
+                    float rw = 0.35f;
+                    foreach (float sx in new[] { -1f, 1f })
+                    {
+                        Vector3 a0 = new Vector3(sx * xr, a.y, a.z), b0 = new Vector3(sx * xr, b.y, b.z), a1 = a0 + nrm * rw, b1 = b0 + nrm * rw;
+                        Quad(rv, rt, a0, b0, b1, a1, new Vector3(sx, 0f, 0f));
+                        Quad(rv, rt, new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, b.y, b.z), b0, a0, Vector3.down);
+                        Quad(rv, rt, new Vector3(sx * xo, a1.y, a1.z), new Vector3(sx * xo, b1.y, b1.z), b1, a1, nrm);
+                        // 石の継ぎ目に見える小さい切れ目（2つおきに少しへこませた面を足す…はやめて、色の段だけ）
+                    }
+                }
+            }
+            // コーニス（道のはしの下）
             foreach (float sx in new[] { -1f, 1f })
             {
-                var pier = Box(isl, "Pier", new Vector3(sx * (HW - 0.35f), y - 0.6f - 3.5f, z), new Vector3(0.7f, 7f, 0.9f), stone, 0); Object.DestroyImmediate(pier.GetComponent<Collider>());
+                float x0 = sx * HW, x1 = sx * (HW + 0.14f);
+                Vector3 A(float z, float dy, float x) => new Vector3(x, DeckY(z) + dy, z);
+                Quad(rv, rt, A(z0, -0.38f, x1), A(z0 + len, -0.38f, x1), A(z0 + len, -0.12f, x1), A(z0, -0.12f, x1), new Vector3(sx, 0f, 0f));
+                Quad(rv, rt, A(z0, -0.12f, x0), A(z0 + len, -0.12f, x0), A(z0 + len, -0.12f, x1), A(z0, -0.12f, x1), Vector3.up);
+                Quad(rv, rt, A(z0, -0.38f, x0), A(z0 + len, -0.38f, x0), A(z0 + len, -0.38f, x1), A(z0, -0.38f, x1), Vector3.down);
             }
-            if (i < n)
-            {
-                float zm = z0 + len * (i + 0.5f) / n, ym = y0 + rise * (i + 0.5f) / n;
-                var arch = Box(isl, "Arch", new Vector3(0f, ym - 1.3f, zm), new Vector3(2f * HW, 0.5f, len / n - 0.9f), stone, 0); Object.DestroyImmediate(arch.GetComponent<Collider>());
-            }
+            MeshObj(isl, "BridgeStone", SaveMesh(bn + "_Stone", v, t), stone, Vector3.zero, 0, true);
+            MeshObj(isl, "BridgeTrim", SaveMesh(bn + "_Trim", rv, rt), terraD, Vector3.zero, 0, true);
         }
-        // 低いへり
-        foreach (float sx in new[] { -1f, 1f })
+        // 欄干：2m ほどの区切りごとに低い壁＋笠石。ところどころ崩れて切れている（橋の両はしはつなぐ）。gapPlusX の所は道の外へ橋の残骸がつながるのであけておく
         {
-            var rail = Box(isl, "Parapet", new Vector3(sx * (HW + 0.1f), y0 + rise / 2f + 0.15f, z0 + len / 2f), new Vector3(0.2f, 0.3f, len), stone, 0);
-            rail.transform.localRotation = Quaternion.Euler(-Mathf.Atan2(rise, len) * Mathf.Rad2Deg, 0f, 0f);
+            var rnd = new System.Random(Mathf.RoundToInt(len * 37f + rise * 11f));
+            float ang = -Mathf.Atan2(rise, len) * Mathf.Rad2Deg;
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                int segs = Mathf.Max(3, Mathf.RoundToInt(len / 2f));
+                int broken = 1 + rnd.Next(segs - 2);
+                for (int s = 0; s < segs; s++)
+                {
+                    float za = z0 + len * s / segs, zb = z0 + len * (s + 1) / segs;
+                    if (sx > 0 && gapPlusX.y > gapPlusX.x && zb > gapPlusX.x && za < gapPlusX.y) continue;
+                    float zm = (za + zb) / 2f, L = zb - za - 0.06f;
+                    bool br = s == broken;
+                    float hgt = br ? 0.18f : 0.38f;
+                    var w = Box(isl, "Parapet", new Vector3(sx * (HW + 0.1f), DeckY(zm) + hgt / 2f, zm), new Vector3(0.22f, hgt, br ? L * 0.6f : L), stone, 0);
+                    w.transform.localRotation = Quaternion.Euler(ang, 0f, 0f);
+                    if (!br)
+                    {
+                        var cp = Box(isl, "ParapetCap", new Vector3(sx * (HW + 0.1f), DeckY(zm) + hgt + 0.05f, zm), new Vector3(0.32f, 0.1f, L + 0.04f), terraD, 0);
+                        cp.transform.localRotation = Quaternion.Euler(ang, 0f, 0f); Object.DestroyImmediate(cp.GetComponent<Collider>());
+                    }
+                    else
+                    {
+                        var ch = Box(isl, "ParapetRubble", new Vector3(sx * (HW + 0.12f), DeckY(zm) + 0.22f, zm + L * 0.32f), new Vector3(0.24f, 0.16f, 0.3f), stone, 0);
+                        ch.transform.localRotation = Quaternion.Euler(ang + 12f, 25f, 10f); Object.DestroyImmediate(ch.GetComponent<Collider>());
+                    }
+                }
+            }
         }
         HW = hw0;
     }
