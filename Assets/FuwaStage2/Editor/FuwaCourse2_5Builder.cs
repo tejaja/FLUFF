@@ -219,10 +219,14 @@ public static class FuwaCourse2_5Builder
         //  →「（回る石の腕と飛び出す石ブロックの）2と3の複合、2も当たったら弾かれるくらいでいい」
         //  → ③ 回る石の腕 3本 → 橋 → ④ 飛び出す石ブロック → 45° → 腕とブロックのまざり → ワープB
         //  柱の版：③ FallRun F1 / ④ PillarGap G1・G2・T(-45)・G3 → BrokenStairs。石板の版：③ SideSlabs A / ④ UpSlabs B → T(-45) → FerrySlab C
+        // 2026-11-15 てじゃ「上段のワープ後に、なんらかのギミックでふわふわにバリア付与」「そのままちょっと進むと円形の広場、中央には浮いたクリスタル」
+        //  「一定間隔で広場全体に放射状に衝撃波」「ふわふわのバリアの周囲+後ろ側はセーフゾーン」「広場に入る時に最初に一発」
+        //  → ③ ワープ → CP2 → バリアの門 → 円形の広場（クリスタルの衝撃波）→ 出口でバリアが消える。回る腕の版：Arms_A（SpinArm ×3、20m）
+        shieldT = EnsureShield();
         Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f);
-            var g = new GameObject("Arms_A").transform; g.SetParent(isl, false);
-            SpinArm(g, "Arm0", 3.5f, 50f, 2, 0f); SpinArm(g, "Arm1", 10f, -65f, 2, 45f); SpinArm(g, "Arm2", 16.5f, 45f, 3, 20f);
-            S(20f); S(2f); });
+            S(1.5f); ShieldGateArch("ShieldGate"); S(5f);
+            CrystalPlaza("CrystalPlaza");
+            S(1.5f); ShieldOff("ShieldOff"); S(1.5f); });
         Island("Bridge3");
         Run(() => { ArchBridge(14f, 2f, false, null); });
         var i4 = Island("I4_Bumpers");
@@ -2387,6 +2391,333 @@ public static class FuwaCourse2_5Builder
             HoleWeb(g, "HoleWeb" + i, new Vector3(0f, P.y + hTop / 2f, z), new Vector2(2f * xo, hTop), holes[i], SmallHoleR);
         }
         S(len);
+    }
+
+    // ================= バリア＋クリスタルの広場（2026-11-15 てじゃの案）=================
+    //  「上段のワープ後に、なんらかのギミックでふわふわにバリア付与」「そのままちょっと進むと円形の広場、中央には浮いたクリスタル」
+    //  「一定間隔で広場全体に放射状に衝撃波、プレイヤーは吹き飛ばされる、ほぼアウト」「ふわふわのバリアの周囲+後ろ側はセーフゾーン」
+    //  バリアの門（ShieldGateArch）→ 広場（CrystalPlaza、FuwaShockwave）→ 出口でバリアが消える（ShieldOff）
+    public static float PlazaR = 9f, PlazaRaise = 0.12f, PlazaLedge = 1.5f, CrystalH = 3f;
+    const string GimAudio = "Assets/FuwaStage2/Audio/Gimmick2_5/";
+    static readonly Color ShieldCol = new Color(0.45f, 0.9f, 1f, 1f);
+    static FuwaShield shieldT;
+
+    // ふわふわの子にバリアの球（なければ作る）。コースを作り直しても残る（ふわふわは FuwaSystem の物）
+    static FuwaShield EnsureShield()
+    {
+        if (!ballT) return null;
+        var tr = ballT.transform.Find("Shield");
+        GameObject g;
+        if (!tr)
+        {
+            g = GameObject.CreatePrimitive(PrimitiveType.Sphere); g.name = "Shield";
+            Object.DestroyImmediate(g.GetComponent<Collider>());
+            g.transform.SetParent(ballT.transform, false);
+        }
+        else g = tr.gameObject;
+        g.layer = ballT.gameObject.layer;
+        g.transform.localPosition = Vector3.zero; g.transform.localRotation = Quaternion.identity; g.transform.localScale = Vector3.one * 3f;
+        string mp = "Assets/FuwaStage2/Materials/Ruins_Shield.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!m) { m = new Material(Shader.Find("Fuwa/Shield")); AssetDatabase.CreateAsset(m, mp); }
+        m.enableInstancing = true; EditorUtility.SetDirty(m);
+        var mr = g.GetComponent<MeshRenderer>(); mr.sharedMaterial = m; mr.enabled = false;
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+        mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+        var sh = g.GetComponent<FuwaShield>(); if (!sh) sh = UdonSharpUndo.AddComponent<FuwaShield>(g);
+        sh.ball = ballT; sh.rend = mr; sh.baseScale = 3f;
+        sh.onSound = Sfx(g.transform, "OnSfx", "sfx_shield_on.wav", 0.8f, 0.5f, 20f);
+        sh.offSound = Sfx(g.transform, "OffSfx", "sfx_shield_off.wav", 0.7f, 0.5f, 20f);
+        sh.blockSound = Sfx(g.transform, "BlockSfx", "sfx_shield_block.wav", 0.8f, 0.5f, 25f);
+        UdonSharpEditorUtility.CopyProxyToUdon(sh); FuwaStage2WaterTest.NoSync(sh);
+        return sh;
+    }
+    static AudioSource Sfx(Transform parent, string name, string clip, float vol, float spatial, float maxD)
+    {
+        var tr = parent.Find(name); var g = tr ? tr.gameObject : new GameObject(name);
+        g.transform.SetParent(parent, false);
+        var au = g.GetComponent<AudioSource>(); if (!au) au = g.AddComponent<AudioSource>();
+        au.clip = AssetDatabase.LoadAssetAtPath<AudioClip>(GimAudio + clip); au.playOnAwake = false; au.loop = false; au.volume = vol;
+        au.spatialBlend = spatial; au.rolloffMode = AudioRolloffMode.Linear; au.minDistance = 3f; au.maxDistance = maxD; au.dopplerLevel = 0f;
+        return au;
+    }
+
+    // とがった結晶（上下の六角すい）。h1＝上の高さ、h0＝下の高さ、r＝胴の半径。面ごとに角ばった見た目
+    static Mesh CrystalMesh(string name, float r, float h1, float h0, int sides = 6)
+    {
+        var v = new List<Vector3>(); var t = new List<int>();
+        var top = Vector3.up * h1; var bot = Vector3.down * h0;
+        for (int i = 0; i < sides; i++)
+        {
+            float a0 = Mathf.PI * 2f * i / sides, a1 = Mathf.PI * 2f * (i + 1) / sides;
+            var p0 = new Vector3(Mathf.Cos(a0) * r, 0f, Mathf.Sin(a0) * r); var p1 = new Vector3(Mathf.Cos(a1) * r, 0f, Mathf.Sin(a1) * r);
+            var mid = (p0 + p1) * 0.5f;
+            Tri(v, t, top, p0, p1, mid.normalized + Vector3.up * 0.5f);
+            Tri(v, t, bot, p0, p1, mid.normalized - Vector3.up * 0.5f);
+        }
+        return SaveMesh(name, v, t);
+    }
+
+    // uv・法線つきで保存（輪・帯用）
+    static Mesh SaveMeshUV(string name, List<Vector3> v, List<int> t, List<Vector2> uv, List<Vector3> n)
+    {
+        string path = MeshDir + "/" + name + ".asset";
+        var m = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (!m) { m = new Mesh { name = name }; AssetDatabase.CreateAsset(m, path); }
+        m.Clear(false);
+        m.SetVertices(v); m.SetTriangles(t, 0); m.SetUVs(0, uv);
+        if (n != null) m.SetNormals(n); else m.RecalculateNormals();
+        m.RecalculateBounds();
+        EditorUtility.SetDirty(m);
+        return m;
+    }
+    // 輪（上向きの面）：r0〜r1、a0〜a1（ラジアン）、高さ y。uv.y は外のふち 0 → 内のふち 1。side＝外のふちの側面を下へ（高さ）
+    static void AnnulusInto(List<Vector3> v, List<int> t, List<Vector2> uv, float r0, float r1, float a0, float a1, float y, float side, int seg)
+    {
+        for (int i = 0; i < seg; i++)
+        {
+            float aa = Mathf.Lerp(a0, a1, (float)i / seg), ab = Mathf.Lerp(a0, a1, (float)(i + 1) / seg);
+            Vector3 da = new Vector3(Mathf.Cos(aa), 0f, Mathf.Sin(aa)), db = new Vector3(Mathf.Cos(ab), 0f, Mathf.Sin(ab));
+            int k = v.Count;
+            v.Add(da * r0 + Vector3.up * y); v.Add(da * r1 + Vector3.up * y); v.Add(db * r1 + Vector3.up * y); v.Add(db * r0 + Vector3.up * y);
+            uv.Add(new Vector2(0, 1)); uv.Add(new Vector2(0, 0)); uv.Add(new Vector2(1, 0)); uv.Add(new Vector2(1, 1));
+            // 上向き（反時計回りの角度で a が増える → 外→次の外の順で上向き）
+            t.Add(k); t.Add(k + 2); t.Add(k + 1); t.Add(k); t.Add(k + 3); t.Add(k + 2);
+            if (side > 0f)
+            {
+                int s = v.Count;
+                v.Add(da * r1 + Vector3.up * y); v.Add(db * r1 + Vector3.up * y); v.Add(db * r1 + Vector3.up * (y - side)); v.Add(da * r1 + Vector3.up * (y - side));
+                uv.Add(Vector2.zero); uv.Add(Vector2.zero); uv.Add(Vector2.zero); uv.Add(Vector2.zero);
+                t.Add(s); t.Add(s + 1); t.Add(s + 2); t.Add(s); t.Add(s + 2); t.Add(s + 3);
+            }
+        }
+    }
+    static void FixWinding(List<Vector3> v, List<int> t, System.Func<Vector3, Vector3> want)
+    {
+        for (int i = 0; i < t.Count; i += 3)
+        {
+            Vector3 a = v[t[i]], b = v[t[i + 1]], c = v[t[i + 2]];
+            if (Vector3.Dot(Vector3.Cross(b - a, c - a), want((a + b + c) / 3f)) < 0f) { int s = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = s; }
+        }
+    }
+    static GameObject MeshObj(Transform parent, string name, Mesh mesh, Material mat, Vector3 lp, int layer, bool shadows)
+    {
+        var g = new GameObject(name); g.transform.SetParent(parent, false); g.transform.localPosition = lp; g.layer = layer;
+        g.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var mr = g.AddComponent<MeshRenderer>(); mr.sharedMaterial = mat;
+        if (!shadows) { mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false; }
+        return g;
+    }
+    static Material GlowMat(string name, Color c, float e)
+    {
+        var m = FuwaStage2WaterTest.ToonMat(name, Color.Lerp(c, Color.white, 0.35f));
+        m.SetColor("_EmissionColor", c * e); EditorUtility.SetDirty(m);
+        return m;
+    }
+    static Material FxMat(string name, string shader)
+    {
+        string mp = "Assets/FuwaStage2/Materials/" + name + ".mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!m) { m = new Material(Shader.Find(shader)); AssetDatabase.CreateAsset(m, mp); }
+        m.enableInstancing = true; EditorUtility.SetDirty(m);
+        return m;
+    }
+    static ParticleSystem Sparks(Transform parent, string name, Vector3 lp, float life, float speed, float size, int max)
+    {
+        var ps = new GameObject(name).AddComponent<ParticleSystem>(); ps.transform.SetParent(parent, false); ps.transform.localPosition = lp;
+        var main = ps.main; main.playOnAwake = false; main.loop = true; main.startLifetime = life; main.startSpeed = speed; main.startSize = size;
+        main.startColor = Color.Lerp(ShieldCol, Color.white, 0.35f); main.maxParticles = max; main.simulationSpace = ParticleSystemSimulationSpace.World;
+        var em = ps.emission; em.rateOverTime = 0f;
+        var col = ps.colorOverLifetime; col.enabled = true;
+        var gr = new Gradient(); gr.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) }, new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, 0.6f), new GradientAlphaKey(0f, 1f) });
+        col.color = gr;
+        ps.GetComponent<ParticleSystemRenderer>().sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Rune_Glyph_-1.mat");
+        ps.Stop();
+        return ps;
+    }
+
+    // バリアの門：崩れた石のアーチ＋てっぺんに浮いた小さいクリスタル。くぐると FuwaShieldGate がバリアをつける。当たりは道のはばより広く・高く（よけられない）
+    static void ShieldGateArch(string name)
+    {
+        float w = 2f * HW + 1.6f, h = 5.2f;
+        var g = new GameObject(name).transform; g.SetParent(isl, false); g.localPosition = new Vector3(0f, P.y, P.z); g.gameObject.layer = 2;
+        foreach (float sx in new[] { -1f, 1f })
+        {
+            Box(g, "Pillar", new Vector3(sx * (w / 2f), h / 2f - 0.6f, 0f), new Vector3(0.9f, h + 0.6f, 1.1f), terra, 0);
+            Box(g, "Base", new Vector3(sx * (w / 2f), 0.1f, 0f), new Vector3(1.2f, 0.4f, 1.4f), stone, 0);
+        }
+        Box(g, "Lintel", new Vector3(0f, h + 0.35f, 0f), new Vector3(w + 0.9f, 0.7f, 1.1f), terra, 0);
+        var cap = Box(g, "LintelBroken", new Vector3(w / 2f - 0.2f, h + 0.95f, 0f), new Vector3(1.4f, 0.5f, 1.0f), terraD, 0);
+        cap.transform.localRotation = Quaternion.Euler(0f, 0f, -14f);
+        // 光るルーンの帯（はりの正面と裏）
+        var runeM = GlowMat("Ruins_ShieldRune", ShieldCol, 1.4f);
+        var glows = new List<Renderer>();
+        foreach (float sz in new[] { -1f, 1f })
+        {
+            var rb = Box(g, "Rune", new Vector3(0f, h + 0.35f, sz * 0.56f), new Vector3(w * 0.6f, 0.16f, 0.02f), runeM, 0);
+            Object.DestroyImmediate(rb.GetComponent<Collider>()); glows.Add(rb.GetComponent<Renderer>());
+        }
+        // てっぺんのクリスタル
+        var crysM = GlowMat("Ruins_Crystal", ShieldCol, 0.5f);
+        var cr = MeshObj(g, "Crystal", CrystalMesh("GateCrystal", 0.26f, 0.5f, 0.38f), crysM, new Vector3(0f, h + 1.2f, 0f), 0, false);
+        glows.Add(cr.GetComponent<Renderer>());
+        var beam = Sparks(g, "Beam", new Vector3(0f, h + 1.2f, 0f), 0.4f, 11f, 0.12f, 80);
+        var bsh = beam.shape; bsh.shapeType = ParticleSystemShapeType.Cone; bsh.angle = 6f; bsh.radius = 0.1f;
+        var bm = beam.main; bm.loop = false;
+        // 当たり
+        var bc = g.gameObject.AddComponent<BoxCollider>(); bc.isTrigger = true;
+        bc.size = new Vector3(CurtainTrigW, CurtainTrigH, 0.4f); bc.center = new Vector3(0f, CurtainTrigH / 2f - 6f, 0f);
+        var sg = UdonSharpUndo.AddComponent<FuwaShieldGate>(g.gameObject);
+        sg.shield = shieldT; sg.give = true; sg.crystal = cr.transform; sg.glows = glows.ToArray(); sg.glowColor = ShieldCol; sg.beam = beam;
+        UdonSharpEditorUtility.CopyProxyToUdon(sg); FuwaStage2WaterTest.NoSync(sg);
+    }
+    // バリアが消える所（見た目なし）
+    static void ShieldOff(string name)
+    {
+        var g = new GameObject(name); g.transform.SetParent(isl, false); g.transform.localPosition = new Vector3(0f, P.y, P.z); g.layer = 2;
+        var bc = g.AddComponent<BoxCollider>(); bc.isTrigger = true;
+        bc.size = new Vector3(CurtainTrigW, CurtainTrigH, 0.4f); bc.center = new Vector3(0f, CurtainTrigH / 2f - 6f, 0f);
+        var sg = UdonSharpUndo.AddComponent<FuwaShieldGate>(g);
+        sg.shield = shieldT; sg.give = false;
+        UdonSharpEditorUtility.CopyProxyToUdon(sg); FuwaStage2WaterTest.NoSync(sg);
+    }
+
+    // 円形の広場：今の P（道のはし）から +z へ。床は道より PlazaRaise 高い石の台（道のはしは台の下にもぐる＝ちらつき・すき間なし）
+    //  床は同心円のシマシマ（道と同じ A/B）、まん中に台座とクリスタル、台座のまわりに光るルーンの輪、外に一段低い石のふち（入口・出口はあける）と崩れた柱
+    //  終わったら P は反対がわの道のはじまり
+    static void CrystalPlaza(string name)
+    {
+        float R = PlazaR, cz = P.z + R - 0.4f, top = P.y + PlazaRaise;
+        var g = new GameObject(name).transform; g.SetParent(isl, false); g.localPosition = new Vector3(0f, top, cz);
+        // ---- 床 ----
+        const int Seg = 96;
+        float runeR0 = 1.7f, runeR1 = 2.2f;
+        var bands = new List<(float r0, float r1, int mat)>();   // mat 0=A 1=B 2=ルーン 3=石（台座の下）
+        bands.Add((0f, runeR0, 3)); bands.Add((runeR0, runeR1, 2));
+        { float r = runeR1; int k = 0; while (r < R - 0.01f) { float r1 = Mathf.Min(R, r + StripeLen); if (R - r1 < 0.5f) r1 = R; bands.Add((r, r1, k % 2)); r = r1; k++; } }
+        var runeM = GlowMat("Ruins_PlazaRune", ShieldCol, 0.6f);
+        Material[] mats = { pathA, pathB, runeM, stone };
+        var runeRends = new List<Renderer>();
+        for (int mi = 0; mi < 4; mi++)
+        {
+            var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
+            foreach (var b in bands) if (b.mat == mi) AnnulusInto(v, t, uv, Mathf.Max(0.001f, b.r0), b.r1, 0f, Mathf.PI * 2f, 0f, Mathf.Abs(b.r1 - R) < 0.001f ? 0.6f + PlazaRaise : 0f, Seg);
+            if (v.Count == 0) continue;
+            FixWinding(v, t, c => c.y > -0.001f && new Vector2(c.x, c.z).magnitude < R - 0.001f ? Vector3.up : new Vector3(c.x, 0f, c.z));
+            var mo = MeshObj(g, "Floor" + "ABRS"[mi], SaveMeshUV(name + "_Floor" + mi, v, t, uv, null), mats[mi], Vector3.zero, 0, true);
+            if (mi == 2) runeRends.Add(mo.GetComponent<Renderer>());
+        }
+        // 当たり（道レイヤー＝ふわふわが触れたらアウト）：48 角の柱
+        {
+            var v = new List<Vector3>(); var t = new List<int>(); int n = 48; float y0 = -0.6f - PlazaRaise;
+            for (int i = 0; i < n; i++)
+            {
+                float a0 = Mathf.PI * 2f * i / n, a1 = Mathf.PI * 2f * (i + 1) / n;
+                var d0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)) * R; var d1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1)) * R;
+                Tri(v, t, Vector3.zero, d0, d1, Vector3.up);
+                Tri(v, t, Vector3.up * y0, d0 + Vector3.up * y0, d1 + Vector3.up * y0, Vector3.down);
+                Tri(v, t, d0, d1, d1 + Vector3.up * y0, d0 + d1); Tri(v, t, d0, d1 + Vector3.up * y0, d0 + Vector3.up * y0, d0 + d1);
+            }
+            var col = new GameObject("Col"); col.transform.SetParent(g, false); col.layer = pathLayer;
+            col.AddComponent<MeshCollider>().sharedMesh = SaveMesh(name + "_Col", v, t);
+        }
+        // ---- 外のふち（一段低い石の輪、入口・出口はあける）----
+        {
+            float ly = -0.25f, gapA = Mathf.Asin(Mathf.Min(0.95f, (HW + 0.35f) / R));
+            var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
+            // 入口は -z（角度 270°）、出口は +z（90°）
+            float e = Mathf.PI * 1.5f, x = Mathf.PI * 0.5f;
+            AnnulusInto(v, t, uv, R, R + PlazaLedge, x + gapA, e - gapA, ly, 0.5f, 40);
+            AnnulusInto(v, t, uv, R, R + PlazaLedge, e + gapA, x + Mathf.PI * 2f - gapA, ly, 0.5f, 40);
+            FixWinding(v, t, c => new Vector2(c.x, c.z).magnitude < R + PlazaLedge - 0.001f ? Vector3.up : new Vector3(c.x, 0f, c.z));
+            var lm = SaveMeshUV(name + "_Ledge", v, t, uv, null);
+            var lo = MeshObj(g, "Ledge", lm, stone, Vector3.zero, pathLayer, true);
+            lo.AddComponent<MeshCollider>().sharedMesh = lm;
+        }
+        // ---- 下の岩（浮いた島らしく先細り）----
+        float[] ur = { R + PlazaLedge - 0.05f, R - 0.6f, R - 3f, R - 5.8f }, uh = { 1.2f, 1.6f, 1.8f, 2f };
+        float uy = -0.75f;   // ふちの側面の下から（ふちの下の面のかわり）
+        for (int i = 0; i < ur.Length; i++)
+        {
+            var cy = GameObject.CreatePrimitive(PrimitiveType.Cylinder); cy.name = "Under" + i; Object.DestroyImmediate(cy.GetComponent<Collider>());
+            cy.transform.SetParent(g, false); cy.transform.localPosition = new Vector3(0f, uy - uh[i] / 2f, 0f);
+            cy.transform.localScale = new Vector3(2f * ur[i], uh[i] / 2f, 2f * ur[i]); cy.transform.localRotation = Quaternion.Euler(0f, i * 17f, 0f);
+            cy.GetComponent<Renderer>().sharedMaterial = i == 0 ? stone : underM;
+            uy -= uh[i];
+        }
+        // ---- 崩れた柱（ふちの上、入口・出口の近くはなし）----
+        var rnd = new System.Random(515);
+        int np = 10;
+        for (int i = 0; i < np; i++)
+        {
+            float a = Mathf.PI * 2f * (i + 0.5f) / np;
+            float fromX = Mathf.Abs(Mathf.DeltaAngle(a * Mathf.Rad2Deg, 90f)), fromE = Mathf.Abs(Mathf.DeltaAngle(a * Mathf.Rad2Deg, 270f));
+            if (fromX < 28f || fromE < 28f) continue;
+            float ph = 1.2f + (float)rnd.NextDouble() * 3.8f, rr = R + PlazaLedge * 0.55f;
+            var pos = new Vector3(Mathf.Cos(a) * rr, -0.25f, Mathf.Sin(a) * rr);
+            Box(g, "ColumnBase", pos + Vector3.up * 0.15f, new Vector3(1.2f, 0.3f, 1.2f), stone, 0);
+            var c = Box(g, "Column", pos + Vector3.up * (0.3f + ph / 2f), new Vector3(0.75f, ph, 0.75f), terra, 0);
+            c.transform.localRotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 90f, 0f);
+            if (ph > 3.5f) { var cp = Box(g, "ColumnCap", pos + Vector3.up * (0.3f + ph + 0.15f), new Vector3(1f, 0.3f, 1f), terraD, 0); Object.DestroyImmediate(cp.GetComponent<Collider>()); }
+        }
+        // ---- 台座とクリスタル ----
+        var ped = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ped.name = "Pedestal"; ped.transform.SetParent(g, false);
+        ped.transform.localPosition = new Vector3(0f, 0.3f, 0f); ped.transform.localScale = new Vector3(2.8f, 0.3f, 2.8f); ped.GetComponent<Renderer>().sharedMaterial = terra;
+        var ped2 = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ped2.name = "PedestalTop"; ped2.transform.SetParent(g, false);
+        ped2.transform.localPosition = new Vector3(0f, 0.7f, 0f); ped2.transform.localScale = new Vector3(2.0f, 0.1f, 2.0f); ped2.GetComponent<Renderer>().sharedMaterial = stone;
+        Object.DestroyImmediate(ped2.GetComponent<Collider>());
+        var crysM = GlowMat("Ruins_Crystal", ShieldCol, 0.5f);
+        var pivot = new GameObject("Crystal").transform; pivot.SetParent(g, false); pivot.localPosition = new Vector3(0f, CrystalH, 0f);
+        var core = MeshObj(pivot, "Core", CrystalMesh("PlazaCrystal", 0.6f, 1.05f, 0.85f), crysM, Vector3.zero, 0, false);
+        var crystalRends = new List<Renderer> { core.GetComponent<Renderer>() };
+        for (int i = 0; i < 3; i++)
+        {
+            float a = Mathf.PI * 2f * i / 3f;
+            var sh = MeshObj(pivot, "Shard" + i, CrystalMesh("PlazaShard", 0.13f, 0.28f, 0.22f), crysM, new Vector3(Mathf.Cos(a) * 1.25f, -0.2f + 0.25f * i, Mathf.Sin(a) * 1.25f), 0, false);
+            sh.transform.localRotation = Quaternion.Euler(12f * (i - 1), 0f, 18f);
+            crystalRends.Add(sh.GetComponent<Renderer>());
+        }
+        // ---- 衝撃波の見た目 ----
+        var waveM = FxMat("Ruins_Shockwave", "Fuwa/Shockwave");
+        Mesh band;
+        {
+            var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>(); var nn = new List<Vector3>(); int n = 96;
+            for (int i = 0; i <= n; i++)
+            {
+                float a = Mathf.PI * 2f * i / n; var d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                v.Add(d); v.Add(d + Vector3.up); uv.Add(new Vector2((float)i / n, 0f)); uv.Add(new Vector2((float)i / n, 1f)); nn.Add(d); nn.Add(d);
+                if (i < n) { int k = i * 2; t.Add(k); t.Add(k + 1); t.Add(k + 3); t.Add(k); t.Add(k + 3); t.Add(k + 2); }
+            }
+            band = SaveMeshUV("ShockwaveBand", v, t, uv, nn);
+        }
+        Mesh ring;
+        {
+            var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
+            AnnulusInto(v, t, uv, 0.72f, 1f, 0f, Mathf.PI * 2f, 0f, 0f, 96);
+            var nn = v.Select(_ => Vector3.up).ToList();
+            ring = SaveMeshUV("ShockwaveRing", v, t, uv, nn);
+        }
+        var wave = MeshObj(g, "Wave", band, waveM, Vector3.zero, 0, false);
+        var waveF = MeshObj(g, "WaveFloor", ring, waveM, new Vector3(0f, 0.02f, 0f), 0, false);
+        var chg = MeshObj(g, "ChargeRing", ring, waveM, new Vector3(0f, 0.03f, 0f), 0, false);
+        foreach (var o in new[] { wave, waveF, chg }) { var r = o.GetComponent<Renderer>(); r.enabled = false; r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off; }
+        // 粒：ため（まわりから集まる）とドン（はじける）
+        var cps = Sparks(pivot, "ChargeFx", Vector3.zero, 0.7f, -4.2f, 0.1f, 120);
+        { var s = cps.shape; s.shapeType = ParticleSystemShapeType.Sphere; s.radius = 3f; var em = cps.emission; em.rateOverTime = 70f; em.enabled = false; var m = cps.main; m.simulationSpace = ParticleSystemSimulationSpace.Local; cps.Play(); }
+        var bps = Sparks(pivot, "BlastFx", Vector3.zero, 0.7f, 9f, 0.16f, 120);
+        { var s = bps.shape; s.shapeType = ParticleSystemShapeType.Sphere; s.radius = 0.5f; var m = bps.main; m.loop = false; }
+        // ---- しくみ ----
+        var sw = UdonSharpUndo.AddComponent<FuwaShockwave>(g.gameObject);
+        sw.ball = ballT; sw.shield = shieldT; sw.radius = R;
+        sw.crystal = pivot; sw.crystalGlows = crystalRends.ToArray(); sw.glowColor = ShieldCol; sw.runeGlows = runeRends.ToArray();
+        sw.wave = wave.transform; sw.waveFloor = waveF.transform; sw.chargeRing = chg.transform;
+        sw.waveRenderers = new[] { wave.GetComponent<Renderer>(), waveF.GetComponent<Renderer>() }; sw.chargeRenderer = chg.GetComponent<Renderer>();
+        sw.chargeParticles = cps; sw.blastParticles = bps;
+        sw.chargeSound = Sfx(pivot, "ChargeSfx", "sfx_crystal_charge.wav", 0.9f, 0.7f, 45f);
+        sw.boomSound = Sfx(pivot, "BoomSfx", "sfx_shockwave_boom.wav", 1f, 0.6f, 60f);
+        sw.hitSound = Sfx(g, "BlownSfx", "sfx_blown.wav", 0.9f, 0f, 30f);
+        UdonSharpEditorUtility.CopyProxyToUdon(sw); FuwaStage2WaterTest.NoSync(sw);
+        P = new Vector3(P.x, P.y, cz + R - 0.4f);
     }
 
     // ================= 道（2–4 と同じ） =================
