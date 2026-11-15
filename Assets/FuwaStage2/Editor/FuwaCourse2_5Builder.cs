@@ -229,18 +229,11 @@ public static class FuwaCourse2_5Builder
             S(1.5f); ShieldOff("ShieldOff"); S(1.5f); });
         Island("Bridge3");
         Run(() => { ArchBridge(14f, 2f, false, null); });
-        var i4 = Island("I4_Bumpers");
-        Run(() => { S(1.5f); CPi("Checkpoint3", 0.8f); S(2f);
-            var g = new GameObject("Pistons_B").transform; g.SetParent(isl, false);
-            Piston(g, "P0", 2f, 1f, 0.9f, 0f); Piston(g, "P1", 4.6f, -1f, 0.9f, 0.8f); Piston(g, "P2", 7.2f, 1f, 1.9f, 1.6f);
-            Piston(g, "P3", 9.8f, -1f, 0.9f, 2.4f); Piston(g, "P4", 12.4f, 1f, 0.9f, 0f); Piston(g, "P5", 12.4f, -1f, 1.9f, 1.6f);
-            S(15f); S(2.5f); });
-        T(-45f);
+        // 2026-11-15 てじゃ「ここ（クリスタルの広場）通り過ぎて橋の先はもうゴール行きポータルでいいかも」→ 橋のすぐ先にワープB
+        //  前の版：I4_Bumpers（CP3 → 飛び出す石ブロック Pistons_B → T(-45) → 腕とブロックのまざり Mix_C → ワープB）
+        Island("I4_End");
         Transform warpB = null;
-        Run(() => { S(2f);
-            var g = new GameObject("Mix_C").transform; g.SetParent(isl, false);
-            SpinArm(g, "Arm0", 3.5f, -55f, 2, 0f); Piston(g, "P0", 7.5f, 1f, 1.2f, 0f); Piston(g, "P1", 7.5f, -1f, 1.2f, 1.6f); SpinArm(g, "Arm1", 11.5f, 60f, 3, 30f);
-            S(14f); S(3f); warpB = BigPortal(isl, "WarpB", P, 180f); });
+        Run(() => { S(3f); warpB = BigPortal(isl, "WarpB", P, 180f); });
         // ---- ①の島の中の空洞（ゴール）----
         var gc = Island("Cavern");
         P = cav.entry; th = cav.heading;
@@ -264,7 +257,7 @@ public static class FuwaCourse2_5Builder
     // 空中の巣の回廊の置き場所：①の島の道の範囲の +x・-z の角から WebWalkOut、高さ WebWalkUp（てじゃの図の青◯）
     public static Vector3 WebWalkOut = new Vector3(2f, 0f, -2f); public static float WebWalkUp = 12f;   // （前の決め方、今は WebWalkStart に固定）
     public static Vector3 WebWalkStart = new Vector3(55.152f, 12f, 14.939f); public static float WebWalkOrbit = 25f, WebWalkBack = 0f;   // 巣の門を1つ足して +3.8、最初の巣をなくして −3.8   // 2026-11-14 15° → トンネルが伸びたので「また反時計回りにまわして」25°
-    public static Vector3 UpperStart = new Vector3(49.0348f, 32.8087f, 17.1244f); public static float UpperStartHeading = 134.3111f;
+    public static Vector3 UpperStart = new Vector3(39.5948f, 32.8087f, 24.0744f); public static float UpperStartHeading = 134.3111f;   // 2026-11-15 てじゃ「この広場は石像の真上くらいにしよう」→ 広場のまん中が MushroomAt の真上に来るよう (-9.44, 0, +6.95) ずらした（前は 49.0348, 32.8087, 17.1244）
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
     static void ArrivalRoof(bool full = true)
     {
