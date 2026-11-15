@@ -296,7 +296,7 @@ public static class FuwaCourse2_5Builder
     //  空洞：石像の真下、口は -z（スタートの方から見える）。出口のポータルは空洞の +z の壁の内がわ、-z へ進む
     public static bool StoneRims = false;
     public static float PathRockM = 1.6f, StatueRockR = 17f, RockCell = 0.8f, RockNoise = 0.9f;
-    public static float CaveMouthW = 9f; public static bool GoalOpen = true;
+    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true; public static float CaveCeilBump = 1.3f;
     static (Vector3 entry, float heading) PathHugRock(Transform island)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -349,7 +349,8 @@ public static class FuwaCourse2_5Builder
         System.Func<Vector2, float> dCave = q =>
         {
             var d = q - sc; float u = Vector2.Dot(d, mdir), v = Vector2.Dot(d, mper);
-            float room = Mathf.Max(Mathf.Abs(v) - hx, Mathf.Abs(u) - hz);
+            // 2026-11-15 てじゃ「ゴール周りの空間、四角くくりぬかれてるけどまるくしたい」→ 丸い部屋（ふちを少しゆらす）
+            float room = CaveRound ? d.magnitude - (hx + 0.6f * (Mathf.PerlinNoise(q.x * 0.35f + 3f, q.y * 0.35f + 7f) - 0.5f)) : Mathf.Max(Mathf.Abs(v) - hx, Mathf.Abs(u) - hz);
             float mouth = Mathf.Max(Mathf.Abs(v) - CaveMouthW / 2f, Mathf.Max(-u, u - (StatueRockR + 6f)));
             return Mathf.Min(room, mouth);
         };
@@ -423,6 +424,18 @@ public static class FuwaCourse2_5Builder
                         RockTri(v, capTop, tSide, P3(i, j, 0), P3(i + 1, j + 1, 0), P3(i, j + 1, 0), g[i, j], g[i + 1, j + 1], g[i, j + 1], L.y1, L.y0);
                     }
                 }
+            }
+        }
+        if (CaveCeilBump > 0f)
+        {   // 2026-11-15 てじゃ「天井を少しでこぼこに」：空洞の天井（地面の層の下の面 top-1.5）を下へぼこぼこ垂らす。壁ぎわは 0（壁の上とつながる）
+            float yc = top - 1.5f;
+            for (int i = 0; i < v.Count; i++)
+            {
+                var p3 = v[i]; if (Mathf.Abs(p3.y - yc) > 0.01f) continue;
+                var q2 = new Vector2(p3.x, p3.z); float dc = dCave(q2); if (dc >= 0f) continue;
+                float fade = Mathf.Clamp01(-dc / 2.2f);
+                float bump = Mathf.PerlinNoise(p3.x * 0.45f + 11f, p3.z * 0.45f + 5f) * 0.7f + Mathf.PerlinNoise(p3.x * 1.1f + 2f, p3.z * 1.1f + 9f) * 0.3f;
+                p3.y -= CaveCeilBump * bump * fade; v[i] = p3;
             }
         }
         if (RockRugged) RockDisplace(v, top, x0, z0);   // 2026-11-15 見た目クオリティ：段々の平らな壁 → ゴツゴツ（上のふちは動かさない）
