@@ -2590,7 +2590,7 @@ public static class FuwaCourse2_5Builder
             var rr = new System.Random(311);
             var dv = new List<Vector3>(); var dt = new List<int>(); var ev = new List<Vector3>(); var et = new List<int>();
             int nn = 15; var xs = Lin(-W / 2f, W / 2f, nn);
-            var ends = Jag(rr, nn, s - 0.35f, 0.42f); var drops = new float[nn]; for (int k = 0; k < nn; k++) drops[k] = 0.04f + 0.14f * (float)rr.NextDouble();
+            var ends = Jag(rr, nn, s - 0.35f, 0.42f); var drops = new float[nn]; for (int k = 0; k < nn; k++) rr.NextDouble();   // 2026-11-15 てじゃ「上は平らがいい」→ 上のふちの欠けなし
             FieldSlab(dv, dt, Vector3.zero, Vector3.right, Vector3.forward, Vector3.up, xs, ends, drops, -T, 0f);
             // 欄干の名ごり：左は先へいくほどガタガタに低く、右は根もとだけ
             foreach (float sx in new[] { -1f, 1f })
@@ -2615,7 +2615,7 @@ public static class FuwaCourse2_5Builder
             Box(isb, "AbutmentCap", new Vector3(0f, ab1 - 0.12f, -0.4f), new Vector3(W + 1.0f, 0.24f, 2.4f), edgeM, 0);
             var ri = new System.Random(733);
             var iv = new List<Vector3>(); var it = new List<int>(); var iev = new List<Vector3>(); var iet = new List<int>();
-            { int nn = 15; var xs = Lin(-W / 2f, W / 2f, nn); var ends = Jag(ri, nn, s + 1.5f - 0.3f, 0.5f); var drops = new float[nn]; for (int k = 0; k < nn; k++) drops[k] = 0.04f + 0.16f * (float)ri.NextDouble();
+            { int nn = 15; var xs = Lin(-W / 2f, W / 2f, nn); var ends = Jag(ri, nn, s + 1.5f - 0.3f, 0.5f); var drops = new float[nn]; for (int k = 0; k < nn; k++) ri.NextDouble();
               FieldSlab(iv, it, new Vector3(0f, 0f, -1.5f), Vector3.right, Vector3.forward, Vector3.up, xs, ends, drops, -T, 0f); }
             // 下の斜めの支え（アーチの名ごり）
             var st = Box(isb, "Strut", new Vector3(0f, -T - 0.9f, 1.0f), new Vector3(W - 0.6f, 0.6f, 2.4f), underM, 0); st.transform.localRotation = Quaternion.Euler(-32f, 0f, 0f);
@@ -2651,7 +2651,7 @@ public static class FuwaCourse2_5Builder
             int nn = 13; var xs = Lin(-(W - 0.2f) / 2f, (W - 0.2f) / 2f, nn);
             foreach (float dirz in new[] { 1f, -1f })
             {
-                var ends = Jag(rf, nn, 1.2f, 0.4f); var drops = new float[nn]; for (int k = 0; k < nn; k++) drops[k] = 0.03f + 0.15f * (float)rf.NextDouble();
+                var ends = Jag(rf, nn, 1.2f, 0.4f); var drops = new float[nn]; for (int k = 0; k < nn; k++) rf.NextDouble();
                 FieldSlab(fv, ft, Vector3.zero, Vector3.right * dirz, Vector3.forward * dirz, Vector3.up, xs, ends, drops, -T, 0f);
             }
             var fo = MeshObj(md, "DeckFragment", SaveMesh("BrokenFragment", fv, ft), deckM, new Vector3(-0.3f, -2.7f, 0.2f), 0, true);
