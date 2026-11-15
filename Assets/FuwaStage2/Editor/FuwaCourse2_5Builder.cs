@@ -1076,7 +1076,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
-    public static bool ShockDark = true, ShockSkyDim = true, ShieldVeil = true, ShieldOffArch = true; public static Color ShieldOffCol = new Color(0.86f, 0.78f, 1f, 1f); public static float ShockEarly = 5f, ShieldSafePad = 0.6f; public static bool ShockCorridor = true; static float shockCorridorLen; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
+    public static bool ShockDark = true, ShockSkyDim = true, ShieldVeil = true, ShieldOffArch = true; public static Color ShieldOffCol = new Color(0.86f, 0.78f, 1f, 1f); public static float ShockEarly = 5f, ShieldSafePad = 0.25f; public static bool ShockCorridor = true; static float shockCorridorLen; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
     public static bool PlazaBridgeDirect = true, PlazaLedgeUnderEntry = true;
     // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
     static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
@@ -4598,7 +4598,7 @@ public static class FuwaCourse2_5Builder
         sw.dustRing = dust.transform; sw.dustRenderer = dust.GetComponent<Renderer>(); sw.waveEcho = echo.transform; sw.echoRenderer = echo.GetComponent<Renderer>();
         sw.shards = shardTs.ToArray(); sw.auraRenderer = aura.GetComponent<Renderer>(); sw.orbitRings = orbitTs.ToArray(); sw.orbitRingRenderers = orbitRs.ToArray();
         sw.ball = ballT; sw.shield = shieldT; sw.radius = R;
-        sw.nearPad = ShieldSafePad;   // 2026-11-15 てじゃ「フワフワバリアの範囲、わずかに狭く」0.8 → 0.6
+        sw.nearPad = ShieldSafePad;   // 2026-11-15 てじゃ「フワフワバリアの範囲、わずかに狭く」0.8 → 0.6 →（影を接する線にして広がったので「ちょっと狭く」）0.25
         sw.shadowPad = sw.nearPad;
         // 2026-11-15 てじゃ「初回チャージ、チャージが速すぎて気になる、チャージ時間揃える代わりにもっと手前から察知してチャージ開始」
         //  → 1発目のためも chargeTime と同じ。ふわふわが広場のふちの ShockEarly m 手前に来たらためはじめ（止まるのはそれより外 ShockEarly+0.5）
