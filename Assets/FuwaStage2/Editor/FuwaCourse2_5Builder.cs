@@ -23,7 +23,7 @@ public static class FuwaCourse2_5Builder
 {
     const string RootName = "FuwaCourse2_5";
     const float SpokeR = 34.8f, StartBelow = 4f;
-    public static float HW = 2.4f, StripeLen = 1.2f;   // 2026-11-13 島の道 2→2.4
+    public static float HW = 2.4f, StripeLen = 1.2f; public static bool UnderFull = true;   // 2026-11-13 島の道 2→2.4
     public static Color PathColA = new Color(0.910f, 0.851f, 0.710f), PathColB = new Color(0.839f, 0.757f, 0.588f);   // #E8D9B5 / #D6C196（2026-11-13 てじゃ「道、ベージュ系にしてみよ」。前は深緑 #7DB866 / #67A552、その前 #A6DB7E / #8CCB66）
     const string MeshDir = "Assets/FuwaStage2/Meshes/Course2_5";
     const float WT = 0.5f;   // 部屋の壁の厚み
@@ -291,7 +291,13 @@ public static class FuwaCourse2_5Builder
         var g = new GameObject("ArrivalRoof").transform; g.SetParent(isl, false);
         // 床：道（P から先）と重ならないように、ポータルのうしろの部分と、道の左右の外だけ（同じ高さの面が重なるとちらつく）
         float fw = hx + 0.3f, zb = Mathf.Min(z0 - 0.3f, P.z - ArrivalBackLen), zf = z1 + 0.3f;   // 2026-11-15 てじゃ「中段のポータル、ちょっと後ろに道を伸ばしておいてほしい」→ うしろの床 1.9m → ArrivalBackLen
-        if (narrow) { Box(g, "FloorBack", new Vector3(0f, P.y - 0.3f, (zb + P.z) / 2f), new Vector3(2f * HW, 0.6f, P.z - zb), pathB, pathLayer); return; }
+        if (narrow)
+        {
+            Box(g, "FloorBack", new Vector3(0f, P.y - 0.3f, (zb + P.z) / 2f), new Vector3(2f * HW, 0.6f, P.z - zb), pathB, pathLayer);
+            // 道（Strip）と同じ下の台（つなぎ目に切れ目が出ないように同じ大きさ）
+            var ub = Box(g, "FloorBackUnder", new Vector3(0f, P.y - 0.6f - 0.6f, (zb + P.z) / 2f), new Vector3(2f * HW - 0.3f, 1.2f, P.z - zb), underM, 0); Object.DestroyImmediate(ub.GetComponent<Collider>());
+            return;
+        }
         Box(g, "FloorBack", new Vector3(0f, P.y - 0.3f, (zb + P.z) / 2f), new Vector3(2f * fw, 0.6f, P.z - zb), pathB, pathLayer);
         foreach (float sx in new[] { -1f, 1f })
             Box(g, "FloorSide", new Vector3(sx * (HW + fw) / 2f, P.y - 0.3f, (P.z + zf) / 2f), new Vector3(fw - HW, 0.6f, zf - P.z), pathB, pathLayer);
@@ -4577,7 +4583,7 @@ public static class FuwaCourse2_5Builder
         }
         if (!under) return;
         // 道の下の岩（空に浮いた遺跡の道。ブロックアウトなので箱）
-        var u = Box(g, "Under", new Vector3(0, -Tk - 0.6f, len * 0.5f), new Vector3(hw * 2f - 0.3f, 1.2f, Mathf.Max(0.1f, len - 0.2f)), underM, 0);
+        var u = Box(g, "Under", new Vector3(0, -Tk - 0.6f, len * 0.5f), new Vector3(hw * 2f - 0.3f, 1.2f, Mathf.Max(0.1f, len - (UnderFull ? 0f : 0.2f))), underM, 0);   // 2026-11-15 てじゃ「繋いだ分の下に切れ目」→ 前後 0.1 ずつ短くて、つなぎ目ごとに切れ目があった
         Object.DestroyImmediate(u.GetComponent<Collider>());
     }
 
