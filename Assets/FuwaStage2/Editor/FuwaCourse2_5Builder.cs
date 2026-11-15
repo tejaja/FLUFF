@@ -564,6 +564,19 @@ public static class FuwaCourse2_5Builder
     //  「イボはなくてもいい」「◯模様自体なしでいい」「縦に潰れてる」→ 水玉なし・体を縦にのばした版。正面（モデルの +z）はスタートの方へ向ける
     public static float StatueScale = 9f, StatueYaw = 225.42f;   // 2026-11-14 てじゃがシーンで決めた大きさ（9倍＝高さ約24m）と向き（コースの座標）
     const string StatueFbx = "Assets/FuwaStage2/Models/MushStatue.fbx";
+    public static bool StatueMossFaces = false;   // true で前の「面ごとの苔」にもどす
+    static void StatueMoss(Material m, Color stoneCol)
+    {
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/IceDetail.png");
+        if (!tex || !m.HasProperty("_GroundTex")) return;
+        var mossCol = new Color(0.55f, 0.72f, 0.45f);
+        m.SetTexture("_GroundTex", tex);
+        m.SetFloat("_GroundPatch", StatueMossFaces ? 0f : 1f); m.SetFloat("_GroundPatchScale", 13f); m.SetFloat("_GroundMidScale", 4f); m.SetFloat("_GroundSteps", 3f);
+        m.SetColor("_GroundTintA", new Color(mossCol.r / stoneCol.r, mossCol.g / stoneCol.g, mossCol.b / stoneCol.b));   // まだらの濃い所＝苔
+        m.SetColor("_GroundTintB", Color.white);
+        m.SetFloat("_GroundFine", 0f);
+        EditorUtility.SetDirty(m);
+    }
     static bool MushStatue(Vector3 baseP)
     {
         var src = AssetDatabase.LoadAssetAtPath<GameObject>(StatueFbx); if (!src) return false;
@@ -574,13 +587,17 @@ public static class FuwaCourse2_5Builder
         g.localScale = Vector3.one * StatueScale;
         g.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
         // 材質：Blender の名前 → ステージ2のトゥーン材質
+        // 2026-11-15 苔：面ごとの四角い苔（MS_Moss の面）はやめて石に。かわりに石の材質の「上を向いた面」に、ワールドの xz のまだらで苔の色をのせる（FuwaToonLit の地面の模様、IceDetail の G/B）
+        var stoneM = FuwaStage2WaterTest.ToonMat("Ruins_StatueStone", new Color(0.88f, 0.84f, 0.78f));
+        var baseM = FuwaStage2WaterTest.ToonMat("Ruins_StatueBase", new Color(0.80f, 0.74f, 0.66f));
+        StatueMoss(stoneM, new Color(0.88f, 0.84f, 0.78f)); StatueMoss(baseM, new Color(0.80f, 0.74f, 0.66f));
         var mats = smr.sharedMaterials.Select(m =>
         {
             string n = m ? m.name : "";
-            if (n.Contains("Moss")) return moss;
+            if (n.Contains("Moss")) return StatueMossFaces ? moss : stoneM;
             if (n.Contains("Dark")) return FuwaStage2WaterTest.ToonMat("Ruins_StatueDark", new Color(0.45f, 0.42f, 0.42f));
-            if (n.Contains("Base")) return FuwaStage2WaterTest.ToonMat("Ruins_StatueBase", new Color(0.80f, 0.74f, 0.66f));
-            return FuwaStage2WaterTest.ToonMat("Ruins_StatueStone", new Color(0.88f, 0.84f, 0.78f));
+            if (n.Contains("Base")) return baseM;
+            return stoneM;
         }).ToArray();
         g.gameObject.AddComponent<MeshRenderer>().sharedMaterials = mats;
         g.gameObject.AddComponent<MeshCollider>().sharedMesh = mesh;   // 人がぶつかる（ふわふわが乗ったら島の地面と同じくアウトにはならない＝レイヤー0）

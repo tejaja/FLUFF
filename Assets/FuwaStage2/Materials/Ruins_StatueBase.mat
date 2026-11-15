@@ -44,7 +44,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _GroundTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: d3ff59536c2095f42801c46ac9f01cb2, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -99,10 +99,10 @@ Material:
     - _GroundFineFade: 18
     - _GroundFineMask: 0
     - _GroundFineScale: 0.9
-    - _GroundMidScale: 3.2
-    - _GroundPatch: 0
-    - _GroundPatchScale: 11
-    - _GroundSteps: 0
+    - _GroundMidScale: 4
+    - _GroundPatch: 1
+    - _GroundPatchScale: 13
+    - _GroundSteps: 3
     - _IceBubble: 0
     - _IceDeep: 0
     - _IceDeepDepth: 0.6
@@ -150,8 +150,8 @@ Material:
     - _Color: {r: 0.8, g: 0.74, b: 0.66, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _FlowColor: {r: 0.85, g: 1, b: 1, a: 1}
-    - _GroundTintA: {r: 1.1, g: 1.08, b: 0.86, a: 1}
-    - _GroundTintB: {r: 0.8, g: 0.92, b: 0.8399999, a: 1}
+    - _GroundTintA: {r: 0.6875, g: 0.972973, b: 0.6818181, a: 1}
+    - _GroundTintB: {r: 1, g: 1, b: 1, a: 1}
     - _IceDeepColor: {r: 0.45, g: 0.62, b: 0.92, a: 1}
     - _IceSideColor: {r: 0.54999995, g: 0.68, b: 0.95, a: 1}
     - _IceSkyColor: {r: 0.86, g: 0.95, b: 1, a: 1}
