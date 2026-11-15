@@ -297,7 +297,7 @@ public static class FuwaCourse2_5Builder
     //  空洞：石像の真下、口は -z（スタートの方から見える）。出口のポータルは空洞の +z の壁の内がわ、-z へ進む
     public static bool StoneRims = false;
     public static float PathRockM = 1.6f, StatueRockR = 17f, RockCell = 0.8f, RockNoise = 0.9f;
-    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true, CaveSkirt = true, SkirtSpikes = false, GrassLip = true; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;
+    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true, CaveSkirt = true, SkirtSpikes = false, GrassLip = true, CaveMouthLintel = true; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;
     static (Vector3 entry, float heading) PathHugRock(Transform island)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -355,6 +355,11 @@ public static class FuwaCourse2_5Builder
             float mouth = Mathf.Max(Mathf.Abs(v) - CaveMouthW / 2f, Mathf.Max(-u, u - (StatueRockR + 6f)));
             return Mathf.Min(room, mouth);
         };
+        System.Func<Vector2, float> dCaveRoom = q =>
+        {
+            var d = q - sc; float u = Vector2.Dot(d, mdir), v = Vector2.Dot(d, mper);
+            return CaveRound ? d.magnitude - (hx + 0.6f * (Mathf.PerlinNoise(q.x * 0.35f + 3f, q.y * 0.35f + 7f) - 0.5f)) : Mathf.Max(Mathf.Abs(v) - hx, Mathf.Abs(u) - hz);
+        };
         // 層：(上, 下, 道のはば足し, 台地の半径, 空洞をくりぬく)
         var layers = new List<(float y1, float y0, float pm, float sr, bool cave)>
         {
@@ -377,7 +382,8 @@ public static class FuwaCourse2_5Builder
             var L = layers[k];
             float n = noise(q);
             float f = Mathf.Min(dPath(q) - L.pm + n, dStat(q) - L.sr + n * 1.6f);
-            if (L.cave && L.y0 < cy1 + 0.01f && L.y1 > cy0 - 0.01f) f = Mathf.Max(f, -dCave(q));
+            // 2026-11-15 てじゃ「ゴール後の空間もへんだな」→ 口は下の層だけ（いちばん上の空洞の層 k==1 は部屋だけくりぬく＝口の上に岩の天井が残る、細い帯が浮いて見えない）
+            if (L.cave && L.y0 < cy1 + 0.01f && L.y1 > cy0 - 0.01f) f = Mathf.Max(f, -((k == 1 && CaveMouthLintel) ? dCaveRoom(q) : dCave(q)));
             return f;
         };
         // 範囲
@@ -890,22 +896,30 @@ public static class FuwaCourse2_5Builder
             var rv = new List<Vector3>(); var rt = new List<int>();   // テラコッタ（くさび石の輪・コーニス）
             var rnd = new System.Random(Mathf.RoundToInt(len * 100f + rise * 10f));
             void Quad(List<Vector3> vv, List<int> tt, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 want) { Tri(vv, tt, a, b, c, want); Tri(vv, tt, a, c, d, want); }
+            // 2026-11-15 てじゃ「最初の橋の裏側がおかしい」→ 穴あきの橋は、穴から中が見えないように：アーチ・橋脚を両はしのリブ（xi〜xo）だけにして、まん中は下まで抜ける。リブの上もふさぐ
+            bool open = pits && OpenPitBridge;
+            float xi = HW - 0.55f;
             // 橋脚
             for (int i = 0; i <= n; i++)
             {
                 float z = z0 + len * i / n, yt = DeckY(z) - Tk;
                 float dep = 4.2f + 1.6f * (float)rnd.NextDouble();
-                float hx0 = xo, hz0 = pw / 2f, hx1 = xo * 0.55f, hz1 = pw / 2f * 0.6f;
-                var top = new[] { new Vector3(-hx0, yt, z - hz0), new Vector3(hx0, yt, z - hz0), new Vector3(hx0, yt, z + hz0), new Vector3(-hx0, yt, z + hz0) };
-                float ym = yt - dep * 0.55f;
-                var mid = new[] { new Vector3(-hx0 * 0.95f, ym, z - hz0 * 1.1f), new Vector3(hx0 * 0.95f, ym, z - hz0 * 1.1f), new Vector3(hx0 * 0.95f, ym, z + hz0 * 1.1f), new Vector3(-hx0 * 0.95f, ym, z + hz0 * 1.1f) };
-                var bot = new Vector3(((float)rnd.NextDouble() - 0.5f) * 0.6f, yt - dep, z + ((float)rnd.NextDouble() - 0.5f) * 0.3f);
-                var c = new Vector3(0f, yt - dep * 0.5f, z);
-                for (int k = 0; k < 4; k++)
+                float bx = (float)rnd.NextDouble() - 0.5f, bz = (float)rnd.NextDouble() - 0.5f;
+                foreach (float cxp in open ? new[] { -(xi + xo) / 2f, (xi + xo) / 2f } : new[] { 0f })
                 {
-                    int j = (k + 1) % 4;
-                    Quad(v, t, top[k], top[j], mid[j], mid[k], (top[k] + top[j]) * 0.5f - new Vector3(0f, top[k].y, z));
-                    Tri(v, t, mid[k], mid[j], bot, (mid[k] + mid[j]) * 0.5f - c);
+                    float hx0 = open ? (xo - xi) / 2f : xo, hz0 = pw / 2f;
+                    var top = new[] { new Vector3(cxp - hx0, yt, z - hz0), new Vector3(cxp + hx0, yt, z - hz0), new Vector3(cxp + hx0, yt, z + hz0), new Vector3(cxp - hx0, yt, z + hz0) };
+                    float ym = yt - dep * 0.55f;
+                    var mid = new[] { new Vector3(cxp - hx0 * 0.95f, ym, z - hz0 * 1.1f), new Vector3(cxp + hx0 * 0.95f, ym, z - hz0 * 1.1f), new Vector3(cxp + hx0 * 0.95f, ym, z + hz0 * 1.1f), new Vector3(cxp - hx0 * 0.95f, ym, z + hz0 * 1.1f) };
+                    var bot = new Vector3(cxp + bx * (open ? 0.2f : 0.6f), yt - dep, z + bz * 0.3f);
+                    var c = new Vector3(cxp, yt - dep * 0.5f, z);
+                    for (int k = 0; k < 4; k++)
+                    {
+                        int j = (k + 1) % 4;
+                        Quad(v, t, top[k], top[j], mid[j], mid[k], (top[k] + top[j]) * 0.5f - new Vector3(cxp, top[k].y, z));
+                        Tri(v, t, mid[k], mid[j], bot, (mid[k] + mid[j]) * 0.5f - c);
+                    }
+                    if (open) Quad(v, t, top[0], top[1], top[2], top[3], Vector3.up);   // 上（穴から見える）
                 }
             }
             // 橋脚の間のアーチ
@@ -925,8 +939,14 @@ public static class FuwaCourse2_5Builder
                 {
                     Vector3 a = sof[k], b = sof[k + 1];
                     float ya = DeckY(a.z) - Tk, yb = DeckY(b.z) - Tk;
-                    // 下の面
-                    Quad(v, t, new Vector3(-xo, a.y, a.z), new Vector3(xo, a.y, a.z), new Vector3(xo, b.y, b.z), new Vector3(-xo, b.y, b.z), Vector3.down);
+                    // 下の面（穴あきの橋は両はしのリブだけ＋リブの内がわの壁と上の面）
+                    if (!open) Quad(v, t, new Vector3(-xo, a.y, a.z), new Vector3(xo, a.y, a.z), new Vector3(xo, b.y, b.z), new Vector3(-xo, b.y, b.z), Vector3.down);
+                    else foreach (float sx in new[] { -1f, 1f })
+                    {
+                        Quad(v, t, new Vector3(sx * xi, a.y, a.z), new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, b.y, b.z), new Vector3(sx * xi, b.y, b.z), Vector3.down);
+                        Quad(v, t, new Vector3(sx * xi, a.y, a.z), new Vector3(sx * xi, b.y, b.z), new Vector3(sx * xi, yb, b.z), new Vector3(sx * xi, ya, a.z), new Vector3(-sx, 0f, 0f));
+                        Quad(v, t, new Vector3(sx * xi, ya, a.z), new Vector3(sx * xo, ya, a.z), new Vector3(sx * xo, yb, b.z), new Vector3(sx * xi, yb, b.z), Vector3.up);
+                    }
                     // 横の壁（スパンドレル）
                     foreach (float sx in new[] { -1f, 1f })
                         Quad(v, t, new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, b.y, b.z), new Vector3(sx * xo, yb, b.z), new Vector3(sx * xo, ya, a.z), new Vector3(sx, 0f, 0f));
@@ -1083,7 +1103,7 @@ public static class FuwaCourse2_5Builder
         MeshObj(g, "Keystone", SaveMesh("ArchGateKey" + no, kv, kt), stone, Vector3.zero, 0, true);
         curtainOnArch = true; curtainArchTop = colH - 0.6f;
     }
-    public static bool ArchGateNew = true, StoneLook = true, CurtainPattern = true;
+    public static bool ArchGateNew = true, StoneLook = true, CurtainPattern = true, OpenPitBridge = true;
     public static Color TerraCol = new Color(0.84f, 0.68f, 0.58f), TerraDCol = new Color(0.69f, 0.53f, 0.45f);
     static bool curtainOnArch; static float curtainArchTop;   // ArchGate のすぐあとの Curtain は柱の間に張る
 
