@@ -60,8 +60,10 @@ public static class FuwaCourse2_5Builder
         //  前：0.82/0.48/0.33・0.62/0.34/0.24
         terra = FuwaStage2WaterTest.ToonMat("Ruins_Terracotta", TerraCol);
         terraD = FuwaStage2WaterTest.ToonMat("Ruins_TerracottaDark", TerraDCol);
-        moss = FuwaStage2WaterTest.ToonMat("Ruins_Moss", new Color(0.55f, 0.72f, 0.45f));
+        // 2026-11-15 色あわせ（てじゃ「全部いこ」）：C 草を少し鮮やかに（前 0.55/0.72/0.45）、B 岩の下向きの面をだんだん暗く（奥行き）
+        moss = FuwaStage2WaterTest.ToonMat("Ruins_Moss", new Color(0.5f, 0.76f, 0.4f));
         underM = FuwaStage2WaterTest.ToonMat("Ruins_Under", new Color(0.72f, 0.58f, 0.48f));
+        if (underM.HasProperty("_UnderStrength")) { underM.SetColor("_UnderColor", new Color(0.62f, 0.5f, 0.48f)); underM.SetFloat("_UnderStrength", 0.55f); underM.SetFloat("_UnderGrad", 0.6f); EditorUtility.SetDirty(underM); }
         glow = FuwaStage2WaterTest.ToonMat("Ruins_PortalRim", new Color(0.55f, 0.9f, 1f));
         glow.SetColor("_EmissionColor", new Color(0.35f, 0.8f, 1f) * 1.4f); EditorUtility.SetDirty(glow);
         iron = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
@@ -609,8 +611,10 @@ public static class FuwaCourse2_5Builder
         if (!m.HasProperty("_Facet")) return;
         m.SetFloat("_Facet", 0f);   // 角ばりは Blender で面ごとにフラットに書き出した法線で出す（シェーダーの角ばりは三角ごとなので四角い面に斜めの線が出た）
         m.SetFloat("_NoiseStrength", 0.13f); m.SetFloat("_NoiseScale", 0.32f);
-        m.SetFloat("_ShadowStrength", 0.92f); m.SetFloat("_Wrap", 0.18f);
-        m.SetColor("_UnderColor", new Color(0.58f, 0.52f, 0.66f)); m.SetFloat("_UnderStrength", 0.5f); m.SetFloat("_UnderGrad", 0.5f);
+        // 2026-11-15 色あわせ A：影が紫っぽく暗い → あたたかく・少し明るく（前：影の濃さ 0.92・下向き 紫グレー 0.58/0.52/0.66 の 0.5）
+        m.SetFloat("_ShadowStrength", 0.8f); m.SetFloat("_Wrap", 0.22f);
+        if (m.HasProperty("_ShadowTint")) m.SetColor("_ShadowTint", new Color(0.8f, 0.68f, 0.66f));
+        m.SetColor("_UnderColor", new Color(0.74f, 0.64f, 0.6f)); m.SetFloat("_UnderStrength", 0.42f); m.SetFloat("_UnderGrad", 0.5f);
         EditorUtility.SetDirty(m);
     }
     static bool MushStatue(Vector3 baseP)
