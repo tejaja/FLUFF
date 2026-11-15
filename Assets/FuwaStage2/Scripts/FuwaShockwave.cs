@@ -61,6 +61,8 @@ public class FuwaShockwave : UdonSharpBehaviour
     public Renderer[] runeGlows;   // 床のまわりの模様（ためると光る）
     [Tooltip("2026-11-15 てじゃ「衝撃波の範囲、もっと目立たせたいな、特に床」→ 床にかぶせる円盤（Fuwa/ShockFloor）：ためで床いっぱいに流れる光、セーフ（影）は抜けて白いふち、ドンで帯と尾")]
     public Renderer floorZone;
+    [Tooltip("2026-11-15 てじゃ「セーフティーゾーンの周りにうっすら白いヴェールほしい」：影のふちに立つ幕（Fuwa/SafeVeil）。床と同じ時に出る")]
+    public Renderer safeVeil;
     [Tooltip("2026-11-15 てじゃ「チャージで空もちょっと暗くするとか」→ 空だけ暗くする大きい球（Fuwa/SkyDim）")]
     public Renderer skyDim;
     public float skyDimMax = 0.45f;
@@ -109,6 +111,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         HideWave();
         if (chargeRenderer != null) chargeRenderer.enabled = false;
         if (floorZone != null) floorZone.enabled = false;
+        if (safeVeil != null) safeVeil.enabled = false;
         if (skyDim != null) skyDim.enabled = false;
     }
 
@@ -454,7 +457,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         }
         bool on = _active && (k > 0f || _waveLive);
         if (floorZone.enabled != on) floorZone.enabled = on;
-        if (!on) return;
+        if (!on) { if (safeVeil != null && safeVeil.enabled) safeVeil.enabled = false; return; }
         Vector3 s = _waveLive ? _src : (crystal != null ? crystal.position : transform.position);
         Vector4 bv = Vector4.zero;
         if (shield != null && shield.IsOn()) { Vector3 bp = shield.transform.position; bv = new Vector4(bp.x, bp.y, bp.z, shield.Radius()); }
@@ -467,6 +470,27 @@ public class FuwaShockwave : UdonSharpBehaviour
         _mpb.SetFloat("_Pad", shadowPad);
         _mpb.SetFloat("_Near", nearPad);
         floorZone.SetPropertyBlock(_mpb);
+        if (safeVeil != null)
+        {
+            bool von = bv.w > 0f;
+            if (safeVeil.enabled != von) safeVeil.enabled = von;
+            if (von)
+            {
+                safeVeil.GetPropertyBlock(_mpb);
+                _mpb.SetFloat("_Charge", k);
+                _mpb.SetFloat("_WaveR", wr);
+                _mpb.SetFloat("_WaveFade", wf);
+                _mpb.SetVector("_Src", new Vector4(s.x, s.y, s.z, 0f));
+                _mpb.SetVector("_Ball", bv);
+                _mpb.SetFloat("_Pad", shadowPad);
+                _mpb.SetFloat("_Near", nearPad);
+                Vector3 c = transform.position;
+                _mpb.SetVector("_Cen", new Vector4(c.x, c.y, c.z, radius + 0.5f));
+                Vector2 cd = new Vector2(corridorDir.x, corridorDir.z); float cl = cd.magnitude; if (cl > 1e-4f) cd /= cl;
+                _mpb.SetVector("_Corr", new Vector4(cd.x, cd.y, corridorHalfW, cl > 1e-4f ? corridorLen : 0f));
+                safeVeil.SetPropertyBlock(_mpb);
+            }
+        }
     }
 
     private float _skyA;

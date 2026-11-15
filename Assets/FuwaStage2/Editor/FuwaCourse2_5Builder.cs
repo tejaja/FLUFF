@@ -2038,6 +2038,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // 飛び石＋その上の弱い横風（2026-11-14 てじゃ「かなり弱めの横風を吹かせよう」）：横風の見本の風だけ（石像なし）を飛び石の長さいっぱいに
+    public static bool ShockSafeVeil = true;   // 2026-11-15 セーフの影のふちに白い幕
     public static float WeakWind = 1.6f, WeakWindOn = 1.4f, WeakWindOff = 1.6f;   // 前の横風は 5.5（大きいと ×0.3、小さいと ×1.6）
     static void StonesWind(string tag, float len, float phase)
     {
@@ -4631,6 +4632,20 @@ public static class FuwaCourse2_5Builder
             var zo = MeshObj(g, "ShockZone", zm, zM, new Vector3(0f, 0.025f, 0f), 0, false);
             var zr = zo.GetComponent<Renderer>(); zr.enabled = false; zr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; zr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             sw.floorZone = zr;
+            if (ShockSafeVeil)
+            {   // 2026-11-15 てじゃ「セーフティーゾーンの周りにうっすら白いヴェールほしい」：影のふちに沿って立つ幕の型（形はシェーダーが毎フレーム作る）
+                var vv = new List<Vector3>(); var vt = new List<int>(); var vuv = new List<Vector2>();
+                const int VN = 160;
+                for (int q = 0; q <= VN; q++) { float u = q / (float)VN; vv.Add(new Vector3(u, 0f, 0f)); vv.Add(new Vector3(u, 1f, 0f)); vuv.Add(new Vector2(u, 0f)); vuv.Add(new Vector2(u, 1f)); }
+                for (int q = 0; q < VN; q++) { int a = q * 2; vt.Add(a); vt.Add(a + 1); vt.Add(a + 3); vt.Add(a); vt.Add(a + 3); vt.Add(a + 2); }
+                var vm = SaveMeshUV(name + "_SafeVeil", vv, vt, vuv, vv.Select(_ => Vector3.forward).ToList());
+                vm.bounds = new Bounds(Vector3.zero, Vector3.one * 200f); EditorUtility.SetDirty(vm);   // 形はシェーダーで動くので、見えなくならないよう大きく
+                var vM = FxMat("Ruins_SafeVeil", "Fuwa/SafeVeil"); vM.SetFloat("_Len", Mathf.Max(R, shockCorridorLen) * 2.2f); vM.SetFloat("_Alpha", 0.5f); EditorUtility.SetDirty(vM);
+                var vo = MeshObj(g, "SafeVeil", vm, vM, new Vector3(0f, 0.025f, 0f), 0, false);
+                var vr = vo.GetComponent<Renderer>(); vr.enabled = false; vr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; vr.receiveShadows = false;
+                vr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; vr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+                sw.safeVeil = vr;
+            }
         }
         if (ShockSkyDim)
         {   // 2026-11-15 てじゃ「チャージで空もちょっと暗くするとか」→ 空だけ暗くする大きい球（広場のまわり 400m、内がわ）
