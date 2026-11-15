@@ -473,20 +473,11 @@ public static class FuwaCourse2_5Builder
     static void RockRun(List<Vector3> v, List<int> tTop, List<int> tBot, System.Func<int, int, float, Vector3> P3, int i0, int i1, int j, float y1, float y0,
         float[,] above, float[,] below, System.Func<float[,], int, int, bool> Full)
     {
-        // 上の面
-        int a = -1;
-        for (int i = i0; i <= i1; i++)
+        // 2026-11-15 マスごとの四角に（横につなげると、岩をゴツゴツにずらした時につなぎ目にすき間ができた＝T字の継ぎ目）
+        for (int i = i0; i < i1; i++)
         {
-            bool vis = i < i1 && !Full(above, i, j);
-            if (vis && a < 0) a = i;
-            if (!vis && a >= 0) { RockQuad(v, tTop, P3(a, j, y1), P3(i, j, y1), P3(i, j + 1, y1), P3(a, j + 1, y1), Vector3.up); a = -1; }
-        }
-        a = -1;
-        for (int i = i0; i <= i1; i++)
-        {
-            bool vis = i < i1 && !Full(below, i, j);
-            if (vis && a < 0) a = i;
-            if (!vis && a >= 0) { RockQuad(v, tBot, P3(a, j, y0), P3(i, j, y0), P3(i, j + 1, y0), P3(a, j + 1, y0), Vector3.down); a = -1; }
+            if (!Full(above, i, j)) RockQuad(v, tTop, P3(i, j, y1), P3(i + 1, j, y1), P3(i + 1, j + 1, y1), P3(i, j + 1, y1), Vector3.up);
+            if (!Full(below, i, j)) RockQuad(v, tBot, P3(i, j, y0), P3(i + 1, j, y0), P3(i + 1, j + 1, y0), P3(i, j + 1, y0), Vector3.down);
         }
     }
     static void RockQuad(List<Vector3> v, List<int> t, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 want)
@@ -530,7 +521,7 @@ public static class FuwaCourse2_5Builder
     }
     // 岩の横と下をゴツゴツに：場所だけで決まるずらし（同じ場所の点は同じだけ動く＝すき間ができない）。上の面（topY）のふちは動かさず、下へいくほど大きく
     public static bool RockRugged = true;
-    public static float RockRugAmp = 0.9f, RockRugFine = 0.35f, RockRugY = 0.45f;
+    public static float RockRugAmp = 0.9f, RockRugFine = 0.25f, RockRugY = 0f;   // 2026-11-15 てじゃ「島の下の土、下から見るとスキマとかガタガタ」→ 上下と細かいゆらしをやめる（層の境目の面がずれてすき間になっていた）
     static void RockDisplace(List<Vector3> v, float topY, float ox, float oz)
     {
         for (int i = 0; i < v.Count; i++)
