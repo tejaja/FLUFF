@@ -62,6 +62,7 @@ public static class FuwaCourse2_5Builder
         terraD = FuwaStage2WaterTest.ToonMat("Ruins_TerracottaDark", TerraDCol);
         // 2026-11-15 色あわせ（てじゃ「全部いこ」）：C 草を少し鮮やかに（前 0.55/0.72/0.45）、B 岩の下向きの面をだんだん暗く（奥行き）
         moss = FuwaStage2WaterTest.ToonMat("Ruins_Moss", new Color(0.5f, 0.76f, 0.4f));
+        GrassPattern(moss);
         underM = FuwaStage2WaterTest.ToonMat("Ruins_Under", new Color(0.72f, 0.58f, 0.48f));
         if (underM.HasProperty("_UnderStrength")) { underM.SetColor("_UnderColor", new Color(0.62f, 0.5f, 0.48f)); underM.SetFloat("_UnderStrength", 0.55f); underM.SetFloat("_UnderGrad", 0.6f); EditorUtility.SetDirty(underM); }
         glow = FuwaStage2WaterTest.ToonMat("Ruins_PortalRim", new Color(0.55f, 0.9f, 1f));
@@ -296,7 +297,7 @@ public static class FuwaCourse2_5Builder
     //  空洞：石像の真下、口は -z（スタートの方から見える）。出口のポータルは空洞の +z の壁の内がわ、-z へ進む
     public static bool StoneRims = false;
     public static float PathRockM = 1.6f, StatueRockR = 17f, RockCell = 0.8f, RockNoise = 0.9f;
-    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true, CaveSkirt = true, SkirtSpikes = false; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;
+    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true, CaveSkirt = true, SkirtSpikes = false, GrassLip = true; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;
     static (Vector3 entry, float heading) PathHugRock(Transform island)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -399,8 +400,10 @@ public static class FuwaCourse2_5Builder
         var v = new List<Vector3>(); var tTop = new List<int>(); var tSide = new List<int>();
         Vector3 P3(int i, int j, float y) => new Vector3(x0 + i * RockCell, y, z0 + j * RockCell);
         bool Full(float[,] g, int i, int j) => g != null && g[i, j] < 0f && g[i + 1, j] < 0f && g[i, j + 1] < 0f && g[i + 1, j + 1] < 0f;
+        var segs = new List<Vector3[]>();
         for (int k = 0; k < layers.Count; k++)
         {
+            rimSegs = (k == 0 && GrassLip) ? segs : null;
             var L = layers[k]; var g = grids[k];
             var above = k > 0 ? grids[k - 1] : null; var below = k + 1 < layers.Count ? grids[k + 1] : null;
             var capTop = k == 0 ? tTop : tSide;
@@ -425,6 +428,29 @@ public static class FuwaCourse2_5Builder
                     }
                 }
             }
+        }
+        rimSegs = null;
+        if (GrassLip && segs.Count > 0)
+        {   // 2026-11-15 てじゃ「島の上の草っぽいとこのフチがぱきっとしてる」→ ふちに草のへり（外へ少しはみ出して下へ垂れる）。点ごとに外向きを平均してつなぎ目にすき間なし
+            var avg = new Dictionary<Vector3Int, Vector3>();
+            Vector3Int Key(Vector3 p3) => new Vector3Int(Mathf.RoundToInt(p3.x * 200f), Mathf.RoundToInt(p3.y * 200f), Mathf.RoundToInt(p3.z * 200f));
+            foreach (var sg in segs) foreach (int e2 in new[] { 0, 1 }) { var kk = Key(sg[e2]); avg[kk] = (avg.TryGetValue(kk, out var a0) ? a0 : Vector3.zero) + sg[2]; }
+            var lv = new List<Vector3>(); var lt = new List<int>();
+            Vector3 Out(Vector3 p3, float o, float dn) { var n3 = avg[Key(p3)]; n3.y = 0f; n3 = n3.sqrMagnitude > 1e-6f ? n3.normalized : Vector3.zero;
+                float w = Mathf.PerlinNoise(p3.x * 0.7f + 3f, p3.z * 0.7f + 8f); return p3 + n3 * o * (0.7f + 0.6f * w) + Vector3.down * dn * (0.7f + 0.6f * w); }
+            foreach (var sg in segs)
+            {
+                Vector3 a1 = sg[0], b1 = sg[1];
+                Vector3 a2 = Out(a1, 0.22f, 0.12f), b2 = Out(b1, 0.22f, 0.12f);   // 少し外・少し下（ふくらみ）
+                Vector3 a3 = Out(a1, 0.26f, 0.42f), b3 = Out(b1, 0.26f, 0.42f);   // 垂れたはし
+                var on = sg[2];
+                RockQuad(lv, lt, a1, b1, b2, a2, on + Vector3.up * 1.2f); RockQuad(lv, lt, a2, b2, b3, a3, on);
+                // 裏（下から見ても抜けない）
+                RockQuad(lv, lt, a1, b1, b2, a2, -(on + Vector3.up * 1.2f)); RockQuad(lv, lt, a2, b2, b3, a3, -on);
+            }
+            var lm = SaveMesh("I1_GrassLip", lv, lt);
+            var lgo = new GameObject("GrassLip"); lgo.transform.SetParent(rk, false);
+            lgo.AddComponent<MeshFilter>().sharedMesh = lm; lgo.AddComponent<MeshRenderer>().sharedMaterial = moss;
         }
         if (CaveCeilBump > 0f)
         {   // 2026-11-15 てじゃ「天井を少しでこぼこに」：空洞の天井（地面の層の下の面 top-1.5）を下へぼこぼこ垂らす。壁ぎわは 0（壁の上とつながる）
@@ -576,6 +602,7 @@ public static class FuwaCourse2_5Builder
         int i = v.Count; v.Add(a); v.Add(b); v.Add(c); t.Add(i); t.Add(i + 1); t.Add(i + 2);
     }
     // ふちの三角：中（f<0）の部分を切り出して上の面・下の面、切り口の線から横の壁
+    static List<Vector3[]> rimSegs;   // 上の層の輪郭（草のへり用）。null なら記録しない
     static void RockTri(List<Vector3> v, List<int> tTop, List<int> tSide, Vector3 p0, Vector3 p1, Vector3 p2, float f0, float f1, float f2, float y1, float y0)
     {
         var ps = new[] { p0, p1, p2 }; var fs = new[] { f0, f1, f2 };
@@ -603,6 +630,7 @@ public static class FuwaCourse2_5Builder
             outC /= no; var mid = (cut[0] + cut[1]) / 2f; var on = outC - mid; on.y = 0f;
             var seg = cut[1] - cut[0]; var nrm = new Vector3(seg.z, 0f, -seg.x); if (Vector3.Dot(nrm, on) < 0f) nrm = -nrm;
             RockQuad(v, tSide, cut[0] + Vector3.up * y1, cut[1] + Vector3.up * y1, cut[1] + Vector3.up * y0, cut[0] + Vector3.up * y0, nrm);
+            if (rimSegs != null) rimSegs.Add(new[] { cut[0] + Vector3.up * y1, cut[1] + Vector3.up * y1, nrm.normalized });
         }
     }
     // 岩の横と下をゴツゴツに：場所だけで決まるずらし（同じ場所の点は同じだけ動く＝すき間ができない）。上の面（topY）のふちは動かさず、下へいくほど大きく
@@ -690,8 +718,8 @@ public static class FuwaCourse2_5Builder
         m.SetFloat("_NoiseStrength", 0.13f); m.SetFloat("_NoiseScale", 0.32f);
         // 2026-11-15 色あわせ A：影が紫っぽく暗い → あたたかく・少し明るく（前：影の濃さ 0.92・下向き 紫グレー 0.58/0.52/0.66 の 0.5）
         m.SetFloat("_ShadowStrength", 0.8f); m.SetFloat("_Wrap", 0.22f);
-        if (m.HasProperty("_ShadowTint")) m.SetColor("_ShadowTint", new Color(0.8f, 0.68f, 0.66f));
-        m.SetColor("_UnderColor", new Color(0.74f, 0.64f, 0.6f)); m.SetFloat("_UnderStrength", 0.42f); m.SetFloat("_UnderGrad", 0.5f);
+        if (m.HasProperty("_ShadowTint")) m.SetColor("_ShadowTint", new Color(0.74f, 0.72f, 0.76f));   // グレーに合わせて色みを弱く
+        m.SetColor("_UnderColor", new Color(0.7f, 0.68f, 0.69f)); m.SetFloat("_UnderStrength", 0.42f); m.SetFloat("_UnderGrad", 0.5f);
         EditorUtility.SetDirty(m);
     }
     static bool MushStatue(Vector3 baseP)
@@ -705,7 +733,7 @@ public static class FuwaCourse2_5Builder
         g.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
         // 材質：Blender の名前 → ステージ2のトゥーン材質
         // 2026-11-15 苔：面ごとの四角い苔（MS_Moss の面）はやめて石に。かわりに石の材質の「上を向いた面」に、ワールドの xz のまだらで苔の色をのせる（FuwaToonLit の地面の模様、IceDetail の G/B）
-        Color stoneC = new Color(0.83f, 0.78f, 0.71f), baseC = new Color(0.76f, 0.69f, 0.61f);   // 少し落ち着かせた（前は 0.88/0.84/0.78・0.80/0.74/0.66）
+        Color stoneC = new Color(0.78f, 0.77f, 0.75f), baseC = new Color(0.69f, 0.67f, 0.64f);   // 2026-11-15 てじゃ「石像もっとグレーっぽく」（前 0.83/0.78/0.71・0.76/0.69/0.61）   // 少し落ち着かせた（前は 0.88/0.84/0.78・0.80/0.74/0.66）
         var stoneM = FuwaStage2WaterTest.ToonMat("Ruins_StatueStone", stoneC);
         var baseM = FuwaStage2WaterTest.ToonMat("Ruins_StatueBase", baseC);
         StatueMoss(stoneM, stoneC); StatueMoss(baseM, baseC);
@@ -4085,6 +4113,17 @@ public static class FuwaCourse2_5Builder
         EditorUtility.SetDirty(m);
     }
 
+    // 2026-11-15 てじゃ「草に模様つけよ」：ゴール・ロビーの床と同じ地面の模様（FuwaCourse/Textures/GroundDetail.png）を草の色で。明るい・濃いのまだら＋細かい草の筋
+    static void GrassPattern(Material m)
+    {
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaCourse/Textures/GroundDetail.png");
+        if (!tex || !m.HasProperty("_GroundTex")) return;
+        m.SetTexture("_GroundTex", tex);
+        m.SetFloat("_GroundPatch", 0.8f); m.SetFloat("_GroundPatchScale", 9f); m.SetFloat("_GroundMidScale", 2.6f); m.SetFloat("_GroundSteps", 3f);
+        m.SetColor("_GroundTintA", new Color(1.12f, 1.08f, 0.88f)); m.SetColor("_GroundTintB", new Color(0.72f, 0.86f, 0.7f));
+        m.SetFloat("_GroundFine", 0.38f); m.SetFloat("_GroundFineScale", 13f); m.SetFloat("_GroundFineCrisp", 1f); m.SetFloat("_GroundFineFade", 30f); m.SetFloat("_GroundFineMask", 0f);
+        EditorUtility.SetDirty(m);
+    }
     static Material PathMat(string name, Color c)
     {
         string path = "Assets/FuwaStage2/Materials/" + name + ".mat";
