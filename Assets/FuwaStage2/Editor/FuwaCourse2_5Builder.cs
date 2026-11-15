@@ -1360,8 +1360,11 @@ public static class FuwaCourse2_5Builder
             var q = p + co.TransformVector(o) + Vector3.up * 0.3f * sc;
             var hits = Physics.RaycastAll(q, Vector3.down, (ColumnMaxDrop + 0.3f) * sc, ~0, QueryTriggerInteraction.Ignore);
             float d = -1f;
-            foreach (var hh in hits) { if (hh.collider.transform.IsChildOf(co)) continue; float dd = hh.distance / sc - 0.3f; if (d < 0f || dd < d) d = dd; }
-            if (d < 0f) continue;
+            // 2026-11-15 てじゃ「柱の支えが貫通してる」→ 島の上の面は根もとより 5cm 上にあるので、少し上（-0.2 まで）の地面も「ある」にする（前はなし扱い→持ち送りが島をつきぬけた）
+            bool hitAny = false;
+            foreach (var hh in hits) { if (hh.collider.transform.IsChildOf(co)) continue; float dd = hh.distance / sc - 0.3f; if (dd < -0.2f) continue; if (!hitAny || dd < d) d = dd; hitAny = true; }
+            if (!hitAny) continue;
+            d = Mathf.Max(d, 0f);
             if (o == Vector3.zero) any = true;
             best = Mathf.Max(best, d);
         }
