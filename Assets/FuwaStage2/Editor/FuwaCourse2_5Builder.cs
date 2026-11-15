@@ -2884,29 +2884,75 @@ public static class FuwaCourse2_5Builder
     // バリアの門：崩れた石のアーチ＋てっぺんに浮いた小さいクリスタル。くぐると FuwaShieldGate がバリアをつける。当たりは道のはばより広く・高く（よけられない）
     static void ShieldGateArch(string name)
     {
-        float w = 2f * HW + 1.6f, h = 5.2f;
+        // 2026-11-15 見た目クオリティ（5）：四角い門 → 溝のある柱2本＋半円の石のアーチ（くさび石）、要石の上に石の爪で支えた小さいクリスタル、要石に光る石
+        float cx = HW + 0.8f, colH = 3.6f, rIn = cx - 0.45f, rOut = cx + 0.45f;
         var g = new GameObject(name).transform; g.SetParent(isl, false); g.localPosition = new Vector3(0f, P.y, P.z); g.gameObject.layer = 2;
         foreach (float sx in new[] { -1f, 1f })
         {
-            Box(g, "Pillar", new Vector3(sx * (w / 2f), h / 2f - 0.6f, 0f), new Vector3(0.9f, h + 0.6f, 1.1f), terra, 0);
-            Box(g, "Base", new Vector3(sx * (w / 2f), 0.1f, 0f), new Vector3(1.2f, 0.4f, 1.4f), stone, 0);
+            var co = new GameObject(sx < 0 ? "ColumnL" : "ColumnR"); co.transform.SetParent(g, false); co.transform.localPosition = new Vector3(sx * cx, 0f, 0f);
+            co.transform.localRotation = Quaternion.Euler(0f, sx < 0 ? 0f : 45f, 0f);
+            co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("GateColumn" + (sx < 0 ? "L" : "R"), sx < 0 ? 31 : 32, colH, 0);
+            co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
+            var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = colH; cc.center = Vector3.up * colH / 2f;
         }
-        Box(g, "Lintel", new Vector3(0f, h + 0.35f, 0f), new Vector3(w + 0.9f, 0.7f, 1.1f), terra, 0);
-        var cap = Box(g, "LintelBroken", new Vector3(w / 2f - 0.2f, h + 0.95f, 0f), new Vector3(1.4f, 0.5f, 1.0f), terraD, 0);
-        cap.transform.localRotation = Quaternion.Euler(0f, 0f, -14f);
-        // 光るルーンの帯（はりの正面と裏）
+        // くさび石のアーチ（半円、要石はひとまわり大きく上へ出る）
+        Transform keyT;
+        {
+            var v = new List<Vector3>(); var t = new List<int>(); var kv = new List<Vector3>(); var kt = new List<int>();
+            var rnd = new System.Random(55);
+            int n = 13; float d = 0.5f, y0 = colH;
+            for (int i = 0; i < n; i++)
+            {
+                float a0 = Mathf.PI * i / n, a1 = Mathf.PI * (i + 1) / n;
+                bool key = i == n / 2;
+                float ro = rOut * (key ? 1.12f : 0.97f + 0.05f * (float)rnd.NextDouble());
+                if (i == 3) ro = rOut * 0.9f;   // 1つ欠けている
+                float dd = key ? d + 0.08f : d;
+                Vector3 P0(float a, float r, float z) => new Vector3(Mathf.Cos(a) * r, y0 + Mathf.Sin(a) * r, z);
+                var q = new[] { P0(a0, rIn, -dd), P0(a1, rIn, -dd), P0(a1, ro, -dd), P0(a0, ro, -dd), P0(a0, rIn, dd), P0(a1, rIn, dd), P0(a1, ro, dd), P0(a0, ro, dd) };
+                var cen = P0((a0 + a1) / 2f, (rIn + ro) / 2f, 0f);
+                int[][] faces = { new[] { 0, 1, 2, 3 }, new[] { 4, 5, 6, 7 }, new[] { 0, 1, 5, 4 }, new[] { 3, 2, 6, 7 }, new[] { 0, 3, 7, 4 }, new[] { 1, 2, 6, 5 } };
+                var tv = key ? kv : v; var tt = key ? kt : t;
+                foreach (var fc in faces)
+                {
+                    var fcen = (q[fc[0]] + q[fc[1]] + q[fc[2]] + q[fc[3]]) * 0.25f;
+                    Tri(tv, tt, q[fc[0]], q[fc[1]], q[fc[2]], fcen - cen); Tri(tv, tt, q[fc[0]], q[fc[2]], q[fc[3]], fcen - cen);
+                }
+            }
+            MeshObj(g, "Arch", SaveMesh("GateArch", v, t), terra, Vector3.zero, 0, true);
+            keyT = MeshObj(g, "Keystone", SaveMesh("GateKeystone", kv, kt), stone, Vector3.zero, 0, true).transform;
+        }
+        float keyTop = colH + rOut * 1.12f;
+        // 要石の光る石（正面と裏、半分うまっている）
         var runeM = GlowMat("Ruins_ShieldRune", ShieldCol, 1.4f);
         var glows = new List<Renderer>();
         foreach (float sz in new[] { -1f, 1f })
         {
-            var rb = Box(g, "Rune", new Vector3(0f, h + 0.35f, sz * 0.56f), new Vector3(w * 0.6f, 0.16f, 0.02f), runeM, 0);
-            Object.DestroyImmediate(rb.GetComponent<Collider>()); glows.Add(rb.GetComponent<Renderer>());
+            var gem = MeshObj(g, "Gem", CrystalClusterMesh("GateGem", 9, 0.22f, 0), CrystalMat(), new Vector3(0f, colH + (rIn + rOut * 1.12f) / 2f, sz * 0.55f), 0, false);
+            gem.transform.localRotation = Quaternion.Euler(90f * sz, 0f, 0f);
+            glows.Add(gem.GetComponent<Renderer>());
         }
-        // てっぺんのクリスタル
+        // 要石の上：石の爪3本と、浮いた小さいクリスタル
+        {
+            var v = new List<Vector3>(); var t = new List<int>();
+            for (int k = 0; k < 3; k++)
+            {
+                float a = Mathf.PI * 2f * k / 3f + 0.3f;
+                var outw = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var tan = new Vector3(-outw.z, 0f, outw.x);
+                var b = outw * 0.32f + Vector3.up * keyTop; var top = outw * 0.2f + Vector3.up * (keyTop + 0.75f);
+                var q = new[] { b - tan * 0.09f - outw * 0.1f, b + tan * 0.09f - outw * 0.1f, b + tan * 0.09f + outw * 0.1f, b - tan * 0.09f + outw * 0.1f,
+                                top - tan * 0.03f - outw * 0.03f, top + tan * 0.03f - outw * 0.03f, top + tan * 0.03f + outw * 0.03f, top - tan * 0.03f + outw * 0.03f };
+                var cen = (b + top) * 0.5f;
+                int[][] faces = { new[] { 0, 1, 5, 4 }, new[] { 1, 2, 6, 5 }, new[] { 2, 3, 7, 6 }, new[] { 3, 0, 4, 7 }, new[] { 4, 5, 6, 7 } };
+                foreach (var fc in faces) { var fcen = (q[fc[0]] + q[fc[1]] + q[fc[2]] + q[fc[3]]) * 0.25f; Tri(v, t, q[fc[0]], q[fc[1]], q[fc[2]], fcen - cen); Tri(v, t, q[fc[0]], q[fc[2]], q[fc[3]], fcen - cen); }
+            }
+            MeshObj(g, "Claws", SaveMesh("GateClaws", v, t), stone, Vector3.zero, 0, true);
+        }
+        float h = keyTop - 0.45f;   // 下の粒の位置用（クリスタルは keyTop+0.75）
         var crysM = CrystalMat();
-        var cr = MeshObj(g, "Crystal", CrystalClusterMesh("GateCrystalCluster", 3, 0.5f, 4), crysM, new Vector3(0f, h + 1.25f, 0f), 0, false);
+        var cr = MeshObj(g, "Crystal", CrystalClusterMesh("GateCrystalCluster", 3, 0.42f, 0), crysM, new Vector3(0f, keyTop + 0.85f, 0f), 0, false);
         glows.Add(cr.GetComponent<Renderer>());
-        var beam = Sparks(g, "Beam", new Vector3(0f, h + 1.2f, 0f), 0.4f, 11f, 0.12f, 80);
+        var beam = Sparks(g, "Beam", new Vector3(0f, keyTop + 0.85f, 0f), 0.4f, 11f, 0.12f, 80);
         var bsh = beam.shape; bsh.shapeType = ParticleSystemShapeType.Cone; bsh.angle = 6f; bsh.radius = 0.1f;
         var bm = beam.main; bm.loop = false;
         // 当たり
