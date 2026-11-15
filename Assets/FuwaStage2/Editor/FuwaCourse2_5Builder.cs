@@ -74,7 +74,7 @@ public static class FuwaCourse2_5Builder
         var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
         ballT = Resources.FindObjectsOfTypeAll<FuwaBall>().FirstOrDefault(b => b.gameObject.scene.IsValid() && b.transform.parent && b.transform.parent.name == "FuwaSystem");
         ballR = ballT ? ballT.GetComponent<SphereCollider>().radius * ballT.transform.lossyScale.x : 0.15f;
-        cps.Clear(); segNo = 0; stencilNo = 10; archGateNo = 0; stripeCache.Clear(); FuwaPortalTest.clones.Clear(); camPortals.Clear(); gateZ.Clear();
+        cps.Clear(); segNo = 0; stencilNo = 10; archGateNo = 0; colFix.Clear(); stripeCache.Clear(); FuwaPortalTest.clones.Clear(); camPortals.Clear(); gateZ.Clear();
         log = new System.Text.StringBuilder();
 
         float R0 = StartSet(root);
@@ -257,6 +257,7 @@ public static class FuwaCourse2_5Builder
         if (!MushStatue(new Vector3(MushroomAt.x, i1Top, MushroomAt.y)))
             GiantMushroom(new Vector3(MushroomAt.x, i1Top, MushroomAt.y), MushroomH, MushroomCapR, false);
         BrokenBridge(i1);
+        FixColumnGround();
         DecoIslets();
         log.Append("下の段 2・上の段 2・空洞のゴール ");
         return goalP;
@@ -863,6 +864,7 @@ public static class FuwaCourse2_5Builder
         foreach (float sz in new[] { -1f, 1f }) Box(hd, "Hand", new Vector3(6f, -3f, sz * 6f), new Vector3(3f, 1.2f, 2f), stone, 0);
         IslandRock(top, 4f, false, 6f);
         if (warpA && warpB) Link(warpA, warpB, top, null, true, true);
+        FixColumnGround();
         DecoIslets();
         log.Append("島 3＋てっぺん ");
         return goalP;
@@ -1094,9 +1096,11 @@ public static class FuwaCourse2_5Builder
         foreach (float sx in new[] { -1f, 1f })
         {
             var co = new GameObject(sx < 0 ? "ColumnL" : "ColumnR"); co.transform.SetParent(g, false); co.transform.localPosition = new Vector3(sx * cx, -0.6f, 0f);
-            co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("ArchGateColumn" + no + (sx < 0 ? "L" : "R"), 700 + no * 2 + (sx < 0 ? 0 : 1), colH, 0);
+            float ch = colH;
+            co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("ArchGateColumn" + no + (sx < 0 ? "L" : "R"), 700 + no * 2 + (sx < 0 ? 0 : 1), ch, 0);
+            colFix.Add((co.transform, "ArchGateColumn" + no + (sx < 0 ? "L" : "R"), 700 + no * 2 + (sx < 0 ? 0 : 1), ch, 0));   // 2026-11-15 てじゃ「はしらういてる」→ 岩ができたあとに地面までのばす
             co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
-            var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = colH; cc.center = Vector3.up * colH / 2f;
+            var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = ch; cc.center = Vector3.up * ch / 2f;
         }
         // 平たいアーチ：柱の上（y0）から rise だけ上がる円弧
         float y0 = colH - 0.6f, rise = 1.3f, R = (cx * cx + rise * rise) / (2f * rise), cyc = y0 + rise - R;
@@ -1137,6 +1141,42 @@ public static class FuwaCourse2_5Builder
         MeshObj(g, "Keystone", SaveMesh("ArchGateKey" + no, kv, kt), stone, Vector3.zero, 0, true);
         curtainOnArch = true; curtainArchTop = colH - 0.6f;
     }
+    // 柱の根もとの下に地面（当たり）があれば、そこまでの距離（少し埋める）。何もない・遠い（空中）なら 0
+    public static float ColumnMaxDrop = 6f;
+    static List<(Transform co, string nm, int seed, float h, int kind)> colFix = new List<(Transform, string, int, float, int)>();
+    // 岩（RockMesh）などができたあとで：記録した柱の根もとが浮いていたら、下へのばして作り直す（てっぺんの高さはそのまま）
+    static void FixColumnGround()
+    {
+        int n = 0;
+        foreach (var c in colFix)
+        {
+            if (!c.co) continue;
+            float drop = ColumnGroundDrop(c.co); if (drop <= 0f) continue;
+            c.co.localPosition += Vector3.down * drop; float h = c.h + drop;
+            c.co.GetComponent<MeshFilter>().sharedMesh = ColumnMesh(c.nm, c.seed, h, c.kind);
+            var cc = c.co.GetComponent<CapsuleCollider>(); if (cc) { cc.height = h; cc.center = Vector3.up * h / 2f; }
+            n++;
+        }
+        colFix.Clear();
+        log.Append("柱の根もと" + n + " ");
+    }
+    static float ColumnGroundDrop(Transform co)
+    {
+        Physics.SyncTransforms();
+        var p = co.position; float sc = Mathf.Max(1e-3f, co.lossyScale.y);
+        float best = -1f;
+        // 根もとの台の四すみ近くと まん中で調べて、一番遠い所まで（台のはしが浮かないように）
+        foreach (var o in new[] { Vector3.zero, new Vector3(0.45f, 0, 0.45f), new Vector3(-0.45f, 0, 0.45f), new Vector3(0.45f, 0, -0.45f), new Vector3(-0.45f, 0, -0.45f) })
+        {
+            var q = p + co.TransformVector(o) + Vector3.up * 0.3f * sc;
+            var hits = Physics.RaycastAll(q, Vector3.down, (ColumnMaxDrop + 0.3f) * sc, ~0, QueryTriggerInteraction.Ignore);
+            float d = -1f;
+            foreach (var hh in hits) { if (hh.collider.transform.IsChildOf(co)) continue; float dd = hh.distance / sc - 0.3f; if (d < 0f || dd < d) d = dd; }
+            if (d < 0f) continue;
+            best = Mathf.Max(best, d);
+        }
+        return best > 0.03f ? best + 0.12f : 0f;
+    }
     public static bool ArchGateNew = true, StoneLook = true, CurtainPattern = true, OpenPitBridge = true;
     public static Color TerraCol = new Color(0.84f, 0.68f, 0.58f), TerraDCol = new Color(0.69f, 0.53f, 0.45f);
     static bool curtainOnArch; static float curtainArchTop;   // ArchGate のすぐあとの Curtain は柱の間に張る
@@ -1166,6 +1206,7 @@ public static class FuwaCourse2_5Builder
                     co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("CorridorColumn" + seed, seed, ch, kind);
                     co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
                     var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = ch; cc.center = Vector3.up * ch / 2f;
+                    colFix.Add((co.transform, "CorridorColumn" + seed, seed, ch, kind));
                     pi++;
                 }
                 if (GateBeams) Box(g, "GateBeam", new Vector3(0f, H + 0.25f, z), new Vector3(2f * xc + PillarSize + 0.4f, 0.5f, PillarSize + 0.1f), terra, 0);   // 2026-11-14 てじゃ「上の板いらんかも」→ なし
