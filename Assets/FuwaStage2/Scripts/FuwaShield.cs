@@ -91,7 +91,7 @@ public class FuwaShield : UdonSharpBehaviour
     private void Update()
     {
         if (_on && ball != null && ball.IsWaitingOrHidden()) { _on = false; _t = 0f; }   // アウト・チェックポイントにもどった：音なしですぐ消す
-        if (_on && _t > 0.3f && Physics.CheckSphere(transform.position, Radius() * 0.97f, groundMask, QueryTriggerInteraction.Ignore)) Shatter();
+        if (_on && groundMask != 0 && _t > 0.3f && Physics.CheckSphere(transform.position, Radius() * 0.97f, groundMask, QueryTriggerInteraction.Ignore)) Shatter();
         float target = _on ? 1f : 0f;
         if (_t < target) _t = Mathf.Min(target, _t + Time.deltaTime / Mathf.Max(0.01f, appearTime));
         else if (_t > target) _t = Mathf.Max(target, _t - Time.deltaTime / Mathf.Max(0.01f, vanishTime));

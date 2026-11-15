@@ -95,14 +95,26 @@ public class FuwaShockwave : UdonSharpBehaviour
         float dx = pp.x - c.x, dz = pp.z - c.z, d2 = Mathf.Sqrt(dx * dx + dz * dz), dy = pp.y - c.y;
         bool band = dy > -heightBelow && dy < heightAbove;
         float now = Time.time;
+        // 2026-11-15 てじゃ「最初の一撃、ふわふわに反応させよう」→ ふわふわが広場に入ったらためはじめ（1発目）。
+        //  そのあとは ふわふわ か 自分 のどちらかが広場にいる間つづく。両方出たら止まる
+        bool ballIn = false, ballNear = false;
+        if (ball != null && !ball.IsWaitingOrHidden())
+        {
+            Vector3 bp0 = ball.transform.position;
+            float bx = bp0.x - c.x, bz = bp0.z - c.z, bd0 = Mathf.Sqrt(bx * bx + bz * bz), by = bp0.y - c.y;
+            bool bband = by > -heightBelow && by < heightAbove;
+            ballIn = bband && bd0 < radius + enterMargin;
+            ballNear = bband && bd0 < radius + leaveMargin;
+        }
+        bool playerNear = band && d2 < radius + leaveMargin;
         if (!_active)
         {
-            if (band && d2 < radius + enterMargin)
+            if (ballIn)
             {
-                _active = true; _nextCharge = now; _charging = false; _first = true;   // 入ったらすぐためはじめ（1発目）
+                _active = true; _nextCharge = now; _charging = false; _first = true;
             }
         }
-        else if (!band || d2 > radius + leaveMargin)
+        else if (!ballNear && !playerNear)
         {
             _active = false; _charging = false; _nextCharge = -1f;
             if (chargeSound != null) chargeSound.Stop();
