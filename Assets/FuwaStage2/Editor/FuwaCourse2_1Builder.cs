@@ -876,6 +876,7 @@ public static class FuwaCourse2_1Builder
         FuwaStage2CopyShadows.Run();   // 写したスタート・ゴールの飾りを「近くで影を出す」一覧へ（2026-11-11）
         FixNetworkIDs();
         FuwaStage2Static.Apply(root);
+        Debug.Log(FuwaWindDecalHeight.BakeAll(root));   // 2026-11-15 風の地面の模様：地面の高さマップ（アバターに写らない）
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[2–1] 長さ " + sEnd.ToString("F0") + "m  台→池 " + sPlaza1.ToString("F1") + " 川 " + sPool1.ToString("F1") + "–" + sRiver1.ToString("F1")
             + " 蓮 " + sPond0.ToString("F1") + "–" + sPond1.ToString("F1") + " 貝の道 " + sWalk0.ToString("F1") + "–" + sWalk1.ToString("F1") + " 滝の道 " + sF0.ToString("F1") + "–" + sF1.ToString("F1") + " ゴール " + sGoal0.ToString("F1");

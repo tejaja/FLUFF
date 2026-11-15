@@ -120,6 +120,7 @@ public static class FuwaWindDecalSetup
         }
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        log.Append(" ／ " + FuwaWindDecalHeight.BakeAll());   // 2026-11-15 地面の高さマップも焼き直す（アバターに写らない）
         return "wind decals " + n + ": " + log;
     }
 }

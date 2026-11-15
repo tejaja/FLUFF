@@ -279,6 +279,7 @@ public static class FuwaCourse2_5Builder
         if (ColumnLods) AddColumnLods();
         if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));
         if (CoursePerf && TierShadows) SetupTierShadows();   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
+        Debug.Log(FuwaWindDecalHeight.BakeAll(root));   // 2026-11-15 風の地面の模様：地面の高さマップ（アバターに写らない）
         log.Append("下の段 2・上の段 2・空洞のゴール ");
         return goalP;
     }
@@ -1051,6 +1052,7 @@ public static class FuwaCourse2_5Builder
         if (ColumnLods) AddColumnLods();
         if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));
         if (CoursePerf && TierShadows) SetupTierShadows();   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
+        Debug.Log(FuwaWindDecalHeight.BakeAll(root));   // 2026-11-15 風の地面の模様：地面の高さマップ（アバターに写らない）
         log.Append("島 3＋てっぺん ");
         return goalP;
     }

@@ -34,6 +34,12 @@ Shader "Fuwa/WindDecal"
         //  → 箱のまん中から上は、この高さ（m、まん中から）で消す。地面すれすれだけに塗る
         _TopStart ("上で消し始める高さ(m、箱のまん中から)", Float) = -0.12
         _TopEnd ("上で消え切る高さ(m、箱のまん中から)", Float) = -0.05
+        // 2026-11-15 てじゃ「もっとギリギリに」→ A案：地面の高さマップ（FuwaWindDecalHeight が見た目のメッシュへのレイで焼く）
+        //  箱のローカル xz（-0.5〜0.5）→ uv。R*256+G（16bit）＝地面の高さ（箱の高さの 0〜1）、A＝地面あり。Point で読む
+        //  その場所の地面＋_HeightTol より上（アバター・草の葉など）は塗らない。_UseHeight=1 の時は _TopStart/_TopEnd は使わない
+        [NoScaleOffset] _HeightMap ("地面の高さマップ（スクリプトが焼く）", 2D) = "black" {}
+        _UseHeight ("高さマップを使う（スクリプト）", Float) = 0
+        _HeightTol ("地面からこの高さ(m)まで塗る", Float) = 0.05
     }
     SubShader
     {
@@ -58,6 +64,7 @@ Shader "Fuwa/WindDecal"
             float _Chevron, _ChevPeriod, _ChevSlope, _Stroke, _Phase, _Taper, _Soft, _ScriptPhase;
             float4 _CutFront, _CutBack;
             float _TopStart, _TopEnd;
+            sampler2D _HeightMap; float _UseHeight, _HeightTol;
             UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
 
             struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
@@ -121,7 +128,15 @@ Shader "Fuwa/WindDecal"
                 float wz = ez > 0.5 ? _FadeFront : (ez < -0.5 ? _FadeBack : _EdgeFade);
                 c.a *= (wx > 0.001 ? smoothstep(0, wx, dEdge.x) : 1) * (wz > 0.001 ? smoothstep(0, wz, dEdge.y) : 1);
                 c.a *= 1.0 - smoothstep(0.3, 0.5, abs(lp.y));   // 箱の上下のふちでなめらかに消す
-                c.a *= 1.0 - smoothstep(_TopStart, _TopEnd, lp.y * sc.y);   // 地面より上（アバターの足など）には塗らない
+                if (_UseHeight > 0.5)
+                {
+                    float4 hm = tex2Dlod(_HeightMap, float4(lp.xz + 0.5, 0, 0));
+                    if (hm.a < 0.5) discard;   // 地面のない所
+                    float gy = (hm.r * 65280.0 + hm.g * 255.0) / 65535.0 - 0.5;   // 地面の高さ（箱のローカル）
+                    float above = (lp.y - gy) * sc.y;
+                    c.a *= 1.0 - smoothstep(_HeightTol * 0.6, _HeightTol, above);   // 地面より上（アバターの足など）には塗らない
+                }
+                else c.a *= 1.0 - smoothstep(_TopStart, _TopEnd, lp.y * sc.y);
                 c.a *= smoothstep(0.55, 0.85, abs(dot(sn, up)));   // 崖の横の面などには塗らない
 
                 if (_Chevron > 0.5)

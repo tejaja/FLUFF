@@ -23,7 +23,11 @@ Material:
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
-    m_TexEnvs: []
+    m_TexEnvs:
+    - _HeightMap:
+        m_Texture: {fileID: 2800000, guid: 32e818eab2d120946a45784db6bcb20a, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - _Base: 0.2
@@ -35,6 +39,7 @@ Material:
     - _FadeBack: 0
     - _FadeFront: 0
     - _FlowDir: 1
+    - _HeightTol: 0.05
     - _Phase: 0
     - _ScriptPhase: 1
     - _Sharp: 2
@@ -44,6 +49,7 @@ Material:
     - _Taper: 0
     - _TopEnd: -0.049999706
     - _TopStart: -0.11999971
+    - _UseHeight: 1
     - _Wavelength: 2.6
     m_Colors:
     - _Color: {r: 0.39999926, g: 0.78, b: 1, a: 0.3}
