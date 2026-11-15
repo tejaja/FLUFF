@@ -421,6 +421,7 @@ public static class FuwaCourse2_5Builder
                 }
             }
         }
+        if (RockRugged) RockDisplace(v, top, x0, z0);   // 2026-11-15 見た目クオリティ：段々の平らな壁 → ゴツゴツ（上のふちは動かさない）
         var mesh = SaveRockMesh("I1_Rock", v, tTop, tSide);
         var go = new GameObject("RockMesh"); go.transform.SetParent(rk, false); go.layer = pathLayer;
         go.AddComponent<MeshFilter>().sharedMesh = mesh;
@@ -521,6 +522,28 @@ public static class FuwaCourse2_5Builder
             outC /= no; var mid = (cut[0] + cut[1]) / 2f; var on = outC - mid; on.y = 0f;
             var seg = cut[1] - cut[0]; var nrm = new Vector3(seg.z, 0f, -seg.x); if (Vector3.Dot(nrm, on) < 0f) nrm = -nrm;
             RockQuad(v, tSide, cut[0] + Vector3.up * y1, cut[1] + Vector3.up * y1, cut[1] + Vector3.up * y0, cut[0] + Vector3.up * y0, nrm);
+        }
+    }
+    // 岩の横と下をゴツゴツに：場所だけで決まるずらし（同じ場所の点は同じだけ動く＝すき間ができない）。上の面（topY）のふちは動かさず、下へいくほど大きく
+    public static bool RockRugged = true;
+    public static float RockRugAmp = 0.9f, RockRugFine = 0.35f, RockRugY = 0.45f;
+    static void RockDisplace(List<Vector3> v, float topY, float ox, float oz)
+    {
+        for (int i = 0; i < v.Count; i++)
+        {
+            var p = v[i];
+            float depth = topY - p.y; if (depth < 0.05f) continue;
+            float a = Mathf.Clamp01(depth / 1.4f);
+            float x = p.x - ox, z = p.z - oz;
+            float n1 = Mathf.PerlinNoise(x * 0.23f + 11.3f, z * 0.23f + 3.7f + p.y * 0.15f) - 0.5f;
+            float n2 = Mathf.PerlinNoise(x * 0.23f + 41.1f + p.y * 0.15f, z * 0.23f + 17.9f) - 0.5f;
+            float f1 = Mathf.PerlinNoise(x * 0.9f + 5.1f, z * 0.9f + p.y * 0.7f + 2.2f) - 0.5f;
+            float f2 = Mathf.PerlinNoise(x * 0.9f + p.y * 0.7f + 9.4f, z * 0.9f + 7.7f) - 0.5f;
+            float ny = Mathf.PerlinNoise(x * 0.5f + 23.3f, z * 0.5f + 31.1f) - 0.5f;
+            p.x += (n1 * RockRugAmp * 2f + f1 * RockRugFine * 2f) * a;
+            p.z += (n2 * RockRugAmp * 2f + f2 * RockRugFine * 2f) * a;
+            p.y += ny * RockRugY * 2f * a;
+            v[i] = p;
         }
     }
     static Mesh SaveRockMesh(string name, List<Vector3> v, List<int> t0, List<int> t1)
@@ -1070,6 +1093,13 @@ public static class FuwaCourse2_5Builder
     }
 
     // 飾りの小さい浮島（当たりなし）
+    // Blender の浮島（Islet0〜3、上の面が y=0、半径およそ 1、深さおよそ 2）
+    static Mesh IsletMesh(int i)
+    {
+        var go = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/FuwaStage2/Models/Islets.fbx"); if (!go) return null;
+        var mfs = go.GetComponentsInChildren<MeshFilter>(); if (mfs.Length == 0) return null;
+        return mfs[((i % mfs.Length) + mfs.Length) % mfs.Length].sharedMesh;
+    }
     static void DecoIslets()
     {
         var g = new GameObject("DecoIslets").transform; g.SetParent(islandsT, false);
@@ -1087,6 +1117,14 @@ public static class FuwaCourse2_5Builder
                 if (!keep.Any(kb => kb.Contains(c))) break;
             }
             float s = 2f + 3f * (float)rnd.NextDouble();
+            var islet = IsletMesh(i);
+            if (islet)
+            {   // 2026-11-15 見た目クオリティ：箱2つ → Blender の浮島（Models/Islets.fbx、草のふた＋ゴツゴツの岩）
+                var io = MeshObj(g, "Islet", islet, moss, c, 0, true);
+                io.GetComponent<MeshRenderer>().sharedMaterials = new[] { moss, underM };
+                io.transform.localScale = Vector3.one * (s * 0.5f); io.transform.localRotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+                continue;
+            }
             var t = Box(g, "IsletTop", c, new Vector3(s, 0.5f, s * 0.8f), moss, 0); Object.DestroyImmediate(t.GetComponent<Collider>());
             var u = Box(g, "IsletUnder", c + Vector3.down * s * 0.45f, new Vector3(s * 0.8f, s * 0.8f, s * 0.65f), underM, 0); Object.DestroyImmediate(u.GetComponent<Collider>());
         }
