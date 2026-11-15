@@ -1326,7 +1326,7 @@ public static class FuwaCourse2_5Builder
         log.Append("遠くでうすく " + n + " ");
     }
     // 柱の根もとの下に地面（当たり）があれば、そこまでの距離（少し埋める）。何もない・遠い（空中）なら 0
-    public static float ColumnMaxDrop = 6f, ColumnBury = 0.02f;
+    public static float ColumnMaxDrop = 6f, ColumnBury = 0.02f, ColumnCornerTol = 0.1f;
     static List<(Transform co, string nm, int seed, float h, int kind, float hw)> colFix = new List<(Transform, string, int, float, int, float)>();
     public static bool ColumnCorbels = true; public static float CorbelDepth = 1.7f;
     // 岩（RockMesh）などができたあとで：記録した柱の根もとが浮いていたら、下へのばして作り直す（てっぺんの高さはそのまま）
@@ -1353,7 +1353,7 @@ public static class FuwaCourse2_5Builder
         any = false;
         Physics.SyncTransforms();
         var p = co.position; float sc = Mathf.Max(1e-3f, co.lossyScale.y);
-        float best = -1e9f;
+        float best = -1e9f, dC = 0f;
         // 根もとの台の四すみ近くと まん中で調べて、一番遠い所まで（台のはしが浮かないように）
         foreach (var o in new[] { Vector3.zero, new Vector3(0.45f, 0, 0.45f), new Vector3(-0.45f, 0, 0.45f), new Vector3(0.45f, 0, -0.45f), new Vector3(-0.45f, 0, -0.45f) })
         {
@@ -1365,7 +1365,10 @@ public static class FuwaCourse2_5Builder
             foreach (var hh in hits) { if (hh.collider.transform.IsChildOf(co)) continue; float dd = hh.distance / sc - 0.3f; if (dd < -0.2f) continue; if (!hitAny || dd < d) d = dd; hitAny = true; }
             if (!hitAny) continue;
             // （地面が根もとより上なら d はマイナス＝柱を上げる）
-            if (o == Vector3.zero) any = true;
+            if (o == Vector3.zero) { any = true; dC = d; }
+            // 2026-11-15 てじゃ「まだある」→ 島のふちの柱：すみの1つが上の層のふちの外に出て、下の層（1m 以上下）に当たって柱ごと沈んでいた
+            //  → まん中が当たっている時は、まん中より ColumnCornerTol 以上深いすみは見ない（台のはしが少し浮くだけ）
+            if (o != Vector3.zero && any && d > dC + ColumnCornerTol) continue;
             best = Mathf.Max(best, d);
         }
         // 2026-11-15 てじゃ「下の板部分うまってる」→ 埋めるのは 2cm だけ（前は 12cm で台の板がうまって見えた）。地面が少し上なら上げる
