@@ -1333,6 +1333,9 @@ public static class FuwaCourse2_5Builder
     static bool curtainOnArch; static float curtainArchTop;   // ArchGate のすぐあとの Curtain は柱の間に張る
 
     // ---- 列柱の回廊（2026-11-14 てじゃ「柱式にもどしたい」）：道の両わきに柱、巣の門の所は柱2本＋上のはり（巣はその間に張る）----
+    // 巣の横のはし：トンネルの時は壁に 0.5 めりこませる。柱式は柱（まん中 HW+0.5）の胴の表面まで（2026-11-15 てじゃ「クモの巣が柱にめりこんでるのきになる」）
+    public static float ColShaftR = 0.3f;
+    static float WebXO => HW + (CorridorPillars ? 0.5f - ColShaftR : 0.5f);
     public static bool CorridorPillars = true, GateBeams = false, PlainColumns = false;
     public static float PillarStep = 2.6f, PillarSize = 0.8f;
     static void CorridorColonnade(Transform runA, Transform runB)
@@ -1997,7 +2000,7 @@ public static class FuwaCourse2_5Builder
         for (int i = 0; i < n; i++)
         {
             float z = z0 + 1.2f + i * WebStep; bool left = i % 2 == 0;
-            float x0 = left ? -HW - 0.5f : -HW + gap, x1 = left ? HW - gap : HW + 0.5f;
+            float x0 = left ? -WebXO : -HW + gap, x1 = left ? HW - gap : WebXO;
             Web(g, "Web" + i, new Vector3((x0 + x1) / 2f, P.y + WebH / 2f, z), Quaternion.identity, new Vector2(x1 - x0, WebH), false, 0.6f);
         }
         S(len);
@@ -2012,7 +2015,7 @@ public static class FuwaCourse2_5Builder
         for (int i = 0; i < n; i++)
         {
             float z = z0 + 1.2f + i * WebStep; bool left = i % 2 == 0;
-            float x0 = left ? -HW - 0.5f : -HW + gap, x1 = left ? HW - gap : HW + 0.5f;
+            float x0 = left ? -WebXO : -HW + gap, x1 = left ? HW - gap : WebXO;
             Web(g, "Web" + i, new Vector3((x0 + x1) / 2f, P.y + WebH / 2f, z), Quaternion.identity, new Vector2(x1 - x0, WebH), false, 0.6f);
         }
         WindRun("Pits_" + tag, len, new float[0]);
@@ -2029,7 +2032,7 @@ public static class FuwaCourse2_5Builder
     {
         float z0 = P.z; len = patterns.Length * WebGateGap;
         var g = new GameObject("WebGates_" + tag).transform; g.SetParent(isl, false);
-        float hTop = TunnelH - 0.1f, hMid = TunnelH / 2f, xo = HW + 0.5f;   // 横は壁に 0.5m めりこませる
+        float hTop = TunnelH - 0.1f, hMid = TunnelH / 2f, xo = WebXO;   // 横は壁に 0.5m めりこませる
         for (int i = 0; i < patterns.Length; i++)
         {
             float z = z0 + len * (i + 0.5f) / patterns.Length; int pt = patterns[i];
@@ -2780,7 +2783,7 @@ public static class FuwaCourse2_5Builder
     {
         float z0 = P.z, len = seedsPerGate.Length * WebGateGap;
         var g = new GameObject("VoronoiGates_" + tag).transform; g.SetParent(isl, false);
-        float hTop = TunnelH - 0.1f, xo = HW + 0.5f;
+        float hTop = TunnelH - 0.1f, xo = WebXO;
         for (int gi = 0; gi < seedsPerGate.Length; gi++)
         {
             float z = z0 + WebGateGap * (gi + 0.5f);
@@ -2871,7 +2874,7 @@ public static class FuwaCourse2_5Builder
     {
         float z0 = P.z, len = grids.Length * WebGateGap;
         var g = new GameObject("HexGridGates_" + tag).transform; g.SetParent(isl, false);
-        float hTop = TunnelH - 0.1f, xo = HW + 0.5f;
+        float hTop = TunnelH - 0.1f, xo = WebXO;
         for (int i = 0; i < grids.Length; i++)
         {
             float z = z0 + WebGateGap * (i + 0.5f);
@@ -2905,7 +2908,7 @@ public static class FuwaCourse2_5Builder
     {
         float z0 = P.z, len = gaps.Length * WebGateGap;
         var g = new GameObject("OrganicGates_" + tag).transform; g.SetParent(isl, false);
-        float hTop = TunnelH - 0.1f, xo = HW + 0.5f, gw = SlitW / 2f;
+        float hTop = TunnelH - 0.1f, xo = WebXO, gw = SlitW / 2f;
         var rnd = new System.Random(seed);
         float R(float a, float b) => a + (b - a) * (float)rnd.NextDouble();
         for (int gi = 0; gi < gaps.Length; gi++)
@@ -2971,7 +2974,7 @@ public static class FuwaCourse2_5Builder
     {
         float z0 = P.z, len = slits.Length * WebGateGap;
         var g = new GameObject("PackedGates_" + tag).transform; g.SetParent(isl, false);
-        float hTop = TunnelH - 0.1f, xo = HW + 0.5f, hs = SlitW / 2f;
+        float hTop = TunnelH - 0.1f, xo = WebXO, hs = SlitW / 2f;
         for (int i = 0; i < slits.Length; i++)
         {
             float z = z0 + WebGateGap * (i + 0.5f);
@@ -3002,7 +3005,7 @@ public static class FuwaCourse2_5Builder
     {
         float z0 = P.z;
         var g = new GameObject("TearGates_" + tag).transform; g.SetParent(isl, false);
-        float hTop = TunnelH - 0.1f, xo = HW + 0.5f;
+        float hTop = TunnelH - 0.1f, xo = WebXO;
         for (int i = 0; i < tears.Length; i++)
         {
             var T = tears[i]; float z = z0 + WebGateGap * (i + 0.5f);
@@ -3053,7 +3056,7 @@ public static class FuwaCourse2_5Builder
     {
         float z0 = P.z, len = slits.Length * WebGateGap;
         var g = new GameObject("SlitGates_" + tag).transform; g.SetParent(isl, false);
-        float hTop = TunnelH - 0.1f, xo = HW + 0.5f, hw = SlitW / 2f;
+        float hTop = TunnelH - 0.1f, xo = WebXO, hw = SlitW / 2f;
         for (int i = 0; i < slits.Length; i++)
         {
             float z = z0 + WebGateGap * (i + 0.5f);
@@ -3107,7 +3110,7 @@ public static class FuwaCourse2_5Builder
     {
         float z0 = P.z, len = holes.Length * WebGateGap;
         var g = new GameObject("HoleGates_" + tag).transform; g.SetParent(isl, false);
-        float hTop = TunnelH - 0.1f, xo = HW + 0.5f;
+        float hTop = TunnelH - 0.1f, xo = WebXO;
         for (int i = 0; i < holes.Length; i++)
         {
             float z = z0 + WebGateGap * (i + 0.5f);
