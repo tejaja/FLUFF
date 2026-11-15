@@ -1068,6 +1068,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
+    public static bool ShockDark = true; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
     public static bool PlazaBridgeDirect = true, PlazaLedgeUnderEntry = true;
     // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
     static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
@@ -4423,13 +4424,20 @@ public static class FuwaCourse2_5Builder
             var nn = v.Select(_ => Vector3.up).ToList();
             ring = SaveMeshUV("ShockwaveRing", v, t, uv, nn);
         }
-        var wave = MeshObj(g, "Wave", band, waveM, Vector3.zero, 0, false);
-        var waveF = MeshObj(g, "WaveFloor", ring, waveM, new Vector3(0f, 0.02f, 0f), 0, false);
+        // 2026-11-15 てじゃ「衝撃波が青なのも見えづらさのひとつかも」「いっそ黒っぽいオーラだとどう見えるかな」→ 衝撃波（壁・床の輪・残像・床の範囲）だけ黒っぽい紫（ShockDark）
+        var waveDM = waveM;
+        if (ShockDark)
+        {
+            waveDM = FxMat("Ruins_ShockwaveDark", "Fuwa/Shockwave"); waveDM.SetFloat("_Alpha", 0f);
+            waveDM.SetColor("_Color", ShockDarkCol); waveDM.SetColor("_Core", ShockDarkCore); EditorUtility.SetDirty(waveDM);
+        }
+        var wave = MeshObj(g, "Wave", band, waveDM, Vector3.zero, 0, false);
+        var waveF = MeshObj(g, "WaveFloor", ring, waveDM, new Vector3(0f, 0.02f, 0f), 0, false);
         var chg = MeshObj(g, "ChargeRing", ring, waveM, new Vector3(0f, 0.03f, 0f), 0, false);
         // 7：砂ぼこりの輪（壁のあとを追う、低い）と壁の残像
         var dustM = FxMat("Ruins_DustRing", "Fuwa/DustRing"); dustM.SetFloat("_Alpha", 0f); dustM.SetColor("_Color", new Color(0.74f, 0.63f, 0.5f)); EditorUtility.SetDirty(dustM);
         var dust = MeshObj(g, "DustRing", band, dustM, Vector3.zero, 0, false);
-        var echo = MeshObj(g, "WaveEcho", band, waveM, Vector3.zero, 0, false);
+        var echo = MeshObj(g, "WaveEcho", band, waveDM, Vector3.zero, 0, false);
         foreach (var o in new[] { dust, echo }) { var r = o.GetComponent<Renderer>(); r.enabled = false; r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off; }
         foreach (var o in new[] { wave, waveF, chg }) { var r = o.GetComponent<Renderer>(); r.enabled = false; r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off; }
         // 粒：ため（まわりから集まる）とドン（はじける）
@@ -4479,7 +4487,7 @@ public static class FuwaCourse2_5Builder
             AnnulusInto(v, t, uv, 0.001f, R, 0f, Mathf.PI * 2f, 0f, 0f, 96);
             FixWinding(v, t, _ => Vector3.up);
             var zm = SaveMeshUV(name + "_ShockZone", v, t, uv, v.Select(_ => Vector3.up).ToList());
-            var zM = FxMat("Ruins_ShockFloor", "Fuwa/ShockFloor"); zM.SetColor("_Color", ShieldCol); zM.SetFloat("_Radius", R); EditorUtility.SetDirty(zM);
+            var zM = FxMat("Ruins_ShockFloor", "Fuwa/ShockFloor"); zM.SetColor("_Color", ShockDark ? ShockDarkCol : ShieldCol); zM.SetFloat("_Radius", R); EditorUtility.SetDirty(zM);
             var zo = MeshObj(g, "ShockZone", zm, zM, new Vector3(0f, 0.025f, 0f), 0, false);
             var zr = zo.GetComponent<Renderer>(); zr.enabled = false; zr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; zr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             sw.floorZone = zr;
