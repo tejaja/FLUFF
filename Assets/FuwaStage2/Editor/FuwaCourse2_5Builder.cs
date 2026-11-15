@@ -2218,7 +2218,40 @@ public static class FuwaCourse2_5Builder
     // ===== だ円の輪のポータル（2026-11-13 てじゃ「ポータルの見た目、空中に浮いた縦長の◯枠がいい」）=====
     //  柱と屋根の枠をやめて、道の上に少し浮いた縦長のだ円の輪（外に石の輪・内に光るふち）。穴（ステンシルの面）もだ円
     //  人・ふわふわを運ぶ判定（FuwaPortal の halfW × height の四角）はそのまま（だ円の外の角を通ると運ばれるが、ブロックアウトなのでよしとする）
-    public static bool OvalPortals = true, PortalBlocks = true, PortalCradle = true;
+    public static bool OvalPortals = true, PortalBlocks = true, PortalCradle = true, PortalOuterBand = true; public static float PortalBlockBevel = 0.045f;
+    // 6面体（q：0〜3 が前の面、4〜7 が後ろの面、同じ並び）を面取りして入れる。面ごとに角を2本の辺にそって b だけ内へ → 面・辺の帯・角の三角
+    static void ChamferHexInto(List<Vector3> v, List<int> t, Vector3[] q, float b, Vector3 cen)
+    {
+        int[][] F = { new[] { 0, 1, 2, 3 }, new[] { 7, 6, 5, 4 }, new[] { 0, 4, 5, 1 }, new[] { 3, 2, 6, 7 }, new[] { 0, 3, 7, 4 }, new[] { 1, 5, 6, 2 } };
+        var ins = new Dictionary<(int f, int c), Vector3>();
+        for (int f = 0; f < 6; f++)
+            for (int k = 0; k < 4; k++)
+            {
+                int c = F[f][k], pv = F[f][(k + 3) % 4], nx = F[f][(k + 1) % 4];
+                ins[(f, c)] = q[c] + (q[pv] - q[c]).normalized * b + (q[nx] - q[c]).normalized * b;
+            }
+        // 面
+        for (int f = 0; f < 6; f++)
+        {
+            var a = ins[(f, F[f][0])]; var b1 = ins[(f, F[f][1])]; var c = ins[(f, F[f][2])]; var d = ins[(f, F[f][3])];
+            var w = (a + c) * 0.5f - cen; Tri(v, t, a, b1, c, w); Tri(v, t, a, c, d, w);
+        }
+        // 辺の帯（2つの面が共有する辺）
+        for (int f = 0; f < 6; f++)
+            for (int g2 = f + 1; g2 < 6; g2++)
+            {
+                var sh = F[f].Intersect(F[g2]).ToArray(); if (sh.Length != 2) continue;
+                var a = ins[(f, sh[0])]; var b1 = ins[(f, sh[1])]; var c = ins[(g2, sh[1])]; var d = ins[(g2, sh[0])];
+                var w = (a + b1 + c + d) * 0.25f - cen; Tri(v, t, a, b1, c, w); Tri(v, t, a, c, d, w);
+            }
+        // 角の三角
+        for (int c = 0; c < 8; c++)
+        {
+            var fs = Enumerable.Range(0, 6).Where(f => F[f].Contains(c)).ToArray();
+            var a = ins[(fs[0], c)]; var b1 = ins[(fs[1], c)]; var d = ins[(fs[2], c)];
+            Tri(v, t, a, b1, d, (a + b1 + d) / 3f - cen);
+        }
+    }
     public static float OvalLift = 0.15f;   // 輪の下のはしの高さ
     static float OvalA => FuwaPortalTest.HalfW;
     static float OvalB => FuwaPortalTest.HoleH / 2f;
@@ -2240,11 +2273,51 @@ public static class FuwaCourse2_5Builder
                 float wo = key ? w0 + 0.22f : w0 + ((i % 2 == 0) ? 0.04f : -0.02f);
                 float dd = key ? dz + 0.06f : dz;
                 Vector3 E(float a, float ex, float z) => new Vector3(Mathf.Cos(a) * (ain + ex), Mathf.Sin(a) * (bin + ex), z);
-                var q = new[] { E(a0, 0f, -dd), E(a1, 0f, -dd), E(a1, wo, -dd), E(a0, wo, -dd), E(a0, 0f, dd), E(a1, 0f, dd), E(a1, wo, dd), E(a0, wo, dd) };
-                var cen = E((a0 + a1) / 2f, wo / 2f, 0f);
-                int[][] faces = { new[] { 0, 1, 2, 3 }, new[] { 4, 5, 6, 7 }, new[] { 0, 1, 5, 4 }, new[] { 3, 2, 6, 7 }, new[] { 0, 3, 7, 4 }, new[] { 1, 2, 6, 5 } };
+                // 2026-11-15 てじゃ「枠自体ももうちょいいじろ」→ 石ごとに少し前後にずらす（手で積んだ感じ）＋面取り（継ぎ目が V の溝）
+                float zs = PortalBlockBevel > 0f ? ((i * 37 % 7) - 3) * 0.008f : 0f;
+                var q = new[] { E(a0, 0f, -dd + zs), E(a1, 0f, -dd + zs), E(a1, wo, -dd + zs), E(a0, wo, -dd + zs), E(a0, 0f, dd + zs), E(a1, 0f, dd + zs), E(a1, wo, dd + zs), E(a0, wo, dd + zs) };
+                var cen = E((a0 + a1) / 2f, wo / 2f, zs);
                 var tv = key ? kv : bv; var tt = key ? kt : bt;
-                foreach (var fc in faces) { var fcen = (q[fc[0]] + q[fc[1]] + q[fc[2]] + q[fc[3]]) * 0.25f; Tri(tv, tt, q[fc[0]], q[fc[1]], q[fc[2]], fcen - cen); Tri(tv, tt, q[fc[0]], q[fc[2]], q[fc[3]], fcen - cen); }
+                if (PortalBlockBevel > 0f) ChamferHexInto(tv, tt, q, PortalBlockBevel, cen);
+                else
+                {
+                    int[][] faces = { new[] { 0, 1, 2, 3 }, new[] { 4, 5, 6, 7 }, new[] { 0, 1, 5, 4 }, new[] { 3, 2, 6, 7 }, new[] { 0, 3, 7, 4 }, new[] { 1, 2, 6, 5 } };
+                    foreach (var fc in faces) { var fcen = (q[fc[0]] + q[fc[1]] + q[fc[2]] + q[fc[3]]) * 0.25f; Tri(tv, tt, q[fc[0]], q[fc[1]], q[fc[2]], fcen - cen); Tri(tv, tt, q[fc[0]], q[fc[2]], q[fc[3]], fcen - cen); }
+                }
+            }
+            // 外まわりの細いふち（テラコッタ、石より少しおくに引っこんだ帯＝枠が2段に見える）。下の台座の所はなし
+            if (PortalOuterBand)
+            {
+                var ov = new List<Vector3>(); var ot = new List<int>();
+                float r0 = w0 - 0.06f, r1 = w0 + 0.13f, zb = dz * 0.55f, chb = 0.03f;
+                int nb = 64; float skip0 = Mathf.PI * 1.5f - Mathf.PI * 2f * 1.5f / n, skip1 = Mathf.PI * 1.5f + Mathf.PI * 2f * 1.5f / n;
+                Vector3 Eb(float a, float ex, float z) => new Vector3(Mathf.Cos(a) * (ain + ex), Mathf.Sin(a) * (bin + ex), z);
+                var bc0 = Vector3.zero;
+                for (int k = 0; k < nb; k++)
+                {
+                    float a0 = 2f * Mathf.PI * k / nb, a1 = 2f * Mathf.PI * (k + 1) / nb, am = (a0 + a1) / 2f;
+                    float amw = am < Mathf.PI * 0.5f ? am + Mathf.PI * 2f : am;
+                    if (PortalCradle && amw > skip0 && amw < skip1) continue;
+                    var nOut = new Vector3(Mathf.Cos(am) / ain, Mathf.Sin(am) / bin, 0f).normalized;
+                    // 前の面（面取りで外へ）・外の面・後ろの面
+                    Vector3 F0a = Eb(a0, r0, -zb), F0b = Eb(a1, r0, -zb), F1a = Eb(a0, r1 - chb, -zb), F1b = Eb(a1, r1 - chb, -zb);
+                    Vector3 Oa = Eb(a0, r1, -zb + chb), Ob = Eb(a1, r1, -zb + chb), Oa2 = Eb(a0, r1, zb - chb), Ob2 = Eb(a1, r1, zb - chb);
+                    Vector3 B1a = Eb(a0, r1 - chb, zb), B1b = Eb(a1, r1 - chb, zb), B0a = Eb(a0, r0, zb), B0b = Eb(a1, r0, zb);
+                    Tri(ov, ot, F0a, F0b, F1b, Vector3.back); Tri(ov, ot, F0a, F1b, F1a, Vector3.back);
+                    Tri(ov, ot, F1a, F1b, Ob, nOut + Vector3.back); Tri(ov, ot, F1a, Ob, Oa, nOut + Vector3.back);
+                    Tri(ov, ot, Oa, Ob, Ob2, nOut); Tri(ov, ot, Oa, Ob2, Oa2, nOut);
+                    Tri(ov, ot, Oa2, Ob2, B1b, nOut + Vector3.forward); Tri(ov, ot, Oa2, B1b, B1a, nOut + Vector3.forward);
+                    Tri(ov, ot, B1a, B1b, B0b, Vector3.forward); Tri(ov, ot, B1a, B0b, B0a, Vector3.forward);
+                }
+                if (PortalCradle)   // 台座の所で切った両はしのふた
+                    foreach (var (ae, sg) in new[] { (skip0, 1f), (skip1 - Mathf.PI * 2f, -1f) })
+                    {
+                        var sec = new[] { Eb(ae, r0, -zb), Eb(ae, r1 - chb, -zb), Eb(ae, r1, -zb + chb), Eb(ae, r1, zb - chb), Eb(ae, r1 - chb, zb), Eb(ae, r0, zb) };
+                        var sc2 = sec.Aggregate(Vector3.zero, (x, y) => x + y) / sec.Length;
+                        var tg = new Vector3(-Mathf.Sin(ae) * ain, Mathf.Cos(ae) * bin, 0f).normalized * sg;   // 切った側（台座の方）
+                        for (int k = 0; k < sec.Length; k++) Tri(ov, ot, sc2, sec[k], sec[(k + 1) % sec.Length], tg);
+                    }
+                MeshObj(ring, "OuterBand", SaveMesh("Portal_OvalBand", ov, ot), terraD, Vector3.zero, 0, true);
             }
             o.AddComponent<MeshFilter>().sharedMesh = SaveMesh("Portal_OvalBlocks", bv, bt);
             o.AddComponent<MeshRenderer>().sharedMaterial = stone;
