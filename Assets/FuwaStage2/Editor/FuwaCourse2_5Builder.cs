@@ -53,7 +53,8 @@ public static class FuwaCourse2_5Builder
         root.rotation = Quaternion.LookRotation(spoke);
         root.position = new Vector3(lc.x, floorY - StartBelow, lc.z) + spoke * SpokeR;
 
-        pathA = PathMat("Course2_5_PathA", PathColA); pathB = PathMat("Course2_5_PathB", PathColB);   // ロビーの道もこの色（FuwaStage2LobbyCourses）
+        pathA = PathMat("Course2_5_PathA", PathColA); pathB = PathMat("Course2_5_PathB", PathColB);
+        PavingOn(pathA); PavingOn(pathB);   // ロビーの道もこの色（FuwaStage2LobbyCourses）
         stone = FuwaStage2WaterTest.ToonMat("Ruins_Stone", new Color(0.86f, 0.74f, 0.62f));
         terra = FuwaStage2WaterTest.ToonMat("Ruins_Terracotta", new Color(0.82f, 0.48f, 0.33f));
         terraD = FuwaStage2WaterTest.ToonMat("Ruins_TerracottaDark", new Color(0.62f, 0.34f, 0.24f));
@@ -3526,6 +3527,21 @@ public static class FuwaCourse2_5Builder
             }
         }
         return lb;
+    }
+
+    // 2026-11-15 見た目クオリティ（B）：道の上の面に石だたみ（FuwaToonLit の地面の模様を使う。ワールドの xz で取るので、シマシマの区切りをまたいでも石がつながる）
+    //  模様は Tools/make_ruin_paving.py の Textures/RuinPaving.png（R＝石だたみ、G・B＝ムラ）。シマシマの色（_Color）はそのまま
+    static void PavingOn(Material m)
+    {
+        const string tp = "Assets/FuwaStage2/Textures/RuinPaving.png";
+        var ti = AssetImporter.GetAtPath(tp) as TextureImporter;
+        if (ti && (ti.sRGBTexture || ti.wrapMode != TextureWrapMode.Repeat)) { ti.sRGBTexture = false; ti.wrapMode = TextureWrapMode.Repeat; ti.anisoLevel = 4; ti.SaveAndReimport(); }
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(tp); if (!tex || !m.HasProperty("_GroundTex")) return;
+        m.SetTexture("_GroundTex", tex);
+        m.SetFloat("_GroundFine", 0.55f); m.SetFloat("_GroundFineScale", 4f); m.SetFloat("_GroundFineFade", 70f); m.SetFloat("_GroundFineCrisp", 0f); m.SetFloat("_GroundFineMask", 0f);
+        m.SetFloat("_GroundPatch", 0.18f); m.SetFloat("_GroundPatchScale", 11f); m.SetFloat("_GroundMidScale", 3.3f); m.SetFloat("_GroundSteps", 0f);
+        m.SetColor("_GroundTintA", new Color(1.06f, 1.04f, 0.98f)); m.SetColor("_GroundTintB", new Color(0.9f, 0.88f, 0.84f));
+        EditorUtility.SetDirty(m);
     }
 
     static Material PathMat(string name, Color c)
