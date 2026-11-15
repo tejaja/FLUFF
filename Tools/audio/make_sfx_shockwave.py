@@ -130,6 +130,18 @@ def shatter():
     ring = (np.sin(2 * np.pi * 1760 * t) + np.sin(2 * np.pi * 1771 * t)) * np.exp(-t * 9) * 0.35
     return out + ring
 
+def kakin():
+    # カキン：硬いカッ＋金属っぽい高い響き（非整数倍音）が短く
+    t = T(0.42)
+    n = rng.standard_normal(len(t))
+    tick = (n - lp(n, 0.4)) * np.exp(-t * 160) * 0.9
+    f = 2093.0
+    ring = np.zeros_like(t)
+    for h, a, d in [(1, 1.0, 11), (2.41, 0.5, 15), (3.87, 0.3, 20), (5.3, 0.15, 26)]:
+        ring += a * np.sin(2 * np.pi * f * h * t + h) * np.exp(-t * d)
+    body = np.sin(2 * np.pi * 523.25 * t) * np.exp(-t * 18) * 0.35
+    return tick + ring * 0.55 * np.minimum(1, t / 0.0015) + body
+
 if __name__ == '__main__':
     od = sys.argv[1] if len(sys.argv) > 1 else '.'
     write(os.path.join(od, 'sfx_shield_on.wav'), shield_on(), 0.7)
@@ -139,4 +151,5 @@ if __name__ == '__main__':
     write(os.path.join(od, 'sfx_shield_block.wav'), block(), 0.7)
     write(os.path.join(od, 'sfx_blown.wav'), blown(), 0.8)
     write(os.path.join(od, 'sfx_shield_shatter.wav'), shatter(), 0.75)
+    write(os.path.join(od, 'sfx_shield_bounce.wav'), kakin(), 0.7)
     print('ok')

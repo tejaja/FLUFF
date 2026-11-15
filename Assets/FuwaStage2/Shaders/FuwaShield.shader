@@ -21,8 +21,10 @@ Shader "Fuwa/Shield"
         Tags { "RenderType"="Transparent" "Queue"="Transparent+20" "IgnoreProjector"="True" }
         CGINCLUDE
         #include "UnityCG.cginc"
-        half4 _Color, _Fill; half _RimPow, _HexScale, _HexLine, _HexAlpha;
+        half _RimPow, _HexScale, _HexLine, _HexAlpha;
         UNITY_INSTANCING_BUFFER_START(Props)
+            UNITY_DEFINE_INSTANCED_PROP(float4, _Color)   // 2026-11-15 床に当たった回数で 水色→黄→赤（スクリプト）
+            UNITY_DEFINE_INSTANCED_PROP(float4, _Fill)
             UNITY_DEFINE_INSTANCED_PROP(float, _Appear)
             UNITY_DEFINE_INSTANCED_PROP(float4, _HitDir)
             UNITY_DEFINE_INSTANCED_PROP(float, _HitT)
@@ -81,6 +83,8 @@ Shader "Fuwa/Shield"
             float appear = UNITY_ACCESS_INSTANCED_PROP(Props, _Appear);
             float4 hitDir = UNITY_ACCESS_INSTANCED_PROP(Props, _HitDir);
             float hitT = UNITY_ACCESS_INSTANCED_PROP(Props, _HitT);
+            half4 rimC = UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
+            half4 fillC = UNITY_ACCESS_INSTANCED_PROP(Props, _Fill);
             float3 n = normalize(i.wn) * side;
             float3 v = normalize(_WorldSpaceCameraPos - i.wp);
             float fres = pow(1 - saturate(dot(n, v)), _RimPow);
@@ -95,11 +99,11 @@ Shader "Fuwa/Shield"
             float hitLive = 1 - hitT;
             float ring = exp(-pow((ang - hitT * 0.9) * 9, 2)) * hitLive;
             float spot = saturate(1 - ang * 2.2) * hitLive * hitLive;
-            float a = _Fill.a + fres * 0.75 + lineK * _HexAlpha * flow * (0.35 + 0.65 * fres) + (ring * (0.4 + lineK) + spot * 0.6);
+            float a = fillC.a + fres * 0.75 + lineK * _HexAlpha * flow * (0.35 + 0.65 * fres) + (ring * (0.4 + lineK) + spot * 0.6);
             a *= show * appear;
             // 出はじめはマスのふちがちょっと強く光る
             float edgeFlash = saturate((appear * 1.25 - cellR) * 6) * (1 - saturate((appear * 1.25 - cellR) * 2));
-            half3 col = lerp(_Fill.rgb, _Color.rgb, saturate(fres + lineK * 0.6)) + (ring + spot + edgeFlash) * half3(0.8, 1, 1);
+            half3 col = lerp(fillC.rgb, rimC.rgb, saturate(fres + lineK * 0.6)) + (ring + spot + edgeFlash) * lerp(half3(1, 1, 1), rimC.rgb, 0.4);
             a = saturate(a + edgeFlash * 0.5 * appear);
             if (side < 0) a *= 0.35;   // 裏がわ（向こうの面）はうすく
             return half4(col * a, a);

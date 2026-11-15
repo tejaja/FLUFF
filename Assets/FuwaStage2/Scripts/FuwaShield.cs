@@ -32,7 +32,7 @@ public class FuwaShield : UdonSharpBehaviour
     public void Activate()
     {
         if (_on) return;
-        _on = true;
+        _on = true; _bounces = 0; _colNow = 0f;
         if (onSound != null) onSound.Play();
     }
 
@@ -80,6 +80,29 @@ public class FuwaShield : UdonSharpBehaviour
     public int shatterCount = 46;
     public AudioSource shatterSound;
 
+    // 2026-11-15 てじゃ「バリアが床についたら、カキンって感じでちょっと跳ねてもいいかも」「一回跳ねたらバリア黄色、2回で赤、3回でパリン」
+    //  床にふれたら：上に bounceUp（横の勢いは bounceKeep 倍）で跳ねる＋カキン（回数ごとに少し高く）＋下側から波紋。1回で黄、2回で赤、3回目でパリン
+    public int bouncesToBreak = 3;
+    public float bounceUp = 2.6f, bounceKeep = 0.8f, bounceCool = 0.35f;
+    public AudioSource bounceSound;
+    public Color colorCalm = new Color(0.45f, 0.9f, 1f, 1f), colorWarn = new Color(1f, 0.85f, 0.25f, 1f), colorDanger = new Color(1f, 0.32f, 0.25f, 1f);
+    private int _bounces;
+    private float _bounceAt = -10f;
+    private float _colNow;   // 0 水色 〜 1 黄 〜 2 赤（なめらかに追う）
+
+    private void Bounce()
+    {
+        _bounceAt = Time.time;
+        _bounces++;
+        if (_bounces >= bouncesToBreak) { Shatter(); return; }
+        Rigidbody rb = ball.GetComponent<Rigidbody>();
+        Vector3 v = rb != null ? rb.velocity : Vector3.zero;
+        Vector3 nv = new Vector3(v.x * bounceKeep, Mathf.Max(bounceUp, -v.y * 0.3f + bounceUp * 0.6f), v.z * bounceKeep);
+        ball.LaunchTinted(nv, _bounces >= 2 ? colorDanger : colorWarn);
+        _hitDir = Vector3.down; _hitAt = Time.time;
+        if (bounceSound != null) { bounceSound.pitch = 1f + 0.12f * (_bounces - 1); bounceSound.Play(); }
+    }
+
     public void Shatter()
     {
         if (!_on) return;
@@ -91,7 +114,8 @@ public class FuwaShield : UdonSharpBehaviour
     private void Update()
     {
         if (_on && ball != null && ball.IsWaitingOrHidden()) { _on = false; _t = 0f; }   // アウト・チェックポイントにもどった：音なしですぐ消す
-        if (_on && groundMask != 0 && _t > 0.3f && Physics.CheckSphere(transform.position, Radius() * 0.97f, groundMask, QueryTriggerInteraction.Ignore)) Shatter();
+        if (_on && groundMask != 0 && _t > 0.3f && Time.time - _bounceAt > bounceCool && Physics.CheckSphere(transform.position, Radius() * 0.97f, groundMask, QueryTriggerInteraction.Ignore)) Bounce();
+        if (_on) _colNow = Mathf.MoveTowards(_colNow, Mathf.Min(2, _bounces), Time.deltaTime * 6f);
         float target = _on ? 1f : 0f;
         if (_t < target) _t = Mathf.Min(target, _t + Time.deltaTime / Mathf.Max(0.01f, appearTime));
         else if (_t > target) _t = Mathf.Max(target, _t - Time.deltaTime / Mathf.Max(0.01f, vanishTime));
@@ -107,6 +131,10 @@ public class FuwaShield : UdonSharpBehaviour
         _mpb.SetFloat("_Appear", _t);
         _mpb.SetVector("_HitDir", new Vector4(_hitDir.x, _hitDir.y, _hitDir.z, 0f));
         _mpb.SetFloat("_HitT", ht);
+        Color rc = _colNow <= 1f ? Color.Lerp(colorCalm, colorWarn, _colNow) : Color.Lerp(colorWarn, colorDanger, _colNow - 1f);
+        _mpb.SetColor("_Color", rc);
+        Color fc = rc * 0.75f; fc.a = 0.08f + 0.04f * _colNow;
+        _mpb.SetColor("_Fill", fc);
         rend.SetPropertyBlock(_mpb);
     }
 

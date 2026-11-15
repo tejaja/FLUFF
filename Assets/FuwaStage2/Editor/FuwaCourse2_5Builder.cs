@@ -2401,7 +2401,7 @@ public static class FuwaCourse2_5Builder
     const string GimAudio = "Assets/FuwaStage2/Audio/Gimmick2_5/";
     static readonly Color ShieldCol = new Color(0.45f, 0.9f, 1f, 1f);
     static FuwaShield shieldT;
-    public static bool ShieldShatter = false;
+    public static bool ShieldShatter = true;   // 床にふれたら跳ねる（3回でパリン）。false で床の判定ごとなし
 
     // ふわふわの子にバリアの球（なければ作る）。コースを作り直しても残る（ふわふわは FuwaSystem の物）
     static FuwaShield EnsureShield()
@@ -2431,7 +2431,9 @@ public static class FuwaCourse2_5Builder
         sh.offSound = Sfx(g.transform, "OffSfx", "sfx_shield_off.wav", 0.7f, 0.5f, 20f);
         sh.blockSound = Sfx(g.transform, "BlockSfx", "sfx_shield_block.wav", 0.8f, 0.5f, 25f);
         // 2026-11-15 てじゃ「バリアは地面に接触でパリンと割れる」：道レイヤーにふれたら割れる、かけら＋音
-        sh.groundMask = ShieldShatter ? 1 << pathLayer : 0;   // 同日「割れなしでいいかもな」→ 切る
+        sh.groundMask = ShieldShatter ? 1 << pathLayer : 0;   // 同日「割れなしでいいかもな」→「床についたらカキンって跳ねる、1回で黄、2回で赤、3回でパリン」
+        sh.bouncesToBreak = 3;
+        sh.bounceSound = Sfx(g.transform, "BounceSfx", "sfx_shield_bounce.wav", 0.85f, 0.5f, 25f);
         sh.shatterSound = Sfx(g.transform, "ShatterSfx", "sfx_shield_shatter.wav", 0.9f, 0.5f, 25f);
         { var old = g.transform.Find("ShatterFx"); if (old) Object.DestroyImmediate(old.gameObject); }
         var sfx = Sparks(g.transform, "ShatterFx", Vector3.zero, 0.75f, 3.2f, 0.09f, 80);
