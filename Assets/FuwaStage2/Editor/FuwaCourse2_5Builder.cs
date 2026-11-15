@@ -1167,21 +1167,27 @@ public static class FuwaCourse2_5Builder
         // 道にかぶらないように：島ごとの範囲（少し広げる）に入ったら引き直す（2026-11-13 空中の回廊を足したら小島とかぶりそうだった）
         var keep = new List<Bounds>();
         foreach (Transform ch in islandsT) if (ch != g) { var b = LocalBounds(ch, root); if (b.size.sqrMagnitude > 0.01f) { b.Expand(new Vector3(8f, 10f, 8f)); keep.Add(b); } }
+        var rndY = new System.Random(55);
+        Physics.SyncTransforms();
         for (int i = 0; i < 9; i++)
         {
             var c = Vector3.zero;
-            for (int k = 0; k < 30; k++)
+            float s = 2f + 3f * (float)rnd.NextDouble();
+            for (int k = 0; k < 60; k++)
             {
                 c = new Vector3(Mathf.Lerp(all.min.x - 8f, all.max.x + 8f, (float)rnd.NextDouble()), Mathf.Lerp(-6f, 16f, (float)rnd.NextDouble()), Mathf.Lerp(all.min.z, all.max.z, (float)rnd.NextDouble()));
-                if (!keep.Any(kb => kb.Contains(c))) break;
+                if (keep.Any(kb => kb.Contains(c))) continue;
+                // 2026-11-15 小島が道やアーチにかぶった → まわり（島の大きさ＋4m、下へ島の深さぶん）に当たりがあるならやり直す
+                var wc = root.TransformPoint(c + Vector3.down * s * 0.4f);
+                if (Physics.CheckCapsule(wc + Vector3.up * (s * 0.6f + 4f), wc - Vector3.up * (s * 0.6f + 2f), s * 0.6f + 4f, ~0, QueryTriggerInteraction.Collide)) continue;
+                break;
             }
-            float s = 2f + 3f * (float)rnd.NextDouble();
             var islet = IsletMesh(i);
             if (islet)
             {   // 2026-11-15 見た目クオリティ：箱2つ → Blender の浮島（Models/Islets.fbx、草のふた＋ゴツゴツの岩）
                 var io = MeshObj(g, "Islet", islet, moss, c, 0, true);
                 io.GetComponent<MeshRenderer>().sharedMaterials = new[] { moss, underM };
-                io.transform.localScale = Vector3.one * (s * 0.5f); io.transform.localRotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+                io.transform.localScale = Vector3.one * (s * 0.5f); io.transform.localRotation = Quaternion.Euler(0f, (float)rndY.NextDouble() * 360f, 0f);
                 continue;
             }
             var t = Box(g, "IsletTop", c, new Vector3(s, 0.5f, s * 0.8f), moss, 0); Object.DestroyImmediate(t.GetComponent<Collider>());
