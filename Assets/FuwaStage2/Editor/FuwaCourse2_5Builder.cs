@@ -296,7 +296,7 @@ public static class FuwaCourse2_5Builder
     //  空洞：石像の真下、口は -z（スタートの方から見える）。出口のポータルは空洞の +z の壁の内がわ、-z へ進む
     public static bool StoneRims = false;
     public static float PathRockM = 1.6f, StatueRockR = 17f, RockCell = 0.8f, RockNoise = 0.9f;
-    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true, CaveSkirt = true; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;
+    public static float CaveMouthW = 9f; public static bool GoalOpen = true, CaveRound = true, CaveSkirt = true, SkirtSpikes = false; public static float CaveCeilBump = 0.7f, CaveDomeUp = 0.9f; public static int CaveWallRocks = 70;
     static (Vector3 entry, float heading) PathHugRock(Transform island)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -471,7 +471,7 @@ public static class FuwaCourse2_5Builder
             // 2026-11-15 てじゃ「裏がぱきっと真っ平らなのもきになる」：空洞のまわりの輪の底に、下へ垂れるゴツゴツのふち（まん中のゴールの下は抜けたまま）
             if (GoalOpen && CaveSkirt)
             {
-                int N = 72; float rOut = StatueRockR - 1.2f + 1.1f, rIn = hx - 0.35f;
+                int N = 72; float rOut = StatueRockR - 1.2f - 1.0f, rIn = hx - 0.35f;   // 2026-11-15 てじゃ「だいぶずれてる」→ 外のふちは島の底の内がわから出す（外に出すと島の壁とのあいだにすき間）
                 var rings = new List<Vector3[]>();
                 float[] rs = { rOut, rOut - 1.6f, (rOut + rIn) * 0.5f + 0.8f, (rOut + rIn) * 0.5f - 1.2f, rIn + 0.6f, rIn };
                 float[] ys = { cy0 + 0.35f, cy0 - 1.6f, cy0 - 3.4f, cy0 - 3.0f, cy0 - 1.2f, cy0 + 0.3f };
@@ -498,8 +498,8 @@ public static class FuwaCourse2_5Builder
                         var want = (ri < 2 ? radial : (ri == 2 ? Vector3.zero : -radial)) + Vector3.down;   // 外の帯は外下向き、内の帯は内下向き
                         Tri(cv, ct, A, B, C, want); Tri(cv, ct, A, C, D, want);
                     }
-                // ところどころ下がる岩
-                for (int k = 0; k < 14; k++)
+                // ところどころ下がる岩（2026-11-15 てじゃ「下の細かい破片みたいなのいらんかも」→ なし）
+                if (SkirtSpikes) for (int k = 0; k < 14; k++)
                 {
                     float ang = (float)crnd.NextDouble() * Mathf.PI * 2f; var d2 = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang));
                     var q2 = sc + d2 * Mathf.Lerp(rIn + 1.5f, rOut - 2f, (float)crnd.NextDouble());
@@ -507,6 +507,7 @@ public static class FuwaCourse2_5Builder
                     RockChunk(cv, ct, new Vector3(q2.x, cy0 - 2.6f - len * 0.4f, q2.y), new Vector3(1.6f, len, 1.6f), Quaternion.Euler(0f, (float)crnd.NextDouble() * 360f, 0f), crnd);
                 }
             }
+            if (RockRugged) RockDisplace(cv, top, x0, z0);   // 島の岩と同じずらし（島はゴツゴツで横にずれているので、そろえないとずれて見える）
             var cm = SaveMesh("I1_CaveRocks", cv, ct);
             var cgo = new GameObject("CaveRocks"); cgo.transform.SetParent(rk, false);
             cgo.AddComponent<MeshFilter>().sharedMesh = cm; cgo.AddComponent<MeshRenderer>().sharedMaterial = underM;
