@@ -15,6 +15,10 @@ public class FuwaCourseLod : UdonSharpBehaviour
     public FuwaAreaVisibility areaVisibility;
     [Tooltip("ひとりでモードの番号（FuwaAreaVisibility の area）")]
     public int soloArea = 1;
+    [Tooltip("2026-11-15 どのステージのコースか（FuwaAreaVisibility.GetStage）。ステージ2用にもう1つ置く")]
+    public int stage = 1;
+    [Tooltip("きれい/ふつう/かるい（mode）をこの FuwaCourseLod から写す（ステージ2用。ボタンはステージ1の方だけを切り替えるので）")]
+    public FuwaCourseLod follow;
     [Tooltip("各コースのふわふわのスタート地点")]
     public Transform[] starts;
     [Tooltip("各コースの本体（starts と同じ順）")]
@@ -123,7 +127,10 @@ public class FuwaCourseLod : UdonSharpBehaviour
 #endif
         if (Time.time < _next) return;
         _next = Time.time + interval;
+        if (follow != null && follow.mode != mode) { mode = follow.mode; _shown = -2; }
         int area = areaVisibility != null ? areaVisibility.GetArea() : soloArea;
+        // ちがうステージにいる時は、ここのコースはさわらない（エリア表示にまかせる）
+        if (areaVisibility != null && areaVisibility.GetStage() != stage) area = -100;
         int cur = -1;
         if (area == soloArea && ball != null && starts != null)
         {

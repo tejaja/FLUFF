@@ -16,13 +16,43 @@ public static class FuwaCourseLite
     const float NestCell = 0.6f;  // まもののすの浮いた巣は向き・色で分けずにまとめる（根っこは入れない）（2026-10-22 てじゃ「まものの巣ふてるなぁ、浮いてる巣をもっと簡略化」）
 
     [MenuItem("FuwaCourse/よく使う/コースの軽い版を作る")]
-    public static void Run()
+    public static void Run() { Run(Courses, "CourseLites", Object.FindObjectsOfType<FuwaCourseLod>(true).FirstOrDefault(l => l.stage <= 1)); }
+
+    // 2026-11-15 てじゃ「ステージ2の各コースの軽量化バージョンつくろか」→ ステージ2用（CourseLites2 と、ステージ2用の FuwaCourseLod＝CourseLodStage2）
+    static readonly string[] Courses2 = { "FuwaCourse2_1", "FuwaCourse2_2", "FuwaCourse2_3", "FuwaCourse2_4", "FuwaCourse2_5" };
+    [MenuItem("FuwaCourse/ステージ2/ステージ2のコースの軽い版を作る")]
+    public static void RunStage2()
+    {
+        var all = Resources.FindObjectsOfTypeAll<FuwaCourseLod>().Where(l => l && l.gameObject.scene.IsValid()).ToList();
+        var main = all.FirstOrDefault(l => l.stage <= 1);
+        var lod2 = all.FirstOrDefault(l => l.stage == 2);
+        if (lod2 == null && main != null)
+        {
+            var go = new GameObject("CourseLodStage2"); go.transform.SetParent(main.transform.parent, false);
+            lod2 = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaCourseLod>(go);
+            lod2.ball = main.ball; lod2.areaVisibility = main.areaVisibility; lod2.soloArea = main.soloArea; lod2.stage = 2; lod2.follow = main;
+            lod2.onlyMobile = main.onlyMobile; lod2.interval = main.interval; lod2.nearCourseDist = main.nearCourseDist; lod2.cellSize = main.cellSize; lod2.mode = main.mode;
+            lod2.savePlayerData = false; lod2.lobbyNearRadius = 0f;
+            lod2.lobbyStopBehaviours = new VRC.Udon.UdonBehaviour[0]; lod2.lobbyHideObjects = new GameObject[0];
+        }
+        Run(Courses2, "CourseLites2", lod2);
+        // CourseLites2 はステージ2のエリアの時だけ（エリア表示の stage2Objects に入れる）
+        var av = lod2 != null ? lod2.areaVisibility : null; var h = GameObject.Find("CourseLites2");
+        if (av != null && h != null && (av.stage2Objects == null || !av.stage2Objects.Contains(h)))
+        {
+            av.stage2Objects = (av.stage2Objects ?? new GameObject[0]).Concat(new[] { h }).ToArray();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(av); EditorUtility.SetDirty(av);
+        }
+        if (lod2 != null) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lod2); EditorUtility.SetDirty(lod2); }
+    }
+
+    public static void Run(string[] courses, string holderName, FuwaCourseLod lodTarget)
     {
         if (!AssetDatabase.IsValidFolder(Dir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Lite");
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         var roots = scene.GetRootGameObjects();
-        var holder = roots.FirstOrDefault(g => g.name == "CourseLites");
-        if (holder == null) { holder = new GameObject("CourseLites"); Undo.RegisterCreatedObjectUndo(holder, "lite"); }
+        var holder = roots.FirstOrDefault(g => g.name == holderName);
+        if (holder == null) { holder = new GameObject(holderName); Undo.RegisterCreatedObjectUndo(holder, "lite"); }
         holder.transform.position = Vector3.zero; holder.transform.rotation = Quaternion.identity; holder.transform.localScale = Vector3.one;
         // 材質は軽い版専用（頂点カラー＋ToonLit と同じ光り方）。前は Den_Twig（InkCap）を借りていて影が黒っぽかった
         const string MatPath = Dir + "/CourseLite.mat";
@@ -30,7 +60,7 @@ public static class FuwaCourseLite
         if (mat == null) { mat = new Material(Shader.Find("FuwaCourse/LiteVC")) { name = "CourseLite", enableInstancing = true }; AssetDatabase.CreateAsset(mat, MatPath); }
         var log = new System.Text.StringBuilder();
         var starts = new List<Transform>(); var fulls = new List<GameObject>(); var lites = new List<GameObject>();
-        foreach (var cn in Courses)
+        foreach (var cn in courses)
         {
             var root = roots.FirstOrDefault(g => g.name == cn); if (root == null) continue;
             var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>(); var S = new List<float>(); int used = 0;
@@ -43,11 +73,17 @@ public static class FuwaCourseLite
                 // 飾りの中でも遠くから形がわかる物は入れる：まわりの浮島（やみのもりの木の下の小さい島も）・まもののすの巣（2026-10-22 てじゃ「浮島そのものが消えるのちょと気なる」「木だけういてる」）
                 bool keep = mr.name == "IslandTop" || mr.name == "IslandUnder" || path.Contains("Deco/Mamono_") && !path.Contains("Eggs") && !path.Contains("Roots");   // たまご・根っこはいらない
                 var b = mr.bounds; float size = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
-                bool deco = size < MinSize || path.Contains("Deco/") || path.Contains("Fence") || path.Contains("Web") || path.Contains("Wind") || path.Contains("Gimmick");
+                bool deco = size < MinSize || path.Contains("Deco/") || path.Contains("Fence") || path.Contains("/Web") || mr.name.Contains("Web") || path.Contains("Wind") || path.Contains("Gimmick");   // 2026-11-15 "Web" は巣だけ（2–5 の中段の島 I2_WebWalk がまるごと消えていた）
                 if (deco && !(keep && size >= 1f)) continue;
                 float cell = !deco ? Cell : mr.name == "Mamono_Nests" ? NestCell : DecoCell;
                 if (mr.sharedMaterials.Any(m => m != null && m.renderQueue >= 2450)) continue;
-                var mesh = mf.sharedMesh; if (!mesh.isReadable) continue;
+                var mesh = mf.sharedMesh;
+                if (!mesh.isReadable)
+                {   // 2026-11-15 FBX の読めないメッシュ（2–5 の石像など）は読めるように読み込み設定を変える
+                    var ip = AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(mesh)) as ModelImporter;
+                    if (ip != null && !ip.isReadable) { ip.isReadable = true; ip.SaveAndReimport(); mesh = mf.sharedMesh; }
+                    if (mesh == null || !mesh.isReadable) continue;
+                }
                 var mv = mesh.vertices; var mn = mesh.normals; var mc = mesh.colors; var muv = mesh.uv; var l2w = mr.transform.localToWorldMatrix;
                 var n2w = l2w.inverse.transpose;
                 for (int s = 0; s < mesh.subMeshCount; s++)
@@ -132,7 +168,7 @@ public static class FuwaCourseLite
             log.Append(cn + ": parts " + used + " tris " + (NT.Count / 3) + "\n");
         }
         // 切り替えスクリプトの設定
-        var lod = Object.FindObjectsOfType<FuwaCourseLod>(true).FirstOrDefault();
+        var lod = lodTarget;
         if (lod != null)
         {
             var so = new SerializedObject(lod);
