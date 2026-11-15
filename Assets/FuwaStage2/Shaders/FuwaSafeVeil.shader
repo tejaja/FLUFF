@@ -51,24 +51,28 @@ Shader "Fuwa/SafeVeil"
                 float2 bh = b / bl, n = float2(-bh.y, bh.x);
                 float s = v.uv.x;
                 float2 p; float sl;   // sl＝ふちに沿った長さ（m、ゆらぎの模様用）
+                // 形は FuwaSafeShape.cginc と同じ：円（半径 r0）と、クリスタルからその円に接する2本の線
                 float r0 = ball.w + nr;
+                float sa = saturate(r0 / bl), ca = sqrt(1 - sa * sa), ta = sa / max(ca, 0.05);
+                float at = bl - r0 * sa;                         // 接する所の奥行き
+                float phi0 = 0.5 * UNITY_PI + asin(sa);          // 接する所の角度（bh から。横より少しクリスタル側）
                 if (s < 1.0 / 3.0)
                 {
-                    float along = lerp(bl + _Len, bl, s * 3.0);
-                    p = bh * along + n * (ball.w * along / bl + pad);
-                    sl = -(along - bl);
+                    float along = lerp(at + _Len, at, s * 3.0);
+                    p = bh * along + n * (along * ta);
+                    sl = -(along - at);
                 }
                 else if (s < 2.0 / 3.0)
                 {
-                    float th = lerp(0.5, 1.5, (s - 1.0 / 3.0) * 3.0) * UNITY_PI;   // 横 → クリスタル側 → 反対の横
+                    float th = lerp(phi0, 2.0 * UNITY_PI - phi0, (s - 1.0 / 3.0) * 3.0);   // 左の接点 → クリスタル側 → 右の接点
                     p = b + r0 * (cos(th) * bh + sin(th) * n);
-                    sl = (th - 0.5 * UNITY_PI) * r0;
+                    sl = (th - phi0) * r0;
                 }
                 else
                 {
-                    float along = lerp(bl, bl + _Len, (s - 2.0 / 3.0) * 3.0);
-                    p = bh * along - n * (ball.w * along / bl + pad);
-                    sl = UNITY_PI * r0 + (along - bl);
+                    float along = lerp(at, at + _Len, (s - 2.0 / 3.0) * 3.0);
+                    p = bh * along - n * (along * ta);
+                    sl = (2.0 * UNITY_PI - 2.0 * phi0) * r0 + (along - at);
                 }
                 float y0 = mul(unity_ObjectToWorld, float4(0, 0, 0, 1)).y;
                 float3 wp = float3(src.x + p.x, y0 + v.uv.y * _Height, src.z + p.y);

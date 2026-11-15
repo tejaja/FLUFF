@@ -32,9 +32,12 @@ Shader "Fuwa/ShockFloor"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
+            #include "FuwaSafeShape.cginc"
             half4 _Color, _SafeColor; float _Radius, _Pad, _Near, _Strength;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Charge)
+                UNITY_DEFINE_INSTANCED_PROP(float, _FlowPh)
+                UNITY_DEFINE_INSTANCED_PROP(float, _FlickPh)
                 UNITY_DEFINE_INSTANCED_PROP(float, _WaveR)
                 UNITY_DEFINE_INSTANCED_PROP(float, _WaveFade)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Src)
@@ -70,24 +73,17 @@ Shader "Fuwa/ShockFloor"
                 float safe = 0, dEdge = 99;
                 if (ball.w > 0)
                 {
-                    float2 b = ball.xz - src.xz; float bl = length(b);
-                    float dn = length(q - b) - (ball.w + _Near);           // まわり
-                    float ds = 99;
-                    if (bl > 0.01)
-                    {
-                        float2 bh = b / bl; float along = dot(q, bh); float perp = length(q - bh * along);
-                        float w = ball.w * along / bl + _Pad;
-                        ds = max(perp - w, bl - along);                     // 影（うしろ側）
-                    }
-                    dEdge = min(dn, ds);
+                    dEdge = FuwaSafeDist(q, ball.xz - src.xz, ball.w + _Near);   // FuwaSafeShape.cginc
                     safe = 1 - smoothstep(-0.05, 0.05, dEdge);
                 }
                 float t = _Time.y;
                 // ため：外へ流れる輪（ためるほど速く・こく）
                 float kk = k * k;
-                float flow = frac(r * 0.9 - t * lerp(0.6, 2.2, kk));
+                // 2026-11-15 てじゃ「チャージのときの地面の黒いグラデーション、やけにガクガクしてる」
+                //  前は t×（ためで変わる速さ）だったので、速さが変わるたびに大きい t がかかって模様が飛んでいた → 進んだ量はスクリプトが足していく（_FlowPh・_FlickPh）
+                float flow = frac(r * 0.9 - UNITY_ACCESS_INSTANCED_PROP(Props, _FlowPh));
                 float bands = smoothstep(0.0, 0.12, flow) * pow(1 - flow, 3);
-                float charge = kk * (0.38 + 0.9 * bands) * (0.85 + 0.15 * sin(t * lerp(4, 22, kk)));
+                float charge = kk * (0.38 + 0.9 * bands) * (0.85 + 0.15 * sin(UNITY_ACCESS_INSTANCED_PROP(Props, _FlickPh)));
                 // セーフのふちの線（ためている間と壁が来る前）
                 float sline = (k > 0.001 || wr >= 0) ? (1 - smoothstep(0.03, 0.11, abs(dEdge))) * (0.35 + 0.65 * max(kk, wf)) : 0;
                 // ドン：壁の帯＋通ったあとの尾

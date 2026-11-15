@@ -24,6 +24,7 @@ Shader "Fuwa/DustRing"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
+            #include "FuwaSafeShape.cginc"
             half4 _Color; float _Pad, _Cells;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Alpha)
@@ -61,13 +62,8 @@ Shader "Fuwa/DustRing"
                 // バリアの影
                 if (ball.w > 0)
                 {
-                    float2 q = i.wp.xz - src.xz, b = ball.xz - src.xz; float bl = length(b);
-                    if (bl > 0.01)
-                    {
-                        float2 bh = b / bl; float along = dot(q, bh); float perp = length(q - bh * along);
-                        float w = ball.w * along / bl + _Pad;
-                        a *= 1 - smoothstep(w + 0.1, w - 0.1, perp) * smoothstep(bl - 0.2, bl + 0.1, along);
-                    }
+                    float d = FuwaSafeDist(i.wp.xz - src.xz, ball.xz - src.xz, ball.w + _Pad);   // FuwaSafeShape.cginc
+                    a *= 1 - smoothstep(0.1, -0.1, d);
                 }
                 half4 c = half4(_Color.rgb * (0.85 + 0.25 * n), saturate(a));
                 UNITY_APPLY_FOG(i.fogCoord, c);

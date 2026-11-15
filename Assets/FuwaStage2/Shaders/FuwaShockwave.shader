@@ -25,6 +25,7 @@ Shader "Fuwa/Shockwave"
             #pragma fragment frag
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
+            #include "FuwaSafeShape.cginc"
             half4 _Color, _Core; float _Pad, _Streak;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Alpha)
@@ -63,19 +64,10 @@ Shader "Fuwa/Shockwave"
                 float shade = 1;
                 if (ball.w > 0)
                 {
-                    float2 b = ball.xz - src.xz; float bl = length(b);
-                    if (bl > 0.01)
-                    {
-                        float2 bh = b / bl;
-                        float along = dot(q, bh);
-                        float perp = length(q - bh * along);
-                        float w = ball.w * along / bl + _Pad;
-                        float inCone = smoothstep(w + 0.06, w - 0.06, perp) * smoothstep(bl - 0.2, bl + 0.1, along);
-                        shade = 1 - inCone;
-                        // 影のふちを少し光らせる（守られている所が分かるように）
-                        float rim = exp(-pow((perp - w) * 10, 2)) * smoothstep(bl - 0.2, bl + 0.1, along);
-                        a += rim * 0.25 * alpha * body;
-                    }
+                    float d = FuwaSafeDist(q, ball.xz - src.xz, ball.w + _Pad);   // FuwaSafeShape.cginc
+                    shade = 1 - smoothstep(0.06, -0.06, d);
+                    // 影のふちを少し光らせる（守られている所が分かるように）
+                    a += exp(-pow(d * 10, 2)) * 0.25 * alpha * body;
                 }
                 a *= shade;
                 a = saturate(a);

@@ -283,13 +283,16 @@ public class FuwaShockwave : UdonSharpBehaviour
         if (Mathf.Abs(bp.y - (p.y + 1f)) > 2.6f) return false;   // バリアが高すぎ・低すぎ
         Vector2 b = new Vector2(bp.x - _src.x, bp.z - _src.z);
         Vector2 q = new Vector2(p.x - _src.x, p.z - _src.z);
-        if ((q - b).magnitude < rs + nearPad) return true;
-        float bl = b.magnitude; if (bl < 0.01f) return false;
+        // 2026-11-15 形を見た目（FuwaSafeShape.cginc）とそろえる：余白つきの円と、クリスタルからその円に接する2本の線（つなぎ目がなめらか）
+        float r0 = rs + nearPad;
+        if ((q - b).magnitude < r0) return true;
+        float bl = b.magnitude; if (bl <= r0 + 0.01f) return false;
         Vector2 bh = b / bl;
         float along = Vector2.Dot(q, bh);
-        if (along < bl) return false;
+        float sa = r0 / bl, ca = Mathf.Sqrt(1f - sa * sa);
+        if (along < bl - r0 * sa) return false;
         float perp = (q - bh * along).magnitude;
-        return perp < rs * along / bl + shadowPad;
+        return perp * ca - along * sa < 0f;
     }
 
     // 砂ぼこり（壁の少しうしろ、低い）と残像（壁の1.3m うしろ、うすい）
@@ -304,7 +307,7 @@ public class FuwaShockwave : UdonSharpBehaviour
             dustRing.localScale = new Vector3(rd, 1.4f, rd);
             dustRenderer.GetPropertyBlock(_mpb);
             _mpb.SetFloat("_Alpha", fade * Mathf.Clamp01(r / 2.5f));
-            _mpb.SetVector("_Src", sv); _mpb.SetVector("_Ball", bv); _mpb.SetFloat("_Pad", shadowPad);
+            _mpb.SetVector("_Src", sv); _mpb.SetVector("_Ball", bv); _mpb.SetFloat("_Pad", nearPad);
             dustRenderer.SetPropertyBlock(_mpb);
         }
         if (waveEcho != null && echoRenderer != null)
@@ -313,7 +316,7 @@ public class FuwaShockwave : UdonSharpBehaviour
             waveEcho.localScale = new Vector3(re, waveHeight * 0.85f, re);
             echoRenderer.GetPropertyBlock(_mpb);
             _mpb.SetFloat("_Alpha", fade * 0.35f);
-            _mpb.SetVector("_Src", sv); _mpb.SetVector("_Ball", bv); _mpb.SetFloat("_Pad", shadowPad);
+            _mpb.SetVector("_Src", sv); _mpb.SetVector("_Ball", bv); _mpb.SetFloat("_Pad", nearPad);
             echoRenderer.SetPropertyBlock(_mpb);
         }
     }
@@ -330,7 +333,7 @@ public class FuwaShockwave : UdonSharpBehaviour
             _mpb.SetFloat("_Alpha", fade);
             _mpb.SetVector("_Src", new Vector4(_src.x, _src.y, _src.z, 0f));
             _mpb.SetVector("_Ball", bv);
-            _mpb.SetFloat("_Pad", shadowPad);
+            _mpb.SetFloat("_Pad", nearPad);
             wr.SetPropertyBlock(_mpb);
         }
     }
@@ -445,6 +448,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         }
     }
 
+    private float _flowPh, _flickPh;
     private void UpdateFloorZone(float k, float now)
     {
         if (floorZone == null) return;
@@ -461,13 +465,19 @@ public class FuwaShockwave : UdonSharpBehaviour
         Vector3 s = _waveLive ? _src : (crystal != null ? crystal.position : transform.position);
         Vector4 bv = Vector4.zero;
         if (shield != null && shield.IsOn()) { Vector3 bp = shield.transform.position; bv = new Vector4(bp.x, bp.y, bp.z, shield.Radius()); }
+        // ための輪の流れ・ちらつきの進み（速さはためで変わる。シェーダーで t×速さ にするとガクガクするので、ここで足していく）
+        float kk2 = k * k;
+        _flowPh = (_flowPh + Mathf.Lerp(0.6f, 2.2f, kk2) * Time.deltaTime) % 1000f;
+        _flickPh = (_flickPh + Mathf.Lerp(4f, 22f, kk2) * Time.deltaTime) % 6283.185f;
         floorZone.GetPropertyBlock(_mpb);
+        _mpb.SetFloat("_FlowPh", _flowPh);
+        _mpb.SetFloat("_FlickPh", _flickPh);
         _mpb.SetFloat("_Charge", k);
         _mpb.SetFloat("_WaveR", wr);
         _mpb.SetFloat("_WaveFade", wf);
         _mpb.SetVector("_Src", new Vector4(s.x, s.y, s.z, 0f));
         _mpb.SetVector("_Ball", bv);
-        _mpb.SetFloat("_Pad", shadowPad);
+        _mpb.SetFloat("_Pad", nearPad);
         _mpb.SetFloat("_Near", nearPad);
         floorZone.SetPropertyBlock(_mpb);
         if (safeVeil != null)
@@ -482,7 +492,7 @@ public class FuwaShockwave : UdonSharpBehaviour
                 _mpb.SetFloat("_WaveFade", wf);
                 _mpb.SetVector("_Src", new Vector4(s.x, s.y, s.z, 0f));
                 _mpb.SetVector("_Ball", bv);
-                _mpb.SetFloat("_Pad", shadowPad);
+                _mpb.SetFloat("_Pad", nearPad);
                 _mpb.SetFloat("_Near", nearPad);
                 Vector3 c = transform.position;
                 _mpb.SetVector("_Cen", new Vector4(c.x, c.y, c.z, radius + 0.5f));
