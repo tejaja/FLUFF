@@ -140,7 +140,7 @@ public static class FuwaCourse2_5Builder
         // 2026-11-14 てじゃ「最初の小さくなるところやめてもとに戻すやつにする、その後すぐポータルにする、下の小さくなるエリアはなし」
         //  → 大きい飛び石のあと、白カーテン（戻る）→ すぐワープA。小さいカーテン・小さい飛び石・橋2・②の島はなし
         Transform warpA = null;
-        Run(() => { S(1f); ArchGate(); Curtain("C1_Normal", 0); S(1.5f); S(5f); warpA = BigPortal(isl, "WarpA", P, 180f); });   // 2026-11-14 てじゃ「下層の普通もどしの後も、ポータルまでの距離ちょい伸ばしたい」白→ワープ 3.5 → 6.5m
+        Run(() => { S(1f); ArchGate(); Curtain("C1_Normal", 0); S(1.5f); S(5f); warpA = BigPortal(isl, "WarpA", P, 180f); if (WarpWBack > 0f) S(WarpWBack); });   // 2026-11-15 てじゃ「他のポータルもそうかも」→ うしろに道（S(5) はシマ4本＝B で終わる）   // 2026-11-14 てじゃ「下層の普通もどしの後も、ポータルまでの距離ちょい伸ばしたい」白→ワープ 3.5 → 6.5m
         // 2026-11-14 てじゃ「下の地面は道に沿った部分以外なくして、床下のゴール部分は石像の下においてみよ」→ 道ぞいの帯＋石像の台地（中に空洞）
         var cav = PathHugRock(i1);
         // ---- 空中の巣の回廊（①の島の +x・-z の角の上から、-x へ ①の上をわたる）----
@@ -244,7 +244,7 @@ public static class FuwaCourse2_5Builder
         //  「一定間隔で広場全体に放射状に衝撃波」「ふわふわのバリアの周囲+後ろ側はセーフゾーン」「広場に入る時に最初に一発」
         //  → ③ ワープ → CP2 → バリアの門 → 円形の広場（クリスタルの衝撃波）→ 出口でバリアが消える。回る腕の版：Arms_A（SpinArm ×3、20m）
         shieldT = EnsureShield();
-        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f);
+        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); ArrivalRoof(false, true); S(2f);   // 着いた所のうしろにも道はばの床 CPi("Checkpoint2", 0.8f); S(2.5f);
             S(1.5f); ShieldGateArch("ShieldGate"); S(5f);
             CrystalPlaza("CrystalPlaza");
             S(1.5f); ShieldOff("ShieldOff"); S(1.5f); });
@@ -254,12 +254,12 @@ public static class FuwaCourse2_5Builder
         //  前の版：I4_Bumpers（CP3 → 飛び出す石ブロック Pistons_B → T(-45) → 腕とブロックのまざり Mix_C → ワープB）
         Island("I4_End");
         Transform warpB = null;
-        Run(() => { S(3f); warpB = BigPortal(isl, "WarpB", P, 180f); });
+        Run(() => { S(3f); warpB = BigPortal(isl, "WarpB", P, 180f); if (WarpWBack > 0f) S(WarpWBack); });   // うしろに道（S(3) はシマ2本＝B で終わる）
         // ---- ①の島の中の空洞（ゴール）----
         var gc = Island("Cavern");
         P = cav.entry; th = cav.heading;
         Transform warpBin = null;
-        Run(() => { warpBin = BigPortal(isl, "WarpBIn", Vector3.zero, 0f); S(2.5f); });
+        Run(() => { warpBin = BigPortal(isl, "WarpBIn", Vector3.zero, 0f); ArrivalRoof(false, true); S(2.5f); });
         var goalP = P;
         GoalSet(gc, P, Dir(th));
         if (warpA && warpAin) Link(warpA, warpAin, iw, null, true, true);
