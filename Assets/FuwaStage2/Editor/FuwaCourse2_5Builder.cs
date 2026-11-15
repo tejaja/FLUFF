@@ -161,7 +161,7 @@ public static class FuwaCourse2_5Builder
         //  → ふつうで巣1枚 → 橙 → 大きいまま 左右交互の巣＋落とし穴の床 → 天井から垂れた巣をくぐる → … → 白 → ワープW。巣・カーテンはトンネルの高さに収める
         float hwSave = HW; HW = TunnelHW;
         pitTable = BigPitRows; pitRow = 0; float tileL0 = TileL; TileL = PitTileL;   // 2026-11-14 てじゃ「穴をもっと奥にデカく」「穴は全部」→ 回廊の落とし穴は全部大きい（4マス中3マス×2列）   // 2026-11-14 てじゃ「このトンネルもっと太くても良いかも、横も上も」→ 回廊の道（＝トンネルの中）のはばを広く
-        float wh0 = WebH, ch0 = CurtainH, cth0 = CurtainTrigH; WebH = TunnelH - 0.15f; CurtainH = TunnelH - 0.4f; CurtainTrigH = TunnelH + 7f;   // 当たりも低く（真上の上の段の島まで届かないように）
+        float wh0 = WebH, ch0 = CurtainH, cth0 = CurtainTrigH; WebH = TunnelH - 0.15f; CurtainH = CorridorPillars ? ch0 : TunnelH - 0.4f; CurtainTrigH = TunnelH + 7f;   // 2026-11-15 てじゃ「カーテンとか柱、低いかも、あわせよう」→ 柱式（屋根なし）なら下の段と同じ高さ   // 当たりも低く（真上の上の段の島まで届かないように）
         // 2026-11-15 てじゃ「道をすこし伸ばしてポータルの位置も後ろに」「イラストみたいにちょっと曲げて」
         //  → 到着ポータル＋まっすぐ WarpAInBack ＋ 左へ WarpAInBend° 曲がって、前の道のはじまり（ここから先は前と同じ所）につなぐ
         if (WarpAInBack > 0f)
@@ -1303,7 +1303,7 @@ public static class FuwaCourse2_5Builder
     public static float PillarStep = 2.6f, PillarSize = 0.8f;
     static void CorridorColonnade(Transform runA, Transform runB)
     {
-        float H = TunnelH, xc = HW + 0.5f;   // 巣の横のはし（HW+0.5）が柱のまん中に来る
+        float H = Mathf.Max(TunnelH, CurtainH), xc = HW + 0.5f;   // 巣の横のはし（HW+0.5）が柱のまん中に来る。2026-11-15 高さは下の段のアーチの柱にそろえる（てっぺん CurtainH+0.6）
         foreach (var run in new[] { runA, runB })
         {
             var g = new GameObject("Colonnade").transform; g.SetParent(run, false);
