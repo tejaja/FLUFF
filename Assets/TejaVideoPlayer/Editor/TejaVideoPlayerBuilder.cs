@@ -25,7 +25,7 @@ public static class TejaVideoPlayerBuilder
     public const float ScreenW = 1.92f, ScreenH = 1.08f;   // 16:9
     public const float ScreenCenterY = 1.55f;              // 床からの画面の真ん中の高さ
     public const float TabH = 72f;   // パネルの下のたたむタブの段の高さ（Canvas の単位）
-    public const float TitleH = 64f;  // パネルの一番上の、動画のタイトルの段（2026-10-24 てじゃ「タイトルは操作パネルの一番上」）
+    public const float TitleH = 0f;   // 2026-11-15 てじゃ「タイトル表示をやっぱなしに」64 → 0（段ごとなし）  // パネルの一番上の、動画のタイトルの段（2026-10-24 てじゃ「タイトルは操作パネルの一番上」）
     public const float PanelH = 212f + TitleH;   // パネルの高さ（下から ボタン・シークバー＋時間・タイトル）
     public static int Style = 2;   // 操作パネルの見た目（TejaVideoStyle：0=A シンプル、1=B FLUFF風、2=C ぽってり）
 
@@ -332,8 +332,9 @@ public static class TejaVideoPlayerBuilder
         var tm = Label(pt, "Time", "", font, 36, Color.white, TextAnchor.MiddleRight); Place(tm.gameObject, 1440f, 140f, 280f, 68f);
         vp.timeText = tm;
         // 動画のタイトル（一番上の段。右はしは隠すボタン）
-        var tt = Label(pt, "Title", "", font, 36, Color.white, TextAnchor.MiddleLeft); Place(tt.gameObject, 30f, 212f, 1720f, TitleH);
-        tt.horizontalOverflow = HorizontalWrapMode.Wrap; tt.verticalOverflow = VerticalWrapMode.Truncate;
+        Text tt = null;
+        if (TitleH > 0f) { tt = Label(pt, "Title", "", font, 36, Color.white, TextAnchor.MiddleLeft); Place(tt.gameObject, 30f, 212f, 1720f, TitleH); }
+        if (tt != null) { tt.horizontalOverflow = HorizontalWrapMode.Wrap; tt.verticalOverflow = VerticalWrapMode.Truncate; }
         vp.titleText = tt;
 
         // たたむタブ（パネルの右下にぶら下がる。▼でたたむ、▲で出す）。テレビに組み込む時はなし（カメラと切りかえるので）

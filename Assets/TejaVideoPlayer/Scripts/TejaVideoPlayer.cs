@@ -61,7 +61,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     [Tooltip("動画のタイトルを出す所。動画のページを文字列読み込みで取ってきて、YouTube はページの中のJSONから、ほかのサイトは og:title / <title> から抜く（2026-10-24 てじゃ「YamaPlayerみたいにタイトル」）。" +
              "youtube.com などは VRChat の文字列読み込みの許可リストに無いので、Allow Untrusted URLs がオンの人だけ取れる。URLを入れた人（持ち主）が取れたタイトルは同期して配る")]
     public Text titleText;
-    public bool fetchTitle = true;
+    public bool fetchTitle = false;   // 2026-11-15 てじゃ「タイトル表示をやっぱなしに」→ ふだんはオフ（作りは残す）
 
     [Header("音の範囲・BGM（なくてもOK）")]
     [Tooltip("この中心から audioZoneRadius 以内に自分がいる時だけ動画の音を出す（空なら どこでも）")]
@@ -158,17 +158,36 @@ public class TejaVideoPlayer : UdonSharpBehaviour
         UpdatePlayLabel();
     }
 
-    // 停止：最初に戻して止める（押した人が持ち主になって配る）。もう一度▶で頭から
+    // 停止：URL ごと消して止める（押した人が持ち主になって配る。あとから来た人も読み込まない）
+    //  2026-11-15 てじゃ「停止ボタンはURLごと消して止める形に」（前は頭に戻して一時停止）
     public void StopVideo()
     {
-        if (!_ready) return;
-        Log(Me() + " pressed stop");
+        if (_url == null || _url.Get() == "") return;
+        Log(Me() + " pressed stop (clear URL)");
         Take();
-        _paused = true;
+        _url = VRCUrl.Empty;
+        _ver++;
+        _start = -1;
+        _paused = false;
         _pausedAt = 0f;
-        player.Pause();
-        if (!IsLive()) player.SetTime(0f);
+        _title = "";
         RequestSerialization();
+        Unload();
+    }
+
+    // 自分の画面の動画を消す（URL が空になった時）
+    private void Unload()
+    {
+        player.Stop();
+        _ready = false;
+        _ended = false;
+        _error = false;
+        _loadQueued = false;
+        _loadedVer = _ver;
+        _localTitle = "";
+        ShowUrl();
+        ShowTitle();
+        SetStatus("Add a video with the link button");
         UpdatePlayLabel();
     }
 
@@ -294,7 +313,7 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     // 今の URL を読み込む。前の読み込みから5秒たっていなければ、たってから
     public void Load()
     {
-        if (_url == null || _url.Get() == "") return;
+        if (_url == null || _url.Get() == "") { Unload(); return; }   // 停止で URL が消えた
         float wait = _nextLoad - Time.time;
         if (wait > 0f)
         {
