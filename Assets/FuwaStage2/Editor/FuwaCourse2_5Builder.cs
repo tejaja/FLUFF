@@ -271,12 +271,13 @@ public static class FuwaCourse2_5Builder
     public static float UpperBackShift = 10f;
     public static Vector3 UpperStart = new Vector3(39.5948f, 32.8087f, 24.0744f); public static float UpperStartHeading = 134.3111f;   // 2026-11-15 てじゃ「この広場は石像の真上くらいにしよう」→ 広場のまん中が MushroomAt の真上に来るよう (-9.44, 0, +6.95) ずらした（前は 49.0348, 32.8087, 17.1244）
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
+    public static float ArrivalBackLen = 4f;
     static void ArrivalRoof(bool full = true)
     {
         float hx = HW + 0.35f, z0 = P.z - 1.6f, z1 = P.z + 1.4f, h = FuwaPortalTest.HoleH + 1.1f;
         var g = new GameObject("ArrivalRoof").transform; g.SetParent(isl, false);
         // 床：道（P から先）と重ならないように、ポータルのうしろの部分と、道の左右の外だけ（同じ高さの面が重なるとちらつく）
-        float fw = hx + 0.3f, zb = z0 - 0.3f, zf = z1 + 0.3f;
+        float fw = hx + 0.3f, zb = Mathf.Min(z0 - 0.3f, P.z - ArrivalBackLen), zf = z1 + 0.3f;   // 2026-11-15 てじゃ「中段のポータル、ちょっと後ろに道を伸ばしておいてほしい」→ うしろの床 1.9m → ArrivalBackLen
         Box(g, "FloorBack", new Vector3(0f, P.y - 0.3f, (zb + P.z) / 2f), new Vector3(2f * fw, 0.6f, P.z - zb), pathB, pathLayer);
         foreach (float sx in new[] { -1f, 1f })
             Box(g, "FloorSide", new Vector3(sx * (HW + fw) / 2f, P.y - 0.3f, (P.z + zf) / 2f), new Vector3(fw - HW, 0.6f, zf - P.z), pathB, pathLayer);
