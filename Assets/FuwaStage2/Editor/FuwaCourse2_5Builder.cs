@@ -276,6 +276,7 @@ public static class FuwaCourse2_5Builder
         FixColumnGround();
         ApplyFarFade();
         DecoIslets();
+        if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
         log.Append("下の段 2・上の段 2・空洞のゴール ");
         return goalP;
     }
@@ -1045,6 +1046,7 @@ public static class FuwaCourse2_5Builder
         FixColumnGround();
         ApplyFarFade();
         DecoIslets();
+        if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
         log.Append("島 3＋てっぺん ");
         return goalP;
     }
@@ -1411,7 +1413,8 @@ public static class FuwaCourse2_5Builder
         go.AddComponent<MeshFilter>().sharedMesh = SaveMesh(nm + "_Corbel", v, t);
         go.AddComponent<MeshRenderer>().sharedMaterial = stone;
     }
-    public static bool ColumnFlatBreak = true;
+    public static bool CoursePerf = true;
+    public static bool ColumnFlatBreak = true; public static float ColumnRingStep = 1.1f;
     public static bool ArchGateNew = true, StoneLook = true, CurtainPattern = true, OpenPitBridge = true;
     public static Color TerraCol = new Color(0.84f, 0.68f, 0.58f), TerraDCol = new Color(0.69f, 0.53f, 0.45f);
     static bool curtainOnArch; static float curtainArchTop;   // ArchGate のすぐあとの Curtain は柱の間に張る
@@ -3740,7 +3743,7 @@ public static class FuwaCourse2_5Builder
         };
         var zl = new List<float>();
         float topRegular = full ? zs : zs - jagAmp * 1.3f;
-        for (float z = z0; z < topRegular - 0.05f; z += 0.25f) zl.Add(z);
+        for (float z = z0; z < topRegular - 0.05f; z += ColumnRingStep) zl.Add(z);   // 2026-11-15 軽量化：0.25 → ColumnRingStep（ふくらみはゆるいので石の継ぎ目の輪＋ときどき）
         for (float j = 1.1f; z0 + j + 0.05f < topRegular; j += 1.1f) { zl.Add(z0 + j - 0.001f); zl.Add(z0 + j + 0.001f); zl.Add(z0 + j + 0.049f); zl.Add(z0 + j + 0.051f); }
         zl.Add(topRegular); zl.Sort();
         int rings = zl.Count;
