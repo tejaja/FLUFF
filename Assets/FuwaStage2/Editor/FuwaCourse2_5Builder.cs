@@ -3855,6 +3855,101 @@ public static class FuwaCourse2_5Builder
     // 円形の広場：今の P（道のはし）から +z へ。床は道より PlazaRaise 高い石の台（道のはしは台の下にもぐる＝ちらつき・すき間なし）
     //  床は同心円のシマシマ（道と同じ A/B）、まん中に台座とクリスタル、台座のまわりに光るルーンの輪、外に一段低い石のふち（入口・出口はあける）と崩れた柱
     //  終わったら P は反対がわの道のはじまり
+    // ===== 2026-11-15 上段の広場の下：石のブロックを積んだ逆さドーム =====
+    //  てじゃ「上段の広場の下の部分、土じゃなくてブロックのドームみたいな感じにしたい」
+    //  だ円の断面（ふちの半径 Rr・深さ D）を段（PlazaDomeRows）に分けて、段ごとにブロック（はば約 PlazaDomeBlockW、段ごとに半分ずらす＝れんが積み）
+    //  ブロックは表の面＋まわりの面取り（ふちで PlazaDomeBevel だけ中へ）＝となりとの間が V の溝。溝の奥は暗い裏の殻（すき間から空が見えない）
+    //  いちばん下はまるい要石（八角すい）＋下向きの小さいクリスタル
+    public static bool PlazaDome = true; public static int PlazaDomeRows = 8; public static float PlazaDomeDepth = 5.6f, PlazaDomeBlockW = 1.5f, PlazaDomeBevel = 0.1f, PlazaDomeThetaMax = 76f;
+    static void PlazaBlockDome(Transform g, string name, float Rr, float uy)
+    {
+        float D = PlazaDomeDepth, bev = PlazaDomeBevel;
+        var rnd = new System.Random(4242);
+        // 断面：θ（0＝ふち、上）→ 半径 Rr cosθ、高さ uy − D sinθ。法線（外・下向き）
+        Vector3 S(float th, float ph, float off)
+        {
+            float r = Rr * Mathf.Cos(th), y = uy - D * Mathf.Sin(th);
+            var n2 = new Vector2(Mathf.Cos(th) / Rr, -Mathf.Sin(th) / D).normalized;   // (外, 上)
+            r += n2.x * off; y += n2.y * off;
+            return new Vector3(Mathf.Cos(ph) * r, y, Mathf.Sin(ph) * r);
+        }
+        var stoneB = FuwaStage2WaterTest.ToonMat("Ruins_DomeStoneB", Color.Lerp(stone.color, terraD.color, 0.35f) * 0.95f);
+        var vA = new List<Vector3>(); var tA = new List<int>(); var vB = new List<Vector3>(); var tB = new List<int>();
+        float thMax = PlazaDomeThetaMax * Mathf.Deg2Rad;
+        int rows = PlazaDomeRows;
+        // 段の境目：下ほど少しせまく（上のほうが大きい石）
+        var ths = new float[rows + 1];
+        for (int k = 0; k <= rows; k++) { float u = (float)k / rows; ths[k] = thMax * (u * 0.8f + 0.2f * u * u); }
+        for (int k = 0; k < rows; k++)
+        {
+            float t0 = ths[k], t1 = ths[k + 1], tm = (t0 + t1) * 0.5f;
+            float rm = Rr * Mathf.Cos(tm);
+            int n = Mathf.Max(6, Mathf.RoundToInt(2f * Mathf.PI * rm / PlazaDomeBlockW));
+            float phOff = (k % 2) * Mathf.PI / n + 0.37f;
+            // 弧の長さ（面取りのはばを角度にする）
+            float arcTh = Vector3.Distance(S(t0, 0f, 0f), S(t1, 0f, 0f));
+            for (int i = 0; i < n; i++)
+            {
+                float p0 = phOff + 2f * Mathf.PI * i / n, p1 = phOff + 2f * Mathf.PI * (i + 1) / n;
+                float arcPh = rm * (p1 - p0);
+                float bw = Mathf.Min(0.16f, Mathf.Min(arcTh, arcPh) * 0.18f);
+                float dT = (t1 - t0) * bw / arcTh, dP = (p1 - p0) * bw / arcPh;
+                float lift = 0.02f + 0.06f * (float)rnd.NextDouble();      // 石ごとに少し出っぱり方をかえる
+                // ふち（溝の底）と、表の面の角
+                var E = new[] { S(t0, p0, -bev), S(t0, p1, -bev), S(t1, p1, -bev), S(t1, p0, -bev) };
+                var I = new[] { S(t0 + dT, p0 + dP, lift), S(t0 + dT, p1 - dP, lift), S(t1 - dT, p1 - dP, lift), S(t1 - dT, p0 + dP, lift) };
+                var nrm = (I[0] + I[1] + I[2] + I[3]) * 0.25f - new Vector3(0f, uy + D * 0.35f, 0f);   // 外（下・横）向き
+                bool alt = rnd.NextDouble() < 0.3;
+                var vv = alt ? vB : vA; var tt = alt ? tB : tA;
+                Tri(vv, tt, I[0], I[1], I[2], nrm); Tri(vv, tt, I[0], I[2], I[3], nrm);
+                for (int e = 0; e < 4; e++)
+                {
+                    int f = (e + 1) % 4;
+                    Tri(vv, tt, E[e], E[f], I[f], nrm); Tri(vv, tt, E[e], I[f], I[e], nrm);
+                }
+            }
+        }
+        // 裏の殻（溝の奥・継ぎ目のすき間をふさぐ、暗い）
+        var vK = new List<Vector3>(); var tK = new List<int>();
+        {
+            int nP = 96, nT = 24;
+            for (int a = 0; a < nT; a++)
+                for (int i = 0; i < nP; i++)
+                {
+                    float t0 = thMax * a / nT, t1 = thMax * (a + 1) / nT, p0 = 2f * Mathf.PI * i / nP, p1 = 2f * Mathf.PI * (i + 1) / nP;
+                    var A = S(t0, p0, -bev * 0.8f); var B = S(t0, p1, -bev * 0.8f); var C = S(t1, p1, -bev * 0.8f); var Dd = S(t1, p0, -bev * 0.8f);
+                    var w = (A + C) * 0.5f - new Vector3(0f, uy + D * 0.35f, 0f);
+                    Tri(vK, tK, A, B, C, w); Tri(vK, tK, A, C, Dd, w);
+                }
+        }
+        // いちばん下：八角の要石（下へ細る）＋ふたの石
+        {
+            float yb = uy - D * Mathf.Sin(thMax), rb = Rr * Mathf.Cos(thMax) + 0.15f;
+            int m = 8; var top = new Vector3[m]; var mid = new Vector3[m]; var bot = new Vector3[m];
+            for (int i = 0; i < m; i++)
+            {
+                float a = 2f * Mathf.PI * (i + 0.5f) / m; var d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                top[i] = d * rb + Vector3.up * (yb + 0.25f); mid[i] = d * (rb * 0.92f) + Vector3.up * (yb - 0.35f); bot[i] = d * (rb * 0.5f) + Vector3.up * (yb - 1.1f);
+            }
+            var c0 = Vector3.up * (yb - 1.25f);
+            for (int i = 0; i < m; i++)
+            {
+                int j = (i + 1) % m;
+                var o1 = (top[i] + top[j]) * 0.5f; o1.y = 0f; var o2 = (mid[i] + mid[j]) * 0.5f; o2.y = -0.4f * o2.magnitude;
+                Tri(vA, tA, top[i], top[j], mid[j], o1); Tri(vA, tA, top[i], mid[j], mid[i], o1);
+                Tri(vA, tA, mid[i], mid[j], bot[j], o2 + Vector3.down); Tri(vA, tA, mid[i], bot[j], bot[i], o2 + Vector3.down);
+                Tri(vA, tA, bot[i], bot[j], c0, Vector3.down);
+            }
+            // 下向きの小さいクリスタル（広場のクリスタルとおそろい）
+            var cr = MeshObj(g, "DomeCrystal", CrystalClusterMesh("PlazaDomeCrystal", 77, 1.1f, 0), CrystalMat(), new Vector3(0f, yb - 1.15f, 0f), 0, false);
+            cr.transform.localRotation = Quaternion.Euler(180f, 20f, 0f);
+        }
+        var go = new GameObject("BlockDome"); go.transform.SetParent(g, false);
+        MeshObj(go.transform, "BlocksA", SaveMesh(name + "_DomeA", vA, tA), stone, Vector3.zero, 0, true);
+        if (vB.Count > 0) MeshObj(go.transform, "BlocksB", SaveMesh(name + "_DomeB", vB, tB), stoneB, Vector3.zero, 0, true);
+        MeshObj(go.transform, "Backing", SaveMesh(name + "_DomeBack", vK, tK), underM, Vector3.zero, 0, true);
+    }
+
     static void CrystalPlaza(string name)
     {
         float R = PlazaR, cz = P.z + R - 0.4f, top = P.y + PlazaRaise;
@@ -3910,7 +4005,8 @@ public static class FuwaCourse2_5Builder
         var rockMesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/PlazaRockBaked.asset");
         float[] ur = { R + PlazaLedge - 0.05f, R - 0.6f, R - 3f, R - 5.8f }, uh = { 1.2f, 1.6f, 1.8f, 2f };
         float uy = -0.75f;   // ふちの側面の下から（ふちの下の面のかわり）
-        if (rockMesh)
+        if (PlazaDome) { PlazaBlockDome(g, name, R + PlazaLedge, uy); ur = new float[0]; }
+        else if (rockMesh)
         {
             var ro = new GameObject("UnderRock"); ro.transform.SetParent(g, false); ro.transform.localPosition = new Vector3(0f, uy, 0f);
             float k = (R + PlazaLedge + 0.06f) / 10.4f; ro.transform.localScale = new Vector3(k, 1f, k);
