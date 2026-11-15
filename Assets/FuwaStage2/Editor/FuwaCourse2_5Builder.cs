@@ -179,7 +179,7 @@ public static class FuwaCourse2_5Builder
             // 2026-11-14 てじゃ「そもそも順番かえよ、今下段2個→上段2個のとこを逆に」→ 右下 → 上2つ → 下2つ
             // 2026-11-14 てじゃ「上段2個、いみないかもな、左側2個にしよう」→ 右下 → 左2つ → 下2つ
             // 2026-11-14 てじゃ「序盤のも、1〜4枚じゃなくてデカイやつの一部が大きく破れてる形式に」→ 大きい巣1枚に大きな裂け目（右下ななめ／左たて／上よこ）。前の版：右下 / 左2 / 下2（WebGates）
-            S(1f); Curtain("C2_Big", 1); S(1.5f);
+            S(1f); ArchGate(); Curtain("C2_Big", 1); S(1.5f);   // 2026-11-15 てじゃ「その段のカーテンのアーチもしたのと揃える」→ 下の段と同じ溝の柱＋くさび石のアーチ
             // 2026-11-14 てじゃ「（裂け目より）小さい巣が複数あるやつ」→ 田の字にもどす（右下 / 左2つ / 下2つ）。裂け目の版：TearGates B1
             WebGates("B1", 5.6f, new[] { WLR, WLL | WUL, WLL | WLR }, true); });
         T(-40f);
@@ -188,7 +188,7 @@ public static class FuwaCourse2_5Builder
         // 2026-11-14 てじゃ「カーブ後の蜘蛛の巣の位置に、小さくなるカーテンつけよう」→ 曲がってすぐの門（左下＋右上）を青カーテンに
         // 2026-11-14 てじゃ「青カーテン以降の蜘蛛の巣、もっと小さいスキマを小さいふわふわで通り抜ける感じにしよう」→ 4つの門を「小さい穴1つの巣」に（穴の位置は 左下・右上・まん中・右下）
         //  前の版：右上だけあき / 右2 / 右下＋左上 / 左上だけあき（WebGates B2・B3・B4）
-        Run(() => { runB = isl; S(1f); S(WebGateGap / 2f); Curtain("C2_Small", -1); S(WebGateGap / 2f);
+        Run(() => { runB = isl; S(1f); S(WebGateGap / 2f); ArchGate(); Curtain("C2_Small", -1); S(WebGateGap / 2f);
             // 2026-11-14 てじゃ「スキマ通し、穴よりもさっきみたいなクモの巣が複数あるとこのスキマを通す感じに」→ 四角い巣2枚の間の細いスキマ（左寄りたて／上よこ／右寄りたて／下よこ）。前の版：穴1つの巣（HoleGates）
             // 2026-11-14 てじゃ「1枚ものを一部を裂くイメージ」「1〜2ライン裂けてる感じ」「斜めもあり」→ 細い裂け目（たて左／ななめ上／ななめ右／よこ下）。前の版：スキマ（SlitGates）
             // 2026-11-14 てじゃ「小さいゾーンも、小さい巣をもっとつめて、形を変えてスキマを調整」→ 3×3 のつめた巣＋1か所のスキマ（たて中段左 / よこ上右 / たて下段右 / よこ下左）
@@ -206,10 +206,11 @@ public static class FuwaCourse2_5Builder
             //  外した門の種：(-2.0,1.8) (0.8,0.7) (0.5,3.0) (-1.8,4.4) (2.8,2.0) (2.6,4.6)、スキマ (2,3)
             // 2026-11-14 てじゃ「道は縮めなくてよかった、カーテンまでの間があいててOK」→ 外した門のぶん（WebGateGap）道を足して長さは元のまま
             S(WebGateGap);
-            S(0.3f); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
+            S(0.3f); ArchGate(); Curtain("C2_Normal", 0); S(6.5f); });   // 2026-11-14 てじゃ「最後のクモの巣なくしてそこ普通もどしでいいかも」「カーテンポータル間を広げたいからクモの巣消してカーテン手前に」→ 白は最後の門のすぐ後、白→ワープW 6.5m（前は左下だけの門 B5 → 白 → 2.5m）
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
         if (CorridorPillars) CorridorColonnade(runA, runB); else CorridorTunnel(runA, runB, -40f, -1.6f);
+        if (MidRock) MidTierRock(iw, "I2_Rock");   // 2026-11-15 てじゃ「穴が開いてるところ以外に下に島つけよ」
         if (!CorridorPillars) { // CP の光るキノコは道のふちの外（壁の中）にあったので、トンネルの中の壁ぎわへ（2026-11-15 柱式ではやらない：てじゃ「ちゃんと丸太を道の外に」）
             var cpg = runA.Find("Checkpoints/Checkpoint1/GlowMushrooms");
             if (cpg) foreach (Transform c in cpg) c.localPosition = new Vector3(Mathf.Sign(c.localPosition.x) * (HW - 0.3f), c.localPosition.y + 0.66f, c.localPosition.z);
@@ -450,28 +451,7 @@ public static class FuwaCourse2_5Builder
             }
         }
         rimSegs = null;
-        if (GrassLip && segs.Count > 0)
-        {   // 2026-11-15 てじゃ「島の上の草っぽいとこのフチがぱきっとしてる」→ ふちに草のへり（外へ少しはみ出して下へ垂れる）。点ごとに外向きを平均してつなぎ目にすき間なし
-            var avg = new Dictionary<Vector3Int, Vector3>();
-            Vector3Int Key(Vector3 p3) => new Vector3Int(Mathf.RoundToInt(p3.x * 200f), Mathf.RoundToInt(p3.y * 200f), Mathf.RoundToInt(p3.z * 200f));
-            foreach (var sg in segs) foreach (int e2 in new[] { 0, 1 }) { var kk = Key(sg[e2]); avg[kk] = (avg.TryGetValue(kk, out var a0) ? a0 : Vector3.zero) + sg[2]; }
-            var lv = new List<Vector3>(); var lt = new List<int>();
-            Vector3 Out(Vector3 p3, float o, float dn) { var n3 = avg[Key(p3)]; n3.y = 0f; n3 = n3.sqrMagnitude > 1e-6f ? n3.normalized : Vector3.zero;
-                float w = Mathf.PerlinNoise(p3.x * 0.7f + 3f, p3.z * 0.7f + 8f); return p3 + n3 * o * (0.7f + 0.6f * w) + Vector3.down * dn * (0.7f + 0.6f * w); }
-            foreach (var sg in segs)
-            {
-                Vector3 a1 = sg[0], b1 = sg[1];
-                Vector3 a2 = Out(a1, 0.22f, 0.12f), b2 = Out(b1, 0.22f, 0.12f);   // 少し外・少し下（ふくらみ）
-                Vector3 a3 = Out(a1, 0.26f, 0.42f), b3 = Out(b1, 0.26f, 0.42f);   // 垂れたはし
-                var on = sg[2];
-                RockQuad(lv, lt, a1, b1, b2, a2, on + Vector3.up * 1.2f); RockQuad(lv, lt, a2, b2, b3, a3, on);
-                // 裏（下から見ても抜けない）
-                RockQuad(lv, lt, a1, b1, b2, a2, -(on + Vector3.up * 1.2f)); RockQuad(lv, lt, a2, b2, b3, a3, -on);
-            }
-            var lm = SaveMesh("I1_GrassLip", lv, lt);
-            var lgo = new GameObject("GrassLip"); lgo.transform.SetParent(rk, false);
-            lgo.AddComponent<MeshFilter>().sharedMesh = lm; lgo.AddComponent<MeshRenderer>().sharedMaterial = moss;
-        }
+        if (GrassLip && segs.Count > 0) GrassLipMesh(segs, rk, "I1_GrassLip");
         if (CaveCeilBump > 0f)
         {   // 2026-11-15 てじゃ「天井を少しでこぼこに」：空洞の天井（地面の層の下の面 top-1.5）を下へぼこぼこ垂らす。壁ぎわは 0（壁の上とつながる）
             float yc = top - 1.5f;
@@ -581,6 +561,130 @@ public static class FuwaCourse2_5Builder
         // 出口のポータルは口と反対の壁から少し離す（だ円の輪が壁にめりこまないように）、口の方へ進む
         var ent = sc - mdir * (hz - 1.5f);
         return (new Vector3(ent.x, cy0, ent.y), Mathf.Atan2(mdir.y, mdir.x) * Mathf.Rad2Deg);
+    }
+
+    // 草のへり（上の層の輪郭 segs から：外へ少しはみ出して下へ垂れる）。点ごとに外向きを平均してつなぎ目にすき間なし
+    static void GrassLipMesh(List<Vector3[]> segs, Transform rk, string meshName)
+    {   // 2026-11-15 てじゃ「島の上の草っぽいとこのフチがぱきっとしてる」→ ふちに草のへり（外へ少しはみ出して下へ垂れる）。点ごとに外向きを平均してつなぎ目にすき間なし
+            var avg = new Dictionary<Vector3Int, Vector3>();
+            Vector3Int Key(Vector3 p3) => new Vector3Int(Mathf.RoundToInt(p3.x * 200f), Mathf.RoundToInt(p3.y * 200f), Mathf.RoundToInt(p3.z * 200f));
+            foreach (var sg in segs) foreach (int e2 in new[] { 0, 1 }) { var kk = Key(sg[e2]); avg[kk] = (avg.TryGetValue(kk, out var a0) ? a0 : Vector3.zero) + sg[2]; }
+            var lv = new List<Vector3>(); var lt = new List<int>();
+            Vector3 Out(Vector3 p3, float o, float dn) { var n3 = avg[Key(p3)]; n3.y = 0f; n3 = n3.sqrMagnitude > 1e-6f ? n3.normalized : Vector3.zero;
+                float w = Mathf.PerlinNoise(p3.x * 0.7f + 3f, p3.z * 0.7f + 8f); return p3 + n3 * o * (0.7f + 0.6f * w) + Vector3.down * dn * (0.7f + 0.6f * w); }
+            foreach (var sg in segs)
+            {
+                Vector3 a1 = sg[0], b1 = sg[1];
+                Vector3 a2 = Out(a1, 0.22f, 0.12f), b2 = Out(b1, 0.22f, 0.12f);   // 少し外・少し下（ふくらみ）
+                Vector3 a3 = Out(a1, 0.26f, 0.42f), b3 = Out(b1, 0.26f, 0.42f);   // 垂れたはし
+                var on = sg[2];
+                RockQuad(lv, lt, a1, b1, b2, a2, on + Vector3.up * 1.2f); RockQuad(lv, lt, a2, b2, b3, a3, on);
+                // 裏（下から見ても抜けない）
+                RockQuad(lv, lt, a1, b1, b2, a2, -(on + Vector3.up * 1.2f)); RockQuad(lv, lt, a2, b2, b3, a3, -on);
+            }
+            var lm = SaveMesh(meshName, lv, lt);
+            var lgo = new GameObject("GrassLip"); lgo.transform.SetParent(rk, false);
+            lgo.AddComponent<MeshFilter>().sharedMesh = lm; lgo.AddComponent<MeshRenderer>().sharedMaterial = moss;
+            }
+
+    // ===== 2026-11-15 中段（空中の巣の回廊）の下の島 =====
+    //  てじゃ「穴が開いてるところ以外に下に島つけよ」→ ふつうの道（Road*・Turn*・到着の床）の下だけ、下の段と同じ作りの岩（段々に細る・ゴツゴツ・草のへり）
+    //  落とし穴の列（WindRun_Pits*）の下はくりぬく（MidRockPitClear のゆとり）＝落ちたらそのまま落ちる
+    public static bool MidRock = true; public static float MidRockPitClear = 0.7f, MidRockM = 1.3f;
+    static void MidTierRock(Transform island, string meshName)
+    {
+        var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
+        var polys = new List<Vector2[]>(); var pits = new List<Vector2[]>();
+        float pathMinY = float.MaxValue;
+        Vector2[] Hull(Transform part, bool countY)
+        {
+            var pts = new List<Vector2>();
+            foreach (var cl in part.GetComponentsInChildren<Collider>(true))
+            {
+                if (cl.isTrigger || cl.gameObject.layer != pathLayer) continue;
+                var t = cl.transform; IEnumerable<Vector3> cs;
+                if (cl is BoxCollider bc) cs = Enumerable.Range(0, 8).Select(k => bc.center + Vector3.Scale(bc.size * 0.5f, new Vector3((k & 1) == 0 ? -1 : 1, (k & 2) == 0 ? -1 : 1, (k & 4) == 0 ? -1 : 1)));
+                else if (cl is MeshCollider mc && mc.sharedMesh) cs = mc.sharedMesh.vertices;
+                else continue;
+                foreach (var c in cs) { var p = root.InverseTransformPoint(t.TransformPoint(c)); pts.Add(new Vector2(p.x, p.z)); if (countY) pathMinY = Mathf.Min(pathMinY, p.y); }
+            }
+            return pts.Count >= 3 ? Hull2D(pts) : null;
+        }
+        foreach (Transform ch in island)
+        {
+            if (ch.name.StartsWith("Run"))
+                foreach (Transform part in ch)
+                {
+                    if (part.name.StartsWith("Road") || part.name == "ArrivalRoof") { var h = Hull(part, true); if (h != null) polys.Add(h); }
+                    else if (part.name.StartsWith("WindRun_Pits")) { var h = Hull(part, false); if (h != null) pits.Add(h); }
+                }
+            else if (ch.name.StartsWith("Turn")) { var h = Hull(ch, true); if (h != null) polys.Add(h); }
+        }
+        if (polys.Count == 0) return;
+        float top = pathMinY + 0.05f;   // 道の下の面（道の厚み 0.6 の下）にぴったり
+        System.Func<Vector2, float> noise = q => RockNoise * (0.6f * Mathf.Sin(q.x * 0.23f + 1.3f) * Mathf.Cos(q.y * 0.19f - 0.7f) + 0.4f * Mathf.Sin(q.x * 0.11f - q.y * 0.13f + 2.1f));
+        System.Func<Vector2, float> dPath = q => { float d = float.MaxValue; foreach (var poly in polys) d = Mathf.Min(d, PolySdf(poly, q)); return d; };
+        System.Func<Vector2, float> dPit = q => { float d = float.MaxValue; foreach (var poly in pits) d = Mathf.Min(d, PolySdf(poly, q)); return d; };
+        var layers = new List<(float y1, float y0, float pm)>
+        {
+            (top, top - 1.3f, MidRockM),
+            (top - 1.3f, top - 3.0f, MidRockM - 1.1f),
+            (top - 3.0f, top - 5.2f, MidRockM - 2.6f),
+        };
+        System.Func<int, Vector2, float> F = (k, q) =>
+        {
+            float f = dPath(q) - layers[k].pm + noise(q);
+            if (pits.Count > 0) f = Mathf.Max(f, -(dPit(q) - MidRockPitClear - 0.25f * k));   // 穴の列の下はなし（下ほど少し広くあける）
+            return f;
+        };
+        float x0 = float.MaxValue, x1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
+        foreach (var poly in polys) foreach (var q in poly) { x0 = Mathf.Min(x0, q.x); x1 = Mathf.Max(x1, q.x); z0 = Mathf.Min(z0, q.y); z1 = Mathf.Max(z1, q.y); }
+        x0 -= MidRockM + 3f; x1 += MidRockM + 3f; z0 -= MidRockM + 3f; z1 += MidRockM + 3f;
+        int nx = Mathf.CeilToInt((x1 - x0) / RockCell), nz = Mathf.CeilToInt((z1 - z0) / RockCell);
+        var grids = new float[layers.Count][,];
+        for (int k = 0; k < layers.Count; k++)
+        {
+            var g = new float[nx + 1, nz + 1];
+            for (int i = 0; i <= nx; i++) for (int j = 0; j <= nz; j++) { float f = F(k, new Vector2(x0 + i * RockCell, z0 + j * RockCell)); if (Mathf.Abs(f) < 1e-4f) f = 1e-4f; g[i, j] = f; }
+            grids[k] = g;
+        }
+        var v = new List<Vector3>(); var tTop = new List<int>(); var tSide = new List<int>();
+        Vector3 P3(int i, int j, float y) => new Vector3(x0 + i * RockCell, y, z0 + j * RockCell);
+        bool Full(float[,] g, int i, int j) => g != null && g[i, j] < 0f && g[i + 1, j] < 0f && g[i, j + 1] < 0f && g[i + 1, j + 1] < 0f;
+        var segs = new List<Vector3[]>();
+        for (int k = 0; k < layers.Count; k++)
+        {
+            rimSegs = (k == 0 && GrassLip) ? segs : null;
+            var L = layers[k]; var g = grids[k];
+            var above = k > 0 ? grids[k - 1] : null; var below = k + 1 < layers.Count ? grids[k + 1] : null;
+            var capTop = k == 0 ? tTop : tSide;
+            for (int j = 0; j < nz; j++)
+            {
+                int runStart = -1;
+                for (int i = 0; i <= nx; i++)
+                {
+                    bool full = i < nx && Full(g, i, j);
+                    if (full && runStart < 0) runStart = i;
+                    if (!full && runStart >= 0) { RockRun(v, capTop, tSide, P3, runStart, i, j, L.y1, L.y0, above, below, Full); runStart = -1; }
+                    if (i < nx && !full)
+                    {
+                        RockTri(v, capTop, tSide, P3(i, j, 0), P3(i + 1, j, 0), P3(i + 1, j + 1, 0), g[i, j], g[i + 1, j], g[i + 1, j + 1], L.y1, L.y0);
+                        RockTri(v, capTop, tSide, P3(i, j, 0), P3(i + 1, j + 1, 0), P3(i, j + 1, 0), g[i, j], g[i + 1, j + 1], g[i, j + 1], L.y1, L.y0);
+                    }
+                }
+            }
+        }
+        rimSegs = null;
+        if (GrassLip && segs.Count > 0) GrassLipMesh(segs, rk, meshName + "_GrassLip");
+        if (RockRugged) RockDisplace(v, top, x0, z0);
+        var mesh = SaveRockMesh(meshName, v, tTop, tSide);
+        var go = new GameObject("RockMesh"); go.transform.SetParent(rk, false); go.layer = pathLayer;
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        go.AddComponent<MeshRenderer>().sharedMaterials = new[] { moss, underM };
+        go.AddComponent<MeshCollider>().sharedMesh = mesh;
+        // 島の座標がコースの座標とちがっても合うように（頂点はコースの座標）
+        rk.position = root.position; rk.rotation = root.rotation;
+        log.Append("中段の岩 " + (tTop.Count + tSide.Count) / 3 + "三角 ");
     }
 
     // 凸包（反時計回り）と、凸多角形までの符号つき距離（中が −）
