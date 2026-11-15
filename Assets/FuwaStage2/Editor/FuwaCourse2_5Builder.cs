@@ -926,7 +926,9 @@ public static class FuwaCourse2_5Builder
                     //  まわりを 1辺 PS こまに分けた輪：上（道の下の面）→ 下（折れ口、こまごとに高さがちがう）。折れ口はまん中から扇でふさぐ
                     const int PS = 3; int PM = PS * 4;
                     var cornersT = new[] { new Vector2(-hx0, -hz0), new Vector2(hx0, -hz0), new Vector2(hx0, hz0), new Vector2(-hx0, hz0) };
-                    var ringT = new Vector3[PM]; var ringB = new Vector3[PM];
+                    var ringT = new Vector3[PM]; var ringB = new Vector3[PM]; var ringM = new Vector3[PM];
+                    // 2026-11-15 てじゃ「すきまある」→ 細る柱だと、アーチの横の壁のはし（まっすぐ下りる）との間にくさび形のすき間。アーチの足もと（yt-1.7）より下までは細らせない
+                    float yMid = yt - 1.9f;
                     float jph = (float)rnd.NextDouble() * 6.28f, jph2 = (float)rnd.NextDouble() * 6.28f;
                     float yb = yt - dep * 0.8f, tap = 0.9f;
                     var sh = new Vector2(bx * (open ? 0.05f : 0.15f), bz * 0.08f);   // 下の方が少しずれる（古い感じ）
@@ -935,6 +937,7 @@ public static class FuwaCourse2_5Builder
                         int side = k / PS; float f = (k % PS) / (float)PS;
                         var q = Vector2.Lerp(cornersT[side], cornersT[(side + 1) % 4], f);
                         ringT[k] = new Vector3(cxp + q.x, yt, z + q.y);
+                        ringM[k] = new Vector3(cxp + q.x, yMid, z + q.y);
                         // 2026-11-15 てじゃ「折れてるところギザギザすぎる、もっとゆるやかに」→ こまごとの乱数をやめ、ゆるい斜め＋小さいうねり
                         float thk = Mathf.PI * 2f * k / PM;
                         float jag = 0.32f * Mathf.Sin(thk + jph) + 0.07f * Mathf.Sin(2f * thk + jph2);
@@ -945,7 +948,8 @@ public static class FuwaCourse2_5Builder
                     {
                         int j = (k + 1) % PM;
                         var mid2 = (ringT[k] + ringT[j]) * 0.5f; var outw = new Vector3(mid2.x - cxp, 0f, mid2.z - z);
-                        Quad(v, t, ringT[k], ringT[j], ringB[j], ringB[k], outw);
+                        Quad(v, t, ringT[k], ringT[j], ringM[j], ringM[k], outw);
+                        Quad(v, t, ringM[k], ringM[j], ringB[j], ringB[k], outw);
                         Tri(v, t, ringB[k], ringB[j], cB, Vector3.down);
                     }
                     var top = new[] { new Vector3(cxp - hx0, yt, z - hz0), new Vector3(cxp + hx0, yt, z - hz0), new Vector3(cxp + hx0, yt, z + hz0), new Vector3(cxp - hx0, yt, z + hz0) };
