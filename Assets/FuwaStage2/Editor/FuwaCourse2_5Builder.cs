@@ -742,6 +742,8 @@ public static class FuwaCourse2_5Builder
         if (stubGap) { float lz = isl.InverseTransformPoint(root.TransformPoint(new Vector3(BridgeHW, 0f, BrokenBridgeZ))).z; gapPlusX = new Vector2(lz - 1.7f, lz + 1.7f); }
         if (pits && Mathf.Abs(rise) < 0.01f) WindRun("Bridge", len, windsAt ?? new float[0]);
         else S(len, rise);
+        // 2026-11-15 てじゃ「石像前の橋、へんな縦筋」→ 穴あきの道の横の Rail（区切りごとの見た目だけの横木）が橋の横の板より外に出て継ぎ目が見えていた。橋では消す（当たりはない）
+        foreach (var rl in isl.GetComponentsInChildren<Transform>(true).Where(x => x.name == "Rail" && x.parent && x.parent.name.StartsWith("WindRun_Bridge")).ToList()) Object.DestroyImmediate(rl.gameObject);
         // 2026-11-15 見た目クオリティ（C）：橋脚（はばいっぱいの石の壁、下へ細くなって崩れて終わる）＋橋脚の間の石のアーチ（上は壁＝スパンドレル、ふちにくさび石の輪）
         //  ＋道のはしの下のふち飾り（コーニス）＋欄干（低い壁＋笠石、ところどころ崩れて切れている）
         int n = Mathf.Max(2, Mathf.RoundToInt(len / 4f));
@@ -807,6 +809,19 @@ public static class FuwaCourse2_5Builder
                     }
                 }
             }
+            // 道のはしの横をおおう板（タイルの継ぎ目が縦筋に見えていた）：スパンドレルと同じ面（xo）で、道の下の面〜上の面。上はふさぐ
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                Vector3 A2(float z, float dy, float x) => new Vector3(x, DeckY(z) + dy, z);
+                var spans = new List<Vector2> { new Vector2(z0, z0 + len) };
+                if (sx > 0 && gapPlusX.y > gapPlusX.x) spans = new List<Vector2> { new Vector2(z0, Mathf.Max(z0, gapPlusX.x)), new Vector2(Mathf.Min(z0 + len, gapPlusX.y), z0 + len) };   // 崩れた参道の橋がつながる所はあける（床と重ならないように）
+                foreach (var sp in spans)
+                {
+                    if (sp.y - sp.x < 0.01f) continue;
+                    Quad(v, t, A2(sp.x, -Tk, sx * xo), A2(sp.y, -Tk, sx * xo), A2(sp.y, 0f, sx * xo), A2(sp.x, 0f, sx * xo), new Vector3(sx, 0f, 0f));
+                    Quad(v, t, A2(sp.x, 0f, sx * HW), A2(sp.y, 0f, sx * HW), A2(sp.y, 0f, sx * xo), A2(sp.x, 0f, sx * xo), Vector3.up);
+                }
+            }
             // コーニス（道のはしの下）
             foreach (float sx in new[] { -1f, 1f })
             {
@@ -824,6 +839,7 @@ public static class FuwaCourse2_5Builder
             var rnd = new System.Random(Mathf.RoundToInt(len * 37f + rise * 11f));
             float ang = -Mathf.Atan2(rise, len) * Mathf.Rad2Deg;
             var bvv = new List<Vector3>(); var btt = new List<int>();   // 崩れた欄干（ガタガタの壁）とがれき
+            var pvv = new List<Vector3>(); var ptt = new List<int>(); var cvv = new List<Vector3>(); var ctt = new List<int>();   // ふつうの欄干の壁・笠石
             foreach (float sx in new[] { -1f, 1f })
             {
                 int segs = Mathf.Max(3, Mathf.RoundToInt(len / 2f));
@@ -832,19 +848,19 @@ public static class FuwaCourse2_5Builder
                 {
                     float za = z0 + len * s / segs, zb = z0 + len * (s + 1) / segs;
                     if (sx > 0 && gapPlusX.y > gapPlusX.x && zb > gapPlusX.x && za < gapPlusX.y) continue;
-                    float zm = (za + zb) / 2f, L = zb - za - 0.06f;
+                    float zm = (za + zb) / 2f, L = zb - za;   // 2026-11-15 てじゃ「へんな縦筋」→ 区切りのすき間（0.06）をなくす
                     bool br = s == broken;
                     float hgt = 0.38f;
                     if (!br)
-                    {
-                        var w = Box(isl, "Parapet", new Vector3(sx * (HW + 0.1f), DeckY(zm) + hgt / 2f, zm), new Vector3(0.22f, hgt, L), stone, 0);
-                        w.transform.localRotation = Quaternion.Euler(ang, 0f, 0f);
-                        var cp = Box(isl, "ParapetCap", new Vector3(sx * (HW + 0.1f), DeckY(zm) + hgt + 0.05f, zm), new Vector3(0.32f, 0.1f, L + 0.04f), terraD, 0);
-                        cp.transform.localRotation = Quaternion.Euler(ang, 0f, 0f); Object.DestroyImmediate(cp.GetComponent<Collider>());
+                    {   // ふつうの区切り：壁と笠石は1つのメッシュにまとめる（別々の箱だと継ぎ目が縦筋に見えた）。当たりは見えない箱
+                        var w = Box(isl, "ParapetCol", new Vector3(sx * (HW + 0.1f), DeckY(zm) + hgt / 2f, zm), new Vector3(0.22f, hgt, L), null, 0);
+                        w.transform.localRotation = Quaternion.Euler(ang, 0f, 0f); Object.DestroyImmediate(w.GetComponent<MeshRenderer>()); Object.DestroyImmediate(w.GetComponent<MeshFilter>());
+                        FieldSlab(pvv, ptt, new Vector3(sx * (HW + 0.1f), DeckY(za), za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, new[] { 0f, zb - za }, new[] { hgt, hgt }, new[] { 0f, 0f }, -0.11f, 0.11f);
+                        FieldSlab(cvv, ctt, new Vector3(sx * (HW + 0.1f), DeckY(za) + hgt, za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, new[] { 0f, zb - za }, new[] { 0.1f, 0.1f }, new[] { 0f, 0f }, -0.16f, 0.16f);
                     }
                     else
                     {   // 崩れた区切り：上のふちがガタガタに欠けて低くなった壁（両はしは高いまま、まん中ほど低い）＋岩のかけら
-                        int nn = 14; var aa = Lin(0f, zb - za - 0.06f, nn);
+                        int nn = 14; var aa = Lin(0f, zb - za, nn);
                         var ee = new float[nn]; var dd = new float[nn];
                         for (int k = 0; k < nn; k++)
                         {
@@ -853,7 +869,7 @@ public static class FuwaCourse2_5Builder
                             dd[k] = mid > 0.05f ? (float)rnd.NextDouble() * 0.05f : 0f;
                         }
                         ee[0] = hgt; ee[nn - 1] = hgt;
-                        FieldSlab(bvv, btt, new Vector3(sx * (HW + 0.1f), DeckY(za + 0.03f), za + 0.03f), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, aa, ee, dd, -0.11f, 0.11f);
+                        FieldSlab(bvv, btt, new Vector3(sx * (HW + 0.1f), DeckY(za), za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, aa, ee, dd, -0.11f, 0.11f);
                         for (int k = 0; k < 3; k++)
                         {
                             float rz = za + L * (0.3f + 0.4f * (float)rnd.NextDouble());
@@ -864,6 +880,8 @@ public static class FuwaCourse2_5Builder
                 }
             }
             if (bvv.Count > 0) MeshObj(isl, "ParapetBroken", SaveMesh(bn + "_Broken", bvv, btt), stone, Vector3.zero, 0, true);
+            if (pvv.Count > 0) MeshObj(isl, "Parapet", SaveMesh(bn + "_Parapet", pvv, ptt), stone, Vector3.zero, 0, true);
+            if (cvv.Count > 0) MeshObj(isl, "ParapetCap", SaveMesh(bn + "_ParapetCap", cvv, ctt), terraD, Vector3.zero, 0, true);
         }
         HW = hw0;
     }
