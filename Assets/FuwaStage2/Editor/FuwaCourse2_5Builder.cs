@@ -900,6 +900,21 @@ public static class FuwaCourse2_5Builder
     public static float StatueScale = 9f, StatueYaw = 225.42f;   // 2026-11-14 てじゃがシーンで決めた大きさ（9倍＝高さ約24m）と向き（コースの座標）
     const string StatueFbx = "Assets/FuwaStage2/Models/MushStatue.fbx";
     public static bool StatueMossFaces = false;   // true で前の「面ごとの苔」にもどす
+    static Material AltarStoneMat(Material stoneSrc)
+    {
+        string dir = System.IO.Path.GetDirectoryName(AssetDatabase.GetAssetPath(stoneSrc)).Replace('\\', '/');
+        string path = dir + "/Ruins_AltarStone.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m) { m = new Material(stoneSrc); AssetDatabase.CreateAsset(m, path); } else m.CopyPropertiesFromMaterial(stoneSrc);
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/IceDetail.png");
+        if (!tex || !m.HasProperty("_GroundTex")) return stoneSrc;
+        Color sc = stoneSrc.color, mc = new Color(0.5f, 0.7f, 0.4f);
+        m.SetTexture("_GroundTex", tex);
+        m.SetFloat("_GroundPatch", 1f); m.SetFloat("_GroundPatchScale", 2.6f); m.SetFloat("_GroundMidScale", 0.9f); m.SetFloat("_GroundSteps", 2f);   // 2段＝苔か石かくっきり（3段だと中間の濁った色が広く出た）
+        m.SetColor("_GroundTintA", new Color(mc.r / sc.r, mc.g / sc.g, mc.b / sc.b)); m.SetColor("_GroundTintB", Color.white); m.SetFloat("_GroundFine", 0f);
+        EditorUtility.SetDirty(m);
+        return m;
+    }
     static void StatueMoss(Material m, Color stoneCol)
     {
         var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaStage2/Textures/IceDetail.png");
@@ -1080,6 +1095,7 @@ public static class FuwaCourse2_5Builder
     public static bool PlazaBridgeDirect = true, PlazaLedgeUnderEntry = true;
     // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
     static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
+    public static float ParapetSink = 0.15f;
     static void ArchBridge(float len, float rise, bool pits, float[] windsAt, bool stubGap = false, bool noFirstPier = false)
     {
         float hw0 = HW; HW = BridgeHW;
@@ -1237,7 +1253,8 @@ public static class FuwaCourse2_5Builder
                     {   // ふつうの区切り：壁と笠石は1つのメッシュにまとめる（別々の箱だと継ぎ目が縦筋に見えた）。当たりは見えない箱
                         var w = Box(isl, "ParapetCol", new Vector3(sx * (HW + 0.1f), DeckY(zm) + hgt / 2f, zm), new Vector3(0.22f, hgt, L), null, 0);
                         w.transform.localRotation = Quaternion.Euler(ang, 0f, 0f); Object.DestroyImmediate(w.GetComponent<MeshRenderer>()); Object.DestroyImmediate(w.GetComponent<MeshFilter>());
-                        FieldSlab(pvv, ptt, new Vector3(sx * (HW + 0.1f), DeckY(za), za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, new[] { 0f, zb - za }, new[] { hgt, hgt }, new[] { 0f, 0f }, -0.11f, 0.11f);
+                        // 2026-11-15 てじゃ「クリスタル広場後の橋にスキマ」：道の板のふちは面取りで少し低く、欄干の下のはしとの間から外（空）が見えた → 欄干の壁を道の中まで（ParapetSink）下げる
+                        FieldSlab(pvv, ptt, new Vector3(sx * (HW + 0.1f), DeckY(za) - ParapetSink, za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, new[] { 0f, zb - za }, new[] { hgt + ParapetSink, hgt + ParapetSink }, new[] { 0f, 0f }, -0.11f, 0.11f);
                         FieldSlab(cvv, ctt, new Vector3(sx * (HW + 0.1f), DeckY(za) + hgt, za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, new[] { 0f, zb - za }, new[] { 0.1f, 0.1f }, new[] { 0f, 0f }, -0.16f, 0.16f);
                     }
                     else
@@ -1251,7 +1268,8 @@ public static class FuwaCourse2_5Builder
                             dd[k] = mid > 0.05f ? (float)rnd.NextDouble() * 0.05f : 0f;
                         }
                         ee[0] = hgt; ee[nn - 1] = hgt;
-                        FieldSlab(bvv, btt, new Vector3(sx * (HW + 0.1f), DeckY(za), za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, aa, ee, dd, -0.11f, 0.11f);
+                        for (int k = 0; k < nn; k++) ee[k] += ParapetSink;
+                        FieldSlab(bvv, btt, new Vector3(sx * (HW + 0.1f), DeckY(za) - ParapetSink, za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, aa, ee, dd, -0.11f, 0.11f);
                         if (Pebbles) for (int k = 0; k < 3; k++)
                         {
                             float rz = za + L * (0.3f + 0.4f * (float)rnd.NextDouble());
@@ -1319,14 +1337,19 @@ public static class FuwaCourse2_5Builder
             }
             var polyF = new List<Vector3> { Q(a0, rIn, -dd), Q(a1, rIn, -dd) }; polyF.AddRange(outerF);
             var polyB = new List<Vector3> { Q(a0, rIn, dd), Q(a1, rIn, dd) }; polyB.AddRange(outerB);
-            var cF = polyF.Aggregate(Vector3.zero, (x, y) => x + y) / polyF.Count; var cB = polyB.Aggregate(Vector3.zero, (x, y) => x + y) / polyB.Count;
-            var c3 = (cF + cB) * 0.5f;
+            // 2026-11-15 てじゃ「アーチ上部の欠けてるところに穴」：欠けた石の外がわはへこんだ多角形なので、
+            //  まん中からの扇（ふた）と「まん中から外向き」の横の面の向きが、へこみの所で裏返って穴になっていた
+            //  → ふたは耳切りで三角に分ける。横の面の外向きは多角形の回る向きから決める
+            var tris = EarClipXY(polyF);
+            foreach (var tr in tris) { Tri(tv, tt, polyF[tr.x], polyF[tr.y], polyF[tr.z], Vector3.back); Tri(tv, tt, polyB[tr.x], polyB[tr.y], polyB[tr.z], Vector3.forward); }
+            float area2 = 0f; for (int k = 0; k < polyF.Count; k++) { var p0 = polyF[k]; var p1 = polyF[(k + 1) % polyF.Count]; area2 += p0.x * p1.y - p1.x * p0.y; }
+            float ori = area2 >= 0f ? 1f : -1f;   // 1＝反時計回り（xy）
             for (int k = 0; k < polyF.Count; k++)
             {
                 int k2 = (k + 1) % polyF.Count;
-                Tri(tv, tt, cF, polyF[k], polyF[k2], Vector3.back); Tri(tv, tt, cB, polyB[k], polyB[k2], Vector3.forward);
-                var mid = (polyF[k] + polyF[k2] + polyB[k] + polyB[k2]) * 0.25f;
-                Tri(tv, tt, polyF[k], polyF[k2], polyB[k2], mid - c3); Tri(tv, tt, polyF[k], polyB[k2], polyB[k], mid - c3);
+                var e = polyF[k2] - polyF[k];
+                var outN = new Vector3(e.y, -e.x, 0f) * ori;
+                Tri(tv, tt, polyF[k], polyF[k2], polyB[k2], outN); Tri(tv, tt, polyF[k], polyB[k2], polyB[k], outN);
             }
         }
         MeshObj(g, "Arch", SaveMesh("ArchGateArch" + no, v, t), terra, Vector3.zero, 0, true);
@@ -3086,6 +3109,7 @@ public static class FuwaCourse2_5Builder
         }
         return p;
     }
+    public static bool VoronoiCoplanar = true; public static float CellFrameInset = 0.022f;   // 枠の糸の見える半分の太さ（_LineWidth 0.0165 ×0.5 ×1.7 ＋ふち）
     static void VoronoiGates(string tag, Vector2[][] seedsPerGate, Vector2Int[] gapPairs)
     {
         float z0 = P.z, len = seedsPerGate.Length * (WebGateGap + MidWebExtra);
@@ -3109,7 +3133,9 @@ public static class FuwaCourse2_5Builder
                 if (poly.Count < 3) continue;
                 poly = SimplifyPoly(poly, 8);
                 var sh = ShapeFor(tag, gi, i);
-                CellWeb(g, "Web" + gi + "_" + i, poly, z + ((i % 3) - 1) * 0.04f, sh.s);
+                // 2026-11-15 てじゃ「小さくなって進むとこのクモの巣、重なってるとこがZファイト気味」：となりの巣の枠の糸が同じ所に重なり、4cm 前後にずらしてあるだけだったので
+                //  見る向きで前後が入れかわってチラついた → 巣は同じ面に置いて、枠の糸を糸の太さの半分だけ内がわへ（となりどうし糸がくっつくだけで重ならない）
+                CellWeb(g, "Web" + gi + "_" + i, poly, VoronoiCoplanar ? z : z + ((i % 3) - 1) * 0.04f, sh.s);
             }
         }
         S(len);
@@ -3134,6 +3160,18 @@ public static class FuwaCourse2_5Builder
         SpiderWebBuild.Build(b);
         // 枠の多角形を、自分の多角形にさしかえる（巣の中心＝重心から見た角、角度の順）
         var rel = poly.Select(q => q - cen).OrderBy(v => Mathf.Atan2(v.y, v.x)).ToList();
+        if (CellFrameInset > 0f)
+        {   // 枠の糸の見える太さの半分だけ内がわへ（となりの巣の枠と重ならないように）
+            int rn = rel.Count; var ins = new List<Vector2>();
+            for (int k = 0; k < rn; k++)
+            {
+                var a = rel[(k + rn - 1) % rn]; var v = rel[k]; var c = rel[(k + 1) % rn];
+                var e1 = (v - a).normalized; var e2 = (c - v).normalized;
+                var n1 = new Vector2(-e1.y, e1.x); var n2 = new Vector2(-e2.y, e2.x);   // 角度の順＝反時計回りなので左が内がわ
+                ins.Add(v + (n1 + n2) / Mathf.Max(0.2f, 1f + Vector2.Dot(n1, n2)) * CellFrameInset);
+            }
+            rel = ins;
+        }
         if (b.webRenderer)
         {
             var m = b.webRenderer.sharedMaterial; var fv = new Vector4[4];
@@ -3814,6 +3852,12 @@ public static class FuwaCourse2_5Builder
             ChamferBoxInto(bv, bt, new Vector3(0f, 0.1f, 0f), new Vector3(1.1f, 0.2f, 1.1f), 0.04f);
             LatheInto(bv, bt, new[] { new[] { 0.5f, 0.2f }, new[] { 0.53f, 0.25f }, new[] { 0.5f, 0.31f }, new[] { 0.43f, 0.34f }, new[] { 0.39f, 0.36f } }, lat);
             z0 = 0.36f;
+            // 2026-11-15 てじゃ「柱の根本ニスキマ」：土台の輪の上（半径 0.39）があいていて、胴の溝（半径 0.33〜0.37）とのすき間から中が見えた → 輪の上にふた
+            for (int i = 0; i < lat; i++)
+            {
+                float a0 = Mathf.PI * 2f * i / lat, a1 = Mathf.PI * 2f * (i + 1) / lat;
+                Tri(bv, bt, new Vector3(Mathf.Cos(a0) * 0.395f, z0, Mathf.Sin(a0) * 0.395f), new Vector3(Mathf.Cos(a1) * 0.395f, z0, Mathf.Sin(a1) * 0.395f), new Vector3(0f, z0, 0f), Vector3.up);
+            }
         }
         bool full = kind == 0;
         float zs = full ? h - 0.45f : h;                   // 胴のてっぺん（折れなら一番高い所の目安）
@@ -4486,18 +4530,10 @@ public static class FuwaCourse2_5Builder
         ped.transform.localPosition = new Vector3(0f, 0.42f, 0f); ped.transform.localScale = new Vector3(3.1f, 0.42f, 3.1f);
         Object.DestroyImmediate(ped.GetComponent<MeshRenderer>()); Object.DestroyImmediate(ped.GetComponent<MeshFilter>());
         var altar = AltarMesh(name + "_Altar");
-        MeshObj(g, "Altar", altar.stone, stone, Vector3.zero, 0, true);
+        // 2026-11-15 てじゃ「クリスタル台座のコケが雑」：四角い板の苔 → 石像と同じやり方（上を向いた面に、まだらに苔の色。FuwaToonLit の地面のムラ）
+        MeshObj(g, "Altar", altar.stone, AltarStoneMat(stone), Vector3.zero, 0, true);
         var altarRune = MeshObj(g, "AltarRune", altar.rune, runeM, Vector3.zero, 0, false);
         runeRends.Add(altarRune.GetComponent<Renderer>());
-        { // 苔のかたまり（下の段の上、ふちのあたり）
-            var rnm = new System.Random(31);
-            for (int i = 0; i < 6; i++)
-            {
-                float a = (float)rnm.NextDouble() * Mathf.PI * 2f, rr = 1.38f + 0.12f * (float)rnm.NextDouble();
-                var mb = Box(g, "AltarMoss", new Vector3(Mathf.Cos(a) * rr, 0.28f + 0.025f, Mathf.Sin(a) * rr), new Vector3(0.22f + 0.2f * (float)rnm.NextDouble(), 0.05f, 0.16f + 0.12f * (float)rnm.NextDouble()), moss, 0);
-                mb.transform.localRotation = Quaternion.Euler(0f, a * Mathf.Rad2Deg, 0f); Object.DestroyImmediate(mb.GetComponent<Collider>());
-            }
-        }
         var crysM = CrystalMat();
         var pivot = new GameObject("Crystal").transform; pivot.SetParent(g, false); pivot.localPosition = new Vector3(0f, CrystalH, 0f);
         var core = MeshObj(pivot, "Core", CrystalClusterMesh("PlazaCrystalCluster", 7, 1.3f, 0)   /* 2026-11-15 てじゃ「クリスタル本体にトゲトゲいらんかも」→ 小さい結晶なし */, crysM, Vector3.zero, 0, false);
@@ -4721,6 +4757,33 @@ public static class FuwaCourse2_5Builder
         th += deg;
     }
 
+    // xy 平面の単純な多角形（へこみあり）を三角に分ける（耳切り）。返り値は頂点番号の組
+    static List<Vector3Int> EarClipXY(List<Vector3> poly)
+    {
+        var res = new List<Vector3Int>(); int n = poly.Count; if (n < 3) return res;
+        var idx = Enumerable.Range(0, n).ToList();
+        float area2 = 0f; for (int k = 0; k < n; k++) { var a = poly[k]; var b = poly[(k + 1) % n]; area2 += a.x * b.y - b.x * a.y; }
+        float ori = area2 >= 0f ? 1f : -1f;
+        float Cross(Vector3 a, Vector3 b, Vector3 c) => ((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) * ori;
+        bool Inside(Vector3 p, Vector3 a, Vector3 b, Vector3 c) => Cross(a, b, p) >= -1e-7f && Cross(b, c, p) >= -1e-7f && Cross(c, a, p) >= -1e-7f;
+        int guard = 0;
+        while (idx.Count > 3 && guard++ < 1000)
+        {
+            bool cut = false;
+            for (int i = 0; i < idx.Count; i++)
+            {
+                int ia = idx[(i + idx.Count - 1) % idx.Count], ib = idx[i], ic = idx[(i + 1) % idx.Count];
+                if (Cross(poly[ia], poly[ib], poly[ic]) <= 1e-7f) continue;   // へこんだ角
+                bool any = false;
+                foreach (int j in idx) { if (j == ia || j == ib || j == ic) continue; if (Inside(poly[j], poly[ia], poly[ib], poly[ic])) { any = true; break; } }
+                if (any) continue;
+                res.Add(new Vector3Int(ia, ib, ic)); idx.RemoveAt(i); cut = true; break;
+            }
+            if (!cut) break;
+        }
+        if (idx.Count == 3) res.Add(new Vector3Int(idx[0], idx[1], idx[2]));
+        return res;
+    }
     static void Tri(List<Vector3> v, List<int> t, Vector3 a, Vector3 b, Vector3 c, Vector3 want)
     {
         if (Vector3.Dot(Vector3.Cross(b - a, c - a), want) < 0f) { var s = b; b = c; c = s; }
