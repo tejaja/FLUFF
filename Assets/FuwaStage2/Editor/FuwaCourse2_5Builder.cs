@@ -2565,6 +2565,116 @@ public static class FuwaCourse2_5Builder
         return SaveMesh(name, v, t);
     }
 
+    // ---- 2026-11-15 見た目クオリティ（4）：溝のある古い柱 ----
+    //  kind 0：完全（土台＋胴＋柱頭）、1：折れ（土台＋胴、上がギザギザ）、2：切り株（短い折れ）、3：倒れた胴のかけら（胴だけ、上がギザギザ）
+    //  原点は根もとのまん中（kind 3 は胴の下の面）。サブメッシュ 0＝胴（テラコッタ）、1＝土台・柱頭（石）
+    static void LatheInto(List<Vector3> v, List<int> t, float[][] prof, int seg)   // prof: (r, z) を下から
+    {
+        for (int k = 0; k + 1 < prof.Length; k++)
+            for (int i = 0; i < seg; i++)
+            {
+                float a0 = Mathf.PI * 2f * i / seg, a1 = Mathf.PI * 2f * (i + 1) / seg;
+                Vector3 d0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)), d1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1));
+                Vector3 p00 = d0 * prof[k][0] + Vector3.up * prof[k][1], p01 = d1 * prof[k][0] + Vector3.up * prof[k][1];
+                Vector3 p10 = d0 * prof[k + 1][0] + Vector3.up * prof[k + 1][1], p11 = d1 * prof[k + 1][0] + Vector3.up * prof[k + 1][1];
+                var mid = (d0 + d1) * 0.5f;
+                var o = mid * (prof[k + 1][1] - prof[k][1]) + Vector3.up * (prof[k][0] - prof[k + 1][0]);
+                if (o.sqrMagnitude < 1e-8f) o = mid;
+                Tri(v, t, p00, p01, p11, o); Tri(v, t, p00, p11, p10, o);
+            }
+    }
+    static void ChamferBoxInto(List<Vector3> v, List<int> t, Vector3 c, Vector3 sz, float ch)
+    {   // 上のふちを面取りした箱（底なし）
+        float hx = sz.x / 2f, hz = sz.z / 2f, y0 = c.y - sz.y / 2f, y1 = c.y + sz.y / 2f;
+        var off = new Vector3(c.x, 0f, c.z);
+        var lo = new[] { new Vector3(-hx, y0, -hz), new Vector3(hx, y0, -hz), new Vector3(hx, y0, hz), new Vector3(-hx, y0, hz) };
+        var mi = new[] { new Vector3(-hx, y1 - ch, -hz), new Vector3(hx, y1 - ch, -hz), new Vector3(hx, y1 - ch, hz), new Vector3(-hx, y1 - ch, hz) };
+        var up = new[] { new Vector3(-hx + ch, y1, -hz + ch), new Vector3(hx - ch, y1, -hz + ch), new Vector3(hx - ch, y1, hz - ch), new Vector3(-hx + ch, y1, hz - ch) };
+        for (int i = 0; i < 4; i++)
+        {
+            int j = (i + 1) % 4; var o = (lo[i] + lo[j]) * 0.5f; o.y = 0f;
+            Tri(v, t, lo[i] + off, lo[j] + off, mi[j] + off, o); Tri(v, t, lo[i] + off, mi[j] + off, mi[i] + off, o);
+            Tri(v, t, mi[i] + off, mi[j] + off, up[j] + off, o + Vector3.up * o.magnitude); Tri(v, t, mi[i] + off, up[j] + off, up[i] + off, o + Vector3.up * o.magnitude);
+        }
+        Tri(v, t, up[0] + off, up[1] + off, up[2] + off, Vector3.up); Tri(v, t, up[0] + off, up[2] + off, up[3] + off, Vector3.up);
+    }
+    static Mesh ColumnMesh(string name, int seed, float h, int kind)
+    {
+        var rnd = new System.Random(seed);
+        var sv = new List<Vector3>(); var stt = new List<int>();   // 胴（なめらか）
+        var fv = new List<Vector3>(); var ft = new List<int>();    // 胴のふた（平ら・胴の材質）
+        var bv = new List<Vector3>(); var bt = new List<int>();    // 土台・柱頭（平ら・石）
+        const int Seg = 80, Flutes = 20;   // 1本の溝に4つ（溝と細い山がはっきり見えるように）
+        float z0 = 0f;
+        if (kind != 3)
+        {
+            ChamferBoxInto(bv, bt, new Vector3(0f, 0.1f, 0f), new Vector3(1.1f, 0.2f, 1.1f), 0.04f);
+            LatheInto(bv, bt, new[] { new[] { 0.5f, 0.2f }, new[] { 0.53f, 0.25f }, new[] { 0.5f, 0.31f }, new[] { 0.43f, 0.34f }, new[] { 0.39f, 0.36f } }, 24);
+            z0 = 0.36f;
+        }
+        bool full = kind == 0;
+        float zs = full ? h - 0.45f : h;                   // 胴のてっぺん（折れなら一番高い所の目安）
+        float ja = (float)rnd.NextDouble() * 6.28f, jb = (float)rnd.NextDouble() * 6.28f, jc = (float)rnd.NextDouble() * 6.28f;
+        float jagAmp = kind == 3 ? 0.18f : (kind == 2 ? 0.22f : 0.32f);
+        System.Func<float, float> Jag = th => Mathf.Clamp(jagAmp * (0.5f + 0.35f * Mathf.Sin(3f * th + ja) + 0.2f * Mathf.Sin(7f * th + jb) + 0.12f * Mathf.Sin(13f * th + jc)), 0f, jagAmp * 1.25f);
+        System.Func<float, float, float> Rad = (z, th) =>
+        {
+            float u = Mathf.Clamp01((z - z0) / 4.2f);
+            float rb = Mathf.Lerp(0.37f, 0.32f, u) + 0.012f * Mathf.Sin(Mathf.PI * u);
+            float c = Mathf.Abs(Mathf.Sin(Flutes * th * 0.5f));      // 0＝溝の間の細い山、1＝溝の底
+            float r = rb * (1f - 0.1f * Mathf.Pow(c, 0.6f));
+            float jz = (z - z0) % 1.1f; if (jz < 0.05f && z - z0 > 0.2f) r *= 0.93f;   // 石の継ぎ目
+            return r;
+        };
+        var zl = new List<float>();
+        float topRegular = full ? zs : zs - jagAmp * 1.3f;
+        for (float z = z0; z < topRegular - 0.05f; z += 0.25f) zl.Add(z);
+        for (float j = 1.1f; z0 + j + 0.05f < topRegular; j += 1.1f) { zl.Add(z0 + j - 0.001f); zl.Add(z0 + j + 0.001f); zl.Add(z0 + j + 0.049f); zl.Add(z0 + j + 0.051f); }
+        zl.Add(topRegular); zl.Sort();
+        int rings = zl.Count;
+        bool jag = !full;
+        int totalRings = rings + (jag ? 1 : 0);
+        for (int k = 0; k < totalRings; k++)
+            for (int i = 0; i < Seg; i++)
+            {
+                float th = Mathf.PI * 2f * i / Seg;
+                float z = k < rings ? zl[k] : zs - Jag(th);
+                float r = Rad(z, th) * (k == rings && jag ? 0.97f : 1f);
+                sv.Add(new Vector3(Mathf.Cos(th) * r, z, Mathf.Sin(th) * r));
+            }
+        for (int k = 0; k + 1 < totalRings; k++)
+            for (int i = 0; i < Seg; i++)
+            {
+                int j = (i + 1) % Seg;
+                int a0 = k * Seg + i, a1 = k * Seg + j, b0 = (k + 1) * Seg + i, b1 = (k + 1) * Seg + j;
+                stt.Add(a0); stt.Add(b1); stt.Add(a1); stt.Add(a0); stt.Add(b0); stt.Add(b1);
+            }
+        int last = (totalRings - 1) * Seg;
+        if (jag)
+        {   // ギザギザのふち → 少しへこんだまん中（面ごとに角ばる）
+            var cen = new Vector3(0.04f, zs - jagAmp * 0.9f, -0.03f);
+            for (int i = 0; i < Seg; i++) { int j = (i + 1) % Seg; Tri(fv, ft, sv[last + i], sv[last + j], cen, Vector3.up); }
+        }
+        else
+        {
+            var cen = Vector3.up * zs;
+            for (int i = 0; i < Seg; i++) { int j = (i + 1) % Seg; Tri(fv, ft, sv[last + i], sv[last + j], cen, Vector3.up); }
+            LatheInto(bv, bt, new[] { new[] { 0.32f, zs }, new[] { 0.35f, zs + 0.06f }, new[] { 0.44f, zs + 0.17f }, new[] { 0.5f, zs + 0.24f }, new[] { 0.42f, zs + 0.25f } }, 24);
+            ChamferBoxInto(bv, bt, new Vector3(0f, zs + 0.25f + 0.1f, 0f), new Vector3(1.08f, 0.2f, 1.08f), 0.035f);
+        }
+        if (kind == 3) for (int i = 0; i < Seg; i++) { int j = (i + 1) % Seg; Tri(fv, ft, sv[i], sv[j], Vector3.up * z0, Vector3.down); }
+        var allV = new List<Vector3>(sv); int fo = allV.Count; allV.AddRange(fv); int bo = allV.Count; allV.AddRange(bv);
+        var t0 = new List<int>(stt); t0.AddRange(ft.Select(x => x + fo));
+        var t1 = bt.Select(x => x + bo).ToList();
+        string path = MeshDir + "/" + name + ".asset";
+        var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (!ex) { ex = new Mesh { name = name }; AssetDatabase.CreateAsset(ex, path); }
+        ex.Clear(false);
+        ex.SetVertices(allV); ex.subMeshCount = 2; ex.SetTriangles(t0, 0); ex.SetTriangles(t1, 1);
+        ex.RecalculateNormals(); ex.RecalculateBounds(); EditorUtility.SetDirty(ex);
+        return ex;
+    }
+
     // ---- 2026-11-15 見た目クオリティ：結晶の塊・祭壇（てじゃ「見た目クオリティあげてくか」）----
     // 六角柱の両はしがとがった結晶1本（平らな面）。p0＝根もと、axis＝伸びる向き、r＝太さ、body＝胴の長さ、tipA＝先のとがり、tipB＝根もとのとがり（0 なら平ら）
     static void CrystalPrism(List<Vector3> v, List<int> t, Vector3 p0, Vector3 axis, float r, float body, float tipA, float tipB, System.Random rnd, int sides = 6)
@@ -2881,19 +2991,35 @@ public static class FuwaCourse2_5Builder
             uy -= uh[i];
         }
         // ---- 崩れた柱（ふちの上、入口・出口の近くはなし）----
+        //  2026-11-15 見た目クオリティ（4）：角柱 → 溝のある古い柱（ColumnMesh）。完全・折れ・切り株をまぜ、1本の横に倒れた胴のかけら
         var rnd = new System.Random(515);
-        int np = 10;
+        int np = 10, ci = 0;
+        int[] kinds = { 0, 1, 2, 0, 1, 0, 2, 1 };
+        float[] hts = { 4.6f, 3.1f, 1.1f, 4.6f, 2.3f, 4.6f, 0.9f, 3.6f };
         for (int i = 0; i < np; i++)
         {
             float a = Mathf.PI * 2f * (i + 0.5f) / np;
             float fromX = Mathf.Abs(Mathf.DeltaAngle(a * Mathf.Rad2Deg, 90f)), fromE = Mathf.Abs(Mathf.DeltaAngle(a * Mathf.Rad2Deg, 270f));
             if (fromX < 28f || fromE < 28f) continue;
-            float ph = 1.2f + (float)rnd.NextDouble() * 3.8f, rr = R + PlazaLedge * 0.55f;
+            float rr = R + PlazaLedge * 0.55f;
             var pos = new Vector3(Mathf.Cos(a) * rr, -0.25f, Mathf.Sin(a) * rr);
-            Box(g, "ColumnBase", pos + Vector3.up * 0.15f, new Vector3(1.2f, 0.3f, 1.2f), stone, 0);
-            var c = Box(g, "Column", pos + Vector3.up * (0.3f + ph / 2f), new Vector3(0.75f, ph, 0.75f), terra, 0);
-            c.transform.localRotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 90f, 0f);
-            if (ph > 3.5f) { var cp = Box(g, "ColumnCap", pos + Vector3.up * (0.3f + ph + 0.15f), new Vector3(1f, 0.3f, 1f), terraD, 0); Object.DestroyImmediate(cp.GetComponent<Collider>()); }
+            int kind = kinds[ci % kinds.Length]; float hh = hts[ci % hts.Length];
+            var cm = ColumnMesh("PlazaColumn" + ci, 900 + ci, hh, kind);
+            var co = new GameObject("Column" + ci); co.transform.SetParent(g, false); co.transform.localPosition = pos;
+            co.transform.localRotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+            co.AddComponent<MeshFilter>().sharedMesh = cm; co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
+            var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = hh; cc.center = Vector3.up * hh / 2f;
+            if (kind == 2)
+            { // 切り株の横に倒れた胴のかけら
+                var dm = ColumnMesh("PlazaDrum" + ci, 950 + ci, 1.5f, 3);
+                var dobj = new GameObject("FallenDrum" + ci); dobj.transform.SetParent(g, false);
+                var tang = new Vector3(-Mathf.Sin(a), 0f, Mathf.Cos(a));
+                dobj.transform.localPosition = pos + tang * 1.0f + Vector3.up * 0.33f;
+                dobj.transform.localRotation = Quaternion.FromToRotation(Vector3.up, tang) * Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+                dobj.AddComponent<MeshFilter>().sharedMesh = dm; dobj.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
+                var dc = dobj.AddComponent<CapsuleCollider>(); dc.radius = 0.34f; dc.height = 1.5f; dc.center = Vector3.up * 0.75f;
+            }
+            ci++;
         }
         // ---- 台座とクリスタル ----
         // 2026-11-15 見た目クオリティ：円柱 → 八角形3段の祭壇（欠け・ルーンの溝・石の爪）。当たりは円柱のまま（見た目なし）
