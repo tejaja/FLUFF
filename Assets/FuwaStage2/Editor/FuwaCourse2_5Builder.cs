@@ -2800,7 +2800,7 @@ public static class FuwaCourse2_5Builder
     // 橋のたもとから石像の台座まで：階段で台地へ下りる → シマシマの道 → 台座の段へ上がる短い階段（見た目だけ、当たりはレイヤー0）
     //  台座の正面の段（上の面 -0.55、台地から 0.9）は橋台のうしろ 4.9m から（Play で測った）
     public static float ApproachSlabD = 4.9f, ApproachSlabTop = -0.55f;   // ApproachSlabTop は道の高さ 0（＝橋が道の高さの時）から見た値
-    public static bool BrokenIslandLow = true, StatueApproachPath = false, Pebbles = false;   // Pebbles：地面・橋の上の石ころ（てじゃ「石ころもいらないかな」→ なし。空中で止まった石は残す）
+    public static bool BrokenIslandLow = true, StatueApproachPath = false, Pebbles = false, BrokenMidPier = false;   // Pebbles：地面・橋の上の石ころ（てじゃ「石ころもいらないかな」→ なし。空中で止まった石は残す）
     static void StatueApproach(Transform isb, float yTop, float W, float back)
     {
         var g = new GameObject("StatueApproach").transform; g.SetParent(isb, false);
@@ -2915,8 +2915,11 @@ public static class FuwaCourse2_5Builder
         var md = new GameObject("MidPier").transform; md.SetParent(g, false);
         md.localPosition = new Vector3(mid.x, 0f, mid.z); md.localRotation = Quaternion.LookRotation(dir);
         {
-            Box(md, "Pier", new Vector3(0f, -7.5f, 0f), new Vector3(1.4f, 8f, 1.4f), underM, 0);
-            var top = Box(md, "PierTop", new Vector3(0.15f, -3.35f, 0.1f), new Vector3(1.3f, 0.5f, 1.3f), deckM, 0); top.transform.localRotation = Quaternion.Euler(9f, 20f, -14f);
+            if (BrokenMidPier)   // 2026-11-15 てじゃ「この柱いらんね」→ なし（床のかけらは空中に浮いたまま）
+            {
+                Box(md, "Pier", new Vector3(0f, -7.5f, 0f), new Vector3(1.4f, 8f, 1.4f), underM, 0);
+                var top = Box(md, "PierTop", new Vector3(0.15f, -3.35f, 0.1f), new Vector3(1.3f, 0.5f, 1.3f), deckM, 0); top.transform.localRotation = Quaternion.Euler(9f, 20f, -14f);
+            }
             var rf = new System.Random(555);
             var fv = new List<Vector3>(); var ft = new List<int>();
             int nn = 13; var xs = Lin(-(W - 0.2f) / 2f, (W - 0.2f) / 2f, nn);
