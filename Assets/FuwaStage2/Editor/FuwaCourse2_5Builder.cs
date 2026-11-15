@@ -582,7 +582,7 @@ public static class FuwaCourse2_5Builder
     static void StatueShade(Material m)
     {
         if (!m.HasProperty("_Facet")) return;
-        m.SetFloat("_Facet", 0.55f);
+        m.SetFloat("_Facet", 0f);   // 角ばりは Blender で面ごとにフラットに書き出した法線で出す（シェーダーの角ばりは三角ごとなので四角い面に斜めの線が出た）
         m.SetFloat("_NoiseStrength", 0.13f); m.SetFloat("_NoiseScale", 0.32f);
         m.SetFloat("_ShadowStrength", 0.92f); m.SetFloat("_Wrap", 0.18f);
         m.SetColor("_UnderColor", new Color(0.58f, 0.52f, 0.66f)); m.SetFloat("_UnderStrength", 0.5f); m.SetFloat("_UnderGrad", 0.5f);
