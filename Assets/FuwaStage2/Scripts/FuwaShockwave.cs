@@ -56,6 +56,8 @@ public class FuwaShockwave : UdonSharpBehaviour
     public ParticleSystem chargeParticles, blastParticles;
     public int blastCount = 60;
     public Renderer[] runeGlows;   // 床のまわりの模様（ためると光る）
+    [Tooltip("2026-11-15 てじゃ「衝撃波の範囲、もっと目立たせたいな、特に床」→ 床にかぶせる円盤（Fuwa/ShockFloor）：ためで床いっぱいに流れる光、セーフ（影）は抜けて白いふち、ドンで帯と尾")]
+    public Renderer floorZone;
 
     [Header("クリスタルのため（2026-11-15 てじゃ「クリスタル本体にもエネルギーためてる感じ」）")]
     public Transform[] shards;          // まわりのかけら（ためると引きよせられる、ドンではじける）
@@ -95,6 +97,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         if (orbitRings != null) { _ring0 = new Quaternion[orbitRings.Length]; for (int i = 0; i < orbitRings.Length; i++) if (orbitRings[i] != null) _ring0[i] = orbitRings[i].localRotation; }
         HideWave();
         if (chargeRenderer != null) chargeRenderer.enabled = false;
+        if (floorZone != null) floorZone.enabled = false;
     }
 
     private void HideWave()
@@ -162,6 +165,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         }
         UpdateCrystal(k);
         UpdateChargeRing(k);
+        UpdateFloorZone(k, now);
 
         // ---- 広がる衝撃波 ----
         if (_waveLive)
@@ -393,6 +397,33 @@ public class FuwaShockwave : UdonSharpBehaviour
                 rr.SetPropertyBlock(_mpb);
             }
         }
+    }
+
+    private void UpdateFloorZone(float k, float now)
+    {
+        if (floorZone == null) return;
+        float wr = -1f, wf = 0f;
+        if (_waveLive)
+        {
+            wr = (now - _blastAt) * waveSpeed;
+            float rEnd = radius + waveExtra;
+            wf = (1f - Mathf.Clamp01((wr - radius * 0.8f) / (rEnd - radius * 0.8f))) * Mathf.Clamp01(wr / 0.6f);
+        }
+        bool on = _active && (k > 0f || _waveLive);
+        if (floorZone.enabled != on) floorZone.enabled = on;
+        if (!on) return;
+        Vector3 s = _waveLive ? _src : (crystal != null ? crystal.position : transform.position);
+        Vector4 bv = Vector4.zero;
+        if (shield != null && shield.IsOn()) { Vector3 bp = shield.transform.position; bv = new Vector4(bp.x, bp.y, bp.z, shield.Radius()); }
+        floorZone.GetPropertyBlock(_mpb);
+        _mpb.SetFloat("_Charge", k);
+        _mpb.SetFloat("_WaveR", wr);
+        _mpb.SetFloat("_WaveFade", wf);
+        _mpb.SetVector("_Src", new Vector4(s.x, s.y, s.z, 0f));
+        _mpb.SetVector("_Ball", bv);
+        _mpb.SetFloat("_Pad", shadowPad);
+        _mpb.SetFloat("_Near", nearPad);
+        floorZone.SetPropertyBlock(_mpb);
     }
 
     // 外からクリスタルへちぢむ光の輪（ための予告）

@@ -4473,6 +4473,16 @@ public static class FuwaCourse2_5Builder
         sw.wave = wave.transform; sw.waveFloor = waveF.transform; sw.chargeRing = chg.transform;
         sw.waveRenderers = new[] { wave.GetComponent<Renderer>(), waveF.GetComponent<Renderer>() }; sw.chargeRenderer = chg.GetComponent<Renderer>();
         sw.chargeParticles = cps; sw.blastParticles = bps;
+        {   // 2026-11-15 てじゃ「衝撃波の範囲、もっと目立たせたいな、特に床」→ 床にかぶせる円盤（Fuwa/ShockFloor）
+            var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
+            AnnulusInto(v, t, uv, 0.001f, R, 0f, Mathf.PI * 2f, 0f, 0f, 96);
+            FixWinding(v, t, _ => Vector3.up);
+            var zm = SaveMeshUV(name + "_ShockZone", v, t, uv, v.Select(_ => Vector3.up).ToList());
+            var zM = FxMat("Ruins_ShockFloor", "Fuwa/ShockFloor"); zM.SetColor("_Color", ShieldCol); zM.SetFloat("_Radius", R); EditorUtility.SetDirty(zM);
+            var zo = MeshObj(g, "ShockZone", zm, zM, new Vector3(0f, 0.025f, 0f), 0, false);
+            var zr = zo.GetComponent<Renderer>(); zr.enabled = false; zr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; zr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            sw.floorZone = zr;
+        }
         sw.chargeSound = Sfx(pivot, "ChargeSfx", "sfx_crystal_charge.wav", 0.9f, 0.7f, 45f);
         sw.boomSound = Sfx(pivot, "BoomSfx", "sfx_shockwave_boom.wav", 1f, 0.6f, 60f);
         sw.hitSound = Sfx(g, "BlownSfx", "sfx_blown.wav", 0.9f, 0f, 30f);
