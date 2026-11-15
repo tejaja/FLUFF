@@ -20,13 +20,13 @@ public class FuwaShockwave : UdonSharpBehaviour
 
     [Header("広場（この物体の位置＝床のまん中）")]
     public float radius = 9f;
-    public float enterMargin = 0.3f, leaveMargin = 2.5f;
+    public float enterMargin = 5f, leaveMargin = 5.5f;   // 2026-11-15 手前から察知（0.3/2.5 → 5/5.5）
     public float heightBelow = 2f, heightAbove = 7f;
 
     [Header("リズム")]
     public float chargeTime = 2f;   // 2026-11-15 てじゃ「チャージ時間伸ばして」1.3 → 2
     [Tooltip("入った時の1発目だけのため（秒）。2026-11-15 てじゃ「初回の一撃もっと早めに」")]
-    public float firstChargeTime = 0.7f;
+    public float firstChargeTime = 2f;   // 2026-11-15 てじゃ「初回チャージ速すぎ」→ ふつうと同じ（手前から察知するので間に合う）
     [Tooltip("ドンからドンまで（秒）")]
     public float period = 5f;
 

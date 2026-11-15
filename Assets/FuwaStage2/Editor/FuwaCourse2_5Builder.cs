@@ -1068,7 +1068,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
-    public static bool ShockDark = true, ShockSkyDim = true, ShieldVeil = true; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
+    public static bool ShockDark = true, ShockSkyDim = true, ShieldVeil = true; public static float ShockEarly = 5f; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
     public static bool PlazaBridgeDirect = true, PlazaLedgeUnderEntry = true;
     // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
     static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
@@ -4502,7 +4502,10 @@ public static class FuwaCourse2_5Builder
         sw.dustRing = dust.transform; sw.dustRenderer = dust.GetComponent<Renderer>(); sw.waveEcho = echo.transform; sw.echoRenderer = echo.GetComponent<Renderer>();
         sw.shards = shardTs.ToArray(); sw.auraRenderer = aura.GetComponent<Renderer>(); sw.orbitRings = orbitTs.ToArray(); sw.orbitRingRenderers = orbitRs.ToArray();
         sw.ball = ballT; sw.shield = shieldT; sw.radius = R;
-        sw.shadowPad = sw.nearPad;   // 2026-11-15 てじゃ「後ろの影の出始めが、バリアの中心じゃないんだな」→ 影のはばの始まりをバリアのまわりのセーフ（半径＋nearPad）とそろえる（線がいちばん太い所からそのまま後ろへ）
+        sw.shadowPad = sw.nearPad;
+        // 2026-11-15 てじゃ「初回チャージ、チャージが速すぎて気になる、チャージ時間揃える代わりにもっと手前から察知してチャージ開始」
+        //  → 1発目のためも chargeTime と同じ。ふわふわが広場のふちの ShockEarly m 手前に来たらためはじめ（止まるのはそれより外 ShockEarly+0.5）
+        sw.firstChargeTime = sw.chargeTime; sw.enterMargin = ShockEarly; sw.leaveMargin = ShockEarly + 0.5f;   // 2026-11-15 てじゃ「後ろの影の出始めが、バリアの中心じゃないんだな」→ 影のはばの始まりをバリアのまわりのセーフ（半径＋nearPad）とそろえる（線がいちばん太い所からそのまま後ろへ）
         sw.crystal = pivot; sw.crystalGlows = crystalRends.ToArray(); sw.glowColor = ShieldCol; sw.runeGlows = runeRends.ToArray();
         sw.wave = wave.transform; sw.waveFloor = waveF.transform; sw.chargeRing = chg.transform;
         sw.waveRenderers = new[] { wave.GetComponent<Renderer>(), waveF.GetComponent<Renderer>() }; sw.chargeRenderer = chg.GetComponent<Renderer>();
