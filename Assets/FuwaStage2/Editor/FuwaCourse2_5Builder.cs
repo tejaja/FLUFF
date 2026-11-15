@@ -210,13 +210,13 @@ public static class FuwaCourse2_5Builder
         WebH = wh0; CurtainH = ch0; CurtainTrigH = cth0;
         // 2026-11-14 てじゃ「クモの巣ゾーン、壁である必要なくなったし柱式にもどしたい」（カメラ式ポータルで空が見えても問題なくなった）→ 列柱＋巣の門（柱2本＋はり）
         if (CorridorPillars) CorridorColonnade(runA, runB); else CorridorTunnel(runA, runB, -40f, -1.6f);
-        if (MidRock) MidTierRock(iw, "I2_Rock");   // 2026-11-15 てじゃ「穴が開いてるところ以外に下に島つけよ」
         if (!CorridorPillars) { // CP の光るキノコは道のふちの外（壁の中）にあったので、トンネルの中の壁ぎわへ（2026-11-15 柱式ではやらない：てじゃ「ちゃんと丸太を道の外に」）
             var cpg = runA.Find("Checkpoints/Checkpoint1/GlowMushrooms");
             if (cpg) foreach (Transform c in cpg) c.localPosition = new Vector3(Mathf.Sign(c.localPosition.x) * (HW - 0.3f), c.localPosition.y + 0.66f, c.localPosition.z);
         }
         Transform warpW = null;
         Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); });
+        if (MidRock) MidTierRock(iw, "I2_Rock");   // 2026-11-15 てじゃ「穴が開いてるところ以外に下に島つけよ」→「ポータル付近のとこだけ島にしよう」（出口のポータルができたあと）
         HW = hwSave; pitTable = null; TileL = tileL0;
         // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
         //IslandRock(iw, 1.5f, false, 3f, 180f + WebWalkOrbit);
@@ -590,7 +590,7 @@ public static class FuwaCourse2_5Builder
     // ===== 2026-11-15 中段（空中の巣の回廊）の下の島 =====
     //  てじゃ「穴が開いてるところ以外に下に島つけよ」→ ふつうの道（Road*・Turn*・到着の床）の下だけ、下の段と同じ作りの岩（段々に細る・ゴツゴツ・草のへり）
     //  落とし穴の列（WindRun_Pits*）の下はくりぬく（MidRockPitClear のゆとり）＝落ちたらそのまま落ちる
-    public static bool MidRock = true; public static float MidRockPitClear = 0.7f, MidRockM = 1.3f;
+    public static bool MidRock = true; public static float MidRockPortalR = 6f; public static float MidRockPitClear = 0.7f, MidRockM = 1.3f, MidRockTopNoise = 0.15f;   // 2026-11-15 てじゃ「やっぱここは島やめるか」「ポータル付近のとこだけ島にしよう」→ ポータルから MidRockPortalR 以内の道の部品だけ。2026-11-15 てじゃ「島のフチは柱の外側ギリギリくらいに、外側から通れるとまずい」→ 上の面のふちは道のはし＋1.3（柱の台の外がわ）±0.15
     static void MidTierRock(Transform island, string meshName)
     {
         var rk = new GameObject("Rock").transform; rk.SetParent(island, false);
@@ -610,15 +610,24 @@ public static class FuwaCourse2_5Builder
             }
             return pts.Count >= 3 ? Hull2D(pts) : null;
         }
+        // ポータル（到着・出口）の近くの部品だけ（てじゃ「ポータル付近のとこだけ島にしよう」）
+        var portals = island.GetComponentsInChildren<Transform>(true).Where(x => x.name.StartsWith("Warp") && x.parent && x.parent.name.StartsWith("Run")).Select(x => root.InverseTransformPoint(x.position)).ToList();
+        bool Near(Transform part)
+        {
+            if (MidRockPortalR <= 0f) return true;
+            var b = LocalBounds(part, root);
+            foreach (var pp in portals) { var c = b.ClosestPoint(new Vector3(pp.x, b.center.y, pp.z)); if (new Vector2(c.x - pp.x, c.z - pp.z).magnitude <= MidRockPortalR) return true; }
+            return false;
+        }
         foreach (Transform ch in island)
         {
             if (ch.name.StartsWith("Run"))
                 foreach (Transform part in ch)
                 {
-                    if (part.name.StartsWith("Road") || part.name == "ArrivalRoof") { var h = Hull(part, true); if (h != null) polys.Add(h); }
+                    if ((part.name.StartsWith("Road") || part.name == "ArrivalRoof") && Near(part)) { var h = Hull(part, true); if (h != null) polys.Add(h); }
                     else if (part.name.StartsWith("WindRun_Pits")) { var h = Hull(part, false); if (h != null) pits.Add(h); }
                 }
-            else if (ch.name.StartsWith("Turn")) { var h = Hull(ch, true); if (h != null) polys.Add(h); }
+            else if (ch.name.StartsWith("Turn") && Near(ch)) { var h = Hull(ch, true); if (h != null) polys.Add(h); }
         }
         if (polys.Count == 0) return;
         float top = pathMinY + 0.05f;   // 道の下の面（道の厚み 0.6 の下）にぴったり
@@ -633,7 +642,7 @@ public static class FuwaCourse2_5Builder
         };
         System.Func<int, Vector2, float> F = (k, q) =>
         {
-            float f = dPath(q) - layers[k].pm + noise(q);
+            float f = dPath(q) - layers[k].pm + noise(q) * (k == 0 ? MidRockTopNoise / RockNoise : 1f);
             if (pits.Count > 0) f = Mathf.Max(f, -(dPit(q) - MidRockPitClear - 0.25f * k));   // 穴の列の下はなし（下ほど少し広くあける）
             return f;
         };
