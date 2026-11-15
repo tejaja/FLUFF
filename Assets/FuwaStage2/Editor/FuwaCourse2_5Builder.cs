@@ -2294,7 +2294,44 @@ public static class FuwaCourse2_5Builder
                 }
                 MeshObj(ring, "Cradle", SaveMesh("Portal_OvalCradle", cv, ct), stone, Vector3.zero, 0, true);
                 // 踏み石（道の上、台座より少し広い）
-                var stp = Box(ring, "Step", new Vector3(0f, yBot + stepH / 2f, 0f), new Vector3(xr - xl + 0.3f, stepH, 2f * cz + 0.24f), terra, 0); Object.DestroyImmediate(stp.GetComponent<Collider>());
+                // 2026-11-15 てじゃ「下の台もただの四角い板なのやだなあ」→ だ円の踏み石（上のふちを面取り）、3つの石に分けて継ぎ目の溝
+                {
+                    float ex = (xr - xl) / 2f + 0.32f, ez = cz + 0.22f, ch = 0.035f, yT = yBot + stepH, y0s = yBot - 0.03f;
+                    var sv = new List<Vector3>(); var st = new List<int>();
+                    int N = 48; float seamA = 0.035f;   // 継ぎ目（角度のすき間、ラジアン）
+                    // 石の分け目：左右のはし（x = ±ex*0.42 の所）で3つ。角度で分ける
+                    float sA = Mathf.Acos(0.42f);
+                    float[][] parts = { new[] { -sA, sA }, new[] { sA, Mathf.PI - sA }, new[] { Mathf.PI - sA, Mathf.PI + sA }, new[] { Mathf.PI + sA, 2f * Mathf.PI - sA } };
+                    // 前後の長い石（0・2）と左右の石（1・3）… x 方向に長いだ円なので、左右のはし（1・3 ではなく 0 と 2）が端の石
+                    foreach (var pr in parts)
+                    {
+                        float a0 = pr[0] + seamA * 0.5f, a1 = pr[1] - seamA * 0.5f;
+                        int nn = Mathf.Max(3, Mathf.CeilToInt((a1 - a0) / (2f * Mathf.PI) * N));
+                        Vector3 Pt(float a, float sc, float y) => new Vector3(Mathf.Cos(a) * ex * sc, y, Mathf.Sin(a) * ez * sc);
+                        float inS = 1f - ch / Mathf.Min(ex, ez);
+                        var cTop = new Vector3(0f, yT, 0f);
+                        for (int k = 0; k < nn; k++)
+                        {
+                            float b0 = Mathf.Lerp(a0, a1, (float)k / nn), b1 = Mathf.Lerp(a0, a1, (float)(k + 1) / nn);
+                            var t0 = Pt(b0, inS, yT); var t1 = Pt(b1, inS, yT);
+                            var m0 = Pt(b0, 1f, yT - ch); var m1 = Pt(b1, 1f, yT - ch);
+                            var d0 = Pt(b0, 1f, y0s); var d1 = Pt(b1, 1f, y0s);
+                            var ow = new Vector3(Mathf.Cos((b0 + b1) / 2f), 0f, Mathf.Sin((b0 + b1) / 2f));
+                            Tri(sv, st, cTop, t0, t1, Vector3.up);
+                            Tri(sv, st, t0, t1, m1, ow + Vector3.up); Tri(sv, st, t0, m1, m0, ow + Vector3.up);
+                            Tri(sv, st, m0, m1, d1, ow); Tri(sv, st, m0, d1, d0, ow);
+                        }
+                        // 継ぎ目の切り口（まん中から外へ、石の横の面）
+                        foreach (var (ae, sg) in new[] { (a0, -1f), (a1, 1f) })
+                        {
+                            var tg = new Vector3(-Mathf.Sin(ae), 0f, Mathf.Cos(ae)) * sg;
+                            var pT = Pt(ae, inS, yT); var pM = Pt(ae, 1f, yT - ch); var pD = Pt(ae, 1f, y0s);
+                            var c0 = new Vector3(0f, y0s, 0f);
+                            Tri(sv, st, cTop, pT, pM, tg); Tri(sv, st, cTop, pM, pD, tg); Tri(sv, st, cTop, pD, c0, tg);
+                        }
+                    }
+                    MeshObj(ring, "Step", SaveMesh("Portal_OvalStep", sv, st), terra, Vector3.zero, 0, true);
+                }
             }
             // 下の2つの台（道の上から輪の下まで）
             if (!PortalCradle) foreach (float sx in new[] { -1f, 1f })
