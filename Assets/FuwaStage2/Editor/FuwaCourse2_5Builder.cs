@@ -1065,7 +1065,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
-    public static bool PlazaBridgeDirect = true;
+    public static bool PlazaBridgeDirect = true, PlazaLedgeUnderEntry = true;
     // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
     static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
     static void ArchBridge(float len, float rise, bool pits, float[] windsAt, bool stubGap = false, bool noFirstPier = false)
@@ -4266,12 +4266,17 @@ public static class FuwaCourse2_5Builder
             var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
             // 入口は -z（角度 270°）、出口は +z（90°）
             float e = Mathf.PI * 1.5f, x = Mathf.PI * 0.5f;
-            AnnulusInto(v, t, uv, R, R + PlazaLedge, x + gapX, e - gapE, ly, 0.5f, 40);
-            AnnulusInto(v, t, uv, R, R + PlazaLedge, e + gapE, x + Mathf.PI * 2f - gapX, ly, 0.5f, 40);
+            // 2026-11-15 てじゃ「手前側のつなぎ、まわりの茶色部分の裏がみえてる」→ 入口は切らずに道の下を通す（ふちの上の面は道の上の面より 13cm 下＝道の板の中にかくれる）
+            if (PlazaLedgeUnderEntry) AnnulusInto(v, t, uv, R, R + PlazaLedge, x + gapX, x + Mathf.PI * 2f - gapX, ly, 0.5f, 80);
+            else
+            {
+                AnnulusInto(v, t, uv, R, R + PlazaLedge, x + gapX, e - gapE, ly, 0.5f, 40);
+                AnnulusInto(v, t, uv, R, R + PlazaLedge, e + gapE, x + Mathf.PI * 2f - gapX, ly, 0.5f, 40);
+            }
             // 切れ目の近くの点を、道のはしの線（x = ±hw）の上へ（外の円の上のまま）
             for (int k = 0; k < v.Count; k++)
             {
-                var c = v[k]; float hw = c.z < 0f ? hwE : hwX;
+                var c = v[k]; if (PlazaLedgeUnderEntry && c.z < 0f) continue; float hw = c.z < 0f ? hwE : hwX;
                 if (Mathf.Abs(c.x) < hw)
                 {
                     float rr = new Vector2(c.x, c.z).magnitude; float sx = Mathf.Sign(c.x == 0f ? 1f : c.x);
@@ -4283,6 +4288,7 @@ public static class FuwaCourse2_5Builder
             foreach (var (hw, sz) in new[] { (hwE, -1f), (hwX, 1f) })
                 foreach (float sx in new[] { -1f, 1f })
                 {
+                    if (PlazaLedgeUnderEntry && sz < 0f) continue;
                     float zi = sz * Mathf.Sqrt(Mathf.Max(0f, R * R - hw * hw)), zo = sz * Mathf.Sqrt(Mathf.Max(0f, (R + PlazaLedge) * (R + PlazaLedge) - hw * hw));
                     var a0 = new Vector3(sx * hw, ly, zi); var a1 = new Vector3(sx * hw, ly, zo); var b1 = new Vector3(sx * hw, ly - 0.5f, zo); var b0 = new Vector3(sx * hw, ly - 0.5f, zi);
                     int k0 = v.Count; v.Add(a0); v.Add(a1); v.Add(b1); v.Add(b0); for (int q = 0; q < 4; q++) uv.Add(Vector2.zero);
