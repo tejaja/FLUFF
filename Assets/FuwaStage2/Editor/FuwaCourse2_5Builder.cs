@@ -1803,7 +1803,7 @@ public static class FuwaCourse2_5Builder
     // ===== だ円の輪のポータル（2026-11-13 てじゃ「ポータルの見た目、空中に浮いた縦長の◯枠がいい」）=====
     //  柱と屋根の枠をやめて、道の上に少し浮いた縦長のだ円の輪（外に石の輪・内に光るふち）。穴（ステンシルの面）もだ円
     //  人・ふわふわを運ぶ判定（FuwaPortal の halfW × height の四角）はそのまま（だ円の外の角を通ると運ばれるが、ブロックアウトなのでよしとする）
-    public static bool OvalPortals = true;
+    public static bool OvalPortals = true, PortalBlocks = true;
     public static float OvalLift = 0.15f;   // 輪の下のはしの高さ
     static float OvalA => FuwaPortalTest.HalfW;
     static float OvalB => FuwaPortalTest.HoleH / 2f;
@@ -1813,8 +1813,45 @@ public static class FuwaCourse2_5Builder
         var fr = p.Find("PortalFrame"); if (fr) Object.DestroyImmediate(fr.gameObject);
         var ring = new GameObject("OvalFrame").transform; ring.SetParent(p, false); ring.localPosition = OvalC;
         var o = new GameObject("StoneRing"); o.transform.SetParent(ring, false);
-        o.AddComponent<MeshFilter>().sharedMesh = EllipseTube(OvalA + 0.24f, OvalB + 0.24f, 0.17f, 64, 10, "Portal_OvalStone");
-        o.AddComponent<MeshRenderer>().sharedMaterial = stone;
+        if (PortalBlocks)
+        {   // 2026-11-15 見た目クオリティ（4）：つるっとした石の輪 → 石のブロックを組んだだ円の枠（継ぎ目あり、てっぺんに要石と光る石、下に2つの台）
+            var bv = new List<Vector3>(); var bt = new List<int>(); var kv = new List<Vector3>(); var kt = new List<int>();
+            int n = 16; float gapA = 0.012f, ain = OvalA + 0.08f, bin = OvalB + 0.08f, w0 = 0.42f, dz = 0.26f;
+            for (int i = 0; i < n; i++)
+            {
+                float a0 = Mathf.PI / 2f + 2f * Mathf.PI * (i - 0.5f) / n + gapA, a1 = Mathf.PI / 2f + 2f * Mathf.PI * (i + 0.5f) / n - gapA;
+                bool key = i == 0;
+                float wo = key ? w0 + 0.22f : w0 + ((i % 2 == 0) ? 0.04f : -0.02f);
+                float dd = key ? dz + 0.06f : dz;
+                Vector3 E(float a, float ex, float z) => new Vector3(Mathf.Cos(a) * (ain + ex), Mathf.Sin(a) * (bin + ex), z);
+                var q = new[] { E(a0, 0f, -dd), E(a1, 0f, -dd), E(a1, wo, -dd), E(a0, wo, -dd), E(a0, 0f, dd), E(a1, 0f, dd), E(a1, wo, dd), E(a0, wo, dd) };
+                var cen = E((a0 + a1) / 2f, wo / 2f, 0f);
+                int[][] faces = { new[] { 0, 1, 2, 3 }, new[] { 4, 5, 6, 7 }, new[] { 0, 1, 5, 4 }, new[] { 3, 2, 6, 7 }, new[] { 0, 3, 7, 4 }, new[] { 1, 2, 6, 5 } };
+                var tv = key ? kv : bv; var tt = key ? kt : bt;
+                foreach (var fc in faces) { var fcen = (q[fc[0]] + q[fc[1]] + q[fc[2]] + q[fc[3]]) * 0.25f; Tri(tv, tt, q[fc[0]], q[fc[1]], q[fc[2]], fcen - cen); Tri(tv, tt, q[fc[0]], q[fc[2]], q[fc[3]], fcen - cen); }
+            }
+            o.AddComponent<MeshFilter>().sharedMesh = SaveMesh("Portal_OvalBlocks", bv, bt);
+            o.AddComponent<MeshRenderer>().sharedMaterial = stone;
+            MeshObj(ring, "Keystone", SaveMesh("Portal_OvalKey", kv, kt), terra, Vector3.zero, 0, true);
+            foreach (float sz in new[] { -1f, 1f })
+            {
+                var gem = MeshObj(ring, "KeyGem", CrystalClusterMesh("PortalGem", 41, 0.2f, 0), CrystalMat(), new Vector3(0f, bin + 0.33f, sz * 0.33f), 0, false);
+                gem.transform.localRotation = Quaternion.Euler(90f * sz, 0f, 0f);
+            }
+            // 下の2つの台（道の上から輪の下まで）
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                float ang = Mathf.PI * 1.5f + sx * 0.42f;
+                var bp = new Vector3(Mathf.Cos(ang) * (ain + w0 * 0.5f), Mathf.Sin(ang) * (bin + w0 * 0.5f), 0f);
+                float yBot = -OvalC.y, hgt = bp.y - yBot + 0.15f;
+                var ft = Box(ring, "Foot", new Vector3(bp.x, yBot + hgt / 2f, 0f), new Vector3(0.55f, hgt, 0.7f), terra, 0); Object.DestroyImmediate(ft.GetComponent<Collider>());
+            }
+        }
+        else
+        {
+            o.AddComponent<MeshFilter>().sharedMesh = EllipseTube(OvalA + 0.24f, OvalB + 0.24f, 0.17f, 64, 10, "Portal_OvalStone");
+            o.AddComponent<MeshRenderer>().sharedMaterial = stone;
+        }
         var g = new GameObject("GlowRim"); g.transform.SetParent(ring, false);
         g.AddComponent<MeshFilter>().sharedMesh = EllipseTube(OvalA + 0.04f, OvalB + 0.04f, 0.06f, 64, 8, "Portal_OvalGlow");
         g.AddComponent<MeshRenderer>().sharedMaterial = glow;
