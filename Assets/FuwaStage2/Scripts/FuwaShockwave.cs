@@ -25,6 +25,8 @@ public class FuwaShockwave : UdonSharpBehaviour
 
     [Header("リズム")]
     public float chargeTime = 1.3f;
+    [Tooltip("入った時の1発目だけのため（秒）。2026-11-15 てじゃ「初回の一撃もっと早めに」")]
+    public float firstChargeTime = 0.7f;
     [Tooltip("ドンからドンまで（秒）")]
     public float period = 4.2f;
 
@@ -58,6 +60,8 @@ public class FuwaShockwave : UdonSharpBehaviour
     private bool _active;
     private float _nextCharge = -1f;
     private bool _charging;
+    private bool _first;
+    private float _curCharge = 1.3f;
     private float _blastAt = -10f;
     private bool _waveLive;
     private bool _playerDone, _ballDone;
@@ -95,7 +99,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         {
             if (band && d2 < radius + enterMargin)
             {
-                _active = true; _nextCharge = now; _charging = false;   // 入ったらすぐためはじめ（1発目）
+                _active = true; _nextCharge = now; _charging = false; _first = true;   // 入ったらすぐためはじめ（1発目）
             }
         }
         else if (!band || d2 > radius + leaveMargin)
@@ -113,12 +117,15 @@ public class FuwaShockwave : UdonSharpBehaviour
             if (!_charging && now >= _nextCharge)
             {
                 _charging = true;
-                if (chargeSound != null) chargeSound.Play();
+                _curCharge = _first ? firstChargeTime : chargeTime;
+                _first = false;
+                // ためる音は chargeTime の長さなので、短いためは音の途中から（最後のドンの直前に合わせる）
+                if (chargeSound != null) { chargeSound.Play(); if (_curCharge < chargeTime) chargeSound.time = Mathf.Max(0f, chargeTime - _curCharge); }
                 if (chargeParticles != null) { var em = chargeParticles.emission; em.enabled = true; }
             }
             if (_charging)
             {
-                k = Mathf.Clamp01((now - _nextCharge) / Mathf.Max(0.01f, chargeTime));
+                k = Mathf.Clamp01((now - _nextCharge) / Mathf.Max(0.01f, _curCharge));
                 if (k >= 1f) { Blast(now); k = 0f; }
             }
         }

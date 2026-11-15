@@ -112,6 +112,24 @@ def blown():
     thud = np.sin(ph(f)) * np.exp(-t * 9) * 0.8
     return w + thud
 
+def shatter():
+    # パリン：はじめのカシャッ（明るいノイズ）＋ばらばらの高いガラスの粒がこぼれる
+    t = T(0.75)
+    n = rng.standard_normal(len(t))
+    hp = n - lp(n, 0.35)
+    crack = hp * np.exp(-t * 38) * 1.4
+    out = crack.copy()
+    at = 0.0
+    while at < 0.45:
+        f = rng.uniform(2200, 5200)
+        L = int(0.12 * sr); tt = np.arange(L) / sr
+        s2 = (np.sin(2 * np.pi * f * tt) + 0.5 * np.sin(2 * np.pi * f * 1.47 * tt)) * np.exp(-tt * rng.uniform(35, 70))
+        k = int(at * sr); Lk = min(L, len(t) - k)
+        out[k:k + Lk] += s2[:Lk] * 0.55 * np.exp(-at * 4)
+        at += rng.uniform(0.008, 0.045) * (1 + at * 4)
+    ring = (np.sin(2 * np.pi * 1760 * t) + np.sin(2 * np.pi * 1771 * t)) * np.exp(-t * 9) * 0.35
+    return out + ring
+
 if __name__ == '__main__':
     od = sys.argv[1] if len(sys.argv) > 1 else '.'
     write(os.path.join(od, 'sfx_shield_on.wav'), shield_on(), 0.7)
@@ -120,4 +138,5 @@ if __name__ == '__main__':
     write(os.path.join(od, 'sfx_shockwave_boom.wav'), boom(), 0.9)
     write(os.path.join(od, 'sfx_shield_block.wav'), block(), 0.7)
     write(os.path.join(od, 'sfx_blown.wav'), blown(), 0.8)
+    write(os.path.join(od, 'sfx_shield_shatter.wav'), shatter(), 0.75)
     print('ok')

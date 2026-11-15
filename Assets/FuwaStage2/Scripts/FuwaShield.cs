@@ -58,7 +58,7 @@ public class FuwaShield : UdonSharpBehaviour
 
     // 2026-11-15 てじゃ「バリアの回転はふわふわより遅めに」：ふわふわの回った分の spinFollow 倍だけ回る（子なので、毎フレーム向きを上書き）
     [Tooltip("ふわふわの回転についていく割合（0＝回らない、1＝ふわふわと同じ）")]
-    public float spinFollow = 0.3f;
+    public float spinFollow = 0.1f;
     private Quaternion _rot = Quaternion.identity, _prevBall = Quaternion.identity;
     private bool _rotInit;
 
@@ -73,9 +73,25 @@ public class FuwaShield : UdonSharpBehaviour
         transform.rotation = _rot;
     }
 
+    // 2026-11-15 てじゃ「バリアは地面に接触でパリンと割れる（ふわふわが接触して無くても）」
+    //  バリアの球が groundMask（道レイヤー＝道・広場の床・ふち）にふれたら割れる：すぐ消えて、かけらが飛び散る＋割れる音
+    public int groundMask = 1 << 11;
+    public ParticleSystem shatter;
+    public int shatterCount = 46;
+    public AudioSource shatterSound;
+
+    public void Shatter()
+    {
+        if (!_on) return;
+        _on = false; _t = 0f;
+        if (shatter != null) { shatter.transform.position = transform.position; shatter.Emit(shatterCount); }
+        if (shatterSound != null) shatterSound.Play();
+    }
+
     private void Update()
     {
         if (_on && ball != null && ball.IsWaitingOrHidden()) { _on = false; _t = 0f; }   // アウト・チェックポイントにもどった：音なしですぐ消す
+        if (_on && _t > 0.3f && Physics.CheckSphere(transform.position, Radius() * 0.97f, groundMask, QueryTriggerInteraction.Ignore)) Shatter();
         float target = _on ? 1f : 0f;
         if (_t < target) _t = Mathf.Min(target, _t + Time.deltaTime / Mathf.Max(0.01f, appearTime));
         else if (_t > target) _t = Mathf.Max(target, _t - Time.deltaTime / Mathf.Max(0.01f, vanishTime));

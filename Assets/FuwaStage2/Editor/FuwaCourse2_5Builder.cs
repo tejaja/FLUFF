@@ -2425,10 +2425,19 @@ public static class FuwaCourse2_5Builder
         mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
         mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
         var sh = g.GetComponent<FuwaShield>(); if (!sh) sh = UdonSharpUndo.AddComponent<FuwaShield>(g);
-        sh.ball = ballT; sh.rend = mr; sh.baseScale = 3f; sh.spinFollow = 0.3f;
+        sh.ball = ballT; sh.rend = mr; sh.baseScale = 3f; sh.spinFollow = 0.1f;
         sh.onSound = Sfx(g.transform, "OnSfx", "sfx_shield_on.wav", 0.8f, 0.5f, 20f);
         sh.offSound = Sfx(g.transform, "OffSfx", "sfx_shield_off.wav", 0.7f, 0.5f, 20f);
         sh.blockSound = Sfx(g.transform, "BlockSfx", "sfx_shield_block.wav", 0.8f, 0.5f, 25f);
+        // 2026-11-15 てじゃ「バリアは地面に接触でパリンと割れる」：道レイヤーにふれたら割れる、かけら＋音
+        sh.groundMask = 1 << pathLayer;
+        sh.shatterSound = Sfx(g.transform, "ShatterSfx", "sfx_shield_shatter.wav", 0.9f, 0.5f, 25f);
+        { var old = g.transform.Find("ShatterFx"); if (old) Object.DestroyImmediate(old.gameObject); }
+        var sfx = Sparks(g.transform, "ShatterFx", Vector3.zero, 0.75f, 3.2f, 0.09f, 80);
+        { var pm = sfx.main; pm.loop = false; pm.gravityModifier = 0.9f; pm.startSpeed = new ParticleSystem.MinMaxCurve(1.6f, 4.2f); pm.startSize = new ParticleSystem.MinMaxCurve(0.04f, 0.13f);
+          pm.startRotation = new ParticleSystem.MinMaxCurve(0f, Mathf.PI * 2f); pm.scalingMode = ParticleSystemScalingMode.Local;   // 親（バリア）のスケールは効かない
+          var s = sfx.shape; s.shapeType = ParticleSystemShapeType.Sphere; s.radius = 0.4f; s.radiusThickness = 0.1f; }
+        sh.shatter = sfx;
         UdonSharpEditorUtility.CopyProxyToUdon(sh); FuwaStage2WaterTest.NoSync(sh);
         return sh;
     }
