@@ -4287,6 +4287,36 @@ public static class FuwaCourse2_5Builder
                     if (Vector3.Dot(Vector3.Cross(a1 - a0, b1 - a0), want) < 0f) { t.Add(k0); t.Add(k0 + 2); t.Add(k0 + 1); t.Add(k0); t.Add(k0 + 3); t.Add(k0 + 2); }
                     else { t.Add(k0); t.Add(k0 + 1); t.Add(k0 + 2); t.Add(k0); t.Add(k0 + 2); t.Add(k0 + 3); }
                 }
+            // 2026-11-15 てじゃ「奥側の下に薄い板埋まってる感じ」「手前側のつなぎ、まわりの茶色部分の裏がみえてる」
+            //  → 広場の床のふちは円なので、まっすぐな道（橋）の横では床がひっこんで、道の板・ふちの石が見えていた
+            //  → 入口・出口に「しきい石」：床の円のふち〜道のまっすぐな線（R+0.25）まで、床と同じ高さの石。横と前は床の厚みぶん下へ
+            {
+                var tv = new List<Vector3>(); var ttr = new List<int>();
+                foreach (var (hw, sz) in new[] { (hwE, -1f), (hwX, 1f) })
+                {
+                    int m = 12; float zOut = sz * (R + 0.25f), yb = -0.6f - PlazaRaise;
+                    var edgeP = new List<Vector3>();
+                    for (int k = 0; k <= m; k++) { float xx = Mathf.Lerp(-hw, hw, (float)k / m); edgeP.Add(new Vector3(xx, 0f, sz * Mathf.Sqrt(Mathf.Max(0f, R * R - xx * xx)))); }
+                    var oL = new Vector3(-hw, 0f, zOut); var oR = new Vector3(hw, 0f, zOut);
+                    var cen = new Vector3(0f, 0f, (zOut + sz * R) * 0.5f);
+                    // 上の面（円のふち → 外のまっすぐな線）
+                    for (int k = 0; k < m; k++)
+                    {
+                        float xa = edgeP[k].x, xb = edgeP[k + 1].x;
+                        var oa = new Vector3(xa, 0f, zOut); var ob = new Vector3(xb, 0f, zOut);
+                        Tri(tv, ttr, edgeP[k], edgeP[k + 1], ob, Vector3.up); Tri(tv, ttr, edgeP[k], ob, oa, Vector3.up);
+                    }
+                    // 前の面（外のまっすぐな線から下へ）
+                    Tri(tv, ttr, oL, oR, oR + Vector3.up * yb, new Vector3(0f, 0f, sz)); Tri(tv, ttr, oL, oR + Vector3.up * yb, oL + Vector3.up * yb, new Vector3(0f, 0f, sz));
+                    // 横の面（x = ±hw、円のふち〜外の線）
+                    foreach (float sx in new[] { -1f, 1f })
+                    {
+                        var a0 = new Vector3(sx * hw, 0f, sz * Mathf.Sqrt(Mathf.Max(0f, R * R - hw * hw))); var a1 = new Vector3(sx * hw, 0f, zOut);
+                        Tri(tv, ttr, a0, a1, a1 + Vector3.up * yb, new Vector3(sx, 0f, 0f)); Tri(tv, ttr, a0, a1 + Vector3.up * yb, a0 + Vector3.up * yb, new Vector3(sx, 0f, 0f));
+                    }
+                }
+                MeshObj(g, "Threshold", SaveMesh(name + "_Threshold", tv, ttr), stone, Vector3.zero, 0, true);
+            }
             var lm = SaveMeshUV(name + "_Ledge", v, t, uv, null);
             var lo = MeshObj(g, "Ledge", lm, stone, Vector3.zero, pathLayer, true);
             lo.AddComponent<MeshCollider>().sharedMesh = lm;
