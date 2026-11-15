@@ -15,6 +15,8 @@ public class FuwaCourseJoin : UdonSharpBehaviour
     public FuwaBall ball;
     public FuwaAreaVisibility areaVisibility;
     public int soloArea = 1;
+    [Tooltip("2026-11-15 どのステージのコース・ロビーか（FuwaAreaVisibility.GetStage）。ステージ2用にもう1つ置く")]
+    public int stage = 1;
     [Tooltip("各コース（とロビー）の床のいちばん上の親")]
     public Transform[] roots;
     [Tooltip("roots と同じ順：軽い版のいちばん上の親（なくてもOK）")]
@@ -61,6 +63,7 @@ public class FuwaCourseJoin : UdonSharpBehaviour
         if (lp == null || ball == null || roots == null) return;
         if (CheckArea(lp.GetPosition())) { _cand = -1; return; }
         if (areaVisibility != null && areaVisibility.GetArea() != soloArea) { _cand = -1; return; }
+        if (areaVisibility != null && areaVisibility.GetStage() != stage) { _cand = -1; return; }
         int c = -1;
         if (lp.IsPlayerGrounded())
         {

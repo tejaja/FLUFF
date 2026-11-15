@@ -44,6 +44,45 @@ public static class FuwaCourseLite
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(av); EditorUtility.SetDirty(av);
         }
         if (lod2 != null) { UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lod2); EditorUtility.SetDirty(lod2); }
+        SetupJoinStage2(lod2);
+    }
+
+    // 2026-11-15 てじゃ「空中から入ってもコースに入った判定（BGMとか切替わる）やつも、ステージ2の各コースとロビーにいれよ」
+    //  → ステージ1の CourseJoin を写した CourseJoinStage2（stage=2）。roots＝ステージ2の5コース＋ロビー（FuwaStage2）、warps＝ロビーの各コースへのワープ・ロビーへ戻るワープ
+    static void SetupJoinStage2(FuwaCourseLod lod2)
+    {
+        var joins = Resources.FindObjectsOfTypeAll<FuwaCourseJoin>().Where(j => j && j.gameObject.scene.IsValid()).ToList();
+        var main = joins.FirstOrDefault(j => j.stage <= 1); if (main == null || lod2 == null) return;
+        var j2 = joins.FirstOrDefault(j => j.stage == 2);
+        if (j2 == null)
+        {
+            var go = new GameObject("CourseJoinStage2"); go.transform.SetParent(main.transform.parent, false);
+            j2 = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaCourseJoin>(go);
+        }
+        j2.ball = main.ball; j2.areaVisibility = main.areaVisibility; j2.soloArea = main.soloArea; j2.stage = 2;
+        j2.dwell = main.dwell; j2.joinDist = main.joinDist; j2.interval = main.interval; j2.lod = lod2;
+        var warps = Resources.FindObjectsOfTypeAll<FuwaCourseWarp>().Where(w => w && w.gameObject.scene.IsValid()).ToList();
+        var lobbyRoot = Resources.FindObjectsOfTypeAll<Transform>().FirstOrDefault(t => t && t.gameObject.scene.IsValid() && t.parent == null && t.name == "FuwaStage2");
+        var roots = new List<Transform>(); var lites = new List<Transform>(); var ws = new List<FuwaCourseWarp>();
+        for (int i = 0; i < lod2.fullRoots.Length; i++)
+        {
+            var r = lod2.fullRoots[i].transform; roots.Add(r);
+            lites.Add(lod2.liteRoots != null && i < lod2.liteRoots.Length && lod2.liteRoots[i] != null ? lod2.liteRoots[i].transform : null);
+            // ロビーにある、このコースのスタートへ行くワープ
+            ws.Add(warps.FirstOrDefault(w => w.courseStart != null && w.courseStart.root == r && w.transform.root == lobbyRoot));
+        }
+        roots.Add(lobbyRoot); lites.Add(null);
+        ws.Add(warps.FirstOrDefault(w => w.courseStart != null && lobbyRoot != null && w.courseStart.root == lobbyRoot && w.name.StartsWith("WarpToLobby")));
+        j2.roots = roots.ToArray(); j2.liteRoots = lites.ToArray(); j2.warps = ws.ToArray();
+        // ロビーの床の箱（大きい当たり）
+        var mins = new List<Vector3>(); var maxs = new List<Vector3>();
+        if (lobbyRoot != null)
+            foreach (var c in lobbyRoot.GetComponentsInChildren<Collider>(true))
+                if (!c.isTrigger && (c.name == "LobbyFloor" || c.name == "Ground")) { mins.Add(c.bounds.min); maxs.Add(c.bounds.max); }
+        j2.lobbyMin = mins.ToArray(); j2.lobbyMax = maxs.ToArray();
+        j2.areaMin = new Vector3[0]; j2.areaMax = new Vector3[0]; j2.areaIds = new int[0]; j2.areaWarps = new FuwaCourseWarp[0];   // エリアの切り替えはステージ1の方だけ
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j2); EditorUtility.SetDirty(j2);
+        Debug.Log("[ステージ2の入場判定] " + string.Join(", ", ws.Select((w, i) => roots[i].name + "→" + (w ? w.name : "なし"))) + " / ロビーの床 " + mins.Count);
     }
 
     public static void Run(string[] courses, string holderName, FuwaCourseLod lodTarget)
