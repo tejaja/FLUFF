@@ -754,10 +754,22 @@ public static class FuwaCourse2_5Builder
             var g = new GameObject("Colonnade").transform; g.SetParent(run, false);
             float end = LocalBounds(run, run).max.z, z0 = run == runA ? 2.6f : 0.6f;   // A はワープの到着の床のあとから
             var gz = gateZ.Where(x => x.run == run).Select(x => x.z).ToList();
+            int pi = 0;
             foreach (float z in gz)
             {
+                // 2026-11-15 見た目クオリティ：角柱 → 溝のある古い柱（ColumnMesh、根もとは道の下の面の高さ）。巣の上のはしより高いまま、完全と上が折れたのをまぜる
                 foreach (float sx in new[] { -1f, 1f })
-                    Box(g, "GatePillar", new Vector3(sx * xc, (H + 0.6f) / 2f - 0.6f + 0.3f, z), new Vector3(PillarSize, H + 0.9f, PillarSize), stone, 0);
+                {
+                    int seed = (run == runA ? 100 : 200) + pi;
+                    int kind = (seed * 7) % 3 == 0 ? 1 : 0;
+                    float ch = H + 1.2f;   // 道の下（-0.6）から、てっぺんは H+0.6 くらい
+                    var co = new GameObject("GatePillar"); co.transform.SetParent(g, false); co.transform.localPosition = new Vector3(sx * xc, -0.6f, z);
+                    co.transform.localRotation = Quaternion.Euler(0f, (seed * 37) % 360, 0f);
+                    co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("CorridorColumn" + seed, seed, ch, kind);
+                    co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
+                    var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = ch; cc.center = Vector3.up * ch / 2f;
+                    pi++;
+                }
                 if (GateBeams) Box(g, "GateBeam", new Vector3(0f, H + 0.25f, z), new Vector3(2f * xc + PillarSize + 0.4f, 0.5f, PillarSize + 0.1f), terra, 0);   // 2026-11-14 てじゃ「上の板いらんかも」→ なし
             }
             if (PlainColumns) for (float z = z0; z < end - 0.4f; z += PillarStep)   // 2026-11-14 てじゃ「柱おおい、クモの巣まとめて柱へらそう」→ ふつうの柱はなし、巣の門の柱だけ
