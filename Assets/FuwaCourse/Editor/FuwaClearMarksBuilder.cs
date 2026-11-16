@@ -10,7 +10,7 @@ using UnityEngine;
 //  ロビーのまん中の方（道が来る方）はあける。出す・出さないは FuwaClearMarks（自分がクリアしたことがあれば）
 public static class FuwaClearMarksBuilder
 {
-    public static float RingR = 1.5f, GapDeg = 40f, StepDeg = 25f;
+    public static float RingR = 1.5f, GapDeg = 40f, StepDeg = 40f;   // 25 → 40（てじゃ「もっとすくなくてもいいかも」）
 
     [MenuItem("FuwaCourse/よく使う/ロビーのクリアの印（ミニキノコ）を作り直す")]
     public static void Run()
