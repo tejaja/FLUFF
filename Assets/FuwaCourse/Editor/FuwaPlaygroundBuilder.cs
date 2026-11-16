@@ -420,10 +420,11 @@ public static class FuwaPlaygroundBuilder
             slot.rotation = Quaternion.LookRotation(-outDir);
             unlockToys[i] = slot.gameObject;
             // 2026-10-17 ステージ制の番号（1–1〜）。ハイフンは遠くで消えるので en ダッシュ
-            string ja = "コース1–" + (i + 1) + "「" + courseJa[i] + "」を\nクリアすると でてくるよ";
-            string en = "Clear Course 1–" + (i + 1) + "\n" + courseEn[i] + " to unlock";
+            string ja = UnlockJa(1, i, courseJa[i]);
+            string en = UnlockEn(1, i, courseEn[i]);
             var (lroot, lbl) = LockedSign(toys, "Locked" + (i + 1), sl, outDir, CourseAccent[i], ja);
             lockedSigns[i] = lroot;
+            AttachUnlockDome(lroot, i, sp);
             var lso2 = new SerializedObject(Object.FindObjectsOfType<FuwaLanguage>(true).First()); AddLang(lso2, "texts", "ja", "en", lbl, ja, en); lso2.ApplyModifiedPropertiesWithoutUndo();
         }
         // 1 かぜのおか → 竜巻のたね
@@ -533,10 +534,11 @@ public static class FuwaPlaygroundBuilder
             var outDir = sl - O; outDir.y = 0f; outDir.Normalize();
             var slot = new GameObject("Unlock" + (i + 6)).transform; slot.SetParent(toys, false); slot.position = sl; slot.rotation = Quaternion.LookRotation(-outDir);
             ts[i] = slot.gameObject;
-            string ja = "コース2–" + (i + 1) + "「" + ja2[i] + "」を\nクリアすると でてくるよ";
-            string en = "Clear Course 2–" + (i + 1) + "\n" + en2[i] + " to unlock";
+            string ja = UnlockJa(2, i, ja2[i]);
+            string en = UnlockEn(2, i, en2[i]);
             var (lroot, lbl) = LockedSign(toys, "Locked" + (i + 6), sl, outDir, Course2Accent[i], ja);
             ls[i] = lroot;
+            AttachUnlockDome(lroot, i + 5, sp);
             var lso = new SerializedObject(lang); CleanLang(lso, "texts", "ja", "en"); AddLang(lso, "texts", "ja", "en", lbl, ja, en); lso.ApplyModifiedPropertiesWithoutUndo();
         }
         FillBubbleClam(ts[0].transform);
@@ -551,6 +553,50 @@ public static class FuwaPlaygroundBuilder
         Sync(lang);
         return (ts, ls);
     }
+    // 2026-11-16 てじゃ「クリアフラグ持ちはおもちゃ予定地のドームをUSEすると解放できる」：看板の文とドームのさわる仕組み
+    // てじゃ「クリアするとつかえるよ、がいいな」
+    static string UnlockJa(int stage, int i, string name) { return "コース" + stage + "–" + (i + 1) + "「" + name + "」を\nクリアすると つかえるよ"; }
+    static string UnlockEn(int stage, int i, string name) { return "Clear Course " + stage + "–" + (i + 1) + "\n" + name + " to use"; }
+    static void AttachUnlockDome(GameObject lroot, int toyIdx, FuwaPlaygroundSpawner sp)
+    {
+        EnsureProgram("FuwaPlaygroundUnlockDome");
+        var recs = Object.FindObjectsOfType<FuwaRecords>(true).ToList();
+        string firstRoot = toyIdx < 5 ? "FuwaCourse" : "FuwaCourse2_1";
+        var rec = recs.FirstOrDefault(r => r.courseStarts != null && r.courseStarts.Length > 0 && r.courseStarts[0] != null && r.courseStarts[0].root.name == firstRoot);
+        foreach (var old in lroot.GetComponents<FuwaPlaygroundUnlockDome>()) Object.DestroyImmediate(old);
+        foreach (var old in lroot.GetComponents<SphereCollider>()) Object.DestroyImmediate(old);
+        var col = lroot.AddComponent<SphereCollider>(); col.radius = DomeR; col.center = Vector3.zero;
+        var ud = UdonSharpUndo.AddComponent<FuwaPlaygroundUnlockDome>(lroot);
+        ud.records = rec; ud.courseIndex = toyIdx % 5; ud.spawner = sp; ud.toyIndex = toyIdx; ud.dome = lroot.transform.Find("Dome");
+        UdonSharpEditorUtility.CopyProxyToUdon(ud);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ud); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; ub.interactText = "かいほう"; EditorUtility.SetDirty(ub); } }
+    }
+    // シーンの今のドーム（Locked1〜10）に、さわる仕組みと新しい看板の文を入れる（作り直さずに）
+    [MenuItem("FuwaCourse/あそびば/ドームをさわって解放にする（看板の文も）")]
+    static void MenuUnlockDomes()
+    {
+        var toys = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Toys" && t.parent != null && t.parent.name == "Room");
+        var sp = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
+        string[] ja1 = { "かぜのおか", "いわのみち", "やみのもり", "まもののす", "きのこのたに" }, en1 = { "Windy Hill", "Rocky Road", "Dark Forest", "Monster Den", "Mushroom Valley" };
+        string[] ja2 = { "みずのこみち", "ほのおのやま", "こおりのみち", "はぐるまのしま", "そらのいせき" }, en2 = { "Water Path", "Flame Mountain", "Ice Road", "Gear Isles", "Sky Ruins" };
+        var lso = new SerializedObject(lang); var pa = lso.FindProperty("texts"); var pj = lso.FindProperty("ja"); var pe = lso.FindProperty("en");
+        for (int k = 0; k < 10; k++)
+        {
+            var lr = toys.Find("Locked" + (k + 1)); if (lr == null) continue;
+            AttachUnlockDome(lr.gameObject, k, sp);
+            string ja = k < 5 ? UnlockJa(1, k, ja1[k]) : UnlockJa(2, k - 5, ja2[k - 5]);
+            string en = k < 5 ? UnlockEn(1, k, en1[k]) : UnlockEn(2, k - 5, en2[k - 5]);
+            var tr = lr.Find("Sign/Text"); var lbl = tr != null ? tr.GetComponent<TMPro.TextMeshPro>() : null;
+            if (lbl == null) continue;
+            lbl.text = ja; EditorUtility.SetDirty(lbl);
+            for (int a = 0; a < pa.arraySize; a++) if (pa.GetArrayElementAtIndex(a).objectReferenceValue == lbl) { pj.GetArrayElementAtIndex(a).stringValue = ja; pe.GetArrayElementAtIndex(a).stringValue = en; }
+        }
+        lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
+        Debug.Log("[あそびば] ドームをさわって解放に（10個）");
+    }
+
     // 言語の表から、消えた看板（null）の行を取りのぞく（作り直すたびに増えないように）
     static void CleanLang(SerializedObject lso, string a, string j, string e)
     {

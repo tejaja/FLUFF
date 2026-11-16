@@ -45,6 +45,14 @@ public class FuwaRecords : UdonSharpBehaviour
     [UdonSynced] private float[] _bestTimes = new float[0];
     [UdonSynced] private string[] _bestNames = new string[0];
     private float[] _myBest = new float[0];
+    // 2026-11-16 てじゃ「クリアフラグを保存するようにして、クリアフラグ持ちはおもちゃ予定地のドームをUSEすると解放できる」
+    //  クリアしたか（自己ベストとは別に保存。コースの版が変わっても消えない）。あそびばのドーム（FuwaPlaygroundUnlockDome）が HasCleared で見る
+    [Tooltip("クリアしたかを PlayerData に保存する（clear_キー）。自己ベストの保存（savePlayerData）とは別")]
+    public bool saveClears = true;
+    [Tooltip("ONなら前と同じく、クリアした瞬間にこのインスタンスであそびばのおもちゃを出す（OFF：ドームをさわって出す）")]
+    public bool autoUnlockPlayground = false;
+    private bool[] _cleared = new bool[0];
+    private bool _clearRestored;
     private bool _restored;   // 自分の保存データが届いたか（届く前に書くと上書きされるので待つ）
 
     private bool _inited;
@@ -64,6 +72,7 @@ public class FuwaRecords : UdonSharpBehaviour
         if (_bestTimes == null || _bestTimes.Length != n) { _bestTimes = new float[n]; _bestNames = new string[n]; }
         for (int i = 0; i < n; i++) if (_bestNames[i] == null) _bestNames[i] = "";
         _myBest = new float[n];
+        _cleared = new bool[n];
     }
 
     // ゴールした時にFuwaBallから呼ばれる
@@ -73,7 +82,8 @@ public class FuwaRecords : UdonSharpBehaviour
         Init();
         int i = IndexOf(start);
         if (i < 0 || time <= 0f) return;
-        if (playground != null) playground.Unlock(i + playgroundOffset);
+        if (autoUnlockPlayground && playground != null) playground.Unlock(i + playgroundOffset);
+        _cleared[i] = true; SaveClear(i);
         // 自己ベスト
         if (_myBest[i] <= 0f || time < _myBest[i])
         {
@@ -101,6 +111,17 @@ public class FuwaRecords : UdonSharpBehaviour
     public override void OnPlayerRestored(VRCPlayerApi player)
     {
         Init();
+        if (player != null && player.isLocal && saveClears)
+        {
+            _clearRestored = true;
+            int nc = courseStarts != null ? courseStarts.Length : 0;
+            for (int i = 0; i < nc; i++)
+            {
+                string key = Key(i); if (key == "") continue;
+                if (PlayerData.HasKey(player, "clear_" + key) && PlayerData.GetBool(player, "clear_" + key)) _cleared[i] = true;
+            }
+            for (int i = 0; i < nc; i++) if (_cleared[i]) SaveClear(i);   // 届く前にクリアした分も保存
+        }
         if (player == null || !player.isLocal || !savePlayerData) return;
         _restored = true;
         int n = courseStarts != null ? courseStarts.Length : 0;
@@ -117,6 +138,22 @@ public class FuwaRecords : UdonSharpBehaviour
         // 保存が届く前に出した記録も、ここで保存しておく
         for (int i = 0; i < n; i++) if (_myBest[i] > 0f) SaveBest(i);
         Render();
+    }
+
+    private void SaveClear(int i)
+    {
+        if (!saveClears || !_clearRestored) return;
+        string key = Key(i);
+        if (key == "") return;
+        PlayerData.SetBool("clear_" + key, true);
+    }
+
+    // あそびばのドーム用：自分がこのコースをクリアしたことがあるか（保存したクリアの印、またはこの回の記録）
+    public bool HasCleared(int i)
+    {
+        Init();
+        if (i < 0 || i >= _cleared.Length) return false;
+        return _cleared[i] || _myBest[i] > 0f;
     }
 
     private void SaveBest(int i)
