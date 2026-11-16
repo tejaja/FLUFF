@@ -1972,6 +1972,7 @@ public static class FuwaCourse2_5Builder
     public static bool CapBevel = true;
     // 2026-11-16 てじゃ「真ん中の台座のれちゃうのと、真ん中つっきれちゃうのが問題」「台座の外周から真上にうっすらバリアみたいな円柱のバリア」「いま青い円があるあたり」
     //  → 床の青いルーンの輪（1.7〜2.2m）のまん中の半径に、うすい六角もようの筒（見た目）＋同じ半径の多角柱の当たり（プレイヤーもふわふわも通れない、レイヤー0）
+    static Renderer plazaBarrierR; static Transform plazaBarrierT;
     public static bool PlazaBarrier = true; public static float PlazaBarrierR = 1.95f, PlazaBarrierH = 7f, PlazaBarrierColH = 10f;
     static void PlazaPillarBarrier(Transform g, string name)
     {
@@ -1999,6 +2000,7 @@ public static class FuwaCourse2_5Builder
         }
         var col = new GameObject("CenterBarrierCol"); col.transform.SetParent(g, false); col.layer = 0;
         var mc = col.AddComponent<MeshCollider>(); mc.sharedMesh = SaveMesh(name + "_BarrierCol", cv, ct); mc.convex = true;
+        plazaBarrierR = r; plazaBarrierT = col.transform;
     }
     public static float ShieldApproachExtra = 2f;
     // 2026-11-16 てじゃ「出口のゲート以降は衝撃波届かなくしたい」：衝撃波に、出口の門（の面）より先は当たらない・見せない を設定
@@ -5624,6 +5626,7 @@ public static class FuwaCourse2_5Builder
         ped.transform.localPosition = new Vector3(0f, 0.42f, 0f); ped.transform.localScale = new Vector3(3.1f, 0.42f, 3.1f);
         Object.DestroyImmediate(ped.GetComponent<MeshRenderer>()); Object.DestroyImmediate(ped.GetComponent<MeshFilter>());
         var altar = AltarMesh(name + "_Altar");
+        plazaBarrierR = null; plazaBarrierT = null;
         if (PlazaBarrier) PlazaPillarBarrier(g, name);
         // 2026-11-15 てじゃ「クリスタル台座のコケが雑」：四角い板の苔 → 石像と同じやり方（上を向いた面に、まだらに苔の色。FuwaToonLit の地面のムラ）
         MeshObj(g, "Altar", altar.stone, AltarStoneMat(stone), Vector3.zero, 0, true);
@@ -5729,6 +5732,8 @@ public static class FuwaCourse2_5Builder
         sw.dustRing = dust.transform; sw.dustRenderer = dust.GetComponent<Renderer>(); sw.waveEcho = echo.transform; sw.echoRenderer = echo.GetComponent<Renderer>();
         sw.shards = shardTs.ToArray(); sw.auraRenderer = aura.GetComponent<Renderer>(); sw.orbitRings = orbitTs.ToArray(); sw.orbitRingRenderers = orbitRs.ToArray();
         sw.ball = ballT; sw.shield = shieldT; sw.radius = R;
+        sw.pillarBarrier = plazaBarrierR;
+        if (shieldT) { shieldT.pillarCenter = plazaBarrierT; shieldT.pillarRadius = PlazaBarrierR; shieldT.pillarHeight = PlazaBarrierColH; EditorUtility.SetDirty(shieldT); }
         sw.nearPad = ShieldSafePad;   // 2026-11-15 てじゃ「フワフワバリアの範囲、わずかに狭く」0.8 → 0.6 →（影を接する線にして広がったので「ちょっと狭く」）0.25
         sw.shadowPad = sw.nearPad;
         // 2026-11-15 てじゃ「初回チャージ、チャージが速すぎて気になる、チャージ時間揃える代わりにもっと手前から察知してチャージ開始」

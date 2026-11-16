@@ -80,6 +80,8 @@ public class FuwaShockwave : UdonSharpBehaviour
     public float ringIdleR = 2.2f, ringChargedR = 1.15f;
     [Tooltip("2026-11-15 てじゃ「チャージでクリスタルも黒オーラみたいな色つけよ」「撃ったらもどる」→ ためる間だけ黒紫のもや（Fuwa/DarkAura）＋クリスタルの光を紫へ")]
     public Renderer darkAura;
+    [Tooltip("2026-11-16 てじゃ「チャージでこれも黒くしよ」：まん中の円柱バリア（_Dark をために合わせて上げる）")]
+    public Renderer pillarBarrier;
     public float darkAuraMax = 1.1f;
     public Color chargeTint = new Color(0.62f, 0.2f, 0.95f, 1f);
     private float _dark;
@@ -400,6 +402,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         float target = k * k;   // ためる間だけ。ドンで k=0 → すぐもどる
         _dark = target > _dark ? target : Mathf.MoveTowards(_dark, target, dt * 4f);
         bool on = _dark > 0.01f;
+        if (pillarBarrier != null) { pillarBarrier.GetPropertyBlock(_mpb); _mpb.SetFloat("_Dark", _dark); pillarBarrier.SetPropertyBlock(_mpb); }
         if (darkAura.enabled != on) darkAura.enabled = on;
         if (!on) return;
         darkAura.transform.localScale = Vector3.one * Mathf.Lerp(1.3f, 2.4f, _dark);

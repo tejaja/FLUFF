@@ -12,6 +12,9 @@ Shader "Fuwa/PillarBarrier"
         _Cell ("六角形の大きさ（m）", Float) = 0.5
         _Height ("高さ（m、上で消える）", Float) = 6
         _Fade ("上で消えはじめる割合", Range(0, 1)) = 0.25
+        _DarkColor ("ためている時の色", Color) = (0.1, 0.04, 0.16, 1)
+        _DarkAlpha ("ためている時の濃さ（かける）", Float) = 2.2
+        _Dark ("ため（スクリプト）", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -25,12 +28,15 @@ Shader "Fuwa/PillarBarrier"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            half4 _Color; half _Alpha; float _Cell, _Height, _Fade;
+            half4 _Color, _DarkColor; half _Alpha; float _Cell, _Height, _Fade, _DarkAlpha;
+            UNITY_INSTANCING_BUFFER_START(Props)
+                UNITY_DEFINE_INSTANCED_PROP(float, _Dark)
+            UNITY_INSTANCING_BUFFER_END(Props)
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; float3 normal : NORMAL; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float rim : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float rim : TEXCOORD1; UNITY_FOG_COORDS(2) UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata v)
             {
-                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+                v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o); UNITY_TRANSFER_INSTANCE_ID(v, o);
                 o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.uv;
                 float3 wn = normalize(UnityObjectToWorldNormal(v.normal));
                 float3 vd = normalize(WorldSpaceViewDir(v.vertex));
@@ -50,6 +56,8 @@ Shader "Fuwa/PillarBarrier"
             }
             half4 frag (v2f i) : SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(i);
+                float dk = UNITY_ACCESS_INSTANCED_PROP(Props, _Dark);
                 float y = i.uv.y / max(_Height, 0.01);
                 float top = 1 - smoothstep(1 - _Fade, 1, y);
                 float bottom = 0.45 + 0.55 * exp(-i.uv.y * 1.6);
@@ -63,8 +71,8 @@ Shader "Fuwa/PillarBarrier"
                 float rise = frac(i.uv.y / 2.6 - t * 0.35);
                 float band = smoothstep(0.0, 0.55, rise) * (1 - smoothstep(0.55, 1.0, rise));
                 float a = _Alpha * top * (bottom * 0.4 + rim * 0.6 + band * 0.35);
-                a = saturate(a);
-                half3 col = _Color.rgb;
+                a = saturate(a * lerp(1, _DarkAlpha, dk));   // ためている間は黒く濃く
+                half3 col = lerp(_Color.rgb, _DarkColor.rgb, dk);
                 half4 c = half4(col * a, a);
                 UNITY_APPLY_FOG_COLOR(i.fogCoord, c, half4(0, 0, 0, 0));
                 return c;

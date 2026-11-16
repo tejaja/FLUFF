@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 
 // 2026-11-15 2–5 上の段：ふわふわのバリア（てじゃ「上段のワープ後に、なんらかのギミックでふわふわにバリア付与」「挙動に変化なし」「バリアっぽく」）
@@ -96,6 +96,10 @@ public class FuwaShield : UdonSharpBehaviour
     public int bouncesToBreak = 3;
     public float bounceUp = 2.6f, bounceKeep = 0.8f, bounceCool = 0.35f;
     public AudioSource bounceSound;
+    // 2026-11-16 てじゃ「（広場のまん中の円柱バリアに）ふわふわバリアあたると地面と同じ一回分の割れありで」
+    //  円柱（pillarCenter のまわり 半径 pillarRadius、根もとから pillarHeight まで）にバリアの球がふれたら、床と同じく1段階＋外へはね返る
+    public Transform pillarCenter;
+    public float pillarRadius = 1.95f, pillarHeight = 10f;
     public Color colorCalm = new Color(0.45f, 0.9f, 1f, 1f), colorWarn = new Color(1f, 0.85f, 0.25f, 1f), colorDanger = new Color(1f, 0.32f, 0.25f, 1f);
     private int _bounces;
     private float _bounceAt = -10f;
@@ -114,6 +118,23 @@ public class FuwaShield : UdonSharpBehaviour
         if (bounceSound != null) { bounceSound.pitch = 1f + 0.12f * (_bounces - 1); bounceSound.Play(); }
     }
 
+    private void PillarBounce(Vector3 n)
+    {
+        _bounceAt = Time.time;
+        _bounces++;
+        if (_bounces >= bouncesToBreak) { Shatter(); return; }
+        Rigidbody rb = ball.GetComponent<Rigidbody>();
+        Vector3 v = rb != null ? rb.velocity : Vector3.zero;
+        Vector3 hv = new Vector3(v.x, 0f, v.z);
+        float into = Vector3.Dot(hv, n);
+        if (into < 0f) hv -= 2f * into * n;          // 円柱へ向かう分を外へはね返す
+        hv = hv * bounceKeep + n * 1.5f;             // 少し外へ押し出す
+        Vector3 nv = new Vector3(hv.x, Mathf.Max(v.y, bounceUp * 0.5f), hv.z);
+        ball.LaunchTinted(nv, _bounces >= 2 ? colorDanger : colorWarn);
+        _hitDir = -n; _hitAt = Time.time;
+        if (bounceSound != null) { bounceSound.pitch = 1f + 0.12f * (_bounces - 1); bounceSound.Play(); }
+    }
+
     public void Shatter()
     {
         if (!_on) return;
@@ -126,6 +147,12 @@ public class FuwaShield : UdonSharpBehaviour
     {
         if (_on && ball != null && ball.IsWaitingOrHidden()) { _on = false; _t = 0f; }   // アウト・チェックポイントにもどった：音なしですぐ消す
         if (_on && groundMask != 0 && _t > 0.3f && Time.time - _bounceAt > bounceCool && Physics.CheckSphere(transform.position, Radius() * 0.97f, groundMask, QueryTriggerInteraction.Ignore)) Bounce();
+        if (_on && pillarCenter != null && _t > 0.3f && Time.time - _bounceAt > bounceCool)
+        {
+            Vector3 d = transform.position - pillarCenter.position; float hy = d.y; d.y = 0f;
+            float dist = d.magnitude;
+            if (hy > -Radius() && hy < pillarHeight && dist < pillarRadius + Radius() * 0.97f) PillarBounce(dist > 1e-3f ? d / dist : Vector3.forward);
+        }
         if (_on) _colNow = Mathf.MoveTowards(_colNow, Mathf.Min(2f, _bounces + (shockHitsPerStage > 0 ? (float)_shockHits / shockHitsPerStage : 0f)), Time.deltaTime * 6f);
         float target = _on ? 1f : 0f;
         if (_t < target) _t = Mathf.Min(target, _t + Time.deltaTime / Mathf.Max(0.01f, appearTime));
