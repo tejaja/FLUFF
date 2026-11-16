@@ -155,6 +155,61 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private bool _waiting = true;
     private bool _popped;
     // 送る用（持ち主が OnPreSerialization で詰める）
+    // ===== 燃える（2026-11-16 てじゃ「2-2はマグマ弾が真上に打ち上がる溶岩溜まり」「炎上ってできる？」）=====
+    //  コース2–2 の炎上（FuwaHeat）と同じ：燃えだしたら炎がついていく。撃てば消える（ためなし3回／半分ため2回／フルため1回）。
+    //  burnGrace 秒たっても消せないとポンとはじける（あそびばなのでアウトはなし。キノコからまた出せる）。燃えている時刻は持ち主が配る（_sBurnAt、0＝燃えていない）
+    [Header("燃える（あそびばの溶岩溜まり）")]
+    public ParticleSystem burnFx;
+    public GameObject burnMesh;
+    public Vector3 burnMeshOffset = new Vector3(0f, -0.02f, 0f);
+    public AudioSource burnSound;
+    public float burnRate = 12f, burnGrace = 3.5f;
+    public float douseTap = 0.34f, douseHalf = 0.5f;
+    [UdonSynced] private double _sBurnAt;
+    private float _douse;
+    private bool _burnShown;
+
+    // 全員の画面で呼んでよい（持ち主の画面の分だけが効く）
+    public void Ignite()
+    {
+        Init();
+        if (_waiting || _popped || !Networking.IsOwner(gameObject) || _sBurnAt > 0.0) return;
+        _sBurnAt = Networking.GetServerTimeInSeconds();
+        _douse = 0f;
+        _sendSoon = true;
+    }
+    public bool IsBurning() { return _sBurnAt > 0.0; }
+
+    private void DouseBy(float charge)
+    {
+        if (_sBurnAt <= 0.0) return;
+        _douse += charge <= 0.5f ? Mathf.Lerp(douseTap, douseHalf, charge / 0.5f) : Mathf.Lerp(douseHalf, 1f, (charge - 0.5f) / 0.5f);
+        if (_douse >= 0.999f) { _sBurnAt = 0.0; _douse = 0f; }
+    }
+
+    private void UpdateBurn(bool owner)
+    {
+        if (owner && _sBurnAt > 0.0)
+        {
+            if (_waiting || _popped) _sBurnAt = 0.0;
+            else if (Networking.GetServerTimeInSeconds() - _sBurnAt > burnGrace) { _sBurnAt = 0.0; Pop(); }
+        }
+        bool show = _sBurnAt > 0.0 && !_waiting && !_popped && _here;
+        if (show != _burnShown)
+        {
+            _burnShown = show;
+            if (burnFx != null) { var e = burnFx.emission; e.rateOverTime = show ? burnRate : 0f; }
+            if (burnMesh != null) burnMesh.SetActive(show);
+            if (show && burnSound != null && burnSound.clip != null) { burnSound.transform.position = transform.position; burnSound.PlayOneShot(burnSound.clip); }
+        }
+        if (show)
+        {
+            Vector3 p = transform.position;
+            if (burnFx != null) burnFx.transform.position = p;
+            if (burnMesh != null) burnMesh.transform.position = p + burnMeshOffset;
+        }
+    }
+
     [UdonSynced] private bool _nWaiting = true;
     [UdonSynced] private bool _nPopped;
     [UdonSynced] private Vector3 _sPos;
@@ -408,6 +463,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     private void SetWaiting()
     {
         _shotCharge = 0f; _shotDir = Vector3.zero; _shotAt = -100.0;
+        _sBurnAt = 0.0;
         _waiting = true;
         _popped = false;
         _respawnAt = -1f;
@@ -455,6 +511,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         SendCustomNetworkEvent(NetworkEventTarget.Others, nameof(PlayPuff), k);
         if (Networking.IsOwner(gameObject))
         {
+            DouseBy(charge);
             _sShot++;
             _seenShot = _sShot;
             SendState();
@@ -479,6 +536,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
         if (_waiting) MarkRelease();
         Launch(velocityChange);
         NoteShot(velocityChange, charge, Networking.GetServerTimeInSeconds());
+        DouseBy(charge);
         _sShot++;
         _seenShot = _sShot;
         SendState();
@@ -779,6 +837,7 @@ public class FuwaSharedBall : UdonSharpBehaviour
     {
         UpdateHere();
         bool owner = Networking.IsOwner(gameObject);
+        UpdateBurn(owner);
         Vector3 vel = _rb.isKinematic ? Vector3.zero : _rb.velocity;
 
         if (_waiting && _shownWaiting) transform.Rotate(new Vector3(0.3f, 1f, 0.15f), idleSpin * SpinK() * Time.deltaTime, Space.World);

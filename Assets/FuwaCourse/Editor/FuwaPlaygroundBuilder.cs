@@ -543,7 +543,7 @@ public static class FuwaPlaygroundBuilder
             var lso = new SerializedObject(lang); CleanLang(lso, "texts", "ja", "en"); AddLang(lso, "texts", "ja", "en", lbl, ja, en); lso.ApplyModifiedPropertiesWithoutUndo();
         }
         FillBubbleClam(ts[0].transform);
-        FillFlameRock(ts[1].transform);
+        FillLavaPool(ts[1].transform);   // 2026-11-16 てじゃ「（火炎放射の岩は）別のにかえるかも」「2-2はマグマ弾が真上に打ち上がる溶岩溜まりとか」
         FillIceToy(ts[2].transform);
         FillWindmill(ts[3].transform);
         FillPortals(ts[4].transform, O);
@@ -670,7 +670,7 @@ public static class FuwaPlaygroundBuilder
     {
         var heldMat = Object.FindObjectsOfType<FuwaThrowRock>(true).First().heldMaterial;
         EnsureProgram("FuwaMovableMushroom");
-        foreach (var (slotName, label) in new[] { ("Unlock6", "かい"), ("Unlock8", "こおり"), ("Unlock9", "はねぐるま") })
+        foreach (var (slotName, label) in new[] { ("Unlock6", "かい"), ("Unlock7", "ようがん"), ("Unlock8", "こおり"), ("Unlock9", "はねぐるま") })
         {
             var slot = toys.Find(slotName); if (slot == null) continue;
             var oldGrab = slot.Find("Grab"); var body = slot.Find("Body");
@@ -689,7 +689,7 @@ public static class FuwaPlaygroundBuilder
             var bb = new Bounds(Vector3.zero, Vector3.zero); bool first = true;
             foreach (var r in body.GetComponentsInChildren<MeshRenderer>(true))
             {
-                if (r.name.StartsWith("Bubble") || r.name == "IceDisc") continue;
+                if (r.name.StartsWith("Bubble") || r.name == "IceDisc" || r.name == "BombVisual") continue;
                 var b = r.bounds;
                 for (int i = 0; i < 8; i++)
                 {
@@ -709,6 +709,7 @@ public static class FuwaPlaygroundBuilder
             mm.body = body; mm.heldMaterial = heldMat; mm.ground = (1 << 11) | 1; mm.useEvent = "Toggle";
             UdonSharpBehaviour target = body.GetComponentsInChildren<FuwaPlaygroundBubbleClam>(true).FirstOrDefault();
             if (target == null) target = body.GetComponentsInChildren<FuwaPlaygroundIceToy>(true).FirstOrDefault();
+            if (target == null) target = body.GetComponentsInChildren<FuwaPlaygroundLavaPool>(true).FirstOrDefault();
             mm.useTarget = target;
             if (target == null) pk.UseText = "";
             UdonSharpEditorUtility.CopyProxyToUdon(mm);
@@ -720,13 +721,100 @@ public static class FuwaPlaygroundBuilder
         // 「おもちゃをもどす」に入れる
         var rs2 = toys.Find("ResetToys").GetComponent<FuwaHandFanReset>();
         var others2 = rs2.others.Where(o => o != null).ToList();
-        foreach (var n in new[] { "Unlock6/Grab", "Unlock8/Grab", "Unlock9/Grab" }) { var g = toys.Find(n); if (g && !others2.Contains(g.gameObject)) others2.Add(g.gameObject); }
+        foreach (var n in new[] { "Unlock6/Grab", "Unlock7/Grab", "Unlock8/Grab", "Unlock9/Grab" }) { var g = toys.Find(n); if (g && !others2.Contains(g.gameObject)) others2.Add(g.gameObject); }
         rs2.others = others2.ToArray(); Sync(rs2);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
         Debug.Log("[あそびば] ステージ2のおもちゃを持ち運べるように");
     }
     [MenuItem("FuwaCourse/あそびば/ステージ2のおもちゃを持ち運べるように")]
     static void MenuStage2Movable() { MakeStage2ToysMovable(Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Toys" && t.parent != null && t.parent.name == "Room")); }
+
+    // 2–2 溶岩溜まり（2026-11-16）：まわりをコース2–2 の岩でかこんだ丸い溶岩の池。オンの間マグマ弾（コース2–2 の火の玉の見た目）が真上に上がって戻る
+    //  弾・池の上のふわふわは燃えだす（FuwaSharedBall.Ignite）。持ち運び・持ってトリガーでオンオフは MakeStage2ToysMovable
+    public static float LavaPoolR = 0.9f;
+    static void FillLavaPool(Transform slot)
+    {
+        EnsureProgram("FuwaPlaygroundLavaPool");
+        var c22 = RootGo("FuwaCourse2_2").transform;
+        var sp = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
+        var root = new GameObject("LavaPool").transform; root.SetParent(slot, false);
+        root.localPosition = Vector3.zero; root.localRotation = Quaternion.identity;
+        var lavaMat = c22.Find("LavaHoles/LavaPools").GetComponent<MeshRenderer>().sharedMaterial;
+        var rockMat = c22.GetComponentsInChildren<MeshRenderer>(true).SelectMany(r => r.sharedMaterials).First(m => m != null && m.name == "Stage2_2_Rock");
+        var rockMesh = c22.GetComponentsInChildren<MeshFilter>(true).First(m => m.sharedMesh != null && m.sharedMesh.name == "Stage2_LavaRock0").sharedMesh;
+        const float lavaY = 0.14f;
+        // 溶岩の面（平らな円盤）
+        var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder); disc.name = "Lava"; Object.DestroyImmediate(disc.GetComponent<Collider>());
+        disc.transform.SetParent(root, false); disc.transform.localPosition = new Vector3(0f, lavaY * 0.5f, 0f); disc.transform.localScale = new Vector3(LavaPoolR * 2.1f, lavaY * 0.5f, LavaPoolR * 2.1f);
+        disc.GetComponent<MeshRenderer>().sharedMaterial = lavaMat;
+        var dcol = disc.AddComponent<MeshCollider>(); dcol.sharedMesh = disc.GetComponent<MeshFilter>().sharedMesh; dcol.convex = true; disc.layer = 11;
+        // まわりの岩（コース2–2 の岩を大小ずらして並べる）
+        var rnd = new System.Random(22);
+        int nRock = 11;
+        for (int i = 0; i < nRock; i++)
+        {
+            float a = (i + (float)rnd.NextDouble() * 0.35f) / nRock * Mathf.PI * 2f;
+            var rk = new GameObject("RimRock" + i); rk.transform.SetParent(root, false);
+            float s0 = 0.42f + (float)rnd.NextDouble() * 0.22f;
+            rk.transform.localPosition = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (LavaPoolR + s0 * 0.35f) + Vector3.up * (s0 * 0.12f);
+            rk.transform.localRotation = Quaternion.Euler((float)rnd.NextDouble() * 20f - 10f, (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 20f - 10f);
+            var b = rockMesh.bounds; float k = s0 / Mathf.Max(b.size.x, b.size.z);
+            rk.transform.localScale = new Vector3(k, k * 0.75f, k);
+            rk.AddComponent<MeshFilter>().sharedMesh = rockMesh; rk.AddComponent<MeshRenderer>().sharedMaterial = rockMat;
+            var mc = rk.AddComponent<MeshCollider>(); mc.sharedMesh = rockMesh; mc.convex = true; rk.layer = 11;
+        }
+        var surface = new GameObject("Surface").transform; surface.SetParent(root, false); surface.localPosition = new Vector3(0f, lavaY, 0f);
+        // マグマ弾：コース2–2 の火の玉の見た目と尾
+        var fb = c22.GetComponentsInChildren<FuwaFireball>(true).First();
+        var bomb = new GameObject("Bomb"); bomb.transform.SetParent(root, false); bomb.transform.position = surface.position;
+        var vis = Object.Instantiate(fb.visual, bomb.transform, false); vis.name = "BombVisual"; vis.transform.localPosition = Vector3.zero; vis.transform.localScale = fb.visual.transform.lossyScale * 0.6f; vis.SetActive(true);
+        foreach (var cc in vis.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
+        ParticleSystem trail = null;
+        if (fb.trail != null) { var tg = Object.Instantiate(fb.trail.gameObject, root, false); tg.name = "Trail"; tg.transform.SetParent(bomb.transform, false); tg.transform.localPosition = Vector3.zero; trail = tg.GetComponent<ParticleSystem>(); }
+        ParticleSystem splash = null;
+        if (fb.trail != null) { var sg = Object.Instantiate(fb.trail.gameObject, root, false); sg.name = "Splash"; sg.transform.localPosition = surface.localPosition; sg.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f); splash = sg.GetComponent<ParticleSystem>(); var em = splash.emission; em.rateOverTime = 0f; var mn = splash.main; mn.simulationSpace = ParticleSystemSimulationSpace.World; }
+        AudioSource whoosh = null;
+        if (fb.whoosh != null) { var wg = Object.Instantiate(fb.whoosh.gameObject, root, false); wg.name = "WhooshSfx"; wg.transform.localPosition = surface.localPosition; whoosh = wg.GetComponent<AudioSource>(); }
+        bomb.SetActive(false);
+        foreach (var t in root.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+        var lp = UdonSharpUndo.AddComponent<FuwaPlaygroundLavaPool>(root.gameObject);
+        lp.spawner = sp; lp.surface = surface; lp.bomb = bomb; lp.trail = trail; lp.splash = splash; lp.whoosh = whoosh;
+        lp.poolRadius = LavaPoolR;
+        UdonSharpEditorUtility.CopyProxyToUdon(lp);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(lp); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); } }
+    }
+    // 2–2 のおもちゃだけ作り直す（火炎放射の岩 → 溶岩溜まり）
+    [MenuItem("FuwaCourse/あそびば/2–2のおもちゃ（溶岩溜まり）を作り直す")]
+    static void MenuLavaPool()
+    {
+        var toys = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Toys" && t.parent != null && t.parent.name == "Room");
+        var slot = toys.Find("Unlock7");
+        foreach (Transform c in slot.Cast<Transform>().ToList()) Object.DestroyImmediate(c.gameObject);
+        FillLavaPool(slot);
+        MakeStage2ToysMovable(toys);
+        SetupSharedBallBurn();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
+        Debug.Log("[あそびば] 溶岩溜まり");
+    }
+    // あそびばのふわふわが燃えた時の炎（コース2–2 の FuwaHeat の炎を1つずつ複製。ふわふわの子にはしない＝転がっても炎は上向き）
+    static void SetupSharedBallBurn()
+    {
+        var sp = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
+        var heat = Object.FindObjectsOfType<FuwaHeat>(true).First();
+        var holderParent = sp.balls[0].transform.parent;
+        var old = holderParent.Find("BurnFx"); if (old) Object.DestroyImmediate(old.gameObject);
+        var holder = new GameObject("BurnFx").transform; holder.SetParent(holderParent, false);
+        for (int i = 0; i < sp.balls.Length; i++)
+        {
+            var b = sp.balls[i]; if (b == null) continue;
+            ParticleSystem fx = null; GameObject mesh = null; AudioSource snd = null;
+            if (heat.burnFx != null) { var g = Object.Instantiate(heat.burnFx.gameObject, holder, false); g.name = "Fx" + i; fx = g.GetComponent<ParticleSystem>(); var em = fx.emission; em.rateOverTime = 0f; }
+            if (heat.burnMesh != null) { mesh = Object.Instantiate(heat.burnMesh, holder, false); mesh.name = "Flame" + i; mesh.transform.localScale = heat.burnMesh.transform.lossyScale; mesh.SetActive(false); }
+            if (heat.burnSound != null) { var g = Object.Instantiate(heat.burnSound.gameObject, holder, false); g.name = "Sfx" + i; snd = g.GetComponent<AudioSource>(); }
+            b.burnFx = fx; b.burnMesh = mesh; b.burnSound = snd; b.burnMeshOffset = heat.burnMeshOffset;
+            UdonSharpEditorUtility.CopyProxyToUdon(b); EditorUtility.SetDirty(b);
+        }
+    }
 
     // 2–1 泡が出る貝：コース2–1 の貝をコピーして大きく、口を上へ。クリックでオン／オフ（同期）
     static void FillBubbleClam(Transform slot)
