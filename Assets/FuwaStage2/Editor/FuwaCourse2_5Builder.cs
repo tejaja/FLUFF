@@ -1002,12 +1002,15 @@ public static class FuwaCourse2_5Builder
         Vector3 Mv(Vector3 v) => v - 2f * Vector3.Dot(v, d) * d;          // 向きの鏡
         Vector3 Mp(Vector3 p) => c + Mv(p - c);                            // 位置の鏡
         var ts = island.GetComponentsInChildren<Transform>(true).Where(t => t != island).ToList();   // 親が先（GetComponentsInChildren は親→子の順）
+        // 2026-11-16 てじゃ「縮んでスキマ避ける用の蜘蛛の巣の形があべこべ」→ 巣の形はシェーダーが自分の座標（x,y）で描くので、左右反転（x）すると形と当たりがずれた。
+        //  巣（SpiderWebBuilder とその下）は平らな物なので、左右ではなく前後（自分の z）を反転した向きにする＝面の中の形はそのまま、メッシュも元のまま
+        var zFlip = new HashSet<Transform>(island.GetComponentsInChildren<SpiderWebBuilder>(true).SelectMany(w => w.GetComponentsInChildren<Transform>(true)));
         var poses = ts.Select(t => (p: root.InverseTransformPoint(t.position), f: root.InverseTransformDirection(t.forward), u: root.InverseTransformDirection(t.up))).ToList();
         for (int i = 0; i < ts.Count; i++)
         {
             var (p, f, u) = poses[i];
             ts[i].position = root.TransformPoint(Mp(p));
-            ts[i].rotation = root.rotation * Quaternion.LookRotation(Mv(f), Mv(u));   // 前・上を映す（右は自動で逆）
+            ts[i].rotation = root.rotation * (zFlip.Contains(ts[i]) ? Quaternion.LookRotation(-Mv(f), Mv(u)) : Quaternion.LookRotation(Mv(f), Mv(u)));   // 前・上を映す（右は自動で逆）／巣は前を逆に
         }
         var cache = new Dictionary<Mesh, Mesh>();
         Mesh Mir(Mesh m)
@@ -1035,11 +1038,12 @@ public static class FuwaCourse2_5Builder
             mm.RecalculateBounds(); EditorUtility.SetDirty(mm);
             cache[m] = mm; return mm;
         }
-        foreach (var mf in island.GetComponentsInChildren<MeshFilter>(true)) mf.sharedMesh = Mir(mf.sharedMesh);
-        foreach (var mc in island.GetComponentsInChildren<MeshCollider>(true)) mc.sharedMesh = Mir(mc.sharedMesh);
-        foreach (var bc in island.GetComponentsInChildren<BoxCollider>(true)) bc.center = new Vector3(-bc.center.x, bc.center.y, bc.center.z);
-        foreach (var sc in island.GetComponentsInChildren<SphereCollider>(true)) sc.center = new Vector3(-sc.center.x, sc.center.y, sc.center.z);
-        foreach (var cc in island.GetComponentsInChildren<CapsuleCollider>(true)) cc.center = new Vector3(-cc.center.x, cc.center.y, cc.center.z);
+        Vector3 Fc(Transform t, Vector3 v) => zFlip.Contains(t) ? new Vector3(v.x, v.y, -v.z) : new Vector3(-v.x, v.y, v.z);
+        foreach (var mf in island.GetComponentsInChildren<MeshFilter>(true)) if (!zFlip.Contains(mf.transform)) mf.sharedMesh = Mir(mf.sharedMesh);   // 巣は元のメッシュ（前後に平ら）
+        foreach (var mc in island.GetComponentsInChildren<MeshCollider>(true)) if (!zFlip.Contains(mc.transform)) mc.sharedMesh = Mir(mc.sharedMesh);
+        foreach (var bc in island.GetComponentsInChildren<BoxCollider>(true)) bc.center = Fc(bc.transform, bc.center);
+        foreach (var sc in island.GetComponentsInChildren<SphereCollider>(true)) sc.center = Fc(sc.transform, sc.center);
+        foreach (var cc in island.GetComponentsInChildren<CapsuleCollider>(true)) cc.center = Fc(cc.transform, cc.center);
         log.Append("中段を鏡に（メッシュ " + cache.Count(kv => kv.Key != kv.Value) + "）");
     }
 
