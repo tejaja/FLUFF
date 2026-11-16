@@ -635,7 +635,9 @@ public static class FuwaPlaygroundBuilder
         var rockMesh = FlameRockMesh();
         var rock = new GameObject("FlameRock"); rock.transform.SetParent(slot, false);
         rock.transform.localPosition = new Vector3(0f, 0f, -0.2f); rock.transform.localRotation = Quaternion.identity;
-        rock.AddComponent<MeshFilter>().sharedMesh = rockMesh; rock.AddComponent<MeshRenderer>().sharedMaterials = rockMF.GetComponent<MeshRenderer>().sharedMaterials;
+        // 2026-11-16 てじゃ「もっと2_2の普通の岩盤みたいなみためでいいよ」→ コース2–2 の岩盤の材質（Stage2_2_Rock）
+        var bedrock = c22.GetComponentsInChildren<MeshRenderer>(true).SelectMany(r => r.sharedMaterials).FirstOrDefault(m => m != null && m.name == "Stage2_2_Rock");
+        rock.AddComponent<MeshFilter>().sharedMesh = rockMesh; rock.AddComponent<MeshRenderer>().sharedMaterial = bedrock != null ? bedrock : rockMF.GetComponent<MeshRenderer>().sharedMaterial;
         var mcR = rock.AddComponent<MeshCollider>(); mcR.sharedMesh = rockMesh;
         var fr = UdonSharpUndo.AddComponent<FuwaPlaygroundFlameRock>(rock);
         // 穴の奥の暗い面と炎（上中下）
@@ -760,7 +762,7 @@ public static class FuwaPlaygroundBuilder
     }
 
     // 2–4 プロペラ＋歯車：柱の上のプロペラ（コース2–4 の風車の羽根）をエアガンで撃つと回り、床の歯車（大20枚・小12枚、コース2–4 の乗る歯車を小さく）がいっしょに回る（同期）
-    public static float GearToyScale = 0.28f, GearToyRatio = 1f;   // かさ歯車 1:1 なので小さい歯車はプロペラと同じ速さ
+    public static float GearToyScale = 0.28f, GearToyRatio = 1f, GearToyLift = 0.55f;   // かさ歯車 1:1 なので小さい歯車はプロペラと同じ速さ
     static void FillWindmill(Transform slot)
     {
         EnsureProgram("FuwaPlaygroundWindmill");
@@ -768,7 +770,8 @@ public static class FuwaPlaygroundBuilder
         var gr = Object.FindObjectsOfType<FuwaGearRide>(true).First().transform.parent;
         var big = gr.GetComponentsInChildren<MeshFilter>(true).First(m => m.sharedMesh.name == "GearRide_z20_t60");
         var small = gr.GetComponentsInChildren<MeshFilter>(true).First(m => m.sharedMesh.name == "GearRide_z12_t70");
-        float sc = GearToyScale, top = 0.17f;
+        // 2026-11-16 てじゃ「プロペラの歯車、ちょっと浮かせよう 下は軸伸ばして」→ 歯車の上の面を GearToyLift、下は軸（床まで）
+        float sc = GearToyScale, top = GearToyLift;
         Vector3 O = slot.position, F = slot.forward;
         float pitchBig = 0.4f * 20f / 2f, pitchSmall = 0.4f * 12f / 2f, dist = (pitchBig + pitchSmall) * sc;
         Vector3 cBig = O - F * 0.8f, cSmall = cBig + F * dist;
@@ -784,6 +787,16 @@ public static class FuwaPlaygroundBuilder
             return g.transform;
         }
         var gB = Gear("GearBig", big, cBig); var gS = Gear("GearSmall", small, cSmall);
+        foreach (var (gt, rr) in new[] { (gB, 0.12f), (gS, 0.09f) })
+        {   // 床から歯車の下までの軸（歯車といっしょに回る）
+            var ax = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ax.name = "Axle"; Object.DestroyImmediate(ax.GetComponent<Collider>());
+            ax.transform.SetParent(gt, true); float h = top;
+            ax.transform.position = new Vector3(gt.position.x, O.y + h * 0.5f, gt.position.z); ax.transform.rotation = root.rotation; ax.transform.localScale = new Vector3(rr * 2f / sc, h * 0.5f / sc, rr * 2f / sc);
+            ax.GetComponent<MeshRenderer>().sharedMaterial = wm.rotor.Find("Hub").GetComponent<MeshRenderer>().sharedMaterial;
+            var foot = GameObject.CreatePrimitive(PrimitiveType.Cylinder); foot.name = "AxleFoot"; Object.DestroyImmediate(foot.GetComponent<Collider>()); foot.transform.SetParent(root, true);
+            foot.transform.position = new Vector3(gt.position.x, O.y + 0.04f, gt.position.z); foot.transform.localScale = new Vector3(rr * 4f, 0.04f, rr * 4f);
+            foot.GetComponent<MeshRenderer>().sharedMaterial = wm.rotor.Find("Hub").GetComponent<MeshRenderer>().sharedMaterial;
+        }
         // 2026-11-16 てじゃ「歯車、プロペラとどう繋がってるのこれ」→「はね、それじゃないやつ」→ コース2–4 の回転床の羽根車（たての羽根6枚＋マスト、横から撃つ）を
         //  小さい歯車の軸の上にじかに：羽根車 → 小さい歯車 → 大きい歯車（12:20）。撃った所と向きで回る向きが決まる
         var tt = Object.FindObjectsOfType<FuwaTurnTable>(true).First();
