@@ -3720,7 +3720,7 @@ public static class FuwaCourse2_5Builder
     //  てじゃ「ポータルがある道の橋、ただのぶつぎりをやめたい。道は崩れていて、いくつかクリスタルが落ちてる感じ」「道の端ね」
     //  → ポータルのうしろの道のはしを：シマの板と下の石が段ちがいにガタガタに割れたふち＋折れて落ちていく床のかけら＋落ちていく石（橋だけ）＋落ちたクリスタル
     //  「ゴール前のはクリスタルだけ」→ WarpBIn は RuinCrystals だけ
-    public static bool RuinEnds = true; public static float RuinPierBack = 0.8f, RuinCrystalScale = 1.3f;
+    public static bool RuinEnds = true; public static bool RuinBigPiece = true; public static float RuinPierBack = 0.8f, RuinCrystalScale = 1.3f;
     // name：入れ物の名前、o：道の上の面のはしのまん中（isl の座標）、fwd：外向き、hw：シマの板の半はば、xo：下の石の半はば、bridge：空中（かけら・石・クリスタルが落ちていく）か島の上（地面に転がる）
     static void RuinedEnd(string name, Vector3 o, Vector3 fwd, float hw, float xo, bool bridge, int seed)
     {
@@ -3777,6 +3777,39 @@ public static class FuwaCourse2_5Builder
             MeshObj(fr, "Road", SaveMesh(name + "_" + seed + "_" + fn, fv, ft), pathA, Vector3.zero, 0, true);
             return fr;
         }
+        // 2026-11-16 てじゃ「関係ない狭い幅の石があるようにみえる、ちゃんと同じ幅の道が割れた感じにして」
+        //  → 割れたふち（eS）の向こう側の1枚：道と同じはば・向き、手前のふちは eS にぴったり合うガタガタ、先は荒く割れる。原点は割れ目（eMin の線）で、そこを軸に傾ける
+        float zH = eS.Min();
+        // k0〜k1 の点だけの1かけら（xIn0/xIn1：左右の割れ目のすき間）
+        Transform Cracked(string fn, float len, int s2, int k0 = 0, int k1 = -1, float xIn0 = 0f, float xIn1 = 0f)
+        {
+            if (k1 < 0) k1 = nn - 1;
+            var r2 = new System.Random(s2);
+            var eF = Jag(r2, nn, len, 0.55f); var dF = new float[nn];
+            for (int k = 0; k < nn; k++) { eF[k] = Mathf.Max(0.45f, eF[k]); dF[k] = (float)r2.NextDouble() < 0.5f ? 0.04f + (float)r2.NextDouble() * 0.14f : 0f; }
+            var fv = new List<Vector3>(); var ft = new List<int>();
+            float X(int k) => xsR[k] + (k == k0 ? xIn0 : 0f) - (k == k1 ? xIn1 : 0f);
+            Vector3 N(int k, float c) => new Vector3(X(k), c, eS[k] + 0.04f - zH);
+            Vector3 F(int k, float c) => new Vector3(X(k), c - (c > -0.01f ? dF[k] : 0f), eS[k] + eF[k] - zH);
+            for (int k = k0; k + 1 <= k1; k++)
+            {
+                int j = k + 1;
+                Tri(fv, ft, N(k, 0f), N(j, 0f), F(j, 0f), Vector3.up); Tri(fv, ft, N(k, 0f), F(j, 0f), F(k, 0f), Vector3.up);
+                Tri(fv, ft, N(k, -Tk), N(j, -Tk), F(j, -Tk), Vector3.down); Tri(fv, ft, N(k, -Tk), F(j, -Tk), F(k, -Tk), Vector3.down);
+                var nn1 = Vector3.Cross(Vector3.up, N(j, 0f) - N(k, 0f)); if (nn1.z > 0) nn1 = -nn1;   // 手前のふち（-z 向き）
+                Tri(fv, ft, N(k, -Tk), N(j, -Tk), N(j, 0f), nn1); Tri(fv, ft, N(k, -Tk), N(j, 0f), N(k, 0f), nn1);
+                var nf = Vector3.Cross(Vector3.up, F(j, -Tk) - F(k, -Tk)); if (nf.z < 0) nf = -nf;      // 先のふち（+z 向き）
+                Tri(fv, ft, F(k, -Tk), F(j, -Tk), F(j, 0f), nf); Tri(fv, ft, F(k, -Tk), F(j, 0f), F(k, 0f), nf);
+            }
+            foreach (int k in new[] { k0, k1 })   // 横（道の横と同じ面・割れ目）
+            {
+                var w = k == k0 ? Vector3.left : Vector3.right;
+                Tri(fv, ft, N(k, -Tk), F(k, -Tk), F(k, 0f), w); Tri(fv, ft, N(k, -Tk), F(k, 0f), N(k, 0f), w);
+            }
+            var fr = new GameObject(fn).transform; fr.SetParent(g, false);
+            MeshObj(fr, "Road", SaveMesh(name + "_" + seed + "_" + fn, fv, ft), pathA, Vector3.zero, 0, true);
+            return fr;
+        }
         var crys = new List<(Vector3 p, Vector3 e, float s, int x)>();
         // 床の上に落ちたクリスタル（ポータルのうしろ〜割れたふち）。寝かせて少しうめる
         crys.Add((new Vector3(-hw * 0.45f, 0.05f, -0.55f), new Vector3(0f, 35f, 82f), 0.24f, 0));
@@ -3785,8 +3818,18 @@ public static class FuwaCourse2_5Builder
         crys.Add((new Vector3(hw * 0.12f, -0.05f, Mathf.Max(0.1f, eS.Min() - 0.05f)), new Vector3(-48f, 20f, 8f), 0.34f, 2));
         if (bridge)
         {
-            var f1 = Fragment("FallingSlab", 1.6f, 2f * hw * 0.75f, seed + 1);
-            f1.localPosition = new Vector3(-0.35f, -1.5f, eAvg + 1.4f); f1.localRotation = Quaternion.Euler(28f, 14f, -11f);
+            // てじゃ「デカい欠片がノイズかも」→ 大きいかけらはなし（RuinBigPiece）
+            if (RuinBigPiece)   // 割れ目からはなれた道はばの1枚が3つに割れて、少しずつずれて落ちていく途中
+            {
+                int[] cut = { 0, 3, 5, nn - 1 };
+                var rot = new[] { new Vector3(30f, -6f, 9f), new Vector3(22f, 3f, -3f), new Vector3(38f, 8f, -12f) };
+                var pos = new[] { new Vector3(-0.12f, -1.0f, zH + 0.5f), new Vector3(0f, -0.65f, zH + 0.35f), new Vector3(0.15f, -1.35f, zH + 0.7f) };
+                for (int pi = 0; pi < 3; pi++)
+                {
+                    var fp = Cracked("FallingSlab" + pi, 1.5f, seed + 1 + pi, cut[pi], cut[pi + 1], pi > 0 ? 0.04f : 0f, pi < 2 ? 0.04f : 0f);
+                    fp.localPosition = pos[pi]; fp.localRotation = Quaternion.Euler(rot[pi]);
+                }
+            }
             var f2 = Fragment("FallingSlab2", 0.9f, 1.1f, seed + 2);
             f2.localPosition = new Vector3(0.9f, -3.4f, eAvg + 2.9f); f2.localRotation = Quaternion.Euler(-35f, 50f, 22f);
             // 落ちていく石（当たりなし）
@@ -3807,10 +3850,19 @@ public static class FuwaCourse2_5Builder
         else
         {
             // 島の上：割れたふちの先で、折れたかけらが前へ傾いて地面にめりこむ（ふちにくっついたまま。島のはしでも宙に浮かない）
-            var f1 = Fragment("SaggedSlab", 1.3f, 2f * hw * 0.7f, seed + 1);
-            float pitch = 20f, half = 0.65f;
-            f1.localPosition = new Vector3(0.1f, -0.16f - half * Mathf.Sin(pitch * Mathf.Deg2Rad), eAvg + 0.08f + half * Mathf.Cos(pitch * Mathf.Deg2Rad)); f1.localRotation = Quaternion.Euler(pitch, 9f, 4f);
-            crys.Add((new Vector3(-hw * 0.4f, -0.3f, eAvg + 0.75f), new Vector3(25f, -40f, 80f), 0.2f, 0));
+            // てじゃ「デカい欠片がノイズかも」「これも割っちゃえばそこまで違和感ないかも」→ 道はばの1枚を3つに割って、それぞれ少しずつちがう傾きで地面にめりこむ
+            if (RuinBigPiece)
+            {
+                int[] cut = { 0, 3, 5, nn - 1 };
+                var rot = new[] { new Vector3(17f, -3f, 4f), new Vector3(9f, 2f, -2f), new Vector3(21f, 4f, -5f) };
+                var drop = new[] { -0.1f, -0.06f, -0.14f };
+                for (int pi = 0; pi < 3; pi++)
+                {
+                    var fp = Cracked("SaggedSlab" + pi, 1.3f, seed + 1 + pi, cut[pi], cut[pi + 1], pi > 0 ? 0.04f : 0f, pi < 2 ? 0.04f : 0f);
+                    fp.localPosition = new Vector3(0f, drop[pi], zH + 0.03f + 0.04f * pi); fp.localRotation = Quaternion.Euler(rot[pi]);
+                }
+                var q = Quaternion.Euler(rot[0]); crys.Add((new Vector3(0f, drop[0], zH) + q * new Vector3(-hw * 0.6f, 0.04f, eAvg - zH + 0.5f), new Vector3(15f, -40f, 82f), 0.2f, 0));
+            }
         }
         RuinCrystals(g, name + "_" + seed, crys);
     }
