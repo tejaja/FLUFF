@@ -5198,11 +5198,15 @@ public static class FuwaCourse2_5Builder
         var g = new GameObject(name).transform; g.SetParent(isl, false); g.localPosition = new Vector3(0f, P.y, P.z); g.gameObject.layer = 2;
         foreach (float sx in new[] { -1f, 1f })
         {
-            var co = new GameObject(sx < 0 ? "ColumnL" : "ColumnR"); co.transform.SetParent(g, false); co.transform.localPosition = new Vector3(sx * cx, 0f, 0f);
+            // 2026-11-16 てじゃ「バリア用のアーチの柱がういてる」「クモの巣のとこみたいに土台つけよ」→ 根もとを道の下の面（-0.6）からにして、
+            //  カーテンのアーチと同じく岩ができたあとに地面までのばす／地面がなければ道の横から出る石の持ち送り（colFix）
+            float ch = colH + 0.6f;
+            var co = new GameObject(sx < 0 ? "ColumnL" : "ColumnR"); co.transform.SetParent(g, false); co.transform.localPosition = new Vector3(sx * cx, -0.6f, 0f);
             co.transform.localRotation = Quaternion.identity;   // 2本の向きをそろえる
-            co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh(pre + "Column" + (sx < 0 ? "L" : "R"), sx < 0 ? 31 : 32, colH, 0);
+            co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh(pre + "Column" + (sx < 0 ? "L" : "R"), sx < 0 ? 31 : 32, ch, 0);
             co.AddComponent<MeshRenderer>().sharedMaterials = new[] { terra, stone };
-            var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = colH; cc.center = Vector3.up * colH / 2f;
+            var cc = co.AddComponent<CapsuleCollider>(); cc.radius = 0.4f; cc.height = ch; cc.center = Vector3.up * ch / 2f;
+            colFix.Add((co.transform, pre + "Column" + (sx < 0 ? "L" : "R"), sx < 0 ? 31 : 32, ch, 0, cxIn > 0f ? BridgeHW : HW));
         }
         // くさび石のアーチ（半円、要石はひとまわり大きく上へ出る）
         Transform keyT;
