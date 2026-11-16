@@ -632,11 +632,13 @@ public static class FuwaPlaygroundBuilder
         rock.AddComponent<MeshFilter>().sharedMesh = rockMF.sharedMesh; rock.AddComponent<MeshRenderer>().sharedMaterials = rockMF.GetComponent<MeshRenderer>().sharedMaterials;
         var box = rock.AddComponent<BoxCollider>(); box.center = rockMF.sharedMesh.bounds.center; box.size = rockMF.sharedMesh.bounds.size;
         var fr = UdonSharpUndo.AddComponent<FuwaPlaygroundFlameRock>(rock);
-        // 炎の出どころ：岩の島の真ん中がわの面、高さ 0.75m
-        var mouthPos = slot.position + slot.forward * 0.45f + Vector3.up * 0.75f;
+        // 炎の出どころ：岩の島の真ん中がわの面、岩のまん中の高さ（2026-11-16 てじゃ「火とずれすぎ」→ 岩の大きさから決める）
+        var rb0 = rock.GetComponent<MeshRenderer>().bounds;
+        float front = Vector3.Dot(rb0.extents, new Vector3(Mathf.Abs(slot.forward.x), Mathf.Abs(slot.forward.y), Mathf.Abs(slot.forward.z)));
+        var mouthPos = new Vector3(rb0.center.x, rb0.center.y, rb0.center.z) + slot.forward * (front * 0.6f);
         var body = Object.Instantiate(ft.Find("FlameBody").gameObject, slot, false); body.name = "FlameBody";
         body.transform.rotation = slot.rotation * Quaternion.Euler(90f, 0f, 0f);   // +Y（炎の向き）を島の真ん中の方へ
-        body.transform.position = mouthPos - slot.forward * 0.25f;                // 見える炎の根もとが岩の面に来るように（上から見て合わせた）
+        body.transform.position = rb0.center - slot.forward * 0.6f;               // 根もとは岩の中（見える炎は岩の中から出てくる）
         body.SetActive(false);
         fr.flameBody = body.transform; fr.bodyScale = new Vector3(0.34f, 0.3f, 0.34f);
         var roarSrc = ft.Find("RoarSfx");
@@ -706,7 +708,7 @@ public static class FuwaPlaygroundBuilder
     }
 
     // 2–4 プロペラ＋歯車：柱の上のプロペラ（コース2–4 の風車の羽根）をエアガンで撃つと回り、床の歯車（大20枚・小12枚、コース2–4 の乗る歯車を小さく）がいっしょに回る（同期）
-    public static float GearToyScale = 0.28f, GearToyRatio = 0.25f;
+    public static float GearToyScale = 0.28f, GearToyRatio = 1f;   // かさ歯車 1:1 なので小さい歯車はプロペラと同じ速さ
     static void FillWindmill(Transform slot)
     {
         EnsureProgram("FuwaPlaygroundWindmill");
@@ -730,25 +732,38 @@ public static class FuwaPlaygroundBuilder
             return g.transform;
         }
         var gB = Gear("GearBig", big, cBig); var gS = Gear("GearSmall", small, cSmall);
-        // 柱とプロペラ（柵ぎわ、羽根の軸は島の真ん中の方を向く。歯車に乗った人の頭より上）
-        Vector3 postPos = O - F * 2.45f; const float hubY = 2.9f;
-        var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post"; post.transform.SetParent(root, false);
-        post.transform.position = postPos + Vector3.up * (hubY * 0.5f); post.transform.localScale = new Vector3(0.22f, hubY * 0.5f, 0.22f);
+        // 2026-11-16 てじゃ「歯車、プロペラとどう繋がってるのこれ」→ 小さい歯車の軸＝柱。柱のてっぺんのかさ歯車（直角）でプロペラの軸とかみ合う
+        //  プロペラ → かさ歯車（1:1）→ 柱・小さい歯車 → 大きい歯車（12:20）
+        var bevelSrc = Object.FindObjectsOfType<MeshFilter>(true).First(m => m.sharedMesh != null && m.sharedMesh.name == "RackBridge_Bevel_z12");
+        const float hubY = 2.9f, bsc = 0.3f, pitchR = 0.9f * bsc, pitchOff = -0.2f * bsc;
+        Vector3 axis = cSmall;
+        var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post"; Object.DestroyImmediate(post.GetComponent<Collider>()); post.transform.SetParent(root, false);
+        float postTop = hubY - pitchR - pitchOff;   // かさ歯車A のピッチ面がここ
+        post.transform.position = axis + Vector3.up * (postTop * 0.5f); post.transform.localScale = new Vector3(0.16f, postTop * 0.5f, 0.16f);
         var hubSrc = wm.rotor.Find("Hub").GetComponent<MeshRenderer>();
         post.GetComponent<MeshRenderer>().sharedMaterial = hubSrc.sharedMaterial;
+        var bevA = new GameObject("BevelA", typeof(MeshFilter), typeof(MeshRenderer)); bevA.transform.SetParent(root, false);
+        bevA.transform.position = axis + Vector3.up * (postTop - pitchOff); bevA.transform.localScale = Vector3.one * bsc;
+        bevA.GetComponent<MeshFilter>().sharedMesh = bevelSrc.sharedMesh; bevA.GetComponent<MeshRenderer>().sharedMaterials = bevelSrc.GetComponent<MeshRenderer>().sharedMaterials;
         var wGo = new GameObject("Windmill"); wGo.transform.SetParent(root, false);
-        wGo.transform.position = postPos + Vector3.up * hubY + F * 0.25f; wGo.transform.rotation = Quaternion.FromToRotation(Vector3.up, F) ;
+        // かさ歯車B（プロペラの軸、軸は島の真ん中の方）：頂点がA と同じ所（柱の軸上、高さ hubY）に来る
+        wGo.transform.position = axis + Vector3.up * hubY + F * (pitchR + 0.35f); wGo.transform.rotation = Quaternion.FromToRotation(Vector3.up, F);
         var rotor = Object.Instantiate(wm.rotor.gameObject, wGo.transform, false); rotor.name = "Rotor"; rotor.transform.localPosition = Vector3.zero; rotor.transform.localRotation = Quaternion.identity; rotor.transform.localScale = Vector3.one * 0.85f;
         foreach (var cc in rotor.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
         foreach (var ub in rotor.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
         foreach (var a in rotor.GetComponentsInChildren<AudioSource>(true)) Object.DestroyImmediate(a.gameObject);
+        var shaft = GameObject.CreatePrimitive(PrimitiveType.Cylinder); shaft.name = "Shaft"; Object.DestroyImmediate(shaft.GetComponent<Collider>()); shaft.transform.SetParent(rotor.transform, false);
+        shaft.transform.localPosition = new Vector3(0f, -0.35f / 0.85f * 0.5f, 0f); shaft.transform.localScale = new Vector3(0.1f, 0.35f / 0.85f * 0.5f, 0.1f); shaft.GetComponent<MeshRenderer>().sharedMaterial = hubSrc.sharedMaterial;
+        var bevB = new GameObject("BevelB", typeof(MeshFilter), typeof(MeshRenderer)); bevB.transform.SetParent(rotor.transform, false);
+        bevB.transform.position = axis + Vector3.up * hubY + F * (pitchR - pitchOff); bevB.transform.rotation = Quaternion.FromToRotation(Vector3.up, -F) ; bevB.transform.localScale = Vector3.one * bsc / 0.85f;
+        bevB.GetComponent<MeshFilter>().sharedMesh = bevelSrc.sharedMesh; bevB.GetComponent<MeshRenderer>().sharedMaterials = bevelSrc.GetComponent<MeshRenderer>().sharedMaterials;
         foreach (var t in root.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
         var hit = wGo.AddComponent<SphereCollider>(); hit.isTrigger = true; hit.radius = 1.1f; wGo.layer = 2;
         var pw = UdonSharpUndo.AddComponent<FuwaPlaygroundWindmill>(wGo);
-        pw.rotor = rotor.transform; pw.gears = new[] { gB, gS };
-        pw.gearRatio = new[] { GearToyRatio, -GearToyRatio * 20f / 12f };
-        pw.gearPhase = new[] { -Vector3.SignedAngle(Vector3.right, slot.right, Vector3.up) * 0f, 0f };
-        pw.hitRadius = 1.1f;
+        pw.rotor = rotor.transform; pw.gears = new[] { gS, post.transform, bevA.transform, gB };
+        pw.gearRatio = new[] { GearToyRatio, GearToyRatio, GearToyRatio, -GearToyRatio * 12f / 20f };
+        pw.gearPhase = new[] { 0f, 0f, 0f, 0f };
+        pw.hitRadius = 1.1f; pw.spinPerShot = 140f; pw.maxSpin = 260f; pw.drag = 0.4f;
         var click = wm.transform.Find("SfxClick");
         if (click != null) { var a = Object.Instantiate(click.gameObject, wGo.transform, false); a.name = "SfxClick"; a.transform.localPosition = Vector3.zero; pw.clickSound = a.GetComponent<AudioSource>(); if (pw.clickSound != null) pw.clickSound.playOnAwake = false; }
         UdonSharpEditorUtility.CopyProxyToUdon(pw);
@@ -761,28 +776,35 @@ public static class FuwaPlaygroundBuilder
     {
         EnsureProgram("FuwaPlaygroundPortals");
         var swirlSh = Shader.Find("Fuwa/PortalSwirl");
+        // 2026-11-16 てじゃ「ポータル、コースと見た目揃えて」→ コース2–5 のポータル（FloatFrame＝浮いたふち・足もとの光・粒）をそのまま写す。穴の中は向こうを映すカメラの代わりにうずまき
+        var srcW = RootGo("FuwaCourse2_5").GetComponentsInChildren<Transform>(true).First(t => t.name == "WarpA");
+        var srcFrame = srcW.Find("FloatFrame"); var srcHole = srcW.Find("PortalHole");
         Transform Portal(string nm, Vector3 floor, Vector3 face, Color col)
         {
             var p = new GameObject(nm).transform; p.SetParent(slot, false);
-            p.SetPositionAndRotation(floor + Vector3.up * 0.08f, Quaternion.LookRotation(face));
-            var rim = new GameObject("Rim", typeof(MeshFilter), typeof(MeshRenderer)); rim.transform.SetParent(p, false); rim.transform.localPosition = new Vector3(0f, PortalR, 0f);
-            rim.GetComponent<MeshFilter>().sharedMesh = SaveGenMesh(Torus(PortalR, 0.09f, 48, 12), "Playground_PortalRim");
-            rim.GetComponent<MeshRenderer>().sharedMaterial = Mat("Playground_PortalRim_" + ColorUtility.ToHtmlStringRGB(col), "Assets/FuwaCourse/Materials/Goal_Ground.mat", col);
-            var disc = GameObject.CreatePrimitive(PrimitiveType.Quad); disc.name = "Swirl"; Object.DestroyImmediate(disc.GetComponent<Collider>());
-            disc.transform.SetParent(p, false); disc.transform.localPosition = new Vector3(0f, PortalR, 0f); disc.transform.localScale = Vector3.one * PortalR * 2f;
+            p.SetPositionAndRotation(floor, Quaternion.LookRotation(face));
+            var fr = Object.Instantiate(srcFrame.gameObject, p, false); fr.name = "FloatFrame"; fr.transform.localPosition = srcFrame.localPosition; fr.transform.localRotation = srcFrame.localRotation;
+            foreach (var ub in fr.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
+            foreach (var cc in fr.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
+            var hole = new GameObject("Swirl", typeof(MeshFilter), typeof(MeshRenderer)); hole.transform.SetParent(p, false);
+            hole.transform.localPosition = srcHole.localPosition; hole.transform.localRotation = srcHole.localRotation;
+            hole.GetComponent<MeshFilter>().sharedMesh = srcHole.GetComponent<MeshFilter>().sharedMesh;
             string mp = "Assets/FuwaCourse/Materials/Playground/Playground_PortalSwirl_" + ColorUtility.ToHtmlStringRGB(col) + ".mat";
             var m = AssetDatabase.LoadAssetAtPath<Material>(mp); if (m == null) { m = new Material(swirlSh); AssetDatabase.CreateAsset(m, mp); }
-            m.shader = swirlSh; m.SetColor("_Color", col); EditorUtility.SetDirty(m);
-            var dr = disc.GetComponent<MeshRenderer>(); dr.sharedMaterial = m; dr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var hv = hole.GetComponent<MeshFilter>().sharedMesh.bounds;
+            m.shader = swirlSh; m.SetColor("_Color", col); m.SetFloat("_HalfW", hv.extents.x); m.SetFloat("_HalfH", hv.extents.y); m.SetFloat("_Alpha", 0.55f); EditorUtility.SetDirty(m);
+            var dr = hole.GetComponent<MeshRenderer>(); dr.sharedMaterial = m; dr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            foreach (var t in p.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
             return p;
         }
         var pa = Portal("PortalA", slot.position, slot.forward, new Color(0.35f, 0.75f, 1f));
         var bFloor = O + OnRing(PortalBAngle, PortalBDist); bFloor.y = slot.position.y - DeckH;
         var bFace = O - bFloor; bFace.y = 0f;
-        var pb = Portal("PortalB", bFloor, bFace.normalized, new Color(1f, 0.6f, 0.3f));
+        var pb = Portal("PortalB", bFloor, bFace.normalized, new Color(0.35f, 0.75f, 1f));   // コースと同じく2つとも同じ色
         var go = new GameObject("Portals"); go.transform.SetParent(slot, false);
         var pp = UdonSharpUndo.AddComponent<FuwaPlaygroundPortals>(go);
-        pp.a = pa; pp.b = pb; pp.radius = PortalR; pp.spawner = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
+        { var hv = srcHole.GetComponent<MeshFilter>().sharedMesh.bounds; pp.halfW = hv.extents.x; pp.halfH = hv.extents.y; pp.holeCenterY = srcHole.localPosition.y; }
+        pp.a = pa; pp.b = pb; pp.spawner = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
         UdonSharpEditorUtility.CopyProxyToUdon(pp);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pp); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
     }

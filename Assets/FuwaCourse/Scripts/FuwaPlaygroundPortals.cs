@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -10,8 +10,8 @@ using VRC.SDKBase;
 public class FuwaPlaygroundPortals : UdonSharpBehaviour
 {
     public Transform a, b;
-    [Tooltip("穴の半径（輪の中心は local の (0, radius, 0)）")]
-    public float radius = 1.1f;
+    [Tooltip("穴（だ円）：中心の高さ・半はば・半高さ（コースのポータルと同じ形。2026-11-16 てじゃ「コースと見た目揃えて」）")]
+    public float holeCenterY = 1.85f, halfW = 0.85f, halfH = 1.55f;
     public FuwaPlaygroundSpawner spawner;
     public AudioSource warpSound;
 
@@ -29,8 +29,8 @@ public class FuwaPlaygroundPortals : UdonSharpBehaviour
     private bool InHole(Transform p, Vector3 w)
     {
         Vector3 l = p.InverseTransformPoint(w);
-        float dx = l.x, dy = l.y - radius;
-        return dx * dx + dy * dy <= radius * radius;
+        float dx = l.x / halfW, dy = (l.y - holeCenterY) / halfH;
+        return dx * dx + dy * dy <= 1f;
     }
 
     private Vector3 MapPoint(Transform from, Transform to, Vector3 w)
@@ -71,7 +71,7 @@ public class FuwaPlaygroundPortals : UdonSharpBehaviour
         p.TeleportTo(pos, Quaternion.LookRotation(fwd.normalized), VRC_SceneDescriptor.SpawnOrientation.AlignPlayerWithSpawnPoint, false);
         p.SetVelocity(v);
         _cool = Time.time + 0.3f;
-        if (warpSound != null) { warpSound.transform.position = to.position + Vector3.up * radius; warpSound.Play(); }
+        if (warpSound != null) { warpSound.transform.position = to.position + Vector3.up * holeCenterY; warpSound.Play(); }
     }
 
     private void FixedUpdate()

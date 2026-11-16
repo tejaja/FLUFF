@@ -1,4 +1,4 @@
-// 2026-11-16 あそびばのポータル（コース2–5 のおもちゃ）：穴の中のうずまき。uv は円の中心 (0.5,0.5)、ふちほど濃い。ゆっくり回る
+﻿// 2026-11-16 あそびばのポータル（コース2–5 のおもちゃ）：穴の中のうずまき。uv は円の中心 (0.5,0.5)、ふちほど濃い。ゆっくり回る
 Shader "Fuwa/PortalSwirl"
 {
     Properties
@@ -9,6 +9,8 @@ Shader "Fuwa/PortalSwirl"
         _Arms ("うずの数", Float) = 3
         _Twist ("ねじれ", Float) = 6
         _Speed ("回る速さ", Float) = 1.2
+        _HalfW ("穴の半はば（物体の座標）", Float) = 0.85
+        _HalfH ("穴の半高さ（物体の座標）", Float) = 1.55
     }
     SubShader
     {
@@ -22,13 +24,14 @@ Shader "Fuwa/PortalSwirl"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            half4 _Color, _Core; half _Alpha; float _Arms, _Twist, _Speed;
+            half4 _Color, _Core; half _Alpha; float _Arms, _Twist, _Speed, _HalfW, _HalfH;
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata v)
             {
                 v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-                o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.uv; UNITY_TRANSFER_FOG(o, o.pos); return o;
+                // 穴のメッシュに uv がないので、物体の座標の xy を穴の大きさで割って使う（2026-11-16）
+                o.pos = UnityObjectToClipPos(v.vertex); o.uv = v.vertex.xy / float2(_HalfW, _HalfH) * 0.5 + 0.5; UNITY_TRANSFER_FOG(o, o.pos); return o;
             }
             half4 frag (v2f i) : SV_Target
             {
