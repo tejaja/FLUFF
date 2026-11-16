@@ -36,6 +36,8 @@ public class FuwaRecords : UdonSharpBehaviour
 
     [Tooltip("みんなでひろば：コースをクリアしたら、このインスタンスでそのコースのおもちゃを解放する（保存はしない）")]
     [UnityEngine.Serialization.FormerlySerializedAs("chill")] public FuwaPlaygroundSpawner playground;
+    [Tooltip("2026-11-16 あそびばのおもちゃの番号のずらし（ステージ2の記録は 5：コース2–1 のクリアで 6 番目のおもちゃ）")]
+    public int playgroundOffset = 0;
 
     [Tooltip("もう1枚の看板（ステージ2のロビーの看板など）。ゴールのタイム・言語の切り替えをそのまま回す（FuwaBall・FuwaLanguage は1枚目だけ知っていればいい）")]
     public FuwaRecords next;
@@ -71,7 +73,7 @@ public class FuwaRecords : UdonSharpBehaviour
         Init();
         int i = IndexOf(start);
         if (i < 0 || time <= 0f) return;
-        if (playground != null) playground.Unlock(i);
+        if (playground != null) playground.Unlock(i + playgroundOffset);
         // 自己ベスト
         if (_myBest[i] <= 0f || time < _myBest[i])
         {

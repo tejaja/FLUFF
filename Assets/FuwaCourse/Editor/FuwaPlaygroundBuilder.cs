@@ -436,6 +436,9 @@ public static class FuwaPlaygroundBuilder
         FillPlush(unlockToys[3].transform, sp);
         // 5 きのこのたに → 跳ねるキノコ（コース5 の傘の足場のコピー。のったふわふわを高く跳ね上げる）
         FillBounce(unlockToys[4].transform);
+        // 2026-11-16 ステージ2のおもちゃ（6〜10番）
+        var (t2, l2) = Stage2Slots(toys, O, sp);
+        unlockToys = unlockToys.Concat(t2).ToArray(); lockedSigns = lockedSigns.Concat(l2).ToArray();
 
         // 「おもちゃを戻す」：扇風機・うちわ以外の持てるおもちゃも
         var othersList = new List<GameObject> { ringT.gameObject };
@@ -512,6 +515,106 @@ public static class FuwaPlaygroundBuilder
     }
 
     // テスト用：クリア報酬のおもちゃを全部出すボタン（マスターにだけ見える）。2026-10-13 てじゃ「あとで消す」→ 消す時はこの呼び出しと関数を消す
+    // ===== 2026-11-16 ステージ2のおもちゃ（てじゃ「あそびばのおもちゃつくろか」）=====
+    //  コース2–1〜2–5 のクリアで出る（FuwaRecords の Records2.playgroundOffset=5 → おもちゃ 6〜10 番）。並びは入口の真後ろ（180°）から右回りに、設定一式の手前まで
+    //  2–1 泡が出る貝 / 2–2 火炎放射の岩 / 2–3 氷の床 / 2–4 プロペラ＋歯車 / 2–5 ポータル（できたものから中身を入れる）
+    static readonly float[] Unlock2Angles = { 180f, 207f, 234f, 261f, 288f };
+    static readonly Color[] Course2Accent = { Hex("4A8FE8"), Hex("E2625B"), Hex("B4C2D2"), Hex("5C626E"), Hex("D0794F") };
+    static (GameObject[], GameObject[]) Stage2Slots(Transform toys, Vector3 O, FuwaPlaygroundSpawner sp)
+    {
+        string[] ja2 = { "みずのこみち", "ほのおのやま", "こおりのみち", "はぐるまのしま", "そらのいせき" };
+        string[] en2 = { "Water Path", "Flame Mountain", "Ice Road", "Gear Isles", "Sky Ruins" };
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
+        var ts = new GameObject[5]; var ls = new GameObject[5];
+        for (int i = 0; i < 5; i++)
+        {
+            foreach (var n in new[] { "Unlock" + (i + 6), "Locked" + (i + 6) }) { var old = toys.Find(n); if (old != null) Object.DestroyImmediate(old.gameObject); }
+            var sl = O + OnRing(Unlock2Angles[i], IslandR - 3.6f);
+            var outDir = sl - O; outDir.y = 0f; outDir.Normalize();
+            var slot = new GameObject("Unlock" + (i + 6)).transform; slot.SetParent(toys, false); slot.position = sl; slot.rotation = Quaternion.LookRotation(-outDir);
+            ts[i] = slot.gameObject;
+            string ja = "コース2–" + (i + 1) + "「" + ja2[i] + "」を\nクリアすると でてくるよ";
+            string en = "Clear Course 2–" + (i + 1) + "\n" + en2[i] + " to unlock";
+            var (lroot, lbl) = LockedSign(toys, "Locked" + (i + 6), sl, outDir, Course2Accent[i], ja);
+            ls[i] = lroot;
+            var lso = new SerializedObject(lang); CleanLang(lso, "texts", "ja", "en"); AddLang(lso, "texts", "ja", "en", lbl, ja, en); lso.ApplyModifiedPropertiesWithoutUndo();
+        }
+        FillBubbleClam(ts[0].transform);
+        // ステージ2の記録 → おもちゃ 6〜10 番
+        var recs2 = Object.FindObjectsOfType<FuwaRecords>(true).FirstOrDefault(r => r.courseStarts != null && r.courseStarts.Length > 0 && r.courseStarts[0] != null && r.courseStarts[0].root.name == "FuwaCourse2_1");
+        if (recs2 != null) { recs2.playground = sp; recs2.playgroundOffset = 5; Sync(recs2); }
+        var su = Object.FindObjectsOfType<FuwaSecretUnlock>(true).FirstOrDefault(); if (su != null) { su.toyCount = 10; Sync(su); }
+        Sync(lang);
+        return (ts, ls);
+    }
+    // 言語の表から、消えた看板（null）の行を取りのぞく（作り直すたびに増えないように）
+    static void CleanLang(SerializedObject lso, string a, string j, string e)
+    {
+        var pa = lso.FindProperty(a); var pj = lso.FindProperty(j); var pe = lso.FindProperty(e);
+        for (int k = pa.arraySize - 1; k >= 0; k--)
+        {
+            if (pa.GetArrayElementAtIndex(k).objectReferenceValue != null) continue;
+            pa.GetArrayElementAtIndex(k).objectReferenceValue = null; pa.DeleteArrayElementAtIndex(k);
+            if (k < pj.arraySize) pj.DeleteArrayElementAtIndex(k); if (k < pe.arraySize) pe.DeleteArrayElementAtIndex(k);
+        }
+    }
+    [MenuItem("FuwaCourse/あそびば/ステージ2のおもちゃを作り直す")]
+    static void MenuStage2Toys()
+    {
+        var toys = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Toys" && t.parent != null && t.parent.name == "Room");
+        var sp = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
+        Vector3 O = toys.Find("Unlock1").position; { var c = toys.parent.parent.position; O = new Vector3(c.x, O.y, c.z); }
+        var (t2, l2) = Stage2Slots(toys, O, sp);
+        var ul = toys.GetComponent<FuwaPlaygroundUnlocks>();
+        ul.toys = ul.toys.Take(5).Concat(t2).ToArray(); ul.locked = ul.locked.Take(5).Concat(l2).ToArray(); Sync(ul);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
+        Debug.Log("[あそびば] ステージ2のおもちゃ 5つの場所");
+    }
+    // 2–1 泡が出る貝：コース2–1 の貝をコピーして大きく、口を上へ。クリックでオン／オフ（同期）
+    static void FillBubbleClam(Transform slot)
+    {
+        var src = Object.FindObjectsOfType<FuwaClamBubbles>(true).First();
+        var c0 = src.clams[0];
+        EnsureProgram("FuwaPlaygroundBubbleClam"); EnsureProgram("FuwaPlaygroundBubbleZone");
+        var clam = Object.Instantiate(c0.gameObject, slot, false); clam.name = "BubbleClam";
+        foreach (var t in clam.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+        foreach (var ub in clam.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
+        const float sc = 1.5f;
+        clam.transform.localPosition = new Vector3(0f, 0f, 0f); clam.transform.localRotation = Quaternion.identity; clam.transform.localScale = Vector3.one * sc;
+        var lid = clam.transform.Find("LidHinge");
+        // 泡の出どころ：真珠の上（コースの Mouth は横へ吹く用の前のふちなので使わない）
+        var pearlR = clam.transform.Find("Pearl").GetComponent<Renderer>();
+        var mouth = new GameObject("BubbleOrigin").transform; mouth.SetParent(clam.transform, false); mouth.position = pearlR.bounds.center + Vector3.up * 0.25f;
+        // クリックの当たり：貝のまわりの箱（ふつうの当たり＝のれる・押せる）
+        var bb = new Bounds(); bool first = true;
+        foreach (var r in clam.GetComponentsInChildren<Renderer>(true)) { var lb = r.bounds; if (first) { bb = lb; first = false; } else bb.Encapsulate(lb); }
+        var box = clam.AddComponent<BoxCollider>(); box.center = clam.transform.InverseTransformPoint(bb.center); box.size = Vector3.Scale(bb.size, new Vector3(1f / sc, 1f / sc, 1f / sc));
+        var bc = UdonSharpUndo.AddComponent<FuwaPlaygroundBubbleClam>(clam);
+        bc.lid = lid; bc.mouth = mouth;
+        // 見た目の泡 10個（コース2–1 の泡の材質）
+        var bubM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_ClamBubble.mat");
+        var bl = new List<Transform>();
+        for (int i = 0; i < 10; i++)
+        {
+            var b = GameObject.CreatePrimitive(PrimitiveType.Sphere); b.name = "Bubble" + i; Object.DestroyImmediate(b.GetComponent<Collider>());
+            b.transform.SetParent(slot, false); b.GetComponent<MeshRenderer>().sharedMaterial = bubM;
+            b.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            bl.Add(b.transform);
+        }
+        bc.bubbles = bl.ToArray();
+        // 音：コース2–1 の貝の吹く音
+        var bs = src.blowSound;
+        if (bs != null) { var a = Object.Instantiate(bs.gameObject, clam.transform, false); a.name = "ToggleSound"; a.transform.localPosition = Vector3.zero; bc.toggleSound = a.GetComponent<AudioSource>(); bc.toggleSound.playOnAwake = false; }
+        UdonSharpEditorUtility.CopyProxyToUdon(bc);
+        // 泡の柱（トリガー）：口の上、+Z＝島の真ん中の方（slot の +Z）
+        var z = new GameObject("BubbleZone"); z.transform.SetParent(slot, false); z.layer = 2;
+        z.transform.position = mouth.position; z.transform.rotation = slot.rotation;
+        var cap = z.AddComponent<CapsuleCollider>(); cap.isTrigger = true; cap.radius = 0.8f; cap.height = 4.8f; cap.center = new Vector3(0f, 2.2f, 0f);
+        var bz = UdonSharpUndo.AddComponent<FuwaPlaygroundBubbleZone>(z); bz.clam = bc; bz.height = 4.2f; UdonSharpEditorUtility.CopyProxyToUdon(bz);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bz); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bc); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; ub.interactText = "あわ"; EditorUtility.SetDirty(ub); } }
+    }
+
     static void AddTestUnlockAll(Transform toys, FuwaPlaygroundSpawner sp)
     {
         foreach (var n in new[] { "TestUnlockAll", "TestUnlockAllButton" }) { var old = toys.Find(n); if (old != null) Object.DestroyImmediate(old.gameObject); }
