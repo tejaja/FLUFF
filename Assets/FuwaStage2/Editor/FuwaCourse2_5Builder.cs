@@ -2395,6 +2395,50 @@ public static class FuwaCourse2_5Builder
         var mfs = go.GetComponentsInChildren<MeshFilter>(); if (mfs.Length == 0) return null;
         return mfs[((i % mfs.Length) + mfs.Length) % mfs.Length].sharedMesh;
     }
+    // 2026-11-16 てじゃ「周りの浮島、一部に遺跡の一部みたいなの置こう」「折れた柱とか」「ぜんぶにおかなくていい」
+    //  → 半分くらいの小島に：折れた柱（根もとの台つき）＋ときどき横だおしの柱のかけら・石のブロック。見た目だけ（当たりなし）
+    public static bool IsletRuins = true;
+    static void IsletRuin(Transform g, int i, Vector3 c, float rad)
+    {
+        var rr = new System.Random(900 + i * 17);
+        var mats = new[] { terra, stone };
+        float sc = Mathf.Clamp(rad / 1.6f, 0.6f, 1.1f);   // 小さい島は柱も細く
+        float yaw = (float)rr.NextDouble() * 360f;
+        Vector3 Off(float r, float a) => new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r);
+        // 折れた柱（立っている）
+        {
+            float h = 1.3f + 1.4f * (float)rr.NextDouble();
+            var p = c + Off(rad * (0.15f + 0.25f * (float)rr.NextDouble()), (float)rr.NextDouble() * 6.28f) + Vector3.down * 0.06f;
+            var co = new GameObject("RuinColumn"); co.transform.SetParent(g, false); co.transform.localPosition = p;
+            co.transform.localRotation = Quaternion.Euler((float)rr.NextDouble() * 6f - 3f, yaw, (float)rr.NextDouble() * 6f - 3f);   // 少しかたむく
+            co.transform.localScale = Vector3.one * sc;
+            co.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("IsletRuinCol" + i, 1500 + i, h, 1);
+            co.AddComponent<MeshRenderer>().sharedMaterials = mats;
+        }
+        // 横だおしの柱のかけら（ときどき）
+        if (rr.NextDouble() < 0.6)
+        {
+            float L = 0.9f + 0.6f * (float)rr.NextDouble();
+            var p = c + Off(rad * (0.35f + 0.2f * (float)rr.NextDouble()), (float)rr.NextDouble() * 6.28f) + Vector3.up * (0.3f * sc);
+            var fo = new GameObject("RuinFallen"); fo.transform.SetParent(g, false); fo.transform.localPosition = p;
+            fo.transform.localRotation = Quaternion.Euler(0f, (float)rr.NextDouble() * 360f, 0f) * Quaternion.Euler(0f, 0f, 90f) * Quaternion.Euler(0f, 0f, 0f);
+            fo.transform.localScale = Vector3.one * sc;
+            // 横にした柱のまん中が p になるよう、柱の向き（y）にそって半分もどす
+            fo.transform.localPosition -= fo.transform.localRotation * Vector3.up * (L * 0.5f * sc);
+            fo.AddComponent<MeshFilter>().sharedMesh = ColumnMesh("IsletRuinFallen" + i, 1600 + i, L, 3);
+            fo.AddComponent<MeshRenderer>().sharedMaterials = mats;
+        }
+        // 石のブロック（ときどき）
+        if (rr.NextDouble() < 0.5)
+        {
+            var p = c + Off(rad * (0.3f + 0.25f * (float)rr.NextDouble()), (float)rr.NextDouble() * 6.28f);
+            var bs = new Vector3(0.7f, 0.4f, 0.5f) * sc * (0.8f + 0.4f * (float)rr.NextDouble());
+            var bv = new List<Vector3>(); var bt = new List<int>();
+            ChamferBoxInto(bv, bt, Vector3.zero, bs, 0.05f * sc);
+            var bo = MeshObj(g, "RuinBlock", SaveMesh("IsletRuinBlock" + i, bv, bt), stone, p + Vector3.up * (bs.y * 0.5f - 0.05f), 0, true);
+            bo.transform.localRotation = Quaternion.Euler((float)rr.NextDouble() * 8f, (float)rr.NextDouble() * 360f, (float)rr.NextDouble() * 8f);
+        }
+    }
     static void DecoIslets()
     {
         var g = new GameObject("DecoIslets").transform; g.SetParent(islandsT, false);
@@ -2424,6 +2468,7 @@ public static class FuwaCourse2_5Builder
                 var io = MeshObj(g, "Islet", islet, moss, c, 0, true);
                 io.GetComponent<MeshRenderer>().sharedMaterials = new[] { moss, underM };
                 io.transform.localScale = Vector3.one * (s * 0.5f); io.transform.localRotation = Quaternion.Euler(0f, (float)rndY.NextDouble() * 360f, 0f);
+                if (IsletRuins && i % 2 == 0 && s >= 2.6f) IsletRuin(g, i, c, s * 0.5f);
                 continue;
             }
             var t = Box(g, "IsletTop", c, new Vector3(s, 0.5f, s * 0.8f), moss, 0); Object.DestroyImmediate(t.GetComponent<Collider>());
