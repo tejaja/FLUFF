@@ -1643,14 +1643,31 @@ public static class FuwaCourse2_5Builder
                     float y = yd - 1.7f + (1.7f - 0.3f) * Mathf.Sqrt(Mathf.Max(0f, 1f - tt * tt));
                     sof[k] = new Vector3(0f, y, z);
                 }
+                // 2026-11-16 てじゃ「ぜんぜんのこってるけど」→ 欠けの所はアーチ（リブ・くさび石の輪）ごとなし。穴の下は空。切れ口にふた
+                bool Gone(float sx, int k) => open && k >= 0 && k < K && BiteW(sx, (sof[k].z + sof[k + 1].z) * 0.5f) > 0.8f;
                 for (int k = 0; k < K; k++)
                 {
                     Vector3 a = sof[k], b = sof[k + 1];
                     float ya = DeckY(a.z) - Tk, yb = DeckY(b.z) - Tk;
+                    if (open) foreach (float sx in new[] { -1f, 1f })
+                    {
+                        if (Gone(sx, k)) continue;
+                        float ta = Mathf.Lerp(ya, Mathf.Max(a.y + 0.12f, ya - 2.5f), BiteW(sx, a.z)), tb = Mathf.Lerp(yb, Mathf.Max(b.y + 0.12f, yb - 2.5f), BiteW(sx, b.z));
+                        var nr = Vector3.Cross(Vector3.right, (b - a).normalized); if (nr.y < 0) nr = -nr;
+                        foreach (var (zc, y0c, ytc, nb, dirz) in new[] { (a.z, a.y, ta, k - 1, -1f), (b.z, b.y, tb, k + 1, 1f) })
+                        {
+                            if (!Gone(sx, nb)) continue;
+                            var dz = new Vector3(0f, 0f, dirz);
+                            Quad(v, t, new Vector3(sx * xi, y0c, zc), new Vector3(sx * xo, y0c, zc), new Vector3(sx * xo, ytc, zc), new Vector3(sx * xi, ytc, zc), dz);   // リブの切れ口
+                            var r0 = new Vector3(sx * xo, y0c, zc); var r1 = new Vector3(sx * xr, y0c, zc);
+                            Quad(rv, rt, r0, r1, r1 + nr * 0.35f, r0 + nr * 0.35f, dz);   // くさび石の輪の切れ口
+                        }
+                    }
                     // 下の面（穴あきの橋は両はしのリブだけ＋リブの内がわの壁と上の面）
                     if (!open) Quad(v, t, new Vector3(-xo, a.y, a.z), new Vector3(xo, a.y, a.z), new Vector3(xo, b.y, b.z), new Vector3(-xo, b.y, b.z), Vector3.down);
                     else foreach (float sx in new[] { -1f, 1f })
                     {
+                        if (Gone(sx, k)) continue;
                         // 欠け：リブの上を下げる（アーチの上 12cm は残す）。下げた分、まん中のがらんどうが見えないように xi に外向きの壁
                         float ta = Mathf.Lerp(ya, Mathf.Max(a.y + 0.12f, ya - 2.5f), BiteW(sx, a.z)), tb = Mathf.Lerp(yb, Mathf.Max(b.y + 0.12f, yb - 2.5f), BiteW(sx, b.z));
                         Quad(v, t, new Vector3(sx * xi, a.y, a.z), new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, b.y, b.z), new Vector3(sx * xi, b.y, b.z), Vector3.down);
@@ -1667,6 +1684,7 @@ public static class FuwaCourse2_5Builder
                     float rw = 0.35f;
                     foreach (float sx in new[] { -1f, 1f })
                     {
+                        if (Gone(sx, k)) continue;
                         Vector3 a0 = new Vector3(sx * xr, a.y, a.z), b0 = new Vector3(sx * xr, b.y, b.z), a1 = a0 + nrm * rw, b1 = b0 + nrm * rw;
                         Quad(rv, rt, a0, b0, b1, a1, new Vector3(sx, 0f, 0f));
                         Quad(rv, rt, new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, b.y, b.z), b0, a0, Vector3.down);
