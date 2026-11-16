@@ -1010,7 +1010,8 @@ public static class FuwaCourse2_5Builder
     public static bool PitLiners = true; public static float PitLinerInset = 0.005f;
     // 2026-11-16 てじゃ「もっとわかりやすくしたいなあ」→ 中はふちのすぐ下から暗く、穴のまわりに 2cm だけ盛り上がったこげ茶の枠（PitRim）
     //  → てじゃ「わかりやすいけど、欠けた感じではなくなっちゃう」→ 枠はやめて（PitRim=false）、ふちの割れ残り（PitChips）
-    public static Color PitTopCol = new Color(0.17f, 0.13f, 0.13f), PitBottomCol = new Color(0.03f, 0.02f, 0.025f);
+    // 2026-11-16 てじゃ「穴と差があるのもやだし、断面を暗めにするので統一してみよ」→ 真っ黒のグラデ → 道の石の色を暗くした断面（全部の穴で同じ）。はしが欠けた列もタイルの厚みの所だけ貼る
+    public static Color PitTopCol = new Color(0.47f, 0.41f, 0.32f), PitBottomCol = new Color(0.27f, 0.22f, 0.18f);
     public static bool PitChips = false;   // 2026-11-16 てじゃ「やっぱなしかなぁ」→ 割れ残りはやめ、暗い壁だけ（すき間が見えないよう壁はタイルの横の面から 5mm）
     public static bool PitRim = false; public static float PitRimW = 0.07f, PitRimH = 0.02f; public static Color PitRimCol = new Color(0.36f, 0.25f, 0.22f), PitRimSideCol = new Color(0.22f, 0.15f, 0.14f);
     static void AddPitLiners()
@@ -1037,6 +1038,8 @@ public static class FuwaCourse2_5Builder
             {
                 float top = lp.y + h / 2f, bot = lp.y - h / 2f, ins = PitLinerInset;
                 var k = K(lp);
+                // 2026-11-16 てじゃ「黒くしたグラデが素材の違い関係なくでてるから違和感」→ 橋のはしが欠けた列（横に開いた穴）は暗い壁なし（明るい所から見える割れた石のまま）
+                bool biteRow = wr.name == "WindRun_Bridge" && (pitKeys.Contains(new Vector2Int(kx0, k.y)) || pitKeys.Contains(new Vector2Int(kx1, k.y)));
                 var sides = new (Vector2Int nb, Vector3 off, Vector3 along, float half, Vector3 inw)[]
                 {
                     (new Vector2Int(2, 0), new Vector3(w / 2f - ins, 0f, 0f), Vector3.forward, l / 2f - ins, Vector3.left),
@@ -1053,7 +1056,7 @@ public static class FuwaCourse2_5Builder
                     var sideStep = s.along == Vector3.forward ? new Vector2Int(0, 2) : new Vector2Int(2, 0);
                     if (pitKeys.Contains(k + sideStep)) ext1 = ins; if (pitKeys.Contains(k - sideStep)) ext0 = ins;
                     var a0 = cx - s.along * (s.half + ext0); var a1 = cx + s.along * (s.half + ext1);
-                    float y0 = bot - 0.25f, y1 = top - (PitChips ? 0.095f : 0.002f);   // タイルの下より少し下まで。割れ残りがある時は、その上の面（-4mm）より下で止める（割れ残りの上に線が出ない）
+                    float y0 = biteRow ? bot + 0.002f : bot - 0.25f, y1 = top - (PitChips ? 0.095f : 0.002f);   // タイルの下より少し下まで。割れ残りがある時は、その上の面（-4mm）より下で止める（割れ残りの上に線が出ない）
                     int i0 = v.Count;
                     v.Add(new Vector3(a0.x, y1, a0.z)); v.Add(new Vector3(a1.x, y1, a1.z)); v.Add(new Vector3(a1.x, y0, a1.z)); v.Add(new Vector3(a0.x, y0, a0.z));
                     c.Add(PitTopCol); c.Add(PitTopCol); c.Add(PitBottomCol); c.Add(PitBottomCol);
