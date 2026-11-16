@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -109,6 +109,77 @@ public static class FuwaPathSeamCheck
         Undo.RecordObject(m, "fix path gaps");
         m.vertices = v; m.RecalculateBounds(); EditorUtility.SetDirty(m); AssetDatabase.SaveAssets();
         return course.name + ": すき間 " + gaps.Count + " をふさいだ（頂点 " + moved + "）";
+    }
+
+    // 上から見たすき間（溝・抜け）：ふちの辺にそって、両がわ（±6cm）は同じ高さの床なのに、辺の所（±2cm）がへこむ／抜ける所
+    public static List<(Vector3 p, float depth)> ScanCracks(Transform course)
+    {
+        var res = new List<(Vector3, float)>();
+        var ms = PathMeshes(course); if (ms.Count == 0) return res;
+        var P = new List<Vector3>(); var T = new List<int>();
+        foreach (var (mf, _) in ms)
+        {
+            var m = mf.sharedMesh; var tr = mf.transform; int b0 = P.Count;
+            foreach (var v in m.vertices) P.Add(tr.TransformPoint(v));
+            for (int s = 0; s < m.subMeshCount; s++) foreach (var t in m.GetTriangles(s)) T.Add(b0 + t);
+        }
+        var grid = new Dictionary<Vector2Int, List<int>>();
+        for (int i = 0; i < T.Count; i += 3)
+        {
+            Vector3 a = P[T[i]], b = P[T[i + 1]], c = P[T[i + 2]];
+            var n = Vector3.Cross(b - a, c - a); if (n.sqrMagnitude < 1e-12f) continue; n.Normalize(); if (Mathf.Abs(n.y) < 0.3f) continue;
+            int x0 = Mathf.FloorToInt(Mathf.Min(a.x, Mathf.Min(b.x, c.x))), x1 = Mathf.FloorToInt(Mathf.Max(a.x, Mathf.Max(b.x, c.x)));
+            int z0 = Mathf.FloorToInt(Mathf.Min(a.z, Mathf.Min(b.z, c.z))), z1 = Mathf.FloorToInt(Mathf.Max(a.z, Mathf.Max(b.z, c.z)));
+            for (int x = x0; x <= x1; x++) for (int z = z0; z <= z1; z++) { var k = new Vector2Int(x, z); if (!grid.TryGetValue(k, out var l)) grid[k] = l = new List<int>(); l.Add(i); }
+        }
+        // (x,z) の真上から、yRef 付近（±0.5m）でいちばん高い上向きの面
+        float Top(Vector3 q, float yRef)
+        {
+            var k = new Vector2Int(Mathf.FloorToInt(q.x), Mathf.FloorToInt(q.z)); if (!grid.TryGetValue(k, out var l)) return float.NegativeInfinity;
+            float best = float.NegativeInfinity;
+            foreach (int i in l)
+            {
+                Vector3 a = P[T[i]], b = P[T[i + 1]], c = P[T[i + 2]];
+                // 2D の中か（重心座標）
+                float d = (b.z - c.z) * (a.x - c.x) + (c.x - b.x) * (a.z - c.z); if (Mathf.Abs(d) < 1e-10f) continue;
+                float w0 = ((b.z - c.z) * (q.x - c.x) + (c.x - b.x) * (q.z - c.z)) / d, w1 = ((c.z - a.z) * (q.x - c.x) + (a.x - c.x) * (q.z - c.z)) / d, w2 = 1f - w0 - w1;
+                if (w0 < -1e-4f || w1 < -1e-4f || w2 < -1e-4f) continue;
+                float y = w0 * a.y + w1 * b.y + w2 * c.y;
+                if (Mathf.Abs(y - yRef) < 0.5f && y > best) best = y;
+            }
+            return best;
+        }
+        // ふちの辺（溶接して三角1つだけ）
+        var key = new Dictionary<Vector3Int, int>(); var pos = new List<Vector3>();
+        int W(Vector3 p) { var kk = new Vector3Int(Mathf.RoundToInt(p.x / Weld), Mathf.RoundToInt(p.y / Weld), Mathf.RoundToInt(p.z / Weld)); if (!key.TryGetValue(kk, out int id)) { id = pos.Count; pos.Add(p); key[kk] = id; } return id; }
+        var ids = P.Select(W).ToArray();
+        var edges = new Dictionary<long, int>();
+        for (int i = 0; i < T.Count; i += 3)
+        {
+            int a = ids[T[i]], b = ids[T[i + 1]], c = ids[T[i + 2]]; if (a == b || b == c || a == c) continue;
+            foreach (var (x, y) in new[] { (a, b), (b, c), (c, a) }) { long kk = x < y ? ((long)x << 32) | (uint)y : ((long)y << 32) | (uint)x; edges[kk] = edges.TryGetValue(kk, out int n) ? n + 1 : 1; }
+        }
+        foreach (var e in edges.Where(e => e.Value == 1))
+        {
+            Vector3 a = pos[(int)(e.Key >> 32)], b = pos[(int)(e.Key & 0xffffffff)];
+            var dir = b - a; dir.y = 0f; float len = dir.magnitude; if (len < 0.05f) continue; dir /= len;
+            var n = new Vector3(dir.z, 0f, -dir.x);
+            for (float t = 0.03f; t < len - 0.03f; t += 0.2f)
+            {
+                var p = Vector3.Lerp(a, b, t / len);
+                // 両がわ ±w（7cm と 18cm の2通り：狭いすき間と、少し広いすき間）が同じ高さの床で、その間がへこむ／抜ける
+                foreach (float w in new[] { 0.07f, 0.18f })
+                {
+                    float hL = Top(p - n * w, p.y), hR = Top(p + n * w, p.y);
+                    if (float.IsNegativeInfinity(hL) || float.IsNegativeInfinity(hR) || Mathf.Abs(hL - hR) > 0.015f) continue;   // 片がわが床でない（ふち・段差）
+                    float ref0 = Mathf.Min(hL, hR), hc = float.PositiveInfinity;
+                    for (float u = -w + 0.02f; u <= w - 0.02f; u += 0.02f) hc = Mathf.Min(hc, Top(p + n * u, p.y));
+                    float depth = float.IsNegativeInfinity(hc) ? 1f : ref0 - hc;
+                    if (depth > 0.01f) { res.Add((p, depth)); break; }
+                }
+            }
+        }
+        return res;
     }
 
     [MenuItem("FuwaCourse/よく使う/道のスキマを調べる（全コース）")]
