@@ -43,12 +43,14 @@ public static class FuwaPhotoPointBuilder2
             CP("FuwaCourse2_3", "CheckpointSpinExit", "まわる床", "Spinning Floor"),
 
             CP("FuwaCourse2_4", "Checkpoint1", "歯車にのって", "Gear Ride"),
-            CP("FuwaCourse2_4", "CheckpointRack", "ラックの橋", "Rack Bridge"),
+            CP("FuwaCourse2_4", "CheckpointDraw", "はね橋", "Drawbridge"),   // てじゃ「2-4の3～4枚目がちょと地味かな」→ ラックの橋から変更
             CP("FuwaCourse2_4", "CheckpointTwin", "ふたつの台", "Twin Tables"),
 
+            // 2026-11-16 てじゃ「2-5もバリアがつくポイントは最後に持ってきて、いまのゴール前のやつをやめて別のところにしよう」
+            //  → はじめのポータル（WarpA の手前）／クモの巣の道／衝撃波の広場（バリアがつく所）
+            At("FuwaCourse2_5", Vector3.zero, "はじめのポータル", "First Portal", new Vector3(9f, 9f, 5f)),
             CP("FuwaCourse2_5", "Checkpoint1", "クモの巣の道", "Web Walk"),
             At("FuwaCourse2_5", Vector3.zero, "衝撃波の広場", "Crystal Plaza", new Vector3(22f, 10f, 22f)),
-            At("FuwaCourse2_5", Vector3.zero, "さいごのポータル", "Last Portal", new Vector3(9f, 9f, 5f)),
         };
 
         foreach (var cname in spots.Select(s => s.course).Distinct())
@@ -90,14 +92,15 @@ public static class FuwaPhotoPointBuilder2
                     }
                     else
                     {
-                        // ゴールは洞窟の中（ポータルWarpBでワープして入る）なので、その入口のポータルの手前で
-                        var wb = course.GetComponentsInChildren<Transform>(true).First(t => t.name == "WarpB").position;
-                        var sw = course.GetComponentsInChildren<FuwaShockwave>(true).First().transform.position;
-                        dir = wb - sw; dir.y = 0f; dir.Normalize(); center = wb - dir * 4f + Vector3.up * 2f; size = s.size;
+                        // はじめのポータル（WarpA）：その前の道（Run2）から来る向きで、ポータルの手前に
+                        var wa = course.GetComponentsInChildren<Transform>(true).First(t => t.name == "WarpA").position;
+                        var run2 = course.GetComponentsInChildren<Transform>(true).First(t => t.name == "Run2").position;
+                        dir = wa - run2; dir.y = 0f; dir.Normalize(); center = wa - dir * 4f + Vector3.up * 2f; size = s.size;
                     }
                     string r = FuwaPhotoPointBuilder.Make(holder, "PhotoPoint" + (order + 1), order, center, dir, size.x, layer, album, s.ja, s.en);
                     var col = holder.Find("PhotoPoint" + (order + 1)).GetComponent<BoxCollider>(); col.size = size;
                     // てじゃ「氷の柱はいやだな」：氷の柱が多い所は、柱で画面がふさがる位置をよける
+                    if (s.en == "Twin Tables") { var pp = col.GetComponent<FuwaPhotoPoint>(); pp.lookAhead = 7f; UdonSharpEditorUtility.CopyProxyToUdon(pp); EditorUtility.SetDirty(pp); }
                     if (s.en == "Round Dome") { var pp = col.GetComponent<FuwaPhotoPoint>(); pp.clearRadius = 0.9f; UdonSharpEditorUtility.CopyProxyToUdon(pp); EditorUtility.SetDirty(pp); }
                     made.Add(r);
                     order++;

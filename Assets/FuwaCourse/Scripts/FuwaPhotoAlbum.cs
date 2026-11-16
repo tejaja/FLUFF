@@ -419,7 +419,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             if (Physics.CheckSphere(pos, 0.3f, obstacleMask, QueryTriggerInteraction.Ignore)) continue;
             if (Blocked(pos, ball)) continue;
             if (point.clearRadius > 0f && ViewCluttered(pos, ball, point.clearRadius)) continue;
-            Vector3 dB = (ball - pos).normalized;
+            Vector3 dB = (ball + fwd * point.lookAhead - pos).normalized;   // lookAhead：ふわふわより先の方へ向ける
             Vector3 dir = dB;
             float fov = kind == KindFar ? 50f : 45f;
             if (playerNear && !Blocked(pos, chest))

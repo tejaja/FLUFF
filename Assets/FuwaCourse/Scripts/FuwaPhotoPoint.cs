@@ -25,6 +25,8 @@ public class FuwaPhotoPoint : UdonSharpBehaviour
     public bool takeSecond = true;
     [Tooltip("0より大きいと、カメラからふわふわへの線のまわりこの太さ(m)に物があるカメラ位置をやめる（柱などで画面がふさがるポイント用。2026-11-16 2–3 のドーム）")]
     public float clearRadius = 0f;
+    [Tooltip("遠く・近くの写真で、ふわふわよりこれだけ(m)先（飛んでいく向き）の方へカメラを向ける。先のしかけを入れたいポイント用（2026-11-16 てじゃ「2–4の5～6ももうちょい先が写せれば」）")]
+    public float lookAhead = 0f;
 
     private float _shotRun = -1f;
 
