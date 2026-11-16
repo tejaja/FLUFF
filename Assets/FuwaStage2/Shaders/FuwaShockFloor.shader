@@ -1,4 +1,4 @@
-// 2026-11-15 2–5 クリスタルの広場：衝撃波の範囲を床に出す（てじゃ「衝撃波の範囲、もっと目立たせたいな、特に床」）
+﻿// 2026-11-15 2–5 クリスタルの広場：衝撃波の範囲を床に出す（てじゃ「衝撃波の範囲、もっと目立たせたいな、特に床」）
 //  広場の床にかぶせる円盤。スクリプト（FuwaShockwave）が MPB で
 //   _Charge（0〜1 ため）、_WaveR（広がる壁の半径、<0 ならなし）、_WaveFade、_Src（クリスタル）、_Ball（バリア xyz・w=半径、w=0 ならなし）、_Pad・_Near
 //  ため：外へ流れる光の輪が床いっぱいに（ためるほど濃く・速く）。バリアの影（セーフ）だけ抜けて、ふちに白い線
@@ -18,6 +18,7 @@ Shader "Fuwa/ShockFloor"
         _Pad ("影の横のゆとり", Float) = 0.45
         _Near ("バリアのまわりのゆとり", Float) = 0.8
         _Strength ("全体の強さ", Float) = 1
+        _ChargeGain ("ためている時の黒い模様の強さ", Float) = 1
     }
     SubShader
     {
@@ -33,7 +34,7 @@ Shader "Fuwa/ShockFloor"
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
             #include "FuwaSafeShape.cginc"
-            half4 _Color, _SafeColor; float _Radius, _Pad, _Near, _Strength;
+            half4 _Color, _SafeColor; float _Radius, _Pad, _Near, _Strength, _ChargeGain;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Charge)
                 UNITY_DEFINE_INSTANCED_PROP(float, _FlowPh)
@@ -83,7 +84,7 @@ Shader "Fuwa/ShockFloor"
                 //  前は t×（ためで変わる速さ）だったので、速さが変わるたびに大きい t がかかって模様が飛んでいた → 進んだ量はスクリプトが足していく（_FlowPh・_FlickPh）
                 float flow = frac(r * 0.9 - UNITY_ACCESS_INSTANCED_PROP(Props, _FlowPh));
                 float bands = smoothstep(0.0, 0.12, flow) * pow(1 - flow, 3);
-                float charge = kk * (0.38 + 0.9 * bands) * (0.85 + 0.15 * sin(UNITY_ACCESS_INSTANCED_PROP(Props, _FlickPh)));
+                float charge = kk * (0.38 + 0.9 * bands) * (0.85 + 0.15 * sin(UNITY_ACCESS_INSTANCED_PROP(Props, _FlickPh))) * _ChargeGain;   // 2026-11-16 てじゃ「地面のチャージ時の黒いグラデ、もっとつよく」
                 // セーフのふちの線（ためている間と壁が来る前）
                 float sline = (k > 0.001 || wr >= 0) ? (1 - smoothstep(0.03, 0.11, abs(dEdge))) * (0.35 + 0.65 * max(kk, wf)) : 0;
                 // ドン：壁の帯＋通ったあとの尾

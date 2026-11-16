@@ -1106,7 +1106,7 @@ public static class FuwaCourse2_5Builder
     }
 
     // アーチ橋：deck（穴あきなら WindRun のタイル）＋下に橋脚とアーチ。windsAt で石像の横風
-    public static bool ShockDark = true, ShockSkyDim = true, ShieldVeil = true, ShieldOffArch = true; public static Color ShieldOffCol = new Color(0.86f, 0.78f, 1f, 1f); public static float ShockEarly = 5f, ShieldSafePad = 0.25f; public static bool ShockCorridor = true; static float shockCorridorLen; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
+    public static bool ShockDark = true, ShockSkyDim = true, ShieldVeil = true, ShieldOffArch = true; public static Color ShieldOffCol = new Color(0.86f, 0.78f, 1f, 1f); public static float ShockEarly = 5f, ShieldSafePad = 0.25f, ShockChargeGain = 1.8f; public static bool ShockCorridor = true; static float shockCorridorLen; public static Color ShockDarkCol = new Color(0.10f, 0.04f, 0.16f, 1f), ShockDarkCore = new Color(0.32f, 0.10f, 0.42f, 1f);
     public static bool PlazaBridgeDirect = true, PlazaLedgeUnderEntry = true;
     // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
     static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
@@ -4995,7 +4995,7 @@ public static class FuwaCourse2_5Builder
             }
             FixWinding(v, t, _ => Vector3.up);
             var zm = SaveMeshUV(name + "_ShockZone", v, t, uv, v.Select(_ => Vector3.up).ToList());
-            var zM = FxMat("Ruins_ShockFloor", "Fuwa/ShockFloor"); zM.SetColor("_Color", ShockDark ? ShockDarkCol : ShieldCol); zM.SetFloat("_Radius", Mathf.Max(R, shockCorridorLen)); EditorUtility.SetDirty(zM);
+            var zM = FxMat("Ruins_ShockFloor", "Fuwa/ShockFloor"); zM.SetColor("_Color", ShockDark ? ShockDarkCol : ShieldCol); zM.SetFloat("_Radius", Mathf.Max(R, shockCorridorLen)); zM.SetFloat("_ChargeGain", ShockChargeGain); EditorUtility.SetDirty(zM);
             var zo = MeshObj(g, "ShockZone", zm, zM, new Vector3(0f, 0.025f, 0f), 0, false);
             var zr = zo.GetComponent<Renderer>(); zr.enabled = false; zr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; zr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             sw.floorZone = zr;
