@@ -3735,7 +3735,7 @@ public static class FuwaCourse2_5Builder
         var sv = new List<Vector3>(); var st = new List<int>();   // 石（橋の欄干の下の帯）
         var tv = new List<Vector3>(); var tt = new List<int>();   // 道
         int nn = 9;
-        var eS = Jag(rnd, nn, 0.95f, 0.85f); for (int k = 0; k < nn; k++) eS[k] = Mathf.Clamp(eS[k], 0.12f, 1.9f);
+        var eS = Jag(rnd, nn, 0.8f, 0.42f); for (int k = 0; k < nn; k++) eS[k] = Mathf.Clamp(eS[k], 0.3f, 1.4f);   // 2026-11-16 てじゃ「欠けの角度もっとゆるめに」→ ふれはば 0.85 → 0.42
         var dS = new float[nn]; for (int k = 0; k < nn; k++) dS[k] = (float)rnd.NextDouble() < 0.5f ? 0.04f + (float)rnd.NextDouble() * 0.16f : 0f;
         var xsR = Lin(-hw, hw, nn);
         FieldSlab(tv, tt, Vector3.zero, Vector3.right, Vector3.forward, Vector3.up, xsR, eS, dS, -Tk, 0f);
@@ -3771,7 +3771,7 @@ public static class FuwaCourse2_5Builder
             int m = 7; var xs = Lin(-w / 2f, w / 2f, m);
             foreach (float dz in new[] { 1f, -1f })
             {
-                var e1 = Jag(r2, m, len / 2f, 0.45f); for (int k = 0; k < m; k++) e1[k] = Mathf.Max(0.15f, e1[k]);
+                var e1 = Jag(r2, m, len / 2f, 0.25f); for (int k = 0; k < m; k++) e1[k] = Mathf.Max(0.15f, e1[k]);
                 var d1 = new float[m]; for (int k = 0; k < m; k++) d1[k] = (float)r2.NextDouble() < 0.5f ? 0.05f + (float)r2.NextDouble() * 0.15f : 0f;
                 FieldSlab(fv, ft, Vector3.zero, Vector3.right * dz, Vector3.forward * dz, Vector3.up, xs, e1, d1, -Tk, 0f);
             }
@@ -3787,7 +3787,7 @@ public static class FuwaCourse2_5Builder
         {
             if (k1 < 0) k1 = nn - 1;
             var r2 = new System.Random(s2);
-            var eF = Jag(r2, nn, len, 0.55f); var dF = new float[nn];
+            var eF = Jag(r2, nn, len, 0.3f); var dF = new float[nn];
             for (int k = 0; k < nn; k++) { eF[k] = Mathf.Max(0.45f, eF[k]); dF[k] = (float)r2.NextDouble() < 0.5f ? 0.04f + (float)r2.NextDouble() * 0.14f : 0f; }
             var fv = new List<Vector3>(); var ft = new List<int>();
             float X(int k) => xsR[k] + (k == k0 ? xIn0 : 0f) - (k == k1 ? xIn1 : 0f);
@@ -3825,7 +3825,7 @@ public static class FuwaCourse2_5Builder
         if (RuinBigPiece)   // 割れ目からはなれた道はばの1枚が3つに割れて、少しずつずれて落ちていく途中
         {
             int[] cut = { 0, 3, 5, nn - 1 };
-            var rot = new[] { new Vector3(18f, -6f, 9f), new Vector3(12f, 3f, -3f), new Vector3(24f, 8f, -12f) };
+            var rot = new[] { new Vector3(7f, -3f, 4f), new Vector3(4f, 2f, -2f), new Vector3(9f, 4f, -5f) };   // てじゃ「破片の向きもちょっとだけずらすかんじで」
             var pos = new[] { new Vector3(-0.12f, -0.15f, zH + 0.75f), new Vector3(0f, 0.3f, zH + 0.6f), new Vector3(0.15f, -0.5f, zH + 1.0f) };   // 2026-11-16 てじゃ「島の下まで落ちるんじゃなくて、もっと上で浮いててほしい」「ちょっと道より上にいってもいいよ」
             for (int pi = 0; pi < 3; pi++)
             {
@@ -3836,7 +3836,7 @@ public static class FuwaCourse2_5Builder
         }
         {
             var f2 = Fragment("FallingChip", 0.9f, 1.1f, seed + 2);
-            f2.localPosition = new Vector3(0.9f, -0.6f, eAvg + 2.4f); f2.localRotation = Quaternion.Euler(-35f, 50f, 22f);
+            f2.localPosition = new Vector3(0.9f, -0.6f, eAvg + 2.4f); f2.localRotation = Quaternion.Euler(-6f, 12f, 5f);
             Clear(f2, new Vector3(0f, 0.03f, 0.3f));
         }
         // 落ちていく石（当たりなし）：1つずつ入れ物に入れて、ぶつかっていたらずらす
