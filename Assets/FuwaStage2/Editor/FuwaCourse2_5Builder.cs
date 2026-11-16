@@ -39,7 +39,24 @@ public static class FuwaCourse2_5Builder
     static System.Text.StringBuilder log;
 
     [MenuItem("FuwaCourse/ステージ2/2–5 そらのいせき（ブロックアウト）を作り直す")]
-    public static void Menu() { Debug.Log(Build()); }
+    public static void Menu() { Debug.Log(Build()); RelinkLod(); }
+
+    // 2026-11-16 てじゃ「（ステージ1だと飛んで入ってもコースに入った扱いなのに）飛行でコース移動したときにきりかわらない」
+    //  → 作り直すとコースの根っこが新しくなり、ステージ2の FuwaCourseLod（CourseLodStage2）の fullRoots・starts が null のままだった（＝本体に戻らない・コースにいる判定もない）。作り直しのたびにつなぎ直す
+    static void RelinkLod()
+    {
+        var lod2 = Resources.FindObjectsOfTypeAll<FuwaCourseLod>().FirstOrDefault(l => l && l.gameObject.scene.IsValid() && l.stage == 2);
+        var r = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName);
+        if (!lod2 || !r || lod2.liteRoots == null) return;
+        int i = System.Array.FindIndex(lod2.liteRoots, x => x && x.name == RootName + "_Lite");
+        if (i < 0 || lod2.fullRoots == null || i >= lod2.fullRoots.Length) return;
+        lod2.fullRoots[i] = r;
+        var bs = r.transform.Find("BallStart") ?? r.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BallStart");
+        if (lod2.starts != null && i < lod2.starts.Length) lod2.starts[i] = bs;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lod2); EditorUtility.SetDirty(lod2);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lod2.gameObject.scene);
+        Debug.Log("[2–5] CourseLodStage2 につなぎ直し " + i + " start=" + (bs ? bs.name : "null"));
+    }
 
     public static string Build()
     {
