@@ -17,6 +17,10 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
     public float maxDrop = 6f;
     [Tooltip("持っている間だけ（自分の画面だけ）body の見た目をこの半透明の材質にする（2026-11-16 てじゃ「デカいから岩みたいに半透明化」「きのこ台にも半透明化」）。空なら変えない")]
     public Material heldMaterial;
+    [Tooltip("持ってトリガー（Use）を押した時にこの UdonBehaviour へ送るイベント（あそびばの貝・氷のオン/オフ。2026-11-16 てじゃ「B」）")]
+    public UdonSharpBehaviour useTarget;
+    public string useEvent = "Toggle";
+    public override void OnPickupUseDown() { if (useTarget != null) useTarget.SendCustomEvent(useEvent); }
     private Renderer[] _vis;
     private Material[][] _visMats;
 

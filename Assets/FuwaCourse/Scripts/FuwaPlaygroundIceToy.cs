@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -18,9 +18,13 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
     [UdonSynced] private bool _on;
     private float _k;
 
-    private void Start() { Apply(); }
+    // 2026-11-16 持ち運べるように：持ってトリガーで Toggle（FuwaMovableMushroom.useTarget）。クリックは切る
+    [Tooltip("クリック（Interact）でもオン/オフするか（持ち運べるようにした時は切る）")]
+    public bool clickToggle = true;
+    private void Start() { if (!clickToggle) DisableInteractive = true; Apply(); }
 
-    public override void Interact()
+    public override void Interact() { Toggle(); }
+    public void Toggle()
     {
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
         _on = !_on;

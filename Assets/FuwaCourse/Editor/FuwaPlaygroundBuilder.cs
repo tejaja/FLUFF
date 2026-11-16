@@ -439,6 +439,7 @@ public static class FuwaPlaygroundBuilder
         FillBounce(unlockToys[4].transform);
         // 2026-11-16 ステージ2のおもちゃ（6〜10番）
         var (t2, l2) = Stage2Slots(toys, O, sp);
+        MakeStage2ToysMovable(toys);
         unlockToys = unlockToys.Concat(t2).ToArray(); lockedSigns = lockedSigns.Concat(l2).ToArray();
 
         // 「おもちゃを戻す」：扇風機・うちわ以外の持てるおもちゃも
@@ -651,6 +652,7 @@ public static class FuwaPlaygroundBuilder
         var sp = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
         Vector3 O = toys.Find("Unlock1").position; { var c = toys.parent.parent.position; O = new Vector3(c.x, O.y, c.z); }
         var (t2, l2) = Stage2Slots(toys, O, sp);
+        MakeStage2ToysMovable(toys);
         var ul = toys.GetComponent<FuwaPlaygroundUnlocks>();
         ul.toys = ul.toys.Take(5).Concat(t2).ToArray(); ul.locked = ul.locked.Take(5).Concat(l2).ToArray(); Sync(ul);
         // 「おもちゃをもどす」にステージ2の持てる物（ポータルの台など）も
@@ -661,6 +663,71 @@ public static class FuwaPlaygroundBuilder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
         Debug.Log("[あそびば] ステージ2のおもちゃ 5つの場所");
     }
+    // 2026-11-16 てじゃ「2-1おもちゃ各種も接地限定で持ち運んで移動したい　デカいから岩みたいに半透明化も」→ B「おもちゃ全体を掴める。オン/オフは持ってトリガー」
+    //  貝（Unlock6）・氷（Unlock8）・羽根車（Unlock9）。火の岩（Unlock7）は「別のにかえるかも」なのでそのまま。ポータル（Unlock10）は台座の持ち手
+    //  跳ねるキノコと同じ FuwaMovableMushroom：持つ所（Grab：VRCPickup・VRCObjectSync・おもちゃを囲む箱、見た目なし）と、あとを追う Body（中身）を分ける
+    static void MakeStage2ToysMovable(Transform toys)
+    {
+        var heldMat = Object.FindObjectsOfType<FuwaThrowRock>(true).First().heldMaterial;
+        EnsureProgram("FuwaMovableMushroom");
+        foreach (var (slotName, label) in new[] { ("Unlock6", "かい"), ("Unlock8", "こおり"), ("Unlock9", "はねぐるま") })
+        {
+            var slot = toys.Find(slotName); if (slot == null) continue;
+            var oldGrab = slot.Find("Grab"); var body = slot.Find("Body");
+            if (body == null)
+            {
+                body = new GameObject("Body").transform; body.SetParent(slot, false);
+                foreach (Transform c in slot.Cast<Transform>().ToList()) if (c != body && c != oldGrab) c.SetParent(body, true);
+            }
+            if (oldGrab) Object.DestroyImmediate(oldGrab.gameObject);
+            // 原点：一番大きい部品の位置（床の上）。Body も同じ所へ（中身の位置は変えない）
+            var main = body.Cast<Transform>().OrderByDescending(c => { var rs = c.GetComponentsInChildren<Renderer>(true); return rs.Length == 0 ? 0f : rs.Max(r => r.bounds.size.sqrMagnitude); }).First();
+            Vector3 org = main.position; float yaw = main.eulerAngles.y;
+            var kids = body.Cast<Transform>().ToList(); foreach (var k in kids) k.SetParent(slot, true);
+            body.SetPositionAndRotation(org, Quaternion.Euler(0f, yaw, 0f)); foreach (var k in kids) k.SetParent(body, true);
+            // 囲む箱（Body の座標で）。泡・広がる氷・粒は除く
+            var bb = new Bounds(Vector3.zero, Vector3.zero); bool first = true;
+            foreach (var r in body.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (r.name.StartsWith("Bubble") || r.name == "IceDisc") continue;
+                var b = r.bounds;
+                for (int i = 0; i < 8; i++)
+                {
+                    var cpt = body.InverseTransformPoint(new Vector3((i & 1) == 0 ? b.min.x : b.max.x, (i & 2) == 0 ? b.min.y : b.max.y, (i & 4) == 0 ? b.min.z : b.max.z));
+                    if (first) { bb = new Bounds(cpt, Vector3.zero); first = false; } else bb.Encapsulate(cpt);
+                }
+            }
+            var grab = new GameObject("Grab"); grab.layer = 13; grab.transform.SetParent(slot, false);
+            grab.transform.SetPositionAndRotation(body.position, body.rotation);
+            var bc = grab.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.center = bb.center; bc.size = bb.size + Vector3.one * 0.1f;
+            var rb = grab.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+            var pk = grab.AddComponent<VRC.SDK3.Components.VRCPickup>();
+            pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.proximity = 2f; pk.pickupable = true;
+            pk.InteractionText = label; pk.UseText = "オン / オフ";
+            grab.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+            var mm = UdonSharpUndo.AddComponent<FuwaMovableMushroom>(grab);
+            mm.body = body; mm.heldMaterial = heldMat; mm.ground = (1 << 11) | 1; mm.useEvent = "Toggle";
+            UdonSharpBehaviour target = body.GetComponentsInChildren<FuwaPlaygroundBubbleClam>(true).FirstOrDefault();
+            if (target == null) target = body.GetComponentsInChildren<FuwaPlaygroundIceToy>(true).FirstOrDefault();
+            mm.useTarget = target;
+            if (target == null) pk.UseText = "";
+            UdonSharpEditorUtility.CopyProxyToUdon(mm);
+            { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(mm); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+            // クリックでのオン/オフは切る（持ってトリガーで）
+            foreach (var cl in body.GetComponentsInChildren<FuwaPlaygroundBubbleClam>(true)) { cl.clickToggle = false; UdonSharpEditorUtility.CopyProxyToUdon(cl); EditorUtility.SetDirty(cl); }
+            foreach (var it in body.GetComponentsInChildren<FuwaPlaygroundIceToy>(true)) { it.clickToggle = false; UdonSharpEditorUtility.CopyProxyToUdon(it); EditorUtility.SetDirty(it); }
+        }
+        // 「おもちゃをもどす」に入れる
+        var rs2 = toys.Find("ResetToys").GetComponent<FuwaHandFanReset>();
+        var others2 = rs2.others.Where(o => o != null).ToList();
+        foreach (var n in new[] { "Unlock6/Grab", "Unlock8/Grab", "Unlock9/Grab" }) { var g = toys.Find(n); if (g && !others2.Contains(g.gameObject)) others2.Add(g.gameObject); }
+        rs2.others = others2.ToArray(); Sync(rs2);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
+        Debug.Log("[あそびば] ステージ2のおもちゃを持ち運べるように");
+    }
+    [MenuItem("FuwaCourse/あそびば/ステージ2のおもちゃを持ち運べるように")]
+    static void MenuStage2Movable() { MakeStage2ToysMovable(Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Toys" && t.parent != null && t.parent.name == "Room")); }
+
     // 2–1 泡が出る貝：コース2–1 の貝をコピーして大きく、口を上へ。クリックでオン／オフ（同期）
     static void FillBubbleClam(Transform slot)
     {

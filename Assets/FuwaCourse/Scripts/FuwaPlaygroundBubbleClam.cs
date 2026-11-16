@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -49,6 +49,7 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
 
     private void Start()
     {
+        if (!clickToggle) DisableInteractive = true;
         int n = bubbles != null ? bubbles.Length : 0;
         _slotIdx = new int[n]; _popped = new bool[n]; _held = new int[n]; _heldAt = new double[n];
         for (int i = 0; i < n; i++) { _slotIdx[i] = -999; _held[i] = -1; if (bubbles[i] != null) bubbles[i].gameObject.SetActive(false); }
@@ -58,7 +59,11 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
 
     public bool IsOn() { return _on; }
 
-    public override void Interact()
+    // 2026-11-16 てじゃ「おもちゃも持ち運んで移動したい」→ B「おもちゃ全体を掴める。オン/オフは持ってトリガー」：持ち手（FuwaMovableMushroom.useTarget）から Toggle を呼ぶ。クリックは切る
+    [Tooltip("クリック（Interact）でもオン/オフするか（持ち運べるようにした時は切る）")]
+    public bool clickToggle = true;
+    public override void Interact() { Toggle(); }
+    public void Toggle()
     {
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
         _on = !_on;
