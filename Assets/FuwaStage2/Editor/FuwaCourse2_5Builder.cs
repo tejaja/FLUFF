@@ -630,8 +630,56 @@ public static class FuwaCourse2_5Builder
         go.AddComponent<MeshCollider>().sharedMesh = mesh;   // 地面も空洞もふわふわが着いたらアウト（前の Top・CaveFloor と同じ道のレイヤー）
         log.Append("道ぞいの岩 " + (tTop.Count + tSide.Count) / 3 + "三角 ");
         // 出口のポータルは口と反対の壁から少し離す（だ円の輪が壁にめりこまないように）、口の方へ進む
+        if (CaveCrystals) GoalCaveCrystals(rk, sc, hx, cy0, cy1, mdir);
         var ent = sc - mdir * (hz - 1.5f);
         return (new Vector3(ent.x, cy0, ent.y), Mathf.Atan2(mdir.y, mdir.x) * Mathf.Rad2Deg);
+    }
+
+    // ===== 2026-11-16 ゴールの洞窟のクリスタル（てじゃ「この空間、ちょと暗くて寂しい、ゴール後のミニキノコに影もでない」「なんか光がほしいな、クリスタルいくつか刺さってる感じにして」）=====
+    //  壁（口のあたりはなし）と天井から光るクリスタルが刺さる。天井のまん中の大きい塊から下へ影の出る光（Point、Soft の影）、壁のクリスタルのそばにうすい色の光
+    public static bool CaveCrystals = true; public static float CaveLightIntensity = 3.2f, CaveLightRange = 13f; public static Color CaveLightCol = new Color(0.72f, 0.93f, 1f);
+    static void GoalCaveCrystals(Transform rk, Vector2 sc, float hx, float cy0, float cy1, Vector2 mdir)
+    {
+        var g = new GameObject("GoalCrystals").transform; g.SetParent(rk, false);
+        var cm = CrystalMat(); var rnd = new System.Random(2525);
+        float mouthAng = Mathf.Atan2(mdir.y, mdir.x) * Mathf.Rad2Deg;
+        int n = 0;
+        // 壁：口のまわり（±40°）はなし。根もとは壁の中（hx＋少し）、中へ向かって斜め上に突き出す
+        for (int k = 0; k < 9; k++)
+        {
+            float ang = mouthAng + 50f + 260f * (k + 0.2f + 0.6f * (float)rnd.NextDouble()) / 9f;
+            var d2 = new Vector2(Mathf.Cos(ang * Mathf.Deg2Rad), Mathf.Sin(ang * Mathf.Deg2Rad));
+            float y = Mathf.Lerp(cy0 + 0.6f, cy1 - 1.2f, (float)rnd.NextDouble());
+            var p2 = sc + d2 * (hx + 0.35f);
+            float s = 0.7f + 0.6f * (float)rnd.NextDouble();
+            var inward = new Vector3(-d2.x, 0f, -d2.y);
+            var axis = (inward * (0.8f + 0.4f * (float)rnd.NextDouble()) + Vector3.up * (0.2f + 0.8f * (float)rnd.NextDouble())).normalized;
+            var o = MeshObj(g, "WallCrystal" + k, CrystalClusterMesh("GoalCave_Wall" + k, 900 + k, s, 2 + rnd.Next(2)), cm, new Vector3(p2.x, y, p2.y), 0, false);
+            o.transform.localRotation = Quaternion.FromToRotation(Vector3.up, axis) * Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+            n++;
+        }
+        // 天井：まん中に大きい塊（下向き）＋まわりに小さいのを3つ
+        float yc = cy1 + 0.1f;
+        {
+            var o = MeshObj(g, "CeilCrystal", CrystalClusterMesh("GoalCave_Ceil", 950, 1.5f, 4), cm, new Vector3(sc.x, yc, sc.y), 0, false);
+            o.transform.localRotation = Quaternion.Euler(180f, 20f, 0f);
+            for (int k = 0; k < 3; k++)
+            {
+                float ang = mouthAng + 120f * k + 60f;
+                var p2 = sc + new Vector2(Mathf.Cos(ang * Mathf.Deg2Rad), Mathf.Sin(ang * Mathf.Deg2Rad)) * (3f + 1.5f * (float)rnd.NextDouble());
+                var oc = MeshObj(g, "CeilCrystalS" + k, CrystalClusterMesh("GoalCave_CeilS" + k, 960 + k, 0.7f + 0.3f * (float)rnd.NextDouble(), 1), cm, new Vector3(p2.x, yc, p2.y), 0, false);
+                oc.transform.localRotation = Quaternion.Euler(180f + ((float)rnd.NextDouble() - 0.5f) * 40f, (float)rnd.NextDouble() * 360f, ((float)rnd.NextDouble() - 0.5f) * 40f);
+                n++;
+            }
+        }
+        // 光：天井の大きい塊の少し下から（影あり）
+        {
+            var lg = new GameObject("CaveLight"); lg.transform.SetParent(g, false);
+            lg.transform.localPosition = new Vector3(sc.x, yc - 1.6f, sc.y);
+            var l = lg.AddComponent<Light>(); l.type = LightType.Point; l.color = CaveLightCol; l.intensity = CaveLightIntensity; l.range = CaveLightRange;
+            l.shadows = LightShadows.Soft; l.shadowStrength = 0.75f; l.renderMode = LightRenderMode.ForcePixel; l.lightmapBakeType = LightmapBakeType.Realtime;
+        }
+        log.Append("ゴールのクリスタル " + (n + 1) + " ");
     }
 
     // 草のへり（上の層の輪郭 segs から：外へ少しはみ出して下へ垂れる）。点ごとに外向きを平均してつなぎ目にすき間なし
