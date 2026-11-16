@@ -41,7 +41,8 @@ public static class FuwaPlaygroundBuilder
     // 角度は島の真ん中から：入口から見て奥（+Z）が0°、右回り（+X 側）がプラス。入口（スポーン）は180°
     static Vector3 OnRing(float deg, float r) { return new Vector3(Mathf.Sin(deg * Mathf.Deg2Rad), 0f, Mathf.Cos(deg * Mathf.Deg2Rad)) * r; }
     static readonly Vector3 MushLocal = Vector3.zero;   // 島の真ん中
-    const float PanelAngle = 16f;   // 設定ボタン一式（スイッチ4つ＋言語・音量＋人数・チャレンジ・タイトル）：正面奥の柵沿い、モニタの右
+    // 2026-11-16 てじゃ「ふわふわ設定をテレビの左に、んで各おもちゃを詰めれば余裕できる」→ 設定一式 16° → -46°（テレビの左）
+    const float PanelAngle = -46f;   // 設定ボタン一式（スイッチ4つ＋言語・音量＋人数・チャレンジ・タイトル）：正面奥の柵沿い、モニタの右
     static readonly Vector3 PanelLocal = OnRing(PanelAngle, IslandR - 1.5f);
     const float PanelYaw = PanelAngle;   // 島の真ん中から読める向き
     // 観戦リビング（ラグの中心）：正面からやや左の奥。テレビは柵側、ソファは真ん中側
@@ -49,7 +50,9 @@ public static class FuwaPlaygroundBuilder
     const float CamZoneAngle = -3f;   // VRChatカメラを入れる球：テレビの右、柵ぎわ（デッキの始まり 9° の手前）
     static readonly Vector3 LivingLocal = OnRing(LivingAngle, IslandR - 4.9f);
     // おもちゃ（柵沿い、右回りに）：もどすボタン → 扇風機 → ゴールリング → コース1〜5のおもちゃ
-    const float ResetAngle = 45f, FanAngle = 45f, RingAngle = 60f;   // もどすボタンは扇風機の真下（2026-10-13 てじゃ。前は設定ボードの右で「タイトルにもどる」にかぶって見えた）
+    // 2026-11-16 てじゃ「ゴールリングを普通のゴールみたいに床に置こう」「ゴールリングの上に扇風機」「リセットボタンはカメラハックの球のよこ」
+    //  → リング（床に平ら）と扇風機（その真上）は 22°、もどすボタンはカメラの球（-3°）の横 4°
+    const float ResetAngle = 4f, FanAngle = 22f, RingAngle = 22f;   // もどすボタンは扇風機の真下（2026-10-13 てじゃ。前は設定ボードの右で「タイトルにもどる」にかぶって見えた）
     // 遊び方の看板の言語・音量ボタンはスイッチのボードの下（BoardButtons）
     // 島の外の物（FuwaPlayground の直下。前は手で置いていた位置×島の大きさ）：スポーン、ワープ2つ、エアガンの台（2026-10-13 てじゃ「銃の台も真ん中に」→ キノコの右手前、スイッチの反対）
     // スポーンとワープは真ん中からの距離のまま（島を広げた分は入口の後ろの柵沿いがおもちゃの場所になる）
@@ -252,7 +255,8 @@ public static class FuwaPlaygroundBuilder
     // 前は19°おき（2.7m）で、実際の広さ（竜巻の見た目 直径5.1m・重力の球4.4m・跳ねるキノコ2本で横6.4m・いばら＋まもの）が重なっていた（てじゃ「かぶってる」）。
     // 島を半径14m にして、外側が柵の 0.8m 内側に来る距離で、となりと 1.3m 以上あく角度を計算して決めた。まものといばらは横ではなく縦（いばらが柵側）に並べる
     // 2026-10-13 木のデッキを敷いたので、みんなデッキの幅の真ん中の線（10.4m）にそろえる（てじゃ「岩なんで奥気味？」。前は外はしを柵に寄せていて小さい岩だけ奥だった）。となりとは 1.5m あける
-    static readonly float[] UnlockAngles = { 87f, 114f, 138.5f, 163f, 191.5f };
+    // 2026-11-16 リングと扇風機を手前（22°）へ寄せたので、ステージ1のおもちゃも -38° つめる（入口のうしろ〜左手はステージ2のおもちゃ用）
+    static readonly float[] UnlockAngles = { 49f, 76f, 100.5f, 125f, 153.5f };
     static readonly float[] UnlockDist = { IslandR - 3.6f, IslandR - 3.6f, IslandR - 3.6f, IslandR - 3.6f, IslandR - 3.6f };
     static readonly Vector3[] UnlockLocal = UnlockAngles.Select((a, i) => OnRing(a, UnlockDist[i])).ToArray();
 
@@ -290,7 +294,7 @@ public static class FuwaPlaygroundBuilder
     {
         var toys = new GameObject("Toys").transform; toys.SetParent(root, false);
         Vector3 O = new Vector3(ac.x, floorY, ac.z);
-        Vector3 G = O + OnRing(RingAngle, IslandR - 2.9f);   // ゴールリングの真下
+        Vector3 G = O + OnRing(RingAngle, IslandR - 2.9f);   // ゴールリングの真ん中（床）
         Vector3 Fc = O + OnRing(FanAngle, IslandR - 2.1f);   // 扇風機の並びの真ん中
         var toCenter = (O - Fc); toCenter.y = 0f; toCenter.Normalize();
         var side = new Vector3(toCenter.z, 0f, -toCenter.x);
@@ -375,15 +379,16 @@ public static class FuwaPlaygroundBuilder
         var face = Quaternion.LookRotation(toCenter);
         GameObject[] resetOthers = new GameObject[0];
         var list = new List<FuwaHandFan>();
-        for (int i = 0; i < 3; i++) list.Add(Held("Fan" + i, Fc + side * (-0.55f + i * 0.55f) + Vector3.up * 1.0f, Quaternion.LookRotation(-toCenter), false));   // 風の出る正面を柵の方へ（真ん中から近づいて持つと、風が向こう向きになる。2026-10-13 てじゃ）
+        for (int i = 0; i < 3; i++) list.Add(Held("Fan" + i, new Vector3(G.x, Fc.y, G.z) + side * (-0.55f + i * 0.55f) + Vector3.up * 1.35f, Quaternion.LookRotation(-toCenter), false));   // 2026-11-16 リングの真上に浮かべる   // 風の出る正面を柵の方へ（真ん中から近づいて持つと、風が向こう向きになる。2026-10-13 てじゃ）
         // うちわはなし（2026-10-12 てじゃ「ちょっと変だからなしに、うちわっぽくするのむずそう」）。FuwaHandFan の gustMode は残してある
         // ゴール風リング：広場の真ん中に浮かべる（穴をキノコの方へ向ける）。持って動かせる
         var ringT = new GameObject("Ring").transform; ringT.gameObject.layer = 13; ringT.SetParent(toys, false);
-        { var tcR = O - G; tcR.y = 0f; ringT.SetPositionAndRotation(G + Vector3.up * 1.7f, Quaternion.LookRotation(tcR.normalized)); }
+        // 2026-11-16 てじゃ「ゴールリングを普通のゴールみたいに床に置こう」→ 床に平ら（穴が上）、持てない。くぐる判定はリングの上 0.2〜0.5m
+        { var tcR = O - G; tcR.y = 0f; ringT.SetPositionAndRotation(G + Vector3.up * 0.06f, Quaternion.LookRotation(Vector3.up, -tcR.normalized)); }
         { var rb = ringT.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false; }
-        var gate = ringT.gameObject.AddComponent<BoxCollider>(); gate.isTrigger = true; gate.size = new Vector3(1.7f, 1.7f, 0.3f);
+        var gate = ringT.gameObject.AddComponent<BoxCollider>(); gate.isTrigger = true; gate.size = new Vector3(1.6f, 1.6f, 0.35f); gate.center = new Vector3(0f, 0f, 0.35f);
         var rpk = ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
-        rpk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; rpk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; rpk.InteractionText = "リング"; rpk.proximity = 2f;
+        rpk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; rpk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; rpk.InteractionText = "リング"; rpk.proximity = 2f; rpk.pickupable = false;
         ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
         // 色はコースのゴールリングと同じ（Goal_Ring をそのまま使う。2026-10-12 てじゃ「本物と同じピンクに」）
         var ringM = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.FindAssets("Goal_Ring t:Material").Select(AssetDatabase.GUIDToAssetPath).First(pp => pp.EndsWith("/Goal_Ring.mat")));
