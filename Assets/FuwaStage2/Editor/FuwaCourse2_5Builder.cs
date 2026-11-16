@@ -1773,17 +1773,20 @@ public static class FuwaCourse2_5Builder
                 // 2026-11-16 てじゃ「ぜんぜんのこってるけど」→ 欠けの所はアーチ（リブ・くさび石の輪）ごとなし。穴の下は空。切れ口にふた
                 bool Gone(float sx, int k) => open && k >= 0 && k < K && BiteW(sx, (sof[k].z + sof[k + 1].z) * 0.5f) > 0.8f;
                 // くさび石の輪は欠けの所でまっすぐ切る（リブの崩れの中へ細い輪だけはみ出して見えた）
-                bool RingGone(float sx, int k) => open && k >= 0 && k < K && BiteW(sx, (sof[k].z + sof[k + 1].z) * 0.5f) > 0.001f;
+                //  2026-11-16 てじゃ「アーチ部分の細かいの違和感」→ 輪は前と同じ 12 こま（rs こまずつ）で作る。k は rs の倍数、その rs こまのどれかが欠けなら全部なし
+                int rs = K / 12;
+                bool RingGone(float sx, int k) { if (!open || k < 0 || k >= K) return false; for (int q = k; q < k + rs && q < K; q++) if (BiteW(sx, (sof[q].z + sof[q + 1].z) * 0.5f) > 0.001f) return true; return false; }
                 for (int k = 0; k < K; k++)
                 {
                     Vector3 a = sof[k], b = sof[k + 1];
                     float ya = DeckY(a.z) - Tk, yb = DeckY(b.z) - Tk;
                     if (open) foreach (float sx in new[] { -1f, 1f })
                     {
-                        if (!RingGone(sx, k))
+                        if (k % rs == 0 && !RingGone(sx, k))
                         {
-                            var nr2 = Vector3.Cross(Vector3.right, (b - a).normalized); if (nr2.y < 0) nr2 = -nr2;
-                            foreach (var (zc, y0c, nb, dirz) in new[] { (a.z, a.y, k - 1, -1f), (b.z, b.y, k + 1, 1f) })
+                            var bR = sof[k + rs];
+                            var nr2 = Vector3.Cross(Vector3.right, (bR - a).normalized); if (nr2.y < 0) nr2 = -nr2;
+                            foreach (var (zc, y0c, nb, dirz) in new[] { (a.z, a.y, k - rs, -1f), (bR.z, bR.y, k + rs, 1f) })
                             {
                                 if (!RingGone(sx, nb)) continue;
                                 var r0 = new Vector3(sx * xo, y0c, zc); var r1 = new Vector3(sx * xr, y0c, zc);
@@ -1821,11 +1824,12 @@ public static class FuwaCourse2_5Builder
                     float rw = 0.35f;
                     foreach (float sx in new[] { -1f, 1f })
                     {
-                        if (RingGone(sx, k)) continue;
-                        Vector3 a0 = new Vector3(sx * xr, a.y, a.z), b0 = new Vector3(sx * xr, b.y, b.z), a1 = a0 + nrm * rw, b1 = b0 + nrm * rw;
+                        if (k % rs != 0 || RingGone(sx, k)) continue;
+                        var bq = sof[k + rs]; var nrm2 = Vector3.Cross(Vector3.right, (bq - a).normalized); if (nrm2.y < 0) nrm2 = -nrm2;
+                        Vector3 a0 = new Vector3(sx * xr, a.y, a.z), b0 = new Vector3(sx * xr, bq.y, bq.z), a1 = a0 + nrm2 * rw, b1 = b0 + nrm2 * rw;
                         Quad(rv, rt, a0, b0, b1, a1, new Vector3(sx, 0f, 0f));
-                        Quad(rv, rt, new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, b.y, b.z), b0, a0, Vector3.down);
-                        Quad(rv, rt, new Vector3(sx * xo, a1.y, a1.z), new Vector3(sx * xo, b1.y, b1.z), b1, a1, nrm);
+                        Quad(rv, rt, new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, bq.y, bq.z), b0, a0, Vector3.down);
+                        Quad(rv, rt, new Vector3(sx * xo, a1.y, a1.z), new Vector3(sx * xo, b1.y, b1.z), b1, a1, nrm2);
                         // 石の継ぎ目に見える小さい切れ目（2つおきに少しへこませた面を足す…はやめて、色の段だけ）
                     }
                 }
