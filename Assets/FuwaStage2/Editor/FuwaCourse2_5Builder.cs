@@ -498,18 +498,27 @@ public static class FuwaCourse2_5Builder
         {   // こんもりの面：地面の板の輪郭の中で、空洞（口ふくむ）は穴。ふちは 0、まん中ほど深い（石像の下は空洞の底より下まで）。穴のふちは空洞の底（cy0）にぴったり
             float yb = top - 1.5f, cave = yb - cy0;
             System.Func<Vector2, float> fM = q => Mathf.Max(F(0, q), -dCave(q));
+            float ringR = hx + CaveRingW;
+            // 空洞の穴のふちの深さ：輪の中（部屋）は空洞の底、輪の外（口の続き）は 0（こんもりの溝になる）
+            System.Func<Vector2, float> holeDepth = q => cave * Mathf.Clamp01((ringR + 1f - dStat(q)) / 2.5f) * Mathf.Clamp01(Mathf.Max(0f, -F(0, q)) / 1f);
             System.Func<Vector2, float> depthAt = q =>
             {
-                float e = Mathf.Max(0f, -F(0, q));
+                float eM = Mathf.Max(0f, -fM(q));      // 穴もふくめたふちまでの距離
+                float eO = Mathf.Max(0f, -F(0, q));    // 外のふちまでの距離
                 float w = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((StatueRockR + 3f - dStat(q)) / 7f));
-                float dmax = Mathf.Lerp(MoundDepth, cave + MoundStatueExtra, w);
-                float dEdge = dmax * (0.25f * MoundDome(e, MoundRound) + 0.75f * MoundBowl(e, MoundRoundMain)) * MoundJit(q);   // 大きい島：ふちは少しだけまっすぐ、そこからおわん形にこんもり
+                // 中へ行くほど深い（√）。石像の下は空洞の底より下まで（おわん形で足す）。平らな底にしない
+                float d = Mathf.Max(MoundSqrt(eM) * (1f + 0.3f * w), w * (cave + 2f) * MoundBowl(eM, MoundRoundMain));
+                // 空洞のまわりの壁（半径 ringR の輪、空洞の底まで）がこんもりから出ないように、輪のまわりは空洞の底より下まで（なだらかにつなぐ）
+                float ringW = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((ringR + 4f - dStat(q)) / 3.5f));
+                d = Mathf.Max(d, (cave + 1.2f + 1.5f * ringW) * ringW * Mathf.Clamp01(eO / 1.5f));
+                // でこぼこは最後に（輪のまわりも平らにならないように）。壁より上には上がらないよう下にだけ大きく
+                float lump = MoundLumpy(q, d); d = Mathf.Max(lump, d * (1f - 0.12f * ringW));
+                // 穴のふち（2m 以内）は穴の深さへなめらかに
                 float hb = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(dCave(q) / 2f));
-                float dHole = cave * Mathf.Clamp01(e / 1f);
-                return Mathf.Lerp(dHole, Mathf.Max(dEdge, dHole), hb);
+                return Mathf.Lerp(holeDepth(q), d, hb);
             };
-            // ふちの点：空洞の穴のふちなら空洞の底（cy0）、外のふちなら 0（板の下のはし）
-            MoundUnder(v, tSide, nx, nz, x0, z0, RockCell, fM, depthAt, yb, q => -dCave(q) > F(0, q) ? cave * Mathf.Clamp01(Mathf.Max(0f, -F(0, q)) / 1f) : 0f);
+            // ふちの点：空洞の穴のふちなら holeDepth、外のふちなら 0（板の下のはし）
+            MoundUnder(v, tSide, nx, nz, x0, z0, RockCell, fM, depthAt, yb, q => -dCave(q) > F(0, q) ? holeDepth(q) : 0f);
         }
         if (GrassLip && segs.Count > 0) GrassLipMesh(segs, rk, "I1_GrassLip");
         if (CaveCeilBump > 0f)
@@ -756,7 +765,7 @@ public static class FuwaCourse2_5Builder
         if (moundM)
         {
             float yb = layers[0].y0, dmax = MidRockDepth - 1.3f;
-            MoundUnder(v, tSide, nx, nz, x0, z0, RockCell, q => F(0, q), q => dmax * MoundDome(Mathf.Max(0f, -F(0, q)), MoundRound) * MoundJit(q), yb);
+            MoundUnder(v, tSide, nx, nz, x0, z0, RockCell, q => F(0, q), q => MoundLumpy(q, MoundSqrt(Mathf.Max(0f, -F(0, q))) * dmax / 4.5f), yb);
         }
         if (GrassLip && segs.Count > 0) GrassLipMesh(segs, rk, meshName + "_GrassLip");
         if (BottomBulge > 0f && !moundM) BulgeBottoms(v, layers.Select(L => L.y0).ToArray(), F, 0, layers.Count - 1, BottomBulge, BottomBulgeR);
@@ -870,6 +879,10 @@ public static class FuwaCourse2_5Builder
     public static bool RockMound = true; public static float MoundRoundMain = 9f, MoundRound = 3.5f, MoundDepth = 4.5f, MoundStatueExtra = 3.5f, CaveRingW = 3.5f, MoundNoise = 0.3f;
     static System.Func<Vector3, bool> rockSkipBottom;   // null 以外の間、RockTri はこれが true の所の下の面を作らない（こんもりの面の中にかくれるので）
     static float MoundDome(float e, float R) { float s = Mathf.Clamp01(e / R); return Mathf.Sqrt(1f - (1f - s) * (1f - s)); }   // 丸（ふちはほぼまっすぐ下）
+    // 2026-11-16 てじゃ「底面が真っ平らになるのもやめてね」→ 深さは中へ行くほどずっと深くなる（√、平らにならない）＋深さに比例したでこぼこ
+    public static float MoundK = 5.4f, MoundC = 4f, MoundLump = 0.35f;   // ふちの傾きをゆるく（√(e+c)−√c）：ふちは約50°、中へ行くほどなだらかに深く
+    static float MoundSqrt(float e) => MoundK * (Mathf.Sqrt(Mathf.Max(0f, e) + MoundC) - Mathf.Sqrt(MoundC));
+    static float MoundLumpy(Vector2 q, float d) => d * (1f + MoundLump * (Mathf.PerlinNoise(q.x * 0.21f + 51.3f, q.y * 0.21f + 17.9f) - 0.5f) * 2f);
     static float MoundBowl(float e, float R) { float s = Mathf.Clamp01(e / R); return 1f - (1f - s) * (1f - s) * (1f - s); }  // おわん（ふちから斜めに、まん中はなだらか）
     static float MoundJit(Vector2 q) => 1f - MoundNoise * 0.5f + MoundNoise * (Mathf.PerlinNoise(q.x * 0.17f + 21.3f, q.y * 0.17f + 7.9f) * 0.7f + Mathf.PerlinNoise(q.x * 0.45f + 3.3f, q.y * 0.45f + 14.1f) * 0.3f);
     static void MoundUnder(List<Vector3> v, List<int> t, int nx, int nz, float x0, float z0, float cell, System.Func<Vector2, float> fM, System.Func<Vector2, float> depthAt, float yb, System.Func<Vector2, float> cutDepth = null)
