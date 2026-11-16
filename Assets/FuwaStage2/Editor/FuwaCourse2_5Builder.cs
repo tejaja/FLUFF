@@ -2048,6 +2048,11 @@ public static class FuwaCourse2_5Builder
             }
             var polyF = new List<Vector3> { Q(a0, rIn, -dd), Q(a1, rIn, -dd) }; polyF.AddRange(outerF);
             var polyB = new List<Vector3> { Q(a0, rIn, dd), Q(a1, rIn, dd) }; polyB.AddRange(outerB);
+            // 2026-11-16 てじゃ「カーテン用アーチ、ちょっと柱の上に貫通してる」→ はしの石の端の面は放射の向きで、内がわの角が柱の上（y0）より下へ出ていた
+            //  → 両はしの石の端の面は水平に（柱の上にのる）：その2点の高さを y0 に
+            System.Action<List<Vector3>, int> Flat = (pl, idx) => { var q = pl[idx]; q.y = y0 + 0.003f; pl[idx] = q; };
+            if (i == 0) { foreach (var pl in new[] { polyF, polyB }) { Flat(pl, 0); Flat(pl, 2 + m - 1); } }
+            if (i == n - 1) { foreach (var pl in new[] { polyF, polyB }) { Flat(pl, 1); Flat(pl, 2); } }
             // 2026-11-15 てじゃ「アーチ上部の欠けてるところに穴」：欠けた石の外がわはへこんだ多角形なので、
             //  まん中からの扇（ふた）と「まん中から外向き」の横の面の向きが、へこみの所で裏返って穴になっていた
             //  → ふたは耳切りで三角に分ける。横の面の外向きは多角形の回る向きから決める
