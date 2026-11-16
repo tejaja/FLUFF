@@ -1546,6 +1546,7 @@ public static class FuwaCourse2_5Builder
             void Quad(List<Vector3> vv, List<int> tt, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 want) { Tri(vv, tt, a, b, c, want); Tri(vv, tt, a, c, d, want); }
             // 2026-11-15 てじゃ「最初の橋の裏側がおかしい」→ 穴あきの橋は、穴から中が見えないように：アーチ・橋脚を両はしのリブ（xi〜xo）だけにして、まん中は下まで抜ける。リブの上もふさぐ
             bool open = pits && OpenPitBridge;
+            // 2026-11-16 てじゃ「穴の下に支えがでちゃってる」→ リブをはしの外へ寄せたら「下の柱がペチャンコになるのやだ」→ リブは元のまま、穴をまん中の2列だけに（BridgePitRows）
             float xi = HW - 0.55f;
             // 橋脚
             for (int i = 0; i <= n; i++)
@@ -2277,6 +2278,8 @@ public static class FuwaCourse2_5Builder
     public static float WindStrength = 5.5f, WindOn = 0.8f, WindOff = 2.2f, TileL = 1.2f;
     static readonly int[][] PitRows = { new int[0], new[] { 0, 1 }, new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2 }, new int[0], new[] { 0 }, new[] { 3 } };
     static int pitRow;
+    // 2026-11-16 てじゃ「穴の位置のほう調整するのもありか」：橋の穴はまん中の2列（1・2）だけ（はしの列の下は橋脚・アーチのリブがあって穴から見える）。終わりの方は島の上なので穴なし
+    static readonly int[][] BridgePitRows = { new int[0], new int[0], new[] { 1 }, new int[0], new[] { 2 }, new int[0], new[] { 1, 2 }, new int[0], new int[0], new int[0], new int[0], new int[0] };
     static int[][] pitTable;   // null なら PitRows（2026-11-14 回廊の奥は BigPitRows）
     // 2026-11-14 てじゃ「広げた穴デカすぎかも」「ちょっとだけ縮めて」→「（穴の長さ）2マスがムリだけど1マスがヌルすぎ」
     //  → 回廊ではタイルの長さを PitTileL（1.7m）にして、穴は1列（=1.7m、前は 1.2m×2列=2.4m）。はばは 3マス と 2マス を交互
@@ -2319,7 +2322,7 @@ public static class FuwaCourse2_5Builder
         if (extra > 0.01f) for (int c = 0; c < cols; c++) TileAt(new Vector3(-HW + cw * (c + 0.5f), P.y - 0.3f, z0 + rows * rl + extra * 0.5f), new Vector3(cw, 0.6f, extra), rows % 2 == 0, c);
         for (int r = 0; r < rows; r++)
         {
-            var tbl = pitTable ?? PitRows; var holes = tbl[(pitRow++) % tbl.Length];
+            var tbl = pitTable ?? PitRows; var holes = tbl[(pitRow++) % tbl.Length]; if (tag == "Bridge") holes = BridgePitRows[Mathf.Min(r, BridgePitRows.Length - 1)];   // pitRow は前どおり進める（ほかの道の穴の並びを変えない）
             for (int c = 0; c < cols; c++)
             {
                 if (holes.Contains(c)) continue;
