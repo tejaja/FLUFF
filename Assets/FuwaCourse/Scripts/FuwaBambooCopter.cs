@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDK3.Components;
 using VRC.SDKBase;
@@ -37,11 +37,31 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     private float _moveH, _moveV;
     private bool _hovering;
     private VRCPickup _pickup;
+    // 2026-11-16 てじゃ「ステージ１に放置した竹とんぼの影がステージ２までとどいてた」：ステージ1の真下にステージ2があるので、
+    //  影は自分から近い時（shadowNear m 以内）だけ落とす
+    [Tooltip("自分（カメラ）からこの距離(m)より遠いと影を落とさない")]
+    public float shadowNear = 40f;
+    private Renderer[] _rends;
+    private bool _shadowOn = true;
+    private float _shadowCheckAt;
 
     private void Start()
     {
         _pickup = (VRCPickup)GetComponent(typeof(VRCPickup));
         _homePos = transform.position; _homeRot = transform.rotation;
+        _rends = GetComponentsInChildren<Renderer>(true);
+    }
+
+    private void UpdateShadow()
+    {
+        if (Time.time < _shadowCheckAt) return;
+        _shadowCheckAt = Time.time + 0.5f;
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        if (lp == null || _rends == null) return;
+        bool on = (lp.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position - transform.position).sqrMagnitude < shadowNear * shadowNear;
+        if (on == _shadowOn) return;
+        _shadowOn = on;
+        for (int i = 0; i < _rends.Length; i++) if (_rends[i] != null) _rends[i].shadowCastingMode = on ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
     }
 
     // 竹とんぼ立てをクリックした（FuwaCopterStand）：持っていたら手放して、立てに戻す
@@ -97,6 +117,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
 
     private void Update()
     {
+        UpdateShadow();
         // 羽
         float want = _using ? spinUse : (_mine ? spinIdle : 0f);
         _spin = Mathf.MoveTowards(_spin, want, spinAccel * Time.deltaTime);
