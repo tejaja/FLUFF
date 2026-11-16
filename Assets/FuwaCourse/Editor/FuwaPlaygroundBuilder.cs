@@ -541,6 +541,7 @@ public static class FuwaPlaygroundBuilder
         }
         FillBubbleClam(ts[0].transform);
         FillFlameRock(ts[1].transform);
+        FillIceToy(ts[2].transform);
         // ステージ2の記録 → おもちゃ 6〜10 番
         var recs2 = Object.FindObjectsOfType<FuwaRecords>(true).FirstOrDefault(r => r.courseStarts != null && r.courseStarts.Length > 0 && r.courseStarts[0] != null && r.courseStarts[0].root.name == "FuwaCourse2_1");
         if (recs2 != null) { recs2.playground = sp; recs2.playgroundOffset = 5; Sync(recs2); }
@@ -646,6 +647,60 @@ public static class FuwaPlaygroundBuilder
         var bz = z.AddComponent<BoxCollider>(); bz.isTrigger = true; bz.size = new Vector3(1.3f, 1.4f, 4.2f); bz.center = new Vector3(0f, 0.1f, 2.2f);
         var fz = UdonSharpUndo.AddComponent<FuwaPlaygroundFlameZone>(z); fz.rock = fr; UdonSharpEditorUtility.CopyProxyToUdon(fz);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(fz); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+    }
+
+    // 2–3 氷のたね：氷の結晶3本（クリックでオン／オフ同期）＋まわり半径3mにひろがる氷の円（人が滑る FuwaIceSkate・つるつるの物理材質）
+    public static float IceToyR = 3f;
+    static void FillIceToy(Transform slot)
+    {
+        EnsureProgram("FuwaPlaygroundIceToy");
+        var c23 = RootGo("FuwaCourse2_3").transform;
+        var iceSrc = c23.Find("IceSkate").GetComponent<FuwaIceSkate>();
+        var iceM = iceSrc.ice.First(x => x != null).GetComponent<Renderer>().sharedMaterial;
+        // 結晶（六角柱＋とがった先）3本
+        var toy = new GameObject("IceSeed"); toy.transform.SetParent(slot, false);
+        var cv = new List<Vector3>(); var ct = new List<int>();
+        void Crystal(Vector3 b, Quaternion q, float r, float h)
+        {
+            int n = 6; var ring0 = new Vector3[n]; var ring1 = new Vector3[n]; var tip = b + q * new Vector3(0f, h + r * 1.2f, 0f);
+            for (int i = 0; i < n; i++) { float a = Mathf.PI * 2f * i / n; var d = new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r); ring0[i] = b + q * d; ring1[i] = b + q * (d + Vector3.up * h); }
+            void T(Vector3 x, Vector3 y, Vector3 z, Vector3 want) { if (Vector3.Dot(Vector3.Cross(y - x, z - x), want) < 0f) { var tmp = y; y = z; z = tmp; } int k = cv.Count; cv.Add(x); cv.Add(y); cv.Add(z); ct.Add(k); ct.Add(k + 1); ct.Add(k + 2); }
+            var cen = b + q * new Vector3(0f, h * 0.5f, 0f);
+            for (int i = 0; i < n; i++) { int j = (i + 1) % n; T(ring0[i], ring0[j], ring1[j], ring0[i] + ring1[j] - 2f * cen); T(ring0[i], ring1[j], ring1[i], ring0[i] + ring1[j] - 2f * cen); T(ring1[i], ring1[j], tip, (ring1[i] + ring1[j]) * 0.5f + tip - 2f * cen); T(ring0[i], ring0[j], b, b - cen); }
+        }
+        Crystal(Vector3.zero, Quaternion.identity, 0.2f, 0.75f);
+        Crystal(new Vector3(0.2f, 0f, 0.08f), Quaternion.Euler(0f, 0f, -24f), 0.13f, 0.45f);
+        Crystal(new Vector3(-0.16f, 0f, -0.1f), Quaternion.Euler(18f, 0f, 20f), 0.11f, 0.35f);
+        var cm = new Mesh { name = "Playground_IceSeed" }; cm.SetVertices(cv); cm.SetTriangles(ct, 0); cm.RecalculateNormals(); cm.RecalculateBounds();
+        toy.AddComponent<MeshFilter>().sharedMesh = SaveGenMesh(cm, "Playground_IceSeed");
+        toy.AddComponent<MeshRenderer>().sharedMaterial = iceM;
+        var box = toy.AddComponent<BoxCollider>(); box.center = new Vector3(0f, 0.55f, 0f); box.size = new Vector3(0.7f, 1.1f, 0.7f);
+        var it = UdonSharpUndo.AddComponent<FuwaPlaygroundIceToy>(toy);
+        // 氷の円（上の面は床の 2.5cm 上、ふちに厚み）
+        var dv = new List<Vector3>(); var dt = new List<int>(); int seg = 64; float R = IceToyR, H = 0.025f;
+        dv.Add(new Vector3(0f, H, 0f));
+        for (int i = 0; i <= seg; i++) { float a = Mathf.PI * 2f * i / seg; dv.Add(new Vector3(Mathf.Cos(a) * R, H, Mathf.Sin(a) * R)); }
+        for (int i = 1; i <= seg; i++) { dt.Add(0); dt.Add(i + 1); dt.Add(i); }
+        int b0 = dv.Count;
+        for (int i = 0; i <= seg; i++) { float a = Mathf.PI * 2f * i / seg; dv.Add(new Vector3(Mathf.Cos(a) * R, H, Mathf.Sin(a) * R)); dv.Add(new Vector3(Mathf.Cos(a) * R, -0.01f, Mathf.Sin(a) * R)); }
+        for (int i = 0; i < seg; i++) { int a = b0 + i * 2; dt.Add(a); dt.Add(a + 2); dt.Add(a + 1); dt.Add(a + 1); dt.Add(a + 2); dt.Add(a + 3); }
+        var dm = new Mesh { name = "Playground_IceDisc" }; dm.SetVertices(dv); dm.SetTriangles(dt, 0); dm.RecalculateNormals(); dm.RecalculateBounds();
+        // 上向きでなければ面を裏返す（真ん中の面）
+        if (dm.normals[0].y < 0f) { var tt = dm.triangles; for (int i = 0; i < tt.Length; i += 3) { var x = tt[i + 1]; tt[i + 1] = tt[i + 2]; tt[i + 2] = x; } dm.triangles = tt; dm.RecalculateNormals(); }
+        dm = SaveGenMesh(dm, "Playground_IceDisc");
+        var disc = new GameObject("IceDisc"); disc.transform.SetParent(slot, false);
+        disc.AddComponent<MeshFilter>().sharedMesh = dm; disc.AddComponent<MeshRenderer>().sharedMaterial = iceM;
+        var mc = disc.AddComponent<MeshCollider>(); mc.sharedMesh = dm;
+        var pm = AssetDatabase.LoadAssetAtPath<PhysicMaterial>("Assets/FuwaCourse/Materials/Playground_Ice.physicMaterial");
+        if (pm == null) { pm = new PhysicMaterial("Playground_Ice") { dynamicFriction = 0f, staticFriction = 0f, frictionCombine = PhysicMaterialCombine.Minimum, bounciness = 0f }; AssetDatabase.CreateAsset(pm, "Assets/FuwaCourse/Materials/Playground_Ice.physicMaterial"); }
+        mc.sharedMaterial = pm;
+        disc.transform.localScale = new Vector3(0.001f, 1f, 0.001f); disc.SetActive(false);
+        it.disc = disc.transform; it.discCollider = mc;
+        UdonSharpEditorUtility.CopyProxyToUdon(it);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(it); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; ub.interactText = "こおり"; EditorUtility.SetDirty(ub); } }
+        // 人が滑る：コース2–3 の IceSkate を写して、氷＝この円だけ
+        var sk = Object.Instantiate(iceSrc.gameObject, slot, false); sk.name = "IceSkate"; sk.transform.localPosition = Vector3.zero;
+        var skc = sk.GetComponent<FuwaIceSkate>(); skc.ice = new Collider[] { mc }; skc.debugLog = false; UdonSharpEditorUtility.CopyProxyToUdon(skc);
     }
 
     static void AddTestUnlockAll(Transform toys, FuwaPlaygroundSpawner sp)
