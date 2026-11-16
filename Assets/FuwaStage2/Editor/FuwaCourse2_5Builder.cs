@@ -1051,7 +1051,7 @@ public static class FuwaCourse2_5Builder
                     var sideStep = s.along == Vector3.forward ? new Vector2Int(0, 2) : new Vector2Int(2, 0);
                     if (pitKeys.Contains(k + sideStep)) ext1 = ins; if (pitKeys.Contains(k - sideStep)) ext0 = ins;
                     var a0 = cx - s.along * (s.half + ext0); var a1 = cx + s.along * (s.half + ext1);
-                    float y0 = bot - 0.25f, y1 = top - (PitChips ? 0.012f : 0.002f);   // タイルの下より少し下まで。割れ残りがある時は、その上の面（-4mm）より下で止める（割れ残りの上に線が出ない）
+                    float y0 = bot - 0.25f, y1 = top - (PitChips ? 0.095f : 0.002f);   // タイルの下より少し下まで。割れ残りがある時は、その上の面（-4mm）より下で止める（割れ残りの上に線が出ない）
                     int i0 = v.Count;
                     v.Add(new Vector3(a0.x, y1, a0.z)); v.Add(new Vector3(a1.x, y1, a1.z)); v.Add(new Vector3(a1.x, y0, a1.z)); v.Add(new Vector3(a0.x, y0, a0.z));
                     c.Add(PitTopCol); c.Add(PitTopCol); c.Add(PitBottomCol); c.Add(PitBottomCol);
@@ -1093,17 +1093,19 @@ public static class FuwaCourse2_5Builder
                         if (!chipV.ContainsKey(cm)) { chipV[cm] = new List<Vector3>(); chipT[cm] = new List<int>(); }
                         var rr = new System.Random(k.x * 7919 + k.y * 131 + (int)(s.inw.x * 3 + s.inw.z * 5) + 17);
                         int m = Mathf.Max(5, Mathf.RoundToInt((s.half * 2f) / 0.12f));
-                        float len = s.half + (pitKeys.Contains(k - sideStep) ? ins : 0f), len1 = s.half + (pitKeys.Contains(k + sideStep) ? ins : 0f);
+                        // 2026-11-16 てじゃ「だいぶスキマがおおい」→ 割れ残りが 0 の所（角）で、暗い壁とタイルの間の 2cm のすき間からタイルの明るい面が見えていた
+                        //  → 割れ残りはどこも ins＋1.2cm 以上出す。x 向きの辺は角まで（ins ぶん伸ばす）、z 向きの辺は 4mm 低くして角で重なっても同じ高さで並ばない
+                        bool xd = s.along == Vector3.right;
+                        float len = s.half + (pitKeys.Contains(k - sideStep) || xd ? ins : 0f), len1 = s.half + (pitKeys.Contains(k + sideStep) || xd ? ins : 0f);
                         var aa = Lin(-len, len1, m); var ee = Jag(rr, m, 0.05f, 0.07f); var dd = new float[m];
                         for (int q = 0; q < m; q++)
                         {
-                            ee[q] = Mathf.Clamp(ee[q], 0.0f, 0.13f);
-                            if (q == 0 || q == m - 1) ee[q] = 0f;   // 角は出っぱらない（となりの辺と重ならない）
+                            ee[q] = Mathf.Clamp(ee[q], ins + 0.012f, 0.13f);
                             dd[q] = rr.NextDouble() < 0.45 ? 0.02f + 0.06f * (float)rr.NextDouble() : 0.004f;
                         }
                         // 原点：穴のふち（タイルの面）、A＝辺にそって、B＝穴の中へ、C＝上。上の面はタイルより 4mm 下（同じ高さで並ばない）
                         var o = new Vector3(cx.x, 0f, cx.z) + (-s.inw) * ins;
-                        FieldSlab(chipV[cm], chipT[cm], new Vector3(o.x, top, o.z), s.along, s.inw, Vector3.up, aa, ee, dd, -0.13f, -0.004f);   // うすく（下は暗い壁が見える）
+                        FieldSlab(chipV[cm], chipT[cm], new Vector3(o.x, top, o.z), s.along, s.inw, Vector3.up, aa, ee, dd, -0.13f, xd ? -0.004f : -0.008f);   // うすく（下は暗い壁が見える）
                     }
                 }
             }
