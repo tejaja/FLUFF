@@ -75,7 +75,7 @@ public static class FuwaCourse2_5Builder
         ballT = Resources.FindObjectsOfTypeAll<FuwaBall>().FirstOrDefault(b => b.gameObject.scene.IsValid() && b.transform.parent && b.transform.parent.name == "FuwaSystem");
         ballR = ballT ? ballT.GetComponent<SphereCollider>().radius * ballT.transform.lossyScale.x : 0.15f;
         cps.Clear(); segNo = 0; stencilNo = 10; archGateNo = 0; colFix.Clear(); stripeCache.Clear(); FuwaPortalTest.clones.Clear(); camPortals.Clear(); gateZ.Clear();
-        log = new System.Text.StringBuilder();
+        log = new System.Text.StringBuilder(); ruinPending.Clear();
 
         float R0 = StartSet(root);
         pathT = new GameObject("Path").transform; pathT.SetParent(root, false);
@@ -271,9 +271,10 @@ public static class FuwaCourse2_5Builder
                 var cg = new GameObject("FallenCrystals").transform; cg.SetParent(isl, false);
                 float zb = ArrivalBackZ();
                 RuinCrystals(cg, "GoalFallen", new List<(Vector3 p, Vector3 e, float s, int x)> {
-                    (new Vector3(-HW * 0.55f, 0.04f, zb + 0.55f), new Vector3(0f, 30f, 80f), 0.24f, 0),
-                    (new Vector3(HW * 0.6f, 0.02f, zb + 0.9f), new Vector3(8f, -70f, 74f), 0.18f, 0),
-                    (new Vector3(HW * 0.2f, -0.06f, zb + 0.25f), new Vector3(-40f, 15f, 10f), 0.32f, 2) });
+                    (new Vector3(-HW * 0.55f, 0f, zb + 0.55f), new Vector3(0f, 30f, 80f), 0.24f, 0),
+                    (new Vector3(HW * 0.6f, 0f, zb + 0.9f), new Vector3(8f, -70f, 74f), 0.18f, 0),
+                    (new Vector3(HW * 0.2f, 0f, zb + 0.35f), new Vector3(-8f, 15f, 72f), 0.32f, 2) }, 3);
+                foreach (Transform c in cg) ruinPending.Add((cg, c, new Vector3(0f, 0f, 0.15f), true));   // まわりの洞窟の岩にめりこんでいたら、道のまん中・前へよせる（SettleRuins）
             }
             S(2.5f); });
         var goalP = P;
@@ -288,6 +289,7 @@ public static class FuwaCourse2_5Builder
         FixColumnGround();
         ApplyFarFade();
         DecoIslets();
+        SettleRuins();
         if (ColumnLods) AddColumnLods();
         if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));
         if (CoursePerf && TierShadows) SetupTierShadows();   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
@@ -3811,71 +3813,144 @@ public static class FuwaCourse2_5Builder
             return fr;
         }
         var crys = new List<(Vector3 p, Vector3 e, float s, int x)>();
-        // 床の上に落ちたクリスタル（ポータルのうしろ〜割れたふち）。寝かせて少しうめる
-        crys.Add((new Vector3(-hw * 0.45f, 0.05f, -0.55f), new Vector3(0f, 35f, 82f), 0.24f, 0));
-        crys.Add((new Vector3(hw * 0.5f, 0.03f, eAvg * 0.35f - 0.15f), new Vector3(10f, -60f, 76f), 0.18f, 0));
-        // 割れたふちに刺さった大きめの塊
-        crys.Add((new Vector3(hw * 0.12f, -0.05f, Mathf.Max(0.1f, eS.Min() - 0.05f)), new Vector3(-48f, 20f, 8f), 0.34f, 2));
-        if (bridge)
+        // 床の上に落ちたクリスタル（ポータルのうしろ〜割れたふちの手前）。寝かせて、いちばん下が床にふれる高さ（RuinCrystals の nFloor）
+        crys.Add((new Vector3(-hw * 0.45f, 0f, -0.55f), new Vector3(0f, 35f, 82f), 0.24f, 0));
+        crys.Add((new Vector3(hw * 0.5f, 0f, Mathf.Min(eAvg * 0.35f - 0.15f, zH - 0.35f)), new Vector3(10f, -60f, 76f), 0.18f, 0));
+        crys.Add((new Vector3(hw * 0.05f, 0f, zH - 0.45f), new Vector3(4f, 20f, 70f), 0.3f, 2));
+        int nFloor = crys.Count;
+        // 2026-11-16 てじゃ「島とか道とかに破片がめりこんでる」→ ポータルのうしろの道のはしはどこも島のふちぎりぎり（50cm下が地面、1〜2m先は空）
+        //  → ぜんぶ「ふちから落ちていく途中」にそろえ、かけら・石・クリスタルが島の岩・道・橋の中に入っていたら、出るまで前の下へずらす（SolidProbe）
+        //  島の岩（RockMesh）はコースのあとの方で作られるので、ずらすのは最後（SettleRuins）にまとめて
+        void Clear(Transform piece, Vector3 step) => ruinPending.Add((g, piece, step, false));
+        if (RuinBigPiece)   // 割れ目からはなれた道はばの1枚が3つに割れて、少しずつずれて落ちていく途中
         {
-            // てじゃ「デカい欠片がノイズかも」→ 大きいかけらはなし（RuinBigPiece）
-            if (RuinBigPiece)   // 割れ目からはなれた道はばの1枚が3つに割れて、少しずつずれて落ちていく途中
+            int[] cut = { 0, 3, 5, nn - 1 };
+            var rot = new[] { new Vector3(30f, -6f, 9f), new Vector3(22f, 3f, -3f), new Vector3(38f, 8f, -12f) };
+            var pos = new[] { new Vector3(-0.12f, -1.0f, zH + 0.6f), new Vector3(0f, -0.7f, zH + 0.45f), new Vector3(0.15f, -1.35f, zH + 0.8f) };
+            for (int pi = 0; pi < 3; pi++)
             {
-                int[] cut = { 0, 3, 5, nn - 1 };
-                var rot = new[] { new Vector3(30f, -6f, 9f), new Vector3(22f, 3f, -3f), new Vector3(38f, 8f, -12f) };
-                var pos = new[] { new Vector3(-0.12f, -1.0f, zH + 0.5f), new Vector3(0f, -0.65f, zH + 0.35f), new Vector3(0.15f, -1.35f, zH + 0.7f) };
-                for (int pi = 0; pi < 3; pi++)
-                {
-                    var fp = Cracked("FallingSlab" + pi, 1.5f, seed + 1 + pi, cut[pi], cut[pi + 1], pi > 0 ? 0.04f : 0f, pi < 2 ? 0.04f : 0f);
-                    fp.localPosition = pos[pi]; fp.localRotation = Quaternion.Euler(rot[pi]);
-                }
+                var fp = Cracked("FallingSlab" + pi, 1.5f, seed + 1 + pi, cut[pi], cut[pi + 1], pi > 0 ? 0.04f : 0f, pi < 2 ? 0.04f : 0f);
+                fp.localPosition = pos[pi]; fp.localRotation = Quaternion.Euler(rot[pi]);
+                Clear(fp, new Vector3(0f, -0.2f, 0.3f));
             }
-            var f2 = Fragment("FallingSlab2", 0.9f, 1.1f, seed + 2);
-            f2.localPosition = new Vector3(0.9f, -3.4f, eAvg + 2.9f); f2.localRotation = Quaternion.Euler(-35f, 50f, 22f);
-            // 落ちていく石（当たりなし）
-            var rv = new List<Vector3>(); var rt = new List<int>();
+        }
+        {
+            var f2 = Fragment("FallingChip", 0.9f, 1.1f, seed + 2);
+            f2.localPosition = new Vector3(0.9f, -3.0f, eAvg + 2.6f); f2.localRotation = Quaternion.Euler(-35f, 50f, 22f);
+            Clear(f2, new Vector3(0f, -0.2f, 0.3f));
+        }
+        // 落ちていく石（当たりなし）：1つずつ入れ物に入れて、ぶつかっていたらずらす
+        {
+            var stones = new GameObject("FallingStones").transform; stones.SetParent(g, false);
             for (int i = 0; i < 7; i++)
             {
                 float u = i / 6f;
-                var c = new Vector3(((float)rnd.NextDouble() - 0.5f) * 2.6f * hw, -0.7f - u * 3.6f - (float)rnd.NextDouble() * 0.6f, eAvg + 0.6f + u * 3.2f + ((float)rnd.NextDouble() - 0.5f) * 0.8f);
+                var c = new Vector3(((float)rnd.NextDouble() - 0.5f) * 2.6f * hw, -0.7f - u * 3.6f - (float)rnd.NextDouble() * 0.6f, eAvg + 0.7f + u * 3.2f + ((float)rnd.NextDouble() - 0.5f) * 0.8f);
                 float sz = 0.22f + 0.35f * (float)rnd.NextDouble();
-                RockChunk(rv, rt, c, new Vector3(sz * 1.3f, sz * 0.7f, sz), Quaternion.Euler((float)rnd.NextDouble() * 90f, (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 60f), rnd);
+                var rv = new List<Vector3>(); var rt = new List<int>();
+                RockChunk(rv, rt, Vector3.zero, new Vector3(sz * 1.3f, sz * 0.7f, sz), Quaternion.Euler((float)rnd.NextDouble() * 90f, (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 60f), rnd);
+                var so = MeshObj(stones, "Stone" + i, SaveMesh(name + "_" + seed + "_Fall" + i, rv, rt), stone, c, 0, true).transform;
+                Clear(so, new Vector3(0f, -0.2f, 0.3f));
             }
-            MeshObj(g, "FallingStones", SaveMesh(name + "_" + seed + "_Fall", rv, rt), stone, Vector3.zero, 0, true);
-            // 石といっしょに落ちていくクリスタル
-            crys.Add((new Vector3(-hw * 0.55f, -2.2f, eAvg + 2.0f), new Vector3(35f, 70f, 120f), 0.22f, 0));
-            crys.Add((new Vector3(hw * 0.35f, -0.95f, eAvg + 0.75f), new Vector3(-20f, 10f, 55f), 0.16f, 0));
-            crys.Add((new Vector3(0.2f, -4.4f, eAvg + 3.6f), new Vector3(60f, -30f, 15f), 0.2f, 1));
         }
-        else
+        // 石といっしょに落ちていくクリスタル
+        crys.Add((new Vector3(-hw * 0.55f, -2.2f, eAvg + 2.0f), new Vector3(35f, 70f, 120f), 0.22f, 0));
+        crys.Add((new Vector3(hw * 0.35f, -1.0f, eAvg + 0.85f), new Vector3(-20f, 10f, 55f), 0.16f, 0));
+        crys.Add((new Vector3(0.2f, -4.4f, eAvg + 3.6f), new Vector3(60f, -30f, 15f), 0.2f, 1));
+        var cos = RuinCrystals(g, name + "_" + seed, crys, nFloor);
+        for (int i = nFloor; i < cos.Count; i++) Clear(cos[i], new Vector3(0f, -0.2f, 0.3f));
+    }
+    static readonly List<(Transform g, Transform piece, Vector3 step, bool center)> ruinPending = new List<(Transform g, Transform piece, Vector3 step, bool center)>();
+    static void SettleRuins()
+    {
+        int moved = 0, stuck = 0;
+        foreach (var grp in ruinPending.Where(x => x.g && x.piece).GroupBy(x => x.g))
         {
-            // 島の上：割れたふちの先で、折れたかけらが前へ傾いて地面にめりこむ（ふちにくっついたまま。島のはしでも宙に浮かない）
-            // てじゃ「デカい欠片がノイズかも」「これも割っちゃえばそこまで違和感ないかも」→ 道はばの1枚を3つに割って、それぞれ少しずつちがう傾きで地面にめりこむ
-            if (RuinBigPiece)
+            var probe = new SolidProbe(grp.Key, 10f);
+            foreach (var e in grp)
             {
-                int[] cut = { 0, 3, 5, nn - 1 };
-                var rot = new[] { new Vector3(17f, -3f, 4f), new Vector3(9f, 2f, -2f), new Vector3(21f, 4f, -5f) };
-                var drop = new[] { -0.1f, -0.06f, -0.14f };
-                for (int pi = 0; pi < 3; pi++)
+                int it = 0;
+                for (; it < 24 && probe.Hits(e.piece); it++)
                 {
-                    var fp = Cracked("SaggedSlab" + pi, 1.3f, seed + 1 + pi, cut[pi], cut[pi + 1], pi > 0 ? 0.04f : 0f, pi < 2 ? 0.04f : 0f);
-                    fp.localPosition = new Vector3(0f, drop[pi], zH + 0.03f + 0.04f * pi); fp.localRotation = Quaternion.Euler(rot[pi]);
+                    var lp = e.piece.localPosition + e.step;
+                    if (e.center) lp.x *= 0.85f;
+                    e.piece.localPosition = lp;
                 }
-                var q = Quaternion.Euler(rot[0]); crys.Add((new Vector3(0f, drop[0], zH) + q * new Vector3(-hw * 0.6f, 0.04f, eAvg - zH + 0.5f), new Vector3(15f, -40f, 82f), 0.2f, 0));
+                if (it > 0) moved++; if (it == 24) stuck++;
             }
         }
-        RuinCrystals(g, name + "_" + seed, crys);
+        ruinPending.Clear();
+        log.Append("崩れたはし ずらした" + moved + (stuck > 0 ? " 出られない" + stuck : "") + " ");
+    }
+    // 島の岩・道・橋などの中に入っているかの判定（当たり判定のない見た目のメッシュも見る）。g のまわり r m の物だけ
+    //  点から真上へのレイが、その物の面を奇数回横切ったら中。かけらは頂点と面のまん中を調べる
+    class SolidProbe
+    {
+        readonly List<(Bounds b, Vector3[] v, int[] t)> list = new List<(Bounds b, Vector3[] v, int[] t)>();
+        public SolidProbe(Transform g, float r)
+        {
+            var area = new Bounds(g.position, Vector3.one * 2f * r);
+            foreach (var mf in Object.FindObjectsOfType<MeshFilter>())
+            {
+                var rd = mf.GetComponent<MeshRenderer>(); if (!rd || !rd.enabled || !mf.sharedMesh || !mf.gameObject.activeInHierarchy) continue;
+                if (mf.transform.IsChildOf(g) && mf.transform.parent != g) continue;   // 自分のかけら・石は見ない（割れた道・垂れた石は見る）
+                string n = mf.name;
+                if (n.Contains("Sky") || n.Contains("Cloud") || n.Contains("Decal") || n.Contains("Portal") || n.Contains("Glow") || n.Contains("Rim") || n.Contains("Hole") || n.Contains("Veil") || n.Contains("Crystal")) continue;
+                if (!rd.bounds.Intersects(area)) continue;
+                var M = mf.transform.localToWorldMatrix; var lv = mf.sharedMesh.vertices; var wv = new Vector3[lv.Length];
+                for (int i = 0; i < lv.Length; i++) wv[i] = M.MultiplyPoint3x4(lv[i]);
+                list.Add((rd.bounds, wv, mf.sharedMesh.triangles));
+            }
+        }
+        public bool Inside(Vector3 p)
+        {
+            foreach (var e in list)
+            {
+                if (!e.b.Contains(p)) continue;
+                var v = e.v; var t = e.t;
+                int up = 0, dn = 0; float nearUp = float.PositiveInfinity;
+                for (int i = 0; i < t.Length; i += 3)
+                {
+                    Vector3 a = v[t[i]], b2 = v[t[i + 1]], c = v[t[i + 2]];
+                    float d = (b2.z - c.z) * (a.x - c.x) + (c.x - b2.x) * (a.z - c.z); if (Mathf.Abs(d) < 1e-9f) continue;
+                    float l1 = ((b2.z - c.z) * (p.x - c.x) + (c.x - b2.x) * (p.z - c.z)) / d, l2 = ((c.z - a.z) * (p.x - c.x) + (a.x - c.x) * (p.z - c.z)) / d, l3 = 1f - l1 - l2;
+                    if (l1 < 0f || l2 < 0f || l3 < 0f) continue;
+                    float y = l1 * a.y + l2 * b2.y + l3 * c.y;
+                    if (y > p.y) { up++; nearUp = Mathf.Min(nearUp, y - p.y); } else dn++;
+                }
+                if (up % 2 == 1 || (dn > 0 && nearUp < 1.2f)) return true;   // 岩は閉じていない・面が重なることもあるので、上へのレイが奇数回か、すぐ上（1.2m 以内）と下の両方に面があれば中
+            }
+            return false;
+        }
+        public bool Hits(Transform piece)
+        {
+            foreach (var mf in piece.GetComponentsInChildren<MeshFilter>())
+            {
+                var M = mf.transform.localToWorldMatrix; var v = mf.sharedMesh.vertices; var t = mf.sharedMesh.triangles;
+                for (int i = 0; i < v.Length; i++) if (Inside(M.MultiplyPoint3x4(v[i]))) return true;
+                for (int i = 0; i < t.Length; i += 3) if (Inside(M.MultiplyPoint3x4((v[t[i]] + v[t[i + 1]] + v[t[i + 2]]) / 3f))) return true;
+            }
+            return false;
+        }
     }
     // 落ちたクリスタル（p：位置、e：回転、s：大きさ、x：小さい結晶の数）。当たりなし
-    static void RuinCrystals(Transform g, string key, List<(Vector3 p, Vector3 e, float s, int x)> list)
+    static List<Transform> RuinCrystals(Transform g, string key, List<(Vector3 p, Vector3 e, float s, int x)> list, int nFloor = 0)
     {
-        var cm = CrystalMat();
+        var cm = CrystalMat(); var res = new List<Transform>();
         for (int i = 0; i < list.Count; i++)
         {
             var c = list[i];
-            var o = MeshObj(g, "Crystal" + i, CrystalClusterMesh(key + "_Crys" + i, 300 + i * 17 + key.Length, c.s * RuinCrystalScale, c.x), cm, c.p, 0, false);
+            var mesh = CrystalClusterMesh(key + "_Crys" + i, 300 + i * 17 + key.Length, c.s * RuinCrystalScale, c.x);
+            var o = MeshObj(g, "Crystal" + i, mesh, cm, c.p, 0, false);
             o.transform.localRotation = Quaternion.Euler(c.e);
+            if (i < nFloor)   // 床の上：めりこまないように、いちばん下の点が床（c.p.y）の 5mm 上に来る高さ
+            {
+                var q = o.transform.localRotation; float minY = mesh.vertices.Min(v => (q * v).y);
+                o.transform.localPosition = new Vector3(c.p.x, c.p.y - minY + 0.005f, c.p.z);
+            }
+            res.Add(o.transform);
         }
+        return res;
     }
 
     // ================= バリア＋クリスタルの広場（2026-11-15 てじゃの案）=================
