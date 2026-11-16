@@ -15,7 +15,7 @@ public static class FuwaStage2Builder
     const string PrefabPath = "Assets/FuwaStage2/Prefabs/FuwaStage2.prefab";
     // ロビーで複製する物（名前）。ワープの台・看板（Slot0〜5）、床・柵・島、真ん中、銃の台の見た目、練習のキノコの見た目
     static readonly string[] LobbyParts = { "LobbyFloor", "LobbyRing", "LobbySpawn", "BallPark", "Slot0", "Slot1", "Slot2", "Slot3", "Slot4", "Slot5",
-        "GunStand_Lobby", "GunStand_Lobby_Marker", "PracticeMushroom", "Fence", "FenceCollider", "IslandUnder", "CenterRim", "CenterGround" };
+        "GunStand_Lobby", "GunStand_Lobby_Marker", "Fence", "FenceCollider", "IslandUnder", "CenterRim", "CenterGround" };
     // 動きもそのまま使う物（銃の台：クリックで自分の銃が戻ってくる）。中の参照はステージ2側の物につなぎ直す
     static readonly string[] KeepBehaviour = { "GunStand_Lobby" };
     // 仮のコース名（テーマ）。決まったら差し替える
@@ -85,6 +85,7 @@ public static class FuwaStage2Builder
                 UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)m);
             }
         }
+        SetupPracticeMushroom(lobby1.transform, lobby);
         var langTexts = new List<(TMPro.TMP_Text t, string ja, string en)>();
         // 看板：コース 2–1〜2–5（Slot0 はステージ1ではチュートリアルの位置。ステージ2はチュートリアルなしなので 2–1 から）
         // コースのない場所（今は Slot5、コースじゃない物を置く予定）は中身を空にして、場所の目印だけ残す
@@ -240,6 +241,32 @@ public static class FuwaStage2Builder
         so.ApplyModifiedProperties();
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)w);
         return w;
+    }
+
+    // 練習用のスタートキノコ（2026-11-16 てじゃ「ステージ2のロビーの練習用スタートきのこが動いてないな」「ステージ1と同じ用に使えるようにしといて」）
+    //  前は見た目だけ複製していた。ステージ1の物を動きごと複製して、ふわふわの置き場（BallPark）と胞子の飛び散りをステージ2側につなぎ直す
+    [MenuItem("FuwaCourse/ステージ2/ロビーの練習キノコを動くようにする（作り直し）")]
+    static void MenuPracticeMushroom()
+    {
+        SetupPracticeMushroom(Find("FuwaLobby").transform, Find("FuwaStage2").transform.Find("Lobby"));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[ステージ2] 練習キノコを作り直した");
+    }
+    public static void SetupPracticeMushroom(Transform lobby1, Transform lobby2)
+    {
+        foreach (var nm in new[] { "PracticeMushroom", "PracticeSporeBurst" }) { var old = lobby2.Find(nm); if (old) Object.DestroyImmediate(old.gameObject); }
+        GameObject Copy(string nm)
+        {
+            var src = lobby1.Find(nm); if (!src) return null;
+            var c = Object.Instantiate(src.gameObject, lobby2, false); c.name = nm;
+            c.transform.localPosition = src.localPosition; c.transform.localRotation = src.localRotation; c.transform.localScale = src.localScale;
+            return c;
+        }
+        var pm = Copy("PracticeMushroom"); var burst = Copy("PracticeSporeBurst");
+        if (!pm) return;
+        var cap = pm.transform.Find("Cap").gameObject;
+        SetProxy(cap, "FuwaStartMushroom", "courseStart", lobby2.Find("BallPark"));
+        if (burst) SetProxy(cap, "FuwaStartMushroom", "burst", burst.GetComponent<ParticleSystem>());
     }
 
     static void SetProxy(GameObject g, string type, string field, Object value)
