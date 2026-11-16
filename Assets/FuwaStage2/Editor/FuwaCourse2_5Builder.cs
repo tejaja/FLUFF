@@ -657,7 +657,8 @@ public static class FuwaCourse2_5Builder
         void Place(string nm, int seed, float s, int extra, Vector3 surf, Vector3 axis, float spin)
         {
             axis = axis.normalized;
-            var o = MeshObj(g, nm, CrystalClusterMesh("GoalCave_" + nm, seed, s, extra), cm, surf + axis * (1.05f * s - 0.45f), 0, false);
+            // 2026-11-16 てじゃ「そもそも枝分かれしてるかんじがなしかな」→ 小さい結晶の枝はなし（1本ずつ）
+            var o = MeshObj(g, nm, CrystalClusterMesh("GoalCave_" + nm, seed, s, 0), cm, surf + axis * (1.05f * s - 0.45f), 0, false);
             o.transform.localRotation = Quaternion.FromToRotation(Vector3.up, axis) * Quaternion.Euler(0f, spin, 0f);
             n++;
         }
