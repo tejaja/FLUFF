@@ -732,37 +732,26 @@ public static class FuwaPlaygroundBuilder
             return g.transform;
         }
         var gB = Gear("GearBig", big, cBig); var gS = Gear("GearSmall", small, cSmall);
-        // 2026-11-16 てじゃ「歯車、プロペラとどう繋がってるのこれ」→ 小さい歯車の軸＝柱。柱のてっぺんのかさ歯車（直角）でプロペラの軸とかみ合う
-        //  プロペラ → かさ歯車（1:1）→ 柱・小さい歯車 → 大きい歯車（12:20）
-        var bevelSrc = Object.FindObjectsOfType<MeshFilter>(true).First(m => m.sharedMesh != null && m.sharedMesh.name == "RackBridge_Bevel_z12");
-        const float hubY = 2.9f, bsc = 0.3f, pitchR = 0.9f * bsc, pitchOff = -0.2f * bsc;
+        // 2026-11-16 てじゃ「歯車、プロペラとどう繋がってるのこれ」→「プロペラ、横向きのやつは？」→ コースの風車と同じく羽根は水平（たての軸で回る）。
+        //  小さい歯車の軸＝柱、そのてっぺんに羽根をじかに付ける：羽根 → 柱 → 小さい歯車 → 大きい歯車（12:20）
+        const float hubY = 2.9f;
         Vector3 axis = cSmall;
         var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post"; Object.DestroyImmediate(post.GetComponent<Collider>()); post.transform.SetParent(root, false);
-        float postTop = hubY - pitchR - pitchOff;   // かさ歯車A のピッチ面がここ
-        post.transform.position = axis + Vector3.up * (postTop * 0.5f); post.transform.localScale = new Vector3(0.16f, postTop * 0.5f, 0.16f);
+        post.transform.position = axis + Vector3.up * (hubY * 0.5f); post.transform.localScale = new Vector3(0.16f, hubY * 0.5f, 0.16f);
         var hubSrc = wm.rotor.Find("Hub").GetComponent<MeshRenderer>();
         post.GetComponent<MeshRenderer>().sharedMaterial = hubSrc.sharedMaterial;
-        var bevA = new GameObject("BevelA", typeof(MeshFilter), typeof(MeshRenderer)); bevA.transform.SetParent(root, false);
-        bevA.transform.position = axis + Vector3.up * (postTop - pitchOff); bevA.transform.localScale = Vector3.one * bsc;
-        bevA.GetComponent<MeshFilter>().sharedMesh = bevelSrc.sharedMesh; bevA.GetComponent<MeshRenderer>().sharedMaterials = bevelSrc.GetComponent<MeshRenderer>().sharedMaterials;
         var wGo = new GameObject("Windmill"); wGo.transform.SetParent(root, false);
-        // かさ歯車B（プロペラの軸、軸は島の真ん中の方）：頂点がA と同じ所（柱の軸上、高さ hubY）に来る
-        wGo.transform.position = axis + Vector3.up * hubY + F * (pitchR + 0.35f); wGo.transform.rotation = Quaternion.FromToRotation(Vector3.up, F);
+        wGo.transform.position = axis + Vector3.up * hubY; wGo.transform.rotation = root.rotation;
         var rotor = Object.Instantiate(wm.rotor.gameObject, wGo.transform, false); rotor.name = "Rotor"; rotor.transform.localPosition = Vector3.zero; rotor.transform.localRotation = Quaternion.identity; rotor.transform.localScale = Vector3.one * 0.85f;
         foreach (var cc in rotor.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
         foreach (var ub in rotor.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
         foreach (var a in rotor.GetComponentsInChildren<AudioSource>(true)) Object.DestroyImmediate(a.gameObject);
-        var shaft = GameObject.CreatePrimitive(PrimitiveType.Cylinder); shaft.name = "Shaft"; Object.DestroyImmediate(shaft.GetComponent<Collider>()); shaft.transform.SetParent(rotor.transform, false);
-        shaft.transform.localPosition = new Vector3(0f, -0.35f / 0.85f * 0.5f, 0f); shaft.transform.localScale = new Vector3(0.1f, 0.35f / 0.85f * 0.5f, 0.1f); shaft.GetComponent<MeshRenderer>().sharedMaterial = hubSrc.sharedMaterial;
-        var bevB = new GameObject("BevelB", typeof(MeshFilter), typeof(MeshRenderer)); bevB.transform.SetParent(rotor.transform, false);
-        bevB.transform.position = axis + Vector3.up * hubY + F * (pitchR - pitchOff); bevB.transform.rotation = Quaternion.FromToRotation(Vector3.up, -F) ; bevB.transform.localScale = Vector3.one * bsc / 0.85f;
-        bevB.GetComponent<MeshFilter>().sharedMesh = bevelSrc.sharedMesh; bevB.GetComponent<MeshRenderer>().sharedMaterials = bevelSrc.GetComponent<MeshRenderer>().sharedMaterials;
         foreach (var t in root.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
         var hit = wGo.AddComponent<SphereCollider>(); hit.isTrigger = true; hit.radius = 1.1f; wGo.layer = 2;
         var pw = UdonSharpUndo.AddComponent<FuwaPlaygroundWindmill>(wGo);
-        pw.rotor = rotor.transform; pw.gears = new[] { gS, post.transform, bevA.transform, gB };
-        pw.gearRatio = new[] { GearToyRatio, GearToyRatio, GearToyRatio, -GearToyRatio * 12f / 20f };
-        pw.gearPhase = new[] { 0f, 0f, 0f, 0f };
+        pw.rotor = rotor.transform; pw.gears = new[] { gS, post.transform, gB };
+        pw.gearRatio = new[] { -GearToyRatio, -GearToyRatio, GearToyRatio * 12f / 20f };   // 歯車は Euler(0,-a)、羽根は Euler(0,+turn) なので、柱・小さい歯車はマイナスで羽根と同じ向き
+        pw.gearPhase = new[] { 0f, 0f, 0f };
         pw.hitRadius = 1.1f; pw.spinPerShot = 140f; pw.maxSpin = 260f; pw.drag = 0.4f;
         var click = wm.transform.Find("SfxClick");
         if (click != null) { var a = Object.Instantiate(click.gameObject, wGo.transform, false); a.name = "SfxClick"; a.transform.localPosition = Vector3.zero; pw.clickSound = a.GetComponent<AudioSource>(); if (pw.clickSound != null) pw.clickSound.playOnAwake = false; }
