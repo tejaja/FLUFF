@@ -638,17 +638,23 @@ public static class FuwaPlaygroundBuilder
         rock.AddComponent<MeshFilter>().sharedMesh = rockMesh; rock.AddComponent<MeshRenderer>().sharedMaterials = rockMF.GetComponent<MeshRenderer>().sharedMaterials;
         var mcR = rock.AddComponent<MeshCollider>(); mcR.sharedMesh = rockMesh;
         var fr = UdonSharpUndo.AddComponent<FuwaPlaygroundFlameRock>(rock);
-        // 穴の奥の暗い面
-        var holeD = GameObject.CreatePrimitive(PrimitiveType.Sphere); holeD.name = "Hole"; Object.DestroyImmediate(holeD.GetComponent<Collider>());
-        holeD.transform.SetParent(rock.transform, false); holeD.transform.localPosition = new Vector3(0f, FlameMouthY, FlameRockHoleZ - 0.05f); holeD.transform.localScale = new Vector3(0.62f, 0.5f, 0.3f);
-        holeD.GetComponent<MeshRenderer>().sharedMaterial = Mat("Playground_FlameRockHole", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.16f, 0.07f, 0.05f));
-        var rb0 = rock.GetComponent<MeshRenderer>().bounds;
-        var mouthPos = rock.transform.TransformPoint(new Vector3(0f, FlameMouthY, FlameRockHoleZ));
-        var body = Object.Instantiate(ft.Find("FlameBody").gameObject, slot, false); body.name = "FlameBody";
-        body.transform.rotation = slot.rotation * Quaternion.Euler(90f, 0f, 0f);   // +Y（炎の向き）を島の真ん中の方へ
-        body.transform.position = mouthPos - slot.forward * 0.9f;                 // 根もとは穴の奥（見える炎は穴から出てくる）
-        body.SetActive(false);
-        fr.flameBody = body.transform; fr.bodyScale = new Vector3(0.34f, 0.3f, 0.34f);
+        // 穴の奥の暗い面と炎（上中下）
+        var bodies = new List<Transform>();
+        Vector3 mouthPos = Vector3.zero;
+        for (int r = 0; r < FlameRows.Length; r++)
+        {
+            var holeD = GameObject.CreatePrimitive(PrimitiveType.Sphere); holeD.name = "Hole" + r; Object.DestroyImmediate(holeD.GetComponent<Collider>());
+            holeD.transform.SetParent(rock.transform, false); holeD.transform.localPosition = new Vector3(0f, FlameRows[r], flameHoleZ[r] - 0.04f); holeD.transform.localScale = new Vector3(0.42f, 0.34f, 0.2f);
+            holeD.GetComponent<MeshRenderer>().sharedMaterial = Mat("Playground_FlameRockHole", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.16f, 0.07f, 0.05f));
+            var mp = rock.transform.TransformPoint(new Vector3(0f, FlameRows[r], flameHoleZ[r]));
+            if (r == 0) mouthPos = mp;
+            var body = Object.Instantiate(ft.Find("FlameBody").gameObject, slot, false); body.name = "FlameBody" + r;
+            body.transform.rotation = slot.rotation * Quaternion.Euler(90f, 0f, 0f);
+            body.transform.position = mp - slot.forward * 0.9f;
+            body.SetActive(false);
+            bodies.Add(body.transform);
+        }
+        fr.flameBodies = bodies.ToArray(); fr.bodyScale = new Vector3(0.26f, 0.28f, 0.26f);
         var roarSrc = ft.Find("RoarSfx");
         if (roarSrc != null) { var a = Object.Instantiate(roarSrc.gameObject, slot, false); a.name = "RoarSfx"; a.transform.position = mouthPos; var au = a.GetComponent<AudioSource>(); au.loop = true; au.playOnAwake = false; fr.roar = au; }
         UdonSharpEditorUtility.CopyProxyToUdon(fr);
@@ -656,39 +662,46 @@ public static class FuwaPlaygroundBuilder
         // 炎の当たり
         var z = new GameObject("FlameZone"); z.transform.SetParent(slot, false); z.layer = 2;
         z.transform.SetPositionAndRotation(mouthPos, slot.rotation);
-        var bz = z.AddComponent<BoxCollider>(); bz.isTrigger = true; bz.size = new Vector3(1.3f, 1.4f, 4.2f); bz.center = new Vector3(0f, 0.1f, 2.2f);
+        float rowSpan = FlameRows[FlameRows.Length - 1] - FlameRows[0];
+        var bz = z.AddComponent<BoxCollider>(); bz.isTrigger = true; bz.size = new Vector3(1.3f, rowSpan + 1.2f, 4.2f); bz.center = new Vector3(0f, rowSpan * 0.5f, 2.2f);
         var fz = UdonSharpUndo.AddComponent<FuwaPlaygroundFlameZone>(z); fz.rock = fr; UdonSharpEditorUtility.CopyProxyToUdon(fz);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(fz); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
     }
 
-    public static float FlameMouthY = 1.45f, FlameRockHoleZ = 0.95f;
-    // 火炎放射の岩：ゆがめた球（下は平ら）、正面（+Z）の高さ FlameMouthY にくぼみ（穴）。角ばった陰影（面ごとに頂点）
+    // 2026-11-16 てじゃ「岩はもっと柱みたいなのにして3列にしよ」→ ゴツゴツの柱（高さ FlameRockH）、正面に上中下3つの穴（FlameRows の高さ）
+    public static float FlameRockH = 3.1f, FlameRockR = 0.72f;
+    public static float[] FlameRows = { 0.75f, 1.5f, 2.25f };
+    static float[] flameHoleZ = new float[3];
     static Mesh FlameRockMesh()
     {
-        int nu = 22, nv = 14; var pts = new Vector3[nu, nv + 1];
-        Vector3 mdir = new Vector3(0f, FlameMouthY - 1.05f, 1f).normalized;
+        int nu = 20, nv = 18; var pts = new Vector3[nu, nv + 1];
         for (int i = 0; i < nu; i++) for (int j = 0; j <= nv; j++)
         {
-            float th = Mathf.PI * 2f * i / nu, ph = Mathf.PI * j / nv;
-            var d = new Vector3(Mathf.Sin(ph) * Mathf.Cos(th), Mathf.Cos(ph), Mathf.Sin(ph) * Mathf.Sin(th));
-            float n = 0.16f * (Mathf.PerlinNoise(d.x * 1.7f + 3.1f, d.z * 1.7f + d.y * 1.3f + 7.7f) - 0.5f) * 2f + 0.07f * (Mathf.PerlinNoise(d.x * 4.3f + 11f, d.y * 4.1f + d.z * 2.9f) - 0.5f) * 2f;
-            float r = 1f + n;
-            float m = Vector3.Dot(d, mdir); if (m > 0.86f) r -= 0.28f * Mathf.SmoothStep(0f, 1f, (m - 0.86f) / 0.14f);   // 火の出る穴のくぼみ
-            var p = new Vector3(d.x * 1.25f, d.y * 1.05f + 1.05f, d.z * 1.15f) * 1f; p = new Vector3(d.x * r * 1.25f, d.y * r * 1.12f + 1.05f, d.z * r * 1.15f);
-            if (p.y < -0.05f) p.y = -0.05f;   // 底は平ら（床に少し埋める）
-            pts[i, j] = p;
+            float th = Mathf.PI * 2f * i / nu, y = FlameRockH * j / nv;
+            var d = new Vector3(Mathf.Sin(th), 0f, Mathf.Cos(th));   // th=0 が正面（+Z）
+            float n = 0.13f * (Mathf.PerlinNoise(d.x * 1.6f + 3.1f, y * 0.9f + d.z * 1.2f) - 0.5f) * 2f + 0.06f * (Mathf.PerlinNoise(d.x * 4.1f + 11f, y * 2.7f + d.z * 3.3f) - 0.5f) * 2f;
+            float taper = Mathf.Lerp(1.08f, 0.82f, y / FlameRockH);
+            float r = FlameRockR * (1f + n) * taper;
+            foreach (float hy in FlameRows)
+            {   // 穴のくぼみ（正面、高さ hy）
+                float dy = (y - hy) / 0.3f, da = Mathf.DeltaAngle(0f, th * Mathf.Rad2Deg) / 30f;
+                float k = Mathf.Clamp01(1f - (dy * dy + da * da)); r -= 0.3f * k * k * (3f - 2f * k);
+            }
+            float yy = y;
+            if (j == nv) yy = FlameRockH + 0.12f * (Mathf.PerlinNoise(d.x * 2f, d.z * 2f) - 0.5f);
+            pts[i, j] = new Vector3(d.x * r, j == 0 ? -0.05f : yy, d.z * r);
         }
         var v = new List<Vector3>(); var t = new List<int>();
-        void T(Vector3 a, Vector3 b, Vector3 c) { var cen = new Vector3(0f, 1.05f, 0f); var nn = Vector3.Cross(b - a, c - a); if (Vector3.Dot(nn, (a + b + c) / 3f - cen) < 0f) { var x = b; b = c; c = x; } int k = v.Count; v.Add(a); v.Add(b); v.Add(c); t.Add(k); t.Add(k + 1); t.Add(k + 2); }
+        void T(Vector3 a, Vector3 b, Vector3 c, Vector3 cen) { var nn = Vector3.Cross(b - a, c - a); if (Vector3.Dot(nn, (a + b + c) / 3f - cen) < 0f) { var x = b; b = c; c = x; } int k = v.Count; v.Add(a); v.Add(b); v.Add(c); t.Add(k); t.Add(k + 1); t.Add(k + 2); }
         for (int i = 0; i < nu; i++) for (int j = 0; j < nv; j++)
         {
-            int i2 = (i + 1) % nu;
-            T(pts[i, j], pts[i2, j], pts[i2, j + 1]); T(pts[i, j], pts[i2, j + 1], pts[i, j + 1]);
+            int i2 = (i + 1) % nu; var cen = new Vector3(0f, (pts[i, j].y + pts[i, j + 1].y) * 0.5f, 0f);
+            T(pts[i, j], pts[i2, j], pts[i2, j + 1], cen); T(pts[i, j], pts[i2, j + 1], pts[i, j + 1], cen);
         }
+        var top = new Vector3(0f, FlameRockH + 0.1f, 0f);
+        for (int i = 0; i < nu; i++) T(pts[i, nv], pts[(i + 1) % nu, nv], top, new Vector3(0f, FlameRockH - 1f, 0f));
         var mesh = new Mesh { name = "Playground_FlameRock" }; mesh.SetVertices(v); mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
-        // 穴のくぼみの奥の位置（FlameRockHoleZ）をメッシュから決める：正面の高さ FlameMouthY の z
-        float zz = 0f; foreach (var q in v) if (Mathf.Abs(q.y - FlameMouthY) < 0.2f && Mathf.Abs(q.x) < 0.2f && q.z > zz) zz = q.z;
-        FlameRockHoleZ = zz;
+        for (int r = 0; r < FlameRows.Length; r++) { float zz = 0f; foreach (var q in v) if (Mathf.Abs(q.y - FlameRows[r]) < 0.12f && Mathf.Abs(q.x) < 0.15f && q.z > zz) zz = q.z; flameHoleZ[r] = zz; }
         return SaveGenMesh(mesh, "Playground_FlameRock");
     }
 
@@ -771,28 +784,30 @@ public static class FuwaPlaygroundBuilder
             return g.transform;
         }
         var gB = Gear("GearBig", big, cBig); var gS = Gear("GearSmall", small, cSmall);
-        // 2026-11-16 てじゃ「歯車、プロペラとどう繋がってるのこれ」→「プロペラ、横向きのやつは？」→ コースの風車と同じく羽根は水平（たての軸で回る）。
-        //  小さい歯車の軸＝柱、そのてっぺんに羽根をじかに付ける：羽根 → 柱 → 小さい歯車 → 大きい歯車（12:20）
-        const float hubY = 2.9f;
-        Vector3 axis = cSmall;
-        var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post"; Object.DestroyImmediate(post.GetComponent<Collider>()); post.transform.SetParent(root, false);
-        post.transform.position = axis + Vector3.up * (hubY * 0.5f); post.transform.localScale = new Vector3(0.16f, hubY * 0.5f, 0.16f);
-        var hubSrc = wm.rotor.Find("Hub").GetComponent<MeshRenderer>();
-        post.GetComponent<MeshRenderer>().sharedMaterial = hubSrc.sharedMaterial;
+        // 2026-11-16 てじゃ「歯車、プロペラとどう繋がってるのこれ」→「はね、それじゃないやつ」→ コース2–4 の回転床の羽根車（たての羽根6枚＋マスト、横から撃つ）を
+        //  小さい歯車の軸の上にじかに：羽根車 → 小さい歯車 → 大きい歯車（12:20）。撃った所と向きで回る向きが決まる
+        var tt = Object.FindObjectsOfType<FuwaTurnTable>(true).First();
         var wGo = new GameObject("Windmill"); wGo.transform.SetParent(root, false);
-        wGo.transform.position = axis + Vector3.up * hubY; wGo.transform.rotation = root.rotation;
-        var rotor = Object.Instantiate(wm.rotor.gameObject, wGo.transform, false); rotor.name = "Rotor"; rotor.transform.localPosition = Vector3.zero; rotor.transform.localRotation = Quaternion.identity; rotor.transform.localScale = Vector3.one * 0.85f;
-        foreach (var cc in rotor.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
-        foreach (var ub in rotor.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
-        foreach (var a in rotor.GetComponentsInChildren<AudioSource>(true)) Object.DestroyImmediate(a.gameObject);
+        wGo.transform.position = cSmall + Vector3.up * (top + 0.6f); wGo.transform.rotation = root.rotation;
+        var rotor = new GameObject("Rotor"); rotor.transform.SetParent(wGo.transform, false);
+        foreach (Transform ch in tt.transform)
+        {
+            if (ch.GetComponent<AudioSource>() != null) continue;
+            var cp = Object.Instantiate(ch.gameObject, rotor.transform, false); cp.name = ch.name;
+            foreach (var cc in cp.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
+            foreach (var ub in cp.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
+        }
+        var axle = GameObject.CreatePrimitive(PrimitiveType.Cylinder); axle.name = "Axle"; Object.DestroyImmediate(axle.GetComponent<Collider>()); axle.transform.SetParent(rotor.transform, false);
+        axle.transform.localPosition = new Vector3(0f, -0.3f, 0f); axle.transform.localScale = new Vector3(0.14f, 0.3f, 0.14f);
+        axle.GetComponent<MeshRenderer>().sharedMaterial = tt.transform.Find("Hub").GetComponent<MeshRenderer>().sharedMaterial;
         foreach (var t in root.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
-        var hit = wGo.AddComponent<SphereCollider>(); hit.isTrigger = true; hit.radius = 1.1f; wGo.layer = 2;
+        var hit = wGo.AddComponent<SphereCollider>(); hit.isTrigger = true; hit.radius = 1.0f; wGo.layer = 2;
         var pw = UdonSharpUndo.AddComponent<FuwaPlaygroundWindmill>(wGo);
-        pw.rotor = rotor.transform; pw.gears = new[] { gS, post.transform, gB };
-        pw.gearRatio = new[] { -GearToyRatio, -GearToyRatio, GearToyRatio * 12f / 20f };   // 歯車は Euler(0,-a)、羽根は Euler(0,+turn) なので、柱・小さい歯車はマイナスで羽根と同じ向き
-        pw.gearPhase = new[] { 0f, 0f, 0f };
-        pw.hitRadius = 1.1f; pw.spinPerShot = 140f; pw.maxSpin = 260f; pw.drag = 0.4f;
-        var click = wm.transform.Find("SfxClick");
+        pw.rotor = rotor.transform; pw.gears = new[] { gS, gB };
+        pw.gearRatio = new[] { -GearToyRatio, GearToyRatio * 12f / 20f };   // 歯車は Euler(0,-a)、羽根車は Euler(0,+turn) なので、小さい歯車はマイナスで羽根車と同じ向き
+        pw.gearPhase = new[] { 0f, 0f };
+        pw.hitRadius = tt.hitRadius; pw.hitHalfHeight = tt.hitHalfHeight; pw.hitCone = tt.hitCone; pw.spinPerShot = 140f; pw.maxSpin = 260f; pw.drag = 0.4f;
+        var click = wm.transform.Find("SfxClick");   // 撃った時のカチッ（コース2–4 の風車の音）
         if (click != null) { var a = Object.Instantiate(click.gameObject, wGo.transform, false); a.name = "SfxClick"; a.transform.localPosition = Vector3.zero; pw.clickSound = a.GetComponent<AudioSource>(); if (pw.clickSound != null) pw.clickSound.playOnAwake = false; }
         UdonSharpEditorUtility.CopyProxyToUdon(pw);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pw); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); } }

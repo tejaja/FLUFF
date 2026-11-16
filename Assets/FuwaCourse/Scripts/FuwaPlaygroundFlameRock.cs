@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -8,17 +8,20 @@ using VRC.SDKBase;
 [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class FuwaPlaygroundFlameRock : UdonSharpBehaviour
 {
-    [Tooltip("炎の本体（+Y が炎の向き。長さは localScale.y で伸びる）")]
-    public Transform flameBody;
+    [Tooltip("炎の本体（+Y が炎の向き。長さは localScale.y で伸びる）。2026-11-16 てじゃ「3列にしよ」→ 上中下の3本（rowDelay 秒ずつずれて出る）")]
+    public Transform[] flameBodies;
+    public float rowDelay = 0.08f;
     public Vector3 bodyScale = new Vector3(0.22f, 0.3f, 0.22f);
     public float bodySpeed = 5f, bodyAfter = 0.6f;
     public AudioSource roar, toggleSound;
 
     [UdonSynced] private bool _on;
-    private float _body, _burn = 1f;
-    private Material _mat;
+    private float[] _bodies, _burns;
+    private Material[] _mats;
+    private float _onAt = -10f, _offAt = -10f;
+    private bool _lastOn;
 
-    public bool IsOn() { return _on && _body > 0.5f; }
+    public bool IsOn() { return _on && _bodies != null && _bodies.Length > 0 && _bodies[0] > 0.5f; }
 
     public override void Interact()
     {
@@ -30,17 +33,24 @@ public class FuwaPlaygroundFlameRock : UdonSharpBehaviour
 
     private void Update()
     {
-        if (flameBody == null) return;
-        if (_on) { _body = Mathf.MoveTowards(_body, 1f, bodySpeed * Time.deltaTime); _burn = 0f; }
-        else if (_body > 0f && _burn < 1f) { _burn = Mathf.Min(1f, _burn + Time.deltaTime / Mathf.Max(0.05f, bodyAfter)); if (_burn >= 1f) _body = 0f; }
-        else { _body = 0f; _burn = 1f; }
-        bool show = _body > 0.001f;
-        if (flameBody.gameObject.activeSelf != show) flameBody.gameObject.SetActive(show);
-        if (show)
+        if (flameBodies == null) return;
+        int n = flameBodies.Length;
+        if (_bodies == null || _bodies.Length != n) { _bodies = new float[n]; _burns = new float[n]; _mats = new Material[n]; for (int i = 0; i < n; i++) _burns[i] = 1f; }
+        if (_on != _lastOn) { _lastOn = _on; if (_on) _onAt = Time.time; else _offAt = Time.time; }
+        for (int i = 0; i < n; i++)
         {
-            flameBody.localScale = new Vector3(bodyScale.x * Mathf.Lerp(0.6f, 1f, _body), bodyScale.y * _body, bodyScale.z * Mathf.Lerp(0.6f, 1f, _body));
-            if (_mat == null) _mat = flameBody.GetComponent<Renderer>().material;
-            _mat.SetFloat("_Burn", _burn);
+            Transform b = flameBodies[i]; if (b == null) continue;
+            bool on = _on && Time.time - _onAt >= rowDelay * i;
+            if (on) { _bodies[i] = Mathf.MoveTowards(_bodies[i], 1f, bodySpeed * Time.deltaTime); _burns[i] = 0f; }
+            else if (_bodies[i] > 0f && _burns[i] < 1f) { _burns[i] = Mathf.Min(1f, _burns[i] + Time.deltaTime / Mathf.Max(0.05f, bodyAfter)); if (_burns[i] >= 1f) _bodies[i] = 0f; }
+            else { _bodies[i] = 0f; _burns[i] = 1f; }
+            float k = _bodies[i];
+            bool show = k > 0.001f;
+            if (b.gameObject.activeSelf != show) b.gameObject.SetActive(show);
+            if (!show) continue;
+            b.localScale = new Vector3(bodyScale.x * Mathf.Lerp(0.6f, 1f, k), bodyScale.y * k, bodyScale.z * Mathf.Lerp(0.6f, 1f, k));
+            if (_mats[i] == null) _mats[i] = b.GetComponent<Renderer>().material;
+            _mats[i].SetFloat("_Burn", _burns[i]);
         }
         if (roar != null)
         {

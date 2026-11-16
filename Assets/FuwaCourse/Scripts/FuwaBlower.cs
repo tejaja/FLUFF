@@ -1170,12 +1170,17 @@ public class FuwaBlower : UdonSharpBehaviour
             FuwaPlaygroundWindmill pw = c.GetComponent<FuwaPlaygroundWindmill>();
             if (pw != null)
             {
+                // コース2–4 の羽根車と同じ当たり方（細い芯が羽根の円を通った時だけ）。回る向きは撃った所と向きで決まる
                 float alp = Vector3.Dot(to, aim);
                 float rp = pw.hitRadius;
                 if (alp < -rp || alp - rp > reach) continue;
                 float tp = Mathf.Clamp(alp, 0f, reach);
-                if ((to - aim * tp).magnitude > rp + tp * Mathf.Tan(coneAngle * Mathf.Deg2Rad) + nearRadius) continue;
-                pw.Blown(aim, power);
+                Vector3 offp = to - aim * tp;
+                float growp = tp * Mathf.Tan(pw.hitCone * Mathf.Deg2Rad);
+                if (Mathf.Abs(offp.y) > pw.hitHalfHeight + growp) continue;
+                offp.y = 0f;
+                if (offp.magnitude > rp + growp) continue;
+                pw.Shot(origin, aim, power);
                 continue;
             }
             // 2–4 の回転床の羽根車：同じ当たり方。回る向きは撃った所と向きで決まる（自分の画面だけ）

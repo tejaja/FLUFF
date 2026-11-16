@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -15,8 +15,8 @@ public class FuwaPlaygroundWindmill : UdonSharpBehaviour
     public Transform[] gears;
     public float[] gearRatio;
     public float[] gearPhase;
-    [Tooltip("当たり：風の円すいがこの半径の球にかすれば回る（FuwaBlower が見る）")]
-    public float hitRadius = 1.2f;
+    [Tooltip("当たり（FuwaBlower が見る）：コース2–4 の羽根車と同じ。羽根の円（横 hitRadius、たて ±hitHalfHeight）を風の細い芯（hitCone 度）が通ったら")]
+    public float hitRadius = 1f, hitHalfHeight = 0.55f, hitCone = 3f;
     public float spinPerShot = 360f, maxSpin = 720f;
     [Tooltip("回る速さの減り方（1秒あたり）")]
     public float drag = 0.35f;
@@ -49,12 +49,21 @@ public class FuwaPlaygroundWindmill : UdonSharpBehaviour
         _turn = _turn0 + (drag > 0.0001f ? _vel0 * (1f - e) / drag : _vel0 * dt);
     }
 
-    public void Blown(Vector3 aim, float power)
+    // 2026-11-16 てじゃ「はね、それじゃないやつ」→ コース2–4 の回転床の羽根車（たての羽根、横から撃つ）。撃った所と向きで回る向きが決まる（FuwaTurnTable.Shot と同じ）
+    public void Shot(Vector3 origin, Vector3 aim, float power)
     {
+        if (rotor == null) return;
+        Vector3 o = origin - rotor.position; o.y = 0f;
+        Vector3 a = aim; a.y = 0f;
+        if (a.sqrMagnitude < 1e-4f) return;
+        a.Normalize();
+        Vector3 c = o - a * Vector3.Dot(o, a);
+        float lever = Mathf.Clamp01(c.magnitude / Mathf.Max(0.01f, hitRadius));
+        float cy = Vector3.Cross(c.normalized, a).y;   // + なら Unity の Y 回転の +（上から見て時計回り）
         Eval();
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
         _turn0 = Mathf.Repeat(_turn, 360000f);
-        _vel0 = Mathf.Min(maxSpin, Mathf.Max(_vel, 0f) + spinPerShot * power);
+        _vel0 = Mathf.Clamp(_vel + cy * spinPerShot * power * lever, -maxSpin, maxSpin);
         _t0 = Networking.GetServerTimeInSeconds();
         RequestSerialization();
         if (clickSound != null) clickSound.Play();
