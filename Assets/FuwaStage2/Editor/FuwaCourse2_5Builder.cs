@@ -1102,7 +1102,7 @@ public static class FuwaCourse2_5Builder
                     if (ch[Perp(i, e)] <= 0f && stop[i, e])
                     {
                         Tri(v, t, F(i, w, yt - h, s * l), F(i, w, yt, s * l), F(i, w, yt - h, s * (l - h)), nn);   // 横の面の上がる三角
-                        Tri(v, t, F(i, w, yt - h, s * (l - h)), F(i, w - h, yt, s * l), F(i, w, yt, s * l), nn + Vector3.up + Av(i) * s);   // すぼめる面
+                        Tri(v, t, F(i, w, yt - h, s * (l - h)), F(i, w - h, yt, s * l), F(i, w, yt, s * l), Vector3.up - Av(i) * s);   // すぼめる面（上向き＆斜めの面の方へ。外向きはこっち）
                     }
                 }
                 // 斜めの面
