@@ -500,7 +500,8 @@ public static class FuwaCourse2_5Builder
             System.Func<Vector2, float> fM = q => Mathf.Max(F(0, q), -dCave(q));
             float ringR = hx + CaveRingW;
             // 空洞の穴のふちの深さ：輪の中（部屋）は空洞の底、輪の外（口の続き）は 0（こんもりの溝になる）
-            System.Func<Vector2, float> holeDepth = q => cave * Mathf.Clamp01((ringR + 1f - dStat(q)) / 2.5f) * Mathf.Clamp01(Mathf.Max(0f, -F(0, q)) / 1f);
+            //  2026-11-16 てじゃ「ゴールのあるところから見た時、スキマ」→ 輪の壁が終わる所（ringR）より外で深さが残っていて、板の下とのあいだにすき間 → 輪の 0.3m 内で 0 に
+            System.Func<Vector2, float> holeDepth = q => cave * Mathf.Clamp01((ringR - 0.3f - dStat(q)) / 2f) * Mathf.Clamp01(Mathf.Max(0f, -F(0, q)) / 1f);
             System.Func<Vector2, float> depthAt = q =>
             {
                 float eM = Mathf.Max(0f, -fM(q));      // 穴もふくめたふちまでの距離
