@@ -542,6 +542,7 @@ public static class FuwaPlaygroundBuilder
         FillBubbleClam(ts[0].transform);
         FillFlameRock(ts[1].transform);
         FillIceToy(ts[2].transform);
+        FillWindmill(ts[3].transform);
         // ステージ2の記録 → おもちゃ 6〜10 番
         var recs2 = Object.FindObjectsOfType<FuwaRecords>(true).FirstOrDefault(r => r.courseStarts != null && r.courseStarts.Length > 0 && r.courseStarts[0] != null && r.courseStarts[0].root.name == "FuwaCourse2_1");
         if (recs2 != null) { recs2.playground = sp; recs2.playgroundOffset = 5; Sync(recs2); }
@@ -701,6 +702,56 @@ public static class FuwaPlaygroundBuilder
         // 人が滑る：コース2–3 の IceSkate を写して、氷＝この円だけ
         var sk = Object.Instantiate(iceSrc.gameObject, slot, false); sk.name = "IceSkate"; sk.transform.localPosition = Vector3.zero;
         var skc = sk.GetComponent<FuwaIceSkate>(); skc.ice = new Collider[] { mc }; skc.debugLog = false; UdonSharpEditorUtility.CopyProxyToUdon(skc);
+    }
+
+    // 2–4 プロペラ＋歯車：柱の上のプロペラ（コース2–4 の風車の羽根）をエアガンで撃つと回り、床の歯車（大20枚・小12枚、コース2–4 の乗る歯車を小さく）がいっしょに回る（同期）
+    public static float GearToyScale = 0.28f, GearToyRatio = 0.25f;
+    static void FillWindmill(Transform slot)
+    {
+        EnsureProgram("FuwaPlaygroundWindmill");
+        var wm = Object.FindObjectsOfType<FuwaWindmill>(true).First();
+        var gr = Object.FindObjectsOfType<FuwaGearRide>(true).First().transform.parent;
+        var big = gr.GetComponentsInChildren<MeshFilter>(true).First(m => m.sharedMesh.name == "GearRide_z20_t60");
+        var small = gr.GetComponentsInChildren<MeshFilter>(true).First(m => m.sharedMesh.name == "GearRide_z12_t70");
+        float sc = GearToyScale, top = 0.17f;
+        Vector3 O = slot.position, F = slot.forward;
+        float pitchBig = 0.4f * 20f / 2f, pitchSmall = 0.4f * 12f / 2f, dist = (pitchBig + pitchSmall) * sc;
+        Vector3 cBig = O - F * 0.8f, cSmall = cBig + F * dist;
+        var root = new GameObject("GearToy").transform; root.SetParent(slot, false);
+        Transform Gear(string nm, MeshFilter src, Vector3 c)
+        {
+            var g = new GameObject(nm); g.transform.SetParent(root, false);
+            var b = src.sharedMesh.bounds;
+            g.transform.position = c + Vector3.up * (top - b.max.y * sc); g.transform.localScale = Vector3.one * sc;
+            g.AddComponent<MeshFilter>().sharedMesh = src.sharedMesh; g.AddComponent<MeshRenderer>().sharedMaterials = src.GetComponent<MeshRenderer>().sharedMaterials;
+            var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = src.sharedMesh;
+            var rb = g.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false; rb.interpolation = RigidbodyInterpolation.Interpolate;
+            return g.transform;
+        }
+        var gB = Gear("GearBig", big, cBig); var gS = Gear("GearSmall", small, cSmall);
+        // 柱とプロペラ（柵ぎわ、羽根の軸は島の真ん中の方を向く。歯車に乗った人の頭より上）
+        Vector3 postPos = O - F * 2.45f; const float hubY = 2.9f;
+        var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post"; post.transform.SetParent(root, false);
+        post.transform.position = postPos + Vector3.up * (hubY * 0.5f); post.transform.localScale = new Vector3(0.22f, hubY * 0.5f, 0.22f);
+        var hubSrc = wm.rotor.Find("Hub").GetComponent<MeshRenderer>();
+        post.GetComponent<MeshRenderer>().sharedMaterial = hubSrc.sharedMaterial;
+        var wGo = new GameObject("Windmill"); wGo.transform.SetParent(root, false);
+        wGo.transform.position = postPos + Vector3.up * hubY + F * 0.25f; wGo.transform.rotation = Quaternion.FromToRotation(Vector3.up, F) ;
+        var rotor = Object.Instantiate(wm.rotor.gameObject, wGo.transform, false); rotor.name = "Rotor"; rotor.transform.localPosition = Vector3.zero; rotor.transform.localRotation = Quaternion.identity; rotor.transform.localScale = Vector3.one * 0.85f;
+        foreach (var cc in rotor.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
+        foreach (var ub in rotor.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
+        foreach (var a in rotor.GetComponentsInChildren<AudioSource>(true)) Object.DestroyImmediate(a.gameObject);
+        foreach (var t in root.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+        var hit = wGo.AddComponent<SphereCollider>(); hit.isTrigger = true; hit.radius = 1.1f; wGo.layer = 2;
+        var pw = UdonSharpUndo.AddComponent<FuwaPlaygroundWindmill>(wGo);
+        pw.rotor = rotor.transform; pw.gears = new[] { gB, gS };
+        pw.gearRatio = new[] { GearToyRatio, -GearToyRatio * 20f / 12f };
+        pw.gearPhase = new[] { -Vector3.SignedAngle(Vector3.right, slot.right, Vector3.up) * 0f, 0f };
+        pw.hitRadius = 1.1f;
+        var click = wm.transform.Find("SfxClick");
+        if (click != null) { var a = Object.Instantiate(click.gameObject, wGo.transform, false); a.name = "SfxClick"; a.transform.localPosition = Vector3.zero; pw.clickSound = a.GetComponent<AudioSource>(); if (pw.clickSound != null) pw.clickSound.playOnAwake = false; }
+        UdonSharpEditorUtility.CopyProxyToUdon(pw);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pw); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); } }
     }
 
     static void AddTestUnlockAll(Transform toys, FuwaPlaygroundSpawner sp)
