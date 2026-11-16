@@ -148,6 +148,23 @@ public class FuwaRecords : UdonSharpBehaviour
         PlayerData.SetBool("clear_" + key, true);
     }
 
+    // 2026-11-16 てじゃ「正式版にするまでのあいだ タイトルの下に…クリアフラグと自己ベストを消す、データリセット」：自分の分だけ消す（みんなのこのインスタンスの記録は残す）
+    public void ResetMine()
+    {
+        Init();
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        for (int i = 0; i < _cleared.Length; i++)
+        {
+            _cleared[i] = false;
+            _myBest[i] = 0f;
+            string key = Key(i);
+            if (key == "" || lp == null || !_clearRestored) continue;
+            if (PlayerData.HasKey(lp, "clear_" + key)) PlayerData.SetBool("clear_" + key, false);
+            if (PlayerData.HasKey(lp, "best_" + key)) PlayerData.SetFloat("best_" + key, 0f);
+        }
+        Render();
+    }
+
     // あそびばのドーム用：自分がこのコースをクリアしたことがあるか（保存したクリアの印、またはこの回の記録）
     public bool HasCleared(int i)
     {

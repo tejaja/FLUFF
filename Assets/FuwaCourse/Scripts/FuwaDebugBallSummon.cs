@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -16,6 +16,8 @@ public class FuwaDebugBallSummon : UdonSharpBehaviour
     public string[] ownerNames;
     [Tooltip("2026-11-15 てじゃ「デバッグ用のGキーを全員に解放しといて」：オンなら ownerNames に関係なく誰でも使える")]
     public bool everyone = false;
+    [Tooltip("2026-11-16：つないであれば、タイトルの下のデバッグモードがオンの間だけ使える（everyone / ownerNames は見ない）")]
+    public FuwaDebugMode debugMode;
     public float distance = 1.6f;   // 頭から前へ(m)
     public float drop = 0.4f;       // 頭から下へ(m)
     [Tooltip("これより低い所で出したらステージ2（アウトの高さが変わる）")]
@@ -41,6 +43,7 @@ public class FuwaDebugBallSummon : UdonSharpBehaviour
 
     private bool CanUse(VRCPlayerApi p)
     {
+        if (debugMode != null) return debugMode.on;
         if (everyone) return true;
         if (ownerNames == null) return false;
         string n = p.displayName;

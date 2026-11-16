@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon.Common;
@@ -13,6 +13,8 @@ public class FuwaDebugFly : UdonSharpBehaviour
     [Tooltip("この表示名の人だけ使える（空なら誰も使えない）")]
     public string[] ownerNames;
     public float speed = 7f, fastSpeed = 18f, gripHold = 1f;
+    [Tooltip("2026-11-16 てじゃ「デバッグモードの飛行とふわふわ召喚を使えるようにする」「私含めデフォではデバッグモードなしで」：つないであれば、タイトルの下のデバッグモードがオンの間だけ使える（ownerNames は見ない）")]
+    public FuwaDebugMode debugMode;
 
     private bool _can, _flying, _gripDone;
     private float _moveH, _moveV, _gripTime, _gravity = 1f, _liftUntil;
@@ -29,9 +31,10 @@ public class FuwaDebugFly : UdonSharpBehaviour
 
     private void Update()
     {
-        if (!_can) return;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
+        bool can = debugMode != null ? debugMode.on : _can;
+        if (!can) { if (_flying) Toggle(p); return; }   // デバッグモードを切ったら飛ぶのもやめる
         bool vr = p.IsUserInVR();
         if (vr)
         {
