@@ -31,7 +31,7 @@ public class FuwaGoal : UdonSharpBehaviour
 
     [Tooltip("ゴールした時だけ出す「ロビーへ」ワープ（自分の画面だけ）")]
     public GameObject lobbyWarp;
-    [Tooltip("ゴールしてからワープが出るまでの秒数")]
+    [Tooltip("ゴールしてからワープが出るまでの秒数（シーンでは全コース4秒。2026-11-16 てじゃ「１秒くらいはやくてもいいかも」で5→4）")]
     public float warpDelay = 1.0f;
     [Tooltip("ワープがぽんっと出てくる秒数")]
     public float warpPopTime = 0.35f;
