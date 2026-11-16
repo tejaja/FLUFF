@@ -24,6 +24,19 @@ public static class FuwaClearMarksBuilder
             if (lobby == null) continue;
             var warps = lobby.GetComponentsInChildren<FuwaCourseWarp>(true).Where(w => w.courseStart != null && w.name.StartsWith("WarpToCourse")).ToList();
             var center = Vector3.zero; foreach (var w in warps) center += w.transform.position; center /= Mathf.Max(1, warps.Count);
+            // 2026-11-16 てじゃ「クリアフラグのキノコ、道にはみ出てるときある」：ロビーの道（CoursePaths）の上には置かない。道に一時的な当たりをつけて上から調べる
+            var tmpCols = new List<MeshCollider>();
+            var paths = lobby.Find("CoursePaths");
+            if (paths != null) foreach (var mf in paths.GetComponentsInChildren<MeshFilter>(true)) { var mc = mf.gameObject.AddComponent<MeshCollider>(); mc.sharedMesh = mf.sharedMesh; tmpCols.Add(mc); }
+            Physics.SyncTransforms();
+            bool OnPath(Vector3 p)
+            {
+                const float m = 0.28f;   // キノコのかさの半径＋すき間
+                foreach (var d in new[] { Vector3.zero, new Vector3(m, 0, 0), new Vector3(-m, 0, 0), new Vector3(0, 0, m), new Vector3(0, 0, -m) })
+                    foreach (var h in Physics.RaycastAll(p + d + Vector3.up * 2f, Vector3.down, 4f, ~0, QueryTriggerInteraction.Ignore))
+                        if (tmpCols.Contains(h.collider as MeshCollider)) return true;
+                return false;
+            }
             var rl = new List<FuwaRecords>(); var il = new List<int>(); var ml = new List<GameObject>();
             foreach (var w in warps)
             {
@@ -44,6 +57,7 @@ public static class FuwaClearMarksBuilder
                     float aa = a + ((float)rnd.NextDouble() - 0.5f) * 6f;
                     float r = RingR + ((float)rnd.NextDouble() - 0.5f) * 0.12f;
                     var p = c + new Vector3(Mathf.Sin(aa * Mathf.Deg2Rad), 0f, Mathf.Cos(aa * Mathf.Deg2Rad)) * r;
+                    if (OnPath(p)) continue;
                     var m = Object.Instantiate(shrooms[rnd.Next(shrooms.Count)].gameObject, g, true); m.name = "Mushroom" + made;
                     m.transform.position = p; m.transform.rotation = Quaternion.Euler(((float)rnd.NextDouble() - 0.5f) * 10f, (float)rnd.NextDouble() * 360f, ((float)rnd.NextDouble() - 0.5f) * 10f);
                     m.transform.localScale = Vector3.one * (0.9f + 0.55f * (float)rnd.NextDouble());
@@ -54,6 +68,7 @@ public static class FuwaClearMarksBuilder
                 g.gameObject.SetActive(false);
                 rl.Add(rec); il.Add(idx); ml.Add(g.gameObject);
             }
+            foreach (var mc in tmpCols) Object.DestroyImmediate(mc);
             var holder = lobby.Find("ClearMarks"); if (holder) Object.DestroyImmediate(holder.gameObject);
             var hg = new GameObject("ClearMarks"); hg.transform.SetParent(lobby, false);
             var cm = UdonSharpUndo.AddComponent<FuwaClearMarks>(hg); cm.records = rl.ToArray(); cm.courseIndex = il.ToArray(); cm.marks = ml.ToArray();
