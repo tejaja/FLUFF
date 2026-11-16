@@ -1444,6 +1444,8 @@ public static class FuwaCourse2_5Builder
                 {
                     if (sp.y - sp.x < 0.01f) continue;
                     Quad(v, t, A2(sp.x, -Tk, sx * xo), A2(sp.y, -Tk, sx * xo), A2(sp.y, 0f, sx * xo), A2(sp.x, 0f, sx * xo), new Vector3(sx, 0f, 0f));
+                    // 2026-11-16 てじゃ「2-5入口そばの橋、まだ裏がおかしい」→ 穴あきの橋は、欄干ぎわの穴から横の板の裏（内がわ）が見えて、外のアーチのくさび石がすけて見えていた → 内向きの面も
+                    if (open) Quad(v, t, A2(sp.x, -Tk, sx * xo), A2(sp.y, -Tk, sx * xo), A2(sp.y, 0f, sx * xo), A2(sp.x, 0f, sx * xo), new Vector3(-sx, 0f, 0f));
                     Quad(v, t, A2(sp.x, 0f, sx * HW), A2(sp.y, 0f, sx * HW), A2(sp.y, 0f, sx * xo), A2(sp.x, 0f, sx * xo), Vector3.up);
                 }
             }
