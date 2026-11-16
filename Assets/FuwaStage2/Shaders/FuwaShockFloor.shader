@@ -83,7 +83,7 @@ Shader "Fuwa/ShockFloor"
                 // 2026-11-15 てじゃ「チャージのときの地面の黒いグラデーション、やけにガクガクしてる」
                 //  前は t×（ためで変わる速さ）だったので、速さが変わるたびに大きい t がかかって模様が飛んでいた → 進んだ量はスクリプトが足していく（_FlowPh・_FlickPh）
                 float flow = frac(r * 0.9 - UNITY_ACCESS_INSTANCED_PROP(Props, _FlowPh));
-                float bands = smoothstep(0.0, 0.12, flow) * pow(1 - flow, 3);
+                float bands = smoothstep(0.0, 0.12, flow) * pow(saturate(1 - flow), 3);
                 float charge = kk * (0.38 + 0.9 * bands) * (0.85 + 0.15 * sin(UNITY_ACCESS_INSTANCED_PROP(Props, _FlickPh))) * _ChargeGain;   // 2026-11-16 てじゃ「地面のチャージ時の黒いグラデ、もっとつよく」
                 // セーフのふちの線（ためている間と壁が来る前）
                 float sline = (k > 0.001 || wr >= 0) ? (1 - smoothstep(0.03, 0.11, abs(dEdge))) * (0.35 + 0.65 * max(kk, wf)) : 0;

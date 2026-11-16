@@ -1,4 +1,4 @@
-// 2026-11-15 2–5 上の段：バリアの門のアーチの中の幕（てじゃ「バリア付与カーテンとこもなんかほしいな」「バリア模様？」）
+﻿// 2026-11-15 2–5 上の段：バリアの門のアーチの中の幕（てじゃ「バリア付与カーテンとこもなんかほしいな」「バリア模様？」）
 //  アーチの口の形のメッシュ（物体の座標 x・y＝メートル）にかける。六角形のハチの巣もようの光の膜
 //  ・六角形のふちが光る、下から上へ光の波が流れる、ところどころの六角形がふわっと明るくなる
 //  ・ふちのほうは濃く、まん中はうすい（通れる感じ）
@@ -68,7 +68,7 @@ Shader "Fuwa/ShieldVeil"
                 float dIn = i.op.y < colH ? hw - abs(i.op.x) : _ArchR - length(float2(i.op.x, i.op.y - colH));   // 枠までの距離（m）
                 float side = smoothstep(0.0, 0.35, dIn);
                 float y01 = saturate(i.op.y / _Height);
-                float vfade = pow(1 - y01, 1.3) * (0.55 + 0.45 * saturate(y01 * 6));
+                float vfade = pow(saturate(1 - y01), 1.3) * (0.55 + 0.45 * saturate(y01 * 6));
                 float shimmer = 0.85 + 0.15 * sin(i.op.y * 3.0 - t * 1.8 + i.op.x * 0.7);
                 float curtain = _Alpha * 1.05 * vfade * shimmer;
                 // 六角形のマーク：セルごとにばらばらのタイミングで ふっと出て消える
