@@ -1047,6 +1047,7 @@ public static class FuwaCourse2_5Builder
                 foreach (var s in sides)
                 {
                     if (pitKeys.Contains(k + s.nb)) continue;   // となりも穴
+                    if (wr.name == "WindRun_Bridge" && s.nb.x != 0 && (k.x + s.nb.x > kx1 || k.x + s.nb.x < kx0)) continue;   // 橋のはしの穴＝橋が欠けている：外がわは開いている
                     var cx = new Vector3(lp.x, 0f, lp.z) + s.off;
                     float ext0 = 0f, ext1 = 0f;   // となりが穴なら、壁を穴どうしのさかいまで伸ばす（角のすき間なし）
                     var sideStep = s.along == Vector3.forward ? new Vector2Int(0, 2) : new Vector2Int(2, 0);
@@ -1528,8 +1529,45 @@ public static class FuwaCourse2_5Builder
         // 崩れた参道の橋（BrokenBridge）がつながる所は +x の欄干をあける（コースの座標 → この Run の座標）
         Vector2 gapPlusX = Vector2.zero;
         if (stubGap) { float lz = isl.InverseTransformPoint(root.TransformPoint(new Vector3(BridgeHW, 0f, BrokenBridgeZ))).z; gapPlusX = new Vector2(lz - 1.7f, lz + 1.7f); }
+        bridgePierZ.Clear(); bridgeBites.Clear();
+        {
+            int nP = Mathf.Max(ruinEnd && len < 6f ? 1 : 2, Mathf.RoundToInt(len / 4f));
+            for (int i = 0; i <= nP; i++) { if (noFirstPier && i == 0) continue; bridgePierZ.Add(z0 + len * i / nP - (ruinEnd && i == nP ? RuinPierBack : 0f)); }
+        }
         if (pits && Mathf.Abs(rise) < 0.01f) WindRun("Bridge", len, windsAt ?? new float[0]);
         else S(len, rise);
+        var bites = bridgeBites.ToList(); bridgeBites.Clear();
+        // 欠けの深さ（0〜1）：穴の所は 1、前後 BiteRamp でギザギザに 0 へ
+        float BiteW(float sx, float z)
+        {
+            float w = 0f;
+            foreach (var bt in bites)
+            {
+                if (bt.x != sx) continue;
+                float d = Mathf.Max(bt.y - z, z - bt.z);   // 穴の外へのきょり（中は負）
+                float jag = 0.12f * Mathf.Sin(z * 9.1f + bt.y * 3f) + 0.07f * Mathf.Sin(z * 23.7f + bt.z);
+                w = Mathf.Max(w, Mathf.Clamp01(1f - (d + jag) / BiteRamp));
+            }
+            return w;
+        }
+        List<Vector2> MinusBites(float sx, float a0, float b0, float pad)
+        {
+            var res = new List<Vector2> { new Vector2(a0, b0) };
+            foreach (var bt in bites)
+            {
+                if (bt.x != sx) continue;
+                var nx = new List<Vector2>();
+                foreach (var sp in res)
+                {
+                    float ca = bt.y - pad, cb = bt.z + pad;
+                    if (cb <= sp.x || ca >= sp.y) { nx.Add(sp); continue; }
+                    if (ca > sp.x) nx.Add(new Vector2(sp.x, ca));
+                    if (cb < sp.y) nx.Add(new Vector2(cb, sp.y));
+                }
+                res = nx;
+            }
+            return res.Where(q => q.y - q.x > 0.01f).ToList();
+        }
         // 2026-11-15 てじゃ「石像前の橋、へんな縦筋」→ 穴あきの道の横の Rail（区切りごとの見た目だけの横木）が橋の横の板より外に出て継ぎ目が見えていた。橋では消す（当たりはない）
         foreach (var rl in isl.GetComponentsInChildren<Transform>(true).Where(x => x.name == "Rail" && x.parent && x.parent.name.StartsWith("WindRun_Bridge")).ToList()) Object.DestroyImmediate(rl.gameObject);
         // 2026-11-15 見た目クオリティ（C）：橋脚（はばいっぱいの石の壁、下へ細くなって崩れて終わる）＋橋脚の間の石のアーチ（上は壁＝スパンドレル、ふちにくさび石の輪）
@@ -1596,7 +1634,7 @@ public static class FuwaCourse2_5Builder
             for (int i = 0; i < n; i++)
             {
                 float za = z0 + len * i / n + pw / 2f, zb = z0 + len * (i + 1) / n - pw / 2f - (ruinEnd && i + 1 == n ? RuinPierBack : 0f);
-                int K = 12;
+                int K = open && bites.Count > 0 ? 36 : 12;
                 var sof = new Vector3[K + 1];   // アーチの下の線（x=0 の断面）
                 for (int k = 0; k <= K; k++)
                 {
@@ -1613,12 +1651,16 @@ public static class FuwaCourse2_5Builder
                     if (!open) Quad(v, t, new Vector3(-xo, a.y, a.z), new Vector3(xo, a.y, a.z), new Vector3(xo, b.y, b.z), new Vector3(-xo, b.y, b.z), Vector3.down);
                     else foreach (float sx in new[] { -1f, 1f })
                     {
+                        // 欠け：リブの上を下げる（アーチの上 12cm は残す）。下げた分、まん中のがらんどうが見えないように xi に外向きの壁
+                        float ta = Mathf.Lerp(ya, Mathf.Max(a.y + 0.12f, ya - 2.5f), BiteW(sx, a.z)), tb = Mathf.Lerp(yb, Mathf.Max(b.y + 0.12f, yb - 2.5f), BiteW(sx, b.z));
                         Quad(v, t, new Vector3(sx * xi, a.y, a.z), new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, b.y, b.z), new Vector3(sx * xi, b.y, b.z), Vector3.down);
                         Quad(v, t, new Vector3(sx * xi, a.y, a.z), new Vector3(sx * xi, b.y, b.z), new Vector3(sx * xi, yb, b.z), new Vector3(sx * xi, ya, a.z), new Vector3(-sx, 0f, 0f));
-                        Quad(v, t, new Vector3(sx * xi, ya, a.z), new Vector3(sx * xo, ya, a.z), new Vector3(sx * xo, yb, b.z), new Vector3(sx * xi, yb, b.z), Vector3.up);
+                        Quad(v, t, new Vector3(sx * xi, ta, a.z), new Vector3(sx * xo, ta, a.z), new Vector3(sx * xo, tb, b.z), new Vector3(sx * xi, tb, b.z), Vector3.up);
+                        if (ta < ya - 0.001f || tb < yb - 0.001f) Quad(v, t, new Vector3(sx * xi, ta, a.z), new Vector3(sx * xi, tb, b.z), new Vector3(sx * xi, yb, b.z), new Vector3(sx * xi, ya, a.z), new Vector3(sx, 0f, 0f));
+                        Quad(v, t, new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, b.y, b.z), new Vector3(sx * xo, tb, b.z), new Vector3(sx * xo, ta, a.z), new Vector3(sx, 0f, 0f));   // 横の壁（スパンドレル）
                     }
                     // 横の壁（スパンドレル）
-                    foreach (float sx in new[] { -1f, 1f })
+                    if (!open) foreach (float sx in new[] { -1f, 1f })
                         Quad(v, t, new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, b.y, b.z), new Vector3(sx * xo, yb, b.z), new Vector3(sx * xo, ya, a.z), new Vector3(sx, 0f, 0f));
                     // くさび石の輪（横の壁から 6cm 出る、はば 0.35）
                     var nrm = Vector3.Cross(Vector3.right, (b - a).normalized); if (nrm.y < 0) nrm = -nrm;   // アーチの線の外向き（上がわ）
@@ -1639,6 +1681,7 @@ public static class FuwaCourse2_5Builder
                 Vector3 A2(float z, float dy, float x) => new Vector3(x, DeckY(z) + dy, z);
                 var spans = new List<Vector2> { new Vector2(z0, z0 + len) };
                 if (sx > 0 && gapPlusX.y > gapPlusX.x) spans = new List<Vector2> { new Vector2(z0, Mathf.Max(z0, gapPlusX.x)), new Vector2(Mathf.Min(z0 + len, gapPlusX.y), z0 + len) };   // 崩れた参道の橋がつながる所はあける（床と重ならないように）
+                spans = spans.SelectMany(sp => MinusBites(sx, sp.x, sp.y, 0f)).ToList();   // 欠けた所はなし
                 foreach (var sp in spans)
                 {
                     if (sp.y - sp.x < 0.01f) continue;
@@ -1653,9 +1696,15 @@ public static class FuwaCourse2_5Builder
             {
                 float x0 = sx * HW, x1 = sx * (HW + 0.14f);
                 Vector3 A(float z, float dy, float x) => new Vector3(x, DeckY(z) + dy, z);
-                Quad(rv, rt, A(z0, -0.38f, x1), A(z0 + len, -0.38f, x1), A(z0 + len, -0.12f, x1), A(z0, -0.12f, x1), new Vector3(sx, 0f, 0f));
-                Quad(rv, rt, A(z0, -0.12f, x0), A(z0 + len, -0.12f, x0), A(z0 + len, -0.12f, x1), A(z0, -0.12f, x1), Vector3.up);
-                Quad(rv, rt, A(z0, -0.38f, x0), A(z0 + len, -0.38f, x0), A(z0 + len, -0.38f, x1), A(z0, -0.38f, x1), Vector3.down);
+                foreach (var sp in MinusBites(sx, z0, z0 + len, 0.08f))
+                {
+                    float ca = sp.x, cb = sp.y;
+                    Quad(rv, rt, A(ca, -0.38f, x1), A(cb, -0.38f, x1), A(cb, -0.12f, x1), A(ca, -0.12f, x1), new Vector3(sx, 0f, 0f));
+                    Quad(rv, rt, A(ca, -0.12f, x0), A(cb, -0.12f, x0), A(cb, -0.12f, x1), A(ca, -0.12f, x1), Vector3.up);
+                    Quad(rv, rt, A(ca, -0.38f, x0), A(cb, -0.38f, x0), A(cb, -0.38f, x1), A(ca, -0.38f, x1), Vector3.down);
+                    foreach (float ez in new[] { ca, cb }) if (ez > z0 + 0.01f && ez < z0 + len - 0.01f)   // 欠けで切れたはしのふた
+                        Quad(rv, rt, A(ez, -0.38f, x0), A(ez, -0.38f, x1), A(ez, -0.12f, x1), A(ez, -0.12f, x0), new Vector3(0f, 0f, ez == ca ? -1f : 1f));
+                }
             }
             MeshObj(isl, "BridgeStone", SaveMesh(bn + "_Stone", v, t), stone, Vector3.zero, 0, true);
             MeshObj(isl, "BridgeTrim", SaveMesh(bn + "_Trim", rv, rt), terraD, Vector3.zero, 0, true);
@@ -1676,6 +1725,25 @@ public static class FuwaCourse2_5Builder
                     if (sx > 0 && gapPlusX.y > gapPlusX.x && zb > gapPlusX.x && za < gapPlusX.y) continue;
                     float zm = (za + zb) / 2f, L = zb - za;   // 2026-11-15 てじゃ「へんな縦筋」→ 区切りのすき間（0.06）をなくす
                     bool rampEnd = ruinEnd && s == segs - 1;   // 2026-11-16 崩れた道のはし（RuinedEnd）へ向かって欄干も低く崩れていく
+                    const float hgtB = 0.38f;
+                    if (bites.Any(bt => bt.x == sx && bt.z > za - 0.3f && bt.y < zb + 0.3f))
+                    {   // 欠けた所の区切り：欠けの前後は低く崩れて、欠けの所はなし
+                        foreach (var sp in MinusBites(sx, za, zb, 0.06f))
+                        {
+                            int nn = Mathf.Max(4, Mathf.RoundToInt((sp.y - sp.x) / 0.08f)); var aa = Lin(0f, sp.y - sp.x, nn);
+                            var ee = new float[nn]; var dd = new float[nn];
+                            for (int k = 0; k < nn; k++)
+                            {
+                                float z = sp.x + aa[k];
+                                float dmin = bites.Where(bt => bt.x == sx).Min(bt => Mathf.Max(bt.y - z, z - bt.z));   // 欠けまでのきょり
+                                float u = Mathf.Clamp01((dmin - 0.06f) / 0.9f);
+                                ee[k] = Mathf.Lerp(0.04f + 0.08f * (float)rnd.NextDouble(), hgtB, u * u) + (u < 0.95f ? ((float)rnd.NextDouble() - 0.5f) * 0.08f : 0f) + ParapetSink;
+                                dd[k] = u < 0.95f ? (float)rnd.NextDouble() * 0.05f : 0f;
+                            }
+                            FieldSlab(bvv, btt, new Vector3(sx * (HW + 0.1f), DeckY(sp.x) - ParapetSink, sp.x), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, aa, ee, dd, -0.11f, 0.11f);
+                        }
+                        continue;
+                    }
                     bool br = s == broken || rampEnd;
                     float hgt = 0.38f;
                     if (!br)
@@ -2279,7 +2347,11 @@ public static class FuwaCourse2_5Builder
     static readonly int[][] PitRows = { new int[0], new[] { 0, 1 }, new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2 }, new int[0], new[] { 0 }, new[] { 3 } };
     static int pitRow;
     // 2026-11-16 てじゃ「穴の位置のほう調整するのもありか」：橋の穴はまん中の2列（1・2）だけ（はしの列の下は橋脚・アーチのリブがあって穴から見える）。終わりの方は島の上なので穴なし
-    static readonly int[][] BridgePitRows = { new int[0], new int[0], new[] { 1 }, new int[0], new[] { 2 }, new int[0], new[] { 1, 2 }, new int[0], new int[0], new int[0], new int[0], new int[0] };
+    //  → てじゃ「端にないのもやだな」「柱がない部分なら欠けさせてもいい」「横からも欠けてていいよ」→ はしの穴は橋脚の上をさけて、そこは欄干・横の板・下のリブごと欠ける（bridgeBites）
+    static readonly int[][] BridgePitRows = { new int[0], new[] { 0, 1 }, new int[0], new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2 }, new int[0], new int[0], new int[0], new int[0], new int[0] };
+    static List<float> bridgePierZ = new List<float>();
+    static List<Vector3> bridgeBites = new List<Vector3>();   // (はしの向き sx, za, zb)：はしの列の穴＝橋のはしが欠けている所
+    public static float BiteRamp = 0.3f;   // 欠けが穴の前後のタイルの下へ広がる長さ（横から見たギザギザ）
     static int[][] pitTable;   // null なら PitRows（2026-11-14 回廊の奥は BigPitRows）
     // 2026-11-14 てじゃ「広げた穴デカすぎかも」「ちょっとだけ縮めて」→「（穴の長さ）2マスがムリだけど1マスがヌルすぎ」
     //  → 回廊ではタイルの長さを PitTileL（1.7m）にして、穴は1列（=1.7m、前は 1.2m×2列=2.4m）。はばは 3マス と 2マス を交互
@@ -2322,7 +2394,14 @@ public static class FuwaCourse2_5Builder
         if (extra > 0.01f) for (int c = 0; c < cols; c++) TileAt(new Vector3(-HW + cw * (c + 0.5f), P.y - 0.3f, z0 + rows * rl + extra * 0.5f), new Vector3(cw, 0.6f, extra), rows % 2 == 0, c);
         for (int r = 0; r < rows; r++)
         {
-            var tbl = pitTable ?? PitRows; var holes = tbl[(pitRow++) % tbl.Length]; if (tag == "Bridge") holes = BridgePitRows[Mathf.Min(r, BridgePitRows.Length - 1)];   // pitRow は前どおり進める（ほかの道の穴の並びを変えない）
+            var tbl = pitTable ?? PitRows; var holes = tbl[(pitRow++) % tbl.Length];   // pitRow は前どおり進める（ほかの道の穴の並びを変えない）
+            if (tag == "Bridge")
+            {
+                float ra = z0 + rl * r, rb = z0 + rl * (r + 1);
+                bool overPier = bridgePierZ.Any(pz => rb > pz - 0.6f && ra < pz + 0.6f);
+                holes = BridgePitRows[Mathf.Min(r, BridgePitRows.Length - 1)].Where(c => !(overPier && (c == 0 || c == cols - 1))).ToArray();
+                foreach (int c in holes) if (c == 0 || c == cols - 1) bridgeBites.Add(new Vector3(c == 0 ? -1f : 1f, ra, rb));
+            }
             for (int c = 0; c < cols; c++)
             {
                 if (holes.Contains(c)) continue;
