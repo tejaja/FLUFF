@@ -540,6 +540,7 @@ public static class FuwaPlaygroundBuilder
             var lso = new SerializedObject(lang); CleanLang(lso, "texts", "ja", "en"); AddLang(lso, "texts", "ja", "en", lbl, ja, en); lso.ApplyModifiedPropertiesWithoutUndo();
         }
         FillBubbleClam(ts[0].transform);
+        FillFlameRock(ts[1].transform);
         // ステージ2の記録 → おもちゃ 6〜10 番
         var recs2 = Object.FindObjectsOfType<FuwaRecords>(true).FirstOrDefault(r => r.courseStarts != null && r.courseStarts.Length > 0 && r.courseStarts[0] != null && r.courseStarts[0].root.name == "FuwaCourse2_1");
         if (recs2 != null) { recs2.playground = sp; recs2.playgroundOffset = 5; Sync(recs2); }
@@ -613,6 +614,38 @@ public static class FuwaPlaygroundBuilder
         if (src.popFx != null) { var fx = Object.Instantiate(src.popFx.gameObject, slot, false); fx.name = "PopFx"; fx.transform.localPosition = Vector3.zero; bc.popFx = fx.GetComponent<ParticleSystem>(); }
         UdonSharpEditorUtility.CopyProxyToUdon(bc);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bc); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; ub.interactText = "あわ"; EditorUtility.SetDirty(ub); } }
+    }
+
+    // 2–2 火炎放射の岩：コース2–2 の溶岩の岩＋火炎放射の炎（FlameMesh）。クリックでオン／オフ（同期）、炎は島の真ん中の方へ
+    static void FillFlameRock(Transform slot)
+    {
+        EnsureProgram("FuwaPlaygroundFlameRock"); EnsureProgram("FuwaPlaygroundFlameZone");
+        var c22 = RootGo("FuwaCourse2_2").transform;
+        var rockMF = c22.GetComponentsInChildren<MeshFilter>(true).First(m => m.sharedMesh != null && m.sharedMesh.name == "Stage2_LavaRock0");
+        var ft = c22.Find("Fire/Flamethrower0");
+        const float rs = 1.7f;
+        var rock = new GameObject("FlameRock"); rock.transform.SetParent(slot, false);
+        rock.transform.localPosition = new Vector3(0f, -0.08f, -0.3f); rock.transform.localRotation = Quaternion.Euler(0f, 160f, 0f); rock.transform.localScale = Vector3.one * rs;
+        rock.AddComponent<MeshFilter>().sharedMesh = rockMF.sharedMesh; rock.AddComponent<MeshRenderer>().sharedMaterials = rockMF.GetComponent<MeshRenderer>().sharedMaterials;
+        var box = rock.AddComponent<BoxCollider>(); box.center = rockMF.sharedMesh.bounds.center; box.size = rockMF.sharedMesh.bounds.size;
+        var fr = UdonSharpUndo.AddComponent<FuwaPlaygroundFlameRock>(rock);
+        // 炎の出どころ：岩の島の真ん中がわの面、高さ 0.75m
+        var mouthPos = slot.position + slot.forward * 0.45f + Vector3.up * 0.75f;
+        var body = Object.Instantiate(ft.Find("FlameBody").gameObject, slot, false); body.name = "FlameBody";
+        body.transform.rotation = slot.rotation * Quaternion.Euler(90f, 0f, 0f);   // +Y（炎の向き）を島の真ん中の方へ
+        body.transform.position = mouthPos - slot.forward * 0.25f;                // 見える炎の根もとが岩の面に来るように（上から見て合わせた）
+        body.SetActive(false);
+        fr.flameBody = body.transform; fr.bodyScale = new Vector3(0.34f, 0.3f, 0.34f);
+        var roarSrc = ft.Find("RoarSfx");
+        if (roarSrc != null) { var a = Object.Instantiate(roarSrc.gameObject, slot, false); a.name = "RoarSfx"; a.transform.position = mouthPos; var au = a.GetComponent<AudioSource>(); au.loop = true; au.playOnAwake = false; fr.roar = au; }
+        UdonSharpEditorUtility.CopyProxyToUdon(fr);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(fr); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; ub.interactText = "ほのお"; EditorUtility.SetDirty(ub); } }
+        // 炎の当たり
+        var z = new GameObject("FlameZone"); z.transform.SetParent(slot, false); z.layer = 2;
+        z.transform.SetPositionAndRotation(mouthPos, slot.rotation);
+        var bz = z.AddComponent<BoxCollider>(); bz.isTrigger = true; bz.size = new Vector3(1.3f, 1.4f, 4.2f); bz.center = new Vector3(0f, 0.1f, 2.2f);
+        var fz = UdonSharpUndo.AddComponent<FuwaPlaygroundFlameZone>(z); fz.rock = fr; UdonSharpEditorUtility.CopyProxyToUdon(fz);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(fz); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
     }
 
     static void AddTestUnlockAll(Transform toys, FuwaPlaygroundSpawner sp)
