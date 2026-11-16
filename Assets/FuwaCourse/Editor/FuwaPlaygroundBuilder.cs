@@ -543,6 +543,7 @@ public static class FuwaPlaygroundBuilder
         FillFlameRock(ts[1].transform);
         FillIceToy(ts[2].transform);
         FillWindmill(ts[3].transform);
+        FillPortals(ts[4].transform, O);
         // ステージ2の記録 → おもちゃ 6〜10 番
         var recs2 = Object.FindObjectsOfType<FuwaRecords>(true).FirstOrDefault(r => r.courseStarts != null && r.courseStarts.Length > 0 && r.courseStarts[0] != null && r.courseStarts[0].root.name == "FuwaCourse2_1");
         if (recs2 != null) { recs2.playground = sp; recs2.playgroundOffset = 5; Sync(recs2); }
@@ -752,6 +753,38 @@ public static class FuwaPlaygroundBuilder
         if (click != null) { var a = Object.Instantiate(click.gameObject, wGo.transform, false); a.name = "SfxClick"; a.transform.localPosition = Vector3.zero; pw.clickSound = a.GetComponent<AudioSource>(); if (pw.clickSound != null) pw.clickSound.playOnAwake = false; }
         UdonSharpEditorUtility.CopyProxyToUdon(pw);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pw); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); } }
+    }
+
+    // 2–5 ポータル2つ1組：ひとつはおもちゃの場所（柵ぎわ、島の真ん中を向く）、もうひとつは島の反対がわの草地のふち（PortalBAngle）。表から入ると、もう片方の表から出る（人もふわふわも）
+    public static float PortalR = 1.1f, PortalBAngle = 108f, PortalBDist = 6.6f;
+    static void FillPortals(Transform slot, Vector3 O)
+    {
+        EnsureProgram("FuwaPlaygroundPortals");
+        var swirlSh = Shader.Find("Fuwa/PortalSwirl");
+        Transform Portal(string nm, Vector3 floor, Vector3 face, Color col)
+        {
+            var p = new GameObject(nm).transform; p.SetParent(slot, false);
+            p.SetPositionAndRotation(floor + Vector3.up * 0.08f, Quaternion.LookRotation(face));
+            var rim = new GameObject("Rim", typeof(MeshFilter), typeof(MeshRenderer)); rim.transform.SetParent(p, false); rim.transform.localPosition = new Vector3(0f, PortalR, 0f);
+            rim.GetComponent<MeshFilter>().sharedMesh = SaveGenMesh(Torus(PortalR, 0.09f, 48, 12), "Playground_PortalRim");
+            rim.GetComponent<MeshRenderer>().sharedMaterial = Mat("Playground_PortalRim_" + ColorUtility.ToHtmlStringRGB(col), "Assets/FuwaCourse/Materials/Goal_Ground.mat", col);
+            var disc = GameObject.CreatePrimitive(PrimitiveType.Quad); disc.name = "Swirl"; Object.DestroyImmediate(disc.GetComponent<Collider>());
+            disc.transform.SetParent(p, false); disc.transform.localPosition = new Vector3(0f, PortalR, 0f); disc.transform.localScale = Vector3.one * PortalR * 2f;
+            string mp = "Assets/FuwaCourse/Materials/Playground/Playground_PortalSwirl_" + ColorUtility.ToHtmlStringRGB(col) + ".mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(mp); if (m == null) { m = new Material(swirlSh); AssetDatabase.CreateAsset(m, mp); }
+            m.shader = swirlSh; m.SetColor("_Color", col); EditorUtility.SetDirty(m);
+            var dr = disc.GetComponent<MeshRenderer>(); dr.sharedMaterial = m; dr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return p;
+        }
+        var pa = Portal("PortalA", slot.position, slot.forward, new Color(0.35f, 0.75f, 1f));
+        var bFloor = O + OnRing(PortalBAngle, PortalBDist); bFloor.y = slot.position.y - DeckH;
+        var bFace = O - bFloor; bFace.y = 0f;
+        var pb = Portal("PortalB", bFloor, bFace.normalized, new Color(1f, 0.6f, 0.3f));
+        var go = new GameObject("Portals"); go.transform.SetParent(slot, false);
+        var pp = UdonSharpUndo.AddComponent<FuwaPlaygroundPortals>(go);
+        pp.a = pa; pp.b = pb; pp.radius = PortalR; pp.spawner = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
+        UdonSharpEditorUtility.CopyProxyToUdon(pp);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pp); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
     }
 
     static void AddTestUnlockAll(Transform toys, FuwaPlaygroundSpawner sp)
