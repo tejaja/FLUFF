@@ -68,6 +68,9 @@ public static class FuwaCourse2_5Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lod2); EditorUtility.SetDirty(lod2);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lod2.gameObject.scene);
         Debug.Log("[2–5] CourseLodStage2 につなぎ直し " + i + " start=" + (bs ? bs.name : "null"));
+        // 2026-11-16 てじゃ「飛行で移動したときのコース移動うごいてないかも」→ 飛んで入った判定（CourseJoinStage2）の roots も作り直しで null になっていた → 入場判定もつなぎ直す
+        var setupJoin = typeof(FuwaCourseLite).GetMethod("SetupJoinStage2", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        if (setupJoin != null) setupJoin.Invoke(null, new object[] { lod2 }); else Debug.LogWarning("[2–5] SetupJoinStage2 が見つからない");
         // 2026-11-16 同じく作り直しで外れていた：分身（FuwaGhost.courseStarts）・追っかけカメラ（FuwaFollowCam.courseRoots/courseLites）の ステージ2の5コース（6〜10番）をつなぎ直す
         var s2 = new[] { "FuwaCourse2_1", "FuwaCourse2_2", "FuwaCourse2_3", "FuwaCourse2_4", "FuwaCourse2_5" };
         Transform BS(string c) { var g = GameObject.Find(c); return g ? g.transform.Find("Start/BallStart") : null; }
