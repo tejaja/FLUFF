@@ -1,3 +1,4 @@
+﻿using System.Linq;
 using UdonSharp;
 using UdonSharpEditor;
 using UnityEditor;
@@ -65,6 +66,7 @@ public static class FuwaRackBridgeTest
         var near = HalfBridge(root, "BridgeNear", 0f, -1f, XW - 6f * p, pitchZ, hf, rackMesh, wood, woodB, brass, dark);
         var far = HalfBridge(root, "BridgeFar", Gap, 1f, XP - Gap + 6f * p, pitchZ, hf, rackMesh, wood, woodB, brass, dark);
         Guides(root, dark, brass);
+        Mouths(root, dark, brass);
 
         // ── 歯車 ──
         float d1 = Mathf.Atan2(Z1, Z2), d2 = Mathf.PI / 2f - d1;      // 手前：縦（12）・横（20）
@@ -222,6 +224,32 @@ public static class FuwaRackBridgeTest
                 }
             }
     }
+    // 橋が出入りする口の枠（2026-11-16 てじゃ「ここのスキマがちょっとざつかも」）：床のはし（手前 x=0・向こう x=Gap）に、
+    //  床の下の面と橋の上の面の間（5cm）をふさぐ上の桁と、橋の両わきに床の下から橋の下までさがる柱。床のはしの面にそろえる（ローラーの案内の板の手前）
+    public static void Mouths(Transform root, Material dark, Material brass)
+    {
+        foreach (var o in root.Cast<Transform>().Where(t => t.name == "BridgeMouth").ToList()) Object.DestroyImmediate(o.gameObject);
+        float zIn = BridgeW / 2f + GirderW + 0.03f, zOut = GuideZ1 + 0.06f;   // 桁の外から 3cm（ローラーと同じ）〜案内の板の外
+        float yTop = -0.4f, yLintel = BridgeTop + 0.005f, yBot = BridgeTop - BridgeT - 0.12f;
+        const float T = 0.12f;
+        foreach (var (x, sx) in new[] { (0f, -1f), (Gap, 1f) })
+        {
+            var g = new GameObject("BridgeMouth").transform; g.SetParent(root, false);
+            float xc = x + sx * T / 2f;
+            Prim(PrimitiveType.Cube, g, "Lintel", new Vector3(xc, (yTop + yLintel) / 2f, 0f), new Vector3(T, yTop - yLintel, 2f * zOut), dark);
+            foreach (float sg in new[] { -1f, 1f })
+            {
+                float zc = sg * (zIn + zOut) / 2f;
+                Prim(PrimitiveType.Cube, g, "Jamb", new Vector3(xc, (yTop + yBot) / 2f, zc), new Vector3(T, yTop - yBot, zOut - zIn), dark);
+                foreach (float yy in new[] { yTop - 0.12f, yBot + 0.12f })
+                {
+                    var rv = Prim(PrimitiveType.Cylinder, g, "Rivet", new Vector3(x - sx * 0.012f, yy, zc), new Vector3(0.08f, 0.014f, 0.08f), brass);
+                    rv.localRotation = Quaternion.Euler(0f, 0f, 90f);
+                }
+            }
+        }
+    }
+
     // 向こう岸の床の、橋がしまわれる所（この範囲は床の厚みを 0.4 のまま。道にそろえた 0.6 だと橋がめりこむ）。RackBridgeTest の local
     public static Bounds FarNotch()
     {
