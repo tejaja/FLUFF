@@ -1138,7 +1138,8 @@ public static class FuwaCourse2_1Builder
             srcSurf.GetComponent<MeshRenderer>().sharedMaterial = rm;
             var ptm = AssetDatabase.LoadAssetAtPath<Material>(FallsPondTopMat); if (ptm) PondLookToFallsTop(ptm);
         }
-        WaterOrb(terr, new Vector3(0f, SourceSurf, 1.6f));
+        // 2026-11-16 てじゃ「2-1の最初の滝の上のクリスタルが貫通してる」：この水たまりは下の洞窟の天井（厚さ0.3m）のすぐ上なので、しずめる長さを0.45mまでに
+        WaterOrb(terr, new Vector3(0f, SourceSurf, 1.6f), "WaterOrb", OrbHeight, OrbRadius, OrbStream, 0.45f);
         // ロビー側の細い滝：溝の水（池のふちから岩山の後ろのはしまで）＋落ちる滝
         var mesh2 = mesh; var b = mesh2.bounds;
         foreach (var (x, floor) in BackFalls)
@@ -1361,7 +1362,7 @@ public static class FuwaCourse2_1Builder
     static void WaterOrb(Transform terr, Vector3 pool) { WaterOrb(terr, pool, "WaterOrb", OrbHeight, OrbRadius, OrbStream); }
     // 球と水の柱の太さの倍率（2026-10-28 てじゃ「たま大きくして水も太くもしよう」）。全部の球にかかる
     public static float OrbSizeK = 1.5f, OrbStreamK = 1.8f;
-    static void WaterOrb(Transform terr, Vector3 pool, string name, float OrbHeight, float OrbRadius, float OrbStream)
+    static void WaterOrb(Transform terr, Vector3 pool, string name, float OrbHeight, float OrbRadius, float OrbStream, float maxSink = 99f)
     {
         // 2026-11-12 てじゃ「2-1の水を出してるのもクリスタルにしたら統一感でそう」「クリスタルが水面から上部だけ見えてる感じ」「落ちる水も省ける」
         //  → 浮く青い球＋落ちる水の柱をやめて、水面（pool）から六角クリスタル（大1＋小2）の頭が突き出る形に。材質は 2-4 の動力クリスタルと同じ作り（光のグラデーションが上へ流れる）
@@ -1372,9 +1373,9 @@ public static class FuwaCourse2_1Builder
         g.localRotation = Quaternion.Euler(0f, hh * 360f, 0f);
         var mat = WaterCrystalMat();
         float r = OrbRadius * WaterCrystalR, up = OrbRadius * WaterCrystalUp;
-        WaterCrystalPiece(g, "Crystal", mat, r, up, Vector3.zero, 0f, (hh * 7.3f % 1f - 0.5f) * 8f);
-        WaterCrystalPiece(g, "CrystalSmall0", mat, r * 0.55f, up * 0.5f, new Vector3(r * 1.15f, 0f, 0f), 0f, 26f);
-        WaterCrystalPiece(g, "CrystalSmall1", mat, r * 0.45f, up * 0.38f, new Vector3(r * 1.1f, 0f, 0f), 140f, 32f);
+        WaterCrystalPiece(g, "Crystal", mat, r, up, Vector3.zero, 0f, (hh * 7.3f % 1f - 0.5f) * 8f, maxSink);
+        WaterCrystalPiece(g, "CrystalSmall0", mat, r * 0.55f, up * 0.5f, new Vector3(r * 1.15f, 0f, 0f), 0f, 26f, maxSink);
+        WaterCrystalPiece(g, "CrystalSmall1", mat, r * 0.45f, up * 0.38f, new Vector3(r * 1.1f, 0f, 0f), 140f, 32f, maxSink);
         // まわりのぼんやりした光（やわらかい丸の粒）
         var gl = new GameObject("Glow"); gl.transform.SetParent(g, false); gl.transform.localPosition = Vector3.up * up * 0.5f;
         var gp = gl.AddComponent<ParticleSystem>();
@@ -1391,14 +1392,14 @@ public static class FuwaCourse2_1Builder
     }
     // クリスタルの太さ・水面から上の高さ（球の半径に対する倍率）、水面の下にしずめる長さ（m、とがりの下にこれだけ柱を足す）
     public static float WaterCrystalR = 0.55f, WaterCrystalUp = 2.6f, WaterCrystalSink = 0.25f;
-    static void WaterCrystalPiece(Transform g, string name, Material mat, float r, float up, Vector3 off, float yaw, float tilt)
+    static void WaterCrystalPiece(Transform g, string name, Material mat, float r, float up, Vector3 off, float yaw, float tilt, float maxSink = 99f)
     {
         var t = new GameObject(name).transform; t.SetParent(g, false);
         var rot = Quaternion.Euler(0f, yaw, 0f);
         t.localPosition = rot * off;
         // 外へ傾ける（off の向きへ）。大きいのは少しだけ
         t.localRotation = rot * Quaternion.Euler(0f, 0f, -tilt) * Quaternion.Euler(0f, 30f + yaw * 0.37f, 0f);
-        float dn = r * 1.6f + WaterCrystalSink;
+        float dn = Mathf.Min(r * 1.6f + WaterCrystalSink, maxSink);
         string key = "WaterCrystal_" + r.ToString("F2") + "_" + up.ToString("F2") + "_" + dn.ToString("F2");
         var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/" + key + ".asset") ?? Save(HexCrystalMesh(r, up, dn, key), MeshDir + "/" + key + ".asset");
         t.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
