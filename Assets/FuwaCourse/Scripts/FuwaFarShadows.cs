@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using UnityEngine.Rendering;
 using VRC.SDKBase;
@@ -15,6 +15,8 @@ public class FuwaFarShadows : UdonSharpBehaviour
     public Renderer[] targets;
     public Vector3[] centers;
     public float[] radii;
+    [Tooltip("2026-11-16 ポータルをのぞいている間は、向こう側の自分の位置から近い物も影を出す（空ならなし）")]
+    public FuwaPortalCams portalCams;
 
     private bool[] _off;
     private int _next;
@@ -34,6 +36,8 @@ public class FuwaFarShadows : UdonSharpBehaviour
         VRCPlayerApi local = Networking.LocalPlayer;
         if (local == null || !local.IsValid()) return;
         Vector3 me = local.GetPosition();
+        bool view = portalCams != null && portalCams.viewOn;
+        Vector3 q = view ? portalCams.viewPos : me;
         int n = targets.Length;
         int count = Mathf.Min(perFrame, n);
         for (int k = 0; k < count; k++)
@@ -43,6 +47,7 @@ public class FuwaFarShadows : UdonSharpBehaviour
             Renderer r = targets[i];
             if (r == null) continue;
             bool far = Vector3.Distance(me, centers[i]) - radii[i] > shadowDistance;
+            if (far && view) far = Vector3.Distance(q, centers[i]) - radii[i] > shadowDistance;
             if (far == _off[i]) continue;
             _off[i] = far;
             r.shadowCastingMode = far ? ShadowCastingMode.Off : ShadowCastingMode.On;

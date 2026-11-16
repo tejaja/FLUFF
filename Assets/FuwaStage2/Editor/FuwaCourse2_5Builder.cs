@@ -39,7 +39,19 @@ public static class FuwaCourse2_5Builder
     static System.Text.StringBuilder log;
 
     [MenuItem("FuwaCourse/ステージ2/2–5 そらのいせき（ブロックアウト）を作り直す")]
-    public static void Menu() { Debug.Log(Build()); RelinkLod(); }
+    public static void Menu() { Debug.Log(Build()); RelinkLod(); WirePortalShadows(); }
+
+    // 影の切り替え（段ごと・遠い物・小物）に、ポータルのカメラ（向こう側の自分の位置）をつなぐ。PortalCams はビルドの最後の方でできるので、ここで
+    static void WirePortalShadows()
+    {
+        var r = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!r) return;
+        var pcs = r.GetComponentsInChildren<FuwaPortalCams>(true).FirstOrDefault();
+        int n = 0;
+        foreach (var t in r.GetComponentsInChildren<FuwaTierShadows>(true)) { t.portalCams = pcs; UdonSharpEditorUtility.CopyProxyToUdon(t); EditorUtility.SetDirty(t); n++; }
+        foreach (var fs in Resources.FindObjectsOfTypeAll<FuwaFarShadows>().Where(f => f && f.gameObject.scene.IsValid())) { fs.portalCams = pcs; UdonSharpEditorUtility.CopyProxyToUdon(fs); EditorUtility.SetDirty(fs); n++; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.scene);
+        Debug.Log("[2–5] 影の切り替えにポータルをつなぐ " + n + (pcs ? "" : "（PortalCams がない）"));
+    }
 
     // 2026-11-16 てじゃ「（ステージ1だと飛んで入ってもコースに入った扱いなのに）飛行でコース移動したときにきりかわらない」
     //  → 作り直すとコースの根っこが新しくなり、ステージ2の FuwaCourseLod（CourseLodStage2）の fullRoots・starts が null のままだった（＝本体に戻らない・コースにいる判定もない）。作り直しのたびにつなぎ直す
@@ -4412,7 +4424,12 @@ public static class FuwaCourse2_5Builder
         ts.radii = mine.Select(r => r.bounds.extents.magnitude).ToArray();
         ts.tiers = mine.Select(r => { float y = r.bounds.min.y; int t = 0; for (int k = 0; k < TierYs.Length; k++) if (y >= TierYs[k]) t = k + 1; return t; }).ToArray();
         ts.tierY = TierYs; ts.shadowDistance = far.shadowDistance; ts.perFrame = 120;
+        // 2026-11-16 ポータルをのぞいている間は向こう側の影も（てじゃ「ポータル入る前と入ってからで、影の見えてると事見えないとこが切り替わっちゃう」）
+        var pcs = root.GetComponentsInChildren<FuwaPortalCams>(true).FirstOrDefault();
+        ts.portalCams = pcs;
         UdonSharpEditorUtility.CopyProxyToUdon(ts); FuwaStage2WaterTest.NoSync(ts);
+        foreach (var fs in Resources.FindObjectsOfTypeAll<FuwaFarShadows>().Where(f => f && f.gameObject.scene.IsValid()))
+        { fs.portalCams = pcs; UdonSharpEditorUtility.CopyProxyToUdon(fs); EditorUtility.SetDirty(fs); }
         log.Append("段ごとの影 " + mine.Count + "（段0 " + ts.tiers.Count(x => x == 0) + "・段1 " + ts.tiers.Count(x => x == 1) + "・段2 " + ts.tiers.Count(x => x == 2) + "） ");
     }
 

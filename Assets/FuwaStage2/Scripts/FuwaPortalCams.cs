@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using VRC.SDK3.Rendering;
@@ -42,6 +42,10 @@ public class FuwaPortalCams : UdonSharpBehaviour
     [Tooltip("ポータルのカメラで近くだけ映すレイヤーと、その距離（m）")]
     public int[] layerCull;
     public float layerCullDist = 25f;
+    // 2026-11-16 てじゃ「ポータル入る前と入ってからで、影の見えてると事見えないとこが切り替わっちゃう」
+    //  → いま映しているポータルの向こうでの自分の足の位置（入口→出口で移した所）。影の切り替え（FuwaTierShadows・FuwaFarShadows）が、ここも「近い」とみなす
+    [HideInInspector] public bool viewOn;
+    [HideInInspector] public Vector3 viewPos;
     private float _vs = 1f;
     private bool _mono;
     private Material[] _mats;
@@ -101,6 +105,7 @@ public class FuwaPortalCams : UdonSharpBehaviour
         bool on = best >= 0;
         if (!on)
         {
+            viewOn = false;
             if (camL.enabled) camL.enabled = false;
             if (camR != null && camR.enabled) camR.enabled = false;
             return;
@@ -108,6 +113,7 @@ public class FuwaPortalCams : UdonSharpBehaviour
 
         Transform en = entries[best], ex = exits[best];
         Matrix4x4 m = ex.localToWorldMatrix * Matrix4x4.Rotate(Quaternion.Euler(0f, 180f, 0f)) * en.worldToLocalMatrix;
+        viewOn = true; viewPos = m.MultiplyPoint3x4(p.GetPosition());
         Quaternion camRot = ex.rotation * Quaternion.Euler(0f, 180f, 0f) * Quaternion.Inverse(en.rotation) * hr;   // 頭の向きを出口側へ
         Vector3 target = m.MultiplyPoint3x4(holes[best].bounds.center);
 
