@@ -1008,7 +1008,9 @@ public static class FuwaCourse2_5Builder
     //  穴のふちのタイルの横の面が道と同じ明るさで、穴が「色ちがいのタイル」に見えていた → 穴の四方の壁の少し内がわに、下へいくほど真っ暗になる壁を貼る
     //  穴＝WindRun の中の Tile で MeshRenderer がない物。となりも穴ならその辺はなし
     public static bool PitLiners = true; public static float PitLinerInset = 0.02f;
-    public static Color PitTopCol = new Color(0.42f, 0.33f, 0.31f), PitBottomCol = new Color(0.06f, 0.045f, 0.05f);
+    // 2026-11-16 てじゃ「もっとわかりやすくしたいなあ」→ 中はふちのすぐ下から暗く、穴のまわりに 2cm だけ盛り上がったこげ茶の枠（PitRim）
+    public static Color PitTopCol = new Color(0.17f, 0.13f, 0.13f), PitBottomCol = new Color(0.03f, 0.02f, 0.025f);
+    public static bool PitRim = true; public static float PitRimW = 0.07f, PitRimH = 0.02f; public static Color PitRimCol = new Color(0.36f, 0.25f, 0.22f), PitRimSideCol = new Color(0.22f, 0.15f, 0.14f);
     static void AddPitLiners()
     {
         var mat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Ruins_PitWall.mat");
@@ -1054,6 +1056,33 @@ public static class FuwaCourse2_5Builder
                     var nrm = Vector3.Cross(v[i0 + 1] - v[i0], v[i0 + 2] - v[i0]);
                     if (Vector3.Dot(nrm, s.inw) > 0f) { tri.Add(i0); tri.Add(i0 + 1); tri.Add(i0 + 2); tri.Add(i0); tri.Add(i0 + 2); tri.Add(i0 + 3); }   // 表（Cross の向き）を穴の中へ
                     else { tri.Add(i0); tri.Add(i0 + 2); tri.Add(i0 + 1); tri.Add(i0); tri.Add(i0 + 3); tri.Add(i0 + 2); }
+                    if (PitRim)
+                    {   // ふちの枠：穴の壁の上（穴の中 ins）からタイルの上（外へ PitRimW）まで、PitRimH だけ盛り上がった細い枠。x 向きの枠だけ角まで伸ばす（角で重ならない）
+                        var outw = -s.inw; float rw = PitRimW, rh = PitRimH;
+                        bool xDir = s.along == Vector3.right;
+                        float e0 = xDir && !pitKeys.Contains(k - sideStep) ? rw + ins : (pitKeys.Contains(k - sideStep) ? ins : 0f);
+                        float e1 = xDir && !pitKeys.Contains(k + sideStep) ? rw + ins : (pitKeys.Contains(k + sideStep) ? ins : 0f);
+                        if (!xDir) { e0 = pitKeys.Contains(k - sideStep) ? ins : 0f; e1 = pitKeys.Contains(k + sideStep) ? ins : 0f; }   // 角では x 向きの枠の穴がわの面にぴったり
+                        var b0 = cx - s.along * (s.half + e0); var b1 = cx + s.along * (s.half + e1);
+                        Vector3 In(Vector3 q, float y) => new Vector3(q.x, y, q.z);
+                        Vector3 Out(Vector3 q, float y) => new Vector3(q.x, y, q.z) + outw * (ins + rw);
+                        void Q(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, Vector3 want, Color col)
+                        {
+                            int j = v.Count; v.Add(p0); v.Add(p1); v.Add(p2); v.Add(p3); c.Add(col); c.Add(col); c.Add(col); c.Add(col);
+                            var nn = Vector3.Cross(p1 - p0, p2 - p0);
+                            if (Vector3.Dot(nn, want) > 0f) { tri.Add(j); tri.Add(j + 1); tri.Add(j + 2); tri.Add(j); tri.Add(j + 2); tri.Add(j + 3); }
+                            else { tri.Add(j); tri.Add(j + 2); tri.Add(j + 1); tri.Add(j); tri.Add(j + 3); tri.Add(j + 2); }
+                        }
+                        float yt = top + rh;
+                        Q(In(b0, yt), In(b1, yt), Out(b1, yt), Out(b0, yt), Vector3.up, PitRimCol);                       // 上
+                        Q(In(b0, y1), In(b1, y1), In(b1, yt), In(b0, yt), s.inw, PitRimSideCol);                         // 穴がわ（壁の上につながる）
+                        Q(Out(b0, top), Out(b1, top), Out(b1, yt), Out(b0, yt), outw, PitRimSideCol);                    // 外がわ
+                        if (xDir)
+                        {   // 角まで伸ばした両はしのふた
+                            Q(In(b0, top), Out(b0, top), Out(b0, yt), In(b0, yt), -s.along, PitRimSideCol);
+                            Q(In(b1, top), Out(b1, top), Out(b1, yt), In(b1, yt), s.along, PitRimSideCol);
+                        }
+                    }
                 }
             }
             if (v.Count == 0) continue;
