@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UdonSharpEditor;
 using UnityEditor;
@@ -140,7 +140,7 @@ public static class FuwaCourse2_5Builder
         // 2026-11-14 てじゃ「最初の小さくなるところやめてもとに戻すやつにする、その後すぐポータルにする、下の小さくなるエリアはなし」
         //  → 大きい飛び石のあと、白カーテン（戻る）→ すぐワープA。小さいカーテン・小さい飛び石・橋2・②の島はなし
         Transform warpA = null;
-        Run(() => { S(1f); ArchGate(); Curtain("C1_Normal", 0); S(1.5f); S(5f); warpA = BigPortal(isl, "WarpA", P, 180f); if (WarpWBack > 0f) S(WarpWBack); });   // 2026-11-15 てじゃ「他のポータルもそうかも」→ うしろに道（S(5) はシマ4本＝B で終わる）   // 2026-11-14 てじゃ「下層の普通もどしの後も、ポータルまでの距離ちょい伸ばしたい」白→ワープ 3.5 → 6.5m
+        Run(() => { S(1f); ArchGate(); Curtain("C1_Normal", 0); S(1.5f); S(5f); warpA = BigPortal(isl, "WarpA", P, 180f); if (WarpWBack > 0f) S(WarpWBack); if (RuinEnds) RuinedEnd("RuinEnd", P, Vector3.forward, HW, HW, false, 101); });   // 2026-11-15 てじゃ「他のポータルもそうかも」→ うしろに道（S(5) はシマ4本＝B で終わる）   // 2026-11-14 てじゃ「下層の普通もどしの後も、ポータルまでの距離ちょい伸ばしたい」白→ワープ 3.5 → 6.5m
         // 2026-11-14 てじゃ「下の地面は道に沿った部分以外なくして、床下のゴール部分は石像の下においてみよ」→ 道ぞいの帯＋石像の台地（中に空洞）
         var cav = PathHugRock(i1);
         // ---- 空中の巣の回廊（①の島の +x・-z の角の上から、-x へ ①の上をわたる）----
@@ -172,7 +172,7 @@ public static class FuwaCourse2_5Builder
             var inner = P + Dir(thE + 90f) * HW * sg;
             var p1 = WarpAInBend == 0f ? P : inner - Dir(thS + 90f) * HW * sg;
             P = p1 - Dir(thS) * WarpAInBack; th = thS;
-            Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false, true); S(WarpAInBack); });   // 「延長で縞がおかしい」→ 広い床をやめ、うしろの床は道はば（B）
+            Run(() => { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false, true); if (RuinEnds) RuinedEnd("RuinEnd", new Vector3(0f, P.y, ArrivalBackZ()), Vector3.back, HW, HW, false, 102); S(WarpAInBack); });   // 「延長で縞がおかしい」→ 広い床をやめ、うしろの床は道はば（B）
             if (WarpAInBend != 0f) T(WarpAInBend);
         }
         Run(() => { runA = isl; if (WarpAInBack <= 0f) { warpAin = BigPortal(isl, "WarpAIn", Vector3.zero, 0f); ArrivalRoof(false); } CPi("Checkpoint1", 0.8f, true); S(4f);   // 2026-11-15 てじゃ「チェックポイントもうちょい手前に、ちゃんと丸太を道の外に」→ 2.5m 手前（曲がり角のすぐ先）。前：S(2.5) CP S(1.5)
@@ -217,7 +217,7 @@ public static class FuwaCourse2_5Builder
             if (cpg) foreach (Transform c in cpg) c.localPosition = new Vector3(Mathf.Sign(c.localPosition.x) * (HW - 0.3f), c.localPosition.y + 0.66f, c.localPosition.z);
         }
         Transform warpW = null;
-        Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); if (WarpWBack > 0f) S(WarpWBack); });   // 2026-11-15 てじゃ「ポータルぎりぎりすぎるから道ちょっぴり伸ばして」→ ポータルのうしろに道
+        Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); if (WarpWBack > 0f) S(WarpWBack); if (RuinEnds) RuinedEnd("RuinEnd", P, Vector3.forward, HW, HW, false, 103); });   // 2026-11-15 てじゃ「ポータルぎりぎりすぎるから道ちょっぴり伸ばして」→ ポータルのうしろに道
         if (MidRock) MidTierRock(iw, "I2_Rock");   // 2026-11-15 てじゃ「穴が開いてるところ以外に下に島つけよ」→「ポータル付近のとこだけ島にしよう」（出口のポータルができたあと）
         HW = hwSave; pitTable = null; TileL = tileL0;
         // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
@@ -246,7 +246,7 @@ public static class FuwaCourse2_5Builder
         //  「一定間隔で広場全体に放射状に衝撃波」「ふわふわのバリアの周囲+後ろ側はセーフゾーン」「広場に入る時に最初に一発」
         //  → ③ ワープ → CP2 → バリアの門 → 円形の広場（クリスタルの衝撃波）→ 出口でバリアが消える。回る腕の版：Arms_A（SpinArm ×3、20m）
         shieldT = EnsureShield();
-        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); ArrivalRoof(false, true); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f);   // ArrivalRoof：着いた所のうしろにも道はばの床（2026-11-15 ここに入れたコメントで CP2 と S(2.5) が消えていたのを戻す）
+        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); ArrivalRoof(false, true); if (RuinEnds) RuinedEnd("RuinEnd", new Vector3(0f, P.y, ArrivalBackZ()), Vector3.back, HW, HW, true, 104); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f);   // ArrivalRoof：着いた所のうしろにも道はばの床（2026-11-15 ここに入れたコメントで CP2 と S(2.5) が消えていたのを戻す）
             S(1.5f); ShieldGateArch("ShieldGate"); S(5f);
             CrystalPlaza("CrystalPlaza");
             // 2026-11-15 てじゃ「広場のつなぎ目がちょっとシンプルすぎる」→ 広場と橋の間の 3m のただの道をやめて、橋を広場のふちから直接（橋は 3m 長く＝先は同じ所）
@@ -258,12 +258,24 @@ public static class FuwaCourse2_5Builder
         //  前の版：I4_Bumpers（CP3 → 飛び出す石ブロック Pistons_B → T(-45) → 腕とブロックのまざり Mix_C → ワープB）
         Island("I4_End");
         Transform warpB = null;
-        Run(() => { S(3f); warpB = BigPortal(isl, "WarpB", P, 180f); if (WarpWBack > 0f) S(WarpWBack); });   // うしろに道（S(3) はシマ2本＝B で終わる）
+        // 2026-11-16 てじゃ「ポータルがある道の橋、ただのぶつぎりをやめたい」→ 箱の道（S(3)）をやめて平らな橋のつづき（アーチ1つ）、ワープBのうしろで崩れて終わる
+        if (RuinEnds) Run(() => { ArchBridge(3f + WarpWBack, 0f, false, null, false, true, true); warpB = BigPortal(isl, "WarpB", P - Vector3.forward * WarpWBack, 180f); RuinedEnd("RuinEnd", P, Vector3.forward, BridgeHW, BridgeHW + 0.21f, true, 105); });
+        else Run(() => { S(3f); warpB = BigPortal(isl, "WarpB", P, 180f); if (WarpWBack > 0f) S(WarpWBack); });   // うしろに道（S(3) はシマ2本＝B で終わる）
         // ---- ①の島の中の空洞（ゴール）----
         var gc = Island("Cavern");
         P = cav.entry; th = cav.heading;
         Transform warpBin = null;
-        Run(() => { warpBin = BigPortal(isl, "WarpBIn", Vector3.zero, 0f); ArrivalRoof(false, true); S(2.5f); });
+        Run(() => { warpBin = BigPortal(isl, "WarpBIn", Vector3.zero, 0f); ArrivalRoof(false, true);
+            if (RuinEnds)   // 2026-11-16 てじゃ「ゴール前のやつはクリスタルだけでいいよ」→ 道はそのまま、うしろの床にクリスタルが落ちている
+            {
+                var cg = new GameObject("FallenCrystals").transform; cg.SetParent(isl, false);
+                float zb = ArrivalBackZ();
+                RuinCrystals(cg, "GoalFallen", new List<(Vector3 p, Vector3 e, float s, int x)> {
+                    (new Vector3(-HW * 0.55f, 0.04f, zb + 0.55f), new Vector3(0f, 30f, 80f), 0.24f, 0),
+                    (new Vector3(HW * 0.6f, 0.02f, zb + 0.9f), new Vector3(8f, -70f, 74f), 0.18f, 0),
+                    (new Vector3(HW * 0.2f, -0.06f, zb + 0.25f), new Vector3(-40f, 15f, 10f), 0.32f, 2) });
+            }
+            S(2.5f); });
         var goalP = P;
         GoalSet(gc, P, Dir(th));
         if (warpA && warpAin) Link(warpA, warpAin, iw, null, true, true);
@@ -294,6 +306,7 @@ public static class FuwaCourse2_5Builder
     public static Vector3 UpperStart = new Vector3(39.5948f, 32.8087f, 24.0744f); public static float UpperStartHeading = 134.3111f;   // 2026-11-15 てじゃ「この広場は石像の真上くらいにしよう」→ 広場のまん中が MushroomAt の真上に来るよう (-9.44, 0, +6.95) ずらした（前は 49.0348, 32.8087, 17.1244）
     // ワープの到着地点の屋根（てじゃ「屋根付きのポータル到着地点」）：ポータルを囲む4本柱＋屋根。P は今の位置（ポータルの面）
     public static float ArrivalBackLen = 0f;   // 0＝前のまま（1.9m）。てじゃ「そうじゃなくて 道をすこし伸ばしてポータルの位置も後ろに」→ WarpAInBack で道ごと下げる
+    static float ArrivalBackZ() => Mathf.Min(P.z - 1.6f - 0.3f, P.z - ArrivalBackLen);   // ArrivalRoof のうしろの床のはし
     static void ArrivalRoof(bool full = true, bool narrow = false)
     {
         float hx = HW + 0.35f, z0 = P.z - 1.6f, z1 = P.z + 1.4f, h = FuwaPortalTest.HoleH + 1.1f;
@@ -1096,7 +1109,7 @@ public static class FuwaCourse2_5Builder
     // 広場の出口（床のふちの 0.4 手前）から、橋の欄干の外のはしが床の円にのる所まで
     static float PlazaBridgeAdvance() { float xo = BridgeHW + 0.27f; return Mathf.Sqrt(Mathf.Max(0f, PlazaR * PlazaR - xo * xo)) - (PlazaR - 0.4f); }
     public static float ParapetSink = 0.15f;
-    static void ArchBridge(float len, float rise, bool pits, float[] windsAt, bool stubGap = false, bool noFirstPier = false)
+    static void ArchBridge(float len, float rise, bool pits, float[] windsAt, bool stubGap = false, bool noFirstPier = false, bool ruinEnd = false)
     {
         float hw0 = HW; HW = BridgeHW;
         float y0 = P.y; float z0 = P.z;
@@ -1109,7 +1122,7 @@ public static class FuwaCourse2_5Builder
         foreach (var rl in isl.GetComponentsInChildren<Transform>(true).Where(x => x.name == "Rail" && x.parent && x.parent.name.StartsWith("WindRun_Bridge")).ToList()) Object.DestroyImmediate(rl.gameObject);
         // 2026-11-15 見た目クオリティ（C）：橋脚（はばいっぱいの石の壁、下へ細くなって崩れて終わる）＋橋脚の間の石のアーチ（上は壁＝スパンドレル、ふちにくさび石の輪）
         //  ＋道のはしの下のふち飾り（コーニス）＋欄干（低い壁＋笠石、ところどころ崩れて切れている）
-        int n = Mathf.Max(2, Mathf.RoundToInt(len / 4f));
+        int n = Mathf.Max(ruinEnd && len < 6f ? 1 : 2, Mathf.RoundToInt(len / 4f));
         System.Func<float, float> DeckY = z => y0 + rise * (z - z0) / len;            // 道の上の面
         const float Tk = 0.6f;                                                          // 道の厚み
         float pw = 1.0f, xo = HW + 0.05f, xr = HW + 0.11f;
@@ -1126,7 +1139,7 @@ public static class FuwaCourse2_5Builder
             for (int i = 0; i <= n; i++)
             {
                 if (noFirstPier && i == 0) continue;   // 広場のふちから出る橋：はじめの橋脚はなし（広場の下のドームが支え）
-                float z = z0 + len * i / n, yt = DeckY(z) - Tk;
+                float z = z0 + len * i / n - (ruinEnd && i == n ? RuinPierBack : 0f), yt = DeckY(z) - Tk;   // 崩れたはしの橋脚は少し下げて、床が先へはみ出す
                 float dep = 4.2f + 1.6f * (float)rnd.NextDouble();
                 float bx = (float)rnd.NextDouble() - 0.5f, bz = (float)rnd.NextDouble() - 0.5f;
                 foreach (float cxp in open ? new[] { -(xi + xo) / 2f, (xi + xo) / 2f } : new[] { 0f })
@@ -1169,7 +1182,7 @@ public static class FuwaCourse2_5Builder
             // 橋脚の間のアーチ
             for (int i = 0; i < n; i++)
             {
-                float za = z0 + len * i / n + pw / 2f, zb = z0 + len * (i + 1) / n - pw / 2f;
+                float za = z0 + len * i / n + pw / 2f, zb = z0 + len * (i + 1) / n - pw / 2f - (ruinEnd && i + 1 == n ? RuinPierBack : 0f);
                 int K = 12;
                 var sof = new Vector3[K + 1];   // アーチの下の線（x=0 の断面）
                 for (int k = 0; k <= K; k++)
@@ -1241,13 +1254,14 @@ public static class FuwaCourse2_5Builder
             foreach (float sx in new[] { -1f, 1f })
             {
                 int segs = Mathf.Max(3, Mathf.RoundToInt(len / 2f));
-                int broken = 1 + rnd.Next(segs - 2);
+                int broken = ruinEnd && segs <= 3 ? -1 : 1 + rnd.Next(segs - 2);
                 for (int s = 0; s < segs; s++)
                 {
                     float za = z0 + len * s / segs, zb = z0 + len * (s + 1) / segs;
                     if (sx > 0 && gapPlusX.y > gapPlusX.x && zb > gapPlusX.x && za < gapPlusX.y) continue;
                     float zm = (za + zb) / 2f, L = zb - za;   // 2026-11-15 てじゃ「へんな縦筋」→ 区切りのすき間（0.06）をなくす
-                    bool br = s == broken;
+                    bool rampEnd = ruinEnd && s == segs - 1;   // 2026-11-16 崩れた道のはし（RuinedEnd）へ向かって欄干も低く崩れていく
+                    bool br = s == broken || rampEnd;
                     float hgt = 0.38f;
                     if (!br)
                     {   // ふつうの区切り：壁と笠石は1つのメッシュにまとめる（別々の箱だと継ぎ目が縦筋に見えた）。当たりは見えない箱
@@ -1263,11 +1277,11 @@ public static class FuwaCourse2_5Builder
                         var ee = new float[nn]; var dd = new float[nn];
                         for (int k = 0; k < nn; k++)
                         {
-                            float u = (float)k / (nn - 1), mid = 1f - Mathf.Clamp01(Mathf.Min(u, 1f - u) / 0.22f);   // 両はし0 → まん中1
+                            float u = (float)k / (nn - 1), mid = rampEnd ? Mathf.Clamp01((u - 0.2f) / 0.6f) : 1f - Mathf.Clamp01(Mathf.Min(u, 1f - u) / 0.22f);   // 両はし0 → まん中1（rampEnd：根もと0 → 先1）
                             ee[k] = Mathf.Lerp(hgt, 0.06f + 0.14f * (float)rnd.NextDouble(), mid) + (mid > 0.05f && mid < 0.95f ? ((float)rnd.NextDouble() - 0.5f) * 0.12f : 0f);
                             dd[k] = mid > 0.05f ? (float)rnd.NextDouble() * 0.05f : 0f;
                         }
-                        ee[0] = hgt; ee[nn - 1] = hgt;
+                        ee[0] = hgt; if (!rampEnd) ee[nn - 1] = hgt;
                         for (int k = 0; k < nn; k++) ee[k] += ParapetSink;
                         FieldSlab(bvv, btt, new Vector3(sx * (HW + 0.1f), DeckY(za) - ParapetSink, za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, aa, ee, dd, -0.11f, 0.11f);
                         if (Pebbles) for (int k = 0; k < 3; k++)
@@ -3700,6 +3714,116 @@ public static class FuwaCourse2_5Builder
         MeshObj(g, "FloatingStones", SaveMesh("BrokenFloatingStones", fsv, fst), deckM, Vector3.zero, 0, true);
         float gap = (tip - islandTip).magnitude;
         log.Append("崩れた橋 すき間" + gap.ToString("F1") + "m ");
+    }
+
+    // ================= 崩れた道のはし（2026-11-16）=================
+    //  てじゃ「ポータルがある道の橋、ただのぶつぎりをやめたい。道は崩れていて、いくつかクリスタルが落ちてる感じ」「道の端ね」
+    //  → ポータルのうしろの道のはしを：シマの板と下の石が段ちがいにガタガタに割れたふち＋折れて落ちていく床のかけら＋落ちていく石（橋だけ）＋落ちたクリスタル
+    //  「ゴール前のはクリスタルだけ」→ WarpBIn は RuinCrystals だけ
+    public static bool RuinEnds = true; public static float RuinPierBack = 0.8f, RuinCrystalScale = 1.3f;
+    // name：入れ物の名前、o：道の上の面のはしのまん中（isl の座標）、fwd：外向き、hw：シマの板の半はば、xo：下の石の半はば、bridge：空中（かけら・石・クリスタルが落ちていく）か島の上（地面に転がる）
+    static void RuinedEnd(string name, Vector3 o, Vector3 fwd, float hw, float xo, bool bridge, int seed)
+    {
+        var g = new GameObject(name).transform; g.SetParent(isl, false);
+        g.localPosition = o; g.localRotation = Quaternion.LookRotation(fwd);
+        var rnd = new System.Random(seed);
+        const float Tk = 0.6f;
+        // 2026-11-16 てじゃ「急に道が２層構造になったうえに細くなって欠けてるようにみえる」「２層にしなくていいし、欠け方はもっと荒くて良い」
+        //  → 道と同じ厚み・同じはば・同じ色の1枚が、大きくガタガタに割れて終わる（点を少なく、ふれはばを大きく。上のふちも大きめに欠ける）
+        var sv = new List<Vector3>(); var st = new List<int>();   // 石（橋の欄干の下の帯）
+        var tv = new List<Vector3>(); var tt = new List<int>();   // 道
+        int nn = 9;
+        var eS = Jag(rnd, nn, 0.95f, 0.85f); for (int k = 0; k < nn; k++) eS[k] = Mathf.Clamp(eS[k], 0.12f, 1.9f);
+        var dS = new float[nn]; for (int k = 0; k < nn; k++) dS[k] = (float)rnd.NextDouble() < 0.5f ? 0.04f + (float)rnd.NextDouble() * 0.16f : 0f;
+        var xsR = Lin(-hw, hw, nn);
+        FieldSlab(tv, tt, Vector3.zero, Vector3.right, Vector3.forward, Vector3.up, xsR, eS, dS, -Tk, 0f);
+        if (xo > hw + 0.01f) foreach (float sx in new[] { -1f, 1f })   // 橋：道の外（欄干の下）の帯も同じふちで
+        {
+            int ie = sx < 0 ? 0 : nn - 1;
+            FieldSlab(sv, st, Vector3.zero, Vector3.right, Vector3.forward, Vector3.up, sx < 0 ? new[] { -xo, -hw } : new[] { hw, xo }, sx < 0 ? new[] { eS[ie] * 0.7f, eS[ie] } : new[] { eS[ie], eS[ie] * 0.7f }, new[] { dS[ie], dS[ie] }, -Tk, 0f);
+        }
+        if (bridge)   // 橋：床の下の石（アーチの名ごり）がガタガタに垂れ下がって、下げた橋脚の上と道の下の台（Under）のはしをかくす
+        {
+            var hv = new List<Vector3>(); var ht = new List<int>();
+            var eH = Jag(rnd, 13, 1.1f, 0.6f); for (int k = 0; k < 13; k++) eH[k] = Mathf.Clamp(eH[k], 0.35f, 2.0f);
+            FieldSlab(hv, ht, new Vector3(0f, -Tk + 0.02f, 0f), Vector3.right, Vector3.down, Vector3.forward, Lin(-xo + 0.04f, xo - 0.04f, 13), eH, new float[13], -RuinPierBack - 0.1f, -0.05f);
+            MeshObj(g, "HangingStone", SaveMesh(name + "_" + seed + "_Hang", hv, ht), stone, Vector3.zero, 0, true);
+        }
+        if (!bridge)   // 島の道：下の台（Under）も割れて終わる
+        {
+            var eU = Jag(rnd, 9, 0.35f, 0.3f); for (int k = 0; k < 9; k++) eU[k] = Mathf.Clamp(eU[k], 0.05f, 0.7f);
+            var uv = new List<Vector3>(); var ut = new List<int>();
+            FieldSlab(uv, ut, Vector3.zero, Vector3.right, Vector3.forward, Vector3.up, Lin(-(hw - 0.15f), hw - 0.15f, 9), eU, new float[9], -Tk - 1.2f, -Tk);
+            MeshObj(g, "UnderBroken", SaveMesh(name + "_" + seed + "_Under", uv, ut), underM, Vector3.zero, 0, true);
+        }
+        if (sv.Count > 0) MeshObj(g, "Stone", SaveMesh(name + "_" + seed + "_Stone", sv, st), stone, Vector3.zero, 0, true);
+        MeshObj(g, "Road", SaveMesh(name + "_" + seed + "_Tiles", tv, tt), pathA, Vector3.zero, 0, true);
+        { float eMin = eS.Min(); if (eMin > 0.05f) { var bc = g.gameObject.AddComponent<BoxCollider>(); bc.center = new Vector3(0f, -Tk / 2f, eMin / 2f); bc.size = new Vector3(2f * xo, Tk, eMin); } }
+
+        // 折れたかけら（両がわが荒く割れた道の1枚。道と同じ厚み・色）
+        float eAvg = eS.Average();
+        Transform Fragment(string fn, float len, float w, int s2)
+        {
+            var r2 = new System.Random(s2);
+            var fv = new List<Vector3>(); var ft = new List<int>();
+            int m = 7; var xs = Lin(-w / 2f, w / 2f, m);
+            foreach (float dz in new[] { 1f, -1f })
+            {
+                var e1 = Jag(r2, m, len / 2f, 0.45f); for (int k = 0; k < m; k++) e1[k] = Mathf.Max(0.15f, e1[k]);
+                var d1 = new float[m]; for (int k = 0; k < m; k++) d1[k] = (float)r2.NextDouble() < 0.5f ? 0.05f + (float)r2.NextDouble() * 0.15f : 0f;
+                FieldSlab(fv, ft, Vector3.zero, Vector3.right * dz, Vector3.forward * dz, Vector3.up, xs, e1, d1, -Tk, 0f);
+            }
+            var fr = new GameObject(fn).transform; fr.SetParent(g, false);
+            MeshObj(fr, "Road", SaveMesh(name + "_" + seed + "_" + fn, fv, ft), pathA, Vector3.zero, 0, true);
+            return fr;
+        }
+        var crys = new List<(Vector3 p, Vector3 e, float s, int x)>();
+        // 床の上に落ちたクリスタル（ポータルのうしろ〜割れたふち）。寝かせて少しうめる
+        crys.Add((new Vector3(-hw * 0.45f, 0.05f, -0.55f), new Vector3(0f, 35f, 82f), 0.24f, 0));
+        crys.Add((new Vector3(hw * 0.5f, 0.03f, eAvg * 0.35f - 0.15f), new Vector3(10f, -60f, 76f), 0.18f, 0));
+        // 割れたふちに刺さった大きめの塊
+        crys.Add((new Vector3(hw * 0.12f, -0.05f, Mathf.Max(0.1f, eS.Min() - 0.05f)), new Vector3(-48f, 20f, 8f), 0.34f, 2));
+        if (bridge)
+        {
+            var f1 = Fragment("FallingSlab", 1.6f, 2f * hw * 0.75f, seed + 1);
+            f1.localPosition = new Vector3(-0.35f, -1.5f, eAvg + 1.4f); f1.localRotation = Quaternion.Euler(28f, 14f, -11f);
+            var f2 = Fragment("FallingSlab2", 0.9f, 1.1f, seed + 2);
+            f2.localPosition = new Vector3(0.9f, -3.4f, eAvg + 2.9f); f2.localRotation = Quaternion.Euler(-35f, 50f, 22f);
+            // 落ちていく石（当たりなし）
+            var rv = new List<Vector3>(); var rt = new List<int>();
+            for (int i = 0; i < 7; i++)
+            {
+                float u = i / 6f;
+                var c = new Vector3(((float)rnd.NextDouble() - 0.5f) * 2.6f * hw, -0.7f - u * 3.6f - (float)rnd.NextDouble() * 0.6f, eAvg + 0.6f + u * 3.2f + ((float)rnd.NextDouble() - 0.5f) * 0.8f);
+                float sz = 0.22f + 0.35f * (float)rnd.NextDouble();
+                RockChunk(rv, rt, c, new Vector3(sz * 1.3f, sz * 0.7f, sz), Quaternion.Euler((float)rnd.NextDouble() * 90f, (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 60f), rnd);
+            }
+            MeshObj(g, "FallingStones", SaveMesh(name + "_" + seed + "_Fall", rv, rt), stone, Vector3.zero, 0, true);
+            // 石といっしょに落ちていくクリスタル
+            crys.Add((new Vector3(-hw * 0.55f, -2.2f, eAvg + 2.0f), new Vector3(35f, 70f, 120f), 0.22f, 0));
+            crys.Add((new Vector3(hw * 0.35f, -0.95f, eAvg + 0.75f), new Vector3(-20f, 10f, 55f), 0.16f, 0));
+            crys.Add((new Vector3(0.2f, -4.4f, eAvg + 3.6f), new Vector3(60f, -30f, 15f), 0.2f, 1));
+        }
+        else
+        {
+            // 島の上：割れたふちの先で、折れたかけらが前へ傾いて地面にめりこむ（ふちにくっついたまま。島のはしでも宙に浮かない）
+            var f1 = Fragment("SaggedSlab", 1.3f, 2f * hw * 0.7f, seed + 1);
+            float pitch = 20f, half = 0.65f;
+            f1.localPosition = new Vector3(0.1f, -0.16f - half * Mathf.Sin(pitch * Mathf.Deg2Rad), eAvg + 0.08f + half * Mathf.Cos(pitch * Mathf.Deg2Rad)); f1.localRotation = Quaternion.Euler(pitch, 9f, 4f);
+            crys.Add((new Vector3(-hw * 0.4f, -0.3f, eAvg + 0.75f), new Vector3(25f, -40f, 80f), 0.2f, 0));
+        }
+        RuinCrystals(g, name + "_" + seed, crys);
+    }
+    // 落ちたクリスタル（p：位置、e：回転、s：大きさ、x：小さい結晶の数）。当たりなし
+    static void RuinCrystals(Transform g, string key, List<(Vector3 p, Vector3 e, float s, int x)> list)
+    {
+        var cm = CrystalMat();
+        for (int i = 0; i < list.Count; i++)
+        {
+            var c = list[i];
+            var o = MeshObj(g, "Crystal" + i, CrystalClusterMesh(key + "_Crys" + i, 300 + i * 17 + key.Length, c.s * RuinCrystalScale, c.x), cm, c.p, 0, false);
+            o.transform.localRotation = Quaternion.Euler(c.e);
+        }
     }
 
     // ================= バリア＋クリスタルの広場（2026-11-15 てじゃの案）=================
