@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UdonSharp;
 using UdonSharpEditor;
@@ -10,7 +10,7 @@ using UnityEngine;
 //  ロビーのまん中の方（道が来る方）はあける。出す・出さないは FuwaClearMarks（自分がクリアしたことがあれば）
 public static class FuwaClearMarksBuilder
 {
-    public static float RingR = 1.75f, GapDeg = 42f; public static int Count = 20;
+    public static float RingR = 1.5f, GapDeg = 40f, StepDeg = 25f;
 
     [MenuItem("FuwaCourse/よく使う/ロビーのクリアの印（ミニキノコ）を作り直す")]
     public static void Run()
@@ -37,18 +37,16 @@ public static class FuwaClearMarksBuilder
                 Vector3 c = pad.position; g.position = c; g.rotation = Quaternion.identity;
                 Vector3 toC = center - c; toC.y = 0f; float gapA = Mathf.Atan2(toC.x, toC.z) * Mathf.Rad2Deg;
                 var rnd = new System.Random(slot.name.GetHashCode() ^ lobby.name.GetHashCode());
+                // 2026-11-16 てじゃ「ゴールの時ってこのくらいあったっけ」→ ゴールの妖精の輪（14本・約25°おき・半径1.2〜1.3）と同じく、等間隔の輪（道の側はあける）
                 int made = 0;
-                for (int k = 0; k < 120 && made < Count; k++)
+                for (float a = gapA + GapDeg; a <= gapA + 360f - GapDeg + 0.1f; a += StepDeg)
                 {
-                    float a = (float)rnd.NextDouble() * 360f;
-                    if (Mathf.Abs(Mathf.DeltaAngle(a, gapA)) < GapDeg) continue;
-                    float r = RingR + ((float)rnd.NextDouble() - 0.5f) * 0.5f;
-                    var p = c + new Vector3(Mathf.Sin(a * Mathf.Deg2Rad), 0f, Mathf.Cos(a * Mathf.Deg2Rad)) * r;
-                    // となりと 0.28m 以上はなす
-                    if (g.Cast<Transform>().Any(t => (t.position - p).sqrMagnitude < 0.28f * 0.28f)) continue;
+                    float aa = a + ((float)rnd.NextDouble() - 0.5f) * 6f;
+                    float r = RingR + ((float)rnd.NextDouble() - 0.5f) * 0.12f;
+                    var p = c + new Vector3(Mathf.Sin(aa * Mathf.Deg2Rad), 0f, Mathf.Cos(aa * Mathf.Deg2Rad)) * r;
                     var m = Object.Instantiate(shrooms[rnd.Next(shrooms.Count)].gameObject, g, true); m.name = "Mushroom" + made;
                     m.transform.position = p; m.transform.rotation = Quaternion.Euler(((float)rnd.NextDouble() - 0.5f) * 10f, (float)rnd.NextDouble() * 360f, ((float)rnd.NextDouble() - 0.5f) * 10f);
-                    m.transform.localScale = Vector3.one * (0.8f + 0.6f * (float)rnd.NextDouble());
+                    m.transform.localScale = Vector3.one * (0.9f + 0.55f * (float)rnd.NextDouble());
                     foreach (var cc in m.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
                     foreach (var t in m.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
                     made++;
