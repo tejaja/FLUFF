@@ -3825,19 +3825,19 @@ public static class FuwaCourse2_5Builder
         if (RuinBigPiece)   // 割れ目からはなれた道はばの1枚が3つに割れて、少しずつずれて落ちていく途中
         {
             int[] cut = { 0, 3, 5, nn - 1 };
-            var rot = new[] { new Vector3(30f, -6f, 9f), new Vector3(22f, 3f, -3f), new Vector3(38f, 8f, -12f) };
-            var pos = new[] { new Vector3(-0.12f, -1.0f, zH + 0.6f), new Vector3(0f, -0.7f, zH + 0.45f), new Vector3(0.15f, -1.35f, zH + 0.8f) };
+            var rot = new[] { new Vector3(18f, -6f, 9f), new Vector3(12f, 3f, -3f), new Vector3(24f, 8f, -12f) };
+            var pos = new[] { new Vector3(-0.12f, -0.15f, zH + 0.75f), new Vector3(0f, 0.3f, zH + 0.6f), new Vector3(0.15f, -0.5f, zH + 1.0f) };   // 2026-11-16 てじゃ「島の下まで落ちるんじゃなくて、もっと上で浮いててほしい」「ちょっと道より上にいってもいいよ」
             for (int pi = 0; pi < 3; pi++)
             {
                 var fp = Cracked("FallingSlab" + pi, 1.5f, seed + 1 + pi, cut[pi], cut[pi + 1], pi > 0 ? 0.04f : 0f, pi < 2 ? 0.04f : 0f);
                 fp.localPosition = pos[pi]; fp.localRotation = Quaternion.Euler(rot[pi]);
-                Clear(fp, new Vector3(0f, -0.2f, 0.3f));
+                Clear(fp, new Vector3(0f, 0.03f, 0.3f));
             }
         }
         {
             var f2 = Fragment("FallingChip", 0.9f, 1.1f, seed + 2);
-            f2.localPosition = new Vector3(0.9f, -3.0f, eAvg + 2.6f); f2.localRotation = Quaternion.Euler(-35f, 50f, 22f);
-            Clear(f2, new Vector3(0f, -0.2f, 0.3f));
+            f2.localPosition = new Vector3(0.9f, -0.6f, eAvg + 2.4f); f2.localRotation = Quaternion.Euler(-35f, 50f, 22f);
+            Clear(f2, new Vector3(0f, 0.03f, 0.3f));
         }
         // 落ちていく石（当たりなし）：1つずつ入れ物に入れて、ぶつかっていたらずらす
         {
@@ -3845,20 +3845,20 @@ public static class FuwaCourse2_5Builder
             for (int i = 0; i < 7; i++)
             {
                 float u = i / 6f;
-                var c = new Vector3(((float)rnd.NextDouble() - 0.5f) * 2.6f * hw, -0.7f - u * 3.6f - (float)rnd.NextDouble() * 0.6f, eAvg + 0.7f + u * 3.2f + ((float)rnd.NextDouble() - 0.5f) * 0.8f);
+                var c = new Vector3(((float)rnd.NextDouble() - 0.5f) * 2.6f * hw, 0.7f - u * 1.6f - (float)rnd.NextDouble() * 0.5f, eAvg + 0.8f + u * 2.6f + ((float)rnd.NextDouble() - 0.5f) * 0.8f);
                 float sz = 0.22f + 0.35f * (float)rnd.NextDouble();
                 var rv = new List<Vector3>(); var rt = new List<int>();
                 RockChunk(rv, rt, Vector3.zero, new Vector3(sz * 1.3f, sz * 0.7f, sz), Quaternion.Euler((float)rnd.NextDouble() * 90f, (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 60f), rnd);
                 var so = MeshObj(stones, "Stone" + i, SaveMesh(name + "_" + seed + "_Fall" + i, rv, rt), stone, c, 0, true).transform;
-                Clear(so, new Vector3(0f, -0.2f, 0.3f));
+                Clear(so, new Vector3(0f, 0.03f, 0.3f));
             }
         }
         // 石といっしょに落ちていくクリスタル
-        crys.Add((new Vector3(-hw * 0.55f, -2.2f, eAvg + 2.0f), new Vector3(35f, 70f, 120f), 0.22f, 0));
-        crys.Add((new Vector3(hw * 0.35f, -1.0f, eAvg + 0.85f), new Vector3(-20f, 10f, 55f), 0.16f, 0));
-        crys.Add((new Vector3(0.2f, -4.4f, eAvg + 3.6f), new Vector3(60f, -30f, 15f), 0.2f, 1));
+        crys.Add((new Vector3(-hw * 0.55f, 0.6f, eAvg + 2.0f), new Vector3(35f, 70f, 120f), 0.22f, 0));
+        crys.Add((new Vector3(hw * 0.35f, 0.35f, eAvg + 0.85f), new Vector3(-20f, 10f, 55f), 0.16f, 0));
+        crys.Add((new Vector3(0.2f, -0.7f, eAvg + 3.2f), new Vector3(60f, -30f, 15f), 0.2f, 1));
         var cos = RuinCrystals(g, name + "_" + seed, crys, nFloor);
-        for (int i = nFloor; i < cos.Count; i++) Clear(cos[i], new Vector3(0f, -0.2f, 0.3f));
+        for (int i = nFloor; i < cos.Count; i++) Clear(cos[i], new Vector3(0f, 0.03f, 0.3f));
     }
     static readonly List<(Transform g, Transform piece, Vector3 step, bool center)> ruinPending = new List<(Transform g, Transform piece, Vector3 step, bool center)>();
     static void SettleRuins()
