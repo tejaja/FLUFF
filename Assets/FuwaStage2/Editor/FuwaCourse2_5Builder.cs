@@ -2365,8 +2365,8 @@ public static class FuwaCourse2_5Builder
     static readonly int[][] PitRows = { new int[0], new[] { 0, 1 }, new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2 }, new int[0], new[] { 0 }, new[] { 3 } };
     static int pitRow;
     // 2026-11-16 てじゃ「穴の位置のほう調整するのもありか」：橋の穴はまん中の2列（1・2）だけ（はしの列の下は橋脚・アーチのリブがあって穴から見える）。終わりの方は島の上なので穴なし
-    //  → てじゃ「端にないのもやだな」「柱がない部分なら欠けさせてもいい」「横からも欠けてていいよ」→ はしの穴は橋脚の上をさけて、そこは欄干・横の板・下のリブごと欠ける（bridgeBites）
-    static readonly int[][] BridgePitRows = { new int[0], new[] { 0, 1 }, new int[0], new int[0], new[] { 2, 3 }, new int[0], new[] { 1, 2 }, new int[0], new int[0], new int[0], new int[0], new int[0] };
+    //  → てじゃ「端にないのもやだな」「柱がない部分なら欠けさせてもいい」「横からも欠けてていいよ」「（2つ目の欠けが）折れた端と干渉するから逆のほうがいい」→ はしの穴は橋脚の上をさけて、そこは欄干・横の板・下のリブごと欠ける（bridgeBites）
+    static readonly int[][] BridgePitRows = { new int[0], new[] { 0, 1 }, new int[0], new int[0], new[] { 0, 1 }, new int[0], new[] { 1, 2 }, new int[0], new int[0], new int[0], new int[0], new int[0] };
     static List<float> bridgePierZ = new List<float>();
     static List<Vector3> bridgeBites = new List<Vector3>();   // (はしの向き sx, za, zb)：はしの列の穴＝橋のはしが欠けている所
     public static float BiteRamp = 0.3f;   // 欠けが穴の前後のタイルの下へ広がる長さ（横から見たギザギザ）
