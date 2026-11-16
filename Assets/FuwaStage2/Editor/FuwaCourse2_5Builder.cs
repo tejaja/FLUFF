@@ -1873,7 +1873,8 @@ public static class FuwaCourse2_5Builder
             var rnd = new System.Random(Mathf.RoundToInt(len * 37f + rise * 11f));
             float ang = -Mathf.Atan2(rise, len) * Mathf.Rad2Deg;
             var bvv = new List<Vector3>(); var btt = new List<int>();   // 崩れた欄干（ガタガタの壁）とがれき
-            var pvv = new List<Vector3>(); var ptt = new List<int>(); var cvv = new List<Vector3>(); var ctt = new List<int>();   // ふつうの欄干の壁・笠石
+            var pvv = new List<Vector3>(); var ptt = new List<int>(); var cvv = new List<Vector3>(); var ctt = new List<int>();
+            var capSpans = new List<Vector3>();   // (sx, za, zb)   // ふつうの欄干の壁・笠石
             foreach (float sx in new[] { -1f, 1f })
             {
                 int segs = Mathf.Max(3, Mathf.RoundToInt(len / 2f));
@@ -1911,7 +1912,8 @@ public static class FuwaCourse2_5Builder
                         w.transform.localRotation = Quaternion.Euler(ang, 0f, 0f); Object.DestroyImmediate(w.GetComponent<MeshRenderer>()); Object.DestroyImmediate(w.GetComponent<MeshFilter>());
                         // 2026-11-15 てじゃ「クリスタル広場後の橋にスキマ」：道の板のふちは面取りで少し低く、欄干の下のはしとの間から外（空）が見えた → 欄干の壁を道の中まで（ParapetSink）下げる
                         FieldSlab(pvv, ptt, new Vector3(sx * (HW + 0.1f), DeckY(za) - ParapetSink, za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, new[] { 0f, zb - za }, new[] { hgt + ParapetSink, hgt + ParapetSink }, new[] { 0f, 0f }, -0.11f, 0.11f);
-                        FieldSlab(cvv, ctt, new Vector3(sx * (HW + 0.1f), DeckY(za) + hgt, za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, new[] { 0f, zb - za }, new[] { 0.1f, 0.1f }, new[] { 0f, 0f }, -0.16f, 0.16f);
+                        if (CapBevel) capSpans.Add(new Vector3(sx, za, zb));
+                        else FieldSlab(cvv, ctt, new Vector3(sx * (HW + 0.1f), DeckY(za) + hgt, za), new Vector3(0f, rise / len, 1f), Vector3.up, Vector3.right, new[] { 0f, zb - za }, new[] { 0.1f, 0.1f }, new[] { 0f, 0f }, -0.16f, 0.16f);
                     }
                     else
                     {   // 崩れた区切り：上のふちがガタガタに欠けて低くなった壁（両はしは高いまま、まん中ほど低い）＋岩のかけら
@@ -1937,9 +1939,48 @@ public static class FuwaCourse2_5Builder
             }
             if (bvv.Count > 0) MeshObj(isl, "ParapetBroken", SaveMesh(bn + "_Broken", bvv, btt), stone, Vector3.zero, 0, true);
             if (pvv.Count > 0) MeshObj(isl, "Parapet", SaveMesh(bn + "_Parapet", pvv, ptt), stone, Vector3.zero, 0, true);
+            // 2026-11-16 てじゃ「上の手すり（笠石）がキューブすぎる」→ 笠石は上のふちを面取りした断面（6角）、つながった区切りは1本にまとめて、切れたはしも斜めに面取り
+            foreach (var g in capSpans.GroupBy(q => q.x))
+            {
+                var sp = g.OrderBy(q => q.y).ToList(); int i0 = 0;
+                while (i0 < sp.Count)
+                {
+                    int i1 = i0; while (i1 + 1 < sp.Count && Mathf.Abs(sp[i1 + 1].y - sp[i1].z) < 0.01f) i1++;
+                    CapBeam(cvv, ctt, g.Key * (HW + 0.1f), sp[i0].y, sp[i1].z, z => DeckY(z) + 0.38f);
+                    i0 = i1 + 1;
+                }
+            }
             if (cvv.Count > 0) MeshObj(isl, "ParapetCap", SaveMesh(bn + "_ParapetCap", cvv, ctt), terraD, Vector3.zero, 0, true);
         }
         HW = hw0;
+    }
+
+    public static bool CapBevel = true;
+    // 笠石：x のまん中 cx、z0〜z1、下の面の高さ yAt(z)。断面は はば 0.32・高さ 0.1、上の両ふちを 0.05 面取り。両はしも上を 0.05 斜めに
+    static void CapBeam(List<Vector3> v, List<int> t, float cx, float z0, float z1, System.Func<float, float> yAt)
+    {
+        var prof = new[] { new Vector2(-0.16f, 0f), new Vector2(0.16f, 0f), new Vector2(0.16f, 0.05f), new Vector2(0.11f, 0.1f), new Vector2(-0.11f, 0.1f), new Vector2(-0.16f, 0.05f) };
+        float endCh = Mathf.Min(0.05f, (z1 - z0) * 0.25f);
+        Vector3 Pt(Vector2 q, float z, int end)
+        {   // end：0＝始まり、1＝終わり。上のふち（y＞0）ははしで内へ寄る
+            float zz = z + (q.y > 0.07f ? (end == 0 ? endCh : -endCh) : q.y > 0.03f ? (end == 0 ? endCh * 0.5f : -endCh * 0.5f) : 0f);
+            return new Vector3(cx + q.x, yAt(zz) + q.y, zz);
+        }
+        int n = prof.Length;
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            var mid = (prof[i] + prof[j]) * 0.5f; var e = prof[j] - prof[i];
+            var outN = new Vector3(e.y, -e.x, 0f); if (Vector2.Dot(new Vector2(outN.x, outN.y), mid - new Vector2(0f, 0.05f)) < 0f) outN = -outN;
+            var a = Pt(prof[i], z0, 0); var b = Pt(prof[j], z0, 0); var c = Pt(prof[j], z1, 1); var d = Pt(prof[i], z1, 1);
+            Tri(v, t, a, b, c, outN); Tri(v, t, a, c, d, outN);
+        }
+        // はしの面（扇）
+        foreach (int end in new[] { 0, 1 })
+        {
+            float z = end == 0 ? z0 : z1; var want = end == 0 ? Vector3.back + Vector3.up * 0.3f : Vector3.forward + Vector3.up * 0.3f;
+            for (int i = 1; i + 1 < n; i++) Tri(v, t, Pt(prof[0], z, end), Pt(prof[i], z, end), Pt(prof[i + 1], z, end), want);
+        }
     }
 
     // 崩れたアーチの門（カーテンの柱の外に、上が少し欠けたアーチ）
