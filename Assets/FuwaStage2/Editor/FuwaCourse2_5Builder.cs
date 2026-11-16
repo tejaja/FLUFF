@@ -257,6 +257,7 @@ public static class FuwaCourse2_5Builder
         if (MidRock) MidTierRock(iw, "I2_Rock");   // 2026-11-15 てじゃ「穴が開いてるところ以外に下に島つけよ」→「ポータル付近のとこだけ島にしよう」（出口のポータルができたあと）
         // 2026-11-16 てじゃ「中段、今奥から手前だけど、手前から奥にしたい」「完全に左右逆にして180度回す感じで」
         //  → 到着ポータル（WarpAIn）と出口（WarpW）のまん中を通る、進む向きに直角な鏡で中段まるごと映す（MirrorIsland）
+        if (PitLiners) AddPitLiners();   // 2026-11-16 穴の中の影の壁（鏡の前に：中段の穴の壁もいっしょに映る）
         if (MidMirror && warpAin && warpW) MirrorIsland(iw, root.InverseTransformPoint(warpAin.position), root.InverseTransformPoint(warpW.position));
         HW = hwSave; pitTable = null; TileL = tileL0;
         // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
@@ -1003,6 +1004,71 @@ public static class FuwaCourse2_5Builder
             if (rimSegs != null) rimSegs.Add(new[] { cut[0] + Vector3.up * y1, cut[1] + Vector3.up * y1, nrm.normalized });
         }
     }
+    // ===== 2026-11-16 落とし穴の中の影の壁（てじゃ「最初の穴が穴に見えづらい問題どうにかしたい」→ A：穴の中を下へいくほど暗く）=====
+    //  穴のふちのタイルの横の面が道と同じ明るさで、穴が「色ちがいのタイル」に見えていた → 穴の四方の壁の少し内がわに、下へいくほど真っ暗になる壁を貼る
+    //  穴＝WindRun の中の Tile で MeshRenderer がない物。となりも穴ならその辺はなし
+    public static bool PitLiners = true; public static float PitLinerInset = 0.02f;
+    public static Color PitTopCol = new Color(0.42f, 0.33f, 0.31f), PitBottomCol = new Color(0.06f, 0.045f, 0.05f);
+    static void AddPitLiners()
+    {
+        var mat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Ruins_PitWall.mat");
+        if (!mat) { mat = new Material(Shader.Find("Fuwa/PitWall")); AssetDatabase.CreateAsset(mat, "Assets/FuwaStage2/Materials/Ruins_PitWall.mat"); }
+        int n = 0;
+        foreach (var wr in root.GetComponentsInChildren<Transform>(true).Where(t => t.name.StartsWith("WindRun")).ToList())
+        {
+            var tiles = wr.Cast<Transform>().Where(t => t.name == "Tile").ToList(); if (tiles.Count == 0) continue;
+            var sz = tiles[0].localScale; float w = sz.x, l = sz.z, h = sz.y;
+            System.Func<Vector3, Vector2Int> K = lp => new Vector2Int(Mathf.RoundToInt(lp.x / w * 2f), Mathf.RoundToInt(lp.z / l * 2f));   // 半マス単位
+            // 穴＝タイルがないマス（ふちのタイルは TilesEdge にまとめられて MeshRenderer がないだけなので、それは穴ではない）
+            var have = new HashSet<Vector2Int>(tiles.Select(t => K(t.localPosition)));
+            int kx0 = have.Min(q => q.x), kx1 = have.Max(q => q.x), kz0 = have.Min(q => q.y), kz1 = have.Max(q => q.y);
+            float ty = tiles[0].localPosition.y;
+            var pitKeys = new HashSet<Vector2Int>();
+            for (int kx = kx0; kx <= kx1; kx += 2) for (int kz = kz0; kz <= kz1; kz += 2) { var q = new Vector2Int(kx, kz); if (!have.Contains(q)) pitKeys.Add(q); }
+            if (pitKeys.Count == 0) continue;
+            var pits = pitKeys.Select(q => new Vector3(q.x * w / 2f, ty, q.y * l / 2f)).ToList();
+            var v = new List<Vector3>(); var c = new List<Color>(); var tri = new List<int>();
+            foreach (var lp in pits)
+            {
+                float top = lp.y + h / 2f, bot = lp.y - h / 2f, ins = PitLinerInset;
+                var k = K(lp);
+                var sides = new (Vector2Int nb, Vector3 off, Vector3 along, float half, Vector3 inw)[]
+                {
+                    (new Vector2Int(2, 0), new Vector3(w / 2f - ins, 0f, 0f), Vector3.forward, l / 2f - ins, Vector3.left),
+                    (new Vector2Int(-2, 0), new Vector3(-w / 2f + ins, 0f, 0f), Vector3.forward, l / 2f - ins, Vector3.right),
+                    (new Vector2Int(0, 2), new Vector3(0f, 0f, l / 2f - ins), Vector3.right, w / 2f - ins, Vector3.back),
+                    (new Vector2Int(0, -2), new Vector3(0f, 0f, -l / 2f + ins), Vector3.right, w / 2f - ins, Vector3.forward),
+                };
+                foreach (var s in sides)
+                {
+                    if (pitKeys.Contains(k + s.nb)) continue;   // となりも穴
+                    var cx = new Vector3(lp.x, 0f, lp.z) + s.off;
+                    float ext0 = 0f, ext1 = 0f;   // となりが穴なら、壁を穴どうしのさかいまで伸ばす（角のすき間なし）
+                    var sideStep = s.along == Vector3.forward ? new Vector2Int(0, 2) : new Vector2Int(2, 0);
+                    if (pitKeys.Contains(k + sideStep)) ext1 = ins; if (pitKeys.Contains(k - sideStep)) ext0 = ins;
+                    var a0 = cx - s.along * (s.half + ext0); var a1 = cx + s.along * (s.half + ext1);
+                    float y0 = bot - 0.25f, y1 = top - 0.002f;   // タイルの下より少し下まで
+                    int i0 = v.Count;
+                    v.Add(new Vector3(a0.x, y1, a0.z)); v.Add(new Vector3(a1.x, y1, a1.z)); v.Add(new Vector3(a1.x, y0, a1.z)); v.Add(new Vector3(a0.x, y0, a0.z));
+                    c.Add(PitTopCol); c.Add(PitTopCol); c.Add(PitBottomCol); c.Add(PitBottomCol);
+                    var nrm = Vector3.Cross(v[i0 + 1] - v[i0], v[i0 + 2] - v[i0]);
+                    if (Vector3.Dot(nrm, s.inw) > 0f) { tri.Add(i0); tri.Add(i0 + 1); tri.Add(i0 + 2); tri.Add(i0); tri.Add(i0 + 2); tri.Add(i0 + 3); }   // 表（Cross の向き）を穴の中へ
+                    else { tri.Add(i0); tri.Add(i0 + 2); tri.Add(i0 + 1); tri.Add(i0); tri.Add(i0 + 3); tri.Add(i0 + 2); }
+                }
+            }
+            if (v.Count == 0) continue;
+            string mp = MeshDir + "/PitLiner_" + wr.parent.name + "_" + wr.name + ".asset";
+            var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(mp);
+            if (!mesh) { mesh = new Mesh(); AssetDatabase.CreateAsset(mesh, mp); }
+            mesh.Clear(false); mesh.name = "PitLiner_" + wr.name;
+            mesh.SetVertices(v); mesh.SetColors(c); mesh.SetTriangles(tri, 0); mesh.RecalculateBounds(); EditorUtility.SetDirty(mesh);
+            var ex = wr.Find("PitLiner"); if (ex) Object.DestroyImmediate(ex.gameObject);
+            MeshObj(wr, "PitLiner", mesh, mat, Vector3.zero, 0, false);
+            n += pits.Count;
+        }
+        log.Append("穴の影の壁 " + n + " ");
+    }
+
     // ===== 2026-11-16 島まるごと鏡に映す（中段の向きを逆にする用）=====
     //  鏡：a と b のまん中を通り、a→b（水平）に直角な面。物の位置は鏡に映し、向きは「鏡で映した向き × 自分の左右反転」（＝ちゃんとした回転のまま）、
     //  メッシュは自分の座標の x を反転した物（_Mir）に差しかえる。こうすると前（forward）と上はそのまま映り、左右（right）だけ逆になる＝ポータルや文字の計算が壊れない
