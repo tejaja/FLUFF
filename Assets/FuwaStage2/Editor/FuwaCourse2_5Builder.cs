@@ -1980,6 +1980,8 @@ public static class FuwaCourse2_5Builder
     //  そのマスに下の床があれば、その床の上 2.2m（頭の上）より下へは箱をのばさない（下の段にいる人がアウトにならない）。ポータルの穴のまわりはなし
     //  箱は1つのオブジェクトにまとめる（ふわふわ用・人用それぞれ1つ、BoxCollider をたくさん）
     public static bool TierOuts = true; public static float TierOutCell = 1.5f, TierOutNear = 4.5f;
+    // 2026-11-16 てじゃ「最上段、かなり吹っ飛ぶから余裕持ったほうがいいかも」→ 最上段（TierOutUpperY より上の床）は、TierOutUpperExtra m 深く・TierOutUpperNear m 外まで
+    public static float TierOutUpperY = -140f, TierOutUpperExtra = 3f, TierOutUpperNear = 10f;
     static void AddTierOuts()
     {
         var old = root.Find("TierOuts"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -2000,7 +2002,7 @@ public static class FuwaCourse2_5Builder
             fl[ix, iz] = lst;
         }
         var holes = root.GetComponentsInChildren<Transform>(true).Where(t => t.name == "PortalHole").Select(t => t.position).ToList();
-        int nr = Mathf.CeilToInt(TierOutNear / cs);
+        int nr = Mathf.CeilToInt(Mathf.Max(TierOutNear, TierOutUpperNear) / cs);
         var g = new GameObject("TierOuts").transform; g.SetParent(root, false); g.position = Vector3.zero; g.rotation = Quaternion.identity;
         var ballGo = new GameObject("BallOuts"); ballGo.transform.SetParent(g, false); ballGo.transform.position = Vector3.zero; ballGo.transform.rotation = Quaternion.identity; ballGo.layer = 4;
         var plGo = new GameObject("PlayerOuts"); plGo.transform.SetParent(g, false); plGo.transform.position = Vector3.zero; plGo.transform.rotation = Quaternion.identity;
@@ -2026,8 +2028,13 @@ public static class FuwaCourse2_5Builder
             for (int dx = -nr; dx <= nr; dx++) for (int dz = -nr; dz <= nr; dz++)
             {
                 int jx = ix + dx, jz = iz + dz; if (jx < 0 || jz < 0 || jx >= nx || jz >= nz) continue;
-                if ((dx * dx + dz * dz) * cs * cs > TierOutNear * TierOutNear) continue;
-                foreach (var y in fl[jx, jz]) if (!levels.Any(l => Mathf.Abs(l - y) < 1.0f)) levels.Add(y);
+                float d2 = (dx * dx + dz * dz) * cs * cs;
+                foreach (var y in fl[jx, jz])
+                {
+                    float near = y > TierOutUpperY ? TierOutUpperNear : TierOutNear;
+                    if (d2 > near * near) continue;
+                    if (!levels.Any(l => Mathf.Abs(l - y) < 1.0f)) levels.Add(y);
+                }
             }
             foreach (var L in levels)
             {
@@ -2036,9 +2043,10 @@ public static class FuwaCourse2_5Builder
                 // この高さより下の床（下の段）：その床の上 2.2m より下へはのばさない
                 float floorBelow = here.Where(f => f < L - 1.0f).DefaultIfEmpty(-1e9f).Max();
                 float lim = floorBelow + 2.2f;
-                float bTop = L - 1.2f, bBot = Mathf.Max(L - 3.6f, lim);
+                float ex = L > TierOutUpperY ? TierOutUpperExtra : 0f;
+                float bTop = L - 1.2f - ex, bBot = Mathf.Max(L - 3.6f - ex, lim);
                 if (bTop - bBot > 0.5f) Put(bq, ix, iz, bTop, bBot);
-                float pTop = L - 3.0f, pBot = Mathf.Max(L - 5.4f, lim);
+                float pTop = L - 3.0f - ex, pBot = Mathf.Max(L - 5.4f - ex, lim);
                 if (pTop - pBot > 0.5f) Put(pq, ix, iz, pTop, pBot);
             }
         }
