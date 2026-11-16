@@ -1707,6 +1707,7 @@ public static class FuwaCourse2_5Builder
         {
             var v = new List<Vector3>(); var t = new List<int>();     // 石（橋脚・スパンドレル・アーチの下）
             var rv = new List<Vector3>(); var rt = new List<int>();   // テラコッタ（くさび石の輪・コーニス）
+            var av = new List<Vector3>(); var at = new List<int>();   // アーチの輪（2026-11-16 てじゃ「この色だと内側も同じ色のレンガじゃないとおかしい」→ まわりの石に近い色）
             var rnd = new System.Random(Mathf.RoundToInt(len * 100f + rise * 10f));
             void Quad(List<Vector3> vv, List<int> tt, Vector3 a, Vector3 b, Vector3 c, Vector3 d, Vector3 want) { Tri(vv, tt, a, b, c, want); Tri(vv, tt, a, c, d, want); }
             // 2026-11-15 てじゃ「最初の橋の裏側がおかしい」→ 穴あきの橋は、穴から中が見えないように：アーチ・橋脚を両はしのリブ（xi〜xo）だけにして、まん中は下まで抜ける。リブの上もふさぐ
@@ -1775,6 +1776,12 @@ public static class FuwaCourse2_5Builder
                 // くさび石の輪は欠けの所でまっすぐ切る（リブの崩れの中へ細い輪だけはみ出して見えた）
                 //  2026-11-16 てじゃ「アーチ部分の細かいの違和感」→ 輪は前と同じ 12 こま（rs こまずつ）で作る。k は rs の倍数、その rs こまのどれかが欠けなら全部なし
                 int rs = K / 12;
+                // 輪の外向き（こまのさかい k で、前後のこまの向きの平均）
+                Vector3 RN(int kk)
+                {
+                    var d = sof[Mathf.Min(K, kk + rs)] - sof[Mathf.Max(0, kk - rs)];
+                    var nn = Vector3.Cross(Vector3.right, d.normalized); if (nn.y < 0) nn = -nn; return nn;
+                }
                 bool RingGone(float sx, int k) { if (!open || k < 0 || k >= K) return false; for (int q = k; q < k + rs && q < K; q++) if (BiteW(sx, (sof[q].z + sof[q + 1].z) * 0.5f) > 0.001f) return true; return false; }
                 for (int k = 0; k < K; k++)
                 {
@@ -1784,13 +1791,11 @@ public static class FuwaCourse2_5Builder
                     {
                         if (k % rs == 0 && !RingGone(sx, k))
                         {
-                            var bR = sof[k + rs];
-                            var nr2 = Vector3.Cross(Vector3.right, (bR - a).normalized); if (nr2.y < 0) nr2 = -nr2;
-                            foreach (var (zc, y0c, nb, dirz) in new[] { (a.z, a.y, k - rs, -1f), (bR.z, bR.y, k + rs, 1f) })
+                            foreach (var (kk, nb, dirz) in new[] { (k, k - rs, -1f), (k + rs, k + rs, 1f) })
                             {
                                 if (!RingGone(sx, nb)) continue;
-                                var r0 = new Vector3(sx * xo, y0c, zc); var r1 = new Vector3(sx * xr, y0c, zc);
-                                Quad(rv, rt, r0, r1, r1 + nr2 * 0.35f, r0 + nr2 * 0.35f, new Vector3(0f, 0f, dirz));   // くさび石の輪の切れ口
+                                var q0 = sof[kk]; var r0 = new Vector3(sx * xo, q0.y, q0.z); var r1 = new Vector3(sx * xr, q0.y, q0.z);
+                                Quad(av, at, r0, r1, r1 + RN(kk) * 0.35f, r0 + RN(kk) * 0.35f, new Vector3(0f, 0f, dirz));   // くさび石の輪の切れ口
                             }
                         }
                         if (Gone(sx, k)) continue;
@@ -1825,11 +1830,18 @@ public static class FuwaCourse2_5Builder
                     foreach (float sx in new[] { -1f, 1f })
                     {
                         if (k % rs != 0 || RingGone(sx, k)) continue;
-                        var bq = sof[k + rs]; var nrm2 = Vector3.Cross(Vector3.right, (bq - a).normalized); if (nrm2.y < 0) nrm2 = -nrm2;
-                        Vector3 a0 = new Vector3(sx * xr, a.y, a.z), b0 = new Vector3(sx * xr, bq.y, bq.z), a1 = a0 + nrm2 * rw, b1 = b0 + nrm2 * rw;
-                        Quad(rv, rt, a0, b0, b1, a1, new Vector3(sx, 0f, 0f));
-                        Quad(rv, rt, new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, bq.y, bq.z), b0, a0, Vector3.down);
-                        Quad(rv, rt, new Vector3(sx * xo, a1.y, a1.z), new Vector3(sx * xo, b1.y, b1.z), b1, a1, nrm2);
+                        // 2026-11-16 てじゃ「アーチ、側面が開いてる」→ こまの間のくさび形のすき間（外のふちがこまごとにずれていた）→ はしの外向きを となりのこまと平均して1本の輪に。輪のはしはふたをする
+                        var bq = sof[k + rs]; var na = RN(k); var nb2 = RN(k + rs); var nm = (na + nb2).normalized;
+                        Vector3 a0 = new Vector3(sx * xr, a.y, a.z), b0 = new Vector3(sx * xr, bq.y, bq.z), a1 = a0 + na * rw, b1 = b0 + nb2 * rw;
+                        Quad(av, at, a0, b0, b1, a1, new Vector3(sx, 0f, 0f));
+                        Quad(av, at, new Vector3(sx * xo, a.y, a.z), new Vector3(sx * xo, bq.y, bq.z), b0, a0, -nm);
+                        Quad(av, at, new Vector3(sx * xo, a1.y, a1.z), new Vector3(sx * xo, b1.y, b1.z), b1, a1, nm);
+                        foreach (var (kk, dirz) in new[] { (k, -1f), (k + rs, 1f) })
+                        {
+                            if (kk != 0 && kk != K) continue;   // 橋脚につくはし
+                            var q0 = sof[kk]; var r0 = new Vector3(sx * xo, q0.y, q0.z); var r1 = new Vector3(sx * xr, q0.y, q0.z);
+                            Quad(av, at, r0, r1, r1 + RN(kk) * rw, r0 + RN(kk) * rw, new Vector3(0f, 0f, dirz));
+                        }
                         // 石の継ぎ目に見える小さい切れ目（2つおきに少しへこませた面を足す…はやめて、色の段だけ）
                     }
                 }
@@ -1867,6 +1879,7 @@ public static class FuwaCourse2_5Builder
             }
             MeshObj(isl, "BridgeStone", SaveMesh(bn + "_Stone", v, t), stone, Vector3.zero, 0, true);
             MeshObj(isl, "BridgeTrim", SaveMesh(bn + "_Trim", rv, rt), terraD, Vector3.zero, 0, true);
+            if (av.Count > 0) MeshObj(isl, "BridgeRing", SaveMesh(bn + "_Ring", av, at), FuwaStage2WaterTest.ToonMat("Ruins_ArchRing", ArchRingCol), Vector3.zero, 0, true);
         }
         // 欄干：2m ほどの区切りごとに低い壁＋笠石。ところどころ崩れて切れている（橋の両はしはつなぐ）。gapPlusX の所は道の外へ橋の残骸がつながるのであけておく
         {
@@ -1956,6 +1969,7 @@ public static class FuwaCourse2_5Builder
     }
 
     public static bool CapBevel = true;
+    public static Color ArchRingCol = new Color(0.79f, 0.66f, 0.56f);   // 石（0.86,0.74,0.62）より少しだけ暗い
     // 笠石：x のまん中 cx、z0〜z1、下の面の高さ yAt(z)。断面は はば 0.32・高さ 0.1、上の両ふちを 0.05 面取り。両はしも上を 0.05 斜めに
     static void CapBeam(List<Vector3> v, List<int> t, float cx, float z0, float z1, System.Func<float, float> yAt)
     {
