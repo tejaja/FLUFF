@@ -672,6 +672,31 @@ public static class FuwaCourse2_5Builder
                 n++;
             }
         }
+        // 2026-11-16 てじゃ「もっと割れて開いてる方にもつけて」→ 口（割れて開いている方）の両がわの壁と、口の天井にも
+        {
+            var mper2 = new Vector2(-mdir.y, mdir.x);
+            for (int k = 0; k < 8; k++)
+            {
+                float side = k % 2 == 0 ? -1f : 1f;
+                float u = hx - 0.8f + (CaveRingW - 0.2f) * (k / 2 + 0.3f + 0.4f * (float)rnd.NextDouble()) / 4f;   // 部屋のふち〜口の壁の終わり（輪 hx+CaveRingW）まで。外は壁がなく浮くので置かない
+                var p2 = sc + mdir * u + mper2 * side * (CaveMouthW / 2f + 0.3f);
+                float y = Mathf.Lerp(cy0 + 0.4f, cy1 - 0.9f, (float)rnd.NextDouble());
+                float s = 0.6f + 0.6f * (float)rnd.NextDouble();
+                var inward = new Vector3(-mper2.x * side, 0f, -mper2.y * side);
+                var axis = (inward * (0.7f + 0.4f * (float)rnd.NextDouble()) + Vector3.up * (0.25f + 0.7f * (float)rnd.NextDouble()) + new Vector3(mdir.x, 0f, mdir.y) * ((float)rnd.NextDouble() - 0.3f) * 0.6f).normalized;
+                var o = MeshObj(g, "MouthCrystal" + k, CrystalClusterMesh("GoalCave_Mouth" + k, 980 + k, s, 1 + rnd.Next(3)), cm, new Vector3(p2.x, y, p2.y), 0, false);
+                o.transform.localRotation = Quaternion.FromToRotation(Vector3.up, axis) * Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+                n++;
+            }
+            for (int k = 0; k < 3; k++)
+            {
+                float u = hx + 0.5f + (CaveRingW + 2f) * (k + 0.5f) / 3f;
+                var p2 = sc + mdir * u + mper2 * ((float)rnd.NextDouble() - 0.5f) * (CaveMouthW * 0.6f);
+                var o = MeshObj(g, "MouthCeil" + k, CrystalClusterMesh("GoalCave_MouthCeil" + k, 995 + k, 0.6f + 0.4f * (float)rnd.NextDouble(), 2), cm, new Vector3(p2.x, cy1 + 0.1f, p2.y), 0, false);
+                o.transform.localRotation = Quaternion.Euler(180f + ((float)rnd.NextDouble() - 0.5f) * 50f, (float)rnd.NextDouble() * 360f, ((float)rnd.NextDouble() - 0.5f) * 50f);
+                n++;
+            }
+        }
         // 光：天井の大きい塊の少し下から（影あり）
         {
             var lg = new GameObject("CaveLight"); lg.transform.SetParent(g, false);
