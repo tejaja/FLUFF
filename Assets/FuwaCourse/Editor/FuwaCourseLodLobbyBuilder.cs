@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UdonSharp;
 using UdonSharpEditor;
@@ -18,12 +18,38 @@ public static class FuwaCourseLodLobbyBuilder
         "FuwaEnemy", "FuwaMama", "FuwaDemoStand", "FuwaDemoMonster", "FuwaReadMarks",
     };
 
+    // 2026-11-16 てじゃ「ステージ２のロビーおもいなあ」「ステージ１のときみたいに、うどんが常時うごきすぎかな？」
+    //  → ステージ2用（CourseLodStage2）も同じように集める。見た目だけ・自分の画面だけで、プレイヤーを運ぶ・後始末する物は入れない
+    //  （入れない：ワープ・チェックポイント・ゴール・風の範囲・浅瀬・熱・歯車の乗り物・回る床・動く氷・すべり・ポータル・バリア・衝撃波・音・影の切り替え・ハザード）
+    static readonly string[] StopTypes2 =
+    {
+        "FuwaFacePlayer", "FuwaGoalMarker", "FuwaWindDeco", "FuwaWebHole", "FuwaEnemy",
+        "FuwaFireJet", "FuwaFireball", "FuwaLavaRock", "FuwaClamBubbles", "FuwaGuardFish", "FuwaRiverFish",
+        "FuwaGearGuard", "FuwaSugarPipe", "FuwaCloudFactory", "FuwaWindmill", "FuwaClockwork", "FuwaTiltIce", "FuwaSizeRune",
+    };
+
     [MenuItem("FuwaCourse/よく使う/スマホのロビーで止める物を集め直す")]
     public static void Menu() { Debug.Log(Build()); }
 
+    [MenuItem("FuwaCourse/ステージ2/ステージ2のロビーで止める物を集め直す")]
+    public static void MenuStage2() { Debug.Log(BuildStage2()); }
+
+    public static string BuildStage2()
+    {
+        var lod = Resources.FindObjectsOfTypeAll<FuwaCourseLod>().FirstOrDefault(l => l && l.gameObject.scene.IsValid() && l.stage == 2); if (!lod) return "CourseLodStage2 がない";
+        var main = Resources.FindObjectsOfTypeAll<FuwaCourseLod>().FirstOrDefault(l => l && l.gameObject.scene.IsValid() && l.stage <= 1);
+        if (lod.lobbyNearRadius <= 0f) lod.lobbyNearRadius = main ? main.lobbyNearRadius : 40f;   // 0 だと全部止まる（ステージ1と同じく近くだけ動かす）
+        return "[ステージ2] " + Build(lod, StopTypes2);
+    }
+
     public static string Build()
     {
-        var lod = Object.FindObjectOfType<FuwaCourseLod>(true); if (!lod) return "FuwaCourseLod がない";
+        var lod = Resources.FindObjectsOfTypeAll<FuwaCourseLod>().FirstOrDefault(l => l && l.gameObject.scene.IsValid() && l.stage <= 1); if (!lod) return "FuwaCourseLod がない";
+        return Build(lod, StopTypes);
+    }
+
+    static string Build(FuwaCourseLod lod, string[] stopTypes)
+    {
         var roots = lod.fullRoots.Where(r => r).ToList();
 
         // Udon（U#）から参照されている物（粒を出したり止めたりしている物は外す）
@@ -47,7 +73,7 @@ public static class FuwaCourseLodLobbyBuilder
         {
             foreach (var u in r.GetComponentsInChildren<UdonSharpBehaviour>(true))
             {
-                string n = u.GetType().Name; if (!StopTypes.Contains(n)) continue;
+                string n = u.GetType().Name; if (!stopTypes.Contains(n)) continue;
                 var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(u); if (!ub || !ub.enabled) continue;
                 behaviours.Add(ub); counts[n] = counts.TryGetValue(n, out int k) ? k + 1 : 1;
             }
