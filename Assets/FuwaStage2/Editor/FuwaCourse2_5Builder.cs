@@ -1970,6 +1970,36 @@ public static class FuwaCourse2_5Builder
     }
 
     public static bool CapBevel = true;
+    // 2026-11-16 てじゃ「真ん中の台座のれちゃうのと、真ん中つっきれちゃうのが問題」「台座の外周から真上にうっすらバリアみたいな円柱のバリア」「いま青い円があるあたり」
+    //  → 床の青いルーンの輪（1.7〜2.2m）のまん中の半径に、うすい六角もようの筒（見た目）＋同じ半径の多角柱の当たり（プレイヤーもふわふわも通れない、レイヤー0）
+    public static bool PlazaBarrier = true; public static float PlazaBarrierR = 1.95f, PlazaBarrierH = 7f, PlazaBarrierColH = 10f;
+    static void PlazaPillarBarrier(Transform g, string name)
+    {
+        int n = 64; float R = PlazaBarrierR, H = PlazaBarrierH;
+        var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>(); var nn = new List<Vector3>();
+        float per = 2f * Mathf.PI * R;
+        for (int i = 0; i <= n; i++)
+        {
+            float a = Mathf.PI * 2f * i / n; var d = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            v.Add(d * R); v.Add(d * R + Vector3.up * H); uv.Add(new Vector2(per * i / n, 0f)); uv.Add(new Vector2(per * i / n, H)); nn.Add(d); nn.Add(d);
+            if (i < n) { int k = i * 2; t.Add(k); t.Add(k + 1); t.Add(k + 2); t.Add(k + 1); t.Add(k + 3); t.Add(k + 2); }
+        }
+        var m = FxMat("Ruins_PlazaBarrier", "Fuwa/PillarBarrier"); m.SetColor("_Color", ShieldCol); m.SetFloat("_Height", H); EditorUtility.SetDirty(m);
+        var vis = MeshObj(g, "CenterBarrier", SaveMeshUV(name + "_Barrier", v, t, uv, nn), m, Vector3.zero, 0, false);
+        var r = vis.GetComponent<MeshRenderer>(); r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+        // 当たり：凸の 24 角柱
+        var cv = new List<Vector3>(); var ct = new List<int>(); int cn = 24;
+        for (int i = 0; i < cn; i++)
+        {
+            float a0 = Mathf.PI * 2f * i / cn, a1 = Mathf.PI * 2f * (i + 1) / cn;
+            var d0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)) * R; var d1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1)) * R;
+            var u = Vector3.up * PlazaBarrierColH;
+            Tri(cv, ct, d0, d1, d1 + u, d0 + d1); Tri(cv, ct, d0, d1 + u, d0 + u, d0 + d1);
+            Tri(cv, ct, u, d0 + u, d1 + u, Vector3.up); Tri(cv, ct, Vector3.zero, d0, d1, Vector3.down);
+        }
+        var col = new GameObject("CenterBarrierCol"); col.transform.SetParent(g, false); col.layer = 0;
+        var mc = col.AddComponent<MeshCollider>(); mc.sharedMesh = SaveMesh(name + "_BarrierCol", cv, ct); mc.convex = true;
+    }
     public static float ShieldApproachExtra = 2f;
     // 2026-11-16 てじゃ「出口のゲート以降は衝撃波届かなくしたい」：衝撃波に、出口の門（の面）より先は当たらない・見せない を設定
     static void ShockExitCut()
@@ -5594,6 +5624,7 @@ public static class FuwaCourse2_5Builder
         ped.transform.localPosition = new Vector3(0f, 0.42f, 0f); ped.transform.localScale = new Vector3(3.1f, 0.42f, 3.1f);
         Object.DestroyImmediate(ped.GetComponent<MeshRenderer>()); Object.DestroyImmediate(ped.GetComponent<MeshFilter>());
         var altar = AltarMesh(name + "_Altar");
+        if (PlazaBarrier) PlazaPillarBarrier(g, name);
         // 2026-11-15 てじゃ「クリスタル台座のコケが雑」：四角い板の苔 → 石像と同じやり方（上を向いた面に、まだらに苔の色。FuwaToonLit の地面のムラ）
         MeshObj(g, "Altar", altar.stone, AltarStoneMat(stone), Vector3.zero, 0, true);
         var altarRune = MeshObj(g, "AltarRune", altar.rune, runeM, Vector3.zero, 0, false);
