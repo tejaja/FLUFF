@@ -1014,6 +1014,91 @@ public static class FuwaCourse2_5Builder
     public static Color PitTopCol = new Color(0.47f, 0.41f, 0.32f), PitBottomCol = new Color(0.27f, 0.22f, 0.18f);
     public static bool PitChips = false;   // 2026-11-16 てじゃ「やっぱなしかなぁ」→ 割れ残りはやめ、暗い壁だけ（すき間が見えないよう壁はタイルの横の面から 5mm）
     public static bool PitRim = false; public static float PitRimW = 0.07f, PitRimH = 0.02f; public static Color PitRimCol = new Color(0.36f, 0.25f, 0.22f), PitRimSideCol = new Color(0.22f, 0.15f, 0.14f);
+    // 2026-11-16 てじゃ「穴のフチにベベルかけるとかどう？」→ 穴のまわりのタイルの上のふちを斜めに削った見た目に（当たりは箱のまま）
+    //  穴のある道は、タイルの見た目を全部ここで作り直す：道のはしの列の外がわ（PathChamfer）＋穴に面した辺（PitBevel）を面取り。行ごとに A/B の色
+    public static float PitBevel = 0.09f;   // 道のはしの面取り（PathChamfer）と同じ大きさ（角でぴったり合う）
+    static void BevelPitTiles(Transform wr, List<Transform> tiles, HashSet<Vector2Int> pitKeys, System.Func<Vector3, Vector2Int> K, int kx0, int kx1)
+    {
+        var rowMat = new Dictionary<int, Material>();
+        foreach (var tl in tiles) { var mr = tl.GetComponent<MeshRenderer>(); if (mr) rowMat[K(tl.localPosition).y] = mr.sharedMaterial; }
+        var rowsK = tiles.Select(tl => K(tl.localPosition).y).Distinct().OrderBy(q => q).ToList();
+        for (int pass = 0; pass < rowsK.Count; pass++)
+            for (int i = 0; i < rowsK.Count; i++)
+            {
+                if (rowMat.ContainsKey(rowsK[i])) continue;
+                foreach (int j in new[] { i - 1, i + 1 })
+                    if (j >= 0 && j < rowsK.Count && rowMat.TryGetValue(rowsK[j], out var m)) { rowMat[rowsK[i]] = m == pathA ? pathB : pathA; break; }
+            }
+        var vv = new Dictionary<Material, List<Vector3>>(); var tt = new Dictionary<Material, List<int>>();
+        foreach (var tl in tiles)
+        {
+            var k = K(tl.localPosition);
+            var mat = rowMat.TryGetValue(k.y, out var mm) ? mm : pathA;
+            if (!vv.ContainsKey(mat)) { vv[mat] = new List<Vector3>(); tt[mat] = new List<int>(); }
+            var sz = tl.localScale;
+            // となりのマス（半マス単位で 2 つ先。行の長さがちがう最後の列は z のとなりを長さから）
+            float cxp = 0f, cxm = 0f, czp = 0f, czm = 0f;
+            if (pitKeys.Contains(k + new Vector2Int(2, 0))) cxp = PitBevel; else if (k.x == kx1 && PathChamfer > 0f) cxp = PathChamfer;
+            if (pitKeys.Contains(k - new Vector2Int(2, 0))) cxm = PitBevel; else if (k.x == kx0 && PathChamfer > 0f) cxm = PathChamfer;
+            if (pitKeys.Contains(k + new Vector2Int(0, 2))) czp = PitBevel;
+            if (pitKeys.Contains(k - new Vector2Int(0, 2))) czm = PitBevel;
+            ChamferTile(vv[mat], tt[mat], tl.localPosition, sz, cxp, cxm, czp, czm);
+            var r = tl.GetComponent<MeshRenderer>(); if (r) Object.DestroyImmediate(r);
+            var f = tl.GetComponent<MeshFilter>(); if (f) Object.DestroyImmediate(f);
+        }
+        foreach (var old in wr.Cast<Transform>().Where(x => x.name == "TilesEdgeA" || x.name == "TilesEdgeB" || x.name == "TilesBevel").ToList()) Object.DestroyImmediate(old.gameObject);
+        int n = 0;
+        foreach (var kv in vv) MeshObj(wr, "TilesBevel", SaveMesh("TilesBevel_" + wr.parent.name + "_" + wr.name + "_" + (n++), kv.Value, tt[kv.Key]), kv.Key, Vector3.zero, 0, true);
+    }
+    // 箱の上の4辺を、辺ごとの大きさで面取り（0＝なし）。面ごとに頂点を分ける（角ばった陰影）
+    static void ChamferTile(List<Vector3> v, List<int> t, Vector3 c, Vector3 sz, float cxp, float cxm, float czp, float czm)
+    {
+        float hx = sz.x / 2f, hz = sz.z / 2f, yb = c.y - sz.y / 2f, yt = c.y + sz.y / 2f;
+        Vector3 P(float x, float y, float z) => new Vector3(c.x + x, y, c.z + z);
+        void Poly(List<Vector3> pts, Vector3 want) { for (int i = 1; i + 1 < pts.Count; i++) Tri(v, t, pts[0], pts[i], pts[i + 1], want); }
+        // 上
+        Poly(new List<Vector3> { P(-hx + cxm, yt, -hz + czm), P(hx - cxp, yt, -hz + czm), P(hx - cxp, yt, hz - czp), P(-hx + cxm, yt, hz - czp) }, Vector3.up);
+        // 下
+        Poly(new List<Vector3> { P(-hx, yb, -hz), P(hx, yb, -hz), P(hx, yb, hz), P(-hx, yb, hz) }, Vector3.down);
+        // 横の面（x 向き）：sx の面。上のふちは、自分が面取りなら yt-ch の高さで全長、ちがうなら yt で、両はしは z の面取りぶん下がる
+        foreach (float sx in new[] { 1f, -1f })
+        {
+            float ch = sx > 0 ? cxp : cxm, x = sx * hx;
+            var pts = new List<Vector3> { P(x, yb, -hz), P(x, yb, hz) };
+            if (ch > 0f) { pts.Add(P(x, yt - ch, hz)); pts.Add(P(x, yt - ch, -hz)); }
+            else
+            {
+                if (czp > 0f) { pts.Add(P(x, yt - czp, hz)); pts.Add(P(x, yt, hz - czp)); } else pts.Add(P(x, yt, hz));
+                if (czm > 0f) { pts.Add(P(x, yt, -hz + czm)); pts.Add(P(x, yt - czm, -hz)); } else pts.Add(P(x, yt, -hz));
+            }
+            Poly(pts, new Vector3(sx, 0f, 0f));
+            if (ch > 0f)   // 斜めの面：下のふち（x, yt-ch）→ 上のふち（x-sx*ch, yt）。両はしは z の面取りがあれば斜めに合わせる
+                Poly(new List<Vector3> { P(x, yt - ch, -hz), P(x, yt - ch, hz), P(x - sx * ch, yt, hz - czp), P(x - sx * ch, yt, -hz + czm) }, new Vector3(sx, 1f, 0f));
+        }
+        foreach (float sz2 in new[] { 1f, -1f })
+        {
+            float ch = sz2 > 0 ? czp : czm, z = sz2 * hz;
+            var pts = new List<Vector3> { P(-hx, yb, z), P(hx, yb, z) };
+            if (ch > 0f) { pts.Add(P(hx, yt - ch, z)); pts.Add(P(-hx, yt - ch, z)); }
+            else
+            {
+                if (cxp > 0f) { pts.Add(P(hx, yt - cxp, z)); pts.Add(P(hx - cxp, yt, z)); } else pts.Add(P(hx, yt, z));
+                if (cxm > 0f) { pts.Add(P(-hx + cxm, yt, z)); pts.Add(P(-hx, yt - cxm, z)); } else pts.Add(P(-hx, yt, z));
+            }
+            Poly(pts, new Vector3(0f, 0f, sz2));
+            if (ch > 0f)
+                Poly(new List<Vector3> { P(-hx, yt - ch, z), P(hx, yt - ch, z), P(hx - cxp, yt, z - sz2 * ch), P(-hx + cxm, yt, z - sz2 * ch) }, new Vector3(0f, 1f, sz2));
+        }
+        // 角：となり合う2辺がどちらも面取りで大きさがちがう時のすき間（三角）をふさぐ
+        foreach (float sx in new[] { 1f, -1f }) foreach (float sz2 in new[] { 1f, -1f })
+        {
+            float a = sx > 0 ? cxp : cxm, b = sz2 > 0 ? czp : czm;
+            if (a <= 0f || b <= 0f || Mathf.Abs(a - b) < 1e-4f) continue;
+            float x = sx * hx, z = sz2 * hz;
+            if (a > b) Tri(v, t, P(x, yt - a, z), P(x, yt - b, z), P(x - sx * a, yt, z - sz2 * b), new Vector3(sx, 1f, sz2));
+            else Tri(v, t, P(x, yt - a, z), P(x, yt - b, z), P(x - sx * a, yt, z - sz2 * b), new Vector3(sx, 1f, sz2));
+        }
+    }
     static void AddPitLiners()
     {
         var mat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Ruins_PitWall.mat");
@@ -1031,6 +1116,7 @@ public static class FuwaCourse2_5Builder
             var pitKeys = new HashSet<Vector2Int>();
             for (int kx = kx0; kx <= kx1; kx += 2) for (int kz = kz0; kz <= kz1; kz += 2) { var q = new Vector2Int(kx, kz); if (!have.Contains(q)) pitKeys.Add(q); }
             if (pitKeys.Count == 0) continue;
+            if (PitBevel > 0f) BevelPitTiles(wr, tiles, pitKeys, K, kx0, kx1);
             var pits = pitKeys.Select(q => new Vector3(q.x * w / 2f, ty, q.y * l / 2f)).ToList();
             var v = new List<Vector3>(); var c = new List<Color>(); var tri = new List<int>();
             var chipV = new Dictionary<Material, List<Vector3>>(); var chipT = new Dictionary<Material, List<int>>();
@@ -1056,7 +1142,7 @@ public static class FuwaCourse2_5Builder
                     var sideStep = s.along == Vector3.forward ? new Vector2Int(0, 2) : new Vector2Int(2, 0);
                     if (pitKeys.Contains(k + sideStep)) ext1 = ins; if (pitKeys.Contains(k - sideStep)) ext0 = ins;
                     var a0 = cx - s.along * (s.half + ext0); var a1 = cx + s.along * (s.half + ext1);
-                    float y0 = biteRow ? bot + 0.002f : bot - 0.25f, y1 = top - (PitChips ? 0.095f : 0.002f);   // タイルの下より少し下まで。割れ残りがある時は、その上の面（-4mm）より下で止める（割れ残りの上に線が出ない）
+                    float y0 = biteRow ? bot + 0.002f : bot - 0.25f, y1 = top - (PitChips ? 0.095f : 0.002f) - PitBevel;   // タイルの下より少し下まで。割れ残りがある時は、その上の面（-4mm）より下で止める（割れ残りの上に線が出ない）
                     int i0 = v.Count;
                     v.Add(new Vector3(a0.x, y1, a0.z)); v.Add(new Vector3(a1.x, y1, a1.z)); v.Add(new Vector3(a1.x, y0, a1.z)); v.Add(new Vector3(a0.x, y0, a0.z));
                     c.Add(PitTopCol); c.Add(PitTopCol); c.Add(PitBottomCol); c.Add(PitBottomCol);
