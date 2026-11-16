@@ -1029,20 +1029,38 @@ public static class FuwaCourse2_5Builder
                 foreach (int j in new[] { i - 1, i + 1 })
                     if (j >= 0 && j < rowsK.Count && rowMat.TryGetValue(rowsK[j], out var m)) { rowMat[rowsK[i]] = m == pathA ? pathB : pathA; break; }
             }
+        // 辺ごとの面取りの大きさ（0:+x 1:-x 2:+z 3:-z）
+        var chs = new Dictionary<Vector2Int, float[]>();
+        foreach (var tl in tiles)
+        {
+            var k = K(tl.localPosition); var ch = new float[4];
+            if (pitKeys.Contains(k + new Vector2Int(2, 0))) ch[0] = PitBevel; else if (k.x == kx1 && PathChamfer > 0f) ch[0] = PathChamfer;
+            if (pitKeys.Contains(k - new Vector2Int(2, 0))) ch[1] = PitBevel; else if (k.x == kx0 && PathChamfer > 0f) ch[1] = PathChamfer;
+            if (pitKeys.Contains(k + new Vector2Int(0, 2))) ch[2] = PitBevel;
+            if (pitKeys.Contains(k - new Vector2Int(0, 2))) ch[3] = PitBevel;
+            chs[k] = ch;
+        }
+        var stepOf = new[] { new Vector2Int(2, 0), new Vector2Int(-2, 0), new Vector2Int(0, 2), new Vector2Int(0, -2) };
         var vv = new Dictionary<Material, List<Vector3>>(); var tt = new Dictionary<Material, List<int>>();
         foreach (var tl in tiles)
         {
             var k = K(tl.localPosition);
             var mat = rowMat.TryGetValue(k.y, out var mm) ? mm : pathA;
             if (!vv.ContainsKey(mat)) { vv[mat] = new List<Vector3>(); tt[mat] = new List<int>(); }
-            var sz = tl.localScale;
-            // となりのマス（半マス単位で 2 つ先。行の長さがちがう最後の列は z のとなりを長さから）
-            float cxp = 0f, cxm = 0f, czp = 0f, czm = 0f;
-            if (pitKeys.Contains(k + new Vector2Int(2, 0))) cxp = PitBevel; else if (k.x == kx1 && PathChamfer > 0f) cxp = PathChamfer;
-            if (pitKeys.Contains(k - new Vector2Int(2, 0))) cxm = PitBevel; else if (k.x == kx0 && PathChamfer > 0f) cxm = PathChamfer;
-            if (pitKeys.Contains(k + new Vector2Int(0, 2))) czp = PitBevel;
-            if (pitKeys.Contains(k - new Vector2Int(0, 2))) czm = PitBevel;
-            ChamferTile(vv[mat], tt[mat], tl.localPosition, sz, cxp, cxm, czp, czm);
+            var ch = chs[k];
+            // 2026-11-16 てじゃ「（角で）出っ張ってみえる」→ 面取りが、となりのタイル（同じ辺が面取りでない）につき当たる所は、すぼめて消す（stop）
+            //  stop[i, e]：辺 i の、a の向き（x の辺→+z/-z、z の辺→+x/-x）の e 側のはし
+            var stop = new bool[4, 2];
+            for (int i = 0; i < 4; i++)
+            {
+                if (ch[i] <= 0f) continue;
+                for (int e = 0; e < 2; e++)
+                {
+                    var along = i < 2 ? stepOf[e == 0 ? 2 : 3] : stepOf[e == 0 ? 0 : 1];
+                    stop[i, e] = chs.TryGetValue(k + along, out var nb) && nb[i] <= 0f;
+                }
+            }
+            ChamferTile(vv[mat], tt[mat], tl.localPosition, tl.localScale, ch, stop);
             var r = tl.GetComponent<MeshRenderer>(); if (r) Object.DestroyImmediate(r);
             var f = tl.GetComponent<MeshFilter>(); if (f) Object.DestroyImmediate(f);
         }
@@ -1050,53 +1068,72 @@ public static class FuwaCourse2_5Builder
         int n = 0;
         foreach (var kv in vv) MeshObj(wr, "TilesBevel", SaveMesh("TilesBevel_" + wr.parent.name + "_" + wr.name + "_" + (n++), kv.Value, tt[kv.Key]), kv.Key, Vector3.zero, 0, true);
     }
-    // 箱の上の4辺を、辺ごとの大きさで面取り（0＝なし）。面ごとに頂点を分ける（角ばった陰影）
-    static void ChamferTile(List<Vector3> v, List<int> t, Vector3 c, Vector3 sz, float cxp, float cxm, float czp, float czm)
+    // 箱の上の4辺を面取り（ch[i]=0 はなし）。辺のはしは：となりの辺も面取り＝斜めに合わせる（miter）、stop＝すぼめて消す、ほか＝そのまま抜ける
+    //  面ごとに頂点を分ける（角ばった陰影）
+    static void ChamferTile(List<Vector3> v, List<int> t, Vector3 c, Vector3 sz, float[] ch, bool[,] stop)
     {
         float hx = sz.x / 2f, hz = sz.z / 2f, yb = c.y - sz.y / 2f, yt = c.y + sz.y / 2f;
-        Vector3 P(float x, float y, float z) => new Vector3(c.x + x, y, c.z + z);
-        void Poly(List<Vector3> pts, Vector3 want) { for (int i = 1; i + 1 < pts.Count; i++) Tri(v, t, pts[0], pts[i], pts[i + 1], want); }
-        // 上
-        Poly(new List<Vector3> { P(-hx + cxm, yt, -hz + czm), P(hx - cxp, yt, -hz + czm), P(hx - cxp, yt, hz - czp), P(-hx + cxm, yt, hz - czp) }, Vector3.up);
-        // 下
-        Poly(new List<Vector3> { P(-hx, yb, -hz), P(hx, yb, -hz), P(hx, yb, hz), P(-hx, yb, hz) }, Vector3.down);
-        // 横の面（x 向き）：sx の面。上のふちは、自分が面取りなら yt-ch の高さで全長、ちがうなら yt で、両はしは z の面取りぶん下がる
-        foreach (float sx in new[] { 1f, -1f })
+        var nV = new[] { Vector3.right, Vector3.left, Vector3.forward, Vector3.back };
+        float[] W = { hx, hx, hz, hz }, L = { hz, hz, hx, hx };
+        // 辺 i のはし e（0:+a 1:-a）にある、となりの辺
+        int Perp(int i, int e) => i < 2 ? (e == 0 ? 2 : 3) : (e == 0 ? 0 : 1);
+        Vector3 Av(int i) => i < 2 ? Vector3.forward : Vector3.right;
+        Vector3 F(int i, float nOff, float y, float aOff) { var q = c + nV[i] * nOff + Av(i) * aOff; q.y = y; return q; }
+        void Q(Vector3 a, Vector3 b, Vector3 cc, Vector3 d, Vector3 want) { Tri(v, t, a, b, cc, want); Tri(v, t, a, cc, d, want); }
+        // 上の面（角ごとの点）
+        var top = new List<Vector3>();
+        foreach (var (sx, sz2) in new[] { (-1f, -1f), (1f, -1f), (1f, 1f), (-1f, 1f) })
         {
-            float ch = sx > 0 ? cxp : cxm, x = sx * hx;
-            var pts = new List<Vector3> { P(x, yb, -hz), P(x, yb, hz) };
-            if (ch > 0f) { pts.Add(P(x, yt - ch, hz)); pts.Add(P(x, yt - ch, -hz)); }
+            float cX = ch[sx > 0 ? 0 : 1], cZ = ch[sz2 > 0 ? 2 : 3];
+            top.Add(new Vector3(c.x + sx * (hx - cX), yt, c.z + sz2 * (hz - cZ)));
+        }
+        Q(top[0], top[1], top[2], top[3], Vector3.up);
+        Q(new Vector3(c.x - hx, yb, c.z - hz), new Vector3(c.x + hx, yb, c.z - hz), new Vector3(c.x + hx, yb, c.z + hz), new Vector3(c.x - hx, yb, c.z + hz), Vector3.down);
+        for (int i = 0; i < 4; i++)
+        {
+            float w = W[i], l = L[i], h = ch[i]; var nn = nV[i];
+            if (h > 0f)
+            {
+                // 横の面：上のふちは yt-h、stop のはしは (l-h, yt-h) → (l, yt) へ上がる
+                Q(F(i, w, yb, -l), F(i, w, yb, l), F(i, w, yt - h, l), F(i, w, yt - h, -l), nn);
+                for (int e = 0; e < 2; e++)
+                {
+                    float s = e == 0 ? 1f : -1f;
+                    if (ch[Perp(i, e)] <= 0f && stop[i, e])
+                    {
+                        Tri(v, t, F(i, w, yt - h, s * l), F(i, w, yt, s * l), F(i, w, yt - h, s * (l - h)), nn);   // 横の面の上がる三角
+                        Tri(v, t, F(i, w, yt - h, s * (l - h)), F(i, w - h, yt, s * l), F(i, w, yt, s * l), nn + Vector3.up + Av(i) * s);   // すぼめる面
+                    }
+                }
+                // 斜めの面
+                float b0 = -l, b1 = l, t0 = -l, t1 = l;
+                for (int e = 0; e < 2; e++)
+                {
+                    float s = e == 0 ? 1f : -1f; int pj = Perp(i, e);
+                    float bE = l, tE = l;
+                    if (ch[pj] > 0f) tE = l - ch[pj];          // miter
+                    else if (stop[i, e]) bE = l - h;            // stop
+                    if (e == 0) { b1 = bE; t1 = tE; } else { b0 = -bE; t0 = -tE; }
+                }
+                Q(F(i, w, yt - h, b0), F(i, w, yt - h, b1), F(i, w - h, yt, t1), F(i, w - h, yt, t0), nn + Vector3.up);
+            }
             else
             {
-                if (czp > 0f) { pts.Add(P(x, yt - czp, hz)); pts.Add(P(x, yt, hz - czp)); } else pts.Add(P(x, yt, hz));
-                if (czm > 0f) { pts.Add(P(x, yt, -hz + czm)); pts.Add(P(x, yt - czm, -hz)); } else pts.Add(P(x, yt, -hz));
+                // 面取りなしの横の面：となりの辺が面取りで、そのはしが stop でなければ、角に切れ込み
+                float m1 = 0f, m0 = 0f;
+                { int pj = Perp(i, 0); if (ch[pj] > 0f && !StopAt(pj, i)) m1 = ch[pj]; }
+                { int pj = Perp(i, 1); if (ch[pj] > 0f && !StopAt(pj, i)) m0 = ch[pj]; }
+                Q(F(i, w, yb, -l), F(i, w, yb, l), F(i, w, yt - m1, l), F(i, w, yt - m0, -l), nn);
+                var up = new List<Vector3> { F(i, w, yt - m0, -l), F(i, w, yt - m1, l), F(i, w, yt, l - m1), F(i, w, yt, -l + m0) };
+                Tri(v, t, up[0], up[1], up[2], nn); Tri(v, t, up[0], up[2], up[3], nn);
             }
-            Poly(pts, new Vector3(sx, 0f, 0f));
-            if (ch > 0f)   // 斜めの面：下のふち（x, yt-ch）→ 上のふち（x-sx*ch, yt）。両はしは z の面取りがあれば斜めに合わせる
-                Poly(new List<Vector3> { P(x, yt - ch, -hz), P(x, yt - ch, hz), P(x - sx * ch, yt, hz - czp), P(x - sx * ch, yt, -hz + czm) }, new Vector3(sx, 1f, 0f));
         }
-        foreach (float sz2 in new[] { 1f, -1f })
+        // 辺 pj の、辺 i がある側のはしが stop か
+        bool StopAt(int pj, int i)
         {
-            float ch = sz2 > 0 ? czp : czm, z = sz2 * hz;
-            var pts = new List<Vector3> { P(-hx, yb, z), P(hx, yb, z) };
-            if (ch > 0f) { pts.Add(P(hx, yt - ch, z)); pts.Add(P(-hx, yt - ch, z)); }
-            else
-            {
-                if (cxp > 0f) { pts.Add(P(hx, yt - cxp, z)); pts.Add(P(hx - cxp, yt, z)); } else pts.Add(P(hx, yt, z));
-                if (cxm > 0f) { pts.Add(P(-hx + cxm, yt, z)); pts.Add(P(-hx, yt - cxm, z)); } else pts.Add(P(-hx, yt, z));
-            }
-            Poly(pts, new Vector3(0f, 0f, sz2));
-            if (ch > 0f)
-                Poly(new List<Vector3> { P(-hx, yt - ch, z), P(hx, yt - ch, z), P(hx - cxp, yt, z - sz2 * ch), P(-hx + cxm, yt, z - sz2 * ch) }, new Vector3(0f, 1f, sz2));
-        }
-        // 角：となり合う2辺がどちらも面取りで大きさがちがう時のすき間（三角）をふさぐ
-        foreach (float sx in new[] { 1f, -1f }) foreach (float sz2 in new[] { 1f, -1f })
-        {
-            float a = sx > 0 ? cxp : cxm, b = sz2 > 0 ? czp : czm;
-            if (a <= 0f || b <= 0f || Mathf.Abs(a - b) < 1e-4f) continue;
-            float x = sx * hx, z = sz2 * hz;
-            if (a > b) Tri(v, t, P(x, yt - a, z), P(x, yt - b, z), P(x - sx * a, yt, z - sz2 * b), new Vector3(sx, 1f, sz2));
-            else Tri(v, t, P(x, yt - a, z), P(x, yt - b, z), P(x - sx * a, yt, z - sz2 * b), new Vector3(sx, 1f, sz2));
+            // 辺 pj の a 向き：pj<2 なら z。i が +z(2) なら e=0
+            int e = pj < 2 ? (i == 2 ? 0 : 1) : (i == 0 ? 0 : 1);
+            return stop[pj, e];
         }
     }
     static void AddPitLiners()
