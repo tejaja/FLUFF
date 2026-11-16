@@ -9,11 +9,13 @@ public class FuwaPlayerCatcher : UdonSharpBehaviour
     public FuwaBall ball;
     [Tooltip("2026-11-16 てじゃ「竹とんぼもってるときは、各ステージの一番下のアウト判定以外は無視」：竹とんぼを持っている間は無視する")]
     public bool copterSafe = false;
+    [Tooltip("copterSafe の時、デバッグ飛行中（FuwaDebugFly）も無視する（公開前に消す物）")]
+    public FuwaDebugFly debugFly;
 
     public override void OnPlayerTriggerEnter(VRCPlayerApi player)
     {
         if (player == null || !player.isLocal || ball == null) return;
-        if (copterSafe && HoldingCopter(player)) return;
+        if (copterSafe && (HoldingCopter(player) || (debugFly != null && debugFly.IsFlying()))) return;
         ball.BeginPlayerMiss("落ちた！", "You fell!");
     }
 

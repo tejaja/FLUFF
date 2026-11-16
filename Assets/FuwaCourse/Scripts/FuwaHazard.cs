@@ -148,10 +148,12 @@ public class FuwaHazard : UdonSharpBehaviour
 
     [Tooltip("2026-11-16 てじゃ「竹とんぼもってるときは、各ステージの一番下のアウト判定以外は無視」：自分が竹とんぼを持っている間は、ふわふわが入ってもアウトにしない")]
     public bool copterSafe = false;
+    [Tooltip("copterSafe の時、デバッグ飛行中（FuwaDebugFly）も無視する（公開前に消す物。なければ null のまま）")]
+    public FuwaDebugFly debugFly;
 
     private void OnTriggerEnter(Collider other)
     {
-        if (copterSafe && LocalHoldingCopter()) return;
+        if (copterSafe && (LocalHoldingCopter() || (debugFly != null && debugFly.IsFlying()))) return;
         CheckBall(other);
     }
 

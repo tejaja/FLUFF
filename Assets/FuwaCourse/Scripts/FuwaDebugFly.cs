@@ -62,6 +62,9 @@ public class FuwaDebugFly : UdonSharpBehaviour
         p.SetVelocity(dir);
     }
 
+    // 2026-11-16 てじゃ「竹とんぼにつけた、最下層のアウト以外をスルーするやつ、デバッグモードの飛行にもつけてほしい」：FuwaHazard / FuwaPlayerCatcher（copterSafe）が見る
+    public bool IsFlying() { return _flying; }
+
     private void Toggle(VRCPlayerApi p)
     {
         _flying = !_flying;

@@ -2068,8 +2068,9 @@ public static class FuwaCourse2_5Builder
                     s0 = s1 + 1;
                 }
             }
-        var hz = UdonSharpUndo.AddComponent<FuwaHazard>(ballGo); hz.copterSafe = true; UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
-        var pc = UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(plGo); pc.ball = ballT; pc.copterSafe = true; UdonSharpEditorUtility.CopyProxyToUdon(pc); FuwaStage2WaterTest.NoSync(pc);   // 竹とんぼを持っている間は無視（一番下の Stage2FallCatcher は無視しない）
+        var dfly = Object.FindObjectsOfType<FuwaDebugFly>(true).FirstOrDefault();   // デバッグ飛行中も無視（2026-11-16 てじゃ）
+        var hz = UdonSharpUndo.AddComponent<FuwaHazard>(ballGo); hz.copterSafe = true; hz.debugFly = dfly; UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
+        var pc = UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(plGo); pc.ball = ballT; pc.copterSafe = true; pc.debugFly = dfly; UdonSharpEditorUtility.CopyProxyToUdon(pc); FuwaStage2WaterTest.NoSync(pc);   // 竹とんぼを持っている間は無視（一番下の Stage2FallCatcher は無視しない）
         log.Append("段ごとの落下アウト ふわふわ" + nb + "・人" + np + " ");
     }
     // 2026-11-16 てじゃ「真ん中の台座のれちゃうのと、真ん中つっきれちゃうのが問題」「台座の外周から真上にうっすらバリアみたいな円柱のバリア」「いま青い円があるあたり」
