@@ -243,6 +243,9 @@ public static class FuwaCourse2_5Builder
         Transform warpW = null;
         Run(() => { warpW = BigPortal(isl, "WarpW", P, 180f); if (WarpWBack > 0f) S(WarpWBack); if (RuinEnds) RuinedEnd("RuinEnd", P, Vector3.forward, HW, HW, false, 103); });   // 2026-11-15 てじゃ「ポータルぎりぎりすぎるから道ちょっぴり伸ばして」→ ポータルのうしろに道
         if (MidRock) MidTierRock(iw, "I2_Rock");   // 2026-11-15 てじゃ「穴が開いてるところ以外に下に島つけよ」→「ポータル付近のとこだけ島にしよう」（出口のポータルができたあと）
+        // 2026-11-16 てじゃ「中段、今奥から手前だけど、手前から奥にしたい」「完全に左右逆にして180度回す感じで」
+        //  → 到着ポータル（WarpAIn）と出口（WarpW）のまん中を通る、進む向きに直角な鏡で中段まるごと映す（MirrorIsland）
+        if (MidMirror && warpAin && warpW) MirrorIsland(iw, root.InverseTransformPoint(warpAin.position), root.InverseTransformPoint(warpW.position));
         HW = hwSave; pitTable = null; TileL = tileL0;
         // 2026-11-14 落とし穴の下に地面があると落ちても立ててしまうので、回廊の下の地面はなし（トンネルだけ浮いている）
         //IslandRock(iw, 1.5f, false, 3f, 180f + WebWalkOrbit);
@@ -988,6 +991,58 @@ public static class FuwaCourse2_5Builder
             if (rimSegs != null) rimSegs.Add(new[] { cut[0] + Vector3.up * y1, cut[1] + Vector3.up * y1, nrm.normalized });
         }
     }
+    // ===== 2026-11-16 島まるごと鏡に映す（中段の向きを逆にする用）=====
+    //  鏡：a と b のまん中を通り、a→b（水平）に直角な面。物の位置は鏡に映し、向きは「鏡で映した向き × 自分の左右反転」（＝ちゃんとした回転のまま）、
+    //  メッシュは自分の座標の x を反転した物（_Mir）に差しかえる。こうすると前（forward）と上はそのまま映り、左右（right）だけ逆になる＝ポータルや文字の計算が壊れない
+    public static bool MidMirror = true;
+    static void MirrorIsland(Transform island, Vector3 a, Vector3 b)
+    {
+        var d = b - a; d.y = 0f; if (d.sqrMagnitude < 1e-4f) return; d.Normalize();
+        var c = (a + b) * 0.5f;
+        Vector3 Mv(Vector3 v) => v - 2f * Vector3.Dot(v, d) * d;          // 向きの鏡
+        Vector3 Mp(Vector3 p) => c + Mv(p - c);                            // 位置の鏡
+        var ts = island.GetComponentsInChildren<Transform>(true).Where(t => t != island).ToList();   // 親が先（GetComponentsInChildren は親→子の順）
+        var poses = ts.Select(t => (p: root.InverseTransformPoint(t.position), f: root.InverseTransformDirection(t.forward), u: root.InverseTransformDirection(t.up))).ToList();
+        for (int i = 0; i < ts.Count; i++)
+        {
+            var (p, f, u) = poses[i];
+            ts[i].position = root.TransformPoint(Mp(p));
+            ts[i].rotation = root.rotation * Quaternion.LookRotation(Mv(f), Mv(u));   // 前・上を映す（右は自動で逆）
+        }
+        var cache = new Dictionary<Mesh, Mesh>();
+        Mesh Mir(Mesh m)
+        {
+            if (!m) return m;
+            if (cache.TryGetValue(m, out var r)) return r;
+            string path = AssetDatabase.GetAssetPath(m);
+            if (string.IsNullOrEmpty(path) || !path.StartsWith("Assets/")) { cache[m] = m; return m; }   // 組み込みの箱など（左右対称）はそのまま
+            string mp = MeshDir + "/" + m.name + "_Mir.asset";
+            var mm = AssetDatabase.LoadAssetAtPath<Mesh>(mp);
+            if (!mm) { mm = new Mesh(); AssetDatabase.CreateAsset(mm, mp); }
+            mm.Clear(false); mm.name = m.name + "_Mir";
+            mm.indexFormat = m.indexFormat;
+            mm.vertices = m.vertices.Select(v => new Vector3(-v.x, v.y, v.z)).ToArray();
+            if (m.normals.Length > 0) mm.normals = m.normals.Select(n => new Vector3(-n.x, n.y, n.z)).ToArray();
+            if (m.tangents.Length > 0) mm.tangents = m.tangents.Select(t => new Vector4(-t.x, t.y, t.z, -t.w)).ToArray();
+            if (m.uv.Length > 0) mm.uv = m.uv; if (m.uv2.Length > 0) mm.uv2 = m.uv2; if (m.colors.Length > 0) mm.colors = m.colors;
+            mm.subMeshCount = m.subMeshCount;
+            for (int s = 0; s < m.subMeshCount; s++)
+            {
+                var tri = m.GetTriangles(s);
+                for (int k = 0; k < tri.Length; k += 3) { int tmp = tri[k + 1]; tri[k + 1] = tri[k + 2]; tri[k + 2] = tmp; }   // 裏返った面を戻す
+                mm.SetTriangles(tri, s);
+            }
+            mm.RecalculateBounds(); EditorUtility.SetDirty(mm);
+            cache[m] = mm; return mm;
+        }
+        foreach (var mf in island.GetComponentsInChildren<MeshFilter>(true)) mf.sharedMesh = Mir(mf.sharedMesh);
+        foreach (var mc in island.GetComponentsInChildren<MeshCollider>(true)) mc.sharedMesh = Mir(mc.sharedMesh);
+        foreach (var bc in island.GetComponentsInChildren<BoxCollider>(true)) bc.center = new Vector3(-bc.center.x, bc.center.y, bc.center.z);
+        foreach (var sc in island.GetComponentsInChildren<SphereCollider>(true)) sc.center = new Vector3(-sc.center.x, sc.center.y, sc.center.z);
+        foreach (var cc in island.GetComponentsInChildren<CapsuleCollider>(true)) cc.center = new Vector3(-cc.center.x, cc.center.y, cc.center.z);
+        log.Append("中段を鏡に（メッシュ " + cache.Count(kv => kv.Key != kv.Value) + "）");
+    }
+
     // ===== 2026-11-16 こんもりの下（てじゃ「島の下の土がガタツキがきになる、もっとシンプルに」「段々やめてこんもりしてるやつにしよ」）=====
     //  上の地面の板の下の面（yb）から、輪郭（fM＜0 の所）の中に下へふくらむ1枚の面。ふち（fM=0）では depthAt が 0 になるように作る（板の横の壁の下のはしとつながる）
     //  穴（空洞など）の所は fM＞0 にしておけば穴になる。格子は岩と同じ（RockCell）、三角の分け方も RockTri と同じ
