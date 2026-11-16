@@ -637,7 +637,7 @@ public static class FuwaCourse2_5Builder
 
     // ===== 2026-11-16 ゴールの洞窟のクリスタル（てじゃ「この空間、ちょと暗くて寂しい、ゴール後のミニキノコに影もでない」「なんか光がほしいな、クリスタルいくつか刺さってる感じにして」）=====
     //  壁（口のあたりはなし）と天井から光るクリスタルが刺さる。天井のまん中の大きい塊から下へ影の出る光（Point、Soft の影）、壁のクリスタルのそばにうすい色の光
-    public static bool CaveCrystals = true; public static float CaveLightIntensity = 3.2f, CaveLightRange = 13f; public static Color CaveLightCol = new Color(0.72f, 0.93f, 1f);
+    public static bool CaveCrystals = true; public static float CeilEmbed = 1.4f; public static float CaveLightIntensity = 3.2f, CaveLightRange = 13f; public static Color CaveLightCol = new Color(0.72f, 0.93f, 1f);
     static void GoalCaveCrystals(Transform rk, Vector2 sc, float hx, float cy0, float cy1, Vector2 mdir)
     {
         var g = new GameObject("GoalCrystals").transform; g.SetParent(rk, false);
@@ -654,11 +654,14 @@ public static class FuwaCourse2_5Builder
         int n = 0;
         // 2026-11-16 てじゃ「真上のやつの脇のちいさいやつが埋まりすぎ」「変な貫通がある」
         //  → 根もと（下のとがった先、原点から 1.05s うしろ）が岩の面から 0.45m だけ中に入るように置く（深く埋まらない・うすい所で外へつきぬけない）
-        void Place(string nm, int seed, float s, int extra, Vector3 surf, Vector3 axis, float spin)
+        void Place(string nm, int seed, float s, int extra, Vector3 surf, Vector3 axis, float spin, float embed = -1f)
         {
+            // てじゃ「ほかも、下の細くなってるほう隠すくらいは埋めて」→ 根もとのとがった所（0.6s）がかくれるまで埋める
+            if (embed < 0f) embed = 0.6f * s + 0.15f;
+            if (axis.y < -0.5f) embed = Mathf.Min(embed, (cy1 + 1.5f - 0.25f) - surf.y);   // 天井：上の地面（cy1+1.5）から先っぽが出ないように
             axis = axis.normalized;
             // 2026-11-16 てじゃ「そもそも枝分かれしてるかんじがなしかな」→ 小さい結晶の枝はなし（1本ずつ）
-            var o = MeshObj(g, nm, CrystalClusterMesh("GoalCave_" + nm, seed, s, 0), cm, surf + axis * (1.05f * s - 0.45f), 0, false);
+            var o = MeshObj(g, nm, CrystalClusterMesh("GoalCave_" + nm, seed, s, 0), cm, surf + axis * (1.05f * s - embed), 0, false);
             o.transform.localRotation = Quaternion.FromToRotation(Vector3.up, axis) * Quaternion.Euler(0f, spin, 0f);
             n++;
         }
@@ -679,7 +682,7 @@ public static class FuwaCourse2_5Builder
         float yc = cy1 + 0.1f;
         {
             var cp = Hit(new Vector3(sc.x, cy0 + 1f, sc.y), Vector3.up, 0f, new Vector3(sc.x, yc, sc.y));
-            Place("Ceil", 950, 1.8f, 3, cp, Vector3.down, 20f);
+            Place("Ceil", 950, 1.8f, 3, cp, Vector3.down, 20f, Mathf.Max(CeilEmbed, 0.6f * 1.8f + 0.15f));   // てじゃ「上のクリスタルもうちょい埋めて」
             float ang = mouthAng + 60f;
             var p2 = sc + new Vector2(Mathf.Cos(ang * Mathf.Deg2Rad), Mathf.Sin(ang * Mathf.Deg2Rad)) * (4.5f + R01());
             var cps = Hit(new Vector3(p2.x, cy0 + 1f, p2.y), Vector3.up, 0f, new Vector3(p2.x, yc, p2.y));
