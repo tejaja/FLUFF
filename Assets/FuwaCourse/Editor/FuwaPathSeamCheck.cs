@@ -182,6 +182,87 @@ public static class FuwaPathSeamCheck
         return res;
     }
 
+    // 道の端のすき間（2026-11-16 てじゃ「まだある」）：ふちを丸めなかった端（となりに床がある扱い）は、下の壁の上を r 下げてあるので、
+    //  となりの床が低い・離れていると、上の面のふちと壁の上の間に細いすき間（空が見える）があく → その間を板でふさぐ（PathBevel を直接）
+    public static string CloseEndSlits(Transform course, bool apply)
+    {
+        int total = 0; var sb = new List<string>(); var done = new HashSet<Mesh>();
+        foreach (var (mf, _) in PathMeshes(course))
+        {
+            var mesh = mf.sharedMesh; if (done.Contains(mesh)) continue; done.Add(mesh);
+            if (!AssetDatabase.GetAssetPath(mesh).StartsWith("Assets/")) continue;   // 組み込みの箱などは触らない
+            int n = CloseEndSlitsMesh(mf, apply, out string where);
+            if (n > 0) { total += n; sb.Add(mf.name + "×" + n + where); }
+        }
+        return course.name + ": 端のすき間 " + total + (apply ? " をふさいだ" : "") + (sb.Count > 0 ? "（" + string.Join(" / ", sb.Take(12)) + "）" : "");
+    }
+
+    static int CloseEndSlitsMesh(MeshFilter mf, bool apply, out string where)
+    {
+        where = "";
+        var m = mf.sharedMesh; var v = m.vertices;
+        var key = new Dictionary<Vector3Int, int>(); var pos = new List<Vector3>();
+        int W(Vector3 p) { var k = new Vector3Int(Mathf.RoundToInt(p.x / Weld), Mathf.RoundToInt(p.y / Weld), Mathf.RoundToInt(p.z / Weld)); if (!key.TryGetValue(k, out int id)) { id = pos.Count; pos.Add(p); key[k] = id; } return id; }
+        var ids = v.Select(W).ToArray();
+        var edges = new Dictionary<long, (int cnt, int sub, Vector3 tc, int a, int b)>();
+        for (int s = 0; s < m.subMeshCount; s++)
+        {
+            var t = m.GetTriangles(s);
+            for (int i = 0; i < t.Length; i += 3)
+            {
+                int a = ids[t[i]], b = ids[t[i + 1]], c = ids[t[i + 2]]; if (a == b || b == c || a == c) continue;
+                var tc = (pos[a] + pos[b] + pos[c]) / 3f;
+                foreach (var (x, y) in new[] { (a, b), (b, c), (c, a) })
+                {
+                    long k = x < y ? ((long)x << 32) | (uint)y : ((long)y << 32) | (uint)x;
+                    if (edges.TryGetValue(k, out var e)) edges[k] = (e.cnt + 1, e.sub, e.tc, e.a, e.b); else edges[k] = (1, s, tc, x, y);
+                }
+            }
+        }
+        var bnd = edges.Values.Where(e => e.cnt == 1).ToList();
+        var used = new HashSet<int>(); var add = new List<(int sub, Vector3 a0, Vector3 a1, Vector3 b0, Vector3 b1, Vector3 outN)>();
+        for (int i = 0; i < bnd.Count; i++)
+        {
+            var E = bnd[i]; Vector3 a0 = pos[E.a], a1 = pos[E.b];
+            if (Mathf.Abs(a0.y - a1.y) > 0.05f || (a1 - a0).magnitude < 0.15f) continue;
+            // 上の面のふちだけ（となりの三角が上向きの面）
+            var dA = a1 - a0; dA.y = 0f; dA.Normalize();
+            var outN = (a0 + a1) * 0.5f - E.tc; outN.y = 0f; outN -= Vector3.Dot(outN, dA) * dA; if (outN.sqrMagnitude < 1e-6f) continue; outN.Normalize();
+            if (E.tc.y < Mathf.Min(a0.y, a1.y) - 0.01f) continue;   // 三角がふちより下（壁など）→ 上の面ではない
+            for (int j = 0; j < bnd.Count; j++)
+            {
+                if (j == i || used.Contains(j)) continue;
+                var F = bnd[j]; Vector3 b0 = pos[F.a], b1 = pos[F.b];
+                var mA = (a0 + a1) * 0.5f; var mB = (b0 + b1) * 0.5f;
+                float dy = mA.y - mB.y; if (dy < 0.02f || dy > 0.16f) continue;
+                var dB = b1 - b0; dB.y = 0f; if (dB.magnitude < 0.1f) continue; dB.Normalize();
+                if (Mathf.Abs(Vector3.Dot(dA, dB)) < 0.995f) continue;
+                var off = mB - mA; off.y = 0f; float side = Mathf.Abs(Vector3.Dot(off, outN)); float along = Mathf.Abs(Vector3.Dot(off, dA));
+                if (side > 0.03f || along > 0.25f) continue;
+                if (Vector3.Dot(dA, dB) < 0f) { var tmp = b0; b0 = b1; b1 = tmp; }
+                used.Add(j); add.Add((E.sub, a0, a1, b0, b1, outN)); break;
+            }
+        }
+        if (add.Count > 0) where = "@" + mf.transform.TransformPoint((add[0].a0 + add[0].a1) * 0.5f).ToString("F0");
+        if (!apply || add.Count == 0) return add.Count;
+        var V = new List<Vector3>(v); var N = new List<Vector3>(m.normals); var U = new List<Vector2>(); m.GetUVs(0, U);
+        var subs = Enumerable.Range(0, m.subMeshCount).Select(s => m.GetTriangles(s).ToList()).ToList();
+        foreach (var q in add)
+        {
+            int b = V.Count;
+            foreach (var p in new[] { q.a0, q.a1, q.b1, q.b0 }) { V.Add(p); N.Add(q.outN); if (U.Count > 0) U.Add(new Vector2(p.x + p.z, p.y)); }
+            // 外向き
+            var nrm = Vector3.Cross(V[b + 1] - V[b], V[b + 3] - V[b]);
+            if (Vector3.Dot(nrm, q.outN) >= 0f) subs[q.sub].AddRange(new[] { b, b + 1, b + 3, b + 1, b + 2, b + 3 });
+            else subs[q.sub].AddRange(new[] { b, b + 3, b + 1, b + 1, b + 3, b + 2 });
+        }
+        Undo.RecordObject(m, "close end slits");
+        m.SetVertices(V); m.SetNormals(N); if (U.Count == V.Count) m.SetUVs(0, U);
+        for (int s = 0; s < subs.Count; s++) m.SetTriangles(subs[s], s);
+        m.RecalculateBounds(); EditorUtility.SetDirty(m); AssetDatabase.SaveAssets();
+        return add.Count;
+    }
+
     [MenuItem("FuwaCourse/よく使う/道のスキマを調べる（全コース）")]
     public static void MenuAnalyzeAll()
     {
