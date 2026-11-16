@@ -287,13 +287,14 @@ public static class FuwaCourse2_5Builder
         //  → ③ ワープ → CP2 → バリアの門 → 円形の広場（クリスタルの衝撃波）→ 出口でバリアが消える。回る腕の版：Arms_A（SpinArm ×3、20m）
         shieldT = EnsureShield();
         Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); ArrivalRoof(false, true); if (RuinEnds) RuinedEnd("RuinEnd", new Vector3(0f, P.y, ArrivalBackZ()), Vector3.back, HW, HW, true, 104); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f);   // ArrivalRoof：着いた所のうしろにも道はばの床（2026-11-15 ここに入れたコメントで CP2 と S(2.5) が消えていたのを戻す）
-            S(1.5f); ShieldGateArch("ShieldGate"); S(5f);
+            S(1.5f); ShieldGateArch("ShieldGate"); S(5f + ShieldApproachExtra);   // 2026-11-16 てじゃ「バリアから広場への道をもうちょい長く」（その分、広場の先の橋を短くして、先の位置は同じ）
             CrystalPlaza("CrystalPlaza");
             // 2026-11-15 てじゃ「広場のつなぎ目がちょっとシンプルすぎる」→ 広場と橋の間の 3m のただの道をやめて、橋を広場のふちから直接（橋は 3m 長く＝先は同じ所）
             // 2026-11-15 てじゃ「（S(0.4) の道の）上が飛び出てる」→ 道ははさまない。橋の欄干の外のはし（BridgeHW+0.27）が広場の円のふちに来る所から橋（まん中は床の下にかくれる）
-            if (PlazaBridgeDirect) { if (ShieldOffArch) ShieldGateArch("ShieldOffGate", false, BridgeHW + 0.8f); else ShieldOff("ShieldOff"); P += Dir(th) * PlazaBridgeAdvance(); } else { S(1.5f); ShieldOff("ShieldOff"); S(1.5f); } });   // 解除のアーチは広場のふちギリギリ
+            if (PlazaBridgeDirect) { if (ShieldOffArch) ShieldGateArch("ShieldOffGate", false, BridgeHW + 0.8f); else ShieldOff("ShieldOff"); P += Dir(th) * PlazaBridgeAdvance(); } else { S(1.5f); ShieldOff("ShieldOff"); S(1.5f); }
+            ShockExitCut(); });   // 解除のアーチは広場のふちギリギリ
         Island("Bridge3");
-        Run(() => { if (PlazaBridgeDirect) ArchBridge(14f + 3f - PlazaBridgeAdvance(), 2f, false, null, false, true); else ArchBridge(14f, 2f, false, null); });   // 先のはしは前と同じ所
+        Run(() => { if (PlazaBridgeDirect) ArchBridge(14f + 3f - PlazaBridgeAdvance() - ShieldApproachExtra, 2f, false, null, false, true); else ArchBridge(14f - ShieldApproachExtra, 2f, false, null); });   // 先のはしは前と同じ所
         // 2026-11-15 てじゃ「ここ（クリスタルの広場）通り過ぎて橋の先はもうゴール行きポータルでいいかも」→ 橋のすぐ先にワープB
         //  前の版：I4_Bumpers（CP3 → 飛び出す石ブロック Pistons_B → T(-45) → 腕とブロックのまざり Mix_C → ワープB）
         Island("I4_End");
@@ -1969,6 +1970,16 @@ public static class FuwaCourse2_5Builder
     }
 
     public static bool CapBevel = true;
+    public static float ShieldApproachExtra = 2f;
+    // 2026-11-16 てじゃ「出口のゲート以降は衝撃波届かなくしたい」：衝撃波に、出口の門（の面）より先は当たらない・見せない を設定
+    static void ShockExitCut()
+    {
+        var sw = isl.GetComponentInChildren<FuwaShockwave>(true); if (!sw) return;
+        var gt = isl.Find("ShieldOffGate") ?? isl.Find("ShieldOff"); if (!gt) return;
+        Vector3 d = gt.position - sw.transform.position; d.y = 0f; if (d.sqrMagnitude < 1e-4f) return;
+        sw.exitCut = true; sw.exitPoint = gt.position; sw.exitDir = d.normalized;
+        EditorUtility.SetDirty(sw);
+    }
     public static Color ArchRingCol = new Color(0.79f, 0.66f, 0.56f);   // 石（0.86,0.74,0.62）より少しだけ暗い
     // 笠石：x のまん中 cx、z0〜z1、下の面の高さ yAt(z)。断面は はば 0.32・高さ 0.1、上の両ふちを 0.05 面取り。両はしも上を 0.05 斜めに
     static void CapBeam(List<Vector3> v, List<int> t, float cx, float z0, float z1, System.Func<float, float> yAt)

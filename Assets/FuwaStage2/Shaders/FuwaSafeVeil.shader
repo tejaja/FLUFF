@@ -24,7 +24,7 @@ Shader "Fuwa/SafeVeil"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            half4 _Color; half _Alpha; float _Height, _Len;
+            half4 _Color; half _Alpha; float _Height, _Len; float4 _Exit;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Charge)
                 UNITY_DEFINE_INSTANCED_PROP(float, _WaveR)
@@ -100,6 +100,7 @@ Shader "Fuwa/SafeVeil"
                     inCor = smoothstep(0, 0.6, along) * (1 - smoothstep(cor.w - 0.8, cor.w, along)) * (1 - smoothstep(cor.z - 0.5, cor.z, lat));
                 }
                 float zone = max(inDisc, inCor);
+                if (_Exit.w > 0) zone *= 1 - smoothstep(-0.3, 0.0, dot(i.wp.xz, _Exit.xy) - _Exit.z);   // 2026-11-16 出口の門より先はなし
                 // 強さ：床のセーフの線と同じ（ためている間と壁が来る前）
                 float kk = k * k;
                 float on = (k > 0.001 || wr >= 0) ? (0.35 + 0.65 * max(kk, wf)) : 0;

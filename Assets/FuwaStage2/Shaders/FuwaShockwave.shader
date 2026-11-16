@@ -26,7 +26,7 @@ Shader "Fuwa/Shockwave"
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
             #include "FuwaSafeShape.cginc"
-            half4 _Color, _Core; float _Pad, _Streak;
+            half4 _Color, _Core; float _Pad, _Streak; float4 _Exit;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Alpha)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Src)
@@ -70,6 +70,8 @@ Shader "Fuwa/Shockwave"
                     a += exp(-pow(d * 10, 2)) * 0.25 * alpha * body;
                 }
                 a *= shade;
+                // 2026-11-16 出口の門より先は消す（_Exit.w=1 の時）
+                if (_Exit.w > 0) a *= 1 - smoothstep(-0.3, 0.0, dot(i.wp.xz, _Exit.xy) - _Exit.z);
                 a = saturate(a);
                 half3 col = lerp(_Color.rgb, _Core.rgb, saturate(core * 1.2));
                 return half4(col * a, a);
