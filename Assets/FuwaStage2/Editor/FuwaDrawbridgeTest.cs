@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using UdonSharp;
 using UdonSharpEditor;
 using UnityEditor;
@@ -64,12 +64,15 @@ public static class FuwaDrawbridgeTest
                 // 2026-11-10 てじゃ「跳ね橋あたりもクオリティ上げたい」→ のっぺりした板をやめて、歯のふち（帯）＋スポーク＋こしき
                 mesh = FuwaGearTest.SaveMesh(SectorRim(FuwaGearTest.GearOutline(ZD, 10, Mod, SecA0 * Mathf.Deg2Rad, SecA1 * Mathf.Deg2Rad), Th, RimW, "Bridge_D_z60_Rim"));
             }
+            // 2026-11-16 てじゃ「ここの縦向きの歯車、にくぬきしてほしい」：A・B は歯のふち＋スポーク＋こしき（C は B のうしろなのでそのまま）
+            else if (g == a) mesh = FuwaGearTest.SaveMesh(LightGear(FuwaGearTest.GearOutline(g.z, 10, Mod), Th, RimW * 0.8f, 0.62f, 4, 0.34f, "Bridge_" + g.name));
+            else if (g == b) mesh = FuwaGearTest.SaveMesh(LightGear(FuwaGearTest.GearOutline(g.z, 10, Mod), Th, RimW, 1.15f, 6, 0.5f, "Bridge_" + g.name));
             else mesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(g.z, 10, Mod), Th, "Bridge_" + g.name, Vector2.zero));
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             go.AddComponent<MeshRenderer>().sharedMaterial = front ? light : dark;
             ts[i] = go.transform;
             // 回ってるのがわかる印
-            if (g != d) Prim(PrimitiveType.Cylinder, go.transform, "Mark", new Vector3(Mod * g.z / 2f - 1.8f * Mod, Th + 0.01f, 0f), new Vector3(0.3f, 0.01f, 0.3f), mark);
+            if (g != d && g != a && g != b) Prim(PrimitiveType.Cylinder, go.transform, "Mark", new Vector3(Mod * g.z / 2f - 1.8f * Mod, Th + 0.01f, 0f), new Vector3(0.3f, 0.01f, 0.3f), mark);
             else SectorInside(go.transform, dark, brass);
         }
         // 軸
@@ -296,6 +299,72 @@ public static class FuwaDrawbridgeTest
             Tri(b0, b0 + 1, b0 + 2, tg); Tri(b0, b0 + 2, b0 + 3, tg);
         }
         var m = new Mesh { name = name }; m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
+    }
+
+    // にくぬきした歯車（1つのメッシュ）：歯のふちの帯（ふちの内がわ rimW）＋こしき（半径 hubR、表と裏に少し出る）＋スポーク spokes 本（はば sw、厚みは少しうすく＝面が重ならない）
+    public static Mesh LightGear(Vector2[] o0, float h, float rimW, float hubR, int spokes, float sw, string name)
+    {
+        // GearOutline は閉じた輪（最後が最初と同じなら除く）
+        int n = o0.Length; if ((o0[0] - o0[n - 1]).sqrMagnitude < 1e-8f) n--;
+        var o = new Vector2[n]; System.Array.Copy(o0, o, n);
+        float rf = float.MaxValue; foreach (var p in o) rf = Mathf.Min(rf, p.magnitude);
+        float rIn = rf - rimW;
+        var inn = new Vector2[n]; for (int i = 0; i < n; i++) inn[i] = o[i].normalized * rIn;
+        var v = new System.Collections.Generic.List<Vector3>(); var t = new System.Collections.Generic.List<int>();
+        void Tri(int a, int b, int c, Vector3 want) { if (Vector3.Dot(Vector3.Cross(v[b] - v[a], v[c] - v[a]), want) < 0f) { int q = b; b = c; c = q; } t.Add(a); t.Add(b); t.Add(c); }
+        Vector3 P3(Vector2 q, float y) => new Vector3(q.x, y, q.y);
+        // ふちの表・裏
+        foreach (float y in new[] { h, 0f })
+        {
+            var want = y > 0f ? Vector3.up : Vector3.down;
+            int bo = v.Count; for (int i = 0; i < n; i++) v.Add(P3(o[i], y));
+            int bi = v.Count; for (int i = 0; i < n; i++) v.Add(P3(inn[i], y));
+            for (int i = 0; i < n; i++) { int j = (i + 1) % n; Tri(bi + i, bo + i, bo + j, want); Tri(bi + i, bo + j, bi + j, want); }
+        }
+        // 歯の側面（角は分ける）
+        for (int i = 0; i < n; i++)
+        {
+            int j = (i + 1) % n;
+            var e = o[j] - o[i]; var mid = (o[i] + o[j]) / 2f; var nn = new Vector3(e.y, 0f, -e.x); if (Vector2.Dot(new Vector2(nn.x, nn.z), mid) < 0f) nn = -nn;
+            int b0 = v.Count; v.Add(P3(o[i], 0f)); v.Add(P3(o[j], 0f)); v.Add(P3(o[j], h)); v.Add(P3(o[i], h));
+            Tri(b0, b0 + 1, b0 + 2, nn); Tri(b0, b0 + 2, b0 + 3, nn);
+        }
+        // ふちの内がわ（なめらか）
+        {
+            int b0 = v.Count; for (int i = 0; i < n; i++) { v.Add(P3(inn[i], 0f)); v.Add(P3(inn[i], h)); }
+            for (int i = 0; i < n; i++) { int j = (i + 1) % n; var mid = (inn[i] + inn[j]) / 2f; var nn = -new Vector3(mid.x, 0f, mid.y); int a = b0 + 2 * i, b = b0 + 2 * j; Tri(a, b, b + 1, nn); Tri(a, b + 1, a + 1, nn); }
+        }
+        // こしき（表と裏に 0.05 出る）
+        {
+            const int hs = 32; float y0 = -0.05f, y1 = h + 0.05f;
+            int c0 = v.Count; v.Add(new Vector3(0f, y1, 0f)); v.Add(new Vector3(0f, y0, 0f));
+            int r0 = v.Count; for (int k = 0; k < hs; k++) { float ang = k * Mathf.PI * 2f / hs; var q = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * hubR; v.Add(P3(q, y1)); v.Add(P3(q, y0)); }
+            for (int k = 0; k < hs; k++) { int a = r0 + 2 * k, b = r0 + 2 * ((k + 1) % hs); Tri(c0, a, b, Vector3.up); Tri(c0 + 1, a + 1, b + 1, Vector3.down); }
+            int s0 = v.Count; for (int k = 0; k < hs; k++) { float ang = k * Mathf.PI * 2f / hs; var q = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)) * hubR; v.Add(P3(q, y1)); v.Add(P3(q, y0)); }
+            for (int k = 0; k < hs; k++) { int a = s0 + 2 * k, b = s0 + 2 * ((k + 1) % hs); float am = (k + 0.5f) * Mathf.PI * 2f / hs; var nn = new Vector3(Mathf.Cos(am), 0f, Mathf.Sin(am)); Tri(a, b, b + 1, nn); Tri(a, b + 1, a + 1, nn); }
+        }
+        // スポーク（こしき → ふちの内がわに少しくいこむ）。厚みは表裏 0.03 ずつうすく
+        for (int k = 0; k < spokes; k++)
+        {
+            float ang = (k + 0.5f) * 360f / spokes * Mathf.Deg2Rad; var d = new Vector2(Mathf.Cos(ang), Mathf.Sin(ang)); var sd = new Vector2(-d.y, d.x);
+            float ra = hubR - 0.05f, rb = rIn + 0.08f, y0 = 0.03f, y1 = h - 0.03f;
+            var c = new[] { d * ra - sd * sw / 2f, d * rb - sd * sw / 2f, d * rb + sd * sw / 2f, d * ra + sd * sw / 2f };
+            // 表・裏
+            foreach (float y in new[] { y1, y0 })
+            {
+                int b0 = v.Count; foreach (var q in c) v.Add(P3(q, y));
+                var want = y > h / 2f ? Vector3.up : Vector3.down; Tri(b0, b0 + 1, b0 + 2, want); Tri(b0, b0 + 2, b0 + 3, want);
+            }
+            // 横の2面
+            foreach (int sg in new[] { -1, 1 })
+            {
+                var q0 = sg < 0 ? c[0] : c[3]; var q1 = sg < 0 ? c[1] : c[2]; var nn = new Vector3(sd.x * sg, 0f, sd.y * sg);
+                int b0 = v.Count; v.Add(P3(q0, y0)); v.Add(P3(q1, y0)); v.Add(P3(q1, y1)); v.Add(P3(q0, y1));
+                Tri(b0, b0 + 1, b0 + 2, nn); Tri(b0, b0 + 2, b0 + 3, nn);
+            }
+        }
+        var m = new Mesh { name = name, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; m.SetVertices(v); m.SetTriangles(t, 0); m.RecalculateNormals(); m.RecalculateBounds();
         return m;
     }
 
