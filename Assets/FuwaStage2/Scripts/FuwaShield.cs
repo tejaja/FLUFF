@@ -55,12 +55,12 @@ public class FuwaShield : UdonSharpBehaviour
         _hitAt = Time.time;
         if (blockSound != null) blockSound.Play();
         // 2026-11-15 てじゃ「衝撃波を3回うけても1段階削れてもいいかも」：衝撃波 shockHitsPerStage 回で1段階（床で跳ねた時と同じ 水色→黄→赤→パリン）
-        //  途中の回数でも色が少しずつ変わる（あと何回か分かるように）。段階が進んだ時はカキンの音も
+        //  途中の回数でも色が少しずつ変わる（あと何回か分かるように）
+        //  2026-11-16 てじゃ「バウンドするカキン音、衝撃波の削りが一定値溜まった時もでちゃってる」→ 段階が進んでもカキンは鳴らさない（防ぐ音だけ）
         if (shockHitsPerStage > 0 && ++_shockHits >= shockHitsPerStage)
         {
             _shockHits = 0; _bounces++;
             if (_bounces >= bouncesToBreak) { Shatter(); return; }
-            if (bounceSound != null) { bounceSound.pitch = 1f + 0.12f * (_bounces - 1); bounceSound.Play(); }
         }
     }
     [Tooltip("衝撃波を何回受けたら1段階削れるか（0＝削れない）")]
