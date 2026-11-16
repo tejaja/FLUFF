@@ -1981,7 +1981,7 @@ public static class FuwaCourse2_5Builder
     //  箱は1つのオブジェクトにまとめる（ふわふわ用・人用それぞれ1つ、BoxCollider をたくさん）
     public static bool TierOuts = true; public static float TierOutCell = 1.5f, TierOutNear = 4.5f;
     // 2026-11-16 てじゃ「最上段、かなり吹っ飛ぶから余裕持ったほうがいいかも」→ 最上段（TierOutUpperY より上の床）は、TierOutUpperExtra m 深く・TierOutUpperNear m 外まで
-    public static float TierOutUpperY = -140f, TierOutUpperExtra = 3f, TierOutUpperNear = 10f;
+    public static float TierOutUpperY = -140f, TierOutUpperExtra = 3f, TierOutUpperNear = 18f;   // 10 → 18（てじゃ「広場の橋でふっとばされるとアウトのそといくかも」）
     static void AddTierOuts()
     {
         var old = root.Find("TierOuts"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -5878,6 +5878,7 @@ public static class FuwaCourse2_5Builder
         sw.shards = shardTs.ToArray(); sw.auraRenderer = aura.GetComponent<Renderer>(); sw.orbitRings = orbitTs.ToArray(); sw.orbitRingRenderers = orbitRs.ToArray();
         sw.ball = ballT; sw.shield = shieldT; sw.radius = R;
         sw.pillarBarrier = plazaBarrierR;
+        sw.hitPad = PlazaLedge + 0.3f;   // 2026-11-16 外の一段低いふちにいても当たる
         if (shieldT) { shieldT.pillarCenter = plazaBarrierT; shieldT.pillarRadius = PlazaBarrierR; shieldT.pillarHeight = PlazaBarrierColH; EditorUtility.SetDirty(shieldT); }
         sw.nearPad = ShieldSafePad;   // 2026-11-15 てじゃ「フワフワバリアの範囲、わずかに狭く」0.8 → 0.6 →（影を接する線にして広がったので「ちょっと狭く」）0.25
         sw.shadowPad = sw.nearPad;

@@ -43,6 +43,8 @@ public class FuwaShockwave : UdonSharpBehaviour
     public float corridorHalfW = 2.7f, corridorLen = 0f;
     [Tooltip("2026-11-16 てじゃ「出口のゲート以降は衝撃波届かなくしたい」→ exitPoint から exitDir の向きの先は当たらない・波も見せない")]
     public bool exitCut = false;
+    [Tooltip("2026-11-16 てじゃ「広場の外周（端）にも衝撃は欲しい」：当たる範囲＝広場の半径＋これ（外の一段低いふちまで）")]
+    public float hitPad = 0.5f;
     public Vector3 exitPoint, exitDir;
     [Tooltip("影の横のゆとり（m）")]
     public float shadowPad = 0.8f;   // 2026-11-15 nearPad とそろえる（0.45 → 0.8）
@@ -279,7 +281,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         Vector3 c = transform.position;
         float dx = p.x - c.x, dz = p.z - c.z;
         if (exitCut && (p.x - exitPoint.x) * exitDir.x + (p.z - exitPoint.z) * exitDir.z > 0f) return false;   // 出口の門より先
-        if (Mathf.Sqrt(dx * dx + dz * dz) <= radius + 0.5f) return true;
+        if (Mathf.Sqrt(dx * dx + dz * dz) <= radius + hitPad) return true;
         if (corridorLen <= 0f) return false;
         Vector2 dir = new Vector2(corridorDir.x, corridorDir.z); float dl = dir.magnitude; if (dl < 1e-4f) return false; dir /= dl;
         Vector2 q = new Vector2(dx, dz);
@@ -510,7 +512,7 @@ public class FuwaShockwave : UdonSharpBehaviour
                 _mpb.SetFloat("_Pad", nearPad);
                 _mpb.SetFloat("_Near", nearPad);
                 Vector3 c = transform.position;
-                _mpb.SetVector("_Cen", new Vector4(c.x, c.y, c.z, radius + 0.5f));
+                _mpb.SetVector("_Cen", new Vector4(c.x, c.y, c.z, radius + hitPad));
                 Vector2 cd = new Vector2(corridorDir.x, corridorDir.z); float cl = cd.magnitude; if (cl > 1e-4f) cd /= cl;
                 _mpb.SetVector("_Corr", new Vector4(cd.x, cd.y, corridorHalfW, cl > 1e-4f ? corridorLen : 0f));
                 _mpb.SetVector("_Exit", ExitVec());
