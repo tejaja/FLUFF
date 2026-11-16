@@ -286,7 +286,7 @@ public static class FuwaCourse2_5Builder
         //  「一定間隔で広場全体に放射状に衝撃波」「ふわふわのバリアの周囲+後ろ側はセーフゾーン」「広場に入る時に最初に一発」
         //  → ③ ワープ → CP2 → バリアの門 → 円形の広場（クリスタルの衝撃波）→ 出口でバリアが消える。回る腕の版：Arms_A（SpinArm ×3、20m）
         shieldT = EnsureShield();
-        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); ArrivalRoof(false, true); if (RuinEnds) RuinedEnd("RuinEnd", new Vector3(0f, P.y, ArrivalBackZ()), Vector3.back, HW, HW, true, 104); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f);   // ArrivalRoof：着いた所のうしろにも道はばの床（2026-11-15 ここに入れたコメントで CP2 と S(2.5) が消えていたのを戻す）
+        Run(() => { warpWin = BigPortal(isl, "WarpWIn", Vector3.zero, 0f); ArrivalRoof(false, true); if (RuinEnds) RuinedEnd("RuinEnd", new Vector3(0f, P.y, ArrivalBackZ()), Vector3.back, HW, HW, true, 104, 1.3f); S(2f); CPi("Checkpoint2", 0.8f); S(2.5f);   // ArrivalRoof：着いた所のうしろにも道はばの床（2026-11-15 ここに入れたコメントで CP2 と S(2.5) が消えていたのを戻す）
             S(1.5f); ShieldGateArch("ShieldGate"); S(5f + ShieldApproachExtra);   // 2026-11-16 てじゃ「バリアから広場への道をもうちょい長く」（その分、広場の先の橋を短くして、先の位置は同じ）
             CrystalPlaza("CrystalPlaza");
             // 2026-11-15 てじゃ「広場のつなぎ目がちょっとシンプルすぎる」→ 広場と橋の間の 3m のただの道をやめて、橋を広場のふちから直接（橋は 3m 長く＝先は同じ所）
@@ -365,7 +365,10 @@ public static class FuwaCourse2_5Builder
         {
             Box(g, "FloorBack", new Vector3(0f, P.y - 0.3f, (zb + P.z) / 2f), new Vector3(2f * HW, 0.6f, P.z - zb), pathB, pathLayer);
             // 道（Strip）と同じ下の台（つなぎ目に切れ目が出ないように同じ大きさ）
-            var ub = Box(g, "FloorBackUnder", new Vector3(0f, P.y - 0.6f - 0.6f, (zb + P.z) / 2f), new Vector3(2f * HW - 0.3f, 1.2f, P.z - zb), underM, 0); Object.DestroyImmediate(ub.GetComponent<Collider>());
+            // 2026-11-16 てじゃ「上の入口側ポータルの下にへんなののこってる」→ うしろの崩れたはし（RuinEnd）の垂れ下がる石より 5cm 外に出て、下の台のはしが板に見えていた
+            //  → 崩れたはしがある時は、下の台をはしから 0.15m 手前でとめる（垂れ下がる石の中にかくれる）
+            float ubk = RuinEnds ? 0.15f : 0f;
+            var ub = Box(g, "FloorBackUnder", new Vector3(0f, P.y - 0.6f - 0.6f, (zb + ubk + P.z) / 2f), new Vector3(2f * HW - 0.3f, 1.2f, P.z - zb - ubk), underM, 0); Object.DestroyImmediate(ub.GetComponent<Collider>());
             return;
         }
         Box(g, "FloorBack", new Vector3(0f, P.y - 0.3f, (zb + P.z) / 2f), new Vector3(2f * fw, 0.6f, P.z - zb), pathB, pathLayer);
@@ -4480,7 +4483,7 @@ public static class FuwaCourse2_5Builder
     //  「ゴール前のはクリスタルだけ」→ WarpBIn は RuinCrystals だけ
     public static bool RuinEnds = true; public static bool RuinBigPiece = true; public static float RuinPierBack = 0.8f, RuinCrystalScale = 1.3f;
     // name：入れ物の名前、o：道の上の面のはしのまん中（isl の座標）、fwd：外向き、hw：シマの板の半はば、xo：下の石の半はば、bridge：空中（かけら・石・クリスタルが落ちていく）か島の上（地面に転がる）
-    static void RuinedEnd(string name, Vector3 o, Vector3 fwd, float hw, float xo, bool bridge, int seed)
+    static void RuinedEnd(string name, Vector3 o, Vector3 fwd, float hw, float xo, bool bridge, int seed, float hangMin = 0.35f)
     {
         var g = new GameObject(name).transform; g.SetParent(isl, false);
         g.localPosition = o; g.localRotation = Quaternion.LookRotation(fwd);
@@ -4504,6 +4507,7 @@ public static class FuwaCourse2_5Builder
         {
             var hv = new List<Vector3>(); var ht = new List<int>();
             var eH = Jag(rnd, 13, 1.1f, 0.6f); for (int k = 0; k < 13; k++) eH[k] = Mathf.Clamp(eH[k], 0.35f, 2.0f);
+            if (hangMin > 0.35f) for (int k = 0; k < 13; k++) eH[k] = Mathf.Max(eH[k], hangMin + 0.55f * Mathf.Abs(Mathf.Sin(k * 2.7f + seed)));   // ほかのはしの乱数の並びは変えない   // hangMin：下の台（Under）より深く垂らしてかくす
             FieldSlab(hv, ht, new Vector3(0f, -Tk + 0.02f, 0f), Vector3.right, Vector3.down, Vector3.forward, Lin(-xo + 0.04f, xo - 0.04f, 13), eH, new float[13], -RuinPierBack - 0.1f, -0.05f);
             MeshObj(g, "HangingStone", SaveMesh(name + "_" + seed + "_Hang", hv, ht), stone, Vector3.zero, 0, true);
         }
