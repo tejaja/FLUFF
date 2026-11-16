@@ -106,7 +106,7 @@ public static class FuwaPhotoPointBuilder
         return string.Join(", ", made);
     }
 
-    static string Make(Transform holder, string name, int order, Vector3 center, Vector3 dir, float width, int layer, FuwaPhotoAlbum album, string ja, string en)
+    public static string Make(Transform holder, string name, int order, Vector3 center, Vector3 dir, float width, int layer, FuwaPhotoAlbum album, string ja, string en)
     {
         var go = new GameObject(name);
         go.layer = layer;

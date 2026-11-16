@@ -75,6 +75,10 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
 
     [Header("コース名（FuwaRecords と同じ並び）")]
     public Transform[] courseStarts;
+    [Header("2つめのボード（ステージ2のロビー）。同じ写真を両方に出す（2026-11-16 てじゃ「ステージ2のかってにスクショのポイントきめるかー」）")]
+    public Renderer[] frames2;
+    public GameObject[] emptyMarks2;
+    public TextMeshPro titleText2;
     public string[] courseNamesJa;
     public string[] courseNamesEn;
     public FuwaLanguage language;
@@ -128,6 +132,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         if (shotCam != null) { shotCam.enabled = false; shotCam.depthTextureMode = DepthTextureMode.Depth; }   // うそ影（デカール）は深度を使う
         if (feedRenderer != null) { _feedMat = feedRenderer.material; feedRenderer.enabled = false; }
         for (int i = 0; i < n; i++) if (frames[i] != null) frames[i].enabled = false;
+        if (frames2 != null) for (int i = 0; i < frames2.Length; i++) if (frames2[i] != null) frames2[i].enabled = false;
         if (goalBoard != null) { _goalBoardScale = goalBoard.localScale; goalBoard.gameObject.SetActive(false); }
         RefreshCaptions();
     }
@@ -247,9 +252,12 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             string t = "<color=#FF6B5C>" + (en ? titleEn : titleJa) + "</color>";   // 見出しはあそびかたの看板と同じオレンジ（コース名はふつうの色）
             string c = CourseName(_boardCourse, en);
             titleText.text = any && c != "" ? t + "<space=0.8em><size=58%><color=#222222>" + c + "</color></size>" : t;   // 見出しとコース名の間をあけて、コース名は黒（てじゃ）
+            if (titleText2 != null) titleText2.text = titleText.text;
         }
         if (emptyMarks != null)
             for (int i = 0; i < emptyMarks.Length; i++) if (emptyMarks[i] != null) emptyMarks[i].SetActive(!(i < _has.Length && _has[i]));
+        if (emptyMarks2 != null)
+            for (int i = 0; i < emptyMarks2.Length; i++) if (emptyMarks2[i] != null) emptyMarks2[i].SetActive(!(i < _has.Length && _has[i]));
     }
 
     private string CourseName(int course, bool en)
@@ -302,7 +310,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         {
             _boardRun = run;
             _boardCourse = CourseIndex(_ball.startPoint);
-            for (int i = 0; i < _has.Length; i++) { _has[i] = false; _pointOf[i] = null; if (frames[i] != null) frames[i].enabled = false; }
+            for (int i = 0; i < _has.Length; i++) { _has[i] = false; _pointOf[i] = null; if (frames[i] != null) frames[i].enabled = false; if (frames2 != null && i < frames2.Length && frames2[i] != null) frames2[i].enabled = false; }
             if (goalBoard != null) { _goalShowAt = -1f; goalBoard.gameObject.SetActive(false); }
         }
 
@@ -356,6 +364,11 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         {
             frames[slot].enabled = true;
             frames[slot].material.SetTexture("_MainTex", rt);
+        }
+        if (frames2 != null && slot < frames2.Length && frames2[slot] != null)
+        {
+            frames2[slot].enabled = true;
+            frames2[slot].material.SetTexture("_MainTex", rt);
         }
         _feedShown = -1;
         RefreshCaptions();
@@ -516,7 +529,8 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             float best = feedRange;
             int h1 = FeedTarget(frames, photo.Position, photo.Forward, ref best);
             int h2 = FeedTarget(goalFrames, photo.Position, photo.Forward, ref best);
-            hit = h2 >= 0 ? h2 : h1;
+            int h3 = FeedTarget(frames2, photo.Position, photo.Forward, ref best);
+            hit = h3 >= 0 ? h3 : h2 >= 0 ? h2 : h1;
             if (hit >= 0)
             {
                 feed.position = photo.Position + photo.Forward * feedDistance;
