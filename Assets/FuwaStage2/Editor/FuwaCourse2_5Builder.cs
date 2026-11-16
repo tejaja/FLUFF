@@ -1981,7 +1981,7 @@ public static class FuwaCourse2_5Builder
     //  箱は1つのオブジェクトにまとめる（ふわふわ用・人用それぞれ1つ、BoxCollider をたくさん）
     public static bool TierOuts = true; public static float TierOutCell = 1.5f, TierOutNear = 4.5f;
     // 2026-11-16 てじゃ「最上段、かなり吹っ飛ぶから余裕持ったほうがいいかも」→ 最上段（TierOutUpperY より上の床）は、TierOutUpperExtra m 深く・TierOutUpperNear m 外まで
-    public static float TierOutUpperY = -140f, TierOutUpperExtra = 3f, TierOutUpperNear = 18f;   // 10 → 18（てじゃ「広場の橋でふっとばされるとアウトのそといくかも」）
+    public static float TierOutUpperY = -140f, TierOutUpperExtra = 3f, TierOutUpperNear = 30f, TierOutUpperThick = 6f;   // 10 → 18（てじゃ「広場の橋でふっとばされるとアウトのそといくかも」）→ 30＋下へ 6m 厚く（「まだギリギリだと通り越しちゃう」）
     static void AddTierOuts()
     {
         var old = root.Find("TierOuts"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -2043,10 +2043,10 @@ public static class FuwaCourse2_5Builder
                 // この高さより下の床（下の段）：その床の上 2.2m より下へはのばさない
                 float floorBelow = here.Where(f => f < L - 1.0f).DefaultIfEmpty(-1e9f).Max();
                 float lim = floorBelow + 2.2f;
-                float ex = L > TierOutUpperY ? TierOutUpperExtra : 0f;
-                float bTop = L - 1.2f - ex, bBot = Mathf.Max(L - 3.6f - ex, lim);
+                float ex = L > TierOutUpperY ? TierOutUpperExtra : 0f, th = L > TierOutUpperY ? TierOutUpperThick : 0f;
+                float bTop = L - 1.2f - ex, bBot = Mathf.Max(L - 3.6f - ex - th, lim);
                 if (bTop - bBot > 0.5f) Put(bq, ix, iz, bTop, bBot);
-                float pTop = L - 3.0f - ex, pBot = Mathf.Max(L - 5.4f - ex, lim);
+                float pTop = L - 3.0f - ex, pBot = Mathf.Max(L - 5.4f - ex - th, lim);
                 if (pTop - pBot > 0.5f) Put(pq, ix, iz, pTop, pBot);
             }
         }
