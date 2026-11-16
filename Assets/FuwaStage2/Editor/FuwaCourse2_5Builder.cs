@@ -629,8 +629,8 @@ public static class FuwaCourse2_5Builder
         go.AddComponent<MeshRenderer>().sharedMaterials = new[] { moss, underM };
         go.AddComponent<MeshCollider>().sharedMesh = mesh;   // 地面も空洞もふわふわが着いたらアウト（前の Top・CaveFloor と同じ道のレイヤー）
         log.Append("道ぞいの岩 " + (tTop.Count + tSide.Count) / 3 + "三角 ");
+        if (CaveCrystals) GoalCaveCrystals(rk, sc, hx, cy0, cy1, mdir);   // 岩の当たり（MeshCollider）ができてから：壁・天井にレイを当てて根もとを置く
         // 出口のポータルは口と反対の壁から少し離す（だ円の輪が壁にめりこまないように）、口の方へ進む
-        if (CaveCrystals) GoalCaveCrystals(rk, sc, hx, cy0, cy1, mdir);
         var ent = sc - mdir * (hz - 1.5f);
         return (new Vector3(ent.x, cy0, ent.y), Mathf.Atan2(mdir.y, mdir.x) * Mathf.Rad2Deg);
     }
@@ -642,32 +642,45 @@ public static class FuwaCourse2_5Builder
     {
         var g = new GameObject("GoalCrystals").transform; g.SetParent(rk, false);
         var cm = CrystalMat(); var rnd = new System.Random(2525);
+        Physics.SyncTransforms();
+        // 岩（道レイヤーの RockMesh）にレイを当てて、当たった所から奥へ inset の所（コースの座標）。当たらなければ fallback
+        Vector3 Hit(Vector3 from, Vector3 dir, float inset, Vector3 fallback)
+        {
+            var wf = root.TransformPoint(from); var wd = root.TransformDirection(dir).normalized;
+            if (Physics.Raycast(wf, wd, out var h, 20f, 1 << pathLayer, QueryTriggerInteraction.Ignore)) return root.InverseTransformPoint(h.point) + dir.normalized * inset;
+            return fallback;
+        }
         float mouthAng = Mathf.Atan2(mdir.y, mdir.x) * Mathf.Rad2Deg;
         int n = 0;
         // 壁：口のまわり（±40°）はなし。根もとは壁の中（hx＋少し）、中へ向かって斜め上に突き出す
-        for (int k = 0; k < 9; k++)
+        // 2026-11-16 てじゃ「細かいのが沢山ってより、でっかいのがいくつか」→ 壁は大きいのを4つ
+        int NW = 4;
+        for (int k = 0; k < NW; k++)
         {
-            float ang = mouthAng + 50f + 260f * (k + 0.2f + 0.6f * (float)rnd.NextDouble()) / 9f;
+            float ang = mouthAng + 55f + 250f * (k + 0.25f + 0.5f * (float)rnd.NextDouble()) / NW;
             var d2 = new Vector2(Mathf.Cos(ang * Mathf.Deg2Rad), Mathf.Sin(ang * Mathf.Deg2Rad));
-            float y = Mathf.Lerp(cy0 + 0.6f, cy1 - 1.2f, (float)rnd.NextDouble());
-            var p2 = sc + d2 * (hx + 0.35f);
-            float s = 0.7f + 0.6f * (float)rnd.NextDouble();
+            float y = Mathf.Lerp(cy0 + 0.3f, cy1 - 2.5f, (float)rnd.NextDouble());
+            var p2 = sc + d2 * (hx + 0.6f);
+            float s = 1.7f + 0.6f * (float)rnd.NextDouble();
+            { var hp = Hit(new Vector3(sc.x, y, sc.y), new Vector3(d2.x, 0f, d2.y), 0.35f * s, new Vector3(p2.x, y, p2.y)); p2 = new Vector2(hp.x, hp.z); }
             var inward = new Vector3(-d2.x, 0f, -d2.y);
             var axis = (inward * (0.8f + 0.4f * (float)rnd.NextDouble()) + Vector3.up * (0.2f + 0.8f * (float)rnd.NextDouble())).normalized;
-            var o = MeshObj(g, "WallCrystal" + k, CrystalClusterMesh("GoalCave_Wall" + k, 900 + k, s, 2 + rnd.Next(2)), cm, new Vector3(p2.x, y, p2.y), 0, false);
+            var o = MeshObj(g, "WallCrystal" + k, CrystalClusterMesh("GoalCave_Wall" + k, 900 + k, s, 2), cm, new Vector3(p2.x, y, p2.y), 0, false);
             o.transform.localRotation = Quaternion.FromToRotation(Vector3.up, axis) * Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
             n++;
         }
         // 天井：まん中に大きい塊（下向き）＋まわりに小さいのを3つ
         float yc = cy1 + 0.1f;
         {
-            var o = MeshObj(g, "CeilCrystal", CrystalClusterMesh("GoalCave_Ceil", 950, 1.5f, 4), cm, new Vector3(sc.x, yc, sc.y), 0, false);
+            var cp = Hit(new Vector3(sc.x, cy0 + 1f, sc.y), Vector3.up, 0.5f, new Vector3(sc.x, yc + 0.3f, sc.y));
+            var o = MeshObj(g, "CeilCrystal", CrystalClusterMesh("GoalCave_Ceil", 950, 2.1f, 3), cm, cp, 0, false);
             o.transform.localRotation = Quaternion.Euler(180f, 20f, 0f);
-            for (int k = 0; k < 3; k++)
+            for (int k = 0; k < 1; k++)
             {
                 float ang = mouthAng + 120f * k + 60f;
-                var p2 = sc + new Vector2(Mathf.Cos(ang * Mathf.Deg2Rad), Mathf.Sin(ang * Mathf.Deg2Rad)) * (3f + 1.5f * (float)rnd.NextDouble());
-                var oc = MeshObj(g, "CeilCrystalS" + k, CrystalClusterMesh("GoalCave_CeilS" + k, 960 + k, 0.7f + 0.3f * (float)rnd.NextDouble(), 1), cm, new Vector3(p2.x, yc, p2.y), 0, false);
+                var p2 = sc + new Vector2(Mathf.Cos(ang * Mathf.Deg2Rad), Mathf.Sin(ang * Mathf.Deg2Rad)) * (4.5f + 1f * (float)rnd.NextDouble());
+                var cps = Hit(new Vector3(p2.x, cy0 + 1f, p2.y), Vector3.up, 0.35f, new Vector3(p2.x, yc + 0.2f, p2.y));
+                var oc = MeshObj(g, "CeilCrystalS" + k, CrystalClusterMesh("GoalCave_CeilS" + k, 960 + k, 1.2f, 1), cm, cps, 0, false);
                 oc.transform.localRotation = Quaternion.Euler(180f + ((float)rnd.NextDouble() - 0.5f) * 40f, (float)rnd.NextDouble() * 360f, ((float)rnd.NextDouble() - 0.5f) * 40f);
                 n++;
             }
@@ -675,24 +688,26 @@ public static class FuwaCourse2_5Builder
         // 2026-11-16 てじゃ「もっと割れて開いてる方にもつけて」→ 口（割れて開いている方）の両がわの壁と、口の天井にも
         {
             var mper2 = new Vector2(-mdir.y, mdir.x);
-            for (int k = 0; k < 8; k++)
+            for (int k = 0; k < 3; k++)
             {
                 float side = k % 2 == 0 ? -1f : 1f;
-                float u = hx - 0.8f + (CaveRingW - 0.2f) * (k / 2 + 0.3f + 0.4f * (float)rnd.NextDouble()) / 4f;   // 部屋のふち〜口の壁の終わり（輪 hx+CaveRingW）まで。外は壁がなく浮くので置かない
-                var p2 = sc + mdir * u + mper2 * side * (CaveMouthW / 2f + 0.3f);
-                float y = Mathf.Lerp(cy0 + 0.4f, cy1 - 0.9f, (float)rnd.NextDouble());
-                float s = 0.6f + 0.6f * (float)rnd.NextDouble();
+                float u = hx - 0.5f + (CaveRingW - 0.8f) * (k + 0.3f + 0.4f * (float)rnd.NextDouble()) / 3f;   // 部屋のふち〜口の壁の終わり（輪 hx+CaveRingW）まで。外は壁がなく浮くので置かない
+                var p2 = sc + mdir * u + mper2 * side * (CaveMouthW / 2f + 0.6f);
+                float y = Mathf.Lerp(cy0 + 0.3f, cy1 - 2.5f, (float)rnd.NextDouble());
+                float s = 1.5f + 0.6f * (float)rnd.NextDouble();
+                { var c0 = sc + mdir * u; var hp = Hit(new Vector3(c0.x, y, c0.y), new Vector3(mper2.x * side, 0f, mper2.y * side), 0.35f * s, new Vector3(p2.x, y, p2.y)); p2 = new Vector2(hp.x, hp.z); }
                 var inward = new Vector3(-mper2.x * side, 0f, -mper2.y * side);
                 var axis = (inward * (0.7f + 0.4f * (float)rnd.NextDouble()) + Vector3.up * (0.25f + 0.7f * (float)rnd.NextDouble()) + new Vector3(mdir.x, 0f, mdir.y) * ((float)rnd.NextDouble() - 0.3f) * 0.6f).normalized;
-                var o = MeshObj(g, "MouthCrystal" + k, CrystalClusterMesh("GoalCave_Mouth" + k, 980 + k, s, 1 + rnd.Next(3)), cm, new Vector3(p2.x, y, p2.y), 0, false);
+                var o = MeshObj(g, "MouthCrystal" + k, CrystalClusterMesh("GoalCave_Mouth" + k, 980 + k, s, 2), cm, new Vector3(p2.x, y, p2.y), 0, false);
                 o.transform.localRotation = Quaternion.FromToRotation(Vector3.up, axis) * Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
                 n++;
             }
-            for (int k = 0; k < 3; k++)
+            for (int k = 0; k < 1; k++)
             {
-                float u = hx + 0.5f + (CaveRingW + 2f) * (k + 0.5f) / 3f;
+                float u = hx + 1.5f;
                 var p2 = sc + mdir * u + mper2 * ((float)rnd.NextDouble() - 0.5f) * (CaveMouthW * 0.6f);
-                var o = MeshObj(g, "MouthCeil" + k, CrystalClusterMesh("GoalCave_MouthCeil" + k, 995 + k, 0.6f + 0.4f * (float)rnd.NextDouble(), 2), cm, new Vector3(p2.x, cy1 + 0.1f, p2.y), 0, false);
+                var mp = Hit(new Vector3(p2.x, cy0 + 1f, p2.y), Vector3.up, 0.4f, new Vector3(p2.x, cy1 + 0.25f, p2.y));
+                var o = MeshObj(g, "MouthCeil" + k, CrystalClusterMesh("GoalCave_MouthCeil" + k, 995 + k, 1.3f, 2), cm, mp, 0, false);
                 o.transform.localRotation = Quaternion.Euler(180f + ((float)rnd.NextDouble() - 0.5f) * 50f, (float)rnd.NextDouble() * 360f, ((float)rnd.NextDouble() - 0.5f) * 50f);
                 n++;
             }
@@ -700,7 +715,7 @@ public static class FuwaCourse2_5Builder
         // 光：天井の大きい塊の少し下から（影あり）
         {
             var lg = new GameObject("CaveLight"); lg.transform.SetParent(g, false);
-            lg.transform.localPosition = new Vector3(sc.x, yc - 1.6f, sc.y);
+            lg.transform.localPosition = new Vector3(sc.x, yc - 2.6f, sc.y);
             var l = lg.AddComponent<Light>(); l.type = LightType.Point; l.color = CaveLightCol; l.intensity = CaveLightIntensity; l.range = CaveLightRange;
             l.shadows = LightShadows.Soft; l.shadowStrength = 0.75f; l.renderMode = LightRenderMode.ForcePixel; l.lightmapBakeType = LightmapBakeType.Realtime;
         }
