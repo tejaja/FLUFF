@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 
 // 名場面アルバムのフォトポイント（自分にだけ、同期なし）。2026-10-11 てじゃ「各コースごとに、数カ所フォトポイントを作るのがいい」
@@ -23,6 +23,8 @@ public class FuwaPhotoPoint : UdonSharpBehaviour
     public bool takeFirst = true;
     [Tooltip("このポイントで撮るのは2枚目（撃った瞬間/近く）か。1枚目と2枚目を別の場所で撮りたい時は、同じ order のポイントを2つ置いて片方ずつ（2026-10-12 まもののす：1枚目はスタート、2枚目は巣の中）")]
     public bool takeSecond = true;
+    [Tooltip("0より大きいと、カメラからふわふわへの線のまわりこの太さ(m)に物があるカメラ位置をやめる（柱などで画面がふさがるポイント用。2026-11-16 2–3 のドーム）")]
+    public float clearRadius = 0f;
 
     private float _shotRun = -1f;
 

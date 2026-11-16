@@ -418,6 +418,7 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
             Vector3 pos = basePos + (fwd * ax[k] + side * (sx[k] * pref) + Vector3.up * ux[k]) * d;
             if (Physics.CheckSphere(pos, 0.3f, obstacleMask, QueryTriggerInteraction.Ignore)) continue;
             if (Blocked(pos, ball)) continue;
+            if (point.clearRadius > 0f && ViewCluttered(pos, ball, point.clearRadius)) continue;
             Vector3 dB = (ball - pos).normalized;
             Vector3 dir = dB;
             float fov = kind == KindFar ? 50f : 45f;
@@ -479,6 +480,17 @@ public class FuwaPhotoAlbum : UdonSharpBehaviour
         shotCam.transform.position = pos;
         shotCam.transform.rotation = Quaternion.LookRotation(dir, Vector3.up);
         shotCam.fieldOfView = fov;
+    }
+
+    // 2026-11-16 てじゃ「氷の柱はいやだな」（2–3 のドームで、手前の氷の柱が写真の半分をふさいだ）：
+    //  ふわふわへの線のまわり（太さ clearRadius）に物があれば、その位置はやめる。ふわふわの手前 3 割は見ない（地面や足もとの物はいい）
+    private bool ViewCluttered(Vector3 from, Vector3 to, float radius)
+    {
+        Vector3 d = to - from;
+        float len = d.magnitude * 0.7f;
+        if (len <= radius) return false;
+        RaycastHit hit;
+        return Physics.SphereCast(from, radius, d.normalized, out hit, len, obstacleMask, QueryTriggerInteraction.Ignore);
     }
 
     private bool Blocked(Vector3 from, Vector3 to)

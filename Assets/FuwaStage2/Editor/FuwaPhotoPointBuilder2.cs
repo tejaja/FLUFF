@@ -97,6 +97,8 @@ public static class FuwaPhotoPointBuilder2
                     }
                     string r = FuwaPhotoPointBuilder.Make(holder, "PhotoPoint" + (order + 1), order, center, dir, size.x, layer, album, s.ja, s.en);
                     var col = holder.Find("PhotoPoint" + (order + 1)).GetComponent<BoxCollider>(); col.size = size;
+                    // てじゃ「氷の柱はいやだな」：氷の柱が多い所は、柱で画面がふさがる位置をよける
+                    if (s.en == "Round Dome") { var pp = col.GetComponent<FuwaPhotoPoint>(); pp.clearRadius = 0.9f; UdonSharpEditorUtility.CopyProxyToUdon(pp); EditorUtility.SetDirty(pp); }
                     made.Add(r);
                     order++;
                 }
