@@ -597,6 +597,42 @@ public static class FuwaPlaygroundBuilder
         Debug.Log("[あそびば] ドームをさわって解放に（10個）");
     }
 
+    // 2026-11-16 てじゃ「（あそびばのポータル）向こう見えるのはむりかな」「それでいいよ」：2–5 と同じカメラ式（FuwaPortalCams）で、A の穴に B から見た景色、B の穴に A から見た景色
+    //  カメラ2台は 2–5 の物の設定を複製（レンダーテクスチャも共用：2–5 とは離れていて同時に動かない）。穴の材質は 2–5 の Ruins_PortalCam_WarpA の複製
+    [MenuItem("FuwaCourse/あそびば/ポータルの向こうを映す（カメラ式）")]
+    public static void MenuPortalCams()
+    {
+        var pp = Object.FindObjectsOfType<FuwaPlaygroundPortals>(true).FirstOrDefault();
+        var src = Object.FindObjectsOfType<FuwaPortalCams>(true).FirstOrDefault(c => c.transform.root.name == "FuwaCourse2_5");
+        if (pp == null || src == null) { Debug.LogWarning("[あそびば] ポータルか 2–5 の PortalCams がない"); return; }
+        var old = pp.transform.Find("PortalCams"); if (old) Object.DestroyImmediate(old.gameObject);
+        var g = new GameObject("PortalCams"); g.transform.SetParent(pp.transform, false);
+        Camera Cam(Camera c) { var n = Object.Instantiate(c.gameObject, g.transform, false); n.name = c.name; var cam = n.GetComponent<Camera>(); cam.enabled = false; return cam; }
+        var cl = Cam(src.camL); var cr = Cam(src.camR);
+        var srcMat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Ruins_PortalCam_WarpA.mat");
+        MeshRenderer Hole(Transform p, string n)
+        {
+            var mr = p.Find("Swirl").GetComponent<MeshRenderer>();
+            string mp = "Assets/FuwaCourse/Materials/Playground_PortalCam_" + n + ".mat";
+            var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+            if (!m) { m = new Material(srcMat); AssetDatabase.CreateAsset(m, mp); } else m.CopyPropertiesFromMaterial(srcMat);
+            m.SetFloat("_Active", 0f); m.SetTexture("_TexL", cl.targetTexture); m.SetTexture("_TexR", cr.targetTexture); EditorUtility.SetDirty(m);
+            mr.sharedMaterial = m; return mr;
+        }
+        var ha = Hole(pp.a, "A"); var hb = Hole(pp.b, "B");
+        var pc = UdonSharpUndo.AddComponent<FuwaPortalCams>(g);
+        // 調整の数字だけ 2–5 と同じに（CopySerialized は裏の UdonBehaviour の参照までコピーしてしまうので使わない）
+        foreach (var f in typeof(FuwaPortalCams).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+            if (f.FieldType == typeof(float) || f.FieldType == typeof(int)) f.SetValue(pc, f.GetValue(src));
+        pc.entries = new[] { pp.a, pp.b }; pc.exits = new[] { pp.b, pp.a }; pc.holes = new[] { ha, hb };
+        pc.camL = cl; pc.camR = cr; pc.layerCull = new int[0];
+        UdonSharpEditorUtility.CopyProxyToUdon(pc);
+        var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pc); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
+        AssetDatabase.SaveAssets();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(pp.gameObject.scene);
+        Debug.Log("[あそびば] ポータルのカメラ式");
+    }
+
     // 言語の表から、消えた看板（null）の行を取りのぞく（作り直すたびに増えないように）
     static void CleanLang(SerializedObject lso, string a, string j, string e)
     {
