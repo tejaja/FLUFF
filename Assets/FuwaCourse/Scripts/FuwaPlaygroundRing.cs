@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 
 // みんなでひろばのゴール風リング（2026-10-12 てじゃ「ゴール風リング、通ると光って花火が上がる」）。
@@ -18,6 +18,21 @@ public class FuwaPlaygroundRing : UdonSharpBehaviour
     private float _last = -10f;
     private Material _mat;
     private float _baseGlow;
+
+    // 2026-11-16 てじゃ「ゴールリングがもてなくなってる」：床に置いた形のまま持てるように。離したら真下の床に平ら（穴が上）に置く
+    public LayerMask groundMask = 1 | (1 << 11);
+    public float groundOffset = 0.06f;
+
+    public override void OnDrop()
+    {
+        Vector3 d = transform.up; d.y = 0f;
+        if (d.sqrMagnitude < 0.001f) { d = transform.forward; d.y = 0f; }
+        if (d.sqrMagnitude < 0.001f) d = Vector3.forward;
+        Vector3 p = transform.position;
+        RaycastHit h;
+        if (Physics.Raycast(p + Vector3.up * 0.5f, Vector3.down, out h, 6f, groundMask, QueryTriggerInteraction.Ignore)) p.y = h.point.y + groundOffset;
+        transform.SetPositionAndRotation(p, Quaternion.LookRotation(Vector3.up, d.normalized));
+    }
 
     private void Start()
     {

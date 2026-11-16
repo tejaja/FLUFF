@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDK3.Components;
 
@@ -15,6 +15,10 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
     public LayerMask ground = 1 << 11;
     [Tooltip("下にこれ以上地面がなければ、離したその場に浮かべる")]
     public float maxDrop = 6f;
+    [Tooltip("持っている間だけ（自分の画面だけ）body の見た目をこの半透明の材質にする（2026-11-16 てじゃ「デカいから岩みたいに半透明化」「きのこ台にも半透明化」）。空なら変えない")]
+    public Material heldMaterial;
+    private Renderer[] _vis;
+    private Material[][] _visMats;
 
     private Vector3 _lastPos = new Vector3(0f, -9999f, 0f);
     private float _lastYaw;
@@ -50,9 +54,35 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
         for (int i = 0; i < _cols.Length; i++) if (_cols[i] != null && (_boosts.Length == 0 || _cols[i].GetComponent<FuwaJumpBoost>() == null)) _cols[i].enabled = !held;
     }
 
+    public override void OnPickup() { SetGhost(true); }
+
+    private void SetGhost(bool on)
+    {
+        if (heldMaterial == null || body == null) return;
+        if (_vis == null)
+        {
+            // 見た目（メッシュ）だけ。粒（ParticleSystemRenderer）は変えない
+            MeshRenderer[] mr = body.GetComponentsInChildren<MeshRenderer>(true);
+            _vis = new Renderer[mr.Length]; _visMats = new Material[mr.Length][];
+            for (int i = 0; i < mr.Length; i++) { _vis[i] = mr[i]; _visMats[i] = mr[i].sharedMaterials; }
+        }
+        for (int i = 0; i < _vis.Length; i++)
+        {
+            if (_vis[i] == null) continue;
+            if (on)
+            {
+                Material[] g = new Material[_visMats[i].Length];
+                for (int k = 0; k < g.Length; k++) g[k] = heldMaterial;
+                _vis[i].sharedMaterials = g;
+            }
+            else _vis[i].sharedMaterials = _visMats[i];
+        }
+    }
+
     // 手を離したら、その場の地面にまっすぐ立てる（持っていた人の画面で。位置は VRCObjectSync が配る）
     public override void OnDrop()
     {
+        SetGhost(false);
         Vector3 p = transform.position;
         RaycastHit[] hits = Physics.RaycastAll(p + Vector3.up * 0.3f, Vector3.down, maxDrop + 0.3f, ground, QueryTriggerInteraction.Ignore);
         float best = float.MaxValue;

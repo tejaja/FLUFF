@@ -388,7 +388,7 @@ public static class FuwaPlaygroundBuilder
         { var rb = ringT.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false; }
         var gate = ringT.gameObject.AddComponent<BoxCollider>(); gate.isTrigger = true; gate.size = new Vector3(1.6f, 1.6f, 0.35f); gate.center = new Vector3(0f, 0f, 0.35f);
         var rpk = ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
-        rpk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; rpk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; rpk.InteractionText = "リング"; rpk.proximity = 2f; rpk.pickupable = false;
+        rpk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; rpk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; rpk.InteractionText = "リング"; rpk.proximity = 2f; rpk.pickupable = true;   // 2026-11-16 てじゃ「ゴールリングがもてなくなってる」→ 持てるように（離すと床に平ら：FuwaPlaygroundRing.OnDrop）
         ringT.gameObject.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
         // 色はコースのゴールリングと同じ（Goal_Ring をそのまま使う。2026-10-12 てじゃ「本物と同じピンクに」）
         var ringM = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.FindAssets("Goal_Ring t:Material").Select(AssetDatabase.GUIDToAssetPath).First(pp => pp.EndsWith("/Goal_Ring.mat")));
@@ -872,7 +872,7 @@ public static class FuwaPlaygroundBuilder
         foreach (var (gt, rr) in new[] { (gB, 0.12f), (gS, 0.09f) })
         {   // 床から歯車の下までの軸（歯車といっしょに回る）
             var ax = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ax.name = "Axle"; Object.DestroyImmediate(ax.GetComponent<Collider>());
-            ax.transform.SetParent(gt, true); float h = top;
+            ax.transform.SetParent(gt, true); float h = top - 0.015f;   // 2026-11-16 てじゃ「ギア中心にZファイト」：軸の上の面が歯車の上の面と同じ高さだった → 1.5cm 下で止める
             ax.transform.position = new Vector3(gt.position.x, O.y + h * 0.5f, gt.position.z); ax.transform.rotation = root.rotation; ax.transform.localScale = new Vector3(rr * 2f / sc, h * 0.5f / sc, rr * 2f / sc);
             ax.GetComponent<MeshRenderer>().sharedMaterial = wm.rotor.Find("Hub").GetComponent<MeshRenderer>().sharedMaterial;
             var foot = GameObject.CreatePrimitive(PrimitiveType.Cylinder); foot.name = "AxleFoot"; Object.DestroyImmediate(foot.GetComponent<Collider>()); foot.transform.SetParent(root, true);
