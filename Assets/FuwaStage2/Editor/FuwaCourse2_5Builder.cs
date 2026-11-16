@@ -423,6 +423,9 @@ public static class FuwaCourse2_5Builder
         //  → 同日「周りを囲う感じは残したい」→ 空洞のまわりの土の壁（口つき）は残して、空洞の床と下の岩だけなし（下が抜けてる）。
         //  ゴールは壁に囲まれた中に浮いた床（写したゴールの GoalGround＋道）（GoalOpen）
         if (GoalOpen) layers.RemoveRange(4, layers.Count - 4);
+        // 2026-11-16 こんもり（RockMound）：段々の層（道の下・台地の下）はやめて、空洞のまわりの壁（CaveRingW の輪）だけ残す。下はこんもりの面（MoundUnder）
+        bool mound = RockMound && GoalOpen;
+        if (mound) for (int k = 1; k < layers.Count; k++) { var L0 = layers[k]; layers[k] = (L0.y1, L0.y0, -99f, hx + CaveRingW, L0.cave); }
         System.Func<int, Vector2, float> F = (k, q) =>
         {
             var L = layers[k];
@@ -458,6 +461,15 @@ public static class FuwaCourse2_5Builder
             rimSegs = (k == 0 && GrassLip) ? segs : null;
             var L = layers[k]; var g = grids[k];
             var above = k > 0 ? grids[k - 1] : null; var below = k + 1 < layers.Count ? grids[k + 1] : null;
+            // こんもりの時：地面の板（k=0）の下の面のうち空洞の外・いちばん下の層の下の面は、こんもりの中にかくれるので作らない（重なってちらつかないように）。空洞の天井（板の下の面の空洞の中）は残す
+            rockSkipBottom = null;
+            if (mound && k == 0)
+            {
+                var mask = new float[nx + 1, nz + 1];
+                for (int i = 0; i <= nx; i++) for (int j = 0; j <= nz; j++) mask[i, j] = dCave(new Vector2(x0 + i * RockCell, z0 + j * RockCell)) > 0f ? -1f : 1f;
+                below = mask; rockSkipBottom = c => dCave(new Vector2(c.x, c.z)) > 0f;
+            }
+            else if (mound && k == layers.Count - 1) { below = g; rockSkipBottom = c => true; }
             var capTop = k == 0 ? tTop : tSide;
             for (int j = 0; j < nz; j++)
             {
@@ -481,7 +493,24 @@ public static class FuwaCourse2_5Builder
                 }
             }
         }
-        rimSegs = null;
+        rimSegs = null; rockSkipBottom = null;
+        if (mound)
+        {   // こんもりの面：地面の板の輪郭の中で、空洞（口ふくむ）は穴。ふちは 0、まん中ほど深い（石像の下は空洞の底より下まで）。穴のふちは空洞の底（cy0）にぴったり
+            float yb = top - 1.5f, cave = yb - cy0;
+            System.Func<Vector2, float> fM = q => Mathf.Max(F(0, q), -dCave(q));
+            System.Func<Vector2, float> depthAt = q =>
+            {
+                float e = Mathf.Max(0f, -F(0, q));
+                float w = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((StatueRockR + 3f - dStat(q)) / 7f));
+                float dmax = Mathf.Lerp(MoundDepth, cave + MoundStatueExtra, w);
+                float dEdge = dmax * (0.25f * MoundDome(e, MoundRound) + 0.75f * MoundBowl(e, MoundRoundMain)) * MoundJit(q);   // 大きい島：ふちは少しだけまっすぐ、そこからおわん形にこんもり
+                float hb = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(dCave(q) / 2f));
+                float dHole = cave * Mathf.Clamp01(e / 1f);
+                return Mathf.Lerp(dHole, Mathf.Max(dEdge, dHole), hb);
+            };
+            // ふちの点：空洞の穴のふちなら空洞の底（cy0）、外のふちなら 0（板の下のはし）
+            MoundUnder(v, tSide, nx, nz, x0, z0, RockCell, fM, depthAt, yb, q => -dCave(q) > F(0, q) ? cave * Mathf.Clamp01(Mathf.Max(0f, -F(0, q)) / 1f) : 0f);
+        }
         if (GrassLip && segs.Count > 0) GrassLipMesh(segs, rk, "I1_GrassLip");
         if (CaveCeilBump > 0f)
         {   // 2026-11-15 てじゃ「天井を少しでこぼこに」：空洞の天井（地面の層の下の面 top-1.5）を下へぼこぼこ垂らす。壁ぎわは 0（壁の上とつながる）
@@ -498,7 +527,7 @@ public static class FuwaCourse2_5Builder
                 p3.y += (dome - CaveCeilBump * (bump - 0.35f)) * fade; v[i] = p3;
             }
         }
-        if (BottomBulge > 0f) BulgeBottoms(v, layers.Select(L => L.y0).ToArray(), F, 1, 2, BottomBulge, BottomBulgeR);   // 道の下（層1・2の下の面）。いちばん下の空洞の輪の層はふち（CaveSkirt）があるのでなし
+        if (BottomBulge > 0f && !mound) BulgeBottoms(v, layers.Select(L => L.y0).ToArray(), F, 1, 2, BottomBulge, BottomBulgeR);   // 道の下（層1・2の下の面）。いちばん下の空洞の輪の層はふち（CaveSkirt）があるのでなし
         if (RockRugged) RockDisplace(v, top, x0, z0);
         // 2026-11-15 てじゃ「壁もまったいらなのもきになる」：空洞の壁に岩のでっぱりを埋めこむ（壁から半分出る）＋天井の近くから下がる岩
         if (CaveWallRocks > 0)
@@ -527,7 +556,7 @@ public static class FuwaCourse2_5Builder
                 RockChunk(cv, ct, new Vector3(c2.x, cy1 - len * 0.35f, c2.y), new Vector3(0.9f, len, 0.9f), Quaternion.Euler(0f, (float)crnd.NextDouble() * 360f, 0f), crnd);
             }
             // 2026-11-15 てじゃ「裏がぱきっと真っ平らなのもきになる」：空洞のまわりの輪の底に、下へ垂れるゴツゴツのふち（まん中のゴールの下は抜けたまま）
-            if (GoalOpen && CaveSkirt)
+            if (GoalOpen && CaveSkirt && !mound)
             {
                 int N = 72; float rOut = StatueRockR - 1.2f - 1.0f, rIn = hx - 0.35f;   // 2026-11-15 てじゃ「だいぶずれてる」→ 外のふちは島の底の内がわから出す（外に出すと島の壁とのあいだにすき間）
                 var rings = new List<Vector3[]>();
@@ -668,11 +697,12 @@ public static class FuwaCourse2_5Builder
         System.Func<Vector2, float> dPit = q => { float d = float.MaxValue; foreach (var poly in pits) d = Mathf.Min(d, PolySdf(poly, q)); return d; };
         // 2026-11-15 てじゃ「この道の島の下部分もパッキリしすぎ」→ 下へ細ってとがる＋段のふちを上下にゆらす（「段はおおくなくていい」→ 3段）
         var layers = new List<(float y1, float y0, float pm)>();
+        bool moundM = RockMound;   // 2026-11-16 こんもり：上の板（1.3）だけ、下はこんもりの面
         {
-            int NL = MidRockLayers; float y = top;
+            int NL = moundM ? 1 : MidRockLayers; float y = top;
             for (int k = 0; k < NL; k++)
             {
-                float u = (float)k / (NL - 1);
+                float u = NL > 1 ? (float)k / (NL - 1) : 0f;
                 float h = k == 0 ? 1.3f : (MidRockDepth - 1.3f) / Mathf.Max(1, NL - 1);   // 段の数をかえても深さは同じ
                 float pm = MidRockM - (MidRockM + MidRockTipIn) * Mathf.Pow(u, 1.25f);
                 layers.Add((y, y - h, pm)); y -= h;
@@ -704,6 +734,7 @@ public static class FuwaCourse2_5Builder
             rimSegs = (k == 0 && GrassLip) ? segs : null;
             var L = layers[k]; var g = grids[k];
             var above = k > 0 ? grids[k - 1] : null; var below = k + 1 < layers.Count ? grids[k + 1] : null;
+            if (moundM) { below = g; rockSkipBottom = c => true; }
             var capTop = k == 0 ? tTop : tSide;
             for (int j = 0; j < nz; j++)
             {
@@ -721,9 +752,14 @@ public static class FuwaCourse2_5Builder
                 }
             }
         }
-        rimSegs = null;
+        rimSegs = null; rockSkipBottom = null;
+        if (moundM)
+        {
+            float yb = layers[0].y0, dmax = MidRockDepth - 1.3f;
+            MoundUnder(v, tSide, nx, nz, x0, z0, RockCell, q => F(0, q), q => dmax * MoundDome(Mathf.Max(0f, -F(0, q)), MoundRound) * MoundJit(q), yb);
+        }
         if (GrassLip && segs.Count > 0) GrassLipMesh(segs, rk, meshName + "_GrassLip");
-        if (BottomBulge > 0f) BulgeBottoms(v, layers.Select(L => L.y0).ToArray(), F, 0, layers.Count - 1, BottomBulge, BottomBulgeR);
+        if (BottomBulge > 0f && !moundM) BulgeBottoms(v, layers.Select(L => L.y0).ToArray(), F, 0, layers.Count - 1, BottomBulge, BottomBulgeR);
         if (RockRugged) RockDisplace(v, top, x0, z0);
         // 段のふち（上の面より下）を上下にゆらす：位置だけで決まるずらしなので、となりの面と同じ点は同じだけ動く（すき間なし）
         if (MidRockSag > 0f)
@@ -816,7 +852,7 @@ public static class FuwaCourse2_5Builder
         for (int k = 1; k + 1 < poly.Count; k++)
         {
             RockAddTri(v, tTop, poly[0] + Vector3.up * y1, poly[k] + Vector3.up * y1, poly[k + 1] + Vector3.up * y1, Vector3.up);
-            RockAddTri(v, tSide, poly[0] + Vector3.up * y0, poly[k] + Vector3.up * y0, poly[k + 1] + Vector3.up * y0, Vector3.down);
+            if (rockSkipBottom == null || !rockSkipBottom((poly[0] + poly[k] + poly[k + 1]) / 3f)) RockAddTri(v, tSide, poly[0] + Vector3.up * y0, poly[k] + Vector3.up * y0, poly[k + 1] + Vector3.up * y0, Vector3.down);
         }
         if (cut.Count == 2)
         {
@@ -828,6 +864,54 @@ public static class FuwaCourse2_5Builder
             if (rimSegs != null) rimSegs.Add(new[] { cut[0] + Vector3.up * y1, cut[1] + Vector3.up * y1, nrm.normalized });
         }
     }
+    // ===== 2026-11-16 こんもりの下（てじゃ「島の下の土がガタツキがきになる、もっとシンプルに」「段々やめてこんもりしてるやつにしよ」）=====
+    //  上の地面の板の下の面（yb）から、輪郭（fM＜0 の所）の中に下へふくらむ1枚の面。ふち（fM=0）では depthAt が 0 になるように作る（板の横の壁の下のはしとつながる）
+    //  穴（空洞など）の所は fM＞0 にしておけば穴になる。格子は岩と同じ（RockCell）、三角の分け方も RockTri と同じ
+    public static bool RockMound = true; public static float MoundRoundMain = 9f, MoundRound = 3.5f, MoundDepth = 4.5f, MoundStatueExtra = 3.5f, CaveRingW = 3.5f, MoundNoise = 0.3f;
+    static System.Func<Vector3, bool> rockSkipBottom;   // null 以外の間、RockTri はこれが true の所の下の面を作らない（こんもりの面の中にかくれるので）
+    static float MoundDome(float e, float R) { float s = Mathf.Clamp01(e / R); return Mathf.Sqrt(1f - (1f - s) * (1f - s)); }   // 丸（ふちはほぼまっすぐ下）
+    static float MoundBowl(float e, float R) { float s = Mathf.Clamp01(e / R); return 1f - (1f - s) * (1f - s) * (1f - s); }  // おわん（ふちから斜めに、まん中はなだらか）
+    static float MoundJit(Vector2 q) => 1f - MoundNoise * 0.5f + MoundNoise * (Mathf.PerlinNoise(q.x * 0.17f + 21.3f, q.y * 0.17f + 7.9f) * 0.7f + Mathf.PerlinNoise(q.x * 0.45f + 3.3f, q.y * 0.45f + 14.1f) * 0.3f);
+    static void MoundUnder(List<Vector3> v, List<int> t, int nx, int nz, float x0, float z0, float cell, System.Func<Vector2, float> fM, System.Func<Vector2, float> depthAt, float yb, System.Func<Vector2, float> cutDepth = null)
+    {
+        // 2026-11-16 ふちの点は格子の間の直線で求めた近似なので、depthAt だと少し深くなって板の下のはしとすき間ができた → ふちは cutDepth（なしなら 0）
+        var g = new float[nx + 1, nz + 1];
+        for (int i = 0; i <= nx; i++) for (int j = 0; j <= nz; j++) { float f = fM(new Vector2(x0 + i * cell, z0 + j * cell)); if (Mathf.Abs(f) < 1e-4f) f = 1e-4f; g[i, j] = f; }
+        var dc = new Dictionary<long, float>();
+        Vector3 At(Vector2 q, long key, bool cut = false)
+        {
+            if (!dc.TryGetValue(key, out var d)) { d = cut ? (cutDepth != null ? cutDepth(q) : 0f) : depthAt(q); dc[key] = d; }
+            return new Vector3(q.x, yb - d, q.y);
+        }
+        void Tri3(int ia, int ja, int ib, int jb, int ic, int jc)
+        {
+            var ids = new[] { (ia, ja), (ib, jb), (ic, jc) };
+            var poly = new List<Vector3>();
+            for (int e = 0; e < 3; e++)
+            {
+                var (i1, j1) = ids[e]; var (i2, j2) = ids[(e + 1) % 3];
+                float f1 = g[i1, j1], f2 = g[i2, j2];
+                var q1 = new Vector2(x0 + i1 * cell, z0 + j1 * cell);
+                if (f1 < 0f) poly.Add(At(q1, ((long)i1 << 20) | (long)j1));
+                if ((f1 < 0f) != (f2 < 0f))
+                {
+                    var q2 = new Vector2(x0 + i2 * cell, z0 + j2 * cell);
+                    var qc = Vector2.Lerp(q1, q2, f1 / (f1 - f2));
+                    // ふち：輪郭の上の点は depthAt をそのまま（外のふちなら 0 に近い・穴のふちなら穴の深さ）
+                    long key = (1L << 50) | ((long)Mathf.Min(i1 * (nz + 1) + j1, i2 * (nz + 1) + j2) << 22) | (long)Mathf.Max(i1 * (nz + 1) + j1, i2 * (nz + 1) + j2);
+                    poly.Add(At(qc, key, true));
+                }
+            }
+            for (int k = 1; k + 1 < poly.Count; k++) RockAddTri(v, t, poly[0], poly[k], poly[k + 1], Vector3.down);
+        }
+        for (int i = 0; i < nx; i++) for (int j = 0; j < nz; j++)
+        {
+            if (g[i, j] >= 0f && g[i + 1, j] >= 0f && g[i, j + 1] >= 0f && g[i + 1, j + 1] >= 0f) continue;
+            Tri3(i, j, i + 1, j, i + 1, j + 1);
+            Tri3(i, j, i + 1, j + 1, i, j + 1);
+        }
+    }
+
     // 2026-11-15 てじゃ「下段も島もだけど、真下が真っ平らなのがきになる」
     //  下向きの面（層 k の下の面のうち、下の層 k+1 がついていない所）を下へふくらませる。ふち（F(k)=0）と下の層のふち（F(k+1)=0）では 0 → 継ぎ目は動かない
     //  下へ動かすだけなので、下の層の壁は面をつきぬける向き（すき間にならない）。RockDisplace の前に呼ぶ（格子の座標で F を使う）
