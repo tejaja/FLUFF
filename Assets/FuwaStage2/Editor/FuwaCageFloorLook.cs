@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -41,6 +41,8 @@ public static class FuwaCageFloorLook
                 .OrderBy(c => Vector2.Distance(new Vector2(c.bounds.center.x, c.bounds.center.z), new Vector2(tt.handle.position.x, tt.handle.position.z))).FirstOrDefault();
             if (!floor) continue;
             var b = floor.bounds;
+            // 2026-11-16 てじゃ「変な空中にういた黄色リングあった」：軸の真下にかごの床がない羽根車は、遠くのかごの床の高さで空中に印が出ていた → 床の上（内がわ）にある時だけ
+            if (tt.handle.position.x < b.min.x || tt.handle.position.x > b.max.x || tt.handle.position.z < b.min.z || tt.handle.position.z > b.max.z) continue;
             var at = new Vector3(tt.handle.position.x, b.max.y + 0.01f, tt.handle.position.z);
             var old = floor.transform.Find("SpinMark"); if (old) Object.DestroyImmediate(old.gameObject);
             var g = new GameObject("SpinMark"); g.transform.SetParent(floor.transform, true); g.transform.position = at; g.transform.rotation = Quaternion.identity;
