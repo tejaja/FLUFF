@@ -279,6 +279,11 @@ public static class FuwaCourse2_5Builder
             S(2.5f); });
         var goalP = P;
         GoalSet(gc, P, Dir(th));
+        // 2026-11-16 てじゃ「ミニキノコは影でないか」→ 写したゴールのミニキノコは影オフのまま（小物の影の一覧にも入っていなかった）。
+        //  影オンにしておくと、あとの負荷対策（CoursePerf）で「近くだけ影」（SmallShadows）に入る
+        foreach (var gt in gc.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Goal"))
+            foreach (var r in gt.GetComponentsInChildren<MeshRenderer>(true).Where(r => r.name == "Cap" || r.name == "Stem"))
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
         if (warpA && warpAin) Link(warpA, warpAin, iw, null, true, true);
         if (warpW && warpWin) Link(warpW, warpWin, i3, null, true, true);
         if (warpB && warpBin) Link(warpB, warpBin, gc, null, true, true);
