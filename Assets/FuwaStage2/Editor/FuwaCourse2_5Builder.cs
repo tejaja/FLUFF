@@ -1009,8 +1009,9 @@ public static class FuwaCourse2_5Builder
     //  穴＝WindRun の中の Tile で MeshRenderer がない物。となりも穴ならその辺はなし
     public static bool PitLiners = true; public static float PitLinerInset = 0.02f;
     // 2026-11-16 てじゃ「もっとわかりやすくしたいなあ」→ 中はふちのすぐ下から暗く、穴のまわりに 2cm だけ盛り上がったこげ茶の枠（PitRim）
+    //  → てじゃ「わかりやすいけど、欠けた感じではなくなっちゃう」→ 枠はやめて（PitRim=false）、ふちの割れ残り（PitChips）
     public static Color PitTopCol = new Color(0.17f, 0.13f, 0.13f), PitBottomCol = new Color(0.03f, 0.02f, 0.025f);
-    public static bool PitRim = true; public static float PitRimW = 0.07f, PitRimH = 0.02f; public static Color PitRimCol = new Color(0.36f, 0.25f, 0.22f), PitRimSideCol = new Color(0.22f, 0.15f, 0.14f);
+    public static bool PitChips = true; public static bool PitRim = false; public static float PitRimW = 0.07f, PitRimH = 0.02f; public static Color PitRimCol = new Color(0.36f, 0.25f, 0.22f), PitRimSideCol = new Color(0.22f, 0.15f, 0.14f);
     static void AddPitLiners()
     {
         var mat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Ruins_PitWall.mat");
@@ -1030,6 +1031,7 @@ public static class FuwaCourse2_5Builder
             if (pitKeys.Count == 0) continue;
             var pits = pitKeys.Select(q => new Vector3(q.x * w / 2f, ty, q.y * l / 2f)).ToList();
             var v = new List<Vector3>(); var c = new List<Color>(); var tri = new List<int>();
+            var chipV = new Dictionary<Material, List<Vector3>>(); var chipT = new Dictionary<Material, List<int>>();
             foreach (var lp in pits)
             {
                 float top = lp.y + h / 2f, bot = lp.y - h / 2f, ins = PitLinerInset;
@@ -1049,7 +1051,7 @@ public static class FuwaCourse2_5Builder
                     var sideStep = s.along == Vector3.forward ? new Vector2Int(0, 2) : new Vector2Int(2, 0);
                     if (pitKeys.Contains(k + sideStep)) ext1 = ins; if (pitKeys.Contains(k - sideStep)) ext0 = ins;
                     var a0 = cx - s.along * (s.half + ext0); var a1 = cx + s.along * (s.half + ext1);
-                    float y0 = bot - 0.25f, y1 = top - 0.002f;   // タイルの下より少し下まで
+                    float y0 = bot - 0.25f, y1 = top - (PitChips ? 0.012f : 0.002f);   // タイルの下より少し下まで。割れ残りがある時は、その上の面（-4mm）より下で止める（割れ残りの上に線が出ない）
                     int i0 = v.Count;
                     v.Add(new Vector3(a0.x, y1, a0.z)); v.Add(new Vector3(a1.x, y1, a1.z)); v.Add(new Vector3(a1.x, y0, a1.z)); v.Add(new Vector3(a0.x, y0, a0.z));
                     c.Add(PitTopCol); c.Add(PitTopCol); c.Add(PitBottomCol); c.Add(PitBottomCol);
@@ -1083,6 +1085,26 @@ public static class FuwaCourse2_5Builder
                             Q(In(b1, top), Out(b1, top), Out(b1, yt), In(b1, yt), s.along, PitRimSideCol);
                         }
                     }
+                    if (PitChips)
+                    {   // ふちの割れ残り：となりのタイルが割れて、穴の中へギザギザに少し出っぱる（同じ色・上のふちもところどころ欠ける）。穴の壁より手前（穴がわ）から生やす
+                        var nbKey = k - new Vector2Int(Mathf.RoundToInt(s.inw.x) * 2, Mathf.RoundToInt(s.inw.z) * 2);
+                        var nbT = tiles.FirstOrDefault(t => K(t.localPosition) == nbKey);
+                        var cm = nbT && nbT.GetComponent<MeshRenderer>() ? nbT.GetComponent<MeshRenderer>().sharedMaterial : pathA;
+                        if (!chipV.ContainsKey(cm)) { chipV[cm] = new List<Vector3>(); chipT[cm] = new List<int>(); }
+                        var rr = new System.Random(k.x * 7919 + k.y * 131 + (int)(s.inw.x * 3 + s.inw.z * 5) + 17);
+                        int m = Mathf.Max(5, Mathf.RoundToInt((s.half * 2f) / 0.12f));
+                        float len = s.half + (pitKeys.Contains(k - sideStep) ? ins : 0f), len1 = s.half + (pitKeys.Contains(k + sideStep) ? ins : 0f);
+                        var aa = Lin(-len, len1, m); var ee = Jag(rr, m, 0.05f, 0.07f); var dd = new float[m];
+                        for (int q = 0; q < m; q++)
+                        {
+                            ee[q] = Mathf.Clamp(ee[q], 0.0f, 0.13f);
+                            if (q == 0 || q == m - 1) ee[q] = 0f;   // 角は出っぱらない（となりの辺と重ならない）
+                            dd[q] = rr.NextDouble() < 0.45 ? 0.02f + 0.06f * (float)rr.NextDouble() : 0.004f;
+                        }
+                        // 原点：穴のふち（タイルの面）、A＝辺にそって、B＝穴の中へ、C＝上。上の面はタイルより 4mm 下（同じ高さで並ばない）
+                        var o = new Vector3(cx.x, 0f, cx.z) + (-s.inw) * ins;
+                        FieldSlab(chipV[cm], chipT[cm], new Vector3(o.x, top, o.z), s.along, s.inw, Vector3.up, aa, ee, dd, -0.13f, -0.004f);   // うすく（下は暗い壁が見える）
+                    }
                 }
             }
             if (v.Count == 0) continue;
@@ -1092,6 +1114,13 @@ public static class FuwaCourse2_5Builder
             mesh.Clear(false); mesh.name = "PitLiner_" + wr.name;
             mesh.SetVertices(v); mesh.SetColors(c); mesh.SetTriangles(tri, 0); mesh.RecalculateBounds(); EditorUtility.SetDirty(mesh);
             var ex = wr.Find("PitLiner"); if (ex) Object.DestroyImmediate(ex.gameObject);
+            foreach (var cx2 in wr.Cast<Transform>().Where(t => t.name == "PitChips").ToList()) Object.DestroyImmediate(cx2.gameObject);
+            int ci = 0;
+            foreach (var kv in chipV)
+            {
+                var cmsh = SaveMesh("PitChips_" + wr.parent.name + "_" + wr.name + "_" + (ci++), kv.Value, chipT[kv.Key]);
+                MeshObj(wr, "PitChips", cmsh, kv.Key, Vector3.zero, 0, true);
+            }
             MeshObj(wr, "PitLiner", mesh, mat, Vector3.zero, 0, false);
             n += pits.Count;
         }
