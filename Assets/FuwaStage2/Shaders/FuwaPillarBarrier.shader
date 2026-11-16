@@ -1,4 +1,4 @@
-// 2026-11-16 てじゃ「真ん中の台座のれちゃうのと、真ん中つっきれちゃうのが問題」「台座の外周から真上にうっすらバリアみたいな円柱のバリア」
+﻿// 2026-11-16 てじゃ「真ん中の台座のれちゃうのと、真ん中つっきれちゃうのが問題」「台座の外周から真上にうっすらバリアみたいな円柱のバリア」
 //  広場のまん中の円柱のバリア（ふたなしの筒）。物体の座標の uv：u＝まわりの長さ(m)、v＝高さ(m)
 //  ・下のふちが少し濃く、上へいくほど消える（うっすら）
 //  ・横から見たふち（筒の左右のはし）が少し濃い（筒っぽく見える）
@@ -58,9 +58,13 @@ Shader "Fuwa/PillarBarrier"
                 float hl = exp(-e * e * 400);
                 float wave = 0.5 + 0.5 * sin(i.uv.y * 1.3 - t * 1.6);
                 float rim = pow(saturate(i.rim), 2.5);
-                float a = _Alpha * top * (bottom * 0.35 + rim * 0.55 + hl * (0.25 + 0.35 * wave));
+                // 2026-11-16 てじゃ「模様なくていいかも」→ 六角もようと波はなし（下のふちと横のふちが少し濃いだけ）
+                //  → てじゃ「軽くグラデが上昇アニメしてるかんじに」：ゆるい明るい帯が下から上へゆっくり流れる
+                float rise = frac(i.uv.y / 2.6 - t * 0.35);
+                float band = smoothstep(0.0, 0.55, rise) * (1 - smoothstep(0.55, 1.0, rise));
+                float a = _Alpha * top * (bottom * 0.4 + rim * 0.6 + band * 0.35);
                 a = saturate(a);
-                half3 col = _Color.rgb * (0.8 + 0.6 * hl);
+                half3 col = _Color.rgb;
                 half4 c = half4(col * a, a);
                 UNITY_APPLY_FOG_COLOR(i.fogCoord, c, half4(0, 0, 0, 0));
                 return c;
