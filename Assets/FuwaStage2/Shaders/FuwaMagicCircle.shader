@@ -1,4 +1,4 @@
-﻿// 2026-11-15 2–5 クリスタルの広場：床の魔法陣（てじゃ「見た目クオリティあげてく」の3）
+// 2026-11-15 2–5 クリスタルの広場：床の魔法陣（てじゃ「見た目クオリティあげてく」の3）
 //  床にぴったり重ねる板（Offset で床より手前に描く・ZWrite Off）。uv は板のまん中から -1〜1、_Radius m が uv 1
 //  ふだんは彫った線（暗い）。ため _Charge（0〜1）で外から内へ光が走る。ドン _Flash で全体が光って消える
 //  模様：二重の輪・スポークと小さい輪・目盛り・ルーン（乱数のマス）
@@ -14,7 +14,6 @@ Shader "Fuwa/MagicCircle"
         _Charge ("ため（スクリプト）", Range(0, 1)) = 0
         _Flash ("ドン（スクリプト）", Range(0, 1)) = 0
         _LineW ("線のはば(m)", Float) = 0.06
-        _DarkGlow ("ためきった時の光の色", Color) = (0.1, 0.03, 0.16, 1)
     }
     SubShader
     {
@@ -31,7 +30,7 @@ Shader "Fuwa/MagicCircle"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            half4 _Groove, _Glow, _DarkGlow; half _GrooveA; float _Radius, _R0, _LineW;
+            half4 _Groove, _Glow; half _GrooveA; float _Radius, _R0, _LineW;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Charge)
                 UNITY_DEFINE_INSTANCED_PROP(float, _Flash)
@@ -125,9 +124,7 @@ Shader "Fuwa/MagicCircle"
                 float head = exp(-pow((r - front) * 2.2, 2)) * step(0.001, charge) * step(charge, 0.999);
                 float glowK = saturate(lit * (0.55 + 0.45 * charge) + head * 1.2 + flash);
                 // 彫った線（床の色を暗く）＋光
-                // 2026-11-16 てじゃ「模様の光もどんどん黒くできたりする？」→ ためるほど光の色が黒紫へ（ドンの光は水色のまま）
-                float dk = saturate(charge * charge * 1.2) * (1 - saturate(flash * 2));
-                half3 glowC = lerp(_Glow.rgb * (1.2 + 1.5 * head), _DarkGlow.rgb * (1 + 1.5 * head), dk) + _Glow.rgb * flash * 1.5;
+                half3 glowC = _Glow.rgb * (1.2 + 1.5 * head + flash * 1.5);
                 half a = m * lerp(_GrooveA, 1, glowK);
                 half3 c = lerp(_Groove.rgb * 0.35, glowC, glowK) * a;
                 half4 o = half4(c, a);
