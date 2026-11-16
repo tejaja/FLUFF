@@ -3,36 +3,57 @@ using UnityEngine;
 using VRC.SDKBase;
 
 // あそびばのおもちゃ（コース2–1「みずのこみち」のクリアで出る）：泡が出る貝（2026-11-16 てじゃ「2-1 泡が出る貝 トリガーでオンオフ」）
-// 貝をクリック（Interact）でオン／オフ（みんなに同期）。オンの間、ふたが開いて口から泡が立ちのぼる。
-// 泡の柱（FuwaPlaygroundBubbleZone、子のトリガー）に入った同期ふわふわは、ゆっくり上へ運ばれて、てっぺんで島の真ん中の方へ送り出される
+// 貝をクリック（Interact）でオン／オフ（みんなに同期）。オンの間、コース2–1 の貝と同じように一定の間隔でパカッと開いて、大きい泡を吹く
+//  （てじゃ「泡はコースのみたいなの、出してほしい」）。泡は島の真ん中の方へ、ゆらゆら上下しながらゆっくり進む
+// 泡にふれた同期ふわふわ（FuwaSharedBall）は包まれていっしょに運ばれ、holdTime で割れてぽとっと落ちる。撃つと割れて出られる
+// 泡の出るタイミング・位置はサーバーの時刻で決める（みんな同じに見える）。包んで運ぶのは全員の画面で同じ風（AddWind）
 [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
 public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
 {
+    public FuwaPlaygroundSpawner spawner;
     [Tooltip("ふたの付け根（ローカル X 軸まわりに開く）")]
     public Transform lid;
-    public float openAngle = 42f;
-    [Tooltip("開く・閉じる速さ（度/秒）")]
-    public float openSpeed = 110f;
-    [Tooltip("泡の出どころ（貝の口）")]
+    public float openAngle = 40f;
+    [Tooltip("泡の出どころ。+Z が泡の進む向き")]
     public Transform mouth;
-    [Tooltip("見た目の泡（球）")]
+    [Tooltip("泡（球）。ふだんは隠しておく")]
     public Transform[] bubbles;
-    public float columnHeight = 4.2f;
-    public float bubbleRise = 0.9f;
-    public float bubbleSizeMin = 0.12f, bubbleSizeMax = 0.42f;
-    public float wobble = 0.25f;
-    public AudioSource toggleSound, loopSound;
+    public float bubbleSize = 0.95f;
+    [Tooltip("泡を吹く間隔（秒）")]
+    public float period = 2.6f;
+    public float openLead = 0.55f, closeAfter = 0.45f;
+    [Tooltip("泡の進む速さ(m/s)・上がる速さ(m/s)・上下のゆれ（m、片側）とその速さ（rad/s）")]
+    public float bubbleSpeed = 1.1f, bubbleRise = 0.25f, bobAmp = 0.3f, bobSpeed = 2.2f;
+    [Tooltip("ここまで進んだら割れる(m)")]
+    public float bubbleRange = 6f;
+    [Tooltip("包まれてから割れるまで（秒）")]
+    public float holdTime = 3f;
+    [Tooltip("包む距離（泡の中心とふわふわの中心）")]
+    public float captureRadius = 0.55f;
+    [Tooltip("泡の位置へ寄せる強さ（1/s²）と動きをそろえる強さ（1/s）")]
+    public float holdPull = 30f, holdDamp = 6f;
+    [Tooltip("割れたあと、また包まれるまで（秒）")]
+    public float recaptureDelay = 1.5f;
+    public AudioSource toggleSound, blowSound, popSound, captureSound;
+    public ParticleSystem popFx;
 
     [UdonSynced] private bool _on;
-    private float _ang, _show;
-    private float[] _seed;
+    [UdonSynced] private double _onAt;
+    private float _ang;
+    private int[] _slotIdx;        // その泡の場所に今いる泡の番号
+    private bool[] _popped;
+    private int[] _held;           // 包んでいるふわふわ（spawner.balls の番号、-1 なし）
+    private double[] _heldAt;
+    private float[] _freeUntil;    // ふわふわごと：また包まれてよい時刻（Time.time）
+    private int _lastBlow = -1;
 
     private void Start()
     {
         int n = bubbles != null ? bubbles.Length : 0;
-        _seed = new float[n];
-        for (int i = 0; i < n; i++) { _seed[i] = (i + 0.37f * Random.value) / Mathf.Max(1, n); if (bubbles[i] != null) bubbles[i].gameObject.SetActive(false); }
-        Apply();
+        _slotIdx = new int[n]; _popped = new bool[n]; _held = new int[n]; _heldAt = new double[n];
+        for (int i = 0; i < n; i++) { _slotIdx[i] = -999; _held[i] = -1; if (bubbles[i] != null) bubbles[i].gameObject.SetActive(false); }
+        int nb = spawner != null && spawner.balls != null ? spawner.balls.Length : 0;
+        _freeUntil = new float[nb];
     }
 
     public bool IsOn() { return _on; }
@@ -41,41 +62,112 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
     {
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
         _on = !_on;
+        _onAt = Networking.GetServerTimeInSeconds();
         RequestSerialization();
-        Apply();
         if (toggleSound != null) toggleSound.Play();
     }
 
-    public override void OnDeserialization() { Apply(); }
-
-    private void Apply()
+    // 泡 idx の、吹いてからの時間 age での位置（mouth 基準）
+    private Vector3 BubblePos(int idx, double age)
     {
-        if (loopSound == null) return;
-        if (_on && !loopSound.isPlaying) loopSound.Play();
-        else if (!_on && loopSound.isPlaying) loopSound.Stop();
+        float a = (float)age;
+        float d = a * bubbleSpeed;
+        float ph = Mathf.Repeat(idx * 1.37f, 6.28f);
+        return mouth.position + mouth.forward * d + Vector3.up * (a * bubbleRise + Mathf.Sin(a * bobSpeed + ph) * bobAmp * Mathf.Clamp01(a * 1.5f));
     }
 
     private void Update()
     {
-        float dt = Time.deltaTime;
-        _ang = Mathf.MoveTowards(_ang, _on ? openAngle : 0f, openSpeed * dt);
-        if (lid != null) lid.localRotation = Quaternion.Euler(-_ang, 0f, 0f);
-        // 泡：開いている分だけ出る（閉じる時はふわっと消える）
-        _show = Mathf.MoveTowards(_show, _on && _ang > openAngle * 0.6f ? 1f : 0f, dt * 1.5f);
-        if (bubbles == null || mouth == null) return;
-        float t = Time.time;
-        for (int i = 0; i < bubbles.Length; i++)
+        if (mouth == null || bubbles == null) return;
+        double t = Networking.GetServerTimeInSeconds();
+        int k = (int)System.Math.Floor(t / period);
+        int first = (int)System.Math.Ceiling(_onAt / period);   // オンにしてから最初の泡
+        // ふた：吹く少し前に開いて、吹いたら閉じる
+        float target = 0f;
+        if (_on)
         {
-            Transform b = bubbles[i]; if (b == null) continue;
-            bool vis = _show > 0.01f;
-            if (b.gameObject.activeSelf != vis) b.gameObject.SetActive(vis);
-            if (!vis) continue;
-            float p = Mathf.Repeat(t * bubbleRise / columnHeight + _seed[i], 1f);
-            float ph = _seed[i] * 37f;
-            Vector3 off = new Vector3(Mathf.Sin(t * 1.7f + ph), 0f, Mathf.Cos(t * 1.3f + ph * 0.7f)) * wobble * (0.3f + p);
-            b.position = mouth.position + Vector3.up * (p * columnHeight) + off;
-            float s = Mathf.Lerp(bubbleSizeMin, bubbleSizeMax, Mathf.Repeat(_seed[i] * 7.3f, 1f)) * Mathf.Clamp01(p * 6f) * Mathf.Clamp01((1f - p) * 8f) * _show;
-            b.localScale = Vector3.one * s;
+            double toNext = (k + 1) * period - t, since = t - k * period;
+            if ((toNext < openLead && k + 1 >= first) || (since < closeAfter && k >= first)) target = openAngle;
         }
+        _ang = Mathf.MoveTowards(_ang, target, Time.deltaTime * openAngle / 0.25f);
+        if (lid != null) lid.localRotation = Quaternion.Euler(-_ang, 0f, 0f);
+        if (_on && k >= first && k != _lastBlow) { _lastBlow = k; if (blowSound != null) blowSound.Play(); }
+        float life = bubbleRange / Mathf.Max(0.05f, bubbleSpeed);
+        int n = bubbles.Length;
+        for (int s = 0; s < n; s++)
+        {
+            // この場所（s）に今いるはずの泡：k 以下で s と同じ余りの一番新しい番号
+            int idx = k - (((k - s) % n) + n) % n;
+            Transform b = bubbles[s]; if (b == null) continue;
+            if (_slotIdx[s] != idx) { if (_held[s] >= 0) Release(s); _slotIdx[s] = idx; _popped[s] = false; }
+            double age = t - idx * period;
+            bool alive = _on && idx >= first && age >= 0 && age < life && !_popped[s];
+            if (alive && _held[s] >= 0 && t - _heldAt[s] > holdTime) { Pop(s); alive = false; }
+            if (!alive) { if (b.gameObject.activeSelf) b.gameObject.SetActive(false); if (_held[s] >= 0) Release(s); continue; }
+            if (age > life - 0.05) { Pop(s); continue; }
+            if (!b.gameObject.activeSelf) b.gameObject.SetActive(true);
+            b.position = BubblePos(idx, age);
+            float grow = Mathf.Clamp01((float)age * 3f);
+            b.localScale = Vector3.one * bubbleSize * (0.4f + 0.6f * grow);
+        }
+    }
+
+    private void FixedUpdate()
+    {
+        if (!_on || spawner == null || spawner.balls == null || bubbles == null || mouth == null) return;
+        double t = Networking.GetServerTimeInSeconds();
+        for (int s = 0; s < bubbles.Length; s++)
+        {
+            Transform b = bubbles[s];
+            if (b == null || !b.gameObject.activeSelf || _popped[s]) continue;
+            Vector3 bp = b.position;
+            // 泡の動き（つぎの位置との差）
+            double age = t - _slotIdx[s] * period;
+            Vector3 bv = (BubblePos(_slotIdx[s], age + 0.05) - BubblePos(_slotIdx[s], age)) / 0.05f;
+            if (_held[s] < 0)
+            {
+                for (int i = 0; i < spawner.balls.Length; i++)
+                {
+                    FuwaSharedBall ball = spawner.balls[i];
+                    if (ball == null || !ball.IsFlying() || Time.time < _freeUntil[i] || IsHeldElsewhere(i)) continue;
+                    if ((ball.transform.position - bp).sqrMagnitude < captureRadius * captureRadius) { _held[s] = i; _heldAt[s] = t; if (captureSound != null) { captureSound.transform.position = bp; captureSound.Play(); } break; }
+                }
+            }
+            int hi = _held[s]; if (hi < 0) continue;
+            FuwaSharedBall hb = spawner.balls[hi];
+            if (hb == null || !hb.IsFlying()) { _held[s] = -1; continue; }
+            // 撃たれたら割れて出られる
+            if (hb.LastShotAge() < 0.15f && t - _heldAt[s] > 0.2) { Pop(s); continue; }
+            Rigidbody rb = hb.GetComponent<Rigidbody>(); if (rb == null) continue;
+            Vector3 acc = (bp - rb.position) * holdPull + (bv - rb.velocity) * holdDamp + Vector3.up * hb.fallAcceleration;
+            hb.AddWind(acc);
+        }
+    }
+
+    private bool IsHeldElsewhere(int ballIdx)
+    {
+        for (int s = 0; s < _held.Length; s++) if (_held[s] == ballIdx) return true;
+        return false;
+    }
+
+    private void Release(int s)
+    {
+        int hi = _held[s];
+        if (hi >= 0 && _freeUntil != null && hi < _freeUntil.Length) _freeUntil[hi] = Time.time + recaptureDelay;
+        _held[s] = -1;
+    }
+
+    private void Pop(int s)
+    {
+        if (_popped[s]) return;
+        _popped[s] = true;
+        Transform b = bubbles[s];
+        if (b != null)
+        {
+            if (popFx != null) { popFx.transform.position = b.position; popFx.Emit(14); }
+            if (popSound != null) { popSound.transform.position = b.position; popSound.Play(); }
+            b.gameObject.SetActive(false);
+        }
+        Release(s);
     }
 }

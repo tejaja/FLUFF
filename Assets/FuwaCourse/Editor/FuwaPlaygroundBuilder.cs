@@ -575,7 +575,7 @@ public static class FuwaPlaygroundBuilder
     {
         var src = Object.FindObjectsOfType<FuwaClamBubbles>(true).First();
         var c0 = src.clams[0];
-        EnsureProgram("FuwaPlaygroundBubbleClam"); EnsureProgram("FuwaPlaygroundBubbleZone");
+        EnsureProgram("FuwaPlaygroundBubbleClam");
         var clam = Object.Instantiate(c0.gameObject, slot, false); clam.name = "BubbleClam";
         foreach (var t in clam.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
         foreach (var ub in clam.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
@@ -584,34 +584,34 @@ public static class FuwaPlaygroundBuilder
         var lid = clam.transform.Find("LidHinge");
         // 泡の出どころ：真珠の上（コースの Mouth は横へ吹く用の前のふちなので使わない）
         var pearlR = clam.transform.Find("Pearl").GetComponent<Renderer>();
-        var mouth = new GameObject("BubbleOrigin").transform; mouth.SetParent(clam.transform, false); mouth.position = pearlR.bounds.center + Vector3.up * 0.25f;
+        var mouth = new GameObject("BubbleOrigin").transform; mouth.SetParent(clam.transform, false); mouth.position = pearlR.bounds.center + Vector3.up * 0.55f;
         // クリックの当たり：貝のまわりの箱（ふつうの当たり＝のれる・押せる）
         var bb = new Bounds(); bool first = true;
         foreach (var r in clam.GetComponentsInChildren<Renderer>(true)) { var lb = r.bounds; if (first) { bb = lb; first = false; } else bb.Encapsulate(lb); }
         var box = clam.AddComponent<BoxCollider>(); box.center = clam.transform.InverseTransformPoint(bb.center); box.size = Vector3.Scale(bb.size, new Vector3(1f / sc, 1f / sc, 1f / sc));
         var bc = UdonSharpUndo.AddComponent<FuwaPlaygroundBubbleClam>(clam);
-        bc.lid = lid; bc.mouth = mouth;
-        // 見た目の泡 10個（コース2–1 の泡の材質）
-        var bubM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Stage2_ClamBubble.mat");
+        bc.lid = lid; bc.mouth = mouth; bc.spawner = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
+        mouth.rotation = slot.rotation;   // 泡は島の真ん中の方へ（slot の +Z）
+        // 2026-11-16 てじゃ「泡はコースのみたいなの、出してほしい」→ コース2–1 の泡（Bubble3D の球）を3つ。吹いて、包んで運んで、割れる
+        var srcB = src.bubbles[0];
         var bl = new List<Transform>();
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 3; i++)
         {
-            var b = GameObject.CreatePrimitive(PrimitiveType.Sphere); b.name = "Bubble" + i; Object.DestroyImmediate(b.GetComponent<Collider>());
-            b.transform.SetParent(slot, false); b.GetComponent<MeshRenderer>().sharedMaterial = bubM;
-            b.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var b = Object.Instantiate(srcB.gameObject, slot, false); b.name = "Bubble" + i;
+            foreach (var cc in b.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
+            foreach (var ub in b.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
+            b.transform.localPosition = Vector3.zero; b.transform.localRotation = Quaternion.identity;
+            foreach (var r in b.GetComponentsInChildren<Renderer>(true)) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            b.SetActive(false);
             bl.Add(b.transform);
         }
-        bc.bubbles = bl.ToArray();
-        // 音：コース2–1 の貝の吹く音
-        var bs = src.blowSound;
-        if (bs != null) { var a = Object.Instantiate(bs.gameObject, clam.transform, false); a.name = "ToggleSound"; a.transform.localPosition = Vector3.zero; bc.toggleSound = a.GetComponent<AudioSource>(); bc.toggleSound.playOnAwake = false; }
+        bc.bubbles = bl.ToArray(); bc.bubbleSize = 0.95f;
+        // 音・粒：コース2–1 の貝のをコピー（あそびばの中の位置で鳴らす）
+        AudioSource CopyAs(AudioSource a, string nm) { if (a == null) return null; var g = Object.Instantiate(a.gameObject, clam.transform, false); g.name = nm; g.transform.localPosition = Vector3.zero; foreach (Transform ch in g.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject); foreach (var ub in g.GetComponents<UdonSharpBehaviour>()) Object.DestroyImmediate(ub); var au = g.GetComponent<AudioSource>(); au.playOnAwake = false; return au; }
+        bc.toggleSound = CopyAs(src.blowSound, "ToggleSound"); bc.blowSound = CopyAs(src.blowSound, "BlowSound");
+        bc.popSound = CopyAs(src.popSound, "PopSound"); bc.captureSound = CopyAs(src.captureSound, "CaptureSound");
+        if (src.popFx != null) { var fx = Object.Instantiate(src.popFx.gameObject, slot, false); fx.name = "PopFx"; fx.transform.localPosition = Vector3.zero; bc.popFx = fx.GetComponent<ParticleSystem>(); }
         UdonSharpEditorUtility.CopyProxyToUdon(bc);
-        // 泡の柱（トリガー）：口の上、+Z＝島の真ん中の方（slot の +Z）
-        var z = new GameObject("BubbleZone"); z.transform.SetParent(slot, false); z.layer = 2;
-        z.transform.position = mouth.position; z.transform.rotation = slot.rotation;
-        var cap = z.AddComponent<CapsuleCollider>(); cap.isTrigger = true; cap.radius = 0.8f; cap.height = 4.8f; cap.center = new Vector3(0f, 2.2f, 0f);
-        var bz = UdonSharpUndo.AddComponent<FuwaPlaygroundBubbleZone>(z); bz.clam = bc; bz.height = 4.2f; UdonSharpEditorUtility.CopyProxyToUdon(bz);
-        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bz); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(bc); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; ub.interactText = "あわ"; EditorUtility.SetDirty(ub); } }
     }
 
