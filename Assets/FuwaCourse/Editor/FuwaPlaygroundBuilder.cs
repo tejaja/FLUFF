@@ -571,6 +571,11 @@ public static class FuwaPlaygroundBuilder
         var (t2, l2) = Stage2Slots(toys, O, sp);
         var ul = toys.GetComponent<FuwaPlaygroundUnlocks>();
         ul.toys = ul.toys.Take(5).Concat(t2).ToArray(); ul.locked = ul.locked.Take(5).Concat(l2).ToArray(); Sync(ul);
+        // 「おもちゃをもどす」にステージ2の持てる物（ポータルの台など）も
+        var rs = toys.Find("ResetToys").GetComponent<FuwaHandFanReset>();
+        var others = rs.others.Where(o => o != null).ToList();
+        foreach (var u in t2) foreach (var os in u.GetComponentsInChildren<VRC.SDK3.Components.VRCObjectSync>(true)) if (!others.Contains(os.gameObject)) others.Add(os.gameObject);
+        rs.others = others.ToArray(); Sync(rs);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
         Debug.Log("[あそびば] ステージ2のおもちゃ 5つの場所");
     }
@@ -626,19 +631,22 @@ public static class FuwaPlaygroundBuilder
         var c22 = RootGo("FuwaCourse2_2").transform;
         var rockMF = c22.GetComponentsInChildren<MeshFilter>(true).First(m => m.sharedMesh != null && m.sharedMesh.name == "Stage2_LavaRock0");
         var ft = c22.Find("Fire/Flamethrower0");
-        const float rs = 1.7f;
+        // 2026-11-16 てじゃ「火炎放射の位置低すぎる もっと専用の大きい岩作って」→ ゴツゴツの大きい岩（高さ約2.3m）を作る。正面（島の真ん中がわ）の高さ FlameMouthY に火の出る穴
+        var rockMesh = FlameRockMesh();
         var rock = new GameObject("FlameRock"); rock.transform.SetParent(slot, false);
-        rock.transform.localPosition = new Vector3(0f, -0.08f, -0.3f); rock.transform.localRotation = Quaternion.Euler(0f, 160f, 0f); rock.transform.localScale = Vector3.one * rs;
-        rock.AddComponent<MeshFilter>().sharedMesh = rockMF.sharedMesh; rock.AddComponent<MeshRenderer>().sharedMaterials = rockMF.GetComponent<MeshRenderer>().sharedMaterials;
-        var box = rock.AddComponent<BoxCollider>(); box.center = rockMF.sharedMesh.bounds.center; box.size = rockMF.sharedMesh.bounds.size;
+        rock.transform.localPosition = new Vector3(0f, 0f, -0.2f); rock.transform.localRotation = Quaternion.identity;
+        rock.AddComponent<MeshFilter>().sharedMesh = rockMesh; rock.AddComponent<MeshRenderer>().sharedMaterials = rockMF.GetComponent<MeshRenderer>().sharedMaterials;
+        var mcR = rock.AddComponent<MeshCollider>(); mcR.sharedMesh = rockMesh;
         var fr = UdonSharpUndo.AddComponent<FuwaPlaygroundFlameRock>(rock);
-        // 炎の出どころ：岩の島の真ん中がわの面、岩のまん中の高さ（2026-11-16 てじゃ「火とずれすぎ」→ 岩の大きさから決める）
+        // 穴の奥の暗い面
+        var holeD = GameObject.CreatePrimitive(PrimitiveType.Sphere); holeD.name = "Hole"; Object.DestroyImmediate(holeD.GetComponent<Collider>());
+        holeD.transform.SetParent(rock.transform, false); holeD.transform.localPosition = new Vector3(0f, FlameMouthY, FlameRockHoleZ - 0.05f); holeD.transform.localScale = new Vector3(0.62f, 0.5f, 0.3f);
+        holeD.GetComponent<MeshRenderer>().sharedMaterial = Mat("Playground_FlameRockHole", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(0.16f, 0.07f, 0.05f));
         var rb0 = rock.GetComponent<MeshRenderer>().bounds;
-        float front = Vector3.Dot(rb0.extents, new Vector3(Mathf.Abs(slot.forward.x), Mathf.Abs(slot.forward.y), Mathf.Abs(slot.forward.z)));
-        var mouthPos = new Vector3(rb0.center.x, rb0.center.y, rb0.center.z) + slot.forward * (front * 0.6f);
+        var mouthPos = rock.transform.TransformPoint(new Vector3(0f, FlameMouthY, FlameRockHoleZ));
         var body = Object.Instantiate(ft.Find("FlameBody").gameObject, slot, false); body.name = "FlameBody";
         body.transform.rotation = slot.rotation * Quaternion.Euler(90f, 0f, 0f);   // +Y（炎の向き）を島の真ん中の方へ
-        body.transform.position = rb0.center - slot.forward * 0.6f;               // 根もとは岩の中（見える炎は岩の中から出てくる）
+        body.transform.position = mouthPos - slot.forward * 0.9f;                 // 根もとは穴の奥（見える炎は穴から出てくる）
         body.SetActive(false);
         fr.flameBody = body.transform; fr.bodyScale = new Vector3(0.34f, 0.3f, 0.34f);
         var roarSrc = ft.Find("RoarSfx");
@@ -651,6 +659,37 @@ public static class FuwaPlaygroundBuilder
         var bz = z.AddComponent<BoxCollider>(); bz.isTrigger = true; bz.size = new Vector3(1.3f, 1.4f, 4.2f); bz.center = new Vector3(0f, 0.1f, 2.2f);
         var fz = UdonSharpUndo.AddComponent<FuwaPlaygroundFlameZone>(z); fz.rock = fr; UdonSharpEditorUtility.CopyProxyToUdon(fz);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(fz); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+    }
+
+    public static float FlameMouthY = 1.45f, FlameRockHoleZ = 0.95f;
+    // 火炎放射の岩：ゆがめた球（下は平ら）、正面（+Z）の高さ FlameMouthY にくぼみ（穴）。角ばった陰影（面ごとに頂点）
+    static Mesh FlameRockMesh()
+    {
+        int nu = 22, nv = 14; var pts = new Vector3[nu, nv + 1];
+        Vector3 mdir = new Vector3(0f, FlameMouthY - 1.05f, 1f).normalized;
+        for (int i = 0; i < nu; i++) for (int j = 0; j <= nv; j++)
+        {
+            float th = Mathf.PI * 2f * i / nu, ph = Mathf.PI * j / nv;
+            var d = new Vector3(Mathf.Sin(ph) * Mathf.Cos(th), Mathf.Cos(ph), Mathf.Sin(ph) * Mathf.Sin(th));
+            float n = 0.16f * (Mathf.PerlinNoise(d.x * 1.7f + 3.1f, d.z * 1.7f + d.y * 1.3f + 7.7f) - 0.5f) * 2f + 0.07f * (Mathf.PerlinNoise(d.x * 4.3f + 11f, d.y * 4.1f + d.z * 2.9f) - 0.5f) * 2f;
+            float r = 1f + n;
+            float m = Vector3.Dot(d, mdir); if (m > 0.86f) r -= 0.28f * Mathf.SmoothStep(0f, 1f, (m - 0.86f) / 0.14f);   // 火の出る穴のくぼみ
+            var p = new Vector3(d.x * 1.25f, d.y * 1.05f + 1.05f, d.z * 1.15f) * 1f; p = new Vector3(d.x * r * 1.25f, d.y * r * 1.12f + 1.05f, d.z * r * 1.15f);
+            if (p.y < -0.05f) p.y = -0.05f;   // 底は平ら（床に少し埋める）
+            pts[i, j] = p;
+        }
+        var v = new List<Vector3>(); var t = new List<int>();
+        void T(Vector3 a, Vector3 b, Vector3 c) { var cen = new Vector3(0f, 1.05f, 0f); var nn = Vector3.Cross(b - a, c - a); if (Vector3.Dot(nn, (a + b + c) / 3f - cen) < 0f) { var x = b; b = c; c = x; } int k = v.Count; v.Add(a); v.Add(b); v.Add(c); t.Add(k); t.Add(k + 1); t.Add(k + 2); }
+        for (int i = 0; i < nu; i++) for (int j = 0; j < nv; j++)
+        {
+            int i2 = (i + 1) % nu;
+            T(pts[i, j], pts[i2, j], pts[i2, j + 1]); T(pts[i, j], pts[i2, j + 1], pts[i, j + 1]);
+        }
+        var mesh = new Mesh { name = "Playground_FlameRock" }; mesh.SetVertices(v); mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        // 穴のくぼみの奥の位置（FlameRockHoleZ）をメッシュから決める：正面の高さ FlameMouthY の z
+        float zz = 0f; foreach (var q in v) if (Mathf.Abs(q.y - FlameMouthY) < 0.2f && Mathf.Abs(q.x) < 0.2f && q.z > zz) zz = q.z;
+        FlameRockHoleZ = zz;
+        return SaveGenMesh(mesh, "Playground_FlameRock");
     }
 
     // 2–3 氷のたね：氷の結晶3本（クリックでオン／オフ同期）＋まわり半径3mにひろがる氷の円（人が滑る FuwaIceSkate・つるつるの物理材質）
@@ -768,10 +807,24 @@ public static class FuwaPlaygroundBuilder
         // 2026-11-16 てじゃ「ポータル、コースと見た目揃えて」→ コース2–5 のポータル（FloatFrame＝浮いたふち・足もとの光・粒）をそのまま写す。穴の中は向こうを映すカメラの代わりにうずまき
         var srcW = RootGo("FuwaCourse2_5").GetComponentsInChildren<Transform>(true).First(t => t.name == "WarpA");
         var srcFrame = srcW.Find("FloatFrame"); var srcHole = srcW.Find("PortalHole");
+        // 2026-11-16 てじゃ「ポータルも下に掴めるモノつけたいね」→ 下に石の台（持ち手、VRCPickup＋ObjectSync）。ポータルはその子で、いっしょに運べる
+        EnsureProgram("FuwaPlaygroundPortalHandle");
+        var stoneM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Ruins_Stone.mat");
         Transform Portal(string nm, Vector3 floor, Vector3 face, Color col)
         {
-            var p = new GameObject(nm).transform; p.SetParent(slot, false);
-            p.SetPositionAndRotation(floor, Quaternion.LookRotation(face));
+            var hd = new GameObject(nm + "Handle"); hd.transform.SetParent(slot, false); hd.layer = 13;
+            hd.transform.SetPositionAndRotation(floor, Quaternion.LookRotation(face));
+            var basePart = GameObject.CreatePrimitive(PrimitiveType.Cylinder); basePart.name = "Base"; Object.DestroyImmediate(basePart.GetComponent<Collider>());
+            basePart.transform.SetParent(hd.transform, false); basePart.transform.localPosition = new Vector3(0f, 0.09f, 0f); basePart.transform.localScale = new Vector3(0.9f, 0.09f, 0.6f);
+            basePart.GetComponent<MeshRenderer>().sharedMaterial = stoneM;
+            var hb = hd.AddComponent<BoxCollider>(); hb.center = new Vector3(0f, 0.12f, 0f); hb.size = new Vector3(0.95f, 0.26f, 0.65f);
+            { var rbh = hd.AddComponent<Rigidbody>(); rbh.isKinematic = true; rbh.useGravity = false; }
+            var pk = hd.AddComponent<VRC.SDK3.Components.VRCPickup>(); pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.InteractionText = "ポータル"; pk.proximity = 2f;
+            hd.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+            var ph = UdonSharpUndo.AddComponent<FuwaPlaygroundPortalHandle>(hd); UdonSharpEditorUtility.CopyProxyToUdon(ph);
+            { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(ph); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+            var p = new GameObject(nm).transform; p.SetParent(hd.transform, false);
+            p.localPosition = new Vector3(0f, 0.18f, 0f); p.localRotation = Quaternion.identity;
             var fr = Object.Instantiate(srcFrame.gameObject, p, false); fr.name = "FloatFrame"; fr.transform.localPosition = srcFrame.localPosition; fr.transform.localRotation = srcFrame.localRotation;
             foreach (var ub in fr.GetComponentsInChildren<UdonSharpBehaviour>(true)) Object.DestroyImmediate(ub);
             foreach (var cc in fr.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(cc);
