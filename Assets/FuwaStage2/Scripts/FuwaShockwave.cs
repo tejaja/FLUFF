@@ -62,6 +62,7 @@ public class FuwaShockwave : UdonSharpBehaviour
     public ParticleSystem chargeParticles, blastParticles;
     public int blastCount = 60;
     public Renderer[] runeGlows;   // 床のまわりの模様（ためると光る）
+    public Color runeDarkColor = new Color(0.12f, 0.06f, 0.18f, 1f);
     [Tooltip("2026-11-15 てじゃ「衝撃波の範囲、もっと目立たせたいな、特に床」→ 床にかぶせる円盤（Fuwa/ShockFloor）：ためで床いっぱいに流れる光、セーフ（影）は抜けて白いふち、ドンで帯と尾")]
     public Renderer floorZone;
     [Tooltip("2026-11-15 てじゃ「セーフティーゾーンの周りにうっすら白いヴェールほしい」：影のふちに立つ幕（Fuwa/SafeVeil）。床と同じ時に出る")]
@@ -387,11 +388,13 @@ public class FuwaShockwave : UdonSharpBehaviour
         }
         if (runeGlows != null)
         {
-            Color rc = glowColor * (0.4f + 3.5f * kk + 3f * _flash); rc.a = 1f;
+            // 2026-11-16 てじゃ「下の水色の円も同じタイミングで黒くなってほし～」→ ためる間（_dark、円柱バリア・黒いもやと同じ）は黒紫へ。ドンの光はそのまま
+            Color rc = Color.Lerp(glowColor * 0.4f, chargeTint * 0.12f, _dark) + glowColor * (3f * _flash); rc.a = 1f;
+            Color bc = Color.Lerp(Color.Lerp(glowColor, Color.white, 0.35f), runeDarkColor, _dark); bc.a = 1f;
             for (int i = 0; i < runeGlows.Length; i++)
             {
                 if (runeGlows[i] == null) continue;
-                runeGlows[i].GetPropertyBlock(_mpb); _mpb.SetColor("_EmissionColor", rc); runeGlows[i].SetPropertyBlock(_mpb);
+                runeGlows[i].GetPropertyBlock(_mpb); _mpb.SetColor("_EmissionColor", rc); _mpb.SetColor("_Color", bc); runeGlows[i].SetPropertyBlock(_mpb);
             }
         }
     }
