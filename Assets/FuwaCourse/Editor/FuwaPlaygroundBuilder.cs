@@ -652,7 +652,7 @@ public static class FuwaPlaygroundBuilder
             if (r == 0) mouthPos = mp;
             var body = Object.Instantiate(ft.Find("FlameBody").gameObject, slot, false); body.name = "FlameBody" + r;
             body.transform.rotation = slot.rotation * Quaternion.Euler(90f, 0f, 0f);
-            body.transform.position = mp - slot.forward * 0.9f;
+            body.transform.position = mp - slot.forward * 0.9f + Vector3.down * FlameBodyDrop;   // 2026-11-16 てじゃ「穴とズレてない？」→ 炎のシェーダーが上へ持ち上げる分（見た目で約0.38m）下げる
             body.SetActive(false);
             bodies.Add(body.transform);
         }
@@ -671,7 +671,7 @@ public static class FuwaPlaygroundBuilder
     }
 
     // 2026-11-16 てじゃ「岩はもっと柱みたいなのにして3列にしよ」→ ゴツゴツの柱（高さ FlameRockH）、正面に上中下3つの穴（FlameRows の高さ）
-    public static float FlameRockH = 3.1f, FlameRockR = 0.72f;
+    public static float FlameRockH = 3.1f, FlameRockR = 0.72f, FlameBodyDrop = 0.38f;
     public static float[] FlameRows = { 0.75f, 1.5f, 2.25f };
     static float[] flameHoleZ = new float[3];
     static Mesh FlameRockMesh()
