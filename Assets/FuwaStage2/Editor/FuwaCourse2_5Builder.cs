@@ -56,6 +56,13 @@ public static class FuwaCourse2_5Builder
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lod2); EditorUtility.SetDirty(lod2);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lod2.gameObject.scene);
         Debug.Log("[2–5] CourseLodStage2 につなぎ直し " + i + " start=" + (bs ? bs.name : "null"));
+        // 2026-11-16 同じく作り直しで外れていた：分身（FuwaGhost.courseStarts）・追っかけカメラ（FuwaFollowCam.courseRoots/courseLites）の ステージ2の5コース（6〜10番）をつなぎ直す
+        var s2 = new[] { "FuwaCourse2_1", "FuwaCourse2_2", "FuwaCourse2_3", "FuwaCourse2_4", "FuwaCourse2_5" };
+        Transform BS(string c) { var g = GameObject.Find(c); return g ? g.transform.Find("Start/BallStart") : null; }
+        var gh = Resources.FindObjectsOfTypeAll<FuwaGhost>().FirstOrDefault(x => x && x.gameObject.scene.IsValid());
+        if (gh && gh.courseStarts != null && gh.courseStarts.Length == 11) { for (int k = 0; k < 5; k++) gh.courseStarts[6 + k] = BS(s2[k]); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(gh); EditorUtility.SetDirty(gh); }
+        var fc = Resources.FindObjectsOfTypeAll<FuwaFollowCam>().FirstOrDefault(x => x && x.gameObject.scene.IsValid());
+        if (fc && fc.courseRoots != null && fc.courseRoots.Length == 11) { for (int k = 0; k < 5; k++) fc.courseRoots[6 + k] = GameObject.Find(s2[k]); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); EditorUtility.SetDirty(fc); }
     }
 
     public static string Build()
