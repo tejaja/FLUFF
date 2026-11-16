@@ -9,6 +9,10 @@ public class FuwaDebugMode : UdonSharpBehaviour
 {
     [HideInInspector] public bool on;
     public FuwaSegToggle seg;
+    [Tooltip("てじゃ「デバッグ、日本語はカタカナにしといて」：日本語の時は「デバッグ」、英語の時は「DEBUG」")]
+    public FuwaLanguage language;
+
+    private int _shownEn = -1;
 
     private void Start() { on = false; Show(); }
 
@@ -16,4 +20,13 @@ public class FuwaDebugMode : UdonSharpBehaviour
     public void Toggle() { on = !on; Show(); }
 
     private void Show() { if (seg != null) seg.Show(on); }
+
+    private void Update()
+    {
+        if (seg == null || seg.textB == null) return;
+        int en = language != null && language.IsEnglish() ? 1 : 0;
+        if (en == _shownEn) return;
+        _shownEn = en;
+        seg.textB.text = en == 1 ? "DEBUG" : "デバッグ";
+    }
 }
