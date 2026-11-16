@@ -336,6 +336,7 @@ public static class FuwaCourse2_5Builder
         ApplyFarFade();
         DecoIslets();
         SettleRuins();
+        if (TierOuts) AddTierOuts();
         if (ColumnLods) AddColumnLods();
         if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));
         if (CoursePerf && TierShadows) SetupTierShadows();   // 2026-11-15 てじゃ「一旦このコースの軽量化しよ」→ 2–4 と同じ（静的バッチ・小物の影は近くだけ・大物は遠いと影オフ）
@@ -1973,6 +1974,93 @@ public static class FuwaCourse2_5Builder
     }
 
     public static bool CapBevel = true;
+    // ===== 2026-11-16 段ごとの落下アウト（てじゃ「2-5の落下判定を調整したい」「段ごとに高さがちがうから下の段まで落ちるとそこで止まっちゃう」「それぞれのとこでちょっと落ちたらアウト」）=====
+    //  道レイヤー（11）の床を上から調べた高さマップ（TierOutCell m のマス）。床のないマスに、まわり（TierOutNear m）の床の高さ L ごとに
+    //   ふわふわ：L-1.2〜L-3.6（FuwaHazard、2–1 と同じ）、人：L-3.0〜L-5.4（FuwaPlayerCatcher）の箱
+    //  そのマスに下の床があれば、その床の上 2.2m（頭の上）より下へは箱をのばさない（下の段にいる人がアウトにならない）。ポータルの穴のまわりはなし
+    //  箱は1つのオブジェクトにまとめる（ふわふわ用・人用それぞれ1つ、BoxCollider をたくさん）
+    public static bool TierOuts = true; public static float TierOutCell = 1.5f, TierOutNear = 4.5f;
+    static void AddTierOuts()
+    {
+        var old = root.Find("TierOuts"); if (old) Object.DestroyImmediate(old.gameObject);
+        Physics.SyncTransforms();
+        var floorsCol = root.GetComponentsInChildren<Collider>(true).Where(c => c.enabled && !c.isTrigger && c.gameObject.layer == 11 && c.gameObject.activeInHierarchy).ToList();
+        if (floorsCol.Count == 0) return;
+        var all = floorsCol[0].bounds; foreach (var c in floorsCol) all.Encapsulate(c.bounds);
+        all.Expand(new Vector3(TierOutNear * 2f, 0f, TierOutNear * 2f));
+        float cs = TierOutCell; int nx = Mathf.CeilToInt(all.size.x / cs), nz = Mathf.CeilToInt(all.size.z / cs);
+        var fl = new List<float>[nx, nz];
+        var set = new HashSet<Collider>(floorsCol);
+        float yTop = all.max.y + 5f, yLen = all.size.y + 20f;
+        for (int ix = 0; ix < nx; ix++) for (int iz = 0; iz < nz; iz++)
+        {
+            var o = new Vector3(all.min.x + (ix + 0.5f) * cs, yTop, all.min.z + (iz + 0.5f) * cs);
+            var hs = Physics.RaycastAll(o, Vector3.down, yLen, 1 << 11, QueryTriggerInteraction.Ignore).Where(h => set.Contains(h.collider)).Select(h => h.point.y).OrderByDescending(y => y).ToList();
+            var lst = new List<float>(); foreach (var y in hs) if (lst.Count == 0 || lst[lst.Count - 1] - y > 0.4f) lst.Add(y);
+            fl[ix, iz] = lst;
+        }
+        var holes = root.GetComponentsInChildren<Transform>(true).Where(t => t.name == "PortalHole").Select(t => t.position).ToList();
+        int nr = Mathf.CeilToInt(TierOutNear / cs);
+        var g = new GameObject("TierOuts").transform; g.SetParent(root, false); g.position = Vector3.zero; g.rotation = Quaternion.identity;
+        var ballGo = new GameObject("BallOuts"); ballGo.transform.SetParent(g, false); ballGo.transform.position = Vector3.zero; ballGo.transform.rotation = Quaternion.identity; ballGo.layer = 4;
+        var plGo = new GameObject("PlayerOuts"); plGo.transform.SetParent(g, false); plGo.transform.position = Vector3.zero; plGo.transform.rotation = Quaternion.identity;
+        var sc = ballGo.transform.lossyScale; Vector3 inv = new Vector3(1f / sc.x, 1f / sc.y, 1f / sc.z);
+        int nb = 0, np = 0;
+        var bq = new Dictionary<(int, int, int), List<int>>(); var pq = new Dictionary<(int, int, int), List<int>>();
+        void Put(Dictionary<(int, int, int), List<int>> d, int ix, int iz, float top, float bot)
+        {
+            var k = (iz, Mathf.RoundToInt(top / 0.05f), Mathf.RoundToInt(bot / 0.05f));
+            if (!d.TryGetValue(k, out var l)) d[k] = l = new List<int>(); if (!l.Contains(ix)) l.Add(ix);
+        }
+        void AddBox(GameObject go, Vector3 cW, Vector3 sizeW)
+        {
+            var bc = go.AddComponent<BoxCollider>(); bc.isTrigger = true;
+            bc.center = go.transform.InverseTransformPoint(cW); bc.size = Vector3.Scale(sizeW, inv);
+        }
+        for (int ix = 0; ix < nx; ix++) for (int iz = 0; iz < nz; iz++)
+        {
+            var here = fl[ix, iz];
+            var cxz = new Vector3(all.min.x + (ix + 0.5f) * cs, 0f, all.min.z + (iz + 0.5f) * cs);
+            // まわりの床の高さ（近い高さはまとめる、高い方から）
+            var levels = new List<float>();
+            for (int dx = -nr; dx <= nr; dx++) for (int dz = -nr; dz <= nr; dz++)
+            {
+                int jx = ix + dx, jz = iz + dz; if (jx < 0 || jz < 0 || jx >= nx || jz >= nz) continue;
+                if ((dx * dx + dz * dz) * cs * cs > TierOutNear * TierOutNear) continue;
+                foreach (var y in fl[jx, jz]) if (!levels.Any(l => Mathf.Abs(l - y) < 1.0f)) levels.Add(y);
+            }
+            foreach (var L in levels)
+            {
+                if (here.Any(f => f > L - 1.0f && f < L + 0.6f)) continue;   // このマスにもその高さの床がある（すき間じゃない）
+                if (holes.Any(h => new Vector2(h.x - cxz.x, h.z - cxz.z).magnitude < 3f && L > h.y - 6f && L < h.y + 2f)) continue;   // ポータルの穴
+                // この高さより下の床（下の段）：その床の上 2.2m より下へはのばさない
+                float floorBelow = here.Where(f => f < L - 1.0f).DefaultIfEmpty(-1e9f).Max();
+                float lim = floorBelow + 2.2f;
+                float bTop = L - 1.2f, bBot = Mathf.Max(L - 3.6f, lim);
+                if (bTop - bBot > 0.5f) Put(bq, ix, iz, bTop, bBot);
+                float pTop = L - 3.0f, pBot = Mathf.Max(L - 5.4f, lim);
+                if (pTop - pBot > 0.5f) Put(pq, ix, iz, pTop, pBot);
+            }
+        }
+        // x の向きにとなり合う同じ高さのマスを1つの箱にまとめる
+        foreach (var (go, q) in new[] { (ballGo, bq), (plGo, pq) })
+            foreach (var kv in q)
+            {
+                var xs = kv.Value; xs.Sort(); int s0 = 0;
+                while (s0 < xs.Count)
+                {
+                    int s1 = s0; while (s1 + 1 < xs.Count && xs[s1 + 1] == xs[s1] + 1) s1++;
+                    float top = kv.Key.Item2 * 0.05f, bot = kv.Key.Item3 * 0.05f;
+                    float x0 = all.min.x + xs[s0] * cs, x1 = all.min.x + (xs[s1] + 1) * cs, zc = all.min.z + (kv.Key.Item1 + 0.5f) * cs;
+                    AddBox(go, new Vector3((x0 + x1) / 2f, (top + bot) / 2f, zc), new Vector3(x1 - x0, top - bot, cs));
+                    if (go == ballGo) nb++; else np++;
+                    s0 = s1 + 1;
+                }
+            }
+        var hz = UdonSharpUndo.AddComponent<FuwaHazard>(ballGo); UdonSharpEditorUtility.CopyProxyToUdon(hz); FuwaStage2WaterTest.NoSync(hz);
+        var pc = UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(plGo); pc.ball = ballT; UdonSharpEditorUtility.CopyProxyToUdon(pc); FuwaStage2WaterTest.NoSync(pc);
+        log.Append("段ごとの落下アウト ふわふわ" + nb + "・人" + np + " ");
+    }
     // 2026-11-16 てじゃ「真ん中の台座のれちゃうのと、真ん中つっきれちゃうのが問題」「台座の外周から真上にうっすらバリアみたいな円柱のバリア」「いま青い円があるあたり」
     //  → 床の青いルーンの輪（1.7〜2.2m）のまん中の半径に、うすい六角もようの筒（見た目）＋同じ半径の多角柱の当たり（プレイヤーもふわふわも通れない、レイヤー0）
     static Renderer plazaBarrierR; static Transform plazaBarrierT;
