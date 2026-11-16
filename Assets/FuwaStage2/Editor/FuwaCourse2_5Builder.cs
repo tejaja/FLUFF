@@ -1007,11 +1007,12 @@ public static class FuwaCourse2_5Builder
     // ===== 2026-11-16 落とし穴の中の影の壁（てじゃ「最初の穴が穴に見えづらい問題どうにかしたい」→ A：穴の中を下へいくほど暗く）=====
     //  穴のふちのタイルの横の面が道と同じ明るさで、穴が「色ちがいのタイル」に見えていた → 穴の四方の壁の少し内がわに、下へいくほど真っ暗になる壁を貼る
     //  穴＝WindRun の中の Tile で MeshRenderer がない物。となりも穴ならその辺はなし
-    public static bool PitLiners = true; public static float PitLinerInset = 0.02f;
+    public static bool PitLiners = true; public static float PitLinerInset = 0.005f;
     // 2026-11-16 てじゃ「もっとわかりやすくしたいなあ」→ 中はふちのすぐ下から暗く、穴のまわりに 2cm だけ盛り上がったこげ茶の枠（PitRim）
     //  → てじゃ「わかりやすいけど、欠けた感じではなくなっちゃう」→ 枠はやめて（PitRim=false）、ふちの割れ残り（PitChips）
     public static Color PitTopCol = new Color(0.17f, 0.13f, 0.13f), PitBottomCol = new Color(0.03f, 0.02f, 0.025f);
-    public static bool PitChips = true; public static bool PitRim = false; public static float PitRimW = 0.07f, PitRimH = 0.02f; public static Color PitRimCol = new Color(0.36f, 0.25f, 0.22f), PitRimSideCol = new Color(0.22f, 0.15f, 0.14f);
+    public static bool PitChips = false;   // 2026-11-16 てじゃ「やっぱなしかなぁ」→ 割れ残りはやめ、暗い壁だけ（すき間が見えないよう壁はタイルの横の面から 5mm）
+    public static bool PitRim = false; public static float PitRimW = 0.07f, PitRimH = 0.02f; public static Color PitRimCol = new Color(0.36f, 0.25f, 0.22f), PitRimSideCol = new Color(0.22f, 0.15f, 0.14f);
     static void AddPitLiners()
     {
         var mat = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Ruins_PitWall.mat");
