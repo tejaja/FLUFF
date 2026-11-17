@@ -93,7 +93,7 @@ public static class FuwaGiantMushrooms
             // かさの半径は前のかさ（GiantCapDeco 半径 4.25 × 前の倍率。前の倍率は軸の太さから：細いのは同じ、太いのはそれより大きめだった）の 1.1 倍くらい
             float sx = st.localScale.x, oldCap = sx <= 1f ? sx : 1f + (sx - 1f) * 1.9f;
             float capR = capMesh.bounds.extents.x;
-            cp.localScale = Vector3.one * (4.25f * oldCap * 1.1f * size / capR);
+            cp.localScale = Vector3.one * (4.25f * oldCap * 1.25f * size / capR);   // 1.1→1.25（2026-11-17 てじゃ「全体的にもうちょい傘の直径おおきく」）
             cp.localRotation = Quaternion.FromToRotation(Vector3.up, axis.normalized) * Quaternion.AngleAxis(dir, Vector3.up);
             cp.localPosition = topLocal - cp.localRotation * Vector3.up * 0.05f;
             // 焼いた光の代わりにライトプローブ
