@@ -62,6 +62,14 @@ public class FuwaCourseLod : UdonSharpBehaviour
     [Tooltip("lobbyHideObjects と同じ順：どのコースの物か")]
     public int[] hideCourse;
 
+    // 2026-11-17 てじゃ「ステージ2のロビー、他で軽く出来るものないかなぁ」：ロビーの間（ふつう・かるい）は、ロビーから40mより遠い所の物を隠して、
+    //  そこだけの軽い版を出す（近くはふつう版のまま）。FuwaCourseLite が入れる
+    [Tooltip("ロビーの間だけ隠す、ロビーから遠い所の本体の物")]
+    public Renderer[] lobbyFarRenderers;
+    [Tooltip("ロビーの間だけ出す、遠い所だけの軽い版（コースごと）")]
+    public GameObject[] lobbyFarLites;
+    private int _farState = -1;   // 1=遠い所を軽い版にしている
+
     // ふつうでは、今いるコースの隣（床どうしが neighborDist 以内）も本体のまま見せる。隣の仕掛け・粒はロビーと同じく近くだけ動かす
     //（2026-10-22 てじゃ「隣軽くなるのきになるな、ふつう、だと隣のコースくらいは見えてるくらいの設定って」）
     [Tooltip("コースごとの隣のコース（ビット i が立っていればコース i が隣）。FuwaCourseLite が入れる")]
@@ -92,7 +100,7 @@ public class FuwaCourseLod : UdonSharpBehaviour
     private void ApplyMode(int m)
     {
         mode = Mathf.Clamp(m, 0, 2);
-        _shown = -2; _lobbyState = -1; _next = 0f;
+        _shown = -2; _lobbyState = -1; _farState = -1; _next = 0f;
         enabled = true;
         if (switches != null) foreach (FuwaQualitySwitch s in switches) if (s != null) s.Refresh();
     }
@@ -214,6 +222,15 @@ public class FuwaCourseLod : UdonSharpBehaviour
             bool lite = inSolo && c >= 0 && c != i && !near;
             if (fullRoots[i] != null && inSolo && fullRoots[i].activeSelf != full) fullRoots[i].SetActive(full);
             if (liteRoots != null && i < liteRoots.Length && liteRoots[i] != null && liteRoots[i].activeSelf != lite) liteRoots[i].SetActive(lite);
+        }
+        // ロビーの間は遠い所を軽い版に（きれい・コースの中・ちがうステージでは元に戻す）
+        int far = mode != 0 && inSolo && cur < 0 ? 1 : 0;
+        if (far != _farState)
+        {
+            _farState = far;
+            bool show = far == 0;
+            if (lobbyFarRenderers != null) for (int i = 0; i < lobbyFarRenderers.Length; i++) if (lobbyFarRenderers[i] != null) lobbyFarRenderers[i].enabled = show;
+            if (lobbyFarLites != null) for (int i = 0; i < lobbyFarLites.Length; i++) if (lobbyFarLites[i] != null) lobbyFarLites[i].SetActive(!show);
         }
         // 0=全部動かす、1=ロビー（ふつう：近くだけ／かるい：全部止める）、2+cur=ふつうでコースcurの中（curの物は動かす、隣など他は近くだけ）
         int lobby = mode != 0 && inSolo && cur < 0 ? 1 : (mode == 1 && inSolo && cur >= 0 ? 2 + cur : 0);
