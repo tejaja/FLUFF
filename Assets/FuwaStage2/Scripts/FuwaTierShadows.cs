@@ -23,6 +23,9 @@ public class FuwaTierShadows : UdonSharpBehaviour
     public FuwaPortalCams portalCams;
 
     private int _i;
+    // 2026-11-17 毎フレーム「targets == null」「targets.Length」を見るのが重かった（大きい配列。FuwaFarShadows と同じ）ので、最初に1回だけ数えておく
+    private int _n = -1;
+    private bool _hasPortal;
 
     private int TierOf(float y)
     {
@@ -33,18 +36,20 @@ public class FuwaTierShadows : UdonSharpBehaviour
 
     private void Update()
     {
-        if (targets == null || targets.Length == 0) return;
+        if (_n < 0) { _n = targets != null ? targets.Length : 0; _hasPortal = portalCams != null; }
+        if (_n == 0) return;
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null) return;
         Vector3 p = lp.GetPosition();
         int pt = TierOf(p.y);
-        bool view = portalCams != null && portalCams.viewOn;
+        bool view = _hasPortal && portalCams.viewOn;
         Vector3 q = view ? portalCams.viewPos : p;
         int qt = TierOf(q.y);
-        int n = Mathf.Min(perFrame, targets.Length);
+        // 1フレームに見る数は「30フレームで1周」ぶん（前は perFrame=120 個ずつで約0.7ms。2026-11-17）
+        int n = Mathf.Min(perFrame, (_n + 29) / 30);
         for (int c = 0; c < n; c++)
         {
-            if (_i >= targets.Length) _i = 0;
+            if (_i >= _n) _i = 0;
             Renderer r = targets[_i];
             if (r != null)
             {

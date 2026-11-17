@@ -157,12 +157,20 @@ public class FuwaLavaRock : UdonSharpBehaviour
         if (trail != null) { var e = trail.emission; e.rateOverTime = on ? trailRate : 0f; }
     }
 
+    private int _hops = -1;
+    private float _flyTotal;
+
     private void Update()
     {
-        if (points == null || points.Length < 2) return;
-        int hops = points.Length - 1;
-        float fly = 0f;
-        for (int i = 0; i < hops; i++) fly += Dur(i, hops);
+        // 2026-11-17 軽くする：点の数と飛ぶ時間の合計は変わらないので1回だけ数える
+        if (_hops < 0)
+        {
+            _hops = points != null ? points.Length - 1 : 0;
+            _flyTotal = 0f; for (int i = 0; i < _hops; i++) _flyTotal += Dur(i, _hops);
+        }
+        if (_hops < 1) return;
+        int hops = _hops;
+        float fly = _flyTotal;
         float t = T(fly + rest);
         bool flying = t < fly;
         int k = -1; float t0 = 0f;
@@ -205,6 +213,9 @@ public class FuwaLavaRock : UdonSharpBehaviour
         hdir = hdir.sqrMagnitude > 0.0001f ? hdir.normalized : Vector3.back;
         if (visual != null) visual.transform.Rotate(Vector3.Cross(Vector3.up, hdir), 540f * Time.deltaTime, Space.World);
 
+        // 2026-11-17 軽くする：自分もふわふわも遠い（60m より遠い）時は当たりを調べない（ロビーから見ている間は見た目だけ動かす）
+        VRCPlayerApi me = Networking.LocalPlayer;
+        if (me != null && (me.GetPosition() - p).sqrMagnitude > 3600f && (ball == null || (ball.transform.position - p).sqrMagnitude > 3600f)) return;
         if (!_hitBall && ball != null && !ball.IsWaitingOrHidden() && (ball.transform.position - p).magnitude < hitRadius + _ballRadius)
         {
             _hitBall = true;

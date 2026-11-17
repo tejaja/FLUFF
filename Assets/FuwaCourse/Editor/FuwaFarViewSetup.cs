@@ -174,6 +174,17 @@ public static class FuwaFarViewSetup
                 f.centers[i] = b.center; f.radii[i] = b.extents.magnitude;
                 if (!oldC.TryGetValue(keep[i], out var oc) || Vector3.Distance(oc, b.center) > 0.5f) moved++;
             }
+            // 2026-11-17 どのステージの物か（今いるステージの物だけ見て軽くする。FuwaFarShadows.targetStage）
+            f.targetStage = new int[keep.Length];
+            for (int i = 0; i < keep.Length; i++)
+            {
+                string rn = keep[i].transform.root.name;
+                f.targetStage[i] = rn.StartsWith("FuwaCourse2_") || rn == "FuwaStage2" || rn == "Stage2Far" || rn == "CourseLites2" ? 2
+                                 : rn.StartsWith("FuwaCourse") || rn == "FuwaLobby" || rn == "CourseLites" ? 1 : 0;
+            }
+            if (f.areaVisibility == null) f.areaVisibility = Object.FindObjectsOfType<FuwaAreaVisibility>(true).FirstOrDefault();
+            if (f.cycleFrames <= 0) f.cycleFrames = 30;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(f);
             EditorUtility.SetDirty(f);
             log.Add(f.name + " " + keep.Length + "個（位置が変わった " + moved + "）");
         }

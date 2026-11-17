@@ -41,9 +41,32 @@ public class FuwaShallowWater : UdonSharpBehaviour
     private float _leftAt;
     private float _lastSplash = -10f;
 
+    // 2026-11-17 軽くする：水全体を囲む箱（少し広め）を先に作っておき、その外にいる間は何もしない
+    //（ステージ2のロビーで、2–1 の浅瀬9つが毎フレーム水の箱を全部調べて約0.9ms かかっていた）
+    private Vector3 _bbMin, _bbMax;
+    private bool _bbReady;
+
     private void Start()
     {
         _col = GetComponent<Collider>();
+    }
+
+    private void MakeBox()
+    {
+        bool any = false; Bounds b = new Bounds();
+        if (areas != null)
+            for (int i = 0; i < areas.Length; i++)
+            {
+                if (areas[i] == null) continue;
+                if (!any) { b = areas[i].bounds; any = true; } else b.Encapsulate(areas[i].bounds);
+            }
+        if (!any && _col != null) { b = _col.bounds; any = true; }
+        if (!any) return;
+        // コライダーが無効だと bounds が 0 になるので、その時は作らない（毎フレーム調べる今まで通り）
+        if (b.size.sqrMagnitude < 1e-4f) return;
+        _bbMin = b.min - new Vector3(2f, 2f, 2f);
+        _bbMax = b.max + new Vector3(2f, surfaceAbove + 2f, 2f);
+        _bbReady = true;
     }
 
     private float _hitTop;
@@ -75,6 +98,9 @@ public class FuwaShallowWater : UdonSharpBehaviour
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null || !p.IsValid()) return;
         Vector3 f = p.GetPosition();
+        if (!_bbReady) MakeBox();
+        if (_bbReady && !_in && !_slowed
+            && (f.x < _bbMin.x || f.y < _bbMin.y || f.z < _bbMin.z || f.x > _bbMax.x || f.y > _bbMax.y || f.z > _bbMax.z)) return;
         bool inside = FeetInWater(f);
         if (inside && !_in) Splash(new Vector3(f.x, _hitTop, f.z), p.GetVelocity());
         if (!inside && _in) _leftAt = Time.time;
