@@ -257,6 +257,7 @@ public static class FuwaCourse2_4Builder
         foreach (var o in colT.Cast<Transform>().Where(x => x.name.StartsWith("SeesawDeck") || x.name == "UnderTruss" || x.name == "Beam").ToArray()) Object.DestroyImmediate(o.gameObject);
         foreach (var mr in sl.GetComponentsInChildren<MeshRenderer>(true).ToArray())
             if (mr && mr.sharedMaterial && (mr.sharedMaterial.name.EndsWith("_PathA") || mr.sharedMaterial.name.EndsWith("_PathB"))) Object.DestroyImmediate(mr.gameObject);
+        box.size = new Vector3(4f, 0.6f, 2f * box.center.z); box.center = new Vector3(0f, -0.3f, box.center.z);   // 元の坂の大きさで消す（2回目以降は鉄骨の幅になっているので）
         int cut = CutBevelInBox(r, colT, box);
         float zc = box.center.z, L = 2f * zc;   // 坂は local z=0 から始まるので、長さはいつも 2×まん中（シーソーで短くした分をもどす）
         box.size = new Vector3(BeamW, BeamH, L); box.center = new Vector3(0f, -BeamH / 2f, zc); box.enabled = true;
@@ -368,9 +369,14 @@ public static class FuwaCourse2_4Builder
             var t = m.GetTriangles(sIdx); var keep = new List<int>(t.Length);
             for (int k = 0; k < t.Length; k += 3)
             {
-                var cen = toCol.MultiplyPoint3x4((v[t[k]] + v[t[k + 1]] + v[t[k + 2]]) / 3f) - box.center;
+                // 2026-11-17 てじゃ「道にスキマ見える」：箱の中だけで消すと、となりの曲がり角（Turn18）の上の面のはしも消えていた
+                //  → 坂の面だけ：坂の上下の面（法線が坂の上向き）か、坂の横の壁（法線が坂の横向き・はしから 0.3m 以上中）
+                Vector3 p0 = toCol.MultiplyPoint3x4(v[t[k]]), p1 = toCol.MultiplyPoint3x4(v[t[k + 1]]), p2 = toCol.MultiplyPoint3x4(v[t[k + 2]]);
+                var cen = (p0 + p1 + p2) / 3f - box.center;
                 bool inside = Mathf.Abs(cen.x) < half.x + 0.12f && Mathf.Abs(cen.y) < half.y + 0.12f && Mathf.Abs(cen.z) < half.z - 0.01f;
-                if (inside) { cut++; continue; }
+                var nrm = Vector3.Cross(p1 - p0, p2 - p0); float nl = nrm.magnitude; nrm = nl > 1e-8f ? nrm / nl : Vector3.zero;
+                bool slopeFace = Mathf.Abs(nrm.z) < 0.05f && (Mathf.Abs(nrm.y) > 0.98f || Mathf.Abs(cen.z) < half.z - 0.1f);   // 法線が坂の横断面の中（上下・横・ふちの丸み）
+                if (inside && slopeFace) { cut++; continue; }
                 keep.Add(t[k]); keep.Add(t[k + 1]); keep.Add(t[k + 2]);
             }
             m.SetTriangles(keep, sIdx);
