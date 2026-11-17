@@ -43,7 +43,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     [Tooltip("トリガーを離してからホバリングになるまでの秒数")]
     public float brakeTime = 0.18f;
     [Header("羽")]
-    public float spinUse = 1500f, spinIdle = 0f, spinAccel = 2400f;
+    public float spinUse = 1500f, spinIdle = 120f, spinAccel = 2400f;   // spinIdle：いつものゆっくり回転（度/秒）
 
     private bool _mine, _using, _braking;
     private float _gravity = 1f, _brakeStart, _liftUntil, _spin;
@@ -137,6 +137,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     {
         UpdateShadow();
         // 羽
+        // 2026-11-17 てじゃ「常時ゆっくり回転させよう　トリガーすると高速回転」「もってるときのはなしね」：持っている間はゆっくり回る（台の上・手放した時は止まる）
         float want = _using ? spinUse : (_mine ? spinIdle : 0f);
         _spin = Mathf.MoveTowards(_spin, want, spinAccel * Time.deltaTime);
         if (blades != null && _spin != 0f) blades.Rotate(0f, _spin * Time.deltaTime, 0f, Space.Self);
