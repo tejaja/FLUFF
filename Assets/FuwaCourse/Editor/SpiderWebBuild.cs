@@ -691,6 +691,8 @@ public static class SpiderWebBuild
         return th.count;
     }
 
+    // 2026-11-17 2–5 の巣の影：2–5 の道の当たりは名前に Path がないので、この時だけどの地面でも影を敷く
+    public static bool FloorShadowAnyGround = false;
     static float FloorAt(Transform space, Vector3 localP, bool pathOnly = false)
     {
         if (!space.gameObject.activeInHierarchy) return float.NaN;
@@ -698,7 +700,7 @@ public static class SpiderWebBuild
         Vector3 w = space.TransformPoint(localP + Vector3.up * 0.6f);
         if (Physics.Raycast(w, Vector3.down, out RaycastHit hit, 1.4f, ~0, QueryTriggerInteraction.Ignore))
         {
-            if (pathOnly && !(hit.collider.name.Contains("Path") || (hit.collider.transform.parent != null && hit.collider.transform.parent.name.Contains("Path")))) return float.NaN;
+            if (pathOnly && !FloorShadowAnyGround && !(hit.collider.name.Contains("Path") || (hit.collider.transform.parent != null && hit.collider.transform.parent.name.Contains("Path")))) return float.NaN;
             return space.InverseTransformPoint(hit.point).y;
         }
         return float.NaN;
