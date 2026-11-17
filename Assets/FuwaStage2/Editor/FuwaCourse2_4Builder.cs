@@ -180,12 +180,96 @@ public static class FuwaCourse2_4Builder
         GimmickSounds(log);
         log.Append(" " + FuwaCageFloorLook.Apply(root));
         log.Append(" " + FuwaGearMetalLook.Apply(root));   // 2026-11-11 歯車だけ金属っぽく   // 2026-11-11 羽根車のかごの床：パンチングメタル＋ふちの注意ライン＋軸のまわりの両回りの矢印
+        log.Append(" " + SeesawSlope(root));   // 2026-11-17 最後の坂をシーソーに（トラスのあと・ベベルの前）
         var moving = root.GetComponentsInChildren<MeshRenderer>(true).Where(r => r.enabled && r.GetComponentsInParent<Transform>(true).Any(p => p.name == "BridgeLeaf" || p.name == "TableA" || p.name == "TableB")).ToList();
         foreach (var r in moving) r.enabled = false;
         log.Append(" ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_4_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
         foreach (var r in moving) if (r) r.enabled = true;
         log.Append(" " + FuwaCourse2_4Perf.Apply(root));   // 2026-11-13 静的バッチ・影（いちばん最後に）
         return "[2–4] " + log + " ゴール " + goalAt.ToString("F1") + " 範囲 " + lb.min.ToString("F0") + "〜" + lb.max.ToString("F0");
+    }
+
+    // ===== 2026-11-17 てじゃ「最後の坂になんかほしい、上下させるとか」→（波の階段は「相性わるい」）→ B「坂ごとシーソー」「鉄骨トラスつきのまま、上を縞鋼板」=====
+    //  ゴール手前の坂（Road19_Slope）の板（当たり Col ＋下のトラス）を、まん中の横の軸でゆっくりかたむける（FuwaSeesaw）。
+    //  両はしは道と SeesawGap あける（かたむいた時に道にめりこまないように）。上の面は動く橋と同じ縞鋼板（BridgeMat）、両はしに黄色と黒のしましま
+    public static float SeesawAmp = 7f, SeesawPeriod = 6f, SeesawGap = 0.25f;
+    public static string SeesawSlope(Transform r)
+    {
+        var sl = r.Find("Path/Road19_Slope"); if (!sl) return "シーソー：Road19_Slope がない";
+        var colT = sl.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Col"); var box = colT ? colT.GetComponent<BoxCollider>() : null; if (!box) return "シーソー：坂の当たりがない";
+        // 作り直し：前の軸から Col を戻す
+        var oldPv = sl.Find("SeesawPivot");
+        if (oldPv) { colT.SetParent(sl, true); colT.localPosition = Vector3.zero; colT.localRotation = Quaternion.identity; Object.DestroyImmediate(oldPv.gameObject); }
+        foreach (var o in sl.Cast<Transform>().Where(x => x.name == "SeesawAxle").ToArray()) Object.DestroyImmediate(o.gameObject);
+        foreach (var o in colT.Cast<Transform>().Where(x => x.name.StartsWith("Plate_") || x.name.StartsWith("SeesawDeck")).ToArray()) Object.DestroyImmediate(o.gameObject);
+        // 坂のシマの見た目（ベベル前）を消す
+        foreach (var mr in sl.GetComponentsInChildren<MeshRenderer>(true).ToArray())
+            if (mr && mr.sharedMaterial && (mr.sharedMaterial.name.EndsWith("_PathA") || mr.sharedMaterial.name.EndsWith("_PathB"))) Object.DestroyImmediate(mr.gameObject);
+        int cut = CutBevelInBox(r, colT, box);
+        // 板を両はし SeesawGap 短く（真ん中は同じ）
+        float L0 = box.size.z + (oldPv ? 2f * SeesawGap : 0f);   // 2回目以降は元の長さにもどして計算
+        float L = L0 - 2f * SeesawGap, W = box.size.x, T = box.size.y;
+        box.size = new Vector3(W, T, L);
+        // 上の面（縞鋼板）＋両はしのしましま
+        var plate = FuwaTwinTableTest.BridgeMat(true); var hz = FuwaTwinTableTest.HazardMat(); float H = FuwaTwinTableTest.HazardLen;
+        float z0 = box.center.z - L / 2f, z1 = box.center.z + L / 2f, yc = box.center.y;
+        FuwaTwinTableTest.PlateBox(colT, "SeesawDeck", new Vector3(0f, yc, (z0 + H + z1 - H) / 2f), new Vector3(W, T, L - 2f * H), plate, 1, Vector2.zero).gameObject.layer = pathLayer;
+        FuwaTwinTableTest.PlateBox(colT, "SeesawDeckEndLo", new Vector3(0f, yc, z0 + H / 2f), new Vector3(W, T, H), plate, 1, Vector2.zero, hz, 2, -1f).gameObject.layer = pathLayer;
+        FuwaTwinTableTest.PlateBox(colT, "SeesawDeckEndHi", new Vector3(0f, yc, z1 - H / 2f), new Vector3(W, T, H), plate, 1, Vector2.zero, hz, 2, 1f).gameObject.layer = pathLayer;
+        // 軸（板のまん中の下、トラスの高さのまん中）。Col の local で
+        var pivotLocal = new Vector3(0f, yc - T / 2f - 0.55f, box.center.z);
+        var pv = new GameObject("SeesawPivot").transform; pv.SetParent(sl, false);
+        pv.position = colT.TransformPoint(pivotLocal); pv.rotation = colT.rotation;
+        colT.SetParent(pv, true);
+        var ss = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaSeesaw>(pv.gameObject);
+        ss.amp = SeesawAmp; ss.period = SeesawPeriod; ss.baseRot = pv.localRotation;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ss); FuwaStage2WaterTest.NoSync(ss);
+        // 動かない軸と2本の柱（坂の横の向き＝ local X）
+        var axleM = cwAxle != null ? cwAxle : FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
+        var brass = cwBrass != null ? cwBrass : FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var darkM = cwDark != null ? cwDark : FuwaGearTest.Mat("GearTest_Gear", new Color(0.36f, 0.38f, 0.43f));
+        var ax = new GameObject("SeesawAxle").transform; ax.SetParent(sl, false); ax.position = pv.position; ax.rotation = Quaternion.LookRotation(Vector3.ProjectOnPlane(colT.forward, Vector3.up).normalized, Vector3.up);
+        System.Action<PrimitiveType, string, Vector3, Vector3, Quaternion, Material> P = (t, n, lp, ls, lr, m) =>
+        { var g = GameObject.CreatePrimitive(t); g.name = n; Object.DestroyImmediate(g.GetComponent<Collider>()); g.transform.SetParent(ax, false); g.transform.localPosition = lp; g.transform.localRotation = lr; g.transform.localScale = ls; g.GetComponent<MeshRenderer>().sharedMaterial = m; };
+        float aw = W + 1.0f;
+        P(PrimitiveType.Cylinder, "Axle", Vector3.zero, new Vector3(0.24f, aw / 2f, 0.24f), Quaternion.Euler(0f, 0f, 90f), axleM);
+        foreach (int sg in new[] { 1, -1 })
+        {
+            P(PrimitiveType.Cylinder, "Cap" + sg, new Vector3(sg * aw / 2f, 0f, 0f), new Vector3(0.34f, 0.04f, 0.34f), Quaternion.Euler(0f, 0f, 90f), brass);
+            P(PrimitiveType.Cylinder, "Hub" + sg, new Vector3(sg * (W / 2f + 0.15f), 0f, 0f), new Vector3(0.42f, 0.12f, 0.42f), Quaternion.Euler(0f, 0f, 90f), darkM);
+            P(PrimitiveType.Cube, "Post" + sg, new Vector3(sg * (aw / 2f - 0.15f), -1.6f, 0f), new Vector3(0.22f, 3.2f, 0.22f), Quaternion.identity, darkM);
+            P(PrimitiveType.Cylinder, "PostFoot" + sg, new Vector3(sg * (aw / 2f - 0.15f), -3.2f, 0f), new Vector3(0.5f, 0.04f, 0.5f), Quaternion.identity, brass);
+        }
+        return $"シーソー ±{SeesawAmp}° {SeesawPeriod}秒（ベベルから {cut} 三角形）";
+    }
+    static int CutBevelInBox(Transform r, Transform colT, BoxCollider box)
+    {
+        var pb = r.Find("PathBevel"); var mf = pb ? pb.GetComponent<MeshFilter>() : null; if (!mf || !mf.sharedMesh) return 0;
+        var m = mf.sharedMesh; var v = m.vertices; int cut = 0;
+        var toCol = colT.worldToLocalMatrix * pb.localToWorldMatrix;
+        var half = box.size / 2f;
+        for (int sIdx = 0; sIdx < m.subMeshCount; sIdx++)
+        {
+            var t = m.GetTriangles(sIdx); var keep = new List<int>(t.Length);
+            for (int k = 0; k < t.Length; k += 3)
+            {
+                var cen = toCol.MultiplyPoint3x4((v[t[k]] + v[t[k + 1]] + v[t[k + 2]]) / 3f) - box.center;
+                bool inside = Mathf.Abs(cen.x) < half.x + 0.12f && Mathf.Abs(cen.y) < half.y + 0.12f && Mathf.Abs(cen.z) < half.z - 0.01f;
+                if (inside) { cut++; continue; }
+                keep.Add(t[k]); keep.Add(t[k + 1]); keep.Add(t[k + 2]);
+            }
+            m.SetTriangles(keep, sIdx);
+        }
+        if (cut > 0) EditorUtility.SetDirty(m);
+        return cut;
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–4 最後の坂をシーソーにする")]
+    public static void SeesawSlopeMenu()
+    {
+        var r = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "FuwaCourse2_4" && t.parent == null); if (!r) return;
+        root = r; var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
+        Debug.Log("[2–4] " + SeesawSlope(r));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.gameObject.scene); AssetDatabase.SaveAssets();
     }
 
     static float OutFloorY()
