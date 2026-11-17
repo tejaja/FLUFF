@@ -15,7 +15,8 @@ public static class FuwaGiantMushrooms
     const string Src = "Assets/Generated/Imported/GiantMush.fbx";
     const string MeshDir = "Assets/FuwaCourse/Models/GiantMush";
     const string MatDir = "Assets/FuwaCourse/Materials/MiniMush";
-    static readonly string[] Kinds = { "A", "B", "C", "D" };
+    // D（ふちが反った平たい傘）はやめた（2026-11-17 てじゃ「平たいやつあんまいらないな」）。メッシュは残してある
+    static readonly string[] Kinds = { "A", "B", "C" };
 
     [MenuItem("FuwaCourse/よく使う/きのこのたにの飾りの巨大キノコをBlender版にする")]
     public static void Menu() { Debug.Log(Run()); }
@@ -49,6 +50,7 @@ public static class FuwaGiantMushrooms
             FuwaLobbyPaths.FindMat("MiniMush_CapOrange"),
             Mat("GiantMush_CapBrown", new Color(0.74f, 0.53f, 0.38f)),
             Mat("GiantMush_CapBlue", new Color(0.55f, 0.72f, 0.96f)),
+            Mat("GiantMush_CapYellow", new Color(0.99f, 0.84f, 0.38f)),   // てじゃ「やっぱ黄色も欲しい」
         };
         var gill = FuwaLobbyPaths.FindMat("Mush_Gill");
         var stemMat = FuwaLobbyPaths.FindMat("Mush_Stem");
