@@ -26,7 +26,7 @@ public static class FuwaShadowTrim
             var b = r.bounds; bool cut = false;
             if (b.size.magnitude < 0.35f) { tiny++; cut = true; }
             else if (p.Contains("Warp") && (r.name.StartsWith("Warp") || r.name.Contains("ProgressRing") || r.name.Contains("Gauge") || r.name.Contains("Veil"))) { warp++; cut = true; }
-            else if (r.name == "IslandUnder" || r.name.StartsWith("Under")) { under++; cut = true; }
+            // 2026-11-17 島や道の下の面は切らない（てじゃ「上の広場の影がこんなかたちに」：上の面が影を出していない所があり、下の面が影を担当していた）
             else if (p.Contains("Lite") || r.transform.root.name.Contains("Lite")) { lite++; cut = true; }
             else if (b.size.y < 0.06f && b.size.magnitude > 0.3f) { flat++; cut = true; }
             if (!cut) continue;
