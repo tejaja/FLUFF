@@ -268,7 +268,7 @@ public static class FuwaTwinTableTest
             FuwaIceTestBuilder.Warp(root, "WarpBack", root.TransformPoint(new Vector3(x0 + 0.6f, 0.35f, 1.8f)), "BACK", back, warpMat);
         }
 
-        AddLeftIsland(root);
+        // AddLeftIsland(root);   // 2026-11-17 てじゃ「一旦もどるのもなしで」（島は「いきさきわからんくなる」）。戻る・島のコードは残す
         RaiseCage(root);   // 2026-11-10 かごを高くして、上から橋が見えるように（門と信号ランプは「くどい」でやめた）
 
         FuwaCourse2_1Builder.FixNetworkIDs();
