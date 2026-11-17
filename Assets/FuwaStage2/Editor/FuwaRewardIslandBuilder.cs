@@ -12,7 +12,8 @@ public static class FuwaRewardIslandBuilder
 {
     public static float Dist = 26f;
     // 2–4 のスタートの島：上の面がスタートの local y=StartTopY、島のふちが z=StartEdgeZ。ゴールの島の半径 GoalR。間の道の長さ・幅
-    public static float StartTopY = 3.0f, StartEdgeZ = 3.7f, GoalR = 4.2f, PathLen = 4.5f, PathW = 3.2f;
+    public static float StartTopY = 3.0f, StartEdgeZ = 3.7f, GoalR = 4.2f, PathLen = 4.5f, PathW = 3.2f, GoalScale = 1.45f;
+    public static Color WhiteA = new Color(0.97f, 0.97f, 0.98f), WhiteB = new Color(0.86f, 0.93f, 1.0f);
     // 自己ベストのボード（ゴールの TimeLabel を広げて使う）
     public static Vector3 BoardOffset = new Vector3(0f, -1.75f, 0f); public static float BoardScale = 1f, BoardFont = 0.72f, BannerY = 4.2f; public static Vector2 BoardPanel = new Vector2(2.0f, 7.0f);   // ボードが広場の柵にかくれないよう、看板ごと上へ
     const string RootName = "FuwaRewardIsland";
@@ -41,22 +42,32 @@ public static class FuwaRewardIslandBuilder
         float floorY = lobby.Find("LobbySpawn") ? lobby.Find("LobbySpawn").position.y - center.y - 0.1f : 0f;
         var st = Object.Instantiate(srcStart.gameObject, root, false).transform; st.name = "Start";
         st.localPosition = new Vector3(0f, floorY - StartTopY, 0f); st.localRotation = Quaternion.identity; st.localScale = Vector3.one;
-        float goalZ = StartEdgeZ + PathLen + GoalR;
+        float gR = GoalR * GoalScale;   // 広げたゴールの島の半径
+        float goalZ = StartEdgeZ + PathLen + gR;
         var gl = Object.Instantiate(srcGoal.gameObject, root, false).transform; gl.name = "Goal";
         gl.localPosition = new Vector3(0f, floorY, goalZ); gl.localRotation = Quaternion.identity; gl.localScale = Vector3.one;
+        // 2026-11-17 てじゃ「ゴール島もうちょい広く」：島の地面・下の岩・柵だけ横に広げる（リング・きのこ・看板はそのまま）
+        foreach (var nm in new[] { "GoalGround", "IslandUnder", "Fence", "FenceCollider" })
+        {
+            var t = gl.Find(nm); if (!t) continue;
+            t.localPosition = Vector3.Scale(t.localPosition, new Vector3(GoalScale, 1f, GoalScale));
+            t.localScale = nm == "IslandUnder" ? t.localScale * GoalScale : Vector3.Scale(t.localScale, new Vector3(GoalScale, 1f, GoalScale));
+        }
         foreach (var r in root.GetComponentsInChildren<Renderer>(true)) r.lightmapIndex = -1;   // 2–4 の焼きを引きずらない（次に焼く時に入る）
         // スタートの看板
         foreach (var t in st.GetComponentsInChildren<TMPro.TMP_Text>(true))
             if (t.text.Contains("2–4") || t.text.Contains("はぐるま")) t.text = "<size=90%>おまけ</size>";
         // 間の道（2–4 の道のシマ）
         {
-            var pa = FuwaGearTest.Mat("Course2_4_PathA", new Color(0.60f, 0.56f, 0.52f)); var pbm = FuwaGearTest.Mat("Course2_4_PathB", new Color(0.40f, 0.36f, 0.33f));
+            // 2026-11-17 てじゃ「道と看板の色は白、普通の白とほんのちょっと水色が強い白」（名前が _PathA/_PathB でないのでベベルにまとめられない）
+            var pa = BonusPathMat("Bonus_PathWhite", WhiteA); var pbm = BonusPathMat("Bonus_PathBlue", WhiteB);
             var pathT = new GameObject("Path").transform; pathT.SetParent(root, false);
-            float z0 = StartEdgeZ - 0.45f, z1 = goalZ - GoalR + 0.35f; int n = Mathf.Max(2, Mathf.RoundToInt((z1 - z0) / 1.2f)); float L = (z1 - z0) / n;
+            // 島の丸いふちとのすき間がないように島の中までのばす（上の面は島より 4mm 下げて、重なりでチラつかないように）
+            float z0 = StartEdgeZ - 0.8f, z1 = goalZ - gR + 0.8f; int n = Mathf.Max(2, Mathf.RoundToInt((z1 - z0) / 1.2f)); float L = (z1 - z0) / n;
             for (int k = 0; k < n; k++)
             {
                 var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = "Stripe" + k; g.transform.SetParent(pathT, false); g.layer = 11;
-                g.transform.localPosition = new Vector3(0f, floorY - 0.3f, z0 + L * (k + 0.5f)); g.transform.localScale = new Vector3(PathW, 0.6f, L);
+                g.transform.localPosition = new Vector3(0f, floorY - 0.004f - 0.3f, z0 + L * (k + 0.5f)); g.transform.localScale = new Vector3(PathW, 0.6f, L);
                 g.GetComponent<MeshRenderer>().sharedMaterial = k % 2 == 0 ? pa : pbm;
             }
         }
@@ -85,7 +96,7 @@ public static class FuwaRewardIslandBuilder
         FuwaStage2Builder.MakeWarp(unl, "WarpToReward", trigSrc.gameObject, gaugeSrc.gameObject, ballPark, spawn, gunSpot, 2);
         {
             var lab = slot4.Find("Label"); var swirl = slot4.Find("WarpToCourse4");
-            if (lab) { var g = Object.Instantiate(lab.gameObject, lck, false); g.name = "Label"; g.transform.localPosition = lab.localPosition; g.transform.localRotation = lab.localRotation; g.transform.localScale = lab.localScale; FuwaStage2Builder.StripBehaviour(g); var t = g.GetComponent<TMPro.TMP_Text>(); if (t) t.text = "<size=120%>?</size>"; foreach (var r in g.GetComponentsInChildren<Renderer>(true)) r.lightmapIndex = -1; }   // 全角の「？」は看板のフォントにない
+            if (lab) { var g = Object.Instantiate(lab.gameObject, lck, false); g.name = "Label"; g.transform.localPosition = lab.localPosition; g.transform.localRotation = lab.localRotation; g.transform.localScale = lab.localScale; FuwaStage2Builder.StripBehaviour(g); var t = g.GetComponent<TMPro.TMP_Text>(); if (t) { t.text = "<size=130%>?</size>"; var cb = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/CherryBombOne SDF.asset"); if (cb) { t.font = cb; t.fontSharedMaterial = cb.material; t.color = new Color(0.45f, 0.52f, 0.72f); } } foreach (var r in g.GetComponentsInChildren<Renderer>(true)) r.lightmapIndex = -1; }   // 全角の「？」は看板のフォントにない   // ダルマドロップの「?」はゆがんでいるのでチェリーボムの字に
             if (swirl)
             {
                 var g = Object.Instantiate(swirl.gameObject, lck, false); g.name = "SwirlLocked"; g.transform.localPosition = swirl.localPosition; g.transform.localRotation = swirl.localRotation; g.transform.localScale = swirl.localScale;
@@ -143,8 +154,8 @@ public static class FuwaRewardIslandBuilder
         // 演出のあと：広場の横にきんピカ台と金ピカふわふわ（FuwaRewardAfterGoal）
         log.Add(GoldGunSetup());
         var rewards = new List<GameObject>();
-        rewards.Add(GoldGunStand(gl, 0f, slot4, new Vector3(-GoalR + 1.3f, 0f, 0.6f), 70f));
-        rewards.Add(GoldFluff(gl, new Vector3(GoalR - 1.3f, 0f, 0.6f)));
+        rewards.Add(GoldGunStand(gl, 0f, slot4, new Vector3(-gR + 1.6f, 0f, 0.6f), 70f));
+        rewards.Add(GoldFluff(gl, new Vector3(gR - 1.6f, 0f, 0.6f)));
         if (banner)
         {
             var ra = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaRewardAfterGoal>(gl.gameObject);
@@ -168,6 +179,8 @@ public static class FuwaRewardIslandBuilder
             root.gameObject.SetActive(s2.gameObject.activeSelf);
             log.Add("エリア：ステージ2に追加");
         }
+        // 看板の色（白）：雲の看板のふち・板の看板の縁を水色よりの白に
+        WhiteSigns(root); WhiteSigns(slot5);
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[ごほうびの島] " + root.position.ToString("F1") + " " + string.Join("、", log);
@@ -381,6 +394,33 @@ public static class FuwaRewardIslandBuilder
             // 台の上の小さい札
             P(PrimitiveType.Cylinder, "Spot" + i, new Vector3(x, 0.845f, 0f), new Vector3(0.26f, 0.004f, 0.26f), goldM);
         }
+    }
+
+    static Material BonusPathMat(string name, Color c)
+    {
+        string path = "Assets/FuwaStage2/Materials/" + name + ".mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        var src = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_4_PathA.mat");
+        if (!m) { m = src ? new Material(src) : new Material(Shader.Find("FuwaCourse/ToonLit")); AssetDatabase.CreateAsset(m, path); }
+        m.SetColor("_Color", c); if (m.HasProperty("_UnderColor")) m.SetColor("_UnderColor", Color.Lerp(c, Color.white, 0.3f));
+        EditorUtility.SetDirty(m); return m;
+    }
+    static void WhiteSigns(Transform t)
+    {
+        Material rim = null;
+        foreach (var r in t.GetComponentsInChildren<MeshRenderer>(true).Where(x => x.name == "CloudRim").ToArray())
+        {
+            if (!rim)
+            {
+                string path = "Assets/FuwaStage2/Materials/Bonus_SignRim.mat";
+                rim = AssetDatabase.LoadAssetAtPath<Material>(path);
+                if (!rim) { rim = new Material(r.sharedMaterial); AssetDatabase.CreateAsset(rim, path); }
+                foreach (var pn in new[] { "_Color", "_BaseColor" }) if (rim.HasProperty(pn)) rim.SetColor(pn, WhiteB);
+                EditorUtility.SetDirty(rim);
+            }
+            r.sharedMaterial = rim;
+        }
+        foreach (var sr in t.GetComponentsInChildren<SpriteRenderer>(true).Where(x => x.name == "Border")) sr.color = WhiteB;
     }
 
     // うずの材質の灰色版（色を灰色に）
