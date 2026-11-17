@@ -66,13 +66,16 @@ public static class FuwaGiantMushrooms
             var st = m.Find("Stem"); var cp = m.Find("Cap"); if (st == null || cp == null) continue;
             string key = m.GetSiblingIndex().ToString();
             int kind = kindOrder.IndexOf(m) % Kinds.Length;   // 形も同じくらいずつ（ばらばらに選ぶと1種も出ないことがあった）
-            // 1本ずつの指定（2026-11-17 てじゃ「みぎのでかい黄色をドーム状のやつにして」：3番目＝(-65, 10, -47) のベル型→ドーム）
-            if (m.GetSiblingIndex() == 3) kind = 2;
+            // 1本ずつの指定（2026-11-17 てじゃ「もとのとんがってるのに戻し、かわりにその手前の茶色いとんがりを赤いドームに、一番手前の赤いやや平たいやつを茶色に」）
+            //  1番目（(-42, 4, -32) 茶のベル）→ 赤のドーム、0番目（(-28, -1, -27) 赤の平たい）→ 茶
+            int colorIdx = order.IndexOf(m) % colors.Length;
+            if (m.GetSiblingIndex() == 1) { kind = 2; colorIdx = 0; }
+            if (m.GetSiblingIndex() == 0) colorIdx = 2;
             var stemMesh = stems[kind]; var capMesh = caps[kind];
             st.GetComponent<MeshFilter>().sharedMesh = stemMesh;
             st.GetComponent<MeshRenderer>().sharedMaterials = new[] { stemMat };
             cp.GetComponent<MeshFilter>().sharedMesh = capMesh;
-            cp.GetComponent<MeshRenderer>().sharedMaterials = new[] { colors[order.IndexOf(m) % colors.Length], gill };
+            cp.GetComponent<MeshRenderer>().sharedMaterials = new[] { colors[colorIdx], gill };
             // 軸のてっぺん（いちばん上の輪の中心）にかさを乗せる
             var vs = stemMesh.vertices; float top = vs.Max(v => v.y);
             var ring = vs.Where(v => v.y > top - 0.05f).ToArray();
