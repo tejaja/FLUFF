@@ -55,8 +55,8 @@ public static class FuwaPracticeTutorial
             "<size=130%><color=#FF6B5C>ショットとチャージ</color></size>\nちょん押し：よわい\n長押し：つよい\n近くで撃つほど強く吹き飛ばす",
             "<size=130%><color=#FF6B5C>Shot & Charge</color></size>\nTap: weak\nHold: strong\nCloser shots blow harder"),
         new Bay(15.0f, "Down",
-            "<size=130%><color=#FF6B5C>下向きに撃っても大丈夫</color></size>\nショットはいつもふわっと持ち上げる\n床に押しつけたりしない",
-            "<size=130%><color=#FF6B5C>Shooting down is OK</color></size>\nYour shot always lifts the fluff\nIt never pushes it into the floor"),
+            "<size=130%><color=#FF6B5C>下向きに撃っても大丈夫</color></size>\nショットはいつもふわっと持ち上げる\n下向きには吹き飛ばない",   // 2026-11-17 てじゃ「床に押し付けたりしない、を 下向きには吹っ飛ばない」「吹き飛ばない、かな」
+            "<size=130%><color=#FF6B5C>Shooting down is OK</color></size>\nYour shot always lifts the fluff\nIt never blows it downward"),
         new Bay(0f, "Steep",
             "<size=130%><color=#FF6B5C>上を向きすぎない</color></size>\n上を向くほど前に飛ばない\n前に進めたい時は\nまっすぐ前に撃とう",
             "<size=130%><color=#FF6B5C>Don't aim too high</color></size>\nThe higher you aim,\nthe less it moves forward\nAim straight ahead instead"),
