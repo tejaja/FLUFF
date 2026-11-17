@@ -71,6 +71,9 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     public float shadowNear = 40f;
     [Tooltip("影を落とすか（2026-11-17 なしに）")]
     public bool castShadows = false;
+    [Tooltip("手放してこの秒数たったら竹とんぼ立てにもどる（2026-11-17 てじゃ「長時間放置しとくと戻るように」。0 でもどらない）")]
+    public float returnAfter = 120f;
+    private float _droppedAt = -1f;
     private Renderer[] _rends;
     private bool _shadowOn = true;
     private float _shadowCheckAt;
@@ -101,6 +104,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     // 竹とんぼ立てをクリックした（FuwaCopterStand）：持っていたら手放して、立てに戻す
     public void ReturnHome()
     {
+        _droppedAt = -1f;
         if (_mine && _pickup != null) _pickup.Drop();
         transform.SetPositionAndRotation(_homePos, _homeRot);
     }
@@ -114,12 +118,13 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     {
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
-        _mine = true; _using = false; _braking = false;
+        _mine = true; _using = false; _braking = false; _droppedAt = -1f;
         _gravity = p.GetGravityStrength();
     }
 
     public override void OnDrop()
     {
+        _droppedAt = Time.time;
         if (!_mine) return;
         EndFlight();
         _mine = false;
@@ -172,7 +177,12 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         _spin = Mathf.MoveTowards(_spin, want, spinAccel * Time.deltaTime);
         if (blades != null && _spin != 0f) blades.Rotate(0f, _spin * Time.deltaTime, 0f, Space.Self);
 
-        if (!_mine) return;
+        if (!_mine)
+        {
+            // 手放してしばらく置きっぱなしなら立てにもどす
+            if (_droppedAt > 0f && returnAfter > 0f && Time.time - _droppedAt > returnAfter) ReturnHome();
+            return;
+        }
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
         // エアガンを持ったら手放す
