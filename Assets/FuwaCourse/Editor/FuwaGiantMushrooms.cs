@@ -72,13 +72,18 @@ public static class FuwaGiantMushrooms
             var topLocal = st.localPosition + st.localRotation * Vector3.Scale(c, st.localScale);
             // かさの大きさ・傾きのむら
             float size = 0.85f + 0.30f * Pick(key + "#size", 1000) / 999f;
-            float tilt = 5f + 10f * Pick(key + "#tilt", 1000) / 999f;
+            // かさの傾きは軸のてっぺんの向きに合わせる（2026-11-17 てじゃ「軸の傾きと傘の傾きはあわせてほしい」。前はばらばらに 5〜15°）
+            float step = top / 16f;   // 軸の輪の間隔（Blender で 16 段）
+            var below = vs.Where(v => v.y > top - step * 1.5f && v.y < top - step * 0.5f).ToArray();
+            var cb = Vector3.zero; foreach (var v in below) cb += v; cb /= Mathf.Max(1, below.Length);
+            var axis = st.localRotation * Vector3.Scale(c - cb, st.localScale);
+            if (axis.sqrMagnitude < 1e-6f) axis = Vector3.up;
             float dir = Pick(key + "#dir", 360);
             // かさの半径は前のかさ（GiantCapDeco 半径 4.25 × 前の倍率。前の倍率は軸の太さから：細いのは同じ、太いのはそれより大きめだった）の 1.1 倍くらい
             float sx = st.localScale.x, oldCap = sx <= 1f ? sx : 1f + (sx - 1f) * 1.9f;
             float capR = capMesh.bounds.extents.x;
             cp.localScale = Vector3.one * (4.25f * oldCap * 1.1f * size / capR);
-            cp.localRotation = Quaternion.AngleAxis(dir, Vector3.up) * Quaternion.AngleAxis(tilt, Vector3.right) * Quaternion.AngleAxis(-dir, Vector3.up);
+            cp.localRotation = Quaternion.FromToRotation(Vector3.up, axis.normalized) * Quaternion.AngleAxis(dir, Vector3.up);
             cp.localPosition = topLocal - cp.localRotation * Vector3.up * 0.05f;
             // 焼いた光の代わりにライトプローブ
             foreach (var r in new[] { st.GetComponent<MeshRenderer>(), cp.GetComponent<MeshRenderer>() })
