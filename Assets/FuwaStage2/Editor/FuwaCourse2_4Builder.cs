@@ -2894,39 +2894,47 @@ public static class FuwaCourse2_4Builder
         var tB = CwGear(g, "SGB", new Vector3(bB.c.x, Cl, bB.c.y), Vector3.up, m24, cwLight, true);
         AddGear(tB, bB.ratio, bB.phase * Mathf.Rad2Deg);
         Child(tB, "Small_z14", new Vector3(0f, S, 0f), m14, cwBrass, bS.phase - bB.phase);
-        // 2026-11-17 てじゃ「段つき歯車がただの段差になってる」→ 上の小歯車に太いピン（人もふわふわも通れない、ふわふわは当たると動きではじかれる）
+        // 2026-11-17 てじゃ「段つき歯車がただの段差になってる」→ 上の小歯車にしきり板（まん中の柱から2方向。人もふわふわも通れない、ふわふわは当たると動きではじかれる）
         AddStepPins(tA.Find("Small_z14"), aB.ratio, S - Cl, 0f);
-        AddStepPins(tB.Find("Small_z14"), bB.ratio, S - Cl, 60f);
+        AddStepPins(tB.Find("Small_z14"), bB.ratio, S - Cl, 90f);
         var drv = Drive(g, aB, 12, PM, -S, S, cwDark, 140f, true);   // 2026-11-11 乗れるように   // 少し前より（真横はチェックポイントのきのこの丸太とぶつかる）
         StepTankGear(g, bB, Cl, S - Cl);
         P += Dir(th) * (bB.c.y + PM * 7 + PM + 0.05f) + Vector3.up * 2f * S;
     }
-    // ---- 段つき歯車のピン（2026-11-17） ----
-    public static int StepPinCount = 3;
-    public static float StepPinR = 0.25f, StepPinH = 1.65f, StepPinAt = 1.0f;   // 太さ（半径）・小歯車の上からの高さ・軸からの距離
-    // 2026-11-17 てじゃ「外側にもおこう」：小歯車のふち寄りにもう1周（内の柱の間の角度）。
-    //  大歯車のふちには置けない（A のふちは B の大歯車の下にもぐる、B のふちは出口の道を横切る）→ 小歯車のふちの内（歯先 1.6m より内）
-    public static float StepPinOuterR = 0.2f, StepPinOuterAt = 1.38f;
-    // small：上の小歯車（いっしょに回る）。ratio：その歯車の比（角速度 = ratio × ClockSpeed）。topY：小歯車の上の面の local y。ang0：1本目の角度
+    // ---- 段つき歯車のしきり板（2026-11-17） ----
+    // てじゃ「段つき歯車がただの段差」→ 太いピン →「いまいち、棒はなしにして」「黄色いギアの真ん中から伸びた棒のまわりから2方向に伸びる板」
+    //  小歯車のまん中に柱、そこから反対向きに2枚の板（小歯車の歯先 1.6m より内）。歯車といっしょに回る。人は通れない、ふわふわは当たると動きではじかれる（FuwaGearPin）
+    //  大歯車（グレー）には置けない（A のふちは B の大歯車の下にもぐる、B のふちは出口の道を横切る）
+    public static float StepPostR = 0.2f, StepPinH = 1.65f, StepVaneLen = 1.5f, StepVaneT = 0.14f;
+    // small：上の小歯車（いっしょに回る）。ratio：その歯車の比（角速度 = ratio × ClockSpeed）。topY：小歯車の上の面の local y。ang0：板の向き（度）
     static void AddStepPins(Transform small, float ratio, float topY, float ang0)
     {
         if (small == null) return;
         var old = small.Find("Pins"); if (old) Object.DestroyImmediate(old.gameObject);
         var holder = new GameObject("Pins").transform; holder.SetParent(small, false);
         var mat = cwBrass != null ? cwBrass : FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
-        for (int i = 0; i < StepPinCount * 2; i++)
+        // まん中の柱（板より少し高い）
+        float postH = StepPinH + 0.15f, total = postH + StepPostR;
+        var post = GameObject.CreatePrimitive(PrimitiveType.Capsule); post.name = "Post";
+        post.transform.SetParent(holder, false);
+        post.transform.localPosition = new Vector3(0f, topY + postH - total * 0.5f, 0f);
+        post.transform.localScale = new Vector3(StepPostR * 2f, total * 0.5f, StepPostR * 2f);
+        Setup(post);
+        for (int k = 0; k < 2; k++)
         {
-            bool outer = i >= StepPinCount; int k = i % StepPinCount;
-            float rad = outer ? StepPinOuterR : StepPinR, at = outer ? StepPinOuterAt : StepPinAt;
-            float a = (ang0 + 360f * (k + (outer ? 0.5f : 0f)) / StepPinCount) * Mathf.Deg2Rad;
-            var p = GameObject.CreatePrimitive(PrimitiveType.Capsule); p.name = (outer ? "PinOut" : "Pin") + k;
-            p.transform.SetParent(holder, false);
-            float total = StepPinH + rad;   // 下の半球は歯車にうめる
-            p.transform.localPosition = new Vector3(Mathf.Cos(a) * at, topY + StepPinH - total * 0.5f, Mathf.Sin(a) * at);
-            p.transform.localScale = new Vector3(rad * 2f, total * 0.5f, rad * 2f);
-            p.GetComponent<Renderer>().sharedMaterial = mat;
-            p.layer = 11;
-            var pin = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGearPin>(p);
+            float a = ang0 + 180f * k, r0 = StepPostR * 0.5f, len = StepVaneLen - r0;
+            var v = GameObject.CreatePrimitive(PrimitiveType.Cube); v.name = "Vane" + k;
+            v.transform.SetParent(holder, false);
+            float ar = a * Mathf.Deg2Rad, mid = r0 + len * 0.5f;
+            v.transform.localPosition = new Vector3(Mathf.Cos(ar) * mid, topY + StepPinH * 0.5f, Mathf.Sin(ar) * mid);
+            v.transform.localRotation = Quaternion.Euler(0f, -a, 0f);
+            v.transform.localScale = new Vector3(len, StepPinH, StepVaneT);
+            Setup(v);
+        }
+        void Setup(GameObject o)
+        {
+            o.GetComponent<Renderer>().sharedMaterial = mat; o.layer = 11;
+            var pin = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGearPin>(o);
             pin.pivot = small; pin.degPerSec = ratio * ClockSpeed;
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pin);
         }
@@ -2939,7 +2947,7 @@ public static class FuwaCourse2_4Builder
         var all = Object.FindObjectsOfType<Transform>(true);
         var cw = Object.FindObjectsOfType<FuwaClockwork>(true).FirstOrDefault(c => c.transform.root.name == "FuwaCourse2_4");
         var log = new List<string>();
-        foreach (var (n, ang0) in new[] { ("SGA", 0f), ("SGB", 60f) })
+        foreach (var (n, ang0) in new[] { ("SGA", 0f), ("SGB", 90f) })
         {
             var g = all.FirstOrDefault(t => t && t.name == n && t.root.name == "FuwaCourse2_4"); if (g == null) { log.Add(n + " なし"); continue; }
             float ratio = 0f;
