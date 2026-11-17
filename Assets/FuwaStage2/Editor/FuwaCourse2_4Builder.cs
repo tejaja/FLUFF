@@ -180,7 +180,7 @@ public static class FuwaCourse2_4Builder
         GimmickSounds(log);
         log.Append(" " + FuwaCageFloorLook.Apply(root));
         log.Append(" " + FuwaGearMetalLook.Apply(root));   // 2026-11-11 歯車だけ金属っぽく   // 2026-11-11 羽根車のかごの床：パンチングメタル＋ふちの注意ライン＋軸のまわりの両回りの矢印
-        log.Append(" " + SeesawSlope(root));   // 2026-11-17 最後の坂をシーソーに（トラスのあと・ベベルの前）
+        log.Append(" " + BeamSlope(root));   // 2026-11-17 最後の坂を鉄骨わたりに（シーソーは「ぱっとしない」でやめた。トラスのあと・ベベルの前）
         var moving = root.GetComponentsInChildren<MeshRenderer>(true).Where(r => r.enabled && r.GetComponentsInParent<Transform>(true).Any(p => p.name == "BridgeLeaf" || p.name == "TableA" || p.name == "TableB")).ToList();
         foreach (var r in moving) r.enabled = false;
         log.Append(" ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_4_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
@@ -242,6 +242,57 @@ public static class FuwaCourse2_4Builder
         }
         return $"シーソー ±{SeesawAmp}° {SeesawPeriod}秒（ベベルから {cut} 三角形）";
     }
+    // ===== 2026-11-17 てじゃ「シンプルにギミックやめて、鉄骨わたりみたいなのにするか」=====
+    //  ゴール手前の坂（Road19_Slope）を、幅 BeamW のH形の鉄骨1本に（上のフランジは縞鋼板、腹板に真ちゅうのリベット）。動かない。下のトラスはなし
+    public static float BeamW = 0.8f, BeamH = 0.6f, BeamFl = 0.08f, BeamWeb = 0.1f;
+    public static string BeamSlope(Transform r)
+    {
+        var sl = r.Find("Path/Road19_Slope"); if (!sl) return "鉄骨：Road19_Slope がない";
+        var colT = sl.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Col"); var box = colT ? colT.GetComponent<BoxCollider>() : null; if (!box) return "鉄骨：坂の当たりがない";
+        // シーソーの残りを片づける（Col を元の場所へ、長さももどす）
+        var oldPv = sl.Find("SeesawPivot");
+        if (oldPv) { colT.SetParent(sl, true); colT.localPosition = Vector3.zero; colT.localRotation = Quaternion.identity; box.size = new Vector3(box.size.x, box.size.y, box.size.z + 2f * SeesawGap); Object.DestroyImmediate(oldPv.gameObject); }
+        foreach (var o in sl.Cast<Transform>().Where(x => x.name == "SeesawAxle").ToArray()) Object.DestroyImmediate(o.gameObject);
+        foreach (var o in colT.Cast<Transform>().Where(x => x.name.StartsWith("SeesawDeck") || x.name == "UnderTruss" || x.name == "Beam").ToArray()) Object.DestroyImmediate(o.gameObject);
+        foreach (var mr in sl.GetComponentsInChildren<MeshRenderer>(true).ToArray())
+            if (mr && mr.sharedMaterial && (mr.sharedMaterial.name.EndsWith("_PathA") || mr.sharedMaterial.name.EndsWith("_PathB"))) Object.DestroyImmediate(mr.gameObject);
+        int cut = CutBevelInBox(r, colT, box);
+        float L = box.size.z, zc = box.center.z;
+        box.size = new Vector3(BeamW, BeamH, L); box.center = new Vector3(0f, -BeamH / 2f, zc); box.enabled = true;
+        var beam = new GameObject("Beam").transform; beam.SetParent(colT, false);
+        var plate = FuwaTwinTableTest.BridgeMat(true);
+        var steel = cwDark != null ? cwDark : FuwaGearTest.Mat("GearTest_Gear", new Color(0.36f, 0.38f, 0.43f));
+        var brass = cwBrass != null ? cwBrass : FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        // 上のフランジ（縞鋼板）・腹板・下のフランジ
+        FuwaTwinTableTest.PlateBox(beam, "TopFlange", new Vector3(0f, -BeamFl / 2f, zc), new Vector3(BeamW, BeamFl, L), plate, 1, Vector2.zero).gameObject.layer = pathLayer;
+        System.Action<string, Vector3, Vector3, Material> B = (n, c, sz, m) =>
+        { var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = n; Object.DestroyImmediate(g.GetComponent<Collider>()); g.transform.SetParent(beam, false); g.transform.localPosition = c; g.transform.localScale = sz; g.GetComponent<MeshRenderer>().sharedMaterial = m; g.layer = pathLayer; };
+        B("Web", new Vector3(0f, -BeamH / 2f, zc), new Vector3(BeamWeb, BeamH - 2f * BeamFl, L), steel);
+        B("BottomFlange", new Vector3(0f, -BeamH + BeamFl / 2f, zc), new Vector3(BeamW * 0.85f, BeamFl, L), steel);
+        // リベット（腹板の両面、上下2列）
+        int n = Mathf.Max(2, Mathf.RoundToInt(L / 0.45f));
+        for (int k = 0; k < n; k++)
+        {
+            float z = zc - L / 2f + L * (k + 0.5f) / n;
+            foreach (int sg in new[] { 1, -1 })
+                foreach (float y in new[] { -BeamFl - 0.06f, -BeamH + BeamFl + 0.06f })
+                {
+                    var rv = GameObject.CreatePrimitive(PrimitiveType.Sphere); rv.name = "Rivet"; Object.DestroyImmediate(rv.GetComponent<Collider>());
+                    rv.transform.SetParent(beam, false); rv.transform.localPosition = new Vector3(sg * BeamWeb / 2f, y, z); rv.transform.localScale = new Vector3(0.035f, 0.05f, 0.05f);
+                    rv.GetComponent<MeshRenderer>().sharedMaterial = brass;
+                }
+        }
+        return $"鉄骨わたり 幅 {BeamW}m 長さ {L:F1}m（ベベルから {cut} 三角形）";
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–4 最後の坂を鉄骨わたりにする")]
+    public static void BeamSlopeMenu()
+    {
+        var r = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "FuwaCourse2_4" && t.parent == null); if (!r) return;
+        root = r; var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
+        Debug.Log("[2–4] " + BeamSlope(r));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.gameObject.scene); AssetDatabase.SaveAssets();
+    }
+
     static int CutBevelInBox(Transform r, Transform colT, BoxCollider box)
     {
         var pb = r.Find("PathBevel"); var mf = pb ? pb.GetComponent<MeshFilter>() : null; if (!mf || !mf.sharedMesh) return 0;
