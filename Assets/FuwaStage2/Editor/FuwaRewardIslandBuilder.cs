@@ -12,7 +12,7 @@ public static class FuwaRewardIslandBuilder
 {
     public static float Dist = 26f;
     // 2–4 のスタートの島：上の面がスタートの local y=StartTopY、島のふちが z=StartEdgeZ。ゴールの島の半径 GoalR。間の道の長さ・幅
-    public static float StartTopY = 3.0f, StartEdgeZ = 3.7f, GoalR = 4.2f, PathLen = 4.5f, PathW = 3.2f, GoalScale = 1.45f;
+    public static float StartTopY = 3.0f, StartEdgeZ = 2.5f, GoalR = 3.0f, PathLen = 4.5f, PathW = 3.2f, GoalScale = 1.45f;   // 島のふちは頂点から測った値（前は回った箱の大きさで測って大きすぎ、道とすき間が空いた）
     public static Color WhiteA = new Color(0.97f, 0.97f, 0.98f), WhiteB = new Color(0.86f, 0.93f, 1.0f);
     // 自己ベストのボード（ゴールの TimeLabel を広げて使う）
     public static Vector3 BoardOffset = new Vector3(0f, -1.75f, 0f); public static float BoardScale = 1f, BoardFont = 0.72f, BannerY = 4.2f; public static Vector2 BoardPanel = new Vector2(2.0f, 7.0f);   // ボードが広場の柵にかくれないよう、看板ごと上へ
@@ -181,6 +181,22 @@ public static class FuwaRewardIslandBuilder
         }
         // 看板の色（白）：雲の看板のふち・板の看板の縁を水色よりの白に
         WhiteSigns(root); WhiteSigns(slot5);
+        // 2026-11-17 てじゃ「看板の角度ちゃんと柵にあわせて」：Slot5 は Slot4 と向きがちがうので、看板をほかの場所と同じ「ロビーのまん中から外向き・同じ距離」に置き直す
+        {
+            var lab4 = slot4.Find("Label");
+            if (lab4)
+            {
+                var c4 = lab4.position - center; c4.y = 0f; float rl = c4.magnitude;
+                float a4 = Mathf.Atan2(c4.x, c4.z) * Mathf.Rad2Deg, rel4 = Mathf.DeltaAngle(a4, lab4.eulerAngles.y);
+                var d5 = slot5.position - center; d5.y = 0f; float a5 = Mathf.Atan2(d5.x, d5.z) * Mathf.Rad2Deg;
+                foreach (var lb in slot5.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Label"))
+                {
+                    var dn = Quaternion.Euler(0f, a5, 0f) * Vector3.forward;
+                    lb.position = new Vector3(center.x + dn.x * rl, lab4.position.y, center.z + dn.z * rl);
+                    lb.rotation = Quaternion.Euler(lab4.eulerAngles.x, a5 + rel4, lab4.eulerAngles.z);
+                }
+            }
+        }
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[ごほうびの島] " + root.position.ToString("F1") + " " + string.Join("、", log);
