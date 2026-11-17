@@ -12,12 +12,27 @@ using VRC.Udon.Common;
 // ・持っていて空中でトリガーを押していない間：ホバリング（かなりゆっくり降りる hoverFall）＋ふつうの移動（WASD・スティック）
 // ・トリガーを離すと素早くホバリングの速さに（brakeTime）
 // ・手放してもその場に残る（2026-11-08 てじゃ「離しても自動で戻らなくする　元の台座をクリックで戻す」→ FuwaCopterStand）。エアガンを持ったら手放す
+// 2026-11-17 てじゃ「向きは上固定、下の部分を丸くして底を手にとる」「竹とんぼは上昇下降のみ、移動はスティックで」→ 案C：
+// ・軸の下のにぎり玉の中心を持つ（root の原点＝玉の中心）。見た目（visual）は毎フレーム玉の中心から真上に立て直す（水平の向きだけ手に合わせる）
+// ・起き上がりこぼしみたいにゆらゆら：動いている方向へ少し前のめり、手を急に動かすと上が遅れてついてくる。ばねで真上に戻る
+// ・トリガー中は真上に上昇＋スティックで横移動。竹とんぼの傾きは飛ぶ向きに関係しない
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaBambooCopter : UdonSharpBehaviour
 {
     public FuwaRespawnManager manager;
     [Tooltip("回る羽（local の +Y が軸）")]
     public Transform blades;
+    [Tooltip("見た目（玉・軸・羽）。原点＝にぎり玉の中心。毎フレーム真上に立て直す")]
+    public Transform visual;
+    [Header("ゆらゆら")]
+    [Tooltip("動く速さ 1m/s あたりの前のめり（rad）")]
+    public float leanPerSpeed = 0.035f;
+    [Tooltip("手（玉）の加速で上が遅れる強さ")]
+    public float lagGain = 0.012f;
+    [Tooltip("ばねの強さ・減衰")]
+    public float spring = 70f, damping = 7f;
+    [Tooltip("いちばん傾く角度（rad）")]
+    public float maxTilt = 0.33f;
     [Header("飛び方")]
     [Tooltip("トリガー中にプロペラの向きへ進む速さ(m/s)")]
     public float speed = 7f;
@@ -44,6 +59,9 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     private Renderer[] _rends;
     private bool _shadowOn = true;
     private float _shadowCheckAt;
+    // ゆらゆら：傾き（上向きからのずれ、水平の x・z）とその速さ。玉の位置と速さの前の値
+    private Vector3 _tilt, _tiltVel, _prevPos, _prevVel;
+    private bool _hasPrev;
 
     private void Start()
     {
@@ -134,9 +152,9 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         }
         if (_using)
         {
-            // トリガー中：プロペラの向きへまっすぐ（ふつうに持てば真上）
-            Vector3 v = transform.up * speed;
-            if (Time.time < _liftUntil) v.y = Mathf.Max(v.y, 2f);
+            // トリガー中：真上に上昇＋スティックで横移動（2026-11-17 前はプロペラの向きへまっすぐだった）
+            Vector3 v = Hover(p);
+            v.y = speed;
             p.SetVelocity(v);
         }
         else if (_braking)
@@ -152,6 +170,41 @@ public class FuwaBambooCopter : UdonSharpBehaviour
             p.SetVelocity(Hover(p));
         }
         else if (_hovering && p.IsPlayerGrounded()) { _hovering = false; p.SetGravityStrength(_gravity); }
+    }
+
+    // 見た目を真上に立て直す＋ゆらゆら。手（pickup）の位置が決まった後に動かす
+    public override void PostLateUpdate()
+    {
+        if (visual == null) return;
+        float dt = Time.deltaTime;
+        Vector3 pos = transform.position;
+        Vector3 vel = Vector3.zero, acc = Vector3.zero;
+        if (_hasPrev && dt > 1e-4f)
+        {
+            vel = (pos - _prevPos) / dt;
+            acc = (vel - _prevVel) / dt;
+            if (acc.sqrMagnitude > 400f * 400f) acc = acc.normalized * 400f;   // ワープ・持ちかえの一瞬で飛ばないように
+        }
+        if (vel.sqrMagnitude > 30f * 30f) { vel = Vector3.zero; acc = Vector3.zero; }   // ワープした
+        _prevPos = pos; _prevVel = vel; _hasPrev = true;
+        vel.y = 0f; acc.y = 0f;
+        // 目標：動く方向へ前のめり。手の加速には上が遅れる（加速と逆向き）
+        Vector3 target = vel * leanPerSpeed;
+        if (target.magnitude > maxTilt) target = target.normalized * maxTilt;
+        Vector3 force = (target - _tilt) * spring - _tiltVel * damping - acc * lagGain;
+        if (dt > 0f && dt < 0.1f)
+        {
+            _tiltVel += force * dt;
+            _tilt += _tiltVel * dt;
+        }
+        if (_tilt.magnitude > maxTilt) { _tilt = _tilt.normalized * maxTilt; _tiltVel *= 0.5f; }
+        // 水平の向きは手（root）に合わせる
+        Vector3 f = transform.forward; f.y = 0f;
+        if (f.sqrMagnitude < 1e-4f) { f = transform.up; f.y = 0f; }
+        if (f.sqrMagnitude < 1e-4f) f = Vector3.forward;
+        Quaternion yaw = Quaternion.LookRotation(f.normalized, Vector3.up);
+        Vector3 up = (Vector3.up + _tilt).normalized;
+        visual.SetPositionAndRotation(pos, Quaternion.FromToRotation(Vector3.up, up) * yaw);
     }
 
     // ホバリングの速さ：見ている向き（水平）で移動の入力どおり、下へ hoverFall

@@ -14,8 +14,9 @@ public static class FuwaCopterBuilder
     // 2026-11-15 てじゃ「竹とんぼ台、竹とんぼごと反時計回りに15度くらいまわして」（上から見て反時計回り＝Yをマイナス）
     public static float StandYaw = -40f;   // 15度→「もう25度」で40度
     public static Vector3 StandLocal = new Vector3(-14.51f, 0f, -0.25f);   // 2026-11-11 てじゃ「たけとんぼ、スクショ板の左くらいに移動」「もうちょい左に、台座をちゃんと島に」：撮影の島のまん中から 3.4m（「もちょっとだけ柵寄りに」）、スクショの板から左へ 66°（前は傘立てと同じ所 (-5.4, 0, 0.9)、銃の台の左どなり）。ステージ2のロビーにも同じ島がある
-    // 竹とんぼの大きさ（root は持つ所＝軸の下から 1/3。+Y が羽の方）
-    const float StickLen = 0.34f, StickR = 0.014f, GripFromBottom = 0.11f, BladeSpan = 0.52f, BladeW = 0.065f, BladeT = 0.01f, BladeTwist = 16f, TipR = 0.016f;
+    // 竹とんぼの大きさ（root は持つ所＝軸の下のにぎり玉の中心。+Y が羽の方）
+    // 2026-11-17 てじゃ「下の部分を丸くして底を手にとる」：軸の下ににぎり玉（KnobR）。見た目は Visual の下にまとめて、FuwaBambooCopter が毎フレーム真上に立て直す
+    const float StickLen = 0.34f, StickR = 0.014f, KnobR = 0.034f, BladeSpan = 0.52f, BladeW = 0.065f, BladeT = 0.01f, BladeTwist = 16f, TipR = 0.016f;
     const float StandBaseH = 0.1f, StandPostH = 0.75f;
 
     [MenuItem("FuwaCourse/よく使う/竹とんぼ立て（見学用）を作り直す（傘は消す）")]
@@ -61,9 +62,9 @@ public static class FuwaCopterBuilder
             st.position = new Vector3(w.x, floorY, w.z);
             st.rotation = Quaternion.Euler(0f, StandYaw, 0f) * Quaternion.LookRotation(-new Vector3(w.x - lt.position.x, 0f, w.z - lt.position.z).normalized);
             BuildStand(st, standWood, standTrim);
-            // 竹とんぼ：軸の下のはしが柱の上のつつの底に入る
+            // 竹とんぼ：にぎり玉が柱の上のつつに少しうまる
             float cupTop = StandBaseH + StandPostH + 0.06f;
-            var pos = st.TransformPoint(new Vector3(0f, cupTop - 0.05f + GripFromBottom, 0f));
+            var pos = st.TransformPoint(new Vector3(0f, cupTop + KnobR * 0.35f, 0f));
             var cop = MakeCopter(holder, key + "_Copter", pos, st.rotation, bamboo, node, blade, bladeMesh, manager);
             // 立てをクリックで戻す（台と柱の当たり。竹とんぼの当たりより下）
             var sc = st.gameObject.AddComponent<CapsuleCollider>(); sc.direction = 1; sc.radius = 0.18f; sc.height = StandBaseH + StandPostH; sc.center = new Vector3(0f, (StandBaseH + StandPostH) / 2f, 0f);
@@ -94,20 +95,24 @@ public static class FuwaCopterBuilder
     {
         var go = new GameObject(name); go.transform.SetParent(holder, false); go.transform.SetPositionAndRotation(pos, rot);
         go.layer = 13;   // Pickup
-        float y0 = -GripFromBottom, y1 = StickLen - GripFromBottom;
-        var stick = Cyl(go.transform, "Stick", new Vector3(0f, (y0 + y1) / 2f, 0f), new Vector3(2f * StickR, StickLen / 2f, 2f * StickR), bamboo, false); stick.gameObject.layer = 13;
+        var vis = new GameObject("Visual").transform; vis.SetParent(go.transform, false); vis.gameObject.layer = 13;
+        // にぎり玉（原点）。軸は玉の中から上へ
+        var knob = GameObject.CreatePrimitive(PrimitiveType.Sphere); knob.name = "Knob"; knob.transform.SetParent(vis, false);
+        knob.transform.localScale = Vector3.one * KnobR * 2f; knob.GetComponent<Renderer>().sharedMaterial = node; Object.DestroyImmediate(knob.GetComponent<Collider>()); knob.layer = 13;
+        float y0 = KnobR * 0.5f, y1 = KnobR * 0.5f + StickLen;
+        var stick = Cyl(vis, "Stick", new Vector3(0f, (y0 + y1) / 2f, 0f), new Vector3(2f * StickR, StickLen / 2f, 2f * StickR), bamboo, false); stick.gameObject.layer = 13;
         // 棒の節（輪っか）は 2026-11-11 てじゃ「いらんかも」で無し
-        var blades = new GameObject("Blades").transform; blades.SetParent(go.transform, false); blades.localPosition = new Vector3(0f, y1, 0f); blades.gameObject.layer = 13;
+        var blades = new GameObject("Blades").transform; blades.SetParent(vis, false); blades.localPosition = new Vector3(0f, y1, 0f); blades.gameObject.layer = 13;
         var b = new GameObject("Blade"); b.transform.SetParent(blades, false); b.layer = 13;
         b.AddComponent<MeshFilter>().sharedMesh = bladeMesh; b.AddComponent<MeshRenderer>().sharedMaterial = bladeM;
         var hub = Cyl(blades, "Hub", new Vector3(0f, 0.004f, 0f), new Vector3(0.05f, 0.012f, 0.05f), node, false); hub.gameObject.layer = 13;
         var rb = go.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
-        var col = go.AddComponent<CapsuleCollider>(); col.direction = 1; col.center = new Vector3(0f, (y0 + y1) / 2f + 0.02f, 0f); col.height = StickLen + 0.06f; col.radius = 0.07f;
+        var col = go.AddComponent<CapsuleCollider>(); col.direction = 1; col.center = new Vector3(0f, (y1 - KnobR) / 2f + 0.02f, 0f); col.height = y1 + KnobR + 0.06f; col.radius = 0.07f;
         var pk = go.AddComponent<VRCPickup>(); pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any;
         pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.pickupable = true; pk.proximity = 2f;
         pk.InteractionText = "竹とんぼ"; pk.UseText = "飛ぶ";
         var u = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBambooCopter>(go);
-        u.manager = manager; u.blades = blades;
+        u.manager = manager; u.blades = blades; u.visual = vis;
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(u);
         var ub = UdonSharpEditor.UdonSharpEditorUtility.GetBackingUdonBehaviour(u);
         if (ub) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
