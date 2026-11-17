@@ -270,8 +270,10 @@ public static class FuwaTwinTableTest
 
         ApplyCrossing(root);
         AddCenterProp(root);
+        // 枠は RaiseCage のあと（かごの床の高さ）
         // AddLeftIsland(root);   // 2026-11-17 てじゃ「一旦もどるのもなしで」（島は「いきさきわからんくなる」）。戻る・島のコードは残す
         RaiseCage(root);   // 2026-11-10 かごを高くして、上から橋が見えるように（門と信号ランプは「くどい」でやめた）
+        AddGates(root);
 
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
@@ -763,6 +765,43 @@ public static class FuwaTwinTableTest
         var s = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "S5_TwinTable" && t.root.name == "FuwaCourse2_4");
         if (!s) { Debug.Log("S5_TwinTable がない"); return; }
         Debug.Log("[2枚の回転床] " + AddCenterProp(s));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(s.gameObject.scene);
+    }
+
+    // ===== 2026-11-17 てじゃ「橋合わせるときの橋がみづらくなる」→「橋の端っこと入口と出口に、3M くらいある四角い枠」=====
+    //  遠くからでも橋の先と入口・出口が合っているか分かるように、高い四角い枠（門）。橋の先の枠は橋といっしょに回る。見た目だけ（当たりなし）
+    public static float GateH = 3f, GateBar = 0.14f;
+    static void Gate(Transform parent, string name, Vector3 lp, float yawDeg, float w, Material m)
+    {
+        var g = new GameObject(name).transform; g.SetParent(parent, false); g.localPosition = lp; g.localRotation = Quaternion.Euler(0f, -yawDeg, 0f);
+        foreach (int sg in new[] { 1, -1 }) Prim(PrimitiveType.Cube, g, sg > 0 ? "PostL" : "PostR", new Vector3(0f, GateH / 2f, sg * w / 2f), new Vector3(GateBar, GateH, GateBar), m);
+        Prim(PrimitiveType.Cube, g, "Top", new Vector3(0f, GateH, 0f), new Vector3(GateBar, GateBar, w + GateBar), m);
+    }
+    public static string AddGates(Transform root)
+    {
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        foreach (var o in root.GetComponentsInChildren<Transform>(true).Where(x => x.name.StartsWith("Gate_")).ToArray()) if (o) Object.DestroyImmediate(o.gameObject);
+        int n = 0; float w = BridgeW - GateBar;
+        // 橋の先（橋の local：x が橋の長さの向き、上の面 y=+0.2）
+        foreach (var br in root.GetComponentsInChildren<Transform>(true).Where(x => x.name.StartsWith("Bridge") && x.GetComponent<BoxCollider>()).ToArray())
+        {
+            float len = br.GetComponent<BoxCollider>().size.x;
+            Gate(br, "Gate_Tip", new Vector3(len / 2f - GateBar / 2f - 0.02f, 0.2f, 0f), 0f, w, brass); n++;
+        }
+        // 入口（かごの口。かごの床は CageRise 上）
+        float x1 = -(CornerR(TipA) + 0.05f);
+        Gate(root, "Gate_In", new Vector3(x1 - GateBar / 2f - 0.02f, CageRise, 0f), 0f, w, brass); n++;
+        // 出口（B から ExitDeg の向き、床の手前のはし）
+        var cB = new Vector3(BCenterX, 0f, 0f);
+        Gate(root, "Gate_Out", cB + Polar(ExitDeg, CornerR(TipB) + 0.05f + GateBar / 2f + 0.02f), ExitDeg, w, brass); n++;
+        return "枠 " + n;
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–4 2枚の回転床：橋の先と入口・出口の枠を付け直す")]
+    public static void AddGatesToCourse()
+    {
+        var s = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "S5_TwinTable" && t.root.name == "FuwaCourse2_4");
+        if (!s) { Debug.Log("S5_TwinTable がない"); return; }
+        Debug.Log("[2枚の回転床] " + AddGates(s));
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(s.gameObject.scene);
     }
 
