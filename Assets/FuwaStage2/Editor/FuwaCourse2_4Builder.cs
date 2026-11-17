@@ -265,17 +265,24 @@ public static class FuwaCourse2_4Builder
         var plate = FuwaTwinTableTest.BridgeMat(true);
         var steel = cwDark != null ? cwDark : FuwaGearTest.Mat("GearTest_Gear", new Color(0.36f, 0.38f, 0.43f));
         var brass = cwBrass != null ? cwBrass : FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
-        // 上のフランジ（縞鋼板）・腹板・下のフランジ
-        FuwaTwinTableTest.PlateBox(beam, "TopFlange", new Vector3(0f, -BeamFl / 2f, zc), new Vector3(BeamW, BeamFl, L), plate, 1, Vector2.zero).gameObject.layer = pathLayer;
-        System.Action<string, Vector3, Vector3, Material> B = (n, c, sz, m) =>
-        { var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = n; Object.DestroyImmediate(g.GetComponent<Collider>()); g.transform.SetParent(beam, false); g.transform.localPosition = c; g.transform.localScale = sz; g.GetComponent<MeshRenderer>().sharedMaterial = m; g.layer = pathLayer; };
-        B("Web", new Vector3(0f, -BeamH / 2f, zc), new Vector3(BeamWeb, BeamH - 2f * BeamFl, L), steel);
-        B("BottomFlange", new Vector3(0f, -BeamH + BeamFl / 2f, zc), new Vector3(BeamW * 0.85f, BeamFl, L), steel);
-        // リベット（腹板の両面、上下2列）
-        int n = Mathf.Max(2, Mathf.RoundToInt(L / 0.45f));
+        // 上のフランジ（縞鋼板）・腹板・下のフランジ。
+        //  2026-11-17 てじゃ「接続部微妙にずれてたり貫通してない？」：坂に直角に切った箱だと、両はしの下の方が道と縁に食いこんでいた
+        //  → 両はしは道のはしの鋼の縁の外の面にそった「たての面」で切る（Col の local で、y ごとに z が変わる）
+        Vector3 Sw = colT.TransformPoint(new Vector3(0f, 0f, zc - L / 2f)), Ew = colT.TransformPoint(new Vector3(0f, 0f, zc + L / 2f));
+        var fw = Ew - Sw; fw.y = 0f; fw.Normalize();
+        var nl = colT.InverseTransformDirection(fw);   // たての面の法線（Col の local）
+        var p0 = colT.InverseTransformPoint(Sw + fw * BeamCapT); var p1 = colT.InverseTransformPoint(Ew - fw * BeamCapT);
+        System.Func<float, float> ZA = y => p0.z - nl.y / nl.z * (y - p0.y);
+        System.Func<float, float> ZB = y => p1.z - nl.y / nl.z * (y - p1.y);
+        SlantBox(beam, "TopFlange", -BeamW / 2f, BeamW / 2f, -BeamFl, 0f, ZA, ZB, plate, true);
+        SlantBox(beam, "Web", -BeamWeb / 2f, BeamWeb / 2f, -BeamH + BeamFl, -BeamFl, ZA, ZB, steel, false);
+        SlantBox(beam, "BottomFlange", -BeamW * 0.425f, BeamW * 0.425f, -BeamH, -BeamH + BeamFl, ZA, ZB, steel, false);
+        // リベット（腹板の両面、上下2列）。両はしの切り口の近くはなし
+        float rz0 = ZA(-BeamH / 2f) + 0.2f, rz1 = ZB(-BeamH / 2f) - 0.2f;
+        int n = Mathf.Max(2, Mathf.RoundToInt((rz1 - rz0) / 0.45f));
         for (int k = 0; k < n; k++)
         {
-            float z = zc - L / 2f + L * (k + 0.5f) / n;
+            float z = rz0 + (rz1 - rz0) * (k + 0.5f) / n;
             foreach (int sg in new[] { 1, -1 })
                 foreach (float y in new[] { -BeamFl - 0.06f, -BeamH + BeamFl + 0.06f })
                 {
@@ -285,6 +292,32 @@ public static class FuwaCourse2_4Builder
                 }
         }
         return $"鉄骨わたり 幅 {BeamW}m 長さ {L:F1}m（ベベルから {cut} 三角形）";
+    }
+    public static float BeamCapT = 0.035f;   // 道のはしの鋼の縁の厚み（鉄骨はその外の面で切る）
+    // x・y は Col の local の箱、z は y ごとに za(y)〜zb(y)（たての面で切った両はし）。topUV：上の面だけ uv（メートル、縞鋼板用）
+    static void SlantBox(Transform parent, string name, float x0, float x1, float y0, float y1, System.Func<float, float> za, System.Func<float, float> zb, Material m, bool topUV)
+    {
+        Vector3 C(int ix, int iy, int iz) { float x = ix == 0 ? x0 : x1, y = iy == 0 ? y0 : y1; return new Vector3(x, y, iz == 0 ? za(y) : zb(y)); }
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var t = new List<int>();
+        var center = (C(0, 0, 0) + C(1, 1, 1)) / 2f;
+        void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, bool top)
+        {
+            int i0 = v.Count; v.Add(a); v.Add(b); v.Add(c); v.Add(d);
+            foreach (var q in new[] { a, b, c, d }) uv.Add(top ? new Vector2(q.x, q.z) : Vector2.zero);
+            var nrm = Vector3.Cross(b - a, c - a); var mid = (a + b + c + d) / 4f;
+            if (Vector3.Dot(nrm, mid - center) >= 0f) t.AddRange(new[] { i0, i0 + 1, i0 + 2, i0, i0 + 2, i0 + 3 });
+            else t.AddRange(new[] { i0, i0 + 2, i0 + 1, i0, i0 + 3, i0 + 2 });
+        }
+        Quad(C(0, 1, 0), C(1, 1, 0), C(1, 1, 1), C(0, 1, 1), topUV);   // 上
+        Quad(C(0, 0, 0), C(1, 0, 0), C(1, 0, 1), C(0, 0, 1), false);   // 下
+        Quad(C(0, 0, 0), C(0, 1, 0), C(0, 1, 1), C(0, 0, 1), false);   // 左
+        Quad(C(1, 0, 0), C(1, 1, 0), C(1, 1, 1), C(1, 0, 1), false);   // 右
+        Quad(C(0, 0, 0), C(1, 0, 0), C(1, 1, 0), C(0, 1, 0), false);   // 下のはし
+        Quad(C(0, 0, 1), C(1, 0, 1), C(1, 1, 1), C(0, 1, 1), false);   // 上のはし
+        var mesh = new Mesh { name = "Beam_" + name }; mesh.SetVertices(v); mesh.SetUVs(0, uv); mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        mesh = FuwaTwinTableTest.SaveMeshUV(mesh);
+        var g = new GameObject(name); g.transform.SetParent(parent, false); g.layer = pathLayer;
+        g.AddComponent<MeshFilter>().sharedMesh = mesh; g.AddComponent<MeshRenderer>().sharedMaterial = m;
     }
     // 鉄骨の両はし（2026-11-17 てじゃ「接続部とか道の橋を綺麗にしよ」）：
     //  ① 道のはしの壁：前は坂とつながっていたので、ベベルのときに壁が消えていた（となりと同じ高さで続く辺の壁は消す）→ シーンだけ直す時は、はしの壁の板を足す（作り直しならベベルが壁を作る）
@@ -321,19 +354,28 @@ public static class FuwaCourse2_4Builder
                 bt.transform.SetParent(holder, false); bt.transform.localPosition = new Vector3(x, ct + 0.008f, -lip / 2f + ct); bt.transform.localScale = new Vector3(0.07f, 0.008f, 0.07f);
                 bt.GetComponent<MeshRenderer>().sharedMaterial = brass;
             }
-            // ② 受け金具：壁の外に鋼の板（鉄骨より少し広い）＋ボルト4つ、鉄骨の下に当て板
-            var bk = GameObject.CreatePrimitive(PrimitiveType.Cube); bk.name = "Bracket"; Object.DestroyImmediate(bk.GetComponent<Collider>());
-            bk.transform.SetParent(holder, false); bk.transform.localPosition = new Vector3(0f, -0.42f, 0.06f); bk.transform.localScale = new Vector3(BeamW + 0.5f, 0.62f, 0.05f);
-            bk.GetComponent<MeshRenderer>().sharedMaterial = steel;
-            foreach (var (bx, by) in new[] { (-1f, -0.2f), (1f, -0.2f), (-1f, -0.62f), (1f, -0.62f) })
+            // ② 受け金具：鉄骨の腹板を両側からはさむ山形の金具（縁の面から鉄骨の方へ）＋ボルト2つずつ
             {
-                var b = GameObject.CreatePrimitive(PrimitiveType.Cylinder); b.name = "Bolt"; Object.DestroyImmediate(b.GetComponent<Collider>());
-                b.transform.SetParent(holder, false); b.transform.localPosition = new Vector3(bx * (BeamW / 2f + 0.15f), by, 0.095f); b.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); b.transform.localScale = new Vector3(0.08f, 0.015f, 0.08f);
-                b.GetComponent<MeshRenderer>().sharedMaterial = brass;
+                float cl = 0.26f, ch = BeamH - 2f * BeamFl - 0.1f;
+                var pm = holder.TransformPoint(new Vector3(0f, 0f, BeamCapT + cl / 2f));
+                var lpC = colT.InverseTransformPoint(pm); var webC = colT.TransformPoint(new Vector3(0f, -BeamH / 2f, lpC.z));
+                float cy = holder.InverseTransformPoint(webC).y;
+                foreach (int sg in new[] { 1, -1 })
+                {
+                    var c = GameObject.CreatePrimitive(PrimitiveType.Cube); c.name = "Cleat"; Object.DestroyImmediate(c.GetComponent<Collider>());
+                    c.transform.SetParent(holder, false); c.transform.localPosition = new Vector3(sg * (BeamWeb / 2f + 0.012f), cy, BeamCapT + cl / 2f); c.transform.localScale = new Vector3(0.024f, ch * 0.8f, cl);
+                    c.GetComponent<MeshRenderer>().sharedMaterial = steel;
+                    var foot = GameObject.CreatePrimitive(PrimitiveType.Cube); foot.name = "CleatFoot"; Object.DestroyImmediate(foot.GetComponent<Collider>());
+                    foot.transform.SetParent(holder, false); foot.transform.localPosition = new Vector3(sg * (BeamWeb / 2f + 0.06f), cy, BeamCapT + 0.012f); foot.transform.localScale = new Vector3(0.1f, ch * 0.8f, 0.024f);
+                    foot.GetComponent<MeshRenderer>().sharedMaterial = steel;
+                    foreach (float by in new[] { -0.08f, 0.08f })
+                    {
+                        var b = GameObject.CreatePrimitive(PrimitiveType.Cylinder); b.name = "Bolt"; Object.DestroyImmediate(b.GetComponent<Collider>());
+                        b.transform.SetParent(holder, false); b.transform.localPosition = new Vector3(sg * (BeamWeb / 2f + 0.03f), cy + by, BeamCapT + cl * 0.6f); b.transform.localRotation = Quaternion.Euler(0f, 0f, 90f); b.transform.localScale = new Vector3(0.05f, 0.012f, 0.05f);
+                        b.GetComponent<MeshRenderer>().sharedMaterial = brass;
+                    }
+                }
             }
-            var seat = GameObject.CreatePrimitive(PrimitiveType.Cube); seat.name = "Seat"; Object.DestroyImmediate(seat.GetComponent<Collider>());
-            seat.transform.SetParent(holder, false); seat.transform.localPosition = new Vector3(0f, -0.75f, 0.2f); seat.transform.localScale = new Vector3(BeamW + 0.2f, 0.06f, 0.4f);
-            seat.GetComponent<MeshRenderer>().sharedMaterial = steel;
             n++;
         }
         return "つなぎ目 " + n;
