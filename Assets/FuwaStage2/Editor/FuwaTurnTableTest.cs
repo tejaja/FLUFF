@@ -260,6 +260,64 @@ public static class FuwaTurnTableTest
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         Debug.Log("[羽根車の飾り] " + n);
     }
+    // 2026-11-17 てじゃ「手前の普通のやつも、鉄板との接続部がつっこんでるだけなのがさみしい」→ 床と軸の間に軸受け：
+    //  床にボルト留めの台座（うすい円盤＋真ちゅうのボルト6本）→ 軸受けの筒（上にふち）→ 軸に真ちゅうのつば。動かない床の子にする（見た目だけ）
+    public static void AxleBearing(Transform floor, Vector3 worldTop, float shaftR)
+    {
+        var light = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f));
+        var darkM = FuwaGearTest.Mat("StepPost_Gray", new Color(0.47f, 0.49f, 0.55f));
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var b = new GameObject("AxleBearing").transform; b.SetParent(floor, true); b.position = worldTop; b.rotation = Quaternion.identity;
+        // 親の大きさ（床の Visual など）に引っぱられないように、ワールドの大きさで置く
+        System.Action<PrimitiveType, string, Vector3, Vector3, Material> P = (t, n, lp, ws, m) =>
+        {
+            var g = GameObject.CreatePrimitive(t); Object.DestroyImmediate(g.GetComponent<Collider>()); g.name = n;
+            g.transform.SetParent(b, false); g.transform.localPosition = lp;
+            var ps = b.lossyScale; g.transform.localScale = new Vector3(ws.x / ps.x, ws.y / ps.y, ws.z / ps.z);
+            g.GetComponent<MeshRenderer>().sharedMaterial = m;
+        };
+        // b の local は親の大きさで伸びるので、位置も割って入れる
+        var sc = b.lossyScale; System.Func<float, float, float, Vector3> L = (x, y, z) => new Vector3(x / sc.x, y / sc.y, z / sc.z);
+        float rf = shaftR + 0.24f, rh = shaftR + 0.1f;
+        P(PrimitiveType.Cylinder, "Flange", L(0f, 0.015f, 0f), new Vector3(2f * rf, 0.015f, 2f * rf), darkM);
+        for (int k = 0; k < 6; k++)
+        {
+            float a = (k * 60f + 30f) * Mathf.Deg2Rad, rr = shaftR + 0.17f;
+            P(PrimitiveType.Cylinder, "Bolt" + k, L(Mathf.Cos(a) * rr, 0.04f, Mathf.Sin(a) * rr), new Vector3(0.06f, 0.012f, 0.06f), brass);
+        }
+        P(PrimitiveType.Cylinder, "Housing", L(0f, 0.03f + 0.08f, 0f), new Vector3(2f * rh, 0.08f, 2f * rh), light);
+        P(PrimitiveType.Cylinder, "HousingLip", L(0f, 0.19f + 0.015f, 0f), new Vector3(2f * rh + 0.05f, 0.015f, 2f * rh + 0.05f), darkM);
+        P(PrimitiveType.Cylinder, "Collar", L(0f, 0.22f + 0.025f, 0f), new Vector3(2f * shaftR + 0.07f, 0.025f, 2f * shaftR + 0.07f), brass);
+    }
+    // 2–4 のかご・伸びる橋の羽根車の軸に軸受けを付け直す（羽根車の真下の床を探す）
+    [MenuItem("FuwaCourse/ステージ2/2–4 羽根車の軸受けを付け直す")]
+    public static void AxleBearingsInCourse()
+    {
+        var root = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "FuwaCourse2_4" && t.parent == null); if (!root) return;
+        bool was = root.gameObject.activeSelf; root.gameObject.SetActive(true); Physics.SyncTransforms();
+        foreach (var o in root.GetComponentsInChildren<Transform>(true).Where(x => x.name == "AxleBearing").ToArray()) if (o) Object.DestroyImmediate(o.gameObject);
+        int n = 0; var log = new System.Collections.Generic.List<string>();
+        foreach (var h in root.GetComponentsInChildren<Transform>(true).Where(t => t.Find("Rotor") && t.Find("Mast") && t.parent && (t.parent.name.StartsWith("Pinion_") || t.parent.name.StartsWith("BevelNear"))).ToArray())
+        {
+            var hits = Physics.RaycastAll(h.position, Vector3.down, 4f, ~0, QueryTriggerInteraction.Ignore).Where(x => !x.collider.transform.IsChildOf(h.parent)).OrderBy(x => x.distance).ToArray();
+            if (hits.Length == 0) { log.Add(h.parent.name + " 床なし"); continue; }
+            var hit = hits[0]; var probe = hit.point + Vector3.up * 0.1f;
+            float shaftR = 0f;
+            foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                var bb = r.bounds; if (!bb.Contains(probe)) continue;
+                var lb = r.localBounds; var ls = r.transform.lossyScale;   // ワールドの箱は回っていると太く出る（√2 倍）→ 自分の向きの大きさで
+                float e = Mathf.Min(lb.extents.x * Mathf.Abs(ls.x), lb.extents.z * Mathf.Abs(ls.z)); if (e > 0.4f) continue;
+                shaftR = Mathf.Max(shaftR, e);
+            }
+            if (shaftR <= 0f) shaftR = 0.12f;
+            AxleBearing(hit.collider.transform, new Vector3(h.position.x, hit.point.y, h.position.z), shaftR);
+            n++; log.Add(h.parent.name + " 軸の太さ " + shaftR.ToString("F2") + " 床 " + hit.collider.name);
+        }
+        root.gameObject.SetActive(was);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
+        Debug.Log("[軸受け] " + n + "：" + string.Join("、", log));
+    }
     public const string RotorMeshPath = "Assets/FuwaStage2/Meshes/Impeller_Rotor.asset";
     // シーンにある羽根車（Hub と Paddle0 がある物）の羽だけ Blender の形に差しかえる（コースを作り直さずに）
     [MenuItem("FuwaCourse/ステージ2/羽根車の羽を Blender の形にする")]

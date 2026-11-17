@@ -156,6 +156,7 @@ public static class FuwaCourse2_4Builder
         Hazard(root, "BallOut", new Vector3(lb.center.x, outY, lb.center.z), outSize, false);
         Hazard(root, "PlayerOut", new Vector3(lb.center.x, outY - 2f, lb.center.z), outSize, true);
         TwinFallCatcher(root);
+        FuwaTurnTableTest.AxleBearingsInCourse();   // 2026-11-17 羽根車の軸と床の間の軸受け
 
         RegisterCheckpoints();
         var visb = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(m => m && m.gameObject.scene.IsValid() && m.GetType().Name == "FuwaAreaVisibility");
