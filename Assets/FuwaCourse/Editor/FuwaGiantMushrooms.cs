@@ -24,7 +24,10 @@ public static class FuwaGiantMushrooms
     {
         // メッシュ（取り込んだ fbx から、あれば上書き）
         if (!AssetDatabase.IsValidFolder(MeshDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Models", "GiantMush");
-        var go = AssetDatabase.LoadAssetAtPath<GameObject>(Src);
+        // 取り込みのたびに GiantMush_1.fbx のように名前が増えるので、いちばん新しいもの
+        string srcPath = System.IO.Directory.GetFiles(System.IO.Path.GetDirectoryName(Src), "GiantMush*.fbx")
+            .OrderByDescending(System.IO.File.GetLastWriteTimeUtc).Select(p => p.Replace("\\", "/")).FirstOrDefault() ?? Src;
+        var go = AssetDatabase.LoadAssetAtPath<GameObject>(srcPath);
         if (go != null)
             foreach (var mf in go.GetComponentsInChildren<MeshFilter>(true))
             {
@@ -54,12 +57,13 @@ public static class FuwaGiantMushrooms
         var list = root.Cast<Transform>().ToList();
         // 色は同じくらいずつ（並びはばらばら）
         var order = list.OrderBy(t => Pick(t.GetSiblingIndex() + "#order", 1 << 30)).ToList();
+        var kindOrder = list.OrderBy(t => Pick(t.GetSiblingIndex() + "#kindorder", 1 << 30)).ToList();
         int n = 0;
         foreach (var m in list)
         {
             var st = m.Find("Stem"); var cp = m.Find("Cap"); if (st == null || cp == null) continue;
             string key = m.GetSiblingIndex().ToString();
-            int kind = Pick(key + "#kind", Kinds.Length);
+            int kind = kindOrder.IndexOf(m) % Kinds.Length;   // 形も4種が同じくらいずつ（ばらばらに選ぶと1種も出ないことがあった）
             var stemMesh = stems[kind]; var capMesh = caps[kind];
             st.GetComponent<MeshFilter>().sharedMesh = stemMesh;
             st.GetComponent<MeshRenderer>().sharedMaterials = new[] { stemMat };
