@@ -305,27 +305,30 @@ public static class FuwaCourse2_4Builder
         {
             // dir：道のはしから鉄骨の方（＝壁の外向き）。壁は pt を通る、dir に垂直なたての面
             var holder = new GameObject("BeamJoint").transform; holder.SetParent(r, true); holder.position = pt; holder.rotation = Quaternion.LookRotation(dir, Vector3.up);
-            // ① 壁（道のはしの色：はしの上の面の材質をベベルのメッシュから拾う）
-            Material wallM = pathB;
-            if (pbr)
+            // 2026-11-17 てじゃ「埋めるより、道の端を金属パーツで覆うほうがそれっぽい」→ 道のはしを L 字の鋼の縁でくるむ：上の面のふち（幅 CapLip）＋はしの面（道の厚み）＋上のボルト
+            var capM = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f));
+            System.Action<string, Vector3, Vector3, Material> Q = (nmQ, lp, ls, mq) =>
+            { var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = nmQ; Object.DestroyImmediate(g.GetComponent<Collider>()); g.transform.SetParent(holder, false); g.transform.localPosition = lp; g.transform.localScale = ls; g.GetComponent<MeshRenderer>().sharedMaterial = mq; };
+            float cw = 4.0f + 0.08f, lip = 0.28f, ct = 0.035f;
+            Q("CapTop", new Vector3(0f, ct / 2f, -lip / 2f + ct), new Vector3(cw, ct, lip), capM);
+            Q("CapFace", new Vector3(0f, -0.3f + ct / 2f, ct / 2f), new Vector3(cw, 0.6f + ct, ct), capM);
+            Q("CapBottom", new Vector3(0f, -0.6f - ct / 2f + 0.001f, -lip / 2f + ct), new Vector3(cw, ct, lip), capM);
+            for (int k = 0; k < 7; k++)
             {
-                // ベベルは当たりがないので、近い三角形の材質を探す
-                var v = pbm.vertices; var tp = pb.InverseTransformPoint(pt - dir * 0.3f); float best = 1e9f; int bestS = -1;
-                for (int sIdx = 0; sIdx < pbm.subMeshCount; sIdx++) { var t = pbm.GetTriangles(sIdx); for (int k = 0; k < t.Length; k += 3) { var c = (v[t[k]] + v[t[k + 1]] + v[t[k + 2]]) / 3f; float d = (c - tp).sqrMagnitude; if (d < best) { best = d; bestS = sIdx; } } }
-                if (bestS >= 0) wallM = pbr.sharedMaterials[bestS];
+                float x = -cw / 2f + 0.25f + (cw - 0.5f) * k / 6f;
+                if (Mathf.Abs(x) < BeamW / 2f + 0.05f) continue;   // 鉄骨の通る所はなし
+                var bt = GameObject.CreatePrimitive(PrimitiveType.Cylinder); bt.name = "CapBolt"; Object.DestroyImmediate(bt.GetComponent<Collider>());
+                bt.transform.SetParent(holder, false); bt.transform.localPosition = new Vector3(x, ct + 0.008f, -lip / 2f + ct); bt.transform.localScale = new Vector3(0.07f, 0.008f, 0.07f);
+                bt.GetComponent<MeshRenderer>().sharedMaterial = brass;
             }
-            if (!wallM) wallM = FuwaGearTest.Mat("Course2_4_PathB", PathColB);
-            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube); wall.name = "EndWall"; Object.DestroyImmediate(wall.GetComponent<Collider>());
-            wall.transform.SetParent(holder, false); wall.transform.localPosition = new Vector3(0f, -0.3f - 0.01f, -0.01f); wall.transform.localScale = new Vector3(4f - 0.02f, 0.58f, 0.02f);
-            wall.GetComponent<MeshRenderer>().sharedMaterial = wallM;
             // ② 受け金具：壁の外に鋼の板（鉄骨より少し広い）＋ボルト4つ、鉄骨の下に当て板
             var bk = GameObject.CreatePrimitive(PrimitiveType.Cube); bk.name = "Bracket"; Object.DestroyImmediate(bk.GetComponent<Collider>());
-            bk.transform.SetParent(holder, false); bk.transform.localPosition = new Vector3(0f, -0.42f, 0.03f); bk.transform.localScale = new Vector3(BeamW + 0.5f, 0.62f, 0.05f);
+            bk.transform.SetParent(holder, false); bk.transform.localPosition = new Vector3(0f, -0.42f, 0.06f); bk.transform.localScale = new Vector3(BeamW + 0.5f, 0.62f, 0.05f);
             bk.GetComponent<MeshRenderer>().sharedMaterial = steel;
             foreach (var (bx, by) in new[] { (-1f, -0.2f), (1f, -0.2f), (-1f, -0.62f), (1f, -0.62f) })
             {
                 var b = GameObject.CreatePrimitive(PrimitiveType.Cylinder); b.name = "Bolt"; Object.DestroyImmediate(b.GetComponent<Collider>());
-                b.transform.SetParent(holder, false); b.transform.localPosition = new Vector3(bx * (BeamW / 2f + 0.15f), by, 0.065f); b.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); b.transform.localScale = new Vector3(0.08f, 0.015f, 0.08f);
+                b.transform.SetParent(holder, false); b.transform.localPosition = new Vector3(bx * (BeamW / 2f + 0.15f), by, 0.095f); b.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); b.transform.localScale = new Vector3(0.08f, 0.015f, 0.08f);
                 b.GetComponent<MeshRenderer>().sharedMaterial = brass;
             }
             var seat = GameObject.CreatePrimitive(PrimitiveType.Cube); seat.name = "Seat"; Object.DestroyImmediate(seat.GetComponent<Collider>());
