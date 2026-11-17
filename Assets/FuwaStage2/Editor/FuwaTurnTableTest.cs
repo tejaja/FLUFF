@@ -1,3 +1,4 @@
+using System.Linq;
 using UdonSharp;
 using UdonSharpEditor;
 using UnityEditor;
@@ -218,17 +219,48 @@ public static class FuwaTurnTableTest
 
     // 羽根車の見た目（2026-11-08 てじゃ「横向きの回転羽に気が付きにくい」→ 大きく・濃い水色・白い先っぽ・上に目印の小さい羽）
     //  handle の原点＝羽の高さのまん中。見た目を当たり（hitRadius 1.0・高さ ±0.55）に合わせる。目印は金網（2.2m）より上に出る
+    public const string RotorMeshPath = "Assets/FuwaStage2/Meshes/Impeller_Rotor.asset";
+    // シーンにある羽根車（Hub と Paddle0 がある物）の羽だけ Blender の形に差しかえる（コースを作り直さずに）
+    [MenuItem("FuwaCourse/ステージ2/羽根車の羽を Blender の形にする")]
+    public static void ReplaceRotorsInScene()
+    {
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(RotorMeshPath); if (!mesh) { Debug.Log("Impeller_Rotor がない"); return; }
+        var blade = FuwaGearTest.Mat("Impeller_Blade", new Color(0.22f, 0.62f, 1f));
+        var tip = FuwaGearTest.Mat("Impeller_Tip", new Color(0.97f, 0.98f, 1f));
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        int n = 0;
+        foreach (var h in Object.FindObjectsOfType<Transform>(true).Where(t => t && ((t.Find("Paddle0") && t.Find("Hub")) || (t.Find("Rotor") && t.Find("Rotor").GetComponent<MeshFilter>() && t.Find("Rotor").GetComponent<MeshFilter>().sharedMesh == mesh))).ToArray())
+        {
+            foreach (var c in h.Cast<Transform>().Where(c => c.name == "Hub" || c.name.StartsWith("Paddle") || c.name == "Rotor").ToArray()) Object.DestroyImmediate(c.gameObject);
+            var ro = new GameObject("Rotor"); ro.transform.SetParent(h, false); ro.layer = h.gameObject.layer;
+            ro.AddComponent<MeshFilter>().sharedMesh = mesh; ro.AddComponent<MeshRenderer>().sharedMaterials = new[] { blade, tip, brass };
+            n++;
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[羽根車] 差しかえ " + n);
+    }
     public static void Impeller(Transform handle, Material brass)
     {
         var blade = FuwaGearTest.Mat("Impeller_Blade", new Color(0.22f, 0.62f, 1f));
         var tip = FuwaGearTest.Mat("Impeller_Tip", new Color(0.97f, 0.98f, 1f));
         var axle = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
-        Prim(PrimitiveType.Cylinder, handle, "Hub", Vector3.zero, new Vector3(0.34f, 0.36f, 0.34f), brass);
-        for (int k = 0; k < 6; k++)
+        // 2026-11-17 てじゃ「各種プロペラの見た目をもっといいかんじに」→ Blender で作った羽根（Impeller_Rotor：根元が厚く先が薄い羽6枚・角の丸い白い先・上下の真ちゅうの輪・面取りした軸とふた）。
+        //  左右どっちから風を受けてもいいように羽はまっすぐ（てじゃ「たては左右どっちからでも風うける」）。メッシュがなければ前の箱の形
+        var rotorMesh = AssetDatabase.LoadAssetAtPath<Mesh>(RotorMeshPath);
+        if (rotorMesh)
         {
-            var q = Quaternion.Euler(0f, k * 60f, 0f);
-            Prim(PrimitiveType.Cube, handle, "Paddle" + k, q * new Vector3(0.58f, 0f, 0f), new Vector3(0.84f, 0.62f, 0.05f), blade).localRotation = q;
-            Prim(PrimitiveType.Cube, handle, "PaddleTip" + k, q * new Vector3(0.94f, 0f, 0f), new Vector3(0.13f, 0.64f, 0.06f), tip).localRotation = q;
+            var ro = new GameObject("Rotor"); ro.transform.SetParent(handle, false);
+            ro.AddComponent<MeshFilter>().sharedMesh = rotorMesh; ro.AddComponent<MeshRenderer>().sharedMaterials = new[] { blade, tip, brass };
+        }
+        else
+        {
+            Prim(PrimitiveType.Cylinder, handle, "Hub", Vector3.zero, new Vector3(0.34f, 0.36f, 0.34f), brass);
+            for (int k = 0; k < 6; k++)
+            {
+                var q = Quaternion.Euler(0f, k * 60f, 0f);
+                Prim(PrimitiveType.Cube, handle, "Paddle" + k, q * new Vector3(0.58f, 0f, 0f), new Vector3(0.84f, 0.62f, 0.05f), blade).localRotation = q;
+                Prim(PrimitiveType.Cube, handle, "PaddleTip" + k, q * new Vector3(0.94f, 0f, 0f), new Vector3(0.13f, 0.64f, 0.06f), tip).localRotation = q;
+            }
         }
         // 目印：細い柱の先に真ちゅうの玉と小さい羽（一緒に回る）
         Prim(PrimitiveType.Cylinder, handle, "Mast", new Vector3(0f, 1.06f, 0f), new Vector3(0.08f, 0.7f, 0.08f), axle);
