@@ -28,8 +28,7 @@ public class FuwaDebugClearAll : UdonSharpBehaviour
         int key = (Time.time - _doneAt <= 2f ? 2 : 0) + (en ? 1 : 0);
         if (key == _shown) return;
         _shown = key;
-        // 文言は「クリアフラグON」（てじゃ「全部クリアだと分かりづらいから、クリアフラグON でいいよ」）
-        if (key >= 2) label.text = en ? "Flags set!" : "ONにしたよ";
-        else label.text = en ? "Clear flags ON" : "クリアフラグON";
+        // 文言は「クリアフラグON」（てじゃ「全部クリアだと分かりづらいから、クリアフラグON でいいよ」「押してでる表示もクリアフラグONでいいよ」）
+        label.text = en ? "Clear flags ON" : "クリアフラグON";
     }
 }
