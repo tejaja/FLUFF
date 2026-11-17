@@ -190,6 +190,15 @@ public class FuwaRecords : UdonSharpBehaviour
     }
 
     // あそびばのドーム用：自分がこのコースをクリアしたことがあるか（保存したクリアの印、またはこの回の記録）
+    // 2026-11-17 おまけの島の「Thank you for playing!」の自己ベスト一覧用
+    public float GetMyBest(int i)
+    {
+        Init();
+        if (i < 0 || i >= _myBest.Length) return 0f;
+        return _myBest[i];
+    }
+    public string FormatTimeOf(float t) { return FormatTime(t); }
+
     public bool HasCleared(int i)
     {
         Init();

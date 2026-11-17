@@ -10,7 +10,11 @@ using UnityEngine;
 //  島はシーンの物（ステージ2のプレハブの外）。ステージ2のエリアの表示切りかえ（FuwaAreaVisibility.stage2Objects）に足す
 public static class FuwaRewardIslandBuilder
 {
-    public static float IslandScale = 0.65f, Dist = 30f;
+    public static float Dist = 26f;
+    // 2–4 のスタートの島：上の面がスタートの local y=StartTopY、島のふちが z=StartEdgeZ。ゴールの島の半径 GoalR。間の道の長さ・幅
+    public static float StartTopY = 3.0f, StartEdgeZ = 3.7f, GoalR = 4.2f, PathLen = 4.5f, PathW = 3.2f;
+    // 自己ベストのボード（ゴールの TimeLabel を広げて使う）
+    public static Vector3 BoardOffset = new Vector3(0f, -1.75f, 0f); public static float BoardScale = 1f, BoardFont = 0.72f, BannerY = 4.2f; public static Vector2 BoardPanel = new Vector2(2.0f, 7.0f);   // ボードが広場の柵にかくれないよう、看板ごと上へ
     const string RootName = "FuwaRewardIsland";
 
     [MenuItem("FuwaCourse/ステージ2/ごほうびの島を作り直す")]
@@ -28,44 +32,36 @@ public static class FuwaRewardIslandBuilder
         var log = new List<string>();
 
         Vector3 center = lobby.position, dir = slot5.position - center; dir.y = 0f; dir.Normalize();
-        var root = new GameObject(RootName).transform; root.position = center + dir * Dist; root.rotation = Quaternion.LookRotation(dir, Vector3.up);   // +z が奥（ロビーと反対）、−z がロビーの方
-        float s = IslandScale;
-        // 島（ロビーの床・縁・下の岩・柵を小さく写す）
-        foreach (var nm in new[] { "LobbyFloor", "LobbyRing", "IslandUnder", "Fence", "FenceCollider" })
+        // 2026-11-17 てじゃ「やっぱやめ、まずいつものスタート地点を置く、その先にちょっとした広場とゴールリング、ここにフワフワを落とすとゴール演出が出るけど、
+        //  GOAL じゃなくて Thank you for playing! ってだしながら各コースの自己ベストタイム一覧がドンとボードに出てくる」「演出後は広場の横の方に金ピカ銃切り替えスイッチと金ピカフワフワオブジェクト（持てるだけ）」
+        //  → 2–4 のスタート（島ごと）とゴール（島ごと）を写して、間を道でつなぐ。root の +z がロビーと反対（スタート → ゴールの向き）
+        var c24 = FindRoot("FuwaCourse2_4"); var srcStart = c24 ? c24.Find("Start") : null; var srcGoal = c24 ? c24.Find("Goal") : null;
+        if (!srcStart || !srcGoal) return "2–4 のスタート・ゴールがない";
+        var root = new GameObject(RootName).transform; root.position = center + dir * Dist; root.rotation = Quaternion.LookRotation(dir, Vector3.up);
+        float floorY = lobby.Find("LobbySpawn") ? lobby.Find("LobbySpawn").position.y - center.y - 0.1f : 0f;
+        var st = Object.Instantiate(srcStart.gameObject, root, false).transform; st.name = "Start";
+        st.localPosition = new Vector3(0f, floorY - StartTopY, 0f); st.localRotation = Quaternion.identity; st.localScale = Vector3.one;
+        float goalZ = StartEdgeZ + PathLen + GoalR;
+        var gl = Object.Instantiate(srcGoal.gameObject, root, false).transform; gl.name = "Goal";
+        gl.localPosition = new Vector3(0f, floorY, goalZ); gl.localRotation = Quaternion.identity; gl.localScale = Vector3.one;
+        foreach (var r in root.GetComponentsInChildren<Renderer>(true)) r.lightmapIndex = -1;   // 2–4 の焼きを引きずらない（次に焼く時に入る）
+        // スタートの看板
+        foreach (var t in st.GetComponentsInChildren<TMPro.TMP_Text>(true))
+            if (t.text.Contains("2–4") || t.text.Contains("はぐるま")) t.text = "<size=90%>おまけ</size>";
+        // 間の道（2–4 の道のシマ）
         {
-            var src = lobby.Find(nm); if (!src) { log.Add(nm + " なし"); continue; }
-            var c = Object.Instantiate(src.gameObject, root, false); c.name = nm;
-            c.transform.localPosition = Vector3.Scale(src.localPosition, new Vector3(s, 1f, s)); c.transform.localRotation = src.localRotation;
-            c.transform.localScale = nm == "IslandUnder" ? src.localScale * s : Vector3.Scale(src.localScale, new Vector3(s, 1f, s));
-            FuwaStage2Builder.StripBehaviour(c);
-            foreach (var r in c.GetComponentsInChildren<Renderer>(true)) r.lightmapIndex = -1;   // ロビーの焼きを引きずらない（次に焼く時に入る）
-        }
-        float floorY = lobby.Find("LobbySpawn") ? lobby.Find("LobbySpawn").position.y - center.y : 0.1f;
-        float r5 = Vector3.Distance(new Vector3(slot5.position.x, 0f, slot5.position.z), new Vector3(center.x, 0f, center.z));
-
-        // 島の中の場所（root の local：+z が島のまん中から奥、−z がロビーの方）
-        var spawn = new GameObject("IslandSpawn").transform; spawn.SetParent(root, false); spawn.localPosition = new Vector3(0f, floorY, -r5 * s + 1.6f); spawn.localRotation = Quaternion.identity;
-        var ballPark = new GameObject("IslandBallPark").transform; ballPark.SetParent(root, false); ballPark.localPosition = new Vector3(-1.2f, floorY + 0.7f, -r5 * s + 1.8f);
-        // 銃の台（ロビーのを動きごと写して、置き場をつなぎ直す）
-        Transform gunSpot = null;
-        var stSrc = lobby.Find("GunStand_Lobby");
-        if (stSrc)
-        {
-            var st = Object.Instantiate(stSrc.gameObject, root, false); st.name = "GunStand_Island";
-            st.transform.localPosition = new Vector3(1.4f, stSrc.position.y - center.y, -r5 * s + 1.6f); st.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            gunSpot = st.transform.Find("GunSpot");
-            var mk = lobby.Find("GunStand_Lobby_Marker");
-            GameObject mkC = null;
-            if (mk) { mkC = Object.Instantiate(mk.gameObject, root, false); mkC.name = "GunStand_Island_Marker"; mkC.transform.localPosition = st.transform.localPosition + Vector3.up * (mk.position.y - stSrc.position.y); }
-            var m = st.GetComponents<MonoBehaviour>().FirstOrDefault(x => x.GetType().Name == "FuwaGunStand");
-            if (m)
+            var pa = FuwaGearTest.Mat("Course2_4_PathA", new Color(0.60f, 0.56f, 0.52f)); var pbm = FuwaGearTest.Mat("Course2_4_PathB", new Color(0.40f, 0.36f, 0.33f));
+            var pathT = new GameObject("Path").transform; pathT.SetParent(root, false);
+            float z0 = StartEdgeZ - 0.45f, z1 = goalZ - GoalR + 0.35f; int n = Mathf.Max(2, Mathf.RoundToInt((z1 - z0) / 1.2f)); float L = (z1 - z0) / n;
+            for (int k = 0; k < n; k++)
             {
-                var so = new SerializedObject(m); so.FindProperty("gunSpot").objectReferenceValue = gunSpot; if (mkC) so.FindProperty("marker").objectReferenceValue = mkC; so.ApplyModifiedProperties();
-                UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)m);
+                var g = GameObject.CreatePrimitive(PrimitiveType.Cube); g.name = "Stripe" + k; g.transform.SetParent(pathT, false); g.layer = 11;
+                g.transform.localPosition = new Vector3(0f, floorY - 0.3f, z0 + L * (k + 0.5f)); g.transform.localScale = new Vector3(PathW, 0.6f, L);
+                g.GetComponent<MeshRenderer>().sharedMaterial = k % 2 == 0 ? pa : pbm;
             }
-            foreach (var r in st.GetComponentsInChildren<Renderer>(true)) r.lightmapIndex = -1;
         }
-
+        var spawn = st.Find("PlayerSpot"); var ballPark = st.Find("BallStart");
+        Transform gunSpot = st.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "GunSpot");
         // ワープの見た目（Slot4 の看板・うず・粒・輪）を写す
         Transform CopyWarpLook(Transform parent, string prefix, string ja)
         {
@@ -97,19 +93,64 @@ public static class FuwaRewardIslandBuilder
                 foreach (var r in g.GetComponentsInChildren<Renderer>(true)) { r.sharedMaterials = r.sharedMaterials.Select(m => GrayCopy(m)).ToArray(); r.lightmapIndex = -1; }
             }
         }
-        // 島からロビーへ（島のロビー寄りのはし、島のまん中を向く）
-        var back = new GameObject("ReturnPortal").transform; back.SetParent(root, false);
-        back.position = root.position - dir * (r5 * s) + Vector3.up * (slot5.position.y - center.y); back.rotation = Quaternion.AngleAxis(180f, Vector3.up) * slot5.rotation;
-        CopyWarpLook(back, "ReturnToLobby", "<size=80%>ロビーへ</size>");
+        // ロビーへもどるワープ（スタート・ゴールにある 2–4 の物）の行き先を、おまけの場所の前に
         var lobSpot = new GameObject("LobbySpawn_FromReward").transform; lobSpot.SetParent(root, true);
-        lobSpot.position = slot5.position - dir * 1.8f + Vector3.up * (floorY - (slot5.position.y - center.y)); lobSpot.rotation = Quaternion.LookRotation(-dir, Vector3.up);
-        FuwaStage2Builder.MakeWarp(back, "ReturnToLobby", trigSrc.gameObject, gaugeSrc.gameObject, lobby.Find("BallPark"), lobSpot, lobby.Find("GunStand_Lobby/GunSpot"), 2);
-        // 島の中身：全クリした人だけ
-        var content = new GameObject("RewardContent").transform; content.SetParent(root, false);
-        PhotoStage(content, floorY, slot4, log);
+        lobSpot.position = new Vector3(slot5.position.x, center.y + floorY + 0.1f, slot5.position.z) - dir * 1.8f; lobSpot.rotation = Quaternion.LookRotation(-dir, Vector3.up);
+        foreach (var w in root.GetComponentsInChildren<FuwaCourseWarp>(true))
+        {
+            var so = new SerializedObject(w);
+            so.FindProperty("playerSpot").objectReferenceValue = lobSpot;
+            so.FindProperty("courseStart").objectReferenceValue = lobby.Find("BallPark");
+            so.FindProperty("gunSpot").objectReferenceValue = lobby.Find("GunStand_Lobby/GunSpot");
+            so.FindProperty("stage").intValue = 2; so.FindProperty("area").intValue = 1;
+            so.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(w);
+        }
+        // ゴール：「GOAL!」→「Thank you for playing!」、タイムの代わりに自己ベスト一覧（FuwaThanksBoard）
+        var goal = gl.GetComponentInChildren<FuwaGoal>(true);
+        var banner = gl.Find("ClearBanner");
+        if (goal && banner)
+        {
+            banner.localPosition = new Vector3(banner.localPosition.x, BannerY, banner.localPosition.z);
+            var cl = banner.Find("ClearLabel")?.GetComponent<TMPro.TMP_Text>();
+            if (cl) cl.text = "<size=62%><color=#FF8FA3>T</color><color=#FFC36B>h</color><color=#7FD7A8>a</color><color=#7FB8F0>n</color><color=#B79BF0>k</color> <color=#FF8FA3>y</color><color=#FFC36B>o</color><color=#7FD7A8>u</color>\n<color=#7FB8F0>f</color><color=#B79BF0>o</color><color=#FF8FA3>r</color> <color=#FFC36B>p</color><color=#7FD7A8>l</color><color=#7FB8F0>a</color><color=#B79BF0>y</color><color=#FF8FA3>i</color><color=#FFC36B>n</color><color=#7FD7A8>g</color><color=#7FB8F0>!</color></size>";
+            var tl = banner.Find("TimeLabel");
+            var gso = new SerializedObject(goal); gso.FindProperty("clearTimeText").objectReferenceValue = null; gso.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(goal);
+            if (tl)
+            {
+                tl.gameObject.SetActive(true);
+                tl.localPosition += BoardOffset; tl.localScale *= BoardScale;
+                var tmp = tl.GetComponent<TMPro.TextMeshPro>(); tmp.alignment = TMPro.TextAlignmentOptions.Center; tmp.enableWordWrapping = false; tmp.rectTransform.sizeDelta = new Vector2(4f, 4f); tmp.fontSize *= BoardFont;
+                var panel = tl.Find("Panel")?.GetComponent<SpriteRenderer>();
+                if (panel && panel.drawMode != SpriteDrawMode.Simple) panel.size = new Vector2(panel.size.x * BoardPanel.x, panel.size.y * BoardPanel.y);
+                else if (panel) panel.transform.localScale = Vector3.Scale(panel.transform.localScale, new Vector3(BoardPanel.x, BoardPanel.y, 1f));
+                var tb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaThanksBoard>(tl.gameObject);
+                tb.records = Object.FindObjectsOfType<FuwaRecords>(true).Where(x => x.name == "Records" || x.name == "Records2").OrderBy(x => x.name).ToArray(); tb.text = tmp;   // ステージ1 → 2 の順
+                UdonSharpEditorUtility.CopyProxyToUdon(tb); FuwaStage2WaterTest.NoSync(tb);
+                tmp.text = "<size=120%>じこベスト</size>\n\n1 かぜのおか  0:42.15";
+            }
+        }
+        // BGM（2026-11-17 てじゃ「BGMはコースインしたら無音、ゴール後は専用曲の予定（まだないので一旦ゴール曲で）」）：
+        //  このスタートの曲は「なし」（音のない track）。ゴールで鳴るファンファーレのあとは、ほかのコースと同じゴール後の曲（FuwaBgm.afterGoalTrack）
+        //  タイムなしのコースでもゴールでファンファーレを鳴らす・アウトでプレイヤーも戻すように、ふわふわの returnPlayerStarts に足す
+        FuwaStage2Bgm.Register(root, "BGM_bonus", "BGM_course2_5", "", 1f, 0f, 0f);
+        foreach (var fb in Object.FindObjectsOfType<FuwaBall>(true))
+        {
+            var bso = new SerializedObject(fb); var arr = bso.FindProperty("returnPlayerStarts");
+            for (int i = arr.arraySize - 1; i >= 0; i--) if (arr.GetArrayElementAtIndex(i).objectReferenceValue == null) arr.DeleteArrayElementAtIndex(i);
+            arr.arraySize++; arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = ballPark;
+            bso.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(fb);
+        }
+        // 演出のあと：広場の横にきんピカ台と金ピカふわふわ（FuwaRewardAfterGoal）
         log.Add(GoldGunSetup());
-        GoldGunStand(content, floorY, slot4);
-        TrophyShelf(content, floorY);
+        var rewards = new List<GameObject>();
+        rewards.Add(GoldGunStand(gl, 0f, slot4, new Vector3(-GoalR + 1.3f, 0f, 0.6f), 70f));
+        rewards.Add(GoldFluff(gl, new Vector3(GoalR - 1.3f, 0f, 0.6f)));
+        if (banner)
+        {
+            var ra = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaRewardAfterGoal>(gl.gameObject);
+            ra.watch = banner.gameObject; ra.rewards = rewards.ToArray();
+            UdonSharpEditorUtility.CopyProxyToUdon(ra); FuwaStage2WaterTest.NoSync(ra);
+        }
         var rv = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaAllClearReveal>(root.gameObject);
         rv.records = Object.FindObjectsOfType<FuwaRecords>(true).Where(x => x.name == "Records" || x.name == "Records2").ToArray();
         rv.showIfClear = new[] { unl.gameObject };   // 島の中身はいつも出す（島へは全クリしないと行けない）
@@ -255,11 +296,11 @@ public static class FuwaRewardIslandBuilder
         EditorUtility.SetDirty(m); return m;
     }
     // 島の金ピカの台：クリックで自分の銃を金ピカに（FuwaGoldGunSwitch）。台の上に金のメダル、前に「金ピカ ON/OFF」
-    static void GoldGunStand(Transform content, float floorY, Transform slot4)
+    static GameObject GoldGunStand(Transform content, float floorY, Transform slot4, Vector3 lp, float yaw)
     {
         var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
         var light = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f));
-        var st = new GameObject("GoldGunStand").transform; st.SetParent(content, false); st.localPosition = new Vector3(-3.4f, floorY, -1.0f); st.localRotation = Quaternion.Euler(0f, 50f, 0f);
+        var st = new GameObject("GoldGunStand").transform; st.SetParent(content, false); st.localPosition = lp + Vector3.up * floorY; st.localRotation = Quaternion.Euler(0f, yaw, 0f);
         Transform P(PrimitiveType t, string n, Vector3 lp, Vector3 ls, Material m, Quaternion? lr = null)
         { var g = GameObject.CreatePrimitive(t); g.name = n; Object.DestroyImmediate(g.GetComponent<Collider>()); g.transform.SetParent(st, false); g.transform.localPosition = lp; g.transform.localScale = ls; if (lr.HasValue) g.transform.localRotation = lr.Value; g.GetComponent<MeshRenderer>().sharedMaterial = m; return g.transform; }
         P(PrimitiveType.Cylinder, "Base", new Vector3(0f, 0.05f, 0f), new Vector3(0.9f, 0.05f, 0.9f), light);
@@ -279,6 +320,31 @@ public static class FuwaRewardIslandBuilder
         sw.manager = Object.FindObjectsOfType<FuwaRespawnManager>(true).FirstOrDefault(); sw.label = tmp; sw.onText = "きんピカ ON"; sw.offText = "きんピカ OFF";
         UdonSharpEditorUtility.CopyProxyToUdon(sw);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw); if (ub) { ub.interactText = "きんピカ"; EditorUtility.SetDirty(ub); }
+        return st.gameObject;
+    }
+
+    // 金ピカふわふわ（持てるだけ、自分の画面だけ）：ふわふわと同じ毛の材質を金色に
+    static GameObject GoldFluff(Transform parent, Vector3 lp)
+    {
+        var ball = Object.FindObjectsOfType<FuwaBall>(true).FirstOrDefault(); if (!ball || !ball.furRenderer) return null;
+        var src = ball.furRenderer.sharedMaterial;
+        string path = "Assets/FuwaStage2/Materials/Reward_GoldFluffFur.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path); if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, path); } else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
+        m.SetColor("_Color", new Color(1f, 0.74f, 0.25f)); m.SetColor("_TipColor", new Color(1f, 0.95f, 0.65f)); if (m.HasProperty("_GlowColor")) m.SetColor("_GlowColor", new Color(1f, 0.85f, 0.4f, 0.6f));
+        EditorUtility.SetDirty(m);
+        // 台
+        var holder = new GameObject("GoldFluffStand"); holder.transform.SetParent(parent, false); holder.transform.localPosition = lp;
+        var light = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f)); var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        foreach (var (n, y, d, h, mt) in new[] { ("Base", 0.05f, 0.9f, 0.05f, light), ("Pillar", 0.45f, 0.4f, 0.35f, light), ("Top", 0.82f, 0.62f, 0.03f, brass) })
+        { var g = GameObject.CreatePrimitive(PrimitiveType.Cylinder); g.name = n; Object.DestroyImmediate(g.GetComponent<Collider>()); g.transform.SetParent(holder.transform, false); g.transform.localPosition = new Vector3(0f, y, 0f); g.transform.localScale = new Vector3(d, h, d); g.GetComponent<MeshRenderer>().sharedMaterial = mt; }
+        var col = holder.AddComponent<BoxCollider>(); col.center = new Vector3(0f, 0.43f, 0f); col.size = new Vector3(0.62f, 0.86f, 0.62f);
+        // ふわふわ（持てる。自分の画面だけなので同期なし、手放したらその場に浮く）
+        var f = new GameObject("GoldFluff"); f.transform.SetParent(holder.transform, false); f.transform.localPosition = new Vector3(0f, 1.15f, 0f); f.transform.localScale = ball.transform.lossyScale * 1.3f;
+        f.AddComponent<MeshFilter>().sharedMesh = ball.furRenderer.GetComponent<MeshFilter>().sharedMesh; f.AddComponent<MeshRenderer>().sharedMaterial = m;
+        var sc = f.AddComponent<SphereCollider>(); sc.radius = 0.5f;
+        var rb = f.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+        var pk = f.AddComponent<VRC.SDK3.Components.VRCPickup>(); pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.pickupable = true; pk.proximity = 1.5f; pk.InteractionText = "きんピカふわふわ";
+        return holder;
     }
 
     // ===== 手に持てるトロフィー（2026-11-17 てじゃ「手に持てるトロフィーみたいなやつ」）=====
