@@ -219,6 +219,47 @@ public static class FuwaTurnTableTest
 
     // 羽根車の見た目（2026-11-08 てじゃ「横向きの回転羽に気が付きにくい」→ 大きく・濃い水色・白い先っぽ・上に目印の小さい羽）
     //  handle の原点＝羽の高さのまん中。見た目を当たり（hitRadius 1.0・高さ ±0.55）に合わせる。目印は金網（2.2m）より上に出る
+    // 2026-11-17 てじゃ「たてはねの上のちっこい羽、いるかなぁ」「飾りとしてはなんかほしい」→ B「真ちゅうの玉＋輪っか（ジャイロっぽい）」：小さい羽をやめて、玉のまわりにななめの細い輪
+    public static float MastRingR = 0.22f, MastRingT = 0.018f, MastRingTilt = 28f;
+    public static void MastDeco(Transform handle, Material brass)
+    {
+        foreach (var c in handle.Cast<Transform>().Where(c => c.name.StartsWith("MastFin") || c.name == "MastRing").ToArray()) Object.DestroyImmediate(c.gameObject);
+        var ball = handle.Find("MastBall"); float y = ball ? ball.localPosition.y : 1.86f;
+        var ring = new GameObject("MastRing"); ring.transform.SetParent(handle, false); ring.layer = handle.gameObject.layer;
+        ring.transform.localPosition = new Vector3(0f, y, 0f); ring.transform.localRotation = Quaternion.Euler(MastRingTilt, 0f, 0f);
+        ring.AddComponent<MeshFilter>().sharedMesh = TorusMesh(MastRingR, MastRingT); ring.AddComponent<MeshRenderer>().sharedMaterial = brass;
+    }
+    static Mesh TorusMesh(float R, float r)
+    {
+        string path = "Assets/FuwaStage2/Meshes/MastRing.asset";
+        var m = AssetDatabase.LoadAssetAtPath<Mesh>(path); bool isNew = !m; if (isNew) m = new Mesh { name = "MastRing" }; else m.Clear();
+        int nu = 40, nv = 10; var v = new System.Collections.Generic.List<Vector3>(); var n = new System.Collections.Generic.List<Vector3>(); var t = new System.Collections.Generic.List<int>();
+        for (int i = 0; i <= nu; i++) for (int j = 0; j <= nv; j++)
+        {
+            float a = 2f * Mathf.PI * i / nu, b = 2f * Mathf.PI * j / nv;
+            var c = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)); var d = c * Mathf.Cos(b) + Vector3.up * Mathf.Sin(b);
+            v.Add(c * R + d * r); n.Add(d);
+        }
+        for (int i = 0; i < nu; i++) for (int j = 0; j < nv; j++)
+        {
+            int a0 = i * (nv + 1) + j, a1 = a0 + 1, b0 = a0 + nv + 1, b1 = b0 + 1;
+            t.AddRange(new[] { a0, a1, b1, a0, b1, b0 });
+        }
+        m.SetVertices(v); m.SetNormals(n); m.SetTriangles(t, 0); m.RecalculateBounds();
+        // 表の向き：外向きの法線と三角形の向きをそろえる
+        var tv = m.triangles; var vv = m.vertices; var nn = m.normals;
+        if (Vector3.Dot(Vector3.Cross(vv[tv[1]] - vv[tv[0]], vv[tv[2]] - vv[tv[0]]), nn[tv[0]]) < 0f) { for (int k = 0; k < tv.Length; k += 3) { int sw = tv[k + 1]; tv[k + 1] = tv[k + 2]; tv[k + 2] = sw; } m.triangles = tv; }
+        if (isNew) AssetDatabase.CreateAsset(m, path); else EditorUtility.SetDirty(m);
+        return m;
+    }
+    [MenuItem("FuwaCourse/ステージ2/羽根車の上の飾りを付け直す（玉＋輪）")]
+    public static void MastDecoInScene()
+    {
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f)); int n = 0;
+        foreach (var h in Object.FindObjectsOfType<Transform>(true).Where(t => t && t.Find("MastBall") && t.Find("Mast")).ToArray()) { MastDeco(h, brass); n++; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[羽根車の飾り] " + n);
+    }
     public const string RotorMeshPath = "Assets/FuwaStage2/Meshes/Impeller_Rotor.asset";
     // シーンにある羽根車（Hub と Paddle0 がある物）の羽だけ Blender の形に差しかえる（コースを作り直さずに）
     [MenuItem("FuwaCourse/ステージ2/羽根車の羽を Blender の形にする")]
@@ -265,11 +306,7 @@ public static class FuwaTurnTableTest
         // 目印：細い柱の先に真ちゅうの玉と小さい羽（一緒に回る）
         Prim(PrimitiveType.Cylinder, handle, "Mast", new Vector3(0f, 1.06f, 0f), new Vector3(0.08f, 0.7f, 0.08f), axle);
         Prim(PrimitiveType.Sphere, handle, "MastBall", new Vector3(0f, 1.86f, 0f), Vector3.one * 0.26f, brass);
-        for (int k = 0; k < 3; k++)
-        {
-            var q = Quaternion.Euler(0f, k * 120f, 0f);
-            Prim(PrimitiveType.Cube, handle, "MastFin" + k, q * new Vector3(0.3f, 1.86f, 0f), new Vector3(0.36f, 0.24f, 0.03f), blade).localRotation = q;
-        }
+        MastDeco(handle, brass);
     }
 
     static Transform Prim(PrimitiveType t, Transform parent, string name, Vector3 lp, Vector3 ls, Material m)
