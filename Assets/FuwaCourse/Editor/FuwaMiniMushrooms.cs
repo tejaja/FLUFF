@@ -46,11 +46,17 @@ public static class FuwaMiniMushrooms
         foreach (var root in Roots().ToList())
         {
             roots++;
-            foreach (Transform m in root)
+            // 色は1か所（輪・スタート・クリアの印）の中で同じくらいずつになるように配る（ばらばらに選ぶと、輪によってはオレンジが2本だけ等にかたよった。2026-11-17 てじゃ「オレンジすくないない？」）
+            var kids = root.Cast<Transform>().ToList();
+            var order = kids.OrderBy(t => Pick(AnimationUtility.CalculateTransformPath(t, null) + "#order", 1 << 30)).ToList();
+            int off = Pick(AnimationUtility.CalculateTransformPath(root, null) + "#off", caps.Length);
+            var colOf = new Dictionary<Transform, int>();
+            for (int i = 0; i < order.Count; i++) colOf[order[i]] = (i + off) % caps.Length;
+            foreach (Transform m in kids)
             {
                 string path = AnimationUtility.CalculateTransformPath(m, null);
                 int kind = Pick(path + "#kind", meshes.Length);
-                int col = Pick(path + "#color", caps.Length);
+                int col = colOf[m];
                 float yaw = Pick(path + "#yaw", 360);
                 var done = m.Find("Body");
                 if (done != null)
