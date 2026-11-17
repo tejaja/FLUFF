@@ -11,6 +11,27 @@ using UnityEngine;
 // ・橋はふだん上がっていて（D = 90°）、風車を回すと下りる（D = 0°）。D を元にして C → A の順に角度をそろえる
 public static class FuwaDrawbridgeTest
 {
+    public const string WindmillRotorPath = "Assets/FuwaStage2/Meshes/Windmill_Rotor.asset";
+    // シーンの跳ね橋の風車（Windmill/Rotor）の羽を Blender の形に差しかえる（コースを作り直さずに）
+    [MenuItem("FuwaCourse/ステージ2/跳ね橋の風車を Blender の形にする")]
+    public static void ReplaceWindmillRotorInScene()
+    {
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(WindmillRotorPath); if (!mesh) { Debug.Log("Windmill_Rotor がない"); return; }
+        var bladeC = FuwaGearTest.Mat("Impeller_Blade", new Color(0.22f, 0.62f, 1f));
+        var tipC = FuwaGearTest.Mat("Impeller_Tip", new Color(0.97f, 0.98f, 1f));
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        int n = 0;
+        foreach (var r in Object.FindObjectsOfType<Transform>(true).Where(t => t && t.name == "Rotor" && t.parent && t.parent.name == "Windmill" && (t.Find("Blade0") || t.Find("RotorMesh"))).ToArray())
+        {
+            foreach (var c in r.Cast<Transform>().Where(c => c.name == "Hub" || c.name == "HubNose" || c.name.StartsWith("Blade") || c.name == "RotorMesh").ToArray()) Object.DestroyImmediate(c.gameObject);
+            var ro = new GameObject("RotorMesh"); ro.transform.SetParent(r, false); ro.layer = r.gameObject.layer;
+            ro.AddComponent<MeshFilter>().sharedMesh = mesh; ro.AddComponent<MeshRenderer>().sharedMaterials = new[] { bladeC, tipC, brass };
+            n++;
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[跳ね橋の風車] 差しかえ " + n);
+    }
+
     const float Mod = 0.3f;          // モジュール
     const float Th = 0.5f;           // 歯車の厚み
     const float Front = Th + 0.1f;   // 手前の段の位置（ローカル Y）
@@ -108,9 +129,12 @@ public static class FuwaDrawbridgeTest
         {
             var bladeC = FuwaGearTest.Mat("Impeller_Blade", new Color(0.22f, 0.62f, 1f));
             var tipC = FuwaGearTest.Mat("Impeller_Tip", new Color(0.97f, 0.98f, 1f));
-            Prim(PrimitiveType.Cylinder, rotor, "Hub", Vector3.zero, new Vector3(0.45f, 0.12f, 0.45f), brass);
-            Prim(PrimitiveType.Sphere, rotor, "HubNose", new Vector3(0f, 0.12f, 0f), new Vector3(0.3f, 0.2f, 0.3f), brass);
-            for (int k = 0; k < 4; k++)
+            // 2026-11-17 てじゃ「各種プロペラの見た目をもっといいかんじに」→ Blender で作ったひねりのあるプロペラ（Windmill_Rotor：根元 30° → 先 14°、丸い白い先、真ちゅうの丸いハブ）。なければ前の箱の形
+            var wmMesh = AssetDatabase.LoadAssetAtPath<Mesh>(WindmillRotorPath);
+            if (wmMesh) { var ro = new GameObject("RotorMesh"); ro.transform.SetParent(rotor, false); ro.AddComponent<MeshFilter>().sharedMesh = wmMesh; ro.AddComponent<MeshRenderer>().sharedMaterials = new[] { bladeC, tipC, brass }; }
+            else Prim(PrimitiveType.Cylinder, rotor, "Hub", Vector3.zero, new Vector3(0.45f, 0.12f, 0.45f), brass);
+            if (!wmMesh) Prim(PrimitiveType.Sphere, rotor, "HubNose", new Vector3(0f, 0.12f, 0f), new Vector3(0.3f, 0.2f, 0.3f), brass);
+            for (int k = 0; k < 4 && !wmMesh; k++)
             {
                 float ang = k * 90f; var q = Quaternion.Euler(0f, -ang, 0f);
                 var bl = Prim(PrimitiveType.Cube, rotor, "Blade" + k, q * new Vector3(0.625f, 0f, 0f), new Vector3(0.9f, 0.05f, 0.42f), bladeC);
