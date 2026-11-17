@@ -498,6 +498,28 @@ public class FuwaBall : UdonSharpBehaviour
         }
     }
 
+    private void HitGearPin(FuwaGearPin g, Vector3 p, Vector3 n)
+    {
+        if (_resetAt > 0f || _hidden || _stuck || _waiting || _carried) return;
+        Vector3 sv = g.SurfaceVelocity(p);
+        n.y = 0f;
+        if (n.sqrMagnitude < 0.0001f) n = transform.position - g.transform.position;
+        n.y = 0f; n.Normalize();
+        if (Vector3.Dot(n, transform.position - p) < 0f) n = -n;
+        Vector3 v = _rb.velocity;
+        float vn = Vector3.Dot(v, n);
+        Vector3 nv = sv * g.boost + n * Mathf.Max(g.minPush, -vn * 0.6f) + (v - n * vn) * g.keep;
+        nv.y = Mathf.Max(v.y, 0.4f);
+        _rb.velocity = nv;
+        StartSquash(nv - v);
+        if (sfxBoing != null && sfxBoing.clip != null && Time.time >= _nextBounceSound)
+        {
+            _nextBounceSound = Time.time + 0.15f;
+            sfxBoing.pitch = boingPitchWeak * Random.Range(0.96f, 1.04f);
+            sfxBoing.PlayOneShot(sfxBoing.clip, boingVolumeWeak);
+        }
+    }
+
     private void BounceOffNormal(FuwaBounce b, Vector3 n)
     {
         if (_resetAt > 0f || _hidden || _stuck || _waiting) return;
@@ -1482,6 +1504,9 @@ public class FuwaBall : UdonSharpBehaviour
         // 2–4 の歯車バンパー：当たった所の歯の動きではじかれる（アウトにはならない）
         FuwaGearBumper gearB = collision.gameObject.GetComponent<FuwaGearBumper>();
         if (gearB != null) { if (collision.contactCount > 0) HitGear(gearB, collision.GetContact(0).point, collision.GetContact(0).normal); return; }
+        // 2–4 の段つき歯車のピン（2026-11-17）：同じく当たった所の動きではじかれる（アウトにはならない）
+        FuwaGearPin gearPin = collision.gameObject.GetComponent<FuwaGearPin>();
+        if (gearPin != null) { if (collision.contactCount > 0) HitGearPin(gearPin, collision.GetContact(0).point, collision.GetContact(0).normal); return; }
         FuwaHazard hazard = collision.gameObject.GetComponent<FuwaHazard>();
         FuwaBounce bouncer = collision.gameObject.GetComponent<FuwaBounce>();
         FuwaTopOut topOut = collision.gameObject.GetComponent<FuwaTopOut>();

@@ -2894,10 +2894,58 @@ public static class FuwaCourse2_4Builder
         var tB = CwGear(g, "SGB", new Vector3(bB.c.x, Cl, bB.c.y), Vector3.up, m24, cwLight, true);
         AddGear(tB, bB.ratio, bB.phase * Mathf.Rad2Deg);
         Child(tB, "Small_z14", new Vector3(0f, S, 0f), m14, cwBrass, bS.phase - bB.phase);
+        // 2026-11-17 てじゃ「段つき歯車がただの段差になってる」→ 上の小歯車に太いピン（人もふわふわも通れない、ふわふわは当たると動きではじかれる）
+        AddStepPins(tA.Find("Small_z14"), aB.ratio, S - Cl, 0f);
+        AddStepPins(tB.Find("Small_z14"), bB.ratio, S - Cl, 60f);
         var drv = Drive(g, aB, 12, PM, -S, S, cwDark, 140f, true);   // 2026-11-11 乗れるように   // 少し前より（真横はチェックポイントのきのこの丸太とぶつかる）
         StepTankGear(g, bB, Cl, S - Cl);
         P += Dir(th) * (bB.c.y + PM * 7 + PM + 0.05f) + Vector3.up * 2f * S;
     }
+    // ---- 段つき歯車のピン（2026-11-17） ----
+    public static int StepPinCount = 3;
+    public static float StepPinR = 0.25f, StepPinH = 1.65f, StepPinAt = 1.0f;   // 太さ（半径）・小歯車の上からの高さ・軸からの距離
+    // small：上の小歯車（いっしょに回る）。ratio：その歯車の比（角速度 = ratio × ClockSpeed）。topY：小歯車の上の面の local y。ang0：1本目の角度
+    static void AddStepPins(Transform small, float ratio, float topY, float ang0)
+    {
+        if (small == null) return;
+        var old = small.Find("Pins"); if (old) Object.DestroyImmediate(old.gameObject);
+        var holder = new GameObject("Pins").transform; holder.SetParent(small, false);
+        var mat = cwBrass != null ? cwBrass : FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        for (int i = 0; i < StepPinCount; i++)
+        {
+            float a = (ang0 + 360f * i / StepPinCount) * Mathf.Deg2Rad;
+            var p = GameObject.CreatePrimitive(PrimitiveType.Capsule); p.name = "Pin" + i;
+            p.transform.SetParent(holder, false);
+            float total = StepPinH + StepPinR;   // 下の半球は歯車にうめる
+            p.transform.localPosition = new Vector3(Mathf.Cos(a) * StepPinAt, topY + StepPinH - total * 0.5f, Mathf.Sin(a) * StepPinAt);
+            p.transform.localScale = new Vector3(StepPinR * 2f, total * 0.5f, StepPinR * 2f);
+            p.GetComponent<Renderer>().sharedMaterial = mat;
+            p.layer = 11;
+            var pin = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGearPin>(p);
+            pin.pivot = small; pin.degPerSec = ratio * ClockSpeed;
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pin);
+        }
+    }
+
+    // シーンだけ：今の段つき歯車にピンを付け直す（コースを丸ごと作り直さずに）
+    [MenuItem("FuwaCourse/ステージ2/2–4 段つき歯車のピンを付け直す")]
+    public static void RebuildStepPins()
+    {
+        var all = Object.FindObjectsOfType<Transform>(true);
+        var cw = Object.FindObjectsOfType<FuwaClockwork>(true).FirstOrDefault(c => c.transform.root.name == "FuwaCourse2_4");
+        var log = new List<string>();
+        foreach (var (n, ang0) in new[] { ("SGA", 0f), ("SGB", 60f) })
+        {
+            var g = all.FirstOrDefault(t => t.name == n && t.root.name == "FuwaCourse2_4"); if (g == null) { log.Add(n + " なし"); continue; }
+            float ratio = 0f;
+            if (cw != null) { int i = System.Array.IndexOf(cw.gears, g); if (i >= 0) ratio = cw.ratio[i]; }
+            AddStepPins(g.Find("Small_z14"), ratio, 0.7f - 0.04f, ang0);
+            log.Add(n + " ratio " + ratio);
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[2–4 ピン] " + string.Join(", ", log));
+    }
+
     // 同じ軸で一緒に回る段（歯の向きのずれ dphase ラジアン）
     static void Child(Transform gear, string name, Vector3 lp, Mesh m, Material mat, float dphase)
     {
