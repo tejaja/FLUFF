@@ -457,8 +457,8 @@ public static class FuwaPracticeTutorial
 
     // 入口の島：エアガンの台の右（入口から見て）に「持ち方と呼び方」だけの看板（2026-10-09 てじゃ）
     // {vr|…}{pc|…}{mo|…} は使っている端末の分だけ出る（FuwaLanguage。2026-10-14 てじゃ）。スマホは画面右上のボタン（FuwaMobileGunButton）か台から呼ぶ
-    const string GunSignJa = "<size=130%><color=#FF6B5C>エアガン</color></size>\n持つ：{vr|トリガー}{pc|左クリック}{mo|タップ}\n{pc|手元に呼ぶ：Fキー}{vr|手元に呼ぶ：右スティック下}{mo|手元に呼ぶ：右上のボタン}\n台を{pc|クリック}{vr|トリガー}{mo|タップ}で台にもどる";
-    const string GunSignEn = "<size=130%><color=#FF6B5C>Air Gun</color></size>\nHold: {vr|trigger}{pc|left click}{mo|tap}\n{pc|Call it: F key}{vr|Call it: hold right stick down}{mo|Call it: top-right button}\n{pc|Click}{vr|Trigger}{mo|Tap} the stand to send it back";
+    const string GunSignJa = "<size=130%><color=#FF6B5C>エアガン</color></size>\n{pc|手元に呼ぶ：Fキー}{vr|手元に呼ぶ：右スティック下}{mo|手元に呼ぶ：右上のボタン}\n台を{pc|クリック}{vr|トリガー}{mo|タップ}で台にもどる";
+    const string GunSignEn = "<size=130%><color=#FF6B5C>Air Gun</color></size>\n{pc|Call it: F key}{vr|Call it: hold right stick down}{mo|Call it: top-right button}\n{pc|Click}{vr|Trigger}{mo|Tap} the stand to send it back";
     // 入口の島のエアガンの看板と台の場所（PlayerSpot から見て x=右・z=前、m）。ようこそ看板を読んでから取りに行く順（2026-10-12 てじゃ）
     public static readonly Vector3 GunSignLocal = new Vector3(-1.4f, 0f, 7.1f);   // てじゃ「エアガンもうちょい奥」4.6→5.8→7.1（ようこそを正面4.2mにしたら近すぎた）
     public static readonly Vector3 GunStandLocal = new Vector3(-0.35f, 0f, 6.75f);
