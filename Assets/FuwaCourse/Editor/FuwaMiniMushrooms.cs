@@ -33,7 +33,8 @@ public static class FuwaMiniMushrooms
     {
         var meshes = Kinds.Select(k => AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/MiniMush_" + k + ".asset")).ToArray();
         // かさの色は前と同じパステル（赤・ピンク・クリーム）をまぜる（2026-11-17 てじゃ「リアリティはでたけどもとのパステルカラー感にもどすかぁ」。一度は赤〜黄の5段階にした）
-        var caps = new[] { "Mush_CapRed", "Mush_CapPink", "Mush_CapCream" }.Select(FuwaLobbyPaths.FindMat).ToArray();
+        // 2026-11-17 てじゃ「オレンジ色も追加してみよ」：パステルのオレンジ（MiniMush_CapOrange）も
+        var caps = new[] { "Mush_CapRed", "Mush_CapPink", "Mush_CapCream", "MiniMush_CapOrange" }.Select(FuwaLobbyPaths.FindMat).ToArray();
         var gill = AssetDatabase.LoadAssetAtPath<Material>(MatDir + "/MiniMush_Gill.mat");
         var stem = FuwaLobbyPaths.FindMat("Mush_Stem");
         if (meshes.Any(m => m == null) || caps.Any(m => m == null) || gill == null || stem == null) return "ミニキノコ：メッシュか材質が見つからない";
