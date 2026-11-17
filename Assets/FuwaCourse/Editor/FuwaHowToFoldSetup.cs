@@ -9,7 +9,7 @@ using UnityEngine;
 // ・脚はたたんだ帯の下まで届くようにのばす
 public static class FuwaHowToFoldSetup
 {
-    const float ClosedH = 0.62f, CenterY = 1.96f, TitleOpenY = 3.556f;
+    const float ClosedH = 0.62f, CenterY = 1.96f, TitleOpenY = 3.035f;   // 2026-11-17 文をシンプルにして板を1.04m短くした（元 3.556）
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/ロビーのあそびかたをたためるようにする")]
     public static void Menu() { Debug.Log(Run()); }
