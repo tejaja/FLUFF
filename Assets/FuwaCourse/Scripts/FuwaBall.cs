@@ -1079,6 +1079,7 @@ public class FuwaBall : UdonSharpBehaviour
         _rb.isKinematic = true;
         SetHidden(true);
         if (records != null && timerEnabled && t > 0f) records.ReportTime(startPoint, t);
+        else if (records != null && !timerEnabled) records.ReportClear(startPoint);   // 2026-11-17 タイムなし（チュートリアル）：クリアの印だけ（記録のないコースは何もしない）
         if (bgm != null && (timerEnabled || ReturnPlayerUntimed())) bgm.PlayFanfare();   // れんしゅうの本番の道（タイムなし）のゴールでも鳴らす
         if (returnPoint != null) respawnPoint = returnPoint;
         else SendCustomEventDelayedSeconds(nameof(RestartFromStart), restartDelay);

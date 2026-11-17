@@ -165,6 +165,17 @@ public class FuwaRecords : UdonSharpBehaviour
         Render();
     }
 
+    // タイムを計らないコース（チュートリアル）のゴール：クリアの印だけつける（2026-11-17 てじゃ「チュートリアルもクリアフラグつけて」）。FuwaBall から
+    public void ReportClear(Transform start)
+    {
+        if (next != null) next.ReportClear(start);
+        Init();
+        int i = IndexOf(start);
+        if (i < 0) return;
+        if (autoUnlockPlayground && playground != null) playground.Unlock(i + playgroundOffset);
+        _cleared[i] = true; SaveClear(i);
+    }
+
     // テストプレイ用（2026-11-17 てじゃ「デバッグスイッチのとこに全コースクリアフラグONにするボタン」）。公開前に消す。
     // 自分の全コースのクリアの印をつけて保存する（自己ベストはそのまま）
     public void ClearAllMine()

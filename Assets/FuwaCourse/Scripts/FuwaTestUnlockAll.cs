@@ -28,7 +28,7 @@ public class FuwaTestUnlockAll : UdonSharpBehaviour
     {
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (spawner == null || lp == null || !CanUse(lp)) return;
-        for (int i = 0; i < 10; i++) spawner.Unlock(i);   // 2026-11-16 ステージ2のおもちゃ（5〜9）も
+        for (int i = 0; i < 11; i++) spawner.Unlock(i);   // 2026-11-16 ステージ2のおもちゃ（5〜9）も、2026-11-17 ゴールリング（10、チュートリアル）も
     }
 
     // 名前（ownerNames）が入っていればその人だけ（マスターでなくても。入り直すとマスターでなくなって消えたので。2026-10-16 てじゃ）。名前が空ならマスターだけ
