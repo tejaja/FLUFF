@@ -61,8 +61,8 @@ public static class FuwaPracticeTutorial
             "<size=130%><color=#FF6B5C>上を向きすぎない</color></size>\n上を向くほど前に飛ばない\n前に進めたい時は\nまっすぐ前に撃とう",
             "<size=130%><color=#FF6B5C>Don't aim too high</color></size>\nThe higher you aim,\nthe less it moves forward\nAim straight ahead instead"),
         new Bay(22.5f, "Center",
-            "<size=130%><color=#FF6B5C>端でも大丈夫</color></size>\nショットの端に当たっても\n真ん中の方へ寄っていく",
-            "<size=130%><color=#FF6B5C>Edges are OK</color></size>\nIf it's at the edge of your shot,\nit still drifts to the center"),
+            "<size=130%><color=#FF6B5C>端でも大丈夫</color></size>\nショットの端に当たっても\n真ん中の方へ寄っていく\n外に落ちそうな時などに",   // 最後の行：2026-11-17 てじゃ「追加で1行」
+            "<size=130%><color=#FF6B5C>Edges are OK</color></size>\nIf it's at the edge of your shot,\nit still drifts to the center\nHandy when it's about to fall off"),
         new Bay(0f, "Air",
             "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる\n（待ってもゆっくりもどる）",
             "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast\n(waiting refills it slowly)"),
