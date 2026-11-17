@@ -105,6 +105,15 @@ public class FuwaCheckpoint : UdonSharpBehaviour
         }
     }
 
+    // 2026-11-17 コースにいない間は止められる（FuwaCourseLod の courseOnlyBehaviours）。光る途中なら光りきった色にしてから止まる
+    public void LodStop()
+    {
+        if (_glowStart < 0f || _glowFrom == null || glowRenderers == null) return;
+        for (int i = 0; i < glowRenderers.Length; i++)
+            if (glowRenderers[i] != null) glowRenderers[i].material.SetColor("_EmissionColor", glowColor);
+        _glowFrom = null;
+    }
+
     private void Update()
     {
         if (byPlayer) CheckPlayer();

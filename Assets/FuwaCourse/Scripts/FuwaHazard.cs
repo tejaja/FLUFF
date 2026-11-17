@@ -126,6 +126,9 @@ public class FuwaHazard : UdonSharpBehaviour
         if (Time.time >= _restoreAt) RestoreSpeed();
     }
 
+    // 2026-11-17 コースにいない間は止められる（FuwaCourseLod の courseOnlyBehaviours）。止まる前に遅くしていたら戻す
+    public void LodStop() { _inside = false; _insideCount = 0; RestoreSpeed(); }
+
     public void RestoreSpeed()
     {
         if (!_slowed) return;

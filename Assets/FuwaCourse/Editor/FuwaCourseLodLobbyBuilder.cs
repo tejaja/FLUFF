@@ -30,6 +30,10 @@ public static class FuwaCourseLodLobbyBuilder
         "FuwaGearGuard", "FuwaSugarPipe", "FuwaCloudFactory", "FuwaWindmill", "FuwaTiltIce", "FuwaSizeRune",
     };
 
+    // そのコースにいる時だけ動かす（ステージ1・2共通。2026-11-17 てじゃ「各コースで見た目に影響しないものはコースに居ないときは動いてる意味ない」）
+    //  ハザード判定（止まる前に遅くした速さを戻す）・チェックポイント（光る途中なら光りきらせる）・2–5 のワープの穴（勢いの残りを捨てる）。どれも LodStop で後片付け
+    static readonly string[] CourseOnlyTypes = { "FuwaHazard", "FuwaCheckpoint", "FuwaPortal" };
+
     [MenuItem("FuwaCourse/よく使う/スマホのロビーで止める物を集め直す")]
     public static void Menu() { Debug.Log(Build()); }
 
@@ -91,7 +95,20 @@ public static class FuwaCourseLodLobbyBuilder
                 hide.Add(go);
             }
         }
+        // 2026-11-17 そのコースにいる時だけ動かす物（見た目に関係しない毎フレームの仕掛け。止まる前に LodStop で後片付けする）
+        var co = new List<VRC.Udon.UdonBehaviour>(); var coCourse = new List<int>();
+        for (int ri = 0; ri < lod.fullRoots.Length; ri++)
+        {
+            var r = lod.fullRoots[ri]; if (!r) continue;
+            foreach (var u in r.GetComponentsInChildren<UdonSharpBehaviour>(true))
+            {
+                if (!CourseOnlyTypes.Contains(u.GetType().Name)) continue;
+                var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(u); if (!ub || !ub.enabled) continue;
+                co.Add(ub); coCourse.Add(ri);
+            }
+        }
         Undo.RecordObject(lod, "lobby stop");
+        lod.courseOnlyBehaviours = co.ToArray(); lod.courseOnlyCourse = coCourse.ToArray();
         lod.lobbyStopBehaviours = behaviours.ToArray();
         lod.lobbyHideObjects = hide.ToArray();
         FuwaCourseLite.SetBounds(lod);   // 集めた物がどのコースの物か（stopCourse・hideCourse）も入れ直す

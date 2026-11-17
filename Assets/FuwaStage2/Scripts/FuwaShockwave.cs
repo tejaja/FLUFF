@@ -92,6 +92,7 @@ public class FuwaShockwave : UdonSharpBehaviour
     public AudioSource chargeSound, boomSound, hitSound;
 
     private bool _active;
+    private float _offAt = -10f;
     private float _nextCharge = -1f;
     private bool _charging;
     private bool _first;
@@ -136,6 +137,9 @@ public class FuwaShockwave : UdonSharpBehaviour
         if (lp == null) return;
         Vector3 c = transform.position;
         Vector3 pp = lp.GetPosition();
+        // 2026-11-17 軽くする：止まっていて、波も出ていなくて、自分もふわふわも60mより遠い間は何もしない（ロビーから見ている時など。1つで約0.3ms）
+        if (!_active && !_waveLive && Time.time - _offAt > 3f && (pp - c).sqrMagnitude > 3600f
+            && (ball == null || (ball.transform.position - c).sqrMagnitude > 3600f)) return;
         float dx = pp.x - c.x, dz = pp.z - c.z, d2 = Mathf.Sqrt(dx * dx + dz * dz), dy = pp.y - c.y;
         bool band = dy > -heightBelow && dy < heightAbove;
         float now = Time.time;
@@ -160,7 +164,7 @@ public class FuwaShockwave : UdonSharpBehaviour
         }
         else if (!ballNear && !playerNear)
         {
-            _active = false; _charging = false; _nextCharge = -1f;
+            _active = false; _charging = false; _nextCharge = -1f; _offAt = now;
             if (chargeSound != null) chargeSound.Stop();
             if (chargeParticles != null) { var em = chargeParticles.emission; em.enabled = false; }
             if (chargeRenderer != null) chargeRenderer.enabled = false;

@@ -62,6 +62,14 @@ public class FuwaCourseLod : UdonSharpBehaviour
     [Tooltip("lobbyHideObjects と同じ順：どのコースの物か")]
     public int[] hideCourse;
 
+    // 2026-11-17 てじゃ「各コースで見た目に影響しないものはコースに居ないときは動いてる意味ない」：
+    //  見た目に関係しない毎フレームの仕掛け（ハザード判定・チェックポイント・ワープの穴）は、そのコースにいる時だけ動かす（設定に関係なく）。FuwaCourseLodLobbyBuilder が集める
+    [Tooltip("そのコースにいる時だけ動かす Udon")]
+    public VRC.Udon.UdonBehaviour[] courseOnlyBehaviours;
+    [Tooltip("courseOnlyBehaviours と同じ順：どのコースの物か（fullRoots の番号）")]
+    public int[] courseOnlyCourse;
+    private int _coState = -2;
+
     // ふつうでは、今いるコースの隣（床どうしが neighborDist 以内）も本体のまま見せる。隣の仕掛け・粒はロビーと同じく近くだけ動かす
     //（2026-10-22 てじゃ「隣軽くなるのきになるな、ふつう、だと隣のコースくらいは見えてるくらいの設定って」）
     [Tooltip("コースごとの隣のコース（ビット i が立っていればコース i が隣）。FuwaCourseLite が入れる")]
@@ -214,6 +222,19 @@ public class FuwaCourseLod : UdonSharpBehaviour
             bool lite = inSolo && c >= 0 && c != i && !near;
             if (fullRoots[i] != null && inSolo && fullRoots[i].activeSelf != full) fullRoots[i].SetActive(full);
             if (liteRoots != null && i < liteRoots.Length && liteRoots[i] != null && liteRoots[i].activeSelf != lite) liteRoots[i].SetActive(lite);
+        }
+        // そのコースにいる時だけ動かす物（ちがうエリア・ちがうステージ・ロビーでは止める）
+        int co = inSolo ? cur : -1;
+        if (co != _coState)
+        {
+            _coState = co;
+            int nc = courseOnlyBehaviours != null ? courseOnlyBehaviours.Length : 0;
+            for (int i = 0; i < nc; i++)
+            {
+                var b = courseOnlyBehaviours[i]; if (b == null) continue;
+                bool run = co >= 0 && courseOnlyCourse != null && i < courseOnlyCourse.Length && courseOnlyCourse[i] == co;
+                if (b.enabled != run) SetRun(b, run);
+            }
         }
         // 0=全部動かす、1=ロビー（ふつう：近くだけ／かるい：全部止める）、2+cur=ふつうでコースcurの中（curの物は動かす、隣など他は近くだけ）
         int lobby = mode != 0 && inSolo && cur < 0 ? 1 : (mode == 1 && inSolo && cur >= 0 ? 2 + cur : 0);

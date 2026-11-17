@@ -34,6 +34,9 @@ public class FuwaPortal : UdonSharpBehaviour
     private float _prevHead = 1f, _prevBall = 1f;
     private bool _init;
 
+    // 2026-11-17 コースにいない間は止められる（FuwaCourseLod の courseOnlyBehaviours）。くぐった直後の勢いの残りは捨てる
+    public void LodStop() { _velFrames = 0; _init = false; }
+
     private void Start()
     {
         if (ball != null) { _rb = ball.GetComponent<Rigidbody>(); _ballR = ball.GetComponent<MeshRenderer>(); }
