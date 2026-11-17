@@ -69,6 +69,7 @@ public class FuwaTurnTable : UdonSharpBehaviour
     [Tooltip("乗っている自分を運ぶ2枚目の床（2枚の回転床の B）。null で運ばない")]
     public Transform table2;
     private Quaternion _lastRot2;
+    private bool _driftOn; private float _driftFrom, _driftTarget, _solvedAt = -1f;
 
     private float _u, _w;     // 羽根車の角度・速さ（2D 反時計回り、度）
     private Quaternion _lastRot;
@@ -126,7 +127,7 @@ public class FuwaTurnTable : UdonSharpBehaviour
     // アウトで戻った時（FuwaBall.resetOnOut）：最初の向きへ。乗っている人を運ばないように、運ぶ用の前の向きも合わせる
     public void ResetGimmick()
     {
-        _u = startU; _w = 0f; _lastShot = -100f;
+        _u = startU; _w = 0f; _lastShot = -100f; _driftOn = false; _solvedAt = -1f;
         Apply(); _prevU = _u; _lastClick = ClickIndex();
         if (table != null) _lastRot = table.rotation;
         if (table2 != null) _lastRot2 = table2.rotation;
@@ -156,16 +157,29 @@ public class FuwaTurnTable : UdonSharpBehaviour
         float dt = Time.deltaTime; if (dt <= 0f) return;
         _w *= Mathf.Exp(-drag * dt);
         float tw = Mathf.Abs(_w * tableRatio);
-        // 撃たないと次の「はじめと同じ形」へ動く（動いている間はカチッと止めない）
+        // 2026-11-17 てじゃ「ピッタリあってからちょっと間あけてすこしずつ戻る」：答えの形（はじめと同じ形どうしのまん中）で止まって holdTime たつと、
+        //  driftDir の向きに次の「はじめと同じ形」まで driftSpeed で動く。合う前の途中では動かない。撃たれたら止める（動いている間はカチッと止めない）
         bool drifting = false;
-        if (driftSpeed > 0f && driftPeriodU > 0f && Time.time - _lastShot > holdTime && tw < detentSpeed)
+        if (driftSpeed > 0f && driftPeriodU > 0f)
         {
-            // いちばん近い「はじめと同じ形」へ（ちょうどまん中＝答えの形からは driftDir の向き）。
-            //  遠い方へ動くと、とちゅうで答えの形を通って勝手に合ってしまう
             float k = (_u - startU) / driftPeriodU, fl = Mathf.Floor(k), fr = k - fl;
-            float kt = driftDir >= 0f ? (fr >= 0.5f - 1e-4f ? fl + 1f : fl) : (fr > 0.5f + 1e-4f ? fl + 1f : fl);
-            float uT = startU + kt * driftPeriodU;
-            if (Mathf.Abs(_u - uT) > 1e-3f) { drifting = true; _w = 0f; _u = Mathf.MoveTowards(_u, uT, driftSpeed * dt); }
+            bool solved = Mathf.Abs(fr - 0.5f) * driftPeriodU < 0.01f && tw < 0.01f;
+            if (_driftOn && _lastShot > _driftFrom) _driftOn = false;   // 戻る途中で撃った
+            if (!_driftOn)
+            {
+                if (!solved) _solvedAt = -1f;
+                else if (_solvedAt < 0f) _solvedAt = Time.time;
+                else if (Time.time - _solvedAt > holdTime && Time.time - _lastShot > holdTime)
+                {
+                    _driftOn = true; _driftFrom = Time.time; _solvedAt = -1f;
+                    _driftTarget = startU + (driftDir >= 0f ? fl + 1f : fl) * driftPeriodU;
+                }
+            }
+            if (_driftOn)
+            {
+                drifting = true; _w = 0f; _u = Mathf.MoveTowards(_u, _driftTarget, driftSpeed * dt);
+                if (Mathf.Abs(_u - _driftTarget) < 1e-3f) { _u = _driftTarget; _driftOn = false; }
+            }
         }
         if (drifting) { }
         else if (table != null && tw < detentSpeed && detentDeg > 0f && tableRatio != 0f)

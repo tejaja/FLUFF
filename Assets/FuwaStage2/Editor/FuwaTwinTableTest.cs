@@ -268,6 +268,7 @@ public static class FuwaTwinTableTest
             FuwaIceTestBuilder.Warp(root, "WarpBack", root.TransformPoint(new Vector3(x0 + 0.6f, 0.35f, 1.8f)), "BACK", back, warpMat);
         }
 
+        ApplyCrossing(root);
         // AddLeftIsland(root);   // 2026-11-17 てじゃ「一旦もどるのもなしで」（島は「いきさきわからんくなる」）。戻る・島のコードは残す
         RaiseCage(root);   // 2026-11-10 かごを高くして、上から橋が見えるように（門と信号ランプは「くどい」でやめた）
 
@@ -652,6 +653,36 @@ public static class FuwaTwinTableTest
         var s = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "S5_TwinTable" && t.root.name == "FuwaCourse2_4");
         if (!s) { Debug.Log("S5_TwinTable がない"); return; }
         Debug.Log("[2枚の回転床] " + AddLeftIsland(s));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(s.gameObject.scene);
+    }
+
+    // ===== 2026-11-17 てじゃ「ピッタリあってからちょっと間あけてすこしずつ戻る、かつ一部に金網おいてまっすぐ進めないように」=====
+    //  ・答えの形で止まって CrossHold 秒たつと、A が反時計回りに CrossDriftDegA 度/秒で次の「はじめと同じ形」（+90°）まで戻る（FuwaTurnTable の drift〜）
+    //  ・A の上に、まん中をななめ（橋の間 45°）に横切る金網 DeckFenceLen m。両はしは床のふちまですき間（回りこむ）。A といっしょに回る
+    public static float CrossDriftDegA = 2.5f, CrossHold = 3f, DeckFenceLen = 5f, DeckFenceH = 2.2f, DeckFenceDeg = 45f;
+    public static string ApplyCrossing(Transform root)
+    {
+        var tt = root.GetComponentsInChildren<FuwaTurnTable>(true).FirstOrDefault(x => x.master == null && x.table != null);
+        if (!tt) return "回転床の FuwaTurnTable がない";
+        tt.driftDir = Mathf.Sign(tt.tableRatio); tt.driftSpeed = CrossDriftDegA / Mathf.Abs(tt.tableRatio); tt.driftPeriodU = 180f / Mathf.Abs(tt.tableRatio); tt.holdTime = CrossHold;
+        tt.table2 = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(x => x.name == "TableB");
+        UdonSharpEditorUtility.CopyProxyToUdon(tt); EditorUtility.SetDirty(tt);
+        var a = tt.table;
+        var old = a.Find("DeckFence"); if (old) Object.DestroyImmediate(old.gameObject);
+        var light = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f));
+        var axleM = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
+        // WireFence の幅は local Z。yaw で Z を床の DeckFenceDeg の向きへ（Polar と同じ角度の取り方：(cos, sin)）
+        var f = FuwaTurnTableTest.WireFence(a, new Vector3(0f, RoadTh, 0f), 90f - DeckFenceDeg, DeckFenceLen, DeckFenceH, light, axleM);
+        f.name = "DeckFence";
+        // 道の上（RoadTh）に立てる。当たりは回る床の子なのでいっしょに回る
+        return $"戻る A {CrossDriftDegA}°/秒・待ち {CrossHold}秒、金網 {DeckFenceLen}m（{DeckFenceDeg}°）";
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–4 2枚の回転床：戻る＋床の金網を付け直す")]
+    public static void ApplyCrossingToCourse()
+    {
+        var s = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "S5_TwinTable" && t.root.name == "FuwaCourse2_4");
+        if (!s) { Debug.Log("S5_TwinTable がない"); return; }
+        Debug.Log("[2枚の回転床] " + ApplyCrossing(s));
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(s.gameObject.scene);
     }
 
