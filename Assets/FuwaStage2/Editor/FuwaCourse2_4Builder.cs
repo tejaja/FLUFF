@@ -180,12 +180,128 @@ public static class FuwaCourse2_4Builder
         GimmickSounds(log);
         log.Append(" " + FuwaCageFloorLook.Apply(root));
         log.Append(" " + FuwaGearMetalLook.Apply(root));   // 2026-11-11 歯車だけ金属っぽく   // 2026-11-11 羽根車のかごの床：パンチングメタル＋ふちの注意ライン＋軸のまわりの両回りの矢印
+        log.Append(" " + WaveSlope(root));   // 2026-11-17 最後の坂を波の階段に（ベベルの前に、坂のシマを消しておく）
         var moving = root.GetComponentsInChildren<MeshRenderer>(true).Where(r => r.enabled && r.GetComponentsInParent<Transform>(true).Any(p => p.name == "BridgeLeaf" || p.name == "TableA" || p.name == "TableB")).ToList();
         foreach (var r in moving) r.enabled = false;
         log.Append(" ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_4_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
         foreach (var r in moving) if (r) r.enabled = true;
         log.Append(" " + FuwaCourse2_4Perf.Apply(root));   // 2026-11-13 静的バッチ・影（いちばん最後に）
         return "[2–4] " + log + " ゴール " + goalAt.ToString("F1") + " 範囲 " + lb.min.ToString("F0") + "〜" + lb.max.ToString("F0");
+    }
+
+    // ===== 2026-11-17 てじゃ「最後の坂になんかほしいな、上下させるとか」→ A「波の階段」=====
+    //  ゴール手前の坂（Road19_Slope）を WaveN 枚の板に分けて、下のカム軸で順番に上下（FuwaWavePlates）。波は上へ流れる（となりの板は WavePhaseDeg 遅れ）
+    //  板 i の一番下 h_i、一番上 h_i + A。板 i が一番上の時、板 i+1 は h_{i+1} + A·c（c = (1+cos Δ)/2）→ そろうように h_{i+1} − h_i = A(1 − c)。
+    //  最初の板の一番下＝坂の下の道、最後の板の一番上＝坂の上の道 → A = 高さ / ((N−1)(1−c) + 1)
+    //  坂の当たりは止める（Col の BoxCollider）。板の材質は道のシマの写し（_PathA/_PathB で終わらない名前＝ベベルでまとめられない）
+    public static int WaveN = 8; public static float WavePhaseDeg = 120f, WavePeriod = 4.5f, WaveGap = 0.04f, WaveThick = 0.6f, WaveRod = 0.45f, WaveCamR = 0.2f;
+    public static string WaveSlope(Transform r)
+    {
+        var sl = r.Find("Path/Road19_Slope"); if (!sl) return "波の階段：Road19_Slope がない";
+        var colT = sl.Find("Col"); var box = colT ? colT.GetComponent<BoxCollider>() : null; if (!box) return "波の階段：坂の当たりがない";
+        var old = r.Find("WaveSlope"); if (old) Object.DestroyImmediate(old.gameObject);
+        var tr = colT.Find("UnderTruss"); if (tr) Object.DestroyImmediate(tr.gameObject);
+        // 坂のシマの見た目（ベベル前）を消す
+        foreach (var mr in sl.GetComponentsInChildren<MeshRenderer>(true).ToArray())
+            if (mr && mr.sharedMaterial && (mr.sharedMaterial.name.EndsWith("_PathA") || mr.sharedMaterial.name.EndsWith("_PathB"))) Object.DestroyImmediate(mr.gameObject);
+        box.enabled = false;
+        float L = box.size.z, W = box.size.x;
+        Vector3 S = colT.TransformPoint(new Vector3(0f, 0f, box.center.z - L / 2f));   // 坂の上の面の下のはし（ワールド）
+        Vector3 E = colT.TransformPoint(new Vector3(0f, 0f, box.center.z + L / 2f));
+        Vector3 f = E - S; float rise = f.y; f.y = 0f; float run = f.magnitude; f /= run;
+        int N = WaveN; float c = (1f + Mathf.Cos(WavePhaseDeg * Mathf.Deg2Rad)) / 2f;
+        float A = rise / ((N - 1) * (1f - c) + 1f), step = A * (1f - c), pl = run / N;
+        var ma = PathMat("Course2_4_WaveA", PathColA); var mb = PathMat("Course2_4_WaveB", PathColB);
+        var holder = new GameObject("WaveSlope").transform; holder.SetParent(r, true); holder.position = S; holder.rotation = Quaternion.LookRotation(f, Vector3.up);
+        var plates = new Transform[N]; var bases = new Vector3[N];
+        var psize = new Vector3(W, WaveThick, pl - WaveGap);
+        var plateMesh = FuwaBevelTools.RoundCube(psize, 0.06f, 3);   // Unity の Cube と同じ ±0.5 の形（物の大きさで実寸の丸み）→ 見た目の子に psize の大きさ
+        var axleM = cwAxle != null ? cwAxle : FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
+        var brass = cwBrass != null ? cwBrass : FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var darkM = cwDark != null ? cwDark : FuwaGearTest.Mat("GearTest_Gear", new Color(0.36f, 0.38f, 0.43f));
+        for (int i = 0; i < N; i++)
+        {
+            float h = step * i;
+            var p = new GameObject("Plate" + i).transform; p.SetParent(holder, false); p.gameObject.layer = pathLayer;
+            bases[i] = new Vector3(0f, h - WaveThick / 2f, pl * (i + 0.5f)); p.localPosition = bases[i];
+            var vis = new GameObject("Visual").transform; vis.SetParent(p, false); vis.localScale = psize; vis.gameObject.layer = pathLayer;
+            vis.gameObject.AddComponent<MeshFilter>().sharedMesh = plateMesh; vis.gameObject.AddComponent<MeshRenderer>().sharedMaterial = i % 2 == 0 ? ma : mb;
+            p.gameObject.AddComponent<BoxCollider>().size = new Vector3(W, WaveThick, pl - WaveGap);
+            // 押し棒（板の裏から下へ）とその先のころ
+            var rod = GameObject.CreatePrimitive(PrimitiveType.Cylinder); rod.name = "Rod"; Object.DestroyImmediate(rod.GetComponent<Collider>());
+            rod.transform.SetParent(p, false); rod.transform.localPosition = new Vector3(0f, -WaveThick / 2f - WaveRod / 2f, 0f); rod.transform.localScale = new Vector3(0.14f, WaveRod / 2f, 0.14f);
+            rod.GetComponent<MeshRenderer>().sharedMaterial = axleM;
+            var roller = GameObject.CreatePrimitive(PrimitiveType.Cylinder); roller.name = "Roller"; Object.DestroyImmediate(roller.GetComponent<Collider>());
+            roller.transform.SetParent(p, false); roller.transform.localPosition = new Vector3(0f, -WaveThick / 2f - WaveRod - 0.06f, 0f); roller.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            roller.transform.localScale = new Vector3(0.14f, 0.05f, 0.14f); roller.GetComponent<MeshRenderer>().sharedMaterial = brass;
+            plates[i] = p;
+        }
+        // カム軸：板の下を坂にそって。板 i の真下で、ころの一番下の時の高さに カムのてっぺん（中心 + e で上を向く時が板の一番上）
+        float e = A / 2f;
+        Vector3 Sh(float i) { float h = step * i; return new Vector3(0f, h - WaveThick - WaveRod - 0.12f - WaveCamR + e, pl * (i + 0.5f)); }   // 板が一番下の時：カムの中心は軸から e 下、てっぺん＝ころの下
+        Vector3 a0 = Sh(-0.4f), a1 = Sh(N - 1 + 0.4f);
+        var shaft = new GameObject("CamShaft").transform; shaft.SetParent(holder, false); shaft.localPosition = (a0 + a1) / 2f;
+        shaft.localRotation = Quaternion.LookRotation(a1 - a0, Vector3.up);
+        float slen = (a1 - a0).magnitude;
+        var bar = GameObject.CreatePrimitive(PrimitiveType.Cylinder); bar.name = "Bar"; Object.DestroyImmediate(bar.GetComponent<Collider>());
+        bar.transform.SetParent(shaft, false); bar.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); bar.transform.localScale = new Vector3(0.16f, slen / 2f, 0.16f);
+        bar.GetComponent<MeshRenderer>().sharedMaterial = axleM;
+        for (int i = 0; i < N; i++)
+        {
+            // カム i：軸の中で板 i の真下。偏心の向き α_i = 270° + i·Δ（θ = i·Δ + 180° で上を向く＝板が一番上）
+            var lp = shaft.InverseTransformPoint(holder.TransformPoint(Sh(i))); lp.x = 0f; lp.y = 0f;
+            float al = (270f + i * WavePhaseDeg) * Mathf.Deg2Rad;
+            var cam = GameObject.CreatePrimitive(PrimitiveType.Cylinder); cam.name = "Cam" + i; Object.DestroyImmediate(cam.GetComponent<Collider>());
+            cam.transform.SetParent(shaft, false); cam.transform.localPosition = lp + new Vector3(Mathf.Cos(al) * e, Mathf.Sin(al) * e, 0f);
+            cam.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); cam.transform.localScale = new Vector3(2f * WaveCamR, 0.05f, 2f * WaveCamR);
+            cam.GetComponent<MeshRenderer>().sharedMaterial = brass;
+            var hub = GameObject.CreatePrimitive(PrimitiveType.Cylinder); hub.name = "CamHub" + i; Object.DestroyImmediate(hub.GetComponent<Collider>());
+            hub.transform.SetParent(shaft, false); hub.transform.localPosition = lp; hub.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); hub.transform.localScale = new Vector3(0.26f, 0.06f, 0.26f);
+            hub.GetComponent<MeshRenderer>().sharedMaterial = darkM;
+        }
+        // 軸の両はしの軸受け（上の道の裏から下げる）
+        foreach (var (pt, nm) in new[] { (a0, "BearingLow"), (a1, "BearingHigh") })
+        {
+            var b = GameObject.CreatePrimitive(PrimitiveType.Cube); b.name = nm; Object.DestroyImmediate(b.GetComponent<Collider>());
+            b.transform.SetParent(holder, false); b.transform.localPosition = pt + Vector3.up * 0.3f; b.transform.localScale = new Vector3(0.3f, 0.75f, 0.3f);
+            b.GetComponent<MeshRenderer>().sharedMaterial = darkM;
+        }
+        var wp = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaWavePlates>(holder.gameObject);
+        wp.plates = plates; wp.basePos = bases; wp.amp = A; wp.period = WavePeriod; wp.phaseStepDeg = WavePhaseDeg; wp.shaft = shaft; wp.shaftBase = shaft.localRotation;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(wp); FuwaStage2WaterTest.NoSync(wp);
+        // シーンにすでにある PathBevel から坂の分の三角形を消す（作り直しの時は坂のシマを先に消しているので何もしない）
+        int cut = CutBevelInBox(r, colT, box);
+        return $"波の階段 {N}枚 上下 {A:F2}m 段 {step:F2}m（ベベルから {cut} 三角形）";
+    }
+    static Mesh Rename(Mesh m, string n) { m.name = n; return m; }
+    static int CutBevelInBox(Transform r, Transform colT, BoxCollider box)
+    {
+        var pb = r.Find("PathBevel"); var mf = pb ? pb.GetComponent<MeshFilter>() : null; if (!mf || !mf.sharedMesh) return 0;
+        var m = mf.sharedMesh; var v = m.vertices; int cut = 0;
+        var toCol = colT.worldToLocalMatrix * pb.localToWorldMatrix;
+        var half = box.size / 2f;
+        for (int sIdx = 0; sIdx < m.subMeshCount; sIdx++)
+        {
+            var t = m.GetTriangles(sIdx); var keep = new List<int>(t.Length);
+            for (int k = 0; k < t.Length; k += 3)
+            {
+                var cen = toCol.MultiplyPoint3x4((v[t[k]] + v[t[k + 1]] + v[t[k + 2]]) / 3f) - box.center;
+                bool inside = Mathf.Abs(cen.x) < half.x + 0.12f && Mathf.Abs(cen.y) < half.y + 0.12f && Mathf.Abs(cen.z) < half.z - 0.01f;
+                if (inside) { cut++; continue; }
+                keep.Add(t[k]); keep.Add(t[k + 1]); keep.Add(t[k + 2]);
+            }
+            m.SetTriangles(keep, sIdx);
+        }
+        if (cut > 0) EditorUtility.SetDirty(m);
+        return cut;
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–4 最後の坂を波の階段にする")]
+    public static void WaveSlopeMenu()
+    {
+        var r = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "FuwaCourse2_4" && t.parent == null); if (!r) return;
+        root = r; var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
+        Debug.Log("[2–4] " + WaveSlope(r));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.gameObject.scene); AssetDatabase.SaveAssets();
     }
 
     static float OutFloorY()
@@ -582,7 +698,7 @@ public static class FuwaCourse2_4Builder
 
     // ===== 道の下の鉄骨のトラス（2026-11-10 てじゃ「3は欲しいけどやりすぎない、アクセント程度にたまにつけるくらい」）=====
     //  長くて下が空いている坂の道だけ。道の両はしの少し内がわに、上の梁・下の梁・ななめの筋かい（ワーレン）・たて、下の梁どうしを横の梁で。ふしに真ちゅうのボルト
-    public static string[] TrussSegs = { "Road8_Slope", "Road19_Slope" };
+    public static string[] TrussSegs = { "Road8_Slope" };   // 2026-11-17 Road19_Slope は波の階段（WaveSlope）になったので外す
     public static float TrussH = 1.1f, TrussInset = 0.7f;
     static void UnderTruss(string segName, System.Text.StringBuilder log)
     {
