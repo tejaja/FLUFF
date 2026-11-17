@@ -1103,6 +1103,7 @@ public static class FuwaPlaygroundBuilder
             var dr = hole.GetComponent<MeshRenderer>(); dr.sharedMaterial = m; dr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             PortalBack(p);
             foreach (var t in p.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
+            DetachPortalFx(p);
             return p;
         }
         var pa = Portal("PortalA", slot.position, slot.forward, new Color(0.35f, 0.75f, 1f));
@@ -1120,6 +1121,7 @@ public static class FuwaPlaygroundBuilder
     // 2026-11-17 てじゃ「遊び場のポータル、裏面は使えないのわかりやすい用にしたい」
     //  穴の裏に石のふた（穴と同じだ円）。表からは穴の景色に隠れて見えず、裏から見ると石でふさがっている
     public static float PortalBackInset = 0.03f, PortalBackScale = 0.985f;
+    public static Color PortalBackColor = new Color(0.2f, 0.19f, 0.26f);   // 2026-11-17 てじゃ「もっと黒っぽいほうがいいかも」
     public static void PortalBack(Transform p)
     {
         var old = p.Find("Back"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -1136,11 +1138,46 @@ public static class FuwaPlaygroundBuilder
         GameObjectUtility.SetStaticEditorFlags(g, 0);
     }
 
+    // 2026-11-17 てじゃ「インタラクト時のハイライトにデカい四角があるのはどうしようもないかな」
+    //  持ち手（VRCPickup）の下にある描画物は全部ハイライトされるので、四角い板で描いている光（Rim・GroundGlow・Sparkles＝FloatFrame）を
+    //  持ち手の外に出し、FuwaFollowPose でポータルについていかせる（PostLateUpdate で合わせるので持っている時も遅れない）
+    public static void DetachPortalFx(Transform p)
+    {
+        var hd = p.parent; if (!hd) return;
+        string fxName = p.name + "_FX";
+        var old = hd.parent.Find(fxName);
+        var fr = p.Find("FloatFrame");
+        if (!fr && old) fr = old.Find("FloatFrame");
+        if (!fr) return;
+        var fx = old ? old : new GameObject(fxName).transform;
+        if (!old) fx.SetParent(hd.parent, false);
+        fx.SetPositionAndRotation(p.position, p.rotation); fx.localScale = Vector3.one;
+        var lp = fr.localPosition; var lr = fr.localRotation;
+        fr.SetParent(fx, false); fr.localPosition = lp; fr.localRotation = lr;
+        { var pc = fx.GetComponent<UnityEngine.Animations.ParentConstraint>(); if (pc) Object.DestroyImmediate(pc); }
+        EnsureProgram("FuwaFollowPose");
+        var fp = fx.GetComponent<FuwaFollowPose>(); if (!fp) fp = UdonSharpUndo.AddComponent<FuwaFollowPose>(fx.gameObject);
+        fp.follow = p; UdonSharpEditorUtility.CopyProxyToUdon(fp);
+        { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(fp); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+        GameObjectUtility.SetStaticEditorFlags(fx.gameObject, 0);
+    }
+
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/ポータルの光を持ち手の外へ（ハイライトの四角よけ）")]
+    public static void MenuDetachPortalFx()
+    {
+        int n = 0;
+        foreach (var pp in Object.FindObjectsOfType<FuwaPlaygroundPortals>(true))
+            foreach (var t in new[] { pp.a, pp.b }) if (t) { DetachPortalFx(t); n++; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+        Debug.Log("[あそびば] ポータルの光を外へ " + n);
+    }
+
     static Material PortalBackMat()
     {
         string mp = MatDir + "/Playground_PortalBack.mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (m == null) { m = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Ruins_Stone.mat")); AssetDatabase.CreateAsset(m, mp); }
+        m.SetColor("_Color", PortalBackColor); EditorUtility.SetDirty(m);
         return m;
     }
 
