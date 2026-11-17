@@ -2905,7 +2905,7 @@ public static class FuwaCourse2_4Builder
     // てじゃ「段つき歯車がただの段差」→ 太いピン →「いまいち、棒はなしにして」「黄色いギアの真ん中から伸びた棒のまわりから2方向に伸びる板」
     //  小歯車のまん中に柱、そこから反対向きに2枚の板（小歯車の歯先 1.6m より内）。歯車といっしょに回る。人は通れない、ふわふわは当たると動きではじかれる（FuwaGearPin）
     //  大歯車（グレー）には置けない（A のふちは B の大歯車の下にもぐる、B のふちは出口の道を横切る）
-    public static float StepPostR = 0.2f, StepPinH = 1.65f, StepVaneLen = 1.5f, StepVaneT = 0.14f;
+    public static float StepPostR = 0.2f, StepPinH = 1.65f, StepVaneLen = 1.5f, StepVaneT = 0.14f, StepVaneGap = 0.12f;   // 金網の下と黄色ギアのすき間
     // small：上の小歯車（いっしょに回る）。ratio：その歯車の比（角速度 = ratio × ClockSpeed）。topY：小歯車の上の面の local y。ang0：板の向き（度）
     static void AddStepPins(Transform small, float ratio, float topY, float ang0)
     {
@@ -2920,20 +2920,24 @@ public static class FuwaCourse2_4Builder
         post.transform.localPosition = new Vector3(0f, topY + postH - total * 0.5f, 0f);
         post.transform.localScale = new Vector3(StepPostR * 2f, total * 0.5f, StepPostR * 2f);
         Setup(post);
-        for (int k = 0; k < 2; k++)
+
+        // 2026-11-17 てじゃ「見た目をよくしよう、網でもいいかも」「黄色ギアとのスキマをちょっとだけあけよう」
+        //  → かごと同じ金網（ひし形の針金＋枠）を柱をはさんで1枚（先から先まで）。下は黄色ギアから StepVaneGap 浮かせる。当たりは金網の箱（FuwaBounce をはずして FuwaGearPin に）
+        var wireM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/GearTest_Axle.mat");
+        var fence = FuwaTurnTableTest.WireFence(holder, new Vector3(0f, topY + StepVaneGap, 0f), 90f - ang0, StepVaneLen * 2f, StepPinH - StepVaneGap - 0.15f, mat, wireM ? wireM : mat);
+        fence.name = "Vane";
+        var col = fence.Find("Collider").gameObject; col.layer = 11;
+        foreach (var bo in col.GetComponents<FuwaBounce>()) { var ub = UdonSharpEditor.UdonSharpEditorUtility.GetBackingUdonBehaviour(bo); Object.DestroyImmediate(bo); if (ub) Object.DestroyImmediate(ub); }
+        var bc = col.GetComponent<BoxCollider>(); bc.size = new Vector3(StepVaneT, bc.size.y, bc.size.z);
+        Setup(col, false);
+        // 柱のてっぺんに丸い頭
+        var cap = GameObject.CreatePrimitive(PrimitiveType.Sphere); cap.name = "PostCap"; Object.DestroyImmediate(cap.GetComponent<Collider>());
+        cap.transform.SetParent(holder, false); cap.transform.localPosition = new Vector3(0f, topY + postH, 0f); cap.transform.localScale = Vector3.one * StepPostR * 2.6f;
+        cap.GetComponent<Renderer>().sharedMaterial = mat;
+        void Setup(GameObject o, bool look = true)
         {
-            float a = ang0 + 180f * k, r0 = StepPostR * 0.5f, len = StepVaneLen - r0;
-            var v = GameObject.CreatePrimitive(PrimitiveType.Cube); v.name = "Vane" + k;
-            v.transform.SetParent(holder, false);
-            float ar = a * Mathf.Deg2Rad, mid = r0 + len * 0.5f;
-            v.transform.localPosition = new Vector3(Mathf.Cos(ar) * mid, topY + StepPinH * 0.5f, Mathf.Sin(ar) * mid);
-            v.transform.localRotation = Quaternion.Euler(0f, -a, 0f);
-            v.transform.localScale = new Vector3(len, StepPinH, StepVaneT);
-            Setup(v);
-        }
-        void Setup(GameObject o)
-        {
-            o.GetComponent<Renderer>().sharedMaterial = mat; o.layer = 11;
+            if (look) o.GetComponent<Renderer>().sharedMaterial = mat;
+            o.layer = 11;
             var pin = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGearPin>(o);
             pin.pivot = small; pin.degPerSec = ratio * ClockSpeed;
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pin);
