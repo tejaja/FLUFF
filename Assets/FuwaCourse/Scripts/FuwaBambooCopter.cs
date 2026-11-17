@@ -40,6 +40,10 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     public float hoverFall = 0.6f;   // 2026-11-08 てじゃ「あとちょっぴり速くても」0.2→0.35、2026-11-11「落下速度もうちょいアップ」→0.6
     [Tooltip("ホバリング中の移動の速さ（走る速さに対する倍率）")]
     public float moveScale = 1f;
+    [Tooltip("VR で持っている時の横の速さの倍率（2026-11-17 てじゃ「持ってるとちょっぴり最高速度アップ」。デスクトップは Shift の時だけ shiftBoost、押さなければふつう）")]
+    public float vrBoost = 1.2f;
+    [Tooltip("デスクトップで Shift を押している間の横の速さの倍率（てじゃ「シフト押しながらで最高速度アップ」）")]
+    public float shiftBoost = 1.6f;
     [Tooltip("トリガーを離してからホバリングになるまでの秒数")]
     public float brakeTime = 0.18f;
     // 2026-11-17 てじゃ「自然下降なし、VRでは右スティックの上下で上昇下降、ジャンプでも上昇。デスクトップはスペースで上昇、ctrlで下降。下降時はプロペラが逆回転」
@@ -231,7 +235,8 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         Vector3 r = new Vector3(f.z, 0f, -f.x);
         Vector3 mv = f * _moveV + r * _moveH;
         if (mv.sqrMagnitude > 1f) mv.Normalize();
-        Vector3 v = mv * p.GetRunSpeed() * moveScale;
+        float boost = p.IsUserInVR() ? vrBoost : ((Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)) ? shiftBoost : 1f);
+        Vector3 v = mv * p.GetRunSpeed() * moveScale * boost;
         v.y = 0f;   // 2026-11-17 自然下降なし（上下は Update で）
         return v;
     }
