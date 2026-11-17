@@ -218,7 +218,7 @@ public static class FuwaStage2Builder
     }
 
     // 門（portal）にワープの判定とゲージを付ける。見本（SoloGate）の FuwaCourseWarp を複製して行き先だけ変える
-    static Component MakeWarp(Transform portal, string prefix, GameObject trigSrc, GameObject gaugeSrc, Transform start, Transform spot, Transform gun, int stage)
+    public static Component MakeWarp(Transform portal, string prefix, GameObject trigSrc, GameObject gaugeSrc, Transform start, Transform spot, Transform gun, int stage)
     {
         var trig = Object.Instantiate(trigSrc, portal, false); trig.name = prefix + "_Trigger";
         trig.transform.localPosition = trigSrc.transform.localPosition; trig.transform.localRotation = trigSrc.transform.localRotation; trig.transform.localScale = trigSrc.transform.localScale;
@@ -284,7 +284,7 @@ public static class FuwaStage2Builder
     }
 
     // 複製した物から、動き（Udon）・音・ワープの当たり判定を外して見た目だけにする
-    static void StripBehaviour(GameObject g)
+    public static void StripBehaviour(GameObject g)
     {
         foreach (var ub in g.GetComponentsInChildren<VRC.Udon.UdonBehaviour>(true).ToList())
         {
