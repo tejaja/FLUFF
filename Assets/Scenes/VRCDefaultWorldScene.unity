@@ -779315,7 +779315,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: ff62aa093605cd142b4aa5db2c96d3fb, type: 2}
+  - {fileID: 2100000, guid: acd908a5ad8a4b7439642efe769d9414, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1234048,7 +1234048,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 379088febe89737438469fd12ffa6761, type: 2}
+  - {fileID: 2100000, guid: 2072d03d288d9a04896c9982619e5030, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1665040,7 +1665040,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: ff62aa093605cd142b4aa5db2c96d3fb, type: 2}
+  - {fileID: 2100000, guid: acd908a5ad8a4b7439642efe769d9414, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -1705430,7 +1705430,7 @@ MonoBehaviour:
   m_fontColor32:
     serializedVersion: 2
     rgba: 4282871227
-  m_fontColor: {r: 0.7341176, g: 0.42705882, b: 0.27882352, a: 1}
+  m_fontColor: {r: 1, g: 0.55, b: 0.8, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -1805424,12 +1805424,6 @@ MonoBehaviour:
     ID: 10144
     SerializedTypeNames:
     - VRC.Udon.UdonBehaviour
-  - gameObject: {fileID: 1618703179}
-    ID: 10145
-    SerializedTypeNames:
-    - VRC.Udon.UdonBehaviour
-    - VRC.Udon.UdonBehaviour
-    - VRC.Udon.UdonBehaviour
   - gameObject: {fileID: 1229143419}
     ID: 10146
     SerializedTypeNames:
@@ -1805628,6 +1805622,10 @@ MonoBehaviour:
     - VRC.Udon.UdonBehaviour
   - gameObject: {fileID: 1239312809}
     ID: 10211
+    SerializedTypeNames:
+    - VRC.Udon.UdonBehaviour
+  - gameObject: {fileID: 1618703179}
+    ID: 10145
     SerializedTypeNames:
     - VRC.Udon.UdonBehaviour
   portraitCameraPositionOffset: {x: 0, y: 0, z: 0}
