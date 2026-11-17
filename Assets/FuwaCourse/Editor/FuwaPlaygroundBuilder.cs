@@ -1101,6 +1101,7 @@ public static class FuwaPlaygroundBuilder
             var hv = hole.GetComponent<MeshFilter>().sharedMesh.bounds;
             m.shader = swirlSh; m.SetColor("_Color", col); m.SetFloat("_HalfW", hv.extents.x); m.SetFloat("_HalfH", hv.extents.y); m.SetFloat("_Alpha", 0.55f); EditorUtility.SetDirty(m);
             var dr = hole.GetComponent<MeshRenderer>(); dr.sharedMaterial = m; dr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            PortalBack(p);
             foreach (var t in p.GetComponentsInChildren<Transform>(true)) GameObjectUtility.SetStaticEditorFlags(t.gameObject, 0);
             return p;
         }
@@ -1114,6 +1115,43 @@ public static class FuwaPlaygroundBuilder
         pp.a = pa; pp.b = pb; pp.spawner = Object.FindObjectsOfType<FuwaPlaygroundSpawner>(true).First();
         UdonSharpEditorUtility.CopyProxyToUdon(pp);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pp); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); } }
+    }
+
+    // 2026-11-17 てじゃ「遊び場のポータル、裏面は使えないのわかりやすい用にしたい」
+    //  穴の裏に石のふた（穴と同じだ円）。表からは穴の景色に隠れて見えず、裏から見ると石でふさがっている
+    public static float PortalBackInset = 0.03f, PortalBackScale = 0.985f;
+    public static void PortalBack(Transform p)
+    {
+        var old = p.Find("Back"); if (old) Object.DestroyImmediate(old.gameObject);
+        var hole = p.Find("Swirl"); if (!hole) return;
+        var g = new GameObject("Back", typeof(MeshFilter), typeof(MeshRenderer)); g.transform.SetParent(p, false);
+        // 穴は +z 向き（Swirl は 180 度まわしてある）。ふたは回さずに置くと -z（裏）を向く
+        g.transform.localPosition = hole.localPosition - Vector3.forward * PortalBackInset;
+        g.transform.localRotation = Quaternion.identity;
+        g.transform.localScale = Vector3.one * PortalBackScale;
+        g.GetComponent<MeshFilter>().sharedMesh = hole.GetComponent<MeshFilter>().sharedMesh;
+        var r = g.GetComponent<MeshRenderer>();
+        r.sharedMaterial = PortalBackMat();
+        r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        GameObjectUtility.SetStaticEditorFlags(g, 0);
+    }
+
+    static Material PortalBackMat()
+    {
+        string mp = MatDir + "/Playground_PortalBack.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (m == null) { m = new Material(AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Ruins_Stone.mat")); AssetDatabase.CreateAsset(m, mp); }
+        return m;
+    }
+
+    [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/ポータルの裏に石のふた")]
+    public static void MenuPortalBacks()
+    {
+        int n = 0;
+        foreach (var pp in Object.FindObjectsOfType<FuwaPlaygroundPortals>(true))
+            foreach (var t in new[] { pp.a, pp.b }) if (t) { PortalBack(t); n++; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+        Debug.Log("[あそびば] ポータルの裏のふた " + n);
     }
 
     static void AddTestUnlockAll(Transform toys, FuwaPlaygroundSpawner sp)
