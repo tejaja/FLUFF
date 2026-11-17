@@ -273,7 +273,7 @@ public static class FuwaTwinTableTest
         // 枠は RaiseCage のあと（かごの床の高さ）
         // AddLeftIsland(root);   // 2026-11-17 てじゃ「一旦もどるのもなしで」（島は「いきさきわからんくなる」）。戻る・島のコードは残す
         RaiseCage(root);   // 2026-11-10 かごを高くして、上から橋が見えるように（門と信号ランプは「くどい」でやめた）
-        AddGates(root);
+        // AddGates(root);   // 2026-11-17 てじゃ「おもったよりこうかないな、やっぱなし」（コードは残す）
 
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
