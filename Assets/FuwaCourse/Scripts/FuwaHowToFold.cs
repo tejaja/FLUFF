@@ -36,6 +36,9 @@ public class FuwaHowToFold : UdonSharpBehaviour
     public float autoCloseDistance = 8f;
     public string titleJa = "あそびかた";
     public string titleEn = "How to Play";
+    [Tooltip("2026-11-17 てじゃ「展開したあとの高さ、もうちょい低く」「展開前はそのまま」：開いた時、板のまん中をこれだけ下げる（看板のローカルの y）。本文・×・開いた見出しの位置は、はじめから下げた所に置いてある")]
+    public float openLower = 0f;
+    private float _panelY0, _borderY0;
 
     private float _p;        // 0=たたむ 1=開く
     private float _target;
@@ -51,8 +54,8 @@ public class FuwaHowToFold : UdonSharpBehaviour
     {
         if (_inited) return;
         _inited = true;
-        if (panel != null) _panelFull = panel.size.y;
-        if (border != null) _borderFull = border.size.y;
+        if (panel != null) { _panelFull = panel.size.y; _panelY0 = panel.transform.localPosition.y; }
+        if (border != null) { _borderFull = border.size.y; _borderY0 = border.transform.localPosition.y; }
         if (body != null) _bodyColor = body.color;
         _shownEn = !(language != null && language.IsEnglish());   // 最初の Update で必ず見出しを書く
     }
@@ -102,6 +105,10 @@ public class FuwaHowToFold : UdonSharpBehaviour
         float e = _p >= 1f ? 1f : (_p <= 0f ? 0f : 1f - Mathf.Pow(1f - _p, 3f) + 0.08f * Mathf.Sin(_p * Mathf.PI));
         float k = Mathf.Lerp(closedHeight / Mathf.Max(0.01f, _panelFull), 1f, e);
         if (panel != null) panel.size = new Vector2(panel.size.x, _panelFull * k);
+        // 開くほど下へ（たたんだ時は元の位置）
+        float drop = openLower * e;
+        if (panel != null) { Vector3 pl = panel.transform.localPosition; panel.transform.localPosition = new Vector3(pl.x, _panelY0 - drop, pl.z); }
+        if (border != null) { Vector3 bl = border.transform.localPosition; border.transform.localPosition = new Vector3(bl.x, _borderY0 - drop, bl.z); }
         // ふちは板より一回り大きいだけ（ふちの太さを上下左右そろえる。比で縮めると上下だけ細くなって変な形だった。2026-10-12 てじゃ）
         if (border != null) border.size = new Vector2(border.size.x, _borderFull - _panelFull * (1f - k) / Mathf.Max(0.01f, borderScale));
         // 見出し：前半で上へ動く。本文：後半でふわっと出る（出きったら見出しは本文の見出しと入れ替わる）
