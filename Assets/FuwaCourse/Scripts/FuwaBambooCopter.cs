@@ -42,6 +42,15 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     public float moveScale = 1f;
     [Tooltip("トリガーを離してからホバリングになるまでの秒数")]
     public float brakeTime = 0.18f;
+    // 2026-11-17 てじゃ「自然下降なし、VRでは右スティックの上下で上昇下降、ジャンプでも上昇。デスクトップはスペースで上昇、ctrlで下降。下降時はプロペラが逆回転」
+    [Tooltip("下降の速さ(m/s)")]
+    public float descendSpeed = 5f;
+    [Tooltip("上下の速さが変わる早さ(m/s²)")]
+    public float verticalAccel = 22f;
+    [Tooltip("VR の右スティックの上下の遊び")]
+    public float stickDead = 0.3f;
+    private float _lookV, _vy;
+    private bool _jumpHeld;
     [Header("羽")]
     public float spinUse = 1500f, spinIdle = 120f, spinAccel = 2400f;   // spinIdle：いつものゆっくり回転（度/秒）
 
@@ -91,6 +100,8 @@ public class FuwaBambooCopter : UdonSharpBehaviour
 
     public override void InputMoveHorizontal(float value, UdonInputEventArgs args) { _moveH = value; }
     public override void InputMoveVertical(float value, UdonInputEventArgs args) { _moveV = value; }
+    public override void InputLookVertical(float value, UdonInputEventArgs args) { _lookV = value; }
+    public override void InputJump(bool value, UdonInputEventArgs args) { _jumpHeld = value; }
 
     public override void OnPickup()
     {
@@ -112,18 +123,13 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         if (!_mine) return;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
-        _using = true; _braking = false;
-        p.SetGravityStrength(0f); _hovering = true;   // _hovering＝重力を切っている（地面についたら戻す）
-        if (p.IsPlayerGrounded()) _liftUntil = Time.time + 0.25f;   // 地面に立っていると横の速さが消されるので、まず少し浮かせる
+        _using = true;   // 上昇の入力として Update で使う
     }
 
     public override void OnPickupUseUp()
     {
         if (!_mine) return;
         _using = false;
-        VRCPlayerApi p = Networking.LocalPlayer;
-        if (p == null) return;
-        _braking = true; _brakeStart = Time.time; _brakeFrom = p.GetVelocity();
     }
 
     private void EndFlight()
@@ -136,9 +142,26 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     private void Update()
     {
         UpdateShadow();
-        // 羽
-        // 2026-11-17 てじゃ「常時ゆっくり回転させよう　トリガーすると高速回転」「もってるときのはなしね」：持っている間はゆっくり回る（台の上・手放した時は止まる）
-        float want = _using ? spinUse : (_mine ? spinIdle : 0f);
+        // 上下の入力：+1 上昇、−1 下降（トリガーも上昇）
+        float vin = 0f;
+        VRCPlayerApi lp0 = _mine ? Networking.LocalPlayer : null;
+        if (lp0 != null)
+        {
+            if (lp0.IsUserInVR())
+            {
+                float a = Mathf.Abs(_lookV);
+                if (a > stickDead) vin = Mathf.Sign(_lookV) * Mathf.InverseLerp(stickDead, 1f, a);
+                if (_jumpHeld) vin = 1f;
+            }
+            else
+            {
+                if (Input.GetKey(KeyCode.Space)) vin = 1f;
+                else if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) vin = -1f;
+            }
+            if (_using) vin = 1f;
+        }
+        // 羽：持っている間はゆっくり、上昇中は速く、下降中は逆回転
+        float want = !_mine ? 0f : (vin > 0.01f ? spinUse : (vin < -0.01f ? -spinUse * 0.7f : spinIdle));
         _spin = Mathf.MoveTowards(_spin, want, spinAccel * Time.deltaTime);
         if (blades != null && _spin != 0f) blades.Rotate(0f, _spin * Time.deltaTime, 0f, Space.Self);
 
@@ -151,26 +174,17 @@ public class FuwaBambooCopter : UdonSharpBehaviour
             FuwaBlower gun = manager.GetMyBlower();
             if (gun != null && gun.IsHeld()) { if (_pickup != null) _pickup.Drop(); return; }
         }
-        if (_using)
+        bool grounded = p.IsPlayerGrounded();
+        if (vin > 0.01f || !grounded)
         {
-            // トリガー中：真上に上昇＋スティックで横移動（2026-11-17 前はプロペラの向きへまっすぐだった）
-            Vector3 v = Hover(p);
-            v.y = speed;
+            // 空中（か上昇の入力）：重力を切って、自然には下がらない。上下は入力どおり、横はふつうの移動
+            if (!_hovering) { _hovering = true; p.SetGravityStrength(0f); _vy = Mathf.Max(0f, p.GetVelocity().y); }
+            float target = vin > 0f ? vin * speed : vin * descendSpeed;
+            _vy = Mathf.MoveTowards(_vy, target, verticalAccel * Time.deltaTime);
+            Vector3 v = Hover(p); v.y = _vy;
             p.SetVelocity(v);
         }
-        else if (_braking)
-        {
-            float t = (Time.time - _brakeStart) / Mathf.Max(0.01f, brakeTime);
-            if (t >= 1f) _braking = false;
-            else { float e = 1f - t; p.SetVelocity(_brakeFrom * (e * e) + Hover(p) * (1f - e * e)); }
-        }
-        else if (!p.IsPlayerGrounded() && (_hovering || p.GetVelocity().y < 0f))
-        {
-            // 持っていて空中：ホバリング（かなりゆっくり降りる）＋ふつうの移動。ジャンプは上がりきってから（落ちはじめたら）
-            if (!_hovering) { _hovering = true; p.SetGravityStrength(0f); }
-            p.SetVelocity(Hover(p));
-        }
-        else if (_hovering && p.IsPlayerGrounded()) { _hovering = false; p.SetGravityStrength(_gravity); }
+        else if (_hovering) { _hovering = false; _vy = 0f; p.SetGravityStrength(_gravity); }   // 地面に着いた
     }
 
     // 見た目を真上に立て直す＋ゆらゆら。手（pickup）の位置が決まった後に動かす
@@ -218,7 +232,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         Vector3 mv = f * _moveV + r * _moveH;
         if (mv.sqrMagnitude > 1f) mv.Normalize();
         Vector3 v = mv * p.GetRunSpeed() * moveScale;
-        v.y = -hoverFall;
+        v.y = 0f;   // 2026-11-17 自然下降なし（上下は Update で）
         return v;
     }
 }
