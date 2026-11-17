@@ -156,6 +156,7 @@ public static class FuwaCourse2_4Builder
         Hazard(root, "BallOut", new Vector3(lb.center.x, outY, lb.center.z), outSize, false);
         Hazard(root, "PlayerOut", new Vector3(lb.center.x, outY - 2f, lb.center.z), outSize, true);
         TwinFallCatcher(root);
+        BeamFallCatcher(root);   // 2026-11-17 鉄骨わたりの下の落ちた判定
         FuwaTurnTableTest.AxleBearingsInCourse();   // 2026-11-17 羽根車の軸と床の間の軸受け
 
         RegisterCheckpoints();
@@ -257,7 +258,7 @@ public static class FuwaCourse2_4Builder
         foreach (var mr in sl.GetComponentsInChildren<MeshRenderer>(true).ToArray())
             if (mr && mr.sharedMaterial && (mr.sharedMaterial.name.EndsWith("_PathA") || mr.sharedMaterial.name.EndsWith("_PathB"))) Object.DestroyImmediate(mr.gameObject);
         int cut = CutBevelInBox(r, colT, box);
-        float L = box.size.z, zc = box.center.z;
+        float zc = box.center.z, L = 2f * zc;   // 坂は local z=0 から始まるので、長さはいつも 2×まん中（シーソーで短くした分をもどす）
         box.size = new Vector3(BeamW, BeamH, L); box.center = new Vector3(0f, -BeamH / 2f, zc); box.enabled = true;
         var beam = new GameObject("Beam").transform; beam.SetParent(colT, false);
         var plate = FuwaTwinTableTest.BridgeMat(true);
@@ -284,12 +285,75 @@ public static class FuwaCourse2_4Builder
         }
         return $"鉄骨わたり 幅 {BeamW}m 長さ {L:F1}m（ベベルから {cut} 三角形）";
     }
+    // 鉄骨の両はし（2026-11-17 てじゃ「接続部とか道の橋を綺麗にしよ」）：
+    //  ① 道のはしの壁：前は坂とつながっていたので、ベベルのときに壁が消えていた（となりと同じ高さで続く辺の壁は消す）→ シーンだけ直す時は、はしの壁の板を足す（作り直しならベベルが壁を作る）
+    //  ② 鉄骨の受け：道のはしの壁に、鉄骨をのせる受け金具（鋼の板＋ボルト）と、鉄骨の下に当て板
+    public static string BeamJointCaps(Transform r)
+    {
+        var sl = r.Find("Path/Road19_Slope"); var colT = sl ? sl.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Col") : null; var box = colT ? colT.GetComponent<BoxCollider>() : null; if (!box) return "鉄骨なし";
+        foreach (var o in r.GetComponentsInChildren<Transform>(true).Where(x => x.name == "BeamJoint").ToArray()) if (o) Object.DestroyImmediate(o.gameObject);
+        float L = box.size.z, zc = box.center.z;
+        Vector3 S = colT.TransformPoint(new Vector3(0f, 0f, zc - L / 2f)), E = colT.TransformPoint(new Vector3(0f, 0f, zc + L / 2f));
+        var f = E - S; f.y = 0f; f.Normalize();
+        var steel = cwDark != null ? cwDark : FuwaGearTest.Mat("GearTest_Gear", new Color(0.36f, 0.38f, 0.43f));
+        var brass = cwBrass != null ? cwBrass : FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var pb = r.Find("PathBevel"); var pbr = pb ? pb.GetComponent<MeshRenderer>() : null; var pbm = pb ? pb.GetComponent<MeshFilter>().sharedMesh : null;
+        Physics.SyncTransforms();
+        int n = 0;
+        foreach (var (pt, dir, nm) in new[] { (S, f, "Lo"), (E, -f, "Hi") })
+        {
+            // dir：道のはしから鉄骨の方（＝壁の外向き）。壁は pt を通る、dir に垂直なたての面
+            var holder = new GameObject("BeamJoint").transform; holder.SetParent(r, true); holder.position = pt; holder.rotation = Quaternion.LookRotation(dir, Vector3.up);
+            // ① 壁（道のはしの色：はしの上の面の材質をベベルのメッシュから拾う）
+            Material wallM = pathB;
+            if (pbr)
+            {
+                // ベベルは当たりがないので、近い三角形の材質を探す
+                var v = pbm.vertices; var tp = pb.InverseTransformPoint(pt - dir * 0.3f); float best = 1e9f; int bestS = -1;
+                for (int sIdx = 0; sIdx < pbm.subMeshCount; sIdx++) { var t = pbm.GetTriangles(sIdx); for (int k = 0; k < t.Length; k += 3) { var c = (v[t[k]] + v[t[k + 1]] + v[t[k + 2]]) / 3f; float d = (c - tp).sqrMagnitude; if (d < best) { best = d; bestS = sIdx; } } }
+                if (bestS >= 0) wallM = pbr.sharedMaterials[bestS];
+            }
+            if (!wallM) wallM = FuwaGearTest.Mat("Course2_4_PathB", PathColB);
+            var wall = GameObject.CreatePrimitive(PrimitiveType.Cube); wall.name = "EndWall"; Object.DestroyImmediate(wall.GetComponent<Collider>());
+            wall.transform.SetParent(holder, false); wall.transform.localPosition = new Vector3(0f, -0.3f - 0.01f, -0.01f); wall.transform.localScale = new Vector3(4f - 0.02f, 0.58f, 0.02f);
+            wall.GetComponent<MeshRenderer>().sharedMaterial = wallM;
+            // ② 受け金具：壁の外に鋼の板（鉄骨より少し広い）＋ボルト4つ、鉄骨の下に当て板
+            var bk = GameObject.CreatePrimitive(PrimitiveType.Cube); bk.name = "Bracket"; Object.DestroyImmediate(bk.GetComponent<Collider>());
+            bk.transform.SetParent(holder, false); bk.transform.localPosition = new Vector3(0f, -0.42f, 0.03f); bk.transform.localScale = new Vector3(BeamW + 0.5f, 0.62f, 0.05f);
+            bk.GetComponent<MeshRenderer>().sharedMaterial = steel;
+            foreach (var (bx, by) in new[] { (-1f, -0.2f), (1f, -0.2f), (-1f, -0.62f), (1f, -0.62f) })
+            {
+                var b = GameObject.CreatePrimitive(PrimitiveType.Cylinder); b.name = "Bolt"; Object.DestroyImmediate(b.GetComponent<Collider>());
+                b.transform.SetParent(holder, false); b.transform.localPosition = new Vector3(bx * (BeamW / 2f + 0.15f), by, 0.065f); b.transform.localRotation = Quaternion.Euler(90f, 0f, 0f); b.transform.localScale = new Vector3(0.08f, 0.015f, 0.08f);
+                b.GetComponent<MeshRenderer>().sharedMaterial = brass;
+            }
+            var seat = GameObject.CreatePrimitive(PrimitiveType.Cube); seat.name = "Seat"; Object.DestroyImmediate(seat.GetComponent<Collider>());
+            seat.transform.SetParent(holder, false); seat.transform.localPosition = new Vector3(0f, -0.75f, 0.2f); seat.transform.localScale = new Vector3(BeamW + 0.2f, 0.06f, 0.4f);
+            seat.GetComponent<MeshRenderer>().sharedMaterial = steel;
+            n++;
+        }
+        return "つなぎ目 " + n;
+    }
+    // 鉄骨の下の落ちた判定：鉄骨にそってかたむいた薄い板（鉄骨の上から 0.9〜1.3m 下、幅 6m）。下の段とは 2.6m 以上あいている（調べた）。竹とんぼ・デバッグ飛行は無視
+    public static string BeamFallCatcher(Transform r)
+    {
+        var sl = r.Find("Path/Road19_Slope"); var colT = sl ? sl.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Col") : null; var box = colT ? colT.GetComponent<BoxCollider>() : null; if (!box) return "鉄骨なし";
+        var old = r.Find("PlayerOut_Beam"); if (old) Object.DestroyImmediate(old.gameObject);
+        var src = r.Find("PlayerOut")?.GetComponent<FuwaPlayerCatcher>();
+        var g = new GameObject("PlayerOut_Beam"); g.transform.SetParent(r, false);
+        g.transform.position = colT.TransformPoint(new Vector3(0f, -1.1f, box.center.z)); g.transform.rotation = colT.rotation;
+        var bc = g.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(6f, 0.4f, box.size.z - 0.6f);
+        var pc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(g);
+        pc.ball = src ? src.ball : ballProxy; pc.copterSafe = true; pc.debugFly = Object.FindObjectsOfType<FuwaPlayerCatcher>(true).Select(c => c.debugFly).FirstOrDefault(d => d);
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pc); FuwaStage2WaterTest.NoSync(pc);
+        return "OK";
+    }
     [MenuItem("FuwaCourse/ステージ2/2–4 最後の坂を鉄骨わたりにする")]
     public static void BeamSlopeMenu()
     {
         var r = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "FuwaCourse2_4" && t.parent == null); if (!r) return;
         root = r; var pathRef = GameObject.Find("FuwaCourse3/PathMesh"); pathLayer = pathRef ? pathRef.layer : 11;
-        Debug.Log("[2–4] " + BeamSlope(r));
+        Debug.Log("[2–4] " + BeamSlope(r) + " / " + BeamJointCaps(r) + " / 落ちた判定 " + BeamFallCatcher(r));
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.gameObject.scene); AssetDatabase.SaveAssets();
     }
 
