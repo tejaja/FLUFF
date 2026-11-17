@@ -659,7 +659,8 @@ public static class FuwaTwinTableTest
     // ===== 2026-11-17 てじゃ「ピッタリあってからちょっと間あけてすこしずつ戻る、かつ一部に金網おいてまっすぐ進めないように」=====
     //  ・答えの形で止まって CrossHold 秒たつと、A が反時計回りに CrossDriftDegA 度/秒で次の「はじめと同じ形」（+90°）まで戻る（FuwaTurnTable の drift〜）
     //  ・A の上に、まん中をななめ（橋の間 45°）に横切る金網 DeckFenceLen m。両はしは床のふちまですき間（回りこむ）。A といっしょに回る
-    public static float CrossDriftDegA = 2.5f, CrossHold = 3f, DeckFenceLen = 5f, DeckFenceH = 2.2f, DeckFenceDeg = 45f;
+    public static float CrossDriftDegA = 2.5f, CrossHold = 3f, DeckFenceLen = 5f, DeckFenceH = 2.2f;
+    public static float[] DeckFenceDegs = { 45f, 135f };   // 2026-11-17 てじゃ「クロスさせよう」→ X（4本の橋のあいだを全部しきる。ふちのすき間から回りこむ）
     public static string ApplyCrossing(Transform root)
     {
         var tt = root.GetComponentsInChildren<FuwaTurnTable>(true).FirstOrDefault(x => x.master == null && x.table != null);
@@ -668,14 +669,17 @@ public static class FuwaTwinTableTest
         tt.table2 = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(x => x.name == "TableB");
         UdonSharpEditorUtility.CopyProxyToUdon(tt); EditorUtility.SetDirty(tt);
         var a = tt.table;
-        var old = a.Find("DeckFence"); if (old) Object.DestroyImmediate(old.gameObject);
+        foreach (var o in a.Cast<Transform>().Where(x => x.name.StartsWith("DeckFence")).ToArray()) Object.DestroyImmediate(o.gameObject);
         var light = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f));
         var axleM = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
         // WireFence の幅は local Z。yaw で Z を床の DeckFenceDeg の向きへ（Polar と同じ角度の取り方：(cos, sin)）
-        var f = FuwaTurnTableTest.WireFence(a, new Vector3(0f, RoadTh, 0f), 90f - DeckFenceDeg, DeckFenceLen, DeckFenceH, light, axleM);
-        f.name = "DeckFence";
+        for (int i = 0; i < DeckFenceDegs.Length; i++)
+        {
+            var f = FuwaTurnTableTest.WireFence(a, new Vector3(0f, RoadTh, 0f), 90f - DeckFenceDegs[i], DeckFenceLen, DeckFenceH, light, axleM);
+            f.name = "DeckFence" + i;
+        }
         // 道の上（RoadTh）に立てる。当たりは回る床の子なのでいっしょに回る
-        return $"戻る A {CrossDriftDegA}°/秒・待ち {CrossHold}秒、金網 {DeckFenceLen}m（{DeckFenceDeg}°）";
+        return $"戻る A {CrossDriftDegA}°/秒・待ち {CrossHold}秒、金網 {DeckFenceLen}m（{string.Join("・", DeckFenceDegs)}°）";
     }
     [MenuItem("FuwaCourse/ステージ2/2–4 2枚の回転床：戻る＋床の金網を付け直す")]
     public static void ApplyCrossingToCourse()
