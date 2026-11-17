@@ -16,6 +16,7 @@ public static class FuwaHubSignStyle
     const float StitchInset = 0.17f;    // ステッチの内側への入り
     const float BodyBehind = 0.2f;      // 板の真ん中の厚みの中心（文字より後ろ）
     const float ExtraH = 0f;            // 元の板より縦にのばす分（下へ）。2026-11-17 人数を名前の右に出すようにして0に（前は0.24）
+    const float TextLift = 0.14f;       // 板を文字に対して下げる分＝文字が板の中で上に寄る（2026-11-17 てじゃ「下の文がギリギリ、文字を上に」）
     const float LineSpacing = -12f;
     const bool ShowStitch = false;      // 内側のステッチ（2026-10-13 てじゃ「ステッチも外してみて」）
 
@@ -54,7 +55,7 @@ public static class FuwaHubSignStyle
         pt.gameObject.SetActive(false); if (bt != null) bt.gameObject.SetActive(false);
         string key = "Hub_" + kind;
         var deco = new GameObject("SignDeco").transform; deco.SetParent(sign, false);
-        deco.localPosition = new Vector3(pt.localPosition.x, pt.localPosition.y - ExtraH * 0.5f, 0f); deco.localRotation = Quaternion.identity;
+        deco.localPosition = new Vector3(pt.localPosition.x, pt.localPosition.y - ExtraH * 0.5f - TextLift, 0f); deco.localRotation = Quaternion.identity;
         float zc = pt.localPosition.z + BodyBehind;
 
         // 板（クッション）：下の方はモードの色をうっすら（光の向きに関係なく下向きの面）
