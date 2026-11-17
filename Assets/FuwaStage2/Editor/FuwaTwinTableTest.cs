@@ -659,7 +659,8 @@ public static class FuwaTwinTableTest
     // ===== 2026-11-17 てじゃ「ピッタリあってからちょっと間あけてすこしずつ戻る、かつ一部に金網おいてまっすぐ進めないように」=====
     //  ・答えの形で止まって CrossHold 秒たつと、A が反時計回りに CrossDriftDegA 度/秒で次の「はじめと同じ形」（+90°）まで戻る（FuwaTurnTable の drift〜）
     //  ・A の上に、まん中をななめ（橋の間 45°）に横切る金網 DeckFenceLen m。両はしは床のふちまですき間（回りこむ）。A といっしょに回る
-    public static float CrossDriftDegA = 2.5f, CrossHold = 3f, DeckFenceLen = 5f, DeckFenceH = 2.2f;
+    public static float CrossDriftDegA = 0f,   // 2026-11-17 てじゃ「戻るのもびみょう」→ 0（もどすなら 2.5）
+        CrossDriftDegAOld = 2.5f, CrossHold = 3f, DeckFenceLen = 5f, DeckFenceH = 2.2f;
     // 2026-11-17 てじゃ「プロペラであわせるときにめっちゃ見づらい」「なしなし」→ 金網・柱はなし（{} 。もどすなら { 45f, 135f }）
     public static float[] DeckFenceDegs = { };   // 2026-11-17 てじゃ「クロスさせよう」→ X（4本の橋のあいだを全部しきる。ふちのすき間から回りこむ）
     public static string ApplyCrossing(Transform root)

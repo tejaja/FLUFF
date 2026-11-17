@@ -155,6 +155,7 @@ public static class FuwaCourse2_4Builder
         float outY = Mathf.Min(-7f, OutFloorY() - 3f);
         Hazard(root, "BallOut", new Vector3(lb.center.x, outY, lb.center.z), outSize, false);
         Hazard(root, "PlayerOut", new Vector3(lb.center.x, outY - 2f, lb.center.z), outSize, true);
+        TwinFallCatcher(root);
 
         RegisterCheckpoints();
         var visb = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(m => m && m.gameObject.scene.IsValid() && m.GetType().Name == "FuwaAreaVisibility");
@@ -3260,6 +3261,31 @@ public static class FuwaCourse2_4Builder
         var m = SaveMesh(name, v, t);
         g.AddComponent<MeshFilter>().sharedMesh = m; g.AddComponent<MeshRenderer>().sharedMaterial = mat;
         g.AddComponent<MeshCollider>().sharedMesh = m;
+    }
+
+    // 2026-11-17 てじゃ「ここ下落ちると下段コースいっちゃうな」：2枚の回転床（⑤）の下は ①（乗る歯車）の上 → 床のすぐ下に薄い人用の当たり（落ちた！でチェックポイントへ）。
+    //  床の下 TwinCatchTop〜TwinCatchBot（S5 の local y）。下の段を歩く人の頭が入っても、足がこの下（minFeetY）なら無視。ふわふわは下の地面に当たってアウトになるのでなし
+    public static float TwinCatchTop = -0.95f, TwinCatchBot = -1.45f;
+    static readonly Rect TwinCatchXZ = new Rect(-15f, -16f, 39f, 28f);   // S5 の local x・z（かごの手前の道の下はのぞく）
+    static void TwinFallCatcher(Transform r)
+    {
+        var s = r.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "S5_TwinTable"); if (!s) return;
+        var old = r.Find("PlayerOut_Twin"); if (old) Object.DestroyImmediate(old.gameObject);
+        var src = r.Find("PlayerOut")?.GetComponent<FuwaPlayerCatcher>();
+        var g = new GameObject("PlayerOut_Twin"); g.transform.SetParent(r, false);
+        g.transform.position = s.TransformPoint(new Vector3(TwinCatchXZ.center.x, (TwinCatchTop + TwinCatchBot) / 2f, TwinCatchXZ.center.y)); g.transform.rotation = s.rotation;
+        var bc = g.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.size = new Vector3(TwinCatchXZ.width, TwinCatchTop - TwinCatchBot, TwinCatchXZ.height);
+        var pc = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPlayerCatcher>(g);
+        pc.ball = src ? src.ball : ballProxy; pc.copterSafe = true; pc.debugFly = Object.FindObjectsOfType<FuwaPlayerCatcher>(true).Select(c => c.debugFly).FirstOrDefault(d => d);
+        pc.minFeetY = s.TransformPoint(new Vector3(0f, TwinCatchBot, 0f)).y;
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pc); FuwaStage2WaterTest.NoSync(pc);
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–4 2枚の回転床の下の落ちた判定を付け直す")]
+    public static void TwinFallCatcherMenu()
+    {
+        var r = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "FuwaCourse2_4" && t.parent == null); if (!r) return;
+        TwinFallCatcher(r); UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.gameObject.scene);
+        Debug.Log("[2–4] 回転床の下の落ちた判定 " + (r.Find("PlayerOut_Twin") ? "OK" : "なし"));
     }
 
     static void Hazard(Transform r, string name, Vector3 lp, Vector3 size, bool player)

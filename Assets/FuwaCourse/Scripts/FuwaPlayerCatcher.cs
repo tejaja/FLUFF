@@ -11,10 +11,13 @@ public class FuwaPlayerCatcher : UdonSharpBehaviour
     public bool copterSafe = false;
     [Tooltip("copterSafe の時、デバッグ飛行中（FuwaDebugFly）も無視する（公開前に消す物）")]
     public FuwaDebugFly debugFly;
+    [Tooltip("2026-11-17 2–4 の回転床の下（下の段のコースの上）：足（GetPosition）がこの高さ（ワールド y）より下なら無視。下の段を歩いている人の頭が入っても落ちた扱いにしない")]
+    public float minFeetY = -100000f;
 
     public override void OnPlayerTriggerEnter(VRCPlayerApi player)
     {
         if (player == null || !player.isLocal || ball == null) return;
+        if (player.GetPosition().y < minFeetY) return;
         if (copterSafe && (HoldingCopter(player) || (debugFly != null && debugFly.IsFlying()))) return;
         ball.BeginPlayerMiss("落ちた！", "You fell!");
     }
