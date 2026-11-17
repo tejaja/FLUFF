@@ -65,7 +65,9 @@ public static class FuwaGiantMushrooms
         {
             var st = m.Find("Stem"); var cp = m.Find("Cap"); if (st == null || cp == null) continue;
             string key = m.GetSiblingIndex().ToString();
-            int kind = kindOrder.IndexOf(m) % Kinds.Length;   // 形も4種が同じくらいずつ（ばらばらに選ぶと1種も出ないことがあった）
+            int kind = kindOrder.IndexOf(m) % Kinds.Length;   // 形も同じくらいずつ（ばらばらに選ぶと1種も出ないことがあった）
+            // 1本ずつの指定（2026-11-17 てじゃ「みぎのでかい黄色をドーム状のやつにして」：3番目＝(-65, 10, -47) のベル型→ドーム）
+            if (m.GetSiblingIndex() == 3) kind = 2;
             var stemMesh = stems[kind]; var capMesh = caps[kind];
             st.GetComponent<MeshFilter>().sharedMesh = stemMesh;
             st.GetComponent<MeshRenderer>().sharedMaterials = new[] { stemMat };
