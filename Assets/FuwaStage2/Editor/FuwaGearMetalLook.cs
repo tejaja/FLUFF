@@ -17,6 +17,8 @@ public static class FuwaGearMetalLook
     // 2026-11-13 てじゃ「乗れるギアだけ目立たせる方法ないかな」→ B「乗れない歯車を暗くして沈める」：乗れない歯車の色を Dim 倍（1 で なし）
     //  乗れる＝FuwaGearRide の歯車・窓のある歯車 HG・ごつい歯車 CG・段つき歯車 SG の、ふちより下に出ていない部品（下の動力の歯車・軸は暗くする）
     public static float Dim = 0.55f;
+    // 2026-11-17 てじゃ「歯車の円形の模様、もうちょい中心よりにずらせないかな」：歯の帯（一段暗い所）と段差の線を、歯の根元よりこれだけ内へ（m）
+    public static float RootIn = 0.1f;
     static readonly Regex RideRoot = new Regex(@"^(HG\d+_z\d+|CG\d+_z\d+|SG[AB])$");
     static HashSet<Transform> RideRoots(Transform course)
     {
@@ -144,7 +146,7 @@ public static class FuwaGearMetalLook
         m.uv = uv; EditorUtility.SetDirty(m);
         bool ring = m.name.Contains("Ring");
         var mz = Teeth.Match(m.name); float root = 2f;
-        if (mz.Success && int.TryParse(mz.Groups[1].Value, out int z) && z > 4) root = (z - 2.5f) / (z + 2f);
+        if (mz.Success && int.TryParse(mz.Groups[1].Value, out int z) && z > 4) root = Mathf.Max(0.3f, (z - 2.5f) / (z + 2f) - RootIn / R);
         return (root, R, !ring);
     }
 }
