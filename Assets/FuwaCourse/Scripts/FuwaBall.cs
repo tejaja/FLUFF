@@ -375,6 +375,7 @@ public class FuwaBall : UdonSharpBehaviour
             if (face != _faceShown) { _faceShown = face; _hitFaceShown = hit; _furMat.SetFloat("_FaceHit", face); }
         }
         if (_stuck) UpdateStuckShake();
+        if (_stuck && webCatch && !_softStick && webAutoFree > 0f && _resetAt < 0f && !_hidden && Time.time - _stuckStart > webAutoFree) WebRelease();   // 詰み防止
         UpdateAppear();
         ShareBallPos();
         UpdateInflate();
@@ -777,6 +778,8 @@ public class FuwaBall : UdonSharpBehaviour
     public float webWeakHit = 0.4f, webDecay = 0.1f;   // 2026-11-11 てじゃ「フルチャ1回、チャージなし3回」：0.34/0.2 だと撃つ間に減って4回いることがあった
     [Tooltip("はがれてから、また巣にくっつくまでの秒数（2026-11-11 てじゃ「真横に当てると捕まって詰む」：穴のある巣は中にいる間ずっと判定するので、はがれた瞬間にまたくっついていた）")]
     public float webFreeTime = 0.7f;
+    [Tooltip("巣にくっついたままこの秒数たつと、フルチャで擃った時と同じようにはがれる（2026-11-17 てじゃ「詰み防止」。0 でなし）")]
+    public float webAutoFree = 10f;
     private float _webFreeUntil = -10f;
     private float _webLoose;
     private float _shotCharge = -1f;
@@ -806,19 +809,7 @@ public class FuwaBall : UdonSharpBehaviour
         float charge = _shotCharge; _shotCharge = -1f;
         if (charge < 0f) charge = 0f;
         _webLoose += charge >= webFullCharge ? 1f : Mathf.Lerp(webWeakHit, 1f, charge);
-        if (_webLoose >= 0.999f)
-        {
-            // はがれる：巣と反対（来た側）へポーン
-            _stuck = false; _webLoose = 0f; _webFreeUntil = Time.time + webFreeTime;
-            Vector3 away = -_anchorDir; if (away.sqrMagnitude < 0.01f) away = Vector3.up;
-            transform.position = _stuckPos + away.normalized * 0.05f;
-            _rb.isKinematic = false;
-            Vector3 flat = new Vector3(away.x, 0f, away.z);
-            _rb.velocity = (flat.sqrMagnitude > 0.0001f ? flat.normalized * webPopSpeed : Vector3.zero) + Vector3.up * webPopUp;
-            _anchorDir = Vector3.down;
-            StartSquash(_rb.velocity * 1.5f);
-            EmitShotPuff(_rb.velocity);
-        }
+        if (_webLoose >= 0.999f) WebRelease();
         else
         {
             // ゆれるだけ
@@ -826,6 +817,20 @@ public class FuwaBall : UdonSharpBehaviour
             StartSquash(velocityChange);
         }
         _hitFaceUntil = Time.time + hitFaceTime;
+    }
+
+    // はがれる：巣と反対（来た側）へポーン（フルチャで撃った時・くっついたまま webAutoFree 秒たった時）
+    private void WebRelease()
+    {
+        _stuck = false; _webLoose = 0f; _webFreeUntil = Time.time + webFreeTime;
+        Vector3 away = -_anchorDir; if (away.sqrMagnitude < 0.01f) away = Vector3.up;
+        transform.position = _stuckPos + away.normalized * 0.05f;
+        _rb.isKinematic = false;
+        Vector3 flat = new Vector3(away.x, 0f, away.z);
+        _rb.velocity = (flat.sqrMagnitude > 0.0001f ? flat.normalized * webPopSpeed : Vector3.zero) + Vector3.up * webPopUp;
+        _anchorDir = Vector3.down;
+        StartSquash(_rb.velocity * 1.5f);
+        EmitShotPuff(_rb.velocity);
     }
 
     public void StickPop()
