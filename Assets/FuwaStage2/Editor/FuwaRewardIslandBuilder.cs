@@ -107,6 +107,9 @@ public static class FuwaRewardIslandBuilder
         // 島の中身：全クリした人だけ
         var content = new GameObject("RewardContent").transform; content.SetParent(root, false);
         PhotoStage(content, floorY, slot4, log);
+        log.Add(GoldGunSetup());
+        GoldGunStand(content, floorY, slot4);
+        TrophyShelf(content, floorY);
         var rv = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaAllClearReveal>(root.gameObject);
         rv.records = Object.FindObjectsOfType<FuwaRecords>(true).Where(x => x.name == "Records" || x.name == "Records2").ToArray();
         rv.showIfClear = new[] { unl.gameObject };   // 島の中身はいつも出す（島へは全クリしないと行けない）
@@ -193,6 +196,125 @@ public static class FuwaRewardIslandBuilder
         var mark = new GameObject("CameraSpot").transform; mark.SetParent(content, false); mark.localPosition = new Vector3(0f, floorY + 0.01f, -1.6f);
         var ring = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ring.name = "Ring"; Object.DestroyImmediate(ring.GetComponent<Collider>());
         ring.transform.SetParent(mark, false); ring.transform.localScale = new Vector3(0.7f, 0.006f, 0.7f); ring.GetComponent<MeshRenderer>().sharedMaterial = brass;
+    }
+
+    // ===== 金ピカの銃（2026-11-17 てじゃ「銃金ピカ化スイッチ」）=====
+    //  銃（FuwaBlower）の見た目のうち、本体・持ち手・口・通気口の材質を金色の写しに差しかえる用意（FuwaBlower.goldRenderers / goldMats）と、金ピカの間のキラキラ
+    static readonly (string src, Color col)[] GoldOf = {
+        ("Fuwa_Blower", new Color(0.98f, 0.78f, 0.30f)), ("Fuwa_BlowerGrip", new Color(0.78f, 0.55f, 0.20f)),
+        ("Fuwa_BlowerMuzzle", new Color(1.00f, 0.90f, 0.55f)), ("Fuwa_BlowerVent", new Color(0.86f, 0.64f, 0.24f)) };
+    public static string GoldGunSetup()
+    {
+        int n = 0;
+        foreach (var b in Object.FindObjectsOfType<FuwaBlower>(true))
+        {
+            if (!b.visualRoot) continue;
+            var rs = new List<Renderer>(); var ms = new List<Material>();
+            foreach (var r in b.visualRoot.GetComponentsInChildren<Renderer>(true))
+            {
+                var m = r.sharedMaterial; if (!m) continue;
+                string bn = m.name.Replace("_Gold", "");
+                var g = GoldOf.FirstOrDefault(x => x.src == bn); if (g.src == null) continue;
+                var baseM = AssetDatabase.FindAssets(bn + " t:Material").Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<Material>).FirstOrDefault(x => x && x.name == bn) ?? m;
+                rs.Add(r); ms.Add(GoldMat(baseM, g.col));
+            }
+            // キラキラ（見た目の子、金ピカの間だけ）
+            var old = b.visualRoot.transform.Find("GoldSparkle"); if (old) Object.DestroyImmediate(old.gameObject);
+            var fx = new GameObject("GoldSparkle"); fx.transform.SetParent(b.visualRoot.transform, false); fx.transform.localPosition = new Vector3(0f, 0.02f, 0.05f);
+            var p = fx.AddComponent<ParticleSystem>(); p.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var main = p.main; main.loop = true; main.playOnAwake = true; main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.8f); main.startSpeed = new ParticleSystem.MinMaxCurve(0.02f, 0.08f);
+            main.startSize = new ParticleSystem.MinMaxCurve(0.012f, 0.03f); main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.93f, 0.6f), new Color(1f, 1f, 0.9f)); main.maxParticles = 30; main.simulationSpace = ParticleSystemSimulationSpace.World;
+            var em = p.emission; em.rateOverTime = 7f;
+            var sh = p.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(0.12f, 0.12f, 0.35f);
+            var sz = p.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0f)));
+            var pr = fx.GetComponent<ParticleSystemRenderer>(); pr.sharedMaterial = SparkleMat();
+            fx.SetActive(false);
+            b.goldRenderers = rs.ToArray(); b.goldMats = ms.ToArray(); b.goldFx = fx;
+            UdonSharpEditorUtility.CopyProxyToUdon(b); EditorUtility.SetDirty(b); n++;
+        }
+        return "金ピカの銃 " + n;
+    }
+    static Material GoldMat(Material src, Color col)
+    {
+        string path = "Assets/FuwaStage2/Materials/" + src.name + "_Gold.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, path); } else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
+        m.name = src.name + "_Gold";
+        if (m.HasProperty("_Color")) m.SetColor("_Color", col);
+        if (m.HasProperty("_MetalEnv")) { m.SetFloat("_MetalEnv", 0.65f); m.SetFloat("_MetalSpec", 0.35f); m.SetFloat("_MetalSize", 0.93f); }
+        EditorUtility.SetDirty(m); return m;
+    }
+    static Material SparkleMat()
+    {
+        string path = "Assets/FuwaStage2/Materials/Reward_Sparkle.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m) { var sh = Shader.Find("Particles/Standard Unlit") ?? Shader.Find("Unlit/Color"); m = new Material(sh); AssetDatabase.CreateAsset(m, path); }
+        var tex = AssetDatabase.FindAssets("Default-Particle t:Texture").Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<Texture2D>).FirstOrDefault();
+        if (tex && m.HasProperty("_MainTex")) m.SetTexture("_MainTex", tex);
+        if (m.HasProperty("_Mode")) m.SetFloat("_Mode", 4f);   // 加算
+        EditorUtility.SetDirty(m); return m;
+    }
+    // 島の金ピカの台：クリックで自分の銃を金ピカに（FuwaGoldGunSwitch）。台の上に金のメダル、前に「金ピカ ON/OFF」
+    static void GoldGunStand(Transform content, float floorY, Transform slot4)
+    {
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var light = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f));
+        var st = new GameObject("GoldGunStand").transform; st.SetParent(content, false); st.localPosition = new Vector3(-3.4f, floorY, -1.0f); st.localRotation = Quaternion.Euler(0f, 50f, 0f);
+        Transform P(PrimitiveType t, string n, Vector3 lp, Vector3 ls, Material m, Quaternion? lr = null)
+        { var g = GameObject.CreatePrimitive(t); g.name = n; Object.DestroyImmediate(g.GetComponent<Collider>()); g.transform.SetParent(st, false); g.transform.localPosition = lp; g.transform.localScale = ls; if (lr.HasValue) g.transform.localRotation = lr.Value; g.GetComponent<MeshRenderer>().sharedMaterial = m; return g.transform; }
+        P(PrimitiveType.Cylinder, "Base", new Vector3(0f, 0.05f, 0f), new Vector3(0.9f, 0.05f, 0.9f), light);
+        P(PrimitiveType.Cylinder, "Pillar", new Vector3(0f, 0.5f, 0f), new Vector3(0.45f, 0.4f, 0.45f), light);
+        P(PrimitiveType.Cylinder, "Top", new Vector3(0f, 0.92f, 0f), new Vector3(0.7f, 0.03f, 0.7f), brass);
+        var gold = GoldMat(brass, new Color(1f, 0.82f, 0.32f));
+        P(PrimitiveType.Cylinder, "Medal", new Vector3(0f, 1.25f, 0f), new Vector3(0.42f, 0.03f, 0.42f), gold, Quaternion.Euler(90f, 0f, 0f));
+        P(PrimitiveType.Cylinder, "MedalRim", new Vector3(0f, 1.25f, 0f), new Vector3(0.46f, 0.02f, 0.46f), brass, Quaternion.Euler(90f, 0f, 0f));
+        // 文字（看板と同じフォント）
+        var lt = new GameObject("Label"); lt.transform.SetParent(st, false); lt.transform.localPosition = new Vector3(0f, 0.6f, -0.235f); lt.transform.localRotation = Quaternion.Euler(0f, 0f, 0f);
+        var tmp = lt.AddComponent<TMPro.TextMeshPro>(); tmp.text = "きんピカ OFF"; tmp.fontSize = 3.2f;   // 「金」は看板のフォントにない tmp.alignment = TMPro.TextAlignmentOptions.Center; tmp.color = new Color(0.45f, 0.42f, 0.55f);
+        var srcT = slot4.Find("Label")?.GetComponent<TMPro.TMP_Text>(); if (srcT) { tmp.font = srcT.font; tmp.fontSharedMaterial = srcT.fontSharedMaterial; }
+        tmp.rectTransform.sizeDelta = new Vector2(3f, 0.8f); lt.transform.localScale = Vector3.one * 0.3f;
+        // クリックの当たり＋スクリプト
+        var bc = st.gameObject.AddComponent<BoxCollider>(); bc.center = new Vector3(0f, 0.7f, 0f); bc.size = new Vector3(0.9f, 1.4f, 0.9f);
+        var sw = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGoldGunSwitch>(st.gameObject);
+        sw.manager = Object.FindObjectsOfType<FuwaRespawnManager>(true).FirstOrDefault(); sw.label = tmp; sw.onText = "きんピカ ON"; sw.offText = "きんピカ OFF";
+        UdonSharpEditorUtility.CopyProxyToUdon(sw);
+        var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw); if (ub) { ub.interactText = "きんピカ"; EditorUtility.SetDirty(ub); }
+    }
+
+    // ===== 手に持てるトロフィー（2026-11-17 てじゃ「手に持てるトロフィーみたいなやつ」）=====
+    //  Blender の Reward_Trophy（金のカップ・取っ手・2段の台・てっぺんにふわふわ）。島の右の長い台に3つ。持てる（VRCPickup＋VRCObjectSync で全員に同期）、
+    //  手放して 20 秒で台にもどる（FuwaTrophy）。浮いたまま置ける（重力なし）
+    public static int TrophyCount = 3;
+    static void TrophyShelf(Transform content, float floorY)
+    {
+        var mesh = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaStage2/Meshes/Reward_Trophy.asset"); if (!mesh) return;
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var light = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f));
+        var baseM = FuwaGearTest.Mat("GearTest_Gear", new Color(0.36f, 0.38f, 0.43f));
+        var goldM = GoldMat(brass, new Color(1f, 0.8f, 0.3f));
+        var fluffM = FuwaGearTest.Mat("Reward_TrophyFluff", new Color(1f, 0.93f, 0.96f));
+        var sh = new GameObject("TrophyShelf").transform; sh.SetParent(content, false); sh.localPosition = new Vector3(3.4f, floorY, -1.0f); sh.localRotation = Quaternion.Euler(0f, -50f, 0f);
+        Transform P(PrimitiveType t, string n, Vector3 lp, Vector3 ls, Material m)
+        { var g = GameObject.CreatePrimitive(t); g.name = n; Object.DestroyImmediate(g.GetComponent<Collider>()); g.transform.SetParent(sh, false); g.transform.localPosition = lp; g.transform.localScale = ls; g.GetComponent<MeshRenderer>().sharedMaterial = m; return g.transform; }
+        float w = 0.55f * TrophyCount + 0.3f;
+        P(PrimitiveType.Cube, "Base", new Vector3(0f, 0.05f, 0f), new Vector3(w + 0.1f, 0.1f, 0.7f), light);
+        P(PrimitiveType.Cube, "Body", new Vector3(0f, 0.45f, 0f), new Vector3(w, 0.7f, 0.6f), light);
+        P(PrimitiveType.Cube, "Top", new Vector3(0f, 0.82f, 0f), new Vector3(w + 0.08f, 0.04f, 0.68f), brass);
+        var col = sh.gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0f, 0.42f, 0f); col.size = new Vector3(w + 0.1f, 0.84f, 0.7f);
+        for (int i = 0; i < TrophyCount; i++)
+        {
+            float x = -0.55f * (TrophyCount - 1) / 2f + 0.55f * i;
+            var t = new GameObject("Trophy" + i); t.transform.SetParent(sh, false); t.transform.localPosition = new Vector3(x, 0.84f, 0f);
+            t.AddComponent<MeshFilter>().sharedMesh = mesh; t.AddComponent<MeshRenderer>().sharedMaterials = new[] { baseM, goldM, fluffM };
+            var bc = t.AddComponent<BoxCollider>(); bc.center = mesh.bounds.center; bc.size = mesh.bounds.size;
+            var rb = t.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+            var pk = t.AddComponent<VRC.SDK3.Components.VRCPickup>(); pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.pickupable = true; pk.InteractionText = "\u30c8\u30ed\u30d5\u30a3\u30fc"; pk.proximity = 1.5f;
+            t.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+            var tr = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaTrophy>(t);
+            UdonSharpEditorUtility.CopyProxyToUdon(tr);
+            // 台の上の小さい札
+            P(PrimitiveType.Cylinder, "Spot" + i, new Vector3(x, 0.845f, 0f), new Vector3(0.26f, 0.004f, 0.26f), goldM);
+        }
     }
 
     // うずの材質の灰色版（色を灰色に）

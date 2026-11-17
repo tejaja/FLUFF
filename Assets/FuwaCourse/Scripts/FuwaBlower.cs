@@ -178,6 +178,18 @@ public class FuwaBlower : UdonSharpBehaviour
     // 空気の残り（ポンプの見た目を他の人にも見せるため。多少遅れてもいいのでContinuousの定期送信に乗せる）
     [UdonSynced(UdonSyncMode.Smooth)] private float _airSync = 1f;
 
+    // 2026-11-17 てじゃ「全クリしたあと」「銃金ピカ化スイッチ」：おまけの島の台で切りかえ。持ち主が決めて同期するので、ほかの人からも金色に見える
+    [Header("金ピカ（全クリのおまけ）")]
+    [Tooltip("金色にする見た目のレンダラー（1つ目の材質だけ差しかえる）")]
+    public Renderer[] goldRenderers;
+    [Tooltip("goldRenderers と同じ順の金色の材質")]
+    public Material[] goldMats;
+    [Tooltip("金ピカの間だけ出すキラキラ")]
+    public GameObject goldFx;
+    [UdonSynced] private bool _gold;
+    private Material[] _normalMats;
+    private bool _goldShown;
+
     private VRCPickup _pickup;
 
     [Header("コントローラーの振動（VRで持っている時だけ）")]
@@ -495,8 +507,36 @@ public class FuwaBlower : UdonSharpBehaviour
         if (sync != null) sync.FlagDiscontinuity();
     }
 
+    public void SetGold(bool on)
+    {
+        if (!Networking.IsOwner(gameObject)) return;
+        _gold = on;
+        RequestSerialization();
+        ApplyGold();
+    }
+    public bool IsGold() { return _gold; }
+    private void ApplyGold()
+    {
+        if (goldRenderers == null || goldMats == null) return;
+        if (_normalMats == null)
+        {
+            _normalMats = new Material[goldRenderers.Length];
+            for (int i = 0; i < goldRenderers.Length; i++) if (goldRenderers[i] != null) _normalMats[i] = goldRenderers[i].sharedMaterial;
+        }
+        if (_goldShown == _gold) return;
+        _goldShown = _gold;
+        for (int i = 0; i < goldRenderers.Length; i++)
+        {
+            Renderer r = goldRenderers[i]; if (r == null) continue;
+            Material m = (_gold && i < goldMats.Length) ? goldMats[i] : _normalMats[i];
+            if (m != null) r.sharedMaterial = m;
+        }
+        if (goldFx != null) goldFx.SetActive(_gold);
+    }
+
     public override void OnDeserialization()
     {
+        ApplyGold();
         UpdateVisibility();
     }
 
