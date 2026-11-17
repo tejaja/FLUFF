@@ -14,7 +14,8 @@ public static class FuwaCourseLodLobbyBuilder
 {
     static readonly string[] StopTypes =
     {
-        "FuwaWindDeco", "FuwaFacePlayer", "FuwaGoalMarker", "FuwaWebHole", "FuwaSpike", "FuwaBoulder",
+        // FuwaBoulder（いわのみちの転がる岩）は止めない（2026-11-17 てじゃ「いわのみちの岩…とまってるのもさみしい」。3つだけで軽い）
+        "FuwaWindDeco", "FuwaFacePlayer", "FuwaGoalMarker", "FuwaWebHole", "FuwaSpike",
         "FuwaEnemy", "FuwaMama", "FuwaDemoStand", "FuwaDemoMonster", "FuwaReadMarks",
     };
 
@@ -24,8 +25,9 @@ public static class FuwaCourseLodLobbyBuilder
     static readonly string[] StopTypes2 =
     {
         "FuwaFacePlayer", "FuwaGoalMarker", "FuwaWindDeco", "FuwaWebHole", "FuwaEnemy",
-        "FuwaFireJet", "FuwaFireball", "FuwaLavaRock", "FuwaClamBubbles", "FuwaGuardFish", "FuwaRiverFish",
-        "FuwaGearGuard", "FuwaSugarPipe", "FuwaCloudFactory", "FuwaWindmill", "FuwaClockwork", "FuwaTiltIce", "FuwaSizeRune",
+        // FuwaLavaRock（ほのおのやまの火山岩）・FuwaClockwork（はぐるまのしまの歯車）は止めない（2026-11-17 てじゃ「火山岩、歯車がとまってるのもさみしい」）
+        "FuwaFireJet", "FuwaFireball", "FuwaClamBubbles", "FuwaGuardFish", "FuwaRiverFish",
+        "FuwaGearGuard", "FuwaSugarPipe", "FuwaCloudFactory", "FuwaWindmill", "FuwaTiltIce", "FuwaSizeRune",
     };
 
     [MenuItem("FuwaCourse/よく使う/スマホのロビーで止める物を集め直す")]
