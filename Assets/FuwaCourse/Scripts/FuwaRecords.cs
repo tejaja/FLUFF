@@ -165,6 +165,19 @@ public class FuwaRecords : UdonSharpBehaviour
         Render();
     }
 
+    // テストプレイ用（2026-11-17 てじゃ「デバッグスイッチのとこに全コースクリアフラグONにするボタン」）。公開前に消す。
+    // 自分の全コースのクリアの印をつけて保存する（自己ベストはそのまま）
+    public void ClearAllMine()
+    {
+        Init();
+        for (int i = 0; i < _cleared.Length; i++)
+        {
+            if (Key(i) == "") continue;
+            _cleared[i] = true; SaveClear(i);
+        }
+        Render();
+    }
+
     // あそびばのドーム用：自分がこのコースをクリアしたことがあるか（保存したクリアの印、またはこの回の記録）
     public bool HasCleared(int i)
     {
