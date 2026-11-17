@@ -2904,6 +2904,9 @@ public static class FuwaCourse2_4Builder
     // ---- 段つき歯車のピン（2026-11-17） ----
     public static int StepPinCount = 3;
     public static float StepPinR = 0.25f, StepPinH = 1.65f, StepPinAt = 1.0f;   // 太さ（半径）・小歯車の上からの高さ・軸からの距離
+    // 2026-11-17 てじゃ「外側にもおこう」：小歯車のふち寄りにもう1周（内の柱の間の角度）。
+    //  大歯車のふちには置けない（A のふちは B の大歯車の下にもぐる、B のふちは出口の道を横切る）→ 小歯車のふちの内（歯先 1.6m より内）
+    public static float StepPinOuterR = 0.2f, StepPinOuterAt = 1.38f;
     // small：上の小歯車（いっしょに回る）。ratio：その歯車の比（角速度 = ratio × ClockSpeed）。topY：小歯車の上の面の local y。ang0：1本目の角度
     static void AddStepPins(Transform small, float ratio, float topY, float ang0)
     {
@@ -2911,14 +2914,16 @@ public static class FuwaCourse2_4Builder
         var old = small.Find("Pins"); if (old) Object.DestroyImmediate(old.gameObject);
         var holder = new GameObject("Pins").transform; holder.SetParent(small, false);
         var mat = cwBrass != null ? cwBrass : FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
-        for (int i = 0; i < StepPinCount; i++)
+        for (int i = 0; i < StepPinCount * 2; i++)
         {
-            float a = (ang0 + 360f * i / StepPinCount) * Mathf.Deg2Rad;
-            var p = GameObject.CreatePrimitive(PrimitiveType.Capsule); p.name = "Pin" + i;
+            bool outer = i >= StepPinCount; int k = i % StepPinCount;
+            float rad = outer ? StepPinOuterR : StepPinR, at = outer ? StepPinOuterAt : StepPinAt;
+            float a = (ang0 + 360f * (k + (outer ? 0.5f : 0f)) / StepPinCount) * Mathf.Deg2Rad;
+            var p = GameObject.CreatePrimitive(PrimitiveType.Capsule); p.name = (outer ? "PinOut" : "Pin") + k;
             p.transform.SetParent(holder, false);
-            float total = StepPinH + StepPinR;   // 下の半球は歯車にうめる
-            p.transform.localPosition = new Vector3(Mathf.Cos(a) * StepPinAt, topY + StepPinH - total * 0.5f, Mathf.Sin(a) * StepPinAt);
-            p.transform.localScale = new Vector3(StepPinR * 2f, total * 0.5f, StepPinR * 2f);
+            float total = StepPinH + rad;   // 下の半球は歯車にうめる
+            p.transform.localPosition = new Vector3(Mathf.Cos(a) * at, topY + StepPinH - total * 0.5f, Mathf.Sin(a) * at);
+            p.transform.localScale = new Vector3(rad * 2f, total * 0.5f, rad * 2f);
             p.GetComponent<Renderer>().sharedMaterial = mat;
             p.layer = 11;
             var pin = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGearPin>(p);
@@ -2936,7 +2941,7 @@ public static class FuwaCourse2_4Builder
         var log = new List<string>();
         foreach (var (n, ang0) in new[] { ("SGA", 0f), ("SGB", 60f) })
         {
-            var g = all.FirstOrDefault(t => t.name == n && t.root.name == "FuwaCourse2_4"); if (g == null) { log.Add(n + " なし"); continue; }
+            var g = all.FirstOrDefault(t => t && t.name == n && t.root.name == "FuwaCourse2_4"); if (g == null) { log.Add(n + " なし"); continue; }
             float ratio = 0f;
             if (cw != null) { int i = System.Array.IndexOf(cw.gears, g); if (i >= 0) ratio = cw.ratio[i]; }
             AddStepPins(g.Find("Small_z14"), ratio, 0.7f - 0.04f, ang0);
