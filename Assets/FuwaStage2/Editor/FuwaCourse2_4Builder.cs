@@ -2915,16 +2915,18 @@ public static class FuwaCourse2_4Builder
         var mat = cwBrass != null ? cwBrass : FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
         // まん中の柱（金網より少し高い）。2026-11-17 てじゃ「棒ももうちょい細くして、見た目もよく」→ 細い軸＋根元の座金＋金網の上下をつかむ輪＋てっぺんの玉
         float postH = StepPinH + 0.12f;
+        // 2026-11-17 てじゃ「棒をグレー系に」：柱と飾りは明るいグレー（かごの枠と同じ）、金網の枠は真ちゅうのまま
+        var postM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/GearTest_GearLight.mat"); if (!postM) postM = mat;
         var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post";
         post.transform.SetParent(holder, false);
         post.transform.localPosition = new Vector3(0f, topY + postH * 0.5f, 0f);
         post.transform.localScale = new Vector3(StepPostR * 2f, postH * 0.5f, StepPostR * 2f);
-        Setup(post);
+        Setup(post); post.GetComponent<Renderer>().sharedMaterial = postM;
         void Deco(PrimitiveType t, string n, float y, float d, float h)
         {
             var o = GameObject.CreatePrimitive(t); o.name = n; Object.DestroyImmediate(o.GetComponent<Collider>());
             o.transform.SetParent(holder, false); o.transform.localPosition = new Vector3(0f, topY + y, 0f); o.transform.localScale = new Vector3(d, h, d);
-            o.GetComponent<Renderer>().sharedMaterial = mat;
+            o.GetComponent<Renderer>().sharedMaterial = postM;
         }
         Deco(PrimitiveType.Cylinder, "BaseFlange", 0.03f, StepPostR * 4.2f, 0.03f);          // 根元の座金（うすい円盤）
         Deco(PrimitiveType.Cylinder, "BaseCollar", 0.1f, StepPostR * 2.8f, 0.05f);           // その上のつば
