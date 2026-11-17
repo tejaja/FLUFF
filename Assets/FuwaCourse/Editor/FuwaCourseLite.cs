@@ -110,7 +110,8 @@ public static class FuwaCourseLite
                 var mf = mr.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue;
                 string path = mr.transform.name; for (var p = mr.transform.parent; p != null && p != root.transform; p = p.parent) path = p.name + "/" + path;
                 // 飾りの中でも遠くから形がわかる物は入れる：まわりの浮島（やみのもりの木の下の小さい島も）・まもののすの巣（2026-10-22 てじゃ「浮島そのものが消えるのちょと気なる」「木だけういてる」）
-                bool keep = mr.name == "IslandTop" || mr.name == "IslandUnder" || path.Contains("Deco/Mamono_") && !path.Contains("Eggs") && !path.Contains("Roots");   // たまご・根っこはいらない
+                bool keep = mr.name == "IslandTop" || mr.name == "IslandUnder" || path.Contains("Deco/Mamono_") && !path.Contains("Eggs") && !path.Contains("Roots")   // たまご・根っこはいらない
+                    || path.Contains("CloudBalloon/Balloon") && !mr.name.Contains("Shadow");   // 2–4 の気球（2026-11-17 てじゃ「2-4の軽量版、気球もきえてるのさみしいかも」）。動くけど遠くからはいつもの位置に見えればいい
                 var b = mr.bounds; float size = Mathf.Max(b.size.x, Mathf.Max(b.size.y, b.size.z));
                 bool deco = size < MinSize || path.Contains("Deco/") || path.Contains("Fence") || path.Contains("/Web") || mr.name.Contains("Web") || path.Contains("Wind") || path.Contains("Gimmick");   // 2026-11-15 "Web" は巣だけ（2–5 の中段の島 I2_WebWalk がまるごと消えていた）
                 if (deco && !(keep && size >= 1f)) continue;
@@ -133,7 +134,8 @@ public static class FuwaCourseLite
                     // 島の下（FarIsland）も頂点カラー。こっちは色をそのまま（リニアで）使うシェーダーなので、軽い版の書き方（ガンマ）に直す
                     bool useVcLinear = mc.Length == mv.Length && m != null && m.shader.name.Contains("FarIsland");
                     // 色がテクスチャに入っている物（大きいきのこのかさのグラデ）は、頂点の UV の所の色をかける（2026-10-22 軽い版で赤いかさが白かった）
-                    var tex = m != null && m.HasProperty("_MainTex") && muv.Length == mv.Length ? Readable(m.mainTexture) : null;
+                    // 気球の皮は細い縫い目の線がテクスチャにあって、頂点で拾うと太い黒いすじになったので色だけ（2026-11-17）
+                    var tex = m != null && m.HasProperty("_MainTex") && muv.Length == mv.Length && !path.Contains("CloudBalloon") ? Readable(m.mainTexture) : null;
                     Vector2 ts = tex != null ? m.mainTextureScale : Vector2.one, to = tex != null ? m.mainTextureOffset : Vector2.zero;
                     var tri = mesh.GetTriangles(s); int bi = V.Count; var map = new Dictionary<int, int>();
                     foreach (var t in tri)
