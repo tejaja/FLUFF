@@ -69,6 +69,8 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     //  影は自分から近い時（shadowNear m 以内）だけ落とす
     [Tooltip("自分（カメラ）からこの距離(m)より遠いと影を落とさない")]
     public float shadowNear = 40f;
+    [Tooltip("影を落とすか（2026-11-17 なしに）")]
+    public bool castShadows = false;
     private Renderer[] _rends;
     private bool _shadowOn = true;
     private float _shadowCheckAt;
@@ -90,6 +92,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         VRCPlayerApi lp = Networking.LocalPlayer;
         if (lp == null || _rends == null) return;
         bool on = (lp.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position - transform.position).sqrMagnitude < shadowNear * shadowNear;
+        if (!castShadows) on = false;   // 2026-11-17 てじゃ「竹とんぼ（の影）いらんとおもう」
         if (on == _shadowOn) return;
         _shadowOn = on;
         for (int i = 0; i < _rends.Length; i++) if (_rends[i] != null) _rends[i].shadowCastingMode = on ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
