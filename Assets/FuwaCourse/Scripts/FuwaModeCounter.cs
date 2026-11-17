@@ -73,9 +73,12 @@ public class FuwaModeCounter : UdonSharpBehaviour
                 int cnt = a == 2 ? playground : (a == 0 ? hub : adventure);
                 bool big = bigDigits != null && i < bigDigits.Length && bigDigits[i];
                 // 入口のゲート（だるまドロップのフォント）は数字が小さく低く見えるので、少し大きくしてピクトグラムとそろえる（2026-10-12 てじゃ）
-                string s = (en ? Get(labelsEn, i) : Get(labelsJa, i)) + (big
-                    ? "\n<size=55%><color=#FF8A7A><voffset=-0.15em><sprite=0 tint=1></voffset><size=68%>" + cnt + "</size></color></size>"
-                    : "\n<size=55%><color=#FF8A7A><sprite=0 tint=1>" + cnt + "</color></size>");
+                string count = big
+                    ? "<size=55%><color=#FF8A7A><voffset=-0.15em><sprite=0 tint=1></voffset><size=68%>" + cnt + "</size></color></size>"
+                    : "<size=55%><color=#FF8A7A><sprite=0 tint=1>" + cnt + "</color></size>";
+                // 文字に {n} があれば、そこに人数を入れる（名前の右に人数を出す看板。2026-11-17 てじゃ「人数表記を右側に」）。なければ下の行に
+                string body = en ? Get(labelsEn, i) : Get(labelsJa, i);
+                string s = body.Contains("{n}") ? body.Replace("{n}", count) : body + "\n" + count;
                 if (labels[i].text != s) labels[i].text = s;
             }
         }

@@ -15,7 +15,7 @@ public static class FuwaHubSignStyle
     const float PipeR = 0.065f;         // パイピングの太さ
     const float StitchInset = 0.17f;    // ステッチの内側への入り
     const float BodyBehind = 0.2f;      // 板の真ん中の厚みの中心（文字より後ろ）
-    const float ExtraH = 0.24f;         // 元の板より縦にのばす分（下へ）
+    const float ExtraH = 0f;            // 元の板より縦にのばす分（下へ）。2026-11-17 人数を名前の右に出すようにして0に（前は0.24）
     const float LineSpacing = -12f;
     const bool ShowStitch = false;      // 内側のステッチ（2026-10-13 てじゃ「ステッチも外してみて」）
 
