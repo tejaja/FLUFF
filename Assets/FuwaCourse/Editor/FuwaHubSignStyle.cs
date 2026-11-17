@@ -80,8 +80,10 @@ public static class FuwaHubSignStyle
         if (text != null)
         {
             var rt = text.rectTransform;
-            float sx = Mathf.Abs(rt.localScale.x) > 1e-4f ? Mathf.Abs(rt.localScale.x) : 1f;
-            rt.sizeDelta = new Vector2((hw - StitchInset - 0.15f) * 2f / sx, (hh + 0.3f) * 2f / sx);
+            // 板（SignDeco）は文字の子なので、幅は文字と同じ座標のまま。看板の大きさ（文字の scale）で割らない
+            //（2026-11-17 看板を0.55倍にしたら割った分だけ幅が広がって、英語が自動で縮まずはみ出した）
+            rt.sizeDelta = new Vector2((hw - StitchInset - 0.15f) * 2f, (hh + 0.3f) * 2f);
+            text.enableWordWrapping = false;   // 折り返さず、幅に合わせて縮める（折り返すと英語が3行になった）
             if (!text.enableAutoSizing) { text.fontSizeMax = text.fontSize; text.enableAutoSizing = true; }
             text.fontSizeMin = text.fontSizeMax * 0.4f;
             text.lineSpacing = LineSpacing;   // 名前と人数の行の間（2026-10-13 てじゃ「文字と人数が近すぎる」。前は -25）
