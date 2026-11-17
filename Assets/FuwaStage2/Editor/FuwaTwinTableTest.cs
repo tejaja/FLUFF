@@ -660,7 +660,8 @@ public static class FuwaTwinTableTest
     //  ・答えの形で止まって CrossHold 秒たつと、A が反時計回りに CrossDriftDegA 度/秒で次の「はじめと同じ形」（+90°）まで戻る（FuwaTurnTable の drift〜）
     //  ・A の上に、まん中をななめ（橋の間 45°）に横切る金網 DeckFenceLen m。両はしは床のふちまですき間（回りこむ）。A といっしょに回る
     public static float CrossDriftDegA = 2.5f, CrossHold = 3f, DeckFenceLen = 5f, DeckFenceH = 2.2f;
-    public static float[] DeckFenceDegs = { 45f, 135f };   // 2026-11-17 てじゃ「クロスさせよう」→ X（4本の橋のあいだを全部しきる。ふちのすき間から回りこむ）
+    // 2026-11-17 てじゃ「プロペラであわせるときにめっちゃ見づらい」「なしなし」→ 金網・柱はなし（{} 。もどすなら { 45f, 135f }）
+    public static float[] DeckFenceDegs = { };   // 2026-11-17 てじゃ「クロスさせよう」→ X（4本の橋のあいだを全部しきる。ふちのすき間から回りこむ）
     public static string ApplyCrossing(Transform root)
     {
         var tt = root.GetComponentsInChildren<FuwaTurnTable>(true).FirstOrDefault(x => x.master == null && x.table != null);
@@ -677,6 +678,27 @@ public static class FuwaTwinTableTest
         {
             var f = FuwaTurnTableTest.WireFence(a, new Vector3(0f, RoadTh, 0f), 90f - DeckFenceDegs[i], DeckFenceLen, DeckFenceH, light, axleM);
             f.name = "DeckFence" + i;
+        }
+        // 2026-11-17 てじゃ「真ん中に柱も」：X の交わる所に柱（段つき歯車のしきりの柱と同じ作り：明るいグレーの棒、根元の金具とてっぺんの玉は濃いめ）
+        if (DeckFenceDegs.Length > 0)
+        {
+            var postM = light; var darkM = FuwaGearTest.Mat("StepPost_Gray", new Color(0.47f, 0.49f, 0.55f));
+            var holder = new GameObject("DeckFenceCenter").transform; holder.SetParent(a, false); holder.localPosition = new Vector3(0f, RoadTh, 0f);
+            float pr = 0.14f, ph = DeckFenceH + 0.15f + 0.2f;
+            var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post"; post.transform.SetParent(holder, false);
+            post.transform.localPosition = new Vector3(0f, ph / 2f, 0f); post.transform.localScale = new Vector3(pr * 2f, ph / 2f, pr * 2f);
+            post.GetComponent<Renderer>().sharedMaterial = postM;
+            void Deco(PrimitiveType t, string n, float y, float d, float h, Material m)
+            {
+                var o = GameObject.CreatePrimitive(t); o.name = n; Object.DestroyImmediate(o.GetComponent<Collider>());
+                o.transform.SetParent(holder, false); o.transform.localPosition = new Vector3(0f, y, 0f); o.transform.localScale = new Vector3(d, h, d);
+                o.GetComponent<Renderer>().sharedMaterial = m;
+            }
+            Deco(PrimitiveType.Cylinder, "BaseFlange", 0.03f, pr * 4.2f, 0.03f, darkM);
+            Deco(PrimitiveType.Cylinder, "BaseCollar", 0.1f, pr * 2.8f, 0.05f, darkM);
+            Deco(PrimitiveType.Cylinder, "RingLow", 0.15f, pr * 2.6f, 0.035f, postM);
+            Deco(PrimitiveType.Cylinder, "RingHigh", 0.15f + DeckFenceH, pr * 2.6f, 0.035f, postM);
+            Deco(PrimitiveType.Sphere, "PostCap", ph + 0.05f, pr * 3.2f, pr * 3.2f, darkM);
         }
         // 道の上（RoadTh）に立てる。当たりは回る床の子なのでいっしょに回る
         return $"戻る A {CrossDriftDegA}°/秒・待ち {CrossHold}秒、金網 {DeckFenceLen}m（{string.Join("・", DeckFenceDegs)}°）";
