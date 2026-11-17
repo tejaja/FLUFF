@@ -333,9 +333,10 @@ public static class FuwaSignStyle
         {
             const float inset = 0.24f;
             var rt = text.rectTransform;
-            float sx = Mathf.Abs(rt.localScale.x) > 1e-4f ? Mathf.Abs(rt.localScale.x) : 1f;
+            // 雲（SignDeco）は文字の子なので、幅は文字と同じ座標のまま。文字の scale では割らない
+            //（2026-11-17 看板を0.72倍にしてある「ステージ2へ」の看板で、割った分だけ幅が広がって長い文字が雲からはみ出した）
             Undo.RecordObject(rt, "sign"); Undo.RecordObject(text, "sign");
-            rt.sizeDelta = new Vector2((hw - inset) * 2f / sx, (hh + 0.3f) * 2f / sx);
+            rt.sizeDelta = new Vector2((hw - inset) * 2f, (hh + 0.3f) * 2f);
             if (!text.enableAutoSizing) { text.fontSizeMax = text.fontSize; text.enableAutoSizing = true; }
             text.fontSizeMin = text.fontSizeMax * 0.4f;
             text.enableWordWrapping = false;
