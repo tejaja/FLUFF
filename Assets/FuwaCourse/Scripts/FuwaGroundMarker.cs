@@ -44,8 +44,10 @@ public class FuwaGroundMarker : UdonSharpBehaviour
             if (marker.enabled) marker.enabled = false;
             return;
         }
-        float h = Mathf.Clamp01(hit.distance / Mathf.Max(0.01f, farHeight));
-        float size = Mathf.Lerp(nearSize, farSize, h);
+        // 2026-11-17 てじゃ「ふわふわの偽影、サイズかわっても一定になってる」→ ふわふわの大きさに合わせる（みんなのふわふわの影と同じやり方）
+        float k = ball.GetVisualSize();
+        float h = Mathf.Clamp01(hit.distance / Mathf.Max(0.01f, farHeight * Mathf.Max(1f, k)));
+        float size = Mathf.Lerp(nearSize, farSize, h) * k;
         float a = Mathf.Lerp(nearAlpha, farAlpha, h);
         Transform t = marker.transform;
         if (decal)

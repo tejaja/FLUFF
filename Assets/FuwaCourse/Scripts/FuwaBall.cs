@@ -208,6 +208,8 @@ public class FuwaBall : UdonSharpBehaviour
     private float _sizeFrom = 1f, _sizeTo = 1f, _sizeNow = 1f, _sizeStart = -10f;
     private Vector3 _unitScale;
     public int GetSizeMode() { return _sizeMode; }
+    // 今の見た目の大きさ（ふつう＝1）。大きさが変わる時のチカチカやぷるんも入る（足元の影用。2026-11-17）
+    public float GetVisualSize() { return _unitScale.x > 0.0001f ? (transform.localScale.x + transform.localScale.z) * 0.5f / _unitScale.x : 1f; }
     public void SetSizeMode(int mode)
     {
         mode = mode < 0 ? -1 : (mode > 0 ? 1 : 0);
