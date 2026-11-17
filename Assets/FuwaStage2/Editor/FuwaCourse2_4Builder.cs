@@ -2905,7 +2905,7 @@ public static class FuwaCourse2_4Builder
     // てじゃ「段つき歯車がただの段差」→ 太いピン →「いまいち、棒はなしにして」「黄色いギアの真ん中から伸びた棒のまわりから2方向に伸びる板」
     //  小歯車のまん中に柱、そこから反対向きに2枚の板（小歯車の歯先 1.6m より内）。歯車といっしょに回る。人は通れない、ふわふわは当たると動きではじかれる（FuwaGearPin）
     //  大歯車（グレー）には置けない（A のふちは B の大歯車の下にもぐる、B のふちは出口の道を横切る）
-    public static float StepPostR = 0.11f, StepPinH = 1.65f, StepVaneLen = 1.5f, StepVaneT = 0.14f, StepVaneGap = 0.12f;   // 金網の下と黄色ギアのすき間
+    public static float StepPostR = 0.11f, StepPinH = 1.65f, StepVaneLen = 1.85f, StepVaneT = 0.14f, StepVaneGap = 0.12f;   // 金網の下と黄色ギアのすき間
     // small：上の小歯車（いっしょに回る）。ratio：その歯車の比（角速度 = ratio × ClockSpeed）。topY：小歯車の上の面の local y。ang0：板の向き（度）
     static void AddStepPins(Transform small, float ratio, float topY, float ang0)
     {
@@ -2916,29 +2916,37 @@ public static class FuwaCourse2_4Builder
         // まん中の柱（金網より少し高い）。2026-11-17 てじゃ「棒ももうちょい細くして、見た目もよく」→ 細い軸＋根元の座金＋金網の上下をつかむ輪＋てっぺんの玉
         float postH = StepPinH + 0.12f;
         // 2026-11-17 てじゃ「棒をグレー系に」：柱と飾りは明るいグレー（かごの枠と同じ）、金網の枠は真ちゅうのまま
-        var postM = FuwaGearTest.Mat("StepPost_Gray", new Color(0.47f, 0.49f, 0.55f));   // てじゃ「棒部分はちょっと濃い目に」：明るいグレー(0.62)と暗い歯車(0.36)の間
+        //  →「上のタマと下の金具だけ濃いめ、真ん中の棒は明るめ」「枠を薄いグレー」
+        var darkM = FuwaGearTest.Mat("StepPost_Gray", new Color(0.47f, 0.49f, 0.55f));   // 明るいグレー(0.62)と暗い歯車(0.36)の間
+        var postM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/GearTest_GearLight.mat"); if (!postM) postM = darkM;
         var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post";
         post.transform.SetParent(holder, false);
         post.transform.localPosition = new Vector3(0f, topY + postH * 0.5f, 0f);
         post.transform.localScale = new Vector3(StepPostR * 2f, postH * 0.5f, StepPostR * 2f);
         Setup(post); post.GetComponent<Renderer>().sharedMaterial = postM;
-        void Deco(PrimitiveType t, string n, float y, float d, float h)
+        void Deco(PrimitiveType t, string n, float y, float d, float h, bool dark = false)
         {
             var o = GameObject.CreatePrimitive(t); o.name = n; Object.DestroyImmediate(o.GetComponent<Collider>());
             o.transform.SetParent(holder, false); o.transform.localPosition = new Vector3(0f, topY + y, 0f); o.transform.localScale = new Vector3(d, h, d);
-            o.GetComponent<Renderer>().sharedMaterial = postM;
+            o.GetComponent<Renderer>().sharedMaterial = dark ? darkM : postM;
         }
-        Deco(PrimitiveType.Cylinder, "BaseFlange", 0.03f, StepPostR * 4.2f, 0.03f);          // 根元の座金（うすい円盤）
-        Deco(PrimitiveType.Cylinder, "BaseCollar", 0.1f, StepPostR * 2.8f, 0.05f);           // その上のつば
-        Deco(PrimitiveType.Cylinder, "RingLow", StepVaneGap + 0.15f, StepPostR * 2.6f, 0.035f);   // 金網の下の枠の高さ
+        Deco(PrimitiveType.Cylinder, "BaseFlange", 0.03f, StepPostR * 4.2f, 0.03f, true);          // 根元の座金（うすい円盤）
+        Deco(PrimitiveType.Cylinder, "BaseCollar", 0.1f, StepPostR * 2.8f, 0.05f, true);           // その上のつば
+        Deco(PrimitiveType.Cylinder, "RingLow", StepVaneGap, StepPostR * 2.6f, 0.035f);   // 金網の下の枠の高さ
         Deco(PrimitiveType.Cylinder, "RingHigh", StepPinH, StepPostR * 2.6f, 0.035f);        // 金網の上の枠の高さ
-        Deco(PrimitiveType.Sphere, "PostCap", postH + 0.04f, StepPostR * 3.2f, StepPostR * 3.2f);   // てっぺんの玉
+        Deco(PrimitiveType.Sphere, "PostCap", postH + 0.04f, StepPostR * 3.2f, StepPostR * 3.2f, true);   // てっぺんの玉
 
         // 2026-11-17 てじゃ「見た目をよくしよう、網でもいいかも」「黄色ギアとのスキマをちょっとだけあけよう」
         //  → かごと同じ金網（ひし形の針金＋枠）を柱をはさんで1枚（先から先まで）。下は黄色ギアから StepVaneGap 浮かせる。当たりは金網の箱（FuwaBounce をはずして FuwaGearPin に）
         var wireM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/GearTest_Axle.mat");
-        var fence = FuwaTurnTableTest.WireFence(holder, new Vector3(0f, topY + StepVaneGap, 0f), 90f - ang0, StepVaneLen * 2f, StepPinH - StepVaneGap - 0.15f, mat, wireM ? wireM : mat);
+        //  →「先端の下に伸びてる部分を消す」：両はしの柱は枠の上下の間だけ（金網の下の枠が黄色ギアから StepVaneGap）
+        //  →「2枚ある金網がぶつからない距離ギリギリまで先端を伸ばす」：A と B の軸の間 3.8m、金網の高さが重なるので 半分ずつ−すき間（StepVaneLen）
+        var fence = FuwaTurnTableTest.WireFence(holder, new Vector3(0f, topY + StepVaneGap - 0.15f, 0f), 90f - ang0, StepVaneLen * 2f, StepPinH - StepVaneGap, postM, wireM ? wireM : mat);
         fence.name = "Vane";
+        {
+            float fy0 = 0.15f, fy1 = 0.15f + StepPinH - StepVaneGap;
+            foreach (var pn in new[] { "PostL", "PostR" }) { var pt = fence.Find(pn); if (!pt) continue; pt.localPosition = new Vector3(pt.localPosition.x, (fy0 + fy1) * 0.5f, pt.localPosition.z); pt.localScale = new Vector3(pt.localScale.x, fy1 - fy0 + 0.06f, pt.localScale.z); }
+        }
         var col = fence.Find("Collider").gameObject; col.layer = 11;
         foreach (var bo in col.GetComponents<FuwaBounce>()) { var ub = UdonSharpEditor.UdonSharpEditorUtility.GetBackingUdonBehaviour(bo); Object.DestroyImmediate(bo); if (ub) Object.DestroyImmediate(ub); }
         var bc = col.GetComponent<BoxCollider>(); bc.size = new Vector3(StepVaneT, bc.size.y, bc.size.z);
