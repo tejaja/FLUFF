@@ -720,7 +720,9 @@ public static class FuwaTwinTableTest
     //  A のまん中（床とは別の、動かない軸の上）に羽根車。渡る途中でふわふわを撃った風がうっかり当たると、A がゆっくり回ってずれる。
     //  FuwaTurnTable を master つきで（かごの羽根車 1° ＝ u 1°、こっちは CenterPropRatio° ＝ u 1° → 効きは 1/CenterPropRatio）。羽根車の見た目は本体の gears で回す
     public static float CenterPropRatio = 1.5f,   // 3 だと当たっても 7° くらいでカチッと元の目盛りに戻った（15° ごと）→ 1.5（ふつうに当たると 15°、まともに当たると 30°）
-        CenterPropRatioOld = 3f, CenterPropY = 1.05f, CenterBlockR = 1.05f;
+        CenterPropRatioOld = 3f,
+        CenterPropOnB = 1f,   // 2026-11-17 てじゃ「（A のまん中は）これもなし、かわりに奥の小さい島においてみよう」→ B のまん中（1）。A のまん中にもどすなら 0
+        CenterPropY = 1.05f, CenterBlockR = 1.05f;
     public static string AddCenterProp(Transform root)
     {
         var tt = root.GetComponentsInChildren<FuwaTurnTable>(true).FirstOrDefault(x => x.master == null && x.table != null);
@@ -735,7 +737,7 @@ public static class FuwaTwinTableTest
         var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
         var axleM = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
         var darkM = FuwaGearTest.Mat("StepPost_Gray", new Color(0.47f, 0.49f, 0.55f));
-        var cp = new GameObject("CenterProp").transform; cp.SetParent(root, false); cp.localPosition = new Vector3(0f, RoadTh, 0f);
+        var cp = new GameObject("CenterProp").transform; cp.SetParent(root, false); cp.localPosition = new Vector3(CenterPropOnB > 0.5f ? BCenterX : 0f, RoadTh, 0f);
         // 動かない軸（床の上の座金・柱）
         Prim(PrimitiveType.Cylinder, cp, "BaseFlange", new Vector3(0f, 0.03f, 0f), new Vector3(0.7f, 0.03f, 0.7f), darkM);
         var post = Prim(PrimitiveType.Cylinder, cp, "Post", new Vector3(0f, CenterPropY / 2f, 0f), new Vector3(0.3f, CenterPropY / 2f, 0.3f), axleM);
