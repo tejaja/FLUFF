@@ -269,6 +269,7 @@ public static class FuwaTwinTableTest
         }
 
         ApplyCrossing(root);
+        AddCenterProp(root);
         // AddLeftIsland(root);   // 2026-11-17 てじゃ「一旦もどるのもなしで」（島は「いきさきわからんくなる」）。戻る・島のコードは残す
         RaiseCage(root);   // 2026-11-10 かごを高くして、上から橋が見えるように（門と信号ランプは「くどい」でやめた）
 
@@ -710,6 +711,58 @@ public static class FuwaTwinTableTest
         var s = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "S5_TwinTable" && t.root.name == "FuwaCourse2_4");
         if (!s) { Debug.Log("S5_TwinTable がない"); return; }
         Debug.Log("[2枚の回転床] " + ApplyCrossing(s));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(s.gameObject.scene);
+    }
+
+    // ===== 2026-11-17 てじゃ「真ん中にプロペラおいて、ショットしちゃうとゆっくりまわっちゃうとか」=====
+    //  A のまん中（床とは別の、動かない軸の上）に羽根車。渡る途中でふわふわを撃った風がうっかり当たると、A がゆっくり回ってずれる。
+    //  FuwaTurnTable を master つきで（かごの羽根車 1° ＝ u 1°、こっちは CenterPropRatio° ＝ u 1° → 効きは 1/CenterPropRatio）。羽根車の見た目は本体の gears で回す
+    public static float CenterPropRatio = 1.5f,   // 3 だと当たっても 7° くらいでカチッと元の目盛りに戻った（15° ごと）→ 1.5（ふつうに当たると 15°、まともに当たると 30°）
+        CenterPropRatioOld = 3f, CenterPropY = 1.05f, CenterBlockR = 1.05f;
+    public static string AddCenterProp(Transform root)
+    {
+        var tt = root.GetComponentsInChildren<FuwaTurnTable>(true).FirstOrDefault(x => x.master == null && x.table != null);
+        if (!tt) return "回転床の FuwaTurnTable がない";
+        var old = root.Find("CenterProp");
+        if (old)
+        {
+            var keep = Enumerable.Range(0, tt.gears.Length).Where(i => tt.gears[i] && !tt.gears[i].IsChildOf(old)).ToArray();
+            tt.gears = keep.Select(i => tt.gears[i]).ToArray(); tt.gearRatio = keep.Select(i => tt.gearRatio[i]).ToArray(); tt.gearPhase = keep.Select(i => tt.gearPhase[i]).ToArray();
+            Object.DestroyImmediate(old.gameObject);
+        }
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var axleM = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
+        var darkM = FuwaGearTest.Mat("StepPost_Gray", new Color(0.47f, 0.49f, 0.55f));
+        var cp = new GameObject("CenterProp").transform; cp.SetParent(root, false); cp.localPosition = new Vector3(0f, RoadTh, 0f);
+        // 動かない軸（床の上の座金・柱）
+        Prim(PrimitiveType.Cylinder, cp, "BaseFlange", new Vector3(0f, 0.03f, 0f), new Vector3(0.7f, 0.03f, 0.7f), darkM);
+        var post = Prim(PrimitiveType.Cylinder, cp, "Post", new Vector3(0f, CenterPropY / 2f, 0f), new Vector3(0.3f, CenterPropY / 2f, 0.3f), axleM);
+        // 当たり：羽の回る円柱（人は通れない。地面レイヤーではないのでふわふわが当たってもアウトにならない）
+        var blk = GameObject.CreatePrimitive(PrimitiveType.Cylinder); blk.name = "Block"; blk.transform.SetParent(cp, false);
+        Object.DestroyImmediate(blk.GetComponent<Collider>()); Object.DestroyImmediate(blk.GetComponent<MeshRenderer>());
+        blk.transform.localPosition = new Vector3(0f, (CenterPropY + 0.4f) / 2f, 0f); blk.transform.localScale = new Vector3(2f * CenterBlockR, (CenterPropY + 0.4f) / 2f, 2f * CenterBlockR);
+        var mc = blk.AddComponent<MeshCollider>(); mc.sharedMesh = blk.GetComponent<MeshFilter>().sharedMesh; mc.convex = true;
+        Object.DestroyImmediate(blk.GetComponent<MeshFilter>());
+        // 羽根車
+        var spin = new GameObject("Spin").transform; spin.SetParent(cp, false); spin.localPosition = new Vector3(0f, CenterPropY, 0f);
+        var handle = new GameObject("Handle3").transform; handle.SetParent(spin, false); handle.gameObject.layer = 2;
+        FuwaTurnTableTest.Impeller(handle, brass);
+        var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.8f;
+        var t3 = UdonSharpUndo.AddComponent<FuwaTurnTable>(handle.gameObject);
+        t3.master = tt; t3.masterRatio = CenterPropRatio; t3.handle = handle;
+        t3.hitRadius = tt.hitRadius; t3.hitHalfHeight = tt.hitHalfHeight; t3.hitCone = tt.hitCone; t3.spinPerShot = tt.spinPerShot;
+        UdonSharpEditorUtility.CopyProxyToUdon(t3); FuwaStage2WaterTest.NoSync(t3);
+        // 本体の gears に足す（u 1° で CenterPropRatio° 回る）
+        tt.gears = tt.gears.Concat(new[] { spin }).ToArray(); tt.gearRatio = tt.gearRatio.Concat(new[] { CenterPropRatio }).ToArray(); tt.gearPhase = tt.gearPhase.Concat(new[] { -CenterPropRatio * tt.startU }).ToArray();
+        UdonSharpEditorUtility.CopyProxyToUdon(tt); EditorUtility.SetDirty(tt);
+        return "まん中の羽根車 効き 1/" + CenterPropRatio;
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–4 2枚の回転床：まん中の羽根車を付け直す")]
+    public static void AddCenterPropToCourse()
+    {
+        var s = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "S5_TwinTable" && t.root.name == "FuwaCourse2_4");
+        if (!s) { Debug.Log("S5_TwinTable がない"); return; }
+        Debug.Log("[2枚の回転床] " + AddCenterProp(s));
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(s.gameObject.scene);
     }
 
