@@ -51,6 +51,25 @@ public class FuwaTurnTable : UdonSharpBehaviour
     private float _lastShot = -100f;
     private Vector3 _lastRack2Pos;
 
+    // 2026-11-17 てじゃ「回転して合わせる橋、合わせて渡るときが退屈」→ A「撃たないと少しずつ戻る」「デカいほうが反時計回りに戻る」
+    //  撃ってから holdTime たつと、u を driftSpeed（u の度/秒）で、いちばん近い「はじめと同じ形」（startU + k × driftPeriodU）まで動かす（答えの形＝ちょうどまん中からは driftDir の向き）。
+    //  2枚の回転床は A が 180° 回ると全部が同じ形にもどる。もどっている間はカチッと止める（detent）をしない
+    [Tooltip("撃たないと動き出す速さ（羽根車の角度 u の度/秒）。0 で動かない")]
+    public float driftSpeed = 0f;
+    [Tooltip("動く向き（u の符号）")]
+    public float driftDir = 1f;
+    [Tooltip("はじめと同じ形にもどる u の間隔")]
+    public float driftPeriodU = 360f;
+    // 2026-11-17 てじゃ「左方向にもうひと島つくって、そこにもプロペラ置いてもっかい回せるように」：2つ目の羽根車
+    //  2つ目の羽根車にもこのスクリプトをつけて master に本体を入れる。撃たれたら本体へ回る速さを送る（自分では何も動かさない。見た目の歯車は本体の gears）
+    [Tooltip("2つ目の羽根車の時：回す本体")]
+    public FuwaTurnTable master;
+    [Tooltip("2つ目の羽根車の時：本体の u 1° あたり、この羽根車が回る角度")]
+    public float masterRatio = 1f;
+    [Tooltip("乗っている自分を運ぶ2枚目の床（2枚の回転床の B）。null で運ばない")]
+    public Transform table2;
+    private Quaternion _lastRot2;
+
     private float _u, _w;     // 羽根車の角度・速さ（2D 反時計回り、度）
     private Quaternion _lastRot;
     private Vector3 _lastRackPos;
@@ -70,7 +89,14 @@ public class FuwaTurnTable : UdonSharpBehaviour
     public AudioSource endSound;
     private float _prevU; private int _lastClick; private float _loopV;
 
-    private void Start() { _u = startU; _prevU = _u; Apply(); _lastClick = ClickIndex(); }
+    private void Start() { if (master != null) return; _u = startU; _prevU = _u; Apply(); _lastClick = ClickIndex(); }
+
+    // 2つ目の羽根車から（u の速さで）
+    public void AddSpinU(float dw)
+    {
+        _lastShot = Time.time;
+        _w = Mathf.Clamp(_w + dw, -maxSpin, maxSpin);
+    }
 
     // エリアで隠れている時など、止まっている音は鳴らさない（「Can not play a disabled audio source」）
     private bool Ok(AudioSource a) { return a != null && a.enabled && a.gameObject.activeInHierarchy; }
@@ -103,6 +129,7 @@ public class FuwaTurnTable : UdonSharpBehaviour
         _u = startU; _w = 0f; _lastShot = -100f;
         Apply(); _prevU = _u; _lastClick = ClickIndex();
         if (table != null) _lastRot = table.rotation;
+        if (table2 != null) _lastRot2 = table2.rotation;
         if (rack != null) _lastRackPos = rack.position;
         if (rack2 != null) _lastRack2Pos = rack2.position;
     }
@@ -118,15 +145,30 @@ public class FuwaTurnTable : UdonSharpBehaviour
         Vector3 c = o - a * Vector3.Dot(o, a);            // 風の線が軸にいちばん近づく所
         float lever = Mathf.Clamp01(c.magnitude / Mathf.Max(0.01f, hitRadius));
         float cy = Vector3.Cross(c.normalized, a).y;        // Unity の Y 回転の向き（+ = 上から見て時計回り）。2D ではマイナス
-        _w = Mathf.Clamp(_w + (-cy) * spinPerShot * power * lever, -maxSpin, maxSpin);
+        float dw = (-cy) * spinPerShot * power * lever;
+        if (master != null) { if (masterRatio != 0f) master.AddSpinU(dw / masterRatio); return; }
+        _w = Mathf.Clamp(_w + dw, -maxSpin, maxSpin);
     }
 
     private void Update()
     {
+        if (master != null) return;
         float dt = Time.deltaTime; if (dt <= 0f) return;
         _w *= Mathf.Exp(-drag * dt);
         float tw = Mathf.Abs(_w * tableRatio);
-        if (table != null && tw < detentSpeed && detentDeg > 0f && tableRatio != 0f)
+        // 撃たないと次の「はじめと同じ形」へ動く（動いている間はカチッと止めない）
+        bool drifting = false;
+        if (driftSpeed > 0f && driftPeriodU > 0f && Time.time - _lastShot > holdTime && tw < detentSpeed)
+        {
+            // いちばん近い「はじめと同じ形」へ（ちょうどまん中＝答えの形からは driftDir の向き）。
+            //  遠い方へ動くと、とちゅうで答えの形を通って勝手に合ってしまう
+            float k = (_u - startU) / driftPeriodU, fl = Mathf.Floor(k), fr = k - fl;
+            float kt = driftDir >= 0f ? (fr >= 0.5f - 1e-4f ? fl + 1f : fl) : (fr > 0.5f + 1e-4f ? fl + 1f : fl);
+            float uT = startU + kt * driftPeriodU;
+            if (Mathf.Abs(_u - uT) > 1e-3f) { drifting = true; _w = 0f; _u = Mathf.MoveTowards(_u, uT, driftSpeed * dt); }
+        }
+        if (drifting) { }
+        else if (table != null && tw < detentSpeed && detentDeg > 0f && tableRatio != 0f)
         {
             float th = tableRatio * _u + tablePhase;
             float uT = (Mathf.Round(th / detentDeg) * detentDeg - tablePhase) / tableRatio;
@@ -162,10 +204,12 @@ public class FuwaTurnTable : UdonSharpBehaviour
     {
         if (table == null && rack == null && rack2 == null) return;
         Quaternion now = table != null ? table.rotation : Quaternion.identity;
+        Quaternion now2 = table2 != null ? table2.rotation : Quaternion.identity;
         Vector3 rackNow = rack != null ? rack.position : Vector3.zero;
         Vector3 rack2Now = rack2 != null ? rack2.position : Vector3.zero;
-        if (!_init) { _lastRot = now; _lastRackPos = rackNow; _lastRack2Pos = rack2Now; _init = true; return; }
+        if (!_init) { _lastRot = now; _lastRot2 = now2; _lastRackPos = rackNow; _lastRack2Pos = rack2Now; _init = true; return; }
         Quaternion prev = _lastRot; _lastRot = now;
+        Quaternion prev2 = _lastRot2; _lastRot2 = now2;
         Vector3 rackPrev = _lastRackPos; _lastRackPos = rackNow;
         Vector3 rack2Prev = _lastRack2Pos; _lastRack2Pos = rack2Now;
         VRCPlayerApi p = Networking.LocalPlayer;
@@ -179,6 +223,11 @@ public class FuwaTurnTable : UdonSharpBehaviour
         {
             Vector3 c = table.position;
             delta = c + now * (Quaternion.Inverse(prev) * (pos - c)) - pos;
+        }
+        else if (table2 != null && hit.collider.transform.IsChildOf(table2))
+        {
+            Vector3 c = table2.position;
+            delta = c + now2 * (Quaternion.Inverse(prev2) * (pos - c)) - pos;
         }
         else if (rack != null && hit.collider.transform.IsChildOf(rack)) delta = rackNow - rackPrev;
         else if (rack2 != null && hit.collider.transform.IsChildOf(rack2)) delta = rack2Now - rack2Prev;

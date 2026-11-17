@@ -268,6 +268,7 @@ public static class FuwaTwinTableTest
             FuwaIceTestBuilder.Warp(root, "WarpBack", root.TransformPoint(new Vector3(x0 + 0.6f, 0.35f, 1.8f)), "BACK", back, warpMat);
         }
 
+        AddLeftIsland(root);
         RaiseCage(root);   // 2026-11-10 かごを高くして、上から橋が見えるように（門と信号ランプは「くどい」でやめた）
 
         FuwaCourse2_1Builder.FixNetworkIDs();
@@ -577,6 +578,81 @@ public static class FuwaTwinTableTest
         // お試し用の物（コースにはない）も上げる
         foreach (var n in new[] { "BallSpot", "BallStand", "Spawn" }) { var t = root.Find(n); if (t && t.localPosition.x > xr - 0.5f) t.localPosition += Vector3.up * H; }
         return "かご +" + H + "m 坂 " + CageRamp + "m";
+    }
+
+    // ===== 2026-11-17 てじゃ「合わせて渡るときが退屈」→「デカいほうが反時計回りに戻る」「左方向にもうひと島つくって、そこにもプロペラ置いてもっかい回せるように」=====
+    //  ・撃って DriftHold 秒たつと A が DriftDegA 度/秒で、いちばん近い「はじめと同じ形」（A が 180° ごと）へ動く。合った形（まん中）からは反時計回り（FuwaTurnTable.drift〜）
+//    （遠い方へ動くと、とちゅうで答えの形を通って勝手に合ってしまうので、合う前の途中なら元へ戻る）
+    //  ・A の左（かごから見て左＝+z、A の橋 90° の先）に小さい島（かごと同じ金網の小部屋、口は A の方）。島の下で A の輪に小歯車をじかにかませ、上に羽根車
+    //    （FuwaTurnTable を master つきで。撃つと本体の u を回す）。A は 90° ごとに島とつながる
+    //  ・B に乗っている自分も運ぶ（table2）
+    public static float DriftDegA = 2.5f, DriftHold = 2.5f;   // A の度/秒（B はその2倍）
+    public static float IslandLen = 7.2f, IslandHalfW = 3f, IslandPinOffDeg = 8f;   // 島の長さ（A の橋のかどの円の外から）・半分の幅・羽根車をまん中からずらす角度（かご寄り）
+    const int ZP2 = 16;
+    public static string AddLeftIsland(Transform root)
+    {
+        var tt = root.GetComponentsInChildren<FuwaTurnTable>(true).FirstOrDefault(x => x.master == null && x.table != null);
+        if (!tt) return "回転床の FuwaTurnTable がない";
+        var old = root.Find("IslandL"); if (old) Object.DestroyImmediate(old.gameObject);
+        var dark = FuwaGearTest.Mat("GearTest_Gear", new Color(0.36f, 0.38f, 0.43f));
+        var light = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f));
+        var axleM = FuwaGearTest.Mat("GearTest_Axle", new Color(0.2f, 0.21f, 0.24f));
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var floorM = FuwaGearTest.Mat("GearTest_Floor", new Color(0.55f, 0.58f, 0.63f));
+        var isl = new GameObject("IslandL").transform; isl.SetParent(root, false);
+
+        // 床（かごの床と同じ。名前を Cage〜 にして、コースのシマにしない）
+        float r0 = CornerR(TipA) + 0.05f, r1 = r0 + IslandLen;
+        Floor(isl, "CageL_Floor", Polar(90f, (r0 + r1) / 2f), 90f, new Vector2(IslandLen, 2f * IslandHalfW), floorM);
+        // 金網：外がわと左右（A の方は橋の口だけあける）。WireFence の面は local の YZ。島の向き（+z）にそって置く
+        float endW = IslandHalfW - 0.08f, brW = BridgeW / 2f + 0.15f;
+        FuwaTurnTableTest.WireFence(isl, new Vector3(0f, 0f, r1), 90f, 2f * IslandHalfW, 2.2f, light, axleM).name = "Fence_Out";
+        foreach (int sg in new[] { 1, -1 })
+        {
+            FuwaTurnTableTest.WireFence(isl, new Vector3(sg * IslandHalfW, 0f, (r0 + r1) / 2f), 0f, IslandLen, 2.2f, light, axleM).name = "Fence_Side" + (sg > 0 ? "R" : "L");
+            FuwaTurnTableTest.WireFence(isl, new Vector3(sg * (brW + endW) / 2f, 0f, r0), 90f, endW - brW, 2.2f, light, axleM).name = "Fence_Br" + (sg > 0 ? "R" : "L");
+        }
+
+        // 小歯車：A の輪にじかにかむ（A の角度 v で：角度 = g.ratio·v + g.phase）。u では v = tableRatio·u + tablePhase
+        var gA = new FuwaGearTest.Gear { name = "RingA", z = ZA, c = Vector2.zero, ratio = 1f, phase = 0f };
+        var g2 = FuwaGearTest.Mesh2(gA, "Pinion2_z" + ZP2, ZP2, 90f + IslandPinOffDeg, Mod);
+        var meshP = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(ZP2, 8, Mod), GearTh, "TwinTable_Pinion_z" + ZP2, Vector2.zero));
+        var pin = new GameObject(g2.name).transform; pin.SetParent(isl, false); pin.localPosition = new Vector3(g2.c.x, GearY, g2.c.y);
+        pin.gameObject.AddComponent<MeshFilter>().sharedMesh = meshP; pin.gameObject.AddComponent<MeshRenderer>().sharedMaterial = light;
+        float r2 = g2.ratio * tt.tableRatio, p2 = g2.ratio * tt.tablePhase + g2.phase * Mathf.Rad2Deg;
+        // 軸（下の台から羽根車まで）と台
+        float bot = GearY - 0.9f, top = 1.05f;
+        Prim(PrimitiveType.Cylinder, isl, "Axle_Pinion2", new Vector3(g2.c.x, (bot + top) / 2f, g2.c.y), new Vector3(0.45f, (top - bot) / 2f, 0.45f), axleM);
+        Prim(PrimitiveType.Cylinder, isl, "Pedestal_Pinion2", new Vector3(g2.c.x, bot - 0.2f, g2.c.y), new Vector3(1.2f, 0.2f, 1.2f), dark);
+        // 羽根車
+        var handle = new GameObject("Handle2").transform; handle.SetParent(pin, false); handle.localPosition = new Vector3(0f, top - GearY, 0f);
+        handle.gameObject.layer = 2;
+        FuwaTurnTableTest.Impeller(handle, brass);
+        var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.8f;
+        var t2 = UdonSharpUndo.AddComponent<FuwaTurnTable>(handle.gameObject);
+        t2.master = tt; t2.masterRatio = r2; t2.handle = handle;
+        t2.hitRadius = tt.hitRadius; t2.hitHalfHeight = tt.hitHalfHeight; t2.hitCone = tt.hitCone; t2.spinPerShot = tt.spinPerShot;
+        UdonSharpEditorUtility.CopyProxyToUdon(t2); FuwaStage2WaterTest.NoSync(t2);
+
+        // 本体：小歯車を見た目の歯車に足す・戻る・B も運ぶ
+        var gl = tt.gears.Where(x => x && x.name != pin.name).ToList(); var rl = new System.Collections.Generic.List<float>(); var pl = new System.Collections.Generic.List<float>();
+        for (int i = 0; i < tt.gears.Length; i++) if (tt.gears[i] && tt.gears[i].name != pin.name) { rl.Add(tt.gearRatio[i]); pl.Add(tt.gearPhase[i]); }
+        gl.Add(pin); rl.Add(r2); pl.Add(p2);
+        tt.gears = gl.ToArray(); tt.gearRatio = rl.ToArray(); tt.gearPhase = pl.ToArray();
+        tt.driftDir = Mathf.Sign(tt.tableRatio); tt.driftSpeed = DriftDegA / Mathf.Abs(tt.tableRatio); tt.driftPeriodU = 180f / Mathf.Abs(tt.tableRatio); tt.holdTime = DriftHold;
+        tt.table2 = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(x => x.name == "TableB");
+        UdonSharpEditorUtility.CopyProxyToUdon(tt); EditorUtility.SetDirty(tt);
+        // 今の u（はじめ）の向きに小歯車をそろえる
+        pin.localRotation = Quaternion.Euler(0f, -Mathf.Repeat(r2 * tt.startU + p2, 360f), 0f);
+        return $"左の島 r {r0:F2}〜{r1:F2}、小歯車の比 {r2:F3}、戻る u {tt.driftSpeed:F1}°/秒 ・間隔 {tt.driftPeriodU:F0}";
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–4 2枚の回転床：左の島と戻るしくみを付け直す")]
+    public static void AddLeftIslandToCourse()
+    {
+        var s = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "S5_TwinTable" && t.root.name == "FuwaCourse2_4");
+        if (!s) { Debug.Log("S5_TwinTable がない"); return; }
+        Debug.Log("[2枚の回転床] " + AddLeftIsland(s));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(s.gameObject.scene);
     }
 
     static float RimIn(int z) => Mod * z / 2f - 1.25f * Mod - 0.5f;   // 輪の内側の半径（歯元から 0.5m）
