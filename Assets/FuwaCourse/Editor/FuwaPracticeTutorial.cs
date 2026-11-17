@@ -51,8 +51,9 @@ public static class FuwaPracticeTutorial
     static readonly Bay[] Bays =
     {
         new Bay(7.5f, "TapCharge",
-            "<size=130%><color=#FF6B5C>ちょん押し と 溜め</color></size>\nちょん押し：すぐ撃てる・ちかく\n長押し：溜めるほど強く・とおく\nキラッと光ったら満タン\n近くで撃つほど強く押せる",   // 最後の行：距離で弱まる（2026-10-16 てじゃ「距離減衰のこと入れるの忘れてた」「近くで撃つほどつよい」）
-            "<size=130%><color=#FF6B5C>Tap & Charge</color></size>\nTap: quick shot, short\nHold: the longer, the stronger\nIt sparkles when fully charged\nCloser shots push harder"),
+            // 2026-11-17 てじゃ「タイトルを ショットとチャージ／ちょん押し：よわい／長押し：つよい／近くで撃つほど強く吹き飛ばす」（最後の行：距離で弱まる。2026-10-16「近くで撃つほどつよい」）
+            "<size=130%><color=#FF6B5C>ショットとチャージ</color></size>\nちょん押し：よわい\n長押し：つよい\n近くで撃つほど強く吹き飛ばす",
+            "<size=130%><color=#FF6B5C>Shot & Charge</color></size>\nTap: weak\nHold: strong\nCloser shots blow harder"),
         new Bay(15.0f, "Down",
             "<size=130%><color=#FF6B5C>下向きに撃っても大丈夫</color></size>\nショットはいつもふわっと持ち上げる\n床に押しつけたりしない",
             "<size=130%><color=#FF6B5C>Shooting down is OK</color></size>\nYour shot always lifts the fluff\nIt never pushes it into the floor"),
