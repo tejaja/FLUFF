@@ -71,6 +71,9 @@ public static class FuwaGiantMushrooms
             int colorIdx = order.IndexOf(m) % colors.Length;
             if (m.GetSiblingIndex() == 1) { kind = 2; colorIdx = 0; }
             if (m.GetSiblingIndex() == 0) colorIdx = 2;
+            // てじゃ「左のトンガリをオレンジに、右奥の平らなのを赤に」：7番目（(-44, 8, -84) 赤のベル）→ オレンジ、10番目（(-44, -6, -23) 青の平たい）→ 赤
+            if (m.GetSiblingIndex() == 7) colorIdx = 1;
+            if (m.GetSiblingIndex() == 10) colorIdx = 0;
             var stemMesh = stems[kind]; var capMesh = caps[kind];
             st.GetComponent<MeshFilter>().sharedMesh = stemMesh;
             st.GetComponent<MeshRenderer>().sharedMaterials = new[] { stemMat };
