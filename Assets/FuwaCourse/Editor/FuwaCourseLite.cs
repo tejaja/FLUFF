@@ -99,64 +99,13 @@ public static class FuwaCourseLite
         if (mat == null) { mat = new Material(Shader.Find("FuwaCourse/LiteVC")) { name = "CourseLite", enableInstancing = true }; AssetDatabase.CreateAsset(mat, MatPath); }
         var log = new System.Text.StringBuilder();
         var starts = new List<Transform>(); var fulls = new List<GameObject>(); var lites = new List<GameObject>();
-        // 2026-11-17 てじゃ「ステージ2のロビー、他で軽く出来るものないかなぁ」→ ロビーにいる間は、ロビーから LobbyFullR より遠い所の物を隠して、そこだけの軽い版（_LobbyFar）を出す
-        Vector3 lobbyCenter = LobbyCenter(lodTarget);
-        var farRenderers = new List<Renderer>(); var farLites = new List<GameObject>();
-        var scripted = ScriptReferencedRenderers();
         foreach (var cn in courses)
         {
             var root = roots.FirstOrDefault(g => g.name == cn); if (root == null) continue;
-            bool IsFar(Renderer r) => Mathf.Sqrt(r.bounds.SqrDistance(lobbyCenter)) > LobbyFullR;
-            var lite = BuildMesh(root, cn + "_Lite", null, out int used, out int liteTris);
-            var go = holder.transform.Find(cn + "_Lite")?.gameObject;
-            if (go == null) { go = new GameObject(cn + "_Lite"); go.transform.SetParent(holder.transform, false); go.AddComponent<MeshFilter>(); go.AddComponent<MeshRenderer>(); }
-            go.GetComponent<MeshFilter>().sharedMesh = lite; var r = go.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
-            go.SetActive(false);
-            // ロビー用：遠い所だけの軽い版と、ロビーの間に隠す本体の物（スクリプトがさわる物は隠さない）
-            if (lodTarget != null && lobbyCenter != Vector3.zero)
-            {
-                var farMesh = BuildMesh(root, cn + "_LobbyFar", mr2 => IsFar(mr2), out int farUsed, out int farTris);
-                var fgo = holder.transform.Find(cn + "_LobbyFar")?.gameObject;
-                if (fgo == null) { fgo = new GameObject(cn + "_LobbyFar"); fgo.transform.SetParent(holder.transform, false); fgo.AddComponent<MeshFilter>(); fgo.AddComponent<MeshRenderer>(); }
-                fgo.GetComponent<MeshFilter>().sharedMesh = farMesh; var fr = fgo.GetComponent<MeshRenderer>(); fr.sharedMaterial = mat; fr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; fr.receiveShadows = false;
-                fgo.SetActive(false); farLites.Add(fgo);
-                int hid = 0;
-                foreach (var rr in root.GetComponentsInChildren<Renderer>(true))
-                {
-                    // 粒（火山の煙など。ロビーの間に止める・隠すのは lobbyHideObjects の仕事）と半透明（滝・水。軽い版に入らない）は隠さない
-                    if (!(rr is MeshRenderer || rr is SkinnedMeshRenderer)) continue;
-                    if (rr.sharedMaterials.Any(m => m != null && m.renderQueue >= 2450)) continue;
-                    if (rr.enabled && !scripted.Contains(rr) && IsFar(rr)) { farRenderers.Add(rr); hid++; }
-                }
-                log.Append(cn + " ロビー用: 遠い所の軽い版 tris " + farTris + "、隠す物 " + hid + "\n");
-            }
-            var st = root.transform.Find("BallStart"); if (st == null) st = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BallStart");
-            starts.Add(st); fulls.Add(root); lites.Add(go);
-            log.Append(cn + ": parts " + used + " tris " + liteTris + "\n");
-        }
-        // 切り替えスクリプトの設定
-        var lod = lodTarget;
-        if (lod != null)
-        {
-            var so = new SerializedObject(lod);
-            void SetArr(string name, Object[] arr) { var p = so.FindProperty(name); p.arraySize = arr.Length; for (int i = 0; i < arr.Length; i++) p.GetArrayElementAtIndex(i).objectReferenceValue = arr[i]; }
-            SetArr("starts", starts.ToArray()); SetArr("fullRoots", fulls.ToArray()); SetArr("liteRoots", lites.ToArray());
-            SetArr("lobbyFarRenderers", farRenderers.ToArray()); SetArr("lobbyFarLites", farLites.ToArray());
-            so.ApplyModifiedProperties();
-            SetBounds(lod);
-        }
-        AssetDatabase.SaveAssets();
-        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
-        Debug.Log("[軽い版] " + log);
-
-        // 1コースぶんの軽い版のメッシュを作る（pick が null なら大きい物ぜんぶ、あれば pick が true の物だけ）
-        Mesh BuildMesh(GameObject root, string meshName, System.Func<MeshRenderer, bool> pick, out int used, out int trisOut)
-        {
-            var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>(); var S = new List<float>(); used = 0;
+            var V = new List<Vector3>(); var N = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>(); var S = new List<float>(); int used = 0;
             foreach (var mr in root.GetComponentsInChildren<MeshRenderer>(true))
             {
                 if (!mr.enabled || !mr.gameObject.activeInHierarchy) continue;
-                if (pick != null && !pick(mr)) continue;
                 if (mr.name.EndsWith("_Far")) continue;
                 var mf = mr.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue;
                 string path = mr.transform.name; for (var p = mr.transform.parent; p != null && p != root.transform; p = p.parent) path = p.name + "/" + path;
@@ -245,42 +194,33 @@ public static class FuwaCourseLite
                 foreach (var idx in new[] { NT[k], NT[k + 1], NT[k + 2] }) { var col = NC[idx]; col.a = col.a < 0.5f ? 0 : 1; FC.Add(col); }
                 FT.Add(bi2); FT.Add(bi2 + 1); FT.Add(bi2 + 2);
             }
-            var lite = new Mesh { name = meshName, indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
+            var lite = new Mesh { name = cn + "_Lite", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             lite.SetVertices(FV); lite.SetNormals(FN); lite.SetColors(FC);   // 色はガンマのまま（InkCap シェーダーが中で直す）
             lite.SetTriangles(FT, 0);
             lite.RecalculateBounds();
-            string ap = Dir + "/" + meshName + ".asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
+            string ap = Dir + "/" + cn + "_Lite.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
             if (old != null) { old.Clear(); EditorUtility.CopySerialized(lite, old); lite = old; } else AssetDatabase.CreateAsset(lite, ap);
-            trisOut = FT.Count / 3;
-            return lite;
+            var go = holder.transform.Find(cn + "_Lite")?.gameObject;
+            if (go == null) { go = new GameObject(cn + "_Lite"); go.transform.SetParent(holder.transform, false); go.AddComponent<MeshFilter>(); go.AddComponent<MeshRenderer>(); }
+            go.GetComponent<MeshFilter>().sharedMesh = lite; var r = go.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            go.SetActive(false);
+            var st = root.transform.Find("BallStart"); if (st == null) st = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BallStart");
+            starts.Add(st); fulls.Add(root); lites.Add(go);
+            log.Append(cn + ": parts " + used + " tris " + (NT.Count / 3) + "\n");
         }
-    }
-
-    // ロビーの間もふつう版のまま見せる距離（ロビーのまん中から。物のいちばん近い所で測る）
-    public const float LobbyFullR = 40f;
-
-    // ロビーのまん中（そのステージのロビーの LobbySpawn）
-    static Vector3 LobbyCenter(FuwaCourseLod lod)
-    {
-        if (lod == null) return Vector3.zero;
-        var lobbyRoot = lod.stage == 2 ? Resources.FindObjectsOfTypeAll<Transform>().FirstOrDefault(t => t && t.gameObject.scene.IsValid() && t.name == "Lobby" && t.parent != null && t.parent.name == "FuwaStage2")
-                                       : Resources.FindObjectsOfTypeAll<Transform>().FirstOrDefault(t => t && t.gameObject.scene.IsValid() && t.parent == null && t.name == "FuwaLobby");
-        var sp = lobbyRoot != null ? lobbyRoot.Find("LobbySpawn") : null;
-        return sp != null ? sp.position : Vector3.zero;
-    }
-
-    // U# から参照されている Renderer（スクリプトが出したり消したりする物は、ロビーで隠す一覧に入れない）
-    static HashSet<Renderer> ScriptReferencedRenderers()
-    {
-        var set = new HashSet<Renderer>();
-        foreach (var u in Object.FindObjectsOfType<UdonSharp.UdonSharpBehaviour>(true))
+        // 切り替えスクリプトの設定
+        var lod = lodTarget;
+        if (lod != null)
         {
-            if (u is FuwaCourseLod || u is FuwaFarShadows) continue;   // 影の切り替えは影だけさわるので隠してよい
-            var so = new SerializedObject(u); var it = so.GetIterator();
-            while (it.Next(true))
-                if (it.propertyType == SerializedPropertyType.ObjectReference && it.objectReferenceValue is Renderer r) set.Add(r);
+            var so = new SerializedObject(lod);
+            void SetArr(string name, Object[] arr) { var p = so.FindProperty(name); p.arraySize = arr.Length; for (int i = 0; i < arr.Length; i++) p.GetArrayElementAtIndex(i).objectReferenceValue = arr[i]; }
+            SetArr("starts", starts.ToArray()); SetArr("fullRoots", fulls.ToArray()); SetArr("liteRoots", lites.ToArray());
+            so.ApplyModifiedProperties();
+            SetBounds(lod);
         }
-        return set;
+        AssetDatabase.SaveAssets();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
+        Debug.Log("[軽い版] " + log);
     }
 
     // テクスチャの色を読めるコピー（読み込み設定が Read/Write でなくても読めるように、GPU で写して読む。色はガンマのまま）
