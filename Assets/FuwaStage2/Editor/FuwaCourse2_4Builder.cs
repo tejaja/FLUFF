@@ -2916,7 +2916,7 @@ public static class FuwaCourse2_4Builder
         // まん中の柱（金網より少し高い）。2026-11-17 てじゃ「棒ももうちょい細くして、見た目もよく」→ 細い軸＋根元の座金＋金網の上下をつかむ輪＋てっぺんの玉
         float postH = StepPinH + 0.12f;
         // 2026-11-17 てじゃ「棒をグレー系に」：柱と飾りは明るいグレー（かごの枠と同じ）、金網の枠は真ちゅうのまま
-        var postM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/GearTest_GearLight.mat"); if (!postM) postM = mat;
+        var postM = FuwaGearTest.Mat("StepPost_Gray", new Color(0.47f, 0.49f, 0.55f));   // てじゃ「棒部分はちょっと濃い目に」：明るいグレー(0.62)と暗い歯車(0.36)の間
         var post = GameObject.CreatePrimitive(PrimitiveType.Cylinder); post.name = "Post";
         post.transform.SetParent(holder, false);
         post.transform.localPosition = new Vector3(0f, topY + postH * 0.5f, 0f);
