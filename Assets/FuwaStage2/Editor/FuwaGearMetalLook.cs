@@ -18,7 +18,7 @@ public static class FuwaGearMetalLook
     //  乗れる＝FuwaGearRide の歯車・窓のある歯車 HG・ごつい歯車 CG・段つき歯車 SG の、ふちより下に出ていない部品（下の動力の歯車・軸は暗くする）
     public static float Dim = 0.55f;
     // 2026-11-17 てじゃ「歯車の円形の模様、もうちょい中心よりにずらせないかな」：歯の帯（一段暗い所）と段差の線を、歯の根元よりこれだけ内へ（m）
-    public static float RootIn = 0.1f;
+    public static float RootIn = 0.2f;
     static readonly Regex RideRoot = new Regex(@"^(HG\d+_z\d+|CG\d+_z\d+|SG[AB])$");
     static HashSet<Transform> RideRoots(Transform course)
     {
