@@ -727,6 +727,12 @@ public static class FuwaTwinTableTest
     {
         var tt = root.GetComponentsInChildren<FuwaTurnTable>(true).FirstOrDefault(x => x.master == null && x.table != null);
         if (!tt) return "回転床の FuwaTurnTable がない";
+        // 2026-11-17 てじゃ「2個目の羽が回ってコジマがこの速度でまわるのって整合性とれるかな」→ B の上に遊星歯車（太陽＝羽根車の軸、惑星3つ＝動かない台、内歯の輪＝B に固定）。
+        //  台が止まっているので 輪 = −(Zs/Zr)·太陽 → 羽根車の比 cpr = −(Zr/Zs)·(B の比)。A のまん中に置く時は今までどおり CenterPropRatio
+        int bi = System.Array.FindIndex(tt.gears, x => x && x.name == "TableB");
+        bool gb = CenterPropOnB > 0.5f && bi >= 0;
+        float cpr = gb ? -(float)PZr / PZs * tt.gearRatio[bi] : CenterPropRatio;
+        foreach (var o in root.GetComponentsInChildren<Transform>(true).Where(x => x.name == "PlanetRing").ToArray()) Object.DestroyImmediate(o.gameObject);
         var old = root.Find("CenterProp");
         if (old)
         {
@@ -739,7 +745,7 @@ public static class FuwaTwinTableTest
         var darkM = FuwaGearTest.Mat("StepPost_Gray", new Color(0.47f, 0.49f, 0.55f));
         var cp = new GameObject("CenterProp").transform; cp.SetParent(root, false); cp.localPosition = new Vector3(CenterPropOnB > 0.5f ? BCenterX : 0f, RoadTh, 0f);
         // 動かない軸（床の上の座金・柱）
-        Prim(PrimitiveType.Cylinder, cp, "BaseFlange", new Vector3(0f, 0.03f, 0f), new Vector3(0.7f, 0.03f, 0.7f), darkM);
+        if (!gb) Prim(PrimitiveType.Cylinder, cp, "BaseFlange", new Vector3(0f, 0.03f, 0f), new Vector3(0.7f, 0.03f, 0.7f), darkM);
         var post = Prim(PrimitiveType.Cylinder, cp, "Post", new Vector3(0f, CenterPropY / 2f, 0f), new Vector3(0.3f, CenterPropY / 2f, 0.3f), axleM);
         // 当たり：羽の回る円柱（人は通れない。地面レイヤーではないのでふわふわが当たってもアウトにならない）
         var blk = GameObject.CreatePrimitive(PrimitiveType.Cylinder); blk.name = "Block"; blk.transform.SetParent(cp, false);
@@ -753,14 +759,86 @@ public static class FuwaTwinTableTest
         FuwaTurnTableTest.Impeller(handle, brass);
         var sc = handle.gameObject.AddComponent<SphereCollider>(); sc.isTrigger = true; sc.radius = 0.8f;
         var t3 = UdonSharpUndo.AddComponent<FuwaTurnTable>(handle.gameObject);
-        t3.master = tt; t3.masterRatio = CenterPropRatio; t3.handle = handle;
+        t3.master = tt; t3.masterRatio = cpr; t3.handle = handle;
         t3.hitRadius = tt.hitRadius; t3.hitHalfHeight = tt.hitHalfHeight; t3.hitCone = tt.hitCone; t3.spinPerShot = tt.spinPerShot;
         UdonSharpEditorUtility.CopyProxyToUdon(t3); FuwaStage2WaterTest.NoSync(t3);
         // 本体の gears に足す（u 1° で CenterPropRatio° 回る）
-        tt.gears = tt.gears.Concat(new[] { spin }).ToArray(); tt.gearRatio = tt.gearRatio.Concat(new[] { CenterPropRatio }).ToArray(); tt.gearPhase = tt.gearPhase.Concat(new[] { -CenterPropRatio * tt.startU }).ToArray();
+        tt.gears = tt.gears.Concat(new[] { spin }).ToArray(); tt.gearRatio = tt.gearRatio.Concat(new[] { cpr }).ToArray(); tt.gearPhase = tt.gearPhase.Concat(new[] { -cpr * tt.startU }).ToArray();
+        if (gb) PlanetBox(root, cp, tt, bi, cpr);
         UdonSharpEditorUtility.CopyProxyToUdon(tt); EditorUtility.SetDirty(tt);
-        return "まん中の羽根車 効き 1/" + CenterPropRatio;
+        return "まん中の羽根車 比 " + cpr.ToString("F3") + (gb ? $"（遊星 {PZs}:{PZp}:{PZr}）" : "");
     }
+    // 遊星歯車（B のまん中、床の上に低く）。Zs+Zr が 3 で割れる・Zr−Zs が偶数・Zp が偶数（かみ合わせの向きを1つの式でそろえる。FuwaCourse2_4Builder の SpinTank と同じ考え）
+    public const int PZs = 15, PZp = 18, PZr = 51;
+    public static float PMod = 0.034f, PGearY = 0.05f, PGearT = 0.14f, PRingOut = 1.0f, PBacklash = 0.004f;
+    static void PlanetBox(Transform root, Transform cp, FuwaTurnTable tt, int bi, float cpr)
+    {
+        var tableB = tt.gears[bi];
+        var brass = FuwaGearTest.Mat("FanTest_Brass", new Color(0.86f, 0.68f, 0.32f));
+        var light = FuwaGearTest.Mat("GearTest_GearLight", new Color(0.62f, 0.65f, 0.71f));
+        var dark = FuwaGearTest.Mat("GearTest_Gear", new Color(0.36f, 0.38f, 0.43f));
+        float m = PMod, Rs = m * PZs / 2f, Rp = m * PZp / 2f, Rr = m * PZr / 2f, a = Rs + Rp, gy = PGearY - RoadTh;   // cp は RoadTh の高さ
+        float uS = tt.startU;
+        // はじめ（u = startU）の向き：惑星 k を 120k° に、惑星は歯を外へ（Zp 偶数なので内へも）。太陽・輪はその向きにすき間（−180/Z）
+        System.Func<float, float, float, float> ph = (ratio, want, u0) => want - ratio * u0;
+        var gl = tt.gears.ToList(); var rl = tt.gearRatio.ToList(); var pl = tt.gearPhase.ToList();
+        // 太陽（羽根車の軸といっしょ）
+        var sMesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(PZs, 8, m, 0f, 0f, PBacklash), PGearT, "Planet_Sun_z" + PZs, Vector2.zero));
+        var sun = new GameObject("PlanetSun_z" + PZs).transform; sun.SetParent(cp, false); sun.localPosition = new Vector3(0f, gy, 0f);
+        sun.gameObject.AddComponent<MeshFilter>().sharedMesh = sMesh; sun.gameObject.AddComponent<MeshRenderer>().sharedMaterial = brass;
+        float sun0 = 0f - 180f / PZs;
+        gl.Add(sun); rl.Add(cpr); pl.Add(ph(cpr, sun0, uS));
+        // 惑星3つ（動かない台の軸で自転：惑星 = −(Zs/Zp)·太陽）
+        var pMesh = FuwaGearTest.SaveMesh(FuwaGearTest.Extrude(FuwaGearTest.GearOutline(PZp, 8, m, 0f, 0f, PBacklash), PGearT, "Planet_Planet_z" + PZp, Vector2.zero));
+        float rp = -(float)PZs / PZp * cpr;
+        var carrier = new GameObject("PlanetCarrier").transform; carrier.SetParent(cp, false);
+        for (int k = 0; k < 3; k++)
+        {
+            float psi = 120f * k; var d = Polar(psi, a);
+            var pg = new GameObject("PlanetGear" + k + "_z" + PZp).transform; pg.SetParent(cp, false); pg.localPosition = d + Vector3.up * gy;
+            pg.gameObject.AddComponent<MeshFilter>().sharedMesh = pMesh; pg.gameObject.AddComponent<MeshRenderer>().sharedMaterial = dark;
+            gl.Add(pg); rl.Add(rp); pl.Add(ph(rp, psi, uS));
+            Prim(PrimitiveType.Cylinder, carrier, "Pin" + k, d + Vector3.up * (gy + PGearT / 2f), new Vector3(0.09f, PGearT / 2f + 0.03f, 0.09f), dark);
+            Prim(PrimitiveType.Cylinder, carrier, "PinCap" + k, d + Vector3.up * (gy + PGearT + 0.03f), new Vector3(0.13f, 0.015f, 0.13f), brass);
+            var arm = Prim(PrimitiveType.Cube, carrier, "Arm" + k, Polar(psi, a / 2f) + Vector3.up * (gy + PGearT + 0.055f), new Vector3(a, 0.03f, 0.1f), dark);
+            arm.localRotation = Quaternion.Euler(0f, -psi, 0f);
+        }
+        Prim(PrimitiveType.Cylinder, carrier, "Hub", Vector3.up * (gy + PGearT + 0.055f), new Vector3(0.42f, 0.02f, 0.42f), dark);
+        tt.gears = gl.ToArray(); tt.gearRatio = rl.ToArray(); tt.gearPhase = pl.ToArray();
+        UdonSharpEditorUtility.CopyProxyToUdon(tt); EditorUtility.SetDirty(tt);
+        // 内歯の輪（B に固定。輪の向き（2D）がはじめに 0 − 180/Zr になるよう、B の中での角度を決める）
+        {
+            var o2 = FuwaGearTest.GearOutline(PZr, 8, m, 0f, 0f, PBacklash);
+            var v = new System.Collections.Generic.List<Vector3>(); var t = new System.Collections.Generic.List<int>(); int n = o2.Length;
+            var inr = new Vector3[n]; var outr = new Vector3[n];
+            for (int i = 0; i < n; i++)
+            {
+                float rr = o2[i].magnitude, an = Mathf.Atan2(o2[i].y, o2[i].x), r2 = 2f * Rr - rr;
+                inr[i] = new Vector3(Mathf.Cos(an) * r2, 0f, Mathf.Sin(an) * r2); outr[i] = new Vector3(Mathf.Cos(an) * PRingOut, 0f, Mathf.Sin(an) * PRingOut);
+            }
+            Vector3 U = Vector3.up * PGearT;
+            void Tri(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 want) { int b0 = v.Count; v.Add(p0); v.Add(p1); v.Add(p2); if (Vector3.Dot(Vector3.Cross(p1 - p0, p2 - p0), want) >= 0f) { t.Add(b0); t.Add(b0 + 1); t.Add(b0 + 2); } else { t.Add(b0); t.Add(b0 + 2); t.Add(b0 + 1); } }
+            for (int i = 0; i < n; i++)
+            {
+                int j = (i + 1) % n; Vector3 mid = (inr[i] + inr[j]) * 0.5f; Vector3 rad = mid.normalized;
+                Tri(inr[i] + U, outr[j] + U, outr[i] + U, Vector3.up); Tri(inr[i] + U, inr[j] + U, outr[j] + U, Vector3.up);
+                Tri(inr[i], outr[j], outr[i], Vector3.down); Tri(inr[i], inr[j], outr[j], Vector3.down);
+                Vector3 e = inr[j] - inr[i]; Vector3 nIn = Vector3.Cross(Vector3.up, e).normalized; if (Vector3.Dot(nIn, rad) > 0f) nIn = -nIn;
+                Tri(inr[i], inr[i] + U, inr[j] + U, nIn); Tri(inr[i], inr[j] + U, inr[j], nIn);
+                Tri(outr[i], outr[i] + U, outr[j] + U, rad); Tri(outr[i], outr[j] + U, outr[j], rad);
+            }
+            var mesh = new Mesh { name = "Planet_Ring_z" + PZr }; mesh.SetVertices(v); mesh.SetTriangles(t, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+            mesh = FuwaGearTest.SaveMesh(mesh);
+            var ring = new GameObject("PlanetRing").transform; ring.SetParent(tableB, false);
+            float bAng = tt.gearRatio[bi] * uS + tt.gearPhase[bi];
+            float want = 0f - 180f / PZr;
+            ring.localRotation = Quaternion.Euler(0f, -(want - bAng), 0f);
+            ring.localPosition = Vector3.up * PGearY;
+            ring.gameObject.AddComponent<MeshFilter>().sharedMesh = mesh; ring.gameObject.AddComponent<MeshRenderer>().sharedMaterial = light;
+        }
+        for (int i = 0; i < tt.gears.Length; i++) if (tt.gears[i] && tt.gears[i].IsChildOf(cp)) tt.gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(tt.gearRatio[i] * uS + tt.gearPhase[i], 360f), 0f);
+    }
+
     [MenuItem("FuwaCourse/ステージ2/2–4 2枚の回転床：まん中の羽根車を付け直す")]
     public static void AddCenterPropToCourse()
     {
