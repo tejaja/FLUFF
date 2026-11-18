@@ -18,8 +18,8 @@ public static class FuwaBonusHubBuilder
     public static Vector3 Pos = new Vector3(-200f, 120f, -200f);
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
-    public static int RingCount = 11; public static float RingHFront = 2.6f, RingHBack = 4.8f;
-    public static float RingShift = 1.5f, RingR = 6.0f, RingGap = 55f, BoardBack = 3.4f, TitleY = 4.95f, TitleScale = 1.0f,
+    public static int RingCount = 9; public static float RingHFront = 1.7f, RingHBack = 3.0f;
+    public static float RingShift = 1.5f, RingR = 6.6f, RingGap = 55f, BoardBack = 3.4f, TitleY = 4.95f, TitleScale = 1.0f,
         ColX = 1.75f, ColY = 3.3f, ColScale = 1f, ColFont = 1.9f, PanelW = 3.0f, PanelH = 2.4f, StageR = 2.5f, CamDist = 7.0f;
     const string ThanksText = "<size=62%><color=#FF8FA3>T</color><color=#FFC36B>h</color><color=#7FD7A8>a</color><color=#7FB8F0>n</color><color=#B79BF0>k</color> <color=#FF8FA3>y</color><color=#FFC36B>o</color><color=#7FD7A8>u</color> <color=#7FB8F0>f</color><color=#B79BF0>o</color><color=#FF8FA3>r</color> <color=#FFC36B>p</color><color=#7FD7A8>l</color><color=#7FB8F0>a</color><color=#B79BF0>y</color><color=#FF8FA3>i</color><color=#FFC36B>n</color><color=#7FD7A8>g</color><color=#7FB8F0>!</color></size>";
 
@@ -151,29 +151,40 @@ public static class FuwaBonusHubBuilder
             }
         }
 
-        // ---- キノコの輪（フェアリーリング）：きのこのたにの飾りの大キノコ（Blender版）の茎とかさを写して縮める。手前（撮る人側）はあける ----
-        var giants = Find("FuwaCourse5/DecoGiantMushrooms");
+        // ---- キノコの輪（フェアリーリング）----
+        // 2026-11-18 てじゃ「ゴールのミニキノコが大きくなったみたいなイメージ。カラーのラインナップもおなじに」「スケールでかくするんじゃなくて、ちゃんとつくろう」
+        //  → Blender の bigmush_build.py（FLUFF_models.blend、Islets シーンの big_params）で、ミニキノコと同じ形の考え方の大きいキノコを6種類作った
+        //  （ポリゴン細かめ・かさの裏に本物のひだ・根元の広がり・かさのふちのゆらぎ）。Tools/bigmush.json → BigMush_1〜6.asset。
+        //  色はゴールのミニキノコと同じ（かさ：パステルの赤・ピンク・クリーム・オレンジ、ひだ MiniMush_Gill、軸 Mush_Stem）。手前（撮る人側）はあける
+        var meshes = ImportBigMush();
         var ring = new GameObject("FairyRing").transform; ring.SetParent(root, false);
         var cyl = Resources.GetBuiltinResource<Mesh>("Cylinder.fbx");
-        if (giants && giants.childCount > 0)
+        if (meshes.Length > 0)
         {
+            var caps = new[] { "Mush_CapRed", "Mush_CapPink", "Mush_CapCream", "MiniMush_CapOrange" }.Select(FuwaLobbyPaths.FindMat).ToArray();
+            var stemM = FuwaLobbyPaths.FindMat("Mush_Stem"); var gillM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/MiniMush/MiniMush_Gill.mat");
             int n = RingCount; var rnd = new System.Random(77);
             for (int i = 0; i < n; i++)
             {
-                // 角度：北（奥）が 0。手前の RingGap 度ずつはあける
-                float a = Mathf.Lerp(-(180f - RingGap), 180f - RingGap, i / (float)(n - 1));
-                float back = Mathf.Cos(a * Mathf.Deg2Rad);                 // 奥ほど 1
-                float h = Mathf.Lerp(RingHFront, RingHBack, (back + 1f) * 0.5f) * (0.9f + 0.2f * (float)rnd.NextDouble());
+                float a = Mathf.Lerp(-(180f - RingGap), 180f - RingGap, i / (float)(n - 1));   // 北（奥）が 0
+                float back = Mathf.Cos(a * Mathf.Deg2Rad);
+                float h = Mathf.Lerp(RingHFront, RingHBack, (back + 1f) * 0.5f) * (0.92f + 0.16f * (float)rnd.NextDouble());
                 var at = ringC + new Vector3(Mathf.Sin(a * Mathf.Deg2Rad), 0f, Mathf.Cos(a * Mathf.Deg2Rad)) * RingR;
-                var slot = new GameObject("Mush" + i).transform; slot.SetParent(ring, false);
-                slot.position = new Vector3(at.x, Pos.y, at.z);
-                var src = giants.GetChild((i * 5 + 3) % giants.childCount);
-                var vis = CopyVisual(src, slot);
-                vis.Rotate(Vector3.up, (float)rnd.NextDouble() * 360f, Space.World);
-                FitHeight(vis, slot, h);
-                // 茎の当たり判定（かさは乗れない高さなので茎だけ）
-                var col = new GameObject("StemCol", typeof(CapsuleCollider)).GetComponent<CapsuleCollider>(); col.transform.SetParent(slot, false);
-                col.direction = 1; col.radius = 0.35f * h / 4f; col.height = h; col.center = Vector3.up * h * 0.5f; col.gameObject.layer = 11;
+                var mesh = meshes[(i * 4 + 1) % meshes.Length];
+                var go = new GameObject("Mush" + i, typeof(MeshFilter), typeof(MeshRenderer));
+                go.transform.SetParent(ring, false);
+                float k = h / mesh.bounds.size.y;
+                go.transform.position = new Vector3(at.x, Pos.y, at.z);
+                go.transform.rotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+                go.transform.localScale = Vector3.one * k;
+                go.GetComponent<MeshFilter>().sharedMesh = mesh;
+                var mr = go.GetComponent<MeshRenderer>();
+                mr.sharedMaterials = new[] { stemM, caps[(i * 3 + 2) % caps.Length], gillM };
+                mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+                go.layer = 11;
+                // 茎の当たり判定（かさの上には乗れない高さ）
+                var col = go.AddComponent<CapsuleCollider>(); col.direction = 1;
+                col.radius = mesh.bounds.size.x * 0.13f; col.height = mesh.bounds.size.y * 0.75f; col.center = new Vector3(0f, col.height * 0.5f, 0f);
             }
             log.Append("キノコの輪 " + n + " ");
         }
@@ -231,6 +242,35 @@ public static class FuwaBonusHubBuilder
         root.gameObject.SetActive(false);   // ふだんは消えている（area 4 の時だけ）
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return log.ToString();
+    }
+
+    // Tools/bigmush.json（Blender の bigmush_build.py が書き出す）→ メッシュのアセット
+    [System.Serializable] class MushItem { public string name; public float[] v, n; public int[] s0, s1, s2; }
+    [System.Serializable] class MushFile { public MushItem[] items; }
+    const string MushDir = "Assets/FuwaStage2/Generated/BigMush";
+    public static Mesh[] ImportBigMush()
+    {
+        var path = System.IO.Path.Combine(Application.dataPath, "../Tools/bigmush.json");
+        if (!System.IO.File.Exists(path)) return new Mesh[0];
+        var f = JsonUtility.FromJson<MushFile>(System.IO.File.ReadAllText(path));
+        if (!AssetDatabase.IsValidFolder(MushDir)) AssetDatabase.CreateFolder("Assets/FuwaStage2/Generated", "BigMush");
+        var list = new List<Mesh>();
+        foreach (var it in f.items)
+        {
+            string ap = MushDir + "/" + it.name + ".asset";
+            var m = AssetDatabase.LoadAssetAtPath<Mesh>(ap); bool isNew = !m;   // CopySerialized はサブメッシュが消えるので、今のアセットに直接入れ直す
+            if (isNew) m = new Mesh(); else m.Clear();
+            m.name = it.name; m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            var vs = new Vector3[it.v.Length / 3]; var ns = new Vector3[vs.Length];
+            for (int i = 0; i < vs.Length; i++) { vs[i] = new Vector3(it.v[i * 3], it.v[i * 3 + 1], it.v[i * 3 + 2]); ns[i] = new Vector3(it.n[i * 3], it.n[i * 3 + 1], it.n[i * 3 + 2]); }
+            m.vertices = vs; m.normals = ns; m.subMeshCount = 3;
+            m.SetTriangles(it.s0, 0); m.SetTriangles(it.s1, 1); m.SetTriangles(it.s2, 2);
+            m.RecalculateBounds();
+            if (isNew) AssetDatabase.CreateAsset(m, ap); else EditorUtility.SetDirty(m);
+            list.Add(m);
+        }
+        AssetDatabase.SaveAssets();
+        return list.ToArray();
     }
 
     static Material BonusMat(string name, Color c)
