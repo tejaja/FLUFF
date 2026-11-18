@@ -92,7 +92,9 @@ public static class FuwaGiantMushrooms
         {
             var st = m.Find("Stem"); var cp = m.Find("Cap"); if (st == null || cp == null) continue;
             string key = m.GetSiblingIndex().ToString();
-            int kind = kindOrder.IndexOf(m) % Kinds.Length;   // 形も同じくらいずつ（ばらばらに選ぶと1種も出ないことがあった）
+            // 形の割り振り：2026-11-18 てじゃ「もうちょい平べったいのを多めに」→ 平たい（2_C）を半分、中くらい（2_B）3、まるい（2_A）3 の割合で
+            int[] mix = { 2, 1, 2, 0, 2, 1, 2, 0, 2, 1, 2, 0 };
+            int kind = mix[kindOrder.IndexOf(m) % mix.Length];
             // 1本ずつの指定（2026-11-17 てじゃ「もとのとんがってるのに戻し、かわりにその手前の茶色いとんがりを赤いドームに、一番手前の赤いやや平たいやつを茶色に」）
             //  1番目（(-42, 4, -32) 茶のベル）→ 赤のドーム、0番目（(-28, -1, -27) 赤の平たい）→ 茶
             int colorIdx = order.IndexOf(m) % colors.Length;
