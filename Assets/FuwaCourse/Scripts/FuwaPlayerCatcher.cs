@@ -22,8 +22,12 @@ public class FuwaPlayerCatcher : UdonSharpBehaviour
         ball.BeginPlayerMiss("落ちた！", "You fell!");
     }
 
+    [Tooltip("竹とんぼ（自分が持っているかは竹とんぼに聞く。手の中の物から探すのは実機で効かなかった。2026-11-18）")]
+    public FuwaBambooCopter[] copters;
+
     private bool HoldingCopter(VRCPlayerApi p)
     {
+        if (copters != null) for (int i = 0; i < copters.Length; i++) if (copters[i] != null && copters[i].IsMine()) return true;
         VRC_Pickup a = p.GetPickupInHand(VRC_Pickup.PickupHand.Left), b = p.GetPickupInHand(VRC_Pickup.PickupHand.Right);
         if (a != null && a.GetComponent<FuwaBambooCopter>() != null) return true;
         if (b != null && b.GetComponent<FuwaBambooCopter>() != null) return true;

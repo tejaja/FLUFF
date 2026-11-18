@@ -160,8 +160,11 @@ public class FuwaHazard : UdonSharpBehaviour
         CheckBall(other);
     }
 
+    [Tooltip("竹とんぼ（持っているかは竹とんぼに聞く。2026-11-18）")]
+    public FuwaBambooCopter[] copters;
     private bool LocalHoldingCopter()
     {
+        if (copters != null) for (int i = 0; i < copters.Length; i++) if (copters[i] != null && copters[i].IsMine()) return true;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return false;
         VRC_Pickup a = p.GetPickupInHand(VRC_Pickup.PickupHand.Left), b = p.GetPickupInHand(VRC_Pickup.PickupHand.Right);
