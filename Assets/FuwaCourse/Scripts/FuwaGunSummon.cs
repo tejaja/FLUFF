@@ -119,6 +119,7 @@ public class FuwaGunSummon : UdonSharpBehaviour
     // デスクトップ・スマホ：目の前に銃を出す（Fキー、スマホの画面のボタン FuwaMobileGunButton から）
     public void SummonInFront()
     {
+        if (CopterHeld()) return;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null || !p.IsValid() || manager == null || summonSpot == null) return;
         FuwaBlower gun = manager.GetMyBlower();
@@ -168,6 +169,8 @@ public class FuwaGunSummon : UdonSharpBehaviour
         }
         if (!_summoning) FollowDocked(p, gun);
 
+        // 竹とんぼを持っている間は呼ばない（2026-11-18 てじゃ「竹とんぼ所持中は銃召喚できないようにしないと暴発しちゃう」：竹とんぼも右スティックの上下で操作する）
+        if (CopterHeld()) { ShowGauge(p, -1f); _downSince = -1f; _waitRelease = true; return; }
         VRCPlayerApi.TrackingData head = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Head);
         if (!p.IsUserInVR())
         {
@@ -200,6 +203,15 @@ public class FuwaGunSummon : UdonSharpBehaviour
             gun.PlaySpawnSound();
             return;
         }
+    }
+
+    [Tooltip("竹とんぼ（持っている間は銃を呼ばない）")]
+    public FuwaBambooCopter[] copters;
+    private bool CopterHeld()
+    {
+        if (copters == null) return false;
+        for (int i = 0; i < copters.Length; i++) if (copters[i] != null && copters[i].IsMine()) return true;
+        return false;
     }
 
     [Header("VR：目の前に出す")]

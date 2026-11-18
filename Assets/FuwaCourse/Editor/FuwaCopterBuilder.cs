@@ -77,6 +77,16 @@ public static class FuwaCopterBuilder
             log.Append(key + " 床 " + floorY.ToString("F2") + " ");
         }
         FixNetworkIds();
+        // 竹とんぼを持っている間は銃を呼ばない（FuwaGunSummon.copters。2026-11-18 てじゃ「暴発しちゃう」）
+        var gsum = Resources.FindObjectsOfTypeAll<FuwaGunSummon>().FirstOrDefault(c => c && c.gameObject.scene.IsValid());
+        if (gsum)
+        {
+            var cps = Resources.FindObjectsOfTypeAll<FuwaBambooCopter>().Where(c => c && c.gameObject.scene.IsValid()).ToArray();
+            var gso = new SerializedObject(gsum); var arr = gso.FindProperty("copters"); arr.arraySize = cps.Length;
+            for (int i = 0; i < cps.Length; i++) arr.GetArrayElementAtIndex(i).objectReferenceValue = cps[i];
+            gso.ApplyModifiedProperties(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(gsum);
+            log.Append("銃の呼び出しに竹とんぼ " + cps.Length + " ");
+        }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sys.gameObject.scene);
         AssetDatabase.SaveAssets();
         Debug.Log(log.ToString());

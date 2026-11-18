@@ -114,6 +114,9 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     public override void InputLookVertical(float value, UdonInputEventArgs args) { _lookV = value; }
     public override void InputJump(bool value, UdonInputEventArgs args) { _jumpHeld = value; }
 
+    // 自分が持っているか（FuwaGunSummon が見る：竹とんぼを持っている間は銃を呼ばない）
+    public bool IsMine() { return _mine; }
+
     public override void OnPickup()
     {
         VRCPlayerApi p = Networking.LocalPlayer;
