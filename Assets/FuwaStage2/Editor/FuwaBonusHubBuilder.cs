@@ -18,7 +18,7 @@ public static class FuwaBonusHubBuilder
     public static Vector3 Pos = new Vector3(-200f, 120f, -200f);
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
-    public static int RingCount = 9; public static float RingHFront = 2.6f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, LeanMin = 3f, LeanMax = 8f;
+    public static int RingCount = 9; public static float RingHFront = 2.6f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, LeanMin = 3f, LeanMax = 8f;
     public static float RingShift = 1.5f, RingR = 6.6f, RingGap = 55f, BoardBack = 3.4f, TitleY = 4.95f, TitleScale = 1.0f,
         ColX = 1.75f, ColY = 3.3f, ColScale = 1f, ColFont = 1.9f, PanelW = 3.0f, PanelH = 2.4f, StageR = 2.5f, CamDist = 7.0f;
     const string ThanksText = "<size=62%><color=#FF8FA3>T</color><color=#FFC36B>h</color><color=#7FD7A8>a</color><color=#7FB8F0>n</color><color=#B79BF0>k</color> <color=#FF8FA3>y</color><color=#FFC36B>o</color><color=#7FD7A8>u</color> <color=#7FB8F0>f</color><color=#B79BF0>o</color><color=#FF8FA3>r</color> <color=#FFC36B>p</color><color=#7FD7A8>l</color><color=#7FB8F0>a</color><color=#B79BF0>y</color><color=#FF8FA3>i</color><color=#FFC36B>n</color><color=#7FD7A8>g</color><color=#7FB8F0>!</color></size>";
@@ -164,6 +164,8 @@ public static class FuwaBonusHubBuilder
             var caps = new[] { "Mush_CapRed", "Mush_CapPink", "Mush_CapCream", "MiniMush_CapOrange" }.Select(FuwaLobbyPaths.FindMat).Select(FuwaGiantMushrooms.RimMat).ToArray();   // ふちのグラデつき
             var stemM = FuwaLobbyPaths.FindMat("Mush_Stem"); var gillM = FuwaGiantMushrooms.UnderMat();   // 裏のすじ模様（きのこのたにの巨大キノコと同じ）
             int n = RingCount; var rnd = new System.Random(77);
+            var boardT = root.Find("Board"); var boardB = new Bounds();
+            if (boardT) { var brs = boardT.GetComponentsInChildren<Renderer>(true); if (brs.Length > 0) { boardB = brs[0].bounds; foreach (var br in brs) boardB.Encapsulate(br.bounds); } }
             for (int i = 0; i < n; i++)
             {
                 float a = Mathf.Lerp(-(180f - RingGap), 180f - RingGap, i / (float)(n - 1));   // 北（奥）が 0
@@ -186,6 +188,19 @@ public static class FuwaBonusHubBuilder
                 mr.sharedMaterials = new[] { stemM, caps[(i * 3 + 2) % caps.Length], gillM };
                 mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
                 go.layer = 11;
+                // ボードとかぶらないように（2026-11-18 てじゃ「おまけ島、キノコとボードが被ってた気がする」：大人の形でかさが広がった）：
+                //  かぶっていたら外へずらす（島のふちまで）。それでもかぶるなら少しずつ小さく
+                if (boardB.size != Vector3.zero)
+                {
+                    var bbx = boardB; bbx.Expand(BoardClear);
+                    var dirOut = new Vector3(at.x - ringC.x, 0f, at.z - ringC.z).normalized;
+                    for (int it = 0; it < 30 && mr.bounds.Intersects(bbx); it++)
+                    {
+                        var pos = go.transform.position + dirOut * 0.3f;
+                        if (new Vector2(pos.x - Pos.x, pos.z - Pos.z).magnitude < R - 1.8f) go.transform.position = pos;
+                        else go.transform.localScale *= 0.93f;
+                    }
+                }
                 // 茎の当たり判定（かさの上には乗れない高さ）
                 var col = go.AddComponent<CapsuleCollider>(); col.direction = 1;
                 col.radius = mesh.bounds.size.x * 0.13f; col.height = mesh.bounds.size.y * 0.75f; col.center = new Vector3(0f, col.height * 0.5f, 0f);
