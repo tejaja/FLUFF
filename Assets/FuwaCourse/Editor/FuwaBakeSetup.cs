@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
+// ※ 2026-11-18 焼きはやめた（FuwaNoBake.cs）。これは押さない（押すと焼きの目印がまた付く。付いてもビルドで外れるが、影の切り替えがずれる）
 // 影を焼く（Hikari）ための準備。何度実行しても同じ結果。コースを作り直したら（メッシュが新しくなるので）もう一度実行する。
 // ・動かない物（ToonLit / InkCap だけの物）を Static（Contribute GI）にして、ライトマップを受けるようにする
 // ・動く物（転がる岩・はねるキノコ・吹き流し・敵・ゴールの飾り…）とその下の物は Static にしない
@@ -21,7 +22,7 @@ public static class FuwaBakeSetup
     const float FarScale = 0.25f;
     static readonly string[] SmallDecoMeshes = { "Practice_EdgeProps", "PracticeProp_", "Mamono_", "Kaze_", "Deco_", "Course2_1_GateVines", "Course2_1_SideVines" };   // PracticeProp_：チュートリアルの本番の道のマシュマロ等（EdgeProps を1個ずつに分けた物。焼くとムラになった 2026-10-09）
 
-    [MenuItem("FuwaCourse/よく使う/ベイクの準備（Static・ライトマップUV）")]
+    [MenuItem("FuwaCourse/済み（押す前に相談）/ベイクの準備（焼きはやめた）")]
     public static void RunMenu() { Debug.Log(Run()); }
 
     public static string Run()
