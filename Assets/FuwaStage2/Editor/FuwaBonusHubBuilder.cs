@@ -20,7 +20,7 @@ public static class FuwaBonusHubBuilder
     public static float SpawnFromEdge = 3.2f, PortalFromEdge = 1.3f; public static bool PortalBase = false, CameraSpotMark = false;
     public static bool BoardPickup = false;
     public static bool SharedBoards = true;
-    public static float GoldFluffSize = 0.7f;   // 金ピカふわふわの直径(m)   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
+    public static float GoldFluffSize = 0.7f, StatueYaw = 90f;   // 金の銃の像の向き（台の向きから）   // 金ピカふわふわの直径(m)   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
     public static int RingCount = 9; public static float RingHFront = 1.4f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, BackCenterScale = 1.2f, MushOverlapR = 0.8f, BoardMarginX = 0.25f, FrontLeftScale = 0.6f, RingFrontR = 3.0f, RingHugGap = 0.7f, LeanMin = 3f, LeanMax = 8f;
@@ -128,7 +128,8 @@ public static class FuwaBonusHubBuilder
         foreach (var sw in gs.GetComponents<FuwaGoldGunSwitch>()) { click = sw.clickSound; var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw); Object.DestroyImmediate(sw); if (ub) Object.DestroyImmediate(ub); }
         foreach (var d0 in gs.GetComponents<FuwaGoldGunDisplay>()) { click = click ?? d0.clickSound; var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(d0); Object.DestroyImmediate(d0); if (ub) Object.DestroyImmediate(ub); }
         foreach (var nm in new[] { "Display", "GunSpot" }) { var o = gs.Find(nm); if (o) Object.DestroyImmediate(o.gameObject); }
-        foreach (var nm in new[] { "Medal", "MedalRim", "Label" }) { var o = gs.Find(nm); if (o) o.gameObject.SetActive(false); }   // 見本の銃に置きかえ
+        foreach (var nm in new[] { "Medal", "MedalRim" }) { var o = gs.Find(nm); if (o) o.gameObject.SetActive(false); }   // 金の銃の像に置きかえ
+        { var o = gs.Find("Label"); if (o) { o.gameObject.SetActive(true); o.localPosition = new Vector3(0f, 0.6f, 0.24f); o.rotation = Quaternion.LookRotation(-gs.forward, Vector3.up); } }   // 柱の「きんピカ ON/OFF」（スイッチ）。島のまん中側から読めるように
         var top = gs.Find("Top"); float topY = top ? top.GetComponent<Renderer>().bounds.max.y : gs.position.y + 0.95f * gs.lossyScale.y;
         var spot = new GameObject("GunSpot").transform; spot.SetParent(gs, false);
         spot.position = new Vector3(gs.position.x, topY + 0.01f, gs.position.z); spot.rotation = gs.rotation;
@@ -147,14 +148,16 @@ public static class FuwaBonusHubBuilder
             foreach (var c in g.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(c);
             return g;
         }
-        var goldM = Model("GoldModel", true); var normM = Model("NormalModel", false); normM.SetActive(false);
+        var goldM = Model("GoldModel", true);
+        // 2026-11-18 てじゃ「わかりづらいか、やっぱただの固定の像みたいに飾って、下にオンオフスイッチ式に」：像は金ピカで固定（回さない）、台のクリックでオン／オフ
+        spin.localRotation = Quaternion.Euler(0f, StatueYaw, 0f) * Quaternion.Euler(sc ? sc.tilt : Vector3.zero);
         if (sc.halo) { var h = Object.Instantiate(sc.halo, disp, false); h.name = "Halo"; h.transform.localPosition = sc.halo.transform.localPosition; h.SetActive(true); }   // うしろのやわらかい光
         if (sc.sparkles) { var sp = Object.Instantiate(sc.sparkles, disp, false); sp.name = "Sparkles"; sp.transform.localPosition = sc.sparkles.transform.localPosition; sp.SetActive(true); }
-        var gd = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGoldGunDisplay>(gs.gameObject);
-        gd.manager = mgr; gd.gunSpot = spot; gd.goldModel = goldM; gd.normalModel = normM; gd.spin = spin; gd.clickSound = click;
-        if (sc) { gd.spinSpeed = sc.spinSpeed; gd.bobAmp = sc.bobAmp; gd.bobSpeed = sc.bobSpeed; gd.tilt = sc.tilt; }
-        UdonSharpEditorUtility.CopyProxyToUdon(gd); FuwaStage2WaterTest.NoSync(gd);
-        return "金の銃の台（見本）・回る銃の金ピカ " + sc.goldRenderers.Length + " ";
+        Object.DestroyImmediate(spot.gameObject);   // 銃は呼ばない
+        var gsw = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGoldGunSwitch>(gs.gameObject);
+        gsw.manager = mgr; gsw.clickSound = click; var lab = gs.Find("Label"); gsw.label = lab ? lab.GetComponent<TMPro.TextMeshPro>() : null;
+        UdonSharpEditorUtility.CopyProxyToUdon(gsw); FuwaStage2WaterTest.NoSync(gsw);
+        return "金の銃の像＋スイッチ・回る銃の金ピカ " + sc.goldRenderers.Length + " ";
     }
 
     static void ApplyHandLayout(Transform root)
