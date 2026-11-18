@@ -71,12 +71,36 @@ sprof = [(0.065, STEM_TOP + 0.08), (0.068, STEM_TOP), (0.072, 0.42), (0.075, 0.3
          (0.11, 0.08), (0.125, 0.045), (0.115, 0.015), (0.09, 0.0)]
 srings = lathe(stem, 0, sprof, wob=lambda a, y: 0.03 * math.sin(a * 3 + 1.2) * (1 if y < 0.1 else 0.3))
 cap_fan(stem, 0, srings[0], (0, STEM_TOP + 0.08, 0), flip=True)
-# つば：軸の上のほう(0.40)からふわっと広がって下がるスカート（外側と内側の両面）
-skirt = [(0.074, 0.405), (0.10, 0.395), (0.13, 0.37), (0.145, 0.34)]
-sw = lambda a, y: 0.06 * math.sin(a * 7 + 0.3) * (y < 0.38)
-lathe(stem, 0, skirt, wob=sw)
-skirt_in = [(r - 0.006, y - 0.004) for r, y in skirt]
-lathe(stem, 0, skirt_in, wob=sw, flip=True)
+# つば（2026-11-18 てじゃ「スタートのキノコはこのかたちのままでいいけど、ツバだけ良くしたい」）：
+#  前は付け根から横に張り出す短いえり。大きいキノコと同じく、付け根は軸にぴったり → 下へ垂れながら広がる うすい膜、すそは横にも上下にも波うつ
+def lathe_y(m, sub, prof, seg=SEG, flip=False):
+    # prof：[(半径, 高さ, 波の効き)]。すそほど波（半径と高さ）が強い
+    rings = []
+    for (r, y, w) in prof:
+        ring = []
+        for i in range(seg):
+            a = 2 * math.pi * i / seg
+            rr = r * (1 + w * (0.07 * math.sin(a * 7 + 0.3) + 0.03 * math.sin(a * 11 + 1.1)))
+            yy = y + w * 0.012 * math.sin(a * 5 + 0.8)
+            ring.append(m.v((rr * math.cos(a), yy, rr * math.sin(a))))
+        rings.append(ring)
+    for k in range(len(rings) - 1):
+        A, B = rings[k], rings[k + 1]
+        for i in range(seg):
+            j = (i + 1) % seg
+            q = (A[i], A[j], B[j], B[i])
+            if not flip: m.T[sub] += [q[0], q[1], q[2], q[0], q[2], q[3]]
+            else: m.T[sub] += [q[0], q[2], q[1], q[0], q[3], q[2]]
+    return rings
+skirt = [(0.071, 0.418, 0.0), (0.075, 0.405, 0.05), (0.083, 0.385, 0.25), (0.094, 0.36, 0.5), (0.106, 0.333, 0.75), (0.117, 0.31, 0.9), (0.124, 0.295, 1.0)]
+so = lathe_y(stem, 0, skirt, seg=SEG * 2)
+skirt_in = [(r - 0.005, y - 0.003, w) for r, y, w in skirt]
+si = lathe_y(stem, 0, skirt_in, seg=SEG * 2, flip=True)
+# すその厚み（外と内のいちばん下の輪をつなぐ）
+A, B = so[-1], si[-1]
+for i in range(len(A)):
+    j = (i + 1) % len(A)
+    stem.T[0] += [A[i], B[i], B[j], A[i], B[j], A[j]]
 
 def shift(m, dy):
     m.V = [(x, y + dy, z) for x, y, z in m.V]
