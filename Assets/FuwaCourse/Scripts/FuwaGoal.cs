@@ -385,6 +385,12 @@ public class FuwaGoal : UdonSharpBehaviour
         }
     }
 
+    // 出しっぱなしのワープは、何かに隠されても（ワープした時の hideOnWarp など）コースがまた出た時に出し直す
+    private void OnEnable()
+    {
+        if (_warpOpened && lobbyWarp != null) { lobbyWarp.transform.localScale = Vector3.one; lobbyWarp.SetActive(true); }
+    }
+
     // モードの切り替えなどでコースごと消えた時は、すぐ元に戻しておく
     private void OnDisable()
     {

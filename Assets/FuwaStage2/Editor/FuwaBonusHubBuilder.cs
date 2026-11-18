@@ -242,6 +242,7 @@ public static class FuwaBonusHubBuilder
             so.FindProperty("playerSpot").objectReferenceValue = spawn;
             so.FindProperty("gunSpot").objectReferenceValue = gunSpot;
             so.FindProperty("area").intValue = 4; so.FindProperty("stage").intValue = 0; so.FindProperty("homeAction").intValue = 0; so.FindProperty("timed").boolValue = false;
+            so.FindProperty("hideOnWarp").objectReferenceValue = null;   // 開きっぱなし（ワープしても隠さない。2026-11-18 てじゃ「ためしてるけどなってない」）
             so.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(gwt);
             foreach (var t in gw.GetComponentsInChildren<TMPro.TMP_Text>(true)) { t.text = "<size=80%>きねんのしま</size>"; EditorUtility.SetDirty(t); }
             // 一度開いたら開きっぱなし（2026-11-18 てじゃ）
