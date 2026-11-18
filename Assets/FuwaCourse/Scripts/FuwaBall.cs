@@ -1264,9 +1264,21 @@ public class FuwaBall : UdonSharpBehaviour
 
     // コースアウト：道の外（真下に道が無い）で、再開位置より下に落ちたらすぐアウト。
     // 道の上なら床に触った時にアウトになるので、ここでは見ない。
+    // 2026-11-18 てじゃ「いまのロビー周りのアウト判定、もっと下にしよう、コースの一番低いアウト判定くらい」「ステージ１も２も」：
+    //  ここにあるスタート（ロビーのふわふわ置き場）にいる間は、道の外のアウト（すぐ下でアウト）を見ない。落ちたらいちばん下（killHeight / stage2KillHeight）でアウト
+    [Tooltip("ここにあるスタート（ロビー）にいる間は、道の外のアウトを見ない（いちばん下の高さでだけアウト）")]
+    public Transform[] looseStarts;
+    private bool IsLooseStart()
+    {
+        if (looseStarts == null || startPoint == null) return false;
+        for (int i = 0; i < looseStarts.Length; i++) if (looseStarts[i] == startPoint) return true;
+        return false;
+    }
+
     private void CheckOffCourse()
     {
         if (_waiting || _hidden || _stuck || _carried || _resetAt > 0f || _finished) return;
+        if (IsLooseStart()) return;
         if (Time.time < _nextOffCourseCheck) return;
         _nextOffCourseCheck = Time.time + 0.1f;
         Transform rp = respawnPoint != null ? respawnPoint : startPoint;
