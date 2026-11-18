@@ -97,6 +97,66 @@ public static class FuwaBonusHubBuilder
         return "みんなのボード " + n + " ";
     }
 
+    // 2026-11-18 てじゃ「台の上に金ピカの銃が光って回ってて、手に取ると元の銃が台に写って手持ちが金ピカ…元の銃取ると戻る」：
+    //  きんピカ台（GoldGunStand）を FuwaGoldGunDisplay に。見本の銃は台の上で回る銃（FuwaSystem/GunShowcase の Visual）の写し。
+    //  あわせて、台の上で回る銃（GunShowcase）も金ピカに対応させる
+    static string GoldGunDisplay(Transform root)
+    {
+        var gs = root.Find("GoldGunStand");
+        var sc = Object.FindObjectsOfType<FuwaGunShowcase>(true).FirstOrDefault();
+        var bl = Object.FindObjectsOfType<FuwaBlower>(true).FirstOrDefault(b => b.goldRenderers != null && b.goldRenderers.Length > 0);
+        var mgr = Object.FindObjectsOfType<FuwaRespawnManager>(true).FirstOrDefault();
+        if (!gs || !sc || !sc.shownVisual || !bl || !mgr) return "金の銃の台：材料がない ";
+        // 名前 → 金色の材質
+        var goldOf = new Dictionary<string, Material>();
+        for (int i = 0; i < bl.goldRenderers.Length && i < bl.goldMats.Length; i++) if (bl.goldRenderers[i] && bl.goldMats[i]) goldOf[bl.goldRenderers[i].name] = bl.goldMats[i];
+        // 台の上で回る銃を金ピカ対応に
+        {
+            var rs = sc.shownVisual.GetComponentsInChildren<Renderer>(true).Where(r => goldOf.ContainsKey(r.name)).ToArray();
+            sc.goldRenderers = rs; sc.goldMats = rs.Select(r => goldOf[r.name]).ToArray();
+            var oldFx = sc.shownVisual.Find("GoldSparkle"); if (oldFx) Object.DestroyImmediate(oldFx.gameObject);
+            if (bl.goldFx)
+            {
+                var fx = Object.Instantiate(bl.goldFx, sc.shownVisual, false); fx.name = "GoldSparkle";
+                fx.transform.localPosition = bl.goldFx.transform.localPosition; fx.transform.localRotation = bl.goldFx.transform.localRotation; fx.transform.localScale = bl.goldFx.transform.localScale;
+                fx.SetActive(false); sc.goldFx = fx;
+            }
+            UdonSharpEditorUtility.CopyProxyToUdon(sc); EditorUtility.SetDirty(sc);
+        }
+        // 前のスイッチ・見本を消す（台は作り直しのたびに引きつぐので）
+        AudioSource click = null;
+        foreach (var sw in gs.GetComponents<FuwaGoldGunSwitch>()) { click = sw.clickSound; var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw); Object.DestroyImmediate(sw); if (ub) Object.DestroyImmediate(ub); }
+        foreach (var d0 in gs.GetComponents<FuwaGoldGunDisplay>()) { click = click ?? d0.clickSound; var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(d0); Object.DestroyImmediate(d0); if (ub) Object.DestroyImmediate(ub); }
+        foreach (var nm in new[] { "Display", "GunSpot" }) { var o = gs.Find(nm); if (o) Object.DestroyImmediate(o.gameObject); }
+        foreach (var nm in new[] { "Medal", "MedalRim", "Label" }) { var o = gs.Find(nm); if (o) o.gameObject.SetActive(false); }   // 見本の銃に置きかえ
+        var top = gs.Find("Top"); float topY = top ? top.GetComponent<Renderer>().bounds.max.y : gs.position.y + 0.95f * gs.lossyScale.y;
+        var spot = new GameObject("GunSpot").transform; spot.SetParent(gs, false);
+        spot.position = new Vector3(gs.position.x, topY + 0.01f, gs.position.z); spot.rotation = gs.rotation;
+        var disp = new GameObject("Display").transform; disp.SetParent(gs, false);
+        disp.position = spot.position + Vector3.up * bl.dockHover; disp.rotation = spot.rotation;
+        disp.localScale = Vector3.one * (sc.spin ? sc.spin.lossyScale.x : 1.4f) / gs.lossyScale.x;   // 台の上で回る銃と同じ大きさ
+        var spin = new GameObject("Spin").transform; spin.SetParent(disp, false);
+        GameObject Model(string name, bool gold)
+        {
+            var g = Object.Instantiate(sc.shownVisual.gameObject, spin, false); g.name = name;
+            g.transform.localPosition = sc.shownVisual.localPosition; g.transform.localRotation = sc.shownVisual.localRotation; g.transform.localScale = sc.shownVisual.localScale;
+            FuwaStage2Builder.StripBehaviour(g);
+            var fx = g.transform.Find("GoldSparkle"); if (fx) fx.gameObject.SetActive(gold);
+            if (gold) foreach (var r in g.GetComponentsInChildren<Renderer>(true)) if (goldOf.TryGetValue(r.name, out var m)) r.sharedMaterial = m;
+            foreach (var r in g.GetComponentsInChildren<Renderer>(true)) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.lightmapIndex = -1; }
+            foreach (var c in g.GetComponentsInChildren<Collider>(true)) Object.DestroyImmediate(c);
+            return g;
+        }
+        var goldM = Model("GoldModel", true); var normM = Model("NormalModel", false); normM.SetActive(false);
+        if (sc.halo) { var h = Object.Instantiate(sc.halo, disp, false); h.name = "Halo"; h.transform.localPosition = sc.halo.transform.localPosition; h.SetActive(true); }   // うしろのやわらかい光
+        if (sc.sparkles) { var sp = Object.Instantiate(sc.sparkles, disp, false); sp.name = "Sparkles"; sp.transform.localPosition = sc.sparkles.transform.localPosition; sp.SetActive(true); }
+        var gd = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGoldGunDisplay>(gs.gameObject);
+        gd.manager = mgr; gd.gunSpot = spot; gd.goldModel = goldM; gd.normalModel = normM; gd.spin = spin; gd.clickSound = click;
+        if (sc) { gd.spinSpeed = sc.spinSpeed; gd.bobAmp = sc.bobAmp; gd.bobSpeed = sc.bobSpeed; gd.tilt = sc.tilt; }
+        UdonSharpEditorUtility.CopyProxyToUdon(gd); FuwaStage2WaterTest.NoSync(gd);
+        return "金の銃の台（見本）・回る銃の金ピカ " + sc.goldRenderers.Length + " ";
+    }
+
     static void ApplyHandLayout(Transform root)
     {
         foreach (var (path, pos, euler, scale) in HandLayout)
@@ -428,6 +488,7 @@ public static class FuwaBonusHubBuilder
         }
         root.localScale = Vector3.one * Shrink;
         if (SharedBoards) log.Append(MakeSharedBoards(root));
+        log.Append(GoldGunDisplay(root));
         // 入口島のミニキノコに影（2026-11-18 てじゃ「入口島のミニキノコに影がない」：2–4 からの写しで、近くだけ影を出す係に入っていなかった）
         {
             int ns = 0;

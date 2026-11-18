@@ -28,6 +28,7 @@ public class FuwaGunShowcase : UdonSharpBehaviour
         bool show = dock != null;
         if (content != null && content.activeSelf != show) content.SetActive(show);
         if (!show) return;
+        ApplyGold(gun.IsGold());
         float s = gun.GetAutoScale();
         transform.position = gun.GetDockPoint();
         transform.localScale = Vector3.one * s;
@@ -66,4 +67,31 @@ public class FuwaGunShowcase : UdonSharpBehaviour
     public GameObject halo;
     public GameObject sparkles;
     private Quaternion _baseRot; private bool _baseRotSet, _wasPlain; private Vector3 _spinScale = Vector3.one;
+
+    // 2026-11-18 金ピカの銃：台の上の見た目の銃も、本物が金ピカなら金ピカで回す（前は元の色で回っていた）。
+    //  goldRenderers と goldMats は同じ順（FuwaBonusHubBuilder が本物の銃の金色の材質から名前でそろえる）
+    [Tooltip("見た目の銃のうち、金ピカにする所")]
+    public Renderer[] goldRenderers;
+    public Material[] goldMats;
+    [Tooltip("金ピカの間だけ出すキラキラ（なくてもOK）")]
+    public GameObject goldFx;
+    private Material[] _normalMats;
+    private int _goldShown = -1;
+    private void ApplyGold(bool on)
+    {
+        int s = on ? 1 : 0;
+        if (s == _goldShown || goldRenderers == null || goldMats == null) return;
+        if (_normalMats == null)
+        {
+            _normalMats = new Material[goldRenderers.Length];
+            for (int i = 0; i < goldRenderers.Length; i++) if (goldRenderers[i] != null) _normalMats[i] = goldRenderers[i].sharedMaterial;
+        }
+        _goldShown = s;
+        for (int i = 0; i < goldRenderers.Length; i++)
+        {
+            Renderer r = goldRenderers[i]; if (r == null) continue;
+            r.sharedMaterial = (on && i < goldMats.Length && goldMats[i] != null) ? goldMats[i] : _normalMats[i];
+        }
+        if (goldFx != null) goldFx.SetActive(on);
+    }
 }
