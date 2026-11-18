@@ -16,7 +16,33 @@ public static class FuwaGiantMushrooms
     const string MeshDir = "Assets/FuwaCourse/Models/GiantMush";
     const string MatDir = "Assets/FuwaCourse/Materials/MiniMush";
     // D（ふちが反った平たい傘）はやめた（2026-11-17 てじゃ「平たいやつあんまいらないな」）。メッシュは残してある
-    static readonly string[] Kinds = { "A", "B", "C" };
+    // 2026-11-18 てじゃ「（おまけ本島のキノコと）この考え方できのこのたにも、つくりなおそ」「A（飾りの巨大キノコ）」：
+    //  ベニテングタケ風（きれいな楕円のかさ・裏はなめらか・垂れるつば・ぷっくり根元）に。Blender の bigmush_build.py を軸だけ／かさだけで作り
+    //  （FLUFF_models.blend、Islets の giant2_params、コレクション GiantMush2）、Tools/giantmush2.json → GiantStem2_A〜C／GiantCap2_A〜C。
+    //  かさは A まるい若い／B 中くらい／C ひらいた。前の GiantStem_／GiantCap_ は残してある
+    static readonly string[] Kinds = { "2_A", "2_B", "2_C" };
+    [System.Serializable] class JItem { public string name; public float[] v, n; public int[] s0, s1, s2; }
+    [System.Serializable] class JFile { public JItem[] items; }
+    static void ImportJson()
+    {
+        var path = System.IO.Path.Combine(Application.dataPath, "../Tools/giantmush2.json");
+        if (!System.IO.File.Exists(path)) return;
+        var f = JsonUtility.FromJson<JFile>(System.IO.File.ReadAllText(path));
+        foreach (var it in f.items)
+        {
+            string ap = MeshDir + "/" + it.name + ".asset";
+            var m = AssetDatabase.LoadAssetAtPath<Mesh>(ap); bool isNew = !m;   // CopySerialized はサブメッシュが消えるので直接入れ直す
+            if (isNew) m = new Mesh(); else m.Clear();
+            m.name = it.name; m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            var vs = new Vector3[it.v.Length / 3]; var ns = new Vector3[vs.Length];
+            for (int i = 0; i < vs.Length; i++) { vs[i] = new Vector3(it.v[i * 3], it.v[i * 3 + 1], it.v[i * 3 + 2]); ns[i] = new Vector3(it.n[i * 3], it.n[i * 3 + 1], it.n[i * 3 + 2]); }
+            m.vertices = vs; m.normals = ns;
+            var subs = new[] { it.s0, it.s1 }.Where(x => x != null && x.Length > 0).ToArray();
+            m.subMeshCount = subs.Length; for (int i = 0; i < subs.Length; i++) m.SetTriangles(subs[i], i);
+            m.RecalculateBounds();
+            if (isNew) AssetDatabase.CreateAsset(m, ap); else EditorUtility.SetDirty(m);
+        }
+    }
 
     [MenuItem("FuwaCourse/よく使う/きのこのたにの飾りの巨大キノコをBlender版にする")]
     public static void Menu() { Debug.Log(Run()); }
@@ -40,8 +66,9 @@ public static class FuwaGiantMushrooms
                 for (int i = 0; i < src.subMeshCount; i++) ex.SetTriangles(src.GetTriangles(i), i);
                 ex.RecalculateBounds(); EditorUtility.SetDirty(ex);
             }
-        var stems = Kinds.Select(k => AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/GiantStem_" + k + ".asset")).ToArray();
-        var caps = Kinds.Select(k => AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/GiantCap_" + k + ".asset")).ToArray();
+        ImportJson();
+        var stems = Kinds.Select(k => AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/GiantStem" + k + ".asset")).ToArray();
+        var caps = Kinds.Select(k => AssetDatabase.LoadAssetAtPath<Mesh>(MeshDir + "/GiantCap" + k + ".asset")).ToArray();
         if (stems.Any(m => m == null) || caps.Any(m => m == null)) return "巨大キノコ：メッシュがない（先に Blender から取り込む）";
 
         var colors = new[]
@@ -69,7 +96,7 @@ public static class FuwaGiantMushrooms
             // 1本ずつの指定（2026-11-17 てじゃ「もとのとんがってるのに戻し、かわりにその手前の茶色いとんがりを赤いドームに、一番手前の赤いやや平たいやつを茶色に」）
             //  1番目（(-42, 4, -32) 茶のベル）→ 赤のドーム、0番目（(-28, -1, -27) 赤の平たい）→ 茶
             int colorIdx = order.IndexOf(m) % colors.Length;
-            if (m.GetSiblingIndex() == 1) { kind = 2; colorIdx = 0; }
+            if (m.GetSiblingIndex() == 1) { kind = 0; colorIdx = 0; }   // 2026-11-18 ドーム→ 新しい形ではまるい若いかさ（2_A）
             if (m.GetSiblingIndex() == 0) colorIdx = 2;
             // てじゃ「左のトンガリをオレンジに、右奥の平らなのを赤に」：7番目（(-44, 8, -84) 赤のベル）→ オレンジ、10番目（(-44, -6, -23) 青の平たい）→ 赤
             if (m.GetSiblingIndex() == 7) colorIdx = 1;
