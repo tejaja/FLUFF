@@ -33,6 +33,9 @@ public class FuwaGoal : UdonSharpBehaviour
     public GameObject lobbyWarp;
     [Tooltip("ゴールしてからワープが出るまでの秒数（シーンでは全コース4秒。2026-11-16 てじゃ「１秒くらいはやくてもいいかも」で5→4）")]
     public float warpDelay = 1.0f;
+    [Tooltip("一度出たワープを出しっぱなしにする（おまけのゴールの「本島へ」ワープ。2026-11-18 てじゃ「一度ゴールのポータル開いた後も…本島行きポータルも開きっぱなし」）")]
+    public bool keepWarpOpen = false;
+    private bool _warpOpened;
     [Tooltip("ワープがぽんっと出てくる秒数")]
     public float warpPopTime = 0.35f;
     [Tooltip("ワープの「ロビーにもどる」看板（ワープより遅れて出す）")]
@@ -145,8 +148,8 @@ public class FuwaGoal : UdonSharpBehaviour
         if (marker != null) marker.SetActive(false);
         _ringGone = true;
         _flashStart = Time.time;
-        _warpAt = Time.time + warpDelay;
-        if (lobbyWarp != null) lobbyWarp.SetActive(false);
+        _warpAt = _warpOpened ? -1f : Time.time + warpDelay;   // 出しっぱなしのワープはもう出ている
+        if (lobbyWarp != null && !_warpOpened) lobbyWarp.SetActive(false);
 
         // お祝い：胞子の花火と、キノコの輪から舞い上がる胞子（ゴールのたびに）
         if (fireworks != null) { fireworks.Clear(true); fireworks.Play(true); }
@@ -288,6 +291,7 @@ public class FuwaGoal : UdonSharpBehaviour
             _warpPopStart = Time.time;
             lobbyWarp.transform.localScale = Vector3.zero;
             lobbyWarp.SetActive(true);
+            if (keepWarpOpen) _warpOpened = true;
             // 看板は labelDelay 秒遅れて出す（0ならワープと同時）
             if (warpLabel != null)
             {
@@ -373,7 +377,7 @@ public class FuwaGoal : UdonSharpBehaviour
         if (marker != null) marker.SetActive(true);
         if (lobbyWarp != null)
         {
-            lobbyWarp.SetActive(false);
+            if (!_warpOpened) lobbyWarp.SetActive(false);
             lobbyWarp.transform.localScale = Vector3.one;
         }
     }

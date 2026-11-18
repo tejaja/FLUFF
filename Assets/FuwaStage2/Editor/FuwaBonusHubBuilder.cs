@@ -244,6 +244,9 @@ public static class FuwaBonusHubBuilder
             so.FindProperty("area").intValue = 4; so.FindProperty("stage").intValue = 0; so.FindProperty("homeAction").intValue = 0; so.FindProperty("timed").boolValue = false;
             so.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(gwt);
             foreach (var t in gw.GetComponentsInChildren<TMPro.TMP_Text>(true)) { t.text = "<size=80%>きねんのしま</size>"; EditorUtility.SetDirty(t); }
+            // 一度開いたら開きっぱなし（2026-11-18 てじゃ）
+            var fg = goal.GetComponentInChildren<FuwaGoal>(true);
+            if (fg) { var gso = new SerializedObject(fg); gso.FindProperty("keepWarpOpen").boolValue = true; gso.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(fg); }
             log.Append("ゴールのワープ→本島 ");
         }
         var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault();
@@ -254,6 +257,13 @@ public static class FuwaBonusHubBuilder
             {
                 var a = tracks.GetArrayElementAtIndex(i).objectReferenceValue as AudioSource;
                 if (a && a.name == "BGM_bonus_after") { starts.GetArrayElementAtIndex(i).objectReferenceValue = ballPark; log.Append("BGM "); }
+            }
+            // おまけのコース（BGM_bonus）は一度ゴールしたら、その後ずっとゴール後の曲（2026-11-18 てじゃ「一度ゴールのポータル開いた後も、BGM消えなくなって」）
+            var sticky = so.FindProperty("stickyAfterGoal"); sticky.arraySize = starts.arraySize;
+            for (int i = 0; i < starts.arraySize; i++)
+            {
+                var a = i < tracks.arraySize ? tracks.GetArrayElementAtIndex(i).objectReferenceValue as AudioSource : null;
+                sticky.GetArrayElementAtIndex(i).boolValue = a && a.name == "BGM_bonus";
             }
             so.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(bgm);
         }

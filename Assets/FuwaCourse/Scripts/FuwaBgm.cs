@@ -180,6 +180,11 @@ public class FuwaBgm : UdonSharpBehaviour
     public int[] afterGoalTracks;
     private bool _afterGoal;
     private Transform _afterGoalStart;
+    // 2026-11-18 てじゃ「（おまけで）一度ゴールのポータル開いた後も、BGM消えなくなって」：ここが true のコースは、一度ゴールしたらその後ずっとゴール後の曲
+    //  （次の挑戦を始めても・出入りしても。このワールドにいる間）。starts と同じ番号
+    [Tooltip("一度ゴールしたら、その後ずっとゴール後の曲にするコース（starts と同じ番号）")]
+    public bool[] stickyAfterGoal;
+    private bool[] _stuck;
 
     // ゴールした時に呼ばれる：BGMをすっと消してファンファーレ、終わったら今の場所の曲を頭から
     public void PlayFanfare()
@@ -187,6 +192,11 @@ public class FuwaBgm : UdonSharpBehaviour
         // ゴール後は、次のスタート（またはコースの移動）まで軽い曲にする
         _afterGoal = afterGoalTrack >= 0;
         _afterGoalStart = ball != null ? ball.startPoint : null;
+        if (stickyAfterGoal != null && starts != null && _afterGoalStart != null)
+        {
+            if (_stuck == null || _stuck.Length != starts.Length) _stuck = new bool[starts.Length];
+            for (int i = 0; i < starts.Length && i < stickyAfterGoal.Length; i++) if (stickyAfterGoal[i] && starts[i] == _afterGoalStart) _stuck[i] = true;
+        }
         if (_muted || fanfare == null || fanfare.clip == null) return;
         _fanfareUntil = Time.time + fanfare.clip.length;
         fanfare.volume = Mathf.Clamp01(Vol() * fanfareVolume);
@@ -285,7 +295,11 @@ public class FuwaBgm : UdonSharpBehaviour
         Transform sp = ball.startPoint;
         for (int i = 0; i < starts.Length && i < tracks.Length; i++)
         {
-            if (starts[i] == sp) return i;
+            if (starts[i] == sp)
+            {
+                if (_stuck != null && i < _stuck.Length && _stuck[i] && afterGoalTracks != null && i < afterGoalTracks.Length && afterGoalTracks[i] >= 0 && afterGoalTracks[i] < tracks.Length) return afterGoalTracks[i];
+                return i;
+            }
         }
         return 0;
     }
