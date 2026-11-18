@@ -35,6 +35,15 @@ public class FuwaCourseJoin : UdonSharpBehaviour
     public Vector3[] lobbyMax;
     [Tooltip("コース・ロビーの床からこの距離(m)以内なら入った扱い（FuwaCourseLod.nearCourseDist より小さく）")]
     public float joinDist = 8f;
+    // 2026-11-18 てじゃ「クリアフラグたったあとは飛んでおまけ島入口に入場判定入るようにしたい」：
+    //  roots と同じ順の「この物が出ている時だけ入れる」（null ならいつでも）。おまけの島はロビーの Slot5/Unlocked（全クリした人の画面だけ出る）
+    [Tooltip("roots と同じ順：この物が出ている時だけ入った扱いにする（null ならいつでも）")]
+    public GameObject[] gates;
+    // 軽い版の床の箱（FuwaCourseLod）を持たない所の床の箱（ワールド座標）。boxRoot は roots の番号
+    [Tooltip("FuwaCourseLod の床の箱にない所（おまけの島など）の床の箱。boxRoot は roots の番号")]
+    public Vector3[] boxMin;
+    public Vector3[] boxMax;
+    public int[] boxRoot;
     public float interval = 0.25f;
 
     [Header("エリアの間を飛んだ時")]
@@ -79,6 +88,7 @@ public class FuwaCourseJoin : UdonSharpBehaviour
             }
         }
         if (c < 0) c = NearestCourse(lp.GetPosition());
+        if (c >= 0 && gates != null && c < gates.Length && gates[c] != null && !gates[c].activeInHierarchy) c = -1;   // まだ入れない所
         if (c < 0 || warps[c] == null || warps[c].courseStart == ball.startPoint) { _cand = -1; return; }
         if (c != _cand) { _cand = c; _candSince = Time.time; return; }
         if (Time.time - _candSince < dwell) return;
@@ -97,6 +107,15 @@ public class FuwaCourseJoin : UdonSharpBehaviour
             {
                 float d = (Vector3.Max(lod.cellMin[k], Vector3.Min(lod.cellMax[k], p)) - p).sqrMagnitude;
                 if (d < best) { best = d; c = lod.cellCourse[k]; }
+            }
+        }
+        if (boxMin != null && boxMax != null && boxRoot != null)
+        {
+            int m = Mathf.Min(Mathf.Min(boxMin.Length, boxMax.Length), boxRoot.Length);
+            for (int k = 0; k < m; k++)
+            {
+                float d = (Vector3.Max(boxMin[k], Vector3.Min(boxMax[k], p)) - p).sqrMagnitude;
+                if (d < best) { best = d; c = boxRoot[k]; }
             }
         }
         if (lobbyMin != null && lobbyMax != null)

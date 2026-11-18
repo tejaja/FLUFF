@@ -81,7 +81,9 @@ public static class FuwaCourseLite
                 if (!c.isTrigger && (c.name == "LobbyFloor" || c.name == "Ground")) { mins.Add(c.bounds.min); maxs.Add(c.bounds.max); }
         j2.lobbyMin = mins.ToArray(); j2.lobbyMax = maxs.ToArray();
         j2.areaMin = new Vector3[0]; j2.areaMax = new Vector3[0]; j2.areaIds = new int[0]; j2.areaWarps = new FuwaCourseWarp[0];   // エリアの切り替えはステージ1の方だけ
+        j2.gates = new GameObject[0]; j2.boxMin = new Vector3[0]; j2.boxMax = new Vector3[0]; j2.boxRoot = new int[0];
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(j2); EditorUtility.SetDirty(j2);
+        Debug.Log(FuwaRewardIslandBuilder.JoinSetup());   // おまけの島（全クリ後だけ）も足し直す
         Debug.Log("[ステージ2の入場判定] " + string.Join(", ", ws.Select((w, i) => roots[i].name + "→" + (w ? w.name : "なし"))) + " / ロビーの床 " + mins.Count);
     }
 

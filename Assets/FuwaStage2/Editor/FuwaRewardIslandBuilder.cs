@@ -25,6 +25,36 @@ public static class FuwaRewardIslandBuilder
         return names.Select(n => root.Find(n)).Where(t => t).Select(t => t.gameObject).ToArray();
     }
 
+    // 2026-11-18 てじゃ「クリアフラグたったあとは飛んでおまけ島入口に入場判定入るようにしたい」：
+    //  ステージ2の入場判定（CourseJoinStage2）に島を足す。ロビー（いちばん最後）の前に入れる。入り口は Slot5/Unlocked のワープ、
+    //  Unlocked が出ている（＝全クリした）時だけ入れる（gates）。島には軽い版の床の箱がないので、島の床の当たりの箱を boxMin/boxMax に
+    public static string JoinSetup()
+    {
+        var root = FindRoot(RootName); var s2 = FindRoot("FuwaStage2");
+        var unl = s2 ? s2.Find("Lobby/Slot5/Unlocked") : null;
+        var warp = unl ? unl.GetComponentsInChildren<FuwaCourseWarp>(true).FirstOrDefault() : null;
+        var j2 = Resources.FindObjectsOfTypeAll<FuwaCourseJoin>().FirstOrDefault(j => j && j.gameObject.scene.IsValid() && j.stage == 2);
+        if (!root || !warp || !j2) return "入場判定：島・ワープ・CourseJoinStage2 のどれかがない";
+        int n = j2.roots.Length;
+        var roots = new List<Transform>(); var lites = new List<Transform>(); var ws = new List<FuwaCourseWarp>(); var gates = new List<GameObject>();
+        for (int i = 0; i < n; i++)
+        {
+            if (j2.roots[i] == root) continue;   // 前に足した分
+            roots.Add(j2.roots[i]); lites.Add(j2.liteRoots != null && i < j2.liteRoots.Length ? j2.liteRoots[i] : null);
+            ws.Add(i < j2.warps.Length ? j2.warps[i] : null);
+            gates.Add(j2.gates != null && i < j2.gates.Length ? j2.gates[i] : null);
+        }
+        int at = roots.Count - 1;   // ロビーの前
+        roots.Insert(at, root); lites.Insert(at, null); ws.Insert(at, warp); gates.Insert(at, unl.gameObject);
+        var mins = new List<Vector3>(); var maxs = new List<Vector3>();
+        foreach (var c in root.GetComponentsInChildren<Collider>(true))
+            if (!c.isTrigger && c.gameObject.layer != 2 && c.bounds.size.x > 1.5f && c.bounds.size.z > 1.5f) { mins.Add(c.bounds.min); maxs.Add(c.bounds.max); }
+        j2.roots = roots.ToArray(); j2.liteRoots = lites.ToArray(); j2.warps = ws.ToArray(); j2.gates = gates.ToArray();
+        j2.boxMin = mins.ToArray(); j2.boxMax = maxs.ToArray(); j2.boxRoot = Enumerable.Repeat(at, mins.Count).ToArray();
+        UdonSharpEditorUtility.CopyProxyToUdon(j2); EditorUtility.SetDirty(j2);
+        return "入場判定：おまけの島 " + at + "番、床の箱 " + mins.Count;
+    }
+
     public static void LobbyPath(Transform lobby, Transform slot5, Transform unl)
     {
         var old = unl.Find("LobbyPath"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -240,6 +270,7 @@ public static class FuwaRewardIslandBuilder
         }
         // 2026-11-18 おまけ本島（記念の島）：ゴールの文字・きんピカ台をそっちへ移し、ゴールのワープの行き先にする
         log.Add(FuwaBonusHubBuilder.Build());
+        log.Add(JoinSetup());
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[ごほうびの島] " + root.position.ToString("F1") + " " + string.Join("、", log);
