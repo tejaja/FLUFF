@@ -18,6 +18,10 @@ public class FuwaAreaVisibility : UdonSharpBehaviour
     public GameObject[] stage2Objects;
     [Tooltip("おまけ本島（記念の島、area 4）。おまけのゴールのワープから。2026-11-18")]
     public GameObject[] bonusObjects;
+    [Tooltip("ステージ1（ひとりで）とおまけ本島の両方で出す、遠くのけしき（雲・遠くの浮島・軽い版の入れ物）。2026-11-18 てじゃ「（おまけ本島から）遠景みえててほしいな」")]
+    public GameObject[] bonusFarObjects;
+    [Tooltip("おまけ本島にいる時だけ出す物（ステージ1の各コースの軽い版。ふだんは FuwaCourseLod が出し入れする）")]
+    public GameObject[] bonusLites;
 
     private int _area = -1;
     private int _stage = 1;
@@ -53,6 +57,9 @@ public class FuwaAreaVisibility : UdonSharpBehaviour
         SetAll(playgroundObjects, _area == 2);
         SetAll(debugObjects, _area == 3);
         SetAll(bonusObjects, _area == 4);
+        // 両方で出す物は最後に（soloObjects で消されても出し直す）
+        SetAll(bonusFarObjects, (_area == 1 && _stage == 1) || _area == 4);
+        SetAll(bonusLites, _area == 4);
     }
 
     private void SetAll(GameObject[] objs, bool on)

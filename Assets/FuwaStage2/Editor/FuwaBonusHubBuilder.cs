@@ -259,6 +259,13 @@ public static class FuwaBonusHubBuilder
             var so = new SerializedObject(av); var arr = so.FindProperty("bonusObjects");
             for (int i = arr.arraySize - 1; i >= 0; i--) if (arr.GetArrayElementAtIndex(i).objectReferenceValue == null || arr.GetArrayElementAtIndex(i).objectReferenceValue == (old ? old : null)) arr.DeleteArrayElementAtIndex(i);
             arr.arraySize++; arr.GetArrayElementAtIndex(arr.arraySize - 1).objectReferenceValue = root.gameObject;
+            // 遠くのけしき（2026-11-18 てじゃ「遠景みえててほしいな」「雲と小島とか」）：ステージ1の雲・遠くの浮島（コースは出さない）
+            var rootsAll = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects();
+            var far = new[] { "CloudPuffs", "FarIslands" }.Select(nm => rootsAll.FirstOrDefault(g => g.name == nm)).Where(g => g).ToArray();
+            var lites = far.Where(g => g.name == "CourseLites").SelectMany(g => g.transform.Cast<Transform>().Select(t => t.gameObject)).ToArray();
+            void SetArr(string name, GameObject[] objs) { var pa = so.FindProperty(name); pa.arraySize = objs.Length; for (int i = 0; i < objs.Length; i++) pa.GetArrayElementAtIndex(i).objectReferenceValue = objs[i]; }
+            SetArr("bonusFarObjects", far); SetArr("bonusLites", lites);
+            log.Append("遠景 " + far.Length + "・軽い版 " + lites.Length + " ");
             so.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(av);
         }
         var gw = goal ? goal.Find("GoalWarp") : null;
