@@ -502,12 +502,44 @@ public static class FuwaBonusHubBuilder
         }
         // 立つ所：ボードの手前の、少しだけ高い丸いステージ（クリーム色）
         {
-            var st0 = new GameObject("Stage", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider)).transform; st0.SetParent(root, false);
+            // 2026-11-19 てじゃ「白いステージが地味すぎる」「土でもいいかもね、タイトル画面みたいな、ただ芝とのフチをどうするか」：
+            //  タイトルの島と同じ土（Lobby_Floor、石のもよう）。ふちはゆるく波打たせて「芝がはげて土が出た」感じ、境目に少し濃い土の帯。芝からほんの少しだけ上
             var cb = cyl.bounds.size;
-            st0.position = ringC + Vector3.forward * (BoardBack - StageR - 0.2f) + Vector3.up * 0.05f;
-            st0.localScale = new Vector3(StageR * 2f / cb.x, 0.1f / cb.y, StageR * 2f / cb.z);
-            st0.GetComponent<MeshFilter>().sharedMesh = cyl; st0.GetComponent<MeshCollider>().sharedMesh = cyl;
-            st0.GetComponent<MeshRenderer>().sharedMaterial = BonusMat("Bonus_PhotoStage", new Color(1f, 0.9f, 0.88f));
+            var st0 = new GameObject("Stage", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider)).transform; st0.SetParent(root, false);
+            st0.position = ringC + Vector3.forward * (BoardBack - StageR - 0.2f) + Vector3.up * 0.012f;
+            st0.localScale = Vector3.one;
+            var dirt = FuwaLobbyPaths.FindMat("Lobby_Floor") ?? BonusMat("Bonus_PhotoStage", new Color(1f, 0.9f, 0.88f));
+            Color dc = dirt.HasProperty("_Color") ? dirt.color : new Color(0.75f, 0.6f, 0.45f);
+            var rimM = BonusMat("Bonus_StageRim", new Color(dc.r * 0.82f, dc.g * 0.78f, dc.b * 0.74f));
+            float R0 = StageR; float RadiusAt(float a) => R0 * (1f + 0.045f * Mathf.Sin(a * 5f + 0.7f) + 0.03f * Mathf.Sin(a * 9f + 2.1f) + 0.02f * Mathf.Sin(a * 14f + 0.3f));
+            Mesh Disc(string name, float grow, float y, bool ringOnly)
+            {
+                const int N = 96; var vs = new List<Vector3>(); var uvs = new List<Vector2>(); var tri = new List<int>();
+                float uvk = Shrink;   // 1m につき 1（タイトルの島の床と同じ石の大きさ）
+                if (!ringOnly) { vs.Add(new Vector3(0f, y, 0f)); uvs.Add(Vector2.zero); }
+                for (int i = 0; i < N; i++)
+                {
+                    float a2 = i * Mathf.PI * 2f / N; float r = RadiusAt(a2) + grow;
+                    var p = new Vector3(Mathf.Cos(a2) * r, y, Mathf.Sin(a2) * r); vs.Add(p); uvs.Add(new Vector2(p.x, p.z) * uvk);
+                }
+                if (!ringOnly) for (int i = 0; i < N; i++) { tri.Add(0); tri.Add(1 + (i + 1) % N); tri.Add(1 + i); }
+                else
+                {
+                    for (int i = 0; i < N; i++) { float a2 = i * Mathf.PI * 2f / N; float r = RadiusAt(a2) - 0.02f; var p = new Vector3(Mathf.Cos(a2) * r, y, Mathf.Sin(a2) * r); vs.Add(p); uvs.Add(new Vector2(p.x, p.z) * uvk); }
+                    for (int i = 0; i < N; i++) { int j = (i + 1) % N; tri.Add(i); tri.Add(N + i); tri.Add(j); tri.Add(j); tri.Add(N + i); tri.Add(N + j); }
+                }
+                string ap = "Assets/FuwaStage2/Generated/BonusHub_" + name + ".asset";
+                var m = AssetDatabase.LoadAssetAtPath<Mesh>(ap); bool isNew = !m; if (isNew) m = new Mesh(); else m.Clear();
+                m.name = name; m.SetVertices(vs); m.SetUVs(0, uvs); m.SetTriangles(tri, 0); m.RecalculateNormals(); m.RecalculateBounds();
+                if (isNew) AssetDatabase.CreateAsset(m, ap); else EditorUtility.SetDirty(m);
+                return m;
+            }
+            var top = Disc("StageDirt", 0f, 0.004f, false);
+            st0.GetComponent<MeshFilter>().sharedMesh = top; st0.GetComponent<MeshCollider>().sharedMesh = top;
+            st0.GetComponent<MeshRenderer>().sharedMaterial = dirt;
+            var rim = new GameObject("StageRim", typeof(MeshFilter), typeof(MeshRenderer)).transform; rim.SetParent(st0, false);
+            rim.GetComponent<MeshFilter>().sharedMesh = Disc("StageRim", 0.12f, 0f, true); rim.GetComponent<MeshRenderer>().sharedMaterial = rimM;
+            foreach (var rr in st0.GetComponentsInChildren<MeshRenderer>(true)) rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             st0.gameObject.layer = 11;
             // 撮る人の立ち位置の印：ボードが画面いっぱいに入る距離。足あと代わりの水色の丸（2026-11-18 てじゃ「青い円は消してOK」→ CameraSpotMark=false）
             if (CameraSpotMark) {
