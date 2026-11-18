@@ -20,7 +20,7 @@ public static class FuwaBonusHubBuilder
     public static float SpawnFromEdge = 3.2f, PortalFromEdge = 1.3f; public static bool PortalBase = false, CameraSpotMark = false;
     public static bool BoardPickup = false;
     public static bool SharedBoards = true;
-    public static float[] PhotoFluffSizes = { 0.4f, 0.7f, 1.1f }; public static float PhotoFluffSpread = 1.5f;
+    public static float[] PhotoFluffSizes = { 0.165f, 0.3f, 0.9f }; public static float PhotoFluffSpread = 1.2f;   // てじゃ「通常＋2-5にある２種で」：ふつう30cm、ちいさく（×0.55）、おおきく（×3）
     public static float GoldFluffSize = 0.7f, StatueYaw = 90f;   // 金の銃の像の向き（台の向きから）   // 金ピカふわふわの直径(m)   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
