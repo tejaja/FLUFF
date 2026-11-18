@@ -44,12 +44,16 @@ public static class FuwaCourse2_4Perf
             if (r.shadowCastingMode != ShadowCastingMode.On) continue;   // もともと影なし・影だけの物（FarShadows が On にすると見えてしまう）
             if (!r.GetComponent<MeshFilter>()) continue;
             var b = r.bounds; float m = Mathf.Max(b.size.x, b.size.y, b.size.z);
-            if (m < SmallSize) { r.shadowCastingMode = ShadowCastingMode.Off; EditorUtility.SetDirty(r); addS.Add(r); }
+            // 2026-11-18 アーチの要石は小さくても大物あつかい（近くだけ影だと、遠いとアーチの影のまん中にすき間があいた）
+            if (m < SmallSize && !FillsHole(r)) { r.shadowCastingMode = ShadowCastingMode.Off; EditorUtility.SetDirty(r); addS.Add(r); }
             else addF.Add(r);
         }
         Add(small, addS); Add(far, addF);
         return "影：小物 +" + addS.Count + "（SmallShadows " + small.targets.Length + "）・遠いと影オフ +" + addF.Count + "（FarShadows " + far.targets.Length + "）";
     }
+
+    // 大きい物のすき間を埋める小物（これの影だけ消えると、大きい物の影に穴があく）
+    public static bool FillsHole(Renderer r) => r.name == "Keystone";
 
     // 消えた物（作り直しで null）を詰めて、足す
     static void Add(FuwaFarShadows f, List<Renderer> add)

@@ -43,7 +43,7 @@ MonoBehaviour:
       Data: 
     - Name: 
       Entry: 12
-      Data: 3
+      Data: 4
     - Name: 
       Entry: 7
       Data: 
@@ -215,6 +215,70 @@ MonoBehaviour:
     - Name: tooltip
       Entry: 1
       Data: "copterSafe \u306E\u6642\u3001\u30C7\u30D0\u30C3\u30B0\u98DB\u884C\u4E2D\uFF08FuwaDebugFly\uFF09\u3082\u7121\u8996\u3059\u308B\uFF08\u516C\u958B\u524D\u306B\u6D88\u3059\u7269\uFF09"
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 13
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: 
+      Entry: 7
+      Data: 
+    - Name: $k
+      Entry: 1
+      Data: minFeetY
+    - Name: $v
+      Entry: 7
+      Data: 14|UdonSharp.Compiler.FieldDefinition, UdonSharp.Editor
+    - Name: <Name>k__BackingField
+      Entry: 1
+      Data: minFeetY
+    - Name: <UserType>k__BackingField
+      Entry: 7
+      Data: 15|System.RuntimeType, mscorlib
+    - Name: 
+      Entry: 1
+      Data: System.Single, mscorlib
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: <SystemType>k__BackingField
+      Entry: 9
+      Data: 15
+    - Name: <SyncMode>k__BackingField
+      Entry: 7
+      Data: System.Nullable`1[[UdonSharp.UdonSyncMode, UdonSharp.Runtime]], mscorlib
+    - Name: 
+      Entry: 6
+      Data: 
+    - Name: 
+      Entry: 8
+      Data: 
+    - Name: <IsSerialized>k__BackingField
+      Entry: 5
+      Data: true
+    - Name: _fieldAttributes
+      Entry: 7
+      Data: 16|System.Collections.Generic.List`1[[System.Attribute, mscorlib]], mscorlib
+    - Name: 
+      Entry: 12
+      Data: 1
+    - Name: 
+      Entry: 7
+      Data: 17|UnityEngine.TooltipAttribute, UnityEngine.CoreModule
+    - Name: tooltip
+      Entry: 1
+      Data: "2026-11-17 2\u20134 \u306E\u56DE\u8EE2\u5E8A\u306E\u4E0B\uFF08\u4E0B\u306E\u6BB5\u306E\u30B3\u30FC\u30B9\u306E\u4E0A\uFF09\uFF1A\u8DB3\uFF08GetPosition\uFF09\u304C\u3053\u306E\u9AD8\u3055\uFF08\u30EF\u30FC\u30EB\u30C9
+        y\uFF09\u3088\u308A\u4E0B\u306A\u3089\u7121\u8996\u3002\u4E0B\u306E\u6BB5\u3092\u6B69\u3044\u3066\u3044\u308B\u4EBA\u306E\u982D\u304C\u5165\u3063\u3066\u3082\u843D\u3061\u305F\u6271\u3044\u306B\u3057\u306A\u3044"
     - Name: 
       Entry: 8
       Data: 

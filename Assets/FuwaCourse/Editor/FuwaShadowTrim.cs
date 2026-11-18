@@ -27,7 +27,9 @@ public static class FuwaShadowTrim
             if (b.size.magnitude < 0.35f) { tiny++; cut = true; }
             else if (p.Contains("Warp") && (r.name.StartsWith("Warp") || r.name.Contains("ProgressRing") || r.name.Contains("Gauge") || r.name.Contains("Veil"))) { warp++; cut = true; }
             // 2026-11-17 島や道の下の面は切らない（てじゃ「上の広場の影がこんなかたちに」：上の面が影を出していない所があり、下の面が影を担当していた）
-            else if (p.Contains("Lite") || r.transform.root.name.Contains("Lite")) { lite++; cut = true; }
+            // 2026-11-18 遠景用の軽量版（CourseLites など、ルートの名前に Lite）だけ。柱の LODGroup の遠い版（子の「Lite」）は遠くで本体の代わりに影を出すので切らない
+            //  （てじゃ「ここらの影が、距離でスキマがあく」：2–5 の柱の影が遠いと消えていた）
+            else if (r.transform.root.name.Contains("Lite")) { lite++; cut = true; }
             else if (b.size.y < 0.06f && b.size.magnitude > 0.3f) { flat++; cut = true; }
             if (!cut) continue;
             Undo.RecordObject(r, "shadow trim");
