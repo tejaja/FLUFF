@@ -16,6 +16,8 @@ public class FuwaAreaVisibility : UdonSharpBehaviour
     public int startArea = 0;
     [Tooltip("ステージ2（つぎのしま、ステージ1の真下）。ひとりでモード(1)の続きで、ひとりでの間は今いるステージだけ表示する（soloObjects がステージ1）。2026-10-17")]
     public GameObject[] stage2Objects;
+    [Tooltip("おまけ本島（記念の島、area 4）。おまけのゴールのワープから。2026-11-18")]
+    public GameObject[] bonusObjects;
 
     private int _area = -1;
     private int _stage = 1;
@@ -50,6 +52,7 @@ public class FuwaAreaVisibility : UdonSharpBehaviour
         SetAll(stage2Objects, _area == 1 && _stage == 2);
         SetAll(playgroundObjects, _area == 2);
         SetAll(debugObjects, _area == 3);
+        SetAll(bonusObjects, _area == 4);
     }
 
     private void SetAll(GameObject[] objs, bool on)

@@ -238,6 +238,8 @@ public static class FuwaRewardIslandBuilder
                 }
             }
         }
+        // 2026-11-18 おまけ本島（記念の島）：ゴールの文字・きんピカ台をそっちへ移し、ゴールのワープの行き先にする
+        log.Add(FuwaBonusHubBuilder.Build());
         FuwaCourse2_1Builder.FixNetworkIDs();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[ごほうびの島] " + root.position.ToString("F1") + " " + string.Join("、", log);
