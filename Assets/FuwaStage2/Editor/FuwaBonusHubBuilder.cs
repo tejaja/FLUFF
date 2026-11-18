@@ -171,6 +171,7 @@ public static class FuwaBonusHubBuilder
             var t = goal ? goal.Find(nm) : null; if (!t && old) t = old.transform.Find(nm);
             if (!t) continue;
             t.SetParent(root, true); t.gameObject.SetActive(true); stands.Add(t);
+            t.localScale = Vector3.one;   // 前の本島（0.75倍に縮めた後）から移すと、作り直すたびに 0.75 倍ずつ小さくなっていた（2026-11-18 てじゃ「金の銃と金ふわふわどっかいってる」）
         }
         // きんピカ台・金ピカふわふわ：輪の外の右（東）。島のまん中を向く
         if (stands.Count > 0) { stands[0].position = Pos + new Vector3(8.4f, 0f, -1.6f); stands[0].rotation = Quaternion.LookRotation(Vector3.left); }
