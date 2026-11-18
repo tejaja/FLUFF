@@ -291,6 +291,14 @@ public static class FuwaBonusHubBuilder
             var off = src.position - new Vector3(lc.x, floorTop, lc.z);
             g.transform.position = Pos + off * Scale; g.transform.localScale = src.lossyScale * Scale;
             foreach (var r in g.GetComponentsInChildren<Renderer>(true)) r.lightmapIndex = -1;
+            // 柵は切れ目のない版に（ロビーの柵は橋をつなぐ所が開いている Open 版。2026-11-19 てじゃ「外の柵に切れ目ある」）
+            if (nm == "Fence")
+            {
+                var cm = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/Bevel/FuwaLobby_Fence_Bevel.asset"); var mf0 = g.GetComponent<MeshFilter>(); if (cm && mf0) mf0.sharedMesh = cm;
+                var far = g.transform.Find("Fence_Far"); var cmf = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Generated/Far/FuwaLobby_Fence_Bevel_Far.asset");
+                if (far && cmf) far.GetComponent<MeshFilter>().sharedMesh = cmf;   // 遠くの軽い版も切れ目なし
+            }
+            if (nm == "FenceCollider") { var cm = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FuwaLobby_FenceCollider.asset"); var mc0 = g.GetComponent<MeshCollider>(); if (cm && mc0) mc0.sharedMesh = cm; var mf1 = g.GetComponent<MeshFilter>(); if (cm && mf1) mf1.sharedMesh = cm; }
             // 芝はステージ1の色（2026-11-18 てじゃ「本島の芝はステージ1のカラーにしといて」）
             if (nm == "LobbyFloor") { var gm = FuwaLobbyPaths.FindMat("Goal_Ground"); var fr = g.GetComponent<MeshRenderer>(); if (gm && fr) fr.sharedMaterials = fr.sharedMaterials.Select(m => m && m.name == "Stage2_LobbyGround" ? gm : m).ToArray(); }
         }
