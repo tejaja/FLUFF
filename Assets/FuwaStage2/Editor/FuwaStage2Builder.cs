@@ -121,6 +121,7 @@ public static class FuwaStage2Builder
             MakeWarp(portal2, "Stage1Portal", gateTrig, gateGauge, lobby1.transform.Find("BallPark"), lobby1.transform.Find("LobbySpawn"), lobby1.transform.Find("GunStand_Lobby/GunSpot"), 1);
             log.Add("ワープ：ステージ1⇄2");
             // ロビーから落ちたらロビーへ（ステージ1の FallReturn と同じ。戻し先はステージ2へのワープ）
+            //  2026-11-18 てじゃ「そもそも今は空中からコースいけても問題ないし、これいらんかもね」→ ステージ1・2のロビーの FallReturn は止めた（写すと止まったまま）
             var fr1 = lobby1.transform.Find("FallReturn");
             if (fr1 && to2)
             {

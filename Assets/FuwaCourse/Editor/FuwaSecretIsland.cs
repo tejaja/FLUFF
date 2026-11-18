@@ -158,6 +158,7 @@ public static class FuwaSecretIsland
     {
         var src = lobby.Find("FallReturn");
         var g = Object.Instantiate(src.gameObject, lobby, false); g.name = FallName;
+        g.SetActive(true);   // ロビーの下の FallReturn は 2026-11-18 に止めた（写しの方は使う）
         g.transform.position = new Vector3((top.x + lobby.Find("PhotoStudio").position.x) * 0.5f, top.y - 4f, (top.z + lobby.Find("PhotoStudio").position.z) * 0.5f);
         g.transform.localScale = new Vector3(12f, src.localScale.y, 12f);
         var lf = g.GetComponent<FuwaLobbyFall>(); if (lf != null) { UdonSharpEditorUtility.CopyProxyToUdon(lf); EditorUtility.SetDirty(lf); }

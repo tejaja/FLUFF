@@ -1227668,7 +1227668,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &1401187139
 Transform:
   m_ObjectHideFlags: 0
@@ -1895031,6 +1895031,10 @@ PrefabInstance:
       propertyPath: publicVariablesUnityEngineObjects.Array.data[2]
       value: 
       objectReference: {fileID: 582230604}
+    - target: {fileID: 6297839868280686435, guid: dd26c5abe2176c748a3c756153c99a8b, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 6330621047732037278, guid: dd26c5abe2176c748a3c756153c99a8b, type: 3}
       propertyPath: m_CastShadows
       value: 0
