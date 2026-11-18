@@ -274,7 +274,9 @@ public static class FuwaRewardIslandBuilder
     //  銃（FuwaBlower）の見た目のうち、本体・持ち手・口・通気口の材質を金色の写しに差しかえる用意（FuwaBlower.goldRenderers / goldMats）と、金ピカの間のキラキラ
     static readonly (string src, Color col)[] GoldOf = {
         ("Fuwa_Blower", new Color(0.98f, 0.78f, 0.30f)), ("Fuwa_BlowerGrip", new Color(0.78f, 0.55f, 0.20f)),
-        ("Fuwa_BlowerMuzzle", new Color(1.00f, 0.90f, 0.55f)), ("Fuwa_BlowerVent", new Color(0.86f, 0.64f, 0.24f)) };
+        ("Fuwa_BlowerMuzzle", new Color(1.00f, 0.90f, 0.55f)), ("Fuwa_BlowerVent", new Color(0.86f, 0.64f, 0.24f)),
+        // 2026-11-18 てじゃ「エフェクトとかゲージ以外全パーツ金ピカにして」：ポンプの丸いところ・銃口の穴の中も
+        ("Fuwa_BlowerBulb", new Color(1.00f, 0.84f, 0.40f)), ("GunMuzzleShaft", new Color(0.50f, 0.36f, 0.12f)) };
     public static string GoldGunSetup()
     {
         int n = 0;
@@ -313,6 +315,7 @@ public static class FuwaRewardIslandBuilder
         if (!m) { m = new Material(src); AssetDatabase.CreateAsset(m, path); } else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
         m.name = src.name + "_Gold";
         if (m.HasProperty("_Color")) m.SetColor("_Color", col);
+        if (m.HasProperty("_Top")) { m.SetColor("_Top", col); m.SetColor("_Bottom", new Color(col.r * 0.12f, col.g * 0.12f, col.b * 0.12f, 1f)); }   // 銃口の穴の中（VentShaft：上の色→奥の暗い色）
         if (m.HasProperty("_MetalEnv")) { m.SetFloat("_MetalEnv", 0.65f); m.SetFloat("_MetalSpec", 0.35f); m.SetFloat("_MetalSize", 0.93f); }
         EditorUtility.SetDirty(m); return m;
     }

@@ -107,7 +107,8 @@ public class FuwaGunShadows : UdonSharpBehaviour
             if (!_centerReady[i])
             {
                 // 見た目の真ん中（見た目のローカル座標）を一度だけ求める
-                Renderer[] rs = v.GetComponentsInChildren<Renderer>(true);
+                // 形のある部品（MeshRenderer）だけ。2026-11-18 きんピカのキラキラ粒（GoldSparkle）が混ざって、まん中がずれていた（てじゃ「銃の影のいちズレてる」）
+                MeshRenderer[] rs = v.GetComponentsInChildren<MeshRenderer>(true);
                 Vector3 sum = Vector3.zero; int n = 0;
                 for (int k = 0; k < rs.Length; k++) { if (rs[k] == null) continue; sum += rs[k].bounds.center; n++; }
                 _centers[i] = n > 0 ? v.InverseTransformPoint(sum / n) : Vector3.zero;
