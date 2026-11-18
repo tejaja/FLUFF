@@ -19,8 +19,8 @@ public static class FuwaBonusHubBuilder
     public static float Shrink = 0.75f;   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
-    public static int RingCount = 9; public static float RingHFront = 2.0f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, BackCenterScale = 1.2f, LeanMin = 3f, LeanMax = 8f;
-    public static float RingShift = 1.5f, RingR = 5.4f, RingGap = 55f, BoardBack = 3.4f, TitleY = 4.45f, TitleScale = 1.0f,
+    public static int RingCount = 9; public static float RingHFront = 1.4f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, BackCenterScale = 1.2f, MushOverlapR = 0.8f, LeanMin = 3f, LeanMax = 8f;
+    public static float RingShift = 1.5f, RingR = 4.4f, RingGap = 55f, BoardBack = 3.4f, TitleY = 4.45f, TitleScale = 1.0f,
         ColX = 1.75f, ColY = 3.3f, ColScale = 1f, ColFont = 1.9f, PanelW = 3.0f, PanelH = 0.95f, StageR = 2.5f, CamDist = 7.0f;
     const string ThanksText = "<size=62%><color=#FF8FA3>T</color><color=#FFC36B>h</color><color=#7FD7A8>a</color><color=#7FB8F0>n</color><color=#B79BF0>k</color> <color=#FF8FA3>y</color><color=#FFC36B>o</color><color=#7FD7A8>u</color> <color=#7FB8F0>f</color><color=#B79BF0>o</color><color=#FF8FA3>r</color> <color=#FFC36B>p</color><color=#7FD7A8>l</color><color=#7FB8F0>a</color><color=#B79BF0>y</color><color=#FF8FA3>i</color><color=#FFC36B>n</color><color=#7FD7A8>g</color><color=#7FB8F0>!</color></size>";
 
@@ -188,12 +188,17 @@ public static class FuwaBonusHubBuilder
                 go.transform.localScale = Vector3.one * k;
                 go.GetComponent<MeshFilter>().sharedMesh = mesh;
                 var mr = go.GetComponent<MeshRenderer>();
-                mr.sharedMaterials = new[] { stemM, centerBack ? caps[0] : caps[(i * 3 + 2) % caps.Length], gillM };   // caps[0] は赤
+                mr.sharedMaterials = new[] { stemM, centerBack || i == 0 ? caps[0] : caps[(i * 3 + 2) % caps.Length], gillM };   // caps[0] は赤。手前の左も赤（てじゃ「手前二個とも黄色だから左は赤に」）
                 mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
                 go.layer = 11;
                 // ボードとかぶらないように（2026-11-18 てじゃ「おまけ島、キノコとボードが被ってた気がする」：大人の形でかさが広がった）：
-                //  かぶっていたら外へずらす（島のふちまで）。それでもかぶるなら少しずつ小さく
-                if (boardB.size != Vector3.zero)
+                //  奥のまん中だけは外へずらす（大きいまま）。ほかは小さくする（2026-11-18 てじゃ「もっとキノコ寄せよう、重なるようなら縮める」）
+                if (boardB.size != Vector3.zero && !centerBack)
+                {
+                    var bbx = boardB; bbx.Expand(BoardClear);
+                    for (int it = 0; it < 40 && mr.bounds.Intersects(bbx); it++) go.transform.localScale *= 0.94f;
+                }
+                if (boardB.size != Vector3.zero && centerBack)
                 {
                     var bbx = boardB; bbx.Expand(BoardClear);
                     var dirOut = new Vector3(at.x - ringC.x, 0f, at.z - ringC.z).normalized;
@@ -207,6 +212,22 @@ public static class FuwaBonusHubBuilder
                 // 茎の当たり判定（かさの上には乗れない高さ）
                 var col = go.AddComponent<CapsuleCollider>(); col.direction = 1;
                 col.radius = mesh.bounds.size.x * 0.13f; col.height = mesh.bounds.size.y * 0.75f; col.center = new Vector3(0f, col.height * 0.5f, 0f);
+            }
+            // キノコどうしが重なったら小さくする（かさを上から見た丸で判定。大きい順に場所を取り、あとの方を縮める）
+            {
+                var ms = ring.Cast<Transform>().Select(t => t.GetComponent<MeshRenderer>()).OrderByDescending(r => r.name == "Mush" + (n / 2) ? 1e9f : r.bounds.size.y).ToList();
+                var placed = new List<MeshRenderer>();
+                foreach (var r in ms)
+                {
+                    for (int it = 0; it < 40; it++)
+                    {
+                        var b = r.bounds; var c = new Vector2(b.center.x, b.center.z); float rr = Mathf.Max(b.extents.x, b.extents.z) * MushOverlapR;
+                        bool hit = placed.Any(o => { var ob = o.bounds; return (new Vector2(ob.center.x, ob.center.z) - c).magnitude < rr + Mathf.Max(ob.extents.x, ob.extents.z) * MushOverlapR; });
+                        if (!hit) break;
+                        r.transform.localScale *= 0.94f;
+                    }
+                    placed.Add(r);
+                }
             }
             // ときどき1本ずつぽよんと揺れる（2026-11-18 てじゃ「おまけ本島のきのこもピョコピョコしてほしい」）。動くので静的にしない
             foreach (Transform m in ring) GameObjectUtility.SetStaticEditorFlags(m.gameObject, 0);
