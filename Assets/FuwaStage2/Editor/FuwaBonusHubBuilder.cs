@@ -20,6 +20,7 @@ public static class FuwaBonusHubBuilder
     public static float SpawnFromEdge = 3.2f, PortalFromEdge = 1.3f; public static bool PortalBase = false, CameraSpotMark = false;
     public static bool BoardPickup = false;
     public static bool SharedBoards = true;
+    public static float MushSinkMax = 0.04f;   // キノコの根元が床にうまる深さの上限(m、縮める前)
     public static float[] PhotoFluffSizes = { 0.165f, 0.3f, 0.9f }; public static float PhotoFluffSpread = 1.2f;   // てじゃ「通常＋2-5にある２種で」：ふつう30cm、ちいさく（×0.55）、おおきく（×3）
     public static float GoldFluffSize = 0.7f, StatueYaw = 90f;   // 金の銃の像の向き（台の向きから）   // 金ピカふわふわの直径(m)   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
@@ -563,6 +564,20 @@ public static class FuwaBonusHubBuilder
         }
         // 2026-11-18 てじゃ「おまけ島、全体的にデカすぎるかな」「本島のもの全て」：島・キノコ・ボード・台・ポータルぜんぶを島のまん中（床の高さ）を中心に縮める
         if (UseHandLayout) { ApplyHandLayout(root); log.Append("手で並べた配置 "); }
+        // うまりすぎのキノコを持ち上げる（2026-11-19 てじゃ「したのツボまで埋まってるやつあるから埋まりすぎなやつちょっぴりもちあげて」）：
+        //  いちばん下の頂点が床から MushSinkMax より深いものは、そこまで上げる（傾いているので頂点で測る）
+        {
+            int lifted = 0; var ring2 = root.Find("FairyRing");
+            if (ring2) foreach (Transform m in ring2)
+            {
+                var mf2 = m.GetComponent<MeshFilter>(); if (!mf2 || !mf2.sharedMesh) continue;
+                float minY = float.MaxValue; var l2w = m.localToWorldMatrix;
+                foreach (var v in mf2.sharedMesh.vertices) { float y = l2w.MultiplyPoint3x4(v).y; if (y < minY) minY = y; }
+                float want = Pos.y - MushSinkMax;
+                if (minY < want) { m.position += Vector3.up * (want - minY); lifted++; }
+            }
+            log.Append("キノコを持ち上げた " + lifted + " ");
+        }
         // 2026-11-18 てじゃ「一旦ボードをPickupオブジェクトにしてよ」：置き場所さがし用（持って動かせる、重力なし・離したらその場に浮く）。決まったら BoardPickup=false に
         if (BoardPickup)
         {
