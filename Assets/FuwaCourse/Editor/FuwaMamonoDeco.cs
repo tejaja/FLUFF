@@ -22,6 +22,77 @@ public static class FuwaMamonoDeco
         public void Quad(int a, int b, int c, int d) { Tri(a, b, c); Tri(a, c, d); }
     }
 
+    // 2026-11-18 てじゃ「まもののすの根っこ上にはみでてるとこおおいかも。上がはみでるようなところはなくしつつ、本数もへらしていいかも」：
+    //  根っこ（1本ずつ＝つながった三角形のかたまり）のうち、巣の上の面（近く0.7mの一番高い所）より上か近くまで来ている物を抜き、残りを RootKeep の割合に間引く。
+    //  V/N/C/T はワールド座標。Run の中と、今ある Mamono_Roots を直すメニューの両方で使う
+    public static float RootKeep = 0.5f, RootTopMargin = 0.15f;
+    static string TrimRoots(List<Vector3> V, List<Vector3> N, List<Color> C, List<int> T, Transform den)
+    {
+        // かたまり分け
+        int nv = V.Count; var par = Enumerable.Range(0, nv).ToArray();
+        int Find(int x) { while (par[x] != x) { par[x] = par[par[x]]; x = par[x]; } return x; }
+        for (int i = 0; i < T.Count; i += 3) { int a = Find(T[i]), b = Find(T[i + 1]), c = Find(T[i + 2]); par[b] = a; par[Find(c)] = a; }
+        var comps = new Dictionary<int, List<int>>();
+        for (int i = 0; i < nv; i++) { int r = Find(i); if (!comps.TryGetValue(r, out var l)) comps[r] = l = new List<int>(); l.Add(i); }
+        // 巣の見た目に一時的な当たり判定
+        var temps = new List<GameObject>();
+        foreach (var r in den.GetComponentsInChildren<MeshRenderer>())
+        {
+            var mf = r.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue;
+            var g = new GameObject("tmpRootCol"); g.layer = 31; g.transform.SetPositionAndRotation(r.transform.position, r.transform.rotation); g.transform.localScale = r.transform.lossyScale;
+            g.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh; temps.Add(g);
+        }
+        Physics.SyncTransforms();
+        float TopNear(Vector3 p)
+        {
+            float best = float.NegativeInfinity;
+            for (int k = 0; k < 9; k++)
+            {
+                var o = k == 0 ? Vector3.zero : Quaternion.Euler(0, k * 45, 0) * Vector3.forward * 1.0f;
+                if (Physics.Raycast(new Vector3(p.x + o.x, p.y + 6f, p.z + o.z), Vector3.down, out var h, 12f, 1 << 31)) best = Mathf.Max(best, h.point.y);
+            }
+            return best;
+        }
+        int poke = 0, thin = 0, kept = 0; var drop = new bool[nv]; int ci = 0;
+        foreach (var kv in comps.OrderBy(k => k.Key))
+        {
+            var idx = kv.Value; int top = idx.OrderByDescending(i => V[i].y).First();
+            float surf = TopNear(V[top]);
+            bool bad = !float.IsNegativeInfinity(surf) && V[top].y > surf - RootTopMargin;   // 近くに巣の面がない（浮かべた小さい巣の根っこ）は対象外   // 上の面より上、またはすれすれ（ふちの外でも、近くの面の高さより上に出ている）
+            bool cut = !bad && ((ci * 0.618034f) % 1f) >= RootKeep;   // 間引きは順番で決める（毎回同じ）
+            ci++;
+            if (bad) poke++; else if (cut) thin++; else { kept++; continue; }
+            foreach (var i in idx) drop[i] = true;
+        }
+        foreach (var g in temps) Object.DestroyImmediate(g);
+        // 詰め直し
+        var map = new int[nv]; var nV = new List<Vector3>(); var nN = new List<Vector3>(); var nC = new List<Color>();
+        for (int i = 0; i < nv; i++) { if (drop[i]) { map[i] = -1; continue; } map[i] = nV.Count; nV.Add(V[i]); nN.Add(N[i]); nC.Add(C[i]); }
+        var nT = new List<int>();
+        for (int i = 0; i < T.Count; i += 3) if (map[T[i]] >= 0 && map[T[i + 1]] >= 0 && map[T[i + 2]] >= 0) { nT.Add(map[T[i]]); nT.Add(map[T[i + 1]]); nT.Add(map[T[i + 2]]); }
+        V.Clear(); V.AddRange(nV); N.Clear(); N.AddRange(nN); C.Clear(); C.AddRange(nC); T.Clear(); T.AddRange(nT);
+        return "根っこ：上に出る " + poke + " を抜き、間引き " + thin + "、残り " + kept;
+    }
+
+    // 今ある Mamono_Roots だけを直す（ほかの飾りは作り直さない）。元のメッシュから毎回やり直したい時は Run（全部作り直し）
+    [MenuItem("FuwaCourse/済み（押す前に相談）/まもののすの根っこを間引く")]
+    public static void TrimRootsMenu() { Debug.Log(TrimExistingRoots()); }
+    public static string TrimExistingRoots()
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == Course).transform;
+        var go = root.Find("Deco/Mamono_Roots"); var mf = go.GetComponent<MeshFilter>(); var m = mf.sharedMesh;
+        var l2w = go.localToWorldMatrix; var w2l = go.worldToLocalMatrix;
+        var V = m.vertices.Select(v => l2w.MultiplyPoint3x4(v)).ToList(); var N = m.normals.Select(n => l2w.MultiplyVector(n).normalized).ToList();
+        var C = m.colors.ToList(); var T = m.triangles.ToList();
+        var s = TrimRoots(V, N, C, T, root.Find("Den"));
+        Undo.RecordObject(m, "trim roots");
+        m.Clear(); m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        m.SetVertices(V.Select(v => w2l.MultiplyPoint3x4(v)).ToList()); m.SetNormals(N.Select(n => w2l.MultiplyVector(n).normalized).ToList());
+        m.SetColors(C); m.SetTriangles(T, 0); m.RecalculateBounds();
+        EditorUtility.SetDirty(m); AssetDatabase.SaveAssets();
+        return s;
+    }
+
     [MenuItem("FuwaCourse/済み（押す前に相談）/まもののすの飾りを作る")]
     public static void RunMenu() { Debug.Log(Run()); }
 
@@ -260,6 +331,7 @@ public static class FuwaMamonoDeco
             }
         }
         log.Append("roots " + underSrc.Count + " ");
+        log.Append(TrimRoots(roots_.V, roots_.N, roots_.C, roots_.T, den) + " ");
 
         // 見た目の床の高さ（当たり判定の床より少し高い所がある）を調べるため、巣の見た目に一時的な当たり判定を付ける（2026-10-07 殻が床に埋まっていた）
         var visTemps = new List<GameObject>();
