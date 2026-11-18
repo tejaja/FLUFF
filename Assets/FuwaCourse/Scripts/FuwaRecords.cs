@@ -105,6 +105,31 @@ public class FuwaRecords : UdonSharpBehaviour
     public override void OnDeserialization()
     {
         Render();
+        // 届いたインスタンスの記録より自分の自己ベストの方が速いコースがあれば、少ししてから書きこむ（入った時・ほかの人と同時に書いて上書きされた時）
+        if (_restored && MineIsBetter()) SendCustomEventDelayedSeconds(nameof(PushMyBest), Random.Range(1f, 3f));
+    }
+
+    // 2026-11-19 てじゃ「インスタンス最高記録、入ってきた人の最高記録呼んで更新してもいいかも」：
+    //  自分の自己ベスト（保存）がインスタンスの最高記録より速いコースは、自分の名前で最高記録にする
+    private bool MineIsBetter()
+    {
+        if (_myBest == null || _bestTimes == null) return false;
+        int n = Mathf.Min(_myBest.Length, _bestTimes.Length);
+        for (int i = 0; i < n; i++) if (_myBest[i] > 0f && (_bestTimes[i] <= 0f || _myBest[i] < _bestTimes[i] - 0.0005f)) return true;
+        return false;
+    }
+
+    public void PushMyBest()
+    {
+        Init();
+        if (!MineIsBetter()) return;
+        VRCPlayerApi local = Networking.LocalPlayer; if (local == null) return;
+        if (!Networking.IsOwner(gameObject)) Networking.SetOwner(local, gameObject);
+        int n = Mathf.Min(_myBest.Length, _bestTimes.Length);
+        for (int i = 0; i < n; i++)
+            if (_myBest[i] > 0f && (_bestTimes[i] <= 0f || _myBest[i] < _bestTimes[i] - 0.0005f)) { _bestTimes[i] = _myBest[i]; _bestNames[i] = local.displayName; }
+        RequestSerialization();
+        Render();
     }
 
     // 自分の保存データが届いた時（ワールドに入って少ししてから）
@@ -138,6 +163,8 @@ public class FuwaRecords : UdonSharpBehaviour
         // 保存が届く前に出した記録も、ここで保存しておく
         for (int i = 0; i < n; i++) if (_myBest[i] > 0f) SaveBest(i);
         Render();
+        // インスタンスの最高記録に反映（みんなの記録が届くのを少し待ってから）
+        SendCustomEventDelayedSeconds(nameof(PushMyBest), Random.Range(3f, 5f));
     }
 
     private void SaveClear(int i)
