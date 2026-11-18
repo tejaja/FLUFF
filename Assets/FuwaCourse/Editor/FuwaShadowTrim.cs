@@ -30,7 +30,8 @@ public static class FuwaShadowTrim
             // 2026-11-18 遠景用の軽量版（CourseLites など、ルートの名前に Lite）だけ。柱の LODGroup の遠い版（子の「Lite」）は遠くで本体の代わりに影を出すので切らない
             //  （てじゃ「ここらの影が、距離でスキマがあく」：2–5 の柱の影が遠いと消えていた）
             else if (r.transform.root.name.Contains("Lite")) { lite++; cut = true; }
-            else if (b.size.y < 0.06f && b.size.magnitude > 0.3f) { flat++; cut = true; }
+            // 2026-11-18 床・ふた（Floor*・Lid）は平らでも切らない（てじゃ「うえの広場の影が多重の輪っかみたいに」：2–5 の結晶の広場の床の模様とドームのふたを切って、輪っか状の影になった）
+            else if (b.size.y < 0.06f && b.size.magnitude > 0.3f && !r.name.StartsWith("Floor") && r.name != "Lid") { flat++; cut = true; }
             if (!cut) continue;
             Undo.RecordObject(r, "shadow trim");
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
