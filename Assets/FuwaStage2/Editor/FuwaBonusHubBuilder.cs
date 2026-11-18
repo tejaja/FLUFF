@@ -20,7 +20,7 @@ public static class FuwaBonusHubBuilder
     public static float SpawnFromEdge = 3.2f, PortalFromEdge = 1.3f; public static bool PortalBase = false, CameraSpotMark = false;
     public static bool BoardPickup = false;
     public static bool SharedBoards = true;
-    public static float MushSinkMax = 0.04f;   // キノコの根元が床にうまる深さの上限(m、縮める前)
+    public static float MushSinkMax = 0.04f, StageDirtUv = 2.5f;   // キノコの根元が床にうまる深さの上限(m、縮める前)
     public static float[] PhotoFluffSizes = { 0.165f, 0.3f, 0.9f }; public static float PhotoFluffSpread = 1.2f;   // てじゃ「通常＋2-5にある２種で」：ふつう30cm、ちいさく（×0.55）、おおきく（×3）
     public static float GoldFluffSize = 0.7f, StatueYaw = 90f;   // 金の銃の像の向き（台の向きから）   // 金ピカふわふわの直径(m)   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
@@ -508,14 +508,21 @@ public static class FuwaBonusHubBuilder
             var st0 = new GameObject("Stage", typeof(MeshFilter), typeof(MeshRenderer), typeof(MeshCollider)).transform; st0.SetParent(root, false);
             st0.position = ringC + Vector3.forward * (BoardBack - StageR - 0.2f) + Vector3.up * 0.012f;
             st0.localScale = Vector3.one;
-            var dirt = FuwaLobbyPaths.FindMat("Lobby_Floor") ?? BonusMat("Bonus_PhotoStage", new Color(1f, 0.9f, 0.88f));
+            var dirt0 = FuwaLobbyPaths.FindMat("Lobby_Floor") ?? BonusMat("Bonus_PhotoStage", new Color(1f, 0.9f, 0.88f));
+            // 石のもようを細かく（てじゃ「土の模様密度ひくいかも」）：もようはワールドの xz で取るので、大きさの値を小さくした写しを使う
+            const string dirtPath = "Assets/FuwaStage2/Materials/Bonus_StageDirt.mat";
+            var dirt = AssetDatabase.LoadAssetAtPath<Material>(dirtPath);
+            if (!dirt) { dirt = new Material(dirt0); AssetDatabase.CreateAsset(dirt, dirtPath); } else { dirt.shader = dirt0.shader; dirt.CopyPropertiesFromMaterial(dirt0); }
+            dirt.name = "Bonus_StageDirt";
+            foreach (var pn in new[] { "_GroundFineScale", "_GroundMidScale", "_GroundPatchScale" }) if (dirt.HasProperty(pn)) dirt.SetFloat(pn, dirt0.GetFloat(pn) / StageDirtUv);
+            EditorUtility.SetDirty(dirt);
             Color dc = dirt.HasProperty("_Color") ? dirt.color : new Color(0.75f, 0.6f, 0.45f);
             var rimM = BonusMat("Bonus_StageRim", new Color(dc.r * 0.82f, dc.g * 0.78f, dc.b * 0.74f));
             float R0 = StageR; float RadiusAt(float a) => R0 * (1f + 0.045f * Mathf.Sin(a * 5f + 0.7f) + 0.03f * Mathf.Sin(a * 9f + 2.1f) + 0.02f * Mathf.Sin(a * 14f + 0.3f));
             Mesh Disc(string name, float grow, float y, bool ringOnly)
             {
                 const int N = 96; var vs = new List<Vector3>(); var uvs = new List<Vector2>(); var tri = new List<int>();
-                float uvk = Shrink;   // 1m につき 1（タイトルの島の床と同じ石の大きさ）
+                float uvk = Shrink;
                 if (!ringOnly) { vs.Add(new Vector3(0f, y, 0f)); uvs.Add(Vector2.zero); }
                 for (int i = 0; i < N; i++)
                 {
