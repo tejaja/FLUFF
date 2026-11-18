@@ -58,6 +58,12 @@ public class FuwaBgm : UdonSharpBehaviour
                 foreach (UnityEngine.UI.Slider sl in volumeSliders) if (sl != null) sl.SetValueWithoutNotify(_userPercent);
             UpdateVolumeLabels();
         }
+        // おまけ本島に行ったことがあれば、おまけ入口島ではもう曲を切り替えない（stickyAfterGoal のコースを全部）
+        if (PlayerData.HasKey(player, "bgm_sticky") && PlayerData.GetBool(player, "bgm_sticky") && stickyAfterGoal != null && starts != null)
+        {
+            if (_stuck == null || _stuck.Length != starts.Length) _stuck = new bool[starts.Length];
+            for (int i = 0; i < starts.Length && i < stickyAfterGoal.Length; i++) if (stickyAfterGoal[i]) _stuck[i] = true;
+        }
     }
 
     // 音量バーはドラッグ中に何度も呼ばれるので、動かし終わって少ししてから1回だけ保存する
@@ -298,6 +304,7 @@ public class FuwaBgm : UdonSharpBehaviour
                 int ag = afterGoalTracks[i];
                 if (!stickyAfterGoal[i] || ag < 0 || ag >= starts.Length || starts[ag] != sp) continue;
                 if (_stuck == null || _stuck.Length != starts.Length) _stuck = new bool[starts.Length];
+                if (!_stuck[i] && savePlayerData && _restored) PlayerData.SetBool("bgm_sticky", true);   // 次に来た時も（2026-11-19 てじゃ「それも保存で」）
                 _stuck[i] = true;
             }
         for (int i = 0; i < starts.Length && i < tracks.Length; i++)

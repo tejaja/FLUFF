@@ -189,7 +189,8 @@ public class FuwaRecords : UdonSharpBehaviour
             if (PlayerData.HasKey(lp, "clear_" + key)) PlayerData.SetBool("clear_" + key, false);
             if (PlayerData.HasKey(lp, "best_" + key)) PlayerData.SetFloat("best_" + key, 0f);
         }
-        if (lp != null && PlayerData.HasKey(lp, "bonus_goal")) PlayerData.SetBool("bonus_goal", false);   // おまけのゴールの保存も消す（2026-11-19）
+        if (lp != null && PlayerData.HasKey(lp, "bonus_goal")) PlayerData.SetBool("bonus_goal", false);
+        if (lp != null && PlayerData.HasKey(lp, "bgm_sticky")) PlayerData.SetBool("bgm_sticky", false);   // おまけのゴールの保存も消す（2026-11-19）
         Render();
     }
 
