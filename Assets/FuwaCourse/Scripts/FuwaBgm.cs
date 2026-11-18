@@ -175,6 +175,9 @@ public class FuwaBgm : UdonSharpBehaviour
     private float _fanfareUntil;
     [Tooltip("ファンファーレの後に流す軽い曲（tracks の何番か。-1ならなし）")]
     public int afterGoalTrack = -1;
+    // 2026-11-18 てじゃ「おまけのゴール後のBGMこれにして」：コースごとにゴール後の曲を変える（starts と同じ番号。-1 か足りない所は afterGoalTrack）
+    [Tooltip("コースごとのゴール後の曲（tracks の何番か。starts と同じ番号、-1 なら afterGoalTrack）")]
+    public int[] afterGoalTracks;
     private bool _afterGoal;
     private Transform _afterGoalStart;
 
@@ -269,7 +272,15 @@ public class FuwaBgm : UdonSharpBehaviour
         {
             // 次の挑戦を始めた（タイム計測が始まった）か、別の場所に移ったら元の曲へ
             if (ball.IsRunning() || ball.startPoint != _afterGoalStart) _afterGoal = false;
-            else if (afterGoalTrack < tracks.Length) return afterGoalTrack;
+            else
+            {
+                int ag = afterGoalTrack;
+                // コースごとのゴール後の曲（afterGoalTracks[コースの番号] が 0 以上ならそれ）
+                if (afterGoalTracks != null)
+                    for (int i = 0; i < starts.Length && i < afterGoalTracks.Length; i++)
+                        if (starts[i] == _afterGoalStart && afterGoalTracks[i] >= 0) ag = afterGoalTracks[i];
+                if (ag < tracks.Length) return ag;
+            }
         }
         Transform sp = ball.startPoint;
         for (int i = 0; i < starts.Length && i < tracks.Length; i++)

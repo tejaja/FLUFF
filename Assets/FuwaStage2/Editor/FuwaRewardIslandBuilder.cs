@@ -144,6 +144,8 @@ public static class FuwaRewardIslandBuilder
         //  このスタートの曲は「なし」（音のない track）。ゴールで鳴るファンファーレのあとは、ほかのコースと同じゴール後の曲（FuwaBgm.afterGoalTrack）
         //  タイムなしのコースでもゴールでファンファーレを鳴らす・アウトでプレイヤーも戻すように、ふわふわの returnPlayerStarts に足す
         FuwaStage2Bgm.Register(root, "BGM_bonus", "BGM_course2_5", "", 1f, 0f, 0f);
+        // 2026-11-18 ゴール後は専用曲「Cozy 90s Retro Ending Theme」102BPM、A案 頭5.282／終わり118.223（48小節）、gain 1.2（今のゴール後の曲より3.6dB大きい）
+        FuwaStage2Bgm.RegisterAfterGoal("BGM_bonus", "BGM_bonus_after", "BGM_aftergoal", "Assets/FuwaCourse/Audio/BGM/bonus_cozyend_introloop.wav", 1.2f, 5.282f, 118.223f);
         foreach (var fb in Object.FindObjectsOfType<FuwaBall>(true))
         {
             var bso = new SerializedObject(fb); var arr = bso.FindProperty("returnPlayerStarts");
