@@ -34,6 +34,7 @@ public static class FuwaCourseLodLobbyBuilder
     //  ハザード判定（止まる前に遅くした速さを戻す）・チェックポイント（光る途中なら光りきらせる）・2–5 のワープの穴（勢いの残りを捨てる）。どれも LodStop で後片付け
     //  2026-11-18 てじゃ「ロビーならプレイヤに一切影響ないし」「今いるコース（ロビー含む）以外の場所は…udonがとまる」：プレイヤー・ふわふわに効く仕掛けも、そのコースにいない間は止める
     //  （風・ジャンプ台・上昇気流・重力・ゴール・銃の台・浅瀬・熱・溶岩の流れ）。ワープは飛んで入った時の判定（FuwaCourseJoin）で呼ぶので止めない
+    static readonly string[] VisualTypes = { "FuwaLavaRock", "FuwaClockwork", "FuwaBoulder" };
     static readonly string[] CourseOnlyTypes = { "FuwaHazard", "FuwaCheckpoint", "FuwaPortal",
         "FuwaWindArea", "FuwaJumpBoost", "FuwaPlayerUpdraft", "FuwaGravityArea", "FuwaGoal", "FuwaGunStand", "FuwaShallowWater", "FuwaHeat", "FuwaMagmaFlow" };
 
@@ -114,6 +115,33 @@ public static class FuwaCourseLodLobbyBuilder
                 co.Add(ub); coCourse.Add(ri);
             }
         }
+        // 見た目で動く仕掛け：そのコースにいない かつ 映っていない間だけ止める（FuwaVisibleGate を、いちばん大きい見た目の物に置く）
+        var gates = new List<FuwaVisibleGate>();
+        for (int ri = 0; ri < lod.fullRoots.Length; ri++)
+        {
+            var r = lod.fullRoots[ri]; if (!r) continue;
+            foreach (var old in r.GetComponentsInChildren<FuwaVisibleGate>(true)) { var ob = UdonSharpEditorUtility.GetBackingUdonBehaviour(old); Object.DestroyImmediate(old); if (ob) Object.DestroyImmediate(ob); }
+            foreach (var u in r.GetComponentsInChildren<UdonSharpBehaviour>(true))
+            {
+                if (!VisualTypes.Contains(u.GetType().Name)) continue;
+                var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(u); if (!ub || !ub.enabled) continue;
+                // 見張る見た目：自分の下の見た目。歯車（FuwaClockwork）は動かす物（gears・sliders・rods）の下の大きい物いくつか
+                var src = new List<Transform> { u.transform };
+                var cw = u as FuwaClockwork;
+                if (cw) foreach (var arr in new[] { cw.gears, cw.sliders, cw.rods }) if (arr != null) src.AddRange(arr.Where(t => t));
+                var rends = src.SelectMany(t => t.GetComponentsInChildren<Renderer>(true)).Where(x => !(x is ParticleSystemRenderer)).Distinct()
+                    .OrderByDescending(x => x.bounds.size.sqrMagnitude).Take(cw ? 6 : 1).ToList();
+                if (rends.Count == 0) continue;
+                var grp = new List<FuwaVisibleGate>();
+                foreach (var rend in rends)
+                {
+                    var g = UdonSharpUndo.AddComponent<FuwaVisibleGate>(rend.gameObject);
+                    g.target = ub; g.lod = lod; g.course = ri; grp.Add(g); gates.Add(g);
+                }
+                foreach (var g in grp) { g.group = grp.ToArray(); UdonSharpEditorUtility.CopyProxyToUdon(g); FuwaStage2WaterTest.NoSync(g); }
+            }
+        }
+        lod.visGates = gates.ToArray();
         Undo.RecordObject(lod, "lobby stop");
         lod.courseOnlyBehaviours = co.ToArray(); lod.courseOnlyCourse = coCourse.ToArray();
         lod.lobbyStopBehaviours = behaviours.ToArray();
@@ -122,7 +150,7 @@ public static class FuwaCourseLodLobbyBuilder
         UdonSharpEditorUtility.CopyProxyToUdon(lod);
         EditorUtility.SetDirty(lod);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(lod.gameObject.scene);
-        return "[スマホのロビーで止める] 仕掛け " + behaviours.Count + "（" + string.Join("、", counts.Select(kv => kv.Key + "×" + kv.Value)) + "）、粒 " + hide.Count;
+        return "[映っていない間だけ止める " + gates.Count + "] [スマホのロビーで止める] 仕掛け " + behaviours.Count + "（" + string.Join("、", counts.Select(kv => kv.Key + "×" + kv.Value)) + "）、粒 " + hide.Count;
     }
 
     // コースの本体がエリアの切り替えで今は隠れているだけ（中の物は出ている）なら数える

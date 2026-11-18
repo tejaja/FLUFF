@@ -68,6 +68,10 @@ public class FuwaCourseLod : UdonSharpBehaviour
     public VRC.Udon.UdonBehaviour[] courseOnlyBehaviours;
     [Tooltip("courseOnlyBehaviours と同じ順：どのコースの物か（fullRoots の番号）")]
     public int[] courseOnlyCourse;
+    [Tooltip("見た目で動く仕掛けの番人（FuwaVisibleGate）。そのコースにいない かつ 映っていない間だけ止める。2026-11-18")]
+    public FuwaVisibleGate[] visGates;
+    // 今いるコース（fullRoots の番号、いなければ -1）。FuwaVisibleGate が見る
+    public int CurrentCourse() { return _coState; }
     private int _coState = -2;
 
     // ふつうでは、今いるコースの隣（床どうしが neighborDist 以内）も本体のまま見せる。隣の仕掛け・粒はロビーと同じく近くだけ動かす
@@ -228,6 +232,7 @@ public class FuwaCourseLod : UdonSharpBehaviour
         if (co != _coState)
         {
             _coState = co;
+            if (visGates != null) for (int i = 0; i < visGates.Length; i++) if (visGates[i] != null) visGates[i].Recheck();
             int nc = courseOnlyBehaviours != null ? courseOnlyBehaviours.Length : 0;
             for (int i = 0; i < nc; i++)
             {
