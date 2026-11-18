@@ -3,6 +3,8 @@ using UnityEngine;
 using TMPro;
 
 // 2026-11-17 おまけの島：クリックで自分のエアガンを金ピカに（もう一度でもどす）。金ピカかどうかは銃が同期するので、ほかの人からも見える
+// 2026-11-18 てじゃ「スイッチは分かりづらいな、台クリックで有効化、有効化中は台の銃が通常カラーになる、戻すときは逆」：
+//  台の上の銃の像は「クリックするとこうなる」色（自分の銃が元の色なら金ピカ、金ピカなら元の色）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaGoldGunSwitch : UdonSharpBehaviour
 {
@@ -10,9 +12,16 @@ public class FuwaGoldGunSwitch : UdonSharpBehaviour
     public TextMeshPro label;
     public string onText = "きんピカ ON", offText = "きんピカ OFF";
     public AudioSource clickSound;
+    [Tooltip("台の上の像：金ピカ（なくてもOK）")]
+    public GameObject goldModel;
+    [Tooltip("台の上の像：元の色（なくてもOK）")]
+    public GameObject normalModel;
+    public string toGoldText = "きんピカにする", toNormalText = "もとにもどす";
+    private int _shown = -1;
+    private float _next;
 
     private void Start() { Refresh(); }
-    private void OnEnable() { Refresh(); }
+    private void OnEnable() { _shown = -1; Refresh(); }
 
     public override void Interact()
     {
@@ -23,10 +32,24 @@ public class FuwaGoldGunSwitch : UdonSharpBehaviour
         Refresh();
     }
 
+    // 銃が入れかわった時なども追いかける
+    private void Update()
+    {
+        if (Time.time < _next) return;
+        _next = Time.time + 0.3f;
+        Refresh();
+    }
+
     private void Refresh()
     {
-        if (label == null) return;
         FuwaBlower b = manager != null ? manager.GetMyBlower() : null;
-        label.text = (b != null && b.IsGold()) ? onText : offText;
+        bool gold = b != null && b.IsGold();
+        int s = gold ? 1 : 0;
+        if (s == _shown) return;
+        _shown = s;
+        if (label != null) label.text = gold ? onText : offText;
+        if (goldModel != null) goldModel.SetActive(!gold);
+        if (normalModel != null) normalModel.SetActive(gold);
+        InteractionText = gold ? toNormalText : toGoldText;
     }
 }
