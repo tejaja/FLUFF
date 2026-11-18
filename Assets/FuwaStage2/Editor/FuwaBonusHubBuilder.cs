@@ -78,19 +78,21 @@ public static class FuwaBonusHubBuilder
         var gs = root.Find("GoldFluffStand"); var gf0 = gs ? gs.Find("GoldFluff") : null;
         if (gf0)
         {
-            var gf = Object.Instantiate(gf0.gameObject, holder, false).transform; gf.name = "GoldFluffBig";
+            // 2026-11-19 てじゃ「金ピカフワフワはやめて、ピックアップできるただのフワフワにしよう、USE で表情かえてポヨン、撮影用、離すと空中に止まる」
+            var gf = Object.Instantiate(gf0.gameObject, holder, false).transform; gf.name = "PhotoFluff";
             var mf = gf.GetComponent<MeshFilter>(); float meshD = mf && mf.sharedMesh ? mf.sharedMesh.bounds.size.x : 1f;
             gf.localScale = Vector3.one * (GoldFluffSize / meshD); gf.rotation = gs.rotation;
-            gf.position = new Vector3(gs.position.x, Pos.y + GoldFluffSize * 0.5f, gs.position.z);
+            gf.position = new Vector3(gs.position.x, Pos.y + GoldFluffSize * 0.5f + 0.05f, gs.position.z);
+            var furMat = FuwaLobbyPaths.FindMat("Fuwa_BallFur"); var fr = gf.GetComponent<MeshRenderer>(); if (furMat && fr) fr.sharedMaterial = furMat;
             var rb = gf.GetComponent<Rigidbody>() ?? gf.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
             var pu = gf.GetComponent<VRC.SDK3.Components.VRCPickup>() ?? gf.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
-            pu.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pu.proximity = 3f;
+            pu.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pu.proximity = 3f; pu.InteractionText = "ふわふわ"; pu.UseText = "ひょうじょう";
             if (!gf.GetComponent<VRC.SDK3.Components.VRCObjectSync>()) gf.gameObject.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
             gf.gameObject.layer = 13;
-            var sh = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaAreaShow>(gf.gameObject);
-            sh.areaVisibility = av; sh.area = 4; sh.renderers = gf.GetComponentsInChildren<Renderer>(true); sh.colliders = gf.GetComponentsInChildren<Collider>(true); sh.pickup = pu;
-            sh.snapToGround = true; sh.groundOffset = GoldFluffSize * 0.5f;
-            UdonSharpEditorUtility.CopyProxyToUdon(sh); FuwaStage2WaterTest.NoSync(sh);
+            var pf = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPhotoFluff>(gf.gameObject);
+            pf.fur = fr; pf.pickup = pu; pf.colliders = gf.GetComponentsInChildren<Collider>(true); pf.areaVisibility = av; pf.area = 4;
+            UdonSharpEditorUtility.CopyProxyToUdon(pf);
+            n++;
             gs.gameObject.SetActive(false);
             n++;
         }
@@ -192,6 +194,58 @@ public static class FuwaBonusHubBuilder
         UdonSharpEditorUtility.CopyProxyToUdon(sb); FuwaStage2WaterTest.NoSync(sb);
         tmp.text = "かくしきろく";
         return "かくしきろく ";
+    }
+
+    // 2026-11-19 てじゃ「ボードとかの位置リセットボタンもほしいのと、かくしデータもボタンで展開するタイプにしよ」：西の柵ぎわに2つ（縮める前の島の座標）
+    public static Vector3 ResetBtnPos = new Vector3(-7.3f, 0f, 0.2f), StatsBtnPos = new Vector3(-7.3f, 0f, 2.2f);
+    static string Buttons(Transform root)
+    {
+        var holder = Find("FuwaSystem/BonusBoards"); var stats = root.Find("StatsBoard");
+        var cyl = Resources.GetBuiltinResource<Mesh>("Cylinder.fbx");
+        var baseM = BonusMat("Bonus_ButtonBase", new Color(1f, 0.93f, 0.86f));
+        var font = holder ? holder.GetComponentsInChildren<TMPro.TextMeshPro>(true).FirstOrDefault() : null;
+        Transform Make(string name, Vector3 lp, Color top, string label)
+        {
+            var b = new GameObject(name).transform; b.SetParent(root, false); b.localPosition = lp; b.localRotation = Quaternion.LookRotation(Vector3.right);   // 島のまん中を向く
+            var post = new GameObject("Post", typeof(MeshFilter), typeof(MeshRenderer)).transform; post.SetParent(b, false);
+            post.localPosition = new Vector3(0f, 0.65f, 0f); post.localScale = new Vector3(0.45f, 0.65f, 0.45f);
+            post.GetComponent<MeshFilter>().sharedMesh = cyl; post.GetComponent<MeshRenderer>().sharedMaterial = baseM;
+            var cap = new GameObject("Cap", typeof(MeshFilter), typeof(MeshRenderer)).transform; cap.SetParent(b, false);
+            cap.localPosition = new Vector3(0f, 1.34f, 0f); cap.localScale = new Vector3(0.36f, 0.05f, 0.36f);
+            cap.GetComponent<MeshFilter>().sharedMesh = cyl; cap.GetComponent<MeshRenderer>().sharedMaterial = BonusMat("Bonus_Button_" + name, top);
+            var col = b.gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0f, 0.7f, 0f); col.size = new Vector3(0.5f, 1.45f, 0.5f);
+            if (font)
+            {
+                var t = Object.Instantiate(font.gameObject, b, false); t.name = "Label";
+                foreach (var c in t.GetComponents<Component>()) if (c is UdonSharp.UdonSharpBehaviour u) { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(u); Object.DestroyImmediate(u); if (ub) Object.DestroyImmediate(ub); }
+                foreach (var c in t.GetComponents<Component>()) if (!(c is Transform || c is MeshRenderer || c is MeshFilter || c is TMPro.TextMeshPro || c is RectTransform)) Object.DestroyImmediate(c);
+                foreach (Transform ch in t.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject);
+                t.layer = 0;
+                t.transform.localPosition = new Vector3(0f, 1.75f, 0f); t.transform.localRotation = Quaternion.Euler(0f, 180f, 0f); t.transform.localScale = Vector3.one;
+                var tm = t.GetComponent<TMPro.TextMeshPro>(); tm.text = label; tm.alignment = TMPro.TextAlignmentOptions.Center; tm.fontSize = 3.6f; tm.color = new Color(0.36f, 0.4f, 0.55f); tm.fontStyle = TMPro.FontStyles.Bold; tm.enableWordWrapping = false; tm.rectTransform.sizeDelta = new Vector2(2f, 0.5f); tm.margin = Vector4.zero;
+            }
+            foreach (var r in b.GetComponentsInChildren<Renderer>(true)) { r.lightmapIndex = -1; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; }
+            return b;
+        }
+        int n = 0;
+        if (holder)
+        {
+            var b = Make("ResetButton", ResetBtnPos, new Color(0.62f, 0.83f, 1f), "もとにもどす");
+            var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBonusButton>(b.gameObject);
+            fb.mode = 0; fb.resetObjects = holder.Cast<Transform>().Select(t => t.gameObject).ToArray(); fb.pressPart = b.Find("Cap");
+            UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb);
+            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(fb); if (ub) { ub.interactText = "ボード・ふわふわを元の場所へ"; EditorUtility.SetDirty(ub); }
+            n++;
+        }
+        if (stats)
+        {
+            var b = Make("StatsButton", StatsBtnPos, new Color(1f, 0.8f, 0.45f), "かくしきろく");
+            var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBonusButton>(b.gameObject);
+            fb.mode = 1; fb.toggleTarget = stats.gameObject; fb.pressPart = b.Find("Cap");
+            UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb);
+            n++;
+        }
+        return "ボタン " + n + " ";
     }
 
     static void ApplyHandLayout(Transform root)
@@ -526,6 +580,7 @@ public static class FuwaBonusHubBuilder
         root.localScale = Vector3.one * Shrink;
         log.Append(StatsBoard(root));
         if (SharedBoards) log.Append(MakeSharedBoards(root));
+        log.Append(Buttons(root));
         log.Append(GoldGunDisplay(root));
         // 入口島のミニキノコに影（2026-11-18 てじゃ「入口島のミニキノコに影がない」：2–4 からの写しで、近くだけ影を出す係に入っていなかった）
         {
