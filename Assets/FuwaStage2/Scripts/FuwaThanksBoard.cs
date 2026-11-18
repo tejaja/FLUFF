@@ -10,6 +10,12 @@ public class FuwaThanksBoard : UdonSharpBehaviour
     public FuwaRecords[] records;
     public TextMeshPro text;
     public string title = "<size=120%>じこベスト</size>";
+    // 2026-11-18 てじゃ「ステージ１のコースナンバーが1-1みたいになってない」「コースナンバーの縦列とタイムの縦列は揃えて」：
+    //  列そろえ（左寄せのテキストに <pos> で列を置く）。番号に「–」がなければ numberPrefix をつける（ステージ1は "1–"）
+    [Tooltip("列をそろえて書く（番号・名前・タイム）。テキストは左寄せにしておく")]
+    public bool columns = false;
+    public string numberPrefix = "";
+    public string namePos = "15%", timePos = "67%";
 
     private void OnEnable() { Render(); }
 
@@ -27,7 +33,13 @@ public class FuwaThanksBoard : UdonSharpBehaviour
                 string nm = (rec.courseNamesJa != null && i < rec.courseNamesJa.Length) ? rec.courseNamesJa[i] : "";
                 if (!first || s.Length > 0) s += "\n";
                 first = false;
-                s += nm + "  <mspace=0.55em>" + rec.FormatTimeOf(rec.GetMyBest(i)) + "</mspace>";
+                string tm = "<mspace=0.55em>" + rec.FormatTimeOf(rec.GetMyBest(i)) + "</mspace>";
+                if (!columns) { s += nm + "  " + tm; continue; }
+                int sp = nm.IndexOf(' ');
+                string num = sp > 0 ? nm.Substring(0, sp) : "" + (i + 1);
+                string name = sp > 0 ? nm.Substring(sp + 1).Trim() : nm;
+                if (num.IndexOf('–') < 0 && num.IndexOf('-') < 0) num = numberPrefix + num;
+                s += num + "<pos=" + namePos + ">" + name + "<pos=" + timePos + ">" + tm;
             }
         }
         text.text = s;
