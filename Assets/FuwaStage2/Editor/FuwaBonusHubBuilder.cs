@@ -120,6 +120,9 @@ public static class FuwaBonusHubBuilder
                 var fx = Object.Instantiate(bl.goldFx, sc.shownVisual, false); fx.name = "GoldSparkle";
                 fx.transform.localPosition = bl.goldFx.transform.localPosition; fx.transform.localRotation = bl.goldFx.transform.localRotation; fx.transform.localScale = bl.goldFx.transform.localScale;
                 fx.SetActive(false); sc.goldFx = fx;
+                // キラキラが出る面は、見た目の銃の本体に付けかえる（写すと本物の銃の本体を指したままになる）
+                var ps = fx.GetComponent<ParticleSystem>(); var body = sc.shownVisual.GetComponentsInChildren<MeshRenderer>(true).FirstOrDefault(x => x.name == "GunBody");
+                if (ps && body) { var shp = ps.shape; if (shp.shapeType == ParticleSystemShapeType.MeshRenderer) { shp.meshRenderer = body; fx.transform.localPosition = Vector3.zero; } }
             }
             UdonSharpEditorUtility.CopyProxyToUdon(sc); EditorUtility.SetDirty(sc);
         }

@@ -367,13 +367,21 @@ public static class FuwaRewardIslandBuilder
             // キラキラ（見た目の子、金ピカの間だけ）
             var old = b.visualRoot.transform.Find("GoldSparkle"); if (old) Object.DestroyImmediate(old.gameObject);
             var fx = new GameObject("GoldSparkle"); fx.transform.SetParent(b.visualRoot.transform, false); fx.transform.localPosition = new Vector3(0f, 0.02f, 0.05f);
+            // 2026-11-18 てじゃ「金ピカエフェクトが雑かも、動く方向もへん」：前はぼんやりした丸が銃口の方へ流れていた（箱の形から前へ飛ぶ・ワールド座標で置いてけぼり）。
+            //  → 十字の「キラッ」が銃の表面のあちこちにパッと出てチカッと消える。ほとんど動かず、ほんの少し上へ。銃といっしょに動く（ローカル）
             var p = fx.AddComponent<ParticleSystem>(); p.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-            var main = p.main; main.loop = true; main.playOnAwake = true; main.startLifetime = new ParticleSystem.MinMaxCurve(0.4f, 0.8f); main.startSpeed = new ParticleSystem.MinMaxCurve(0.02f, 0.08f);
-            main.startSize = new ParticleSystem.MinMaxCurve(0.012f, 0.03f); main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.93f, 0.6f), new Color(1f, 1f, 0.9f)); main.maxParticles = 30; main.simulationSpace = ParticleSystemSimulationSpace.World;
-            var em = p.emission; em.rateOverTime = 7f;
-            var sh = p.shape; sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(0.12f, 0.12f, 0.35f);
-            var sz = p.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.3f, 1f), new Keyframe(1f, 0f)));
-            var pr = fx.GetComponent<ParticleSystemRenderer>(); pr.sharedMaterial = SparkleMat();
+            var main = p.main; main.loop = true; main.playOnAwake = true; main.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.6f); main.startSpeed = 0f;
+            main.startSize = new ParticleSystem.MinMaxCurve(0.035f, 0.07f); main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.92f, 0.62f), new Color(1f, 1f, 0.92f));
+            main.startRotation = new ParticleSystem.MinMaxCurve(-0.4f, 0.4f); main.maxParticles = 20; main.simulationSpace = ParticleSystemSimulationSpace.Local;   // 銃といっしょに動く（てじゃ「置いてけぼりにならないでいいや」）
+            var em = p.emission; em.rateOverTime = 9f;
+            var body = b.visualRoot.transform.GetComponentsInChildren<MeshRenderer>(true).FirstOrDefault(x => x.name == "GunBody");
+            var sh = p.shape;
+            if (body) { sh.shapeType = ParticleSystemShapeType.MeshRenderer; sh.meshRenderer = body; sh.meshShapeType = ParticleSystemMeshShapeType.Triangle; sh.normalOffset = 0.004f; fx.transform.localPosition = Vector3.zero; }
+            else { sh.shapeType = ParticleSystemShapeType.Box; sh.scale = new Vector3(0.08f, 0.08f, 0.3f); }
+            var vel = p.velocityOverLifetime; vel.enabled = true; vel.space = ParticleSystemSimulationSpace.World; vel.x = new ParticleSystem.MinMaxCurve(0f, 0f); vel.y = new ParticleSystem.MinMaxCurve(0.015f, 0.04f); vel.z = new ParticleSystem.MinMaxCurve(0f, 0f);
+            var sz = p.sizeOverLifetime; sz.enabled = true; sz.size = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(new Keyframe(0f, 0f), new Keyframe(0.18f, 1f), new Keyframe(0.45f, 0.55f), new Keyframe(1f, 0f)));   // パッと出てチカッと消える
+            var rot = p.rotationOverLifetime; rot.enabled = true; rot.z = new ParticleSystem.MinMaxCurve(-1.2f, 1.2f);
+            var pr = fx.GetComponent<ParticleSystemRenderer>(); pr.sharedMaterial = GlintMat(); pr.renderMode = ParticleSystemRenderMode.Billboard; pr.maxParticleSize = 0.2f;
             fx.SetActive(false);
             b.goldRenderers = rs.ToArray(); b.goldMats = ms.ToArray(); b.goldFx = fx;
             UdonSharpEditorUtility.CopyProxyToUdon(b); EditorUtility.SetDirty(b); n++;
@@ -389,6 +397,34 @@ public static class FuwaRewardIslandBuilder
         if (m.HasProperty("_Color")) m.SetColor("_Color", col);
         if (m.HasProperty("_Top")) { m.SetColor("_Top", col); m.SetColor("_Bottom", new Color(col.r * 0.12f, col.g * 0.12f, col.b * 0.12f, 1f)); }   // 銃口の穴の中（VentShaft：上の色→奥の暗い色）
         if (m.HasProperty("_MetalEnv")) { m.SetFloat("_MetalEnv", 0.65f); m.SetFloat("_MetalSpec", 0.35f); m.SetFloat("_MetalSize", 0.93f); }
+        EditorUtility.SetDirty(m); return m;
+    }
+    // 十字のキラッ（4本の光の筋＋まん中のやわらかい丸）。加算
+    static Material GlintMat()
+    {
+        const string tp = "Assets/FuwaStage2/Textures/Reward_Glint.png", path = "Assets/FuwaStage2/Materials/Reward_GoldGlint.mat";
+        if (!AssetDatabase.LoadAssetAtPath<Texture2D>(tp))
+        {
+            if (!AssetDatabase.IsValidFolder("Assets/FuwaStage2/Textures")) AssetDatabase.CreateFolder("Assets/FuwaStage2", "Textures");
+            const int N = 64; var t = new Texture2D(N, N, TextureFormat.RGBA32, false);
+            for (int y = 0; y < N; y++) for (int x = 0; x < N; x++)
+            {
+                float u = (x + 0.5f) / N * 2f - 1f, v = (y + 0.5f) / N * 2f - 1f, r = Mathf.Sqrt(u * u + v * v);
+                float core = Mathf.Exp(-r * r / 0.02f);
+                float arm = Mathf.Exp(-Mathf.Abs(v) / 0.035f) * Mathf.Pow(Mathf.Clamp01(1f - Mathf.Abs(u)), 2.2f) + Mathf.Exp(-Mathf.Abs(u) / 0.035f) * Mathf.Pow(Mathf.Clamp01(1f - Mathf.Abs(v)), 2.2f);
+                float diag = 0.35f * (Mathf.Exp(-Mathf.Abs(u - v) / 0.03f) + Mathf.Exp(-Mathf.Abs(u + v) / 0.03f)) * Mathf.Pow(Mathf.Clamp01(1f - r * 1.6f), 2f);
+                float a = Mathf.Clamp01(core + arm + diag) * Mathf.Clamp01((1f - r) * 4f);
+                t.SetPixel(x, y, new Color(a, a, a, a));
+            }
+            System.IO.File.WriteAllBytes(System.IO.Path.Combine(Application.dataPath, "..", tp), t.EncodeToPNG()); Object.DestroyImmediate(t);
+            AssetDatabase.ImportAsset(tp);
+            var ti = AssetImporter.GetAtPath(tp) as TextureImporter; if (ti) { ti.alphaSource = TextureImporterAlphaSource.FromInput; ti.wrapMode = TextureWrapMode.Clamp; ti.mipmapEnabled = true; ti.SaveAndReimport(); }
+        }
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        var shd = Shader.Find("Legacy Shaders/Particles/Additive") ?? Shader.Find("Particles/Additive");
+        if (!m) { m = new Material(shd); AssetDatabase.CreateAsset(m, path); } else if (shd) m.shader = shd;
+        m.SetTexture("_MainTex", AssetDatabase.LoadAssetAtPath<Texture2D>(tp));
+        if (m.HasProperty("_TintColor")) m.SetColor("_TintColor", new Color(0.55f, 0.48f, 0.3f, 0.5f));
         EditorUtility.SetDirty(m); return m;
     }
     static Material SparkleMat()
