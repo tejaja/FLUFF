@@ -56,7 +56,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     private float _lookV, _vy;
     private bool _jumpHeld;
     [Header("羽")]
-    public float spinUse = 1500f, spinIdle = 120f, spinAccel = 2400f;   // spinIdle：いつものゆっくり回転（度/秒）
+    public float spinUse = 1500f, spinIdle = 120f, spinAccel = 2400f, spinHover = 480f;   // spinIdle：いつものゆっくり回転（度/秒）
 
     private bool _mine, _using, _braking;
     private float _gravity = 1f, _brakeStart, _liftUntil, _spin;
@@ -177,7 +177,8 @@ public class FuwaBambooCopter : UdonSharpBehaviour
             if (_using) vin = 1f;
         }
         // 羽：持っている間はゆっくり、上昇中は速く、下降中は逆回転
-        float want = !_mine ? 0f : (vin > 0.01f ? spinUse : (vin < -0.01f ? -spinUse * 0.7f : spinIdle));
+        // 2026-11-18 てじゃ「ホバリング中の回転速度をもうちょい早く」「可能だったら接地中は止めたい」：ホバリング中は spinHover、地面に立っている間は止める
+        float want = !_mine ? 0f : (vin > 0.01f ? spinUse : (vin < -0.01f ? -spinUse * 0.7f : (_hovering ? spinHover : 0f)));
         _spin = Mathf.MoveTowards(_spin, want, spinAccel * Time.deltaTime);
         if (blades != null && _spin != 0f) blades.Rotate(0f, _spin * Time.deltaTime, 0f, Space.Self);
 
