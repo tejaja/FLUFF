@@ -25,7 +25,7 @@ public static class FuwaMamonoDeco
     // 2026-11-18 てじゃ「まもののすの根っこ上にはみでてるとこおおいかも。上がはみでるようなところはなくしつつ、本数もへらしていいかも」：
     //  根っこ（1本ずつ＝つながった三角形のかたまり）のうち、巣の上の面（近く0.7mの一番高い所）より上か近くまで来ている物を抜き、残りを RootKeep の割合に間引く。
     //  V/N/C/T はワールド座標。Run の中と、今ある Mamono_Roots を直すメニューの両方で使う
-    public static float RootKeep = 0.5f, RootTopMargin = 0.15f;
+    public static float RootKeep = 0.75f, RootTopMargin = 0.15f;
     static string TrimRoots(List<Vector3> V, List<Vector3> N, List<Color> C, List<int> T, Transform den)
     {
         // かたまり分け
@@ -53,7 +53,35 @@ public static class FuwaMamonoDeco
             }
             return best;
         }
-        int poke = 0, thin = 0, kept = 0; var drop = new bool[nv]; int ci = 0;
+        // 枝分かれ（別のかたまり）は、上の端が別の根っこの中にあるので、その根っこと一緒に扱う
+        {
+            var keys = comps.Keys.ToList(); var tops = keys.ToDictionary(k => k, k => comps[k].OrderByDescending(i => V[i].y).First());
+            var cb = keys.ToDictionary(k => k, k => { var b = new Bounds(V[comps[k][0]], Vector3.zero); foreach (var i in comps[k]) b.Encapsulate(V[i]); b.Expand(0.1f); return b; });
+            foreach (var k in keys)
+            {
+                var tp = V[tops[k]];
+                foreach (var o in keys)
+                {
+                    if (o == k || !comps.ContainsKey(o) || !comps.ContainsKey(k) || !cb[o].Contains(tp)) continue;
+                    if (comps[o].Any(i => (V[i] - tp).sqrMagnitude < 0.12f * 0.12f) && V[tops[o]].y > tp.y) { comps[o].AddRange(comps[k]); comps.Remove(k); break; }
+                }
+            }
+        }
+        // 巣の裏にくっついているか：上の端の少し下から、まわり6か所＋真ん中で真上に線を飛ばし、みんな近くで巣に当たればOK。
+        // 当たる所が少し上（1m以内）なら、根っこごと持ち上げてくっつける。はみ出た小枝にだけぶら下がっている物（まわりの線が当たらない）は消す
+        // （2026-11-18 てじゃ「根っこはういてるのあるね」）
+        float Lift(Vector3 tp)
+        {
+            float maxD = 0f;
+            for (int k = 0; k < 7; k++)
+            {
+                var o = k == 0 ? Vector3.zero : Quaternion.Euler(0, k * 60, 0) * Vector3.forward * 0.12f;
+                if (!Physics.Raycast(tp + o - Vector3.up * 0.15f, Vector3.up, out var h, 1.15f, 1 << 31)) return -1f;
+                maxD = Mathf.Max(maxD, h.distance - 0.15f);
+            }
+            return maxD;
+        }
+        int poke = 0, thin = 0, kept = 0, lifted = 0, floating = 0; var drop = new bool[nv]; int ci = 0;
         foreach (var kv in comps.OrderBy(k => k.Key))
         {
             var idx = kv.Value; int top = idx.OrderByDescending(i => V[i].y).First();
@@ -61,6 +89,12 @@ public static class FuwaMamonoDeco
             bool bad = !float.IsNegativeInfinity(surf) && V[top].y > surf - RootTopMargin;   // 近くに巣の面がない（浮かべた小さい巣の根っこ）は対象外   // 上の面より上、またはすれすれ（ふちの外でも、近くの面の高さより上に出ている）
             bool cut = !bad && ((ci * 0.618034f) % 1f) >= RootKeep;   // 間引きは順番で決める（毎回同じ）
             ci++;
+            if (!bad && !cut && !float.IsNegativeInfinity(surf))
+            {
+                float d = Lift(V[top]);
+                if (d < 0f) { floating++; foreach (var i in idx) drop[i] = true; continue; }
+                if (d > 0.03f) { var up = Vector3.up * (d + 0.06f); foreach (var i in idx) V[i] += up; lifted++; }
+            }
             if (bad) poke++; else if (cut) thin++; else { kept++; continue; }
             foreach (var i in idx) drop[i] = true;
         }
@@ -71,7 +105,7 @@ public static class FuwaMamonoDeco
         var nT = new List<int>();
         for (int i = 0; i < T.Count; i += 3) if (map[T[i]] >= 0 && map[T[i + 1]] >= 0 && map[T[i + 2]] >= 0) { nT.Add(map[T[i]]); nT.Add(map[T[i + 1]]); nT.Add(map[T[i + 2]]); }
         V.Clear(); V.AddRange(nV); N.Clear(); N.AddRange(nN); C.Clear(); C.AddRange(nC); T.Clear(); T.AddRange(nT);
-        return "根っこ：上に出る " + poke + " を抜き、間引き " + thin + "、残り " + kept;
+        return "根っこ：上に出る " + poke + " を抜き、間引き " + thin + "、浮いていて消した " + floating + "、持ち上げた " + lifted + "、残り " + kept;
     }
 
     // 今ある Mamono_Roots だけを直す（ほかの飾りは作り直さない）。元のメッシュから毎回やり直したい時は Run（全部作り直し）
