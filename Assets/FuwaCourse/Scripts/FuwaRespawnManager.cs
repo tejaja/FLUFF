@@ -1,6 +1,7 @@
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
+using VRC.SDK3.Persistence;
 
 // VRChatのリスポーン（メニューの手動リスポーン）をした時は、今いるモードのロビー（ひとり／たいせん）に戻す。
 // 入口ロビーにいる時（まだモードを選んでいない）は、VRChatのスポーン地点＝入口ロビーのまま。
@@ -34,6 +35,23 @@ public class FuwaRespawnManager : UdonSharpBehaviour
     public void RegisterMyBlower(FuwaBlower blower)
     {
         _myBlower = blower;
+        if (_goldSaved && _myBlower != null && !_myBlower.IsGold()) _myBlower.SetGold(true);
+    }
+
+    // 2026-11-19 てじゃ「金ピカ銃にしたかどうかも保存しよ」：金ピカにしたか（gold_gun）を覚えておいて、次に来た時も金ピカの銃に
+    private bool _goldSaved;
+    public override void OnPlayerRestored(VRCPlayerApi player)
+    {
+        if (player == null || !player.isLocal) return;
+        _goldSaved = PlayerData.HasKey(player, "gold_gun") && PlayerData.GetBool(player, "gold_gun");
+        if (_goldSaved && _myBlower != null && !_myBlower.IsGold()) _myBlower.SetGold(true);
+    }
+    // FuwaBlower.SetGold から（自分の銃の金ピカを切りかえた時）
+    public void SaveGold(bool on)
+    {
+        _goldSaved = on;
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        if (lp != null) PlayerData.SetBool("gold_gun", on);
     }
 
     public FuwaBlower GetMyBlower() { return _myBlower; }

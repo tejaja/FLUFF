@@ -507,12 +507,16 @@ public class FuwaBlower : UdonSharpBehaviour
         if (sync != null) sync.FlagDiscontinuity();
     }
 
+    [Tooltip("金ピカにしたかの保存先（FuwaRespawnManager）")]
+    public FuwaRespawnManager respawnManagerForGold;
     public void SetGold(bool on)
     {
         if (!Networking.IsOwner(gameObject)) return;
+        bool changed = _gold != on;
         _gold = on;
         RequestSerialization();
         ApplyGold();
+        if (changed && respawnManagerForGold != null && respawnManagerForGold.GetMyBlower() == this) respawnManagerForGold.SaveGold(on);   // 保存（次に来た時も金ピカ）
     }
     public bool IsGold() { return _gold; }
     private void ApplyGold()
