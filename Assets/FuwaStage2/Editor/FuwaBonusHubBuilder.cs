@@ -414,22 +414,43 @@ public static class FuwaBonusHubBuilder
         var wood = mf.GetComponent<MeshRenderer>().sharedMaterial;
         var jr = new GameObject("WestFenceJoin").transform; jr.SetParent(root, true);   // ワールドの大きさ1のまま（子はワールドの寸法で作る）
         int n = 0;
-        for (int k = 0; k < 2; k++)
+        // まっすぐ（てじゃ「まっすぐになってないよ～」）：橋の柵はそのまま本島の柵の輪までまっすぐのばし、輪の上は切れ目のはしまで弧でつなぐ
+        void Seg(Vector3 a, Vector3 b, string nm, bool post)
         {
-            Vector3 a = fenceEnd[k], b = bridgeEnd[k]; float len = (b - a).magnitude; if (len < 0.08f) continue;
+            float len = (b - a).magnitude; if (len < 0.03f) return;
             var rot = Quaternion.LookRotation(b - a);
             foreach (var hy in new[] { 0.18f, 0.46f })
             {
-                var r = GameObject.CreatePrimitive(PrimitiveType.Cube); r.name = "Rail" + k; Object.DestroyImmediate(r.GetComponent<Collider>()); r.transform.SetParent(jr, true);
-                r.transform.SetPositionAndRotation((a + b) * 0.5f + Vector3.up * hy, rot); r.transform.localScale = Vector3.one;
-                r.transform.localScale = new Vector3(0.05f, 0.06f, len + 0.04f);
+                var r = GameObject.CreatePrimitive(PrimitiveType.Cube); r.name = nm; Object.DestroyImmediate(r.GetComponent<Collider>()); r.transform.SetParent(jr, true);
+                r.transform.SetPositionAndRotation((a + b) * 0.5f + Vector3.up * hy, rot); r.transform.localScale = new Vector3(0.05f, 0.06f, len + 0.04f);
                 r.GetComponent<MeshRenderer>().sharedMaterial = wood; r.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
-            var p = GameObject.CreatePrimitive(PrimitiveType.Cube); p.name = "Post" + k; Object.DestroyImmediate(p.GetComponent<Collider>()); p.transform.SetParent(jr, true);
-            p.transform.SetPositionAndRotation(a + Vector3.up * 0.26f, rot); p.transform.localScale = new Vector3(0.08f, 0.52f, 0.08f);
-            p.GetComponent<MeshRenderer>().sharedMaterial = wood; p.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            var cg = new GameObject("Col" + k); cg.transform.SetParent(jr, true); cg.transform.SetPositionAndRotation((a + b) * 0.5f + Vector3.up * 0.6f, rot);
+            if (post)
+            {
+                var p = GameObject.CreatePrimitive(PrimitiveType.Cube); p.name = nm + "_Post"; Object.DestroyImmediate(p.GetComponent<Collider>()); p.transform.SetParent(jr, true);
+                p.transform.SetPositionAndRotation(a + Vector3.up * 0.26f, rot); p.transform.localScale = new Vector3(0.08f, 0.52f, 0.08f);
+                p.GetComponent<MeshRenderer>().sharedMaterial = wood; p.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            var cg = new GameObject(nm + "_Col"); cg.transform.SetParent(jr, true); cg.transform.SetPositionAndRotation((a + b) * 0.5f + Vector3.up * 0.6f, rot);
             cg.AddComponent<BoxCollider>().size = new Vector3(0.15f, 1.2f, len + 0.1f);
+        }
+        for (int k = 0; k < 2; k++)
+        {
+            Vector3 fe = fenceEnd[k] - c, be = bridgeEnd[k] - c; fe.y = 0f; be.y = 0f;
+            float Rf = fe.magnitude;
+            // 橋の柵の線（toW 向き、横の位置 sd）が半径 Rf の輪と交わる所
+            float sd = Vector3.Dot(be, side); float al = Mathf.Sqrt(Mathf.Max(0f, Rf * Rf - sd * sd));
+            Vector3 meet = side * sd + toW * al;
+            Seg(meet + c, bridgeEnd[k], "Line" + k, true);
+            // 輪の上：meet から fe まで弧（0.5m ごと）
+            float a0 = Mathf.Atan2(meet.z, meet.x), a1 = Mathf.Atan2(fe.z, fe.x);
+            float da = Mathf.DeltaAngle(a0 * Mathf.Rad2Deg, a1 * Mathf.Rad2Deg) * Mathf.Deg2Rad;
+            int ns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(da) * Rf / 0.5f));
+            for (int q = 0; q < ns; q++)
+            {
+                float t0 = a0 + da * q / ns, t1 = a0 + da * (q + 1) / ns;
+                Seg(c + new Vector3(Mathf.Cos(t0), 0f, Mathf.Sin(t0)) * Rf, c + new Vector3(Mathf.Cos(t1), 0f, Mathf.Sin(t1)) * Rf, "Arc" + k + "_" + q, q == 0);
+            }
             n++;
         }
         return "柵つなぎ " + n + "（" + string.Join(",", new[] { 0, 1 }.Select(k => (bridgeEnd[k] - fenceEnd[k]).magnitude.ToString("F2"))) + "m） ";
