@@ -382,7 +382,7 @@ public static class FuwaRewardIslandBuilder
             //  → 十字の「キラッ」が銃の表面のあちこちにパッと出てチカッと消える。ほとんど動かず、ほんの少し上へ。銃といっしょに動く（ローカル）
             var p = fx.AddComponent<ParticleSystem>(); p.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = p.main; main.loop = true; main.playOnAwake = true; main.startLifetime = new ParticleSystem.MinMaxCurve(0.35f, 0.6f); main.startSpeed = 0f;
-            main.startSize = new ParticleSystem.MinMaxCurve(0.035f, 0.07f); main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.92f, 0.62f), new Color(1f, 1f, 0.92f));
+            main.startSize = new ParticleSystem.MinMaxCurve(0.05f, 0.1f); main.startColor = new ParticleSystem.MinMaxGradient(new Color(1f, 0.92f, 0.62f), new Color(1f, 1f, 0.92f));   // 2026-11-19 てじゃ「もうちょっぴり大きく」0.035〜0.07→0.05〜0.1
             main.startRotation = new ParticleSystem.MinMaxCurve(-0.4f, 0.4f); main.maxParticles = 20; main.simulationSpace = ParticleSystemSimulationSpace.Local;   // 銃といっしょに動く（てじゃ「置いてけぼりにならないでいいや」）
             var em = p.emission; em.rateOverTime = 9f;
             var body = b.visualRoot.transform.GetComponentsInChildren<MeshRenderer>(true).FirstOrDefault(x => x.name == "GunBody");
