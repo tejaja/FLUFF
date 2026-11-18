@@ -233,6 +233,7 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         if (respawnManager != null)
         {
             respawnManager.SetRespawnSpot(playerSpot);
+            respawnManager.SetLastStand(gunSpot);   // 竹とんぼを持った時に銃を戻す先
             if (homeAction == 1) respawnManager.SetHomeWarp(this);
             else if (homeAction == 2) respawnManager.SetHomeWarp(null);
             if (homeAction != 0) respawnManager.SetLobbyReturnSpot(null);

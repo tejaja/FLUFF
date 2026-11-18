@@ -47,6 +47,8 @@ public class FuwaRespawnManager : UdonSharpBehaviour
 
     // 最後に呼んだ台（ワープ・台のクリック）へ銃を戻す。竹とんぼを持った時（2026-11-18 てじゃ「竹とんぼもったら銃が台に戻るようにしよ」）
     private Transform _lastStand;
+    // 飛んで入った時（FuwaCourseJoin → FuwaCourseWarp.JoinWithoutWarp）：銃は動かさず、戻す先の台だけそこにする
+    public void SetLastStand(Transform spot) { if (spot != null) _lastStand = spot; }
     public void ReturnGunToStand()
     {
         if (_myBlower == null || _lastStand == null || _myBlower.IsHeld()) return;
