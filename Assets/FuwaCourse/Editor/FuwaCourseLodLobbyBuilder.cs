@@ -34,6 +34,8 @@ public static class FuwaCourseLodLobbyBuilder
     //  ハザード判定（止まる前に遅くした速さを戻す）・チェックポイント（光る途中なら光りきらせる）・2–5 のワープの穴（勢いの残りを捨てる）。どれも LodStop で後片付け
     static readonly string[] CourseOnlyTypes = { "FuwaHazard", "FuwaCheckpoint", "FuwaPortal" };
 
+    public static bool HideScriptParticles = true;
+
     [MenuItem("FuwaCourse/よく使う/スマホのロビーで止める物を集め直す")]
     public static void Menu() { Debug.Log(Build()); }
 
@@ -89,7 +91,9 @@ public static class FuwaCourseLodLobbyBuilder
                 var go = ps.gameObject;
                 if (!go.activeSelf || !go.activeInHierarchy && !IsUnderInactiveRootOnly(go, r)) continue;
                 var m = ps.main; if (!m.loop || !m.playOnAwake) continue;
-                if (referenced.Contains(go) || go.GetComponentsInChildren<Transform>(true).Any(t => referenced.Contains(t.gameObject))) continue;
+                // 2026-11-18 てじゃ「パーティクル系もロビーからはかなり削ってもよさそう」：スクリプトが出したり止めたりする粒（炎・風の粒・チェックポイント・ジャンプ台など）も、
+                //  ロビーで遠い間は消す（近づく・そのコースに入るとまた出る。出し直した直後に一瞬ずれるくらいは気にしない）
+                if (!HideScriptParticles && (referenced.Contains(go) || go.GetComponentsInChildren<Transform>(true).Any(t => referenced.Contains(t.gameObject)))) continue;
                 // 粒以外の役目がある物（当たり判定・Udon・音など）は消さない
                 if (go.GetComponentsInChildren<Component>(true).Any(c => !(c is Transform || c is ParticleSystem || c is ParticleSystemRenderer))) continue;
                 hide.Add(go);
