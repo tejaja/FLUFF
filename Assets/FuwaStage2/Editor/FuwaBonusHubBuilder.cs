@@ -162,7 +162,7 @@ public static class FuwaBonusHubBuilder
         if (meshes.Length > 0)
         {
             var caps = new[] { "Mush_CapRed", "Mush_CapPink", "Mush_CapCream", "MiniMush_CapOrange" }.Select(FuwaLobbyPaths.FindMat).ToArray();
-            var stemM = FuwaLobbyPaths.FindMat("Mush_Stem"); var gillM = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/MiniMush/MiniMush_Gill.mat");
+            var stemM = FuwaLobbyPaths.FindMat("Mush_Stem"); var gillM = FuwaGiantMushrooms.UnderMat();   // 裏のすじ模様（きのこのたにの巨大キノコと同じ）
             int n = RingCount; var rnd = new System.Random(77);
             for (int i = 0; i < n; i++)
             {
@@ -249,7 +249,7 @@ public static class FuwaBonusHubBuilder
     }
 
     // Tools/bigmush.json（Blender の bigmush_build.py が書き出す）→ メッシュのアセット
-    [System.Serializable] class MushItem { public string name; public float[] v, n; public int[] s0, s1, s2; }
+    [System.Serializable] class MushItem { public string name; public float[] v, n, uv; public int[] s0, s1, s2; }
     [System.Serializable] class MushFile { public MushItem[] items; }
     const string MushDir = "Assets/FuwaStage2/Generated/BigMush";
     public static Mesh[] ImportBigMush()
@@ -268,6 +268,7 @@ public static class FuwaBonusHubBuilder
             var vs = new Vector3[it.v.Length / 3]; var ns = new Vector3[vs.Length];
             for (int i = 0; i < vs.Length; i++) { vs[i] = new Vector3(it.v[i * 3], it.v[i * 3 + 1], it.v[i * 3 + 2]); ns[i] = new Vector3(it.n[i * 3], it.n[i * 3 + 1], it.n[i * 3 + 2]); }
             m.vertices = vs; m.normals = ns; m.subMeshCount = 3;
+            if (it.uv != null && it.uv.Length == vs.Length * 2) { var us = new Vector2[vs.Length]; for (int i = 0; i < us.Length; i++) us[i] = new Vector2(it.uv[i * 2], it.uv[i * 2 + 1]); m.uv = us; }
             m.SetTriangles(it.s0, 0); m.SetTriangles(it.s1, 1); m.SetTriangles(it.s2, 2);
             m.RecalculateBounds();
             if (isNew) AssetDatabase.CreateAsset(m, ap); else EditorUtility.SetDirty(m);

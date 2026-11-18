@@ -21,7 +21,7 @@ public static class FuwaGiantMushrooms
     //  （FLUFF_models.blend、Islets の giant2_params、コレクション GiantMush2）、Tools/giantmush2.json → GiantStem2_A〜C／GiantCap2_A〜C。
     //  かさは A まるい若い／B 中くらい／C ひらいた。前の GiantStem_／GiantCap_ は残してある
     static readonly string[] Kinds = { "2_A", "2_B", "2_C" };
-    [System.Serializable] class JItem { public string name; public float[] v, n; public int[] s0, s1, s2; }
+    [System.Serializable] class JItem { public string name; public float[] v, n, uv; public int[] s0, s1, s2; }
     [System.Serializable] class JFile { public JItem[] items; }
     static void ImportJson()
     {
@@ -37,6 +37,7 @@ public static class FuwaGiantMushrooms
             var vs = new Vector3[it.v.Length / 3]; var ns = new Vector3[vs.Length];
             for (int i = 0; i < vs.Length; i++) { vs[i] = new Vector3(it.v[i * 3], it.v[i * 3 + 1], it.v[i * 3 + 2]); ns[i] = new Vector3(it.n[i * 3], it.n[i * 3 + 1], it.n[i * 3 + 2]); }
             m.vertices = vs; m.normals = ns;
+            if (it.uv != null && it.uv.Length == vs.Length * 2) { var us = new Vector2[vs.Length]; for (int i = 0; i < us.Length; i++) us[i] = new Vector2(it.uv[i * 2], it.uv[i * 2 + 1]); m.uv = us; }
             var subs = new[] { it.s0, it.s1 }.Where(x => x != null && x.Length > 0).ToArray();
             m.subMeshCount = subs.Length; for (int i = 0; i < subs.Length; i++) m.SetTriangles(subs[i], i);
             m.RecalculateBounds();
@@ -79,7 +80,7 @@ public static class FuwaGiantMushrooms
             Mat("GiantMush_CapBlue", new Color(0.55f, 0.72f, 0.96f)),
             Mat("GiantMush_CapYellow", new Color(0.99f, 0.84f, 0.38f)),   // てじゃ「やっぱ黄色も欲しい」
         };
-        var gill = FuwaLobbyPaths.FindMat("Mush_Gill");
+        var gill = UnderMat();   // 2026-11-18 裏のヒダのすじ模様（てじゃ「これをいい感じに目立たせられないもんかな」）
         var stemMat = FuwaLobbyPaths.FindMat("Mush_Stem");
 
         var root = GameObject.Find("FuwaCourse5").transform.Find("DecoGiantMushrooms");
@@ -143,6 +144,20 @@ public static class FuwaGiantMushrooms
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "巨大キノコ：" + n + "本。" + rc;
     }
+
+    // かさの裏：放射状のすじ模様（Textures/MushGillStripes.png、UV の u がまわりの角度）。おまけ本島の大キノコも同じ材質
+    public static Material UnderMat()
+    {
+        const string p = "Assets/FuwaCourse/Materials/MiniMush/BigMush_Under.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(p);
+        if (m == null) { m = new Material(FuwaLobbyPaths.FindMat("Mush_Gill")); AssetDatabase.CreateAsset(m, p); }
+        var tex = AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaCourse/Textures/MushGillStripes.png");
+        var ti = AssetImporter.GetAtPath("Assets/FuwaCourse/Textures/MushGillStripes.png") as TextureImporter;
+        if (ti && (ti.wrapModeU != TextureWrapMode.Repeat || ti.wrapModeV != TextureWrapMode.Clamp)) { ti.wrapModeU = TextureWrapMode.Repeat; ti.wrapModeV = TextureWrapMode.Clamp; ti.SaveAndReimport(); }
+        m.SetTexture("_MainTex", tex); m.SetTextureScale("_MainTex", new Vector2(GillStripes, 1f)); m.SetTextureOffset("_MainTex", Vector2.zero);
+        EditorUtility.SetDirty(m); return m;
+    }
+    public static float GillStripes = 20f;   // 波打ち（40 分割の1つおき）と同じ本数
 
     static Material Mat(string name, Color c)
     {
