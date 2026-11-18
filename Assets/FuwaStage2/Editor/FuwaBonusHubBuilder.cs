@@ -387,16 +387,6 @@ public static class FuwaBonusHubBuilder
         Vector3 c = root.position; float y0 = c.y;
         Vector3 toW = wi.position - c; toW.y = 0f; float distW = toW.magnitude; toW /= distW;
         Vector3 side = Vector3.Cross(Vector3.up, toW);
-        // 橋の柵のはし（本島にいちばん近い柱）：左右それぞれ
-        var bm = bf.GetComponent<MeshFilter>().sharedMesh; var bvs = bm.vertices;
-        Vector3[] bridgeEnd = new Vector3[2]; float[] best = { 1e9f, 1e9f };
-        foreach (var v in bvs)
-        {
-            var wp = bf.TransformPoint(v); var d = wp - c; d.y = 0f;
-            if (wp.y < y0 + 0.3f) continue;
-            float along = Vector3.Dot(d, toW); float sd = Vector3.Dot(d, side); int k = sd > 0 ? 1 : 0;
-            if (along < best[k]) { best[k] = along; bridgeEnd[k] = new Vector3(wp.x, y0, wp.z); }
-        }
         // 本島の柵の切れ目のはし：見た目の柵の頂点のうち、橋の向きから左右それぞれいちばん角度が近い物（当たりの切れ目は見た目とずれるので見た目で）
         Vector3[] fenceEnd = new Vector3[2]; float[] bestA = { 1e9f, 1e9f };
         var fmesh = mf.GetComponent<MeshFilter>().sharedMesh; var fvs = fmesh.vertices;
@@ -407,6 +397,29 @@ public static class FuwaBonusHubBuilder
             var d = wp - c; d.y = 0f; if (d.magnitude < 1f) continue;
             float ang = Vector3.SignedAngle(toW, d, Vector3.up); int k = Vector3.Dot(d, side) > 0 ? 1 : 0;
             if (Mathf.Abs(ang) < bestA[k]) { bestA[k] = Mathf.Abs(ang); fenceEnd[k] = new Vector3(wp.x, y0, wp.z); }
+        }
+        // 切れ目のまん中に橋を向ける（てじゃ「こんどは横のがはみだしてる」：当たりで探した切れ目の向きが見た目とずれていて、橋が片側に寄っていた）
+        {
+            Vector3 f0 = fenceEnd[0] - c, f1 = fenceEnd[1] - c; f0.y = 0f; f1.y = 0f;
+            Vector3 mid = (f0.normalized + f1.normalized); mid.y = 0f;
+            if (mid.sqrMagnitude > 1e-4f)
+            {
+                float turn = Vector3.SignedAngle(toW, mid, Vector3.up);
+                var q = Quaternion.AngleAxis(turn, Vector3.up);
+                foreach (var t in new[] { wi, root.Find("ToTitle") }) { if (!t) continue; t.position = c + q * (t.position - c); t.rotation = q * t.rotation; }
+                Physics.SyncTransforms();
+                toW = wi.position - c; toW.y = 0f; toW.Normalize(); side = Vector3.Cross(Vector3.up, toW);
+            }
+        }
+        // 橋の柵のはし（本島にいちばん近い柱）：左右それぞれ
+        var bm = bf.GetComponent<MeshFilter>().sharedMesh; var bvs = bm.vertices;
+        Vector3[] bridgeEnd = new Vector3[2]; float[] best = { 1e9f, 1e9f };
+        foreach (var v in bvs)
+        {
+            var wp = bf.TransformPoint(v); var d = wp - c; d.y = 0f;
+            if (wp.y < y0 + 0.3f) continue;
+            float along = Vector3.Dot(d, toW); float sd = Vector3.Dot(d, side); int k = sd > 0 ? 1 : 0;
+            if (along < best[k]) { best[k] = along; bridgeEnd[k] = new Vector3(wp.x, y0, wp.z); }
         }
         // 左右の組み合わせを合わせる（近い方同士）
         if ((fenceEnd[0] - bridgeEnd[0]).sqrMagnitude + (fenceEnd[1] - bridgeEnd[1]).sqrMagnitude > (fenceEnd[0] - bridgeEnd[1]).sqrMagnitude + (fenceEnd[1] - bridgeEnd[0]).sqrMagnitude)
@@ -441,10 +454,13 @@ public static class FuwaBonusHubBuilder
             // 橋の柵の線（toW 向き、横の位置 sd）が半径 Rf の輪と交わる所
             float sd = Vector3.Dot(be, side); float al = Mathf.Sqrt(Mathf.Max(0f, Rf * Rf - sd * sd));
             Vector3 meet = side * sd + toW * al;
-            Seg(meet + c, bridgeEnd[k], "Line" + k, true);
+            Seg(meet + c, bridgeEnd[k], "Line" + k, (meet - fe).magnitude > 0.25f);   // 本島の柵のはしの柱とほぼ同じ所なら柱は足さない（柱が2本ならぶので）
             // 輪の上：meet から fe まで弧（0.5m ごと）
             float a0 = Mathf.Atan2(meet.z, meet.x), a1 = Mathf.Atan2(fe.z, fe.x);
             float da = Mathf.DeltaAngle(a0 * Mathf.Rad2Deg, a1 * Mathf.Rad2Deg) * Mathf.Deg2Rad;
+            // 橋の柵の線が切れ目の外（本島の柵がもうある所）に当たる時は弧はいらない（てじゃ「こんどは横のがはみだしてる」）
+            float angMeet = Mathf.Abs(Vector3.SignedAngle(toW, meet, Vector3.up)), angFe = Mathf.Abs(Vector3.SignedAngle(toW, fe, Vector3.up));
+            if (angMeet >= angFe - 0.2f) { n++; continue; }
             int ns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Abs(da) * Rf / 0.5f));
             for (int q = 0; q < ns; q++)
             {
