@@ -16,7 +16,8 @@ public static class FuwaBonusHubBuilder
 {
     const string RootName = "FuwaBonusHub";
     public static Vector3 Pos = new Vector3(-200f, 120f, -200f);
-    public static float Shrink = 0.75f;
+    public static float Shrink = 0.65f;   // 2026-11-18 てじゃ「本島もうちょい小さく」0.75→0.65
+    public static float SpawnFromEdge = 3.2f, PortalFromEdge = 1.3f; public static bool PortalBase = false, CameraSpotMark = false;
     public static bool BoardPickup = false;
     public static bool SharedBoards = true;   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
@@ -116,11 +117,11 @@ public static class FuwaBonusHubBuilder
 
         // ---- 立ち位置・ふわふわ・銃 ----
         var spawn = new GameObject("Spawn").transform; spawn.SetParent(root, false);
-        spawn.position = Pos + Vector3.back * (R - 2.2f) + Vector3.up * 0.1f; spawn.rotation = Quaternion.LookRotation(Vector3.forward);
+        spawn.position = Pos + Vector3.back * (R - SpawnFromEdge) + Vector3.up * 0.1f; spawn.rotation = Quaternion.LookRotation(Vector3.forward);   // 真うしろに戻りポータル（ふれない距離をあける）
         var ballPark = new GameObject("BallPark").transform; ballPark.SetParent(root, false);
         ballPark.position = Pos + Vector3.back * (R - 3.4f) + Vector3.right * 1.2f + Vector3.up * 1.2f;
         var gunSpot = new GameObject("GunSpot").transform; gunSpot.SetParent(root, false);
-        gunSpot.position = Pos + Vector3.back * (R - 2.6f) + Vector3.left * 1.0f + Vector3.up * 1.0f; gunSpot.rotation = spawn.rotation;
+        gunSpot.position = Pos + Vector3.back * (R - 3.6f) + Vector3.left * 1.0f + Vector3.up * 1.0f; gunSpot.rotation = spawn.rotation;
 
         // ---- まん中：ボード（おまけのゴールの ClearBanner を移す）・きんピカ台・金ピカふわふわ ----
         var goal = reward.Find("Goal");
@@ -181,7 +182,8 @@ public static class FuwaBonusHubBuilder
         // ---- 奥：ステージ2ロビーへのポータル（ごほうびの島のスタートのワープを写す）----
         var st = reward.Find("Start");
         var portal = new GameObject("ToLobby").transform; portal.SetParent(root, false);
-        portal.position = Pos + Vector3.left * (R - 2.6f); portal.rotation = Quaternion.LookRotation(Vector3.right);   // 輪の外の左（西）
+        // 2026-11-18 てじゃ「戻るポータルはここにスポーンしたときの真後ろに」：スポーンの真うしろ（島の手前のふち寄り）。台はなし、うずは床の少し上
+        portal.position = Pos + Vector3.back * (R - PortalFromEdge) + Vector3.up * 0.03f; portal.rotation = Quaternion.LookRotation(Vector3.forward);
         if (st)
         {
             var vis = st.Cast<Transform>().Where(t => t.name.StartsWith("WarpToLobby") && !t.name.EndsWith("_Trigger") && !t.name.EndsWith("_Trigger_Gauge")).ToList();
@@ -203,7 +205,7 @@ public static class FuwaBonusHubBuilder
                     c.localPosition = s.localPosition - (refT ? refT.localPosition : Vector3.zero);
                 }
                 // 足もとの台（ごほうびの島のワープの台）。うずはその上に（床とチラつかないように）
-                var wg = st.Find("StartArea/WarpGround");
+                var wg = PortalBase ? st.Find("StartArea/WarpGround") : null;   // てじゃ「戻りポータルが乗ってる台もいらないかな」
                 if (wg && refT)
                 {
                     var g = Object.Instantiate(wg.gameObject, portal, true); g.name = "WarpGround"; FuwaStage2Builder.StripBehaviour(g);
@@ -318,13 +320,15 @@ public static class FuwaBonusHubBuilder
             st0.GetComponent<MeshFilter>().sharedMesh = cyl; st0.GetComponent<MeshCollider>().sharedMesh = cyl;
             st0.GetComponent<MeshRenderer>().sharedMaterial = BonusMat("Bonus_PhotoStage", new Color(1f, 0.9f, 0.88f));
             st0.gameObject.layer = 11;
-            // 撮る人の立ち位置の印：ボードが画面いっぱいに入る距離。足あと代わりの水色の丸
+            // 撮る人の立ち位置の印：ボードが画面いっぱいに入る距離。足あと代わりの水色の丸（2026-11-18 てじゃ「青い円は消してOK」→ CameraSpotMark=false）
+            if (CameraSpotMark) {
             var mk = new GameObject("CameraSpot", typeof(MeshFilter), typeof(MeshRenderer)).transform; mk.SetParent(root, false);
             mk.position = ringC + Vector3.forward * (BoardBack - CamDist) + Vector3.up * 0.012f;
             mk.localScale = new Vector3(0.9f / cb.x, 0.02f / cb.y, 0.9f / cb.z);
             mk.GetComponent<MeshFilter>().sharedMesh = cyl;
             mk.GetComponent<MeshRenderer>().sharedMaterial = BonusMat("Bonus_CameraSpot", new Color(0.62f, 0.83f, 1f));
             mk.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
         }
 
         // ---- エリアの出し入れ・ワープ・BGM ----
