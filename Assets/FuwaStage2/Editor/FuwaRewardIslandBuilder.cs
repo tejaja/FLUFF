@@ -55,6 +55,16 @@ public static class FuwaRewardIslandBuilder
         return "入場判定：おまけの島 " + at + "番、床の箱 " + mins.Count;
     }
 
+    // 2026-11-18 てじゃ「入り口島の道、ほかの道みたいなベベルつけといて」：ほかのコースと同じ、シマの道の外のふちを丸める（当たりは元の箱のまま）
+    public static string PathBevelNow(Transform root = null)
+    {
+        root = root ?? FindRoot(RootName); var pathT = root ? root.Find("Path") : null; if (!pathT) return "道がない";
+        foreach (Transform c in pathT) { var mr = c.GetComponent<MeshRenderer>(); if (mr) mr.enabled = true; }   // やり直す時は元の見た目から
+        Physics.SyncTransforms();
+        return FuwaBevelTools.BevelCourseStripes(pathT, "Assets/FuwaStage2/Generated/Reward_PathBevel.asset", PathBevelR, 3, m => m.name.StartsWith("Bonus_Path"));
+    }
+    public static float PathBevelR = 0.08f;   // ほかのコースと同じ
+
     public static void LobbyPath(Transform lobby, Transform slot5, Transform unl)
     {
         var old = unl.Find("LobbyPath"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -136,6 +146,7 @@ public static class FuwaRewardIslandBuilder
                 g.GetComponent<MeshRenderer>().sharedMaterial = k % 2 == 0 ? pa : pbm;
             }
         }
+        log.Add("道のベベル " + PathBevelNow(root));
         var spawn = st.Find("PlayerSpot"); var ballPark = st.Find("BallStart");
         Transform gunSpot = st.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "GunSpot");
         // ワープの見た目（Slot4 の看板・うず・粒・輪）を写す

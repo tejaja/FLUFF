@@ -314,10 +314,12 @@ public static class FuwaBevelTools
     // ---------- 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」（2–3・2–4：シマの箱を並べた道＋扇形の曲がり角＋島とのつなぎ）----------
     //  コースの中のシマシマの材質（名前が _PathA / _PathB）の見た目を 1 つのメッシュにまとめて、外のふちだけ丸める。当たりは今まで通り（元の Col / MeshCollider）
     //  上の面は四角でも三角（扇）でも。となりの上の面と同じ高さで続く辺の下の壁（シマどうしの間の壁）は消す（丸めたふちから板の切れはしが見えないように）
-    public static string BevelCourseStripes(Transform root, string meshPath, float r, int steps)
+    //  isPath を渡すと、その材質をシマの道とみなす（おまけの道の Bonus_PathWhite / Bonus_PathBlue など。2026-11-18）
+    public static string BevelCourseStripes(Transform root, string meshPath, float r, int steps, System.Func<Material, bool> isPath = null)
     {
         var old = root.Find("PathBevel"); if (old) Object.DestroyImmediate(old.gameObject);
-        var srcs = root.GetComponentsInChildren<MeshRenderer>(true).Where(x => x.enabled && x.sharedMaterials.Length == 1 && x.sharedMaterial && (x.sharedMaterial.name.EndsWith("_PathA") || x.sharedMaterial.name.EndsWith("_PathB")) && x.GetComponent<MeshFilter>() && x.GetComponent<MeshFilter>().sharedMesh).ToList();
+        if (isPath == null) isPath = m => m.name.EndsWith("_PathA") || m.name.EndsWith("_PathB");
+        var srcs = root.GetComponentsInChildren<MeshRenderer>(true).Where(x => x.enabled && x.sharedMaterials.Length == 1 && x.sharedMaterial && isPath(x.sharedMaterial) && x.GetComponent<MeshFilter>() && x.GetComponent<MeshFilter>().sharedMesh).ToList();
         if (srcs.Count == 0) return "シマの道がない";
         var mats = srcs.Select(x => x.sharedMaterial).Distinct().OrderBy(m => m.name).ToList();
         var V = new List<Vector3>(); var Nn = new List<Vector3>(); var T = mats.Select(_ => new List<int>()).ToList();
