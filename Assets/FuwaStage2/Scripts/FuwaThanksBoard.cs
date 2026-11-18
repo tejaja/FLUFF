@@ -16,14 +16,18 @@ public class FuwaThanksBoard : UdonSharpBehaviour
     public void Render()
     {
         if (text == null || records == null) return;
-        string s = title + "\n";
+        // 見出し（title）が空なら見出しも空き行も入れない（2026-11-18 てじゃ「ステージ◯も消してもっと詰めよう」）
+        string s = title != null && title.Length > 0 ? title + "\n" : "";
+        bool first = true;
         for (int r = 0; r < records.Length; r++)
         {
             FuwaRecords rec = records[r]; if (rec == null || rec.courseStarts == null) continue;
             for (int i = 0; i < rec.courseStarts.Length; i++)
             {
                 string nm = (rec.courseNamesJa != null && i < rec.courseNamesJa.Length) ? rec.courseNamesJa[i] : "";
-                s += "\n" + nm + "  <mspace=0.55em>" + rec.FormatTimeOf(rec.GetMyBest(i)) + "</mspace>";
+                if (!first || s.Length > 0) s += "\n";
+                first = false;
+                s += nm + "  <mspace=0.55em>" + rec.FormatTimeOf(rec.GetMyBest(i)) + "</mspace>";
             }
         }
         text.text = s;
