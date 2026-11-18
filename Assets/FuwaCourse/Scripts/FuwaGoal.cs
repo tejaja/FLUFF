@@ -35,6 +35,8 @@ public class FuwaGoal : UdonSharpBehaviour
     public float warpDelay = 1.0f;
     [Tooltip("一度出たワープを出しっぱなしにする（おまけのゴールの「本島へ」ワープ。2026-11-18 てじゃ「一度ゴールのポータル開いた後も…本島行きポータルも開きっぱなし」）")]
     public bool keepWarpOpen = false;
+    [Tooltip("銃の画面に「ゴール！」を出さない（おまけのゴール。2026-11-18 てじゃ「銃のUIのゴールも出さなくしたい」）")]
+    public bool noGunMessage = false;
     private bool _warpOpened;
     [Tooltip("ワープがぽんっと出てくる秒数")]
     public float warpPopTime = 0.35f;
@@ -140,6 +142,7 @@ public class FuwaGoal : UdonSharpBehaviour
     public void Landed(FuwaBall ball)
     {
         if (ball == null || _ringGone) return;
+        ball.quietGoalMessage = noGunMessage;
         ball.ReachGoal(returnPoint);
         _ball = ball;
         _goalStart = ball.startPoint;

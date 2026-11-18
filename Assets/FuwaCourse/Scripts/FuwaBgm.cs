@@ -180,9 +180,10 @@ public class FuwaBgm : UdonSharpBehaviour
     public int[] afterGoalTracks;
     private bool _afterGoal;
     private Transform _afterGoalStart;
-    // 2026-11-18 てじゃ「（おまけで）一度ゴールのポータル開いた後も、BGM消えなくなって」：ここが true のコースは、一度ゴールしたらその後ずっとゴール後の曲
-    //  （次の挑戦を始めても・出入りしても。このワールドにいる間）。starts と同じ番号
-    [Tooltip("一度ゴールしたら、その後ずっとゴール後の曲にするコース（starts と同じ番号）")]
+    // 2026-11-18 てじゃ「（おまけで）一度ゴールのポータル開いた後も、BGM消えなくなって」「おまけ島入口ゴール、BGMはおまけ本島いくまでならさなくていいよ」：
+    //  ここが true のコースは、ゴールしてもゴール後の曲にしない（コースの曲のまま＝おまけは無音）。ゴール後の曲の場所（afterGoalTracks の曲の starts＝本島）に
+    //  一度行ったら、その後はこのコースでもずっとゴール後の曲（次の挑戦を始めても・出入りしても。このワールドにいる間）。starts と同じ番号
+    [Tooltip("ゴール後の曲は、その曲の場所に一度行ってからずっと流すコース（starts と同じ番号）")]
     public bool[] stickyAfterGoal;
     private bool[] _stuck;
 
@@ -193,10 +194,7 @@ public class FuwaBgm : UdonSharpBehaviour
         _afterGoal = afterGoalTrack >= 0;
         _afterGoalStart = ball != null ? ball.startPoint : null;
         if (stickyAfterGoal != null && starts != null && _afterGoalStart != null)
-        {
-            if (_stuck == null || _stuck.Length != starts.Length) _stuck = new bool[starts.Length];
-            for (int i = 0; i < starts.Length && i < stickyAfterGoal.Length; i++) if (stickyAfterGoal[i] && starts[i] == _afterGoalStart) _stuck[i] = true;
-        }
+            for (int i = 0; i < starts.Length && i < stickyAfterGoal.Length; i++) if (stickyAfterGoal[i] && starts[i] == _afterGoalStart) _afterGoal = false;   // ゴールではゴール後の曲にしない
         if (_muted || fanfare == null || fanfare.clip == null) return;
         _fanfareUntil = Time.time + fanfare.clip.length;
         fanfare.volume = Mathf.Clamp01(Vol() * fanfareVolume);
@@ -293,6 +291,15 @@ public class FuwaBgm : UdonSharpBehaviour
             }
         }
         Transform sp = ball.startPoint;
+        // ゴール後の曲の場所（本島）に来たら、そのコースはこれからずっとゴール後の曲
+        if (stickyAfterGoal != null && afterGoalTracks != null && sp != null)
+            for (int i = 0; i < starts.Length && i < stickyAfterGoal.Length && i < afterGoalTracks.Length; i++)
+            {
+                int ag = afterGoalTracks[i];
+                if (!stickyAfterGoal[i] || ag < 0 || ag >= starts.Length || starts[ag] != sp) continue;
+                if (_stuck == null || _stuck.Length != starts.Length) _stuck = new bool[starts.Length];
+                _stuck[i] = true;
+            }
         for (int i = 0; i < starts.Length && i < tracks.Length; i++)
         {
             if (starts[i] == sp)

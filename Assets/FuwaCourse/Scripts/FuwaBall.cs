@@ -1079,7 +1079,9 @@ public class FuwaBall : UdonSharpBehaviour
         PlaySfx(sfxCheckpoint);
     }
 
-    [HideInInspector] public float lastGoalTime;   // 最後にゴールした時のタイム（計らないコースは0）。FuwaGoal の CLEAR 表示用
+    [HideInInspector] public float lastGoalTime;
+    // 2026-11-18 てじゃ「（おまけの）銃のUIのゴールも出さなくしたい」：FuwaGoal が ReachGoal の直前に true にする（1回だけ効く）
+    [HideInInspector] public bool quietGoalMessage;   // 最後にゴールした時のタイム（計らないコースは0）。FuwaGoal の CLEAR 表示用
 
     public string FormatTimeText(float t) { return FormatTime(t); }
 
@@ -1094,7 +1096,8 @@ public class FuwaBall : UdonSharpBehaviour
         lastGoalTime = timerEnabled ? t : 0f;
         _running = false; _untimedRun = false;
         if (timerText != null) timerText.text = timerEnabled ? Mono(FormatTime(t)) : "";   // 計らないコース（チュートリアルの本番の道）は 0:00.00 を出さない
-        ShowMessage(english ? "Goal!" : "ゴール！", restartDelay);   // タイムは下のタイマーに出ているので文字には入れない
+        if (!quietGoalMessage) ShowMessage(english ? "Goal!" : "ゴール！", restartDelay);   // タイムは下のタイマーに出ているので文字には入れない
+        quietGoalMessage = false;
         PlaySfx(sfxGoal);
         // ゴールしたら、ふわふわがパンッと弾けて胞子を撒く（次のスタートでキノコに戻る）
         if (popEffect != null)
