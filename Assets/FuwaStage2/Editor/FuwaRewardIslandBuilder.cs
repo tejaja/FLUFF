@@ -15,6 +15,16 @@ public static class FuwaRewardIslandBuilder
 
     // 2026-11-18 てじゃ「全コンプしたらロビーに道が出るようにしよ」：ほかのコースと同じく、ロビーのまん中から6つめのワープの台までシマシマの道。
     //  色はおまけの道と同じ白／水色寄りの白。Unlocked の子なので全クリした人の画面だけに出る（FuwaAllClearReveal）
+    // 2026-11-18 てじゃ「おまけ島、コンプ前は島以外全部見えないようにしたい。道もなし、キノコとか台とかもなし。島、橋、柵、帰還ポータルだけでいい」
+    //  コンプ前に隠す物（FuwaAllClearReveal.showIfClear に入れる。シーンでは出したまま、実行時に隠す）。
+    //  ゴールで出る物（ClearBanner・GoalWarp・きんピカの台＝FuwaRewardAfterGoal）は入れない（入れるとコンプした時に出てしまう）
+    public static GameObject[] BeforeClearHidden(Transform root)
+    {
+        var names = new[] { "Start/GunStand_Course2_4", "Start/SporeBurst", "Start/StartMushroom", "Start/StartArea/Mushrooms",
+            "Goal/Ring", "Goal/GoalTrigger", "Goal/FairyRing", "Goal/Marker", "Goal/RingHalo", "Goal/GoalFx", "Goal/GoalWaves", "Path" };
+        return names.Select(n => root.Find(n)).Where(t => t).Select(t => t.gameObject).ToArray();
+    }
+
     public static void LobbyPath(Transform lobby, Transform slot5, Transform unl)
     {
         var old = unl.Find("LobbyPath"); if (old) Object.DestroyImmediate(old.gameObject);
@@ -195,7 +205,7 @@ public static class FuwaRewardIslandBuilder
         }
         var rv = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaAllClearReveal>(root.gameObject);
         rv.records = Object.FindObjectsOfType<FuwaRecords>(true).Where(x => x.name == "Records" || x.name == "Records2").ToArray();
-        rv.showIfClear = new[] { unl.gameObject };   // 島の中身はいつも出す（島へは全クリしないと行けない）
+        rv.showIfClear = new[] { unl.gameObject }.Concat(BeforeClearHidden(root)).ToArray();
         rv.hideIfClear = new[] { lck.gameObject };
         unl.gameObject.SetActive(false); lck.gameObject.SetActive(true);   // エディタでは「クリア前」の見た目
         UdonSharpEditorUtility.CopyProxyToUdon(rv); FuwaStage2WaterTest.NoSync(rv);
