@@ -80,6 +80,7 @@ public static class FuwaGiantMushrooms
             Mat("GiantMush_CapBlue", new Color(0.55f, 0.72f, 0.96f)),
             Mat("GiantMush_CapYellow", new Color(0.99f, 0.84f, 0.38f)),   // てじゃ「やっぱ黄色も欲しい」
         };
+        colors = colors.Select(RimMat).ToArray();   // ふちのグラデつき（スタートのキノコと同じ感じ）
         var gill = UnderMat();   // 2026-11-18 裏のヒダのすじ模様（てじゃ「これをいい感じに目立たせられないもんかな」）
         var stemMat = FuwaLobbyPaths.FindMat("Mush_Stem");
 
@@ -157,7 +158,37 @@ public static class FuwaGiantMushrooms
         m.SetTexture("_MainTex", tex); m.SetTextureScale("_MainTex", new Vector2(GillStripes, 1f)); m.SetTextureOffset("_MainTex", Vector2.zero);
         EditorUtility.SetDirty(m); return m;
     }
-    public static float GillStripes = 20f;   // 波打ち（40 分割の1つおき）と同じ本数
+    public static float GillStripes = 20f;
+
+    // かさの表のふちのグラデ（2026-11-18 てじゃ「このキノコ（スタートのキノコ）のフチ側にグラデはいってるけど、デカいやつにもこんなかんじの」）。
+    //  スタートのキノコの MushCapRimGrad と同じく、まん中〜0.75 はもとの色、ふちへ向かって少しあたたかく明るい色へ。色ごとにテクスチャと材質を作る
+    //  （UV の u＝まん中0→ふち1。UV のないメッシュは使わない材質なので、ミニキノコ等の材質はそのまま）
+    public static Material RimMat(Material src)
+    {
+        if (src == null) return null;
+        string name = "BigMush_Cap_" + src.name, mp = "Assets/FuwaCourse/Materials/MiniMush/" + name + ".mat", tp = "Assets/FuwaCourse/Textures/" + name + "_Rim.png";
+        Color b = src.HasProperty("_Color") ? src.color : Color.white;
+        Color.RGBToHSV(b, out float h, out float sat, out float val);
+        var rim = Color.HSVToRGB(Mathf.Repeat(h + RimHue, 1f), Mathf.Clamp01(sat * (1f - RimDesat)), Mathf.Clamp01(val + RimBright));
+        var tex = new Texture2D(64, 4, TextureFormat.RGBA32, false);
+        for (int x = 0; x < 64; x++)
+        {
+            float u = x / 63f, k = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(RimStart, 1f, u));
+            var c = Color.Lerp(b, rim, k); c.a = 1f;
+            for (int y = 0; y < 4; y++) tex.SetPixel(x, y, c);
+        }
+        System.IO.File.WriteAllBytes(System.IO.Path.Combine(Application.dataPath, "..", tp), tex.EncodeToPNG());
+        Object.DestroyImmediate(tex);
+        AssetDatabase.ImportAsset(tp);
+        var ti = AssetImporter.GetAtPath(tp) as TextureImporter;
+        if (ti) { ti.wrapMode = TextureWrapMode.Clamp; ti.mipmapEnabled = false; ti.SaveAndReimport(); }
+        var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (m == null) { m = new Material(src); AssetDatabase.CreateAsset(m, mp); } else { m.shader = src.shader; m.CopyPropertiesFromMaterial(src); }
+        m.name = name; m.color = Color.white;
+        m.SetTexture("_MainTex", AssetDatabase.LoadAssetAtPath<Texture2D>(tp)); m.SetTextureScale("_MainTex", Vector2.one); m.SetTextureOffset("_MainTex", Vector2.zero);
+        EditorUtility.SetDirty(m); return m;
+    }
+    public static float RimStart = 0.72f, RimHue = 0.025f, RimDesat = 0.08f, RimBright = 0.05f;   // 波打ち（40 分割の1つおき）と同じ本数
 
     static Material Mat(string name, Color c)
     {

@@ -161,7 +161,7 @@ public static class FuwaBonusHubBuilder
         var cyl = Resources.GetBuiltinResource<Mesh>("Cylinder.fbx");
         if (meshes.Length > 0)
         {
-            var caps = new[] { "Mush_CapRed", "Mush_CapPink", "Mush_CapCream", "MiniMush_CapOrange" }.Select(FuwaLobbyPaths.FindMat).ToArray();
+            var caps = new[] { "Mush_CapRed", "Mush_CapPink", "Mush_CapCream", "MiniMush_CapOrange" }.Select(FuwaLobbyPaths.FindMat).Select(FuwaGiantMushrooms.RimMat).ToArray();   // ふちのグラデつき
             var stemM = FuwaLobbyPaths.FindMat("Mush_Stem"); var gillM = FuwaGiantMushrooms.UnderMat();   // 裏のすじ模様（きのこのたにの巨大キノコと同じ）
             int n = RingCount; var rnd = new System.Random(77);
             for (int i = 0; i < n; i++)
