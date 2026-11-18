@@ -16,6 +16,7 @@ public static class FuwaBonusHubBuilder
 {
     const string RootName = "FuwaBonusHub";
     public static Vector3 Pos = new Vector3(-200f, 120f, -200f);
+    public static float Shrink = 0.75f;   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
     public static int RingCount = 9; public static float RingHFront = 2.6f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, LeanMin = 3f, LeanMax = 8f;
@@ -268,6 +269,8 @@ public static class FuwaBonusHubBuilder
             }
             so.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(bgm);
         }
+        // 2026-11-18 てじゃ「おまけ島、全体的にデカすぎるかな」「本島のもの全て」：島・キノコ・ボード・台・ポータルぜんぶを島のまん中（床の高さ）を中心に縮める
+        root.localScale = Vector3.one * Shrink;
         if (old) Object.DestroyImmediate(old);
         root.gameObject.SetActive(false);   // ふだんは消えている（area 4 の時だけ）
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
