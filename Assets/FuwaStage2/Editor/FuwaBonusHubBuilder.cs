@@ -323,6 +323,8 @@ public static class FuwaBonusHubBuilder
                 var pu = bt.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
                 pu.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pu.InteractionText = "ボード"; pu.proximity = 3f; pu.allowManipulationWhenEquipped = true;
                 bt.gameObject.layer = 13;   // Pickup
+                var pl = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPosLogger>(bt.gameObject); pl.basis = root; pl.label = "Board";   // 離したらログに位置を書く
+                UdonSharpEditorUtility.CopyProxyToUdon(pl); FuwaStage2WaterTest.NoSync(pl);
                 log.Append("ボードを持てる ");
             }
         }
