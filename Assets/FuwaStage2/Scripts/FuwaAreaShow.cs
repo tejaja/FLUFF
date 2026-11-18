@@ -16,6 +16,10 @@ public class FuwaAreaShow : UdonSharpBehaviour
     [Tooltip("出した時に書き直す（自己ベストのボード。なくてもOK）")]
     public FuwaThanksBoard board;
     public float interval = 0.25f;
+    [Tooltip("離したら真下の床に置く（金ピカふわふわ。2026-11-18 てじゃ「やや大きめの金ピカのふわふわをドンと置いておこう」）")]
+    public bool snapToGround = false;
+    [Tooltip("床から中心までの高さ(m)")]
+    public float groundOffset = 0.35f;
     private int _shown = -1;
     private float _next;
 
@@ -31,6 +35,15 @@ public class FuwaAreaShow : UdonSharpBehaviour
         _shown = s;
         Apply(on);
         if (on && board != null) board.Render();
+    }
+
+    public override void OnDrop()
+    {
+        if (!snapToGround) return;
+        RaycastHit hit;
+        int mask = ~((1 << 9) | (1 << 10) | (1 << 13) | (1 << 18));   // Player / PlayerLocal / Pickup / MirrorReflection
+        if (Physics.Raycast(transform.position + Vector3.up * 0.2f, Vector3.down, out hit, 30f, mask, QueryTriggerInteraction.Ignore))
+            transform.position = hit.point + Vector3.up * groundOffset;
     }
 
     private void Apply(bool on)

@@ -19,7 +19,8 @@ public static class FuwaBonusHubBuilder
     public static float Shrink = 0.65f;   // 2026-11-18 てじゃ「本島もうちょい小さく」0.75→0.65
     public static float SpawnFromEdge = 3.2f, PortalFromEdge = 1.3f; public static bool PortalBase = false, CameraSpotMark = false;
     public static bool BoardPickup = false;
-    public static bool SharedBoards = true;   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
+    public static bool SharedBoards = true;
+    public static float GoldFluffSize = 0.7f;   // 金ピカふわふわの直径(m)   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
     public static int RingCount = 9; public static float RingHFront = 1.4f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, BackCenterScale = 1.2f, MushOverlapR = 0.8f, BoardMarginX = 0.25f, FrontLeftScale = 0.6f, RingFrontR = 3.0f, RingHugGap = 0.7f, LeanMin = 3f, LeanMax = 8f;
@@ -72,6 +73,27 @@ public static class FuwaBonusHubBuilder
             n++;
         }
         Object.DestroyImmediate(bt.gameObject);   // 空になった Board
+        // 金ピカふわふわ：台なしで大きめを床にドンと置く。みんなで持てる（2026-11-18 てじゃ「やや大きめの金ピカのふわふわをドンと置いておこう、台のやつなし、Pickupもできる」）
+        //  元の台（GoldFluffStand）は次の作り直しの写し元に残して隠す
+        var gs = root.Find("GoldFluffStand"); var gf0 = gs ? gs.Find("GoldFluff") : null;
+        if (gf0)
+        {
+            var gf = Object.Instantiate(gf0.gameObject, holder, false).transform; gf.name = "GoldFluffBig";
+            var mf = gf.GetComponent<MeshFilter>(); float meshD = mf && mf.sharedMesh ? mf.sharedMesh.bounds.size.x : 1f;
+            gf.localScale = Vector3.one * (GoldFluffSize / meshD); gf.rotation = gs.rotation;
+            gf.position = new Vector3(gs.position.x, Pos.y + GoldFluffSize * 0.5f, gs.position.z);
+            var rb = gf.GetComponent<Rigidbody>() ?? gf.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+            var pu = gf.GetComponent<VRC.SDK3.Components.VRCPickup>() ?? gf.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
+            pu.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pu.proximity = 3f;
+            if (!gf.GetComponent<VRC.SDK3.Components.VRCObjectSync>()) gf.gameObject.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
+            gf.gameObject.layer = 13;
+            var sh = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaAreaShow>(gf.gameObject);
+            sh.areaVisibility = av; sh.area = 4; sh.renderers = gf.GetComponentsInChildren<Renderer>(true); sh.colliders = gf.GetComponentsInChildren<Collider>(true); sh.pickup = pu;
+            sh.snapToGround = true; sh.groundOffset = GoldFluffSize * 0.5f;
+            UdonSharpEditorUtility.CopyProxyToUdon(sh); FuwaStage2WaterTest.NoSync(sh);
+            gs.gameObject.SetActive(false);
+            n++;
+        }
         return "みんなのボード " + n + " ";
     }
 
