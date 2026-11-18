@@ -114,6 +114,9 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     public override void InputLookVertical(float value, UdonInputEventArgs args) { _lookV = value; }
     public override void InputJump(bool value, UdonInputEventArgs args) { _jumpHeld = value; }
 
+    [Tooltip("持っている間だけ出す見えない壁・天井（遠くへ行きすぎないように。2026-11-18 てじゃ「遠くに行きすぎないように見えない壁でもつくるか」）")]
+    public GameObject bounds;
+
     // 自分が持っているか（FuwaGunSummon が見る：竹とんぼを持っている間は銃を呼ばない）
     public bool IsMine() { return _mine; }
 
@@ -124,11 +127,13 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         _mine = true; _using = false; _braking = false; _droppedAt = -1f;
         _gravity = p.GetGravityStrength();
         if (manager != null) manager.ReturnGunToStand();   // 銃は台にもどす（てじゃ「竹とんぼもったら銃が台に戻るようにしよ」）
+        if (bounds != null) bounds.SetActive(true);
     }
 
     public override void OnDrop()
     {
         _droppedAt = Time.time;
+        if (bounds != null) bounds.SetActive(false);
         if (!_mine) return;
         EndFlight();
         _mine = false;

@@ -19,6 +19,58 @@ public static class FuwaCopterBuilder
     const float StickLen = 0.34f, StickR = 0.014f, KnobR = 0.034f, BladeSpan = 0.52f, BladeW = 0.065f, BladeT = 0.01f, BladeTwist = 16f, TipR = 0.016f;
     const float StandBaseH = 0.1f, StandPostH = 0.75f;
 
+    // 2026-11-18 てじゃ「どっちのステージも、ステージ２くらいまで竹とんぼで降りれるようにしたい、かつ遠くに行きすぎないように見えない壁でもつくるか」
+    //  ・竹とんぼを持っている間だけ出る見えない壁（まわり4枚＋天井）。ステージ1は天井 50m、ステージ2は -60m
+    //  ・ステージ1の全体の落下判定（WorldFallCatcher -9m）は竹とんぼ中は無視 → ステージ2の高さの FuwaSystem/CopterDeepCatcher で落ちた扱い
+    public static Vector2 BoundsX = new Vector2(-360f, 390f), BoundsZ = new Vector2(-360f, 390f);   // てじゃ「もっと遠くまでいけてもいいかも」：全体の落下判定（-385〜415）の内側いっぱい
+    public static float BoundsBottom = -200f, Ceil1 = 50f, Ceil2 = -60f, DeepCatchTop = -185f;
+    [MenuItem("FuwaCourse/済み/竹とんぼの見えない壁と深い落下判定")]
+    public static void SetupBoundsMenu() { Debug.Log(SetupBounds()); }
+    public static string SetupBounds()
+    {
+        var sys = GameObject.Find("FuwaSystem"); if (!sys) return "FuwaSystem がない";
+        var log = new System.Text.StringBuilder();
+        var cps = Resources.FindObjectsOfTypeAll<FuwaBambooCopter>().Where(c => c && c.gameObject.scene.IsValid()).ToArray();
+        foreach (var cp in cps)
+        {
+            bool st2 = cp.name.Contains("Stage2");
+            string nm = (st2 ? "Stage2" : "Stage1") + "_CopterBounds";
+            var old = sys.transform.Find(nm); if (old) Object.DestroyImmediate(old.gameObject);
+            var root = new GameObject(nm).transform; root.SetParent(sys.transform, false);
+            float top = st2 ? Ceil2 : Ceil1, bot = BoundsBottom, th = 2f;
+            float cx = (BoundsX.x + BoundsX.y) * 0.5f, cz = (BoundsZ.x + BoundsZ.y) * 0.5f, sx = BoundsX.y - BoundsX.x, sz = BoundsZ.y - BoundsZ.x, cy = (top + bot) * 0.5f, sy = top - bot;
+            void Box(string n, Vector3 c, Vector3 size) { var g = new GameObject(n); g.transform.SetParent(root, false); g.transform.position = c; var bc = g.AddComponent<BoxCollider>(); bc.size = size; g.layer = 0; }
+            Box("WallW", new Vector3(BoundsX.x - th * 0.5f, cy, cz), new Vector3(th, sy, sz + th * 2f));
+            Box("WallE", new Vector3(BoundsX.y + th * 0.5f, cy, cz), new Vector3(th, sy, sz + th * 2f));
+            Box("WallS", new Vector3(cx, cy, BoundsZ.x - th * 0.5f), new Vector3(sx, sy, th));
+            Box("WallN", new Vector3(cx, cy, BoundsZ.y + th * 0.5f), new Vector3(sx, sy, th));
+            Box("Ceiling", new Vector3(cx, top + th * 0.5f, cz), new Vector3(sx + th * 2f, th, sz + th * 2f));
+            root.gameObject.SetActive(false);   // 持っている間だけ（FuwaBambooCopter が出す）
+            var so = new SerializedObject(cp); so.FindProperty("bounds").objectReferenceValue = root.gameObject; so.ApplyModifiedProperties();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(cp);
+            log.Append(nm + " ");
+        }
+        // 深い落下判定（ステージ2の高さ。ステージ1の竹とんぼ用、いつも出ている）
+        {
+            var old = sys.transform.Find("CopterDeepCatcher"); if (old) Object.DestroyImmediate(old.gameObject);
+            var wfc = sys.transform.Find("WorldFallCatcher");
+            var src = wfc ? wfc.GetComponent<FuwaPlayerCatcher>() : null;
+            if (src)
+            {
+                var g = Object.Instantiate(wfc.gameObject, sys.transform, true); g.name = "CopterDeepCatcher";
+                var b = wfc.GetComponent<Collider>().bounds;
+                g.transform.position += Vector3.up * (DeepCatchTop - b.max.y);   // 上の面が DeepCatchTop に
+                Physics.SyncTransforms();
+                var pc = g.GetComponent<FuwaPlayerCatcher>(); pc.copterSafe = false; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pc);
+                // 上の全体の判定は、竹とんぼを持っている間は無視（ここまで降りられる）
+                var so = new SerializedObject(src); so.FindProperty("copterSafe").boolValue = true; so.ApplyModifiedProperties(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(src);
+                log.Append("深い落下判定 " + g.GetComponent<Collider>().bounds.max.y.ToString("F0") + "m ");
+            }
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sys.scene);
+        return log.ToString();
+    }
+
     [MenuItem("FuwaCourse/よく使う/竹とんぼ立て（見学用）を作り直す（傘は消す）")]
     public static void Build()
     {
@@ -77,6 +129,7 @@ public static class FuwaCopterBuilder
             log.Append(key + " 床 " + floorY.ToString("F2") + " ");
         }
         FixNetworkIds();
+        log.Append(SetupBounds());
         // 竹とんぼを持っている間は銃を呼ばない（FuwaGunSummon.copters。2026-11-18 てじゃ「暴発しちゃう」）
         var gsum = Resources.FindObjectsOfTypeAll<FuwaGunSummon>().FirstOrDefault(c => c && c.gameObject.scene.IsValid());
         if (gsum)
