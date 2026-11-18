@@ -17,7 +17,8 @@ public static class FuwaBonusHubBuilder
     const string RootName = "FuwaBonusHub";
     public static Vector3 Pos = new Vector3(-200f, 120f, -200f);
     public static float Shrink = 0.75f;
-    public static bool BoardPickup = false;   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
+    public static bool BoardPickup = false;
+    public static bool SharedBoards = true;   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
     public static int RingCount = 9; public static float RingHFront = 1.4f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, BackCenterScale = 1.2f, MushOverlapR = 0.8f, BoardMarginX = 0.25f, FrontLeftScale = 0.6f, RingFrontR = 3.0f, RingHugGap = 0.7f, LeanMin = 3f, LeanMax = 8f;
@@ -42,6 +43,37 @@ public static class FuwaBonusHubBuilder
         ("FairyRing/Mush7", new Vector3(3.024f, -0.04f, 1.952f), new Vector3(2.621931f, 208.9491f, 3.99743962f), Vector3.one * 0.3f),
         ("FairyRing/Mush8", new Vector3(2.374f, -0.047f, 0.626f), new Vector3(2.949647f, 331.0045f, 5.557061f), Vector3.one * 0.1446052f),
     };
+    // 2026-11-18 てじゃ「Pickupのこっててもおもろいかも」「全員にみえていいよ」：文字・ステージ1・ステージ2のボードを、みんなで持って動かせるように。
+    //  同期する物は隠れるエリアに置けない（入り直した人に見えない罠）ので FuwaSystem/BonusBoards に移し、FuwaAreaShow で本島にいない間は見た目・当たり・持つのを止める
+    static string MakeSharedBoards(Transform root)
+    {
+        var sys = Find("FuwaSystem"); var bt = root.Find("Board");
+        var av = Resources.FindObjectsOfTypeAll<FuwaAreaVisibility>().FirstOrDefault(x => x && x.gameObject.scene.IsValid());
+        if (!sys || !bt || !av) return "みんなのボード：FuwaSystem／Board／エリア表示がない ";
+        var holder = new GameObject("BonusBoards").transform; holder.SetParent(sys, false);
+        int n = 0;
+        foreach (Transform part in bt.Cast<Transform>().ToList())
+        {
+            var rs = part.GetComponentsInChildren<Renderer>(true); if (rs.Length == 0) continue;
+            var wb = rs[0].bounds; foreach (var br in rs) wb.Encapsulate(br.bounds);
+            part.SetParent(holder, true);   // 見た目の位置・大きさはそのまま
+            var bc = part.gameObject.AddComponent<BoxCollider>();
+            bc.center = part.InverseTransformPoint(wb.center); var sz = part.InverseTransformVector(wb.size);
+            bc.size = new Vector3(Mathf.Abs(sz.x), Mathf.Abs(sz.y), Mathf.Max(0.15f / Mathf.Max(0.01f, part.lossyScale.z), Mathf.Abs(sz.z)));
+            var rb = part.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+            var pu = part.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
+            pu.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pu.InteractionText = part.name == "Title" ? "もじ" : "ボード"; pu.proximity = 3f; pu.allowManipulationWhenEquipped = true;
+            part.gameObject.AddComponent<VRC.SDK3.Components.VRCObjectSync>();   // 離したらその場に浮く（重力なし・kinematic）
+            part.gameObject.layer = 13;   // Pickup
+            var sh = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaAreaShow>(part.gameObject);
+            sh.areaVisibility = av; sh.area = 4; sh.renderers = rs; sh.colliders = new Collider[] { bc }; sh.pickup = pu; sh.board = part.GetComponent<FuwaThanksBoard>();
+            UdonSharpEditorUtility.CopyProxyToUdon(sh); FuwaStage2WaterTest.NoSync(sh);
+            n++;
+        }
+        Object.DestroyImmediate(bt.gameObject);   // 空になった Board
+        return "みんなのボード " + n + " ";
+    }
+
     static void ApplyHandLayout(Transform root)
     {
         foreach (var (path, pos, euler, scale) in HandLayout)
@@ -62,6 +94,7 @@ public static class FuwaBonusHubBuilder
         var log = new System.Text.StringBuilder("[おまけ本島] ");
         var lobby = Find("FuwaStage2/Lobby"); var reward = Find("FuwaRewardIsland");
         if (!lobby || !reward) return "ステージ2ロビー／ごほうびの島がない";
+        { var ob = Find("FuwaSystem/BonusBoards"); if (ob) Object.DestroyImmediate(ob.gameObject); }   // 前に作った、みんなで持てるボード
         var old = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName);   // 消えている（非表示）物も
         var root = new GameObject(RootName).transform; root.position = Pos;
         var lc = lobby.Find("LobbySpawn").position; float floorTop = lobby.Find("LobbyFloor").GetComponent<Renderer>().bounds.max.y;
@@ -367,6 +400,7 @@ public static class FuwaBonusHubBuilder
             log.Append("持てる " + np + " ");
         }
         root.localScale = Vector3.one * Shrink;
+        if (SharedBoards) log.Append(MakeSharedBoards(root));
         // 入口島のミニキノコに影（2026-11-18 てじゃ「入口島のミニキノコに影がない」：2–4 からの写しで、近くだけ影を出す係に入っていなかった）
         {
             int ns = 0;
