@@ -89,6 +89,9 @@ public class FuwaBall : UdonSharpBehaviour
 
     [Tooltip("最速タイムの看板（なくてもOK）")]
     public FuwaRecords records;
+    [Tooltip("かくし記録（アウト・打数・クリア回数・当てた回数・進んだ距離。おまけ本島で見る）。2026-11-18")]
+    public FuwaStats stats;
+    private int _runOuts, _runHits;   // タイム開始〜ゴールまでのアウト回数・ふわふわに当てた回数（スタートの1打もふくむ）
     [Tooltip("ゴールでファンファーレを鳴らすため（なくてもOK）")]
     public FuwaBgm bgm;
 
@@ -420,6 +423,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void Blow(Vector3 velocityChange)
     {
         if (_stuck && webCatch && !_softStick && _resetAt < 0f && !_hidden) { WebShot(velocityChange); return; }
+        bool byGun = _shotCharge >= 0f;   // 銃で撃たれた（NoteShotCharge が先に来る）
         _shotCharge = -1f;
         if (_resetAt > 0f || _hidden || _stuck || _spiking || _sizeFrozen) return;
         velocityChange *= SizeBlow();
@@ -434,6 +438,7 @@ public class FuwaBall : UdonSharpBehaviour
             {
                 _running = true;
                 _startTime = Time.time;
+                _runOuts = 0; _runHits = byGun ? 1 : 0;   // スタートの1打から数える
             }
             // タイムを計らない道（チュートリアルの本番）でも「挑戦中」は覚えておく（名場面のフォトポイント用。2026-10-12 てじゃ「チュートリアル後半の写真とれてない」）
             else if (!timerEnabled && !_untimedRun && !_finished && respawnPoint == startPoint)
@@ -787,7 +792,12 @@ public class FuwaBall : UdonSharpBehaviour
     private float _shotCharge = -1f;
     private float _wiggleStart = -10f;
     // 銃（FuwaBlower）が Blow の直前に、その一発の溜め（0〜1）を知らせる
-    public void NoteShotCharge(float charge) { _shotCharge = charge; }
+    public void NoteShotCharge(float charge)
+    {
+        _shotCharge = charge;
+        if (_running) _runHits++;
+        if (stats != null) stats.AddHit();
+    }
 
     // クモの巣にくっつく：その場でピタッと止まる。webCatch=false なら少ししたら破裂してアウト
     public void Stick(float seconds)
@@ -1014,6 +1024,7 @@ public class FuwaBall : UdonSharpBehaviour
     public void Fail()
     {
         if (_waiting || _finished || _resetAt > 0f || _spiking) return;
+        if (_running) _runOuts++;
         float inflate = popEffect != null ? Mathf.Max(0f, inflateTime) : 0f;
         _resetAt = Time.time + resetDelay + inflate;
         // れんしゅうのためし撃ちの場所では「アウト！」は出さない（弾けて戻るだけ。2026-10-09 てじゃ）
@@ -1111,6 +1122,7 @@ public class FuwaBall : UdonSharpBehaviour
         _rb.isKinematic = true;
         SetHidden(true);
         if (records != null && timerEnabled && t > 0f) records.ReportTime(startPoint, t);
+        if (stats != null && timerEnabled && t > 0f) stats.ReportRun(startPoint, _runOuts, _runHits);
         else if (records != null && !timerEnabled) records.ReportClear(startPoint);   // 2026-11-17 タイムなし（チュートリアル）：クリアの印だけ（記録のないコースは何もしない）
         if (bgm != null && (timerEnabled || ReturnPlayerUntimed())) bgm.PlayFanfare();   // れんしゅうの本番の道（タイムなし）のゴールでも鳴らす
         if (returnPoint != null) respawnPoint = returnPoint;

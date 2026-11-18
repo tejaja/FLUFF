@@ -163,6 +163,37 @@ public static class FuwaBonusHubBuilder
         return "金の銃の像＋スイッチ・回る銃の金ピカ " + sc.goldRenderers.Length + " ";
     }
 
+    // 2026-11-18 てじゃ「おまけ本島の隅っこに、各コースの隠し記録的な感じで閲覧する場所つくろ」：FuwaSystem/Stats（FuwaStats、数える係）と、本島の西の柵ぎわの看板（FuwaStatsBoard）
+    public static float StatsX = -8.6f, StatsZ = 2.2f, StatsY = 1.45f, StatsPanelW = 4.4f, StatsPanelH = 3.1f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
+    static string StatsBoard(Transform root)
+    {
+        var sys = Find("FuwaSystem"); var src = root.Find("Board/Times1");
+        var ball = Object.FindObjectsOfType<FuwaBall>(true).FirstOrDefault(b => b.records != null);
+        if (!sys || !src || !ball) return "かくしきろく：材料がない ";
+        var recs = Object.FindObjectsOfType<FuwaRecords>(true).Where(x => x.name == "Records" || x.name == "Records2").OrderBy(x => x.name).ToArray();
+        var stT = sys.Find("Stats"); FuwaStats st = stT ? stT.GetComponent<FuwaStats>() : null;
+        if (!st) { var g = new GameObject("Stats"); g.transform.SetParent(sys, false); st = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaStats>(g); }
+        st.ball = ball; st.records = recs; st.savePlayerData = recs.Length > 0 && recs[0].savePlayerData;   // 自己ベストの保存と同じ時に
+        UdonSharpEditorUtility.CopyProxyToUdon(st); FuwaStage2WaterTest.NoSync(st);
+        var bso = new SerializedObject(ball); bso.FindProperty("stats").objectReferenceValue = st; bso.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(ball);
+        // 看板（自己ベストの板を写して大きく）
+        var b = Object.Instantiate(src.gameObject, root, false).transform; b.name = "StatsBoard";
+        foreach (var tb in b.GetComponents<FuwaThanksBoard>()) { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tb); Object.DestroyImmediate(tb); if (ub) Object.DestroyImmediate(ub); }
+        b.localPosition = new Vector3(StatsX, StatsY, StatsZ); b.localRotation = Quaternion.LookRotation(Vector3.left); b.localScale = Vector3.one;   // 島のまん中から読める（文字の正面＝+z が西向き）
+        var tmp = b.GetComponent<TMPro.TextMeshPro>(); tmp.rectTransform.sizeDelta = new Vector2(StatsPanelW - 0.4f, StatsPanelH - 0.2f); tmp.fontSize = StatsFont;
+        tmp.alignment = TMPro.TextAlignmentOptions.Left; tmp.enableWordWrapping = false; tmp.margin = Vector4.zero;
+        var panel = b.Find("Panel")?.GetComponent<SpriteRenderer>();
+        if (panel && panel.drawMode != SpriteDrawMode.Simple)
+        {
+            var ps = panel.transform.localScale; panel.size = new Vector2(StatsPanelW / ps.x, StatsPanelH / ps.y);   // 板の拡大率の分を割る
+            panel.transform.localPosition = new Vector3(0f, 0f, panel.transform.localPosition.z);
+        }
+        var sb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaStatsBoard>(b.gameObject); sb.stats = st; sb.text = tmp;
+        UdonSharpEditorUtility.CopyProxyToUdon(sb); FuwaStage2WaterTest.NoSync(sb);
+        tmp.text = "かくしきろく";
+        return "かくしきろく ";
+    }
+
     static void ApplyHandLayout(Transform root)
     {
         foreach (var (path, pos, euler, scale) in HandLayout)
@@ -493,6 +524,7 @@ public static class FuwaBonusHubBuilder
             log.Append("持てる " + np + " ");
         }
         root.localScale = Vector3.one * Shrink;
+        log.Append(StatsBoard(root));
         if (SharedBoards) log.Append(MakeSharedBoards(root));
         log.Append(GoldGunDisplay(root));
         // 入口島のミニキノコに影（2026-11-18 てじゃ「入口島のミニキノコに影がない」：2–4 からの写しで、近くだけ影を出す係に入っていなかった）
