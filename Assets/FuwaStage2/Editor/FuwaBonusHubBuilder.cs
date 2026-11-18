@@ -19,8 +19,8 @@ public static class FuwaBonusHubBuilder
     public static float Shrink = 0.75f;   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
-    public static int RingCount = 9; public static float RingHFront = 2.6f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, LeanMin = 3f, LeanMax = 8f;
-    public static float RingShift = 1.5f, RingR = 6.6f, RingGap = 55f, BoardBack = 3.4f, TitleY = 4.45f, TitleScale = 1.0f,
+    public static int RingCount = 9; public static float RingHFront = 2.0f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, BackCenterScale = 1.2f, LeanMin = 3f, LeanMax = 8f;
+    public static float RingShift = 1.5f, RingR = 5.4f, RingGap = 55f, BoardBack = 3.4f, TitleY = 4.45f, TitleScale = 1.0f,
         ColX = 1.75f, ColY = 3.3f, ColScale = 1f, ColFont = 1.9f, PanelW = 3.0f, PanelH = 0.95f, StageR = 2.5f, CamDist = 7.0f;
     const string ThanksText = "<size=62%><color=#FF8FA3>T</color><color=#FFC36B>h</color><color=#7FD7A8>a</color><color=#7FB8F0>n</color><color=#B79BF0>k</color> <color=#FF8FA3>y</color><color=#FFC36B>o</color><color=#7FD7A8>u</color> <color=#7FB8F0>f</color><color=#B79BF0>o</color><color=#FF8FA3>r</color> <color=#FFC36B>p</color><color=#7FD7A8>l</color><color=#7FB8F0>a</color><color=#B79BF0>y</color><color=#FF8FA3>i</color><color=#FFC36B>n</color><color=#7FD7A8>g</color><color=#7FB8F0>!</color></size>";
 
@@ -179,6 +179,8 @@ public static class FuwaBonusHubBuilder
                 var mesh = meshes[(i * 4 + 1) % meshes.Length];
                 var go = new GameObject("Mush" + i, typeof(MeshFilter), typeof(MeshRenderer));
                 go.transform.SetParent(ring, false);
+                bool centerBack = i == n / 2;   // 奥のまん中：大きめの赤（2026-11-18 てじゃ「奥の真ん中は大きめの赤いキノコがいいな」）
+                if (centerBack) h = RingHBack * BackCenterScale;
                 float k = h / mesh.bounds.size.y;
                 go.transform.position = new Vector3(at.x, Pos.y - 0.12f, at.z);   // 傾けても根元が浮かないよう少しうめる
                 float lean = Mathf.Lerp(LeanMin, LeanMax, (float)rnd.NextDouble()), leanDir = (float)rnd.NextDouble() * 360f;
@@ -186,7 +188,7 @@ public static class FuwaBonusHubBuilder
                 go.transform.localScale = Vector3.one * k;
                 go.GetComponent<MeshFilter>().sharedMesh = mesh;
                 var mr = go.GetComponent<MeshRenderer>();
-                mr.sharedMaterials = new[] { stemM, caps[(i * 3 + 2) % caps.Length], gillM };
+                mr.sharedMaterials = new[] { stemM, centerBack ? caps[0] : caps[(i * 3 + 2) % caps.Length], gillM };   // caps[0] は赤
                 mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
                 go.layer = 11;
                 // ボードとかぶらないように（2026-11-18 てじゃ「おまけ島、キノコとボードが被ってた気がする」：大人の形でかさが広がった）：
@@ -206,6 +208,10 @@ public static class FuwaBonusHubBuilder
                 var col = go.AddComponent<CapsuleCollider>(); col.direction = 1;
                 col.radius = mesh.bounds.size.x * 0.13f; col.height = mesh.bounds.size.y * 0.75f; col.center = new Vector3(0f, col.height * 0.5f, 0f);
             }
+            // ときどき1本ずつぽよんと揺れる（2026-11-18 てじゃ「おまけ本島のきのこもピョコピョコしてほしい」）。動くので静的にしない
+            foreach (Transform m in ring) GameObjectUtility.SetStaticEditorFlags(m.gameObject, 0);
+            var sq = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaIdleSquash>(ring.gameObject); sq.root = ring;
+            UdonSharpEditorUtility.CopyProxyToUdon(sq); FuwaStage2WaterTest.NoSync(sq);
             log.Append("キノコの輪 " + n + " ");
         }
         // 立つ所：ボードの手前の、少しだけ高い丸いステージ（クリーム色）
