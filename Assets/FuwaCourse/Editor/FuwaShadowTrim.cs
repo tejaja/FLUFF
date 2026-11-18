@@ -19,7 +19,7 @@ public static class FuwaShadowTrim
         var rs = Object.FindObjectsOfType<Renderer>(true).Where(r => r.gameObject.scene.IsValid() && r.shadowCastingMode == UnityEngine.Rendering.ShadowCastingMode.On
             && !(r is ParticleSystemRenderer) && !(r is TrailRenderer) && !(r is LineRenderer)
             && (GameObjectUtility.GetStaticEditorFlags(r.gameObject) & StaticEditorFlags.ContributeGI) == 0).ToArray();
-        int tiny = 0, warp = 0, under = 0, lite = 0, flat = 0;
+        int tiny = 0, warp = 0, under = 0, lite = 0, flat = 0, fence = 0;
         foreach (var r in rs)
         {
             string p = AnimationUtility.CalculateTransformPath(r.transform, r.transform.root);
@@ -32,6 +32,8 @@ public static class FuwaShadowTrim
             else if (r.transform.root.name.Contains("Lite")) { lite++; cut = true; }
             // 2026-11-18 床・ふた（Floor*・Lid）は平らでも切らない（てじゃ「うえの広場の影が多重の輪っかみたいに」：2–5 の結晶の広場の床の模様とドームのふたを切って、輪っか状の影になった）
             else if (b.size.y < 0.06f && b.size.magnitude > 0.3f && !r.name.StartsWith("Floor") && r.name != "Lid") { flat++; cut = true; }
+            // 2026-11-19 てじゃ「ロビーとかスタートとかにある木の柵、影いらんかも、なんかやけに細くなるし」：木の柵（Fence・Fence_Far、木の材質）
+            else if (r.name.StartsWith("Fence") && r.sharedMaterials.Any(m => m && m.name.Contains("Wood"))) { fence++; cut = true; }
             if (!cut) continue;
             Undo.RecordObject(r, "shadow trim");
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -67,6 +69,6 @@ public static class FuwaShadowTrim
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(ts); EditorUtility.SetDirty(ts);
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
-        return $"[影を切る] 近くだけ影の一覧から外した {removed}／ 小さい {tiny}・ワープ {warp}・下の面 {under}・軽量版 {lite}・うすい平ら {flat}（のこり {rs.Length - tiny - warp - under - lite - flat}）";
+        return $"[影を切る] 近くだけ影の一覧から外した {removed}／ 小さい {tiny}・ワープ {warp}・下の面 {under}・軽量版 {lite}・うすい平ら {flat}・木の柵 {fence}（のこり {rs.Length - tiny - warp - under - lite - flat - fence}）";
     }
 }
