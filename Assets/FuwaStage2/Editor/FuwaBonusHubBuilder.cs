@@ -259,7 +259,7 @@ public static class FuwaBonusHubBuilder
     // 2026-11-19 てじゃ「さっき埋めた柵のとこ、やっぱまた開けて橋と島をつくってほしい、ワープポータルおいて、移動先はタイトル、ただし向きは後ろ側（ワールドポータルとか置いてある島の向き）」
     //  西の柵の切れ目（ロビーと同じ Open 版の柵）から橋 → 小島（本島の島の小さい写し、出入り口を本島に向ける）→ まん中にタイトル行きのワープ
     public static bool WestBridge = true;
-    public static float WestGap = 4f, WestScale = 0.3f, WestBridgeW = 2.2f;
+    public static float WestGap = 4f, WestScale = 0.3f, WestBridgeW = 2.2f, WestPush = 1.3f;   // WestPush：橋が本島に入りこみすぎないよう、小島を外へ（m）
     static string WestIsland(Transform root, Transform reward)
     {
         var isl = root.Find("Island"); if (!isl) return "西の島：島がない ";
@@ -282,24 +282,73 @@ public static class FuwaBonusHubBuilder
             }
         }
         var gdir = new Vector3(Mathf.Cos(gapDeg * Mathf.Deg2Rad), 0f, Mathf.Sin(gapDeg * Mathf.Deg2Rad));
-        var gside = Vector3.Cross(Vector3.up, gdir);
-        float cd = R + WestGap + r; var cpos = gdir * cd;
-        var w = new GameObject("WestIsland").transform; w.SetParent(root, false); w.localPosition = cpos; w.localRotation = Quaternion.Euler(0f, 180f, 0f);   // 同じ柵なので、半回転させると出入り口が本島の方を向く
-        foreach (Transform src in isl)
+        // 2026-11-19 てじゃ「スタート島のロビー帰還島の大きさのやつでいいよ」「そのままもてきてもいいかも」：
+        //  2–4 のスタートにある「ロビーへ帰るワープの小島」（WarpGround・下の岩・木の橋・柵）をそのまま写す。柵はスタートの島とひとつながりなので、小島と橋のまわりだけ切り出す。
+        //  本島は最後に Shrink 倍するので、写す物は 1/Shrink 倍して元の大きさのままにする
+        var c24 = Find("FuwaCourse2_4"); var sst = c24 ? c24.Find("Start") : null; var sa = sst ? sst.Find("StartArea") : null;
+        var warpSrc = sst ? sst.Find("WarpToLobby") : null; var groundSrc = sa ? sa.Find("Ground") : null;
+        if (!sa || !warpSrc || !groundSrc) return "西の島：2–4 のスタートがない ";
+        Vector3 wc0 = warpSrc.position; Vector3 gc0 = groundSrc.GetComponent<Renderer>().bounds.center;
+        Vector3 toMain = gc0 - wc0; toMain.y = 0f; float centerDist = toMain.magnitude; toMain /= centerDist;
+        float groundR = groundSrc.GetComponent<Renderer>().bounds.extents.x;
+        float reach = centerDist - groundR;   // 小島の中心から、橋がスタートの島のふちに着くまで
+        float inv = 1f / Shrink;
+        float cd = R + (reach + WestPush) * inv; var cpos = gdir * cd;
+        var w = new GameObject("WestIsland").transform; w.SetParent(root, false); w.localPosition = cpos;
+        w.localRotation = Quaternion.FromToRotation(toMain, -gdir); w.localScale = Vector3.one * inv;
+        foreach (var nm in new[] { "WarpGround", "IslandUnder_Warp", "BridgeWood", "Bridge" })
         {
-            var g = Object.Instantiate(src.gameObject, w, false); g.name = src.name;
-            g.transform.localPosition = src.localPosition * WestScale; g.transform.localRotation = src.localRotation; g.transform.localScale = Vector3.Scale(src.localScale, new Vector3(WestScale, src.name == "IslandUnder" ? WestScale : 1f, WestScale));
+            var src = sa.Find(nm); if (!src) continue;
+            var g = Object.Instantiate(src.gameObject, w, true); g.name = nm;
+            FuwaStage2Builder.StripBehaviour(g);
+            var lp = src.position - wc0; g.transform.localPosition = lp; g.transform.localRotation = src.rotation; g.transform.localScale = src.lossyScale;
+            foreach (var rr in g.GetComponentsInChildren<Renderer>(true)) rr.lightmapIndex = -1;
+            if (nm == "WarpGround")   // 床の色は本島の芝にそろえる
+            { var fl = isl.Find("LobbyFloor"); var fm = fl ? fl.GetComponent<Renderer>().sharedMaterial : null; if (fm) foreach (var rr in g.GetComponentsInChildren<Renderer>(true)) { var ms = rr.sharedMaterials; for (int q = 0; q < ms.Length; q++) ms[q] = fm; rr.sharedMaterials = ms; } }
         }
-        // 橋（本島のふちから小島のふちまで。シマシマ）
-        var pa = BonusMat("Bonus_BridgeA", FuwaRewardIslandBuilder.WhiteA); var pb = BonusMat("Bonus_BridgeB", FuwaRewardIslandBuilder.WhiteB);
-        var br = new GameObject("WestBridge").transform; br.SetParent(root, false);
-        br.localRotation = Quaternion.LookRotation(-gside);   // ローカル x ＝ 切れ目の向き
-        float x0 = R - 0.6f, x1 = cd - r + 0.4f; int n = Mathf.Max(2, Mathf.RoundToInt((x1 - x0) / 1.1f)); float L = (x1 - x0) / n;
-        for (int k = 0; k < n; k++)
+        // 柵の切り出し：小島（ワープの島の半径＋少し）と橋のまわりの三角形だけ
+        var fsrc = sa.Find("Fence");
+        if (fsrc)
         {
-            var c = GameObject.CreatePrimitive(PrimitiveType.Cube); c.name = "Stripe" + k; c.transform.SetParent(br, false); c.layer = 11;
-            c.transform.localPosition = new Vector3(x0 + L * (k + 0.5f), -0.004f - 0.2f, 0f); c.transform.localScale = new Vector3(L, 0.4f, WestBridgeW);
-            c.GetComponent<MeshRenderer>().sharedMaterial = k % 2 == 0 ? pa : pb; c.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var wgR = sa.Find("WarpGround") ? sa.Find("WarpGround").GetComponent<Renderer>().bounds.extents.x + 0.6f : 3f;
+            var bwB = sa.Find("BridgeWood") ? sa.Find("BridgeWood").GetComponent<Renderer>().bounds : new Bounds(wc0, Vector3.zero); bwB.Expand(new Vector3(0.3f, 2f, 0.3f));
+            Mesh Cut(Mesh m, Matrix4x4 l2w, string name)
+            {
+                var vs = m.vertices; var nsrc = m.normals; var uvs = m.uv; var outV = new List<Vector3>(); var outN = new List<Vector3>(); var outUV = new List<Vector2>(); var outT = new List<int>(); var map = new Dictionary<int, int>();
+                var tris = m.triangles;
+                for (int i = 0; i < tris.Length; i += 3)
+                {
+                    Vector3 cc = (l2w.MultiplyPoint3x4(vs[tris[i]]) + l2w.MultiplyPoint3x4(vs[tris[i + 1]]) + l2w.MultiplyPoint3x4(vs[tris[i + 2]])) / 3f;
+                    var hd = cc - wc0; hd.y = 0f;
+                    bool onMainSide = Vector3.Dot(hd, toMain) > reach - 0.1f;   // スタートの島の方は入れない
+                    if (onMainSide || !(hd.magnitude < wgR || bwB.Contains(cc))) continue;
+                    for (int k = 0; k < 3; k++)
+                    {
+                        int vi = tris[i + k];
+                        if (!map.TryGetValue(vi, out int ni)) { ni = outV.Count; map[vi] = ni; outV.Add(l2w.MultiplyPoint3x4(vs[vi]) - wc0); outN.Add(nsrc.Length == vs.Length ? l2w.MultiplyVector(nsrc[vi]).normalized : Vector3.up); outUV.Add(uvs.Length == vs.Length ? uvs[vi] : Vector2.zero); }
+                        outT.Add(ni);
+                    }
+                }
+                string ap = "Assets/FuwaStage2/Generated/BonusHub_" + name + ".asset";
+                var mm = AssetDatabase.LoadAssetAtPath<Mesh>(ap); bool isNew = !mm; if (isNew) mm = new Mesh(); else mm.Clear();
+                mm.name = name; mm.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32; mm.SetVertices(outV); mm.SetNormals(outN); mm.SetUVs(0, outUV); mm.SetTriangles(outT, 0); mm.RecalculateBounds();
+                if (isNew) AssetDatabase.CreateAsset(mm, ap); else EditorUtility.SetDirty(mm);
+                return mm;
+            }
+            var fmf = fsrc.GetComponent<MeshFilter>();
+            if (fmf && fmf.sharedMesh)
+            {
+                var fm = Cut(fmf.sharedMesh, fsrc.localToWorldMatrix, "WestFence");
+                var fg = new GameObject("Fence", typeof(MeshFilter), typeof(MeshRenderer)).transform; fg.SetParent(w, false);
+                fg.GetComponent<MeshFilter>().sharedMesh = fm; fg.GetComponent<MeshRenderer>().sharedMaterials = fsrc.GetComponent<MeshRenderer>().sharedMaterials;
+                fg.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                var fmc = fsrc.GetComponent<MeshCollider>();
+                if (fmc && fmc.sharedMesh) { var cm = Cut(fmc.sharedMesh, fsrc.localToWorldMatrix, "WestFenceCol"); var mc = fg.gameObject.AddComponent<MeshCollider>(); mc.sharedMesh = cm; }
+            }
+            // 柵の当たりが別の物にあれば（FenceCollider）それも切り出す
+            var fcs = sa.Find("FenceCollider");
+            if (fcs && fcs.GetComponent<MeshCollider>() && fcs.GetComponent<MeshCollider>().sharedMesh)
+            { var cm = Cut(fcs.GetComponent<MeshCollider>().sharedMesh, fcs.localToWorldMatrix, "WestFenceCol2"); var cg = new GameObject("FenceCollider").transform; cg.SetParent(w, false); cg.gameObject.AddComponent<MeshCollider>().sharedMesh = cm; }
         }
         // タイトル行きのワープ（見た目と仕組みは戻りポータルと同じ）
         var st = reward.Find("Start"); var trig = st ? st.Find("WarpToLobby_Trigger") : null; var gauge = st ? st.Find("WarpToLobby_Trigger_Gauge") : null; var refT = st ? st.Find("WarpToLobby") : null;
