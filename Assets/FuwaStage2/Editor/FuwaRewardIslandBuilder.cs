@@ -11,6 +11,31 @@ using UnityEngine;
 public static class FuwaRewardIslandBuilder
 {
     public static float Dist = 26f;
+    public static bool SlotSigns = false;   // ロビーのワープの上の「？／おまけ」看板（2026-11-18 なしに）
+
+    // 2026-11-18 てじゃ「全コンプしたらロビーに道が出るようにしよ」：ほかのコースと同じく、ロビーのまん中から6つめのワープの台までシマシマの道。
+    //  色はおまけの道と同じ白／水色寄りの白。Unlocked の子なので全クリした人の画面だけに出る（FuwaAllClearReveal）
+    public static void LobbyPath(Transform lobby, Transform slot5, Transform unl)
+    {
+        var old = unl.Find("LobbyPath"); if (old) Object.DestroyImmediate(old.gameObject);
+        var center = lobby.Find("LobbySpawn").position;
+        float floorY = lobby.Find("LobbyFloor").GetComponent<Renderer>().bounds.max.y;
+        var warp = slot5.GetComponentsInChildren<Renderer>(true).FirstOrDefault(r => r.name == "WarpToReward" || r.name == "SwirlLocked");
+        float warpR = warp ? warp.bounds.extents.x : 1.2f;
+        var to = slot5.position - center; to.y = 0f;
+        var mesh = FuwaLobbyPaths.Strip(1.2f, to.magnitude - warpR * 0.85f, floorY - center.y);
+        mesh.name = "Stage2LobbyPath_Bonus";
+        const string path = "Assets/FuwaStage2/Generated/Lobby/Stage2LobbyPath_Bonus.asset";
+        var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (!ex) AssetDatabase.CreateAsset(mesh, path); else { ex.Clear(false); FuwaBevelTools.CopyInto(ex, mesh); ex.name = mesh.name; mesh = ex; }
+        var go = new GameObject("LobbyPath", typeof(MeshFilter), typeof(MeshRenderer));
+        go.transform.SetParent(unl, false);
+        go.transform.SetPositionAndRotation(center, Quaternion.LookRotation(to.normalized, Vector3.up)); go.transform.localScale = Vector3.one;
+        go.GetComponent<MeshFilter>().sharedMesh = mesh;
+        go.GetComponent<MeshRenderer>().sharedMaterials = new[] { BonusPathMat("Bonus_PathWhite", WhiteA), BonusPathMat("Bonus_PathBlue", WhiteB) };
+        go.layer = lobby.Find("LobbyFloor").gameObject.layer;
+        GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.OccludeeStatic);   // 出たり消えたりするので静的バッチにしない
+    }
     // 2–4 のスタートの島：上の面がスタートの local y=StartTopY、島のふちが z=StartEdgeZ。ゴールの島の半径 GoalR。間の道の長さ・幅
     public static float StartTopY = 3.0f, StartEdgeZ = 2.5f, GoalR = 3.0f, PathLen = 4.5f, PathW = 3.2f, GoalScale = 1.45f;   // 島のふちは頂点から測った値（前は回った箱の大きさで測って大きすぎ、道とすき間が空いた）
     public static Color WhiteA = new Color(0.97f, 0.97f, 0.98f), WhiteB = new Color(0.86f, 0.93f, 1.0f);
@@ -104,6 +129,9 @@ public static class FuwaRewardIslandBuilder
                 foreach (var r in g.GetComponentsInChildren<Renderer>(true)) { r.sharedMaterials = r.sharedMaterials.Select(m => GrayCopy(m)).ToArray(); r.lightmapIndex = -1; }
             }
         }
+        // 2026-11-18 てじゃ「おまけ、看板なしでもいいかもな～」「？とおまけ」：ロビーのワープの上の看板は出さない（うずの色で分かる）
+        if (!SlotSigns) foreach (var p in new[] { unl, lck }) { var l = p.Find("Label"); if (l) Object.DestroyImmediate(l.gameObject); }
+        LobbyPath(lobby, slot5, unl);
         // ロビーへもどるワープ（スタート・ゴールにある 2–4 の物）の行き先を、おまけの場所の前に
         var lobSpot = new GameObject("LobbySpawn_FromReward").transform; lobSpot.SetParent(root, true);
         lobSpot.position = new Vector3(slot5.position.x, center.y + floorY + 0.1f, slot5.position.z) - dir * 1.8f; lobSpot.rotation = Quaternion.LookRotation(-dir, Vector3.up);
