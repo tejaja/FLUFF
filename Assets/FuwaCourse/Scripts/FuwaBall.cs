@@ -404,7 +404,10 @@ public class FuwaBall : UdonSharpBehaviour
             ResetToRespawn(); ReviveEnemies();   // アウトで戻ったら、モンスターも家に戻す
             ResetGimmicks();
         }
-        if (!_waiting && !_carried && _resetAt < 0f && transform.position.y < (_stage == 2 ? stage2KillHeight : killHeight)) Fail();
+        // ロビー：いちばん下の高さのかわりに、ふわふわ置き場から looseDrop 下でアウト（ステージ1・2で同じ深さ。プレイヤーの落下判定と同じくらい）
+        bool loose = startPoint != null && IsLooseStart();
+        float killY = loose ? startPoint.position.y - looseDrop : (_stage == 2 ? stage2KillHeight : killHeight);
+        if (!_waiting && !_carried && _resetAt < 0f && transform.position.y < killY) Fail();
         CheckOffCourse();
 
         if (timerText != null)
@@ -1268,6 +1271,8 @@ public class FuwaBall : UdonSharpBehaviour
     //  ここにあるスタート（ロビーのふわふわ置き場）にいる間は、道の外のアウト（すぐ下でアウト）を見ない。落ちたらいちばん下（killHeight / stage2KillHeight）でアウト
     [Tooltip("ここにあるスタート（ロビー）にいる間は、道の外のアウトを見ない（いちばん下の高さでだけアウト）")]
     public Transform[] looseStarts;
+    [Tooltip("looseStarts にいる間、そのスタートからこの高さ(m)下でアウト（2026-11-18 てじゃ「ステージ２と１の一番下やけに差があるなあ」）")]
+    public float looseDrop = 18f;
     private bool IsLooseStart()
     {
         if (looseStarts == null || startPoint == null) return false;
