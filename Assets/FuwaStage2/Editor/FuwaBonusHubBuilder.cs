@@ -18,7 +18,7 @@ public static class FuwaBonusHubBuilder
     public static Vector3 Pos = new Vector3(-200f, 120f, -200f);
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
-    public static int RingCount = 9; public static float RingHFront = 2.6f, RingHBack = 4.0f, RingHVar = 0.25f;
+    public static int RingCount = 9; public static float RingHFront = 2.6f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, LeanMin = 3f, LeanMax = 8f;
     public static float RingShift = 1.5f, RingR = 6.6f, RingGap = 55f, BoardBack = 3.4f, TitleY = 4.95f, TitleScale = 1.0f,
         ColX = 1.75f, ColY = 3.3f, ColScale = 1f, ColFont = 1.9f, PanelW = 3.0f, PanelH = 2.4f, StageR = 2.5f, CamDist = 7.0f;
     const string ThanksText = "<size=62%><color=#FF8FA3>T</color><color=#FFC36B>h</color><color=#7FD7A8>a</color><color=#7FB8F0>n</color><color=#B79BF0>k</color> <color=#FF8FA3>y</color><color=#FFC36B>o</color><color=#7FD7A8>u</color> <color=#7FB8F0>f</color><color=#B79BF0>o</color><color=#FF8FA3>r</color> <color=#FFC36B>p</color><color=#7FD7A8>l</color><color=#7FB8F0>a</color><color=#B79BF0>y</color><color=#FF8FA3>i</color><color=#FFC36B>n</color><color=#7FD7A8>g</color><color=#7FB8F0>!</color></size>";
@@ -169,13 +169,17 @@ public static class FuwaBonusHubBuilder
                 float a = Mathf.Lerp(-(180f - RingGap), 180f - RingGap, i / (float)(n - 1));   // 北（奥）が 0
                 float back = Mathf.Cos(a * Mathf.Deg2Rad);
                 float h = Mathf.Lerp(RingHFront, RingHBack, (back + 1f) * 0.5f) * (1f - RingHVar + 2f * RingHVar * (float)rnd.NextDouble());   // てじゃ「大きさにはちょっとムラつけてね」
-                var at = ringC + new Vector3(Mathf.Sin(a * Mathf.Deg2Rad), 0f, Mathf.Cos(a * Mathf.Deg2Rad)) * RingR;
+                // てじゃ「規則正しすぎる、若干の曲がりとか角度とかのムラがほしい」：輪の上の位置（角度・半径）を少しずらし、1本ずつ少し傾ける
+                a += ((float)rnd.NextDouble() - 0.5f) * 2f * RingJitterDeg;
+                float rad = RingR + ((float)rnd.NextDouble() - 0.5f) * 2f * RingJitterR;
+                var at = ringC + new Vector3(Mathf.Sin(a * Mathf.Deg2Rad), 0f, Mathf.Cos(a * Mathf.Deg2Rad)) * rad;
                 var mesh = meshes[(i * 4 + 1) % meshes.Length];
                 var go = new GameObject("Mush" + i, typeof(MeshFilter), typeof(MeshRenderer));
                 go.transform.SetParent(ring, false);
                 float k = h / mesh.bounds.size.y;
-                go.transform.position = new Vector3(at.x, Pos.y, at.z);
-                go.transform.rotation = Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+                go.transform.position = new Vector3(at.x, Pos.y - 0.12f, at.z);   // 傾けても根元が浮かないよう少しうめる
+                float lean = Mathf.Lerp(LeanMin, LeanMax, (float)rnd.NextDouble()), leanDir = (float)rnd.NextDouble() * 360f;
+                go.transform.rotation = Quaternion.AngleAxis(lean, Quaternion.Euler(0f, leanDir, 0f) * Vector3.right) * Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
                 go.transform.localScale = Vector3.one * k;
                 go.GetComponent<MeshFilter>().sharedMesh = mesh;
                 var mr = go.GetComponent<MeshRenderer>();
