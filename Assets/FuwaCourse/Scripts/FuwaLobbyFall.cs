@@ -19,12 +19,16 @@ public class FuwaLobbyFall : UdonSharpBehaviour
     [Tooltip("落ちた時の音（任意）")]
     public AudioSource fallSound;
 
+    [Tooltip("竹とんぼ（持っている間は戻さない）")]
+    public FuwaBambooCopter[] copters;
     private float _busyUntil;
 
     public override void OnPlayerTriggerEnter(VRCPlayerApi player)
     {
         if (player == null || !player.isLocal || returnWarp == null) return;
         if (Time.time < _busyUntil) return;
+        // 竹とんぼを持っている間は戻さない（2026-11-18 てじゃ「竹とんぼもったままなのにまだロビーから下いくとすぐアウトになっちゃう」：原因はこの板だった）
+        if (copters != null) for (int i = 0; i < copters.Length; i++) if (copters[i] != null && copters[i].IsMine()) return;
         _busyUntil = Time.time + fallDelay + fadeOutTime + fadeHold + fadeInTime;
         if (fallSound != null) { fallSound.Stop(); fallSound.Play(); }
         if (fade == null) { SendCustomEventDelayedSeconds(nameof(_Return), fallDelay); return; }

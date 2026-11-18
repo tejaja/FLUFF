@@ -19,8 +19,6 @@ public class FuwaPlayerCatcher : UdonSharpBehaviour
         if (player == null || !player.isLocal || ball == null) return;
         if (player.GetPosition().y < minFeetY) return;
         bool held = HoldingCopter(player);
-        // 2026-11-18 竹とんぼで落ちるとすぐ戻される原因さがし（あとで消す）
-        Debug.Log("[FuwaCatch] " + gameObject.name + " (" + transform.root.name + ") copterSafe=" + copterSafe + " held=" + held + " copters=" + (copters != null ? copters.Length : -1) + " y=" + player.GetPosition().y.ToString("F1"));
         if (copterSafe && (held || (debugFly != null && debugFly.IsFlying()))) return;
         ball.BeginPlayerMiss("落ちた！", "You fell!");
     }

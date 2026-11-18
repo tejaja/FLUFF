@@ -37,7 +37,6 @@ public class FuwaAreaVisibility : UdonSharpBehaviour
     public void ShowArea(int area)
     {
         if (area < 0 || area == _area) return;
-        Debug.Log("[FuwaCatch] ShowArea " + _area + "->" + area);   // 竹とんぼの原因さがし（あとで消す）
         _area = area;
         Refresh();
     }
@@ -46,7 +45,6 @@ public class FuwaAreaVisibility : UdonSharpBehaviour
     public void ShowStage(int stage)
     {
         if (stage <= 0 || stage == _stage) return;
-        Debug.Log("[FuwaCatch] ShowStage " + _stage + "->" + stage);
         _stage = stage;
         if (_area >= 0) Refresh();
     }

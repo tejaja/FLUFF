@@ -73,6 +73,8 @@ public static class FuwaCopterBuilder
         { var so = new SerializedObject(pc); var arr = so.FindProperty("copters"); arr.arraySize = cps.Length; for (int i = 0; i < cps.Length; i++) arr.GetArrayElementAtIndex(i).objectReferenceValue = cps[i]; so.ApplyModifiedProperties(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(pc); nc++; }
         foreach (var hz in Resources.FindObjectsOfTypeAll<FuwaHazard>().Where(c => c && c.gameObject.scene.IsValid() && c.copterSafe))
         { var so = new SerializedObject(hz); var arr = so.FindProperty("copters"); arr.arraySize = cps.Length; for (int i = 0; i < cps.Length; i++) arr.GetArrayElementAtIndex(i).objectReferenceValue = cps[i]; so.ApplyModifiedProperties(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(hz); nc++; }
+        foreach (var lf in Resources.FindObjectsOfTypeAll<FuwaLobbyFall>().Where(c => c && c.gameObject.scene.IsValid()))
+        { var so = new SerializedObject(lf); var arr = so.FindProperty("copters"); arr.arraySize = cps.Length; for (int i = 0; i < cps.Length; i++) arr.GetArrayElementAtIndex(i).objectReferenceValue = cps[i]; so.ApplyModifiedProperties(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(lf); nc++; }
         log.Append("竹とんぼをつないだ判定 " + nc + " ");
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sys.scene);
         return log.ToString();
