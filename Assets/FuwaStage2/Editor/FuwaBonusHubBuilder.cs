@@ -174,7 +174,7 @@ public static class FuwaBonusHubBuilder
     }
 
     // 2026-11-18 てじゃ「おまけ本島の隅っこに、各コースの隠し記録的な感じで閲覧する場所つくろ」：FuwaSystem/Stats（FuwaStats、数える係）と、本島の西の柵ぎわの看板（FuwaStatsBoard）
-    public static float StatsX = -8.6f, StatsZ = 2.2f, StatsY = 1.45f, StatsPanelW = 4.4f, StatsPanelH = 3.1f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
+    public static float StatsX = -8.6f, StatsZ = -1.6f, StatsY = 1.45f, StatsPanelW = 4.4f, StatsPanelH = 3.1f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
     static string StatsBoard(Transform root)
     {
         var sys = Find("FuwaSystem"); var src = root.Find("Board/Times1");
@@ -205,7 +205,7 @@ public static class FuwaBonusHubBuilder
     }
 
     // 2026-11-19 てじゃ「ボードとかの位置リセットボタンもほしいのと、かくしデータもボタンで展開するタイプにしよ」：西の柵ぎわに2つ（縮める前の島の座標）
-    public static Vector3 ResetBtnPos = new Vector3(-7.3f, 0f, 0.2f), StatsBtnPos = new Vector3(-7.3f, 0f, 2.2f);
+    public static Vector3 ResetBtnPos = new Vector3(-7.0f, 0f, -4.0f), StatsBtnPos = new Vector3(-7.3f, 0f, -1.6f);   // 西の橋（少し北寄り）の通り道をあける
     static string Buttons(Transform root)
     {
         var holder = Find("FuwaSystem/BonusBoards"); var stats = root.Find("StatsBoard");
@@ -256,6 +256,77 @@ public static class FuwaBonusHubBuilder
         return "ボタン " + n + " ";
     }
 
+    // 2026-11-19 てじゃ「さっき埋めた柵のとこ、やっぱまた開けて橋と島をつくってほしい、ワープポータルおいて、移動先はタイトル、ただし向きは後ろ側（ワールドポータルとか置いてある島の向き）」
+    //  西の柵の切れ目（ロビーと同じ Open 版の柵）から橋 → 小島（本島の島の小さい写し、出入り口を本島に向ける）→ まん中にタイトル行きのワープ
+    public static bool WestBridge = true;
+    public static float WestGap = 4f, WestScale = 0.3f, WestBridgeW = 2.2f;
+    static string WestIsland(Transform root, Transform reward)
+    {
+        var isl = root.Find("Island"); if (!isl) return "西の島：島がない ";
+        float R = 8f * Scale, r = R * WestScale;
+        // 柵の切れ目の向きを当たりで探す（ロビーの Open 版の柵は西が少しずれて開いている）
+        float gapDeg = 180f;
+        {
+            Physics.SyncTransforms();
+            var fcol = isl.Find("FenceCollider") ? isl.Find("FenceCollider").GetComponent<Collider>() : null;
+            if (fcol)
+            {
+                var open = new List<float>();
+                for (float a = 120f; a <= 240f; a += 0.5f)
+                {
+                    var dir = new Vector3(Mathf.Cos(a * Mathf.Deg2Rad), 0f, Mathf.Sin(a * Mathf.Deg2Rad));
+                    var o = root.position + Vector3.up * 0.4f;
+                    if (!fcol.Raycast(new Ray(o, dir), out var hit, R * 1.5f)) open.Add(a);
+                }
+                if (open.Count > 0) gapDeg = open.Average();
+            }
+        }
+        var gdir = new Vector3(Mathf.Cos(gapDeg * Mathf.Deg2Rad), 0f, Mathf.Sin(gapDeg * Mathf.Deg2Rad));
+        var gside = Vector3.Cross(Vector3.up, gdir);
+        float cd = R + WestGap + r; var cpos = gdir * cd;
+        var w = new GameObject("WestIsland").transform; w.SetParent(root, false); w.localPosition = cpos; w.localRotation = Quaternion.Euler(0f, 180f, 0f);   // 同じ柵なので、半回転させると出入り口が本島の方を向く
+        foreach (Transform src in isl)
+        {
+            var g = Object.Instantiate(src.gameObject, w, false); g.name = src.name;
+            g.transform.localPosition = src.localPosition * WestScale; g.transform.localRotation = src.localRotation; g.transform.localScale = Vector3.Scale(src.localScale, new Vector3(WestScale, src.name == "IslandUnder" ? WestScale : 1f, WestScale));
+        }
+        // 橋（本島のふちから小島のふちまで。シマシマ）
+        var pa = BonusMat("Bonus_BridgeA", FuwaRewardIslandBuilder.WhiteA); var pb = BonusMat("Bonus_BridgeB", FuwaRewardIslandBuilder.WhiteB);
+        var br = new GameObject("WestBridge").transform; br.SetParent(root, false);
+        br.localRotation = Quaternion.LookRotation(-gside);   // ローカル x ＝ 切れ目の向き
+        float x0 = R - 0.6f, x1 = cd - r + 0.4f; int n = Mathf.Max(2, Mathf.RoundToInt((x1 - x0) / 1.1f)); float L = (x1 - x0) / n;
+        for (int k = 0; k < n; k++)
+        {
+            var c = GameObject.CreatePrimitive(PrimitiveType.Cube); c.name = "Stripe" + k; c.transform.SetParent(br, false); c.layer = 11;
+            c.transform.localPosition = new Vector3(x0 + L * (k + 0.5f), -0.004f - 0.2f, 0f); c.transform.localScale = new Vector3(L, 0.4f, WestBridgeW);
+            c.GetComponent<MeshRenderer>().sharedMaterial = k % 2 == 0 ? pa : pb; c.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+        // タイトル行きのワープ（見た目と仕組みは戻りポータルと同じ）
+        var st = reward.Find("Start"); var trig = st ? st.Find("WarpToLobby_Trigger") : null; var gauge = st ? st.Find("WarpToLobby_Trigger_Gauge") : null; var refT = st ? st.Find("WarpToLobby") : null;
+        if (!trig || !gauge) return "西の島：ワープの見本がない ";
+        var portal = new GameObject("ToTitle").transform; portal.SetParent(root, false); portal.localPosition = cpos + Vector3.up * 0.03f; portal.localRotation = Quaternion.LookRotation(gdir);
+        foreach (var v in st.Cast<Transform>().Where(t => t.name.StartsWith("WarpToLobby") && !t.name.EndsWith("_Trigger") && !t.name.EndsWith("_Trigger_Gauge")).ToList())
+        {
+            var g = Object.Instantiate(v.gameObject, portal, false); g.name = v.name.Replace("WarpToLobby", "WarpToTitle");
+            g.transform.localPosition = v.localPosition - (refT ? refT.localPosition : Vector3.zero); g.transform.localRotation = v.localRotation; g.transform.localScale = v.localScale;
+            FuwaStage2Builder.StripBehaviour(g);
+        }
+        // 着く所：タイトルのスポーンで、うしろ（ワールドポータルの島の方）を向く
+        var hubSpawn = UnityEngine.Object.FindObjectsOfType<VRC.SDK3.Components.VRCSceneDescriptor>(true).First().spawns[0];
+        // 本島は最後に縮めるので、着く所は本島の外（入口の島の下）に置く
+        var hubRoot = Find("FuwaHub");
+        var spotOld = hubRoot ? hubRoot.Find("TitleSpot_Back") : null; if (spotOld) Object.DestroyImmediate(spotOld.gameObject);
+        var spot = new GameObject("TitleSpot_Back").transform; spot.SetParent(hubRoot ? hubRoot : root, false);
+        spot.SetPositionAndRotation(hubSpawn.position, Quaternion.LookRotation(Vector3.back));
+        var wc = (FuwaCourseWarp)FuwaStage2Builder.MakeWarp(portal, "WarpToTitle", trig.gameObject, gauge.gameObject, null, spot, null, 0);
+        foreach (var nm in new[] { "WarpToTitle_Trigger", "WarpToTitle_Trigger_Gauge" })
+        { var c2 = portal.Find(nm); var s2 = st.Find(nm.Replace("WarpToTitle", "WarpToLobby")); if (c2 && s2) c2.localPosition = s2.localPosition - (refT ? refT.localPosition : Vector3.zero); }
+        var so = new SerializedObject(wc); so.FindProperty("area").intValue = 0; so.FindProperty("stage").intValue = 0; so.FindProperty("homeAction").intValue = 2; so.FindProperty("timed").boolValue = false;
+        so.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(wc);
+        foreach (var rr in portal.GetComponentsInChildren<Renderer>(true)) rr.lightmapIndex = -1;
+        return "西の島・橋・タイトル行きワープ（切れ目 " + gapDeg.ToString("F0") + "°） ";
+    }
+
     static void ApplyHandLayout(Transform root)
     {
         foreach (var (path, pos, euler, scale) in HandLayout)
@@ -292,13 +363,13 @@ public static class FuwaBonusHubBuilder
             g.transform.position = Pos + off * Scale; g.transform.localScale = src.lossyScale * Scale;
             foreach (var r in g.GetComponentsInChildren<Renderer>(true)) r.lightmapIndex = -1;
             // 柵は切れ目のない版に（ロビーの柵は橋をつなぐ所が開いている Open 版。2026-11-19 てじゃ「外の柵に切れ目ある」）
-            if (nm == "Fence")
+            if (nm == "Fence" && !WestBridge)
             {
                 var cm = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/Bevel/FuwaLobby_Fence_Bevel.asset"); var mf0 = g.GetComponent<MeshFilter>(); if (cm && mf0) mf0.sharedMesh = cm;
                 var far = g.transform.Find("Fence_Far"); var cmf = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Generated/Far/FuwaLobby_Fence_Bevel_Far.asset");
                 if (far && cmf) far.GetComponent<MeshFilter>().sharedMesh = cmf;   // 遠くの軽い版も切れ目なし
             }
-            if (nm == "FenceCollider") { var cm = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FuwaLobby_FenceCollider.asset"); var mc0 = g.GetComponent<MeshCollider>(); if (cm && mc0) mc0.sharedMesh = cm; var mf1 = g.GetComponent<MeshFilter>(); if (cm && mf1) mf1.sharedMesh = cm; }
+            if (nm == "FenceCollider" && !WestBridge) { var cm = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Meshes/FuwaLobby_FenceCollider.asset"); var mc0 = g.GetComponent<MeshCollider>(); if (cm && mc0) mc0.sharedMesh = cm; var mf1 = g.GetComponent<MeshFilter>(); if (cm && mf1) mf1.sharedMesh = cm; }
             // 芝はステージ1の色（2026-11-18 てじゃ「本島の芝はステージ1のカラーにしといて」）
             if (nm == "LobbyFloor") { var gm = FuwaLobbyPaths.FindMat("Goal_Ground"); var fr = g.GetComponent<MeshRenderer>(); if (gm && fr) fr.sharedMaterials = fr.sharedMaterials.Select(m => m && m.name == "Stage2_LobbyGround" ? gm : m).ToArray(); }
         }
@@ -610,6 +681,7 @@ public static class FuwaBonusHubBuilder
             so.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(bgm);
         }
         // 2026-11-18 てじゃ「おまけ島、全体的にデカすぎるかな」「本島のもの全て」：島・キノコ・ボード・台・ポータルぜんぶを島のまん中（床の高さ）を中心に縮める
+        if (WestBridge) log.Append(WestIsland(root, reward));
         if (UseHandLayout) { ApplyHandLayout(root); log.Append("手で並べた配置 "); }
         // うまりすぎのキノコを持ち上げる（2026-11-19 てじゃ「したのツボまで埋まってるやつあるから埋まりすぎなやつちょっぴりもちあげて」）：
         //  いちばん下の頂点が床から MushSinkMax より深いものは、そこまで上げる（傾いているので頂点で測る）
