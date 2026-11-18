@@ -10,7 +10,7 @@ using UnityEngine;
 //  島はシーンの物（ステージ2のプレハブの外）。ステージ2のエリアの表示切りかえ（FuwaAreaVisibility.stage2Objects）に足す
 public static class FuwaRewardIslandBuilder
 {
-    public static float Dist = 34f, Drop = 3f;   // 2026-11-19 てじゃ「もうちょいロビーから離れさせてかつちょっと下に」26→34m、3m下
+    public static float Dist = 34f, Drop = 7f;   // 2026-11-19 てじゃ「入口島、2-5より低くて良いかも」3→7m（2–5 のスタートの島より約3m下）   // 2026-11-19 てじゃ「もうちょいロビーから離れさせてかつちょっと下に」26→34m、3m下
     public static bool SlotSigns = false;   // ロビーのワープの上の「？／おまけ」看板（2026-11-18 なしに）
 
     // 2026-11-18 てじゃ「全コンプしたらロビーに道が出るようにしよ」：ほかのコースと同じく、ロビーのまん中から6つめのワープの台までシマシマの道。
