@@ -35,6 +35,8 @@ public class FuwaGoal : UdonSharpBehaviour
     public float warpDelay = 1.0f;
     [Tooltip("一度出たワープを出しっぱなしにする（おまけのゴールの「本島へ」ワープ。2026-11-18 てじゃ「一度ゴールのポータル開いた後も…本島行きポータルも開きっぱなし」）")]
     public bool keepWarpOpen = false;
+    [Tooltip("一度ゴールしたら、リングは戻さず・キノコも出しっぱなし（おまけのゴール。2026-11-18 てじゃ「ゴールリング復活しなくていいのと、ミニキノコもでっぱなしにしよ」）")]
+    public bool stayDone = false;
     [Tooltip("銃の画面に「ゴール！」を出さない（おまけのゴール。2026-11-18 てじゃ「銃のUIのゴールも出さなくしたい」）")]
     public bool noGunMessage = false;
     private bool _warpOpened;
@@ -186,12 +188,12 @@ public class FuwaGoal : UdonSharpBehaviour
         UpdateClear();
 
         // 同じコースでもう一度スタートしたら、リングと目印を戻す（キノコはそのまま）
-        if (_ringGone && _flashStart < 0f && _ball != null && _ball.startPoint == _goalStart && _ball.IsRunning())
+        if (!stayDone && _ringGone && _flashStart < 0f && _ball != null && _ball.startPoint == _goalStart && _ball.IsRunning())
             RestoreRing();
 
         if (fairyRing == null) return;
         // ロビーや別のコースに移ったら引っ込める
-        if (_retractTime < 0f && _ball != null && _ball.startPoint != _goalStart) _retractTime = Time.time;
+        if (!stayDone && _retractTime < 0f && _ball != null && _ball.startPoint != _goalStart) _retractTime = Time.time;
         float t = Time.time - _startTime;
         bool done = true;
         for (int i = 0; i < _count; i++)
@@ -394,7 +396,7 @@ public class FuwaGoal : UdonSharpBehaviour
     // モードの切り替えなどでコースごと消えた時は、すぐ元に戻しておく
     private void OnDisable()
     {
-        if (_startTime >= 0f) ResetRing();
+        if (_startTime >= 0f && !stayDone) ResetRing();
     }
 
     private void ResetRing()
