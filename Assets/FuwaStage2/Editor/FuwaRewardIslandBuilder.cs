@@ -10,7 +10,7 @@ using UnityEngine;
 //  島はシーンの物（ステージ2のプレハブの外）。ステージ2のエリアの表示切りかえ（FuwaAreaVisibility.stage2Objects）に足す
 public static class FuwaRewardIslandBuilder
 {
-    public static float Dist = 26f;
+    public static float Dist = 34f, Drop = 3f;   // 2026-11-19 てじゃ「もうちょいロビーから離れさせてかつちょっと下に」26→34m、3m下
     public static bool SlotSigns = false;   // ロビーのワープの上の「？／おまけ」看板（2026-11-18 なしに）
 
     // 2026-11-18 てじゃ「全コンプしたらロビーに道が出るようにしよ」：ほかのコースと同じく、ロビーのまん中から6つめのワープの台までシマシマの道。
@@ -39,7 +39,7 @@ public static class FuwaRewardIslandBuilder
         var roots = new List<Transform>(); var lites = new List<Transform>(); var ws = new List<FuwaCourseWarp>(); var gates = new List<GameObject>();
         for (int i = 0; i < n; i++)
         {
-            if (j2.roots[i] == root) continue;   // 前に足した分
+            if (j2.roots[i] == root || j2.roots[i] == null) continue;   // 前に足した分（作り直して消えた前の島は null）
             roots.Add(j2.roots[i]); lites.Add(j2.liteRoots != null && i < j2.liteRoots.Length ? j2.liteRoots[i] : null);
             ws.Add(i < j2.warps.Length ? j2.warps[i] : null);
             gates.Add(j2.gates != null && i < j2.gates.Length ? j2.gates[i] : null);
@@ -113,7 +113,7 @@ public static class FuwaRewardIslandBuilder
         //  → 2–4 のスタート（島ごと）とゴール（島ごと）を写して、間を道でつなぐ。root の +z がロビーと反対（スタート → ゴールの向き）
         var c24 = FindRoot("FuwaCourse2_4"); var srcStart = c24 ? c24.Find("Start") : null; var srcGoal = c24 ? c24.Find("Goal") : null;
         if (!srcStart || !srcGoal) return "2–4 のスタート・ゴールがない";
-        var root = new GameObject(RootName).transform; root.position = center + dir * Dist; root.rotation = Quaternion.LookRotation(dir, Vector3.up);
+        var root = new GameObject(RootName).transform; root.position = center + dir * Dist + Vector3.down * Drop; root.rotation = Quaternion.LookRotation(dir, Vector3.up);
         float floorY = lobby.Find("LobbySpawn") ? lobby.Find("LobbySpawn").position.y - center.y - 0.1f : 0f;
         var st = Object.Instantiate(srcStart.gameObject, root, false).transform; st.name = "Start";
         st.localPosition = new Vector3(0f, floorY - StartTopY, 0f); st.localRotation = Quaternion.identity; st.localScale = Vector3.one;

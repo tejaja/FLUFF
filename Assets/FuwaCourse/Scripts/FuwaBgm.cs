@@ -304,7 +304,9 @@ public class FuwaBgm : UdonSharpBehaviour
         {
             if (starts[i] == sp)
             {
-                if (_stuck != null && i < _stuck.Length && _stuck[i] && afterGoalTracks != null && i < afterGoalTracks.Length && afterGoalTracks[i] >= 0 && afterGoalTracks[i] < tracks.Length) return afterGoalTracks[i];
+                // 2026-11-19 てじゃ「一回解放して本島に行った後は入口島はBGMは変更しないタイプ（ロビーからとんでもかわらない）」：
+                //  ゴール後の曲の場所（本島）に一度行ったら、このコースに来ても曲は切り替えない（今の曲のまま）
+                if (_stuck != null && i < _stuck.Length && _stuck[i]) return _current >= 0 ? _current : 0;
                 return i;
             }
         }
