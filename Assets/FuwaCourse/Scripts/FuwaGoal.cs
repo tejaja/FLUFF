@@ -1,5 +1,7 @@
 using UdonSharp;
 using UnityEngine;
+using VRC.SDKBase;
+using VRC.SDK3.Persistence;
 
 // 胞子（ふわふわ）がリングの中に入って、地面に着地したらゴール（空中を通過しただけではゴールにならない）。
 // 判定はリングと同じ大きさの円柱なので、ふわふわがリングにかすっていればゴール。
@@ -37,6 +39,9 @@ public class FuwaGoal : UdonSharpBehaviour
     public bool keepWarpOpen = false;
     [Tooltip("一度ゴールしたら、リングは戻さず・キノコも出しっぱなし（おまけのゴール。2026-11-18 てじゃ「ゴールリング復活しなくていいのと、ミニキノコもでっぱなしにしよ」）")]
     public bool stayDone = false;
+    [Tooltip("ゴールしたかを PlayerData に保存するキー（空なら保存しない）。保存があれば、次に来た時もゴールした後の見た目（リングなし・キノコあり・ワープ開きっぱなし）から。2026-11-19 てじゃ「おまけ入口島のゴールしたかも保存しよう」")]
+    public string saveKey = "";
+    private bool _savedApplied;
     [Tooltip("銃の画面に「ゴール！」を出さない（おまけのゴール。2026-11-18 てじゃ「銃のUIのゴールも出さなくしたい」）")]
     public bool noGunMessage = false;
     private bool _warpOpened;
@@ -297,6 +302,7 @@ public class FuwaGoal : UdonSharpBehaviour
             lobbyWarp.transform.localScale = Vector3.zero;
             lobbyWarp.SetActive(true);
             if (keepWarpOpen) _warpOpened = true;
+            if (saveKey != "" && Networking.LocalPlayer != null) PlayerData.SetBool(saveKey, true);
             // 看板は labelDelay 秒遅れて出す（0ならワープと同時）
             if (warpLabel != null)
             {
@@ -390,7 +396,26 @@ public class FuwaGoal : UdonSharpBehaviour
     // 出しっぱなしのワープは、何かに隠されても（ワープした時の hideOnWarp など）コースがまた出た時に出し直す
     private void OnEnable()
     {
+        if (saveKey != "" && !_savedApplied) SendCustomEventDelayedFrames(nameof(_ApplySaved), 2);   // Start のあとで
         if (_warpOpened && lobbyWarp != null) { lobbyWarp.transform.localScale = Vector3.one; lobbyWarp.SetActive(true); }
+    }
+
+    // 保存に「ゴールした」があれば、ゴールした後の見た目にする（花火・音はなし）
+    public void _ApplySaved()
+    {
+        if (_savedApplied || saveKey == "") return;
+        VRCPlayerApi lp = Networking.LocalPlayer; if (lp == null) return;
+        if (!PlayerData.HasKey(lp, saveKey) || !PlayerData.GetBool(lp, saveKey)) return;
+        _savedApplied = true;
+        _ringGone = true; _flashStart = -1f; _warpAt = -1f;
+        if (ringRenderer != null) ringRenderer.enabled = false;
+        if (ringFloor != null) ringFloor.enabled = false;
+        if (ringHalo != null) ringHalo.enabled = false;
+        if (marker != null) marker.SetActive(false);
+        if (keepWarpOpen) _warpOpened = true;
+        if (lobbyWarp != null) { lobbyWarp.transform.localScale = Vector3.one; lobbyWarp.SetActive(true); }
+        if (warpLabel != null) warpLabel.localScale = _labelScale;
+        _startTime = Time.time - 100f; _retractTime = -1f;   // キノコは生えきった状態
     }
 
     // モードの切り替えなどでコースごと消えた時は、すぐ元に戻しておく

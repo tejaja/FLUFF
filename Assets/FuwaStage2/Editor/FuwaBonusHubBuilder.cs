@@ -163,7 +163,7 @@ public static class FuwaBonusHubBuilder
         var goldM = Model("GoldModel", true); var normM = Model("NormalModel", false); normM.SetActive(false);   // 像は「クリックするとこうなる」色（FuwaGoldGunSwitch）
         // 2026-11-18 てじゃ「わかりづらいか、やっぱただの固定の像みたいに飾って、下にオンオフスイッチ式に」：像は金ピカで固定（回さない）、台のクリックでオン／オフ
         spin.localRotation = Quaternion.Euler(0f, StatueYaw, 0f) * Quaternion.Euler(sc ? sc.tilt : Vector3.zero);
-        if (sc.halo) { var h = Object.Instantiate(sc.halo, disp, false); h.name = "Halo"; h.transform.localPosition = sc.halo.transform.localPosition; h.SetActive(true); }   // うしろのやわらかい光
+        // うしろの大きい光（後光）はなし（2026-11-19 てじゃ「金銃台のデカい後光みたいなのいらない」）
         if (sc.sparkles) { var sp = Object.Instantiate(sc.sparkles, disp, false); sp.name = "Sparkles"; sp.transform.localPosition = sc.sparkles.transform.localPosition; sp.SetActive(true); }
         Object.DestroyImmediate(spot.gameObject);   // 銃は呼ばない
         var gsw = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGoldGunSwitch>(gs.gameObject);
@@ -540,7 +540,7 @@ public static class FuwaBonusHubBuilder
             foreach (var t in gw.GetComponentsInChildren<TMPro.TMP_Text>(true)) { t.text = "<size=80%>きねんのしま</size>"; EditorUtility.SetDirty(t); }
             // 一度開いたら開きっぱなし（2026-11-18 てじゃ）
             var fg = goal.GetComponentInChildren<FuwaGoal>(true);
-            if (fg) { var gso = new SerializedObject(fg); gso.FindProperty("keepWarpOpen").boolValue = true; gso.FindProperty("noGunMessage").boolValue = true; gso.FindProperty("stayDone").boolValue = true; gso.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(fg); }
+            if (fg) { var gso = new SerializedObject(fg); gso.FindProperty("keepWarpOpen").boolValue = true; gso.FindProperty("saveKey").stringValue = "bonus_goal"; gso.FindProperty("noGunMessage").boolValue = true; gso.FindProperty("stayDone").boolValue = true; gso.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(fg); }
             log.Append("ゴールのワープ→本島 ");
         }
         var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault();
