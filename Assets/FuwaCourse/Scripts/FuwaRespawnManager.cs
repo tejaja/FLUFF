@@ -41,7 +41,17 @@ public class FuwaRespawnManager : UdonSharpBehaviour
     // 自分の道具を指定の台へ呼び寄せる（持っている時は何もしない）。台の上では見た目の銃が浮かんで回る（FuwaGunShowcase）
     public void BringGun(Transform spot)
     {
+        if (spot != null) _lastStand = spot;
         if (_myBlower != null) { _myBlower.Dock(spot); _myBlower.PlaySpawnSound(); }
+    }
+
+    // 最後に呼んだ台（ワープ・台のクリック）へ銃を戻す。竹とんぼを持った時（2026-11-18 てじゃ「竹とんぼもったら銃が台に戻るようにしよ」）
+    private Transform _lastStand;
+    public void ReturnGunToStand()
+    {
+        if (_myBlower == null || _lastStand == null || _myBlower.IsHeld()) return;
+        if (_myBlower.GetDock() == _lastStand) return;   // もう台にある
+        _myBlower.Dock(_lastStand);
     }
 
     private void Start()

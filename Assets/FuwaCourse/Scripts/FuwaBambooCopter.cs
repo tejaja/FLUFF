@@ -123,6 +123,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         if (p == null) return;
         _mine = true; _using = false; _braking = false; _droppedAt = -1f;
         _gravity = p.GetGravityStrength();
+        if (manager != null) manager.ReturnGunToStand();   // 銃は台にもどす（てじゃ「竹とんぼもったら銃が台に戻るようにしよ」）
     }
 
     public override void OnDrop()
