@@ -20,6 +20,7 @@ public static class FuwaBonusHubBuilder
     public static float SpawnFromEdge = 3.2f, PortalFromEdge = 1.3f; public static bool PortalBase = false, CameraSpotMark = false;
     public static bool BoardPickup = false;
     public static bool SharedBoards = true;
+    public static float[] PhotoFluffSizes = { 0.4f, 0.7f, 1.1f }; public static float PhotoFluffSpread = 1.5f;
     public static float GoldFluffSize = 0.7f, StatueYaw = 90f;   // 金の銃の像の向き（台の向きから）   // 金ピカふわふわの直径(m)   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
@@ -79,10 +80,15 @@ public static class FuwaBonusHubBuilder
         if (gf0)
         {
             // 2026-11-19 てじゃ「金ピカフワフワはやめて、ピックアップできるただのフワフワにしよう、USE で表情かえてポヨン、撮影用、離すと空中に止まる」
-            var gf = Object.Instantiate(gf0.gameObject, holder, false).transform; gf.name = "PhotoFluff";
+            // 大きさは3種類（2026-11-19 てじゃ「大きさは３種類おいとこ」）。ならべて置く
+            for (int si = 0; si < PhotoFluffSizes.Length; si++)
+            {
+            float size = PhotoFluffSizes[si];
+            var gf = Object.Instantiate(gf0.gameObject, holder, false).transform; gf.name = "PhotoFluff" + (si + 1);
             var mf = gf.GetComponent<MeshFilter>(); float meshD = mf && mf.sharedMesh ? mf.sharedMesh.bounds.size.x : 1f;
-            gf.localScale = Vector3.one * (GoldFluffSize / meshD); gf.rotation = gs.rotation;
-            gf.position = new Vector3(gs.position.x, Pos.y + GoldFluffSize * 0.5f + 0.05f, gs.position.z);
+            gf.localScale = Vector3.one * (size / meshD); gf.rotation = gs.rotation;
+            var basePos = gs.position + gs.rotation * new Vector3(PhotoFluffSpread * (si - 1), 0f, 0f);
+            gf.position = new Vector3(basePos.x, Pos.y + size * 0.5f + 0.05f, basePos.z);
             var furMat = FuwaLobbyPaths.FindMat("Fuwa_BallFur"); var fr = gf.GetComponent<MeshRenderer>(); if (furMat && fr) fr.sharedMaterial = furMat;
             var rb = gf.GetComponent<Rigidbody>() ?? gf.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
             var pu = gf.GetComponent<VRC.SDK3.Components.VRCPickup>() ?? gf.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
@@ -93,6 +99,7 @@ public static class FuwaBonusHubBuilder
             pf.fur = fr; pf.pickup = pu; pf.colliders = gf.GetComponentsInChildren<Collider>(true); pf.areaVisibility = av; pf.area = 4;
             UdonSharpEditorUtility.CopyProxyToUdon(pf);
             n++;
+            }
             gs.gameObject.SetActive(false);
             n++;
         }
