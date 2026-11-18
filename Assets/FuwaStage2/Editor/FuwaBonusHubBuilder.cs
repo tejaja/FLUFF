@@ -49,6 +49,8 @@ public static class FuwaBonusHubBuilder
             var off = src.position - new Vector3(lc.x, floorTop, lc.z);
             g.transform.position = Pos + off * Scale; g.transform.localScale = src.lossyScale * Scale;
             foreach (var r in g.GetComponentsInChildren<Renderer>(true)) r.lightmapIndex = -1;
+            // 芝はステージ1の色（2026-11-18 てじゃ「本島の芝はステージ1のカラーにしといて」）
+            if (nm == "LobbyFloor") { var gm = FuwaLobbyPaths.FindMat("Goal_Ground"); var fr = g.GetComponent<MeshRenderer>(); if (gm && fr) fr.sharedMaterials = fr.sharedMaterials.Select(m => m && m.name == "Stage2_LobbyGround" ? gm : m).ToArray(); }
         }
         float R = 8f * Scale;   // 床の半径（ロビーは16m）
 
@@ -312,23 +314,35 @@ public static class FuwaBonusHubBuilder
         // 2026-11-18 てじゃ「一旦ボードをPickupオブジェクトにしてよ」：置き場所さがし用（持って動かせる、重力なし・離したらその場に浮く）。決まったら BoardPickup=false に
         if (BoardPickup)
         {
-            var bt = root.Find("Board");
-            var brs2 = bt ? bt.GetComponentsInChildren<Renderer>(true) : new Renderer[0];
-            if (brs2.Length > 0)
+            // 文字・ステージ1のボード・ステージ2のボードをそれぞれ別に持てる（てじゃ「文字と各ステージのボードそれぞれわけて」）
+            var bt = root.Find("Board"); int np = 0;
+            foreach (Transform part in bt ? bt.Cast<Transform>().ToList() : new List<Transform>())
             {
+                var brs2 = part.GetComponentsInChildren<Renderer>(true); if (brs2.Length == 0) continue;
                 var wb = brs2[0].bounds; foreach (var br in brs2) wb.Encapsulate(br.bounds);
-                var bc = bt.gameObject.AddComponent<BoxCollider>();
-                bc.center = bt.InverseTransformPoint(wb.center); var sz = bt.InverseTransformVector(wb.size); bc.size = new Vector3(Mathf.Abs(sz.x), Mathf.Abs(sz.y), Mathf.Max(0.2f, Mathf.Abs(sz.z)));
-                var rb = bt.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
-                var pu = bt.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
-                pu.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pu.InteractionText = "ボード"; pu.proximity = 3f; pu.allowManipulationWhenEquipped = true;
-                bt.gameObject.layer = 13;   // Pickup
-                var pl = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPosLogger>(bt.gameObject); pl.basis = root; pl.label = "Board";   // 離したらログに位置を書く
+                var bc = part.gameObject.AddComponent<BoxCollider>();
+                bc.center = part.InverseTransformPoint(wb.center); var sz = part.InverseTransformVector(wb.size); bc.size = new Vector3(Mathf.Abs(sz.x), Mathf.Abs(sz.y), Mathf.Max(0.2f / Mathf.Max(0.01f, part.lossyScale.z), Mathf.Abs(sz.z)));
+                var rb = part.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
+                var pu = part.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
+                pu.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pu.InteractionText = part.name; pu.proximity = 3f; pu.allowManipulationWhenEquipped = true;
+                part.gameObject.layer = 13;   // Pickup
+                var pl = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaPosLogger>(part.gameObject); pl.basis = root; pl.label = part.name;   // 離したらログに位置を書く
                 UdonSharpEditorUtility.CopyProxyToUdon(pl); FuwaStage2WaterTest.NoSync(pl);
-                log.Append("ボードを持てる ");
+                np++;
             }
+            log.Append("持てる " + np + " ");
         }
         root.localScale = Vector3.one * Shrink;
+        // 入口島のミニキノコに影（2026-11-18 てじゃ「入口島のミニキノコに影がない」：2–4 からの写しで、近くだけ影を出す係に入っていなかった）
+        {
+            int ns = 0;
+            foreach (var mr in reward.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                var mf = mr.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh || !mf.sharedMesh.name.StartsWith("MiniMush")) continue;
+                if (mr.shadowCastingMode != UnityEngine.Rendering.ShadowCastingMode.On) { mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; ns++; }
+            }
+            log.Append("入口島のミニキノコの影 " + ns + " ");
+        }
         if (old) Object.DestroyImmediate(old);
         root.gameObject.SetActive(false);   // ふだんは消えている（area 4 の時だけ）
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
