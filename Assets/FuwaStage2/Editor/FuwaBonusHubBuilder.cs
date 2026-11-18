@@ -376,6 +376,65 @@ public static class FuwaBonusHubBuilder
         return "西の島・橋・タイトル行きワープ（切れ目 " + gapDeg.ToString("F0") + "°） ";
     }
 
+    // 2026-11-19 てじゃ「柵もちゃんとつないで～」：本島の柵の切れ目のはし と 橋の柵のはし を、同じ形（柱＋横木2本）でつなぐ（大きさを決めた後のワールドで作る）
+    static string JoinWestFence(Transform root)
+    {
+        var wi = root.Find("WestIsland"); var isl = root.Find("Island");
+        var bf = wi ? wi.Find("Fence") : null; var mf = isl ? isl.Find("Fence") : null; var fcol = isl && isl.Find("FenceCollider") ? isl.Find("FenceCollider").GetComponent<Collider>() : null;
+        if (!bf || !mf || !fcol) return "柵つなぎ：材料がない ";
+        var old = root.Find("WestFenceJoin"); if (old) Object.DestroyImmediate(old.gameObject);
+        Physics.SyncTransforms();
+        Vector3 c = root.position; float y0 = c.y;
+        Vector3 toW = wi.position - c; toW.y = 0f; float distW = toW.magnitude; toW /= distW;
+        Vector3 side = Vector3.Cross(Vector3.up, toW);
+        // 橋の柵のはし（本島にいちばん近い柱）：左右それぞれ
+        var bm = bf.GetComponent<MeshFilter>().sharedMesh; var bvs = bm.vertices;
+        Vector3[] bridgeEnd = new Vector3[2]; float[] best = { 1e9f, 1e9f };
+        foreach (var v in bvs)
+        {
+            var wp = bf.TransformPoint(v); var d = wp - c; d.y = 0f;
+            if (wp.y < y0 + 0.3f) continue;
+            float along = Vector3.Dot(d, toW); float sd = Vector3.Dot(d, side); int k = sd > 0 ? 1 : 0;
+            if (along < best[k]) { best[k] = along; bridgeEnd[k] = new Vector3(wp.x, y0, wp.z); }
+        }
+        // 本島の柵の切れ目のはし：見た目の柵の頂点のうち、橋の向きから左右それぞれいちばん角度が近い物（当たりの切れ目は見た目とずれるので見た目で）
+        Vector3[] fenceEnd = new Vector3[2]; float[] bestA = { 1e9f, 1e9f };
+        var fmesh = mf.GetComponent<MeshFilter>().sharedMesh; var fvs = fmesh.vertices;
+        foreach (int vi in new HashSet<int>(fmesh.triangles))   // 切れ目の所も頂点だけは残っているので、三角形に使われている頂点だけ見る
+        {
+            var v = fvs[vi];
+            var wp = mf.TransformPoint(v); if (wp.y < y0 + 0.3f) continue;
+            var d = wp - c; d.y = 0f; if (d.magnitude < 1f) continue;
+            float ang = Vector3.SignedAngle(toW, d, Vector3.up); int k = Vector3.Dot(d, side) > 0 ? 1 : 0;
+            if (Mathf.Abs(ang) < bestA[k]) { bestA[k] = Mathf.Abs(ang); fenceEnd[k] = new Vector3(wp.x, y0, wp.z); }
+        }
+        // 左右の組み合わせを合わせる（近い方同士）
+        if ((fenceEnd[0] - bridgeEnd[0]).sqrMagnitude + (fenceEnd[1] - bridgeEnd[1]).sqrMagnitude > (fenceEnd[0] - bridgeEnd[1]).sqrMagnitude + (fenceEnd[1] - bridgeEnd[0]).sqrMagnitude)
+        { var t = fenceEnd[0]; fenceEnd[0] = fenceEnd[1]; fenceEnd[1] = t; }
+        var wood = mf.GetComponent<MeshRenderer>().sharedMaterial;
+        var jr = new GameObject("WestFenceJoin").transform; jr.SetParent(root, true);   // ワールドの大きさ1のまま（子はワールドの寸法で作る）
+        int n = 0;
+        for (int k = 0; k < 2; k++)
+        {
+            Vector3 a = fenceEnd[k], b = bridgeEnd[k]; float len = (b - a).magnitude; if (len < 0.08f) continue;
+            var rot = Quaternion.LookRotation(b - a);
+            foreach (var hy in new[] { 0.18f, 0.46f })
+            {
+                var r = GameObject.CreatePrimitive(PrimitiveType.Cube); r.name = "Rail" + k; Object.DestroyImmediate(r.GetComponent<Collider>()); r.transform.SetParent(jr, true);
+                r.transform.SetPositionAndRotation((a + b) * 0.5f + Vector3.up * hy, rot); r.transform.localScale = Vector3.one;
+                r.transform.localScale = new Vector3(0.05f, 0.06f, len + 0.04f);
+                r.GetComponent<MeshRenderer>().sharedMaterial = wood; r.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            var p = GameObject.CreatePrimitive(PrimitiveType.Cube); p.name = "Post" + k; Object.DestroyImmediate(p.GetComponent<Collider>()); p.transform.SetParent(jr, true);
+            p.transform.SetPositionAndRotation(a + Vector3.up * 0.26f, rot); p.transform.localScale = new Vector3(0.08f, 0.52f, 0.08f);
+            p.GetComponent<MeshRenderer>().sharedMaterial = wood; p.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var cg = new GameObject("Col" + k); cg.transform.SetParent(jr, true); cg.transform.SetPositionAndRotation((a + b) * 0.5f + Vector3.up * 0.6f, rot);
+            cg.AddComponent<BoxCollider>().size = new Vector3(0.15f, 1.2f, len + 0.1f);
+            n++;
+        }
+        return "柵つなぎ " + n + "（" + string.Join(",", new[] { 0, 1 }.Select(k => (bridgeEnd[k] - fenceEnd[k]).magnitude.ToString("F2"))) + "m） ";
+    }
+
     static void ApplyHandLayout(Transform root)
     {
         foreach (var (path, pos, euler, scale) in HandLayout)
@@ -768,6 +827,7 @@ public static class FuwaBonusHubBuilder
             log.Append("持てる " + np + " ");
         }
         root.localScale = Vector3.one * Shrink;
+        if (WestBridge) log.Append(JoinWestFence(root));
         log.Append(StatsBoard(root));
         if (SharedBoards) log.Append(MakeSharedBoards(root));
         log.Append(Buttons(root));
