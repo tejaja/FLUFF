@@ -17,13 +17,40 @@ public static class FuwaBonusHubBuilder
     const string RootName = "FuwaBonusHub";
     public static Vector3 Pos = new Vector3(-200f, 120f, -200f);
     public static float Shrink = 0.75f;
-    public static bool BoardPickup = true;   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
+    public static bool BoardPickup = false;   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
     public static int RingCount = 9; public static float RingHFront = 1.4f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, BackCenterScale = 1.2f, MushOverlapR = 0.8f, BoardMarginX = 0.25f, FrontLeftScale = 0.6f, RingFrontR = 3.0f, RingHugGap = 0.7f, LeanMin = 3f, LeanMax = 8f;
     public static float RingShift = 1.5f, RingR = 4.4f, RingGap = 55f, BoardBack = 3.4f, TitleY = 4.45f, TitleScale = 1.0f,
         ColX = 1.75f, ColY = 3.3f, ColScale = 1f, ColFont = 1.9f, PanelW = 3.0f, PanelH = 0.95f, StageR = 2.5f, CamDist = 7.0f;
-    const string ThanksText = "<size=62%><color=#FF8FA3>T</color><color=#FFC36B>h</color><color=#7FD7A8>a</color><color=#7FB8F0>n</color><color=#B79BF0>k</color> <color=#FF8FA3>y</color><color=#FFC36B>o</color><color=#7FD7A8>u</color> <color=#7FB8F0>f</color><color=#B79BF0>o</color><color=#FF8FA3>r</color> <color=#FFC36B>p</color><color=#7FD7A8>l</color><color=#7FB8F0>a</color><color=#B79BF0>y</color><color=#FF8FA3>i</color><color=#FFC36B>n</color><color=#7FD7A8>g</color><color=#7FB8F0>!</color></size>";
+
+    // 2026-11-18 てじゃがエディタで手で並べた配置（「いったんこれでためす」「わるくなさそう」）。root から見た local（Board の子は Board から、キノコは FairyRing から）。
+    //  UseHandLayout=true の間は、自動の並べ方・縮め方のあとにこの値で上書きする
+    public static bool UseHandLayout = true;
+    static readonly (string path, Vector3 pos, Vector3 euler, Vector3 scale)[] HandLayout = {
+        ("Board", new Vector3(0f, -0.62f, 4.899994f), Vector3.zero, new Vector3(0.7f, 0.7f, 0.7f)),
+        ("Board/Title", new Vector3(0f, 5.09f, -1.43f), Vector3.zero, new Vector3(2f, 2f, 2f)),
+        ("Board/Times1", new Vector3(-2.43f, 2.54f, -3.12f), new Vector3(0f, 312.2557f, 0f), Vector3.one),
+        ("Board/Times2", new Vector3(2.23f, 2.52600527f, -3.04f), new Vector3(0f, 44.2630539f, 0f), Vector3.one),
+        ("FairyRing/Mush0", new Vector3(-2.362f, -0.047f, 0.467f), new Vector3(352.655457f, 146.4802f, 357.214844f), Vector3.one * 0.15f),
+        ("FairyRing/Mush1", new Vector3(-3.054f, -0.018f, 1.993f), new Vector3(5.750139f, 190.43129f, 358.625336f), Vector3.one * 0.261761874f),
+        ("FairyRing/Mush2", new Vector3(-3.012329f, -0.120002747f, 3.47380066f), new Vector3(5.932863f, 17.08477f, 356.654846f), Vector3.one * 0.3926907f),
+        ("FairyRing/Mush3", new Vector3(-2.11f, -0.13f, 5.19f), new Vector3(3.647875f, 48.99988f, 2.14669538f), Vector3.one * 0.242029339f),
+        ("FairyRing/Mush4", new Vector3(0.057f, 0.003f, 5.899f), new Vector3(359.469849f, 93.81726f, 359.049835f), Vector3.one * 1.00292528f),
+        ("FairyRing/Mush5", new Vector3(2.09614563f, -0.120002747f, 4.906769f), new Vector3(356.7245f, 190.813278f, 353.735138f), Vector3.one * 0.407284319f),
+        ("FairyRing/Mush6", new Vector3(2.78622437f, -0.120002747f, 3.56419373f), new Vector3(6.41943169f, 217.716934f, 4.67472124f), Vector3.one * 0.180159524f),
+        ("FairyRing/Mush7", new Vector3(3.024f, -0.04f, 1.952f), new Vector3(2.621931f, 208.9491f, 3.99743962f), Vector3.one * 0.3f),
+        ("FairyRing/Mush8", new Vector3(2.374f, -0.047f, 0.626f), new Vector3(2.949647f, 331.0045f, 5.557061f), Vector3.one * 0.1446052f),
+    };
+    static void ApplyHandLayout(Transform root)
+    {
+        foreach (var (path, pos, euler, scale) in HandLayout)
+        {
+            var t = root.Find(path); if (!t) continue;
+            t.localPosition = pos; t.localEulerAngles = euler; t.localScale = scale;
+        }
+    }
+    const string ThanksText = "<size=62%><color=#FF8FA3>C</color><color=#FFC36B>o</color><color=#7FD7A8>n</color><color=#7FB8F0>g</color><color=#B79BF0>r</color><color=#FF8FA3>a</color><color=#FFC36B>t</color><color=#7FD7A8>u</color><color=#7FB8F0>l</color><color=#B79BF0>a</color><color=#FF8FA3>t</color><color=#FFC36B>i</color><color=#7FD7A8>o</color><color=#7FB8F0>n</color><color=#B79BF0>s</color><color=#FF8FA3>!</color></size>";   // 2026-11-18 てじゃ「文字、Congratulations! のほうがいいきがしてきたな」
 
     [MenuItem("FuwaCourse/ステージ2/おまけ本島（記念の島）を作り直す")]
     public static void Menu() { Debug.Log(Build()); }
@@ -317,6 +344,7 @@ public static class FuwaBonusHubBuilder
             so.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(bgm);
         }
         // 2026-11-18 てじゃ「おまけ島、全体的にデカすぎるかな」「本島のもの全て」：島・キノコ・ボード・台・ポータルぜんぶを島のまん中（床の高さ）を中心に縮める
+        if (UseHandLayout) { ApplyHandLayout(root); log.Append("手で並べた配置 "); }
         // 2026-11-18 てじゃ「一旦ボードをPickupオブジェクトにしてよ」：置き場所さがし用（持って動かせる、重力なし・離したらその場に浮く）。決まったら BoardPickup=false に
         if (BoardPickup)
         {
