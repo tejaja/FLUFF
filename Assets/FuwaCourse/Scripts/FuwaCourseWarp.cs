@@ -248,6 +248,7 @@ public class FuwaCourseWarp : UdonSharpBehaviour
 
     public void DoWarp()
     {
+        Debug.Log("[FuwaCatch] DoWarp " + transform.parent.name + "/" + gameObject.name);
         VRCPlayerApi player = Networking.LocalPlayer;
         if (player == null) return;
         if (playerSpot != null) player.TeleportTo(playerSpot.position, playerSpot.rotation);

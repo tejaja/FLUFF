@@ -1026,6 +1026,7 @@ public class FuwaBall : UdonSharpBehaviour
 
     public void Fail()
     {
+        Debug.Log("[FuwaCatch] ball Fail y=" + transform.position.y.ToString("F1") + " start=" + (startPoint != null ? startPoint.name : "-"));
         if (_waiting || _finished || _resetAt > 0f || _spiking) return;
         if (_running) _runOuts++;
         float inflate = popEffect != null ? Mathf.Max(0f, inflateTime) : 0f;
@@ -1223,6 +1224,7 @@ public class FuwaBall : UdonSharpBehaviour
 
     public void TeleportPlayerToRespawn()
     {
+        Debug.Log("[FuwaCatch] TeleportPlayerToRespawn teleportOnReset=" + _teleportOnReset);
         VRCPlayerApi player = Networking.LocalPlayer;
         if (player == null) return;
         Transform p = respawnPoint != null ? respawnPoint : startPoint;
