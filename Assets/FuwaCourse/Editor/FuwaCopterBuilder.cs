@@ -17,7 +17,7 @@ public static class FuwaCopterBuilder
     // 竹とんぼの大きさ（root は持つ所＝軸の下のにぎり玉の中心。+Y が羽の方）
     // 2026-11-17 てじゃ「下の部分を丸くして底を手にとる」：軸の下ににぎり玉（KnobR）。見た目は Visual の下にまとめて、FuwaBambooCopter が毎フレーム真上に立て直す
     const float StickLen = 0.34f, StickR = 0.014f, KnobR = 0.034f, BladeSpan = 0.52f, BladeW = 0.065f, BladeT = 0.01f, BladeTwist = 16f, TipR = 0.016f;
-    const float StandBaseH = 0.1f, StandPostH = 0.75f;
+    const float StandBaseH = 0.1f, StandPostH = 0.5f;   // 2026-11-18 てじゃ「竹とんぼの台、もうちょい低くても良いかも」0.75→0.5
 
     // 2026-11-18 てじゃ「どっちのステージも、ステージ２くらいまで竹とんぼで降りれるようにしたい、かつ遠くに行きすぎないように見えない壁でもつくるか」
     //  ・竹とんぼを持っている間だけ出る見えない壁（まわり4枚＋天井）。ステージ1は天井 50m、ステージ2は -60m
