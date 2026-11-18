@@ -125,6 +125,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
         _mine = true; _using = false; _braking = false; _droppedAt = -1f;
+        Debug.Log("[FuwaCatch] copter pickup " + gameObject.name);
         _gravity = p.GetGravityStrength();
         if (manager != null) manager.ReturnGunToStand();   // 銃は台にもどす（てじゃ「竹とんぼもったら銃が台に戻るようにしよ」）
         if (bounds != null) bounds.SetActive(true);
@@ -134,6 +135,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     {
         _droppedAt = Time.time;
         if (bounds != null) bounds.SetActive(false);
+        Debug.Log("[FuwaCatch] copter drop " + gameObject.name);
         if (!_mine) return;
         EndFlight();
         _mine = false;

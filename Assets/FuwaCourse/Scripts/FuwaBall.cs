@@ -1165,6 +1165,7 @@ public class FuwaBall : UdonSharpBehaviour
     // すでに処理中ならfalse（複数の判定に続けて触れても一回だけにする）
     public bool BeginPlayerMiss(string messageJa, string messageEn)
     {
+        Debug.Log("[FuwaCatch] BeginPlayerMiss " + messageJa);
         if (Time.time < _fallLockUntil) return false;
         _fallLockUntil = Time.time + 1.5f;
         // ワープまでの間に落ち続けて、VRChatの「下に落ちたらスポーンへ戻す」高さ(-20)を割らないように、落ちる速さを止める
