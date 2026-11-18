@@ -103,6 +103,9 @@ public class FuwaPlayerUpdraft : UdonSharpBehaviour
         _slow = false;
     }
 
+    // そのコースを出て止まる前（FuwaCourseLod）：ふわっと落ちている途中なら重力を戻す
+    public void LodStop() { OnDisable(); }
+
     private void OnDisable()
     {
         if (!_slow) return;

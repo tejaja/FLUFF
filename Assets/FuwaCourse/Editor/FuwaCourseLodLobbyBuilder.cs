@@ -32,7 +32,10 @@ public static class FuwaCourseLodLobbyBuilder
 
     // そのコースにいる時だけ動かす（ステージ1・2共通。2026-11-17 てじゃ「各コースで見た目に影響しないものはコースに居ないときは動いてる意味ない」）
     //  ハザード判定（止まる前に遅くした速さを戻す）・チェックポイント（光る途中なら光りきらせる）・2–5 のワープの穴（勢いの残りを捨てる）。どれも LodStop で後片付け
-    static readonly string[] CourseOnlyTypes = { "FuwaHazard", "FuwaCheckpoint", "FuwaPortal" };
+    //  2026-11-18 てじゃ「ロビーならプレイヤに一切影響ないし」「今いるコース（ロビー含む）以外の場所は…udonがとまる」：プレイヤー・ふわふわに効く仕掛けも、そのコースにいない間は止める
+    //  （風・ジャンプ台・上昇気流・重力・ゴール・銃の台・浅瀬・熱・溶岩の流れ）。ワープは飛んで入った時の判定（FuwaCourseJoin）で呼ぶので止めない
+    static readonly string[] CourseOnlyTypes = { "FuwaHazard", "FuwaCheckpoint", "FuwaPortal",
+        "FuwaWindArea", "FuwaJumpBoost", "FuwaPlayerUpdraft", "FuwaGravityArea", "FuwaGoal", "FuwaGunStand", "FuwaShallowWater", "FuwaHeat", "FuwaMagmaFlow" };
 
     public static bool HideScriptParticles = true;
 

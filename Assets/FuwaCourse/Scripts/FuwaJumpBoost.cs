@@ -147,6 +147,13 @@ public class FuwaJumpBoost : UdonSharpBehaviour
         _wobbling = false;
     }
 
+    // そのコースを出て止まる前（FuwaCourseLod）：ジャンプ力を戻す
+    public void LodStop()
+    {
+        VRCPlayerApi p = Networking.LocalPlayer;
+        if (p != null && p.IsValid()) SetBoost(p, false);
+    }
+
     private void SetBoost(VRCPlayerApi p, bool on)
     {
         if (on == _boosted) return;

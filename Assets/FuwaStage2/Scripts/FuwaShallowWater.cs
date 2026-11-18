@@ -137,6 +137,14 @@ public class FuwaShallowWater : UdonSharpBehaviour
         _slowed = true;
     }
 
+    // そのコースを出て止まる前（FuwaCourseLod）：水の中で遅くしていたら戻す
+    public void LodStop()
+    {
+        VRCPlayerApi p = Networking.LocalPlayer;
+        if (_slowed && p != null && p.IsValid()) Restore(p);
+        _in = false;
+    }
+
     private void Restore(VRCPlayerApi p)
     {
         p.SetWalkSpeed(baseWalk); p.SetRunSpeed(baseRun); p.SetStrafeSpeed(baseStrafe);
