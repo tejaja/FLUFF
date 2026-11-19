@@ -98,6 +98,19 @@ public class FuwaStats : UdonSharpBehaviour
     // 銃の風がふわふわに当たった時（FuwaBall.NoteShotCharge）
     public void AddHit() { _totalHits++; _dirty = true; }
 
+    // テストプレイ用（2026-11-19 てじゃ「クリアフラグオンにしたときに、仮の記録いれてほしい」）。公開前に消す。全コース・累計をこの値で上書きして保存
+    public void FakeAll(int outs, int hits, int clears, int totalHits, float totalDist)
+    {
+        Init();
+        for (int i = 0; i < _minOuts.Length; i++)
+        {
+            _minOuts[i] = outs; _minHits[i] = hits; _clears[i] = clears;
+            SaveCourse(i);
+        }
+        _totalHits = totalHits; _totalDist = totalDist;
+        SaveTotals();
+    }
+
     public int GetMinOuts(int i) { Init(); return (i >= 0 && i < _minOuts.Length) ? _minOuts[i] : -1; }
     public int GetMinHits(int i) { Init(); return (i >= 0 && i < _minHits.Length) ? _minHits[i] : -1; }
     public int GetClears(int i) { Init(); return (i >= 0 && i < _clears.Length) ? _clears[i] : 0; }

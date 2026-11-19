@@ -219,6 +219,19 @@ public class FuwaRecords : UdonSharpBehaviour
         Render();
     }
 
+    // テストプレイ用（2026-11-19 てじゃ「クリアフラグオンにしたときに、仮の記録いれてほしい、タイムは99分59秒99」）。公開前に消す。
+    // 自分の全コースの自己ベストを t 秒にして保存する（今の記録より遅くても上書き）
+    public void FakeBestMine(float t)
+    {
+        Init();
+        for (int i = 0; i < _myBest.Length; i++)
+        {
+            if (Key(i) == "") continue;
+            _myBest[i] = t; SaveBest(i);
+        }
+        Render();
+    }
+
     // あそびばのドーム用：自分がこのコースをクリアしたことがあるか（保存したクリアの印、またはこの回の記録）
     // 2026-11-17 おまけの島の「Thank you for playing!」の自己ベスト一覧用
     public float GetMyBest(int i)
