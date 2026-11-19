@@ -1104,7 +1104,10 @@ public static class FuwaPlaygroundBuilder
         if (click != null) { var a = Object.Instantiate(click.gameObject, wGo.transform, false); a.name = "SfxClick"; a.transform.localPosition = Vector3.zero; pw.clickSound = a.GetComponent<AudioSource>(); if (pw.clickSound != null) pw.clickSound.playOnAwake = false; }
         UdonSharpEditorUtility.CopyProxyToUdon(pw);
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pw); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); } }
+        // 2026-11-19 てじゃ「ギアおもちゃのデフォの向き180度かえといて」：置き場所のまん中を軸にまるごと回す
+        root.RotateAround(O, Vector3.up, GearToyYaw);
     }
+    public static float GearToyYaw = 180f;
 
     // 2–5 ポータル2つ1組：ひとつはおもちゃの場所（柵ぎわ、島の真ん中を向く）、もうひとつは島の反対がわの草地のふち（PortalBAngle）。表から入ると、もう片方の表から出る（人もふわふわも）
     public static float PortalR = 1.1f, PortalBAngle = 108f, PortalBDist = 6.6f;
