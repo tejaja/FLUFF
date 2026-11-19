@@ -182,7 +182,7 @@ public static class FuwaBonusHubBuilder
     static Quaternion FaceOut(Vector3 p) { var o = new Vector3(p.x, 0f, p.z); return o.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(o.normalized) : Quaternion.identity; }   // 読む人は島のまん中から
     // 2026-11-19 てじゃ「あしあとボード、もうちょいコンパクトにしたい、あとちょっと上に」「余白減らす感じで」：板の余白をへらす（StatsPanelW/H）、まん中の高さ StatsY。StatsScale は板ごとの倍率（今は1）
     public static float StatsScale = 1f;
-    public static float StatsY = 1.9f, StatsPanelW = 3.0f, StatsPanelH = 2.5f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
+    public static float StatsY = 1.9f, StatsPanelW = 3.0f, StatsPanelH = 2.65f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
     // 2026-11-19 てじゃ「あしあと、もうちょい幅狭められないかな」「英語コース名注意」：列を詰めて幅をへらす。名前の列は英語の一番長い名前（Mushroom Valley ≒1.0）も入る幅を残す
     //  文字の幅（文字の大きさ1.25）：名前 1.0、さいしょう 0.42（80%）、ノーミス 0.44、999999 0.42、ふわふわが進んだきょり 1.21
     //  → 同日「全部英語版もほしいな」「それもとに幅も調整しよ」：言葉ごとに列の位置（左はしから・島の座標）と欄の幅を決める。板の幅は欄＋0.4（FuwaStatsBoard が切りかえ）
@@ -196,6 +196,40 @@ public static class FuwaBonusHubBuilder
         sb.namePos = Pct(j[0], w); sb.outPos = Pct(j[1], w); sb.hitPos = Pct(j[2], w); sb.clearPos = Pct(j[3], w);
         sb.namePosEn = Pct(e[0], we); sb.outPosEn = Pct(e[1], we); sb.hitPosEn = Pct(e[2], we); sb.clearPosEn = Pct(e[3], we);
         sb.textW = w; sb.textWEn = we; sb.panelPad = 0.4f; sb.panel = panel; sb.textRect = sb.text ? sb.text.rectTransform : null;
+    }
+    // 2026-11-19 てじゃ「見づらいから、極わずかに行間あけつつ、行ごとに色を交互につけよう」：行間 StatsLineGap、コースの行に1行おきに角丸の帯（板と文字の間）
+    //  （TMP の <mark> は文字の上にかぶって文字がうすくなるので、帯は板と同じ角丸の絵で別に置く）
+    public static float StatsLineGap = 12f, StripeScale = 0.3f, StripePad = 0.08f, StripeZ = 0.015f;
+    public static Color StripeColor = new Color(0.99f, 0.87f, 0.72f, 0.75f);
+    public static SpriteRenderer[] StatsStripes(Transform b, TMPro.TextMeshPro tmp, SpriteRenderer panel)
+    {
+        foreach (var old in b.Cast<Transform>().Where(c => c.name.StartsWith("Stripe")).ToArray()) Object.DestroyImmediate(old.gameObject);
+        if (!panel) return new SpriteRenderer[0];
+        // 本番と同じ並び（タイトル・見出し2行・コース10行・空行・2行）の見本で行の位置をはかる
+        string keep = tmp.text;
+        string smp = "<size=125%>あ</size>\n<size=80%>あ\nあ</size>";
+        for (int i = 0; i < 10; i++) smp += "\n1–1 あ";
+        tmp.text = smp + "\n\nあ\nあ"; tmp.ForceMeshUpdate();
+        var li = tmp.textInfo.lineInfo; var list = new List<SpriteRenderer>();
+        // 帯の材質：板（Queue 2990、深度を書く）の後・文字（3000）の前に描く。同じ材質だと距離の順で帯が先に描かれ、板が帯の所だけ描かれず空が透けた
+        const string stripeMatPath = "Assets/FuwaCourse/Materials/PanelSpriteStripe.mat";
+        var smat = AssetDatabase.LoadAssetAtPath<Material>(stripeMatPath);
+        if (!smat) { smat = new Material(panel.sharedMaterial) { name = "PanelSpriteStripe" }; AssetDatabase.CreateAsset(smat, stripeMatPath); }
+        smat.renderQueue = 2995; EditorUtility.SetDirty(smat);
+        float w = tmp.rectTransform.sizeDelta.x + StripePad * 2f;
+        for (int r = 0; r < 10; r += 2)
+        {
+            int l = 3 + r;
+            float top = (li[l - 1].descender + li[l].ascender) * 0.5f, bot = (li[l].descender + li[l + 1].ascender) * 0.5f;
+            var g = new GameObject("Stripe" + r / 2); g.transform.SetParent(b, false);
+            g.transform.localPosition = new Vector3(0f, (top + bot) * 0.5f, StripeZ); g.transform.localScale = new Vector3(StripeScale, StripeScale, 1f);
+            var sr = g.AddComponent<SpriteRenderer>(); sr.sprite = panel.sprite; sr.sharedMaterial = smat; sr.drawMode = SpriteDrawMode.Sliced;
+            sr.size = new Vector2(w / StripeScale, (top - bot) / StripeScale); sr.color = StripeColor; sr.sortingOrder = panel.sortingOrder;
+            sr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; sr.receiveShadows = false;
+            list.Add(sr);
+        }
+        tmp.text = keep; tmp.ForceMeshUpdate();
+        return list.ToArray();
     }
     static string StatsBoard(Transform root)
     {
@@ -221,7 +255,8 @@ public static class FuwaBonusHubBuilder
             panel.transform.localPosition = new Vector3(0f, 0f, panel.transform.localPosition.z);
         }
         var sb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaStatsBoard>(b.gameObject); sb.stats = st; sb.text = tmp; sb.language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault(x => x.gameObject.scene.IsValid());
-        SetStatsCols(sb, panel);
+        tmp.lineSpacing = StatsLineGap;
+        SetStatsCols(sb, panel); sb.stripes = StatsStripes(b, tmp, panel); sb.stripePad = StripePad;
         UdonSharpEditorUtility.CopyProxyToUdon(sb); FuwaStage2WaterTest.NoSync(sb);
         tmp.text = "あしあと";
         return "あしあと ";

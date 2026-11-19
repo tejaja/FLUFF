@@ -23,6 +23,9 @@ public class FuwaStatsBoard : UdonSharpBehaviour
     public float panelPad = 0.4f;
     [Tooltip("text の RectTransform（Udon では text.rectTransform が使えないので）")]
     public RectTransform textRect;
+    // 2026-11-19 てじゃ「行ごとに色を交互につけよう」：コースの行の帯（幅を言葉で合わせる）
+    public SpriteRenderer[] stripes;
+    public float stripePad = 0.08f;
     public float interval = 1f;
     private float _next;
     private int _lang = -1;
@@ -76,6 +79,14 @@ public class FuwaStatsBoard : UdonSharpBehaviour
         {
             Vector3 ps = panel.transform.localScale;
             Vector2 sz = panel.size; sz.x = (w + panelPad) / ps.x; panel.size = sz;
+        }
+        if (stripes != null)
+        {
+            for (int i = 0; i < stripes.Length; i++)
+            {
+                SpriteRenderer sr = stripes[i]; if (sr == null) continue;
+                Vector2 sz = sr.size; sz.x = (w + stripePad * 2f) / sr.transform.localScale.x; sr.size = sz;
+            }
         }
     }
 }
