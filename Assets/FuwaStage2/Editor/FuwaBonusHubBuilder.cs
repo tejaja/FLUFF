@@ -370,7 +370,11 @@ public static class FuwaBonusHubBuilder
         var wc = (FuwaCourseWarp)FuwaStage2Builder.MakeWarp(portal, "WarpToTitle", trig.gameObject, gauge.gameObject, null, spot, null, 0);
         foreach (var nm in new[] { "WarpToTitle_Trigger", "WarpToTitle_Trigger_Gauge" })
         { var c2 = portal.Find(nm); var s2 = st.Find(nm.Replace("WarpToTitle", "WarpToLobby")); if (c2 && s2) c2.localPosition = s2.localPosition - (refT ? refT.localPosition : Vector3.zero); }
-        var so = new SerializedObject(wc); so.FindProperty("area").intValue = 0; so.FindProperty("stage").intValue = 0; so.FindProperty("homeAction").intValue = 2; so.FindProperty("timed").boolValue = false;
+        // 2026-11-19 てじゃ「タイトル戻りワープ、もどってもBGMがラストBGMのまま」：BGMはふわふわの居場所（startPoint）で決まるので、
+        //  ワールドに入った時と同じ居場所（ステージ1ロビーの BallPark、ステージ1）に戻す
+        var lobbyPark = Find("FuwaLobby") ? Find("FuwaLobby").transform.Find("BallPark") : null;
+        var so = new SerializedObject(wc); so.FindProperty("area").intValue = 0; so.FindProperty("stage").intValue = 1; so.FindProperty("homeAction").intValue = 2; so.FindProperty("timed").boolValue = false;
+        so.FindProperty("courseStart").objectReferenceValue = lobbyPark;
         so.ApplyModifiedProperties(); UdonSharpEditorUtility.CopyProxyToUdon(wc);
         foreach (var rr in portal.GetComponentsInChildren<Renderer>(true)) rr.lightmapIndex = -1;
         return "西の島・橋・タイトル行きワープ（切れ目 " + gapDeg.ToString("F0") + "°） ";
