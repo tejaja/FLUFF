@@ -175,7 +175,11 @@ public static class FuwaBonusHubBuilder
 
     // 2026-11-18 てじゃ「おまけ本島の隅っこに、各コースの隠し記録的な感じで閲覧する場所つくろ」：FuwaSystem/Stats（FuwaStats、数える係）と、本島の西の柵ぎわの看板（FuwaStatsBoard）
     // 2026-11-19 てじゃ「あしあとは金ピカ銃の右くらい」：東のきんピカ台（局所 (8.4, -1.6)）の右（南）へ。読む向きは島のまん中から（東を向く）
-    public static float StatsX = 8.6f, StatsZ = -5.0f, StatsY = 1.45f, StatsPanelW = 4.4f, StatsPanelH = 3.1f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
+    // 2026-11-19 てじゃ「ボタンとかボード、ちゃんと柵基準で」：柵（局所の半径 FenceR）の内側に沿わせて、島のまん中を向ける。角度は +x（東）から +z（北）へ測る
+    public static float FenceR = 11.37f, BtnR = 11.0f, StatsR = 10.85f, StatsDeg = -37f, ResetDeg = 10.8f, StatsBtnDeg = -20f;
+    public static Vector3 OnFence(float r, float deg, float y) { float a = deg * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r); }
+    static Quaternion FaceOut(Vector3 p) { var o = new Vector3(p.x, 0f, p.z); return o.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(o.normalized) : Quaternion.identity; }   // 読む人は島のまん中から
+    public static float StatsY = 1.45f, StatsPanelW = 4.4f, StatsPanelH = 3.1f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
     static string StatsBoard(Transform root)
     {
         var sys = Find("FuwaSystem"); var src = root.Find("Board/Times1");
@@ -190,7 +194,7 @@ public static class FuwaBonusHubBuilder
         // 看板（自己ベストの板を写して大きく）
         var b = Object.Instantiate(src.gameObject, root, false).transform; b.name = "StatsBoard";
         foreach (var tb in b.GetComponents<FuwaThanksBoard>()) { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tb); Object.DestroyImmediate(tb); if (ub) Object.DestroyImmediate(ub); }
-        b.localPosition = new Vector3(StatsX, StatsY, StatsZ); b.localRotation = Quaternion.LookRotation(StatsX >= 0f ? Vector3.right : Vector3.left); b.localScale = Vector3.one;   // 島のまん中から読める（文字の正面＝+z が西向き）
+        b.localPosition = OnFence(StatsR, StatsDeg, StatsY); b.localRotation = FaceOut(b.localPosition); b.localScale = Vector3.one;   // 島のまん中から読める（文字の正面＝+z が西向き）
         var tmp = b.GetComponent<TMPro.TextMeshPro>(); tmp.rectTransform.sizeDelta = new Vector2(StatsPanelW - 0.4f, StatsPanelH - 0.2f); tmp.fontSize = StatsFont;
         tmp.alignment = TMPro.TextAlignmentOptions.Left; tmp.enableWordWrapping = false; tmp.margin = Vector4.zero;
         var panel = b.Find("Panel")?.GetComponent<SpriteRenderer>();
@@ -208,7 +212,7 @@ public static class FuwaBonusHubBuilder
     // 2026-11-19 てじゃ「ボードとかの位置リセットボタンもほしいのと、かくしデータもボタンで展開するタイプにしよ」
     //  → 同日「オブジェクトリセットは、ふわふわの奥くらいにレーザーボタン式にしよ」「あしあとは金ピカ銃の右くらい、これもレーザーボタン」
     //  あそびばの「おもちゃをもどす」（柵の前にうかぶ丸いレーザーボタン）を写して使う。縮める前の島の座標、どちらも島のまん中から押す（東を向く）
-    public static Vector3 ResetBtnPos = new Vector3(11.0f, 1.09f, 1.6f), StatsBtnPos = new Vector3(8.6f, 1.09f, -8.4f);
+    public static float BtnY = 1.09f;   // ResetDeg＝まん中のふわふわの奥、StatsBtnDeg＝あしあとの看板の左（てじゃ「あしあとボタンはボードの左側に」）
     public static float LaserBtnScale = 0.97f;   // あそびばの物（0.63）を本島の縮み（0.65）で割った大きさ＝見た目は同じ
     static string Buttons(Transform root)
     {
@@ -219,7 +223,7 @@ public static class FuwaBonusHubBuilder
         (Transform, TMPro.TextMeshProUGUI) Make(string name, Vector3 lp, Color col, string text)
         {
             var b = Object.Instantiate(src.gameObject, root, false).transform; b.name = name;
-            b.localPosition = lp; b.localRotation = Quaternion.LookRotation(Vector3.right); b.localScale = Vector3.one * LaserBtnScale;
+            b.localPosition = lp; b.localRotation = FaceOut(lp); b.localScale = Vector3.one * LaserBtnScale;
             var btn = b.GetComponentInChildren<UnityEngine.UI.Button>(true);
             var cb = btn.colors; float h, sat, v; Color.RGBToHSV(cb.normalColor, out h, out sat, out v);
             Color.RGBToHSV(col, out float h2, out float s2, out float v2);
@@ -238,7 +242,7 @@ public static class FuwaBonusHubBuilder
         int n = 0;
         if (holder)
         {
-            var (b, tm) = Make("ResetButton", ResetBtnPos, new Color(0.45f, 0.72f, 0.95f), "もとにもどす");
+            var (b, tm) = Make("ResetButton", OnFence(BtnR, ResetDeg, BtnY), new Color(0.45f, 0.72f, 0.95f), "もとにもどす");
             var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBonusButton>(b.gameObject);
             fb.mode = 0; fb.resetObjects = holder.Cast<Transform>().Select(t => t.gameObject).ToArray();
             UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb); Hook(b, fb);
@@ -246,9 +250,9 @@ public static class FuwaBonusHubBuilder
         }
         if (stats)
         {
-            var (b, tm) = Make("StatsButton", StatsBtnPos, new Color(0.96f, 0.68f, 0.30f), "あしあとをみる");
+            var (b, tm) = Make("StatsButton", OnFence(BtnR, StatsBtnDeg, BtnY), new Color(0.96f, 0.68f, 0.30f), "あしあと");
             var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBonusButton>(b.gameObject);
-            fb.mode = 1; fb.toggleTarget = stats.gameObject; fb.label = tm;
+            fb.mode = 1; fb.toggleTarget = stats.gameObject; fb.label = tm; fb.openText = fb.closeText = "あしあと";   // てじゃ「ボタン名は『あしあと』だけでいいよ」
             UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb); Hook(b, fb);
             n++;
         }
