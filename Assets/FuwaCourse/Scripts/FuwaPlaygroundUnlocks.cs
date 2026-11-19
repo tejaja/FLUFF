@@ -30,6 +30,8 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
     public float squashTime = 0.16f, openTime = 0.55f, holdTime = 0.45f, vanishTime = 0.35f, toyDelay = 0.4f, toyTime = 1.0f;
     [Tooltip("ドームが開く角度（行きすぎ分をたしても 90° をこえないように）")]
     public float openAngle = 80f;
+    [Tooltip("ふちの輪の太さ（半径）・高さと、開いた時に持ち上げる高さ（m）")]
+    public float rimTube = 0.05f, rimY = 0.02f, openLift = 0.05f;
 
     private float _next;
     private float _startAt;
@@ -149,19 +151,23 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
                         Vector3 axis = Vector3.Cross(Vector3.up, back);
                         float rad = d.lossyScale.x * 0.5f;
                         Vector3 baseW = lt.TransformPoint(p0);
-                        Vector3 hinge = baseW + back * rad;
+                        // 軸はふちの輪のいちばん外・いちばん下（2026-11-19 てじゃ「蓋の縁がまだ床にちょっとうまってる、あいたときね」：
+                        //  ドームの底のふちを軸にすると、輪の太さの分だけ軸の外・下にはみ出た所が床にもぐった）。開くにつれてふた全体を少し持ち上げる
+                        float sy = lt.lossyScale.y;
+                        Vector3 hinge = baseW + back * (rad + rimTube * sy) + Vector3.up * (rimY - rimTube) * sy;
                         float u = Mathf.Clamp01(tOpen / openTime);
                         float c1 = 1.70158f, c3 = c1 + 1f, v = u - 1f;   // 行きすぎは約 10%
                         float ang = Mathf.Min(89f, openAngle * (1f + c3 * v * v * v + c1 * v * v));
                         Quaternion q = Quaternion.AngleAxis(ang, axis);
-                        d.position = hinge + q * (baseW - hinge);
+                        Vector3 lift = Vector3.up * (openLift * sy * Mathf.Clamp01(u * 1.5f));
+                        d.position = hinge + q * (baseW - hinge) + lift;
                         d.rotation = q * (lt.rotation * r0);
                         float kv = tVan <= 0f ? 1f : 1f - Mathf.Clamp01(tVan / vanishTime);
                         d.localScale = s0 * Mathf.Max(0.001f, kv);
                         if (rm != null)
                         {
                             Vector3 rw = lt.TransformPoint(_rimPos[i]);
-                            rm.position = hinge + q * (rw - hinge);
+                            rm.position = hinge + q * (rw - hinge) + lift;
                             rm.rotation = q * (lt.rotation * _rimRot[i]);
                             rm.localScale = _rimScale[i] * Mathf.Max(0.001f, kv);
                         }
