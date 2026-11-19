@@ -176,10 +176,12 @@ public static class FuwaBonusHubBuilder
     // 2026-11-18 てじゃ「おまけ本島の隅っこに、各コースの隠し記録的な感じで閲覧する場所つくろ」：FuwaSystem/Stats（FuwaStats、数える係）と、本島の西の柵ぎわの看板（FuwaStatsBoard）
     // 2026-11-19 てじゃ「あしあとは金ピカ銃の右くらい」：東のきんピカ台（局所 (8.4, -1.6)）の右（南）へ。読む向きは島のまん中から（東を向く）
     // 2026-11-19 てじゃ「ボタンとかボード、ちゃんと柵基準で」：柵（局所の半径 FenceR）の内側に沿わせて、島のまん中を向ける。角度は +x（東）から +z（北）へ測る
-    public static float FenceR = 11.37f, BtnR = 11.0f, StatsR = 10.85f, StatsDeg = -37f, ResetDeg = 10.8f, StatsBtnDeg = -20f;
+    public static float FenceR = 11.37f, BtnR = 11.0f, StatsR = 10.85f, StatsDeg = -36f, ResetDeg = 10.8f, StatsBtnDeg = -20f;
     public static Vector3 OnFence(float r, float deg, float y) { float a = deg * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r); }
     static Quaternion FaceOut(Vector3 p) { var o = new Vector3(p.x, 0f, p.z); return o.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(o.normalized) : Quaternion.identity; }   // 読む人は島のまん中から
-    public static float StatsY = 1.45f, StatsPanelW = 4.4f, StatsPanelH = 3.1f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
+    // 2026-11-19 てじゃ「あしあとボード、もうちょいコンパクトにしたい、あとちょっと上に」「余白減らす感じで」：板の余白をへらす（StatsPanelW/H）、まん中の高さ StatsY。StatsScale は板ごとの倍率（今は1）
+    public static float StatsScale = 1f;
+    public static float StatsY = 1.9f, StatsPanelW = 4.1f, StatsPanelH = 2.5f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
     static string StatsBoard(Transform root)
     {
         var sys = Find("FuwaSystem"); var src = root.Find("Board/Times1");
@@ -194,7 +196,7 @@ public static class FuwaBonusHubBuilder
         // 看板（自己ベストの板を写して大きく）
         var b = Object.Instantiate(src.gameObject, root, false).transform; b.name = "StatsBoard";
         foreach (var tb in b.GetComponents<FuwaThanksBoard>()) { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tb); Object.DestroyImmediate(tb); if (ub) Object.DestroyImmediate(ub); }
-        b.localPosition = OnFence(StatsR, StatsDeg, StatsY); b.localRotation = FaceOut(b.localPosition); b.localScale = Vector3.one;   // 島のまん中から読める（文字の正面＝+z が西向き）
+        b.localPosition = OnFence(StatsR, StatsDeg, StatsY); b.localRotation = FaceOut(b.localPosition); b.localScale = Vector3.one * StatsScale;   // 島のまん中から読める（文字の正面＝+z が西向き）
         var tmp = b.GetComponent<TMPro.TextMeshPro>(); tmp.rectTransform.sizeDelta = new Vector2(StatsPanelW - 0.4f, StatsPanelH - 0.2f); tmp.fontSize = StatsFont;
         tmp.alignment = TMPro.TextAlignmentOptions.Left; tmp.enableWordWrapping = false; tmp.margin = Vector4.zero;
         var panel = b.Find("Panel")?.GetComponent<SpriteRenderer>();
