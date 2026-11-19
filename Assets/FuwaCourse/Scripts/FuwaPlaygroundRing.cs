@@ -23,8 +23,17 @@ public class FuwaPlaygroundRing : UdonSharpBehaviour
     public LayerMask groundMask = 1 | (1 << 11);
     public float groundOffset = 0.06f;
 
+    // 2026-11-19 てじゃ「おもちゃゴールリング、前みたいに空中にもおけるように」：床から airHeight より高い所で離したら、その場（持っていた向きのまま）に浮かせる。低い所なら今まで通り床に平らに置く
+    [Tooltip("床からこれより高い所で離したら、その場に浮かせる(m)")]
+    public float airHeight = 0.5f;
+
     public override void OnDrop()
     {
+        {
+            RaycastHit hg;
+            bool near = Physics.Raycast(transform.position + Vector3.up * 0.1f, Vector3.down, out hg, airHeight + 0.1f, groundMask, QueryTriggerInteraction.Ignore);
+            if (!near) return;   // 空中：そのまま
+        }
         Vector3 d = transform.up; d.y = 0f;
         if (d.sqrMagnitude < 0.001f) { d = transform.forward; d.y = 0f; }
         if (d.sqrMagnitude < 0.001f) d = Vector3.forward;
