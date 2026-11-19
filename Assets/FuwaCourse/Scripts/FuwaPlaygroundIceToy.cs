@@ -14,6 +14,8 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
     [Tooltip("広がる・縮む速さ（1/秒）")]
     public float spreadSpeed = 0.9f;
     public AudioSource toggleSound;
+    [Tooltip("オフにした時の音（なければ toggleSound）")]
+    public AudioSource offSound;
 
     [UdonSynced] private bool _on;
     private float _k;
@@ -29,7 +31,9 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);
         _on = !_on;
         RequestSerialization();
-        if (toggleSound != null) toggleSound.Play();
+        // 2026-11-19 てじゃ「SEは扇風機のを使いまわそ」：オンは toggleSound、オフは offSound（なければ toggleSound）
+        AudioSource snd = (!_on && offSound != null) ? offSound : toggleSound;
+        if (snd != null) snd.Play();
     }
 
     private void Update()

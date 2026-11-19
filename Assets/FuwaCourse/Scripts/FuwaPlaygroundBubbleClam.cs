@@ -35,6 +35,8 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
     [Tooltip("割れたあと、また包まれるまで（秒）")]
     public float recaptureDelay = 1.5f;
     public AudioSource toggleSound, blowSound, popSound, captureSound;
+    [Tooltip("オフにした時の音（なければ toggleSound）")]
+    public AudioSource offSound;
     public ParticleSystem popFx;
 
     [UdonSynced] private bool _on;
@@ -72,7 +74,9 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
         _on = !_on;
         _onAt = Networking.GetServerTimeInSeconds();
         RequestSerialization();
-        if (toggleSound != null) toggleSound.Play();
+        // 2026-11-19 てじゃ「SEは扇風機のを使いまわそ」：オンは toggleSound、オフは offSound（なければ toggleSound）
+        AudioSource snd = (!_on && offSound != null) ? offSound : toggleSound;
+        if (snd != null) snd.Play();
     }
 
     // 泡 idx の、吹いてからの時間 age での位置（mouth 基準）

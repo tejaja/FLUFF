@@ -21,28 +21,40 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
     public UdonSharpBehaviour useTarget;
     public string useEvent = "Toggle";
     public override void OnPickupUseDown() { if (useTarget != null) { useTarget.SendCustomEvent(useEvent); StartFlash(); } }
-    // 2026-11-19 てじゃ「オンオフ切り替え式のおもちゃをクリックでオンオフしたとき、一瞬白っぽく明滅するようにしよ」：
-    //  オン/オフした時、自分の画面で body の見た目を白い材質に2回ちかっと切りかえる（flashMaterial が空なら何もしない）
-    [Tooltip("オン/オフした時に一瞬だけ切りかえる白い材質（空ならしない）")]
+    // 2026-11-19 てじゃ「オンオフ切り替え式のおもちゃをクリックでオンオフしたとき、一瞬白っぽく明滅するようにしよ」
+    //  → 同日「フワッと光るのを一回でいいよ」：オン/オフした時、自分の画面で body の見た目を白くフワッと光らせて、flashTime 秒でゆっくり消す
+    //  （ToonLit の _EmissionColor を MaterialPropertyBlock で。ほかのシェーダーは光らない）
+    [Tooltip("フワッと光る色・強さ・消えるまでの秒")]
+    public Color flashColor = new Color(1f, 0.97f, 0.92f, 1f);
+    public float flashStrength = 0.8f, flashTime = 0.5f;
+    [Tooltip("（前の版の白い材質。今は使わない）")]
     public Material flashMaterial;
-    public float flashOn = 0.07f, flashGap = 0.06f;
     private float _flashAt = -10f;
-    private bool _flashing, _flashShown;
+    private bool _flashing;
+    private MaterialPropertyBlock _mpb;
     private void StartFlash()
     {
-        if (flashMaterial == null || body == null) return;
+        if (body == null) return;
+        CacheVis();
+        if (_mpb == null) _mpb = new MaterialPropertyBlock();
         _flashAt = Time.time; _flashing = true;
     }
     private void UpdateFlash()
     {
-        if (!_flashing) return;
-        float t = Time.time - _flashAt;
-        bool on = t < flashOn || (t >= flashOn + flashGap && t < flashOn * 2f + flashGap);
-        if (t >= flashOn * 2f + flashGap) { _flashing = false; on = false; }
-        if (on == _flashShown && _flashing) return;
-        _flashShown = on;
-        if (on) SetAll(flashMaterial);
-        else { bool held = _pickup != null && _pickup.IsHeld; if (held && heldMaterial != null) SetAll(heldMaterial); else SetGhost(false); }
+        if (!_flashing || _vis == null) return;
+        float u = (Time.time - _flashAt) / Mathf.Max(0.01f, flashTime);
+        // 出だしはすぐ明るく、あとはゆっくり消える
+        float k = u >= 1f ? 0f : (u < 0.12f ? u / 0.12f : 1f - (u - 0.12f) / 0.88f);
+        k = k * k * (3f - 2f * k);
+        Color c = flashColor * (flashStrength * k);
+        for (int i = 0; i < _vis.Length; i++)
+        {
+            if (_vis[i] == null) continue;
+            _vis[i].GetPropertyBlock(_mpb);
+            _mpb.SetColor("_EmissionColor", c);
+            _vis[i].SetPropertyBlock(_mpb);
+        }
+        if (u >= 1f) _flashing = false;
     }
     private Renderer[] _vis;
     private Material[][] _visMats;

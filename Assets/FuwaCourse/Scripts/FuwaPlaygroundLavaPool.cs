@@ -19,6 +19,8 @@ public class FuwaPlaygroundLavaPool : UdonSharpBehaviour
     [Tooltip("池のぶくぶく・しぶき（なくてもOK）")]
     public ParticleSystem splash;
     public AudioSource whoosh, toggleSound;
+    [Tooltip("オフにした時の音（なければ toggleSound）")]
+    public AudioSource offSound;
     public float interval = 2.5f, flightTime = 1.4f, height = 4f;
     public float hitRadius = 0.75f;
     [Tooltip("ふわふわ：上へ knockUp、弾から外へ knockSide")]
@@ -51,7 +53,9 @@ public class FuwaPlaygroundLavaPool : UdonSharpBehaviour
         _on = !_on;
         _onAt = Networking.GetServerTimeInSeconds();
         RequestSerialization();
-        if (toggleSound != null) toggleSound.Play();
+        // 2026-11-19 てじゃ「SEは扇風機のを使いまわそ」：オンは toggleSound、オフは offSound（なければ toggleSound）
+        AudioSource snd = (!_on && offSound != null) ? offSound : toggleSound;
+        if (snd != null) snd.Play();
     }
     public override void Interact() { Toggle(); }
 

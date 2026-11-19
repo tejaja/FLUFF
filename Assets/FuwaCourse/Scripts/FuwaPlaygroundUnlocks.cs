@@ -39,6 +39,8 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
     private float[] _animAt = new float[0];
     private bool[] _toyOn = new bool[0];
     private bool[] _openPlayed = new bool[0];   // パカッの音は、むにっと縮んだあと開き始める時に鳴らす
+    // 2026-11-19 てじゃ「岩が解放時にやたら上から落ちてくる」：物理で動く物（重力つきの Rigidbody）が入っているおもちゃは、大きくするアニメをしない（親ごと拡大すると物理の位置がずれて飛ぶ）
+    private bool[] _noScale = new bool[0];
     private Vector3[] _lockScale = new Vector3[0];
     private Vector3[] _lockPos = new Vector3[0];
     private Vector3[] _toyScale = new Vector3[0];
@@ -67,7 +69,7 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
         int n = toys.Length;
         if (_shown.Length != n)
         {
-            _shown = new bool[n]; _animAt = new float[n]; _toyOn = new bool[n]; _openPlayed = new bool[n];
+            _shown = new bool[n]; _animAt = new float[n]; _toyOn = new bool[n]; _openPlayed = new bool[n]; _noScale = new bool[n];
             _lockScale = new Vector3[n]; _lockPos = new Vector3[n]; _toyScale = new Vector3[n];
             _dome = new Transform[n]; _domePos = new Vector3[n]; _domeScale = new Vector3[n]; _domeRot = new Quaternion[n];
             _rim = new Transform[n]; _rimPos = new Vector3[n]; _rimScale = new Vector3[n]; _rimRot = new Quaternion[n];
@@ -107,7 +109,14 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
             Transform rm = l.transform.Find("Rim"); _rim[i] = rm;
             if (rm != null) { _rimPos[i] = rm.localPosition; _rimRot[i] = rm.localRotation; _rimScale[i] = rm.localScale; }
         }
-        if (toys[i] != null) _toyScale[i] = toys[i].transform.localScale;
+        if (toys[i] != null)
+        {
+            _toyScale[i] = toys[i].transform.localScale;
+            Rigidbody[] rbs = toys[i].GetComponentsInChildren<Rigidbody>(true);
+            bool phys = false;
+            for (int k = 0; k < rbs.Length; k++) if (rbs[k] != null && !rbs[k].isKinematic) { phys = true; break; }
+            _noScale[i] = phys;
+        }
     }
 
     private void Animate()
@@ -192,7 +201,7 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
                 _toyOn[i] = true; toy.SetActive(true);
                 if (popSound != null) { popSound.transform.position = toy.transform.position + Vector3.up * 0.5f; popSound.Play(); }
             }
-            float uu = Mathf.Clamp01(tt / toyTime);
+            float uu = _noScale[i] ? 1f : Mathf.Clamp01(tt / toyTime);
             float kk = uu >= 1f ? 1f : 1f - Mathf.Exp(-7f * uu) * Mathf.Cos(uu * 17f);
             float ky = kk, kxz = kk;
             // 縦と横を少しずらして、ぷるんとした感じに

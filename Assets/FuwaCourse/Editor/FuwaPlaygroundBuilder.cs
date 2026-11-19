@@ -804,7 +804,8 @@ public static class FuwaPlaygroundBuilder
             pk.InteractionText = label; pk.UseText = "オン / オフ";
             grab.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
             var mm = UdonSharpUndo.AddComponent<FuwaMovableMushroom>(grab);
-            mm.body = body; mm.heldMaterial = heldMat; mm.flashMaterial = ToyFlashMat(); mm.ground = (1 << 11) | 1; mm.useEvent = "Toggle";
+            mm.body = body; mm.heldMaterial = null; mm.flashMaterial = null;   // 2026-11-19 てじゃ「岩いがいの半透明処理やっぱいらんかも」→ 持っている間も元の見た目（光るのは FuwaMovableMushroom の _EmissionColor）
+            mm.ground = (1 << 11) | 1; mm.useEvent = "Toggle";
             UdonSharpBehaviour target = body.GetComponentsInChildren<FuwaPlaygroundBubbleClam>(true).FirstOrDefault();
             if (target == null) target = body.GetComponentsInChildren<FuwaPlaygroundIceToy>(true).FirstOrDefault();
             if (target == null) target = body.GetComponentsInChildren<FuwaPlaygroundLavaPool>(true).FirstOrDefault();
@@ -909,6 +910,38 @@ public static class FuwaPlaygroundBuilder
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         Debug.Log("[あそびば] 持つ判定を形に " + n);
+    }
+
+    public static bool PlaygroundLamps = false;
+    // 2026-11-19 てじゃ「オンオフの白点滅、フワッと光るのを一回でいいよ、SEは扇風機のを使いまわそ」「岩いがいの半透明処理やっぱいらんかも」「2本あるスタンドライトいらんかも」
+    [MenuItem("FuwaCourse/あそびば/持ち運ぶおもちゃ：半透明なし・オンオフの音・ランプを消す")]
+    static void MenuToyTweaks() { Debug.Log(ToyTweaks()); }
+    public static string ToyTweaks()
+    {
+        int n = 0, snd = 0, lamps = 0;
+        AudioSource Make(Transform parent, string name, string clip)
+        {
+            var old = parent.Find(name); if (old) Object.DestroyImmediate(old.gameObject);
+            var g = new GameObject(name); g.transform.SetParent(parent, false);
+            var a = g.AddComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaCourse/Audio/" + clip + ".wav");
+            a.playOnAwake = false; a.spatialBlend = 1f; a.volume = 0.7f; a.rolloffMode = AudioRolloffMode.Linear; a.minDistance = 1.5f; a.maxDistance = 14f; a.dopplerLevel = 0f;
+            return a;
+        }
+        foreach (var mm in Object.FindObjectsOfType<FuwaMovableMushroom>(true))
+        {
+            if (!mm.gameObject.scene.IsValid()) continue;
+            mm.heldMaterial = null; mm.flashMaterial = null; Sync(mm); n++;
+            if (mm.useTarget != null && mm.body != null)
+            {
+                var so = new SerializedObject(mm.useTarget);
+                var on = so.FindProperty("toggleSound"); var off = so.FindProperty("offSound");
+                if (on != null && off != null) { on.objectReferenceValue = Make(mm.body, "ToggleOnSfx", "sfx_fan_on"); off.objectReferenceValue = Make(mm.body, "ToggleOffSfx", "sfx_fan_off"); so.ApplyModifiedPropertiesWithoutUndo(); Sync(mm.useTarget); snd++; }
+            }
+        }
+        if (!PlaygroundLamps)
+            foreach (var t in Object.FindObjectsOfType<Transform>(true).Where(t => t.name == "Lamp" && t.gameObject.scene.IsValid() && t.root.name == "FuwaPlayground" && (t.Find("LampStem") || t.Find("Chill_LampStem"))).ToList()) { Object.DestroyImmediate(t.gameObject); lamps++; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        return "おもちゃ " + n + "（半透明なし）・オンオフの音 " + snd + "・ランプを消した " + lamps;
     }
 
     [MenuItem("FuwaCourse/あそびば/ステージ2のおもちゃを持ち運べるように")]
@@ -1482,8 +1515,8 @@ public static class FuwaPlaygroundBuilder
             var p = beanPos[i];
             Put("Chill_Beanbag", bean[i], p, Face(p, C + dir * 3f) * Quaternion.Euler(0f, (i % 2 == 0 ? 12f : -12f), 0f), true, 17, "Beanbag" + i);   // ふわふわだけ当たって人はすり抜け（Walkthrough。2026-10-13 てじゃ「すりぬけてほしい」）
         }
-        // キノコのランプ：ソファの後ろの両わき
-        foreach (var lp in new[] { C - dir * 2.7f - perp * 2.3f, C - dir * 2.7f + perp * 2.3f })
+        // キノコのランプ：ソファの後ろの両わき（2026-11-19 てじゃ「あそびばの2本あるスタンドライトいらんかも」→ PlaygroundLamps=false で置かない）
+        if (PlaygroundLamps) foreach (var lp in new[] { C - dir * 2.7f - perp * 2.3f, C - dir * 2.7f + perp * 2.3f })
         {
             var lamp = new GameObject("Lamp").transform; lamp.SetParent(deco, false); lamp.position = lp;
             var s = Put("Chill_LampStem", stemM, lamp.position, Quaternion.identity, false); s.transform.SetParent(lamp, true);
