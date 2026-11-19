@@ -116,6 +116,8 @@ Shader "FuwaCourse/ToonLit"
         _GroundFineMask ("細かい模様を一部だけに（大きいムラの暗い所だけ。0=全部、大きいほど少なく）", Range(0,1)) = 0
         // 2026-11-08 見学用の傘：持っている人が見上げた時だけ、自分の画面で網点にして透かす（スクリプトが MaterialPropertyBlock で入れる。0=なし）
         _DitherFade ("網点で透かす (0=なし)", Range(0,1)) = 0
+        // 2026-11-19 てじゃ「マテリアルとかそのへん（軽量化）」：色だけちがう材質を1つにまとめる時、色は頂点の色（mesh.colors、リニア）に入れて、ここでかける
+        [Toggle(_FUWA_VCOLOR)] _UseVertexColor ("頂点の色をかける（色ちがいの材質まとめ用）", Float) = 0
     }
     SubShader
     {
@@ -136,6 +138,7 @@ Shader "FuwaCourse/ToonLit"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #pragma shader_feature_local _FUWA_BUMP
+            #pragma shader_feature_local _FUWA_VCOLOR
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
@@ -187,7 +190,7 @@ Shader "FuwaCourse/ToonLit"
                 UNITY_DEFINE_INSTANCED_PROP(half4, _EmissionColor)
             UNITY_INSTANCING_BUFFER_END(Props)
 
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; float3 uv3 : TEXCOORD3; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; float3 uv3 : TEXCOORD3; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f
             {
                 float4 pos : SV_POSITION;
@@ -200,6 +203,9 @@ Shader "FuwaCourse/ToonLit"
                 half fade : TEXCOORD6;
                 float3 pp : TEXCOORD7;   // 色ムラ・層の模様を取る位置（つららは根元＝天井の位置で取って、天井と同じ層の色にする）
                 FUWA_BAKED_COORDS(8)
+                #ifdef _FUWA_VCOLOR
+                fixed4 vcol : COLOR0;
+                #endif
                 UNITY_VERTEX_INPUT_INSTANCE_ID
                 UNITY_VERTEX_OUTPUT_STEREO
             };
@@ -211,6 +217,12 @@ Shader "FuwaCourse/ToonLit"
                 UNITY_TRANSFER_INSTANCE_ID(v, o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+                #ifdef _FUWA_VCOLOR
+                o.vcol = v.color;   // 頂点の色は sRGB（Color32）で持っている → リニアの時は変換（材質の _Color と同じ扱い）
+                #ifndef UNITY_COLORSPACE_GAMMA
+                o.vcol.rgb = GammaToLinearSpace(o.vcol.rgb);
+                #endif
+                #endif
                 o.wn = UnityObjectToWorldNormal(v.normal);
                 o.fade = _BaseFadeLength > 0 ? smoothstep(-_BaseFadeLength, 0, v.vertex.y) : 0;
                 o.wn = lerp(o.wn, float3(0, -1, 0), o.fade * _BaseFadeNormal);
@@ -236,6 +248,9 @@ Shader "FuwaCourse/ToonLit"
                 if (_DitherFade > 0) clip(Bayer4(i.pos.xy) - _DitherFade);
                 if (any(_PortalClip.xyz)) clip(dot(i.wp, _PortalClip.xyz) + _PortalClip.w);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
+                #ifdef _FUWA_VCOLOR
+                col *= i.vcol;
+                #endif
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
                 if (_GearPattern > 0.5)
                 {
@@ -455,6 +470,7 @@ Shader "FuwaCourse/ToonLit"
             #pragma multi_compile_fwdadd_fullshadows
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
+            #pragma shader_feature_local _FUWA_VCOLOR
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
@@ -470,12 +486,22 @@ Shader "FuwaCourse/ToonLit"
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(fixed4, _Color)
             UNITY_INSTANCING_BUFFER_END(Props)
-            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; half fade : TEXCOORD3; UNITY_SHADOW_COORDS(4) UNITY_FOG_COORDS(5) UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
+            struct appdata { float4 vertex : POSITION; float3 normal : NORMAL; float2 uv : TEXCOORD0; float2 uv1 : TEXCOORD1; fixed4 color : COLOR; UNITY_VERTEX_INPUT_INSTANCE_ID };
+            struct v2f { float4 pos : SV_POSITION; float2 uv : TEXCOORD0; float3 wn : TEXCOORD1; float3 wp : TEXCOORD2; half fade : TEXCOORD3; UNITY_SHADOW_COORDS(4) UNITY_FOG_COORDS(5)
+                #ifdef _FUWA_VCOLOR
+                fixed4 vcol : COLOR0;
+                #endif
+                UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata v)
             {
                 v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o); UNITY_TRANSFER_INSTANCE_ID(v, o);
                 o.pos = UnityObjectToClipPos(v.vertex); o.uv = TRANSFORM_TEX(v.uv, _MainTex);
+                #ifdef _FUWA_VCOLOR
+                o.vcol = v.color;   // 頂点の色は sRGB（Color32）で持っている → リニアの時は変換（材質の _Color と同じ扱い）
+                #ifndef UNITY_COLORSPACE_GAMMA
+                o.vcol.rgb = GammaToLinearSpace(o.vcol.rgb);
+                #endif
+                #endif
                 o.wn = UnityObjectToWorldNormal(v.normal);
                 o.fade = _BaseFadeLength > 0 ? smoothstep(-_BaseFadeLength, 0, v.vertex.y) : 0;
                 o.wn = lerp(o.wn, float3(0, -1, 0), o.fade * _BaseFadeNormal);
@@ -489,6 +515,9 @@ Shader "FuwaCourse/ToonLit"
                 if (_DitherFade > 0) clip(Bayer4(i.pos.xy) - _DitherFade);
                 if (any(_PortalClip.xyz)) clip(dot(i.wp, _PortalClip.xyz) + _PortalClip.w);
                 fixed4 col = tex2D(_MainTex, i.uv) * UNITY_ACCESS_INSTANCED_PROP(Props, _Color);
+                #ifdef _FUWA_VCOLOR
+                col *= i.vcol;
+                #endif
                 col.rgb = lerp(col.rgb, _BaseFadeColor.rgb, i.fade);
                 float3 n = normalize(i.wn);
                 float3 l = normalize(UnityWorldSpaceLightDir(i.wp));
