@@ -797,6 +797,7 @@ public static class FuwaPlaygroundBuilder
             var grab = new GameObject("Grab"); grab.layer = 13; grab.transform.SetParent(slot, false);
             grab.transform.SetPositionAndRotation(body.position, body.rotation);
             var bc = grab.AddComponent<BoxCollider>(); bc.isTrigger = true; bc.center = bb.center; bc.size = bb.size + Vector3.one * 0.1f;
+            FitGrabHull(grab.transform, body);   // 2026-11-19 箱では四隅が広すぎる → 真上から見た形の多角形の柱に
             var rb = grab.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
             var pk = grab.AddComponent<VRC.SDK3.Components.VRCPickup>();
             pk.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pk.orientation = VRC.SDKBase.VRC_Pickup.PickupOrientation.Any; pk.proximity = 2f; pk.pickupable = true;
@@ -844,6 +845,70 @@ public static class FuwaPlaygroundBuilder
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         Debug.Log("[あそびば] 白い明滅 " + n);
+    }
+
+    // 2026-11-19 てじゃ「おもちゃのピックアップの判定がやたらひろいボックスなのがいくつかある」「ステージ2のがそうかも」：
+    //  持つ判定を、おもちゃを真上から見た形（見た目の頂点の xz の凸包、角は最大 GrabHullSides 個）を高さ方向にのばした柱（凸の MeshCollider、トリガー）にする。
+    //  泡・広がる氷・マグマ弾・粒は形に入れない。前の BoxCollider は消す
+    public static int GrabHullSides = 20; public static float GrabHullPad = 0.05f;
+    public static void FitGrabHull(Transform grab, Transform body)
+    {
+        if (!grab || !body) return;
+        var pts = new List<Vector2>(); float ymin = float.MaxValue, ymax = float.MinValue;
+        foreach (var mf in body.GetComponentsInChildren<MeshFilter>(true))
+        {
+            var r = mf.GetComponent<MeshRenderer>(); if (!r || !mf.sharedMesh) continue;
+            if (r.name.StartsWith("Bubble") || r.name == "IceDisc" || r.name == "BombVisual") continue;
+            var m = mf.sharedMesh; var tmp = m.isReadable ? null : Object.Instantiate(m); var vs = (tmp ? tmp : m).vertices; if (tmp) Object.DestroyImmediate(tmp);
+            var l2w = mf.transform.localToWorldMatrix; int step = Mathf.Max(1, vs.Length / 600);
+            for (int i = 0; i < vs.Length; i += step)
+            {
+                var p = grab.InverseTransformPoint(l2w.MultiplyPoint3x4(vs[i]));
+                pts.Add(new Vector2(p.x, p.z)); ymin = Mathf.Min(ymin, p.y); ymax = Mathf.Max(ymax, p.y);
+            }
+        }
+        if (pts.Count < 3) return;
+        // 凸包（Andrew）
+        pts = pts.Distinct().OrderBy(p => p.x).ThenBy(p => p.y).ToList();
+        float Cross(Vector2 o, Vector2 a, Vector2 b) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+        var hull = new List<Vector2>();
+        foreach (var p in pts) { while (hull.Count >= 2 && Cross(hull[hull.Count - 2], hull[hull.Count - 1], p) <= 0) hull.RemoveAt(hull.Count - 1); hull.Add(p); }
+        int lower = hull.Count + 1;
+        for (int i = pts.Count - 2; i >= 0; i--) { var p = pts[i]; while (hull.Count >= lower && Cross(hull[hull.Count - 2], hull[hull.Count - 1], p) <= 0) hull.RemoveAt(hull.Count - 1); hull.Add(p); }
+        hull.RemoveAt(hull.Count - 1);
+        // 角を減らす：面積がいちばん小さくなる角から消していく（外に少しふくらませて、消した所が内側に入らないように GrabHullPad）
+        while (hull.Count > GrabHullSides)
+        {
+            int best = 0; float bestA = float.MaxValue;
+            for (int i = 0; i < hull.Count; i++) { var a0 = hull[(i + hull.Count - 1) % hull.Count]; var a1 = hull[i]; var a2 = hull[(i + 1) % hull.Count]; float ar = Mathf.Abs(Cross(a0, a1, a2)); if (ar < bestA) { bestA = ar; best = i; } }
+            hull.RemoveAt(best);
+        }
+        var c = Vector2.zero; foreach (var p in hull) c += p; c /= hull.Count;
+        for (int i = 0; i < hull.Count; i++) { var d = hull[i] - c; hull[i] = hull[i] + d.normalized * GrabHullPad; }
+        ymin -= GrabHullPad; ymax += GrabHullPad;
+        // 柱のメッシュ
+        int n = hull.Count; var V = new List<Vector3>(); var T = new List<int>();
+        foreach (var p in hull) V.Add(new Vector3(p.x, ymin, p.y));
+        foreach (var p in hull) V.Add(new Vector3(p.x, ymax, p.y));
+        for (int i = 1; i < n - 1; i++) { T.Add(0); T.Add(i); T.Add(i + 1); T.Add(n); T.Add(n + i + 1); T.Add(n + i); }
+        for (int i = 0; i < n; i++) { int j = (i + 1) % n; T.Add(i); T.Add(n + i); T.Add(j); T.Add(j); T.Add(n + i); T.Add(n + j); }
+        var mesh = new Mesh(); mesh.SetVertices(V); mesh.SetTriangles(T, 0); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        mesh = SaveGenMesh(mesh, "GrabHull_" + grab.parent.name + "_" + grab.name);
+        foreach (var old in grab.GetComponents<BoxCollider>()) Object.DestroyImmediate(old);
+        var mc = grab.GetComponent<MeshCollider>(); if (!mc) mc = grab.gameObject.AddComponent<MeshCollider>();
+        mc.sharedMesh = mesh; mc.convex = true; mc.isTrigger = true;
+    }
+    [MenuItem("FuwaCourse/あそびば/持ち運ぶおもちゃの持つ判定を形に合わせる")]
+    static void MenuFitGrabHulls()
+    {
+        int n = 0;
+        foreach (var mm in Object.FindObjectsOfType<FuwaMovableMushroom>(true))
+        {
+            if (!mm.gameObject.scene.IsValid() || mm.name != "Grab") continue;   // ステージ2のおもちゃ（Grab）。跳ねるきのこは別
+            FitGrabHull(mm.transform, mm.body); n++;
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[あそびば] 持つ判定を形に " + n);
     }
 
     [MenuItem("FuwaCourse/あそびば/ステージ2のおもちゃを持ち運べるように")]
