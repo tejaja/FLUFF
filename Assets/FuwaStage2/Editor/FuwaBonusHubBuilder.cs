@@ -202,19 +202,21 @@ public static class FuwaBonusHubBuilder
     // 2026-11-19 てじゃ「あしあとは金ピカ銃の右くらい」：東のきんピカ台（局所 (8.4, -1.6)）の右（南）へ。読む向きは島のまん中から（東を向く）
     // 2026-11-19 てじゃ「ボタンとかボード、ちゃんと柵基準で」：柵（局所の半径 FenceR）の内側に沿わせて、島のまん中を向ける。角度は +x（東）から +z（北）へ測る
     //  → 島を小さくした（IslandXZ）ので、半径は柵から、角度は金の台の向きと柵ぞいの長さ（m、縮める前）から決める（前の値：ボタン -20°、看板 -34°、リセット 10.8°）
-    public static float FenceR0 = 11.37f, BtnIn = 0.37f, StatsIn = 0.52f, StatsBtnArc = 1.77f, StatsArc = 2.6f;
+    //  → 同日「ボタンをちょい右にずらして、ボードはボタンの上にだすようにしよ」：ボタンは StatsBtnArc（1.77→2.4）、看板はボタンと同じ向きで上に（下のはしがボタンの上 StatsAboveGap）
+    public static float FenceR0 = 11.37f, BtnIn = 0.37f, StatsIn = 0.52f, StatsBtnArc = 2.4f, StatsAboveGap = 0.15f;
     public static float FenceR => FenceR0 * IslandXZ;
     public static float BtnR => FenceR - BtnIn;
     public static float StatsR => FenceR - StatsIn;
     static float GoldDeg => Mathf.Atan2(1.6f, GoldX) * Mathf.Rad2Deg;   // 金ふわふわの台の向き（金の銃の台はその逆）
     public static float ResetDeg => GoldDeg;                                          // まん中のふわふわ（金ふわふわの台）の奥
     public static float StatsBtnDeg => -GoldDeg - StatsBtnArc / BtnR * Mathf.Rad2Deg;   // 金の銃の台の右
-    public static float StatsDeg => StatsBtnDeg - StatsArc / StatsR * Mathf.Rad2Deg;   // あしあとボタンの右に看板
+    public static float StatsDeg => StatsBtnDeg;   // あしあとボタンの上に看板
     public static Vector3 OnFence(float r, float deg, float y) { float a = deg * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r); }
     static Quaternion FaceOut(Vector3 p) { var o = new Vector3(p.x, 0f, p.z); return o.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(o.normalized) : Quaternion.identity; }   // 読む人は島のまん中から
     // 2026-11-19 てじゃ「あしあとボード、もうちょいコンパクトにしたい、あとちょっと上に」「余白減らす感じで」：板の余白をへらす（StatsPanelW/H）、まん中の高さ StatsY。StatsScale は板ごとの倍率（今は1）
     public static float StatsScale = 1f;
-    public static float StatsY = 1.9f, StatsPanelW = 3.0f, StatsPanelH = 2.65f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
+    public static float StatsY => BtnY + BtnHalfH + StatsAboveGap + StatsPanelH * 0.5f;   // ボタンの上（BtnHalfH：ボタンの高さの半分）
+    public static float BtnHalfH = 0.2f, StatsPanelW = 3.0f, StatsPanelH = 2.65f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
     // 2026-11-19 てじゃ「あしあと、もうちょい幅狭められないかな」「英語コース名注意」：列を詰めて幅をへらす。名前の列は英語の一番長い名前（Mushroom Valley ≒1.0）も入る幅を残す
     //  文字の幅（文字の大きさ1.25）：名前 1.0、さいしょう 0.42（80%）、ノーミス 0.44、999999 0.42、ふわふわが進んだきょり 1.21
     //  → 同日「全部英語版もほしいな」「それもとに幅も調整しよ」：言葉ごとに列の位置（左はしから・島の座標）と欄の幅を決める。板の幅は欄＋0.4（FuwaStatsBoard が切りかえ）
@@ -278,7 +280,7 @@ public static class FuwaBonusHubBuilder
         var b = Object.Instantiate(src.gameObject, root, false).transform; b.name = "StatsBoard";
         foreach (var tb in b.GetComponents<FuwaThanksBoard>()) { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tb); Object.DestroyImmediate(tb); if (ub) Object.DestroyImmediate(ub); }
         b.localPosition = OnFence(StatsR, StatsDeg, StatsY); b.localRotation = FaceOut(b.localPosition); b.localScale = Vector3.one * StatsScale;   // 島のまん中から読める（文字の正面＝+z が西向き）
-        var tmp = b.GetComponent<TMPro.TextMeshPro>(); tmp.rectTransform.sizeDelta = new Vector2(StatsTextW, StatsPanelH - 0.2f);   // 幅はこの後 FuwaStatsBoard が言葉で切りかえ tmp.fontSize = StatsFont;
+        var tmp = b.GetComponent<TMPro.TextMeshPro>(); tmp.rectTransform.sizeDelta = new Vector2(StatsTextW, StatsPanelH - 0.2f); tmp.fontSize = StatsFont;   // 幅はこの後 FuwaStatsBoard が言葉で切りかえ（2026-11-19 コメントの後ろに入って文字の大きさが Times1 の 1.9 のままになっていた）
         tmp.alignment = TMPro.TextAlignmentOptions.Left; tmp.enableWordWrapping = false; tmp.margin = Vector4.zero;
         var panel = b.Find("Panel")?.GetComponent<SpriteRenderer>();
         if (panel && panel.drawMode != SpriteDrawMode.Simple)
