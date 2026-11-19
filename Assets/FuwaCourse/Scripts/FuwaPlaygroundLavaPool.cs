@@ -42,6 +42,9 @@ public class FuwaPlaygroundLavaPool : UdonSharpBehaviour
         Show(false);
     }
 
+    // 持ち運び（FuwaMovableMushroom）で離した時に呼ばれる。このおもちゃは何もしない（氷のおもちゃだけ当たりを合わせ直す）
+    public void ReapplyAfterDrop() { }
+
     public void Toggle()
     {
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);

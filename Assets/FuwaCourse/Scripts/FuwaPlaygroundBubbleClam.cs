@@ -63,6 +63,9 @@ public class FuwaPlaygroundBubbleClam : UdonSharpBehaviour
     [Tooltip("クリック（Interact）でもオン/オフするか（持ち運べるようにした時は切る）")]
     public bool clickToggle = true;
     public override void Interact() { Toggle(); }
+    // 持ち運び（FuwaMovableMushroom）で離した時に呼ばれる。このおもちゃは何もしない（氷のおもちゃだけ当たりを合わせ直す）
+    public void ReapplyAfterDrop() { }
+
     public void Toggle()
     {
         if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer, gameObject);

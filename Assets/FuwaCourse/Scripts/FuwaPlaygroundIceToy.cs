@@ -40,6 +40,9 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
         Apply();
     }
 
+    // 持ち運び（FuwaMovableMushroom）で離した時：当たりを今の広がりに合わせ直す（持っている間は当たりを全部切っている）
+    public void ReapplyAfterDrop() { Apply(); }
+
     private void Apply()
     {
         if (disc == null) return;

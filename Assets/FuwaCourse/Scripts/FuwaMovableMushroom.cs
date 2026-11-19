@@ -70,15 +70,22 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
         for (int i = 0; i < jb.Length; i++) _boosts[i] = jb[i].gameObject;
     }
 
+    public bool IsHeldNow() { return _pickup != null && _pickup.IsHeld; }
+
     private void UpdateHeld()
     {
         Init();
         bool held = _pickup != null && _pickup.IsHeld;
+        // 2026-11-19 てじゃ「上に乗れる系のおもちゃ（歯車・氷）、持ってる間は乗れないようにしたい。ピックアップで自分が乗ると無限に飛んじゃう」：
+        //  おもちゃのスクリプトが当たりをオンに戻すことがある（氷を持ったままオンにすると、広がる氷の当たりがオンになる）ので、持っている間は毎フレーム切る
+        if (held) for (int i = 0; i < _cols.Length; i++) if (_cols[i] != null && _cols[i].enabled && (_boosts.Length == 0 || _cols[i].GetComponent<FuwaJumpBoost>() == null)) _cols[i].enabled = false;
         if (held == _shownHeld) return;
         _shownHeld = held;
         // ジャンプ台はオブジェクトごと止める（OnDisable で上がったジャンプ力が元に戻る。判定だけ切ると出た知らせが来ず戻らない）
         for (int i = 0; i < _boosts.Length; i++) if (_boosts[i] != null) _boosts[i].SetActive(!held);
         for (int i = 0; i < _cols.Length; i++) if (_cols[i] != null && (_boosts.Length == 0 || _cols[i].GetComponent<FuwaJumpBoost>() == null)) _cols[i].enabled = !held;
+        // 離したら、おもちゃ自身に当たりのオン/オフを決め直してもらう（氷が出ていない時の氷の当たりなど）
+        if (!held && useTarget != null) useTarget.SendCustomEvent("ReapplyAfterDrop");
     }
 
     public override void OnPickup() { SetGhost(true); }
