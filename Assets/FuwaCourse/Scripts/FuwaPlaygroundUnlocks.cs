@@ -26,9 +26,10 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
     [Tooltip("入ってからこの秒数のうちに出た物はアニメなし（入った時にすでに解放ずみの物）")]
     public float noAnimAfterStart = 4f;
     // 2026-11-19 てじゃ「後ろにドームをパカっと開く感じにできないかな」：ドームの奥（ひろばのまん中から見て向こう側）のふちを軸に、ふたのように奥へ開く → 開いたまま少し止まって → 小さくなって消える
-    public float squashTime = 0.1f, openTime = 0.28f, holdTime = 0.25f, vanishTime = 0.2f, toyDelay = 0.22f, toyTime = 0.75f;
-    [Tooltip("ドームが開く角度")]
-    public float openAngle = 115f;
+    //  → 同日「もうちょいゆっくりでいい」「最後に床に貫通してるのをどうにかしたい」：時間をのばし、開く角度は 90° をこえない（こえると軸の向こうで床にもぐる）
+    public float squashTime = 0.16f, openTime = 0.55f, holdTime = 0.45f, vanishTime = 0.35f, toyDelay = 0.4f, toyTime = 1.0f;
+    [Tooltip("ドームが開く角度（行きすぎ分をたしても 90° をこえないように）")]
+    public float openAngle = 80f;
 
     private float _next;
     private float _startAt;
@@ -145,8 +146,8 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
                         Vector3 baseW = lt.TransformPoint(p0);
                         Vector3 hinge = baseW + back * rad;
                         float u = Mathf.Clamp01(tOpen / openTime);
-                        float c1 = 1.6f, c3 = c1 + 1f, v = u - 1f;
-                        float ang = openAngle * (1f + c3 * v * v * v + c1 * v * v);
+                        float c1 = 1.70158f, c3 = c1 + 1f, v = u - 1f;   // 行きすぎは約 10%
+                        float ang = Mathf.Min(89f, openAngle * (1f + c3 * v * v * v + c1 * v * v));
                         Quaternion q = Quaternion.AngleAxis(ang, axis);
                         d.position = hinge + q * (baseW - hinge);
                         d.rotation = q * (lt.rotation * r0);
