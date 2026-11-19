@@ -165,10 +165,11 @@ public static class FuwaBonusHubBuilder
         // 2026-11-18 てじゃ「わかりづらいか、やっぱただの固定の像みたいに飾って、下にオンオフスイッチ式に」：像は金ピカで固定（回さない）、台のクリックでオン／オフ
         spin.localRotation = Quaternion.Euler(0f, StatueYaw, 0f) * Quaternion.Euler(sc ? sc.tilt : Vector3.zero);
         // うしろの大きい光（後光）はなし（2026-11-19 てじゃ「金銃台のデカい後光みたいなのいらない」）
-        if (sc.sparkles) { var sp = Object.Instantiate(sc.sparkles, disp, false); sp.name = "Sparkles"; sp.transform.localPosition = sc.sparkles.transform.localPosition; sp.SetActive(true); }
+        GameObject spk = null;
+        if (sc.sparkles) { var sp = Object.Instantiate(sc.sparkles, disp, false); sp.name = "Sparkles"; sp.transform.localPosition = sc.sparkles.transform.localPosition; sp.SetActive(true); spk = sp; }
         Object.DestroyImmediate(spot.gameObject);   // 銃は呼ばない
         var gsw = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGoldGunSwitch>(gs.gameObject);
-        gsw.manager = mgr; gsw.clickSound = click; gsw.label = null; gsw.goldModel = goldM; gsw.normalModel = normM;   // 文字なし（てじゃ「スイッチは分かりづらい」）
+        gsw.manager = mgr; gsw.clickSound = click; gsw.label = null; gsw.goldModel = goldM; gsw.normalModel = normM; gsw.sparkles = spk;   // 2026-11-19 てじゃ「台に通常銃が乗ってるときはキラキラ消そう」   // 文字なし（てじゃ「スイッチは分かりづらい」）
         UdonSharpEditorUtility.CopyProxyToUdon(gsw); FuwaStage2WaterTest.NoSync(gsw);
         return "金の銃の像＋スイッチ・回る銃の金ピカ " + sc.goldRenderers.Length + " ";
     }

@@ -16,6 +16,9 @@ public class FuwaGoldGunSwitch : UdonSharpBehaviour
     public GameObject goldModel;
     [Tooltip("台の上の像：元の色（なくてもOK）")]
     public GameObject normalModel;
+    // 2026-11-19 てじゃ「切り替えて台に通常銃が乗ってるときはキラキラ消そう」：台のキラキラは金ピカの像が出ている時だけ
+    [Tooltip("台のキラキラ（金ピカの像の時だけ出す。なくてもOK）")]
+    public GameObject sparkles;
     public string toGoldText = "きんピカにする", toNormalText = "もとにもどす";
     private int _shown = -1;
     private float _next;
@@ -50,6 +53,7 @@ public class FuwaGoldGunSwitch : UdonSharpBehaviour
         if (label != null) label.text = gold ? onText : offText;
         if (goldModel != null) goldModel.SetActive(!gold);
         if (normalModel != null) normalModel.SetActive(gold);
+        if (sparkles != null) sparkles.SetActive(!gold);
         InteractionText = gold ? toNormalText : toGoldText;
     }
 }
