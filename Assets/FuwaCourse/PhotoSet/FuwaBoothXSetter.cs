@@ -8,13 +8,15 @@ public class FuwaBoothXSetter : MonoBehaviour
 {
     void OnEnable() { Apply(); }
     void Update() { Apply(); }
-    void OnDisable() { Shader.SetGlobalVector("_FuwaPhotoBoothX", Vector4.zero); Shader.SetGlobalVector("_FuwaBoothX", Vector4.zero); }
+    void OnDisable() { Shader.SetGlobalVector("_FuwaPhotoBoothX", Vector4.zero); Shader.SetGlobalVector("_FuwaBoothX", Vector4.zero); Shader.SetGlobalFloat("_FuwaPhotoBoothScale", 0f); }
     void Apply()
     {
         Vector3 x = transform.right; x.y = 0f;
         if (x.sqrMagnitude < 1e-6f) return;
         x.Normalize();
         Shader.SetGlobalVector("_FuwaPhotoBoothX", new Vector4(x.x, 0f, x.z, 1f));
+        // ブース全体の縮め（この物の大きさ。撮影セットはブースの 0.4 倍）
+        Shader.SetGlobalFloat("_FuwaPhotoBoothScale", Mathf.Abs(transform.lossyScale.y));
         // 太陽の向きもブースの向きに合わせる（会場でブースを回した時と同じ仕組み）
         Shader.SetGlobalVector("_FuwaBoothX", new Vector4(x.x, 0f, x.z, 0f));
     }

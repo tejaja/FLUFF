@@ -36,7 +36,9 @@ float3 FuwaBoothSunDir()
 // FLUFF の撮影セット用（2026-11-19）：合体していない元のメッシュは接線にブースの +X が入っていないので、
 // _FuwaPhotoBoothX（w=1 の時、ワールドでのブースの +X）を FuwaBoothXSetter から全体に入れて使う。大きさは物の大きさ（撮影セットはブースの 0.4 倍）
 float4 _FuwaPhotoBoothX;
-float FuwaBoothScale() { return length(float3(unity_ObjectToWorld._m00, unity_ObjectToWorld._m10, unity_ObjectToWorld._m20)); }
+// 綿毛の板の大きさ・ゆれ幅はブースでの大きさのメートルでメッシュに焼いてある（FuwaBoothDandelionScale）ので、ブース全体の縮め（撮影セットの Booth の大きさ）だけかける
+float _FuwaPhotoBoothScale;
+float FuwaBoothScale() { return _FuwaPhotoBoothScale > 0 ? _FuwaPhotoBoothScale : 1; }
 float3 FuwaBoothDir(float3 d, float4 tangent)
 {
     float3 bx = mul((float3x3)unity_ObjectToWorld, tangent.xyz); bx.y = 0;
