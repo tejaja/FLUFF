@@ -25,6 +25,10 @@ public class FuwaBonusButton : UdonSharpBehaviour
     public string openTextEn = "Footprints", closeTextEn = "Footprints";
     private float _pressAt = -10f;
     private int _lang = -1;
+    // 2026-11-19 てじゃ「ボードが空中から上下に展開するかんじ」：閉じる時はこれに CloseAnim を送る（縮みきったら自分で消える）。空ならすぐ消す
+    [Tooltip("mode 1 の閉じるアニメ（CloseAnim を持つ UdonBehaviour。なくてもOK）")]
+    public UdonSharpBehaviour toggleAnim;
+    private bool _open;
     private float _langNext;
     private Vector3 _pressBase;
 
@@ -35,7 +39,7 @@ public class FuwaBonusButton : UdonSharpBehaviour
         ShowText();
     }
 
-    private bool IsOpen() { return mode == 1 && toggleTarget != null && toggleTarget.activeSelf; }
+    private bool IsOpen() { return mode == 1 && _open; }
 
     private void ShowText()
     {
@@ -68,8 +72,11 @@ public class FuwaBonusButton : UdonSharpBehaviour
         }
         else if (toggleTarget != null)
         {
-            bool on = !toggleTarget.activeSelf;
-            toggleTarget.SetActive(on);
+            bool on = !_open;
+            _open = on;
+            if (on) { if (toggleTarget.activeSelf) toggleTarget.SetActive(false); toggleTarget.SetActive(true); }   // 閉じている途中でも開き直す
+            else if (toggleAnim != null) toggleAnim.SendCustomEvent("CloseAnim");
+            else toggleTarget.SetActive(false);
             ShowText();
         }
     }

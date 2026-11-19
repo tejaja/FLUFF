@@ -343,6 +343,7 @@ public static class FuwaBonusHubBuilder
             var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBonusButton>(b.gameObject);
             fb.mode = 1; fb.toggleTarget = stats.gameObject; fb.label = tm; fb.openText = fb.closeText = "あしあと";   // てじゃ「ボタン名は『あしあと』だけでいいよ」
             fb.language = lang; fb.openTextEn = fb.closeTextEn = "Footprints";
+            fb.toggleAnim = stats.GetComponent<FuwaStatsBoard>();   // 閉じる時のアニメ（2026-11-19）
             UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb); Hook(b, fb);
             n++;
         }
