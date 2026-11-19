@@ -25,9 +25,10 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
     public AudioSource openSound, popSound;
     [Tooltip("入ってからこの秒数のうちに出た物はアニメなし（入った時にすでに解放ずみの物）")]
     public float noAnimAfterStart = 4f;
-    public float squashTime = 0.12f, flyTime = 0.22f, toyDelay = 0.16f, toyTime = 0.75f;
-    [Tooltip("ドームが飛ぶ高さ(m)")]
-    public float flyUp = 0.7f;
+    // 2026-11-19 てじゃ「後ろにドームをパカっと開く感じにできないかな」：ドームの奥（ひろばのまん中から見て向こう側）のふちを軸に、ふたのように奥へ開く → 開いたまま少し止まって → 小さくなって消える
+    public float squashTime = 0.1f, openTime = 0.28f, holdTime = 0.25f, vanishTime = 0.2f, toyDelay = 0.22f, toyTime = 0.75f;
+    [Tooltip("ドームが開く角度")]
+    public float openAngle = 115f;
 
     private float _next;
     private float _startAt;
@@ -37,6 +38,13 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
     private Vector3[] _lockScale = new Vector3[0];
     private Vector3[] _lockPos = new Vector3[0];
     private Vector3[] _toyScale = new Vector3[0];
+    private Transform[] _dome = new Transform[0];
+    private Vector3[] _domePos = new Vector3[0], _domeScale = new Vector3[0];
+    private Quaternion[] _domeRot = new Quaternion[0];
+    // ドームのふちの輪（Rim）もふたといっしょに開く（てじゃの確認用に撮ったら、輪があるとふたが開くのが分かりやすかった）
+    private Transform[] _rim = new Transform[0];
+    private Vector3[] _rimPos = new Vector3[0], _rimScale = new Vector3[0];
+    private Quaternion[] _rimRot = new Quaternion[0];
     private int _animCount;
 
     private void Start() { _next = 0f; _startAt = Time.time; }
@@ -57,6 +65,8 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
         {
             _shown = new bool[n]; _animAt = new float[n]; _toyOn = new bool[n];
             _lockScale = new Vector3[n]; _lockPos = new Vector3[n]; _toyScale = new Vector3[n];
+            _dome = new Transform[n]; _domePos = new Vector3[n]; _domeScale = new Vector3[n]; _domeRot = new Quaternion[n];
+            _rim = new Transform[n]; _rimPos = new Vector3[n]; _rimScale = new Vector3[n]; _rimRot = new Quaternion[n];
             for (int i = 0; i < n; i++) { _animAt[i] = -1f; Set(i, false, true); }
         }
         for (int i = 0; i < n; i++)
@@ -85,7 +95,14 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
         if (_animAt[i] < 0f) _animCount++;
         _animAt[i] = Time.time; _toyOn[i] = false;
         GameObject l = LockedOf(i);
-        if (l != null) { l.SetActive(true); _lockScale[i] = l.transform.localScale; _lockPos[i] = l.transform.localPosition; }
+        if (l != null)
+        {
+            l.SetActive(true); _lockScale[i] = l.transform.localScale; _lockPos[i] = l.transform.localPosition;
+            Transform d = l.transform.Find("Dome"); _dome[i] = d;
+            if (d != null) { _domePos[i] = d.localPosition; _domeRot[i] = d.localRotation; _domeScale[i] = d.localScale; }
+            Transform rm = l.transform.Find("Rim"); _rim[i] = rm;
+            if (rm != null) { _rimPos[i] = rm.localPosition; _rimRot[i] = rm.localRotation; _rimScale[i] = rm.localScale; }
+        }
         if (toys[i] != null) _toyScale[i] = toys[i].transform.localScale;
         if (openSound != null && l != null) { openSound.transform.position = l.transform.position + Vector3.up * 0.5f; openSound.Play(); }
     }
@@ -97,30 +114,66 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
             if (_animAt[i] < 0f) continue;
             float t = Time.time - _animAt[i];
             GameObject l = LockedOf(i);
-            // ドーム：むにっと縮んで（横に広がる）→ 上へポンと飛びながら小さくなって消える
+            // ドーム：むにっと縮んで → 奥のふちを軸に、ふたのように奥へパカッと開く（行きすぎて戻る）→ 少し止まって小さくなって消える。ほかの部品（札・看板・ふち）は開くと同時に縮む
             if (l != null && l.activeSelf)
             {
-                Vector3 s0 = _lockScale[i];
-                if (t < squashTime)
+                Transform lt = l.transform;
+                Transform d = _dome[i]; Transform rm = _rim[i];
+                float tOpen = t - squashTime, tVan = t - squashTime - openTime - holdTime;
+                // ほかの部品：開き始めから openTime で縮んで消える（ドームは別）
+                float ko = tOpen <= 0f ? 1f : 1f - Mathf.Clamp01(tOpen / openTime);
+                for (int c = 0; c < lt.childCount; c++)
                 {
-                    float u = t / squashTime; float k = Mathf.Sin(u * Mathf.PI * 0.5f);
-                    l.transform.localScale = new Vector3(s0.x * (1f + 0.18f * k), s0.y * (1f - 0.3f * k), s0.z * (1f + 0.18f * k));
-                    l.transform.localPosition = _lockPos[i];
+                    Transform ch = lt.GetChild(c); if (ch == d || ch == rm) continue;
+                    ch.localScale = Vector3.one * Mathf.Max(0.001f, ko * ko);
                 }
-                else
+                if (d != null)
                 {
-                    float u = Mathf.Clamp01((t - squashTime) / flyTime);
-                    float k = 1f - u * u;
-                    float up = flyUp * (1f - (1f - u) * (1f - u));
-                    l.transform.localScale = new Vector3(s0.x * 1.18f * k, s0.y * (0.7f + 0.5f * (1f - k)) * k, s0.z * 1.18f * k);
-                    l.transform.localPosition = _lockPos[i] + l.transform.parent.InverseTransformVector(Vector3.up * up);
-                    if (u >= 1f) { l.SetActive(false); l.transform.localScale = s0; l.transform.localPosition = _lockPos[i]; }
+                    Vector3 p0 = _domePos[i]; Quaternion r0 = _domeRot[i]; Vector3 s0 = _domeScale[i];
+                    if (t < squashTime)
+                    {
+                        float u = t / squashTime; float k = Mathf.Sin(u * Mathf.PI * 0.5f);
+                        d.localScale = new Vector3(s0.x * (1f + 0.1f * k), s0.y * (1f - 0.18f * k), s0.z * (1f + 0.1f * k));
+                    }
+                    else
+                    {
+                        // 奥の向き（ひろばのまん中 → このドーム）と、奥の下のふち（軸）
+                        Vector3 back = lt.position - transform.position; back.y = 0f;
+                        back = back.sqrMagnitude > 1e-4f ? back.normalized : lt.forward;
+                        Vector3 axis = Vector3.Cross(Vector3.up, back);
+                        float rad = d.lossyScale.x * 0.5f;
+                        Vector3 baseW = lt.TransformPoint(p0);
+                        Vector3 hinge = baseW + back * rad;
+                        float u = Mathf.Clamp01(tOpen / openTime);
+                        float c1 = 1.6f, c3 = c1 + 1f, v = u - 1f;
+                        float ang = openAngle * (1f + c3 * v * v * v + c1 * v * v);
+                        Quaternion q = Quaternion.AngleAxis(ang, axis);
+                        d.position = hinge + q * (baseW - hinge);
+                        d.rotation = q * (lt.rotation * r0);
+                        float kv = tVan <= 0f ? 1f : 1f - Mathf.Clamp01(tVan / vanishTime);
+                        d.localScale = s0 * Mathf.Max(0.001f, kv);
+                        if (rm != null)
+                        {
+                            Vector3 rw = lt.TransformPoint(_rimPos[i]);
+                            rm.position = hinge + q * (rw - hinge);
+                            rm.rotation = q * (lt.rotation * _rimRot[i]);
+                            rm.localScale = _rimScale[i] * Mathf.Max(0.001f, kv);
+                        }
+                        if (tVan >= vanishTime)
+                        {
+                            l.SetActive(false);
+                            d.localPosition = p0; d.localRotation = r0; d.localScale = s0;
+                            if (rm != null) { rm.localPosition = _rimPos[i]; rm.localRotation = _rimRot[i]; rm.localScale = _rimScale[i]; }
+                            for (int c = 0; c < lt.childCount; c++) { Transform ch = lt.GetChild(c); if (ch != d && ch != rm) ch.localScale = Vector3.one; }
+                        }
+                    }
                 }
+                else if (tOpen >= openTime) l.SetActive(false);
             }
             // おもちゃ：少し遅れて、小さい所からポヨンとはずんで出る（行きすぎて少しゆれて止まる）
             GameObject toy = toys[i];
             float tt = t - toyDelay;
-            if (toy == null) { if (t > squashTime + flyTime) { _animAt[i] = -1f; _animCount--; } continue; }
+            if (toy == null) { if (t > squashTime + openTime + holdTime + vanishTime) { _animAt[i] = -1f; _animCount--; } continue; }
             if (tt < 0f) continue;
             if (!_toyOn[i])
             {
@@ -137,8 +190,7 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
             if (uu >= 1f)
             {
                 toy.transform.localScale = b;
-                if (l != null && l.activeSelf) { l.SetActive(false); l.transform.localScale = _lockScale[i]; l.transform.localPosition = _lockPos[i]; }
-                _animAt[i] = -1f; _animCount--;
+                if (t >= squashTime + openTime + holdTime + vanishTime) { _animAt[i] = -1f; _animCount--; }
             }
         }
     }

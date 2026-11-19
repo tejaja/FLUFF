@@ -527,6 +527,45 @@ public static class FuwaPlaygroundBuilder
     static Color Hex(string h) { ColorUtility.TryParseHtmlString("#" + h, out var c); return c; }
     const float LockHW = 0.72f, LockHH = 0.3f, LockRound = 0.28f, LockPipe = 0.035f, LockY = 1.3f, DomeR = 0.68f;
 
+    // 半径 0.5 の半球（y≧0）。外と内の両面（開いた時に内側が見える）。Unity の球と同じ大きさなので、今のドームの大きさのまま差しかえられる
+    public static Mesh DomeHalfMesh()
+    {
+        const int seg = 40, rings = 12;
+        var vs = new List<Vector3>(); var ns = new List<Vector3>(); var uv = new List<Vector2>(); var tri = new List<int>();
+        for (int side = 0; side < 2; side++)
+        {
+            int b = vs.Count;
+            for (int r = 0; r <= rings; r++)
+            {
+                float th = r / (float)rings * Mathf.PI * 0.5f;   // 0＝てっぺん
+                for (int k = 0; k <= seg; k++)
+                {
+                    float ph = k / (float)seg * Mathf.PI * 2f;
+                    var n = new Vector3(Mathf.Sin(th) * Mathf.Cos(ph), Mathf.Cos(th), Mathf.Sin(th) * Mathf.Sin(ph));
+                    vs.Add(n * 0.5f); ns.Add(side == 0 ? n : -n); uv.Add(new Vector2(k / (float)seg, 1f - r / (float)rings));
+                }
+            }
+            for (int r = 0; r < rings; r++)
+                for (int k = 0; k < seg; k++)
+                {
+                    int a0 = b + r * (seg + 1) + k, a1 = a0 + 1, c0 = a0 + seg + 1, c1 = c0 + 1;
+                    if (side == 0) { tri.Add(a0); tri.Add(a1); tri.Add(c0); tri.Add(a1); tri.Add(c1); tri.Add(c0); }
+                    else { tri.Add(a0); tri.Add(c0); tri.Add(a1); tri.Add(a1); tri.Add(c0); tri.Add(c1); }
+                }
+        }
+        var m = new Mesh(); m.SetVertices(vs); m.SetNormals(ns); m.SetUVs(0, uv); m.SetTriangles(tri, 0); m.RecalculateBounds();
+        return SaveGenMesh(m, "Playground_DomeHalf");
+    }
+    [MenuItem("FuwaCourse/あそびば/ドームを半球にする（奥へ開くアニメ用）")]
+    static void MenuDomeHalf()
+    {
+        var mesh = DomeHalfMesh(); int n = 0;
+        foreach (var un in Object.FindObjectsOfType<FuwaPlaygroundUnlocks>(true))
+            foreach (var l in un.locked) { var d = l ? l.transform.Find("Dome") : null; if (d) { d.GetComponent<MeshFilter>().sharedMesh = mesh; n++; } }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[あそびば] ドームを半球に " + n);
+    }
+
     static (GameObject, TMPro.TextMeshPro) LockedSign(Transform toys, string name, Vector3 floor, Vector3 outDir, Color accent, string ja)
     {
         var root = new GameObject(name).transform; root.SetParent(toys, false);
@@ -536,6 +575,7 @@ public static class FuwaPlaygroundBuilder
         // 台座：半透明のドーム（下半分は床に埋める）＋中に「?」
         var dome = GameObject.CreatePrimitive(PrimitiveType.Sphere); dome.name = "Dome"; Object.DestroyImmediate(dome.GetComponent<Collider>());
         dome.transform.SetParent(root, false); dome.transform.localPosition = Vector3.zero; dome.transform.localScale = new Vector3(DomeR * 2f, DomeR * 1.5f, DomeR * 2f);
+        dome.GetComponent<MeshFilter>().sharedMesh = DomeHalfMesh();   // 2026-11-19 奥へパカッと開くので、床にうめた玉ではなく本当の半球（内側も見える）
         var dm = dome.GetComponent<MeshRenderer>(); dm.sharedMaterial = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Generated/MonitorCamZone.mat") ?? AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/ItemBubble.mat");
         dm.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         var ringMesh = SaveGenMesh(Torus(DomeR, 0.05f, 40, 10), "Playground_LockRing");
