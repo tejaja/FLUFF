@@ -759,9 +759,7 @@ public static class FuwaBonusHubBuilder
                         else go.transform.localScale *= 0.93f;
                     }
                 }
-                // 茎の当たり判定（かさの上には乗れない高さ）
-                var col = go.AddComponent<CapsuleCollider>(); col.direction = 1;
-                col.radius = mesh.bounds.size.x * 0.13f; col.height = mesh.bounds.size.y * 0.75f; col.center = new Vector3(0f, col.height * 0.5f, 0f);
+                // 2026-11-19 てじゃ「当たり判定あるきのことないきのこがある、全部なくしたい」：当たり判定はつけない（前は茎にカプセル）
             }
             // キノコどうしが重なったら小さくする（かさを上から見た丸で判定。大きい順に場所を取り、あとの方を縮める）
             {
