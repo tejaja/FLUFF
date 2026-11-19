@@ -179,7 +179,7 @@ public static class FuwaBonusHubBuilder
     {
         var sys = Find("FuwaSystem"); var src = root.Find("Board/Times1");
         var ball = Object.FindObjectsOfType<FuwaBall>(true).FirstOrDefault(b => b.records != null);
-        if (!sys || !src || !ball) return "かくしきろく：材料がない ";
+        if (!sys || !src || !ball) return "あしあと：材料がない ";
         var recs = Object.FindObjectsOfType<FuwaRecords>(true).Where(x => x.name == "Records" || x.name == "Records2").OrderBy(x => x.name).ToArray();
         var stT = sys.Find("Stats"); FuwaStats st = stT ? stT.GetComponent<FuwaStats>() : null;
         if (!st) { var g = new GameObject("Stats"); g.transform.SetParent(sys, false); st = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaStats>(g); }
@@ -200,8 +200,8 @@ public static class FuwaBonusHubBuilder
         }
         var sb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaStatsBoard>(b.gameObject); sb.stats = st; sb.text = tmp;
         UdonSharpEditorUtility.CopyProxyToUdon(sb); FuwaStage2WaterTest.NoSync(sb);
-        tmp.text = "かくしきろく";
-        return "かくしきろく ";
+        tmp.text = "あしあと";
+        return "あしあと ";
     }
 
     // 2026-11-19 てじゃ「ボードとかの位置リセットボタンもほしいのと、かくしデータもボタンで展開するタイプにしよ」：西の柵ぎわに2つ（縮める前の島の座標）
@@ -247,7 +247,7 @@ public static class FuwaBonusHubBuilder
         }
         if (stats)
         {
-            var b = Make("StatsButton", StatsBtnPos, new Color(1f, 0.8f, 0.45f), "かくしきろく");
+            var b = Make("StatsButton", StatsBtnPos, new Color(1f, 0.8f, 0.45f), "あしあと");
             var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBonusButton>(b.gameObject);
             fb.mode = 1; fb.toggleTarget = stats.gameObject; fb.pressPart = b.Find("Cap");
             UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb);

@@ -17,7 +17,7 @@ public class FuwaDebugClearAll : UdonSharpBehaviour
 
     // 2026-11-19 てじゃ「クリアフラグオンにしたときに、仮の記録いれてほしい。タイムは99分59秒99、最小ミス100回、クリア回数100、射撃回数1000、飛距離1000」
     //  タイムはステージ1・2のコースだけ（チュートリアルはタイムなし＝stats.records にあるものだけ）。今の記録より悪くても上書き
-    [Tooltip("かくしきろく（仮の記録を入れる先。なくてもOK）")]
+    [Tooltip("あしあと（仮の記録を入れる先。なくてもOK）")]
     public FuwaStats stats;
     public float fakeTime = 5999.995f;   // 99:59.99（表示は1/100秒で切り捨てなので、ちょうど 5999.99 だと 99:59.98 になることがある）
     public int fakeOuts = 100, fakeHits = 1000, fakeClears = 100, fakeTotalHits = 1000;

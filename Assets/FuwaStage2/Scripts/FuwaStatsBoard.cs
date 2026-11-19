@@ -2,13 +2,13 @@ using UdonSharp;
 using UnityEngine;
 using TMPro;
 
-// 2026-11-18 おまけ本島の隅の「かくしきろく」の看板。FuwaStats の自分の記録を書く（出ている間、ときどき書き直す）
+// 2026-11-18 おまけ本島の隅の「あしあと」の看板。FuwaStats の自分の記録を書く（出ている間、ときどき書き直す）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
 public class FuwaStatsBoard : UdonSharpBehaviour
 {
     public FuwaStats stats;
     public TextMeshPro text;
-    public string title = "<size=125%>かくしきろく</size>";
+    public string title = "<size=125%>あしあと</size>";
     public string namePos = "13%", outPos = "52%", hitPos = "70%", clearPos = "86%";
     public float interval = 1f;
     private float _next;

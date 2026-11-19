@@ -15,7 +15,7 @@ public class FuwaBonusButton : UdonSharpBehaviour
     public GameObject toggleTarget;
     public Transform pressPart;
     public AudioSource clickSound;
-    public string openText = "かくしきろくを見る", closeText = "かくしきろくをとじる";
+    public string openText = "あしあとを見る", closeText = "あしあとをとじる";
     private float _pressAt = -10f;
     private Vector3 _pressBase;
 
