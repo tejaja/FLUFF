@@ -1227,6 +1227,34 @@ public static class FuwaPlaygroundBuilder
 
     // 2–4 プロペラ＋歯車：柱の上のプロペラ（コース2–4 の風車の羽根）をエアガンで撃つと回り、床の歯車（大20枚・小12枚、コース2–4 の乗る歯車を小さく）がいっしょに回る（同期）
     public static float GearToyScale = 0.28f, GearToyRatio = 1f, GearToyLift = 0.55f;   // かさ歯車 1:1 なので小さい歯車はプロペラと同じ速さ
+    // 2026-11-19 てじゃ「歯車の影がめっちゃチラつく」：回る歯車の歯の影が影の地図の細かさで点滅していた → 歯車本体は影を出さず、
+    //  回らない円盤（影だけ、ShadowsOnly）を同じ所に置いて丸い影にする
+    public static void GearShadowProxies(Transform root, Transform[] gears)
+    {
+        foreach (var old in root.Cast<Transform>().Where(t => t.name.StartsWith("GearShadow_")).ToArray()) Object.DestroyImmediate(old.gameObject);
+        foreach (var g in gears)
+        {
+            if (!g) continue;
+            var r = g.GetComponent<MeshRenderer>(); if (!r) continue;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var b = r.bounds; var mb = g.GetComponent<MeshFilter>().sharedMesh.bounds;   // 回っている歯車の AABB は斜めでふくらむので、メッシュの大きさから
+            float d = Mathf.Max(mb.size.x, mb.size.z) * g.lossyScale.x * 0.92f, h = Mathf.Max(0.02f, mb.size.y * g.lossyScale.y);
+            var c = GameObject.CreatePrimitive(PrimitiveType.Cylinder); c.name = "GearShadow_" + g.name; Object.DestroyImmediate(c.GetComponent<Collider>());
+            c.transform.SetParent(root, true); c.transform.position = b.center; c.transform.rotation = root.rotation;
+            var ls = root.lossyScale; c.transform.localScale = new Vector3(d / ls.x, h * 0.5f / ls.y, d / ls.z);
+            var mr = c.GetComponent<MeshRenderer>(); mr.sharedMaterial = r.sharedMaterial; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly; mr.receiveShadows = false;
+        }
+    }
+    [MenuItem("FuwaCourse/あそびば/歯車のおもちゃの影を丸い影に")]
+    static void MenuGearShadows()
+    {
+        var u9 = Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Unlock9" && t.parent && t.parent.name == "Toys");
+        var root = u9.Find("Body/GearToy");
+        GearShadowProxies(root, new[] { root.Find("GearBig"), root.Find("GearSmall") });
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(u9.gameObject.scene);
+        Debug.Log("[あそびば] 歯車の影を丸い影に");
+    }
+
     static void FillWindmill(Transform slot)
     {
         EnsureProgram("FuwaPlaygroundWindmill");
@@ -1251,6 +1279,7 @@ public static class FuwaPlaygroundBuilder
             return g.transform;
         }
         var gB = Gear("GearBig", big, cBig); var gS = Gear("GearSmall", small, cSmall);
+        GearShadowProxies(root, new[] { gB, gS });
         foreach (var (gt, rr) in new[] { (gB, 0.12f), (gS, 0.09f) })
         {   // 床から歯車の下までの軸（歯車といっしょに回る）
             var ax = GameObject.CreatePrimitive(PrimitiveType.Cylinder); ax.name = "Axle"; Object.DestroyImmediate(ax.GetComponent<Collider>());
