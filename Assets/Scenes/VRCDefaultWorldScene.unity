@@ -404796,8 +404796,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 516617000}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.005911702, y: -0.9936615, z: -0.014237507, w: 0.11135161}
-  m_LocalPosition: {x: 0.8808513, y: 0.81545925, z: 2.8444743}
+  m_LocalRotation: {x: 0.029494608, y: -0.9994166, z: -0.016776877, w: -0.0038921535}
+  m_LocalPosition: {x: 0.3762044, y: 1.123783, z: 2.1287177}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1035314,15 +1035314,15 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1173331713}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0.87835145, z: -0, w: 0.47801548}
-  m_LocalPosition: {x: 40.86252, y: 9.48, z: 51.916336}
+  m_LocalRotation: {x: 0.02267536, y: -0.9992558, z: -0.025318354, w: -0.01824249}
+  m_LocalPosition: {x: 38.905758, y: 12.036753, z: 37.545906}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1050238243}
   - {fileID: 516617001}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 597.112, z: 0}
+  m_LocalEulerAnglesHint: {x: -2.948, y: 537.974, z: -2.548}
 --- !u!1 &1173621175
 GameObject:
   m_ObjectHideFlags: 0
@@ -1626370,19 +1626370,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2237103417658614921, guid: 525ba75d6b29e8743bd7c6b7fc92acf5, type: 3}
       propertyPath: m_LocalRotation.w
-      value: 0.92816854
+      value: -0.9922878
       objectReference: {fileID: 0}
     - target: {fileID: 2237103417658614921, guid: 525ba75d6b29e8743bd7c6b7fc92acf5, type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0.009724244
+      value: 0.03251589
       objectReference: {fileID: 0}
     - target: {fileID: 2237103417658614921, guid: 525ba75d6b29e8743bd7c6b7fc92acf5, type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0.31939867
+      value: 0.115376234
       objectReference: {fileID: 0}
     - target: {fileID: 2237103417658614921, guid: 525ba75d6b29e8743bd7c6b7fc92acf5, type: 3}
       propertyPath: m_LocalRotation.z
-      value: -0.19076967
+      value: 0.031560488
       objectReference: {fileID: 0}
     - target: {fileID: 2237103417658614921, guid: 525ba75d6b29e8743bd7c6b7fc92acf5, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -1929133,13 +1929133,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5725533381838974421}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.29426655, y: 0.13159391, z: -0.040945623, w: 0.9457345}
-  m_LocalPosition: {x: -1.05, y: 4.05, z: -0.7}
+  m_LocalRotation: {x: 0.24963698, y: 0.1432644, z: 0.08157423, w: 0.95420253}
+  m_LocalPosition: {x: -1.6600051, y: 5.940001, z: -7.2800016}
   m_LocalScale: {x: -0.3, y: 0.3, z: 0.30000004}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 7765421533836989340}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_LocalEulerAnglesHint: {x: 26.939, y: 20.632, z: 14.765}
 --- !u!33 &297248667718869390
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -1931957,7 +1931957,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!23 &1791165755680394300
 MeshRenderer:
   m_ObjectHideFlags: 0
@@ -1937734,7 +1937734,7 @@ Transform:
   m_GameObject: {fileID: 8098464044609512265}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.1627631, z: -0, w: 0.9866652}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0.26, y: 0, z: 1.01}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1939931,9 +1939931,9 @@ Transform:
   m_GameObject: {fileID: 522179681276363420}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0.9853258, z: -0, w: -0.17068416}
-  m_LocalPosition: {x: 1.509, y: 0.3730122, z: 0.028}
+  m_LocalPosition: {x: 3.229, y: 0.664, z: -0.925}
   m_LocalScale: {x: -0.79999995, y: 0.8, z: 0.79999995}
-  m_ConstrainProportionsScale: 0
+  m_ConstrainProportionsScale: 1
   m_Children:
   - {fileID: 592591437798000625}
   - {fileID: 5738072696185237685}
