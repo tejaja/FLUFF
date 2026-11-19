@@ -110,7 +110,7 @@ public static class FuwaPlaygroundBuilder
             a.playOnAwake = false; a.spatialBlend = 1f; a.volume = vol; a.rolloffMode = AudioRolloffMode.Linear; a.minDistance = 2f; a.maxDistance = 25f; a.dopplerLevel = 0f;
             return a;
         }
-        ul.openSound = Make("UnlockOpenSfx", "sfx_puff", 0.8f);
+        ul.openSound = Make("UnlockOpenSfx", "sfx_unlock_open", 0.8f);   // 2026-11-19 てじゃ「開くときはpaka1でいいかな」（AI の paka_01、高い音を削って平均 -21dB）
         ul.popSound = Make("UnlockPopSfx", "sfx_ball_poyon", 0.9f);
         Sync(ul);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);

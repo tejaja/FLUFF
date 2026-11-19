@@ -36,6 +36,7 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
     private bool[] _shown = new bool[0];
     private float[] _animAt = new float[0];
     private bool[] _toyOn = new bool[0];
+    private bool[] _openPlayed = new bool[0];   // パカッの音は、むにっと縮んだあと開き始める時に鳴らす
     private Vector3[] _lockScale = new Vector3[0];
     private Vector3[] _lockPos = new Vector3[0];
     private Vector3[] _toyScale = new Vector3[0];
@@ -64,7 +65,7 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
         int n = toys.Length;
         if (_shown.Length != n)
         {
-            _shown = new bool[n]; _animAt = new float[n]; _toyOn = new bool[n];
+            _shown = new bool[n]; _animAt = new float[n]; _toyOn = new bool[n]; _openPlayed = new bool[n];
             _lockScale = new Vector3[n]; _lockPos = new Vector3[n]; _toyScale = new Vector3[n];
             _dome = new Transform[n]; _domePos = new Vector3[n]; _domeScale = new Vector3[n]; _domeRot = new Quaternion[n];
             _rim = new Transform[n]; _rimPos = new Vector3[n]; _rimScale = new Vector3[n]; _rimRot = new Quaternion[n];
@@ -94,7 +95,7 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
     {
         _shown[i] = true;
         if (_animAt[i] < 0f) _animCount++;
-        _animAt[i] = Time.time; _toyOn[i] = false;
+        _animAt[i] = Time.time; _toyOn[i] = false; _openPlayed[i] = false;
         GameObject l = LockedOf(i);
         if (l != null)
         {
@@ -105,7 +106,6 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
             if (rm != null) { _rimPos[i] = rm.localPosition; _rimRot[i] = rm.localRotation; _rimScale[i] = rm.localScale; }
         }
         if (toys[i] != null) _toyScale[i] = toys[i].transform.localScale;
-        if (openSound != null && l != null) { openSound.transform.position = l.transform.position + Vector3.up * 0.5f; openSound.Play(); }
     }
 
     private void Animate()
@@ -120,6 +120,11 @@ public class FuwaPlaygroundUnlocks : UdonSharpBehaviour
             {
                 Transform lt = l.transform;
                 Transform d = _dome[i]; Transform rm = _rim[i];
+                if (!_openPlayed[i] && t >= squashTime)
+                {
+                    _openPlayed[i] = true;
+                    if (openSound != null) { openSound.transform.position = lt.position + Vector3.up * 0.5f; openSound.Play(); }
+                }
                 float tOpen = t - squashTime, tVan = t - squashTime - openTime - holdTime;
                 // ほかの部品：開き始めから openTime で縮んで消える（ドームは別）
                 float ko = tOpen <= 0f ? 1f : 1f - Mathf.Clamp01(tOpen / openTime);
