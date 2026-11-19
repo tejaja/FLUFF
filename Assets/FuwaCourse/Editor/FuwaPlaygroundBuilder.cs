@@ -94,8 +94,31 @@ public static class FuwaPlaygroundBuilder
         return "おもちゃの音を消した " + n + "（欄 " + refs + "）";
     }
 
+    // 2026-11-19 てじゃ「SEつきでパカっと開いておもちゃが拡大してポヨンと出てくる」：FuwaPlaygroundUnlocks の音（パカッ＝sfx_puff、ポヨン＝sfx_ball_poyon）を Toys の下に置く
+    [MenuItem("FuwaCourse/あそびば/おもちゃが出る時の音をつける")]
+    static void MenuUnlockSfx() { Debug.Log(UnlockSfx()); }
+    public static string UnlockSfx()
+    {
+        var toys = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "Toys" && t.parent != null && t.parent.name == "Room" && t.gameObject.scene.IsValid());
+        var ul = toys ? toys.GetComponent<FuwaPlaygroundUnlocks>() : null;
+        if (!ul) return "おもちゃの出る音：FuwaPlaygroundUnlocks がない";
+        AudioSource Make(string name, string clip, float vol)
+        {
+            var old = toys.Find(name); if (old) Object.DestroyImmediate(old.gameObject);
+            var g = new GameObject(name); g.transform.SetParent(toys, false);
+            var a = g.AddComponent<AudioSource>(); a.clip = AssetDatabase.LoadAssetAtPath<AudioClip>("Assets/FuwaCourse/Audio/" + clip + ".wav");
+            a.playOnAwake = false; a.spatialBlend = 1f; a.volume = vol; a.rolloffMode = AudioRolloffMode.Linear; a.minDistance = 2f; a.maxDistance = 25f; a.dopplerLevel = 0f;
+            return a;
+        }
+        ul.openSound = Make("UnlockOpenSfx", "sfx_puff", 0.8f);
+        ul.popSound = Make("UnlockPopSfx", "sfx_ball_poyon", 0.9f);
+        Sync(ul);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
+        return "おもちゃの出る音 " + (ul.openSound.clip ? "○" : "×") + (ul.popSound.clip ? "○" : "×");
+    }
+
     [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/あそびばを作り直す")]
-    public static void Menu() { Debug.Log(Run()); Debug.Log(MuteToySounds()); }
+    public static void Menu() { Debug.Log(Run()); Debug.Log(MuteToySounds()); Debug.Log(UnlockSfx()); }
 
     public static string Run()
     {
