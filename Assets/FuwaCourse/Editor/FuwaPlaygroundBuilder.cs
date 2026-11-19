@@ -64,8 +64,38 @@ public static class FuwaPlaygroundBuilder
     static readonly Vector3 GunStandLocal = new Vector3(1.4f, 0f, -1.5f);   // キノコの右手前
     const float GunStandYaw = 304.4f;
 
+    // 2026-11-19 てじゃ「あそびばのおもちゃ効果音でなくていいよ、弾き飛ぶ音とかはいいけど」→ いらない：2 重くなるエリアのうなり／3 ぬいぐるみの「ぴょん」「パン」／5 泡の貝の2つ／6 溶岩の「ボフッ」
+    //  おもちゃの中の、この音の AudioSource を消す（それを指しているスクリプトの欄は空にする。どのスクリプトも空なら鳴らさない）。作り直しのあとにも呼ぶ
+    public static readonly string[] MutedToyClips = { "sfx_gravity_loop", "sfx_enemy_jump", "sfx_burst", "sfx_bubble_pop", "sfx_bubble_wrap", "sfx_fireball_bofu2" };
+    [MenuItem("FuwaCourse/あそびば/いらないおもちゃの音を消す")]
+    static void MenuMuteToySounds() { Debug.Log(MuteToySounds()); }
+    public static string MuteToySounds()
+    {
+        var toys = Object.FindObjectsOfType<Transform>(true).FirstOrDefault(t => t.name == "Toys" && t.parent != null && t.parent.name == "Room" && t.gameObject.scene.IsValid());
+        if (!toys) return "おもちゃの音：Toys がない";
+        var kill = toys.GetComponentsInChildren<AudioSource>(true).Where(a => a.clip && MutedToyClips.Contains(a.clip.name)).ToList();
+        if (kill.Count == 0) return "おもちゃの音：消すものなし";
+        int refs = 0;
+        foreach (var u in toys.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true))
+        {
+            var so = new SerializedObject(u); var it = so.GetIterator(); bool ch = false;
+            while (it.Next(true)) if (it.propertyType == SerializedPropertyType.ObjectReference && it.objectReferenceValue is AudioSource a0 && kill.Contains(a0)) { it.objectReferenceValue = null; ch = true; refs++; }
+            if (ch) { so.ApplyModifiedPropertiesWithoutUndo(); UdonSharpEditorUtility.CopyProxyToUdon(u); }
+        }
+        int n = 0;
+        foreach (var a in kill)
+        {
+            var go = a.gameObject;   // VRCSpatialAudioSource が AudioSource を必須にしているので、先にそちらを消す（でないと AudioSource が消えない）
+            bool onlySound = go.transform.childCount == 0 && go.GetComponents<Component>().All(c => c is Transform || c is AudioSource || c is VRC.SDK3.Components.VRCSpatialAudioSource);
+            if (onlySound) Object.DestroyImmediate(go);
+            else { foreach (var sp in go.GetComponents<VRC.SDK3.Components.VRCSpatialAudioSource>()) Object.DestroyImmediate(sp); Object.DestroyImmediate(a); }
+            n++;
+        }
+        return "おもちゃの音を消した " + n + "（欄 " + refs + "）";
+    }
+
     [MenuItem("FuwaCourse/済み（押す前に相談）/あそびば/あそびばを作り直す")]
-    public static void Menu() { Debug.Log(Run()); }
+    public static void Menu() { Debug.Log(Run()); Debug.Log(MuteToySounds()); }
 
     public static string Run()
     {
@@ -665,6 +695,7 @@ public static class FuwaPlaygroundBuilder
         rs.others = others.ToArray(); Sync(rs);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
         Debug.Log("[あそびば] ステージ2のおもちゃ 5つの場所");
+        Debug.Log(MuteToySounds());
     }
     // 2026-11-16 てじゃ「2-1おもちゃ各種も接地限定で持ち運んで移動したい　デカいから岩みたいに半透明化も」→ B「おもちゃ全体を掴める。オン/オフは持ってトリガー」
     //  貝（Unlock6）・氷（Unlock8）・羽根車（Unlock9）。火の岩（Unlock7）は「別のにかえるかも」なのでそのまま。ポータル（Unlock10）は台座の持ち手
@@ -751,21 +782,7 @@ public static class FuwaPlaygroundBuilder
         disc.transform.SetParent(root, false); disc.transform.localPosition = new Vector3(0f, lavaY * 0.5f, 0f); disc.transform.localScale = new Vector3(LavaPoolR * 2.1f, lavaY * 0.5f, LavaPoolR * 2.1f);
         disc.GetComponent<MeshRenderer>().sharedMaterial = lavaMat;
         var dcol = disc.AddComponent<MeshCollider>(); dcol.sharedMesh = disc.GetComponent<MeshFilter>().sharedMesh; dcol.convex = true; disc.layer = 11;
-        // まわりの岩（コース2–2 の岩を大小ずらして並べる）
-        var rnd = new System.Random(22);
-        int nRock = 11;
-        for (int i = 0; i < nRock; i++)
-        {
-            float a = (i + (float)rnd.NextDouble() * 0.35f) / nRock * Mathf.PI * 2f;
-            var rk = new GameObject("RimRock" + i); rk.transform.SetParent(root, false);
-            float s0 = 0.42f + (float)rnd.NextDouble() * 0.22f;
-            rk.transform.localPosition = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (LavaPoolR + s0 * 0.35f) + Vector3.up * (s0 * 0.12f);
-            rk.transform.localRotation = Quaternion.Euler((float)rnd.NextDouble() * 20f - 10f, (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 20f - 10f);
-            var b = rockMesh.bounds; float k = s0 / Mathf.Max(b.size.x, b.size.z);
-            rk.transform.localScale = new Vector3(k, k * 0.75f, k);
-            rk.AddComponent<MeshFilter>().sharedMesh = rockMesh; rk.AddComponent<MeshRenderer>().sharedMaterial = rockMat;
-            var mc = rk.AddComponent<MeshCollider>(); mc.sharedMesh = rockMesh; mc.convex = true; rk.layer = 11;
-        }
+        LavaRimRocks(root, rockMesh, rockMat);
         var surface = new GameObject("Surface").transform; surface.SetParent(root, false); surface.localPosition = new Vector3(0f, lavaY, 0f);
         // マグマ弾：コース2–2 の火の玉の見た目と尾
         var fb = c22.GetComponentsInChildren<FuwaFireball>(true).First();
@@ -787,6 +804,28 @@ public static class FuwaPlaygroundBuilder
         { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(lp); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.Manual; EditorUtility.SetDirty(ub); } }
     }
     // 2–2 のおもちゃだけ作り直す（火炎放射の岩 → 溶岩溜まり）
+    // まわりの岩（コース2–2 の岩を大小ずらして並べる）
+    // 2026-11-19 てじゃ「溶岩溜まりの岩にスキマおおい」：11個→LavaRockCount 個、少し内側（溶岩のふちに重ねる）、角度のゆらぎを小さく
+    public static int LavaRockCount = 17; public static float LavaRockIn = 0.2f, LavaRockJitter = 0.2f;
+    public static void LavaRimRocks(Transform root, Mesh rockMesh, Material rockMat)
+    {
+        foreach (var o in root.Cast<Transform>().Where(t => t.name.StartsWith("RimRock")).ToArray()) Object.DestroyImmediate(o.gameObject);
+        var rnd = new System.Random(22);
+        int nRock = LavaRockCount;
+        for (int i = 0; i < nRock; i++)
+        {
+            float a = (i + (float)rnd.NextDouble() * LavaRockJitter) / nRock * Mathf.PI * 2f;
+            var rk = new GameObject("RimRock" + i); rk.transform.SetParent(root, false);
+            float s0 = 0.42f + (float)rnd.NextDouble() * 0.22f;
+            rk.transform.localPosition = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (LavaPoolR + s0 * LavaRockIn) + Vector3.up * (s0 * 0.12f);
+            rk.transform.localRotation = Quaternion.Euler((float)rnd.NextDouble() * 20f - 10f, (float)rnd.NextDouble() * 360f, (float)rnd.NextDouble() * 20f - 10f);
+            var b = rockMesh.bounds; float k = s0 / Mathf.Max(b.size.x, b.size.z);
+            rk.transform.localScale = new Vector3(k, k * 0.75f, k);
+            rk.AddComponent<MeshFilter>().sharedMesh = rockMesh; rk.AddComponent<MeshRenderer>().sharedMaterial = rockMat;
+            var mc = rk.AddComponent<MeshCollider>(); mc.sharedMesh = rockMesh; mc.convex = true; rk.layer = 11;
+        }
+    }
+
     [MenuItem("FuwaCourse/あそびば/2–2のおもちゃ（溶岩溜まり）を作り直す")]
     static void MenuLavaPool()
     {
@@ -798,6 +837,7 @@ public static class FuwaPlaygroundBuilder
         SetupSharedBallBurn();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
         Debug.Log("[あそびば] 溶岩溜まり");
+        Debug.Log(MuteToySounds());
     }
     // あそびばのふわふわが燃えた時の炎（コース2–2 の FuwaHeat の炎を1つずつ複製。ふわふわの子にはしない＝転がっても炎は上向き）
     static void SetupSharedBallBurn()
@@ -1668,6 +1708,7 @@ public static class FuwaPlaygroundBuilder
         }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(slot.gameObject.scene);
         Debug.Log("plush and bramble rebuilt");
+        Debug.Log(MuteToySounds());
     }
 
     // 跳ねるキノコ：きのこのたに（コース5）のギミックのキノコ（CapStep：傘がジャンプ台）を、コースと同じ大きさで2本。台座の島はなし（2026-10-13 てじゃ）。
