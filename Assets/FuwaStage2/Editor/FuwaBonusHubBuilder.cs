@@ -143,7 +143,7 @@ public static class FuwaBonusHubBuilder
         foreach (var nm in new[] { "Display", "GunSpot" }) { var o = gs.Find(nm); if (o) Object.DestroyImmediate(o.gameObject); }
         foreach (var nm in new[] { "Medal", "MedalRim" }) { var o = gs.Find(nm); if (o) o.gameObject.SetActive(false); }   // 金の銃の像に置きかえ
         { var o = gs.Find("Label"); if (o) { o.gameObject.SetActive(false); o.localPosition = new Vector3(0f, 0.6f, 0.24f); o.rotation = Quaternion.LookRotation(-gs.forward, Vector3.up); } }   // 柱の「きんピカ ON/OFF」（スイッチ）。島のまん中側から読めるように
-        var top = gs.Find("Top"); float topY = top ? top.GetComponent<Renderer>().bounds.max.y : gs.position.y + 0.95f * gs.lossyScale.y;
+        float topY = Pedestal(gs);
         var spot = new GameObject("GunSpot").transform; spot.SetParent(gs, false);
         spot.position = new Vector3(gs.position.x, topY + 0.01f, gs.position.z); spot.rotation = gs.rotation;
         var disp = new GameObject("Display").transform; disp.SetParent(gs, false);
@@ -172,6 +172,24 @@ public static class FuwaBonusHubBuilder
         gsw.manager = mgr; gsw.clickSound = click; gsw.label = null; gsw.goldModel = goldM; gsw.normalModel = normM; gsw.sparkles = spk; gsw.language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault(x => x.gameObject.scene.IsValid());   // 2026-11-19 てじゃ「台に通常銃が乗ってるときはキラキラ消そう」   // 文字なし（てじゃ「スイッチは分かりづらい」）
         UdonSharpEditorUtility.CopyProxyToUdon(gsw); FuwaStage2WaterTest.NoSync(gsw);
         return "金の銃の像＋スイッチ・回る銃の金ピカ " + sc.goldRenderers.Length + " ";
+    }
+
+    // 2026-11-19 てじゃ「金の銃の台をちょっとちゃんとつくろ」→ B（Blender で新しく）：段つきの丸い台座に金の縁と帯、柱に金のぷっくり星、足元に雲
+    //  Blender：FLUFF_models.blend の GoldStand シーン、goldstand_build.py（形）／goldstand_export.py（Tools/goldstand.json へ）。材質は s0 台座・s1 金・s2 雲
+    //  前の円柱3つ（Base・Pillar・Top）は消さずに隠す。天板の上の高さを返す（ワールド）
+    public static Color PedestalBody = new Color(0.80f, 0.80f, 0.95f), PedestalCloud = new Color(1f, 1f, 1f);
+    static float Pedestal(Transform gs)
+    {
+        var mesh = ImportJsonMeshes("goldstand.json", "Assets/FuwaStage2/Generated/GoldStand").FirstOrDefault();
+        var old = gs.Find("Pedestal"); if (old) Object.DestroyImmediate(old.gameObject);
+        if (!mesh) { var top = gs.Find("Top"); return top ? top.GetComponent<Renderer>().bounds.max.y : gs.position.y + 0.95f * gs.lossyScale.y; }
+        foreach (var nm in new[] { "Base", "Pillar", "Top" }) { var o = gs.Find(nm); if (o) o.gameObject.SetActive(false); }
+        var p = new GameObject("Pedestal"); p.transform.SetParent(gs, false); p.isStatic = false;
+        p.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var mr = p.AddComponent<MeshRenderer>();
+        var gold = AssetDatabase.FindAssets("Fuwa_Blower_Gold t:Material").Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<Material>).FirstOrDefault(m => m && m.name == "Fuwa_Blower_Gold");
+        mr.sharedMaterials = new[] { BonusMat("GoldStand_Body", PedestalBody), gold ? gold : BonusMat("GoldStand_Gold", new Color(0.98f, 0.78f, 0.3f)), BonusMat("GoldStand_Cloud", PedestalCloud) };
+        return gs.TransformPoint(new Vector3(0f, mesh.bounds.max.y, 0f)).y;
     }
 
     // 2026-11-18 てじゃ「おまけ本島の隅っこに、各コースの隠し記録的な感じで閲覧する場所つくろ」：FuwaSystem/Stats（FuwaStats、数える係）と、本島の西の柵ぎわの看板（FuwaStatsBoard）
@@ -979,16 +997,19 @@ public static class FuwaBonusHubBuilder
     [System.Serializable] class MushItem { public string name; public float[] v, n, uv; public int[] s0, s1, s2; }
     [System.Serializable] class MushFile { public MushItem[] items; }
     const string MushDir = "Assets/FuwaStage2/Generated/BigMush";
-    public static Mesh[] ImportBigMush()
+    public static Mesh[] ImportBigMush() { return ImportJsonMeshes("bigmush.json", MushDir); }
+
+    // Tools/<file> の JSON（Blender で書き出し：座標・法線・UV と、材質ごとの三角形 s0〜s2）→ dir/<名前>.asset
+    public static Mesh[] ImportJsonMeshes(string file, string dir)
     {
-        var path = System.IO.Path.Combine(Application.dataPath, "../Tools/bigmush.json");
+        var path = System.IO.Path.Combine(Application.dataPath, "../Tools/" + file);
         if (!System.IO.File.Exists(path)) return new Mesh[0];
         var f = JsonUtility.FromJson<MushFile>(System.IO.File.ReadAllText(path));
-        if (!AssetDatabase.IsValidFolder(MushDir)) AssetDatabase.CreateFolder("Assets/FuwaStage2/Generated", "BigMush");
+        if (!AssetDatabase.IsValidFolder(dir)) AssetDatabase.CreateFolder(System.IO.Path.GetDirectoryName(dir).Replace("\\", "/"), System.IO.Path.GetFileName(dir));
         var list = new List<Mesh>();
         foreach (var it in f.items)
         {
-            string ap = MushDir + "/" + it.name + ".asset";
+            string ap = dir + "/" + it.name + ".asset";
             var m = AssetDatabase.LoadAssetAtPath<Mesh>(ap); bool isNew = !m;   // CopySerialized はサブメッシュが消えるので、今のアセットに直接入れ直す
             if (isNew) m = new Mesh(); else m.Clear();
             m.name = it.name; m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
