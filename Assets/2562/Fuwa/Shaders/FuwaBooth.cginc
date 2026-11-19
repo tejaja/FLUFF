@@ -33,9 +33,14 @@ float3 FuwaBoothSunDir()
 // ブースの座標で書いた向き（材質の _SwayDir など）をワールドの向きに（2026-10-17 会場でブースが回して置かれて、ゆれ・つぶしの向きがずれた）。
 // 接線（TANGENT）にブースの +X を入れておく（FuwaBoothCombine が合体メッシュに入れる）。会場の静的バッチングでメッシュがワールドに焼かれても
 // 接線は一緒に回るので、そこからブースの向きがわかる。上はいつもワールドの上。接線が無い時はワールドの X（＝前と同じ）
+// FLUFF の撮影セット用（2026-11-19）：合体していない元のメッシュは接線にブースの +X が入っていないので、
+// _FuwaPhotoBoothX（w=1 の時、ワールドでのブースの +X）を FuwaBoothXSetter から全体に入れて使う。大きさは物の大きさ（撮影セットはブースの 0.4 倍）
+float4 _FuwaPhotoBoothX;
+float FuwaBoothScale() { return length(float3(unity_ObjectToWorld._m00, unity_ObjectToWorld._m10, unity_ObjectToWorld._m20)); }
 float3 FuwaBoothDir(float3 d, float4 tangent)
 {
     float3 bx = mul((float3x3)unity_ObjectToWorld, tangent.xyz); bx.y = 0;
+    if (_FuwaPhotoBoothX.w > 0.5) bx = _FuwaPhotoBoothX.xyz;
     bx = dot(bx, bx) > 1e-8 ? normalize(bx) : float3(1, 0, 0);
     float3 bz = cross(bx, float3(0, 1, 0));
     return bx * d.x + float3(0, d.y, 0) + bz * d.z;

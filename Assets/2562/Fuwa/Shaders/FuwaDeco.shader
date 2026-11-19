@@ -30,7 +30,7 @@ Shader "Custom/2562/Fuwa/Deco"
             float s = sin(t) * 0.65 + sin(t * 1.73 + 1.1) * 0.35;
             float3 d = normalize(FuwaBoothDir(_SwayDir.xyz, tangent));
             float3 dw = d * (0.35 + 0.65 * (s * 0.5 + 0.5)) + cross(float3(0, 1, 0), d) * sin(t * 0.83 + 2.0) * 0.3;
-            return world + dw * _SwayAmp * uv3.x;
+            return world + dw * _SwayAmp * uv3.x * FuwaBoothScale();
         }
         ENDCG
         Pass

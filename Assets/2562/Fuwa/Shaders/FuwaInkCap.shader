@@ -41,7 +41,7 @@ Shader "Custom/2562/Fuwa/InkCap"
                 float s = sin(t) * 0.65 + sin(t * 1.73 + 1.1) * 0.35;
                 float3 sd = normalize(FuwaBoothDir(_SwayDir.xyz, tangent));
                 float3 dw = sd * (0.35 + 0.65 * (s * 0.5 + 0.5)) + cross(float3(0, 1, 0), sd) * sin(t * 0.83 + 2.0) * 0.3;
-                vertex.xyz += mul((float3x3)unity_WorldToObject, dw) * _SwayAmp * uv3.x;
+                vertex.xyz += mul((float3x3)unity_WorldToObject, dw) * _SwayAmp * uv3.x * FuwaBoothScale();
             }
             return vertex;
         }

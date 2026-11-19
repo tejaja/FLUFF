@@ -48,13 +48,13 @@ Shader "Custom/2562/Fuwa/DandelionTuft"
                     float s = sin(t) * 0.65 + sin(t * 1.73 + 1.1) * 0.35;
                     float3 sd = normalize(FuwaBoothDir(_SwayDir.xyz, v.tangent));   // _SwayDir はブースの座標（2026-10-17）
                     float3 dw = sd * (0.35 + 0.65 * (s * 0.5 + 0.5)) + cross(float3(0, 1, 0), sd) * sin(t * 0.83 + 2.0) * 0.3;
-                    world.xyz += dw * _SwayAmp * v.uv3.x;
+                    world.xyz += dw * _SwayAmp * v.uv3.x * FuwaBoothScale();
                 }
                 // カメラを向く板に広げる（ビュー空間で。VRの左右の目でも同じ形になるよう、回転は uv2.y で決める）
                 float4 view = mul(UNITY_MATRIX_V, world);
                 float c = cos(v.uv2.y), s2 = sin(v.uv2.y);
                 float2 corner = float2(v.uv.x * c - v.uv.y * s2, v.uv.x * s2 + v.uv.y * c);
-                view.xy += corner * v.uv2.x;
+                view.xy += corner * v.uv2.x * FuwaBoothScale();
                 o.pos = mul(UNITY_MATRIX_P, view);
                 o.uv = v.uv * 0.5 + 0.5;
                 o.color = v.color;
