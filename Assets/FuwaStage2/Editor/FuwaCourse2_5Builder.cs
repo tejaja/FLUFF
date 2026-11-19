@@ -5020,6 +5020,8 @@ public static class FuwaCourse2_5Builder
     public static bool ColumnLods = true; public static float ColumnLodScreen = 0.1f;
     static readonly Dictionary<Mesh, Mesh> columnLite = new Dictionary<Mesh, Mesh>();
     static Mesh ColumnMesh(string name, int seed, float h, int kind) => ColumnMesh(name, seed, h, kind, false);
+    // 2026-11-19 てじゃ「2-4 2-5の影も切れるもの増やしてもいいね」：囲む箱の半径が TierSmallRadius 未満（だいたい 2.5m 未満の物）は TierSmallDistance 以内だけ影
+    public static float TierSmallRadius = 1.6f, TierSmallDistance = 12f;
     // 2026-11-15 軽量化：段ごとの影（FuwaTierShadows）。FarShadows に入った 2–5 の物をこちらへ移す
     public static bool TierShadows = true; public static float[] TierYs = { -161f, -145f };
     static void SetupTierShadows()
@@ -5044,6 +5046,7 @@ public static class FuwaCourse2_5Builder
         ts.radii = mine.Select(r => r.bounds.extents.magnitude).ToArray();
         ts.tiers = mine.Select(r => { float y = r.bounds.min.y; int t = 0; for (int k = 0; k < TierYs.Length; k++) if (y >= TierYs[k]) t = k + 1; return t; }).ToArray();
         ts.tierY = TierYs; ts.shadowDistance = far.shadowDistance; ts.perFrame = 120;
+        ts.smallRadius = TierSmallRadius; ts.smallDistance = TierSmallDistance;   // 2026-11-19 小さめの物は近くだけ影
         // 2026-11-16 ポータルをのぞいている間は向こう側の影も（てじゃ「ポータル入る前と入ってからで、影の見えてると事見えないとこが切り替わっちゃう」）
         var pcs = root.GetComponentsInChildren<FuwaPortalCams>(true).FirstOrDefault();
         ts.portalCams = pcs;

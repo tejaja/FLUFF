@@ -18,6 +18,10 @@ public class FuwaTierShadows : UdonSharpBehaviour
     [Tooltip("段のさかい目の高さ（低い順）。足の高さがこれ以上なら次の段")]
     public float[] tierY;
     public float shadowDistance = 40f;
+    // 2026-11-19 てじゃ「2-4 2-5の影も切れるもの増やしてもいいね」：小さめの物（radii＝囲む箱の半径がこれ未満）は smallDistance 以内だけ影
+    [Tooltip("この半径(m)未満の物は smallDistance 以内だけ影（0 なら使わない）")]
+    public float smallRadius = 0f;
+    public float smallDistance = 12f;
     public int perFrame = 120;
     [Tooltip("2026-11-16 ポータルをのぞいている間は、向こう側の自分の位置でも影を出す（入った瞬間に影が切り替わらないように）")]
     public FuwaPortalCams portalCams;
@@ -53,7 +57,8 @@ public class FuwaTierShadows : UdonSharpBehaviour
             Renderer r = targets[_i];
             if (r != null)
             {
-                float rr = (shadowDistance + radii[_i]) * (shadowDistance + radii[_i]);
+                float sd = radii[_i] < smallRadius ? smallDistance : shadowDistance;
+                float rr = (sd + radii[_i]) * (sd + radii[_i]);
                 bool on = tiers[_i] >= pt && (centers[_i] - p).sqrMagnitude < rr;
                 if (!on && view) on = tiers[_i] >= qt && (centers[_i] - q).sqrMagnitude < rr;
                 ShadowCastingMode want = on ? ShadowCastingMode.On : ShadowCastingMode.Off;

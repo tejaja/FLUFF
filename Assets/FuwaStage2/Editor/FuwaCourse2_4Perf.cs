@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -13,43 +13,63 @@ using UnityEngine.Rendering;
 public static class FuwaCourse2_4Perf
 {
     public static float SmallSize = 1.2f;
+    // 2026-11-19 てじゃ「2-4 2-5の影も切れるもの増やしてもいいね」：2–4 は 2.5m 未満まで近くだけ影（FarShadows にいた 1.2〜2.5m の物も移す）
+    public static float SmallSize24 = 2.5f;
 
     [MenuItem("FuwaCourse/ステージ2/2–4 の負荷対策（静的バッチ・影）")]
-    public static void Menu() { Debug.Log(Apply(GameObject.Find("FuwaCourse2_4")?.transform)); }
+    public static void Menu() { Debug.Log(Apply(GameObject.Find("FuwaCourse2_4")?.transform, SmallSize24)); }
     // 2026-11-13 てじゃ「2-3もみてみて」→ 同じ対策を 2–3 にも（ほかのコースでも使える）
     [MenuItem("FuwaCourse/ステージ2/2–3 の負荷対策（静的バッチ・影）")]
     public static void Menu23() { Debug.Log(Apply(GameObject.Find("FuwaCourse2_3")?.transform)); }
 
-    public static string Apply(Transform root)
+    public static string Apply(Transform root) => Apply(root, root && root.name == "FuwaCourse2_4" ? SmallSize24 : SmallSize);
+    public static string Apply(Transform root, float smallSize)
     {
         if (!root) return "コースがない";
         int st = FuwaStage2Static.Apply(root);
-        var sh = Shadows(root);
+        var sh = Shadows(root, smallSize);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return "[" + root.name + " 負荷対策] 静的バッチ +" + st + " " + sh;
     }
 
     static FuwaFarShadows Find(string name) => Resources.FindObjectsOfTypeAll<FuwaFarShadows>().FirstOrDefault(f => f && f.name == name && f.gameObject.scene.IsValid());
 
-    static string Shadows(Transform root)
+    static string Shadows(Transform root, float smallSize)
     {
         var small = Find("SmallShadows"); var far = Find("FarShadows");
         if (!small || !far) return "影：SmallShadows / FarShadows がない";
         var inSmall = new HashSet<Renderer>(small.targets.Where(r => r));
         var inFar = new HashSet<Renderer>(far.targets.Where(r => r));
-        var addS = new List<Renderer>(); var addF = new List<Renderer>();
+        var addS = new List<Renderer>(); var addF = new List<Renderer>(); var moveS = new List<Renderer>();
         foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
         {
-            if (inSmall.Contains(r) || inFar.Contains(r)) continue;
+            if (inSmall.Contains(r)) continue;
+            if (inFar.Contains(r))
+            {
+                // 遠いと影オフに入っている物で smallSize 未満は、近くだけ影へ移す
+                var b0 = r.bounds; float m0 = Mathf.Max(b0.size.x, b0.size.y, b0.size.z);
+                if (m0 < smallSize && !FillsHole(r) && r.GetComponent<MeshFilter>()) moveS.Add(r);
+                continue;
+            }
             if (r.shadowCastingMode != ShadowCastingMode.On) continue;   // もともと影なし・影だけの物（FarShadows が On にすると見えてしまう）
             if (!r.GetComponent<MeshFilter>()) continue;
             var b = r.bounds; float m = Mathf.Max(b.size.x, b.size.y, b.size.z);
             // 2026-11-18 アーチの要石は小さくても大物あつかい（近くだけ影だと、遠いとアーチの影のまん中にすき間があいた）
-            if (m < SmallSize && !FillsHole(r)) { r.shadowCastingMode = ShadowCastingMode.Off; EditorUtility.SetDirty(r); addS.Add(r); }
+            if (m < smallSize && !FillsHole(r)) { r.shadowCastingMode = ShadowCastingMode.Off; EditorUtility.SetDirty(r); addS.Add(r); }
             else addF.Add(r);
         }
+        if (moveS.Count > 0)
+        {
+            var mv = new HashSet<Renderer>(moveS);
+            var t = new List<Renderer>(); var c = new List<Vector3>(); var rr = new List<float>();
+            for (int i = 0; i < far.targets.Length; i++) { if (!far.targets[i] || mv.Contains(far.targets[i])) continue; t.Add(far.targets[i]); c.Add(far.centers[i]); rr.Add(far.radii[i]); }
+            far.targets = t.ToArray(); far.centers = c.ToArray(); far.radii = rr.ToArray();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(far); EditorUtility.SetDirty(far);
+            foreach (var r in moveS) { r.shadowCastingMode = ShadowCastingMode.Off; EditorUtility.SetDirty(r); }   // SmallShadows はオフから始める
+            addS.AddRange(moveS);
+        }
         Add(small, addS); Add(far, addF);
-        return "影：小物 +" + addS.Count + "（SmallShadows " + small.targets.Length + "）・遠いと影オフ +" + addF.Count + "（FarShadows " + far.targets.Length + "）";
+        return "影：小物 +" + addS.Count + "（遠いと影オフから移した " + moveS.Count + "）" + "（SmallShadows " + small.targets.Length + "）・遠いと影オフ +" + addF.Count + "（FarShadows " + far.targets.Length + "）";
     }
 
     // 大きい物のすき間を埋める小物（これの影だけ消えると、大きい物の影に穴があく）
