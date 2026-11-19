@@ -23,6 +23,10 @@ public static class FuwaBonusHubBuilder
     public static float MushSinkMax = 0.04f, StageDirtUv = 2.5f;   // キノコの根元が床にうまる深さの上限(m、縮める前)
     public static float[] PhotoFluffSizes = { 0.165f, 0.3f, 0.9f }; public static float PhotoFluffSpread = 1.2f;   // てじゃ「通常＋2-5にある２種で」：ふつう30cm、ちいさく（×0.55）、おおきく（×3）
     public static float GoldFluffSize = 0.7f, StatueYaw = 90f;   // 金の銃の像の向き（台の向きから）   // 金ピカふわふわの直径(m)   // ボード3つをみんなで持てる（同期）   // 置き場所さがし用（一時的）   // 最後に全部まとめて縮める（1.4倍のロビー → ロビーの1.05倍くらい）
+    // 2026-11-19 てじゃ「おまけ本島やっぱ広すぎるかなぁ」→ A（島だけ小さく、物は今の大きさで寄せる）：床・柵・下の岩を横だけ IslandXZ 倍。
+    //  スポーン・戻りポータル・西の橋は床の半径 R から、金の台は GoldX、ボタン・あしあとは柵の半径から決まる。きのこの輪・ボード・ステージは PhotoShiftZ だけ手前へ
+    public static float IslandXZ = 0.75f, PhotoShiftZ = -1.5f, CenterBackPush = 0.6f;
+    public static float GoldX => 8.4f * IslandXZ;
     public static float Scale = 1.4f, ItemRing = 8.0f, PedR = 1.1f, PedH = 0.45f, ItemSize = 1.5f, BoardY = 4.3f;
     // スクショコーナー：キノコの輪（中心は島のまん中から RingShift 奥）、ボードは輪の中の奥、その手前に立つ所、撮る人の印
     public static int RingCount = 9; public static float RingHFront = 1.4f, RingHBack = 4.0f, RingHVar = 0.25f, RingJitterDeg = 6f, RingJitterR = 0.5f, BoardClear = 0.3f, BackCenterScale = 1.2f, MushOverlapR = 0.8f, BoardMarginX = 0.25f, FrontLeftScale = 0.6f, RingFrontR = 3.0f, RingHugGap = 0.7f, LeanMin = 3f, LeanMax = 8f;
@@ -197,7 +201,15 @@ public static class FuwaBonusHubBuilder
     // 2026-11-18 てじゃ「おまけ本島の隅っこに、各コースの隠し記録的な感じで閲覧する場所つくろ」：FuwaSystem/Stats（FuwaStats、数える係）と、本島の西の柵ぎわの看板（FuwaStatsBoard）
     // 2026-11-19 てじゃ「あしあとは金ピカ銃の右くらい」：東のきんピカ台（局所 (8.4, -1.6)）の右（南）へ。読む向きは島のまん中から（東を向く）
     // 2026-11-19 てじゃ「ボタンとかボード、ちゃんと柵基準で」：柵（局所の半径 FenceR）の内側に沿わせて、島のまん中を向ける。角度は +x（東）から +z（北）へ測る
-    public static float FenceR = 11.37f, BtnR = 11.0f, StatsR = 10.85f, StatsDeg = -34f, ResetDeg = 10.8f, StatsBtnDeg = -20f;
+    //  → 島を小さくした（IslandXZ）ので、半径は柵から、角度は金の台の向きと柵ぞいの長さ（m、縮める前）から決める（前の値：ボタン -20°、看板 -34°、リセット 10.8°）
+    public static float FenceR0 = 11.37f, BtnIn = 0.37f, StatsIn = 0.52f, StatsBtnArc = 1.77f, StatsArc = 2.6f;
+    public static float FenceR => FenceR0 * IslandXZ;
+    public static float BtnR => FenceR - BtnIn;
+    public static float StatsR => FenceR - StatsIn;
+    static float GoldDeg => Mathf.Atan2(1.6f, GoldX) * Mathf.Rad2Deg;   // 金ふわふわの台の向き（金の銃の台はその逆）
+    public static float ResetDeg => GoldDeg;                                          // まん中のふわふわ（金ふわふわの台）の奥
+    public static float StatsBtnDeg => -GoldDeg - StatsBtnArc / BtnR * Mathf.Rad2Deg;   // 金の銃の台の右
+    public static float StatsDeg => StatsBtnDeg - StatsArc / StatsR * Mathf.Rad2Deg;   // あしあとボタンの右に看板
     public static Vector3 OnFence(float r, float deg, float y) { float a = deg * Mathf.Deg2Rad; return new Vector3(Mathf.Cos(a) * r, y, Mathf.Sin(a) * r); }
     static Quaternion FaceOut(Vector3 p) { var o = new Vector3(p.x, 0f, p.z); return o.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(o.normalized) : Quaternion.identity; }   // 読む人は島のまん中から
     // 2026-11-19 てじゃ「あしあとボード、もうちょいコンパクトにしたい、あとちょっと上に」「余白減らす感じで」：板の余白をへらす（StatsPanelW/H）、まん中の高さ StatsY。StatsScale は板ごとの倍率（今は1）
@@ -342,7 +354,7 @@ public static class FuwaBonusHubBuilder
     static string WestIsland(Transform root, Transform reward)
     {
         var isl = root.Find("Island"); if (!isl) return "西の島：島がない ";
-        float R = 8f * Scale, r = R * WestScale;
+        float R = 8f * Scale * IslandXZ, r = R * WestScale;
         // 柵の切れ目の向きを当たりで探す（ロビーの Open 版の柵は西が少しずれて開いている）
         float gapDeg = 180f;
         {
@@ -588,7 +600,8 @@ public static class FuwaBonusHubBuilder
             var g = Object.Instantiate(src.gameObject, island, true); g.name = nm;
             FuwaStage2Builder.StripBehaviour(g);
             var off = src.position - new Vector3(lc.x, floorTop, lc.z);
-            g.transform.position = Pos + off * Scale; g.transform.localScale = src.lossyScale * Scale;
+            off.x *= IslandXZ; off.z *= IslandXZ;
+            g.transform.position = Pos + off * Scale; g.transform.localScale = Vector3.Scale(src.lossyScale * Scale, new Vector3(IslandXZ, 1f, IslandXZ));
             foreach (var r in g.GetComponentsInChildren<Renderer>(true)) r.lightmapIndex = -1;
             // 柵は切れ目のない版に（ロビーの柵は橋をつなぐ所が開いている Open 版。2026-11-19 てじゃ「外の柵に切れ目ある」）
             if (nm == "Fence" && !WestBridge)
@@ -601,7 +614,7 @@ public static class FuwaBonusHubBuilder
             // 芝はステージ1の色（2026-11-18 てじゃ「本島の芝はステージ1のカラーにしといて」）
             if (nm == "LobbyFloor") { var gm = FuwaLobbyPaths.FindMat("Goal_Ground"); var fr = g.GetComponent<MeshRenderer>(); if (gm && fr) fr.sharedMaterials = fr.sharedMaterials.Select(m => m && m.name == "Stage2_LobbyGround" ? gm : m).ToArray(); }
         }
-        float R = 8f * Scale;   // 床の半径（ロビーは16m）
+        float R = 8f * Scale * IslandXZ;   // 床の半径（ロビーは16m）
 
         // ---- 立ち位置・ふわふわ・銃 ----
         var spawn = new GameObject("Spawn").transform; spawn.SetParent(root, false);
@@ -663,8 +676,8 @@ public static class FuwaBonusHubBuilder
             t.localScale = Vector3.one;   // 前の本島（0.75倍に縮めた後）から移すと、作り直すたびに 0.75 倍ずつ小さくなっていた（2026-11-18 てじゃ「金の銃と金ふわふわどっかいってる」）
         }
         // きんピカ台・金ピカふわふわ：輪の外の右（東）。島のまん中を向く
-        if (stands.Count > 0) { stands[0].position = Pos + new Vector3(8.4f, 0f, -1.6f); stands[0].rotation = Quaternion.LookRotation(Vector3.left); }
-        if (stands.Count > 1) { stands[1].position = Pos + new Vector3(8.4f, 0f, 1.6f); stands[1].rotation = Quaternion.LookRotation(Vector3.left); }
+        if (stands.Count > 0) { stands[0].position = Pos + new Vector3(GoldX, 0f, -1.6f); stands[0].rotation = Quaternion.LookRotation(Vector3.left); }
+        if (stands.Count > 1) { stands[1].position = Pos + new Vector3(GoldX, 0f, 1.6f); stands[1].rotation = Quaternion.LookRotation(Vector3.left); }
         if (ra) Undo.DestroyObjectImmediate(ra);   // ゴールの後に台を出す係はいらない（台はいつもここにある）
 
         // ---- 奥：ステージ2ロビーへのポータル（ごほうびの島のスタートのワープを写す）----
@@ -915,6 +928,9 @@ public static class FuwaBonusHubBuilder
         // 2026-11-18 てじゃ「おまけ島、全体的にデカすぎるかな」「本島のもの全て」：島・キノコ・ボード・台・ポータルぜんぶを島のまん中（床の高さ）を中心に縮める
         if (WestBridge) log.Append(WestIsland(root, reward));
         if (UseHandLayout) { ApplyHandLayout(root); log.Append("手で並べた配置 "); }
+        foreach (var nm in new[] { "Board", "FairyRing", "Stage" }) { var t = root.Find(nm); if (t) t.localPosition += Vector3.forward * PhotoShiftZ; }   // 島を小さくした分、写真コーナーを手前へ
+        // 奥のまん中の大きいきのこは、かさが「Congratulations!」の文字の前にかぶらないよう少し奥へ（かさを大きくした分。柵までは余裕あり）
+        { var m4 = root.Find("FairyRing/Mush" + (RingCount / 2)); if (m4) m4.localPosition += Vector3.forward * CenterBackPush; }
         // うまりすぎのキノコを持ち上げる（2026-11-19 てじゃ「したのツボまで埋まってるやつあるから埋まりすぎなやつちょっぴりもちあげて」）：
         //  いちばん下の頂点が床から MushSinkMax より深いものは、そこまで上げる（傾いているので頂点で測る）
         {
