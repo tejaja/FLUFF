@@ -20,7 +20,30 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
     [Tooltip("持ってトリガー（Use）を押した時にこの UdonBehaviour へ送るイベント（あそびばの貝・氷のオン/オフ。2026-11-16 てじゃ「B」）")]
     public UdonSharpBehaviour useTarget;
     public string useEvent = "Toggle";
-    public override void OnPickupUseDown() { if (useTarget != null) useTarget.SendCustomEvent(useEvent); }
+    public override void OnPickupUseDown() { if (useTarget != null) { useTarget.SendCustomEvent(useEvent); StartFlash(); } }
+    // 2026-11-19 てじゃ「オンオフ切り替え式のおもちゃをクリックでオンオフしたとき、一瞬白っぽく明滅するようにしよ」：
+    //  オン/オフした時、自分の画面で body の見た目を白い材質に2回ちかっと切りかえる（flashMaterial が空なら何もしない）
+    [Tooltip("オン/オフした時に一瞬だけ切りかえる白い材質（空ならしない）")]
+    public Material flashMaterial;
+    public float flashOn = 0.07f, flashGap = 0.06f;
+    private float _flashAt = -10f;
+    private bool _flashing, _flashShown;
+    private void StartFlash()
+    {
+        if (flashMaterial == null || body == null) return;
+        _flashAt = Time.time; _flashing = true;
+    }
+    private void UpdateFlash()
+    {
+        if (!_flashing) return;
+        float t = Time.time - _flashAt;
+        bool on = t < flashOn || (t >= flashOn + flashGap && t < flashOn * 2f + flashGap);
+        if (t >= flashOn * 2f + flashGap) { _flashing = false; on = false; }
+        if (on == _flashShown && _flashing) return;
+        _flashShown = on;
+        if (on) SetAll(flashMaterial);
+        else { bool held = _pickup != null && _pickup.IsHeld; if (held && heldMaterial != null) SetAll(heldMaterial); else SetGhost(false); }
+    }
     private Renderer[] _vis;
     private Material[][] _visMats;
 
@@ -60,27 +83,35 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
 
     public override void OnPickup() { SetGhost(true); }
 
-    private void SetGhost(bool on)
+    private void CacheVis()
     {
-        if (heldMaterial == null || body == null) return;
-        if (_vis == null)
-        {
-            // 見た目（メッシュ）だけ。粒（ParticleSystemRenderer）は変えない
-            MeshRenderer[] mr = body.GetComponentsInChildren<MeshRenderer>(true);
-            _vis = new Renderer[mr.Length]; _visMats = new Material[mr.Length][];
-            for (int i = 0; i < mr.Length; i++) { _vis[i] = mr[i]; _visMats[i] = mr[i].sharedMaterials; }
-        }
+        if (_vis != null || body == null) return;
+        // 見た目（メッシュ）だけ。粒（ParticleSystemRenderer）は変えない
+        MeshRenderer[] mr = body.GetComponentsInChildren<MeshRenderer>(true);
+        _vis = new Renderer[mr.Length]; _visMats = new Material[mr.Length][];
+        for (int i = 0; i < mr.Length; i++) { _vis[i] = mr[i]; _visMats[i] = mr[i].sharedMaterials; }
+    }
+
+    private void SetAll(Material m)
+    {
+        CacheVis();
+        if (_vis == null) return;
         for (int i = 0; i < _vis.Length; i++)
         {
             if (_vis[i] == null) continue;
-            if (on)
-            {
-                Material[] g = new Material[_visMats[i].Length];
-                for (int k = 0; k < g.Length; k++) g[k] = heldMaterial;
-                _vis[i].sharedMaterials = g;
-            }
-            else _vis[i].sharedMaterials = _visMats[i];
+            Material[] g = new Material[_visMats[i].Length];
+            for (int k = 0; k < g.Length; k++) g[k] = m;
+            _vis[i].sharedMaterials = g;
         }
+    }
+
+    private void SetGhost(bool on)
+    {
+        if (body == null) return;
+        if (on) { if (heldMaterial != null) SetAll(heldMaterial); return; }
+        CacheVis();
+        if (_vis == null) return;
+        for (int i = 0; i < _vis.Length; i++) if (_vis[i] != null) _vis[i].sharedMaterials = _visMats[i];
     }
 
     // 手を離したら、その場の地面にまっすぐ立てる（持っていた人の画面で。位置は VRCObjectSync が配る）
@@ -104,7 +135,7 @@ public class FuwaMovableMushroom : UdonSharpBehaviour
     }
 
     // 持っている手の動きは PostLateUpdate の時に反映されているので、そのあとで合わせる
-    public override void PostLateUpdate() { UpdateHeld(); Follow(); }
+    public override void PostLateUpdate() { UpdateHeld(); Follow(); UpdateFlash(); }
 
     private void Follow()
     {

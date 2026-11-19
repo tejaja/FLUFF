@@ -740,7 +740,7 @@ public static class FuwaPlaygroundBuilder
             pk.InteractionText = label; pk.UseText = "オン / オフ";
             grab.AddComponent<VRC.SDK3.Components.VRCObjectSync>();
             var mm = UdonSharpUndo.AddComponent<FuwaMovableMushroom>(grab);
-            mm.body = body; mm.heldMaterial = heldMat; mm.ground = (1 << 11) | 1; mm.useEvent = "Toggle";
+            mm.body = body; mm.heldMaterial = heldMat; mm.flashMaterial = ToyFlashMat(); mm.ground = (1 << 11) | 1; mm.useEvent = "Toggle";
             UdonSharpBehaviour target = body.GetComponentsInChildren<FuwaPlaygroundBubbleClam>(true).FirstOrDefault();
             if (target == null) target = body.GetComponentsInChildren<FuwaPlaygroundIceToy>(true).FirstOrDefault();
             if (target == null) target = body.GetComponentsInChildren<FuwaPlaygroundLavaPool>(true).FirstOrDefault();
@@ -760,6 +760,29 @@ public static class FuwaPlaygroundBuilder
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
         Debug.Log("[あそびば] ステージ2のおもちゃを持ち運べるように");
     }
+    // 2026-11-19 てじゃ「オンオフ切り替え式のおもちゃをクリックでオンオフしたとき、一瞬白っぽく明滅するようにしよ」：FuwaMovableMushroom.flashMaterial（ちかっと切りかえる白）
+    public static Color ToyFlashColor = new Color(1f, 0.97f, 0.92f);
+    public static Material ToyFlashMat()
+    {
+        const string path = "Assets/FuwaCourse/Materials/Playground_ToyFlash.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m) { m = new Material(Shader.Find("Unlit/Color")) { name = "Playground_ToyFlash" }; AssetDatabase.CreateAsset(m, path); }
+        m.color = ToyFlashColor; EditorUtility.SetDirty(m);
+        return m;
+    }
+    [MenuItem("FuwaCourse/あそびば/オンオフのおもちゃに白い明滅をつける")]
+    static void MenuToyFlash()
+    {
+        int n = 0;
+        foreach (var mm in Object.FindObjectsOfType<FuwaMovableMushroom>(true))
+        {
+            if (!mm.gameObject.scene.IsValid() || mm.useTarget == null) continue;
+            mm.flashMaterial = ToyFlashMat(); Sync(mm); n++;
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        Debug.Log("[あそびば] 白い明滅 " + n);
+    }
+
     [MenuItem("FuwaCourse/あそびば/ステージ2のおもちゃを持ち運べるように")]
     static void MenuStage2Movable() { MakeStage2ToysMovable(Object.FindObjectsOfType<Transform>(true).First(t => t.name == "Toys" && t.parent != null && t.parent.name == "Room")); }
 
