@@ -174,7 +174,8 @@ public static class FuwaBonusHubBuilder
     }
 
     // 2026-11-18 てじゃ「おまけ本島の隅っこに、各コースの隠し記録的な感じで閲覧する場所つくろ」：FuwaSystem/Stats（FuwaStats、数える係）と、本島の西の柵ぎわの看板（FuwaStatsBoard）
-    public static float StatsX = -8.6f, StatsZ = -1.6f, StatsY = 1.45f, StatsPanelW = 4.4f, StatsPanelH = 3.1f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
+    // 2026-11-19 てじゃ「あしあとは金ピカ銃の右くらい」：東のきんピカ台（局所 (8.4, -1.6)）の右（南）へ。読む向きは島のまん中から（東を向く）
+    public static float StatsX = 8.6f, StatsZ = -5.0f, StatsY = 1.45f, StatsPanelW = 4.4f, StatsPanelH = 3.1f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
     static string StatsBoard(Transform root)
     {
         var sys = Find("FuwaSystem"); var src = root.Find("Board/Times1");
@@ -189,7 +190,7 @@ public static class FuwaBonusHubBuilder
         // 看板（自己ベストの板を写して大きく）
         var b = Object.Instantiate(src.gameObject, root, false).transform; b.name = "StatsBoard";
         foreach (var tb in b.GetComponents<FuwaThanksBoard>()) { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tb); Object.DestroyImmediate(tb); if (ub) Object.DestroyImmediate(ub); }
-        b.localPosition = new Vector3(StatsX, StatsY, StatsZ); b.localRotation = Quaternion.LookRotation(Vector3.left); b.localScale = Vector3.one;   // 島のまん中から読める（文字の正面＝+z が西向き）
+        b.localPosition = new Vector3(StatsX, StatsY, StatsZ); b.localRotation = Quaternion.LookRotation(StatsX >= 0f ? Vector3.right : Vector3.left); b.localScale = Vector3.one;   // 島のまん中から読める（文字の正面＝+z が西向き）
         var tmp = b.GetComponent<TMPro.TextMeshPro>(); tmp.rectTransform.sizeDelta = new Vector2(StatsPanelW - 0.4f, StatsPanelH - 0.2f); tmp.fontSize = StatsFont;
         tmp.alignment = TMPro.TextAlignmentOptions.Left; tmp.enableWordWrapping = false; tmp.margin = Vector4.zero;
         var panel = b.Find("Panel")?.GetComponent<SpriteRenderer>();
@@ -204,53 +205,51 @@ public static class FuwaBonusHubBuilder
         return "あしあと ";
     }
 
-    // 2026-11-19 てじゃ「ボードとかの位置リセットボタンもほしいのと、かくしデータもボタンで展開するタイプにしよ」：西の柵ぎわに2つ（縮める前の島の座標）
-    public static Vector3 ResetBtnPos = new Vector3(-7.0f, 0f, -4.0f), StatsBtnPos = new Vector3(-7.3f, 0f, -1.6f);   // 西の橋（少し北寄り）の通り道をあける
+    // 2026-11-19 てじゃ「ボードとかの位置リセットボタンもほしいのと、かくしデータもボタンで展開するタイプにしよ」
+    //  → 同日「オブジェクトリセットは、ふわふわの奥くらいにレーザーボタン式にしよ」「あしあとは金ピカ銃の右くらい、これもレーザーボタン」
+    //  あそびばの「おもちゃをもどす」（柵の前にうかぶ丸いレーザーボタン）を写して使う。縮める前の島の座標、どちらも島のまん中から押す（東を向く）
+    public static Vector3 ResetBtnPos = new Vector3(11.0f, 1.09f, 1.6f), StatsBtnPos = new Vector3(8.6f, 1.09f, -8.4f);
+    public static float LaserBtnScale = 0.97f;   // あそびばの物（0.63）を本島の縮み（0.65）で割った大きさ＝見た目は同じ
     static string Buttons(Transform root)
     {
         var holder = Find("FuwaSystem/BonusBoards"); var stats = root.Find("StatsBoard");
-        var cyl = Resources.GetBuiltinResource<Mesh>("Cylinder.fbx");
-        var baseM = BonusMat("Bonus_ButtonBase", new Color(1f, 0.93f, 0.86f));
-        var font = holder ? holder.GetComponentsInChildren<TMPro.TextMeshPro>(true).FirstOrDefault() : null;
-        Transform Make(string name, Vector3 lp, Color top, string label)
+        var src = Resources.FindObjectsOfTypeAll<Transform>().FirstOrDefault(t => t && t.name == "ResetToysButton" && t.gameObject.scene.IsValid());
+        if (!src) return "ボタン：見本（あそびばの ResetToysButton）がない ";
+        foreach (var nm in new[] { "ResetButton", "StatsButton" }) { var old = root.Find(nm); if (old) Object.DestroyImmediate(old.gameObject); }
+        (Transform, TMPro.TextMeshProUGUI) Make(string name, Vector3 lp, Color col, string text)
         {
-            var b = new GameObject(name).transform; b.SetParent(root, false); b.localPosition = lp; b.localRotation = Quaternion.LookRotation(Vector3.right);   // 島のまん中を向く
-            var post = new GameObject("Post", typeof(MeshFilter), typeof(MeshRenderer)).transform; post.SetParent(b, false);
-            post.localPosition = new Vector3(0f, 0.65f, 0f); post.localScale = new Vector3(0.45f, 0.65f, 0.45f);
-            post.GetComponent<MeshFilter>().sharedMesh = cyl; post.GetComponent<MeshRenderer>().sharedMaterial = baseM;
-            var cap = new GameObject("Cap", typeof(MeshFilter), typeof(MeshRenderer)).transform; cap.SetParent(b, false);
-            cap.localPosition = new Vector3(0f, 1.34f, 0f); cap.localScale = new Vector3(0.36f, 0.05f, 0.36f);
-            cap.GetComponent<MeshFilter>().sharedMesh = cyl; cap.GetComponent<MeshRenderer>().sharedMaterial = BonusMat("Bonus_Button_" + name, top);
-            var col = b.gameObject.AddComponent<BoxCollider>(); col.center = new Vector3(0f, 0.7f, 0f); col.size = new Vector3(0.5f, 1.45f, 0.5f);
-            if (font)
-            {
-                var t = Object.Instantiate(font.gameObject, b, false); t.name = "Label";
-                foreach (var c in t.GetComponents<Component>()) if (c is UdonSharp.UdonSharpBehaviour u) { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(u); Object.DestroyImmediate(u); if (ub) Object.DestroyImmediate(ub); }
-                foreach (var c in t.GetComponents<Component>()) if (!(c is Transform || c is MeshRenderer || c is MeshFilter || c is TMPro.TextMeshPro || c is RectTransform)) Object.DestroyImmediate(c);
-                foreach (Transform ch in t.transform.Cast<Transform>().ToList()) Object.DestroyImmediate(ch.gameObject);
-                t.layer = 0;
-                t.transform.localPosition = new Vector3(0f, 1.75f, 0f); t.transform.localRotation = Quaternion.Euler(0f, 180f, 0f); t.transform.localScale = Vector3.one;
-                var tm = t.GetComponent<TMPro.TextMeshPro>(); tm.text = label; tm.alignment = TMPro.TextAlignmentOptions.Center; tm.fontSize = 3.6f; tm.color = new Color(0.36f, 0.4f, 0.55f); tm.fontStyle = TMPro.FontStyles.Bold; tm.enableWordWrapping = false; tm.rectTransform.sizeDelta = new Vector2(2f, 0.5f); tm.margin = Vector4.zero;
-            }
-            foreach (var r in b.GetComponentsInChildren<Renderer>(true)) { r.lightmapIndex = -1; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; }
-            return b;
+            var b = Object.Instantiate(src.gameObject, root, false).transform; b.name = name;
+            b.localPosition = lp; b.localRotation = Quaternion.LookRotation(Vector3.right); b.localScale = Vector3.one * LaserBtnScale;
+            var btn = b.GetComponentInChildren<UnityEngine.UI.Button>(true);
+            var cb = btn.colors; float h, sat, v; Color.RGBToHSV(cb.normalColor, out h, out sat, out v);
+            Color.RGBToHSV(col, out float h2, out float s2, out float v2);
+            cb.highlightedColor = Color.HSVToRGB(h2, s2, Mathf.Min(1f, v2 * 1.08f)); cb.pressedColor = Color.HSVToRGB(h2, Mathf.Min(1f, s2 * 1.2f), v2 * 0.85f); cb.selectedColor = col; cb.normalColor = col;
+            btn.colors = cb;
+            for (int i = btn.onClick.GetPersistentEventCount() - 1; i >= 0; i--) UnityEditor.Events.UnityEventTools.RemovePersistentListener(btn.onClick, i);
+            var tm = b.GetComponentInChildren<TMPro.TextMeshProUGUI>(true); if (tm) tm.text = text;
+            return (b, tm);
+        }
+        void Hook(Transform b, UdonSharp.UdonSharpBehaviour u)
+        {
+            var btn = b.GetComponentInChildren<UnityEngine.UI.Button>(true); var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(u);
+            UnityEditor.Events.UnityEventTools.AddStringPersistentListener(btn.onClick, ub.SendCustomEvent, "Press");
+            EditorUtility.SetDirty(btn);
         }
         int n = 0;
         if (holder)
         {
-            var b = Make("ResetButton", ResetBtnPos, new Color(0.62f, 0.83f, 1f), "もとにもどす");
+            var (b, tm) = Make("ResetButton", ResetBtnPos, new Color(0.45f, 0.72f, 0.95f), "もとにもどす");
             var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBonusButton>(b.gameObject);
-            fb.mode = 0; fb.resetObjects = holder.Cast<Transform>().Select(t => t.gameObject).ToArray(); fb.pressPart = b.Find("Cap");
-            UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb);
-            var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(fb); if (ub) { ub.interactText = "ボード・ふわふわを元の場所へ"; EditorUtility.SetDirty(ub); }
+            fb.mode = 0; fb.resetObjects = holder.Cast<Transform>().Select(t => t.gameObject).ToArray();
+            UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb); Hook(b, fb);
             n++;
         }
         if (stats)
         {
-            var b = Make("StatsButton", StatsBtnPos, new Color(1f, 0.8f, 0.45f), "あしあと");
+            var (b, tm) = Make("StatsButton", StatsBtnPos, new Color(0.96f, 0.68f, 0.30f), "あしあとをみる");
             var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBonusButton>(b.gameObject);
-            fb.mode = 1; fb.toggleTarget = stats.gameObject; fb.pressPart = b.Find("Cap");
-            UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb);
+            fb.mode = 1; fb.toggleTarget = stats.gameObject; fb.label = tm;
+            UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb); Hook(b, fb);
             n++;
         }
         return "ボタン " + n + " ";

@@ -15,17 +15,22 @@ public class FuwaBonusButton : UdonSharpBehaviour
     public GameObject toggleTarget;
     public Transform pressPart;
     public AudioSource clickSound;
-    public string openText = "あしあとを見る", closeText = "あしあとをとじる";
+    public string openText = "あしあとをみる", closeText = "あしあとをとじる";
+    // 2026-11-19 てじゃ「レーザーボタン式にしよ」：レーザーで押すボタン（UI の Button の onClick → SendCustomEvent("Press")）。label はボタンの文字（ひらく／とじるで切りかえ）
+    [Tooltip("レーザーボタンの文字（mode 1 で ひらく／とじる に切りかえ。なくてもOK）")]
+    public TMPro.TextMeshProUGUI label;
     private float _pressAt = -10f;
     private Vector3 _pressBase;
 
     private void Start()
     {
         if (pressPart != null) _pressBase = pressPart.localPosition;
-        if (mode == 1) { if (toggleTarget != null) toggleTarget.SetActive(false); InteractionText = openText; }
+        if (mode == 1) { if (toggleTarget != null) toggleTarget.SetActive(false); InteractionText = openText; if (label != null) label.text = openText; }
     }
 
-    public override void Interact()
+    public override void Interact() { Press(); }
+
+    public void Press()
     {
         _pressAt = Time.time;
         if (clickSound != null && clickSound.gameObject.activeInHierarchy) clickSound.Play();
@@ -48,6 +53,7 @@ public class FuwaBonusButton : UdonSharpBehaviour
             bool on = !toggleTarget.activeSelf;
             toggleTarget.SetActive(on);
             InteractionText = on ? closeText : openText;
+            if (label != null) label.text = on ? closeText : openText;
         }
     }
 
