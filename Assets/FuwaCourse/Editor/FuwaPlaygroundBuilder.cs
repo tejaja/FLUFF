@@ -514,7 +514,7 @@ public static class FuwaPlaygroundBuilder
         var btnLbl = LaserButton(toys, "ResetToysButton", rsPos + Vector3.up * 0.55f, Quaternion.LookRotation(rsOut.normalized), 1.3f, "おもちゃをもどす", rs, "ResetAll");   // 「戻」はボタンのフォントに無くて□になっていた（2026-10-13）
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "uiTexts", "uiJa", "uiEn", btnLbl, "おもちゃをもどす", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
-        AddTestUnlockAll(toys, sp);
+        // 2026-11-19 てじゃ「おもちゃ全部出すボタンもういらんか」：テスト用の「おもちゃぜんぶだす」は置かない（置きたい時はメニューから）
         return "toys " + list.Count;
     }
 
