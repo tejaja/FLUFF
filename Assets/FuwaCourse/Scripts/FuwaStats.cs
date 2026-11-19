@@ -20,6 +20,13 @@ public class FuwaStats : UdonSharpBehaviour
     public float distInterval = 2f;
     [Tooltip("1回の間隔でこれより大きく動いたら（ワープ・リスポーン）足さない(m)")]
     public float distMaxStep = 40f;
+    // 2026-11-19 てじゃ「あるていどでカンストにしておきたい」：ここで止まる（表示もそのまま）
+    [Tooltip("さいしょうアウト・さいしょう打数・クリア回数（コースごと）のカンスト")]
+    public int maxCount = 9999;
+    [Tooltip("ふわふわに当てた回数（ぜんぶ）のカンスト")]
+    public int maxTotalHits = 999999;
+    [Tooltip("進んだきょり（ぜんぶ）のカンスト(m)。9999.99 km")]
+    public float maxDist = 9999990f;
 
     private int[] _minOuts, _minHits, _clears;
     private int _totalHits;
@@ -88,7 +95,8 @@ public class FuwaStats : UdonSharpBehaviour
     {
         Init();
         int i = IndexOf(start); if (i < 0) return;
-        _clears[i]++;
+        if (_clears[i] < maxCount) _clears[i]++;
+        outs = Mathf.Min(outs, maxCount); hits = Mathf.Min(hits, maxCount);
         if (_minOuts[i] < 0 || outs < _minOuts[i]) _minOuts[i] = outs;
         if (_minHits[i] < 0 || hits < _minHits[i]) _minHits[i] = hits;
         SaveCourse(i);
@@ -96,7 +104,7 @@ public class FuwaStats : UdonSharpBehaviour
     }
 
     // 銃の風がふわふわに当たった時（FuwaBall.NoteShotCharge）
-    public void AddHit() { _totalHits++; _dirty = true; }
+    public void AddHit() { if (_totalHits >= maxTotalHits) return; _totalHits++; _dirty = true; }
 
     // テストプレイ用（2026-11-19 てじゃ「クリアフラグオンにしたときに、仮の記録いれてほしい」）。公開前に消す。全コース・累計をこの値で上書きして保存
     public void FakeAll(int outs, int hits, int clears, int totalHits, float totalDist)
@@ -105,9 +113,10 @@ public class FuwaStats : UdonSharpBehaviour
         for (int i = 0; i < _minOuts.Length; i++)
         {
             _minOuts[i] = outs; _minHits[i] = hits; _clears[i] = clears;
-            SaveCourse(i);
         }
         _totalHits = totalHits; _totalDist = totalDist;
+        ClampAll();
+        for (int i = 0; i < _minOuts.Length; i++) SaveCourse(i);
         SaveTotals();
     }
 
@@ -131,7 +140,7 @@ public class FuwaStats : UdonSharpBehaviour
                 {
                     Vector3 d = p - _lastPos; d.y = 0f;   // 横に進んだ分だけ（竜巻で上下・ぐるぐるしても増えない）
                     float m = d.magnitude;
-                    if (m < distMaxStep) { _totalDist += m; _dirty = true; }
+                    if (m < distMaxStep && _totalDist < maxDist) { _totalDist = Mathf.Min(_totalDist + m, maxDist); _dirty = true; }
                 }
                 _lastPos = p; _hasLast = true;
             }
@@ -170,5 +179,19 @@ public class FuwaStats : UdonSharpBehaviour
         }
         if (PlayerData.HasKey(player, "st_hits")) _totalHits = PlayerData.GetInt(player, "st_hits");
         if (PlayerData.HasKey(player, "st_dist")) _totalDist = PlayerData.GetFloat(player, "st_dist");
+        ClampAll();
+    }
+
+    // カンストより大きい値（前に保存した物・テストの仮の記録）をそろえる
+    private void ClampAll()
+    {
+        for (int i = 0; i < _minOuts.Length; i++)
+        {
+            if (_minOuts[i] > maxCount) _minOuts[i] = maxCount;
+            if (_minHits[i] > maxCount) _minHits[i] = maxCount;
+            if (_clears[i] > maxCount) _clears[i] = maxCount;
+        }
+        if (_totalHits > maxTotalHits) _totalHits = maxTotalHits;
+        if (_totalDist > maxDist) _totalDist = maxDist;
     }
 }
