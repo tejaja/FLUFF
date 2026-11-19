@@ -29,6 +29,11 @@ public class FuwaPortalCams : UdonSharpBehaviour
     public float closeFov = 130f;
     [Tooltip("出口の穴（自分の円盤）をこのレイヤーに移して、ポータルのカメラには映さない（入る直前に出口の円盤が目の前に大きく映っていた）")]
     public int hideLayer = 25;
+    // 2026-11-19 てじゃ「あそびばのポータル、覗いた先が裏面の板が見えちゃって真っ黒」：カメラは出口のうしろから穴をのぞくので、
+    //  穴のすぐ裏にある板（あそびばの Back）が手前に映る → 出口の円盤といっしょにこれも隠す（holes と同じ番号、なくてもOK）
+    [Tooltip("holes と同じ番号：出口になった時に円盤といっしょにポータルのカメラから隠す裏の板（なくてもOK）")]
+    public Renderer[] holeBacks;
+    private int _hidBackLayer0;
     // 2026-11-15 てじゃ「ポータルの軽量化」「近寄ったほうがボケてみえるのなんで？」
     //  ・映像の大きさ（解像度）を、穴が画面に映る大きさに合わせる：レンダーテクスチャは1組（最大 rtSize）のまま、カメラは左下の一部（rect）だけに描く。穴のシェーダーは _VS 倍の所を読む
     //    （前は 1024 固定：遠いと余り、近いと足りずにボケた）
@@ -99,8 +104,10 @@ public class FuwaPortalCams : UdonSharpBehaviour
             _active = best;
             // 出口の円盤をポータルのカメラから隠す（前に隠したのは元のレイヤーへ）
             if (_hidHole >= 0 && holes[_hidHole] != null) holes[_hidHole].gameObject.layer = _hidLayer0;
+            if (_hidHole >= 0 && holeBacks != null && _hidHole < holeBacks.Length && holeBacks[_hidHole] != null) holeBacks[_hidHole].gameObject.layer = _hidBackLayer0;
             _hidHole = best >= 0 ? _exitHole[best] : -1;
             if (_hidHole >= 0 && holes[_hidHole] != null) { _hidLayer0 = holes[_hidHole].gameObject.layer; holes[_hidHole].gameObject.layer = hideLayer; }
+            if (_hidHole >= 0 && holeBacks != null && _hidHole < holeBacks.Length && holeBacks[_hidHole] != null) { _hidBackLayer0 = holeBacks[_hidHole].gameObject.layer; holeBacks[_hidHole].gameObject.layer = hideLayer; }
         }
         bool on = best >= 0;
         if (!on)

@@ -627,6 +627,9 @@ public static class FuwaPlaygroundBuilder
             if (f.FieldType == typeof(float) || f.FieldType == typeof(int)) f.SetValue(pc, f.GetValue(src));
         pc.entries = new[] { pp.a, pp.b }; pc.exits = new[] { pp.b, pp.a }; pc.holes = new[] { ha, hb };
         pc.camL = cl; pc.camR = cr; pc.layerCull = new int[0];
+        // 出口の裏の板もポータルのカメラから隠す（2026-11-19 てじゃ「覗いた先が裏面の板が見えちゃって真っ黒」）
+        Renderer Back(Transform p) { var b = p.Find("Back"); return b ? b.GetComponent<Renderer>() : null; }
+        pc.holeBacks = new[] { Back(pp.a), Back(pp.b) };
         UdonSharpEditorUtility.CopyProxyToUdon(pc);
         var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(pc); if (ub != null) { ub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(ub); }
         AssetDatabase.SaveAssets();
