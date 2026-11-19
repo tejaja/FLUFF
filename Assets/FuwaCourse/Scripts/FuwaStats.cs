@@ -66,13 +66,17 @@ public class FuwaStats : UdonSharpBehaviour
         return "c" + idx;
     }
 
-    public string NameOf(int idx)
+    public string NameOf(int idx) { return NameIn(idx, false); }
+
+    // 2026-11-19 てじゃ「全部英語版もほしいな」：en＝英語のコース名（courseNamesEn）
+    public string NameIn(int idx, bool en)
     {
         int k = idx;
         for (int r = 0; r < records.Length; r++)
         {
             FuwaRecords rec = records[r]; if (rec == null || rec.courseStarts == null) continue;
-            if (k < rec.courseStarts.Length) return (rec.courseNamesJa != null && k < rec.courseNamesJa.Length) ? rec.courseNamesJa[k] : "";
+            string[] names = en ? rec.courseNamesEn : rec.courseNamesJa;
+            if (k < rec.courseStarts.Length) return (names != null && k < names.Length) ? names[k] : "";
             k -= rec.courseStarts.Length;
         }
         return "";

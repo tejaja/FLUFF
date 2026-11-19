@@ -19,13 +19,31 @@ public class FuwaBonusButton : UdonSharpBehaviour
     // 2026-11-19 てじゃ「レーザーボタン式にしよ」：レーザーで押すボタン（UI の Button の onClick → SendCustomEvent("Press")）。label はボタンの文字（ひらく／とじるで切りかえ）
     [Tooltip("レーザーボタンの文字（mode 1 で ひらく／とじる に切りかえ。なくてもOK）")]
     public TMPro.TextMeshProUGUI label;
+    // 2026-11-19 てじゃ「全部英語版もほしいな」：英語の時の文字（mode 0 は openText をボタンの文字に使う）
+    [Tooltip("言語の切りかえ（なければ日本語だけ）")]
+    public FuwaLanguage language;
+    public string openTextEn = "Footprints", closeTextEn = "Footprints";
     private float _pressAt = -10f;
+    private int _lang = -1;
+    private float _langNext;
     private Vector3 _pressBase;
 
     private void Start()
     {
         if (pressPart != null) _pressBase = pressPart.localPosition;
-        if (mode == 1) { if (toggleTarget != null) toggleTarget.SetActive(false); InteractionText = openText; if (label != null) label.text = openText; }
+        if (mode == 1 && toggleTarget != null) toggleTarget.SetActive(false);
+        ShowText();
+    }
+
+    private bool IsOpen() { return mode == 1 && toggleTarget != null && toggleTarget.activeSelf; }
+
+    private void ShowText()
+    {
+        bool en = language != null && language.IsEnglish();
+        _lang = en ? 1 : 0;
+        string t = IsOpen() ? (en ? closeTextEn : closeText) : (en ? openTextEn : openText);
+        InteractionText = t;
+        if (label != null) label.text = t;
     }
 
     public override void Interact() { Press(); }
@@ -52,13 +70,18 @@ public class FuwaBonusButton : UdonSharpBehaviour
         {
             bool on = !toggleTarget.activeSelf;
             toggleTarget.SetActive(on);
-            InteractionText = on ? closeText : openText;
-            if (label != null) label.text = on ? closeText : openText;
+            ShowText();
         }
     }
 
     private void Update()
     {
+        if (Time.time >= _langNext)   // 言語が切りかわったら文字も
+        {
+            _langNext = Time.time + 0.5f;
+            int l = (language != null && language.IsEnglish()) ? 1 : 0;
+            if (l != _lang) ShowText();
+        }
         if (pressPart == null) return;
         float u = (Time.time - _pressAt) / 0.25f;
         if (u < 0f || u > 1f) { if (u > 1f && u < 2f) pressPart.localPosition = _pressBase; return; }

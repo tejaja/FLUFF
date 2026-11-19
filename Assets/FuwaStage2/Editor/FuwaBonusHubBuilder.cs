@@ -169,7 +169,7 @@ public static class FuwaBonusHubBuilder
         if (sc.sparkles) { var sp = Object.Instantiate(sc.sparkles, disp, false); sp.name = "Sparkles"; sp.transform.localPosition = sc.sparkles.transform.localPosition; sp.SetActive(true); spk = sp; }
         Object.DestroyImmediate(spot.gameObject);   // 銃は呼ばない
         var gsw = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaGoldGunSwitch>(gs.gameObject);
-        gsw.manager = mgr; gsw.clickSound = click; gsw.label = null; gsw.goldModel = goldM; gsw.normalModel = normM; gsw.sparkles = spk;   // 2026-11-19 てじゃ「台に通常銃が乗ってるときはキラキラ消そう」   // 文字なし（てじゃ「スイッチは分かりづらい」）
+        gsw.manager = mgr; gsw.clickSound = click; gsw.label = null; gsw.goldModel = goldM; gsw.normalModel = normM; gsw.sparkles = spk; gsw.language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault(x => x.gameObject.scene.IsValid());   // 2026-11-19 てじゃ「台に通常銃が乗ってるときはキラキラ消そう」   // 文字なし（てじゃ「スイッチは分かりづらい」）
         UdonSharpEditorUtility.CopyProxyToUdon(gsw); FuwaStage2WaterTest.NoSync(gsw);
         return "金の銃の像＋スイッチ・回る銃の金ピカ " + sc.goldRenderers.Length + " ";
     }
@@ -182,11 +182,21 @@ public static class FuwaBonusHubBuilder
     static Quaternion FaceOut(Vector3 p) { var o = new Vector3(p.x, 0f, p.z); return o.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(o.normalized) : Quaternion.identity; }   // 読む人は島のまん中から
     // 2026-11-19 てじゃ「あしあとボード、もうちょいコンパクトにしたい、あとちょっと上に」「余白減らす感じで」：板の余白をへらす（StatsPanelW/H）、まん中の高さ StatsY。StatsScale は板ごとの倍率（今は1）
     public static float StatsScale = 1f;
-    public static float StatsY = 1.9f, StatsPanelW = 3.3f, StatsPanelH = 2.5f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
+    public static float StatsY = 1.9f, StatsPanelW = 3.0f, StatsPanelH = 2.5f, StatsFont = 1.25f;   // 縮める前の島の座標（西が -x）
     // 2026-11-19 てじゃ「あしあと、もうちょい幅狭められないかな」「英語コース名注意」：列を詰めて幅をへらす。名前の列は英語の一番長い名前（Mushroom Valley ≒1.0）も入る幅を残す
     //  文字の幅（文字の大きさ1.25）：名前 1.0、さいしょう 0.42（80%）、ノーミス 0.44、999999 0.42、ふわふわが進んだきょり 1.21
-    public static float StatsTextW = 2.9f;   // 板の幅 StatsPanelW はこれ＋0.4
-    public static string StatsNamePos = "11%", StatsOutPos = "50%", StatsHitPos = "69%", StatsClearPos = "88%";
+    //  → 同日「全部英語版もほしいな」「それもとに幅も調整しよ」：言葉ごとに列の位置（左はしから・島の座標）と欄の幅を決める。板の幅は欄＋0.4（FuwaStatsBoard が切りかえ）
+    //    日本語：名前 0.75、ノーミス 0.44／英語：名前 1.01（Mushroom Valley）、No Miss 0.47、Distance fluffs traveled 1.46。列のすき間 0.12
+    public static float[] StatsColsJa = { 0.30f, 1.17f, 1.73f, 2.27f }, StatsColsEn = { 0.30f, 1.43f, 2.02f, 2.56f };
+    public static float StatsTextW = 2.6f, StatsTextWEn = 2.9f;   // 板の幅 StatsPanelW は大きい方＋0.4（作った時は日本語）
+    static string Pct(float x, float w) => (x / w * 100f).ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + "%";
+    public static void SetStatsCols(FuwaStatsBoard sb, SpriteRenderer panel)
+    {
+        float w = StatsTextW, we = StatsTextWEn; var j = StatsColsJa; var e = StatsColsEn;
+        sb.namePos = Pct(j[0], w); sb.outPos = Pct(j[1], w); sb.hitPos = Pct(j[2], w); sb.clearPos = Pct(j[3], w);
+        sb.namePosEn = Pct(e[0], we); sb.outPosEn = Pct(e[1], we); sb.hitPosEn = Pct(e[2], we); sb.clearPosEn = Pct(e[3], we);
+        sb.textW = w; sb.textWEn = we; sb.panelPad = 0.4f; sb.panel = panel; sb.textRect = sb.text ? sb.text.rectTransform : null;
+    }
     static string StatsBoard(Transform root)
     {
         var sys = Find("FuwaSystem"); var src = root.Find("Board/Times1");
@@ -202,7 +212,7 @@ public static class FuwaBonusHubBuilder
         var b = Object.Instantiate(src.gameObject, root, false).transform; b.name = "StatsBoard";
         foreach (var tb in b.GetComponents<FuwaThanksBoard>()) { var ub = UdonSharpEditorUtility.GetBackingUdonBehaviour(tb); Object.DestroyImmediate(tb); if (ub) Object.DestroyImmediate(ub); }
         b.localPosition = OnFence(StatsR, StatsDeg, StatsY); b.localRotation = FaceOut(b.localPosition); b.localScale = Vector3.one * StatsScale;   // 島のまん中から読める（文字の正面＝+z が西向き）
-        var tmp = b.GetComponent<TMPro.TextMeshPro>(); tmp.rectTransform.sizeDelta = new Vector2(StatsTextW, StatsPanelH - 0.2f); tmp.fontSize = StatsFont;
+        var tmp = b.GetComponent<TMPro.TextMeshPro>(); tmp.rectTransform.sizeDelta = new Vector2(StatsTextW, StatsPanelH - 0.2f);   // 幅はこの後 FuwaStatsBoard が言葉で切りかえ tmp.fontSize = StatsFont;
         tmp.alignment = TMPro.TextAlignmentOptions.Left; tmp.enableWordWrapping = false; tmp.margin = Vector4.zero;
         var panel = b.Find("Panel")?.GetComponent<SpriteRenderer>();
         if (panel && panel.drawMode != SpriteDrawMode.Simple)
@@ -210,8 +220,8 @@ public static class FuwaBonusHubBuilder
             var ps = panel.transform.localScale; panel.size = new Vector2(StatsPanelW / ps.x, StatsPanelH / ps.y);   // 板の拡大率の分を割る
             panel.transform.localPosition = new Vector3(0f, 0f, panel.transform.localPosition.z);
         }
-        var sb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaStatsBoard>(b.gameObject); sb.stats = st; sb.text = tmp;
-        sb.namePos = StatsNamePos; sb.outPos = StatsOutPos; sb.hitPos = StatsHitPos; sb.clearPos = StatsClearPos;
+        var sb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaStatsBoard>(b.gameObject); sb.stats = st; sb.text = tmp; sb.language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault(x => x.gameObject.scene.IsValid());
+        SetStatsCols(sb, panel);
         UdonSharpEditorUtility.CopyProxyToUdon(sb); FuwaStage2WaterTest.NoSync(sb);
         tmp.text = "あしあと";
         return "あしあと ";
@@ -247,12 +257,14 @@ public static class FuwaBonusHubBuilder
             UnityEditor.Events.UnityEventTools.AddStringPersistentListener(btn.onClick, ub.SendCustomEvent, "Press");
             EditorUtility.SetDirty(btn);
         }
+        var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault(x => x.gameObject.scene.IsValid());   // 2026-11-19 てじゃ「全部英語版もほしいな」
         int n = 0;
         if (holder)
         {
             var (b, tm) = Make("ResetButton", OnFence(BtnR, ResetDeg, BtnY), new Color(0.45f, 0.72f, 0.95f), "もとにもどす");
             var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBonusButton>(b.gameObject);
             fb.mode = 0; fb.resetObjects = holder.Cast<Transform>().Select(t => t.gameObject).ToArray();
+            fb.label = tm; fb.language = lang; fb.openText = fb.closeText = "もとにもどす"; fb.openTextEn = fb.closeTextEn = "Reset";
             UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb); Hook(b, fb);
             n++;
         }
@@ -261,6 +273,7 @@ public static class FuwaBonusHubBuilder
             var (b, tm) = Make("StatsButton", OnFence(BtnR, StatsBtnDeg, BtnY), new Color(0.96f, 0.68f, 0.30f), "あしあと");
             var fb = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaBonusButton>(b.gameObject);
             fb.mode = 1; fb.toggleTarget = stats.gameObject; fb.label = tm; fb.openText = fb.closeText = "あしあと";   // てじゃ「ボタン名は『あしあと』だけでいいよ」
+            fb.language = lang; fb.openTextEn = fb.closeTextEn = "Footprints";
             UdonSharpEditorUtility.CopyProxyToUdon(fb); FuwaStage2WaterTest.NoSync(fb); Hook(b, fb);
             n++;
         }
