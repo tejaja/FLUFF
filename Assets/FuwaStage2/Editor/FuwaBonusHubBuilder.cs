@@ -675,6 +675,7 @@ public static class FuwaBonusHubBuilder
                 go.transform.position = new Vector3(at.x, Pos.y - 0.12f, at.z);   // 傾けても根元が浮かないよう少しうめる
                 float lean = Mathf.Lerp(LeanMin, LeanMax, (float)rnd.NextDouble()), leanDir = (float)rnd.NextDouble() * 360f;
                 go.transform.rotation = Quaternion.AngleAxis(lean, Quaternion.Euler(0f, leanDir, 0f) * Vector3.right) * Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
+                if (centerBack) LeanAway(go.transform, mesh, new Vector3(at.x - ringC.x, 0f, at.z - ringC.z));
                 go.transform.localScale = Vector3.one * k;
                 go.GetComponent<MeshFilter>().sharedMesh = mesh;
                 var mr = go.GetComponent<MeshRenderer>();
@@ -892,6 +893,23 @@ public static class FuwaBonusHubBuilder
         root.gameObject.SetActive(false);   // ふだんは消えている（area 4 の時だけ）
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
         return log.ToString();
+    }
+
+    // 2026-11-19 てじゃ「いま手前にかたむいてるけど、奥に傘が傾いてる感じにしたい、軸もあわせて」：
+    //  奥のまん中のキノコは、かさの傾き（メッシュの capTilt）が outward（輪の外＝撮る人から見て奥）を向くように回して、軸ごと CenterLean 度だけ奥へ倒す
+    public static float CenterLean = 6f;
+    public static void LeanAway(Transform t, Mesh mesh, Vector3 outward)
+    {
+        outward.y = 0f; if (outward.sqrMagnitude < 1e-6f) return; outward.Normalize();
+        // かさ（サブメッシュ1）の中心が軸の根元（原点）からどっちへずれているか（メッシュの中での向き）
+        var vs = mesh.vertices; var tris = mesh.GetTriangles(1); Vector3 c = Vector3.zero; int n = 0;
+        var used = new HashSet<int>(tris); foreach (var i in used) { c += vs[i]; n++; }
+        Vector3 cap = n > 0 ? c / n : Vector3.forward; cap.y = 0f;
+        float capYaw = cap.sqrMagnitude > 1e-8f ? Mathf.Atan2(cap.x, cap.z) * Mathf.Rad2Deg : 0f;
+        float outYaw = Mathf.Atan2(outward.x, outward.z) * Mathf.Rad2Deg;
+        var yaw = Quaternion.Euler(0f, outYaw - capYaw, 0f);                       // かさのずれを外向きに
+        var tilt = Quaternion.AngleAxis(CenterLean, Vector3.Cross(Vector3.up, outward));   // 上を外へ倒す
+        t.rotation = tilt * yaw;
     }
 
     // Tools/bigmush.json（Blender の bigmush_build.py が書き出す）→ メッシュのアセット
