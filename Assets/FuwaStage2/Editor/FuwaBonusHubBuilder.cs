@@ -634,7 +634,11 @@ public static class FuwaBonusHubBuilder
         //  → Blender の bigmush_build.py（FLUFF_models.blend、Islets シーンの big_params）で、ミニキノコと同じ形の考え方の大きいキノコを6種類作った
         //  （ポリゴン細かめ・かさの裏に本物のひだ・根元の広がり・かさのふちのゆらぎ）。Tools/bigmush.json → BigMush_1〜6.asset。
         //  色はゴールのミニキノコと同じ（かさ：パステルの赤・ピンク・クリーム・オレンジ、ひだ MiniMush_Gill、軸 Mush_Stem）。手前（撮る人側）はあける
-        var meshes = ImportBigMush();
+        var allMush = ImportBigMush();
+        // 2026-11-19 てじゃ「本島の一番デカいきのこ、隣のやつくらい平たい寄りにしたい」「0.75くらいで」：奥のまん中だけ専用の形 BigMush_C
+        //  （BigMush_6 のかさを open 0.75 にした物。BigMush_6 は輪の小さい2本でも使っているので別にした）。輪の並びは今まで通り 1〜6 から選ぶ
+        var centerMesh = allMush.FirstOrDefault(m => m.name == "BigMush_C");
+        var meshes = allMush.Where(m => m.name != "BigMush_C").ToArray();
         var ring = new GameObject("FairyRing").transform; ring.SetParent(root, false);
         var cyl = Resources.GetBuiltinResource<Mesh>("Cylinder.fbx");
         if (meshes.Length > 0)
@@ -667,6 +671,7 @@ public static class FuwaBonusHubBuilder
                 if (centerBack) h = RingHBack * BackCenterScale;
                 if (i == 0) h *= FrontLeftScale;   // 手前の左（赤）は小さめ（2026-11-18 てじゃ「左手前の赤もっとちいさく」）
                 float k = h / mesh.bounds.size.y;
+                if (centerBack && centerMesh) mesh = centerMesh;   // 大きさ（k）は元の形で決めて、かさだけ平たく（軸の太さ・長さはそのまま）
                 go.transform.position = new Vector3(at.x, Pos.y - 0.12f, at.z);   // 傾けても根元が浮かないよう少しうめる
                 float lean = Mathf.Lerp(LeanMin, LeanMax, (float)rnd.NextDouble()), leanDir = (float)rnd.NextDouble() * 360f;
                 go.transform.rotation = Quaternion.AngleAxis(lean, Quaternion.Euler(0f, leanDir, 0f) * Vector3.right) * Quaternion.Euler(0f, (float)rnd.NextDouble() * 360f, 0f);
