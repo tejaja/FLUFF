@@ -94,6 +94,8 @@ public static class FuwaBonusHubBuilder
             gf.localScale = Vector3.one * (size / meshD); gf.rotation = gs.rotation;
             var basePos = gs.position + gs.rotation * new Vector3(PhotoFluffSpread * (si - 1), 0f, 0f);
             gf.position = new Vector3(basePos.x, Pos.y + size * 0.5f + 0.05f, basePos.z);
+            // 2026-11-19 てじゃ「ふわふわ置物各種、入ってきた場所のほう向かせて」：顔（+z）をスポーンの方へ
+            { var sp = root.Find("Spawn"); if (sp) { var d = sp.position - gf.position; d.y = 0f; if (d.sqrMagnitude > 1e-4f) gf.rotation = Quaternion.LookRotation(d.normalized); } }
             var furMat = FuwaLobbyPaths.FindMat("Fuwa_BallFur"); var fr = gf.GetComponent<MeshRenderer>(); if (furMat && fr) fr.sharedMaterial = furMat;
             var rb = gf.GetComponent<Rigidbody>() ?? gf.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
             var pu = gf.GetComponent<VRC.SDK3.Components.VRCPickup>() ?? gf.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
@@ -660,6 +662,7 @@ public static class FuwaBonusHubBuilder
                 tb.records = c < recs.Length ? new[] { recs[c] } : new FuwaRecords[0]; tb.text = tmp;
                 tb.title = "";   // 見出しなし（てじゃ「ステージ◯も消してもっと詰めよう」）
                 tb.columns = true; tb.numberPrefix = c == 0 ? "1–" : "2–";   // 列そろえ・ステージ1も「1–1」
+                tb.language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault(x => x.gameObject.scene.IsValid());   // 2026-11-19 英語にも
                 if (tmp) { tmp.alignment = TMPro.TextAlignmentOptions.Left; tmp.margin = new Vector4(BoardMarginX, 0f, BoardMarginX, 0f); tmp.enableWordWrapping = false; tmp.overflowMode = TMPro.TextOverflowModes.Overflow; }
                 UdonSharpEditorUtility.CopyProxyToUdon(tb); FuwaStage2WaterTest.NoSync(tb);
                 if (tmp) tmp.text = "1 ……  0:00.00";
