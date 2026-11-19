@@ -476,6 +476,119 @@ public static class FuwaBonusHubBuilder
         return "西の島・橋・タイトル行きワープ（切れ目 " + gapDeg.ToString("F0") + "°） ";
     }
 
+    // 2026-11-19 てじゃ「柵のつなぎ目が甘いのと、木の橋の繫いだ柵だけ形やたかさがちがう」「この辺本島こみできっちり作り直して」：
+    //  本島（ロビーの柵を横に縮めた物）・橋と小島（2–4 のスタートの柵の切り出し）・つなぎ目（四角い棒）の3種類をやめて、
+    //  本島の輪 → 橋の片側 → 小島の輪 → 橋の反対側 → 本島、とひとつながりの道にそって同じ形の柵（あそびばと同じ寸法：柱 0.11×0.6、横木 0.22/0.52）を作る。
+    //  当たりは柱の間ごとの壁（高さ PathFenceColH）。前の柵（Island/Fence・FenceCollider、WestIsland/Fence・FenceCollider）は隠す（当たりの切れ目さがしには使うので消さない）
+    public static bool UsePathFence = true, ReturnPortal = false;
+    public static float PathFencePostW = 0.11f, PathFencePostH = 0.6f, PathFenceRailW = 0.06f, PathFenceRailH = 0.06f, PathFenceSpacing = 1.0f, PathFenceColH = 1.0f;
+    public static float[] PathFenceRailY = { 0.22f, 0.52f };
+    public static float PathFenceBridgeIn = 0.08f, PathFenceIsletIn = 0.14f;
+    static string PathFence(Transform root)
+    {
+        var isl = root.Find("Island"); var wi = root.Find("WestIsland");
+        var floor = isl ? isl.Find("LobbyFloor") : null; var bridge = wi ? wi.Find("Bridge") : null; var wg = wi ? wi.Find("WarpGround") : null;
+        if (!floor || !bridge || !wg) return "柵：材料がない ";
+        var oldJoin = root.Find("WestFenceJoin"); if (oldJoin) Object.DestroyImmediate(oldJoin.gameObject);
+        Vector3 O = root.position; O.y = 0f;
+        float R = FenceR * root.lossyScale.x;                                     // 本島の柵の半径（ワールド）
+        float yMain = floor.position.y + floor.lossyScale.y;                     // 円柱は高さ 2 → 上の面は中心＋スケール
+        float yBridge = bridge.position.y + bridge.lossyScale.y * 0.5f;          // 箱
+        float yIslet = wg.position.y + wg.lossyScale.y;
+        Vector3 Ci = wg.position; Ci.y = 0f;
+        float ri = wg.lossyScale.x * 0.5f - PathFenceIsletIn;
+        { var wr = wg.GetComponent<MeshFilter>(); if (wr && wr.sharedMesh) { var mb = wr.sharedMesh.bounds; ri = Mathf.Max(mb.extents.x, mb.extents.z) * wg.lossyScale.x - PathFenceIsletIn; } }
+        Vector3 Bc = bridge.position; Bc.y = 0f;
+        Vector3 a = O - Ci; a.y = 0f; a.Normalize();                              // 橋の向き（小島 → 本島）
+        Vector3 sd = Vector3.Cross(Vector3.up, a);
+        float hw = bridge.lossyScale.x * 0.5f - PathFenceBridgeIn;
+        // 直線 P(t)=Bc+sd*off+a*t と円の交点（本島は小島側、小島は本島側）
+        float Hit(Vector3 c, float r, float off, bool far)
+        {
+            Vector3 p0 = Bc + sd * off - c; float b = Vector3.Dot(p0, a), cc = Vector3.Dot(p0, p0) - r * r, disc = b * b - cc;
+            if (disc < 0f) disc = 0f; float sq = Mathf.Sqrt(disc);
+            return far ? -b + sq : -b - sq;
+        }
+        Vector3 Pt(float off, float t) => Bc + sd * off + a * t;
+        Vector3 mL = Pt(-hw, Hit(O, R, -hw, false)), mR = Pt(hw, Hit(O, R, hw, false));
+        Vector3 iL = Pt(-hw, Hit(Ci, ri, -hw, true)), iR = Pt(hw, Hit(Ci, ri, hw, true));
+        float Ang(Vector3 c, Vector3 p) => Mathf.Atan2(p.z - c.z, p.x - c.x);
+        // 円弧：from から to へ、橋のある向き（bridgeDir）をまたがない方向で回る
+        List<Vector3> Arc(Vector3 c, float r, Vector3 from, Vector3 to, Vector3 bridgeDir)
+        {
+            float a0 = Ang(c, from), a1 = Ang(c, to), ab = Mathf.Atan2(bridgeDir.z, bridgeDir.x);
+            float d = Mathf.DeltaAngle(a0 * Mathf.Rad2Deg, a1 * Mathf.Rad2Deg) * Mathf.Deg2Rad;   // 短い方
+            float mid = a0 + d * 0.5f;
+            bool crossesBridge = Mathf.Abs(Mathf.DeltaAngle(mid * Mathf.Rad2Deg, ab * Mathf.Rad2Deg)) < 90f;
+            if (crossesBridge) d = d > 0 ? d - Mathf.PI * 2f : d + Mathf.PI * 2f;   // 長い方へ
+            int n = Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(d) * r / PathFenceSpacing));
+            var l = new List<Vector3>();
+            for (int i = 0; i <= n; i++) { float t = a0 + d * i / n; l.Add(c + new Vector3(Mathf.Cos(t), 0f, Mathf.Sin(t)) * r); }
+            return l;
+        }
+        List<Vector3> Line(Vector3 p, Vector3 q) { int n = Mathf.Max(1, Mathf.CeilToInt((q - p).magnitude / PathFenceSpacing)); var l = new List<Vector3>(); for (int i = 0; i <= n; i++) l.Add(Vector3.Lerp(p, q, (float)i / n)); return l; }
+        // ひとつながり：本島の輪（mR→mL、橋の反対回り）→ 橋の左（mL→iL）→ 小島の輪（iL→iR、本島の反対回り）→ 橋の右（iR→mR）
+        var pts = new List<Vector3>(); var ys = new List<float>();
+        void Add(List<Vector3> l, float yEdge0, float yMid, float yEdge1, bool skipFirst)
+        {
+            for (int i = skipFirst ? 1 : 0; i < l.Count; i++) { pts.Add(l[i]); ys.Add(i == 0 ? yEdge0 : (i == l.Count - 1 ? yEdge1 : yMid)); }
+        }
+        Add(Arc(O, R, mR, mL, -a), yMain, yMain, yMain, false);
+        Add(Line(mL, iL), yMain, yBridge, yIslet, true);
+        Add(Arc(Ci, ri, iL, iR, a), yIslet, yIslet, yIslet, true);
+        Add(Line(iR, mR), yIslet, yBridge, yMain, true);   // 最後の点（mR）は最初の点と同じ
+        // メッシュ（ワールドの寸法。root は縮んでいるので、逆の大きさの子に入れる）
+        var fence = root.Find("PathFence"); if (fence) Object.DestroyImmediate(fence.gameObject);
+        fence = new GameObject("PathFence").transform; fence.SetParent(root, false);
+        fence.position = new Vector3(O.x, root.position.y, O.z); fence.rotation = Quaternion.identity;
+        fence.localScale = new Vector3(1f / root.lossyScale.x, 1f / root.lossyScale.y, 1f / root.lossyScale.z);
+        Vector3 Lp(Vector3 w, float y) => new Vector3(w.x, y, w.z) - fence.position;
+        var postMesh = FuwaBevelTools.RoundCube(new Vector3(PathFencePostW, PathFencePostH, PathFencePostW), 0.03f, 1);
+        var parts = new List<CombineInstance>(); var colParts = new List<CombineInstance>();
+        var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        const float baseY = -0.02f;
+        for (int i = 0; i < pts.Count; i++)
+        {
+            var P = Lp(pts[i], ys[i]);
+            if (i < pts.Count - 1) parts.Add(new CombineInstance { mesh = postMesh, transform = Matrix4x4.TRS(P + Vector3.up * (baseY + PathFencePostH * 0.5f), Quaternion.identity, new Vector3(PathFencePostW, PathFencePostH, PathFencePostW)) });
+            if (i + 1 >= pts.Count) break;
+            var Q = Lp(pts[i + 1], ys[i + 1]);
+            Vector3 d = Q - P; float len = d.magnitude; if (len < 0.01f) continue;
+            Quaternion rr = Quaternion.LookRotation(d / len, Vector3.up);
+            var railMesh = FuwaBevelTools.RoundCube(new Vector3(PathFenceRailW, PathFenceRailH, len + 0.04f), 0.02f, 1);
+            foreach (float ry in PathFenceRailY) parts.Add(new CombineInstance { mesh = railMesh, transform = Matrix4x4.TRS((P + Q) * 0.5f + Vector3.up * (baseY + ry), rr, new Vector3(PathFenceRailW, PathFenceRailH, len + 0.04f)) });
+            Vector3 dh = d; dh.y = 0f; Quaternion rh = Quaternion.LookRotation(dh.normalized, Vector3.up);
+            colParts.Add(new CombineInstance { mesh = cube, transform = Matrix4x4.TRS((P + Q) * 0.5f + Vector3.up * (PathFenceColH * 0.5f), rh, new Vector3(0.12f, PathFenceColH, dh.magnitude + 0.05f)) });
+        }
+        var vis = new Mesh { name = "BonusHub_PathFence", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; vis.CombineMeshes(parts.ToArray(), true, true); vis.RecalculateBounds();
+        var col = new Mesh { name = "BonusHub_PathFenceCollider", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 }; col.CombineMeshes(colParts.ToArray(), true, true); col.RecalculateBounds();
+        Mesh Save(Mesh m, string nm)
+        {
+            string ap = "Assets/FuwaStage2/Generated/" + nm + ".asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
+            if (!old) { AssetDatabase.CreateAsset(m, ap); return m; }
+            old.Clear(); old.indexFormat = m.indexFormat; old.SetVertices(m.vertices); old.SetNormals(m.normals); old.SetUVs(0, m.uv); old.SetTriangles(m.triangles, 0); old.RecalculateBounds(); EditorUtility.SetDirty(old); Object.DestroyImmediate(m); return old;
+        }
+        vis = Save(vis, "BonusHub_PathFence"); col = Save(col, "BonusHub_PathFenceCollider");
+        var wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
+        var vg = new GameObject("Fence", typeof(MeshFilter), typeof(MeshRenderer)); vg.transform.SetParent(fence, false);
+        vg.GetComponent<MeshFilter>().sharedMesh = vis; vg.GetComponent<MeshRenderer>().sharedMaterial = wood;
+        var cg = new GameObject("FenceCollider"); cg.transform.SetParent(fence, false); cg.AddComponent<MeshCollider>().sharedMesh = col;
+        GameObjectUtility.SetStaticEditorFlags(vg, StaticEditorFlags.BatchingStatic);
+        GameObjectUtility.SetStaticEditorFlags(cg, StaticEditorFlags.BatchingStatic);
+        // 前の柵は隠す
+        foreach (var t in new[] { isl.Find("Fence"), isl.Find("FenceCollider"), wi.Find("Fence"), wi.Find("FenceCollider") }) if (t) t.gameObject.SetActive(false);
+        return "柵（ひとつながり）柱 " + (pts.Count - 1) + "（本島 r=" + R.ToString("F2") + "・小島 r=" + ri.ToString("F2") + "・橋の柵の間 " + (hw * 2f).ToString("F2") + "） ";
+    }
+
+    [MenuItem("FuwaCourse/ステージ2/おまけ本島の柵だけ作り直す")]
+    static void MenuPathFence()
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName);
+        if (!root) { Debug.Log("おまけ本島がない"); return; }
+        Debug.Log(PathFence(root.transform));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.scene);
+    }
+
     // 2026-11-19 てじゃ「柵もちゃんとつないで～」：本島の柵の切れ目のはし と 橋の柵のはし を、同じ形（柱＋横木2本）でつなぐ（大きさを決めた後のワールドで作る）
     static string JoinWestFence(Transform root)
     {
@@ -688,10 +801,12 @@ public static class FuwaBonusHubBuilder
 
         // ---- 奥：ステージ2ロビーへのポータル（ごほうびの島のスタートのワープを写す）----
         var st = reward.Find("Start");
+        // 2026-11-19 てじゃ「入ってきたとこの戻るポータルは無しでいいや、左側のタイトル行きポータルだけでいいよ」→ ReturnPortal=false で作らない
         var portal = new GameObject("ToLobby").transform; portal.SetParent(root, false);
         // 2026-11-18 てじゃ「戻るポータルはここにスポーンしたときの真後ろに」：スポーンの真うしろ（島の手前のふち寄り）。台はなし、うずは床の少し上
         portal.position = Pos + Vector3.back * (R - PortalFromEdge) + Vector3.up * 0.03f; portal.rotation = Quaternion.LookRotation(Vector3.forward);
-        if (st)
+        if (!ReturnPortal) { Object.DestroyImmediate(portal.gameObject); log.Append("戻りポータルなし "); }
+        else if (st)
         {
             var vis = st.Cast<Transform>().Where(t => t.name.StartsWith("WarpToLobby") && !t.name.EndsWith("_Trigger") && !t.name.EndsWith("_Trigger_Gauge")).ToList();
             var refT = st.Find("WarpToLobby");
@@ -934,6 +1049,15 @@ public static class FuwaBonusHubBuilder
         // 2026-11-18 てじゃ「おまけ島、全体的にデカすぎるかな」「本島のもの全て」：島・キノコ・ボード・台・ポータルぜんぶを島のまん中（床の高さ）を中心に縮める
         if (WestBridge) log.Append(WestIsland(root, reward));
         if (UseHandLayout) { ApplyHandLayout(root); log.Append("手で並べた配置 "); }
+        // 2026-11-19 てじゃ「おまけ本島のデカい傘の傾きがもどっちゃってるきがする」：手で並べた配置（HandLayout）の向きが LeanAway の傾きを上書きしていた → 位置・大きさはそのまま、向きだけ傾け直す
+        {
+            var m4 = root.Find("FairyRing/Mush" + (RingCount / 2)); var mf4 = m4 ? m4.GetComponent<MeshFilter>() : null;
+            if (mf4 && mf4.sharedMesh)
+            {
+                var ringC0 = Pos + Vector3.forward * RingShift;
+                LeanAway(m4, mf4.sharedMesh, new Vector3(m4.position.x - ringC0.x, 0f, m4.position.z - ringC0.z));
+            }
+        }
         foreach (var nm in new[] { "Board", "FairyRing", "Stage" }) { var t = root.Find(nm); if (t) t.localPosition += Vector3.forward * PhotoShiftZ; }   // 島を小さくした分、写真コーナーを手前へ
         // 奥のまん中の大きいきのこは、かさが「Congratulations!」の文字の前にかぶらないよう少し奥へ（かさを大きくした分。柵までは余裕あり）
         { var m4 = root.Find("FairyRing/Mush" + (RingCount / 2)); if (m4) m4.localPosition += Vector3.forward * CenterBackPush; }
@@ -973,7 +1097,7 @@ public static class FuwaBonusHubBuilder
             log.Append("持てる " + np + " ");
         }
         root.localScale = Vector3.one * Shrink;
-        if (WestBridge) log.Append(JoinWestFence(root));
+        if (WestBridge) log.Append(UsePathFence ? PathFence(root) : JoinWestFence(root));
         log.Append(StatsBoard(root));
         if (SharedBoards) log.Append(MakeSharedBoards(root));
         log.Append(Buttons(root));
