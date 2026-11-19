@@ -912,7 +912,8 @@ public static class FuwaBonusHubBuilder
         Vector3 cap = apex - st; cap.y = 0f;
         float capYaw = cap.sqrMagnitude > 1e-8f ? Mathf.Atan2(cap.x, cap.z) * Mathf.Rad2Deg : 0f;
         float outYaw = Mathf.Atan2(outward.x, outward.z) * Mathf.Rad2Deg;
-        var yaw = Quaternion.Euler(0f, outYaw - capYaw, 0f);                       // かさのずれを外向きに
+        // かさのてっぺんは手前（輪の中）へずらす＝かさの面が奥へ倒れて見える（2026-11-19 てじゃ「傘だけほんのちょい奥に」→ 外向きにしたら「ぎゃく」）
+        var yaw = Quaternion.Euler(0f, outYaw - capYaw + 180f, 0f);
         var tilt = Quaternion.AngleAxis(CenterLean, Vector3.Cross(Vector3.up, outward));   // 上を外へ倒す
         t.rotation = tilt * yaw;
     }
