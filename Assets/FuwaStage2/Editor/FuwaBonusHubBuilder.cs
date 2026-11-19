@@ -901,10 +901,15 @@ public static class FuwaBonusHubBuilder
     public static void LeanAway(Transform t, Mesh mesh, Vector3 outward)
     {
         outward.y = 0f; if (outward.sqrMagnitude < 1e-6f) return; outward.Normalize();
-        // かさ（サブメッシュ1）の中心が軸の根元（原点）からどっちへずれているか（メッシュの中での向き）
-        var vs = mesh.vertices; var tris = mesh.GetTriangles(1); Vector3 c = Vector3.zero; int n = 0;
-        var used = new HashSet<int>(tris); foreach (var i in used) { c += vs[i]; n++; }
-        Vector3 cap = n > 0 ? c / n : Vector3.forward; cap.y = 0f;
+        // かさの傾きの向き（メッシュの中）：かさのてっぺん（サブメッシュ1のいちばん高い点）が、軸の上の端の真上からどっちへずれているか
+        //  （かさ全体の重心は軸のてっぺんの高さ付近にあって、傾けてもほとんど動かないので使えない）
+        var vs = mesh.vertices;
+        Vector3 apex = Vector3.zero; float best = float.MinValue;
+        foreach (var i in new HashSet<int>(mesh.GetTriangles(1))) if (vs[i].y > best) { best = vs[i].y; apex = vs[i]; }
+        var stemIdx = new HashSet<int>(mesh.GetTriangles(0)); float sTop = float.MinValue; foreach (var i in stemIdx) sTop = Mathf.Max(sTop, vs[i].y);
+        Vector3 st = Vector3.zero; int sn = 0; foreach (var i in stemIdx) if (vs[i].y > sTop - 0.05f) { st += vs[i]; sn++; }
+        if (sn > 0) st /= sn;
+        Vector3 cap = apex - st; cap.y = 0f;
         float capYaw = cap.sqrMagnitude > 1e-8f ? Mathf.Atan2(cap.x, cap.z) * Mathf.Rad2Deg : 0f;
         float outYaw = Mathf.Atan2(outward.x, outward.z) * Mathf.Rad2Deg;
         var yaw = Quaternion.Euler(0f, outYaw - capYaw, 0f);                       // かさのずれを外向きに
