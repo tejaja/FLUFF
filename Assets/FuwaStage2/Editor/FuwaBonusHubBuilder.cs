@@ -188,7 +188,9 @@ public static class FuwaBonusHubBuilder
         p.AddComponent<MeshFilter>().sharedMesh = mesh;
         var mr = p.AddComponent<MeshRenderer>();
         var gold = AssetDatabase.FindAssets("Fuwa_Blower_Gold t:Material").Select(AssetDatabase.GUIDToAssetPath).Select(AssetDatabase.LoadAssetAtPath<Material>).FirstOrDefault(m => m && m.name == "Fuwa_Blower_Gold");
-        mr.sharedMaterials = new[] { BonusMat("GoldStand_Body", PedestalBody), gold ? gold : BonusMat("GoldStand_Gold", new Color(0.98f, 0.78f, 0.3f)), BonusMat("GoldStand_Cloud", PedestalCloud) };
+        var mats = new List<Material> { BonusMat("GoldStand_Body", PedestalBody), gold ? gold : BonusMat("GoldStand_Gold", new Color(0.98f, 0.78f, 0.3f)) };
+        if (mesh.GetTriangles(2).Length > 0) mats.Add(BonusMat("GoldStand_Cloud", PedestalCloud));   // 2026-11-19 てじゃ「足元のもこもこいらない、もうちょい細めに、星もなし」→ 雲・星なし、太さ 0.8 倍（Blender の params）
+        mr.sharedMaterials = mats.ToArray();
         return gs.TransformPoint(new Vector3(0f, mesh.bounds.max.y, 0f)).y;
     }
 
