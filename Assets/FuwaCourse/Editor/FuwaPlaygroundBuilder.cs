@@ -111,7 +111,7 @@ public static class FuwaPlaygroundBuilder
             return a;
         }
         ul.openSound = Make("UnlockOpenSfx", "sfx_unlock_open", 0.8f);   // 2026-11-19 てじゃ「開くときはpaka1でいいかな」（AI の paka_01、高い音を削って平均 -21dB）
-        ul.popSound = Make("UnlockPopSfx", "sfx_ball_poyon", 0.9f);
+        ul.popSound = Make("UnlockPopSfx", "sfx_unlock_pop", 0.9f);   // 2026-11-19 てじゃ「一旦５で」（Tools/audio/make_sfx_unlock.py の V05_B1_bright）
         Sync(ul);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(toys.gameObject.scene);
         return "おもちゃの出る音 " + (ul.openSound.clip ? "○" : "×") + (ul.popSound.clip ? "○" : "×");

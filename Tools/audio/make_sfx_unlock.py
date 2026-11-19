@@ -153,9 +153,61 @@ def W2():   # まるい音の「ぼわ〜ん」：音程と大きさがいっし
     s = (np.sin(ph) + 0.4 * np.sin(2 * ph) + 0.15 * np.sin(3 * ph)) * (0.75 + 0.25 * wob)
     return lp(s * np.clip(t / 0.02, 0, 1) * env_exp(t, 0.38), 2000)
 
+# 2026-11-19 てじゃ「ポヨヨヨヨンみたいなのが多い、もっとボヨンみたいに単発がいい」：ゆれなし、1回だけ「ボ（下がる）→ヨン（上がって止まる）」
+def B(f_lo, f_hi, dip, rise, tau, bright, d=0.45):
+    t = t_of(d)
+    # はじめに少し下がって（ボ）、そのあと上がって止まる（ヨン）
+    f = f_lo + (f_hi - f_lo) * (1 - np.exp(-np.clip(t - dip, 0, None) / rise)) - (f_lo * 0.25) * np.exp(-t / (dip * 0.7 + 1e-4)) * (t < dip * 3)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    s = np.sin(ph) + bright * np.sin(2 * ph) + bright * 0.4 * np.sin(3 * ph)
+    return lp(s * np.clip(t / 0.006, 0, 1) * env_exp(t, tau), 2200)
+def B1(): return B(130, 210, 0.03, 0.04, 0.12, 0.35)
+def B2(): return B(100, 170, 0.04, 0.05, 0.14, 0.5)
+def B3(): return B(160, 260, 0.025, 0.03, 0.09, 0.25)
+def B4():   # ゴムまりを床に1回落とした「ボヨン」：低いドンに短い上がり
+    t = t_of(0.4)
+    thud = np.sin(sweep(t, 140, 70, 0.03)) * env_exp(t, 0.05)
+    up = np.sin(sweep(t, 150, 240, 0.05)) * env_exp(np.clip(t - 0.04, 0, None), 0.1) * (t > 0.04)
+    return lp(thud + 0.8 * up, 2000)
+def B5():   # ワウを1回だけ（「ボワン」）
+    t = t_of(0.45)
+    f0 = 115 + 50 * (1 - np.exp(-t / 0.05))
+    ph = 2 * np.pi * np.cumsum(f0) / SR
+    buzz = sum(np.sin(k * ph) / k for k in range(1, 16))
+    center = 300 + 700 * np.clip(t / 0.12, 0, 1) * env_exp(t, 0.25)
+    out = np.zeros_like(buzz); n = 30; seg = len(t) // n
+    for i in range(n):
+        c = center[min(len(t) - 1, i * seg + seg // 2)]; y = bp(buzz, c * 0.6, c * 1.5); out[i * seg:(i + 1) * seg] = y[i * seg:(i + 1) * seg]
+    return lp(out, 2500) * np.clip(t / 0.008, 0, 1) * env_exp(t, 0.13)
+
+# 2026-11-19 てじゃ「Bかな」：B（ボヨン単発）の音程・長さ・明るさ・行きすぎを少しずつ変えた候補
+def BV(f_lo, f_hi, dip, rise, tau, bright, sub=0.0, over=0.0, d=0.5):
+    t = t_of(d)
+    base = f_lo + (f_hi - f_lo) * (1 - np.exp(-np.clip(t - dip, 0, None) / rise))
+    # 行きすぎて1回だけ戻る（over＝行きすぎの割合）
+    base += (f_hi - f_lo) * over * np.sin(np.clip((t - dip) / (rise * 4), 0, 1) * np.pi) * (t > dip)
+    f = base - (f_lo * 0.25) * np.exp(-t / (dip * 0.7 + 1e-4)) * (t < dip * 3)
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    s = np.sin(ph) + bright * np.sin(2 * ph) + bright * 0.4 * np.sin(3 * ph) + sub * np.sin(0.5 * ph)
+    return lp(s * np.clip(t / 0.006, 0, 1) * env_exp(t, tau), 2200)
+VARS = [
+    ("V01_B1_short",     dict(f_lo=130, f_hi=210, dip=0.03, rise=0.04, tau=0.08, bright=0.35)),
+    ("V02_B1_long",      dict(f_lo=130, f_hi=210, dip=0.03, rise=0.05, tau=0.18, bright=0.35)),
+    ("V03_B1_bigjump",   dict(f_lo=110, f_hi=240, dip=0.035, rise=0.045, tau=0.12, bright=0.35)),
+    ("V04_B1_smalljump", dict(f_lo=150, f_hi=200, dip=0.03, rise=0.04, tau=0.12, bright=0.35)),
+    ("V05_B1_bright",    dict(f_lo=130, f_hi=210, dip=0.03, rise=0.04, tau=0.12, bright=0.8)),
+    ("V06_B1_soft",      dict(f_lo=130, f_hi=210, dip=0.03, rise=0.04, tau=0.12, bright=0.1)),
+    ("V07_B1_deep",      dict(f_lo=130, f_hi=210, dip=0.03, rise=0.04, tau=0.12, bright=0.35, sub=0.5)),
+    ("V08_B1_overshoot", dict(f_lo=130, f_hi=210, dip=0.03, rise=0.035, tau=0.14, bright=0.35, over=0.25)),
+    ("V09_B2_short",     dict(f_lo=100, f_hi=170, dip=0.04, rise=0.05, tau=0.1, bright=0.5)),
+    ("V10_B3_low",       dict(f_lo=140, f_hi=230, dip=0.025, rise=0.03, tau=0.09, bright=0.25)),
+]
+
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else "."
     os.makedirs(out, exist_ok=True)
     for name, fn in [("P1_wood_kapo", P1), ("P2_hollow_pon", P2), ("P3_cork_pop", P3), ("P4_lid_whoosh", P4), ("P5_marimba_paka", P5),
-                     ("Y1_jelly_poyon", Y1), ("Y2_rubber_poyoyon", Y2), ("Y3_bubble_pomu", Y3), ("Y4_slime_puyon", Y4), ("Y5_spring_boyon", Y5), ("W1_wah_bowawan", W1), ("W2_round_bowan", W2)]:
+                     ("Y1_jelly_poyon", Y1), ("Y2_rubber_poyoyon", Y2), ("Y3_bubble_pomu", Y3), ("Y4_slime_puyon", Y4), ("Y5_spring_boyon", Y5), ("W1_wah_bowawan", W1), ("W2_round_bowan", W2), ("B1_boyon", B1), ("B2_boyon_low", B2), ("B3_boyon_high", B3), ("B4_ball_boyon", B4), ("B5_wah_bowan", B5)]:
         write(name, fn(), out); print(name)
+    for name, kw in VARS:
+        write(name, BV(**kw), out); print(name)
