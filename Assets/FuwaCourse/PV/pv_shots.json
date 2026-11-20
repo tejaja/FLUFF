@@ -6,6 +6,317 @@
     ],
     "shots": [
         {
+            "name": "v3_2_4",
+            "area": "stage2",
+            "dur": 5.900000095367432,
+            "fov": 50.0,
+            "ease": "soft",
+            "preroll": 2.0,
+            "skip": false,
+            "hide": [],
+            "show": [],
+            "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
+            "note": "2-4：コースにそって進み、気球を見ながら上へ離れる",
+            "keys": [
+                {
+                    "t": 0.0,
+                    "p": [
+                        46.0,
+                        -159.5,
+                        -39.0
+                    ],
+                    "l": [
+                        60.0,
+                        -157.0,
+                        -60.0
+                    ],
+                    "fov": 0.0
+                },
+                {
+                    "t": 0.4000000059604645,
+                    "p": [
+                        60.0,
+                        -151.5,
+                        -46.0
+                    ],
+                    "l": [
+                        66.0,
+                        -153.0,
+                        -78.0
+                    ],
+                    "fov": 0.0
+                },
+                {
+                    "t": 0.699999988079071,
+                    "p": [
+                        75.0,
+                        -148.0,
+                        -52.0
+                    ],
+                    "l": [
+                        65.0,
+                        -153.0,
+                        -79.0
+                    ],
+                    "fov": 0.0
+                },
+                {
+                    "t": 1.0,
+                    "p": [
+                        88.0,
+                        -142.0,
+                        -40.0
+                    ],
+                    "l": [
+                        65.0,
+                        -154.0,
+                        -79.0
+                    ],
+                    "fov": 0.0
+                }
+            ]
+        },
+        {
+            "name": "v3_2_5a",
+            "area": "stage2",
+            "dur": 5.900000095367432,
+            "fov": 50.0,
+            "ease": "soft",
+            "preroll": 2.0,
+            "skip": false,
+            "hide": [
+                "FuwaCourse2_5/Islands/I1_StatueHill/Run3/C1_Normal"
+            ],
+            "show": [],
+            "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
+            "note": "2-5：遠景→石像→近くのポータルをのぞく",
+            "keys": [
+                {
+                    "t": 0.0,
+                    "p": [
+                        38.0,
+                        -143.0,
+                        -58.0
+                    ],
+                    "l": [
+                        -12.0,
+                        -152.0,
+                        -88.0
+                    ],
+                    "fov": 0.0
+                },
+                {
+                    "t": 0.44999998807907107,
+                    "p": [
+                        17.0,
+                        -151.0,
+                        -103.0
+                    ],
+                    "l": [
+                        -12.0,
+                        -152.0,
+                        -90.0
+                    ],
+                    "fov": 0.0
+                },
+                {
+                    "t": 1.0,
+                    "p": [
+                        -9.5,
+                        -162.1999969482422,
+                        -117.0
+                    ],
+                    "l": [
+                        -16.0,
+                        -162.1999969482422,
+                        -117.0
+                    ],
+                    "fov": 0.0
+                }
+            ]
+        },
+        {
+            "name": "v3_2_5b",
+            "area": "stage2",
+            "dur": 5.900000095367432,
+            "fov": 50.0,
+            "ease": "soft",
+            "preroll": 2.0,
+            "skip": false,
+            "hide": [],
+            "show": [],
+            "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
+            "note": "2-5：上段の広場にまっすぐ入り、クリスタルを正面に",
+            "keys": [
+                {
+                    "t": 0.0,
+                    "p": [
+                        -33.70000076293945,
+                        -131.3000030517578,
+                        -81.9000015258789
+                    ],
+                    "l": [
+                        -18.600000381469728,
+                        -130.8000030517578,
+                        -97.30000305175781
+                    ],
+                    "fov": 0.0
+                },
+                {
+                    "t": 1.0,
+                    "p": [
+                        -23.5,
+                        -130.60000610351563,
+                        -92.30000305175781
+                    ],
+                    "l": [
+                        -18.600000381469728,
+                        -130.60000610351563,
+                        -97.30000305175781
+                    ],
+                    "fov": 0.0
+                }
+            ]
+        },
+        {
+            "name": "v3_pg_locked",
+            "area": "playground",
+            "dur": 5.900000095367432,
+            "fov": 50.0,
+            "ease": "linear",
+            "preroll": 2.0,
+            "skip": false,
+            "hide": [
+                "FuwaPlayground/Room/Toys/Unlock1",
+                "FuwaPlayground/Room/Toys/Unlock2",
+                "FuwaPlayground/Room/Toys/Unlock3",
+                "FuwaPlayground/Room/Toys/Unlock4",
+                "FuwaPlayground/Room/Toys/Unlock5",
+                "FuwaPlayground/Room/Toys/Unlock7",
+                "FuwaPlayground/Room/Toys/Unlock10",
+                "FuwaPlayground/Room/Toys/Unlock11"
+            ],
+            "show": [
+                "FuwaPlayground/Room/Toys/Locked1",
+                "FuwaPlayground/Room/Toys/Locked2",
+                "FuwaPlayground/Room/Toys/Locked3",
+                "FuwaPlayground/Room/Toys/Locked4",
+                "FuwaPlayground/Room/Toys/Locked5",
+                "FuwaPlayground/Room/Toys/Locked7",
+                "FuwaPlayground/Room/Toys/Locked10",
+                "FuwaPlayground/Room/Toys/Locked11"
+            ],
+            "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
+            "note": "あそびば：おもちゃ未解放",
+            "keys": [
+                {
+                    "t": 0.0,
+                    "p": [
+                        -52.0,
+                        95.0,
+                        64.0
+                    ],
+                    "l": [
+                        -70.0,
+                        89.0,
+                        80.0
+                    ],
+                    "fov": 0.0
+                },
+                {
+                    "t": 1.0,
+                    "p": [
+                        -50.0,
+                        95.0,
+                        86.0
+                    ],
+                    "l": [
+                        -70.0,
+                        89.0,
+                        80.0
+                    ],
+                    "fov": 0.0
+                }
+            ]
+        },
+        {
+            "name": "v3_pg_open",
+            "area": "playground",
+            "dur": 5.900000095367432,
+            "fov": 50.0,
+            "ease": "linear",
+            "preroll": 2.0,
+            "skip": false,
+            "hide": [
+                "FuwaPlayground/Room/Toys/Locked1",
+                "FuwaPlayground/Room/Toys/Locked2",
+                "FuwaPlayground/Room/Toys/Locked3",
+                "FuwaPlayground/Room/Toys/Locked4",
+                "FuwaPlayground/Room/Toys/Locked5",
+                "FuwaPlayground/Room/Toys/Locked6",
+                "FuwaPlayground/Room/Toys/Locked7",
+                "FuwaPlayground/Room/Toys/Locked8",
+                "FuwaPlayground/Room/Toys/Locked9",
+                "FuwaPlayground/Room/Toys/Locked10",
+                "FuwaPlayground/Room/Toys/Locked11"
+            ],
+            "show": [
+                "FuwaPlayground/Room/Toys/Unlock1",
+                "FuwaPlayground/Room/Toys/Unlock2",
+                "FuwaPlayground/Room/Toys/Unlock3",
+                "FuwaPlayground/Room/Toys/Unlock4",
+                "FuwaPlayground/Room/Toys/Unlock5",
+                "FuwaPlayground/Room/Toys/Unlock6",
+                "FuwaPlayground/Room/Toys/Unlock7",
+                "FuwaPlayground/Room/Toys/Unlock8",
+                "FuwaPlayground/Room/Toys/Unlock9",
+                "FuwaPlayground/Room/Toys/Unlock10",
+                "FuwaPlayground/Room/Toys/Unlock11"
+            ],
+            "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
+            "note": "あそびば：おもちゃ全解放",
+            "keys": [
+                {
+                    "t": 0.0,
+                    "p": [
+                        -80.0,
+                        93.0,
+                        62.0
+                    ],
+                    "l": [
+                        -68.0,
+                        89.0,
+                        82.0
+                    ],
+                    "fov": 0.0
+                },
+                {
+                    "t": 1.0,
+                    "p": [
+                        -87.0,
+                        93.0,
+                        77.0
+                    ],
+                    "l": [
+                        -68.0,
+                        89.0,
+                        82.0
+                    ],
+                    "fov": 0.0
+                }
+            ]
+        },
+        {
             "name": "v3_lobby1",
             "area": "stage1",
             "dur": 10.600000381469727,
@@ -16,6 +327,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
             "note": "ロビー1：遠くからわずかにズームしながらぐるっと",
             "keys": [
                 {
@@ -101,6 +414,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
             "note": "1-1：スタート直後から道にそって",
             "keys": [
                 {
@@ -228,6 +543,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": 5.0,
+            "followPlayer": true,
             "note": "1-2：道にそって洞窟をくぐる→転がる岩を見せながらゆっくり上へ",
             "keys": [
                 {
@@ -341,6 +658,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
             "note": "1-3：コースを道なりに",
             "keys": [
                 {
@@ -436,10 +755,12 @@
             "fov": 50.0,
             "ease": "soft",
             "preroll": 2.0,
-            "skip": false,
+            "skip": true,
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
             "note": "1-4：遠目から→最後はボスの顔にアップ",
             "keys": [
                 {
@@ -487,6 +808,96 @@
             ]
         },
         {
+            "name": "v3_1_4a",
+            "area": "stage1",
+            "dur": 5.900000095367432,
+            "fov": 50.0,
+            "ease": "soft",
+            "preroll": 2.0,
+            "skip": false,
+            "hide": [],
+            "show": [],
+            "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
+            "note": "1-4：遠目",
+            "keys": [
+                {
+                    "t": 0.0,
+                    "p": [
+                        -12.0,
+                        22.0,
+                        -78.0
+                    ],
+                    "l": [
+                        6.0,
+                        5.0,
+                        -92.0
+                    ],
+                    "fov": 50.0
+                },
+                {
+                    "t": 1.0,
+                    "p": [
+                        -4.0,
+                        15.0,
+                        -89.0
+                    ],
+                    "l": [
+                        7.0,
+                        5.0,
+                        -100.0
+                    ],
+                    "fov": 48.0
+                }
+            ]
+        },
+        {
+            "name": "v3_1_4b",
+            "area": "stage1",
+            "dur": 5.900000095367432,
+            "fov": 50.0,
+            "ease": "soft",
+            "preroll": 2.0,
+            "skip": false,
+            "hide": [],
+            "show": [],
+            "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
+            "note": "1-4：ボスの顔にアップ",
+            "keys": [
+                {
+                    "t": 0.0,
+                    "p": [
+                        10.600000381469727,
+                        6.599999904632568,
+                        -101.4000015258789
+                    ],
+                    "l": [
+                        7.900000095367432,
+                        6.199999809265137,
+                        -106.0999984741211
+                    ],
+                    "fov": 44.0
+                },
+                {
+                    "t": 1.0,
+                    "p": [
+                        6.099999904632568,
+                        6.400000095367432,
+                        -103.69999694824219
+                    ],
+                    "l": [
+                        7.900000095367432,
+                        6.400000095367432,
+                        -106.0999984741211
+                    ],
+                    "fov": 42.0
+                }
+            ]
+        },
+        {
             "name": "v3_1_5",
             "area": "stage1",
             "dur": 5.900000095367432,
@@ -497,6 +908,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
             "note": "1-5：上のほうから",
             "keys": [
                 {
@@ -540,63 +953,79 @@
             "hide": [],
             "show": [],
             "player": [],
-            "note": "ロビー2：ぐるっと",
+            "boulderAt": -1.0,
+            "followPlayer": true,
+            "note": "ロビー2：速めに回して 2-1 から時計回りに各コース",
             "keys": [
                 {
                     "t": 0.0,
                     "p": [
-                        36.18000030517578,
-                        -153.0,
-                        -9.789999961853028
+                        18.690000534057618,
+                        -152.0,
+                        -28.790000915527345
                     ],
                     "l": [
-                        13.0,
-                        -161.0,
-                        -16.0
+                        -5.300000190734863,
+                        -165.0,
+                        25.110000610351564
                     ],
-                    "fov": 50.0
+                    "fov": 0.0
                 },
                 {
-                    "t": 0.3333333432674408,
+                    "t": 0.25,
                     "p": [
-                        32.65999984741211,
-                        -153.0,
-                        -2.2300000190734865
+                        4.769999980926514,
+                        -152.0,
+                        -27.329999923706056
                     ],
                     "l": [
-                        13.0,
-                        -161.0,
-                        -16.0
+                        39.45000076293945,
+                        -165.0,
+                        20.40999984741211
                     ],
-                    "fov": 50.0
+                    "fov": 0.0
                 },
                 {
-                    "t": 0.6666666865348816,
+                    "t": 0.5,
                     "p": [
-                        26.770000457763673,
-                        -153.0,
-                        3.6600000858306886
+                        -0.7400000095367432,
+                        -152.0,
+                        -18.670000076293947
                     ],
                     "l": [
-                        13.0,
-                        -161.0,
-                        -16.0
+                        57.16999816894531,
+                        -165.0,
+                        -7.409999847412109
                     ],
-                    "fov": 50.0
+                    "fov": 0.0
+                },
+                {
+                    "t": 0.75,
+                    "p": [
+                        4.769999980926514,
+                        -152.0,
+                        -4.670000076293945
+                    ],
+                    "l": [
+                        39.45000076293945,
+                        -165.0,
+                        -52.40999984741211
+                    ],
+                    "fov": 0.0
                 },
                 {
                     "t": 1.0,
                     "p": [
-                        19.209999084472658,
-                        -153.0,
-                        7.179999828338623
+                        17.559999465942384,
+                        -152.0,
+                        -2.759999990463257
                     ],
                     "l": [
-                        13.0,
-                        -161.0,
-                        -16.0
+                        -1.649999976158142,
+                        -165.0,
+                        -58.54999923706055
                     ],
-                    "fov": 50.0
+                    "fov": 0.0
                 }
             ]
         },
@@ -611,6 +1040,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
             "note": "2-1：入口の滝を上空の斜め後ろから→まわりながらゴール側へ、魚も",
             "keys": [
                 {
@@ -668,6 +1099,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
             "note": "2-2：遠景",
             "keys": [
                 {
@@ -711,6 +1144,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
             "note": "2-2：ジグザグ＋火炎放射",
             "keys": [
                 {
@@ -754,6 +1189,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": true,
             "note": "2-3：中央クリスタルまでゆっくり進む遠景",
             "keys": [
                 {
@@ -797,6 +1234,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "入口の島に寄っていく（ロゴ）",
             "keys": [
                 {
@@ -840,6 +1279,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "ロビーを回り込む",
             "keys": [
                 {
@@ -883,6 +1324,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "れんしゅう：ピンクの道を低く",
             "keys": [
                 {
@@ -926,6 +1369,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "かぜのおか：道の上を進む",
             "keys": [
                 {
@@ -969,6 +1414,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "かぜのおか：たんぽぽの島を横に流す",
             "keys": [
                 {
@@ -1012,6 +1459,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "いわのみち：洞窟の入口へ",
             "keys": [
                 {
@@ -1055,6 +1504,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "いわのみち：山のてっぺんを回る",
             "keys": [
                 {
@@ -1098,6 +1549,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "やみのもり：森の中を低く",
             "keys": [
                 {
@@ -1141,6 +1594,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "やみのもり：上から",
             "keys": [
                 {
@@ -1184,6 +1639,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "まもののす：全体",
             "keys": [
                 {
@@ -1227,6 +1684,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "まもののす：ママに寄る",
             "keys": [
                 {
@@ -1270,6 +1729,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "きのこのたに：巨大きのこの間を上がる",
             "keys": [
                 {
@@ -1313,6 +1774,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "きのこのたに：木のタワーを回る",
             "keys": [
                 {
@@ -1356,6 +1819,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "ステージ1ぜんたい",
             "keys": [
                 {
@@ -1399,6 +1864,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "ステージ2のロビー",
             "keys": [
                 {
@@ -1442,6 +1909,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-1：スタートの滝つぼ",
             "keys": [
                 {
@@ -1485,6 +1954,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-1：滝の道〜ゴール",
             "keys": [
                 {
@@ -1528,6 +1999,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-2：火山へ",
             "keys": [
                 {
@@ -1571,6 +2044,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-2：炎のまもの",
             "keys": [
                 {
@@ -1614,6 +2089,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-3：氷の道",
             "keys": [
                 {
@@ -1657,6 +2134,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-3：ドームのしかけ",
             "keys": [
                 {
@@ -1700,6 +2179,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-4：歯車の機械を回る",
             "keys": [
                 {
@@ -1743,6 +2224,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-4：歯車に寄る",
             "keys": [
                 {
@@ -1786,6 +2269,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-5：飛び石とカーテン",
             "keys": [
                 {
@@ -1829,6 +2314,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-5：石像を見上げる",
             "keys": [
                 {
@@ -1872,6 +2359,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-5：クリスタルの広場",
             "keys": [
                 {
@@ -1915,6 +2404,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "2-5：巣の回廊",
             "keys": [
                 {
@@ -1958,6 +2449,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "あそびば：全体",
             "keys": [
                 {
@@ -2001,6 +2494,8 @@
             "hide": [],
             "show": [],
             "player": [],
+            "boulderAt": -1.0,
+            "followPlayer": false,
             "note": "あそびば：おもちゃに寄る",
             "keys": [
                 {

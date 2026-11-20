@@ -23,6 +23,8 @@ public class FuwaPvShot
     public string[] hide;            // このショットだけ隠す物（シーンのパス）
     public string[] show;            // このショットだけ出す物
     public float[] player;           // プレイヤーを置く場所（ClientSim。省略時はエリアの決まった場所）
+    public float boulderAt = -1f;    // 転がる岩がこの秒（ショットの頭から）に転がり始めるように合わせる（-1 ならそのまま）
+    public bool followPlayer;        // プレイヤーの頭をカメラの位置へ毎コマ運ぶ（カメラ式ポータルは頭の位置から映すので、のぞくショット用）
     public string note;
     public FuwaPvKey[] keys;
 }
@@ -90,10 +92,11 @@ public class FuwaPvRecorder : MonoBehaviour
     public Action<FuwaPvShot> applyArea;   // エリアの出し入れ（毎コマ呼ぶ。Udon が戻しても上書き）
     public Action<FuwaPvShot> onShotStart; // プレイヤーを置く等
     public Action onFinished;
+    public Action<FuwaPvShot, Camera> onFrame;   // カメラを置いた後・描く前に毎コマ
 
     Camera _cam;
-    // PlayerLocal(10)・MirrorReflection(18)・モニターにだけ写す毛玉(22) は撮らない
-    public static int CullingMask => ~((1 << 10) | (1 << 18) | (1 << 22));
+    // PlayerLocal(10)・MirrorReflection(18)・ClientSim のメニュー(19)・モニターにだけ写す毛玉(22) は撮らない
+    public static int CullingMask => ~((1 << 10) | (1 << 18) | (1 << 19) | (1 << 22));
 
     void Log(string s)
     {
@@ -122,7 +125,7 @@ public class FuwaPvRecorder : MonoBehaviour
         {
             onShotStart?.Invoke(s);
             int pre = Mathf.RoundToInt(s.preroll * fps);
-            for (int f = 0; f < pre; f++) { applyArea?.Invoke(s); FuwaPvPath.Place(_cam, s, 0f); yield return null; }
+            for (int f = 0; f < pre; f++) { applyArea?.Invoke(s); FuwaPvPath.Place(_cam, s, 0f); onFrame?.Invoke(s, _cam); yield return null; }
             string path = outDir + "/" + s.name + ".mp4";
             string vf = "vflip" + (supersample > 1 ? $",scale={width}:{height}:flags=lanczos" : "");
             var psi = new System.Diagnostics.ProcessStartInfo("ffmpeg",
@@ -138,6 +141,7 @@ public class FuwaPvRecorder : MonoBehaviour
             {
                 applyArea?.Invoke(s);
                 FuwaPvPath.Place(_cam, s, f / (float)fps);
+                onFrame?.Invoke(s, _cam);
                 yield return new WaitForEndOfFrame();
                 applyArea?.Invoke(s);
                 _cam.targetTexture = rt; _cam.Render(); _cam.targetTexture = null;

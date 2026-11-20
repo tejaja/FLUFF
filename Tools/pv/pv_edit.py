@@ -90,6 +90,9 @@ for i, seg in enumerate(cfg['segments']):
         run(['-loop', '1', '-i', png, '-vf',
              f"scale={W*2}:{H*2},zoompan=z='1+0.00012*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={n}:s={W}x{H}:fps={FPS},fade=in:st=0:d=0.6:color=white,fade=out:st={fo}:d={BAR*1.2}",
              '-frames:v', str(n)] + enc + [out])
+    if seg.get('fadeout'):
+        fo = os.path.join(tmp, f'{i:03d}_fo.mp4'); d = BAR * seg.get('fadebars', 2)
+        run(['-i', out, '-vf', f'fade=out:st={n / FPS - d}:d={d}', '-frames:v', str(n)] + enc + [fo]); out = fo
     parts.append(out)
     print(f'{i:2d} bar {bar0 - seg["bars"] + 1:2d}-{bar0:2d} {seg.get("b") or seg.get("a") or "outro"} {n}f', flush=True)
 

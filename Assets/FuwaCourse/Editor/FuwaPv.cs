@@ -136,7 +136,14 @@ public static class FuwaPv
             if (l.lobbyStopBehaviours != null) foreach (var b in l.lobbyStopBehaviours) if (b) b.enabled = true;
             if (l.lobbyHideObjects != null) foreach (var g in l.lobbyHideObjects) if (g) g.SetActive(true);
         }
-        foreach (var v in Object.FindObjectsOfType<FuwaVisibleGate>(true)) { Stop(v); if (v.target) v.target.enabled = true; }
+        // 番人は止めても「映らなくなった」の知らせ（OnBecameInvisible）は届いて仕掛けを止めてしまう（1-2 の岩が途中で止まった）。
+        // target を外しても止まったので、Play 中だけ番人の UdonBehaviour ごと消す（Play を抜ければ元どおり）
+        foreach (var v in Object.FindObjectsOfType<FuwaVisibleGate>(true))
+        {
+            var t = v.target;
+            var ub = UdonSharpEditor.UdonSharpEditorUtility.GetBackingUdonBehaviour(v); if (ub) { Object.Destroy(ub); n++; }
+            if (t) t.enabled = true;
+        }
         int sh = 0;
         foreach (var f in Object.FindObjectsOfType<FuwaFarShadows>(true))
         {
@@ -154,6 +161,8 @@ public static class FuwaPv
     {
         if (!EditorApplication.isPlaying) return "[PV] Play 中に呼んでね";
         string full = FullMode();
+        // ClientSim の最初の「Accept」を閉じる（頭についてくるので、プレイヤーをカメラに運ぶショットで写った）
+        foreach (var b in Object.FindObjectsOfType<UnityEngine.UI.Button>()) if (b.name == "AcceptButton" && b.transform.root.name == "__ClientSimSystem") b.onClick.Invoke();
         var list = Load();
         var shots = Pick(list, names).ToList();
         if (shots.Count == 0) return "[PV] ショットがない";
@@ -164,12 +173,32 @@ public static class FuwaPv
         rec.outDir = OutDir + "/" + sub; rec.logPath = LogPath;
         rec.applyArea = s => ApplyArea(s, list, null);
         rec.onFinished = RestoreQuality;
+        rec.onFrame = (s, cam) =>
+        {
+            if (!s.followPlayer) return;
+            var lp = VRC.SDKBase.Networking.LocalPlayer; if (lp == null) return;
+            var eye = lp.GetTrackingData(VRC.SDKBase.VRCPlayerApi.TrackingDataType.Head).position - lp.GetPosition();
+            var fwd = cam.transform.forward; fwd.y = 0;
+            lp.TeleportTo(cam.transform.position - eye, Quaternion.LookRotation(fwd.sqrMagnitude > 1e-4f ? fwd : Vector3.forward));
+        };
         EditorApplication.playModeStateChanged -= OnPlayMode; EditorApplication.playModeStateChanged += OnPlayMode;
         rec.onShotStart = s =>
         {
             var p = s.player != null && s.player.Length >= 3 ? new Vector3(s.player[0], s.player[1], s.player[2]) : (Stand.TryGetValue(s.area ?? "stage1", out var v) ? v : Vector3.zero);
             var lp = VRC.SDKBase.Networking.LocalPlayer;
             if (lp != null) lp.TeleportTo(p, Quaternion.identity);
+            if (s.boulderAt >= 0)
+            {
+                // FuwaBoulder は Time.time + phaseOffset で回っている。並びの差はそのままで全体をずらす
+                var bs = Object.FindObjectsOfType<FuwaBoulder>(true).Select(b => UdonSharpEditor.UdonSharpEditorUtility.GetBackingUdonBehaviour(b)).Where(b => b).ToList();
+                if (bs.Count > 0)
+                {
+                    float period = (float)bs[0].GetProgramVariable("period"), emerge = (float)bs[0].GetProgramVariable("emergeTime");
+                    float T = Time.time + s.preroll + s.boulderAt;
+                    float shift = emerge - Mathf.Repeat(T + (float)bs[0].GetProgramVariable("phaseOffset"), period);
+                    foreach (var b in bs) b.SetProgramVariable("phaseOffset", (float)b.GetProgramVariable("phaseOffset") + shift);
+                }
+            }
         };
         return full + $"\n[PV] 録画開始 {shots.Count} ショット（{string.Join(",", shots.Select(s => s.name))}）→ {rec.outDir}　ログ {LogPath}";
     }

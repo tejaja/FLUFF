@@ -5,7 +5,7 @@
  "playdir": "D:/Claude_Workspace/fluff_video/pv2/play",
  "old_pv": "D:/Claude_Workspace/fluff_video/pv_rough8_1080p.mp4",
  "thumb": "D:/Claude_Workspace/FLUFF_Photos/FLUFF_thumbnail_20261120_2400x1800.png",
- "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_rough2",
+ "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_rough3",
  "segments": [
   {
    "b": "v3_lobby1",
@@ -43,8 +43,12 @@
    "old": 62
   },
   {
-   "b": "v3_1_4",
-   "bars": 4
+   "b": "v3_1_4a",
+   "bars": 2
+  },
+  {
+   "b": "v3_1_4b",
+   "bars": 2
   },
   {
    "b": "v3_1_5",
@@ -95,73 +99,62 @@
    "bstill": "v3_2_3"
   },
   {
-   "b": "s2_4a",
-   "bars": 2,
-   "note": "ここから先は前の並びのまま（てじゃの続き待ち）"
-  },
-  {
-   "b": "s2_5b",
-   "bars": 3
-  },
-  {
-   "b": "s2_5c",
-   "bars": 3
-  },
-  {
-   "b": "pg_a",
-   "bars": 3
-  },
-  {
-   "a": "A12",
-   "bars": 3,
-   "label": "あそびばでみんなで",
-   "bstill": "pg_b"
-  },
-  {
-   "b": "pg_b",
+   "b": "v3_2_4",
    "bars": 2
   },
   {
-   "a": "M1",
+   "a": "A8",
+   "bars": 2,
+   "label": "2-4 跳ね橋を下ろす",
+   "bstill": "v3_2_4"
+  },
+  {
+   "b": "v3_2_5a",
+   "bars": 2
+  },
+  {
+   "b": "v3_2_5b",
+   "bars": 2
+  },
+  {
+   "a": "A9",
+   "bars": 4,
+   "label": "竹とんぼで遊覧飛行",
+   "bstill": "v3_lobby1"
+  },
+  {
+   "b": "v3_pg_locked",
+   "bars": 2
+  },
+  {
+   "b": "v3_pg_open",
+   "bars": 2
+  },
+  {
+   "a": "A10",
+   "bars": 4,
+   "label": "あそびばで遊ぶ",
+   "bstill": "v3_pg_open"
+  },
+  {
+   "a": "A11",
    "bars": 1,
-   "label": "名場面",
+   "label": "特徴的なところ①",
    "old": 18
   },
   {
-   "b": "v3_1_1",
+   "a": "A11b",
    "bars": 1,
-   "from": 3.0
-  },
-  {
-   "a": "M2",
-   "bars": 1,
-   "label": "名場面",
+   "label": "特徴的なところ②",
    "old": 46
   },
   {
-   "b": "v3_2_2b",
-   "bars": 1,
-   "from": 3.0
-  },
-  {
-   "a": "M3",
-   "bars": 1,
-   "label": "名場面",
-   "old": 74
-  },
-  {
-   "b": "v3_1_5",
-   "bars": 1,
-   "from": 3.0
-  },
-  {
-   "b": "v3_2_1",
-   "bars": 1,
-   "from": 3.0
-  },
-  {
-   "outro": true,
-   "bars": 4
+   "a": "A12",
+   "bars": 5,
+   "label": "ラスト：あそびばで転がるカラフルな大小のふわふわ",
+   "bstill": "v3_pg_open",
+   "fadeout": true,
+   "fadebars": 2
   }
  ]
 }
