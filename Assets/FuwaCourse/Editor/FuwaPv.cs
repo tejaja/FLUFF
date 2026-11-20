@@ -129,6 +129,8 @@ public static class FuwaPv
     {
         int n = 0;
         void Stop(UdonSharp.UdonSharpBehaviour p) { var ub = UdonSharpEditor.UdonSharpEditorUtility.GetBackingUdonBehaviour(p); if (ub) ub.enabled = false; n++; }
+        // 影の軽量化は止めてもまた動き出した（2026-11-20 2-5 の石像の影がチカチカ、影つきが 441→100 に減っていった）→ Play 中だけ UdonBehaviour ごと消す
+        void Kill(UdonSharp.UdonSharpBehaviour p) { var ub = UdonSharpEditor.UdonSharpEditorUtility.GetBackingUdonBehaviour(p); if (ub) Object.Destroy(ub); n++; }
         foreach (var l in Object.FindObjectsOfType<FuwaCourseLod>(true))
         {
             Stop(l);
@@ -147,13 +149,13 @@ public static class FuwaPv
         int sh = 0;
         foreach (var f in Object.FindObjectsOfType<FuwaFarShadows>(true))
         {
-            Stop(f);
+            Kill(f);
             if (f.targets != null) foreach (var r in f.targets) if (r) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; sh++; }
         }
         // 2–5 の段ごとの影（自分の段より下・遠い物は影なし）も軽量化 → プレイヤーをカメラに運ぶと影がチカチカした
         foreach (var f in Object.FindObjectsOfType<FuwaTierShadows>(true))
         {
-            Stop(f);
+            Kill(f);
             if (f.targets != null) foreach (var r in f.targets) if (r) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; sh++; }
         }
         if (_lodBiasBack < 0) _lodBiasBack = QualitySettings.lodBias;
