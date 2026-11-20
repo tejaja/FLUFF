@@ -5,19 +5,19 @@
  "playdir": "D:/Claude_Workspace/fluff_video/pv2/play",
  "old_pv": "D:/Claude_Workspace/fluff_video/pv_rough8_1080p.mp4",
  "thumb": "D:/Claude_Workspace/FLUFF_Photos/FLUFF_thumbnail_20261120_2400x1800.png",
- "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_rough7",
+ "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_rough8",
  "segments": [
   {
    "b": "v3_lobby1",
    "bars": 4,
-   "title": true
+   "fadein": true
   },
   {
    "a": "A1",
    "bars": 4,
-   "label": "銃ゲット＋ショット＋チャージショット",
+   "label": "銃ゲット＋ショット＋キノコ撃ち",
    "old": 6,
-   "from": 0.5
+   "from": 1.2
   },
   {
    "b": "v3_1_1",
@@ -165,7 +165,8 @@
    "bstill": "v3_pg_open",
    "fadeout": true,
    "fadebars": 1,
-   "from": 1.0
+   "from": 1.0,
+   "logo": 0.6
   }
  ]
 }

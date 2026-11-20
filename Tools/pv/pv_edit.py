@@ -76,6 +76,8 @@ for i, seg in enumerate(cfg['segments']):
             run(['-ss', str(seg.get('from', 0.5)), '-i', src, '-loop', '1', '-i', lp, '-filter_complex',
                  f'[0:v]{vf}[v];[1:v]format=rgba,fade=in:st={t_in}:d=1.2:alpha=1[l];[v][l]overlay=(W-w)/2:(H-h)/2-230:shortest=1,fade=in:st=0:d=1.5',
                  '-frames:v', str(n)] + enc + [out])
+        elif seg.get('fadein'):
+            run(['-ss', str(seg.get('from', 0.5)), '-i', src, '-vf', vf + ',fade=in:st=0:d=1.5', '-frames:v', str(n)] + enc + [out])
         elif seg.get('xfade') and parts:
             # 前のカットからクロスフェード（長さはそのまま：こちらの頭を d 秒前から使って重ねる）
             d = float(seg['xfade']); dn = round(d * FPS)
@@ -99,6 +101,13 @@ for i, seg in enumerate(cfg['segments']):
         run(['-loop', '1', '-i', png, '-vf',
              f"scale={W*2}:{H*2},zoompan=z='1+0.00012*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={n}:s={W}x{H}:fps={FPS},fade=in:st=0:d=0.6:color=white,fade=out:st={fo}:d={BAR*1.2}",
              '-frames:v', str(n)] + enc + [out])
+    if seg.get('logo'):
+        # ロゴを重ねる（logo＝何小節目から出すか。ラストのカットに使う）
+        logo = make_logo(W / 1200.0 * 1.25); lp = os.path.join(tmp, 'logo.png'); logo.save(lp)
+        t_in = BAR * float(seg['logo']); lo = os.path.join(tmp, f'{i:03d}_logo.mp4')
+        run(['-i', out, '-loop', '1', '-i', lp, '-filter_complex',
+             f'[1:v]format=rgba,fade=in:st={t_in}:d=1.2:alpha=1[l];[0:v][l]overlay=(W-w)/2:(H-h)/2-230:shortest=1',
+             '-frames:v', str(n)] + enc + [lo]); out = lo
     if seg.get('fadeout'):
         fo = os.path.join(tmp, f'{i:03d}_fo.mp4'); d = BAR * seg.get('fadebars', 2)
         run(['-i', out, '-vf', f'fade=out:st={n / FPS - d}:d={d}', '-frames:v', str(n)] + enc + [fo]); out = fo
