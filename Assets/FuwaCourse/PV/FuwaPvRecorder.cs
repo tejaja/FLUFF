@@ -89,6 +89,7 @@ public class FuwaPvRecorder : MonoBehaviour
     public string logPath;
     public Action<FuwaPvShot> applyArea;   // エリアの出し入れ（毎コマ呼ぶ。Udon が戻しても上書き）
     public Action<FuwaPvShot> onShotStart; // プレイヤーを置く等
+    public Action onFinished;
 
     Camera _cam;
     // PlayerLocal(10)・MirrorReflection(18)・モニターにだけ写す毛玉(22) は撮らない
@@ -161,6 +162,7 @@ public class FuwaPvRecorder : MonoBehaviour
         Time.captureFramerate = prevCap;
         rt.Release(); Destroy(rt); Destroy(tex);
         yield return new WaitForSecondsRealtime(3f);
+        onFinished?.Invoke();
         Log("all finished");
         Destroy(gameObject);
     }

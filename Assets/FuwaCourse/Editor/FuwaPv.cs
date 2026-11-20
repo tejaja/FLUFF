@@ -119,9 +119,41 @@ public static class FuwaPv
         { "playground", new Vector3(-72f, 88.2f, 80f) },
     };
 
+    // PV 用に軽量化を全部切る（2026-11-20 てじゃ「動くものフル稼働、軽量化処理無し」「軽量化モデルにかわるやつのこと」）。Play 中だけ。
+    // ・FuwaCourseLod（他のコースを床だけの軽い版に・ロビーで仕掛けを止める）を止めて、軽い版を消し・仕掛けと粒を全部動かす
+    // ・FuwaVisibleGate（映っていない間は止める）を止めて全部動かす
+    // ・FuwaFarShadows（遠い物は影なし）を止めて影を全部出す
+    // ・LOD は一番きれいなまま（lodBias を大きく。撮り終わったら戻す）
+    static float _lodBiasBack = -1f;
+    public static string FullMode()
+    {
+        int n = 0;
+        void Stop(UdonSharp.UdonSharpBehaviour p) { var ub = UdonSharpEditor.UdonSharpEditorUtility.GetBackingUdonBehaviour(p); if (ub) ub.enabled = false; n++; }
+        foreach (var l in Object.FindObjectsOfType<FuwaCourseLod>(true))
+        {
+            Stop(l);
+            if (l.liteRoots != null) foreach (var g in l.liteRoots) if (g) g.SetActive(false);
+            if (l.lobbyStopBehaviours != null) foreach (var b in l.lobbyStopBehaviours) if (b) b.enabled = true;
+            if (l.lobbyHideObjects != null) foreach (var g in l.lobbyHideObjects) if (g) g.SetActive(true);
+        }
+        foreach (var v in Object.FindObjectsOfType<FuwaVisibleGate>(true)) { Stop(v); if (v.target) v.target.enabled = true; }
+        int sh = 0;
+        foreach (var f in Object.FindObjectsOfType<FuwaFarShadows>(true))
+        {
+            Stop(f);
+            if (f.targets != null) foreach (var r in f.targets) if (r) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; sh++; }
+        }
+        if (_lodBiasBack < 0) _lodBiasBack = QualitySettings.lodBias;
+        QualitySettings.lodBias = 100f;
+        return $"[PV] 軽量化オフ（止めた {n}、影を戻した {sh}、lodBias {_lodBiasBack}→100）";
+    }
+    static void OnPlayMode(PlayModeStateChange s) { if (s == PlayModeStateChange.ExitingPlayMode) RestoreQuality(); }
+    public static void RestoreQuality() { if (_lodBiasBack >= 0) { QualitySettings.lodBias = _lodBiasBack; _lodBiasBack = -1f; } }
+
     public static string Record(string names, int supersample = 1, int fps = 60, int crf = 14, string sub = "shots")
     {
         if (!EditorApplication.isPlaying) return "[PV] Play 中に呼んでね";
+        string full = FullMode();
         var list = Load();
         var shots = Pick(list, names).ToList();
         if (shots.Count == 0) return "[PV] ショットがない";
@@ -131,13 +163,15 @@ public static class FuwaPv
         rec.shots = shots; rec.supersample = supersample; rec.fps = fps; rec.crf = crf;
         rec.outDir = OutDir + "/" + sub; rec.logPath = LogPath;
         rec.applyArea = s => ApplyArea(s, list, null);
+        rec.onFinished = RestoreQuality;
+        EditorApplication.playModeStateChanged -= OnPlayMode; EditorApplication.playModeStateChanged += OnPlayMode;
         rec.onShotStart = s =>
         {
             var p = s.player != null && s.player.Length >= 3 ? new Vector3(s.player[0], s.player[1], s.player[2]) : (Stand.TryGetValue(s.area ?? "stage1", out var v) ? v : Vector3.zero);
             var lp = VRC.SDKBase.Networking.LocalPlayer;
             if (lp != null) lp.TeleportTo(p, Quaternion.identity);
         };
-        return $"[PV] 録画開始 {shots.Count} ショット（{string.Join(",", shots.Select(s => s.name))}）→ {rec.outDir}　ログ {LogPath}";
+        return full + $"\n[PV] 録画開始 {shots.Count} ショット（{string.Join(",", shots.Select(s => s.name))}）→ {rec.outDir}　ログ {LogPath}";
     }
 
     // Scene ビューの今の見え方を、キー1個分の JSON にしてログへ（ショットを手で作る時用）
