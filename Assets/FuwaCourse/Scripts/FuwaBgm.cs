@@ -224,6 +224,19 @@ public class FuwaBgm : UdonSharpBehaviour
     [Tooltip("ほかの係が「今はBGMを止めて」と言っている間 true（あそびばで動画を再生中など。TejaVideoPlayer が SetProgramVariable で入れる）。戻ったら元の音量でまた鳴る")]
     [HideInInspector] public bool externalSilence;
 
+    [Header("あそびばの蓄音機（2026-11-20 てじゃ「あそびばのBGM変更モード」、自分だけ）")]
+    [Tooltip("蓄音機で選んだ曲（tracks の番号、-1 ならおまかせ＝いつもの曲）。overrideArea にいる間だけ効く")]
+    [HideInInspector] public int overrideTrack = -1;
+    [Tooltip("蓄音機の曲が効く場所（あそびばの BallPark）")]
+    public Transform overrideArea;
+    [Tooltip("true なら動画の再生中・テレビを動画にしている間もBGMを止めない（蓄音機のスイッチ、デフォは止める）")]
+    [HideInInspector] public bool keepDuringVideo;
+
+    private bool Silenced() { return externalSilence && !keepDuringVideo; }
+    // 今BGMが鳴っているか（蓄音機のレコードを回す用）
+    public bool IsAudible() { return !_muted && !Silenced() && _current >= 0 && _fanfareUntil <= 0f; }
+    public int CurrentTrack() { return _current; }
+
     [Tooltip("保存した音量を読み込むまで（OnPlayerRestored）曲を鳴らさずに待つ最大秒数。待たないと入った直後に一瞬いつもの音量で鳴る")]
     public float restoreWaitMax = 6f;
 
@@ -264,14 +277,14 @@ public class FuwaBgm : UdonSharpBehaviour
             if (s == null) continue;
             // 止まっている曲は、ワンテンポ置いてから頭から普通の音量で鳴らす（フェードインすると曲の頭が
             // 聞こえないので。前の曲だけフェードアウトする）。フェードアウト中の曲に戻る時は続きからフェードイン
-            if (i == _current && !s.isPlaying && !_muted && !externalSilence)
+            if (i == _current && !s.isPlaying && !_muted && !Silenced())
             {
                 if (Time.time < _startAt) continue;
                 _vol[i] = 1f;
                 s.volume = VolOf(i);
                 s.Play();
             }
-            float goal = (i == _current && !_muted && !externalSilence) ? 1f : 0f;
+            float goal = (i == _current && !_muted && !Silenced()) ? 1f : 0f;
             _vol[i] = Mathf.MoveTowards(_vol[i], goal, step);
             s.volume = _vol[i] * _vol[i] * VolOf(i);   // 2乗で聞こえ方の変化をなめらかに
             if (_vol[i] <= 0f && s.isPlaying) s.Stop();
@@ -282,6 +295,8 @@ public class FuwaBgm : UdonSharpBehaviour
     private int FindTrack()
     {
         if (ball == null || starts == null) return 0;
+        // 蓄音機で選んだ曲：あそびばにいる間だけ
+        if (overrideTrack >= 0 && overrideTrack < tracks.Length && overrideArea != null && ball.startPoint == overrideArea) return overrideTrack;
         if (_afterGoal)
         {
             // 次の挑戦を始めた（タイム計測が始まった）か、別の場所に移ったら元の曲へ

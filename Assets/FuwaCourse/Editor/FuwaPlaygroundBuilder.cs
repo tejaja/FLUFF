@@ -47,12 +47,13 @@ public static class FuwaPlaygroundBuilder
     const float PanelYaw = PanelAngle;   // 島の真ん中から読める向き
     // 観戦リビング（ラグの中心）：正面からやや左の奥。テレビは柵側、ソファは真ん中側
     const float LivingAngle = -22f;
-    const float CamZoneAngle = -3f;   // VRChatカメラを入れる球：テレビの右、柵ぎわ（デッキの始まり 9° の手前）
+    const float CamZoneAngle = -5.5f;   // 2026-11-20 蓄音機を右に置くので少し左へ（前は -3）
+    // VRChatカメラを入れる球：テレビの右、柵ぎわ（デッキの始まり 9° の手前）
     static readonly Vector3 LivingLocal = OnRing(LivingAngle, IslandR - 4.9f);
     // おもちゃ（柵沿い、右回りに）：もどすボタン → 扇風機 → ゴールリング → コース1〜5のおもちゃ
     // 2026-11-16 てじゃ「ゴールリングを普通のゴールみたいに床に置こう」「ゴールリングの上に扇風機」「リセットボタンはカメラハックの球のよこ」
     //  → リング（床に平ら）と扇風機（その真上）は 22°、もどすボタンはカメラの球（-3°）の横 4°
-    const float ResetAngle = 4f, FanAngle = 22f, RingAngle = 22f;   // もどすボタンは扇風機の真下（2026-10-13 てじゃ。前は設定ボードの右で「タイトルにもどる」にかぶって見えた）
+    const float ResetAngle = 12f, ResetR = 0.75f, FanAngle = 22f, RingAngle = 22f;   // 2026-11-20 てじゃ「リセットは扇風機の後ろの柵あたり」（前は 4°・柵から 2.1m。そこは蓄音機に）   // もどすボタンは扇風機の真下（2026-10-13 てじゃ。前は設定ボードの右で「タイトルにもどる」にかぶって見えた）
     // 遊び方の看板の言語・音量ボタンはスイッチのボードの下（BoardButtons）
     // 島の外の物（FuwaPlayground の直下。前は手で置いていた位置×島の大きさ）：スポーン、ワープ2つ、エアガンの台（2026-10-13 てじゃ「銃の台も真ん中に」→ キノコの右手前、スイッチの反対）
     // スポーンとワープは真ん中からの距離のまま（島を広げた分は入口の後ろの柵沿いがおもちゃの場所になる）
@@ -510,7 +511,7 @@ public static class FuwaPlaygroundBuilder
         var rsGo = new GameObject("ResetToys"); rsGo.transform.SetParent(toys, false);
         var rs = UdonSharpUndo.AddComponent<FuwaHandFanReset>(rsGo); rs.fans = list.ToArray(); rs.others = resetOthers; UdonSharpEditorUtility.CopyProxyToUdon(rs);
         var rub = UdonSharpEditorUtility.GetBackingUdonBehaviour(rs); if (rub != null) { rub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(rub); }
-        var rsPos = O + OnRing(ResetAngle, IslandR - 2.1f); var rsOut = rsPos - O; rsOut.y = 0f;
+        var rsPos = O + OnRing(ResetAngle, IslandR - ResetR); var rsOut = rsPos - O; rsOut.y = 0f;
         var btnLbl = LaserButton(toys, "ResetToysButton", rsPos + Vector3.up * 0.55f, Quaternion.LookRotation(rsOut.normalized), 1.3f, "おもちゃをもどす", rs, "ResetAll");   // 「戻」はボタンのフォントに無くて□になっていた（2026-10-13）
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
         if (lang != null) { var lso = new SerializedObject(lang); AddLang(lso, "uiTexts", "uiJa", "uiEn", btnLbl, "おもちゃをもどす", "Return toys"); lso.ApplyModifiedPropertiesWithoutUndo(); Sync(lang); }
