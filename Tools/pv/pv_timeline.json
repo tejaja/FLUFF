@@ -5,7 +5,7 @@
  "playdir": "D:/Claude_Workspace/fluff_video/pv2/play",
  "old_pv": "D:/Claude_Workspace/fluff_video/pv_rough8_1080p.mp4",
  "thumb": "D:/Claude_Workspace/FLUFF_Photos/FLUFF_thumbnail_20261120_2400x1800.png",
- "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_rough6",
+ "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_rough7",
  "segments": [
   {
    "b": "v3_lobby1",
@@ -153,19 +153,19 @@
   },
   {
    "a": "A11",
-   "bars": 5,
-   "label": "ピックアップ5カット（1-2・1-4・2-2・ポータル・トランポリン）",
+   "bars": 4,
+   "label": "ピックアップ4カット（1-2・1-4・2-2・ポータル連射）",
    "old": 18,
    "from": 0
   },
   {
    "a": "A12",
-   "bars": 2,
-   "label": "ラスト：あそびばで転がるカラフルな大小のふわふわ",
+   "bars": 3,
+   "label": "ラスト：トランポリンで跳ねるふわふわ",
    "bstill": "v3_pg_open",
    "fadeout": true,
    "fadebars": 1,
-   "from": 0.5
+   "from": 1.0
   }
  ]
 }
