@@ -16,7 +16,9 @@ W, H, FPS = 1920, 1080, 60
 BAR = 240.0 / cfg['bpm']
 tmp = tempfile.mkdtemp(prefix='pvedit_')
 FONT = "C:/Windows/Fonts/meiryob.ttc"
-enc = ['-c:v', 'libx264', '-preset', 'veryfast' if fast else 'slow', '-crf', '18' if fast else '15', '-pix_fmt', 'yuv420p', '-r', str(FPS)]
+# 途中のカットは無劣化（-qp 0）で作って、最後につなぐ時に1回だけ圧縮する（2026-11-20 てじゃ：2回圧縮をやめる）
+enc = ['-c:v', 'libx264', '-preset', 'ultrafast' if fast else 'veryfast', '-qp', '0', '-pix_fmt', 'yuv420p', '-r', str(FPS)]
+final_enc = ['-c:v', 'libx264', '-preset', 'veryfast' if fast else 'slower', '-crf', '18' if fast else '12', '-pix_fmt', 'yuv420p', '-r', str(FPS)]
 
 def run(args):
     r = subprocess.run(['ffmpeg', '-v', 'error', '-y'] + args, capture_output=True, text=True)
@@ -119,7 +121,7 @@ open(lst, 'w', encoding='utf-8').write(''.join(f"file '{p}'\n" for p in parts))
 total = round(bar0 * BAR * FPS) / FPS
 music = cfg['music']
 out = cfg['out'] + '_1080p.mp4'
-run(['-f', 'concat', '-safe', '0', '-i', lst, '-i', music, '-map', '0:v', '-map', '1:a', '-c:v', 'copy',
+run(['-f', 'concat', '-safe', '0', '-i', lst, '-i', music, '-map', '0:v', '-map', '1:a'] + final_enc + [
      '-af', f'afade=out:st={total - 3}:d=3', '-c:a', 'aac', '-b:a', '256k', '-t', str(total), out])
 print(out)
 # Discord 用（10MB 以下）
