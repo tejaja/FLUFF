@@ -76,6 +76,15 @@ for i, seg in enumerate(cfg['segments']):
             run(['-ss', str(seg.get('from', 0.5)), '-i', src, '-loop', '1', '-i', lp, '-filter_complex',
                  f'[0:v]{vf}[v];[1:v]format=rgba,fade=in:st={t_in}:d=1.2:alpha=1[l];[v][l]overlay=(W-w)/2:(H-h)/2-230:shortest=1,fade=in:st=0:d=1.5',
                  '-frames:v', str(n)] + enc + [out])
+        elif seg.get('xfade') and parts:
+            # 前のカットからクロスフェード（長さはそのまま：こちらの頭を d 秒前から使って重ねる）
+            d = float(seg['xfade']); dn = round(d * FPS)
+            st = max(0.0, seg.get('from', 0.5) - d)
+            raw = os.path.join(tmp, f'{i:03d}_raw.mp4')
+            run(['-ss', str(st), '-i', src, '-vf', vf, '-frames:v', str(n + dn)] + enc + [raw])
+            prev = parts.pop()
+            pn = int(subprocess.run(['ffprobe', '-v', 'error', '-count_frames', '-select_streams', 'v:0', '-show_entries', 'stream=nb_read_frames', '-of', 'csv=p=0', prev], capture_output=True, text=True).stdout.strip())
+            run(['-i', prev, '-i', raw, '-filter_complex', f'[0:v][1:v]xfade=transition=fade:duration={d}:offset={(pn - dn) / FPS},format=yuv420p', '-frames:v', str(pn + n)] + enc + [out])
         else:
             run(['-ss', str(seg.get('from', 0.5)), '-i', src, '-vf', vf, '-frames:v', str(n)] + enc + [out])
     elif 'a' in seg:

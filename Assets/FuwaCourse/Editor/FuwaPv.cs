@@ -150,6 +150,12 @@ public static class FuwaPv
             Stop(f);
             if (f.targets != null) foreach (var r in f.targets) if (r) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; sh++; }
         }
+        // 2–5 の段ごとの影（自分の段より下・遠い物は影なし）も軽量化 → プレイヤーをカメラに運ぶと影がチカチカした
+        foreach (var f in Object.FindObjectsOfType<FuwaTierShadows>(true))
+        {
+            Stop(f);
+            if (f.targets != null) foreach (var r in f.targets) if (r) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; sh++; }
+        }
         if (_lodBiasBack < 0) _lodBiasBack = QualitySettings.lodBias;
         QualitySettings.lodBias = 100f;
         return $"[PV] 軽量化オフ（止めた {n}、影を戻した {sh}、lodBias {_lodBiasBack}→100）";

@@ -5,7 +5,7 @@
  "playdir": "D:/Claude_Workspace/fluff_video/pv2/play",
  "old_pv": "D:/Claude_Workspace/fluff_video/pv_rough8_1080p.mp4",
  "thumb": "D:/Claude_Workspace/FLUFF_Photos/FLUFF_thumbnail_20261120_2400x1800.png",
- "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_rough3",
+ "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_rough4",
  "segments": [
   {
    "b": "v3_lobby1",
@@ -30,7 +30,11 @@
   },
   {
    "b": "v3_1_2",
-   "bars": 4
+   "bars": 2
+  },
+  {
+   "b": "v3_1_2b",
+   "bars": 2
   },
   {
    "b": "v3_1_3",
@@ -128,7 +132,8 @@
   },
   {
    "b": "v3_pg_open",
-   "bars": 2
+   "bars": 2,
+   "xfade": 0.5
   },
   {
    "a": "A10",
