@@ -28,21 +28,24 @@ def make_logo(u, style="jump", tilt=0.0):
     _, t, _, b = d.textbbox((0, 0), text, font=base, stroke_width=sw)
     fonts = [ImageFont.truetype(FONTS + "Sniglet-ExtraBold.ttf", int(150 * u * st["sizes"][i])) for i in range(n)]
     widths = [d.textlength(ch, font=fonts[i]) for i, ch in enumerate(text)]
-    lay = Image.new("RGBA", (int(sum(widths) + spacing * (n - 1)) + sw * 2 + pad * 2 + int(60 * u), b - t + pad * 2 + int(90 * u)), (0, 0, 0, 0))
+    # 1文字ずつの板・全体の板には余白 E をつける。大きい文字（最初の F は 1.2 倍）と下の影が板からはみ出して、
+    # 回したときに影の左下がまっすぐ切れていた（2026-11-20 てじゃ「最初のFの下がきれてそう」）。置く位置は前と同じ
+    E = int(60 * u)
+    lay = Image.new("RGBA", (int(sum(widths) + spacing * (n - 1)) + sw * 2 + pad * 2 + int(60 * u) + E * 2, b - t + pad * 2 + int(90 * u) + E * 2), (0, 0, 0, 0))
     x = pad + sw
     for i, (ch, w) in enumerate(zip(text, widths)):
         f = fonts[i]
         # 1文字ずつ：影＋字を作って回して置く
         cw = int(w + sw * 2 + 30 * u); chh = int(b - t + sw * 2 + 40 * u)
-        one = Image.new("RGBA", (cw, chh), (0, 0, 0, 0))
+        one = Image.new("RGBA", (cw + E * 2, chh + E * 2), (0, 0, 0, 0))
         sh = Image.new("RGBA", one.size, (0, 0, 0, 0))
-        ImageDraw.Draw(sh).text((sw + 15 * u, -t + sw + 20 * u + 9 * u), ch, font=f, fill=SHADOW, stroke_width=sw, stroke_fill=SHADOW)
+        ImageDraw.Draw(sh).text((E + sw + 15 * u, E - t + sw + 20 * u + 9 * u), ch, font=f, fill=SHADOW, stroke_width=sw, stroke_fill=SHADOW)
         one = Image.alpha_composite(one, sh.filter(ImageFilter.GaussianBlur(7 * u)))
-        ImageDraw.Draw(one).text((sw + 15 * u, -t + sw + 20 * u), ch, font=f, fill=FACE, stroke_width=sw, stroke_fill=EDGE)
+        ImageDraw.Draw(one).text((E + sw + 15 * u, E - t + sw + 20 * u), ch, font=f, fill=FACE, stroke_width=sw, stroke_fill=EDGE)
         one = one.rotate(st["rots"][i], resample=Image.BICUBIC, expand=True)
-        px = int(x + w / 2 - one.width / 2)
-        py = int(pad + 45 * u + st["offs"][i] * u + (chh - one.height) / 2 - sw - 20 * u - (st["sizes"][i] - 1) * 150 * u * 0.85)
-        lay.alpha_composite(one, (max(0, px), max(0, py)))
+        px = int(E + x + w / 2 - one.width / 2)
+        py = int(E + pad + 45 * u + st["offs"][i] * u + chh / 2 - one.height / 2 - sw - 20 * u - (st["sizes"][i] - 1) * 150 * u * 0.85)
+        lay.alpha_composite(one, (px, py))
         x += w + spacing
     if tilt: lay = lay.rotate(tilt, resample=Image.BICUBIC, expand=True)
     return lay.crop(lay.getbbox())

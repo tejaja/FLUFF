@@ -187,7 +187,7 @@ public static class FuwaPhotoSet
     // ぼかし（被写界深度）つきで撮る（2026-10-18 てじゃ「ちょっとぼかしとかいれたら映えるかな」）。
     // ピントはニタ・銃・空気の輪、奥はふんわり、手前のふわふわも少し。Unity で 色・奥行き・ふわふわの形・エフェクトの形 を書き出し、
     // Tools/photo/photo_dof.py で合成する（距離ごとにぼかす。ピントの合った物が後ろへにじまないように奥と手前を分けて）
-    public static float DofBack = 10f, DofFront = 9f;   // 16・14 から「ちょいよわめ」   // 奥のぼけの最大（2400 幅で px）、手前のふわふわのぼけ（px）
+    public static float DofBack = 6f, DofFront = 5f;   // 16・14 →「ちょいよわめ」で 10・9 → 2026-11-20 サムネで「ボケすぎ」で 6・5   // 奥のぼけの最大（2400 幅で px）、手前のふわふわのぼけ（px）
     [MenuItem("FuwaCourse/撮影/撮影セットで撮る（ぼかしつき・8枚）")]
     public static void ShootDofManyMenu()
     {
