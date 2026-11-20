@@ -200,6 +200,16 @@ public static class FuwaPv
                     var a = e.Split('|'); if (a.Length < 3 || !float.TryParse(a[0], out var at)) continue;
                     if (!(lastT < at && t >= at)) continue;
                     var obj = FindPath(a[1]); var ub = obj ? obj.GetComponent<VRC.Udon.UdonBehaviour>() : null;
+                    // "秒|パス|set:変数名|値"：Udon の変数を書きかえる（2026-11-20 1-4 のボスを決まった秒で起こす）
+                    if (a[2].StartsWith("set:"))
+                    {
+                        if (!ub || a.Length < 4) { Debug.LogWarning("[PV] set の相手か値がない: " + e); continue; }
+                        // 型は今入っている値から取る（public の変数は GetProgramVariableType が Object を返して、文字列のまま入れると Udon が止まった）
+                        string vn = a[2].Substring(4); var ty = ub.GetProgramVariable(vn)?.GetType() ?? ub.GetProgramVariableType(vn);
+                        object val = ty == typeof(bool) ? (object)bool.Parse(a[3]) : ty == typeof(int) ? (object)int.Parse(a[3]) : ty == typeof(float) ? (object)float.Parse(a[3]) : a[3];
+                        ub.SetProgramVariable(vn, val);
+                        continue;
+                    }
                     int n = a.Length >= 4 && int.TryParse(a[3], out var c) ? c : 1;
                     if (ub) for (int k = 0; k < n; k++) ub.SendCustomEvent(a[2]);
                     else Debug.LogWarning("[PV] send の相手が見つからない: " + a[1]);

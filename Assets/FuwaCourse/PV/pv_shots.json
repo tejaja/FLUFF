@@ -897,7 +897,16 @@
             "player": [],
             "boulderAt": -1.0,
             "followPlayer": true,
-            "send": [],
+            "send": [
+                "-1.9|FuwaCourse4/Mama|set:activeRange|0",
+                "-1.9|FuwaCourse4/Mama|set:hop|false",
+                "-1.9|FuwaCourse4/Mama|set:chaseSpeed|0",
+                "-1.8|FuwaCourse4/Mama|ResetBoss",
+                "2.0|FuwaCourse4/Mama|set:activeRange|13",
+                "2.0|FuwaCourse4/Mama|set:_t|0",
+                "2.0|FuwaCourse4/Mama|set:_state|1",
+                "2.0|FuwaCourse4/Mama|set:activeRange|1000"
+            ],
             "note": "1-4：ボスの顔にアップ",
             "keys": [
                 {
