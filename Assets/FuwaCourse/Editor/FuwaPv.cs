@@ -174,6 +174,55 @@ public static class FuwaPv
         return full + $"\n[PV] 録画開始 {shots.Count} ショット（{string.Join(",", shots.Select(s => s.name))}）→ {rec.outDir}　ログ {LogPath}";
     }
 
+    // コースの道の中心線（スタート→ゴール、だいたい step m おき）。道レイヤー（11）のメッシュの頂点を 2m のマスにまとめて、
+    // となりのマス（高さの差 1.5m まで）をつないだ最短の道をたどる。カメラを「道にそって」動かすショット用
+    public static List<Vector3> CoursePath(string root, float step = 4f, float cell = 2f)
+    {
+        var r = FindPath(root); if (!r) return null;
+        var pts = new Dictionary<Vector3Int, (Vector3 sum, int n)>();
+        foreach (var mf in r.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (mf.gameObject.layer != 11 || !mf.sharedMesh || !mf.sharedMesh.isReadable) continue;
+            var m = mf.transform.localToWorldMatrix;
+            foreach (var v in mf.sharedMesh.vertices)
+            {
+                var w = m.MultiplyPoint3x4(v); var k = new Vector3Int(Mathf.FloorToInt(w.x / cell), Mathf.FloorToInt(w.y / 1.5f), Mathf.FloorToInt(w.z / cell));
+                pts.TryGetValue(k, out var a); pts[k] = (a.sum + w, a.n + 1);
+            }
+        }
+        if (pts.Count == 0) return null;
+        var keys = pts.Keys.ToList(); var pos = keys.ToDictionary(k => k, k => pts[k].sum / pts[k].n);
+        var st = r.transform.Find("Start"); var go = r.transform.Find("Goal");
+        Vector3Int Near(Vector3 p) => keys.OrderBy(k => (pos[k] - p).sqrMagnitude).First();
+        var s = Near(st ? st.position : r.transform.position); var g = Near(go ? go.position : r.transform.position);
+        var dist = new Dictionary<Vector3Int, float> { [s] = 0 }; var prev = new Dictionary<Vector3Int, Vector3Int>();
+        var open = new SortedSet<(float, int, int, int)> { (0, s.x, s.y, s.z) };
+        while (open.Count > 0)
+        {
+            var c = open.Min; open.Remove(c); var k = new Vector3Int(c.Item2, c.Item3, c.Item4);
+            if (k == g) break;
+            // すき間（飛び越える所・橋の切れ目）も渡れるように 2 マス先まで（遠いほど損）
+            for (int dx = -3; dx <= 3; dx++) for (int dy = -2; dy <= 2; dy++) for (int dz = -3; dz <= 3; dz++)
+            {
+                var nk = new Vector3Int(k.x + dx, k.y + dy, k.z + dz); if (nk == k || !pos.ContainsKey(nk)) continue;
+                float e = (pos[nk] - pos[k]).magnitude; if (e > cell * 1.8f) e *= 3f;
+                float d = dist[k] + e;
+                if (dist.TryGetValue(nk, out var od) && od <= d) continue;
+                if (dist.ContainsKey(nk)) open.Remove((od, nk.x, nk.y, nk.z));
+                dist[nk] = d; prev[nk] = k; open.Add((d, nk.x, nk.y, nk.z));
+            }
+        }
+        if (!prev.ContainsKey(g)) return null;
+        var line = new List<Vector3>(); for (var k = g; ; k = prev[k]) { line.Add(pos[k]); if (k == s) break; }
+        line.Reverse();
+        // なめらかにして step おきに間引く
+        var sm = line.Select((p, i) => { Vector3 a = Vector3.zero; int n = 0; for (int j = Mathf.Max(0, i - 2); j <= Mathf.Min(line.Count - 1, i + 2); j++) { a += line[j]; n++; } return a / n; }).ToList();
+        var outp = new List<Vector3> { sm[0] }; float acc = 0;
+        for (int i = 1; i < sm.Count; i++) { acc += (sm[i] - sm[i - 1]).magnitude; if (acc >= step) { outp.Add(sm[i]); acc = 0; } }
+        if (outp[outp.Count - 1] != sm[sm.Count - 1]) outp.Add(sm[sm.Count - 1]);
+        return outp;
+    }
+
     // Scene ビューの今の見え方を、キー1個分の JSON にしてログへ（ショットを手で作る時用）
     [MenuItem("FuwaCourse/PV/Scene ビューの位置をキーにしてログへ")]
     static void SceneKeyMenu()

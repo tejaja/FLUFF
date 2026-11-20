@@ -5,113 +5,106 @@
  "playdir": "D:/Claude_Workspace/fluff_video/pv2/play",
  "old_pv": "D:/Claude_Workspace/fluff_video/pv_rough8_1080p.mp4",
  "thumb": "D:/Claude_Workspace/FLUFF_Photos/FLUFF_thumbnail_20261120_2400x1800.png",
- "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_rough1",
+ "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_rough2",
  "segments": [
   {
-   "b": "h01_hub",
+   "b": "v3_lobby1",
    "bars": 4,
    "title": true
   },
   {
-   "b": "s1_lobby",
-   "bars": 4
+   "a": "A1",
+   "bars": 4,
+   "label": "銃ゲット＋ショット＋チャージショット",
+   "old": 6
   },
   {
-   "a": "A1",
-   "bars": 2,
-   "label": "ちょん撃ち",
-   "old": 6
+   "b": "v3_1_1",
+   "bars": 2
   },
   {
    "a": "A2",
    "bars": 2,
-   "label": "ため撃ちで遠くへ",
-   "old": 14
+   "label": "1-1 風にながされるふわふわ",
+   "old": 38
+  },
+  {
+   "b": "v3_1_2",
+   "bars": 4
+  },
+  {
+   "b": "v3_1_3",
+   "bars": 2
   },
   {
    "a": "A3",
    "bars": 2,
-   "label": "風に乗せて運ぶ",
-   "old": 38
+   "label": "1-3 クモの巣にひっかかる",
+   "old": 62
   },
   {
-   "b": "s1_c1a",
-   "bars": 2
+   "b": "v3_1_4",
+   "bars": 4
   },
   {
-   "b": "s1_c2a",
+   "b": "v3_1_5",
    "bars": 2
   },
   {
    "a": "A4",
    "bars": 2,
-   "label": "いわのみちで遊ぶ",
-   "old": 58
-  },
-  {
-   "b": "s1_c4b",
-   "bars": 2
-  },
-  {
-   "a": "A5",
-   "bars": 2,
-   "label": "まものとたたかう",
-   "old": 70
-  },
-  {
-   "b": "s1_c5b",
-   "bars": 2
-  },
-  {
-   "a": "A6",
-   "bars": 2,
-   "label": "きのこのたにで遊ぶ",
+   "label": "1-5 らせん階段",
    "old": 78
   },
   {
-   "a": "A7",
+   "a": "A5",
    "bars": 2,
    "label": "ゴールの瞬間",
    "old": 84
   },
   {
-   "a": "A8",
-   "bars": 2,
-   "label": "ステージ1のどこか",
-   "old": 26
-  },
-  {
-   "b": "s2_1a",
+   "b": "v3_lobby2",
    "bars": 2
   },
   {
-   "a": "A9",
-   "bars": 2,
-   "label": "2–1で遊ぶ",
-   "bstill": "s2_1a"
+   "b": "v3_2_1",
+   "bars": 2
   },
   {
-   "b": "s2_2a",
-   "bars": 3
+   "a": "A6",
+   "bars": 2,
+   "label": "2-1 泡",
+   "bstill": "v3_2_1"
   },
   {
-   "a": "A10",
+   "b": "v3_2_2a",
+   "bars": 2
+  },
+  {
+   "b": "v3_2_2b",
+   "bars": 2
+  },
+  {
+   "b": "v3_2_3",
+   "bars": 2
+  },
+  {
+   "a": "A7",
    "bars": 2,
-   "label": "2–2で遊ぶ",
-   "bstill": "s2_2a"
+   "label": "2-3 動く床でツルツル",
+   "bstill": "v3_2_3"
   },
   {
    "b": "s2_4a",
-   "bars": 2
-  },
-  {
-   "a": "A11",
    "bars": 2,
-   "label": "2–4で遊ぶ",
-   "bstill": "s2_4a"
+   "note": "ここから先は前の並びのまま（てじゃの続き待ち）"
   },
   {
    "b": "s2_5b",
+   "bars": 3
+  },
+  {
+   "b": "s2_5c",
    "bars": 3
   },
   {
@@ -129,17 +122,13 @@
    "bars": 2
   },
   {
-   "b": "s2_5c",
-   "bars": 3
-  },
-  {
    "a": "M1",
    "bars": 1,
    "label": "名場面",
    "old": 18
   },
   {
-   "b": "s1_c1a",
+   "b": "v3_1_1",
    "bars": 1,
    "from": 3.0
   },
@@ -150,29 +139,23 @@
    "old": 46
   },
   {
-   "b": "s2_2a",
+   "b": "v3_2_2b",
    "bars": 1,
-   "from": 5.0
+   "from": 3.0
   },
   {
    "a": "M3",
    "bars": 1,
    "label": "名場面",
-   "old": 62
+   "old": 74
   },
   {
-   "b": "s1_c5b",
+   "b": "v3_1_5",
    "bars": 1,
    "from": 3.0
   },
   {
-   "a": "M4",
-   "bars": 1,
-   "label": "名場面",
-   "old": 74
-  },
-  {
-   "b": "s2_4a",
+   "b": "v3_2_1",
    "bars": 1,
    "from": 3.0
   },
