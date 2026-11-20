@@ -187,6 +187,23 @@ public static class FuwaPv
             var fwd = cam.transform.forward; fwd.y = 0;
             lp.TeleportTo(cam.transform.position - eye, Quaternion.LookRotation(fwd.sqrMagnitude > 1e-4f ? fwd : Vector3.forward));
         };
+        // send：決まった秒に Udon のイベントを送る（"秒|パス|イベント|回数"）。1コマ前の秒をまたいだら送る
+        float lastT = float.NegativeInfinity; FuwaPvShot lastS = null;
+        rec.onTime = (s, t) =>
+        {
+            if (s != lastS) { lastS = s; lastT = float.NegativeInfinity; }
+            if (s.send != null)
+                foreach (var e in s.send)
+                {
+                    var a = e.Split('|'); if (a.Length < 3 || !float.TryParse(a[0], out var at)) continue;
+                    if (!(lastT < at && t >= at)) continue;
+                    var obj = FindPath(a[1]); var ub = obj ? obj.GetComponent<VRC.Udon.UdonBehaviour>() : null;
+                    int n = a.Length >= 4 && int.TryParse(a[3], out var c) ? c : 1;
+                    if (ub) for (int k = 0; k < n; k++) ub.SendCustomEvent(a[2]);
+                    else Debug.LogWarning("[PV] send の相手が見つからない: " + a[1]);
+                }
+            lastT = t;
+        };
         EditorApplication.playModeStateChanged -= OnPlayMode; EditorApplication.playModeStateChanged += OnPlayMode;
         rec.onShotStart = s =>
         {

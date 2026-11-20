@@ -25,6 +25,7 @@ public class FuwaPvShot
     public float[] player;           // プレイヤーを置く場所（ClientSim。省略時はエリアの決まった場所）
     public float boulderAt = -1f;    // 転がる岩がこの秒（ショットの頭から）に転がり始めるように合わせる（-1 ならそのまま）
     public bool followPlayer;        // プレイヤーの頭をカメラの位置へ毎コマ運ぶ（カメラ式ポータルは頭の位置から映すので、のぞくショット用）
+    public string[] send;            // "秒|シーンのパス|イベント名|回数"：その秒（ショットの頭から、助走中はマイナス）に UdonBehaviour へ SendCustomEvent（2-4 の気球の雲など）
     public string note;
     public FuwaPvKey[] keys;
 }
@@ -93,6 +94,7 @@ public class FuwaPvRecorder : MonoBehaviour
     public Action<FuwaPvShot> onShotStart; // プレイヤーを置く等
     public Action onFinished;
     public Action<FuwaPvShot, Camera> onFrame;   // カメラを置いた後・描く前に毎コマ
+    public Action<FuwaPvShot, float> onTime;     // 毎コマ、ショットの頭からの秒（助走中はマイナス）
 
     Camera _cam;
     // PlayerLocal(10)・MirrorReflection(18)・ClientSim のメニュー(19)・モニターにだけ写す毛玉(22) は撮らない
@@ -125,7 +127,7 @@ public class FuwaPvRecorder : MonoBehaviour
         {
             onShotStart?.Invoke(s);
             int pre = Mathf.RoundToInt(s.preroll * fps);
-            for (int f = 0; f < pre; f++) { applyArea?.Invoke(s); FuwaPvPath.Place(_cam, s, 0f); onFrame?.Invoke(s, _cam); yield return null; }
+            for (int f = 0; f < pre; f++) { applyArea?.Invoke(s); onTime?.Invoke(s, (f - pre) / (float)fps); FuwaPvPath.Place(_cam, s, 0f); onFrame?.Invoke(s, _cam); yield return null; }
             string path = outDir + "/" + s.name + ".mp4";
             string vf = "vflip" + (supersample > 1 ? $",scale={width}:{height}:flags=lanczos" : "");
             var psi = new System.Diagnostics.ProcessStartInfo("ffmpeg",
@@ -140,6 +142,7 @@ public class FuwaPvRecorder : MonoBehaviour
             for (int f = 0; f < n && !failed; f++)
             {
                 applyArea?.Invoke(s);
+                onTime?.Invoke(s, f / (float)fps);
                 FuwaPvPath.Place(_cam, s, f / (float)fps);
                 onFrame?.Invoke(s, _cam);
                 yield return new WaitForEndOfFrame();
