@@ -83,8 +83,9 @@ public class FuwaIceSkate : UdonSharpBehaviour
     {
         VRCPlayerApi.TrackingData o = p.GetTrackingData(VRCPlayerApi.TrackingDataType.Origin);
         p.TeleportTo(o.position + step, o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
-        shiftFrame = Time.frameCount;
+        shiftFrame = Time.frameCount; lastShift = step;
     }
+    [HideInInspector] public Vector3 lastShift;   // いちばん最近のワープで動かした量（銃がそのぶん遅れるのを打ち消す用、FuwaBlower）
 
     private void Update()
     {

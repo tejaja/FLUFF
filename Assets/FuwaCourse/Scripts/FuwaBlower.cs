@@ -606,6 +606,17 @@ public class FuwaBlower : UdonSharpBehaviour
     public FuwaIceSkate skate;
     [Tooltip("ほかの氷で滑る処理（あそびばの氷など）")]
     public FuwaIceSkate[] moreSkates;
+    [Tooltip("デスクトップで持って滑っている時、ワープで動かした量を銃に足して遅れを打ち消す（オフなら前の「頭から見た位置を保つ」やり方）")]
+    public bool desktopShiftComp = true;
+    [Tooltip("何フレーム前のワープの量を足すか（0＝このフレーム）と、その倍率")]
+    public int desktopShiftFrameBack = 0; public float desktopShiftGain = 1f;
+    private Vector3 ShiftAt(int back)
+    {
+        int f = Time.frameCount - back; Vector3 s = Vector3.zero;
+        if (skate != null && skate.shiftFrame == f) s += skate.lastShift;
+        if (moreSkates != null) for (int i = 0; i < moreSkates.Length; i++) if (moreSkates[i] != null && moreSkates[i].shiftFrame == f) s += moreSkates[i].lastShift;
+        return s;
+    }
     private bool Shifting()
     {
         int f = Time.frameCount;
@@ -702,7 +713,13 @@ public class FuwaBlower : UdonSharpBehaviour
                     // 滑っていない時はそのまま（遅れなし）。滑っている間（ワープしたフレームの近く）だけ、頭から見た位置を前のまま保つ
                     //  （前はいつもなめらかにしていて、てじゃ「ましになったけどぬるっとツイてくる感じ」→ VR の VrGlue と同じやり方に）
                     bool shifting = Shifting();
-                    if (!_headLocalOk || !_aligned || !shifting) { _headLocal = local; _headLocalOk = true; }
+                    if (desktopShiftComp)
+                    {
+                        // 2026-11-21 てじゃ「じゃっかんぬるりと動く」→ なめらかにするのをやめ、ワープで動かした量そのものを足して打ち消す（A 案）
+                        local = hinv * (vp + ShiftAt(desktopShiftFrameBack) * desktopShiftGain - hp);
+                        _headLocal = local; _headLocalOk = true;
+                    }
+                    else if (!_headLocalOk || !_aligned || !shifting) { _headLocal = local; _headLocalOk = true; }
                     else if (desktopHeadFollow > 0f) _headLocal = Vector3.Lerp(_headLocal, local, 1f - Mathf.Exp(-Time.deltaTime * desktopHeadFollow));
                     Vector3 vp2 = hp + head * _headLocal; Vector3 shift = vp2 - vp;
                     vp = vp2; np += shift;
