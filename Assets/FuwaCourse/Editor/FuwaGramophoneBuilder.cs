@@ -207,7 +207,7 @@ public static class FuwaGramophoneBuilder
             var box = cv.GetComponent<BoxCollider>(); if (box != null) box.size = new Vector3(cv.sizeDelta.x, cv.sizeDelta.y, box.size.z);
             float k = 0.15f / (cv.sizeDelta.y * cv.localScale.y);
             v.localScale = Vector3.one * (k / T.lossyScale.x);
-            var fill = v.GetComponentsInChildren<UnityEngine.UI.Image>(true).FirstOrDefault(x => x.name == "Fill"); if (fill != null) fill.color = Theme;
+            // 色はほかの音量バーのまま（2026-11-21 てじゃ「ボリュームはかえなくていいよ」）
             var sl = v.GetComponentInChildren<UnityEngine.UI.Slider>(true);
             if (bgm != null && sl != null)
             {
