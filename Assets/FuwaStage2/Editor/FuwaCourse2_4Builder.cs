@@ -3283,6 +3283,8 @@ public static class FuwaCourse2_4Builder
         var gm = cp.Find("GlowMushrooms"); if (!gm) return;
         var keep = gm.Find("ClusterL"); var drop = gm.Find("ClusterR"); if (drop) Object.DestroyImmediate(drop.gameObject);
         if (keep) keep.localPosition = new Vector3(sg * (HW + 0.7f), keep.localPosition.y, 0f);   // 外がわ（右カーブなら左）
+        // 判定の線はきのこの横（前は 1.5m 先で、きのこを通り過ぎないと取れなかった。2026-11-21 てじゃ「キノコから結構通り過ぎないと判定でない場所」）
+        var trig = cp.Find("Trigger"); if (trig) trig.localPosition = new Vector3(trig.localPosition.x, trig.localPosition.y, 0f);
     }
 
     // しかけの中のただの板（GearTest_Floor の箱）を、道と同じシマにする（2026-11-10 てじゃ「ほかもただの長方形のグレーの板があるだけのとこ、道でいいかも」）
