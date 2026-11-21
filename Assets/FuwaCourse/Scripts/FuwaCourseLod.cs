@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDK3.Persistence;
 using VRC.SDKBase;
@@ -129,6 +129,7 @@ public class FuwaCourseLod : UdonSharpBehaviour
     }
 
     private float _next;
+    private Vector3 _lastPos;
     private int _shown = -2;   // いま反映している状態（-1=全部ふつう、i=コースiにいる）
     private int _area = -1;
 
@@ -137,6 +138,10 @@ public class FuwaCourseLod : UdonSharpBehaviour
 #if !(UNITY_ANDROID || UNITY_IOS)
         if (onlyMobile) { enabled = false; return; }
 #endif
+        // ワープ（1フレームで20m以上動いた）したらすぐやり直す。かるいのロビーでは軽い版（当たりなし）なので、
+        //  ワープ先のコースを本体に戻すのが遅れると落ちる（2026-11-22）
+        VRC.SDKBase.VRCPlayerApi lp = VRC.SDKBase.Networking.LocalPlayer;
+        if (lp != null) { Vector3 pp = lp.GetPosition(); if ((pp - _lastPos).sqrMagnitude > 400f) _next = 0f; _lastPos = pp; }
         if (Time.time < _next) return;
         _next = Time.time + interval;
         if (follow != null && follow.mode != mode) { mode = follow.mode; _shown = -2; }
@@ -165,7 +170,8 @@ public class FuwaCourseLod : UdonSharpBehaviour
         int n = fullRoots != null ? fullRoots.Length : 0;
         if (_near == null || _near.Length != n) _near = new bool[n];
         VRC.SDKBase.VRCPlayerApi p = VRC.SDKBase.Networking.LocalPlayer;
-        bool check = inSolo && cur >= 0 && mode != 0 && p != null && cellMin != null && cellMax != null && cellCourse != null;
+        // かるいのロビー（全部軽い版）では、近づいたコースを本体に戻す（竹とんぼで飛んで降りる時に床がないと落ちる）
+        bool check = inSolo && (cur >= 0 ? mode != 0 : mode == 2) && p != null && cellMin != null && cellMax != null && cellCourse != null;
         if (_dist == null || _dist.Length != n) _dist = new float[n];
         for (int i = 0; i < n; i++) _dist[i] = 1e9f;
         if (check)
@@ -219,11 +225,14 @@ public class FuwaCourseLod : UdonSharpBehaviour
     {
         int n = fullRoots != null ? fullRoots.Length : 0;
         int c = mode == 0 ? -1 : cur;   // きれい：コースの中でも全部ふつう表示
+        // かるい：ロビー（どのコースにもいない）でも全部のコースを軽い版に（2026-11-22 てじゃ「スマホだとステージ２ロビーおもい」。
+        //  ロビーから 2-1・2-2 の本体がまるごと見えていた）。コースに入るとそのコースだけ本体になる
+        bool lobbyLite = mode == 2 && cur < 0;
         for (int i = 0; i < n; i++)
         {
             bool near = (_near != null && i < _near.Length && _near[i]) || IsNeighbor(c, i);
-            bool full = inSolo && (c < 0 || c == i || near);
-            bool lite = inSolo && c >= 0 && c != i && !near;
+            bool full = inSolo && ((c < 0 && !lobbyLite) || c == i || near);
+            bool lite = inSolo && ((c >= 0 && c != i && !near) || (c < 0 && lobbyLite));
             if (fullRoots[i] != null && inSolo && fullRoots[i].activeSelf != full) fullRoots[i].SetActive(full);
             if (liteRoots != null && i < liteRoots.Length && liteRoots[i] != null && liteRoots[i].activeSelf != lite) liteRoots[i].SetActive(lite);
         }
