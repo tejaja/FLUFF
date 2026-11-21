@@ -1701,31 +1701,69 @@ public static class FuwaCourse2_3Builder
         {
             if (part.Count < 3) continue;
             var sg = V4Piece(pv, "FieldSpinSnow" + k, Vector3.zero, part, 9510 + k, true, q => 0f); k++;
-            sg.GetComponent<MeshRenderer>().sharedMaterial = snow;
+            SnowTopOnly(sg);
             iceCols.Remove(sg.GetComponent<MeshCollider>());
         }
         return g.GetComponent<MeshCollider>();
     }
-    // 行き来する床：まん中（動く向き d にそって ±V4_MoverSnowHalf）だけ雪（すべらない）、両はしは氷（2026-11-21 てじゃ「他の移動床もこっちは真ん中だけ雪つけるか」）。氷の当たりを返す
-    public static float V4_MoverSnowHalf = 1.6f;
+    // 行き来する床：奥側（すすむ向き d の先）が雪（すべらない）、手前は氷。さかいめはゆるい弧（まん中が手前にふくらむ）
+    //  2026-11-21 てじゃ「真ん中だけ雪」→「やっぱかえよ、各島の奥側を雪にする感じ、回転島はそのまま、雪エリアはちょっと弧を描く感じで」
+    public static float V4_MoverSnowAt = 0.1f;    // さかいめのはし（左右のふち）の位置：板の長さに対する割合（0＝まん中、＋で奥）
+    public static float V4_MoverSnowArc = 1.4f;   // 弧のふくらみ（m）：まん中はこれだけ手前
     static List<Collider> V4MoverPieces(Transform mv, string n, List<Vector2> body, Vector2 d, int seed)
     {
         var u = d.normalized; var w = new Vector2(-u.y, u.x);
-        // d を x にした座標で切って、元にもどす
         var loc = body.Select(q => new Vector2(Vector2.Dot(q, u), Vector2.Dot(q, w))).ToList();
-        float len = loc.Max(q => q.x) - loc.Min(q => q.x), h = Mathf.Min(V4_MoverSnowHalf, len * 0.3f);
+        float x0 = loc.Min(q => q.x), x1 = loc.Max(q => q.x), hw = Mathf.Max(0.5f, loc.Max(q => Mathf.Abs(q.y)));
+        float xe = Mathf.Lerp(x0, x1, 0.5f + V4_MoverSnowAt * 0.5f);
+        System.Func<float, float> G = y => xe - V4_MoverSnowArc * (1f - Mathf.Min(1f, (y / hw) * (y / hw)));
+        var (snowL, iceL) = SplitByCurve(loc, G);
         System.Func<List<Vector2>, List<Vector2>> back = P => P.Select(q => u * q.x + w * q.y).ToList();
-        var ices = new List<Collider>(); var snow = SnowMovingMat(); int k = 0;
-        var mid = back(ClipX(loc, -h, h));
-        var sg = V4Piece(mv, "Field" + n + "Snow", Vector3.zero, mid, seed, true, q => 0f);
-        sg.GetComponent<MeshRenderer>().sharedMaterial = snow; iceCols.Remove(sg.GetComponent<MeshCollider>());
-        foreach (var part in new[] { ClipX(loc, -999f, -h), ClipX(loc, h, 999f) })
-        {
-            if (part.Count < 3) continue;
-            var g = V4Piece(mv, "Field" + n + (k == 0 ? "" : "_" + k), Vector3.zero, back(part), seed + 1 + k, true, q => 0f); k++;
-            ices.Add(g.GetComponent<MeshCollider>());
-        }
+        var ices = new List<Collider>();
+        var sg = V4Piece(mv, "Field" + n + "Snow", Vector3.zero, back(snowL), seed, true, q => 0f);
+        SnowTopOnly(sg); iceCols.Remove(sg.GetComponent<MeshCollider>());
+        var g = V4Piece(mv, "Field" + n, Vector3.zero, back(iceL), seed + 1, true, q => 0f);
+        ices.Add(g.GetComponent<MeshCollider>());
         return ices;
+    }
+    // 雪の板：上の面だけ雪、横・下は氷のまま（2026-11-21 てじゃ「雪は上の部分だけにして」）。メッシュを 上(雪)/ほか(氷) の 2 つのサブメッシュに分ける
+    static void SnowTopOnly(GameObject g)
+    {
+        var mf = g.GetComponent<MeshFilter>(); var m = mf.sharedMesh; var v = m.vertices; var tri = m.triangles;
+        var top = new List<int>(); var other = new List<int>();
+        for (int i = 0; i < tri.Length; i += 3)
+        {
+            var nrm = Vector3.Cross(v[tri[i + 1]] - v[tri[i]], v[tri[i + 2]] - v[tri[i]]).normalized;
+            (nrm.y > 0.6f ? top : other).AddRange(new[] { tri[i], tri[i + 1], tri[i + 2] });
+        }
+        m.subMeshCount = 2; m.SetTriangles(top, 0); m.SetTriangles(other, 1); EditorUtility.SetDirty(m);
+        g.GetComponent<MeshRenderer>().sharedMaterials = new[] { SnowMovingMat(), MovingIceMat() };
+    }
+    // 多角形を x = G(y) の曲線で 2 つに切る（曲線がふちと 2 回だけ交わる形用）。(x > G の側, x < G の側)。切り口は曲線にそって細かく
+    static (List<Vector2> hi, List<Vector2> lo) SplitByCurve(List<Vector2> poly0, System.Func<float, float> G)
+    {
+        var P = new List<Vector2>();
+        for (int i = 0; i < poly0.Count; i++) { var a = poly0[i]; var b = poly0[(i + 1) % poly0.Count]; int k = Mathf.Max(1, Mathf.CeilToInt((b - a).magnitude / 0.25f)); for (int j = 0; j < k; j++) P.Add(Vector2.Lerp(a, b, j / (float)k)); }
+        int n = P.Count; System.Func<Vector2, float> F = q => q.x - G(q.y);
+        var cross = new List<(int i, Vector2 p)>();   // 辺 i→i+1 で交わる点
+        for (int i = 0; i < n; i++)
+        {
+            var a = P[i]; var b = P[(i + 1) % n]; float fa = F(a), fb = F(b);
+            if ((fa > 0f) != (fb > 0f)) { float lo = 0f, hi = 1f; for (int it = 0; it < 30; it++) { float m = (lo + hi) * 0.5f; if ((F(Vector2.Lerp(a, b, m)) > 0f) == (fa > 0f)) lo = m; else hi = m; } cross.Add((i, Vector2.Lerp(a, b, (lo + hi) * 0.5f))); }
+        }
+        if (cross.Count != 2) throw new System.Exception("SplitByCurve: 交わる所が " + cross.Count + " 個");
+        List<Vector2> Side(int from, int to)   // cross[from] から cross[to] までふちを進み、曲線でもどる
+        {
+            var R = new List<Vector2>(); var cA = cross[from]; var cB = cross[to];
+            R.Add(cA.p); for (int i = (cA.i + 1) % n; ; i = (i + 1) % n) { R.Add(P[i]); if (i == cB.i) break; }
+            R.Add(cB.p);
+            int k = Mathf.Max(2, Mathf.CeilToInt(Mathf.Abs(cB.p.y - cA.p.y) / 0.25f));
+            for (int j = 1; j < k; j++) { float y = Mathf.Lerp(cB.p.y, cA.p.y, j / (float)k); R.Add(new Vector2(G(y), y)); }
+            return R;
+        }
+        var s01 = Side(0, 1); var s10 = Side(1, 0);
+        bool s01hi = F(P[(cross[0].i + 1) % n]) > 0f;
+        return s01hi ? (s01, s10) : (s10, s01);
     }
     // 行き来する床（FieldMover〇）だけ作り直す（コースを丸ごと作り直さない）。すべる床の一覧も入れかえ
     public static string RebuildMoversOnly(int snowSeed = 70)
