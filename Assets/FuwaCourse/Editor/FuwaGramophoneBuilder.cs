@@ -14,7 +14,9 @@ public static class FuwaGramophoneBuilder
     public const float Radius = 12.3f;   // 島の真ん中から（柵は 14m）
     public const float Scale = 1.25f;    // 島の真ん中からも見えるよう少し大きく
     static readonly Vector3 Center = new Vector3(-72f, 88f, 80f);
-    const float TrackHeadCut = 250f;     // 曲名の段：左の見出し（♪）を詰める幅（CAM の単位）
+    // ボタンの色（蓄音機の木に合わせた茶色）。Theme＝帯・文字、Dark＝押した時・矢印に乗った時、Idle＝OFF の文字
+    static readonly Color Theme = new Color(0.66f, 0.45f, 0.32f), ThemeDark = new Color(0.45f, 0.28f, 0.18f), ThemeIdle = new Color(0.64f, 0.58f, 0.54f);
+    const float TrackHeadCut = 250f;    // 曲名の段：左の見出し（♪）を詰める幅（CAM の単位）
     const float VolumeWidth = 1920f;     // 音量バーの横幅（曲名の段とそろえる。CAM の単位）
     // 動画優先ボタン（単体）：カメラの球（-8°）と蓄音機（4°）の間の柵ぎわ
     public const float VideoAngle = -2.1f;
@@ -166,6 +168,15 @@ public static class FuwaGramophoneBuilder
             Shift("BackButton", -E / 2 + (extraHead + extraPill / 2) / 2, extraHead + extraPill / 2);   // 左半分（見出し＋札の左）
             SetEvent(r.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "Button"), nextEvt);
             SetEvent(r.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "BackButton"), backEvt);
+            // 色：テレビの紫ではなく蓄音機の木の茶色（2026-11-21 てじゃ「そもそも紫がヤダな」）
+            foreach (var b in r.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+            {
+                var cb = b.colors; cb.normalColor = Theme; cb.highlightedColor = Color.Lerp(Theme, Color.white, 0.18f); cb.selectedColor = Theme;
+                cb.pressedColor = ThemeDark; b.colors = cb; EditorUtility.SetDirty(b);
+            }
+            foreach (var n in new[] { "TextA", "ArrowL", "ArrowR" }) { var x = r.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true).FirstOrDefault(q => q.name == n); if (x != null) x.color = Theme; }
+            var fx = r.GetComponentInChildren<FuwaArrowHoverFx>(true);
+            if (fx != null) { fx.normalColor = Theme; fx.hoverColor = ThemeDark; UdonSharpEditorUtility.CopyProxyToUdon(fx); EditorUtility.SetDirty(fx); }
             return r;
         }
         TMPro.TextMeshProUGUI Find(Transform r, string n) => r.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true).First(x => x.name == n);
@@ -196,6 +207,7 @@ public static class FuwaGramophoneBuilder
             var box = cv.GetComponent<BoxCollider>(); if (box != null) box.size = new Vector3(cv.sizeDelta.x, cv.sizeDelta.y, box.size.z);
             float k = 0.15f / (cv.sizeDelta.y * cv.localScale.y);
             v.localScale = Vector3.one * (k / T.lossyScale.x);
+            var fill = v.GetComponentsInChildren<UnityEngine.UI.Image>(true).FirstOrDefault(x => x.name == "Fill"); if (fill != null) fill.color = Theme;
             var sl = v.GetComponentInChildren<UnityEngine.UI.Slider>(true);
             if (bgm != null && sl != null)
             {
@@ -224,7 +236,7 @@ public static class FuwaGramophoneBuilder
             gm.videoHead = head;
             gm.videoText = Find(videoRow, "TextA"); gm.videoText.text = "ON";   // 動画優先 ON がふだん
         }
-        if (follow != null) { gm.activeTextColor = follow.activeTextColor; gm.idleTextColor = follow.idleTextColor; }
+        gm.activeTextColor = Theme; gm.idleTextColor = ThemeIdle;
         gm.videoText.color = gm.activeTextColor; gm.trackText.color = gm.activeTextColor;
         UdonSharpEditorUtility.CopyProxyToUdon(gm);
         var gub = UdonSharpEditorUtility.GetBackingUdonBehaviour(gm); if (gub != null) { gub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(gub); }
