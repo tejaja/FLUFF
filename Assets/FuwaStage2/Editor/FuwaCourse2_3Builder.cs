@@ -1718,12 +1718,15 @@ public static class FuwaCourse2_3Builder
         float xe = Mathf.Lerp(x0, x1, 0.5f + V4_MoverSnowAt * 0.5f);
         System.Func<float, float> G = y => xe - V4_MoverSnowArc * (1f - Mathf.Min(1f, (y / hw) * (y / hw)));
         var (snowL, iceL) = SplitByCurve(loc, G);
+        // 動く床には雪のふちの飾りを付けない（2026-11-21 てじゃ「紛らわしいから移動床のとこの飾りの白い部分はけそう」）
+        bool keepDeco = recordDeco; recordDeco = false;
         System.Func<List<Vector2>, List<Vector2>> back = P => P.Select(q => u * q.x + w * q.y).ToList();
         var ices = new List<Collider>();
         var sg = V4Piece(mv, "Field" + n + "Snow", Vector3.zero, back(snowL), seed, true, q => 0f);
         SnowTopOnly(sg); iceCols.Remove(sg.GetComponent<MeshCollider>());
         var g = V4Piece(mv, "Field" + n, Vector3.zero, back(iceL), seed + 1, true, q => 0f);
         ices.Add(g.GetComponent<MeshCollider>());
+        recordDeco = keepDeco;
         return ices;
     }
     // 雪の板：上の面だけ雪、横・下は氷のまま（2026-11-21 てじゃ「雪は上の部分だけにして」）。メッシュを 上(雪)/ほか(氷) の 2 つのサブメッシュに分ける
