@@ -193,7 +193,7 @@ public static class FuwaGramophoneBuilder
             var daru = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/DarumadropOne SDF Dyn.asset");
             ta.font = daru; ta.fontSharedMaterial = daru.material; ta.fontStyle = TMPro.FontStyles.Normal;
             { var m = ta.margin; ta.margin = new Vector4(m.x, m.y, m.z, Mathf.Max(0f, m.w - 40f)); }
-            ta.enableAutoSizing = true; ta.fontSizeMin = 50f; ta.fontSizeMax = 130f; ta.enableWordWrapping = false;
+            ta.enableAutoSizing = true; ta.fontSizeMin = 80f; ta.fontSizeMax = 190f; ta.enableWordWrapping = false;   // 2026-11-21 てじゃ「もじちっちゃ」（前は 50〜130）
             ta.text = Ja[0];
             gm.trackText = ta;
             // 2026-11-21 てじゃ「上の曲選択もこの枠（▶■みたいな丸めの四角）にして、白背景なしにして両端にもうすこし大きめの三角、文字は白文字」
@@ -208,7 +208,7 @@ public static class FuwaGramophoneBuilder
                 art.sizeDelta = new Vector2(160f, art.sizeDelta.y);
                 art.anchoredPosition = new Vector2((n == "ArrowL" ? -1f : 1f) * (W / 2f - 110f), art.anchoredPosition.y);
             }
-            var tart = (RectTransform)ta.transform; tart.anchoredPosition = new Vector2(0f, tart.anchoredPosition.y); tart.sizeDelta = new Vector2(W - 480f, tart.sizeDelta.y);
+            var tart = (RectTransform)ta.transform; tart.anchoredPosition = new Vector2(0f, tart.anchoredPosition.y); tart.sizeDelta = new Vector2(W - 400f, tart.sizeDelta.y);
             var back = (RectTransform)trackRow.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "BackButton").transform;
             back.anchoredPosition = new Vector2(-W / 4f, back.anchoredPosition.y); back.sizeDelta = new Vector2(W / 2f, back.sizeDelta.y);   // 左半分で前の曲
             var afx = trackRow.GetComponentInChildren<FuwaArrowHoverFx>(true);
