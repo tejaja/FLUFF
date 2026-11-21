@@ -263,6 +263,92 @@ public static class FuwaPathSeamCheck
         return add.Count;
     }
 
+    // 道の角の小さい穴（2026-11-21 てじゃ「道の角が開いてる所多数 特に2-3 2-4」）：島・歯車にくっつく道の端は角ばらせて、横のふちは丸めているので、
+    //  その角で「丸めのはし」「端の上のふち」「r 下げた壁の上」の間に小さな三角の穴（空が見える）があいていた → メッシュの中の小さい閉じた穴（ふちの辺の輪）を見つけて面でふさぐ。
+    //  maxLen：ふさぐ輪の長さ（周の長さ）の上限(m)。大きい穴（道の切れ目・わざとの穴）はさわらない
+    public static string FillCornerHoles(Transform course, bool apply, float maxLen = 0.6f)
+    {
+        int total = 0; var sb = new List<string>(); var done = new HashSet<Mesh>();
+        foreach (var (mf, _) in PathMeshes(course))
+        {
+            var mesh = mf.sharedMesh; if (done.Contains(mesh)) continue; done.Add(mesh);
+            if (!AssetDatabase.GetAssetPath(mesh).StartsWith("Assets/")) continue;
+            int n = FillHolesMesh(mf, apply, maxLen, out string where);
+            if (n > 0) { total += n; sb.Add(mf.name + "×" + n + where); }
+        }
+        return course.name + ": 角の穴 " + total + (apply ? " をふさいだ" : "") + (sb.Count > 0 ? "（" + string.Join(" / ", sb.Take(12)) + "）" : "");
+    }
+
+    static int FillHolesMesh(MeshFilter mf, bool apply, float maxLen, out string where)
+    {
+        where = "";
+        var m = mf.sharedMesh; var v = m.vertices;
+        var key = new Dictionary<Vector3Int, int>(); var pos = new List<Vector3>(); var rep = new List<int>();
+        int W(Vector3 p, int orig) { var k = new Vector3Int(Mathf.RoundToInt(p.x / Weld), Mathf.RoundToInt(p.y / Weld), Mathf.RoundToInt(p.z / Weld)); if (!key.TryGetValue(k, out int id)) { id = pos.Count; pos.Add(p); rep.Add(orig); key[k] = id; } return id; }
+        var ids = new int[v.Length]; for (int i = 0; i < v.Length; i++) ids[i] = W(v[i], i);
+        // 向きつきの辺（a→b）の数。ふちの辺は、反対向き（b→a）がない辺
+        var dirE = new Dictionary<long, (int sub, Vector3 n)>(); var cnt = new Dictionary<long, int>();
+        long K(int a, int b) => ((long)a << 32) | (uint)b;
+        for (int s = 0; s < m.subMeshCount; s++)
+        {
+            var t = m.GetTriangles(s);
+            for (int i = 0; i < t.Length; i += 3)
+            {
+                int a = ids[t[i]], b = ids[t[i + 1]], c = ids[t[i + 2]]; if (a == b || b == c || a == c) continue;
+                var nrm = Vector3.Cross(pos[b] - pos[a], pos[c] - pos[a]).normalized;
+                foreach (var (x, y) in new[] { (a, b), (b, c), (c, a) }) { long k = K(x, y); cnt[k] = cnt.TryGetValue(k, out int q) ? q + 1 : 1; dirE[k] = (s, nrm); }
+            }
+        }
+        // ふちの辺：x→y があって y→x がない。穴の輪はその逆向き（y→x）でたどる
+        var next = new Dictionary<int, List<int>>(); var info = new Dictionary<long, (int sub, Vector3 n)>();
+        foreach (var kv in cnt)
+        {
+            int x = (int)(kv.Key >> 32), y = (int)(kv.Key & 0xffffffff);
+            if (cnt.ContainsKey(K(y, x))) continue;
+            if (!next.TryGetValue(y, out var l)) next[y] = l = new List<int>(); l.Add(x); info[K(y, x)] = dirE[kv.Key];
+        }
+        var used = new HashSet<long>(); var loops = new List<List<int>>();
+        foreach (var st in next.Keys.ToList())
+            foreach (var first in next[st])
+            {
+                if (used.Contains(K(st, first))) continue;
+                var loop = new List<int> { st }; int cur = first, prev = st; float len = (pos[first] - pos[st]).magnitude; used.Add(K(st, first)); bool ok = false;
+                for (int g = 0; g < 64 && len <= maxLen; g++)
+                {
+                    if (cur == st) { ok = true; break; }
+                    loop.Add(cur);
+                    if (!next.TryGetValue(cur, out var nl)) break;
+                    int nx = -1; foreach (var c in nl) if (!used.Contains(K(cur, c))) { nx = c; break; }
+                    if (nx < 0) break;
+                    used.Add(K(cur, nx)); len += (pos[nx] - pos[cur]).magnitude; prev = cur; cur = nx;
+                }
+                if (ok && loop.Count >= 3 && len <= maxLen) loops.Add(loop);
+            }
+        if (loops.Count > 0) where = "@" + mf.transform.TransformPoint(pos[loops[0][0]]).ToString("F0");
+        if (!apply || loops.Count == 0) return loops.Count;
+        var V = new List<Vector3>(v); var N = new List<Vector3>(m.normals); var U = new List<Vector2>(); m.GetUVs(0, U);
+        var subs = Enumerable.Range(0, m.subMeshCount).Select(s => m.GetTriangles(s).ToList()).ToList();
+        foreach (var loop in loops)
+        {
+            var e0 = info[K(loop[0], loop[1])];
+            var c = Vector3.zero; foreach (var id in loop) c += pos[id]; c /= loop.Count;
+            // 輪の向き（逆向きでたどった＝となりの面と同じ回り方）のまま扇でふさぐ
+            var nsum = Vector3.zero;
+            for (int i = 0; i < loop.Count; i++) nsum += Vector3.Cross(pos[loop[i]] - c, pos[loop[(i + 1) % loop.Count]] - c);
+            var nrm = nsum.sqrMagnitude > 1e-12f ? nsum.normalized : e0.n;
+            int ci = V.Count; V.Add(c); N.Add(nrm); if (U.Count > 0) U.Add(U[rep[loop[0]]]);
+            int b0 = V.Count;
+            foreach (var id in loop) { V.Add(pos[id]); N.Add(nrm); if (U.Count > 0) U.Add(U[rep[id]]); }
+            for (int i = 0; i < loop.Count; i++) subs[e0.sub].AddRange(new[] { ci, b0 + i, b0 + (i + 1) % loop.Count });
+        }
+        Undo.RecordObject(m, "fill corner holes");
+        if (V.Count > 65000) m.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+        m.SetVertices(V); m.SetNormals(N); if (U.Count == V.Count) m.SetUVs(0, U);
+        for (int s = 0; s < subs.Count; s++) m.SetTriangles(subs[s], s);
+        m.RecalculateBounds(); EditorUtility.SetDirty(m); AssetDatabase.SaveAssets();
+        return loops.Count;
+    }
+
     [MenuItem("FuwaCourse/よく使う/道のスキマを調べる（全コース）")]
     public static void MenuAnalyzeAll()
     {

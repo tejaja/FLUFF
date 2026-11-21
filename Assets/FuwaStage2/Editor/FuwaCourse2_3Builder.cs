@@ -136,6 +136,7 @@ public static class FuwaCourse2_3Builder
         var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return "2–3 がない";
         var log = new List<string>();
         log.Add(FuwaPathSeamCheck.CloseEndSlits(root.transform, true));
+        log.Add(FuwaPathSeamCheck.FillCornerHoles(root.transform, true));   // 道の角の小さい穴（2026-11-21）
         log.Add(FuwaPhotoPointBuilder2.Run());
         FuwaCourseLite.RunStage2();
         var relink = typeof(FuwaCourse2_5Builder).GetMethod("RelinkLod", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
