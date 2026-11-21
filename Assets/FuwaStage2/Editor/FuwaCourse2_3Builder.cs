@@ -1709,8 +1709,8 @@ public static class FuwaCourse2_3Builder
     // 行き来する床：奥側（すすむ向き d の先）が雪（すべらない）、手前は氷。さかいめはゆるい弧（まん中が手前にふくらむ）
     //  2026-11-21 てじゃ「真ん中だけ雪」→「やっぱかえよ、各島の奥側を雪にする感じ、回転島はそのまま、雪エリアはちょっと弧を描く感じで」
     //  2026-11-21 てじゃの絵：弧は「)」向き（まん中が奥へふくらむ）。止まっている島も奥側を雪に（V4_StaticSnow）
-    public static float V4_MoverSnowAt = -0.2f;   // さかいめのはし（左右のふち）の位置：板の長さに対する割合（0＝まん中、＋で奥）
-    public static float V4_MoverSnowArc = 1.4f;   // 弧のふくらみ（m）：まん中はこれだけ奥
+    public static float V4_MoverSnowAt = 0.05f;   // さかいめのはし（左右のふち）の位置：板の長さに対する割合（0＝まん中、＋で奥）
+    public static float V4_MoverSnowArc = -1.2f;  // 弧のふくらみ（m）：＋でまん中が奥へ、－で手前へ（絵はゴールが左で「)」＝手前へ）
     static List<Collider> V4MoverPieces(Transform mv, string n, List<Vector2> body, Vector2 d, int seed)
     {
         var u = d.normalized; var w = new Vector2(-u.y, u.x);
@@ -1744,14 +1744,15 @@ public static class FuwaCourse2_3Builder
         g.GetComponent<MeshRenderer>().sharedMaterials = moving ? new[] { SnowMovingMat(), MovingIceMat() } : new[] { SnowFlatMat(), iceFlat };
     }
     // 止まっている島の雪：(島の番号, さかいめの位置 0〜1（入ってくる側のはし 0〜出ていく側 1）, 弧 m（＋で「)」＝まん中が奥へ）)
-    //  2026-11-21 てじゃの絵（上から見た図に赤線）：S1・まるい S2・S3 の奥側。S0（はじめ）はなし
-    public static (int s, float at, float arc)[] V4_StaticSnow = { (1, 0.22f, -1.0f), (2, 0.42f, 1.8f), (3, 0.22f, 1.2f) };
+    //  2026-11-21 てじゃの絵（上から見た図に赤線、左がゴール）：S0・S1・まるい S2 のゴール側。S3（最後）はなし
+    public static (int s, float at, float arc)[] V4_StaticSnow = { (0, 0.78f, -1.2f), (1, 0.5f, -1.5f), (2, 0.65f, 0.9f) };   // 絵はゴールが左（S2 は 0.72 だと割れ目のギザギザに当たって分けられない）。S3（最後）はなし
     // 島 i に入ってくる所・出ていく所（動く板・回る橋のまん中）
     static (Vector2 a, Vector2 b) V4StaticFlow(V4Field F, int i)
     {
         Vector2 S(int k) => V4_Statics[k].c;
         switch (i)
         {
+            case 0: return (S(0) - (F.movers[0].c - S(0)), F.movers[0].c);
             case 1: return (F.movers[0].c, V4_SpinC);
             case 2: return (V4_SpinC, F.movers[1].c);
             case 3: return (F.movers[1].c, S(3) + (S(3) - F.movers[1].c));
@@ -1792,7 +1793,7 @@ public static class FuwaCourse2_3Builder
         var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return "2–3 がない";
         Transform Find(string n) => root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == n);
         var s0 = Find("FieldS0"); var isl = s0.parent; var o = s0.localPosition; pathLayer = s0.gameObject.layer;
-        iceFlat = s0.GetComponent<MeshRenderer>().sharedMaterial;
+        iceFlat = s0.GetComponent<MeshRenderer>().sharedMaterial;   // FieldS0 は氷だけ（雪は FieldS0Snow に分けてある）
         var sn = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Snow" && t.GetComponent<MeshRenderer>()); snowLipMat = sn ? sn.GetComponent<MeshRenderer>().sharedMaterial : FuwaStage2WaterTest.ToonMat("Stage2_3_SnowLip", SnowLipCol);
         icicleMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Icicle", IcicleCol);
         var skate = root.GetComponentsInChildren<FuwaIceSkate>(true).FirstOrDefault();
