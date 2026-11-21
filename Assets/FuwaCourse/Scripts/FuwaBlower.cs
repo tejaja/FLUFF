@@ -134,6 +134,34 @@ public class FuwaBlower : UdonSharpBehaviour
     [Tooltip("台から呼んだ・召喚した時に鳴らす音（自分にだけ。2026-10-14 てじゃ）")]
     public AudioSource spawnSound;
     public void PlaySpawnSound() { if (spawnSound != null) spawnSound.Play(); }
+
+    // 2026-11-21 てじゃ「他人の銃の音聞こえなくてもいいかも」「距離減衰をバキバキきかせるか」「3mできこえなくてもいい」：
+    //  他人の銃の音（撃つ・ためる・満タン）は、鳴らす時の距離で音量をしぼる。自分の銃はそのまま
+    [Header("他人の銃の音の聞こえ方")]
+    [Tooltip("他人の銃の音：この距離(m)まではそのままの大きさ")]
+    public float otherSoundNear = 1f;
+    [Tooltip("他人の銃の音：この距離(m)で聞こえなくなる（間は直線で小さくなる）")]
+    public float otherSoundFar = 3f;
+    private float _chargeBaseVolume = -1f, _chargedBaseVolume = -1f, _puffBigBaseVolume = -1f;
+    private float OtherGain()
+    {
+        if (Networking.IsOwner(gameObject)) return 1f;
+        VRCPlayerApi me = Networking.LocalPlayer;
+        if (me == null) return 1f;
+        Vector3 src = nozzle != null ? nozzle.position : transform.position;
+        float d = Vector3.Distance(me.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position, src);
+        if (otherSoundFar <= otherSoundNear) return d <= otherSoundNear ? 1f : 0f;
+        return 1f - Mathf.Clamp01((d - otherSoundNear) / (otherSoundFar - otherSoundNear));
+    }
+    // 距離に合わせた音量で鳴らす（聞こえない距離なら鳴らさない）
+    private void PlayAt(AudioSource s, float baseVolume)
+    {
+        if (s == null) return;
+        float g = OtherGain();
+        if (g <= 0.001f) return;
+        s.volume = baseVolume * g;
+        s.Play();
+    }
     [Tooltip("握った時の小さな「カチャ」（自分の画面だけ。2026-10-14 てじゃ「ささやかに、ひかえめに」）")]
     public AudioSource grabSound;
     [Tooltip("空気が空の時のポンプの大きさ（満タン=1）")]
@@ -186,8 +214,14 @@ public class FuwaBlower : UdonSharpBehaviour
     public Material[] goldMats;
     [Tooltip("金ピカの間だけ出すキラキラ")]
     public GameObject goldFx;
+    // 2026-11-21 てじゃ「そもそもの作りを軽量化しよか」：本体・ラッパ・持ち手・通気口を頂点の色で1つにまとめた（FuwaGunMerge）。
+    //  色は頂点に入っているので、金ピカは材質だけでなくメッシュ（金色の頂点の写し）も差しかえる
+    [Tooltip("金ピカの時にメッシュも差しかえる所（goldMeshes と同じ順）")]
+    public MeshFilter[] goldMeshFilters;
+    public Mesh[] goldMeshes;
     [UdonSynced] private bool _gold;
     private Material[] _normalMats;
+    private Mesh[] _normalMeshes;
     private bool _goldShown;
 
     private VRCPickup _pickup;
@@ -253,6 +287,9 @@ public class FuwaBlower : UdonSharpBehaviour
             _nozzleLocalPos = nozzle.localPosition;
         }
         if (puffSound != null) { _puffBaseVolume = puffSound.volume; _puffBasePitch = puffSound.pitch; }
+        if (chargeSound != null) _chargeBaseVolume = chargeSound.volume;
+        if (chargedSound != null) _chargedBaseVolume = chargedSound.volume;
+        if (puffBigSound != null) _puffBigBaseVolume = puffBigSound.volume;
         if (chargeOrbRenderer != null) _orbMat = chargeOrbRenderer.material;
         if (puffEffect != null) _puffBaseSpeed = puffEffect.main.startSpeedMultiplier;
         if (pumpBulb != null) { _bulbBaseScale = pumpBulb.localScale; _bulbBasePos = pumpBulb.localPosition; }
@@ -534,6 +571,20 @@ public class FuwaBlower : UdonSharpBehaviour
             Renderer r = goldRenderers[i]; if (r == null) continue;
             Material m = (_gold && i < goldMats.Length) ? goldMats[i] : _normalMats[i];
             if (m != null) r.sharedMaterial = m;
+        }
+        if (goldMeshFilters != null && goldMeshes != null)
+        {
+            if (_normalMeshes == null)
+            {
+                _normalMeshes = new Mesh[goldMeshFilters.Length];
+                for (int i = 0; i < goldMeshFilters.Length; i++) if (goldMeshFilters[i] != null) _normalMeshes[i] = goldMeshFilters[i].sharedMesh;
+            }
+            for (int i = 0; i < goldMeshFilters.Length; i++)
+            {
+                MeshFilter f = goldMeshFilters[i]; if (f == null) continue;
+                Mesh mm = (_gold && i < goldMeshes.Length) ? goldMeshes[i] : _normalMeshes[i];
+                if (mm != null) f.sharedMesh = mm;
+            }
         }
         if (goldFx != null) goldFx.SetActive(_gold);
     }
@@ -843,7 +894,7 @@ public class FuwaBlower : UdonSharpBehaviour
         _fxStart = Time.time;
         _fxKeep = Time.time;
         _fxFull = false;
-        if (chargeSound != null) chargeSound.Play();
+        if (chargeSound != null) PlayAt(chargeSound, _chargeBaseVolume >= 0f ? _chargeBaseVolume : chargeSound.volume);
         if (chargeParticles != null) chargeParticles.Play();
     }
 
@@ -900,7 +951,7 @@ public class FuwaBlower : UdonSharpBehaviour
         if (c >= 1f && !_fxFull)
         {
             _fxFull = true;
-            if (chargedSound != null) chargedSound.Play();
+            if (chargedSound != null) PlayAt(chargedSound, _chargedBaseVolume >= 0f ? _chargedBaseVolume : chargedSound.volume);
             if (chargedSparkle != null) chargedSparkle.Play();   // 満タンの合図（撃った時の輪とは別）
             // 満タンになった時、持っている本人にだけ小さく「コツッ」
             if (_isMine && _pickup != null && _pickup.IsHeld) _pickup.GenerateHapticEvent(hapticFullTime, hapticFullAmp, hapticFrequency);
@@ -1299,9 +1350,8 @@ public class FuwaBlower : UdonSharpBehaviour
         if (puffEffect != null) { puffEffect.Play(); int extra = Mathf.RoundToInt(midPuffExtra * c); if (extra > 0) puffEffect.Emit(extra); }
         if (puffSound != null)
         {
-            puffSound.volume = _puffBaseVolume * 0.6f;
             puffSound.pitch = _puffBasePitch * 1.15f;
-            puffSound.Play();
+            PlayAt(puffSound, _puffBaseVolume * 0.6f);
         }
     }
 
@@ -1312,12 +1362,11 @@ public class FuwaBlower : UdonSharpBehaviour
         if (_airRing != null && _ringBaseSize >= 0f) { ParticleSystem.MainModule rm = _airRing.main; rm.startSizeMultiplier = _ringBaseSize; rm.startColor = new ParticleSystem.MinMaxGradient(_ringBaseColor); }
         if (puffEffect != null) { puffEffect.Play(); puffEffect.Emit(strongPuffExtra); }
         if (fullBurst != null) fullBurst.Play();
-        if (puffBigSound != null) puffBigSound.Play();
+        if (puffBigSound != null) PlayAt(puffBigSound, _puffBigBaseVolume >= 0f ? _puffBigBaseVolume : puffBigSound.volume);
         else if (puffSound != null)
         {
-            puffSound.volume = _puffBaseVolume;
             puffSound.pitch = _puffBasePitch * 0.9f;
-            puffSound.Play();
+            PlayAt(puffSound, _puffBaseVolume);
         }
     }
 }

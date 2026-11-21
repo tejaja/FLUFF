@@ -2645,7 +2645,7 @@ public static class FuwaPlaygroundBuilder
     // 枠はボタンの後ろに一回り大きい角丸の板（RoundedPanel）。角の丸みは最後に FuwaButtonCorners がそろえる
     static readonly Color SwitchFrame = new Color(0.4f, 0.55f, 0.88f),   /* 枠は青（オレンジから。2026-10-13 てじゃ「枠を青にしてみて」） */ SwitchFace = new Color(1f, 0.98f, 0.96f), SwitchText = new Color(0.27f, 0.36f, 0.62f);
     const float SwitchFrameW = 26f;
-    static void OutlinedStyle(Transform sw)
+    public static void OutlinedStyle(Transform sw)
     {
         var btn = sw.GetComponentInChildren<UnityEngine.UI.Button>(true); var img = btn.GetComponent<UnityEngine.UI.Image>();
         var cb = btn.colors; cb.normalColor = SwitchFace; cb.selectedColor = SwitchFace; cb.highlightedColor = new Color(1f, 0.94f, 0.9f); cb.pressedColor = new Color(1f, 0.86f, 0.8f); btn.colors = cb;
@@ -2664,7 +2664,7 @@ public static class FuwaPlaygroundBuilder
 
     // 白い面とフチの角を、どっちも高さの半分の「まんまる」にそろえる（2026-10-16 てじゃ「フチがまるみがあってない」）。
     // 角の大きさが板より大きいと縦だけ縮められて横長のだ円の角になり、フチ（ひと回り大きい）と中心がずれて角だけフチが太く見えていた
-    static void PillCorners(Transform sw)
+    public static void PillCorners(Transform sw)
     {
         var btn = sw.GetComponentInChildren<UnityEngine.UI.Button>(true); if (btn == null) return;
         var imgs = new List<UnityEngine.UI.Image> { btn.GetComponent<UnityEngine.UI.Image>() };

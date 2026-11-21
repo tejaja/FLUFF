@@ -225,7 +225,7 @@ public class FuwaBgm : UdonSharpBehaviour
     [HideInInspector] public bool externalSilence;
 
     [Header("あそびばの蓄音機（2026-11-20 てじゃ「あそびばのBGM変更モード」、自分だけ）")]
-    [Tooltip("蓄音機で選んだ曲（tracks の番号、-1 ならおまかせ＝いつもの曲）。overrideArea にいる間だけ効く")]
+    [Tooltip("蓄音機で選んだ曲（tracks の番号、-1 ならいつもの曲、-2 ならBGMなし）。overrideArea にいる間だけ効く")]
     [HideInInspector] public int overrideTrack = -1;
     [Tooltip("蓄音機の曲が効く場所（あそびばの BallPark）")]
     public Transform overrideArea;
@@ -234,7 +234,7 @@ public class FuwaBgm : UdonSharpBehaviour
 
     private bool Silenced() { return externalSilence && !keepDuringVideo; }
     // 今BGMが鳴っているか（蓄音機のレコードを回す用）
-    public bool IsAudible() { return !_muted && !Silenced() && _current >= 0 && _fanfareUntil <= 0f; }
+    public bool IsAudible() { return !_muted && !Silenced() && _current >= 0 && _current < tracks.Length && _fanfareUntil <= 0f; }
     public int CurrentTrack() { return _current; }
 
     [Tooltip("保存した音量を読み込むまで（OnPlayerRestored）曲を鳴らさずに待つ最大秒数。待たないと入った直後に一瞬いつもの音量で鳴る")]
@@ -296,7 +296,11 @@ public class FuwaBgm : UdonSharpBehaviour
     {
         if (ball == null || starts == null) return 0;
         // 蓄音機で選んだ曲：あそびばにいる間だけ
-        if (overrideTrack >= 0 && overrideTrack < tracks.Length && overrideArea != null && ball.startPoint == overrideArea) return overrideTrack;
+        if (overrideArea != null && ball.startPoint == overrideArea)
+        {
+            if (overrideTrack >= 0 && overrideTrack < tracks.Length) return overrideTrack;
+            if (overrideTrack == -2) return tracks.Length;   // BGMなし（どの曲の番号でもない＝全部フェードアウト）（2026-11-21 てじゃ「BGMなしもいれとこ」）
+        }
         if (_afterGoal)
         {
             // 次の挑戦を始めた（タイム計測が始まった）か、別の場所に移ったら元の曲へ
@@ -328,7 +332,7 @@ public class FuwaBgm : UdonSharpBehaviour
             {
                 // 2026-11-19 てじゃ「一回解放して本島に行った後は入口島はBGMは変更しないタイプ（ロビーからとんでもかわらない）」：
                 //  ゴール後の曲の場所（本島）に一度行ったら、このコースに来ても曲は切り替えない（今の曲のまま）
-                if (_stuck != null && i < _stuck.Length && _stuck[i]) return _current >= 0 ? _current : 0;
+                if (_stuck != null && i < _stuck.Length && _stuck[i]) return _current >= 0 && _current < tracks.Length ? _current : 0;
                 return i;
             }
         }

@@ -108,10 +108,16 @@ public class FuwaGunShadows : UdonSharpBehaviour
             {
                 // 見た目の真ん中（見た目のローカル座標）を一度だけ求める
                 // 形のある部品（MeshRenderer）だけ。2026-11-18 きんピカのキラキラ粒（GoldSparkle）が混ざって、まん中がずれていた（てじゃ「銃の影のいちズレてる」）
-                MeshRenderer[] rs = v.GetComponentsInChildren<MeshRenderer>(true);
-                Vector3 sum = Vector3.zero; int n = 0;
-                for (int k = 0; k < rs.Length; k++) { if (rs[k] == null) continue; sum += rs[k].bounds.center; n++; }
-                _centers[i] = n > 0 ? v.InverseTransformPoint(sum / n) : Vector3.zero;
+                // 2026-11-21 銃の部品を1つにまとめた（FuwaGunMerge）ので、前の求め方の位置を目印（ShadowCenter）に残してある。あればそれを使う
+                Transform mark = v.Find("ShadowCenter");
+                if (mark != null) _centers[i] = mark.localPosition;
+                else
+                {
+                    MeshRenderer[] rs = v.GetComponentsInChildren<MeshRenderer>(true);
+                    Vector3 sum = Vector3.zero; int n = 0;
+                    for (int k = 0; k < rs.Length; k++) { if (rs[k] == null) continue; sum += rs[k].bounds.center; n++; }
+                    _centers[i] = n > 0 ? v.InverseTransformPoint(sum / n) : Vector3.zero;
+                }
                 _centerReady[i] = true;
             }
             Vector3 c = v.TransformPoint(_centers[i]);

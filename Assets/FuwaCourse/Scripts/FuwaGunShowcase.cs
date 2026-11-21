@@ -75,7 +75,11 @@ public class FuwaGunShowcase : UdonSharpBehaviour
     public Material[] goldMats;
     [Tooltip("金ピカの間だけ出すキラキラ（なくてもOK）")]
     public GameObject goldFx;
+    [Tooltip("金ピカの時にメッシュも差しかえる所（頂点の色でまとめた銃。FuwaGunMerge）。goldMeshes と同じ順")]
+    public MeshFilter[] goldMeshFilters;
+    public Mesh[] goldMeshes;
     private Material[] _normalMats;
+    private Mesh[] _normalMeshes;
     private int _goldShown = -1;
     private void ApplyGold(bool on)
     {
@@ -91,6 +95,20 @@ public class FuwaGunShowcase : UdonSharpBehaviour
         {
             Renderer r = goldRenderers[i]; if (r == null) continue;
             r.sharedMaterial = (on && i < goldMats.Length && goldMats[i] != null) ? goldMats[i] : _normalMats[i];
+        }
+        if (goldMeshFilters != null && goldMeshes != null)
+        {
+            if (_normalMeshes == null)
+            {
+                _normalMeshes = new Mesh[goldMeshFilters.Length];
+                for (int i = 0; i < goldMeshFilters.Length; i++) if (goldMeshFilters[i] != null) _normalMeshes[i] = goldMeshFilters[i].sharedMesh;
+            }
+            for (int i = 0; i < goldMeshFilters.Length; i++)
+            {
+                MeshFilter f = goldMeshFilters[i]; if (f == null) continue;
+                Mesh mm = (on && i < goldMeshes.Length && goldMeshes[i] != null) ? goldMeshes[i] : _normalMeshes[i];
+                if (mm != null) f.sharedMesh = mm;
+            }
         }
         if (goldFx != null) goldFx.SetActive(on);
     }

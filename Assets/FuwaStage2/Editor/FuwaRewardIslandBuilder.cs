@@ -395,6 +395,7 @@ public static class FuwaRewardIslandBuilder
             var pr = fx.GetComponent<ParticleSystemRenderer>(); pr.sharedMaterial = GlintMat(); pr.renderMode = ParticleSystemRenderMode.Billboard; pr.maxParticleSize = 0.2f;
             fx.SetActive(false);
             b.goldRenderers = rs.ToArray(); b.goldMats = ms.ToArray(); b.goldFx = fx;
+            FuwaGunMerge.SetupGold(b);   // 頂点の色でまとめた本体（2026-11-21）は材質の名前では拾えないので、まとめた方の金色をつけ足す
             UdonSharpEditorUtility.CopyProxyToUdon(b); EditorUtility.SetDirty(b); n++;
         }
         return "金ピカの銃 " + n;

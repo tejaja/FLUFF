@@ -130,6 +130,12 @@ public static class FuwaBonusHubBuilder
         {
             var rs = sc.shownVisual.GetComponentsInChildren<Renderer>(true).Where(r => goldOf.ContainsKey(r.name)).ToArray();
             sc.goldRenderers = rs; sc.goldMats = rs.Select(r => goldOf[r.name]).ToArray();
+            // 頂点の色でまとめた銃（FuwaGunMerge）：メッシュも金色の写しに差しかえる（名前でそろえる）
+            var meshOf = new Dictionary<string, Mesh>();
+            if (bl.goldMeshFilters != null && bl.goldMeshes != null)
+                for (int i = 0; i < bl.goldMeshFilters.Length && i < bl.goldMeshes.Length; i++) if (bl.goldMeshFilters[i] && bl.goldMeshes[i]) meshOf[bl.goldMeshFilters[i].name] = bl.goldMeshes[i];
+            var mfs = sc.shownVisual.GetComponentsInChildren<MeshFilter>(true).Where(f => meshOf.ContainsKey(f.name)).ToArray();
+            sc.goldMeshFilters = mfs; sc.goldMeshes = mfs.Select(f => meshOf[f.name]).ToArray();
             var oldFx = sc.shownVisual.Find("GoldSparkle"); if (oldFx) Object.DestroyImmediate(oldFx.gameObject);
             if (bl.goldFx)
             {

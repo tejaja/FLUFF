@@ -75,7 +75,7 @@ public static class FuwaGunCollarRebuild
     }
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンのラッパの首を作り直す")]
-    public static void RunMenu() { Debug.Log(Run()); Debug.Log(FuwaGunWeld.Run()); }   // 最後に重複頂点をまとめる
+    public static void RunMenu() { Debug.Log(Run()); Debug.Log(FuwaGunWeld.Run()); Debug.Log(FuwaGunMerge.Run()); }   // 最後に重複頂点をまとめて、部品を1つにまとめ直す（2026-11-21）
 
     public static string Run()
     {

@@ -20,6 +20,7 @@ public static class FuwaGunTriggerRebuild
         Debug.Log(FuwaGunCollarRebuild.Run());   // トリガー（黄色の部品）はこの中で作る
         Debug.Log(RunGrip());
         Debug.Log(FuwaGunWeld.Run());   // 重複頂点をまとめる（見た目は同じ）
+        Debug.Log(FuwaGunMerge.Run());  // 部品を1つにまとめ直す（2026-11-21）
     }
 
     // ---- 部品の島（つながった三角形のまとまり）ごとに、全部の頂点が箱の中にある島の三角形を消す ----
