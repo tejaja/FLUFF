@@ -658,6 +658,7 @@ public class FuwaBlower : UdonSharpBehaviour
     private Vector3 _headLocal; private bool _headLocalOk;
     public override void PostLateUpdate()
     {
+        if (_far) return;
         VRCPlayerApi holder = Networking.GetOwner(gameObject);
         UpdateAutoScale(holder);
         bool align = desktopAimWithView && desktopAlignVisual && _held && holder != null && holder.IsValid() && !holder.IsUserInVR();
@@ -792,7 +793,34 @@ public class FuwaBlower : UdonSharpBehaviour
 
     private void UpdateVisibility()
     {
-        if (visualRoot != null) visualRoot.SetActive(_isMine || _held);
+        if (visualRoot != null) visualRoot.SetActive(_isMine || _held && !_far);
+    }
+
+    // 複数人の軽量化（2026-11-21 てじゃ「複数人時の軽量化、もっとなんかないかな」）：
+    //  他の人の銃が自分から remoteFarDist より遠い（別のコースにいる人もふつうはこれ）間は、見た目を隠し、毎フレームの計算（視線合わせ・空気・電球）と
+    //  撃った・溜めの演出（粒・音）を止める。見た目が消えるので銃のうそ影（FuwaGunShadows は IsGunShown を見る）も出ない
+    [Tooltip("他の人の銃がこれより遠いと、見た目・演出・毎フレームの計算を止める(m)。0 で止めない")]
+    public float remoteFarDist = 30f;
+    private bool _far;
+    private int _farCheck;
+    private void UpdateFar()
+    {
+        if (_farCheck-- > 0) return;
+        _farCheck = 10;
+        bool far = false;
+        if (!_isMine && remoteFarDist > 0f)
+        {
+            VRCPlayerApi me = Networking.LocalPlayer;
+            if (me != null)
+            {
+                float d = Vector3.Distance(me.GetPosition(), transform.position);
+                far = _far ? d > remoteFarDist - 3f : d > remoteFarDist;   // 行ったり来たりしないよう 3m の幅
+            }
+        }
+        if (far == _far) return;
+        _far = far;
+        if (_far && _fxCharging) StopChargeFx();
+        UpdateVisibility();
     }
 
     // 押してから少し(chargeDelay)待ってから溜め始め、離した時の溜め具合で撃つ。
@@ -936,6 +964,7 @@ public class FuwaBlower : UdonSharpBehaviour
     // 溜めの見た目と音（持ち主以外にも見える）
     public void ChargeStartFx()
     {
+        if (_far) return;
         _fxCharging = true;
         _fxStart = Time.time;
         _fxKeep = Time.time;
@@ -986,6 +1015,8 @@ public class FuwaBlower : UdonSharpBehaviour
             _keepSent = Time.time;
             SendCustomNetworkEvent(NetworkEventTarget.All, nameof(ChargeKeepFx));
         }
+        UpdateFar();
+        if (_far) return;
         UpdateAir();
         UpdateBulb();
         if (!_fxCharging) return;
@@ -1358,6 +1389,7 @@ public class FuwaBlower : UdonSharpBehaviour
     [NetworkCallable]
     public void PlayShotEffect(float charge)
     {
+        if (_far) return;
         _bulbShotTime = Time.time;
         _bulbTap = charge < 0.2f;
         _bulbShotFrom = _bulbInflate;

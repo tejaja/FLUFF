@@ -72,6 +72,8 @@ public class FuwaGunShadows : UdonSharpBehaviour
         }
     }
 
+    [Tooltip("自分の銃のうそ影だけ出す（他の人の銃には出さない）")]
+    public bool onlyMine = true;
     private void LateUpdate()
     {
         if (shadows == null) return;
@@ -103,6 +105,7 @@ public class FuwaGunShadows : UdonSharpBehaviour
         {
             FuwaBlower b = _blowers[i];
             if (b == null || !Utilities.IsValid(b) || !b.IsGunShown()) continue;
+            if (onlyMine && !Networking.IsOwner(b.gameObject)) continue;   // 2026-11-21 てじゃ「銃のウソ影、そもそも他人のはなしでもいいかも」（複数人の軽量化）
             Transform v = b.GetVisual();
             if (!_centerReady[i])
             {
