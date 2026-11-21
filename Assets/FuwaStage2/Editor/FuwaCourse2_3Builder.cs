@@ -126,7 +126,28 @@ public static class FuwaCourse2_3Builder
     static List<Collider> iceCols = new List<Collider>();
 
     [MenuItem("FuwaCourse/ステージ2/2–3 こおりのみち（ブロックアウト）を作り直す")]
-    public static void Menu() { Debug.Log(Build()); }
+    public static void Menu() { Debug.Log(Build()); Debug.Log(AfterRebuild()); }
+
+    // 作り直したあとにやること（2026-11-21：作り直しでコースの根っこが新しくなり、外の仕組みからの参照が外れていた。2–5 の RelinkLod と同じ）
+    //  ・CourseLodStage2（軽い版の切りかえ・ロビーで止める物）・分身・追っかけカメラ・ステージ2の記録のスタート
+    //  ・かってにスクショのポイント・端のすき間ふさぎ・軽い版・材質まとめ・ネットワークID
+    public static string AfterRebuild()
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return "2–3 がない";
+        var log = new List<string>();
+        log.Add(FuwaPathSeamCheck.CloseEndSlits(root.transform, true));
+        log.Add(FuwaPhotoPointBuilder2.Run());
+        FuwaCourseLite.RunStage2();
+        var relink = typeof(FuwaCourse2_5Builder).GetMethod("RelinkLod", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        if (relink != null) relink.Invoke(null, null);   // 2–1〜2–5 の分身・追っかけカメラ・CourseLodStage2 のつなぎ直し
+        log.Add(FuwaCourseLodLobbyBuilder.BuildStage2());
+        var rec2 = Resources.FindObjectsOfTypeAll<FuwaRecords>().FirstOrDefault(r => r && r.gameObject.scene.IsValid() && r.name == "Records2");
+        var bs = root.transform.Find("Start/BallStart");
+        if (rec2 && rec2.courseStarts != null && bs) { for (int i = 0; i < rec2.courseStarts.Length; i++) if (rec2.courseStarts[i] == null) rec2.courseStarts[i] = bs; UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(rec2); EditorUtility.SetDirty(rec2); }
+        log.Add(FuwaMaterialMerge.Run(false));
+        FuwaCourse2_1Builder.FixNetworkIDs();
+        return string.Join("\n", log);
+    }
 
     public static string Build()
     {
