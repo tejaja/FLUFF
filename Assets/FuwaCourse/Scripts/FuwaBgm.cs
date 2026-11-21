@@ -240,7 +240,7 @@ public class FuwaBgm : UdonSharpBehaviour
     [Tooltip("蓄音機を再生中（▶）")]
     [HideInInspector] public bool gramoPlaying;
     [Tooltip("蓄音機の音量（0〜1）。ワールドのBGM音量とは別")]
-    [HideInInspector] public float gramoVolume = 0.6f;
+    [HideInInspector] public float gramoVolume = 1f;
     [Tooltip("蓄音機の曲が効く場所（あそびばの BallPark）")]
     public Transform overrideArea;
     [Tooltip("保存してあった蓄音機の曲（tracks の番号、-1 ならなし）")]

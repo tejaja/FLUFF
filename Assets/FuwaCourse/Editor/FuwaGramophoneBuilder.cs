@@ -318,6 +318,7 @@ public static class FuwaGramophoneBuilder
         if (bgm != null)
         {
             bgm.overrideArea = pg.transform.Find("BallPark");
+            bgm.gramoVolume = gm.defaultVolume;   // 保存がない人のはじめの蓄音機の音量
             UdonSharpEditorUtility.CopyProxyToUdon(bgm); EditorUtility.SetDirty(bgm);
         }
         AssetDatabase.SaveAssets();

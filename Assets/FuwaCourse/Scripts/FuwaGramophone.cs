@@ -41,7 +41,7 @@ public class FuwaGramophone : UdonSharpBehaviour
 
     [Header("蓄音機の音量（0〜1、ワールドのBGM音量とは別）")]
     public Slider volumeSlider;
-    public float defaultVolume = 0.6f;
+    public float defaultVolume = 1f;   // 2026-11-21 てじゃ「デフォでマックスでいいよ」
 
     public Transform record;
     [Tooltip("ラッパの根元の支点。再生中はふわっと伸び縮みする（2026-11-21 てじゃ「スピーカー部分が再生中ちょっとうごいたらかわいい」）")]
@@ -49,6 +49,8 @@ public class FuwaGramophone : UdonSharpBehaviour
     public float hornAmount = 0.05f;   // 伸び縮みの大きさ
     [Tooltip("曲ごとの「ぽよん」のテンポ（trackIds と同じ順、1分に何回）。曲のテンポ。速い曲は半分、ワルツは1小節に1回（てじゃ「BPMもあってたら最高」）")]
     public float[] trackBpm;
+    [Tooltip("1拍に何回ぽよんするか（0.5＝2拍に1回。2026-11-21 てじゃ「動きの頻度は半分に」）")]
+    public float hornBeatRate = 0.5f;
     public float spinSpeed = 45f;   // 度/秒（78回転だと速すぎてチカチカするので、ゆっくり）
     public AudioSource clickSound;
 
@@ -199,7 +201,7 @@ public class FuwaGramophone : UdonSharpBehaviour
             float bpm = (trackBpm != null && _idx < trackBpm.Length) ? trackBpm[_idx] : 0f;
             if (k > 0.001f && bt > -9000f && bpm > 0f)
             {
-                float beats = bt * bpm / 60f;
+                float beats = bt * bpm / 60f * hornBeatRate;
                 float f = beats - Mathf.Floor(beats);      // 拍の中の位置 0〜1
                 float pop = (1f - f); pop = pop * pop * pop; // 拍の頭で1、すぐ落ちる
                 float a = hornAmount * k * pop;
