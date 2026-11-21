@@ -60,6 +60,7 @@ public static class FuwaCourse2_3Builder
     // 輪っか→帯の長い道から先（帯・流氷・動く島・右上の島・ゴールへの道・帯の坂）を、長い道の始まり（輪っかのはし）を中心に回す（＋が左回り＝外側へ起こす）。
     //  2026-11-04 てじゃ「道はまっすぐのまま、右側の氷とかを全体的にまげる」「左上の長い道をもっと外側に角度つけて」
     public static float MapBendDeg = 20f, MapMoveGap = 1.8f;
+    public static float LinkTuck = 2.5f;   // つなぎの道のはしを島の中へのばす長さの上限(m)（LakeFromMap2）
     // つなぎの道のまん中の線（曲がりは 2 次ベジェ、1m くらいおき）
     static List<Vector2> LinkPts(int k)
     {
@@ -1524,7 +1525,7 @@ public static class FuwaCourse2_3Builder
     //   動く板 M1・M2（それぞれの向きに、片側の割れ目を閉じながら反対側を開く）と回る橋（Spin）に乗らないと進めない一本道（てじゃ「右ルートだと動かないまま2枚渡れちゃうんじゃ」）
     //  座標は縮めたあと（V3 と同じ）
     public static bool M2_V4 = true;
-    public static (string n, Vector2 c, float r)[] V4_Pads = { ("Pad0", new Vector2(-5.4f, 72.3f), 2.6f), ("PadJ1", new Vector2(1.5f, 84.5f), 2.2f), ("PadJ2", new Vector2(5f, 99f), 2.4f), ("Pad1", new Vector2(17f, 108.5f), 2.8f) };
+    public static (string n, Vector2 c, float r)[] V4_Pads = { ("Pad0", new Vector2(-5.4f, 72.3f), 3.5f), ("PadJ1", new Vector2(1.5f, 84.5f), 2.2f), ("PadJ2", new Vector2(5f, 99f), 2.4f), ("Pad1", new Vector2(17f, 108.5f), 3.5f) };   // Pad0 2.6→3.5・Pad1 2.8→3.5（2026-11-21 てじゃ「道の角が開いてる」：幅6mの道の両角が小島からはみ出していた。道のはしは両角が島に入るまでのばす＝LinkTuck）
     // シーソー：足場 a → 足場 b、形（0 片側だけ大きい・1 三日月・2 大きく丸い）、傾き（±度）・1 往復の秒・ずらし（秒）
     public static (string n, int a, int b, int shape, float amp, float period, float phase)[] V4_Floes = {
         ("TiltF1", 0, 1, 0, 9f, 9f, 0f), ("TiltF2", 1, 2, 1, 7f, 5.5f, 2f), ("TiltF3", 2, 3, 2, 11f, 11f, 4.5f) };
@@ -2166,6 +2167,34 @@ public static class FuwaCourse2_3Builder
                 G = CrackSlab(M2_CrackN - 1);
             }
             var linkPts = links.Select(l => SmoothPts(l.pts)).ToList();
+            // つなぎの道のはしが、くりぬく島（最初の島・丸い山・丸い小島）に入る所は、両方の角が島の中に入るまで、はしを島の中へのばす（島は道の形でくりぬくので重ならない）。
+            //（2026-11-21 てじゃ「道の角が開いてる所多数 特に2-3」：道のはしは四角いのに丸い小島のふちで止まっていて、道の両角が島からはみ出して下が空っぽ＝角に三角のすき間）
+            //  とちゅうで島の上の面が道より高くなる（丸い山の坂）所はのばさない
+            {
+                var tuckPolys = new List<Vector2[]> { I1Shape(), M };
+                if (v4) foreach (var pd in V4_Pads) tuckPolys.Add(Ellipse(pd.c, pd.r, pd.r, 0f, 32));
+                for (int k = 0; k < linkPts.Count; k++)
+                {
+                    var lp = linkPts[k]; float hw = links[k].hw;
+                    for (int e = 0; e < 2; e++)
+                    {
+                        var end = e == 0 ? lp[0] : lp[lp.Count - 1];
+                        var dn = e == 0 ? (lp[0] - lp[1]).normalized : (lp[lp.Count - 1] - lp[lp.Count - 2]).normalized;   // 道の外（島の中）へ
+                        var side = new Vector2(-dn.y, dn.x) * hw;
+                        if (!tuckPolys.Any(P => InPoly(P, end + dn * 0.3f))) continue;
+                        float tk = 0f;
+                        for (float t = 0f; t <= LinkTuck + 1e-3f; t += 0.05f)
+                        {
+                            var q = end + dn * t;
+                            if (Mathf.Max(MapHeight(q - side), MapHeight(q), MapHeight(q + side)) > 0.01f) break;
+                            if (tuckPolys.Any(P => InPoly(P, q - side) && InPoly(P, q + side))) { tk = t > 0f ? Mathf.Min(LinkTuck, t + 0.15f) : 0f; break; }
+                        }
+                        if (tk <= 0f) continue;
+                        Debug.Log("[2–3] つなぎの道" + k + " のはし" + e + " を島の中へ " + tk.ToString("F2") + "m のばした");
+                        if (e == 0) lp[0] = end + dn * tk; else lp[lp.Count - 1] = end + dn * tk;
+                    }
+                }
+            }
             Vector2[] I1Band;
             { var d = (M2_I1BandB - M2_I1BandA).normalized; var nn = new Vector2(-d.y, d.x) * M2_I1BandHW; I1Band = new[] { M2_I1BandA - nn, M2_I1BandA + nn, M2_I1BandB + nn, M2_I1BandB - nn }; }
             // 下の島の水（切れこみ・小さい穴）は一旦なし（2026-11-04 てじゃ「手前の水は一旦けしていいよ」）。M2_I1Water で戻せる
