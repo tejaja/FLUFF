@@ -66,7 +66,10 @@ public static class FuwaGramophoneBuilder
         var wood = Mat("Gramo_Wood", new Color(0.86f, 0.62f, 0.42f));
         var woodDark = Mat("Gramo_WoodDark", new Color(0.62f, 0.42f, 0.28f));
         var brass = Mat("Gramo_Brass", new Color(0.86f, 0.62f, 0.3f), true);
-        var record = Mat("Gramo_Record", new Color(0.22f, 0.22f, 0.32f));
+        // レコード：上の面に みぞ＋光の帯（回っているのが分かる）＋ラベルに空の太陽 の絵（BlenderSource/gramophone_record_texture.py で作る。UV は真上から）
+        //（2026-11-21 てじゃ「レコードが回転してるのわかりづらいから模様つけよう」「真ん中のピンなくして、中心にこのワールドの真上にある太陽のイラスト」）
+        var record = Mat("Gramo_Record", Color.white);
+        record.SetTexture("_MainTex", AssetDatabase.LoadAssetAtPath<Texture2D>("Assets/FuwaCourse/Textures/Gramo_RecordTop.png"));
         var label = Mat("Gramo_Label", new Color(1f, 0.62f, 0.68f));
         var plate = Mat("Gramo_Plate", new Color(1f, 0.96f, 0.88f));
         var button = Mat("Gramo_Button", new Color(1f, 0.66f, 0.7f));
