@@ -1,13 +1,12 @@
 using UdonSharp;
 using UnityEngine;
 using TMPro;
-using UnityEngine.UI;
 
 // あそびばの蓄音機（2026-11-20 てじゃ「あそびばのBGM変更モードみたいなのほしい」「自分だけ＋全曲、ラストのだけ全クリ後にひっそり」
 //  「みためは蓄音機、台にボタン」「動画で曲を止めないスイッチも、デフォは止める」）
 // ・◀ ▶ で曲をえらぶ（先頭はロビー＝いつものあそびばの曲、最後は BGMなし）。えらんだ曲は FuwaBgm.overrideTrack に入れて、あそびばにいる間だけ流れる
-// ・「動画再生中 [ON] [OFF]」で動画中もBGMを止めないか（FuwaBgm.keepDuringVideo）。今の方が白い背景
-//  （2026-11-21 てじゃ「ボタンを他のボタンみたいなビーム式に」「ONとOFFに白背景で分かる感じに」）
+// ・「動画優先 ｜ ◀ ON/OFF ▶」：ON（ふだん）は動画の間BGMを止める、OFF は止めない（FuwaBgm.keepDuringVideo）
+//  （2026-11-21 てじゃ「ボタンを他のボタンみたいなビーム式に」「ほかの切り替えボタンみたいにボタンとタイトルがつながってて真ん中で区切ってるタイプに」：テレビの CAM と同じ形）
 // ・曲が鳴っている間はレコードが回る
 // 自分の画面だけ（同期なし）
 [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
@@ -25,17 +24,16 @@ public class FuwaGramophone : UdonSharpBehaviour
     [Tooltip("全クリしてから出る曲の並びの番号（おまけ）。-1 ならなし")]
     public int lockedIndex = -1;
 
-    public TextMeshPro label;
-    public TextMeshPro switchLabel;
+    [Tooltip("曲名（上の段の白い札）")]
+    public TextMeshProUGUI trackText;
+    [Tooltip("ON / OFF（下の段の白い札）")]
+    public TextMeshProUGUI videoText;
+    [Tooltip("下の段の見出し（動画優先）")]
+    public TextMeshProUGUI videoHead;
+    public Color activeTextColor = new Color(0.62f, 0.55f, 0.86f), idleTextColor = new Color(0.55f, 0.55f, 0.6f);
     public Transform record;
     public float spinSpeed = 45f;   // 度/秒（78回転だと速すぎてチカチカするので、ゆっくり）
     public AudioSource clickSound;
-
-    [Header("動画再生中 ON / OFF（今の方が白い背景）")]
-    public Image onBg, offBg;
-    public TextMeshProUGUI onText, offText;
-    public Color selectedBg = Color.white, idleBg = new Color(1f, 1f, 1f, 0.2f);
-    public Color selectedText = new Color(0.27f, 0.36f, 0.62f), idleText = new Color(1f, 0.96f, 0.9f);
 
     private int _idx;
     private float _spin;
@@ -84,17 +82,17 @@ public class FuwaGramophone : UdonSharpBehaviour
         bool en = language != null && language.IsEnglish();
         _lastEnglish = en;
         _lastUnlocked = Unlocked();
-        if (label != null)
+        if (trackText != null)
         {
             string[] names = en ? namesEn : namesJa;
-            label.text = (names != null && _idx < names.Length) ? names[_idx] : "";
+            trackText.text = (names != null && _idx < names.Length) ? names[_idx] : "";
+            trackText.color = activeTextColor;
         }
         bool keep = bgm != null && bgm.keepDuringVideo;
-        if (switchLabel != null) switchLabel.text = en ? "During video" : "動画再生中";
-        if (onBg != null) onBg.color = keep ? selectedBg : idleBg;
-        if (offBg != null) offBg.color = keep ? idleBg : selectedBg;
-        if (onText != null) onText.color = keep ? selectedText : idleText;
-        if (offText != null) offText.color = keep ? idleText : selectedText;
+        // 「動画優先」ON＝動画の間はBGMを止める（ふだん）、OFF＝止めない（2026-11-21 てじゃ「動画優先 ON OFFとか」）
+        bool videoFirst = !keep;
+        if (videoHead != null) videoHead.text = en ? "Video first" : "動画優先";
+        if (videoText != null) { videoText.text = videoFirst ? "ON" : "OFF"; videoText.color = videoFirst ? activeTextColor : idleTextColor; }
     }
 
     private void Update()

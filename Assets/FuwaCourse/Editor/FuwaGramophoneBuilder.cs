@@ -95,8 +95,10 @@ public static class FuwaGramophoneBuilder
             c.localPosition = Vector3.zero; c.localRotation = Quaternion.identity; c.localScale = Vector3.one;
         }
 
-        // 当たり：台（ぶつかる）
-        var bc = go.AddComponent<BoxCollider>(); bc.center = new Vector3(0f, 0.27f, 0f); bc.size = new Vector3(0.86f, 0.54f, 0.86f);
+        // 当たり：台（ぶつかる）。前は台座ごとの大きい箱1つで、前のボタンが箱の中に埋まってレーザーが当たらなかった
+        //（2026-11-21 てじゃ「ボタンがメッシュ判定が邪魔でおせない」）→ 下の台座（ひと回り大きい）と箱の2つに分けて、ボタンを箱の前の面より手前に出す
+        var bcP = go.AddComponent<BoxCollider>(); bcP.center = new Vector3(0f, 0.037f, 0f); bcP.size = new Vector3(0.86f, 0.074f, 0.86f);
+        var bcB = go.AddComponent<BoxCollider>(); bcB.center = new Vector3(0f, 0.27f, 0f); bcB.size = new Vector3(0.78f, 0.42f, 0.78f);
 
         // 本体のスクリプト
         var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault();
@@ -107,75 +109,88 @@ public static class FuwaGramophoneBuilder
         gm.trackIds = Tracks; gm.namesJa = Ja; gm.namesEn = En; gm.lockedIndex = LockedIndex;
         gm.record = F("Gramo_Record");
 
-        // 文字（札と、スイッチの横）：テレビの題名と同じフォント
-        var srcTmp = GameObject.Find("FuwaPlayground/Room/Monitor").GetComponentsInChildren<TMPro.TextMeshPro>(true).First(t => t.name == "Title");
-        TMPro.TextMeshPro Txt(string n, Vector3 lp, Vector2 size, float fs)
-        {
-            var o = new GameObject(n); o.transform.SetParent(T, false);
-            o.transform.localPosition = lp; o.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);   // 前（+Z）から読める
-            var t = o.AddComponent<TMPro.TextMeshPro>();
-            t.font = srcTmp.font; t.fontSharedMaterial = srcTmp.fontSharedMaterial;
-            t.rectTransform.sizeDelta = size; t.fontSize = fs; t.enableAutoSizing = true; t.fontSizeMin = fs * 0.4f; t.fontSizeMax = fs;
-            t.alignment = TMPro.TextAlignmentOptions.Center; t.color = new Color(0.42f, 0.3f, 0.24f);
-            t.enableWordWrapping = false;
-            return t;
-        }
-        gm.label = Txt("TrackName", new Vector3(0f, 0.32f, 0.412f), new Vector2(0.34f, 0.1f), 0.6f);
-        gm.switchLabel = Txt("SwitchLabel", new Vector3(0.15f, 0.165f, 0.41f), new Vector2(0.28f, 0.07f), 0.5f);
-        gm.label.text = Ja[0]; gm.switchLabel.text = "動画再生中";   // Play 前の見た目（Play 中は言語に合わせて入れ直す）
-
-        // ボタンはほかと同じレーザーで押すボタン（2026-11-21 てじゃ「ボタンを他のボタンみたいなビーム式にしよ」）。
-        // 前の3Dのボタン・レバーは隠す
-        foreach (var n in new[] { "Gramo_BtnPrev", "Gramo_BtnNext", "Gramo_SwitchBase", "Gramo_SwitchLever" }) { var t = F(n); if (t != null) t.gameObject.SetActive(false); }
+        // ボタン：テレビの「CAM」と同じ形（左に見出し・右の白い札に ◀ 今の値 ▶、つながった1本で真ん中で区切る）をコピーする
+        //（2026-11-21 てじゃ「ほかの切り替えボタンみたいにボタンとタイトルがつながってて真ん中で区切ってるタイプにしよ」）
+        //  上の段：♪ ｜ ◀ 曲名 ▶（右半分で次、左半分で前）／下の段：動画優先 ｜ ◀ ON/OFF ▶（どこを押しても切りかえ。ON＝動画の間BGMを止める）
+        // 前の3Dのボタン・レバー・札は隠す
+        foreach (var n in new[] { "Gramo_BtnPrev", "Gramo_BtnNext", "Gramo_SwitchBase", "Gramo_SwitchLever", "Gramo_Plate" }) { var t = F(n); if (t != null) t.gameObject.SetActive(false); }
         UdonSharpEditorUtility.CopyProxyToUdon(gm);
-        Transform Laser(string name, Vector3 lp, float w, float h, string text, string evt)
+        var srcCam = GameObject.Find("FuwaPlayground/Room/Monitor").GetComponentsInChildren<Transform>(true).First(t => t.name == "CamButton" && t.Find("Canvas") != null);
+        var follow = Object.FindObjectsOfType<FuwaFollowCam>(true).FirstOrDefault();
+        var ugm = UdonSharpEditorUtility.GetBackingUdonBehaviour(gm);
+        void SetEvent(UnityEngine.UI.Button b, string evt)
         {
-            // lp・w・h は蓄音機のローカル（大きさ Scale 倍で世界の大きさ）。ボタンの板は 400 単位＝高さ h
-            float worldH = h * Scale, worldW = w * Scale;
-            FuwaPlaygroundBuilder.LaserButton(T, name, T.TransformPoint(lp), T.rotation * Quaternion.Euler(0f, 180f, 0f), (400f * worldW / worldH) / 1400f, text, gm, evt);
-            var b = T.Find(name);
-            b.localScale = Vector3.one * (worldH / 0.4f) / Scale;
-            return b;
+            var so = new SerializedObject(b);
+            var calls = so.FindProperty("m_OnClick.m_PersistentCalls.m_Calls");
+            calls.arraySize = 1;
+            var c0 = calls.GetArrayElementAtIndex(0);
+            c0.FindPropertyRelative("m_Target").objectReferenceValue = ugm;
+            c0.FindPropertyRelative("m_TargetAssemblyTypeName").stringValue = "VRC.Udon.UdonBehaviour, VRC.Udon";
+            c0.FindPropertyRelative("m_MethodName").stringValue = "SendCustomEvent";
+            c0.FindPropertyRelative("m_Mode").intValue = 5;
+            c0.FindPropertyRelative("m_Arguments.m_StringArgument").stringValue = evt;
+            c0.FindPropertyRelative("m_CallState").intValue = 2;
+            so.ApplyModifiedPropertiesWithoutUndo();
         }
-        // ◀ ▶ はフォントに字がない（豆腐になる）ので、三角の板をボタンの面のすぐ手前に置く
-        var prev = Laser("PrevButton", new Vector3(0.27f, 0.32f, 0.405f), 0.105f, 0.105f, "", "Prev");
-        var next = Laser("NextButton", new Vector3(-0.27f, 0.32f, 0.405f), 0.105f, 0.105f, "", "Next");
-        foreach (var b in new[] { prev, next }) FuwaPlaygroundBuilder.OutlinedStyle(b);
-        Mesh Tri(bool right)
+        // height：世界での高さ(m)。extraPill：右の白い札を伸ばす幅、extraHead：左の見出しを伸ばす幅（どちらも CAM の 1400×400 の単位）
+        Transform Seg(string name, Vector3 lp, float height, float extraPill, float extraHead, string nextEvt, string backEvt)
         {
-            var mesh = new Mesh { name = right ? "Gramo_ArrowR" : "Gramo_ArrowL" };
-            float s = right ? 1f : -1f;   // 大きさは蓄音機のローカル（ボタンの直径 0.105 の半分くらい）
-            mesh.vertices = new[] { new Vector3(-0.022f * s, 0.027f, 0f), new Vector3(-0.022f * s, -0.027f, 0f), new Vector3(0.027f * s, 0f, 0f) };
-            mesh.triangles = right ? new[] { 0, 2, 1 } : new[] { 0, 1, 2 };
-            mesh.RecalculateNormals(); return mesh;
+            var g = Object.Instantiate(srcCam.gameObject, T, false); g.name = name;
+            var r = g.transform;
+            r.position = T.TransformPoint(lp); r.rotation = T.rotation * Quaternion.Euler(0f, 180f, 0f);   // 前（+Z）から読める
+            var cv = (RectTransform)r.Find("Canvas");
+            float k = height / (cv.sizeDelta.y * cv.localScale.y);   // 根元の大きさ（世界）
+            r.localScale = Vector3.one * (k / T.lossyScale.x);
+            float E = extraPill + extraHead;
+            cv.sizeDelta += new Vector2(E, 0f);
+            var box = cv.GetComponent<BoxCollider>(); box.size = new Vector3(cv.sizeDelta.x, box.size.y, box.size.z);
+            void Shift(string path, float dx, float dw)
+            {
+                var t = (RectTransform)r.GetComponentsInChildren<Transform>(true).FirstOrDefault(x => x.name == path); if (t == null) return;
+                t.anchoredPosition += new Vector2(dx, 0f); t.sizeDelta += new Vector2(dw, 0f);
+            }
+            // 左の見出しは左はしに、右の札は右はしにそろえたまま、見出しを extraHead・札を extraPill だけ広げる
+            Shift("Head", -E / 2 + extraHead / 2, extraHead);
+            Shift("Icon", -E / 2 + extraHead / 2, 0f);
+            Shift("ArrowL", -E / 2 + extraHead, 0f);
+            Shift("PillA", -E / 2 + extraHead + extraPill / 2, extraPill);
+            Shift("TextA", -E / 2 + extraHead + extraPill / 2, extraPill);
+            Shift("ArrowR", E / 2, 0f);
+            Shift("BackButton", -E / 2 + (extraHead + extraPill / 2) / 2, extraHead + extraPill / 2);   // 左半分（見出し＋札の左）
+            SetEvent(r.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "Button"), nextEvt);
+            SetEvent(r.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "BackButton"), backEvt);
+            return r;
         }
-        var arrowMat = Mat("Gramo_Arrow", new Color(0.27f, 0.36f, 0.62f));   // スイッチの文字と同じ紺
-        void Arrow(Vector3 lp, bool towardRight)
+        TMPro.TextMeshProUGUI Find(Transform r, string n) => r.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true).First(x => x.name == n);
+        var mplus = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/MPLUSRounded1c SDF.asset");
+
+        // 上の段：曲
+        var trackRow = Seg("TrackButton", new Vector3(0f, 0.335f, 0.398f), 0.15f, 520f, 0f, "Next", "Prev");
         {
-            var o = new GameObject(towardRight ? "ArrowNext" : "ArrowPrev"); o.transform.SetParent(T, false);
-            o.transform.localPosition = lp; o.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            o.AddComponent<MeshFilter>().sharedMesh = Tri(towardRight);
-            var mr = o.AddComponent<MeshRenderer>(); mr.sharedMaterial = arrowMat; mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var icon = trackRow.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Icon");
+            icon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/FuwaCourse/Textures/UI_Music.png"); icon.preserveAspect = true;
+            var ta = Find(trackRow, "TextA");
+            // 曲名は「2–4 はぐるまのしま」など長いので、M PLUS（字が全部ある）を太字で、入りきらなければ小さく
+            ta.font = mplus; ta.fontSharedMaterial = mplus.material; ta.fontStyle = TMPro.FontStyles.Bold;
+            { var m = ta.margin; ta.margin = new Vector4(m.x, m.y, m.z, Mathf.Max(0f, m.w - 40f)); }
+            ta.enableAutoSizing = true; ta.fontSizeMin = 50f; ta.fontSizeMax = 130f; ta.enableWordWrapping = false;
+            ta.text = Ja[0];
+            gm.trackText = ta;
         }
-        // 前から見て：Prev が左（モデルの +X）、Next が右（-X）。三角の向きは見る人から見て
-        Arrow(new Vector3(0.27f, 0.32f, 0.411f), false);
-        Arrow(new Vector3(-0.27f, 0.32f, 0.411f), true);
-        var onB = Laser("VideoOn", new Vector3(-0.09f, 0.165f, 0.405f), 0.13f, 0.075f, "ON", "VideoKeepOn");
-        var offB = Laser("VideoOff", new Vector3(-0.25f, 0.165f, 0.405f), 0.13f, 0.075f, "OFF", "VideoKeepOff");
-        UnityEngine.UI.Image Face(Transform b)
+        // 下の段：動画再生中のBGM
+        var videoRow = Seg("VideoButton", new Vector3(0f, 0.165f, 0.398f), 0.15f, 0f, 520f, "ToggleVideoKeep", "ToggleVideoKeep");
         {
-            var btn = b.GetComponentInChildren<UnityEngine.UI.Button>(true);
-            var cb = btn.colors; cb.normalColor = Color.white; cb.selectedColor = Color.white; cb.highlightedColor = new Color(0.94f, 0.94f, 0.94f); cb.pressedColor = new Color(0.85f, 0.85f, 0.85f); btn.colors = cb;
-            FuwaPlaygroundBuilder.PillCorners(b);
-            EditorUtility.SetDirty(btn);
-            return btn.GetComponent<UnityEngine.UI.Image>();
+            videoRow.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Icon").gameObject.SetActive(false);
+            var head = Find(videoRow, "Head"); head.gameObject.SetActive(true);
+            head.font = mplus; head.fontSharedMaterial = mplus.material; head.fontStyle = TMPro.FontStyles.Bold;   // 漢字（Darumadrop One は漢字がない）
+            { var m = head.margin; head.margin = new Vector4(m.x, m.y, m.z, Mathf.Max(0f, m.w - 40f)); }
+            head.enableAutoSizing = true; head.fontSizeMin = 60f; head.fontSizeMax = 150f; head.enableWordWrapping = false;
+            head.text = "動画優先";
+            gm.videoHead = head;
+            gm.videoText = Find(videoRow, "TextA"); gm.videoText.text = "ON";   // 動画優先 ON がふだん
         }
-        TMPro.TextMeshProUGUI Lab(Transform b) { var t = b.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true).First(x => x.name != "TextOutlined"); t.margin = new Vector4(20f, 0f, 20f, 30f); EditorUtility.SetDirty(t); return t; }
-        gm.onBg = Face(onB); gm.offBg = Face(offB); gm.onText = Lab(onB); gm.offText = Lab(offB);
-        gm.selectedBg = Color.white; gm.idleBg = new Color(0.62f, 0.42f, 0.28f);   // 選んでない方は台の濃い木の色
-        gm.selectedText = new Color(0.27f, 0.36f, 0.62f); gm.idleText = new Color(1f, 0.93f, 0.82f);
-        // エディタで見た時も今の状態（OFF）に
-        gm.onBg.color = gm.idleBg; gm.offBg.color = gm.selectedBg; gm.onText.color = gm.idleText; gm.offText.color = gm.selectedText;
+        if (follow != null) { gm.activeTextColor = follow.activeTextColor; gm.idleTextColor = follow.idleTextColor; }
+        gm.videoText.color = gm.activeTextColor; gm.trackText.color = gm.activeTextColor;
         UdonSharpEditorUtility.CopyProxyToUdon(gm);
         var gub = UdonSharpEditorUtility.GetBackingUdonBehaviour(gm); if (gub != null) { gub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(gub); }
 
