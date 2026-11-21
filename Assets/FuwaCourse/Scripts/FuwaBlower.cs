@@ -633,6 +633,9 @@ public class FuwaBlower : UdonSharpBehaviour
         return true;
     }
 
+    [Tooltip("デスクトップで持っている時、銃の位置を頭から見た位置へ寄せる速さ（大きいほど手の動きにすぐついて行く、小さいほど画面の中で止まって見える）")]
+    public float desktopHeadFollow = 10f;
+    private Vector3 _headLocal; private bool _headLocalOk;
     public override void PostLateUpdate()
     {
         VRCPlayerApi holder = Networking.GetOwner(gameObject);
@@ -679,7 +682,21 @@ public class FuwaBlower : UdonSharpBehaviour
                 if (desktopUseGripHold && desktopGrip != null) pivot = desktopGrip.position;
                 Quaternion d = head * Quaternion.Inverse(vt.rotation);
                 Vector3 vp = pivot + d * (vt.position - pivot);
-                if (nozzle != null) nozzle.SetPositionAndRotation(pivot + d * (nozzle.position - pivot), d * nozzle.rotation);
+                Vector3 np = nozzle != null ? pivot + d * (nozzle.position - pivot) : Vector3.zero;
+                // 自分が持っている時は、位置を「頭から見た位置」をなめらかにした所に置く（2026-11-21 てじゃ「氷のったとき、銃がプルプルする（デスクトップ）」）。
+                //  氷の上は毎フレーム小さい TeleportTo で動かすので、VRChat が持たせた位置（手）と視点が1フレームずれて、画面の中で銃が震えていた
+                if (holder.isLocal)
+                {
+                    Vector3 hp = holder.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
+                    Quaternion hinv = Quaternion.Inverse(head);
+                    Vector3 local = hinv * (vp - hp);
+                    if (!_headLocalOk || !_aligned) { _headLocal = local; _headLocalOk = true; }
+                    else _headLocal = Vector3.Lerp(_headLocal, local, 1f - Mathf.Exp(-Time.deltaTime * desktopHeadFollow));
+                    Vector3 vp2 = hp + head * _headLocal; Vector3 shift = vp2 - vp;
+                    vp = vp2; np += shift;
+                }
+                else _headLocalOk = false;
+                if (nozzle != null) nozzle.SetPositionAndRotation(np, d * nozzle.rotation);
                 vt.SetPositionAndRotation(vp, head);
                 _aligned = true;
                 return;
