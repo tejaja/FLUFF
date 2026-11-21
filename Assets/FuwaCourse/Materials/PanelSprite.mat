@@ -29,7 +29,12 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _Cull: 0
     - _Cutoff: 0.3
+    - _Grad: 0
+    - _GradBorder: 0.25
+    - _OffsetFactor: 0
+    - _OffsetUnits: 0
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

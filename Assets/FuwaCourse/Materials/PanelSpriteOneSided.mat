@@ -31,6 +31,10 @@ Material:
     m_Floats:
     - _Cull: 2
     - _Cutoff: 0.3
+    - _Grad: 0.08
+    - _GradBorder: 0.25
+    - _OffsetFactor: 0
+    - _OffsetUnits: 0
     m_Colors:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

@@ -12,6 +12,10 @@ Shader "Fuwa/PanelSprite"
         // 枠（Border）はパネルの6mm後ろ。遠くでパネルとチラつかないよう奥へずらす（+1）。ふだんは0
         _OffsetFactor ("Depth Offset Factor", Float) = 0
         _OffsetUnits ("Depth Offset Units", Float) = 0
+        // 2026-11-21 てじゃ「各種ボードもちょっぴりグラデほしい」：上がそのままの色→下に向かって _Grad だけ濃く（ボタンの RoundedPanelGrad と同じくらい）。
+        // 9分割の絵なので uv.y はふちの所で速く変わる → ふち（_GradBorder＝絵のふちの割合）の内側だけで 0〜1 になるようにならす
+        _Grad ("Gradient (下を何割暗く)", Range(0, 0.3)) = 0
+        _GradBorder ("Gradient Border (9分割のふち、uv の割合)", Range(0, 0.49)) = 0.25
     }
     SubShader
     {
@@ -33,6 +37,7 @@ Shader "Fuwa/PanelSprite"
             sampler2D _MainTex;
             fixed4 _Color;
             fixed _Cutoff;
+            half _Grad, _GradBorder;
 
             struct appdata
             {
@@ -66,6 +71,8 @@ Shader "Fuwa/PanelSprite"
             fixed4 frag (v2f i) : SV_Target
             {
                 fixed4 c = tex2D(_MainTex, i.uv) * i.color;
+                half gt = saturate((i.uv.y - _GradBorder) / max(1e-3, 1 - 2 * _GradBorder));   // 下 0 〜 上 1
+                c.rgb *= 1 - _Grad * (1 - gt);
                 // 角丸の外側（ほぼ透明な所）は捨てて、奥行きも書かない
                 clip(c.a - _Cutoff);
                 UNITY_APPLY_FOG(i.fogCoord, c);
