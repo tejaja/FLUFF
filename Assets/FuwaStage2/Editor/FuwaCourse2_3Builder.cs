@@ -2145,6 +2145,7 @@ public static class FuwaCourse2_3Builder
         }
         return cp.position.ToString("F1");
     }
+    public static float V4_CpMushX = -2f;   // CheckpointField のきのこの横の位置（－で回る橋に向かって左）
     static void V4FieldCheckpoint(Transform root, Vector3 o, V4Field F)
     {
         const string name = "CheckpointField";
@@ -2165,7 +2166,8 @@ public static class FuwaCourse2_3Builder
         // 2026-11-08 てじゃ「最後のチェックポイント、範囲広いかも　もうちょい奥よりに」→ 板の奥（回る橋の方）V4_CpDepth だけ
         float zs = Mathf.Lerp(z1, z0, V4_CpDepth);
         if (trig) { trig.localRotation = Quaternion.identity; trig.localPosition = new Vector3((x0 + x1) * 0.5f, trig.localPosition.y, (zs + z1 + V4_CpTrigPad) * 0.5f); trig.localScale = new Vector3(x1 - x0 + V4_CpTrigPad * 2f, trig.localScale.y, z1 + V4_CpTrigPad - zs); }
-        if (gm) { var l2 = gm.Find("ClusterL"); if (l2) l2.localPosition = new Vector3(0f, l2.localPosition.y, (zs + z1) * 0.5f); }   // きのこも判定のまん中へ
+        // きのこも判定のまん中へ。横は V4_CpMushX（2026-11-21 てじゃ「回転床の手前のチェックポイント、邪魔かも、復帰時もかさなる、もうちょい左に」）
+        if (gm) { var l2 = gm.Find("ClusterL"); if (l2) l2.localPosition = new Vector3(V4_CpMushX, l2.localPosition.y, (zs + z1) * 0.5f); }
         var rp = cp.Find("RespawnPoint"); if (rp) rp.localPosition = new Vector3(0f, rp.localPosition.y, V4_CpRespawnOut);
         var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
         if (fc)
