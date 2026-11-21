@@ -399,6 +399,8 @@ public class TejaVideoPlayer : UdonSharpBehaviour
 
     // ほかの係（テレビの切りかえなど）から：今まさに再生中か
     public bool IsPlayingNow() { return _ready && player.IsPlaying; }
+    // 途中で一時停止している（■停止・最後まで再生・動画なしは含まない）
+    public bool IsPausedMidway() { return _ready && _paused && !IsIdle(); }
     // 動画なし・■停止（最初で止まっている）・最後まで再生した、のどれか（一時停止は含まない）
     public bool IsIdle()
     {
