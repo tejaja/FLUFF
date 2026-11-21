@@ -1701,36 +1701,37 @@ public static class FuwaCourse2_3Builder
         {
             if (part.Count < 3) continue;
             var sg = V4Piece(pv, "FieldSpinSnow" + k, Vector3.zero, part, 9510 + k, true, q => 0f); k++;
-            SnowTopOnly(sg);
+            SnowTopOnly(sg, true);
             iceCols.Remove(sg.GetComponent<MeshCollider>());
         }
         return g.GetComponent<MeshCollider>();
     }
     // 行き来する床：奥側（すすむ向き d の先）が雪（すべらない）、手前は氷。さかいめはゆるい弧（まん中が手前にふくらむ）
     //  2026-11-21 てじゃ「真ん中だけ雪」→「やっぱかえよ、各島の奥側を雪にする感じ、回転島はそのまま、雪エリアはちょっと弧を描く感じで」
-    public static float V4_MoverSnowAt = 0.1f;    // さかいめのはし（左右のふち）の位置：板の長さに対する割合（0＝まん中、＋で奥）
-    public static float V4_MoverSnowArc = 1.4f;   // 弧のふくらみ（m）：まん中はこれだけ手前
+    //  2026-11-21 てじゃの絵：弧は「)」向き（まん中が奥へふくらむ）。止まっている島も奥側を雪に（V4_StaticSnow）
+    public static float V4_MoverSnowAt = -0.2f;   // さかいめのはし（左右のふち）の位置：板の長さに対する割合（0＝まん中、＋で奥）
+    public static float V4_MoverSnowArc = 1.4f;   // 弧のふくらみ（m）：まん中はこれだけ奥
     static List<Collider> V4MoverPieces(Transform mv, string n, List<Vector2> body, Vector2 d, int seed)
     {
         var u = d.normalized; var w = new Vector2(-u.y, u.x);
         var loc = body.Select(q => new Vector2(Vector2.Dot(q, u), Vector2.Dot(q, w))).ToList();
         float x0 = loc.Min(q => q.x), x1 = loc.Max(q => q.x), hw = Mathf.Max(0.5f, loc.Max(q => Mathf.Abs(q.y)));
         float xe = Mathf.Lerp(x0, x1, 0.5f + V4_MoverSnowAt * 0.5f);
-        System.Func<float, float> G = y => xe - V4_MoverSnowArc * (1f - Mathf.Min(1f, (y / hw) * (y / hw)));
+        System.Func<float, float> G = y => xe + V4_MoverSnowArc * (1f - Mathf.Min(1f, (y / hw) * (y / hw)));
         var (snowL, iceL) = SplitByCurve(loc, G);
         // 動く床には雪のふちの飾りを付けない（2026-11-21 てじゃ「紛らわしいから移動床のとこの飾りの白い部分はけそう」）
         bool keepDeco = recordDeco; recordDeco = false;
         System.Func<List<Vector2>, List<Vector2>> back = P => P.Select(q => u * q.x + w * q.y).ToList();
         var ices = new List<Collider>();
         var sg = V4Piece(mv, "Field" + n + "Snow", Vector3.zero, back(snowL), seed, true, q => 0f);
-        SnowTopOnly(sg); iceCols.Remove(sg.GetComponent<MeshCollider>());
+        SnowTopOnly(sg, true); iceCols.Remove(sg.GetComponent<MeshCollider>());
         var g = V4Piece(mv, "Field" + n, Vector3.zero, back(iceL), seed + 1, true, q => 0f);
         ices.Add(g.GetComponent<MeshCollider>());
         recordDeco = keepDeco;
         return ices;
     }
     // 雪の板：上の面だけ雪、横・下は氷のまま（2026-11-21 てじゃ「雪は上の部分だけにして」）。メッシュを 上(雪)/ほか(氷) の 2 つのサブメッシュに分ける
-    static void SnowTopOnly(GameObject g)
+    static void SnowTopOnly(GameObject g, bool moving)
     {
         var mf = g.GetComponent<MeshFilter>(); var m = mf.sharedMesh; var v = m.vertices; var tri = m.triangles;
         var top = new List<int>(); var other = new List<int>();
@@ -1740,7 +1741,105 @@ public static class FuwaCourse2_3Builder
             (nrm.y > 0.6f ? top : other).AddRange(new[] { tri[i], tri[i + 1], tri[i + 2] });
         }
         m.subMeshCount = 2; m.SetTriangles(top, 0); m.SetTriangles(other, 1); EditorUtility.SetDirty(m);
-        g.GetComponent<MeshRenderer>().sharedMaterials = new[] { SnowMovingMat(), MovingIceMat() };
+        g.GetComponent<MeshRenderer>().sharedMaterials = moving ? new[] { SnowMovingMat(), MovingIceMat() } : new[] { SnowFlatMat(), iceFlat };
+    }
+    // 止まっている島の雪：(島の番号, さかいめの位置 0〜1（入ってくる側のはし 0〜出ていく側 1）, 弧 m（＋で「)」＝まん中が奥へ）)
+    //  2026-11-21 てじゃの絵（上から見た図に赤線）：S1・まるい S2・S3 の奥側。S0（はじめ）はなし
+    public static (int s, float at, float arc)[] V4_StaticSnow = { (1, 0.22f, -1.0f), (2, 0.42f, 1.8f), (3, 0.22f, 1.2f) };
+    // 島 i に入ってくる所・出ていく所（動く板・回る橋のまん中）
+    static (Vector2 a, Vector2 b) V4StaticFlow(V4Field F, int i)
+    {
+        Vector2 S(int k) => V4_Statics[k].c;
+        switch (i)
+        {
+            case 1: return (F.movers[0].c, V4_SpinC);
+            case 2: return (V4_SpinC, F.movers[1].c);
+            case 3: return (F.movers[1].c, S(3) + (S(3) - F.movers[1].c));
+            default: return (S(i) - Vector2.up, S(i) + Vector2.up);
+        }
+    }
+    // 止まっている島を (氷, 雪) に分ける。雪がない島は (元の形, null)
+    static (List<Vector2> ice, List<Vector2> snow) V4StaticSplit(V4Field F, int i)
+    {
+        var poly = F.statics[i]; int si = System.Array.FindIndex(V4_StaticSnow, q => q.s == i); if (si < 0) return (poly, null);
+        var spec = V4_StaticSnow[si]; var (a, b) = V4StaticFlow(F, i); var u = (b - a).normalized; var w = new Vector2(-u.y, u.x);
+        var loc = poly.Select(q => new Vector2(Vector2.Dot(q, u), Vector2.Dot(q, w))).ToList();
+        float x0 = loc.Min(q => q.x), x1 = loc.Max(q => q.x), yc = (loc.Min(q => q.y) + loc.Max(q => q.y)) * 0.5f, hw = Mathf.Max(0.5f, (loc.Max(q => q.y) - loc.Min(q => q.y)) * 0.5f);
+        float xb = Mathf.Lerp(x0, x1, spec.at);
+        System.Func<float, float> G = y => xb + spec.arc * (1f - Mathf.Min(1f, ((y - yc) / hw) * ((y - yc) / hw)));
+        try
+        {
+            var (snowL, iceL) = SplitByCurve(loc, G);
+            System.Func<List<Vector2>, List<Vector2>> back = P => P.Select(q => u * q.x + w * q.y).ToList();
+            return (back(iceL), back(snowL));
+        }
+        catch (System.Exception e) { Debug.LogWarning("[2–3] 島 S" + i + " の雪分けに失敗、氷のまま: " + e.Message); return (poly, null); }
+    }
+    static void V4StaticPieces(Transform isl, Vector3 o, V4Field F, int i)
+    {
+        string nm = "Field" + V4_Statics[i].n; int seed = 9100 + i * 37;
+        var (ice, snow) = V4StaticSplit(F, i);
+        V4Piece(isl, nm, o, ice, seed, false, q => MapHeight(q));
+        if (snow != null)
+        {
+            var sg = V4Piece(isl, nm + "Snow", o, snow, seed + 5, false, q => MapHeight(q));
+            SnowTopOnly(sg, false); iceCols.Remove(sg.GetComponent<MeshCollider>());
+        }
+    }
+    // 止まっている島（FieldS〇）だけ作り直す（雪の分け方を変えた時）。すべる床の一覧・遠くの影の切り替えも入れかえ
+    public static string RebuildStaticsOnly(int snowSeed = 80)
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return "2–3 がない";
+        Transform Find(string n) => root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == n);
+        var s0 = Find("FieldS0"); var isl = s0.parent; var o = s0.localPosition; pathLayer = s0.gameObject.layer;
+        iceFlat = s0.GetComponent<MeshRenderer>().sharedMaterial;
+        var sn = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Snow" && t.GetComponent<MeshRenderer>()); snowLipMat = sn ? sn.GetComponent<MeshRenderer>().sharedMaterial : FuwaStage2WaterTest.ToonMat("Stage2_3_SnowLip", SnowLipCol);
+        icicleMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Icicle", IcicleCol);
+        var skate = root.GetComponentsInChildren<FuwaIceSkate>(true).FirstOrDefault();
+        iceCols.Clear(); foreach (var c in root.GetComponentsInChildren<MeshCollider>(true)) if (c.GetComponent<MeshRenderer>() && c.GetComponent<MeshRenderer>().sharedMaterial && c.GetComponent<MeshRenderer>().sharedMaterial.name.StartsWith("Course2_3_Ice")) iceCols.Add(c);
+        var oldCols = new List<Collider>(); var newCols = new List<Collider>(); var log = new List<string>();
+        var unscale = M2ApplyScale(M2_Scale);
+        recordDeco = IceLook; iceDeco.Clear();
+        try
+        {
+            var F = V4Make();
+            for (int i = 0; i < F.statics.Count; i++)
+            {
+                if (System.Array.FindIndex(V4_StaticSnow, q => q.s == i) < 0 && !Find("Field" + V4_Statics[i].n + "Snow")) continue;   // 雪のない島はさわらない
+                string nm = "Field" + V4_Statics[i].n; int sib = Find(nm).GetSiblingIndex();
+                foreach (var old in new[] { Find(nm), Find(nm + "Snow") }) if (old) { var oc = old.GetComponent<Collider>(); if (oc) { oldCols.Add(oc); iceCols.Remove(oc); } Object.DestroyImmediate(old.gameObject); }
+                V4StaticPieces(isl, o, F, i);
+                var gi = isl.Find(nm); gi.SetSiblingIndex(sib); newCols.Add(gi.GetComponent<Collider>());
+                log.Add(V4_Statics[i].n);
+            }
+            if (recordDeco) log.Add("雪のふち " + BuildIceDeco(Find("FieldSpin").parent, snowSeed));
+        }
+        finally { recordDeco = false; iceDeco.Clear(); unscale(); }
+        if (skate && skate.ice != null)
+        {
+            var l = skate.ice.Where(c => c != null && !oldCols.Contains(c)).ToList(); foreach (var c in newCols) if (!l.Contains(c)) l.Add(c);
+            skate.ice = l.ToArray(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(skate); EditorUtility.SetDirty(skate);
+        }
+        log.Add(AddFarShadows(root.transform));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.scene);
+        return "止まっている島を作り直した: " + string.Join(", ", log);
+    }
+    // 2–3 の流氷の場所（Field〇 の下）の影を落とす描画物を、遠くの影の切り替え（FarShadows）に足す。消えた物は外す
+    public static string AddFarShadows(Transform root)
+    {
+        var fs = Object.FindObjectsOfType<FuwaFarShadows>(true).FirstOrDefault(f => f.name == "FarShadows"); if (!fs) return "FarShadows がない";
+        var have = new HashSet<Renderer>(fs.targets.Where(r => r != null)); var add = new List<Renderer>();
+        foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+        {
+            bool field = false; for (var p = r.transform; p != null && p != root; p = p.parent) if (p.name.StartsWith("Field")) { field = true; break; }
+            if (!field || r.shadowCastingMode != UnityEngine.Rendering.ShadowCastingMode.On || have.Contains(r)) continue;
+            have.Add(r); add.Add(r);
+        }
+        Undo.RecordObject(fs, "FarShadows");
+        fs.targets = fs.targets.Where(r => r != null).Concat(add).ToArray();
+        EditorUtility.SetDirty(fs);
+        FuwaFarViewSetup.RefreshShadowCenters();
+        return "遠くの影に " + add.Count + " 個足した";
     }
     // 多角形を x = G(y) の曲線で 2 つに切る（曲線がふちと 2 回だけ交わる形用）。(x > G の側, x < G の側)。切り口は曲線にそって細かく
     static (List<Vector2> hi, List<Vector2> lo) SplitByCurve(List<Vector2> poly0, System.Func<float, float> G)
@@ -1823,10 +1922,10 @@ public static class FuwaCourse2_3Builder
         return Cut(Cut(poly, x0, false), x1, true);
     }
     // 回る橋の雪の板の材質：動く氷（模様が板にくっつく）の写しを雪の白に
-    static Material SnowMovingMat()
+    static Material SnowMovingMat() => SnowMat(MovingIceMat(), "Assets/FuwaStage2/Materials/Course2_3_SnowMoving.mat");
+    static Material SnowFlatMat() => SnowMat(iceFlat, "Assets/FuwaStage2/Materials/Course2_3_SnowFlat.mat");
+    static Material SnowMat(Material src, string mp)
     {
-        const string mp = "Assets/FuwaStage2/Materials/Course2_3_SnowMoving.mat";
-        var src = MovingIceMat();
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
         if (!mat) { mat = new Material(src); AssetDatabase.CreateAsset(mat, mp); }
         mat.CopyPropertiesFromMaterial(src);
@@ -2132,9 +2231,8 @@ public static class FuwaCourse2_3Builder
                 var mc = g.GetComponent<MeshCollider>(); if (mc) { mc.sharedMesh = null; mc.sharedMesh = m; }
                 EditorUtility.SetDirty(m); done++;
             }
-            for (int i = 0; i < F.statics.Count; i++) Redo("Field" + V4_Statics[i].n, F.statics[i], 9100 + i * 37, false, q => MapHeight(q));
-            foreach (var m in F.movers) Redo("Field" + m.n, m.body.Select(q => q - m.c).ToList(), 9300 + m.seed, true, q => 0f);
-            { var pv = Find("FieldSpin"); var keep = pv.localRotation; pv.localRotation = Quaternion.identity; Redo("FieldSpinIce", F.spin, 9500, true, q => 0f); pv.localRotation = keep; }
+            // 雪と分けた板（止まっている島・動く板・回る橋）はここでは作り直さない（RebuildStaticsOnly・RebuildMoversOnly・RebuildSpinOnly で）
+            for (int i = 0; i < F.statics.Count; i++) if (System.Array.FindIndex(V4_StaticSnow, q => q.s == i) < 0) Redo("Field" + V4_Statics[i].n, F.statics[i], 9100 + i * 37, false, q => MapHeight(q));
             for (int i = 0; i < V4_Floes.Length; i++)
             {
                 var f = V4_Floes[i]; Vector2 A = V4_Pads[f.a].c, B = V4_Pads[f.b].c; var mid = (A + B) * 0.5f; var u = (B - A).normalized;
@@ -2207,7 +2305,7 @@ public static class FuwaCourse2_3Builder
                 V4Obstacle(pv, "Obs" + (no++), v3, ob.crystal, ob.size, 30f + i * 47f, 0.1f);
             }
         }
-        for (int i = 0; i < F.statics.Count; i++) V4Piece(isl, "Field" + V4_Statics[i].n, o, F.statics[i], 9100 + i * 37, false, q => MapHeight(q));
+        for (int i = 0; i < F.statics.Count; i++) V4StaticPieces(isl, o, F, i);
         foreach (var m in F.movers)
         {
             var c3 = o + new Vector3(m.c.x, 0f, m.c.y); var d3 = new Vector3(m.d.x, 0f, m.d.y);
