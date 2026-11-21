@@ -24,7 +24,7 @@ public static class FuwaButtonCorners
         int n = 0;
         foreach (var img in imgs)
         {
-            if (img.sprite == null || img.sprite.name != "RoundedPanel" || img.type != UnityEngine.UI.Image.Type.Sliced) continue;
+            if (img.sprite == null || (img.sprite.name != "RoundedPanel" && img.sprite.name != "RoundedPanelGrad") || img.type != UnityEngine.UI.Image.Type.Sliced) continue;   // Grad＝グラデつきのボタン（FuwaButtonGradient）
             if (img.pixelsPerUnitMultiplier > 0.5f) continue;
             float h = ((RectTransform)img.transform).rect.height;
             if (h < 1f) continue;
