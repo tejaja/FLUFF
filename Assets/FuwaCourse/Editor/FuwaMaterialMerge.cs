@@ -68,6 +68,50 @@ public static class FuwaMaterialMerge
     static string Hash(string s) { unchecked { uint h = 2166136261; foreach (char c in s) { h ^= c; h *= 16777619; } return h.ToString("x8"); } }
 
     public static bool IncludeMoving = true;
+
+    // まとめたマテリアルの GPU インスタンシングを、元のマテリアルに合わせる（動く物で、元がオンだった数が多ければオン）。
+    //  2026-11-21 てじゃ「なんでバッチふえるんだろ」：動く物（同じ形のキノコ・草の茂みなど）は元のマテリアルのインスタンシングでまとめ描きされていたのに、
+    //  まとめたマテリアルはオフにしていたので batches が増えた（ステージ1の3・5 +70〜80）。全部オンだと 2–4・2–5 は逆に少し増えた → 元に合わせる
+    public static string MatchInstancing()
+    {
+        var rec = LoadRec(); var on = new Dictionary<Material, int>(); var off = new Dictionary<Material, int>();
+        // 1 個ずつ GlobalObjectIdentifierToObjectSlow で引くと何分も固まった → シーンの描画物の ID をまとめて作って引く。マテリアルは GUID から読む
+        var rs = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<MeshRenderer>(true)).ToArray();
+        var ids = new GlobalObjectId[rs.Length]; GlobalObjectId.GetGlobalObjectIdsSlow(rs, ids);
+        var byId = new Dictionary<string, MeshRenderer>(); for (int i = 0; i < rs.Length; i++) byId[ids[i].ToString()] = rs[i];
+        var matCache = new Dictionary<string, Material>();
+        Material Mat(string gidStr)
+        {
+            if (string.IsNullOrEmpty(gidStr)) return null;
+            if (matCache.TryGetValue(gidStr, out var mm)) return mm;
+            var parts = gidStr.Split('-'); mm = parts.Length > 3 ? AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(parts[2])) : null;
+            matCache[gidStr] = mm; return mm;
+        }
+        foreach (var it in rec.items)
+        {
+            if (!byId.TryGetValue(it.r, out var r) || !r) continue;
+            if (GameObjectUtility.AreStaticEditorFlagsSet(r.gameObject, StaticEditorFlags.BatchingStatic)) continue;
+            var cm = r.sharedMaterials;
+            for (int s = 0; s < cm.Length && s < it.mats.Length; s++)
+            {
+                var om = Mat(it.mats[s]); if (!cm[s] || !om || om == cm[s]) continue;
+                // ステージ2のコース（FuwaCourse2_*）の動く物は、測るとインスタンシングなしの方が軽かった（2–3 341↔458、2–4 788↔818 batches）→ オフに数える
+                bool st2 = r.transform.root.name.StartsWith("FuwaCourse2_");
+                var d = om.enableInstancing && !st2 ? on : off; d[cm[s]] = (d.TryGetValue(cm[s], out var v) ? v : 0) + 1;
+            }
+        }
+        var log = new List<string>();
+        foreach (var g in AssetDatabase.FindAssets("t:Material", new[] { Dir }))
+        {
+            var m = AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(g)); if (!m) continue;
+            int a = on.TryGetValue(m, out var x) ? x : 0, b = off.TryGetValue(m, out var y) ? y : 0;
+            bool want = a > b;
+            if (m.enableInstancing != want) { m.enableInstancing = want; EditorUtility.SetDirty(m); }
+            if (a + b > 0) log.Add(m.name + " " + (want ? "on" : "off") + "(" + a + "/" + b + ")");
+        }
+        AssetDatabase.SaveAssets();
+        return "インスタンシング: " + string.Join(", ", log);
+    }
     public static string Run(bool dry)
     {
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
@@ -122,7 +166,7 @@ public static class FuwaMaterialMerge
                 else merged.CopyPropertiesFromMaterial(first);
                 merged.name = "ToonLitVC_" + key;
                 merged.SetColor("_Color", Color.white); merged.SetFloat("_UseVertexColor", 1f); merged.EnableKeyword("_FUWA_VCOLOR");
-                merged.enableInstancing = false;
+                merged.enableInstancing = false;   // あとで MatchInstancing で元に合わせる
                 EditorUtility.SetDirty(merged);
             }
             foreach (var m in g) toMerged[m] = merged;
@@ -165,6 +209,7 @@ public static class FuwaMaterialMerge
         if (!dry)
         {
             SaveRec(rec);
+            Debug.Log(MatchInstancing());
             // 使わなくなったメッシュの写しを消す
             var keep = new HashSet<string>(meshCache.Values.Select(AssetDatabase.GetAssetPath));
             foreach (var g in AssetDatabase.FindAssets("t:Mesh", new[] { Dir })) { var pth = AssetDatabase.GUIDToAssetPath(g); if (!keep.Contains(pth)) AssetDatabase.DeleteAsset(pth); }
