@@ -188,8 +188,10 @@ public static class FuwaGramophoneBuilder
         {
             trackRow.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Icon").gameObject.SetActive(false);
             var ta = Find(trackRow, "TextA");
-            // 曲名は「2–4 はぐるまのしま」など長いので、M PLUS（字が全部ある）を太字で、入りきらなければ小さく
-            ta.font = mplus; ta.fontSharedMaterial = mplus.material; ta.fontStyle = TMPro.FontStyles.Bold;
+            // 曲名は「2–4 はぐるまのしま」など長いので、入りきらなければ小さく
+            // 2026-11-21 てじゃ「フォントかえよ」→ ほかのボタン（CAM・ME など）と同じ Darumadrop One（曲名はかなと数字だけなので全部ある。前は M PLUS の太字）
+            var daru = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/DarumadropOne SDF Dyn.asset");
+            ta.font = daru; ta.fontSharedMaterial = daru.material; ta.fontStyle = TMPro.FontStyles.Normal;
             { var m = ta.margin; ta.margin = new Vector4(m.x, m.y, m.z, Mathf.Max(0f, m.w - 40f)); }
             ta.enableAutoSizing = true; ta.fontSizeMin = 50f; ta.fontSizeMax = 130f; ta.enableWordWrapping = false;
             ta.text = Ja[0];
