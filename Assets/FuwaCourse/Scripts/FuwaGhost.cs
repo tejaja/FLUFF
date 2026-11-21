@@ -53,6 +53,18 @@ public class FuwaGhost : UdonSharpBehaviour
     [UdonSynced] private Quaternion _sRot = Quaternion.identity;
     [UdonSynced] private double _sTime;
 
+    [Header("おっかけカメラ：その人の画面の仕掛けの状態（2026-11-21 てじゃ「跳ね橋と回転床」）")]
+    [Tooltip("その人の跳ね橋の開き具合（FuwaWindmill.GetTurn）を送る")]
+    public FuwaWindmill[] syncWindmills;
+    [Tooltip("その人の回転床の向き（FuwaTurnTable.GetU、master のない物）を送る")]
+    public FuwaTurnTable[] syncTables;
+    [Tooltip("見ている自分がこれより近くにいる仕掛けは、自分のプレイ中なので合わせない(m)")]
+    public float gimOverrideMinDist = 60f;
+    [UdonSynced] private float[] _gim = new float[0];
+    private float[] _gimSent;
+    private float _nextGimCheck;
+    private bool _gimWatchedPrev;
+
     // 持ち主
     private Vector3 _prevPos;
     private Vector3 _vel;
@@ -158,6 +170,7 @@ public class FuwaGhost : UdonSharpBehaviour
         bool moving = _vel.magnitude > 0.05f;
         bool stateChanged = _hidden != _pHidden || _area != _pArea || _waiting != _pWaiting || _course != _pCourse || _stage != _pStage;
         bool kick = (_vel - _lastSentVel).magnitude > sendOnVelocityChange;
+        if (Time.time >= _nextGimCheck) { _nextGimCheck = Time.time + 0.25f; if (GimChanged()) stateChanged = true; }
         bool due = moving && Time.time >= _nextSend;
         bool stopped = !moving && _moving;   // 止まった瞬間にもう一度送って、止まった位置をそろえる
         _moving = moving;
@@ -172,6 +185,59 @@ public class FuwaGhost : UdonSharpBehaviour
     }
 
     public bool IsMine() { return _isMine; }
+
+    private int GimCount() { return (syncWindmills != null ? syncWindmills.Length : 0) + (syncTables != null ? syncTables.Length : 0); }
+    private float GimValue(int i)
+    {
+        int nw = syncWindmills != null ? syncWindmills.Length : 0;
+        if (i < nw) return syncWindmills[i] != null ? syncWindmills[i].GetTurn() : 0f;
+        FuwaTurnTable t = syncTables[i - nw];
+        return t != null ? t.GetU() : 0f;
+    }
+    // 持ち主：仕掛けの状態が送った時から変わったか（変わっていたら _gim を入れ直す）
+    private bool GimChanged()
+    {
+        int n = GimCount(); if (n == 0) return false;
+        if (_gim == null || _gim.Length != n) _gim = new float[n];
+        if (_gimSent == null || _gimSent.Length != n) { _gimSent = new float[n]; for (int i = 0; i < n; i++) _gimSent[i] = -99999f; }
+        bool ch = false;
+        for (int i = 0; i < n; i++)
+        {
+            float v = GimValue(i); _gim[i] = v;
+            if (Mathf.Abs(v - _gimSent[i]) > 1f) { ch = true; }
+        }
+        if (ch) for (int i = 0; i < n; i++) _gimSent[i] = _gim[i];
+        return ch;
+    }
+    // 見る側：おっかけカメラで映している間は、その人の仕掛けの状態で見せる（自分が近くにいる仕掛けは合わせない）
+    private void GimView()
+    {
+        int n = GimCount(); if (n == 0) return;
+        if (!watched) { if (_gimWatchedPrev) { _gimWatchedPrev = false; GimClear(); } return; }
+        _gimWatchedPrev = true;
+        VRCPlayerApi lp = Networking.LocalPlayer;
+        Vector3 me = lp != null ? lp.GetPosition() : Vector3.zero;
+        int nw = syncWindmills != null ? syncWindmills.Length : 0;
+        for (int i = 0; i < n; i++)
+        {
+            bool have = _gim != null && i < _gim.Length;
+            if (i < nw)
+            {
+                FuwaWindmill w = syncWindmills[i]; if (w == null) continue;
+                if (have && (w.transform.position - me).sqrMagnitude > gimOverrideMinDist * gimOverrideMinDist) w.SetViewOverride(_gim[i]); else w.ClearViewOverride();
+            }
+            else
+            {
+                FuwaTurnTable t = syncTables[i - nw]; if (t == null) continue;
+                if (have && (t.transform.position - me).sqrMagnitude > gimOverrideMinDist * gimOverrideMinDist) t.SetViewOverride(_gim[i]); else t.ClearViewOverride();
+            }
+        }
+    }
+    private void GimClear()
+    {
+        if (syncWindmills != null) for (int i = 0; i < syncWindmills.Length; i++) if (syncWindmills[i] != null) syncWindmills[i].ClearViewOverride();
+        if (syncTables != null) for (int i = 0; i < syncTables.Length; i++) if (syncTables[i] != null) syncTables[i].ClearViewOverride();
+    }
 
     // 見る側：見えていない間は動かさない（隠れている・浮いて待っている・まだ届いていない）。遠い時はときどきだけ。映している時はいつも
     private bool NeedViewUpdate()
@@ -245,6 +311,7 @@ public class FuwaGhost : UdonSharpBehaviour
     {
         if (_isMine && ball != null) OwnerUpdate();
         else if (!_isMine && NeedViewUpdate()) ViewUpdate();
+        if (!_isMine) GimView();
         if (!_isMine)
         {
             // 他のコース・ロビーの人の分身も出す（遠くで小さく飛んでいるのが見えるとにぎやか。負荷は小さい。てじゃ）。同じコースかは SameCourseAsMe で分かる

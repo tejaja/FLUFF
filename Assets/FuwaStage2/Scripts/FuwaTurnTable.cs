@@ -90,6 +90,23 @@ public class FuwaTurnTable : UdonSharpBehaviour
     public AudioSource endSound;
     private float _prevU; private int _lastClick; private float _loopV;
 
+    public float GetU() { return _u; }
+    // おっかけカメラで、ほかの人を映している間だけ、その人の画面の回転床の向きで見せる（FuwaGhost から。2026-11-21 てじゃ）。自分の _u は裏で進める。運ぶ・音はしない
+    private bool _ovOn; private float _ovU, _ovTarget;
+    public void SetViewOverride(float u)
+    {
+        if (!_ovOn) { _ovOn = true; _ovU = u; }
+        _ovTarget = u;
+    }
+    public void ClearViewOverride()
+    {
+        if (!_ovOn) return;
+        _ovOn = false; Apply(); _prevU = _u; _lastClick = ClickIndex();
+        if (table != null) _lastRot = table.rotation;
+        if (table2 != null) _lastRot2 = table2.rotation;
+        if (rack != null) _lastRackPos = rack.position;
+        if (rack2 != null) _lastRack2Pos = rack2.position;
+    }
     private void Start() { if (master != null) return; _u = startU; _prevU = _u; Apply(); _lastClick = ClickIndex(); }
 
     // 2つ目の羽根車から（u の速さで）
@@ -197,6 +214,12 @@ public class FuwaTurnTable : UdonSharpBehaviour
             // 行き止まり：止まる（はね返らない）
             if (_u < uMin) { _u = uMin; if (_w < 0f) _w = 0f; }
             if (_u > uMax) { _u = uMax; if (_w > 0f) _w = 0f; }
+        }
+        if (_ovOn)
+        {
+            _ovU = Mathf.MoveTowards(_ovU, _ovTarget, Mathf.Max(30f, Mathf.Abs(_ovTarget - _ovU) * 6f) * dt);
+            float keep = _u; _u = _ovU; Apply(); _u = keep;
+            return;
         }
         Apply();
         Carry();

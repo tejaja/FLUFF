@@ -55,6 +55,17 @@ public class FuwaWindmill : UdonSharpBehaviour
     }
 
     public float GetOpen() { return maxTurn > 0f ? _turn / maxTurn : 0f; }
+    public float GetTurn() { return _turn; }
+
+    // おっかけカメラで、ほかの人を映している間だけ、その人の画面の跳ね橋の開き具合で見せる（FuwaGhost から。2026-11-21 てじゃ）。
+    //  自分の回り具合（_turn）はそのまま裏で進める。やめたら自分のに戻す。音は鳴らさない
+    private bool _ovOn; private float _ovTurn, _ovTarget;
+    public void SetViewOverride(float turn)
+    {
+        if (!_ovOn) { _ovOn = true; _ovTurn = turn; }
+        _ovTarget = Mathf.Clamp(turn, 0f, maxTurn);
+    }
+    public void ClearViewOverride() { if (!_ovOn) return; _ovOn = false; ApplyTurn(_turn, false); _prevTurnS = _turn; _lastTooth = Mathf.FloorToInt(_turn / 22.5f); }
 
     private void Start() { Apply(); }
 
@@ -71,6 +82,12 @@ public class FuwaWindmill : UdonSharpBehaviour
         _turn += _vel * dt;
         if (_turn <= 0f) { _turn = 0f; if (_vel < 0f) _vel = 0f; }
         if (_turn >= maxTurn) { _turn = maxTurn; if (_vel > 0f) _vel = 0f; }
+        if (_ovOn)
+        {
+            _ovTurn = Mathf.MoveTowards(_ovTurn, _ovTarget, Mathf.Max(returnSpeed, Mathf.Abs(_ovTarget - _ovTurn) * 6f) * dt);
+            ApplyTurn(_ovTurn, false);
+            return;
+        }
         Apply();
         GuardYaw();
     }
@@ -97,18 +114,20 @@ public class FuwaWindmill : UdonSharpBehaviour
         _prevYaw = yaw; _onPrev = on;
     }
 
-    private void Apply()
+    private void Apply() { ApplyTurn(_turn, true); }
+    private void ApplyTurn(float turn, bool sounds)
     {
-        if (rotor != null) rotor.localRotation = Quaternion.Euler(0f, _turn, 0f);
+        if (rotor != null) rotor.localRotation = Quaternion.Euler(0f, turn, 0f);
         if (gears == null || gearRatio == null || gearPhase == null || gears.Length == 0) return;
         float r0 = gearRatio[0];
-        float u = r0 != 0f ? -_turn / r0 : 0f;
+        float u = r0 != 0f ? -turn / r0 : 0f;
         for (int i = 0; i < gears.Length; i++)
         {
             if (gears[i] == null) continue;
             float a = gearRatio[i] * u + gearPhase[i];
             gears[i].localRotation = Quaternion.Euler(0f, -a, 0f);
         }
+        if (!sounds) return;
         if (landSound != null && landSound.enabled && landSound.gameObject.activeInHierarchy && _turn >= maxTurn - 0.01f && _prevTurnS < maxTurn - 0.01f) landSound.Play();
         _prevTurnS = _turn;
         // 歯が1本進むごとにカチッ（風車の歯車の歯数ぶんで1周）
