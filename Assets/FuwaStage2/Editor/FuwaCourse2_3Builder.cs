@@ -1695,14 +1695,17 @@ public static class FuwaCourse2_3Builder
     static Collider V4SpinPieces(Transform pv, V4Field F)
     {
         float h = V4_SpinIceHalf;
-        var g = V4Piece(pv, "FieldSpinIce", Vector3.zero, ClipX(F.spin, -h, h), 9500, true, q => 0f);
-        var snow = SnowMovingMat(); int k = 0;
-        foreach (var part in new[] { ClipX(F.spin, -999f, -h), ClipX(F.spin, h, 999f) })
+        // さかいめはゆらゆら（2026-11-21 てじゃ「境界線が歪みがなさすぎ」）
+        var (snow1, rest) = SplitByCurve(F.spin, y => h + SnowWob(9501, y));
+        var (iceP, snow0) = SplitByCurve(rest, y => -h + SnowWob(9502, y));
+        var g = V4Piece(pv, "FieldSpinIce", Vector3.zero, iceP, 9500, true, q => 0f);
+        int k = 0;
+        foreach (var part in new[] { snow0, snow1 })
         {
             if (part.Count < 3) continue;
             var sg = V4Piece(pv, "FieldSpinSnow" + k, Vector3.zero, part, 9510 + k, true, q => 0f); k++;
             SnowTopOnly(sg, true);
-            iceCols.Remove(sg.GetComponent<MeshCollider>());
+            iceCols.Remove(sg.GetComponent<MeshCollider>()); SnowCap(sg, part, q => 0f, 9510 + k);
         }
         return g.GetComponent<MeshCollider>();
     }
@@ -1717,14 +1720,14 @@ public static class FuwaCourse2_3Builder
         var loc = body.Select(q => new Vector2(Vector2.Dot(q, u), Vector2.Dot(q, w))).ToList();
         float x0 = loc.Min(q => q.x), x1 = loc.Max(q => q.x), hw = Mathf.Max(0.5f, loc.Max(q => Mathf.Abs(q.y)));
         float xe = Mathf.Lerp(x0, x1, 0.5f + V4_MoverSnowAt * 0.5f);
-        System.Func<float, float> G = y => xe + V4_MoverSnowArc * (1f - Mathf.Min(1f, (y / hw) * (y / hw)));
+        System.Func<float, float> G = y => xe + V4_MoverSnowArc * (1f - Mathf.Min(1f, (y / hw) * (y / hw))) + SnowWob(seed, y);
         var (snowL, iceL) = SplitByCurve(loc, G);
         // 動く床には雪のふちの飾りを付けない（2026-11-21 てじゃ「紛らわしいから移動床のとこの飾りの白い部分はけそう」）
         bool keepDeco = recordDeco; recordDeco = false;
         System.Func<List<Vector2>, List<Vector2>> back = P => P.Select(q => u * q.x + w * q.y).ToList();
         var ices = new List<Collider>();
         var sg = V4Piece(mv, "Field" + n + "Snow", Vector3.zero, back(snowL), seed, true, q => 0f);
-        SnowTopOnly(sg, true); iceCols.Remove(sg.GetComponent<MeshCollider>());
+        SnowTopOnly(sg, true); iceCols.Remove(sg.GetComponent<MeshCollider>()); SnowCap(sg, back(snowL), q => 0f, seed);
         var g = V4Piece(mv, "Field" + n, Vector3.zero, back(iceL), seed + 1, true, q => 0f);
         ices.Add(g.GetComponent<MeshCollider>());
         recordDeco = keepDeco;
@@ -1741,7 +1744,57 @@ public static class FuwaCourse2_3Builder
             (nrm.y > 0.6f ? top : other).AddRange(new[] { tri[i], tri[i + 1], tri[i + 2] });
         }
         m.subMeshCount = 2; m.SetTriangles(top, 0); m.SetTriangles(other, 1); EditorUtility.SetDirty(m);
-        g.GetComponent<MeshRenderer>().sharedMaterials = moving ? new[] { SnowMovingMat(), MovingIceMat() } : new[] { SnowFlatMat(), iceFlat };
+        g.GetComponent<MeshRenderer>().sharedMaterials = new[] { snowLipMat, moving ? MovingIceMat() : iceFlat };
+    }
+    // 雪の層：雪の板の上にふっくら積もった薄い層（ふちへなだらかに薄く、少しデコボコ）。当たりもこの層（すべらない床）
+    //  2026-11-21 てじゃ「雪の見た目が雪っぽくない」→ 氷の模様を白くしただけだったのを、盛り上がった雪に
+    public static float SnowCapH = 0.09f, SnowCapMin = 0.02f, SnowCapEdge = 0.5f, SnowCapBump = 0.03f, SnowCapBumpScale = 0.8f, SnowCapCell = 0.3f;
+    public static float SnowWobAmp = 0.7f, SnowWobFreq = 0.8f;   // さかいめのゆらぎ（m・1m あたりの細かさ）
+    static float SnowWob(int seed, float y) => SnowWobAmp * ((RNoise(seed + 300, y * SnowWobFreq) - 0.5f) * 2.4f);
+    static void SnowCap(GameObject slab, List<Vector2> outline, System.Func<Vector2, float> topH, int seed)
+    {
+        var old = slab.transform.Find("SnowCap"); if (old) Object.DestroyImmediate(old.gameObject);
+        int n = outline.Count; if (n < 3) return;
+        var es = new List<(Vector2 a, Vector2 b)>(); for (int i = 0; i < n; i++) es.Add((outline[i], outline[(i + 1) % n]));
+        float Dist(Vector2 p) { float d = float.MaxValue; foreach (var e in es) { var ab = e.b - e.a; float t = Mathf.Clamp01(Vector2.Dot(p - e.a, ab) / Mathf.Max(1e-6f, ab.sqrMagnitude)); d = Mathf.Min(d, (p - (e.a + ab * t)).magnitude); } return d; }
+        float sx = seed * 0.37f % 50f, sz = seed * 0.61f % 50f;
+        float Hgt(Vector2 p)
+        {
+            float e = Mathf.Clamp01(Dist(p) / SnowCapEdge); e = e * e * (3f - 2f * e);
+            float bump = (Mathf.PerlinNoise(p.x / SnowCapBumpScale + sx, p.y / SnowCapBumpScale + sz) - 0.5f) * 2f * SnowCapBump * e;
+            return topH(p) + SnowCapMin + (SnowCapH - SnowCapMin) * e + bump;
+        }
+        float x0 = outline.Min(q => q.x), x1 = outline.Max(q => q.x), z0 = outline.Min(q => q.y), z1 = outline.Max(q => q.y);
+        var cache = new Dictionary<Vector2Int, (Vector3 p, Vector3 nrm)>();
+        Vector3 Nrm(Vector2 p) { const float d = 0.05f; float hx = Hgt(p + new Vector2(d, 0f)) - Hgt(p - new Vector2(d, 0f)), hz = Hgt(p + new Vector2(0f, d)) - Hgt(p - new Vector2(0f, d)); return new Vector3(-hx, 2f * d, -hz).normalized; }
+        var V = new List<Vector3>(); var N = new List<Vector3>(); var T = new List<int>();
+        int Add(Vector2 p) { var k = new Vector2Int(Mathf.RoundToInt(p.x * 1000f), Mathf.RoundToInt(p.y * 1000f)); if (!cache.TryGetValue(k, out var v)) { v = (new Vector3(p.x, Hgt(p), p.y), Nrm(p)); cache[k] = v; } V.Add(v.p); N.Add(v.nrm); return V.Count - 1; }
+        float c = SnowCapCell;
+        for (float x = x0; x < x1; x += c)
+            for (float z = z0; z < z1; z += c)
+            {
+                var piece = ClipX(outline, x, x + c); if (piece.Count < 3) continue;
+                piece = ClipY(piece, z, z + c); if (piece.Count < 3) continue;
+                var ctr = Vector2.zero; foreach (var q in piece) ctr += q; ctr /= piece.Count;
+                float ar = 0f; for (int i = 0; i < piece.Count; i++) { var a = piece[i]; var b = piece[(i + 1) % piece.Count]; ar += a.x * b.y - b.x * a.y; }
+                if (Mathf.Abs(ar) < 1e-5f) continue;
+                int ic = Add(ctr);
+                for (int i = 0; i < piece.Count; i++)
+                {
+                    int ia = Add(piece[i]), ib = Add(piece[(i + 1) % piece.Count]);
+                    if (ar > 0f) { T.Add(ic); T.Add(ib); T.Add(ia); } else { T.Add(ic); T.Add(ia); T.Add(ib); }   // 上向き
+                }
+            }
+        var m = NewMesh(slab.name + "_SnowCap"); m.indexFormat = V.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+        m.SetVertices(V); m.SetNormals(N); m.SetTriangles(T, 0); m.RecalculateBounds(); EditorUtility.SetDirty(m);
+        var o = new GameObject("SnowCap"); o.transform.SetParent(slab.transform, false); o.layer = slab.layer;
+        o.AddComponent<MeshFilter>().sharedMesh = m; o.AddComponent<MeshRenderer>().sharedMaterial = snowLipMat;
+        o.AddComponent<MeshCollider>().sharedMesh = m;
+    }
+    static List<Vector2> ClipY(List<Vector2> poly, float y0, float y1)
+    {
+        var sw = poly.Select(q => new Vector2(q.y, q.x)).ToList();
+        return ClipX(sw, y0, y1).Select(q => new Vector2(q.y, q.x)).ToList();
     }
     // 止まっている島の雪：(島の番号, さかいめの位置 0〜1（入ってくる側のはし 0〜出ていく側 1）, 弧 m（＋で「)」＝まん中が奥へ）)
     //  2026-11-21 てじゃの絵（上から見た図に赤線、左がゴール）：S0・S1・まるい S2 のゴール側。S3（最後）はなし
@@ -1767,7 +1820,8 @@ public static class FuwaCourse2_3Builder
         var loc = poly.Select(q => new Vector2(Vector2.Dot(q, u), Vector2.Dot(q, w))).ToList();
         float x0 = loc.Min(q => q.x), x1 = loc.Max(q => q.x), yc = (loc.Min(q => q.y) + loc.Max(q => q.y)) * 0.5f, hw = Mathf.Max(0.5f, (loc.Max(q => q.y) - loc.Min(q => q.y)) * 0.5f);
         float xb = Mathf.Lerp(x0, x1, spec.at);
-        System.Func<float, float> G = y => xb + spec.arc * (1f - Mathf.Min(1f, ((y - yc) / hw) * ((y - yc) / hw)));
+        int ws = 9100 + i * 37;
+        System.Func<float, float> G = y => xb + spec.arc * (1f - Mathf.Min(1f, ((y - yc) / hw) * ((y - yc) / hw))) + SnowWob(ws, y);
         try
         {
             var (snowL, iceL) = SplitByCurve(loc, G);
@@ -1784,7 +1838,7 @@ public static class FuwaCourse2_3Builder
         if (snow != null)
         {
             var sg = V4Piece(isl, nm + "Snow", o, snow, seed + 5, false, q => MapHeight(q));
-            SnowTopOnly(sg, false); iceCols.Remove(sg.GetComponent<MeshCollider>());
+            SnowTopOnly(sg, false); iceCols.Remove(sg.GetComponent<MeshCollider>()); SnowCap(sg, snow, q => MapHeight(q), seed + 5);
         }
     }
     // 止まっている島（FieldS〇）だけ作り直す（雪の分け方を変えた時）。すべる床の一覧・遠くの影の切り替えも入れかえ
