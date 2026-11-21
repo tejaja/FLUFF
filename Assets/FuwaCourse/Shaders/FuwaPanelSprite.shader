@@ -16,6 +16,10 @@ Shader "Fuwa/PanelSprite"
         // 9分割の絵なので uv.y はふちの所で速く変わる → ふち（_GradBorder＝絵のふちの割合）の内側だけで 0〜1 になるようにならす
         _Grad ("Gradient (下を何割暗く)", Range(0, 0.3)) = 0
         _GradBorder ("Gradient Border (9分割のふち、uv の割合)", Range(0, 0.49)) = 0.25
+        // 下の色：黒に寄せるとくすむので（てじゃ「黒だとくすんでみえる」）、色味のある影にする。
+        //  _GradSelf=1 なら自分の色を掛ける（濃く・あざやかに。色の枠向け）、0 なら _GradColor を掛ける（白い板向け、うすい青むらさき）
+        _GradColor ("Gradient Shade Color", Color) = (0.8, 0.82, 0.96, 1)
+        _GradSelf ("Gradient Self Tint (0=_GradColor, 1=自分の色)", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -37,7 +41,8 @@ Shader "Fuwa/PanelSprite"
             sampler2D _MainTex;
             fixed4 _Color;
             fixed _Cutoff;
-            half _Grad, _GradBorder;
+            half _Grad, _GradBorder, _GradSelf;
+            fixed4 _GradColor;
 
             struct appdata
             {
@@ -72,7 +77,8 @@ Shader "Fuwa/PanelSprite"
             {
                 fixed4 c = tex2D(_MainTex, i.uv) * i.color;
                 half gt = saturate((i.uv.y - _GradBorder) / max(1e-3, 1 - 2 * _GradBorder));   // 下 0 〜 上 1
-                c.rgb *= 1 - _Grad * (1 - gt);
+                half3 shade = lerp(_GradColor.rgb, c.rgb, _GradSelf);   // 影の色（掛ける）
+                c.rgb *= lerp(half3(1, 1, 1), shade, _Grad * (1 - gt));
                 // 角丸の外側（ほぼ透明な所）は捨てて、奥行きも書かない
                 clip(c.a - _Cutoff);
                 UNITY_APPLY_FOG(i.fogCoord, c);
