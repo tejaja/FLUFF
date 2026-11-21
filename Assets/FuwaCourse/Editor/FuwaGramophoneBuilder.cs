@@ -17,17 +17,17 @@ public static class FuwaGramophoneBuilder
     // ボタンの色（蓄音機の木に合わせた茶色）。Theme＝帯・文字、Dark＝押した時・矢印に乗った時、Idle＝OFF の文字
     static readonly Color Theme = new Color(0.66f, 0.45f, 0.32f), ThemeDark = new Color(0.45f, 0.28f, 0.18f), ThemeIdle = new Color(0.64f, 0.58f, 0.54f);
     const float TrackHeadCut = 250f;    // 曲名の段：左の見出し（♪）を詰める幅（CAM の単位）
-    const float VolumeWidth = 1920f;     // 音量バーの横幅（曲名の段とそろえる。CAM の単位）
+    // 下の段（2026-11-21 てじゃ「下のBGMバー撤去、代わりに再生 停止ボタン、蓄音機専用ボリュームバー」）：▶ ■ ＋ 音量バー。世界での大きさ(m)、全体の幅は曲名の段（0.72m）とそろえる
+    const float Row2H = 0.13f, BtnW = 0.15f, Gap = 0.02f, RowW = 0.72f;
 
-    // えらべる曲（FuwaBgm.tracks の番号）。最後（おまけ）は全クリ後
-    // 2026-11-21 てじゃ「おまかせってなに？」「そもそもロビーと同じ」→おまかせは消して先頭をロビーに
-    // 最後は BGMなし（-2。2026-11-21 てじゃ「BGMなしもいれとこ」）。おまけ（LockedIndex）は全クリ後だけ出る
-    static readonly int[] Tracks = { 0, 6, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 7, 14, -2 };
-    const int LockedIndex = 13;
-    static readonly string[] Ja = { "ロビー", "れんしゅう", "1 かぜのおか", "2 いわのみち", "3 やみのもり", "4 まもののす", "5 きのこのたに",
-        "2–1 みずのこみち", "2–2 ほのおのやま", "2–3 こおりのみち", "2–4 はぐるまのしま", "2–5 そらのいせき", "ゴールのあと", "おまけ", "BGMなし" };
-    static readonly string[] En = { "Lobby", "Practice", "1 Windy Hill", "2 Rock Road", "3 Dark Forest", "4 Monster Den", "5 Mushroom Valley",
-        "2-1 Water Path", "2-2 Flame Mountain", "2-3 Ice Road", "2-4 Gear Isles", "2-5 Sky Ruins", "After the goal", "Bonus", "No music" };
+    // えらべる曲（FuwaBgm.tracks の番号）。おまけ（LockedIndex）は全クリ後だけ出る
+    // 2026-11-21 てじゃ「おまかせってなに？」→おまかせは削除。同じ日「BGMなしは削除」「ロビー曲はリストの最後に変更」
+    static readonly int[] Tracks = { 6, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 7, 14, 0 };
+    const int LockedIndex = 12;
+    static readonly string[] Ja = { "れんしゅう", "1 かぜのおか", "2 いわのみち", "3 やみのもり", "4 まもののす", "5 きのこのたに",
+        "2–1 みずのこみち", "2–2 ほのおのやま", "2–3 こおりのみち", "2–4 はぐるまのしま", "2–5 そらのいせき", "ゴールのあと", "おまけ", "ロビー" };
+    static readonly string[] En = { "Practice", "1 Windy Hill", "2 Rock Road", "3 Dark Forest", "4 Monster Den", "5 Mushroom Valley",
+        "2-1 Water Path", "2-2 Flame Mountain", "2-3 Ice Road", "2-4 Gear Isles", "2-5 Sky Ruins", "After the goal", "Bonus", "Lobby" };
 
     static Material Mat(string name, Color c, bool metal = false)
     {
@@ -118,7 +118,7 @@ public static class FuwaGramophoneBuilder
 
         // ボタン：テレビの「CAM」と同じ形（左に見出し・右の白い札に ◀ 今の値 ▶、つながった1本で真ん中で区切る）をコピーする
         //（2026-11-21 てじゃ「ほかの切り替えボタンみたいにボタンとタイトルがつながってて真ん中で区切ってるタイプにしよ」）
-        //  上の段：◀ 曲名 ▶（右半分で次、左半分で前）／下の段：音量バー
+        //  上の段：◀ 曲名 ▶（右半分で次、左半分で前）／下の段：▶再生 ■停止 ＋ 蓄音機の音量バー
         // 前の3Dのボタン・レバー・札は隠す
         foreach (var n in new[] { "Gramo_BtnPrev", "Gramo_BtnNext", "Gramo_SwitchBase", "Gramo_SwitchLever", "Gramo_Plate" }) { var t = F(n); if (t != null) t.gameObject.SetActive(false); }
         UdonSharpEditorUtility.CopyProxyToUdon(gm);
@@ -194,29 +194,75 @@ public static class FuwaGramophoneBuilder
             ta.text = Ja[0];
             gm.trackText = ta;
         }
-        // 下の段：音量バー（2026-11-21 てじゃ「ボリューム調整が遠いのがきにいらない」「動画優先の場所がボリュームがしっくりくる」）
-        // あそびばの設定ボードの音量バーの写し。FuwaBgm.volumeSliders に足すので、どっちで動かしても同じ音量（ボードのも残す）
+        // 下の段：▶再生 ■停止 ＋ 蓄音機専用の音量バー（ワールドのBGM音量とは別）
+        var row2 = T.TransformPoint(new Vector3(0f, 0.165f, 0.398f));
+        var right = front * Vector3.right;   // 見る人から見て右
+        var panelSprite = srcCam.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Button").sprite;
+        (UnityEngine.UI.Image back, TMPro.TextMeshProUGUI icon) Btn(string name, float x, string glyph, string evt)
+        {
+            var go = new GameObject(name); go.transform.SetParent(T, false);
+            go.transform.SetPositionAndRotation(row2 + right * x, front);
+            var cvGo = new GameObject("Canvas", typeof(RectTransform), typeof(Canvas), typeof(UnityEngine.UI.CanvasScaler), typeof(UnityEngine.UI.GraphicRaycaster));
+            cvGo.transform.SetParent(go.transform, false);
+            cvGo.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+            var cv = (RectTransform)cvGo.transform; cv.sizeDelta = new Vector2(400f * BtnW / Row2H, 400f); cv.localScale = Vector3.one * 0.001f;
+            go.transform.localScale = Vector3.one * (Row2H / 0.4f / T.lossyScale.x);
+            cvGo.AddComponent<VRC.SDK3.Components.VRCUiShape>();
+            var bc = cvGo.AddComponent<BoxCollider>(); bc.size = new Vector3(cv.sizeDelta.x, cv.sizeDelta.y, 10f); bc.isTrigger = true;
+            var bGo = new GameObject("Button", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button)); bGo.transform.SetParent(cvGo.transform, false);
+            var brt = (RectTransform)bGo.transform; brt.anchorMin = Vector2.zero; brt.anchorMax = Vector2.one; brt.offsetMin = Vector2.zero; brt.offsetMax = Vector2.zero;
+            var img = bGo.GetComponent<UnityEngine.UI.Image>(); img.sprite = panelSprite; img.type = UnityEngine.UI.Image.Type.Sliced; img.pixelsPerUnitMultiplier = 0.22f; img.color = Theme;   // 角を丸く（曲名の段の帯と同じ絵）
+            var b = bGo.GetComponent<UnityEngine.UI.Button>();
+            var cb = b.colors; cb.normalColor = Color.white; cb.selectedColor = Color.white; cb.highlightedColor = new Color(0.9f, 0.9f, 0.9f); cb.pressedColor = new Color(0.75f, 0.75f, 0.75f); cb.colorMultiplier = 1f; b.colors = cb;
+            SetEvent(b, evt);
+            var tGo = new GameObject("Icon", typeof(RectTransform), typeof(TMPro.TextMeshProUGUI)); tGo.transform.SetParent(bGo.transform, false);
+            var trt = (RectTransform)tGo.transform; trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one; trt.offsetMin = Vector2.zero; trt.offsetMax = Vector2.zero;
+            var t = tGo.GetComponent<TMPro.TextMeshProUGUI>(); t.font = mplus; t.fontSharedMaterial = mplus.material; t.text = glyph; t.fontSize = 200f;
+            t.alignment = TMPro.TextAlignmentOptions.Center; t.color = Color.white; t.raycastTarget = false;
+            return (img, t);
+        }
+        float x0 = -RowW / 2f;
+        var play = Btn("PlayButton", x0 + BtnW / 2f, "▶", nameof(FuwaGramophone.PlayGramo));
+        var stop = Btn("StopButton", x0 + BtnW * 1.5f + Gap, "■", nameof(FuwaGramophone.StopGramo));
+        gm.playBack = play.back; gm.playIcon = play.icon; gm.stopBack = stop.back; gm.stopIcon = stop.icon;
+        gm.onBack = Theme; gm.offBack = new Color(0.95f, 0.9f, 0.86f); gm.onIcon = Color.white; gm.offIcon = Theme;
+        // 停止中の見た目（■を塗る）
+        play.back.color = gm.offBack; play.icon.color = gm.offIcon; stop.back.color = gm.onBack; stop.icon.color = gm.onIcon;
+
+        // 音量バー：あそびばの設定ボードの音量バーの写し（見た目そのまま）。動かすと蓄音機の音量だけ変わる（FuwaBgm.volumeSliders には入れない）
         var srcVol = pg.transform.Find("HowToPlay/BgmVolume");
         if (srcVol != null)
         {
+            float vw = RowW - BtnW * 2f - Gap * 2f;
             var v = Object.Instantiate(srcVol.gameObject, T, false).transform; v.name = "VolumeBar";
-            v.SetPositionAndRotation(T.TransformPoint(new Vector3(0f, 0.165f, 0.398f)), front);
+            v.SetPositionAndRotation(row2 + right * (RowW / 2f - vw / 2f), front);
             var cv = (RectTransform)v.Find("Canvas");
-            cv.sizeDelta = new Vector2(VolumeWidth, cv.sizeDelta.y);
+            cv.sizeDelta = new Vector2(cv.sizeDelta.y * vw / Row2H, cv.sizeDelta.y);
             var box = cv.GetComponent<BoxCollider>(); if (box != null) box.size = new Vector3(cv.sizeDelta.x, cv.sizeDelta.y, box.size.z);
-            float k = 0.15f / (cv.sizeDelta.y * cv.localScale.y);
+            float k = Row2H / (cv.sizeDelta.y * cv.localScale.y);
             v.localScale = Vector3.one * (k / T.lossyScale.x);
-            // 色はほかの音量バーのまま（2026-11-21 てじゃ「ボリュームはかえなくていいよ」）
+            // ♪ はただの絵に（元はワールドのBGMのミュートボタン）
+            foreach (var bt in v.GetComponentsInChildren<UnityEngine.UI.Button>(true)) Object.DestroyImmediate(bt);
             var sl = v.GetComponentInChildren<UnityEngine.UI.Slider>(true);
-            if (bgm != null && sl != null)
+            sl.wholeNumbers = false; sl.minValue = 0f; sl.maxValue = 1f; sl.SetValueWithoutNotify(gm.defaultVolume);   // 元は 0〜100 の整数
             {
-                var list = (bgm.volumeSliders ?? new UnityEngine.UI.Slider[0]).Where(x => x != null).ToList();
-                if (!list.Contains(sl)) list.Add(sl);
-                bgm.volumeSliders = list.ToArray();
+                var so = new SerializedObject(sl);
+                var calls = so.FindProperty("m_OnValueChanged.m_PersistentCalls.m_Calls");
+                calls.arraySize = 1;
+                var c0 = calls.GetArrayElementAtIndex(0);
+                c0.FindPropertyRelative("m_Target").objectReferenceValue = ugm;
+                c0.FindPropertyRelative("m_TargetAssemblyTypeName").stringValue = "VRC.Udon.UdonBehaviour, VRC.Udon";
+                c0.FindPropertyRelative("m_MethodName").stringValue = "SendCustomEvent";
+                c0.FindPropertyRelative("m_Mode").intValue = 5;
+                c0.FindPropertyRelative("m_Arguments.m_StringArgument").stringValue = nameof(FuwaGramophone.OnVolume);
+                c0.FindPropertyRelative("m_CallState").intValue = 2;
+                so.ApplyModifiedPropertiesWithoutUndo();
             }
+            gm.volumeSlider = sl;
         }
+        // ワールドのBGMの音量バーの一覧から、前の版の蓄音機のバー（消えて null）を外す
+        if (bgm != null && bgm.volumeSliders != null) bgm.volumeSliders = bgm.volumeSliders.Where(x => x != null).ToArray();
 
-        // 動画優先（動画の間BGMを止める）は、テレビの操作パネルの「Auto BGM OFF」に移した（2026-11-21 てじゃ「いっそプレイヤーのUI側にいれるか」。FuwaTvVideoBuilder.AddAutoBgmButton）
         gm.activeTextColor = Theme; gm.idleTextColor = ThemeIdle;
         gm.trackText.color = gm.activeTextColor;
         UdonSharpEditorUtility.CopyProxyToUdon(gm);

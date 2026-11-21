@@ -58,7 +58,9 @@ public class FuwaBgm : UdonSharpBehaviour
                 foreach (UnityEngine.UI.Slider sl in volumeSliders) if (sl != null) sl.SetValueWithoutNotify(_userPercent);
             UpdateVolumeLabels();
         }
-        if (PlayerData.HasKey(player, "bgm_keep_video")) keepDuringVideo = PlayerData.GetBool(player, "bgm_keep_video");
+        // 蓄音機（あそびばは隠れていて蓄音機のスクリプトは読み込みを受け取れないので、ここで読んでおく。FuwaGramophone が写す）
+        if (PlayerData.HasKey(player, "gramo_track")) gramoSavedTrack = PlayerData.GetInt(player, "gramo_track");
+        if (PlayerData.HasKey(player, "gramo_volume")) gramoVolume = Mathf.Clamp01(PlayerData.GetFloat(player, "gramo_volume"));
         // おまけ本島に行ったことがあれば、おまけ入口島ではもう曲を切り替えない（stickyAfterGoal のコースを全部）
         if (PlayerData.HasKey(player, "bgm_sticky") && PlayerData.GetBool(player, "bgm_sticky") && stickyAfterGoal != null && starts != null)
         {
@@ -117,7 +119,12 @@ public class FuwaBgm : UdonSharpBehaviour
         int ts = s.timeSamples;
         if (ts >= end) s.timeSamples = ts - (end - st);
     }
-    private float VolOf(int i) { return Mathf.Clamp01(Vol() * (trackGains != null && i < trackGains.Length && trackGains[i] > 0f ? trackGains[i] : 1f)); }
+    // 蓄音機で鳴らしている曲は、蓄音機の音量（ワールドのBGM音量とは別。2026-11-21 てじゃ「蓄音機専用ボリュームバーはワールドボリュームとは独立」）
+    private float VolOf(int i)
+    {
+        float v = (GramoActive() && i == overrideTrack) ? volume * Mathf.Clamp01(gramoVolume) : Vol();
+        return Mathf.Clamp01(v * (trackGains != null && i < trackGains.Length && trackGains[i] > 0f ? trackGains[i] : 1f));
+    }
 
     // 音量バーが動かされた時に呼ばれる（どのバーかは、今の値と違うものを探す）
     public void OnVolumeSlider()
@@ -226,23 +233,31 @@ public class FuwaBgm : UdonSharpBehaviour
     [HideInInspector] public bool externalSilence;
 
     [Header("あそびばの蓄音機（2026-11-20 てじゃ「あそびばのBGM変更モード」、自分だけ）")]
-    [Tooltip("蓄音機で選んだ曲（tracks の番号、-1 ならいつもの曲、-2 ならBGMなし）。overrideArea にいる間だけ効く")]
+    // 2026-11-21 てじゃの仕様：デフォは停止、えらんだだけでは鳴らない。▶で鳴らすとロビーの曲の代わりにその曲（あそびばにいる間だけ）。
+    //  動画が流れている間（externalSilence）もロビーの曲は止まるが、蓄音機の曲は止めない。音量は蓄音機の音量バー（gramoVolume）
+    [Tooltip("蓄音機でえらんだ曲（tracks の番号、-1 ならなし）")]
     [HideInInspector] public int overrideTrack = -1;
+    [Tooltip("蓄音機を再生中（▶）")]
+    [HideInInspector] public bool gramoPlaying;
+    [Tooltip("蓄音機の音量（0〜1）。ワールドのBGM音量とは別")]
+    [HideInInspector] public float gramoVolume = 0.6f;
     [Tooltip("蓄音機の曲が効く場所（あそびばの BallPark）")]
     public Transform overrideArea;
-    [Tooltip("true なら動画の再生中・テレビを動画にしている間もBGMを止めない（蓄音機のスイッチ、デフォは止める）")]
-    [HideInInspector] public bool keepDuringVideo;
+    [Tooltip("保存してあった蓄音機の曲（tracks の番号、-1 ならなし）")]
+    [HideInInspector] public int gramoSavedTrack = -1;
+    public bool IsRestored() { return _restored; }
 
-    // テレビの操作パネルの「Auto BGM OFF」から（ON＝動画の間BGMを止める＝keepDuringVideo が false）。保存もする（2026-11-21 てじゃ「設定って保存てされてるんだっけ」）
-    public void SetKeepDuringVideo(bool v)
+    // 蓄音機の曲が鳴る状態か（再生中・曲がある・あそびばにいる）
+    private bool GramoActive()
     {
-        keepDuringVideo = v;
-        if (_restored) PlayerData.SetBool("bgm_keep_video", v);
+        return gramoPlaying && overrideTrack >= 0 && tracks != null && overrideTrack < tracks.Length
+            && overrideArea != null && ball != null && ball.startPoint == overrideArea;
     }
-
-    private bool Silenced() { return externalSilence && !keepDuringVideo; }
-    // 今BGMが鳴っているか（蓄音機のレコードを回す用）
+    private bool Silenced() { return externalSilence && !GramoActive(); }
+    // 今BGMが鳴っているか
     public bool IsAudible() { return !_muted && !Silenced() && _current >= 0 && _current < tracks.Length && _fanfareUntil <= 0f; }
+    // 蓄音機の曲が鳴っているか（レコードを回す用）
+    public bool IsGramoAudible() { return GramoActive() && _current == overrideTrack && _fanfareUntil <= 0f; }
     public int CurrentTrack() { return _current; }
 
     [Tooltip("保存した音量を読み込むまで（OnPlayerRestored）曲を鳴らさずに待つ最大秒数。待たないと入った直後に一瞬いつもの音量で鳴る")]
@@ -303,12 +318,8 @@ public class FuwaBgm : UdonSharpBehaviour
     private int FindTrack()
     {
         if (ball == null || starts == null) return 0;
-        // 蓄音機で選んだ曲：あそびばにいる間だけ
-        if (overrideArea != null && ball.startPoint == overrideArea)
-        {
-            if (overrideTrack >= 0 && overrideTrack < tracks.Length) return overrideTrack;
-            if (overrideTrack == -2) return tracks.Length;   // BGMなし（どの曲の番号でもない＝全部フェードアウト）（2026-11-21 てじゃ「BGMなしもいれとこ」）
-        }
+        // 蓄音機で再生中の曲：あそびばにいる間だけ
+        if (GramoActive()) return overrideTrack;
         if (_afterGoal)
         {
             // 次の挑戦を始めた（タイム計測が始まった）か、別の場所に移ったら元の曲へ
