@@ -19,6 +19,7 @@ public static class FuwaGramophoneBuilder
     const float TrackHeadCut = 250f;    // 曲名の段：左の見出し（♪）を詰める幅（CAM の単位）
     // 下の段（2026-11-21 てじゃ「下のBGMバー撤去、代わりに再生 停止ボタン、蓄音機専用ボリュームバー」）：▶ ■ ＋ 音量バー。世界での大きさ(m)、全体の幅は曲名の段（0.72m）とそろえる
     const float Row2H = 0.13f, BtnW = 0.15f, Gap = 0.02f, RowW = 0.72f;
+    const float CornerPpum = 0.22f;   // 丸めの四角の角（RoundedPanel、高さ 400 の Canvas で）
 
     // えらべる曲（FuwaBgm.tracks の番号）。おまけ（LockedIndex）は全クリ後だけ出る
     // 2026-11-21 てじゃ「おまかせってなに？」→おまかせは削除。同じ日「BGMなしは削除」「ロビー曲はリストの最後に変更」
@@ -193,6 +194,23 @@ public static class FuwaGramophoneBuilder
             ta.enableAutoSizing = true; ta.fontSizeMin = 50f; ta.fontSizeMax = 130f; ta.enableWordWrapping = false;
             ta.text = Ja[0];
             gm.trackText = ta;
+            // 2026-11-21 てじゃ「上の曲選択もこの枠（▶■みたいな丸めの四角）にして、白背景なしにして両端にもうすこし大きめの三角、文字は白文字」
+            var cvT = (RectTransform)trackRow.Find("Canvas"); float W = cvT.sizeDelta.x;
+            var bImg = trackRow.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Button");
+            bImg.pixelsPerUnitMultiplier = CornerPpum * 0.15f / Row2H;   // 角の丸みを下の段と同じ大きさに（この段は 0.15m、下は 0.13m）
+            trackRow.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "PillA").gameObject.SetActive(false);
+            foreach (var n in new[] { "ArrowL", "ArrowR" })
+            {
+                var ar = Find(trackRow, n); var art = (RectTransform)ar.transform;
+                ar.fontSize = 110f; ar.color = Color.white;
+                art.sizeDelta = new Vector2(160f, art.sizeDelta.y);
+                art.anchoredPosition = new Vector2((n == "ArrowL" ? -1f : 1f) * (W / 2f - 110f), art.anchoredPosition.y);
+            }
+            var tart = (RectTransform)ta.transform; tart.anchoredPosition = new Vector2(0f, tart.anchoredPosition.y); tart.sizeDelta = new Vector2(W - 480f, tart.sizeDelta.y);
+            var back = (RectTransform)trackRow.GetComponentsInChildren<UnityEngine.UI.Button>(true).First(b => b.name == "BackButton").transform;
+            back.anchoredPosition = new Vector2(-W / 4f, back.anchoredPosition.y); back.sizeDelta = new Vector2(W / 2f, back.sizeDelta.y);   // 左半分で前の曲
+            var afx = trackRow.GetComponentInChildren<FuwaArrowHoverFx>(true);
+            if (afx != null) { afx.normalColor = Color.white; afx.hoverColor = new Color(1f, 0.88f, 0.7f); UdonSharpEditorUtility.CopyProxyToUdon(afx); EditorUtility.SetDirty(afx); }
         }
         // 下の段：▶再生 ■停止 ＋ 蓄音機専用の音量バー（ワールドのBGM音量とは別）
         var row2 = T.TransformPoint(new Vector3(0f, 0.165f, 0.398f));
@@ -211,7 +229,7 @@ public static class FuwaGramophoneBuilder
             var bc = cvGo.AddComponent<BoxCollider>(); bc.size = new Vector3(cv.sizeDelta.x, cv.sizeDelta.y, 10f); bc.isTrigger = true;
             var bGo = new GameObject("Button", typeof(RectTransform), typeof(UnityEngine.UI.Image), typeof(UnityEngine.UI.Button)); bGo.transform.SetParent(cvGo.transform, false);
             var brt = (RectTransform)bGo.transform; brt.anchorMin = Vector2.zero; brt.anchorMax = Vector2.one; brt.offsetMin = Vector2.zero; brt.offsetMax = Vector2.zero;
-            var img = bGo.GetComponent<UnityEngine.UI.Image>(); img.sprite = panelSprite; img.type = UnityEngine.UI.Image.Type.Sliced; img.pixelsPerUnitMultiplier = 0.22f; img.color = Theme;   // 角を丸く（曲名の段の帯と同じ絵）
+            var img = bGo.GetComponent<UnityEngine.UI.Image>(); img.sprite = panelSprite; img.type = UnityEngine.UI.Image.Type.Sliced; img.pixelsPerUnitMultiplier = CornerPpum; img.color = Theme;   // 角を丸く（曲名の段の帯と同じ絵）
             var b = bGo.GetComponent<UnityEngine.UI.Button>();
             var cb = b.colors; cb.normalColor = Color.white; cb.selectedColor = Color.white; cb.highlightedColor = new Color(0.9f, 0.9f, 0.9f); cb.pressedColor = new Color(0.75f, 0.75f, 0.75f); cb.colorMultiplier = 1f; b.colors = cb;
             SetEvent(b, evt);
@@ -248,7 +266,7 @@ public static class FuwaGramophoneBuilder
             {
                 if (im.name == "MusicIcon") { im.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/TejaVideoPlayer/Icon_Speaker.png"); im.preserveAspect = true; im.color = Theme; }
                 else if (im.name == "Fill") im.color = Theme;
-                else if (im.name == "Back") im.color = new Color(0.98f, 0.94f, 0.9f, 0.95f);
+                else if (im.name == "Back") { im.color = new Color(0.98f, 0.94f, 0.9f, 0.95f); im.type = UnityEngine.UI.Image.Type.Sliced; im.pixelsPerUnitMultiplier = CornerPpum; }   // 枠も ▶■ と同じ丸めの四角（てじゃ）
                 else if (im.name == "Background") im.color = new Color(0.66f, 0.45f, 0.32f, 0.3f);
                 else if (im.name == "Handle") im.color = Color.white;
             }
@@ -272,7 +290,7 @@ public static class FuwaGramophoneBuilder
         // ワールドのBGMの音量バーの一覧から、前の版の蓄音機のバー（消えて null）を外す
         if (bgm != null && bgm.volumeSliders != null) bgm.volumeSliders = bgm.volumeSliders.Where(x => x != null).ToArray();
 
-        gm.activeTextColor = Theme; gm.idleTextColor = ThemeIdle;
+        gm.activeTextColor = Color.white; gm.idleTextColor = ThemeIdle;
         gm.trackText.color = gm.activeTextColor;
         UdonSharpEditorUtility.CopyProxyToUdon(gm);
         var gub = UdonSharpEditorUtility.GetBackingUdonBehaviour(gm); if (gub != null) { gub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(gub); }
