@@ -157,7 +157,7 @@ public class FuwaGramophone : UdonSharpBehaviour
             // 番号は見えている曲だけで 1 から（2026-11-21 てじゃ「順番に1から数字つけるだけ」）
             int no = 0;
             for (int i = 0; i <= _idx && trackIds != null && i < trackIds.Length; i++) if (!Hidden(i)) no++;
-            trackText.text = (names != null && _idx < names.Length) ? no + "  " + names[_idx] : "";
+            trackText.text = (names != null && _idx < names.Length) ? no.ToString("00") + "  " + names[_idx] : "";   // 2桁にそろえる（てじゃ「1は01みたいなかんじで」）
             trackText.color = activeTextColor;
         }
         bool playing = bgm != null && bgm.gramoPlaying;

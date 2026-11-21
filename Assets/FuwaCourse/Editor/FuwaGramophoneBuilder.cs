@@ -196,7 +196,7 @@ public static class FuwaGramophoneBuilder
             ta.font = daru; ta.fontSharedMaterial = daru.material; ta.fontStyle = TMPro.FontStyles.Normal;
             { var m = ta.margin; ta.margin = new Vector4(m.x, m.y, m.z, Mathf.Max(0f, m.w - 40f)); }
             ta.enableAutoSizing = true; ta.fontSizeMin = 80f; ta.fontSizeMax = 190f; ta.enableWordWrapping = false;   // 2026-11-21 てじゃ「もじちっちゃ」（前は 50〜130）
-            ta.text = "1  " + Ja[0];
+            ta.text = "01  " + Ja[0];
             gm.trackText = ta;
             // 2026-11-21 てじゃ「上の曲選択もこの枠（▶■みたいな丸めの四角）にして、白背景なしにして両端にもうすこし大きめの三角、文字は白文字」
             var cvT = (RectTransform)trackRow.Find("Canvas"); float W = cvT.sizeDelta.x;
