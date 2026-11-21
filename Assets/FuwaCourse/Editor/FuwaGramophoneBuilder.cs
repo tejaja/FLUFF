@@ -243,6 +243,15 @@ public static class FuwaGramophoneBuilder
             v.localScale = Vector3.one * (k / T.lossyScale.x);
             // ♪ はただの絵に（元はワールドのBGMのミュートボタン）
             foreach (var bt in v.GetComponentsInChildren<UnityEngine.UI.Button>(true)) Object.DestroyImmediate(bt);
+            // ワールドの音量バーとまぎらわしいので、絵はスピーカー・色は蓄音機の茶色に（2026-11-21 てじゃ「ボリュームっぽいアイコンにかえて」「色もかえよ」）
+            foreach (var im in v.GetComponentsInChildren<UnityEngine.UI.Image>(true))
+            {
+                if (im.name == "MusicIcon") { im.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/TejaVideoPlayer/Icon_Speaker.png"); im.preserveAspect = true; im.color = Theme; }
+                else if (im.name == "Fill") im.color = Theme;
+                else if (im.name == "Back") im.color = new Color(0.98f, 0.94f, 0.9f, 0.95f);
+                else if (im.name == "Background") im.color = new Color(0.66f, 0.45f, 0.32f, 0.3f);
+                else if (im.name == "Handle") im.color = Color.white;
+            }
             var sl = v.GetComponentInChildren<UnityEngine.UI.Slider>(true);
             sl.wholeNumbers = false; sl.minValue = 0f; sl.maxValue = 1f; sl.SetValueWithoutNotify(gm.defaultVolume);   // 元は 0〜100 の整数
             {
