@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -89,16 +89,17 @@ public class FuwaGunShadows : UdonSharpBehaviour
             depthKeeper.position = head.position + head.rotation * Vector3.forward * depthKeeperAhead;
         }
 #if UNITY_ANDROID || UNITY_IOS
-        // スマホ・Quest は影がオフなので、上の仕掛けでも深度が作られず、うそ影が出なかった（2026-10-14 てじゃ）。カメラに深度を作らせる
+        // 2026-10-14 スマホ・Quest は影がオフで深度が作られず、うそ影が出なかったので、カメラに深度を作らせていた。
+        // 2026-11-21 その深度のせいで全部の物を2回描いていた（2-4 で batches 702→404）→ スマホは深度をやめた。
+        //  ふわふわ・まもの・泡の影と風の模様は深度なし版のシェーダー（スマホの SubShader）で描く。銃の影はなし（てじゃ「プレイヤと銃はいらん」）
         if (!_depthOn)
         {
-            VRC.SDK3.Rendering.VRCCameraSettings cam = VRC.SDK3.Rendering.VRCCameraSettings.ScreenCamera;
-            if (cam != null)
-            {
-                if (cam.DepthTextureMode == DepthTextureMode.None) cam.DepthTextureMode = DepthTextureMode.Depth;
-                _depthOn = true;
-            }
+            _depthOn = true;
+            for (int i = 0; i < shadows.Length; i++) if (shadows[i] != null) shadows[i].enabled = false;
+            if (depthKeeper != null) depthKeeper.gameObject.SetActive(false);
+            enabled = false;
         }
+        return;
 #endif
         int used = 0;
         for (int i = 0; i < _count && used < shadows.Length; i++)

@@ -62,6 +62,10 @@ public class FuwaPlayerShadows : UdonSharpBehaviour
             shadows[i].enabled = false;
         }
         if (disableRealtimeShadows && sun != null) sun.shadows = LightShadows.None;
+#if UNITY_ANDROID || UNITY_IOS
+        // スマホ・Quest はプレイヤーの影なし（2026-11-21 深度をやめた。てじゃ「プレイヤと銃はいらん」）
+        enabled = false;
+#endif
     }
 
     private void LateUpdate()

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -135,6 +135,103 @@ public static class FuwaWindDecalHeight
         AssetDatabase.SaveAssetIfDirty(tex);
         tex = AssetDatabase.LoadAssetAtPath<Texture2D>(tp);   // 作ったばかりの物を直接入れたら材質の参照が空になっていた（2026-11-15）→ 保存してから読み直して入れる
         mat.SetTexture("_HeightMap", tex); mat.SetFloat("_UseHeight", hits > 0 ? 1f : 0f); EditorUtility.SetDirty(mat);
-        return mat.name.Replace("WindDecal_", "") + " " + w + "x" + h + " " + (100 * hits / (w * h)) + "%";
+        return mat.name.Replace("WindDecal_", "") + " " + w + "x" + h + " " + (100 * hits / (w * h)) + "% " + BuildNet(d);
+    }
+
+    // ===== スマホ・Quest 用の網（2026-11-21）=====
+    // スマホは深度をやめたので、Fuwa/WindDecal の深度なし版は「地面に沿った網」に描く。
+    // メッシュ＝箱（Cube、uv2=(0,0)）＋網（uv2=(地面ありの濃さ, 1)）。PC は網を、スマホは箱をシェーダーでつぶす。網は高さマップから作る
+    const string MDir = "Assets/FuwaCourse/Generated/WindDecal/Net";
+    public static int NetStep = 2;          // 網の1マス＝高さマップの何マスぶん
+    public static float NetCliff = 0.25f;   // 三角形の高さの差がこれ(m)より大きい所（崖の横）は網を張らない
+
+    [MenuItem("FuwaCourse/風の地面の模様：スマホ用の網を作り直す（高さマップから）")]
+    public static void BuildNetsMenu() { Debug.Log(BuildNets()); }
+
+    public static string BuildNets()
+    {
+        var decals = Object.FindObjectsOfType<MeshRenderer>(true).Where(r => r.sharedMaterial && r.sharedMaterial.shader && r.sharedMaterial.shader.name == "Fuwa/WindDecal" && !InPath(r.transform, "BuildTemplates")).ToList();
+        var sb = new System.Text.StringBuilder();
+        foreach (var d in decals) sb.Append(d.name + ":" + BuildNet(d) + " ");
+        AssetDatabase.SaveAssets();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        return "風の模様の網 " + decals.Count + " 個（" + sb + "）";
+    }
+
+    static string BuildNet(MeshRenderer d)
+    {
+        var mat = d.sharedMaterial; var mf = d.GetComponent<MeshFilter>(); if (!mf) return "MeshFilterなし";
+        var tex = mat.GetTexture("_HeightMap") as Texture2D;
+        if (!AssetDatabase.IsValidFolder(MDir)) AssetDatabase.CreateFolder(Dir, "Net");
+        var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        var V = new List<Vector3>(cube.vertices); var U2 = new List<Vector2>(); for (int k = 0; k < V.Count; k++) U2.Add(Vector2.zero);
+        var T = new List<int>(cube.triangles);
+        int tris = 0;
+        var sc = d.transform.lossyScale;
+        if (tex != null && tex.isReadable && mat.GetFloat("_UseHeight") > 0.5f)
+        {
+            int w = tex.width, h = tex.height; var px = tex.GetPixels32();
+            float H(int i, int j, out bool ok) { i = Mathf.Clamp(i, 0, w - 1); j = Mathf.Clamp(j, 0, h - 1); var c = px[j * w + i]; ok = c.a > 127; return ((c.r << 8) | c.g) / 65535f - 0.5f; }
+            int nx = Mathf.CeilToInt(w / (float)NetStep), nz = Mathf.CeilToInt(h / (float)NetStep);
+            var gy = new float[(nx + 1) * (nz + 1)]; var ga = new float[(nx + 1) * (nz + 1)];
+            for (int j = 0; j <= nz; j++)
+                for (int i = 0; i <= nx; i++)
+                {
+                    int cx = Mathf.Min(i * NetStep, w), cz = Mathf.Min(j * NetStep, h);   // 網の点＝高さマップのマスの角
+                    float best = float.NegativeInfinity; int n = 0;
+                    for (int dj = -1; dj <= 0; dj++) for (int di = -1; di <= 0; di++)
+                        {
+                            int x = cx + di, z = cz + dj; if (x < 0 || z < 0 || x >= w || z >= h) continue;
+                            float y = H(x, z, out bool ok); if (!ok) continue; n++; best = Mathf.Max(best, y);
+                        }
+                    int k = j * (nx + 1) + i; ga[k] = n / 4f; gy[k] = n > 0 ? best : float.NaN;
+                }
+            // 地面のない点の高さは、となりの点から（ふちを薄く消すための点）
+            for (int j = 0; j <= nz; j++)
+                for (int i = 0; i <= nx; i++)
+                {
+                    int k = j * (nx + 1) + i; if (!float.IsNaN(gy[k])) continue;
+                    float best = float.NegativeInfinity;
+                    for (int dj = -1; dj <= 1; dj++) for (int di = -1; di <= 1; di++)
+                        {
+                            int x = i + di, z = j + dj; if (x < 0 || z < 0 || x > nx || z > nz) continue;
+                            float y = gy[z * (nx + 1) + x]; if (!float.IsNaN(y) && ga[z * (nx + 1) + x] > 0f) best = Mathf.Max(best, y);
+                        }
+                    gy[k] = float.IsNegativeInfinity(best) ? float.NaN : best;
+                }
+            int baseV = V.Count; var idx = new int[(nx + 1) * (nz + 1)];
+            for (int j = 0; j <= nz; j++)
+                for (int i = 0; i <= nx; i++)
+                {
+                    int k = j * (nx + 1) + i; idx[k] = -1; if (float.IsNaN(gy[k])) continue;
+                    idx[k] = V.Count;
+                    V.Add(new Vector3(Mathf.Min(i * NetStep, w) / (float)w - 0.5f, gy[k], Mathf.Min(j * NetStep, h) / (float)h - 0.5f));
+                    U2.Add(new Vector2(ga[k], 1f));
+                }
+            void Tri(int a, int b, int c)
+            {
+                if (idx[a] < 0 || idx[b] < 0 || idx[c] < 0) return;
+                if (ga[a] + ga[b] + ga[c] <= 0f) return;
+                float lo = Mathf.Min(gy[a], Mathf.Min(gy[b], gy[c])), hi = Mathf.Max(gy[a], Mathf.Max(gy[b], gy[c]));
+                if ((hi - lo) * sc.y > NetCliff) return;
+                T.Add(idx[a]); T.Add(idx[b]); T.Add(idx[c]); tris++;   // 上から見て時計回り（表が上）
+            }
+            for (int j = 0; j < nz; j++)
+                for (int i = 0; i < nx; i++)
+                {
+                    int a = j * (nx + 1) + i, b = a + (nx + 1), c = b + 1, e = a + 1;
+                    Tri(a, b, c); Tri(a, c, e);
+                }
+        }
+        string mp = MDir + "/" + mat.name + "_Net.asset";
+        var m = AssetDatabase.LoadAssetAtPath<Mesh>(mp);
+        if (!m) { m = new Mesh { name = mat.name + "_Net" }; AssetDatabase.CreateAsset(m, mp); }
+        m.Clear();
+        m.indexFormat = V.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+        m.SetVertices(V); m.SetUVs(1, U2); m.SetTriangles(T, 0);
+        m.bounds = new Bounds(Vector3.zero, Vector3.one);
+        EditorUtility.SetDirty(m);
+        if (mf.sharedMesh != m) { Undo.RecordObject(mf, "WindNet"); mf.sharedMesh = m; EditorUtility.SetDirty(mf); }
+        return "網" + tris;
     }
 }

@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -53,6 +53,7 @@ public static class FuwaEnemyShadows
             go.transform.rotation = Quaternion.identity;
             var ls = visual.lossyScale;
             go.transform.localScale = new Vector3(size / ls.x, (ShadowAbove + ShadowBelow) / ls.y, size / ls.z);
+            go.GetComponent<MeshFilter>().sharedMesh = GroundMesh(groundY);
             n++;
             log.Append(root.name + "(" + size.ToString("F2") + "m, 地面まで " + (b.min.y - groundY).ToString("F2") + ") ");
         }
@@ -61,5 +62,40 @@ public static class FuwaEnemyShadows
         foreach (var d in Object.FindObjectsOfType<FuwaDemoMonster>(true)) Add(d.transform, d.transform.Find("Body"));
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
         return "まものの影 " + n + "体: " + log;
+    }
+
+    // スマホ・Quest（深度なしの BlobDecal）用：箱のメッシュの uv2 に地面の世界の高さを入れる（uv2=(地面の y, 1)）。
+    // スマホは箱を地面の面に平らにつぶして描くので、まものが跳ねても影は地面に残る（2026-11-21）。高さごとに1つのメッシュ（1cm 単位で共有）
+    const string MeshDir = "Assets/FuwaCourse/Generated/EnemyShadow";
+    static Mesh GroundMesh(float groundY)
+    {
+        if (!AssetDatabase.IsValidFolder(MeshDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "EnemyShadow");
+        int cm = Mathf.RoundToInt(groundY * 100f);
+        string mp = MeshDir + "/EnemyShadow_" + (cm < 0 ? "m" + (-cm) : cm.ToString()) + ".asset";
+        var m = AssetDatabase.LoadAssetAtPath<Mesh>(mp); if (m) return m;
+        var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        m = Object.Instantiate(cube); m.name = "EnemyShadow_" + cm;
+        var uv = new Vector2[m.vertexCount]; for (int i = 0; i < uv.Length; i++) uv[i] = new Vector2(cm / 100f, 1f);
+        m.uv2 = uv;
+        AssetDatabase.CreateAsset(m, mp);
+        return m;
+    }
+
+    // 今ある影の箱（作り直さずに）のメッシュだけ差しかえる。地面の高さは箱の位置から（中心＝地面＋(上−下)/2）
+    [MenuItem("FuwaCourse/まものの影：スマホ用に地面の高さを入れる（作り直さない）")]
+    public static void SetGroundMenu() { Debug.Log(SetGround()); }
+    public static string SetGround()
+    {
+        int n = 0;
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(MatPath);
+        foreach (var r in Object.FindObjectsOfType<MeshRenderer>(true))
+        {
+            if (r.sharedMaterial != mat || r.name != "Shadow") continue;
+            float groundY = r.transform.position.y - (ShadowAbove - ShadowBelow) * 0.5f;
+            var mf = r.GetComponent<MeshFilter>(); Undo.RecordObject(mf, "EnemyShadow"); mf.sharedMesh = GroundMesh(groundY); EditorUtility.SetDirty(mf); n++;
+        }
+        AssetDatabase.SaveAssets();
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        return "まものの影 " + n + " 個に地面の高さ";
     }
 }

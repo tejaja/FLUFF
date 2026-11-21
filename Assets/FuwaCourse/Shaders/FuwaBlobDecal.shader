@@ -2,6 +2,13 @@
 // 板を置く方式と違って、崖のふちからはみ出した所（箱の中に地面が無い所）は描かれないので、空中に影が浮かない。坂や段差にも沿う。
 // 箱のローカル座標：x・z が影の丸（-0.5〜0.5）、y が地面の向き（-0.5〜0.5 の範囲にある表面だけ塗る）。
 // 地面の位置はカメラの深度（_CameraDepthTexture）から求める。VRChat ではリアルタイムの影を落とす平行光源があると深度が作られる。
+//
+// スマホ・Quest（GLES・Vulkan）は「深度なし」の SubShader（2026-11-21）：
+//  深度を作るためだけに全部の物を2回描いていた（2-4 で batches 702→404、ポリゴン 124万→64万）ので、スマホは深度をやめた。
+//  箱を地面の面（箱のローカル y＝_GroundY）に平らにつぶした板にして、ふつうの深度テストで描く（崖のふちでは少しはみ出す）。
+//  スクリプトは箱の中心を「当たった地面＋法線×(上−下)/2」に置くので、地面はローカル y＝(下−上)/(2×(上＋下))（上0.06・下0.35 で 0.354）。
+//  uv2.y＞0.5 のメッシュ（まものの影、FuwaEnemyShadows が作る）は uv2.x が地面の世界の高さ。まものが跳ねても影は地面に残り、
+//  箱のふちに近づくと薄く消える（深度版と同じ見え方）
 Shader "FuwaCourse/BlobDecal"
 {
     Properties
@@ -13,7 +20,136 @@ Shader "FuwaCourse/BlobDecal"
         _EdgeY ("上下のふちで薄くし始める位置", Range(0.05, 0.5)) = 0.35
         _UpMin ("この向きより横を向いた面には塗らない (dot)", Range(0, 1)) = 0.55
         _UpMax ("この向きより上を向いていれば全部塗る (dot)", Range(0, 1)) = 0.85
+        _GroundY ("深度なし（スマホ）：地面の高さ（箱のローカル）", Float) = 0.354
     }
+    CGINCLUDE
+    #include "UnityCG.cginc"
+    fixed4 _Color;
+    float _Alpha, _FalloffStart, _Power, _EdgeY, _UpMin, _UpMax, _GroundY;
+    UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
+
+    struct appdata { float4 vertex : POSITION; float2 uv2 : TEXCOORD1; UNITY_VERTEX_INPUT_INSTANCE_ID };
+    struct v2f
+    {
+        float4 pos : SV_POSITION;
+        float4 screenPos : TEXCOORD0;
+        float3 worldPos : TEXCOORD1;
+        float eyeDepth : TEXCOORD2;
+        UNITY_FOG_COORDS(3)
+        float3 lpos : TEXCOORD4;
+        UNITY_VERTEX_INPUT_INSTANCE_ID
+        UNITY_VERTEX_OUTPUT_STEREO
+    };
+
+    // ===== 深度版（PC）=====
+    v2f vert (appdata v)
+    {
+        v2f o;
+        UNITY_SETUP_INSTANCE_ID(v);
+        UNITY_TRANSFER_INSTANCE_ID(v, o);
+        UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+        o.pos = UnityObjectToClipPos(v.vertex);
+        o.screenPos = ComputeScreenPos(o.pos);
+        o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
+        o.eyeDepth = -UnityObjectToViewPos(v.vertex).z;
+        o.lpos = v.vertex.xyz;
+        UNITY_TRANSFER_FOG(o, o.pos);
+        return o;
+    }
+
+    fixed4 frag (v2f i) : SV_Target
+    {
+        // 同じ材質の箱がまとめて描かれる（GPU インスタンシング）時も、その箱自身の座標を使う。
+        // これが無いと、まとめられた2個目以降の箱がよその箱の座標で判定して消えていた（2026-10-11 見本の銃の影が視線で消えた）
+        UNITY_SETUP_INSTANCE_ID(i);
+        UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+        float raw = SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos));
+        float sceneDepth = LinearEyeDepth(raw);
+        // カメラから箱の面の点へのまっすぐな線を、見えている表面の深さまで伸ばす
+        float3 ray = i.worldPos - _WorldSpaceCameraPos;
+        float3 surf = _WorldSpaceCameraPos + ray * (sceneDepth / max(i.eyeDepth, 1e-4));
+        // 表面の向き（深度から求めた位置の変化から）。discard より前で計算する
+        float3 sn = normalize(cross(ddy(surf), ddx(surf)));
+        float3 up = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0)));
+        float3 lp = mul(unity_WorldToObject, float4(surf, 1)).xyz;
+        if (abs(lp.x) > 0.5 || abs(lp.z) > 0.5 || abs(lp.y) > 0.5) discard;
+        // 上向きの地面は下からは見えない。カメラが表面より下なら塗らない
+        // （島を下から見た時、島の裏側ごしに上の地面の影が透けて見えていた。2026-10-10）
+        float3 camL = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1)).xyz;
+        if (camL.y < lp.y) discard;
+        float r = length(lp.xz) * 2.0;                 // 0=中心 1=ふち
+        if (r > 1.0) discard;
+        float a = 1.0 - smoothstep(_FalloffStart, 1.0, r);
+        a = pow(a, _Power);
+        a *= 1.0 - smoothstep(_EdgeY, 0.5, abs(lp.y));  // 箱の上下のふちでなめらかに消す
+        a *= smoothstep(_UpMin, _UpMax, abs(dot(sn, up)));   // 崖の横の面など、地面と違う向きの面には塗らない
+        fixed4 c = fixed4(_Color.rgb, a * _Alpha);
+        UNITY_APPLY_FOG_COLOR(i.fogCoord, c, fixed4(_Color.rgb, 0));
+        return c;
+    }
+
+    // ===== 深度なし版（スマホ・Quest）=====
+    v2f vertFlat (appdata v)
+    {
+        v2f o;
+        UNITY_SETUP_INSTANCE_ID(v);
+        UNITY_TRANSFER_INSTANCE_ID(v, o);
+        UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
+        float gy = _GroundY;
+        if (v.uv2.y > 0.5)
+        {
+            float3 org = float3(unity_ObjectToWorld._m03, unity_ObjectToWorld._m13, unity_ObjectToWorld._m23);
+            gy = mul(unity_WorldToObject, float4(org.x, v.uv2.x, org.z, 1)).y;
+        }
+        float4 ov = float4(v.vertex.x, gy, v.vertex.z, 1);   // 箱を地面の面に平らにつぶす（上の面だけ表向きで残る）
+        float3 wp = mul(unity_ObjectToWorld, ov).xyz;
+        wp += normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0))) * 0.005;
+        o.pos = UnityWorldToClipPos(wp);
+        o.worldPos = wp;
+        o.screenPos = 0; o.eyeDepth = 0;
+        o.lpos = float3(v.vertex.x, gy, v.vertex.z);
+        UNITY_TRANSFER_FOG(o, o.pos);
+        return o;
+    }
+
+    fixed4 fragFlat (v2f i) : SV_Target
+    {
+        UNITY_SETUP_INSTANCE_ID(i);
+        UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+        if (abs(i.lpos.y) > 0.5) discard;
+        float r = length(i.lpos.xz) * 2.0;
+        if (r > 1.0) discard;
+        float a = pow(1.0 - smoothstep(_FalloffStart, 1.0, r), _Power);
+        a *= 1.0 - smoothstep(_EdgeY, 0.5, abs(i.lpos.y));
+        fixed4 c = fixed4(_Color.rgb, a * _Alpha);
+        UNITY_APPLY_FOG_COLOR(i.fogCoord, c, fixed4(_Color.rgb, 0));
+        return c;
+    }
+    ENDCG
+
+    // スマホ・Quest：深度なし（GLES・Vulkan だけ。ほかの環境ではこの SubShader が無いことになり、下の深度版が使われる）
+    SubShader
+    {
+        Tags { "Queue"="Transparent-10" "RenderType"="Transparent" "IgnoreProjector"="True" "DisableBatching"="True" }
+        Blend SrcAlpha OneMinusSrcAlpha
+        ZWrite Off
+        ZTest LEqual
+        Cull Back
+        Offset -1, -1
+        Stencil { Ref 64 ReadMask 64 Comp NotEqual }
+        Pass
+        {
+            CGPROGRAM
+            #pragma only_renderers gles gles3 vulkan
+            #pragma vertex vertFlat
+            #pragma fragment fragFlat
+            #pragma multi_compile_fog
+            #pragma multi_compile_instancing
+            ENDCG
+        }
+    }
+
+    // PC：深度版
     SubShader
     {
         Tags { "Queue"="Transparent-10" "RenderType"="Transparent" "IgnoreProjector"="True" "DisableBatching"="True" }
@@ -31,68 +167,6 @@ Shader "FuwaCourse/BlobDecal"
             #pragma fragment frag
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
-            #include "UnityCG.cginc"
-
-            fixed4 _Color;
-            float _Alpha, _FalloffStart, _Power, _EdgeY, _UpMin, _UpMax;
-            UNITY_DECLARE_DEPTH_TEXTURE(_CameraDepthTexture);
-
-            struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f
-            {
-                float4 pos : SV_POSITION;
-                float4 screenPos : TEXCOORD0;
-                float3 worldPos : TEXCOORD1;
-                float eyeDepth : TEXCOORD2;
-                UNITY_FOG_COORDS(3)
-                UNITY_VERTEX_INPUT_INSTANCE_ID
-                UNITY_VERTEX_OUTPUT_STEREO
-            };
-
-            v2f vert (appdata v)
-            {
-                v2f o;
-                UNITY_SETUP_INSTANCE_ID(v);
-                UNITY_TRANSFER_INSTANCE_ID(v, o);
-                UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-                o.pos = UnityObjectToClipPos(v.vertex);
-                o.screenPos = ComputeScreenPos(o.pos);
-                o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
-                o.eyeDepth = -UnityObjectToViewPos(v.vertex).z;
-                UNITY_TRANSFER_FOG(o, o.pos);
-                return o;
-            }
-
-            fixed4 frag (v2f i) : SV_Target
-            {
-                // 同じ材質の箱がまとめて描かれる（GPU インスタンシング）時も、その箱自身の座標を使う。
-                // これが無いと、まとめられた2個目以降の箱がよその箱の座標で判定して消えていた（2026-10-11 見本の銃の影が視線で消えた）
-                UNITY_SETUP_INSTANCE_ID(i);
-                UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-                float raw = SAMPLE_DEPTH_TEXTURE_PROJ(_CameraDepthTexture, UNITY_PROJ_COORD(i.screenPos));
-                float sceneDepth = LinearEyeDepth(raw);
-                // カメラから箱の面の点へのまっすぐな線を、見えている表面の深さまで伸ばす
-                float3 ray = i.worldPos - _WorldSpaceCameraPos;
-                float3 surf = _WorldSpaceCameraPos + ray * (sceneDepth / max(i.eyeDepth, 1e-4));
-                // 表面の向き（深度から求めた位置の変化から）。discard より前で計算する
-                float3 sn = normalize(cross(ddy(surf), ddx(surf)));
-                float3 up = normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0)));
-                float3 lp = mul(unity_WorldToObject, float4(surf, 1)).xyz;
-                if (abs(lp.x) > 0.5 || abs(lp.z) > 0.5 || abs(lp.y) > 0.5) discard;
-                // 上向きの地面は下からは見えない。カメラが表面より下なら塗らない
-                // （島を下から見た時、島の裏側ごしに上の地面の影が透けて見えていた。2026-10-10）
-                float3 camL = mul(unity_WorldToObject, float4(_WorldSpaceCameraPos, 1)).xyz;
-                if (camL.y < lp.y) discard;
-                float r = length(lp.xz) * 2.0;                 // 0=中心 1=ふち
-                if (r > 1.0) discard;
-                float a = 1.0 - smoothstep(_FalloffStart, 1.0, r);
-                a = pow(a, _Power);
-                a *= 1.0 - smoothstep(_EdgeY, 0.5, abs(lp.y));  // 箱の上下のふちでなめらかに消す
-                a *= smoothstep(_UpMin, _UpMax, abs(dot(sn, up)));   // 崖の横の面など、地面と違う向きの面には塗らない
-                fixed4 c = fixed4(_Color.rgb, a * _Alpha);
-                UNITY_APPLY_FOG_COLOR(i.fogCoord, c, fixed4(_Color.rgb, 0));
-                return c;
-            }
             ENDCG
         }
     }
