@@ -2122,7 +2122,7 @@ public static class FuwaCourse2_3Builder
     //  2026-11-10 てじゃ「ちょっとへんかなあ、ここも単品きのこにして青◯の氷の場所あたりに置こう、これは左にどかして」「コース端通った時も反応するように、判定だけ横長に」
     //   → きのこは 1 つだけ、もと IceRock2 のあった所（IceRock2 は M2_ObsNudge で左へ）。判定の線は島の幅より左右 1m ずつ長く
     public static float V4_HillCpHW = 10.2f, V4_HillCpTrigX = 0.93f;   // 線の横のずれ（きのこは線の上、線のまん中は切れ目と右のふちの間）
-    public static Vector2 V4_HillCpMush = new Vector2(0f, 0f);   // きのこ（チェックポイントから 横・前後）
+    public static Vector2 V4_HillCpMush = new Vector2(-0.35f, -2.57f);   // きのこ（チェックポイントから 横・前後）。2026-11-21 てじゃが手で動かした（復帰と重なっていた）
     public static string V4HillCheckpoint(Transform root, Vector3 o)
     {
         const string name = "CheckpointHill";
@@ -2145,7 +2145,7 @@ public static class FuwaCourse2_3Builder
         }
         return cp.position.ToString("F1");
     }
-    public static float V4_CpMushX = -2f;   // CheckpointField のきのこの横の位置（－で回る橋に向かって左）
+    public static float V4_CpMushX = -2.74f, V4_CpMushZ = 1.97f;   // CheckpointField のきのこの位置（横：－で回る橋に向かって左、前後）。2026-11-21 てじゃが手で動かした
     static void V4FieldCheckpoint(Transform root, Vector3 o, V4Field F)
     {
         const string name = "CheckpointField";
@@ -2167,7 +2167,7 @@ public static class FuwaCourse2_3Builder
         float zs = Mathf.Lerp(z1, z0, V4_CpDepth);
         if (trig) { trig.localRotation = Quaternion.identity; trig.localPosition = new Vector3((x0 + x1) * 0.5f, trig.localPosition.y, (zs + z1 + V4_CpTrigPad) * 0.5f); trig.localScale = new Vector3(x1 - x0 + V4_CpTrigPad * 2f, trig.localScale.y, z1 + V4_CpTrigPad - zs); }
         // きのこも判定のまん中へ。横は V4_CpMushX（2026-11-21 てじゃ「回転床の手前のチェックポイント、邪魔かも、復帰時もかさなる、もうちょい左に」）
-        if (gm) { var l2 = gm.Find("ClusterL"); if (l2) l2.localPosition = new Vector3(V4_CpMushX, l2.localPosition.y, (zs + z1) * 0.5f); }
+        if (gm) { var l2 = gm.Find("ClusterL"); if (l2) l2.localPosition = new Vector3(V4_CpMushX, l2.localPosition.y, V4_CpMushZ); }
         var rp = cp.Find("RespawnPoint"); if (rp) rp.localPosition = new Vector3(0f, rp.localPosition.y, V4_CpRespawnOut);
         var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
         if (fc)
