@@ -1705,7 +1705,7 @@ public static class FuwaCourse2_3Builder
             if (part.Count < 3) continue;
             var sg = V4Piece(pv, "FieldSpinSnow" + k, Vector3.zero, part, 9510 + k, true, q => 0f); k++;
             SnowTopOnly(sg, true);
-            iceCols.Remove(sg.GetComponent<MeshCollider>()); SnowCap(sg, part, q => 0f, 9510 + k);
+            iceCols.Remove(sg.GetComponent<MeshCollider>()); SnowCap(sg, part, q => 0f, 9510 + k, true);
         }
         return g.GetComponent<MeshCollider>();
     }
@@ -1727,7 +1727,7 @@ public static class FuwaCourse2_3Builder
         System.Func<List<Vector2>, List<Vector2>> back = P => P.Select(q => u * q.x + w * q.y).ToList();
         var ices = new List<Collider>();
         var sg = V4Piece(mv, "Field" + n + "Snow", Vector3.zero, back(snowL), seed, true, q => 0f);
-        SnowTopOnly(sg, true); iceCols.Remove(sg.GetComponent<MeshCollider>()); SnowCap(sg, back(snowL), q => 0f, seed);
+        SnowTopOnly(sg, true); iceCols.Remove(sg.GetComponent<MeshCollider>()); SnowCap(sg, back(snowL), q => 0f, seed, true);
         var g = V4Piece(mv, "Field" + n, Vector3.zero, back(iceL), seed + 1, true, q => 0f);
         ices.Add(g.GetComponent<MeshCollider>());
         recordDeco = keepDeco;
@@ -1744,14 +1744,14 @@ public static class FuwaCourse2_3Builder
             (nrm.y > 0.6f ? top : other).AddRange(new[] { tri[i], tri[i + 1], tri[i + 2] });
         }
         m.subMeshCount = 2; m.SetTriangles(top, 0); m.SetTriangles(other, 1); EditorUtility.SetDirty(m);
-        g.GetComponent<MeshRenderer>().sharedMaterials = new[] { snowLipMat, moving ? MovingIceMat() : iceFlat };
+        g.GetComponent<MeshRenderer>().sharedMaterials = new[] { SnowCapMat(moving), moving ? MovingIceMat() : iceFlat };
     }
     // 雪の層：雪の板の上にふっくら積もった薄い層（ふちへなだらかに薄く、少しデコボコ）。当たりもこの層（すべらない床）
     //  2026-11-21 てじゃ「雪の見た目が雪っぽくない」→ 氷の模様を白くしただけだったのを、盛り上がった雪に
     public static float SnowCapH = 0.09f, SnowCapMin = 0.02f, SnowCapEdge = 0.5f, SnowCapBump = 0.03f, SnowCapBumpScale = 0.8f, SnowCapCell = 0.3f;
     public static float SnowWobAmp = 0.7f, SnowWobFreq = 0.8f;   // さかいめのゆらぎ（m・1m あたりの細かさ）
     static float SnowWob(int seed, float y) => SnowWobAmp * ((RNoise(seed + 300, y * SnowWobFreq) - 0.5f) * 2.4f);
-    static void SnowCap(GameObject slab, List<Vector2> outline, System.Func<Vector2, float> topH, int seed)
+    static void SnowCap(GameObject slab, List<Vector2> outline, System.Func<Vector2, float> topH, int seed, bool moving)
     {
         var old = slab.transform.Find("SnowCap"); if (old) Object.DestroyImmediate(old.gameObject);
         int n = outline.Count; if (n < 3) return;
@@ -1786,10 +1786,31 @@ public static class FuwaCourse2_3Builder
                 }
             }
         var m = NewMesh(slab.name + "_SnowCap"); m.indexFormat = V.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
-        m.SetVertices(V); m.SetNormals(N); m.SetTriangles(T, 0); m.RecalculateBounds(); EditorUtility.SetDirty(m);
+        m.SetVertices(V); m.SetNormals(N); m.SetTriangles(T, 0); m.RecalculateBounds();
+        if (moving) m.SetUVs(3, V.Select(q => slab.transform.TransformPoint(q)).ToList());   // 模様を止まっている時の位置にくっつける
+        EditorUtility.SetDirty(m);
         var o = new GameObject("SnowCap"); o.transform.SetParent(slab.transform, false); o.layer = slab.layer;
-        o.AddComponent<MeshFilter>().sharedMesh = m; o.AddComponent<MeshRenderer>().sharedMaterial = snowLipMat;
+        o.AddComponent<MeshFilter>().sharedMesh = m; o.AddComponent<MeshRenderer>().sharedMaterial = SnowCapMat(moving);
         o.AddComponent<MeshCollider>().sharedMesh = m;
+    }
+    // 雪の層の材質：ふちの雪（SnowLip）の写しに、雪の地面の模様（GroundDetail、うすい青むらさきのムラ・キラキラ）
+    //  2026-11-21 てじゃ「純白すぎる」「もうちょい色と模様ほしい」。動く板用は模様を uv3（止まっている時の位置）から
+    public static Color SnowCapCol = new Color(0.9f, 0.93f, 1f), SnowCapTintA = new Color(1.06f, 1.05f, 1.08f), SnowCapTintB = new Color(0.8f, 0.86f, 1f);
+    static Material SnowCapMat(bool moving)
+    {
+        string mp = moving ? "Assets/FuwaStage2/Materials/Course2_3_SnowCapMoving.mat" : "Assets/FuwaStage2/Materials/Course2_3_SnowCap.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!mat) { mat = new Material(snowLipMat); AssetDatabase.CreateAsset(mat, mp); }
+        mat.CopyPropertiesFromMaterial(snowLipMat);
+        mat.SetColor("_Color", SnowCapCol); mat.SetFloat("_NoiseStrength", 0.05f); mat.SetFloat("_NoiseScale", 0.35f);
+        mat.SetFloat("_OffsetFactor", 0f); mat.SetFloat("_OffsetUnits", 0f);
+        mat.SetTexture("_GroundTex", AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaStage2/Materials/Course2_3_SnowTurf.mat").GetTexture("_GroundTex"));
+        mat.SetFloat("_GroundPatch", 0.8f); mat.SetFloat("_GroundPatchScale", 6f); mat.SetFloat("_GroundMidScale", 2.2f);
+        mat.SetColor("_GroundTintA", SnowCapTintA); mat.SetColor("_GroundTintB", SnowCapTintB);
+        mat.SetFloat("_GroundSteps", 3f); mat.SetFloat("_GroundFine", 0.35f); mat.SetFloat("_GroundFineScale", 6f);
+        mat.SetFloat("_PatternFromUV3", moving ? 1f : 0f);
+        EditorUtility.SetDirty(mat);
+        return mat;
     }
     static List<Vector2> ClipY(List<Vector2> poly, float y0, float y1)
     {
@@ -1838,7 +1859,7 @@ public static class FuwaCourse2_3Builder
         if (snow != null)
         {
             var sg = V4Piece(isl, nm + "Snow", o, snow, seed + 5, false, q => MapHeight(q));
-            SnowTopOnly(sg, false); iceCols.Remove(sg.GetComponent<MeshCollider>()); SnowCap(sg, snow, q => MapHeight(q), seed + 5);
+            SnowTopOnly(sg, false); iceCols.Remove(sg.GetComponent<MeshCollider>()); SnowCap(sg, snow, q => MapHeight(q), seed + 5, false);
         }
     }
     // 止まっている島（FieldS〇）だけ作り直す（雪の分け方を変えた時）。すべる床の一覧・遠くの影の切り替えも入れかえ
