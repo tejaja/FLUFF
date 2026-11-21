@@ -64,7 +64,7 @@ public static class FuwaEnemyShadows
         return "まものの影 " + n + "体: " + log;
     }
 
-    // スマホ・Quest（深度なしの BlobDecal）用：箱のメッシュの uv2 に地面の世界の高さを入れる（uv2=(地面の y, 1)）。
+    // スマホ・Quest（深度なしの BlobDecal）用：箱のメッシュの uv2 に地面の世界の高さを入れる（uv2=(地面の y, 2)。ふつうの Cube の uv2 はライトマップ用 0〜1 なので 2 で見分ける）。
     // スマホは箱を地面の面に平らにつぶして描くので、まものが跳ねても影は地面に残る（2026-11-21）。高さごとに1つのメッシュ（1cm 単位で共有）
     const string MeshDir = "Assets/FuwaCourse/Generated/EnemyShadow";
     static Mesh GroundMesh(float groundY)
@@ -72,12 +72,12 @@ public static class FuwaEnemyShadows
         if (!AssetDatabase.IsValidFolder(MeshDir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "EnemyShadow");
         int cm = Mathf.RoundToInt(groundY * 100f);
         string mp = MeshDir + "/EnemyShadow_" + (cm < 0 ? "m" + (-cm) : cm.ToString()) + ".asset";
-        var m = AssetDatabase.LoadAssetAtPath<Mesh>(mp); if (m) return m;
-        var cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
-        m = Object.Instantiate(cube); m.name = "EnemyShadow_" + cm;
-        var uv = new Vector2[m.vertexCount]; for (int i = 0; i < uv.Length; i++) uv[i] = new Vector2(cm / 100f, 1f);
+        var m = AssetDatabase.LoadAssetAtPath<Mesh>(mp);
+        bool isNew = !m;
+        if (isNew) { m = Object.Instantiate(Resources.GetBuiltinResource<Mesh>("Cube.fbx")); m.name = "EnemyShadow_" + cm; }
+        var uv = new Vector2[m.vertexCount]; for (int i = 0; i < uv.Length; i++) uv[i] = new Vector2(cm / 100f, 2f);
         m.uv2 = uv;
-        AssetDatabase.CreateAsset(m, mp);
+        if (isNew) AssetDatabase.CreateAsset(m, mp); else EditorUtility.SetDirty(m);
         return m;
     }
 

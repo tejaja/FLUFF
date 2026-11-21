@@ -140,7 +140,7 @@ public static class FuwaWindDecalHeight
 
     // ===== スマホ・Quest 用の網（2026-11-21）=====
     // スマホは深度をやめたので、Fuwa/WindDecal の深度なし版は「地面に沿った網」に描く。
-    // メッシュ＝箱（Cube、uv2=(0,0)）＋網（uv2=(地面ありの濃さ, 1)）。PC は網を、スマホは箱をシェーダーでつぶす。網は高さマップから作る
+    // メッシュ＝箱（Cube、uv2=(0,0)）＋網（uv2=(地面ありの濃さ, 2)）。PC は網を、スマホは箱をシェーダーでつぶす。網は高さマップから作る
     const string MDir = "Assets/FuwaCourse/Generated/WindDecal/Net";
     public static int NetStep = 2;          // 網の1マス＝高さマップの何マスぶん
     public static float NetCliff = 0.25f;   // 三角形の高さの差がこれ(m)より大きい所（崖の横）は網を張らない
@@ -171,7 +171,12 @@ public static class FuwaWindDecalHeight
         if (tex != null && tex.isReadable && mat.GetFloat("_UseHeight") > 0.5f)
         {
             int w = tex.width, h = tex.height; var px = tex.GetPixels32();
-            float H(int i, int j, out bool ok) { i = Mathf.Clamp(i, 0, w - 1); j = Mathf.Clamp(j, 0, h - 1); var c = px[j * w + i]; ok = c.a > 127; return ((c.r << 8) | c.g) / 65535f - 0.5f; }
+            // 高さマップは地面のないマスを1マス広げてある（深度版でふちが欠けないように）。網は宙に出ないよう1マス削って「地面あり」を決める
+            var raw = new bool[w * h]; for (int k = 0; k < raw.Length; k++) raw[k] = px[k].a > 127;
+            bool Has(int i, int j) => i < 0 || j < 0 || i >= w || j >= h || raw[j * w + i];
+            var core = new bool[w * h];
+            for (int j = 0; j < h; j++) for (int i = 0; i < w; i++) core[j * w + i] = raw[j * w + i] && Has(i - 1, j) && Has(i + 1, j) && Has(i, j - 1) && Has(i, j + 1);
+            float H(int i, int j, out bool ok) { i = Mathf.Clamp(i, 0, w - 1); j = Mathf.Clamp(j, 0, h - 1); var c = px[j * w + i]; ok = core[j * w + i]; return ((c.r << 8) | c.g) / 65535f - 0.5f; }
             int nx = Mathf.CeilToInt(w / (float)NetStep), nz = Mathf.CeilToInt(h / (float)NetStep);
             var gy = new float[(nx + 1) * (nz + 1)]; var ga = new float[(nx + 1) * (nz + 1)];
             for (int j = 0; j <= nz; j++)
@@ -184,7 +189,7 @@ public static class FuwaWindDecalHeight
                             int x = cx + di, z = cz + dj; if (x < 0 || z < 0 || x >= w || z >= h) continue;
                             float y = H(x, z, out bool ok); if (!ok) continue; n++; best = Mathf.Max(best, y);
                         }
-                    int k = j * (nx + 1) + i; ga[k] = n / 4f; gy[k] = n > 0 ? best : float.NaN;
+                    int k = j * (nx + 1) + i; ga[k] = Mathf.Clamp01((n - 2) / 2f); gy[k] = n > 0 ? best : float.NaN;   // 4マス全部地面で1、2マス以下で0（ふちの外へにじまないように）
                 }
             // 地面のない点の高さは、となりの点から（ふちを薄く消すための点）
             for (int j = 0; j <= nz; j++)
@@ -206,7 +211,7 @@ public static class FuwaWindDecalHeight
                     int k = j * (nx + 1) + i; idx[k] = -1; if (float.IsNaN(gy[k])) continue;
                     idx[k] = V.Count;
                     V.Add(new Vector3(Mathf.Min(i * NetStep, w) / (float)w - 0.5f, gy[k], Mathf.Min(j * NetStep, h) / (float)h - 0.5f));
-                    U2.Add(new Vector2(ga[k], 1f));
+                    U2.Add(new Vector2(ga[k], 2f));
                 }
             void Tri(int a, int b, int c)
             {

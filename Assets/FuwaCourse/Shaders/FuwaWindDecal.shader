@@ -5,7 +5,7 @@
 // プロパティ名は Fuwa/GroundHighlight と同じ（FuwaWindArea が _Color・_Phase・_FlowDir・_Stroke を書き換える）
 //
 // スマホ・Quest（GLES・Vulkan）は深度なしの SubShader（2026-11-21。深度を作るだけで全部の物を2回描いていたのでやめた）：
-//  メッシュは「箱（uv2.y=0）＋地面に沿った網（uv2.y=1）」をひとつにした物（FuwaWindDecalHeight が高さマップから作る）。
+//  メッシュは「箱（uv2.y=0〜1）＋地面に沿った網（uv2.y=2。ふつうの Cube の uv2 はライトマップ用 0〜1 なので 1.5 で見分ける）」をひとつにした物（FuwaWindDecalHeight が高さマップから作る）。
 //  PC は網をつぶして箱で深度版、スマホは箱をつぶして網をふつうの深度テストで描く（uv2.x＝地面ありの濃さ。ふちで薄く）
 Shader "Fuwa/WindDecal"
 {
@@ -120,14 +120,14 @@ Shader "Fuwa/WindDecal"
         return c;
     }
 
-    // ===== 深度版（PC）：箱で描く。網（uv2.y=1）はつぶす =====
+    // ===== 深度版（PC）：箱で描く。網（uv2.y=2）はつぶす =====
     v2f vert (appdata v)
     {
         v2f o;
         UNITY_SETUP_INSTANCE_ID(v);
         UNITY_TRANSFER_INSTANCE_ID(v, o);
         UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-        float4 ov = v.uv2.y > 0.5 ? float4(0, 0, 0, 1) : v.vertex;
+        float4 ov = v.uv2.y > 1.5 ? float4(0, 0, 0, 1) : v.vertex;
         o.pos = UnityObjectToClipPos(ov);
         o.screenPos = ComputeScreenPos(o.pos);
         o.worldPos = mul(unity_ObjectToWorld, ov).xyz;
@@ -176,7 +176,7 @@ Shader "Fuwa/WindDecal"
         UNITY_SETUP_INSTANCE_ID(v);
         UNITY_TRANSFER_INSTANCE_ID(v, o);
         UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-        float4 ov = v.uv2.y > 0.5 ? v.vertex : float4(0, 0, 0, 1);
+        float4 ov = v.uv2.y > 1.5 ? v.vertex : float4(0, 0, 0, 1);
         float3 wp = mul(unity_ObjectToWorld, ov).xyz;
         wp += normalize(mul((float3x3)unity_ObjectToWorld, float3(0, 1, 0))) * _NetLift;
         o.pos = UnityWorldToClipPos(wp);

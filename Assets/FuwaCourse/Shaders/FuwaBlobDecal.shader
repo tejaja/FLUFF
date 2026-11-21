@@ -7,7 +7,7 @@
 //  深度を作るためだけに全部の物を2回描いていた（2-4 で batches 702→404、ポリゴン 124万→64万）ので、スマホは深度をやめた。
 //  箱を地面の面（箱のローカル y＝_GroundY）に平らにつぶした板にして、ふつうの深度テストで描く（崖のふちでは少しはみ出す）。
 //  スクリプトは箱の中心を「当たった地面＋法線×(上−下)/2」に置くので、地面はローカル y＝(下−上)/(2×(上＋下))（上0.06・下0.35 で 0.354）。
-//  uv2.y＞0.5 のメッシュ（まものの影、FuwaEnemyShadows が作る）は uv2.x が地面の世界の高さ。まものが跳ねても影は地面に残り、
+//  uv2.y＝2 のメッシュ（まものの影、FuwaEnemyShadows が作る）は uv2.x が地面の世界の高さ（ふつうの Cube の uv2 はライトマップ用の 0〜1 なので 1.5 より大きいかで見分ける）。まものが跳ねても影は地面に残り、
 //  箱のふちに近づくと薄く消える（深度版と同じ見え方）
 Shader "FuwaCourse/BlobDecal"
 {
@@ -96,7 +96,7 @@ Shader "FuwaCourse/BlobDecal"
         UNITY_TRANSFER_INSTANCE_ID(v, o);
         UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
         float gy = _GroundY;
-        if (v.uv2.y > 0.5)
+        if (v.uv2.y > 1.5)
         {
             float3 org = float3(unity_ObjectToWorld._m03, unity_ObjectToWorld._m13, unity_ObjectToWorld._m23);
             gy = mul(unity_WorldToObject, float4(org.x, v.uv2.x, org.z, 1)).y;
