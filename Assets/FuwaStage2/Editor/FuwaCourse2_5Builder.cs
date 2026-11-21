@@ -768,6 +768,8 @@ public static class FuwaCourse2_5Builder
             lg.transform.localPosition = new Vector3(sc.x, yc - 2.6f, sc.y);
             var l = lg.AddComponent<Light>(); l.type = LightType.Point; l.color = CaveLightCol; l.intensity = CaveLightIntensity; l.range = CaveLightRange;
             l.shadows = LightShadows.Soft; l.shadowStrength = 0.75f; l.renderMode = LightRenderMode.ForcePixel; l.lightmapBakeType = LightmapBakeType.Realtime;
+            // アバター（Player・PlayerLocal・MirrorReflection）は照らさない・影に入れない（2026-11-21 複数人の軽量化。点光源の影は6方向ぶん描くので、人が集まると重い）。アバターは AvatarLight で照らされる
+            l.cullingMask = ~((1 << 9) | (1 << 10) | (1 << 18));
         }
         log.Append("ゴールのクリスタル " + (n + 1) + " ");
     }
