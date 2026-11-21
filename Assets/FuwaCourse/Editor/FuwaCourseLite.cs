@@ -87,6 +87,24 @@ public static class FuwaCourseLite
         Debug.Log("[ステージ2の入場判定] " + string.Join(", ", ws.Select((w, i) => roots[i].name + "→" + (w ? w.name : "なし"))) + " / ロビーの床 " + mins.Count);
     }
 
+    // 軽い版の頂点の色。_Color が白のままで色は別のプロパティにあるシェーダー（水・溶岩・炎など）は、その色から
+    //（2026-11-21 てじゃ「2-1 2-2の軽量モデル、水と火がまっしろ」）
+    static Color LiteColor(Material m)
+    {
+        if (m == null) return Color.white;
+        Color P(string n) => m.HasProperty(n) ? m.GetColor(n) : Color.white;
+        string sh = m.shader.name; Color c;
+        if (sh.Contains("Water")) c = Color.Lerp(P("_Deep"), P("_Shallow"), 0.5f);
+        else if (sh.EndsWith("/Lava")) c = Color.Lerp(P("_LavaMid"), P("_LavaHot"), 0.4f);
+        else if (sh.Contains("FlameMesh")) c = Color.Lerp(P("_Orange"), P("_Yellow"), 0.3f);
+        else if (sh.Contains("Fireball")) c = P("_Mid");
+        else if (sh.Contains("VentShaft")) c = Color.Lerp(P("_Top"), P("_Bottom"), 0.4f);
+        else if (sh.Contains("LavaRock")) c = Color.Lerp(P("_Rock"), P("_Crack"), 0.15f);
+        else if (m.HasProperty("_Color")) c = m.color;
+        else c = Color.white;
+        return new Color(Mathf.Clamp01(c.r), Mathf.Clamp01(c.g), Mathf.Clamp01(c.b), 1f);
+    }
+
     public static void Run(string[] courses, string holderName, FuwaCourseLod lodTarget)
     {
         if (!AssetDatabase.IsValidFolder(Dir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Lite");
@@ -131,8 +149,9 @@ public static class FuwaCourseLite
                 for (int s = 0; s < mesh.subMeshCount; s++)
                 {
                     var m = s < mr.sharedMaterials.Length ? mr.sharedMaterials[s] : mr.sharedMaterials.LastOrDefault();
-                    Color mcol = m != null && m.HasProperty("_Color") ? m.color : Color.white; mcol.a = 1;
-                    bool useVc = mc.Length == mv.Length && m != null && m.shader.name.Contains("InkCap");
+                    if (m != null && (m.shader.name.Contains("Invisible") || m.shader.name.Contains("VentHoleMask"))) continue;   // 見えない当たり・穴のマスク（軽い版で白い板になっていた）
+                    Color mcol = LiteColor(m); mcol.a = 1;
+                    bool useVc = mc.Length == mv.Length && m != null && (m.shader.name.Contains("InkCap") || m.HasProperty("_UseVertexColor") && m.GetFloat("_UseVertexColor") > 0.5f);   // 頂点カラーの ToonLit（小さい浮島の上など）も（2026-11-21 白かった）
                     // 島の下（FarIsland）も頂点カラー。こっちは色をそのまま（リニアで）使うシェーダーなので、軽い版の書き方（ガンマ）に直す
                     bool useVcLinear = mc.Length == mv.Length && m != null && m.shader.name.Contains("FarIsland");
                     // 色がテクスチャに入っている物（大きいきのこのかさのグラデ）は、頂点の UV の所の色をかける（2026-10-22 軽い版で赤いかさが白かった）
