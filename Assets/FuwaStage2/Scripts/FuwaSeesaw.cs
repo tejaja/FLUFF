@@ -1,4 +1,5 @@
 using UdonSharp;
+using VRC.SDKBase;
 using UnityEngine;
 
 // 2–4 の最後の坂（2026-11-17 てじゃ「最後の坂になんかほしい、上下させる」→ 波の階段は「相性わるい」→ B「坂ごとシーソー」「鉄骨トラスつきのまま、上を縞鋼板」）
@@ -12,7 +13,8 @@ public class FuwaSeesaw : UdonSharpBehaviour
 
     private void Update()
     {
-        float a = amp * Mathf.Sin(Time.time * 6.2831853f / period);
+        // 2026-11-21 てじゃ「おっかけカメラで、ギミックの見た目を対象の人に合わせたい」→ 共通時計（サーバー時刻）で動かす：だれの画面でも同じタイミング
+        float a = amp * Mathf.Sin((float)(Networking.GetServerTimeInSeconds() % period) * 6.2831853f / period);
         transform.localRotation = baseRot * Quaternion.Euler(a, 0f, 0f);
     }
 }

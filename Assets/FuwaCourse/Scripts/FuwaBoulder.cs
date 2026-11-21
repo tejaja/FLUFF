@@ -57,7 +57,8 @@ public class FuwaBoulder : UdonSharpBehaviour
     {
         if (path == null || path.Length < 2 || _length <= 0f) return;
         float travel = _length / speed;
-        float t = Mathf.Repeat(Time.time + phaseOffset, period);
+        // 2026-11-21 てじゃ「おっかけカメラで、ギミックの見た目を対象の人に合わせたい」→ 共通時計（サーバー時刻）で動かす：だれの画面でも同じタイミング
+        float t = (float)(((Networking.GetServerTimeInSeconds() + phaseOffset) % period + period) % period);
         // 0〜emerge：奥から出てくる / 〜travel：転がる / 〜+fall：道の端から落ちていく / 残り：いない
         float total = emergeTime + travel + fallTime;
         if (t >= total) { SetActive(false); return; }

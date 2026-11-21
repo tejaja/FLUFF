@@ -30,7 +30,8 @@ public class FuwaClockwork : UdonSharpBehaviour
 
     private void Update()
     {
-        float a = Mathf.Repeat(speed * Time.time, wrap);
+        // 2026-11-21 てじゃ「おっかけカメラで、ギミックの見た目を対象の人に合わせたい」→ 共通時計（サーバー時刻）で動かす：だれの画面でも同じタイミング
+        float a = (float)(((speed * Networking.GetServerTimeInSeconds()) % wrap + wrap) % wrap);
         if (gears != null && ratio != null && phase != null)
             for (int i = 0; i < gears.Length; i++)
                 if (gears[i] != null) gears[i].localRotation = Quaternion.Euler(0f, -Mathf.Repeat(ratio[i] * a + phase[i], 360f), 0f);

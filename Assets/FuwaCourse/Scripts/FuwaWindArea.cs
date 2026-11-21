@@ -1,4 +1,5 @@
 ﻿using UdonSharp;
+using VRC.SDKBase;
 using UnityEngine;
 
 // トリガーの範囲内にいるふわふわに風を当て続ける（横風・上昇気流など）。
@@ -194,7 +195,8 @@ public class FuwaWindArea : UdonSharpBehaviour
             return;
         }
         float cycle = onSeconds + offSeconds;
-        float time = Time.time + phaseOffset;
+        // 2026-11-21 てじゃ「おっかけカメラで、ギミックの見た目を対象の人に合わせたい」→ 共通時計（サーバー時刻）で動かす：だれの画面でも同じタイミング
+        float time = (float)((Networking.GetServerTimeInSeconds() + phaseOffset) % (cycle * 2f));   // 2 周期で向きが元に戻る（alternate）
         int index = Mathf.FloorToInt(time / cycle);
         float t = time - index * cycle;
         _blowing = t < onSeconds;

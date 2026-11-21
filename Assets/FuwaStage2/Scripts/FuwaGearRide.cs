@@ -46,7 +46,8 @@ public class FuwaGearRide : UdonSharpBehaviour
     private void Update()
     {
         // 2026-11-07 時計塔（FuwaClockwork、Time.time）とかさ歯車でつながるので、同じ時間で回す
-        _a = Mathf.Repeat(speed * Time.time, wrap);
+        // 2026-11-21 てじゃ「おっかけカメラで、ギミックの見た目を対象の人に合わせたい」→ 共通時計（サーバー時刻）で動かす：だれの画面でも同じタイミング
+        _a = (float)(((speed * Networking.GetServerTimeInSeconds()) % wrap + wrap) % wrap);
         Apply();
         Carry();
         SyncMusic();

@@ -1,4 +1,5 @@
 using UdonSharp;
+using VRC.SDKBase;
 using UnityEngine;
 
 // ふわふわ浮かんで、ゆっくり回る（2–1 の水源の上の「ふしぎな青い球」など、2026-10-25）。各自の時計で動く（同期なし）。見た目だけ
@@ -25,8 +26,10 @@ public class FuwaHover : UdonSharpBehaviour
 
     private void Update()
     {
-        float a = (Time.time / period + phase) * 2f * Mathf.PI;
+        // 2026-11-21 てじゃ「おっかけカメラで、ギミックの見た目を対象の人に合わせたい」→ 共通時計（サーバー時刻）で動かす：だれの画面でも同じタイミング
+        double st = Networking.GetServerTimeInSeconds();
+        float a = ((float)((st % period) / period) + phase) * 2f * Mathf.PI;
         transform.localPosition = _base + Vector3.up * (Mathf.Sin(a) * amplitude);
-        transform.localRotation = _rot * Quaternion.Euler(0f, Time.time * spinSpeed + phase * 360f, 0f);
+        transform.localRotation = _rot * Quaternion.Euler(0f, (float)((st * spinSpeed) % 360.0) + phase * 360f, 0f);
     }
 }

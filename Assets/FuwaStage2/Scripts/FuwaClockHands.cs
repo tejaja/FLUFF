@@ -1,4 +1,5 @@
 using UdonSharp;
+using VRC.SDKBase;
 using UnityEngine;
 
 // 2–4 はぐるまのとう：時計塔の針と振り子（2026-11-07 てじゃ「でかい時計塔にして、最後は塔を突っ切った先がゴール」「なにかしら歯車と絡めたい」）
@@ -35,7 +36,8 @@ public class FuwaClockHands : UdonSharpBehaviour
     {
         if (weight != null && weightPeriod > 0f)
         {
-            float f = Mathf.Repeat(Time.time / weightPeriod, 1f);
+            // 2026-11-21 てじゃ「おっかけカメラで、ギミックの見た目を対象の人に合わせたい」→ 共通時計（サーバー時刻）で動かす：だれの画面でも同じタイミング
+            float f = (float)((Networking.GetServerTimeInSeconds() % weightPeriod) / weightPeriod);
             weight.localPosition = weightStart + Vector3.down * (weightDrop * f);
             if (chain != null)
             {
@@ -45,7 +47,7 @@ public class FuwaClockHands : UdonSharpBehaviour
         }
         if (pendulum != null && pendulumPeriod > 0f)
         {
-            float ph = Time.time / pendulumPeriod;
+            float ph = (float)((Networking.GetServerTimeInSeconds() % (pendulumPeriod * Mathf.Max(1, escapeTeeth))) / pendulumPeriod);   // 共通時計。脱進機の歯車が1回りする長さで回す
             pendulum.localRotation = Quaternion.Euler(0f, 0f, pendulumAmp * Mathf.Sin(ph * 2f * Mathf.PI));
             if (escapeWheel != null && escapeTeeth > 0)
             {

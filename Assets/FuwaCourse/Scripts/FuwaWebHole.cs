@@ -1,4 +1,5 @@
 using UdonSharp;
+using VRC.SDKBase;
 using UnityEngine;
 
 // 巨大クモの巣の穴の大きさをまとめて動かす（自分の画面だけ、同期なし）。
@@ -45,7 +46,9 @@ public class FuwaWebHole : UdonSharpBehaviour
     private void Update()
     {
         if (!breathe) return;
-        float k = 0.5f - 0.5f * Mathf.Cos(Time.time * 6.2831853f / Mathf.Max(0.1f, period));
+        // 2026-11-21 てじゃ「おっかけカメラで、ギミックの見た目を対象の人に合わせたい」→ 共通時計（サーバー時刻）で動かす：だれの画面でも同じタイミング
+        float pp = Mathf.Max(0.1f, period);
+        float k = 0.5f - 0.5f * Mathf.Cos((float)(Networking.GetServerTimeInSeconds() % pp) * 6.2831853f / pp);
         Apply(Mathf.Lerp(maxRadius, minRadius, k));
     }
 
