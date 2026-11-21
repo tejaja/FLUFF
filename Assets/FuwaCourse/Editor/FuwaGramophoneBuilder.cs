@@ -10,11 +10,12 @@ public static class FuwaGramophoneBuilder
 {
     const string Fbx = "Assets/FuwaCourse/Models/PlaygroundGramophone.fbx";
     const string MatDir = "Assets/FuwaCourse/Materials/Playground";
-    public const float Angle = 4f;       // カメラの球（-8°）の右。もどすボタンがいた場所
+    public const float Angle = 2.6f;     // カメラの球（-8°）の右。2026-11-21 てじゃ「ちょっとだけ左にずらし」で 4 → 2.6
+    const float FootH = 0.06f;           // 足の高さ（モデルは全体をこの分持ち上げてある。2026-11-21 てじゃ「足つけてすこし高く」）
     public const float Radius = 12.3f;   // 島の真ん中から（柵は 14m）
     public const float Scale = 1.25f;    // 島の真ん中からも見えるよう少し大きく
     static readonly Vector3 Center = new Vector3(-72f, 88f, 80f);
-    static readonly Vector3 HornBase = new Vector3(0f, 0.72f, -0.375f);   // ラッパの根元（首の上、蓄音機のローカル）
+    static readonly Vector3 HornBase = new Vector3(0f, 0.72f + FootH, -0.375f);   // ラッパの根元（首の上、蓄音機のローカル）
     // ボタンの色（蓄音機の木に合わせた茶色）。Theme＝帯・文字、Dark＝押した時・矢印に乗った時、Idle＝OFF の文字
     static readonly Color Theme = new Color(0.66f, 0.45f, 0.32f), ThemeDark = new Color(0.45f, 0.28f, 0.18f), ThemeIdle = new Color(0.64f, 0.58f, 0.54f);
     const float TrackHeadCut = 250f;    // 曲名の段：左の見出し（♪）を詰める幅（CAM の単位）
@@ -88,7 +89,7 @@ public static class FuwaGramophoneBuilder
             {
                 case "Gramo_Plinth": case "Gramo_Top": case "Gramo_Platter": m = woodDark; break;
                 // 2026-11-21 てじゃ「台とハンドルもクオリティあげて」：角の柱・ふち（Trim）、横と後ろの額縁（Panels）、ハンドルの木の握り（CrankKnob）
-                case "Gramo_Trim": case "Gramo_Panels": case "Gramo_CrankKnob": m = woodDark; break;
+                case "Gramo_Trim": case "Gramo_Panels": case "Gramo_CrankKnob": case "Gramo_Feet": m = woodDark; break;
                 case "Gramo_Horn": case "Gramo_Arm": case "Gramo_Neck": case "Gramo_Soundbox": case "Gramo_Crank": case "Gramo_Spindle": m = brass; break;
                 case "Gramo_Record": m = record; break;
                 case "Gramo_RecordLabel": m = label; break;
@@ -113,8 +114,8 @@ public static class FuwaGramophoneBuilder
 
         // 当たり：台（ぶつかる）。前は台座ごとの大きい箱1つで、前のボタンが箱の中に埋まってレーザーが当たらなかった
         //（2026-11-21 てじゃ「ボタンがメッシュ判定が邪魔でおせない」）→ 下の台座（ひと回り大きい）と箱の2つに分けて、ボタンを箱の前の面より手前に出す
-        var bcP = go.AddComponent<BoxCollider>(); bcP.center = new Vector3(0f, 0.037f, 0f); bcP.size = new Vector3(0.86f, 0.074f, 0.86f);
-        var bcB = go.AddComponent<BoxCollider>(); bcB.center = new Vector3(0f, 0.27f, 0f); bcB.size = new Vector3(0.78f, 0.42f, 0.78f);
+        var bcP = go.AddComponent<BoxCollider>(); bcP.center = new Vector3(0f, (0.074f + FootH) / 2f, 0f); bcP.size = new Vector3(0.86f, 0.074f + FootH, 0.86f);   // 足のぶんも床まで
+        var bcB = go.AddComponent<BoxCollider>(); bcB.center = new Vector3(0f, 0.27f + FootH, 0f); bcB.size = new Vector3(0.78f, 0.42f, 0.78f);
 
         // 本体のスクリプト
         var bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault();
@@ -200,7 +201,7 @@ public static class FuwaGramophoneBuilder
 
         var front = T.rotation * Quaternion.Euler(0f, 180f, 0f);   // 蓄音機の前（+Z）から読める
         // 上の段：曲（2026-11-21 てじゃ「曲名の左の♫いらんかも」→ 見出しなし、白い札だけ）
-        var trackRow = Seg("TrackButton", T.TransformPoint(new Vector3(0f, 0.335f, 0.398f)), front, 0.15f, 520f + TrackHeadCut, -TrackHeadCut, "Next", "Prev");
+        var trackRow = Seg("TrackButton", T.TransformPoint(new Vector3(0f, 0.335f + FootH, 0.398f)), front, 0.15f, 520f + TrackHeadCut, -TrackHeadCut, "Next", "Prev");
         {
             trackRow.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Icon").gameObject.SetActive(false);
             var ta = Find(trackRow, "TextA");
@@ -231,7 +232,7 @@ public static class FuwaGramophoneBuilder
             if (afx != null) { afx.normalColor = Color.white; afx.hoverColor = new Color(1f, 0.88f, 0.7f); UdonSharpEditorUtility.CopyProxyToUdon(afx); EditorUtility.SetDirty(afx); }
         }
         // 下の段：▶再生 ■停止 ＋ 蓄音機専用の音量バー（ワールドのBGM音量とは別）
-        var row2 = T.TransformPoint(new Vector3(0f, 0.165f, 0.398f));
+        var row2 = T.TransformPoint(new Vector3(0f, 0.165f + FootH, 0.398f));
         var right = front * Vector3.right;   // 見る人から見て右
         var panelSprite = srcCam.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Button").sprite;
         (UnityEngine.UI.Image back, TMPro.TextMeshProUGUI icon) Btn(string name, float x, string glyph, string evt)
