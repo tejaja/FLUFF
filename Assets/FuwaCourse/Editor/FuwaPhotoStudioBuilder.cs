@@ -25,6 +25,7 @@ public static class FuwaPhotoStudioBuilder
     // 島の奥の並び（島の中心から見た方向、度。0＝橋の反対側の真ん中、+＝右）。どれも半径 RingR の円の上で真ん中を向く
     const float RingR = 3.1f;   // 柵（地面のふちの14cm内側、半径約3.9）に看板のはしが当たらないように
     const float GalleryDeg = -33f, MonitorDeg = 31f, ButtonDeg = 67f, ZoneDeg = 97f;   // 人物ボタンを横に伸ばしたので球は右へ
+    const float ButtonOut = 0.35f;   // 人物・CAMボタンは並びより外（柵寄り）へ。2026-11-21 てじゃ「ちょっぴり柵寄りに」で 0.15 → 0.35
     // 最速タイムの看板のロビーでの元の位置（写真館に引っ越す前、FuwaLobby の子として）
     static readonly Vector3 BestTimesLobbyLocal = new Vector3(-7.948f, 2.0f, -1.804f);   // 2026-10-12（「もうちょい外側」で柵の上まで） てじゃ「ぐっと上げて斜めに見上げる形」：2m上げて脚なしで浮かせ、15°下向き。下にステージ2
     static readonly Quaternion BestTimesLobbyRot = new Quaternion(0f, -0.78144264f, 0f, 0.62397707f) * Quaternion.Euler(-15f, 0f, 0f);
@@ -132,7 +133,7 @@ public static class FuwaPhotoStudioBuilder
         }
         RingSpot("BoardSpot", GalleryDeg, RingR);     // 名場面（FuwaPhotoAlbumBuilder が置く）
         RingSpot("MonitorSpot", MonitorDeg, RingR);   // モニター（FuwaMonitorBuilder が置く）
-        RingSpot("ButtonSpot", ButtonDeg, RingR + 0.15f);   // 人物ボタン・CAMボタン
+        RingSpot("ButtonSpot", ButtonDeg, RingR + ButtonOut);   // 人物ボタン・CAMボタン
         RingSpot("ZoneSpot", ZoneDeg, RingR);         // VRChatカメラを入れる球
 
         // 最速タイムはロビーの元の場所へ（写真館に引っ越す前の位置・向き・大きさ）
