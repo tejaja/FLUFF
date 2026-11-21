@@ -109,36 +109,7 @@ public static class FuwaTvVideoBuilder
         controls.name = "VideoControls";
         controls.gameObject.SetActive(false);
 
-        // 切りかえの丸ボタン
         var title = inner.Find("Title");
-        Vector3 tl = tv.InverseTransformPoint(title.position);
-        var tgCv = new GameObject("VideoToggle", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-        tgCv.transform.SetParent(tv, false);
-        tgCv.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
-        var trt = (RectTransform)tgCv.transform; trt.sizeDelta = new Vector2(160f, 160f); trt.localScale = Vector3.one * 0.00135f;
-        // 画面の右の白いふちの下の方（見出しの横は高すぎて押しにくかった。2026-10-15 てじゃ）
-        float sw2 = tvScreen.lossyScale.x * 0.5f, sh2 = tvScreen.lossyScale.y * 0.5f;
-        trt.localPosition = new Vector3(sl.x + sw2 + 0.16f, sl.y - sh2 + 0.14f, rowZ - 0.004f); trt.localRotation = Quaternion.identity;
-        tgCv.AddComponent<VRC.SDK3.Components.VRCUiShape>();
-        var tbc = tgCv.AddComponent<BoxCollider>(); tbc.size = new Vector3(160f, 160f, 10f); tbc.isTrigger = true;
-        var bGo = new GameObject("Button", typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); bGo.transform.SetParent(tgCv.transform, false);
-        var brt = (RectTransform)bGo.transform; brt.anchorMin = Vector2.zero; brt.anchorMax = Vector2.one; brt.offsetMin = Vector2.zero; brt.offsetMax = Vector2.zero;
-        var bImg = bGo.GetComponent<Image>(); bImg.sprite = IconSprite9(Dir + "UI_Circle.png"); bImg.color = Color.white;
-        var bSel = bGo.GetComponent<UnityEngine.UI.Button>();
-        var cb = bSel.colors; cb.normalColor = new Color(0.62f, 0.55f, 0.86f); cb.highlightedColor = new Color(0.72f, 0.66f, 0.93f); cb.pressedColor = new Color(0.52f, 0.45f, 0.76f); cb.selectedColor = cb.normalColor; bSel.colors = cb;
-        var sh = bGo.AddComponent<Shadow>(); sh.effectColor = new Color(0.36f, 0.3f, 0.55f, 0.35f); sh.effectDistance = new Vector2(0f, -6f);
-        var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image)); icon.transform.SetParent(bGo.transform, false);
-        var irt = (RectTransform)icon.transform; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.sizeDelta = new Vector2(104f, 104f);
-        var iImg = icon.GetComponent<Image>(); iImg.raycastTarget = false; iImg.preserveAspect = true;
-        // 「動画やってるよ」の印：右上のコーラルの点（カメラを見ている間に動画が流れていたら出る）
-        var badge = new GameObject("PlayingBadge", typeof(RectTransform), typeof(Image)); badge.transform.SetParent(bGo.transform, false);
-        // 白いふち＝ひと回り大きい白い丸の上にコーラルの丸（Outline だと4方向にずらして重ねるだけで、ふちがでこぼこの形になった。2026-10-15 てじゃ「縁の白が◯じゃない」）
-        var bdr = (RectTransform)badge.transform; bdr.anchorMin = bdr.anchorMax = new Vector2(0.86f, 0.86f); bdr.sizeDelta = new Vector2(56f, 56f);
-        var bdi = badge.GetComponent<Image>(); bdi.sprite = IconSprite9(Dir + "UI_Circle.png"); bdi.color = Color.white; bdi.raycastTarget = false;
-        var dot = new GameObject("Dot", typeof(RectTransform), typeof(Image)); dot.transform.SetParent(badge.transform, false);
-        var drt = (RectTransform)dot.transform; drt.anchorMin = drt.anchorMax = new Vector2(0.5f, 0.5f); drt.sizeDelta = new Vector2(44f, 44f);
-        var ddi = dot.GetComponent<Image>(); ddi.sprite = bdi.sprite; ddi.color = new Color(1f, 0.42f, 0.36f); ddi.raycastTarget = false;
-        badge.SetActive(false);
 
         // 操作パネルを隠す／出すボタン：画面の下のふちとパネルの間のすき間の真ん中（パネルを隠しても、ここだけ残る）
         //（2026-10-15 てじゃ「UI隠しボタン」「UIの右上あたり」→「隙間の真ん中くらいもありか」。右上の角だとパネルに隠れて見えなかった）
@@ -173,9 +144,7 @@ public static class FuwaTvVideoBuilder
         sw.cameraOnly = new[] { tbT != null ? tbT.gameObject : null, cbT != null ? cbT.gameObject : null };
         sw.title = title.GetComponent<TMPro.TextMeshPro>();
         sw.language = Object.FindObjectsOfType<FuwaLanguage>(true).FirstOrDefault();
-        sw.toggleIcon = iImg;
         sw.hideButton = hdCv;
-        sw.playingBadge = badge;
         sw.cameraScreen = tvScreen.GetComponent<Renderer>();
         var offT = inner.Find("Off"); sw.cameraOff = offT != null ? offT.gameObject : null;
         var nameT = inner.Find("Name"); sw.cameraName = nameT != null ? nameT.gameObject : null;
@@ -185,16 +154,89 @@ public static class FuwaTvVideoBuilder
         UdonSharpEditorUtility.CopyProxyToUdon(vp);
         sw.iconToVideo = IconSprite(Dir + "Icon_TvPlay.png");
         sw.iconToCam = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/FuwaCourse/Textures/Icon_Video.png");   // CAM ボタンと同じビデオカメラの絵
-        iImg.sprite = sw.iconToVideo;
         var swUb = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw);
-        UnityEventTools.AddStringPersistentListener(bSel.onClick, swUb.SendCustomEvent, nameof(FuwaTvVideoSwitch.ToggleMode));
         UnityEventTools.AddStringPersistentListener(hSel.onClick, swUb.SendCustomEvent, nameof(FuwaTvVideoSwitch.TogglePanel));
         UdonSharpEditorUtility.CopyProxyToUdon(sw);
         if (swUb != null) { swUb.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(swUb); }
 
+        AddModeButtons(tv, sw);
         AddAutoBgmButton(tv, sw);
         Finish(vp, scene);
         Selection.activeGameObject = tv.gameObject;
+    }
+
+    // カメラ／動画の切りかえ：画面の右の白いふちに丸ボタンを2つ上下に（上＝おっかけカメラ、下＝動画）。押した方になる、選んでる方は紫で大きめ
+    //（2026-11-21 てじゃ「いまはボタンが切り替わるけど、2つ上下に並べて押したほうになる感じにしたい」「選んでる方はちょっと強調」。前は1つのボタンの絵が切りかわる形）
+    // 「動画やってるよ」の印（コーラルの点）は動画のボタンの右上
+    [MenuItem("FuwaCourse/あそびば/テレビのカメラ・動画ボタンを2つにする")]
+    public static void AddModeButtonsMenu()
+    {
+        var room = EditorSceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == "FuwaPlayground").transform.Find("Room");
+        var tv = room.Find("Monitor");
+        AddModeButtons(tv, tv.Find("VideoSwitch").GetComponent<FuwaTvVideoSwitch>());
+        EditorSceneManager.MarkSceneDirty(tv.gameObject.scene);
+    }
+
+    const float ModeBtn = 160f, ModeGap = 30f;   // Canvas の単位（0.00135 倍で約 0.22m）
+    public static void AddModeButtons(Transform tv, FuwaTvVideoSwitch sw)
+    {
+        var old = tv.Find("VideoToggle"); if (old != null) Object.DestroyImmediate(old.gameObject);
+        var inner = tv.Find("Monitor"); var tvScreen = inner.Find("Screen");
+        Vector3 sl = tv.InverseTransformPoint(tvScreen.position);
+        float sw2 = tvScreen.lossyScale.x * 0.5f, sh2 = tvScreen.lossyScale.y * 0.5f;
+        var tb = tv.Find("TargetButton");
+        float rowZ = tb != null ? tb.localPosition.z - 0.002f : -0.012f;
+        const float cs = 0.00135f;
+        float H = ModeBtn * 2f + ModeGap;
+        var cv = new GameObject("VideoToggle", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        cv.transform.SetParent(tv, false);
+        cv.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+        var rt = (RectTransform)cv.transform; rt.sizeDelta = new Vector2(ModeBtn, H); rt.localScale = Vector3.one * cs;
+        // 下のボタンの真ん中が前の1つのボタンと同じ所（画面の右の白いふちの下の方）
+        rt.localPosition = new Vector3(sl.x + sw2 + 0.16f, sl.y - sh2 + 0.14f + (H - ModeBtn) * 0.5f * cs, rowZ - 0.004f); rt.localRotation = Quaternion.identity;
+        cv.AddComponent<VRC.SDK3.Components.VRCUiShape>();
+        var bc = cv.AddComponent<BoxCollider>(); bc.size = new Vector3(ModeBtn, H, 10f); bc.isTrigger = true;
+        var swUb = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw);
+        var circle = IconSprite9(Dir + "UI_Circle.png");
+        var backs = new Image[2]; var icons = new Image[2];
+        string[] names = { "CamButton", "VideoButton" };
+        string[] evts = { nameof(FuwaTvVideoSwitch.SetCamMode), nameof(FuwaTvVideoSwitch.SetVideoMode) };
+        Sprite[] pics = { AssetDatabase.LoadAssetAtPath<Sprite>("Assets/FuwaCourse/Textures/Icon_Video.png"), IconSprite(Dir + "Icon_TvPlay.png") };
+        for (int i = 0; i < 2; i++)
+        {
+            var bGo = new GameObject(names[i], typeof(RectTransform), typeof(Image), typeof(UnityEngine.UI.Button)); bGo.transform.SetParent(cv.transform, false);
+            var brt = (RectTransform)bGo.transform; brt.anchorMin = brt.anchorMax = new Vector2(0.5f, 0.5f); brt.sizeDelta = new Vector2(ModeBtn, ModeBtn);
+            brt.anchoredPosition = new Vector2(0f, (i == 0 ? 1f : -1f) * (ModeBtn + ModeGap) * 0.5f);
+            var img = bGo.GetComponent<Image>(); img.sprite = circle; img.color = Color.white;
+            var sel = bGo.GetComponent<UnityEngine.UI.Button>();
+            var cb = sel.colors; cb.normalColor = Color.white; cb.selectedColor = Color.white; cb.highlightedColor = new Color(0.92f, 0.92f, 0.95f); cb.pressedColor = new Color(0.8f, 0.8f, 0.85f); cb.colorMultiplier = 1f; sel.colors = cb;
+            var sh = bGo.AddComponent<Shadow>(); sh.effectColor = new Color(0.36f, 0.3f, 0.55f, 0.35f); sh.effectDistance = new Vector2(0f, -6f);
+            UnityEventTools.AddStringPersistentListener(sel.onClick, swUb.SendCustomEvent, evts[i]);
+            var icon = new GameObject("Icon", typeof(RectTransform), typeof(Image)); icon.transform.SetParent(bGo.transform, false);
+            var irt = (RectTransform)icon.transform; irt.anchorMin = irt.anchorMax = new Vector2(0.5f, 0.5f); irt.sizeDelta = new Vector2(104f, 104f);
+            var ii = icon.GetComponent<Image>(); ii.raycastTarget = false; ii.preserveAspect = true; ii.sprite = pics[i];
+            backs[i] = img; icons[i] = ii;
+        }
+        // 「動画やってるよ」の印：動画のボタンの右上（白いふち＋コーラルの丸）
+        var badge = new GameObject("PlayingBadge", typeof(RectTransform), typeof(Image)); badge.transform.SetParent(backs[1].transform, false);
+        var bdr = (RectTransform)badge.transform; bdr.anchorMin = bdr.anchorMax = new Vector2(0.86f, 0.86f); bdr.sizeDelta = new Vector2(56f, 56f);
+        var bdi = badge.GetComponent<Image>(); bdi.sprite = circle; bdi.color = Color.white; bdi.raycastTarget = false;
+        var dot = new GameObject("Dot", typeof(RectTransform), typeof(Image)); dot.transform.SetParent(badge.transform, false);
+        var drt = (RectTransform)dot.transform; drt.anchorMin = drt.anchorMax = new Vector2(0.5f, 0.5f); drt.sizeDelta = new Vector2(44f, 44f);
+        var ddi = dot.GetComponent<Image>(); ddi.sprite = circle; ddi.color = new Color(1f, 0.42f, 0.36f); ddi.raycastTarget = false;
+        badge.SetActive(false);
+
+        sw.toggleIcon = null; sw.playingBadge = badge;
+        sw.modeOnBack = new Color(0.62f, 0.55f, 0.86f); sw.modeOffBack = new Color(0.89f, 0.86f, 0.97f); sw.modeOnIcon = Color.white; sw.modeOffIcon = new Color(0.62f, 0.55f, 0.86f); sw.modeOffScale = 0.8f;
+        sw.modeBacks = backs; sw.modeIcons = icons;
+        // 今の見た目（カメラを選んでいる状態）
+        for (int i = 0; i < 2; i++)
+        {
+            bool on = i == 0;
+            backs[i].color = on ? sw.modeOnBack : sw.modeOffBack; icons[i].color = on ? sw.modeOnIcon : sw.modeOffIcon;
+            float k = on ? 1f : sw.modeOffScale; backs[i].transform.localScale = new Vector3(k, k, 1f);
+        }
+        UdonSharpEditorUtility.CopyProxyToUdon(sw); EditorUtility.SetDirty(sw);
     }
 
     // 「Auto BGM OFF」ボタン：操作パネルの音量バーの下、パネルの枠の外（2026-11-21 てじゃ「いっそプレイヤーのUI側に」「ボリュームの下の枠外に追加ボタン」

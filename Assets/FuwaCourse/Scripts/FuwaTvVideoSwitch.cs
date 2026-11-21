@@ -35,6 +35,33 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
     [Tooltip("動画の時に出す絵（押すとカメラへ）")]
     public Sprite iconToCam;
 
+    [Header("カメラ／動画の2つのボタン（上下に並べて、押した方になる。0＝カメラ、1＝動画）")]
+    [Tooltip("2026-11-21 てじゃ「2つ上下に並べて押したほうになる感じ」「選んでる方はちょっと強調」：選んでる方は紫で塗って大きめ、選んでない方は白地に紫の絵で小さめ")]
+    public Image[] modeBacks;
+    public Image[] modeIcons;
+    public Color modeOnBack = new Color(0.62f, 0.55f, 0.86f), modeOffBack = new Color(0.89f, 0.86f, 0.97f);   // 選んでない方：うすい紫（白だとテレビの白いふちに溶けた）
+    public Color modeOnIcon = Color.white, modeOffIcon = new Color(0.62f, 0.55f, 0.86f);
+    public float modeOffScale = 0.8f;
+
+    public void SetCamMode() { SetMode(false); }
+    public void SetVideoMode() { SetMode(true); }
+
+    private void ApplyModeButtons()
+    {
+        if (modeBacks == null) return;
+        for (int i = 0; i < modeBacks.Length; i++)
+        {
+            bool on = (i == 1) == _video;
+            if (modeBacks[i] != null)
+            {
+                modeBacks[i].color = on ? modeOnBack : modeOffBack;
+                float k = on ? 1f : modeOffScale;
+                modeBacks[i].transform.localScale = new Vector3(k, k, 1f);
+            }
+            if (modeIcons != null && i < modeIcons.Length && modeIcons[i] != null) modeIcons[i].color = on ? modeOnIcon : modeOffIcon;
+        }
+    }
+
     [Header("おっかけカメラの画面（動画の時は非表示にする。重ねるだけだと横からすき間ごしに見えたので。2026-10-15 てじゃ）")]
     public Renderer cameraScreen;
     [Tooltip("カメラが OFF の時の「OFF」の表示（FuwaFollowCam が出し入れする。戻す時はカメラの画面の状態に合わせる）")]
@@ -125,6 +152,7 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         if (hideLabel != null) hideLabel.text = _panelHidden ? "▼" : "▲";   // 出ている時▲（上に隠す）、隠れている時▼（下に出す）（2026-10-15 てじゃ「上に隠して下にだす」）   // 出ている時▲（しまう）、隠れている時▼（出す）（2026-10-15 てじゃ「イメージ逆」）
         if (cameraOnly != null) for (int i = 0; i < cameraOnly.Length; i++) if (cameraOnly[i] != null && cameraOnly[i].activeSelf == v) cameraOnly[i].SetActive(!v);
         if (toggleIcon != null) toggleIcon.sprite = v ? iconToCam : iconToVideo;
+        ApplyModeButtons();
         if (!v)
         {
             // カメラに戻す：画面と名前を出し、OFF の表示は FuwaFollowCam の今の状態（画面が出ていなければ OFF）に合わせる
