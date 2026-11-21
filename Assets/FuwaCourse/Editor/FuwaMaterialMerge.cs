@@ -67,6 +67,7 @@ public static class FuwaMaterialMerge
 
     static string Hash(string s) { unchecked { uint h = 2166136261; foreach (char c in s) { h ^= c; h *= 16777619; } return h.ToString("x8"); } }
 
+    public static bool IncludeMoving = true;
     public static string Run(bool dry)
     {
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
@@ -83,9 +84,21 @@ public static class FuwaMaterialMerge
             var so = new SerializedObject(u); var it = so.GetIterator();
             while (it.Next(true)) if (it.propertyType == SerializedPropertyType.ObjectReference && it.objectReferenceValue != null && it.propertyPath != "m_GameObject") refd.Add(it.objectReferenceValue);
         }
+        // 2026-11-21 てじゃ「マテリアルまとめ、全コース見直して」→ 案A：動く物（静的でない物）もまとめる（マテリアルの切り替え setpass を減らす）。
+        //  ただし、実行中にマテリアル・メッシュをさわるスクリプト（自分で子を探して色を変える物など）の下と、Animator の下は外す
+        var touchy = new HashSet<string> { "FuwaBall", "FuwaBlower", "FuwaCheckpoint", "FuwaCourseWarp", "FuwaDemoStand", "FuwaEnemy", "FuwaFade", "FuwaFollowCam", "FuwaGhost", "FuwaGoal", "FuwaGroundMarker", "FuwaGunShadows", "FuwaGunShowcase", "FuwaGunSummon", "FuwaHud", "FuwaJumpBoost", "FuwaMama", "FuwaMovableMushroom", "FuwaPhotoAlbum", "FuwaPlayerShadows", "FuwaPlaygroundFlameRock", "FuwaPlaygroundPlush", "FuwaPlaygroundRing", "FuwaSharedBall", "FuwaSharedBallShadows", "FuwaThrowRock", "FuwaUmbrella", "FuwaWebHole", "FuwaWindArea", "FuwaClamBubbles", "FuwaCloudBalloon", "FuwaFireball", "FuwaFireJet", "FuwaLavaRock", "FuwaPhotoFluff", "FuwaPortal", "FuwaPortalCams", "FuwaShield", "FuwaShieldGate", "FuwaShockwave", "FuwaSizeRune", "FuwaSugarPipe" };
+        var touchyRoots = new HashSet<Transform>();
+        foreach (var u in scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true)))
+            if (touchy.Contains(u.GetType().Name)) touchyRoots.Add(u.transform);
+        bool UnderTouchy(Transform t)
+        {
+            for (var p = t; p != null; p = p.parent) { if (touchyRoots.Contains(p) || p.GetComponent<Animator>()) return true; }
+            return false;
+        }
         bool Target(MeshRenderer r)
         {
-            if (!GameObjectUtility.AreStaticEditorFlagsSet(r.gameObject, StaticEditorFlags.BatchingStatic)) return false;
+            bool st = GameObjectUtility.AreStaticEditorFlagsSet(r.gameObject, StaticEditorFlags.BatchingStatic);
+            if (!st && (!IncludeMoving || UnderTouchy(r.transform))) return false;
             if (r.GetComponent<TMPro.TMP_Text>()) return false;
             var mf = r.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) return false;
             if (refd.Contains(r) || refd.Contains(r.gameObject) || refd.Contains(mf)) return false;
