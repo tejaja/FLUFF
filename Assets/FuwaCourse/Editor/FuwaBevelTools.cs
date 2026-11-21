@@ -340,6 +340,9 @@ public static class FuwaBevelTools
         {
             var w = root.TransformPoint(mid + no * 0.08f); var wn = root.TransformDirection(no);
             if (!Physics.Raycast(w + Vector3.up * 0.3f, Vector3.down, out var h, 0.6f, ~0, QueryTriggerInteraction.Ignore)) return false;
+            // 回る歯車などの仕掛け（Gimmicks の下）は床とみなさない：道の端は丸める（2026-11-21 てじゃ「どっちもはじめみたいにベベルでまるめれば」：
+            //  歯車の前の端が、歯と歯のすき間かどうかで丸めたり角ばらせたりバラバラで、角ばらせた所の角に穴があいていた）
+            for (var p = h.collider.transform; p != null && p != root; p = p.parent) if (p.name == "Gimmicks") return false;
             return Mathf.Abs(h.point.y - root.TransformPoint(mid).y) < 0.08f;
         }
         var mesh = BevelTopPolys(comb, r, steps, out string info, Abut);

@@ -336,9 +336,16 @@ public static class FuwaPathSeamCheck
             var nsum = Vector3.zero;
             for (int i = 0; i < loop.Count; i++) nsum += Vector3.Cross(pos[loop[i]] - c, pos[loop[(i + 1) % loop.Count]] - c);
             var nrm = nsum.sqrMagnitude > 1e-12f ? nsum.normalized : e0.n;
-            int ci = V.Count; V.Add(c); N.Add(nrm); if (U.Count > 0) U.Add(U[rep[loop[0]]]);
+            // 法線はまわりの面の法線（元の頂点の法線）をそのまま使って、平らな面に見えないように（丸めのつづきに見える）
+            var origN = m.normals; var avgN = Vector3.zero;
+            foreach (var id in loop) avgN += origN.Length == v.Length ? origN[rep[id]] : nrm;
+            avgN = avgN.sqrMagnitude > 1e-8f ? avgN.normalized : nrm;
+            // まん中の点も丸めの面に近づくよう、平均の法線の向きに少しふくらませる（輪の大きさの 1/6）
+            float rad = 0f; foreach (var id in loop) rad = Mathf.Max(rad, (pos[id] - c).magnitude);
+            var cc = c + avgN * rad * 0.17f;
+            int ci = V.Count; V.Add(cc); N.Add(avgN); if (U.Count > 0) U.Add(U[rep[loop[0]]]);
             int b0 = V.Count;
-            foreach (var id in loop) { V.Add(pos[id]); N.Add(nrm); if (U.Count > 0) U.Add(U[rep[id]]); }
+            foreach (var id in loop) { V.Add(pos[id]); N.Add(origN.Length == v.Length ? origN[rep[id]] : nrm); if (U.Count > 0) U.Add(U[rep[id]]); }
             for (int i = 0; i < loop.Count; i++) subs[e0.sub].AddRange(new[] { ci, b0 + i, b0 + (i + 1) % loop.Count });
         }
         Undo.RecordObject(m, "fill corner holes");
