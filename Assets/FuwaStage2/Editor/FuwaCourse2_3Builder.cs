@@ -1706,6 +1706,64 @@ public static class FuwaCourse2_3Builder
         }
         return g.GetComponent<MeshCollider>();
     }
+    // 行き来する床：まん中（動く向き d にそって ±V4_MoverSnowHalf）だけ雪（すべらない）、両はしは氷（2026-11-21 てじゃ「他の移動床もこっちは真ん中だけ雪つけるか」）。氷の当たりを返す
+    public static float V4_MoverSnowHalf = 1.6f;
+    static List<Collider> V4MoverPieces(Transform mv, string n, List<Vector2> body, Vector2 d, int seed)
+    {
+        var u = d.normalized; var w = new Vector2(-u.y, u.x);
+        // d を x にした座標で切って、元にもどす
+        var loc = body.Select(q => new Vector2(Vector2.Dot(q, u), Vector2.Dot(q, w))).ToList();
+        float len = loc.Max(q => q.x) - loc.Min(q => q.x), h = Mathf.Min(V4_MoverSnowHalf, len * 0.3f);
+        System.Func<List<Vector2>, List<Vector2>> back = P => P.Select(q => u * q.x + w * q.y).ToList();
+        var ices = new List<Collider>(); var snow = SnowMovingMat(); int k = 0;
+        var mid = back(ClipX(loc, -h, h));
+        var sg = V4Piece(mv, "Field" + n + "Snow", Vector3.zero, mid, seed, true, q => 0f);
+        sg.GetComponent<MeshRenderer>().sharedMaterial = snow; iceCols.Remove(sg.GetComponent<MeshCollider>());
+        foreach (var part in new[] { ClipX(loc, -999f, -h), ClipX(loc, h, 999f) })
+        {
+            if (part.Count < 3) continue;
+            var g = V4Piece(mv, "Field" + n + (k == 0 ? "" : "_" + k), Vector3.zero, back(part), seed + 1 + k, true, q => 0f); k++;
+            ices.Add(g.GetComponent<MeshCollider>());
+        }
+        return ices;
+    }
+    // 行き来する床（FieldMover〇）だけ作り直す（コースを丸ごと作り直さない）。すべる床の一覧も入れかえ
+    public static string RebuildMoversOnly(int snowSeed = 70)
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return "2–3 がない";
+        var s1 = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "FieldS1");
+        iceFlat = s1.GetComponent<MeshRenderer>().sharedMaterial;
+        var sn = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Snow" && t.GetComponent<MeshRenderer>()); snowLipMat = sn ? sn.GetComponent<MeshRenderer>().sharedMaterial : FuwaStage2WaterTest.ToonMat("Stage2_3_SnowLip", SnowLipCol);
+        icicleMat = FuwaStage2WaterTest.ToonMat("Stage2_3_Icicle", IcicleCol);
+        var skate = root.GetComponentsInChildren<FuwaIceSkate>(true).FirstOrDefault();
+        var F = V4Make();   // RebuildSpinOnly と同じく縮めずに（V4 の値は縮めの対象外）
+        var log = new List<string>(); var oldCols = new List<Collider>(); var newCols = new List<Collider>();
+        iceCols.Clear(); foreach (var c in root.GetComponentsInChildren<MeshCollider>(true)) if (c.GetComponent<MeshRenderer>() && c.GetComponent<MeshRenderer>().sharedMaterial && c.GetComponent<MeshRenderer>().sharedMaterial.name.StartsWith("Course2_3_Ice")) iceCols.Add(c);
+        recordDeco = IceLook; iceDeco.Clear();
+        try
+        {
+            foreach (var m in F.movers)
+            {
+                var mv = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "FieldMover" + m.n); if (!mv) { log.Add("FieldMover" + m.n + " がない"); continue; }
+                pathLayer = mv.gameObject.layer;
+                foreach (var old in mv.Cast<Transform>().Where(t => t.name.StartsWith("Field" + m.n)).ToArray()) { var oc = old.GetComponent<Collider>(); if (oc) oldCols.Add(oc); iceCols.Remove(oc); Object.DestroyImmediate(old.gameObject); }
+                var keepRot = mv.localRotation; mv.localRotation = Quaternion.identity;
+                newCols.AddRange(V4MoverPieces(mv, m.n, m.body.Select(q => q - m.c).ToList(), m.d, 9300 + m.seed));
+                mv.localRotation = keepRot;
+                log.Add(m.n);
+            }
+            var pathRoot = root.GetComponentsInChildren<Transform>(true).First(t => t.name == "FieldSpin").parent;
+            if (recordDeco) log.Add("雪のふち " + BuildIceDeco(pathRoot, snowSeed));
+        }
+        finally { recordDeco = false; iceDeco.Clear(); }
+        if (skate && skate.ice != null)
+        {
+            var l = skate.ice.Where(c => c != null && !oldCols.Contains(c)).ToList(); foreach (var c in newCols) if (!l.Contains(c)) l.Add(c);
+            skate.ice = l.ToArray(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(skate); EditorUtility.SetDirty(skate);
+        }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.scene);
+        return "行き来する床を作り直した: " + string.Join(", ", log);
+    }
     // 多角形を x の範囲 [x0, x1] で切る（Sutherland–Hodgman を 2 回）
     static List<Vector2> ClipX(List<Vector2> poly, float x0, float x1)
     {
@@ -2113,7 +2171,7 @@ public static class FuwaCourse2_3Builder
         {
             var c3 = o + new Vector3(m.c.x, 0f, m.c.y); var d3 = new Vector3(m.d.x, 0f, m.d.y);
             var mv = new GameObject("FieldMover" + m.n).transform; mv.SetParent(path, false); mv.localPosition = c3;
-            V4Piece(mv, "Field" + m.n, Vector3.zero, m.body.Select(q => q - m.c).ToList(), 9300 + m.seed, true, q => 0f);
+            V4MoverPieces(mv, m.n, m.body.Select(q => q - m.c).ToList(), m.d, 9300 + m.seed);
             { int k = F.movers.IndexOf(m); var side = new Vector2(-m.d.y, m.d.x) * (k % 2 == 0 ? V4_MoverObsLat : -V4_MoverObsLat); V4Obstacle(mv, "Obs0", new Vector3(side.x, 0f, side.y), false, 1.4f, 20f + k * 61f, 0.1f); }
             var mi = UdonSharpEditor.UdonSharpUndo.AddComponent<FuwaMovingIce>(mv.gameObject);
             mi.a = c3 - d3 * V4_Gap; mi.b = c3 + d3 * V4_Gap; mi.period = V4_MovePeriod + 2f * V4_MoveHold; mi.hold = V4_MoveHold; mi.phase = m.phase * mi.period / V4_MovePeriod;
