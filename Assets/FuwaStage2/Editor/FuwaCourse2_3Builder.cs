@@ -365,6 +365,7 @@ public static class FuwaCourse2_3Builder
         Hazard(root, "PlayerOut", new Vector3(lb.center.x, -9f, lb.center.z), outSize, true);
 
         RegisterCheckpoints();
+        ApplyObsPlace(root);   // 手で動かした置き物の位置（てじゃ、2026-11-21）。押し出しの当たりより先に
         SlipOffSetup(root);
         // ステージ2にいる時だけ表示
         var visb = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(m => m && m.gameObject.scene.IsValid() && m.GetType().Name == "FuwaAreaVisibility");
@@ -2729,6 +2730,66 @@ public static class FuwaCourse2_3Builder
     }
     // ふわふわが当たったら ぽよん（いわのみちの頂上の岩・チュートリアルのマシュマロと同じ 2.2・面の向き。2026-11-05 てじゃ）。道のレイヤーにして人は通れない
     // 氷の岩・結晶に乗ったら外へ押し出して落とす（FuwaSlipOff。2026-11-10 てじゃ「上にのっても落ちるような判定にしよう」）。作り直した後にも呼ぶ
+    // 最初の島・丸い山の置き物（氷の岩・結晶）を、てじゃがシーンで動かした所に置く（2026-11-21 てじゃ「序盤と次の◯島の白い石と青いクリスタルうごかした」）。
+    //  位置はコースの根っこから見た座標、向きは Y の角度。乱数の配置（M2_ObsSeed・M2_ObsNudge・V4_DomeObsOut）のあとで上書きする。
+    //  また動かしたら、シーンの値からこの表を作り直す（FuwaCourse2_3Builder.DumpObsPlace）
+    public static (string path, Vector3 lp, float yaw)[] ObsPlace = {
+        ("Obstacles/IceRock1", new Vector3(9.230f, 1.397f, 33.662f), 54.79f),
+        ("Obstacles/IceRock2", new Vector3(-7.339f, 0.504f, 40.885f), 147.23f),
+        ("Obstacles/Crystal3", new Vector3(2.330f, 0.601f, 36.534f), 157.58f),
+        ("Obstacles/IceRock4", new Vector3(-0.629f, 0.437f, 17.162f), 323.78f),
+        ("Obstacles/IceRock5", new Vector3(-4.714f, 0.627f, 20.393f), 118.42f),
+        ("Obstacles/Crystal6", new Vector3(-11.444f, -0.250f, 30.354f), 319.94f),
+        ("Obstacles/IceRock7", new Vector3(-5.454f, 0.483f, 25.983f), 170.86f),
+        ("Obstacles/IceRock8", new Vector3(-6.300f, 0.482f, 32.540f), 164.23f),
+        ("Obstacles/Crystal9", new Vector3(0.891f, 0.281f, 42.432f), 122.30f),
+        ("Obstacles/IceRock10", new Vector3(12.486f, 0.704f, 40.812f), 306.86f),
+        ("Obstacles/IceRock11", new Vector3(-10.290f, 0.494f, 22.847f), 346.57f),
+        ("Obstacles/Crystal12", new Vector3(5.533f, 1.250f, 40.281f), 284.66f),
+        ("Obstacles/IceRock13", new Vector3(-6.358f, 0.600f, 15.265f), 47.02f),
+        ("Obstacles/IceRock14", new Vector3(-12.252f, 0.572f, 37.894f), 289.67f),
+        ("Obstacles/Crystal15", new Vector3(5.252f, -0.250f, 15.424f), 87.02f),
+        ("Obstacles/IceRock16", new Vector3(-1.299f, 0.684f, 33.727f), 170.96f),
+        ("DomeObstacles/DomeObs0", new Vector3(10.902f, 0.597f, 64.301f), 174.02f),
+        ("DomeObstacles/DomeObs1", new Vector3(6.960f, 1.410f, 69.090f), 53.00f),
+        ("DomeObstacles/DomeObs2", new Vector3(1.650f, 0.975f, 68.460f), 106.00f),
+        ("DomeObstacles/DomeObs3", new Vector3(-0.302f, 0.597f, 61.299f), 336.38f),
+        ("DomeObstacles/DomeObs4", new Vector3(3.799f, 1.166f, 57.198f), 212.00f),
+        ("DomeObstacles/DomeObs5", new Vector3(9.401f, 1.263f, 58.699f), 265.00f),
+        ("DomeObstacles/DomeObs6", new Vector3(11.028f, 0.517f, 68.528f), 21.00f),
+        ("DomeObstacles/DomeObs7", new Vector3(-2.524f, 0.045f, 64.896f), 192.86f),
+        ("DomeObstacles/DomeObs8", new Vector3(-0.428f, 0.517f, 57.072f), 180.00f),
+        ("DomeObstacles/DomeObs9", new Vector3(7.396f, 0.614f, 54.976f), 233.00f),
+        ("DomeObstacles/DomeObs10", new Vector3(13.124f, 0.045f, 60.704f), 355.22f)
+    };
+    static void ApplyObsPlace(Transform root)
+    {
+        int n = 0;
+        foreach (var o in ObsPlace)
+        {
+            var t = root.Find(o.path); if (!t) { Debug.LogWarning("[2–3] 置き物がない " + o.path); continue; }
+            t.position = root.TransformPoint(o.lp); t.rotation = root.rotation * Quaternion.Euler(0f, o.yaw, 0f); n++;
+        }
+        Debug.Log("[2–3] 置き物を手の位置へ " + n + " 個");
+    }
+    // シーンの今の置き物の位置を、上の ObsPlace の形で書き出す
+    [MenuItem("FuwaCourse/ステージ2/2–3 置き物の位置をコード用に書き出す")]
+    public static void DumpObsPlace()
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return;
+        var sb = new System.Text.StringBuilder(); var ci = System.Globalization.CultureInfo.InvariantCulture;
+        foreach (var grp in new[] { "Obstacles", "DomeObstacles" })
+        {
+            var g = root.transform.Find(grp); if (!g) continue;
+            foreach (Transform t in g)
+            {
+                var lp = root.transform.InverseTransformPoint(t.position); float yaw = (Quaternion.Inverse(root.transform.rotation) * t.rotation).eulerAngles.y;
+                sb.Append("        (\"" + grp + "/" + t.name + "\", new Vector3(" + lp.x.ToString("F3", ci) + "f, " + lp.y.ToString("F3", ci) + "f, " + lp.z.ToString("F3", ci) + "f), " + yaw.ToString("F2", ci) + "f),\n");
+            }
+        }
+        Debug.Log(sb.ToString()); EditorGUIUtility.systemCopyBuffer = sb.ToString();
+    }
+
     public static string SlipOffSetup(Transform root)
     {
         var old = root.Find("RockSlipOff"); if (old) Object.DestroyImmediate(old.gameObject);
