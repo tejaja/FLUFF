@@ -154,7 +154,10 @@ public class FuwaGramophone : UdonSharpBehaviour
         if (trackText != null)
         {
             string[] names = en ? namesEn : namesJa;
-            trackText.text = (names != null && _idx < names.Length) ? names[_idx] : "";
+            // 番号は見えている曲だけで 1 から（2026-11-21 てじゃ「順番に1から数字つけるだけ」）
+            int no = 0;
+            for (int i = 0; i <= _idx && trackIds != null && i < trackIds.Length; i++) if (!Hidden(i)) no++;
+            trackText.text = (names != null && _idx < names.Length) ? no + "  " + names[_idx] : "";
             trackText.color = activeTextColor;
         }
         bool playing = bgm != null && bgm.gramoPlaying;

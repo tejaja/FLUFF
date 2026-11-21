@@ -25,10 +25,12 @@ public static class FuwaGramophoneBuilder
     // 2026-11-21 てじゃ「おまかせってなに？」→おまかせは削除。同じ日「BGMなしは削除」「ロビー曲はリストの最後に変更」
     static readonly int[] Tracks = { 6, 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 7, 14, 0 };
     const int LockedIndex = 12;
-    static readonly string[] Ja = { "れんしゅう", "1 かぜのおか", "2 いわのみち", "3 やみのもり", "4 まもののす", "5 きのこのたに",
-        "2–1 みずのこみち", "2–2 ほのおのやま", "2–3 こおりのみち", "2–4 はぐるまのしま", "2–5 そらのいせき", "ゴールのあと", "おまけ", "ロビー" };
-    static readonly string[] En = { "Practice", "1 Windy Hill", "2 Rock Road", "3 Dark Forest", "4 Monster Den", "5 Mushroom Valley",
-        "2-1 Water Path", "2-2 Flame Mountain", "2-3 Ice Road", "2-4 Gear Isles", "2-5 Sky Ruins", "After the goal", "Bonus", "Lobby" };
+    // 曲名（2026-11-21 てじゃ「いいね、これでファイル名かえつつ、蓄音機の表示もコレに」「コースナンバーはなし、順番に1から数字つけるだけ」）。
+    // 日本語でも英語の曲名。番号は FuwaGramophone が見えている曲だけで 1 から数える（おまけが隠れている間は飛ばさない）。
+    // 元の曲は D:\Claude_Workspace\fluff_bgm\01_Lazy Afternoon.wav … 14_Bed Above the Clouds.wav（同じ並び）
+    static readonly string[] Ja = { "Lazy Afternoon", "Windy Highlands", "Rumbly Cave", "Glowshroom Forest", "Fluffball Den", "Mushroom Hop",
+        "Hidden Waterfalls", "Volcano Dungeon", "Snowflake Waltz", "Clockwork Factory", "Ruins in the Sky", "Sunny Encore", "Neon Thank You", "Bed Above the Clouds" };
+    static readonly string[] En = Ja;
 
     static Material Mat(string name, Color c, bool metal = false)
     {
@@ -194,7 +196,7 @@ public static class FuwaGramophoneBuilder
             ta.font = daru; ta.fontSharedMaterial = daru.material; ta.fontStyle = TMPro.FontStyles.Normal;
             { var m = ta.margin; ta.margin = new Vector4(m.x, m.y, m.z, Mathf.Max(0f, m.w - 40f)); }
             ta.enableAutoSizing = true; ta.fontSizeMin = 80f; ta.fontSizeMax = 190f; ta.enableWordWrapping = false;   // 2026-11-21 てじゃ「もじちっちゃ」（前は 50〜130）
-            ta.text = Ja[0];
+            ta.text = "1  " + Ja[0];
             gm.trackText = ta;
             // 2026-11-21 てじゃ「上の曲選択もこの枠（▶■みたいな丸めの四角）にして、白背景なしにして両端にもうすこし大きめの三角、文字は白文字」
             var cvT = (RectTransform)trackRow.Find("Canvas"); float W = cvT.sizeDelta.x;
