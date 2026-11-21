@@ -55,15 +55,9 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     public float stickDead = 0.3f;
     private float _lookV, _vy;
     private bool _jumpHeld;
-    // 2026-11-21 てじゃ「竹とんぼがスマホ版だと下降ができない」「ジャンプで上昇できない」→ スマホ：ジャンプ長押しで上昇、
-    //  画面の ↑↓ ボタン（FuwaMobileCopterButtons）は「1タップで tapStep m だけスーッと上がる／下がる、連打でたくさん」（てじゃ B案）
-    [Tooltip("スマホの ↑↓ ボタン1タップで動く高さ(m)")]
-    public float tapStep = 2f;
-    [Tooltip("残りがこの距離(m)より短くなると、ゆっくりにして止まる")]
-    public float tapEase = 1f;
-    private float _pendingV, _pendingAt;   // ボタンで動く残りの高さ（＋上・−下）と最後にタップした時刻
-    public void MobileUp() { if (_mine) { _pendingV = Mathf.Max(0f, _pendingV) + tapStep; _pendingAt = Time.time; } }
-    public void MobileDown() { if (_mine) { _pendingV = Mathf.Min(0f, _pendingV) - tapStep; _pendingAt = Time.time; } }
+    // 2026-11-21 てじゃ「竹とんぼがスマホ版だと下降ができない」「ジャンプで上昇できない」→ スマホ：ジャンプ長押しで上昇、「使う」（手のボタン）長押しで下降。
+    //  画面の ↑↓ ボタンも作ったが、スマホは移動中（スティック操作中）に画面のボタンが反応しないのでやめた（てじゃ「移動しながら押せない」「ボタンけそ」）
+    private bool _mobile, _descendHeld;
     [Header("羽")]
     public float spinUse = 1500f, spinIdle = 120f, spinAccel = 2400f, spinHover = 480f;   // spinIdle：いつものゆっくり回転（度/秒）
 
@@ -133,7 +127,12 @@ public class FuwaBambooCopter : UdonSharpBehaviour
     {
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
-        _mine = true; _using = false; _braking = false; _droppedAt = -1f;
+        _mine = true; _using = false; _braking = false; _droppedAt = -1f; _descendHeld = false;
+#if UNITY_ANDROID || UNITY_IOS
+        _mobile = !p.IsUserInVR();
+#else
+        _mobile = false;
+#endif
         _gravity = p.GetGravityStrength();
         if (manager != null) manager.ReturnGunToStand();   // 銃は台にもどす（てじゃ「竹とんぼもったら銃が台に戻るようにしよ」）
         if (bounds != null) bounds.SetActive(true);
@@ -153,20 +152,21 @@ public class FuwaBambooCopter : UdonSharpBehaviour
         if (!_mine) return;
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p == null) return;
+        if (_mobile) { _descendHeld = true; return; }   // スマホは下降
         _using = true;   // 上昇の入力として Update で使う
     }
 
     public override void OnPickupUseUp()
     {
         if (!_mine) return;
-        _using = false;
+        _using = false; _descendHeld = false;
     }
 
     private void EndFlight()
     {
         VRCPlayerApi p = Networking.LocalPlayer;
         if (p != null && (_using || _braking || _hovering)) p.SetGravityStrength(_gravity);
-        _using = false; _braking = false; _hovering = false; _pendingV = 0f;
+        _using = false; _braking = false; _hovering = false; _descendHeld = false;
     }
 
     private void Update()
@@ -189,9 +189,7 @@ public class FuwaBambooCopter : UdonSharpBehaviour
                 else if (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) vin = -1f;
             }
             if (_using) vin = 1f;
-            // ↑↓ ボタンの残り：ほかの上下の入力があればやめる。残りが短いとゆっくり
-            if (vin != 0f || Time.time - _pendingAt > 4f) _pendingV = 0f;   // 天井などで進めない時も4秒でやめる
-            else if (_pendingV != 0f) vin = Mathf.Sign(_pendingV) * Mathf.Clamp(Mathf.Abs(_pendingV) / Mathf.Max(0.01f, tapEase), 0.3f, 1f);
+            else if (_descendHeld && vin <= 0f) vin = -1f;   // スマホ：使う長押しで下降（ジャンプが優先）
         }
         // 羽：持っている間はゆっくり、上昇中は速く、下降中は逆回転
         // 2026-11-18 てじゃ「ホバリング中の回転速度をもうちょい早く」「可能だったら接地中は止めたい」：ホバリング中は spinHover、地面に立っている間は止める
@@ -222,11 +220,8 @@ public class FuwaBambooCopter : UdonSharpBehaviour
             _vy = Mathf.MoveTowards(_vy, target, verticalAccel * Time.deltaTime);
             Vector3 v = Hover(p); v.y = _vy;
             p.SetVelocity(v);
-            if (_pendingV > 0f) _pendingV = Mathf.Max(0f, _pendingV - Mathf.Max(0f, _vy) * Time.deltaTime);
-            else if (_pendingV < 0f) _pendingV = Mathf.Min(0f, _pendingV - Mathf.Min(0f, _vy) * Time.deltaTime);
         }
-        else if (_hovering) { _hovering = false; _vy = 0f; _pendingV = 0f; p.SetGravityStrength(_gravity); }   // 地面に着いた
-        else if (_pendingV < 0f) _pendingV = 0f;   // 地面で ↓
+        else if (_hovering) { _hovering = false; _vy = 0f; p.SetGravityStrength(_gravity); }   // 地面に着いた
     }
 
     // 見た目を真上に立て直す＋ゆらゆら。手（pickup）の位置が決まった後に動かす
