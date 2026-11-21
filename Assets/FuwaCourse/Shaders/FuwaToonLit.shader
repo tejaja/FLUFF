@@ -206,9 +206,16 @@ Shader "FuwaCourse/ToonLit"
                 #ifdef _FUWA_VCOLOR
                 fixed4 vcol : COLOR0;
                 #endif
-                // 2026-11-21 Quest（GLES3・マルチビュー＋インスタンシング）で「システムの値（SV_InstanceID）の後ろにふつうの値」のエラー → ステレオを先に
+                // 2026-11-21 Quest（GLES3・マルチビュー＋インスタンシング）で「システムの値（SV_InstanceID）の後ろにふつうの値」のエラー → ステレオを先に。
+                //  ただし PC（D3D11・シングルパスのステレオ＋インスタンシング）はその順だと「Named register components cannot appear to the left」で
+                //  コンパイルエラー（VR で ToonLit が出ない）→ D3D11 は元の順（インスタンスID→ステレオ）
+                #if defined(SHADER_API_D3D11)
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+                UNITY_VERTEX_OUTPUT_STEREO
+                #else
                 UNITY_VERTEX_OUTPUT_STEREO
                 UNITY_VERTEX_INPUT_INSTANCE_ID
+                #endif
             };
 
             v2f vert (appdata v)
