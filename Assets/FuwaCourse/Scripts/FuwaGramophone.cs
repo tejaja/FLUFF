@@ -1,11 +1,13 @@
 using UdonSharp;
 using UnityEngine;
 using TMPro;
+using VRC.SDK3.Persistence;
+using VRC.SDKBase;
 
 // あそびばの蓄音機（2026-11-20 てじゃ「あそびばのBGM変更モードみたいなのほしい」「自分だけ＋全曲、ラストのだけ全クリ後にひっそり」
 //  「みためは蓄音機、台にボタン」「動画で曲を止めないスイッチも、デフォは止める」）
 // ・◀ ▶ で曲をえらぶ（先頭はロビー＝いつものあそびばの曲、最後は BGMなし）。えらんだ曲は FuwaBgm.overrideTrack に入れて、あそびばにいる間だけ流れる
-// ・「動画優先 ｜ ◀ ON/OFF ▶」：ON（ふだん）は動画の間BGMを止める、OFF は止めない（FuwaBgm.keepDuringVideo）。ボタンは蓄音機の横に単体で浮かせてある
+// ・動画の間BGMを止めるかどうかは、テレビの操作パネルの「Auto BGM OFF」（FuwaTvVideoSwitch）に移した（2026-11-21）
 // ・音量バーは蓄音機の下の段（FuwaBgm.volumeSliders に入っているので、ここでは何もしない）
 //  （2026-11-21 てじゃ「ボタンを他のボタンみたいなビーム式に」「ほかの切り替えボタンみたいにボタンとタイトルがつながってて真ん中で区切ってるタイプに」：テレビの CAM と同じ形）
 // ・曲が鳴っている間はレコードが回る
@@ -27,10 +29,6 @@ public class FuwaGramophone : UdonSharpBehaviour
 
     [Tooltip("曲名（上の段の白い札）")]
     public TextMeshProUGUI trackText;
-    [Tooltip("ON / OFF（下の段の白い札）")]
-    public TextMeshProUGUI videoText;
-    [Tooltip("下の段の見出し（動画優先）")]
-    public TextMeshProUGUI videoHead;
     public Color activeTextColor = new Color(0.62f, 0.55f, 0.86f), idleTextColor = new Color(0.55f, 0.55f, 0.6f);
     public Transform record;
     public float spinSpeed = 45f;   // 度/秒（78回転だと速すぎてチカチカするので、ゆっくり）
@@ -61,21 +59,38 @@ public class FuwaGramophone : UdonSharpBehaviour
         if (clickSound != null) clickSound.Play();
     }
 
-    public void VideoKeepOn() { SetKeep(true); }
-    public void VideoKeepOff() { SetKeep(false); }
-    public void ToggleVideoKeep() { if (bgm != null) SetKeep(!bgm.keepDuringVideo); }
-    private void SetKeep(bool v)
+    private void Apply()
     {
-        if (bgm == null) return;
-        bgm.keepDuringVideo = v;
-        if (clickSound != null) clickSound.Play();
+        int id = (trackIds != null && _idx < trackIds.Length) ? trackIds[_idx] : -1;
+        if (bgm != null) bgm.overrideTrack = id;
+        if (_restored) { PlayerData.SetInt("gramo_track", id); _savedId = id; }
         Refresh();
     }
 
-    private void Apply()
+    // ===== えらんだ曲の保存（FuwaBgm.savePlayerData に合わせる。2026-11-21 てじゃ「保存してもいいかも」） =====
+    // 曲の番号（FuwaBgm.tracks の番号）で持つ。並びを変えても同じ曲に戻る。おまけの曲は全クリが読み込まれてから戻す
+    private bool _restored;
+    private int _savedId = -99;
+
+    public override void OnPlayerRestored(VRCPlayerApi player)
     {
-        if (bgm != null) bgm.overrideTrack = (trackIds != null && _idx < trackIds.Length) ? trackIds[_idx] : -1;
-        Refresh();
+        if (player == null || !player.isLocal || bgm == null || !bgm.savePlayerData) return;
+        if (PlayerData.HasKey(player, "gramo_track")) { _savedId = PlayerData.GetInt(player, "gramo_track"); TryRestore(); }
+        _restored = true;
+    }
+
+    private void TryRestore()
+    {
+        if (trackIds == null) return;
+        for (int i = 0; i < trackIds.Length; i++)
+        {
+            if (trackIds[i] != _savedId) continue;
+            if (Hidden(i) || i == _idx) return;
+            _idx = i;
+            if (bgm != null) bgm.overrideTrack = trackIds[i];
+            Refresh();
+            return;
+        }
     }
 
     private void Refresh()
@@ -89,11 +104,6 @@ public class FuwaGramophone : UdonSharpBehaviour
             trackText.text = (names != null && _idx < names.Length) ? names[_idx] : "";
             trackText.color = activeTextColor;
         }
-        bool keep = bgm != null && bgm.keepDuringVideo;
-        // 「動画優先」ON＝動画の間はBGMを止める（ふだん）、OFF＝止めない（2026-11-21 てじゃ「動画優先 ON OFFとか」）
-        bool videoFirst = !keep;
-        if (videoHead != null) videoHead.text = en ? "Video first" : "動画優先";
-        if (videoText != null) { videoText.text = videoFirst ? "ON" : "OFF"; videoText.color = videoFirst ? activeTextColor : idleTextColor; }
     }
 
     private void Update()
@@ -104,6 +114,7 @@ public class FuwaGramophone : UdonSharpBehaviour
         if (en != _lastEnglish || un != _lastUnlocked)
         {
             if (Hidden(_idx)) { _idx = 0; Apply(); }
+            else if (un && _savedId != -99) TryRestore();   // 全クリが後から読み込まれた：おまけの曲を戻す
             Refresh();
         }
         if (record != null)

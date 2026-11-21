@@ -52,6 +52,29 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
     public UdonSharpBehaviour bgm;
     public string bgmSilenceVariable = "externalSilence";
 
+    [Header("Auto BGM OFF ボタン（操作パネルの音量の下、枠の外。動画の時・パネルを出している時だけ）")]
+    [Tooltip("ON（ふだん・色つき）＝動画の間BGMを止める、OFF（グレー）＝止めない。2026-11-21 てじゃ「Auto BGM OFF って書いてあって、デフォ色がついてる、押すとグレーアウト」")]
+    public GameObject autoBgmButton;
+    public Image autoBgmImage;
+    public FuwaBgm bgmMain;
+    public Color autoBgmOnColor = new Color(0.62f, 0.55f, 0.86f), autoBgmOffColor = new Color(0.8f, 0.77f, 0.88f, 0.7f);
+    private bool _autoShown = true;
+
+    public void ToggleAutoBgm()
+    {
+        if (bgmMain == null) return;
+        bgmMain.SetKeepDuringVideo(!bgmMain.keepDuringVideo);
+        RefreshAutoBgm();
+    }
+
+    private void RefreshAutoBgm()
+    {
+        bool on = bgmMain == null || !bgmMain.keepDuringVideo;
+        if (on == _autoShown) return;
+        _autoShown = on;
+        if (autoBgmImage != null) autoBgmImage.color = on ? autoBgmOnColor : autoBgmOffColor;
+    }
+
     private bool _video;
     private bool _silencing;
     private bool _panelHidden;   // 動画の操作パネルを隠している（自分の画面だけ。2026-10-15 てじゃ「UI隠しボタンもどっかにほしい」）
@@ -98,6 +121,7 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         bool ctrl = v && !_panelHidden;
         if (videoControls != null && videoControls.activeSelf != ctrl) videoControls.SetActive(ctrl);
         if (hideButton != null && hideButton.activeSelf != v) hideButton.SetActive(v);
+        if (autoBgmButton != null && autoBgmButton.activeSelf != ctrl) autoBgmButton.SetActive(ctrl);
         if (hideLabel != null) hideLabel.text = _panelHidden ? "▼" : "▲";   // 出ている時▲（上に隠す）、隠れている時▼（下に出す）（2026-10-15 てじゃ「上に隠して下にだす」）   // 出ている時▲（しまう）、隠れている時▼（出す）（2026-10-15 てじゃ「イメージ逆」）
         if (cameraOnly != null) for (int i = 0; i < cameraOnly.Length; i++) if (cameraOnly[i] != null && cameraOnly[i].activeSelf == v) cameraOnly[i].SetActive(!v);
         if (toggleIcon != null) toggleIcon.sprite = v ? iconToCam : iconToVideo;
@@ -144,6 +168,7 @@ public class FuwaTvVideoSwitch : UdonSharpBehaviour
         _wasEnded = video.IsEndedOrEmpty();
         _wasPlaying = playing; _wasIdle = idle;
         ApplyTitle();   // 言語の切りかえで見出しが書きかわっても、今のモードの見出しに戻す
+        RefreshAutoBgm();   // 保存の読み込み（あとから届く）にも追いつく
         UpdateBgm();
         _badge = playing && !_video;
         if (playingBadge != null && playingBadge.activeSelf != _badge) playingBadge.SetActive(_badge);

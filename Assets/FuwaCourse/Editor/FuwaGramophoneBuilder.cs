@@ -18,10 +18,6 @@ public static class FuwaGramophoneBuilder
     static readonly Color Theme = new Color(0.66f, 0.45f, 0.32f), ThemeDark = new Color(0.45f, 0.28f, 0.18f), ThemeIdle = new Color(0.64f, 0.58f, 0.54f);
     const float TrackHeadCut = 250f;    // 曲名の段：左の見出し（♪）を詰める幅（CAM の単位）
     const float VolumeWidth = 1920f;     // 音量バーの横幅（曲名の段とそろえる。CAM の単位）
-    // 動画優先ボタン（単体）：カメラの球（-8°）と蓄音機（4°）の間の柵ぎわ
-    public const float VideoAngle = -2.1f;
-    public const float VideoRadius = 13.45f;
-    public const float VideoHeight = 0.62f;   // 床から(m)
 
     // えらべる曲（FuwaBgm.tracks の番号）。最後（おまけ）は全クリ後
     // 2026-11-21 てじゃ「おまかせってなに？」「そもそもロビーと同じ」→おまかせは消して先頭をロビーに
@@ -119,7 +115,7 @@ public static class FuwaGramophoneBuilder
 
         // ボタン：テレビの「CAM」と同じ形（左に見出し・右の白い札に ◀ 今の値 ▶、つながった1本で真ん中で区切る）をコピーする
         //（2026-11-21 てじゃ「ほかの切り替えボタンみたいにボタンとタイトルがつながってて真ん中で区切ってるタイプにしよ」）
-        //  上の段：◀ 曲名 ▶（右半分で次、左半分で前）／下の段：音量バー／動画優先 ｜ ◀ ON/OFF ▶ は蓄音機の横に単体で（どこを押しても切りかえ。ON＝動画の間BGMを止める）
+        //  上の段：◀ 曲名 ▶（右半分で次、左半分で前）／下の段：音量バー
         // 前の3Dのボタン・レバー・札は隠す
         foreach (var n in new[] { "Gramo_BtnPrev", "Gramo_BtnNext", "Gramo_SwitchBase", "Gramo_SwitchLever", "Gramo_Plate" }) { var t = F(n); if (t != null) t.gameObject.SetActive(false); }
         UdonSharpEditorUtility.CopyProxyToUdon(gm);
@@ -217,27 +213,9 @@ public static class FuwaGramophoneBuilder
             }
         }
 
-        // 動画優先：蓄音機から出して、カメラの球と蓄音機の間の柵ぎわに単体で浮かせる（おもちゃをもどすボタンと同じ浮かせ方）
-        //（2026-11-21 てじゃ「BGM動画優先ボタンをその間におこうかな」「柵寄りに」）。ON＝動画の間BGMを止める
-        float va = VideoAngle * Mathf.Deg2Rad;
-        var vOut = new Vector3(Mathf.Sin(va), 0f, Mathf.Cos(va));
-        var vPos = Center + vOut * VideoRadius;
-        float vFloor = Center.y;
-        if (Physics.Raycast(vPos + Vector3.up * 5f, Vector3.down, out var vHit, 10f, ~0, QueryTriggerInteraction.Ignore)) vFloor = vHit.point.y;
-        vPos.y = vFloor + VideoHeight;
-        var videoRow = Seg("VideoButton", vPos, Quaternion.LookRotation(vOut), 0.22f, 0f, 520f, "ToggleVideoKeep", "ToggleVideoKeep");
-        {
-            videoRow.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Icon").gameObject.SetActive(false);
-            var head = Find(videoRow, "Head"); head.gameObject.SetActive(true);
-            head.font = mplus; head.fontSharedMaterial = mplus.material; head.fontStyle = TMPro.FontStyles.Bold;   // 漢字（Darumadrop One は漢字がない）
-            { var m = head.margin; head.margin = new Vector4(m.x, m.y, m.z, Mathf.Max(0f, m.w - 40f)); }
-            head.enableAutoSizing = true; head.fontSizeMin = 60f; head.fontSizeMax = 150f; head.enableWordWrapping = false;
-            head.text = "動画優先";
-            gm.videoHead = head;
-            gm.videoText = Find(videoRow, "TextA"); gm.videoText.text = "ON";   // 動画優先 ON がふだん
-        }
+        // 動画優先（動画の間BGMを止める）は、テレビの操作パネルの「Auto BGM OFF」に移した（2026-11-21 てじゃ「いっそプレイヤーのUI側にいれるか」。FuwaTvVideoBuilder.AddAutoBgmButton）
         gm.activeTextColor = Theme; gm.idleTextColor = ThemeIdle;
-        gm.videoText.color = gm.activeTextColor; gm.trackText.color = gm.activeTextColor;
+        gm.trackText.color = gm.activeTextColor;
         UdonSharpEditorUtility.CopyProxyToUdon(gm);
         var gub = UdonSharpEditorUtility.GetBackingUdonBehaviour(gm); if (gub != null) { gub.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(gub); }
 

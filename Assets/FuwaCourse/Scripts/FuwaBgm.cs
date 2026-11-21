@@ -58,6 +58,7 @@ public class FuwaBgm : UdonSharpBehaviour
                 foreach (UnityEngine.UI.Slider sl in volumeSliders) if (sl != null) sl.SetValueWithoutNotify(_userPercent);
             UpdateVolumeLabels();
         }
+        if (PlayerData.HasKey(player, "bgm_keep_video")) keepDuringVideo = PlayerData.GetBool(player, "bgm_keep_video");
         // おまけ本島に行ったことがあれば、おまけ入口島ではもう曲を切り替えない（stickyAfterGoal のコースを全部）
         if (PlayerData.HasKey(player, "bgm_sticky") && PlayerData.GetBool(player, "bgm_sticky") && stickyAfterGoal != null && starts != null)
         {
@@ -231,6 +232,13 @@ public class FuwaBgm : UdonSharpBehaviour
     public Transform overrideArea;
     [Tooltip("true なら動画の再生中・テレビを動画にしている間もBGMを止めない（蓄音機のスイッチ、デフォは止める）")]
     [HideInInspector] public bool keepDuringVideo;
+
+    // テレビの操作パネルの「Auto BGM OFF」から（ON＝動画の間BGMを止める＝keepDuringVideo が false）。保存もする（2026-11-21 てじゃ「設定って保存てされてるんだっけ」）
+    public void SetKeepDuringVideo(bool v)
+    {
+        keepDuringVideo = v;
+        if (_restored) PlayerData.SetBool("bgm_keep_video", v);
+    }
 
     private bool Silenced() { return externalSilence && !keepDuringVideo; }
     // 今BGMが鳴っているか（蓄音機のレコードを回す用）

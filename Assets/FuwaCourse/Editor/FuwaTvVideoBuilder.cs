@@ -31,6 +31,7 @@ public static class FuwaTvVideoBuilder
         vp.audioZone = roots.First(g => g.name == "FuwaPlayground").transform;
         vp.audioZoneRadius = 17f;   // 島の半径14m＋柵の外の少し
         vp.bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault();
+        vp.saveVolumeKey = "video_volume";   // 自分の動画の音量を保存（2026-11-21 てじゃ「保存してもいいかも」）
         return core;
     }
 
@@ -191,8 +192,70 @@ public static class FuwaTvVideoBuilder
         UdonSharpEditorUtility.CopyProxyToUdon(sw);
         if (swUb != null) { swUb.SyncMethod = VRC.SDKBase.Networking.SyncType.None; EditorUtility.SetDirty(swUb); }
 
+        AddAutoBgmButton(tv, sw);
         Finish(vp, scene);
         Selection.activeGameObject = tv.gameObject;
+    }
+
+    // 「Auto BGM OFF」ボタン：操作パネルの音量バーの下、パネルの枠の外（2026-11-21 てじゃ「いっそプレイヤーのUI側に」「ボリュームの下の枠外に追加ボタン」
+    //  「Auto BGM OFF って書いてあって、デフォ色がついてる、押すとグレーアウトする」）。色つき＝動画の間BGMを止める（ふだん）、グレー＝止めない。
+    // 見た目は操作パネルの ■停止 ボタンの写し。パネルとは別の Canvas（パネルの当たりの外なので）で、出し入れは FuwaTvVideoSwitch がパネルと一緒にする
+    [MenuItem("FuwaCourse/あそびば/テレビに Auto BGM OFF ボタンを付ける")]
+    public static void AddAutoBgmButtonMenu()
+    {
+        var room = EditorSceneManager.GetActiveScene().GetRootGameObjects().First(g => g.name == "FuwaPlayground").transform.Find("Room");
+        var tv = room.Find("Monitor");
+        AddAutoBgmButton(tv, tv.Find("VideoSwitch").GetComponent<FuwaTvVideoSwitch>());
+        EditorSceneManager.MarkSceneDirty(tv.gameObject.scene);
+    }
+
+    const float AutoBgmW = 400f, AutoBgmH = 84f, AutoBgmGap = 0.018f;   // Canvas の単位／パネルの下のふちからのすき間(m)
+    public static void AddAutoBgmButton(Transform tv, FuwaTvVideoSwitch sw)
+    {
+        var old = tv.Find("AutoBgmButton"); if (old != null) Object.DestroyImmediate(old.gameObject);
+        var controls = tv.Find("VideoControls"); if (controls == null || sw == null) return;
+        var panel = (RectTransform)controls.Find("Panel"); var vol = (RectTransform)panel.Find("Volume"); var stop = panel.Find("Stop");
+        // 置き場所：音量バーの真下（横）、パネルの下のふち（縦）
+        var pc = new Vector3[4]; panel.GetWorldCorners(pc);
+        var vc = new Vector3[4]; vol.GetWorldCorners(vc);
+        var cvRt0 = (RectTransform)controls;
+        float s = cvRt0.lossyScale.x;
+        Vector3 down = -controls.up;
+        Vector3 volMidX = (vc[0] + vc[3]) * 0.5f;                       // 音量バーの下のふちの真ん中
+        float toPanelBottom = Vector3.Dot(pc[0] - volMidX, down);       // そこからパネルの下のふちまで
+        Vector3 pos = volMidX + down * (toPanelBottom + AutoBgmGap + AutoBgmH * 0.5f * s);
+
+        var cvGo = new GameObject("AutoBgmButton", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+        cvGo.transform.SetParent(tv, false);
+        cvGo.GetComponent<Canvas>().renderMode = RenderMode.WorldSpace;
+        var rt = (RectTransform)cvGo.transform; rt.sizeDelta = new Vector2(AutoBgmW, AutoBgmH);
+        rt.SetPositionAndRotation(pos, controls.rotation);
+        { var ps = tv.lossyScale.x; rt.localScale = Vector3.one * (s / ps); }
+        cvGo.AddComponent<VRC.SDK3.Components.VRCUiShape>();
+        var bc = cvGo.AddComponent<BoxCollider>(); bc.size = new Vector3(AutoBgmW, AutoBgmH, 10f); bc.isTrigger = true;
+
+        var b = Object.Instantiate(stop.gameObject, cvGo.transform, false); b.name = "Button";
+        var brt = (RectTransform)b.transform; brt.anchorMin = Vector2.zero; brt.anchorMax = Vector2.one; brt.pivot = new Vector2(0.5f, 0.5f);
+        brt.offsetMin = Vector2.zero; brt.offsetMax = Vector2.zero; brt.anchoredPosition = Vector2.zero;
+        var img = b.GetComponent<Image>();
+        var sel = b.GetComponent<UnityEngine.UI.Button>();
+        // 色は Image で持つ（ボタンの色かけは白に。かけるとグレーがにごる）
+        var cb = sel.colors; cb.normalColor = Color.white; cb.selectedColor = Color.white; cb.highlightedColor = new Color(0.93f, 0.93f, 0.93f); cb.pressedColor = new Color(0.85f, 0.85f, 0.85f); cb.colorMultiplier = 1f; sel.colors = cb;
+        img.color = sw.autoBgmOnColor;
+        sel.onClick = new UnityEngine.UI.Button.ButtonClickedEvent();
+        var swUb = UdonSharpEditorUtility.GetBackingUdonBehaviour(sw);
+        UnityEventTools.AddStringPersistentListener(sel.onClick, swUb.SendCustomEvent, nameof(FuwaTvVideoSwitch.ToggleAutoBgm));
+        // 中身：■の絵などは消して文字だけ
+        foreach (Transform c in b.transform.Cast<Transform>().ToArray()) if (c.name != "Label") Object.DestroyImmediate(c.gameObject);
+        var lab = b.transform.Find("Label")?.GetComponent<Text>();
+        if (lab == null) { lab = Label(b.transform, "Label", "", DefaultFont(), 40, Color.white, TextAnchor.MiddleCenter); }
+        Fill(lab.gameObject, 8f);
+        lab.text = "Auto BGM OFF"; lab.fontSize = 40; lab.fontStyle = FontStyle.Bold; lab.alignment = TextAnchor.MiddleCenter; lab.horizontalOverflow = HorizontalWrapMode.Overflow;
+        cvGo.SetActive(controls.gameObject.activeSelf);
+
+        sw.autoBgmButton = cvGo; sw.autoBgmImage = img;
+        sw.bgmMain = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault();
+        UdonSharpEditorUtility.CopyProxyToUdon(sw); EditorUtility.SetDirty(sw);
     }
 
     // 前の画面（テスト・テレビ組み込み）を片付け。本体（同期する物）は作り直さず使い回す
@@ -205,7 +268,7 @@ public static class FuwaTvVideoBuilder
         if (sysT != null) list.Add(sysT.transform.Find("VideoPlayer/VideoSpeakers"));
         if (tv != null)
         {
-            list.Add(tv.Find("VideoSpeakers")); list.Add(tv.Find("VideoControls")); list.Add(tv.Find("VideoToggle")); list.Add(tv.Find("VideoHide"));
+            list.Add(tv.Find("VideoSpeakers")); list.Add(tv.Find("VideoControls")); list.Add(tv.Find("VideoToggle")); list.Add(tv.Find("VideoHide")); list.Add(tv.Find("AutoBgmButton"));
             var inner = tv.Find("Monitor"); if (inner != null) list.Add(inner.Find("VideoScreen"));
             // カメラのボタンが隠れたまま残らないように
             foreach (var n in new[] { "TargetButton", "CamButton", "Monitor/Screen", "Monitor/Name" }) { var b = tv.Find(n); if (b != null) b.gameObject.SetActive(true); }

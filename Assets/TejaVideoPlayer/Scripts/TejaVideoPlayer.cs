@@ -6,6 +6,7 @@ using VRC.SDK3.Components.Video;
 using VRC.SDK3.Video.Components.Base;
 using VRC.SDKBase;
 using VRC.SDK3.Data;
+using VRC.SDK3.Persistence;
 using VRC.SDK3.StringLoading;
 using VRC.Udon.Common.Interfaces;
 
@@ -78,6 +79,8 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     [Tooltip("VRChat の決まり：次の読み込みまで5秒あける（少し余裕をみる）")]
     public float loadInterval = 5.5f;
     public float defaultVolume = 0.3f;   // 最初の音量（2026-10-24 てじゃ「デフォルトの動画ボリューム30%くらい」）
+    [Tooltip("空でなければ、このキーで自分の音量を VRChat に保存する（PlayerData）。空なら保存しない")]
+    public string saveVolumeKey = "";
 
     [UdonSynced] private VRCUrl _url = VRCUrl.Empty;
     [UdonSynced] private int _ver;            // URL を入れ直すたびに +1（同じURLでも読み直す）
@@ -290,6 +293,29 @@ public class TejaVideoPlayer : UdonSharpBehaviour
     public void OnVolumeChanged()
     {
         if (volumeSlider != null) SetVolume(volumeSlider.value);
+        // 保存：ドラッグ中は何度も呼ばれるので、動かし終わって少ししてから1回だけ
+        if (_volRestored && !_volSavePending) { _volSavePending = true; SendCustomEventDelayedSeconds(nameof(_SaveVolume), 1f); }
+    }
+
+    // ===== 音量の保存（saveVolumeKey があれば。2026-11-21 てじゃ「保存してもいいかも」） =====
+    private bool _volRestored, _volSavePending;
+
+    public override void OnPlayerRestored(VRCPlayerApi p)
+    {
+        if (p == null || !p.isLocal || string.IsNullOrEmpty(saveVolumeKey)) return;
+        _volRestored = true;
+        if (PlayerData.HasKey(p, saveVolumeKey))
+        {
+            float v = Mathf.Clamp01(PlayerData.GetFloat(p, saveVolumeKey));
+            if (volumeSlider != null) volumeSlider.SetValueWithoutNotify(v);
+            SetVolume(v);
+        }
+    }
+
+    public void _SaveVolume()
+    {
+        _volSavePending = false;
+        if (_volRestored && volumeSlider != null) PlayerData.SetFloat(saveVolumeKey, volumeSlider.value);
     }
 
     // ===== 同期 =====
