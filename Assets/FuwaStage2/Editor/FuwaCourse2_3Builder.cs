@@ -2198,6 +2198,7 @@ public static class FuwaCourse2_3Builder
     //   → きのこは 1 つだけ、もと IceRock2 のあった所（IceRock2 は M2_ObsNudge で左へ）。判定の線は島の幅より左右 1m ずつ長く
     public static float V4_HillCpHW = 10.2f, V4_HillCpTrigX = 0.93f;   // 線の横のずれ（きのこは線の上、線のまん中は切れ目と右のふちの間）
     public static Vector2 V4_HillCpMush = new Vector2(-0.35f, -2.57f);   // きのこ（チェックポイントから 横・前後）。2026-11-21 てじゃが手で動かした（復帰と重なっていた）
+    public static Vector2 V4_HillCpBand = new Vector2(1.84f, -1.58f), V4_HillCpBandSize = new Vector2(21.2f, 3.25f), V4_HillCpRespawn = new Vector2(1.69f, -1.28f); public static float V4_HillCpBandYaw = -12f;   // 判定の帯（まん中 横・前後、長さ・幅、向き）と復活（横・前後）
     public static string V4HillCheckpoint(Transform root, Vector3 o)
     {
         const string name = "CheckpointHill";
@@ -2211,6 +2212,9 @@ public static class FuwaCourse2_3Builder
             var l = gm.Find("ClusterL"); if (l) l.localPosition = new Vector3(V4_HillCpMush.x, l.localPosition.y, V4_HillCpMush.y);
         }
         var trig = cp.Find("Trigger"); if (trig) trig.localPosition = new Vector3(V4_HillCpTrigX, trig.localPosition.y, 0f);
+        // 2026-11-21 てじゃの絵：判定はきのこをはさむ斜めの帯、復活はきのこの右前（濃い緑）
+        if (trig) { trig.localPosition = new Vector3(V4_HillCpBand.x, trig.localPosition.y, V4_HillCpBand.y); trig.localRotation = Quaternion.Euler(0f, V4_HillCpBandYaw, 0f); trig.localScale = new Vector3(V4_HillCpBandSize.x, trig.localScale.y, V4_HillCpBandSize.y); }
+        { var rp = cp.Find("RespawnPoint"); if (rp) rp.localPosition = new Vector3(V4_HillCpRespawn.x, rp.localPosition.y, V4_HillCpRespawn.y); }
         var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
         if (fc)
         {
@@ -2220,6 +2224,7 @@ public static class FuwaCourse2_3Builder
         }
         return cp.position.ToString("F1");
     }
+    public static Vector2 V4_CpBand = new Vector2(-0.37f, 2.61f), V4_CpBandSize = new Vector2(14.6f, 3.9f), V4_CpRespawn = new Vector2(0.06f, 1.73f); public static float V4_CpBandYaw = -31.4f;
     public static float V4_CpMushX = -2.74f, V4_CpMushZ = 1.97f;   // CheckpointField のきのこの位置（横：－で回る橋に向かって左、前後）。2026-11-21 てじゃが手で動かした
     static void V4FieldCheckpoint(Transform root, Vector3 o, V4Field F)
     {
@@ -2244,6 +2249,9 @@ public static class FuwaCourse2_3Builder
         // きのこも判定のまん中へ。横は V4_CpMushX（2026-11-21 てじゃ「回転床の手前のチェックポイント、邪魔かも、復帰時もかさなる、もうちょい左に」）
         if (gm) { var l2 = gm.Find("ClusterL"); if (l2) l2.localPosition = new Vector3(V4_CpMushX, l2.localPosition.y, V4_CpMushZ); }
         var rp = cp.Find("RespawnPoint"); if (rp) rp.localPosition = new Vector3(0f, rp.localPosition.y, V4_CpRespawnOut);
+        // 2026-11-21 てじゃの絵：判定はきのこと復活をつつむ斜めの帯、復活は濃い緑の所
+        if (trig) { trig.localPosition = new Vector3(V4_CpBand.x, trig.localPosition.y, V4_CpBand.y); trig.localRotation = Quaternion.Euler(0f, V4_CpBandYaw, 0f); trig.localScale = new Vector3(V4_CpBandSize.x, trig.localScale.y, V4_CpBandSize.y); }
+        if (rp) rp.localPosition = new Vector3(V4_CpRespawn.x, rp.localPosition.y, V4_CpRespawn.y);
         var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
         if (fc)
         {
