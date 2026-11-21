@@ -604,12 +604,21 @@ public class FuwaBlower : UdonSharpBehaviour
     //  → ワープしている間は、見た目と風の口を手のトラッキングの位置に合わせ直す。手からの位置関係は、ワープしていない時に取っておく
     [Tooltip("氷で滑る処理（ワープしたフレームを知るため）。なければ合わせ直さない")]
     public FuwaIceSkate skate;
+    [Tooltip("ほかの氷で滑る処理（あそびばの氷など）")]
+    public FuwaIceSkate[] moreSkates;
+    private bool Shifting()
+    {
+        int f = Time.frameCount;
+        if (skate != null && f - skate.shiftFrame <= 2) return true;
+        if (moreSkates != null) for (int i = 0; i < moreSkates.Length; i++) if (moreSkates[i] != null && f - moreSkates[i].shiftFrame <= 2) return true;
+        return false;
+    }
     private Vector3 _gripPos; private Quaternion _gripRot = Quaternion.identity; private bool _gripOk;
 
     private bool VrGlue(VRCPlayerApi holder)
     {
         VRCPlayerApi.TrackingData hd = holder.GetTrackingData(_pickup.currentHand == VRC_Pickup.PickupHand.Left ? VRCPlayerApi.TrackingDataType.LeftHand : VRCPlayerApi.TrackingDataType.RightHand);
-        bool shifting = skate != null && Time.frameCount - skate.shiftFrame <= 2;
+        bool shifting = Shifting();
         if (!shifting)
         {
             Quaternion inv = Quaternion.Inverse(hd.rotation);
@@ -633,8 +642,8 @@ public class FuwaBlower : UdonSharpBehaviour
         return true;
     }
 
-    [Tooltip("デスクトップで持っている時、銃の位置を頭から見た位置へ寄せる速さ（大きいほど手の動きにすぐついて行く、小さいほど画面の中で止まって見える）")]
-    public float desktopHeadFollow = 10f;
+    [Tooltip("デスクトップで持って滑っている間、銃の位置を今の手の位置へ寄せる速さ（0＝滑っている間は画面の中で止める）")]
+    public float desktopHeadFollow = 2f;
     private Vector3 _headLocal; private bool _headLocalOk;
     public override void PostLateUpdate()
     {
@@ -690,8 +699,11 @@ public class FuwaBlower : UdonSharpBehaviour
                     Vector3 hp = holder.GetTrackingData(VRCPlayerApi.TrackingDataType.Head).position;
                     Quaternion hinv = Quaternion.Inverse(head);
                     Vector3 local = hinv * (vp - hp);
-                    if (!_headLocalOk || !_aligned) { _headLocal = local; _headLocalOk = true; }
-                    else _headLocal = Vector3.Lerp(_headLocal, local, 1f - Mathf.Exp(-Time.deltaTime * desktopHeadFollow));
+                    // 滑っていない時はそのまま（遅れなし）。滑っている間（ワープしたフレームの近く）だけ、頭から見た位置を前のまま保つ
+                    //  （前はいつもなめらかにしていて、てじゃ「ましになったけどぬるっとツイてくる感じ」→ VR の VrGlue と同じやり方に）
+                    bool shifting = Shifting();
+                    if (!_headLocalOk || !_aligned || !shifting) { _headLocal = local; _headLocalOk = true; }
+                    else if (desktopHeadFollow > 0f) _headLocal = Vector3.Lerp(_headLocal, local, 1f - Mathf.Exp(-Time.deltaTime * desktopHeadFollow));
                     Vector3 vp2 = hp + head * _headLocal; Vector3 shift = vp2 - vp;
                     vp = vp2; np += shift;
                 }
