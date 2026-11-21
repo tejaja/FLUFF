@@ -10,10 +10,16 @@ public static class FuwaGramophoneBuilder
 {
     const string Fbx = "Assets/FuwaCourse/Models/PlaygroundGramophone.fbx";
     const string MatDir = "Assets/FuwaCourse/Materials/Playground";
-    public const float Angle = 4f;       // カメラの球（-5.5°）の右。もどすボタンがいた場所
+    public const float Angle = 4f;       // カメラの球（-8°）の右。もどすボタンがいた場所
     public const float Radius = 12.3f;   // 島の真ん中から（柵は 14m）
     public const float Scale = 1.25f;    // 島の真ん中からも見えるよう少し大きく
     static readonly Vector3 Center = new Vector3(-72f, 88f, 80f);
+    const float TrackHeadCut = 250f;     // 曲名の段：左の見出し（♪）を詰める幅（CAM の単位）
+    const float VolumeWidth = 1920f;     // 音量バーの横幅（曲名の段とそろえる。CAM の単位）
+    // 動画優先ボタン（単体）：カメラの球（-8°）と蓄音機（4°）の間の柵ぎわ
+    public const float VideoAngle = -2.1f;
+    public const float VideoRadius = 13.45f;
+    public const float VideoHeight = 0.62f;   // 床から(m)
 
     // えらべる曲（FuwaBgm.tracks の番号）。最後（おまけ）は全クリ後
     // 2026-11-21 てじゃ「おまかせってなに？」「そもそもロビーと同じ」→おまかせは消して先頭をロビーに
@@ -111,7 +117,7 @@ public static class FuwaGramophoneBuilder
 
         // ボタン：テレビの「CAM」と同じ形（左に見出し・右の白い札に ◀ 今の値 ▶、つながった1本で真ん中で区切る）をコピーする
         //（2026-11-21 てじゃ「ほかの切り替えボタンみたいにボタンとタイトルがつながってて真ん中で区切ってるタイプにしよ」）
-        //  上の段：♪ ｜ ◀ 曲名 ▶（右半分で次、左半分で前）／下の段：動画優先 ｜ ◀ ON/OFF ▶（どこを押しても切りかえ。ON＝動画の間BGMを止める）
+        //  上の段：◀ 曲名 ▶（右半分で次、左半分で前）／下の段：音量バー／動画優先 ｜ ◀ ON/OFF ▶ は蓄音機の横に単体で（どこを押しても切りかえ。ON＝動画の間BGMを止める）
         // 前の3Dのボタン・レバー・札は隠す
         foreach (var n in new[] { "Gramo_BtnPrev", "Gramo_BtnNext", "Gramo_SwitchBase", "Gramo_SwitchLever", "Gramo_Plate" }) { var t = F(n); if (t != null) t.gameObject.SetActive(false); }
         UdonSharpEditorUtility.CopyProxyToUdon(gm);
@@ -132,12 +138,13 @@ public static class FuwaGramophoneBuilder
             c0.FindPropertyRelative("m_CallState").intValue = 2;
             so.ApplyModifiedPropertiesWithoutUndo();
         }
-        // height：世界での高さ(m)。extraPill：右の白い札を伸ばす幅、extraHead：左の見出しを伸ばす幅（どちらも CAM の 1400×400 の単位）
-        Transform Seg(string name, Vector3 lp, float height, float extraPill, float extraHead, string nextEvt, string backEvt)
+        // height：世界での高さ(m)。extraPill：右の白い札を伸ばす幅、extraHead：左の見出しを伸ばす幅（どちらも CAM の 1400×400 の単位。マイナスで縮める）
+        // wpos/wrot：世界での位置と向き（文字が読める向き＝見る人の方を -Z が向く）
+        Transform Seg(string name, Vector3 wpos, Quaternion wrot, float height, float extraPill, float extraHead, string nextEvt, string backEvt)
         {
             var g = Object.Instantiate(srcCam.gameObject, T, false); g.name = name;
             var r = g.transform;
-            r.position = T.TransformPoint(lp); r.rotation = T.rotation * Quaternion.Euler(0f, 180f, 0f);   // 前（+Z）から読める
+            r.SetPositionAndRotation(wpos, wrot);
             var cv = (RectTransform)r.Find("Canvas");
             float k = height / (cv.sizeDelta.y * cv.localScale.y);   // 根元の大きさ（世界）
             r.localScale = Vector3.one * (k / T.lossyScale.x);
@@ -164,11 +171,11 @@ public static class FuwaGramophoneBuilder
         TMPro.TextMeshProUGUI Find(Transform r, string n) => r.GetComponentsInChildren<TMPro.TextMeshProUGUI>(true).First(x => x.name == n);
         var mplus = AssetDatabase.LoadAssetAtPath<TMPro.TMP_FontAsset>("Assets/FuwaCourse/Fonts/MPLUSRounded1c SDF.asset");
 
-        // 上の段：曲
-        var trackRow = Seg("TrackButton", new Vector3(0f, 0.335f, 0.398f), 0.15f, 520f, 0f, "Next", "Prev");
+        var front = T.rotation * Quaternion.Euler(0f, 180f, 0f);   // 蓄音機の前（+Z）から読める
+        // 上の段：曲（2026-11-21 てじゃ「曲名の左の♫いらんかも」→ 見出しなし、白い札だけ）
+        var trackRow = Seg("TrackButton", T.TransformPoint(new Vector3(0f, 0.335f, 0.398f)), front, 0.15f, 520f + TrackHeadCut, -TrackHeadCut, "Next", "Prev");
         {
-            var icon = trackRow.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Icon");
-            icon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/FuwaCourse/Textures/UI_Music.png"); icon.preserveAspect = true;
+            trackRow.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Icon").gameObject.SetActive(false);
             var ta = Find(trackRow, "TextA");
             // 曲名は「2–4 はぐるまのしま」など長いので、M PLUS（字が全部ある）を太字で、入りきらなければ小さく
             ta.font = mplus; ta.fontSharedMaterial = mplus.material; ta.fontStyle = TMPro.FontStyles.Bold;
@@ -177,8 +184,36 @@ public static class FuwaGramophoneBuilder
             ta.text = Ja[0];
             gm.trackText = ta;
         }
-        // 下の段：動画再生中のBGM
-        var videoRow = Seg("VideoButton", new Vector3(0f, 0.165f, 0.398f), 0.15f, 0f, 520f, "ToggleVideoKeep", "ToggleVideoKeep");
+        // 下の段：音量バー（2026-11-21 てじゃ「ボリューム調整が遠いのがきにいらない」「動画優先の場所がボリュームがしっくりくる」）
+        // あそびばの設定ボードの音量バーの写し。FuwaBgm.volumeSliders に足すので、どっちで動かしても同じ音量（ボードのも残す）
+        var srcVol = pg.transform.Find("HowToPlay/BgmVolume");
+        if (srcVol != null)
+        {
+            var v = Object.Instantiate(srcVol.gameObject, T, false).transform; v.name = "VolumeBar";
+            v.SetPositionAndRotation(T.TransformPoint(new Vector3(0f, 0.165f, 0.398f)), front);
+            var cv = (RectTransform)v.Find("Canvas");
+            cv.sizeDelta = new Vector2(VolumeWidth, cv.sizeDelta.y);
+            var box = cv.GetComponent<BoxCollider>(); if (box != null) box.size = new Vector3(cv.sizeDelta.x, cv.sizeDelta.y, box.size.z);
+            float k = 0.15f / (cv.sizeDelta.y * cv.localScale.y);
+            v.localScale = Vector3.one * (k / T.lossyScale.x);
+            var sl = v.GetComponentInChildren<UnityEngine.UI.Slider>(true);
+            if (bgm != null && sl != null)
+            {
+                var list = (bgm.volumeSliders ?? new UnityEngine.UI.Slider[0]).Where(x => x != null).ToList();
+                if (!list.Contains(sl)) list.Add(sl);
+                bgm.volumeSliders = list.ToArray();
+            }
+        }
+
+        // 動画優先：蓄音機から出して、カメラの球と蓄音機の間の柵ぎわに単体で浮かせる（おもちゃをもどすボタンと同じ浮かせ方）
+        //（2026-11-21 てじゃ「BGM動画優先ボタンをその間におこうかな」「柵寄りに」）。ON＝動画の間BGMを止める
+        float va = VideoAngle * Mathf.Deg2Rad;
+        var vOut = new Vector3(Mathf.Sin(va), 0f, Mathf.Cos(va));
+        var vPos = Center + vOut * VideoRadius;
+        float vFloor = Center.y;
+        if (Physics.Raycast(vPos + Vector3.up * 5f, Vector3.down, out var vHit, 10f, ~0, QueryTriggerInteraction.Ignore)) vFloor = vHit.point.y;
+        vPos.y = vFloor + VideoHeight;
+        var videoRow = Seg("VideoButton", vPos, Quaternion.LookRotation(vOut), 0.22f, 0f, 520f, "ToggleVideoKeep", "ToggleVideoKeep");
         {
             videoRow.GetComponentsInChildren<UnityEngine.UI.Image>(true).First(x => x.name == "Icon").gameObject.SetActive(false);
             var head = Find(videoRow, "Head"); head.gameObject.SetActive(true);

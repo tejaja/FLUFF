@@ -47,7 +47,8 @@ public static class FuwaPlaygroundBuilder
     const float PanelYaw = PanelAngle;   // 島の真ん中から読める向き
     // 観戦リビング（ラグの中心）：正面からやや左の奥。テレビは柵側、ソファは真ん中側
     const float LivingAngle = -22f;
-    const float CamZoneAngle = -5.5f;   // 2026-11-20 蓄音機を右に置くので少し左へ（前は -3）
+    const float CamZoneAngle = -8f;   // 2026-11-20 蓄音機を右に置くので少し左へ（前は -3）。11-21 てじゃ「もうちょい左、横の柵寄りに」で -5.5 → -8、柵側へ（CamZoneInset）
+    const float CamZoneInset = 0.85f;   // 島のふちから内側(m)。前は 1.1
     // VRChatカメラを入れる球：テレビの右、柵ぎわ（デッキの始まり 9° の手前）
     static readonly Vector3 LivingLocal = OnRing(LivingAngle, IslandR - 4.9f);
     // おもちゃ（柵沿い、右回りに）：もどすボタン → 扇風機 → ゴールリング → コース1〜5のおもちゃ
@@ -1567,7 +1568,7 @@ public static class FuwaPlaygroundBuilder
             // カメラの球はテレビの右の柵ぎわへ（2026-10-13 てじゃ「カメラハック用のタマがソファにめりこんでる、柵沿いに」）。向きはテレビとの関係のまま島の外向きに
             if (zoneT != null)
             {
-                Vector3 zl = OnRing(CamZoneAngle, IslandR - 1.1f), outD = new Vector3(zl.x, 0f, zl.z).normalized;
+                Vector3 zl = OnRing(CamZoneAngle, IslandR - CamZoneInset), outD = new Vector3(zl.x, 0f, zl.z).normalized;
                 var rel = Quaternion.Inverse(monitorHolder.rotation) * zoneT.rotation;
                 zoneT.position = new Vector3(ac.x + zl.x, zonePos.y, ac.z + zl.z);
                 zoneT.rotation = Quaternion.LookRotation(outD);   // 文字が島の真ん中から正面に読める向き（写真館との向きの関係を引き継ぐと横向きで斜めに見えた。2026-10-13 てじゃ「カメラ球の向きが変」）
