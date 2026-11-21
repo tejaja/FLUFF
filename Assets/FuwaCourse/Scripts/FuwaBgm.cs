@@ -258,6 +258,15 @@ public class FuwaBgm : UdonSharpBehaviour
     public bool IsAudible() { return !_muted && !Silenced() && _current >= 0 && _current < tracks.Length && _fanfareUntil <= 0f; }
     // 蓄音機の曲が鳴っているか（レコードを回す用）
     public bool IsGramoAudible() { return GramoActive() && _current == overrideTrack && _fanfareUntil <= 0f; }
+    // 蓄音機の曲の「ループの頭から何秒か」（拍に合わせてラッパを動かす用。ループの頭は拍の頭で切ってある）。鳴っていなければ -9999
+    public float GramoBeatTime()
+    {
+        if (!IsGramoAudible()) return -9999f;
+        AudioSource a = tracks[overrideTrack];
+        if (a == null || !a.isPlaying) return -9999f;
+        float ls = (loopStarts != null && overrideTrack < loopStarts.Length) ? loopStarts[overrideTrack] : 0f;
+        return a.time - ls;
+    }
     public int CurrentTrack() { return _current; }
 
     [Tooltip("保存した音量を読み込むまで（OnPlayerRestored）曲を鳴らさずに待つ最大秒数。待たないと入った直後に一瞬いつもの音量で鳴る")]

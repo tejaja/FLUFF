@@ -44,6 +44,11 @@ public class FuwaGramophone : UdonSharpBehaviour
     public float defaultVolume = 0.6f;
 
     public Transform record;
+    [Tooltip("ラッパの根元の支点。再生中はふわっと伸び縮みする（2026-11-21 てじゃ「スピーカー部分が再生中ちょっとうごいたらかわいい」）")]
+    public Transform horn;
+    public float hornAmount = 0.05f;   // 伸び縮みの大きさ
+    [Tooltip("曲ごとの「ぽよん」のテンポ（trackIds と同じ順、1分に何回）。曲のテンポ。速い曲は半分、ワルツは1小節に1回（てじゃ「BPMもあってたら最高」）")]
+    public float[] trackBpm;
     public float spinSpeed = 45f;   // 度/秒（78回転だと速すぎてチカチカするので、ゆっくり）
     public AudioSource clickSound;
 
@@ -184,6 +189,23 @@ public class FuwaGramophone : UdonSharpBehaviour
             float goal = (bgm != null && bgm.IsGramoAudible()) ? spinSpeed : 0f;
             _spin = Mathf.MoveTowards(_spin, goal, spinSpeed * Time.deltaTime);   // 1秒で回りはじめ・止まる
             if (_spin > 0.01f) record.Rotate(0f, _spin * Time.deltaTime, 0f, Space.Self);
+        }
+        if (horn != null)
+        {
+            // レコードの回り（0〜1）に合わせて、ぽよん・ぽよんと縦に伸びて横にちぢむ（止める時はゆっくりおさまる）
+            // 拍の頭で「ぽよん」：縦にのびて横にちぢみ、拍の間にもどる。止める時はレコードと一緒にゆっくりおさまる
+            float k = spinSpeed > 0f ? _spin / spinSpeed : 0f;
+            float bt = bgm != null ? bgm.GramoBeatTime() : -9999f;
+            float bpm = (trackBpm != null && _idx < trackBpm.Length) ? trackBpm[_idx] : 0f;
+            if (k > 0.001f && bt > -9000f && bpm > 0f)
+            {
+                float beats = bt * bpm / 60f;
+                float f = beats - Mathf.Floor(beats);      // 拍の中の位置 0〜1
+                float pop = (1f - f); pop = pop * pop * pop; // 拍の頭で1、すぐ落ちる
+                float a = hornAmount * k * pop;
+                horn.localScale = new Vector3(1f - a * 0.5f, 1f + a, 1f - a * 0.5f);
+            }
+            else if (horn.localScale != Vector3.one) horn.localScale = Vector3.MoveTowards(horn.localScale, Vector3.one, Time.deltaTime);
         }
     }
 }

@@ -14,6 +14,7 @@ public static class FuwaGramophoneBuilder
     public const float Radius = 12.3f;   // 島の真ん中から（柵は 14m）
     public const float Scale = 1.25f;    // 島の真ん中からも見えるよう少し大きく
     static readonly Vector3 Center = new Vector3(-72f, 88f, 80f);
+    static readonly Vector3 HornBase = new Vector3(0f, 0.72f, -0.375f);   // ラッパの根元（首の上、蓄音機のローカル）
     // ボタンの色（蓄音機の木に合わせた茶色）。Theme＝帯・文字、Dark＝押した時・矢印に乗った時、Idle＝OFF の文字
     static readonly Color Theme = new Color(0.66f, 0.45f, 0.32f), ThemeDark = new Color(0.45f, 0.28f, 0.18f), ThemeIdle = new Color(0.64f, 0.58f, 0.54f);
     const float TrackHeadCut = 250f;    // 曲名の段：左の見出し（♪）を詰める幅（CAM の単位）
@@ -31,6 +32,9 @@ public static class FuwaGramophoneBuilder
     static readonly string[] Ja = { "Lazy Afternoon", "Windy Highlands", "Rumbly Cave", "Glowshroom Forest", "Fluffball Den", "Mushroom Hop",
         "Hidden Waterfalls", "Volcano Dungeon", "Snowflake Waltz", "Clockwork Factory", "Ruins in the Sky", "Sunny Encore", "Neon Thank You", "Bed Above the Clouds" };
     static readonly string[] En = Ja;
+    // 曲ごとのテンポ（Tracks と同じ順、ループ化の時に調べた値。memory の project_fluff_ai_bgm_loop）。ラッパの「ぽよん」用
+    // はぐるま(170)は半分、ワルツは1小節(1.5秒)に1回
+    static readonly float[] Bpm = { 102f, 72f, 70f, 86f, 81f, 80f, 80f, 105f, 40f, 85f, 68f, 80f, 120f, 75f };
 
     static Material Mat(string name, Color c, bool metal = false)
     {
@@ -83,6 +87,8 @@ public static class FuwaGramophoneBuilder
             switch (r.name)
             {
                 case "Gramo_Plinth": case "Gramo_Top": case "Gramo_Platter": m = woodDark; break;
+                // 2026-11-21 てじゃ「台とハンドルもクオリティあげて」：角の柱・ふち（Trim）、横と後ろの額縁（Panels）、ハンドルの木の握り（CrankKnob）
+                case "Gramo_Trim": case "Gramo_Panels": case "Gramo_CrankKnob": m = woodDark; break;
                 case "Gramo_Horn": case "Gramo_Arm": case "Gramo_Neck": case "Gramo_Soundbox": case "Gramo_Crank": case "Gramo_Spindle": m = brass; break;
                 case "Gramo_Record": m = record; break;
                 case "Gramo_RecordLabel": m = label; break;
@@ -116,8 +122,16 @@ public static class FuwaGramophoneBuilder
         var clear = Object.FindObjectsOfType<FuwaAllClearReveal>(true).FirstOrDefault();
         var gm = UdonSharpUndo.AddComponent<FuwaGramophone>(go);
         gm.bgm = bgm; gm.language = lang; gm.allClear = clear;
-        gm.trackIds = Tracks; gm.namesJa = Ja; gm.namesEn = En; gm.lockedIndex = LockedIndex;
+        gm.trackIds = Tracks; gm.namesJa = Ja; gm.namesEn = En; gm.lockedIndex = LockedIndex; gm.trackBpm = Bpm;
         gm.record = F("Gramo_Record");
+        // ラッパ：根元（首の上）を中心に伸び縮みさせるので、根元に支点を置いて子にする（2026-11-21 てじゃ「スピーカー部分が再生中ちょっとうごいたらかわいい」）
+        {
+            var horn = F("Gramo_Horn");
+            var pivot = new GameObject("HornPivot").transform; pivot.SetParent(T, false);
+            pivot.localPosition = HornBase; pivot.localRotation = Quaternion.identity; pivot.localScale = Vector3.one;
+            horn.SetParent(pivot, true);
+            gm.horn = pivot;
+        }
 
         // ボタン：テレビの「CAM」と同じ形（左に見出し・右の白い札に ◀ 今の値 ▶、つながった1本で真ん中で区切る）をコピーする
         //（2026-11-21 てじゃ「ほかの切り替えボタンみたいにボタンとタイトルがつながってて真ん中で区切ってるタイプにしよ」）
