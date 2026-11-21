@@ -1560,7 +1560,8 @@ public static class FuwaCourse2_3Builder
         ("M1", 0, 1, 4.5f, 4.5f, 4.0f, 5, 0f), ("M2", 2, 3, 4f, 4.5f, 4.5f, 6, 7f) };
     public static float V4_Gap = 2.5f, V4_MovePeriod = 14f, V4_MoveHold = 1.5f;   // V4_MoveHold：はしで（割れ目がつながった状態で）止まる秒。1 往復は V4_MovePeriod＋2×hold（2026-11-10 てじゃ「移動床クソむずい、繋がった状態で短時間止まるように」）
     // 回る橋：まん中・はしの半径・半分の幅・1 回転の秒。touch の板のふちは回る円にそってくぼませる（S1 は回るまん中の南西、時計まわりに 110° 回って北西の S2。動く板 M1 から離すため）
-    public static Vector2 V4_SpinC = new Vector2(12.6f, 150.26f); public static float V4_SpinR = 6f, V4_SpinHW = 4f, V4_SpinPeriod = 28f; public static int[] V4_SpinTouch = { 1, 2 };   // 2026-11-10 てじゃ「回転床クソむずい、速度を落としつつ広く」：幅 3→4、1 回転 20→28 秒
+    public static Vector2 V4_SpinC = new Vector2(12.6f, 150.26f); public static float V4_SpinR = 6f, V4_SpinHW = 4f, V4_SpinPeriod = 34f; public static float V4_SpinIceHalf = 1.6f; public static int[] V4_SpinTouch = { 1, 2 };   // 2026-11-10 てじゃ「回転床クソむずい、速度を落としつつ広く」：幅 3→4、1 回転 20→28 秒
+    // 2026-11-21 てじゃ「回転床がまだムズい」「中心部以外雪にして滑らなくしつつ、やや遅く」：1 回転 28→34 秒、まん中（±V4_SpinIceHalf）だけ氷、両はしは雪（すべらない）
     public static float V4_FieldY = 116.3f, V4_GoalY = 180.6f;   // 入口の道が S0 に入る線・ゴールへの道が S3 から出る線（どちらも平らに切る）
 
     static void V4Profile(int shape, float s, out float cx, out float wL, out float wR)
@@ -1689,6 +1690,54 @@ public static class FuwaCourse2_3Builder
         for (int i = ns; i >= 0; i--) { float x = Mathf.Lerp(-L, L, i / (float)ns); sp.Add(new Vector2(x, W(x) - RoughAmp * RNoise(78, i * 0.7f))); }
         F.spin = ClipCircle(sp, Vector2.zero, V4_SpinR, true);
         return F;
+    }
+    // 回る橋：まん中だけ氷（すべる）、両はしは雪（すべらない、FuwaIceSkate.ice に入れない）。氷の当たりを返す
+    static Collider V4SpinPieces(Transform pv, V4Field F)
+    {
+        float h = V4_SpinIceHalf;
+        var g = V4Piece(pv, "FieldSpinIce", Vector3.zero, ClipX(F.spin, -h, h), 9500, true, q => 0f);
+        var snow = SnowMovingMat(); int k = 0;
+        foreach (var part in new[] { ClipX(F.spin, -999f, -h), ClipX(F.spin, h, 999f) })
+        {
+            if (part.Count < 3) continue;
+            var sg = V4Piece(pv, "FieldSpinSnow" + k, Vector3.zero, part, 9510 + k, true, q => 0f); k++;
+            sg.GetComponent<MeshRenderer>().sharedMaterial = snow;
+            iceCols.Remove(sg.GetComponent<MeshCollider>());
+        }
+        return g.GetComponent<MeshCollider>();
+    }
+    // 多角形を x の範囲 [x0, x1] で切る（Sutherland–Hodgman を 2 回）
+    static List<Vector2> ClipX(List<Vector2> poly, float x0, float x1)
+    {
+        List<Vector2> Cut(List<Vector2> P, float x, bool keepLess)
+        {
+            var R = new List<Vector2>(); int n = P.Count;
+            for (int i = 0; i < n; i++)
+            {
+                var a = P[i]; var b = P[(i + 1) % n];
+                bool ia = keepLess ? a.x <= x : a.x >= x, ib = keepLess ? b.x <= x : b.x >= x;
+                if (ia) R.Add(a);
+                if (ia != ib) { float t = (x - a.x) / (b.x - a.x); R.Add(Vector2.Lerp(a, b, t)); }
+            }
+            return R;
+        }
+        return Cut(Cut(poly, x0, false), x1, true);
+    }
+    // 回る橋の雪の板の材質：動く氷（模様が板にくっつく）の写しを雪の白に
+    static Material SnowMovingMat()
+    {
+        const string mp = "Assets/FuwaStage2/Materials/Course2_3_SnowMoving.mat";
+        var src = MovingIceMat();
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (!mat) { mat = new Material(src); AssetDatabase.CreateAsset(mat, mp); }
+        mat.CopyPropertiesFromMaterial(src);
+        mat.SetColor("_Color", new Color(0.96f, 0.97f, 1f));
+        if (mat.HasProperty("_GroundTintA")) mat.SetColor("_GroundTintA", new Color(1.05f, 1.05f, 1.08f));
+        if (mat.HasProperty("_GroundTintB")) mat.SetColor("_GroundTintB", new Color(0.9f, 0.93f, 1f));
+        if (mat.HasProperty("_GroundFine")) mat.SetFloat("_GroundFine", 0f);   // 氷のひびはなし
+        if (mat.HasProperty("_IceSide")) mat.SetFloat("_IceSide", 0f);
+        EditorUtility.SetDirty(mat);
+        return mat;
     }
     static Material MovingIceMat()
     {
@@ -2008,6 +2057,7 @@ public static class FuwaCourse2_3Builder
         var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return "2–3 がない";
         var pv = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "FieldSpin"); if (!pv) return "FieldSpin がない";
         var old = pv.Find("FieldSpinIce"); if (!old) return "FieldSpinIce がない";
+        var oldCol = old.GetComponent<Collider>();
         var s1 = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "FieldS1");
         iceFlat = s1.GetComponent<MeshRenderer>().sharedMaterial;
         var sn = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "Snow" && t.GetComponent<MeshRenderer>()); snowLipMat = sn ? sn.GetComponent<MeshRenderer>().sharedMaterial : FuwaStage2WaterTest.ToonMat("Stage2_3_SnowLip", SnowLipCol);
@@ -2015,12 +2065,20 @@ public static class FuwaCourse2_3Builder
         pathLayer = old.gameObject.layer;
         var keepRot = pv.localRotation; pv.localRotation = Quaternion.identity;
         Object.DestroyImmediate(old.gameObject);
+        foreach (var sn0 in pv.Cast<Transform>().Where(t => t.name.StartsWith("FieldSpinSnow")).ToArray()) Object.DestroyImmediate(sn0.gameObject);
         iceCols.Clear(); foreach (var c in root.GetComponentsInChildren<MeshCollider>(true)) if (c.GetComponent<MeshRenderer>() && c.GetComponent<MeshRenderer>().sharedMaterial && c.GetComponent<MeshRenderer>().sharedMaterial.name.StartsWith("Course2_3_Ice")) iceCols.Add(c);   // 作った時と同じく氷の板だけ
         var F = V4Make(); int nSnow = 0;
         recordDeco = IceLook; iceDeco.Clear();
         try
         {
-            var g = V4Piece(pv, "FieldSpinIce", Vector3.zero, F.spin, 9500, true, q => 0f); g.transform.SetSiblingIndex(0);
+            var newCol = V4SpinPieces(pv, F); newCol.transform.SetSiblingIndex(0);
+            // すべる床の一覧（FuwaIceSkate.ice）の回る橋を新しい氷の当たりに入れかえ（前は作り直しても古いまま＝消えた当たりを指していた）
+            var skate = root.GetComponentsInChildren<FuwaIceSkate>(true).FirstOrDefault();
+            if (skate && skate.ice != null)
+            {
+                var l = skate.ice.Where(c => c != null && c != oldCol).ToList(); if (!l.Contains(newCol)) l.Add(newCol);
+                skate.ice = l.ToArray(); UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(skate); EditorUtility.SetDirty(skate);
+            }
             if (recordDeco) nSnow = BuildIceDeco(pv.parent, snowSeed);
         }
         finally { recordDeco = false; iceDeco.Clear(); }
@@ -2063,7 +2121,7 @@ public static class FuwaCourse2_3Builder
         }
         {
             var pv = new GameObject("FieldSpin").transform; pv.SetParent(path, false); pv.localPosition = o + new Vector3(V4_SpinC.x, 0f, V4_SpinC.y);
-            V4Piece(pv, "FieldSpinIce", Vector3.zero, F.spin, 9500, true, q => 0f);
+            V4SpinPieces(pv, F);
             V4Obstacle(pv, "Obs0", Vector3.zero, true, 0.55f, 0f, 0.1f);
             V4Turner(pv, 0f, V4_SpinPeriod, 0f, Quaternion.identity, true);
         }
