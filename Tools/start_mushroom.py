@@ -8,7 +8,8 @@ import json, math
 from mathutils import Vector
 OUT = globals().get('OUT', r'D:\UnityProject\FLUFF\Tools\start_mushroom.json')
 
-SEG = 48
+SEG = 48                        # 傘（ヒダのすじ24本に合わせて48のまま。ヒダの外の輪と傘のふちの点をそろえる）
+SSEG = 32                       # 軸（2026-11-22 軽量化 48→32）
 CAP_R, CAP_H = 0.40, 0.30       # 傘の半径・高さ
 STEM_TOP = 0.50                 # 軸のてっぺん（＝傘の付け根の高さ）
 
@@ -47,7 +48,7 @@ def cap_fan(m, sub, ring, center, flip=False):
 # ---- 傘：てっぺんからふちへ、丸いドーム→ふちは少し内側に巻きこむ ----
 cap = M(2)
 prof = []
-N = 18
+N = 10                          # 傘の段（2026-11-22 軽量化 18→10、なめらかな丸なので足りる）
 for k in range(N + 1):
     t = k / N                                  # 0=てっぺん 1=ふち
     ang = t * math.pi * 0.5
@@ -69,7 +70,7 @@ cap_fan(cap, 1, grings[-1], (0, 0.085, 0), flip=False)   # ヒダの真ん中も
 stem = M(1)
 sprof = [(0.065, STEM_TOP + 0.08), (0.068, STEM_TOP), (0.072, 0.42), (0.075, 0.30), (0.082, 0.16),
          (0.11, 0.08), (0.125, 0.045), (0.115, 0.015), (0.09, 0.0)]
-srings = lathe(stem, 0, sprof, wob=lambda a, y: 0.03 * math.sin(a * 3 + 1.2) * (1 if y < 0.1 else 0.3))
+srings = lathe(stem, 0, sprof, seg=SSEG, wob=lambda a, y: 0.03 * math.sin(a * 3 + 1.2) * (1 if y < 0.1 else 0.3))
 cap_fan(stem, 0, srings[0], (0, STEM_TOP + 0.08, 0), flip=True)
 # つば（2026-11-18 てじゃ「スタートのキノコはこのかたちのままでいいけど、ツバだけ良くしたい」）：
 #  前は付け根から横に張り出す短いえり。大きいキノコと同じく、付け根は軸にぴったり → 下へ垂れながら広がる うすい膜、すそは横にも上下にも波うつ
@@ -93,9 +94,9 @@ def lathe_y(m, sub, prof, seg=SEG, flip=False):
             else: m.T[sub] += [q[0], q[2], q[1], q[0], q[3], q[2]]
     return rings
 skirt = [(0.071, 0.418, 0.0), (0.075, 0.405, 0.05), (0.083, 0.385, 0.25), (0.094, 0.36, 0.5), (0.106, 0.333, 0.75), (0.117, 0.31, 0.9), (0.124, 0.295, 1.0)]
-so = lathe_y(stem, 0, skirt, seg=SEG * 2)
+so = lathe_y(stem, 0, skirt, seg=SSEG * 2)   # つばの波（7・11周期）は64で足りる（前は96）
 skirt_in = [(r - 0.005, y - 0.003, w) for r, y, w in skirt]
-si = lathe_y(stem, 0, skirt_in, seg=SEG * 2, flip=True)
+si = lathe_y(stem, 0, skirt_in, seg=SSEG * 2, flip=True)
 # すその厚み（外と内のいちばん下の輪をつなぐ）
 A, B = so[-1], si[-1]
 for i in range(len(A)):
