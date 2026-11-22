@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using UdonSharp;
 using UdonSharpEditor;
@@ -131,12 +132,9 @@ public static class FuwaGunShowcaseSetup
             {
                 var src = stump.GetComponent<MeshFilter>().sharedMesh;
                 var m2l = st.transform.worldToLocalMatrix * stump.localToWorldMatrix;
-                var m = new Mesh { name = "GunStandHighlight_" + st.name };
-                m.vertices = src.vertices.Select(v => m2l.MultiplyPoint3x4(v)).ToArray();
-                m.normals = src.normals.Select(n => m2l.MultiplyVector(n).normalized).ToArray();
-                m.subMeshCount = 1;
-                m.SetTriangles(Enumerable.Range(0, src.subMeshCount).SelectMany(i => src.GetTriangles(i)).ToArray(), 0);
-                m.RecalculateBounds();
+                // 2026-11-22 軽量化：切り株そのまま（7933 三角形）だと、見えない材質でも頂点の処理と描画が1回ずつかかる → 切り株を包む軽い形（約 900）に
+                var m = HighlightHull(src.vertices.Select(v => m2l.MultiplyPoint3x4(v)).ToList());
+                m.name = "GunStandHighlight_" + st.name;
                 string ap = MeshDir + "/" + m.name + ".asset";
                 if (AssetDatabase.LoadAssetAtPath<Mesh>(ap) != null) AssetDatabase.DeleteAsset(ap);
                 AssetDatabase.CreateAsset(m, ap);
@@ -165,6 +163,59 @@ public static class FuwaGunShowcaseSetup
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         return log.ToString();
+    }
+
+    // 枠（VRChat の指した時の光る輪郭）用の、切り株を外から包む形。縦の軸（y）まわりに 角度 A × 高さ H のマスで一番外の半径を取り、上下はふたでふさぐ。
+    //  根っこの張り出し・横のキノコも角度ごとの半径で拾う（すき間なく包むので枠の形は切り株とほぼ同じ）
+    public static Mesh HighlightHull(List<Vector3> pts, int A = 32, int H = 12)
+    {
+        float y0 = pts.Min(p => p.y), y1 = pts.Max(p => p.y);
+        var c = Vector3.zero; foreach (var p in pts) c += p; c /= pts.Count; c.y = 0f;
+        var r = new float[H + 1, A];
+        foreach (var p in pts)
+        {
+            var d = p - c; float rr = new Vector2(d.x, d.z).magnitude;
+            float ang = Mathf.Atan2(d.z, d.x); int a = Mathf.FloorToInt(Mathf.Repeat(ang / (2f * Mathf.PI) * A + 0.5f, A)) % A;
+            float hf = (p.y - y0) / Mathf.Max(1e-4f, y1 - y0) * H; int h0 = Mathf.FloorToInt(hf), h1 = Mathf.CeilToInt(hf);
+            for (int da = -1; da <= 1; da++) { int aa = (a + da + A) % A; foreach (int hh in new[] { h0, h1 }) { if (hh < 0 || hh > H) continue; r[hh, aa] = Mathf.Max(r[hh, aa], rr * (da == 0 ? 1f : Mathf.Cos(2f * Mathf.PI / A))); } }
+        }
+        for (int h = 0; h <= H; h++) for (int a = 0; a < A; a++) if (r[h, a] <= 0f) r[h, a] = 0.01f;
+        var v = new List<Vector3>(); var t = new List<int>();
+        for (int h = 0; h <= H; h++)
+        {
+            float y = Mathf.Lerp(y0, y1, h / (float)H);
+            for (int a = 0; a < A; a++) { float th = 2f * Mathf.PI * a / A; v.Add(c + new Vector3(Mathf.Cos(th) * r[h, a] * 1.01f, y, Mathf.Sin(th) * r[h, a] * 1.01f)); }
+        }
+        for (int h = 0; h < H; h++) for (int a = 0; a < A; a++) { int p0 = h * A + a, p1 = h * A + (a + 1) % A, q0 = p0 + A, q1 = p1 + A; t.AddRange(new[] { p0, q0, q1, p0, q1, p1 }); }
+        int top = v.Count; v.Add(c + Vector3.up * y1); int bot = v.Count; v.Add(c + Vector3.up * y0);
+        for (int a = 0; a < A; a++) { t.AddRange(new[] { top, H * A + (a + 1) % A, H * A + a }); t.AddRange(new[] { bot, a, (a + 1) % A }); }
+        var m = new Mesh(); m.SetVertices(v); m.SetTriangles(t, 0);
+        // 外向きにそろえる（側面の最初の三角形で判定）
+        var n0 = Vector3.Cross(v[t[1]] - v[t[0]], v[t[2]] - v[t[0]]);
+        if (Vector3.Dot(n0, v[t[0]] - c - Vector3.up * v[t[0]].y) < 0f) { for (int i = 0; i < t.Count; i += 3) { int tmp = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = tmp; } m.SetTriangles(t, 0); }
+        m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
+    }
+
+    // 今ある枠のメッシュだけを包む形に作り直す（台の見た目の作り直し全部はしない）
+    [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの台の枠を軽い形にする")]
+    static void HighlightOnlyMenu() { Debug.Log(RebuildHighlightsOnly()); }
+    public static string RebuildHighlightsOnly()
+    {
+        var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene(); int n = 0; long before = 0, after = 0;
+        foreach (var st in Resources.FindObjectsOfTypeAll<FuwaGunStand>().Where(s => s.gameObject.scene == scene))
+        {
+            var stump = st.transform.Find("StumpVisual"); var mf = st.GetComponent<MeshFilter>();
+            if (stump == null || mf == null || mf.sharedMesh == null || !mf.sharedMesh.name.StartsWith("GunStandHighlight_")) continue;
+            var src = stump.GetComponent<MeshFilter>().sharedMesh;
+            var m2l = st.transform.worldToLocalMatrix * stump.localToWorldMatrix;
+            var hull = HighlightHull(src.vertices.Select(v => m2l.MultiplyPoint3x4(v)).ToList());
+            var dst = mf.sharedMesh; before += dst.triangles.Length / 3; string nm = dst.name;
+            dst.Clear(false); dst.SetVertices(hull.vertices); dst.SetNormals(hull.normals); dst.SetTriangles(hull.triangles, 0); dst.name = nm; dst.RecalculateBounds();
+            after += dst.triangles.Length / 3; EditorUtility.SetDirty(dst); Object.DestroyImmediate(hull); n++;
+        }
+        AssetDatabase.SaveAssets();
+        return $"[台の枠] {n} 台 {before} → {after} 三角形";
     }
 
     static Material Mat(string name, string shader, Texture2D tex, Color tint)

@@ -13,6 +13,7 @@ public static class FuwaStumpRebuild
     const string SrcPath = "Assets/FuwaCourse/Meshes/GunStand/GunStand_Stump_Source.asset";
     const string DstPath = "Assets/FuwaCourse/Meshes/GunStand_Stump.asset";
     const float CutY = 0.332f, RingY = 0.334f;
+    const bool Lip = false;   // 切り口のふちの盛り上がり（2026-11-22 板を置いたように見えるのでやめた）
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/エアガンの台の切り株を作り直す")]
     public static void RunMenu() { Debug.Log(Run()); }
@@ -40,7 +41,14 @@ public static class FuwaStumpRebuild
             var map = new Dictionary<int, int>();
             foreach (var i in src.GetTriangles(s))
             {
-                if (!map.TryGetValue(i, out int j)) { j = mb.V.Count; map[i] = j; mb.V.Add(sv[i]); mb.N.Add(sn[i]); mb.U.Add(su[i]); }
+                if (!map.TryGetValue(i, out int j))
+                {
+                    j = mb.V.Count; map[i] = j; var p = sv[i];
+                    // 2026-11-22 てじゃ「上面の板を置いた感じのつなぎも無くしたい」：樹皮のてっぺんの輪（y 0.330）は切り口のふち（0.332）と
+                    //  横の位置がぴったり同じで、高さだけ 2mm 段になっていた → 樹皮のてっぺんを切り口の高さまで上げてつなぐ（ふちの盛り上がりはやめた）
+                    if (!Lip && s == 0 && p.y > 0.3295f) p.y = CutY;
+                    mb.V.Add(p); mb.N.Add(sn[i]); mb.U.Add(su[i]);
+                }
                 mb.S[s].Add(j);
             }
         }
@@ -74,10 +82,11 @@ public static class FuwaStumpRebuild
         // ---- 切り口のふち（樹皮の材質）----
         var barkSet = new HashSet<int>(mb.S[0]);
         var barkTopIdx = Enumerable.Range(0, mb.V.Count).Where(i => mb.V[i].y > 0.25f && barkSet.Contains(i)).ToList();
+        if (Lip)
         {
             var prof = new[] { new Vector2(-0.008f, CutY - 0.001f), new Vector2(-0.0055f, RingY + 0.0018f), new Vector2(-0.001f, RingY + 0.0032f),
                                new Vector2(0.0035f, RingY + 0.0008f), new Vector2(0.0045f, 0.322f), new Vector2(-0.004f, 0.315f) };
-            int S = 180, P = prof.Length;
+            int S = 90, P = prof.Length;   // 2026-11-22 軽量化 180 → 90（ふちの波打ちは13周期なので足りる）
             var lv = new List<Vector3>(); var lt = new List<int>();
             for (int s = 0; s <= S; s++)
             {
