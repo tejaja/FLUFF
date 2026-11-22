@@ -593,7 +593,7 @@ public static class FuwaPlaygroundBuilder
         qt.ForceMeshUpdate(); q.transform.localPosition = new Vector3(0f, 0.08f - qt.bounds.min.y, 0f);   // bounds＝実際の字の形（textBounds は行の余白込み）。てっぺんはドーム（高さ0.51）の中
         // 看板：白いクッション＋コースの色のふち（入口の看板と同じ作り）。ドームの上に浮かせる
         var sign = new GameObject("Sign").transform; sign.SetParent(root, false); sign.localPosition = new Vector3(0f, LockY, 0f); sign.localRotation = Quaternion.identity;
-        var body = FuwaSignStyle.Outline(LockHW, LockHH, LockRound, 12, 0.02f);
+        var body = FuwaSignStyle.Outline(LockHW, LockHH, LockRound, 12, 10f);   // 2026-11-22 軽量化：まっすぐな辺の途中の点（2cmおき）はふくらみの形に効かないのでなし（7000 → 2800 三角形、見た目は同じ）
         var cm = Mat("Playground_LockCushion", "Assets/FuwaCourse/Materials/Goal_Ground.mat", new Color(1f, 0.98f, 0.96f));
         cm.SetFloat("_ShadowStrength", 0.3f); cm.SetColor("_UnderColor", new Color(0.82f, 0.86f, 0.98f)); cm.SetFloat("_UnderStrength", 1f); cm.SetFloat("_UnderGrad", 0.45f); EditorUtility.SetDirty(cm);
         float zc = 0.08f;
