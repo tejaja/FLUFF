@@ -3100,7 +3100,7 @@ public static class FuwaCourse2_5Builder
     static bool webAnchorAround;
     static void WebGates(string tag, float len, int[] patterns, bool pits)
     {
-        webAnchorAround = tag == "B1";
+        webAnchorAround = false;   // 2026-11-23 B1 で試したが、てじゃ「視認性おちるからやっぱここの細いのはなしで」→ 使わない（しくみは SpiderWebBuilder.anchorAround に残す）
         float z0 = P.z; len = patterns.Length * (WebGateGap + MidWebExtra);
         var g = new GameObject("WebGates_" + tag).transform; g.SetParent(isl, false);
         float hTop = TunnelH - 0.1f, hMid = TunnelH / 2f, xo = WebXO;   // 横は壁に 0.5m めりこませる
