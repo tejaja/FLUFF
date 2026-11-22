@@ -34,6 +34,34 @@ public static class FuwaStumpRebuild
         var mb = new MB(subs);
         var log = new System.Text.StringBuilder();
 
+        // 2026-11-22 てじゃ「上がベベルしたかんじに窄まってるのが切り株としておかしい、上はスパッと切れてないと」：
+        //  元の樹皮はてっぺんの輪（y 0.330）だけ1つ下の段（0.318）より 6mm 内側に入っていた（面取り）。
+        //  → てっぺんの輪を1つ下の段と同じ半径・同じ法線（横向き）にして、切り口と年輪も同じ割合で外へ広げる（角度ごと）
+        var barkV = src.GetTriangles(0).Distinct().ToList();
+        var topRing = barkV.Where(i => sv[i].y > 0.3295f).Select(i => (a: Mathf.Atan2(sv[i].z, sv[i].x), r: new Vector2(sv[i].x, sv[i].z).magnitude)).ToList();
+        var belowRing = barkV.Where(i => Mathf.Abs(sv[i].y - 0.318f) < 0.002f).ToList();
+        (float r, Vector3 n) Below(float a)
+        {
+            int best = belowRing[0]; float bd = float.MaxValue;
+            foreach (var i in belowRing) { float d = Mathf.Abs(Mathf.DeltaAngle(Mathf.Atan2(sv[i].z, sv[i].x) * Mathf.Rad2Deg, a * Mathf.Rad2Deg)); if (d < bd) { bd = d; best = i; } }
+            return (new Vector2(sv[best].x, sv[best].z).magnitude, sn[best]);
+        }
+        // 角度ごとの広げる割合（てっぺんの輪の点のあいだは直線でつなぐ）
+        //  1つ下の段は樹皮の凹凸で点ごとにでこぼこ → そのまま合わせるとふちがギザギザになった。割合をとなり ±4 点でならして、元のてっぺんの形のまま広げる
+        var grow0 = topRing.Select(t => (t.a, f: Below(t.a).r / Mathf.Max(1e-4f, t.r))).OrderBy(t => t.a).ToList();
+        var grow = grow0.Select((g, k) => (g.a, f: Enumerable.Range(-4, 9).Average(d => grow0[(k + d + grow0.Count) % grow0.Count].f))).ToList();
+        float Grow(float a)
+        {
+            if (grow.Count == 0) return 1f;
+            int n = grow.Count;
+            for (int k = 0; k < n; k++)
+            {
+                var g0 = grow[k]; var g1 = grow[(k + 1) % n]; float span = Mathf.Repeat(g1.a - g0.a, Mathf.PI * 2f); float off = Mathf.Repeat(a - g0.a, Mathf.PI * 2f);
+                if (off <= span + 1e-6f) return Mathf.Lerp(g0.f, g1.f, span < 1e-6f ? 0f : off / span);
+            }
+            return grow[0].f;
+        }
+
         // 苔以外をそのまま写す（使っている頂点だけ）
         for (int s = 0; s < subs; s++)
         {
@@ -43,11 +71,19 @@ public static class FuwaStumpRebuild
             {
                 if (!map.TryGetValue(i, out int j))
                 {
-                    j = mb.V.Count; map[i] = j; var p = sv[i];
+                    j = mb.V.Count; map[i] = j; var p = sv[i]; var nn = sn[i];
                     // 2026-11-22 てじゃ「上面の板を置いた感じのつなぎも無くしたい」：樹皮のてっぺんの輪（y 0.330）は切り口のふち（0.332）と
                     //  横の位置がぴったり同じで、高さだけ 2mm 段になっていた → 樹皮のてっぺんを切り口の高さまで上げてつなぐ（ふちの盛り上がりはやめた）
-                    if (!Lip && s == 0 && p.y > 0.3295f) p.y = CutY;
-                    mb.V.Add(p); mb.N.Add(sn[i]); mb.U.Add(su[i]);
+                    if (!Lip && s == 0 && p.y > 0.3295f)
+                    {
+                        float a = Mathf.Atan2(p.z, p.x); float f = Grow(a);
+                        p = new Vector3(p.x * f, CutY, p.z * f); nn = Below(a).n;
+                    }
+                    else if (!Lip && (s == 1 || s == 2))
+                    {
+                        float f = Grow(Mathf.Atan2(p.z, p.x)); p.x *= f; p.z *= f;
+                    }
+                    mb.V.Add(p); mb.N.Add(nn); mb.U.Add(su[i]);
                 }
                 mb.S[s].Add(j);
             }
