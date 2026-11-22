@@ -105,6 +105,9 @@ public static class FuwaPracticeTutorial
     // ---------- 道の形（道の上の距離 d ごとの、半分の幅・上面の高さ・溝） ----------
     // 説明の小道（キノコの島まで）は幅 HalfW・高さ Top のまま。最後の本番の道は広く、登り坂と溝がある（Run で決める）
     static System.Func<float, float> PathHalfW = d => HalfW;
+    // チェックポイントの光るキノコの丸太の中心を、道のふちから外へ何m（2026-11-22 てじゃ「チュートリアルの最初のチェックポイントきのこ、どっちも道にかぶってる」
+    //  → 0.28 だと丸太（半径0.45＋苔）が道に 0.27〜0.30m かぶっていた。ふちから 8cm 外まで出すと 0.56）
+    const float MushOut = 0.56f;
     // 左側（お手本の島と反対）だけ広げる分。説明の区画の間だけ（2026-10-09 てじゃ「道も左側にもうちょい広く」）
     const float BayLeftExtra = 0.8f;
     static System.Func<float, float> PathExtraL = d => 0f;
@@ -979,7 +982,7 @@ public static class FuwaPracticeTutorial
                     At(pts, dist, D(ua), out var ca, out var fa);
                     var ra = new Vector3(fa.z, 0f, -fa.x);
                     var y = cl0.position.y - cp0.position.y;
-                    cl0.position = ca + ra * side * (PathHalfW(D(ua)) + 0.28f) + Vector3.up * y;
+                    cl0.position = ca + ra * side * (PathHalfW(D(ua)) + MushOut) + Vector3.up * y;
                     cl0.rotation = Quaternion.LookRotation(fa) * Quaternion.Euler(0f, -side * 69.9f, 0f);
                 }
                 var t0 = cp0.Find("Trigger").GetComponent<FuwaCheckpoint>();
@@ -1063,7 +1066,7 @@ public static class FuwaPracticeTutorial
         // チェックポイントの光るキノコ（道の両わきの丸太）を、広い道のふちの外へ
         foreach (Transform cl0 in cp.Find("GlowMushrooms"))
         {
-            var lp = cl0.localPosition; lp.x = Mathf.Sign(lp.x) * (PathHalfW(S(sCp)) + 0.28f); cl0.localPosition = lp;
+            var lp = cl0.localPosition; lp.x = Mathf.Sign(lp.x) * (PathHalfW(S(sCp)) + MushOut); cl0.localPosition = lp;
         }
         Fin(uGoal, out var gc, out var gf);
         // ゴールの島の地面の上面（＝ゴールの位置の高さ）は、登ったあとの道の上面より2cm低い（元と同じ関係）。
