@@ -110,6 +110,7 @@ public static class FuwaPhotoSet
         var mat = AssetDatabase.LoadAssetAtPath<Material>(mp);
         var srcMat = src.Find("GunGaugeR").GetComponent<Renderer>().sharedMaterial;
         if (mat == null) { mat = new Material(srcMat); AssetDatabase.CreateAsset(mat, mp); } else mat.CopyPropertiesFromMaterial(srcMat);
+        mat.renderQueue = srcMat.renderQueue;   // CopyPropertiesFromMaterial は描画順を写さない（2026-11-22 3006 → 4000 になっていた）
         mat.SetFloat("_Fill", GaugeFill); mat.SetFloat("_ZTest", 4f); EditorUtility.SetDirty(mat);
         foreach (var n in new[] { "GunGaugeR", "GunGaugeL" })
         {
