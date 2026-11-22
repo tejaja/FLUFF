@@ -11,12 +11,15 @@ public static class FuwaGlowCapRebuild
 {
     const string Gen = "Assets/FuwaCourse/Generated/";
     // 左右反対の版（Mirror）は細かい版が粗かったので、同じ形を X で反転して作る（元の Mirror_Full は Fix_Full を X 反転した物と 1.6mm 以内で一致）
-    static readonly (string src, string dst, int seg, int prof, bool mirror)[] Jobs =
+    // 2026-11-22 軽量化（てじゃ「チェックポイント一回みなおそか」→「軽量化だけ」）：近く 24×10 → 20×3、遠く 12×5 → 10×3（12×4 だと傘のふちの角が見えた）。
+    //  傘1本 816 → 320 三角形。FuwaGlowMushLite.Run から呼ぶ（柄・コケと一緒に作り直して 2–5 の _Mir も直す）
+    public static int NearSeg = 20, NearProf = 3, FarSeg = 10, FarProf = 3;
+    static (string src, string dst, int seg, int prof, bool mirror)[] Jobs => new[]
     {
-        ("GlowCaps_Fix_Full", "GlowCaps_Fix", 24, 10, false),
-        ("GlowCaps_Fix_Full", "GlowCaps_Mirror_Fix", 24, 10, true),
-        ("GlowCaps_Fix_Full", "Far/GlowCaps_Fix_Far", 12, 5, false),
-        ("GlowCaps_Fix_Full", "Far/GlowCaps_Mirror_Fix_Far", 12, 5, true),
+        ("GlowCaps_Fix_Full", "GlowCaps_Fix", NearSeg, NearProf, false),
+        ("GlowCaps_Fix_Full", "GlowCaps_Mirror_Fix", NearSeg, NearProf, true),
+        ("GlowCaps_Fix_Full", "Far/GlowCaps_Fix_Far", FarSeg, FarProf, false),
+        ("GlowCaps_Fix_Full", "Far/GlowCaps_Mirror_Fix_Far", FarSeg, FarProf, true),
     };
 
     [MenuItem("FuwaCourse/済み（押す前に相談）/チェックポイントの光るキノコの傘を作り直す")]

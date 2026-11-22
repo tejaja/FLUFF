@@ -33,13 +33,20 @@ public static class FuwaMaterialMerge
     public static int Revert()
     {
         var rec = LoadRec(); int n = 0;
+        // 2026-11-22 1個ずつ FromGid（GlobalObjectIdentifierToObjectSlow）で引くと 2600 個で20分以上固まった → ID をまとめて1回で引く
+        var keys = rec.items.SelectMany(it => new[] { it.r, it.mesh }.Concat(it.mats)).Where(s => !string.IsNullOrEmpty(s)).Distinct().ToList();
+        var gids = new List<GlobalObjectId>(); var gkeys = new List<string>();
+        foreach (var k in keys) if (GlobalObjectId.TryParse(k, out var g)) { gids.Add(g); gkeys.Add(k); }
+        var objs = new Object[gids.Count]; GlobalObjectId.GlobalObjectIdentifiersToObjectsSlow(gids.ToArray(), objs);
+        var map = new Dictionary<string, Object>(); for (int i = 0; i < gkeys.Count; i++) map[gkeys[i]] = objs[i];
+        Object Get(string s) => !string.IsNullOrEmpty(s) && map.TryGetValue(s, out var o) ? o : null;
         foreach (var it in rec.items)
         {
-            var r = FromGid(it.r) as MeshRenderer; if (!r) continue;
-            var mf = r.GetComponent<MeshFilter>(); var mesh = FromGid(it.mesh) as Mesh;
+            var r = Get(it.r) as MeshRenderer; if (!r) continue;
+            var mf = r.GetComponent<MeshFilter>(); var mesh = Get(it.mesh) as Mesh;
             if (!mf || !mesh || !mf.sharedMesh || !mf.sharedMesh.name.StartsWith("VC_")) continue;   // 作り直しで元にもどっている物はそのまま
             Undo.RecordObject(mf, "材質まとめを戻す"); Undo.RecordObject(r, "材質まとめを戻す");
-            mf.sharedMesh = mesh; r.sharedMaterials = it.mats.Select(m => FromGid(m) as Material).ToArray(); n++;
+            mf.sharedMesh = mesh; r.sharedMaterials = it.mats.Select(m => Get(m) as Material).ToArray(); n++;
         }
         rec.items.Clear(); SaveRec(rec);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(UnityEngine.SceneManagement.SceneManager.GetActiveScene());
@@ -174,6 +181,7 @@ public static class FuwaMaterialMerge
         var rec = dry ? null : LoadRec();
         var meshCache = new Dictionary<string, Mesh>();
         int changed = 0, newMeshes = 0;
+        var pending = new List<(MeshRenderer r, Mesh src, Material[] mats)>();
         foreach (var r in targets)
         {
             var mats = r.sharedMaterials; if (!mats.Any(m => m && toMerged.ContainsKey(m))) continue;
@@ -199,7 +207,7 @@ public static class FuwaMaterialMerge
                 if (isNew) { AssetDatabase.CreateAsset(vm, mpath); newMeshes++; } else EditorUtility.SetDirty(vm);
                 meshCache[ck] = vm;
             }
-            rec.items.Add(new Rec { r = Gid(r), mesh = Gid(src), mats = mats.Select(m => m ? Gid(m) : "").ToArray() });
+            pending.Add((r, src, mats));   // 記録の ID はあとでまとめて作る（1個ずつだと遅い）
             Undo.RecordObject(mf, "材質まとめ"); Undo.RecordObject(r, "材質まとめ");
             mf.sharedMesh = vm;
             var nm = (Material[])mats.Clone();
@@ -208,6 +216,10 @@ public static class FuwaMaterialMerge
         }
         if (!dry)
         {
+            var objsForId = pending.SelectMany(p => new Object[] { p.r, p.src }.Concat(p.mats.Where(m => m))).Distinct().ToArray();
+            var idArr = new GlobalObjectId[objsForId.Length]; GlobalObjectId.GetGlobalObjectIdsSlow(objsForId, idArr);
+            var idOf = new Dictionary<Object, string>(); for (int i = 0; i < objsForId.Length; i++) idOf[objsForId[i]] = idArr[i].ToString();
+            foreach (var p in pending) rec.items.Add(new Rec { r = idOf[p.r], mesh = idOf[p.src], mats = p.mats.Select(m => m ? idOf[m] : "").ToArray() });
             SaveRec(rec);
             Debug.Log(MatchInstancing());
             // 使わなくなったメッシュの写しを消す
