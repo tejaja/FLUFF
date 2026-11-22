@@ -1880,6 +1880,10 @@ public static class FuwaCourse2_5Builder
                 foreach (var sp in MinusBites(sx, z0, z0 + len, 0f))
                 {
                     float ca = sp.x, cb = sp.y;
+                    // 2026-11-22 てじゃ「2-5 最初の橋の側面の板の切れ目にZファイト」：欠けの所のふたが、崩れた欄干の端の面（ParapetSink で道の下まで下がっている）と
+                    // 同じ平面に重なっていた → 欠けで切れたはしは 4mm 引っこめる
+                    if (ca > z0 + 0.01f) ca += 0.004f;
+                    if (cb < z0 + len - 0.01f) cb -= 0.004f;
                     Quad(rv, rt, A(ca, -0.38f, x1), A(cb, -0.38f, x1), A(cb, -0.12f, x1), A(ca, -0.12f, x1), new Vector3(sx, 0f, 0f));
                     Quad(rv, rt, A(ca, -0.12f, x0), A(cb, -0.12f, x0), A(cb, -0.12f, x1), A(ca, -0.12f, x1), Vector3.up);
                     Quad(rv, rt, A(ca, -0.38f, x0), A(cb, -0.38f, x0), A(cb, -0.38f, x1), A(ca, -0.38f, x1), Vector3.down);
