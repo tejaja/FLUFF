@@ -691,6 +691,19 @@ public static class FuwaCourse2_5Builder
 
     // ===== 2026-11-16 ゴールの洞窟のクリスタル（てじゃ「この空間、ちょと暗くて寂しい、ゴール後のミニキノコに影もでない」「なんか光がほしいな、クリスタルいくつか刺さってる感じにして」）=====
     //  壁（口のあたりはなし）と天井から光るクリスタルが刺さる。天井のまん中の大きい塊から下へ影の出る光（Point、Soft の影）、壁のクリスタルのそばにうすい色の光
+    static readonly System.Collections.Generic.Dictionary<string, (Vector3 p, Quaternion r)> CavePoses = new System.Collections.Generic.Dictionary<string, (Vector3 p, Quaternion r)>
+    {
+        { "Wall0", (new Vector3(19.9643078f, -5.2552166f, 42.775528f), new Quaternion(-0.109465726f, 0.3750112f, -0.5592409f, 0.7311864f)) },
+        { "Wall1", (new Vector3(18.4324665f, -7.210467f, 37.3819847f), new Quaternion(0.286744148f, 0.573207438f, 0.399401337f, -0.655507147f)) },
+        { "Wall2", (new Vector3(23.8853912f, -7.62595272f, 30.99911f), new Quaternion(0.169098511f, 0.815207064f, 0.5536953f, 0.0162701942f)) },
+        { "Wall3", (new Vector3(30.250473f, -7.92981768f, 31.5618134f), new Quaternion(0.243711427f, 0.357147843f, 0.378373057f, 0.818464458f)) },
+        { "Ceil", (new Vector3(25.9f, -3.290006f, 38.0999947f), new Quaternion(0.9848078f, 0f, 0.1736482f, 0f)) },
+        { "CeilS0", (new Vector3(24.6860275f, -2.52813458f, 42.76719f), new Quaternion(-0.432010829f, 0.164232641f, 0.886169255f, -0.03314316f)) },
+        { "Mouth0", (new Vector3(34.489f, -7.20626831f, 41.0532722f), new Quaternion(-0.5569635f, 0.7721261f, 0.059028618f, -0.3002144f)) },
+        { "Mouth1", (new Vector3(26.90351f, -6.574539f, 45.2735023f), new Quaternion(0.756411254f, 0.3793616f, -0.391609132f, -0.361343622f)) },
+        { "Mouth2", (new Vector3(29.9989319f, -4.81427f, 47.6179237f), new Quaternion(0.424524575f, 0.780495048f, -0.4502917f, 0.088565f)) },
+        { "MouthCeil0", (new Vector3(34.2735367f, -3.00459862f, 43.2786331f), new Quaternion(0.219189435f, -0.07647922f, -0.9648157f, 0.123441443f)) },
+    };
     public static bool CaveCrystals = true; public static float CeilEmbed = 1.4f; public static float CaveLightIntensity = 3.2f, CaveLightRange = 13f; public static Color CaveLightCol = new Color(0.72f, 0.93f, 1f);
     static void GoalCaveCrystals(Transform rk, Vector2 sc, float hx, float cy0, float cy1, Vector2 mdir)
     {
@@ -765,6 +778,8 @@ public static class FuwaCourse2_5Builder
                 Place("MouthCeil0", 995, 1.1f, 2, mp, Vector3.down + new Vector3(mdir.x, 0f, mdir.y) * 0.3f, R01() * 360f);
             }
         }
+        // 2026-11-23 てじゃが口のまわりのクリスタルを手で調整（「こっちでうごかしてみる」「周辺のほかのもうごかした」）→ 作り直しても同じ所・向きに（GoalCrystals の中の座標）
+        foreach (var kv in CavePoses) { var t = g.Find(kv.Key); if (t) { t.localPosition = kv.Value.p; t.localRotation = kv.Value.r; } }
         // 光：天井の大きい塊の少し下から（影あり）
         {
             var lg = new GameObject("CaveLight"); lg.transform.SetParent(g, false);
