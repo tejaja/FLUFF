@@ -3,6 +3,8 @@
 //  色つきの板は自分の色を掛けて濃く・あざやかに、白っぽい板は _GradColor（うすい青むらさき）を掛ける。
 //  どっちにするかは色のあざやかさ（max-min）で自動で混ぜる → ボタンの色が実行中に変わっても（▶■の切りかえなど）そのまま合う。
 // 9分割の絵（RoundedPanel）なので、上下のふちの中で影が変わる（まん中は一定）
+// 2026-11-22 Fuwa/UIDepth と同じく板の奥行きを書く（てじゃ「またシャボン玉がボタンを貫通してみえてる」：グラデ化で UIDepth の奥行きが抜けて、
+//  奥の泡・風・綿毛（キュー3008）がボタンの上に出ていた）。ほぼ透明な所（_Cutoff 以下）は捨てる、板だけ 5mm 奥へずらして文字は欠けない、キューは文字より先の 2990、裏は描かない
 Shader "Fuwa/UIGradient"
 {
     Properties
@@ -20,12 +22,16 @@ Shader "Fuwa/UIGradient"
         _StencilWriteMask ("Stencil Write Mask", Float) = 255
         _StencilReadMask ("Stencil Read Mask", Float) = 255
         _ColorMask ("Color Mask", Float) = 15
+        _Cutoff ("Depth Cutoff", Range(0,1)) = 0.05
+        [Enum(UnityEngine.Rendering.CullMode)] _Cull ("Cull", Float) = 2
+        [Toggle] _ZWrite ("ZWrite", Float) = 1
+        _Push ("Depth Push (m)", Float) = 0.005
         [Toggle(UNITY_UI_ALPHACLIP)] _UseUIAlphaClip ("Use Alpha Clip", Float) = 0
     }
 
     SubShader
     {
-        Tags { "Queue"="Transparent" "IgnoreProjector"="True" "RenderType"="Transparent" "PreviewType"="Plane" "CanUseSpriteAtlas"="True" }
+        Tags { "Queue"="Transparent-10" "IgnoreProjector"="True" "RenderType"="Transparent" "PreviewType"="Plane" "CanUseSpriteAtlas"="True" }
         Stencil
         {
             Ref [_Stencil]
@@ -34,9 +40,9 @@ Shader "Fuwa/UIGradient"
             ReadMask [_StencilReadMask]
             WriteMask [_StencilWriteMask]
         }
-        Cull Off
+        Cull [_Cull]
         Lighting Off
-        ZWrite Off
+        ZWrite [_ZWrite]
         ZTest [unity_GUIZTestMode]
         Blend SrcAlpha OneMinusSrcAlpha
         ColorMask [_ColorMask]
@@ -75,6 +81,8 @@ Shader "Fuwa/UIGradient"
             float4 _ClipRect;
             float4 _MainTex_ST;
             half _Grad, _GradBorder, _SatScale;
+            fixed _Cutoff;
+            float _Push;
             fixed4 _GradColor;
 
             v2f vert (appdata_t v)
@@ -83,7 +91,10 @@ Shader "Fuwa/UIGradient"
                 UNITY_SETUP_INSTANCE_ID(v);
                 UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(OUT);
                 OUT.worldPosition = v.vertex;
-                OUT.vertex = UnityObjectToClipPos(OUT.worldPosition);
+                // 同じ面の文字が奥行きで欠けないように、板の奥行きだけ奥へずらす（UIDepth と同じ）
+                float3 viewPos = UnityObjectToViewPos(v.vertex);
+                viewPos += normalize(viewPos) * _Push;
+                OUT.vertex = mul(UNITY_MATRIX_P, float4(viewPos, 1));
                 OUT.texcoord = TRANSFORM_TEX(v.texcoord, _MainTex);
                 OUT.color = v.color * _Color;
                 return OUT;
@@ -105,6 +116,7 @@ Shader "Fuwa/UIGradient"
                 #ifdef UNITY_UI_ALPHACLIP
                 clip (color.a - 0.001);
                 #endif
+                clip(color.a - _Cutoff);
                 return color;
             }
             ENDCG
