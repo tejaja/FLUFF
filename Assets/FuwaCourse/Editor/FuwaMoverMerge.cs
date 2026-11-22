@@ -88,7 +88,9 @@ public static class FuwaMoverMerge
                 else if (o is Component c) refT.Add(c.transform);
             }
         }
-        var touchyNames = FuwaMaterialMerge.TouchyNames;
+        // 子を探してさわる（GetComponentsInChildren・GetChild・Find）か、参照から GetComponent<Renderer> するスクリプトの下はまとめない。
+        //  ほかの touchy（FuwaSugarPipe・FuwaCheckpoint など）は参照している描画物だけをさわるので、その描画物を外せば下の部品はまとめてよい（2026-11-22 調べた）
+        var touchyNames = MoverBlock;
         var touchyRoots = new HashSet<Transform>(roots.SelectMany(g => g.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true)).Where(u => touchyNames.Contains(u.GetType().Name)).Select(u => u.transform));
         bool IsMover(Transform t) => refT.Contains(t) || t.GetComponent<Rigidbody>() || t.GetComponent<Animator>() || t.GetComponent<VRC.Udon.UdonBehaviour>() || t.parent == null;
         bool Blocked(Transform t) { for (var p = t; p != null; p = p.parent) if (touchyRoots.Contains(p) || p.GetComponent<Animator>() || p.GetComponent<LODGroup>()) return true; return false; }
@@ -103,6 +105,8 @@ public static class FuwaMoverMerge
             if (r.GetComponent<TMPro.TMP_Text>()) continue;
             if (refR.Contains(r) || refR.Contains(r.gameObject) || refR.Contains(mf)) continue;
             if (r.sharedMaterials.Any(m => !m || m.renderQueue >= 2500)) continue;
+            // メッシュの座標が変わるので、自分の座標を使うシェーダー（水の流れ・模様の向き・根元のフェードなど）はまとめない。ToonLit だけ（2026-11-22 2–1 の水の壁が消えた）
+            if (r.sharedMaterials.Any(m => m.shader == null || m.shader.name != "FuwaCourse/ToonLit" || FuwaMaterialMerge.UsesObjectSpace(m))) continue;
             if (mf.sharedMesh.subMeshCount < r.sharedMaterials.Length) continue;
             if (r.name.StartsWith("__Merged_") || Blocked(r.transform)) continue;
             var mover = r.transform; while (!IsMover(mover)) mover = mover.parent;
@@ -205,10 +209,20 @@ public static class FuwaMoverMerge
         var ids = new GlobalObjectId[all.Length]; GlobalObjectId.GetGlobalObjectIdsSlow(all, ids);
         rec.disabled = ids.Select(i => i.ToString()).ToList();
         Save(rec);
+        // 使わなくなった古いメッシュを消す（組の数が変わると前の名前が残る）
+        foreach (var gid in AssetDatabase.FindAssets("t:Mesh", new[] { Dir }))
+        {
+            var p = AssetDatabase.GUIDToAssetPath(gid);
+            if (!used.Contains(System.IO.Path.GetFileNameWithoutExtension(p))) AssetDatabase.DeleteAsset(p);
+        }
         AssetDatabase.SaveAssets();
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(scene);
         return head;
     }
 
+    public static readonly HashSet<string> MoverBlock = new HashSet<string> {
+        "FuwaBlower", "FuwaEnemy", "FuwaGoal", "FuwaGunShadows", "FuwaJumpBoost", "FuwaMama", "FuwaMovableMushroom", "FuwaPlaygroundPlush", "FuwaCloudBalloon",   // 子を探す
+        "FuwaDemoStand", "FuwaHud", "FuwaPlaygroundFlameRock", "FuwaSharedBall", "FuwaFireJet", "FuwaPortal",                                                      // GetComponent<Renderer>
+        "FuwaBall", "FuwaGhost", "FuwaSharedBallShadows", "FuwaPlayerShadows", "FuwaGunShowcase", "FuwaGunSummon", "FuwaUmbrella", "FuwaPhotoAlbum", "FuwaPhotoFluff", "FuwaPortalCams" };   // プレイヤー・銃・撮影まわり（念のため）
     static string Sanitize(string s) { foreach (var c in System.IO.Path.GetInvalidFileNameChars()) s = s.Replace(c, '_'); return s.Replace(' ', '_'); }
 }

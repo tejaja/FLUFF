@@ -66,7 +66,7 @@ public static class FuwaMaterialMerge
         return string.Join("|", parts);
     }
 
-    static bool UsesObjectSpace(Material m)
+    public static bool UsesObjectSpace(Material m)
     {
         float F(string n) => m.HasProperty(n) ? m.GetFloat(n) : 0f;
         return F("_PatternFromBase") > 0.5f || F("_PatternFromUV3") > 0.5f || F("_BaseFadeLength") > 0f || F("_FlowStrength") > 0f;
