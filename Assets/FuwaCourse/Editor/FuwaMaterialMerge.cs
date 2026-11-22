@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -75,6 +75,8 @@ public static class FuwaMaterialMerge
     static string Hash(string s) { unchecked { uint h = 2166136261; foreach (char c in s) { h ^= c; h *= 16777619; } return h.ToString("x8"); } }
 
     public static bool IncludeMoving = true;
+    // 実行中にマテリアル・メッシュをさわる（子を探して色を変える等）スクリプト。FuwaMoverMerge でも使う
+    public static readonly HashSet<string> TouchyNames = new HashSet<string> { "FuwaBall", "FuwaBlower", "FuwaCheckpoint", "FuwaCourseWarp", "FuwaDemoStand", "FuwaEnemy", "FuwaFade", "FuwaFollowCam", "FuwaGhost", "FuwaGoal", "FuwaGroundMarker", "FuwaGunShadows", "FuwaGunShowcase", "FuwaGunSummon", "FuwaHud", "FuwaJumpBoost", "FuwaMama", "FuwaMovableMushroom", "FuwaPhotoAlbum", "FuwaPlayerShadows", "FuwaPlaygroundFlameRock", "FuwaPlaygroundPlush", "FuwaPlaygroundRing", "FuwaSharedBall", "FuwaSharedBallShadows", "FuwaThrowRock", "FuwaUmbrella", "FuwaWebHole", "FuwaWindArea", "FuwaClamBubbles", "FuwaCloudBalloon", "FuwaFireball", "FuwaFireJet", "FuwaLavaRock", "FuwaPhotoFluff", "FuwaPortal", "FuwaPortalCams", "FuwaShield", "FuwaShieldGate", "FuwaShockwave", "FuwaSizeRune", "FuwaSugarPipe" };
 
     // まとめたマテリアルの GPU インスタンシングを、元のマテリアルに合わせる（動く物で、元がオンだった数が多ければオン）。
     //  2026-11-21 てじゃ「なんでバッチふえるんだろ」：動く物（同じ形のキノコ・草の茂みなど）は元のマテリアルのインスタンシングでまとめ描きされていたのに、
@@ -123,6 +125,7 @@ public static class FuwaMaterialMerge
     {
         var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
         int reverted = 0;
+        if (!dry) FuwaMoverMerge.Revert();   // 2026-11-22 部品まとめは元のメッシュ・マテリアルから作るので、いったん戻して最後にかけ直す
         if (!dry && AssetDatabase.IsValidFolder(Dir)) reverted = Revert();   // 前のまとめをいったん元にもどしてから作り直す（何度押しても同じ結果）
         var all = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<MeshRenderer>(true)).ToList();
         // スクリプト（U#）が参照している描画物・その GameObject は対象外
@@ -137,7 +140,7 @@ public static class FuwaMaterialMerge
         }
         // 2026-11-21 てじゃ「マテリアルまとめ、全コース見直して」→ 案A：動く物（静的でない物）もまとめる（マテリアルの切り替え setpass を減らす）。
         //  ただし、実行中にマテリアル・メッシュをさわるスクリプト（自分で子を探して色を変える物など）の下と、Animator の下は外す
-        var touchy = new HashSet<string> { "FuwaBall", "FuwaBlower", "FuwaCheckpoint", "FuwaCourseWarp", "FuwaDemoStand", "FuwaEnemy", "FuwaFade", "FuwaFollowCam", "FuwaGhost", "FuwaGoal", "FuwaGroundMarker", "FuwaGunShadows", "FuwaGunShowcase", "FuwaGunSummon", "FuwaHud", "FuwaJumpBoost", "FuwaMama", "FuwaMovableMushroom", "FuwaPhotoAlbum", "FuwaPlayerShadows", "FuwaPlaygroundFlameRock", "FuwaPlaygroundPlush", "FuwaPlaygroundRing", "FuwaSharedBall", "FuwaSharedBallShadows", "FuwaThrowRock", "FuwaUmbrella", "FuwaWebHole", "FuwaWindArea", "FuwaClamBubbles", "FuwaCloudBalloon", "FuwaFireball", "FuwaFireJet", "FuwaLavaRock", "FuwaPhotoFluff", "FuwaPortal", "FuwaPortalCams", "FuwaShield", "FuwaShieldGate", "FuwaShockwave", "FuwaSizeRune", "FuwaSugarPipe" };
+        var touchy = TouchyNames;
         var touchyRoots = new HashSet<Transform>();
         foreach (var u in scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<UdonSharp.UdonSharpBehaviour>(true)))
             if (touchy.Contains(u.GetType().Name)) touchyRoots.Add(u.transform);
@@ -225,6 +228,7 @@ public static class FuwaMaterialMerge
             // 2026-11-22 アップのたびにビルド前の FuwaMeshWeldAll が VC_ の写しの重複頂点をまとめて保存し直し、まとめ直すとまた戻る（git に毎回数百ファイルの差分）
             //  → まとめた直後にここでもまとめておく（結果は同じ）
             Debug.Log(FuwaMeshWeldAll.Run());
+            Debug.Log(FuwaMoverMerge.Run(false));
             // 使わなくなったメッシュの写しを消す
             var keep = new HashSet<string>(meshCache.Values.Select(AssetDatabase.GetAssetPath));
             foreach (var g in AssetDatabase.FindAssets("t:Mesh", new[] { Dir })) { var pth = AssetDatabase.GUIDToAssetPath(g); if (!keep.Contains(pth)) AssetDatabase.DeleteAsset(pth); }
