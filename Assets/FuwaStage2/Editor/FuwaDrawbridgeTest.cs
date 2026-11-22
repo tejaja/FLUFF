@@ -303,10 +303,12 @@ public static class FuwaDrawbridgeTest
             int bi = v.Count; for (int i = 0; i < n; i++) v.Add(P3(inn[i], y));
             for (int i = 0; i < n - 1; i++) { Tri(bi + i, bo + i, bo + i + 1, want); Tri(bi + i, bo + i + 1, bi + i + 1, want); }
         }
+        // 2026-11-22 外向きは輪郭の回る向きで決める（中心向きとの内積だと、歯の根元の半径方向の段で半分が裏返って抜けていた）
+        float wind = 0f; for (int k = 0; k + 1 < n; k++) wind += o[k].x * o[k + 1].y - o[k].y * o[k + 1].x;
         // 歯の側面（角は分ける）
         for (int i = 0; i < n - 1; i++)
         {
-            var e = o[i + 1] - o[i]; var mid = (o[i] + o[i + 1]) / 2f; var nn = new Vector3(e.y, 0f, -e.x); if (Vector2.Dot(new Vector2(nn.x, nn.z), mid) < 0f) nn = -nn;
+            var e = o[i + 1] - o[i]; var mid = (o[i] + o[i + 1]) / 2f; var nn = new Vector3(e.y, 0f, -e.x); if (wind < 0f) nn = -nn;
             int b0 = v.Count; v.Add(P3(o[i], 0f)); v.Add(P3(o[i + 1], 0f)); v.Add(P3(o[i + 1], h)); v.Add(P3(o[i], h));
             Tri(b0, b0 + 1, b0 + 2, nn); Tri(b0, b0 + 2, b0 + 3, nn);
         }
@@ -346,11 +348,13 @@ public static class FuwaDrawbridgeTest
             int bi = v.Count; for (int i = 0; i < n; i++) v.Add(P3(inn[i], y));
             for (int i = 0; i < n; i++) { int j = (i + 1) % n; Tri(bi + i, bo + i, bo + j, want); Tri(bi + i, bo + j, bi + j, want); }
         }
+        // 2026-11-22 外向きは輪郭の回る向きで決める（中心向きとの内積だと、歯の根元の半径方向の段で半分が裏返って抜けていた）
+        float wind = 0f; for (int k = 0; k + 1 < n; k++) wind += o[k].x * o[k + 1].y - o[k].y * o[k + 1].x;
         // 歯の側面（角は分ける）
         for (int i = 0; i < n; i++)
         {
             int j = (i + 1) % n;
-            var e = o[j] - o[i]; var mid = (o[i] + o[j]) / 2f; var nn = new Vector3(e.y, 0f, -e.x); if (Vector2.Dot(new Vector2(nn.x, nn.z), mid) < 0f) nn = -nn;
+            var e = o[j] - o[i]; var mid = (o[i] + o[j]) / 2f; var nn = new Vector3(e.y, 0f, -e.x); if (wind < 0f) nn = -nn;
             int b0 = v.Count; v.Add(P3(o[i], 0f)); v.Add(P3(o[j], 0f)); v.Add(P3(o[j], h)); v.Add(P3(o[i], h));
             Tri(b0, b0 + 1, b0 + 2, nn); Tri(b0, b0 + 2, b0 + 3, nn);
         }
