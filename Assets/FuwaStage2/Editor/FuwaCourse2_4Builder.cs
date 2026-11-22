@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -2025,7 +2025,6 @@ public static class FuwaCourse2_4Builder
         big.gameObject.AddComponent<MeshFilter>().sharedMesh = SpurMesh(FacZBig, FacMod, 0.12f, "Factory_Big_z" + FacZBig);
         big.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
         float bigY = big.localPosition.y, gearBottomLocal = g.InverseTransformPoint(root.TransformPoint(new Vector3(gp.x, bottom, gp.z))).y;
-        CwShaft(g, bigY - 0.15f, gearBottomLocal, 0.3f);
         var bg = new FuwaGearTest.Gear { name = "Big", z = FacZBig, c = Vector2.zero, ratio = 1f, phase = 0f };
         var pg = FuwaGearTest.Mesh2(bg, "Pinion", FacZS, 0f, FacMod);
         // 2段目の増速（2026-11-11 てじゃ「ロビー側のポンプ、やたらおそい」：乗る歯車・段つき歯車はゆっくり回るので 64:8 だけだと 1回 15〜19 秒 → B「24:8 をもう1段」）
@@ -2051,7 +2050,8 @@ public static class FuwaCourse2_4Builder
         var pin = new GameObject("FactoryPinion_z" + FacZS).transform; pin.SetParent(F, false); pin.localPosition = new Vector3(pg.c.x, 0f, pg.c.y);
         pin.gameObject.AddComponent<MeshFilter>().sharedMesh = SpurMesh(FacZS, FacMod, 0.3f, "Factory_Pinion_z" + FacZS);
         pin.gameObject.AddComponent<MeshRenderer>().sharedMaterial = cwDark;
-        CwShaft(pin, -0.5f, 0.3f, 0.12f);
+        // 2026-11-22 てじゃ「1個目のタンクの下の板を支えてる棒とギアの下の軸が被ってる」：2段のポンプは小さい歯車がうでの真上 → 軸はうでの上で止める
+        CwShaft(pin, two ? -0.56f + lift + 0.045f + 0.003f : -0.5f, 0.3f, 0.12f);
         Transform crank = pin;
         if (two)
         {
@@ -2070,6 +2070,8 @@ public static class FuwaCourse2_4Builder
         TBox(F, "PumpArm", new Vector3((px - 0.4f) / 2f, -0.56f + lift, 0f), new Vector3(px - 0.4f, 0.09f, 0.16f), cwAxle, false);
         var bear = GameObject.CreatePrimitive(PrimitiveType.Cylinder); bear.name = "PumpBearing"; Object.DestroyImmediate(bear.GetComponent<Collider>());
         bear.transform.SetParent(F, false); bear.transform.localPosition = new Vector3(0f, -0.56f + lift, 0f); bear.transform.localScale = new Vector3(0.6f, 0.07f, 0.6f); bear.GetComponent<Renderer>().sharedMaterial = cwAxle;
+        // 大きい歯車の軸：うでの先の輪（PumpBearing）まで下ろす（2026-11-22 てじゃ「タンクの下の板から伸びてる支え棒の先がどことも繋がってない」）
+        CwShaft(g, g.InverseTransformPoint(F.TransformPoint(new Vector3(0f, -0.56f + lift + 0.07f + 0.003f, 0f))).y, gearBottomLocal, 0.3f);
         // クランク
         var disc = GameObject.CreatePrimitive(PrimitiveType.Cylinder); disc.name = "CrankDisc"; Object.DestroyImmediate(disc.GetComponent<Collider>());
         disc.transform.SetParent(crank, false); disc.transform.localPosition = new Vector3(0f, 0.34f, 0f); disc.transform.localScale = new Vector3(2f * R + 0.24f, 0.04f, 2f * R + 0.24f); disc.GetComponent<Renderer>().sharedMaterial = cwBrass;
