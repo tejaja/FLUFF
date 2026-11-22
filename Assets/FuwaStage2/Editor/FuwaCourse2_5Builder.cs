@@ -236,13 +236,14 @@ public static class FuwaCourse2_5Builder
             // 2026-11-14 てじゃ「（3×3 は）規則的すぎる」→ ばらばらにつめた小さい巣＋スキマ1か所（左たて / 右上ななめ / まん中よこ / 右下ななめ）。3×3 の版：PackedGates
             // 2026-11-14 てじゃ「むしろ最初のクモの巣4枚並べてできたスキマみたいな感じがいい」→ 六角形っぽい巣でうめて、角のスキマを通す（2×2 / 3×2 / 2×3 / 3×2 ずらし）。ランダムの版：OrganicGates
             // 2026-11-14 てじゃ「もっと丁寧に、スキマのある巣を1から作ってみて」→ ステンドグラスの巣（ボロノイ）＋さかい目1本だけのスキマ。六角形を並べた版：HexGridGates
+            // 2026-11-22 てじゃ「真ん中抜けをラストにしたい」→ 門の順を入れかえ（前：まん中(1,4) → (0,2) → (3,5)）
             VoronoiGates("B2", new[] {
-                new[] { new Vector2(-2.5f, 1.4f), new Vector2(0.2f, 1.1f), new Vector2(2.6f, 1.6f), new Vector2(-2.2f, 4.0f), new Vector2(0.4f, 3.7f), new Vector2(2.8f, 4.2f) },
-                new[] { new Vector2(-2.8f, 2.6f), new Vector2(-0.6f, 0.9f), new Vector2(-0.3f, 3.9f), new Vector2(1.9f, 2.2f), new Vector2(2.9f, 4.5f), new Vector2(2.7f, 0.4f) } },
-                new[] { new Vector2Int(1, 4), new Vector2Int(0, 2) }); S(1f);
-            VoronoiGates("B4", new[] {
+                new[] { new Vector2(-2.8f, 2.6f), new Vector2(-0.6f, 0.9f), new Vector2(-0.3f, 3.9f), new Vector2(1.9f, 2.2f), new Vector2(2.9f, 4.5f), new Vector2(2.7f, 0.4f) },
                 new[] { new Vector2(-2.6f, 0.8f), new Vector2(-1.0f, 3.0f), new Vector2(-3.0f, 4.5f), new Vector2(1.2f, 1.2f), new Vector2(1.5f, 4.2f), new Vector2(3.2f, 2.6f) } },
-                new[] { new Vector2Int(3, 5) });
+                new[] { new Vector2Int(0, 2), new Vector2Int(3, 5) }); S(1f);
+            VoronoiGates("B4", new[] {
+                new[] { new Vector2(-2.5f, 1.4f), new Vector2(0.2f, 1.1f), new Vector2(2.6f, 1.6f), new Vector2(-2.2f, 4.0f), new Vector2(0.4f, 3.7f), new Vector2(2.8f, 4.2f) } },
+                new[] { new Vector2Int(1, 4) });
             // 2026-11-14 てじゃ「小のほうの蜘蛛の巣、奥の一個けそう ながいかも」→ B4 の2門目（左上ななめ）を外した（道も 3.8m 短く）
             //  外した門の種：(-2.0,1.8) (0.8,0.7) (0.5,3.0) (-1.8,4.4) (2.8,2.0) (2.6,4.6)、スキマ (2,3)
             // 2026-11-14 てじゃ「道は縮めなくてよかった、カーテンまでの間があいててOK」→ 外した門のぶん（WebGateGap）道を足して長さは元のまま
