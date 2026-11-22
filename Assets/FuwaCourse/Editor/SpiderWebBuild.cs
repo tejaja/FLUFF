@@ -585,8 +585,16 @@ public static class SpiderWebBuild
         // てじゃ「もちょい左上のほうにつなげて」→ 頭より上の角は、上向きに張れる所を優先（上がった高さ1mにつき 1.2m 近い扱い）
         //  てじゃ「手前の蜘蛛の巣もこうつないで」（上の角2つから斜め上の柱へ）→ 上半分の角はみな上向き優先
         float upBias = fc[k].y > 0f ? 1.2f : 0f;
+        // てじゃ「上部の真ん中のいらない」→ 上半分でも左右の端でない角（てっぺんの真ん中あたり）は、すぐそばにつなぐ物がある時だけ（上向き優先なし・1m まで）
+        if (fc[k].y > 0f)
+        {
+            var up = fc.Where(c => c.y > 0f).ToList();
+            bool extreme = fc[k].x <= up.Min(c => c.x) + 1e-4f || fc[k].x >= up.Max(c => c.x) - 1e-4f;
+            if (!extreme) { upBias = 0f; reach = Mathf.Min(reach, 1f); }
+            else if (!high && !WebAbove(b, sup)) reach *= 2.2f;   // 上にも巣がある下の巣は、上の巣があるのでのばさない   // てじゃ「右上がつながってない」→ 上の端の角は前後の柱まで届くように
+        }
         for (int ai = -4; ai <= 4; ai++)
-            for (int ti = -2; ti <= 2; ti++)
+            for (int ti = -3; ti <= 3; ti++)
             {
                 float a = ai * 15f * Mathf.Deg2Rad, t = ti * 20f * Mathf.Deg2Rad;
                 var d2 = new Vector2(o2.x * Mathf.Cos(a) - o2.y * Mathf.Sin(a), o2.x * Mathf.Sin(a) + o2.y * Mathf.Cos(a));
@@ -628,6 +636,7 @@ public static class SpiderWebBuild
         foreach (var o in b.transform.parent.GetComponentsInChildren<SpiderWebBuilder>(true))
         {
             if (o == b) continue;
+            if (Mathf.Abs(sup.InverseTransformPoint(o.transform.position).z) > 1.5f) continue;   // 別の門（前後に離れた巣）は見ない
             Vector3 ols = o.transform.lossyScale, opls = o.transform.parent != null ? o.transform.parent.lossyScale : Vector3.one;
             var sc = new Vector3(opls.x / ols.x, opls.y / ols.y, opls.z / ols.z);
             var poly = FrameCorners(o).Select(v => (Vector2)sup.InverseTransformPoint(o.transform.TransformPoint(Vector3.Scale(new Vector3(v.x, v.y, 0), sc)))).ToList();
@@ -642,6 +651,18 @@ public static class SpiderWebBuild
                 float d1 = Cross(s1 - s0, c - s0), d2 = Cross(s1 - s0, d - s0), d3 = Cross(d - c, s0 - c), d4 = Cross(d - c, s1 - c);
                 if (d1 * d2 < 0 && d3 * d4 < 0) return true;
             }
+        }
+        return false;
+    }
+    // 同じ門（前後 1.5m 以内）で自分より上に巣があるか
+    static bool WebAbove(SpiderWebBuilder b, Transform sup)
+    {
+        if (b.transform.parent == null) return false;
+        foreach (var o in b.transform.parent.GetComponentsInChildren<SpiderWebBuilder>(true))
+        {
+            if (o == b) continue;
+            var lp = sup.InverseTransformPoint(o.transform.position);
+            if (Mathf.Abs(lp.z) <= 1.5f && lp.y > 0.5f) return true;
         }
         return false;
     }
