@@ -3097,8 +3097,10 @@ public static class FuwaCourse2_5Builder
     public static float WebGateGap = 3.8f;
     public static bool WebEyeHeight = true; public static float WebMidAboveEye = 1.1f, WebMidMin = 1.5f, WebMidMax = 3.2f;   // 田の字のまん中の線 = 目の高さ + 1.1（1.5〜3.2）
     static readonly List<(Transform run, float z)> gateZ = new List<(Transform, float)>();
+    static bool webAnchorAround;
     static void WebGates(string tag, float len, int[] patterns, bool pits)
     {
+        webAnchorAround = tag == "B1";
         float z0 = P.z; len = patterns.Length * (WebGateGap + MidWebExtra);
         var g = new GameObject("WebGates_" + tag).transform; g.SetParent(isl, false);
         float hTop = TunnelH - 0.1f, hMid = TunnelH / 2f, xo = WebXO;   // 横は壁に 0.5m めりこませる
@@ -3116,6 +3118,7 @@ public static class FuwaCourse2_5Builder
                 Web(g, "Web" + i + "_" + (up ? "U" : "L") + (right ? "R" : "L"), new Vector3((x0 + x1) / 2f, P.y + (y0 + y1) / 2f, z), Quaternion.identity, new Vector2(x1 - x0, y1 - y0), false, 0.6f, false, false, sh.c, sh.s);
             }
         }
+        webAnchorAround = false;
         // 2026-11-15 てじゃ「クモの巣の上を通るところ、アバターの大きさで難易度変わるのがヤだな」「いっそアバターの高さでクモの巣の位置かえちゃうとか」
         //  → まん中の線を自分の目の高さ＋WebMidAboveEye に（FuwaWebEyeHeight、自分の画面だけ）
         if (WebEyeHeight)
@@ -3845,6 +3848,8 @@ public static class FuwaCourse2_5Builder
         // 2026-11-14 てじゃ「クモの巣の形を何パターンかつくろう」：枠の角の数（3〜8）と形の種（角の向き・ゆらぎ）
         if (corners > 0) { b.polygonFrame = true; b.frameCorners = corners; }
         if (!float.IsNaN(shapeSeed)) b.seed = shapeSeed;
+        // 2026-11-23 てじゃ「（巨大化して避ける巣が）空中にういてるかんじ、ほっそい糸でちゃんと角をつなげたい」→ 角から柱・床・となりの巣へ糸（WebGates B1）
+        b.anchorAround = webAnchorAround; b.anchorReach = 2.5f;   // 道を横切る長い糸は張らない
         b.assetId = "Web_2_5_" + parent.name + "_" + name;
         SpiderWebBuild.Build(b);
         var hz = g.GetComponent<FuwaHazard>();

@@ -4,6 +4,7 @@
 // ・メニュー「GameObject/FuwaCourse/Spider Web」で新しい巣を置く
 // 作ったメッシュとマテリアルは Assets/FuwaCourse/Generated/SpiderWebs/ に巣ごとに保存する。
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 
@@ -544,6 +545,7 @@ public static class SpiderWebBuild
             }
             else
             {
+                if (b.anchorAround) cand.AddRange(AroundTargets(b, sup, fc, k));
                 if (upper && any != null)
                 {
                     cand.Add(NearestOnBranch(any, p + Vector3.up * 0.6f * b.size.y));
@@ -557,11 +559,92 @@ public static class SpiderWebBuild
             foreach (var target in cand)
             {
                 if (CrossesFrame(fc, k, new Vector2(target.x, target.y))) continue;
+                if (b.anchorAround && OverOtherWeb(b, sup, p, target)) continue;
                 th.Hang(p, target, 0.015f);
                 break;
             }
         }
         return th.count;
+    }
+
+    // anchorAround：角 k から、まわりの物（柱・床・壁）と、となりの巣の角への候補（近い順、sup の座標）。
+    //  角から外向きの扇（巣の面の中で ±60°、面から ±40°）にレイを飛ばして当たった所。巣（SpiderWebBuilder の下）とトリガーは除く
+    //  となりの巣の角：同じ親の anchorAround の巣で、名前が後のもの（同じ糸を2本張らないように片方からだけ）
+    static List<Vector3> AroundTargets(SpiderWebBuilder b, Transform sup, List<Vector2> fc, int k)
+    {
+        Physics.SyncTransforms();
+        var res = new List<(float d, Vector3 p)>();
+        Vector2 cen = Vector2.zero; foreach (var f in fc) cen += f; cen /= fc.Count;
+        var p = new Vector3(fc[k].x, fc[k].y, 0);
+        Vector2 o2 = (fc[k] - cen).normalized;
+        var from = sup.TransformPoint(p);
+        float reach = Mathf.Max(0.5f, b.anchorReach);
+        for (int ai = -4; ai <= 4; ai++)
+            for (int ti = -2; ti <= 2; ti++)
+            {
+                float a = ai * 15f * Mathf.Deg2Rad, t = ti * 20f * Mathf.Deg2Rad;
+                var d2 = new Vector2(o2.x * Mathf.Cos(a) - o2.y * Mathf.Sin(a), o2.x * Mathf.Sin(a) + o2.y * Mathf.Cos(a));
+                var d3 = new Vector3(d2.x * Mathf.Cos(t), d2.y * Mathf.Cos(t), Mathf.Sin(t));
+                var wd = sup.TransformDirection(d3).normalized;
+                foreach (var h in Physics.RaycastAll(from, wd, reach, ~0, QueryTriggerInteraction.Collide).OrderBy(h => h.distance))
+                {
+                    var hw = h.collider.GetComponentInParent<SpiderWebBuilder>();
+                    if (hw == b) continue;
+                    if (hw != null) break;   // 2026-11-23 てじゃ「下のクモの巣にかぶってるやつを消したい」→ ほかの巣を横切る糸は張らない
+                    if (h.collider.isTrigger) continue;
+                    if (h.distance < 0.05f) break;
+                    var tp = sup.InverseTransformPoint(h.point + wd * 0.02f);
+                    if (!OverOtherWeb(b, sup, p, tp)) res.Add((h.distance, tp));
+                    break;
+                }
+            }
+        if (b.transform.parent != null)
+            foreach (var o in b.transform.parent.GetComponentsInChildren<SpiderWebBuilder>(true))
+            {
+                if (o == b || !o.anchorAround || !o.polygonFrame || string.CompareOrdinal(o.name, b.name) <= 0) continue;
+                Vector3 ols = o.transform.lossyScale, opls = o.transform.parent != null ? o.transform.parent.lossyScale : Vector3.one;
+                var sc = new Vector3(opls.x / ols.x, opls.y / ols.y, opls.z / ols.z);
+                foreach (var v in FrameCorners(o))
+                {
+                    var w = o.transform.TransformPoint(Vector3.Scale(new Vector3(v.x, v.y, 0), sc));
+                    float d = Vector3.Distance(w, from);
+                    if (d > 0.05f && d < reach * 0.6f) res.Add((d * 0.9f, sup.InverseTransformPoint(w)));   // となりの巣は少しひいき
+                }
+            }
+        return res.OrderBy(x => x.d).Select(x => x.p).ToList();
+    }
+
+    // 糸 a→q（sup の座標）を、まわりの巣（同じ親の巣）の面に正面から見た時、その巣の枠の上を通るか
+    //  2026-11-23 てじゃ「（上の巣から床へのびる糸が）下のクモの巣にかぶってる」→ 前後にずれていても正面から見て重なるならダメ
+    static bool OverOtherWeb(SpiderWebBuilder b, Transform sup, Vector3 a, Vector3 q)
+    {
+        if (b.transform.parent == null) return false;
+        foreach (var o in b.transform.parent.GetComponentsInChildren<SpiderWebBuilder>(true))
+        {
+            if (o == b) continue;
+            Vector3 ols = o.transform.lossyScale, opls = o.transform.parent != null ? o.transform.parent.lossyScale : Vector3.one;
+            var sc = new Vector3(opls.x / ols.x, opls.y / ols.y, opls.z / ols.z);
+            var poly = FrameCorners(o).Select(v => (Vector2)sup.InverseTransformPoint(o.transform.TransformPoint(Vector3.Scale(new Vector3(v.x, v.y, 0), sc)))).ToList();
+            Vector2 a2 = a, q2 = q;
+            // 角どうしをつなぐ糸（端が枠の角そのもの）は重なりとみなさない：端を少し内側に縮めて判定
+            var dir = (q2 - a2); float len = dir.magnitude; if (len < 1e-4f) continue; dir /= len;
+            Vector2 s0 = a2 + dir * Mathf.Min(0.08f, len * 0.5f), s1 = q2 - dir * Mathf.Min(0.08f, len * 0.5f);
+            if (Inside(poly, s0) || Inside(poly, s1)) return true;
+            for (int i = 0; i < poly.Count; i++)
+            {
+                Vector2 c = poly[i], d = poly[(i + 1) % poly.Count];
+                float d1 = Cross(s1 - s0, c - s0), d2 = Cross(s1 - s0, d - s0), d3 = Cross(d - c, s0 - c), d4 = Cross(d - c, s1 - c);
+                if (d1 * d2 < 0 && d3 * d4 < 0) return true;
+            }
+        }
+        return false;
+    }
+    static bool Inside(List<Vector2> poly, Vector2 p)
+    {
+        bool inside = false;
+        for (int i = 0, j = poly.Count - 1; i < poly.Count; j = i++)
+            if ((poly[i].y > p.y) != (poly[j].y > p.y) && p.x < (poly[j].x - poly[i].x) * (p.y - poly[i].y) / (poly[j].y - poly[i].y) + poly[i].x) inside = !inside;
+        return inside;
     }
 
     // 巣の真下の床に、ぼんやりした影の帯（奥行きの目印）。床の起伏に沿うよう、横に並べた点ごとに床の高さを測る

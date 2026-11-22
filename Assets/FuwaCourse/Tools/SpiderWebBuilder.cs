@@ -99,6 +99,10 @@ public class SpiderWebBuilder : MonoBehaviour, VRC.SDKBase.IEditorOnly
     public bool autoIsland = true;
     [Tooltip("枯れ木にする（葉っぱなし、てっぺんに細い枝を足す、灰色っぽい幹）")]
     public bool bareTree = false;
+    [Tooltip("2026-11-23 てじゃ「空中にういてるかんじ、ほっそい糸でちゃんと角をつなげたい」：枠（多角形）の角から、まわりの柱・床・壁、となりの巣の角へ糸を張る（木がない巣用）")]
+    public bool anchorAround = false;
+    [Tooltip("anchorAround の糸の届く長さ m")]
+    public float anchorReach = 4f;
 
     [HideInInspector] public string assetId = "";
 }
