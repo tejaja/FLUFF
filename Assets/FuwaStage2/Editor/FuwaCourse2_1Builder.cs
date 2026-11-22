@@ -592,8 +592,9 @@ public static class FuwaCourse2_1Builder
         CrossingStones(root, "Stones2", sCross2, -1f);
         StopRocks(root);
         MidRock(root);
-        RiverFish(root, fx);
-        GuardFish(root, fx);
+        var fishFx = FuwaFishSplash.Make(root, fx);   // 魚は大きいので、しぶきも大きい別の効果（2026-11-22）
+        RiverFish(root, fishFx);
+        GuardFish(root, fishFx);
         // ④ 貝の道
         ClamWalk(root, ground);
         // ⑤ 滝の道（＋滝の方へ押す横風と吹き流し）
