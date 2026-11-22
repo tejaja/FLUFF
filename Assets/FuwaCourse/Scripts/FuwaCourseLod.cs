@@ -29,6 +29,8 @@ public class FuwaCourseLod : UdonSharpBehaviour
     public float interval = 0.5f;
     [Tooltip("ON なら Mobile（Android/iOS ビルド）の時だけ働く")]
     public bool onlyMobile = true;
+    [Tooltip("かるいの時、ロビーでも全部のコースを軽い版にする（2026-11-22 比べる用にオフにできるように）")]
+    public bool lobbyLiteInLight = true;
 
     // 他のコースに飛んで近づいた時は、そのコースを本体に戻す（2026-10-22 てじゃ「横とか上から接近したとき、ある程度近づくと切り替わるように」）
     // コース全体の箱1個だと隣のコースと重なるので、床を cellSize 角のマスに分けて、マスごとに「中の床がある範囲」の箱で持つ（FuwaCourseLite が入れる）。
@@ -227,7 +229,7 @@ public class FuwaCourseLod : UdonSharpBehaviour
         int c = mode == 0 ? -1 : cur;   // きれい：コースの中でも全部ふつう表示
         // かるい：ロビー（どのコースにもいない）でも全部のコースを軽い版に（2026-11-22 てじゃ「スマホだとステージ２ロビーおもい」。
         //  ロビーから 2-1・2-2 の本体がまるごと見えていた）。コースに入るとそのコースだけ本体になる
-        bool lobbyLite = mode == 2 && cur < 0;
+        bool lobbyLite = lobbyLiteInLight && mode == 2 && cur < 0;
         for (int i = 0; i < n; i++)
         {
             bool near = (_near != null && i < _near.Length && _near[i]) || IsNeighbor(c, i);
