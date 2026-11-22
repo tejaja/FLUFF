@@ -128,6 +128,10 @@ public static class FuwaGramophoneBuilder
         // ラッパ：根元（首の上）を中心に伸び縮みさせるので、根元に支点を置いて子にする（2026-11-21 てじゃ「スピーカー部分が再生中ちょっとうごいたらかわいい」）
         {
             var horn = F("Gramo_Horn");
+            // 2026-11-22 軽量化：fbx のラッパはサブディビジョン込みで 6.3 万三角形 → Blender でサブディビジョンなし（厚み付けのみ）を書き出し、
+            //  なめらかな法線にした版（1.6 万）に差しかえる（FuwaCourse/Generated/Low/Gramo_Horn_Low.asset、元データは Tools/gramo_horn_low.json）
+            var hornLow = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Generated/Low/Gramo_Horn_Low.asset");
+            if (hornLow != null && horn.GetComponent<MeshFilter>() != null) horn.GetComponent<MeshFilter>().sharedMesh = hornLow;
             var pivot = new GameObject("HornPivot").transform; pivot.SetParent(T, false);
             pivot.localPosition = HornBase; pivot.localRotation = Quaternion.identity; pivot.localScale = Vector3.one;
             horn.SetParent(pivot, true);
