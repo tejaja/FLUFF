@@ -414,7 +414,9 @@ public static class FuwaPlaygroundBuilder
             else
             {
                 Mesh(go.transform, "Body", fanMeshes["Chill_FanBody"], new[] { fanBodyM }, Vector3.zero);
-                var bl = Mesh(go.transform, "Blades", fanMeshes["Chill_FanBlades"], new[] { fanBodyM, fanBladeM }, new Vector3(0f, 0.36f, 0f)).transform;   // 1つ目は羽の真ん中のキャップ（白。2026-10-13 てじゃ）
+                // 2026-11-22 軽量化：羽は Blender で格子を 1/4（Un-Subdivide 2回）にした版（7488 → 3120、Generated/Low/Chill_FanBlades_Low、元は Tools/fan_blades_low.json）
+                var bladesLow = AssetDatabase.LoadAssetAtPath<Mesh>("Assets/FuwaCourse/Generated/Low/Chill_FanBlades_Low.asset");
+                var bl = Mesh(go.transform, "Blades", bladesLow != null ? bladesLow : fanMeshes["Chill_FanBlades"], new[] { fanBodyM, fanBladeM }, new Vector3(0f, 0.36f, 0f)).transform;   // 1つ目は羽の真ん中のキャップ（白。2026-10-13 てじゃ）
                 nozzle.localPosition = new Vector3(0f, 0.36f, 0.04f);
                 fan.blades = bl;
                 // ON/OFF の音（カチッ＋ふぃーん。Tools/audio/make_sfx_gun_fan.py。2026-10-14 てじゃ「扇風機のオンオフに効果音」）
