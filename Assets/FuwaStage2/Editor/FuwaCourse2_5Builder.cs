@@ -755,7 +755,9 @@ public static class FuwaCourse2_5Builder
                 var dirS = new Vector3(mper2.x * side, 0f, mper2.y * side);
                 var fb = new Vector3(c0.x, y, c0.y) + dirS * (CaveMouthW / 2f);
                 var surf = Hit(new Vector3(c0.x, y, c0.y), dirS, 0f, fb);
-                Place("Mouth" + k, 980 + k, 1.2f + 0.4f * R01(), 2, surf, -dirS * (0.7f + 0.4f * R01()) + Vector3.up * (0.25f + 0.6f * R01()) + new Vector3(mdir.x, 0f, mdir.y) * (R01() - 0.3f) * 0.5f, R01() * 360f);
+                float ms = 1.2f + 0.4f * R01(), mIn = 0.7f + 0.4f * R01(), mUp = 0.25f + 0.6f * R01(), mOut = (R01() - 0.3f) * 0.5f;   // 乱数の順は前と同じ
+                if (k == 1) mUp = -0.5f;   // 2026-11-23 てじゃ「2-5ラストの左側の下のやつ、斜め下向きにしてほしい」
+                Place("Mouth" + k, 980 + k, ms, 2, surf, -dirS * mIn + Vector3.up * mUp + new Vector3(mdir.x, 0f, mdir.y) * mOut, R01() * 360f);
             }
             {
                 var p2 = sc + mdir * (hx + 1.5f) + mper2 * (R01() - 0.5f) * (CaveMouthW * 0.5f);
