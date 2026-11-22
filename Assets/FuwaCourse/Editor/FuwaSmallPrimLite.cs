@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -22,6 +22,7 @@ public static class FuwaSmallPrimLite
     public static string Run(bool dry)
     {
         if (!dry) FuwaMaterialMerge.Revert();
+        if (!dry) RestoreHeld();
         var meshes = new Dictionary<string, Mesh>();
         Mesh Get(string name, System.Func<Mesh> make)
         {
@@ -42,6 +43,8 @@ public static class FuwaSmallPrimLite
             var src = mf.sharedMesh;
             if (AssetDatabase.GetAssetPath(src) != "Library/unity default resources") continue;
             var mc = r.GetComponent<MeshCollider>(); if (mc && mc.sharedMesh == src) continue;
+            // 2026-11-22 てじゃ「竹とんぼ、どうせローカルだしここまでポリ絞らなくてもよかった」：手に持つ物（VRCPickup・Rigidbody の下）は顔の前で見るので軽くしない
+            if (r.GetComponentInParent<VRC.SDK3.Components.VRCPickup>(true) || r.GetComponentInParent<Rigidbody>(true)) continue;
             // 親の伸び（ゆがみ）込みの実際の大きさ：各軸の向きを世界に移した長さ（lossyScale はゆがみで小さく出る。2–4 のびょうは 0.05 と出て実際は 0.3m）
             var M = r.transform.localToWorldMatrix;
             var s = new Vector3(M.MultiplyVector(Vector3.right).magnitude, M.MultiplyVector(Vector3.up).magnitude, M.MultiplyVector(Vector3.forward).magnitude);
@@ -74,6 +77,20 @@ public static class FuwaSmallPrimLite
             res += "\n" + FuwaMaterialMerge.Run(false);
         }
         return res;
+    }
+
+    // 手に持つ物で軽い形にしてしまった球・円柱を、Unity 標準の形に戻す
+    static void RestoreHeld()
+    {
+        Mesh builtin(string n) { var g = GameObject.CreatePrimitive(n == "Sphere" ? PrimitiveType.Sphere : PrimitiveType.Cylinder); var m = g.GetComponent<MeshFilter>().sharedMesh; Object.DestroyImmediate(g); return m; }
+        var sph = builtin("Sphere"); var cyl = builtin("Cylinder");
+        foreach (var mf in Object.FindObjectsOfType<MeshFilter>(true))
+        {
+            if (!mf.sharedMesh || !AssetDatabase.GetAssetPath(mf.sharedMesh).StartsWith(Dir)) continue;
+            if (!(mf.GetComponentInParent<VRC.SDK3.Components.VRCPickup>(true) || mf.GetComponentInParent<Rigidbody>(true))) continue;
+            Undo.RecordObject(mf, "持つ物の形を戻す");
+            mf.sharedMesh = mf.sharedMesh.name.StartsWith("LowSphere") ? sph : cyl;
+        }
     }
 
     static Mesh Sphere(int seg, int rings)
