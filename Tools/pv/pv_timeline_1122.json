@@ -1,0 +1,197 @@
+{
+ "music": "D:/Claude_Workspace/fluff_bgm/01_Lazy Afternoon.wav",
+ "bpm": 102.0,
+ "shots": "D:/Claude_Workspace/fluff_video/pv2/shots",
+ "playdir": "D:/Claude_Workspace/fluff_video/pv2/play",
+ "old_pv": "D:/Claude_Workspace/fluff_video/pv_rough8_1080p.mp4",
+ "thumb": "D:/Claude_Workspace/FLUFF_Photos/_確定サムネ/FLUFF_thumbnail_20261120_2400x1800.png",
+ "out": "D:/Claude_Workspace/fluff_video/pv2/FLUFF_PV_final7",
+ "segments": [
+  {
+   "b": "v3_lobby1",
+   "bars": 2,
+   "fadein": true
+  },
+  {
+   "a": "A1a",
+   "bars": 2,
+   "from": 0.3,
+   "label": "銃ゲット＋空撃ち",
+   "old": 6
+  },
+  {
+   "a": "A1b",
+   "bars": 4,
+   "from": 1.5,
+   "label": "キノコから飛び出す（風の道の横から 11/22 18-41-44）",
+   "old": 6
+  },
+  {
+   "b": "v3_1_1",
+   "bars": 2
+  },
+  {
+   "a": "A2",
+   "bars": 2,
+   "label": "1-1 突風の木の橋（11/20 15-25-11）",
+   "old": 38,
+   "from": 14.65
+  },
+  {
+   "b": "v3_1_2",
+   "bars": 2
+  },
+  {
+   "b": "v3_1_2b",
+   "bars": 2
+  },
+  {
+   "b": "v3_1_3",
+   "bars": 2
+  },
+  {
+   "a": "A3",
+   "bars": 2,
+   "label": "1-3 クモの巣にひっかかる",
+   "old": 62,
+   "from": 4.3
+  },
+  {
+   "b": "v3_1_4a",
+   "bars": 2
+  },
+  {
+   "b": "v3_1_4b",
+   "bars": 2
+  },
+  {
+   "b": "v3_1_5",
+   "bars": 2
+  },
+  {
+   "a": "A4",
+   "bars": 2,
+   "label": "1-4 キノコわたり",
+   "old": 78,
+   "from": 24.5
+  },
+  {
+   "a": "A5",
+   "bars": 2,
+   "label": "ゴールの瞬間",
+   "old": 84,
+   "from": 6.0
+  },
+  {
+   "b": "v3_lobby2",
+   "bars": 2
+  },
+  {
+   "b": "v3_2_1",
+   "bars": 2
+  },
+  {
+   "a": "A6",
+   "bars": 2,
+   "label": "2-1 泡",
+   "bstill": "v3_2_1",
+   "from": 3.5
+  },
+  {
+   "b": "v3_2_2a",
+   "bars": 2
+  },
+  {
+   "b": "v3_2_2b",
+   "bars": 2
+  },
+  {
+   "b": "v3_2_3",
+   "bars": 2
+  },
+  {
+   "a": "A7",
+   "bars": 2,
+   "label": "2-3 動く床でツルツル",
+   "bstill": "v3_2_3",
+   "from": 8.0
+  },
+  {
+   "b": "v3_2_4",
+   "bars": 2
+  },
+  {
+   "a": "A8",
+   "bars": 2,
+   "label": "2-4 跳ね橋を下ろす",
+   "bstill": "v3_2_4",
+   "from": 0.5
+  },
+  {
+   "b": "v3_2_5a",
+   "bars": 2
+  },
+  {
+   "b": "v3_2_5b",
+   "bars": 2
+  },
+  {
+   "a": "A9",
+   "bars": 4,
+   "label": "竹とんぼで遊覧飛行",
+   "bstill": "v3_lobby1",
+   "from": 21.0
+  },
+  {
+   "b": "v3_pg_locked",
+   "bars": 2
+  },
+  {
+   "b": "v3_pg_open",
+   "bars": 2,
+   "xfade": 0.5
+  },
+  {
+   "a": "A10a",
+   "bars": 2,
+   "label": "あそびば 竜巻（11/22 18-45-43）",
+   "bstill": "v3_pg_open",
+   "from": 6.8
+  },
+  {
+   "a": "A10b",
+   "bars": 2,
+   "label": "あそびば 扇風機（11/22 18-50-27）",
+   "bstill": "v3_pg_open",
+   "from": 7.3
+  },
+  {
+   "a": "A11",
+   "bars": 4,
+   "label": "ピックアップ4カット（1カット目 まもの撃ち 11/22 18-52-02@20.0）",
+   "old": 18,
+   "from": 0
+  },
+  {
+   "b": "v3_end_sky",
+   "bars": 3,
+   "from": 0.5,
+   "logo": 0.6,
+   "logoy": 60,
+   "fadeout": true,
+   "fadebars": 1,
+   "label": "ラスト：空の太陽＋タイトルロゴ（11/22）"
+  }
+ ],
+ "xfade_all": 0.15,
+ "old_last": {
+  "a": "A12",
+  "bars": 3,
+  "label": "ラスト：トランポリンで跳ねるふわふわ",
+  "bstill": "v3_pg_open",
+  "fadeout": true,
+  "fadebars": 1,
+  "from": 1.0,
+  "logo": 0.6
+ }
+}

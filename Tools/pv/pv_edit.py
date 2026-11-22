@@ -116,7 +116,7 @@ for i, seg in enumerate(segs):
         logo = make_logo(W / 1200.0 * 1.25); lp = os.path.join(tmp, 'logo.png'); logo.save(lp)
         t_in = BAR * float(seg['logo']) + pre / FPS; lo = os.path.join(tmp, f'{i:03d}_logo.mp4')
         run(['-i', out, '-loop', '1', '-i', lp, '-filter_complex',
-             f'[1:v]format=rgba,fade=in:st={t_in}:d=1.2:alpha=1[l];[0:v][l]overlay=(W-w)/2:(H-h)/2-230:shortest=1',
+             f'[1:v]format=rgba,fade=in:st={t_in}:d=1.2:alpha=1[l];[0:v][l]overlay=(W-w)/2:(H-h)/2{int(seg.get("logoy", -230)):+d}:shortest=1',   # logoy：まん中からの上下（px、1080p）
              '-frames:v', str(L)] + enc + [lo]); out = lo
     if seg.get('fadeout'):
         fo = os.path.join(tmp, f'{i:03d}_fo.mp4'); d = BAR * seg.get('fadebars', 2)
