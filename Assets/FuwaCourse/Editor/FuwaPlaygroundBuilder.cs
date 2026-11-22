@@ -1185,6 +1185,15 @@ public static class FuwaPlaygroundBuilder
         var iceM = iceSrc.ice.First(x => x != null).GetComponent<Renderer>().sharedMaterial;
         // 結晶（六角柱＋とがった先）3本
         var toy = new GameObject("IceSeed"); toy.transform.SetParent(slot, false);
+        toy.AddComponent<MeshFilter>().sharedMesh = SaveGenMesh(IceSeedMesh(), "Playground_IceSeed");
+        toy.AddComponent<MeshRenderer>().sharedMaterial = iceM;
+        FillIceToyRest(slot, toy, iceM, iceSrc);
+    }
+
+    // こおりのたねの結晶（2026-11-22 てじゃ「根本がちょと雑かも」）：傾いた結晶の根もとの平らな底が床から浮いて見えていた
+    //  → 結晶は床の下まで伸ばして床から生えているように（傾きぶん深く）、根もとに小さいかけら（低い結晶）を数本足して継ぎ目を隠す
+    public static Mesh IceSeedMesh()
+    {
         var cv = new List<Vector3>(); var ct = new List<int>();
         void Crystal(Vector3 b, Quaternion q, float r, float h)
         {
@@ -1194,12 +1203,27 @@ public static class FuwaPlaygroundBuilder
             var cen = b + q * new Vector3(0f, h * 0.5f, 0f);
             for (int i = 0; i < n; i++) { int j = (i + 1) % n; T(ring0[i], ring0[j], ring1[j], ring0[i] + ring1[j] - 2f * cen); T(ring0[i], ring1[j], ring1[i], ring0[i] + ring1[j] - 2f * cen); T(ring1[i], ring1[j], tip, (ring1[i] + ring1[j]) * 0.5f + tip - 2f * cen); T(ring0[i], ring0[j], b, b - cen); }
         }
-        Crystal(Vector3.zero, Quaternion.identity, 0.2f, 0.75f);
-        Crystal(new Vector3(0.2f, 0f, 0.08f), Quaternion.Euler(0f, 0f, -24f), 0.13f, 0.45f);
-        Crystal(new Vector3(-0.16f, 0f, -0.1f), Quaternion.Euler(18f, 0f, 20f), 0.11f, 0.35f);
+        // 床から生える：根もと（底の輪のいちばん高い点）が床の 4cm 下に来るまで軸にそって下へ伸ばす
+        void Grown(Vector3 at, Quaternion q, float r, float h)
+        {
+            var up = q * Vector3.up; float tilt = Mathf.Acos(Mathf.Clamp(up.y, -1f, 1f));
+            float depth = (r * Mathf.Sin(tilt) + 0.04f) / Mathf.Max(0.3f, up.y);
+            Crystal(at - up * depth, q, r, h + depth);
+        }
+        Grown(Vector3.zero, Quaternion.identity, 0.2f, 0.75f);
+        Grown(new Vector3(0.2f, 0f, 0.08f), Quaternion.Euler(0f, 0f, -24f), 0.13f, 0.45f);
+        Grown(new Vector3(-0.16f, 0f, -0.1f), Quaternion.Euler(18f, 0f, 20f), 0.11f, 0.35f);
+        // 根もとの小さいかけら（低くて太めの結晶をまわりに）
+        Grown(new Vector3(0.06f, 0f, -0.24f), Quaternion.Euler(-30f, 40f, 0f), 0.07f, 0.12f);
+        Grown(new Vector3(-0.27f, 0f, 0.1f), Quaternion.Euler(10f, 0f, 38f), 0.06f, 0.1f);
+        Grown(new Vector3(0.3f, 0f, -0.12f), Quaternion.Euler(25f, 0f, -35f), 0.06f, 0.09f);
+        Grown(new Vector3(-0.05f, 0f, 0.27f), Quaternion.Euler(35f, 0f, 8f), 0.05f, 0.08f);
         var cm = new Mesh { name = "Playground_IceSeed" }; cm.SetVertices(cv); cm.SetTriangles(ct, 0); cm.RecalculateNormals(); cm.RecalculateBounds();
-        toy.AddComponent<MeshFilter>().sharedMesh = SaveGenMesh(cm, "Playground_IceSeed");
-        toy.AddComponent<MeshRenderer>().sharedMaterial = iceM;
+        return cm;
+    }
+
+    static void FillIceToyRest(Transform slot, GameObject toy, Material iceM, FuwaIceSkate iceSrc)
+    {
         var box = toy.AddComponent<BoxCollider>(); box.center = new Vector3(0f, 0.55f, 0f); box.size = new Vector3(0.7f, 1.1f, 0.7f);
         var it = UdonSharpUndo.AddComponent<FuwaPlaygroundIceToy>(toy);
         // 氷の円（上の面は床の 2.5cm 上、ふちに厚み）
