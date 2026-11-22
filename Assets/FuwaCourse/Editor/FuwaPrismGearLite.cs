@@ -37,6 +37,8 @@ public static class FuwaPrismGearLite
             var hi = AssetDatabase.LoadAssetAtPath<Mesh>(bp); var src = hi ? hi : m;
             var res = Simplify(src, out string why);
             if (res == null) { if (why != "notprism") log.Add($"{m.name}: skip ({why})"); continue; }
+            // 2026-11-22 てじゃ「歯車の欠けがあった」：窓あきの歯車・内歯車で、点を寄せた結果に穴（開いた辺）ができていた → 元が閉じていて結果に穴があれば使わない
+            if (OpenEdges(res) > OpenEdges(src)) { log.Add($"{m.name}: skip (穴ができる)"); Object.DestroyImmediate(res); if (hi) { string nm0 = m.name; FuwaBevelTools.CopyInto(m, hi); m.name = nm0; EditorUtility.SetDirty(m); } continue; }
             count++; before += src.triangles.Length / 3; after += res.triangles.Length / 3;
             log.Add($"{m.name}: {src.triangles.Length / 3} → {res.triangles.Length / 3}");
             if (dry) { Object.DestroyImmediate(res); continue; }
@@ -157,5 +159,14 @@ public static class FuwaPrismGearLite
         m.subMeshCount = newSubs.Count; for (int s = 0; s < newSubs.Count; s++) m.SetTriangles(newSubs[s].Select(i => remap[i]).ToArray(), s);
         m.RecalculateBounds();
         return m;
+    }
+    // 位置でまとめた開いた辺（三角形1枚にしか使われない辺）の数
+    static int OpenEdges(Mesh m)
+    {
+        var v = m.vertices; var t = m.triangles; var weld = new int[v.Length]; var key = new Dictionary<Vector3Int, int>();
+        for (int i = 0; i < v.Length; i++) { var k = Vector3Int.RoundToInt(v[i] * 2000f); if (!key.TryGetValue(k, out var w)) { w = i; key[k] = i; } weld[i] = w; }
+        var ec = new Dictionary<(int, int), int>();
+        for (int i = 0; i < t.Length; i += 3) for (int e = 0; e < 3; e++) { int a = weld[t[i + e]], b = weld[t[i + (e + 1) % 3]]; if (a == b) continue; var kk = a < b ? (a, b) : (b, a); ec[kk] = (ec.TryGetValue(kk, out var c) ? c : 0) + 1; }
+        return ec.Count(x => x.Value == 1);
     }
 }
