@@ -137,6 +137,8 @@ public static class FuwaPv
             if (l.liteRoots != null) foreach (var g in l.liteRoots) if (g) g.SetActive(false);
             if (l.lobbyStopBehaviours != null) foreach (var b in l.lobbyStopBehaviours) if (b) b.enabled = true;
             if (l.lobbyHideObjects != null) foreach (var g in l.lobbyHideObjects) if (g) g.SetActive(true);
+            // そのコースにいる時だけ動く物（風の地面の模様など）：止めた時にいなかったコースの分は止まったままになっていた（2026-11-22 1-1 の風の模様が止まって撮れた）→ 全部動かす
+            if (l.courseOnlyBehaviours != null) foreach (var b in l.courseOnlyBehaviours) if (b) b.enabled = true;
         }
         // 番人は止めても「映らなくなった」の知らせ（OnBecameInvisible）は届いて仕掛けを止めてしまう（1-2 の岩が途中で止まった）。
         // target を外しても止まったので、Play 中だけ番人の UdonBehaviour ごと消す（Play を抜ければ元どおり）

@@ -238,9 +238,9 @@ public static class FuwaCourse2_5Builder
             // 2026-11-14 てじゃ「もっと丁寧に、スキマのある巣を1から作ってみて」→ ステンドグラスの巣（ボロノイ）＋さかい目1本だけのスキマ。六角形を並べた版：HexGridGates
             // 2026-11-22 てじゃ「真ん中抜けをラストにしたい」→ 門の順を入れかえ（前：まん中(1,4) → (0,2) → (3,5)）
             VoronoiGates("B2", new[] {
-                new[] { new Vector2(-2.8f, 2.6f), new Vector2(-0.6f, 0.9f), new Vector2(-0.3f, 3.9f), new Vector2(1.9f, 2.2f), new Vector2(2.9f, 4.5f), new Vector2(2.7f, 0.4f) },
-                new[] { new Vector2(-2.6f, 0.8f), new Vector2(-1.0f, 3.0f), new Vector2(-3.0f, 4.5f), new Vector2(1.2f, 1.2f), new Vector2(1.5f, 4.2f), new Vector2(3.2f, 2.6f) } },
-                new[] { new Vector2Int(0, 2), new Vector2Int(3, 5) }); S(1f);
+                new[] { new Vector2(-2.6f, 0.8f), new Vector2(-1.0f, 3.0f), new Vector2(-3.0f, 4.5f), new Vector2(1.2f, 1.2f), new Vector2(1.5f, 4.2f), new Vector2(3.2f, 2.6f) },
+                new[] { new Vector2(-2.8f, 2.6f), new Vector2(-0.6f, 0.9f), new Vector2(-0.3f, 3.9f), new Vector2(1.9f, 2.2f), new Vector2(2.9f, 4.5f), new Vector2(2.7f, 0.4f) } },
+                new[] { new Vector2Int(3, 5), new Vector2Int(0, 2) }); S(1f);   // 2026-11-22 てじゃ「最初のと２番目もいれかえ」
             VoronoiGates("B4", new[] {
                 new[] { new Vector2(-2.5f, 1.4f), new Vector2(0.2f, 1.1f), new Vector2(2.6f, 1.6f), new Vector2(-2.2f, 4.0f), new Vector2(0.4f, 3.7f), new Vector2(2.8f, 4.2f) } },
                 new[] { new Vector2Int(1, 4) });
