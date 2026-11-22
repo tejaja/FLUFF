@@ -222,6 +222,9 @@ public static class FuwaMaterialMerge
             foreach (var p in pending) rec.items.Add(new Rec { r = idOf[p.r], mesh = idOf[p.src], mats = p.mats.Select(m => m ? idOf[m] : "").ToArray() });
             SaveRec(rec);
             Debug.Log(MatchInstancing());
+            // 2026-11-22 アップのたびにビルド前の FuwaMeshWeldAll が VC_ の写しの重複頂点をまとめて保存し直し、まとめ直すとまた戻る（git に毎回数百ファイルの差分）
+            //  → まとめた直後にここでもまとめておく（結果は同じ）
+            Debug.Log(FuwaMeshWeldAll.Run());
             // 使わなくなったメッシュの写しを消す
             var keep = new HashSet<string>(meshCache.Values.Select(AssetDatabase.GetAssetPath));
             foreach (var g in AssetDatabase.FindAssets("t:Mesh", new[] { Dir })) { var pth = AssetDatabase.GUIDToAssetPath(g); if (!keep.Contains(pth)) AssetDatabase.DeleteAsset(pth); }
