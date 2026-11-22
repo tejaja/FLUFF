@@ -579,6 +579,8 @@ public static class SpiderWebBuild
         Vector2 o2 = (fc[k] - cen).normalized;
         var from = sup.TransformPoint(p);
         float reach = Mathf.Max(0.5f, b.anchorReach);
+        // 2026-11-23 てじゃ「（上の巣のてっぺんの角）こっから左にのばしてほしい」→ 頭より上（真下 3.5m に床がない）上半分の角は、道の向こうの柱まで届くように2倍
+        if (fc[k].y > 0f && !Physics.Raycast(from, -sup.up, 3.5f, ~0, QueryTriggerInteraction.Ignore)) reach *= 2f;
         for (int ai = -4; ai <= 4; ai++)
             for (int ti = -2; ti <= 2; ti++)
             {
