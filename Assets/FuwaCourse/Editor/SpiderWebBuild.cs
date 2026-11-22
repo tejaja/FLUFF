@@ -583,7 +583,8 @@ public static class SpiderWebBuild
         bool high = fc[k].y > 0f && !Physics.Raycast(from, -sup.up, 3.5f, ~0, QueryTriggerInteraction.Ignore);
         if (high) reach *= 2f;
         // てじゃ「もちょい左上のほうにつなげて」→ 頭より上の角は、上向きに張れる所を優先（上がった高さ1mにつき 1.2m 近い扱い）
-        float upBias = high ? 1.2f : 0f;
+        //  てじゃ「手前の蜘蛛の巣もこうつないで」（上の角2つから斜め上の柱へ）→ 上半分の角はみな上向き優先
+        float upBias = fc[k].y > 0f ? 1.2f : 0f;
         for (int ai = -4; ai <= 4; ai++)
             for (int ti = -2; ti <= 2; ti++)
             {

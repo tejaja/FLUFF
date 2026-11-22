@@ -5173,7 +5173,8 @@ public static class FuwaCourse2_5Builder
         {
             var cen = Vector3.up * zs;
             for (int i = 0; i < Seg; i++) { int j = (i + 1) % Seg; Tri(fv, ft, sv[last + i], sv[last + j], cen, Vector3.up); }
-            LatheInto(bv, bt, new[] { new[] { 0.32f, zs }, new[] { 0.35f, zs + 0.06f }, new[] { 0.44f, zs + 0.17f }, new[] { 0.5f, zs + 0.24f }, new[] { 0.42f, zs + 0.25f } }, lat);
+            // 2026-11-23 てじゃ「柱の上の方に隙間」：柱頭の下のふち（半径 0.32）が胴（溝・遠い版は 0.29〜0.32）より外 → 胴の中へもぐるふちを足す
+            LatheInto(bv, bt, new[] { new[] { 0.25f, zs - 0.06f }, new[] { 0.32f, zs }, new[] { 0.35f, zs + 0.06f }, new[] { 0.44f, zs + 0.17f }, new[] { 0.5f, zs + 0.24f }, new[] { 0.42f, zs + 0.25f } }, lat);
             ChamferBoxInto(bv, bt, new Vector3(0f, zs + 0.25f + 0.1f, 0f), new Vector3(1.08f, 0.2f, 1.08f), 0.035f);
         }
         if (kind == 3) for (int i = 0; i < Seg; i++) { int j = (i + 1) % Seg; Tri(fv, ft, sv[i], sv[j], Vector3.up * z0, Vector3.down); }
