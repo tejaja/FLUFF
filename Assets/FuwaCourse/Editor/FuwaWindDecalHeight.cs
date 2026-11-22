@@ -56,6 +56,9 @@ public static class FuwaWindDecalHeight
                 if (InPath(r.transform, "CourseLites")) continue;     // ほかのコースの軽い版（重なっている）
                 if (!IsLod0(r)) continue;
                 if (r.sharedMaterials.Any(m => m && m.renderQueue >= 2500)) continue;   // 透明な物（水・もや・ほかの模様）
+                // 2026-11-22 てじゃ（スマホ）「花のまわりだけ風エフェクトが切れてる」：草花の葉の上向きの面が地面として焼かれて、
+                //  スマホの網（高さマップの高さに張る）が花の所だけ浮いて、崖あつかいで抜けていた → 草花・たんぽぽ・ヒトヨタケは地面に数えない
+                if (r.sharedMaterials.Any(m => m && m.shader && PlantShaders.Contains(m.shader.name))) continue;
                 var g = new GameObject("__WindDecalHeightTmp"); g.hideFlags = HideFlags.HideAndDontSave; g.layer = TempLayer;
                 g.transform.SetPositionAndRotation(r.transform.position, r.transform.rotation); g.transform.localScale = r.transform.lossyScale;
                 var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = mf.sharedMesh;
@@ -69,6 +72,7 @@ public static class FuwaWindDecalHeight
         return "風の模様の高さマップ " + decals.Count + " 個（" + sb + "）";
     }
 
+    static readonly HashSet<string> PlantShaders = new HashSet<string> { "FuwaCourse/Deco", "FuwaCourse/DandelionLite", "FuwaCourse/DandelionTuft", "FuwaCourse/InkCap" };
     static bool InPath(Transform t, string s) { for (; t; t = t.parent) if (t.name.Contains(s)) return true; return false; }
     static bool IsLod0(Renderer r)
     {
