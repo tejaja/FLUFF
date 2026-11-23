@@ -1177,6 +1177,7 @@ public static class FuwaPlaygroundBuilder
 
     // 2–3 氷のたね：氷の結晶3本（クリックでオン／オフ同期）＋まわり半径3mにひろがる氷の円（人が滑る FuwaIceSkate・つるつるの物理材質）
     public static float IceToyR = 3f, IceDiscSkirt = 0.15f;
+    public static bool PortalPair = true;
     static void FillIceToy(Transform slot)
     {
         EnsureProgram("FuwaPlaygroundIceToy");
@@ -1398,6 +1399,17 @@ public static class FuwaPlaygroundBuilder
         var bFloor = O + OnRing(PortalBAngle, PortalBDist); bFloor.y = slot.position.y - DeckH;
         var bFace = O - bFloor; bFace.y = 0f;
         var pb = Portal("PortalB", bFloor, bFace.normalized, new Color(0.35f, 0.75f, 1f));   // コースと同じく2つとも同じ色
+        // 2026-11-23 てじゃ「おもちゃポータルの反対側の出現位置も調整したい」「きれいなのは（2つ並べる）」→ はじめは2つをデッキに 2.8m 間隔で並べる（どちらもまん中向き、Unlock10 の座標）
+        if (PortalPair)
+        {
+            void Put(Transform portal, Vector3 lp, Quaternion lr)
+            {
+                var hd = portal.parent; hd.SetPositionAndRotation(slot.TransformPoint(lp), slot.rotation * lr);
+                var fx = slot.Find(portal.name + "_FX"); if (fx) fx.SetPositionAndRotation(portal.position, portal.rotation);
+            }
+            Put(pa, new Vector3(1.66506708f, 0f, 0.1341604f), new Quaternion(0f, -0.08031078f, 0f, 0.996769965f));
+            Put(pb, new Vector3(-1.12552226f, 0f, 0.06108308f), new Quaternion(0f, 0.0541912727f, 0f, 0.9985307f));
+        }
         var go = new GameObject("Portals"); go.transform.SetParent(slot, false);
         var pp = UdonSharpUndo.AddComponent<FuwaPlaygroundPortals>(go);
         { var hv = srcHole.GetComponent<MeshFilter>().sharedMesh.bounds; pp.halfW = hv.extents.x; pp.halfH = hv.extents.y; pp.holeCenterY = srcHole.localPosition.y; }
