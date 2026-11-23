@@ -402,12 +402,6 @@ Shader "FuwaCourse/ToonLit"
                 // 焼いた点光源（2026-10-14 洞窟の光るキノコ）：ライトマップが _BakedGlowFloor（点光源のない所の明るさ）を超えた分だけ足す
                 if (_BakedGlow > 0) { half3 lm = FuwaBakedAmbient(i.lmuv); amb += max(0, lm - _BakedGlowFloor) * _BakedGlow; }
                 #endif
-                #if defined(SHADER_API_MOBILE)
-                // 2026-11-23 てじゃ「2-1の入口の岩肌、スマホだと影色みたいなのがチラつく」（両面の影を片面にしても変わらず）：
-                //  スマホは影の解像度が低く、光に対して浅い角度の面に自分の影の縞（シャドウアクネ）が出てカメラが動くとチラつく。
-                //  浅い角度〜光の裏の面は明暗（ハーフランバート）でもう暗いので、そこだけ影を薄くする（PC はそのまま）
-                atten = lerp(1, atten, smoothstep(0.02, 0.3, ndl));
-                #endif
                 lit *= lerp(1, atten, 0.85);
 
                 // 影側はグレーではなく紫寄りの色に
