@@ -32,6 +32,10 @@ public class FuwaIceSkate : UdonSharpBehaviour
     public float landBrake = 14f;
     [Tooltip("氷から跳んでいる間、スティック・キーの向きへ毎秒これだけ寄せる（地面の accel より弱く。2026-11-04 てじゃ「ジャンプ中も多少制御できるように」）。速さは跳んだ時より上げない（最高 maxSpeed）")]
     public float airAccel = 1.5f;
+    [Tooltip("ふつうの床から氷に入った時に持ちこむ速さの上限（動く床の速さは別）。2026-11-23 てじゃ「滑らない道から氷に突入→そのまま最高速でビューン→制御不能」→ 走り 4m/s のまま入って最初から最高速だった")]
+    public float entrySpeed = 2.5f;
+    [Tooltip("進んでいる向きと逆にスティック・キーを倒した時、accel の何倍で減速するか（真逆で最大、横向きは 1 倍）。止まりたい時に止まれるように")]
+    public float brakeMul = 2f;
 
     [Header("元の値（VRChat の既定値）")]
     public float baseWalk = 2f, baseRun = 4f, baseStrafe = 2f;
@@ -63,7 +67,8 @@ public class FuwaIceSkate : UdonSharpBehaviour
 
     private void Enter(VRCPlayerApi p, Vector3 flat)
     {
-        _in = true; _braking = false; _v = flat;
+        // 自分で歩いていた速さだけ entrySpeed までに抑える（乗っている動く床の速さ _fvAdd はそのまま）
+        _in = true; _braking = false; _v = Vector3.ClampMagnitude(flat - _fvAdd, entrySpeed) + _fvAdd;
         p.SetWalkSpeed(skateSpeed); p.SetRunSpeed(skateSpeed); p.SetStrafeSpeed(skateSpeed);
     }
 
@@ -85,6 +90,7 @@ public class FuwaIceSkate : UdonSharpBehaviour
         p.TeleportTo(o.position + step, o.rotation, VRC_SceneDescriptor.SpawnOrientation.AlignRoomWithSpawnPoint, true);
         shiftFrame = Time.frameCount; lastShift = step;
     }
+    private Vector3 _fvAdd;
     [HideInInspector] public Vector3 lastShift;   // いちばん最近のワープで動かした量（銃がそのぶん遅れるのを打ち消す用、FuwaBlower）
 
     private void Update()
@@ -97,13 +103,15 @@ public class FuwaIceSkate : UdonSharpBehaviour
         Vector3 v = p.GetVelocity();
         Vector3 flat = new Vector3(v.x, 0f, v.z);
         float dt = Time.deltaTime;
+        _fvAdd = Vector3.zero;
         if (Time.frameCount - floorFrame <= 1)
         {
             Vector3 fv = new Vector3(floorVel.x, 0f, floorVel.z);
             float f2 = fv.sqrMagnitude;
             if (f2 > 0.04f && Mathf.Abs(_moveH) < 0.05f && Mathf.Abs(_moveV) < 0.05f)
                 floorVelK = Mathf.Lerp(floorVelK, Mathf.Clamp(-Vector3.Dot(flat, fv) / f2, 0f, 1.5f), 0.05f);
-            flat += fv * floorVelK;
+            _fvAdd = fv * floorVelK;
+            flat += _fvAdd;
         }
         // ワープ・リスポーンで大きく動いたら、勢いを捨てて氷から出る
         if (_in && (pos - _lastPos).sqrMagnitude > 4f) Exit(p);
@@ -148,7 +156,10 @@ public class FuwaIceSkate : UdonSharpBehaviour
             {
                 Vector3 target = input * maxSpeed;
                 if (dh != Vector3.zero) { float cap = Mathf.Max(climbSpeed, -Vector3.Dot(_v, dh)), up = -Vector3.Dot(target, dh); if (up > cap) target += dh * (up - cap); }   // 今の登る速さより遅くはしない（勢いはそのまま）
-                _v = Vector3.MoveTowards(_v, target, accel * dt);
+                // 進んでいる向きと逆に倒している分だけ強く減速（真逆で brakeMul 倍）
+                float a = accel, sp = _v.magnitude;
+                if (sp > 0.1f) { float opp = -Vector3.Dot(input, _v) / (input.magnitude * sp); if (opp > 0f) a *= 1f + (brakeMul - 1f) * opp; }
+                _v = Vector3.MoveTowards(_v, target, a * dt);
             }
             else if (dh == Vector3.zero) _v = Vector3.MoveTowards(_v, Vector3.zero, friction * dt);
             else
