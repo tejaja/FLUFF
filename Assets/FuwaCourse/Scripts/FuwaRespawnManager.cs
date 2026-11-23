@@ -60,7 +60,13 @@ public class FuwaRespawnManager : UdonSharpBehaviour
     public void BringGun(Transform spot)
     {
         if (spot != null) _lastStand = spot;
-        if (_myBlower != null) { _myBlower.Dock(spot); _myBlower.PlaySpawnSound(); }
+        if (_myBlower != null) { bool held = _myBlower.IsHeld(); _myBlower.Dock(spot); if (!held) _myBlower.PlaySpawnSound(); }
+    }
+    // ワープの時（FuwaCourseWarp.DoWarp）：召喚音は鳴らさない（2026-11-23 てじゃ「ワープのたびに銃召喚の音なってる？」→ ワープの音と重なっていた）
+    public void BringGunSilent(Transform spot)
+    {
+        if (spot != null) _lastStand = spot;
+        if (_myBlower != null) _myBlower.Dock(spot);
     }
 
     // 最後に呼んだ台（ワープ・台のクリック）へ銃を戻す。竹とんぼを持った時（2026-11-18 てじゃ「竹とんぼもったら銃が台に戻るようにしよ」）

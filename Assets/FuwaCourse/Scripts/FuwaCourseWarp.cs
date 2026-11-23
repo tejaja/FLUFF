@@ -254,7 +254,7 @@ public class FuwaCourseWarp : UdonSharpBehaviour
         if (respawnManager != null)
         {
             respawnManager.SetRespawnSpot(playerSpot);
-            respawnManager.BringGun(gunSpot);
+            respawnManager.BringGunSilent(gunSpot);
             if (homeAction == 1) respawnManager.SetHomeWarp(this);
             else if (homeAction == 2) respawnManager.SetHomeWarp(null);
             // モードのロビーに入り直したら、手動リスポーンの向きはふつう（説明ボード向き）に戻す
