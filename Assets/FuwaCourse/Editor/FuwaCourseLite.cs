@@ -106,6 +106,43 @@ public static class FuwaCourseLite
         return new Color(Mathf.Clamp01(c.r), Mathf.Clamp01(c.g), Mathf.Clamp01(c.b), 1f);
     }
 
+    public static float LiteOverlapDist = 0.04f;
+    static int DropOverlaps(List<Vector3> FV, List<Vector3> FN, List<Color> FC, List<int> FT)
+    {
+        int n = FT.Count / 3; var ce = new Vector3[n]; var nn = new Vector3[n];
+        for (int t = 0; t < n; t++) { ce[t] = (FV[FT[t * 3]] + FV[FT[t * 3 + 1]] + FV[FT[t * 3 + 2]]) / 3f; nn[t] = FN[FT[t * 3]]; }
+        bool Inside(Vector3 p, int t)
+        {
+            Vector3 a = FV[FT[t * 3]], b = FV[FT[t * 3 + 1]], c = FV[FT[t * 3 + 2]], nm = nn[t];
+            float d = Vector3.Dot(p - a, nm); p -= nm * d;
+            return Vector3.Dot(Vector3.Cross(b - a, p - a), nm) >= 0f && Vector3.Dot(Vector3.Cross(c - b, p - b), nm) >= 0f && Vector3.Dot(Vector3.Cross(a - c, p - c), nm) >= 0f;
+        }
+        float Area(int t) => Vector3.Cross(FV[FT[t * 3 + 1]] - FV[FT[t * 3]], FV[FT[t * 3 + 2]] - FV[FT[t * 3]]).magnitude;
+        var grid = new Dictionary<Vector3Int, List<int>>(); var drop = new bool[n]; int dropped = 0;
+        for (int t = 0; t < n; t++)
+        {
+            var key = Vector3Int.FloorToInt(ce[t] / 0.5f); bool hit = false;
+            for (int dx = -1; dx <= 1 && !hit; dx++) for (int dy = -1; dy <= 1 && !hit; dy++) for (int dz = -1; dz <= 1 && !hit; dz++)
+            {
+                if (!grid.TryGetValue(key + new Vector3Int(dx, dy, dz), out var l)) continue;
+                foreach (var o in l)
+                {
+                    if (Vector3.Dot(nn[t], nn[o]) < 0.95f) continue;
+                    if (Mathf.Abs(Vector3.Dot(ce[t] - FV[FT[o * 3]], nn[o])) > LiteOverlapDist) continue;
+                    // おたがいの重心が中、または小さい方の重心が大きい方の中（小さい方を消しても穴はほぼ見えない）
+                    if (!Inside(ce[t], o) || !(Inside(ce[o], t) || Area(t) <= Area(o))) continue;
+                    hit = true; break;
+                }
+            }
+            if (hit) { drop[t] = true; dropped++; continue; }
+            if (!grid.TryGetValue(key, out var lst)) grid[key] = lst = new List<int>(); lst.Add(t);
+        }
+        if (dropped == 0) return 0;
+        var nt = new List<int>(FT.Count); for (int t = 0; t < n; t++) if (!drop[t]) { nt.Add(FT[t * 3]); nt.Add(FT[t * 3 + 1]); nt.Add(FT[t * 3 + 2]); }
+        FT.Clear(); FT.AddRange(nt);
+        return dropped;
+    }
+
     public static void Run(string[] courses, string holderName, FuwaCourseLod lodTarget)
     {
         if (!AssetDatabase.IsValidFolder(Dir)) AssetDatabase.CreateFolder("Assets/FuwaCourse/Generated", "Lite");
@@ -216,6 +253,11 @@ public static class FuwaCourseLite
                 foreach (var idx in new[] { NT[k], NT[k + 1], NT[k + 2] }) { var col = NC[idx]; col.a = col.a < 0.5f ? 0 : 1; FC.Add(col); }
                 FT.Add(bi2); FT.Add(bi2 + 1); FT.Add(bi2 + 2);
             }
+            // 2026-11-23 てじゃ「2-1の軽量版の入口の岩肌あたりが、スマホだとZファイトに似てるちらつき」：
+            //  格子でまとめると、本体では別々だった近い面（岩どうし・岩の中に隠れていた面）が同じ所に重なって、奥行きの細かさの少ないスマホでちらついた
+            //  → 向きが同じで LiteOverlapDist 以内に重なっている面（おたがいの重心がおたがいの中に入る＝ほぼ同じ面）は、あとの方を消す
+            int dropped = DropOverlaps(FV, FN, FC, FT);
+            if (dropped > 0) log.Append(cn + " 重なり面 -" + dropped + " ");
             var lite = new Mesh { name = cn + "_Lite", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             lite.SetVertices(FV); lite.SetNormals(FN); lite.SetColors(FC);   // 色はガンマのまま（InkCap シェーダーが中で直す）
             lite.SetTriangles(FT, 0);
