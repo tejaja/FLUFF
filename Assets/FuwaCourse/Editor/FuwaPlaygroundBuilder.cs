@@ -1176,7 +1176,7 @@ public static class FuwaPlaygroundBuilder
     }
 
     // 2–3 氷のたね：氷の結晶3本（クリックでオン／オフ同期）＋まわり半径3mにひろがる氷の円（人が滑る FuwaIceSkate・つるつるの物理材質）
-    public static float IceToyR = 3f;
+    public static float IceToyR = 3f, IceDiscSkirt = 0.15f;
     static void FillIceToy(Transform slot)
     {
         EnsureProgram("FuwaPlaygroundIceToy");
@@ -1224,7 +1224,8 @@ public static class FuwaPlaygroundBuilder
 
     static void FillIceToyRest(Transform slot, GameObject toy, Material iceM, FuwaIceSkate iceSrc)
     {
-        var box = toy.AddComponent<BoxCollider>(); box.center = new Vector3(0f, 0.55f, 0f); box.size = new Vector3(0.7f, 1.1f, 0.7f);
+        // 2026-11-23 てじゃ「こおりのたねがピックアップ判定が出にくい」：この当たり（ふつうのレイヤー）が持つ判定（Grab、結晶の形の柱）とほぼ同じ大きさで、持つためのレイがこちらに当たっていた → 結晶の内側まで小さく
+        var box = toy.AddComponent<BoxCollider>(); box.center = new Vector3(0f, 0.45f, 0f); box.size = new Vector3(0.4f, 0.9f, 0.4f);
         var it = UdonSharpUndo.AddComponent<FuwaPlaygroundIceToy>(toy);
         // 氷の円（上の面は床の 2.5cm 上、ふちに厚み）
         var dv = new List<Vector3>(); var dt = new List<int>(); int seg = 64; float R = IceToyR, H = 0.025f;
@@ -1232,7 +1233,7 @@ public static class FuwaPlaygroundBuilder
         for (int i = 0; i <= seg; i++) { float a = Mathf.PI * 2f * i / seg; dv.Add(new Vector3(Mathf.Cos(a) * R, H, Mathf.Sin(a) * R)); }
         for (int i = 1; i <= seg; i++) { dt.Add(0); dt.Add(i + 1); dt.Add(i); }
         int b0 = dv.Count;
-        for (int i = 0; i <= seg; i++) { float a = Mathf.PI * 2f * i / seg; dv.Add(new Vector3(Mathf.Cos(a) * R, H, Mathf.Sin(a) * R)); dv.Add(new Vector3(Mathf.Cos(a) * R, -0.01f, Mathf.Sin(a) * R)); }
+        for (int i = 0; i <= seg; i++) { float a = Mathf.PI * 2f * i / seg; dv.Add(new Vector3(Mathf.Cos(a) * R, H, Mathf.Sin(a) * R)); dv.Add(new Vector3(Mathf.Cos(a) * R, -IceDiscSkirt, Mathf.Sin(a) * R)); }   // ふちの厚み：床の高い所に合わせて持ち上げた時、低い所でも浮いて見えないように（FuwaPlaygroundIceToy.FitHeight）
         for (int i = 0; i < seg; i++) { int a = b0 + i * 2; dt.Add(a); dt.Add(a + 2); dt.Add(a + 1); dt.Add(a + 1); dt.Add(a + 2); dt.Add(a + 3); }
         var dm = new Mesh { name = "Playground_IceDisc" }; dm.SetVertices(dv); dm.SetTriangles(dt, 0); dm.RecalculateNormals(); dm.RecalculateBounds();
         // 上向きでなければ面を裏返す（真ん中の面）

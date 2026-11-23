@@ -23,7 +23,41 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
     // 2026-11-16 持ち運べるように：持ってトリガーで Toggle（FuwaMovableMushroom.useTarget）。クリックは切る
     [Tooltip("クリック（Interact）でもオン/オフするか（持ち運べるようにした時は切る）")]
     public bool clickToggle = true;
-    private void Start() { if (!clickToggle) DisableInteractive = true; Apply(); }
+    private void Start() { if (!clickToggle) DisableInteractive = true; FitHeight(); Apply(); }
+
+    // 2026-11-23 てじゃ「氷を芝に展開すると木の板の下にいっちゃうのがやだ」：芝は木の床（デッキ）より少し低いので、芝に置くと氷の円がデッキの下にもぐっていた
+    //  → 置いた所のまわり（氷が広がる円の中）の床の高さを調べて、いちばん高い床の上に氷をのせる（ふちは厚みがあるので、低い所でも浮いて見えない）
+    [Tooltip("床の高さを調べるレイヤー（道・Default）")]
+    public LayerMask floorMask = 1 | (1 << 11);
+    [Tooltip("氷の円の半径（m、調べる範囲）・持ち上げる上限（m）")]
+    public float discRadius = 3f, maxLift = 0.12f;   // 柵・ふちの岩（0.2m〜）は床じゃないので数えない。デッキは芝より 6cm 高い
+    public void FitHeight()
+    {
+        if (disc == null) return;
+        Transform body = disc.parent;
+        if (body == null) return;
+        bool ce = discCollider != null && discCollider.enabled;
+        if (discCollider != null) discCollider.enabled = false;   // 自分の氷には当てない
+        Vector3 c = body.position; float best = 0f;
+        for (int ring = 0; ring < 3; ring++)
+        {
+            float r = discRadius * (ring == 0 ? 0f : (ring == 1 ? 0.55f : 0.95f));
+            int n = ring == 0 ? 1 : 16;
+            for (int i = 0; i < n; i++)
+            {
+                float a = Mathf.PI * 2f * i / n;
+                Vector3 p = c + new Vector3(Mathf.Cos(a) * r, 1.5f, Mathf.Sin(a) * r);
+                RaycastHit h;
+                if (Physics.Raycast(p, Vector3.down, out h, 3f, floorMask, QueryTriggerInteraction.Ignore))
+                {
+                    if (h.collider != null && h.collider.transform.IsChildOf(body)) continue;   // おもちゃ自身（結晶）は無視
+                    float dy = h.point.y - c.y; if (dy > best && dy < maxLift) best = dy;
+                }
+            }
+        }
+        if (discCollider != null) discCollider.enabled = ce;
+        Vector3 lp = disc.localPosition; lp.y = best; disc.localPosition = lp;
+    }
 
     public override void Interact() { Toggle(); }
     public void Toggle()
@@ -45,7 +79,7 @@ public class FuwaPlaygroundIceToy : UdonSharpBehaviour
     }
 
     // 持ち運び（FuwaMovableMushroom）で離した時：当たりを今の広がりに合わせ直す（持っている間は当たりを全部切っている）
-    public void ReapplyAfterDrop() { Apply(); }
+    public void ReapplyAfterDrop() { FitHeight(); Apply(); }
 
     private void Apply()
     {
