@@ -3286,7 +3286,8 @@ public static class FuwaCourse2_4Builder
         var keep = gm.Find("ClusterL"); var inner2 = gm.Find("ClusterR");
         if (keep) keep.localPosition = new Vector3(sg * (HW + 0.7f), keep.localPosition.y, 0f);   // 外がわ（右カーブなら左）
         // 2026-11-23 てじゃ「内側にもチェックポイントキノコ置きつつ、ちょっと範囲伸ばそうか」：内がわのかどの外にもきのこ（前は外がわだけ）
-        if (inner2) inner2.localPosition = new Vector3(-sg * (HW + 0.7f), inner2.localPosition.y, 0f);
+        //  内がわは曲がり角の道（Turn）に丸太が埋まるので外がわより 0.5m 外（てじゃ「丸太埋まらないくらいちょっとずらしといて」）
+        if (inner2) inner2.localPosition = new Vector3(-sg * (HW + 1.2f), inner2.localPosition.y, 0f);
         // 判定の線はきのこの横（前は 1.5m 先で、きのこを通り過ぎないと取れなかった。2026-11-21 てじゃ「キノコから結構通り過ぎないと判定でない場所」）
         var trig = cp.Find("Trigger"); if (trig) trig.localPosition = new Vector3(trig.localPosition.x, trig.localPosition.y, 0f);
         // 2026-11-23 てじゃ「跳ね橋の手前のチェックポイントがきかないときがある」「カーブの内側とおってるのかな」：
