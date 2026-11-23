@@ -2261,7 +2261,9 @@ public static class FuwaCourse2_3Builder
         }
     }
     // 回る橋のあと（S2）のチェックポイント（2026-11-10 てじゃ「回転床の後にもチェックポイントつけよう」）。CheckpointField と同じ 1 つきのこ式。判定はきのこを通る、進む向きに直角な細い線
-    public static int V4_Cp2Static = 2; public static float V4_Cp2RespawnOut = 1.5f, V4_Cp2LinePad = 1.5f;   // 判定はきのこを通る細い線、島の幅より左右 LinePad 長く
+    public static int V4_Cp2Static = 2; public static float V4_Cp2RespawnOut = 1.5f, V4_Cp2LinePad = 1.5f;
+    // 2026-11-23 てじゃ「もうちょい手前に広く」：細い線（0.6m）→ きのこの 0.3m 先から手前（回る橋の方）V4_Cp2Back m までの帯
+    public static float V4_Cp2Back = 3f;   // 判定はきのこを通る細い線、島の幅より左右 LinePad 長く
     public static string V4SpinExitCheckpoint(Transform root, Vector3 o) { return V4SpinExitCheckpoint(root, o, V4Make()); }
     static string V4SpinExitCheckpoint(Transform root, Vector3 o, V4Field F)
     {
@@ -2283,7 +2285,7 @@ public static class FuwaCourse2_3Builder
         float x0 = float.MaxValue, x1 = float.MinValue, z0 = float.MaxValue, z1 = float.MinValue;
         foreach (var q in poly) { var v = inv * new Vector3(q.x - c.x, 0f, q.y - c.y); x0 = Mathf.Min(x0, v.x); x1 = Mathf.Max(x1, v.x); z0 = Mathf.Min(z0, v.z); z1 = Mathf.Max(z1, v.z); }
         var trig = cp.Find("Trigger");
-        if (trig) { trig.localRotation = Quaternion.identity; trig.localPosition = new Vector3((x0 + x1) * 0.5f, trig.localPosition.y, 0f); trig.localScale = new Vector3(x1 - x0 + V4_Cp2LinePad * 2f, trig.localScale.y, 0.6f); }
+        if (trig) { trig.localRotation = Quaternion.identity; trig.localPosition = new Vector3((x0 + x1) * 0.5f, trig.localPosition.y, (0.3f - V4_Cp2Back) * 0.5f); trig.localScale = new Vector3(x1 - x0 + V4_Cp2LinePad * 2f, trig.localScale.y, 0.3f + V4_Cp2Back); }
         var rp = cp.Find("RespawnPoint"); if (rp) rp.localPosition = new Vector3(0f, rp.localPosition.y, V4_Cp2RespawnOut);
         var fc = cp.GetComponentInChildren<FuwaCheckpoint>(true);
         if (fc)
