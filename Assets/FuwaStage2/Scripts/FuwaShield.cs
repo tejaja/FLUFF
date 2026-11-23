@@ -139,7 +139,9 @@ public class FuwaShield : UdonSharpBehaviour
     public void Shatter()
     {
         if (!_on) return;
-        _on = false; _t = 0f;
+        // 2026-11-23 てじゃ「バリアが割れちゃったときにもっと割れ演出ほしい」「奥のゲートで消えるときはいい感じ」
+        //  → すぐ消すのをやめて、一瞬ふくらんで赤白く光る → 六角のマスがパラパラはじけながら外へ広がって消える（shatterTime 秒）。守るのはその瞬間に終わり（IsOn は false）
+        _on = false; _t = 1f; _shatterAt = Time.time;
         if (shatter != null) { shatter.transform.position = transform.position; shatter.Emit(shatterCount); }
         if (shatterSound != null) shatterSound.Play();
     }
@@ -156,14 +158,28 @@ public class FuwaShield : UdonSharpBehaviour
         }
         if (_on) _colNow = Mathf.MoveTowards(_colNow, Mathf.Min(2f, _bounces + (shockHitsPerStage > 0 ? (float)_shockHits / shockHitsPerStage : 0f)), Time.deltaTime * 6f);
         float target = _on ? 1f : 0f;
-        if (_t < target) _t = Mathf.Min(target, _t + Time.deltaTime / Mathf.Max(0.01f, appearTime));
-        else if (_t > target) _t = Mathf.Max(target, _t - Time.deltaTime / Mathf.Max(0.01f, vanishTime));
+        float shT = Time.time - _shatterAt;
+        bool shattering = !_on && _t > 0f && shT >= 0f && shT < shatterTime;
+        if (!_on && _t > 0f && shT >= shatterTime && shT < shatterTime + 0.5f) _t = 0f;   // 割れおわり
+        if (!shattering)
+        {
+            if (_t < target) _t = Mathf.Min(target, _t + Time.deltaTime / Mathf.Max(0.01f, appearTime));
+            else if (_t > target) _t = Mathf.Max(target, _t - Time.deltaTime / Mathf.Max(0.01f, vanishTime));
+        }
         if (rend == null) return;
         bool vis = _t > 0.001f;
         if (rend.enabled != vis) rend.enabled = vis;
         if (!vis) return;
         // 出る時はちょっと大きめからぽよんと（消える時はそのまま）
         float s = _on ? 1f + 0.18f * (1f - _t) * (1f - _t) : 1f;
+        float appearV = _t, shFlash = 0f;
+        if (shattering)
+        {
+            float p = Mathf.Clamp01((shT - 0.07f) / Mathf.Max(0.01f, shatterTime - 0.07f));
+            s = 1f + 0.22f * Mathf.SmoothStep(0f, 1f, shT / 0.07f) + shatterGrow * p * (2f - p);   // ぐっとふくらんで、はじけながら広がる
+            appearV = 1f - Mathf.SmoothStep(0f, 1f, p);
+            shFlash = Mathf.Clamp01(1f - shT / 0.18f);
+        }
         // 2026-11-23 てじゃ「衝撃波がバリアにあたったときの表現、もっと目立たせたい」「バリアも一瞬大きく膨らむ」→ ボヨンとふくらんでゆれながら戻る＋一瞬強く光る
         float bt = Time.time - _blockAt, be = 0f;
         if (bt >= 0f && bt < blockPopTime * 6f)
@@ -175,12 +191,13 @@ public class FuwaShield : UdonSharpBehaviour
         transform.localScale = Vector3.one * (baseScale * s);
         float ht = Mathf.Clamp01((Time.time - _hitAt) / Mathf.Max(0.01f, hitTime));
         rend.GetPropertyBlock(_mpb);
-        _mpb.SetFloat("_Appear", _t);
+        _mpb.SetFloat("_Appear", appearV);
         _mpb.SetVector("_HitDir", new Vector4(_hitDir.x, _hitDir.y, _hitDir.z, 0f));
         _mpb.SetFloat("_HitT", ht);
         Color rc = _colNow <= 1f ? Color.Lerp(colorCalm, colorWarn, _colNow) : Color.Lerp(colorWarn, colorDanger, _colNow - 1f);
         Color fc = rc * 0.75f; fc.a = 0.08f + 0.04f * _colNow + blockFill * be;
         rc = Color.Lerp(rc, Color.white, 0.15f * be) * (1f + blockGlow * be); rc.a = 1f;
+        if (shattering) { rc = Color.Lerp(rc, Color.white, 0.5f * shFlash) * (1f + 1.2f * shFlash); rc.a = 1f; fc.a += 0.25f * shFlash; }
         _mpb.SetColor("_Color", rc);
         _mpb.SetColor("_Fill", fc);
         rend.SetPropertyBlock(_mpb);
@@ -195,6 +212,10 @@ public class FuwaShield : UdonSharpBehaviour
     [Tooltip("光る強さ・中の濃さ・光が消える秒数")]
     public float blockGlow = 0.5f, blockFill = 0.1f, blockGlowTime = 0.45f;   // 1.5・0.22 だと真っ白にとんだ
     private float _blockAt = -10f;
+    [Header("割れる時（2026-11-23）")]
+    [Tooltip("はじけて消えるまでの秒数・広がる量（0.6＝1.6倍まで）")]
+    public float shatterTime = 0.45f, shatterGrow = 0.6f;
+    private float _shatterAt = -10f;
     // 衝撃波を受けてからの秒数（ヴェールを光らせる用、FuwaShockwave）
     public float SinceBlock() { return Time.time - _blockAt; }
 }
