@@ -12,6 +12,8 @@ using UnityEngine;
 // コースの仕掛けや粒を足したら、このメニューをもう一度押す
 public static class FuwaCourseLodLobbyBuilder
 {
+    // 遠くからでも見える目印の粒（ほかのコースにいても、近くだけにしない）
+    static readonly HashSet<string> AlwaysShow = new HashSet<string> { "FuwaCourse2_2/Fire/Volcano/Crater/Smoke" };
     static readonly string[] StopTypes =
     {
         // FuwaBoulder（いわのみちの転がる岩）は止めない（2026-11-17 てじゃ「いわのみちの岩…とまってるのもさみしい」。3つだけで軽い）
@@ -101,6 +103,8 @@ public static class FuwaCourseLodLobbyBuilder
                 if (!HideScriptParticles && (referenced.Contains(go) || go.GetComponentsInChildren<Transform>(true).Any(t => referenced.Contains(t.gameObject)))) continue;
                 // 粒以外の役目がある物（当たり判定・Udon・音など）は消さない
                 if (go.GetComponentsInChildren<Component>(true).Any(c => !(c is Transform || c is ParticleSystem || c is ParticleSystemRenderer))) continue;
+                // 2026-11-23 てじゃ「火山の煙が隣コースでもきえてる」：遠くから見えてなんぼの目印は消さない
+                if (AlwaysShow.Contains(AnimationUtility.CalculateTransformPath(go.transform, null))) continue;
                 hide.Add(go);
             }
         }
