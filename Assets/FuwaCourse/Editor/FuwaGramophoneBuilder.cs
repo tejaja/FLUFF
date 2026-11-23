@@ -35,7 +35,8 @@ public static class FuwaGramophoneBuilder
     static readonly string[] En = Ja;
     // 曲ごとのテンポ（Tracks と同じ順、ループ化の時に調べた値。memory の project_fluff_ai_bgm_loop）。ラッパの「ぽよん」用
     // はぐるま(170)は半分、ワルツは1小節(1.5秒)に1回
-    static readonly float[] Bpm = { 102f, 72f, 70f, 86f, 81f, 80f, 80f, 105f, 40f, 85f, 68f, 80f, 120f, 75f };
+    // 2026-11-23 ゴール後（tracks 7、12番目）は 120BPM（ループ64秒＝128拍。80 だとループに合わなかった）
+    static readonly float[] Bpm = { 102f, 72f, 70f, 86f, 81f, 80f, 80f, 105f, 40f, 85f, 68f, 120f, 120f, 75f };
 
     static Material Mat(string name, Color c, bool metal = false)
     {
