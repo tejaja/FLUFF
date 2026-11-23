@@ -341,6 +341,7 @@ public static class FuwaCourse2_5Builder
         ApplyFarFade();
         DecoIslets();
         SettleRuins();
+        FixCrystalNormalsMenu();   // 2026-11-23 クリスタルの斜めの線（四角い面の三角2枚の法線をそろえる。広場・遺跡のはしのクリスタルも）
         if (TierOuts) AddTierOuts();
         if (ColumnLods) AddColumnLods();
         if (CoursePerf) Debug.Log(FuwaCourse2_4Perf.Apply(root));
@@ -5280,7 +5281,57 @@ public static class FuwaCourse2_5Builder
             var p0 = outw * r * 0.45f + Vector3.up * h;   // 大きい結晶の中から生やす（すき間なし）
             CrystalPrism(v, t, p0, axis, rr, (0.35f + 0.3f * (float)rnd.NextDouble()) * s, (0.22f + 0.15f * (float)rnd.NextDouble()) * s, 0f, rnd);
         }
-        return SaveMesh(name, v, t);
+        var cm = SaveMesh(name, v, t);
+        MergeQuadNormals(cm);
+        return cm;
+    }
+    // 2026-11-23 てじゃ「各クリスタル、たまに斜め線みえるのってなに？」「広場のもみえる」
+    //  横の四角い面は根もと・先の輪の大きさが頂点ごとにちがうので少しねじれていて、三角2枚の向き（平らな法線）がずれる
+    //  → 明るさと「面ごとの乱数のきらっ」（Fuwa/Crystal は法線から乱数を作る）が三角ごとに分かれて斜めの線に見えた。
+    //  辺を共有して向きの差が小さい（MaxDeg 未満）三角2枚を組にして、同じ法線（2枚の平均）にする。形はそのまま
+    static void MergeQuadNormals(Mesh m, float maxDeg = 15f)
+    {
+        var v = m.vertices; var tr = m.triangles; int nt = tr.Length / 3;
+        if (v.Length != tr.Length || m.subMeshCount != 1) return;   // 頂点を共有している（なめらかな）メッシュ・材質が複数のメッシュはさわらない
+        var fn = new Vector3[nt];
+        for (int f = 0; f < nt; f++) fn[f] = Vector3.Cross(v[tr[f * 3 + 1]] - v[tr[f * 3]], v[tr[f * 3 + 2]] - v[tr[f * 3]]).normalized;
+        // 辺（位置で）→ 三角
+        var edges = new System.Collections.Generic.Dictionary<(Vector3Int, Vector3Int), int>();
+        Vector3Int Q(Vector3 p) => new Vector3Int(Mathf.RoundToInt(p.x * 10000f), Mathf.RoundToInt(p.y * 10000f), Mathf.RoundToInt(p.z * 10000f));
+        var mate = new int[nt]; var best = new float[nt];
+        for (int f = 0; f < nt; f++) { mate[f] = -1; best[f] = maxDeg; }
+        var cand = new List<(float d, int a, int b)>();
+        for (int f = 0; f < nt; f++)
+            for (int e = 0; e < 3; e++)
+            {
+                var p = Q(v[tr[f * 3 + e]]); var q = Q(v[tr[f * 3 + (e + 1) % 3]]);
+                var key = (p.x < q.x || (p.x == q.x && (p.y < q.y || (p.y == q.y && p.z < q.z)))) ? (p, q) : (q, p);
+                if (edges.TryGetValue(key, out int g)) { float d = Vector3.Angle(fn[f], fn[g]); if (d < maxDeg) cand.Add((d, f, g)); }
+                else edges[key] = f;
+            }
+        cand.Sort((x, y) => x.d.CompareTo(y.d));
+        foreach (var c in cand) if (mate[c.a] < 0 && mate[c.b] < 0) { mate[c.a] = c.b; mate[c.b] = c.a; }
+        var nrm = new Vector3[v.Length];
+        for (int f = 0; f < nt; f++)
+        {
+            var n = mate[f] >= 0 ? (fn[f] + fn[mate[f]]).normalized : fn[f];
+            for (int k = 0; k < 3; k++) nrm[tr[f * 3 + k]] = n;
+        }
+        m.normals = nrm; EditorUtility.SetDirty(m);
+    }
+    [MenuItem("FuwaCourse/ステージ2/2-5 クリスタルの斜めの線を直す（四角い面の法線をそろえる）")]
+    static void FixCrystalNormalsMenu()
+    {
+        var done = new HashSet<Mesh>(); int n = 0;
+        foreach (var mr in Resources.FindObjectsOfTypeAll<MeshRenderer>())
+        {
+            if (!mr || !mr.gameObject.scene.IsValid() || !mr.sharedMaterial || mr.sharedMaterial.shader == null || mr.sharedMaterial.shader.name != "Fuwa/Crystal") continue;
+            var mf = mr.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh || done.Contains(mf.sharedMesh)) continue;
+            if (!AssetDatabase.Contains(mf.sharedMesh)) continue;
+            done.Add(mf.sharedMesh); MergeQuadNormals(mf.sharedMesh); n++;
+        }
+        AssetDatabase.SaveAssets();
+        Debug.Log("クリスタルの法線をそろえた：" + n + " メッシュ");
     }
     static Material CrystalMat()
     {
