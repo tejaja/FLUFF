@@ -234,7 +234,9 @@ public class FuwaCourseLod : UdonSharpBehaviour
         {
             bool near = (_near != null && i < _near.Length && _near[i]) || IsNeighbor(c, i);
             bool full = inSolo && ((c < 0 && !lobbyLite) || c == i || near);
-            bool lite = inSolo && ((c >= 0 && c != i && !near) || (c < 0 && lobbyLite));
+            // 2026-11-23 てじゃ「2-1だけロビーでも軽量化じゃないやつが重なってでてる」：かるいのロビーで近づいたコース（near）を本体に戻す時、
+            //  軽い版を消し忘れていて本体と軽い版が重なってチラついていた（ステージ2ロビーのすぐ横の 2-1 だけ near になる）→ near の時は軽い版を出さない
+            bool lite = inSolo && !near && ((c >= 0 && c != i) || (c < 0 && lobbyLite));
             if (fullRoots[i] != null && inSolo && fullRoots[i].activeSelf != full) fullRoots[i].SetActive(full);
             if (liteRoots != null && i < liteRoots.Length && liteRoots[i] != null && liteRoots[i].activeSelf != lite) liteRoots[i].SetActive(lite);
         }
