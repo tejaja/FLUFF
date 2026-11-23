@@ -1,6 +1,7 @@
 ﻿using TMPro;
 using UdonSharp;
 using UnityEngine;
+using VRC.SDK3.Components;
 using VRC.SDK3.Persistence;
 using VRC.SDKBase;
 
@@ -36,6 +37,13 @@ public class FuwaLanguage : UdonSharpBehaviour
     public FuwaPhotoAlbum album;
     [Tooltip("人数の出るモードの看板（自分で1秒ごとに書き直すので、切り替えた時に今すぐ書き直してもらう）")]
     public FuwaModeCounter[] modeCounters;
+
+    // 2026-11-23 英語チェック：手を近づけた・指した時の小さい説明（ホバーの文字）が銃と銃の台以外は日本語のままだった
+    //  → 持てる物（VRCPickup の InteractionText / UseText）と、クリックする物（Interact の文字）も切り替える。メニュー「FuwaCourse/英語/ホバーの文字を登録」で集める
+    public VRCPickup[] hoverPickups;
+    public string[] hoverPickupJa, hoverPickupEn, hoverUseJa, hoverUseEn;
+    public UdonSharpBehaviour[] hoverInteracts;
+    public string[] hoverInteractJa, hoverInteractEn;
 
     private bool _english;
     private bool _manual;      // 一度でも自分で切り替えたら、VRChatの言語設定には従わない
@@ -141,6 +149,29 @@ public class FuwaLanguage : UdonSharpBehaviour
         return o;
     }
 
+    private void ApplyHover()
+    {
+        if (hoverPickups != null)
+        {
+            string[] it = _english ? hoverPickupEn : hoverPickupJa, ut = _english ? hoverUseEn : hoverUseJa;
+            for (int i = 0; i < hoverPickups.Length; i++)
+            {
+                VRCPickup pk = hoverPickups[i]; if (pk == null) continue;
+                if (it != null && i < it.Length && it[i] != null && it[i].Length > 0) pk.InteractionText = it[i];
+                if (ut != null && i < ut.Length && ut[i] != null && ut[i].Length > 0) pk.UseText = ut[i];
+            }
+        }
+        if (hoverInteracts != null)
+        {
+            string[] t2 = _english ? hoverInteractEn : hoverInteractJa;
+            for (int i = 0; i < hoverInteracts.Length; i++)
+            {
+                if (hoverInteracts[i] == null || t2 == null || i >= t2.Length || t2[i] == null || t2[i].Length == 0) continue;
+                hoverInteracts[i].InteractionText = t2[i];
+            }
+        }
+    }
+
     private void Apply()
     {
         string[] src = _english ? en : ja;
@@ -171,6 +202,7 @@ public class FuwaLanguage : UdonSharpBehaviour
             foreach (FuwaGunStand s in stands) if (s != null) s.ApplyLanguage(_english);
         }
         if (_blower != null) _blower.ApplyLanguage(_english);
+        ApplyHover();
         if (buttonLabel != null) buttonLabel.text = _english ? "日本語にする" : "English";
         InteractionText = _english ? "日本語にする" : "Switch to English";
         // 「JP / EN」の2つを並べて、今の言語をはっきり、もう片方を薄く
