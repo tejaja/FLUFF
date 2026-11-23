@@ -15,12 +15,27 @@ public class FuwaSpatialAudioFix : IVRCSDKBuildRequestedCallback
     public int callbackOrder => 0;
     public bool OnBuildRequested(VRCSDKRequestedBuildType requestedBuildType)
     {
-        if (requestedBuildType == VRCSDKRequestedBuildType.Scene) Debug.Log(Run());
+        if (requestedBuildType == VRCSDKRequestedBuildType.Scene) { Debug.Log(Run()); Debug.Log(MobileShadowFix()); }
         return true;
     }
 
     [MenuItem("FuwaCourse/音/3Dの音の聞こえる範囲を maxDistance に合わせる")]
     static void Menu() { Debug.Log(Run()); }
+
+    // 2026-11-23 てじゃ「2-1の入口の岩肌あたりが、スマホだとZファイトに似てるちらつき」（軽い版の重なり消しでは変わらず）
+    //  ワールドで1つだけ影を両面で落としている 2-1 の岩山（CaveRock、PC で光もれを防ぐため）が、スマホの粗い影で自分に縞の影（シャドウアクネ）を落としていた疑い
+    //  → Android のビルドの時だけ片面の影に（PC はそのまま両面）
+    public static string MobileShadowFix()
+    {
+        if (EditorUserBuildSettings.activeBuildTarget != BuildTarget.Android && EditorUserBuildSettings.activeBuildTarget != BuildTarget.iOS) return "[影] PC なのでそのまま";
+        int n = 0;
+        foreach (var r in Resources.FindObjectsOfTypeAll<MeshRenderer>())
+        {
+            if (!r || !r.gameObject.scene.IsValid() || r.shadowCastingMode != UnityEngine.Rendering.ShadowCastingMode.TwoSided) continue;
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On; EditorUtility.SetDirty(r); n++;
+        }
+        return "[影] スマホ：両面の影を片面に " + n;
+    }
 
     public static string Run()
     {
