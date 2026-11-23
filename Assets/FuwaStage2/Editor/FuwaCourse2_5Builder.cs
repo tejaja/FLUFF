@@ -5080,6 +5080,29 @@ public static class FuwaCourse2_5Builder
     public static float TierSmallRadius = 1.6f, TierSmallDistance = 12f;
     // 2026-11-15 軽量化：段ごとの影（FuwaTierShadows）。FarShadows に入った 2–5 の物をこちらへ移す
     public static bool TierShadows = true; public static float[] TierYs = { -161f, -145f };
+    // 2026-11-23 てじゃ「アーチの要石部分だけ、影の非表示タイミングがやけにはやい」：要石は小さい（半径0.8）ので小物あつかい（TierSmallRadius 未満は 12m で影オフ）だった
+    //  → すき間を埋める物（FuwaCourse2_4Perf.FillsHole＝要石）は、となりのアーチ（Arch）の中心・大きさで距離を決める＝アーチと同じタイミングで消える（全体の箱だとアーチより遅く残った）
+    static Bounds TierBounds(Renderer r)
+    {
+        if (!FuwaCourse2_4Perf.FillsHole(r) || !r.transform.parent) return r.bounds;
+        // となりのアーチ（Arch）と同じ中心・大きさ＝アーチと同時に消える。なければいちばん大きいとなり
+        var arch = r.transform.parent.Find("Arch"); var ar = arch ? arch.GetComponent<MeshRenderer>() : null;
+        if (ar) return ar.bounds;
+        Bounds best = r.bounds;
+        foreach (Transform c in r.transform.parent) { var o = c.GetComponent<MeshRenderer>(); if (o && o.bounds.extents.magnitude > best.extents.magnitude) best = o.bounds; }
+        return best;
+    }
+    [MenuItem("FuwaCourse/ステージ2/2-5 要石の影をアーチと同じタイミングにする")]
+    static void FixKeystoneTierMenu()
+    {
+        int n = 0;
+        foreach (var ts in Resources.FindObjectsOfTypeAll<FuwaTierShadows>().Where(t => t && t.gameObject.scene.IsValid()))
+        {
+            for (int i = 0; i < ts.targets.Length; i++) { var r = ts.targets[i]; if (!r || !FuwaCourse2_4Perf.FillsHole(r)) continue; var b = TierBounds(r); ts.centers[i] = b.center; ts.radii[i] = b.extents.magnitude; n++; }
+            UdonSharpEditorUtility.CopyProxyToUdon(ts); EditorUtility.SetDirty(ts);
+        }
+        Debug.Log("要石の影の距離をアーチに合わせた：" + n);
+    }
     static void SetupTierShadows()
     {
         var far = Resources.FindObjectsOfTypeAll<FuwaFarShadows>().FirstOrDefault(f => f && f.name == "FarShadows" && f.gameObject.scene.IsValid());
@@ -5098,8 +5121,8 @@ public static class FuwaCourse2_5Builder
         var go = new GameObject("TierShadows"); go.transform.SetParent(root, false);
         var ts = UdonSharpUndo.AddComponent<FuwaTierShadows>(go);
         ts.targets = mine.ToArray();
-        ts.centers = mine.Select(r => r.bounds.center).ToArray();
-        ts.radii = mine.Select(r => r.bounds.extents.magnitude).ToArray();
+        ts.centers = mine.Select(r => TierBounds(r).center).ToArray();
+        ts.radii = mine.Select(r => TierBounds(r).extents.magnitude).ToArray();
         ts.tiers = mine.Select(r => { float y = r.bounds.min.y; int t = 0; for (int k = 0; k < TierYs.Length; k++) if (y >= TierYs[k]) t = k + 1; return t; }).ToArray();
         ts.tierY = TierYs; ts.shadowDistance = far.shadowDistance; ts.perFrame = 120;
         ts.smallRadius = TierSmallRadius; ts.smallDistance = TierSmallDistance;   // 2026-11-19 小さめの物は近くだけ影
