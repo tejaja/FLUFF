@@ -3283,11 +3283,17 @@ public static class FuwaCourse2_4Builder
         P = keepP; th = keepTh;
         var cp = root.Find("Checkpoints/" + name); if (!cp) return;
         var gm = cp.Find("GlowMushrooms"); if (!gm) return;
-        var keep = gm.Find("ClusterL"); var drop = gm.Find("ClusterR"); if (drop) Object.DestroyImmediate(drop.gameObject);
+        var keep = gm.Find("ClusterL"); var inner2 = gm.Find("ClusterR");
         if (keep) keep.localPosition = new Vector3(sg * (HW + 0.7f), keep.localPosition.y, 0f);   // 外がわ（右カーブなら左）
+        // 2026-11-23 てじゃ「内側にもチェックポイントキノコ置きつつ、ちょっと範囲伸ばそうか」：内がわのかどの外にもきのこ（前は外がわだけ）
+        if (inner2) inner2.localPosition = new Vector3(-sg * (HW + 0.7f), inner2.localPosition.y, 0f);
         // 判定の線はきのこの横（前は 1.5m 先で、きのこを通り過ぎないと取れなかった。2026-11-21 てじゃ「キノコから結構通り過ぎないと判定でない場所」）
         var trig = cp.Find("Trigger"); if (trig) trig.localPosition = new Vector3(trig.localPosition.x, trig.localPosition.y, 0f);
+        // 2026-11-23 てじゃ「跳ね橋の手前のチェックポイントがきかないときがある」「カーブの内側とおってるのかな」：
+        //  ふわふわがカーブの内がわのかどをショートカットして、判定の線の内がわのはしの外を通っていた → 判定を内がわへ CurveInnerExt m のばす
+        if (trig) { trig.localScale = new Vector3(trig.localScale.x + CurveInnerExt, trig.localScale.y, trig.localScale.z); trig.localPosition += new Vector3(-sg * CurveInnerExt * 0.5f, 0f, 0f); }
     }
+    public const float CurveInnerExt = 2f;
 
     // しかけの中のただの板（GearTest_Floor の箱）を、道と同じシマにする（2026-11-10 てじゃ「ほかもただの長方形のグレーの板があるだけのとこ、道でいいかも」）
     //  当たりはそのまま。見た目（Visual）を、進む向き（しかけの local +x）に近い横の軸にそって StripeLen ごとの A/B の箱に分ける
