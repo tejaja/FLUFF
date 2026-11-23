@@ -1127,7 +1127,8 @@ public class FuwaBall : UdonSharpBehaviour
         if (records != null && timerEnabled && t > 0f) records.ReportTime(startPoint, t);
         if (stats != null && timerEnabled && t > 0f) stats.ReportRun(startPoint, _runOuts, _runHits);
         else if (records != null && !timerEnabled) records.ReportClear(startPoint);   // 2026-11-17 タイムなし（チュートリアル）：クリアの印だけ（記録のないコースは何もしない）
-        if (bgm != null && (timerEnabled || ReturnPlayerUntimed())) bgm.PlayFanfare();   // れんしゅうの本番の道（タイムなし）のゴールでも鳴らす
+        if (bgm != null && (timerEnabled || ReturnPlayerUntimed() || _debugRun)) bgm.PlayFanfare();   // れんしゅうの本番の道（タイムなし）・デバッグの呼び出し（2026-11-23 てじゃ「ゴールBGMに切り替わるように」）のゴールでも鳴らす
+        _debugRun = false;
         if (returnPoint != null) respawnPoint = returnPoint;
         else SendCustomEventDelayedSeconds(nameof(RestartFromStart), restartDelay);
         _goalReturn = returnPoint;
@@ -1345,6 +1346,7 @@ public class FuwaBall : UdonSharpBehaviour
         }
         startPoint = newStart;
         timerEnabled = timed;
+        _debugRun = false;
         _messageUntil = Time.time;
         RestartFromStart();
     }
@@ -1356,6 +1358,7 @@ public class FuwaBall : UdonSharpBehaviour
         if (spot == null) return;
         _practice = true;
         timerEnabled = false;
+        _debugRun = false;
         respawnPoint = spot;
         _finished = false;
         _running = false; _untimedRun = false;
@@ -1383,6 +1386,7 @@ public class FuwaBall : UdonSharpBehaviour
 
     // テスト用（2026-10-22、公開前に消す。FuwaDebugBallSummon から）：今いる所でパッと弾けて spot に出し、そこをチェックポイントにする。
     // タイムは計らない。落ちたら spot に戻る（プレイヤーもふつうのアウトと同じく戻る）。先のチェックポイントを通ればそっちに更新される
+    private bool _debugRun;   // デバッグの呼び出し中（タイムなしでもゴールでファンファーレ・ゴール後の曲）
     public void DebugSummon(Transform spot, int stage)
     {
         if (spot == null) return;
@@ -1396,6 +1400,7 @@ public class FuwaBall : UdonSharpBehaviour
         }
         _practice = false;
         timerEnabled = false;
+        _debugRun = true;
         _finished = false;
         _running = false; _untimedRun = false;
         respawnPoint = spot;
