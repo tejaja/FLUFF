@@ -1474,15 +1474,17 @@ public static class FuwaPlaygroundBuilder
     }
 
     // 2026-11-23 てじゃ「裏の真っ黒板、わかりやすいんだけど なんか怖い」→ 表と同じうずまき（Fuwa/PortalCam の待ち状態 _Active 0）を白っぽいラベンダーで
-    public static Color PortalBackIdle = new Color(0.62f, 0.66f, 0.9f), PortalBackGlow = Color.white;
     static Material PortalBackSoftMat(Material swirl)
     {
-        if (swirl == null || swirl.shader == null || !swirl.HasProperty("_Idle")) return null;
+        // てじゃ「裏も渦だと分かりづらい」→ うずなしの Fuwa/PortalBackSoft（ラベンダーのグラデ＋またたく星）
+        var sh = Shader.Find("Fuwa/PortalBackSoft"); if (sh == null) return null;
         string mp = MatDir + "/Playground_PortalBackSoft.mat";
         var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
-        if (m == null) { m = new Material(swirl) { name = "Playground_PortalBackSoft" }; AssetDatabase.CreateAsset(m, mp); }
-        else m.CopyPropertiesFromMaterial(swirl);
-        m.shader = swirl.shader; m.SetFloat("_Active", 0f); m.SetColor("_Idle", PortalBackIdle); m.SetColor("_IdleGlow", PortalBackGlow); EditorUtility.SetDirty(m);
+        if (m == null) { m = new Material(sh) { name = "Playground_PortalBackSoft" }; AssetDatabase.CreateAsset(m, mp); }
+        m.shader = sh;
+        var hm = Object.FindObjectsOfType<MeshFilter>(true).FirstOrDefault(f => f.name == "Swirl" && f.sharedMesh);
+        if (hm) { m.SetFloat("_HalfW", hm.sharedMesh.bounds.extents.x); m.SetFloat("_HalfH", hm.sharedMesh.bounds.extents.y); }
+        EditorUtility.SetDirty(m);
         return m;
     }
 

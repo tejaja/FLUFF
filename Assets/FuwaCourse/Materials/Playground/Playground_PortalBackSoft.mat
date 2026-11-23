@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Playground_PortalBackSoft
-  m_Shader: {fileID: 4800000, guid: 0c0d8876b5a5237499dbb3100e5a1f75, type: 3}
+  m_Shader: {fileID: 4800000, guid: 8e3987a32f4d03047a4d984ac7c16558, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
@@ -36,11 +36,19 @@ Material:
     - _Active: 0
     - _EA: 1.5
     - _EB: 1.5
+    - _HalfH: 1.56
+    - _HalfW: 1.16
     - _Mono: 0
+    - _StarDensity: 3.5
+    - _StarSize: 0.12
     - _Swirl: 0.35
     - _VS: 1
     m_Colors:
+    - _Bottom: {r: 0.72, g: 0.76, b: 0.95, a: 1}
+    - _Edge: {r: 0.6, g: 0.62, b: 0.88, a: 1}
     - _EdgeGlow: {r: 0.5, g: 0.9, b: 1, a: 1}
     - _Idle: {r: 0.62, g: 0.66, b: 0.9, a: 1}
     - _IdleGlow: {r: 1, g: 1, b: 1, a: 1}
+    - _Star: {r: 1, g: 1, b: 1, a: 1}
+    - _Top: {r: 0.86, g: 0.8399999, b: 0.96999997, a: 1}
   m_BuildTextureStacks: []
