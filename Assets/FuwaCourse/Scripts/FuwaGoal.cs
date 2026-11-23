@@ -78,6 +78,8 @@ public class FuwaGoal : UdonSharpBehaviour
     public float flashTime = 0.9f;
     [Tooltip("光りながら広がる大きさ（倍）")]
     public float flashScale = 1.15f;
+    [Tooltip("ゴールした時に OnCourseGoal を呼ぶ相手（ゴールした本人の画面だけ）")]
+    public UdonSharpBehaviour[] onGoal;
 
     private Vector3[] _scales;
     private int _count;
@@ -167,6 +169,8 @@ public class FuwaGoal : UdonSharpBehaviour
         if (fireworksSound != null) { fireworksSound.Stop(); fireworksSound.Play(); }
 
         if (album != null) album.OnGoal(ball, transform, returnPoint);
+        // 2026-11-23 ゴールした時に知らせる（OnCourseGoal を呼ぶ。2-5 ゴールの洞窟のクリスタルが光る FuwaCrystalGoalGlow など）
+        if (onGoal != null) for (int i = 0; i < onGoal.Length; i++) if (onGoal[i] != null) onGoal[i].SendCustomEvent("OnCourseGoal");
 
         // CLEAR! とクリアタイム
         if (clearTimeText != null)

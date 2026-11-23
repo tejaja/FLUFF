@@ -268,6 +268,15 @@ public class FuwaBgm : UdonSharpBehaviour
         return a.time - ls;
     }
     public int CurrentTrack() { return _current; }
+    // 2026-11-23 曲 i の「ループの頭から何秒か」（今その曲が鳴っている時だけ。拍に合わせる用、FuwaCrystalGoalGlow）。鳴っていなければ -9999
+    public float TrackBeatTime(int i)
+    {
+        if (i < 0 || i >= tracks.Length || i != _current || !IsAudible()) return -9999f;
+        AudioSource a = tracks[i];
+        if (a == null || !a.isPlaying) return -9999f;
+        float ls = (loopStarts != null && i < loopStarts.Length) ? loopStarts[i] : 0f;
+        return a.time - ls;
+    }
 
     [Tooltip("保存した音量を読み込むまで（OnPlayerRestored）曲を鳴らさずに待つ最大秒数。待たないと入った直後に一瞬いつもの音量で鳴る")]
     public float restoreWaitMax = 6f;

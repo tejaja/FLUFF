@@ -324,6 +324,7 @@ public static class FuwaCourse2_5Builder
             S(2.5f); });
         var goalP = P;
         GoalSet(gc, P, Dir(th));
+        SetupCaveGlow(gc);   // 2026-11-23 ゴールしたら洞窟のクリスタルが光る
         // 2026-11-16 てじゃ「ミニキノコは影でないか」→ 写したゴールのミニキノコは影オフのまま（小物の影の一覧にも入っていなかった）。
         //  影オンにしておくと、あとの負荷対策（CoursePerf）で「近くだけ影」（SmallShadows）に入る
         foreach (var gt in gc.GetComponentsInChildren<Transform>(true).Where(t => t.name == "Goal"))
@@ -705,6 +706,29 @@ public static class FuwaCourse2_5Builder
         { "MouthCeil0", (new Vector3(34.2735367f, -3.00459862f, 43.2786331f), new Quaternion(0.219189435f, -0.07647922f, -0.9648157f, 0.123441443f)) },
     };
     public static bool CaveCrystals = true; public static float CeilEmbed = 1.4f, CeilScale = 1.35f; public static float CaveLightIntensity = 3.2f, CaveLightRange = 13f; public static Color CaveLightCol = new Color(0.72f, 0.93f, 1f);
+    // 2026-11-23 てじゃ「ゴールしたらここのクリスタル光ったらおもろいかな」「ゴール後BGM始まったらBPMにあわせてバラバラにチカチカ」
+    //  GoalCrystals に FuwaCrystalGoalGlow（ゴールに近い順に並べる）、洞窟のゴールの FuwaGoal.onGoal へつなぐ。メニュー「2-5 ゴールの洞窟のクリスタルを光らせる」でも
+    [MenuItem("FuwaCourse/ステージ2/2-5 ゴールの洞窟のクリスタルを光らせる")]
+    static void SetupCaveGlowMenu() { var r = GameObject.Find("FuwaCourse2_5"); if (!r) { Debug.LogError("FuwaCourse2_5 がない"); return; } var gc = r.transform.Find("Islands/Cavern"); if (gc) SetupCaveGlow(gc); UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.scene); }
+    static void SetupCaveGlow(Transform gc)
+    {
+        var r = gc.root;
+        var g = r.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "GoalCrystals");
+        var goal = gc.GetComponentsInChildren<FuwaGoal>(true).FirstOrDefault();
+        if (!g || !goal) { Debug.LogWarning("2-5 クリスタルの光：GoalCrystals か FuwaGoal がない"); return; }
+        var gp = goal.transform.position;
+        var rends = g.GetComponentsInChildren<MeshRenderer>(true).OrderBy(m => Vector3.Distance(m.bounds.center, gp)).Cast<Renderer>().ToArray();
+        var glow = g.GetComponent<FuwaCrystalGoalGlow>();
+        if (!glow) glow = UdonSharpUndo.AddComponent<FuwaCrystalGoalGlow>(g.gameObject);
+        glow.crystals = rends;
+        var lt = g.Find("CaveLight"); glow.caveLight = lt ? lt.GetComponent<Light>() : null;
+        glow.bgm = Object.FindObjectsOfType<FuwaBgm>(true).FirstOrDefault();
+        UdonSharpEditorUtility.CopyProxyToUdon(glow); FuwaStage2WaterTest.NoSync(glow); EditorUtility.SetDirty(glow);
+        var list = new System.Collections.Generic.List<UdonSharp.UdonSharpBehaviour>(); if (goal.onGoal != null) list.AddRange(goal.onGoal.Where(x => x != null && x != glow));
+        list.Add(glow); goal.onGoal = list.ToArray();
+        UdonSharpEditorUtility.CopyProxyToUdon(goal); EditorUtility.SetDirty(goal);
+        Debug.Log("2-5 クリスタルの光：" + rends.Length + "個、" + goal.name + " につないだ");
+    }
     static void GoalCaveCrystals(Transform rk, Vector2 sc, float hx, float cy0, float cy1, Vector2 mdir)
     {
         var g = new GameObject("GoalCrystals").transform; g.SetParent(rk, false);
