@@ -1420,7 +1420,8 @@ public static class FuwaPlaygroundBuilder
 
     // 2026-11-17 てじゃ「遊び場のポータル、裏面は使えないのわかりやすい用にしたい」
     //  穴の裏に石のふた（穴と同じだ円）。表からは穴の景色に隠れて見えず、裏から見ると石でふさがっている
-    public static float PortalBackInset = 0.03f, PortalBackScale = 0.985f;
+    // 2026-11-23 てじゃ「フチにびみょーに隙間ある」：小さめ（0.985）で 3cm 奥だったので、ななめから見ると輪との間がすけていた → 穴と同じ大きさで 5mm 奥
+    public static float PortalBackInset = 0.005f, PortalBackScale = 1f;
     public static Color PortalBackColor = new Color(0.2f, 0.19f, 0.26f);   // 2026-11-17 てじゃ「もっと黒っぽいほうがいいかも」
     public static void PortalBack(Transform p)
     {
@@ -1433,7 +1434,7 @@ public static class FuwaPlaygroundBuilder
         g.transform.localScale = Vector3.one * PortalBackScale;
         g.GetComponent<MeshFilter>().sharedMesh = hole.GetComponent<MeshFilter>().sharedMesh;
         var r = g.GetComponent<MeshRenderer>();
-        r.sharedMaterial = PortalBackMat();
+        r.sharedMaterial = PortalBackSoftMat(hole.GetComponent<MeshRenderer>().sharedMaterial) ?? PortalBackMat();
         r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         GameObjectUtility.SetStaticEditorFlags(g, 0);
     }
@@ -1470,6 +1471,19 @@ public static class FuwaPlaygroundBuilder
             foreach (var t in new[] { pp.a, pp.b }) if (t) { DetachPortalFx(t); n++; }
         UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
         Debug.Log("[あそびば] ポータルの光を外へ " + n);
+    }
+
+    // 2026-11-23 てじゃ「裏の真っ黒板、わかりやすいんだけど なんか怖い」→ 表と同じうずまき（Fuwa/PortalCam の待ち状態 _Active 0）を白っぽいラベンダーで
+    public static Color PortalBackIdle = new Color(0.62f, 0.66f, 0.9f), PortalBackGlow = Color.white;
+    static Material PortalBackSoftMat(Material swirl)
+    {
+        if (swirl == null || swirl.shader == null || !swirl.HasProperty("_Idle")) return null;
+        string mp = MatDir + "/Playground_PortalBackSoft.mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(mp);
+        if (m == null) { m = new Material(swirl) { name = "Playground_PortalBackSoft" }; AssetDatabase.CreateAsset(m, mp); }
+        else m.CopyPropertiesFromMaterial(swirl);
+        m.shader = swirl.shader; m.SetFloat("_Active", 0f); m.SetColor("_Idle", PortalBackIdle); m.SetColor("_IdleGlow", PortalBackGlow); EditorUtility.SetDirty(m);
+        return m;
     }
 
     static Material PortalBackMat()
