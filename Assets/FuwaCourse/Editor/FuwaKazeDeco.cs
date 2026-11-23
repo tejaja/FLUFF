@@ -9,6 +9,7 @@ using UnityEngine;
 // たんぽぽは Den_Twig（InkCap・両面・頂点カラー）で1つのメッシュにまとめる。当たり判定なし
 public static partial class FuwaKazeDeco
 {
+    public static float UnderFit = 0.96f;
     const string Dir = "Assets/FuwaCourse/Generated/Kaze";
     const string Course = "FuwaCourse";
 
@@ -190,7 +191,8 @@ public static partial class FuwaKazeDeco
                 top.GetComponent<MeshFilter>().sharedMesh = topMesh; top.GetComponent<MeshRenderer>().sharedMaterial = groundMat; top.transform.localScale = new Vector3(rad / 0.64f, 1f, rad / 0.64f);
                 var under = new GameObject("IslandUnder", typeof(MeshFilter), typeof(MeshRenderer)); under.transform.SetParent(g, false);
                 under.GetComponent<MeshFilter>().sharedMesh = underMeshes[um]; under.GetComponent<MeshRenderer>().sharedMaterial = underMat;
-                under.transform.localScale = new Vector3(rad / 0.97f, rad / 0.97f * uy, rad / 0.97f); under.transform.localRotation = Quaternion.Euler(0, ur, 0);
+                // 2026-11-23 てじゃ「1-1の浮島のフチがちょっと欠けてる」：下の土台のふち（低ポリ）の角が草の円盤（64角形）より 7〜9cm 外に出て、草のふちに茶色い欠けに見えた → 横だけ UnderFit 倍に縮めて円盤の内側へ
+                under.transform.localScale = new Vector3(rad / 0.97f * UnderFit, rad / 0.97f * uy, rad / 0.97f * UnderFit); under.transform.localRotation = Quaternion.Euler(0, ur, 0);
             }
             float topY = pos.y + 0.03f; _islC = pos; _islR = rad * 0.97f;
 

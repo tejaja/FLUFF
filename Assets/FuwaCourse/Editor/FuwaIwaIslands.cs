@@ -105,7 +105,7 @@ public static class FuwaIwaIslands
             var g = new GameObject("Island" + (idx + 1) + "_" + kind).transform; g.SetParent(holder, false); g.position = pos; g.rotation = rot;
             var top = Part(g, "IslandTop", topMesh, groundMat, Vector3.zero, Quaternion.identity, new Vector3(rad / 0.64f, 1f, rad / 0.64f), true);
             var uy = R(0.85f, 1.15f);
-            Part(g, "IslandUnder", underMeshes[rnd.Next(underMeshes.Length)], underMat, Vector3.zero, Quaternion.Euler(0, R(0, 360), 0), new Vector3(rad / 0.97f, rad / 0.97f * uy, rad / 0.97f), true);
+            Part(g, "IslandUnder", underMeshes[rnd.Next(underMeshes.Length)], underMat, Vector3.zero, Quaternion.Euler(0, R(0, 360), 0), new Vector3(rad / 0.97f * FuwaKazeDeco.UnderFit, rad / 0.97f * uy, rad / 0.97f * FuwaKazeDeco.UnderFit), true);   // 2026-11-23 土台の角が草のふちから出ないように（1-1 と同じ）
             const float topY = 0.03f;   // 島の上の面（ローカル）
 
             // 置いた物の場所（重ならないように）
