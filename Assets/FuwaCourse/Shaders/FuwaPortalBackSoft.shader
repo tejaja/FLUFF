@@ -16,23 +16,23 @@ Shader "Fuwa/PortalBackSoft"
     }
     SubShader
     {
-        Tags { "Queue" = "Geometry+10" "RenderType" = "Opaque" "IgnoreProjector" = "True" }
+        // 2026-11-23 実機で近づくと真っ黒になった（Unity の Unlit/Color では出ない）。原因：PC はダイナミックバッチングON で、裏の板2枚が
+        //  まとめ描きされると頂点がワールド座標になり、lpos（メッシュの座標）で作る模様・星の計算がこわれた → DisableBatching
+        Tags { "Queue" = "Geometry" "RenderType" = "Opaque" "IgnoreProjector" = "True" "DisableBatching" = "True" }
         Cull Back
         Pass
         {
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
-            #pragma multi_compile_fog
-            #pragma multi_compile_instancing
             #include "UnityCG.cginc"
             float4 _Top, _Bottom, _Edge, _Star; float _HalfW, _HalfH, _StarDensity, _StarSize;
             struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float3 lpos : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO };
+            struct v2f { float4 pos : SV_POSITION; float3 lpos : TEXCOORD0; UNITY_VERTEX_OUTPUT_STEREO };
             v2f vert (appdata v)
             {
                 v2f o; UNITY_SETUP_INSTANCE_ID(v); UNITY_INITIALIZE_OUTPUT(v2f, o); UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(o);
-                o.pos = UnityObjectToClipPos(v.vertex); o.lpos = v.vertex.xyz; UNITY_TRANSFER_FOG(o, o.pos);
+                o.pos = UnityObjectToClipPos(v.vertex); o.lpos = v.vertex.xyz;
                 return o;
             }
             float H2(float2 p) { return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
@@ -50,13 +50,11 @@ Shader "Fuwa/PortalBackSoft"
                 float2 d = f - off;
                 float tw = 0.5 + 0.5 * sin(_Time.y * (0.8 + h * 1.6) + h * 30.0);
                 float s = _StarSize * (0.5 + 0.8 * h) * tw * step(0.45, h);
-                float cross = max(0, 1 - abs(d.x) / (s * 0.18 + 1e-4)) * max(0, 1 - abs(d.y) / (s + 1e-4))
+                float crs = max(0, 1 - abs(d.x) / (s * 0.18 + 1e-4)) * max(0, 1 - abs(d.y) / (s + 1e-4))
                             + max(0, 1 - abs(d.y) / (s * 0.18 + 1e-4)) * max(0, 1 - abs(d.x) / (s + 1e-4));
                 float dotc = max(0, 1 - length(d) / (s * 0.35 + 1e-4));
-                col = lerp(col, _Star.rgb, saturate(cross * 0.7 + dotc) * (1 - smoothstep(0.8, 0.95, rn)));
-                half4 o = half4(col, 1);
-                UNITY_APPLY_FOG(i.fogCoord, o);
-                return o;
+                col = lerp(col, _Star.rgb, saturate(crs * 0.7 + dotc) * (1 - smoothstep(0.8, 0.95, rn)));
+                return half4(saturate(col), 1);
             }
             ENDCG
         }
