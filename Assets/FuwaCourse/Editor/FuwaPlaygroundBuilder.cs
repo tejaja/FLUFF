@@ -1502,7 +1502,12 @@ public static class FuwaPlaygroundBuilder
     {
         int n = 0;
         foreach (var pp in Object.FindObjectsOfType<FuwaPlaygroundPortals>(true))
+        {
             foreach (var t in new[] { pp.a, pp.b }) if (t) { PortalBack(t); n++; }
+            // 2026-11-23 作り直した裏の板をポータルのカメラの「隠す裏の板」につなぎ直す（つながっていないと、のぞいた先に出口の裏の板が映る。てじゃ「裏が前から見えるようになった」）
+            Renderer Back(Transform p) { var b = p ? p.Find("Back") : null; return b ? b.GetComponent<Renderer>() : null; }
+            foreach (var pc in pp.GetComponentsInChildren<FuwaPortalCams>(true)) { pc.holeBacks = new[] { Back(pp.a), Back(pp.b) }; UdonSharpEditorUtility.CopyProxyToUdon(pc); EditorUtility.SetDirty(pc); }
+        }
         UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
         Debug.Log("[あそびば] ポータルの裏のふた " + n);
     }
