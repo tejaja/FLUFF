@@ -2261,9 +2261,9 @@ public static class FuwaCourse2_3Builder
         }
     }
     // 回る橋のあと（S2）のチェックポイント（2026-11-10 てじゃ「回転床の後にもチェックポイントつけよう」）。CheckpointField と同じ 1 つきのこ式。判定はきのこを通る、進む向きに直角な細い線
-    public static int V4_Cp2Static = 2; public static float V4_Cp2RespawnOut = 1.5f, V4_Cp2LinePad = 1.5f;
-    // 2026-11-23 てじゃ「もうちょい手前に広く」：細い線（0.6m）→ きのこの 0.3m 先から手前（回る橋の方）V4_Cp2Back m までの帯
-    public static float V4_Cp2Back = 3f;   // 判定はきのこを通る細い線、島の幅より左右 LinePad 長く
+    public static int V4_Cp2Static = 2; public static float V4_Cp2RespawnOut = 1.5f, V4_Cp2LinePad = 1.5f;   // 判定は島の幅より左右 LinePad 長く
+    // 2026-11-23 てじゃ「もうちょい手前に広く」：細い線（0.6m）→ きのこの 0.3m 先から手前（回る橋の方）V4_Cp2Back m までの帯（3m で見せて「1.5でいいかも」）
+    public static float V4_Cp2Back = 1.5f;
     public static string V4SpinExitCheckpoint(Transform root, Vector3 o) { return V4SpinExitCheckpoint(root, o, V4Make()); }
     static string V4SpinExitCheckpoint(Transform root, Vector3 o, V4Field F)
     {
