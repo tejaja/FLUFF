@@ -697,14 +697,14 @@ public static class FuwaCourse2_5Builder
         { "Wall1", (new Vector3(18.4324665f, -7.210467f, 37.3819847f), new Quaternion(0.286744148f, 0.573207438f, 0.399401337f, -0.655507147f)) },
         { "Wall2", (new Vector3(33.2738724f, -5.100952f, 37.38222f), new Quaternion(-0.3435759f, 0.721423268f, 0.57223314f, 0.184535578f)) },
         { "Wall3", (new Vector3(30.250473f, -7.92981768f, 31.5618134f), new Quaternion(0.243711427f, 0.357147843f, 0.378373057f, 0.818464458f)) },
-        { "Ceil", (new Vector3(25.9f, -3.290006f, 38.0999947f), new Quaternion(0.9848078f, 0f, 0.1736482f, 0f)) },
+        { "Ceil", (new Vector3(28.787323f, -3.04f, 42.1820755f), new Quaternion(0.9848078f, 0f, 0.1736482f, 0f)) },   // 2026-11-23 てじゃ「ゴール真上だと見えない、ちょい先の天井に大きめ」→ ゴールから口のほうへ5m・0.6m上に埋める・1.35倍（CeilScale）
         { "CeilS0", (new Vector3(24.6860275f, -2.52813458f, 42.76719f), new Quaternion(-0.432010829f, 0.164232641f, 0.886169255f, -0.03314316f)) },
         { "Mouth0", (new Vector3(34.489f, -7.20626831f, 41.0532722f), new Quaternion(-0.5569635f, 0.7721261f, 0.059028618f, -0.3002144f)) },
         { "Mouth1", (new Vector3(26.90351f, -6.574539f, 45.2735023f), new Quaternion(0.756411254f, 0.3793616f, -0.391609132f, -0.361343622f)) },
         { "Mouth2", (new Vector3(29.9989319f, -4.81427f, 47.6179237f), new Quaternion(0.424524575f, 0.780495048f, -0.4502917f, 0.088565f)) },
         { "MouthCeil0", (new Vector3(34.2735367f, -3.00459862f, 43.2786331f), new Quaternion(0.219189435f, -0.07647922f, -0.9648157f, 0.123441443f)) },
     };
-    public static bool CaveCrystals = true; public static float CeilEmbed = 1.4f; public static float CaveLightIntensity = 3.2f, CaveLightRange = 13f; public static Color CaveLightCol = new Color(0.72f, 0.93f, 1f);
+    public static bool CaveCrystals = true; public static float CeilEmbed = 1.4f, CeilScale = 1.35f; public static float CaveLightIntensity = 3.2f, CaveLightRange = 13f; public static Color CaveLightCol = new Color(0.72f, 0.93f, 1f);
     static void GoalCaveCrystals(Transform rk, Vector2 sc, float hx, float cy0, float cy1, Vector2 mdir)
     {
         var g = new GameObject("GoalCrystals").transform; g.SetParent(rk, false);
@@ -780,10 +780,12 @@ public static class FuwaCourse2_5Builder
         }
         // 2026-11-23 てじゃが口のまわりのクリスタルを手で調整（「こっちでうごかしてみる」「周辺のほかのもうごかした」）→ 作り直しても同じ所・向きに（GoalCrystals の中の座標）
         foreach (var kv in CavePoses) { var t = g.Find(kv.Key); if (t) { t.localPosition = kv.Value.p; t.localRotation = kv.Value.r; } }
+        { var t = g.Find("Ceil"); if (t) t.localScale = Vector3.one * CeilScale; }
         // 光：天井の大きい塊の少し下から（影あり）
         {
             var lg = new GameObject("CaveLight"); lg.transform.SetParent(g, false);
             lg.transform.localPosition = new Vector3(sc.x, yc - 2.6f, sc.y);
+            { var ct = g.Find("Ceil"); if (ct) lg.transform.localPosition = ct.localPosition + Vector3.down * 2.66f; }   // 2026-11-23 天井の大きい塊を動かしたので光もその下へ
             var l = lg.AddComponent<Light>(); l.type = LightType.Point; l.color = CaveLightCol; l.intensity = CaveLightIntensity; l.range = CaveLightRange;
             l.shadows = LightShadows.Soft; l.shadowStrength = 0.75f; l.renderMode = LightRenderMode.ForcePixel; l.lightmapBakeType = LightmapBakeType.Realtime;
             // アバター（Player・PlayerLocal・MirrorReflection）は照らさない・影に入れない（2026-11-21 複数人の軽量化。点光源の影は6方向ぶん描くので、人が集まると重い）。アバターは AvatarLight で照らされる
