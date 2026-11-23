@@ -107,6 +107,7 @@ public static class FuwaCourseLite
     }
 
     public static float LiteOverlapDist = 0.04f;
+    public static bool UseDropOverlaps = false;
     static int DropOverlaps(List<Vector3> FV, List<Vector3> FN, List<Color> FC, List<int> FT)
     {
         int n = FT.Count / 3; var ce = new Vector3[n]; var nn = new Vector3[n];
@@ -256,8 +257,9 @@ public static class FuwaCourseLite
             // 2026-11-23 てじゃ「2-1の軽量版の入口の岩肌あたりが、スマホだとZファイトに似てるちらつき」：
             //  格子でまとめると、本体では別々だった近い面（岩どうし・岩の中に隠れていた面）が同じ所に重なって、奥行きの細かさの少ないスマホでちらついた
             //  → 向きが同じで LiteOverlapDist 以内に重なっている面（おたがいの重心がおたがいの中に入る＝ほぼ同じ面）は、あとの方を消す
-            int dropped = DropOverlaps(FV, FN, FC, FT);
-            if (dropped > 0) log.Append(cn + " 重なり面 -" + dropped + " ");
+            //  2026-11-23 夜 やめた：ちらつきの本当の原因は別（スマホのロビーで本体と軽い版が両方出ていた、FuwaCourseLod）。
+            //  しかも道のはしが島の上に数cm浮いて乗っている所（スタートの島）で、小さい方＝道の面が消えて島がスカスカに見えた（てじゃ「軽量版のスタート島がスカスカ」）
+            if (UseDropOverlaps) { int dropped = DropOverlaps(FV, FN, FC, FT); if (dropped > 0) log.Append(cn + " 重なり面 -" + dropped + " "); }
             var lite = new Mesh { name = cn + "_Lite", indexFormat = UnityEngine.Rendering.IndexFormat.UInt32 };
             lite.SetVertices(FV); lite.SetNormals(FN); lite.SetColors(FC);   // 色はガンマのまま（InkCap シェーダーが中で直す）
             lite.SetTriangles(FT, 0);
