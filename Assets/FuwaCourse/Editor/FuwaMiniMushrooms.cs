@@ -131,9 +131,33 @@ public static class FuwaMiniMushrooms
             EditorUtility.SetDirty(f);
         }
         _owner.Clear();
+        string lc = LobbyClearShadows();
         string rc = FuwaFarViewSetup.RefreshShadowCenters();
         UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
-        return "ミニキノコ：" + roots + "か所、" + made + "本を差しかえ（影の切り替えに " + sw + "）。" + rc;
+        return "ミニキノコ：" + roots + "か所、" + made + "本を差しかえ（影の切り替えに " + sw + "）。" + lc + rc;
+    }
+
+    // 2026-11-23 てじゃ「ロビーのクリア済みのミニキノコに影つけると負荷どうかな」→ 小物と同じ「12m 以内だけ影」（SmallShadows）に入れる
+    //  （形16種・材質1つでインスタンシングなので影の描く回数は少ない。Quest・スマホは品質設定で影なし）。SmallShadows はオフから始めて近づくとオンにする
+    [MenuItem("FuwaCourse/ロビー/クリアのミニキノコに近くだけ影")]
+    public static void LobbyClearShadowsMenu() { Debug.Log(LobbyClearShadows() + FuwaFarViewSetup.RefreshShadowCenters()); UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty(); }
+    public static string LobbyClearShadows()
+    {
+        var small = Resources.FindObjectsOfTypeAll<FuwaFarShadows>().FirstOrDefault(f => f && f.name == "SmallShadows" && f.gameObject.scene.IsValid());
+        if (!small) return "（SmallShadows がない）";
+        var bodies = Object.FindObjectsOfType<Transform>(true).Where(t => t.name == "ClearMushrooms" && (t.root.name == "FuwaLobby" || t.root.name == "FuwaStage2"))
+            .SelectMany(t => t.GetComponentsInChildren<MeshRenderer>(true)).Where(r => r.name == "Body").ToList();
+        var have = new HashSet<Renderer>(small.targets.Where(r => r));
+        var t2 = small.targets.ToList(); var c2 = small.centers.ToList(); var r2 = small.radii.ToList(); int add = 0;
+        foreach (var b in bodies)
+        {
+            b.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; EditorUtility.SetDirty(b);   // 近づいた時に SmallShadows がオンにする
+            if (have.Contains(b)) continue;
+            var bb = b.bounds; t2.Add(b); c2.Add(bb.center); r2.Add(bb.extents.magnitude); add++;
+        }
+        small.targets = t2.ToArray(); small.centers = c2.ToArray(); small.radii = r2.ToArray();
+        UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(small); EditorUtility.SetDirty(small);
+        return "ロビーのクリアのミニキノコ " + bodies.Count + "本を近くだけ影に（新しく " + add + "）。";
     }
 
     // 差しかえ前に、どの FuwaFarShadows がどの Cap を持っていたかを覚える（Run の最初に呼ぶ）
