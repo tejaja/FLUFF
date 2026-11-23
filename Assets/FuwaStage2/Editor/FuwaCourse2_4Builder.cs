@@ -97,7 +97,7 @@ public static class FuwaCourse2_4Builder
         T(-90f); CPCurve("CheckpointDraw", -90f); S(2f);
         Place(Draw, log); FloorsToStripes(Draw); S(1f); ChunkyGears(); S(1f); S(8f, 3f);   // ②→③：ごつい歯車（前は回るアーム）。CheckpointDraw は風車の横だときのこの丸太が重なるので 2.5m 手前
         T(-90f); CPCurve("CheckpointRack", -90f); S(2f);
-        Place(Rack, log); FloorsToStripes(Rack); NotchStripes(secT.Find(Rack.name).Find("FarBank"), FuwaRackBridgeTest.FarNotch()); RoundFloorEnd(secT.Find(Rack.name).Find("FarBank")); S(1f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); CPCurve("CheckpointTwin", -90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
+        Place(Rack, log); FloorsToStripes(Rack); NotchStripes(secT.Find(Rack.name).Find("FarBank"), FuwaRackBridgeTest.FarNotch()); RoundFloorEnd(secT.Find(Rack.name).Find("FarBank")); S(1f); CP("CheckpointStep", -2.5f, 0f, 0f); StepGears(); S(1.5f, 0f, false); T(90f); S(6f, 1.6f, false); T(-90f); CPCurve("CheckpointTwin", -90f); S(2f);   // ③→④：段つき歯車で 1.4m 上がる。2026-11-23 てじゃ「金網つきギアの前にチェックポイントほしい」→ 段つき歯車の 2.5m 手前に CheckpointStep。（前はシャッター）。出たすぐの道は下に B の大きい歯車があるので下の石なし
         // チェックポイント4は出口の床（6m 角）に入ってすぐ・床の幅いっぱい（2026-11-08 てじゃ「横から抜けられちゃう」：床の先の曲がり角を斜めに飛ぶと、道の幅の判定を通らなかった）
         Place(Twin, log); FloorsToStripes(Twin); CP("Checkpoint4", -5.5f); S(2f);   // 出口の床を道の幅にしたので判定も道の幅
         // 塔へ（まん中）：①の上をまたいで
