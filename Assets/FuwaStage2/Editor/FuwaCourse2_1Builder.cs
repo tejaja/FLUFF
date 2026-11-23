@@ -32,6 +32,9 @@ public static class FuwaCourse2_1Builder
     const string RootName = "FuwaCourse2_1";
     // 置き場所：ステージ1と同じく、ロビーのまん中からワープの台（Slot0）の向きに放射状。スタートはまん中から SpokeR m、ロビーの床の StartBelow m 下
     public const float SpokeR = 34.8f, StartBelow = 4f;
+    // 2026-11-23 てじゃ「2-1だけやたら近い」「PC版でも気になる」「ロビーからみて奥に」：2-1 だけスタートの島がロビーから約28m（ほかは約37m）
+    //  → 放射の向きにさらに奥へ（シーンは浮島ごとルートを動かし、軽い版・スマホの床の箱・影の中心も同じだけずらした）
+    public const float SpokeBack = 9f;
     const string MeshDir = "Assets/FuwaStage2/Generated/Course2_1";
     const float Thick = 0.3f, Bevel = 0.08f, Stripe = 0.75f;
     const int BevelSteps = 4;
@@ -339,7 +342,7 @@ public static class FuwaCourse2_1Builder
         root.rotation = Quaternion.LookRotation(spoke);
         Center(1.0f, out var st0, out _);
         float floorY = lobby.transform.Find("LobbyFloor").GetComponent<Renderer>().bounds.max.y;
-        root.position = lc + spoke * SpokeR - root.rotation * new Vector3(st0.x, 0, st0.y);
+        root.position = lc + spoke * (SpokeR + SpokeBack) - root.rotation * new Vector3(st0.x, 0, st0.y);
         root.position = new Vector3(root.position.x, floorY - StartBelow - StartH, root.position.z);
         if (!AssetDatabase.IsValidFolder(MeshDir)) AssetDatabase.CreateFolder("Assets/FuwaStage2/Generated", "Course2_1");
 

@@ -268,6 +268,8 @@ public static class FuwaCourseLite
             MeshUtility.SetMeshCompression(lite, LiteMeshCompression);
             var go = holder.transform.Find(cn + "_Lite")?.gameObject;
             if (go == null) { go = new GameObject(cn + "_Lite"); go.transform.SetParent(holder.transform, false); go.AddComponent<MeshFilter>(); go.AddComponent<MeshRenderer>(); }
+            // メッシュはワールド座標で作るので置き場所は原点（2026-11-23 2-1 を奥へ動かした時、軽い版は置き場所をずらしてある→作り直しで二重にずれないように戻す）
+            go.transform.localPosition = Vector3.zero; go.transform.localRotation = Quaternion.identity; go.transform.localScale = Vector3.one;
             go.GetComponent<MeshFilter>().sharedMesh = lite; var r = go.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
             go.SetActive(false);
             var st = root.transform.Find("BallStart"); if (st == null) st = root.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "BallStart");
