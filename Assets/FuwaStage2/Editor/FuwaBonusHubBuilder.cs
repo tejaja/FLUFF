@@ -53,6 +53,41 @@ public static class FuwaBonusHubBuilder
     };
     // 2026-11-18 てじゃ「Pickupのこっててもおもろいかも」「全員にみえていいよ」：文字・ステージ1・ステージ2のボードを、みんなで持って動かせるように。
     //  同期する物は隠れるエリアに置けない（入り直した人に見えない罠）ので FuwaSystem/BonusBoards に移し、FuwaAreaShow で本島にいない間は見た目・当たり・持つのを止める
+    // 2026-11-23 てじゃ「おまけ本島のボードとかのピックアップ判定の位置がちょっと変」「ボードとコングラッチレーションのやつ、同じくらいの大きさの判定用の透明いた」
+    //  前は見た目の囲む箱（ワールドの向きの箱）を板の向きに直していたので、ななめに置いた板（Times2 は 44°）で当たりが横向きの細い板になっていた。
+    //  文字（実行中に書きかわる）の大きさもあてにならない → 板（Panel）があれば板の大きさ、なければ文字の枠（TextMeshPro の表示範囲）で、板と同じ向き・厚み thick m の箱
+    static void FitBoardCollider(Transform part, BoxCollider bc, float thick)
+    {
+        float tz = thick / Mathf.Max(0.01f, Mathf.Abs(part.lossyScale.z));
+        var pan = part.Find("Panel"); var sr = pan ? pan.GetComponent<SpriteRenderer>() : null;
+        if (sr)
+        {
+            Vector2 sz = sr.drawMode != SpriteDrawMode.Simple ? sr.size : (Vector2)sr.sprite.bounds.size;
+            bc.center = pan.localPosition;
+            bc.size = new Vector3(Mathf.Abs(sz.x * pan.localScale.x), Mathf.Abs(sz.y * pan.localScale.y), tz);
+            return;
+        }
+        var tmp = part.GetComponent<TMPro.TextMeshPro>();
+        if (tmp)
+        {
+            tmp.ForceMeshUpdate();
+            var tb = tmp.textBounds;
+            bc.center = new Vector3(tb.center.x, tb.center.y, 0f);
+            bc.size = new Vector3(tb.size.x + 0.3f, tb.size.y + 0.3f, tz);   // 文字のまわりに少し余白
+            return;
+        }
+    }
+    [MenuItem("FuwaCourse/おまけ/ボードの持つ判定を板の大きさにそろえる")]
+    static void FitBoardCollidersMenu()
+    {
+        var bb = Resources.FindObjectsOfTypeAll<Transform>().FirstOrDefault(t => t && t.name == "BonusBoards" && t.gameObject.scene.IsValid());
+        if (!bb) { Debug.LogError("BonusBoards がない"); return; }
+        int n = 0;
+        foreach (Transform part in bb) { var bc = part.GetComponent<BoxCollider>(); if (!bc || !part.GetComponent<TMPro.TextMeshPro>()) continue; Undo.RecordObject(bc, "board collider"); FitBoardCollider(part, bc, 0.15f); EditorUtility.SetDirty(bc); n++; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bb.gameObject.scene);
+        Debug.Log("ボードの持つ判定をそろえた：" + n);
+    }
+
     static string MakeSharedBoards(Transform root)
     {
         var sys = Find("FuwaSystem"); var bt = root.Find("Board");
@@ -66,8 +101,7 @@ public static class FuwaBonusHubBuilder
             var wb = rs[0].bounds; foreach (var br in rs) wb.Encapsulate(br.bounds);
             part.SetParent(holder, true);   // 見た目の位置・大きさはそのまま
             var bc = part.gameObject.AddComponent<BoxCollider>();
-            bc.center = part.InverseTransformPoint(wb.center); var sz = part.InverseTransformVector(wb.size);
-            bc.size = new Vector3(Mathf.Abs(sz.x), Mathf.Abs(sz.y), Mathf.Max(0.15f / Mathf.Max(0.01f, part.lossyScale.z), Mathf.Abs(sz.z)));
+            FitBoardCollider(part, bc, 0.15f);
             var rb = part.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
             var pu = part.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
             pu.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pu.InteractionText = part.name == "Title" ? "もじ" : "ボード"; pu.proximity = 3f; pu.allowManipulationWhenEquipped = true;
@@ -578,6 +612,7 @@ public static class FuwaBonusHubBuilder
         var wood = AssetDatabase.LoadAssetAtPath<Material>("Assets/FuwaCourse/Materials/Course_Wood.mat");
         var vg = new GameObject("Fence", typeof(MeshFilter), typeof(MeshRenderer)); vg.transform.SetParent(fence, false);
         vg.GetComponent<MeshFilter>().sharedMesh = vis; vg.GetComponent<MeshRenderer>().sharedMaterial = wood;
+        vg.GetComponent<MeshRenderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;   // 2026-11-23 てじゃ「おまけ本島の柵の影でてる」→ ロビーの柵と同じく影なし
         var cg = new GameObject("FenceCollider"); cg.transform.SetParent(fence, false); cg.AddComponent<MeshCollider>().sharedMesh = col;
         GameObjectUtility.SetStaticEditorFlags(vg, StaticEditorFlags.BatchingStatic);
         GameObjectUtility.SetStaticEditorFlags(cg, StaticEditorFlags.BatchingStatic);
@@ -1091,7 +1126,7 @@ public static class FuwaBonusHubBuilder
                 var brs2 = part.GetComponentsInChildren<Renderer>(true); if (brs2.Length == 0) continue;
                 var wb = brs2[0].bounds; foreach (var br in brs2) wb.Encapsulate(br.bounds);
                 var bc = part.gameObject.AddComponent<BoxCollider>();
-                bc.center = part.InverseTransformPoint(wb.center); var sz = part.InverseTransformVector(wb.size); bc.size = new Vector3(Mathf.Abs(sz.x), Mathf.Abs(sz.y), Mathf.Max(0.2f / Mathf.Max(0.01f, part.lossyScale.z), Mathf.Abs(sz.z)));
+                FitBoardCollider(part, bc, 0.2f);
                 var rb = part.gameObject.AddComponent<Rigidbody>(); rb.isKinematic = true; rb.useGravity = false;
                 var pu = part.gameObject.AddComponent<VRC.SDK3.Components.VRCPickup>();
                 pu.AutoHold = VRC.SDKBase.VRC_Pickup.AutoHoldMode.Yes; pu.InteractionText = part.name; pu.proximity = 3f; pu.allowManipulationWhenEquipped = true;
