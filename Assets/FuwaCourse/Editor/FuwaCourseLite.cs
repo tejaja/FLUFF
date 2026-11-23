@@ -10,6 +10,7 @@ public static class FuwaCourseLite
 {
     static readonly string[] Courses = { "FuwaCourse", "FuwaCourse2", "FuwaCourse3", "FuwaCourse4", "FuwaCourse5", "FuwaCourse0" };
     const string Dir = "Assets/FuwaCourse/Generated/Lite";
+    public static ModelImporterMeshCompression LiteMeshCompression = ModelImporterMeshCompression.Medium;
     const float MinSize = 2.5f;   // これより小さい物は入れない(m、いちばん長い辺)
     const float Cell = 0.35f;     // 間引きの細かさ(m)
     const float DecoCell = 0.7f;  // 飾り（まわりの浮島）の間引きの細かさ(m)
@@ -221,6 +222,8 @@ public static class FuwaCourseLite
             lite.RecalculateBounds();
             string ap = Dir + "/" + cn + "_Lite.asset"; var old = AssetDatabase.LoadAssetAtPath<Mesh>(ap);
             if (old != null) { old.Clear(); EditorUtility.CopySerialized(lite, old); lite = old; } else AssetDatabase.CreateAsset(lite, ap);
+            // 2026-11-23 てじゃ「容量って落とせる場所ある？」→ 遠くから見る軽い版はメッシュ圧縮（ビルドの大きさが減る。位置の精度は少し落ちるが遠目なので見えない）
+            MeshUtility.SetMeshCompression(lite, LiteMeshCompression);
             var go = holder.transform.Find(cn + "_Lite")?.gameObject;
             if (go == null) { go = new GameObject(cn + "_Lite"); go.transform.SetParent(holder.transform, false); go.AddComponent<MeshFilter>(); go.AddComponent<MeshRenderer>(); }
             go.GetComponent<MeshFilter>().sharedMesh = lite; var r = go.GetComponent<MeshRenderer>(); r.sharedMaterial = mat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
