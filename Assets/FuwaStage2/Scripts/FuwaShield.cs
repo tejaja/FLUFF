@@ -27,6 +27,7 @@ public class FuwaShield : UdonSharpBehaviour
     {
         _mpb = new MaterialPropertyBlock();
         if (rend != null) rend.enabled = false;
+        _baseLocalPos = transform.localPosition;
     }
 
     public void Activate()
@@ -83,6 +84,11 @@ public class FuwaShield : UdonSharpBehaviour
         _prevBall = br;
         _rot = Quaternion.Slerp(Quaternion.identity, d, spinFollow) * _rot;
         transform.rotation = _rot;
+        // 割れている間は割れた所にとどまる（子なのでふわふわについていかないよう毎フレーム置き直す）。終わったら元の位置へ
+        float shT = Time.time - _shatterAt;
+        bool pin = !_on && _t > 0f && shT >= 0f && shT < shatterTime;
+        if (pin) { transform.position = _shatterPos; _pinned = true; }
+        else if (_pinned) { transform.localPosition = _baseLocalPos; _pinned = false; }
     }
 
     // 2026-11-15 てじゃ「バリアは地面に接触でパリンと割れる（ふわふわが接触して無くても）」
@@ -142,6 +148,7 @@ public class FuwaShield : UdonSharpBehaviour
         // 2026-11-23 てじゃ「バリアが割れちゃったときにもっと割れ演出ほしい」「奥のゲートで消えるときはいい感じ」
         //  → すぐ消すのをやめて、一瞬ふくらんで赤白く光る → 六角のマスがパラパラはじけながら外へ広がって消える（shatterTime 秒）。守るのはその瞬間に終わり（IsOn は false）
         _on = false; _t = 1f; _shatterAt = Time.time;
+        _shatterPos = transform.position;   // 2026-11-23 てじゃ「弾ける時に移動きえてその場で弾ける感じ」→ 割れた所に止めてはじける
         if (shatter != null) { shatter.transform.position = transform.position; shatter.Emit(shatterCount); }
         if (shatterSound != null) shatterSound.Play();
     }
@@ -216,6 +223,8 @@ public class FuwaShield : UdonSharpBehaviour
     [Tooltip("はじけて消えるまでの秒数・広がる量（0.6＝1.6倍まで）")]
     public float shatterTime = 0.45f, shatterGrow = 0.6f;
     private float _shatterAt = -10f;
+    private Vector3 _shatterPos, _baseLocalPos;
+    private bool _pinned;
     // 衝撃波を受けてからの秒数（ヴェールを光らせる用、FuwaShockwave）
     public float SinceBlock() { return Time.time - _blockAt; }
 }
