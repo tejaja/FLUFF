@@ -35,6 +35,7 @@ Shader "Fuwa/SafeVeil"
                 UNITY_DEFINE_INSTANCED_PROP(float, _Near)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Cen)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _Corr)
+                UNITY_DEFINE_INSTANCED_PROP(float, _Boost)
             UNITY_INSTANCING_BUFFER_END(Props)
             struct appdata { float4 vertex : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct v2f { float4 pos : SV_POSITION; float3 wp : TEXCOORD0; float2 uv : TEXCOORD1; float sl : TEXCOORD2; UNITY_FOG_COORDS(3) UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
@@ -108,7 +109,10 @@ Shader "Fuwa/SafeVeil"
                 float vfade = pow(saturate(1 - h), 1.6) * smoothstep(0.0, 0.06, h + 0.02);   // 2026-11-16 てじゃ「セーフティゾーンのフチ、上の方に黒い線」→ 上のふちで 1-h が少しマイナスになり pow が NaN（黒い点線）。saturate で 0〜1 に
                 float t = _Time.y;
                 float shimmer = 0.75 + 0.25 * sin(i.sl * 2.3 - t * 1.4 + h * 3.0) * sin(i.sl * 0.9 + t * 0.8);
-                float a = _Alpha * vfade * shimmer * zone * on;
+                // 2026-11-23 衝撃波をバリアが受けた瞬間に濃く・高く光る（_Boost 0〜1、FuwaShockwave）
+                float boost = UNITY_ACCESS_INSTANCED_PROP(Props, _Boost);
+                float vf2 = lerp(vfade, pow(saturate(1 - h), 0.8) * smoothstep(0.0, 0.06, h + 0.02), boost);
+                float a = saturate(_Alpha * vf2 * lerp(shimmer, 1, boost) * zone * max(on, boost) * (1 + 2.8 * boost));
                 if (a < 0.002) discard;
                 half4 o = half4(_Color.rgb * a, a);
                 UNITY_APPLY_FOG_COLOR(i.fogCoord, o, half4(0, 0, 0, 0));

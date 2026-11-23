@@ -46,13 +46,14 @@ public class FuwaShield : UdonSharpBehaviour
     // 出きっている（守れる）か
     public bool IsOn() { return _on && _t > 0.5f; }
     // 球の半径（ワールド。Unity の球は直径 1）
-    public float Radius() { return transform.lossyScale.x * 0.5f; }
+    //  2026-11-23 見た目のぽよん（出る時・衝撃波を受けた時）で守る範囲が変わらないように、親（ふわふわ）の大きさ×baseScale で決める
+    public float Radius() { Transform p = transform.parent; return p != null ? p.lossyScale.x * baseScale * 0.5f : transform.lossyScale.x * 0.5f; }
 
     // dirFromSource：出どころ → ふわふわ の向き（当たるのは出どころの側）
     public void Hit(Vector3 dirFromSource)
     {
         if (dirFromSource.sqrMagnitude > 1e-6f) _hitDir = -dirFromSource.normalized;
-        _hitAt = Time.time;
+        _hitAt = Time.time; _blockAt = Time.time;
         if (blockSound != null) blockSound.Play();
         // 2026-11-15 てじゃ「衝撃波を3回うけても1段階削れてもいいかも」：衝撃波 shockHitsPerStage 回で1段階（床で跳ねた時と同じ 水色→黄→赤→パリン）
         //  途中の回数でも色が少しずつ変わる（あと何回か分かるように）
@@ -163,6 +164,14 @@ public class FuwaShield : UdonSharpBehaviour
         if (!vis) return;
         // 出る時はちょっと大きめからぽよんと（消える時はそのまま）
         float s = _on ? 1f + 0.18f * (1f - _t) * (1f - _t) : 1f;
+        // 2026-11-23 てじゃ「衝撃波がバリアにあたったときの表現、もっと目立たせたい」「バリアも一瞬大きく膨らむ」→ ボヨンとふくらんでゆれながら戻る＋一瞬強く光る
+        float bt = Time.time - _blockAt, be = 0f;
+        if (bt >= 0f && bt < blockPopTime * 6f)
+        {
+            float a = blockPopTime * 0.25f;
+            s *= 1f + blockPop * (bt < a ? Mathf.SmoothStep(0f, 1f, bt / a) : Mathf.Exp(-(bt - a) / blockPopTime) * Mathf.Cos((bt - a) * 3.14159f / (blockPopTime * 1.1f)));
+            be = bt < 0.05f ? bt / 0.05f : Mathf.Exp(-(bt - 0.05f) / blockGlowTime);
+        }
         transform.localScale = Vector3.one * (baseScale * s);
         float ht = Mathf.Clamp01((Time.time - _hitAt) / Mathf.Max(0.01f, hitTime));
         rend.GetPropertyBlock(_mpb);
@@ -170,13 +179,23 @@ public class FuwaShield : UdonSharpBehaviour
         _mpb.SetVector("_HitDir", new Vector4(_hitDir.x, _hitDir.y, _hitDir.z, 0f));
         _mpb.SetFloat("_HitT", ht);
         Color rc = _colNow <= 1f ? Color.Lerp(colorCalm, colorWarn, _colNow) : Color.Lerp(colorWarn, colorDanger, _colNow - 1f);
+        Color fc = rc * 0.75f; fc.a = 0.08f + 0.04f * _colNow + blockFill * be;
+        rc = Color.Lerp(rc, Color.white, 0.15f * be) * (1f + blockGlow * be); rc.a = 1f;
         _mpb.SetColor("_Color", rc);
-        Color fc = rc * 0.75f; fc.a = 0.08f + 0.04f * _colNow;
         _mpb.SetColor("_Fill", fc);
         rend.SetPropertyBlock(_mpb);
     }
 
     [Tooltip("ふわふわの中での大きさ（ふわふわのスケール 1 あたり。ふわふわの球の直径が 1）")]
     public float baseScale = 3f;
+    [Header("衝撃波を受けた時（2026-11-23）")]
+    [Tooltip("ふくらむ量（0.3＝1.3倍）")]
+    public float blockPop = 0.3f;
+    public float blockPopTime = 0.28f;
+    [Tooltip("光る強さ・中の濃さ・光が消える秒数")]
+    public float blockGlow = 0.5f, blockFill = 0.1f, blockGlowTime = 0.45f;   // 1.5・0.22 だと真っ白にとんだ
+    private float _blockAt = -10f;
+    // 衝撃波を受けてからの秒数（ヴェールを光らせる用、FuwaShockwave）
+    public float SinceBlock() { return Time.time - _blockAt; }
 }
 

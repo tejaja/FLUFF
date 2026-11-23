@@ -68,6 +68,8 @@ public class FuwaShockwave : UdonSharpBehaviour
     public Renderer floorZone;
     [Tooltip("2026-11-15 てじゃ「セーフティーゾーンの周りにうっすら白いヴェールほしい」：影のふちに立つ幕（Fuwa/SafeVeil）。床と同じ時に出る")]
     public Renderer safeVeil;
+    [Tooltip("バリアが衝撃波を受けた時にヴェールが光って戻るまでの秒数（2026-11-23）")]
+    public float veilBoostTime = 0.7f;
     [Tooltip("2026-11-15 てじゃ「チャージで空もちょっと暗くするとか」→ 空だけ暗くする大きい球（Fuwa/SkyDim）")]
     public Renderer skyDim;
     public float skyDimMax = 0.45f;
@@ -520,6 +522,9 @@ public class FuwaShockwave : UdonSharpBehaviour
                 Vector2 cd = new Vector2(corridorDir.x, corridorDir.z); float cl = cd.magnitude; if (cl > 1e-4f) cd /= cl;
                 _mpb.SetVector("_Corr", new Vector4(cd.x, cd.y, corridorHalfW, cl > 1e-4f ? corridorLen : 0f));
                 _mpb.SetVector("_Exit", ExitVec());
+                // 2026-11-23 てじゃ「白ヴェールも強調」：バリアが衝撃波を受けた瞬間にパッと濃く、ゆっくり戻る
+                float sb = shield != null ? shield.SinceBlock() : 99f;
+                _mpb.SetFloat("_Boost", sb < 0f ? 0f : (sb < 0.06f ? sb / 0.06f : Mathf.Exp(-(sb - 0.06f) / veilBoostTime)));
                 safeVeil.SetPropertyBlock(_mpb);
             }
         }
