@@ -2269,6 +2269,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         var tmpl = Object.FindObjectsOfType<FuwaBlower>(true).First(b => b.transform.parent == null && b.name == "FuwaBlower");
         CenterLane(bay, isl, away, tmpl, ball, floorTop);
         var lane = bay.Find("Lane"); bay.Find("DirStripes")?.SetSiblingIndex(lane.GetSiblingIndex() + 1);
+        WireDemoShowNear();   // 見本のふわふわの尾・止まっている間に消す物（2026-11-24 てじゃ「見本のふわふわにもトレイル、出てるのと出てないのある」）
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bay.gameObject.scene);
         // 着地点（本物と同じ計算）
         var nz = lane.Find("DemoGun/Nozzle"); var bs = lane.Find("BallStart");
