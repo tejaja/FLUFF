@@ -51,26 +51,26 @@ public static class FuwaPracticeTutorial
     static readonly Bay[] Bays =
     {
         new Bay(7.5f, "TapCharge",
-            "<size=130%><color=#FF6B5C>長押しで溜めよう</color></size>\n溜めるほど遠くへ飛ぶ\n近くで撃つほど強い",   // 2026-11-24 てじゃ「もっとシンプルに」
-            "<size=130%><color=#FF6B5C>Hold to charge</color></size>\nThe longer you charge, the farther it flies\nCloser shots are stronger"),
+            "<size=130%><color=#FF6B5C>ショットとチャージ</color></size>\nショットは長押しで変わる\n長く溜めるほど強く飛ぶ\n近くで撃つともっと強い",   // 2026-11-24 てじゃ
+            "<size=130%><color=#FF6B5C>Shot & Charge</color></size>\nHolding changes your shot\nThe longer you charge, the stronger it flies\nCloser shots are even stronger"),
         new Bay(15.0f, "Down",
             "<size=130%><color=#FF6B5C>下に撃っても上がる</color></size>\nショットはいつも上に持ち上げる\n低いふわふわは上から撃とう",   // 2026-11-24 てじゃ「もっとシンプルに」
             "<size=130%><color=#FF6B5C>Shooting down still lifts it</color></size>\nYour shot always lifts the fluff\nShoot a low fluff from above"),
         new Bay(0f, "Steep",
-            "<size=130%><color=#FF6B5C>まっすぐ前に撃とう</color></size>\n上を向くほど前に飛ばない",   // 2026-11-24 てじゃ「もっとシンプルに」
-            "<size=130%><color=#FF6B5C>Shoot straight ahead</color></size>\nThe higher you aim,\nthe less it moves forward"),
+            "<size=130%><color=#FF6B5C>上を向きすぎに注意</color></size>\n上に撃つと前に飛ばない\n前に行くならまっすぐ撃とう",   // 2026-11-24 てじゃ
+            "<size=130%><color=#FF6B5C>Don't aim too high</color></size>\nShooting upward won't move it forward\nTo go forward, shoot straight"),
         new Bay(22.5f, "Center",
             "<size=130%><color=#FF6B5C>端に当てよう</color></size>\n端に当てると大きく曲がる\n飛ぶ方向をコントロールしよう！",   // 2026-11-24 てじゃ「もーっとシンプルに」
             "<size=130%><color=#FF6B5C>Hit it with the edge</color></size>\nThe edge of your shot makes it curve a lot\nControl where it flies!"),
         new Bay(0f, "Air",
-            "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる",   // 2026-11-24 てじゃ「もっとシンプルに」
-            "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast"),
+            "<size=130%><color=#FF6B5C>空気ぎれ</color></size>\n連打すると空気がなくなる\nチャージで一気に回復\n撃つのを止めればゆっくり回復",   // 2026-11-24 てじゃ
+            "<size=130%><color=#FF6B5C>Running out of air</color></size>\nRapid taps use up your air\nCharging refills it at once\nStop shooting and it refills slowly"),
         new Bay(0f, "Wind",
-            "<size=130%><color=#FF6B5C>風上をねらおう</color></size>\nふわふわは風で流される\n流されるぶん風上に向けて撃とう",   // 2026-11-24 てじゃ「もっとシンプルに」
-            "<size=130%><color=#FF6B5C>Aim upwind</color></size>\nThe wind pushes the fluff\nAim upwind to make up for it"),
+            "<size=130%><color=#FF6B5C>風に注意</color></size>\nふわふわは風に飛ばされる\n溜めて撃った直後は流されにくい",   // 2026-11-24 てじゃ
+            "<size=130%><color=#FF6B5C>Watch the wind</color></size>\nThe wind blows the fluff away\nRight after a charged shot, it drifts less"),
         new Bay(0f, "Monster",
-            "<size=130%><color=#FF6B5C>まものを押し返そう</color></size>\n撃つとひるんで押し返せる\nトゲや下に落とせば倒せる",   // 2026-11-24 てじゃ「もっとシンプルに」
-            "<size=130%><color=#FF6B5C>Push the monster back</color></size>\nShoot it to make it flinch\nKnock it into thorns or off the edge"),
+            "<size=130%><color=#FF6B5C>まもの</color></size>\nふわふわを狙って体当たりしてくる\nショットでふっとばして",   // 2026-11-24 てじゃ
+            "<size=130%><color=#FF6B5C>Monsters</color></size>\nThey ram into your fluff\nBlast them away with your shot"),
         // （「横風」「まもの」は一度外したが、てじゃが歩いてみて「そんなに長くなかった」ので戻した 2026-10-08）
         // 「溜めると吸い寄せる」は 2026-10-08 に仕組みごとなくした（端撃ちのじゃまになるので。chargePull=0）
     };
