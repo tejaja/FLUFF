@@ -135,7 +135,8 @@ public static class FuwaCourse2_5Builder
         Hazard(root, "BallOut", new Vector3(lb.center.x, outY, lb.center.z), outSize, false);
         Hazard(root, "PlayerOut", new Vector3(lb.center.x, outY - 2f, lb.center.z), outSize, true);
 
-        Debug.Log(GateToEdge(root));   // 出口の門を広場のふちへ・橋の重なりを切る・門のうしろに壁（広場と橋ができてから。2026-11-24）
+        Debug.Log(GateToEdge(root));   // 出口の門を広場の外へ（広場と橋ができてから。2026-11-24）
+        Debug.Log(PlazaLanding(root));   // 広場から橋への踊り場（2026-11-24）
         RegisterCheckpoints();
         RegisterVisibility();
         FuwaPortalTest.LinkBlowers();
@@ -6446,7 +6447,7 @@ public static class FuwaCourse2_5Builder
     //  ・門：門の前の面（中心 −0.5）が広場のふち（門の幅の所でいちばん外 10.25m）より少し先になる所（中心から GateEdgeF）へ、門の向きにそって動かす
     //  ・衝撃波の「出口より先は当たらない」の基準（exitPoint）を新しい門へ。当たる範囲（広場の半径＋hitPad）が門に届かなければのばす
     //  橋・手すりはさわらない。何回押しても同じ（門の場所は中心からの距離で決める）
-    public static float GateEdgeF = 10.85f;
+    public static float GateEdgeF = 10.77f;   // 門のうしろの面（+0.5）＝踊り場の先＝橋の床の3枚目（S2）のはじまり 11.27
     [MenuItem("FuwaCourse/ステージ2/2–5 出口の門を広場の外へ")]
     public static void GateToEdgeMenu()
     {
@@ -6471,6 +6472,125 @@ public static class FuwaCourse2_5Builder
             UdonSharpEditorUtility.CopyProxyToUdon(sw); EditorUtility.SetDirty(sw);
             log.Append("・衝撃波の出口を門へ（当たる範囲 " + (sw.radius + sw.hitPad).ToString("F1") + "m・門まで " + (need - 0.1f).ToString("F1") + "m）");
         }
+        return log.ToString();
+    }
+
+    // ===== 出口の門の踊り場（広場から橋への張り出し）=====
+    // 2026-11-24 てじゃ「橋自体を調整してもっとフチにつながる形に」→ 案A「広場から踊り場を張り出す」
+    //  広場の本体の床（半径 9m）のまわりの一段低いふち（〜10.25m）の上を橋が横切っていた → 橋のはば＋少しの踊り場を本体の床から門のうしろの面まで張り出す。
+    //  踊り場の上は本体の床の高さ（中心から LandF0）から橋の床の高さ（門のうしろの面 GateEdgeF+0.5）へゆるい坂。まわり LandRim m は広場のふちと同じ石。
+    //  踊り場の下にかくれる橋の手前（床の帯 S0・S1、手すり・ふた・縁石・手すりの当たり）は片づけて、橋は門のうしろの面からはじまる。
+    //  門の柱の石の持ち送り（Corbel）は踊り場の角を下から支える形になるので残す。何回押しても同じ
+    public static float LandHW = 3.0f, LandF0 = 8.6f, LandRim = 0.3f, LandDepth = 0.9f;
+    [MenuItem("FuwaCourse/ステージ2/2–5 出口の門の踊り場を作り直す")]
+    public static void PlazaLandingMenu()
+    {
+        var r = GameObject.Find(RootName); if (!r) return;
+        Debug.Log(GateToEdge(r.transform)); Debug.Log(PlazaLanding(r.transform));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.scene); AssetDatabase.SaveAssets();
+    }
+    public static string PlazaLanding(Transform croot)
+    {
+        var gate = croot.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "ShieldOffGate");
+        var plaza = croot.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "CrystalPlaza");
+        var run = croot.Find("Islands/Bridge3/Run9");
+        if (!gate || !plaza || !run) return "[2–5] 踊り場：門・広場・橋が見つからない";
+        Vector3 c = plaza.position, f = gate.forward; f.y = 0f; f.Normalize(); var rt = Vector3.Cross(Vector3.up, f);
+        float F(Vector3 w) => Vector3.Dot(w - c, f); float Lat(Vector3 w) => Vector3.Dot(w - c, rt);
+        float lend = GateEdgeF + 0.5f;
+        var log = new System.Text.StringBuilder("[2–5] 踊り場");
+        Physics.SyncTransforms();
+        float FloorY(Vector3 at, Transform under)
+        {
+            float best = float.NegativeInfinity;
+            foreach (var h in Physics.RaycastAll(at + Vector3.up * 6f, Vector3.down, 12f, ~0, QueryTriggerInteraction.Ignore))
+                if (h.collider.transform.IsChildOf(under) && h.collider.name != "ParapetCol" && h.collider.gameObject.name != "Landing") best = Mathf.Max(best, h.point.y);
+            return best;
+        }
+        float y0 = FloorY(c + f * (LandF0 - 0.3f), plaza); if (float.IsNegativeInfinity(y0)) y0 = gate.position.y + 0.12f;
+        // 橋の床の高さ：S2（床の3枚目）の、門のうしろの面の所の上の面
+        var s2 = run.Find("Road38_Slope/S2"); float y1 = float.NegativeInfinity;
+        if (s2)
+        {
+            foreach (var vv in s2.GetComponent<MeshFilter>().sharedMesh.vertices) { var w = s2.TransformPoint(vv); if (F(w) < lend + 0.05f) y1 = Mathf.Max(y1, w.y); }
+        }
+        if (float.IsNegativeInfinity(y1)) y1 = y0;
+        // 1) 橋の手前を片づける
+        int hidden = 0;
+        var rs = run.Find("Road38_Slope");
+        if (rs) foreach (Transform st in rs)
+        {
+            if (!st.name.StartsWith("S")) continue; var mf = st.GetComponent<MeshFilter>(); if (!mf || !mf.sharedMesh) continue;
+            float mx = float.NegativeInfinity; foreach (var vv in mf.sharedMesh.vertices) mx = Mathf.Max(mx, F(st.TransformPoint(vv)));
+            if (mx <= lend + 0.02f && st.gameObject.activeSelf) { Undo.RecordObject(st.gameObject, "hide"); st.gameObject.SetActive(false); hidden++; }
+        }
+        int Clamp(string n)
+        {
+            var t = run.Find(n); var mf = t ? t.GetComponent<MeshFilter>() : null; if (!mf || !mf.sharedMesh) return 0;
+            var m = mf.sharedMesh; var vs = m.vertices; int moved = 0;
+            for (int i = 0; i < vs.Length; i++)
+            {
+                var w = t.TransformPoint(vs[i]); float fw = F(w);
+                if (fw >= lend - 1e-4f || Mathf.Abs(Lat(w)) <= 1.45f) continue;
+                w += f * (lend - fw); vs[i] = t.InverseTransformPoint(w); moved++;
+            }
+            if (moved > 0) { m.vertices = vs; m.RecalculateBounds(); EditorUtility.SetDirty(m); }
+            return moved;
+        }
+        int cl = Clamp("Parapet") + Clamp("ParapetCap") + Clamp("BridgeTrim");
+        int rc = 0;
+        foreach (var bc in run.GetComponentsInChildren<BoxCollider>(true).Where(b => b.name == "ParapetCol").ToArray())
+        {
+            var t = bc.transform; var zA = t.TransformPoint(bc.center - Vector3.forward * bc.size.z * 0.5f); var zB = t.TransformPoint(bc.center + Vector3.forward * bc.size.z * 0.5f);
+            float fa = F(zA), fb = F(zB); float lo = Mathf.Min(fa, fb), hi = Mathf.Max(fa, fb);
+            if (lo >= lend - 0.01f) continue;
+            Undo.RecordObject(bc, "col");
+            if (hi <= lend + 0.05f) { bc.enabled = false; rc++; continue; }
+            float k = (lend - lo) / (hi - lo); float sgn = fb > fa ? 1f : -1f;
+            float newLen = bc.size.z * (1f - k); bc.center += Vector3.forward * sgn * (bc.size.z - newLen) * 0.5f; var sz = bc.size; sz.z = newLen; bc.size = sz; rc++;
+        }
+        log.Append(" 橋の床の帯 " + hidden + " をかくし・手すりなど " + cl + " 点を門のうしろへ・手すりの当たり " + rc);
+        // 2) 踊り場のメッシュ
+        var old = plaza.Find("Landing"); if (old) Object.DestroyImmediate(old.gameObject);
+        var go = new GameObject("Landing"); go.transform.SetParent(plaza, true); go.transform.position = Vector3.zero; go.transform.rotation = Quaternion.identity; go.transform.localScale = Vector3.one;
+        go.layer = 11;
+        Vector3 W(float fw, float lat, float y) { var p = c + f * fw + rt * lat; p.y = y; return go.transform.InverseTransformPoint(p); }
+        float Top(float fw) => Mathf.Lerp(y0, y1, Mathf.Clamp01((fw - LandF0) / Mathf.Max(0.01f, lend - LandF0)));
+        var v = new List<Vector3>(); var tTop = new List<int>(); var tRim = new List<int>();
+        void Q(List<int> tl, Vector3 a, Vector3 b, Vector3 cc, Vector3 d, Vector3 want)
+        {
+            int i = v.Count; v.Add(a); v.Add(b); v.Add(cc); v.Add(d);
+            var n = Vector3.Cross(b - a, cc - a);
+            if (Vector3.Dot(go.transform.TransformDirection(n), want) >= 0f) tl.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 }); else tl.AddRange(new[] { i, i + 2, i + 1, i, i + 3, i + 2 });
+        }
+        int segs = 6; float hwIn = LandHW - LandRim; float yb = y0 - LandDepth;
+        for (int k = 0; k < segs; k++)
+        {
+            float a0 = Mathf.Lerp(LandF0, lend, (float)k / segs), a1 = Mathf.Lerp(LandF0, lend, (float)(k + 1) / segs);
+            float h0 = Top(a0) + 0.003f, h1 = Top(a1) + 0.003f;
+            Q(tTop, W(a0, -hwIn, h0), W(a1, -hwIn, h1), W(a1, hwIn, h1), W(a0, hwIn, h0), Vector3.up);
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                Q(tRim, W(a0, sx * hwIn, h0 + 0.02f), W(a1, sx * hwIn, h1 + 0.02f), W(a1, sx * LandHW, h1 + 0.02f), W(a0, sx * LandHW, h0 + 0.02f), Vector3.up);
+                Q(tRim, W(a0, sx * hwIn, h0 + 0.02f), W(a1, sx * hwIn, h1 + 0.02f), W(a1, sx * hwIn, h1), W(a0, sx * hwIn, h0), -rt * sx);
+                Q(tRim, W(a0, sx * LandHW, h0 + 0.02f), W(a1, sx * LandHW, h1 + 0.02f), W(a1, sx * LandHW, yb), W(a0, sx * LandHW, yb), rt * sx);
+            }
+            Q(tRim, W(a0, -LandHW, yb), W(a1, -LandHW, yb), W(a1, LandHW, yb), W(a0, LandHW, yb), Vector3.down);
+        }
+        foreach (float sx in new[] { -1f, 1f })
+            Q(tRim, W(lend, sx * 1.8f, Top(lend) + 0.02f), W(lend, sx * LandHW, Top(lend) + 0.02f), W(lend, sx * LandHW, yb), W(lend, sx * 1.8f, yb), f);
+        var mesh = new Mesh { name = "Course2_5_PlazaLanding" };
+        mesh.SetVertices(v); mesh.subMeshCount = 2; mesh.SetTriangles(tTop, 0); mesh.SetTriangles(tRim, 1); mesh.RecalculateNormals(); mesh.RecalculateBounds();
+        var path = "Assets/FuwaStage2/Generated/Course2_5_PlazaLanding.asset";
+        var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
+        if (ex) { ex.Clear(false); ex.SetVertices(v); ex.subMeshCount = 2; ex.SetTriangles(tTop, 0); ex.SetTriangles(tRim, 1); ex.RecalculateNormals(); ex.RecalculateBounds(); EditorUtility.SetDirty(ex); mesh = ex; }
+        else AssetDatabase.CreateAsset(mesh, path);
+        go.AddComponent<MeshFilter>().sharedMesh = mesh;
+        var topM = plaza.Find("FloorA") ? plaza.Find("FloorA").GetComponent<Renderer>().sharedMaterial : null;
+        var rimM = plaza.Find("Ledge") ? plaza.Find("Ledge").GetComponent<Renderer>().sharedMaterial : null;
+        go.AddComponent<MeshRenderer>().sharedMaterials = new[] { topM, rimM };
+        var mc = go.AddComponent<MeshCollider>(); mc.sharedMesh = mesh;
+        log.Append("・踊り場 はば " + (2 * LandHW).ToString("F1") + "m・" + LandF0.ToString("F1") + "〜" + lend.ToString("F2") + "m・高さ " + (y0 - gate.position.y).ToString("F2") + "→" + (y1 - gate.position.y).ToString("F2"));
         return log.ToString();
     }
 
