@@ -6504,7 +6504,7 @@ public static class FuwaCourse2_5Builder
     //  踊り場の下にかくれる橋の手前（床の帯 S0・S1、手すり・ふた・縁石・手すりの当たり）は片づけて、橋は門のうしろの面からはじまる。
     //  門の柱の石の持ち送り（Corbel）は踊り場の角を下から支える形になるので残す。何回押しても同じ
     public static float LandHW = 3.0f, LandF0 = 8.6f, LandRim = 0.3f, LandDepth = 0.55f, LandR0 = 8.97f;   // LandR0：広場の本体の床の円（9m）の 3cm 内がわから
-    public static int LandCourses = 4; public static float LandCourseH = 0.32f, LandCourseIn = 0.2f, LandCourseStep = 0.35f;   // 下の持ち送りの段：高さ・横の引っこみ・先の引っこみ
+    public static float LandUnderD = 1.6f, LandUnderW = 0.45f, LandUnderBack = 1.3f;   // 下のくさび：深さ・下の面のはば（割合）・先の引っこみ
     [MenuItem("FuwaCourse/ステージ2/2–5 出口の門の踊り場を作り直す")]
     public static void PlazaLandingMenu()
     {
@@ -6573,6 +6573,9 @@ public static class FuwaCourse2_5Builder
             float newLen = bc.size.z * (1f - k); bc.center += Vector3.forward * sgn * (bc.size.z - newLen) * 0.5f; var sz = bc.size; sz.z = newLen; bc.size = sz; rc++;
         }
         log.Append(" 橋の床の帯 " + hidden + " をかくし・手すりなど " + cl + " 点を門のうしろへ・手すりの当たり " + rc);
+        // 門の柱の持ち送り（Corbel）は踊り場が柱を支えるのでかくす（2026-11-24 てじゃ「ぶつ切り感」）
+        int hc = 0; foreach (var cb in gate.GetComponentsInChildren<Transform>(true).Where(x => x.name == "Corbel").ToArray()) if (cb.gameObject.activeSelf) { Undo.RecordObject(cb.gameObject, "hide"); cb.gameObject.SetActive(false); hc++; }
+        log.Append("・柱の持ち送り " + hc + " をかくす");
         // 2) 踊り場のメッシュ
         var old = plaza.Find("Landing"); if (old) Object.DestroyImmediate(old.gameObject);
         var go = new GameObject("Landing"); go.transform.SetParent(plaza, true); go.transform.position = Vector3.zero; go.transform.rotation = Quaternion.identity; go.transform.localScale = Vector3.one;
@@ -6609,14 +6612,14 @@ public static class FuwaCourse2_5Builder
                 Q(tRim, W(At(lo, t0), lo, H(t0) + 0.02f), W(At(lo, t1), lo, H(t1) + 0.02f), W(At(lo, t1), lo, yb), W(At(lo, t0), lo, yb), rt * sx);       // 外の面
             }
         }
-        // 下の持ち送り（2026-11-24 てじゃ「裏側がぶつ切り感あるのどうにかしたい」）：下へいくほど短く・細い石の段 LandCourses 段。
-        //  広場がわは広場の下のお椀（石組み）の中まで入れてつなぐ。いちばん上の段の下の面が踊り場の底（yb）
-        for (int ci = 1; ci <= LandCourses; ci++)
+        // 下の持ち送り（2026-11-24 てじゃ「裏側がぶつ切り感あるのどうにかしたい」→ 門の柱の下の縦長の石＋踊り場の平らな横の面が箱のままスパッと切れていた）
+        //  → 踊り場の下を、下へいくほど細く・広場がわへ引っこむ斜めの石のくさびに（門の柱の持ち送りと同じ急な斜め）。奥は広場の下のお椀の中まで入れてつなぐ
+        //  門の柱の持ち送り（Corbel）は踊り場が柱を支えるようになったので かくす（下の 3) ）
         {
-            float yT = yb - (ci - 1) * LandCourseH, yB = yT - LandCourseH, hw = LandHW - ci * LandCourseIn, f0 = LandR0 - 2.5f, f1 = lend - ci * LandCourseStep;
-            Q(tRim, W(f0, -hw, yB), W(f1, -hw, yB), W(f1, hw, yB), W(f0, hw, yB), Vector3.down);
-            foreach (float sx in new[] { -1f, 1f }) Q(tRim, W(f0, sx * hw, yT), W(f1, sx * hw, yT), W(f1, sx * hw, yB), W(f0, sx * hw, yB), rt * sx);
-            Q(tRim, W(f1, -hw, yT), W(f1, hw, yT), W(f1, hw, yB), W(f1, -hw, yB), f);
+            float yB = yb - LandUnderD, hwT = LandHW, hwB = LandHW * LandUnderW, f0 = LandR0 - 2.5f, fT = lend, fB = lend - LandUnderBack;
+            Q(tRim, W(f0, -hwB, yB), W(fB, -hwB, yB), W(fB, hwB, yB), W(f0, hwB, yB), Vector3.down);
+            foreach (float sx in new[] { -1f, 1f }) Q(tRim, W(f0, sx * hwT, yb), W(fT, sx * hwT, yb), W(fB, sx * hwB, yB), W(f0, sx * hwB, yB), rt * sx + Vector3.down * 0.3f);
+            Q(tRim, W(fT, -hwT, yb), W(fT, hwT, yb), W(fB, hwB, yB), W(fB, -hwB, yB), f + Vector3.down * 0.3f);
         }
         foreach (float sx in new[] { -1f, 1f })
             Q(tRim, W(lend, sx * 1.8f, H(1f) + 0.02f), W(lend, sx * LandHW, H(1f) + 0.02f), W(lend, sx * LandHW, yb), W(lend, sx * 1.8f, yb), f);
