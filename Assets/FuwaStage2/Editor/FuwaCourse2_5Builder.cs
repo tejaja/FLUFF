@@ -5451,21 +5451,80 @@ public static class FuwaCourse2_5Builder
         return m;
     }
     // 輪（上向きの面）：r0〜r1、a0〜a1（ラジアン）、高さ y。uv.y は外のふち 0 → 内のふち 1。side＝外のふちの側面を下へ（高さ）
-    static void AnnulusInto(List<Vector3> v, List<int> t, List<Vector2> uv, float r0, float r1, float a0, float a1, float y, float side, int seg)
+    // 広場の外のふち（一段低い石の輪）のメッシュ。2026-11-24 てじゃ「広場外側のフチも、面取りしよか、軽くでいい」→ 外の上のかどを PlazaLedgeBevel m 面取り
+    public static float PlazaLedgeBevel = 0.06f;
+    static Mesh PlazaLedgeMesh(string name, float R)
+    {
+        // 2026-11-15 てじゃ「継ぎ目われてる」→ ふちの切れ目は角度（放射状）で切っていて、外ほど道との間がひらいていた（くさび形のすき間）
+        //  → 切れ目を道（入口）・橋（出口）のはばでまっすぐに切る＋切り口にふた
+        float ly = -0.25f, hwE = HW + 0.02f, hwX = PlazaBridgeDirect ? BridgeHW + 0.05f : HW + 0.02f;   // 橋の横の壁（xo＝BridgeHW+0.05）にぴったり
+        float gapE = Mathf.Asin(Mathf.Min(0.95f, hwE / R)), gapX = Mathf.Asin(Mathf.Min(0.95f, hwX / R));
+        var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
+        // 入口は -z（角度 270°）、出口は +z（90°）
+        float e = Mathf.PI * 1.5f, x = Mathf.PI * 0.5f;
+        // 2026-11-15 てじゃ「手前側のつなぎ、まわりの茶色部分の裏がみえてる」→ 入口は切らずに道の下を通す（ふちの上の面は道の上の面より 13cm 下＝道の板の中にかくれる）
+        if (PlazaLedgeUnderEntry) AnnulusInto(v, t, uv, R, R + PlazaLedge, x + gapX, x + Mathf.PI * 2f - gapX, ly, 0.5f, 80, PlazaLedgeBevel);
+        else
+        {
+            AnnulusInto(v, t, uv, R, R + PlazaLedge, x + gapX, e - gapE, ly, 0.5f, 40, PlazaLedgeBevel);
+            AnnulusInto(v, t, uv, R, R + PlazaLedge, e + gapE, x + Mathf.PI * 2f - gapX, ly, 0.5f, 40, PlazaLedgeBevel);
+        }
+        // 切れ目の近くの点を、道のはしの線（x = ±hw）の上へ（外の円の上のまま）
+        for (int k = 0; k < v.Count; k++)
+        {
+            var c = v[k]; if (PlazaLedgeUnderEntry && c.z < 0f) continue; float hw = c.z < 0f ? hwE : hwX;
+            if (Mathf.Abs(c.x) < hw)
+            {
+                float rr = new Vector2(c.x, c.z).magnitude; float sx = Mathf.Sign(c.x == 0f ? 1f : c.x);
+                c.x = sx * hw; c.z = Mathf.Sign(c.z) * Mathf.Sqrt(Mathf.Max(0f, rr * rr - hw * hw)); v[k] = c;
+            }
+        }
+        FixWinding(v, t, c => new Vector2(c.x, c.z).magnitude < R + PlazaLedge - 0.001f ? Vector3.up : new Vector3(c.x, 0f, c.z));
+        // 切り口のふた（4つ：入口の左右・出口の左右）。内（R）〜外（R+PlazaLedge）、上 ly 〜 下 ly-0.5
+        foreach (var (hw, sz) in new[] { (hwE, -1f), (hwX, 1f) })
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                if (PlazaLedgeUnderEntry && sz < 0f) continue;
+                float zi = sz * Mathf.Sqrt(Mathf.Max(0f, R * R - hw * hw)), zo = sz * Mathf.Sqrt(Mathf.Max(0f, (R + PlazaLedge) * (R + PlazaLedge) - hw * hw));
+                var a0 = new Vector3(sx * hw, ly, zi); var a1 = new Vector3(sx * hw, ly, zo); var b1 = new Vector3(sx * hw, ly - 0.5f, zo); var b0 = new Vector3(sx * hw, ly - 0.5f, zi);
+                int k0 = v.Count; v.Add(a0); v.Add(a1); v.Add(b1); v.Add(b0); for (int q = 0; q < 4; q++) uv.Add(Vector2.zero);
+                var want = new Vector3(-sx, 0f, 0f);   // 道の方へ向く
+                if (Vector3.Dot(Vector3.Cross(a1 - a0, b1 - a0), want) < 0f) { t.Add(k0); t.Add(k0 + 2); t.Add(k0 + 1); t.Add(k0); t.Add(k0 + 3); t.Add(k0 + 2); }
+                else { t.Add(k0); t.Add(k0 + 1); t.Add(k0 + 2); t.Add(k0); t.Add(k0 + 2); t.Add(k0 + 3); }
+            }
+        return SaveMeshUV(name + "_Ledge", v, t, uv, null);
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–5 広場の外のふちを作り直す（面取り）")]
+    public static void PlazaLedgeMenu()
+    {
+        var r = GameObject.Find(RootName); if (!r) return;
+        var pl = r.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "CrystalPlaza"); var lo = pl ? pl.Find("Ledge") : null; if (!lo) return;
+        var m = PlazaLedgeMesh(pl.name, PlazaR); lo.GetComponent<MeshFilter>().sharedMesh = m; var mc = lo.GetComponent<MeshCollider>(); if (mc) { mc.sharedMesh = null; mc.sharedMesh = m; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.scene); AssetDatabase.SaveAssets(); Debug.Log("[2–5] 広場の外のふち 面取り " + PlazaLedgeBevel);
+    }
+    static void AnnulusInto(List<Vector3> v, List<int> t, List<Vector2> uv, float r0, float r1, float a0, float a1, float y, float side, int seg, float bevel = 0f)
     {
         for (int i = 0; i < seg; i++)
         {
             float aa = Mathf.Lerp(a0, a1, (float)i / seg), ab = Mathf.Lerp(a0, a1, (float)(i + 1) / seg);
             Vector3 da = new Vector3(Mathf.Cos(aa), 0f, Mathf.Sin(aa)), db = new Vector3(Mathf.Cos(ab), 0f, Mathf.Sin(ab));
             int k = v.Count;
-            v.Add(da * r0 + Vector3.up * y); v.Add(da * r1 + Vector3.up * y); v.Add(db * r1 + Vector3.up * y); v.Add(db * r0 + Vector3.up * y);
+            float rt1 = r1 - bevel;   // 面取りがあれば上の面は外のふちの手前まで
+            v.Add(da * r0 + Vector3.up * y); v.Add(da * rt1 + Vector3.up * y); v.Add(db * rt1 + Vector3.up * y); v.Add(db * r0 + Vector3.up * y);
             uv.Add(new Vector2(0, 1)); uv.Add(new Vector2(0, 0)); uv.Add(new Vector2(1, 0)); uv.Add(new Vector2(1, 1));
             // 上向き（反時計回りの角度で a が増える → 外→次の外の順で上向き）
             t.Add(k); t.Add(k + 2); t.Add(k + 1); t.Add(k); t.Add(k + 3); t.Add(k + 2);
+            if (bevel > 0f)
+            {
+                int bq = v.Count;
+                v.Add(da * rt1 + Vector3.up * y); v.Add(db * rt1 + Vector3.up * y); v.Add(db * r1 + Vector3.up * (y - bevel)); v.Add(da * r1 + Vector3.up * (y - bevel));
+                uv.Add(Vector2.zero); uv.Add(Vector2.zero); uv.Add(Vector2.zero); uv.Add(Vector2.zero);
+                t.Add(bq); t.Add(bq + 1); t.Add(bq + 2); t.Add(bq); t.Add(bq + 2); t.Add(bq + 3);
+            }
             if (side > 0f)
             {
-                int s = v.Count;
-                v.Add(da * r1 + Vector3.up * y); v.Add(db * r1 + Vector3.up * y); v.Add(db * r1 + Vector3.up * (y - side)); v.Add(da * r1 + Vector3.up * (y - side));
+                int s = v.Count; float yt = y - bevel;
+                v.Add(da * r1 + Vector3.up * yt); v.Add(db * r1 + Vector3.up * yt); v.Add(db * r1 + Vector3.up * (y - side)); v.Add(da * r1 + Vector3.up * (y - side));
                 uv.Add(Vector2.zero); uv.Add(Vector2.zero); uv.Add(Vector2.zero); uv.Add(Vector2.zero);
                 t.Add(s); t.Add(s + 1); t.Add(s + 2); t.Add(s); t.Add(s + 2); t.Add(s + 3);
             }
@@ -5809,44 +5868,7 @@ public static class FuwaCourse2_5Builder
         }
         // ---- 外のふち（一段低い石の輪、入口・出口はあける）----
         {
-            // 2026-11-15 てじゃ「継ぎ目われてる」→ ふちの切れ目は角度（放射状）で切っていて、外ほど道との間がひらいていた（くさび形のすき間）
-            //  → 切れ目を道（入口）・橋（出口）のはばでまっすぐに切る＋切り口にふた
-            float ly = -0.25f, hwE = HW + 0.02f, hwX = PlazaBridgeDirect ? BridgeHW + 0.05f : HW + 0.02f;   // 橋の横の壁（xo＝BridgeHW+0.05）にぴったり
-            float gapE = Mathf.Asin(Mathf.Min(0.95f, hwE / R)), gapX = Mathf.Asin(Mathf.Min(0.95f, hwX / R));
-            var v = new List<Vector3>(); var t = new List<int>(); var uv = new List<Vector2>();
-            // 入口は -z（角度 270°）、出口は +z（90°）
-            float e = Mathf.PI * 1.5f, x = Mathf.PI * 0.5f;
-            // 2026-11-15 てじゃ「手前側のつなぎ、まわりの茶色部分の裏がみえてる」→ 入口は切らずに道の下を通す（ふちの上の面は道の上の面より 13cm 下＝道の板の中にかくれる）
-            if (PlazaLedgeUnderEntry) AnnulusInto(v, t, uv, R, R + PlazaLedge, x + gapX, x + Mathf.PI * 2f - gapX, ly, 0.5f, 80);
-            else
-            {
-                AnnulusInto(v, t, uv, R, R + PlazaLedge, x + gapX, e - gapE, ly, 0.5f, 40);
-                AnnulusInto(v, t, uv, R, R + PlazaLedge, e + gapE, x + Mathf.PI * 2f - gapX, ly, 0.5f, 40);
-            }
-            // 切れ目の近くの点を、道のはしの線（x = ±hw）の上へ（外の円の上のまま）
-            for (int k = 0; k < v.Count; k++)
-            {
-                var c = v[k]; if (PlazaLedgeUnderEntry && c.z < 0f) continue; float hw = c.z < 0f ? hwE : hwX;
-                if (Mathf.Abs(c.x) < hw)
-                {
-                    float rr = new Vector2(c.x, c.z).magnitude; float sx = Mathf.Sign(c.x == 0f ? 1f : c.x);
-                    c.x = sx * hw; c.z = Mathf.Sign(c.z) * Mathf.Sqrt(Mathf.Max(0f, rr * rr - hw * hw)); v[k] = c;
-                }
-            }
-            FixWinding(v, t, c => new Vector2(c.x, c.z).magnitude < R + PlazaLedge - 0.001f ? Vector3.up : new Vector3(c.x, 0f, c.z));
-            // 切り口のふた（4つ：入口の左右・出口の左右）。内（R）〜外（R+PlazaLedge）、上 ly 〜 下 ly-0.5
-            foreach (var (hw, sz) in new[] { (hwE, -1f), (hwX, 1f) })
-                foreach (float sx in new[] { -1f, 1f })
-                {
-                    if (PlazaLedgeUnderEntry && sz < 0f) continue;
-                    float zi = sz * Mathf.Sqrt(Mathf.Max(0f, R * R - hw * hw)), zo = sz * Mathf.Sqrt(Mathf.Max(0f, (R + PlazaLedge) * (R + PlazaLedge) - hw * hw));
-                    var a0 = new Vector3(sx * hw, ly, zi); var a1 = new Vector3(sx * hw, ly, zo); var b1 = new Vector3(sx * hw, ly - 0.5f, zo); var b0 = new Vector3(sx * hw, ly - 0.5f, zi);
-                    int k0 = v.Count; v.Add(a0); v.Add(a1); v.Add(b1); v.Add(b0); for (int q = 0; q < 4; q++) uv.Add(Vector2.zero);
-                    var want = new Vector3(-sx, 0f, 0f);   // 道の方へ向く
-                    if (Vector3.Dot(Vector3.Cross(a1 - a0, b1 - a0), want) < 0f) { t.Add(k0); t.Add(k0 + 2); t.Add(k0 + 1); t.Add(k0); t.Add(k0 + 3); t.Add(k0 + 2); }
-                    else { t.Add(k0); t.Add(k0 + 1); t.Add(k0 + 2); t.Add(k0); t.Add(k0 + 2); t.Add(k0 + 3); }
-                }
-            var lm = SaveMeshUV(name + "_Ledge", v, t, uv, null);
+            var lm = PlazaLedgeMesh(name, R);
             var lo = MeshObj(g, "Ledge", lm, stone, Vector3.zero, pathLayer, true);
             lo.AddComponent<MeshCollider>().sharedMesh = lm;
         }
@@ -6481,7 +6503,8 @@ public static class FuwaCourse2_5Builder
     //  踊り場の上は本体の床の高さ（中心から LandF0）から橋の床の高さ（門のうしろの面 GateEdgeF+0.5）へゆるい坂。まわり LandRim m は広場のふちと同じ石。
     //  踊り場の下にかくれる橋の手前（床の帯 S0・S1、手すり・ふた・縁石・手すりの当たり）は片づけて、橋は門のうしろの面からはじまる。
     //  門の柱の石の持ち送り（Corbel）は踊り場の角を下から支える形になるので残す。何回押しても同じ
-    public static float LandHW = 3.0f, LandF0 = 8.6f, LandRim = 0.3f, LandDepth = 0.9f, LandR0 = 8.97f;   // LandR0：広場の本体の床の円（9m）の 3cm 内がわから
+    public static float LandHW = 3.0f, LandF0 = 8.6f, LandRim = 0.3f, LandDepth = 0.55f, LandR0 = 8.97f;   // LandR0：広場の本体の床の円（9m）の 3cm 内がわから
+    public static int LandCourses = 4; public static float LandCourseH = 0.32f, LandCourseIn = 0.2f, LandCourseStep = 0.35f;   // 下の持ち送りの段：高さ・横の引っこみ・先の引っこみ
     [MenuItem("FuwaCourse/ステージ2/2–5 出口の門の踊り場を作り直す")]
     public static void PlazaLandingMenu()
     {
@@ -6585,6 +6608,15 @@ public static class FuwaCourse2_5Builder
                 Q(tRim, W(At(li, t0), li, H(t0) + 0.02f), W(At(li, t1), li, H(t1) + 0.02f), W(At(li, t1), li, H(t1)), W(At(li, t0), li, H(t0)), -rt * sx);   // ふちの石の内がわの段
                 Q(tRim, W(At(lo, t0), lo, H(t0) + 0.02f), W(At(lo, t1), lo, H(t1) + 0.02f), W(At(lo, t1), lo, yb), W(At(lo, t0), lo, yb), rt * sx);       // 外の面
             }
+        }
+        // 下の持ち送り（2026-11-24 てじゃ「裏側がぶつ切り感あるのどうにかしたい」）：下へいくほど短く・細い石の段 LandCourses 段。
+        //  広場がわは広場の下のお椀（石組み）の中まで入れてつなぐ。いちばん上の段の下の面が踊り場の底（yb）
+        for (int ci = 1; ci <= LandCourses; ci++)
+        {
+            float yT = yb - (ci - 1) * LandCourseH, yB = yT - LandCourseH, hw = LandHW - ci * LandCourseIn, f0 = LandR0 - 2.5f, f1 = lend - ci * LandCourseStep;
+            Q(tRim, W(f0, -hw, yB), W(f1, -hw, yB), W(f1, hw, yB), W(f0, hw, yB), Vector3.down);
+            foreach (float sx in new[] { -1f, 1f }) Q(tRim, W(f0, sx * hw, yT), W(f1, sx * hw, yT), W(f1, sx * hw, yB), W(f0, sx * hw, yB), rt * sx);
+            Q(tRim, W(f1, -hw, yT), W(f1, hw, yT), W(f1, hw, yB), W(f1, -hw, yB), f);
         }
         foreach (float sx in new[] { -1f, 1f })
             Q(tRim, W(lend, sx * 1.8f, H(1f) + 0.02f), W(lend, sx * LandHW, H(1f) + 0.02f), W(lend, sx * LandHW, yb), W(lend, sx * 1.8f, yb), f);
