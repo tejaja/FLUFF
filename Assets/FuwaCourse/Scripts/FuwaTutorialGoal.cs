@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -13,6 +13,8 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     public FuwaBall ball;
     [Tooltip("この区画のためし撃ちの場所。ふわふわがここを戻り先にしている間だけ、失敗の回数と時間を数える")]
     public Transform trySpot;
+    [Tooltip("まものの区画：このまものが倒れたらクリア（輪のかわり）")]
+    public FuwaEnemy monster;
     [Header("輪")]
     public Renderer[] ringRenderers;
     public Material ringMat, clearMat;
@@ -77,6 +79,7 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
         }
         if (_opened || ball == null) return;
         if (ball.GetRespawnPoint() != trySpot) return;
+        if (!_cleared && monster != null && monster.IsDefeated()) { if (clearFx != null) clearFx.transform.position = monster.transform.position + Vector3.up * 0.4f; Clear(); return; }
         if (_failBase < 0) _failBase = ball.GetPracticeFails();
         _time += Time.deltaTime;
         int fails = ball.GetPracticeFails() - _failBase;

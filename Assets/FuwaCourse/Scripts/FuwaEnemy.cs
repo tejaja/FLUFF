@@ -870,6 +870,7 @@ public class FuwaEnemy : UdonSharpBehaviour
     }
 
     public bool IsActive() { return _state != 5 && _state != 6 && _state != 7 && _state != 12; }
+    public bool IsDefeated() { return _state == 6; }   // トゲで弾けた・落ちた（チュートリアルの課題で見る）
 
     private Vector3 _pupilBaseL, _pupilBaseR;
     private Vector2 _look, _lookGoal;

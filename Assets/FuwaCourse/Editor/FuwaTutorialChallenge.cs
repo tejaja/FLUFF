@@ -20,10 +20,11 @@ public static class FuwaTutorialChallenge
 
     // 道の上の、ある所の「まん中・上の面の高さ・進む向き・右（島の側）」
     public struct Frame { public Vector3 c, f, r; public float top, halfW; }
-    static Frame PathFrame(Transform bay, Transform nextBay)
+    static Frame PathFrame(Transform bay, Transform nextBay) => PathFrameB(bay, nextBay ? nextBay.Find("BayBarrier") : null);
+    static Frame PathFrameB(Transform bay, Transform wb)
     {
         var fr = new Frame();
-        var wa = bay.Find("BayBarrier"); var wb = nextBay ? nextBay.Find("BayBarrier") : null;
+        var wa = bay.Find("BayBarrier");
         var zone = bay.GetComponentsInChildren<Transform>(true).First(t => t.name == "TryZone");
         Vector3 f = (wb ? wb.position : zone.position + zone.forward) - (wa ? wa.position : zone.position - zone.forward); f.y = 0f; f.Normalize();
         Vector3 r = Vector3.Cross(Vector3.up, f).normalized;
@@ -72,14 +73,22 @@ public static class FuwaTutorialChallenge
     }
 
     // 撃ってからの道すじ（SimDemoLanding と同じ計算。風なし）
-    static List<Vector3> SimPath(FuwaBlower b, FuwaBall bt, Vector3 nz, Vector3 aim, Vector3 p, float charge, float floorY, float tMax = 4f)
+    static List<Vector3> SimPath(FuwaBlower b, FuwaBall bt, Vector3 nz, Vector3 aim, Vector3 p, float charge, float floorY, float tMax = 4f) => SimPathW(b, bt, nz, aim, p, charge, floorY, Vector3.zero, tMax);
+    static List<Vector3> SimPathW(FuwaBlower b, FuwaBall bt, Vector3 nz, Vector3 aim, Vector3 p, float charge, float floorY, Vector3 wind, float tMax = 4f)
     {
         var pts = new List<Vector3> { p };
         Vector3 v = b.DemoShotVelocity(nz, aim, charge, p);
         if (v.sqrMagnitude < 0.0001f) return pts;
+        Vector3 dd = v.normalized;
+        float amt = Mathf.Lerp(bt.shotWindDampMin, bt.shotWindDampMax, charge), hold = bt.shotWindDampHoldMax * charge * charge;
+        float tm = Mathf.Lerp(bt.shotWindDampTimeMin, bt.shotWindDampTimeMax, charge);
         float dt = 0.01f;
         for (float t = 0f; t < tMax; t += dt)
         {
+            Vector3 a = wind;
+            float tt = t - hold, left = (tm > 0f && tt < tm) ? 1f - Mathf.Max(0f, tt) / tm : 0f;
+            if (left > 0f) { float k = 1f - amt * left; float al = Vector3.Dot(a, dd); Vector3 keep = al > 0f ? dd * al : Vector3.zero; a = keep + (a - keep) * k; }
+            v += a * dt;
             v += Vector3.down * bt.fallAcceleration * dt; v *= Mathf.Clamp01(1f - bt.airDrag * dt);
             if (v.y < -bt.maxFallSpeed) v.y = -bt.maxFallSpeed;
             if (v.magnitude > bt.maxSpeed) v = v.normalized * bt.maxSpeed;
@@ -161,38 +170,172 @@ public static class FuwaTutorialChallenge
                 if (Through(SimPath(tmpl, ball, e3 + a3 * 0.45f, a3, B, CCharge, fr.top), rc, rn, RingR - RingTube - 0.12f)) naive++;
             }
         string sim = $"お手本の撃ち方のまわりでくぐる {ok}/{all}・ふわふわの真ん中をねらってくぐれる立ち位置 {naive}/{naiveAll}";
-        return Build(bay, next, fr, B, rc, rn,
+        return Build(bay, next.Find("BayBarrier"), fr, B, rc, rn,
             "輪をくぐらせよう", "Send it through the ring",
             "<color=#FF6B5C>コツ</color>：ふわふわじゃなく<color=#FF6B5C>輪</color>の方を向いて撃とう\nふわふわが風の端にいれば、真ん中に寄って輪へ飛ぶ",
             "<color=#FF6B5C>Tip</color>: aim at the <color=#FF6B5C>ring</color>, not the fluff.\nIf the fluff is at the edge of the blast, it slides to the center and flies to the ring",
             ball) + " | " + sim;
     }
 
-    // ===== 共通：輪・壁・看板 =====
-    static string Build(Transform bay, Transform next, Frame fr, Vector3 ballPos, Vector3 ringC, Vector3 ringN, string titleJa, string titleEn, string hintJa, string hintEn, FuwaBall ball)
+    // ===== ほかの区画（2026-11-24）。ふわふわは看板の BayBallS m 先（看板を読んだ所からそのまま撃てる）=====
+    public struct Shot { public float s, dx, pitch, yaw, charge; public bool atBall; }
+    static Shot S(float s, float dx, float pitch, float yaw, float charge, bool atBall = false) => new Shot { s = s, dx = dx, pitch = pitch, yaw = yaw, charge = charge, atBall = atBall };
+    public static float BayBallS = 1.2f;
+    static Vector3 Eye(Frame fr, Vector3 B, Shot sh) { var e = B + fr.f * sh.s + fr.r * sh.dx; e.y = fr.top + 1.25f; return e; }
+    static Vector3 Aim(Frame fr, Vector3 eye, Vector3 B, Shot sh)
     {
+        if (sh.atBall) return (B - eye).normalized;
+        var d = Quaternion.AngleAxis(sh.yaw, Vector3.up) * fr.f;
+        return (d * Mathf.Cos(sh.pitch * Mathf.Deg2Rad) + Vector3.up * Mathf.Sin(sh.pitch * Mathf.Deg2Rad)).normalized;
+    }
+    static List<Vector3> Fire(Frame fr, Vector3 B, Shot sh, Vector3 wind)
+    {
+        var eye = Eye(fr, B, sh); var aim = Aim(fr, eye, B, sh);
+        return SimPathW(Tmpl(), Ball(), eye + aim * 0.45f, aim, B, sh.charge, fr.top, wind);
+    }
+    static float RingIn => RingR - RingTube - 0.12f;
+    // rule 0：前へ val m 進んだ所（輪は飛ぶ向きを向く）／rule 1：上がっていく途中で val m 上がった所（輪は水平）
+    static bool PickRing(List<Vector3> pts, Vector3 B, Frame fr, int rule, float val, out Vector3 rc, out Vector3 rn)
+    {
+        rc = B; rn = fr.f;
+        for (int i = 1; i < pts.Count; i++)
+        {
+            bool hit = rule == 0 ? Vector3.Dot(pts[i] - B, fr.f) >= val : (pts[i].y - B.y >= val && pts[i].y > pts[i - 1].y);
+            if (!hit) continue;
+            rc = pts[i];
+            if (rule == 0) { rn = pts[i] - pts[i - 1]; rn.y *= 0.5f; rn.Normalize(); } else rn = Vector3.up;
+            return true;
+        }
+        return false;
+    }
+    static string Check(Frame fr, Vector3 B, Shot good, Shot[] bad, Vector3 wind, Vector3 rc, Vector3 rn)
+    {
+        int ok = 0, all = 0;
+        foreach (float ds in new[] { -0.4f, 0f, 0.4f })
+            foreach (float dx in new[] { -0.3f, 0f, 0.3f })
+                foreach (float da in new[] { -5f, 0f, 5f })
+                    foreach (float de in new[] { -4f, 0f, 4f })
+                    {
+                        var sh = good; sh.s += ds; sh.dx += dx; sh.yaw += da; sh.pitch += de;
+                        all++; if (Through(Fire(fr, B, sh, wind), rc, rn, RingIn)) ok++;
+                    }
+        string b = string.Join(" ", bad.Select(x => Through(Fire(fr, B, x, wind), rc, rn, RingIn) ? "×くぐる" : "○外れる"));
+        return $"ねらい通りのまわり {ok}/{all}・ちがう撃ち方 {b}";
+    }
+    static Transform Bay(string n) => Tut().Find(n);
+    static Transform Barrier(string nextBay) => nextBay == null ? Tut().Find("MushBarrier") : Bay(nextBay).Find("BayBarrier");
+
+    static string RingBay(string bayName, string nextBay, float ballX, float ballUp, Shot good, Shot[] bad, int rule, float val, Vector3 wind, string hintJa, string hintEn)
+    {
+        var bay = Bay(bayName); var nb = Barrier(nextBay);
+        var fr0 = PathFrameB(bay, nb);
+        float signS = Vector3.Dot(bay.Find("Sign").position - fr0.c, fr0.f);
+        var fr = FrameAt(fr0, signS + BayBallS);
+        Vector3 B = fr.c + fr.r * ballX + Vector3.up * ballUp;
+        var pts = Fire(fr, B, good, wind);
+        if (!PickRing(pts, B, fr, rule, val, out var rc, out var rn)) return $"[課題] {bayName}：道すじが届かない（{pts.Count}）";
+        string chk = Check(fr, B, good, bad, wind, rc, rn);
+        return Build(bay, nb, fr, B, rc, rn, "", "", hintJa, hintEn, Ball()) + " | " + chk;
+    }
+
+    const string R = "<color=#FF6B5C>", E = "</color>";
+    [MenuItem("FuwaCourse/れんしゅう/課題：1 ちょん押しと溜め")] public static void M1() => Debug.Log(BuildTap());
+    public static string BuildTap() => RingBay("Bay_TapCharge", "Bay_Down", -0.5f, 1.1f, S(-1.2f, 0f, 8f, 0f, 1f), new[] { S(-1.2f, 0f, 8f, 0f, 0f), S(-1.2f, 0f, 8f, 0f, 0.3f) }, 0, 2.0f, Vector3.zero,
+        R + "コツ" + E + "：輪が遠い時は" + R + "長押しで溜めて" + E + "から撃とう\n溜めるほど遠くまで飛ぶ",
+        R + "Tip" + E + ": the ring is far. " + R + "Hold to charge" + E + ", then shoot.\nThe longer you charge, the farther it flies");
+    [MenuItem("FuwaCourse/れんしゅう/課題：2 下向き")] public static void M2() => Debug.Log(BuildDown());
+    public static string BuildDown() => RingBay("Bay_Down", "Bay_Steep", -0.5f, 0.4f, S(-0.7f, 0f, 0f, 0f, 1f, true), new[] { S(-1.5f, 0f, 0f, 0f, 0.3f) }, 1, 1.3f, Vector3.zero,
+        R + "コツ" + E + "：低いふわふわは" + R + "上から下へ" + E + "撃とう\n下に撃っても上に飛んでいく",
+        R + "Tip" + E + ": shoot the low fluff " + R + "from above, downward" + E + "\nIt still flies up");
+    [MenuItem("FuwaCourse/れんしゅう/課題：3 上向きすぎない")] public static void M3() => Debug.Log(BuildSteep());
+    public static string BuildSteep() => RingBay("Bay_Steep", "Bay_Center", -0.5f, 1.1f, S(-1.2f, 0f, 5f, 0f, 0.5f), new[] { S(-1.2f, 0f, 55f, 0f, 0.5f), S(-1.2f, 0f, 70f, 0f, 1f) }, 0, 1.5f, Vector3.zero,
+        R + "コツ" + E + "：上を向きすぎると前に進まない\n" + R + "まっすぐ前" + E + "に撃とう",
+        R + "Tip" + E + ": aiming high won't move it forward\nShoot " + R + "straight ahead" + E);
+    public static float WindYaw = 22f;
+    [MenuItem("FuwaCourse/れんしゅう/課題：6 横風")] public static void M6() => Debug.Log(BuildWind());
+    public static string BuildWind()
+    {
+        var area = Bay("Bay_Wind").GetComponentsInChildren<FuwaWindArea>(true).First();
+        Vector3 wind = area.transform.TransformDirection(area.localDirection).normalized * area.strength; wind.y = 0f;
+        var fr = PathFrameB(Bay("Bay_Wind"), Barrier("Bay_Monster"));
+        float yaw = Vector3.Dot(wind, fr.r) > 0f ? -WindYaw : WindYaw;   // 風上へ
+        return RingBay("Bay_Wind", "Bay_Monster", 0f, 1.1f, S(-1.2f, 0f, 8f, yaw, 1f), new[] { S(-1.2f, 0f, 8f, 0f, 1f), S(-1.2f, 0f, 8f, 0f, 0.5f) }, 0, 2.0f, wind,
+            R + "コツ" + E + "：風で流されるぶん" + R + "風上" + E + "をねらって撃とう\n溜めて撃つと流されにくい",
+            R + "Tip" + E + ": aim " + R + "upwind" + E + " to make up for the drift\nCharged shots drift less") + $" | 風 {wind.magnitude:F2}";
+    }
+    // 5 空気ぎれ：1発では届かない遠い輪。落ちてきたらもう1発（溜めると空気がもどる）
+    public static float AirRingAhead = 4.0f, AirRingUp = 0.7f;
+    [MenuItem("FuwaCourse/れんしゅう/課題：5 空気ぎれ")] public static void M5() => Debug.Log(BuildAir());
+    public static string BuildAir()
+    {
+        var bay = Bay("Bay_Air"); var nb = Barrier("Bay_Wind");
+        var fr0 = PathFrameB(bay, nb);
+        float signS = Vector3.Dot(bay.Find("Sign").position - fr0.c, fr0.f);
+        var fr = FrameAt(fr0, signS + BayBallS - 1.5f);
+        Vector3 B = fr.c + fr.r * -0.3f + Vector3.up * 1.1f;
+        var fa = FrameAt(fr, AirRingAhead);
+        Vector3 rc = fa.c + fa.r * -0.3f + Vector3.up * (1.1f + AirRingUp); Vector3 rn = fa.f;
+        // 1発だけ（満タン）では届かない／2発（落ちてきた所でもう1発）なら届くか
+        var one = Fire(fr, B, S(-1.2f, 0f, 8f, 0f, 1f), Vector3.zero);
+        bool oneOk = Through(one, rc, rn, RingIn);
+        int twoOk = 0, twoAll = 0;
+        foreach (float when in new[] { 0.2f, 0.4f, 0.6f })
+            foreach (float pitch in new[] { 5f, 12f, 20f })
+            {
+                var p1 = one; int k = p1.FindIndex(q => q.y < B.y + when && p1.IndexOf(q) > 20); if (k < 0) continue;
+                Vector3 B2 = p1[k]; var fr2 = fr; fr2.top = fr.top;
+                var p2 = Fire(fr2, B2, S(-1.2f, 0f, pitch, 0f, 1f), Vector3.zero);
+                twoAll++; if (Through(p2, rc, rn, RingIn)) twoOk++;
+            }
+        return Build(bay, nb, fr, B, rc, rn, "", "", R + "コツ" + E + "：1発じゃ届かない。落ちてきたら" + R + "もう1発" + E + "\n空気がなくなったら" + R + "溜めると戻る" + E,
+            R + "Tip" + E + ": one shot won't reach. Hit it " + R + "again" + E + " as it comes down\nOut of air? " + R + "Charge" + E + " to refill", Ball())
+            + $" | 1発 {(oneOk ? "×届く" : "○届かない")}・2発 {twoOk}/{twoAll}";
+    }
+    [MenuItem("FuwaCourse/れんしゅう/課題：7 まもの")] public static void M7() => Debug.Log(BuildMonster());
+    public static string BuildMonster()
+    {
+        var bay = Bay("Bay_Monster"); var nb = Barrier(null);
+        var fr = PathFrameB(bay, nb);
+        var mon = bay.GetComponentsInChildren<FuwaEnemy>(true).First();
+        return Build(bay, nb, fr, Vector3.zero, mon.transform.position, fr.f, "", "",
+            R + "コツ" + E + "：まものがぷるぷるしたら撃って\n" + R + "トゲの方へ押し返そう" + E,
+            R + "Tip" + E + ": when it wobbles, blast it\n" + R + "back into the thorns" + E, Ball(), mon);
+    }
+    [MenuItem("FuwaCourse/れんしゅう/課題：ぜんぶ作り直す")] public static void MAll()
+    {
+        Debug.Log(BuildTap()); Debug.Log(BuildDown()); Debug.Log(BuildSteep()); Debug.Log(BuildCenter()); Debug.Log(BuildAir()); Debug.Log(BuildWind()); Debug.Log(BuildMonster());
+    }
+
+    // ===== 共通：輪・壁・看板 =====
+    static string Build(Transform bay, Transform nb, Frame fr, Vector3 ballPos, Vector3 ringC, Vector3 ringN, string titleJa, string titleEn, string hintJa, string hintEn, FuwaBall ball, FuwaEnemy monster = null)
+    {
+        bool hasRing = monster == null;
         var lang = Object.FindObjectsOfType<FuwaLanguage>(true).First();
         var old = bay.Find("Challenge");
         if (old) { RemoveLang(lang, old); Object.DestroyImmediate(old.gameObject); }
         var root = new GameObject("Challenge").transform; root.SetParent(bay, false); root.position = fr.c; root.rotation = Quaternion.LookRotation(fr.f);
         // ためし撃ちの場所
         var spot = bay.GetComponentsInChildren<Transform>(true).First(t => t.name == "TrySpot");
-        Undo.RecordObject(spot, "spot"); spot.position = ballPos; spot.rotation = Quaternion.LookRotation(fr.f);
-        // 輪
-        var ring = new GameObject("Ring"); ring.transform.SetParent(root, false); ring.transform.position = ringC; ring.transform.rotation = Quaternion.LookRotation(ringN, Vector3.up);
+        if (hasRing) { Undo.RecordObject(spot, "spot"); spot.position = ballPos; spot.rotation = Quaternion.LookRotation(fr.f); }
+        // 輪（まものの区画は輪なし：まものが倒れたらクリア）
+        var ring = new GameObject(hasRing ? "Ring" : "Goal"); ring.transform.SetParent(root, false); ring.transform.position = ringC;
+        ring.transform.rotation = Quaternion.LookRotation(ringN, Mathf.Abs(Vector3.Dot(ringN, Vector3.up)) > 0.9f ? fr.f : Vector3.up);
         ring.layer = LayerMask.NameToLayer("Walkthrough");
-        var ringMesh = SaveMesh(TorusMesh(RingR, RingTube, 48, 10), "Tutorial_GoalRing");
-        var rv = new GameObject("Visual"); rv.transform.SetParent(ring.transform, false); rv.AddComponent<MeshFilter>().sharedMesh = ringMesh;
-        var rr = rv.AddComponent<MeshRenderer>(); rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         var mRing = FuwaStage2WaterTest.ToonMat("Tutorial_GoalRing", RingCol); var mClear = FuwaStage2WaterTest.ToonMat("Tutorial_GoalRingClear", ClearCol);
-        rr.sharedMaterial = mRing;
-        var mc = ring.AddComponent<MeshCollider>(); mc.sharedMesh = SaveMesh(DiscMesh(RingR - RingTube, 0.06f, 20), "Tutorial_GoalRingTrigger"); mc.convex = true; mc.isTrigger = true;
+        MeshRenderer rr = null;
+        if (hasRing)
+        {
+            var ringMesh = SaveMesh(TorusMesh(RingR, RingTube, 48, 10), "Tutorial_GoalRing");
+            var rv = new GameObject("Visual"); rv.transform.SetParent(ring.transform, false); rv.AddComponent<MeshFilter>().sharedMesh = ringMesh;
+            rr = rv.AddComponent<MeshRenderer>(); rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            rr.sharedMaterial = mRing;
+            var mc = ring.AddComponent<MeshCollider>(); mc.sharedMesh = SaveMesh(DiscMesh(RingR - RingTube, 0.06f, 20), "Tutorial_GoalRingTrigger"); mc.convex = true; mc.isTrigger = true;
+        }
         // キラキラ
         var fx = MakeSparkle(ring.transform);
         // 音（自分にだけ聞こえる 2D）
         var sClear = Sfx(ring.transform, "ClearSfx", "Assets/FuwaCourse/Audio/sfx_checkpoint.wav", 0.8f);
         // 先の壁（次の区画のさかいめ）。ふわふわを割る壁（BayBarrier）の手前 15cm に、プレイヤーも通れない色つきの壁
-        var nb = next.Find("BayBarrier");
         var gate = new GameObject("Gate").transform; gate.SetParent(root, false);
         Vector3 back = -fr.f; gate.position = nb.position + back * 0.15f; gate.rotation = nb.rotation;
         var gv = new GameObject("Visual"); gv.transform.SetParent(gate, false);
@@ -224,7 +367,7 @@ public static class FuwaTutorialChallenge
         AddLang(lang, hint, hintJa, hintEn);
         // 動き
         var goal = UdonSharpUndo.AddComponent<FuwaTutorialGoal>(ring);
-        goal.ball = ball; goal.trySpot = spot; goal.ringRenderers = new Renderer[] { rr }; goal.ringMat = mRing; goal.clearMat = mClear;
+        goal.ball = ball; goal.trySpot = spot; goal.ringRenderers = rr ? new Renderer[] { rr } : new Renderer[0]; goal.ringMat = mRing; goal.clearMat = mClear; goal.monster = monster;
         goal.clearFx = fx; goal.sfxClear = sClear; goal.gateBlock = block; goal.gateVisual = gv.transform; goal.sfxOpen = sOpen;
         goal.clearMark = stamp.gameObject; goal.hint = hint.gameObject; goal.gateHeight = nb.localScale.y + 0.5f;
         UdonSharpEditorUtility.CopyProxyToUdon(goal);
