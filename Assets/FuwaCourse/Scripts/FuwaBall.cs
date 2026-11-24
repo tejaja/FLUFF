@@ -1028,6 +1028,7 @@ public class FuwaBall : UdonSharpBehaviour
     {
         if (_waiting || _finished || _resetAt > 0f || _spiking) return;
         if (_running) _runOuts++;
+        if (_practice) _practiceFails++;   // チュートリアルの課題：何回失敗したか（FuwaTutorialGoal がコツを出す・壁を開けるのに使う）
         float inflate = popEffect != null ? Mathf.Max(0f, inflateTime) : 0f;
         _resetAt = Time.time + resetDelay + inflate;
         // れんしゅうのためし撃ちの場所では「アウト！」は出さない（弾けて戻るだけ。2026-10-09 てじゃ）
@@ -1366,6 +1367,8 @@ public class FuwaBall : UdonSharpBehaviour
     }
 
     public Transform GetRespawnPoint() { return respawnPoint; }
+    private int _practiceFails;   // ためし撃ちの場所で弾けた回数（ずっと増える。見る側が差で数える）
+    public int GetPracticeFails() { return _practiceFails; }
 
     // れんしゅう：次の「ためし撃ちの場所」へ移る時は、今いる所でパッと弾けて、すぐ次の場所に出る
     // （2026-10-09 てじゃ：前は弧を描いて飛んでいったが、走ると追いつかないので一瞬に）。

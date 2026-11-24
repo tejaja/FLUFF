@@ -57,7 +57,13 @@ public class FuwaReadMarks : UdonSharpBehaviour
 
     // VRChat のリスポーン（メニューの「リスポーン」）をしたら、また最初の看板から出す（2026-10-12 てじゃ「リスポンで入り直したら復活」）。
     // リスポーンするとチュートリアルは隠れる（このスクリプトも止まる）ので、いつも動いている FuwaRespawnManager から呼んでもらう
-    public void ResetFromRespawn() { ResetMarks(); }
+    [Tooltip("チュートリアルの課題（2026-11-24）。チュートリアルから出たら最初の状態に戻す")]
+    public FuwaTutorialGoal[] goals;
+    public void ResetFromRespawn()
+    {
+        ResetMarks();
+        if (goals != null) for (int i = 0; i < goals.Length; i++) if (goals[i] != null) goals[i].ResetGoal();
+    }
 
     private void ResetMarks()
     {
