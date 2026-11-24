@@ -463,16 +463,14 @@ public static class FuwaTutorialChallenge
         var m = new Mesh(); m.SetVertices(V); m.SetUVs(0, U); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
         return m;
     }
-    // 地面の矢印（前向きの「く」の字、平ら、+z が前）
+    // 地面の矢印（前向きの△、平ら、+z が前。2026-11-24 てじゃ「矢印を△に」）
+    public static float ArrowW = 0.42f, ArrowD = 0.55f;
     static Mesh ArrowMesh()
     {
-        float w = 0.55f, d = 0.5f, t = 0.18f;
-        var P = new[] { new Vector3(-w, 0, -d * 0.5f), new Vector3(0, 0, d * 0.5f), new Vector3(w, 0, -d * 0.5f), new Vector3(w, 0, -d * 0.5f - t), new Vector3(0, 0, d * 0.5f - t * 1.4f), new Vector3(-w, 0, -d * 0.5f - t) };
-        var V = new List<Vector3>(P); var C = Enumerable.Repeat(ArrowCol, P.Length).ToList();
-        var T = new List<int> { 0, 1, 4, 0, 4, 5, 1, 2, 3, 1, 3, 4 };
-        var m = new Mesh(); m.SetVertices(V); m.SetColors(C); m.SetTriangles(T, 0);
-        // 上向きに
-        var tr = m.triangles; for (int i = 0; i < tr.Length; i += 3) if (Vector3.Cross(V[tr[i + 1]] - V[tr[i]], V[tr[i + 2]] - V[tr[i]]).y < 0f) { int x = tr[i + 1]; tr[i + 1] = tr[i + 2]; tr[i + 2] = x; }
+        var V = new List<Vector3> { new Vector3(-ArrowW, 0, -ArrowD * 0.5f), new Vector3(0, 0, ArrowD * 0.5f), new Vector3(ArrowW, 0, -ArrowD * 0.5f) };
+        var C = Enumerable.Repeat(ArrowCol, 3).ToList();
+        var m = new Mesh(); m.SetVertices(V); m.SetColors(C); m.SetTriangles(new List<int> { 0, 1, 2 }, 0);
+        var tr = m.triangles; if (Vector3.Cross(V[tr[1]] - V[tr[0]], V[tr[2]] - V[tr[0]]).y < 0f) { int x = tr[1]; tr[1] = tr[2]; tr[2] = x; }
         m.triangles = tr; m.RecalculateNormals(); m.RecalculateBounds();
         return m;
     }
