@@ -299,6 +299,13 @@ public static class FuwaTutorialChallenge
         Vector3 wind = area.transform.TransformDirection(area.localDirection).normalized * area.strength; wind.y = 0f;
         var fr = PathFrameB(Bay("Bay_Wind"), Barrier("Bay_Monster"));
         float yaw = Vector3.Dot(wind, fr.r) > 0f ? -WindYaw : WindYaw;   // 風上へ
+        // 風の区画だけ、ふわふわは看板の真横（2026-11-24 てじゃ「手前だと狙いにくい」）
+        float keepS = BayBallS; BayBallS = WindBallS;
+        try { return BuildWindRing(wind, yaw); } finally { BayBallS = keepS; }
+    }
+    public static float WindBallS = 0f;
+    static string BuildWindRing(Vector3 wind, float yaw)
+    {
         return RingBay("Bay_Wind", "Bay_Monster", 0f, 1.1f, S(-1.2f, 0f, 8f, yaw, 1f), new[] { S(-1.2f, 0f, 8f, 0f, 1f), S(-1.2f, 0f, 8f, 0f, 0.5f) }, 0, 2.0f, wind,
             R + "コツ" + E + "：風で流されるぶん" + R + "風上" + E + "をねらって撃とう\n溜めて撃つと流されにくい",
             R + "Tip" + E + ": aim " + R + "upwind" + E + " to make up for the drift\nCharged shots drift less") + $" | 風 {wind.magnitude:F2}";
