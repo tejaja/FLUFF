@@ -380,6 +380,7 @@ public static class FuwaCourse2_3Builder
             UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon((UdonSharp.UdonSharpBehaviour)visb);
         }
         Debug.Log("[2–3] ベベル " + FuwaBevelTools.BevelCourseStripes(root, MeshDir + "/Course2_3_PathBevel.asset", PathBevel, 3));   // 2026-11-08 てじゃ「シマの道のフチはちょっとだけベベル」
+        Debug.Log(LiftDome(root));   // 丸い島を持ち上げて橋を坂に（2026-11-24）。道のベベルができてから
         RegisterBgm(root);
         FuwaStage2LobbyCourses.Run();
         FuwaStage2CopyShadows.Run();   // 写したスタート・ゴールの飾りを「近くで影を出す」一覧へ（2026-11-11）
@@ -3243,6 +3244,111 @@ public static class FuwaCourse2_3Builder
             AssetDatabase.CreateAsset(mat, path);
         }
         return mat;
+    }
+
+    // ===== 丸い島（MapDome）を持ち上げる =====
+    // 2026-11-24 てじゃ「（最初の島のチェックポイントの先で）デカいクリスタル目指しちゃって、そのまま谷底にいっちゃう」
+    //  →「奥の丸い島全体をちょと持ち上げるとか。辻褄合わせは繋いでる道で」
+    //  丸い島・てっぺんの結晶・島の上の置き物・写真の場所を DomeLift m 上げ、手前の橋（MapLink0：最初の島→丸い島）と
+    //  奥の橋（MapLink1：丸い島→丸い小島）を、島のふちからふちまでまっすぐな坂にする（道の見た目 PathBevel・つなぎ DomeJoin の頂点、
+    //  橋の当たりの箱、橋のチェックポイント）。何回押しても DomeLift になるよう、上げた量を子の "DomeLiftApplied" の y に覚えておく。
+    //  ※ ApplyObsPlace（置き物の手の位置）より後に呼ぶ。DumpObsPlace で書き出すと DomeObstacles は上げた後の高さになるので注意
+    public static float DomeLift = 1.5f;
+    static readonly (string link, string island)[] DomeBridges = { ("Path/MapLink0", "Path/Islands/MapI1"), ("Path/MapLink1", "Path/Islands/MapPad0") };
+
+    [MenuItem("FuwaCourse/ステージ2/2–3 丸い島の高さを合わせる（DomeLift）")]
+    public static void LiftDomeMenu()
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return;
+        Debug.Log(LiftDome(root.transform));
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.scene); AssetDatabase.SaveAssets();
+    }
+
+    public static string LiftDome(Transform root)
+    {
+        var mark = root.Find("DomeLiftApplied");
+        if (!mark) { mark = new GameObject("DomeLiftApplied").transform; mark.SetParent(root, false); mark.localPosition = Vector3.zero; }
+        float applied = mark.localPosition.y, delta = DomeLift - applied;
+        var dome = root.Find("Path/Islands/MapDome"); var domeCol = dome ? dome.GetComponent<Collider>() : null;
+        if (!domeCol) return "[2–3] 丸い島がない";
+        Physics.SyncTransforms();   // エディタで動かした当たりを、レイの判定に反映
+        bool OnCol(Collider c, Vector3 lp) => c.Raycast(new Ray(root.TransformPoint(new Vector3(lp.x, 30f, lp.z)), -root.up), out _, 80f);
+        // 橋ごとに：島のふち A（高さ 0）→ 丸い島のふち B（高さ DomeLift）の線
+        var br = new List<(Vector3 a, Vector3 b, float half, BoxCollider box)>();
+        foreach (var (linkPath, islPath) in DomeBridges)
+        {
+            var link = root.Find(linkPath); var isl = root.Find(islPath); if (!link || !isl) continue;
+            var box = link.GetComponentInChildren<BoxCollider>(); var ic = isl.GetComponent<Collider>(); if (!box || !ic) continue;
+            // 箱の長い向き（根っこから見た xz）
+            var bt = box.transform; var sz = box.size;
+            var ax = sz.z >= sz.x ? bt.forward : bt.right; float len = (sz.z >= sz.x ? sz.z * bt.lossyScale.z : sz.x * bt.lossyScale.x);
+            float half = 0.5f * (sz.z >= sz.x ? sz.x * bt.lossyScale.x : sz.z * bt.lossyScale.z);
+            var c = root.InverseTransformPoint(bt.TransformPoint(box.center)); var u = root.InverseTransformDirection(ax); u.y = 0f; u.Normalize();
+            var dc = root.InverseTransformPoint(domeCol.bounds.center);   // 丸い島のまん中（dome.position は原点のことがある）
+            var e1 = c - u * len * 0.5f; var e2 = c + u * len * 0.5f;
+            if ((new Vector2(e1.x - dc.x, e1.z - dc.z)).sqrMagnitude < (new Vector2(e2.x - dc.x, e2.z - dc.z)).sqrMagnitude) { var tmp = e1; e1 = e2; e2 = tmp; u = -u; }   // e1＝島側、e2＝丸い島側、u は島→丸い島
+            // B：島側から丸い島へ進んで、はじめて丸い島の上に乗る所。A：B から島へ戻って、はじめて島の上に乗る所
+            Vector3 B = e2, A = e1; float L2 = (e2 - e1).magnitude + 4f;
+            for (float s = 0f; s < L2; s += 0.05f) { var p = e1 - u * 2f + u * s; if (OnCol(domeCol, p)) { B = p; break; } }
+            for (float s = 0f; s < L2; s += 0.05f) { var p = B - u * s; if (OnCol(ic, p)) { A = p; break; } }
+            A.y = 0f; B.y = 0f;
+            br.Add((A, B, half, box));
+        }
+        // 高さ f（根っこから見た xz で）：丸い島の上（当たりの上）＝1、橋の上＝島のふちからの割合、ほか＝0
+        float F(Vector3 lp)
+        {
+            foreach (var b in br)
+            {
+                var ab = b.b - b.a; ab.y = 0f; float l = ab.magnitude; if (l < 1e-3f) continue; var u = ab / l;
+                var d = lp - b.a; d.y = 0f; float s = Vector3.Dot(d, u); float side = Mathf.Abs(Vector3.Dot(d, new Vector3(u.z, 0f, -u.x)));
+                if (side > b.half + 2.5f || s < -1f || s > l + 3f) continue;
+                if (s <= l) return Mathf.Clamp01(s / l);
+                return 1f;   // 丸い島のふちより先（つなぎ DomeJoin の丸い島側）
+            }
+            return OnCol(domeCol, lp) ? 1f : 0f;
+        }
+        var log = new System.Text.StringBuilder("[2–3] 丸い島 " + applied.ToString("F2") + "→" + DomeLift.ToString("F2") + "m");
+        if (Mathf.Abs(delta) > 1e-4f)
+        {
+            // 丸い島の上の物はまるごと（丸い島の当たりで判定する前に、まず橋の頂点を F で上げる：F は丸い島の当たりを使うので、丸い島を動かすのは最後）
+            void MoveMesh(Transform t)
+            {
+                var mf = t ? t.GetComponent<MeshFilter>() : null; if (!mf || !mf.sharedMesh) return;
+                var m = mf.sharedMesh; var vs = m.vertices; int n = 0;
+                for (int i = 0; i < vs.Length; i++)
+                {
+                    var lp = root.InverseTransformPoint(t.TransformPoint(vs[i])); float f = F(lp); if (f <= 0f) continue;
+                    vs[i] = t.InverseTransformPoint(root.TransformPoint(lp + Vector3.up * (delta * f))); n++;
+                }
+                m.vertices = vs; m.RecalculateNormals(); m.RecalculateBounds(); EditorUtility.SetDirty(m);
+                var mc = t.GetComponent<MeshCollider>(); if (mc && mc.sharedMesh == m) { mc.sharedMesh = null; mc.sharedMesh = m; }
+                log.Append("、" + t.name + " " + n + "点");
+            }
+            MoveMesh(root.Find("PathBevel")); MoveMesh(root.Find("Path/DomeJoin0")); MoveMesh(root.Find("Path/DomeJoin1"));
+            // チェックポイント（橋の上）：トリガー・再開の場所・きのこの群れを、それぞれの場所の F で
+            foreach (var cpn in new[] { "Checkpoint1", "Checkpoint2" })
+            {
+                var cp = root.Find("Checkpoints/" + cpn); if (!cp) continue;
+                var list = new List<Transform>();
+                foreach (Transform k in cp) { if (k.name == "GlowMushrooms") { foreach (Transform cl in k) list.Add(cl); } else list.Add(k); }
+                foreach (var t in list) { var lp = root.InverseTransformPoint(t.position); float f = F(lp); if (f > 0f) { Undo.RecordObject(t, "lift"); t.position += root.up * (delta * f); } }
+            }
+            var whole = new List<Transform> { root.Find("Path/Islands/DomeSpire"), root.Find("DomeObstacles"), root.Find("PhotoPoints/PhotoPoint2"), root.Find("DiamondDust/Dust2"), dome };
+            foreach (var t in whole) if (t) { Undo.RecordObject(t, "lift"); t.position += root.up * delta; }
+            mark.localPosition = new Vector3(0f, DomeLift, 0f);
+        }
+        // 橋の当たりの箱：島のふち A（少し島の中から）→ 丸い島のふち B までの傾いた板（上の面が道の面）
+        foreach (var b in br)
+        {
+            var A1 = b.a; var B1 = b.b + Vector3.up * DomeLift; var dir = B1 - A1; var dn = dir.normalized;
+            var rotL = Quaternion.LookRotation(dn, Vector3.up); var up = rotL * Vector3.up; const float T = 0.6f;
+            var mid = (A1 - dn * 0.6f + B1) * 0.5f;   // 島側は 0.6m 島の中までのばす（島の下にもぐる）
+            var bt = b.box.transform; Undo.RecordObject(bt, "lift"); Undo.RecordObject(b.box, "lift");
+            bt.position = root.TransformPoint(mid - up * (T * 0.5f)); bt.rotation = root.rotation * rotL; bt.localScale = Vector3.one;
+            var lossy = bt.lossyScale; b.box.center = Vector3.zero; b.box.size = new Vector3(b.half * 2f / lossy.x, T / lossy.y, (dir.magnitude + 0.6f) / lossy.z);
+            log.Append("、" + b.box.transform.parent.name + " 坂 " + (Mathf.Atan2(DomeLift, (b.b - b.a).magnitude) * Mathf.Rad2Deg).ToString("F1") + "°・長さ " + (b.b - b.a).magnitude.ToString("F1") + "m");
+        }
+        return log.ToString();
     }
 
     static void ApplyObsPlace(Transform root)
