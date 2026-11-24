@@ -303,7 +303,7 @@ public static class FuwaTutorialChallenge
         float keepS = BayBallS; BayBallS = WindBallS;
         try { return BuildWindRing(wind, yaw); } finally { BayBallS = keepS; }
     }
-    public static float WindBallS = 0f;
+    public static float WindBallS = 0.7f;   // てじゃ「もうちょい奥に」
     static string BuildWindRing(Vector3 wind, float yaw)
     {
         return RingBay("Bay_Wind", "Bay_Monster", 0f, 1.1f, S(-1.2f, 0f, 8f, yaw, 1f), new[] { S(-1.2f, 0f, 8f, 0f, 1f), S(-1.2f, 0f, 8f, 0f, 0.5f) }, 0, 2.0f, wind,
