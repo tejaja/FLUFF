@@ -28,8 +28,9 @@ public static class FuwaCourse2_4Perf
         if (!root) return "コースがない";
         int st = FuwaStage2Static.Apply(root);
         var sh = Shadows(root, smallSize);
+        int cam = PhotoVisible(root);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.gameObject.scene);
-        return "[" + root.name + " 負荷対策] 静的バッチ +" + st + " " + sh;
+        return "[" + root.name + " 負荷対策] 静的バッチ +" + st + " " + sh + (cam > 0 ? "・カメラに写るレイヤーへ " + cam : "");
     }
 
     static FuwaFarShadows Find(string name) => Resources.FindObjectsOfTypeAll<FuwaFarShadows>().FirstOrDefault(f => f && f.name == name && f.gameObject.scene.IsValid());
@@ -81,6 +82,19 @@ public static class FuwaCourse2_4Perf
         }
         Add(small, addS); Add(far, addF);
         return "影：小物 +" + addS.Count + "（遠いと影オフから移した " + moveS.Count + "）" + "（SmallShadows " + small.targets.Length + "）・遠いと影オフ +" + addF.Count + "（FarShadows " + far.targets.Length + "）";
+    }
+
+    // VRChat のカメラ（写真）に写らないレイヤー 2（Ignore Raycast）の見た目を、当たりの無い物だけ 0 へ
+    //  2026-11-24 てじゃ「2-5のバリアゲート、VRChatカメラにうつらない」→ 2–4 のハンドル（軸のリング・ローター）も同じだった。親（当たりのある Handle）のレイヤーを受けついでいた
+    public static int PhotoVisible(Transform root)
+    {
+        int n = 0;
+        foreach (var r in root.GetComponentsInChildren<Renderer>(true))
+        {
+            if (r.gameObject.layer != 2 || r is ParticleSystemRenderer || r.GetComponent<Collider>()) continue;
+            r.gameObject.layer = 0; EditorUtility.SetDirty(r.gameObject); n++;
+        }
+        return n;
     }
 
     // 影を出さない物：砂糖タンクのてっぺんの結晶と台（ふくらみが着くと TankCrystal ごと大きさが変わり、自分の影がチラついた。2026-11-24 てじゃ「2-4タンクの上のクリスタルと台座の影、膨らんだ時にチラついちゃうな」）
