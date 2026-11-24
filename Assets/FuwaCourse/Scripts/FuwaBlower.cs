@@ -1399,8 +1399,29 @@ public class FuwaBlower : UdonSharpBehaviour
             ParticleSystem.MainModule main = puffEffect.main;
             main.startSpeedMultiplier = _puffBaseSpeed * (puffBaseDistance > 0.001f ? reach / puffBaseDistance : 1f);
         }
+        PlayEdgeWisps(charge);
         if (charge >= 1f) PlayPuffEffectStrong();
         else PlayPuffEffect(charge);
+    }
+
+    // 当たる範囲のふち（2026-11-24 てじゃ「ショットが見た目より広いのが分かりづらい」「歪ませるのはやだ、横側にさりげないのを」）
+    //  撃つたびに、風の広がりの左右のふち（その溜めの角度）にそって、射程の所まで細いすじが走って消える
+    [Header("当たる範囲のふちのすじ")]
+    public ParticleSystem edgeLeft, edgeRight;
+    public float edgeLife = 0.32f;
+    public int edgeCount = 3;
+    private void PlayEdgeWisps(float charge)
+    {
+        if (edgeLeft == null || edgeRight == null) return;
+        float c = Mathf.Clamp01(charge);
+        float a = coneAngle * Mathf.Lerp(minConeScale, 1f, c);
+        float reach = range * Mathf.Lerp(minRangeRatio, maxRangeRatio, c);
+        edgeLeft.transform.localRotation = Quaternion.Euler(0f, -a, 0f);
+        edgeRight.transform.localRotation = Quaternion.Euler(0f, a, 0f);
+        float sp = reach / Mathf.Max(0.05f, edgeLife);
+        ParticleSystem.MainModule ml = edgeLeft.main; ml.startSpeedMultiplier = sp; ml.startLifetimeMultiplier = edgeLife;
+        ParticleSystem.MainModule mr = edgeRight.main; mr.startSpeedMultiplier = sp; mr.startLifetimeMultiplier = edgeLife;
+        edgeLeft.Emit(edgeCount); edgeRight.Emit(edgeCount);
     }
 
     [Tooltip("溜めの途中で撃った時、溜め具合に合わせて足すもやの数（満タン手前で最大）")]
