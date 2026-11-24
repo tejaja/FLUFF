@@ -41,8 +41,19 @@ public static class FuwaCourse2_4Perf
         var inSmall = new HashSet<Renderer>(small.targets.Where(r => r));
         var inFar = new HashSet<Renderer>(far.targets.Where(r => r));
         var addS = new List<Renderer>(); var addF = new List<Renderer>(); var moveS = new List<Renderer>();
+        // 影を出さない物（近くでも）：外して影オフ
+        var drop = small.targets.Where(r => r && NoShadow(r)).ToList();
+        if (drop.Count > 0)
+        {
+            var dset = new HashSet<Renderer>(drop); var t0 = new List<Renderer>(); var c0 = new List<Vector3>(); var r0 = new List<float>();
+            for (int i = 0; i < small.targets.Length; i++) { if (!small.targets[i] || dset.Contains(small.targets[i])) continue; t0.Add(small.targets[i]); c0.Add(small.centers[i]); r0.Add(small.radii[i]); }
+            small.targets = t0.ToArray(); small.centers = c0.ToArray(); small.radii = r0.ToArray();
+            UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(small); EditorUtility.SetDirty(small);
+            foreach (var r in drop) { r.shadowCastingMode = ShadowCastingMode.Off; EditorUtility.SetDirty(r); inSmall.Remove(r); }
+        }
         foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
         {
+            if (NoShadow(r)) { if (r.shadowCastingMode != ShadowCastingMode.Off) { r.shadowCastingMode = ShadowCastingMode.Off; EditorUtility.SetDirty(r); } continue; }
             if (inSmall.Contains(r)) continue;
             if (inFar.Contains(r))
             {
@@ -71,6 +82,9 @@ public static class FuwaCourse2_4Perf
         Add(small, addS); Add(far, addF);
         return "影：小物 +" + addS.Count + "（遠いと影オフから移した " + moveS.Count + "）" + "（SmallShadows " + small.targets.Length + "）・遠いと影オフ +" + addF.Count + "（FarShadows " + far.targets.Length + "）";
     }
+
+    // 影を出さない物：砂糖タンクのてっぺんの結晶と台（ふくらみが着くと TankCrystal ごと大きさが変わり、自分の影がチラついた。2026-11-24 てじゃ「2-4タンクの上のクリスタルと台座の影、膨らんだ時にチラついちゃうな」）
+    public static bool NoShadow(Renderer r) { for (var t = r.transform; t; t = t.parent) if (t.name == "TankCrystal") return true; return false; }
 
     // 大きい物のすき間を埋める小物（これの影だけ消えると、大きい物の影に穴があく）
     public static bool FillsHole(Renderer r) => r.name == "Keystone";
