@@ -1149,7 +1149,7 @@ public static class FuwaPracticeTutorial
         var skipTrig = skip.Find("SkipTutorial_Trigger");
         foreach (Transform ch in skip) if (ch != skipTrig) ch.gameObject.SetActive(false);
         foreach (var col in skipTrig.GetComponents<Collider>()) col.enabled = false;
-        log.Add(FenceButton(entrance, entrance.Find("Ground"), entrance.Find("FenceCollider"), e0, ef, 55f, "SkipButton", "説明をとばす ▶", "Skip tutorial ▶", skipTrig.GetComponent<FuwaCourseWarp>(), lang));
+        log.Add(FenceButton(entrance, entrance.Find("Ground"), entrance.Find("FenceCollider"), e0, ef, -55f, "SkipButton", "説明をとばす ▶", "Skip tutorial ▶", skipTrig.GetComponent<FuwaCourseWarp>(), lang));
         if (warpLabel != null) warpLabel.gameObject.SetActive(false);
 
         // ロビーの「チュートリアル」ワープの行き先を入口の島に
@@ -1157,7 +1157,7 @@ public static class FuwaPracticeTutorial
         SetU(lobbyWarp, "playerSpot", spot); SetU(lobbyWarp, "gunSpot", gs.transform.Find("GunSpot")); Sync(lobbyWarp);
         // とばした先（キノコの島）には「説明にもどる」ボタン。行き先はロビーの「チュートリアル」ワープと同じ（入口の島）
         // ボタンは Tutorial の下に置く（作り直しの時に一緒に消えるように）
-        log.Add(FenceButton(root, startArea.Find("Ground"), startArea.Find("FenceCollider"), startArea.Find("Ground").position, start.forward, 55f,
+        log.Add(FenceButton(root, startArea.Find("Ground"), startArea.Find("FenceCollider"), startArea.Find("Ground").position, start.forward, -55f,   // 2026-11-24 てじゃ「右の柵の端に」
             "BackToTutorialButton", "◀ 説明にもどる", "◀ Back to tutorial", lobbyWarp, lang));
 
         // ---------- お手本区画 ----------
