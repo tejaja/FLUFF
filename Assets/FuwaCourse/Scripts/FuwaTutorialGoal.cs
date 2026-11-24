@@ -37,6 +37,9 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     public Renderer[] arrowRenderers;
     public Material arrowDim, arrowLit;
     public float arrowStep = 0.45f;
+    [Header("クリアで出す物（次の看板・次の輪。2026-11-24 てじゃ「課題クリア時に出す」）")]
+    public FuwaReadMarks readMarks;
+    public GameObject[] revealOnClear;
     [Header("看板")]
     public GameObject clearMark;
     public GameObject hint;
@@ -128,6 +131,11 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
         if (doorFx != null) doorFx.Play();
         if (arrows != null) arrows.SetActive(true);
         if (sfxOpen != null) sfxOpen.Play();
+        if (revealOnClear != null) for (int i = 0; i < revealOnClear.Length; i++)
+            {
+                if (revealOnClear[i] == null) continue;
+                if (readMarks != null) readMarks.RevealNow(revealOnClear[i]); else revealOnClear[i].SetActive(true);
+            }
     }
 
     public bool IsCleared() { return _cleared; }

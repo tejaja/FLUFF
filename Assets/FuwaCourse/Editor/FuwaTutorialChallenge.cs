@@ -475,6 +475,7 @@ public static class FuwaTutorialChallenge
             if (hasRing) RevealWithSign(marks, ring, sign.gameObject);
             UdonSharpEditorUtility.CopyProxyToUdon(marks);
         }
+        WireReveals();   // 次の区画の看板・輪はクリアで出す
         UdonSharpEditorUtility.CopyProxyToUdon(lang);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bay.gameObject.scene);
         return $"[課題] {bay.name}：輪 ({ringC - fr.c:F2}) 道幅 {fr.halfW * 2f:F2}m";
@@ -551,6 +552,36 @@ public static class FuwaTutorialChallenge
         return m;
     }
 
+    // 次の区画の看板・輪は、前の区画の課題をクリアした時に出す（2026-11-24 てじゃ「次の看板とかリングでるタイミング、課題クリア時でいい」）
+    //  ReadMarks の reveal では revealAt を GatedIndex に（近づいても出ない・チュートリアルを出たら隠れる）。ふわふわを割る壁（BayBarrier）は reveal から外していつも出す
+    static readonly string[] BayOrder = { "Bay_TapCharge", "Bay_Down", "Bay_Steep", "Bay_Center", "Bay_Air", "Bay_Wind", "Bay_Monster" };
+    [MenuItem("FuwaCourse/れんしゅう/課題：次の看板・輪はクリアで出す（つなぎ直し）")]
+    public static void WireRevealsMenu() { Debug.Log(WireReveals()); }
+    public static string WireReveals()
+    {
+        var marks = Object.FindObjectsOfType<FuwaReadMarks>(true).First();
+        var rv = (marks.reveal ?? new GameObject[0]).ToList(); var ra = (marks.revealAt ?? new int[0]).ToList();
+        while (ra.Count < rv.Count) ra.Add(0);
+        for (int j = rv.Count - 1; j >= 0; j--) if (rv[j] == null || rv[j].name == "BayBarrier") { if (rv[j] != null) rv[j].SetActive(true); rv.RemoveAt(j); ra.RemoveAt(j); }
+        void Gate(GameObject g) { if (g == null) return; int j = rv.IndexOf(g); if (j < 0) { rv.Add(g); ra.Add(FuwaReadMarks.GatedIndex); } else ra[j] = FuwaReadMarks.GatedIndex; }
+        int n = 0;
+        for (int i = 0; i < BayOrder.Length; i++)
+        {
+            var goal = Bay(BayOrder[i]).GetComponentInChildren<FuwaTutorialGoal>(true); if (!goal) continue;
+            var list = new List<GameObject>();
+            if (i + 1 < BayOrder.Length)
+            {
+                var nbay = Bay(BayOrder[i + 1]);
+                list.Add(nbay.Find("Sign").gameObject);
+                var r = nbay.Find("Challenge/Ring"); if (r) list.Add(r.gameObject);
+            }
+            else { var m = Tut().Find("Sign_MoreTricks"); if (m) list.Add(m.gameObject); }
+            foreach (var g in list) Gate(g);
+            goal.readMarks = marks; goal.revealOnClear = list.ToArray(); UdonSharpEditorUtility.CopyProxyToUdon(goal); n++;
+        }
+        marks.reveal = rv.ToArray(); marks.revealAt = ra.ToArray(); UdonSharpEditorUtility.CopyProxyToUdon(marks); EditorUtility.SetDirty(marks);
+        return "[課題] クリアで出す物をつないだ " + n + "・reveal " + rv.Count;
+    }
     // 輪は看板と同時に出す（2026-11-24 てじゃ「各リングも看板と同時に出てくる感じに」）：FuwaReadMarks.reveal に看板と同じ revealAt で入れる（消えた物は詰める）
     static void RevealWithSign(FuwaReadMarks marks, GameObject obj, GameObject sign)
     {

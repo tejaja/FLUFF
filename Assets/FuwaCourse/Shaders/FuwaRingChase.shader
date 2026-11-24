@@ -8,7 +8,7 @@ Shader "FuwaCourse/RingChase"
         _Glow ("Glow", Color) = (1, 0.97, 0.8, 1)
         _Speed ("Speed (turns/sec)", Float) = 0.45
         _Count ("Bands", Float) = 2
-        _Width ("Band width", Range(0.02, 0.5)) = 0.12
+        _Width ("Band width", Range(0.02, 0.5)) = 0.2
         _Lit ("All lit", Range(0, 1)) = 0
         _Pulse ("Pulse when lit", Range(0, 1)) = 0.25
     }

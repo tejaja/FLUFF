@@ -99,6 +99,24 @@ public class FuwaReadMarks : UdonSharpBehaviour
 
     private int RevealIndex(int j) { return revealAt != null && j < revealAt.Length ? revealAt[j] : 0; }
 
+    // 2026-11-24 てじゃ「次の看板とかリングが出るタイミング、課題クリア時でいい」：revealAt が GatedIndex 以上の物は近づいても出さず、
+    //  FuwaTutorialGoal がクリアした時に RevealNow で出す（ぽんっと出るのは同じ）
+    public const int GatedIndex = 900;
+    public void RevealNow(GameObject g)
+    {
+        if (reveal == null || g == null) return;
+        for (int j = 0; j < reveal.Length; j++)
+        {
+            if (reveal[j] != g) continue;
+            if (g.activeSelf) return;
+            g.SetActive(true);
+            g.transform.localScale = Vector3.zero;
+            if (_revAt != null && j < _revAt.Length) _revAt[j] = Time.time;
+            return;
+        }
+        g.SetActive(true);
+    }
+
     // 出す時が来た物をぽんっと出す
     private void UpdateReveal(Vector3 me)
     {
@@ -109,6 +127,7 @@ public class FuwaReadMarks : UdonSharpBehaviour
             if (g == null) continue;
             if (!g.activeSelf)
             {
+                if (RevealIndex(j) >= GatedIndex) continue;   // 課題のクリアで出す物（RevealNow から）
                 bool due = RevealIndex(j) <= _next;
                 if (!due)
                 {
