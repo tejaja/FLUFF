@@ -1405,20 +1405,24 @@ public class FuwaBlower : UdonSharpBehaviour
     }
 
     // 当たる範囲のふち（2026-11-24 てじゃ「ショットが見た目より広いのが分かりづらい」「歪ませるのはやだ、横側にさりげないのを」）
-    //  撃つたびに、風の広がりの左右のふち（その溜めの角度）にそって、射程の所まで細いすじが走って消える
+    //  撃つたびに、風の広がりの左右のふち（少し内がわ）に、うすいもやがふわっと出て広がって消える（2026-11-24 すじ→もや、てじゃ「リングじゃなくて薄めの煙みたいなのが、ふわっとリングの横に」）
     [Header("当たる範囲のふちのすじ")]
     public ParticleSystem edgeLeft, edgeRight;
-    public float edgeLife = 0.32f;
+    public float edgeLife = 0.6f;
     public int edgeCount = 2;
+    [Tooltip("ふちの角度の割合（判定ぴったりより少し内がわ。2026-11-24 てじゃ「ちょい内寄り」）")]
+    public float edgeAngleScale = 0.8f;
+    [Tooltip("もやが進む距離（射程に対する割合）")]
+    public float edgeReach = 0.45f;
     private void PlayEdgeWisps(float charge)
     {
         if (edgeLeft == null || edgeRight == null) return;
         float c = Mathf.Clamp01(charge);
-        float a = coneAngle * Mathf.Lerp(minConeScale, 1f, c);
+        float a = coneAngle * Mathf.Lerp(minConeScale, 1f, c) * edgeAngleScale;
         float reach = range * Mathf.Lerp(minRangeRatio, maxRangeRatio, c);
         edgeLeft.transform.localRotation = Quaternion.Euler(0f, -a, 0f);
         edgeRight.transform.localRotation = Quaternion.Euler(0f, a, 0f);
-        float sp = reach / Mathf.Max(0.05f, edgeLife);
+        float sp = reach * edgeReach / Mathf.Max(0.05f, edgeLife);
         ParticleSystem.MainModule ml = edgeLeft.main; ml.startSpeedMultiplier = sp; ml.startLifetimeMultiplier = edgeLife;
         ParticleSystem.MainModule mr = edgeRight.main; mr.startSpeedMultiplier = sp; mr.startLifetimeMultiplier = edgeLife;
         edgeLeft.Emit(edgeCount); edgeRight.Emit(edgeCount);
