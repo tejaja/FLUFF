@@ -361,7 +361,7 @@ public static class FuwaTutorialChallenge
         var ring = new GameObject(hasRing ? "Ring" : "Goal"); ring.transform.SetParent(root, false); ring.transform.position = ringC;
         ring.transform.rotation = Quaternion.LookRotation(ringN, Mathf.Abs(Vector3.Dot(ringN, Vector3.up)) > 0.9f ? fr.f : Vector3.up);
         ring.layer = LayerMask.NameToLayer("Walkthrough");
-        var mRing = FuwaStage2WaterTest.ToonMat("Tutorial_GoalRing", RingCol); var mClear = FuwaStage2WaterTest.ToonMat("Tutorial_GoalRingClear", ClearCol);
+        var mRing = RingMat("Tutorial_GoalRingChase", RingCol, 0f); var mClear = RingMat("Tutorial_GoalRingLit", ClearCol, 1f);   // 2026-11-24 回る光／クリア後は全部光る
         MeshRenderer rr = null;
         if (hasRing)
         {
@@ -575,6 +575,14 @@ public static class FuwaTutorialChallenge
         Debug.Log("[課題] 輪を看板と同時に " + n);
     }
 
+    public static Material RingMat(string name, Color c, float lit)
+    {
+        string path = "Assets/FuwaCourse/Materials/" + name + ".mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m) { m = new Material(Shader.Find("FuwaCourse/RingChase")); AssetDatabase.CreateAsset(m, path); }
+        m.shader = Shader.Find("FuwaCourse/RingChase"); m.SetColor("_Color", c); m.SetFloat("_Lit", lit); if (lit > 0.5f) m.SetColor("_Glow", new Color(1f, 0.88f, 0.42f)); m.enableInstancing = true; EditorUtility.SetDirty(m);
+        return m;
+    }
     static Material ArrowMat(string name, Color c)
     {
         string path = "Assets/FuwaCourse/Materials/" + name + ".mat";
@@ -644,14 +652,14 @@ public static class FuwaTutorialChallenge
 
     static Mesh TorusMesh(float R, float r, int nu, int nv)
     {
-        var V = new List<Vector3>(); var N = new List<Vector3>(); var T = new List<int>();
+        var V = new List<Vector3>(); var N = new List<Vector3>(); var T = new List<int>(); var UV = new List<Vector2>();
         for (int i = 0; i <= nu; i++)
         {
             float u = Mathf.PI * 2f * i / nu; var cu = new Vector3(Mathf.Cos(u), Mathf.Sin(u), 0f);
             for (int j = 0; j <= nv; j++)
             {
                 float w = Mathf.PI * 2f * j / nv; var n = cu * Mathf.Cos(w) + Vector3.forward * Mathf.Sin(w);
-                V.Add(cu * R + n * r); N.Add(n);
+                V.Add(cu * R + n * r); N.Add(n); UV.Add(new Vector2((float)i / nu, (float)j / nv));   // uv.x：輪のまわり（光が回る）
             }
         }
         for (int i = 0; i < nu; i++) for (int j = 0; j < nv; j++)
@@ -659,7 +667,7 @@ public static class FuwaTutorialChallenge
                 int a = i * (nv + 1) + j, b = a + nv + 1;
                 T.AddRange(new[] { a, b, a + 1, a + 1, b, b + 1 });
             }
-        var m = new Mesh(); m.SetVertices(V); m.SetNormals(N); m.SetTriangles(T, 0);
+        var m = new Mesh(); m.SetVertices(V); m.SetNormals(N); m.SetUVs(0, UV); m.SetTriangles(T, 0);
         // 外向きの面に（法線と三角形の向きをそろえる）
         var tr = m.triangles; var vv = m.vertices; var nn = m.normals;
         for (int k = 0; k < tr.Length; k += 3)
