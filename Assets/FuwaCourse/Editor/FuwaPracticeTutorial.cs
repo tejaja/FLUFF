@@ -51,27 +51,26 @@ public static class FuwaPracticeTutorial
     static readonly Bay[] Bays =
     {
         new Bay(7.5f, "TapCharge",
-            // 2026-11-17 てじゃ「タイトルを ショットとチャージ／ちょん押し：よわい／長押し：つよい／近くで撃つほど強く吹き飛ばす」（最後の行：距離で弱まる。2026-10-16「近くで撃つほどつよい」）
-            "<size=130%><color=#FF6B5C>ショットとチャージ</color></size>\nちょん押し：よわい\n長押し：つよい\n近くで撃つほど強く吹き飛ばす",
-            "<size=130%><color=#FF6B5C>Shot & Charge</color></size>\nTap: weak\nHold: strong\nCloser shots blow harder"),
+            "<size=130%><color=#FF6B5C>長押しで溜めよう</color></size>\n溜めるほど遠くへ飛ぶ\n近くで撃つほど強い",   // 2026-11-24 てじゃ「もっとシンプルに」
+            "<size=130%><color=#FF6B5C>Hold to charge</color></size>\nThe longer you charge, the farther it flies\nCloser shots are stronger"),
         new Bay(15.0f, "Down",
-            "<size=130%><color=#FF6B5C>下向きに撃っても大丈夫</color></size>\nショットはいつもふわっと持ち上げる\n下向きには吹き飛ばない",   // 2026-11-17 てじゃ「床に押し付けたりしない、を 下向きには吹っ飛ばない」「吹き飛ばない、かな」
-            "<size=130%><color=#FF6B5C>Shooting down is OK</color></size>\nYour shot always lifts the fluff\nIt never blows it downward"),
+            "<size=130%><color=#FF6B5C>下に撃っても上がる</color></size>\nショットはいつも上に持ち上げる\n低いふわふわは上から撃とう",   // 2026-11-24 てじゃ「もっとシンプルに」
+            "<size=130%><color=#FF6B5C>Shooting down still lifts it</color></size>\nYour shot always lifts the fluff\nShoot a low fluff from above"),
         new Bay(0f, "Steep",
-            "<size=130%><color=#FF6B5C>上を向きすぎない</color></size>\n上を向くほど前に飛ばない\n前に進めたい時は\nまっすぐ前に撃とう",
-            "<size=130%><color=#FF6B5C>Don't aim too high</color></size>\nThe higher you aim,\nthe less it moves forward\nAim straight ahead instead"),
+            "<size=130%><color=#FF6B5C>まっすぐ前に撃とう</color></size>\n上を向くほど前に飛ばない",   // 2026-11-24 てじゃ「もっとシンプルに」
+            "<size=130%><color=#FF6B5C>Shoot straight ahead</color></size>\nThe higher you aim,\nthe less it moves forward"),
         new Bay(22.5f, "Center",
             "<size=130%><color=#FF6B5C>端に当てよう</color></size>\n端に当てると大きく曲がる\n飛ぶ方向をコントロールしよう！",   // 2026-11-24 てじゃ「もーっとシンプルに」
             "<size=130%><color=#FF6B5C>Hit it with the edge</color></size>\nThe edge of your shot makes it curve a lot\nControl where it flies!"),
         new Bay(0f, "Air",
-            "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる\n（待ってもゆっくりもどる）",
-            "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast\n(waiting refills it slowly)"),
+            "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる",   // 2026-11-24 てじゃ「もっとシンプルに」
+            "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast"),
         new Bay(0f, "Wind",
-            "<size=130%><color=#FF6B5C>風に注意</color></size>\n風でふわふわが流される\n溜めて撃った直後は\n流されにくい",
-            "<size=130%><color=#FF6B5C>Watch the wind</color></size>\nThe wind pushes the fluff around\nRight after a charged shot,\nit resists the wind"),
+            "<size=130%><color=#FF6B5C>風上をねらおう</color></size>\nふわふわは風で流される\n流されるぶん風上に向けて撃とう",   // 2026-11-24 てじゃ「もっとシンプルに」
+            "<size=130%><color=#FF6B5C>Aim upwind</color></size>\nThe wind pushes the fluff\nAim upwind to make up for it"),
         new Bay(0f, "Monster",
-            "<size=130%><color=#FF6B5C>まものに注意</color></size>\nふわふわめがけて体当たりしてくる\n撃って押し返そう\n落としたりトゲに当てたりして倒そう",
-            "<size=130%><color=#FF6B5C>Watch out for monsters</color></size>\nThey ram your fluff away\nShoot them back!\nKnock them off or into spikes!"),
+            "<size=130%><color=#FF6B5C>まものを押し返そう</color></size>\n撃つとひるんで押し返せる\nトゲや下に落とせば倒せる",   // 2026-11-24 てじゃ「もっとシンプルに」
+            "<size=130%><color=#FF6B5C>Push the monster back</color></size>\nShoot it to make it flinch\nKnock it into thorns or off the edge"),
         // （「横風」「まもの」は一度外したが、てじゃが歩いてみて「そんなに長くなかった」ので戻した 2026-10-08）
         // 「溜めると吸い寄せる」は 2026-10-08 に仕組みごとなくした（端撃ちのじゃまになるので。chargePull=0）
     };
