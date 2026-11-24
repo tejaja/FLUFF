@@ -6440,81 +6440,37 @@ public static class FuwaCourse2_5Builder
         return m;
     }
 
-    // ===== 出口の門（ShieldOffGate）を広場のふちギリギリへ =====
+    // ===== 出口の門（ShieldOffGate）を広場の外（橋の上）へ =====
     // 2026-11-24 てじゃ「この出口ゲート外側からいけちゃう」「ふわふわもひとも」→ 壁の案は「見た目がきになる」
-    //  →「壁なしで、ゲートだけ移動。場所は広場のフチギリギリくらい、わずかに隙間ある程度」「衝撃波もちゃんとゲートまで届く」
-    //  ・門：柱の外がわが広場のふち（柱の所で中心から 10.25m）より GateEdgeGap 手前になる所（中心から GateEdgeF）へ、門の向きにそって動かす
-    //  ・門の前に飛び出す橋の手すり（Parapet・ParapetCap）の三角形は消し、手すりの当たり（ParapetCol）は門のうしろの面から先だけにちぢめる
-    //  ・衝撃波の「出口より先は当たらない」の基準（exitPoint）を新しい門へ（当たる範囲は広場の半径＋1.8m で門まで届いている）
-    //  何回押しても同じ（門の場所は中心からの距離で決める）
-    public static float GateEdgeF = 9.75f;
-    [MenuItem("FuwaCourse/ステージ2/2–5 出口の門を広場のふちへ")]
+    //  →「手すりカットとかもなしにしてもっと先に出して、ゲートだけ完全に広場から出るかんじ」「衝撃波もちゃんとゲートまで届く」
+    //  ・門：門の前の面（中心 −0.5）が広場のふち（門の幅の所でいちばん外 10.25m）より少し先になる所（中心から GateEdgeF）へ、門の向きにそって動かす
+    //  ・衝撃波の「出口より先は当たらない」の基準（exitPoint）を新しい門へ。当たる範囲（広場の半径＋hitPad）が門に届かなければのばす
+    //  橋・手すりはさわらない。何回押しても同じ（門の場所は中心からの距離で決める）
+    public static float GateEdgeF = 10.85f;
+    [MenuItem("FuwaCourse/ステージ2/2–5 出口の門を広場の外へ")]
     public static void GateToEdgeMenu()
     {
         var r = GameObject.Find(RootName); if (!r) return;
-        Debug.Log(GateToEdge(r.transform)); UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.scene); AssetDatabase.SaveAssets();
+        Debug.Log(GateToEdge(r.transform)); UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.scene);
     }
     public static string GateToEdge(Transform croot)
     {
         var gate = croot.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "ShieldOffGate");
         var plaza = croot.GetComponentsInChildren<Transform>(true).FirstOrDefault(t => t.name == "CrystalPlaza");
-        var run = croot.Find("Islands/Bridge3/Run9");
-        if (!gate || !plaza || !run) return "[2–5] 出口の門・広場・橋が見つからない";
-        Vector3 c = plaza.position, f = gate.forward; f.y = 0f; f.Normalize(); var rt = Vector3.Cross(Vector3.up, f);
-        float F(Vector3 w) => Vector3.Dot(w - c, f); float Lat(Vector3 w) => Vector3.Dot(w - c, rt);
+        if (!gate || !plaza) return "[2–5] 出口の門・広場が見つからない";
+        Vector3 c = plaza.position, f = gate.forward; f.y = 0f; f.Normalize();
         var log = new System.Text.StringBuilder("[2–5] 出口の門");
-        float d = GateEdgeF - F(gate.position);
+        float d = GateEdgeF - Vector3.Dot(gate.position - c, f);
         if (Mathf.Abs(d) > 1e-3f) { Undo.RecordObject(gate, "gate"); gate.position += f * d; log.Append(" を " + d.ToString("F2") + "m 外へ"); }
-        float back = GateEdgeF + 0.5f;   // 門のうしろの面（アーチの厚み 0.5）
-        int Cut(string n)
+        var sw = croot.GetComponentInChildren<FuwaShockwave>(true);
+        if (sw && sw.exitCut)
         {
-            var t = run.Find(n); var mf = t ? t.GetComponent<MeshFilter>() : null; if (!mf || !mf.sharedMesh) return 0;
-            var m = mf.sharedMesh; var vs = m.vertices; int removed = 0;
-            for (int s = 0; s < m.subMeshCount; s++)
-            {
-                var tri = m.GetTriangles(s); var keep = new List<int>(tri.Length);
-                for (int i = 0; i < tri.Length; i += 3)
-                {
-                    var wc = (t.TransformPoint(vs[tri[i]]) + t.TransformPoint(vs[tri[i + 1]]) + t.TransformPoint(vs[tri[i + 2]])) / 3f;
-                    if (F(wc) < back && Mathf.Abs(Lat(wc)) > 1.45f) { removed++; continue; }
-                    keep.Add(tri[i]); keep.Add(tri[i + 1]); keep.Add(tri[i + 2]);
-                }
-                if (keep.Count != tri.Length) m.SetTriangles(keep, s);
-            }
-            if (removed > 0) EditorUtility.SetDirty(m);
-            return removed;
+            Undo.RecordObject(sw, "sw"); sw.exitPoint = gate.position;
+            float need = Vector3.Distance(new Vector3(gate.position.x, 0f, gate.position.z), new Vector3(sw.transform.position.x, 0f, sw.transform.position.z)) + 0.1f;
+            if (sw.radius + sw.hitPad < need) sw.hitPad = need - sw.radius;
+            UdonSharpEditorUtility.CopyProxyToUdon(sw); EditorUtility.SetDirty(sw);
+            log.Append("・衝撃波の出口を門へ（当たる範囲 " + (sw.radius + sw.hitPad).ToString("F1") + "m・門まで " + (need - 0.1f).ToString("F1") + "m）");
         }
-        log.Append("、門の前の手すり " + Cut("Parapet") + "・ふた " + Cut("ParapetCap") + " 三角形を消した");
-        // 門をまたいで残った長い面：門の前にある点を、門のうしろの面まで橋の向きにずらす（手すりは門のうしろからはじまる）
-        int Clamp(string n)
-        {
-            var t = run.Find(n); var mf = t ? t.GetComponent<MeshFilter>() : null; if (!mf || !mf.sharedMesh) return 0;
-            var m = mf.sharedMesh; var vs = m.vertices; int moved = 0;
-            for (int i = 0; i < vs.Length; i++)
-            {
-                var w = t.TransformPoint(vs[i]); float fw = F(w);
-                if (fw >= back - 1e-4f || Mathf.Abs(Lat(w)) <= 1.45f) continue;
-                w += f * (back - fw); vs[i] = t.InverseTransformPoint(w); moved++;
-            }
-            if (moved > 0) { m.vertices = vs; m.RecalculateBounds(); EditorUtility.SetDirty(m); }
-            return moved;
-        }
-        log.Append("・門をまたぐ点を門のうしろへ（手すり " + Clamp("Parapet") + "・ふた " + Clamp("ParapetCap") + "・縁石 " + Clamp("BridgeTrim") + "）");
-        int rc = 0;
-        foreach (var bc in run.GetComponentsInChildren<BoxCollider>(true).Where(b => b.name == "ParapetCol").ToArray())
-        {
-            var t = bc.transform; var zA = t.TransformPoint(bc.center - Vector3.forward * bc.size.z * 0.5f); var zB = t.TransformPoint(bc.center + Vector3.forward * bc.size.z * 0.5f);
-            float fa = F(zA), fb = F(zB); float lo = Mathf.Min(fa, fb), hi = Mathf.Max(fa, fb);
-            if (lo >= back) continue;
-            Undo.RecordObject(bc, "col");
-            if (hi <= back + 0.05f) { bc.enabled = false; rc++; continue; }
-            // 門のうしろの面から先だけ残す（ローカルの z で）
-            float k = (back - lo) / (hi - lo); float sgn = fb > fa ? 1f : -1f;
-            float newLen = bc.size.z * (1f - k); bc.center += Vector3.forward * sgn * (bc.size.z - newLen) * 0.5f; var sz = bc.size; sz.z = newLen; bc.size = sz; rc++;
-        }
-        log.Append("・手すりの当たり " + rc + " をちぢめた");
-        var sw = plaza.GetComponentInParent<Transform>() ? croot.GetComponentInChildren<FuwaShockwave>(true) : null;
-        if (sw && sw.exitCut) { Undo.RecordObject(sw, "sw"); sw.exitPoint = gate.position; UdonSharpEditorUtility.CopyProxyToUdon(sw); EditorUtility.SetDirty(sw); log.Append("・衝撃波の出口を門へ（当たる範囲 " + (sw.radius + sw.hitPad).ToString("F1") + "m）"); }
         return log.ToString();
     }
 
