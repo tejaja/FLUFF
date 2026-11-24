@@ -74,6 +74,22 @@ public class FuwaEnemy : UdonSharpBehaviour
     public float avoidMargin = 0.5f;
     [Tooltip("追いかけてよい範囲（2026-11-01 てじゃ「もっと追いかけても良い」「チェックポイント以降はダメ」）。chaseLimit の forward より先、chaseLimitBack の forward より手前のふわふわは狙わず、そこへは跳ばない")]
     public Transform chaseLimit, chaseLimitBack;
+    [Tooltip("通れない壁（2026-11-24 てじゃ「まものも壁を通過できなくする」）。壁の forward が向きの軸。家と反対がわへは wallMargin より近づけない（突進・吹っ飛ばされても）")]
+    public Transform[] walls;
+    public float wallMargin = 0.4f;
+    private Vector3 WallClamp(Vector3 p)
+    {
+        if (walls == null) return p;
+        for (int i = 0; i < walls.Length; i++)
+        {
+            Transform w = walls[i]; if (w == null) continue;
+            Vector3 n = w.forward; n.y = 0f; if (n.sqrMagnitude < 1e-6f) continue; n.Normalize();
+            if (Vector3.Dot(_home - w.position, n) < 0f) n = -n;   // n：家がわ
+            float d = Vector3.Dot(p - w.position, n);
+            if (d < wallMargin) { p += n * (wallMargin - d); float vn = Vector3.Dot(_vel, n); if (vn < 0f) _vel -= n * vn; }
+        }
+        return p;
+    }
     [Tooltip("一度気づいたら、ふわふわがこの距離の中にいる間は追い続ける（0 なら detectRange の 1.3 倍）")]
     public float chaseRange = 0f;
     public ParticleSystem steamFx;
@@ -493,7 +509,7 @@ public class FuwaEnemy : UdonSharpBehaviour
             Vector3 p = transform.position + _dashDir * dashSpeed * _dashMul * dt;
             float x = Mathf.Clamp01(_stateTime / _dashDuration);
             p.y = _groundY + _dashHop * 4f * x * (1f - x);
-            transform.position = p;
+            transform.position = WallClamp(p);
             if (!_hitThisDash) CheckHits(local);
             if (!_hitBallThisDash && ballLive)
             {
@@ -549,6 +565,7 @@ public class FuwaEnemy : UdonSharpBehaviour
                     _squashUntil = Time.time + 0.3f;   // 着地の音はなし（当たった音だけ）
                     _stateTime = Mathf.Min(_stateTime, stunTime - 0.3f);   // 着地してから少しだけひるむ
                 }
+                p = WallClamp(p);
                 transform.position = p;
                 // 道の外へ飛んで、飛び出した高さより下まで落ちたら落下（しばらくして復活）
                 if (_airborne && _vel.y < 0f && p.y < _groundY - 0.3f && !HasGroundBelow()) SetState(5);
@@ -557,7 +574,7 @@ public class FuwaEnemy : UdonSharpBehaviour
             {
                 Vector3 p = transform.position + _vel * dt;
                 p.y = Mathf.MoveTowards(p.y, _groundY, 4f * dt);
-                transform.position = p;
+                transform.position = WallClamp(p);
                 _vel *= Mathf.Exp(-pushDamping * dt);
                 // 道の外に押し出されたら落ちる（しばらくして復活）
                 if (!HasGroundBelow()) SetState(5);

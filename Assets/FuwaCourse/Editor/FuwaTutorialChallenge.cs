@@ -399,14 +399,15 @@ public static class FuwaTutorialChallenge
         // 地面の矢印（扉の先、次の看板まで出しておく）
         var arrows = new GameObject("Arrows").transform; arrows.SetParent(gate, true);
         var am = SaveMesh(ArrowMesh(), "Tutorial_GateArrow");
-        var amat = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
+        var amat = ArrowMat("Tutorial_ArrowDim", new Color(1f, 1f, 1f, 0.4f)); var amatLit = ArrowMat("Tutorial_ArrowLit", Color.white);
+        var arrowRs = new List<Renderer>();
         for (int i = 0; i < ArrowN; i++)
         {
             var fa = FrameAt(fgc, ArrowStart + i * ArrowGap);
             var ag = new GameObject("Arrow" + i); ag.transform.SetParent(arrows, true);
-            ag.transform.position = fa.c + Vector3.up * 0.012f; ag.transform.rotation = Quaternion.LookRotation(fa.f);
+            ag.transform.position = GroundAt(fa.c) + Vector3.up * 0.02f; ag.transform.rotation = Quaternion.LookRotation(fa.f);   // 道の外（キノコの島の芝など）でも一番上の面の 2cm 上（芝と重なってちらついた）
             ag.AddComponent<MeshFilter>().sharedMesh = am;
-            var ar = ag.AddComponent<MeshRenderer>(); ar.sharedMaterial = amat; ar.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; ar.receiveShadows = false;
+            var ar = ag.AddComponent<MeshRenderer>(); ar.sharedMaterial = amat; ar.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; ar.receiveShadows = false; arrowRs.Add(ar);
         }
         var nextSign = nb.parent == Tut() ? Tut().Find("Sign_MoreTricks") : nb.parent.Find("Sign");
         var sOpen = Sfx(gate, "OpenSfx", "Assets/FuwaCourse/Audio/sfx_unlock_open.wav", 0.7f);
@@ -430,7 +431,7 @@ public static class FuwaTutorialChallenge
         var goal = UdonSharpUndo.AddComponent<FuwaTutorialGoal>(ring);
         goal.ball = ball; goal.trySpot = spot; goal.ringRenderers = rr ? new Renderer[] { rr } : new Renderer[0]; goal.ringMat = mRing; goal.clearMat = mClear; goal.monster = monster;
         goal.clearFx = fx; goal.sfxClear = sClear; goal.gateBlock = block; goal.gateSolid = solid; goal.gateDoor = door; goal.doorFx = doorFx; goal.sfxOpen = sOpen;
-        goal.arrows = arrows.gameObject; goal.arrowsHideAt = nextSign; goal.arrowsHideDist = 3f;
+        goal.arrows = arrows.gameObject; goal.arrowsHideAt = nextSign; goal.arrowsHideDist = 3f; goal.arrowRenderers = arrowRs.ToArray(); goal.arrowDim = amat; goal.arrowLit = amatLit;
         goal.clearMark = stamp.gameObject; goal.hint = hint.gameObject;
         UdonSharpEditorUtility.CopyProxyToUdon(goal);
         stamp.gameObject.SetActive(false); hint.gameObject.SetActive(false); door.SetActive(false); arrows.gameObject.SetActive(false);
@@ -476,6 +477,26 @@ public static class FuwaTutorialChallenge
         return m;
     }
 
+    static Material ArrowMat(string name, Color c)
+    {
+        string path = "Assets/FuwaCourse/Materials/" + name + ".mat";
+        var m = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!m) { m = new Material(AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat")); AssetDatabase.CreateAsset(m, path); }
+        m.color = c; EditorUtility.SetDirty(m); return m;
+    }
+    // 真下の一番上の面（トリガー以外・矢印自身以外）
+    static Vector3 GroundAt(Vector3 p)
+    {
+        float best = float.NegativeInfinity;
+        int mask = ~(1 << LayerMask.NameToLayer("Walkthrough"));   // 区画の壁（ふわふわだけ当たる）は見ない
+        foreach (var h in Physics.RaycastAll(p + Vector3.up * 3f, Vector3.down, 8f, mask, QueryTriggerInteraction.Ignore))
+        {
+            if (h.collider.name.StartsWith("Arrow") || h.collider.name == "PlayerBlock") continue;
+            best = Mathf.Max(best, h.point.y);
+        }
+        if (!float.IsNegativeInfinity(best)) p.y = best;
+        return p;
+    }
     static Material LockMat(Material like)
     {
         const string p = MeshDir + "/../../Materials/Tutorial_LockPanel.mat";

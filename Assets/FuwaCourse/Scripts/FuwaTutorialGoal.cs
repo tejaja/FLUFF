@@ -33,6 +33,10 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     [Tooltip("ここ（次の看板）に近づいたら矢印を消す")]
     public Transform arrowsHideAt;
     public float arrowsHideDist = 3f;
+    [Tooltip("矢印を手前から奥へ順番にゆっくり光らせる（2026-11-24 てじゃ）")]
+    public Renderer[] arrowRenderers;
+    public Material arrowDim, arrowLit;
+    public float arrowStep = 0.45f;
     [Header("看板")]
     public GameObject clearMark;
     public GameObject hint;
@@ -70,6 +74,12 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
 
     private void Update()
     {
+        if (arrows != null && arrows.activeSelf && arrowRenderers != null && arrowRenderers.Length > 0 && arrowLit != null)
+        {
+            int n = arrowRenderers.Length;
+            int lit = Mathf.FloorToInt(Time.time / Mathf.Max(0.05f, arrowStep)) % (n + 1);   // 0..n-1 を順に、n は全部消えて間
+            for (int i = 0; i < n; i++) if (arrowRenderers[i] != null) { Material m = i == lit ? arrowLit : arrowDim; if (arrowRenderers[i].sharedMaterial != m) arrowRenderers[i].sharedMaterial = m; }
+        }
         if (arrows != null && arrows.activeSelf && arrowsHideAt != null)
         {
             VRCPlayerApi lp = Networking.LocalPlayer;
