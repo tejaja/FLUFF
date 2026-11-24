@@ -11,8 +11,9 @@ public static class FuwaTutorialWelcomeBuilder
 {
     const string ProgramPath = "Assets/FuwaCourse/Scripts/FuwaReadMarks.asset";
     // 2026-11-17 てじゃ「エアガンを忘れずに、を削除」「看板を読みながら 道に沿って進もう の2行で十分かも」
-    const string WelcomeJa = "<size=130%><color=#FF6B5C>ようこそ！</color></size>\n看板を読みながら\n道に沿って進もう";
-    const string WelcomeEn = "<size=130%><color=#FF6B5C>Welcome!</color></size>\nRead the signs\nas you walk along the path";
+    // 2026-11-24 てじゃ「ようこそ！／ここでエアガンの基本を学ぼう、だけでええか」
+    const string WelcomeJa = "<size=130%><color=#FF6B5C>ようこそ！</color></size>\nここでエアガンの基本を学ぼう";
+    const string WelcomeEn = "<size=130%><color=#FF6B5C>Welcome!</color></size>\nLearn the basics of the air gun here";
 
     // ▼の大きさ（スタートの▼は 0.29×0.35。看板の上は少し離れて見るので大きめ）
     const float MarkW = 0.42f, MarkH = 0.5f;
