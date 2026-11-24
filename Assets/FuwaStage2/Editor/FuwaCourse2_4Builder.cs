@@ -2248,6 +2248,7 @@ public static class FuwaCourse2_4Builder
         var faceM = FuwaStage2WaterTest.ToonMat("Course2_4_GaugeFace", new Color(0.98f, 0.97f, 0.93f));
         var barrel = new GameObject("PumpBarrel"); barrel.transform.SetParent(F, false); barrel.transform.localPosition = axisP;
         barrel.AddComponent<MeshFilter>().sharedMesh = M("PumpBarrel"); barrel.AddComponent<MeshRenderer>().sharedMaterials = SugarMats("PumpBarrel", tankM, glassM, levelM, faceM);
+        OutletPort(barrel.transform);
         var body = new GameObject("TankBody"); body.transform.SetParent(tank, false);
         body.AddComponent<MeshFilter>().sharedMesh = M("SugarTankV2"); body.AddComponent<MeshRenderer>().sharedMaterials = SugarMats("SugarTankV2", tankM, glassM, levelM, faceM);
         var nb = new GameObject("GaugeNeedle").transform; nb.SetParent(tank, false);
@@ -2255,6 +2256,54 @@ public static class FuwaCourse2_4Builder
         TBox(nb, "Needle", new Vector3(0f, 0.03f, 0f), new Vector3(0.012f, 0.07f, 0.004f), cwAxle, false);
         TBox(nb, "NeedleHub", Vector3.zero, new Vector3(0.024f, 0.024f, 0.006f), cwBrass, false);
         return nb;
+    }
+
+    // ===== ピストンの筒の出口の穴（2026-11-24 てじゃ「ここのシリンダ、出口の穴っぽいものが無いからほしいな」）=====
+    //  筒（PumpBarrel、Blender）のタンク側のふた（x = BarrelCapX、内側の面）のまん中に、暗い穴＋金のふち。ガラスごしに見える
+    //  ピストンの頭（半径 0.31）が押しきった時も当たらないよう、ふたの面から 2mm だけ手前に貼る
+    public static float BarrelCapX = 1.9f, PortR = 0.12f, PortLipR = 0.165f, PortLipLen = 0.018f;
+    public static void OutletPort(Transform barrel)
+    {
+        CwMats();
+        var old = barrel.Find("OutletPort"); if (old) Object.DestroyImmediate(old.gameObject);
+        var g = new GameObject("OutletPort").transform; g.SetParent(barrel, false);
+        var hole = new GameObject("Hole"); hole.transform.SetParent(g, false); hole.transform.localPosition = new Vector3(BarrelCapX - 0.006f, 0f, 0f);
+        hole.AddComponent<MeshFilter>().sharedMesh = BevelCylX(PortR, 0.004f, 0.0005f, 32, "Pump_OutletHole");
+        hole.AddComponent<MeshRenderer>().sharedMaterial = cwAxle;
+        var lip = new GameObject("Lip"); lip.transform.SetParent(g, false); lip.transform.localPosition = new Vector3(BarrelCapX - 0.002f - PortLipLen, 0f, 0f);
+        lip.AddComponent<MeshFilter>().sharedMesh = RingX(PortR, PortLipR, PortLipLen, 0.005f, 40, "Pump_OutletLip");
+        lip.AddComponent<MeshRenderer>().sharedMaterial = cwBrass;
+        foreach (var r in g.GetComponentsInChildren<MeshRenderer>()) { r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; }
+    }
+    // x 方向の輪（内の半径 ri・外の半径 ro・長さ len、x 0〜len）。外のフチ（ピストン側 x=0）を b だけ面取り
+    static Mesh RingX(float ri, float ro, float len, float b, int n, string name)
+    {
+        var prof = new[] { new Vector2(len, ri), new Vector2(0f, ri), new Vector2(0f, ro - b), new Vector2(b, ro), new Vector2(len, ro) };   // (x, 半径)、内→前の面→外
+        var v = new List<Vector3>(); var t = new List<int>();
+        Vector3 P(Vector2 q, int j) { float a = 2f * Mathf.PI * j / n; return new Vector3(q.x, Mathf.Cos(a) * q.y, Mathf.Sin(a) * q.y); }
+        for (int i = 0; i < prof.Length - 1; i++)
+        {
+            Vector2 q0 = prof[i], q1 = prof[i + 1];
+            // 外向き（x, 半径）：内の面は軸へ、前の面は -x、面取りはななめ、外の面は外へ
+            var wants = new[] { new Vector2(0f, -1f), new Vector2(-1f, 0f), new Vector2(-0.7071f, 0.7071f), new Vector2(0f, 1f) };
+            Vector2 want2 = wants[i];
+            int b0 = v.Count; for (int j = 0; j < n; j++) { v.Add(P(q0, j)); v.Add(P(q1, j)); }
+            for (int j = 0; j < n; j++)
+            {
+                int j2 = (j + 1) % n; int a0 = b0 + 2 * j, a1 = a0 + 1, c0 = b0 + 2 * j2, c1 = c0 + 1;
+                float am = 2f * Mathf.PI * (j + 0.5f) / n; var want = new Vector3(want2.x, Mathf.Cos(am) * want2.y, Mathf.Sin(am) * want2.y);
+                void T3(int x, int y, int z) { if (Vector3.Dot(Vector3.Cross(v[y] - v[x], v[z] - v[x]), want) < 0f) { int s2 = y; y = z; z = s2; } t.Add(x); t.Add(y); t.Add(z); }
+                T3(a0, a1, c1); T3(a0, c1, c0);
+            }
+        }
+        return SaveMesh(name, v, t);
+    }
+    [MenuItem("FuwaCourse/ステージ2/2–4 ポンプの筒の出口の穴を付け直す")]
+    public static void OutletPortsMenu()
+    {
+        var r = GameObject.Find(RootName); if (!r) return; int n = 0;
+        foreach (var b in r.GetComponentsInChildren<Transform>(true).Where(x => x.name == "PumpBarrel").ToArray()) { OutletPort(b); n++; }
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(r.scene); Debug.Log("[2–4] 出口の穴 " + n);
     }
 
     // fbx の中の材質の名前（SugarTank_Paint など、使われている物だけ・サブメッシュの順）から、こちらの材質へ
