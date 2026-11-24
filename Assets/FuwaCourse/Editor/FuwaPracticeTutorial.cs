@@ -69,8 +69,8 @@ public static class FuwaPracticeTutorial
             "<size=130%><color=#FF6B5C>風に注意</color></size>\nふわふわは風に飛ばされる\n溜めて撃った直後は流されにくい",   // 2026-11-24 てじゃ
             "<size=130%><color=#FF6B5C>Watch the wind</color></size>\nThe wind blows the fluff away\nRight after a charged shot, it drifts less"),
         new Bay(0f, "Monster",
-            "<size=130%><color=#FF6B5C>まもの</color></size>\nふわふわを狙って体当たりしてくる\nショットでふっとばして",   // 2026-11-24 てじゃ
-            "<size=130%><color=#FF6B5C>Monsters</color></size>\nThey ram into your fluff\nBlast them away with your shot"),
+            "<size=130%><color=#FF6B5C>まもの</color></size>\nふわふわを狙って体当たり\nショットを当てて吹っ飛ばし\nトゲや落下でやっつけよう",   // 2026-11-24 てじゃ
+            "<size=130%><color=#FF6B5C>Monsters</color></size>\nThey ram into your fluff\nBlast them with your shot\nKnock them into thorns or off the edge"),
         // （「横風」「まもの」は一度外したが、てじゃが歩いてみて「そんなに長くなかった」ので戻した 2026-10-08）
         // 「溜めると吸い寄せる」は 2026-10-08 に仕組みごとなくした（端撃ちのじゃまになるので。chargePull=0）
     };
