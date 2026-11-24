@@ -6481,7 +6481,7 @@ public static class FuwaCourse2_5Builder
     //  踊り場の上は本体の床の高さ（中心から LandF0）から橋の床の高さ（門のうしろの面 GateEdgeF+0.5）へゆるい坂。まわり LandRim m は広場のふちと同じ石。
     //  踊り場の下にかくれる橋の手前（床の帯 S0・S1、手すり・ふた・縁石・手すりの当たり）は片づけて、橋は門のうしろの面からはじまる。
     //  門の柱の石の持ち送り（Corbel）は踊り場の角を下から支える形になるので残す。何回押しても同じ
-    public static float LandHW = 3.0f, LandF0 = 8.6f, LandRim = 0.3f, LandDepth = 0.9f;
+    public static float LandHW = 3.0f, LandF0 = 8.6f, LandRim = 0.3f, LandDepth = 0.9f, LandR0 = 8.97f;   // LandR0：広場の本体の床の円（9m）の 3cm 内がわから
     [MenuItem("FuwaCourse/ステージ2/2–5 出口の門の踊り場を作り直す")]
     public static void PlazaLandingMenu()
     {
@@ -6555,7 +6555,10 @@ public static class FuwaCourse2_5Builder
         var go = new GameObject("Landing"); go.transform.SetParent(plaza, true); go.transform.position = Vector3.zero; go.transform.rotation = Quaternion.identity; go.transform.localScale = Vector3.one;
         go.layer = 11;
         Vector3 W(float fw, float lat, float y) { var p = c + f * fw + rt * lat; p.y = y; return go.transform.InverseTransformPoint(p); }
-        float Top(float fw) => Mathf.Lerp(y0, y1, Mathf.Clamp01((fw - LandF0) / Mathf.Max(0.01f, lend - LandF0)));
+        // 2026-11-24 てじゃ「接続部を広場の形に合わせて」：広場がわのはしは広場の本体の床の円（半径 LandR0）にそった弧。高さは弧（本体の床の高さ）→ 門のうしろ（橋の床の高さ）へ、どの列も同じ割合で上がる
+        float FS(float lat) => Mathf.Sqrt(Mathf.Max(0f, LandR0 * LandR0 - lat * lat));
+        float At(float lat, float t) => Mathf.Lerp(FS(lat), lend, t);
+        float H(float t) => Mathf.Lerp(y0, y1, t) + 0.003f;
         var v = new List<Vector3>(); var tTop = new List<int>(); var tRim = new List<int>();
         void Q(List<int> tl, Vector3 a, Vector3 b, Vector3 cc, Vector3 d, Vector3 want)
         {
@@ -6563,22 +6566,28 @@ public static class FuwaCourse2_5Builder
             var n = Vector3.Cross(b - a, cc - a);
             if (Vector3.Dot(go.transform.TransformDirection(n), want) >= 0f) tl.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 }); else tl.AddRange(new[] { i, i + 2, i + 1, i, i + 3, i + 2 });
         }
-        int segs = 6; float hwIn = LandHW - LandRim; float yb = y0 - LandDepth;
+        int segs = 6, latN = 12; float hwIn = LandHW - LandRim; float yb = y0 - LandDepth;
+        var lats = new List<float> { -LandHW }; for (int i = 0; i <= latN; i++) lats.Add(Mathf.Lerp(-hwIn, hwIn, (float)i / latN)); lats.Add(LandHW);
         for (int k = 0; k < segs; k++)
         {
-            float a0 = Mathf.Lerp(LandF0, lend, (float)k / segs), a1 = Mathf.Lerp(LandF0, lend, (float)(k + 1) / segs);
-            float h0 = Top(a0) + 0.003f, h1 = Top(a1) + 0.003f;
-            Q(tTop, W(a0, -hwIn, h0), W(a1, -hwIn, h1), W(a1, hwIn, h1), W(a0, hwIn, h0), Vector3.up);
+            float t0 = (float)k / segs, t1 = (float)(k + 1) / segs;
+            for (int i = 0; i + 1 < lats.Count; i++)
+            {
+                float la = lats[i], lb = lats[i + 1]; bool rim = la <= -hwIn + 1e-4f && lb <= -hwIn + 1e-4f || la >= hwIn - 1e-4f;
+                float up = rim ? 0.02f : 0f;
+                Q(rim ? tRim : tTop, W(At(la, t0), la, H(t0) + up), W(At(la, t1), la, H(t1) + up), W(At(lb, t1), lb, H(t1) + up), W(At(lb, t0), lb, H(t0) + up), Vector3.up);
+                // 底
+                Q(tRim, W(At(la, t0), la, yb), W(At(la, t1), la, yb), W(At(lb, t1), lb, yb), W(At(lb, t0), lb, yb), Vector3.down);
+            }
             foreach (float sx in new[] { -1f, 1f })
             {
-                Q(tRim, W(a0, sx * hwIn, h0 + 0.02f), W(a1, sx * hwIn, h1 + 0.02f), W(a1, sx * LandHW, h1 + 0.02f), W(a0, sx * LandHW, h0 + 0.02f), Vector3.up);
-                Q(tRim, W(a0, sx * hwIn, h0 + 0.02f), W(a1, sx * hwIn, h1 + 0.02f), W(a1, sx * hwIn, h1), W(a0, sx * hwIn, h0), -rt * sx);
-                Q(tRim, W(a0, sx * LandHW, h0 + 0.02f), W(a1, sx * LandHW, h1 + 0.02f), W(a1, sx * LandHW, yb), W(a0, sx * LandHW, yb), rt * sx);
+                float li = sx * hwIn, lo = sx * LandHW;
+                Q(tRim, W(At(li, t0), li, H(t0) + 0.02f), W(At(li, t1), li, H(t1) + 0.02f), W(At(li, t1), li, H(t1)), W(At(li, t0), li, H(t0)), -rt * sx);   // ふちの石の内がわの段
+                Q(tRim, W(At(lo, t0), lo, H(t0) + 0.02f), W(At(lo, t1), lo, H(t1) + 0.02f), W(At(lo, t1), lo, yb), W(At(lo, t0), lo, yb), rt * sx);       // 外の面
             }
-            Q(tRim, W(a0, -LandHW, yb), W(a1, -LandHW, yb), W(a1, LandHW, yb), W(a0, LandHW, yb), Vector3.down);
         }
         foreach (float sx in new[] { -1f, 1f })
-            Q(tRim, W(lend, sx * 1.8f, Top(lend) + 0.02f), W(lend, sx * LandHW, Top(lend) + 0.02f), W(lend, sx * LandHW, yb), W(lend, sx * 1.8f, yb), f);
+            Q(tRim, W(lend, sx * 1.8f, H(1f) + 0.02f), W(lend, sx * LandHW, H(1f) + 0.02f), W(lend, sx * LandHW, yb), W(lend, sx * 1.8f, yb), f);
         var mesh = new Mesh { name = "Course2_5_PlazaLanding" };
         mesh.SetVertices(v); mesh.subMeshCount = 2; mesh.SetTriangles(tTop, 0); mesh.SetTriangles(tRim, 1); mesh.RecalculateNormals(); mesh.RecalculateBounds();
         var path = "Assets/FuwaStage2/Generated/Course2_5_PlazaLanding.asset";
