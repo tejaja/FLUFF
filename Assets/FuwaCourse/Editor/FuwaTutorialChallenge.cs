@@ -367,7 +367,7 @@ public static class FuwaTutorialChallenge
         {
             var ringMesh = SaveMesh(TorusMesh(RingR, RingTube, 48, 10), "Tutorial_GoalRing");
             var rv = new GameObject("Visual"); rv.transform.SetParent(ring.transform, false); rv.AddComponent<MeshFilter>().sharedMesh = ringMesh;
-            rr = rv.AddComponent<MeshRenderer>(); rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            rr = rv.AddComponent<MeshRenderer>(); rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;   // 2026-11-24 てじゃ「リングに影」
             rr.sharedMaterial = mRing;
             var mc = ring.AddComponent<MeshCollider>(); mc.sharedMesh = SaveMesh(DiscMesh(RingR - RingTube, 0.06f, 20), "Tutorial_GoalRingTrigger"); mc.convex = true; mc.isTrigger = true;
         }
@@ -471,7 +471,9 @@ public static class FuwaTutorialChallenge
         if (marks)
         {
             var list = (marks.goals ?? new FuwaTutorialGoal[0]).Where(g => g != null && g != goal).ToList(); list.Add(goal);
-            marks.goals = list.ToArray(); UdonSharpEditorUtility.CopyProxyToUdon(marks);
+            marks.goals = list.ToArray();
+            if (hasRing) RevealWithSign(marks, ring, sign.gameObject);
+            UdonSharpEditorUtility.CopyProxyToUdon(marks);
         }
         UdonSharpEditorUtility.CopyProxyToUdon(lang);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bay.gameObject.scene);
@@ -547,6 +549,30 @@ public static class FuwaTutorialChallenge
         var tr = m.triangles; for (int i = 0; i < tr.Length; i += 3) if (Vector3.Cross(V[tr[i + 1]] - V[tr[i]], V[tr[i + 2]] - V[tr[i]]).y < 0f) { int x = tr[i + 1]; tr[i + 1] = tr[i + 2]; tr[i + 2] = x; }
         m.triangles = tr; m.RecalculateNormals(); m.RecalculateBounds();
         return m;
+    }
+
+    // 輪は看板と同時に出す（2026-11-24 てじゃ「各リングも看板と同時に出てくる感じに」）：FuwaReadMarks.reveal に看板と同じ revealAt で入れる（消えた物は詰める）
+    static void RevealWithSign(FuwaReadMarks marks, GameObject obj, GameObject sign)
+    {
+        var rv = (marks.reveal ?? new GameObject[0]).ToList(); var ra = (marks.revealAt ?? new int[0]).ToList();
+        int at = -1; for (int j = 0; j < rv.Count; j++) if (rv[j] == sign) at = j < ra.Count ? ra[j] : 0;
+        if (at < 0) return;
+        var nrv = new List<GameObject>(); var nra = new List<int>();
+        for (int j = 0; j < rv.Count; j++) if (rv[j] != null && rv[j] != obj) { nrv.Add(rv[j]); nra.Add(j < ra.Count ? ra[j] : 0); }
+        nrv.Add(obj); nra.Add(at);
+        marks.reveal = nrv.ToArray(); marks.revealAt = nra.ToArray();
+    }
+    [MenuItem("FuwaCourse/れんしゅう/課題：輪を看板と同時に出す（登録だけ）")]
+    public static void RevealRingsMenu()
+    {
+        var marks = Object.FindObjectsOfType<FuwaReadMarks>(true).First(); int n = 0;
+        foreach (var bn in new[] { "Bay_TapCharge", "Bay_Down", "Bay_Steep", "Bay_Center", "Bay_Air", "Bay_Wind" })
+        {
+            var ring = Bay(bn).Find("Challenge/Ring"); if (!ring) continue;
+            RevealWithSign(marks, ring.gameObject, Bay(bn).Find("Sign").gameObject); n++;
+        }
+        UdonSharpEditorUtility.CopyProxyToUdon(marks); EditorUtility.SetDirty(marks);
+        Debug.Log("[課題] 輪を看板と同時に " + n);
     }
 
     static Material ArrowMat(string name, Color c)
