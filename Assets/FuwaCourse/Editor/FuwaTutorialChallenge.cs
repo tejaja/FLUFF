@@ -115,7 +115,7 @@ public static class FuwaTutorialChallenge
     // ===== 4 真ん中に寄る =====
     //  ふわふわは道の左のふちの外（空中）に浮かぶ。輪はその先・道の上。ふわふわの真うしろ（輪→ふわふわの延長）は道の外なので立てない
     //  → 道の上に立って「輪の方へ」向いて撃ち、ふわふわを風の端に入れると、真ん中へ寄って輪をくぐる
-    public static float CBallOut = 0.55f, CBallUp = 1.1f, CBallS = 1.2f;   // ふわふわ：道のふちの外 m・道の上 m・看板から前へ
+    public static float CBallOut = 0.55f, CBallUp = 1.1f, CBallS = -0.8f;   // ふわふわ：道のふちの外 m・道の上 m・看板から前へ
     public static float CStandS = -1.75f, CStandX = 0.35f, CRingAhead = 1.35f, CCharge = 1f, CAimUp = 0.15f;   // 想定の立ち位置（ふわふわから後ろ・道のふちから内へ）・輪までの前・溜め・上向き
     [MenuItem("FuwaCourse/れんしゅう/課題：4 真ん中に寄る（試作）")]
     public static void CenterMenu() { Debug.Log(BuildCenter()); }
@@ -180,7 +180,7 @@ public static class FuwaTutorialChallenge
     // ===== ほかの区画（2026-11-24）。ふわふわは看板の BayBallS m 先（看板を読んだ所からそのまま撃てる）=====
     public struct Shot { public float s, dx, pitch, yaw, charge; public bool atBall; }
     static Shot S(float s, float dx, float pitch, float yaw, float charge, bool atBall = false) => new Shot { s = s, dx = dx, pitch = pitch, yaw = yaw, charge = charge, atBall = atBall };
-    public static float BayBallS = 1.2f;
+    public static float BayBallS = -0.8f;   // 2026-11-24 てじゃ「全部のふわふわ位置をもっと手前に（空気ぎれの所よりさらにちょっと手前）」：看板の 0.8m 手前
     static Vector3 Eye(Frame fr, Vector3 B, Shot sh) { var e = B + fr.f * sh.s + fr.r * sh.dx; e.y = fr.top + 1.25f; return e; }
     static Vector3 Aim(Frame fr, Vector3 eye, Vector3 B, Shot sh)
     {
@@ -311,7 +311,7 @@ public static class FuwaTutorialChallenge
         var bay = Bay("Bay_Air"); var nb = Barrier("Bay_Wind");
         var fr0 = PathFrameB(bay, nb);
         float signS = Vector3.Dot(bay.Find("Sign").position - fr0.c, fr0.f);
-        var fr = FrameAt(fr0, signS + BayBallS - 1.5f);
+        var fr = FrameAt(fr0, signS + BayBallS);
         Vector3 B = fr.c + fr.r * -0.3f + Vector3.up * 1.1f;
         var fa = FrameAt(fr, AirRingAhead);
         Vector3 rc = fa.c + fa.r * -0.3f + Vector3.up * (1.1f + AirRingUp); Vector3 rn = fa.f;
