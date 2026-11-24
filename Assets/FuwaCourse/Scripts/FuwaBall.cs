@@ -41,6 +41,8 @@ public class FuwaBall : UdonSharpBehaviour
     private float _lastGroundY = -10000f;
     [Tooltip("コースアウト判定：真下に道が無くても、再開位置よりこれだけ下ならどこでもアウト(m)")]
     public float maxDrop = 3f;
+    [Tooltip("チュートリアルのためし撃ちの場所：道の外では、ためし撃ちの場所よりこれだけ下でアウト(m)")]
+    public float practiceMaxDrop = 1.3f;
     [Tooltip("ステージ2：真下に道があっても、最後に通った道よりこれだけ低い段なら、道が無いのと同じにアウトを見る(m)")]
     public float tierDrop = 2f;
     [Tooltip("この範囲の中ではコースアウト判定をしない（崖ダイブの谷の上など。底のアウトは別のトゲ等で）")]
@@ -1320,6 +1322,9 @@ public class FuwaBall : UdonSharpBehaviour
         }
         // ステージ2は、最後に通った道の高さがわかっていればそっちだけで見る（2026-11-05 てじゃ「2-1のゴール手前の道のコース外の空中でアウト判定」：
         //  ゴール前の道が最後のチェックポイントより 4m 低く、道のはしから出た瞬間に「再開位置より maxDrop 下」でアウトになっていた）
+        // チュートリアルのためし撃ち：道の外は、ためし撃ちの場所より practiceMaxDrop 下でアウト（2026-11-24 てじゃ「コース外のふわふわ、落ちるの待ってる時間がながい」。
+        //  落ちる速さは最大 0.7m/s なので、maxDrop 3m だと4秒以上待っていた）
+        if (_practice && rp.position.y - transform.position.y > practiceMaxDrop) { Fail(); return; }
         if (!low && !(_stage == 2 && _lastGroundY > -9999f) && rp.position.y - transform.position.y > maxDrop) { Fail(); return; }
         // 道の外：最後に通った道の高さより下に落ちたらアウト（道より上に浮いている間はまだセーフ）
         if (_lastGroundY > -9999f && transform.position.y < _lastGroundY - offCourseDrop) Fail();
