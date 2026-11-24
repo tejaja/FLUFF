@@ -5638,7 +5638,7 @@ public static class FuwaCourse2_5Builder
             for (int k = 0; k < m; k++) { tt.Add(c0); tt.Add(c0 + 1 + k); tt.Add(c0 + 2 + k); }
             var vm = SaveMesh(pre + "ShieldVeil", vv, tt);
             var veilM = FxMat(give ? "Ruins_ShieldVeil" : "Ruins_ShieldOffVeil", "Fuwa/ShieldVeil"); veilM.SetColor("_Color", gcol); veilM.SetFloat("_Width", 2f * hw); veilM.SetFloat("_Height", colH + rr); veilM.SetFloat("_ArchR", rr); veilM.SetFloat("_RimW", 0.9f); EditorUtility.SetDirty(veilM);
-            var vo = MeshObj(g, "Veil", vm, veilM, Vector3.zero, 2, false);
+            var vo = MeshObj(g, "Veil", vm, veilM, Vector3.zero, 0, false);   // レイヤー 0（2 Ignore Raycast だと VRChat のカメラに写らない。2026-11-24 てじゃ）
             var vr = vo.GetComponent<Renderer>(); vr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; vr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
             glows.Add(vr);
         }

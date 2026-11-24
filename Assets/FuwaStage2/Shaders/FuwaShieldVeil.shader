@@ -15,6 +15,8 @@ Shader "Fuwa/ShieldVeil"
         _ArchR ("上の半円の半径（m）", Float) = 1.9
         _RimW ("ふちから模様が見えるはば（m）", Float) = 0.9
         _EmissionColor ("光（スクリプト）", Color) = (1, 1, 1, 1)
+        _FadeNear ("カメラからこれより近いと見えない（m）", Float) = 0.45
+        _FadeFar ("これより遠いとふつうに見える（m）", Float) = 1.0
     }
     SubShader
     {
@@ -28,12 +30,17 @@ Shader "Fuwa/ShieldVeil"
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
             #include "UnityCG.cginc"
-            half4 _Color; float _Cell, _Width, _Height, _ArchR, _RimW; half _Alpha;
+            half4 _Color; float _Cell, _Width, _Height, _ArchR, _RimW; half _Alpha; float _FadeNear, _FadeFar;
             UNITY_INSTANCING_BUFFER_START(Props)
                 UNITY_DEFINE_INSTANCED_PROP(float4, _EmissionColor)
             UNITY_INSTANCING_BUFFER_END(Props)
             struct appdata { float4 vertex : POSITION; UNITY_VERTEX_INPUT_INSTANCE_ID };
-            struct v2f { float4 pos : SV_POSITION; float2 op : TEXCOORD0; UNITY_FOG_COORDS(1) UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
+            // インスタンスIDとステレオの順は D3D11（PC VR）とそれ以外（Quest）で逆が正解（memory: v2f のステレオとインスタンスIDの順）
+            #if defined(SHADER_API_D3D11)
+            struct v2f { float4 pos : SV_POSITION; float2 op : TEXCOORD0; float3 wp : TEXCOORD2; UNITY_FOG_COORDS(1) UNITY_VERTEX_INPUT_INSTANCE_ID UNITY_VERTEX_OUTPUT_STEREO };
+            #else
+            struct v2f { float4 pos : SV_POSITION; float2 op : TEXCOORD0; float3 wp : TEXCOORD2; UNITY_FOG_COORDS(1) UNITY_VERTEX_OUTPUT_STEREO UNITY_VERTEX_INPUT_INSTANCE_ID };
+            #endif
             v2f vert (appdata v)
             {
                 v2f o;
@@ -42,6 +49,7 @@ Shader "Fuwa/ShieldVeil"
                 UNITY_TRANSFER_INSTANCE_ID(v, o);
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.op = v.vertex.xy;
+                o.wp = mul(unity_ObjectToWorld, v.vertex).xyz;
                 UNITY_TRANSFER_FOG(o, o.pos);
                 return o;
             }
@@ -79,6 +87,8 @@ Shader "Fuwa/ShieldVeil"
                 edge = mark;   // 下の色計算で、光っている六角形だけ明るく
                 // 床ぎわは消す
                 a1 *= smoothstep(0.0, 0.25, i.op.y);
+                // 2026-11-24 てじゃ「クモの巣とかみたいに至近距離できえてほしい」：カメラのすぐ前では消える（くぐる時に視界をふさがない）
+                a1 *= smoothstep(_FadeNear, max(_FadeFar, _FadeNear + 0.01), distance(i.wp, _WorldSpaceCameraPos));
                 a1 = saturate(a1);
                 half3 col = _Color.rgb * (0.8 + 0.6 * edge + 1.2 * flash) + edge * 0.25;
                 half4 o = half4(col * a1, a1 * 0.9);
