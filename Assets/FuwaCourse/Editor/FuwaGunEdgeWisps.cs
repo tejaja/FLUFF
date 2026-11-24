@@ -7,8 +7,8 @@ using UnityEngine;
 //  銃口（Nozzle）の下に EdgeL / EdgeR（細いすじの粒）。向き・速さは撃つたびに FuwaBlower.PlayEdgeWisps が溜めに合わせて決める。何回押しても同じ
 public static class FuwaGunEdgeWisps
 {
-    public static Color Col = new Color(1f, 1f, 1f, 0.55f);
-    public static float Size = 0.028f, Stretch = 6f;
+    public static Color Col = new Color(1f, 1f, 1f, 0.4f);   // 2026-11-24 てじゃ「ちょと露骨」→ 0.8→0.4、本数 4→2、太さ 0.04→0.026
+    public static float Size = 0.026f, Stretch = 5f;
 
     [MenuItem("FuwaCourse/銃/当たる範囲のふちのすじを作り直す")]
     public static void Menu() { Debug.Log(Run()); }

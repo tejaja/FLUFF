@@ -1409,7 +1409,7 @@ public class FuwaBlower : UdonSharpBehaviour
     [Header("当たる範囲のふちのすじ")]
     public ParticleSystem edgeLeft, edgeRight;
     public float edgeLife = 0.32f;
-    public int edgeCount = 3;
+    public int edgeCount = 2;
     private void PlayEdgeWisps(float charge)
     {
         if (edgeLeft == null || edgeRight == null) return;
