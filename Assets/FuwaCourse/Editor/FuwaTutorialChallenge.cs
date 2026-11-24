@@ -335,19 +335,43 @@ public static class FuwaTutorialChallenge
         var fx = MakeSparkle(ring.transform);
         // 音（自分にだけ聞こえる 2D）
         var sClear = Sfx(ring.transform, "ClearSfx", "Assets/FuwaCourse/Audio/sfx_checkpoint.wav", 0.8f);
-        // 先の壁（次の区画のさかいめ）。ふわふわを割る壁（BayBarrier）の手前 15cm に、プレイヤーも通れない色つきの壁
-        var gate = new GameObject("Gate").transform; gate.SetParent(root, false);
-        Vector3 back = -fr.f; gate.position = nb.position + back * 0.15f; gate.rotation = nb.rotation;
-        var gv = new GameObject("Visual"); gv.transform.SetParent(gate, false);
-        var panel = new GameObject("Panel"); panel.transform.SetParent(gv.transform, false); panel.transform.localScale = nb.localScale;
-        panel.AddComponent<MeshFilter>().sharedMesh = nb.GetComponent<MeshFilter>().sharedMesh;
-        var gr = panel.AddComponent<MeshRenderer>(); gr.sharedMaterial = LockMat(nb.GetComponent<Renderer>().sharedMaterial); gr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; gr.receiveShadows = false;
-        // 壁の文字（区画がわ）
-        var label = Text(gv.transform, "Label", "課題をクリアすると開くよ", 5f, new Color(0.45f, 0.2f, 0.32f)); label.rectTransform.sizeDelta = new Vector2(8f, 1.2f);
-        label.transform.position = new Vector3(nb.position.x, fr.top + 1.7f, nb.position.z) + back * 0.18f; label.transform.rotation = Quaternion.LookRotation(fr.f);
-        AddLang(lang, label, "課題をクリアすると開くよ", "Clear the challenge to open");
+        // 先の壁（2026-11-24 てじゃ「壁は1枚を常設、ふわふわは当たると消滅」「クリアしても壁は消えない、扉みたいに真ん中が切り抜かれる」「文字はなし」）
+        //  見た目は BayBarrier（ふわふわを割る壁）と同じ材質の板を、くり抜く前／扉の形にくり抜いた後の2枚。BayBarrier の板は見えなくする（当たりはそのまま＝扉の所もふわふわは割れる）
+        Vector3 back = -fr.f;
+        var gate = new GameObject("Gate").transform; gate.SetParent(root, false); gate.position = nb.position; gate.rotation = nb.rotation;
+        var nbR = nb.GetComponent<Renderer>(); var wallMat = nbR.sharedMaterial;
+        Undo.RecordObject(nbR, "hide"); nbR.enabled = false;
+        // 扉：道のまん中に、はば DoorW・高さ DoorH（板のローカル座標で）
+        float sx = nb.lossyScale.x, sy = nb.lossyScale.y;
+        var fg = fr; fg.c = new Vector3(nb.position.x, fr.top, nb.position.z);
+        var fgc = FrameAt(fg, 0f);
+        float dc = Vector3.Dot(fgc.c - nb.position, nb.right) / sx;
+        float dl = dc - DoorW * 0.5f / sx, dr = dc + DoorW * 0.5f / sx, dt = -0.5f + (fgc.top + DoorH - (nb.position.y - sy * 0.5f)) / sy;
+        GameObject Panel(string n, Mesh m)
+        {
+            var g = new GameObject(n); g.transform.SetParent(gate, false); g.transform.localScale = nb.localScale;
+            g.AddComponent<MeshFilter>().sharedMesh = m;
+            var r = g.AddComponent<MeshRenderer>(); r.sharedMaterial = wallMat; r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; r.receiveShadows = false;
+            return g;
+        }
+        var solid = Panel("Solid", nb.GetComponent<MeshFilter>().sharedMesh);
+        var door = Panel("Door", SaveMesh(DoorMesh(dl, dr, dt), "Tutorial_GateDoor_" + bay.name));
+        var doorFx = MakeSparkle(gate); doorFx.transform.position = fgc.c + Vector3.up * (DoorH * 0.5f); doorFx.transform.rotation = Quaternion.LookRotation(fr.f);
         var block = new GameObject("PlayerBlock"); block.transform.SetParent(gate, false); block.layer = 0;
         var bc = block.AddComponent<BoxCollider>(); bc.size = new Vector3(nb.localScale.x, nb.localScale.y, 0.3f);
+        // 地面の矢印（扉の先、次の看板まで出しておく）
+        var arrows = new GameObject("Arrows").transform; arrows.SetParent(gate, true);
+        var am = SaveMesh(ArrowMesh(), "Tutorial_GateArrow");
+        var amat = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
+        for (int i = 0; i < ArrowN; i++)
+        {
+            var fa = FrameAt(fgc, ArrowStart + i * ArrowGap);
+            var ag = new GameObject("Arrow" + i); ag.transform.SetParent(arrows, true);
+            ag.transform.position = fa.c + Vector3.up * 0.012f; ag.transform.rotation = Quaternion.LookRotation(fa.f);
+            ag.AddComponent<MeshFilter>().sharedMesh = am;
+            var ar = ag.AddComponent<MeshRenderer>(); ar.sharedMaterial = amat; ar.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; ar.receiveShadows = false;
+        }
+        var nextSign = nb.parent == Tut() ? Tut().Find("Sign_MoreTricks") : nb.parent.Find("Sign");
         var sOpen = Sfx(gate, "OpenSfx", "Assets/FuwaCourse/Audio/sfx_unlock_open.wav", 0.7f);
         // 看板：タイトルを課題に・クリアのはんこ・コツ
         var sign = bay.Find("Sign"); var st = sign.Find("Text");
@@ -368,10 +392,11 @@ public static class FuwaTutorialChallenge
         // 動き
         var goal = UdonSharpUndo.AddComponent<FuwaTutorialGoal>(ring);
         goal.ball = ball; goal.trySpot = spot; goal.ringRenderers = rr ? new Renderer[] { rr } : new Renderer[0]; goal.ringMat = mRing; goal.clearMat = mClear; goal.monster = monster;
-        goal.clearFx = fx; goal.sfxClear = sClear; goal.gateBlock = block; goal.gateVisual = gv.transform; goal.sfxOpen = sOpen;
-        goal.clearMark = stamp.gameObject; goal.hint = hint.gameObject; goal.gateHeight = nb.localScale.y + 0.5f;
+        goal.clearFx = fx; goal.sfxClear = sClear; goal.gateBlock = block; goal.gateSolid = solid; goal.gateDoor = door; goal.doorFx = doorFx; goal.sfxOpen = sOpen;
+        goal.arrows = arrows.gameObject; goal.arrowsHideAt = nextSign; goal.arrowsHideDist = 3f;
+        goal.clearMark = stamp.gameObject; goal.hint = hint.gameObject;
         UdonSharpEditorUtility.CopyProxyToUdon(goal);
-        stamp.gameObject.SetActive(false); hint.gameObject.SetActive(false);
+        stamp.gameObject.SetActive(false); hint.gameObject.SetActive(false); door.SetActive(false); arrows.gameObject.SetActive(false);
         // チュートリアルから出たら戻す
         var marks = Object.FindObjectsOfType<FuwaReadMarks>(true).FirstOrDefault();
         if (marks)
@@ -382,6 +407,36 @@ public static class FuwaTutorialChallenge
         UdonSharpEditorUtility.CopyProxyToUdon(lang);
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bay.gameObject.scene);
         return $"[課題] {bay.name}：輪 ({ringC - fr.c:F2}) 道幅 {fr.halfW * 2f:F2}m";
+    }
+
+    public static float DoorW = 1.7f, DoorH = 2.4f, ArrowStart = 1.2f, ArrowGap = 1.3f; public static int ArrowN = 3;
+    public static Color ArrowCol = new Color(0.98f, 0.42f, 0.38f, 0.95f);   // 道のピンクに負けない濃いめのさんご色（的の輪と同じ系統）
+    // 板（-0.5〜0.5 の四角）から、下のまん中の扉（dl〜dr、下から dt まで）をくり抜いた形。両面
+    static Mesh DoorMesh(float dl, float dr, float dt)
+    {
+        var V = new List<Vector3>(); var U = new List<Vector2>(); var T = new List<int>();
+        void R(float x0, float y0, float x1, float y1)
+        {
+            int k = V.Count;
+            foreach (var (x, y) in new[] { (x0, y0), (x1, y0), (x1, y1), (x0, y1) }) { V.Add(new Vector3(x, y, 0f)); U.Add(new Vector2(x + 0.5f, y + 0.5f)); }
+            T.AddRange(new[] { k, k + 2, k + 1, k, k + 3, k + 2, k, k + 1, k + 2, k, k + 2, k + 3 });
+        }
+        R(-0.5f, -0.5f, dl, 0.5f); R(dr, -0.5f, 0.5f, 0.5f); R(dl, dt, dr, 0.5f);
+        var m = new Mesh(); m.SetVertices(V); m.SetUVs(0, U); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
+    }
+    // 地面の矢印（前向きの「く」の字、平ら、+z が前）
+    static Mesh ArrowMesh()
+    {
+        float w = 0.55f, d = 0.5f, t = 0.18f;
+        var P = new[] { new Vector3(-w, 0, -d * 0.5f), new Vector3(0, 0, d * 0.5f), new Vector3(w, 0, -d * 0.5f), new Vector3(w, 0, -d * 0.5f - t), new Vector3(0, 0, d * 0.5f - t * 1.4f), new Vector3(-w, 0, -d * 0.5f - t) };
+        var V = new List<Vector3>(P); var C = Enumerable.Repeat(ArrowCol, P.Length).ToList();
+        var T = new List<int> { 0, 1, 4, 0, 4, 5, 1, 2, 3, 1, 3, 4 };
+        var m = new Mesh(); m.SetVertices(V); m.SetColors(C); m.SetTriangles(T, 0);
+        // 上向きに
+        var tr = m.triangles; for (int i = 0; i < tr.Length; i += 3) if (Vector3.Cross(V[tr[i + 1]] - V[tr[i]], V[tr[i + 2]] - V[tr[i]]).y < 0f) { int x = tr[i + 1]; tr[i + 1] = tr[i + 2]; tr[i + 2] = x; }
+        m.triangles = tr; m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
     }
 
     static Material LockMat(Material like)
@@ -473,7 +528,9 @@ public static class FuwaTutorialChallenge
         m.name = name; string path = MeshDir + "/" + name + ".asset";
         var ex = AssetDatabase.LoadAssetAtPath<Mesh>(path);
         if (ex == null) { AssetDatabase.CreateAsset(m, path); return m; }
-        ex.Clear(false); ex.SetVertices(m.vertices); if (m.normals.Length > 0) ex.SetNormals(m.normals); ex.SetTriangles(m.triangles, 0); ex.RecalculateBounds();
+        ex.Clear(false); ex.SetVertices(m.vertices); if (m.normals.Length > 0) ex.SetNormals(m.normals);
+        if (m.uv.Length > 0) ex.uv = m.uv; if (m.colors.Length > 0) ex.colors = m.colors;
+        ex.SetTriangles(m.triangles, 0); ex.RecalculateBounds();
         if (m.normals.Length == 0) ex.RecalculateNormals();
         EditorUtility.SetDirty(ex); return ex;
     }
