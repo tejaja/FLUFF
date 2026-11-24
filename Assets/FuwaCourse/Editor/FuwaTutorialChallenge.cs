@@ -248,9 +248,46 @@ public static class FuwaTutorialChallenge
         R + "コツ" + E + "：低いふわふわは" + R + "上から下へ" + E + "撃とう\n下に撃っても上に飛んでいく",
         R + "Tip" + E + ": shoot the low fluff " + R + "from above, downward" + E + "\nIt still flies up");
     [MenuItem("FuwaCourse/れんしゅう/課題：3 上向きすぎない")] public static void M3() => Debug.Log(BuildSteep());
-    public static string BuildSteep() => RingBay("Bay_Steep", "Bay_Center", -0.5f, 1.1f, S(-1.2f, 0f, 5f, 0f, 0.5f), new[] { S(-1.2f, 0f, 55f, 0f, 0.5f), S(-1.2f, 0f, 70f, 0f, 1f) }, 0, 1.5f, Vector3.zero,
-        R + "コツ" + E + "：上を向きすぎると前に進まない\n" + R + "まっすぐ前" + E + "に撃とう",
-        R + "Tip" + E + ": aiming high won't move it forward\nShoot " + R + "straight ahead" + E);
+    // 3 上を向きすぎに注意（2026-11-24 てじゃ「ふわふわはもっと上に」「リングはちょい奥に、まっすぐ普通に置く」
+    //  「上のを撃ってあんまり進まなかった後に、まっすぐ撃たせる想定」）
+    //  ふわふわは高い所（道の上 SteepBallUp）。見上げて撃つと上がるだけで前に進まない → 落ちてきた所をまっすぐ撃つと輪へ。輪は立てて前向き
+    public static float SteepBallUp = 2.1f, SteepRingAhead = 2.4f, SteepRingUp = 1.9f, SteepBallX = -0.5f;   // 輪の場所は2発目（落ちてきた所をまっすぐ）が一番入る所を探して決めた
+    public static string BuildSteep()
+    {
+        var bay = Bay("Bay_Steep"); var nb = Barrier("Bay_Center");
+        var fr0 = PathFrameB(bay, nb);
+        float signS = Vector3.Dot(bay.Find("Sign").position - fr0.c, fr0.f);
+        var fr = FrameAt(fr0, signS + BayBallS);
+        Vector3 B = fr.c + fr.r * SteepBallX + Vector3.up * SteepBallUp;
+        var fa = FrameAt(fr, SteepRingAhead);
+        Vector3 rc = fa.c + fa.r * SteepBallX + Vector3.up * SteepRingUp; Vector3 rn = fa.f;
+        // 1発目：見上げて撃つ（ふわふわへ向けて、半分溜め）→ あまり前に進まない
+        var one = Fire(fr, B, S(-0.9f, 0f, 0f, 0f, 0.5f, true), Vector3.zero);
+        float adv = 0f; foreach (var q in one) adv = Mathf.Max(adv, Vector3.Dot(q - B, fr.f));
+        bool oneThrough = Through(one, rc, rn, RingIn);
+        // 2発目：落ちてきて目の高さあたり（道の上 when）に来た所を、うしろからまっすぐ撃つ
+        int ok = 0, all = 0;
+        foreach (float when in new[] { 1.1f, 1.3f, 1.5f })
+            foreach (float back in new[] { -1.0f, -1.3f, -1.6f })
+                foreach (float pitch in new[] { 0f, 6f, 12f })
+                    foreach (float ch in new[] { 0.5f, 1f })
+                    {
+                        int k = -1; for (int i = 5; i < one.Count; i++) if (one[i].y < one[i - 1].y && one[i].y <= fr.top + when) { k = i; break; }
+                        if (k < 0) continue;
+                        Vector3 B2 = one[k];
+                        var p2 = Fire(fr, B2, S(back, 0f, pitch, 0f, ch), Vector3.zero);
+                        all++; if (Through(p2, rc, rn, RingIn)) ok++;
+                    }
+        // ふわふわが高いうちに、うしろからまっすぐ（見上げ気味に）1発で入れられるか
+        int direct = 0, dAll = 0;
+        foreach (float back in new[] { -1.5f, -2.0f, -2.5f })
+            foreach (float ch in new[] { 0.5f, 1f })
+            { dAll++; if (Through(Fire(fr, B, S(back, 0f, 0f, 0f, ch, true), Vector3.zero), rc, rn, RingIn)) direct++; }
+        return Build(bay, nb, fr, B, rc, rn, "", "",
+            R + "コツ" + E + "：上を向いて撃つと前に進まない\n落ちてきたら" + R + "まっすぐ前" + E + "に撃とう",
+            R + "Tip" + E + ": shooting upward won't move it forward\nWhen it comes down, shoot " + R + "straight ahead" + E, Ball())
+            + $" | 見上げ1発：前へ {adv:F2}m・輪 {(oneThrough ? "×入る" : "○入らない")}・落ちてきてまっすぐ {ok}/{all}・高いうちに1発 {direct}/{dAll}";
+    }
     public static float WindYaw = 22f;
     [MenuItem("FuwaCourse/れんしゅう/課題：6 横風")] public static void M6() => Debug.Log(BuildWind());
     public static string BuildWind()
