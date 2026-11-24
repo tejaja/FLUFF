@@ -61,8 +61,8 @@ public static class FuwaPracticeTutorial
             "<size=130%><color=#FF6B5C>上を向きすぎない</color></size>\n上を向くほど前に飛ばない\n前に進めたい時は\nまっすぐ前に撃とう",
             "<size=130%><color=#FF6B5C>Don't aim too high</color></size>\nThe higher you aim,\nthe less it moves forward\nAim straight ahead instead"),
         new Bay(22.5f, "Center",
-            "<size=130%><color=#FF6B5C>端でも大丈夫</color></size>\nショットの端に当たっても\n真ん中の方へ寄っていく\n外に落ちそうな時などに",   // 最後の行：2026-11-17 てじゃ「追加で1行」
-            "<size=130%><color=#FF6B5C>Edges are OK</color></size>\nIf it's at the edge of your shot,\nit still drifts to the center\nHandy when it's about to fall off"),
+            "<size=130%><color=#FF6B5C>端を撃って角度を変えよう</color></size>\nショットの端で当てると\n真ん中寄りに飛んでいく\n飛ばしたい方向に向けて撃とう",   // 2026-11-24 てじゃ（課題式に合わせて）
+            "<size=130%><color=#FF6B5C>Hit the edge to change direction</color></size>\nIf the edge of your shot hits it,\nit flies toward the center\nAim where you want it to go"),
         new Bay(0f, "Air",
             "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる\n（待ってもゆっくりもどる）",
             "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast\n(waiting refills it slowly)"),
@@ -2127,15 +2127,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
                 break;
             }
             case "Center":
-                // ふわふわの横（道の進む向きの側）をねらう。ねらった線を見せて、そこへ寄っていくのを見せる
-                MakeLane(bayRoot, "Lane", islandCenter - away * 1.25f, away, 0.95f, new Vector3(0, 0.05f, 1.1f), new[] { 1.3f }, new[] { 1f }, new[] { new Vector3(-0.5f, 0f, 0f) }, null, true, tmpl, ballSrc, floorTop);
-                {
-                    // 島の上に、撃つ向き（銃の向き）と平行な縦じま。ふわふわがどっちへ寄っていくか分かりやすいように
-                    var lane = bayRoot.Find("Lane"); var gunT = lane.Find("DemoGun"); var nz = gunT.Find("Nozzle"); var bs = lane.Find("BallStart");
-                    // 銃の向き（MakeLane で決めて、実行中は動かない）にそろえる
-                    Vector3 sdir = gunT.forward; sdir.y = 0; sdir.Normalize();
-                    MakeStripes(bayRoot, new Vector3(islandCenter.x, IslandTop + 0.012f, islandCenter.z), sdir, nz.position);
-                }
+                CenterLane(bayRoot, islandCenter, away, tmpl, ballSrc, floorTop);
                 break;
             case "Air":
             {
@@ -2251,6 +2243,41 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
     }
 
     // ballOffset：銃口から見た (右, 上, 前) のふわふわの位置
+    // 4「端を撃って角度を変えよう」の見本（2026-11-24 てじゃ「課題と銃の位置が逆だから銃をふわふわの右側に」「もっと極端に曲がる配置に」）
+    //  銃は道から遠ざかる向き（away）へまっすぐ撃つ。ふわふわは銃の左前（銃口から横 CenterDemoSide・前 CenterDemoAhead）＝風の端。
+    //  撃つとふわふわは右（風の中心線）へ寄りながら飛ぶ。島には銃の向きと平行な縦じま（中心線が分かるように）
+    public static float CenterDemoSide = 0.8f, CenterDemoAhead = 0.9f, CenterDemoBack = 1.15f, CenterDemoShift = 0.45f, CenterDemoUp = 0.12f;
+    static void CenterLane(Transform bayRoot, Vector3 islandCenter, Vector3 away, FuwaBlower tmpl, FuwaBall ballSrc, Transform floorTop)
+    {
+        var lat = Vector3.Cross(Vector3.up, away).normalized;   // away を向いて右
+        MakeLane(bayRoot, "Lane", islandCenter - away * CenterDemoBack + lat * CenterDemoShift, away, 0.95f, new Vector3(-CenterDemoSide, 0.05f, CenterDemoAhead), new[] { 1.3f }, new[] { 1f }, null, null, true, tmpl, ballSrc, floorTop);
+        var lane = bayRoot.Find("Lane"); var gunT = lane.Find("DemoGun"); var nz = gunT.Find("Nozzle");
+        // 銃はふわふわではなく、まっすぐ前（少し上）へ向ける（MakeLane はふわふわへ向けるので向き直す）
+        for (int it = 0; it < 20; it++) gunT.rotation = Quaternion.LookRotation((away + Vector3.up * CenterDemoUp).normalized, Vector3.up);
+        Vector3 sdir = gunT.forward; sdir.y = 0; sdir.Normalize();
+        MakeStripes(bayRoot, new Vector3(islandCenter.x, IslandTop + 0.012f, islandCenter.z), sdir, nz.position);
+    }
+    [MenuItem("FuwaCourse/れんしゅう/4 端を撃つの見本だけ作り直す")]
+    public static void CenterDemoMenu()
+    {
+        var tut = GameObject.Find("FuwaCourse0").transform.Find("Tutorial"); var bay = tut.Find("Bay_Center");
+        var old = bay.Find("Lane"); Vector3 away = old.forward; away.y = 0f; away.Normalize();
+        var isl = bay.Find("Island").position; var floorTop = bay.Find("FloorTop");
+        IslandTop = floorTop.position.y;
+        Object.DestroyImmediate(old.gameObject); var st = bay.Find("DirStripes"); if (st) Object.DestroyImmediate(st.gameObject);
+        var ball = Object.FindObjectsOfType<FuwaBall>(true).First(b => b.name == "FuwaBall");
+        var tmpl = Object.FindObjectsOfType<FuwaBlower>(true).First(b => b.transform.parent == null && b.name == "FuwaBlower");
+        CenterLane(bay, isl, away, tmpl, ball, floorTop);
+        var lane = bay.Find("Lane"); bay.Find("DirStripes")?.SetSiblingIndex(lane.GetSiblingIndex() + 1);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(bay.gameObject.scene);
+        // 着地点（本物と同じ計算）
+        var nz = lane.Find("DemoGun/Nozzle"); var bs = lane.Find("BallStart");
+        var land = SimDemoLanding(tmpl, ball, nz.position, nz.forward, bs.position, 1f, Vector3.zero, IslandTop);
+        Vector3 off = land - new Vector3(isl.x, land.y, isl.z);
+        Vector3 latL = Vector3.Cross(Vector3.up, away).normalized;
+        Debug.Log($"[4の見本] 着地 島の中心から {off.magnitude:F2}m（前 {Vector3.Dot(off, away):F2}・右 {Vector3.Dot(off, latL):F2}）、ふわふわのはじめ 右 {Vector3.Dot(bs.position - new Vector3(isl.x, bs.position.y, isl.z), latL):F2}、{LastSimTime:F1}秒");
+    }
+
     static void MakeLane(Transform parent, string name, Vector3 basePos, Vector3 d, float gunHeight, Vector3 ballOffset, float[] times, float[] charges, Vector3[] aimOffsets, float[] holds, bool showAimLine, FuwaBlower tmpl, FuwaBall ballSrc, Transform floorTop, float gunScale = 1f)
     {
         var lane = new GameObject(name).transform; lane.SetParent(parent, false);
