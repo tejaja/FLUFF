@@ -453,7 +453,7 @@ public static class FuwaTutorialChallenge
         var hint = Text(sign, "Hint", hintJa, 1.45f, new Color(0.25f, 0.22f, 0.3f));
         hint.transform.localScale = st.localScale; hint.rectTransform.sizeDelta = new Vector2(2.95f, 0.75f); hint.enableWordWrapping = true;
         hint.transform.localPosition = new Vector3(0f, 0.86f, st.localPosition.z - 0.004f); hint.transform.localRotation = st.localRotation; hint.transform.SetParent(root, true);
-        var hb = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(hb.GetComponent<Collider>()); hb.name = "HintPaper";
+        var hb = GameObject.CreatePrimitive(PrimitiveType.Quad); Object.DestroyImmediate(hb.GetComponent<Collider>()); hb.name = "HintPaper"; hb.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         hb.transform.SetParent(hint.transform, false); hb.transform.localPosition = new Vector3(0f, 0f, 0.006f / st.localScale.z); hb.transform.localScale = new Vector3(3.05f, 0.85f, 1f);
         hb.GetComponent<Renderer>().sharedMaterial = sign.Find("SignModel").GetComponent<Renderer>().sharedMaterials.Skip(1).FirstOrDefault() ?? hb.GetComponent<Renderer>().sharedMaterial;
         hb.transform.localRotation = Quaternion.identity;
