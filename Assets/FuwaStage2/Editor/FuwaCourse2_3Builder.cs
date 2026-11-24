@@ -3078,13 +3078,13 @@ public static class FuwaCourse2_3Builder
     //  また動かしたら、シーンの値からこの表を作り直す（FuwaCourse2_3Builder.DumpObsPlace）
     public static (string path, Vector3 lp, float yaw)[] ObsPlace = {
         ("Obstacles/IceRock1", new Vector3(9.230f, 1.397f, 33.662f), 54.79f),
-        ("Obstacles/IceRock2", new Vector3(-7.339f, 0.504f, 40.885f), 147.23f),
+        ("Obstacles/IceRock2", new Vector3(-5.660f, 0.360f, 44.230f), 147.23f),   // 2026-11-24 てじゃが動かした
         ("Obstacles/Crystal3", new Vector3(2.330f, 0.601f, 36.534f), 157.58f),
         ("Obstacles/IceRock4", new Vector3(-0.629f, 0.437f, 17.162f), 323.78f),
         ("Obstacles/IceRock5", new Vector3(-4.714f, 0.627f, 20.393f), 118.42f),
         ("Obstacles/Crystal6", new Vector3(-11.444f, -0.250f, 30.354f), 319.94f),
         ("Obstacles/IceRock7", new Vector3(-5.454f, 0.483f, 25.983f), 170.86f),
-        ("Obstacles/IceRock8", new Vector3(-6.300f, 0.482f, 32.540f), 164.23f),
+        ("Obstacles/IceRock8", new Vector3(-6.223f, 0.482f, 32.519f), 143.76f),   // 2026-11-24 てじゃが動かした
         ("Obstacles/Crystal9", new Vector3(0.891f, 0.281f, 42.432f), 122.30f),
         ("Obstacles/IceRock10", new Vector3(12.486f, 0.704f, 40.812f), 306.86f),
         ("Obstacles/IceRock11", new Vector3(-10.290f, 0.494f, 22.847f), 346.57f),
