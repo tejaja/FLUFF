@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -367,6 +367,7 @@ public static class FuwaCourse2_3Builder
         RegisterCheckpoints();
         ApplyObsPlace(root);   // 手で動かした置き物の位置（てじゃ、2026-11-21）。押し出しの当たりより先に
         SlipOffSetup(root);
+        SkateTracks(root);   // 最初の島の、橋へ向かうスケートの跡（2026-11-24）。置き物の位置が決まってから（岩をよける）
         // ステージ2にいる時だけ表示
         var visb = Resources.FindObjectsOfTypeAll<MonoBehaviour>().FirstOrDefault(m => m && m.gameObject.scene.IsValid() && m.GetType().Name == "FuwaAreaVisibility");
         if (visb)
@@ -3105,6 +3106,145 @@ public static class FuwaCourse2_3Builder
         ("DomeObstacles/DomeObs9", new Vector3(7.396f, 0.614f, 54.976f), 233.00f),
         ("DomeObstacles/DomeObs10", new Vector3(13.124f, 0.045f, 60.704f), 355.22f)
     };
+    // ===== 最初の島（MapI1）のスケートの跡 =====
+    // 2026-11-24 てじゃ「（チェックポイントから先で）デカいクリスタル目指しちゃって、そのまま谷底にいっちゃう」「流れのスジつけて誘導が無難かな」
+    //  → 白いスジ7本（流れる雪の粉）は「ちょっと露骨」→ 誰かが先に滑ったようなスケートの跡（てじゃ「1かな」）。
+    //  滑った人ごとにまん中の線（コースの根っこから見た xz）を引き、左右の足で交互に外へ押し出す弧（ストローク）を並べる。
+    //  氷の岩・結晶はよけて回りこむ。見た目だけ（当たりなし・影なし）。シェーダー FuwaCourse/SnowStreak（動きなし。てじゃ「アニメーションいらんよ」）
+    public static Vector2[] SkateCenter = {
+        new Vector2(-8.5f, 31.0f), new Vector2(-7.0f, 35.5f), new Vector2(-5.0f, 39.0f), new Vector2(-1.5f, 40.0f),
+        new Vector2(3.8f, 38.6f), new Vector2(9.0f, 38.0f), new Vector2(12.6f, 38.6f), new Vector2(15.4f, 42.5f), new Vector2(16.6f, 46.5f), new Vector2(16.0f, 49.6f)
+    };
+    // 滑った人ごと：まん中の線からの横のずれ(m、+は進む向きの右)、まん中の線のどこから・どこまで(0〜1)
+    public static (float off, float t0, float t1)[] Skaters = { (0.35f, 0.11f, 0.50f), (-1.15f, 0.14f, 0.47f) };   // 2026-11-24 てじゃ「この緑の範囲だけ（チェックポイントの先の曲がる所）」「数を減らして一本を長く」「もうちょい横幅ほしい」
+    public static float SkateStride = 2.6f, SkateStrokeLen = 4.0f, SkateSpread = 0.75f, SkateWidth = 0.03f;   // 1歩の間隔・弧の長さ・弧の外への開き・線の太さ（半分）(m)
+    public static float SkateLift = 0.015f, SkateRockPad = 0.3f, SkateEndFade = 1.2f;
+    public static Color SkateTrackCol = new Color(0.97f, 0.99f, 1.00f);   // 白。青を足したら実機でほぼ見えなかった（てじゃ「一旦もどして」）
+
+    [MenuItem("FuwaCourse/ステージ2/2–3 最初の島のスケートの跡を作り直す")]
+    public static void SkateTracksMenu()
+    {
+        var root = UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects().FirstOrDefault(g => g.name == RootName); if (!root) return;
+        SkateTracks(root.transform);
+        UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(root.scene); AssetDatabase.SaveAssets();
+    }
+
+    static Vector2 CatRom(Vector2[] p, float t)
+    {
+        int n = p.Length - 1; float f = Mathf.Clamp01(t) * n; int i = Mathf.Min(n - 1, Mathf.FloorToInt(f)); float u = f - i;
+        Vector2 a = p[Mathf.Max(0, i - 1)], b = p[i], c = p[i + 1], d = p[Mathf.Min(n, i + 2)];
+        return 0.5f * (2f * b + (c - a) * u + (2f * a - 5f * b + 4f * c - d) * u * u + (3f * b - a - 3f * c + d) * u * u * u);
+    }
+    // 折れ線の d(m) の所の点と向き
+    static (Vector2 p, Vector2 tg) AlongLine(List<Vector2> pts, float[] cum, float d)
+    {
+        int k = System.Array.BinarySearch(cum, d); if (k < 0) k = ~k; k = Mathf.Clamp(k, 1, pts.Count - 1);
+        float u = Mathf.InverseLerp(cum[k - 1], cum[k], d);
+        return (Vector2.Lerp(pts[k - 1], pts[k], u), (pts[k] - pts[k - 1]).normalized);
+    }
+    static float[] Cumul(List<Vector2> pts) { var c = new float[pts.Count]; for (int i = 1; i < pts.Count; i++) c[i] = c[i - 1] + (pts[i] - pts[i - 1]).magnitude; return c; }
+    static Vector2 StrokePoint(List<Vector2> pts, float[] pc, float d, float s0, float L, int side, float spread)
+    {
+        var (c, tg) = AlongLine(pts, pc, d); var right = new Vector2(tg.y, -tg.x); float u = Mathf.Clamp01((d - s0) / L);
+        return c + right * (side * (0.05f + spread * u * u));
+    }
+
+    public static void SkateTracks(Transform root)
+    {
+        foreach (var nm in new[] { "SnowStreaks", "SkateTracks" }) { var old = root.Find(nm); if (old) Object.DestroyImmediate(old.gameObject); }
+        var isl = root.Find("Path/Islands/MapI1"); var col = isl ? isl.GetComponent<MeshCollider>() : null;
+        if (!col) { Debug.LogWarning("[2–3] スケートの跡：MapI1 の当たりがない"); return; }
+        // よける物（氷の岩・結晶）：根っこから見た xz と半径
+        var rocks = new List<(Vector2 c, float r)>();
+        var obs = root.Find("Obstacles");
+        if (obs) foreach (Transform t in obs)
+        {
+            var r = t.GetComponentInChildren<Renderer>(); if (!r) continue;
+            var lp = root.InverseTransformPoint(r.bounds.center); var e = r.bounds.extents;
+            rocks.Add((new Vector2(lp.x, lp.z), Mathf.Max(e.x, e.z) * 0.8f + SkateRockPad + SkateSpread));
+        }
+        var center = new List<Vector2>(); for (int i = 0; i <= 400; i++) center.Add(CatRom(SkateCenter, i / 400f));
+        var cum = Cumul(center); float total = cum[cum.Length - 1];
+
+        var v = new List<Vector3>(); var uv = new List<Vector2>(); var uv2 = new List<Vector2>(); var cl = new List<Color>(); var tri = new List<int>();
+        var rnd = new System.Random(2403); int strokes = 0;
+        foreach (var sk in Skaters)
+        {
+            // その人のまん中の線：横へずらし、ゆるくうねらせ、岩をよける
+            var pts = new List<Vector2>(); float wob = (float)rnd.NextDouble() * 10f;
+            for (float d = sk.t0 * total; d <= sk.t1 * total; d += 0.1f)
+            {
+                var (c, tg) = AlongLine(center, cum, d); var right = new Vector2(tg.y, -tg.x);
+                pts.Add(c + right * (sk.off + 0.3f * Mathf.Sin(d * 0.45f + wob)));
+            }
+            for (int it = 0; it < 8; it++)
+            {
+                for (int i = 0; i < pts.Count; i++)
+                    foreach (var rk in rocks) { var dv = pts[i] - rk.c; float dm = dv.magnitude; if (dm < rk.r && dm > 1e-4f) pts[i] = rk.c + dv / dm * rk.r; }
+                var sm = new List<Vector2>(pts);
+                for (int i = 1; i < pts.Count - 1; i++) sm[i] = (pts[i - 1] + pts[i] * 2f + pts[i + 1]) * 0.25f;
+                pts = sm;
+            }
+            var pc = Cumul(pts); float len = pc[pc.Length - 1];
+            // 左右交互のストローク：足の下から外へ開いていく弧
+            int side = rnd.Next(2) == 0 ? -1 : 1;
+            for (float s0 = 0f; s0 < len - 0.5f; s0 += SkateStride * (0.85f + 0.3f * (float)rnd.NextDouble()), side = -side)
+            {
+                float L = SkateStrokeLen * (0.85f + 0.3f * (float)rnd.NextDouble()), spread = SkateSpread * (0.8f + 0.4f * (float)rnd.NextDouble());
+                float seed = (float)rnd.NextDouble(); int prev = -1; bool any = false;
+                for (float d = s0; d <= Mathf.Min(len, s0 + L); d += 0.08f)
+                {
+                    float u = (d - s0) / L;
+                    var mid2 = StrokePoint(pts, pc, d, s0, L, side, spread);
+                    var dir = StrokePoint(pts, pc, Mathf.Min(len, d + 0.05f), s0, L, side, spread) - StrokePoint(pts, pc, Mathf.Max(0f, d - 0.05f), s0, L, side, spread);
+                    if (dir.sqrMagnitude < 1e-8f) continue; dir.Normalize();
+                    var rt = new Vector3(dir.y, 0f, -dir.x);
+                    // 濃さ：刃がついて濃くなり、浮かせて消える。人の線のはしも薄く
+                    float a = Mathf.SmoothStep(0f, 1f, u / 0.15f) * Mathf.SmoothStep(0f, 1f, (1f - u) / 0.35f);
+                    a *= Mathf.SmoothStep(0f, 1f, Mathf.Min(d, len - d) / SkateEndFade);
+                    var mid = new Vector3(mid2.x, 0f, mid2.y);
+                    bool ok = true; var pp = new Vector3[2];
+                    for (int sd = 0; sd < 2; sd++)
+                    {
+                        var q = mid + rt * (sd == 0 ? -SkateWidth : SkateWidth);
+                        if (!col.Raycast(new Ray(root.TransformPoint(q + Vector3.up * 5f), -root.up), out var hit, 10f)) { ok = false; break; }
+                        pp[sd] = new Vector3(q.x, root.InverseTransformPoint(hit.point).y + SkateLift, q.z);
+                    }
+                    if (!ok) { prev = -1; continue; }
+                    int vi = v.Count;
+                    v.Add(pp[0]); v.Add(pp[1]);
+                    uv.Add(new Vector2(d, 0f)); uv.Add(new Vector2(d, 1f));
+                    uv2.Add(new Vector2(seed, 0f)); uv2.Add(new Vector2(seed, 0f));
+                    cl.Add(new Color(1, 1, 1, a)); cl.Add(new Color(1, 1, 1, a));
+                    if (prev >= 0) tri.AddRange(new[] { prev, prev + 1, vi, prev + 1, vi + 1, vi });
+                    prev = vi; any = true;
+                }
+                if (any) strokes++;
+            }
+        }
+        var m = NewMesh("Course2_3_SkateTracks");
+        m.SetVertices(v); m.SetUVs(0, uv); m.SetUVs(1, uv2); m.SetColors(cl); m.SetTriangles(tri, 0);
+        m.RecalculateNormals(); m.RecalculateBounds(); EditorUtility.SetDirty(m);
+        var go = new GameObject("SkateTracks"); go.transform.SetParent(root, false);
+        go.AddComponent<MeshFilter>().sharedMesh = m;
+        var mr = go.AddComponent<MeshRenderer>(); mr.sharedMaterial = SkateTrackMat();
+        mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; mr.receiveShadows = false;
+        mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off; mr.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+        Debug.Log("[2–3] スケートの跡 " + Skaters.Length + " 人・" + strokes + " 歩、" + tri.Count / 3 + " 三角形");
+    }
+    static Material SkateTrackMat()
+    {
+        const string path = "Assets/FuwaStage2/Materials/Stage2_3_SkateTrack.mat";
+        var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+        if (!mat)
+        {
+            mat = new Material(Shader.Find("FuwaCourse/SnowStreak")) { name = "Stage2_3_SkateTrack" };
+            mat.SetFloat("_Base", 0.7f); mat.SetFloat("_Grain", 0.5f); mat.SetColor("_Color", SkateTrackCol);
+            AssetDatabase.CreateAsset(mat, path);
+        }
+        return mat;
+    }
+
     static void ApplyObsPlace(Transform root)
     {
         int n = 0;
