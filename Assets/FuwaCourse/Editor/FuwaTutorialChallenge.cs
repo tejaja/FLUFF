@@ -395,7 +395,7 @@ public static class FuwaTutorialChallenge
             return g;
         }
         var solid = Panel("Solid", nb.GetComponent<MeshFilter>().sharedMesh);
-        var door = Panel("Door", SaveMesh(DoorMesh(dl, dr, dt), "Tutorial_GateDoor_" + bay.name));
+        var door = Panel("Door", SaveMesh(DoorMeshArch(dl, dr, dt, sx, sy), "Tutorial_GateDoor_" + bay.name));
         // 扉のふち（2026-11-24 てじゃ「開いた扉のフチをちょっと強調」）：くり抜いた穴の内がわにそって明るい細い帯（板と重ならないので Z ファイトなし）。扉といっしょに出る
         {
             float wx = DoorEdge / sx, wy = DoorEdge / sy;
@@ -406,7 +406,18 @@ public static class FuwaTutorialChallenge
                 for (int q = 0; q < 4; q++) C.Add(DoorEdgeCol);
                 T.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });
             }
-            R(dl, -0.5f, dl + wx, dt); R(dr - wx, -0.5f, dr, dt); R(dl, dt - wy, dr, dt);
+            // 上は ∩ の半円（ワールドで丸く。板は横 sx・縦 sy に引きのばされているので、ローカルでは楕円）
+            float rw = (dr - dl) * 0.5f, xc = (dl + dr) * 0.5f, rh = rw * sx / sy, yc = dt - rh;
+            R(dl, -0.5f, dl + wx, yc); R(dr - wx, -0.5f, dr, yc);
+            const int AN = 24;
+            for (int i = 0; i < AN; i++)
+            {
+                float a0 = Mathf.PI * i / AN, a1 = Mathf.PI * (i + 1) / AN;
+                Vector3 o0 = new Vector3(xc + Mathf.Cos(a0) * rw, yc + Mathf.Sin(a0) * rh, 0), o1 = new Vector3(xc + Mathf.Cos(a1) * rw, yc + Mathf.Sin(a1) * rh, 0);
+                Vector3 i0 = new Vector3(xc + Mathf.Cos(a0) * (rw - wx), yc + Mathf.Sin(a0) * (rh - wy), 0), i1 = new Vector3(xc + Mathf.Cos(a1) * (rw - wx), yc + Mathf.Sin(a1) * (rh - wy), 0);
+                int k = V.Count; V.Add(o0); V.Add(o1); V.Add(i1); V.Add(i0); for (int q = 0; q < 4; q++) C.Add(DoorEdgeCol);
+                T.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });
+            }
             fm.SetVertices(V); fm.SetColors(C); fm.SetTriangles(T, 0); fm.RecalculateNormals(); fm.RecalculateBounds();
             var fg2 = new GameObject("DoorEdge"); fg2.transform.SetParent(door.transform, false);
             fg2.AddComponent<MeshFilter>().sharedMesh = SaveMesh(fm, "Tutorial_GateDoorEdge_" + bay.name);
@@ -484,14 +495,52 @@ public static class FuwaTutorialChallenge
         var m = new Mesh(); m.SetVertices(V); m.SetUVs(0, U); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
         return m;
     }
-    // 地面の矢印（前向きの△、平ら、+z が前。2026-11-24 てじゃ「矢印を△に」）
-    public static float ArrowW = 0.42f, ArrowD = 0.55f;
+    // 扉の上を ∩ に（2026-11-24 てじゃ「扉の上、丸っこく」）：dl〜dr のはばの半円が上。板の外がわはそのまま。両面
+    static Mesh DoorMeshArch(float dl, float dr, float dt, float sx, float sy)
+    {
+        var V = new List<Vector3>(); var U = new List<Vector2>(); var T = new List<int>();
+        void Q(Vector3 a, Vector3 b, Vector3 c, Vector3 d)
+        {
+            int k = V.Count; foreach (var v in new[] { a, b, c, d }) { V.Add(v); U.Add(new Vector2(v.x + 0.5f, v.y + 0.5f)); }
+            T.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3, k, k + 2, k + 1, k, k + 3, k + 2 });
+        }
+        Q(new Vector3(-0.5f, -0.5f), new Vector3(dl, -0.5f), new Vector3(dl, 0.5f), new Vector3(-0.5f, 0.5f));
+        Q(new Vector3(dr, -0.5f), new Vector3(0.5f, -0.5f), new Vector3(0.5f, 0.5f), new Vector3(dr, 0.5f));
+        float rw = (dr - dl) * 0.5f, xc = (dl + dr) * 0.5f, rh = rw * sx / sy, yc = dt - rh;
+        const int AN = 24;
+        for (int i = 0; i < AN; i++)
+        {
+            // 半円の上の点から板の上のふちまで（左から右へ）
+            float a0 = Mathf.PI * (1f - (float)i / AN), a1 = Mathf.PI * (1f - (float)(i + 1) / AN);
+            Vector3 p0 = new Vector3(xc + Mathf.Cos(a0) * rw, yc + Mathf.Sin(a0) * rh), p1 = new Vector3(xc + Mathf.Cos(a1) * rw, yc + Mathf.Sin(a1) * rh);
+            Q(p0, p1, new Vector3(p1.x, 0.5f), new Vector3(p0.x, 0.5f));
+        }
+        var m = new Mesh(); m.SetVertices(V); m.SetUVs(0, U); m.SetTriangles(T, 0); m.RecalculateNormals(); m.RecalculateBounds();
+        return m;
+    }
+    // 地面の矢印（前向きの△、平ら、+z が前。2026-11-24 てじゃ「矢印を△に」「先端をちょっぴりだけ丸く」）
+    public static float ArrowW = 0.42f, ArrowD = 0.55f, ArrowTipR = 0.07f;
     static Mesh ArrowMesh()
     {
-        var V = new List<Vector3> { new Vector3(-ArrowW, 0, -ArrowD * 0.5f), new Vector3(0, 0, ArrowD * 0.5f), new Vector3(ArrowW, 0, -ArrowD * 0.5f) };
-        var C = Enumerable.Repeat(ArrowCol, 3).ToList();
-        var m = new Mesh(); m.SetVertices(V); m.SetColors(C); m.SetTriangles(new List<int> { 0, 1, 2 }, 0);
-        var tr = m.triangles; if (Vector3.Cross(V[tr[1]] - V[tr[0]], V[tr[2]] - V[tr[0]]).y < 0f) { int x = tr[1]; tr[1] = tr[2]; tr[2] = x; }
+        Vector3 L = new Vector3(-ArrowW, 0, -ArrowD * 0.5f), Rr = new Vector3(ArrowW, 0, -ArrowD * 0.5f), Tp = new Vector3(0, 0, ArrowD * 0.5f);
+        // 先端の角を半径 ArrowTipR の円弧に：2辺に接する円の中心は、先端から角の二等分線（-z）にそって r/sin(半角) 下
+        float half = Mathf.Atan2(ArrowW, ArrowD);
+        Vector3 cc = Tp + Vector3.back * (ArrowTipR / Mathf.Sin(half));
+        var pts = new List<Vector3> { L };
+        const int N = 8;
+        for (int i = 0; i <= N; i++)
+        {
+            float ang = Mathf.Lerp(Mathf.PI - half, half, (float)i / N);   // 左の辺の接点 → 右の辺の接点（x-z 面、z が前）
+            pts.Add(cc + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * ArrowTipR);
+        }
+        pts.Add(Rr);
+        Vector3 ctr = (L + Rr + Tp) / 3f;
+        var V = new List<Vector3> { ctr }; V.AddRange(pts);
+        var T = new List<int>(); for (int i = 1; i < V.Count - 1; i++) T.AddRange(new[] { 0, i, i + 1 });
+        T.AddRange(new[] { 0, V.Count - 1, 1 });
+        var C = Enumerable.Repeat(ArrowCol, V.Count).ToList();
+        var m = new Mesh(); m.SetVertices(V); m.SetColors(C); m.SetTriangles(T, 0);
+        var tr = m.triangles; for (int i = 0; i < tr.Length; i += 3) if (Vector3.Cross(V[tr[i + 1]] - V[tr[i]], V[tr[i + 2]] - V[tr[i]]).y < 0f) { int x = tr[i + 1]; tr[i + 1] = tr[i + 2]; tr[i + 2] = x; }
         m.triangles = tr; m.RecalculateNormals(); m.RecalculateBounds();
         return m;
     }
