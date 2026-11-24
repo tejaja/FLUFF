@@ -345,8 +345,8 @@ public static class FuwaTutorialChallenge
         var fr = PathFrameB(bay, nb);
         var mon = bay.GetComponentsInChildren<FuwaEnemy>(true).First();
         return Build(bay, nb, fr, Vector3.zero, mon.transform.position, fr.f, "", "",
-            R + "コツ" + E + "：ぷるぷるしたら体当たり、要注意\n撃って" + R + "トゲの方へ押し返そう" + E,   // 2026-11-24 てじゃ
-            R + "Tip" + E + ": when it wobbles, it's about to ram. Watch out!\nBlast it " + R + "back into the thorns" + E, Ball(), mon);
+            R + "コツ" + E + "：ぷるぷるしたら体当たり、要注意\n撃って" + R + "トゲや外に押し返そう" + E,   // 2026-11-24 てじゃ
+            R + "Tip" + E + ": when it wobbles, it's about to ram. Watch out!\nBlast it " + R + "into the thorns or off the edge" + E, Ball(), mon);
     }
     [MenuItem("FuwaCourse/れんしゅう/課題：ぜんぶ作り直す")] public static void MAll()
     {
