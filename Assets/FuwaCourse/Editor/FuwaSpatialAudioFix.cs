@@ -73,7 +73,33 @@ public class FuwaSpatialAudioFix : IVRCSDKBuildRequestedCallback
             sp.EnableSpatialization = true; sp.UseAudioSourceVolumeCurve = true;
             EditorUtility.SetDirty(sp); n++;
         }
-        if (n > 0) UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
-        return "[音] VRCSpatialAudioSource を付けた（Far＝maxDistance）：" + n;
+        int lg = LogToFade();
+        if (n > 0 || lg > 0) UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+        return "[音] VRCSpatialAudioSource を付けた（Far＝maxDistance）：" + n + "・Logarithmic を maxDistance で消える曲線に " + lg;
+    }
+
+    // 2026-11-24 てじゃ「いわのみちの噴気孔がロビーまで聞こえてくる」：AudioSource の曲線を使うようにしたら、Logarithmic の音は
+    //  Unity の仕様で maxDistance より先も（max の所の大きさのまま）ずっと鳴る → 同じ形（min/d）のまま maxDistance で 0 になる Custom の曲線に
+    public static int LogToFade()
+    {
+        int n = 0;
+        foreach (var sp in Resources.FindObjectsOfTypeAll<VRCSpatialAudioSource>())
+        {
+            if (!sp || !sp.gameObject.scene.IsValid() || !sp.UseAudioSourceVolumeCurve) continue;
+            var a = sp.GetComponent<AudioSource>(); if (!a || a.rolloffMode != AudioRolloffMode.Logarithmic || a.spatialBlend < 0.01f) continue;
+            float mn = Mathf.Max(0.01f, a.minDistance), mx = Mathf.Max(mn + 0.1f, a.maxDistance);
+            var keys = new System.Collections.Generic.List<Keyframe>();
+            const int N = 24;
+            for (int i = 0; i <= N; i++)
+            {
+                float t = (float)i / N, d = t * mx;
+                float v = Mathf.Min(1f, mn / Mathf.Max(1e-3f, d)) * (1f - t * t);   // 対数の小さくなり方 × 最後は 0 へ
+                keys.Add(new Keyframe(t, i == N ? 0f : v));
+            }
+            var c = new AnimationCurve(keys.ToArray());
+            for (int i = 0; i < c.length; i++) c.SmoothTangents(i, 0f);
+            Undo.RecordObject(a, "fade"); a.rolloffMode = AudioRolloffMode.Custom; a.SetCustomCurve(AudioSourceCurveType.CustomRolloff, c); EditorUtility.SetDirty(a); n++;
+        }
+        return n;
     }
 }
