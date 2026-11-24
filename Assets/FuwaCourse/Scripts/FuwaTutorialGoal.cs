@@ -55,6 +55,17 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
         ApplyIdle();
     }
 
+    // 人を止める壁にふわふわは当たらない（跳ね返らずに、奥のふわふわを割る壁で消える。2026-11-24 てじゃ「壁、反射なしでクリア前も消滅」）
+    //  IgnoreCollision はどちらかが非アクティブになると消えるので、この区画にいる間は時々かけ直す
+    private float _nextIgnore;
+    private void IgnoreBall()
+    {
+        if (ball == null || gateBlock == null || !gateBlock.activeInHierarchy) return;
+        Collider bc = (Collider)ball.GetComponent(typeof(Collider));
+        Collider gc = (Collider)gateBlock.GetComponent(typeof(Collider));
+        if (bc != null && gc != null) Physics.IgnoreCollision(bc, gc, true);
+    }
+
     private void ApplyIdle()
     {
         if (ringRenderers != null) for (int i = 0; i < ringRenderers.Length; i++) if (ringRenderers[i] != null && ringMat != null) ringRenderers[i].sharedMaterial = ringMat;
@@ -87,6 +98,7 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
         }
         if (_opened || ball == null) return;
         if (ball.GetRespawnPoint() != trySpot) return;
+        if (Time.time >= _nextIgnore) { _nextIgnore = Time.time + 0.5f; IgnoreBall(); }
         if (!_cleared && monster != null && monster.IsDefeated()) { if (clearFx != null) clearFx.transform.position = monster.transform.position + Vector3.up * 0.4f; Clear(); return; }
         if (_failBase < 0) _failBase = ball.GetPracticeFails();
         _time += Time.deltaTime;
