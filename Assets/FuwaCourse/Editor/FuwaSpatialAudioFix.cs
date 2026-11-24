@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using VRC.SDK3.Components;
@@ -17,6 +17,28 @@ public class FuwaSpatialAudioFix : IVRCSDKBuildRequestedCallback
     {
         if (requestedBuildType == VRCSDKRequestedBuildType.Scene) { Debug.Log(Run()); Debug.Log(MobileShadowFix()); }
         return true;
+    }
+
+    // 2026-11-24 11/23 にこのスクリプトが付けた分（UseAudioSourceVolumeCurve=false で付いていた）を AudioSource の曲線に切りかえる。
+    //  11/23 より前からあった物（Library/spatial_before_ids.txt＝その時のシーンの GameObject の fileID）は、手で調整した物なのでさわらない
+    [MenuItem("FuwaCourse/音/11-23に付けた立体音響をUnityの曲線に戻す")]
+    public static void MigrateMenu() { Debug.Log(Migrate()); }
+    public static string Migrate()
+    {
+        var path = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "Library/spatial_before_ids.txt");
+        var before = new System.Collections.Generic.HashSet<ulong>(System.IO.File.Exists(path) ? System.IO.File.ReadAllLines(path).Where(l => l.Trim().Length > 0).Select(l => unchecked((ulong)long.Parse(l.Trim()))) : new ulong[0]);
+        if (before.Count == 0) return "[音] 前の一覧がない";
+        int n = 0, keep = 0;
+        foreach (var sp in Resources.FindObjectsOfTypeAll<VRCSpatialAudioSource>())
+        {
+            if (!sp || !sp.gameObject.scene.IsValid()) continue; var a = sp.GetComponent<AudioSource>(); if (!a) continue;
+            var gid = GlobalObjectId.GetGlobalObjectIdSlow(sp.gameObject);
+            if (before.Contains(gid.targetObjectId)) { keep++; continue; }
+            if (sp.UseAudioSourceVolumeCurve || Mathf.Abs(sp.Gain - 10f) > 0.01f) continue;
+            Undo.RecordObject(sp, "curve"); sp.UseAudioSourceVolumeCurve = true; EditorUtility.SetDirty(sp); n++;
+        }
+        if (n > 0) UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
+        return "[音] Unity の曲線に切りかえ " + n + "・前からの物 " + keep;
     }
 
     [MenuItem("FuwaCourse/音/3Dの音の聞こえる範囲を maxDistance に合わせる")]
@@ -46,7 +68,9 @@ public class FuwaSpatialAudioFix : IVRCSDKBuildRequestedCallback
             if (a.GetComponent<VRCSpatialAudioSource>()) continue;
             var sp = Undo.AddComponent<VRCSpatialAudioSource>(a.gameObject);
             sp.Gain = 10f; sp.Near = Mathf.Max(0f, a.minDistance); sp.Far = Mathf.Max(sp.Near + 0.1f, a.maxDistance);
-            sp.EnableSpatialization = true; sp.UseAudioSourceVolumeCurve = false;
+            // 2026-11-24 てじゃ「クリスタルのチャージとか攻撃の音がめっちゃちいさくなってる」→ VRChat 式の小さくなり方（距離の2乗）だと、
+            //  Unity で調整した AudioSource の小さくなり方（Linear 等）が効かずに近くでも小さかった → AudioSource の曲線を使う（Far の制限は maxDistance で効く）
+            sp.EnableSpatialization = true; sp.UseAudioSourceVolumeCurve = true;
             EditorUtility.SetDirty(sp); n++;
         }
         if (n > 0) UnityEditor.SceneManagement.EditorSceneManager.MarkAllScenesDirty();
