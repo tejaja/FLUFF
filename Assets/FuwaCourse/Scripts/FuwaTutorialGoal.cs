@@ -99,6 +99,13 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
             VRCPlayerApi lp = Networking.LocalPlayer;
             if (lp != null && Vector3.Distance(lp.GetPosition(), arrowsHideAt.position) < arrowsHideDist) arrows.SetActive(false);
         }
+        // まものの区画：クリア後に戻ってきて、ふわふわがこの区画に出たら、まものもいっしょに復活（2026-11-24 てじゃ）
+        if (ball != null && monster != null)
+        {
+            bool here = ball.GetRespawnPoint() == trySpot;
+            if (here && !_wasHere && _cleared && monster.IsDefeated()) monster.Revive();
+            _wasHere = here;
+        }
         if (_opened || ball == null) return;
         if (ball.GetRespawnPoint() != trySpot) return;
         if (Time.time >= _nextIgnore) { _nextIgnore = Time.time + 0.5f; IgnoreBall(); }
@@ -110,9 +117,13 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
         if (!_cleared && (fails >= openAfterFails || _time >= openAfterTime)) Open();
     }
 
+    private float _monRevive = -1f;
+    private bool _wasHere;
     private void Clear()
     {
         _cleared = true;
+        // まものの区画：クリアしたらもう復活しない（2026-11-24 てじゃ「倒しても一定時間で復活してる」）。チュートリアルを出たら戻す
+        if (monster != null) { if (_monRevive < 0f) _monRevive = monster.autoReviveDelay; monster.autoReviveDelay = 0f; }
         if (ringRenderers != null) for (int i = 0; i < ringRenderers.Length; i++) if (ringRenderers[i] != null && clearMat != null) ringRenderers[i].sharedMaterial = clearMat;
         if (clearMark != null) clearMark.SetActive(true);
         if (hint != null) hint.SetActive(false);
@@ -144,6 +155,7 @@ public class FuwaTutorialGoal : UdonSharpBehaviour
     public void ResetGoal()
     {
         _cleared = false; _opened = false; _failBase = -1; _time = 0f;
+        if (monster != null && _monRevive >= 0f) { monster.autoReviveDelay = _monRevive; monster.Revive(); }
         ApplyIdle();
     }
 }
