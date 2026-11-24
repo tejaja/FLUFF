@@ -523,17 +523,21 @@ public static class FuwaTutorialChallenge
     static Mesh ArrowMesh()
     {
         Vector3 L = new Vector3(-ArrowW, 0, -ArrowD * 0.5f), Rr = new Vector3(ArrowW, 0, -ArrowD * 0.5f), Tp = new Vector3(0, 0, ArrowD * 0.5f);
-        // 先端の角を半径 ArrowTipR の円弧に：2辺に接する円の中心は、先端から角の二等分線（-z）にそって r/sin(半角) 下
-        float half = Mathf.Atan2(ArrowW, ArrowD);
-        Vector3 cc = Tp + Vector3.back * (ArrowTipR / Mathf.Sin(half));
-        var pts = new List<Vector3> { L };
+        // 3つの角をどれも半径 ArrowTipR の円弧に（2026-11-24 てじゃ「他の頂点も」）。角 P で、となりの2辺に接する円の弧
+        var corners = new[] { L, Tp, Rr };
+        var pts = new List<Vector3>();
         const int N = 8;
-        for (int i = 0; i <= N; i++)
+        for (int c = 0; c < 3; c++)
         {
-            float ang = Mathf.Lerp(Mathf.PI - half, half, (float)i / N);   // 左の辺の接点 → 右の辺の接点（x-z 面、z が前）
-            pts.Add(cc + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * ArrowTipR);
+            Vector3 P = corners[c], A = corners[(c + 2) % 3], Bv = corners[(c + 1) % 3];
+            Vector3 da = (A - P).normalized, db = (Bv - P).normalized;
+            float th = Vector3.Angle(da, db) * Mathf.Deg2Rad;
+            float tl = ArrowTipR / Mathf.Tan(th * 0.5f);
+            Vector3 t1 = P + da * tl, t2 = P + db * tl;
+            Vector3 cc = P + (da + db).normalized * (ArrowTipR / Mathf.Sin(th * 0.5f));
+            Vector3 u1 = (t1 - cc).normalized, u2 = (t2 - cc).normalized;
+            for (int i = 0; i <= N; i++) pts.Add(cc + Vector3.Slerp(u1, u2, (float)i / N) * ArrowTipR);
         }
-        pts.Add(Rr);
         Vector3 ctr = (L + Rr + Tp) / 3f;
         var V = new List<Vector3> { ctr }; V.AddRange(pts);
         var T = new List<int>(); for (int i = 1; i < V.Count - 1; i++) T.AddRange(new[] { 0, i, i + 1 });
