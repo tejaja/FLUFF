@@ -3337,6 +3337,24 @@ public static class FuwaCourse2_3Builder
             foreach (var t in whole) if (t) { Undo.RecordObject(t, "lift"); t.position += root.up * delta; }
             mark.localPosition = new Vector3(0f, DomeLift, 0f);
         }
+        // 丸い島の上にかかる道の見た目（つなぎの先）は、丸い島の面の 3.5cm 下へしずめる（同じ面だとZファイト。
+        //  前は丸い島の方をつなぎの下だけ 1.5cm 下げていたが、そのふちが紫の細いヒビに見えた → 2026-11-24 てじゃ「道と◯島のつなぎ目に変なヒビ」）
+        {
+            Physics.SyncTransforms();
+            var pbT = root.Find("PathBevel"); var pbF = pbT ? pbT.GetComponent<MeshFilter>() : null;
+            if (pbF && pbF.sharedMesh)
+            {
+                var pm = pbF.sharedMesh; var pv = pm.vertices; int sunk = 0;
+                for (int i = 0; i < pv.Length; i++)
+                {
+                    var lp = root.InverseTransformPoint(pbT.TransformPoint(pv[i])); if (lp.y < DomeLift - 1f) continue;
+                    if (!domeCol.Raycast(new Ray(root.TransformPoint(new Vector3(lp.x, 30f, lp.z)), -root.up), out var h, 80f)) continue;
+                    float want = root.InverseTransformPoint(h.point).y - 0.035f;
+                    if (lp.y > want) { lp.y = want; pv[i] = pbT.InverseTransformPoint(root.TransformPoint(lp)); sunk++; }
+                }
+                if (sunk > 0) { pm.vertices = pv; pm.RecalculateBounds(); EditorUtility.SetDirty(pm); log.Append("、丸い島の下へしずめた道 " + sunk + "点"); }
+            }
+        }
         // 橋の当たりの箱：島のふち A（少し島の中から）→ 丸い島のふち B までの傾いた板（上の面が道の面）
         foreach (var b in br)
         {
