@@ -1795,7 +1795,8 @@ public static class FuwaCourse2_5Builder
                     {
                         int side = k / PS; float f = (k % PS) / (float)PS;
                         var q = Vector2.Lerp(cornersT[side], cornersT[(side + 1) % 4], f);
-                        ringT[k] = new Vector3(cxp + q.x, yt, z + q.y);
+                        // 2026-11-24 てじゃ「橋の側面に小さな三角みたいな穴」→ 柱の上が平らで、坂の橋の横の板の下のふち（道の下の面＝坂）との間に三角のすき間 → 柱の上も坂にそわせる
+                        ringT[k] = new Vector3(cxp + q.x, DeckY(z + q.y) - Tk, z + q.y);
                         ringM[k] = new Vector3(cxp + q.x, yMid, z + q.y);
                         // 2026-11-15 てじゃ「折れてるところギザギザすぎる、もっとゆるやかに」→ こまごとの乱数をやめ、ゆるい斜め＋小さいうねり
                         float thk = Mathf.PI * 2f * k / PM;
@@ -1811,7 +1812,8 @@ public static class FuwaCourse2_5Builder
                         Quad(v, t, ringM[k], ringM[j], ringB[j], ringB[k], outw);
                         Tri(v, t, ringB[k], ringB[j], cB, Vector3.down);
                     }
-                    var top = new[] { new Vector3(cxp - hx0, yt, z - hz0), new Vector3(cxp + hx0, yt, z - hz0), new Vector3(cxp + hx0, yt, z + hz0), new Vector3(cxp - hx0, yt, z + hz0) };
+                    float ytA = DeckY(z - hz0) - Tk, ytB = DeckY(z + hz0) - Tk;
+                    var top = new[] { new Vector3(cxp - hx0, ytA, z - hz0), new Vector3(cxp + hx0, ytA, z - hz0), new Vector3(cxp + hx0, ytB, z + hz0), new Vector3(cxp - hx0, ytB, z + hz0) };
                     if (open) Quad(v, t, top[0], top[1], top[2], top[3], Vector3.up);   // 上（穴から見える）
                 }
             }
@@ -1913,7 +1915,8 @@ public static class FuwaCourse2_5Builder
                 foreach (var sp in spans)
                 {
                     if (sp.y - sp.x < 0.01f) continue;
-                    Quad(v, t, A2(sp.x, -Tk, sx * xo), A2(sp.y, -Tk, sx * xo), A2(sp.y, 0f, sx * xo), A2(sp.x, 0f, sx * xo), new Vector3(sx, 0f, 0f));
+                    // 2026-11-24 下のふちは 2cm 下まで（柱・スパンドレルの上のふちとの T 字の継ぎ目に髪の毛ほどのすき間が出た。同じ面・同じ色なので重なりは見えない）
+                    Quad(v, t, A2(sp.x, -Tk - 0.02f, sx * xo), A2(sp.y, -Tk - 0.02f, sx * xo), A2(sp.y, 0f, sx * xo), A2(sp.x, 0f, sx * xo), new Vector3(sx, 0f, 0f));
                     // 2026-11-16 てじゃ「2-5入口そばの橋、まだ裏がおかしい」→ 穴あきの橋は、欄干ぎわの穴から横の板の裏（内がわ）が見えて、外のアーチのくさび石がすけて見えていた → 内向きの面も
                     if (open) Quad(v, t, A2(sp.x, -Tk, sx * xo), A2(sp.y, -Tk, sx * xo), A2(sp.y, 0f, sx * xo), A2(sp.x, 0f, sx * xo), new Vector3(-sx, 0f, 0f));
                     Quad(v, t, A2(sp.x, 0f, sx * HW), A2(sp.y, 0f, sx * HW), A2(sp.y, 0f, sx * xo), A2(sp.x, 0f, sx * xo), Vector3.up);
