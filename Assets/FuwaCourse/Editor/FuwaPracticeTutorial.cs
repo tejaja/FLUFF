@@ -61,8 +61,8 @@ public static class FuwaPracticeTutorial
             "<size=130%><color=#FF6B5C>上を向きすぎない</color></size>\n上を向くほど前に飛ばない\n前に進めたい時は\nまっすぐ前に撃とう",
             "<size=130%><color=#FF6B5C>Don't aim too high</color></size>\nThe higher you aim,\nthe less it moves forward\nAim straight ahead instead"),
         new Bay(22.5f, "Center",
-            "<size=130%><color=#FF6B5C>銃を向けた方へ飛ぶ</color></size>\nふわふわが少し横にいても\n銃を向けた方に飛んでいく",   // 2026-11-24 てじゃ「説明が複雑すぎる、もっとシンプルに」→ 案A＋「銃を向けたほうに」
-            "<size=130%><color=#FF6B5C>It flies where you aim</color></size>\nEven if the fluff is a bit to the side,\nit flies where you point the gun"),
+            "<size=130%><color=#FF6B5C>端に当てよう</color></size>\n端に当てると大きく曲がる\n飛ぶ方向をコントロールしよう！",   // 2026-11-24 てじゃ「もーっとシンプルに」
+            "<size=130%><color=#FF6B5C>Hit it with the edge</color></size>\nThe edge of your shot makes it curve a lot\nControl where it flies!"),
         new Bay(0f, "Air",
             "<size=130%><color=#FF6B5C>空気ぎれに注意</color></size>\n連打すると空気がなくなる\n溜めると一気にもどる\n（待ってもゆっくりもどる）",
             "<size=130%><color=#FF6B5C>Watch your air</color></size>\nRapid taps use up your air\nCharging refills it fast\n(waiting refills it slowly)"),
