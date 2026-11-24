@@ -172,8 +172,8 @@ public static class FuwaTutorialChallenge
         string sim = $"お手本の撃ち方のまわりでくぐる {ok}/{all}・ふわふわの真ん中をねらってくぐれる立ち位置 {naive}/{naiveAll}";
         return Build(bay, next.Find("BayBarrier"), fr, B, rc, rn,
             "輪をくぐらせよう", "Send it through the ring",
-            "<color=#FF6B5C>コツ</color>：ふわふわじゃなく<color=#FF6B5C>輪</color>の方を向いて撃とう\nふわふわが風の端にいれば、真ん中に寄って輪へ飛ぶ",
-            "<color=#FF6B5C>Tip</color>: aim at the <color=#FF6B5C>ring</color>, not the fluff.\nIf the fluff is at the edge of the blast, it slides to the center and flies to the ring",
+            "<color=#FF6B5C>コツ</color>：ふわふわじゃなく\n<color=#FF6B5C>輪</color>の方に銃を向けて撃とう",
+            "<color=#FF6B5C>Tip</color>: point the gun at the <color=#FF6B5C>ring</color>,\nnot at the fluff",
             ball) + " | " + sim;
     }
 
