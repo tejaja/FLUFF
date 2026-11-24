@@ -41,8 +41,6 @@ public class FuwaBall : UdonSharpBehaviour
     private float _lastGroundY = -10000f;
     [Tooltip("コースアウト判定：真下に道が無くても、再開位置よりこれだけ下ならどこでもアウト(m)")]
     public float maxDrop = 3f;
-    [Tooltip("チュートリアルのためし撃ちの場所：道の外では、ためし撃ちの場所よりこれだけ下でアウト(m)")]
-    public float practiceMaxDrop = 1.3f;
     [Tooltip("ステージ2：真下に道があっても、最後に通った道よりこれだけ低い段なら、道が無いのと同じにアウトを見る(m)")]
     public float tierDrop = 2f;
     [Tooltip("この範囲の中ではコースアウト判定をしない（崖ダイブの谷の上など。底のアウトは別のトゲ等で）")]
@@ -1322,9 +1320,6 @@ public class FuwaBall : UdonSharpBehaviour
         }
         // ステージ2は、最後に通った道の高さがわかっていればそっちだけで見る（2026-11-05 てじゃ「2-1のゴール手前の道のコース外の空中でアウト判定」：
         //  ゴール前の道が最後のチェックポイントより 4m 低く、道のはしから出た瞬間に「再開位置より maxDrop 下」でアウトになっていた）
-        // チュートリアルのためし撃ち：道の外は、ためし撃ちの場所より practiceMaxDrop 下でアウト（2026-11-24 てじゃ「コース外のふわふわ、落ちるの待ってる時間がながい」。
-        //  落ちる速さは最大 0.7m/s なので、maxDrop 3m だと4秒以上待っていた）
-        if (_practice && rp.position.y - transform.position.y > practiceMaxDrop) { Fail(); return; }
         if (!low && !(_stage == 2 && _lastGroundY > -9999f) && rp.position.y - transform.position.y > maxDrop) { Fail(); return; }
         // 道の外：最後に通った道の高さより下に落ちたらアウト（道より上に浮いている間はまだセーフ）
         if (_lastGroundY > -9999f && transform.position.y < _lastGroundY - offCourseDrop) Fail();
@@ -1374,6 +1369,16 @@ public class FuwaBall : UdonSharpBehaviour
     public Transform GetRespawnPoint() { return respawnPoint; }
     private int _practiceFails;   // ためし撃ちの場所で弾けた回数（ずっと増える。見る側が差で数える）
     public int GetPracticeFails() { return _practiceFails; }
+    private float PathBelow(Vector3 p)
+    {
+        float best = -10000f; RaycastHit h;
+        for (int i = 0; i < 9; i++)
+        {
+            Vector3 o = i == 0 ? Vector3.zero : new Vector3(Mathf.Cos(i * 0.785398f), 0f, Mathf.Sin(i * 0.785398f)) * 1.5f;
+            if (Physics.Raycast(p + o, Vector3.down, out h, groundProbe, 1 << groundLayer, QueryTriggerInteraction.Ignore) && h.point.y > best) best = h.point.y;
+        }
+        return best;
+    }
 
     // れんしゅう：次の「ためし撃ちの場所」へ移る時は、今いる所でパッと弾けて、すぐ次の場所に出る
     // （2026-10-09 てじゃ：前は弧を描いて飛んでいったが、走ると追いつかないので一瞬に）。
@@ -1471,6 +1476,10 @@ public class FuwaBall : UdonSharpBehaviour
         _glowAmount = 0f;
         _flightUntil = 0f;
         _lastGroundY = -10000f;
+        // チュートリアルのためし撃ち：はじめから「ためし撃ちの場所の下の道」を最後に通った道にしておく（2026-11-24 てじゃ「コース外のふわふわ、落ちるの待ってる時間がながい」
+        //  「本番コースと同じでいい」）。前は道の上を通らずに外へ飛ぶと「再開位置より maxDrop 3m 下」まで待っていた（最大 0.7m/s で4秒以上）。
+        //  これで本番と同じ「道より offCourseDrop 下でアウト」。場所が道のふちの外（課題4）でも、まわり 1.5m の道を探す
+        if (_practice) _lastGroundY = PathBelow(respawnPoint.position);
         if (respawnPoint == startPoint) { _running = false; _untimedRun = false; }
         _rb.isKinematic = false;
         _rb.velocity = Vector3.zero;
