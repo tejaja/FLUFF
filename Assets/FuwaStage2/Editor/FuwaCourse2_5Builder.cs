@@ -6507,6 +6507,7 @@ public static class FuwaCourse2_5Builder
     //  踊り場の下にかくれる橋の手前（床の帯 S0・S1、手すり・ふた・縁石・手すりの当たり）は片づけて、橋は門のうしろの面からはじまる。
     //  門の柱の石の持ち送り（Corbel）は踊り場の角を下から支える形になるので残す。何回押しても同じ
     public static float LandHW = 3.0f, LandF0 = 8.6f, LandRim = 0.3f, LandDepth = 0.55f, LandR0 = 8.97f;   // LandR0：広場の本体の床の円（9m）の 3cm 内がわから
+    public static float LandBevel = 0.06f;
     public static float LandUnderD = 1.6f, LandUnderW = 0.45f, LandUnderBack = 1.3f;   // 下のくさび：深さ・下の面のはば（割合）・先の引っこみ
     [MenuItem("FuwaCourse/ステージ2/2–5 出口の門の踊り場を作り直す")]
     public static void PlazaLandingMenu()
@@ -6596,7 +6597,9 @@ public static class FuwaCourse2_5Builder
             if (Vector3.Dot(go.transform.TransformDirection(n), want) >= 0f) tl.AddRange(new[] { i, i + 1, i + 2, i, i + 2, i + 3 }); else tl.AddRange(new[] { i, i + 2, i + 1, i, i + 3, i + 2 });
         }
         int segs = 6, latN = 12; float hwIn = LandHW - LandRim; float yb = y0 - LandDepth;
-        var lats = new List<float> { -LandHW }; for (int i = 0; i <= latN; i++) lats.Add(Mathf.Lerp(-hwIn, hwIn, (float)i / latN)); lats.Add(LandHW);
+        // 2026-11-24 てじゃ「踊り場も面取り」→ 外の上のかどを LandBevel 面取り（広場の外のふちと同じ）。上の面は LandHW-LandBevel まで
+        float hwB2 = LandHW - LandBevel, ytb = 0.02f - LandBevel;
+        var lats = new List<float> { -hwB2 }; for (int i = 0; i <= latN; i++) lats.Add(Mathf.Lerp(-hwIn, hwIn, (float)i / latN)); lats.Add(hwB2);
         for (int k = 0; k < segs; k++)
         {
             float t0 = (float)k / segs, t1 = (float)(k + 1) / segs;
@@ -6612,7 +6615,11 @@ public static class FuwaCourse2_5Builder
             {
                 float li = sx * hwIn, lo = sx * LandHW;
                 Q(tRim, W(At(li, t0), li, H(t0) + 0.02f), W(At(li, t1), li, H(t1) + 0.02f), W(At(li, t1), li, H(t1)), W(At(li, t0), li, H(t0)), -rt * sx);   // ふちの石の内がわの段
-                Q(tRim, W(At(lo, t0), lo, H(t0) + 0.02f), W(At(lo, t1), lo, H(t1) + 0.02f), W(At(lo, t1), lo, yb), W(At(lo, t0), lo, yb), rt * sx);       // 外の面
+                float lb2 = sx * hwB2;
+                Q(tRim, W(At(lb2, t0), lb2, H(t0) + 0.02f), W(At(lb2, t1), lb2, H(t1) + 0.02f), W(At(lo, t1), lo, H(t1) + ytb), W(At(lo, t0), lo, H(t0) + ytb), rt * sx + Vector3.up);   // 面取り
+                Q(tRim, W(At(lo, t0), lo, H(t0) + ytb), W(At(lo, t1), lo, H(t1) + ytb), W(At(lo, t1), lo, yb), W(At(lo, t0), lo, yb), rt * sx);       // 外の面
+                // 底の面取りの所のすき間（上の面のはばがへったぶん）
+                Q(tRim, W(At(lb2, t0), lb2, yb), W(At(lb2, t1), lb2, yb), W(At(lo, t1), lo, yb), W(At(lo, t0), lo, yb), Vector3.down);
             }
         }
         // 下の持ち送り（2026-11-24 てじゃ「裏側がぶつ切り感あるのどうにかしたい」→ 門の柱の下の縦長の石＋踊り場の平らな横の面が箱のままスパッと切れていた）
@@ -6625,7 +6632,10 @@ public static class FuwaCourse2_5Builder
             Q(tRim, W(fT, -hwT, yb), W(fT, hwT, yb), W(fB, hwB, yB), W(fB, -hwB, yB), f + Vector3.down * 0.3f);
         }
         foreach (float sx in new[] { -1f, 1f })
-            Q(tRim, W(lend, sx * 1.8f, H(1f) + 0.02f), W(lend, sx * LandHW, H(1f) + 0.02f), W(lend, sx * LandHW, yb), W(lend, sx * 1.8f, yb), f);
+        {
+            Q(tRim, W(lend, sx * 1.8f, H(1f) + 0.02f), W(lend, sx * hwB2, H(1f) + 0.02f), W(lend, sx * hwB2, yb), W(lend, sx * 1.8f, yb), f);
+            Q(tRim, W(lend, sx * hwB2, H(1f) + 0.02f), W(lend, sx * LandHW, H(1f) + ytb), W(lend, sx * LandHW, yb), W(lend, sx * hwB2, yb), f);   // 面取りの形にそう
+        }
         var mesh = new Mesh { name = "Course2_5_PlazaLanding" };
         mesh.SetVertices(v); mesh.subMeshCount = 2; mesh.SetTriangles(tTop, 0); mesh.SetTriangles(tRim, 1); mesh.RecalculateNormals(); mesh.RecalculateBounds();
         var path = "Assets/FuwaStage2/Generated/Course2_5_PlazaLanding.asset";
