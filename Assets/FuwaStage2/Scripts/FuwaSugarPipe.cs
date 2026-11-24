@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 
 // 2–4 はぐるまのとう：色ざらめのパイプ（2026-11-08 てじゃ「周りの自動で回ってる歯車の末端も、何かしらの形でつなげて」→ A 色ざらめパイプ）
@@ -43,6 +43,8 @@ public class FuwaSugarPipe : UdonSharpBehaviour
     public float squeezeW = 0.45f;
     [Tooltip("出だし・着く手前のこの長さ(m)で、ふくらみがふくらむ／しぼむ（2026-11-13 てじゃ「最後についたときにパッと消えるのが気になる」）")]
     public float growW = 0.4f, endW = 0.8f;
+    [Tooltip("2026-11-24 てじゃ「タンクとのつなぎの短いパイプ、膨らむとシリンダ側まで膨らみがはみでちゃう」：最初の区間（ポンプの出口→タンク）だけ、ふくらみを小さく（長さ neckLen・太さ neckW、ワールド m）して、うしろのはしが出口より前に出ないようにする。0 なら使わない")]
+    public float neckLen = 0f, neckW = 0f;
     private Color[] _bc;
     private bool[] _bcOn;
     private Quaternion _needleBase;
@@ -105,8 +107,18 @@ public class FuwaSugarPipe : UdonSharpBehaviour
             if (d <= _cum[k] || k == n - 1)
             {
                 float seg = _cum[k] - _cum[k - 1];
+                bool neck = neckLen > 0f && k == 1 && !_bcOn[i];
+                if (neck) d = Mathf.Max(d, neckLen * 0.5f);   // うしろのはしが出口（pts[0]）より手前に出ない
                 float t = seg > 1e-4f ? Mathf.Clamp01((d - _cum[k - 1]) / seg) : 1f;
                 bulges[i].position = Vector3.Lerp(pts[k - 1], pts[k], t);
+                if (neck)
+                {
+                    Vector3 nd = pts[1] - pts[0];
+                    if (nd.sqrMagnitude > 1e-6f) bulges[i].rotation = Quaternion.LookRotation(nd.normalized, Mathf.Abs(nd.normalized.y) > 0.9f ? Vector3.forward : Vector3.up);
+                    float gn = growW > 0f ? Mathf.Clamp01(_at[i] / growW) : 1f; gn = gn * gn * (3f - 2f * gn);
+                    bulges[i].localScale = new Vector3(neckW * gn, neckW * gn, neckLen * gn);
+                    return;
+                }
                 Vector3 dir = pts[k] - pts[k - 1];
                 if (dir.sqrMagnitude <= 1e-6f) return;
                 dir = dir.normalized;

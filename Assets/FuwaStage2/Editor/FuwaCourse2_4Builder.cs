@@ -2176,6 +2176,7 @@ public static class FuwaCourse2_4Builder
         sp2.pop = popT; sp2.popAt = Vector3.Distance(pOut, pTank); sp2.needle = needleT;
         sp2.glows = (popT ? popT.GetComponentsInChildren<Renderer>().Where(x => x.name != "GemHolder").ToArray() : new Renderer[0]).Concat(tank.GetComponentsInChildren<Renderer>().Where(x => x.name == "TankGlass")).ToArray(); sp2.bulges = bulges; sp2.speed = 4.5f; sp2.endCount = 12;
         sp2.endPuff = null; sp2.balloon = balloon;   // 着いたらバルーンがふくらんで、てっぺんから雲
+        sp2.neckLen = SugarNeckLen; sp2.neckW = SugarNeckW;   // タンクとのつなぎの短い首では小さいふくらみ（シリンダ側へはみ出さない）
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(sp2); FuwaStage2WaterTest.NoSync(sp2);
         fc.pipes = new[] { sp2 };
         UdonSharpEditor.UdonSharpEditorUtility.CopyProxyToUdon(fc); FuwaStage2WaterTest.NoSync(fc);
@@ -2262,6 +2263,8 @@ public static class FuwaCourse2_4Builder
     //  筒（PumpBarrel、Blender）のタンク側のふた（x = BarrelCapX、内側の面）のまん中に、暗い穴＋金のふち。ガラスごしに見える
     //  ピストンの頭（半径 0.31）が押しきった時も当たらないよう、ふたの面から 2mm だけ手前に貼る
     public static float BarrelCapX = 1.9f, PortR = 0.12f, PortLipR = 0.165f, PortLipLen = 0.018f;
+    // 筒のふた→タンクの首（見えている長さ 約 0.39m、太さ 0.39m）を通るふくらみの大きさ（2026-11-24 てじゃ「シリンダ側まで膨らみがはみでちゃう」）
+    public static float SugarNeckLen = 0.42f, SugarNeckW = 0.5f;
     public static void OutletPort(Transform barrel)
     {
         CwMats();
