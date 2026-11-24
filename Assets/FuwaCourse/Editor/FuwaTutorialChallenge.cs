@@ -44,6 +44,33 @@ public static class FuwaTutorialChallenge
         return fr;
     }
 
+    // 道の上の点 p（だいたい）の所の、まん中・幅・進む向き（道はうねっているので、その場所で測り直す）
+    static float TopAt(Vector3 p)
+    {
+        float best = float.NegativeInfinity;
+        foreach (var h in Physics.RaycastAll(new Vector3(p.x, p.y + 6f, p.z), Vector3.down, 12f, ~0, QueryTriggerInteraction.Ignore))
+            if (h.collider.name.Contains("TutorialPath")) best = Mathf.Max(best, h.point.y);
+        return best;
+    }
+    static Vector3 CenterAt(Vector3 p, Vector3 r, out float halfW)
+    {
+        float lo = 0f, hi = 0f;
+        for (float x = 0f; x > -6f; x -= 0.02f) { if (float.IsNegativeInfinity(TopAt(p + r * x))) break; lo = x; }
+        for (float x = 0f; x < 6f; x += 0.02f) { if (float.IsNegativeInfinity(TopAt(p + r * x))) break; hi = x; }
+        halfW = (hi - lo) * 0.5f; var c = p + r * ((lo + hi) * 0.5f); c.y = TopAt(c); return c;
+    }
+    static Frame FrameAt(Frame near, float s)
+    {
+        Physics.SyncTransforms();
+        var fr = near; float hw;
+        Vector3 c0 = CenterAt(near.c + near.f * s, near.r, out hw);
+        Vector3 ca = CenterAt(near.c + near.f * (s - 1f), near.r, out _), cb = CenterAt(near.c + near.f * (s + 1f), near.r, out _);
+        Vector3 f = cb - ca; f.y = 0f; f.Normalize();
+        Vector3 r = Vector3.Cross(Vector3.up, f).normalized; if (Vector3.Dot(r, near.r) < 0f) r = -r;
+        fr.c = c0; fr.f = f; fr.r = r; fr.halfW = hw; fr.top = c0.y;
+        return fr;
+    }
+
     // 撃ってからの道すじ（SimDemoLanding と同じ計算。風なし）
     static List<Vector3> SimPath(FuwaBlower b, FuwaBall bt, Vector3 nz, Vector3 aim, Vector3 p, float charge, float floorY, float tMax = 4f)
     {
@@ -79,7 +106,7 @@ public static class FuwaTutorialChallenge
     // ===== 4 真ん中に寄る =====
     //  ふわふわは道の左のふちの外（空中）に浮かぶ。輪はその先・道の上。ふわふわの真うしろ（輪→ふわふわの延長）は道の外なので立てない
     //  → 道の上に立って「輪の方へ」向いて撃ち、ふわふわを風の端に入れると、真ん中へ寄って輪をくぐる
-    public static float CBallOut = 0.55f, CBallUp = 1.1f, CBallS = -1.0f;   // ふわふわ：道のふちの外 m・道の上 m・区画の中の前後
+    public static float CBallOut = 0.55f, CBallUp = 1.1f, CBallS = 1.2f;   // ふわふわ：道のふちの外 m・道の上 m・看板から前へ
     public static float CStandS = -1.75f, CStandX = 0.35f, CRingAhead = 1.35f, CCharge = 1f, CAimUp = 0.15f;   // 想定の立ち位置（ふわふわから後ろ・道のふちから内へ）・輪までの前・溜め・上向き
     [MenuItem("FuwaCourse/れんしゅう/課題：4 真ん中に寄る（試作）")]
     public static void CenterMenu() { Debug.Log(BuildCenter()); }
@@ -90,9 +117,16 @@ public static class FuwaTutorialChallenge
         var fr = PathFrame(bay, next);
         var tmpl = Tmpl(); var ball = Ball();
         Vector3 L = -fr.r;   // 左（島と反対の空の側）
-        Vector3 B = fr.c + fr.f * CBallS + L * (fr.halfW + CBallOut) + Vector3.up * CBallUp;
+        // 2026-11-24 てじゃ「もっと看板の横に。看板読んでから戻るかんじになる」→ ふわふわは看板の前後の位置＋CBallS（看板を読みながら立つ所から撃てる）
+        float signS = Vector3.Dot(bay.Find("Sign").position - fr.c, fr.f);
+        var fb = FrameAt(fr, signS + CBallS);   // ふわふわの所の道
+        fr = FrameAt(fr, signS + CBallS + CStandS * 0.5f);   // 立ち位置〜輪のまん中あたりの道で、向き・まん中を測り直す
+        L = -fr.r;
+        float bs = Vector3.Dot(fb.c - fr.c, fr.f);
+        Vector3 B = fb.c + L * (fb.halfW + CBallOut) + Vector3.up * CBallUp;
         // お手本の立ち位置：道の上・ふわふわより後ろ
-        Vector3 P = fr.c + fr.f * (CBallS + CStandS) + L * (fr.halfW - CStandX);
+        var fs = FrameAt(fr, bs + CStandS);   // 立つ所の道
+        Vector3 P = fs.c - fs.r * (fs.halfW - CStandX);
         Vector3 eye = P + Vector3.up * 1.25f;
         // 輪の場所を決める：道のふちの近くに立って「道と平行に前へ」撃つと、ふわふわは風の端に入って道の方へ寄りながら前へ飛ぶ。その道すじの上
         //  （ふわふわへ向いて撃つと、外＝空の方へ飛んでいく）
@@ -121,7 +155,7 @@ public static class FuwaTutorialChallenge
         for (float s = -4f; s <= 0.01f; s += 0.25f)
             for (float x = -fr.halfW + 0.2f; x <= fr.halfW - 0.2f; x += 0.2f)
             {
-                Vector3 e3 = fr.c + fr.f * (CBallS + s) + fr.r * x + Vector3.up * 1.25f;
+                Vector3 e3 = fr.c + fr.f * (bs + s) + fr.r * x + Vector3.up * 1.25f;
                 if ((B - e3).magnitude > 3f) continue;
                 Vector3 a3 = (B - e3).normalized; naiveAll++;
                 if (Through(SimPath(tmpl, ball, e3 + a3 * 0.45f, a3, B, CCharge, fr.top), rc, rn, RingR - RingTube - 0.12f)) naive++;
