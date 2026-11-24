@@ -14,9 +14,11 @@ public static class FuwaDriftMotesBaker
         ("FuwaCourse2_3", "DiamondDust/Dust0"), ("FuwaCourse2_3", "DiamondDust/Dust1"), ("FuwaCourse2_3", "DiamondDust/Dust2"), ("FuwaCourse2_3", "DiamondDust/Dust3"),
         ("FuwaCourse2_3", "DiamondDust/Dust4"), ("FuwaCourse2_3", "DiamondDust/Dust5"), ("FuwaCourse2_3", "DiamondDust/Dust6"),
         ("FuwaCourse2_2", "Fire/Embers/Holes"), ("FuwaCourse2_2", "Fire/Embers/Zig"), ("FuwaCourse2_2", "Fire/Embers/Volcano"),
+        // 2026-11-24 てじゃ「そういやあそこもか、やろう」：ステージ1 やみのもりのホタル（コースの中・空のエリア）
+        ("FuwaCourse3", "Fireflies"), ("SkyZones", "Yami/Fireflies"),
     };
 
-    [MenuItem("FuwaCourse/ステージ2/漂う粒をシェーダー版にする（2–2 火の粉・2–3 ダイヤモンドダスト）")]
+    [MenuItem("FuwaCourse/ステージ2/漂う粒をシェーダー版にする（2–2 火の粉・2–3 ダイヤモンドダスト・やみのもりのホタル）")]
     public static void MenuBake() { Debug.Log(BakeAll()); }
     [MenuItem("FuwaCourse/ステージ2/漂う粒をパーティクル版に戻す")]
     public static void MenuRevert() { Debug.Log(Switch(false)); }
@@ -79,6 +81,26 @@ public static class FuwaDriftMotesBaker
         }
     }
 
+    // ノイズで動く量：パーティクルを実際に動かして、1粒あたりの速さの平均から sin のゆれ幅を決める（ゆれの速さ＝幅×角速度）
+    static float NoiseAmplitude(ParticleSystem ps)
+    {
+        // 自分と親で隠れている物を一時的に出す（隠れていると動かせない）
+        var off = new List<GameObject>(); for (var tt = ps.transform; tt; tt = tt.parent) if (!tt.gameObject.activeSelf) { off.Add(tt.gameObject); tt.gameObject.SetActive(true); }
+        var vel = ps.velocityOverLifetime; float vAvg = 0f;
+        if (vel.enabled) vAvg = new Vector3((Mathf.Abs(vel.x.constantMin) + Mathf.Abs(vel.x.constantMax)) * 0.5f, (Mathf.Abs(vel.y.constantMin) + Mathf.Abs(vel.y.constantMax)) * 0.5f, (Mathf.Abs(vel.z.constantMin) + Mathf.Abs(vel.z.constantMax)) * 0.5f).magnitude;
+        ps.Simulate(6f, true, true);
+        var a = new ParticleSystem.Particle[ps.particleCount]; ps.GetParticles(a);
+        var p0 = new Dictionary<uint, Vector3>(); foreach (var q in a) p0[q.randomSeed] = q.position;
+        const float dt = 0.5f; ps.Simulate(dt, true, false);
+        var b = new ParticleSystem.Particle[ps.particleCount]; ps.GetParticles(b);
+        float sum = 0f; int n = 0; foreach (var q in b) if (p0.TryGetValue(q.randomSeed, out var o)) { sum += (q.position - o).magnitude / dt; n++; }
+        ps.Clear(true); foreach (var g in off) g.SetActive(false);
+        float s = n > 0 ? sum / n : 0f;
+        float sNoise = Mathf.Sqrt(Mathf.Max(0f, s * s - vAvg * vAvg));
+        float w = ps.noise.frequency * 6.2831853f * 0.8f;   // シェーダーの3つの sin の平均の角速度
+        return w > 1e-4f ? sNoise / w : 0f;
+    }
+
     public static string Bake(ParticleSystem ps, string assetName)
     {
         var t = ps.transform; var main = ps.main; var sh = ps.shape; var vel = ps.velocityOverLifetime; var noise = ps.noise;
@@ -117,7 +139,7 @@ public static class FuwaDriftMotesBaker
             tri.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });
             if (!fb) { b = new Bounds(hp, Vector3.zero); fb = true; } else b.Encapsulate(hp);
         }
-        float jitter = 1.5f, nstr = noise.enabled ? noise.strength.constantMax * 1.2f : 0f;
+        float jitter = 1.5f, nstr = noise.enabled ? NoiseAmplitude(ps) : 0f;
         b.Expand(2f * (jitter + maxSpeed + nstr + 1f) + Mathf.Abs(main.gravityModifier.constantMax) * 9.81f * lifeMax * lifeMax);
         var meshPath = Dir + "/" + assetName + ".asset";
         var mesh = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
@@ -149,7 +171,8 @@ public static class FuwaDriftMotesBaker
         if (!mat) { mat = new Material(Shader.Find("FuwaCourse/DriftMotes")); AssetDatabase.CreateAsset(mat, matPath); }
         mat.shader = Shader.Find("FuwaCourse/DriftMotes");
         mat.SetTexture("_MainTex", srcMat.mainTexture); mat.SetTexture("_Ramp", AssetDatabase.LoadAssetAtPath<Texture2D>(texPath));
-        bool additive = srcMat.shader.name.Contains("Additive");
+        // 混ぜ方：材質に _SrcBlend/_DstBlend があればそれ（Particles/Standard Unlit の加算モードなど）、なければ名前で
+        bool additive = srcMat.HasProperty("_DstBlend") ? Mathf.RoundToInt(srcMat.GetFloat("_DstBlend")) == (int)UnityEngine.Rendering.BlendMode.One : srcMat.shader.name.Contains("Additive");
         Color tint = Color.white;
         if (srcMat.HasProperty("_TintColor")) tint = srcMat.GetColor("_TintColor") * 2f; else if (srcMat.HasProperty("_Color")) tint = srcMat.GetColor("_Color");
         mat.SetColor("_Tint", tint);
