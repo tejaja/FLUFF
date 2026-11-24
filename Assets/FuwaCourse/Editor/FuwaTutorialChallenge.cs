@@ -409,7 +409,7 @@ public static class FuwaTutorialChallenge
         return $"[課題] {bay.name}：輪 ({ringC - fr.c:F2}) 道幅 {fr.halfW * 2f:F2}m";
     }
 
-    public static float DoorW = 1.7f, DoorH = 2.4f, ArrowStart = 1.2f, ArrowGap = 1.3f; public static int ArrowN = 3;
+    public static float DoorW = 1.7f, DoorH = 2.4f, ArrowStart = -1.3f, ArrowGap = 1.3f; public static int ArrowN = 3;   // 矢印は壁をまたぐ（手前・扉の所・先。2026-11-24 てじゃ）
     public static Color ArrowCol = new Color(0.98f, 0.42f, 0.38f, 0.95f);   // 道のピンクに負けない濃いめのさんご色（的の輪と同じ系統）
     // 板（-0.5〜0.5 の四角）から、下のまん中の扉（dl〜dr、下から dt まで）をくり抜いた形。両面
     static Mesh DoorMesh(float dl, float dr, float dt)
