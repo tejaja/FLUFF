@@ -1817,7 +1817,8 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
         var g = new GameObject("SignModel"); g.transform.SetParent(sign, false);
         g.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         g.AddComponent<MeshFilter>().sharedMesh = model;
-        g.AddComponent<MeshRenderer>().sharedMaterials = new[] { wood, PaperMat(wood), Mat("Mush_CapRed") };   // サブメッシュ：木・紙・画びょう
+        var smr = g.AddComponent<MeshRenderer>(); smr.sharedMaterials = new[] { wood, PaperMat(wood), Mat("Mush_CapRed") };   // サブメッシュ：木・紙・画びょう
+        smr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;   // 2026-11-24 てじゃ「看板の影いらない」
     }
 
     // 看板の紙のマテリアル（木と同じシェーダーで、少しクリームがかった白）

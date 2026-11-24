@@ -225,7 +225,7 @@ public static class FuwaTutorialChallenge
     static Transform Bay(string n) => Tut().Find(n);
     static Transform Barrier(string nextBay) => nextBay == null ? Tut().Find("MushBarrier") : Bay(nextBay).Find("BayBarrier");
 
-    static string RingBay(string bayName, string nextBay, float ballX, float ballUp, Shot good, Shot[] bad, int rule, float val, Vector3 wind, string hintJa, string hintEn)
+    static string RingBay(string bayName, string nextBay, float ballX, float ballUp, Shot good, Shot[] bad, int rule, float val, Vector3 wind, string hintJa, string hintEn, bool upright = false)
     {
         var bay = Bay(bayName); var nb = Barrier(nextBay);
         var fr0 = PathFrameB(bay, nb);
@@ -234,6 +234,7 @@ public static class FuwaTutorialChallenge
         Vector3 B = fr.c + fr.r * ballX + Vector3.up * ballUp;
         var pts = Fire(fr, B, good, wind);
         if (!PickRing(pts, B, fr, rule, val, out var rc, out var rn)) return $"[課題] {bayName}：道すじが届かない（{pts.Count}）";
+        if (upright) rn = fr.f;   // 輪はまっすぐ立てて正面向き
         string chk = Check(fr, B, good, bad, wind, rc, rn);
         return Build(bay, nb, fr, B, rc, rn, "", "", hintJa, hintEn, Ball()) + " | " + chk;
     }
@@ -244,9 +245,11 @@ public static class FuwaTutorialChallenge
         R + "コツ" + E + "：輪が遠い時は" + R + "長押しで溜めて" + E + "から撃とう\n溜めるほど遠くまで飛ぶ",
         R + "Tip" + E + ": the ring is far. " + R + "Hold to charge" + E + ", then shoot.\nThe longer you charge, the farther it flies");
     [MenuItem("FuwaCourse/れんしゅう/課題：2 下向き")] public static void M2() => Debug.Log(BuildDown());
-    public static string BuildDown() => RingBay("Bay_Down", "Bay_Steep", -0.5f, 0.4f, S(-0.7f, 0f, 0f, 0f, 1f, true), new[] { S(-1.5f, 0f, 0f, 0f, 0.3f) }, 1, 1.3f, Vector3.zero,
+    // 2 下向き（2026-11-24 てじゃ「リングは普通に低めに正面向きで置くだけで十分」）：上から下へ撃つと上がって前へ → 前の低めの立てた輪
+    public static float DownRingAhead = 1.6f;
+    public static string BuildDown() => RingBay("Bay_Down", "Bay_Steep", -0.5f, 0.4f, S(-0.7f, 0f, 0f, 0f, 1f, true), new Shot[0], 0, DownRingAhead, Vector3.zero,
         R + "コツ" + E + "：低いふわふわは" + R + "上から下へ" + E + "撃とう\n下に撃っても上に飛んでいく",
-        R + "Tip" + E + ": shoot the low fluff " + R + "from above, downward" + E + "\nIt still flies up");
+        R + "Tip" + E + ": shoot the low fluff " + R + "from above, downward" + E + "\nIt still flies up", true);
     [MenuItem("FuwaCourse/れんしゅう/課題：3 上向きすぎない")] public static void M3() => Debug.Log(BuildSteep());
     // 3 上を向きすぎに注意（2026-11-24 てじゃ「ふわふわはもっと上に」「リングはちょい奥に、まっすぐ普通に置く」
     //  「上のを撃ってあんまり進まなかった後に、まっすぐ撃たせる想定」）
@@ -393,6 +396,23 @@ public static class FuwaTutorialChallenge
         }
         var solid = Panel("Solid", nb.GetComponent<MeshFilter>().sharedMesh);
         var door = Panel("Door", SaveMesh(DoorMesh(dl, dr, dt), "Tutorial_GateDoor_" + bay.name));
+        // 扉のふち（2026-11-24 てじゃ「開いた扉のフチをちょっと強調」）：くり抜いた穴の内がわにそって明るい細い帯（板と重ならないので Z ファイトなし）。扉といっしょに出る
+        {
+            float wx = DoorEdge / sx, wy = DoorEdge / sy;
+            var fm = new Mesh(); var V = new List<Vector3>(); var C = new List<Color>(); var T = new List<int>();
+            void R(float x0, float y0, float x1, float y1)
+            {
+                int k = V.Count; V.Add(new Vector3(x0, y0, 0)); V.Add(new Vector3(x1, y0, 0)); V.Add(new Vector3(x1, y1, 0)); V.Add(new Vector3(x0, y1, 0));
+                for (int q = 0; q < 4; q++) C.Add(DoorEdgeCol);
+                T.AddRange(new[] { k, k + 1, k + 2, k, k + 2, k + 3 });
+            }
+            R(dl, -0.5f, dl + wx, dt); R(dr - wx, -0.5f, dr, dt); R(dl, dt - wy, dr, dt);
+            fm.SetVertices(V); fm.SetColors(C); fm.SetTriangles(T, 0); fm.RecalculateNormals(); fm.RecalculateBounds();
+            var fg2 = new GameObject("DoorEdge"); fg2.transform.SetParent(door.transform, false);
+            fg2.AddComponent<MeshFilter>().sharedMesh = SaveMesh(fm, "Tutorial_GateDoorEdge_" + bay.name);
+            var fr2 = fg2.AddComponent<MeshRenderer>(); fr2.sharedMaterial = AssetDatabase.GetBuiltinExtraResource<Material>("Sprites-Default.mat");
+            fr2.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; fr2.receiveShadows = false;
+        }
         var doorFx = MakeSparkle(gate); doorFx.transform.position = fgc.c + Vector3.up * (DoorH * 0.5f); doorFx.transform.rotation = Quaternion.LookRotation(fr.f);
         var block = new GameObject("PlayerBlock"); block.transform.SetParent(gate, false); block.layer = 0;
         var bc = block.AddComponent<BoxCollider>(); bc.size = new Vector3(nb.localScale.x, nb.localScale.y, 0.3f);
@@ -448,6 +468,7 @@ public static class FuwaTutorialChallenge
     }
 
     public static float DoorW = 1.7f, DoorH = 2.4f, ArrowStart = -1.3f, ArrowGap = 1.3f; public static int ArrowN = 3;   // 矢印は壁をまたぐ（手前・扉の所・先。2026-11-24 てじゃ）
+    public static float DoorEdge = 0.07f; public static Color DoorEdgeCol = new Color(0.92f, 0.98f, 1f, 0.95f);   // 扉のふちの帯（はば m・色）
     public static Color ArrowCol = new Color(0.98f, 0.42f, 0.38f, 0.95f);   // 道のピンクに負けない濃いめのさんご色（的の輪と同じ系統）
     // 板（-0.5〜0.5 の四角）から、下のまん中の扉（dl〜dr、下から dt まで）をくり抜いた形。両面
     static Mesh DoorMesh(float dl, float dr, float dt)

@@ -1,4 +1,4 @@
-using UdonSharp;
+﻿using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
@@ -37,6 +37,8 @@ public class FuwaDemoStand : UdonSharpBehaviour
 
     [Header("銃の演出（本物の銃の Nozzle をコピーしたもの）")]
     public ParticleSystem puffEffect;
+    [Tooltip("当たる範囲のふちのもや（本物の銃と同じ。2026-11-24）")]
+    public ParticleSystem edgeLeft, edgeRight;
     public ParticleSystem airRing;
     public ParticleSystem chargeParticles;
     public ParticleSystem fullBurst;
@@ -439,6 +441,17 @@ public class FuwaDemoStand : UdonSharpBehaviour
             float reach = tuning.range * Mathf.Lerp(tuning.minRangeRatio, tuning.maxRangeRatio, charge);
             ParticleSystem.MainModule main = puffEffect.main;
             main.startSpeedMultiplier = _puffBaseSpeed * (tuning.puffBaseDistance > 0.001f ? reach / tuning.puffBaseDistance : 1f);
+        }
+        if (edgeLeft != null && edgeRight != null && tuning != null)
+        {
+            float c = Mathf.Clamp01(charge);
+            float ea = tuning.coneAngle * Mathf.Lerp(tuning.minConeScale, 1f, c) * tuning.edgeAngleScale;
+            float er = tuning.range * Mathf.Lerp(tuning.minRangeRatio, tuning.maxRangeRatio, c);
+            edgeLeft.transform.localRotation = Quaternion.Euler(0f, -ea, 0f); edgeRight.transform.localRotation = Quaternion.Euler(0f, ea, 0f);
+            float sp = er * tuning.edgeReach / Mathf.Max(0.05f, tuning.edgeLife);
+            ParticleSystem.MainModule ml = edgeLeft.main; ml.startSpeedMultiplier = sp; ml.startLifetimeMultiplier = tuning.edgeLife;
+            ParticleSystem.MainModule mr2 = edgeRight.main; mr2.startSpeedMultiplier = sp; mr2.startLifetimeMultiplier = tuning.edgeLife;
+            edgeLeft.Emit(tuning.edgeCount); edgeRight.Emit(tuning.edgeCount);
         }
         if (charge >= 1f)
         {

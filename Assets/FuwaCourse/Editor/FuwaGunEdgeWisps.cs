@@ -41,7 +41,18 @@ public static class FuwaGunEdgeWisps
         var l = Make("EdgeL"); var rr = Make("EdgeR");
         gun.edgeLeft = l; gun.edgeRight = rr;
         UdonSharpEditorUtility.CopyProxyToUdon(gun);
+        // 見本台の銃にも（2026-11-24 てじゃ「見本のショットエフェクトが前のまま」）。見本台の銃口へ同じもやを入れる
+        int nd = 0;
+        foreach (var ds in Object.FindObjectsOfType<FuwaDemoStand>(true))
+        {
+            if (ds.nozzle == null) continue;
+            foreach (var n in new[] { "EdgeL", "EdgeR" }) { var o = ds.nozzle.Find(n); if (o) Object.DestroyImmediate(o.gameObject); }
+            var cl = Object.Instantiate(l.gameObject, ds.nozzle, false); cl.name = "EdgeL";
+            var cr = Object.Instantiate(rr.gameObject, ds.nozzle, false); cr.name = "EdgeR";
+            ds.edgeLeft = cl.GetComponent<ParticleSystem>(); ds.edgeRight = cr.GetComponent<ParticleSystem>();
+            UdonSharpEditorUtility.CopyProxyToUdon(ds); nd++;
+        }
         UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(gun.gameObject.scene);
-        return "[銃] 当たる範囲のふちのもや EdgeL/EdgeR";
+        return "[銃] 当たる範囲のふちのもや EdgeL/EdgeR・見本台 " + nd;
     }
 }
