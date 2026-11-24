@@ -25,10 +25,15 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
+    - _Core: 0.3
     - _Count: 2
+    - _Halo: 0.38
+    - _HaloSize: 0.16
     - _Lit: 0
     - _Pulse: 0.25
-    - _Speed: 0.45
+    - _Speed: 0.32
+    - _Tint: 0.35
+    - _Tube: 0.06
     - _Width: 0.2
     m_Colors:
     - _Color: {r: 1, g: 0.55, b: 0.45, a: 1}
