@@ -2246,7 +2246,7 @@ Transform bayRoot, List<Vector2> pts, List<float> dist, float dMid, Vector3 wind
     // 4「端を撃って角度を変えよう」の見本（2026-11-24 てじゃ「課題と銃の位置が逆だから銃をふわふわの右側に」「もっと極端に曲がる配置に」）
     //  銃は道から遠ざかる向き（away）へまっすぐ撃つ。ふわふわは銃の左前（銃口から横 CenterDemoSide・前 CenterDemoAhead）＝風の端。
     //  撃つとふわふわは右（風の中心線）へ寄りながら飛ぶ。島には銃の向きと平行な縦じま（中心線が分かるように）
-    public static float CenterDemoSide = 0.8f, CenterDemoAhead = 0.9f, CenterDemoBack = 1.15f, CenterDemoShift = 0.45f, CenterDemoUp = 0.12f;
+    public static float CenterDemoSide = 1.34f, CenterDemoAhead = 1.49f, CenterDemoBack = 1.2f, CenterDemoShift = 0.8f, CenterDemoUp = 0.12f;   // 2026-11-24 てじゃ「角度のほうがほしい」→ ふわふわを銃から2m（42°）に離す＝横へ強く引かれて右へ38°（向きの変わり80°）
     static void CenterLane(Transform bayRoot, Vector3 islandCenter, Vector3 away, FuwaBlower tmpl, FuwaBall ballSrc, Transform floorTop)
     {
         var lat = Vector3.Cross(Vector3.up, away).normalized;   // away を向いて右
